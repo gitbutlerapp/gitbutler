@@ -1,4 +1,4 @@
-use std::time::SystemTime;
+use std::{collections::HashMap, time::SystemTime};
 
 use anyhow::Context as _;
 use bstr::ByteSlice;
@@ -636,5 +636,168 @@ impl App {
         }
 
         false
+    }
+}
+
+// Returns which lines are part of the current stack.
+//
+// For example with
+//
+// ╭┄ zz [uncommitted] (no changes)
+// ┊
+// ┊╭┄ dp [dp-one]                   <- cursor on this line
+// ┊●   abc (no commit message)
+// ├╯
+// ┊
+// ┊╭┄ dp [dp-two]
+// ┊●   efg (no commit message)
+// ├╯
+// ┊
+// ┴ c94099713d (common base) 2026-08-26 Merge pull request
+//
+// this would return
+//
+// ```
+// Some([
+//     [
+//         false,    // ╭┄ zz [uncommitted] (no changes)
+//         false,    // ┊
+//         true,     // ┊╭┄ dp [dp-one]                   <- cursor on this line
+//         true,     // ┊●   abc (no commit message)
+//         false,    // ├╯
+//         false,    // ┊
+//         false,    // ┊╭┄ dp [dp-two]
+//         false,    // ┊●   efg (no commit message)
+//         false,    // ├╯
+//         false,    // ┊
+//         false,    // ┴ c94099713d (common base) 2026-08-26 Merge pull request
+//     ]
+// ])
+// ```
+pub fn lines_part_of_current_stack(app: &App) -> Option<Vec<bool>> {
+    let Mode::Stack(..) = &*app.mode else {
+        return None;
+    };
+
+    let row_stack_ids = row_stack_ids(&app.status_lines);
+    let selected_stack_id = row_stack_ids.get(app.cursor.index()).copied().flatten()?;
+
+    Some(
+        row_stack_ids
+            .into_iter()
+            .map(|stack_id| stack_id == Some(selected_stack_id))
+            .collect(),
+    )
+}
+
+fn row_stack_ids(lines: &[StatusOutputLine]) -> Vec<Option<StackId>> {
+    let mut current_stack_id = None;
+    let mut commit_stack_ids = HashMap::new();
+
+    for line in lines {
+        if let StatusOutputLineData::Commit {
+            cli_id,
+            stack_id: Some(stack_id),
+            ..
+        } = &line.data
+            && let CliId::Commit {
+                commit: CommitId { commit_id, .. },
+                id: _,
+            } = &**cli_id
+        {
+            commit_stack_ids.insert(*commit_id, *stack_id);
+        }
+    }
+
+    let mut row_stack_ids = lines
+        .iter()
+        .map(|line| match &line.data {
+            StatusOutputLineData::Branch { cli_id, .. } => {
+                let stack_id = stack_id_from_cli_id(cli_id.as_ref());
+                current_stack_id = stack_id;
+                stack_id
+            }
+            StatusOutputLineData::Commit { stack_id, .. } => {
+                current_stack_id = *stack_id;
+                *stack_id
+            }
+            StatusOutputLineData::StagedChanges { cli_id } => {
+                let stack_id = stack_id_from_cli_id(cli_id.as_ref());
+                current_stack_id = stack_id;
+                stack_id
+            }
+            StatusOutputLineData::StagedFile { .. }
+            | StatusOutputLineData::CommitMessage
+            | StatusOutputLineData::EmptyCommitMessage => current_stack_id,
+            StatusOutputLineData::Connector | StatusOutputLineData::BetweenStacks => None,
+            StatusOutputLineData::File { cli_id } => match &**cli_id {
+                CliId::CommittedFile {
+                    committed_file: CommittedFileId { commit_id, .. },
+                    id: _,
+                } => {
+                    let stack_id = commit_stack_ids
+                        .get(commit_id)
+                        .copied()
+                        .or(current_stack_id);
+                    current_stack_id = stack_id;
+                    stack_id
+                }
+                CliId::UncommittedHunkOrFile(..) | CliId::PathPrefix { .. } => current_stack_id,
+                CliId::Branch(..)
+                | CliId::Commit { .. }
+                | CliId::Uncommitted { .. }
+                | CliId::Worktree { .. }
+                | CliId::Stack { .. } => None,
+            },
+            StatusOutputLineData::UpdateNotice
+            | StatusOutputLineData::UncommittedChanges { .. }
+            | StatusOutputLineData::WorktreeUncommittedChanges { .. }
+            | StatusOutputLineData::UncommittedFile { .. }
+            | StatusOutputLineData::MergeBase
+            | StatusOutputLineData::UpstreamChanges
+            | StatusOutputLineData::Warning
+            | StatusOutputLineData::Hint
+            | StatusOutputLineData::NoAssignmentsUnstaged => {
+                current_stack_id = None;
+                None
+            }
+        })
+        .collect::<Vec<_>>();
+
+    let mut gap_start = 0;
+    while gap_start < row_stack_ids.len() {
+        if row_stack_ids[gap_start].is_some() {
+            gap_start += 1;
+            continue;
+        }
+
+        let Some(gap_len) = row_stack_ids[gap_start..].iter().position(Option::is_some) else {
+            break;
+        };
+        let gap_end = gap_start + gap_len;
+        let stack_id_before = gap_start.checked_sub(1).and_then(|idx| row_stack_ids[idx]);
+        let stack_id_after = row_stack_ids[gap_end];
+
+        // Linked worktree lanes have no stack ID of their own, but are rendered inside the stack
+        // they branch from. Fill gaps bounded by the same stack so its highlight stays contiguous.
+        if stack_id_before == stack_id_after {
+            row_stack_ids[gap_start..gap_end].fill(stack_id_before);
+        }
+        gap_start = gap_end + 1;
+    }
+
+    row_stack_ids
+}
+
+fn stack_id_from_cli_id(cli_id: &CliId) -> Option<StackId> {
+    match cli_id {
+        CliId::Branch(branch) => branch.stack_id,
+        CliId::Stack { stack_id, .. } => Some(*stack_id),
+        CliId::UncommittedHunkOrFile(..)
+        | CliId::PathPrefix { .. }
+        | CliId::CommittedFile { .. }
+        | CliId::Commit { .. }
+        | CliId::Worktree { .. }
+        | CliId::Uncommitted { .. } => None,
     }
 }

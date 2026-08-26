@@ -16,7 +16,7 @@ use crate::{
         tui::{
             InlineRewordMode, Mode, NormalMode, SelectAfterReload,
             app::{
-                CommitMessageComposer, CommitMode, CommitSource, MoveMode, MoveSource,
+                BranchMode, CommitMessageComposer, CommitMode, CommitSource, MoveMode, MoveSource,
                 MoveStackMode, ReorderStackSource,
                 mark::{MarkStore, MarkableRef, Marks},
             },
@@ -2132,4 +2132,905 @@ fn is_selectable_in_commit_mode_scopes_commit_targets_to_stack() {
         mode.as_ref(),
         FilesStatusFlag::All
     ));
+}
+
+fn status_lines(status: &str) -> Vec<StatusOutputLineData> {
+    status
+        .trim()
+        .lines()
+        .map(str::trim)
+        .map(status_line)
+        .collect()
+}
+
+fn status_line(rendered: &str) -> StatusOutputLineData {
+    match rendered {
+        "╭┄ zz [uncommitted] (no changes)" => StatusOutputLineData::UncommittedChanges {
+            cli_id: random_cli_id(),
+        },
+        "┊" | "├╯" | "┊│" | "┊-" | "┊┊" | "┊├╯" | "┊┊┊" | "┊┊├╯" | "┊┊┊┊" => {
+            StatusOutputLineData::Connector
+        }
+        "┊╭┄ br [branch]" | "┊├┄ br [branch]" => StatusOutputLineData::Branch {
+            cli_id: random_cli_id(),
+            is_merged_upstream: false,
+        },
+        "┊╭┄┄ (upstream: on origin/branch)" => StatusOutputLineData::UpstreamChanges,
+        "┊●   abc (no commit message)"
+        | "┊┊●   abc (no commit message)"
+        | "┊┊┊●   abc (no commit message)" => StatusOutputLineData::Commit {
+            cli_id: random_cli_id(),
+            stack_id: None,
+            classification: CommitClassification::LocalOnly,
+        },
+        "┊◐   abc (no commit message)" => StatusOutputLineData::Commit {
+            cli_id: random_cli_id(),
+            stack_id: None,
+            classification: CommitClassification::Modified,
+        },
+        "┊●   ceed3a00ee (no commit message)" => StatusOutputLineData::Commit {
+            cli_id: random_cli_id(),
+            stack_id: None,
+            classification: CommitClassification::Upstream,
+        },
+        "┊   ab M a/b/d/file.rs" => StatusOutputLineData::UncommittedFile {
+            cli_id: random_cli_id(),
+        },
+        "┊│     M a/b/c/d.rs" | "┊┊│     ab M committed.rs" => {
+            StatusOutputLineData::File {
+                cli_id: random_cli_id(),
+            }
+        }
+        "┊┊┊╭┄ wt {worktree} (no changes)"
+        | "┊┊╭┄ wt {worktree} (no changes)"
+        | "┊╭┄ wt {worktree} (no changes)" => {
+            StatusOutputLineData::WorktreeUncommittedChanges {
+                cli_id: random_cli_id(),
+            }
+        }
+        "┊┊   ab M file.rs" | "┊┊┊   ab M file.rs" | "┊┊┊┊   ab M file.rs" => {
+            StatusOutputLineData::UncommittedFile {
+                cli_id: random_cli_id(),
+            }
+        }
+        "┴ c94099713d (common base) 2026-08-26 Merge pull request" => {
+            StatusOutputLineData::MergeBase
+        }
+        invalid => panic!("invalid status test line: {invalid:?}"),
+    }
+}
+
+fn random_cli_id() -> Arc<CliId> {
+    Arc::new(CliId::Uncommitted {
+        id: crate::id::UNCOMMITTED.to_owned(),
+    })
+}
+
+#[test]
+fn lines_part_of_current_branch_with_branches_and_commits() {
+    let lines = status_lines(
+        r#"
+        ╭┄ zz [uncommitted] (no changes)
+        ┊
+        ┊╭┄ br [branch]
+        ┊●   abc (no commit message)
+        ├╯
+        ┊
+        ┊╭┄ br [branch]
+        ┊●   abc (no commit message)
+        ├╯
+        ┊
+        ┴ c94099713d (common base) 2026-08-26 Merge pull request
+        "#,
+    );
+
+    let mode = Mode::Branch(BranchMode::default());
+
+    assert_eq!(
+        Vec::from([
+            false, // ╭┄ zz [uncommitted] (no changes)
+            false, // ┊
+            true,  // ┊╭┄ br [branch]
+            true,  // ┊●   abc (no commit message)
+            false, // ├╯
+            false, // ┊
+            false, // ┊╭┄ br [branch]
+            false, // ┊●   abc (no commit message)
+            false, // ├╯
+            false, // ┊
+            false, // ┴ c94099713d (common base) 2026-08-26 Merge pull request
+        ]),
+        Cursor(2)
+            .lines_part_of_current_branch(&mode, &lines)
+            .unwrap(),
+    );
+
+    assert_eq!(
+        Vec::from([
+            false, // ╭┄ zz [uncommitted] (no changes)
+            false, // ┊
+            false, // ┊╭┄ br [branch]
+            false, // ┊●   abc (no commit message)
+            false, // ├╯
+            false, // ┊
+            false, // ┊╭┄ br [branch]
+            false, // ┊●   abc (no commit message)
+            false, // ├╯
+            false, // ┊
+            false, // ┴ c94099713d (common base) 2026-08-26 Merge pull request
+        ]),
+        Cursor(0)
+            .lines_part_of_current_branch(&mode, &lines)
+            .unwrap(),
+    );
+
+    assert_eq!(
+        Vec::from([
+            false, // ╭┄ zz [uncommitted] (no changes)
+            false, // ┊
+            false, // ┊╭┄ br [branch]
+            false, // ┊●   abc (no commit message)
+            false, // ├╯
+            false, // ┊
+            false, // ┊╭┄ br [branch]
+            false, // ┊●   abc (no commit message)
+            false, // ├╯
+            false, // ┊
+            false, // ┴ c94099713d (common base) 2026-08-26 Merge pull request
+        ]),
+        Cursor(10)
+            .lines_part_of_current_branch(&mode, &lines)
+            .unwrap(),
+    );
+}
+
+#[test]
+fn lines_part_of_current_branch_with_stacked_branches() {
+    let lines = status_lines(
+        r#"
+        ╭┄ zz [uncommitted] (no changes)
+        ┊
+        ┊╭┄ br [branch]
+        ┊●   abc (no commit message)
+        ┊│
+        ┊├┄ br [branch]
+        ┊●   abc (no commit message)
+        ├╯
+        ┊
+        ┴ c94099713d (common base) 2026-08-26 Merge pull request
+        "#,
+    );
+
+    let mode = Mode::Branch(BranchMode::default());
+
+    assert_eq!(
+        Vec::from([
+            false, // ╭┄ zz [uncommitted] (no changes)
+            false, // ┊
+            true,  // ┊╭┄ br [branch]
+            true,  // ┊●   abc (no commit message)
+            false, // ┊│
+            false, // ┊├┄ br [branch]
+            false, // ┊●   abc (no commit message)
+            false, // ├╯
+            false, // ┊
+            false, // ┴ c94099713d (common base) 2026-08-26 Merge pull request
+        ]),
+        Cursor(2)
+            .lines_part_of_current_branch(&mode, &lines)
+            .unwrap(),
+    );
+
+    assert_eq!(
+        Vec::from([
+            false, // ╭┄ zz [uncommitted] (no changes)
+            false, // ┊
+            false, // ┊╭┄ br [branch]
+            false, // ┊●   abc (no commit message)
+            false, // ┊│
+            true,  // ┊├┄ br [branch]
+            true,  // ┊●   abc (no commit message)
+            false, // ├╯
+            false, // ┊
+            false, // ┴ c94099713d (common base) 2026-08-26 Merge pull request
+        ]),
+        Cursor(5)
+            .lines_part_of_current_branch(&mode, &lines)
+            .unwrap(),
+    );
+}
+
+#[test]
+fn lines_part_of_current_branch_with_empty_branch() {
+    let lines = status_lines(
+        r#"
+        ╭┄ zz [uncommitted] (no changes)
+        ┊
+        ┊╭┄ br [branch]
+        ├╯
+        ┊
+        ┴ c94099713d (common base) 2026-08-26 Merge pull request
+        "#,
+    );
+
+    let mode = Mode::Branch(BranchMode::default());
+
+    assert_eq!(
+        Vec::from([
+            false, // ╭┄ zz [uncommitted] (no changes)
+            false, // ┊
+            true,  // ┊╭┄ br [branch]
+            false, // ├╯
+            false, // ┊
+            false, // ┴ c94099713d (common base) 2026-08-26 Merge pull request
+        ]),
+        Cursor(2)
+            .lines_part_of_current_branch(&mode, &lines)
+            .unwrap(),
+    );
+}
+
+#[test]
+fn lines_part_of_current_branch_with_upstream_commits() {
+    let lines = status_lines(
+        r#"
+        ╭┄ zz [uncommitted] (no changes)
+        ┊
+        ┊╭┄ br [branch]
+        ┊┊
+        ┊╭┄┄ (upstream: on origin/branch)
+        ┊●   ceed3a00ee (no commit message)
+        ┊-
+        ┊◐   abc (no commit message)
+        ├╯
+        ┊
+        ┴ c94099713d (common base) 2026-08-26 Merge pull request
+        "#,
+    );
+
+    let mode = Mode::Branch(BranchMode::default());
+
+    assert_eq!(
+        Vec::from([
+            false, // ╭┄ zz [uncommitted] (no changes)
+            false, // ┊
+            true,  // ┊╭┄ br [branch]
+            true,  // ┊┊
+            true,  // ┊╭┄┄ (upstream: on origin/branch)
+            true,  // ┊●   ceed3a00ee (no commit message)
+            true,  // ┊-
+            true,  // ┊◐   abc (no commit message)
+            false, // ├╯
+            false, // ┊
+            false, // ┴ c94099713d (common base) 2026-08-26 Merge pull request
+        ]),
+        Cursor(2)
+            .lines_part_of_current_branch(&mode, &lines)
+            .unwrap(),
+    );
+}
+
+#[test]
+fn lines_part_of_current_branch_with_upstream_commits_and_files() {
+    let lines = status_lines(
+        r#"
+        ╭┄ zz [uncommitted] (no changes)
+        ┊
+        ┊╭┄ br [branch]
+        ┊┊
+        ┊╭┄┄ (upstream: on origin/branch)
+        ┊●   ceed3a00ee (no commit message)
+        ┊│     M a/b/c/d.rs
+        ┊-
+        ┊◐   abc (no commit message)
+        ├╯
+        ┊
+        ┴ c94099713d (common base) 2026-08-26 Merge pull request
+        "#,
+    );
+
+    let mode = Mode::Branch(BranchMode::default());
+
+    assert_eq!(
+        Vec::from([
+            false, // ╭┄ zz [uncommitted] (no changes)
+            false, // ┊
+            true,  // ┊╭┄ br [branch]
+            true,  // ┊┊
+            true,  // ┊╭┄┄ (upstream: on origin/branch)
+            true,  // ┊●   ceed3a00ee (no commit message)
+            true,  // ┊│     M a/b/c/d.rs
+            true,  // ┊-
+            true,  // ┊◐   abc (no commit message)
+            false, // ├╯
+            false, // ┊
+            false, // ┴ c94099713d (common base) 2026-08-26 Merge pull request
+        ]),
+        Cursor(2)
+            .lines_part_of_current_branch(&mode, &lines)
+            .unwrap(),
+    );
+}
+
+#[test]
+fn lines_part_of_current_branch_with_stacked_worktrees() {
+    let lines = status_lines(
+        r#"
+        ╭┄ zz [uncommitted] (no changes)
+        ┊
+        ┊╭┄ br [branch]
+        ┊┊
+        ┊┊╭┄ wt {worktree} (no changes)
+        ┊┊●   abc (no commit message)
+        ┊├╯
+        ┊┊
+        ┊┊╭┄ wt {worktree} (no changes)
+        ┊├╯
+        ┊●   abc (no commit message)
+        ├╯
+        ┊
+        ┴ c94099713d (common base) 2026-08-26 Merge pull request
+        "#,
+    );
+
+    let mode = Mode::Branch(BranchMode::default());
+
+    assert_eq!(
+        Vec::from([
+            false, // ╭┄ zz [uncommitted] (no changes)
+            false, // ┊
+            true,  // ┊╭┄ br [branch]
+            true,  // ┊┊
+            true,  // ┊┊╭┄ wt {worktree} (no changes)
+            true,  // ┊┊●   abc (no commit message)
+            true,  // ┊├╯
+            true,  // ┊┊
+            true,  // ┊┊╭┄ wt {worktree} (no changes)
+            true,  // ┊├╯
+            true,  // ┊●   abc (no commit message)
+            false, // ├╯
+            false, // ┊
+            false, // ┴ c94099713d (common base) 2026-08-26 Merge pull request
+        ]),
+        Cursor(2)
+            .lines_part_of_current_branch(&mode, &lines)
+            .unwrap(),
+    );
+
+    assert_eq!(
+        Vec::from([
+            false, // ╭┄ zz [uncommitted] (no changes)
+            false, // ┊
+            false, // ┊╭┄ br [branch]
+            false, // ┊┊
+            true,  // ┊┊╭┄ wt {worktree} (no changes)
+            true,  // ┊┊●   abc (no commit message)
+            false, // ┊├╯
+            false, // ┊┊
+            false, // ┊┊╭┄ wt {worktree} (no changes)
+            false, // ┊├╯
+            false, // ┊●   abc (no commit message)
+            false, // ├╯
+            false, // ┊
+            false, // ┴ c94099713d (common base) 2026-08-26 Merge pull request
+        ]),
+        Cursor(4)
+            .lines_part_of_current_branch(&mode, &lines)
+            .unwrap(),
+    );
+
+    assert_eq!(
+        Vec::from([
+            false, // ╭┄ zz [uncommitted] (no changes)
+            false, // ┊
+            false, // ┊╭┄ br [branch]
+            false, // ┊┊
+            false, // ┊┊╭┄ wt {worktree} (no changes)
+            false, // ┊┊●   abc (no commit message)
+            false, // ┊├╯
+            false, // ┊┊
+            true,  // ┊┊╭┄ wt {worktree} (no changes)
+            false, // ┊├╯
+            false, // ┊●   abc (no commit message)
+            false, // ├╯
+            false, // ┊
+            false, // ┴ c94099713d (common base) 2026-08-26 Merge pull request
+        ]),
+        Cursor(8)
+            .lines_part_of_current_branch(&mode, &lines)
+            .unwrap(),
+    );
+}
+
+#[test]
+fn lines_part_of_current_branch_with_stacked_worktrees_with_commits_above() {
+    let lines = status_lines(
+        r#"
+        ╭┄ zz [uncommitted] (no changes)
+        ┊
+        ┊╭┄ br [branch]
+        ┊●   abc (no commit message)
+        ┊┊
+        ┊┊╭┄ wt {worktree} (no changes)
+        ┊┊●   abc (no commit message)
+        ┊├╯
+        ┊●   abc (no commit message)
+        ├╯
+        ┊
+        ┴ c94099713d (common base) 2026-08-26 Merge pull request
+        "#,
+    );
+
+    let mode = Mode::Branch(BranchMode::default());
+
+    assert_eq!(
+        Vec::from([
+            false, // ╭┄ zz [uncommitted] (no changes)
+            false, // ┊
+            true,  // ┊╭┄ br [branch]
+            true,  // ┊●   abc (no commit message)
+            true,  // ┊┊
+            true,  // ┊┊╭┄ wt {worktree} (no changes)
+            true,  // ┊┊●   abc (no commit message)
+            true,  // ┊├╯
+            true,  // ┊●   abc (no commit message)
+            false, // ├╯
+            false, // ┊
+            false, // ┴ c94099713d (common base) 2026-08-26 Merge pull request
+        ]),
+        Cursor(2)
+            .lines_part_of_current_branch(&mode, &lines)
+            .unwrap(),
+    );
+}
+
+#[test]
+fn lines_part_of_current_branch_with_independent_worktrees() {
+    let lines = status_lines(
+        r#"
+        ╭┄ zz [uncommitted] (no changes)
+        ┊
+        ┊╭┄ wt {worktree} (no changes)
+        ┊●   abc (no commit message)
+        ├╯
+        ┊
+        ┴ c94099713d (common base) 2026-08-26 Merge pull request
+        "#,
+    );
+
+    let mode = Mode::Branch(BranchMode::default());
+
+    assert_eq!(
+        Vec::from([
+            false, // ╭┄ zz [uncommitted] (no changes)
+            false, // ┊
+            true,  // ┊╭┄ wt {worktree} (no changes)
+            true,  // ┊●   abc (no commit message)
+            false, // ├╯
+            false, // ┊
+            false, // ┴ c94099713d (common base) 2026-08-26 Merge pull request
+        ]),
+        Cursor(2)
+            .lines_part_of_current_branch(&mode, &lines)
+            .unwrap(),
+    );
+}
+
+#[test]
+fn lines_part_of_current_branch_with_independent_dirty_worktrees() {
+    let lines = status_lines(
+        r#"
+        ╭┄ zz [uncommitted] (no changes)
+        ┊
+        ┊╭┄ wt {worktree} (no changes)
+        ┊┊   ab M file.rs
+        ┊┊
+        ┊●   abc (no commit message)
+        ├╯
+        ┊
+        ┴ c94099713d (common base) 2026-08-26 Merge pull request
+        "#,
+    );
+
+    let mode = Mode::Branch(BranchMode::default());
+
+    assert_eq!(
+        Vec::from([
+            false, // ╭┄ zz [uncommitted] (no changes)
+            false, // ┊
+            true,  // ┊╭┄ wt {worktree} (no changes)
+            true,  // ┊┊   ab M file.rs
+            true,  // ┊┊
+            true,  // ┊●   abc (no commit message)
+            false, // ├╯
+            false, // ┊
+            false, // ┴ c94099713d (common base) 2026-08-26 Merge pull request
+        ]),
+        Cursor(2)
+            .lines_part_of_current_branch(&mode, &lines)
+            .unwrap(),
+    );
+}
+
+#[test]
+fn lines_part_of_current_branch_with_independent_dirty_worktrees_without_commits() {
+    let lines = status_lines(
+        r#"
+        ╭┄ zz [uncommitted] (no changes)
+        ┊
+        ┊╭┄ wt {worktree} (no changes)
+        ┊┊   ab M file.rs
+        ├╯
+        ┊
+        ┴ c94099713d (common base) 2026-08-26 Merge pull request
+        "#,
+    );
+
+    let mode = Mode::Branch(BranchMode::default());
+
+    assert_eq!(
+        Vec::from([
+            false, // ╭┄ zz [uncommitted] (no changes)
+            false, // ┊
+            true,  // ┊╭┄ wt {worktree} (no changes)
+            true,  // ┊┊   ab M file.rs
+            false, // ├╯
+            false, // ┊
+            false, // ┴ c94099713d (common base) 2026-08-26 Merge pull request
+        ]),
+        Cursor(2)
+            .lines_part_of_current_branch(&mode, &lines)
+            .unwrap(),
+    );
+}
+
+#[test]
+fn lines_part_of_current_branch_with_dirty_stacked_worktrees() {
+    let lines = status_lines(
+        r#"
+        ╭┄ zz [uncommitted] (no changes)
+        ┊
+        ┊╭┄ br [branch]
+        ┊●   abc (no commit message)
+        ┊┊
+        ┊┊╭┄ wt {worktree} (no changes)
+        ┊┊┊   ab M file.rs
+        ┊├╯
+        ┊●   abc (no commit message)
+        ├╯
+        ┊
+        ┴ c94099713d (common base) 2026-08-26 Merge pull request
+        "#,
+    );
+
+    let mode = Mode::Branch(BranchMode::default());
+
+    assert_eq!(
+        Vec::from([
+            false, // ╭┄ zz [uncommitted] (no changes)
+            false, // ┊
+            true,  // ┊╭┄ br [branch]
+            true,  // ┊●   abc (no commit message)
+            true,  // ┊┊
+            true,  // ┊┊╭┄ wt {worktree} (no changes)
+            true,  // ┊┊┊   ab M file.rs
+            true,  // ┊├╯
+            true,  // ┊●   abc (no commit message)
+            false, // ├╯
+            false, // ┊
+            false, // ┴ c94099713d (common base) 2026-08-26 Merge pull request
+        ]),
+        Cursor(2)
+            .lines_part_of_current_branch(&mode, &lines)
+            .unwrap(),
+    );
+}
+
+#[test]
+fn lines_part_of_current_branch_with_dirty_stacked_worktrees_with_commits() {
+    let lines = status_lines(
+        r#"
+        ╭┄ zz [uncommitted] (no changes)
+        ┊
+        ┊╭┄ br [branch]
+        ┊●   abc (no commit message)
+        ┊┊
+        ┊┊╭┄ wt {worktree} (no changes)
+        ┊┊┊   ab M file.rs
+        ┊┊┊
+        ┊┊●   abc (no commit message)
+        ┊├╯
+        ┊●   abc (no commit message)
+        ├╯
+        ┊
+        ┴ c94099713d (common base) 2026-08-26 Merge pull request
+        "#,
+    );
+
+    let mode = Mode::Branch(BranchMode::default());
+
+    assert_eq!(
+        Vec::from([
+            false, // ╭┄ zz [uncommitted] (no changes)
+            false, // ┊
+            true,  // ┊╭┄ br [branch]
+            true,  // ┊●   abc (no commit message)
+            true,  // ┊┊
+            true,  // ┊┊╭┄ wt {worktree} (no changes)
+            true,  // ┊┊┊   ab M file.rs
+            true,  // ┊┊┊
+            true,  // ┊┊●   abc (no commit message)
+            true,  // ┊├╯
+            true,  // ┊●   abc (no commit message)
+            false, // ├╯
+            false, // ┊
+            false, // ┴ c94099713d (common base) 2026-08-26 Merge pull request
+        ]),
+        Cursor(2)
+            .lines_part_of_current_branch(&mode, &lines)
+            .unwrap(),
+    );
+}
+
+#[test]
+fn lines_part_of_current_worktree_with_nested_worktree() {
+    let lines = status_lines(
+        r#"
+        ╭┄ zz [uncommitted] (no changes)
+        ┊
+        ┊╭┄ br [branch]
+        ┊┊
+        ┊┊╭┄ wt {worktree} (no changes)
+        ┊┊┊
+        ┊┊┊╭┄ wt {worktree} (no changes)
+        ┊┊┊●   abc (no commit message)
+        ┊┊├╯
+        ┊┊●   abc (no commit message)
+        ┊├╯
+        ┊●   abc (no commit message)
+        ├╯
+        ┊
+        ┴ c94099713d (common base) 2026-08-26 Merge pull request
+        "#,
+    );
+
+    let mode = Mode::Branch(BranchMode::default());
+
+    assert_eq!(
+        Vec::from([
+            false, // ╭┄ zz [uncommitted] (no changes)
+            false, // ┊
+            false, // ┊╭┄ br [branch]
+            false, // ┊┊
+            true,  // ┊┊╭┄ wt {worktree} (no changes)
+            true,  // ┊┊┊
+            true,  // ┊┊┊╭┄ wt {worktree} (no changes)
+            true,  // ┊┊┊●   abc (no commit message)
+            true,  // ┊┊├╯
+            true,  // ┊┊●   abc (no commit message)
+            false, // ┊├╯
+            false, // ┊●   abc (no commit message)
+            false, // ├╯
+            false, // ┊
+            false, // ┴ c94099713d (common base) 2026-08-26 Merge pull request
+        ]),
+        Cursor(4)
+            .lines_part_of_current_branch(&mode, &lines)
+            .unwrap(),
+        "the selected worktree should remain highlighted after its nested worktree closes",
+    );
+}
+
+#[test]
+fn lines_part_of_current_branch_with_dirty_worktree_commit_files() {
+    let lines = status_lines(
+        r#"
+        ╭┄ zz [uncommitted] (no changes)
+        ┊
+        ┊╭┄ br [branch]
+        ┊┊
+        ┊┊╭┄ wt {worktree} (no changes)
+        ┊┊┊   ab M file.rs
+        ┊┊┊
+        ┊┊●   abc (no commit message)
+        ┊┊│     ab M committed.rs
+        ┊├╯
+        ┊●   abc (no commit message)
+        ├╯
+        ┊
+        ┴ c94099713d (common base) 2026-08-26 Merge pull request
+        "#,
+    );
+
+    let mode = Mode::Branch(BranchMode::default());
+
+    assert_eq!(
+        Vec::from([
+            false, // ╭┄ zz [uncommitted] (no changes)
+            false, // ┊
+            true,  // ┊╭┄ br [branch]
+            true,  // ┊┊
+            true,  // ┊┊╭┄ wt {worktree} (no changes)
+            true,  // ┊┊┊   ab M file.rs
+            true,  // ┊┊┊
+            true,  // ┊┊●   abc (no commit message)
+            true,  // ┊┊│     ab M committed.rs
+            true,  // ┊├╯
+            true,  // ┊●   abc (no commit message)
+            false, // ├╯
+            false, // ┊
+            false, // ┴ c94099713d (common base) 2026-08-26 Merge pull request
+        ]),
+        Cursor(2)
+            .lines_part_of_current_branch(&mode, &lines)
+            .unwrap(),
+        "commit file rows in a dirty worktree should not end the parent branch highlight",
+    );
+}
+
+#[test]
+fn lines_part_of_current_branch_with_nested_worktree_between_dirty_worktree_commits() {
+    let lines = status_lines(
+        r#"
+        ╭┄ zz [uncommitted] (no changes)
+        ┊
+        ┊╭┄ br [branch]
+        ┊┊
+        ┊┊╭┄ wt {worktree} (no changes)
+        ┊┊┊   ab M file.rs
+        ┊┊┊
+        ┊┊●   abc (no commit message)
+        ┊┊┊
+        ┊┊┊╭┄ wt {worktree} (no changes)
+        ┊┊┊●   abc (no commit message)
+        ┊┊├╯
+        ┊┊●   abc (no commit message)
+        ┊├╯
+        ┊●   abc (no commit message)
+        ├╯
+        ┊
+        ┴ c94099713d (common base) 2026-08-26 Merge pull request
+        "#,
+    );
+
+    let mode = Mode::Branch(BranchMode::default());
+
+    assert_eq!(
+        Vec::from([
+            false, // ╭┄ zz [uncommitted] (no changes)
+            false, // ┊
+            true,  // ┊╭┄ br [branch]
+            true,  // ┊┊
+            true,  // ┊┊╭┄ wt {worktree} (no changes)
+            true,  // ┊┊┊   ab M file.rs
+            true,  // ┊┊┊
+            true,  // ┊┊●   abc (no commit message)
+            true,  // ┊┊┊
+            true,  // ┊┊┊╭┄ wt {worktree} (no changes)
+            true,  // ┊┊┊●   abc (no commit message)
+            true,  // ┊┊├╯
+            true,  // ┊┊●   abc (no commit message)
+            true,  // ┊├╯
+            true,  // ┊●   abc (no commit message)
+            false, // ├╯
+            false, // ┊
+            false, // ┴ c94099713d (common base) 2026-08-26 Merge pull request
+        ]),
+        Cursor(2)
+            .lines_part_of_current_branch(&mode, &lines)
+            .unwrap(),
+        "a nested worktree between dirty worktree commits should not end the parent branch highlight",
+    );
+}
+
+#[test]
+#[ignore = "https://linear.app/gitbutler/issue/GB-1915/fix-lines-part-of-current-branch-with-dirty-nested-worktree-between"]
+fn lines_part_of_current_branch_with_dirty_nested_worktree_between_dirty_worktree_commits() {
+    let lines = status_lines(
+        r#"
+        ╭┄ zz [uncommitted] (no changes)
+        ┊
+        ┊╭┄ br [branch]
+        ┊┊
+        ┊┊╭┄ wt {worktree} (no changes)
+        ┊┊┊   ab M file.rs
+        ┊┊┊
+        ┊┊●   abc (no commit message)
+        ┊┊┊
+        ┊┊┊╭┄ wt {worktree} (no changes)
+        ┊┊┊┊   ab M file.rs
+        ┊┊┊┊
+        ┊┊┊●   abc (no commit message)
+        ┊┊├╯
+        ┊┊●   abc (no commit message)
+        ┊├╯
+        ┊●   abc (no commit message)
+        ├╯
+        ┊
+        ┴ c94099713d (common base) 2026-08-26 Merge pull request
+        "#,
+    );
+
+    let mode = Mode::Branch(BranchMode::default());
+
+    assert_eq!(
+        Vec::from([
+            false, // ╭┄ zz [uncommitted] (no changes)
+            false, // ┊
+            true,  // ┊╭┄ br [branch]
+            true,  // ┊┊
+            true,  // ┊┊╭┄ wt {worktree} (no changes)
+            true,  // ┊┊┊   ab M file.rs
+            true,  // ┊┊┊
+            true,  // ┊┊●   abc (no commit message)
+            true,  // ┊┊┊
+            true,  // ┊┊┊╭┄ wt {worktree} (no changes)
+            true,  // ┊┊┊┊   ab M file.rs
+            true,  // ┊┊┊┊
+            true,  // ┊┊┊●   abc (no commit message)
+            true,  // ┊┊├╯
+            true,  // ┊┊●   abc (no commit message)
+            true,  // ┊├╯
+            true,  // ┊●   abc (no commit message)
+            false, // ├╯
+            false, // ┊
+            false, // ┴ c94099713d (common base) 2026-08-26 Merge pull request
+        ]),
+        Cursor(2)
+            .lines_part_of_current_branch(&mode, &lines)
+            .unwrap(),
+        "a dirty nested worktree should not end the parent branch highlight",
+    );
+}
+
+#[test]
+fn lines_part_of_current_branch_with_dirty_nested_worktrees_with_commits() {
+    let lines = status_lines(
+        r#"
+        ╭┄ zz [uncommitted] (no changes)
+        ┊
+        ┊╭┄ br [branch]
+        ┊●   abc (no commit message)
+        ┊┊
+        ┊┊╭┄ wt {worktree} (no changes)
+        ┊┊┊   ab M file.rs
+        ┊┊┊
+        ┊┊●   abc (no commit message)
+        ┊├╯
+        ┊┊
+        ┊┊╭┄ wt {worktree} (no changes)
+        ┊├╯
+        ┊●   abc (no commit message)
+        ├╯
+        ┊
+        ┴ c94099713d (common base) 2026-08-26 Merge pull request
+        "#,
+    );
+
+    let mode = Mode::Branch(BranchMode::default());
+
+    assert_eq!(
+        Vec::from([
+            false, // ╭┄ zz [uncommitted] (no changes)
+            false, // ┊
+            true,  // ┊╭┄ br [branch]
+            true,  // ┊●   abc (no commit message)
+            true,  // ┊┊
+            true,  // ┊┊╭┄ wt {worktree} (no changes)
+            true,  // ┊┊┊   ab M file.rs
+            true,  // ┊┊┊
+            true,  // ┊┊●   abc (no commit message)
+            true,  // ┊├╯
+            true,  // ┊┊
+            true,  // ┊┊╭┄ wt {worktree} (no changes)
+            true,  // ┊├╯
+            true,  // ┊●   abc (no commit message)
+            false, // ├╯
+            false, // ┊
+            false, // ┴ c94099713d (common base) 2026-08-26 Merge pull request
+        ]),
+        Cursor(2)
+            .lines_part_of_current_branch(&mode, &lines)
+            .unwrap(),
+    );
 }

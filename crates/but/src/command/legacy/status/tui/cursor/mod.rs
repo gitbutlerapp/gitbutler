@@ -695,6 +695,210 @@ impl Cursor {
 
         None
     }
+
+    // TODO(david): ideally the data we get from status would contain enough information that we
+    // didn't have to essentially parse the lines. This also doesn't properly handle arbitrarily
+    // nested worktrees.
+    pub fn lines_part_of_current_branch<'a>(
+        self,
+        mode: &Mode,
+        lines: impl IntoIterator<Item = &'a StatusOutputLineData>,
+    ) -> Option<Vec<bool>> {
+        if !matches!(mode, Mode::Branch(_)) {
+            return None;
+        }
+
+        let mut out = Vec::new();
+        let mut connectors_before_section_end = 0;
+
+        let mut inside_current_branch = false;
+        // worktrees are considered branches but can be shown in dependently if they're based on
+        // at the target rather a commit inside a branch. We need to track that separately
+        let mut inside_current_worktree = false;
+
+        let mut iter = itertools::peek_nth(lines.into_iter().enumerate());
+        while let Some((idx, line)) = iter.next() {
+            if idx == self.0 {
+                if matches!(line, StatusOutputLineData::Branch { .. }) {
+                    inside_current_branch = true;
+                } else if matches!(
+                    line,
+                    StatusOutputLineData::WorktreeUncommittedChanges { .. }
+                ) {
+                    inside_current_worktree = true;
+                }
+            }
+
+            if inside_current_branch || inside_current_worktree {
+                out.push(true);
+            } else {
+                out.push(false);
+            }
+
+            if matches!(line, StatusOutputLineData::UpstreamChanges) {
+                // at the end of an upstream commits section is a connector that shouldn't break
+                // the section:
+                //
+                //     ┊╭┄ br [branch]
+                //     ┊┊
+                //     ┊╭┄┄ (upstream: on origin/branch)
+                //     ┊●   ceed3a00ee (no commit message)
+                //     ┊│     M a/b/c/d.rs
+                //     ┊-
+                //     ┊◐   abc (no commit message)
+                //     ├╯
+                connectors_before_section_end += 1;
+            } else if matches!(
+                line,
+                StatusOutputLineData::WorktreeUncommittedChanges { .. }
+            ) {
+                // same is true for worktrees:
+                //
+                //     ┊╭┄ br [branch]
+                //     ┊┊
+                //     ┊┊╭┄ wt {worktree} (no changes)
+                //     ┊┊●   abc (no commit message)
+                //     ┊├╯
+                //     ┊┊
+                //     ┊┊╭┄ wt {worktree} (no changes)
+                //     ┊├╯
+                //     ┊●   abc (no commit message)
+                //     ├╯
+                if inside_current_branch || (inside_current_worktree && idx != self.0) {
+                    connectors_before_section_end += 1;
+                }
+            } else if (inside_current_branch || inside_current_worktree)
+                && matches!(line, StatusOutputLineData::UncommittedFile { .. })
+                && matches!(
+                    iter.peek_nth(0),
+                    Some((
+                        _,
+                        StatusOutputLineData::Connector | StatusOutputLineData::BetweenStacks
+                    ))
+                )
+                && matches!(
+                    iter.peek_nth(1),
+                    Some((_, StatusOutputLineData::Commit { .. }))
+                )
+            {
+                // A dirty worktree with commits has a separator before those commits. When the
+                // selected section is the parent branch, distinguish that separator from a
+                // worktree-closing connector followed by one of the parent's commits.
+                let mut offset_after_commits = 2;
+                let mut nested_worktrees = 0;
+                loop {
+                    if matches!(
+                        iter.peek_nth(offset_after_commits),
+                        Some((
+                            _,
+                            StatusOutputLineData::Commit { .. }
+                                | StatusOutputLineData::CommitMessage
+                                | StatusOutputLineData::EmptyCommitMessage
+                                | StatusOutputLineData::File { .. }
+                        ))
+                    ) {
+                        offset_after_commits += 1;
+                    } else if matches!(
+                        iter.peek_nth(offset_after_commits),
+                        Some((
+                            _,
+                            StatusOutputLineData::Connector | StatusOutputLineData::BetweenStacks
+                        ))
+                    ) && matches!(
+                        iter.peek_nth(offset_after_commits + 1),
+                        Some((_, StatusOutputLineData::WorktreeUncommittedChanges { .. }))
+                    ) {
+                        nested_worktrees += 1;
+                        offset_after_commits += 2;
+                    } else if nested_worktrees > 0
+                        && matches!(
+                            iter.peek_nth(offset_after_commits),
+                            Some((
+                                _,
+                                StatusOutputLineData::Connector
+                                    | StatusOutputLineData::BetweenStacks
+                            ))
+                        )
+                    {
+                        nested_worktrees -= 1;
+                        offset_after_commits += 1;
+                    } else {
+                        break;
+                    }
+                }
+                let worktree_end = offset_after_commits;
+                let branch_continues_after_worktree = matches!(
+                    iter.peek_nth(worktree_end),
+                    Some((
+                        _,
+                        StatusOutputLineData::Connector | StatusOutputLineData::BetweenStacks
+                    ))
+                ) && (matches!(
+                    iter.peek_nth(worktree_end + 1),
+                    Some((_, StatusOutputLineData::Commit { .. }))
+                ) || (matches!(
+                    iter.peek_nth(worktree_end + 1),
+                    Some((
+                        _,
+                        StatusOutputLineData::Connector | StatusOutputLineData::BetweenStacks
+                    ))
+                ) && matches!(
+                    iter.peek_nth(worktree_end + 2),
+                    Some((_, StatusOutputLineData::WorktreeUncommittedChanges { .. }))
+                )));
+
+                if inside_current_worktree || branch_continues_after_worktree {
+                    connectors_before_section_end += 1;
+                }
+            }
+
+            if let Some((_, next)) = iter.peek_nth(0) {
+                match next {
+                    StatusOutputLineData::Connector | StatusOutputLineData::BetweenStacks => {
+                        if let Some((_, next2)) = iter.peek_nth(1)
+                            && matches!(
+                                next2,
+                                StatusOutputLineData::UpstreamChanges
+                                    | StatusOutputLineData::WorktreeUncommittedChanges { .. }
+                            )
+                        {
+                            // there is a connector before upstream changes that doesn't break the
+                            // branch section
+                        } else if connectors_before_section_end > 0 {
+                            // Nested sections can have separators before their own closing
+                            // connector. Consume only the connector currently being crossed.
+                            connectors_before_section_end -= 1;
+                        } else {
+                            inside_current_branch = false;
+                            inside_current_worktree = false;
+                        }
+                    }
+
+                    StatusOutputLineData::MergeBase | StatusOutputLineData::Branch { .. } => {
+                        inside_current_branch = false;
+                        inside_current_worktree = false;
+                    }
+
+                    StatusOutputLineData::Commit { .. }
+                    | StatusOutputLineData::UpdateNotice
+                    | StatusOutputLineData::StagedChanges { .. }
+                    | StatusOutputLineData::StagedFile { .. }
+                    | StatusOutputLineData::UncommittedChanges { .. }
+                    | StatusOutputLineData::WorktreeUncommittedChanges { .. }
+                    | StatusOutputLineData::UncommittedFile { .. }
+                    | StatusOutputLineData::CommitMessage
+                    | StatusOutputLineData::EmptyCommitMessage
+                    | StatusOutputLineData::File { .. }
+                    | StatusOutputLineData::UpstreamChanges
+                    | StatusOutputLineData::Warning
+                    | StatusOutputLineData::Hint
+                    | StatusOutputLineData::NoAssignmentsUnstaged => {}
+                }
+            }
+        }
+
+        Some(out)
+    }
 }
 
 /// Finds the start index of the nearest section at or before `idx`.

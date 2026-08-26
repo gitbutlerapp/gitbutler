@@ -5,6 +5,8 @@
   <rect x="138" y="46" width="16" height="18" fill="#45475A" />
   <rect x="162" y="46" width="504" height="18" fill="#45475A" />
   <rect x="674" y="46" width="136" height="18" fill="#45475A" />
+  <rect x="10" y="64" width="144" height="18" fill="#45475A" />
+  <rect x="674" y="64" width="136" height="18" fill="#45475A" />
   <rect x="10" y="352" width="80" height="18" fill="#AA5500" />
   <rect x="770" y="352" width="40" height="18" fill="#555555" />
   <g font-family="Menlo, Monaco, 'Courier New', monospace" font-size="14" xml:space="preserve">
@@ -27,11 +29,11 @@
     <text x="610 618 626" y="60" style="fill:#FFFFFF;font-weight:bold;">26y</text>
     <text x="642 650 658" y="60" style="fill:#FFFFFF;font-weight:bold;">ago</text>
     <text x="666" y="60" style="fill:#555555;">│</text>
-    <text x="10 18" y="78" style="fill:#CCCCCC;">┊●</text>
-    <text x="50" y="78" style="fill:#AA00AA;opacity:0.75;">t</text>
-    <text x="58 66" y="78" style="fill:#CCCCCC;opacity:0.75;">pm</text>
-    <text x="82 90 98" y="78" style="fill:#CCCCCC;opacity:0.75;">add</text>
-    <text x="114" y="78" style="fill:#CCCCCC;opacity:0.75;">A</text>
+    <text x="10 18" y="78" style="fill:#FFFFFF;font-weight:bold;">┊●</text>
+    <text x="50" y="78" style="fill:#AA00AA;font-weight:bold;opacity:0.75;">t</text>
+    <text x="58 66" y="78" style="fill:#FFFFFF;font-weight:bold;opacity:0.75;">pm</text>
+    <text x="82 90 98" y="78" style="fill:#FFFFFF;font-weight:bold;opacity:0.75;">add</text>
+    <text x="114" y="78" style="fill:#FFFFFF;font-weight:bold;opacity:0.75;">A</text>
     <text x="154" y="78" style="fill:#555555;">│</text>
     <text x="162 170 178 186" y="78" style="fill:#00AA00;">main</text>
     <text x="610 618 626" y="78" style="fill:#CCCCCC;">26y</text>

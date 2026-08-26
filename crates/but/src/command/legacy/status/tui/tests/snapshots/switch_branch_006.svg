@@ -3,6 +3,7 @@
   <rect x="10" y="118" width="32" height="18" fill="#45475A" />
   <rect x="42" y="118" width="96" height="18" fill="#AA5500" />
   <rect x="138" y="118" width="672" height="18" fill="#45475A" />
+  <rect x="10" y="136" width="800" height="18" fill="#45475A" />
   <rect x="10" y="352" width="80" height="18" fill="#AA5500" />
   <g font-family="Menlo, Monaco, 'Courier New', monospace" font-size="14" xml:space="preserve">
     <text x="10 18" y="24" style="fill:#CCCCCC;">╭┄</text>
@@ -33,11 +34,11 @@
     <text x="170" y="132" style="fill:#FFFFFF;font-weight:bold;">[</text>
     <text x="178" y="132" style="fill:#00AA00;font-weight:bold;">B</text>
     <text x="186" y="132" style="fill:#FFFFFF;font-weight:bold;">]</text>
-    <text x="10 18" y="150" style="fill:#CCCCCC;">┊●</text>
-    <text x="50" y="150" style="fill:#AA00AA;opacity:0.75;">l</text>
-    <text x="58 66" y="150" style="fill:#CCCCCC;opacity:0.75;">rm</text>
-    <text x="82 90 98" y="150" style="fill:#CCCCCC;opacity:0.75;">add</text>
-    <text x="114" y="150" style="fill:#CCCCCC;opacity:0.75;">B</text>
+    <text x="10 18" y="150" style="fill:#FFFFFF;font-weight:bold;">┊●</text>
+    <text x="50" y="150" style="fill:#AA00AA;font-weight:bold;opacity:0.75;">l</text>
+    <text x="58 66" y="150" style="fill:#FFFFFF;font-weight:bold;opacity:0.75;">rm</text>
+    <text x="82 90 98" y="150" style="fill:#FFFFFF;font-weight:bold;opacity:0.75;">add</text>
+    <text x="114" y="150" style="fill:#FFFFFF;font-weight:bold;opacity:0.75;">B</text>
     <text x="10 18" y="168" style="fill:#CCCCCC;">├╯</text>
     <text x="10" y="186" style="fill:#CCCCCC;">┊</text>
     <text x="10" y="204" style="fill:#CCCCCC;">┴</text>
