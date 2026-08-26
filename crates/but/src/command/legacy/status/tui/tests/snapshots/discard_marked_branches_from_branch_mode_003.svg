@@ -7,6 +7,8 @@
   <rect x="34" y="118" width="8" height="18" fill="#45475A" />
   <rect x="42" y="118" width="104" height="18" fill="#AA0000" />
   <rect x="146" y="118" width="664" height="18" fill="#45475A" />
+  <rect x="10" y="136" width="304" height="18" fill="#45475A" />
+  <rect x="506" y="136" width="304" height="18" fill="#45475A" />
   <rect x="346" y="208" width="56" height="18" fill="#45475A" />
   <rect x="10" y="352" width="80" height="18" fill="#AA5500" />
   <g font-family="Menlo, Monaco, 'Courier New', monospace" font-size="14" xml:space="preserve">
@@ -43,11 +45,11 @@
     <text x="178" y="132" style="fill:#FFFFFF;font-weight:bold;text-decoration:line-through;">[</text>
     <text x="186" y="132" style="fill:#00AA00;font-weight:bold;text-decoration:line-through;">B</text>
     <text x="194" y="132" style="fill:#FFFFFF;font-weight:bold;text-decoration:line-through;">]</text>
-    <text x="10 18" y="150" style="fill:#CCCCCC;">┊●</text>
-    <text x="50" y="150" style="fill:#AA00AA;opacity:0.75;">l</text>
-    <text x="58 66" y="150" style="fill:#CCCCCC;opacity:0.75;">rm</text>
-    <text x="82 90 98" y="150" style="fill:#CCCCCC;opacity:0.75;">add</text>
-    <text x="114" y="150" style="fill:#CCCCCC;opacity:0.75;">B</text>
+    <text x="10 18" y="150" style="fill:#FFFFFF;font-weight:bold;">┊●</text>
+    <text x="50" y="150" style="fill:#AA00AA;font-weight:bold;opacity:0.75;">l</text>
+    <text x="58 66" y="150" style="fill:#FFFFFF;font-weight:bold;opacity:0.75;">rm</text>
+    <text x="82 90 98" y="150" style="fill:#FFFFFF;font-weight:bold;opacity:0.75;">add</text>
+    <text x="114" y="150" style="fill:#FFFFFF;font-weight:bold;opacity:0.75;">B</text>
     <text x="314 322 330 338 346 354 362 370 378 386 394 402 410 418 426 434 442 450 458 466 474 482 490 498" y="150" style="fill:#555555;">╭──────────────────────╮</text>
     <text x="10 18" y="168" style="fill:#CCCCCC;">├╯</text>
     <text x="314" y="168" style="fill:#555555;">│</text>

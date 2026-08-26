@@ -41,7 +41,7 @@ use crate::{
 
 use super::MoveCursorDiration;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub struct BranchMode {
     pub marks: Marks,
 }

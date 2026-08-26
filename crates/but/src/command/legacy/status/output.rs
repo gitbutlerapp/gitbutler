@@ -342,15 +342,15 @@ pub struct StatusOutputLine {
     ///
     /// Example:
     ///
-    /// ╭┄zz [uncommitted]                                      | Some("╭┄")
-    /// ┊   ur M flake.nix                                              | Some("┊   ")
-    /// ┊                                                               | Some("┊ ")
-    /// ┊╭┄dp [dp-branch-4]                                             | Some("┊╭┄")
-    /// ┊●   3dd0f00 (no commit message) (no changes)                   | Some("┊●   ")
-    /// ├╯                                                              | Some("├╯ ")
-    /// ┊                                                               | Some("┊ ")
+    /// ╭┄zz [uncommitted]                                                       | Some("╭┄")
+    /// ┊   ur M flake.nix                                                       | Some("┊   ")
+    /// ┊                                                                        | Some("┊ ")
+    /// ┊╭┄dp [dp-branch-4]                                                      | Some("┊╭┄")
+    /// ┊●   3dd0f00 (no commit message) (no changes)                            | Some("┊●   ")
+    /// ├╯                                                                       | Some("├╯ ")
+    /// ┊                                                                        | Some("┊ ")
     /// ┊● 7cd07f6 (upstream: origin/main) 1 new commit (checked 34 seconds ago) | Some("┊● ")
-    /// ├╯ 8678259 [origin/main] 2026-03-11 nix                         | Some("├╯ ")
+    /// ├╯ 8678259 [origin/main] 2026-03-11 nix                                  | Some("├╯ ")
     pub connector: Option<Vec<Span<'static>>>,
     /// The content of the line such as the commit, branch, or file.
     pub content: StatusOutputContent,
@@ -393,7 +393,8 @@ impl StatusOutputLine {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, strum::EnumDiscriminants)]
+#[strum_discriminants(name(StatusOutputLineDataKind))]
 pub enum StatusOutputLineData {
     UpdateNotice,
     Connector,

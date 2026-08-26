@@ -308,7 +308,7 @@ impl Tui for App {
             let _span = tracing::trace_span!("render").entered();
             terminal_guard.terminal_mut().draw(|frame| {
                 self.renders += 1;
-                count_allocations("render", || render_app(self, frame))
+                count_allocations("render", || render_app(self, frame));
             })?;
         }
 
