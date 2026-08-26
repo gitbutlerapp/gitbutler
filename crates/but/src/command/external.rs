@@ -72,7 +72,7 @@ pub(crate) fn dispatch(current_dir: &Path, extra: &[OsString]) -> CliResult<()> 
         if status.success() {
             Ok(())
         } else {
-            std::process::exit(status.code().unwrap_or(1));
+            Err(CliError::ExternalCommandFailed(status.code().unwrap_or(1)))
         }
     }
 }

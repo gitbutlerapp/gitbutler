@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Clone, Copy, Serialize, Deserialize, strum::Display, clap::ValueEnum, Default)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, strum::Display, clap::ValueEnum)]
 #[serde(rename_all = "camelCase")]
 pub enum CommandName {
     Init,
@@ -44,6 +44,7 @@ pub enum CommandName {
     WorktreeUnarchive,
     WorktreeRemove,
     Switch,
+    Config,
     ForgeAuth,
     ForgeListUsers,
     ForgeForget,
@@ -63,14 +64,23 @@ pub enum CommandName {
     UpdateSuppress,
     UpdateInstall,
     Land,
+    Setup,
+    Teardown,
+    Expand,
+    Comment,
+    Completions,
+    Mcp,
+    Metrics,
+    Help,
+    Onboarding,
+    AgentLog,
+    Actions,
     SkillInstall,
     SkillCheck,
     AgentSetup,
     Pick,
     Clean,
     External,
-    #[default]
-    Unknown,
 }
 
 impl CommandName {
