@@ -215,7 +215,8 @@ const AddressC: FC<
 		render: (
 			<OperationSourceC
 				projectId={projectId}
-				source={address}
+				sources={[address]}
+				respectChecked={address._tag === "Commit" || address._tag === "File"}
 				outline={outline}
 				render={
 					<OperationTarget
@@ -901,7 +902,8 @@ export const WorkspaceLists: FC<
 				>
 					<OperationSourceC
 						projectId={projectId}
-						source={uncommittedChangesAddress}
+						sources={[uncommittedChangesAddress]}
+						respectChecked={false}
 						outline="inside"
 						render={
 							<OperationTarget

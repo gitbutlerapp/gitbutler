@@ -1663,7 +1663,8 @@ const DiffFileHeader: FC<DiffFileHeaderProps> = (p) => {
 	return (
 		<OperationSourceC
 			projectId={p.projectId}
-			source={fileAddress(p.address)}
+			sources={[fileAddress(p.address)]}
+			respectChecked={false}
 			outline="inside"
 			acceptOriginDrop
 		>

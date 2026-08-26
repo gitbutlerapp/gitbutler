@@ -26,6 +26,7 @@ import {
 	type FC,
 	useDeferredValue,
 	useLayoutEffect,
+	useMemo,
 	useRef,
 	useState,
 } from "react";
@@ -286,14 +287,51 @@ const useFilesTreeHotkeys = ({
 		onEdgeSpill,
 		getKey: (path) => path,
 		operationSourcesForItem: (path) => {
-			const address = fileAddress({ parent: fileParent, path });
+			const rowIndex = addressSpace.indexByKey.get(path);
+			const row = rowIndex === undefined ? undefined : rows[rowIndex];
 			const checkedAddresses = projectSlice.selectors.selectCheckedAddresses(
 				store.getState(),
 				projectId,
 			);
+			if (row?._tag === "Directory") {
+				const sources = row.filePaths.map((path) => fileAddress({ parent: fileParent, path }));
+				return sources.some((source) =>
+					checkedAddresses.some((checked) => addressEquals(checked, source)),
+				)
+					? checkedAddresses
+					: sources;
+			}
+
+			const address = fileAddress({ parent: fileParent, path });
 			return checkedAddresses.length > 0 ? checkedAddresses : [address];
 		},
 	});
+};
+
+const DirectoryOperationSource: FC<
+	{
+		projectId: string;
+		fileParent: FileParent;
+		filePaths: Array<string>;
+	} & Omit<useRender.ComponentProps<"div">, "onDragStart">
+> = ({ projectId, fileParent, filePaths, render, ...props }) => {
+	// The compiler does not memoize derivations inside the virtual-row loop.
+	const sources = useMemo(
+		() => filePaths.map((path) => fileAddress({ parent: fileParent, path })),
+		[fileParent, filePaths],
+	);
+
+	return (
+		<OperationSourceC
+			{...props}
+			projectId={projectId}
+			sources={sources}
+			respectChecked
+			outline="outside"
+			acceptOriginDrop
+			render={render}
+		/>
+	);
 };
 
 export const FilesTree: FC<
@@ -391,7 +429,7 @@ export const FilesTree: FC<
 	const checkable = (path: string) => !conflictPaths.has(path);
 	const selectedRow = selection === null ? undefined : rowByPath.get(selection);
 	const selectedRowIndex =
-		selection === null ? -1 : rows.findIndex((row) => row.path === selection);
+		selection !== null ? (addressSpace.indexByKey.get(selection) ?? null) : null;
 	const selectedItem = selectedRow?._tag === "File" ? selectedRow.item : undefined;
 	const selectedChange = selectedItem?._tag === "Change" ? selectedItem.change : null;
 
@@ -522,7 +560,8 @@ export const FilesTree: FC<
 
 	// Virtualisation-friendly equivalent to Row's own scrollIntoView.
 	useLayoutEffect(() => {
-		if (selectedRowIndex !== -1) rowVirtualizer.scrollToIndex(selectedRowIndex, { align: "auto" });
+		if (selectedRowIndex !== null)
+			rowVirtualizer.scrollToIndex(selectedRowIndex, { align: "auto" });
 	}, [rowVirtualizer, selectedRowIndex]);
 
 	return (
@@ -561,6 +600,37 @@ export const FilesTree: FC<
 
 						if (row._tag === "Directory") {
 							const isCollapsed = collapsedDirectories[row.path] === true;
+							const directoryRow = (
+								<DirectoryRow
+									projectId={projectId}
+									path={row.path}
+									name={row.name}
+									fileCount={row.filePaths.length}
+									depth={row.depth}
+									isCollapsed={isCollapsed}
+									scrollSelectedIntoView={false}
+									onToggleCollapsed={() => {
+										// Collapsing over the selection hides it, and it would
+										// fall back to the first row: hand it to the directory
+										// row, as the z hotkey does. Other toggles leave the
+										// selection (and the details pane it drives) alone.
+										if (
+											!isCollapsed &&
+											selection !== null &&
+											(selection === row.path || selection.startsWith(`${row.path}/`))
+										)
+											onRowSelection(row.path);
+										onToggleDirectoryCollapsed(row.path);
+									}}
+									isSelected={isSelected}
+									canCheck={canCheck}
+									checkedState={directoryCheckedState(row.filePaths)}
+									checkDirectory={checkDirectory}
+									focusScope={focusScope}
+									inert={inert}
+									onSelect={() => onRowSelection(row.path)}
+								/>
+							);
 
 							return (
 								<TreeItem
@@ -573,35 +643,16 @@ export const FilesTree: FC<
 									aria-label={`Directory ${row.path}`}
 									style={virtStyle}
 									render={
-										<DirectoryRow
-											projectId={projectId}
-											path={row.path}
-											name={row.name}
-											fileCount={row.filePaths.length}
-											depth={row.depth}
-											isCollapsed={isCollapsed}
-											scrollSelectedIntoView={false}
-											onToggleCollapsed={() => {
-												// Collapsing over the selection hides it, and it would
-												// fall back to the first row: hand it to the directory
-												// row, as the z hotkey does. Other toggles leave the
-												// selection (and the details pane it drives) alone.
-												if (
-													!isCollapsed &&
-													selection !== null &&
-													(selection === row.path || selection.startsWith(`${row.path}/`))
-												)
-													onRowSelection(row.path);
-												onToggleDirectoryCollapsed(row.path);
-											}}
-											isSelected={isSelected}
-											canCheck={canCheck}
-											checkedState={directoryCheckedState(row.filePaths)}
-											checkDirectory={checkDirectory}
-											focusScope={focusScope}
-											inert={inert}
-											onSelect={() => onRowSelection(row.path)}
-										/>
+										renderInteractiveRows ? (
+											<DirectoryOperationSource
+												projectId={projectId}
+												fileParent={fileParent}
+												filePaths={row.filePaths}
+												render={directoryRow}
+											/>
+										) : (
+											directoryRow
+										)
 									}
 								/>
 							);
@@ -627,7 +678,8 @@ export const FilesTree: FC<
 									renderInteractiveRows ? (
 										<OperationSourceC
 											projectId={projectId}
-											source={address}
+											sources={[address]}
+											respectChecked
 											outline="outside"
 											acceptOriginDrop
 											render={
