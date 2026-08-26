@@ -8,9 +8,17 @@ import { changesFileHotkeys, toElectronAccelerator } from "#ui/hotkeys.ts";
 import { type NativeMenuItem, nativeMenuItem } from "#ui/native-menu.ts";
 import { useQuery, useSuspenseQuery } from "@tanstack/react-query";
 
+/** What the platform calls revealing a file in its file manager. */
+const revealLabel =
+	window.lite.platform === "darwin"
+		? "Reveal in Finder"
+		: window.lite.platform === "win32"
+			? "Show in File Explorer"
+			: "Show in File Manager";
+
 /**
- * What a file offers wherever it is listed: open it, copy its path. Neither
- * action asks what the file belongs to, so surfaces with no notion of a
+ * What a file offers wherever it is listed: open it, reveal it, copy its
+ * path. None of these ask what the file belongs to, so surfaces with no notion of a
  * parent — edit mode, where every file belongs to the commit being edited —
  * can offer them too. Resolving the editor and the project's location still
  * takes queries, which every row calling this subscribes to.
@@ -65,6 +73,13 @@ export const usePathMenuItems = ({
 							}),
 						) ?? [],
 				}),
+		nativeMenuItem({
+			label: revealLabel,
+			onSelect: async () => {
+				const absolutePath = await window.lite.pathJoin(selectedProject.path, path);
+				await window.lite.showItemInFolder(absolutePath);
+			},
+		}),
 		nativeMenuItem({
 			label: "Copy Path",
 			submenu: [
