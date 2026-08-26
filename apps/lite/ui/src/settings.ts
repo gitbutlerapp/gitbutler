@@ -32,7 +32,7 @@ export const defaultSettings = {
 		dark: "github-dark-default" satisfies BundledTheme,
 	},
 	theme: "system",
-	unidiff: true,
+	unidiff: false,
 } satisfies Partial<GUISettings>;
 
 export const clampAutoFetch = (ms: number): number =>
