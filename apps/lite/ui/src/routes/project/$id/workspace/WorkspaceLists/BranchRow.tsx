@@ -226,7 +226,7 @@ export const BranchRow: FC<
 	const {
 		isPending: isWorkspaceBranchAndAncestorsPushPending,
 		mutate: workspaceBranchAndAncestorsPush,
-	} = useWorkspaceBranchAndAncestorsPush();
+	} = useWorkspaceBranchAndAncestorsPush(projectId);
 	const { mutate: commitInsertBlank } = useCommitInsertBlank();
 	const { isPending: isTearOffBranchPending, mutate: tearOffBranch } = useTearOffBranch();
 	const { isPending: isBranchRemovePending, mutate: branchRemove } = useBranchRemove();

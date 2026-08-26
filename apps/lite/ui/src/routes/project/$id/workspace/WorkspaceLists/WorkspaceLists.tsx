@@ -781,7 +781,7 @@ export const WorkspaceLists: FC<
 	const hasNoBranches = headInfo !== undefined && headInfo.stacks.length === 0;
 	const store = useAppStore();
 	const dispatch = useAppDispatch();
-	const { isPending: isCommitAmendPending, mutate: commitAmend } = useCommitAmend();
+	const { isPending: isCommitAmendPending, mutate: commitAmend } = useCommitAmend(projectId);
 	const canAmendCommit =
 		!isCommitAmendPending && !!worktreeChanges && worktreeChanges.changes.length > 0;
 	const amendCommit = (commitId: string) => {

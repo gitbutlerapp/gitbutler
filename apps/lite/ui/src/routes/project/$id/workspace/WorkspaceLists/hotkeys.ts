@@ -130,7 +130,7 @@ export const useActiveListsHotkeys = ({
 	const {
 		isPending: isWorkspaceBranchAndAncestorsPushPending,
 		mutate: workspaceBranchAndAncestorsPush,
-	} = useWorkspaceBranchAndAncestorsPush();
+	} = useWorkspaceBranchAndAncestorsPush(projectId);
 	const { isPending: isWorkspaceIntegrateUpstreamPending, mutate: workspaceIntegrateUpstream } =
 		useWorkspaceIntegrateUpstream();
 	const { mutate: branchCreate } = useBranchCreate();

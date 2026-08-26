@@ -112,8 +112,8 @@ export const PullRequestForm: FC<{
 	onCancel,
 	afterPublish,
 }) => {
-	const { isPending: isPublishReviewPending, mutate: publishReview } = usePublishReview();
-	const { isPending: isUpdateReviewPending, mutate: updateReview } = useUpdateReview();
+	const { isPending: isPublishReviewPending, mutate: publishReview } = usePublishReview(projectId);
+	const { isPending: isUpdateReviewPending, mutate: updateReview } = useUpdateReview(projectId);
 	const formRef = useRef<HTMLFormElement | null>(null);
 	const bodyRef = useRef<HTMLTextAreaElement | null>(null);
 	/** Drives the rule under the toolbar, so text never slides under it bare. */
@@ -446,8 +446,8 @@ export const PullRequestDescription: FC<{
 		select: reviewReactionsSelect,
 	});
 	const { data: currentLogin } = useQuery(currentForgeLoginQueryOptions(projectId));
-	const { mutate: addReviewReaction } = useAddReviewReaction();
-	const { mutate: removeReviewReaction } = useRemoveReviewReaction();
+	const { mutate: addReviewReaction } = useAddReviewReaction(projectId);
+	const { mutate: removeReviewReaction } = useRemoveReviewReaction(projectId);
 	const toggleReaction = (kind: string, myReactionId: number | null) => {
 		if (myReactionId === null) addReviewReaction({ projectId, reviewId, kind });
 		else removeReviewReaction({ projectId, reviewId, reactionId: myReactionId });
@@ -558,12 +558,12 @@ export const PullRequestPrimaryAction: FC<{
 	const mergeMethod = storedMergeMethod ?? "merge";
 	const { mutate: persistMergeMethod } = usePersistMergeMethod();
 
-	const { isPending: isUpdateReviewPending, mutate: updateReview } = useUpdateReview();
-	const { isPending: isMergeReviewPending, mutate: mergeReview } = useMergeReview();
+	const { isPending: isUpdateReviewPending, mutate: updateReview } = useUpdateReview(projectId);
+	const { isPending: isMergeReviewPending, mutate: mergeReview } = useMergeReview(projectId);
 	const { isPending: isSetReviewDraftinessPending, mutate: setReviewDraftiness } =
-		useSetReviewDraftiness();
+		useSetReviewDraftiness(projectId);
 	const { isPending: isSetReviewAutoMergePending, mutate: setReviewAutoMerge } =
-		useSetReviewAutoMerge();
+		useSetReviewAutoMerge(projectId);
 
 	const isAnyPending =
 		isUpdateReviewPending ||

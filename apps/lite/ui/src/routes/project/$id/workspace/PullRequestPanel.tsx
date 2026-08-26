@@ -510,11 +510,12 @@ export const PullRequestPanel: FC<{ projectId: string; review: ForgeReview }> = 
 		...reviewerCandidatesQueryOptions(projectId),
 		enabled: canManage,
 	});
-	const { mutate: addReviewLabels } = useAddReviewLabels();
-	const { mutate: removeReviewLabel } = useRemoveReviewLabel();
-	const { mutate: requestReview } = useRequestReview();
-	const { mutate: withdrawReviewRequest } = useWithdrawReviewRequest();
-	const { isPending: isDraftinessPending, mutate: setReviewDraftiness } = useSetReviewDraftiness();
+	const { mutate: addReviewLabels } = useAddReviewLabels(projectId);
+	const { mutate: removeReviewLabel } = useRemoveReviewLabel(projectId);
+	const { mutate: requestReview } = useRequestReview(projectId);
+	const { mutate: withdrawReviewRequest } = useWithdrawReviewRequest(projectId);
+	const { isPending: isDraftinessPending, mutate: setReviewDraftiness } =
+		useSetReviewDraftiness(projectId);
 
 	// Neither a merged nor a closed review can change draftiness.
 	const canToggleDraft = review.mergedAt === null && review.closedAt === null;

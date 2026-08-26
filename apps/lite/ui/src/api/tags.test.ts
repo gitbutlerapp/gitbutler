@@ -58,9 +58,9 @@ describe("declared mutations", () => {
 		},
 	);
 
-	it("applies a mutation's declaration from its endpoint", async () => {
+	it("applies a project mutation's declaration from its key", async () => {
 		const { client, invalidated } = recording();
-		await invalidateDeclared(client, "mergeReview", { projectId: "p1" });
+		await invalidateDeclared(client, ["p1", "mergeReview"]);
 		expect(invalidated).toEqual(
 			expect.arrayContaining([
 				["p1", "getReview"],
@@ -71,10 +71,18 @@ describe("declared mutations", () => {
 		);
 	});
 
+	it("applies a global mutation's declaration from its key", async () => {
+		const { client, invalidated, predicates } = recording();
+		await invalidateDeclared(client, ["storeGithubPat"]);
+		expect(invalidated).toContainEqual(["forgeAccounts"]);
+		expect(predicates).toHaveLength(1);
+		expect(predicates[0]?.({ queryKey: ["p1", "currentForgeLogin"] } as never)).toBe(true);
+	});
+
 	it("ignores mutations that declared nothing", async () => {
 		const { client, invalidated } = recording();
-		await invalidateDeclared(client, "commitCreate", { projectId: "p1" });
-		await invalidateDeclared(client, undefined, { projectId: "p1" });
+		await invalidateDeclared(client, ["p1", "commitAmend"]);
+		await invalidateDeclared(client, undefined);
 		expect(invalidated).toEqual([]);
 	});
 });

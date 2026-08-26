@@ -13,7 +13,7 @@ import { type FC, StrictMode, useEffect } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { Provider } from "react-redux";
 import { createLiteApi, type LiteApiTransport } from "#electron/lite-api.ts";
-import { endpointOf, invalidateDeclared } from "#ui/api/tags.ts";
+import { invalidateDeclared } from "#ui/api/tags.ts";
 import type { UrlQueryParams } from "#ui/cursor-url.ts";
 import { errorMessageForToast } from "#ui/errors.ts";
 import { createAppRouter } from "#ui/router.ts";
@@ -85,8 +85,8 @@ export default function createPanel({
 			queries: { retry: false, staleTime: Number.POSITIVE_INFINITY },
 		},
 		mutationCache: new MutationCache({
-			onSuccess: (_data, variables, _context, mutation) =>
-				invalidateDeclared(queryClient, endpointOf(mutation.options.mutationFn), variables),
+			onSuccess: (_data, _variables, _context, mutation) =>
+				invalidateDeclared(queryClient, mutation.options.mutationKey),
 			onError: (error, _variables, _context, mutation) => {
 				// oxlint-disable-next-line no-console
 				console.error(error);

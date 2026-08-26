@@ -167,8 +167,8 @@ const Comment: FC<{
 
 	const [editing, setEditing] = useState(false);
 	const [editBody, setEditBody] = useState("");
-	const { isPending: isSaving, mutate: updateReviewComment } = useUpdateReviewComment();
-	const { isPending: isDeleting, mutate: deleteReviewComment } = useDeleteReviewComment();
+	const { isPending: isSaving, mutate: updateReviewComment } = useUpdateReviewComment(projectId);
+	const { isPending: isDeleting, mutate: deleteReviewComment } = useDeleteReviewComment(projectId);
 
 	// Who reacted, for the chip tooltips; only comments that show chips
 	// spend a request on it.
@@ -179,8 +179,8 @@ const Comment: FC<{
 		select: groupReactors,
 	});
 
-	const { mutate: addCommentReaction } = useAddCommentReaction({ reviewId });
-	const { mutate: removeCommentReaction } = useRemoveCommentReaction({ reviewId });
+	const { mutate: addCommentReaction } = useAddCommentReaction({ projectId, reviewId });
+	const { mutate: removeCommentReaction } = useRemoveCommentReaction({ projectId, reviewId });
 	const toggleReaction = (kind: string, myReactionId: number | null) => {
 		if (myReactionId === null) {
 			addCommentReaction({ projectId, commentId: comment.id, kind });
@@ -594,7 +594,7 @@ export const PullRequestComments: FC<{ projectId: string; review: ForgeReview }>
 	// The forge has no "authenticated user" endpoint, so the GitButler account
 	// picture stands in until the caller has actually posted here.
 	const { data: profile } = useQuery(userProfileQueryOptions);
-	const { mutate: createReviewComment } = useCreateReviewComment();
+	const { mutate: createReviewComment } = useCreateReviewComment(projectId);
 	const [draft, setDraft] = useState("");
 	const composerRef = useRef<HTMLTextAreaElement | null>(null);
 

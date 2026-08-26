@@ -8,6 +8,7 @@
  */
 
 import { projectQueryKeys, type GlobalQueryKey, type ProjectQueryKey } from "#ui/api/query-keys.ts";
+import type { MutationKey } from "#ui/api/mutation-keys.ts";
 import { apiInvalidates, apiProvides, type CacheTag } from "@gitbutler/but-sdk/cache-tags";
 import type { QueryClient } from "@tanstack/react-query";
 
@@ -71,41 +72,23 @@ export const invalidateTags = (
 		),
 	);
 
-/**
- * The endpoint a mutation ran, recognized by the identity of its `mutationFn`.
- * A wrapped `mutationFn` is invisible here, so an endpoint that declares
- * `invalidates` must be passed to its mutation unwrapped.
- */
-export const endpointOf = (mutationFn: unknown): string | undefined => {
-	endpointByFn ??= new Map(Object.entries(window.lite).map(([name, fn]) => [fn, name]));
-	return endpointByFn.get(mutationFn);
-};
-// Built on first use: `window.lite` only exists in the renderer, not in tests.
-let endpointByFn: Map<unknown, string> | undefined;
-
-/** The declarations by endpoint name, since an endpoint arrives as `unknown`. */
+/** The declarations indexed by mutation endpoint. */
 const declaredInvalidates = new Map<string, ReadonlyArray<CacheTag>>(
 	Object.entries(apiInvalidates),
 );
 
 /**
  * Apply a finished mutation's declared invalidations. Wired once into the
- * query client's mutation cache; the endpoint comes from [`endpointOf`], so
- * any mutation whose `mutationFn` is a declared endpoint is covered.
+ * query client's mutation cache; keyed mutations name their endpoint directly.
  */
 export const invalidateDeclared = (
 	client: Pick<QueryClient, "invalidateQueries">,
-	endpoint: string | undefined,
-	variables: unknown,
+	mutationKey: MutationKey | undefined,
 ): Promise<unknown> => {
-	const tags = endpoint === undefined ? undefined : declaredInvalidates.get(endpoint);
+	if (mutationKey === undefined) return Promise.resolve();
+	const projectId = mutationKey.length === 2 ? mutationKey[0] : undefined;
+	const endpoint = mutationKey.length === 2 ? mutationKey[1] : mutationKey[0];
+	const tags = declaredInvalidates.get(endpoint);
 	if (!tags) return Promise.resolve();
-	const projectId =
-		typeof variables === "object" &&
-		variables !== null &&
-		"projectId" in variables &&
-		typeof variables.projectId === "string"
-			? variables.projectId
-			: undefined;
 	return invalidateTags(client, tags, projectId);
 };

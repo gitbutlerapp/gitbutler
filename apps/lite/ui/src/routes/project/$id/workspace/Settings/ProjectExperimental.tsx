@@ -10,7 +10,7 @@ import { Row, Section } from "./Section.tsx";
 export const ProjectExperimental: FC<{ projectId: string }> = ({ projectId }) => {
 	const { data: projects } = useSuspenseQuery(listProjectsQueryOptions);
 	const project = assert(projects.find((candidate) => candidate.id === projectId));
-	const { mutate: updateProjectSettings } = useUpdateProjectSettings();
+	const { mutate: updateProjectSettings } = useUpdateProjectSettings(projectId);
 
 	return (
 		<Section>

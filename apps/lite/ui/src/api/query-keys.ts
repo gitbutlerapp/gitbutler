@@ -33,7 +33,7 @@ type LocalQueryKey =
 	| "projectAiSettings"
 	| "reviewedFiles";
 
-export type QueryKey =
+type QueryKey =
 	| [projectId: string, ProjectQueryKey]
 	| [projectId: string, LocalQueryKey]
 	| [GlobalQueryKey];
