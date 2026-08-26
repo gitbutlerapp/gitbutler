@@ -36,6 +36,7 @@ import { OperationSourceC } from "#ui/routes/project/$id/workspace/OperationSour
 import { focusScope, useAddressSpaceHotkeys, type FocusScope } from "#ui/focus-scopes.ts";
 import { addressSpaceIncludes, type AddressSpace } from "#ui/workspace/address-space.ts";
 import { changesFileHotkeys } from "#ui/hotkeys.ts";
+import { useRevealInFolder } from "./useRevealInFolder.ts";
 import { useHotkeys } from "@tanstack/react-hotkeys";
 import { useMergedRefs } from "@base-ui/utils/useMergedRefs";
 import { FileRow, FileRowPresentational } from "./FileRow.tsx";
@@ -90,6 +91,7 @@ const useFilesTreeHotkeys = ({
 		select: (cfg) => editors?.find((editor) => editor.id === cfg.editorId),
 	});
 	const { mutate: openInProgram } = useOpenInProgram();
+	const revealInFolder = useRevealInFolder(projectId);
 	const { canDiscard, discard } = useDiscardFileChanges({ projectId, fileParent });
 
 	const store = useAppStore();
@@ -247,6 +249,22 @@ const useFilesTreeHotkeys = ({
 				enabled: preferredEditor && selectedChangesFile !== null,
 				target: ref,
 				meta: changesFileHotkeys.openInEditor.meta,
+			},
+		},
+		{
+			hotkey: changesFileHotkeys.revealInFolder.hotkey,
+			// Not limited to uncommitted files the way the editor binding above
+			// is: a row's path locates the file in the worktree whichever list
+			// it came from, which is all revealing it needs.
+			callback: () => {
+				if (selection === null) return;
+				void revealInFolder(selection);
+			},
+			options: {
+				conflictBehavior: "allow",
+				enabled: selectedRow?._tag === "File",
+				target: ref,
+				meta: changesFileHotkeys.revealInFolder.meta,
 			},
 		},
 		{

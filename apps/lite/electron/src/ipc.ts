@@ -35,6 +35,8 @@ export type LiteElectronApi = SDK & {
 	pathJoin: (...paths: Array<string>) => Promise<string>;
 	pickDirectory: () => Promise<string | null>;
 	resetAiConfiguration: () => Promise<AiConfiguration>;
+	/** Reveal a file in the OS file manager, selected in its containing folder. */
+	showItemInFolder: (path: string) => Promise<void>;
 	showNativeMenu: (params: ShowNativeMenuParams) => Promise<string | null>;
 	streamAiResponse: (
 		systemMessage: string,
@@ -71,6 +73,7 @@ export const localEndpoints = [
 	"pathJoin",
 	"pickDirectory",
 	"readGUISettings",
+	"showItemInFolder",
 	"showNativeMenu",
 	"streamAiResponse",
 	"watcherStopAll",

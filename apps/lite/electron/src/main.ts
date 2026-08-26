@@ -311,6 +311,11 @@ const electronHandlerOverrides = {
 
 		return shell.openExternal(url);
 	},
+	showItemInFolder: (itemPath) => {
+		// Unlike shell.openExternal, this only selects the item in the file
+		// manager; it never launches it, so a path is all it takes.
+		shell.showItemInFolder(itemPath);
+	},
 	pickDirectory: async () => {
 		const { canceled, filePaths } = await dialog.showOpenDialog({ properties: ["openDirectory"] });
 		return canceled ? null : (filePaths[0] ?? null);

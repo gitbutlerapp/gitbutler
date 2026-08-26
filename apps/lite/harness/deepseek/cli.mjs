@@ -55,6 +55,8 @@ const hostOverrides = {
 	openInWebBrowser: () => undefined,
 	pickDirectory: () => null,
 	clipboardWriteText: () => undefined,
+	// No file manager to reveal into from the harness.
+	showItemInFolder: () => undefined,
 	getAiConfiguration: () => defaultAiConfiguration(),
 	updateAiConfiguration: () => defaultAiConfiguration(),
 	resetAiConfiguration: () => defaultAiConfiguration(),

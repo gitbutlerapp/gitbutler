@@ -10,11 +10,17 @@ import {
 	listEditorsQueryOptions,
 	listProjectsQueryOptions,
 } from "#ui/api/queries.ts";
-import { diffHotkeys, selectionOperationHotkeys, toElectronAccelerator } from "#ui/hotkeys.ts";
+import {
+	diffHotkeys,
+	revealInFolderLabel,
+	selectionOperationHotkeys,
+	toElectronAccelerator,
+} from "#ui/hotkeys.ts";
 import { diffSpecHunkHeadersForLineSelection } from "#ui/hunk.ts";
 import { type NativeMenuItem, nativeMenuItem, nativeMenuItemsFromGroups } from "#ui/native-menu.ts";
 import { hunkAddress, type HunkAddress, type Address } from "#ui/addresses.ts";
 import { createDiffSpec } from "#ui/operations/diff-specs.ts";
+import { useRevealInFolder } from "./useRevealInFolder.ts";
 import { projectSlice } from "#ui/projects/state.ts";
 import { focusScope } from "#ui/focus-scopes.ts";
 import { useAppStore } from "#ui/store.ts";
@@ -54,6 +60,7 @@ export const useHunkMenuItems = ({
 	const { isPending: isDiscardWorktreeChangesPending, mutate: discardWorktreeChanges } =
 		useDiscardWorktreeChanges();
 	const { isPending: isOpenInProgramPending, mutate: openInProgram } = useOpenInProgram();
+	const revealInFolder = useRevealInFolder(projectId);
 
 	return ({ sources, checkedProbe, usesSelectedLines, change, hunk, lineNumber }) => {
 		const state = store.getState();
@@ -108,6 +115,11 @@ export const useHunkMenuItems = ({
 									}),
 								) ?? [],
 						}),
+				nativeMenuItem({
+					label: revealInFolderLabel,
+					accelerator: toElectronAccelerator(diffHotkeys.revealInFolder.hotkey),
+					onSelect: () => revealInFolder(change.path),
+				}),
 				nativeMenuItem({
 					label: "Copy Path",
 					submenu: [
