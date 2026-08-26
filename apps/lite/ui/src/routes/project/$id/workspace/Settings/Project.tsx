@@ -12,8 +12,8 @@ import { Row, Section } from "./Section.tsx";
 export const Project: FC<{ projectId: string }> = ({ projectId }) => {
 	const { data: projects } = useSuspenseQuery(listProjectsQueryOptions);
 	const project = assert(projects.find((candidate) => candidate.id === projectId));
-	const { mutate: updateProjectSettings } = useUpdateProjectSettings();
-	const { isPending: isRemoving, mutate: deleteProject } = useDeleteProject();
+	const { mutate: updateProjectSettings } = useUpdateProjectSettings(projectId);
+	const { isPending: isRemoving, mutate: deleteProject } = useDeleteProject(projectId);
 	const navigate = useNavigate();
 
 	// Held locally so a refetch cannot interrupt typing; committed on blur or Enter.

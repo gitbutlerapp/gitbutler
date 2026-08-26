@@ -54,8 +54,8 @@ export const ProjectGit: FC<{ projectId: string }> = ({ projectId }) => {
 	});
 	const [credentials, setCredentials] = useState<CredentialCheckState>({ _tag: "Idle" });
 	const project = assert(projects.find((candidate) => candidate.id === projectId));
-	const { mutate: setGbConfig } = useSetGbConfig();
-	const { mutate: updateProjectSettings } = useUpdateProjectSettings();
+	const { mutate: setGbConfig } = useSetGbConfig(projectId);
+	const { mutate: updateProjectSettings } = useUpdateProjectSettings(projectId);
 
 	const {
 		data: signingWorks,

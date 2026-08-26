@@ -70,6 +70,8 @@ import { useStackMenuItems } from "./useStackMenuItems.ts";
 import { ciChecksSummaryUrl, type AggregateCIChecks } from "#ui/ci.ts";
 import { type DownstackPushStatus, downstackPushStatusDisabled } from "#ui/segment.ts";
 
+export type PushActivity = "idle" | "blocked" | "pushing";
+
 const CIBubble: FC<{ checks: AggregateCIChecks }> = (p) => {
 	switch (p.checks.status) {
 		case "success":
@@ -125,6 +127,7 @@ export const BranchRow: FC<
 		canTearOffBranch: boolean;
 		canRemoveBranch: boolean;
 		downstackPushStatus: DownstackPushStatus;
+		pushActivity: PushActivity;
 		pushStatus: PushStatus;
 		/** The segment's projection-recorded review number, if any. */
 		recordedPullRequest: number | null;
@@ -141,6 +144,7 @@ export const BranchRow: FC<
 	canTearOffBranch,
 	canRemoveBranch,
 	downstackPushStatus,
+	pushActivity,
 	pushStatus,
 	recordedPullRequest,
 	graphStatus,
@@ -223,10 +227,7 @@ export const BranchRow: FC<
 
 	const toastManager = Toast.useToastManager();
 
-	const {
-		isPending: isWorkspaceBranchAndAncestorsPushPending,
-		mutate: workspaceBranchAndAncestorsPush,
-	} = useWorkspaceBranchAndAncestorsPush();
+	const { mutate: workspaceBranchAndAncestorsPush } = useWorkspaceBranchAndAncestorsPush(projectId);
 	const { mutate: commitInsertBlank } = useCommitInsertBlank();
 	const { isPending: isTearOffBranchPending, mutate: tearOffBranch } = useTearOffBranch();
 	const { isPending: isBranchRemovePending, mutate: branchRemove } = useBranchRemove();
@@ -328,7 +329,7 @@ export const BranchRow: FC<
 	};
 
 	const workspaceBranchAndAncestorsPushDisabled =
-		isWorkspaceBranchAndAncestorsPushPending || downstackPushStatusDisabled(downstackPushStatus);
+		pushActivity !== "idle" || downstackPushStatusDisabled(downstackPushStatus);
 
 	const pushMenuLabel = pushesMultipleBranches
 		? downstackPushStatus.anyPushRequiresForce
@@ -558,11 +559,13 @@ export const BranchRow: FC<
 						{downstackPushStatus.anyRequiresPush &&
 							(() => {
 								const workspaceBranchAndAncestorsPushDisabledReason =
-									isWorkspaceBranchAndAncestorsPushPending
+									pushActivity === "pushing"
 										? "pushing"
-										: downstackPushStatus.anyHasConflicts
-											? "disabled due to conflicts"
-											: null;
+										: pushActivity === "blocked"
+											? "another push is in progress"
+											: downstackPushStatus.anyHasConflicts
+												? "disabled due to conflicts"
+												: null;
 
 								const pushButtonLabel = `${
 									pushesMultipleBranches
@@ -593,7 +596,7 @@ export const BranchRow: FC<
 											}
 										>
 											Push
-											{isWorkspaceBranchAndAncestorsPushPending ? (
+											{pushActivity === "pushing" ? (
 												<Icon name="spinner" />
 											) : pushesMultipleBranches ? (
 												<Icon size={12} name="arrow-double-up" />

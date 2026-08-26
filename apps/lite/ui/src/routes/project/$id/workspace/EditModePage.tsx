@@ -77,8 +77,8 @@ export const EditModePage: FC<{ projectId: string; metadata: EditModeMetadata }>
 		editChangesFromInitialQueryOptions(projectId),
 	);
 
-	const { mutate: saveEdit, isPending: saving } = useSaveEditAndReturnToWorkspace();
-	const { mutate: abortEdit, isPending: aborting } = useAbortEditAndReturnToWorkspace();
+	const { mutate: saveEdit, isPending: saving } = useSaveEditAndReturnToWorkspace(projectId);
+	const { mutate: abortEdit, isPending: aborting } = useAbortEditAndReturnToWorkspace(projectId);
 	const { mutate: openInProgram } = useOpenInProgram();
 	const { data: editors } = useQuery(listEditorsQueryOptions);
 	const { data: preferredEditor } = useQuery({

@@ -2,9 +2,8 @@ import { apiProvides } from "@gitbutler/but-sdk/cache-tags";
 
 /**
  * The project queries are the endpoints declaring `provides` in Rust — using a
- * name the backend doesn't declare is a type error. Keyed `[key, projectId,
- * ...]`; the fixed position is what lets an invalidation reach a whole query
- * root holding nothing but a project id.
+ * name the backend doesn't declare is a type error. Keyed `[projectId, key,
+ * ...]`; the fixed position lets project-wide cache operations use `[projectId]`.
  */
 export type ProjectQueryKey = keyof typeof apiProvides;
 
@@ -12,7 +11,7 @@ export type ProjectQueryKey = keyof typeof apiProvides;
 export const projectQueryKeys = Object.keys(apiProvides) as ReadonlyArray<ProjectQueryKey>;
 
 /** Keyed without a project id, so no project event can invalidate them. */
-type GlobalQueryKey =
+export type GlobalQueryKey =
 	| "aiConfiguration"
 	| "editors"
 	| "terminals"
@@ -34,7 +33,10 @@ type LocalQueryKey =
 	| "projectAiSettings"
 	| "reviewedFiles";
 
-export type QueryKey = ProjectQueryKey | GlobalQueryKey | LocalQueryKey;
+type QueryKey =
+	| [projectId: string, ProjectQueryKey]
+	| [projectId: string, LocalQueryKey]
+	| [GlobalQueryKey];
 
 declare module "@tanstack/react-query" {
 	interface Register {
@@ -43,6 +45,6 @@ declare module "@tanstack/react-query" {
 		 * error wherever a key is written — building one, invalidating it, or
 		 * reading it back — without each site having to say so.
 		 */
-		queryKey: readonly [QueryKey, ...ReadonlyArray<unknown>];
+		queryKey: readonly [...QueryKey, ...ReadonlyArray<unknown>];
 	}
 }

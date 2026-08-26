@@ -221,7 +221,7 @@ export const useDryRunOperation = ({
 
 	return useQuery({
 		enabled: !!operation,
-		queryKey: ["dryRun", projectId, operation, changes],
+		queryKey: [projectId, "dryRun", operation, changes],
 		queryFn: () => {
 			if (!operation) return null;
 			return executeOperation({

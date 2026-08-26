@@ -71,6 +71,7 @@ export const useActiveListsHotkeys = ({
 	checkCommit,
 	focusCommitMessageInput,
 	onEdgeSpill,
+	pendingPushBranches,
 }: {
 	addressSpace: AddressSpace<Address>;
 	projectId: string;
@@ -78,6 +79,7 @@ export const useActiveListsHotkeys = ({
 	checkCommit: (evt: { commitId: string; shiftKey: boolean }) => void;
 	focusCommitMessageInput: () => void;
 	onEdgeSpill?: (offset: -1 | 1) => void;
+	pendingPushBranches: Set<string>;
 }) => {
 	const { data: headInfoIndex } = useQuery({
 		...headInfoQueryOptions(projectId),
@@ -127,10 +129,7 @@ export const useActiveListsHotkeys = ({
 	const { isPending: isCommitUncommitPending, mutate: commitUncommit } = useCommitUncommit();
 	const { isPending: isCommitInsertBlankPending, mutate: commitInsertBlank } =
 		useCommitInsertBlank();
-	const {
-		isPending: isWorkspaceBranchAndAncestorsPushPending,
-		mutate: workspaceBranchAndAncestorsPush,
-	} = useWorkspaceBranchAndAncestorsPush();
+	const { mutate: workspaceBranchAndAncestorsPush } = useWorkspaceBranchAndAncestorsPush(projectId);
 	const { isPending: isWorkspaceIntegrateUpstreamPending, mutate: workspaceIntegrateUpstream } =
 		useWorkspaceIntegrateUpstream();
 	const { mutate: branchCreate } = useBranchCreate();
@@ -407,9 +406,14 @@ export const useActiveListsHotkeys = ({
 	const defaultSidebarHotkeysEnabled = noOperationPending;
 	const isSelectedCommit = selection?._tag === "Commit";
 	const isSelectedBranch = selection?._tag === "Branch";
+	const isSelectedStackPushPending =
+		selectionStack?.segments.some(
+			(segment) =>
+				segment.refName && pendingPushBranches.has(decodeBytes(segment.refName.fullNameBytes)),
+		) ?? false;
 	const canPushSelectedBranch =
 		!!selectedPushContext &&
-		!isWorkspaceBranchAndAncestorsPushPending &&
+		!isSelectedStackPushPending &&
 		!downstackPushStatusDisabled(
 			downstackPushStatusFromSegments(selectedPushContext.downstackSegments),
 		);

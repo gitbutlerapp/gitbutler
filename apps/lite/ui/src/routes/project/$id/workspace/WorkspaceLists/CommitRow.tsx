@@ -114,7 +114,7 @@ export const CommitRow: FC<
 	const { isPending: isCommitDiscardPending, mutate: commitDiscard } = useCommitDiscard();
 	const { isPending: isCommitUncommitPending, mutate: commitUncommit } = useCommitUncommit();
 	const { mutateAsync: commitReword } = useCommitReword();
-	const { mutate: enterEditMode } = useEnterEditMode();
+	const { mutate: enterEditMode } = useEnterEditMode(projectId);
 	const { mutate: branchCreate } = useBranchCreate();
 
 	const insertBlankCommit = (side: "above" | "below") => {

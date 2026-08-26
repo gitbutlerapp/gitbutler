@@ -14,10 +14,10 @@ const react = (event: string) => {
 	const pushed: Array<unknown> = [];
 	const client = {
 		invalidateQueries: ({ queryKey }: { queryKey: ReadonlyArray<unknown> }) => {
-			invalidated.push(queryKey[0]);
+			invalidated.push(queryKey[1]);
 			return Promise.resolve();
 		},
-		setQueryData: (queryKey: ReadonlyArray<unknown>) => pushed.push(queryKey[0]),
+		setQueryData: (queryKey: ReadonlyArray<unknown>) => pushed.push(queryKey[1]),
 		fetchQuery: () => Promise.reject(new Error("offline")),
 	} as unknown as QueryClient;
 

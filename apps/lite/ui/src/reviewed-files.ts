@@ -11,7 +11,7 @@ const reviewedFilesKey = (projectId: string, contextId: string): string =>
 
 export const reviewedFilesQueryOptions = (projectId: string, contextId: string) =>
 	queryOptions({
-		queryKey: ["reviewedFiles", projectId, contextId],
+		queryKey: [projectId, "reviewedFiles", contextId],
 		queryFn: async (): Promise<ReviewedFileVersions> =>
 			(await idb.get<ReviewedFileVersions>(reviewedFilesKey(projectId, contextId))) ?? new Map(),
 	});

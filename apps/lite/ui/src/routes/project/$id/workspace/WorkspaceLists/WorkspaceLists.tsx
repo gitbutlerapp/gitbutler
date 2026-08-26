@@ -39,7 +39,8 @@ import type {
 	WorkspaceState,
 } from "@gitbutler/but-sdk";
 
-import { useQuery } from "@tanstack/react-query";
+import { useMutationState, useQuery } from "@tanstack/react-query";
+import type { PayloadFor } from "#electron/ipc.ts";
 import { Match } from "effect";
 import {
 	type ComponentProps,
@@ -67,7 +68,7 @@ import { GraphSegment, type GraphSegmentStatus } from "#ui/components/GraphSegme
 import { segmentBottomRelativeTo } from "#ui/api/stack.ts";
 import { assert } from "#ui/assert.ts";
 import { CommitRow } from "./CommitRow.tsx";
-import { BranchRow } from "./BranchRow.tsx";
+import { BranchRow, type PushActivity } from "./BranchRow.tsx";
 import { useActiveListsHotkeys } from "./hotkeys.ts";
 import { UncommittedChangesRow } from "./UncommittedChangesRow.tsx";
 import { ListFilterRow } from "../ListFilterRow.tsx";
@@ -387,6 +388,7 @@ const BranchSegment: FC<{
 	canTearOffBranch: boolean;
 	canRemoveBranch: boolean;
 	downstackPushStatus: DownstackPushStatus;
+	pushActivity: PushActivity;
 	isTopSegment: boolean;
 	checkCommit: (evt: { commitId: string; shiftKey: boolean }) => void;
 	onAmendCommit: (commitId: string) => void;
@@ -399,6 +401,7 @@ const BranchSegment: FC<{
 	canTearOffBranch,
 	canRemoveBranch,
 	downstackPushStatus,
+	pushActivity,
 	isTopSegment,
 	checkCommit,
 	onAmendCommit,
@@ -419,6 +422,7 @@ const BranchSegment: FC<{
 				canTearOffBranch={canTearOffBranch}
 				canRemoveBranch={canRemoveBranch}
 				downstackPushStatus={downstackPushStatus}
+				pushActivity={pushActivity}
 				pushStatus={segment.pushStatus}
 				recordedPullRequest={recordedPullRequest(segment)}
 				graphStatus={segmentPushStatusToGraphSegmentStatus(segment.pushStatus)}
@@ -599,9 +603,14 @@ const StackC: FC<{
 	checkCommit: (evt: { commitId: string; shiftKey: boolean }) => void;
 	onAmendCommit: (commitId: string) => void;
 	canAmendCommit: boolean;
-}> = ({ projectId, stack, checkCommit, onAmendCommit, canAmendCommit }) => {
+	pendingPushBranches: Set<string>;
+}> = ({ projectId, stack, checkCommit, onAmendCommit, canAmendCommit, pendingPushBranches }) => {
 	const canTearOffBranch = stack.segments.length > 1;
 	const downstackPushStatuses = downstackPushStatusesFromSegments(stack.segments);
+	const topmostPendingPushIndex = stack.segments.findIndex(
+		(segment) =>
+			segment.refName && pendingPushBranches.has(decodeBytes(segment.refName.fullNameBytes)),
+	);
 
 	return (
 		<StackCard
@@ -610,8 +619,6 @@ const StackC: FC<{
 			aria-label="Stack"
 		>
 			{stack.segments.flatMap((segment, index) => {
-				const downstackPushStatus = assert(downstackPushStatuses[index]);
-
 				const key = segment.refName
 					? JSON.stringify(segment.refName.fullNameBytes)
 					: segment.commits[0]?.id;
@@ -619,6 +626,14 @@ const StackC: FC<{
 				// A segment is supposed to always either have a branch reference or at least one commit,
 				// however with the current API this may not be the case e.g. detached HEAD.
 				if (key === undefined) return [];
+
+				const downstackPushStatus = assert(downstackPushStatuses[index]);
+				const pushActivity: PushActivity =
+					topmostPendingPushIndex !== -1
+						? index >= topmostPendingPushIndex
+							? "pushing"
+							: "blocked"
+						: "idle";
 
 				return (
 					<Fragment key={key}>
@@ -632,6 +647,7 @@ const StackC: FC<{
 									canTearOffBranch={canTearOffBranch}
 									canRemoveBranch={canRemoveBranchReference(stack, index)}
 									downstackPushStatus={downstackPushStatus}
+									pushActivity={pushActivity}
 									isTopSegment={index === 0}
 									checkCommit={checkCommit}
 									onAmendCommit={onAmendCommit}
@@ -707,6 +723,16 @@ const Stacks: FC<{
 		operation: dryRunOperation,
 	});
 	const dryRunWorkspace = dryRunOperationResult?.workspace ?? null;
+	const pendingPushBranches = new Set(
+		useMutationState({
+			filters: {
+				mutationKey: [projectId, "workspaceBranchAndAncestorsPush"],
+				status: "pending",
+			},
+			select: (mutation) =>
+				(mutation.state.variables as PayloadFor<"workspaceBranchAndAncestorsPush">).branch,
+		}),
+	);
 
 	const hotkeysRef = useRef<HTMLDivElement>(null);
 	useActiveListsHotkeys({
@@ -716,6 +742,7 @@ const Stacks: FC<{
 		checkCommit,
 		focusCommitMessageInput,
 		onEdgeSpill,
+		pendingPushBranches,
 	});
 
 	return (
@@ -737,6 +764,7 @@ const Stacks: FC<{
 						checkCommit={checkCommit}
 						onAmendCommit={onAmendCommit}
 						canAmendCommit={canAmendCommit}
+						pendingPushBranches={pendingPushBranches}
 					/>
 				))}
 			</div>
@@ -781,7 +809,7 @@ export const WorkspaceLists: FC<
 	const hasNoBranches = headInfo !== undefined && headInfo.stacks.length === 0;
 	const store = useAppStore();
 	const dispatch = useAppDispatch();
-	const { isPending: isCommitAmendPending, mutate: commitAmend } = useCommitAmend();
+	const { isPending: isCommitAmendPending, mutate: commitAmend } = useCommitAmend(projectId);
 	const canAmendCommit =
 		!isCommitAmendPending && !!worktreeChanges && worktreeChanges.changes.length > 0;
 	const amendCommit = (commitId: string) => {

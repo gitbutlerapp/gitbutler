@@ -162,8 +162,7 @@ export const CommitForm: FC<{
 		...headInfoQueryOptions(projectId),
 		select: getHeadInfoIndex,
 	});
-	const isAmendCommitPending =
-		useIsMutating({ predicate: (m) => m.options.mutationFn === window.lite.commitAmend }) > 0;
+	const isAmendCommitPending = useIsMutating({ mutationKey: [projectId, "commitAmend"] }) > 0;
 	// The branch creation is the first half of a commit here, so it keeps the
 	// form read-only for its duration and rules out a double submit.
 	const isCommitOrAmendPending =

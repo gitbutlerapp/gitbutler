@@ -213,8 +213,9 @@ export const useBranchCheckoutNew = () => {
 	});
 };
 
-export const usePublishReview = () =>
+export const usePublishReview = (projectId: string) =>
 	useMutation({
+		mutationKey: [projectId, "publishReview"],
 		mutationFn: window.lite.publishReview,
 		meta: { failureTitle: "Failed to create pull request" },
 	});
@@ -288,20 +289,23 @@ export const useUploadFiles = () =>
 		meta: { failureTitle: "Failed to upload files" },
 	});
 
-export const useUpdateReview = () =>
+export const useUpdateReview = (projectId: string) =>
 	useMutation({
+		mutationKey: [projectId, "updateReview"],
 		mutationFn: window.lite.updateReview,
 		meta: { failureTitle: "Failed to update pull request" },
 	});
 
-export const useAddReviewLabels = () =>
+export const useAddReviewLabels = (projectId: string) =>
 	useMutation({
+		mutationKey: [projectId, "addReviewLabels"],
 		mutationFn: window.lite.addReviewLabels,
 		meta: { failureTitle: "Failed to add label" },
 	});
 
-export const useRemoveReviewLabel = () =>
+export const useRemoveReviewLabel = (projectId: string) =>
 	useMutation({
+		mutationKey: [projectId, "removeReviewLabel"],
 		mutationFn: window.lite.removeReviewLabel,
 		meta: { failureTitle: "Failed to remove label" },
 	});
@@ -354,8 +358,9 @@ const withCommentReactionCount = (
 		return { ...comment, reactions };
 	});
 
-export const useAddReviewReaction = () =>
+export const useAddReviewReaction = (projectId: string) =>
 	useMutation({
+		mutationKey: [projectId, "addReviewReaction"],
 		mutationFn: window.lite.addReviewReaction,
 		meta: { failureTitle: "Failed to add reaction" },
 		onMutate: async (input, ctx) => {
@@ -384,8 +389,9 @@ export const useAddReviewReaction = () =>
 		},
 	});
 
-export const useRemoveReviewReaction = () =>
+export const useRemoveReviewReaction = (projectId: string) =>
 	useMutation({
+		mutationKey: [projectId, "removeReviewReaction"],
 		mutationFn: window.lite.removeReviewReaction,
 		meta: { failureTitle: "Failed to remove reaction" },
 		onMutate: async (input, ctx) => {
@@ -414,8 +420,15 @@ export const useRemoveReviewReaction = () =>
  * listing and the names on the per-comment reactions listing — so the
  * optimistic write and its rollback patch both.
  */
-export const useAddCommentReaction = ({ reviewId }: { reviewId: number }) =>
+export const useAddCommentReaction = ({
+	projectId,
+	reviewId,
+}: {
+	projectId: string;
+	reviewId: number;
+}) =>
 	useMutation({
+		mutationKey: [projectId, "addCommentReaction"],
 		mutationFn: window.lite.addCommentReaction,
 		meta: { failureTitle: "Failed to add reaction" },
 		onMutate: async (input, ctx) => {
@@ -460,8 +473,15 @@ export const useAddCommentReaction = ({ reviewId }: { reviewId: number }) =>
 		},
 	});
 
-export const useRemoveCommentReaction = ({ reviewId }: { reviewId: number }) =>
+export const useRemoveCommentReaction = ({
+	projectId,
+	reviewId,
+}: {
+	projectId: string;
+	reviewId: number;
+}) =>
 	useMutation({
+		mutationKey: [projectId, "removeCommentReaction"],
 		mutationFn: window.lite.removeCommentReaction,
 		meta: { failureTitle: "Failed to remove reaction" },
 		onMutate: async (input, ctx) => {
@@ -506,20 +526,23 @@ export const useRemoveCommentReaction = ({ reviewId }: { reviewId: number }) =>
 		},
 	});
 
-export const useRequestReview = () =>
+export const useRequestReview = (projectId: string) =>
 	useMutation({
+		mutationKey: [projectId, "requestReview"],
 		mutationFn: window.lite.requestReview,
 		meta: { failureTitle: "Failed to request review" },
 	});
 
-export const useWithdrawReviewRequest = () =>
+export const useWithdrawReviewRequest = (projectId: string) =>
 	useMutation({
+		mutationKey: [projectId, "withdrawReviewRequest"],
 		mutationFn: window.lite.withdrawReviewRequest,
 		meta: { failureTitle: "Failed to withdraw review request" },
 	});
 
-export const useCreateReviewComment = () =>
+export const useCreateReviewComment = (projectId: string) =>
 	useMutation({
+		mutationKey: [projectId, "createReviewComment"],
 		mutationFn: window.lite.createReviewComment,
 		meta: { failureTitle: "Failed to post comment" },
 		onMutate: async (input, ctx) => {
@@ -553,25 +576,28 @@ export const useCreateReviewComment = () =>
 		},
 	});
 
-export const useUpdateReviewComment = () =>
+export const useUpdateReviewComment = (projectId: string) =>
 	useMutation({
+		mutationKey: [projectId, "updateReviewComment"],
 		mutationFn: window.lite.updateReviewComment,
 		meta: { failureTitle: "Failed to update comment" },
 	});
 
-export const useDeleteReviewComment = () =>
+export const useDeleteReviewComment = (projectId: string) =>
 	useMutation({
+		mutationKey: [projectId, "deleteReviewComment"],
 		mutationFn: window.lite.deleteReviewComment,
 		meta: { failureTitle: "Failed to delete comment" },
 	});
 
-export const useSetReviewAutoMerge = () => {
+export const useSetReviewAutoMerge = (projectId: string) => {
 	const toastManager = Toast.useToastManager();
 
 	return useMutation({
+		mutationKey: [projectId, "setReviewAutoMerge"],
 		mutationFn: window.lite.setReviewAutoMerge,
 		onMutate: async (input, ctx) => {
-			const reviewsPrefix = ["listReviews", input.projectId] as const;
+			const reviewsPrefix = [input.projectId, "listReviews"] as const;
 			await ctx.client.cancelQueries({ queryKey: reviewsPrefix });
 
 			// The flag lives on every reviews listing (the key varies by cache
@@ -604,8 +630,8 @@ export const useSetReviewAutoMerge = () => {
 					prev.prevSingle,
 				);
 			}
-			void ctx.client.invalidateQueries({ queryKey: ["listReviews", input.projectId] });
-			void ctx.client.invalidateQueries({ queryKey: ["getReview", input.projectId] });
+			void ctx.client.invalidateQueries({ queryKey: [input.projectId, "listReviews"] });
+			void ctx.client.invalidateQueries({ queryKey: [input.projectId, "getReview"] });
 
 			toastManager.add({
 				type: "error",
@@ -617,8 +643,9 @@ export const useSetReviewAutoMerge = () => {
 	});
 };
 
-export const useMergeReview = () =>
+export const useMergeReview = (projectId: string) =>
 	useMutation({
+		mutationKey: [projectId, "mergeReview"],
 		mutationFn: window.lite.mergeReview,
 		onSuccess: async (_response, input, _context, mutation) => {
 			// The merge moved the target branch on the remote, but nothing local, so
@@ -639,74 +666,86 @@ export const useMergeReview = () =>
 		meta: { failureTitle: "Failed to merge pull request" },
 	});
 
-export const useSetReviewDraftiness = () =>
+export const useSetReviewDraftiness = (projectId: string) =>
 	useMutation({
+		mutationKey: [projectId, "setReviewDraftiness"],
 		mutationFn: window.lite.setReviewDraftiness,
 		meta: { failureTitle: "Failed to update pull request" },
 	});
 
-export const useSetGbConfig = () =>
+export const useSetGbConfig = (projectId: string) =>
 	useMutation({
+		mutationKey: [projectId, "setGbConfig"],
 		mutationFn: window.lite.setGbConfig,
 		meta: { failureTitle: "Failed to save git settings" },
 	});
 
 export const useDeleteAllData = () =>
 	useMutation({
+		mutationKey: ["deleteAllData"],
 		mutationFn: window.lite.deleteAllData,
 		meta: { failureTitle: "Failed to remove projects" },
 	});
 
 export const useForgetGithubAccount = () =>
 	useMutation({
+		mutationKey: ["forgetGithubAccount"],
 		mutationFn: window.lite.forgetGithubAccount,
 		meta: { failureTitle: "Failed to forget account" },
 	});
 
 export const useForgetGitlabAccount = () =>
 	useMutation({
+		mutationKey: ["forgetGitlabAccount"],
 		mutationFn: window.lite.forgetGitlabAccount,
 		meta: { failureTitle: "Failed to forget account" },
 	});
 
 export const useForgetBitbucketAccount = () =>
 	useMutation({
+		mutationKey: ["forgetBitbucketAccount"],
 		mutationFn: window.lite.forgetBitbucketAccount,
 		meta: { failureTitle: "Failed to forget account" },
 	});
 
 export const useStoreGithubPat = () =>
 	useMutation({
+		mutationKey: ["storeGithubPat"],
 		mutationFn: window.lite.storeGithubPat,
 		meta: { failureTitle: "Failed to add GitHub account" },
 	});
 
 export const useStoreGitlabPat = () =>
 	useMutation({
+		mutationKey: ["storeGitlabPat"],
 		mutationFn: window.lite.storeGitlabPat,
 		meta: { failureTitle: "Failed to add GitLab account" },
 	});
 
 export const useStoreBitbucketApiToken = () =>
 	useMutation({
+		mutationKey: ["storeBitbucketApiToken"],
 		mutationFn: window.lite.storeBitbucketApiToken,
 		meta: { failureTitle: "Failed to add Bitbucket account" },
 	});
 
-export const useDeleteProject = () =>
+export const useDeleteProject = (projectId: string) =>
 	useMutation({
+		mutationKey: [projectId, "deleteProject"],
 		mutationFn: window.lite.deleteProject,
 		meta: { failureTitle: "Failed to remove project" },
 	});
 
 export const useAddProject = () =>
 	useMutation({
+		mutationKey: ["addProject"],
 		mutationFn: window.lite.addProject,
 		meta: { failureTitle: "Failed to add project" },
 	});
 
-export const useUpdateProjectSettings = () =>
+export const useUpdateProjectSettings = (projectId: string) =>
 	useMutation({
+		mutationKey: [projectId, "updateProjectSettings"],
 		mutationFn: window.lite.updateProjectSettings,
 		meta: { failureTitle: "Failed to save project settings" },
 	});
@@ -717,11 +756,12 @@ export const useOpenInProgram = () =>
 		meta: { failureTitle: "Failed to open in editor" },
 	});
 
-export const useCommitAmend = () => {
+export const useCommitAmend = (projectId: string) => {
 	const toastManager = Toast.useToastManager();
 	const dispatch = useAppDispatch();
 
 	return useMutation({
+		mutationKey: [projectId, "commitAmend"],
 		mutationFn: window.lite.commitAmend,
 		onSuccess: async (response, input, _ctx, mutation) => {
 			syncCoreCaches(
@@ -832,20 +872,23 @@ export const useResolveWorktreeConflicts = () =>
 		meta: { failureTitle: "Failed to mark conflict as resolved" },
 	});
 
-export const useEnterEditMode = () =>
+export const useEnterEditMode = (projectId: string) =>
 	useMutation({
+		mutationKey: [projectId, "enterEditMode"],
 		mutationFn: window.lite.enterEditMode,
 		meta: { failureTitle: "Failed to enter edit mode" },
 	});
 
-export const useSaveEditAndReturnToWorkspace = () =>
+export const useSaveEditAndReturnToWorkspace = (projectId: string) =>
 	useMutation({
+		mutationKey: [projectId, "saveEditAndReturnToWorkspace"],
 		mutationFn: window.lite.saveEditAndReturnToWorkspace,
 		meta: { failureTitle: "Failed to save the edited commit" },
 	});
 
-export const useAbortEditAndReturnToWorkspace = () =>
+export const useAbortEditAndReturnToWorkspace = (projectId: string) =>
 	useMutation({
+		mutationKey: [projectId, "abortEditAndReturnToWorkspace"],
 		mutationFn: window.lite.abortEditAndReturnToWorkspace,
 		meta: { failureTitle: "Failed to leave edit mode" },
 	});
@@ -1048,8 +1091,9 @@ export const useCommitUncommitChanges = () => {
 	});
 };
 
-export const useWorkspaceBranchAndAncestorsPush = () =>
+export const useWorkspaceBranchAndAncestorsPush = (projectId: string) =>
 	useMutation({
+		mutationKey: [projectId, "workspaceBranchAndAncestorsPush"],
 		mutationFn: window.lite.workspaceBranchAndAncestorsPush,
 		meta: { failureTitle: "Failed to push" },
 	});

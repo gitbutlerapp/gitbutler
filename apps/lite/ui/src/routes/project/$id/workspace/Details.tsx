@@ -2911,8 +2911,8 @@ const NewPullRequestView: FC<{
 		persistDraftPR({ projectId, branchName, draft: { ...draft, ...next } });
 	};
 
-	const { mutate: addReviewLabels } = useAddReviewLabels();
-	const { mutate: requestReview } = useRequestReview();
+	const { mutate: addReviewLabels } = useAddReviewLabels(projectId);
+	const { mutate: requestReview } = useRequestReview(projectId);
 
 	// The forge takes none of these when a PR is created — GitHub's create
 	// endpoint accepts neither labels nor reviewers — so they are applied the

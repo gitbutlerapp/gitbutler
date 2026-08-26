@@ -59,7 +59,7 @@ export const ConflictBar: FC<Props> = (p) => {
 				),
 			)?.id ?? null,
 	});
-	const { mutate: enterEditMode } = useEnterEditMode();
+	const { mutate: enterEditMode } = useEnterEditMode(p.projectId);
 
 	const total = p.conflicts.reduce((sum, file) => sum + file.hunks.length, 0);
 	if (total === 0 && p.manual.length === 0) return null;
