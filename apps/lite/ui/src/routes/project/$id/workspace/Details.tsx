@@ -128,6 +128,7 @@ import {
 } from "#ui/focus-scopes.ts";
 import { buildIndexByKey, getAdjacent } from "#ui/workspace/address-space.ts";
 import { ChangeStats } from "#ui/routes/project/$id/workspace/ChangeStats.tsx";
+import { DiffStats } from "#ui/components/DiffStats.tsx";
 import { ChangesHeaderRow } from "#ui/routes/project/$id/workspace/ChangesHeaderRow.tsx";
 import {
 	getLineStats,
@@ -1737,15 +1738,8 @@ const DiffFileHeader: FC<DiffFileHeaderProps> = (p) => {
 					{reviewLabel}
 				</button>
 				<ChangeTypeBadge type={p.item.fileDiff.type} />
-				{p.lineStats && (p.lineStats.linesAdded > 0 || p.lineStats.linesRemoved > 0) && (
-					<span>
-						{p.lineStats.linesAdded > 0 && (
-							<span className={styles.fileDiffAdded}>+{p.lineStats.linesAdded}</span>
-						)}{" "}
-						{p.lineStats.linesRemoved > 0 && (
-							<span className={styles.fileDiffDeleted}>-{p.lineStats.linesRemoved}</span>
-						)}
-					</span>
+				{p.lineStats && (
+					<DiffStats added={p.lineStats.linesAdded} removed={p.lineStats.linesRemoved} />
 				)}
 
 				<Toolbar.Root aria-label="File actions" className={styles.fileHeaderActions}>

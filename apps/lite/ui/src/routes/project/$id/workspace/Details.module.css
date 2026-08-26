@@ -327,14 +327,6 @@
 	text-overflow: ellipsis;
 }
 
-.fileDiffAdded {
-	color: var(--text-safe);
-}
-
-.fileDiffDeleted {
-	color: #d34832;
-}
-
 .pathInit {
 	color: var(--text-2);
 }

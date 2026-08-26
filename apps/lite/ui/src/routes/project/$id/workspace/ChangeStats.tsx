@@ -1,5 +1,6 @@
 import { Badge } from "#ui/components/Badge.tsx";
 import { classes } from "#ui/components/classes.ts";
+import { DiffStats } from "#ui/components/DiffStats.tsx";
 import { TooltipPopup } from "#ui/components/Tooltip.tsx";
 import { Tooltip } from "@base-ui/react";
 import type { FC } from "react";
@@ -39,18 +40,13 @@ export const ChangeStats: FC<{
 			<Tooltip.Trigger
 				render={
 					<span aria-label={spoken.join(", ")} className={classes(styles.container, className)}>
-						<Badge variant="fillGray">{fileCount}</Badge>
+						<Badge variant="lightGray">{fileCount}</Badge>
 
-						{(lineStats.linesAdded > 0 || lineStats.linesRemoved > 0) && (
-							<span className={classes("text-12", styles.lineStats)}>
-								{lineStats.linesAdded > 0 && (
-									<span className={styles.linesAdded}>+{lineStats.linesAdded}</span>
-								)}
-								{lineStats.linesRemoved > 0 && (
-									<span className={styles.linesRemoved}>-{lineStats.linesRemoved}</span>
-								)}
-							</span>
-						)}
+						<DiffStats
+							added={lineStats.linesAdded}
+							removed={lineStats.linesRemoved}
+							className="text-12"
+						/>
 					</span>
 				}
 			/>
