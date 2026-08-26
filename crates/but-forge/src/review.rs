@@ -537,15 +537,17 @@ pub fn list_forge_reviews_with_cache(
             }
             match sync_listed_reviews(preferred_forge_user, forge_repo_info, storage, db) {
                 Ok(reviews) => reviews,
-                // Missing credentials say nothing about the forge's state:
-                // keep serving the last known reviews instead of failing
-                // every cached read while the user is logged out. Explicit
-                // `NoCache` reads still surface the re-authentication error.
-                Err(err) if is_not_authenticated(&err) => crate::list_cached_forge_reviews(db)?
-                    .into_iter()
-                    .filter(ForgeReview::is_open)
-                    .collect(),
-                Err(err) => return Err(err),
+                Err(err) => {
+                    let cached_open: Vec<ForgeReview> = crate::list_cached_forge_reviews(db)?
+                        .into_iter()
+                        .filter(ForgeReview::is_open)
+                        .collect();
+                    if serves_stale_reviews(&err, !cached_open.is_empty()) {
+                        cached_open
+                    } else {
+                        return Err(err);
+                    }
+                }
             }
         }
         CacheConfig::NoCache => {
@@ -555,12 +557,23 @@ pub fn list_forge_reviews_with_cache(
     Ok(reviews)
 }
 
-/// Whether an error means "no forge credentials are stored" — the providers
-/// tag their failed credential lookups with this code.
-fn is_not_authenticated(err: &anyhow::Error) -> bool {
+/// Whether a failed live refresh should keep serving the last known open
+/// reviews instead of surfacing the error. Explicit `NoCache` reads never
+/// come here and still surface every failure.
+///
+/// Missing credentials say nothing about the forge's state, so the cached
+/// listing stays valid even when it is empty. A network error is transient,
+/// but an empty cache has no "confirmed empty at time T" watermark worth
+/// serving, so cold listings still surface the failure. Anything else
+/// (404, invalid tokens, API errors) can require user action and is
+/// returned. The providers tag their errors with these codes.
+fn serves_stale_reviews(err: &anyhow::Error, has_open_reviews: bool) -> bool {
     use but_error::AnyhowContextExt as _;
-    err.custom_context()
-        .is_some_and(|ctx| ctx.code == but_error::Code::ForgeNotAuthenticated)
+    match err.custom_context().map(|ctx| ctx.code) {
+        Some(but_error::Code::ForgeNotAuthenticated) => true,
+        Some(but_error::Code::NetworkError) => has_open_reviews,
+        _ => false,
+    }
 }
 
 /// Fetch the open listing and fold it into the cache, recording the fate of
@@ -3490,6 +3503,36 @@ mod tests {
             persisted,
             vec![1],
             "a failed credential lookup must not delete the last known open reviews"
+        );
+    }
+
+    #[test]
+    fn only_outage_shaped_sync_failures_serve_the_stale_cache() {
+        let not_authenticated =
+            anyhow::anyhow!("no accounts").context(but_error::Context::new_static(
+                but_error::Code::ForgeNotAuthenticated,
+                "Not authenticated.",
+            ));
+        let network = anyhow::anyhow!("connection refused").context(
+            but_error::Context::new_static(but_error::Code::NetworkError, "Unable to connect."),
+        );
+        let api_failure = anyhow::anyhow!("Failed to list open pull requests: 500");
+
+        assert!(
+            serves_stale_reviews(&not_authenticated, false),
+            "missing credentials say nothing about the forge, even an empty cache stays valid"
+        );
+        assert!(
+            serves_stale_reviews(&network, true),
+            "a transient outage must not wipe out the last known open reviews"
+        );
+        assert!(
+            !serves_stale_reviews(&network, false),
+            "an empty cache has nothing usable, cold listings still surface the outage"
+        );
+        assert!(
+            !serves_stale_reviews(&api_failure, true),
+            "a forge-side failure can require user action and must be surfaced"
         );
     }
 

@@ -157,9 +157,26 @@ pub async fn get_bb_user(
 
 /// Check if an error is a network connectivity error.
 ///
-/// This includes DNS resolution failures, connection timeouts, connection refused, etc.
+/// This includes DNS resolution failures, connection timeouts, connection
+/// refused, and connections dropped while the response body was being read.
+/// reqwest wraps both body I/O failures and malformed payloads as the same
+/// decode kind, so the source chain decides: a serde cause means the payload
+/// was malformed, anything else means the transport failed mid-response.
 fn is_network_error(err: &reqwest::Error) -> bool {
-    err.is_timeout() || err.is_connect() || err.is_request()
+    if err.is_timeout() || err.is_connect() || err.is_request() {
+        return true;
+    }
+    if !err.is_decode() {
+        return false;
+    }
+    let mut source = std::error::Error::source(err);
+    while let Some(cause) = source {
+        if cause.downcast_ref::<serde_json::Error>().is_some() {
+            return false;
+        }
+        source = cause.source();
+    }
+    true
 }
 
 /// Stable 64-bit hash (FNV-1a) for synthesizing numeric ids from the string
