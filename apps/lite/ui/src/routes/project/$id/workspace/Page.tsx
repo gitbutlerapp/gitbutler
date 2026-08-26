@@ -328,6 +328,9 @@ const PageBody: FC<{ projectId: string }> = ({ projectId }) => {
 
 	const dispatch = useAppDispatch();
 
+	// The stored setting is enough here even though the details pane also renders all
+	// files whenever the file list is hidden: file activation only ever comes from a
+	// visible list, and while the list is visible the pane follows the setting.
 	const { data: renderAllFiles } = useSuspenseQuery({
 		...guiSettingsQueryOptions,
 		select: (cfg) => cfg.unidiff ?? defaultSettings.unidiff,

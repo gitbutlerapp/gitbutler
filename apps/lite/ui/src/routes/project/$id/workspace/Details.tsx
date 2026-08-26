@@ -1961,7 +1961,7 @@ const Diff: FC<{
 		[unsortedChanges],
 	);
 
-	const { data: renderAllFiles } = useSuspenseQuery({
+	const { data: allInOneDiff } = useSuspenseQuery({
 		...guiSettingsQueryOptions,
 		select: (cfg) => cfg.unidiff ?? defaultSettings.unidiff,
 	});
@@ -1969,10 +1969,15 @@ const Diff: FC<{
 	const canShowFiles = useCanShowFiles();
 	const detailsFullWindow = useAppSelector(interfaceSlice.selectors.selectDetailsFullWindow);
 
-	// Change stats live in the files panel, or — in the uncommitted scope, which has no files
-	// panel — in the sidebar's "Uncommitted" row. Surface them in the toolbar below whenever
-	// whichever of those owns them is hidden, so they never disappear entirely.
-	const statsShownElsewhere = canShowFiles ? filesVisible : !detailsFullWindow;
+	// The file list lives in the files panel, or — in the uncommitted scope, which has no
+	// files panel — in the sidebar's "Uncommitted" rows, hidden only by full-window mode.
+	const fileListVisible = canShowFiles ? filesVisible : !detailsFullWindow;
+	// Change stats live alongside that list; surface them in the toolbar below whenever
+	// it is hidden, so they never disappear entirely.
+	const statsShownElsewhere = fileListVisible;
+	// Selected-file-only diffing leans on the file list to say which file the pane is
+	// showing, so without the list every file renders regardless of the setting.
+	const renderAllFiles = allInOneDiff || !fileListVisible;
 
 	const filesFilter = useAppSelector((state) =>
 		projectSlice.selectors.selectFilesFilter(state, projectId),
