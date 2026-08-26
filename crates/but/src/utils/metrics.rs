@@ -586,6 +586,7 @@ impl Event {
         if let EventKind::Cli(command) = event_name {
             event.insert_prop("command", command);
         }
+        event.insert_prop("samplingRate", event_name.sample_rate());
         event.insert_prop("appVersion", option_env!("VERSION").unwrap_or_default());
         event.insert_prop("releaseChannel", option_env!("CHANNEL").unwrap_or_default());
         event.insert_prop("appName", option_env!("CARGO_BIN_NAME").unwrap_or_default());
@@ -791,6 +792,20 @@ mod tests {
             Event::new(EventKind::Cli(subcommand.to_metrics_command())).props["command"],
             serde_json::json!(expected)
         );
+    }
+
+    #[test]
+    fn sampled_cli_events_include_sampling_rate() {
+        let event = Event::new(EventKind::Cli(CommandName::Status));
+
+        assert_eq!(event.props["samplingRate"], serde_json::json!(0.05));
+    }
+
+    #[test]
+    fn full_rate_cli_events_include_sampling_rate() {
+        let event = Event::new(EventKind::Cli(CommandName::Commit));
+
+        assert_eq!(event.props["samplingRate"], serde_json::json!(1.0));
     }
 
     #[test]
