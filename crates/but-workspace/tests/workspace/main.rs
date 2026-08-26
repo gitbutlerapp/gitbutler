@@ -14,6 +14,7 @@ mod tree_manipulation;
 mod ui;
 mod upstream_integration;
 mod worktree;
+mod worktree_move;
 mod worktrees;
 
 mod utils;

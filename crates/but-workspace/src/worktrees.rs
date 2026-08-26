@@ -7,8 +7,9 @@
 
 use std::path::Path;
 
-use anyhow::Context as _;
+use anyhow::{Context as _, bail};
 use bstr::{BStr, BString};
+use but_core::{DiffSpec, RepositoryExt};
 
 /// What a linked worktree's own commits are resting on.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -239,4 +240,91 @@ pub fn remove(repo: &gix::Repository, path: &Path, force: bool) -> anyhow::Resul
         anyhow::bail!("{}", String::from_utf8_lossy(&output.stderr).trim());
     }
     Ok(())
+}
+
+/// The outcome of [`move_uncommitted_changes()`].
+#[derive(Debug, Clone, Copy)]
+pub struct MoveUncommittedChangesOutcome {
+    /// Conflict markers were written into `main_repo`'s working directory and index.
+    pub conflict_occurred: bool,
+}
+
+/// Move some or all of the uncommitted changes of the linked worktree `worktree_repo` into the
+/// uncommitted changes of `main_repo`.
+///
+/// `worktree_repo` must share `main_repo`'s object database and have no object memory, as
+/// returned by [`open_worktree_repo()`] - the same requirement `ChangeSource::Worktree`
+/// (`crate::commit`) has, since this writes loose objects through it that `main_repo` must see
+/// immediately.
+///
+/// If `selection` is `Some`, only those changes are moved - matched against the worktree's
+/// current uncommitted changes the way `DiffSpec` selections are matched elsewhere, with
+/// `context_lines` used to re-derive hunks and required to match whatever produced the
+/// `DiffSpec`s. If `None`, every uncommitted change in the worktree is moved and `context_lines`
+/// is unused.
+pub fn move_uncommitted_changes(
+    main_repo: &gix::Repository,
+    worktree_repo: &gix::Repository,
+    selection: Option<Vec<DiffSpec>>,
+    context_lines: u32,
+) -> anyhow::Result<MoveUncommittedChangesOutcome> {
+    let worktree_head_tree = worktree_repo.head_tree_id_or_empty()?.detach();
+
+    let moved_tree = match selection {
+        None =>
+        {
+            #[expect(deprecated)]
+            worktree_repo.create_wd_tree(0)?
+        }
+        Some(selection) => {
+            if selection.is_empty() {
+                bail!("No changes were selected to move");
+            }
+            let outcome = but_core::tree::create_tree(
+                worktree_repo,
+                worktree_head_tree,
+                selection,
+                context_lines,
+            )?;
+            let rejected: Vec<_> = outcome
+                .rejected_specs
+                .iter()
+                .map(|(reason, spec)| format!("{reason:?}: {}", spec.path))
+                .collect();
+            if !rejected.is_empty() {
+                bail!(
+                    "Some selected changes no longer match the worktree's uncommitted changes: {}",
+                    rejected.join(", ")
+                );
+            }
+            outcome.destination_tree.context("No changes to move")?
+        }
+    };
+    if moved_tree == worktree_head_tree {
+        bail!("No changes to move");
+    }
+
+    let destination_outcome = but_core::worktree::safe_checkout_from_head(
+        moved_tree,
+        main_repo,
+        but_core::worktree::checkout::Options {
+            merge_base_override: Some(worktree_head_tree),
+            allow_uncommitted_changes_to_conflict_with_new_head: true,
+            ..Default::default()
+        },
+    )?;
+
+    but_core::worktree::safe_checkout_from_head(
+        worktree_head_tree,
+        worktree_repo,
+        but_core::worktree::checkout::Options {
+            merge_base_override: Some(moved_tree),
+            allow_uncommitted_changes_to_conflict_with_new_head: true,
+            ..Default::default()
+        },
+    )?;
+
+    Ok(MoveUncommittedChangesOutcome {
+        conflict_occurred: destination_outcome.conflict_occurred,
+    })
 }
