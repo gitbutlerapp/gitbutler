@@ -175,6 +175,10 @@ pub enum Code {
     /// blocked the GitButler OAuth app. Terminal until the org approves the
     /// app or the user switches credentials — retrying won't help.
     GitHubOrgOAuthRestricted,
+    /// No credentials are stored for the forge integration — the user never
+    /// authenticated or logged out. Cached forge data stays valid; retrying
+    /// without re-authenticating won't help.
+    ForgeNotAuthenticated,
     /// The operation was rejected because the current state doesn't allow it.
     /// Not a bug — the user's request simply can't be fulfilled right now.
     /// The frontend should present this as a warning rather than an error.

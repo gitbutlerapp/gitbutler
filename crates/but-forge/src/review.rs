@@ -535,13 +535,32 @@ pub fn list_forge_reviews_with_cache(
             {
                 return Ok(reviews.into_iter().filter(ForgeReview::is_open).collect());
             }
-            sync_listed_reviews(preferred_forge_user, forge_repo_info, storage, db)?
+            match sync_listed_reviews(preferred_forge_user, forge_repo_info, storage, db) {
+                Ok(reviews) => reviews,
+                // Missing credentials say nothing about the forge's state:
+                // keep serving the last known reviews instead of failing
+                // every cached read while the user is logged out. Explicit
+                // `NoCache` reads still surface the re-authentication error.
+                Err(err) if is_not_authenticated(&err) => crate::list_cached_forge_reviews(db)?
+                    .into_iter()
+                    .filter(ForgeReview::is_open)
+                    .collect(),
+                Err(err) => return Err(err),
+            }
         }
         CacheConfig::NoCache => {
             sync_listed_reviews(preferred_forge_user, forge_repo_info, storage, db)?
         }
     };
     Ok(reviews)
+}
+
+/// Whether an error means "no forge credentials are stored" — the providers
+/// tag their failed credential lookups with this code.
+fn is_not_authenticated(err: &anyhow::Error) -> bool {
+    use but_error::AnyhowContextExt as _;
+    err.custom_context()
+        .is_some_and(|ctx| ctx.code == but_error::Code::ForgeNotAuthenticated)
 }
 
 /// Fetch the open listing and fold it into the cache, recording the fate of
@@ -3428,6 +3447,49 @@ mod tests {
         assert!(
             open_review_vanished(&[(1, false), (3, false)], &listing),
             "an open row missing from the listing is about to be deleted, so its fate must be swept first"
+        );
+    }
+
+    #[test]
+    fn missing_credentials_do_not_turn_a_stale_cache_into_an_empty_listing() {
+        let tmp = tempfile::tempdir().unwrap();
+        let mut db = but_db::DbHandle::new_in_directory(tmp.path()).unwrap();
+        // No accounts are stored, so client construction fails before any
+        // network request — the listing must not pretend the forge is empty.
+        let storage = but_forge_storage::Controller::from_path(tmp.path());
+        // `cached_review` stamps `last_sync_at` at the epoch, well past the
+        // fallback window, so the cached read attempts a live refresh.
+        db.forge_reviews_mut()
+            .unwrap()
+            .set_all(vec![cached_review(1, None, None).try_into().unwrap()])
+            .unwrap();
+
+        let reviews = list_forge_reviews_with_cache(
+            None,
+            &repo_info("owner", "repo"),
+            &storage,
+            &mut db,
+            Some(CacheConfig::CacheWithFallback {
+                max_age_seconds: 300,
+            }),
+        )
+        .unwrap();
+
+        let listed: Vec<i64> = reviews.iter().map(|review| review.number).collect();
+        assert_eq!(
+            listed,
+            vec![1],
+            "a failed credential lookup must serve the last known open reviews"
+        );
+        let persisted: Vec<i64> = crate::list_cached_forge_reviews(&db)
+            .unwrap()
+            .iter()
+            .map(|review| review.number)
+            .collect();
+        assert_eq!(
+            persisted,
+            vec![1],
+            "a failed credential lookup must not delete the last known open reviews"
         );
     }
 

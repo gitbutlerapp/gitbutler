@@ -8,14 +8,11 @@ pub async fn list(
     repo: &str,
     storage: &but_forge_storage::Controller,
 ) -> Result<Vec<crate::client::PullRequest>> {
-    if let Ok(gh) = GitHubClient::from_storage(storage, preferred_account) {
-        gh.list_open_pulls(owner, repo)
-            .await
-            .map_err(classify_forge_error)
-            .context("Failed to list open pull requests")
-    } else {
-        Ok(vec![])
-    }
+    GitHubClient::from_storage(storage, preferred_account)?
+        .list_open_pulls(owner, repo)
+        .await
+        .map_err(classify_forge_error)
+        .context("Failed to list open pull requests")
 }
 pub async fn list_recently_closed(
     preferred_account: Option<&crate::GithubAccountIdentifier>,
@@ -23,14 +20,11 @@ pub async fn list_recently_closed(
     repo: &str,
     storage: &but_forge_storage::Controller,
 ) -> Result<Vec<crate::client::PullRequest>> {
-    if let Ok(gh) = GitHubClient::from_storage(storage, preferred_account) {
-        gh.list_recently_closed_pulls(owner, repo)
-            .await
-            .map_err(classify_forge_error)
-            .context("Failed to list recently closed pull requests")
-    } else {
-        Ok(vec![])
-    }
+    GitHubClient::from_storage(storage, preferred_account)?
+        .list_recently_closed_pulls(owner, repo)
+        .await
+        .map_err(classify_forge_error)
+        .context("Failed to list recently closed pull requests")
 }
 
 pub async fn list_all_for_branch(
@@ -40,14 +34,11 @@ pub async fn list_all_for_branch(
     branch: &str,
     storage: &but_forge_storage::Controller,
 ) -> Result<Vec<crate::client::PullRequest>> {
-    if let Ok(gh) = GitHubClient::from_storage(storage, preferred_account) {
-        gh.list_pulls_for_base(owner, repo, branch)
-            .await
-            .map_err(classify_forge_error)
-            .context("Failed to list pull requests for branch")
-    } else {
-        Ok(vec![])
-    }
+    GitHubClient::from_storage(storage, preferred_account)?
+        .list_pulls_for_base(owner, repo, branch)
+        .await
+        .map_err(classify_forge_error)
+        .context("Failed to list pull requests for branch")
 }
 
 pub async fn list_for_commit(
@@ -57,14 +48,11 @@ pub async fn list_for_commit(
     commit_sha: &str,
     storage: &but_forge_storage::Controller,
 ) -> Result<Vec<crate::client::PullRequest>> {
-    if let Ok(gh) = GitHubClient::from_storage(storage, preferred_account) {
-        gh.list_pulls_for_commit(owner, repo, commit_sha)
-            .await
-            .map_err(classify_forge_error)
-            .context("Failed to list pull requests for commit")
-    } else {
-        Ok(vec![])
-    }
+    GitHubClient::from_storage(storage, preferred_account)?
+        .list_pulls_for_commit(owner, repo, commit_sha)
+        .await
+        .map_err(classify_forge_error)
+        .context("Failed to list pull requests for commit")
 }
 
 /// Tag transport / auth failures with a `but_error::Code` so the desktop

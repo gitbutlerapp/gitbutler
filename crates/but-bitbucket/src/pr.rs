@@ -8,13 +8,10 @@ pub async fn list(
     repo_slug: &str,
     storage: &but_forge_storage::Controller,
 ) -> Result<Vec<crate::client::BitbucketPullRequest>> {
-    if let Ok(bb) = BitbucketClient::from_storage(storage, preferred_account) {
-        bb.list_open_prs(workspace, repo_slug)
-            .await
-            .context("Failed to list open pull requests")
-    } else {
-        Ok(vec![])
-    }
+    BitbucketClient::from_storage(storage, preferred_account)?
+        .list_open_prs(workspace, repo_slug)
+        .await
+        .context("Failed to list open pull requests")
 }
 
 pub async fn list_recently_closed(
@@ -23,13 +20,10 @@ pub async fn list_recently_closed(
     repo_slug: &str,
     storage: &but_forge_storage::Controller,
 ) -> Result<Vec<crate::client::BitbucketPullRequest>> {
-    if let Ok(bb) = BitbucketClient::from_storage(storage, preferred_account) {
-        bb.list_recently_closed_prs(workspace, repo_slug)
-            .await
-            .context("Failed to list recently closed pull requests")
-    } else {
-        Ok(vec![])
-    }
+    BitbucketClient::from_storage(storage, preferred_account)?
+        .list_recently_closed_prs(workspace, repo_slug)
+        .await
+        .context("Failed to list recently closed pull requests")
 }
 
 pub async fn list_all_for_target(
@@ -39,13 +33,10 @@ pub async fn list_all_for_target(
     target_branch: &str,
     storage: &but_forge_storage::Controller,
 ) -> Result<Vec<crate::client::BitbucketPullRequest>> {
-    if let Ok(bb) = BitbucketClient::from_storage(storage, preferred_account) {
-        bb.list_prs_for_target(workspace, repo_slug, target_branch)
-            .await
-            .context("Failed to list pull requests for target branch")
-    } else {
-        Ok(vec![])
-    }
+    BitbucketClient::from_storage(storage, preferred_account)?
+        .list_prs_for_target(workspace, repo_slug, target_branch)
+        .await
+        .context("Failed to list pull requests for target branch")
 }
 
 pub async fn get(

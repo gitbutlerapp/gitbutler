@@ -1271,6 +1271,7 @@ dependencies = [
  "anyhow",
  "but-bitbucket",
  "but-db",
+ "but-error",
  "but-forge-storage",
  "but-github",
  "but-gitlab",
