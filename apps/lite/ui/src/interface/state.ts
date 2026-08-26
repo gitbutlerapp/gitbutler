@@ -5,6 +5,7 @@ type Dialog =
 	| { _tag: "ApplyBranchPicker" }
 	| { _tag: "BranchPicker" }
 	| { _tag: "CommandPalette" }
+	| { _tag: "OperationsLogPicker" }
 	| { _tag: "ProjectPicker" }
 	| { _tag: "Settings" };
 

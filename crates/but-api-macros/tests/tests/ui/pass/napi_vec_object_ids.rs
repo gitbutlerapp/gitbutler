@@ -1,13 +1,16 @@
-// Case: `#[but_api(napi)]` supports Vec<ObjectId> parameters from JS string arrays.
-// It verifies `_napi` generation compiles when vector parsing is required.
+// Case: `#[but_api(napi)]` supports Option<ObjectId> and Vec<ObjectId> parameters from JS strings.
+// It verifies `_napi` generation compiles when optional and vector parsing is required.
 
 use but_api_macros::but_api;
 
 pub use but_api_macros_tests::{json, panic_capture};
 
 #[but_api(napi)]
-pub fn napi_vec_object_ids(commit_ids: Vec<gix::ObjectId>) -> anyhow::Result<usize> {
-    Ok(commit_ids.len())
+pub fn napi_vec_object_ids(
+    cursor: Option<gix::ObjectId>,
+    commit_ids: Vec<gix::ObjectId>,
+) -> anyhow::Result<usize> {
+    Ok(usize::from(cursor.is_some()) + commit_ids.len())
 }
 
 fn main() {

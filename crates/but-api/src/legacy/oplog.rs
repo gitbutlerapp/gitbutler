@@ -25,7 +25,7 @@ use gitbutler_oplog::{
 };
 use tracing::instrument;
 
-mod json {
+pub mod json {
     use but_oplog::legacy::OperationKind;
     use serde::Serialize;
 
@@ -34,7 +34,7 @@ mod json {
     #[derive(Debug, Serialize)]
     #[serde(rename_all = "camelCase")]
     #[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
-    pub(super) struct Snapshot {
+    pub struct Snapshot {
         #[cfg_attr(feature = "export-schema", schemars(with = "String"))]
         pub commit_id: HexHash,
         pub created_at: i128,
@@ -47,12 +47,12 @@ mod json {
     #[derive(Debug, PartialEq, Clone, Serialize)]
     #[serde(rename_all = "camelCase")]
     #[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
-    pub(super) struct SnapshotDetails {
-        pub(super) version: u32,
-        pub(super) operation: OperationKind,
-        pub(super) title: String,
-        pub(super) body: Option<String>,
-        pub(super) trailers: Vec<Trailer>,
+    pub struct SnapshotDetails {
+        pub version: u32,
+        pub operation: OperationKind,
+        pub title: String,
+        pub body: Option<String>,
+        pub trailers: Vec<Trailer>,
     }
 
     #[cfg(feature = "export-schema")]
@@ -61,9 +61,9 @@ mod json {
     #[derive(Debug, PartialEq, Clone, Serialize)]
     #[serde(rename_all = "camelCase")]
     #[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
-    pub(super) struct Trailer {
-        pub(super) key: String,
-        pub(super) value: String,
+    pub struct Trailer {
+        pub key: String,
+        pub value: String,
     }
 
     #[cfg(feature = "export-schema")]
@@ -130,7 +130,7 @@ mod json {
 ///
 /// # Errors
 /// Returns an error if the project cannot be found or if there is an issue accessing the oplog.
-#[but_api]
+#[but_api(napi, try_from = json::Snapshot, provides = [Workspace])]
 #[instrument(err(Debug))]
 pub fn list_snapshots(
     ctx: &but_ctx::Context,

@@ -83,6 +83,10 @@ export const globalHotkeys = {
 	commandPalette: {
 		hotkey: "Mod+K",
 	},
+	operationsLog: {
+		hotkey: "Mod+Shift+O",
+		meta: { group: "Operations log", name: "Show operations log" },
+	},
 	redo: {
 		hotkey: "Mod+Shift+Z",
 		meta: { group: "Operations log", name: "Redo" },

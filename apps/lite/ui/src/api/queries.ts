@@ -35,6 +35,25 @@ export const branchListQueryOptions = (projectId: string) =>
 		queryFn: () => window.lite.branchList(projectId),
 	});
 
+export const operationsLogQueryOptions = (
+	projectId: string,
+	includeKind: PayloadFor<"listSnapshots">["includeKind"] = null,
+	excludeKind: PayloadFor<"listSnapshots">["excludeKind"] = null,
+) =>
+	infiniteQueryOptions({
+		queryKey: ["listSnapshots", projectId, includeKind, excludeKind],
+		queryFn: ({ pageParam }) =>
+			window.lite.listSnapshots({
+				projectId,
+				limit: 100,
+				sha: pageParam,
+				includeKind,
+				excludeKind,
+			}),
+		initialPageParam: null as string | null,
+		getNextPageParam: (page) => (page.length === 100 ? page.at(-1)?.commitId : undefined),
+	});
+
 export const changesInWorktreeQueryOptions = (projectId: string) =>
 	queryOptions({
 		queryKey: ["changesInWorktree", projectId],

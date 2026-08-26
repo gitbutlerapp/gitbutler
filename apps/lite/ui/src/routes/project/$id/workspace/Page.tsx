@@ -68,6 +68,7 @@ import { useActiveElement } from "#ui/focus.ts";
 import { ApplyBranchPicker } from "./ApplyBranchPicker.tsx";
 import { BranchPicker } from "./BranchPicker.tsx";
 import { CommandPalette } from "./CommandPalette.tsx";
+import { OperationsLogPicker } from "./OperationsLogPicker.tsx";
 import { Sidebar } from "./Sidebar.tsx";
 import { OperationControls } from "#ui/routes/project/$id/workspace/OperationControls.tsx";
 import { ErrorBoundary } from "#ui/components/ErrorBoundary.tsx";
@@ -131,7 +132,7 @@ const useWorkspaceHotkeys = (projectId: string) => {
 	useHotkeys([
 		{
 			hotkey: globalHotkeys.redo.hotkey,
-			callback: () => restoreSnapshot("redo"),
+			callback: () => restoreSnapshot({ _tag: "redo" }),
 			options: {
 				enabled: noOperationPending && !isRestoreSnapshotPending,
 				meta: globalHotkeys.redo.meta,
@@ -140,7 +141,7 @@ const useWorkspaceHotkeys = (projectId: string) => {
 		},
 		{
 			hotkey: globalHotkeys.undo.hotkey,
-			callback: () => restoreSnapshot("undo"),
+			callback: () => restoreSnapshot({ _tag: "undo" }),
 			options: {
 				enabled: noOperationPending && !isRestoreSnapshotPending,
 				meta: globalHotkeys.undo.meta,
@@ -155,6 +156,18 @@ const useWorkspaceHotkeys = (projectId: string) => {
 			},
 			options: {
 				conflictBehavior: "allow",
+			},
+		},
+		{
+			hotkey: globalHotkeys.operationsLog.hotkey,
+			callback: () => {
+				if (dialog._tag === "OperationsLogPicker") dispatch(interfaceSlice.actions.closeDialog());
+				else
+					dispatch(interfaceSlice.actions.openDialog({ dialog: { _tag: "OperationsLogPicker" } }));
+			},
+			options: {
+				enabled: noOperationPending,
+				meta: globalHotkeys.operationsLog.meta,
 			},
 		},
 		{
@@ -384,6 +397,12 @@ const PageBody: FC<{ projectId: string }> = ({ projectId }) => {
 
 	const setProjectPickerOpen = (open: boolean) => {
 		if (open) dispatch(interfaceSlice.actions.openDialog({ dialog: { _tag: "ProjectPicker" } }));
+		else dispatch(interfaceSlice.actions.closeDialog());
+	};
+
+	const setOperationsLogPickerOpen = (open: boolean) => {
+		if (open)
+			dispatch(interfaceSlice.actions.openDialog({ dialog: { _tag: "OperationsLogPicker" } }));
 		else dispatch(interfaceSlice.actions.closeDialog());
 	};
 
@@ -702,6 +721,13 @@ const PageBody: FC<{ projectId: string }> = ({ projectId }) => {
 						/>
 					),
 					CommandPalette: () => <CommandPalette open onOpenChange={setCommandPaletteOpen} />,
+					OperationsLogPicker: () => (
+						<OperationsLogPicker
+							open
+							projectId={projectId}
+							onOpenChange={setOperationsLogPickerOpen}
+						/>
+					),
 					ProjectPicker: () => (
 						<ProjectPicker
 							open

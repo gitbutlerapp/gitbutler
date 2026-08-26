@@ -31,6 +31,7 @@ export const apiProvides = {
 	listReviewTimelineEvents: ["ReviewTimeline"],
 	listReviewerCandidates: ["ReviewerCandidates"],
 	listReviews: ["Reviews"],
+	listSnapshots: ["Workspace"],
 	operatingMode: ["OperatingMode"],
 	treeChangeDiffs: ["Diffs"],
 	workspaceFetchFromRemotes: [],

@@ -52,6 +52,7 @@ import type {
 import { type QueryClient, useMutation, useQueryClient } from "@tanstack/react-query";
 import type { GUISettings } from "#electron/settings.ts";
 import { moveDraftPR } from "#ui/pr.ts";
+import { presentableOperation } from "#ui/snapshot.ts";
 
 declare module "@tanstack/react-query" {
 	interface Register {
@@ -1084,13 +1085,27 @@ export const useBranchRemove = () => {
 	});
 };
 
+type RestoreSnapshotInput =
+	| { _tag: "redo" }
+	| { _tag: "undo" }
+	| { _tag: "restore"; snapshot: Snapshot };
+
 export const useRestoreSnapshot = ({ projectId }: { projectId: string }) => {
 	const toastManager = Toast.useToastManager();
 
 	return useMutation({
-		mutationFn: async (direction: "redo" | "undo"): Promise<Snapshot | null> => {
+		mutationFn: async (input: RestoreSnapshotInput): Promise<Snapshot | null> => {
+			if (input._tag === "restore") {
+				await window.lite.restoreSnapshotWithKind({
+					projectId,
+					restoreKind: "ExplicitRestoreFromSnapshot",
+					sha: input.snapshot.commitId,
+				});
+				return input.snapshot;
+			}
+
 			const snapshot =
-				direction === "redo"
+				input._tag === "redo"
 					? await window.lite.getRedoTargetSnapshot(projectId)
 					: await window.lite.getUndoTargetSnapshot(projectId);
 			if (!snapshot) return null;
@@ -1101,36 +1116,34 @@ export const useRestoreSnapshot = ({ projectId }: { projectId: string }) => {
 				window.lite.restoreSnapshotWithKind({
 					projectId,
 					restoreKind:
-						direction === "redo" ? "RestoreFromSnapshotViaRedo" : "RestoreFromSnapshotViaUndo",
+						input._tag === "redo" ? "RestoreFromSnapshotViaRedo" : "RestoreFromSnapshotViaUndo",
 					sha: snapshot.commitId,
 				}),
 			]);
 
 			return peeled ?? snapshot;
 		},
-		onSuccess: (snapshot, direction) => {
-			const title = direction === "redo" ? "Redo" : "Undo";
+		onSuccess: (snapshot, input) => {
+			const title = input._tag === "redo" ? "Redo" : input._tag === "undo" ? "Undo" : "Restore";
 
 			if (!snapshot) {
-				toastManager.add({ title, description: `Nothing to ${direction}` });
+				toastManager.add({ title, description: `Nothing to ${input._tag}` });
 				return;
 			}
 
-			// TODO: We should map this to something user-friendly.
-			const op = snapshot.details?.operation;
-
+			const op = presentableOperation(snapshot.details).text;
 			const relativeTime = formatRelativeTime(snapshot.createdAt);
 
 			toastManager.add({
 				type: "info",
 				title,
-				description: `Restored to ${shortCommitId(snapshot.commitId)} (${op !== undefined ? `${op}, ` : ""}${relativeTime})`,
+				description: `Restored to ${shortCommitId(snapshot.commitId)} (${op}, ${relativeTime})`,
 			});
 		},
-		onError: (error, direction) => {
+		onError: (error, input) => {
 			toastManager.add({
 				type: "error",
-				title: `Failed to ${direction}`,
+				title: input._tag === "restore" ? "Failed to restore snapshot" : `Failed to ${input._tag}`,
 				description: errorMessageForToast(error),
 				priority: "high",
 			});
