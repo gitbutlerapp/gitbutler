@@ -1,0 +1,26 @@
+.badge {
+	flex-shrink: 0;
+	align-self: center;
+	/* Sized off the text so the column stays aligned at any font size. */
+	width: 1.1em;
+	font-weight: var(--text-weight-semibold);
+	font-family: var(--text-fontfamily-base);
+	text-box: trim-both cap alphabetic;
+	text-align: center;
+
+	&[data-status-type="Addition"] {
+		color: var(--change-status-addition);
+	}
+
+	&[data-status-type="Deletion"] {
+		color: var(--change-status-deletion);
+	}
+
+	&[data-status-type="Modification"] {
+		color: var(--change-status-modification);
+	}
+
+	&[data-status-type="Rename"] {
+		color: var(--change-status-rename);
+	}
+}

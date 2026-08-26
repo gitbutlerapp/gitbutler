@@ -268,9 +268,9 @@
 	}
 }
 
-/* A folded file's header stands in for its hidden, selected hunks. A plain
-   accent bar marks it for now; positioned absolutely so the layout is
-   untouched. */
+/* Marks the file holding the diff selection — including a folded one, whose
+   header stands in for its hidden hunks. A plain accent bar for now;
+   positioned absolutely so the layout is untouched. */
 .fileHeaderSelected {
 	position: relative;
 

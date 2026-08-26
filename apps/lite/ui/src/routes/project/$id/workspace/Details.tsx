@@ -522,12 +522,15 @@ const DiffContents: FC<{
 	}, [selectedLines]);
 	const selectedLinesHunk = storedSelectionHunk ?? diffSelection;
 	const effectiveDiffStyle = diffStyle ?? defaultSettings.diffStyle;
-	// A primitive, null while the selection sits on a visible hunk, so the item
-	// list and header closures below only pick up new identities when a folded
-	// file gains or loses the selection — not on every j/k move.
+	// Primitives, so the item list and header closures below only pick up new
+	// identities when the selection crosses into another file — not on every
+	// j/k move within one.
+	const selectedFileItemId = diffSelectionHunk?.file.item.id ?? null;
+	// Null while the selection sits on a visible hunk: only a folded file needs
+	// its stand-in hunk rebuilt when it gains or loses the selection.
 	const selectedFoldedFileId =
-		diffSelectionHunk != null && collapsedItems.has(diffSelectionHunk.file.item.id)
-			? diffSelectionHunk.file.item.id
+		selectedFileItemId != null && collapsedItems.has(selectedFileItemId)
+			? selectedFileItemId
 			: null;
 
 	useLayoutEffect(() => {
@@ -1479,7 +1482,7 @@ const DiffContents: FC<{
 							collapsed={item.collapsed ?? false}
 							reviewState={reviewState}
 							lineStats={patchLineStats(file.patch)}
-							selected={item.id === selectedFoldedFileId}
+							selected={item.id === selectedFileItemId}
 							setCollapsed={handleSetCollapsed(item.id)}
 							setReviewed={handleSetReviewed(item.id, file.change.path, version)}
 							canUncommit={canUncommit}
@@ -1645,7 +1648,7 @@ type DiffFileHeaderProps = {
 	reviewState: "reviewed" | "changed" | null;
 	/** The change's counted deltas, or `null` when there is no patch to count. */
 	lineStats: LineStats | null;
-	/** Whether the folded file's stand-in hunk holds the diff selection. */
+	/** Whether the diff selection sits in this file. */
 	selected: boolean;
 	setCollapsed: (collapsed: boolean) => void;
 	setReviewed: (reviewed: boolean) => void;
