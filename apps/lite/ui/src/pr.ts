@@ -36,7 +36,7 @@ const mergeMethodKey = (projectId: string): string => `pr_merge_method:v1:${proj
 
 export const mergeMethodQueryOptions = (projectId: string) =>
 	queryOptions({
-		queryKey: ["prMergeMethod", projectId],
+		queryKey: [projectId, "prMergeMethod"],
 		queryFn: async () =>
 			(await idb.get<ReviewMergeMethod>(mergeMethodKey(projectId))) ?? ("merge" as const),
 	});
@@ -111,7 +111,7 @@ export const draftPRQueryOptions = ({
 	branchName: string;
 }) =>
 	queryOptions({
-		queryKey: ["prDraft", projectId, branchName],
+		queryKey: [projectId, "prDraft", branchName],
 		queryFn: async () => (await idb.get<DraftPR>(draftPRKey({ projectId, branchName }))) ?? null,
 	});
 

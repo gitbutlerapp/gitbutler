@@ -7,7 +7,7 @@
  * actually caches, so "which caches to drop" is derived, never guessed.
  */
 
-import { projectQueryKeys, type QueryKey } from "#ui/api/query-keys.ts";
+import { projectQueryKeys, type GlobalQueryKey, type ProjectQueryKey } from "#ui/api/query-keys.ts";
 import { apiInvalidates, apiProvides, type CacheTag } from "@gitbutler/but-sdk/cache-tags";
 import type { QueryClient } from "@tanstack/react-query";
 
@@ -15,7 +15,7 @@ import type { QueryClient } from "@tanstack/react-query";
  * Global queries by the tag they provide. The backend cannot know these:
  * they are what lite caches without a project scope, under keys of its own.
  */
-const globalProviders: ReadonlyArray<[CacheTag, QueryKey]> = [
+const globalProviders: ReadonlyArray<[CacheTag, GlobalQueryKey]> = [
 	["Projects", "projects"],
 	["ForgeAccounts", "forgeAccounts"],
 ];
@@ -27,19 +27,30 @@ const globalProviders: ReadonlyArray<[CacheTag, QueryKey]> = [
  * endpoint does not compile, so it has to be declared in Rust or become a
  * `LocalQueryKey`.
  */
-const providers = new Map<CacheTag, Array<{ query: QueryKey; projectScoped: boolean }>>();
-const provide = (tag: CacheTag, query: QueryKey, projectScoped: boolean) => {
+const providers = new Map<
+	CacheTag,
+	Array<
+		| { query: ProjectQueryKey; projectScoped: true }
+		| { query: GlobalQueryKey; projectScoped: false }
+	>
+>();
+const provide = (
+	tag: CacheTag,
+	provider:
+		| { query: ProjectQueryKey; projectScoped: true }
+		| { query: GlobalQueryKey; projectScoped: false },
+) => {
 	const queries = providers.get(tag);
-	if (queries) queries.push({ query, projectScoped });
-	else providers.set(tag, [{ query, projectScoped }]);
+	if (queries) queries.push(provider);
+	else providers.set(tag, [provider]);
 };
 for (const query of projectQueryKeys)
-	for (const tag of apiProvides[query]) provide(tag, query, true);
-for (const [tag, query] of globalProviders) provide(tag, query, false);
+	for (const tag of apiProvides[query]) provide(tag, { query, projectScoped: true });
+for (const [tag, query] of globalProviders) provide(tag, { query, projectScoped: false });
 
 /**
  * Drop every cache providing the given tags. Without a project id,
- * project-scoped queries are invalidated across all projects by key prefix.
+ * project-scoped queries are matched by endpoint across all projects.
  */
 export const invalidateTags = (
 	client: Pick<QueryClient, "invalidateQueries">,
@@ -48,11 +59,15 @@ export const invalidateTags = (
 ): Promise<unknown> =>
 	Promise.all(
 		tags.flatMap((tag) =>
-			(providers.get(tag) ?? []).map(({ query, projectScoped }) =>
-				client.invalidateQueries({
-					queryKey: projectScoped && projectId !== undefined ? [query, projectId] : [query],
-				}),
-			),
+			(providers.get(tag) ?? []).map((provider) => {
+				if (!provider.projectScoped)
+					return client.invalidateQueries({ queryKey: [provider.query] });
+				if (projectId !== undefined)
+					return client.invalidateQueries({ queryKey: [projectId, provider.query] });
+				return client.invalidateQueries({
+					predicate: ({ queryKey }) => queryKey[1] === provider.query,
+				});
+			}),
 		),
 	);
 

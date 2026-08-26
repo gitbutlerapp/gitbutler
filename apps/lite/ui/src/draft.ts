@@ -5,7 +5,7 @@ const draftCommitMessageKey = (projectId: string): string => `commit_message_dra
 
 export const draftCommitMessageQueryOptions = (projectId: string) =>
 	queryOptions({
-		queryKey: ["commitMessageDraft", projectId],
+		queryKey: [projectId, "commitMessageDraft"],
 		queryFn: async () => (await idb.get<string>(draftCommitMessageKey(projectId))) ?? "",
 	});
 

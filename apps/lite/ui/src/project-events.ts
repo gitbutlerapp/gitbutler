@@ -84,7 +84,7 @@ for (const query of projectQueryKeys) {
  */
 const refreshIntegratedReviews = async (client: QueryClient, projectId: string): Promise<void> => {
 	const headInfo = await client.fetchQuery({
-		queryKey: ["headInfo", projectId],
+		queryKey: [projectId, "headInfo"],
 		queryFn: () => window.lite.headInfo(projectId),
 		staleTime: 0,
 	});
@@ -116,13 +116,13 @@ export const handleProjectEvent = (
 	const { payload } = event;
 
 	if (payload.type === "worktreeChanges")
-		client.setQueryData(["changesInWorktree", projectId], () => payload.subject.changes);
+		client.setQueryData([projectId, "changesInWorktree"], () => payload.subject.changes);
 
 	if (payload.type === "gitHead")
-		client.setQueryData(["operatingMode", projectId], () => payload.subject);
+		client.setQueryData([projectId, "operatingMode"], () => payload.subject);
 
 	for (const query of invalidateOn.get(payload.type) ?? [])
-		void client.invalidateQueries({ queryKey: [query, projectId] });
+		void client.invalidateQueries({ queryKey: [projectId, query] });
 
 	// The annotations read the backend's review cache, so integrated reviews have
 	// to land before the listing is re-read. A failed refresh degrades to
@@ -132,7 +132,7 @@ export const handleProjectEvent = (
 			.catch(() => undefined)
 			.finally(() => {
 				void client.invalidateQueries({
-					queryKey: ["workspaceTargetCommits", projectId],
+					queryKey: [projectId, "workspaceTargetCommits"],
 				});
 			});
 	}

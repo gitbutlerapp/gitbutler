@@ -13,25 +13,25 @@ import * as ms from "ms";
  */
 export const branchCannedNameQueryOptions = (projectId: string) =>
 	queryOptions({
-		queryKey: ["branchCannedName", projectId],
+		queryKey: [projectId, "branchCannedName"],
 		queryFn: () => window.lite.branchCannedName(projectId),
 	});
 
 export const branchDetailsQueryOptions = ({ projectId, ...params }: PayloadFor<"branchDetails">) =>
 	queryOptions({
-		queryKey: ["branchDetails", projectId, params],
+		queryKey: [projectId, "branchDetails", params],
 		queryFn: () => window.lite.branchDetails({ projectId, ...params }),
 	});
 
 export const branchDiffQueryOptions = ({ projectId, ...params }: PayloadFor<"branchDiff">) =>
 	queryOptions({
-		queryKey: ["branchDiff", projectId, params],
+		queryKey: [projectId, "branchDiff", params],
 		queryFn: () => window.lite.branchDiff({ projectId, ...params }),
 	});
 
 export const branchListQueryOptions = (projectId: string) =>
 	queryOptions({
-		queryKey: ["branchList", projectId],
+		queryKey: [projectId, "branchList"],
 		queryFn: () => window.lite.branchList(projectId),
 	});
 
@@ -41,7 +41,7 @@ export const operationsLogQueryOptions = (
 	excludeKind: PayloadFor<"listSnapshots">["excludeKind"] = null,
 ) =>
 	infiniteQueryOptions({
-		queryKey: ["listSnapshots", projectId, includeKind, excludeKind],
+		queryKey: [projectId, "listSnapshots", includeKind, excludeKind],
 		queryFn: ({ pageParam }) =>
 			window.lite.listSnapshots({
 				projectId,
@@ -56,7 +56,7 @@ export const operationsLogQueryOptions = (
 
 export const changesInWorktreeQueryOptions = (projectId: string) =>
 	queryOptions({
-		queryKey: ["changesInWorktree", projectId],
+		queryKey: [projectId, "changesInWorktree"],
 		queryFn: () =>
 			window.lite.changesInWorktree({
 				projectId,
@@ -67,7 +67,7 @@ export const changesInWorktreeQueryOptions = (projectId: string) =>
 
 export const commentsQueryOptions = (projectId: string) =>
 	queryOptions({
-		queryKey: ["commentsList", projectId],
+		queryKey: [projectId, "commentsList"],
 		queryFn: () => window.lite.commentsList(projectId),
 	});
 
@@ -77,13 +77,13 @@ export const workspaceFileQueryOptions = ({
 	...params
 }: PayloadFor<"getWorkspaceFile"> & { version: number }) =>
 	queryOptions({
-		queryKey: ["getWorkspaceFile", projectId, params, version],
+		queryKey: [projectId, "getWorkspaceFile", params, version],
 		queryFn: () => window.lite.getWorkspaceFile({ projectId, ...params }),
 	});
 
 export const blobFileQueryOptions = ({ projectId, ...params }: PayloadFor<"getBlobFile">) =>
 	queryOptions({
-		queryKey: ["getBlobFile", projectId, params],
+		queryKey: [projectId, "getBlobFile", params],
 		queryFn: () => window.lite.getBlobFile({ projectId, ...params }),
 	});
 
@@ -92,7 +92,7 @@ export const commitDetailsWithLineStatsQueryOptions = ({
 	...params
 }: PayloadFor<"commitDetailsWithLineStats">) =>
 	queryOptions({
-		queryKey: ["commitDetailsWithLineStats", projectId, params],
+		queryKey: [projectId, "commitDetailsWithLineStats", params],
 		queryFn: () => window.lite.commitDetailsWithLineStats({ projectId, ...params }),
 	});
 
@@ -109,7 +109,7 @@ export const commitConflictsQueryOptions = ({
 	...params
 }: PayloadFor<"commitConflicts"> & { enabled: boolean }) =>
 	queryOptions({
-		queryKey: ["commitConflicts", projectId, params],
+		queryKey: [projectId, "commitConflicts", params],
 		queryFn: () => window.lite.commitConflicts({ projectId, ...params }),
 		enabled,
 		staleTime: Infinity,
@@ -121,7 +121,7 @@ export const commitConflictsQueryOptions = ({
 
 export const forgeInfoOptions = (projectId: string) =>
 	queryOptions({
-		queryKey: ["forgeInfo", projectId],
+		queryKey: [projectId, "forgeInfo"],
 		queryFn: () => window.lite.forgeInfo(projectId),
 	});
 
@@ -133,39 +133,39 @@ export const forgeInfoOptions = (projectId: string) =>
  */
 export const operatingModeQueryOptions = (projectId: string) =>
 	queryOptions({
-		queryKey: ["operatingMode", projectId],
+		queryKey: [projectId, "operatingMode"],
 		queryFn: () => window.lite.operatingMode(projectId),
 	});
 
 /** The edited commit's files as the edit session started, with their conflict states. */
 export const editInitialIndexStateQueryOptions = (projectId: string) =>
 	queryOptions({
-		queryKey: ["editInitialIndexState", projectId],
+		queryKey: [projectId, "editInitialIndexState"],
 		queryFn: () => window.lite.editInitialIndexState(projectId),
 	});
 
 /** What the user has changed since entering edit mode. */
 export const editChangesFromInitialQueryOptions = (projectId: string) =>
 	queryOptions({
-		queryKey: ["editChangesFromInitial", projectId],
+		queryKey: [projectId, "editChangesFromInitial"],
 		queryFn: () => window.lite.editChangesFromInitial(projectId),
 	});
 
 export const headInfoQueryOptions = (projectId: string) =>
 	queryOptions({
-		queryKey: ["headInfo", projectId],
+		queryKey: [projectId, "headInfo"],
 		queryFn: () => window.lite.headInfo(projectId),
 	});
 
 export const getReviewQueryOptions = ({ projectId, reviewId }: PayloadFor<"getReview">) =>
 	queryOptions({
-		queryKey: ["getReview", projectId, reviewId],
+		queryKey: [projectId, "getReview", reviewId],
 		queryFn: () => window.lite.getReview({ projectId, reviewId }),
 	});
 
 export const workspaceTargetCommitsQueryOptions = (projectId: string) =>
 	queryOptions({
-		queryKey: ["workspaceTargetCommits", projectId],
+		queryKey: [projectId, "workspaceTargetCommits"],
 		queryFn: () => window.lite.workspaceTargetCommits({ projectId, from: null, limit: null }),
 	});
 
@@ -190,7 +190,7 @@ const olderTargetCommitsPageSize = 25;
  */
 export const olderTargetCommitsInfiniteQueryOptions = (projectId: string, from: string) =>
 	infiniteQueryOptions({
-		queryKey: ["workspaceTargetCommits", projectId, { olderThan: from }],
+		queryKey: [projectId, "workspaceTargetCommits", { olderThan: from }],
 		queryFn: ({ pageParam }) =>
 			window.lite.workspaceTargetCommits({
 				projectId,
@@ -205,7 +205,7 @@ export const olderTargetCommitsInfiniteQueryOptions = (projectId: string, from: 
 
 export const workspaceFetchStatusQueryOptions = (projectId: string) =>
 	queryOptions({
-		queryKey: ["workspaceFetchStatus", projectId],
+		queryKey: [projectId, "workspaceFetchStatus"],
 		queryFn: () => window.lite.workspaceFetchStatus(projectId),
 	});
 
@@ -222,7 +222,7 @@ export const workspaceFetchQueryOptions = (
 	}
 
 	return queryOptions({
-		queryKey: ["workspaceFetchFromRemotes", projectId],
+		queryKey: [projectId, "workspaceFetchFromRemotes"],
 		queryFn: () =>
 			window.lite.workspaceFetchFromRemotes({ projectId, action: null }).then(
 				// RQ treats undefined results in queries as errors.
@@ -250,14 +250,14 @@ export const listReviewCommentsQueryOptions = ({
 	reviewId,
 }: PayloadFor<"listReviewComments">) =>
 	queryOptions({
-		queryKey: ["listReviewComments", projectId, reviewId],
+		queryKey: [projectId, "listReviewComments", reviewId],
 		queryFn: () => window.lite.listReviewComments({ projectId, reviewId }),
 		...forgePoll,
 	});
 
 export const gbConfigQueryOptions = (projectId: string) =>
 	queryOptions({
-		queryKey: ["getGbConfig", projectId],
+		queryKey: [projectId, "getGbConfig"],
 		queryFn: () => window.lite.getGbConfig(projectId),
 	});
 
@@ -267,7 +267,7 @@ export const gbConfigQueryOptions = (projectId: string) =>
  */
 export const signingSettingsQueryOptions = (projectId: string) =>
 	queryOptions({
-		queryKey: ["checkSigningSettings", projectId],
+		queryKey: [projectId, "checkSigningSettings"],
 		queryFn: () => window.lite.checkSigningSettings(projectId),
 		enabled: false,
 		retry: false,
@@ -276,7 +276,7 @@ export const signingSettingsQueryOptions = (projectId: string) =>
 
 export const currentForgeLoginQueryOptions = (projectId: string) =>
 	queryOptions({
-		queryKey: ["currentForgeLogin", projectId],
+		queryKey: [projectId, "currentForgeLogin"],
 		queryFn: () => window.lite.currentForgeLogin(projectId),
 		// Resolved from local account storage; changes only on re-auth.
 		staleTime: Number.POSITIVE_INFINITY,
@@ -285,7 +285,7 @@ export const currentForgeLoginQueryOptions = (projectId: string) =>
 /** Gate on the forge being GitHub; other forges reject this call. */
 export const repoLabelsQueryOptions = (projectId: string) =>
 	queryOptions({
-		queryKey: ["listRepoLabels", projectId],
+		queryKey: [projectId, "listRepoLabels"],
 		queryFn: () => window.lite.listRepoLabels(projectId),
 		// Label definitions rarely change.
 		staleTime: 5 * 60_000,
@@ -294,7 +294,7 @@ export const repoLabelsQueryOptions = (projectId: string) =>
 /** Gate on the forge being GitHub; other forges reject this call. */
 export const reviewerCandidatesQueryOptions = (projectId: string) =>
 	queryOptions({
-		queryKey: ["listReviewerCandidates", projectId],
+		queryKey: [projectId, "listReviewerCandidates"],
 		queryFn: () => window.lite.listReviewerCandidates(projectId),
 		// Collaborator lists rarely change.
 		staleTime: 5 * 60_000,
@@ -306,7 +306,7 @@ export const listReviewSubmissionsQueryOptions = ({
 	reviewId,
 }: PayloadFor<"getReview">) =>
 	queryOptions({
-		queryKey: ["listReviewSubmissions", projectId, reviewId],
+		queryKey: [projectId, "listReviewSubmissions", reviewId],
 		queryFn: () => window.lite.listReviewSubmissions({ projectId, reviewId }),
 		...forgePoll,
 	});
@@ -317,7 +317,7 @@ export const listReviewTimelineEventsQueryOptions = ({
 	reviewId,
 }: PayloadFor<"getReview">) =>
 	queryOptions({
-		queryKey: ["listReviewTimelineEvents", projectId, reviewId],
+		queryKey: [projectId, "listReviewTimelineEvents", reviewId],
 		queryFn: () => window.lite.listReviewTimelineEvents({ projectId, reviewId }),
 		...forgePoll,
 	});
@@ -325,7 +325,7 @@ export const listReviewTimelineEventsQueryOptions = ({
 /** This query should be gated by PR capability lest it fail. */
 export const listReviewReactionsQueryOptions = ({ projectId, reviewId }: PayloadFor<"getReview">) =>
 	queryOptions({
-		queryKey: ["listReviewReactions", projectId, reviewId],
+		queryKey: [projectId, "listReviewReactions", reviewId],
 		queryFn: () => window.lite.listReviewReactions({ projectId, reviewId }),
 		...forgePoll,
 	});
@@ -343,7 +343,7 @@ export const listCommentReactionsQueryOptions = ({
 	commentId: number;
 }) =>
 	queryOptions({
-		queryKey: ["listCommentReactions", projectId, commentId],
+		queryKey: [projectId, "listCommentReactions", commentId],
 		queryFn: () => window.lite.listCommentReactions({ projectId, commentId }),
 		staleTime: 60_000,
 	});
@@ -353,7 +353,7 @@ export const getReviewMergeStatusQueryOptions = ({
 	reviewId,
 }: PayloadFor<"getReview">) =>
 	queryOptions({
-		queryKey: ["getReviewMergeStatus", projectId, reviewId],
+		queryKey: [projectId, "getReviewMergeStatus", reviewId],
 		queryFn: () => window.lite.getReviewMergeStatus({ projectId, reviewId }),
 		staleTime: ({ state: { data } }) => (data?.isMergeable ? 30_000 : 10_000),
 		// Mergeability flips from the forge side (checks finish, approvals
@@ -366,7 +366,7 @@ export const getReviewMergeStatusQueryOptions = ({
 /** This query should be gated by PR capability lest it fail. */
 export const listReviewsQueryOptions = ({ projectId, ...params }: PayloadFor<"listReviews">) =>
 	queryOptions({
-		queryKey: ["listReviews", projectId, params],
+		queryKey: [projectId, "listReviews", params],
 		queryFn: () => window.lite.listReviews({ projectId, ...params }),
 		select: (reviews) => {
 			const reviewsBySourceBranch = new Map<string, ForgeReview>();
@@ -444,7 +444,7 @@ export const listCIChecksQueryOptions = ({
 	polling: "passive" | "priority";
 }) =>
 	queryOptions({
-		queryKey: ["listCiChecks", projectId, reference],
+		queryKey: [projectId, "listCiChecks", reference],
 		queryFn: async () => {
 			// Aggregated data is needed in queryFn to adjust refetching behaviour. Aggregating here, for
 			// use as mentioned and also at call sites, is more efficient.
@@ -501,13 +501,13 @@ export const listCIChecksQueryOptions = ({
 
 export const treeChangeDiffsQueryOptions = ({ projectId, change }: PayloadFor<"treeChangeDiffs">) =>
 	queryOptions({
-		queryKey: ["treeChangeDiffs", projectId, change],
+		queryKey: [projectId, "treeChangeDiffs", change],
 		queryFn: () => window.lite.treeChangeDiffs({ projectId, change }),
 	});
 
 export const absorptionPlanQueryOptions = ({ projectId, target }: PayloadFor<"absorptionPlan">) =>
 	queryOptions({
-		queryKey: ["absorptionPlan", projectId, target],
+		queryKey: [projectId, "absorptionPlan", target],
 		queryFn: () => window.lite.absorptionPlan({ projectId, target }),
 	});
 

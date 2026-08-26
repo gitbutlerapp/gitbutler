@@ -52,6 +52,6 @@ export const writeProjectAiSettings = (projectId: string, settings: ProjectAiSet
 
 export const projectAiSettingsQueryOptions = (projectId: string) =>
 	queryOptions({
-		queryKey: ["projectAiSettings", projectId],
+		queryKey: [projectId, "projectAiSettings"],
 		queryFn: () => readProjectAiSettings(projectId),
 	});

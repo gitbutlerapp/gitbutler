@@ -571,7 +571,7 @@ export const useSetReviewAutoMerge = () => {
 	return useMutation({
 		mutationFn: window.lite.setReviewAutoMerge,
 		onMutate: async (input, ctx) => {
-			const reviewsPrefix = ["listReviews", input.projectId] as const;
+			const reviewsPrefix = [input.projectId, "listReviews"] as const;
 			await ctx.client.cancelQueries({ queryKey: reviewsPrefix });
 
 			// The flag lives on every reviews listing (the key varies by cache
@@ -604,8 +604,8 @@ export const useSetReviewAutoMerge = () => {
 					prev.prevSingle,
 				);
 			}
-			void ctx.client.invalidateQueries({ queryKey: ["listReviews", input.projectId] });
-			void ctx.client.invalidateQueries({ queryKey: ["getReview", input.projectId] });
+			void ctx.client.invalidateQueries({ queryKey: [input.projectId, "listReviews"] });
+			void ctx.client.invalidateQueries({ queryKey: [input.projectId, "getReview"] });
 
 			toastManager.add({
 				type: "error",
