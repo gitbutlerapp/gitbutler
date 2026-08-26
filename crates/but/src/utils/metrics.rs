@@ -85,8 +85,11 @@ impl Subcommands {
         if !settings.telemetry.app_metrics_enabled {
             return None;
         }
-        // The comments experiment emits no metrics while the idea is being validated.
-        if matches!(self, Subcommands::_Comment(_)) {
+        // The comments experiment is still being validated, and completions are shell-startup noise.
+        if matches!(
+            self,
+            Subcommands::_Comment(_) | Subcommands::Completions { .. }
+        ) {
             return None;
         }
         let cmd = self.to_metrics_command();
@@ -104,8 +107,8 @@ impl Subcommands {
 
         use crate::args::{agent, alias as alias_args, branch, forge, skill, update, worktree};
         match self {
-            // Unreachable: the comments experiment opts out of metrics in `to_metrics_context`.
-            Subcommands::_Comment(_) => Unknown,
+            // Unreachable: these commands opt out of metrics in `to_metrics_context`.
+            Subcommands::_Comment(_) | Subcommands::Completions { .. } => Unknown,
             #[cfg(feature = "legacy")]
             Subcommands::Status { .. } => Status,
             #[cfg(feature = "legacy")]
@@ -199,7 +202,6 @@ impl Subcommands {
                 }) => ForgeListUsers,
                 _ => Unknown,
             },
-            Subcommands::Completions { .. } => Completions,
             Subcommands::Help { .. } => Unknown,
             Subcommands::_Expand { .. } => Unknown,
             Subcommands::Alias(alias_args::Platform { cmd }) => match cmd {
@@ -829,6 +831,20 @@ mod tests {
             event.props["samplingRate"],
             serde_json::json!(1.0),
             "failed events should bypass command sampling"
+        );
+    }
+
+    #[test]
+    fn completions_do_not_create_metrics_context() {
+        let mut settings = AppSettings::default();
+        settings.telemetry.app_metrics_enabled = true;
+
+        let context =
+            Subcommands::Completions { shell: None }.to_metrics_context(&settings, Path::new("."));
+
+        assert!(
+            context.is_none(),
+            "shell completions should not emit a metrics event"
         );
     }
 

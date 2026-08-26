@@ -53,7 +53,6 @@ pub enum CommandName {
     EnableAutoMerge,
     SetReviewReady,
     SetReviewDraft,
-    Completions,
     AliasCheck,
     AliasAdd,
     AliasRemove,
@@ -81,7 +80,7 @@ impl CommandName {
     /// 0 should never be submitted to posthog.
     pub fn sample_rate(&self) -> f32 {
         match self {
-            Self::Unknown | Self::Completions | Self::Status => 0.05,
+            Self::Unknown | Self::Status => 0.05,
             _ => 1.0,
         }
     }
