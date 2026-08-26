@@ -382,6 +382,7 @@ const DadJokeFooter: FC = () => {
 
 const DiffContents: FC<{
 	activeFileItemId: string | null;
+	diffContextKey: string;
 	focusScopeRef: RefObject<HTMLDivElement | null>;
 	onViewerFileSelection: (path: string) => void;
 	fileParent: FileParent;
@@ -402,6 +403,7 @@ const DiffContents: FC<{
 	uncommit: (change: TreeChange, extendToCheckedFiles: boolean) => void;
 }> = ({
 	activeFileItemId,
+	diffContextKey,
 	focusScopeRef,
 	onViewerFileSelection,
 	fileParent,
@@ -1455,7 +1457,7 @@ const DiffContents: FC<{
 		<>
 			<CodeView
 				ref={viewerRef}
-				renderCodeViewFooter={() => <DadJokeFooter />}
+				renderCodeViewFooter={() => <DadJokeFooter key={diffContextKey} />}
 				renderCustomHeader={(item) => {
 					const file = fileByItemId.get(item.id);
 					// CodeView may briefly hold onto stale snapshots of our data.
@@ -2116,6 +2118,8 @@ const Diff: FC<{
 		activeFilePath === null
 			? null
 			: (diffViewSansAnno.fileByPath.get(activeFilePath)?.item.id ?? null);
+	const diffContextKey =
+		shownFileIndex === null ? reviewedFilesContextId : (activeFileItemId ?? reviewedFilesContextId);
 
 	const allFilesReviewed =
 		preparedDiffFiles.length > 0 &&
@@ -2416,6 +2420,7 @@ const Diff: FC<{
 						>
 							<DiffContents
 								activeFileItemId={activeFileItemId}
+								diffContextKey={diffContextKey}
 								onViewerFileSelection={onPassiveFileSelection}
 								fileParent={fileParent}
 								projectId={projectId}
