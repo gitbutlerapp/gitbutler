@@ -1740,6 +1740,139 @@ fn removes_within_stack_duplicate_heads_even_when_mapped_to_a_segment_13345() ->
     Ok(())
 }
 
+/// A stale unapplied stack may still list a branch that meanwhile lives in an applied
+/// stack - `reconcile_projected_stacks` tolerates such duplicates as stale hints.
+/// Writing the workspace back must not move the applied stack's copy into the stale
+/// stack; that regrouping made snapshots record every branch below the tip as
+/// unapplied, so restoring them stranded those branches (#15573).
+#[test]
+fn duplicate_names_in_unapplied_stacks_do_not_steal_applied_branches() -> anyhow::Result<()> {
+    let (mut store, _tmp) = empty_vb_store_rw()?;
+    let lower_head = gix::ObjectId::from_str("1111111111111111111111111111111111111111")?;
+    let tip_head = gix::ObjectId::from_str("2222222222222222222222222222222222222222")?;
+    let stale_head = gix::ObjectId::from_str("3333333333333333333333333333333333333333")?;
+
+    let applied = LegacyStack::new_with_just_heads(
+        vec![
+            StackBranch {
+                head: lower_head,
+                name: "lower".into(),
+                pr_number: None,
+                archived: false,
+                review_id: None,
+            },
+            StackBranch {
+                head: tip_head,
+                name: "tip".into(),
+                pr_number: None,
+                archived: false,
+                review_id: None,
+            },
+        ],
+        0,
+        true,
+    );
+    let stale = LegacyStack::new_with_just_heads(
+        vec![StackBranch {
+            head: stale_head,
+            name: "lower".into(),
+            pr_number: None,
+            archived: false,
+            review_id: None,
+        }],
+        1,
+        false,
+    );
+    let applied_id = applied.id;
+    let stale_id = stale.id;
+    store.data_mut().branches.insert(applied_id, applied);
+    store.data_mut().branches.insert(stale_id, stale);
+
+    // Reading the workspace and writing it back unchanged must not regroup branches.
+    let workspace_name: gix::refs::FullName = "refs/heads/gitbutler/workspace".try_into()?;
+    let ws = store.workspace(workspace_name.as_ref())?;
+    store.set_workspace(&ws)?;
+
+    let names = |stack_id: StackId| {
+        store.data().branches.get(&stack_id).map(|stack| {
+            stack
+                .heads
+                .iter()
+                .map(|head| head.name.clone())
+                .collect::<Vec<_>>()
+        })
+    };
+    assert_eq!(
+        names(applied_id),
+        Some(vec!["lower".to_string(), "tip".to_string()]),
+        "the applied stack keeps all its branches",
+    );
+    assert_eq!(
+        names(stale_id),
+        Some(vec!["lower".to_string()]),
+        "the stale stack keeps only its own copy",
+    );
+    assert_eq!(
+        store.data().branches[&stale_id].heads[0].head,
+        stale_head,
+        "the stale copy is untouched",
+    );
+    Ok(())
+}
+
+/// Two applied stacks may share a segment, so both legitimately list the same
+/// branch name. A workspace roundtrip must leave each stack's own copy in place
+/// instead of moving the lower-ordered one into whichever stack is written last.
+#[test]
+fn shared_segment_names_stay_in_their_own_applied_stacks() -> anyhow::Result<()> {
+    let (mut store, _tmp) = empty_vb_store_rw()?;
+    let shared_head = gix::ObjectId::from_str("1111111111111111111111111111111111111111")?;
+
+    let names = |heads: &[&str]| {
+        heads
+            .iter()
+            .map(|name| StackBranch {
+                head: shared_head,
+                name: (*name).into(),
+                pr_number: None,
+                archived: false,
+                review_id: None,
+            })
+            .collect::<Vec<_>>()
+    };
+    let stack_a = LegacyStack::new_with_just_heads(names(&["shared", "A"]), 0, true);
+    let stack_b = LegacyStack::new_with_just_heads(names(&["shared", "B"]), 1, true);
+    let stack_a_id = stack_a.id;
+    let stack_b_id = stack_b.id;
+    store.data_mut().branches.insert(stack_a_id, stack_a);
+    store.data_mut().branches.insert(stack_b_id, stack_b);
+
+    let workspace_name: gix::refs::FullName = "refs/heads/gitbutler/workspace".try_into()?;
+    let ws = store.workspace(workspace_name.as_ref())?;
+    store.set_workspace(&ws)?;
+
+    let head_names = |stack_id: StackId| {
+        store.data().branches.get(&stack_id).map(|stack| {
+            stack
+                .heads
+                .iter()
+                .map(|head| head.name.clone())
+                .collect::<Vec<_>>()
+        })
+    };
+    assert_eq!(
+        head_names(stack_a_id),
+        Some(vec!["shared".to_string(), "A".to_string()]),
+        "the first applied stack keeps its copy of the shared segment",
+    );
+    assert_eq!(
+        head_names(stack_b_id),
+        Some(vec!["shared".to_string(), "B".to_string()]),
+        "the second applied stack keeps its copy of the shared segment",
+    );
+    Ok(())
+}
+
 #[cfg(unix)]
 #[test]
 fn falls_back_to_in_memory_db_when_persistent_db_open_fails() -> anyhow::Result<()> {
