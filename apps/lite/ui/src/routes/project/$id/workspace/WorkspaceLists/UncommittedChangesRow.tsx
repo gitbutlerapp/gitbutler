@@ -1,7 +1,6 @@
 import { useDiscardWorktreeChanges } from "#ui/api/mutations.ts";
 import { startAbsorb, startKeyboardTransfer } from "#ui/use-cursor.ts";
 import { Icon } from "#ui/components/Icon.tsx";
-import { FocusScopeKbd } from "#ui/components/FocusScopeKbd.tsx";
 import { createDiffSpec } from "#ui/operations/diff-specs.ts";
 import {
 	nativeMenuItem,
@@ -109,7 +108,6 @@ export const UncommittedChangesRow: FC<{
 		<SectionHeaderRow
 			id={headingId}
 			label="Uncommitted"
-			childrenBefore={<FocusScopeKbd hotkey="1" scope="uncommitted-files" />}
 			onContextMenu={(event) => {
 				void showNativeContextMenu(event, menuItems);
 			}}

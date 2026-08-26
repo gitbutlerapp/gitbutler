@@ -50,7 +50,6 @@ import {
 } from "./Row.tsx";
 import { ListFilterRow } from "./ListFilterRow.tsx";
 import { useListFilter } from "./useListFilter.ts";
-import { FocusScopeKbd } from "#ui/components/FocusScopeKbd.tsx";
 import {
 	getRowButtonClassName,
 	treeItemId,
@@ -438,7 +437,6 @@ export const BranchesList: FC<
 				<SectionHeaderRow
 					className={styles.header}
 					label="Recent branches"
-					childrenBefore={<FocusScopeKbd hotkey="1" scope="sidebar" />}
 					actions={
 						<Toolbar.Root aria-label="Branch list actions" render={<RowToolbar forceVisible />}>
 							<Toolbar.Group className={styles.headerGroup}>

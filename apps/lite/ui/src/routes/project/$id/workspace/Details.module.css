@@ -44,7 +44,7 @@
 	display: grid;
 	/* Match regular button height. */
 	grid-template-rows: 28px;
-	grid-template-columns: auto auto 1fr;
+	grid-template-columns: auto 1fr;
 	column-gap: 8px;
 	align-items: center;
 	/* Long names ellipsize rather than shove the row's actions off the edge. */
