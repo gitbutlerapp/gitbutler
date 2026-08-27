@@ -286,8 +286,8 @@ impl<'ws, 'graph, M: RefMetadata> SuccessfulRebase<'ws, 'graph, M> {
         repo.edit_references(ref_edits)?;
 
         let project_meta = self.workspace.graph.project_meta.clone();
-        self.workspace
-            .refresh_from_head(&repo, &*self.meta, project_meta, &mut *self.db)?;
+        let workspace_inputs =
+            refresh_workspace_with_inputs(self.workspace, self.meta, &repo, project_meta, self.db)?;
 
         Ok(MaterializeOutcome {
             graph: self.graph,
@@ -295,6 +295,7 @@ impl<'ws, 'graph, M: RefMetadata> SuccessfulRebase<'ws, 'graph, M> {
             workspace: self.workspace,
             meta: self.meta,
             db: self.db,
+            workspace_inputs,
             checkout_conflict_occurred,
         })
     }
@@ -305,5 +306,32 @@ impl<'ws, 'graph, M: RefMetadata> SuccessfulRebase<'ws, 'graph, M> {
         self.materialize(MaterializeOptions {
             without_checkout: true,
         })
+    }
+}
+
+fn refresh_workspace_with_inputs<M: RefMetadata>(
+    workspace: &mut but_graph::Workspace,
+    meta: &M,
+    repo: &gix::Repository,
+    project_meta: but_core::ref_metadata::ProjectMeta,
+    db: &mut but_db::DbHandle,
+) -> Result<Option<but_graph::WorkspaceInputSnapshot>> {
+    let options = workspace.graph.options.clone();
+    let (refreshed, inputs) =
+        but_graph::workspace_from_head_with_inputs(repo, meta, project_meta, db, options)?;
+    *workspace = refreshed;
+    Ok(inputs)
+}
+
+impl<M: RefMetadata> MaterializeOutcome<'_, '_, M> {
+    /// Refresh the materialized workspace and replace its verified input snapshot.
+    pub fn refresh_workspace(
+        &mut self,
+        repo: &gix::Repository,
+        project_meta: but_core::ref_metadata::ProjectMeta,
+    ) -> Result<()> {
+        self.workspace_inputs =
+            refresh_workspace_with_inputs(self.workspace, self.meta, repo, project_meta, self.db)?;
+        Ok(())
     }
 }

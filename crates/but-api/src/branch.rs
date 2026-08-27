@@ -2051,21 +2051,26 @@ fn branch_workspace_from_rebase<M: but_core::RefMetadata>(
         );
     }
 
-    let materialized = rebase.materialize(Default::default())?;
+    let mut materialized = rebase.materialize(Default::default())?;
+    let mut refresh_workspace = false;
     if let Some(order) = branch_stack_order {
         materialized.meta.set_branch_stack_order(order)?;
-        let project_meta = materialized.workspace.graph.project_meta.clone();
-        materialized.workspace.refresh_from_head(
-            repo,
-            &*materialized.meta,
-            project_meta,
-            &mut *materialized.db,
-        )?;
+        refresh_workspace = true;
     }
-    if let Some((ws_meta, ref_name)) = ws_meta.zip(materialized.workspace.ref_name()) {
-        let mut md = materialized.meta.workspace(ref_name)?;
+    if let Some((ws_meta, ref_name)) = ws_meta.zip(
+        materialized
+            .workspace
+            .ref_name()
+            .map(gix::refs::FullNameRef::to_owned),
+    ) {
+        let mut md = materialized.meta.workspace(ref_name.as_ref())?;
         *md = ws_meta;
         materialized.meta.set_workspace(&md)?;
+        refresh_workspace = true;
+    }
+    if refresh_workspace {
+        let project_meta = materialized.workspace.graph.project_meta.clone();
+        materialized.refresh_workspace(repo, project_meta)?;
     }
 
     WorkspaceState::from_materialized(materialized, repo)

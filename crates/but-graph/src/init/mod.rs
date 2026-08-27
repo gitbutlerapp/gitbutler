@@ -576,7 +576,7 @@ impl Options {
 /// adoption of [`but_db::worktrees::worktrees_with_state()`], so it may write to `db`.
 /// Worktrees with nothing to seed - vanished, unborn, or on the workspace ref - are
 /// skipped.
-fn discover_worktree_tips(
+pub(crate) fn discover_worktree_tips(
     repo: &gix::Repository,
     db: &mut but_db::DbHandle,
     collect: bool,

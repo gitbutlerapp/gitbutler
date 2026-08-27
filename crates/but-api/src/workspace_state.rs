@@ -93,12 +93,22 @@ impl WorkspaceState {
         replaced_commits: BTreeMap<gix::ObjectId, gix::ObjectId>,
         prs_by_head: &HashMap<String, but_forge::ReviewAssociation>,
         db: &mut but_db::DbHandle,
-        dry_run: DryRun,
+        workspace_inputs: Option<&but_graph::WorkspaceInputSnapshot>,
     ) -> anyhow::Result<WorkspaceState> {
-        let is_dry_run: bool = dry_run.into();
-        let workspace_revision = (!is_dry_run)
-            .then(|| {
-                crate::workspace_revision::compute_for_workspace(repo, meta, workspace, prs_by_head)
+        let workspace_revision = workspace_inputs
+            .map(|workspace_inputs| {
+                let current = but_graph::capture_workspace_inputs(
+                    repo,
+                    meta,
+                    &workspace.graph.project_meta,
+                    db,
+                    &workspace.graph.options,
+                )?;
+                Ok::<_, anyhow::Error>(crate::workspace_revision::compute_if_unchanged(
+                    Some(workspace_inputs),
+                    &current,
+                    prs_by_head,
+                ))
             })
             .transpose()
             .unwrap_or_else(|err| {
@@ -107,7 +117,8 @@ impl WorkspaceState {
                     "Failed to compute workspace revision for mutation response"
                 );
                 None
-            });
+            })
+            .flatten();
         #[cfg(not(feature = "graph-workspace"))]
         {
             let _ = (meta, db);
@@ -171,6 +182,26 @@ impl WorkspaceState {
         db: &mut but_db::DbHandle,
         dry_run: DryRun,
     ) -> anyhow::Result<WorkspaceState> {
+        let is_dry_run: bool = dry_run.into();
+        if !is_dry_run {
+            let (workspace, inputs) = but_graph::workspace_from_head_with_inputs(
+                repo,
+                meta,
+                workspace.graph.project_meta.clone(),
+                db,
+                workspace.graph.options.clone(),
+            )?;
+            let prs_by_head = but_forge::review_associations_by_head(db)?;
+            return Self::from_workspace_with_prs(
+                &workspace,
+                meta,
+                repo,
+                replaced_commits,
+                &prs_by_head,
+                db,
+                inputs.as_ref(),
+            );
+        }
         let prs_by_head = but_forge::review_associations_by_head(db)?;
         Self::from_workspace_with_prs(
             workspace,
@@ -179,7 +210,7 @@ impl WorkspaceState {
             replaced_commits,
             &prs_by_head,
             db,
-            dry_run,
+            None,
         )
     }
 
@@ -205,7 +236,7 @@ impl WorkspaceState {
             replaced_commits,
             prs_by_head,
             db,
-            DryRun::Yes,
+            None,
         )
     }
 
@@ -229,11 +260,12 @@ impl WorkspaceState {
     /// the checkout conflicted — is read from one place. A caller cannot forget to pass one on,
     /// which is the failure mode [`Self::from_workspace_with_db`] invites for materialized work.
     pub fn from_materialized<M: RefMetadata>(
-        materialized: MaterializeOutcome<'_, '_, M>,
+        mut materialized: MaterializeOutcome<'_, '_, M>,
         repo: &gix::Repository,
     ) -> anyhow::Result<WorkspaceState> {
         let prs_by_head = but_forge::review_associations_by_head(materialized.db)?;
         let checkout_conflict_occurred = materialized.checkout_conflict_occurred;
+        let workspace_inputs = materialized.workspace_inputs.take();
         let mut state = Self::from_workspace_with_prs(
             materialized.workspace,
             materialized.meta,
@@ -241,7 +273,7 @@ impl WorkspaceState {
             materialized.history.commit_mappings(),
             &prs_by_head,
             materialized.db,
-            DryRun::No,
+            workspace_inputs.as_ref(),
         )?;
         state.checkout_conflict_occurred = checkout_conflict_occurred;
         Ok(state)

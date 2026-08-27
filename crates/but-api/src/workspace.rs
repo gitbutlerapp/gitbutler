@@ -678,7 +678,7 @@ pub fn workspace_integrate_upstream_only_with_perm(
             });
         }
 
-        let materialized = rebase.materialize(Default::default())?;
+        let mut materialized = rebase.materialize(Default::default())?;
         project_meta.persist(&repo)?;
         if let Err(err) = but_workspace::fast_forward_local_tracking_branch(
             &repo,
@@ -688,14 +688,18 @@ pub fn workspace_integrate_upstream_only_with_perm(
             warn!(?err, "failed to fast-forward local target branch");
         }
 
-        if let Some(ref_name) = materialized.workspace.ref_name()
+        if let Some(ref_name) = materialized
+            .workspace
+            .ref_name()
+            .map(gix::refs::FullNameRef::to_owned)
             && let Some(ws_meta) = ws_meta
-            && is_workspace_ref_name(ref_name)
+            && is_workspace_ref_name(ref_name.as_ref())
         {
-            let mut md = materialized.meta.workspace(ref_name)?;
+            let mut md = materialized.meta.workspace(ref_name.as_ref())?;
             *md = ws_meta;
             materialized.meta.set_workspace(&md)?;
         }
+        materialized.refresh_workspace(&repo, project_meta)?;
 
         let workspace_state = WorkspaceState::from_materialized(materialized, &repo)?;
         (workspace_state, worktree_conflicts)

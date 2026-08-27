@@ -82,9 +82,7 @@ This optimization applies only to the expensive `headInfo`/workspace cache tag. 
 
 ## Placement
 
-Production code exposes one shared Rust computation to the Lite `head_info_snapshot` path, mutation response construction, and watcher event construction. None of those consumers independently reimplements the input set or encoding.
-
-The implementation lives in `but-api`, the narrowest shared layer with access to project metadata, branch order, worktree state, and the reduced forge PR map. JSON/schema generation carries the contract through N-API into the SDK, and the Electron bridge remains a transparent transport.
+Production code exposes one shared Rust input snapshot in `but-graph` to graph construction, the Lite `head_info_snapshot` path, mutation response construction, and watcher event construction. None of those consumers independently reimplements the graph input set or encoding. `but-api` extends that snapshot with the reduced forge PR map when producing the revision. JSON/schema generation carries the contract through N-API into the SDK, and the Electron bridge remains a transparent transport.
 
 ## Performance gate
 
@@ -121,6 +119,8 @@ The follow-up benchmark kept the original measurements, added the complete `head
 
 At the median, reload added 0.440 ms, making reload plus revision **1.22×** the revision alone. The revision remained **50.68× cheaper** than `head_info`, and the complete snapshot endpoint was **1.06×** the cost of `head_info`. This active-workspace result is substantially more favorable than estimating endpoint overhead from the isolated-clone measurements, but both datasets remain visible because workspace topology dominates `head_info` cost. It does not establish reload cost on repositories with large configurations, alternates, or expensive object-database setup.
 
+After centralizing the semantic input snapshot, a 20-sample release-mode sanity run in the same workspace measured revision p50 at 2.169 ms, `head_info` at 109.129 ms, and the full snapshot endpoint at 113.356 ms. The revision remained **50.32× cheaper** than `head_info`; retain the 100-sample results above as the more representative dataset.
+
 ## Verification
 
 The focused Lite unit test exercises the decision table: matching revisions preserve `headInfo`, while different or missing revisions retain the old invalidation behavior. It also verifies that matching revisions do not suppress other event-driven query invalidations, and covers both watcher-before-mutation and mutation-before-watcher ordering.
@@ -142,17 +142,15 @@ The call counter is an Electron-main log emitted only when the existing E2E envi
 - No ordering semantics or comparison other than exact string equality.
 - No Gerrit input.
 - No attempt to optimize every watcher tag in the first change.
-- Virtual-branch metadata is currently hashed as raw `virtual_branches.toml`. Formatting-only changes can cause a harmless extra refresh, and the file itself is transitional and going away. The centralized canonical snapshot should consume the semantic metadata used by graph construction rather than retain a dependency on this storage file.
+- The snapshot consumes semantic workspace and branch metadata through `RefMetadata`; it does not depend on the transitional `virtual_branches.toml` storage format.
 - Symbolic refs under `refs/heads/*` or `refs/remotes/*` are hashed by target name, not peeled object ID. Their usual targets stay inside those hashed namespaces, but a symbolic branch targeting a tag or custom namespace can change its resolved commit without changing the revision. Supporting arbitrary symbolic branch targets is deliberately out of scope; add this limitation to the checksum implementation's doc comment.
 - Lite's `head_info_snapshot` computes the revision before and after traversal and returns `null` if the two reads disagree.
 
-### Known mutation-response coherence issue
+### Mutation-response coherence
 
-Mutation responses currently derive their projection from an already-built materialized graph, but `compute_for_workspace` combines that graph with refs and tracking information reread from the live repository. An external Git writer can therefore change the repository after graph construction but before revision computation. The response would then pair projection A with revision B. When the watcher later reports revision B, Lite would incorrectly treat projection A as current and suppress the refresh.
+The graph input inventory and canonical encoding now live together in `but-graph`. Workspace construction captures the inputs before and after traversal and only carries the snapshot through materialization when both reads match. Mutation response construction performs one final comparison against live inputs and returns `workspaceRevision: null` if the source snapshot is missing, changed, or cannot be read. The exact forge PR association map applied during projection is then added to the versioned hash.
 
-The ideal fix is to define the canonical inputs once at the graph/projection boundary, capture them during graph construction, and carry that exact snapshot through materialization. Graph construction, projection, and revision computation must share this centralized representation instead of maintaining a second input inventory in `workspace_revision.rs`. Projection-only inputs applied after graph construction, currently the reduced forge PR association map, must extend the same snapshot with the exact values applied to the response. This keeps future graph inputs coupled to revision inputs without introducing a generic registry or observer system.
-
-Until that coherent snapshot exists, mutation responses must return `workspaceRevision: null` wherever coherence cannot be guaranteed; a before/after checksum around an already-built graph cannot prove that the graph represents either checksum. Add focused repository-backed coverage for every documented input so the current contract remains explicit during the centralization.
+Callers that modify branch order, workspace metadata, project metadata, or target refs after materialization perform one final shared workspace refresh after those writes. Other non-preview mutation paths that supply an already-built workspace are rebuilt through the same shared helper before projection. This prevents pairing projection A with revision B while preserving the existing safe fallback when coherence cannot be established.
 
 ### Known generic-operation deferral gap
 
@@ -172,10 +170,7 @@ The same investigation should measure revision p50/p95/p99, failures that fall b
 
 ## Follow-ups
 
-1. Centralize, capture, and carry the canonical graph/projection input snapshot before relying on mutation-response revisions for invalidation suppression, including the exact forge enrichment applied after graph construction.
-2. Remove the revision's dependency on `virtual_branches.toml` as part of that centralization; hash the semantic metadata graph construction actually consumed.
-3. Add focused repository-backed checksum coverage for every documented input and extend it when graph inputs change.
-4. Cover generic workspace operations in Lite's watcher-event deferral.
-5. Validate reload cost on repositories with large/layered configuration, decide how relevant `.git/config` changes produce one fresh workspace event, and add temporary runtime counters before deciding whether duplicate calculations, fallbacks, or mismatches need optimization.
-6. Add the symbolic-ref limitation to the workspace revision computation's doc comment.
-7. Re-run the benchmark against additional large active workspaces with populated forge associations.
+1. Extend the focused repository-backed checksum coverage whenever graph inputs change.
+2. Cover generic workspace operations in Lite's watcher-event deferral.
+3. Validate reload cost on repositories with large/layered configuration, decide how relevant `.git/config` changes produce one fresh workspace event, and add temporary runtime counters before deciding whether duplicate calculations, fallbacks, or mismatches need optimization.
+4. Re-run the benchmark against additional large active workspaces with populated forge associations.

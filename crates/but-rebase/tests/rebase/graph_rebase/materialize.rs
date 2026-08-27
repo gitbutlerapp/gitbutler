@@ -114,6 +114,10 @@ fn materialize_removes_dropped_commit_changes_from_worktree() -> Result<()> {
 "#]]
     );
     let outcome = outcome.materialize(Default::default())?;
+    assert!(
+        outcome.workspace_inputs.is_some(),
+        "a stable materialized workspace carries its exact source inputs"
+    );
     assert_eq!(overlayed, graph_tree(&outcome.workspace.graph).to_string());
 
     // After materialize, file 'c' should be GONE from worktree

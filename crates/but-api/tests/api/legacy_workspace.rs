@@ -45,6 +45,16 @@ fn workspace_revision_tracks_projection_inputs_not_worktree_files() -> anyhow::R
     let ctx = but_ctx::Context::from_repo_for_testing(repo)?.with_memory_app_cache();
     let initial = but_api::workspace_revision::compute(&ctx)?;
 
+    let metadata_path = ctx.project_data_dir().join("virtual_branches.toml");
+    let mut metadata = std::fs::read(&metadata_path).unwrap_or_default();
+    metadata.extend_from_slice(b"\n# formatting-only change\n");
+    std::fs::write(metadata_path, metadata)?;
+    assert_eq!(
+        but_api::workspace_revision::compute(&ctx)?,
+        initial,
+        "storage formatting is not a semantic workspace input"
+    );
+
     crate::support::write_file(tmp.path(), "untracked.txt", "not projected\n")?;
     assert_eq!(
         but_api::workspace_revision::compute(&ctx)?,
