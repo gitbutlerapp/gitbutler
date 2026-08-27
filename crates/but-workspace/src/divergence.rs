@@ -3,7 +3,10 @@
 use anyhow::{Context as _, Result};
 use but_core::RefMetadata;
 use but_rebase::graph_rebase::{Editor, LookupStep, Pick, Selector, Step, ToSelector};
-use std::{borrow::Cow, collections::HashMap};
+use std::{
+    borrow::Cow,
+    collections::{HashMap, HashSet},
+};
 
 use crate::graph_manipulation::traverse_nodes;
 
@@ -223,7 +226,7 @@ fn child_on_head_first_parent_path<M: RefMetadata>(
 fn find_first_parent_merge_base<M: RefMetadata>(
     editor: &Editor<'_, '_, M>,
     local_tip: Selector,
-    upstream_ancestors: &HashMap<gix::ObjectId, Selector>,
+    upstream_ancestors: &HashSet<gix::ObjectId>,
 ) -> Result<Option<gix::ObjectId>> {
     let mut current = Some(local_tip);
     while let Some(selector) = current {
@@ -235,12 +238,12 @@ fn find_first_parent_merge_base<M: RefMetadata>(
         else {
             return Ok(None);
         };
-        if upstream_ancestors.contains_key(&id) {
+        if upstream_ancestors.contains(&id) {
             return Ok(Some(id));
         }
         if let Some(preserved_parents) = preserved_parents {
             for parent_id in preserved_parents {
-                if upstream_ancestors.contains_key(&parent_id) {
+                if upstream_ancestors.contains(&parent_id) {
                     return Ok(Some(parent_id));
                 }
             }
@@ -254,11 +257,11 @@ fn find_first_parent_merge_base<M: RefMetadata>(
     Ok(None)
 }
 
-fn traverse_pick_ancestor_ids<M: RefMetadata>(
+pub(crate) fn traverse_pick_ancestor_ids<M: RefMetadata>(
     editor: &Editor<'_, '_, M>,
     tip: Selector,
-) -> Result<HashMap<gix::ObjectId, Selector>> {
-    let mut out = HashMap::new();
+) -> Result<HashSet<gix::ObjectId>> {
+    let mut out = HashSet::new();
     let mut seen = std::collections::HashSet::from([tip]);
     let mut tips = vec![tip];
 
@@ -269,7 +272,7 @@ fn traverse_pick_ancestor_ids<M: RefMetadata>(
                 preserved_parents,
                 ..
             }) => {
-                out.entry(id).or_insert(tip);
+                out.insert(id);
                 preserved_parents
             }
             Step::Reference { .. } | Step::None => None,
@@ -283,7 +286,7 @@ fn traverse_pick_ancestor_ids<M: RefMetadata>(
 
         if let Some(preserved_parents) = preserved_parents {
             for parent_id in preserved_parents {
-                out.entry(parent_id).or_insert(tip);
+                out.insert(parent_id);
                 if let Some(parent) = editor.try_select_commit(parent_id)
                     && seen.insert(parent)
                 {
