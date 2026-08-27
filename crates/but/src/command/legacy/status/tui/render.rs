@@ -40,7 +40,20 @@ use super::{
 };
 
 pub fn render_app(app: &App, frame: &mut Frame) {
-    let layout = app_layout(app, frame.area());
+    let layout = if app.in_single_branch_mode {
+        let area = frame.area();
+        let layout = Layout::vertical([Constraint::Min(1), Constraint::Length(1)]).split(area);
+        frame.render_widget(
+            Line::from("single branch mode")
+                .centered()
+                .style(Style::default().fg(app.mode.fg(app.theme)))
+                .bg(app.mode.bg(app.theme)),
+            layout[1],
+        );
+        app_layout(app, layout[0])
+    } else {
+        app_layout(app, frame.area())
+    };
 
     match layout.details {
         Some(DetailsPaneLayout::FullScreen {
@@ -940,26 +953,9 @@ fn render_hot_bar(app: &App, area: Rect, frame: &mut Frame) {
 
     frame.render_widget(" ", layout[1]);
 
-    if app.in_single_branch_mode {
-        let content_layout =
-            Layout::horizontal([Constraint::Min(1), Constraint::Length(5)]).split(layout[2]);
-
-        app.mode
-            .as_mode_render()
-            .render_hot_bar_content(app, content_layout[0], frame);
-
-        frame.render_widget(
-            Span::styled(
-                " SBM ",
-                Style::default().bg(ModeDiscriminant::Normal.bg(app.theme)),
-            ),
-            content_layout[1],
-        );
-    } else {
-        app.mode
-            .as_mode_render()
-            .render_hot_bar_content(app, layout[2], frame);
-    }
+    app.mode
+        .as_mode_render()
+        .render_hot_bar_content(app, layout[2], frame);
 
     if let Some(started_at) = loading_spinner_started_at {
         let mut line = RenderSingleLineSpans::new(frame, layout[3]);
