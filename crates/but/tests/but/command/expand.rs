@@ -8,6 +8,15 @@ fn expand_env() -> Sandbox {
     env
 }
 
+/// A valid PNG file, useful if you want to test binary files.
+const PNG_BINARY_CONTENT: &[u8] = &[
+    0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A, 0x00, 0x00, 0x00, 0x0D, 0x49, 0x48, 0x44, 0x52,
+    0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x01, 0x08, 0x04, 0x00, 0x00, 0x00, 0xB5, 0x1C, 0x0C,
+    0x02, 0x00, 0x00, 0x00, 0x0B, 0x49, 0x44, 0x41, 0x54, 0x78, 0xDA, 0x63, 0x64, 0xF8, 0x0F, 0x00,
+    0x01, 0x05, 0x01, 0x01, 0x27, 0x18, 0xE3, 0x66, 0x00, 0x00, 0x00, 0x00, 0x49, 0x45, 0x4E, 0x44,
+    0xAE, 0x42, 0x60, 0x82,
+];
+
 #[test]
 fn resolves_cli_id_atom() {
     let env = expand_env();
@@ -267,6 +276,44 @@ Created commit 1 on new branch 'a-branch-1'
 Matches: 1
 
 committed hunk: d4d928e2cf0ad11076e9419d8f946642e8650d6b file @@ -1,0 +1,1 @@
+
+"#]]);
+}
+
+#[test]
+fn resolves_binary_committed_hunk() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("zero-stacks");
+    env.setup_metadata(&[]);
+
+    env.file("image.png", PNG_BINARY_CONTENT);
+
+    env.but("diff")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+────────────────╮
+ nx:q image.png │
+────────────────╯
+
+No diff available - file is either empty, binary, or too large
+
+"#]]);
+
+    env.but("commit -m 'Add binary file'")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+Created commit 1 on new branch 'a-branch-1'
+
+"#]]);
+
+    env.but("_expand 1:nx:q")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+Matches: 1
+
+committed hunk: 80ebb9fd760bfb1522b5eb209be8b2783494c1b8 image.png <no hunk header>
 
 "#]]);
 }

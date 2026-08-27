@@ -309,17 +309,10 @@ impl<'a> Node<'a> for CommittedFile {
         let mut hunks: Vec<but_core::SingleHunk> = vec![];
 
         for tree_change in self.tree_changes.iter() {
-            let Some(patch @ but_core::UnifiedPatch::Patch { .. }) =
-                changes_in_commit.patch_for_tree_change(tree_change, id_map.diff_context_lines)?
-            else {
-                // If it's anything but a Patch variant, we can't possibly refer to a hunk inside of it
-                continue;
-            };
+            let patch =
+                changes_in_commit.patch_for_tree_change(tree_change, id_map.diff_context_lines)?;
 
-            hunks.extend(but_core::SingleHunk::from_tree_change(
-                tree_change,
-                Some(patch),
-            ));
+            hunks.extend(but_core::SingleHunk::from_tree_change(tree_change, patch));
         }
 
         let mut short_ids_and_hunks: Vec<_> = hunks
