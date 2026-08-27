@@ -1737,10 +1737,12 @@ const DiffFileHeader: FC<DiffFileHeaderProps> = (p) => {
 					</span>
 					{reviewLabel}
 				</button>
-				<ChangeTypeBadge type={p.item.fileDiff.type} />
-				{p.lineStats && (
-					<DiffStats added={p.lineStats.linesAdded} removed={p.lineStats.linesRemoved} />
-				)}
+				<div className={styles.fileMeta}>
+					<ChangeTypeBadge type={p.item.fileDiff.type} />
+					{p.lineStats && (
+						<DiffStats added={p.lineStats.linesAdded} removed={p.lineStats.linesRemoved} />
+					)}
+				</div>
 
 				<Toolbar.Root aria-label="File actions" className={styles.fileHeaderActions}>
 					<Toolbar.Button
@@ -2645,6 +2647,13 @@ const CommitDetails: FC<{
 					</p>
 				)}
 				<div className={classes("text-13", styles.commitDetailsMeta)}>
+					{review && (
+						<BranchTabToggle
+							branchTab={tab}
+							setBranchTab={setTab}
+							className={styles.commitDetailsMetaTabs}
+						/>
+					)}
 					<img
 						src={commitDetails.commit.author.gravatarUrl}
 						className={styles.avatar}
@@ -2669,12 +2678,6 @@ const CommitDetails: FC<{
 						copyValue={commitDetails.commit.id}
 					/>
 				</div>
-
-				{review && (
-					<div className={styles.tabsRow}>
-						<BranchTabToggle branchTab={tab} setBranchTab={setTab} />
-					</div>
-				)}
 			</div>
 
 			{review && tab === "pr" ? (
@@ -2790,9 +2793,10 @@ const BranchTabToggle: FC<{
 	branchTab: BranchTab;
 	setBranchTab: (tab: BranchTab) => void;
 	prDisabled?: boolean;
-}> = ({ branchTab, setBranchTab, prDisabled = false }) => (
+	className?: string;
+}> = ({ branchTab, setBranchTab, prDisabled = false, className }) => (
 	<ToggleGroup
-		render={<ToggleGroupStyles />}
+		render={<ToggleGroupStyles className={className} />}
 		value={[branchTab]}
 		onValueChange={(value: Array<BranchTab>) => {
 			const head = value[0];
