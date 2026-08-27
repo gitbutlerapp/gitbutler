@@ -262,22 +262,8 @@ if [ "$PREV_BRANCH" = "refs/heads/gitbutler/workspace" ]; then
         # A prior install may have failed to fully clean up a legacy
         # file-based installation while migrating to config-based hooks
         # (e.g. a filesystem error). Sweep any stranded GitButler-signed
-        # hooks left in the hooks directory, respecting core.hooksPath.
-        # --type=path expands ~ against HOME, matching how this crate's own
-        # gix-based lookup (and git itself) interpret core.hooksPath; a bare
-        # `--get` would return the raw, unexpanded string.
-        LEGACY_HOOKS_PATH=$(git config --get --type=path core.hooksPath 2>/dev/null)
-        case "$LEGACY_HOOKS_PATH" in
-            "")
-                LEGACY_HOOKS_DIR=$(git rev-parse --git-dir)/hooks
-                ;;
-            /*)
-                LEGACY_HOOKS_DIR="$LEGACY_HOOKS_PATH"
-                ;;
-            *)
-                LEGACY_HOOKS_DIR="$(git rev-parse --show-toplevel)/$LEGACY_HOOKS_PATH"
-                ;;
-        esac
+        # hooks left in the hooks directory.
+        LEGACY_HOOKS_DIR=$(git rev-parse --path-format=absolute --git-path hooks 2>/dev/null)
 
         # Legacy pre-commit is a different event: safe to remove outright.
         legacy_pre_commit="$LEGACY_HOOKS_DIR/pre-commit"
