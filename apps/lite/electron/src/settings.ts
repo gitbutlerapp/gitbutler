@@ -15,6 +15,7 @@ const guiSettingsV1 = type({
 	version: "1",
 	"autoFetchFrequency?": "string",
 	"autoUpdate?": "boolean",
+	"commentAnnotations?": "boolean",
 	"diffBackground?": "boolean",
 	"diffFontFamily?": "string",
 	"diffFontSize?": "number",

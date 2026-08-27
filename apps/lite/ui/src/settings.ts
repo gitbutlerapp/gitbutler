@@ -5,6 +5,7 @@ import type { GUISettings } from "#electron/settings.ts";
 export const defaultSettings = {
 	autoFetchFrequency: "15 min",
 	autoUpdate: true,
+	commentAnnotations: false,
 	diffBackground: true,
 	diffFontFamily: "Geist Mono, Menlo, monospace",
 	diffFontSize: 12,

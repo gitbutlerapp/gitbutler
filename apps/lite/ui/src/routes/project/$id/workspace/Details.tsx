@@ -392,6 +392,7 @@ const DiffContents: FC<{
 	diffBackgrounds?: GUISettings["diffBackground"];
 	diffOverflow?: GUISettings["diffOverflow"];
 	diffStyle?: GUISettings["diffStyle"];
+	commentAnnotations: boolean;
 	reviewedFiles: ReviewedFileVersions;
 	manualCollapseByItem: Map<string, boolean>;
 	setManualCollapse: (itemId: string, collapsed: boolean | undefined) => void;
@@ -413,6 +414,7 @@ const DiffContents: FC<{
 	diffBackgrounds,
 	diffOverflow,
 	diffStyle,
+	commentAnnotations,
 	reviewedFiles,
 	manualCollapseByItem,
 	setManualCollapse,
@@ -1308,7 +1310,7 @@ const DiffContents: FC<{
 			projectId,
 			checkLine,
 			checkHunkLines,
-			fileParent._tag === "Branch" ? undefined : handleCreateComment,
+			commentAnnotations && fileParent._tag !== "Branch" ? handleCreateComment : undefined,
 		);
 	const {
 		onPostRender: handleMarkedDiffPostRender,
@@ -1977,9 +1979,14 @@ const Diff: FC<{
 		[unsortedChanges],
 	);
 
-	const { data: renderAllFiles } = useSuspenseQuery({
+	const {
+		data: { unidiff: renderAllFiles, commentAnnotations },
+	} = useSuspenseQuery({
 		...guiSettingsQueryOptions,
-		select: (cfg) => cfg.unidiff ?? defaultSettings.unidiff,
+		select: (cfg) => ({
+			commentAnnotations: cfg.commentAnnotations ?? defaultSettings.commentAnnotations,
+			unidiff: cfg.unidiff ?? defaultSettings.unidiff,
+		}),
 	});
 
 	const canShowFiles = useCanShowFiles();
@@ -2077,10 +2084,15 @@ const Diff: FC<{
 		},
 	});
 
-	const { data: annotationsByPath = EMPTY_ANNOTATIONS_BY_PATH } = useQuery({
+	const { data: loadedAnnotationsByPath = EMPTY_ANNOTATIONS_BY_PATH } = useQuery({
 		...commentsQueryOptions(projectId),
+		enabled: commentAnnotations,
 		select: (comments) => annotationsByPathForScope(comments, fileParent),
 	});
+	// The query fallback covers loading; this also hides cached data after opting out.
+	const annotationsByPath = commentAnnotations
+		? loadedAnnotationsByPath
+		: EMPTY_ANNOTATIONS_BY_PATH;
 
 	// A directory row stands for the first file below it, so the diff has
 	// something to show while the cursor rests on a folder.
@@ -2424,6 +2436,7 @@ const Diff: FC<{
 								diffBackgrounds={diffSettings?.diffBackground}
 								diffOverflow={diffSettings?.diffOverflow}
 								diffStyle={diffStyle}
+								commentAnnotations={commentAnnotations}
 								reviewedFiles={reviewedFiles}
 								manualCollapseByItem={manualCollapseByItem}
 								setManualCollapse={setManualCollapse}
