@@ -271,7 +271,12 @@ export const PullRequestForm: FC<{
 						sourceBranch,
 					},
 				},
-				{ onSuccess: (outcome) => afterPublish?.(outcome.review.number) },
+				{
+					onSuccess: (outcome) => {
+						deleteDraftPR({ projectId, branchName: sourceBranch });
+						afterPublish?.(outcome.review.number);
+					},
+				},
 			);
 		} else {
 			updateReview(
@@ -283,7 +288,12 @@ export const PullRequestForm: FC<{
 					state: null,
 					targetBase: null,
 				},
-				{ onSuccess: () => onAfterSubmit?.() },
+				{
+					onSuccess: () => {
+						deleteDraftPR({ projectId, branchName: sourceBranch });
+						onAfterSubmit?.();
+					},
+				},
 			);
 		}
 	};

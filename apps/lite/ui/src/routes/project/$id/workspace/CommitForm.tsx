@@ -17,7 +17,7 @@ import {
 	changesSelectedForCommit,
 	commitMessageGenerationButtonState,
 } from "#ui/commit-message-generation.ts";
-import { draftCommitMessageQueryOptions, usePersistDraftCommitMessage } from "#ui/draft.ts";
+import { draftCommitMessageQueryOptions, usePersistDraftCommitMessage } from "#ui/commit.ts";
 import { changesHotkeys, sidebarHotkeys, toElectronAccelerator } from "#ui/hotkeys.ts";
 import { nativeMenuItem, showNativeMenuFromTrigger, type NativeMenuItem } from "#ui/native-menu.ts";
 import { addressEquals, addressIdentityKey, type Address } from "#ui/addresses.ts";
