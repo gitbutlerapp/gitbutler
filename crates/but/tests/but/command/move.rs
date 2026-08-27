@@ -1780,6 +1780,475 @@ Hint: run `but help` for all commands
 "#]]);
 }
 
+fn assert_status(env: &Sandbox, expected: impl snapbox::IntoData) {
+    env.but("status").assert().success().stdout_eq(expected);
+}
+
+fn assert_head(env: &Sandbox, expected: &str) {
+    assert_eq!(
+        env.invoke_git("symbolic-ref --short HEAD"),
+        expected,
+        "HEAD should point to the top projected branch"
+    );
+}
+
+#[test]
+fn move_empty_branch_above_checked_out_branch_checks_it_out() {
+    let env = Sandbox::open_with_default_settings("single-branch-mode");
+    env.but("branch new top").assert().success();
+    env.but("branch new moved --below top").assert().success();
+    assert_status(
+        &env,
+        snapbox::str![[r#"
+╭┄ zz [uncommitted] (no changes)
+┊
+┊╭┄ to [top] (no commits)
+┊│
+┊├┄ mo [moved] (no commits)
+├╯
+┊
+┴ b1540e5 (common base) 2000-01-02 M
+
+Hint: run `but help` for all commands
+
+"#]],
+    );
+
+    env.but("move moved --above top").assert().success();
+
+    assert_status(
+        &env,
+        snapbox::str![[r#"
+╭┄ zz [uncommitted] (no changes)
+┊
+┊╭┄ mo [moved] (no commits)
+┊│
+┊├┄ to [top] (no commits)
+├╯
+┊
+┴ b1540e5 (common base) 2000-01-02 M
+
+Hint: run `but help` for all commands
+
+"#]],
+    );
+    assert_head(&env, "moved");
+}
+
+#[test]
+fn move_empty_branch_below_the_tip_preserves_checkout() {
+    let env = Sandbox::open_with_default_settings("single-branch-mode");
+    env.but("branch new empty-low").assert().success();
+    env.but("branch new empty-mid --above empty-low")
+        .assert()
+        .success();
+    env.but("branch new empty-top --above empty-mid")
+        .assert()
+        .success();
+    assert_status(
+        &env,
+        snapbox::str![[r#"
+╭┄ zz [uncommitted] (no changes)
+┊
+┊╭┄ em [empty-top] (no commits)
+┊│
+┊├┄ mp [empty-mid] (no commits)
+┊│
+┊├┄ pt [empty-low] (no commits)
+├╯
+┊
+┴ b1540e5 (common base) 2000-01-02 M
+
+Hint: run `but help` for all commands
+
+"#]],
+    );
+
+    env.but("move empty-low --above empty-mid")
+        .assert()
+        .success();
+
+    assert_status(
+        &env,
+        snapbox::str![[r#"
+╭┄ zz [uncommitted] (no changes)
+┊
+┊╭┄ em [empty-top] (no commits)
+┊│
+┊├┄ mp [empty-low] (no commits)
+┊│
+┊├┄ pt [empty-mid] (no commits)
+├╯
+┊
+┴ b1540e5 (common base) 2000-01-02 M
+
+Hint: run `but help` for all commands
+
+"#]],
+    );
+    assert_head(&env, "empty-top");
+}
+
+#[test]
+fn move_commit_branch_above_empty_dependents_keeps_them_empty() {
+    let env = Sandbox::open_with_default_settings("single-branch-mode");
+    env.but("branch new commit-branch").assert().success();
+    env.file("commit-branch", "content");
+    env.but("commit -b commit-branch -m 'commit branch'")
+        .assert()
+        .success();
+    env.but("branch new empty-low --above commit-branch")
+        .assert()
+        .success();
+    env.but("branch new empty-top --above empty-low")
+        .assert()
+        .success();
+    assert_status(
+        &env,
+        snapbox::str![[r#"
+╭┄ zz [uncommitted] (no changes)
+┊
+┊╭┄ em [empty-top] (no commits)
+┊│
+┊├┄ mp [empty-low] (no commits)
+┊│
+┊├┄ co [commit-branch]
+┊●   1 commit branch
+├╯
+┊
+┴ b1540e5 (common base) 2000-01-02 M
+
+Hint: run `but help` for all commands
+
+"#]],
+    );
+
+    env.but("move commit-branch --above empty-top")
+        .assert()
+        .success();
+
+    assert_status(
+        &env,
+        snapbox::str![[r#"
+╭┄ zz [uncommitted] (no changes)
+┊
+┊╭┄ co [commit-branch]
+┊●   1 commit branch
+┊│
+┊├┄ em [empty-top] (no commits)
+┊│
+┊├┄ mp [empty-low] (no commits)
+├╯
+┊
+┴ b1540e5 (common base) 2000-01-02 M
+
+Hint: run `but help` for all commands
+
+"#]],
+    );
+    assert_head(&env, "commit-branch");
+    let main_tip = env.invoke_git("rev-parse main");
+    assert_eq!(
+        env.invoke_git("rev-parse empty-top"),
+        main_tip,
+        "the top empty branch should remain empty"
+    );
+    assert_eq!(
+        env.invoke_git("rev-parse empty-low"),
+        main_tip,
+        "the lower empty branch should remain empty"
+    );
+}
+
+#[test]
+fn move_middle_non_empty_branch_above_checked_out_branch() {
+    let env = Sandbox::open_with_default_settings("single-branch-three-dependent-branches");
+    assert_status(
+        &env,
+        snapbox::str![[r#"
+╭┄ zz [uncommitted] (no changes)
+┊
+┊╭┄ g0 [C]
+┊●   vuw add C
+┊│
+┊├┄ h0 [B]
+┊●   myy add B
+┊│
+┊├┄ i0 [A]
+┊●   nmq add A
+├╯
+┊
+┴ 3712f84 (common base) 2000-01-02 add M
+
+Hint: run `but help` for all commands
+
+"#]],
+    );
+
+    env.but("move B --above C").assert().success();
+
+    assert_status(
+        &env,
+        snapbox::str![[r#"
+╭┄ zz [uncommitted] (no changes)
+┊
+┊╭┄ g0 [B]
+┊●   myy add B
+┊│
+┊├┄ h0 [C]
+┊●   vuw add C
+┊│
+┊├┄ i0 [A]
+┊●   nmq add A
+├╯
+┊
+┴ 3712f84 (common base) 2000-01-02 add M
+
+Hint: run `but help` for all commands
+
+"#]],
+    );
+    assert_head(&env, "B");
+    assert_eq!(
+        env.invoke_git("log --format=%s origin/main..HEAD"),
+        "add B\nadd C\nadd A",
+        "moving B should preserve the rewritten commit order"
+    );
+}
+
+#[test]
+fn move_bottom_non_empty_branch_above_checked_out_branch() {
+    let env = Sandbox::open_with_default_settings("single-branch-three-dependent-branches");
+    assert_status(
+        &env,
+        snapbox::str![[r#"
+╭┄ zz [uncommitted] (no changes)
+┊
+┊╭┄ g0 [C]
+┊●   vuw add C
+┊│
+┊├┄ h0 [B]
+┊●   myy add B
+┊│
+┊├┄ i0 [A]
+┊●   nmq add A
+├╯
+┊
+┴ 3712f84 (common base) 2000-01-02 add M
+
+Hint: run `but help` for all commands
+
+"#]],
+    );
+
+    env.but("move A --above C").assert().success();
+
+    assert_status(
+        &env,
+        snapbox::str![[r#"
+╭┄ zz [uncommitted] (no changes)
+┊
+┊╭┄ g0 [A]
+┊●   nmq add A
+┊│
+┊├┄ h0 [C]
+┊●   vuw add C
+┊│
+┊├┄ i0 [B]
+┊●   myy add B
+├╯
+┊
+┴ 3712f84 (common base) 2000-01-02 add M
+
+Hint: run `but help` for all commands
+
+"#]],
+    );
+    assert_head(&env, "A");
+    assert_eq!(
+        env.invoke_git("log --format=%s origin/main..HEAD"),
+        "add A\nadd C\nadd B",
+        "moving A should preserve the rewritten commit order"
+    );
+}
+
+#[test]
+fn move_checked_out_branch_down_checks_out_new_tip() {
+    let env = Sandbox::open_with_default_settings("single-branch-three-dependent-branches");
+    assert_status(
+        &env,
+        snapbox::str![[r#"
+╭┄ zz [uncommitted] (no changes)
+┊
+┊╭┄ g0 [C]
+┊●   vuw add C
+┊│
+┊├┄ h0 [B]
+┊●   myy add B
+┊│
+┊├┄ i0 [A]
+┊●   nmq add A
+├╯
+┊
+┴ 3712f84 (common base) 2000-01-02 add M
+
+Hint: run `but help` for all commands
+
+"#]],
+    );
+
+    env.but("move C --above A").assert().success();
+
+    assert_status(
+        &env,
+        snapbox::str![[r#"
+╭┄ zz [uncommitted] (no changes)
+┊
+┊╭┄ g0 [B]
+┊●   myy add B
+┊│
+┊├┄ h0 [C]
+┊●   vuw add C
+┊│
+┊├┄ i0 [A]
+┊●   nmq add A
+├╯
+┊
+┴ 3712f84 (common base) 2000-01-02 add M
+
+Hint: run `but help` for all commands
+
+"#]],
+    );
+    assert_head(&env, "B");
+    assert_eq!(
+        env.invoke_git("log --format=%s origin/main..HEAD"),
+        "add B\nadd C\nadd A",
+        "moving C down should preserve the rewritten commit order"
+    );
+}
+
+#[test]
+fn move_empty_checked_out_branch_down_keeps_it_empty() {
+    let env = Sandbox::open_with_default_settings("single-branch-three-dependent-branches");
+    env.invoke_git("checkout B");
+    env.invoke_git("branch -D C");
+    env.but("branch new C --above B").assert().success();
+    let b_tip = env.invoke_git("rev-parse B");
+    let a_tip = env.invoke_git("rev-parse A");
+    assert_status(
+        &env,
+        snapbox::str![[r#"
+╭┄ zz [uncommitted] (no changes)
+┊
+┊╭┄ g0 [C] (no commits)
+┊│
+┊├┄ h0 [B]
+┊●   myy add B
+┊│
+┊├┄ i0 [A]
+┊●   nmq add A
+├╯
+┊
+┴ 3712f84 (common base) 2000-01-02 add M
+
+Hint: run `but help` for all commands
+
+"#]],
+    );
+
+    env.but("move C --above A").assert().success();
+
+    assert_status(
+        &env,
+        snapbox::str![[r#"
+╭┄ zz [uncommitted] (no changes)
+┊
+┊╭┄ g0 [B]
+┊●   myy add B
+┊│
+┊├┄ h0 [C] (no commits)
+┊│
+┊├┄ i0 [A]
+┊●   nmq add A
+├╯
+┊
+┴ 3712f84 (common base) 2000-01-02 add M
+
+Hint: run `but help` for all commands
+
+"#]],
+    );
+    assert_head(&env, "B");
+    assert_eq!(
+        env.invoke_git("rev-parse B"),
+        b_tip,
+        "B should keep its commit"
+    );
+    assert_eq!(
+        env.invoke_git("rev-parse C"),
+        a_tip,
+        "C should remain empty at its new position"
+    );
+}
+
+#[test]
+fn move_bottom_branch_above_checked_out_middle_leaves_hidden_tip_unchanged() {
+    let env = Sandbox::open_with_default_settings("single-branch-three-dependent-branches");
+    let hidden_tip = env.invoke_git("rev-parse C");
+    env.invoke_git("checkout B");
+    assert_status(
+        &env,
+        snapbox::str![[r#"
+╭┄ zz [uncommitted] (no changes)
+┊
+┊╭┄ g0 [B]
+┊●   myy add B
+┊│
+┊├┄ h0 [A]
+┊●   nmq add A
+├╯
+┊
+┴ 3712f84 (common base) 2000-01-02 add M
+
+Hint: run `but help` for all commands
+
+"#]],
+    );
+
+    env.but("move A --above B").assert().success();
+
+    assert_status(
+        &env,
+        snapbox::str![[r#"
+╭┄ zz [uncommitted] (no changes)
+┊
+┊╭┄ g0 [A]
+┊●   nmq add A
+┊│
+┊├┄ h0 [B]
+┊●   myy add B
+├╯
+┊
+┴ 3712f84 (common base) 2000-01-02 add M
+
+Hint: run `but help` for all commands
+
+"#]],
+    );
+    assert_head(&env, "A");
+    assert_eq!(
+        env.invoke_git("rev-parse C"),
+        hidden_tip,
+        "the branch hidden above the old checkout should remain unchanged"
+    );
+    assert_eq!(
+        env.invoke_git("log --format=%s origin/main..HEAD"),
+        "add A\nadd B",
+        "only the projected stack should be rewritten"
+    );
+}
+
 #[test]
 #[ignore = "We can't move branches below other branches right now :( https://linear.app/gitbutler/issue/GB-1735/support-all-permutations-of-moving-branches-and-commits"]
 fn move_branch_below_to_other_stack() {
