@@ -1,5 +1,5 @@
 import { classes } from "#ui/components/classes.ts";
-import type { CSSProperties, FC, ReactNode } from "react";
+import type { FC, ReactNode } from "react";
 import { useLayoutEffect, useRef, useState } from "react";
 import styles from "./Clamped.module.css";
 
@@ -56,7 +56,7 @@ export const Clamped: FC<{
 	return (
 		<>
 			<div
-				style={{ "--clamp-max-height": maxHeight } as CSSProperties}
+				style={{ "--clamp-max-height": maxHeight }}
 				className={classes(isFolded && styles.clamped, isFolded && styles.overflowing)}
 			>
 				<div ref={innerRef}>{children}</div>

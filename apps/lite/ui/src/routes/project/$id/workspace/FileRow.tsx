@@ -11,7 +11,7 @@ import { classes } from "#ui/components/classes.ts";
 import { changesFileHotkeys } from "#ui/hotkeys.ts";
 import { Toolbar, Tooltip } from "@base-ui/react";
 import { Match } from "effect";
-import type { ComponentProps, CSSProperties, FC } from "react";
+import type { ComponentProps, FC } from "react";
 import styles from "./FileRow.module.css";
 import treeStyles from "./FilesTree.module.css";
 import { Row, RowCheckbox, RowLabel, RowLabelContainer, RowToolbar } from "./Row.tsx";
@@ -219,7 +219,7 @@ export const FileRowPresentational: FC<FileRowPresentationalProps> = ({
 			{ageBadge !== null && ageMs !== null && (
 				<span
 					className={styles.ageBadge}
-					style={{ "--age-badge-opacity": String(ageBadgeOpacity(ageMs)) } as CSSProperties}
+					style={{ "--age-badge-opacity": String(ageBadgeOpacity(ageMs)) }}
 				>
 					{ageBadge}
 				</span>

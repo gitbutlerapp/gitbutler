@@ -60,10 +60,10 @@ export const downstackPushStatusFromSegments = (segments: Array<Segment>): Downs
 export const downstackPushStatusesFromSegments = (
 	segments: Array<Segment>,
 ): Array<DownstackPushStatus> =>
-	segments.reduceRight((acc, segment, idx) => {
+	segments.reduceRight<Array<DownstackPushStatus>>((acc, segment, idx) => {
 		acc[idx] = concatDownstackPushStatus(
 			acc[idx + 1] ?? emptyDownstackPushStatus,
 			toDownstackPushStatus(segment),
 		);
 		return acc;
-	}, [] as Array<DownstackPushStatus>);
+	}, []);
