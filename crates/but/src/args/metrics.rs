@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Clone, Copy, Serialize, Deserialize, strum::Display, clap::ValueEnum, Default)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, strum::Display, clap::ValueEnum)]
 #[serde(rename_all = "camelCase")]
 pub enum CommandName {
     Init,
@@ -44,6 +44,7 @@ pub enum CommandName {
     WorktreeUnarchive,
     WorktreeRemove,
     Switch,
+    Config,
     ForgeAuth,
     ForgeListUsers,
     ForgeForget,
@@ -53,7 +54,6 @@ pub enum CommandName {
     EnableAutoMerge,
     SetReviewReady,
     SetReviewDraft,
-    Completions,
     AliasCheck,
     AliasAdd,
     AliasRemove,
@@ -64,24 +64,36 @@ pub enum CommandName {
     UpdateSuppress,
     UpdateInstall,
     Land,
+    Setup,
+    Teardown,
+    Expand,
+    Comment,
+    Completions,
+    Mcp,
+    Metrics,
+    Help,
+    Onboarding,
+    AgentLog,
+    Actions,
     SkillInstall,
     SkillCheck,
     AgentSetup,
     Pick,
     Clean,
     External,
-    #[default]
-    Unknown,
 }
 
 impl CommandName {
-    /// Percentage sample rate, between 0 and 1.
+    /// Sampling rate for successful events, in (0, 1].
     ///
-    /// 1 indicates that the command should always be submitted to posthog, and
-    /// 0 should never be submitted to posthog.
+    /// Failures bypass this policy and are emitted with a rate of 1. In PostHog,
+    /// estimate successful command totals with
+    /// `sum(1 / coalesce(samplingRate, 1))`.
     pub fn sample_rate(&self) -> f32 {
         match self {
-            Self::Unknown | Self::Completions | Self::Status => 0.05,
+            Self::Status => 0.01,
+            Self::Diff | Self::RefreshRemoteData => 0.05,
+            Self::BranchList => 0.10,
             _ => 1.0,
         }
     }

@@ -62,19 +62,6 @@ pub enum EventKind {
     Cli(CommandName),
 }
 
-impl EventKind {
-    /// Percentage sample rate, between 0 and 1.
-    ///
-    /// 1 indicates that the command should always be submitted to posthog, and
-    /// 0 should never be submitted to posthog.
-    pub fn sample_rate(&self) -> f32 {
-        match self {
-            Self::Mcp | Self::McpInternal => 1.0,
-            Self::Cli(c) => c.sample_rate(),
-        }
-    }
-}
-
 impl Subcommands {
     /// Create all context that is needed to emit metrics for `self` once, if `settings` permit.
     pub fn to_metrics_context(
@@ -85,8 +72,15 @@ impl Subcommands {
         if !settings.telemetry.app_metrics_enabled {
             return None;
         }
-        // The comments experiment emits no metrics while the idea is being validated.
-        if matches!(self, Subcommands::_Comment(_)) {
+        // Comments are still experimental, completions are shell-startup noise, and MCP and the
+        // transport child own their own events.
+        if matches!(
+            self,
+            Subcommands::_Comment(_)
+                | Subcommands::Completions { .. }
+                | Subcommands::Mcp(_)
+                | Subcommands::Metrics { .. }
+        ) {
             return None;
         }
         let cmd = self.to_metrics_command();
@@ -98,14 +92,21 @@ impl Subcommands {
         ))
     }
 
-    /// Turn `self` into a `CommandName` that serves as metric identifier.
+    /// Return the low-cardinality event identifier.
     pub(crate) fn to_metrics_command(&self) -> CommandName {
         use CommandName::*;
 
         use crate::args::{agent, alias as alias_args, branch, forge, skill, update, worktree};
         match self {
-            // Unreachable: the comments experiment opts out of metrics in `to_metrics_context`.
-            Subcommands::_Comment(_) => Unknown,
+            Subcommands::_Comment(_) => Comment,
+            Subcommands::Completions { .. } => Completions,
+            Subcommands::Mcp(_) => Mcp,
+            Subcommands::Metrics { .. } => Metrics,
+            Subcommands::Help { .. } => Help,
+            Subcommands::Onboarding => Onboarding,
+            Subcommands::AgentLog { .. } => AgentLog,
+            #[cfg(feature = "legacy")]
+            Subcommands::Actions(_) => Actions,
             #[cfg(feature = "legacy")]
             Subcommands::Status { .. } => Status,
             #[cfg(feature = "legacy")]
@@ -182,11 +183,10 @@ impl Subcommands {
                 Some(forge::pr::Subcommands::SetDraft { .. }) => SetReviewDraft,
                 Some(forge::pr::Subcommands::SetReady { .. }) => SetReviewReady,
             },
-            Subcommands::Mcp(_) => Unknown,
             #[cfg(feature = "legacy")]
-            Subcommands::Actions(_) | Subcommands::Setup { .. } | Subcommands::Teardown { .. } => {
-                Unknown
-            }
+            Subcommands::Setup { .. } => Setup,
+            #[cfg(feature = "legacy")]
+            Subcommands::Teardown { .. } => Teardown,
             Subcommands::Config(config::Platform { cmd }) => match cmd {
                 Some(config::Subcommands::Forge {
                     cmd: Some(config::ForgeSubcommand::Auth),
@@ -197,17 +197,14 @@ impl Subcommands {
                 Some(config::Subcommands::Forge {
                     cmd: Some(config::ForgeSubcommand::ListUsers),
                 }) => ForgeListUsers,
-                _ => Unknown,
+                _ => Config,
             },
-            Subcommands::Completions { .. } => Completions,
-            Subcommands::Help { .. } => Unknown,
-            Subcommands::_Expand { .. } => Unknown,
+            Subcommands::_Expand { .. } => Expand,
             Subcommands::Alias(alias_args::Platform { cmd }) => match cmd {
                 None | Some(alias_args::Subcommands::List) => AliasCheck,
                 Some(alias_args::Subcommands::Add { .. }) => AliasAdd,
                 Some(alias_args::Subcommands::Remove { .. }) => AliasRemove,
             },
-            Subcommands::Metrics { .. } => Unknown,
             Subcommands::Update(update::Platform { cmd }) => match cmd {
                 update::Subcommands::Check => UpdateCheck,
                 update::Subcommands::Suppress { .. } => UpdateSuppress,
@@ -241,8 +238,6 @@ impl Subcommands {
             Subcommands::Edit { .. } => Edit,
             #[cfg(feature = "legacy")]
             Subcommands::Clean { .. } => Clean,
-            Subcommands::Onboarding => Unknown,
-            Subcommands::AgentLog { .. } => Unknown,
             Subcommands::External(_) => External,
         }
     }
@@ -368,8 +363,16 @@ impl Props {
                     unrecognized_subcommand_metric_value(command_name),
                 );
             }
+            CliError::ExternalCommandFailed(_) => {
+                props.insert("error", "External command failed");
+                props.insert("errorKind", "externalCommandFailed");
+            }
             CliError::Internal(error) => {
                 props.insert_internal_error_details(error, command);
+            }
+            CliError::Initialization(_) => {
+                props.insert("error", "Internal error");
+                props.insert("errorKind", "initialization");
             }
         }
         props
@@ -420,6 +423,28 @@ impl Props {
             event.insert_prop(key, value);
         }
     }
+}
+
+fn sample_props(mut props: Props, command: CommandName, failed: bool, draw: f32) -> Option<Props> {
+    let sampling_rate = if failed { 1.0 } else { command.sample_rate() };
+    if sampling_rate < draw {
+        return None;
+    }
+    props.insert("samplingRate", sampling_rate);
+    Some(props)
+}
+
+pub(crate) fn prepare_transport_props(json: &str) -> anyhow::Result<Props> {
+    let mut props = Props::from_json_string(json)?;
+    if let Some(rate) = props.values.get("samplingRate") {
+        anyhow::ensure!(
+            rate.as_f64().is_some_and(|rate| rate > 0.0 && rate <= 1.0),
+            "`samplingRate` must be a number in (0, 1]"
+        );
+    } else {
+        props.insert("samplingRate", 1.0);
+    }
+    Ok(props)
 }
 
 fn error_message(error: &(impl std::fmt::Display + ?Sized)) -> String {
@@ -629,10 +654,6 @@ async fn do_capture(
     event: Event,
     app_settings: &AppSettings,
 ) -> Result<(), posthog_rs::Error> {
-    if event.event_name.sample_rate() < rand::rng().sample::<f32, _>(OpenClosed01) {
-        return Ok(());
-    }
-
     let id = app_settings
         .telemetry
         .app_distinct_id
@@ -686,7 +707,7 @@ impl<T> ResultMetricsExt<T, anyhow::Error> for anyhow::Result<T> {
 
         let mut props = Props::from_anyhow_result(start, &self, command);
         props.extend(extra_props);
-        emit_metrics(command, &props, &current_dir);
+        emit_metrics(command, props, &current_dir, self.is_err());
         self
     }
 }
@@ -705,7 +726,7 @@ impl<T> ResultMetricsExt<T, CliError> for Result<T, CliError> {
 
         let mut props = Props::from_cli_error_result(start, &self, command);
         props.extend(extra_props);
-        emit_metrics(command, &props, &current_dir);
+        emit_metrics(command, props, &current_dir, self.is_err());
         self
     }
 }
@@ -726,10 +747,18 @@ pub(crate) fn emit_retired_syntax_hint(command: CommandName) {
     }
     let mut props = Props::new();
     props.insert("retiredSyntaxHint", true);
-    emit_metrics(command, &props, Path::new("."));
+    emit_metrics(command, props, Path::new("."), true);
 }
 
-fn emit_metrics(command: CommandName, props: &Props, current_dir: &Path) {
+fn emit_metrics(command: CommandName, props: Props, current_dir: &Path, failed: bool) {
+    let Some(props) = sample_props(
+        props,
+        command,
+        failed,
+        rand::rng().sample::<f32, _>(OpenClosed01),
+    ) else {
+        return;
+    };
     let Some(v) = command.to_possible_value() else {
         tracing::warn!("BUG: didn't get string value for {command:?}");
         return;
@@ -767,368 +796,4 @@ fn emit_metrics(command: CommandName, props: &Props, current_dir: &Path) {
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::{
-        args::{Subcommands, agent, update},
-        bad_input,
-    };
-
-    #[cfg(feature = "legacy")]
-    use crate::args::atoms::CliIdArg;
-
-    fn prop<'a>(
-        props: &'a [(String, serde_json::Value)],
-        key: &str,
-    ) -> Option<&'a serde_json::Value> {
-        props
-            .iter()
-            .find_map(|(prop_key, value)| (prop_key.as_str() == key).then_some(value))
-    }
-
-    fn assert_command(subcommand: Subcommands, expected: &str) {
-        assert_eq!(
-            Event::new(EventKind::Cli(subcommand.to_metrics_command())).props["command"],
-            serde_json::json!(expected)
-        );
-    }
-
-    #[test]
-    fn workspace_shape_never_initializes_a_project() {
-        but_testsupport::isolated_app_data_dir(|| {
-            let tmp = tempfile::tempdir().expect("tempdir");
-            let repo_dir = tmp.path().join("repo");
-            gix::init(&repo_dir).expect("init plain repo");
-            let mut event = Event::new(EventKind::Cli(CommandName::Commit));
-
-            // A plain repository without GitButler state must stay untouched.
-            add_workspace_shape(&mut event, &repo_dir);
-            let data_dir = repo_dir.join(".git/gitbutler");
-            assert!(!data_dir.exists());
-            assert!(!event.props.contains_key("totalLanesInWorkspace"));
-
-            // Even with a project data dir present, the project database must not be created.
-            std::fs::create_dir(&data_dir).expect("create project data dir");
-            add_workspace_shape(&mut event, &repo_dir);
-            assert_eq!(
-                std::fs::read_dir(&data_dir).expect("read data dir").count(),
-                0
-            );
-            assert!(!event.props.contains_key("totalLanesInWorkspace"));
-        });
-    }
-
-    #[test]
-    fn workspace_shape_counts_lanes_and_stacked_branches() {
-        but_testsupport::isolated_app_data_dir(|| {
-            let sandbox =
-                but_testsupport::Sandbox::open_or_init_scenario_with_target_and_default_settings(
-                    "one-stack-three-dependent-branches",
-                );
-            let repo = sandbox.open_repo();
-            let workdir = repo.workdir().expect("scenario is not bare").to_owned();
-            // The shape is only read from repositories that already carry a project database.
-            but_db::DbHandle::new_in_directory(repo.git_dir().join("gitbutler"))
-                .expect("create project db");
-
-            let mut event = Event::new(EventKind::Cli(CommandName::Commit));
-            add_workspace_shape(&mut event, &workdir);
-
-            assert_eq!(event.props["totalLanesInWorkspace"], serde_json::json!(1));
-            assert_eq!(
-                event.props["totalBranchesInWorkspace"],
-                serde_json::json!(3)
-            );
-            assert_eq!(event.props["maxBranchesPerLane"], serde_json::json!(3));
-        });
-    }
-
-    #[test]
-    fn metrics_use_invoked_command_names() {
-        assert_command(
-            Subcommands::Update(update::Platform {
-                cmd: update::Subcommands::Check,
-            }),
-            "updateCheck",
-        );
-        assert_command(
-            Subcommands::Update(update::Platform {
-                cmd: update::Subcommands::Suppress { days: 7 },
-            }),
-            "updateSuppress",
-        );
-        assert_command(
-            Subcommands::Agent(agent::Platform {
-                cmd: Some(agent::Subcommands::Setup { print: false }),
-            }),
-            "agentSetup",
-        );
-        // Bare `but agent` (no subcommand) maps to the same metric.
-        assert_command(
-            Subcommands::Agent(agent::Platform { cmd: None }),
-            "agentSetup",
-        );
-        #[cfg(feature = "legacy")]
-        assert_command(
-            Subcommands::Move(crate::args::r#move::Platform {
-                branch: Some(Some(CliIdArg("main".to_owned()))),
-                above: None,
-                below: None,
-                unstack: false,
-                sources: Vec::from([CliIdArg("ci".to_owned())]),
-                allow_merged: Default::default(),
-            }),
-            "move",
-        );
-
-        #[cfg(all(unix, not(feature = "packaged-but-distribution")))]
-        assert_command(
-            Subcommands::Update(update::Platform {
-                cmd: update::Subcommands::Install {
-                    target: Some("0.20.0".into()),
-                },
-            }),
-            "updateInstall",
-        );
-
-        #[cfg(feature = "legacy")]
-        {
-            assert_command(
-                Subcommands::Amend(crate::args::amend::Platform {
-                    target: CliIdArg("c1".into()),
-                    sources: vec![CliIdArg("a1".into())],
-                    allow_merged: Default::default(),
-                }),
-                "amend",
-            );
-        }
-    }
-
-    #[test]
-    fn extra_props_keep_useful_source_and_target_kinds() {
-        #[cfg(feature = "legacy")]
-        {
-            let moved = Subcommands::Move(crate::args::r#move::Platform {
-                branch: Some(Some(CliIdArg("main".to_owned()))),
-                above: None,
-                below: None,
-                unstack: false,
-                sources: Vec::from([CliIdArg("ci".to_owned())]),
-                allow_merged: Default::default(),
-            });
-            let props = moved.to_metrics_extra_props();
-            assert_eq!(
-                prop(&props, "sourceKind"),
-                Some(&serde_json::json!("commitOrBranch"))
-            );
-            assert_eq!(
-                prop(&props, "targetKind"),
-                Some(&serde_json::json!("commitOrBranchOrUnassigned"))
-            );
-        }
-    }
-
-    #[test]
-    fn external_extra_props_include_sanitized_subcommand() {
-        let props = Subcommands::External(vec![" typo-OK ".into()]).to_metrics_extra_props();
-        assert_eq!(
-            prop(&props, "externalSubcommand"),
-            Some(&serde_json::json!("typo-OK"))
-        );
-
-        let props = Subcommands::External(vec!["/tmp/private".into()]).to_metrics_extra_props();
-        assert_eq!(
-            prop(&props, "externalSubcommand"),
-            Some(&serde_json::json!(INVALID_UNRECOGNIZED_SUBCOMMAND))
-        );
-
-        let props = Subcommands::External(vec!["customer123".into()]).to_metrics_extra_props();
-        assert_eq!(
-            prop(&props, "externalSubcommand"),
-            Some(&serde_json::json!(INVALID_UNRECOGNIZED_SUBCOMMAND))
-        );
-    }
-
-    #[test]
-    fn internal_error_details_are_allowlisted() {
-        let anyhow_result = Err::<(), _>(
-            anyhow::anyhow!("stale id. If you just performed a Git operation, refresh")
-                .context("Failed to uncommit."),
-        );
-
-        let props = Props::from_anyhow_result(
-            std::time::Instant::now(),
-            &anyhow_result,
-            CommandName::Uncommit,
-        );
-
-        assert_eq!(props.values["error"], "Internal error");
-        assert_eq!(props.values["errorKind"], "internal");
-        assert_eq!(
-            props.values["errorMessage"],
-            "Failed to uncommit.: stale id."
-        );
-        assert_eq!(props.values["errorRoot"], "stale id.");
-
-        let result = Err::<(), _>(
-            anyhow::anyhow!("private-branch-name failed").context("private-path failed"),
-        );
-
-        let props =
-            Props::from_anyhow_result(std::time::Instant::now(), &result, CommandName::Status);
-
-        assert_eq!(props.values["error"], "Internal error");
-        assert_eq!(props.values["errorKind"], "internal");
-        assert!(!props.values.contains_key("errorMessage"));
-        assert!(!props.values.contains_key("errorRoot"));
-        assert!(!props.as_json_string().contains("private-branch-name"));
-        assert!(!props.as_json_string().contains("private-path"));
-    }
-
-    #[test]
-    fn commit_internal_error_details_are_captured() {
-        let result = Err::<(), _>(CliError::Internal(
-            anyhow::anyhow!("stale id. If you just performed a Git operation, refresh")
-                .context("Failed to commit."),
-        ));
-
-        let props =
-            Props::from_cli_error_result(std::time::Instant::now(), &result, CommandName::Commit);
-
-        assert_eq!(props.values["errorMessage"], "Failed to commit.: stale id.");
-        assert_eq!(props.values["errorRoot"], "stale id.");
-    }
-
-    #[cfg(feature = "legacy")]
-    #[test]
-    fn explained_commit_rejections_omit_private_details() {
-        let result = Err::<(), _>(CliError::Internal(anyhow::Error::new(
-            crate::utils::rejection::ExplainedRejection(
-                "Cannot commit private/path on private-branch".to_string(),
-            ),
-        )));
-
-        let props =
-            Props::from_cli_error_result(std::time::Instant::now(), &result, CommandName::Commit);
-
-        assert_eq!(props.values["error"], "Command rejection");
-        assert_eq!(props.values["errorKind"], "commandRejection");
-        assert!(!props.values.contains_key("errorMessage"));
-        assert!(!props.values.contains_key("errorRoot"));
-        assert!(!props.as_json_string().contains("private/path"));
-        assert!(!props.as_json_string().contains("private-branch"));
-    }
-
-    #[test]
-    fn cli_error_metrics_use_low_cardinality_failure_details() {
-        let bad_input_result = Err::<(), _>(
-            bad_input("Branch 'branch-with-private-name' not found")
-                .arg_name("<BRANCH>")
-                .arg_value("another-private-branch-name")
-                .hint("Use a branch name")
-                .into(),
-        );
-
-        let props = Props::from_cli_error_result(
-            std::time::Instant::now(),
-            &bad_input_result,
-            CommandName::Commit,
-        );
-
-        assert_eq!(props.values["errorKind"], "badInput");
-        assert_eq!(props.values["error"], "Bad input");
-        assert!(!props.values.contains_key("errorMessage"));
-        assert_eq!(props.values["badInputArgName"], "<BRANCH>");
-        assert_eq!(props.values["badInputHasHint"], true);
-        assert!(!props.as_json_string().contains("branch-with-private-name"));
-        assert!(
-            !props
-                .as_json_string()
-                .contains("another-private-branch-name")
-        );
-
-        let external_result = Err::<(), _>(CliError::ExternalCommandNotFound("typo".into()));
-        let props = Props::from_cli_error_result(
-            std::time::Instant::now(),
-            &external_result,
-            CommandName::External,
-        );
-
-        assert_eq!(props.values["error"], "Unrecognized subcommand");
-        assert_eq!(props.values["errorKind"], "externalCommandNotFound");
-        assert_eq!(props.values["unrecognizedSubcommand"], "typo");
-        assert!(!props.values.contains_key("errorMessage"));
-
-        let external_result =
-            Err::<(), _>(CliError::ExternalCommandNotFound(" typo-123_OK ".into()));
-        let props = Props::from_cli_error_result(
-            std::time::Instant::now(),
-            &external_result,
-            CommandName::External,
-        );
-        assert_eq!(props.values["unrecognizedSubcommand"], "typo-123_OK");
-
-        let external_result =
-            Err::<(), _>(CliError::ExternalCommandNotFound("/tmp/private".into()));
-        let props = Props::from_cli_error_result(
-            std::time::Instant::now(),
-            &external_result,
-            CommandName::External,
-        );
-        assert_eq!(
-            props.values["unrecognizedSubcommand"],
-            INVALID_UNRECOGNIZED_SUBCOMMAND
-        );
-        assert!(!props.as_json_string().contains("/tmp/private"));
-
-        let long_command = "a".repeat(UNRECOGNIZED_SUBCOMMAND_MAX_CHARS + 1);
-        let external_result = Err::<(), _>(CliError::ExternalCommandNotFound(long_command.into()));
-        let props = Props::from_cli_error_result(
-            std::time::Instant::now(),
-            &external_result,
-            CommandName::External,
-        );
-        assert_eq!(
-            props.values["unrecognizedSubcommand"]
-                .as_str()
-                .expect("metric value is a string")
-                .len(),
-            UNRECOGNIZED_SUBCOMMAND_MAX_CHARS
-        );
-    }
-
-    #[test]
-    fn detailed_error_messages_are_normalized_and_capped() {
-        let multiline_result =
-            Err::<(), _>(anyhow::anyhow!("first line\nsecond line").context("Failed to uncommit."));
-
-        let props = Props::from_anyhow_result(
-            std::time::Instant::now(),
-            &multiline_result,
-            CommandName::Uncommit,
-        );
-
-        assert_eq!(
-            props.values["errorMessage"],
-            "Failed to uncommit.: first line second line"
-        );
-        assert_eq!(props.values["errorRoot"], "first line second line");
-
-        let long_result = Err::<(), _>(anyhow::anyhow!("{}", "a".repeat(1100)));
-
-        let props = Props::from_anyhow_result(
-            std::time::Instant::now(),
-            &long_result,
-            CommandName::Uncommit,
-        );
-
-        assert_eq!(
-            props.values["errorMessage"].as_str().unwrap().len(),
-            ERROR_MESSAGE_MAX_CHARS
-        );
-        assert_eq!(
-            props.values["errorRoot"].as_str().unwrap().len(),
-            ERROR_MESSAGE_MAX_CHARS
-        );
-    }
-}
+mod tests;

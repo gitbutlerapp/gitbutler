@@ -36,6 +36,28 @@ args: one two
 }
 
 #[test]
+fn preserves_external_command_exit_code_without_extra_error() {
+    let env = Sandbox::empty();
+    let bin = env.projects_root().join("external-cmd-bin");
+    fs::create_dir_all(&bin).unwrap();
+    let helper = bin.join("but-forecast");
+    fs::write(&helper, "#!/bin/sh\nexit 42\n").unwrap();
+    let mut perms = fs::metadata(&helper).unwrap().permissions();
+    perms.set_mode(0o755);
+    fs::set_permissions(&helper, perms).unwrap();
+
+    let path = std::env::var("PATH").unwrap_or_default();
+    let new_path = format!("{}:{path}", bin.display());
+
+    // The parent must preserve the helper's status without adding its own diagnostic.
+    env.but("forecast")
+        .env("PATH", new_path)
+        .assert()
+        .code(42)
+        .stderr_eq(str![[]]);
+}
+
+#[test]
 fn prefers_builtin_command_when_external_command_clashes() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
     let bin = env.projects_root().join("external-cmd-bin");
