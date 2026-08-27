@@ -199,6 +199,17 @@ impl<'ws, 'graph, M: RefMetadata> SuccessfulRebase<'ws, 'graph, M> {
         mut self,
         materialize_options: MaterializeOptions,
     ) -> Result<MaterializeOutcome<'ws, 'graph, M>> {
+        if !self.references_updated()? {
+            return Ok(MaterializeOutcome {
+                graph: self.graph,
+                history: self.history,
+                workspace: self.workspace,
+                meta: self.meta,
+                db: self.db,
+                checkout_conflict_occurred: false,
+            });
+        }
+
         let repo = self.repo.clone();
         if let Some(memory) = self.repo.objects.take_object_memory() {
             memory.persist(&self.repo)?;

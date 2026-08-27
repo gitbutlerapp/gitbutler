@@ -479,6 +479,40 @@ impl<'ws, 'meta, M: RefMetadata> SuccessfulRebase<'ws, 'meta, M> {
 
         Ok(CommitIdentifiers { id, change_id })
     }
+
+    /// If the successful rebase is materialized, will any references be updated
+    ///
+    /// Materialization will be a no-op
+    pub fn references_updated(&self) -> Result<bool> {
+        if !self.ref_edits.is_empty() {
+            return Ok(true);
+        }
+
+        for co in &self.checkouts {
+            match co {
+                Checkout::Head { selector, .. } => {
+                    let target = self.checkout_target(*selector)?.map(|t| t.0);
+
+                    if target != self.repo().head_id().ok().map(|id| id.detach()) {
+                        return Ok(true);
+                    }
+                }
+                Checkout::Worktree {
+                    selector,
+                    initial_head,
+                    ..
+                } => {
+                    let target = self.checkout_target(*selector)?.map(|t| t.0);
+
+                    if target != Some(*initial_head) {
+                        return Ok(true);
+                    }
+                }
+            }
+        }
+
+        Ok(false)
+    }
 }
 
 /// The outcome of a materialize
