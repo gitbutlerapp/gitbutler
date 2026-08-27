@@ -1,5 +1,6 @@
 import { ConflictIcon } from "#ui/components/ConflictIcon.tsx";
 import { FileIcon } from "#ui/components/FileIcon.tsx";
+import { FileStatusBadge } from "#ui/components/FileStatusBadge.tsx";
 import rowStyles from "./Row.module.css";
 import { showNativeContextMenu, showNativeMenuFromTrigger } from "#ui/native-menu.ts";
 import type { FileParent } from "#ui/addresses.ts";
@@ -10,7 +11,6 @@ import { Icon } from "#ui/components/Icon.tsx";
 import { classes } from "#ui/components/classes.ts";
 import { changesFileHotkeys } from "#ui/hotkeys.ts";
 import { Toolbar, Tooltip } from "@base-ui/react";
-import { Match } from "effect";
 import type { ComponentProps, CSSProperties, FC } from "react";
 import styles from "./FileRow.module.css";
 import treeStyles from "./FilesTree.module.css";
@@ -250,21 +250,10 @@ export const FileRowPresentational: FC<FileRowPresentationalProps> = ({
 				<Tooltip.Trigger
 					handle={tooltipHandle}
 					payload={{ content: item.change.status.type }}
-					className={styles.statusBadge}
-					aria-label={item.change.status.type}
-					data-status-type={item.change.status.type}
 					// By default it's a button, but we don't want this to be
 					// interactive.
-					render={<span />}
-				>
-					{Match.value(item.change.status).pipe(
-						Match.when({ type: "Addition" }, () => "A"),
-						Match.when({ type: "Deletion" }, () => "D"),
-						Match.when({ type: "Modification" }, () => "M"),
-						Match.when({ type: "Rename" }, () => "R"),
-						Match.exhaustive,
-					)}
-				</Tooltip.Trigger>
+					render={<FileStatusBadge status={item.change.status.type} />}
+				/>
 			)}
 		</Row>
 	);

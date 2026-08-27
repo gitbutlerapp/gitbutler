@@ -255,7 +255,7 @@
 
 .fileHeader {
 	display: grid;
-	grid-template-columns: auto 1fr auto auto auto auto;
+	grid-template-columns: auto 1fr auto auto auto;
 	column-gap: 12px;
 	align-items: center;
 	justify-content: space-between;
@@ -268,17 +268,16 @@
 	}
 }
 
-/* A folded file's header stands in for its hidden, selected hunks. A plain
-   accent bar marks it for now; positioned absolutely so the layout is
-   untouched. */
+/* Marks the file holding the diff selection — including a folded one, whose
+   header stands in for its hidden hunks. A plain accent bar for now;
+   positioned absolutely so the layout is untouched. */
 .fileHeaderSelected {
 	position: relative;
 
 	&::before {
 		position: absolute;
 		width: 3px;
-		inset: 4px auto 4px 0;
-		border-radius: 0 2px 2px 0;
+		inset: 0 auto 0 0;
 		/* The row-selection fill, dimmed like row selections in a blurred
 		   panel; full strength while the diff pane owns focus. */
 		background-color: color-mix(var(--fill-gray-bg) var(--opacity-bg-selected-blur), transparent);
@@ -294,6 +293,12 @@
 
 .fileHeaderActions {
 	display: flex;
+}
+
+.fileMeta {
+	display: flex;
+	align-items: center;
+	gap: 6px;
 }
 
 .fileReview {
@@ -325,14 +330,6 @@
 	overflow: hidden;
 	gap: 6px;
 	text-overflow: ellipsis;
-}
-
-.fileDiffAdded {
-	color: var(--text-safe);
-}
-
-.fileDiffDeleted {
-	color: #d34832;
 }
 
 .pathInit {
@@ -367,6 +364,12 @@
 	min-height: 28px;
 	gap: 8px;
 	color: var(--text-3);
+}
+
+/* The toggle leads the meta row, so it keeps the row's own rhythm but sits a
+   touch further from the author than the meta items sit from each other. */
+.commitDetailsMetaTabs {
+	margin-inline-end: 4px;
 }
 
 .commitDetailsMetaSha {

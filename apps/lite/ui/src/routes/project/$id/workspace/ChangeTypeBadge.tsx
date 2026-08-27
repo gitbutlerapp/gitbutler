@@ -1,19 +1,21 @@
-import { Badge, type BadgeVariant } from "#ui/components/Badge.tsx";
+import { FileStatusBadge, type FileStatusType } from "#ui/components/FileStatusBadge.tsx";
 import type { CodeViewDiffItem } from "@pierre/diffs";
 import { Match } from "effect";
 import type { FC } from "react";
 
+/** Adapts the diff viewer's file type to the status the rest of the app speaks. */
 export const ChangeTypeBadge: FC<{ type: CodeViewDiffItem<unknown>["fileDiff"]["type"] }> = ({
 	type,
-}) => {
-	const [label, variant] = Match.value(type).pipe(
-		Match.withReturnType<[string, BadgeVariant]>(),
-		Match.when("new", () => ["Added", "safe"]),
-		Match.whenOr("change", "rename-changed", () => ["Modified", "blue"]),
-		Match.when("rename-pure", () => ["Renamed", "purple"]),
-		Match.when("deleted", () => ["Deleted", "danger"]),
-		Match.exhaustive,
-	);
-
-	return <Badge variant={variant}>{label}</Badge>;
-};
+}) => (
+	<FileStatusBadge
+		fontSize={12}
+		status={Match.value(type).pipe(
+			Match.withReturnType<FileStatusType>(),
+			Match.when("new", () => "Addition"),
+			Match.whenOr("change", "rename-changed", () => "Modification"),
+			Match.when("rename-pure", () => "Rename"),
+			Match.when("deleted", () => "Deletion"),
+			Match.exhaustive,
+		)}
+	/>
+);

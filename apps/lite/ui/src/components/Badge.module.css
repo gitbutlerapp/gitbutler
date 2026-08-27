@@ -78,6 +78,12 @@
 	color: var(--text-blue);
 }
 
+.pop {
+	--_bg: var(--fill-pop-bg);
+	background-color: color-mix(in srgb, var(--_bg) var(--badge-bg-opacity), transparent);
+	color: var(--text-pop);
+}
+
 /* Matches the graph's integrated commit color, so the pill and the glyphs
    telling the same story share a hue. */
 .integrated {
