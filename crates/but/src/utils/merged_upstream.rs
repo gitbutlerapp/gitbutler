@@ -40,7 +40,7 @@ impl MergedUpstream {
         if allow_merged.allow_merged {
             return Ok(Self::permissive());
         }
-        let head_info = but_api::legacy::workspace::head_info_data(ctx)?;
+        let head_info = but_api::legacy::workspace::head_info(ctx)?;
         Ok(Self::new(&*ctx.repo.get()?, &head_info, allow_merged))
     }
 

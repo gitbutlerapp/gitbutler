@@ -2,7 +2,7 @@ import { projectQueryKeys } from "#ui/api/query-keys.ts";
 import { handleProjectEvent } from "#ui/project-events.ts";
 import type { WatcherEvent } from "@gitbutler/but-sdk";
 import { apiProvides, watcherInvalidates } from "@gitbutler/but-sdk/cache-tags";
-import type { QueryClient } from "@tanstack/react-query";
+import { QueryClient } from "@tanstack/react-query";
 import { describe, expect, it } from "vitest";
 
 const provides: Record<string, ReadonlyArray<string> | undefined> = apiProvides;
@@ -25,6 +25,7 @@ const react = (
 		},
 		setQueryData: (queryKey: ReadonlyArray<unknown>) => pushed.push(queryKey[1]),
 		getQueryData: () => ({ workspaceRevision: cachedRevision }),
+		getMutationCache: () => ({ getAll: () => [] }),
 		fetchQuery: () => Promise.reject(new Error("offline")),
 	} as unknown as QueryClient;
 
@@ -89,6 +90,75 @@ describe("handled separately", () => {
 	] as const)("re-reads headInfo after %s", (_case, cachedRevision, eventRevision) => {
 		const { invalidated } = react("workspaceActivity", { cachedRevision, eventRevision });
 		expect(invalidated).toContain("headInfo");
+	});
+
+	it("waits for a pending workspace mutation before comparing revisions", async () => {
+		const client = new QueryClient();
+		const queryKey = ["headInfo", "p1"] as const;
+		client.setQueryData(queryKey, { headInfo: {}, workspaceRevision: "workspace-v1:old" });
+		let finishMutation!: () => void;
+		const mutation = client.getMutationCache().build(client, {
+			mutationFn: () => new Promise<void>((resolve) => (finishMutation = resolve)),
+			meta: { updatesWorkspace: true },
+			onSuccess: () =>
+				client.setQueryData(queryKey, {
+					headInfo: {},
+					workspaceRevision: "workspace-v1:new",
+				}),
+		});
+		const execution = mutation.execute({ projectId: "p1" });
+		await Promise.resolve();
+
+		handleProjectEvent(
+			{
+				name: "workspaceActivity",
+				payload: {
+					type: "workspaceActivity",
+					subject: { workspaceRevision: "workspace-v1:new" },
+				},
+			},
+			"p1",
+			client,
+		);
+		expect(client.getQueryState(queryKey)?.isInvalidated).toBe(false);
+
+		finishMutation();
+		await execution;
+		expect(client.getQueryState(queryKey)?.isInvalidated).toBe(false);
+	});
+
+	it("invalidates after a pending mutation settles at a different revision", async () => {
+		const client = new QueryClient();
+		const queryKey = ["headInfo", "p1"] as const;
+		client.setQueryData(queryKey, { headInfo: {}, workspaceRevision: "workspace-v1:old" });
+		let finishMutation!: () => void;
+		const mutation = client.getMutationCache().build(client, {
+			mutationFn: () => new Promise<void>((resolve) => (finishMutation = resolve)),
+			meta: { updatesWorkspace: true },
+			onSuccess: () =>
+				client.setQueryData(queryKey, {
+					headInfo: {},
+					workspaceRevision: "workspace-v1:mutation",
+				}),
+		});
+		const execution = mutation.execute({ projectId: "p1" });
+		await Promise.resolve();
+
+		handleProjectEvent(
+			{
+				name: "workspaceActivity",
+				payload: {
+					type: "workspaceActivity",
+					subject: { workspaceRevision: "workspace-v1:external" },
+				},
+			},
+			"p1",
+			client,
+		);
+		finishMutation();
+		await execution;
+
+		expect(client.getQueryState(queryKey)?.isInvalidated).toBe(true);
 	});
 
 	it("pushes worktree changes rather than invalidating them", () => {

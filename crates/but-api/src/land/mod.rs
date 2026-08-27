@@ -34,6 +34,7 @@ use std::path::Path;
 
 use anyhow::bail;
 use but_api_macros::but_api;
+use but_core::DryRun;
 use but_ctx::Context;
 use gitbutler_git::GitContextExt as _;
 use gix::prelude::ObjectIdExt;
@@ -595,7 +596,7 @@ fn current_workspace_state(ctx: &mut Context) -> anyhow::Result<WorkspaceState> 
         &repo,
         std::collections::BTreeMap::new(),
         &mut db,
-        true,
+        DryRun::No,
     )
 }
 

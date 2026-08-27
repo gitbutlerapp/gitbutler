@@ -84,7 +84,14 @@ fn current_state(
     ctx.invalidate_workspace_cache()?;
     let mut meta = ctx.meta()?;
     let (repo, ws, mut db) = ctx.workspace_and_db_mut_with_perm(perm)?;
-    WorkspaceState::from_workspace_with_db(&ws, &mut meta, &repo, BTreeMap::new(), &mut db, true)
+    WorkspaceState::from_workspace_with_db(
+        &ws,
+        &mut meta,
+        &repo,
+        BTreeMap::new(),
+        &mut db,
+        DryRun::No,
+    )
 }
 
 /// Build one `Rebase` update per applied stack, selecting its bottom-most commit (or the bottom

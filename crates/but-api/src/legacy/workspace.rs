@@ -31,26 +31,12 @@ pub struct HeadInfoResponse {
     pub workspace_revision: Option<String>,
 }
 
-#[but_api(napi, try_from = crate::json::HeadInfoResponse, provides = [Workspace])]
+#[but_api(napi, try_from = but_workspace::ui::RefInfo, provides = [Workspace])]
 #[instrument(err(Debug))]
-pub fn head_info(ctx: &but_ctx::Context) -> Result<HeadInfoResponse> {
-    let before = crate::workspace_revision::compute(ctx).ok();
-    let head_info = head_info_data(ctx)?;
-    let after = crate::workspace_revision::compute(ctx).ok();
-    Ok(HeadInfoResponse {
-        head_info,
-        workspace_revision: match (before, after) {
-            (Some(before), Some(after)) if before == after => Some(after),
-            _ => None,
-        },
-    })
-}
-
-/// Build the legacy workspace projection without its transport checksum.
-pub fn head_info_data(ctx: &but_ctx::Context) -> Result<but_workspace::RefInfo> {
+pub fn head_info(ctx: &but_ctx::Context) -> Result<but_workspace::RefInfo> {
     let repo = ctx.clone_repo_for_merging_non_persisting()?;
     let meta = ctx.meta()?;
-    // The worktree-discovering database borrow must end before the gerrit handle
+    // The worktree-discovering database borrow must end before the forge handle
     // borrows the database again below.
     let ws = {
         let mut db = ctx.db.get_cache_mut()?;
@@ -66,14 +52,6 @@ pub fn head_info_data(ctx: &but_ctx::Context) -> Result<but_workspace::RefInfo> 
         )?
         .into_workspace()?
     };
-    let gerrit_mode_enabled = repo.git_settings()?.gitbutler_gerrit_mode.unwrap_or(false);
-    let db = gerrit_mode_enabled
-        .then(|| ctx.db.get_cache())
-        .transpose()?;
-    let gerrit_mode = match db.as_ref() {
-        Some(db) => but_workspace::ref_info::GerritMode::Enabled(db.gerrit_metadata()),
-        None => but_workspace::ref_info::GerritMode::Disabled,
-    };
     let mut info = but_workspace::ref_info::graph_to_ref_info(
         &ws,
         &repo,
@@ -81,7 +59,7 @@ pub fn head_info_data(ctx: &but_ctx::Context) -> Result<but_workspace::RefInfo> 
             project_meta: ctx.project_meta()?,
             traversal: but_graph::init::Options::limited(),
             expensive_commit_info: true,
-            gerrit_mode,
+            ..Default::default()
         },
     )?
     .pruned_to_entrypoint();
@@ -95,6 +73,32 @@ pub fn head_info_data(ctx: &but_ctx::Context) -> Result<but_workspace::RefInfo> 
     );
 
     Ok(info)
+}
+
+/// Build [`head_info`] together with an opaque checksum of its inputs for Lite cache coalescing.
+#[but_api(napi, try_from = crate::json::HeadInfoResponse, provides = [])]
+#[instrument(err(Debug))]
+pub fn head_info_snapshot(ctx: &but_ctx::Context) -> Result<HeadInfoResponse> {
+    let _guard = ctx.shared_worktree_access();
+    let before = crate::workspace_revision::compute(ctx).map_err(|err| {
+        tracing::warn!(
+            ?err,
+            "Failed to compute workspace revision before head_info"
+        );
+        err
+    });
+    let head_info = head_info(ctx)?;
+    let after = crate::workspace_revision::compute(ctx).map_err(|err| {
+        tracing::warn!(?err, "Failed to compute workspace revision after head_info");
+        err
+    });
+    Ok(HeadInfoResponse {
+        head_info,
+        workspace_revision: match (before, after) {
+            (Ok(before), Ok(after)) if before == after => Some(after),
+            _ => None,
+        },
+    })
 }
 
 #[cfg(unix)]

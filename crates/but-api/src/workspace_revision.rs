@@ -105,7 +105,9 @@ fn compute_from_inputs<M: but_core::RefMetadata>(
 
         let mut refs = Vec::new();
         for prefix in ["refs/heads/", "refs/remotes/"] {
-            for reference in repo.references()?.prefixed(prefix)?.filter_map(Result::ok) {
+            for reference in repo.references()?.prefixed(prefix)? {
+                let reference = reference
+                    .map_err(|err| anyhow::anyhow!("failed to read workspace reference: {err}"))?;
                 let name = reference.name().as_bstr().to_vec();
                 let target = match reference.target() {
                     gix::refs::TargetRef::Object(id) => (b'o', id.as_bytes().to_vec()),
@@ -118,7 +120,7 @@ fn compute_from_inputs<M: but_core::RefMetadata>(
             }
         }
         refs.sort_by(|a, b| a.0.cmp(&b.0));
-        digest.usize(b"ref-count", refs.len());
+        digest.u64(b"ref-count", refs.len() as u64);
         for (name, (kind, target)) in refs {
             digest.field(b"ref-name", &name);
             digest.field(b"ref-kind", &[kind]);
@@ -185,7 +187,10 @@ fn compute_from_inputs<M: but_core::RefMetadata>(
         let order = metadata.branch_stack_order(local_ref.as_ref())?;
         digest.field(b"branch-order-for", local_ref.as_bstr());
         digest.field(b"branch-order-present", &[u8::from(order.is_some())]);
-        digest.usize(b"branch-order-count", order.as_ref().map_or(0, Vec::len));
+        digest.u64(
+            b"branch-order-count",
+            order.as_ref().map_or(0, Vec::len) as u64,
+        );
         if let Some(order) = order {
             for name in order {
                 digest.field(b"branch-order-ref", name.as_bstr());
@@ -213,7 +218,7 @@ fn compute_from_inputs<M: but_core::RefMetadata>(
     prs.sort();
     for (head, number) in prs {
         digest.field(b"forge-head", head.as_bytes());
-        digest.usize(b"forge-pr", *number);
+        digest.u64(b"forge-pr", *number as u64);
     }
 
     Ok(format!("workspace-v1:{:x}", digest.finish()))
@@ -242,7 +247,7 @@ impl CanonicalDigest {
         }
     }
 
-    fn usize(&mut self, name: &[u8], value: usize) {
+    fn u64(&mut self, name: &[u8], value: u64) {
         self.field(name, &value.to_be_bytes());
     }
 

@@ -24,6 +24,7 @@ export declare const apiProvides: {
 	readonly getReviewMergeStatus: readonly ["MergeStatus"];
 	readonly getWorkspaceFile: readonly [];
 	readonly headInfo: readonly ["Workspace"];
+	readonly headInfoSnapshot: readonly [];
 	readonly listCiChecks: readonly ["Checks"];
 	readonly listCommentReactions: readonly ["CommentReactions"];
 	readonly listRepoLabels: readonly ["RepoLabels"];

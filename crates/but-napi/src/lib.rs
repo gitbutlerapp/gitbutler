@@ -347,6 +347,7 @@ fn start_project_watcher(
     let handler = gitbutler_watcher::Handler::new({
         let watched_project = project_id.clone();
         let revision_ctx = ctx.to_sync();
+        let revision_settings = app_settings.clone();
         move |change| {
             let workspace_revision = matches!(
                 change,
@@ -354,14 +355,18 @@ fn start_project_watcher(
                     | gitbutler_watcher::Change::WorkspaceActivity { .. }
             )
             .then(|| {
-                but_api::workspace_revision::compute(&revision_ctx.clone().into_thread_local())
-                    .map_err(|err| {
-                        tracing::warn!(
-                            ?err,
-                            "Failed to compute workspace revision for watcher event"
-                        );
-                    })
-                    .ok()
+                (|| -> anyhow::Result<String> {
+                    let mut ctx = revision_ctx.clone().into_thread_local();
+                    ctx.settings = revision_settings.get()?.clone();
+                    but_api::workspace_revision::compute(&ctx)
+                })()
+                .map_err(|err| {
+                    tracing::warn!(
+                        ?err,
+                        "Failed to compute workspace revision for watcher event"
+                    );
+                })
+                .ok()
             })
             .flatten();
             let event = event_from_change(change, workspace_revision);

@@ -154,7 +154,7 @@ export const editChangesFromInitialQueryOptions = (projectId: string) =>
 export const headInfoSnapshotQueryOptions = (projectId: string) =>
 	queryOptions({
 		queryKey: [projectId, "headInfo"],
-		queryFn: () => window.lite.headInfo(projectId),
+		queryFn: () => window.lite.headInfoSnapshot(projectId),
 	});
 
 export const headInfoQueryOptions = (projectId: string) =>

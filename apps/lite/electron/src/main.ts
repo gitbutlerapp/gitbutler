@@ -356,7 +356,7 @@ const registerIpcHandlers = (): void => {
 			? withApiCommandCapture(name, handler)
 			: handler;
 		senderValidatingHandle(name, (_e, params: unknown) => {
-			if (name === "headInfo" && process.env.E2E_TEST_APP_DATA_DIR !== undefined) {
+			if (name === "headInfoSnapshot" && process.env.E2E_TEST_APP_DATA_DIR !== undefined) {
 				// oxlint-disable-next-line no-console
 				console.log("[lite-e2e] headInfo");
 			}

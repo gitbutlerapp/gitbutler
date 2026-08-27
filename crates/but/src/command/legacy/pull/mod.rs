@@ -95,7 +95,7 @@ async fn handle_check(ctx: &Context, out: &mut OutputChannel) -> anyhow::Result<
         but_api::legacy::virtual_branches::fetch_from_remotes(ctx, Some("auto".to_string()))?;
 
     let should_check_integration = if base_branch.behind == 0 {
-        let current_head_info = but_api::legacy::workspace::head_info_data(ctx)?;
+        let current_head_info = but_api::legacy::workspace::head_info(ctx)?;
         upstream::has_cleanup_candidate(&current_head_info)
     } else {
         true
@@ -327,7 +327,7 @@ async fn handle_pull(
     }
 
     let should_check_integration = if base_branch.behind == 0 {
-        let current_head_info = but_api::legacy::workspace::head_info_data(ctx)?;
+        let current_head_info = but_api::legacy::workspace::head_info(ctx)?;
         upstream::has_cleanup_candidate(&current_head_info)
     } else {
         true

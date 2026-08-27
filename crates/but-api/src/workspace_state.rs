@@ -93,9 +93,10 @@ impl WorkspaceState {
         replaced_commits: BTreeMap<gix::ObjectId, gix::ObjectId>,
         prs_by_head: &HashMap<String, but_forge::ReviewAssociation>,
         db: &mut but_db::DbHandle,
-        include_revision: bool,
+        dry_run: DryRun,
     ) -> anyhow::Result<WorkspaceState> {
-        let workspace_revision = include_revision
+        let is_dry_run: bool = dry_run.into();
+        let workspace_revision = (!is_dry_run)
             .then(|| {
                 crate::workspace_revision::compute_for_workspace(repo, meta, workspace, prs_by_head)
             })
@@ -158,7 +159,7 @@ impl WorkspaceState {
     /// This is the API-facing constructor for callers that already hold the
     /// workspace cache DB. It derives PR associations from the forge review
     /// cache before projecting the workspace state.
-    /// Set `include_revision` to `false` when `workspace` is an unmaterialized preview.
+    /// Pass `DryRun::Yes` when `workspace` is an unmaterialized preview.
     ///
     /// It reports `checkout_conflict_occurred: false`, which is only true of a workspace that
     /// was never checked out. Use [`Self::from_materialized`] after a materialize with checkout.
@@ -168,7 +169,7 @@ impl WorkspaceState {
         repo: &gix::Repository,
         replaced_commits: BTreeMap<gix::ObjectId, gix::ObjectId>,
         db: &mut but_db::DbHandle,
-        include_revision: bool,
+        dry_run: DryRun,
     ) -> anyhow::Result<WorkspaceState> {
         let prs_by_head = but_forge::review_associations_by_head(db)?;
         Self::from_workspace_with_prs(
@@ -178,7 +179,7 @@ impl WorkspaceState {
             replaced_commits,
             &prs_by_head,
             db,
-            include_revision,
+            dry_run,
         )
     }
 
@@ -204,7 +205,7 @@ impl WorkspaceState {
             replaced_commits,
             prs_by_head,
             db,
-            false,
+            DryRun::Yes,
         )
     }
 
@@ -240,7 +241,7 @@ impl WorkspaceState {
             materialized.history.commit_mappings(),
             &prs_by_head,
             materialized.db,
-            true,
+            DryRun::No,
         )?;
         state.checkout_conflict_occurred = checkout_conflict_occurred;
         Ok(state)

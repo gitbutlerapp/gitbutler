@@ -11,7 +11,7 @@ fn managed_branch_gets_pr_from_forge_cache() -> anyhow::Result<()> {
     but_api::branch::apply_only(&mut ctx, branch.as_ref())?;
     cache_review(&ctx, PR_NUMBER)?;
 
-    let info = but_api::legacy::workspace::head_info_data(&ctx)?;
+    let info = but_api::legacy::workspace::head_info(&ctx)?;
     let segment = segment(&info);
     assert!(
         segment.metadata.is_some(),
@@ -67,7 +67,7 @@ fn empty_cache_preserves_the_stored_pr_of_an_integrated_branch() -> anyhow::Resu
     drop(meta);
     integrate_feature(&ctx, branch_name.as_ref())?;
 
-    let info = but_api::legacy::workspace::head_info_data(&ctx)?;
+    let info = but_api::legacy::workspace::head_info(&ctx)?;
     assert_eq!(
         segment(&info).push_status,
         but_workspace::ui::PushStatus::Integrated
@@ -240,7 +240,7 @@ fn review(number: usize) -> but_forge::ForgeReview {
 }
 
 fn projected_pr(ctx: &but_ctx::Context) -> anyhow::Result<Option<usize>> {
-    Ok(segment(&but_api::legacy::workspace::head_info_data(ctx)?)
+    Ok(segment(&but_api::legacy::workspace::head_info(ctx)?)
         .metadata
         .as_ref()
         .and_then(|meta| meta.review.pull_request))

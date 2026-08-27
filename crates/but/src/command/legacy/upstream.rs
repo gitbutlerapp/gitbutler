@@ -52,7 +52,7 @@ pub(crate) fn dry_run_integration_with_perm(
     ctx: &mut Context,
     perm: &mut RepoExclusive,
 ) -> anyhow::Result<IntegrationPreview> {
-    let current_head_info = but_api::legacy::workspace::head_info_data(ctx)?;
+    let current_head_info = but_api::legacy::workspace::head_info(ctx)?;
     let updates = but_api::workspace::rebase_stack_bottoms(&current_head_info);
     let preview = but_api::workspace::workspace_integrate_upstream_with_perm(
         ctx,

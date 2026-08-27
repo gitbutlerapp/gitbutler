@@ -63,7 +63,7 @@ declare module "@tanstack/react-query" {
 		 * write `onError` only for work of their own, like rolling back an
 		 * optimistic write or wording a title dynamically.
 		 */
-		mutationMeta: { failureTitle?: string };
+		mutationMeta: { failureTitle?: string; updatesWorkspace?: boolean };
 	}
 }
 
@@ -164,11 +164,16 @@ export const useApply = () => {
 						children: "Switch to branch instead",
 						onClick: () => {
 							(async () => {
-								const checkoutResponse = await window.lite.branchCheckout({
+								const checkout = mutation.client.getMutationCache().build(mutation.client, {
+									mutationFn: window.lite.branchCheckout,
+									meta: { updatesWorkspace: true },
+									onSuccess: (response, checkoutInput) =>
+										syncCoreCaches(mutation.client, dispatch, checkoutInput.projectId, response),
+								});
+								await checkout.execute({
 									projectId: input.projectId,
 									branch: encodeBytes(input.existingBranch),
 								});
-								syncCoreCaches(mutation.client, dispatch, input.projectId, checkoutResponse);
 								toastManager.close(toastId);
 							})().catch((error) => {
 								// oxlint-disable-next-line no-console
@@ -197,7 +202,7 @@ export const useBranchCreate = () => {
 		onSuccess: async (response, input, _context, mutation) => {
 			syncCoreCaches(mutation.client, dispatch, input.projectId, response);
 		},
-		meta: { failureTitle: "Failed to create branch" },
+		meta: { failureTitle: "Failed to create branch", updatesWorkspace: true },
 	});
 };
 
@@ -213,7 +218,7 @@ export const useBranchCheckoutNew = () => {
 		onSuccess: async (response, input, _context, mutation) => {
 			syncCoreCaches(mutation.client, dispatch, input.projectId, response);
 		},
-		meta: { failureTitle: "Failed to create and switch to branch" },
+		meta: { failureTitle: "Failed to create and switch to branch", updatesWorkspace: true },
 	});
 };
 
@@ -794,7 +799,7 @@ export const useCommitAmend = (projectId: string) => {
 				);
 			}
 		},
-		meta: { failureTitle: "Failed to amend commit" },
+		meta: { failureTitle: "Failed to amend commit", updatesWorkspace: true },
 	});
 };
 
@@ -831,7 +836,7 @@ export const useCommitCreate = () => {
 				);
 			}
 		},
-		meta: { failureTitle: "Failed to commit" },
+		meta: { failureTitle: "Failed to commit", updatesWorkspace: true },
 	});
 };
 
@@ -842,7 +847,7 @@ export const useCommitDiscard = () => {
 		onSuccess: async (response, input, _context, mutation) => {
 			syncCoreCaches(mutation.client, dispatch, input.projectId, response);
 		},
-		meta: { failureTitle: "Failed to discard commit" },
+		meta: { failureTitle: "Failed to discard commit", updatesWorkspace: true },
 	});
 };
 
@@ -853,7 +858,7 @@ export const useCommitDiscardChanges = () => {
 		onSuccess: async (response, input, _context, mutation) => {
 			syncCoreCaches(mutation.client, dispatch, input.projectId, response);
 		},
-		meta: { failureTitle: "Failed to discard changes" },
+		meta: { failureTitle: "Failed to discard changes", updatesWorkspace: true },
 	});
 };
 
@@ -1000,7 +1005,7 @@ export const useCommitInsertBlank = () => {
 				);
 			}
 		},
-		meta: { failureTitle: "Failed to insert commit" },
+		meta: { failureTitle: "Failed to insert commit", updatesWorkspace: true },
 	});
 };
 
@@ -1011,7 +1016,7 @@ export const useCommitMove = () => {
 		onSuccess: async (response, input, _context, mutation) => {
 			syncCoreCaches(mutation.client, dispatch, input.projectId, response);
 		},
-		meta: { failureTitle: "Failed to move commit" },
+		meta: { failureTitle: "Failed to move commit", updatesWorkspace: true },
 	});
 };
 
@@ -1022,7 +1027,7 @@ export const useCommitReword = () => {
 		onSuccess: async (response, input, _context, mutation) => {
 			syncCoreCaches(mutation.client, dispatch, input.projectId, response);
 		},
-		meta: { failureTitle: "Failed to reword commit" },
+		meta: { failureTitle: "Failed to reword commit", updatesWorkspace: true },
 	});
 };
 
@@ -1069,7 +1074,7 @@ export const useResolveCommitConflictHunks = () => {
 				});
 			}
 		},
-		meta: { failureTitle: "Failed to resolve the conflict" },
+		meta: { failureTitle: "Failed to resolve the conflict", updatesWorkspace: true },
 	});
 };
 
@@ -1080,7 +1085,7 @@ export const useCommitUncommit = () => {
 		onSuccess: async (response, input, _context, mutation) => {
 			syncCoreCaches(mutation.client, dispatch, input.projectId, response);
 		},
-		meta: { failureTitle: "Failed to uncommit" },
+		meta: { failureTitle: "Failed to uncommit", updatesWorkspace: true },
 	});
 };
 
@@ -1091,7 +1096,7 @@ export const useCommitUncommitChanges = () => {
 		onSuccess: async (response, input, _context, mutation) => {
 			syncCoreCaches(mutation.client, dispatch, input.projectId, response);
 		},
-		meta: { failureTitle: "Failed to uncommit" },
+		meta: { failureTitle: "Failed to uncommit", updatesWorkspace: true },
 	});
 };
 
@@ -1108,6 +1113,7 @@ export const useWorkspaceIntegrateUpstream = () => {
 
 	return useMutation({
 		mutationFn: window.lite.workspaceIntegrateUpstream,
+		meta: { updatesWorkspace: true },
 		onSuccess: (response, input, _context, mutation) => {
 			syncCoreCaches(mutation.client, dispatch, input.projectId, response);
 		},
@@ -1129,7 +1135,7 @@ export const useBranchRemove = () => {
 		onSuccess: (response, input, _context, mutation) => {
 			syncCoreCaches(mutation.client, dispatch, input.projectId, response);
 		},
-		meta: { failureTitle: "Failed to delete branch reference" },
+		meta: { failureTitle: "Failed to delete branch reference", updatesWorkspace: true },
 	});
 };
 
@@ -1206,7 +1212,7 @@ export const useTearOffBranch = () => {
 		onSuccess: async (response, input, _context, mutation) => {
 			syncCoreCaches(mutation.client, dispatch, input.projectId, response);
 		},
-		meta: { failureTitle: "Failed to tear off branch" },
+		meta: { failureTitle: "Failed to tear off branch", updatesWorkspace: true },
 	});
 };
 
@@ -1247,7 +1253,7 @@ export const useBranchRename = () => {
 
 			dispatch(projectSlice.actions.clearPendingOperation({ projectId: input.projectId }));
 		},
-		meta: { failureTitle: "Failed to rename branch" },
+		meta: { failureTitle: "Failed to rename branch", updatesWorkspace: true },
 	});
 };
 

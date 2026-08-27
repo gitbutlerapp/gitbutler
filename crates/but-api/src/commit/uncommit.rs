@@ -261,7 +261,7 @@ pub fn commit_uncommit_only_with_perm(
             repo,
             replaced_commits,
             db,
-            matches!(dry_run, DryRun::No),
+            dry_run,
         )?,
     })
 }
@@ -357,7 +357,7 @@ pub fn commit_uncommit_changes_only_with_perm(
             repo,
             replaced_commits,
             db,
-            matches!(dry_run, DryRun::No),
+            dry_run,
         )?,
     })
 }
@@ -533,7 +533,7 @@ pub fn commit_uncommit_changes_from_commits_only_with_perm(
             repo,
             replaced_commits,
             db,
-            matches!(dry_run, DryRun::No),
+            dry_run,
         )?,
         failures,
     })

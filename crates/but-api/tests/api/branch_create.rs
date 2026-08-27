@@ -26,6 +26,23 @@ fn branch_create_above_checked_out_ref_checks_out_new_ref_in_ad_hoc_workspace() 
         .expect("creating above checked-out branch checks out the new ref");
     assert_eq!(head_name, new_ref);
     assert_workspace_ref(&result.workspace, "refs/heads/top");
+    assert_eq!(
+        result.workspace.workspace_revision,
+        Some(but_api::workspace_revision::compute(&ctx)?),
+        "the mutation response identifies the materialized repository state"
+    );
+    #[cfg(not(feature = "graph-workspace"))]
+    {
+        let mutation_info: but_workspace::ui::RefInfo =
+            result.workspace.head_info.clone().try_into()?;
+        let query_info: but_workspace::ui::RefInfo =
+            but_api::legacy::workspace::head_info(&ctx)?.try_into()?;
+        assert_eq!(
+            serde_json::to_value(mutation_info)?,
+            serde_json::to_value(query_info)?,
+            "equal revisions represent equal mutation and query projections"
+        );
+    }
 
     let order = ctx
         .meta()?

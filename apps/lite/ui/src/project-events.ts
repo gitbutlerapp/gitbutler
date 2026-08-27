@@ -107,6 +107,70 @@ const refreshIntegratedReviews = async (client: QueryClient, projectId: string):
 	);
 };
 
+const mutationProjectId = (variables: unknown): string | undefined =>
+	typeof variables === "object" &&
+	variables !== null &&
+	"projectId" in variables &&
+	typeof variables.projectId === "string"
+		? variables.projectId
+		: undefined;
+
+const hasPendingWorkspaceMutation = (client: QueryClient, projectId: string): boolean =>
+	client
+		.getMutationCache()
+		.getAll()
+		.some(
+			(mutation) =>
+				mutation.state.status === "pending" &&
+				mutation.meta?.updatesWorkspace === true &&
+				mutationProjectId(mutation.state.variables) === projectId,
+		);
+
+type DeferredHeadInfoEvent = {
+	revision: string | null;
+	unsubscribe: () => void;
+};
+
+const deferredHeadInfoEvents = new WeakMap<QueryClient, Map<string, DeferredHeadInfoEvent>>();
+
+const invalidateHeadInfoUnlessCurrent = (
+	client: QueryClient,
+	projectId: string,
+	revision: string | null,
+): void => {
+	const cachedRevision = client.getQueryData(
+		headInfoSnapshotQueryOptions(projectId).queryKey,
+	)?.workspaceRevision;
+	if (typeof revision === "string" && revision === cachedRevision) return;
+	void client.invalidateQueries({ queryKey: ["headInfo", projectId] });
+};
+
+const deferHeadInfoUntilMutationSettles = (
+	client: QueryClient,
+	projectId: string,
+	revision: string | null,
+): void => {
+	let deferredByProject = deferredHeadInfoEvents.get(client);
+	if (!deferredByProject) {
+		deferredByProject = new Map();
+		deferredHeadInfoEvents.set(client, deferredByProject);
+	}
+	const current = deferredByProject.get(projectId);
+	if (current) {
+		current.revision = revision;
+		return;
+	}
+
+	const deferred: DeferredHeadInfoEvent = { revision, unsubscribe: () => undefined };
+	deferredByProject.set(projectId, deferred);
+	deferred.unsubscribe = client.getMutationCache().subscribe(() => {
+		if (hasPendingWorkspaceMutation(client, projectId)) return;
+		deferred.unsubscribe();
+		deferredByProject.delete(projectId);
+		invalidateHeadInfoUnlessCurrent(client, projectId, deferred.revision);
+	});
+};
+
 export const handleProjectEvent = (
 	event: WatcherEvent,
 	projectId: string,
@@ -120,22 +184,23 @@ export const handleProjectEvent = (
 	if (payload.type === "gitHead")
 		client.setQueryData([projectId, "operatingMode"], () => payload.subject);
 
-	const workspaceRevision =
+	const workspaceRevision: string | null =
 		payload.type === "gitActivity" || payload.type === "workspaceActivity"
-			? payload.subject.workspaceRevision
+			? typeof payload.subject.workspaceRevision === "string"
+				? payload.subject.workspaceRevision
+				: null
 			: null;
-	const cachedWorkspaceRevision = client.getQueryData(
-		headInfoSnapshotQueryOptions(projectId).queryKey,
-	)?.workspaceRevision;
 
 	for (const query of invalidateOn.get(payload.type) ?? []) {
-		if (
-			query === "headInfo" &&
-			workspaceRevision !== null &&
-			workspaceRevision === cachedWorkspaceRevision
-		)
+		if (query !== "headInfo") {
+			void client.invalidateQueries({ queryKey: [projectId, query] });
 			continue;
-		void client.invalidateQueries({ queryKey: [projectId, query] });
+		}
+		if (hasPendingWorkspaceMutation(client, projectId)) {
+			deferHeadInfoUntilMutationSettles(client, projectId, workspaceRevision);
+			continue;
+		}
+		invalidateHeadInfoUnlessCurrent(client, projectId, workspaceRevision);
 	}
 
 	// The annotations read the backend's review cache, so integrated reviews have

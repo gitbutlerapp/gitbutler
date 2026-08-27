@@ -14,18 +14,24 @@ fn main() -> anyhow::Result<()> {
 
     for _ in 0..3 {
         black_box(but_api::workspace_revision::compute(&ctx)?);
-        black_box(but_api::legacy::workspace::head_info_data(&ctx)?);
+        black_box(but_api::legacy::workspace::head_info(&ctx)?);
+        black_box(but_api::legacy::workspace::head_info_snapshot(&ctx)?);
     }
 
     let revision = measure(samples, || but_api::workspace_revision::compute(&ctx))?;
-    let head_info = measure(samples, || but_api::legacy::workspace::head_info_data(&ctx))?;
+    let head_info = measure(samples, || but_api::legacy::workspace::head_info(&ctx))?;
+    let snapshot = measure(samples, || {
+        but_api::legacy::workspace::head_info_snapshot(&ctx)
+    })?;
     println!("samples: {samples}");
     println!("WorkspaceRevision median: {:.3} ms", revision / 1_000_000.0);
     println!(
         "head_info median:         {:.3} ms",
         head_info / 1_000_000.0
     );
+    println!("snapshot endpoint median: {:.3} ms", snapshot / 1_000_000.0);
     println!("head_info / revision:    {:.2}x", head_info / revision);
+    println!("snapshot / head_info:    {:.2}x", snapshot / head_info);
     Ok(())
 }
 

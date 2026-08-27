@@ -22,6 +22,7 @@ export const apiProvides = {
 	getReviewMergeStatus: ["MergeStatus"],
 	getWorkspaceFile: [],
 	headInfo: ["Workspace"],
+	headInfoSnapshot: [],
 	listCiChecks: ["Checks"],
 	listCommentReactions: ["CommentReactions"],
 	listRepoLabels: ["RepoLabels"],

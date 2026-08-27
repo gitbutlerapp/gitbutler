@@ -4,7 +4,7 @@
 
 Do not try to correlate a filesystem watcher event with the mutation that caused it. The watcher batches paths after a debounce window, external Git activity can overlap a mutation, and causal identity is lost before the event reaches Lite.
 
-Instead, compare the state that determines the workspace projection. Rust now computes an opaque, versioned checksum called `WorkspaceRevision` and attaches it to direct `head_info` responses, materialized workspace mutation responses, and settled Git/workspace watcher events. Lite skips `head_info` invalidation only when the event revision exactly matches the revision already stored with its cached mutation/query result. A missing, failed, or different revision always refreshes.
+Instead, compare the state that determines the workspace projection. Rust now computes an opaque, versioned checksum called `WorkspaceRevision` and attaches it to Lite's `head_info_snapshot` responses, materialized workspace mutation responses, and settled Git/workspace watcher events. The shared `head_info` API keeps returning `RefInfo` for desktop and other callers. Lite skips `head_info` invalidation only when the event revision exactly matches the revision already stored with its cached mutation/query result. A missing, failed, or different revision always refreshes.
 
 The wire value is a string:
 
@@ -46,7 +46,7 @@ Do not checksum the object database, commit-graph, reflogs, lock files, mtimes, 
 - Worktree archived state.
 - The reduced forge association actually projected into `head_info`: pushed/source branch to preferred PR number.
 
-Gerrit metadata is intentionally excluded.
+Gerrit metadata is intentionally excluded, and both direct and mutation workspace projections ignore it.
 
 The canonical encoder must be byte-preserving for Git names, length-prefix fields, distinguish missing values from empty values, preserve meaningful list order, and sort unordered collections. The `workspace-v1` domain/version must be part of the hashed input as well as the output prefix.
 
@@ -82,7 +82,7 @@ This optimization applies only to the expensive `headInfo`/workspace cache tag. 
 
 ## Placement
 
-Production code exposes one shared Rust computation to the direct `head_info` path, mutation response construction, and watcher event construction. None of those consumers independently reimplements the input set or encoding.
+Production code exposes one shared Rust computation to the Lite `head_info_snapshot` path, mutation response construction, and watcher event construction. None of those consumers independently reimplements the input set or encoding.
 
 The implementation lives in `but-api`, the narrowest shared layer with access to project metadata, branch order, worktree state, and the reduced forge PR map. JSON/schema generation carries the contract through N-API into the SDK, and the Electron bridge remains a transparent transport.
 
@@ -108,9 +108,21 @@ The prototype passed the initial performance gate on 2026-08-25. It was run in a
 
 `head_info` was **3.96× slower**, so the checksum was about 75% cheaper in this run. The benchmark measures the existing projection lifecycle without the two coherence checks now wrapped around a direct `head_info` response. The repository had no representative GitButler project/forge metadata, so re-run on repositories with large active workspaces and populated metadata before treating the ratio as a production guarantee.
 
+### Full endpoint result
+
+The follow-up benchmark kept the original two measurements and added the complete `head_info_snapshot` endpoint, including both coherence checks. It ran in release mode in this active Conductor workspace, with 21 local/remote refs, three warm-ups, and 100 samples per operation:
+
+| Operation                 |     Median |
+| ------------------------- | ---------: |
+| `WorkspaceRevision`       |   2.046 ms |
+| shared `head_info`        | 105.955 ms |
+| full `head_info_snapshot` | 113.314 ms |
+
+Here the revision was **51.78× cheaper** than `head_info`, and the complete snapshot endpoint was **1.07×** the cost of `head_info` (about 6.9% overhead). This active-workspace result is substantially more favorable than estimating endpoint overhead from the isolated-clone measurements, but both datasets remain visible because workspace topology dominates `head_info` cost.
+
 ## Verification
 
-The focused Lite unit test exercises the decision table: matching revisions preserve `headInfo`, while different or missing revisions retain the old invalidation behavior. It also verifies that matching revisions do not suppress other event-driven query invalidations.
+The focused Lite unit test exercises the decision table: matching revisions preserve `headInfo`, while different or missing revisions retain the old invalidation behavior. It also verifies that matching revisions do not suppress other event-driven query invalidations, and covers both watcher-before-mutation and mutation-before-watcher ordering.
 
 The E2E test uses the existing remote-branch fixture and real Electron/N-API bridge:
 
@@ -129,11 +141,38 @@ The call counter is an Electron-main log emitted only when the existing E2E envi
 - No ordering semantics or comparison other than exact string equality.
 - No Gerrit input.
 - No attempt to optimize every watcher tag in the first change.
-- Virtual-branch metadata is hashed as raw TOML. Formatting-only changes can cause a harmless extra refresh.
-- Direct `head_info` computes the revision before and after traversal and returns `null` if the two reads disagree. Mutation responses derive the revision from the materialized graph plus current persistent inputs; an external Git writer racing that response assembly is not fully excluded. Capturing the canonical input snapshot in `but-graph` would close that narrow race, but is deliberately deferred rather than introducing a second graph-input model in this first version.
+- Virtual-branch metadata is currently hashed as raw `virtual_branches.toml`. Formatting-only changes can cause a harmless extra refresh, and the file itself is transitional and going away. The centralized canonical snapshot should consume the semantic metadata used by graph construction rather than retain a dependency on this storage file.
+- Symbolic refs under `refs/heads/*` or `refs/remotes/*` are hashed by target name, not peeled object ID. Their usual targets stay inside those hashed namespaces, but a symbolic branch targeting a tag or custom namespace can change its resolved commit without changing the revision. Supporting arbitrary symbolic branch targets is deliberately out of scope; add this limitation to the checksum implementation's doc comment.
+- Lite's `head_info_snapshot` computes the revision before and after traversal and returns `null` if the two reads disagree.
+
+### Known mutation-response coherence issue
+
+Mutation responses currently derive their projection from an already-built materialized graph, but `compute_for_workspace` combines that graph with refs and tracking information reread from the live repository. An external Git writer can therefore change the repository after graph construction but before revision computation. The response would then pair projection A with revision B. When the watcher later reports revision B, Lite would incorrectly treat projection A as current and suppress the refresh.
+
+The ideal fix is to define the canonical inputs once at the graph/projection boundary, capture them during graph construction, and carry that exact snapshot through materialization. Graph construction, projection, and revision computation must share this centralized representation instead of maintaining a second input inventory in `workspace_revision.rs`. Projection-only inputs applied after graph construction, currently the reduced forge PR association map, must extend the same snapshot with the exact values applied to the response. This keeps future graph inputs coupled to revision inputs without introducing a generic registry or observer system.
+
+Until that coherent snapshot exists, mutation responses must return `workspaceRevision: null` wherever coherence cannot be guaranteed; a before/after checksum around an already-built graph cannot prove that the graph represents either checksum. Add focused repository-backed coverage for every documented input so the current contract remains explicit during the centralization.
+
+### Known generic-operation deferral gap
+
+Lite defers a workspace watcher comparison while a matching workspace mutation is pending, so the mutation response can update the cached projection and revision first. The generic `useExecuteOperation` path is not currently recognized because it declares neither `meta.updatesWorkspace` nor a project ID in its mutation variables. A watcher event can therefore invalidate and refetch `headInfo` immediately before the operation response writes the same workspace into the cache.
+
+Fix this by marking generic operations as workspace-updating and carrying their project ID in mutation metadata, then let the pending-mutation check use that metadata when the variables do not contain a project ID. Add a watcher-before-response test through the generic operation path; matching revisions must avoid `headInfo` invalidation.
+
+### Watcher performance and repository reload investigation
+
+The watcher captures a long-lived thread-safe repository context. Revision computation rereads refs, project metadata, and app settings, but configured remote names and branch tracking mappings may still come from the repository's configuration snapshot taken when that context was opened. If those values remain stale after Git configuration changes, a watcher revision could describe different inputs from a freshly opened `head_info_snapshot` request.
+
+Do not add an unconditional reload yet. First verify that the captured `gix::Repository` returns stale remote/tracking configuration and that the relevant configuration writers emit a workspace refresh event. If both hold, benchmark `Repository::reload() + WorkspaceRevision` alongside the existing revision and `head_info` measurements. `reload()` fully reopens the repository and drops its caches, so any fix should be confined to the watcher path rather than placed inside the shared revision computation.
+
+The same investigation should measure revision p50/p95/p99, failures that fall back to `null`, adjacent watcher events that repeat the computation, matching revisions that suppress `headInfo`, and mismatches that trigger it. The broad checksum intentionally includes some refs and metadata outside the rendered projection; narrow or coalesce it only if end-to-end measurements show that watcher latency or false mismatches materially reduce the optimization's value.
 
 ## Follow-ups
 
-1. Add repository-backed checksum tests showing each included semantic input changes the revision and irrelevant Git storage rewrites do not.
-2. Capture the canonical input snapshot during graph construction if the external-writer race is observed or this moves beyond an optimization hint.
-3. Re-run the benchmark against large active workspaces with populated metadata and forge associations.
+1. Centralize, capture, and carry the canonical graph/projection input snapshot before relying on mutation-response revisions for invalidation suppression, including the exact forge enrichment applied after graph construction.
+2. Remove the revision's dependency on `virtual_branches.toml` as part of that centralization; hash the semantic metadata graph construction actually consumed.
+3. Add focused repository-backed checksum coverage for every documented input and extend it when graph inputs change.
+4. Cover generic workspace operations in Lite's watcher-event deferral.
+5. Investigate watcher configuration freshness, tail latency, duplicate calculations, fallbacks, and suppression effectiveness; benchmark reload plus revision before deciding whether to reload or optimize watcher calculations.
+6. Add the symbolic-ref limitation to the workspace revision computation's doc comment.
+7. Re-run the benchmark against additional large active workspaces with populated forge associations.

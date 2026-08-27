@@ -11,9 +11,7 @@ import { expect, test } from "../test.ts";
  */
 type LiteBridge = {
 	headInfo: (projectId: string) => Promise<{
-		headInfo: {
-			stacks: Array<{ id: string; segments: Array<{ commits: Array<{ id: string }> }> }>;
-		};
+		stacks: Array<{ id: string; segments: Array<{ commits: Array<{ id: string }> }> }>;
 	}>;
 	enterEditMode: (payload: {
 		projectId: string;
@@ -32,7 +30,7 @@ const enterEditModeThroughBridge = async (appWindow: Page): Promise<void> => {
 		const projectId = location.pathname.split("/")[2];
 		if (projectId === undefined) throw new Error("No project in the URL");
 
-		const { stacks } = (await lite.headInfo(projectId)).headInfo;
+		const { stacks } = await lite.headInfo(projectId);
 		const stack = stacks[0];
 		const commit = stack?.segments.flatMap((segment) => segment.commits)[0];
 		if (!stack || !commit) throw new Error("The seeded project has no commit to edit");

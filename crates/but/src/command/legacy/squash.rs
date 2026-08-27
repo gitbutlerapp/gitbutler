@@ -160,7 +160,7 @@ pub fn squash(
     let mut guard = ctx.exclusive_worktree_access();
     let mut meta = ctx.meta()?;
     let id_map = IdMap::new_from_context(ctx, guard.read_permission())?;
-    let head_info = but_api::legacy::workspace::head_info_data(ctx)?;
+    let head_info = but_api::legacy::workspace::head_info(ctx)?;
     let merged = MergedUpstream::new(&*ctx.repo.get()?, &head_info, args.allow_merged);
 
     let (repo, ws, _) = ctx.workspace_and_db_with_perm(guard.read_permission())?;

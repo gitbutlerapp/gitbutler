@@ -177,6 +177,7 @@ describe("branchIntegrationView", () => {
 	test("builds preview rows from workspace state", () => {
 		const workspace: WorkspaceState = {
 			replacedCommits: {},
+			workspaceRevision: null,
 			headInfo: {
 				workspaceRef: null,
 				stacks: [

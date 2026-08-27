@@ -1035,7 +1035,7 @@ pub fn branch_create_with_perm(
         &repo,
         BTreeMap::new(),
         &mut db,
-        true,
+        DryRun::No,
     )?;
     drop((ws, repo, db, meta));
     if checkout_after_create {
@@ -1212,7 +1212,7 @@ pub fn branch_remove_with_perm(
         &repo,
         BTreeMap::new(),
         &mut db,
-        true,
+        DryRun::No,
     )?;
     Ok(BranchRemoveResult { workspace })
 }
@@ -1277,7 +1277,7 @@ pub fn branch_rename_with_perm(
             &repo,
             BTreeMap::new(),
             &mut db,
-            true,
+            DryRun::No,
         )?;
         return Ok(BranchRenameResult { workspace, new_ref });
     }
@@ -1507,7 +1507,7 @@ pub fn branch_rename_with_perm(
         &repo,
         BTreeMap::new(),
         &mut db,
-        true,
+        DryRun::No,
     )?;
     Ok(BranchRenameResult { workspace, new_ref })
 }
@@ -1689,7 +1689,7 @@ fn checkout_ref_with_perm(
         &repo,
         BTreeMap::new(),
         &mut db,
-        true,
+        DryRun::No,
     )?;
     Ok(BranchCheckoutResult { workspace })
 }
@@ -2047,7 +2047,7 @@ fn branch_workspace_from_rebase<M: but_core::RefMetadata>(
             repo,
             replaced_commits,
             db,
-            false,
+            DryRun::Yes,
         );
     }
 

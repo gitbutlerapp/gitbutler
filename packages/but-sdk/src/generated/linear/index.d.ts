@@ -910,6 +910,9 @@ export declare function gitTestPush(projectId: string, remoteName: string, branc
  */
 export declare function headInfo(projectId: string): Promise<RefInfo>
 
+/** Build [`head_info`] together with an opaque checksum of its inputs for Lite cache coalescing. */
+export declare function headInfoSnapshot(projectId: string): Promise<HeadInfoResponse>
+
 /**
  * Initialize the secret namespace used by build-kind scoped credentials.
  *

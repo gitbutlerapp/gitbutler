@@ -40,7 +40,7 @@ pub fn new(
     let id_map = IdMap::new_from_context(ctx, guard.read_permission())?;
 
     let operation = {
-        let head_info = but_api::legacy::workspace::head_info_data(ctx)?;
+        let head_info = but_api::legacy::workspace::head_info(ctx)?;
         resolve(ctx, guard.read_permission(), args, &head_info, &id_map)?
     };
 

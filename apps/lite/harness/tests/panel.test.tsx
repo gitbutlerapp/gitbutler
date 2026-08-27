@@ -63,7 +63,7 @@ test("renders the applied branches, their commits, and the uncommitted files", a
 	const worktreeChanges = fixtureWorktreeChanges([fixtureFileChange("src/edited-file.ts")]);
 
 	const panel = mountPanel({
-		headInfo: () => ({ headInfo, workspaceRevision: null }),
+		headInfoSnapshot: () => ({ headInfo, workspaceRevision: null }),
 		changesInWorktree: () => worktreeChanges,
 	});
 
@@ -87,7 +87,7 @@ test("a failed mutation surfaces the declared toast", async () => {
 		],
 	]);
 	const panel = mountPanel({
-		headInfo: () => ({ headInfo, workspaceRevision: null }),
+		headInfoSnapshot: () => ({ headInfo, workspaceRevision: null }),
 		changesInWorktree: () => fixtureWorktreeChanges([]),
 	});
 
@@ -111,7 +111,7 @@ test("a watcher event refreshes the uncommitted files", async () => {
 	// the same answer to any consumer that refetches instead.
 	let worktree: WorktreeChanges = fixtureWorktreeChanges([]);
 	const panel = mountPanel({
-		headInfo: () => ({ headInfo: fixtureHeadInfo([]), workspaceRevision: null }),
+		headInfoSnapshot: () => ({ headInfo: fixtureHeadInfo([]), workspaceRevision: null }),
 		changesInWorktree: () => worktree,
 	});
 
