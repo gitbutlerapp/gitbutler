@@ -318,7 +318,7 @@ fn render_status(app: &App, area: Rect, frame: &mut Frame) {
 
     let mut areas = available_lines_in_area(area);
 
-    for (idx, tui_line) in app
+    for (idx, status_line) in app
         .status_lines
         .iter()
         .enumerate()
@@ -336,9 +336,11 @@ fn render_status(app: &App, area: Rect, frame: &mut Frame) {
 
         if !render_status_list_item(
             app,
-            tui_line,
+            status_line,
             app.cursor.index() == idx,
             mode_highlight,
+            idx,
+            lines_part_of_current_branch.as_deref(),
             &mut areas,
             frame,
         ) {
@@ -367,9 +369,11 @@ fn update_status_scroll(app: &App, area: Rect) {
 #[must_use]
 fn render_status_list_item(
     app: &App,
-    tui_line: &StatusOutputLine,
+    status_line: &StatusOutputLine,
     is_selected: bool,
     mode_highlight: bool,
+    status_line_idx: usize,
+    lines_part_of_current_branch: Option<&[bool]>,
     areas: &mut dyn Iterator<Item = Rect>,
     frame: &mut Frame,
 ) -> bool {
@@ -383,7 +387,7 @@ fn render_status_list_item(
         connector,
         content,
         data,
-    } = tui_line;
+    } = status_line;
 
     let operation_extension = if is_selected {
         app.mode.as_mode_render().operation_extension(data)
@@ -481,6 +485,15 @@ fn render_status_list_item(
     //      ^^^^^^^^^^^^ render target/source labels
     if line_is_to_be_discarded {
         line.extend([Span::raw("<< discard >>").black().on_red(), Span::raw(" ")]);
+    } else if let Mode::Branch(branch_mode) = &*app.mode {
+        branch_mode.render_insert_branch_marker(
+            app,
+            data,
+            is_selected,
+            status_line_idx,
+            lines_part_of_current_branch,
+            &mut line,
+        );
     } else if is_selected {
         app.mode
             .as_mode_render()
@@ -681,7 +694,7 @@ fn render_status_list_item(
             .set_style(area_used_by_main_content, Style::default().crossed_out());
     }
 
-    if !is_selectable_in_mode(tui_line, app.mode.as_ref(), app.flags.show_files) {
+    if !is_selectable_in_mode(status_line, app.mode.as_ref(), app.flags.show_files) {
         line.frame
             .buffer_mut()
             .set_style(area_used_by_main_content, app.theme.hint);

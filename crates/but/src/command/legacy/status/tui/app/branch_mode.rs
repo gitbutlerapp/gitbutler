@@ -28,9 +28,7 @@ use crate::{
                 fuzzy_picker::{Col, FuzzyPicker, FuzzyPickerItem, SearchableToken},
                 key_bind::fuzzy_picker_key_binds,
                 mode::Mode,
-                render::{
-                    ModeRender, RenderSingleLineSpans, SpanExt as _, branch_operation_display,
-                },
+                render::{ModeRender, RenderSingleLineSpans, SpanExt as _},
             },
         },
         r#switch::{self, SwitchOperation},
@@ -41,28 +39,81 @@ use crate::{
 
 use super::MoveCursorDiration;
 
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone)]
 pub struct BranchMode {
     pub marks: Marks,
+    pub side: Side,
 }
 
-impl ModeRender for BranchMode {
-    fn render_operation_target_marker(
+impl Default for BranchMode {
+    fn default() -> Self {
+        Self {
+            marks: Default::default(),
+            side: Side::Above,
+        }
+    }
+}
+
+impl ModeRender for BranchMode {}
+
+impl BranchMode {
+    pub fn render_insert_branch_marker(
         &self,
         app: &App,
         data: &StatusOutputLineData,
+        is_selected: bool,
+        status_line_idx: usize,
+        lines_part_of_current_branch: Option<&[bool]>,
         line: &mut RenderSingleLineSpans<'_, '_>,
     ) {
-        let Some(display) = branch_operation_display(data, self) else {
+        let Some(lines_part_of_current_branch) = lines_part_of_current_branch else {
             return;
         };
-        line.extend([
-            Span::raw("<< ").mode_colors(&*app.mode, app.theme),
-            Span::raw(display).mode_colors(&*app.mode, app.theme),
-            Span::raw(" >>").mode_colors(&*app.mode, app.theme),
-            Span::raw(" "),
-        ]);
+
+        match data {
+            StatusOutputLineData::UncommittedChanges { .. } | StatusOutputLineData::MergeBase => {
+                if is_selected {
+                    line.extend([
+                        Span::raw("<< branch >>").mode_colors(&*app.mode, app.theme),
+                        Span::raw(" "),
+                    ]);
+                }
+            }
+            _ => match self.side {
+                Side::Above => {
+                    if is_selected {
+                        line.extend([
+                            Span::raw("<< branch >>").mode_colors(&*app.mode, app.theme),
+                            Span::raw(" "),
+                        ]);
+                    }
+                }
+                Side::Below => {
+                    if line_part_of_branch(status_line_idx, lines_part_of_current_branch)
+                        && !line_part_of_branch(status_line_idx + 1, lines_part_of_current_branch)
+                    {
+                        line.extend([
+                            Span::raw("<< branch below >>").mode_colors(&*app.mode, app.theme),
+                            Span::raw(" "),
+                        ]);
+                    }
+                }
+            },
+        }
     }
+}
+
+fn line_part_of_branch(
+    line_idx: impl Into<Option<usize>>,
+    lines_part_of_current_branch: &[bool],
+) -> bool {
+    let Some(line_idx) = line_idx.into() else {
+        return false;
+    };
+    lines_part_of_current_branch
+        .get(line_idx)
+        .copied()
+        .unwrap_or(false)
 }
 
 #[derive(Debug)]
@@ -71,6 +122,7 @@ pub enum BranchMessage {
     Switch,
     New { switch: bool },
     PickAndSwitch,
+    ToggleInsertSide,
 }
 
 impl App {
@@ -84,7 +136,8 @@ impl App {
             BranchMessage::Start => self.handle_branch_start(messages),
             BranchMessage::Switch => self.handle_branch_switch(ctx, messages)?,
             BranchMessage::New { switch } => self.handle_branch_new(ctx, messages, switch)?,
-            BranchMessage::PickAndSwitch => self.handle_pick_and_switch(ctx)?,
+            BranchMessage::PickAndSwitch => self.handle_branch_pick_and_switch(ctx)?,
+            BranchMessage::ToggleInsertSide => self.handle_branch_toggle_insert_side(),
         }
 
         Ok(())
@@ -102,6 +155,7 @@ impl App {
             .update_and_push_leave_normal_mode(&mut self.backstack, |mode| {
                 *mode = Mode::Branch(BranchMode {
                     marks: mode.marks_ref().to_owned(),
+                    side: Side::Above,
                 });
             });
 
@@ -145,7 +199,17 @@ impl App {
         Ok(())
     }
 
-    fn handle_pick_and_switch(&mut self, ctx: &mut Context) -> anyhow::Result<()> {
+    fn handle_branch_toggle_insert_side(&mut self) {
+        let Mode::Branch(branch_mode) = self
+            .mode
+            .get_mut_and_i_promise_not_to_switch_to_a_different_state()
+        else {
+            return;
+        };
+        branch_mode.side = branch_mode.side.toggle();
+    }
+
+    fn handle_branch_pick_and_switch(&mut self, ctx: &mut Context) -> anyhow::Result<()> {
         let current_branch = {
             let repo = ctx.repo.get()?;
             repo.head_ref()?
@@ -221,6 +285,12 @@ impl App {
             return Ok(());
         };
 
+        let side = if let Mode::Branch(branch_mode) = &*self.mode {
+            branch_mode.side
+        } else {
+            Side::Above
+        };
+
         let new_name = match &selection.data {
             StatusOutputLineData::Branch { cli_id, .. } => {
                 let CliId::Branch(branch) = &**cli_id else {
@@ -239,7 +309,7 @@ impl App {
                         target: NewStackedBranchTarget::Branch(
                             Category::LocalBranch.to_full_name(&*branch.name)?,
                         ),
-                        side: Side::Above,
+                        side,
                         switch,
                     }),
                 )?;
