@@ -918,12 +918,31 @@ fn resolve_sources(
     }
 }
 
+/// Branch moves bypass `but-transaction`, which cannot persist the branch order or check out the
+/// new tip returned by single-branch moves, and use the checkout-aware `but-api` path instead.
 pub fn run(
     ctx: &mut Context,
     meta: &mut impl RefMetadata,
     perm: &mut RepoExclusive,
     move_op: MoveOperation,
 ) -> anyhow::Result<(MoveOutcome, WorkspaceState)> {
+    if let MoveOperation::StackBranch(op) = &move_op {
+        let result = but_api::branch::move_branch_with_perm(
+            ctx,
+            op.source_branch.as_ref(),
+            op.target_branch.as_ref(),
+            DryRun::No,
+            perm,
+        )?;
+        return Ok((
+            MoveOutcome::StackBranch {
+                source_branch: op.source_branch.clone(),
+                target_branch: op.target_branch.clone(),
+            },
+            result.workspace,
+        ));
+    }
+
     let snapshot_details = match &move_op {
         MoveOperation::CommitsRelativeTo(_) | MoveOperation::CommitsToNewBranch(_) => {
             SnapshotDetails::new(OperationKind::MoveCommit)
