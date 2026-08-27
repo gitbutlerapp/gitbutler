@@ -110,15 +110,16 @@ The prototype passed the initial performance gate on 2026-08-25. It was run in a
 
 ### Full endpoint result
 
-The follow-up benchmark kept the original two measurements and added the complete `head_info_snapshot` endpoint, including both coherence checks. It ran in release mode in this active Conductor workspace, with 21 local/remote refs, three warm-ups, and 100 samples per operation:
+The follow-up benchmark kept the original measurements, added the complete `head_info_snapshot` endpoint, and then measured a repository reload followed by revision computation. It ran in release mode in this active Conductor workspace, with 21 local/remote refs, three warm-ups, and 100 samples per operation:
 
-| Operation                 |     Median |
-| ------------------------- | ---------: |
-| `WorkspaceRevision`       |   2.046 ms |
-| shared `head_info`        | 105.955 ms |
-| full `head_info_snapshot` | 113.314 ms |
+| Operation                 |       p50 |       p95 |       p99 |
+| ------------------------- | --------: | --------: | --------: |
+| `WorkspaceRevision`       |  2.044 ms |  2.179 ms |  2.213 ms |
+| reload + revision         |  2.484 ms |  2.643 ms |  2.747 ms |
+| shared `head_info`        | 103.621 ms | 109.701 ms | 129.091 ms |
+| full `head_info_snapshot` | 109.855 ms | 123.930 ms | 147.247 ms |
 
-Here the revision was **51.78× cheaper** than `head_info`, and the complete snapshot endpoint was **1.07×** the cost of `head_info` (about 6.9% overhead). This active-workspace result is substantially more favorable than estimating endpoint overhead from the isolated-clone measurements, but both datasets remain visible because workspace topology dominates `head_info` cost.
+At the median, reload added 0.440 ms, making reload plus revision **1.22×** the revision alone. The revision remained **50.68× cheaper** than `head_info`, and the complete snapshot endpoint was **1.06×** the cost of `head_info`. This active-workspace result is substantially more favorable than estimating endpoint overhead from the isolated-clone measurements, but both datasets remain visible because workspace topology dominates `head_info` cost. It does not establish reload cost on repositories with large configurations, alternates, or expensive object-database setup.
 
 ## Verification
 
@@ -161,9 +162,11 @@ Fix this by marking generic operations as workspace-updating and carrying their 
 
 ### Watcher performance and repository reload investigation
 
-The watcher captures a long-lived thread-safe repository context. Revision computation rereads refs, project metadata, and app settings, but configured remote names and branch tracking mappings may still come from the repository's configuration snapshot taken when that context was opened. If those values remain stale after Git configuration changes, a watcher revision could describe different inputs from a freshly opened `head_info_snapshot` request.
+The watcher captures a long-lived thread-safe repository context. Revision computation rereads refs, project metadata, and app settings, but configured remote names and branch tracking mappings come from the repository's configuration snapshot taken when that context was opened. A focused repository-backed probe confirmed that both `remote_names()` and `branch_remote_tracking_ref_name()` remain stale after editing repository-local config and observe the new values only after `Repository::reload()`.
 
-Do not add an unconditional reload yet. First verify that the captured `gix::Repository` returns stale remote/tracking configuration and that the relevant configuration writers emit a workspace refresh event. If both hold, benchmark `Repository::reload() + WorkspaceRevision` alongside the existing revision and `head_info` measurements. `reload()` fully reopens the repository and drops its caches, so any fix should be confined to the watcher path rather than placed inside the shared revision computation.
+The event side is also incomplete. The file monitor watches the Git directory but deliberately classifies `.git/config` as uninteresting, and the watcher handler has no config path case. A config-only remote or tracking change therefore emits no workspace event. Reloading on existing Git/workspace events would correct a later event's checksum, but would not make the config change itself visible. Any eventual fix must first route relevant config changes to one workspace refresh, then use a fresh/reloaded repository for that event. Keep reload out of the shared revision computation.
+
+The first reload benchmark is recorded above. Its 0.440 ms median overhead is small in this workspace, but validate against repositories with large or layered configuration before choosing reload over a narrower fresh-config read. No production reload is warranted from one repository sample.
 
 The same investigation should measure revision p50/p95/p99, failures that fall back to `null`, adjacent watcher events that repeat the computation, matching revisions that suppress `headInfo`, and mismatches that trigger it. The broad checksum intentionally includes some refs and metadata outside the rendered projection; narrow or coalesce it only if end-to-end measurements show that watcher latency or false mismatches materially reduce the optimization's value.
 
@@ -173,6 +176,6 @@ The same investigation should measure revision p50/p95/p99, failures that fall b
 2. Remove the revision's dependency on `virtual_branches.toml` as part of that centralization; hash the semantic metadata graph construction actually consumed.
 3. Add focused repository-backed checksum coverage for every documented input and extend it when graph inputs change.
 4. Cover generic workspace operations in Lite's watcher-event deferral.
-5. Investigate watcher configuration freshness, tail latency, duplicate calculations, fallbacks, and suppression effectiveness; benchmark reload plus revision before deciding whether to reload or optimize watcher calculations.
+5. Validate reload cost on repositories with large/layered configuration, decide how relevant `.git/config` changes produce one fresh workspace event, and add temporary runtime counters before deciding whether duplicate calculations, fallbacks, or mismatches need optimization.
 6. Add the symbolic-ref limitation to the workspace revision computation's doc comment.
 7. Re-run the benchmark against additional large active workspaces with populated forge associations.
