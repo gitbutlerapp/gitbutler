@@ -3,7 +3,7 @@
 	"type": "module",
 	"devDependencies": {
 		"@playwright/test": "catalog:",
-		"@types/node": "^22.19.11",
+		"@types/node": "^24.13.3",
 		"@wdio/cli": "^9.26.1",
 		"@wdio/globals": "^9.26.1",
 		"@wdio/junit-reporter": "^9.26.1",

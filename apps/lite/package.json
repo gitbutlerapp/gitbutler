@@ -173,7 +173,7 @@
 		"@storybook/addon-docs": "^10.3.3",
 		"@storybook/react-vite": "^10.3.6",
 		"@tanstack/eslint-plugin-query": "^5.91.4",
-		"@types/node": "^22.19.15",
+		"@types/node": "^24.13.3",
 		"@types/react": "^19.2.14",
 		"@types/react-dom": "^19.2.3",
 		"@types/semver": "^7.7.1",
