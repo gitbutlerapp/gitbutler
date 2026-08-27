@@ -63,7 +63,7 @@ declare module "@tanstack/react-query" {
 		 * write `onError` only for work of their own, like rolling back an
 		 * optimistic write or wording a title dynamically.
 		 */
-		mutationMeta: { failureTitle?: string; updatesWorkspace?: boolean };
+		mutationMeta: { failureTitle?: string; updatesWorkspace?: boolean; projectId?: string };
 	}
 }
 

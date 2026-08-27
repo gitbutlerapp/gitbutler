@@ -110,10 +110,10 @@ The prototype passed the initial performance gate on 2026-08-25. It was run in a
 
 The follow-up benchmark kept the original measurements, added the complete `head_info_snapshot` endpoint, and then measured a repository reload followed by revision computation. It ran in release mode in this active Conductor workspace, with 21 local/remote refs, three warm-ups, and 100 samples per operation:
 
-| Operation                 |       p50 |       p95 |       p99 |
-| ------------------------- | --------: | --------: | --------: |
-| `WorkspaceRevision`       |  2.044 ms |  2.179 ms |  2.213 ms |
-| reload + revision         |  2.484 ms |  2.643 ms |  2.747 ms |
+| Operation                 |        p50 |        p95 |        p99 |
+| ------------------------- | ---------: | ---------: | ---------: |
+| `WorkspaceRevision`       |   2.044 ms |   2.179 ms |   2.213 ms |
+| reload + revision         |   2.484 ms |   2.643 ms |   2.747 ms |
 | shared `head_info`        | 103.621 ms | 109.701 ms | 129.091 ms |
 | full `head_info_snapshot` | 109.855 ms | 123.930 ms | 147.247 ms |
 
@@ -152,11 +152,11 @@ The graph input inventory and canonical encoding now live together in `but-graph
 
 Callers that modify branch order, workspace metadata, project metadata, or target refs after materialization perform one final shared workspace refresh after those writes. Other non-preview mutation paths that supply an already-built workspace are rebuilt through the same shared helper before projection. This prevents pairing projection A with revision B while preserving the existing safe fallback when coherence cannot be established.
 
-### Known generic-operation deferral gap
+### Generic-operation deferral
 
-Lite defers a workspace watcher comparison while a matching workspace mutation is pending, so the mutation response can update the cached projection and revision first. The generic `useExecuteOperation` path is not currently recognized because it declares neither `meta.updatesWorkspace` nor a project ID in its mutation variables. A watcher event can therefore invalidate and refetch `headInfo` immediately before the operation response writes the same workspace into the cache.
+Lite defers a workspace watcher comparison while a matching workspace mutation is pending, so the mutation response can update the cached projection and revision first. Generic `useExecuteOperation` mutations now declare `meta.updatesWorkspace` and carry their project ID in mutation metadata because their mutation variables contain only the operation. The pending-mutation check falls back to that metadata when variables do not contain a project ID.
 
-Fix this by marking generic operations as workspace-updating and carrying their project ID in mutation metadata, then let the pending-mutation check use that metadata when the variables do not contain a project ID. Add a watcher-before-response test through the generic operation path; matching revisions must avoid `headInfo` invalidation.
+A focused watcher-before-response regression test reproduced the previous immediate `headInfo` invalidation and now verifies that a matching generic-operation response avoids it.
 
 ### Watcher performance and repository reload investigation
 
@@ -171,6 +171,5 @@ The same investigation should measure revision p50/p95/p99, failures that fall b
 ## Follow-ups
 
 1. Extend the focused repository-backed checksum coverage whenever graph inputs change.
-2. Cover generic workspace operations in Lite's watcher-event deferral.
-3. Validate reload cost on repositories with large/layered configuration, decide how relevant `.git/config` changes produce one fresh workspace event, and add temporary runtime counters before deciding whether duplicate calculations, fallbacks, or mismatches need optimization.
-4. Re-run the benchmark against additional large active workspaces with populated forge associations.
+2. Validate reload cost on repositories with large/layered configuration, decide how relevant `.git/config` changes produce one fresh workspace event, and add temporary runtime counters before deciding whether duplicate calculations, fallbacks, or mismatches need optimization.
+3. Re-run the benchmark against additional large active workspaces with populated forge associations.

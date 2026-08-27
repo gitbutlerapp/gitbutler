@@ -123,7 +123,7 @@ const hasPendingWorkspaceMutation = (client: QueryClient, projectId: string): bo
 			(mutation) =>
 				mutation.state.status === "pending" &&
 				mutation.meta?.updatesWorkspace === true &&
-				mutationProjectId(mutation.state.variables) === projectId,
+				(mutationProjectId(mutation.state.variables) ?? mutation.meta.projectId) === projectId,
 		);
 
 type DeferredHeadInfoEvent = {

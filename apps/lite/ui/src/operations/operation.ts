@@ -242,6 +242,7 @@ export const useExecuteOperation = (projectId: string) => {
 	const toastManager = Toast.useToastManager();
 
 	return useMutation({
+		meta: { updatesWorkspace: true, projectId },
 		mutationFn: (operation: Operation) =>
 			executeOperation({
 				projectId,

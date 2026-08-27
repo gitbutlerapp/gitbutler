@@ -127,6 +127,41 @@ describe("handled separately", () => {
 		expect(client.getQueryState(queryKey)?.isInvalidated).toBe(false);
 	});
 
+	it("waits for a pending generic operation before comparing revisions", async () => {
+		const client = new QueryClient();
+		const queryKey = ["headInfo", "p1"] as const;
+		client.setQueryData(queryKey, { headInfo: {}, workspaceRevision: "workspace-v1:old" });
+		let finishMutation!: () => void;
+		const mutation = client.getMutationCache().build(client, {
+			meta: { updatesWorkspace: true, projectId: "p1" },
+			mutationFn: () => new Promise<void>((resolve) => (finishMutation = resolve)),
+			onSuccess: () =>
+				client.setQueryData(queryKey, {
+					headInfo: {},
+					workspaceRevision: "workspace-v1:new",
+				}),
+		});
+		const execution = mutation.execute({ type: "moveCommit" });
+		await Promise.resolve();
+
+		handleProjectEvent(
+			{
+				name: "workspaceActivity",
+				payload: {
+					type: "workspaceActivity",
+					subject: { workspaceRevision: "workspace-v1:new" },
+				},
+			},
+			"p1",
+			client,
+		);
+		expect(client.getQueryState(queryKey)?.isInvalidated).toBe(false);
+
+		finishMutation();
+		await execution;
+		expect(client.getQueryState(queryKey)?.isInvalidated).toBe(false);
+	});
+
 	it("invalidates after a pending mutation settles at a different revision", async () => {
 		const client = new QueryClient();
 		const queryKey = ["headInfo", "p1"] as const;
