@@ -89,9 +89,11 @@ test.describe("workspace focus", () => {
 			selectedFile.evaluate((element) => getComputedStyle(element).backgroundColor);
 
 		await sidebar.focus();
-		// A virtualized row can be replaced between visibility and style checks, briefly yielding no computed style.
-		await expect.poll(selectedFileBackground).not.toBe("");
-		const blurredBackground = await selectedFileBackground();
+		let blurredBackground = "";
+		// Capture inside the successful poll so a virtualized row replacement cannot empty the baseline.
+		await expect
+			.poll(async () => (blurredBackground = await selectedFileBackground()))
+			.not.toBe("");
 		await files.focus();
 		await expect.poll(selectedFileBackground).not.toBe(blurredBackground);
 		await diff.focus();
