@@ -7,6 +7,8 @@ use crate::diff::worktree_changes::repo_in;
 fn worktree_changes() -> anyhow::Result<()> {
     let repo = repo_in("status-repo", "many-in-worktree")?;
     let actual = serde_json::to_string_pretty(&but_core::diff::ui::worktree_changes(&repo)?)?;
+    // `modificationTimes` is empty by design — the stat pass is composed in at the
+    // API layer. See `but_core::diff::ui::modification_times`.
     snapbox::assert_data_eq!(
         actual,
         snapbox::str![[r#"
@@ -366,7 +368,8 @@ fn worktree_changes() -> anyhow::Result<()> {
       "path": "removed-in-index-changed-in-worktree",
       "status": "TreeIndex"
     }
-  ]
+  ],
+  "modificationTimes": {}
 }
 "#]]
     );

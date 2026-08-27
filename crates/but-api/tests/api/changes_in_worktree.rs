@@ -120,5 +120,12 @@ fn head_source_reads_the_main_worktree() -> Result<()> {
         ["main-only.txt"],
         "an active linked worktree must not leak into the main worktree's changes"
     );
+    assert!(
+        changes
+            .worktree_changes
+            .modification_times
+            .contains_key("main-only.txt"),
+        "a changed file that exists on disk gets a modification time"
+    );
     Ok(())
 }

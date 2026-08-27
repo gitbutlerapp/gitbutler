@@ -11,7 +11,7 @@ import { classes } from "#ui/components/classes.ts";
 import { changesFileHotkeys } from "#ui/hotkeys.ts";
 import { Toolbar, Tooltip } from "@base-ui/react";
 import { Match } from "effect";
-import type { ComponentProps, FC } from "react";
+import type { ComponentProps, CSSProperties, FC } from "react";
 import styles from "./FileRow.module.css";
 import treeStyles from "./FilesTree.module.css";
 import { Row, RowCheckbox, RowLabel, RowLabelContainer, RowToolbar } from "./Row.tsx";
@@ -20,8 +20,15 @@ import { DependencyIndicator } from "#ui/routes/project/$id/workspace/Dependency
 import { useFileMenuItems } from "#ui/routes/project/$id/workspace/useFileMenuItems.ts";
 import type { FileRowItem } from "./file-row.ts";
 import { TreeSteps } from "./TreeSteps.tsx";
+import { ageBadgeOpacity, formatAgeBadge, formatRelativeTime } from "#ui/time.ts";
 import type { TreeChange } from "@gitbutler/but-sdk";
 import type { FileRowTooltipPayload } from "./FileRowTooltip.tsx";
+
+/** Pulse lifetime. The 30s clock driving it can stretch this by up to a tick. */
+const FRESH_CHANGE_MAX_AGE_MS = 60_000;
+
+/** From this age up, the badge is coarse or hidden, so hover carries the full time ago. */
+const AGE_TOOLTIP_MIN_AGE_MS = 60 * 60_000;
 
 type FileRowProps = {
 	item: FileRowItem;
@@ -42,6 +49,8 @@ type FileRowProps = {
 	pathDisplay: "lead" | "trail" | "hidden";
 	focusScope: FocusScope;
 	tooltipHandle: Tooltip.Handle<FileRowTooltipPayload>;
+	/** See {@link FilesTree}'s prop of the same name. */
+	ageBadgeNow?: number | null;
 } & Omit<ComponentProps<typeof Row>, "projectId">;
 
 type FileRowPresentationalProps = Omit<FileRowProps, "canUncommit" | "uncommit"> & {
@@ -88,9 +97,23 @@ export const FileRowPresentational: FC<FileRowPresentationalProps> = ({
 	anyOperationPending,
 	menuItems,
 	tooltipHandle,
+	ageBadgeNow = null,
 	...restProps
 }) => {
 	const relativePath = item._tag === "Change" ? item.change.path : item.path;
+
+	const modifiedAtMs = item.modifiedAtMs ?? null;
+	const ageMs =
+		ageBadgeNow !== null && modifiedAtMs !== null ? Math.max(0, ageBadgeNow - modifiedAtMs) : null;
+	const ageBadge = ageMs === null ? null : formatAgeBadge(ageMs);
+	const isFresh = ageMs !== null && ageMs <= FRESH_CHANGE_MAX_AGE_MS;
+	const agedTooltip =
+		ageBadgeNow !== null &&
+		modifiedAtMs !== null &&
+		ageMs !== null &&
+		ageMs > AGE_TOOLTIP_MIN_AGE_MS
+			? formatRelativeTime(modifiedAtMs, ageBadgeNow)
+			: null;
 
 	const hasConflictHint = item._tag === "Conflict" && fileParent._tag === "UncommittedChanges";
 	// An uncommitted conflict is a state to get out of, so the row says how.
@@ -104,6 +127,7 @@ export const FileRowPresentational: FC<FileRowPresentationalProps> = ({
 	return (
 		<Row
 			{...restProps}
+			className={classes(restProps.className, isFresh && styles.freshChange)}
 			isChecked={isChecked}
 			onShiftSelect={
 				!anyOperationPending && canCheck
@@ -151,7 +175,9 @@ export const FileRowPresentational: FC<FileRowPresentationalProps> = ({
 
 			<Tooltip.Trigger
 				handle={tooltipHandle}
-				payload={{ content: rowTooltip }}
+				payload={{
+					content: agedTooltip !== null ? `${rowTooltip} — ${agedTooltip}` : rowTooltip,
+				}}
 				render={<RowLabelContainer />}
 			>
 				{item._tag === "Conflict" && (
@@ -188,6 +214,15 @@ export const FileRowPresentational: FC<FileRowPresentationalProps> = ({
 						<Icon name="kebab" />
 					</Toolbar.Button>
 				</Toolbar.Root>
+			)}
+
+			{ageBadge !== null && ageMs !== null && (
+				<span
+					className={styles.ageBadge}
+					style={{ "--age-badge-opacity": String(ageBadgeOpacity(ageMs)) } as CSSProperties}
+				>
+					{ageBadge}
+				</span>
 			)}
 
 			{!anyOperationPending &&

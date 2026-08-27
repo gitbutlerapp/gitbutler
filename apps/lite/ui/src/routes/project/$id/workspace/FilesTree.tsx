@@ -369,6 +369,11 @@ export const FilesTree: FC<
 		/** The scope this tree's hotkeys are bound to; also stamped on the tree element. */
 		focusScope: FocusScope;
 		emptyLabel?: string;
+		/**
+		 * Timestamp the row age badges are measured against; `null` hides them.
+		 * The caller owns the ticking.
+		 */
+		ageBadgeNow?: number | null;
 	} & ComponentProps<"div">
 > = ({
 	rows,
@@ -384,6 +389,7 @@ export const FilesTree: FC<
 	fileParent,
 	focusScope,
 	emptyLabel = "No changes.",
+	ageBadgeNow = null,
 	ref: refProp,
 	...props
 }) => {
@@ -718,6 +724,7 @@ export const FilesTree: FC<
 													uncommit={uncommit}
 													focusScope={focusScope}
 													tooltipHandle={tooltipHandle}
+													ageBadgeNow={ageBadgeNow}
 													branchNameByCommitId={(commitId) =>
 														headInfoIndex?.commitContextByCommitId(commitId)?.segment.refName
 															?.displayName
@@ -741,6 +748,7 @@ export const FilesTree: FC<
 											fileParent={fileParent}
 											focusScope={focusScope}
 											tooltipHandle={tooltipHandle}
+											ageBadgeNow={ageBadgeNow}
 											branchNameByCommitId={() => undefined}
 											anyOperationPending
 											menuItems={[]}
