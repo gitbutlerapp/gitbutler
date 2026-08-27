@@ -79,6 +79,15 @@ type WorkspaceState = {
 	 * hiding them that is the exception worth recording.
 	 */
 	foldedSegments: Record<string, true>;
+	/**
+	 * Remote legs whose commits are shown, keyed by the local branch's full ref
+	 * name.
+	 *
+	 * Expanded rather than folded, the inverse of {@link WorkspaceState.foldedSegments}:
+	 * the leg collapses to its summary row by default, so it is opening it that
+	 * is the exception worth recording.
+	 */
+	expandedRemoteLegs: Record<string, true>;
 	dependencyCommitIds: Array<string>;
 	pendingOperation: PendingOperation;
 	/**
@@ -124,6 +133,7 @@ const createInitialWorkspaceState = (): WorkspaceState => ({
 	checkedAddresses: {},
 	checkedConflicts: {},
 	foldedSegments: {},
+	expandedRemoteLegs: {},
 	dependencyCommitIds: [],
 	pendingOperation: noPendingOperation,
 	notice: null,
@@ -297,6 +307,7 @@ export const projectReducers = {
 				workspaceState.pendingOperation = pendingTransfer(
 					pointerTransfer({
 						sources: transfer.sources,
+						kind: transfer.kind,
 						target,
 						placement,
 					}),
@@ -494,6 +505,11 @@ export const projectReducers = {
 		if (state.workspace.foldedSegments[branchRef]) delete state.workspace.foldedSegments[branchRef];
 		else state.workspace.foldedSegments[branchRef] = true;
 	},
+	toggleRemoteLegExpanded: (state: ProjectState, { branchRef }: { branchRef: string }) => {
+		if (state.workspace.expandedRemoteLegs[branchRef])
+			delete state.workspace.expandedRemoteLegs[branchRef];
+		else state.workspace.expandedRemoteLegs[branchRef] = true;
+	},
 	/**
 	 * Folds or unfolds several segments at once, for acting on a whole stack.
 	 * Toggling each of them instead would invert a partly folded stack rather
@@ -680,6 +696,8 @@ export const projectSelectors = {
 	selectFoldedSegments: (state: ProjectState) => state.workspace.foldedSegments,
 	selectSegmentFolded: (state: ProjectState, branchRef: string) =>
 		state.workspace.foldedSegments[branchRef] === true,
+	selectRemoteLegExpanded: (state: ProjectState, branchRef: string) =>
+		state.workspace.expandedRemoteLegs[branchRef] === true,
 	selectDependencyCommitIds,
 	selectAddressChecked: (state: ProjectState, address: CheckableAddress) =>
 		state.workspace.checkedAddresses[addressIdentityKey(address)] !== undefined,

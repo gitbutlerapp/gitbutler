@@ -46,6 +46,7 @@ import {
 	type NativeMenuItem,
 } from "#ui/native-menu.ts";
 import { branchAddress, addressEquals, type BranchAddress } from "#ui/addresses.ts";
+import { openUpdateFromRemote } from "./update-from-remote.ts";
 import { projectSlice } from "#ui/projects/state.ts";
 import { focusScope } from "#ui/focus-scopes.ts";
 import { getHeadInfoIndex } from "#ui/api/ref-info.ts";
@@ -129,6 +130,8 @@ export const BranchRow: FC<
 		downstackPushStatus: DownstackPushStatus;
 		pushActivity: PushActivity;
 		pushStatus: PushStatus;
+		/** Whether the update-from-remote flow has anything to offer here. */
+		canUpdateFromRemote: boolean;
 		/** The segment's projection-recorded review number, if any. */
 		recordedPullRequest: number | null;
 		graphStatus: GraphSegmentStatus;
@@ -146,6 +149,7 @@ export const BranchRow: FC<
 	downstackPushStatus,
 	pushActivity,
 	pushStatus,
+	canUpdateFromRemote,
 	recordedPullRequest,
 	graphStatus,
 	bottomRelativeTo,
@@ -371,6 +375,11 @@ export const BranchRow: FC<
 			enabled: !workspaceBranchAndAncestorsPushDisabled,
 			accelerator: toElectronAccelerator(sidebarHotkeys.workspaceBranchAndAncestorsPush.hotkey),
 			onSelect: pushBranch,
+		}),
+		nativeMenuItem({
+			label: "Update From Remote",
+			enabled: canUpdateFromRemote,
+			onSelect: () => openUpdateFromRemote(dispatch, refName.fullNameBytes),
 		}),
 		nativeMenuSeparator,
 		nativeMenuItem({

@@ -68,6 +68,7 @@ import { Sidebar } from "./Sidebar.tsx";
 import { OperationControls } from "#ui/routes/project/$id/workspace/OperationControls.tsx";
 import { ErrorBoundary } from "#ui/components/ErrorBoundary.tsx";
 import { Settings } from "./Settings/Settings.tsx";
+import { BranchUpdateDialog } from "./BranchUpdatePanel.tsx";
 import { useBranchesList } from "./useBranchesList.ts";
 import { upstreamCommitReview, useUpstreamList } from "./useUpstreamList.ts";
 import { useStateReconciler as useReconcileState } from "#ui/reconcile.ts";
@@ -723,6 +724,16 @@ const PageBody: FC<{ projectId: string }> = ({ projectId }) => {
 							projectId={projectId}
 							projectName={projectName}
 							onOpenChange={setSettingsOpen}
+						/>
+					),
+					UpdateFromRemote: ({ branchRef }) => (
+						<BranchUpdateDialog
+							open
+							projectId={projectId}
+							branchRef={branchRef}
+							onOpenChange={(open) => {
+								if (!open) dispatch(interfaceSlice.actions.closeDialog());
+							}}
 						/>
 					),
 				}),

@@ -23,9 +23,13 @@ export type GlobalQueryKey =
 /**
  * Client state kept in the query cache, so nothing declares for them. `dryRun`
  * memoizes an imperative preview: its key carries the operation and changes it
- * was measured against, and nothing refreshes it in place.
+ * was measured against, and nothing refreshes it in place. `branchIntegration`
+ * is the same shape for the update-from-remote flow: its plan and preview are
+ * backend reads keyed on their inputs, refetched each time the flow asks
+ * rather than kept fresh by invalidation.
  */
 type LocalQueryKey =
+	| "branchIntegration"
 	| "commitMessageDraft"
 	| "dryRun"
 	| "prMergeMethod"

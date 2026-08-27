@@ -1,0 +1,152 @@
+.backdrop {
+	position: fixed;
+	inset: 0;
+	background-color: var(--bg-overlay);
+}
+
+.viewport {
+	display: flex;
+	position: fixed;
+	inset: 0;
+	padding: 4.5rem 1rem;
+}
+
+.popup {
+	display: flex;
+	flex-direction: column;
+	width: min(680px, 100%);
+	max-height: min(76vh, 900px);
+	margin: auto;
+	overflow: hidden;
+	border: 1px solid var(--border-2);
+	border-radius: var(--radius-lg);
+	/* The dialog receives initial focus; the ring belongs on its controls. */
+	outline: none;
+	background-color: var(--bg-1);
+	box-shadow:
+		0 0.5px 1px rgb(0 0 0 / 0.12),
+		0 1px 3px -1px rgb(0 0 0 / 0.04),
+		0 2px 4px -1px rgb(0 0 0 / 0.04),
+		0 4px 8px -2px rgb(0 0 0 / 0.04),
+		0 12px 14px -4px rgb(0 0 0 / 0.04),
+		0 24px 64px -8px rgb(0 0 0 / 0.04),
+		0 40px 48px -32px rgb(0 0 0 / 0.04);
+}
+
+.dialogHeader {
+	display: flex;
+	column-gap: 8px;
+	flex-shrink: 0;
+	align-items: center;
+	padding: 12px;
+	border-block-end: 1px solid var(--border-section);
+}
+
+.panel {
+	display: flex;
+	flex-grow: 1;
+	flex-direction: column;
+	min-height: 0;
+}
+
+.controls {
+	display: flex;
+	row-gap: 8px;
+	flex-shrink: 0;
+	flex-direction: column;
+	padding: 12px;
+	border-block-end: 1px solid var(--border-section);
+}
+
+.viewRow {
+	display: flex;
+	column-gap: 8px;
+	align-items: center;
+	/* Keeps its line while empty, so picking a strategy does not reflow. */
+	min-height: 24px;
+}
+
+.summary {
+	margin-inline-start: auto;
+}
+
+.outline {
+	flex-grow: 1;
+	padding-block: 6px;
+
+	/* The previous plan's rows, held while the next preview computes. */
+	&[data-stale] {
+		opacity: 0.5;
+	}
+}
+
+.conflictIcon {
+	flex-shrink: 0;
+	margin-right: 2px;
+}
+
+/* Holds what the scalpel removed, below the outline it removed it from. */
+.dropped {
+	margin-block-start: 8px;
+	padding-block-start: 4px;
+	border-block-start: 1px solid var(--border-section);
+}
+
+.droppedHeading {
+	padding-inline: var(--row-padding-inline-start, 12px);
+	padding-block: 2px;
+}
+
+.droppedLabel {
+	text-decoration: line-through;
+}
+
+.message {
+	padding: 12px;
+	color: var(--text-2);
+}
+
+.footer {
+	display: flex;
+	column-gap: 10px;
+	flex-shrink: 0;
+	align-items: center;
+	justify-content: flex-end;
+	padding: 12px;
+	border-block-start: 1px solid var(--border-section);
+}
+
+/* Whatever the footer has to say before the action, stacked at its start. */
+.footerNotes {
+	display: flex;
+	row-gap: 2px;
+	flex-direction: column;
+	margin-inline-end: auto;
+}
+
+.conflictNote {
+	display: flex;
+	column-gap: 6px;
+	align-items: center;
+	color: var(--text-2);
+}
+
+/* The done state: two lines of prose where the outline was. */
+.appliedBody {
+	display: flex;
+	row-gap: 6px;
+	flex-grow: 1;
+	flex-direction: column;
+	padding: 16px 12px;
+}
+
+/* The diagnosis line with the advanced escape at its end. */
+.strategyRow {
+	display: flex;
+	column-gap: 8px;
+	align-items: center;
+}
+
+.diagnosis {
+	flex-grow: 1;
+}

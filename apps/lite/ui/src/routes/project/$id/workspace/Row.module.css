@@ -130,7 +130,9 @@
 	border: none;
 	background: none;
 	color: inherit;
-	cursor: pointer;
+	/* The default cursor, like every other clickable control; a bare <button>
+	   would otherwise bring its UA pointer along. */
+	cursor: default;
 
 	.container:hover &,
 	.container:focus-within &,

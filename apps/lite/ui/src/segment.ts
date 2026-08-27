@@ -12,6 +12,28 @@ export const canRemoveBranchReference = (stack: Stack, segmentIndex: number): bo
 	return segmentIndex !== topBranchIndex;
 };
 
+/**
+ * Whether the update-from-remote flow has anything to work with: an upstream
+ * exists, and it either has commits the branch lacks or the branch has
+ * rewritten history the upstream still holds (force required).
+ */
+export const canIntegrateUpstream = (segment: Segment): boolean =>
+	segment.remoteTrackingRefName !== null &&
+	(segment.commitsOnRemote.length > 0 || segment.pushStatus === "unpushedCommitsRequiringForce");
+
+/**
+ * The divergence catching up leaves behind: every commit rewritten (new ids,
+ * same change ids), nothing new on the remote, nothing new locally. The only
+ * answer is a force push, so the sidebar shows it quietly rather than as a
+ * decision to make. Amended commits fall in here too — head info cannot tell
+ * a rebase from an amend — and want the same answer.
+ */
+export const isRewrittenOnly = (segment: Segment): boolean =>
+	segment.remoteTrackingRefName !== null &&
+	segment.commitsOnRemote.length === 0 &&
+	segment.pushStatus === "unpushedCommitsRequiringForce" &&
+	segment.commits.every((commit) => commit.state.type !== "LocalOnly");
+
 export type DownstackPushStatus = {
 	anyRequiresPush: boolean;
 	anyPushRequiresForce: boolean;

@@ -49,7 +49,7 @@ export const shoot = async (appWindow: Page, name: string, selector: string): Pr
 
 export const openProject = async (appWindow: Page): Promise<void> => {
 	await expect(appWindow).toHaveURL(/\/project\/[^/]+\/workspace/);
-	await expect(appWindow.getByRole("button", { name: /select project/i })).toBeVisible();
+	await expect(appWindow.getByRole("combobox", { name: /select project/i })).toBeVisible();
 	await appWindow.setViewportSize(VIEWPORT);
 
 	// On CI the renderer the window starts with sometimes never produces a frame
@@ -57,7 +57,7 @@ export const openProject = async (appWindow: Page): Promise<void> => {
 	// waits for a paint that never arrives. Reloading gets a renderer that works.
 	await appWindow.reload();
 	await appWindow.getByRole("main").waitFor();
-	await expect(appWindow.getByRole("button", { name: /select project/i })).toBeVisible();
+	await expect(appWindow.getByRole("combobox", { name: /select project/i })).toBeVisible();
 };
 
 // Under a bare X server the renderer only paints a capturable frame on load: a
@@ -78,7 +78,7 @@ export const goToTab = async (
 	// only an explicit reload reliably produces one.
 	await appWindow.reload();
 	await appWindow.getByRole("main").waitFor();
-	await expect(appWindow.getByRole("button", { name: /select project/i })).toBeVisible();
+	await expect(appWindow.getByRole("combobox", { name: /select project/i })).toBeVisible();
 
 	// Assert the tab actually changed. Every other post-condition here is present
 	// on all three tabs, so without this a navigation that silently stayed put
