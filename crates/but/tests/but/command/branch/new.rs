@@ -54,6 +54,24 @@ Hint: Run `but status` for applicable targets.
 }
 
 #[test]
+fn rejects_anonymous_segment_as_target() {
+    let env =
+        Sandbox::init_scenario_with_target_and_default_settings("one-stack-anonymous-segment");
+    env.setup_metadata(&["A"]);
+
+    env.but("branch new --above g0 new-branch")
+        .assert()
+        .failure()
+        .stderr_eq(str![[r#"
+Error: Cannot use 'g0' as a branch target because it is an anonymous stack segment
+
+Hint: Run `but status` to find the segment's top commit, then run `but branch new <name> --above/--below <commit-id>` with that commit ID
+
+"#]])
+        .stdout_eq(str![]);
+}
+
+#[test]
 fn rejects_head() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
     env.setup_metadata(&["A"]);

@@ -137,7 +137,7 @@ fn resolve_above_below_target(
     id_map: &IdMap,
     target: CliIdArg,
 ) -> CliResult<NewStackedBranchTarget> {
-    let target = target
+    let resolved = target
         .resolve_in_workspace(
             repo,
             id_map,
@@ -146,9 +146,16 @@ fn resolve_above_below_target(
         )?
         .into_branch_or_commit()?;
 
-    Ok(match target {
+    Ok(match resolved {
         BranchOrCommit::Commit(commit) => NewStackedBranchTarget::Commit(commit),
         BranchOrCommit::Branch(branch_arg) => {
+            if branch_arg.0.is_empty() {
+                return Err(bad_input(format!(
+                    "Cannot use '{target}' as a branch target because it is an anonymous stack segment"
+                ))
+                .hint("Run `but status` to find the segment's top commit, then run `but branch new <name> --above/--below <commit-id>` with that commit ID")
+                .into());
+            }
             NewStackedBranchTarget::Branch(branch_arg.resolve_local_branch_name()?)
         }
     })
