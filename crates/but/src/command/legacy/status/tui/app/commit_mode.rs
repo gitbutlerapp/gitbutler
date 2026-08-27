@@ -3,7 +3,6 @@ use std::sync::Arc;
 use bstr::BString;
 use but_core::ref_metadata::StackId;
 use but_ctx::Context;
-use but_rebase::graph_rebase::mutate::InsertSide;
 use gix::refs::Category;
 use nonempty::NonEmpty;
 use ratatui::{backend::Backend, prelude::Span};
@@ -31,7 +30,7 @@ use crate::{
     tui::TerminalGuard,
     utils::{
         change_source::{ChangeSourceId, UncommittedSelection},
-        targeting,
+        targeting::{self, Side},
         worktrees::worktree_branch,
     },
 };
@@ -41,7 +40,7 @@ use super::{SquashMarks, SquashSource, mark::MarksRef};
 #[derive(Debug, Clone)]
 pub struct CommitMode {
     pub source: Arc<CommitSource>,
-    pub insert_side: InsertSide,
+    pub insert_side: Side,
     /// If set, then the commit must be made on this stack
     ///
     /// Used when committing changes staged to a specific stack
@@ -290,7 +289,7 @@ impl App {
     fn handle_commit_start_source(&mut self, source: CommitSource) {
         let commit_mode = CommitMode {
             source: Arc::new(source),
-            insert_side: InsertSide::Below,
+            insert_side: Side::Below,
             scope_to_stack: None,
             message_composer: CommitMessageComposer::default(),
         };
@@ -325,7 +324,7 @@ impl App {
             .update_and_push_leave_normal_mode(&mut self.backstack, |mode| {
                 *mode = Mode::Commit(CommitMode {
                     source,
-                    insert_side: InsertSide::Below,
+                    insert_side: Side::Below,
                     scope_to_stack: None,
                     message_composer: CommitMessageComposer::default(),
                 });
@@ -378,7 +377,7 @@ impl App {
             },
             CliId::Commit { commit, id: _ } => commit::CommitRelativeToTarget::Commit {
                 commit: commit.clone(),
-                side: targeting::Side::from(*insert_side),
+                side: *insert_side,
             },
             CliId::Worktree { name, .. } => {
                 let repo = ctx.repo.get()?;
@@ -462,10 +461,7 @@ impl App {
         else {
             return;
         };
-        commit_mode.insert_side = match commit_mode.insert_side {
-            InsertSide::Above => InsertSide::Below,
-            InsertSide::Below => InsertSide::Above,
-        };
+        commit_mode.insert_side = commit_mode.insert_side.toggle();
     }
 
     fn handle_commit_toggle_message_composer(&mut self, composer: CommitMessageComposer) {

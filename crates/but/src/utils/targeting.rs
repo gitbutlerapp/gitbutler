@@ -11,6 +11,15 @@ pub(crate) enum Side {
     Below,
 }
 
+impl Side {
+    pub fn toggle(self) -> Self {
+        match self {
+            Side::Above => Side::Below,
+            Side::Below => Side::Above,
+        }
+    }
+}
+
 impl Display for Side {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let pretty = match self {
