@@ -10,6 +10,7 @@ use std::collections::{BTreeMap, HashMap};
 use std::str::{self, FromStr as _};
 
 use bstr::{BStr, BString, ByteSlice};
+use but_core::UnifiedPatch;
 use but_core::sync::RepoShared;
 use but_core::{ChangeId, ref_metadata::StackId};
 use but_ctx::Context;
@@ -66,7 +67,7 @@ struct UnqualifiedHunkId {
 }
 
 impl UnqualifiedHunkId {
-    fn short_id(&self) -> String {
+    fn short_id(&self) -> ShortId {
         let prefix = &self.id[..self.min_short_id_chars];
 
         match &self.collision_index {
@@ -306,25 +307,34 @@ impl<'a> Node<'a> for CommittedFile {
     ) -> anyhow::Result<Vec<Box<dyn Node<'a> + 'a>>> {
         let mut matches = Vec::<Box<dyn Node<'a> + 'a>>::new();
 
-        let mut hunks: Vec<but_core::SingleHunk> = vec![];
-
-        for tree_change in self.tree_changes.iter() {
-            let patch =
-                changes_in_commit.patch_for_tree_change(tree_change, id_map.diff_context_lines)?;
-
-            hunks.extend(but_core::SingleHunk::from_tree_change(tree_change, patch));
+        if self.tree_changes.len() > 1 {
+            // There isn't a whole lot we can do if there are multiple tree changes for a single
+            // path. The diff codepath currently has no way to produce this scenario so we'll ignore
+            // it until we can find a way to reproduce it.
+            tracing::warn!(
+                "Multiple tree changes for committed file {}, picking first ...",
+                &self.short_id
+            );
         }
+        let tree_change = self.tree_changes.head;
 
-        let mut short_ids_and_hunks: Vec<_> = hunks
-            .into_iter()
-            .map(|hunk| (UnqualifiedHunkId::default(), hunk))
-            .collect();
+        let Some(patch) =
+            changes_in_commit.patch_for_tree_change(&tree_change, id_map.diff_context_lines)?
+        else {
+            return Ok(matches);
+        };
+        let tree_change_with_id = TreeChangeWithId {
+            short_id: self.short_id,
+            inner: tree_change,
+        };
 
-        IdMap::assign_content_based_hunk_ids(short_ids_and_hunks.iter_mut())?;
-
-        for (hunk_short_id, hunk) in short_ids_and_hunks {
+        for (hunk_short_id, hunk) in identify_hunks_internal(&tree_change_with_id, patch)? {
             if hunk_short_id.matches_prefix(element) {
-                let short_id = format!("{}:{}", self.short_id, hunk_short_id.short_id());
+                let short_id = format!(
+                    "{}:{}",
+                    tree_change_with_id.short_id,
+                    hunk_short_id.short_id()
+                );
                 let cli_id = CliId::CommittedHunk(CommittedHunk {
                     committed_file: self.committed_file.clone(),
                     id: short_id,
@@ -347,6 +357,35 @@ impl<'a> Node<'a> for CommittedFile {
             id: self.short_id,
         }))
     }
+}
+
+/// Identify hunks for a single changed file (committed or uncommitted).
+pub fn identify_hunks(
+    tree_change: &TreeChangeWithId,
+    patch: UnifiedPatch,
+) -> anyhow::Result<Vec<IdAndHunk>> {
+    Ok(identify_hunks_internal(tree_change, patch)?
+        .into_iter()
+        .map(|(id, hunk)| IdAndHunk {
+            id: format!("{}:{}", tree_change.short_id, id.short_id()),
+            hunk,
+        })
+        .collect())
+}
+
+fn identify_hunks_internal(
+    tree_change: &TreeChangeWithId,
+    patch: UnifiedPatch,
+) -> anyhow::Result<Vec<(UnqualifiedHunkId, but_core::SingleHunk)>> {
+    let hunks = but_core::SingleHunk::from_tree_change(&tree_change.inner, Some(patch));
+    let mut short_ids_and_hunks: Vec<_> = hunks
+        .into_iter()
+        .map(|hunk| (UnqualifiedHunkId::default(), hunk))
+        .collect();
+
+    IdMap::assign_content_based_hunk_ids(short_ids_and_hunks.iter_mut())?;
+
+    Ok(short_ids_and_hunks)
 }
 
 #[derive(Debug)]
@@ -1693,6 +1732,45 @@ impl IdMap {
             .find(|commit| commit.commit_id() == commit_id)?
             .change_id
             .as_ref()
+    }
+}
+
+/// Convenience methods to access objects from [`IdMap`] s.t. they can be displayed with correct
+/// identifiers.
+impl IdMap {
+    /// Get the [WorkspaceCommitWithId] for the given commit ID.
+    pub fn get_workspace_commit_with_id(
+        &self,
+        commit_id: gix::ObjectId,
+    ) -> anyhow::Result<&WorkspaceCommitWithId> {
+        let mut matches = Vec::<&WorkspaceCommitWithId>::new();
+
+        for stack_with_id in self.indexed_stacks.borrow_owner().iter() {
+            for segment_with_id in stack_with_id.segments.iter() {
+                for workspace_commit_with_id in segment_with_id.workspace_commits.iter() {
+                    if workspace_commit_with_id.inner.id == commit_id {
+                        matches.push(workspace_commit_with_id)
+                    }
+                }
+            }
+        }
+
+        // Commits owned by a linked worktree resolve exactly like workspace commits - they
+        // just live outside the stacks.
+        for worktree in self.worktrees.values() {
+            for commit_with_id in worktree.commits.iter() {
+                if commit_with_id.inner.id == commit_id {
+                    matches.push(commit_with_id)
+                }
+            }
+        }
+
+        match matches.as_slice() {
+            [commit] => Ok(commit),
+            _ => Err(anyhow::anyhow!(
+                "Could not identify commit {commit_id} in workspace"
+            )),
+        }
     }
 }
 
