@@ -235,7 +235,7 @@ fn commit_message_wraps_in_details_view() {
 
     tui.input('d');
 
-    tui.render_with_messages((KeyModifiers::CONTROL, 'n'), Vec::new())
+    tui.render_with_messages(None, Vec::new())
         .assert_rendered_term_svg_eq(file![
             "snapshots/commit_message_wraps_in_details_view_005.svg"
         ]);
