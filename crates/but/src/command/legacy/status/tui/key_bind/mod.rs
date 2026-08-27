@@ -100,6 +100,7 @@ pub fn default_key_binds(feature_flags: &FeatureFlags) -> KeyBinds {
                     builder.branch_pick_and_switch().register();
                     builder.branch_switch_to_selection().register();
                 }
+                builder.branch_toggle_insert_side().register();
                 builder.discard().register();
                 builder.mark().register();
                 register_non_mode_specific_key_binds(&mut builder, WithFocusDetails::No);
@@ -1026,6 +1027,13 @@ impl KeyBindsBuilder<'_> {
             || Message::Branch(BranchMessage::New { switch: true }),
         )
         .long_description("Create a new branch and switch to it")
+    }
+
+    fn branch_toggle_insert_side(&mut self) -> KeyBindsInModesBuilder<'_> {
+        self.key_bind("above/below", press().code(KeyCode::Char('a')), || {
+            Message::Branch(BranchMessage::ToggleInsertSide)
+        })
+        .long_description("Toggle creating branch above or below")
     }
 
     fn details_next_hunk(&mut self) -> KeyBindsInModesBuilder<'_> {

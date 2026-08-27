@@ -524,3 +524,52 @@ fn pick_and_switch_to_stacked_branches() {
         "snapshots/pick_and_switch_to_stacked_branches_004.svg"
     ]);
 }
+
+#[test]
+fn creating_branch_below_other_branch() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack-two-commits");
+    env.setup_metadata(&["A"]);
+
+    let mut tui = test_status_tui(env);
+
+    tui.input('j');
+    tui.input('b').assert_rendered_term_svg_eq(file![
+        "snapshots/creating_branch_below_other_branch_001.svg"
+    ]);
+    tui.input('a').assert_rendered_term_svg_eq(file![
+        "snapshots/creating_branch_below_other_branch_002.svg"
+    ]);
+    tui.input('n').assert_rendered_term_svg_eq(file![
+        "snapshots/creating_branch_below_other_branch_003.svg"
+    ]);
+
+    tui.input('b').assert_rendered_term_svg_eq(file![
+        "snapshots/creating_branch_below_other_branch_004.svg"
+    ]);
+    tui.input('a').assert_rendered_term_svg_eq(file![
+        "snapshots/creating_branch_below_other_branch_005.svg"
+    ]);
+    tui.input('n').assert_rendered_term_svg_eq(file![
+        "snapshots/creating_branch_below_other_branch_006.svg"
+    ]);
+}
+
+#[test]
+fn creating_branch_above_below_uncommitted_and_merge_base() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("zero-stacks");
+
+    let mut tui = test_status_tui(env);
+
+    tui.input('b').assert_rendered_term_svg_eq(file![
+        "snapshots/creating_branch_above_below_uncommitted_and_merge_base_001.svg"
+    ]);
+    tui.input('a').assert_rendered_term_svg_eq(file![
+        "snapshots/creating_branch_above_below_uncommitted_and_merge_base_002.svg"
+    ]);
+    tui.input('j').assert_rendered_term_svg_eq(file![
+        "snapshots/creating_branch_above_below_uncommitted_and_merge_base_003.svg"
+    ]);
+    tui.input('a').assert_rendered_term_svg_eq(file![
+        "snapshots/creating_branch_above_below_uncommitted_and_merge_base_004.svg"
+    ]);
+}

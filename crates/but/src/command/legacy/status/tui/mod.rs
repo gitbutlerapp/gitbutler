@@ -638,7 +638,7 @@ fn dedup_mutation_messages(messages: &mut Vec<Message>, other_messages: &mut Vec
                 BranchMessage::Switch
                 | BranchMessage::PickAndSwitch
                 | BranchMessage::New { .. } => true,
-                BranchMessage::Start => false,
+                BranchMessage::ToggleInsertSide | BranchMessage::Start => false,
             },
             Message::Stack(message) => match message {
                 StackMessage::Unapply | StackMessage::MoveConfirm => true,
