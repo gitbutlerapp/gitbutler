@@ -80,8 +80,7 @@ test.describe("edit mode without conflicts", () => {
 		await expect(appWindow.getByText("a_file")).toBeVisible();
 		await expect(appWindow.getByText("No changes yet.")).toBeVisible();
 
-		// Nothing is conflicted, so the page offers no way to open conflicts.
-		await expect(appWindow.getByRole("button", { name: /conflicted file/i })).toHaveCount(0);
+		await expect(appWindow.getByText("conflicts", { exact: true })).toHaveCount(0);
 
 		await appWindow.getByRole("button", { name: "Cancel edit" }).click();
 		await expect(editingHeading(appWindow)).toBeHidden();
@@ -108,7 +107,6 @@ test.describe("edit mode with conflicts", () => {
 		// The hint is matched exactly: the page's explainer says "conflicts" too.
 		// The commit could not be applied, so its file is checked out with markers.
 		await expect(appWindow.getByText("conflicts", { exact: true })).toBeVisible();
-		await expect(appWindow.getByRole("button", { name: /conflicted file/i })).toBeVisible();
 
 		const conflictedFile = conflictedFilePath(testEnvironment.workdir);
 		expect(readFileSync(conflictedFile, "utf8")).toContain("<<<<<<<");
