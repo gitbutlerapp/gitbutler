@@ -4,6 +4,7 @@ use std::{
     path::{Path, PathBuf},
 };
 
+use but_error::AnyhowContextExt;
 use but_settings::AppSettings;
 use clap::ValueEnum;
 use command_group::AsyncCommandGroup;
@@ -14,44 +15,12 @@ use serde::{Deserialize, Serialize};
 use crate::{
     CliError,
     args::{Subcommands, config, metrics::CommandName},
+    command::CommandOutcome,
     utils::{ResultMetricsExt, binary_path},
 };
 
-const ERROR_MESSAGE_MAX_CHARS: usize = 1024;
 const UNRECOGNIZED_SUBCOMMAND_MAX_CHARS: usize = 64;
 const INVALID_UNRECOGNIZED_SUBCOMMAND: &str = "<invalid>";
-
-pub(super) mod types {
-    use crate::args::metrics::CommandName;
-
-    /// All we need to emit metrics as part of a command invocation, in the background, as spun-off process.
-    pub struct OneshotMetricsContext {
-        pub(super) start: std::time::Instant,
-        pub command: CommandName,
-        pub(super) extra_props: Vec<(String, serde_json::Value)>,
-        pub(super) current_dir: std::path::PathBuf,
-    }
-}
-use types::OneshotMetricsContext;
-
-impl OneshotMetricsContext {
-    pub fn new(
-        cmd: CommandName,
-        extra_props: Vec<(String, serde_json::Value)>,
-        current_dir: PathBuf,
-    ) -> Self {
-        Self {
-            start: std::time::Instant::now(),
-            command: cmd,
-            extra_props,
-            current_dir,
-        }
-    }
-
-    pub(crate) fn push_extra_prop<T: Serialize>(&mut self, key: &str, value: T) {
-        push_prop(&mut self.extra_props, key, value);
-    }
-}
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, strum::Display)]
 #[serde(rename_all = "camelCase")]
@@ -247,10 +216,41 @@ impl Subcommands {
     /// `sourceKind` and `targetKind` describe the kind a command expects, not a
     /// resolved runtime ID.
     pub(crate) fn to_metrics_extra_props(&self) -> Vec<(String, serde_json::Value)> {
+        #[cfg(feature = "legacy")]
+        use crate::args::commit;
         use crate::args::skill;
 
         let mut props = Vec::new();
         match self {
+            #[cfg(feature = "legacy")]
+            Subcommands::Commit(commit::Platform {
+                branch,
+                empty,
+                above,
+                below,
+                interactive,
+                changes,
+                ..
+            }) => {
+                let target_mode = match (branch, above, below) {
+                    (Some(Some(_)), None, None) => "namedBranch",
+                    (Some(None), None, None) => "generatedBranch",
+                    (None, Some(_), None) => "above",
+                    (None, None, Some(_)) => "below",
+                    _ => "default",
+                };
+                let selection_mode = if !changes.is_empty() {
+                    "explicitChanges"
+                } else if *interactive {
+                    "interactive"
+                } else if *empty {
+                    "empty"
+                } else {
+                    "allChanges"
+                };
+                push_prop(&mut props, "targetMode", target_mode);
+                push_prop(&mut props, "selectionMode", selection_mode);
+            }
             #[cfg(feature = "legacy")]
             Subcommands::Uncommit(..) => {
                 push_prop(&mut props, "sourceKind", "commitOrCommittedFile");
@@ -270,12 +270,9 @@ impl Subcommands {
                 push_prop(&mut props, "sourceKind", "commitOrBranch");
                 push_prop(&mut props, "targetKind", "commitOrBranchOrUnassigned");
             }
-            Subcommands::Skill(skill::Platform { cmd }) => match cmd {
-                skill::Subcommands::Install { .. } => {}
-                skill::Subcommands::Check { update, .. } => {
-                    push_prop(&mut props, "skillCheckUpdate", *update);
-                }
-            },
+            Subcommands::Skill(skill::Platform {
+                cmd: skill::Subcommands::Check { update, .. },
+            }) => push_prop(&mut props, "skillCheckUpdate", *update),
             Subcommands::External(extra) => {
                 if let Some(command_name) = extra.first() {
                     push_prop(
@@ -297,6 +294,96 @@ fn push_prop<T: Serialize>(props: &mut Vec<(String, serde_json::Value)>, key: &s
     }
 }
 
+/// Everything needed to emit one CLI event after a command finishes.
+pub struct OneshotMetricsContext {
+    start: std::time::Instant,
+    pub command: CommandName,
+    extra_props: Vec<(String, serde_json::Value)>,
+    current_dir: PathBuf,
+}
+
+impl OneshotMetricsContext {
+    pub fn new(
+        cmd: CommandName,
+        extra_props: Vec<(String, serde_json::Value)>,
+        current_dir: PathBuf,
+    ) -> Self {
+        Self {
+            start: std::time::Instant::now(),
+            command: cmd,
+            extra_props,
+            current_dir,
+        }
+    }
+
+    pub(crate) fn push_extra_prop<T: Serialize>(&mut self, key: &str, value: T) {
+        push_prop(&mut self.extra_props, key, value);
+    }
+
+    pub(crate) fn record_outcome(&mut self, outcome: &CommandOutcome) {
+        self.extra_props.extend(command_outcome_props(outcome));
+    }
+}
+
+fn command_outcome_props(outcome: &CommandOutcome) -> Vec<(String, serde_json::Value)> {
+    let mut props = Vec::new();
+    match outcome {
+        CommandOutcome::AgentSetupPrintOnly => {
+            push_prop(&mut props, "agentSetupOutcome", "printOnly");
+        }
+        CommandOutcome::AgentSetupCancelled => {
+            push_prop(&mut props, "agentSetupOutcome", "cancelled");
+        }
+        CommandOutcome::AgentSetupCompleted {
+            manual_instructions_required,
+        } => {
+            push_prop(
+                &mut props,
+                "agentSetupOutcome",
+                if *manual_instructions_required {
+                    "completedWithManualStep"
+                } else {
+                    "completed"
+                },
+            );
+            push_prop(
+                &mut props,
+                "agentSetupManualInstructionsRequired",
+                *manual_instructions_required,
+            );
+        }
+        #[cfg(feature = "legacy")]
+        CommandOutcome::Commit(outcome) => {
+            use crate::command::legacy::commit::BranchNameTarget;
+
+            let target_kind = match &outcome.branch_name {
+                Some(BranchNameTarget::New(_)) => "newBranch",
+                Some(BranchNameTarget::Existing(_)) => "existingBranch",
+                None => "commit",
+            };
+            push_prop(&mut props, "stateChanged", true);
+            push_prop(&mut props, "createdBranch", target_kind == "newBranch");
+            push_prop(&mut props, "resolvedTargetKind", target_kind);
+            push_prop(
+                &mut props,
+                "changedPathCountBucket",
+                change_count_bucket(outcome.changed_path_count),
+            );
+        }
+    }
+    props
+}
+
+pub(crate) fn change_count_bucket(count: usize) -> &'static str {
+    match count {
+        0 => "0",
+        1 => "1",
+        2..=3 => "2to3",
+        4..=10 => "4to10",
+        _ => "11plus",
+    }
+}
+
 impl From<CommandName> for EventKind {
     fn from(command_name: CommandName) -> Self {
         EventKind::Cli(command_name)
@@ -314,11 +401,7 @@ impl Props {
         }
     }
 
-    fn from_anyhow_result<T>(
-        start: std::time::Instant,
-        result: &anyhow::Result<T>,
-        command: CommandName,
-    ) -> Props {
+    fn from_anyhow_result<T>(start: std::time::Instant, result: &anyhow::Result<T>) -> Props {
         let mut props = Props::new();
         props.insert("durationMs", start.elapsed().as_millis());
         let Some(error) = result.as_ref().err() else {
@@ -326,15 +409,11 @@ impl Props {
             return props;
         };
 
-        props.insert_internal_error_details(error, command);
+        props.insert_internal_error_details(error);
         props
     }
 
-    fn from_cli_error_result<T>(
-        start: std::time::Instant,
-        result: &Result<T, CliError>,
-        command: CommandName,
-    ) -> Props {
+    fn from_cli_error_result<T>(start: std::time::Instant, result: &Result<T, CliError>) -> Props {
         let mut props = Props::new();
         props.insert("durationMs", start.elapsed().as_millis());
         let Some(error) = result.as_ref().err() else {
@@ -368,7 +447,7 @@ impl Props {
                 props.insert("errorKind", "externalCommandFailed");
             }
             CliError::Internal(error) => {
-                props.insert_internal_error_details(error, command);
+                props.insert_internal_error_details(error);
             }
             CliError::Initialization(_) => {
                 props.insert("error", "Internal error");
@@ -390,22 +469,26 @@ impl Props {
         }
     }
 
-    fn insert_internal_error_details(&mut self, error: &anyhow::Error, command: CommandName) {
+    fn insert_internal_error_details(&mut self, error: &anyhow::Error) {
         #[cfg(feature = "legacy")]
-        if error.is::<crate::utils::rejection::ExplainedRejection>() {
+        let is_explained_rejection = error.is::<crate::utils::rejection::ExplainedRejection>();
+        #[cfg(not(feature = "legacy"))]
+        let is_explained_rejection = false;
+        if is_explained_rejection {
             self.insert("error", "Command rejection");
             self.insert("errorKind", "commandRejection");
-            return;
-        }
-
-        self.insert("error", "Internal error");
-        self.insert("errorKind", "internal");
-        if captures_detailed_error_message(command) {
-            self.insert("errorMessage", error_message(error));
-            self.insert(
-                "errorRoot",
-                error_message(error.root_cause()).trim().to_string(),
-            );
+            self.insert("errorCode", "changesRejected");
+            self.insert("retryable", false);
+            self.insert("stateChanged", false);
+        } else {
+            self.insert("error", "Internal error");
+            self.insert("errorKind", "internal");
+            let custom_context = error.custom_context();
+            if let Some(context) = custom_context
+                && context.code != but_error::Code::Unknown
+            {
+                self.insert("errorCode", context.code.to_string());
+            }
         }
     }
 
@@ -447,29 +530,6 @@ pub(crate) fn prepare_transport_props(json: &str) -> anyhow::Result<Props> {
     Ok(props)
 }
 
-fn error_message(error: &(impl std::fmt::Display + ?Sized)) -> String {
-    let error_message = format!("{error:#}");
-    let mut message = error_message.as_str();
-
-    if let Some((value, _)) = message.split_once("\nHint: ") {
-        message = value;
-    }
-    let message =
-        if let Some((value, _)) = message.split_once(". If you just performed a Git operation") {
-            format!("{value}.")
-        } else {
-            message.to_string()
-        };
-
-    let message = message
-        .lines()
-        .map(str::trim)
-        .filter(|line| !line.is_empty())
-        .collect::<Vec<_>>()
-        .join(" ");
-    truncate_error_message(message)
-}
-
 fn unrecognized_subcommand_metric_value(command_name: &std::ffi::OsStr) -> String {
     let command_name = command_name.to_string_lossy();
     let command_name = command_name.trim();
@@ -504,17 +564,6 @@ fn external_subcommand_metric_value(command_name: &std::ffi::OsStr) -> String {
         .chars()
         .take(UNRECOGNIZED_SUBCOMMAND_MAX_CHARS)
         .collect()
-}
-
-fn captures_detailed_error_message(command: CommandName) -> bool {
-    matches!(
-        command,
-        CommandName::Commit | CommandName::Uncommit | CommandName::Amend | CommandName::Squash
-    )
-}
-
-fn truncate_error_message(message: String) -> String {
-    message.chars().take(ERROR_MESSAGE_MAX_CHARS).collect()
 }
 
 /// Add lane and branch counts to `event`, read from the managed workspace at `current_dir`;
@@ -705,7 +754,7 @@ impl<T> ResultMetricsExt<T, anyhow::Error> for anyhow::Result<T> {
             return self;
         };
 
-        let mut props = Props::from_anyhow_result(start, &self, command);
+        let mut props = Props::from_anyhow_result(start, &self);
         props.extend(extra_props);
         emit_metrics(command, props, &current_dir, self.is_err());
         self
@@ -724,7 +773,7 @@ impl<T> ResultMetricsExt<T, CliError> for Result<T, CliError> {
             return self;
         };
 
-        let mut props = Props::from_cli_error_result(start, &self, command);
+        let mut props = Props::from_cli_error_result(start, &self);
         props.extend(extra_props);
         emit_metrics(command, props, &current_dir, self.is_err());
         self

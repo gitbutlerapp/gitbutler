@@ -19,7 +19,7 @@ pub(crate) use freshness::{agent_skill_notice, agent_skill_update_notice};
 
 /// Error type for user-initiated cancellation
 #[derive(Debug, Clone, Copy)]
-pub struct UserCancelled;
+struct UserCancelled;
 
 impl std::fmt::Display for UserCancelled {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -383,7 +383,10 @@ pub fn handle(
             global,
             path,
             detect,
-        } => install_skill(ctx, out, global, path, detect),
+        } => match install_skill(ctx, out, global, path, detect) {
+            Err(error) if error.downcast_ref::<UserCancelled>().is_some() => Ok(()),
+            result => result,
+        },
         skill::Subcommands::Check {
             global,
             local,

@@ -8,7 +8,7 @@ use nonempty::NonEmpty;
 
 use crate::{
     args::agent,
-    command::skill,
+    command::{CommandOutcome, skill},
     theme::{self, Paint},
     utils::{InputOutputChannel, OutputChannel, PromptLine, detect_agent},
 };
@@ -45,7 +45,7 @@ pub fn handle(
     current_dir: &Path,
     out: &mut OutputChannel,
     cmd: Option<agent::Subcommands>,
-) -> Result<()> {
+) -> Result<CommandOutcome> {
     match cmd {
         // Bare `but agent` runs the setup wizard, same as `but agent setup`.
         None => setup(current_dir, out, false),
@@ -53,11 +53,11 @@ pub fn handle(
     }
 }
 
-fn setup(current_dir: &Path, out: &mut OutputChannel, print_only: bool) -> Result<()> {
+fn setup(current_dir: &Path, out: &mut OutputChannel, print_only: bool) -> Result<CommandOutcome> {
     if print_only {
         let default_policy = render_managed_policy_block(&WizardAnswers::default());
         print_policy(out, &default_policy)?;
-        return Ok(());
+        return Ok(CommandOutcome::AgentSetupPrintOnly);
     }
 
     let repo = discover_repo(current_dir);
@@ -77,7 +77,10 @@ fn setup(current_dir: &Path, out: &mut OutputChannel, print_only: bool) -> Resul
 
     match plan {
         Some(plan) => apply_plan(out, current_dir, &plan),
-        None => print_cancelled(out),
+        None => {
+            print_cancelled(out)?;
+            Ok(CommandOutcome::AgentSetupCancelled)
+        }
     }
 }
 
@@ -710,7 +713,7 @@ fn write_policy_preview(writer: &mut impl fmt::Write, policy: &str) -> fmt::Resu
     Ok(())
 }
 
-fn apply_plan(out: &mut OutputChannel, current_dir: &Path, plan: &Plan) -> Result<()> {
+fn apply_plan(out: &mut OutputChannel, current_dir: &Path, plan: &Plan) -> Result<CommandOutcome> {
     // Run `but setup` first: it is the step most likely to fail (it needs a
     // discoverable repo + project registration) and aborts before any file is
     // written, keeping the intro's "nothing is written until you confirm"
@@ -730,6 +733,14 @@ fn apply_plan(out: &mut OutputChannel, current_dir: &Path, plan: &Plan) -> Resul
             .with_context(|| format!("Failed to update {}", write.path.display()))?;
     }
 
+    let outcome = CommandOutcome::AgentSetupCompleted {
+        manual_instructions_required: !plan.print_only_notes.is_empty(),
+    };
+    print_setup_complete(out)?;
+    Ok(outcome)
+}
+
+fn print_setup_complete(out: &mut OutputChannel) -> Result<()> {
     if let Some(writer) = out.for_human() {
         let t = theme::get();
         writeln!(writer)?;

@@ -554,6 +554,7 @@ where
         commit::CommitOutcome {
             new_commit,
             branch_name: _,
+            ..
         },
         _ws,
     ) = commit::run(

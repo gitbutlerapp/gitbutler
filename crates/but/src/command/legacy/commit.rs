@@ -45,15 +45,17 @@ use crate::{
     },
 };
 
+#[derive(Debug, Clone)]
 #[must_use]
 pub struct CommitOutcome {
     pub new_commit: CommitId,
     pub branch_name: Option<BranchNameTarget>,
+    pub(crate) changed_path_count: usize,
 }
 
 /// `--json` should only include newly created things. So if the branch already existed it
 /// wont be included in the JSON output.
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum BranchNameTarget {
     Existing(FullName),
     New(FullName),
@@ -69,6 +71,7 @@ impl CliOutputHuman for CommitOutcome {
         let Self {
             new_commit,
             branch_name,
+            changed_path_count: _,
         } = self;
 
         match branch_name {
@@ -106,6 +109,7 @@ impl CliOutput for CommitOutcome {
         let Self {
             new_commit,
             branch_name,
+            changed_path_count: _,
         } = self;
 
         let branch_name = match branch_name {
@@ -321,6 +325,7 @@ pub fn run(
 
         builder.into_diff_specs()
     };
+    let changed_path_count = changes.len();
     let rejection_target = commit_op.rejection_target();
     let snapshot_details = SnapshotDetails::new(OperationKind::CreateCommit);
     let ((new_commit, branch_name), ws) = but_transaction::with_transaction_with_perm(
@@ -357,17 +362,17 @@ pub fn run(
     )
     .map_err(|err| rejection::explain_after_rollback(ctx, perm, "commit", rejection_target, err))?;
 
-    if checkout_after_create && let Some(BranchNameTarget::New(branch_name)) = &branch_name {
+    let outcome = CommitOutcome {
+        new_commit,
+        branch_name,
+        changed_path_count,
+    };
+    if checkout_after_create && let Some(BranchNameTarget::New(branch_name)) = &outcome.branch_name
+    {
         but_api::branch::branch_checkout_with_perm(ctx, branch_name.clone(), perm)?;
     }
 
-    Ok((
-        CommitOutcome {
-            new_commit,
-            branch_name,
-        },
-        ws,
-    ))
+    Ok((outcome, ws))
 }
 
 /// Targeting modes for committing.

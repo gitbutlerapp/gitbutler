@@ -524,6 +524,7 @@ fn print_and_exit_non_zero<T: std::fmt::Display>(err: T) -> ! {
 
 enum DispatchOutcome {
     Return,
+    ReturnWithOutcome(command::CommandOutcome),
     ExitWithoutDestructors(anyhow::Result<()>),
 }
 
@@ -601,6 +602,12 @@ async fn match_subcommand(
 
     match dispatch_subcommand(cmd, args, app_settings, &mut output).await {
         Ok(DispatchOutcome::Return) => Ok(()).emit_metrics(metrics_ctx),
+        Ok(DispatchOutcome::ReturnWithOutcome(outcome)) => {
+            if let Some(metrics_ctx) = metrics_ctx.as_mut() {
+                metrics_ctx.record_outcome(&outcome);
+            }
+            Ok(()).emit_metrics(metrics_ctx)
+        }
         Ok(DispatchOutcome::ExitWithoutDestructors(result)) => result
             .emit_metrics(metrics_ctx)
             .show_root_cause_error_then_exit_without_destructors(output),
@@ -625,11 +632,13 @@ async fn dispatch_subcommand(
             command_name,
             props,
         } => {
-            use args::metrics::CommandName;
             let props = utils::metrics::prepare_transport_props(&props)?;
             let mut event = utils::metrics::Event::new(command_name.into());
             props.update_event(&mut event);
-            if matches!(command_name, CommandName::Commit | CommandName::CommitEmpty) {
+            if matches!(
+                command_name,
+                args::metrics::CommandName::Commit | args::metrics::CommandName::CommitEmpty
+            ) {
                 utils::metrics::add_workspace_shape(&mut event, &args.current_dir);
             }
             utils::metrics::capture_event_blocking(&app_settings, event).await;
@@ -738,24 +747,13 @@ async fn dispatch_subcommand(
                     return Err(CliError::Internal(err));
                 }
             };
-            let result = command::skill::handle(ctx.as_mut(), out, cmd);
-
-            // Handle user cancellation gracefully (exit 0 instead of error)
-            if let Err(ref e) = result
-                && e.downcast_ref::<command::skill::UserCancelled>().is_some()
-            {
-                return Ok(DispatchOutcome::Return);
-            }
-
-            return result
+            return command::skill::handle(ctx.as_mut(), out, cmd)
                 .map(|()| DispatchOutcome::Return)
                 .map_err(CliError::from);
         }
         Subcommands::Agent(agent::Platform { cmd }) => {
-            let result = command::agent::handle(&args.current_dir, out, cmd);
-
-            return result
-                .map(|()| DispatchOutcome::Return)
+            return command::agent::handle(&args.current_dir, out, cmd)
+                .map(DispatchOutcome::ReturnWithOutcome)
                 .map_err(CliError::from);
         }
         Subcommands::Mcp(args::mcp::Platform { cmd }) => {
@@ -912,6 +910,8 @@ async fn dispatch_subcommand(
     // If `Some`, and if result is `Ok`, this is passed to
     // `run_status_after_if_requested()`.
     let mut status_after_data: Option<bool> = None;
+    #[cfg(feature = "legacy")]
+    let mut command_outcome = None;
     let ws: Option<WorkspaceState> = match cmd {
         Subcommands::Metrics { .. }
         | Subcommands::Gui { .. }
@@ -1236,7 +1236,9 @@ async fn dispatch_subcommand(
                 IntermediateChannel::new(out),
                 commit_args,
             )?;
+            let metrics_outcome = command::CommandOutcome::Commit(outcome.clone());
             out.print_cli_output(outcome)?;
+            command_outcome = Some(metrics_outcome);
             Some(ws)
         }
         #[cfg(feature = "legacy")]
@@ -1697,6 +1699,10 @@ async fn dispatch_subcommand(
         );
     }
 
+    #[cfg(feature = "legacy")]
+    if let Some(outcome) = command_outcome {
+        return Ok(DispatchOutcome::ReturnWithOutcome(outcome));
+    }
     Ok(DispatchOutcome::Return)
 }
 
