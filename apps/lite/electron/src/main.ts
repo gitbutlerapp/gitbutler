@@ -291,9 +291,7 @@ const newUrlOrNull = (url: string): URL | null => {
  */
 const electronHandlerOverrides = {
 	askpassSubmitPromptResponse: ({ id, response }) => askpassSubmitPromptResponse(id, response),
-	clipboardWriteText: (text) => {
-		clipboard.writeText(text, "clipboard");
-	},
+	clipboardWriteText: (text) => clipboard.writeText(text),
 	getVersion: () => app.getVersion(),
 	openInWebBrowser: (url) => {
 		// shell.openExternal() is powerful and dangerous. For example, on macOS you can launch a
