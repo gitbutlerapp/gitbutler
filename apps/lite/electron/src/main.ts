@@ -506,6 +506,8 @@ const deepLinkFromArgv = (argv: Array<string>): string | undefined =>
 const createMainWindow = async (initialUrl?: string): Promise<void> => {
 	const icon = getWindowIcon();
 	const mainWindow = new BrowserWindow({
+		name: "main",
+		windowStatePersistence: true,
 		width: 1024,
 		height: 768,
 		show: !isHeadless,
