@@ -23,6 +23,7 @@ use crate::{
         },
     },
     id::{BranchId, CommitId, CommittedFileId, IdAndHunk, UncommittedHunkOrFile},
+    utils::targeting::Side,
 };
 
 fn line(data: StatusOutputLineData) -> StatusOutputLine {
@@ -2107,7 +2108,7 @@ fn is_selectable_in_commit_mode_scopes_commit_targets_to_stack() {
     let scoped_stack_id = StackId::single_branch_id();
     let mode = Mode::Commit(CommitMode {
         source: Arc::new(CommitSource::Uncommitted),
-        insert_side: InsertSide::Above,
+        insert_side: Side::Above,
         scope_to_stack: Some(scoped_stack_id),
         message_composer: CommitMessageComposer::default(),
     });

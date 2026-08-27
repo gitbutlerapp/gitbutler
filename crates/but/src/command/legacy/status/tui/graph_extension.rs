@@ -1,6 +1,8 @@
 use but_rebase::graph_rebase::mutate::InsertSide;
 use ratatui::text::Span;
 
+use crate::utils::targeting::Side;
+
 /// Direction in which to extend a graph connector line.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ExtensionDirection {
@@ -15,6 +17,15 @@ impl From<InsertSide> for ExtensionDirection {
         match value {
             InsertSide::Above => Self::Above,
             InsertSide::Below => Self::Below,
+        }
+    }
+}
+
+impl From<Side> for ExtensionDirection {
+    fn from(value: Side) -> Self {
+        match value {
+            Side::Above => Self::Above,
+            Side::Below => Self::Below,
         }
     }
 }

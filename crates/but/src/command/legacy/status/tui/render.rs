@@ -26,6 +26,7 @@ use crate::{
     },
     id::CommitId,
     theme::Theme,
+    utils::targeting::Side,
 };
 
 use super::{
@@ -1102,8 +1103,8 @@ pub fn commit_operation_display(
                 None
             } else {
                 match insert_side {
-                    InsertSide::Above => Some("commit above"),
-                    InsertSide::Below => Some("commit below"),
+                    Side::Above => Some("commit above"),
+                    Side::Below => Some("commit below"),
                 }
             }
         }
