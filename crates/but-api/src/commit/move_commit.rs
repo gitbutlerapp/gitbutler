@@ -1,6 +1,7 @@
 use but_api_macros::but_api;
 use but_core::{DryRun, sync::RepoExclusive};
 use but_oplog::legacy::{OperationKind, SnapshotDetails};
+use but_rebase::graph_rebase::MoveMaterialization;
 use but_rebase::graph_rebase::mutate::{InsertSide, RelativeTo};
 use tracing::instrument;
 
@@ -50,17 +51,16 @@ pub fn commit_move_only_with_perm(
     dry_run: DryRun,
     perm: &mut RepoExclusive,
 ) -> anyhow::Result<CommitMoveResult> {
-    let mut meta = ctx.meta()?;
-    let (repo, mut ws, mut db) = ctx.workspace_mut_and_db_mut_with_perm(perm)?;
-    let editor = but_rebase::graph_rebase::Editor::create(&mut ws, &mut meta, &repo, &mut db)?;
-    let rebase =
-        but_workspace::commit::move_commits(editor, subject_commit_ids, relative_to, side)?;
-
-    Ok(CommitMoveResult {
-        workspace: WorkspaceState::from_successful_rebase(rebase, &repo, dry_run)?,
-    })
+    if let Some(current) = preflight_with_perm(ctx, &subject_commit_ids, &relative_to, side, perm)?
+    {
+        return Ok(current);
+    }
+    commit_move_only_inner(ctx, subject_commit_ids, relative_to, side, dry_run, perm)
 }
 
+// Keep private helpers below the exported API declarations. The SDK generator
+// records this attribute's line in source links, so inserting helpers above it
+// creates generated-only churn.
 /// Moves `subject_commit_ids` to `side` of `relative_to` and records an oplog
 /// snapshot on success.
 ///
@@ -105,18 +105,65 @@ pub fn commit_move_with_perm(
     dry_run: DryRun,
     perm: &mut RepoExclusive,
 ) -> anyhow::Result<CommitMoveResult> {
+    if let Some(current) = preflight_with_perm(ctx, &subject_commit_ids, &relative_to, side, perm)?
+    {
+        return Ok(current);
+    }
     let maybe_oplog_entry = but_oplog::UnmaterializedOplogSnapshot::from_details_with_perm(
         ctx,
         SnapshotDetails::new(OperationKind::MoveCommit).with_count(subject_commit_ids.len()),
         perm.read_permission(),
         dry_run,
     );
-
-    let res = commit_move_only_with_perm(ctx, subject_commit_ids, relative_to, side, dry_run, perm);
+    let result = commit_move_only_inner(ctx, subject_commit_ids, relative_to, side, dry_run, perm);
     if let Some(snapshot) = maybe_oplog_entry
-        && res.is_ok()
+        && result.is_ok()
     {
         snapshot.commit(ctx, perm).ok();
     }
-    res
+    result
+}
+
+fn commit_move_only_inner(
+    ctx: &mut but_ctx::Context,
+    subject_commit_ids: Vec<gix::ObjectId>,
+    relative_to: RelativeTo,
+    side: InsertSide,
+    dry_run: DryRun,
+    perm: &mut RepoExclusive,
+) -> anyhow::Result<CommitMoveResult> {
+    let mut meta = ctx.meta()?;
+    let (repo, mut ws, mut db) = ctx.workspace_mut_and_db_mut_with_perm(perm)?;
+    let editor = but_rebase::graph_rebase::Editor::create(&mut ws, &mut meta, &repo, &mut db)?;
+    let rebase =
+        but_workspace::commit::move_commits(editor, subject_commit_ids, relative_to, side)?;
+    let workspace = WorkspaceState::from_successful_rebase(rebase, &repo, dry_run)?;
+    Ok(CommitMoveResult { workspace })
+}
+
+/// Return the current workspace state when move materialization can safely be skipped.
+fn preflight_with_perm(
+    ctx: &mut but_ctx::Context,
+    subject_commit_ids: &[gix::ObjectId],
+    relative_to: &RelativeTo,
+    side: InsertSide,
+    perm: &mut RepoExclusive,
+) -> anyhow::Result<Option<CommitMoveResult>> {
+    let mut meta = ctx.meta()?;
+    let (repo, mut ws, mut db) = ctx.workspace_mut_and_db_mut_with_perm(perm)?;
+    let effect = but_workspace::commit::move_commit::preflight_move_commits(
+        &mut ws,
+        &mut meta,
+        &repo,
+        &mut db,
+        subject_commit_ids.iter().copied(),
+        relative_to.clone(),
+        side,
+    )?;
+    if effect == MoveMaterialization::Required {
+        return Ok(None);
+    }
+    let workspace =
+        WorkspaceState::from_workspace_with_db(&ws, &mut meta, &repo, Default::default(), &mut db)?;
+    Ok(Some(CommitMoveResult { workspace }))
 }

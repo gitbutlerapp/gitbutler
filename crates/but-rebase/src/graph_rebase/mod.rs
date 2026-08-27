@@ -318,7 +318,101 @@ pub struct SuccessfulRebase<'ws, 'meta, M: RefMetadata> {
     db: &'meta mut but_db::DbHandle,
 }
 
+/// Whether it is safe to skip materializing a completed whole-commit move.
+///
+/// A tree-identical rewrite of the synthetic workspace commit and its matching workspace-ref
+/// update may be skippable.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum MoveMaterialization {
+    /// Materialization cannot be skipped.
+    Required,
+    /// Materialization can be skipped while preserving all user commits, references, and checkout
+    /// state.
+    Skippable,
+}
+
 impl<'ws, 'meta, M: RefMetadata> SuccessfulRebase<'ws, 'meta, M> {
+    /// Determine whether it is safe to skip materializing this completed whole-commit move.
+    pub fn move_materialization(&self) -> Result<MoveMaterialization> {
+        let managed_workspace = self
+            .workspace
+            .graph
+            .managed_entrypoint_commit(&self.repo)?
+            .map(|commit| commit.id);
+
+        let mut workspace_rewrite = None;
+        for (old_id, new_id) in self.history.commit_mappings() {
+            if managed_workspace != Some(old_id) {
+                return Ok(MoveMaterialization::Required);
+            }
+            if self.repo.find_commit(old_id)?.tree_id()?
+                != self.repo.find_commit(new_id)?.tree_id()?
+            {
+                return Ok(MoveMaterialization::Required);
+            }
+            workspace_rewrite = Some((old_id, new_id));
+        }
+        for edit in &self.ref_edits {
+            let is_workspace_rewrite = self
+                .workspace
+                .ref_name()
+                .is_some_and(|name| name == edit.name)
+                && workspace_rewrite.is_some_and(|(old_id, new_id)| {
+                    matches!(
+                        &edit.change,
+                        gix::refs::transaction::Change::Update {
+                            expected: gix::refs::transaction::PreviousValue::MustExistAndMatch(
+                                gix::refs::Target::Object(old)
+                            ),
+                            new: gix::refs::Target::Object(new),
+                            ..
+                        } if *old == old_id && *new == new_id
+                    )
+                });
+            if !is_workspace_rewrite {
+                return Ok(MoveMaterialization::Required);
+            }
+        }
+        let head_name = self.repo.head_name()?;
+        let head_id = self.repo.head_id()?.detach();
+        for checkout in &self.checkouts {
+            match checkout {
+                Checkout::Head {
+                    selector,
+                    merge_base_override,
+                } => {
+                    let Some((target, ref_name)) = self.checkout_target(*selector)? else {
+                        return Ok(MoveMaterialization::Required);
+                    };
+                    if merge_base_override.is_some()
+                        || ref_name.as_ref() != head_name.as_ref()
+                        || (target != head_id && workspace_rewrite != Some((head_id, target)))
+                    {
+                        return Ok(MoveMaterialization::Required);
+                    }
+                }
+                Checkout::Worktree {
+                    selector,
+                    ref_name,
+                    initial_head,
+                    merge_base_override,
+                    ..
+                } => {
+                    let Some((target, target_ref)) = self.checkout_target(*selector)? else {
+                        return Ok(MoveMaterialization::Required);
+                    };
+                    if merge_base_override.is_some()
+                        || target != *initial_head
+                        || target_ref != *ref_name
+                    {
+                        return Ok(MoveMaterialization::Required);
+                    }
+                }
+            }
+        }
+        Ok(MoveMaterialization::Skippable)
+    }
+
     /// Returns the in-memory repository that backs this rebase preview.
     ///
     /// This repository may contain objects that have not been persisted yet,

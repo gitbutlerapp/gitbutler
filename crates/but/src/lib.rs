@@ -1264,7 +1264,7 @@ async fn match_subcommand(
                 command::legacy::r#move::r#move(&mut ctx, IntermediateChannel::new(out), move_args)
                     .emit_metrics(metrics_ctx)?;
             out.print_cli_output(outcome)?;
-            Some(ws)
+            ws
         }
         #[cfg(feature = "legacy")]
         Subcommands::Push(push_args) => {

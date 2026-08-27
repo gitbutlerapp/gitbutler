@@ -362,12 +362,15 @@ impl App {
             }
         };
 
-        let selection_after_reload = move_with(ctx, move_op)?;
+        let outcome = move_with(ctx, move_op)?;
 
-        messages.extend([
-            Message::EnterNormalModeAfterConfirmingOperation,
-            Message::Reload(selection_after_reload, ReloadCause::Mutation),
-        ]);
+        messages.push(Message::EnterNormalModeAfterConfirmingOperation);
+        if !matches!(outcome, MoveOperationOutcome::NoOp) {
+            messages.push(Message::Reload(
+                selection_after_move(outcome),
+                ReloadCause::Mutation,
+            ));
+        }
 
         Ok(())
     }
@@ -402,15 +405,16 @@ fn move_commits_operation(
     ))
 }
 
-fn move_with(
-    ctx: &mut Context,
-    move_op: MoveOperation,
-) -> anyhow::Result<Option<SelectAfterReload>> {
+fn move_with(ctx: &mut Context, move_op: MoveOperation) -> anyhow::Result<MoveOperationOutcome> {
     let mut guard = ctx.exclusive_worktree_access();
     let mut meta = ctx.meta()?;
     let (outcome, _ws) = r#move::run(ctx, &mut meta, guard.write_permission(), move_op)?;
+    Ok(outcome)
+}
 
-    Ok(match outcome {
+pub(crate) fn selection_after_move(outcome: MoveOperationOutcome) -> Option<SelectAfterReload> {
+    match outcome {
+        MoveOperationOutcome::NoOp => None,
         MoveOperationOutcome::Commits { moved_commits, .. } => {
             Some(SelectAfterReload::Commit(moved_commits.head.commit_id))
         }
@@ -421,5 +425,5 @@ fn move_with(
         | MoveOperationOutcome::UnstackBranch { source_branch } => Some(SelectAfterReload::Branch(
             source_branch.shorten().to_string(),
         )),
-    })
+    }
 }

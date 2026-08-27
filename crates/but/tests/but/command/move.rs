@@ -1,3 +1,4 @@
+use gitbutler_oplog::OplogExt as _;
 use snapbox::IntoData as _;
 
 use crate::{
@@ -2652,6 +2653,154 @@ fn move_commit_to_branch_smoke() {
     assert!(
         branch_b_commits_after.contains(&source_cli_id),
         "moved commit should be present on branch B"
+    );
+}
+
+#[test]
+fn repeating_move_commit_to_branch_is_a_no_op() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
+    env.setup_metadata(&["A", "B"]);
+
+    let before = status_json(&env);
+    let source = branch_commit_cli_ids(&before, "A")[0].clone();
+
+    env.but(format!("move {source} --branch B"))
+        .assert()
+        .success();
+    let moved = status_json(&env);
+    let objects_before_repeat = but_testsupport::git(&env.open_repo())
+        .args(["count-objects", "-v"])
+        .output()
+        .expect("count objects after the real move")
+        .stdout;
+
+    env.but(format!("move {source} --branch B"))
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+Nothing to move
+
+"#]]);
+    assert_eq!(
+        status_json(&env),
+        moved,
+        "repeating the move should leave workspace status unchanged"
+    );
+
+    env.but(format!("--json move {source} --branch B"))
+        .allow_json()
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+{
+  "type": "noOp"
+}
+
+"#]]);
+
+    env.but("oplog list")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+Operations History
+──────────────────────────────────────────────────
+[..] 2000-01-02 00:00:00 [MOVE] Moved commit
+
+"#]]);
+    assert_eq!(
+        but_testsupport::git(&env.open_repo())
+            .args(["count-objects", "-v"])
+            .output()
+            .expect("count objects after repeated moves")
+            .stdout,
+        objects_before_repeat,
+        "repeated CLI moves should not write snapshot objects"
+    );
+
+    env.but("undo").assert().success();
+    assert_eq!(
+        status_json(&env),
+        before,
+        "one undo after repeated moves should restore the original refs and status"
+    );
+}
+
+#[test]
+fn repeating_move_in_single_branch_mode_is_a_no_op() {
+    let env = Sandbox::open_with_default_settings("one-fork");
+    env.but("config feature single-branch enable")
+        .assert()
+        .success();
+    env.file("second", "second\n");
+    env.but("commit -m 'add second'").assert().success();
+    let before = status_json(&env);
+    let commits = branch_commit_cli_ids(&before, "main");
+    let source = commits[1].clone();
+    let target = commits[0].clone();
+
+    env.but(format!("move {source} --above {target}"))
+        .assert()
+        .success();
+    let status_before_repeat = status_json(&env);
+    let commits = branch_commit_cli_ids(&status_before_repeat, "main");
+    let moved_source = commits[0].clone();
+    let moved_target = commits[1].clone();
+    let refs_before_repeat = env.invoke_git("show-ref");
+    let ctx = env.context();
+    let oplog_head = ctx.oplog_head().expect("oplog head after the real move");
+    let oplog_file = std::fs::read(ctx.project_data_dir().join("operations-log.toml"))
+        .expect("oplog file after the real move");
+    let objects_before_repeat = but_testsupport::git(&env.open_repo())
+        .args(["count-objects", "-v"])
+        .output()
+        .expect("count objects after the real move")
+        .stdout;
+
+    env.but(format!("move {moved_source} --above {moved_target}"))
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+Nothing to move
+
+"#]]);
+
+    assert_eq!(
+        status_json(&env),
+        status_before_repeat,
+        "a repeated normal-Git move should leave workspace status unchanged"
+    );
+    assert_eq!(
+        env.invoke_git("show-ref"),
+        refs_before_repeat,
+        "a repeated normal-Git move should leave references unchanged"
+    );
+    assert_eq!(
+        ctx.oplog_head()
+            .expect("oplog head after the repeated move"),
+        oplog_head,
+        "a repeated normal-Git move should not create an oplog entry"
+    );
+    assert_eq!(
+        std::fs::read(ctx.project_data_dir().join("operations-log.toml"))
+            .expect("oplog file after the repeated move"),
+        oplog_file,
+        "a repeated normal-Git move should not change oplog state"
+    );
+    assert_eq!(
+        but_testsupport::git(&env.open_repo())
+            .args(["count-objects", "-v"])
+            .output()
+            .expect("count objects after the repeated move")
+            .stdout,
+        objects_before_repeat,
+        "a repeated normal-Git move should not write objects"
+    );
+    assert!(
+        env.open_repo()
+            .try_find_reference(but_core::WORKSPACE_REF_NAME)
+            .expect("workspace ref lookup succeeds")
+            .is_none(),
+        "single-branch mode should remain outside the managed workspace"
     );
 }
 

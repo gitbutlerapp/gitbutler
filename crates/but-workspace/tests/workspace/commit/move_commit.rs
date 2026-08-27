@@ -1,6 +1,7 @@
 use bstr::ByteSlice;
+use but_core::{GitConfigSettings, RepositoryExt as _};
 use but_rebase::graph_rebase::{
-    Editor,
+    Editor, MoveMaterialization,
     mutate::{InsertSide, RelativeTo},
 };
 use but_testsupport::{graph_workspace, visualize_commit_graph_all};
@@ -19,6 +20,52 @@ fn parent_subjects(repo: &gix::Repository, rev: &str) -> anyhow::Result<Vec<Stri
             Ok(parent.message_raw()?.trim_end().to_str_lossy().to_string())
         })
         .collect()
+}
+
+#[test]
+fn move_preflight_does_not_invoke_commit_signing() -> anyhow::Result<()> {
+    let (_tmp, graph, mut repo, mut meta, _description, mut db) =
+        named_writable_scenario_with_description_and_graph(
+            "ws-ref-ws-commit-single-stack-double-stack",
+            |meta| {
+                add_stack_with_segments(meta, 1, "A", StackState::InWorkspace, &[]);
+                add_stack_with_segments(meta, 2, "C", StackState::InWorkspace, &["B"]);
+            },
+        )?;
+    repo.set_git_settings(&GitConfigSettings {
+        gitbutler_sign_commits: Some(true),
+        signing_key: Some("BAD-key".into()),
+        signing_format: Some("ssh".into()),
+        gpg_ssh_program: Some("/definitely/missing/signer".into()),
+        ..Default::default()
+    })?;
+    repo.reload()?;
+    let mut ws = graph.into_workspace()?;
+    let source = repo.rev_parse_single("C")?.detach();
+    let target = repo.rev_parse_single("A")?.detach();
+
+    let effect = but_workspace::commit::move_commit::preflight_move_commits(
+        &mut ws,
+        &mut meta,
+        &repo,
+        &mut db,
+        [source],
+        RelativeTo::Commit(target),
+        InsertSide::Above,
+    )?;
+
+    assert_eq!(
+        effect,
+        MoveMaterialization::Required,
+        "a real move must require materialization"
+    );
+    repo.reload()?;
+    assert_eq!(
+        repo.config_snapshot().boolean("gitbutler.signCommits"),
+        Some(true),
+        "preflight must not change signing fallback state"
+    );
+    Ok(())
 }
 
 #[test]
@@ -62,12 +109,27 @@ fn move_top_commit_to_top_of_another_stack() -> anyhow::Result<()> {
 
 "#]]
     );
-    let editor = Editor::create(&mut ws, &mut meta, &repo, &mut db)?;
     let a_commit = repo.rev_parse_single("A")?.detach();
     let b_commit = repo.rev_parse_single("B")?.detach();
     let c_commit = repo.rev_parse_single("C")?.detach();
 
+    let effect = but_workspace::commit::move_commit::preflight_move_commits(
+        &mut ws,
+        &mut meta,
+        &repo,
+        &mut db,
+        [c_commit],
+        RelativeTo::Commit(a_commit),
+        InsertSide::Above,
+    )?;
+    assert_eq!(
+        effect,
+        MoveMaterialization::Required,
+        "moving the commit between branches cannot skip materialization"
+    );
+
     // Put C commit at the top of A
+    let editor = Editor::create(&mut ws, &mut meta, &repo, &mut db)?;
     let rebase = but_workspace::commit::move_commits(
         editor,
         [c_commit],
@@ -84,6 +146,21 @@ fn move_top_commit_to_top_of_another_stack() -> anyhow::Result<()> {
     let new_c_commit = commit_mapping.get(&c_commit);
     let tip_of_a_branch = repo.rev_parse_single("A")?.detach();
     let tip_of_c_branch = repo.rev_parse_single("C")?.detach();
+
+    let repeated_effect = but_workspace::commit::move_commit::preflight_move_commits(
+        &mut ws,
+        &mut meta,
+        &repo,
+        &mut db,
+        [tip_of_a_branch],
+        RelativeTo::Commit(a_commit),
+        InsertSide::Above,
+    )?;
+    assert_eq!(
+        repeated_effect,
+        MoveMaterialization::Skippable,
+        "the repeated move is safe to skip materializing"
+    );
 
     assert_eq!(
         Some(&tip_of_a_branch),

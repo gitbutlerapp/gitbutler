@@ -26,3 +26,13 @@ fn undo_move_commit_to_branch() {
             .success();
     });
 }
+
+#[test]
+fn undo_move_commit_to_new_branch() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack-two-commits");
+    env.setup_metadata(&["A"]);
+
+    run_mutate_undo_roundtrip_test(&env, |env| {
+        env.but("move ywx --branch new-branch").assert().success();
+    });
+}

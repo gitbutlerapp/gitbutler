@@ -2,7 +2,7 @@
 
 use anyhow::Result;
 use but_graph::Graph;
-use but_rebase::graph_rebase::{Editor, LookupStep, Pick, Step};
+use but_rebase::graph_rebase::{Editor, LookupStep, MoveMaterialization, Pick, Step};
 use but_testsupport::{cat_commit, graph_tree, visualize_commit_graph_all};
 use snapbox::prelude::*;
 
@@ -51,6 +51,11 @@ fn workspace_remains_unchanged_with_no_operations() -> Result<()> {
     );
 
     let outcome = editor.rebase()?;
+    assert_eq!(
+        outcome.move_materialization()?,
+        MoveMaterialization::Skippable,
+        "an untouched managed workspace is safe to skip materializing"
+    );
     let overlayed = graph_tree(&outcome.overlayed_graph()?).to_string();
     snapbox::assert_data_eq!(
         &overlayed,
@@ -243,6 +248,11 @@ fn ad_hoc_workspace_keeps_regular_defaults() -> Result<()> {
     );
 
     let outcome = editor.rebase()?;
+    assert_eq!(
+        outcome.move_materialization()?,
+        MoveMaterialization::Skippable,
+        "an untouched ad-hoc workspace is safe to skip materializing"
+    );
     let overlayed = graph_tree(&outcome.overlayed_graph()?).to_string();
     snapbox::assert_data_eq!(
         &overlayed,

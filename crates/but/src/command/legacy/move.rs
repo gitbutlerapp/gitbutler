@@ -7,8 +7,8 @@ use but_api::{
 };
 use but_core::{DiffSpec, DryRun, RefMetadata, ref_metadata::StackId, sync::RepoExclusive};
 use but_ctx::Context;
-use but_rebase::graph_rebase::mutate::RelativeTo;
-use but_transaction::Transaction;
+use but_rebase::graph_rebase::{MoveMaterialization, mutate::RelativeTo};
+use but_transaction::{Commit, Transaction};
 use but_workspace::branch::create_reference::Anchor;
 use gitbutler_oplog::entry::{OperationKind, SnapshotDetails};
 use gix::refs::FullName;
@@ -35,6 +35,7 @@ use crate::{
 };
 
 pub enum MoveOutcome {
+    NoOp,
     Commits {
         sources: NonEmpty<CommitId>,
         moved_commits: NonEmpty<CommitId>,
@@ -65,6 +66,7 @@ impl CliOutputHuman for MoveOutcome {
         _theme: &Theme,
     ) -> anyhow::Result<()> {
         match self {
+            Self::NoOp => write!(out, "Nothing to move")?,
             Self::Commits {
                 sources,
                 moved_commits: _,
@@ -151,6 +153,7 @@ impl CliOutput for MoveOutcome {
             rename_all_fields = "camelCase"
         )]
         enum Output {
+            NoOp,
             Commits {
                 commits: Vec<MovedCommit>,
                 #[serde(skip_serializing_if = "Option::is_none")]
@@ -177,6 +180,7 @@ impl CliOutput for MoveOutcome {
         }
 
         match self {
+            Self::NoOp => Output::NoOp,
             Self::Commits {
                 sources,
                 moved_commits,
@@ -227,7 +231,7 @@ pub fn r#move(
     ctx: &mut Context,
     _out: IntermediateChannel<'_>,
     args: Platform,
-) -> CliResult<(MoveOutcome, WorkspaceState)> {
+) -> CliResult<(MoveOutcome, Option<WorkspaceState>)> {
     let mut guard = ctx.exclusive_worktree_access();
     let mut meta = ctx.meta()?;
     let id_map = IdMap::new_from_context(ctx, guard.read_permission())?;
@@ -300,6 +304,33 @@ pub struct MoveCommitsRelativeToOperation {
 }
 
 impl MoveCommitsRelativeToOperation {
+    fn preflight_is_no_op(
+        &self,
+        ctx: &mut Context,
+        meta: &mut impl RefMetadata,
+        perm: &mut RepoExclusive,
+    ) -> anyhow::Result<bool> {
+        let (relative_to, side) = match &self.target {
+            MoveTarget::Commit { commit, side } => {
+                (RelativeTo::Commit(commit.commit_id), (*side).into())
+            }
+            MoveTarget::BranchTip { name } => {
+                (RelativeTo::Reference(name.clone()), Side::Below.into())
+            }
+            MoveTarget::BranchBucket { .. } => return Ok(false),
+        };
+        let (repo, mut ws, mut db) = ctx.workspace_mut_and_db_mut_with_perm(perm)?;
+        Ok(but_workspace::commit::move_commit::preflight_move_commits(
+            &mut ws,
+            meta,
+            &repo,
+            &mut db,
+            self.sources.iter().map(|source| source.commit_id),
+            relative_to,
+            side,
+        )? == MoveMaterialization::Skippable)
+    }
+
     fn execute(
         self,
         tx: &mut Transaction<'_, '_, impl RefMetadata>,
@@ -329,7 +360,6 @@ impl MoveCommitsRelativeToOperation {
         };
 
         tx.move_commits(self.sources.iter().map(|c| c.commit_id), relative_to, side)?;
-
         Ok(new_branch_name)
     }
 }
@@ -923,7 +953,12 @@ pub fn run(
     meta: &mut impl RefMetadata,
     perm: &mut RepoExclusive,
     move_op: MoveOperation,
-) -> anyhow::Result<(MoveOutcome, WorkspaceState)> {
+) -> anyhow::Result<(MoveOutcome, Option<WorkspaceState>)> {
+    if let MoveOperation::CommitsRelativeTo(op) = &move_op
+        && op.preflight_is_no_op(ctx, meta, perm)?
+    {
+        return Ok((MoveOutcome::NoOp, None));
+    }
     let snapshot_details = match &move_op {
         MoveOperation::CommitsRelativeTo(_) | MoveOperation::CommitsToNewBranch(_) => {
             SnapshotDetails::new(OperationKind::MoveCommit)
@@ -934,14 +969,14 @@ pub fn run(
         MoveOperation::StackBranch(_) => SnapshotDetails::new(OperationKind::MoveBranch),
         MoveOperation::UnstackBranch(_) => SnapshotDetails::new(OperationKind::TearOffBranch),
     };
-    let (outcome, ws) = but_transaction::with_transaction_with_perm(
+    let (outcome, workspace) = but_transaction::with_transaction_with_perm(
         ctx,
         meta,
         perm,
         snapshot_details,
         DryRun::No,
         |mut tx| {
-            let outcome = match move_op {
+            Ok(Commit(match move_op {
                 MoveOperation::CommitsRelativeTo(op) => {
                     let sources = op.sources.clone();
                     let target = op.target.clone();
@@ -1014,11 +1049,9 @@ pub fn run(
                     op.execute(&mut tx)?;
                     MoveOutcome::UnstackBranch { source_branch }
                 }
-            };
-
-            Ok(but_transaction::Commit(outcome))
+            }))
         },
     )?;
 
-    Ok((outcome, ws))
+    Ok((outcome, Some(workspace)))
 }

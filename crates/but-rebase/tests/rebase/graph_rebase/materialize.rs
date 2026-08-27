@@ -1,7 +1,7 @@
 //! Tests for `materialize` vs `materialize_without_checkout` behavior differences
 use anyhow::{Context, Result};
 use but_graph::Graph;
-use but_rebase::graph_rebase::{Editor, Step};
+use but_rebase::graph_rebase::{Editor, MoveMaterialization, Step};
 use but_testsupport::{
     StackState, git_status, graph_tree, visualize_commit_graph_all,
     visualize_disk_tree_skip_dot_git,
@@ -335,6 +335,11 @@ fn materialize_repoints_head_when_checkout_reference_is_replaced() -> Result<()>
     editor.replace(main_selector, Step::new_reference(replacement_ref.clone()))?;
 
     let outcome = editor.rebase()?;
+    assert_eq!(
+        outcome.move_materialization()?,
+        MoveMaterialization::Required,
+        "a reference-only edit is not safe to skip materializing"
+    );
     let overlayed = graph_tree(&outcome.overlayed_graph()?).to_string();
     snapbox::assert_data_eq!(
         &overlayed,

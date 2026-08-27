@@ -1,9 +1,9 @@
 //! Move a commit within or across branches and stacks.
 
 use anyhow::bail;
-use but_core::RefMetadata;
+use but_core::{RefMetadata, commit::SignCommit};
 use but_rebase::graph_rebase::{
-    Editor, Step, SuccessfulRebase,
+    Editor, GraphEditorOptions, MoveMaterialization, Step, SuccessfulRebase,
     mutate::{InsertSide, RelativeTo},
 };
 
@@ -57,4 +57,23 @@ pub fn move_commits<'ws, 'meta, M: RefMetadata>(
     }
 
     editor.rebase()
+}
+
+/// Determine whether it is safe to skip materializing a whole-commit move.
+/// Signing is disabled so classification cannot invoke a signer or alter signing fallback state.
+pub fn preflight_move_commits<'meta, M: RefMetadata>(
+    workspace: &mut but_graph::Workspace,
+    meta: &'meta mut M,
+    repo: &gix::Repository,
+    db: &'meta mut but_db::DbHandle,
+    subject_commit_ids: impl IntoIterator<Item = gix::ObjectId>,
+    relative_to: RelativeTo,
+    side: InsertSide,
+) -> anyhow::Result<MoveMaterialization> {
+    let options = GraphEditorOptions {
+        default_sign_commit: SignCommit::No,
+        extra_mutable_refs: Vec::new(),
+    };
+    let editor = Editor::create_with_opts(workspace, meta, repo, db, &options)?;
+    move_commits(editor, subject_commit_ids, relative_to, side)?.move_materialization()
 }

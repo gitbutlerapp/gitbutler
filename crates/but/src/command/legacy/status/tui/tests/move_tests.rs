@@ -7,6 +7,38 @@ use crate::command::legacy::status::tui::tests::utils::{
 };
 
 #[test]
+fn no_op_move_preserves_open_details_state() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["A"]);
+
+    let mut tui = test_status_tui(env);
+
+    tui.input([KeyCode::Down, KeyCode::Down]);
+    tui.input('d');
+    tui.render_with_messages(None, Vec::new());
+    tui.input('m');
+    let details_selection = tui
+        .input(KeyCode::Up)
+        .app()
+        .details
+        .selection()
+        .cloned()
+        .expect("the open details view should describe the move target");
+
+    let result = tui.input(KeyCode::Enter);
+
+    assert!(
+        result.app().is_details_visible,
+        "a no-op move should leave the details view open"
+    );
+    assert_eq!(
+        result.app().details.selection(),
+        Some(&details_selection),
+        "a no-op move should not reload and clear the open details state"
+    );
+}
+
+#[test]
 fn esc_leaves_move_mode() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
     env.setup_metadata(&["A"]);
