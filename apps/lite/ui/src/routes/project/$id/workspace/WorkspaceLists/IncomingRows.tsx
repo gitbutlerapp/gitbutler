@@ -1,0 +1,52 @@
+import rowStyles from "../Row.module.css";
+import { decodeBytes } from "#ui/api/bytes.ts";
+import { branchAddress, addressIdentityKey } from "#ui/addresses.ts";
+import { authorTooltip, commitTitle } from "#ui/commit.ts";
+import { GraphSegment } from "#ui/components/GraphSegment.tsx";
+import { projectSlice } from "#ui/projects/state.ts";
+import { useAppSelector } from "#ui/store.ts";
+import { addressSpaceIncludes } from "#ui/workspace/address-space.ts";
+import type { BranchReference, Segment } from "@gitbutler/but-sdk";
+import type { FC } from "react";
+import { Row, RowLabel, RowLabelContainer } from "../Row.tsx";
+import { useAddressSpace } from "./context.tsx";
+
+/**
+ * The remote's commits the branch lacks, opened from the branch row's chip:
+ * ghosted rows on the branch's own rail. Not in the address space, so they
+ * dim with the branch like its other addressless rows.
+ */
+export const IncomingRows: FC<{
+	projectId: string;
+	segment: Segment;
+	refName: BranchReference;
+}> = ({ projectId, segment, refName }) => {
+	const addressSpace = useAddressSpace();
+	const branchRef = decodeBytes(refName.fullNameBytes);
+	const expanded = useAppSelector((state) =>
+		projectSlice.selectors.selectIncomingExpanded(state, projectId, branchRef),
+	);
+	if (!expanded) return null;
+
+	const inert = !addressSpaceIncludes(
+		addressSpace,
+		branchAddress({ branchRef: refName.fullNameBytes }),
+		addressIdentityKey,
+	);
+
+	return segment.commitsOnRemote.map((commit) => (
+		<Row
+			key={commit.id}
+			interactive={false}
+			inert={inert}
+			title={authorTooltip(commit.author, commit.committedAt)}
+		>
+			<GraphSegment glyph="commit" status="Upstream" />
+			<RowLabelContainer>
+				<RowLabel singleLine className={rowStyles.fadedText}>
+					{commitTitle(commit.message) ?? "(no message)"}
+				</RowLabel>
+			</RowLabelContainer>
+		</Row>
+	));
+};

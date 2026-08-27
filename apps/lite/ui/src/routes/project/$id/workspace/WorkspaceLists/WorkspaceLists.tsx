@@ -91,6 +91,7 @@ import { useNow } from "#ui/components/useNow.ts";
 import { segmentBottomRelativeTo } from "#ui/api/stack.ts";
 import { assert } from "#ui/assert.ts";
 import { CommitRow } from "./CommitRow.tsx";
+import { IncomingRows } from "./IncomingRows.tsx";
 import { BranchRow, type PushActivity } from "./BranchRow.tsx";
 import { useActiveListsHotkeys } from "./hotkeys.ts";
 import { UncommittedChangesRow } from "./UncommittedChangesRow.tsx";
@@ -104,6 +105,7 @@ import { useListFilter } from "../useListFilter.ts";
 import { buildUncommittedFileRows } from "../file-row.ts";
 import { useFileDisplayMode } from "../useFileDisplayMode.ts";
 import {
+	canIntegrateUpstream,
 	canRemoveBranchReference,
 	downstackPushStatusesFromSegments,
 	type DownstackPushStatus,
@@ -540,6 +542,9 @@ const BranchSegment: FC<{
 				downstackPushStatus={downstackPushStatus}
 				pushActivity={pushActivity}
 				pushStatus={segment.pushStatus}
+				canUpdateFromRemote={canIntegrateUpstream(segment)}
+				remote={segment.remoteTrackingRefName}
+				incoming={segment.commitsOnRemote.length}
 				recordedPullRequest={recordedPullRequest(segment)}
 				graphStatus={segmentPushStatusToGraphSegmentStatus(segment.pushStatus)}
 				bottomRelativeTo={segmentBottomRelativeTo(segment)}
@@ -551,6 +556,10 @@ const BranchSegment: FC<{
 
 			{/* oxlint-disable-next-line jsx-a11y/prefer-tag-over-role -- Tree items need ARIA group semantics. */}
 			<div role="group">
+				{/* Gated here so the common case pays no mount; folding hides them with the commits. */}
+				{!isFolded && segment.commitsOnRemote.length > 0 && (
+					<IncomingRows projectId={projectId} segment={segment} refName={refName} />
+				)}
 				<SegmentContent
 					ariaLevel={2}
 					isFolded={isFolded}

@@ -12,6 +12,14 @@ export const canRemoveBranchReference = (stack: Stack, segmentIndex: number): bo
 	return segmentIndex !== topBranchIndex;
 };
 
+/**
+ * Whether the update-from-remote flow has anything to do: an upstream with
+ * commits the branch lacks, or rewritten history it still holds.
+ */
+export const canIntegrateUpstream = (segment: Segment): boolean =>
+	segment.remoteTrackingRefName !== null &&
+	(segment.commitsOnRemote.length > 0 || segment.pushStatus === "unpushedCommitsRequiringForce");
+
 export type DownstackPushStatus = {
 	anyRequiresPush: boolean;
 	anyPushRequiresForce: boolean;
