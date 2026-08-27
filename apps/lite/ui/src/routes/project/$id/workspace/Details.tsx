@@ -382,6 +382,7 @@ const DadJokeFooter: FC = () => {
 
 const DiffContents: FC<{
 	activeFileItemId: string | null;
+	diffContextKey: string;
 	focusScopeRef: RefObject<HTMLDivElement | null>;
 	onViewerFileSelection: (path: string) => void;
 	fileParent: FileParent;
@@ -391,6 +392,7 @@ const DiffContents: FC<{
 	diffBackgrounds?: GUISettings["diffBackground"];
 	diffOverflow?: GUISettings["diffOverflow"];
 	diffStyle?: GUISettings["diffStyle"];
+	commentAnnotations: boolean;
 	reviewedFiles: ReviewedFileVersions;
 	manualCollapseByItem: Map<string, boolean>;
 	setManualCollapse: (itemId: string, collapsed: boolean | undefined) => void;
@@ -402,6 +404,7 @@ const DiffContents: FC<{
 	uncommit: (change: TreeChange, extendToCheckedFiles: boolean) => void;
 }> = ({
 	activeFileItemId,
+	diffContextKey,
 	focusScopeRef,
 	onViewerFileSelection,
 	fileParent,
@@ -411,6 +414,7 @@ const DiffContents: FC<{
 	diffBackgrounds,
 	diffOverflow,
 	diffStyle,
+	commentAnnotations,
 	reviewedFiles,
 	manualCollapseByItem,
 	setManualCollapse,
@@ -1306,13 +1310,14 @@ const DiffContents: FC<{
 			projectId,
 			checkLine,
 			checkHunkLines,
-			fileParent._tag === "Branch" ? undefined : handleCreateComment,
+			commentAnnotations && fileParent._tag !== "Branch" ? handleCreateComment : undefined,
 		);
 	const {
 		onPostRender: handleMarkedDiffPostRender,
 		setSearchMatches,
+		getSearchSource,
 		searchMarks,
-	} = useDiffSearchMarks(handleDiffPostRender);
+	} = useDiffSearchMarks(handleDiffPostRender, items);
 
 	const handOffCollapsedSelection = (itemId: string): void => {
 		// Folding hides the selected hunk's lines; hand the selection to the
@@ -1455,7 +1460,7 @@ const DiffContents: FC<{
 		<>
 			<CodeView
 				ref={viewerRef}
-				renderCodeViewFooter={() => <DadJokeFooter />}
+				renderCodeViewFooter={() => <DadJokeFooter key={diffContextKey} />}
 				renderCustomHeader={(item) => {
 					const file = fileByItemId.get(item.id);
 					// CodeView may briefly hold onto stale snapshots of our data.
@@ -1620,6 +1625,7 @@ const DiffContents: FC<{
 
 			<DiffSearchBar
 				items={items}
+				getSearchSource={getSearchSource}
 				focusScopeRef={focusScopeRef}
 				onNavigate={navigateToSearchMatch}
 				onMatchesChange={setSearchMatches}
@@ -1975,23 +1981,23 @@ const Diff: FC<{
 		[unsortedChanges],
 	);
 
-	const { data: allInOneDiff } = useSuspenseQuery({
+	const {
+		data: { unidiff: renderAllFiles, commentAnnotations },
+	} = useSuspenseQuery({
 		...guiSettingsQueryOptions,
-		select: (cfg) => cfg.unidiff ?? defaultSettings.unidiff,
+		select: (cfg) => ({
+			commentAnnotations: cfg.commentAnnotations ?? defaultSettings.commentAnnotations,
+			unidiff: cfg.unidiff ?? defaultSettings.unidiff,
+		}),
 	});
 
 	const canShowFiles = useCanShowFiles();
 	const detailsFullWindow = useAppSelector(interfaceSlice.selectors.selectDetailsFullWindow);
 
-	// The file list lives in the files panel, or — in the uncommitted scope, which has no
-	// files panel — in the sidebar's "Uncommitted" rows, hidden only by full-window mode.
-	const fileListVisible = canShowFiles ? filesVisible : !detailsFullWindow;
-	// Change stats live alongside that list; surface them in the toolbar below whenever
-	// it is hidden, so they never disappear entirely.
-	const statsShownElsewhere = fileListVisible;
-	// Selected-file-only diffing leans on the file list to say which file the pane is
-	// showing, so without the list every file renders regardless of the setting.
-	const renderAllFiles = allInOneDiff || !fileListVisible;
+	// Change stats live in the files panel, or — in the uncommitted scope, which has no files
+	// panel — in the sidebar's "Uncommitted" row. Surface them in the toolbar below whenever
+	// whichever of those owns them is hidden, so they never disappear entirely.
+	const statsShownElsewhere = canShowFiles ? filesVisible : !detailsFullWindow;
 
 	const filesFilter = useAppSelector((state) =>
 		projectSlice.selectors.selectFilesFilter(state, projectId),
@@ -2080,10 +2086,15 @@ const Diff: FC<{
 		},
 	});
 
-	const { data: annotationsByPath = EMPTY_ANNOTATIONS_BY_PATH } = useQuery({
+	const { data: loadedAnnotationsByPath = EMPTY_ANNOTATIONS_BY_PATH } = useQuery({
 		...commentsQueryOptions(projectId),
+		enabled: commentAnnotations,
 		select: (comments) => annotationsByPathForScope(comments, fileParent),
 	});
+	// The query fallback covers loading; this also hides cached data after opting out.
+	const annotationsByPath = commentAnnotations
+		? loadedAnnotationsByPath
+		: EMPTY_ANNOTATIONS_BY_PATH;
 
 	// A directory row stands for the first file below it, so the diff has
 	// something to show while the cursor rests on a folder.
@@ -2116,6 +2127,8 @@ const Diff: FC<{
 		activeFilePath === null
 			? null
 			: (diffViewSansAnno.fileByPath.get(activeFilePath)?.item.id ?? null);
+	const diffContextKey =
+		shownFileIndex === null ? reviewedFilesContextId : (activeFileItemId ?? reviewedFilesContextId);
 
 	const allFilesReviewed =
 		preparedDiffFiles.length > 0 &&
@@ -2416,6 +2429,7 @@ const Diff: FC<{
 						>
 							<DiffContents
 								activeFileItemId={activeFileItemId}
+								diffContextKey={diffContextKey}
 								onViewerFileSelection={onPassiveFileSelection}
 								fileParent={fileParent}
 								projectId={projectId}
@@ -2424,6 +2438,7 @@ const Diff: FC<{
 								diffBackgrounds={diffSettings?.diffBackground}
 								diffOverflow={diffSettings?.diffOverflow}
 								diffStyle={diffStyle}
+								commentAnnotations={commentAnnotations}
 								reviewedFiles={reviewedFiles}
 								manualCollapseByItem={manualCollapseByItem}
 								setManualCollapse={setManualCollapse}

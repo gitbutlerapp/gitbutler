@@ -132,15 +132,11 @@ export const EditModePage: FC<{ projectId: string; metadata: EditModeMetadata }>
 
 	const markResolved = (path: string) => setManuallyResolved((paths) => new Set(paths).add(path));
 
-	// A button cannot offer a choice the way the file menu does, so with no
-	// preferred editor set it falls back to the first one rather than leaving
-	// the conflicts with no way to open them at all.
-	const openAllEditor = preferredEditor ?? editors?.[0];
-
 	const openConflictedFiles = () => {
-		if (!openAllEditor) return;
+		if (!preferredEditor) return;
+
 		for (const [change] of conflicted)
-			openInProgram({ projectId, programId: openAllEditor.id, path: change.path, lineNr: null });
+			openInProgram({ projectId, programId: preferredEditor.id, path: change.path, lineNr: null });
 	};
 
 	/**
@@ -251,15 +247,15 @@ export const EditModePage: FC<{ projectId: string; metadata: EditModeMetadata }>
 				</div>
 
 				<div className={styles.buttons}>
-					{conflicted.length > 0 && openAllEditor && (
+					{conflicted.length > 0 && preferredEditor && (
 						<button
 							type="button"
 							className={classes(getButtonClassName({ variant: "outline" }), styles.openAll)}
 							onClick={openConflictedFiles}
 						>
 							{conflicted.length === 1
-								? `Open conflicted file in ${openAllEditor.name}`
-								: `Open ${conflicted.length} conflicted files in ${openAllEditor.name}`}
+								? `Open conflicted file in ${preferredEditor.name}`
+								: `Open ${conflicted.length} conflicted files in ${preferredEditor.name}`}
 						</button>
 					)}
 					<button

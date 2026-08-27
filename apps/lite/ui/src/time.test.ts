@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
 	ageBadgeOpacity,
-	formatAgeBadge,
+	formatAgeBadgeWith,
 	formatCompactDurationWith,
 	formatRelativeTimeWith,
 } from "./time.ts";
@@ -74,6 +74,8 @@ describe("formatCompactDuration", () => {
 });
 
 describe("formatAgeBadge", () => {
+	const formatAgeBadge = formatAgeBadgeWith(new Intl.DurationFormat("en", { style: "narrow" }));
+
 	it("calls anything under a minute now", () => {
 		expect(formatAgeBadge(0)).toBe("now");
 		expect(formatAgeBadge(59_000)).toBe("now");

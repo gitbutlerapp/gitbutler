@@ -6,7 +6,7 @@ import { Icon } from "#ui/components/Icon.tsx";
 import { focusScope } from "#ui/focus-scopes.ts";
 import { diffHotkeys } from "#ui/hotkeys.ts";
 import { Field } from "@base-ui/react";
-import type { CodeViewItem } from "@pierre/diffs";
+import type { CodeViewDiffItem, CodeViewItem } from "@pierre/diffs";
 import { useHotkey } from "@tanstack/react-hotkeys";
 import {
 	type FC,
@@ -17,7 +17,7 @@ import {
 	useRef,
 	useState,
 } from "react";
-import { diffSearchMatches, type DiffSearchMatch } from "./diff-search.ts";
+import { diffSearchMatches, type DiffSearchMatch, type DiffSearchSource } from "./diff-search.ts";
 import styles from "./DiffSearchBar.module.css";
 
 type Props = {
@@ -27,6 +27,7 @@ type Props = {
 	onNavigate: (match: DiffSearchMatch) => void;
 	/** Keeps the viewer's match marks in step with what this bar found. */
 	onMatchesChange: (matches: Array<DiffSearchMatch>, current: DiffSearchMatch | null) => void;
+	getSearchSource: (item: CodeViewDiffItem<unknown>) => DiffSearchSource | undefined;
 };
 
 /**
@@ -35,15 +36,21 @@ type Props = {
  * model instead and navigates by scrolling the viewer, marking each match
  * with the diff's line selection.
  */
-export const DiffSearchBar: FC<Props> = ({ items, focusScopeRef, onNavigate, onMatchesChange }) => {
+export const DiffSearchBar: FC<Props> = ({
+	items,
+	focusScopeRef,
+	onNavigate,
+	onMatchesChange,
+	getSearchSource,
+}) => {
 	/** The query, or `null` while the search is closed. */
 	const [query, setQuery] = useState<string | null>(null);
 	const [index, setIndex] = useState(0);
 	const inputRef = useRef<HTMLInputElement>(null);
 
 	const matches = useMemo(
-		() => (query === null ? [] : diffSearchMatches(items, query)),
-		[items, query],
+		() => (query === null ? [] : diffSearchMatches(items, query, getSearchSource)),
+		[items, query, getSearchSource],
 	);
 	// Clamped rather than stored: the diff can refresh under a held index.
 	const current = matches.length === 0 ? null : Math.min(index, matches.length - 1);

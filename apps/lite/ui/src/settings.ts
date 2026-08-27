@@ -5,6 +5,7 @@ import type { GUISettings } from "#electron/settings.ts";
 export const defaultSettings = {
 	autoFetchFrequency: "15 min",
 	autoUpdate: true,
+	commentAnnotations: false,
 	diffBackground: true,
 	diffFontFamily: "Geist Mono, Menlo, monospace",
 	diffFontSize: 12,
@@ -32,7 +33,7 @@ export const defaultSettings = {
 		dark: "github-dark-default" satisfies BundledTheme,
 	},
 	theme: "system",
-	unidiff: false,
+	unidiff: true,
 } satisfies Partial<GUISettings>;
 
 export const clampAutoFetch = (ms: number): number =>

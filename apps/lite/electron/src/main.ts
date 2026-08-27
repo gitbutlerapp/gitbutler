@@ -291,9 +291,7 @@ const newUrlOrNull = (url: string): URL | null => {
  */
 const electronHandlerOverrides = {
 	askpassSubmitPromptResponse: ({ id, response }) => askpassSubmitPromptResponse(id, response),
-	clipboardWriteText: (text) => {
-		clipboard.writeText(text, "clipboard");
-	},
+	clipboardWriteText: (text) => clipboard.writeText(text),
 	getVersion: () => app.getVersion(),
 	openInWebBrowser: (url) => {
 		// shell.openExternal() is powerful and dangerous. For example, on macOS you can launch a
@@ -508,6 +506,8 @@ const deepLinkFromArgv = (argv: Array<string>): string | undefined =>
 const createMainWindow = async (initialUrl?: string): Promise<void> => {
 	const icon = getWindowIcon();
 	const mainWindow = new BrowserWindow({
+		name: "main",
+		windowStatePersistence: true,
 		width: 1024,
 		height: 768,
 		show: !isHeadless,

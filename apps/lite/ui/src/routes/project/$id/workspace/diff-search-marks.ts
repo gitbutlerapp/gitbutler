@@ -1,7 +1,7 @@
-import type { CodeViewOptions, SelectionSide } from "@pierre/diffs";
+import type { CodeViewDiffItem, CodeViewOptions, FileDiff, SelectionSide } from "@pierre/diffs";
 import { useLayoutEffect, useRef } from "react";
 import { diffLineTargetFromElement } from "./diff-line-target.ts";
-import type { DiffSearchMatch } from "./diff-search.ts";
+import type { DiffSearchMatch, DiffSearchSource } from "./diff-search.ts";
 
 type OnPostRender<T> = NonNullable<CodeViewOptions<T>["onPostRender"]>;
 
@@ -49,10 +49,12 @@ const NO_MARKS: SearchMarks = { matches: [], current: null };
 
 type SearchMarkStore<T> = {
 	onPostRender: OnPostRender<T>;
+	setCurrentItems: (items: ReadonlyArray<{ id: string }>) => void;
 	setMatches: (matches: Array<DiffSearchMatch>, current: DiffSearchMatch | null) => void;
 	/** For React consumers painting their own view of the matches — the minimap. */
 	subscribe: (listener: () => void) => () => void;
 	getSnapshot: () => SearchMarks;
+	getSearchSource: (item: CodeViewDiffItem<unknown>) => DiffSearchSource | undefined;
 	cleanUp: () => void;
 };
 
@@ -65,6 +67,10 @@ type SearchMarkStore<T> = {
  */
 const createSearchMarkStore = <T>(getOnPostRender: () => OnPostRender<T>): SearchMarkStore<T> => {
 	const itemIdsByHost = new Map<HTMLElement, string>();
+	const instancesByItemId = new Map<
+		string,
+		{ version: CodeViewDiffItem<unknown>["version"]; instance: FileDiff<T> }
+	>();
 	const listeners = new Set<() => void>();
 	let keys: ReadonlySet<string> = new Set();
 	let currentKeys: ReadonlySet<string> = new Set();
@@ -88,6 +94,12 @@ const createSearchMarkStore = <T>(getOnPostRender: () => OnPostRender<T>): Searc
 
 	return {
 		onPostRender: (host, instance, phase, context) => {
+			if (context.type === "diff") {
+				instancesByItemId.set(context.item.id, {
+					version: context.item.version,
+					instance: instance as FileDiff<T>,
+				});
+			}
 			if (phase === "unmount" || context.type !== "diff") {
 				itemIdsByHost.delete(host);
 			} else {
@@ -96,6 +108,11 @@ const createSearchMarkStore = <T>(getOnPostRender: () => OnPostRender<T>): Searc
 			}
 			// CodeView exposes this callback as file/diff overloads; forward the exact invocation.
 			Reflect.apply(getOnPostRender(), undefined, [host, instance, phase, context]);
+		},
+		setCurrentItems: (items) => {
+			const currentItemIds = new Set(items.map((item) => item.id));
+			for (const itemId of instancesByItemId.keys())
+				if (!currentItemIds.has(itemId)) instancesByItemId.delete(itemId);
 		},
 		setMatches: (matches, current) => {
 			keys = new Set(matches.flatMap(keysOf));
@@ -112,11 +129,22 @@ const createSearchMarkStore = <T>(getOnPostRender: () => OnPostRender<T>): Searc
 			return () => listeners.delete(listener);
 		},
 		getSnapshot: () => snapshot,
+		getSearchSource: (item) => {
+			const registered = instancesByItemId.get(item.id);
+			if (!registered || registered.version !== item.version) return;
+			const fileDiff = registered.instance.fileDiff;
+			if (!fileDiff || fileDiff.isPartial) return;
+			return {
+				fileDiff,
+				isLineRenderable: (lineNumber) => registered.instance.isLineRenderable(lineNumber),
+			};
+		},
 		cleanUp: () => {
 			keys = new Set();
 			currentKeys = new Set();
 			for (const [host, itemId] of itemIdsByHost) markHost(host, itemId);
 			itemIdsByHost.clear();
+			instancesByItemId.clear();
 			snapshot = NO_MARKS;
 			listeners.clear();
 		},
@@ -125,9 +153,11 @@ const createSearchMarkStore = <T>(getOnPostRender: () => OnPostRender<T>): Searc
 
 export const useDiffSearchMarks = <T>(
 	onPostRender: OnPostRender<T>,
+	items: ReadonlyArray<{ id: string }>,
 ): {
 	onPostRender: OnPostRender<T>;
 	setSearchMatches: SearchMarkStore<T>["setMatches"];
+	getSearchSource: SearchMarkStore<T>["getSearchSource"];
 	/** Hand to the minimap, which draws the same matches at its own scale. */
 	searchMarks: Pick<SearchMarkStore<T>, "subscribe" | "getSnapshot">;
 } => {
@@ -138,11 +168,13 @@ export const useDiffSearchMarks = <T>(
 	storeRef.current ??= createSearchMarkStore(() => onPostRenderRef.current);
 	const store = storeRef.current;
 
+	useLayoutEffect(() => store.setCurrentItems(items), [store, items]);
 	useLayoutEffect(() => () => store.cleanUp(), [store]);
 
 	return {
 		onPostRender: store.onPostRender,
 		setSearchMatches: store.setMatches,
+		getSearchSource: store.getSearchSource,
 		searchMarks: store,
 	};
 };

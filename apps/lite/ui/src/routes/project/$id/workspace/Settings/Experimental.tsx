@@ -13,6 +13,18 @@ export const Experimental: FC = () => {
 	return (
 		<Section>
 			<Row
+				label="Comment annotations"
+				labelId="comment-annotations"
+				hint="Add comments to diff lines and copy them as feedback for an agent."
+			>
+				<Switch
+					aria-labelledby="comment-annotations"
+					checked={settings.commentAnnotations ?? defaultSettings.commentAnnotations}
+					onCheckedChange={(commentAnnotations) => saveGUISettings({ commentAnnotations })}
+				/>
+			</Row>
+
+			<Row
 				label="Preview operations while dragging"
 				labelId="dry-run-operations"
 				hint="Dry-runs a drag-and-drop before it lands to show the outcome, such as conflicts. Slows dragging down."

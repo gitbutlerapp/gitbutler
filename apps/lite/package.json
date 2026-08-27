@@ -182,7 +182,7 @@
 		"babel-plugin-react-compiler": "^1.0.0",
 		"concurrently": "^9.2.1",
 		"cross-env": "^10.1.0",
-		"electron": "^43.3.0",
+		"electron": "^44.0.0",
 		"electron-builder": "^26.9.0",
 		"eslint-plugin-react-you-might-not-need-an-effect": "^1.0.0",
 		"fast-check": "^4.9.0",
