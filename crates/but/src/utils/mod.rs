@@ -19,7 +19,7 @@ mod debug_as_type;
 pub(crate) use debug_as_type::DebugAsType;
 
 pub mod metrics;
-pub use metrics::types::OneshotMetricsContext;
+pub use metrics::OneshotMetricsContext;
 
 use crate::id::CommitId;
 
