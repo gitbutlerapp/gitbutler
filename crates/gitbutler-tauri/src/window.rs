@@ -44,7 +44,7 @@ pub(crate) mod state {
                             "headSha": head_sha,
                         }),
                     },
-                    Change::WorkspaceActivity { project_id } => ChangeForFrontend {
+                    Change::WorkspaceActivity { project_id, .. } => ChangeForFrontend {
                         name: format!("project://{project_id}/workspace-activity"),
                         payload: serde_json::json!({}),
                     },

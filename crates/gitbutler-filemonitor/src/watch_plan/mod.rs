@@ -42,6 +42,10 @@ pub(crate) fn compute_watch_plan_for_repo(
     if emit_git_dir_watches(git_dir, &mut visit_dir)?.is_break() {
         return Ok(());
     }
+    let common_dir = gix::path::realpath(repo.common_dir())?;
+    if common_dir != git_dir && visit_dir(&common_dir, RecursiveMode::NonRecursive)?.is_break() {
+        return Ok(());
+    }
 
     seen.insert(worktree_path.to_owned());
     push_child_dirs_sorted(worktree_path, &mut stack);

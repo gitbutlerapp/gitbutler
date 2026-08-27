@@ -162,7 +162,7 @@ A focused watcher-before-response regression test reproduced the previous immedi
 
 The watcher captures a long-lived thread-safe repository context. Revision computation rereads refs, project metadata, and app settings, but configured remote names and branch tracking mappings come from the repository's configuration snapshot taken when that context was opened. A focused repository-backed probe confirmed that both `remote_names()` and `branch_remote_tracking_ref_name()` remain stale after editing repository-local config and observe the new values only after `Repository::reload()`.
 
-The event side is also incomplete. The file monitor watches the Git directory but deliberately classifies `.git/config` as uninteresting, and the watcher handler has no config path case. A config-only remote or tracking change therefore emits no workspace event. Reloading on existing Git/workspace events would correct a later event's checksum, but would not make the config change itself visible. Any eventual fix must first route relevant config changes to one workspace refresh, then use a fresh/reloaded repository for that event. Keep reload out of the shared revision computation.
+Repository-local `config` and `config.worktree` changes now emit workspace activity, including changes to the common Git directory when watching a linked worktree. These events deliberately carry a `null` revision: the watcher uses the changed path as an invalidation signal instead of parsing Git configuration or reloading its long-lived repository. Lite therefore performs its existing safe refetch, whose N-API endpoint opens a fresh repository and resolves the complete effective configuration. Keep reload out of the shared revision computation.
 
 The first reload benchmark is recorded above. Its 0.440 ms median overhead is small in this workspace, but validate against repositories with large or layered configuration before choosing reload over a narrower fresh-config read. No production reload is warranted from one repository sample.
 
@@ -171,5 +171,5 @@ The same investigation should measure revision p50/p95/p99, failures that fall b
 ## Follow-ups
 
 1. Extend the focused repository-backed checksum coverage whenever graph inputs change.
-2. Validate reload cost on repositories with large/layered configuration, decide how relevant `.git/config` changes produce one fresh workspace event, and add temporary runtime counters before deciding whether duplicate calculations, fallbacks, or mismatches need optimization.
+2. Add temporary runtime counters before deciding whether duplicate calculations, fallbacks, or mismatches need optimization.
 3. Re-run the benchmark against additional large active workspaces with populated forge associations.

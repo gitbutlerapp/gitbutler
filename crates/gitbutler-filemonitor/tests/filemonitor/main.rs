@@ -6,6 +6,7 @@ mod spawn {
     };
 
     use but_project_handle::{ProjectHandle, ProjectHandleOrLegacyProjectId};
+    use but_testsupport::{CommandExt, git_at_dir};
     use gitbutler_filemonitor::{InternalEvent, WatchMode};
     use tokio::sync::mpsc;
 
@@ -114,6 +115,74 @@ mod spawn {
         .await?;
 
         Ok(())
+    }
+
+    #[tokio::test]
+    async fn emits_repository_config_changes() -> anyhow::Result<()> {
+        let generous_timeout_for_ci = Duration::from_secs(10);
+        let (repo, _tmp) = but_testsupport::writable_scenario("watch-plan-rename-dir");
+        let workdir = repo.workdir().expect("non-bare").to_owned();
+        let project_id =
+            ProjectHandleOrLegacyProjectId::ProjectHandle(ProjectHandle::from_path(&workdir)?);
+
+        let (tx, mut rx) = mpsc::unbounded_channel();
+        let monitor =
+            gitbutler_filemonitor::spawn(project_id.clone(), &workdir, tx, WatchMode::Modern)?;
+
+        let config = repo.common_dir().join("config");
+        let mut contents = std::fs::read(&config)?;
+        contents.extend_from_slice(b"\n[watcher]\n\tprobe = true\n");
+        std::fs::write(config, contents)?;
+        monitor.flush()?;
+
+        expect_matching_event(&mut rx, generous_timeout_for_ci, |event| match event {
+            InternalEvent::GitFilesChange(id, paths) => {
+                *id == project_id && contains_path(paths, Path::new("config"))
+            }
+            _ => false,
+        })
+        .await
+    }
+
+    #[tokio::test]
+    async fn emits_common_config_changes_for_linked_worktrees() -> anyhow::Result<()> {
+        let generous_timeout_for_ci = Duration::from_secs(10);
+        let (repo, tmp) = but_testsupport::writable_scenario("watch-plan-rename-dir");
+        let linked_worktree = tmp.path().join("linked-worktree");
+        git_at_dir(repo.workdir().expect("non-bare"))
+            .args([
+                "worktree",
+                "add",
+                "-b",
+                "linked-worktree",
+                linked_worktree.to_str().expect("UTF-8 test path"),
+            ])
+            .run();
+        let project_id = ProjectHandleOrLegacyProjectId::ProjectHandle(ProjectHandle::from_path(
+            &linked_worktree,
+        )?);
+
+        let (tx, mut rx) = mpsc::unbounded_channel();
+        let monitor = gitbutler_filemonitor::spawn(
+            project_id.clone(),
+            &linked_worktree,
+            tx,
+            WatchMode::Modern,
+        )?;
+
+        let config = repo.common_dir().join("config");
+        let mut contents = std::fs::read(&config)?;
+        contents.extend_from_slice(b"\n[watcher]\n\tlinkedProbe = true\n");
+        std::fs::write(config, contents)?;
+        monitor.flush()?;
+
+        expect_matching_event(&mut rx, generous_timeout_for_ci, |event| match event {
+            InternalEvent::GitFilesChange(id, paths) => {
+                *id == project_id && contains_path(paths, Path::new("config"))
+            }
+            _ => false,
+        })
+        .await
     }
 }
 

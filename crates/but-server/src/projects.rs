@@ -73,7 +73,7 @@ impl ActiveProjects {
                             "headSha": head_sha,
                         }),
                     },
-                    Change::WorkspaceActivity { project_id } => FrontendEvent {
+                    Change::WorkspaceActivity { project_id, .. } => FrontendEvent {
                         name: format!("project://{project_id}/workspace-activity"),
                         payload: serde_json::json!({}),
                     },

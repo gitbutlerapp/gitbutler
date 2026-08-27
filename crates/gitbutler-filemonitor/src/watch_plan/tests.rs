@@ -152,6 +152,32 @@ submodule-worktree/
         );
     }
 
+    #[test]
+    fn watches_common_git_directory_for_linked_worktree_config() {
+        use but_testsupport::{CommandExt, git_at_dir};
+
+        let (repo, tmpdir) = but_testsupport::writable_scenario("watch-plan-rename-dir");
+        let linked_worktree = tmpdir.path().join("linked-worktree");
+        git_at_dir(repo.workdir().expect("non-bare"))
+            .args([
+                "worktree",
+                "add",
+                "-b",
+                "linked-worktree",
+                linked_worktree.to_str().expect("UTF-8 test path"),
+            ])
+            .run();
+
+        let plan = compute_watch_plan(&linked_worktree).expect("plan computed");
+        let common_dir = gix::path::realpath(repo.common_dir()).expect("real common Git directory");
+        assert!(
+            plan.iter().any(|(path, mode)| {
+                path == &common_dir && *mode == RecursiveMode::NonRecursive
+            }),
+            "linked worktrees must watch their common Git directory for repository config changes; common: {common_dir:?}, plan: {plan:?}"
+        );
+    }
+
     fn canonicalize_plan(
         plan: Vec<(PathBuf, RecursiveMode)>,
         worktree: &Path,

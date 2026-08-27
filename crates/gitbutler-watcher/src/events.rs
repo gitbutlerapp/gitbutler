@@ -25,6 +25,9 @@ pub enum Change {
     /// commits and branches compose the GitButler workspace.
     WorkspaceActivity {
         project_id: ProjectHandleOrLegacyProjectId,
+        /// True when repository state cached at open time may be stale, so consumers must not
+        /// calculate a workspace revision without first opening a fresh repository.
+        requires_fresh_repository: bool,
     },
     /// Emitted after worktree files or the index change. Carries freshly computed file diffs
     /// together with hunk assignment and dependency information.

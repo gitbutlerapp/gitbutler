@@ -314,7 +314,7 @@ fn event_from_change(
                 workspace_revision,
             })),
         },
-        gitbutler_watcher::Change::WorkspaceActivity { project_id } => WatcherEvent {
+        gitbutler_watcher::Change::WorkspaceActivity { project_id, .. } => WatcherEvent {
             name: format!("project://{project_id}/workspace-activity"),
             payload: serde_json::json!(WatcherPayload::WorkspaceActivity(
                 WatcherWorkspaceActivityPayload { workspace_revision }
@@ -349,26 +349,22 @@ fn start_project_watcher(
         let revision_ctx = ctx.to_sync();
         let revision_settings = app_settings.clone();
         move |change| {
-            let workspace_revision = matches!(
-                change,
-                gitbutler_watcher::Change::GitActivity { .. }
-                    | gitbutler_watcher::Change::WorkspaceActivity { .. }
-            )
-            .then(|| {
-                (|| -> anyhow::Result<String> {
-                    let mut ctx = revision_ctx.clone().into_thread_local();
-                    ctx.settings = revision_settings.get()?.clone();
-                    but_api::workspace_revision::compute(&ctx)
-                })()
-                .map_err(|err| {
-                    tracing::warn!(
-                        ?err,
-                        "Failed to compute workspace revision for watcher event"
-                    );
+            let workspace_revision = should_compute_workspace_revision(&change)
+                .then(|| {
+                    (|| -> anyhow::Result<String> {
+                        let mut ctx = revision_ctx.clone().into_thread_local();
+                        ctx.settings = revision_settings.get()?.clone();
+                        but_api::workspace_revision::compute(&ctx)
+                    })()
+                    .map_err(|err| {
+                        tracing::warn!(
+                            ?err,
+                            "Failed to compute workspace revision for watcher event"
+                        );
+                    })
+                    .ok()
                 })
-                .ok()
-            })
-            .flatten();
+                .flatten();
             let event = event_from_change(change, workspace_revision);
             let status = callback.call(Ok(event), ThreadsafeFunctionCallMode::NonBlocking);
             if status != Status::Ok {
@@ -392,6 +388,17 @@ fn start_project_watcher(
     )
 }
 
+fn should_compute_workspace_revision(change: &gitbutler_watcher::Change) -> bool {
+    matches!(
+        change,
+        gitbutler_watcher::Change::GitActivity { .. }
+            | gitbutler_watcher::Change::WorkspaceActivity {
+                requires_fresh_repository: false,
+                ..
+            }
+    )
+}
+
 /// Start a project watcher and forward events to `callback`.
 ///
 /// `project_id` can be a project handle or legacy project id.
@@ -407,4 +414,33 @@ pub async fn watcher_start(
 
     let watcher = start_project_watcher(project_id, callback).map_err(to_napi_err)?;
     Ok(WatcherHandle::new(watcher))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::should_compute_workspace_revision;
+    use but_ctx::{ProjectHandle, ProjectHandleOrLegacyProjectId};
+
+    #[test]
+    fn config_activity_skips_workspace_revision() -> anyhow::Result<()> {
+        let project_id = ProjectHandleOrLegacyProjectId::ProjectHandle(ProjectHandle::from_path(
+            "/tmp/config-activity-test",
+        )?);
+
+        assert!(
+            !should_compute_workspace_revision(&gitbutler_watcher::Change::WorkspaceActivity {
+                project_id: project_id.clone(),
+                requires_fresh_repository: true,
+            }),
+            "config activity must fall back to an unconditional workspace refresh"
+        );
+        assert!(
+            should_compute_workspace_revision(&gitbutler_watcher::Change::WorkspaceActivity {
+                project_id,
+                requires_fresh_repository: false,
+            }),
+            "ordinary workspace activity can use the cached repository"
+        );
+        Ok(())
+    }
 }
