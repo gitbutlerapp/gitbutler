@@ -324,7 +324,7 @@ cargo clean
 
 ### Node.js & pnpm
 
-Use the Node version pinned by `.nvmrc` (currently LTS “jod” / Node 22):
+Use the Node version pinned by `.nvmrc` (currently LTS “krypton” / Node 24):
 
 ```bash
 nvm install

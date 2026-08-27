@@ -1,11 +1,4 @@
-import { describe, expect, it, vi } from "vitest";
-
-// Node v22 is missing this API, causing the test suite to throw on importing the module.
-vi.hoisted(() => {
-	Object.defineProperty(Intl, "DurationFormat", {
-		value: class DurationFormat {},
-	});
-});
+import { describe, expect, it } from "vitest";
 
 import {
 	ageBadgeOpacity,
@@ -51,34 +44,32 @@ describe("formatRelativeTime", () => {
 	});
 });
 describe("formatCompactDuration", () => {
-	// Node lacks Intl.DurationFormat (see the stub above), so assert on the
-	// unit the formatter picks rather than on localised output.
-	const formatCompactDuration = formatCompactDurationWith({
-		format: (duration) => JSON.stringify(duration),
-	} as Intl.DurationFormat);
+	const formatCompactDuration = formatCompactDurationWith(
+		new Intl.DurationFormat("en", { style: "short" }),
+	);
 
 	it("rounds a sub-second duration up to a second", () => {
-		expect(formatCompactDuration(120)).toMatchInlineSnapshot(`"{"seconds":1}"`);
+		expect(formatCompactDuration(120)).toBe("1 sec");
 	});
 
 	it("formats seconds", () => {
-		expect(formatCompactDuration(45_000)).toMatchInlineSnapshot(`"{"seconds":45}"`);
+		expect(formatCompactDuration(45_000)).toBe("45 sec");
 	});
 
 	it("formats minutes", () => {
-		expect(formatCompactDuration(12 * 60_000)).toMatchInlineSnapshot(`"{"minutes":12}"`);
+		expect(formatCompactDuration(12 * 60_000)).toBe("12 min");
 	});
 
 	it("formats hours", () => {
-		expect(formatCompactDuration(2 * 60 * 60_000)).toMatchInlineSnapshot(`"{"hours":2}"`);
+		expect(formatCompactDuration(2 * 60 * 60_000)).toBe("2 hr");
 	});
 
 	it("carries a rounded-up second into the next unit", () => {
-		expect(formatCompactDuration(59_600)).toMatchInlineSnapshot(`"{"minutes":1}"`);
+		expect(formatCompactDuration(59_600)).toBe("1 min");
 	});
 
 	it("carries a rounded-up minute into the next unit", () => {
-		expect(formatCompactDuration(59 * 60_000 + 59_000)).toMatchInlineSnapshot(`"{"hours":1}"`);
+		expect(formatCompactDuration(59 * 60_000 + 59_000)).toBe("1 hr");
 	});
 });
 

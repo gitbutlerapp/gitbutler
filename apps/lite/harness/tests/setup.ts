@@ -41,14 +41,6 @@ class WorkerStub {
 
 const globals = globalThis as unknown as Record<string, unknown>;
 
-// Node 22 has no Intl.DurationFormat (the same gap ui/src/time.test.ts stubs);
-// components render durations, so the stand-in has to actually format.
-(Intl as unknown as Record<string, unknown>).DurationFormat ??= class {
-	format(): string {
-		return "a moment";
-	}
-};
-
 globals.ResizeObserver ??= ResizeObserverStub;
 globals.Worker ??= WorkerStub;
 // Node-environment tests (the watcher host) share this setup but have no DOM.

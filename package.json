@@ -3,7 +3,7 @@
 	"private": true,
 	"repository": "https://github.com/gitbutlerapp/gitbutler.git",
 	"engines": {
-		"node": ">=20.11"
+		"node": ">=24"
 	},
 	"type": "module",
 	"packageManager": "pnpm@10.20.0",
@@ -58,7 +58,7 @@
 		"@gitbutler/no-relative-imports": "workspace:*",
 		"@tauri-apps/cli": "^2.11.1",
 		"@types/eslint": "9.6.1",
-		"@types/node": "^22.19.11",
+		"@types/node": "^24.13.3",
 		"@typescript-eslint/parser": "^8.57.1",
 		"cross-env": "^10.1.0",
 		"eslint": "^9.39.3",
