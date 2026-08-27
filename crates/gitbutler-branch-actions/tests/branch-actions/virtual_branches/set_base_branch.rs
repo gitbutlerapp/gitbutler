@@ -1,10 +1,39 @@
 use super::*;
 use but_core::RefMetadata as _;
 use gitbutler_oplog::OplogExt as _;
+use gix::bstr::ByteSlice as _;
+
+fn reflog_identity_for_message(
+    repo: &gix::Repository,
+    reference_name: &gix::refs::FullNameRef,
+    message: &str,
+) -> (gix::bstr::BString, gix::bstr::BString) {
+    let reference = repo.find_reference(reference_name).unwrap();
+    let mut log = reference.log_iter();
+    let mut entries = log.rev().unwrap().unwrap();
+    entries
+        .find_map(|entry| {
+            let entry = entry.unwrap();
+            (entry.message == message.as_bytes().as_bstr()).then(|| {
+                (
+                    entry.signature.name.to_owned(),
+                    entry.signature.email.to_owned(),
+                )
+            })
+        })
+        .unwrap()
+}
 
 #[test]
-fn success() {
-    let Test { ctx, .. } = &mut Test::default();
+fn uses_configured_committer_for_reflog() {
+    let Test { repo, ctx, .. } = &mut Test::default();
+
+    std::fs::write(repo.path().join("feature.txt"), "feature").unwrap();
+
+    let repo = ctx.repo.get().unwrap();
+    let committer = repo.committer().transpose().unwrap().unwrap();
+    let expected_committer_identity = (committer.name.to_owned(), committer.email.to_owned());
+    drop(repo);
 
     let mut guard = ctx.exclusive_worktree_access();
     gitbutler_branch_actions::set_base_branch(
@@ -13,6 +42,96 @@ fn success() {
         guard.write_permission(),
     )
     .unwrap();
+    drop(guard);
+
+    let workspace_ref: gix::refs::FullName = but_core::WORKSPACE_REF_NAME.try_into().unwrap();
+    let stack_ref_name = ctx
+        .meta()
+        .unwrap()
+        .workspace(workspace_ref.as_ref())
+        .unwrap()
+        .stacks[0]
+        .ref_name()
+        .unwrap()
+        .clone();
+    let repo = ctx.repo.get().unwrap();
+    assert_eq!(
+        reflog_identity_for_message(&repo, stack_ref_name.as_ref(), "initialize stack"),
+        expected_committer_identity,
+        "onboarding uses the configured committer for its reflog"
+    );
+}
+
+#[test]
+fn works_without_git_identity() {
+    for branch_matches_target in [true, false] {
+        let Test { repo, ctx, .. } = &mut Test::default();
+
+        if !branch_matches_target {
+            repo.checkout(&"refs/heads/feature".parse().unwrap());
+        }
+        std::fs::write(repo.path().join("feature.txt"), "feature").unwrap();
+        repo.commit_all("feature");
+
+        but_core::git_config::edit_repo_config(
+            &repo.open(),
+            gix::config::Source::Local,
+            |config| {
+                config.remove_section("user", None::<&gix::bstr::BStr>);
+                config.remove_section("author", None::<&gix::bstr::BStr>);
+                config.remove_section("committer", None::<&gix::bstr::BStr>);
+                Ok(())
+            },
+        )
+        .unwrap();
+        let mut context_repo = ctx.repo.get_mut().unwrap();
+        context_repo.reload().unwrap();
+        assert!(
+            context_repo.committer().is_none(),
+            "the repository has no Git identity"
+        );
+        drop(context_repo);
+
+        let mut guard = ctx.exclusive_worktree_access();
+        gitbutler_branch_actions::set_base_branch(
+            ctx,
+            &"refs/remotes/origin/master".parse().unwrap(),
+            guard.write_permission(),
+        )
+        .unwrap();
+        drop(guard);
+
+        let workspace_ref: gix::refs::FullName = but_core::WORKSPACE_REF_NAME.try_into().unwrap();
+        let created_ref = if branch_matches_target {
+            ctx.meta()
+                .unwrap()
+                .workspace(workspace_ref.as_ref())
+                .unwrap()
+                .stacks[0]
+                .ref_name()
+                .unwrap()
+                .clone()
+        } else {
+            workspace_ref
+        };
+        let repo = ctx.repo.get().unwrap();
+        assert_eq!(
+            reflog_identity_for_message(
+                &repo,
+                created_ref.as_ref(),
+                if branch_matches_target {
+                    "initialize stack"
+                } else {
+                    "initialize workspace"
+                },
+            ),
+            (
+                gitbutler_repo::GITBUTLER_COMMIT_AUTHOR_NAME.into(),
+                gitbutler_repo::GITBUTLER_COMMIT_AUTHOR_EMAIL.into(),
+            ),
+            "identity-free onboarding uses GitButler for its reflog"
+        );
+    }
 }
 
 #[test]

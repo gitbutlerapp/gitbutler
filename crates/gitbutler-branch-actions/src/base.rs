@@ -12,7 +12,7 @@ use but_error::{Code, bail_precondition};
 use but_graph::FirstParent;
 use gitbutler_project::{FetchResult, Project};
 use gitbutler_reference::{Refname, RemoteRefname};
-use gitbutler_repo::first_parent_commit_ids_until;
+use gitbutler_repo::{SignaturePurpose, first_parent_commit_ids_until, signature_gix};
 use serde::Serialize;
 use tracing::instrument;
 
@@ -246,10 +246,10 @@ pub(crate) fn set_base_branch(
 
             let stack_ref_name = if branch_matches_target {
                 let stack_ref_name = but_core::branch::unique_canned_refname(&repo)?;
-                repo.reference(
-                    stack_ref_name.as_ref(),
+                create_internal_reference(
+                    &repo,
+                    stack_ref_name.clone(),
                     current_head_commit,
-                    gix::refs::transaction::PreviousValue::MustNotExist,
                     "initialize stack",
                 )?;
                 stack_ref_name
@@ -268,10 +268,10 @@ pub(crate) fn set_base_branch(
             meta.set_workspace(&workspace)?;
             drop((workspace, meta));
             if !branch_matches_target {
-                repo.reference(
-                    WORKSPACE_REF_NAME,
+                create_internal_reference(
+                    &repo,
+                    WORKSPACE_REF_NAME.try_into()?,
                     current_head_commit,
-                    gix::refs::transaction::PreviousValue::MustNotExist,
                     "initialize workspace",
                 )?;
                 workspace_to_initialize = Some(ctx.workspace_from_ref_uncached(
@@ -291,6 +291,41 @@ pub(crate) fn set_base_branch(
     }
 
     get_base_branch_data(ctx, perm.read_permission())
+}
+
+fn create_internal_reference(
+    repo: &gix::Repository,
+    name: gix::refs::FullName,
+    target: gix::ObjectId,
+    message: &str,
+) -> Result<()> {
+    let configured_committer = repo.committer().transpose()?;
+    let fallback_committer;
+    let mut fallback_time = gix::date::parse::TimeBuf::default();
+    let committer = match configured_committer {
+        Some(committer) => committer,
+        None => {
+            fallback_committer = signature_gix(SignaturePurpose::Committer);
+            fallback_committer.to_ref(&mut fallback_time)
+        }
+    };
+    repo.edit_references_as(
+        [gix::refs::transaction::RefEdit {
+            change: gix::refs::transaction::Change::Update {
+                log: gix::refs::transaction::LogChange {
+                    mode: gix::refs::transaction::RefLog::AndReference,
+                    force_create_reflog: false,
+                    message: message.into(),
+                },
+                expected: gix::refs::transaction::PreviousValue::MustNotExist,
+                new: gix::refs::Target::Object(target),
+            },
+            name,
+            deref: false,
+        }],
+        Some(committer),
+    )?;
+    Ok(())
 }
 
 fn set_exclude_decoration(ctx: &Context) -> Result<()> {
