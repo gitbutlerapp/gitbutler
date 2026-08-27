@@ -182,6 +182,7 @@ fn resolve(
                         ResolvedCliIdArg::Branch(..)
                         | ResolvedCliIdArg::UncommittedHunkOrFile(..)
                         | ResolvedCliIdArg::CommittedFile(..)
+                        | ResolvedCliIdArg::CommittedHunk(..)
                         | ResolvedCliIdArg::Uncommitted
                         | ResolvedCliIdArg::PathPrefix { .. }
                         | ResolvedCliIdArg::Worktree(..)

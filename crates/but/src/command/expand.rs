@@ -4,7 +4,7 @@ use serde::Serialize;
 use crate::{
     CliId, CliResult, IdMap,
     args::atoms::CliIdArg,
-    id::{CommitId, CommittedFileId},
+    id::{CommitId, CommittedFileId, CommittedHunk},
     theme::Theme,
     utils::{CliOutput, CliOutputHuman, WriteWithUtils},
 };
@@ -34,6 +34,11 @@ enum Resource {
     CommittedFile {
         commit_id: String,
         path: String,
+    },
+    CommittedHunk {
+        commit_id: String,
+        path: String,
+        hunk_header: String,
     },
     PathPrefix {
         path: String,
@@ -67,6 +72,13 @@ impl std::fmt::Display for Resource {
             }
             Resource::CommittedFile { commit_id, path } => {
                 write!(f, "committed file: {commit_id} {path}")
+            }
+            Resource::CommittedHunk {
+                commit_id,
+                path,
+                hunk_header,
+            } => {
+                write!(f, "committed hunk: {commit_id} {path} {hunk_header}")
             }
             Resource::PathPrefix { path } => write!(f, "path prefix: {path}"),
             Resource::Uncommitted => f.write_str("uncommitted area"),
@@ -168,6 +180,20 @@ fn resources_from_cli_id(cli_id: CliId) -> Vec<Resource> {
         } => vec![Resource::CommittedFile {
             commit_id: commit_id.to_string(),
             path: path.to_string(),
+        }],
+        CliId::CommittedHunk(CommittedHunk {
+            committed_file: CommittedFileId {
+                commit_id, path, ..
+            },
+            hunk,
+            ..
+        }) => vec![Resource::CommittedHunk {
+            commit_id: commit_id.to_string(),
+            path: path.to_string(),
+            hunk_header: hunk
+                .hunk_header
+                .map(format_hunk_header)
+                .unwrap_or_else(|| "<no hunk header>".to_string()),
         }],
         CliId::PathPrefix { id, .. } => vec![Resource::PathPrefix { path: id }],
         CliId::Uncommitted { .. } => vec![Resource::Uncommitted],

@@ -878,6 +878,7 @@ pub fn resolve_target(
         }
         ResolvedCliIdArgRef::UncommittedHunkOrFile(..)
         | ResolvedCliIdArgRef::CommittedFile { .. }
+        | ResolvedCliIdArgRef::CommittedHunk { .. }
         | ResolvedCliIdArgRef::PathPrefix { .. }
         | ResolvedCliIdArgRef::Worktree(..)
         | ResolvedCliIdArgRef::Stack { .. } => Err(ResolveTargetError::InvalidTarget),
@@ -1085,6 +1086,7 @@ impl<'a> Squashable<'a> {
                     UncommittedSquashSource::PathPrefix(Cow::Borrowed(hunks)),
                 ));
             }
+            ResolvedCliIdArgRef::CommittedHunk(..) => "a committed hunk",
             ResolvedCliIdArgRef::Worktree(..) => "a worktree",
             ResolvedCliIdArgRef::Stack { .. } => "a stack",
         };

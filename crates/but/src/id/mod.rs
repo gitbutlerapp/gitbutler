@@ -209,7 +209,7 @@ fn short_ids_from_tree_changes(
     tree_changes: Vec<but_core::TreeChange>,
 ) -> anyhow::Result<Vec<(NonEmpty<but_core::TreeChange>, ChangeId, ShortId)>> {
     let FileInfo { changes } = FileInfo::from_tree_changes(tree_changes)?;
-    let mut short_ids: Vec<(NonEmpty<but_core::TreeChange>, ChangeId, ShortId)> = Vec::new();
+    let mut short_ids = Vec::new();
     for (path, changes) in changes {
         // Committed files are namespaced under their commit's ID, so they never
         // compete with the uncommitted namespace and need no source of their own.
@@ -232,33 +232,136 @@ fn short_ids_from_tree_changes(
     Ok(short_ids)
 }
 
-type ChangesInCommitFn<'a> = Box<
-    dyn FnMut(gix::ObjectId, Option<gix::ObjectId>) -> anyhow::Result<Vec<but_core::TreeChange>>
-        + 'a,
->;
+trait ChangesInCommit {
+    fn tree_changes(
+        &self,
+        commit_id: gix::ObjectId,
+        parent_id: Option<gix::ObjectId>,
+    ) -> anyhow::Result<Vec<but_core::TreeChange>>;
+
+    fn patch_for_tree_change(
+        &self,
+        tree_change: &but_core::TreeChange,
+        context_lines: u32,
+    ) -> anyhow::Result<Option<but_core::UnifiedPatch>>;
+}
+
+struct ChangesInCommitImpl<'a> {
+    repo: &'a gix::Repository,
+}
+
+impl<'a> ChangesInCommit for ChangesInCommitImpl<'a> {
+    fn tree_changes(
+        &self,
+        commit_id: gix::ObjectId,
+        parent_id: Option<gix::ObjectId>,
+    ) -> anyhow::Result<Vec<but_core::TreeChange>> {
+        but_core::diff::tree_changes(self.repo, parent_id, commit_id)
+    }
+
+    fn patch_for_tree_change(
+        &self,
+        tree_change: &but_core::TreeChange,
+        context_lines: u32,
+    ) -> anyhow::Result<Option<but_core::UnifiedPatch>> {
+        tree_change.unified_patch(self.repo, context_lines)
+    }
+}
+
 trait Node<'a>: std::fmt::Debug {
     fn parse(
         self: Box<Self>,
         element: &str,
         id_map: &'a IdMap,
-        changes_in_commit_fn: &mut ChangesInCommitFn<'a>,
+        changes_in_commit: &dyn ChangesInCommit,
     ) -> anyhow::Result<Vec<Box<dyn Node<'a> + 'a>>>;
 
     fn to_cli_id(self: Box<Self>, short_id: &str, id_map: &IdMap) -> anyhow::Result<Option<CliId>>;
+}
+
+/// Internal type forming a superset of [`CliId::CommittedFile`] to propagate the
+/// [`but_core::TreeChange`] that's later (sometimes) used to resolve hunk IDs within the file,
+/// without exposing it outside this module.
+#[derive(Debug)]
+struct CommittedFile {
+    /// The committed file identifier.
+    committed_file: CommittedFileId,
+    /// The short CLI ID for this file (typically 2 characters)
+    short_id: ShortId,
+    /// Tree change from the commit's first-parent diff.
+    ///
+    /// This should in practice always contain a single change, but according to the docs on
+    /// [FileInfo::changes], there have been cases where a single path resolved to multiple tree
+    /// changes. As we currently cannot structurally guarantee this does not happen, we need this
+    /// awkward list here.
+    tree_changes: NonEmpty<but_core::TreeChange>,
+}
+
+impl<'a> Node<'a> for CommittedFile {
+    fn parse(
+        self: Box<Self>,
+        element: &str,
+        id_map: &'a IdMap,
+        changes_in_commit: &dyn ChangesInCommit,
+    ) -> anyhow::Result<Vec<Box<dyn Node<'a> + 'a>>> {
+        let mut matches = Vec::<Box<dyn Node<'a> + 'a>>::new();
+
+        let mut hunks: Vec<but_core::SingleHunk> = vec![];
+
+        for tree_change in self.tree_changes.iter() {
+            let patch =
+                changes_in_commit.patch_for_tree_change(tree_change, id_map.diff_context_lines)?;
+
+            hunks.extend(but_core::SingleHunk::from_tree_change(tree_change, patch));
+        }
+
+        let mut short_ids_and_hunks: Vec<_> = hunks
+            .into_iter()
+            .map(|hunk| (UnqualifiedHunkId::default(), hunk))
+            .collect();
+
+        IdMap::assign_content_based_hunk_ids(short_ids_and_hunks.iter_mut())?;
+
+        for (hunk_short_id, hunk) in short_ids_and_hunks {
+            if hunk_short_id.matches_prefix(element) {
+                let short_id = format!("{}:{}", self.short_id, hunk_short_id.short_id());
+                let cli_id = CliId::CommittedHunk(CommittedHunk {
+                    committed_file: self.committed_file.clone(),
+                    id: short_id,
+                    hunk,
+                });
+                matches.push(Box::new(Leaf { cli_id }));
+            }
+        }
+
+        Ok(matches)
+    }
+
+    fn to_cli_id(
+        self: Box<Self>,
+        _short_id: &str,
+        _id_map: &IdMap,
+    ) -> anyhow::Result<Option<CliId>> {
+        Ok(Some(CliId::CommittedFile {
+            committed_file: self.committed_file,
+            id: self.short_id,
+        }))
+    }
 }
 
 #[derive(Debug)]
 struct Leaf {
     cli_id: CliId,
 }
+
 impl<'a> Node<'a> for Leaf {
     fn parse(
         self: Box<Self>,
         _element: &str,
         _id_map: &'a IdMap,
-        _changes_in_commit_fn: &mut ChangesInCommitFn<'a>,
+        _changes_in_commit: &dyn ChangesInCommit,
     ) -> anyhow::Result<Vec<Box<dyn Node<'a> + 'a>>> {
-        Ok(Vec::new())
+        Ok(vec![])
     }
 
     fn to_cli_id(
@@ -337,17 +440,15 @@ impl WorkspaceCommitWithId {
 /// Methods to calculate the short IDs of committed files.
 impl WorkspaceCommitWithId {
     /// Calculate the short IDs of all changes in this commit.
-    pub fn tree_changes<F>(
+    pub fn tree_changes(
         &self,
-        mut changes_in_commit_fn: F,
-    ) -> anyhow::Result<Vec<TreeChangeWithId>>
-    where
-        F: FnMut(gix::ObjectId, Option<gix::ObjectId>) -> anyhow::Result<Vec<but_core::TreeChange>>,
-    {
-        let rhs_indexes = short_ids_from_tree_changes(changes_in_commit_fn(
-            self.commit_id(),
-            self.first_parent_id(),
-        )?)?;
+        mut tree_changes: impl FnMut(
+            gix::ObjectId,
+            Option<gix::ObjectId>,
+        ) -> anyhow::Result<Vec<but_core::TreeChange>>,
+    ) -> anyhow::Result<Vec<TreeChangeWithId>> {
+        let rhs_indexes =
+            short_ids_from_tree_changes(tree_changes(self.commit_id(), self.first_parent_id())?)?;
         Ok(rhs_indexes
             .into_iter()
             .flat_map(|(changes, _change_id, short_id)| {
@@ -381,37 +482,36 @@ impl<'a> Node<'a> for &'a WorkspaceCommitWithId {
         self: Box<Self>,
         element: &str,
         _id_map: &'a IdMap,
-        changes_in_commit_fn: &mut ChangesInCommitFn<'a>,
+        changes_in_commit: &dyn ChangesInCommit,
     ) -> anyhow::Result<Vec<Box<dyn Node<'a> + 'a>>> {
         let mut matches = Vec::<Box<dyn Node<'a> + 'a>>::new();
-        let rhs_indexes = short_ids_from_tree_changes(changes_in_commit_fn(
-            self.commit_id(),
-            self.first_parent_id(),
-        )?)?;
+        let rhs_indexes = short_ids_from_tree_changes(
+            changes_in_commit.tree_changes(self.commit_id(), self.first_parent_id())?,
+        )?;
         for (tree_changes, change_id, short_id) in rhs_indexes {
             let is_match = change_id.starts_with(element.as_bytes())
                 || tree_changes.first().path == BStr::new(element);
             if is_match {
-                matches.push(Box::new(Leaf {
-                    cli_id: CliId::CommittedFile {
-                        committed_file: CommittedFileId {
-                            commit_id: self.commit_id(),
-                            path: tree_changes.first().path.clone(),
-                            change_id: self
-                                .change_id
-                                .as_ref()
-                                .map(|change_id| change_id.change_id.clone()),
-                        },
-                        id: format!(
-                            "{}:{}",
-                            self.change_id
-                                .as_ref()
-                                .map(|cid| &cid.short_id)
-                                .unwrap_or(&self.short_id),
-                            short_id
-                        ),
+                let committed_file_node = CommittedFile {
+                    committed_file: CommittedFileId {
+                        commit_id: self.commit_id(),
+                        path: tree_changes.first().path.clone(),
+                        change_id: self
+                            .change_id
+                            .as_ref()
+                            .map(|change_id| change_id.change_id.clone()),
                     },
-                }));
+                    short_id: format!(
+                        "{}:{}",
+                        self.change_id
+                            .as_ref()
+                            .map(|cid| &cid.short_id)
+                            .unwrap_or(&self.short_id),
+                        short_id
+                    ),
+                    tree_changes,
+                };
+                matches.push(Box::new(committed_file_node))
             }
         }
         Ok(matches)
@@ -451,7 +551,7 @@ impl<'a> Node<'a> for &'a RemoteCommitWithId {
         self: Box<Self>,
         _element: &str,
         _id_map: &'a IdMap,
-        _changes_in_commit_fn: &mut ChangesInCommitFn<'a>,
+        _changes_in_commit: &dyn ChangesInCommit,
     ) -> anyhow::Result<Vec<Box<dyn Node<'a> + 'a>>> {
         Ok(Vec::new())
     }
@@ -502,7 +602,7 @@ impl<'a> Node<'a> for &'a SegmentWithId {
         self: Box<Self>,
         _element: &str,
         _id_map: &'a IdMap,
-        _changes_in_commit_fn: &mut ChangesInCommitFn<'a>,
+        _changes_in_commit: &dyn ChangesInCommit,
     ) -> anyhow::Result<Vec<Box<dyn Node<'a> + 'a>>> {
         // TODO: it may be confusing for the user if `branch_id:something`
         // silently does not match instead of an error message being printed.
@@ -536,7 +636,7 @@ impl<'a> Node<'a> for &'a StackWithId {
         self: Box<Self>,
         element: &str,
         id_map: &'a IdMap,
-        _changes_in_commit_fn: &mut ChangesInCommitFn<'a>,
+        _changes_in_commit: &dyn ChangesInCommit,
     ) -> anyhow::Result<Vec<Box<dyn Node<'a> + 'a>>> {
         // Parse known suffixes.
         if element.ends_with('/') {
@@ -584,6 +684,10 @@ pub struct IdMap {
     stack_ids: BTreeMap<StackId, CliId>,
     /// The ID representing the uncommitted area, i.e. uncommitted files that aren't assigned to a stack.
     uncommitted: CliId,
+    /// The amount of context lines to use when calculating diffs. This is necessary for on-demand
+    /// resolution of committed hunks as different context line settings may produce different
+    /// hunks.
+    diff_context_lines: u32,
 
     /// Maps full reverse hex IDs to uncommitted files.
     pub uncommitted_files: BTreeMap<ChangeId, UncommittedFile>,
@@ -627,6 +731,7 @@ impl IdMap {
         sources: Vec<SourceChanges>,
         commit_id_to_change_id: gix::hashtable::HashMap<gix::ObjectId, ChangeId>,
         mut worktree_commits: BTreeMap<BString, Vec<StackCommit>>,
+        diff_context_lines: u32,
     ) -> anyhow::Result<Self> {
         // Taken before partitioning, which drops sources without changes: a clean
         // worktree still gets an ID, so `but status` can list it and name it.
@@ -851,6 +956,7 @@ impl IdMap {
             uncommitted_files,
             uncommitted_hunks,
             worktrees,
+            diff_context_lines,
         })
     }
 
@@ -1012,6 +1118,7 @@ impl IdMap {
             sources,
             commit_id_to_change_id,
             worktree_commits_by_name(&worktrees),
+            ctx.settings.context_lines,
         )
     }
 }
@@ -1362,7 +1469,7 @@ impl<'a> Node<'a> for &'a WorktreeWithId {
         self: Box<Self>,
         element: &str,
         id_map: &'a IdMap,
-        _changes_in_commit_fn: &mut ChangesInCommitFn<'a>,
+        _changes_in_commit: &dyn ChangesInCommit,
     ) -> anyhow::Result<Vec<Box<dyn Node<'a> + 'a>>> {
         // `<worktree>:<path>` is how a path that is dirty in several checkouts is
         // narrowed down to one, mirroring `zz:<path>` for the main worktree.
@@ -1393,7 +1500,7 @@ impl<'a> Node<'a> for Unstaged {
         self: Box<Self>,
         element: &str,
         id_map: &'a IdMap,
-        _changes_in_commit_fn: &mut ChangesInCommitFn<'a>,
+        _changes_in_commit: &dyn ChangesInCommit,
     ) -> anyhow::Result<Vec<Box<dyn Node<'a> + 'a>>> {
         // `zz` means the main worktree, so `zz:<path>` must never reach into a
         // linked worktree that happens to have the same path dirty.
@@ -1416,12 +1523,12 @@ impl IdMap {
     ///
     /// Besides generated IDs, this method also accepts filenames, which are
     /// interpreted as uncommitted, uncommitted files.
-    pub fn parse<'a>(
-        &'a self,
+    fn parse(
+        &self,
         entity: &str,
-        changes_in_commit_fn: ChangesInCommitFn<'a>,
+        changes_in_commit: &dyn ChangesInCommit,
     ) -> anyhow::Result<Vec<CliId>> {
-        self.parse_with(entity, changes_in_commit_fn, SourceScope::Any)
+        self.parse_with(entity, changes_in_commit, SourceScope::Any)
     }
 
     /// Like [IdMap::parse], but the leading element resolves in the
@@ -1434,18 +1541,18 @@ impl IdMap {
     /// [`CliId::Uncommitted`], `dir/` yields [`CliId::PathPrefix`], and
     /// `X@{stack}` resolves its stack (and can yield
     /// [`CliId::Stack`]); callers validate the kinds they accept.
-    pub fn parse_uncommitted<'a>(
-        &'a self,
+    fn parse_uncommitted(
+        &self,
         entity: &str,
-        changes_in_commit_fn: ChangesInCommitFn<'a>,
+        changes_in_commit: &dyn ChangesInCommit,
     ) -> anyhow::Result<Vec<CliId>> {
-        self.parse_with(entity, changes_in_commit_fn, SourceScope::UncommittedOnly)
+        self.parse_with(entity, changes_in_commit, SourceScope::UncommittedOnly)
     }
 
-    fn parse_with<'a>(
-        &'a self,
+    fn parse_with(
+        &self,
         entity: &str,
-        mut changes_in_commit_fn: ChangesInCommitFn<'a>,
+        changes_in_commit: &dyn ChangesInCommit,
         scope: SourceScope,
     ) -> anyhow::Result<Vec<CliId>> {
         let mut cli_ids = Vec::new();
@@ -1456,8 +1563,8 @@ impl IdMap {
                 // `a:filename:with:colon:b` will parse to `a`,
                 // `filename:with:colon`, `b`).
                 for node in self.parse_element_scoped(lhs, scope)? {
-                    for node in node.parse(mhs, self, &mut changes_in_commit_fn)? {
-                        for node in node.parse(rhs, self, &mut changes_in_commit_fn)? {
+                    for node in node.parse(mhs, self, changes_in_commit)? {
+                        for node in node.parse(rhs, self, changes_in_commit)? {
                             if let Some(cli_id) = node.to_cli_id(entity, self)? {
                                 cli_ids.push(cli_id);
                             }
@@ -1466,7 +1573,7 @@ impl IdMap {
                 }
             } else {
                 for node in self.parse_element_scoped(lhs, scope)? {
-                    for node in node.parse(rhs, self, &mut changes_in_commit_fn)? {
+                    for node in node.parse(rhs, self, changes_in_commit)? {
                         if let Some(cli_id) = node.to_cli_id(entity, self)? {
                             cli_ids.push(cli_id);
                         }
@@ -1493,41 +1600,36 @@ impl IdMap {
 
         Ok(deduped)
     }
-    /// Convenience for [IdMap::parse] if a [gix::Repository] is available.
+    /// Parse IDs using a [gix::Repository] to inspect committed changes.
     pub fn parse_using_repo<'a>(
         &'a self,
         entity: &str,
         repo: &'a gix::Repository,
     ) -> anyhow::Result<Vec<CliId>> {
-        self.parse(
-            entity,
-            Box::new(move |commit_id, parent_id| {
-                but_core::diff::tree_changes(repo, parent_id, commit_id)
-            }),
-        )
+        let changes_in_commit = ChangesInCommitImpl { repo };
+
+        self.parse(entity, &changes_in_commit)
     }
 
-    /// Convenience for [IdMap::parse] if a [Context] is available.
+    /// Convenience for [IdMap::parse_using_repo] if a [Context] is available.
     pub fn parse_using_context(&self, entity: &str, ctx: &Context) -> anyhow::Result<Vec<CliId>> {
         let repo = &*ctx.repo.get()?;
         self.parse_using_repo(entity, repo)
     }
 
-    /// Convenience for [IdMap::parse_uncommitted] if a [gix::Repository] is available.
+    /// Parse uncommitted IDs using a [gix::Repository].
     pub fn parse_uncommitted_using_repo<'a>(
         &'a self,
         entity: &str,
         repo: &'a gix::Repository,
     ) -> anyhow::Result<Vec<CliId>> {
-        self.parse_uncommitted(
-            entity,
-            Box::new(move |commit_id, parent_id| {
-                but_core::diff::tree_changes(repo, parent_id, commit_id)
-            }),
-        )
+        // TODO simplify - no need for changes in commit when parsing uncommitted only
+        let changes_in_commit = ChangesInCommitImpl { repo };
+
+        self.parse_uncommitted(entity, &changes_in_commit)
     }
 
-    /// Convenience for [IdMap::parse_uncommitted] if a [Context] is available.
+    /// Convenience for [IdMap::parse_uncommitted_using_repo] if a [Context] is available.
     pub fn parse_uncommitted_using_context(
         &self,
         entity: &str,
@@ -1608,6 +1710,7 @@ fn cli_ids_refer_to_same_entity(lhs: &CliId, rhs: &CliId) -> bool {
                 id: _,
             },
         ) => l == r,
+        (CliId::CommittedHunk(l), CliId::CommittedHunk(r)) => l == r,
         (CliId::Branch(l), CliId::Branch(r)) => l == r,
         (
             CliId::Stack {
@@ -1653,6 +1756,23 @@ pub struct UncommittedHunkOrFile {
     pub is_entire_file: bool,
     /// The checkout these hunks were read from.
     pub source: ChangeSourceId,
+}
+
+#[derive(Debug, Clone)]
+/// A committed hunk.
+pub struct CommittedHunk {
+    /// The committed file to which the hunk belongs.
+    pub committed_file: CommittedFileId,
+    /// The short ID of this hunk.
+    pub id: ShortId,
+    /// The hunk itself.
+    pub hunk: but_core::SingleHunk,
+}
+
+impl PartialEq for CommittedHunk {
+    fn eq(&self, other: &Self) -> bool {
+        self.committed_file == other.committed_file && self.hunk.identifies_same_hunk(&other.hunk)
+    }
 }
 
 impl PartialEq for UncommittedHunkOrFile {
@@ -1724,6 +1844,8 @@ pub enum CliId {
         /// The short CLI ID for this file (typically 2 characters)
         id: ShortId,
     },
+    /// A committed hunk
+    CommittedHunk(CommittedHunk),
     /// A branch.
     Branch(BranchId),
     /// A commit in the workspace identified by its SHA.
@@ -1772,6 +1894,7 @@ impl PartialEq for CliId {
                     id: _,
                 },
             ) => l == r,
+            (CliId::CommittedHunk(l), CliId::CommittedHunk(r)) => l == r,
             (Self::Branch(l), Self::Branch(r)) => l == r,
             (Self::Commit { commit: l, id: _ }, Self::Commit { commit: r, id: _ }) => l == r,
             (Self::Stack { id: l_id, .. }, Self::Stack { id: r_id, .. }) => l_id == r_id,
@@ -1792,6 +1915,7 @@ impl CliId {
             CliId::UncommittedHunkOrFile { .. } => "an uncommitted file or hunk",
             CliId::PathPrefix { .. } => "a path prefix",
             CliId::CommittedFile { .. } => "a committed file",
+            CliId::CommittedHunk { .. } => "a committed file or hunk",
             CliId::Branch(..) => "a branch",
             CliId::Commit { .. } => "a commit",
             CliId::Uncommitted { .. } => "the uncommitted area",
@@ -1806,6 +1930,7 @@ impl CliId {
             CliId::UncommittedHunkOrFile(UncommittedHunkOrFile { id, .. })
             | CliId::PathPrefix { id, .. }
             | CliId::CommittedFile { id, .. }
+            | CliId::CommittedHunk(CommittedHunk { id, .. })
             | CliId::Branch(BranchId { id, .. })
             | CliId::Commit { id, .. }
             | CliId::Stack { id, .. }
@@ -1822,6 +1947,7 @@ impl CliId {
             CliId::PathPrefix { .. }
             | CliId::UncommittedHunkOrFile(..)
             | CliId::CommittedFile { .. }
+            | CliId::CommittedHunk { .. }
             | CliId::Commit { .. }
             | CliId::Worktree { .. }
             | CliId::Uncommitted { .. } => None,
@@ -1882,7 +2008,7 @@ impl<'a> Node<'a> for &'a UncommittedFile {
         self: Box<Self>,
         element: &str,
         _id_map: &'a IdMap,
-        _changes_in_commit_fn: &mut ChangesInCommitFn<'a>,
+        _changes_in_commit: &dyn ChangesInCommit,
     ) -> anyhow::Result<Vec<Box<dyn Node<'a> + 'a>>> {
         match element.strip_prefix(INDEX_SEPARATOR) {
             Some(maybe_index) if let Ok(index) = usize::from_str(maybe_index) => {
@@ -1949,7 +2075,7 @@ impl<'a> Node<'a> for &'a UncommittedHunk {
         self: Box<Self>,
         _element: &str,
         _id_map: &'a IdMap,
-        _changes_in_commit_fn: &mut ChangesInCommitFn<'a>,
+        _changes_in_commit: &dyn ChangesInCommit,
     ) -> anyhow::Result<Vec<Box<dyn Node<'a> + 'a>>> {
         Ok(Vec::new())
     }

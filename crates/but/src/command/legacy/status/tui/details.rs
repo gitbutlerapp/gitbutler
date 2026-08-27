@@ -385,6 +385,10 @@ impl Details {
                 self.diff_not_supported("(viewing diffs for stacks is not supported)");
                 Ok(true)
             }
+            CliId::CommittedHunk(..) => {
+                self.diff_not_supported("(viewing diffs for committed hunks is not supported)");
+                Ok(true)
+            }
             CliId::PathPrefix { .. } => {
                 self.reset_line_reader();
                 self.clear_lines();
@@ -1259,6 +1263,7 @@ impl Details {
             CliId::UncommittedHunkOrFile(..) | CliId::Uncommitted { .. } => true,
             CliId::PathPrefix { .. }
             | CliId::CommittedFile { .. }
+            | CliId::CommittedHunk { .. }
             | CliId::Branch(..)
             | CliId::Commit { .. }
             | CliId::Worktree { .. }

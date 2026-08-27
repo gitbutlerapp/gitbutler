@@ -401,7 +401,10 @@ impl App {
             } => {
                 self.squash_start_with_source(SquashSource::CommittedFile(committed_file.clone()));
             }
-            CliId::PathPrefix { .. } | CliId::Stack { .. } | CliId::Worktree { .. } => {}
+            CliId::CommittedHunk(..)
+            | CliId::PathPrefix { .. }
+            | CliId::Stack { .. }
+            | CliId::Worktree { .. } => {}
         }
     }
 

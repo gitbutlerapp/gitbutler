@@ -230,9 +230,10 @@ impl App {
                         },
                     )
                 }
-                CliId::Stack { .. } | CliId::PathPrefix { .. } | CliId::Worktree { .. } => {
-                    return Ok(());
-                }
+                CliId::CommittedHunk(..)
+                | CliId::Stack { .. }
+                | CliId::PathPrefix { .. }
+                | CliId::Worktree { .. } => return Ok(()),
             },
         });
 

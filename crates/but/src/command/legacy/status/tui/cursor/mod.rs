@@ -92,6 +92,11 @@ impl Cursor {
             | ResolvedCliIdArg::Uncommitted
             | ResolvedCliIdArg::UncommittedHunkOrFile(..)
             | ResolvedCliIdArg::CommittedFile(..) => {}
+            ResolvedCliIdArg::CommittedHunk(..) => {
+                return Err(bad_input("Selecting committed hunks is not supported")
+                    .hint(hint)
+                    .into());
+            }
             ResolvedCliIdArg::PathPrefix { .. } => {
                 return Err(bad_input("Selecting path prefixes is not supported")
                     .hint(hint)
@@ -111,6 +116,7 @@ impl Cursor {
                         CliId::UncommittedHunkOrFile(file) => hunk_is_child_of(file, hunk),
                         CliId::PathPrefix { .. }
                         | CliId::CommittedFile { .. }
+                        | CliId::CommittedHunk { .. }
                         | CliId::Branch(..)
                         | CliId::Commit { .. }
                         | CliId::Uncommitted { .. }
@@ -125,7 +131,8 @@ impl Cursor {
                 | ResolvedCliIdArg::Uncommitted
                 | ResolvedCliIdArg::PathPrefix { .. }
                 | ResolvedCliIdArg::Worktree(..)
-                | ResolvedCliIdArg::Stack { .. } => target == **cli_id,
+                | ResolvedCliIdArg::Stack { .. }
+                | ResolvedCliIdArg::CommittedHunk(..) => target == **cli_id,
             })
         }) else {
             return Ok(None);
@@ -469,7 +476,7 @@ impl Cursor {
                 | Some(CliId::Uncommitted { .. })
                 | Some(CliId::Worktree { .. })
                 | Some(CliId::Stack { .. }) => matches!(show_files, FilesStatusFlag::All),
-                None => false,
+                Some(CliId::CommittedHunk(..)) | None => false,
             };
 
             if !file_is_visible {
@@ -1018,6 +1025,7 @@ pub(super) fn same_entity_for_reload(previous: &CliId, current: &CliId) -> bool 
                 false
             }
         }
+        CliId::CommittedHunk(..) => false,
         CliId::Branch(previous) => {
             if let CliId::Branch(current) = current {
                 previous == current
@@ -1094,7 +1102,8 @@ fn select_after_reload_for_cli_id(cli_id: &Arc<CliId>) -> SelectAfterReload {
             committed_file: CommittedFileId { commit_id, .. },
             id: _,
         } => SelectAfterReload::FirstFileInCommit(*commit_id),
-        CliId::Uncommitted { .. }
+        CliId::CommittedHunk(..)
+        | CliId::Uncommitted { .. }
         | CliId::UncommittedHunkOrFile(..)
         | CliId::PathPrefix { .. }
         | CliId::Branch(..)
@@ -1366,6 +1375,7 @@ pub fn is_selectable_in_mode(
                     CliId::UncommittedHunkOrFile(..) | CliId::Uncommitted { .. } => true,
                     CliId::PathPrefix { .. }
                     | CliId::CommittedFile { .. }
+                    | CliId::CommittedHunk { .. }
                     | CliId::Branch(..)
                     | CliId::Commit { .. }
                     | CliId::Worktree { .. }

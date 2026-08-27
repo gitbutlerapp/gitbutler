@@ -161,6 +161,7 @@ impl App {
                         CliId::UncommittedHunkOrFile(..)
                         | CliId::PathPrefix { .. }
                         | CliId::CommittedFile { .. }
+                        | CliId::CommittedHunk { .. }
                         | CliId::Branch(..)
                         | CliId::Uncommitted { .. }
                         | CliId::Worktree { .. }
@@ -246,6 +247,7 @@ impl App {
                 CliId::UncommittedHunkOrFile(..)
                 | CliId::PathPrefix { .. }
                 | CliId::CommittedFile { .. }
+                | CliId::CommittedHunk(..)
                 | CliId::Uncommitted { .. }
                 | CliId::Stack { .. } => Ok(None),
             }
@@ -275,6 +277,7 @@ impl App {
             | CliId::UncommittedHunkOrFile(..)
             | CliId::PathPrefix { .. }
             | CliId::CommittedFile { .. }
+            | CliId::CommittedHunk { .. }
             | CliId::Uncommitted { .. }
             | CliId::Worktree { .. }
             | CliId::Stack { .. } => Ok(None),

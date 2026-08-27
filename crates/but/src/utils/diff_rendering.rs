@@ -1348,6 +1348,7 @@ mod tests {
                     CliId::UncommittedHunkOrFile(hunk) => Some(hunk.id.as_str()),
                     CliId::PathPrefix { .. }
                     | CliId::CommittedFile { .. }
+                    | CliId::CommittedHunk { .. }
                     | CliId::Branch(..)
                     | CliId::Commit { .. }
                     | CliId::Uncommitted { .. }

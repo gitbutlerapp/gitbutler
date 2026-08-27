@@ -581,6 +581,7 @@ fn build_status_context<'a>(
         sources,
         commit_id_to_change_id,
         crate::id::worktree_commits_by_name(&worktrees),
+        ctx.settings.context_lines,
     )?;
 
     let stacks = id_map.stacks();

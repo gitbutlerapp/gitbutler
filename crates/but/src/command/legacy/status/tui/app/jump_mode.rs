@@ -125,6 +125,7 @@ fn jump_id_has_prefix(id: &CliId, query: &str) -> bool {
         | CliId::Worktree { id, .. }
         | CliId::Stack { id, .. } => id.starts_with(query),
         CliId::Branch(branch) => branch.id.starts_with(query),
+        CliId::CommittedHunk(..) => false,
     }
 }
 

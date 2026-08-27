@@ -1556,6 +1556,7 @@ impl KeyBindCondition {
                     CliId::UncommittedHunkOrFile(..) | CliId::Uncommitted { .. } => true,
                     CliId::PathPrefix { .. }
                     | CliId::CommittedFile { .. }
+                    | CliId::CommittedHunk { .. }
                     | CliId::Branch(..)
                     | CliId::Commit { .. }
                     | CliId::Worktree { .. }

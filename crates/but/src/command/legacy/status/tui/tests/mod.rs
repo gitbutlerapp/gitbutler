@@ -1331,6 +1331,7 @@ fn open_tui_on_uncommitted_hunk(show_diff: bool) -> TestTui<App> {
                 CliId::UncommittedHunkOrFile(..)
                 | CliId::PathPrefix { .. }
                 | CliId::CommittedFile { .. }
+                | CliId::CommittedHunk { .. }
                 | CliId::Branch(..)
                 | CliId::Commit { .. }
                 | CliId::Uncommitted { .. }

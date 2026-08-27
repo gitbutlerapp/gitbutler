@@ -293,6 +293,13 @@ fn resolve(repo: &gix::Repository, id_map: &IdMap, args: Platform) -> CliResult<
             ResolvedCliIdArg::CommittedFile(committed_file) => {
                 committed_file_sources.push(committed_file)
             }
+            ResolvedCliIdArg::CommittedHunk(..) => {
+                return Err(bad_input("Committed hunks cannot be discarded")
+                    .arg_name("<CHANGES>")
+                    .arg_value(value)
+                    .hint("Use committed file CLI IDs instead")
+                    .into());
+            }
             ResolvedCliIdArg::UncommittedHunkOrFile(change) => {
                 uncommitted_change_sources.push(UncommittedDiscardSource::HunkOrFile(*change))
             }

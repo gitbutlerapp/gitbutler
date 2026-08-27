@@ -464,6 +464,9 @@ fn resolve(ctx: &Context, id_map: &IdMap, args: Platform) -> CliResult<DiffOpera
             },
             path,
         }),
+        ResolvedCliIdArg::CommittedHunk(..) => {
+            Err(bad_input("viewing diffs for committed hunks is not supported").into())
+        }
         ResolvedCliIdArg::PathPrefix { id, hunks } => Ok(DiffOperation::PathPrefix { id, hunks }),
         ResolvedCliIdArg::Worktree(name) => Ok(DiffOperation::Worktree { name }),
         ResolvedCliIdArg::Stack { .. } => {

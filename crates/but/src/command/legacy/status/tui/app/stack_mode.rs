@@ -33,7 +33,7 @@ use crate::{
         },
         unapply::{self, UnapplyOperation},
     },
-    id::{BranchId, CommitId, CommittedFileId},
+    id::{BranchId, CommitId, CommittedFileId, CommittedHunk},
     theme::Theme,
     utils::time::format_relative_time,
 };
@@ -109,6 +109,7 @@ impl ReorderStackSource {
             | CliId::UncommittedHunkOrFile(..)
             | CliId::PathPrefix { .. }
             | CliId::CommittedFile { .. }
+            | CliId::CommittedHunk { .. }
             | CliId::Commit { .. }
             | CliId::Worktree { .. }
             | CliId::Uncommitted { .. } => false,
@@ -245,7 +246,8 @@ fn stack_id_for_cli_id(cli_id: &CliId, status_lines: &[StatusOutputLine]) -> Opt
         | CliId::Branch(..)
         | CliId::Uncommitted { .. }
         | CliId::Worktree { .. }
-        | CliId::Stack { .. } => false,
+        | CliId::Stack { .. }
+        | CliId::CommittedHunk(..) => false,
     };
 
     match cli_id {
@@ -258,6 +260,7 @@ fn stack_id_for_cli_id(cli_id: &CliId, status_lines: &[StatusOutputLine]) -> Opt
                     CliId::UncommittedHunkOrFile(..)
                     | CliId::PathPrefix { .. }
                     | CliId::CommittedFile { .. }
+                    | CliId::CommittedHunk { .. }
                     | CliId::Branch(..)
                     | CliId::Commit { .. }
                     | CliId::Uncommitted { .. }
@@ -288,7 +291,8 @@ fn stack_id_for_cli_id(cli_id: &CliId, status_lines: &[StatusOutputLine]) -> Opt
         CliId::UncommittedHunkOrFile(..)
         | CliId::PathPrefix { .. }
         | CliId::Worktree { .. }
-        | CliId::Uncommitted { .. } => None,
+        | CliId::Uncommitted { .. }
+        | CliId::CommittedHunk(..) => None,
     }
 }
 
@@ -465,6 +469,7 @@ impl App {
             CliId::UncommittedHunkOrFile(..)
             | CliId::PathPrefix { .. }
             | CliId::CommittedFile { .. }
+            | CliId::CommittedHunk { .. }
             | CliId::Commit { .. }
             | CliId::Uncommitted { .. }
             | CliId::Worktree { .. }
@@ -734,7 +739,12 @@ fn row_stack_ids(lines: &[StatusOutputLine]) -> Vec<Option<StackId>> {
                 CliId::CommittedFile {
                     committed_file: CommittedFileId { commit_id, .. },
                     id: _,
-                } => {
+                }
+                | CliId::CommittedHunk(CommittedHunk {
+                    committed_file: CommittedFileId { commit_id, .. },
+                    id: _,
+                    hunk: _,
+                }) => {
                     let stack_id = commit_stack_ids
                         .get(commit_id)
                         .copied()
@@ -796,6 +806,7 @@ fn stack_id_from_cli_id(cli_id: &CliId) -> Option<StackId> {
         CliId::UncommittedHunkOrFile(..)
         | CliId::PathPrefix { .. }
         | CliId::CommittedFile { .. }
+        | CliId::CommittedHunk(..)
         | CliId::Commit { .. }
         | CliId::Worktree { .. }
         | CliId::Uncommitted { .. } => None,

@@ -147,6 +147,7 @@ fn uncommitted_source(cli_ids: &[Arc<CliId>]) -> CommitSource {
             CliId::Uncommitted { .. }
             | CliId::PathPrefix { .. }
             | CliId::CommittedFile { .. }
+            | CliId::CommittedHunk { .. }
             | CliId::Branch(BranchId { .. })
             | CliId::Stack { .. }
             | CliId::Worktree { .. }

@@ -156,6 +156,7 @@ impl MoveSource {
             CliId::UncommittedHunkOrFile(..)
             | CliId::PathPrefix { .. }
             | CliId::CommittedFile { .. }
+            | CliId::CommittedHunk { .. }
             | CliId::Uncommitted { .. }
             | CliId::Worktree { .. }
             | CliId::Stack { .. } => None,

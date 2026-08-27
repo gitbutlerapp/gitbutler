@@ -66,6 +66,7 @@ impl FileBrowser {
             CliId::UncommittedHunkOrFile(..)
             | CliId::PathPrefix { .. }
             | CliId::CommittedFile { .. }
+            | CliId::CommittedHunk { .. }
             | CliId::Branch(..)
             | CliId::Commit { .. }
             | CliId::Worktree { .. }
