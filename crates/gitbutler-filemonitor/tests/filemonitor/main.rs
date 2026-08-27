@@ -184,6 +184,69 @@ mod spawn {
         })
         .await
     }
+
+    #[tokio::test]
+    async fn emits_packed_ref_changes() -> anyhow::Result<()> {
+        let generous_timeout_for_ci = Duration::from_secs(10);
+        let (repo, _tmp) = but_testsupport::writable_scenario("watch-plan-rename-dir");
+        let workdir = repo.workdir().expect("non-bare").to_owned();
+        git_at_dir(&workdir)
+            .args(["commit", "--allow-empty", "-m", "initial"])
+            .run();
+        git_at_dir(&workdir).args(["branch", "packed-only"]).run();
+        git_at_dir(&workdir)
+            .args(["pack-refs", "--all", "--prune"])
+            .run();
+        let project_id =
+            ProjectHandleOrLegacyProjectId::ProjectHandle(ProjectHandle::from_path(&workdir)?);
+
+        let (tx, mut rx) = mpsc::unbounded_channel();
+        let monitor =
+            gitbutler_filemonitor::spawn(project_id.clone(), &workdir, tx, WatchMode::Modern)?;
+
+        git_at_dir(&workdir)
+            .args(["branch", "-D", "packed-only"])
+            .run();
+        monitor.flush()?;
+
+        expect_matching_event(&mut rx, generous_timeout_for_ci, |event| match event {
+            InternalEvent::GitFilesChange(id, paths) => {
+                *id == project_id && contains_path(paths, Path::new("packed-refs"))
+            }
+            _ => false,
+        })
+        .await
+    }
+
+    #[tokio::test]
+    async fn emits_shallow_boundary_changes() -> anyhow::Result<()> {
+        let generous_timeout_for_ci = Duration::from_secs(10);
+        let (repo, _tmp) = but_testsupport::writable_scenario("watch-plan-rename-dir");
+        let workdir = repo.workdir().expect("non-bare").to_owned();
+        git_at_dir(&workdir)
+            .args(["commit", "--allow-empty", "-m", "initial"])
+            .run();
+        let project_id =
+            ProjectHandleOrLegacyProjectId::ProjectHandle(ProjectHandle::from_path(&workdir)?);
+
+        let (tx, mut rx) = mpsc::unbounded_channel();
+        let monitor =
+            gitbutler_filemonitor::spawn(project_id.clone(), &workdir, tx, WatchMode::Modern)?;
+
+        std::fs::write(
+            repo.common_dir().join("shallow"),
+            format!("{}\n", repo.head_id()?),
+        )?;
+        monitor.flush()?;
+
+        expect_matching_event(&mut rx, generous_timeout_for_ci, |event| match event {
+            InternalEvent::GitFilesChange(id, paths) => {
+                *id == project_id && contains_path(paths, Path::new("shallow"))
+            }
+            _ => false,
+        })
+        .await
+    }
 }
 
 mod watch_mode {

@@ -618,6 +618,8 @@ pub const INDEX: &str = "index";
 pub const GB_FLUSH: &str = "GB_FLUSH";
 pub const CONFIG: &str = "config";
 pub const CONFIG_WORKTREE: &str = "config.worktree";
+pub const PACKED_REFS: &str = "packed-refs";
+pub const SHALLOW: &str = "shallow";
 
 /// A classification for a changed file.
 #[derive(Debug, Eq, PartialEq)]
@@ -645,6 +647,8 @@ fn classify_file(git_dir: &Path, common_dir: &Path, file_path: &Path) -> FileKin
             || check_file_path == Path::new(REFRESH_SENTINEL_PATH)
             || check_file_path == Path::new(CONFIG)
             || check_file_path == Path::new(CONFIG_WORKTREE)
+            || check_file_path == Path::new(PACKED_REFS)
+            || check_file_path == Path::new(SHALLOW)
             || check_file_path.starts_with(LOCAL_REFS_DIR)
             || check_file_path.starts_with(REMOTE_REFS_DIR)
         {
@@ -706,6 +710,12 @@ mod tests {
             classify(Path::new("/repo/.git/config.worktree")),
             FileKind::Git
         );
+    }
+
+    #[test]
+    fn classify_packed_refs_and_shallow_boundary() {
+        assert_eq!(classify(Path::new("/repo/.git/packed-refs")), FileKind::Git);
+        assert_eq!(classify(Path::new("/repo/.git/shallow")), FileKind::Git);
     }
 
     #[test]

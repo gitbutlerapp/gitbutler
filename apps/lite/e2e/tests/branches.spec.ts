@@ -1,4 +1,6 @@
 import { expect, test } from "../test.ts";
+import { execFileSync } from "node:child_process";
+import path from "node:path";
 
 test.describe("branches", () => {
 	test.use({ scenario: "project-with-remote-branches.sh" });
@@ -50,5 +52,35 @@ test.describe("branches", () => {
 		// by the mutation, so it must not trigger another full head-info traversal.
 		await appWindow.waitForTimeout(1_000);
 		expect(headInfoCalls()).toBe(callsBeforeMutation);
+	});
+
+	test("refreshes head info after deleting a packed-only branch", async ({
+		appWindow,
+		mainProcessLogs,
+		testEnvironment,
+	}) => {
+		await expect(appWindow.getByRole("button", { name: "New branch" })).toBeVisible();
+		const repositoryPath = path.join(testEnvironment.workdir, "local-clone");
+		const git = (...args: Array<string>) =>
+			execFileSync("git", ["-C", repositoryPath, ...args], { encoding: "utf8" });
+		const headInfoCalls = () =>
+			mainProcessLogs.filter((message) => message.includes("[lite-e2e] headInfo")).length;
+		await expect.poll(headInfoCalls).toBeGreaterThan(0);
+
+		await appWindow.keyboard.press("ControlOrMeta+N");
+		await expect(
+			appWindow.getByRole("treeitem", { name: "bm-branch-1", exact: true }),
+		).toBeVisible();
+
+		const callsBeforePacking = headInfoCalls();
+		git("pack-refs", "--all", "--prune");
+		await expect.poll(headInfoCalls).toBeGreaterThan(callsBeforePacking);
+		const callsBeforeDeletion = headInfoCalls();
+		git("branch", "-D", "bm-branch-1");
+
+		await expect.poll(headInfoCalls).toBeGreaterThan(callsBeforeDeletion);
+		await expect(appWindow.getByRole("treeitem", { name: "bm-branch-1", exact: true })).toHaveCount(
+			0,
+		);
 	});
 });

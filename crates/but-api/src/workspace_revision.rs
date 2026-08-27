@@ -22,30 +22,35 @@ pub fn compute(ctx: &but_ctx::Context) -> anyhow::Result<String> {
     };
     let inputs =
         but_graph::capture_workspace_inputs(&repo, &metadata, &project, &mut db, &options)?;
-    let prs = crate::workspace_state::forge_prs_by_head(&db)?;
-    Ok(compute_from_snapshot(&inputs, &prs))
+    let reviews = but_forge::review_associations_by_head(&db)?;
+    Ok(compute_from_snapshot(&inputs, &reviews))
 }
 
 pub(crate) fn compute_if_unchanged(
     source: Option<&but_graph::WorkspaceInputSnapshot>,
     current: &but_graph::WorkspaceInputSnapshot,
-    prs: &HashMap<String, usize>,
+    reviews: &HashMap<String, but_forge::ReviewAssociation>,
 ) -> Option<String> {
-    (source == Some(current)).then(|| compute_from_snapshot(current, prs))
+    (source == Some(current)).then(|| compute_from_snapshot(current, reviews))
 }
 
 fn compute_from_snapshot(
     inputs: &but_graph::WorkspaceInputSnapshot,
-    prs: &HashMap<String, usize>,
+    reviews: &HashMap<String, but_forge::ReviewAssociation>,
 ) -> String {
     let mut digest = CanonicalDigest::new();
     digest.field(b"graph-inputs", inputs.as_bytes());
 
-    let mut prs = prs.iter().collect::<Vec<_>>();
-    prs.sort();
-    for (head, number) in prs {
+    let mut reviews = reviews.iter().collect::<Vec<_>>();
+    reviews.sort();
+    for (head, (number, is_open, merged_head)) in reviews {
         digest.field(b"forge-head", head.as_bytes());
         digest.u64(b"forge-pr", *number as u64);
+        digest.field(b"forge-open", &[*is_open as u8]);
+        digest.optional_field(
+            b"forge-merged-head",
+            merged_head.as_deref().map(str::as_bytes),
+        );
     }
 
     format!("workspace-v1:{:x}", digest.finish())
@@ -69,6 +74,13 @@ impl CanonicalDigest {
 
     fn u64(&mut self, name: &[u8], value: u64) {
         self.field(name, &value.to_be_bytes());
+    }
+
+    fn optional_field(&mut self, name: &[u8], value: Option<&[u8]>) {
+        self.field(name, &[value.is_some() as u8]);
+        if let Some(value) = value {
+            self.field(name, value);
+        }
     }
 
     fn finish(self) -> impl std::fmt::LowerHex {
@@ -164,12 +176,22 @@ mod tests {
             )?
         };
         let without_review = compute_from_snapshot(&inputs, &Default::default());
-        let with_review =
-            compute_from_snapshot(&inputs, &HashMap::from([("feature".to_owned(), 42)]));
+        let with_open_review = compute_from_snapshot(
+            &inputs,
+            &HashMap::from([("feature".to_owned(), (42, true, None))]),
+        );
+        let with_merged_review = compute_from_snapshot(
+            &inputs,
+            &HashMap::from([("feature".to_owned(), (42, false, Some("abcdef".to_owned())))]),
+        );
 
         assert_ne!(
-            without_review, with_review,
+            without_review, with_open_review,
             "the revision includes the exact forge map applied to the response"
+        );
+        assert_ne!(
+            with_open_review, with_merged_review,
+            "the revision includes forge state that can change the projection"
         );
         Ok(())
     }

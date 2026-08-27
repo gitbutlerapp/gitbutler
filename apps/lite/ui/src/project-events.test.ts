@@ -94,7 +94,7 @@ describe("handled separately", () => {
 
 	it("waits for a pending workspace mutation before comparing revisions", async () => {
 		const client = new QueryClient();
-		const queryKey = ["headInfo", "p1"] as const;
+		const queryKey = ["p1", "headInfo"] as const;
 		client.setQueryData(queryKey, { headInfo: {}, workspaceRevision: "workspace-v1:old" });
 		let finishMutation!: () => void;
 		const mutation = client.getMutationCache().build(client, {
@@ -129,7 +129,7 @@ describe("handled separately", () => {
 
 	it("waits for a pending generic operation before comparing revisions", async () => {
 		const client = new QueryClient();
-		const queryKey = ["headInfo", "p1"] as const;
+		const queryKey = ["p1", "headInfo"] as const;
 		client.setQueryData(queryKey, { headInfo: {}, workspaceRevision: "workspace-v1:old" });
 		let finishMutation!: () => void;
 		const mutation = client.getMutationCache().build(client, {
@@ -164,7 +164,7 @@ describe("handled separately", () => {
 
 	it("invalidates after a pending mutation settles at a different revision", async () => {
 		const client = new QueryClient();
-		const queryKey = ["headInfo", "p1"] as const;
+		const queryKey = ["p1", "headInfo"] as const;
 		client.setQueryData(queryKey, { headInfo: {}, workspaceRevision: "workspace-v1:old" });
 		let finishMutation!: () => void;
 		const mutation = client.getMutationCache().build(client, {

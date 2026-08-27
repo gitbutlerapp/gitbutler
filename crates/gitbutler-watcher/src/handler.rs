@@ -10,7 +10,7 @@ use but_project_handle::{REFRESH_SENTINEL_PATH, process_sentinel_token};
 use but_settings::{AppSettings, AppSettingsWithDiskSync};
 use gitbutler_filemonitor::{
     CONFIG, CONFIG_WORKTREE, FETCH_HEAD, HEAD, HEAD_ACTIVITY, INDEX, InternalEvent, LOCAL_REFS_DIR,
-    REMOTE_REFS_DIR,
+    PACKED_REFS, REMOTE_REFS_DIR, SHALLOW,
 };
 use gitbutler_operating_modes::operating_mode;
 use gix::bstr::ByteSlice as _;
@@ -174,7 +174,7 @@ impl Handler {
                 _ if file_name.starts_with(REMOTE_REFS_DIR) => {
                     saw_workspace_activity = true;
                 }
-                CONFIG | CONFIG_WORKTREE => {
+                CONFIG | CONFIG_WORKTREE | PACKED_REFS | SHALLOW => {
                     saw_workspace_activity = true;
                     requires_fresh_repository = true;
                 }

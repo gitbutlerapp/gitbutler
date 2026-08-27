@@ -11,6 +11,7 @@
 #![deny(clippy::all)]
 
 use std::collections::HashMap;
+use std::time::Instant;
 
 use anyhow::Context as _;
 use but_ctx::{Context, ProjectHandleOrLegacyProjectId};
@@ -348,8 +349,11 @@ fn start_project_watcher(
         let watched_project = project_id.clone();
         let revision_ctx = ctx.to_sync();
         let revision_settings = app_settings.clone();
+        let previous_workspace_revision = std::sync::Mutex::new(None::<String>);
         move |change| {
-            let workspace_revision = should_compute_workspace_revision(&change)
+            let started = Instant::now();
+            let should_compute = should_compute_workspace_revision(&change);
+            let workspace_revision = should_compute
                 .then(|| {
                     (|| -> anyhow::Result<String> {
                         let mut ctx = revision_ctx.clone().into_thread_local();
@@ -365,6 +369,34 @@ fn start_project_watcher(
                     .ok()
                 })
                 .flatten();
+            if let Some(activity) = workspace_revision_activity(&change) {
+                let repeated = previous_workspace_revision
+                    .lock()
+                    .ok()
+                    .map(|mut previous| {
+                        let repeated = workspace_revision
+                            .as_ref()
+                            .is_some_and(|current| previous.as_ref() == Some(current));
+                        *previous = workspace_revision.clone();
+                        repeated
+                    })
+                    .unwrap_or(false);
+                let outcome = if workspace_revision.is_some() {
+                    "computed"
+                } else if should_compute {
+                    "failed"
+                } else {
+                    "fresh_repository_required"
+                };
+                tracing::debug!(
+                    %watched_project,
+                    activity,
+                    outcome,
+                    repeated,
+                    duration_ms = started.elapsed().as_secs_f64() * 1_000.0,
+                    "workspace revision watcher result"
+                );
+            }
             let event = event_from_change(change, workspace_revision);
             let status = callback.call(Ok(event), ThreadsafeFunctionCallMode::NonBlocking);
             if status != Status::Ok {
@@ -386,6 +418,14 @@ fn start_project_watcher(
         app_settings,
         watch_mode,
     )
+}
+
+fn workspace_revision_activity(change: &gitbutler_watcher::Change) -> Option<&'static str> {
+    match change {
+        gitbutler_watcher::Change::GitActivity { .. } => Some("git"),
+        gitbutler_watcher::Change::WorkspaceActivity { .. } => Some("workspace"),
+        _ => None,
+    }
 }
 
 fn should_compute_workspace_revision(change: &gitbutler_watcher::Change) -> bool {
@@ -422,7 +462,7 @@ mod tests {
     use but_ctx::{ProjectHandle, ProjectHandleOrLegacyProjectId};
 
     #[test]
-    fn config_activity_skips_workspace_revision() -> anyhow::Result<()> {
+    fn stale_repository_activity_skips_workspace_revision() -> anyhow::Result<()> {
         let project_id = ProjectHandleOrLegacyProjectId::ProjectHandle(ProjectHandle::from_path(
             "/tmp/config-activity-test",
         )?);
@@ -432,7 +472,7 @@ mod tests {
                 project_id: project_id.clone(),
                 requires_fresh_repository: true,
             }),
-            "config activity must fall back to an unconditional workspace refresh"
+            "activity backed by stale repository state must fall back to an unconditional workspace refresh"
         );
         assert!(
             should_compute_workspace_revision(&gitbutler_watcher::Change::WorkspaceActivity {

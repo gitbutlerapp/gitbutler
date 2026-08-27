@@ -133,6 +133,13 @@ type DeferredHeadInfoEvent = {
 
 const deferredHeadInfoEvents = new WeakMap<QueryClient, Map<string, DeferredHeadInfoEvent>>();
 
+const traceWorkspaceRevision = (outcome: string): void => {
+	// Temporary structured diagnostic for measuring suppression effectiveness in runtime logs.
+	if (import.meta.env.MODE === "test") return;
+	// oxlint-disable-next-line no-console
+	console.debug(`[workspace-revision] ${JSON.stringify({ outcome })}`);
+};
+
 const invalidateHeadInfoUnlessCurrent = (
 	client: QueryClient,
 	projectId: string,
@@ -141,8 +148,18 @@ const invalidateHeadInfoUnlessCurrent = (
 	const cachedRevision = client.getQueryData(
 		headInfoSnapshotQueryOptions(projectId).queryKey,
 	)?.workspaceRevision;
-	if (typeof revision === "string" && revision === cachedRevision) return;
-	void client.invalidateQueries({ queryKey: ["headInfo", projectId] });
+	if (typeof revision === "string" && revision === cachedRevision) {
+		traceWorkspaceRevision("suppressed_match");
+		return;
+	}
+	traceWorkspaceRevision(
+		revision === null
+			? "refresh_null_event"
+			: typeof cachedRevision !== "string"
+				? "refresh_missing_cache_revision"
+				: "refresh_mismatch",
+	);
+	void client.invalidateQueries({ queryKey: [projectId, "headInfo"] });
 };
 
 const deferHeadInfoUntilMutationSettles = (
@@ -158,9 +175,11 @@ const deferHeadInfoUntilMutationSettles = (
 	const current = deferredByProject.get(projectId);
 	if (current) {
 		current.revision = revision;
+		traceWorkspaceRevision("deferred_event_replaced");
 		return;
 	}
 
+	traceWorkspaceRevision("deferred_for_mutation");
 	const deferred: DeferredHeadInfoEvent = { revision, unsubscribe: () => undefined };
 	deferredByProject.set(projectId, deferred);
 	deferred.unsubscribe = client.getMutationCache().subscribe(() => {

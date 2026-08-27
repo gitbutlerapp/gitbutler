@@ -44,7 +44,7 @@ Do not checksum the object database, commit-graph, reflogs, lock files, mtimes, 
 - Branch stack/order metadata.
 - Workspace/virtual-branch metadata used by graph projection.
 - Worktree archived state.
-- The reduced forge association actually projected into `head_info`: pushed/source branch to preferred PR number.
+- The forge association actually projected into `head_info`: pushed/source branch to preferred PR number, open state, and merged-head identity.
 
 Gerrit metadata is intentionally excluded, and both direct and mutation workspace projections ignore it.
 
@@ -82,7 +82,7 @@ This optimization applies only to the expensive `headInfo`/workspace cache tag. 
 
 ## Placement
 
-Production code exposes one shared Rust input snapshot in `but-graph` to graph construction, the Lite `head_info_snapshot` path, mutation response construction, and watcher event construction. None of those consumers independently reimplements the graph input set or encoding. `but-api` extends that snapshot with the reduced forge PR map when producing the revision. JSON/schema generation carries the contract through N-API into the SDK, and the Electron bridge remains a transparent transport.
+Production code exposes one shared Rust input snapshot in `but-graph` to graph construction, the Lite `head_info_snapshot` path, mutation response construction, and watcher event construction. None of those consumers independently reimplements the graph input set or encoding. `but-api` extends that snapshot with the forge association map used by projection when producing the revision. JSON/schema generation carries the contract through N-API into the SDK, and the Electron bridge remains a transparent transport.
 
 ## Performance gate
 
@@ -121,6 +121,19 @@ At the median, reload added 0.440 ms, making reload plus revision **1.22×** the
 
 After centralizing the semantic input snapshot, a 20-sample release-mode sanity run in the same workspace measured revision p50 at 2.169 ms, `head_info` at 109.129 ms, and the full snapshot endpoint at 113.356 ms. The revision remained **50.32× cheaper** than `head_info`; retain the 100-sample results above as the more representative dataset.
 
+### Repository-shape matrix
+
+A 20-sample release run on 2026-08-27 exercised the active workspace plus clean, linked-worktree, and shallow clones. Repository counts come from gix and include all refs/worktrees visible from the opened repository.
+
+| Repository shape               | Inputs                         | Revision p50/p95 | Reload + revision p50/p95 |  `head_info` p50/p95 | Reload ratio |
+| ------------------------------ | ------------------------------ | ---------------: | ------------------------: | -------------------: | -----------: |
+| Active Conductor workspace     | 4,606 refs, 4 linked worktrees | 2.167 / 2.270 ms |          2.518 / 2.629 ms | 110.833 / 117.477 ms |        1.16× |
+| Clean shared clone             | 2,404 refs, 1 worktree         | 0.869 / 0.916 ms |          1.213 / 1.250 ms |     3.179 / 3.605 ms |        1.40× |
+| Linked worktree of clean clone | 2,404 refs, 1 linked worktree  | 0.833 / 0.900 ms |          1.264 / 1.442 ms |     3.391 / 3.706 ms |        1.52× |
+| Depth-50 shallow clone         | 11 refs, 8 shallow boundaries  | 0.620 / 0.679 ms |          0.719 / 0.772 ms |     1.920 / 2.114 ms |        1.16× |
+
+Reload remained sub-millisecond in absolute overhead across these samples, but cost 16–52% relative to revision computation alone. None of the available repositories had cached forge associations, so the populated-forge case is still unmeasured rather than represented by a synthetic claim. The exact forge map remains covered by the checksum regression test.
+
 ## Verification
 
 The focused Lite unit test exercises the decision table: matching revisions preserve `headInfo`, while different or missing revisions retain the old invalidation behavior. It also verifies that matching revisions do not suppress other event-driven query invalidations, and covers both watcher-before-mutation and mutation-before-watcher ordering.
@@ -133,6 +146,10 @@ The E2E test uses the existing remote-branch fixture and real Electron/N-API bri
 4. Assert that the `headInfo` call count did not increase.
 
 The call counter is an Electron-main log emitted only when the existing E2E environment variable is present. It observes the real IPC endpoint without adding a test API or changing runtime behavior in normal builds. Revision mismatch and null fallbacks remain cheaper and more deterministic to cover in the unit test.
+
+A second Electron E2E test creates a workspace branch, packs its ref, and then deletes that packed-only branch externally. It verifies that both `packed-refs` changes cause real `headInfo` IPC calls and that the deleted branch disappears from Lite. Repository-backed file-monitor tests separately cover packed-ref branch deletion and shallow-boundary changes at the classification/handler boundary.
+
+Temporary structured debug diagnostics make the production decision path measurable without a new metrics subsystem. Rust logs revision duration, computation/fallback outcome, activity class, and whether consecutive events produced the same revision. Lite logs matching suppression, null/missing/mismatched refreshes, and mutation deferral/replacement outcomes. Existing endpoint instrumentation and the E2E-only IPC log expose the resulting `headInfo` calls; aggregate these records during dogfooding before narrowing the checksum or adding coalescing.
 
 ## Deliberate first-version limits
 
@@ -148,7 +165,7 @@ The call counter is an Electron-main log emitted only when the existing E2E envi
 
 ### Mutation-response coherence
 
-The graph input inventory and canonical encoding now live together in `but-graph`. Workspace construction captures the inputs before and after traversal and only carries the snapshot through materialization when both reads match. Mutation response construction performs one final comparison against live inputs and returns `workspaceRevision: null` if the source snapshot is missing, changed, or cannot be read. The exact forge PR association map applied during projection is then added to the versioned hash.
+The graph input inventory and canonical encoding now live together in `but-graph`. Workspace construction captures the inputs before and after traversal and only carries the snapshot through materialization when both reads match. Mutation response construction performs one final comparison against live inputs and returns `workspaceRevision: null` if the source snapshot is missing, changed, or cannot be read. The exact forge association map applied during projection is then added to the versioned hash.
 
 Callers that modify branch order, workspace metadata, project metadata, or target refs after materialization perform one final shared workspace refresh after those writes. Other non-preview mutation paths that supply an already-built workspace are rebuilt through the same shared helper before projection. This prevents pairing projection A with revision B while preserving the existing safe fallback when coherence cannot be established.
 
@@ -162,7 +179,7 @@ A focused watcher-before-response regression test reproduced the previous immedi
 
 The watcher captures a long-lived thread-safe repository context. Revision computation rereads refs, project metadata, and app settings, but configured remote names and branch tracking mappings come from the repository's configuration snapshot taken when that context was opened. A focused repository-backed probe confirmed that both `remote_names()` and `branch_remote_tracking_ref_name()` remain stale after editing repository-local config and observe the new values only after `Repository::reload()`.
 
-Repository-local `config` and `config.worktree` changes now emit workspace activity, including changes to the common Git directory when watching a linked worktree. These events deliberately carry a `null` revision: the watcher uses the changed path as an invalidation signal instead of parsing Git configuration or reloading its long-lived repository. Lite therefore performs its existing safe refetch, whose N-API endpoint opens a fresh repository and resolves the complete effective configuration. Keep reload out of the shared revision computation.
+Repository-local `config` and `config.worktree` changes now emit workspace activity, including changes to the common Git directory when watching a linked worktree. Changes to `packed-refs` and the shallow-clone boundary do the same because they can alter graph inputs while their gix snapshots may be stale. These events deliberately carry a `null` revision: the watcher uses the changed path as an invalidation signal instead of parsing Git storage or reloading its long-lived repository. Lite therefore performs its existing safe refetch, whose N-API endpoint opens a fresh repository and resolves the current state. Keep reload out of the shared revision computation.
 
 The first reload benchmark is recorded above. Its 0.440 ms median overhead is small in this workspace, but validate against repositories with large or layered configuration before choosing reload over a narrower fresh-config read. No production reload is warranted from one repository sample.
 
@@ -171,5 +188,5 @@ The same investigation should measure revision p50/p95/p99, failures that fall b
 ## Follow-ups
 
 1. Extend the focused repository-backed checksum coverage whenever graph inputs change.
-2. Add temporary runtime counters before deciding whether duplicate calculations, fallbacks, or mismatches need optimization.
-3. Re-run the benchmark against additional large active workspaces with populated forge associations.
+2. Aggregate the temporary runtime diagnostics during dogfooding; remove them after deciding whether duplicate calculations, fallbacks, or mismatches warrant optimization.
+3. Re-run the benchmark against a real active workspace with populated forge associations when one is available.

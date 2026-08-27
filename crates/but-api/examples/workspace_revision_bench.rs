@@ -10,7 +10,16 @@ fn main() -> anyhow::Result<()> {
         .map(|value| value.parse())
         .transpose()?
         .unwrap_or(20);
-    let mut ctx = but_ctx::Context::from_repo_for_testing(gix::open(repo_path)?)?;
+    let repo = gix::open(repo_path)?;
+    let ref_count = repo.references()?.all()?.count();
+    let remote_count = repo.remote_names().len();
+    let linked_worktree_count = repo.worktrees()?.len();
+    let shallow_boundary_count = repo.shallow_commits()?.map_or(0, |commits| commits.len());
+    let mut ctx = but_ctx::Context::from_repo_for_testing(repo)?;
+    let forge_association_count = {
+        let db = ctx.db.get_cache()?;
+        but_forge::review_associations_by_head(&db)?.len()
+    };
 
     for _ in 0..3 {
         black_box(but_api::workspace_revision::compute(&ctx)?);
@@ -26,6 +35,9 @@ fn main() -> anyhow::Result<()> {
         but_api::legacy::workspace::head_info_snapshot(&ctx)
     })?;
     println!("samples: {samples}");
+    println!(
+        "repository: {ref_count} refs, {remote_count} remotes, {linked_worktree_count} linked worktrees, {shallow_boundary_count} shallow boundaries, {forge_association_count} forge associations"
+    );
     print_stats("WorkspaceRevision", revision);
     print_stats("reload + revision", reload_revision);
     print_stats("head_info", head_info);

@@ -136,7 +136,7 @@ export declare function apply(projectId: string, existingBranch: string): Promis
  * `dry_run` is enabled, the returned workspace previews the integration
  * result and no oplog entry is persisted.
  *
- * {@link ../../../../../crates/but-api/src/branch.rs:1780}
+ * {@link ../../../../../crates/but-api/src/branch.rs:1805}
  */
 export declare function applyBranchIntegration(projectId: string, branch: string, integration: InteractiveIntegration, dryRun: boolean): Promise<IntegrateBranchResult>
 
@@ -175,7 +175,7 @@ export declare function branchCannedName(projectId: string): Promise<string>
  * symbolically at `branch`. The branch must be an existing full local branch
  * name under `refs/heads/`.
  *
- * {@link ../../../../../crates/but-api/src/branch.rs:1515}
+ * {@link ../../../../../crates/but-api/src/branch.rs:1534}
  */
 export declare function branchCheckout(projectId: string, branch: FullNameBytes): Promise<BranchCheckoutResult>
 
@@ -187,7 +187,7 @@ export declare function branchCheckout(projectId: string, branch: FullNameBytes)
  * before creating `refs/heads/<name>`. If omitted, a unique canned branch name
  * is generated. The resulting branch must not already exist.
  *
- * {@link ../../../../../crates/but-api/src/branch.rs:1531}
+ * {@link ../../../../../crates/but-api/src/branch.rs:1550}
  */
 export declare function branchCheckoutNew(projectId: string, name: string | null): Promise<BranchCheckoutResult>
 
@@ -205,7 +205,7 @@ export declare function branchCheckoutNew(projectId: string, name: string | null
 export declare function branchCreate(projectId: string, newRef: MaybeLossyFullNameRef, placement: BranchCreatePlacement): Promise<BranchCreateResult>
 
 /**
- * {@link ../../../../../crates/but-api/src/legacy/workspace.rs:155}
+ * {@link ../../../../../crates/but-api/src/legacy/workspace.rs:182}
  */
 export declare function branchDetails(projectId: string, branchName: string, remote: string | null): Promise<BranchDetails>
 
@@ -216,7 +216,7 @@ export declare function branchDetails(projectId: string, branchName: string, rem
  * diff is computed against the current workspace state. For lower-level
  * implementation details, see [`but_workspace::ui::diff::changes_in_branch()`].
  *
- * {@link ../../../../../crates/but-api/src/branch.rs:1677}
+ * {@link ../../../../../crates/but-api/src/branch.rs:1702}
  */
 export declare function branchDiff(projectId: string, branch: string): Promise<TreeChanges>
 
@@ -234,7 +234,7 @@ export declare function branchDiff(projectId: string, branch: string): Promise<T
  * target. The remote push is not undoable; see [`BranchLandResult::reconcile_skipped`] and the
  * workspace state for what to report.
  *
- * {@link ../../../../../crates/but-api/src/land/mod.rs:172}
+ * {@link ../../../../../crates/but-api/src/land/mod.rs:173}
  */
 export declare function branchLand(projectId: string, branch: string, noFf: boolean, wholeStack: boolean): Promise<BranchLandResult>
 
@@ -249,7 +249,7 @@ export declare function branchLand(projectId: string, branch: string, noFf: bool
  * workspace-related ones. Ahead-counts are relative to the
  * project's configured target branch, which clients know from the project APIs.
  *
- * {@link ../../../../../crates/but-api/src/branch.rs:1694}
+ * {@link ../../../../../crates/but-api/src/branch.rs:1719}
  */
 export declare function branchList(projectId: string): Promise<Array<ListedStack>>
 
@@ -266,7 +266,7 @@ export declare function branchList(projectId: string): Promise<Array<ListedStack
  * lower-level implementation details, see
  * [`but_workspace::branch::remove_reference()`].
  *
- * {@link ../../../../../crates/but-api/src/branch.rs:1056}
+ * {@link ../../../../../crates/but-api/src/branch.rs:1062}
  */
 export declare function branchRemove(projectId: string, refName: FullNameBytes): Promise<BranchRemoveResult>
 
@@ -282,7 +282,7 @@ export declare function branchRemove(projectId: string, refName: FullNameBytes):
  * It requires no stack id and works in both managed and ad-hoc/single-branch
  * workspaces.
  *
- * {@link ../../../../../crates/but-api/src/branch.rs:1218}
+ * {@link ../../../../../crates/but-api/src/branch.rs:1230}
  */
 export declare function branchRename(projectId: string, refName: FullNameBytes, newName: string): Promise<BranchRenameResult>
 
@@ -563,7 +563,7 @@ export declare function commitUncommit(projectId: string, subjectCommitIds: Arra
  * changes and no oplog entry is persisted. See
  * [`commit_uncommit_changes_with_perm()`] for details.
  *
- * {@link ../../../../../crates/but-api/src/commit/uncommit.rs:368}
+ * {@link ../../../../../crates/but-api/src/commit/uncommit.rs:370}
  */
 export declare function commitUncommitChanges(projectId: string, commitId: string, changes: Array<DiffSpec>, assignTo: string | null, dryRun: boolean): Promise<MoveChangesResult>
 
@@ -571,7 +571,7 @@ export declare function commitUncommitChanges(projectId: string, commitId: strin
  * Uncommit specific changes from multiple commits and record an oplog
  * snapshot on success.
  *
- * {@link ../../../../../crates/but-api/src/commit/uncommit.rs:541}
+ * {@link ../../../../../crates/but-api/src/commit/uncommit.rs:544}
  */
 export declare function commitUncommitChangesFromCommits(projectId: string, sources: Array<UncommitChangesSource>, assignTo: string | null, dryRun: boolean): Promise<UncommitChangesFromCommitsResult>
 
@@ -619,7 +619,7 @@ export declare function deleteUser(): Promise<void>
  *
  * Returns the `worktree_changes` that couldn't be applied,
  *
- * {@link ../../../../../crates/but-api/src/legacy/workspace.rs:222}
+ * {@link ../../../../../crates/but-api/src/legacy/workspace.rs:249}
  */
 export declare function discardWorktreeChanges(projectId: string, worktreeChanges: Array<DiffSpec>): Promise<Array<DiffSpec>>
 
@@ -811,7 +811,7 @@ export declare function getGlUser(account: GitlabAccountIdentifier): Promise<Git
 /**
  * Get the initial upstream integration script for `branch`.
  *
- * {@link ../../../../../crates/but-api/src/branch.rs:1756}
+ * {@link ../../../../../crates/but-api/src/branch.rs:1781}
  */
 export declare function getInitialBranchIntegration(projectId: string, branch: string, strategy: BranchIntegrationStrategy | null): Promise<InitialBranchIntegration>
 
@@ -906,11 +906,15 @@ export declare function gitTestFetch(projectId: string, remoteName: string, acti
 export declare function gitTestPush(projectId: string, remoteName: string, branchName: string): Promise<void>
 
 /**
- * {@link ../../../../../crates/but-api/src/legacy/workspace.rs:25}
+ * {@link ../../../../../crates/but-api/src/legacy/workspace.rs:34}
  */
 export declare function headInfo(projectId: string): Promise<RefInfo>
 
-/** Build [`head_info`] together with an opaque checksum of its inputs for Lite cache coalescing. */
+/**
+ * Build [`head_info`] together with an opaque checksum of its inputs for Lite cache coalescing.
+ *
+ * {@link ../../../../../crates/but-api/src/legacy/workspace.rs:79}
+ */
 export declare function headInfoSnapshot(projectId: string): Promise<HeadInfoResponse>
 
 /**
@@ -1121,7 +1125,7 @@ export declare function mergeReview(projectId: string, reviewId: number, mergeMe
  * `dry_run` is enabled, the returned workspace previews the move and no oplog
  * entry is persisted.
  *
- * {@link ../../../../../crates/but-api/src/branch.rs:1837}
+ * {@link ../../../../../crates/but-api/src/branch.rs:1862}
  */
 export declare function moveBranch(projectId: string, subjectBranch: string, targetBranch: string, dryRun: boolean): Promise<MoveBranchResult>
 
@@ -1465,7 +1469,7 @@ export declare function storeGitlabPat(accessToken: string): Promise<GitlabAuthS
  * `dry_run` is enabled, the returned workspace previews the tear-off and no
  * oplog entry is persisted.
  *
- * {@link ../../../../../crates/but-api/src/branch.rs:1924}
+ * {@link ../../../../../crates/but-api/src/branch.rs:1949}
  */
 export declare function tearOffBranch(projectId: string, subjectBranch: string, dryRun: boolean): Promise<MoveBranchResult>
 
@@ -1570,14 +1574,14 @@ export declare function withdrawReviewRequest(projectId: string, reviewId: numbe
 /**
  * Push a branch and any parent references that lie within the current workspace projection.
  *
- * {@link ../../../../../crates/but-api/src/legacy/workspace.rs:367}
+ * {@link ../../../../../crates/but-api/src/legacy/workspace.rs:394}
  */
 export declare function workspaceBranchAndAncestorsPush(projectId: string, withForce: boolean, skipForcePushProtection: boolean, branch: string, runHooks: boolean, pushOpts: Array<PushFlag>): Promise<PushResult>
 
 /**
  * Switch to the workspace reference
  *
- * {@link ../../../../../crates/but-api/src/branch.rs:1577}
+ * {@link ../../../../../crates/but-api/src/branch.rs:1596}
  */
 export declare function workspaceCheckout(projectId: string): Promise<BranchCheckoutResult>
 
