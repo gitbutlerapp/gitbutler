@@ -1078,6 +1078,16 @@ fn test_real_git_checkout_away_removes_legacy_hooks_from_partial_migration() -> 
 
     git_ok(&dir, &["checkout", &default_branch]);
 
+    for section in ["gitbutler-pre-commit", "gitbutler-post-checkout"] {
+        assert_eq!(
+            local_config(&dir, &format!("hook.{section}.command")),
+            None,
+            "config-based {section} hook should be unregistered"
+        );
+    }
+    assert!(!config_scripts_dir(&repo).join("pre-commit").exists());
+    assert!(!config_scripts_dir(&repo).join("post-checkout").exists());
+
     assert!(
         !legacy_hooks_dir.join("pre-commit").exists(),
         "legacy pre-commit hook stranded by a partial migration should be removed outright"
