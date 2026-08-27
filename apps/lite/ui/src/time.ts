@@ -90,21 +90,28 @@ const stdAbsoluteTimeFormatter = new Intl.DateTimeFormat(undefined, {
 export const formatAbsoluteTime = (timestamp: number): string =>
 	stdAbsoluteTimeFormatter.format(timestamp);
 
+/** @internal */
+export const formatAgeBadgeWith =
+	(df: Intl.DurationFormat) =>
+	(ageMs: number): string => {
+		const minutes = Math.floor(Math.max(0, ageMs) / 60_000);
+		if (minutes < 1) return "now";
+		if (minutes < 60) return df.format({ minutes });
+
+		const hours = Math.floor(minutes / 60);
+		if (hours < 24) return df.format({ hours });
+
+		const days = Math.floor(hours / 24);
+		return days < 7 ? df.format({ days }) : df.format({ weeks: Math.floor(days / 7) });
+	};
+
+const ageBadgeFormatter = new Intl.DurationFormat(undefined, { style: "narrow" });
+
 /**
  * Abbreviated age for tight row badges: "now", "3m", "2h", "5d", "3w". Every age
  * gets a label; how far back it is reads from {@link ageBadgeOpacity} instead.
  */
-export const formatAgeBadge = (ageMs: number): string => {
-	const minutes = Math.floor(Math.max(0, ageMs) / 60_000);
-	if (minutes < 1) return "now";
-	if (minutes < 60) return `${minutes}m`;
-
-	const hours = Math.floor(minutes / 60);
-	if (hours < 24) return `${hours}h`;
-
-	const days = Math.floor(hours / 24);
-	return days < 7 ? `${days}d` : `${Math.floor(days / 7)}w`;
-};
+export const formatAgeBadge: (ageMs: number) => string = formatAgeBadgeWith(ageBadgeFormatter);
 
 /** How faint an old badge is allowed to get before it stops being readable. */
 const AGE_BADGE_MIN_OPACITY = 0.35;
