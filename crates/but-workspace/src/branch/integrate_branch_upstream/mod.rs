@@ -19,6 +19,7 @@ use crate::{
     divergence::{
         BranchMergeBaseCommits, classify_selectors_against_target_ref, commit_ids_from_selectors,
         find_local_commit_until_merge_base, get_commits_until_merge_base,
+        traverse_pick_ancestor_ids,
     },
 };
 use crate::{graph_manipulation::determine_parent_selector, resolve_tracking_branch_ref_name};
@@ -296,6 +297,28 @@ pub fn get_initial_integration_steps_for_branch<M: RefMetadata>(
         .transpose()?
         .unwrap_or_default();
 
+    let first_local_not_integrated =
+        editable_local_commits(&local_commits, &target_relations).next();
+    let retained_base_selector = match first_local_not_integrated {
+        Some(commit_id) => local_commits
+            .iter()
+            .position(|candidate| *candidate == commit_id)
+            .and_then(|index| local_commit_selectors.get(index + 1).copied())
+            .unwrap_or(merge_base_selector),
+        None => local_commit_selectors
+            .first()
+            .copied()
+            .unwrap_or(merge_base_selector),
+    };
+    let retained_ancestor_ids = traverse_pick_ancestor_ids(&editor, retained_base_selector)?;
+    // Replaying an upstream commit already present below the rebuilt segment would make reconnecting
+    // a retained local merge cyclic. Commits reachable only through the segment being replaced must
+    // remain in the plan, notably when PickRemote discards that local merge.
+    let upstream_commits = upstream_commits
+        .into_iter()
+        .filter(|id| !retained_ancestor_ids.contains(id))
+        .collect::<Vec<_>>();
+
     // Step 4: Build the initial set of integration steps.
     let change_ids = if matches!(strategy, BranchIntegrationStrategy::SmartSquash) {
         explicit_change_ids(
@@ -336,8 +359,7 @@ pub fn get_initial_integration_steps_for_branch<M: RefMetadata>(
     let integration = InteractiveIntegration {
         steps: initial_steps,
         merge_base,
-        first_local_not_integrated: editable_local_commits(&local_commits, &target_relations)
-            .next(),
+        first_local_not_integrated,
     };
     let mut divergence = IntegrationDivergenceDisplay {
         branch_ref_name: ref_name.to_owned(),

@@ -3124,6 +3124,162 @@ fn apply_initial_steps_example_2_also_applies_integrated_local_commits() -> Resu
 }
 
 #[test]
+fn apply_initial_steps_does_not_replay_an_upstream_commit_already_merged_locally() -> Result<()> {
+    let (_tmp, mut repo) =
+        build_branch_integration_example_repo(ExampleScenario::LocalMergeContainsUpstreamCommit {
+            target_contains_merge: true,
+        })?;
+    configure_tracking_for_branch_a(&mut repo)?;
+    let local_merge = repo.rev_parse_single("A~1")?.detach();
+    let local_tip = repo.rev_parse_single("A")?.detach();
+    let upstream_parent = repo.rev_parse_single("origin/A~1")?.detach();
+    let upstream_tip = repo.rev_parse_single("origin/A")?.detach();
+
+    let initial = initial_integration_for_branch(
+        r("refs/heads/A"),
+        &repo,
+        Some(r("refs/remotes/origin/main")),
+    )?;
+    assert_eq!(
+        pick_step_ids(&initial.integration.steps),
+        vec![upstream_tip, local_tip],
+        "the plan should omit the upstream commit already reachable through the local merge",
+    );
+    let (mut workspace, mut meta) = integration_workspace_for_branch(
+        r("refs/heads/A"),
+        &repo,
+        Some(r("refs/remotes/origin/main")),
+    )?;
+    let mut db = but_testsupport::in_memory_db();
+    let rebase = integrate_branch_with_steps(
+        r("refs/heads/A"),
+        initial.integration,
+        &mut workspace,
+        &mut meta,
+        &repo,
+        &mut db,
+    )?;
+    rebase.materialize(Default::default())?;
+
+    assert_eq!(
+        repo.rev_parse_single("A~2")?.detach(),
+        local_merge,
+        "the existing local merge should remain the base of the rebuilt commits",
+    );
+    let local_merge_parents = repo
+        .find_commit(local_merge)?
+        .parent_ids()
+        .map(|id| id.detach())
+        .collect::<Vec<_>>();
+    assert_eq!(
+        local_merge_parents.get(1),
+        Some(&upstream_parent),
+        "the local merge should retain the upstream commit as its second parent",
+    );
+    assert_eq!(
+        repo.find_commit(repo.rev_parse_single("A")?.detach())?
+            .message_raw()?,
+        repo.find_commit(local_tip)?.message_raw()?,
+        "the local tip should remain the child-most rebuilt commit",
+    );
+    assert_eq!(
+        repo.find_commit(repo.rev_parse_single("A~1")?.detach())?
+            .message_raw()?,
+        repo.find_commit(upstream_tip)?.message_raw()?,
+        "only the missing upstream tip should be inserted above the local merge",
+    );
+
+    Ok(())
+}
+
+#[test]
+fn pick_remote_replays_upstream_commit_only_reachable_through_discarded_local_merge() -> Result<()>
+{
+    let (_tmp, mut repo) =
+        build_branch_integration_example_repo(ExampleScenario::LocalMergeContainsUpstreamCommit {
+            target_contains_merge: false,
+        })?;
+    configure_tracking_for_branch_a(&mut repo)?;
+    let upstream_parent = repo.rev_parse_single("origin/A~1")?.detach();
+    let upstream_tip = repo.rev_parse_single("origin/A")?.detach();
+
+    let initial = initial_integration_for_branch_with_strategy(
+        r("refs/heads/A"),
+        &repo,
+        Some(r("refs/remotes/origin/main")),
+        BranchIntegrationStrategy::PickRemote,
+    )?;
+    assert_eq!(
+        pick_step_ids(&initial.integration.steps),
+        vec![upstream_parent, upstream_tip],
+        "pick-remote should keep upstream commits whose containing local merge is discarded",
+    );
+
+    let (mut workspace, mut meta) = integration_workspace_for_branch(
+        r("refs/heads/A"),
+        &repo,
+        Some(r("refs/remotes/origin/main")),
+    )?;
+    let mut db = but_testsupport::in_memory_db();
+    integrate_branch_with_steps(
+        r("refs/heads/A"),
+        initial.integration,
+        &mut workspace,
+        &mut meta,
+        &repo,
+        &mut db,
+    )?
+    .materialize(Default::default())?;
+    assert_eq!(
+        repo.find_commit(repo.rev_parse_single("A~1")?.detach())?
+            .message_raw()?,
+        repo.find_commit(upstream_parent)?.message_raw()?,
+        "the rebuilt branch should retain the upstream parent's changes",
+    );
+
+    Ok(())
+}
+
+#[test]
+fn pick_remote_does_not_replay_upstream_commit_reachable_below_rebuild_boundary() -> Result<()> {
+    let (_tmp, mut repo) =
+        build_branch_integration_example_repo(ExampleScenario::LocalMergeContainsUpstreamCommit {
+            target_contains_merge: true,
+        })?;
+    configure_tracking_for_branch_a(&mut repo)?;
+    let upstream_tip = repo.rev_parse_single("origin/A")?.detach();
+
+    let initial = initial_integration_for_branch_with_strategy(
+        r("refs/heads/A"),
+        &repo,
+        Some(r("refs/remotes/origin/main")),
+        BranchIntegrationStrategy::PickRemote,
+    )?;
+    assert_eq!(
+        pick_step_ids(&initial.integration.steps),
+        vec![upstream_tip],
+        "pick-remote should omit upstream commits retained below the rebuild boundary",
+    );
+    let (mut workspace, mut meta) = integration_workspace_for_branch(
+        r("refs/heads/A"),
+        &repo,
+        Some(r("refs/remotes/origin/main")),
+    )?;
+    let mut db = but_testsupport::in_memory_db();
+    integrate_branch_with_steps(
+        r("refs/heads/A"),
+        initial.integration,
+        &mut workspace,
+        &mut meta,
+        &repo,
+        &mut db,
+    )?
+    .materialize(Default::default())?;
+
+    Ok(())
+}
+
+#[test]
 fn initial_steps_example_3_keeps_integrated_upstream_commits_editable() -> Result<()> {
     let (_tmp, mut repo) = build_branch_integration_example_repo(
         ExampleScenario::UpstreamCommitHistoricallyIntegratedOnTarget,
@@ -3221,6 +3377,7 @@ enum ExampleScenario {
     ExtraTargetHistoryExcludedFromDivergence,
     LocalCommitHistoricallyIntegratedOnTarget,
     UpstreamCommitHistoricallyIntegratedOnTarget,
+    LocalMergeContainsUpstreamCommit { target_contains_merge: bool },
 }
 
 fn build_branch_integration_example_repo(
@@ -3277,6 +3434,29 @@ fn build_branch_integration_example_repo(
 
             run_git(&repo_dir, &["checkout", "-b", "upstream-a", &x])?;
             append_and_commit(&repo_dir, "story.txt", "D\n", "D")?;
+        }
+        ExampleScenario::LocalMergeContainsUpstreamCommit {
+            target_contains_merge,
+        } => {
+            run_git(&repo_dir, &["checkout", "-b", "A", &a])?;
+            append_and_commit(&repo_dir, "local.txt", "A1\n", "A1")?;
+
+            run_git(&repo_dir, &["checkout", "-b", "upstream-a", &a])?;
+            append_and_commit(&repo_dir, "upstream.txt", "U1\n", "U1")?;
+            let u1 = git_rev_parse(&repo_dir, "HEAD")?;
+            append_and_commit(&repo_dir, "upstream.txt", "U2\n", "U2")?;
+
+            run_git(&repo_dir, &["checkout", "A"])?;
+            run_git(&repo_dir, &["merge", "--no-ff", &u1, "-m", "L"])?;
+            run_git(
+                &repo_dir,
+                &[
+                    "branch",
+                    "target-main",
+                    if target_contains_merge { "HEAD" } else { &a },
+                ],
+            )?;
+            append_and_commit(&repo_dir, "local.txt", "C\n", "C")?;
         }
     }
 
