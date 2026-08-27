@@ -137,6 +137,10 @@ fn resolve_above_below_target(
     id_map: &IdMap,
     target: CliIdArg,
 ) -> CliResult<NewStackedBranchTarget> {
+    if let Some(commit) = id_map.anonymous_segment_top_commit(&target.0, repo)? {
+        return Ok(NewStackedBranchTarget::Commit(commit));
+    }
+
     let resolved = target
         .resolve_in_workspace(
             repo,

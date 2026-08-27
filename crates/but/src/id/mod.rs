@@ -1644,6 +1644,37 @@ impl IdMap {
         self.stack_ids.get(&stack_id)
     }
 
+    /// If `element` names exactly one anonymous stack segment (a segment without a branch
+    /// reference, like `g0`), returns the top-most commit owned by that segment.
+    ///
+    /// Anonymous segments have no name to resolve into a ref, so callers that would otherwise
+    /// treat the segment as a branch can fall back to its top commit instead.
+    pub fn anonymous_segment_top_commit(
+        &self,
+        element: &str,
+        repo: &gix::Repository,
+    ) -> anyhow::Result<Option<CommitId>> {
+        let ids = self.parse_using_repo(element, repo)?;
+        let [CliId::Branch(branch)] = ids.as_slice() else {
+            return Ok(None);
+        };
+        if !branch.name.is_empty() {
+            return Ok(None);
+        }
+
+        Ok(self
+            .indexed_stacks
+            .borrow_owner()
+            .iter()
+            .flat_map(|stack| &stack.segments)
+            .find(|segment| segment.short_id == branch.id)
+            .and_then(|segment| segment.workspace_commits.first())
+            .map(|commit| CommitId {
+                commit_id: commit.commit_id(),
+                change_id: commit.change_id.as_ref().map(|id| id.change_id.clone()),
+            }))
+    }
+
     /// Every uncommitted file of `source`, as whole-file IDs.
     ///
     /// This is what a container selector expands to, so `but commit <worktree>`
