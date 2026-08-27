@@ -1,4 +1,9 @@
-import type { CodeViewItem, SelectionSide } from "@pierre/diffs";
+import type {
+	CodeViewDiffItem,
+	CodeViewItem,
+	FileDiffMetadata,
+	SelectionSide,
+} from "@pierre/diffs";
 
 export type DiffSearchMatch = {
 	itemId: string;
@@ -10,6 +15,11 @@ export type DiffSearchMatch = {
 	 * can reach both cells. Navigation only ever uses `lineNumber`.
 	 */
 	deletionsColumnLine?: number;
+};
+
+export type DiffSearchSource = {
+	fileDiff: FileDiffMetadata;
+	isLineRenderable: (lineNumber: number) => boolean;
 };
 
 /**
@@ -24,6 +34,7 @@ export type DiffSearchMatch = {
 export const diffSearchMatches = (
 	items: Array<CodeViewItem<unknown>>,
 	query: string,
+	getSource?: (item: CodeViewDiffItem<unknown>) => DiffSearchSource | undefined,
 ): Array<DiffSearchMatch> => {
 	if (query === "") return [];
 
@@ -34,11 +45,34 @@ export const diffSearchMatches = (
 		// Whole-file items (image diffs) have no lines to search.
 		if (item.type !== "diff") continue;
 
-		const { additionLines, deletionLines, hunks } = item.fileDiff;
+		const source = getSource?.(item);
+		const { additionLines, deletionLines, hunks } = source?.fileDiff ?? item.fileDiff;
 		const lineHasMatch = (text: string | undefined): boolean =>
 			text !== undefined && text.toLowerCase().includes(needle);
+		const searchExpandedContext = (
+			additionStart: number,
+			additionEnd: number,
+			deletionStart: number,
+		): void => {
+			if (!source) return;
+
+			for (let lineNumber = additionStart; lineNumber < additionEnd; lineNumber++) {
+				if (source.isLineRenderable(lineNumber) && lineHasMatch(additionLines[lineNumber - 1])) {
+					matches.push({
+						itemId: item.id,
+						side: "additions",
+						lineNumber,
+						deletionsColumnLine: deletionStart + lineNumber - additionStart,
+					});
+				}
+			}
+		};
+		let previousAdditionEnd = 1;
+		let previousDeletionEnd = 1;
 
 		for (const hunk of hunks) {
+			searchExpandedContext(previousAdditionEnd, hunk.additionStart, previousDeletionEnd);
+
 			// The content blocks carry indexes into the line arrays but not line
 			// numbers, which accumulate from the hunk header as the blocks pass.
 			let additionLine = hunk.additionStart;
@@ -72,7 +106,12 @@ export const diffSearchMatches = (
 					additionLine += block.additions;
 				}
 			}
+
+			previousAdditionEnd = hunk.additionStart + hunk.additionCount;
+			previousDeletionEnd = hunk.deletionStart + hunk.deletionCount;
 		}
+
+		searchExpandedContext(previousAdditionEnd, additionLines.length + 1, previousDeletionEnd);
 	}
 
 	return matches;

@@ -1315,8 +1315,9 @@ const DiffContents: FC<{
 	const {
 		onPostRender: handleMarkedDiffPostRender,
 		setSearchMatches,
+		getSearchSource,
 		searchMarks,
-	} = useDiffSearchMarks(handleDiffPostRender);
+	} = useDiffSearchMarks(handleDiffPostRender, items);
 
 	const handOffCollapsedSelection = (itemId: string): void => {
 		// Folding hides the selected hunk's lines; hand the selection to the
@@ -1624,6 +1625,7 @@ const DiffContents: FC<{
 
 			<DiffSearchBar
 				items={items}
+				getSearchSource={getSearchSource}
 				focusScopeRef={focusScopeRef}
 				onNavigate={navigateToSearchMatch}
 				onMatchesChange={setSearchMatches}

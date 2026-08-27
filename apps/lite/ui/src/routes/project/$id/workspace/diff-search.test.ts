@@ -1,5 +1,6 @@
 import { diffSearchMatches } from "./diff-search.ts";
-import { processFile, type CodeViewDiffItem } from "@pierre/diffs";
+import { diffLineTargetFromElement } from "./diff-line-target.ts";
+import { hydratePartialDiff, processFile, type CodeViewDiffItem } from "@pierre/diffs";
 import { describe, expect, it } from "vitest";
 
 const diffItem = (id: string, patch: string): CodeViewDiffItem<unknown> => {
@@ -104,5 +105,55 @@ describe("diffSearchMatches", () => {
 			"file.ts",
 			"file.ts",
 		]);
+	});
+
+	it("finds hydrated context only when it has been expanded", () => {
+		const partial = diffItem(
+			"hydrated.ts",
+			[
+				"diff --git a/hydrated.ts b/hydrated.ts",
+				"--- a/hydrated.ts",
+				"+++ b/hydrated.ts",
+				"@@ -3,3 +3,3 @@",
+				" three",
+				"-old",
+				"+new",
+				" five",
+				"",
+			].join("\n"),
+		);
+		const hydrated = hydratePartialDiff("clone", partial.fileDiff, {
+			oldFile: { name: "hydrated.ts", contents: "one\ntwo\nthree\nold\nfive\nsix\n" },
+			newFile: { name: "hydrated.ts", contents: "one\ntwo\nthree\nnew\nfive\nsix\n" },
+		});
+		const getSource = () => ({
+			fileDiff: hydrated,
+			isLineRenderable: (lineNumber: number) => lineNumber === 2,
+		});
+
+		expect(diffSearchMatches([partial], "two", getSource)).toEqual([
+			{
+				itemId: "hydrated.ts",
+				side: "additions",
+				lineNumber: 2,
+				deletionsColumnLine: 2,
+			},
+		]);
+		expect(diffSearchMatches([partial], "six", getSource)).toEqual([]);
+	});
+
+	it("recognizes expanded context rows when marking hydrated matches", () => {
+		const element = {
+			getAttribute: (name: string) =>
+				name === "data-line-type" ? "context-expanded" : name === "data-line" ? "2" : null,
+			closest: () => null,
+		} as unknown as HTMLElement;
+
+		expect(diffLineTargetFromElement({ element, itemId: "hydrated.ts" })).toEqual({
+			itemId: "hydrated.ts",
+			lineNumber: 2,
+			side: "additions",
+			lineType: "context",
+		});
 	});
 });

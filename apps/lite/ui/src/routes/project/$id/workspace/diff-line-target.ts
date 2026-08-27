@@ -21,6 +21,7 @@ const diffLineFromElement = (element: HTMLElement): DiffLine | null => {
 		case "change-deletion":
 			return { side: "deletions", lineType: "change" };
 		case "context":
+		case "context-expanded":
 			// Context has no side of its own, so it is numbered by the column holding it: the deletions
 			// one in a split diff, the additions one otherwise.
 			return {
