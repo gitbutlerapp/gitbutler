@@ -17,7 +17,6 @@ use but_core::{
 use but_path::AppChannel;
 use but_settings::AppSettings;
 use but_utils::OnDemandCache;
-use gix::config::tree::Key as _;
 use tracing::instrument;
 
 /// Legacy types that shouldn't be used.
@@ -1058,17 +1057,10 @@ fn new_ondemand_repo(gitdir: PathBuf, repo_open_mode: RepoOpenMode) -> OnDemand<
 }
 
 fn open_repo(gitdir: &Path, repo_open_mode: RepoOpenMode) -> anyhow::Result<gix::Repository> {
-    let options = match repo_open_mode {
-        RepoOpenMode::Standard => gix::open::Options::default(),
-        RepoOpenMode::Isolated => gix::open::Options::isolated(),
+    match repo_open_mode {
+        RepoOpenMode::Standard => Ok(gix::open(gitdir)?),
+        RepoOpenMode::Isolated => Ok(gix::open_opts(gitdir, gix::open::Options::isolated())?),
     }
-    .config_overrides([
-        gix::config::tree::gitoxide::Committer::NAME_FALLBACK
-            .validated_assignment("GitButler".into())?,
-        gix::config::tree::gitoxide::Committer::EMAIL_FALLBACK
-            .validated_assignment("gitbutler@gitbutler.com".into())?,
-    ]);
-    Ok(gix::open_opts(gitdir, options)?)
 }
 
 #[instrument(level = "trace")]
