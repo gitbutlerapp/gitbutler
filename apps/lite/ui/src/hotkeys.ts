@@ -369,6 +369,14 @@ export const diffHotkeys = {
 		hotkey: "Space",
 		meta: { group: "Diff", name: "Check selected lines" },
 	},
+	previousFile: {
+		hotkey: "Alt+Shift+ArrowUp",
+		meta: { group: "Diff", name: "Previous file" },
+	},
+	nextFile: {
+		hotkey: "Alt+Shift+ArrowDown",
+		meta: { group: "Diff", name: "Next file" },
+	},
 	toggleFoldFile: {
 		hotkey: "Z",
 		meta: { group: "Diff", name: "Fold/unfold file" },

@@ -601,16 +601,58 @@ const DiffContents: FC<{
 		if (next) selectDiff(next);
 	};
 
+	// A file's first hunk stands in for the file itself — a folded file keeps
+	// only that one in the visible space, so it is always a reachable stop.
+	const isFileStartHunk = (hunk: HunkAddress): boolean => {
+		const key = hunkAddressIdentityKey(hunk);
+		return (
+			hunkAddressIdentityKey(assert(assert(hunkByKey.get(key)?.file.hunks[0])).address) === key
+		);
+	};
+
+	// `selectDiff` only nudges the hunk into view; landing on a file should put
+	// its header at the top, as picking the file in the file list does.
+	const selectFileStart = (hunk: HunkAddress): void => {
+		selectDiff(hunk);
+
+		const itemId = hunkByKey.get(hunkAddressIdentityKey(hunk))?.file.item.id;
+		if (itemId === undefined) return;
+		viewerRef.current?.scrollTo({ type: "item", id: itemId, align: "start" });
+	};
+
+	const moveSelectedFile = (offset: -1 | 1): void => {
+		const selection = selectedLinesHunk ?? diffSelection;
+		if (selection === null) {
+			const edge = visibleAddressSpace.items.at(offset === 1 ? 0 : -1);
+			if (edge) selectFileStart(edge);
+			return;
+		}
+
+		const selectionIndex = visibleAddressSpace.indexByKey.get(hunkAddressIdentityKey(selection));
+		if (selectionIndex === undefined) return;
+
+		// Going up from inside a file lands on that file's own start first, the
+		// way section navigation does, so the key always feels like "one file".
+		const startsOnFileStart = isFileStartHunk(selection);
+		let index = selectionIndex + (offset === -1 && !startsOnFileStart ? 0 : offset);
+
+		while (index >= 0 && index < visibleAddressSpace.items.length) {
+			const hunk = visibleAddressSpace.items[index];
+			if (hunk !== undefined && isFileStartHunk(hunk)) {
+				selectFileStart(hunk);
+				return;
+			}
+			index += offset;
+		}
+	};
+
 	useAddressSpaceHotkeys({
 		projectId,
 		addressSpace: visibleAddressSpace,
 		group: "Diff",
 		select: selectDiff,
 		selection: selectedLinesHunk ?? diffSelection,
-		selectSectionPredicate: (hunk) => {
-			const k = hunkAddressIdentityKey(hunk);
-			return hunkAddressIdentityKey(assert(assert(hunkByKey.get(k)?.file.hunks[0])).address) === k;
-		},
+		selectSectionPredicate: isFileStartHunk,
 		ref: focusScopeRef,
 		getKey: hunkAddressIdentityKey,
 		operationSourcesForItem: (hunk) => {
@@ -788,6 +830,40 @@ const DiffContents: FC<{
 		{
 			hotkey: "Alt+J",
 			callback: () => moveSelectedHunk(1),
+			options: {
+				conflictBehavior: "allow",
+				target: focusScopeRef,
+			},
+		},
+		{
+			hotkey: diffHotkeys.previousFile.hotkey,
+			callback: () => moveSelectedFile(-1),
+			options: {
+				conflictBehavior: "allow",
+				target: focusScopeRef,
+				meta: diffHotkeys.previousFile.meta,
+			},
+		},
+		{
+			hotkey: "Alt+Shift+K",
+			callback: () => moveSelectedFile(-1),
+			options: {
+				conflictBehavior: "allow",
+				target: focusScopeRef,
+			},
+		},
+		{
+			hotkey: diffHotkeys.nextFile.hotkey,
+			callback: () => moveSelectedFile(1),
+			options: {
+				conflictBehavior: "allow",
+				target: focusScopeRef,
+				meta: diffHotkeys.nextFile.meta,
+			},
+		},
+		{
+			hotkey: "Alt+Shift+J",
+			callback: () => moveSelectedFile(1),
 			options: {
 				conflictBehavior: "allow",
 				target: focusScopeRef,
