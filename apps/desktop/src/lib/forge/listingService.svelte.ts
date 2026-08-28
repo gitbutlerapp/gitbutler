@@ -1,3 +1,4 @@
+import { parseError } from "$lib/error/parser";
 import {
 	mapForgeReviewToPullRequest,
 	type ForgeReview,
@@ -69,7 +70,18 @@ export class ListingService {
 	async refresh(projectId: string): Promise<void> {
 		// Force a live fetch so the DB cache is refreshed, then invalidate the
 		// cached listing so its subscribers re-read the just-updated data.
-		await this.backendApi.endpoints.listPrsLive.fetch(projectId);
+		//
+		// A deliberately disconnected forge fails the live fetch with
+		// `ForgeNotAuthenticated` (no stored credentials) — there is nothing
+		// to refresh then, so keep the cache-derived view without surfacing
+		// an error, matching how the backend serves cached reads in that
+		// state. Other failures (expired token, API errors) reach the caller.
+		try {
+			await this.backendApi.endpoints.listPrsLive.fetch(projectId);
+		} catch (err) {
+			if (parseError(err).code === "ForgeNotAuthenticated") return;
+			throw err;
+		}
 		this.dispatch(this.backendApi.util.invalidateTags([invalidatesList(ReduxTag.PullRequests)]));
 	}
 }
