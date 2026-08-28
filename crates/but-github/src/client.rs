@@ -467,9 +467,7 @@ impl GitHubClient {
             self.base_url, owner, repo, pr_number
         );
         let response = self.client.get(&url).send().await?;
-        if !response.status().is_success() {
-            bail!("Failed to get PR merge status: {}", response.status());
-        }
+        let response = ensure_success(response).await?;
         let body: PrMergeStatusResponse = response.json().await?;
         let is_mergeable = matches!(
             body.mergeable_state.as_deref(),

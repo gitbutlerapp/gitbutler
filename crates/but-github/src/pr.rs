@@ -118,6 +118,21 @@ pub async fn get(
     Ok(pr)
 }
 
+pub async fn get_merge_status(
+    preferred_account: Option<&crate::GithubAccountIdentifier>,
+    owner: &str,
+    repo: &str,
+    pr_number: usize,
+    storage: &but_forge_storage::Controller,
+) -> Result<crate::client::PullRequestMergeStatus> {
+    let pr_number = pr_number.try_into().context("PR number is too large")?;
+    GitHubClient::from_storage(storage, preferred_account)?
+        .get_pull_request_merge_status(owner, repo, pr_number)
+        .await
+        .map_err(classify_forge_error)
+        .context("Failed to fetch PR merge status")
+}
+
 pub async fn list_comments(
     preferred_account: Option<&crate::GithubAccountIdentifier>,
     owner: &str,

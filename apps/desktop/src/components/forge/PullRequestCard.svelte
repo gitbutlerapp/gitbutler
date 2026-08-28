@@ -83,24 +83,37 @@
 	// GitHub token is rate-limited) and restores the schedule on recovery.
 	let elapsedMs = $state<number>(0);
 	let isClosed = $state(false);
-	const backoff = createPollBackoff({
+	const prBackoff = createPollBackoff({
 		getResult: () => prQuery.result,
 		getElapsedMs: () => elapsedMs,
 		getShouldStop: () => isClosed,
 	});
-	const pollingInterval = $derived(poll ? backoff.pollingInterval : undefined);
+	const prPollingInterval = $derived(poll ? prBackoff.pollingInterval : undefined);
 
 	const prQuery = $derived(
 		prService.get(projectId, prNumber, {
 			forceRefetch: true,
-			subscriptionOptions: { pollingInterval },
+			subscriptionOptions: { pollingInterval: prPollingInterval },
 		}),
 	);
 	const pr = $derived(prQuery.response);
+	// The merge-status endpoint hits the forge fresh on every call and can fail
+	// while the PR query is fine, so it needs its own error backoff — sharing the
+	// PR query's interval would keep retrying on the fast schedule.
+	const mergeStatusBackoff = createPollBackoff({
+		getResult: () => mergeStatusQuery.result,
+		getElapsedMs: () => elapsedMs,
+		getShouldStop: () => isClosed,
+	});
+	const mergeStatusPollingInterval = $derived(
+		poll ? mergeStatusBackoff.pollingInterval : undefined,
+	);
 	// GitHub computes `mergeable_state` lazily: the first read after a push says
 	// `unknown`, so it needs re-reading or Merge stays disabled.
 	const mergeStatusQuery = $derived(
-		prService.getMergeStatus(projectId, prNumber, { subscriptionOptions: { pollingInterval } }),
+		prService.getMergeStatus(projectId, prNumber, {
+			subscriptionOptions: { pollingInterval: mergeStatusPollingInterval },
+		}),
 	);
 	const prMergeStatus = $derived(mergeStatusQuery.response);
 
@@ -154,7 +167,11 @@
 			tooltip = name + " base is too far behind";
 		} else if (prMergeStatus?.mergeableState === "dirty") {
 			tooltip = name + " has conflicts";
-		} else if (!prMergeStatus?.isMergeable) {
+		} else if (!prMergeStatus) {
+			// Loading, or the status fetch failed — don't claim "not mergeable"
+			// when the state simply isn't known.
+			tooltip = name + " merge status not loaded";
+		} else if (!prMergeStatus.isMergeable) {
 			tooltip = name + " is not mergeable";
 		} else {
 			disabled = false;
