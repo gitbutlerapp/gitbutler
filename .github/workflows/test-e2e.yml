@@ -80,11 +80,11 @@ jobs:
         if: ${{ github.ref != 'refs/heads/master' }}
         run: xvfb-run pnpm test:e2e:blackbox
 
-      - name: Upload results to Buildkite Test Engine
+      - name: Upload results to tests.but.dev
         if: ${{ github.ref != 'refs/heads/master' && always() && !cancelled() }}
         continue-on-error: true
         env:
-          BUILDKITE_ANALYTICS_TOKEN: ${{ secrets.BUILDKITE_SUITE_TOKEN_BLACKBOX }}
+          BUILDKITE_ANALYTICS_TOKEN: ${{ secrets.TEST_RESULTS_TOKEN_BLACKBOX }}
           RUN_BRANCH: ${{ github.head_ref || github.ref_name }}
           RUN_COMMIT_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
           RUN_KEY: ${{ github.run_id }}-${{ github.run_attempt }}
@@ -104,7 +104,7 @@ jobs:
             -F "tags[framework]=webdriverio" \
             -F "tags[language]=typescript" \
             -F "tags[type]=e2e" \
-            https://analytics-api.buildkite.com/v1/uploads
+            https://tests.but.dev/v1/uploads
       - name: Flatten test results
         if: failure()
         run: |
@@ -191,7 +191,13 @@ jobs:
       - name: Run Playwright tests
         run: pnpm exec turbo run test:e2e:playwright -- --shard="$PLAYWRIGHT_SHARD"
         env:
-          BUILDKITE_ANALYTICS_TOKEN: ${{ secrets.BUILDKITE_SUITE_TOKEN_PLAYWRIGHT }}
+          BUILDKITE_ANALYTICS_TOKEN: ${{ secrets.TEST_RESULTS_TOKEN_PLAYWRIGHT }}
+          BUILDKITE_ANALYTICS_BASE_URL: https://tests.but.dev/v1/uploads
+          # Normalized run identity, matching what the curl-based uploads send, so
+          # every suite reports the same key/branch/sha for one CI run.
+          BUILDKITE_ANALYTICS_KEY: ${{ github.run_id }}-${{ github.run_attempt }}
+          BUILDKITE_ANALYTICS_BRANCH: ${{ github.head_ref || github.ref_name }}
+          BUILDKITE_ANALYTICS_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
           PLAYWRIGHT_SHARD: ${{ matrix.shard }}/${{ strategy.job-total }}
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         if: failure()
