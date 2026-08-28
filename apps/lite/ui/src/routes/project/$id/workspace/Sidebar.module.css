@@ -14,7 +14,7 @@
 }
 
 /* When the panel is too narrow to fit the tab labels, show icons only. */
-@container (max-width: 320px) {
+@container (max-width: 340px) {
 	.tabLabel {
 		display: none;
 	}
