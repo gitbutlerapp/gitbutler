@@ -1,5 +1,15 @@
-.checkbox {
+/* In the diff gutter a checkbox is the whole cell, not a box sitting in one: checking a line fills
+   its column edge to edge, so a run of checked lines reads as one block. Doubled for specificity
+   over the shared checkbox's own rules. */
+.checkbox.checkbox {
+	/* The cell is the box, so it answers with fill alone — never a ring, in any state. The shared
+	   checkbox draws every one of its borders at this width, so zeroing it is enough. */
+	--border-width: 0;
+
+	inline-size: 100%;
+	block-size: 100%;
 	margin: 0;
+	border-radius: 0;
 	opacity: var(--gitbutler-diff-gutter-checkbox-opacity, 0);
 
 	&[data-checked],
@@ -7,10 +17,44 @@
 	&:focus {
 		opacity: 1;
 	}
+
+	/* Unchecked, the cell shows what checking it would do: a film of the fill and a ghost of the
+	   tick. Both are mixed from the cell's own foreground rather than a fixed token, because a
+	   selected line inverts to a dark background and a dark ghost would vanish into it. Aiming at
+	   the cell itself brings both a step closer. */
+	&:not([data-checked], [data-indeterminate]) {
+		background-color: color-mix(in srgb, currentColor 10%, transparent);
+		color: inherit;
+
+		&:hover {
+			background-color: color-mix(in srgb, currentColor 18%, transparent);
+		}
+
+		/* The indicator is the root's only child, and its class belongs to another module. */
+		& > * {
+			transform: scale(1);
+			opacity: 0.3;
+		}
+
+		&:hover > * {
+			opacity: 0.55;
+		}
+	}
+
+	&:is([data-checked], [data-indeterminate]) {
+		background-color: var(--fill-pop-bg);
+		color: var(--fill-pop-fg);
+	}
+}
+
+/* The band under it paints the hunk column in every state, so this checkbox only has to add the
+   mark that says which line the hunk starts on. */
+.checkbox.checkbox.hunkCheckbox,
+.checkbox.checkbox.hunkCheckbox:hover {
+	background-color: transparent;
 }
 
 .comment {
-	z-index: 1;
-	position: relative;
-	translate: calc(50% + 1px) 0;
+	display: flex;
+	align-items: center;
 }

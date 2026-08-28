@@ -11,10 +11,7 @@ import {
 import { pointerTransfer } from "#ui/operations/pending-operation.ts";
 import { projectSlice } from "#ui/projects/state.ts";
 import { useAppStore } from "#ui/store.ts";
-import {
-	draggable,
-	type ElementGetFeedbackArgs,
-} from "@atlaskit/pragmatic-drag-and-drop/element/adapter";
+import { draggable } from "@atlaskit/pragmatic-drag-and-drop/element/adapter";
 import { centerUnderPointer } from "@atlaskit/pragmatic-drag-and-drop/element/center-under-pointer";
 import { setCustomNativeDragPreview } from "@atlaskit/pragmatic-drag-and-drop/element/set-custom-native-drag-preview";
 import type { CodeViewOptions } from "@pierre/diffs";
@@ -24,7 +21,8 @@ import { createRoot } from "react-dom/client";
 import type { DragData } from "./DragData.ts";
 import { parseDragData } from "./DragData.ts";
 import { DragPreview } from "./OperationSourceC.tsx";
-import { addressesLabel } from "./addressLabel.ts";
+import { addressesLabel, hunkAddressesLabel } from "./addressLabel.ts";
+import { setDiffDragPreviewSources } from "./diff-gutter.ts";
 import { diffLineTargetFromElement, type DiffLineTarget } from "./diff-line-target.ts";
 
 const HUNK_DRAG_HANDLE_ATTRIBUTE = "data-hunk-drag-handle";
@@ -36,10 +34,12 @@ type Registration = {
 	cleanup: () => void;
 };
 
+type Point = { clientX: number; clientY: number };
+
 const hunkLineAtPoint = (
 	host: HTMLElement,
 	itemId: string,
-	input: ElementGetFeedbackArgs["input"],
+	input: Point,
 ): DiffLineTarget | null => {
 	const element = host.shadowRoot?.elementFromPoint(input.clientX, input.clientY);
 	const lineNumberElement = element
@@ -48,21 +48,6 @@ const hunkLineAtPoint = (
 	if (!(lineNumberElement instanceof HTMLElement)) return null;
 
 	return diffLineTargetFromElement({ element: lineNumberElement, itemId });
-};
-
-const syncHunkDragHandles = (host: HTMLElement): void => {
-	const shadowRoot = host.shadowRoot;
-	if (!shadowRoot) return;
-
-	for (const element of shadowRoot.querySelectorAll<HTMLElement>(`[${HUNK_DRAG_HANDLE_ATTRIBUTE}]`))
-		element.setAttribute("draggable", "true");
-};
-
-const cleanHunkDragHandles = (host: HTMLElement): void => {
-	for (const element of host.shadowRoot?.querySelectorAll<HTMLElement>(
-		`[${HUNK_DRAG_HANDLE_ATTRIBUTE}]`,
-	) ?? [])
-		element.removeAttribute("draggable");
 };
 
 export const useDiffHunkDrag = <T>({
@@ -110,11 +95,9 @@ export const useDiffHunkDrag = <T>({
 		if (phase === "unmount") {
 			existing?.cleanup();
 			registrations.delete(host);
-			cleanHunkDragHandles(host);
 			return;
 		}
 
-		syncHunkDragHandles(host);
 		if (existing) {
 			existing.itemId = context.item.id;
 			return;
@@ -124,7 +107,7 @@ export const useDiffHunkDrag = <T>({
 			itemId: context.item.id,
 			cleanup: () => {},
 		};
-		const resolveSources = (input: ElementGetFeedbackArgs["input"]): DragData["sources"] | null => {
+		const resolveSources = (input: Point): DragData["sources"] | null => {
 			const target = hunkLineAtPoint(host, registration.itemId, input);
 			if (!target) return null;
 
@@ -143,7 +126,37 @@ export const useDiffHunkDrag = <T>({
 				: [hunkAddress(hunk)];
 		};
 
-		registration.cleanup = draggable({
+		// The grip says what it holds before it is pressed: the same lines the drop would move,
+		// which is the containing hunk unless checked lines or the selection widen it.
+		const handlePointerOver = (event: Event) => {
+			const overHandle = event
+				.composedPath()
+				.some(
+					(target) =>
+						target instanceof HTMLElement && target.hasAttribute(HUNK_DRAG_HANDLE_ATTRIBUTE),
+				);
+			const sources =
+				overHandle && event instanceof PointerEvent && configRef.current.canDrag()
+					? resolveSources(event)
+					: null;
+			// The same words the drag preview will carry, so the grip answers before it is pressed.
+			// Checked sources can reach past hunks, and those are only ever counted.
+			let label: string | undefined;
+			if (sources) {
+				const hunks = sources.flatMap((source) => (source._tag === "Hunk" ? [source] : []));
+				label =
+					hunks.length === sources.length
+						? hunkAddressesLabel(hunks)
+						: `${sources.length.toLocaleString()} items`;
+			}
+			setDiffDragPreviewSources(host, sources, label);
+		};
+		const handlePointerLeave = () => setDiffDragPreviewSources(host, null);
+		const shadowRoot = host.shadowRoot;
+		shadowRoot?.addEventListener("pointerover", handlePointerOver);
+		host.addEventListener("pointerleave", handlePointerLeave);
+
+		const stopDragging = draggable({
 			element: host,
 			canDrag: ({ input }) => configRef.current.canDrag() && resolveSources(input) !== null,
 			getInitialData: ({ input }): DragData => ({
@@ -173,6 +186,8 @@ export const useDiffHunkDrag = <T>({
 				});
 			},
 			onDragStart: ({ source }) => {
+				// The pending operation paints its own sources from here on.
+				setDiffDragPreviewSources(host, null);
 				const config = configRef.current;
 				const sources = parseDragData(source.data)?.sources;
 				if (!sources) return;
@@ -195,6 +210,13 @@ export const useDiffHunkDrag = <T>({
 			},
 		});
 
+		registration.cleanup = () => {
+			stopDragging();
+			shadowRoot?.removeEventListener("pointerover", handlePointerOver);
+			host.removeEventListener("pointerleave", handlePointerLeave);
+			setDiffDragPreviewSources(host, null);
+		};
+
 		// Native drag originates on the marked shadow children. Atlaskit still needs the host
 		// registered because the composed dragstart event is retargeted to it at document.
 		host.removeAttribute("draggable");
@@ -204,10 +226,7 @@ export const useDiffHunkDrag = <T>({
 	useLayoutEffect(() => {
 		const registrations = registrationsRef.current;
 		return () => {
-			for (const [host, registration] of registrations) {
-				registration.cleanup();
-				cleanHunkDragHandles(host);
-			}
+			for (const registration of registrations.values()) registration.cleanup();
 			registrations.clear();
 		};
 	}, []);
