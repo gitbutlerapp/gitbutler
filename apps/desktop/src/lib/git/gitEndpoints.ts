@@ -57,6 +57,9 @@ export function buildGitEndpoints(build: BackendEndpointBuilder) {
 		}),
 
 		// ── Git Hooks ───────────────────────────────────────────────
+		// No actionName on hook mutations: a failing hook resolves with
+		// status "failure" instead of rejecting, so a named Successful/Failed
+		// event would mislabel real hook failures.
 		preCommitDiffspecs: build.mutation<HookStatus, { projectId: string; changes: DiffSpec[] }>({
 			extraOptions: { command: "pre_commit_hook_diffspecs" },
 			query: (args) => args,

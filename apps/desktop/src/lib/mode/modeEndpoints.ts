@@ -6,7 +6,7 @@ import type { ConflictEntryPresence, HeadAndMode, HeadSha, TreeChange } from "@g
 export function buildModeEndpoints(build: BackendEndpointBuilder) {
 	return {
 		enterEditMode: build.mutation<void, { projectId: string; commitId: string; stackId: string }>({
-			extraOptions: { command: "enter_edit_mode" },
+			extraOptions: { command: "enter_edit_mode", actionName: "Enter Edit Mode" },
 			query: (args) => args,
 			invalidatesTags: [
 				invalidatesList(ReduxTag.InitalEditListing),

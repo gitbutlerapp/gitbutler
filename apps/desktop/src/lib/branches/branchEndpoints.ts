@@ -30,6 +30,8 @@ export function buildBranchEndpoints(build: BackendEndpointBuilder) {
 			providesTags: [providesType(ReduxTag.WorkspaceFetchStatus)],
 		}),
 		workspaceFetchFromRemotes: build.mutation<void, { projectId: string; action?: string }>({
+			// No actionName: auto-fetch runs this on a timer, and a named event
+			// would sidestep the per-command sampling of tauri_command events.
 			extraOptions: { command: "workspace_fetch_from_remotes" },
 			query: ({ projectId, action }) => ({
 				projectId,
@@ -73,7 +75,7 @@ export function buildBranchEndpoints(build: BackendEndpointBuilder) {
 			],
 		}),
 		switchBackToWorkspace: build.mutation<BaseBranch, { projectId: string }>({
-			extraOptions: { command: "switch_back_to_workspace" },
+			extraOptions: { command: "switch_back_to_workspace", actionName: "Switch Back to Workspace" },
 			query: (args) => args,
 			invalidatesTags: [
 				invalidatesType(ReduxTag.ForgeProvider),
