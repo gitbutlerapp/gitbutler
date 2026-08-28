@@ -31,7 +31,7 @@ use crate::{
                 render::{ModeRender, RenderSingleLineSpans, SpanExt as _},
             },
         },
-        r#switch::{self, SwitchOperation},
+        switch::{self, SwitchOperation},
     },
     theme::Theme,
     utils::{targeting::Side, time::format_relative_time},
@@ -229,7 +229,7 @@ impl App {
 
         let now = SystemTime::now();
         let mut branches = branch_listings
-            .map(|listing| SwitchBranchItem {
+            .map(|listing| SwitchBranchItem::Branch {
                 name: listing.display_name.to_str_lossy().into_owned(),
                 updated_at: listing.updated_at_ms,
                 updated_at_display: listing
@@ -238,30 +238,63 @@ impl App {
                     .unwrap_or_default(),
             })
             .collect::<Vec<_>>();
-        branches.sort_by(|a, b| {
-            b.updated_at
-                .cmp(&a.updated_at)
-                .then_with(|| a.name.cmp(&b.name))
+        branches.sort_by(|a, b| match (a, b) {
+            (SwitchBranchItem::Workspace, _) | (_, SwitchBranchItem::Workspace) => {
+                std::cmp::Ordering::Less
+            }
+            (
+                SwitchBranchItem::Branch {
+                    name: a_name,
+                    updated_at: a_updated_at,
+                    ..
+                },
+                SwitchBranchItem::Branch {
+                    name: b_name,
+                    updated_at: b_updated_at,
+                    ..
+                },
+            ) => b_updated_at
+                .cmp(a_updated_at)
+                .then_with(|| a_name.cmp(b_name)),
         });
 
-        let Some(items) = NonEmpty::from_vec(branches) else {
-            return Ok(());
+        let items = if crate::utils::in_single_branch_mode(ctx)? {
+            NonEmpty {
+                head: SwitchBranchItem::Workspace,
+                tail: branches,
+            }
+        } else {
+            let Some(items) = NonEmpty::from_vec(branches) else {
+                return Ok(());
+            };
+            items
         };
 
         let picker = FuzzyPicker::new(items, self.theme, |item, ctx, messages| {
-            let branch = Category::LocalBranch.to_full_name(&*item.name)?;
+            let what_to_select = match item {
+                SwitchBranchItem::Branch { name, .. } => {
+                    let branch = Category::LocalBranch.to_full_name(&*name)?;
 
-            // TODO(david): we should rewrite `but switch` to use the new command architecture and
-            // share the "switch" code path with this
-            let mut guard = ctx.exclusive_worktree_access();
-            but_api::branch::branch_checkout_with_perm(ctx, branch, guard.write_permission())?;
+                    let mut guard = ctx.exclusive_worktree_access();
+                    _ = switch::run(
+                        ctx,
+                        guard.write_permission(),
+                        SwitchOperation::Branch { branch },
+                    )?;
+
+                    SelectAfterReload::Branch(name)
+                }
+                SwitchBranchItem::Workspace => {
+                    let mut guard = ctx.exclusive_worktree_access();
+                    _ = switch::run(ctx, guard.write_permission(), SwitchOperation::Workspace)?;
+
+                    SelectAfterReload::Uncommitted
+                }
+            };
 
             messages.extend([
                 Message::EnterNormalModeAfterConfirmingOperation,
-                Message::Reload(
-                    Some(SelectAfterReload::Branch(item.name.clone())),
-                    ReloadCause::Mutation,
-                ),
+                Message::Reload(Some(what_to_select), ReloadCause::Mutation),
             ]);
 
             Ok(())
@@ -363,27 +396,49 @@ impl App {
 }
 
 #[derive(Debug, Clone)]
-pub struct SwitchBranchItem {
-    name: String,
-    updated_at: Option<i64>,
-    updated_at_display: String,
+pub enum SwitchBranchItem {
+    Workspace,
+    Branch {
+        name: String,
+        updated_at: Option<i64>,
+        updated_at_display: String,
+    },
 }
 
 impl FuzzyPickerItem for SwitchBranchItem {
     fn columns(&self, searchable: SearchableToken) -> impl IntoIterator<Item = Col<'_>> {
-        [
-            Col {
-                text: self.name.as_str().into(),
-                searchable: Some(searchable),
-            },
-            Col {
-                text: self.updated_at_display.as_str().into(),
-                searchable: None,
-            },
-        ]
+        match self {
+            SwitchBranchItem::Branch {
+                name,
+                updated_at_display,
+                updated_at: _,
+            } => [
+                Col {
+                    text: name.as_str().into(),
+                    searchable: Some(searchable),
+                },
+                Col {
+                    text: updated_at_display.as_str().into(),
+                    searchable: None,
+                },
+            ],
+            SwitchBranchItem::Workspace => [
+                Col {
+                    text: "workspace".into(),
+                    searchable: Some(searchable),
+                },
+                Col {
+                    text: "".into(),
+                    searchable: None,
+                },
+            ],
+        }
     }
 
     fn style(&self, theme: &'static Theme) -> Style {
-        theme.local_branch
+        match self {
+            SwitchBranchItem::Branch { .. } => theme.local_branch,
+            SwitchBranchItem::Workspace => theme.info,
+        }
     }
 }
