@@ -92,7 +92,7 @@ impl<'a> DiffSpecBuilder<'a> {
                 anyhow::bail!("Cannot compute diff specs for stacks")
             }
             CliId::CommittedHunk(_) => {
-                anyhow::bail!("Cannot (yet) compute diff specs for committed hunks")
+                anyhow::bail!("Cannot compute diff specs for committed hunks")
             }
         }
     }
@@ -268,7 +268,7 @@ impl<'a> DiffSpecBuilder<'a> {
         Ok(self.worktree_changes.as_deref().unwrap_or_default())
     }
 
-    fn push_hunks_with_changes(
+    pub fn push_hunks_with_changes(
         &mut self,
         hunks: impl IntoIterator<Item = but_core::SingleHunk>,
         changes: &[but_core::ui::TreeChange],

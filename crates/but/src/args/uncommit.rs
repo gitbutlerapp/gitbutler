@@ -4,15 +4,15 @@
 
 use crate::args::atoms::{AllowMergedArg, CliIdArg};
 
-/// Uncommit commits, branches, or committed files.
+/// Uncommit commits, branches, or committed changes.
 ///
 /// For more details about CLI IDs, see `but help cli-ids`.
 #[derive(Debug, clap::Parser)]
 #[cfg_attr(feature = "raw-clap-docs", clap(verbatim_doc_comment))]
 pub struct Platform {
-    /// One or more commits, branches, or committed files to uncommit.
+    /// One or more commits, branches, or committed changes to uncommit.
     ///
-    /// Sources must all be the same kind.
+    /// Sources must all be the same category.
     #[clap(required = true)]
     pub sources: Vec<CliIdArg>,
 

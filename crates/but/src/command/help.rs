@@ -394,7 +394,7 @@ Editing Commits:
   split        Split a commit in two
   absorb       Amends changes into the appropriate commits where they belong
   reword       Edit the commit message of the specified commit
-  uncommit     Uncommit commits, branches, or committed files
+  uncommit     Uncommit commits, branches, or committed changes
   amend        Amend uncommitted changes into a commit or branch
 
 Operation History:
@@ -451,7 +451,7 @@ Environment variables:
         let output = strip_ansi_codes(&buf);
 
         assert!(
-            output.contains("Uncommit commits, branches, or committed files"),
+            output.contains("Uncommit commits, branches, or committed changes"),
             "agent help should keep the full command description"
         );
         assert!(

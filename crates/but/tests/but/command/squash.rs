@@ -631,7 +631,7 @@ Examples:
   but squash <commit>... -t <other-commit> -m "message"   # squash commits into another commit
   but squash <branch> -m "message"                # squash a branch into a single commit
   but squash <file> -t <commit>                    # move an uncommitted file into a commit
-  but squash <commit>:<file> -t <other-commit>     # move a committed file to another commit
+  but squash <commit>:<file>:<hunk> -t <other-commit> # move a committed hunk to another commit
 
 "#]]);
 }
@@ -1222,7 +1222,7 @@ Hint: run `but help` for all commands
         .assert()
         .failure()
         .stderr_eq(snapbox::str![[r#"
-Error: All committed files must come from the same commit. Found files from f55169f and f63361f
+Error: All committed changes must come from the same commit. Found changes from [..] and [..]
 
 "#]]);
 }
@@ -2389,6 +2389,497 @@ Hint: run `but diff` to see uncommitted changes and `but commit -b <branch> -m "
 ┊╭┄ br [a-branch-1]
 ┊●   1 add files
 ┊│     1:q A file
+├╯
+┊
+┴ 0dc3733 (common base) 2000-01-02 add M
+
+Hint: run `but help` for all commands
+
+"#]]);
+}
+
+#[test]
+fn squash_committed_hunks() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("zero-stacks");
+
+    let content = "one
+two
+three
+four
+five
+six
+seven
+";
+
+    env.file("file", content);
+    env.but("commit -m 'Add file'").assert().success();
+
+    env.file("file", format!("beginning\n{content}end"));
+    env.but("commit -m 'Update file'").assert().success();
+
+    env.but("status")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┊╭┄ br [a-branch-1]
+┊●   1#0 Update file
+┊●   1#1 Add file
+├╯
+┊
+┴ 0dc3733 (common base) 2000-01-02 add M
+
+Hint: run `but help` for all commands
+
+"#]]);
+
+    env.but("diff 1#0")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+──────────────╮
+ 1#0:q:3 file │
+──────────────╯
+
+@@ -1,3 +1,4 @@
+───────────────
+  ┊ 1 │ +beginning
+1 ┊ 2 │  one
+2 ┊ 3 │  two
+3 ┊ 4 │  three
+
+──────────────╮
+ 1#0:q:8 file │
+──────────────╯
+
+@@ -5,3 +6,4 @@
+───────────────
+5 ┊  6 │  five
+6 ┊  7 │  six
+7 ┊  8 │  seven
+  ┊  9 │ +end
+
+"#]]);
+
+    env.but("squash 1#0:q:3 -t 1#1")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+Amended 1
+
+"#]]);
+
+    // no longer contains "beginning"
+    env.but("diff 1#0")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+──────────────╮
+ 1#0:q:8 file │
+──────────────╯
+
+@@ -6,3 +6,4 @@
+───────────────
+6 ┊  6 │  five
+7 ┊  7 │  six
+8 ┊  8 │  seven
+  ┊  9 │ +end
+
+"#]]);
+
+    // now contains "beginning"
+    env.but("diff 1#1")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+──────────────╮
+ 1#1:q:c file │
+──────────────╯
+
+@@ -1,0 +1,8 @@
+───────────────
+  ┊ 1 │ +beginning
+  ┊ 2 │ +one
+  ┊ 3 │ +two
+  ┊ 4 │ +three
+  ┊ 5 │ +four
+  ┊ 6 │ +five
+  ┊ 7 │ +six
+  ┊ 8 │ +seven
+
+"#]]);
+
+    env.but("squash 1#0:q:8 -t @").assert().success();
+
+    // "end" is now uncommitted and no longer in its source commit.
+    env.but("diff")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+───────────╮
+ qs:8 file │
+───────────╯
+
+@@ -6,3 +6,4 @@
+───────────────
+6 ┊  6 │  five
+7 ┊  7 │  six
+8 ┊  8 │  seven
+  ┊  9 │ +end
+
+"#]]);
+    env.but("diff 1#0")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![]);
+}
+
+#[test]
+fn squash_committed_hunks_in_different_ways_yields_same_result() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("zero-stacks");
+
+    let content = "one
+two
+three
+four
+five
+six
+seven
+";
+
+    env.file("file", content);
+    env.but("commit -m 'Add file'").assert().success();
+
+    env.file("file", format!("beginning\n{content}end"));
+    env.but("commit -m 'Update file'").assert().success();
+
+    env.but("status")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┊╭┄ br [a-branch-1]
+┊●   1#0 Update file
+┊●   1#1 Add file
+├╯
+┊
+┴ 0dc3733 (common base) 2000-01-02 add M
+
+Hint: run `but help` for all commands
+
+"#]]);
+
+    env.but("diff 1#0")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+──────────────╮
+ 1#0:q:3 file │
+──────────────╯
+
+@@ -1,3 +1,4 @@
+───────────────
+  ┊ 1 │ +beginning
+1 ┊ 2 │  one
+2 ┊ 3 │  two
+3 ┊ 4 │  three
+
+──────────────╮
+ 1#0:q:8 file │
+──────────────╯
+
+@@ -5,3 +6,4 @@
+───────────────
+5 ┊  6 │  five
+6 ┊  7 │  six
+7 ┊  8 │  seven
+  ┊  9 │ +end
+
+"#]]);
+
+    // entire file, this is the baseline
+    env.but("squash 1#0:q -t 1#1").assert().success();
+    let output_entire_file = env.but("diff 1#1").output().unwrap();
+    env.but("diff 1#1")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+──────────────╮
+ 1#1:q:0 file │
+──────────────╯
+
+@@ -1,0 +1,9 @@
+───────────────
+  ┊  1 │ +beginning
+  ┊  2 │ +one
+  ┊  3 │ +two
+  ┊  4 │ +three
+  ┊  5 │ +four
+  ┊  6 │ +five
+  ┊  7 │ +six
+  ┊  8 │ +seven
+  ┊  9 │ +end
+
+"#]]);
+
+    // hunk order
+    env.but("undo").assert().success();
+    env.but("squash 1#0:q:3 1#0:q:8 -t 1#1").assert().success();
+    let output_hunk_order = env.but("diff 1#1").output().unwrap();
+    assert_eq!(
+        output_hunk_order, output_entire_file,
+        "outcome should be the same regardless of hunk order"
+    );
+
+    // reverse hunk order
+    env.but("undo").assert().success();
+    env.but("squash 1#0:q:8 1#0:q:3 -t 1#1").assert().success();
+    let output_reverse_hunk_order = env.but("diff 1#1").output().unwrap();
+
+    assert_eq!(
+        output_reverse_hunk_order, output_entire_file,
+        "outcome should be the same regardless of hunk order"
+    );
+
+    // repeated hunks
+    env.but("undo").assert().success();
+    env.but("squash 1#0:q:8 1#0:q:3 1#0:q:8 -t 1#1")
+        .assert()
+        .success();
+    let output_repeated_hunks = env.but("diff 1#1").output().unwrap();
+
+    assert_eq!(
+        output_repeated_hunks, output_entire_file,
+        "repeated hunks are deduplicated"
+    );
+
+    // hunk then file
+    env.but("undo").assert().success();
+    env.but("squash 1#0:q:8 1#0:q -t 1#1").assert().success();
+    let output_hunk_then_file = env.but("diff 1#1").output().unwrap();
+
+    assert_eq!(
+        output_hunk_then_file, output_entire_file,
+        "file overlapping with hunks is deduplicated",
+    );
+
+    // file then hunk
+    env.but("undo").assert().success();
+    env.but("squash 1#0:q 1#0:q:8 -t 1#1").assert().success();
+    let output_file_then_hunk = env.but("diff 1#1").output().unwrap();
+
+    assert_eq!(
+        output_file_then_hunk, output_entire_file,
+        "hunks overlapping with a file are deduplicated",
+    );
+}
+
+/// If a file has been deleted, it doesn't matter if you squash the single hunk or the entire file -
+/// the deletion follows both.
+#[test]
+fn squash_deleted_committed_file_and_hunk_both_propagate_deletion() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("zero-stacks");
+
+    env.file("deleted.txt", "content\n");
+    env.but("commit -m 'Add file to delete'").assert().success();
+    env.but("commit --empty -m 'Target'").assert().success();
+    env.remove_file("deleted.txt");
+    env.but("commit -m 'Delete file'").assert().success();
+
+    env.but("status -f")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┊╭┄ br [a-branch-1]
+┊●   1#0 Delete file
+┊│     1#0:n D deleted.txt
+┊●   1#1 Target (no changes)
+┊●   1#2 Add file to delete
+┊│     1#2:n A deleted.txt
+├╯
+┊
+┴ 0dc3733 (common base) 2000-01-02 add M
+
+Hint: run `but help` for all commands
+
+"#]]);
+    env.but("diff 1#0:n")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+─────────────────────╮
+ 1#0:n:f deleted.txt │
+─────────────────────╯
+
+@@ -1,1 +1,0 @@
+───────────────
+1 ┊   │ -content
+
+"#]]);
+
+    env.but("squash 1#0:n -t 1#1 -u").assert().success();
+    env.but("status -f")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┊╭┄ br [a-branch-1]
+┊●   1#0 Delete file (no changes)
+┊●   1#1 Target
+┊│     1#1:n D deleted.txt
+┊●   1#2 Add file to delete
+┊│     1#2:n A deleted.txt
+├╯
+┊
+┴ 0dc3733 (common base) 2000-01-02 add M
+
+Hint: run `but help` for all commands
+
+"#]]);
+    let file_outcome = env.but("status -f").output().unwrap();
+
+    env.but("undo").assert().success();
+    env.but("squash 1#0:n:f -t 1#1 -u").assert().success();
+    let hunk_outcome = env.but("status -f").output().unwrap();
+
+    assert_eq!(
+        hunk_outcome, file_outcome,
+        "squashing deleted file or its only hunk should produce same outcome"
+    );
+}
+
+/// If you squash an entire renamed file, both content and renaming follows the squash.
+#[test]
+fn squash_renamed_committed_file_transfers_both_content_and_renaming() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("zero-stacks");
+
+    let original_content = "one\ntwo\nthree\n";
+    env.file("original.txt", original_content);
+    env.but("commit -m 'Add file to rename'").assert().success();
+    env.but("commit --empty -m 'Target'").assert().success();
+    env.remove_file("original.txt");
+    env.file("renamed.txt", format!("{original_content}new line"));
+    env.but("commit -m 'Rename and update file'")
+        .assert()
+        .success();
+
+    env.but("status -f")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┊╭┄ br [a-branch-1]
+┊●   1#0 Rename and update file
+┊│     1#0:s R renamed.txt
+┊●   1#1 Target (no changes)
+┊●   1#2 Add file to rename
+┊│     1#2:n A original.txt
+├╯
+┊
+┴ 0dc3733 (common base) 2000-01-02 add M
+
+Hint: run `but help` for all commands
+
+"#]]);
+
+    env.but("squash 1#0:s -t 1#1 -u").assert().success();
+    env.but("status -f")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┊╭┄ br [a-branch-1]
+┊●   1#0 Rename and update file (no changes)
+┊●   1#1 Target
+┊│     1#1:s R renamed.txt
+┊●   1#2 Add file to rename
+┊│     1#2:n A original.txt
+├╯
+┊
+┴ 0dc3733 (common base) 2000-01-02 add M
+
+Hint: run `but help` for all commands
+
+"#]]);
+}
+
+/// If you squash a hunk from a renamed commited file, the renaming itself does not follow. This is
+/// inconsistent with how it works when squashing from the uncommitted area, where squashing any
+/// hunk from a renamed file into a commit also propagates the renaming itself.
+///
+/// Possibly something to change.
+#[test]
+fn squash_hunk_from_renamed_committed_file_does_not_transfer_renaming() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("zero-stacks");
+
+    let original_content = "one\ntwo\nthree\n";
+    env.file("original.txt", original_content);
+    env.but("commit -m 'Add file to rename'").assert().success();
+    env.but("commit --empty -m 'Target'").assert().success();
+    env.remove_file("original.txt");
+    env.file("renamed.txt", format!("{original_content}new line"));
+    env.but("commit -m 'Rename and update file'")
+        .assert()
+        .success();
+
+    env.but("status -f")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┊╭┄ br [a-branch-1]
+┊●   1#0 Rename and update file
+┊│     1#0:s R renamed.txt
+┊●   1#1 Target (no changes)
+┊●   1#2 Add file to rename
+┊│     1#2:n A original.txt
+├╯
+┊
+┴ 0dc3733 (common base) 2000-01-02 add M
+
+Hint: run `but help` for all commands
+
+"#]]);
+
+    env.but("diff 1#0:s")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+─────────────────────╮
+ 1#0:s:b renamed.txt │
+─────────────────────╯
+
+@@ -1,3 +1,4 @@
+───────────────
+1 ┊ 1 │  one
+2 ┊ 2 │  two
+3 ┊ 3 │  three
+  ┊ 4 │ +new line
+
+"#]]);
+
+    env.but("squash 1#0:s:b -t 1#1 -u").assert().success();
+    env.but("status -f")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┊╭┄ br [a-branch-1]
+┊●   1#0 Rename and update file
+┊│     1#0:s R renamed.txt
+┊●   1#1 Target
+┊│     1#1:n M original.txt
+┊●   1#2 Add file to rename
+┊│     1#2:n A original.txt
 ├╯
 ┊
 ┴ 0dc3733 (common base) 2000-01-02 add M
