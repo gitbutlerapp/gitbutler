@@ -60,6 +60,14 @@ fn determine_forge_from_host(host: &str) -> Option<ForgeName> {
 /// Looking at the known accounts involves retrieving data from storage, so that is a bit more expensive
 /// and that's why it's a fallback mechanism.
 pub fn derive_forge_repo_info(url: &str) -> Option<ForgeRepoInfo> {
+    // git-url-parse 0.6.0's GenericProvider strips the git-suffix with
+    // `take_until(".git")`, which stops at the FIRST ".git" substring rather
+    // than the terminal suffix. So `org/org.github.io.git` yields repo="org"
+    // and every URL built from it (PR list, base URL, compare) points at the
+    // wrong repository and 404s. Strip a single trailing ".git" ourselves so
+    // the parser takes its correct `is_not("/")` branch. Safe because a real
+    // repo name can't end in ".git".
+    let url = url.strip_suffix(".git").unwrap_or(url);
     let git_url = GitUrl::parse(url).ok()?;
     let host = git_url.host()?;
     let protocol = git_url.scheme()?;
@@ -193,8 +201,55 @@ pub fn get_all_forge_accounts() -> anyhow::Result<Vec<ForgeUser>> {
 #[cfg(test)]
 mod tests {
     use super::{
-        ForgeName, ForgeUser, match_host_to_accounts_custom_host, normalize_host_for_comparison,
+        ForgeName, ForgeUser, derive_forge_repo_info, match_host_to_accounts_custom_host,
+        normalize_host_for_comparison,
     };
+
+    // Regression for #15302: a repo name that contains ".git" as a substring
+    // (or a trailing ".git" git-suffix) must be parsed intact. The upstream
+    // GenericProvider stopped at the first ".git" and turned
+    // `org/org.github.io.git` into repo="org", so `but pr new` queried
+    // `GET /repos/org/org/pulls` and 404'd. These cases all resolve their
+    // forge from the github.com host, so `derive_forge_repo_info` never
+    // touches account storage.
+    #[test]
+    fn repo_name_containing_dotgit_is_parsed_correctly() {
+        let cases = [
+            ("git@github.com:org/repo", "org", "repo"),
+            ("git@github.com:org/repo.git", "org", "repo"),
+            ("https://github.com/org/repo", "org", "repo"),
+            ("https://github.com/org/repo.git", "org", "repo"),
+            ("git@github.com:org/org.github.io", "org", "org.github.io"),
+            (
+                "git@github.com:org/org.github.io.git",
+                "org",
+                "org.github.io",
+            ),
+            (
+                "https://github.com/org/org.github.io",
+                "org",
+                "org.github.io",
+            ),
+            (
+                "https://github.com/org/org.github.io.git",
+                "org",
+                "org.github.io",
+            ),
+            (
+                "git@github.com:org/repo.github.io.git",
+                "org",
+                "repo.github.io",
+            ),
+        ];
+
+        for (url, owner, repo) in cases {
+            let info = derive_forge_repo_info(url)
+                .unwrap_or_else(|| panic!("failed to parse forge info from {url}"));
+            assert_eq!(info.forge, ForgeName::GitHub, "forge for {url}");
+            assert_eq!(info.owner, owner, "owner for {url}");
+            assert_eq!(info.repo, repo, "repo for {url}");
+        }
+    }
 
     #[test]
     fn matches_github_enterprise_custom_host() {
