@@ -32,6 +32,9 @@
 			],
 			"includeEntryExports": true,
 			"ignoreDependencies": [
+				// Referenced as a string reporter in e2e/playwright.config.ts,
+				// which knip's static analysis cannot see.
+				"buildkite-test-collector",
 				"babel-plugin-react-compiler",
 				"@gitbutler/design-core",
 				"@tanstack/eslint-plugin-query",
