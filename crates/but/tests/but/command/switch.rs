@@ -2,6 +2,41 @@ use snapbox::str;
 
 #[cfg(feature = "legacy")]
 use crate::utils::CommandExt as _;
+use crate::utils::Sandbox;
+
+fn switch_env() -> crate::utils::Sandbox {
+    let env = crate::utils::Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["A"]);
+    env
+}
+
+#[cfg(feature = "legacy")]
+fn status_json(env: &crate::utils::Sandbox) -> serde_json::Value {
+    let output = env.but("--json status").allow_json().output().unwrap();
+    serde_json::from_slice(&output.stdout)
+        .map_err(|err| anyhow::anyhow!("status output should be valid JSON: {err}"))
+        .unwrap()
+}
+
+#[cfg(feature = "legacy")]
+fn assert_workspace_status(env: &crate::utils::Sandbox) {
+    env.but("status")
+        .assert()
+        .success()
+        .stderr_eq(str![])
+        .stdout_eq(str![[r#"
+╭┄ zz [uncommitted] (no changes)
+┊
+┊╭┄ g0 [A]
+┊●   tpm add A
+├╯
+┊
+┴ 0dc3733 (common base) 2000-01-02 add M
+
+Hint: run `but help` for all commands
+
+"#]]);
+}
 
 #[test]
 fn switches_to_existing_branch_by_short_name() {
@@ -348,22 +383,10 @@ Hint: Run `but status` for applicable targets.
 "#]]);
 }
 
-fn switch_env() -> crate::utils::Sandbox {
-    let env = crate::utils::Sandbox::init_scenario_with_target_and_default_settings("one-stack");
-    env.setup_metadata(&["A"]);
-    env
-}
+#[test]
+fn switching_to_workspace_creates_workspace_if_necessary() {
+    let env = Sandbox::open_with_default_settings("single-branch-mode");
 
-#[cfg(feature = "legacy")]
-fn status_json(env: &crate::utils::Sandbox) -> serde_json::Value {
-    let output = env.but("--json status").allow_json().output().unwrap();
-    serde_json::from_slice(&output.stdout)
-        .map_err(|err| anyhow::anyhow!("status output should be valid JSON: {err}"))
-        .unwrap()
-}
-
-#[cfg(feature = "legacy")]
-fn assert_workspace_status(env: &crate::utils::Sandbox) {
     env.but("status")
         .assert()
         .success()
@@ -371,13 +394,60 @@ fn assert_workspace_status(env: &crate::utils::Sandbox) {
         .stdout_eq(str![[r#"
 ╭┄ zz [uncommitted] (no changes)
 ┊
-┊╭┄ g0 [A]
-┊●   tpm add A
+┊╭┄ ma [main] (no commits)
 ├╯
 ┊
-┴ 0dc3733 (common base) 2000-01-02 add M
+┴ b1540e5 (common base) 2000-01-02 M
 
 Hint: run `but help` for all commands
 
 "#]]);
+
+    // no workspace exists
+    snapbox::assert_data_eq!(
+        env.git_log(),
+        snapbox::str![[r#"
+* b1540e5 (HEAD -> main, origin/main, origin/HEAD) M
+* e31e6ca add init
+
+"#]]
+    );
+
+    env.but("switch --workspace")
+        .assert()
+        .success()
+        .stderr_eq(str![])
+        .stdout_eq(str![[r#"
+Switched to workspace
+
+"#]]);
+
+    assert_eq!(
+        env.invoke_git("rev-parse --abbrev-ref HEAD"),
+        "gitbutler/workspace"
+    );
+
+    env.but("status")
+        .assert()
+        .success()
+        .stderr_eq(str![])
+        .stdout_eq(str![[r#"
+╭┄ zz [uncommitted] (no changes)
+┊
+┴ b1540e5 (common base) 2000-01-02 M
+
+Hint: run `but branch new` to create a new branch to work on
+
+"#]]);
+
+    // workspace exists
+    snapbox::assert_data_eq!(
+        env.git_log(),
+        snapbox::str![[r#"
+* 6c7afcb (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+* b1540e5 (origin/main, origin/HEAD, main, gitbutler/target) M
+* e31e6ca add init
+
+"#]]
+    );
 }

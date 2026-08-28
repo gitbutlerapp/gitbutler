@@ -1,4 +1,7 @@
-use but_core::sync::{RepoExclusive, RepoShared};
+use but_core::{
+    WORKSPACE_REF_NAME,
+    sync::{RepoExclusive, RepoShared},
+};
 use but_ctx::Context;
 use gix::refs::FullName;
 use serde::Serialize;
@@ -73,7 +76,15 @@ pub fn run(
 ) -> anyhow::Result<SwitchOutcome> {
     match operation {
         SwitchOperation::Workspace => {
-            but_api::branch::workspace_checkout_with_perm(ctx, perm)?;
+            let workspace_exists = {
+                let repo = ctx.repo.get()?;
+                repo.try_find_reference(WORKSPACE_REF_NAME)?.is_some()
+            };
+            if workspace_exists {
+                but_api::branch::workspace_checkout_with_perm(ctx, perm)?;
+            } else {
+                but_api::legacy::virtual_branches::switch_back_to_workspace_with_perm(ctx, perm)?;
+            }
             Ok(SwitchOutcome::Workspace)
         }
         SwitchOperation::Branch { branch } => {
