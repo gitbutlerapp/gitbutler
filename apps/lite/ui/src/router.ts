@@ -6,11 +6,14 @@ import type { RouteTree } from "#ui/routes.tsx";
    JSON search serialization would only add quoting noise. Slashes and colons
    are legal in query values and carry most of our params' legibility. */
 const stringifySearch = (search: Record<string, unknown>): string => {
-	const parts = Object.entries(search).flatMap(([key, value]) =>
-		typeof value === "string" && value !== ""
-			? [`${key}=${encodeURIComponent(value).replaceAll("%2F", "/").replaceAll("%3A", ":")}`]
-			: [],
-	);
+	const parts = Object.entries(search)
+		.values()
+		.filter((pair): pair is [string, string] => typeof pair[1] === "string" && pair[1] !== "")
+		.map(
+			([key, value]) =>
+				`${key}=${encodeURIComponent(value).replaceAll("%2F", "/").replaceAll("%3A", ":")}`,
+		)
+		.toArray();
 	return parts.length === 0 ? "" : `?${parts.join("&")}`;
 };
 

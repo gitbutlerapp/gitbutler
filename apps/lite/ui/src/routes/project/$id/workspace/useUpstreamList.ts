@@ -120,34 +120,39 @@ type WorkspaceStackBranches = {
 };
 
 /** The named workspace branches per stack, split by their integration state. */
-const workspaceStackBranches = (headInfo: RefInfo | undefined): Array<WorkspaceStackBranches> =>
-	headInfo?.stacks.flatMap((stack): Array<WorkspaceStackBranches> => {
-		const stackKey =
-			stack.segments.find((segment) => segment.refName !== null)?.refName?.displayName ?? "";
-		const branches = stack.segments.flatMap(
-			(segment): Array<UpstreamBranchItem> =>
-				segment.refName !== null
-					? [
-							{
+const workspaceStackBranches = (headInfo: RefInfo): Array<WorkspaceStackBranches> =>
+	headInfo.stacks
+		.values()
+		.map((stack): WorkspaceStackBranches | null => {
+			const stackKey =
+				stack.segments.find((segment) => segment.refName !== null)?.refName?.displayName ?? "";
+
+			const branches = stack.segments
+				.values()
+				.map((segment): UpstreamBranchItem | null =>
+					segment.refName !== null
+						? {
 								type: "branch",
 								name: segment.refName.displayName,
 								prNumber: segment.metadata?.review.pullRequest ?? null,
 								integrated: segment.pushStatus === "integrated",
 								stackKey,
-							},
-						]
-					: [],
-		);
-		return branches.length > 0
-			? [
-					{
+							}
+						: null,
+				)
+				.filter((x) => x != null)
+				.toArray();
+
+			return branches.length > 0
+				? {
 						base: stack.base,
 						integrated: branches.filter((branch) => branch.integrated),
 						unintegrated: branches.filter((branch) => !branch.integrated),
-					},
-				]
-			: [];
-	}) ?? [];
+					}
+				: null;
+		})
+		.filter((x) => x != null)
+		.toArray();
 
 /**
  * Interleave the target-commit line with the workspace's branches: each
@@ -337,7 +342,7 @@ export const useUpstreamList = (projectId: string): UpstreamListData => {
 				};
 			}
 
-			const stacks = workspaceStackBranches(headInfo);
+			const stacks = headInfo ? workspaceStackBranches(headInfo) : [];
 			const commits = targetCommits.map(asItem);
 			const { items, incomingItemCount, trailingRun } = buildItems(
 				commits,

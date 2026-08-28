@@ -1,6 +1,7 @@
 import { Kbd } from "#ui/components/Kbd.tsx";
 import { PickerDialog, type PickerDialogGroup } from "#ui/components/PickerDialog.tsx";
 import type { CommandGroup } from "#ui/hotkeys.ts";
+import { iteratorConcat } from "#ui/iterator.ts";
 import {
 	getHotkeyManager,
 	getSequenceManager,
@@ -27,7 +28,7 @@ type Props = {
 };
 
 const groupCommandPaletteItems = (
-	items: Array<CommandPaletteItem>,
+	items: Iterable<CommandPaletteItem>,
 ): Array<PickerDialogGroup<CommandPaletteItem>> => {
 	const grouped = Map.groupBy(items, (item) => item.group);
 
@@ -54,32 +55,38 @@ const isEnabled = <T extends HotkeyOptions | SequenceOptions>(
 
 export const CommandPalette: FC<Props> = ({ open, onOpenChange }) => {
 	const [initialActiveElement] = useState(() => document.activeElement);
-
 	const { hotkeys, sequences } = useHotkeyRegistrations();
-	const hotkeyItems: Array<CommandPaletteItem> = [
-		...hotkeys.flatMap((hotkey): CommandPaletteItem | [] =>
-			isEnabled(hotkey.options, initialActiveElement)
-				? {
-						group: hotkey.options.meta.group,
-						id: hotkey.id,
-						name: hotkey.options.meta.name,
-						hotkey: hotkey.hotkey,
-						type: "hotkey",
-					}
-				: [],
-		),
-		...sequences.flatMap((sequence): CommandPaletteItem | [] =>
-			isEnabled(sequence.options, initialActiveElement)
-				? {
-						group: sequence.options.meta.group,
-						id: sequence.id,
-						name: sequence.options.meta.name,
-						hotkey: sequence.sequence,
-						type: "sequence",
-					}
-				: [],
-		),
-	];
+
+	const hotkeyItems: IteratorObject<CommandPaletteItem> = iteratorConcat(
+		hotkeys
+			.values()
+			.map((hotkey): CommandPaletteItem | null =>
+				isEnabled(hotkey.options, initialActiveElement)
+					? {
+							group: hotkey.options.meta.group,
+							id: hotkey.id,
+							name: hotkey.options.meta.name,
+							hotkey: hotkey.hotkey,
+							type: "hotkey",
+						}
+					: null,
+			)
+			.filter((x) => x != null),
+		sequences
+			.values()
+			.map((sequence): CommandPaletteItem | null =>
+				isEnabled(sequence.options, initialActiveElement)
+					? {
+							group: sequence.options.meta.group,
+							id: sequence.id,
+							name: sequence.options.meta.name,
+							hotkey: sequence.sequence,
+							type: "sequence",
+						}
+					: null,
+			)
+			.filter((x) => x != null),
+	);
 	const items = groupCommandPaletteItems(hotkeyItems);
 
 	const runHotkey = (item: CommandPaletteItem) => {

@@ -77,7 +77,7 @@ export const AnnotationCard: FC<Props> = (p) => {
 				.flatMap((form) =>
 					new FormData(form)
 						.entries()
-						.flatMap(([id, body]) => (typeof body === "string" ? [[id, body]] : [])),
+						.filter((pair): pair is [string, string] => typeof pair[1] === "string"),
 				),
 		);
 

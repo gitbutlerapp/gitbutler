@@ -55,7 +55,7 @@ import {
 /** The workspace page's two lists; the one named here is active and drives the details pane. */
 export type ActiveList = "applied" | "uncommitted";
 
-type CheckableAddress = Extract<Address, { _tag: "Commit" | "File" | "Hunk" }>;
+export type CheckableAddress = Extract<Address, { _tag: "Commit" | "File" | "Hunk" }>;
 
 export type BranchTab = "diff" | "pr";
 
@@ -63,7 +63,7 @@ export type BranchTab = "diff" | "pr";
  * A conflict checked for a batch resolution. Ids survive the rewrites that
  * compact hunk positions, so checks carry across; the commit id is remapped.
  */
-type CheckedConflict = { commitId: string; path: string; id: string };
+export type CheckedConflict = { commitId: string; path: string; id: string };
 
 const conflictCheckKey = ({ commitId, path, id }: CheckedConflict): string =>
 	`${commitId}\u0000${path}\u0000${id}`;

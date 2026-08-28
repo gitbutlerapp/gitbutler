@@ -29,11 +29,15 @@ export const useStackMenuItems = (projectId: string, stack: Stack): Array<Native
 	const branchCount = stack.segments.filter((segment) => segment.refName !== null).length;
 	// Only a segment with a branch reference and commits to hide can be folded;
 	// fold state is keyed by that reference.
-	const foldableRefs = stack.segments.flatMap((segment) =>
-		segment.refName !== null && segment.commits.length > 0
-			? [decodeBytes(segment.refName.fullNameBytes)]
-			: [],
-	);
+	const foldableRefs = stack.segments
+		.values()
+		.map((segment) =>
+			segment.refName !== null && segment.commits.length > 0
+				? decodeBytes(segment.refName.fullNameBytes)
+				: null,
+		)
+		.filter((x) => x != null)
+		.toArray();
 	// A plain boolean, so this re-renders only when the stack crosses between
 	// fully unfolded and not.
 	const anyFolded = useAppSelector((state) =>

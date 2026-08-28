@@ -90,16 +90,20 @@ export const useStateReconciler = (projectId: string): void => {
 		parent: FileParent;
 		path: string;
 	};
-	const checkedFiles = checkedAddresses.flatMap<FileScopedCheckedAddress>((address) => {
-		switch (address._tag) {
-			case "File":
-				return [{ address, parent: address.parent, path: address.path }];
-			case "Hunk":
-				return [{ address, parent: address.parent.parent, path: address.parent.path }];
-			default:
-				return [];
-		}
-	});
+	const checkedFiles = checkedAddresses
+		.values()
+		.map((address): FileScopedCheckedAddress | null => {
+			switch (address._tag) {
+				case "File":
+					return { address, parent: address.parent, path: address.path };
+				case "Hunk":
+					return { address, parent: address.parent.parent, path: address.parent.path };
+				default:
+					return null;
+			}
+		})
+		.filter((x) => x != null)
+		.toArray();
 
 	const checkedUncommittedFiles = checkedFiles.filter(
 		(file) => file.parent._tag === "UncommittedChanges",
@@ -111,9 +115,11 @@ export const useStateReconciler = (projectId: string): void => {
 	const { mutate: pruneReviewedFiles } = usePruneReviewedFiles();
 	const reconcileCheckedUncommittedFiles = useEffectEvent(
 		(worktreeChangesByPath: Map<string, TreeChange>) => {
-			const invalidated = checkedUncommittedFiles.flatMap((file) =>
-				worktreeChangesByPath.has(file.path) ? [] : file.address,
-			);
+			const invalidated = checkedUncommittedFiles
+				.values()
+				.map((file) => (worktreeChangesByPath.has(file.path) ? null : file.address))
+				.filter((x) => x != null)
+				.toArray();
 
 			if (invalidated.length > 0) {
 				dispatch(
@@ -127,20 +133,26 @@ export const useStateReconciler = (projectId: string): void => {
 		},
 	);
 
-	const checkedCommitFiles = checkedFiles.flatMap((file) =>
-		file.parent._tag === "Commit" ? { ...file, parent: file.parent } : [],
-	);
+	const checkedCommitFiles = checkedFiles
+		.values()
+		.map((file) => (file.parent._tag === "Commit" ? { ...file, parent: file.parent } : null))
+		.filter((x) => x != null)
+		.toArray();
 	const reconcileCheckedCommitFiles = useEffectEvent(
 		(
 			headInfoIndex: HeadInfoIndex,
 			checkedCommitFilesByCommitId: Map<string, Map<string, TreeChange>>,
 		) => {
-			const invalidated = checkedCommitFiles.flatMap((file) =>
-				!headInfoIndex.commitContextByCommitId(file.parent.commitId) ||
-				checkedCommitFilesByCommitId.get(file.parent.commitId)?.has(file.path) === false
-					? file.address
-					: [],
-			);
+			const invalidated = checkedCommitFiles
+				.values()
+				.map((file) =>
+					!headInfoIndex.commitContextByCommitId(file.parent.commitId) ||
+					checkedCommitFilesByCommitId.get(file.parent.commitId)?.has(file.path) === false
+						? file.address
+						: null,
+				)
+				.filter((x) => x != null)
+				.toArray();
 
 			if (invalidated.length > 0) {
 				dispatch(
@@ -154,18 +166,24 @@ export const useStateReconciler = (projectId: string): void => {
 		},
 	);
 
-	const checkedBranchFiles = checkedFiles.flatMap((file) =>
-		file.parent._tag === "Branch" ? { ...file, parent: file.parent } : [],
-	);
+	const checkedBranchFiles = checkedFiles
+		.values()
+		.map((file) => (file.parent._tag === "Branch" ? { ...file, parent: file.parent } : null))
+		.filter((x) => x != null)
+		.toArray();
 	const reconcileCheckedBranchFiles = useEffectEvent(
 		(headInfoIndex: HeadInfoIndex, checkedBranchFilesByBranchName: Map<string, Set<string>>) => {
-			const invalidated = checkedBranchFiles.flatMap((file) =>
-				!headInfoIndex.isApplied(file.parent.branchRef) ||
-				checkedBranchFilesByBranchName.get(decodeBytes(file.parent.branchRef))?.has(file.path) ===
-					false
-					? file.address
-					: [],
-			);
+			const invalidated = checkedBranchFiles
+				.values()
+				.map((file) =>
+					!headInfoIndex.isApplied(file.parent.branchRef) ||
+					checkedBranchFilesByBranchName.get(decodeBytes(file.parent.branchRef))?.has(file.path) ===
+						false
+						? file.address
+						: null,
+				)
+				.filter((x) => x != null)
+				.toArray();
 
 			if (invalidated.length > 0) {
 				dispatch(
@@ -238,16 +256,17 @@ export const useStateReconciler = (projectId: string): void => {
 		),
 		combine: (results): Map<string, Map<string, TreeChange>> =>
 			new Map(
-				results.flatMap((result) =>
-					result.data
-						? [
-								[
+				results
+					.values()
+					.map((result) =>
+						result.data
+							? ([
 									result.data.commit.id,
 									new Map(result.data.changes.map((change) => [change.path, change])),
-								] as const,
-							]
-						: [],
-				),
+								] as const)
+							: null,
+					)
+					.filter((x) => x != null),
 			),
 	});
 	useLayoutEffect(() => {
@@ -265,12 +284,15 @@ export const useStateReconciler = (projectId: string): void => {
 		),
 		combine: (results) =>
 			new Map(
-				results.flatMap((result, idx) => {
-					const key = checkedBranchFileBranchNames[idx];
-					return key !== undefined && result.data
-						? [[key, new Set(result.data.changes.map((change) => change.path))]]
-						: [];
-				}),
+				results
+					.values()
+					.map((result, idx) => {
+						const key = checkedBranchFileBranchNames[idx];
+						return key !== undefined && result.data
+							? ([key, new Set(result.data.changes.map((change) => change.path))] as const)
+							: null;
+					})
+					.filter((x) => x != null),
 			),
 	});
 	useLayoutEffect(() => {
@@ -284,9 +306,10 @@ export const useStateReconciler = (projectId: string): void => {
 		addressIdentityKey(fileAddress(hunk.parent)),
 	)
 		.values()
-		.flatMap((hunks) => {
+		.map((hunks) => {
 			const anyHunk = hunks[0];
-			if (!anyHunk) return [];
+			if (!anyHunk) return null;
+
 			const { parent, path } = anyHunk.parent;
 
 			const change =
@@ -295,8 +318,9 @@ export const useStateReconciler = (projectId: string): void => {
 					: parent._tag === "Commit"
 						? checkedCommitFilesByCommitId.get(parent.commitId)?.get(path)
 						: undefined;
-			return change ? [{ change, hunks }] : [];
+			return change ? { change, hunks } : null;
 		})
+		.filter((x) => x != null)
 		.toArray();
 	const validCheckedHunkKeys = useQueries({
 		queries: checkedHunkFiles.map(({ change }) =>
@@ -304,18 +328,24 @@ export const useStateReconciler = (projectId: string): void => {
 		),
 		combine: (results): Set<string> =>
 			new Set(
-				results.flatMap(({ data: patch }, index) => {
-					const file = checkedHunkFiles[index];
-					if (!file || patch?.type !== "Patch") return [];
-
-					return file.hunks.flatMap((hunk) =>
-						hunk.isResultOfBinaryToTextConversion ===
-							patch.subject.isResultOfBinaryToTextConversion &&
-						patch.subject.hunks.some((current) => hunkContainsHunk(current, hunk.hunkHeader))
-							? addressIdentityKey(hunk)
-							: [],
-					);
-				}),
+				results
+					.values()
+					.map(({ data: patch }, index) => {
+						const file = checkedHunkFiles[index];
+						return file && patch?.type === "Patch" ? { file, patch } : null;
+					})
+					.filter((x) => x != null)
+					.flatMap(({ file, patch }) =>
+						file.hunks
+							.values()
+							.filter(
+								(hunk) =>
+									hunk.isResultOfBinaryToTextConversion ===
+										patch.subject.isResultOfBinaryToTextConversion &&
+									patch.subject.hunks.some((current) => hunkContainsHunk(current, hunk.hunkHeader)),
+							)
+							.map(addressIdentityKey),
+					),
 			),
 	});
 	const reconcileCheckedHunks = useEffectEvent((validHunkKeys: Set<string>) => {

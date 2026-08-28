@@ -142,11 +142,6 @@ export const Sidebar: FC<{
 		select: (cfg) => cfg.autoFetchFrequency,
 	});
 	const { data: workspaceFetchStatus } = useQuery(workspaceFetchStatusQueryOptions(projectId));
-	const rebaseUpdates =
-		headInfo?.stacks.flatMap((stack): Array<BottomUpdate> => {
-			const relativeTo = stackBottomRelativeTo(stack);
-			return relativeTo ? [{ kind: "rebase", selector: relativeTo }] : [];
-		}) ?? [];
 	const { isPending: isWorkspaceIntegrateUpstreamPending, mutate: workspaceIntegrateUpstream } =
 		useWorkspaceIntegrateUpstream();
 	const { isFetching: isWorkspaceFetchFromRemotesPending, refetch: workspaceFetchFromRemotes } =
@@ -166,7 +161,13 @@ export const Sidebar: FC<{
 		});
 	};
 	const updateWorkspace = () => {
-		workspaceIntegrateUpstream({ projectId, updates: rebaseUpdates, dryRun: false });
+		const rebaseUpdates = (headInfo?.stacks ?? [])
+			.values()
+			.map(stackBottomRelativeTo)
+			.filter((relativeTo) => relativeTo != null)
+			.map((relativeTo): BottomUpdate => ({ kind: "rebase", selector: relativeTo }));
+
+		workspaceIntegrateUpstream({ projectId, updates: rebaseUpdates.toArray(), dryRun: false });
 	};
 
 	// Only an update advances the stored target, so there is work to do exactly

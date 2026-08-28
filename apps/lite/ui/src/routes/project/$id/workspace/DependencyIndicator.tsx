@@ -17,7 +17,10 @@ export const DependencyIndicator: FC<
 	const ownedCommitIds = useRef<Set<string> | null>(null);
 
 	const branchNames = new Set(
-		commitIds.flatMap((commitId) => branchNameByCommitId(commitId) ?? []),
+		commitIds
+			.values()
+			.map((commitId) => branchNameByCommitId(commitId))
+			.filter((x) => x != null),
 	);
 	const tooltip =
 		branchNames.size > 0

@@ -66,7 +66,7 @@ import {
 } from "#ui/addresses.ts";
 import type { DiffLineSelection } from "#ui/cursors.ts";
 import { checkedRange, addressSpaceRange } from "#ui/checking.ts";
-import type { BranchTab } from "#ui/projects/project.ts";
+import type { BranchTab, CheckableAddress } from "#ui/projects/project.ts";
 import { projectSlice } from "#ui/projects/state.ts";
 import { interfaceSlice } from "#ui/interface/state.ts";
 import { Badge } from "#ui/components/Badge.tsx";
@@ -491,22 +491,25 @@ const DiffContents: FC<{
 	const hunkCheckRangeEnd = useRef<string>(null);
 
 	const collapsedItems: Set<string> = new Set(
-		items.flatMap((item) => {
-			const manuallyCollapsed = manualCollapseByItem.get(item.id);
-			if (manuallyCollapsed !== undefined) return manuallyCollapsed ? item.id : [];
+		items
+			.values()
+			.map((item) => {
+				const manuallyCollapsed = manualCollapseByItem.get(item.id);
+				if (manuallyCollapsed !== undefined) return manuallyCollapsed ? item.id : null;
 
-			const file = fileByItemId.get(item.id);
-			if (!file) return [];
+				const file = fileByItemId.get(item.id);
+				if (!file) return null;
 
-			const {
-				change: { path },
-				item: { version },
-			} = file;
-			if (version === undefined) return [];
+				const {
+					change: { path },
+					item: { version },
+				} = file;
+				if (version === undefined) return null;
 
-			const reviewedLatestVersion = reviewedFiles.get(path)?.has(version);
-			return reviewedLatestVersion ? item.id : [];
-		}),
+				const reviewedLatestVersion = reviewedFiles.get(path)?.has(version);
+				return reviewedLatestVersion ? item.id : null;
+			})
+			.filter((x) => x != null),
 	);
 	const visibleAddressSpace = withoutFoldedHunks(addressSpace, hunkByKey, collapsedItems);
 
@@ -1215,7 +1218,9 @@ const DiffContents: FC<{
 		new Set(
 			projectSlice.selectors
 				.selectCheckedAddresses(store.getState(), projectId)
-				.flatMap((address) => (address._tag === "Hunk" ? [hunkAddressIdentityKey(address)] : [])),
+				.values()
+				.map((address) => (address._tag === "Hunk" ? hunkAddressIdentityKey(address) : null))
+				.filter((x) => x != null),
 		);
 
 	const applyCheckedAddressGroups = ({
@@ -1227,8 +1232,11 @@ const DiffContents: FC<{
 		next: Set<string>;
 		addressesByKey: Map<string, Array<Extract<Address, { _tag: "Hunk" }>>>;
 	}): void => {
-		const addressesForKeys = (keys: Set<string>) =>
-			Array.from(keys).flatMap((key) => addressesByKey.get(key) ?? []);
+		const addressesForKeys = (keys: Set<string>): Array<CheckableAddress> =>
+			keys
+				.values()
+				.flatMap((key) => addressesByKey.get(key) ?? [])
+				.toArray();
 
 		dispatch(
 			projectSlice.actions.checkAddresses({
@@ -1278,11 +1286,14 @@ const DiffContents: FC<{
 	};
 
 	const visibleHunkGroups = () =>
-		visibleAddressSpace.items.flatMap((address) => {
-			const selection = hunkByKey.get(hunkAddressIdentityKey(address))?.selectedLines;
-			const lineAddresses = selection ? addressesForSelectedLines(selection, "line") : [];
-			return lineAddresses.length > 0 ? [{ address, lineAddresses }] : [];
-		});
+		visibleAddressSpace.items
+			.values()
+			.map((address) => {
+				const selection = hunkByKey.get(hunkAddressIdentityKey(address))?.selectedLines;
+				const lineAddresses = selection ? addressesForSelectedLines(selection, "line") : null;
+				return lineAddresses && lineAddresses.length > 0 ? { address, lineAddresses } : null;
+			})
+			.filter((x) => x != null);
 
 	// Checkbox Shift-click extends persistent checked ranges. Shift-clicking the surrounding gutter
 	// remains Pierre's active line-range gesture, unlike the whole-row shortcut on file/commit rows.
@@ -1290,8 +1301,9 @@ const DiffContents: FC<{
 		const key = hunkAddressIdentityKey(address);
 		const previous = shiftKey && lineCheckRangeAnchor.current !== null ? checkedHunkKeys() : null;
 		if (previous && previous.size > 0) {
-			const groups = visibleHunkGroups();
-			const orderedAddresses = groups.flatMap(({ lineAddresses }) => lineAddresses);
+			const orderedAddresses = visibleHunkGroups()
+				.flatMap(({ lineAddresses }) => lineAddresses)
+				.toArray();
 			const addressesByKey = new Map(
 				orderedAddresses.map((lineAddress) => [hunkAddressIdentityKey(lineAddress), [lineAddress]]),
 			);
@@ -1343,19 +1355,22 @@ const DiffContents: FC<{
 			return;
 		}
 
-		const groups = visibleHunkGroups();
+		const groups = visibleHunkGroups().toArray();
 		const addressesByKey = new Map(
 			groups.map(({ address, lineAddresses }) => [hunkAddressIdentityKey(address), lineAddresses]),
 		);
 		const state = store.getState();
 		const previous = new Set(
-			groups.flatMap(({ address, lineAddresses }) =>
-				lineAddresses.every((lineAddress) =>
-					projectSlice.selectors.selectAddressChecked(state, projectId, lineAddress),
+			groups
+				.values()
+				.map(({ address, lineAddresses }) =>
+					lineAddresses.every((lineAddress) =>
+						projectSlice.selectors.selectAddressChecked(state, projectId, lineAddress),
+					)
+						? hunkAddressIdentityKey(address)
+						: null,
 				)
-					? [hunkAddressIdentityKey(address)]
-					: [],
-			),
+				.filter((x) => x != null),
 		);
 		const nextRange = checkedRangeFor({
 			orderedAddresses: groups.map(({ address }) => address),
@@ -2248,11 +2263,13 @@ const Diff: FC<{
 				(address) => address._tag === "File" && addressEquals(address.parent, fileParent),
 			)
 		) {
-			const checkedChanges = sources.flatMap(
-				(source) =>
-					changes.find((candidate) => source._tag === "File" && candidate.path === source.path) ??
-					[],
-			);
+			const checkedChanges = sources
+				.values()
+				.map((source) =>
+					changes.find((candidate) => source._tag === "File" && candidate.path === source.path),
+				)
+				.filter((x) => x != null)
+				.toArray();
 			if (checkedChanges.length !== sources.length) return;
 
 			subjectChanges = checkedChanges;
@@ -3305,6 +3322,7 @@ const UnappliedBranchDetails: FC<BranchDetailsProps> = ({
 		...branchListQueryOptions(projectId),
 		select: (stacks) =>
 			stacks
+				.values()
 				.flatMap((stack) => stack.branches)
 				.find((listed) => listed.displayName === branchName && listed.reviewStatus === "merged")
 				?.review?.number ?? null,
@@ -3606,8 +3624,12 @@ const FileDetails: FC<{
 	const canShowFiles = useCanShowFiles();
 	const filesVisible = canShowFiles && filesVisibleState;
 	const { data: worktreeChanges } = useSuspenseQuery(changesInWorktreeQueryOptions(projectId));
-	const filesItems = getChangesFileRowItems(worktreeChanges);
-	const changes = filesItems.flatMap((item) => (item._tag === "Change" ? [item.change] : []));
+	const filesItems = getChangesFileRowItems(worktreeChanges).toArray();
+	const changes = filesItems
+		.values()
+		.map((item) => (item._tag === "Change" ? item.change : null))
+		.filter((x) => x != null)
+		.toArray();
 
 	const selectFile = (selection: string) => {
 		setCursor("uncommitted", selection);

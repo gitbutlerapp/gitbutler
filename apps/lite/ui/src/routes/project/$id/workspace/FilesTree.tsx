@@ -458,7 +458,10 @@ export const FilesTree: FC<
 	const rowByPath = new Map(rows.map((row) => [row.path, row]));
 	// Conflicts have no change to commit or discard yet, so they never get checked.
 	const conflictPaths = new Set(
-		rows.flatMap((row) => (row._tag === "File" && row.item._tag === "Conflict" ? [row.path] : [])),
+		rows
+			.values()
+			.filter((row) => row._tag === "File" && row.item._tag === "Conflict")
+			.map((row) => row.path),
 	);
 	const checkable = (path: string) => !conflictPaths.has(path);
 	const selectedRow = selection === null ? undefined : rowByPath.get(selection);
@@ -497,9 +500,14 @@ export const FilesTree: FC<
 			projectId,
 		);
 		return new Set(
-			checkedAddresses.flatMap((address) =>
-				address._tag === "File" && addressEquals(address.parent, fileParent) ? address.path : [],
-			),
+			checkedAddresses
+				.values()
+				.map((address) =>
+					address._tag === "File" && addressEquals(address.parent, fileParent)
+						? address.path
+						: null,
+				)
+				.filter((x) => x != null),
 		);
 	};
 

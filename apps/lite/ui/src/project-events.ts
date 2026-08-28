@@ -88,23 +88,25 @@ const refreshIntegratedReviews = async (client: QueryClient, projectId: string):
 		queryFn: () => window.lite.headInfo(projectId),
 		staleTime: 0,
 	});
+
 	const reviewIds = new Set(
-		headInfo.stacks.flatMap((stack) =>
-			stack.segments.flatMap((segment) => {
-				// Integrated segments only: an open association needs no
-				// refresh here, and the landed view fetches on demand.
-				const reviewId = segment.pushStatus === "integrated" ? recordedPullRequest(segment) : null;
-				return reviewId !== null ? [reviewId] : [];
-			}),
+		headInfo.stacks.values().flatMap((stack) =>
+			stack.segments
+				.values()
+				// Integrated segments only: an open association needs no refresh here, and the landed view
+				// fetches on demand.
+				.filter((segment) => segment.pushStatus === "integrated")
+				.map(recordedPullRequest)
+				.filter((x) => x != null),
 		),
 	);
+
 	await Promise.allSettled(
-		[...reviewIds].flatMap((reviewId) => {
-			const options = getReviewQueryOptions({ projectId, reviewId });
-			return client.getQueryData<ForgeReview>(options.queryKey)?.mergedAt != null
-				? []
-				: [client.fetchQuery({ ...options, staleTime: Number.POSITIVE_INFINITY })];
-		}),
+		reviewIds
+			.values()
+			.map((reviewId) => getReviewQueryOptions({ projectId, reviewId }))
+			.filter((options) => client.getQueryData<ForgeReview>(options.queryKey)?.mergedAt == null)
+			.map((options) => client.fetchQuery({ ...options, staleTime: Number.POSITIVE_INFINITY })),
 	);
 };
 

@@ -236,11 +236,15 @@ export const CommitForm: FC<{
 				projectId,
 				message: commitTextareaRef.current?.value ?? draftMessage ?? "",
 				relativeTo,
-				changes: worktreeChanges.changes.flatMap((change) =>
-					checkedUncommittedFilePaths.size === 0 || checkedUncommittedFilePaths.has(change.path)
-						? [createDiffSpec(change, [])]
-						: [],
-				),
+				changes: worktreeChanges.changes
+					.values()
+					.filter(
+						(change) =>
+							checkedUncommittedFilePaths.size === 0 ||
+							checkedUncommittedFilePaths.has(change.path),
+					)
+					.map((change) => createDiffSpec(change, []))
+					.toArray(),
 				changesSource: { type: "head" },
 				side: Match.value(relativeTo).pipe(
 					Match.withReturnType<InsertSide>(),

@@ -242,12 +242,16 @@ export const useCheckedActions = ({
 									.getQueryData(changesInWorktreeQueryOptions(projectId).queryKey)
 									?.changes.map((change) => [change.path, change]),
 							);
-							const hunks = checkedAddresses.flatMap((address) => {
-								const change = changesByPath.get(address.parent.path);
-								return change
-									? [{ pathBytes: change.pathBytes, hunkHeader: address.hunkHeader }]
-									: [];
-							});
+							const hunks = checkedAddresses
+								.values()
+								.map((address) => {
+									const change = changesByPath.get(address.parent.path);
+									return change
+										? { pathBytes: change.pathBytes, hunkHeader: address.hunkHeader }
+										: null;
+								})
+								.filter((x) => x != null)
+								.toArray();
 							if (hunks.length !== checkedAddresses.length) return;
 
 							startAbsorb({
