@@ -96,6 +96,20 @@ pub async fn get(
     Ok(mr)
 }
 
+pub async fn get_merge_status(
+    preferred_account: Option<&crate::GitlabAccountIdentifier>,
+    project_id: GitLabProjectId,
+    mr_iid: usize,
+    storage: &but_forge_storage::Controller,
+) -> Result<crate::client::MergeRequestMergeStatus> {
+    let mr_iid = mr_iid.try_into().context("MR number is too large")?;
+    GitLabClient::from_storage(storage, preferred_account)?
+        .get_merge_request_merge_status(project_id, mr_iid)
+        .await
+        .map_err(classify_forge_error)
+        .context("Failed to fetch MR merge status")
+}
+
 pub async fn update(
     preferred_account: Option<&crate::GitlabAccountIdentifier>,
     params: crate::client::UpdateMergeRequestParams<'_>,

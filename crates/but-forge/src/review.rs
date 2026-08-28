@@ -2002,13 +2002,14 @@ pub async fn get_review_merge_status(
     match forge {
         ForgeName::GitHub => {
             let preferred_account = preferred_forge_user.as_ref().and_then(|user| user.github());
-            let pr_number = review_number
-                .try_into()
-                .context("PR: Failed to cast usize to i64, somehow")?;
-            let status = but_github::GitHubClient::from_storage(storage, preferred_account)?
-                .get_pull_request_merge_status(owner, repo, pr_number)
-                .await
-                .context("Failed to fetch PR merge status")?;
+            let status = but_github::pr::get_merge_status(
+                preferred_account,
+                owner,
+                repo,
+                review_number,
+                storage,
+            )
+            .await?;
             Ok(ReviewMergeStatus {
                 mergeable_state: status.mergeable_state,
                 comments_count: status.comments_count,
@@ -2018,13 +2019,13 @@ pub async fn get_review_merge_status(
         ForgeName::GitLab => {
             let preferred_account = preferred_forge_user.as_ref().and_then(|user| user.gitlab());
             let project_id = GitLabProjectId::new(owner, repo);
-            let mr_iid = review_number
-                .try_into()
-                .context("MR: Failed to cast usize to i64, somehow")?;
-            let status = but_gitlab::GitLabClient::from_storage(storage, preferred_account)?
-                .get_merge_request_merge_status(project_id, mr_iid)
-                .await
-                .context("Failed to fetch MR merge status")?;
+            let status = but_gitlab::mr::get_merge_status(
+                preferred_account,
+                project_id,
+                review_number,
+                storage,
+            )
+            .await?;
             Ok(ReviewMergeStatus {
                 mergeable_state: status.mergeable_state,
                 comments_count: status.comments_count,
