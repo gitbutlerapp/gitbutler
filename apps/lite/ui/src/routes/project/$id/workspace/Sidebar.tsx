@@ -24,7 +24,7 @@ import { Button, Toast, Toggle, ToggleGroup, Tooltip } from "@base-ui/react";
 import type { BottomUpdate, ProjectForFrontend } from "@gitbutler/but-sdk";
 import { useQuery } from "@tanstack/react-query";
 import { useHotkeys } from "@tanstack/react-hotkeys";
-import { type FC, useRef } from "react";
+import { Activity, type FC, useRef } from "react";
 import { ToggleGroupStyles, ToggleStyles } from "#ui/components/ToggleGroup.tsx";
 import { WorkspaceLists } from "#ui/routes/project/$id/workspace/WorkspaceLists/WorkspaceLists.tsx";
 import { BranchesList } from "#ui/routes/project/$id/workspace/BranchesList.tsx";
@@ -311,14 +311,16 @@ export const Sidebar: FC<{
 				</ToggleGroup>
 			</div>
 
-			{page === "branches" ? (
+			<Activity mode={page === "branches" ? "visible" : "hidden"}>
 				<BranchesList
 					className={styles.page}
 					projectId={projectId}
 					list={branchesList}
 					newBranch={newBranch}
 				/>
-			) : page === "upstream" ? (
+			</Activity>
+
+			{page === "upstream" && (
 				<UpstreamList
 					className={styles.page}
 					projectId={projectId}
@@ -327,7 +329,9 @@ export const Sidebar: FC<{
 					isUpdatePending={isWorkspaceIntegrateUpstreamPending}
 					onUpdateWorkspace={updateWorkspace}
 				/>
-			) : (
+			)}
+
+			{page === "workspace" && (
 				<WorkspaceLists
 					className={styles.page}
 					addressSpace={addressSpace}

@@ -12,12 +12,24 @@ import { branchAddress, commitAddress, addressIdentityKey, type Address } from "
 import { projectSlice } from "#ui/projects/state.ts";
 import { useAppSelector } from "#ui/store.ts";
 import { buildIndexByKey, type AddressSpace } from "#ui/workspace/address-space.ts";
-import type { ListedStack } from "@gitbutler/but-sdk";
+import type { Commit, ListedBranch } from "@gitbutler/but-sdk";
 import { useQueries, useQuery } from "@tanstack/react-query";
 import { useDeferredValue } from "react";
 
+type BranchesListBranch = {
+	branch: ListedBranch;
+	addressIndex: number;
+	commits: Array<Commit> | undefined;
+};
+
+type BranchesListStack = {
+	branches: Array<BranchesListBranch>;
+	commitCount: number;
+};
+
 export type BranchesListData = {
-	unapplied: Array<ListedStack>;
+	stacks: Array<BranchesListStack>;
+	stackIndexByAddressIndex: Array<number>;
 	addressSpace: AddressSpace<Address>;
 	/**
 	 * The listing query's state, so the page can tell a genuinely empty result
@@ -27,10 +39,14 @@ export type BranchesListData = {
 	isError: boolean;
 };
 
-type BranchesListContent = Pick<BranchesListData, "unapplied" | "addressSpace">;
+type BranchesListContent = Pick<
+	BranchesListData,
+	"stacks" | "stackIndexByAddressIndex" | "addressSpace"
+>;
 
 const emptyContent: BranchesListContent = {
-	unapplied: [],
+	stacks: [],
+	stackIndexByAddressIndex: [],
 	addressSpace: { items: [], indexByKey: new Map() },
 };
 
@@ -56,20 +72,14 @@ export const useBranchesList = (projectId: string): BranchesListData => {
 		projectSlice.selectors.selectUnfoldedBranches(state, projectId),
 	);
 
-	const unfoldedBranchRefs = active ? Object.keys(unfoldedBranches) : [];
+	const unfoldedBranchRefs = Object.keys(unfoldedBranches);
 	const commitsByRef = useQueries({
-		queries: unfoldedBranchRefs.map((refName) =>
-			branchDetailsQueryOptions({ projectId, ...branchDetailsParams(refName) }),
-		),
+		queries: unfoldedBranchRefs.map((refName) => ({
+			...branchDetailsQueryOptions({ projectId, ...branchDetailsParams(refName) }),
+			enabled: active,
+		})),
 		combine: (results) =>
-			new Map(
-				unfoldedBranchRefs.map((refName, index) => [
-					refName,
-					results[index]?.data?.commits.map((commit) =>
-						commitAddress({ commitId: commit.id, changeId: commit.changeId }),
-					) ?? [],
-				]),
-			),
+			new Map(unfoldedBranchRefs.map((refName, index) => [refName, results[index]?.data?.commits])),
 	});
 
 	// The whole derivation lives in `select` so its result keeps a stable
@@ -88,22 +98,40 @@ export const useBranchesList = (projectId: string): BranchesListData => {
 		enabled: active,
 		select: (listedStacks): BranchesListContent => {
 			const unapplied = searchStacks(unappliedStacks(listedStacks, filters), search);
-			const items = unapplied.flatMap((stack) =>
-				stack.branches.flatMap(
-					(branch): Array<Address> => [
-						branchAddress({ branchRef: encodeBytes(branch.refName.full) }),
-						// Matches what BranchesList renders: a branch with no commits of
-						// its own cannot be unfolded, and an unfolded one shows only the
-						// commits it contributes itself.
-						...(unfoldedBranches[branch.refName.full] && !branchIsEmpty(branch)
-							? branchOwnCommits(branch, commitsByRef.get(branch.refName.full) ?? [])
-							: []),
-					],
-				),
-			);
+			const items: Array<Address> = [];
+			const stackIndexByAddressIndex: Array<number> = [];
+			const stacks = unapplied.map((stack, stackIndex): BranchesListStack => {
+				let commitCount = 0;
+				const branches = stack.branches.map((branch): BranchesListBranch => {
+					const addressIndex = items.length;
+					items.push(branchAddress({ branchRef: encodeBytes(branch.refName.full) }));
+					stackIndexByAddressIndex.push(stackIndex);
+
+					const branchCommits = commitsByRef.get(branch.refName.full);
+					const commits =
+						unfoldedBranches[branch.refName.full] &&
+						!branchIsEmpty(branch) &&
+						branchCommits !== undefined
+							? branchOwnCommits(branch, branchCommits)
+							: undefined;
+
+					if (commits !== undefined) {
+						commitCount += commits.length;
+						for (const commit of commits) {
+							items.push(commitAddress({ commitId: commit.id, changeId: commit.changeId }));
+							stackIndexByAddressIndex.push(stackIndex);
+						}
+					}
+
+					return { branch, addressIndex, commits };
+				});
+
+				return { branches, commitCount };
+			});
 
 			return {
-				unapplied,
+				stacks,
+				stackIndexByAddressIndex,
 				addressSpace: { items, indexByKey: buildIndexByKey(items, addressIdentityKey) },
 			};
 		},

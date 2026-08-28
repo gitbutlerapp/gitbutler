@@ -47,18 +47,22 @@ const paneNavigationAllowed = (): boolean => {
 };
 
 const findFocusTarget = (parent: ParentNode, scope: FocusScope): HTMLElement | null => {
-	const root = parent.querySelector<HTMLElement>(`[data-focus-scope="${scope}"]`);
-	if (!root) return null;
+	for (const root of parent.querySelectorAll<HTMLElement>(`[data-focus-scope="${scope}"]`)) {
+		// Activity retains hidden panes in the DOM, but they must not intercept focus restoration.
+		if (!root.checkVisibility()) continue;
 
-	const children = focusScopeChildren[scope];
-	if (children) {
-		for (const childScope of children) {
-			const target = findFocusTarget(root, childScope);
-			if (target) return target;
+		const children = focusScopeChildren[scope];
+		if (children) {
+			for (const childScope of children) {
+				const target = findFocusTarget(root, childScope);
+				if (target) return target;
+			}
 		}
+
+		return root;
 	}
 
-	return root;
+	return null;
 };
 
 export const focusScope = (scope: FocusScope) => {

@@ -59,12 +59,23 @@ export const Row: FC<
 	const rowRef = useRef<HTMLDivElement | null>(null);
 	const mergedRef = useMergedRefs(rowRef, refProp);
 
+	// Activity reconnects layout effects on reveal without changing `isSelected`. Only scroll for a
+	// new selection so revealing a tab preserves manual scroll.
+	const selectionWasRevealedRef = useRef(false);
+
 	useLayoutEffect(() => {
-		if (!isSelected || !scrollSelectedIntoView) return;
+		if (!isSelected) {
+			selectionWasRevealedRef.current = false;
+			return;
+		}
+		if (!scrollSelectedIntoView || selectionWasRevealedRef.current) return;
+
 		rowRef.current?.scrollIntoView({
 			block: "nearest",
 			inline: "nearest",
 		});
+
+		selectionWasRevealedRef.current = true;
 	}, [isSelected, scrollSelectedIntoView]);
 
 	return (
