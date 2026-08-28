@@ -1,3 +1,4 @@
+import { persistSwallowGitHubOrgAuthErrors } from "$lib/config/config";
 import { SilentError } from "$lib/error/error";
 import { classify } from "$lib/error/errorClassification";
 import { IpcError } from "$lib/error/normalizedError";
@@ -45,6 +46,24 @@ describe("classify", () => {
 				"list_reviews",
 			);
 			expect(classify(error).severity).toBe("silent");
+		});
+
+		test("opted-out org OAuth errors stay terminal so pollers still stop", () => {
+			persistSwallowGitHubOrgAuthErrors(true);
+			try {
+				const error = new IpcError(
+					{
+						message: "the organization has enabled OAuth App access restrictions",
+						code: "GitHubOrgOAuthRestricted",
+					},
+					"list_ci_checks",
+				);
+				const result = classify(error);
+				expect(result.severity).toBe("silent");
+				expect(result.terminal).toBe(true);
+			} finally {
+				persistSwallowGitHubOrgAuthErrors(false);
+			}
 		});
 	});
 
@@ -106,6 +125,21 @@ describe("classify", () => {
 			const result = classify(error);
 			expect(result.userMessage).toContain("expired");
 			expect(result.userMessage).toContain("log out");
+		});
+
+		test("GitHubInsufficientPermissions is terminal with permission guidance", () => {
+			const error = new IpcError(
+				{
+					message: "Your GitHub credentials don't have permission to read this.",
+					code: "GitHubInsufficientPermissions",
+				},
+				"list_ci_checks",
+			);
+			const result = classify(error);
+			expect(result.severity).toBe("error");
+			// Terminal: telemetry captures once per session and pollers stop.
+			expect(result.terminal).toBe(true);
+			expect(result.userMessage).toContain("permission");
 		});
 	});
 

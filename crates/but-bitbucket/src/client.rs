@@ -648,7 +648,7 @@ impl BitbucketClient {
 /// serving cached data instead of surfacing an error.
 pub(crate) const NOT_AUTHENTICATED: but_error::Context = but_error::Context::new_static(
     but_error::Code::ForgeNotAuthenticated,
-    "Not authenticated with Bitbucket.",
+    "Not authenticated with Bitbucket. Connect your account under Settings → Integrations.",
 );
 
 pub(crate) fn resolve_account(

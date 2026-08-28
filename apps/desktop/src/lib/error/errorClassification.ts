@@ -158,6 +158,19 @@ Your GitHub token appears expired. Please log out and back in to refresh it. (Se
 	},
 	GitHubOrgOAuthRestricted: GH_ORG_AUTH_CLASSIFICATION,
 	/**
+	 * The GitHub token can't read the requested resource — a fine-grained
+	 * PAT missing a read permission such as Checks. Terminal until the
+	 * user grants it or reconnects.
+	 */
+	GitHubInsufficientPermissions: {
+		severity: "error",
+		terminal: true,
+		title: "GitHub Permissions Error",
+		userMessage: `
+Your GitHub token doesn't have permission to read part of this repository (for example CI checks). Grant the token the missing read permission on GitHub, or reconnect GitHub under Settings → Integrations.
+		`,
+	},
+	/**
 	 * No forge credentials are stored — the user never authenticated or
 	 * logged out. Cached review reads fall back to the last known data;
 	 * this surfaces on explicit forge actions (sync, PR mutations), so
@@ -244,20 +257,19 @@ export function classify(error: unknown, callerTitle?: string): ClassifiedError 
 	const effective = byMessage ?? byCode;
 	const title = effective?.title ?? name ?? callerTitle ?? message;
 
-	if (isUnrecoverableBundlingError(message)) {
-		return { title, message, code, severity: "silent" };
-	}
-	// Silence octokit's offline "Load failed" — happens whenever the user
-	// loses network, surfaces nothing actionable.
-	if (origin === "http" && message === "Load failed") {
-		return { title, message, code, severity: "silent" };
-	}
-	if (title === GH_ORG_AUTH_ERROR && getSwallowGitHubOrgAuthErrors()) {
-		return { title, message, code, severity: "silent" };
-	}
-
-	if (effective?.severity === "silent") {
-		return { title, message, code, severity: "silent" };
+	// Expected states rather than defects: suppress the toast and capture,
+	// but carry `terminal` through so pollers still stop on unretryable
+	// states (e.g. an org-auth error the user opted out of seeing).
+	const silenced =
+		isUnrecoverableBundlingError(message) ||
+		// Octokit's offline "Load failed" — happens whenever the user
+		// loses network, surfaces nothing actionable.
+		(origin === "http" && message === "Load failed") ||
+		// The org-auth toast opt-out ("Don't show this again").
+		(title === GH_ORG_AUTH_ERROR && getSwallowGitHubOrgAuthErrors()) ||
+		effective?.severity === "silent";
+	if (silenced) {
+		return { title, message, code, severity: "silent", terminal: effective?.terminal };
 	}
 
 	return {

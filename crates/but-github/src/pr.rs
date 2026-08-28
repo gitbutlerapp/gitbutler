@@ -86,6 +86,24 @@ pub(crate) fn classify_forge_error(err: anyhow::Error) -> anyhow::Error {
                 "A GitHub organization has restricted access for the GitButler OAuth app. Ask an organization owner to approve it, or authenticate with a personal access token instead.",
             ));
         }
+        // "Resource not accessible by personal access token": the token
+        // works but lacks a permission, e.g. a fine-grained PAT without
+        // Checks read access. Terminal until the user grants it. Other
+        // permission-shaped 403 wordings (integration tokens, SAML
+        // enforcement) deliberately stay `Unknown` until telemetry shows
+        // they actually occur.
+        if http_err.status == reqwest::StatusCode::FORBIDDEN
+            && err.chain().any(|cause| {
+                cause
+                    .to_string()
+                    .contains("Resource not accessible by personal access token")
+            })
+        {
+            return err.context(but_error::Context::new_static(
+                but_error::Code::GitHubInsufficientPermissions,
+                "Your GitHub token doesn't have permission to read this. Grant the token the missing repository read permission (such as Checks), or reconnect GitHub with different credentials.",
+            ));
+        }
     }
     err
 }
@@ -463,14 +481,33 @@ mod tests {
     }
 
     #[test]
-    fn other_403s_stay_unclassified() {
+    fn pat_permission_403_gets_dedicated_code() {
         let err = classify_forge_error(http_error(
             reqwest::StatusCode::FORBIDDEN,
-            r#"403 Forbidden: {"message":"Resource not accessible by integration"}"#,
+            r#"403 Forbidden: {"message":"Resource not accessible by personal access token"}"#,
         ));
-        assert!(
-            err.downcast_ref::<but_error::Context>().is_none(),
-            "an unrelated 403 must not be presented as an org OAuth restriction"
+        let ctx = err.downcast_ref::<but_error::Context>();
+        assert_eq!(
+            ctx.map(|c| c.code),
+            Some(but_error::Code::GitHubInsufficientPermissions),
+            "a PAT permission 403 is terminal and needs its remediation surfaced"
         );
+    }
+
+    #[test]
+    fn other_403s_stay_unclassified() {
+        // Only production-observed wordings are classified; the rest keep
+        // their raw message and stay visible in telemetry as `Unknown`.
+        for body in [
+            r#"403 Forbidden: {"message":"Resource not accessible by integration"}"#,
+            r#"403 Forbidden: {"message":"API rate limit exceeded for user ID 1."}"#,
+            r#"403 Forbidden: {"message":"Repository access blocked"}"#,
+        ] {
+            let err = classify_forge_error(http_error(reqwest::StatusCode::FORBIDDEN, body));
+            assert!(
+                err.downcast_ref::<but_error::Context>().is_none(),
+                "an unrecognized 403 must not be misclassified: {body}"
+            );
+        }
     }
 }

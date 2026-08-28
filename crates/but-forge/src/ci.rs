@@ -133,17 +133,22 @@ fn ci_checks_for_ref(
             let preferred_account = preferred_forge_user
                 .as_ref()
                 .and_then(|user| user.gitlab().cloned());
-            let gl = but_gitlab::GitLabClient::from_storage(storage, preferred_account.as_ref())?;
 
             // Clone owned data for thread
             let project_id = but_gitlab::GitLabProjectId::new(owner, repo);
+            let storage = storage.clone();
             let reference = reference.to_string();
             let reference_for_checks = reference.clone();
 
             let pipelines = std::thread::spawn(move || -> anyhow::Result<_> {
                 let runtime = tokio::runtime::Runtime::new()
                     .map_err(|err| anyhow::anyhow!("Failed to create tokio runtime: {err}"))?;
-                runtime.block_on(gl.list_pipeline_jobs_for_ref(project_id, &reference))
+                runtime.block_on(but_gitlab::checks::list_pipeline_jobs_for_ref(
+                    preferred_account.as_ref(),
+                    project_id,
+                    &reference,
+                    &storage,
+                ))
             })
             .join()
             .map_err(|e| anyhow::anyhow!("Failed to join thread: {e:?}"))??;
@@ -162,19 +167,24 @@ fn ci_checks_for_ref(
             let preferred_account = preferred_forge_user
                 .as_ref()
                 .and_then(|user| user.bitbucket().cloned());
-            let bb =
-                but_bitbucket::BitbucketClient::from_storage(storage, preferred_account.as_ref())?;
 
             // Clone owned data for thread
             let workspace = owner.clone();
             let repo_slug = repo.clone();
+            let storage = storage.clone();
             let reference = reference.to_string();
             let reference_for_checks = reference.clone();
 
             let statuses = std::thread::spawn(move || -> anyhow::Result<_> {
                 let runtime = tokio::runtime::Runtime::new()
                     .map_err(|err| anyhow::anyhow!("Failed to create tokio runtime: {err}"))?;
-                runtime.block_on(bb.list_checks_for_ref(&workspace, &repo_slug, &reference))
+                runtime.block_on(but_bitbucket::checks::list_for_ref(
+                    preferred_account.as_ref(),
+                    &workspace,
+                    &repo_slug,
+                    &reference,
+                    &storage,
+                ))
             })
             .join()
             .map_err(|e| anyhow::anyhow!("Failed to join thread: {e:?}"))??;
