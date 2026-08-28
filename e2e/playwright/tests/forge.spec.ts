@@ -332,6 +332,46 @@ test("merge button is disabled when the MR is not mergeable", async ({ page, git
 	await expect(mergeButton).toBeDisabled();
 });
 
+test("a failing merge-status poll backs off instead of hammering the endpoint", async ({
+	page,
+	gitbutler,
+}) => {
+	// A recent `modifiedAt` keeps the healthy schedule on its fast 5s interval,
+	// so the back-off to 30s shows up as a drop in request cadence (see the
+	// equivalent checks-poll test above). Routed before `openReviewBranchView`
+	// so even the first status request fails.
+	const now = new Date().toISOString();
+	let statusRequests = 0;
+	await page.route("**/get_review_merge_status", async (route) => {
+		statusRequests += 1;
+		await route.fulfill({
+			status: 200,
+			contentType: "application/json",
+			body: forgeErrorBody({ code: "Unknown", message: "Failed to fetch PR merge status" }),
+		});
+	});
+
+	const mergeButton = await openReviewBranchView(
+		page,
+		gitbutler,
+		{ forge_info: gitlabForgeInfo(), get_review_base_repo_url: null },
+		{ modifiedAt: now, createdAt: now, lastSyncAt: now },
+	);
+	// Status never loaded: merge stays unavailable, but as "not loaded",
+	// never as a definitive "not mergeable".
+	await expect(mergeButton).toBeDisabled();
+	await mergeButton.hover();
+	await expect(page.locator(".tooltip-container")).toContainText("merge status not loaded");
+	await expect.poll(() => statusRequests).toBeGreaterThan(0);
+
+	const afterFirstError = statusRequests;
+	// Longer than the fast 5s interval, shorter than the 30s back-off: a
+	// hammering poller would fire ~2 more times in this window, a backed-off
+	// one ~0.
+	await page.waitForTimeout(13_000);
+	expect(statusRequests - afterFirstError).toBeLessThanOrEqual(1);
+});
+
 async function cacheReview(
 	gitbutler: { runScript: (s: string, a?: string[]) => Promise<void> },
 	review: ForgeReview,
