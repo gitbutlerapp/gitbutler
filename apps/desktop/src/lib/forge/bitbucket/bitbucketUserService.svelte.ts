@@ -1,4 +1,4 @@
-import { providesItem, providesList, ReduxTag } from "$lib/state/tags";
+import { invalidatesList, providesItem, providesList, ReduxTag } from "$lib/state/tags";
 import { InjectionToken } from "@gitbutler/core/context";
 import type { BackendApi } from "$lib/state/backendApi";
 import type { ReactiveQuery } from "$lib/state/butlerModule";
@@ -116,7 +116,11 @@ function injectBackendEndpoints(api: BackendApi) {
 				query: (account) => ({
 					account,
 				}),
-				invalidatesTags: [providesList(ReduxTag.BitbucketUserList)],
+				invalidatesTags: [
+					providesList(ReduxTag.BitbucketUserList),
+					invalidatesList(ReduxTag.PullRequests),
+					invalidatesList(ReduxTag.Checks),
+				],
 			}),
 			getBitbucketUser: build.query<
 				BitbucketAuthenticatedUserSensitive | null,
@@ -143,7 +147,11 @@ function injectBackendEndpoints(api: BackendApi) {
 					actionName: "Clear All Bitbucket Accounts",
 				},
 				query: () => ({}),
-				invalidatesTags: [providesList(ReduxTag.BitbucketUserList)],
+				invalidatesTags: [
+					providesList(ReduxTag.BitbucketUserList),
+					invalidatesList(ReduxTag.PullRequests),
+					invalidatesList(ReduxTag.Checks),
+				],
 			}),
 			storeBitbucketApiToken: build.mutation<
 				BitbucketAuthStatusResponse,
@@ -154,7 +162,11 @@ function injectBackendEndpoints(api: BackendApi) {
 					actionName: "Store Bitbucket API Token",
 				},
 				query: (args) => args,
-				invalidatesTags: [providesList(ReduxTag.BitbucketUserList)],
+				invalidatesTags: [
+					providesList(ReduxTag.BitbucketUserList),
+					invalidatesList(ReduxTag.PullRequests),
+					invalidatesList(ReduxTag.Checks),
+				],
 			}),
 		}),
 	});

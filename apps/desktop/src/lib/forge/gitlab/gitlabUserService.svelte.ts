@@ -1,5 +1,5 @@
 import { getUserErrorCode } from "$lib/backend/ipc";
-import { providesItem, providesList, ReduxTag } from "$lib/state/tags";
+import { invalidatesList, providesItem, providesList, ReduxTag } from "$lib/state/tags";
 import { InjectionToken } from "@gitbutler/core/context";
 import type { SecretsService } from "$lib/secrets/secretsService";
 import type { BackendApi } from "$lib/state/backendApi";
@@ -167,7 +167,11 @@ function injectBackendEndpoints(api: BackendApi) {
 				query: (account) => ({
 					account,
 				}),
-				invalidatesTags: [providesList(ReduxTag.GitLabUserList)],
+				invalidatesTags: [
+					providesList(ReduxTag.GitLabUserList),
+					invalidatesList(ReduxTag.PullRequests),
+					invalidatesList(ReduxTag.Checks),
+				],
 			}),
 			getGitLabUser: build.query<
 				GitlabAuthenticatedUserSensitive | null,
@@ -194,7 +198,11 @@ function injectBackendEndpoints(api: BackendApi) {
 					actionName: "Clear All GitLab Accounts",
 				},
 				query: () => ({}),
-				invalidatesTags: [providesList(ReduxTag.GitLabUserList)],
+				invalidatesTags: [
+					providesList(ReduxTag.GitLabUserList),
+					invalidatesList(ReduxTag.PullRequests),
+					invalidatesList(ReduxTag.Checks),
+				],
 			}),
 			storeGitLabPat: build.mutation<GitlabAuthStatusResponse, { accessToken: string }>({
 				extraOptions: {
@@ -202,7 +210,11 @@ function injectBackendEndpoints(api: BackendApi) {
 					actionName: "Store GitLab PAT",
 				},
 				query: (args) => args,
-				invalidatesTags: [providesList(ReduxTag.GitLabUserList)],
+				invalidatesTags: [
+					providesList(ReduxTag.GitLabUserList),
+					invalidatesList(ReduxTag.PullRequests),
+					invalidatesList(ReduxTag.Checks),
+				],
 			}),
 			storeGitLabEnterprisePat: build.mutation<
 				GitlabAuthStatusResponse,
@@ -213,7 +225,11 @@ function injectBackendEndpoints(api: BackendApi) {
 					actionName: "Store GitLab Enterprise PAT",
 				},
 				query: (args) => args,
-				invalidatesTags: [providesList(ReduxTag.GitLabUserList)],
+				invalidatesTags: [
+					providesList(ReduxTag.GitLabUserList),
+					invalidatesList(ReduxTag.PullRequests),
+					invalidatesList(ReduxTag.Checks),
+				],
 			}),
 		}),
 	});

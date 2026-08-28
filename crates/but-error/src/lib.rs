@@ -179,6 +179,11 @@ pub enum Code {
     /// blocked the GitButler OAuth app. Terminal until the org approves the
     /// app or the user switches credentials — retrying won't help.
     GitHubOrgOAuthRestricted,
+    /// GitHub returned 403 "Resource not accessible by personal access
+    /// token" — the token works but lacks a read permission such as Checks.
+    /// Terminal until the user grants the permission or reconnects with
+    /// other credentials.
+    GitHubInsufficientPermissions,
     /// No credentials are stored for the forge integration — the user never
     /// authenticated or logged out. Cached forge data stays valid; retrying
     /// without re-authenticating won't help.

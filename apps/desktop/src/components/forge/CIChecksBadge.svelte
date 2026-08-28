@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { classify } from "$lib/error/errorClassification";
 	import { CHECKS_MONITOR } from "$lib/forge/checksMonitor.svelte";
 	import { FORGE_INFO_SERVICE } from "$lib/forge/forgeInfo.svelte";
 	import { createPollBackoff } from "$lib/forge/shared/pollErrorBackoff.svelte";
@@ -90,12 +91,18 @@
 		}
 
 		if (checksQuery?.result.error) {
+			// A terminal error (PAT missing the Checks permission, org OAuth
+			// block, no forge credentials) carries actionable guidance from
+			// the backend — show that instead of a generic retry hint.
+			const classified = classify(checksQuery.result.error);
 			return {
 				style: "danger",
 				icon: "warning",
 				text: "Failed to load checks",
 				reducedText: "Error",
-				tooltip: "Failed to load checks. Click to retry.",
+				tooltip: classified.terminal
+					? classified.message
+					: "Failed to load checks. Click to retry.",
 			};
 		}
 

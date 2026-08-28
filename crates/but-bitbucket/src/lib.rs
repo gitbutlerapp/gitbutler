@@ -1,6 +1,7 @@
 use anyhow::{Context as _, Result};
 use but_secret::Sensitive;
 
+pub mod checks;
 mod client;
 pub mod pr;
 mod repo;

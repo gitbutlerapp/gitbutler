@@ -1124,7 +1124,7 @@ fn source_project_differs_from_target(
 /// serving cached data instead of surfacing an error.
 pub(crate) const NOT_AUTHENTICATED: but_error::Context = but_error::Context::new_static(
     but_error::Code::ForgeNotAuthenticated,
-    "Not authenticated with GitLab.",
+    "Not authenticated with GitLab. Connect your account under Settings → Integrations.",
 );
 
 pub(crate) fn resolve_account(
