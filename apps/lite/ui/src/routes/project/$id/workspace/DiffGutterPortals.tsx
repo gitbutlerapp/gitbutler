@@ -5,7 +5,7 @@ import { Icon } from "#ui/components/Icon.tsx";
 import type { Address } from "#ui/addresses.ts";
 import { projectSlice } from "#ui/projects/state.ts";
 import { useAppSelector } from "#ui/store.ts";
-import { Fragment, memo, type FC, useSyncExternalStore } from "react";
+import { Fragment, memo, type FC, useEffect, useSyncExternalStore } from "react";
 import { createPortal } from "react-dom";
 import type { DiffLineTarget } from "./diff-line-target.ts";
 import styles from "./DiffGutterPortals.module.css";
@@ -33,6 +33,10 @@ export type GutterTarget = {
 export type GutterStore = {
 	getSnapshot: () => ReadonlyArray<GutterTarget>;
 	subscribe: (listener: () => void) => () => void;
+	/** Reports whether a hunk holds any checked line, which is what its band stands for. */
+	setGroupChecked: (host: HTMLElement, groupKey: string, checked: boolean) => void;
+	/** Reports whether the hunk accepts a check at all, since its column answers clicks. */
+	setGroupCheckable: (host: HTMLElement, groupKey: string, checkable: boolean) => void;
 };
 
 const LineCheckbox: FC<{
@@ -76,27 +80,25 @@ const CommentButton: FC<{
 	getTarget: () => DiffLineTarget | undefined;
 	onComment: (target: DiffLineTarget) => void;
 }> = (p) => (
-	<button
-		slot={p.slotName}
-		type="button"
-		onPointerDown={(event) => {
-			// This control lives inside a line-number cell, but pressing it is not a line selection.
-			event.preventDefault();
-			event.stopPropagation();
-		}}
-		onClick={(event) => {
-			event.stopPropagation();
-			const target = p.getTarget();
-			if (target) p.onComment(target);
-		}}
-		aria-label="Annotate"
-		className={classes(
-			getButtonClassName({ variant: "pop", size: "small", iconOnly: true }),
-			styles.comment,
-		)}
-	>
-		<Icon name="plus" />
-	</button>
+	<span slot={p.slotName} className={styles.comment}>
+		<button
+			type="button"
+			onPointerDown={(event) => {
+				// This control lives inside a line-number cell, but pressing it is not a line selection.
+				event.preventDefault();
+				event.stopPropagation();
+			}}
+			onClick={(event) => {
+				event.stopPropagation();
+				const target = p.getTarget();
+				if (target) p.onComment(target);
+			}}
+			aria-label="Annotate"
+			className={getButtonClassName({ variant: "ghost", size: "small", iconOnly: true })}
+		>
+			<Icon name="plus" />
+		</button>
+	</span>
 );
 
 const HunkCheckbox: FC<{
@@ -109,6 +111,9 @@ const HunkCheckbox: FC<{
 		lineAddresses: Array<Extract<Address, { _tag: "Hunk" }>>,
 		shiftKey: boolean,
 	) => void;
+	store: GutterStore;
+	host: HTMLElement;
+	groupKey: string;
 }> = (p) => {
 	const checkedState = useAppSelector((state): HunkCheckedState => {
 		const checkedCount = p.lineAddresses.filter((address) =>
@@ -120,11 +125,25 @@ const HunkCheckbox: FC<{
 	const canCheck = useAppSelector((state) =>
 		projectSlice.selectors.selectCanCheckHunks(state, p.projectId, p.address.parent.parent),
 	);
+	// The band spans lines this checkbox does not stand on, and answers clicks along all of them, so
+	// the store learns both what to paint and whether the act is available at all from here. The
+	// store, host and key are what the reports are addressed to, so they are read off p rather than
+	// handed in as closures, which would be new every render and make each report run twice.
+	const { store, host, groupKey } = p;
+	useEffect(() => {
+		store.setGroupChecked(host, groupKey, checkedState !== "unchecked");
+		return () => store.setGroupChecked(host, groupKey, false);
+	}, [store, host, groupKey, checkedState]);
+	useEffect(() => {
+		store.setGroupCheckable(host, groupKey, canCheck);
+		return () => store.setGroupCheckable(host, groupKey, false);
+	}, [store, host, groupKey, canCheck]);
 	if (!canCheck) return null;
 
 	return (
 		<Checkbox
 			slot={p.slotName}
+			className={classes(styles.checkbox, styles.hunkCheckbox)}
 			checked={checkedState === "checked"}
 			indeterminate={checkedState === "indeterminate"}
 			onMouseDown={(event) => {
@@ -138,7 +157,6 @@ const HunkCheckbox: FC<{
 				p.onCheck(p.address, p.lineAddresses, shiftKey);
 			}}
 			aria-label="Check hunk"
-			className={styles.checkbox}
 		/>
 	);
 };
@@ -180,6 +198,9 @@ export const DiffGutterPortals = memo(function DiffGutterPortals({
 							slotName={group.parentSlotName}
 							lineAddresses={group.lines.map((line) => line.address)}
 							onCheck={onCheckHunk}
+							store={store}
+							host={host}
+							groupKey={group.key}
 						/>
 						{group.lines.map((line) => (
 							<LineCheckbox
