@@ -743,11 +743,32 @@ fn apply_plan(out: &mut OutputChannel, current_dir: &Path, plan: &Plan) -> Resul
 fn print_setup_complete(out: &mut OutputChannel) -> Result<()> {
     if let Some(writer) = out.for_human() {
         let t = theme::get();
+        let ask = |text: &str| t.config_value.paint(format!("\"{text}\""));
         writeln!(writer)?;
         writeln!(
             writer,
             "{} GitButler agent setup complete.",
             t.sym().success
+        )?;
+        writeln!(writer)?;
+        writeln!(
+            writer,
+            "Just tell your agent what you want — {}, {}, {}.",
+            ask("commit this"),
+            ask("amend the fixes where they belong"),
+            ask("open a PR")
+        )?;
+        writeln!(writer)?;
+        writeln!(
+            writer,
+            "Parallel sessions just work: each agent commits to its own branch, stacking when one builds on another."
+        )?;
+        writeln!(writer)?;
+        writeln!(
+            writer,
+            "{}",
+            t.hint
+                .paint("More things to try: https://docs.gitbutler.com/ai-agents/useful-requests")
         )?;
     }
     Ok(())
