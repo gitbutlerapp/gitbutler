@@ -6,6 +6,10 @@ const liteRoot = path.resolve(import.meta.dirname, "..");
 export default defineConfig({
 	testDir: "./tests",
 	fullyParallel: true,
+	reporter:
+		process.env.CI === "true"
+			? [["list"], ["buildkite-test-collector/playwright/reporter"]]
+			: "list",
 	webServer: {
 		command: "pnpm dev:ui",
 		cwd: liteRoot,

@@ -549,6 +549,9 @@ importers:
       babel-plugin-react-compiler:
         specifier: ^1.0.0
         version: 1.0.0
+      buildkite-test-collector:
+        specifier: ^1.9.5
+        version: 1.9.5
       concurrently:
         specifier: ^9.2.1
         version: 9.2.1

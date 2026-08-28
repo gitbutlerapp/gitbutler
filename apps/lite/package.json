@@ -180,6 +180,7 @@
 		"@typescript/native-preview": "7.0.0-dev.20260707.2",
 		"@vitejs/plugin-react": "^5.2.0",
 		"babel-plugin-react-compiler": "^1.0.0",
+		"buildkite-test-collector": "^1.9.5",
 		"concurrently": "^9.2.1",
 		"cross-env": "^10.1.0",
 		"electron": "^44.0.0",
