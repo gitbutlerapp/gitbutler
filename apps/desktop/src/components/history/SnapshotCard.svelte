@@ -195,7 +195,7 @@
 
 	const historyService = inject(HISTORY_SERVICE);
 	const snapshotDiff = $derived(
-		historyService.snapshotDiff({ projectId, snapshotId: entry.id, childId }),
+		historyService.snapshotDiff({ projectId, snapshotId: entry.commitId, childId }),
 	);
 </script>
 
@@ -234,7 +234,7 @@
 		<div class="snapshot-details">
 			<h4 class="snapshot-title text-13 text-body text-semibold">
 				<span>{operation.text}</span>
-				<span class="snapshot-sha text-12 text-body"> • {getShortSha(entry.id)}</span>
+				<span class="snapshot-sha text-12 text-body"> • {getShortSha(entry.commitId)}</span>
 			</h4>
 
 			{#if operation.commitMessage}
@@ -250,7 +250,7 @@
 				{#if files.length > 0 && !isRestoreSnapshot}
 					<FileListProvider
 						changes={files}
-						selectionId={{ type: "snapshot", snapshotId: entry.id }}
+						selectionId={{ type: "snapshot", snapshotId: entry.commitId }}
 						allowUnselect={false}
 					>
 						<SnapshotSection

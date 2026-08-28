@@ -37,7 +37,7 @@ class SnapshotPager {
 		const data = await this.fetch();
 		if (data.length) {
 			this.snapshots.set(data);
-			this.cursor = data.at(-1)?.id;
+			this.cursor = data.at(-1)?.commitId;
 		}
 	}
 
@@ -51,7 +51,7 @@ class SnapshotPager {
 			this.isAllLoaded.set(true);
 		} else {
 			this.snapshots.update((snapshots) => [...snapshots, ...more]);
-			this.cursor = more.at(-1)?.id;
+			this.cursor = more.at(-1)?.commitId;
 		}
 	}
 

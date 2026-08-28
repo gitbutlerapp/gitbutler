@@ -60,7 +60,8 @@ export interface SnapshotDetails {
 }
 
 export interface Snapshot {
-	id: string;
+	/** Wire field is `commitId`; see `but_api::legacy::oplog::json::Snapshot`. */
+	commitId: string;
 	details?: SnapshotDetails;
 	/** Milliseconds since epoch. */
 	createdAt: number;
