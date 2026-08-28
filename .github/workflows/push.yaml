@@ -152,7 +152,13 @@ jobs:
         if: ${{ steps.playwright-cache.outputs.cache-hit != 'true' }}
       - run: pnpm test
         env:
-          BUILDKITE_ANALYTICS_TOKEN: ${{ secrets.BUILDKITE_SUITE_TOKEN_VITEST }}
+          BUILDKITE_ANALYTICS_TOKEN: ${{ secrets.TEST_RESULTS_TOKEN_VITEST }}
+          BUILDKITE_ANALYTICS_BASE_URL: https://tests.but.dev/v1/uploads
+          # Normalized run identity, matching what the curl-based uploads send, so
+          # every suite reports the same key/branch/sha for one CI run.
+          BUILDKITE_ANALYTICS_KEY: ${{ github.run_id }}-${{ github.run_attempt }}
+          BUILDKITE_ANALYTICS_BRANCH: ${{ github.head_ref || github.ref_name }}
+          BUILDKITE_ANALYTICS_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
 
   but-sdk-build-check:
     needs: changes
@@ -325,11 +331,11 @@ jobs:
         run: cargo nextest run --workspace --exclude gitbutler-tauri --exclude but-api-macros-tests --profile ci
       - name: Run doctests
         run: cargo test --doc --workspace --exclude gitbutler-tauri --exclude but-api-macros-tests
-      - name: Upload results to Buildkite Test Engine
+      - name: Upload results to tests.but.dev
         if: ${{ always() && !cancelled() }}
         continue-on-error: true
         env:
-          BUILDKITE_ANALYTICS_TOKEN: ${{ secrets.BUILDKITE_SUITE_TOKEN_CARGO }}
+          BUILDKITE_ANALYTICS_TOKEN: ${{ secrets.TEST_RESULTS_TOKEN_CARGO }}
           RUN_BRANCH: ${{ github.head_ref || github.ref_name }}
           RUN_COMMIT_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
           RUN_KEY: ${{ github.run_id }}-${{ github.run_attempt }}
@@ -349,7 +355,7 @@ jobs:
             -F "tags[framework]=nextest" \
             -F "tags[language]=rust" \
             -F "tags[type]=unit" \
-            https://analytics-api.buildkite.com/v1/uploads
+            https://tests.but.dev/v1/uploads
       # It's intentional to use 'name equals run-script' so it's easy to re-run locally on failure.
       - run: make test-modern-but
       - name: test vendored
@@ -725,7 +731,13 @@ jobs:
       - name: run playwright tests
         run: pnpm test:ct
         env:
-          BUILDKITE_ANALYTICS_TOKEN: ${{ secrets.BUILDKITE_SUITE_TOKEN_PLAYWRIGHT_CT }}
+          BUILDKITE_ANALYTICS_TOKEN: ${{ secrets.TEST_RESULTS_TOKEN_PLAYWRIGHT_CT }}
+          BUILDKITE_ANALYTICS_BASE_URL: https://tests.but.dev/v1/uploads
+          # Normalized run identity, matching what the curl-based uploads send, so
+          # every suite reports the same key/branch/sha for one CI run.
+          BUILDKITE_ANALYTICS_KEY: ${{ github.run_id }}-${{ github.run_attempt }}
+          BUILDKITE_ANALYTICS_BRANCH: ${{ github.head_ref || github.ref_name }}
+          BUILDKITE_ANALYTICS_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         if: ${{ !cancelled() }}
         with:
@@ -777,7 +789,13 @@ jobs:
         # Concurrent Electron launches can fail during renderer bootstrap on GitHub's Linux runners.
         run: xvfb-run --auto-servernum pnpm --filter @gitbutler/lite test:e2e --forbid-only --workers=1
         env:
-          BUILDKITE_ANALYTICS_TOKEN: ${{ secrets.BUILDKITE_SUITE_TOKEN_LITE_E2E }}
+          BUILDKITE_ANALYTICS_TOKEN: ${{ secrets.TEST_RESULTS_TOKEN_LITE_E2E }}
+          BUILDKITE_ANALYTICS_BASE_URL: https://tests.but.dev/v1/uploads
+          # Normalized run identity, matching what the curl-based uploads send, so
+          # every suite reports the same key/branch/sha for one CI run.
+          BUILDKITE_ANALYTICS_KEY: ${{ github.run_id }}-${{ github.run_attempt }}
+          BUILDKITE_ANALYTICS_BRANCH: ${{ github.head_ref || github.ref_name }}
+          BUILDKITE_ANALYTICS_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         if: failure()
         with:
