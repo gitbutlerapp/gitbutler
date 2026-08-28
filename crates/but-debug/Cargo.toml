@@ -43,13 +43,13 @@ prodash = { version = "31.0.0", default-features = false, features = [
 tracing.workspace = true
 tracing-forest.workspace = true
 tracing-subscriber = { workspace = true, features = ["std", "fmt"] }
-zip.workspace = true
+tempfile.workspace = true
+zip = { workspace = true, features = ["deflate-flate2-zlib-rs"] }
 
 [dev-dependencies]
 but-testsupport.workspace = true
 snapbox.workspace = true
 termtree = "0.5.1"
-tempfile.workspace = true
 
 [lints]
 workspace = true

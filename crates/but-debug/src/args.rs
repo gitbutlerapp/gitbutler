@@ -86,6 +86,8 @@ pub struct DumpArgs {
 pub enum DumpSubcommands {
     /// Archive a repository for debugging.
     Repo(RepoDumpArgs),
+    /// Archive a replayable repository installer for debugging.
+    RepoInstaller(RepoInstallerArgs),
     /// Archive graph and workspace diagnostics.
     #[clap(visible_alias = "diag")]
     Diagnostics(DiagnosticsDumpArgs),
@@ -106,6 +108,14 @@ pub struct RepoDumpArgs {
     /// Do not include graph and workspace diagnostics in the archive root.
     #[arg(long)]
     pub no_diagnostics: bool,
+}
+
+/// Arguments for the `dump repo-installer` debugging subcommand.
+#[derive(Debug, clap::Args)]
+pub struct RepoInstallerArgs {
+    /// Shared archive output options.
+    #[command(flatten)]
+    pub archive: ArchiveOutputArgs,
 }
 
 /// Archive output options shared by dump subcommands.

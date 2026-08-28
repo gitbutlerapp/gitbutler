@@ -3369,6 +3369,7 @@ checksum = "843fba2746e448b37e26a819579957415c8cef339bf08564fe8b7ddbd959573c"
 dependencies = [
  "crc32fast",
  "miniz_oxide",
+ "zlib-rs",
 ]
 
 [[package]]
@@ -12618,6 +12619,7 @@ dependencies = [
  "arbitrary",
  "bzip2",
  "crc32fast",
+ "flate2",
  "indexmap 2.14.0",
  "memchr",
 ]
