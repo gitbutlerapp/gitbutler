@@ -31,7 +31,9 @@ schemars = { workspace = true, optional = true }
 but-schemars = { workspace = true, optional = true }
 
 [dev-dependencies]
+keyring.workspace = true
 reqwest = { workspace = true, features = ["blocking"] }
+tempfile.workspace = true
 tokio = { workspace = true, features = ["rt"] }
 
 [lints]
