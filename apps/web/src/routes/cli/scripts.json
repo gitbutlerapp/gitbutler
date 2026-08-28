@@ -36,7 +36,13 @@
 					"  <span class='t-dim'>~/.claude/skills/gitbutler</span>",
 					"<span class='t-success'>✓</span> Added workflow instructions to <span class='t-highlight'>~/.claude/CLAUDE.md</span>",
 					"",
-					"<span class='t-success'>✓</span> <span class='t-teal'>GitButler agent setup complete.</span>"
+					"<span class='t-success'>✓</span> <span class='t-teal'>GitButler agent setup complete.</span>",
+					"",
+					"Just tell your agent what you want — <span class='t-cyan'>\"commit this\"</span>, <span class='t-cyan'>\"amend the fixes where they belong\"</span>, <span class='t-cyan'>\"open a PR\"</span>.",
+					"",
+					"Parallel sessions just work: each agent commits to its own branch, stacking when one builds on another.",
+					"",
+					"<span class='t-dim'>More things to try: https://docs.gitbutler.com/ai-agents/useful-requests</span>"
 				]
 			}
 		]
