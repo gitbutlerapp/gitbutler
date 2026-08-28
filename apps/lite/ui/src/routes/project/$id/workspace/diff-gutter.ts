@@ -60,7 +60,30 @@ export const diffGutterUnsafeCSS = `
 	}
 
 	[data-column-number] {
-		padding-left: calc(2ch + var(--gitbutler-diff-gutter-width));
+		/* Where the gutter's business ends and the file's own margin begins. */
+		--gitbutler-diff-number-start: var(--gitbutler-diff-gutter-width);
+		--gitbutler-diff-number-film: transparent;
+
+		padding-left: calc(2ch + var(--gitbutler-diff-number-start));
+		background-image: linear-gradient(
+			to right,
+			transparent var(--gitbutler-diff-number-start),
+			var(--gitbutler-diff-number-film) var(--gitbutler-diff-number-start)
+		);
+	}
+
+	/* A press on the numbers selects lines, so they take a film under the pointer to say so. It is
+	   mixed from the line's own foreground, the way the checkboxes are, so a changed line answers in
+	   its own colour rather than in ink. The gutter has its own answers, and a pointer resting on
+	   one of them is not asking for this. */
+	[data-column-number]:hover:not(
+			:has(
+				> slot[${GUTTER_SLOT_ATTRIBUTE}]:hover,
+				> [${HUNK_BAND_ATTRIBUTE}]:hover,
+				> [${ACTIONS_ATTRIBUTE}]:hover
+			)
+		) {
+		--gitbutler-diff-number-film: color-mix(in srgb, currentColor 10%, transparent);
 	}
 
 	/* The gutter ends where the file's own margin begins, so the line's fill stops short of the
@@ -68,16 +91,23 @@ export const diffGutterUnsafeCSS = `
 	   controls sit above this, and the fill is the row's, so only a stripe of the surface can
 	   separate them. */
 	[data-indicators="bars"] [data-column-number] {
-		padding-left: calc(
-			2ch + var(--gitbutler-diff-gutter-width) + var(--gitbutler-diff-gutter-seam)
+		--gitbutler-diff-number-start: calc(
+			var(--gitbutler-diff-gutter-width) + var(--gitbutler-diff-gutter-seam)
 		);
-		background-image: linear-gradient(
-			to right,
-			transparent var(--gitbutler-diff-gutter-width),
-			var(--gitbutler-diff-gutter-seam-color) var(--gitbutler-diff-gutter-width),
-			var(--gitbutler-diff-gutter-seam-color) calc(var(--gitbutler-diff-gutter-width) + var(--gitbutler-diff-gutter-seam)),
-			transparent calc(var(--gitbutler-diff-gutter-width) + var(--gitbutler-diff-gutter-seam))
-		);
+
+		background-image:
+			linear-gradient(
+				to right,
+				transparent var(--gitbutler-diff-gutter-width),
+				var(--gitbutler-diff-gutter-seam-color) var(--gitbutler-diff-gutter-width),
+				var(--gitbutler-diff-gutter-seam-color) var(--gitbutler-diff-number-start),
+				transparent var(--gitbutler-diff-number-start)
+			),
+			linear-gradient(
+				to right,
+				transparent var(--gitbutler-diff-number-start),
+				var(--gitbutler-diff-number-film) var(--gitbutler-diff-number-start)
+			);
 	}
 
 	slot[${GUTTER_SLOT_ATTRIBUTE}] {
