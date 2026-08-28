@@ -43,6 +43,15 @@ describe("buildBranchEndpoints", () => {
 		]);
 	});
 
+	test("names the switch-back mutation", () => {
+		const endpoints = buildBranchEndpoints(createEndpointBuilder());
+
+		expect(endpoints.switchBackToWorkspace.extraOptions).toEqual({
+			command: "switch_back_to_workspace",
+			actionName: "Switch Back to Workspace",
+		});
+	});
+
 	test("defaults workspace fetch action to auto", () => {
 		const endpoints = buildBranchEndpoints(createEndpointBuilder());
 
