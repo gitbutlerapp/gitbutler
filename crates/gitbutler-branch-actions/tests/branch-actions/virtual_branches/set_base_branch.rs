@@ -84,19 +84,13 @@ fn works_without_git_identity() {
             },
         )
         .unwrap();
-        let fallback_committer_identity = {
-            let context_repo = ctx.repo.get().unwrap();
-            let committer = context_repo.committer().transpose().unwrap().unwrap();
-            (committer.name.to_owned(), committer.email.to_owned())
-        };
-        assert_eq!(
-            fallback_committer_identity,
-            (
-                gitbutler_repo::GITBUTLER_COMMIT_AUTHOR_NAME.into(),
-                gitbutler_repo::GITBUTLER_COMMIT_AUTHOR_EMAIL.into(),
-            ),
-            "the context provides GitButler's fallback committer"
+        let mut context_repo = ctx.repo.get_mut().unwrap();
+        context_repo.reload().unwrap();
+        assert!(
+            context_repo.committer().is_none(),
+            "the repository has no Git identity"
         );
+        drop(context_repo);
 
         let mut guard = ctx.exclusive_worktree_access();
         gitbutler_branch_actions::set_base_branch(
@@ -131,7 +125,10 @@ fn works_without_git_identity() {
                     "initialize workspace"
                 },
             ),
-            fallback_committer_identity,
+            (
+                gitbutler_repo::GITBUTLER_COMMIT_AUTHOR_NAME.into(),
+                gitbutler_repo::GITBUTLER_COMMIT_AUTHOR_EMAIL.into(),
+            ),
             "identity-free onboarding uses GitButler for its reflog"
         );
     }
