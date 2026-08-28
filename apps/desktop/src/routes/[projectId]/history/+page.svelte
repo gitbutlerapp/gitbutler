@@ -56,7 +56,7 @@
 		if (snapshots.length === 0) return [];
 
 		const idToIndexMap = new Map<string, number>();
-		snapshots.forEach((snapshot, index) => idToIndexMap.set(snapshot.id, index));
+		snapshots.forEach((snapshot, index) => idToIndexMap.set(snapshot.commitId, index));
 
 		const ranges = snapshots.flatMap((snapshot, startIndex) => {
 			if (
@@ -75,7 +75,7 @@
 			return []; // flatMap ignores empty arrays
 		});
 
-		return ranges.map((snapshot) => snapshot.id);
+		return ranges.map((snapshot) => snapshot.commitId);
 	}
 
 	let scrollContainer: HTMLDivElement | undefined = $state();
@@ -111,7 +111,7 @@
 						onLastInView();
 					}}
 				>
-					{#each $snapshots as entry, idx (entry.id)}
+					{#each $snapshots as entry, idx (entry.commitId)}
 						{#if idx === 0 || createdOnDay(entry.createdAt) !== createdOnDay($snapshots[idx - 1]?.createdAt ?? 0)}
 							<div class="history-view__snapshots__date-header">
 								<h4 class="text-12 text-semibold">
@@ -124,12 +124,12 @@
 							<SnapshotCard
 								{projectId}
 								{entry}
-								childId={idx > 0 ? $snapshots[idx - 1]?.id : undefined}
-								isWithinRestore={withinRestoreItems.includes(entry.id)}
+								childId={idx > 0 ? $snapshots[idx - 1]?.commitId : undefined}
+								isWithinRestore={withinRestoreItems.includes(entry.commitId)}
 								restoring={restoration.current.isLoading}
 								onRestoreClick={async () => {
 									try {
-										await restore({ projectId, sha: entry.id });
+										await restore({ projectId, sha: entry.commitId });
 									} finally {
 										// In some cases, restoring the snapshot doesn't update the UI correctly
 										// Until we have that figured out, we need to reload the page.
@@ -137,7 +137,7 @@
 									}
 								}}
 								onDiffClick={() => {
-									currentSelectionId = createSnapshotSelection({ snapshotId: entry.id });
+									currentSelectionId = createSnapshotSelection({ snapshotId: entry.commitId });
 								}}
 							/>
 						{/if}
