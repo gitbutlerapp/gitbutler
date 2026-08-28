@@ -106,10 +106,11 @@ export class PostHogWrapper {
 }
 
 /**
- * Sampling rates for successful high-volume `tauri_command` events, in (0, 1].
+ * Sampling rates for high-volume `tauri_command` events, in (0, 1].
  *
- * Events with `failure: true` bypass this policy and are emitted with a rate
- * of 1. In PostHog, estimate successful command totals with
+ * Failures are sampled like successes so a persistent failure storm on one of
+ * these commands cannot flood PostHog at full rate. Sampled events are stamped
+ * with their `samplingRate`; estimate totals in PostHog with
  * `sum(1 / coalesce(samplingRate, 1))`.
  */
 const SAMPLED_COMMANDS = new Map<string, number>([
@@ -133,7 +134,6 @@ export function sampleEvent(
 			? SAMPLED_COMMANDS.get(properties.command)
 			: undefined;
 	if (rate === undefined) return properties ?? {};
-	if (properties?.failure === true) return { ...properties, samplingRate: 1 };
 	if (draw >= rate) return null;
 	return { ...properties, samplingRate: rate };
 }

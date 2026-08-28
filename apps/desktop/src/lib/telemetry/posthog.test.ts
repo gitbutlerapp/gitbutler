@@ -21,16 +21,21 @@ describe("sampleEvent", () => {
 		).toBeNull();
 	});
 
-	test("failures bypass sampling and are stamped with rate 1", () => {
-		for (const draw of [0.99, 1]) {
-			expect(
-				sampleEvent(
-					"tauri_command",
-					{ command: "workspace_fetch_from_remotes", failure: true },
-					draw,
-				),
-			).toEqual({ command: "workspace_fetch_from_remotes", failure: true, samplingRate: 1 });
-		}
+	test("samples failures like successes", () => {
+		expect(
+			sampleEvent(
+				"tauri_command",
+				{ command: "workspace_fetch_from_remotes", failure: true },
+				0.01,
+			),
+		).toEqual({ command: "workspace_fetch_from_remotes", failure: true, samplingRate: 0.5 });
+		expect(
+			sampleEvent(
+				"tauri_command",
+				{ command: "workspace_fetch_from_remotes", failure: true },
+				0.99,
+			),
+		).toBeNull();
 	});
 
 	test("leaves unsampled events untouched", () => {
