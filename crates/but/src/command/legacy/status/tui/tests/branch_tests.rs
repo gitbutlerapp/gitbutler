@@ -517,11 +517,20 @@ fn pick_and_switch_to_stacked_branches() {
     ]);
 
     tui.input('b');
-    tui.input('s').assert_rendered_term_svg_eq(file![
+    tui.input('s');
+    tui.input(Control('n')).assert_rendered_term_svg_eq(file![
         "snapshots/pick_and_switch_to_stacked_branches_003.svg"
     ]);
     tui.input(KeyCode::Enter).assert_rendered_term_svg_eq(file![
         "snapshots/pick_and_switch_to_stacked_branches_004.svg"
+    ]);
+
+    tui.input('b');
+    tui.input('s').assert_rendered_term_svg_eq(file![
+        "snapshots/pick_and_switch_to_stacked_branches_005.svg"
+    ]);
+    tui.input(KeyCode::Enter).assert_rendered_term_svg_eq(file![
+        "snapshots/pick_and_switch_to_stacked_branches_006.svg"
     ]);
 }
 
@@ -572,4 +581,24 @@ fn creating_branch_above_below_uncommitted_and_merge_base() {
     tui.input('a').assert_rendered_term_svg_eq(file![
         "snapshots/creating_branch_above_below_uncommitted_and_merge_base_004.svg"
     ]);
+}
+
+#[test]
+fn switching_to_workspace() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
+    env.setup_metadata(&["A", "B"]);
+
+    let mut tui = test_status_tui(env);
+
+    tui.input('b');
+    tui.input('s')
+        .assert_rendered_term_svg_eq(file!["snapshots/switching_to_workspace_001.svg"]);
+    tui.input(KeyCode::Enter)
+        .assert_rendered_term_svg_eq(file!["snapshots/switching_to_workspace_002.svg"]);
+
+    tui.input('b');
+    tui.input('s')
+        .assert_rendered_term_svg_eq(file!["snapshots/switching_to_workspace_003.svg"]);
+    tui.input(KeyCode::Enter)
+        .assert_rendered_term_svg_eq(file!["snapshots/switching_to_workspace_004.svg"]);
 }
