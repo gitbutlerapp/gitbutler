@@ -19,11 +19,11 @@ export class PostHogWrapper {
 	) {}
 
 	capture(eventName: string, properties?: Properties) {
-		if (shouldIgnoreEvent(eventName, properties)) return;
+		const sampled = sampleEvent(eventName, properties);
+		if (!sampled) return;
 		const context = this.eventContext.getAll();
-		const newProperties = { ...context, ...properties };
-		const skipClientRateLimiting =
-			eventName === "tauri_command" && properties?.command !== undefined;
+		const newProperties = { ...context, ...sampled };
+		const skipClientRateLimiting = eventName === "tauri_command" && sampled.command !== undefined;
 		this._instance?.capture(eventName, newProperties, {
 			skip_client_rate_limiting: skipClientRateLimiting,
 		});
@@ -105,31 +105,37 @@ export class PostHogWrapper {
 	}
 }
 
-type EventDescription = {
-	name: string;
-	command: string;
-};
+/**
+ * Sampling rates for successful high-volume `tauri_command` events, in (0, 1].
+ *
+ * Events with `failure: true` bypass this policy and are emitted with a rate
+ * of 1. In PostHog, estimate successful command totals with
+ * `sum(1 / coalesce(samplingRate, 1))`.
+ */
+const SAMPLED_COMMANDS = new Map<string, number>([
+	["head_info", 0.05],
+	["get_base_branch_data", 0.5],
+	["workspace_fetch_from_remotes", 0.5],
+]);
 
-const HIGH_VOLUME_EVENTS: EventDescription[] = [{ name: "tauri_command", command: "head_info" }];
-
-const MID_VOLUME_EVENTS: EventDescription[] = [
-	{ name: "tauri_command", command: "get_base_branch_data" },
-	{ name: "tauri_command", command: "workspace_fetch_from_remotes" },
-];
-
-function shouldIgnoreEvent(eventName: string, properties: Properties | undefined): boolean {
-	if (HIGH_VOLUME_EVENTS.some((e) => e.name === eventName && e.command === properties?.command)) {
-		if (Math.random() < 0.95) {
-			return true;
-		}
-	}
-
-	if (MID_VOLUME_EVENTS.some((e) => e.name === eventName && e.command === properties?.command)) {
-		if (Math.random() < 0.5) {
-			return true;
-		}
-	}
-	return false;
+/**
+ * Applies per-command sampling: returns the properties to capture (stamped
+ * with the effective `samplingRate` for sampled commands), or null when the
+ * event should be dropped.
+ */
+export function sampleEvent(
+	eventName: string,
+	properties: Properties | undefined,
+	draw = Math.random(),
+): Properties | null {
+	const rate =
+		eventName === "tauri_command" && typeof properties?.command === "string"
+			? SAMPLED_COMMANDS.get(properties.command)
+			: undefined;
+	if (rate === undefined) return properties ?? {};
+	if (properties?.failure === true) return { ...properties, samplingRate: 1 };
+	if (draw >= rate) return null;
+	return { ...properties, samplingRate: rate };
 }
 
 export enum OnboardingEvent {
