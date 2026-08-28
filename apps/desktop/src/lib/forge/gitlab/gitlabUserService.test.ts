@@ -1,4 +1,5 @@
 import {
+	gitLabEnterprisePatError,
 	gitlabAccountIdentifierToString,
 	stringToGitLabAccountIdentifier,
 } from "$lib/forge/gitlab/gitlabUserService.svelte";
@@ -6,6 +7,23 @@ import { describe, expect, test } from "vitest";
 import type { GitlabAccountIdentifier } from "@gitbutler/but-sdk";
 
 const UNIT_SEP = "\u001F";
+
+describe("GitLab Enterprise PAT errors", () => {
+	test.each([
+		[
+			"GitLabUnauthorized",
+			"The token was not accepted. Check that it is correct, active, and issued by this GitLab host.",
+		],
+		[
+			"GitLabForbidden",
+			"GitLab refused access. Check the token scopes and account permissions, or ask your administrator about instance policies.",
+		],
+		["NetworkError", "Invalid token or host"],
+		["Unknown", "Invalid token or host"],
+	])("maps %s to cautious guidance", (code, expected) => {
+		expect(gitLabEnterprisePatError({ code, message: "backend detail" })).toBe(expected);
+	});
+});
 
 describe("gitlab account identifier serialization", () => {
 	test("serializes a patUsername account", () => {

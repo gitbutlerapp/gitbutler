@@ -2,7 +2,10 @@
 	import GitlabUserLoginState from "$components/settings/GitlabUserLoginState.svelte";
 	import ReduxResult from "$components/shared/ReduxResult.svelte";
 	import gitlabLogoSvg from "$lib/assets/unsized-logos/gitlab.svg?raw";
-	import { GITLAB_USER_SERVICE } from "$lib/forge/gitlab/gitlabUserService.svelte";
+	import {
+		gitLabEnterprisePatError,
+		GITLAB_USER_SERVICE,
+	} from "$lib/forge/gitlab/gitlabUserService.svelte";
 	import { OnboardingEvent, POSTHOG_WRAPPER } from "$lib/telemetry/posthog";
 	import { inject } from "@gitbutler/core/context";
 
@@ -78,9 +81,9 @@
 			await storeSelfHostedPat({ accessToken: selfHostedPatInput, host: selfHostedHostInput });
 			posthog.captureOnboarding(OnboardingEvent.GitLabStoreSelfHostedPat);
 			cleanupSelfHostedFlow();
-		} catch (err: any) {
+		} catch (err: unknown) {
 			console.error("Failed to store self-hosted GitLab PAT:", err);
-			selfHostedPatError = "Invalid token or host";
+			selfHostedPatError = gitLabEnterprisePatError(err);
 			posthog.captureOnboarding(OnboardingEvent.GitLabStoreSelfHostedPatFailed);
 		}
 	}

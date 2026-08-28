@@ -171,6 +171,10 @@ pub enum Code {
     /// "Not Found -" — kept here so the wire-level `Code` enum is the
     /// single source of truth for codes the desktop app may surface.
     GitHubTokenExpired,
+    /// GitLab returned HTTP 401 while validating a personal access token.
+    GitLabUnauthorized,
+    /// GitLab returned HTTP 403 while validating a personal access token.
+    GitLabForbidden,
     /// A GitHub organization has enabled OAuth App access restrictions and
     /// blocked the GitButler OAuth app. Terminal until the org approves the
     /// app or the user switches credentials — retrying won't help.

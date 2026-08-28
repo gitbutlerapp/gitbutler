@@ -106,12 +106,31 @@ async fn fetch_and_persist_selfhosted_user_data(
     let user = gl
         .get_authenticated()
         .await
+        .map_err(classify_pat_validation_error)
         .context("Failed to get authenticated user")?;
     let account_id = token::GitlabAccountIdentifier::selfhosted(&user.username, host);
     token::persist_gl_access_token(&account_id, access_token, storage)
         .context("Failed to persist access token")?;
     cache_user_profile(&account_id, &user, storage);
     Ok(user)
+}
+
+fn classify_pat_validation_error(err: anyhow::Error) -> anyhow::Error {
+    let Some(http_err) = err.downcast_ref::<client::HttpStatusError>() else {
+        return err;
+    };
+    let context = match http_err.status {
+        reqwest::StatusCode::UNAUTHORIZED => but_error::Context::new_static(
+            but_error::Code::GitLabUnauthorized,
+            "GitLab did not accept the token.",
+        ),
+        reqwest::StatusCode::FORBIDDEN => but_error::Context::new_static(
+            but_error::Code::GitLabForbidden,
+            "GitLab refused access for the token.",
+        ),
+        _ => return err,
+    };
+    err.context(context)
 }
 
 pub fn forget_gl_access_token(
