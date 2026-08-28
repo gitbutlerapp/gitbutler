@@ -227,17 +227,44 @@ export const diffGutterUnsafeCSS = `
 		);
 	}
 
-	/* What the grip under the pointer is holding: the same dashed outline the drag itself paints,
-	   in a quieter weight. Declared first so a line that is already an operation source keeps the
-	   stronger mark. */
-	[${DRAG_PREVIEW_ATTRIBUTE}] {
-		outline: 1px dashed var(--border-2);
-		outline-offset: -1px;
+	/* A mark is drawn as a box laid over the line rather than an outline of it, so that a run of
+	   marked lines can close as one: each line drops the edge it shares with a marked neighbour,
+	   leaving the dashes only around the outside. The lines of a run are siblings and equally tall,
+	   so their side dashes keep step. */
+	[${DRAG_PREVIEW_ATTRIBUTE}]::after,
+	[${OPERATION_SOURCE_ATTRIBUTE}]::after {
+		content: "";
+		position: absolute;
+		inset: 0;
+		border-radius: var(--radius-md);
+		pointer-events: none;
 	}
 
-	[${OPERATION_SOURCE_ATTRIBUTE}] {
-		outline: 2px dashed var(--border-1);
-		outline-offset: -2px;
+	/* What the grip under the pointer is holding: the same dashed box the drag itself paints, in a
+	   quieter weight. Declared first so a line that is already an operation source keeps the
+	   stronger mark. */
+	[${DRAG_PREVIEW_ATTRIBUTE}]::after {
+		border: 1px dashed var(--text-1);
+	}
+
+	[${OPERATION_SOURCE_ATTRIBUTE}]::after {
+		border: 2px dashed var(--border-1);
+	}
+
+	/* Only the ends of a run are corners; the edge a line shares with a marked neighbour goes, and
+	   the rounding with it. */
+	[${DRAG_PREVIEW_ATTRIBUTE}] + [${DRAG_PREVIEW_ATTRIBUTE}]::after,
+	[${OPERATION_SOURCE_ATTRIBUTE}] + [${OPERATION_SOURCE_ATTRIBUTE}]::after {
+		border-block-start: none;
+		border-start-start-radius: 0;
+		border-start-end-radius: 0;
+	}
+
+	[${DRAG_PREVIEW_ATTRIBUTE}]:has(+ [${DRAG_PREVIEW_ATTRIBUTE}])::after,
+	[${OPERATION_SOURCE_ATTRIBUTE}]:has(+ [${OPERATION_SOURCE_ATTRIBUTE}])::after {
+		border-block-end: none;
+		border-end-start-radius: 0;
+		border-end-end-radius: 0;
 	}
 `;
 
