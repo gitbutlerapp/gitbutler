@@ -2,11 +2,14 @@
    its column edge to edge, so a run of checked lines reads as one block. Doubled for specificity
    over the shared checkbox's own rules. */
 .checkbox.checkbox {
+	/* The cell is the box, so it answers with fill alone — never a ring, in any state. The shared
+	   checkbox draws every one of its borders at this width, so zeroing it is enough. */
+	--border-width: 0;
+
 	inline-size: 100%;
 	block-size: 100%;
 	margin: 0;
 	border-radius: 0;
-	box-shadow: none;
 	opacity: var(--gitbutler-diff-gutter-checkbox-opacity, 0);
 
 	&[data-checked],
@@ -25,8 +28,6 @@
 
 		&:hover {
 			background-color: color-mix(in srgb, currentColor 18%, transparent);
-			/* Outspecifies the shared checkbox's own hover border, which this cell has no room for. */
-			box-shadow: none;
 		}
 
 		/* The indicator is the root's only child, and its class belongs to another module. */
