@@ -153,6 +153,13 @@
 	font-variant-ligatures: common-ligatures;
 	user-select: text;
 
+	/* CodeView makes this scroller focusable, so arrow keys raise the platform
+	   focus ring around the whole pane. The focus state is displayed on the
+	   selected lines instead, as it is on the file tree's rows. */
+	&:focus {
+		outline: none;
+	}
+
 	diffs-container {
 		--diffs-selection-number-fg: var(--text-1);
 		border-top: 1px solid var(--border-section);
