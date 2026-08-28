@@ -4,7 +4,8 @@ import { Match } from "effect";
 import type { Address } from "#ui/addresses.ts";
 import { assert } from "#ui/assert.ts";
 
-const hunkLabel = (addresses: Array<Extract<Address, { _tag: "Hunk" }>>) => {
+/** What a set of hunk lines amounts to: "+3 -1 lines", the words a drag of them carries. */
+export const hunkAddressesLabel = (addresses: Array<Extract<Address, { _tag: "Hunk" }>>) => {
 	const add = addresses.reduce(
 		(sum, address) =>
 			sum +
@@ -58,7 +59,7 @@ export const addressLabel = ({
 					? `${commitTitle(commit.message) ?? "(no message)"}${commit.hasConflicts ? " ⚠️" : ""}`
 					: shortCommitId(commitId);
 			},
-			Hunk: (address) => hunkLabel([address]),
+			Hunk: (address) => hunkAddressesLabel([address]),
 		}),
 	);
 
@@ -70,7 +71,7 @@ export const addressesLabel = ({
 	headInfoIndex: HeadInfoIndex;
 }) => {
 	if (addresses.length > 0 && addresses.every((address) => address._tag === "Hunk"))
-		return hunkLabel(addresses);
+		return hunkAddressesLabel(addresses);
 	if (addresses.length !== 1) return `${addresses.length.toLocaleString()} items`;
 
 	return addressLabel({ address: assert(addresses[0]), headInfoIndex });
