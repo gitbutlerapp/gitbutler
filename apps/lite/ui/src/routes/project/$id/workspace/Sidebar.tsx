@@ -1,11 +1,15 @@
 import { useWorkspaceIntegrateUpstream } from "#ui/api/mutations.ts";
 import { setPage, usePage } from "#ui/use-cursor.ts";
 import {
+	forgeInfoOptions,
 	guiSettingsQueryOptions,
 	headInfoQueryOptions,
+	listReviewsQueryOptions,
 	workspaceFetchQueryOptions,
 	workspaceFetchStatusQueryOptions,
 } from "#ui/api/queries.ts";
+import { NotificationBell } from "#ui/review-inbox-bell.tsx";
+import { usePrNotificationsLevel, useUnreadReviewCount } from "#ui/review-seen.ts";
 import { stackBottomRelativeTo } from "#ui/api/stack.ts";
 import { errorMessageForToast } from "#ui/errors.ts";
 import { Icon } from "#ui/components/Icon.tsx";
@@ -52,6 +56,38 @@ const adjacentPage = (tab: PageId, offset: -1 | 1): PageId => {
  * read. The upstream page states the exact count.
  */
 const maxBadgeCount = 99;
+
+/**
+ * How many applied-branch pull requests have unread activity. Its own
+ * component so its subscriptions wake only this badge, not the sidebar.
+ */
+const WorkspaceActivityBadge: FC<{ projectId: string }> = ({ projectId }) => {
+	const { data: forgeInfo } = useQuery(forgeInfoOptions(projectId));
+	const notificationsLevel = usePrNotificationsLevel();
+	const prService = !!forgeInfo?.capabilities.prService && notificationsLevel !== "off";
+	const { data: appliedBranches } = useQuery({
+		...headInfoQueryOptions(projectId),
+		enabled: prService,
+		select: (headInfo) =>
+			new Set(
+				headInfo.stacks.flatMap((stack) =>
+					stack.segments.flatMap((segment) => segment.refName?.displayName ?? []),
+				),
+			),
+	});
+	const { data: appliedReviews } = useQuery({
+		...listReviewsQueryOptions({ projectId, cacheConfig: "noCache" }),
+		enabled: prService,
+		select: (reviews) =>
+			reviews
+				.filter((review) => appliedBranches?.has(review.sourceBranch) === true)
+				.map((review) => ({ number: review.number, modifiedAt: review.modifiedAt })),
+	});
+	const count = useUnreadReviewCount(projectId, appliedReviews ?? [], prService);
+	if (count === 0) return null;
+
+	return <Badge variant="fillGray">{count > maxBadgeCount ? `${maxBadgeCount}+` : count}</Badge>;
+};
 
 export const Sidebar: FC<{
 	absorptionTargetCommitIds: ReadonlySet<string>;
@@ -222,6 +258,7 @@ export const Sidebar: FC<{
 		<div className={styles.container} ref={ref}>
 			<div className={styles.top}>
 				<SidebarHeader
+					bell={<NotificationBell projectId={projectId} />}
 					project={project}
 					canFetch={canFetchFromRemotes}
 					isFetchPending={isWorkspaceFetchFromRemotesPending}
@@ -245,6 +282,7 @@ export const Sidebar: FC<{
 					>
 						<Icon name="workbench" />
 						<span className={styles.tabLabel}>Workspace</span>
+						<WorkspaceActivityBadge projectId={projectId} />
 					</Toggle>
 					<Toggle
 						render={<ToggleStyles />}

@@ -43,6 +43,8 @@ import type {
 	ForgeReviewUser,
 } from "@gitbutler/but-sdk";
 import { pullRequestHotkeys } from "#ui/hotkeys.ts";
+import { FreshBadge, RegisterFreshItems } from "#ui/review-arrival.tsx";
+import { useMemo } from "react";
 import { useHotkey } from "@tanstack/react-hotkeys";
 import { useQuery } from "@tanstack/react-query";
 import { type FC, type ReactNode, type RefObject, useRef, useState } from "react";
@@ -74,6 +76,8 @@ const Card: FC<{
 	timestamp: number | null;
 	/** Shown in place of the time while an optimistic write is in flight. */
 	pendingLabel?: string;
+	/** The card's stable item key, so its "New" marker can be seen away. */
+	freshKey?: string;
 	edited?: boolean;
 	actions?: ReactNode;
 	footer?: ReactNode;
@@ -84,6 +88,7 @@ const Card: FC<{
 	badge,
 	timestamp,
 	pendingLabel,
+	freshKey,
 	edited = false,
 	actions,
 	footer,
@@ -104,6 +109,7 @@ const Card: FC<{
 						)
 					)}
 					{edited && <span className={classes("text-12", styles.cardEdited)}>edited</span>}
+					<FreshBadge timestamp={timestamp} author={author} itemKey={freshKey} />
 				</div>
 				{actions}
 			</div>
@@ -237,6 +243,7 @@ const Comment: FC<{
 			author={comment.author}
 			className={isSending ? styles.cardSending : undefined}
 			timestamp={createdAtMs}
+			freshKey={comment.id > 0 ? `c:${comment.id}` : undefined}
 			pendingLabel={isSending ? "Sending…" : undefined}
 			edited={comment.modifiedAt !== null && comment.modifiedAt !== comment.createdAt}
 			actions={actions}
@@ -301,6 +308,7 @@ const Submission: FC<{ submission: ForgeReviewSubmission }> = ({ submission }) =
 			author={submission.author}
 			badge={submissionBadge[submission.state]}
 			timestamp={submittedAtMs}
+			freshKey={`s:${submission.id}`}
 		>
 			{submission.body === null || submission.body.trim() === "" ? undefined : (
 				<Clamped maxHeight="240px">
@@ -317,11 +325,13 @@ const Submission: FC<{ submission: ForgeReviewSubmission }> = ({ submission }) =
  * text carry a dotted underline, which is what distinguishes the referenced
  * objects from the connective prose.
  */
-const FeedEvent: FC<{ icon: IconName; timestamp: number | null; children: ReactNode }> = ({
-	icon,
-	timestamp,
-	children,
-}) => (
+const FeedEvent: FC<{
+	icon: IconName;
+	timestamp: number | null;
+	freshKey?: string;
+	author?: ForgeReviewUser | null;
+	children: ReactNode;
+}> = ({ icon, timestamp, freshKey, author, children }) => (
 	<div className={classes("text-12", styles.event)}>
 		<Icon name={icon} size={12} className={styles.eventIcon} />
 		{/* One flowing paragraph, so a long summary wraps under itself and the
@@ -334,6 +344,7 @@ const FeedEvent: FC<{ icon: IconName; timestamp: number | null; children: ReactN
 					<span aria-hidden>·</span> <RelativeTime timestamp={timestamp} />
 				</>
 			)}
+			<FreshBadge timestamp={timestamp} author={author} itemKey={freshKey} />
 		</div>
 	</div>
 );
@@ -346,9 +357,11 @@ const Ref: FC<{ children: ReactNode; mono?: boolean }> = ({ children, mono = fal
 const TimelineEvent: FC<{ event: ForgeReviewTimelineEvent }> = ({ event }) => {
 	const createdAtMs = event.createdAt === null ? null : Date.parse(event.createdAt);
 
+	const freshKey = event.createdAt === null ? undefined : `e:${event.kind}:${event.createdAt}`;
+
 	if (event.kind === "committed") {
 		return (
-			<FeedEvent icon="commit" timestamp={createdAtMs}>
+			<FeedEvent icon="commit" timestamp={createdAtMs} freshKey={freshKey}>
 				{event.commitAuthorName !== null && <Ref>{event.commitAuthorName}</Ref>} committed{" "}
 				{event.commitSha !== null && <Ref mono>{event.commitSha.slice(0, 7)}</Ref>}{" "}
 				{event.commitSummary}
@@ -357,7 +370,7 @@ const TimelineEvent: FC<{ event: ForgeReviewTimelineEvent }> = ({ event }) => {
 	}
 
 	return (
-		<FeedEvent icon="user" timestamp={createdAtMs}>
+		<FeedEvent icon="user" timestamp={createdAtMs} freshKey={freshKey} author={event.actor}>
 			{event.actor !== null && <Ref>{event.actor.login}</Ref>} requested a review
 			{event.requestedReviewer !== null && (
 				<>
@@ -598,6 +611,33 @@ export const PullRequestComments: FC<{ projectId: string; review: ForgeReview }>
 	const [draft, setDraft] = useState("");
 	const composerRef = useRef<HTMLTextAreaElement | null>(null);
 
+	// What the dwell may record as skipped: the conversation's own unread-
+	// eligible items. Memoized: this component re-renders per draft
+	// keystroke, and the derivation walks every listing.
+	const freshItems = useMemo(() => {
+		const own = (login: string | null | undefined) =>
+			currentLogin != null && login != null && login.toLowerCase() === currentLogin.toLowerCase();
+		return [
+			...(comments ?? [])
+				.filter(
+					(comment) => comment.id > 0 && comment.createdAt !== null && !own(comment.author?.login),
+				)
+				.map((comment) => ({ key: `c:${comment.id}`, atMs: Date.parse(comment.createdAt ?? "") })),
+			...(submissions ?? [])
+				.filter((submission) => submission.submittedAt !== null && !own(submission.author?.login))
+				.map((submission) => ({
+					key: `s:${submission.id}`,
+					atMs: Date.parse(submission.submittedAt ?? ""),
+				})),
+			...(events ?? [])
+				.filter((event) => event.createdAt !== null && !own(event.actor?.login))
+				.map((event) => ({
+					key: `e:${event.kind}:${event.createdAt ?? ""}`,
+					atMs: Date.parse(event.createdAt ?? ""),
+				})),
+		];
+	}, [comments, submissions, events, currentLogin]);
+
 	const handleSubmit = () => {
 		const body = draft.trim();
 		if (body === "") return;
@@ -626,6 +666,7 @@ export const PullRequestComments: FC<{ projectId: string; review: ForgeReview }>
 
 	return (
 		<div className={styles.comments}>
+			<RegisterFreshItems source="conversation" items={freshItems} />
 			{isPending || submissionsPending ? (
 				<div className={classes("text-13", styles.commentsEmpty)}>Loading…</div>
 			) : (

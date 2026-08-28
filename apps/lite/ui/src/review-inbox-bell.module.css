@@ -1,0 +1,143 @@
+/* A ghost header button, plus an anchor for the unread dot. */
+.bell {
+	position: relative;
+}
+
+/* Focus shows as the hover tint: a ring around a header icon reads as
+   clutter, and the tint keeps keyboard position visible. */
+.bell:focus-visible {
+	outline: none;
+	background-color: var(--list-item-hover-bg);
+}
+
+.bellDot {
+	position: absolute;
+	top: 4px;
+	right: 4px;
+	width: 7px;
+	height: 7px;
+	border: 1.5px solid var(--bg-1);
+	border-radius: 50%;
+	background-color: var(--fill-danger-bg);
+}
+
+.panel {
+	display: flex;
+	flex-direction: column;
+	width: 380px;
+	max-height: min(60vh, 560px);
+	overflow: hidden;
+	border: 1px solid var(--border-2);
+	border-radius: 8px;
+	/* The popup takes focus on open; the browser would paint its own
+	   accent-colored ring on a div no app rule covers. */
+	outline: none;
+	background-color: var(--bg-1);
+	box-shadow: 0 8px 24px rgb(0 0 0 / 15%);
+}
+
+.panelHeader {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	padding: 10px 12px;
+	border-bottom: 1px solid var(--border-3);
+}
+
+.markAll {
+	padding: 0;
+	border: none;
+	background: none;
+	color: var(--text-2);
+	text-decoration: underline dotted;
+	text-underline-position: from-font;
+	cursor: pointer;
+}
+
+.empty {
+	padding: 20px 12px;
+	color: var(--text-3);
+	text-align: center;
+}
+
+.list {
+	overflow-y: auto;
+}
+
+.entry {
+	display: flex;
+	align-items: flex-start;
+	width: 100%;
+	padding: 10px 12px;
+	gap: 8px;
+	border: none;
+	border-bottom: 1px solid var(--border-3);
+	background: none;
+	/* The list reads as a murmur; the red dots and kind icons carry it. */
+	color: var(--text-2);
+	text-align: start;
+	cursor: pointer;
+}
+
+.entry:last-child {
+	border-bottom: none;
+}
+
+.entry:hover {
+	background-color: var(--list-item-hover-bg);
+}
+
+.entryIcon {
+	flex-shrink: 0;
+	margin-block-start: 1px;
+	color: var(--text-3);
+}
+
+.entryIconLoud {
+	color: var(--fill-pop-bg);
+}
+
+.entryBody {
+	display: flex;
+	flex-grow: 1;
+	flex-direction: column;
+	min-width: 0;
+	gap: 2px;
+}
+
+/* Leads the row, one step above the murmur: the title is what you scan
+   for, and it wraps rather than truncates. */
+.entryTitle {
+	color: var(--text-1);
+	overflow-wrap: anywhere;
+}
+
+.entryAction {
+	color: var(--text-3);
+}
+
+.entrySnippet {
+	overflow: hidden;
+	color: var(--text-3);
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.entryEnd {
+	display: flex;
+	flex-shrink: 0;
+	align-items: center;
+	gap: 6px;
+}
+
+/* Blue, not the bell's red: within the list it marks state, not alarm. */
+.entryUnseen {
+	width: 6px;
+	height: 6px;
+	border-radius: 50%;
+	background-color: var(--fill-blue-bg);
+}
+
+.entryTime {
+	color: var(--text-3);
+}

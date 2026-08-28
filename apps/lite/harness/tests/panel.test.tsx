@@ -5,6 +5,8 @@ import { createFakeTransport, createWatcherHandlers, type FakeHandlers } from ".
 import {
 	fixtureCommit,
 	fixtureFileChange,
+	fixtureForgeInfo,
+	fixtureForgeReview,
 	fixtureHeadInfo,
 	fixtureSegment,
 	fixtureWorktreeChanges,
@@ -27,7 +29,23 @@ const PROJECT_ID = "fixture-project";
  */
 const settle = { timeout: 15_000 } as const;
 
-const mountPanel = (handlers: FakeHandlers) => {
+/**
+ * @param seenMarks watermarks to start from, as the app would have stamped on
+ * an earlier run. Local storage is shared across the tests in this file, so it
+ * is cleared either way.
+ */
+/** The inbox as the detector wrote it, straight from the store's key. */
+const inboxEntries = (): Array<{ kind: string; review: number; author: string | null }> =>
+	JSON.parse(localStorage.getItem(`pr_activity_inbox:v1:${PROJECT_ID}`) ?? "[]") as Array<{
+		kind: string;
+		review: number;
+		author: string | null;
+	}>;
+
+const mountPanel = (handlers: FakeHandlers, seenMarks?: Record<number, string>) => {
+	localStorage.clear();
+	if (seenMarks !== undefined)
+		localStorage.setItem(`pr_activity_seen:v1:${PROJECT_ID}`, JSON.stringify(seenMarks));
 	const watcher = createWatcherHandlers();
 	const fake = createFakeTransport({
 		...globalHandlers(PROJECT_ID),
@@ -134,6 +152,112 @@ test("a watcher event refreshes the uncommitted files", async () => {
 	panel.push(eventChannel, event);
 
 	await vi.waitFor(() => expect(panel.container.textContent).toContain("new-file.ts"), settle);
+
+	panel.unmount();
+});
+
+test("someone else's review activity files one coalesced inbox entry and the unread dot", async () => {
+	// A mutable listing: the first answer is the detector's baseline, the
+	// second is the activity, as two forge polls would return.
+	let review = fixtureForgeReview({ modifiedAt: "2026-01-01T10:00:00Z" });
+	let comments: Array<unknown> = [];
+
+	const panel = mountPanel({
+		headInfo: () =>
+			fixtureHeadInfo([[fixtureSegment({ branch: review.sourceBranch, commits: [] })]]),
+		changesInWorktree: () => fixtureWorktreeChanges([]),
+		forgeInfo: () => fixtureForgeInfo(),
+		listReviews: () => [review],
+		currentForgeLogin: () => "me",
+		listReviewComments: () => comments,
+		listReviewSubmissions: () => [],
+		listReviewTimelineEvents: () => [],
+	});
+
+	// The PR chip proves the baseline listing landed, and that nothing is
+	// unread yet — history must never replay as notifications.
+	await vi.waitFor(() => expect(panel.container.textContent).toContain("PR"), settle);
+	expect(document.querySelector('[title="New activity on this pull request"]')).toBeNull();
+
+	// Someone comments; the forge bumps the review and a fetch notices.
+	review = { ...review, modifiedAt: "2026-01-01T11:00:00Z" };
+	comments = [
+		{
+			id: 1,
+			body: "Have you considered a smaller diff?",
+			author: { id: 2, login: "alice", name: null, email: null, avatarUrl: null, isBot: false },
+			createdAt: "2026-01-01T10:30:00Z",
+			modifiedAt: null,
+			htmlUrl: "",
+			reactions: [],
+		},
+	];
+	const eventChannel = panel.watcher.channels.at(0);
+	if (eventChannel === undefined) throw new Error("no watcher subscription armed");
+	const event: WatcherEvent = { name: "gitFetch", payload: { type: "gitFetch", subject: null } };
+	panel.push(eventChannel, event);
+
+	// One coalesced, attributed inbox entry — and the unread dot alongside it.
+	await vi.waitFor(() => expect(inboxEntries()).toHaveLength(1), settle);
+	expect(inboxEntries()[0]).toMatchObject({ kind: "comment", review: 7, author: "alice" });
+	await vi.waitFor(
+		() =>
+			expect(document.querySelector('[title="New activity on this pull request"]')).not.toBeNull(),
+		settle,
+	);
+
+	panel.unmount();
+});
+
+test("a mention toasts even when the review's branch is not in the workspace", async () => {
+	// One applied review to anchor the baseline, and one on a branch the
+	// workspace does not hold — only a mention may speak for the latter.
+	const mine = fixtureForgeReview({ modifiedAt: "2026-01-01T10:00:00Z" });
+	let outside = fixtureForgeReview({
+		number: 8,
+		sourceBranch: "a-colleagues-branch",
+		modifiedAt: "2026-01-01T10:00:00Z",
+	});
+	let comments: Array<unknown> = [];
+
+	const panel = mountPanel({
+		headInfo: () => fixtureHeadInfo([[fixtureSegment({ branch: mine.sourceBranch, commits: [] })]]),
+		changesInWorktree: () => fixtureWorktreeChanges([]),
+		forgeInfo: () => fixtureForgeInfo(),
+		listReviews: () => [mine, outside],
+		currentForgeLogin: () => "me",
+		listReviewComments: (params: { reviewId: number }) =>
+			params.reviewId === outside.number ? comments : [],
+		listReviewSubmissions: () => [],
+		listReviewTimelineEvents: () => [],
+	});
+
+	await vi.waitFor(() => expect(panel.container.textContent).toContain("PR"), settle);
+
+	outside = { ...outside, modifiedAt: "2026-01-01T11:00:00Z" };
+	comments = [
+		{
+			id: 1,
+			body: "wdyt @me?",
+			author: { id: 2, login: "alice", name: null, email: null, avatarUrl: null, isBot: false },
+			createdAt: "2026-01-01T10:30:00Z",
+			modifiedAt: null,
+			htmlUrl: "",
+			reactions: [],
+		},
+	];
+	const eventChannel = panel.watcher.channels.at(0);
+	if (eventChannel === undefined) throw new Error("no watcher subscription armed");
+	panel.push(eventChannel, {
+		name: "gitFetch",
+		payload: { type: "gitFetch", subject: null },
+	} satisfies WatcherEvent);
+
+	await vi.waitFor(
+		() =>
+			expect(inboxEntries().find((entry) => entry.review === 8)).toMatchObject({ kind: "mention" }),
+		settle,
+	);
 
 	panel.unmount();
 });

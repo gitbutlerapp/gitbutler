@@ -94,6 +94,26 @@ export const General: FC = () => {
 						onCheckedChange={(autoUpdate) => saveGUISettings({ autoUpdate })}
 					/>
 				</Row>
+
+				<Row
+					label="Pull request activity"
+					htmlFor="pr-notifications"
+					hint="Loud collects notifications in the bell; quiet keeps just the unread dots."
+				>
+					<select
+						id="pr-notifications"
+						value={settings.prNotifications ?? defaultSettings.prNotifications}
+						onChange={(evt) => {
+							const value = evt.currentTarget.value;
+							if (value === "loud" || value === "quiet" || value === "off")
+								saveGUISettings({ prNotifications: value });
+						}}
+					>
+						<option value="loud">Loud</option>
+						<option value="quiet">Quiet</option>
+						<option value="off">Off</option>
+					</select>
+				</Row>
 			</Section>
 
 			<Section heading="Danger zone">

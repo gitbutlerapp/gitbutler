@@ -666,6 +666,23 @@ export const useMergeReview = (projectId: string) =>
 		meta: { failureTitle: "Failed to merge pull request" },
 	});
 
+/**
+ * Review numbers this session merged through `useMergeReview`. Kept beside
+ * the mutation so the key and payload shape cannot drift apart unseen.
+ */
+export const selfMergedNumbers = (client: QueryClient, projectId: string): Set<number> =>
+	new Set(
+		client
+			.getMutationCache()
+			.findAll({ mutationKey: [projectId, "mergeReview"], status: "success" })
+			.flatMap((mutation) => {
+				const variables = mutation.state.variables as
+					| Parameters<typeof window.lite.mergeReview>[0]
+					| undefined;
+				return variables ? [variables.reviewId] : [];
+			}),
+	);
+
 export const useSetReviewDraftiness = (projectId: string) =>
 	useMutation({
 		mutationKey: [projectId, "setReviewDraftiness"],

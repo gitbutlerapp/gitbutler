@@ -20,6 +20,7 @@ import {
 	listCIChecksQueryOptions,
 	listReviewsQueryOptions,
 } from "#ui/api/queries.ts";
+import { usePrNotificationsLevel, useReviewUnread } from "#ui/review-seen.ts";
 import { decodeBytes } from "#ui/api/bytes.ts";
 import { Button, Toast, Toolbar, Tooltip } from "@base-ui/react";
 import type {
@@ -163,7 +164,14 @@ export const BranchRow: FC<
 		...listReviewsQueryOptions({ projectId, cacheConfig: "noCache" }),
 		enabled: !!forgeInfo?.capabilities.prService,
 	});
-	const openPullRequest = reviews?.reviewsBySourceBranch.get(refName.displayName)?.number ?? null;
+	const openReview = reviews?.reviewsBySourceBranch.get(refName.displayName);
+	const openPullRequest = openReview?.number ?? null;
+	const notificationsLevel = usePrNotificationsLevel();
+	const reviewUnread = useReviewUnread(
+		projectId,
+		{ number: openPullRequest ?? 0, modifiedAt: openReview?.modifiedAt ?? null },
+		openPullRequest !== null && !!forgeInfo?.capabilities.prService && notificationsLevel !== "off",
+	);
 	// The chip renders the recorded number as-is: the projection only records
 	// display-worthy reviews, the chip must survive being offline, and a
 	// per-row verification fetch is not worth it. The details pane does verify
@@ -540,9 +548,19 @@ export const BranchRow: FC<
 						{pullRequest !== null && (
 							<>
 								<RowMetaSeparator />
-								<span className={classes(rowStyles.fadedText, rowStyles.metaItem)}>
+								<span
+									className={classes(rowStyles.fadedText, rowStyles.metaItem)}
+									title={reviewUnread ? "New activity on this pull request" : undefined}
+								>
 									<Icon size={14} name="pr" />
 									PR
+									{reviewUnread && (
+										<span className={rowStyles.unreadDot}>
+											<span className={rowStyles.unreadLabel}>
+												New activity on this pull request
+											</span>
+										</span>
+									)}
 								</span>
 
 								{ciChecks?.aggregate &&
