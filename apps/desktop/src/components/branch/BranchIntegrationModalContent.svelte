@@ -167,13 +167,13 @@
 	}
 
 	$effect(() => {
-		// A forced refetch may expose cached data while the request is in flight.
-		// Wait for the fresh plan before building drafts or enabling Apply.
+		// Nothing to wipe while the query is not fulfilled: the prepared plan
+		// starts unset, `selectTemplate` clears it when the key changes, and
+		// wiping here on a background refetch (any workspace invalidation
+		// lands one) flips Apply disabled for a round trip — the browser then
+		// swallows a click on it without dispatching any event.
 		const query = initialBranchIntegration.result;
-		if (query.status !== "fulfilled") {
-			preparedIntegration = undefined;
-			return;
-		}
+		if (query.status !== "fulfilled") return;
 
 		const initial = query.data;
 		if (!initial || query.requestId === initializedRequestId) return;
