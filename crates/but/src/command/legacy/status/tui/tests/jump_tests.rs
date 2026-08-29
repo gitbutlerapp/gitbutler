@@ -42,6 +42,34 @@ fn jumping_around() {
 }
 
 #[test]
+fn jump_to_merge_base_by_commit_id() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings(
+        "two-stacks-one-single-and-ready-to-mingle-one-double",
+    );
+    env.setup_metadata(&["A", "B"]);
+
+    let merge_base_id = env
+        .open_repo()
+        .rev_parse_single("origin/main")
+        .unwrap()
+        .detach()
+        .to_string();
+    let mut tui = test_status_tui(env);
+
+    tui.input('/');
+    for _ in 0..6 {
+        tui.input((KeyModifiers::CONTROL, 'n'));
+    }
+    tui.input((KeyModifiers::CONTROL, 'n'))
+        .assert_current_line_eq(str!["[..] (common base) [..]"]);
+    tui.input(KeyCode::Esc);
+
+    tui.input('/');
+    tui.input(&merge_base_id[..12])
+        .assert_current_line_eq(str!["[..] (common base) [..]"]);
+}
+
+#[test]
 fn jump_from_other_modes() {
     let env = Sandbox::init_scenario_with_target_and_default_settings(
         "two-stacks-one-single-and-ready-to-mingle-one-double",

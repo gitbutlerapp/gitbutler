@@ -13,6 +13,7 @@
   <rect x="50" y="208" width="8" height="18" fill="#FFFFFF" />
   <rect x="42" y="244" width="8" height="18" fill="#FFFFFF" />
   <rect x="50" y="262" width="8" height="18" fill="#FFFFFF" />
+  <rect x="26" y="316" width="8" height="18" fill="#FFFFFF" />
   <rect x="10" y="352" width="64" height="18" fill="#0000AA" />
   <g font-family="Menlo, Monaco, 'Courier New', monospace" font-size="14" xml:space="preserve">
     <text x="10 18" y="24" style="fill:#FFFFFF;font-weight:bold;">╭┄</text>
@@ -82,12 +83,13 @@
     <text x="10 18" y="294" style="fill:#CCCCCC;">├╯</text>
     <text x="10" y="312" style="fill:#CCCCCC;">┊</text>
     <text x="10" y="330" style="fill:#CCCCCC;">┴</text>
-    <text x="26 34 42 50 58 66 74" y="330" style="fill:#CCCCCC;opacity:0.75;">0dc3733</text>
-    <text x="90 98 106 114 122 130 138" y="330" style="fill:#CCCCCC;opacity:0.75;">(common</text>
-    <text x="154 162 170 178 186" y="330" style="fill:#CCCCCC;opacity:0.75;">base)</text>
+    <text x="26" y="330" style="fill:#000000;">0</text>
+    <text x="34 42 50 58 66 74" y="330" style="fill:#CCCCCC;opacity:0.75;">dc3733</text>
+    <text x="90 98 106 114 122 130 138" y="330" style="fill:#CCCCCC;">(common</text>
+    <text x="154 162 170 178 186" y="330" style="fill:#CCCCCC;">base)</text>
     <text x="202 210 218 226 234 242 250 258 266 274" y="330" style="fill:#CCCCCC;opacity:0.75;">2000-01-02</text>
-    <text x="290 298 306" y="330" style="fill:#CCCCCC;opacity:0.75;">add</text>
-    <text x="322" y="330" style="fill:#CCCCCC;opacity:0.75;">M</text>
+    <text x="290 298 306" y="330" style="fill:#CCCCCC;">add</text>
+    <text x="322" y="330" style="fill:#CCCCCC;">M</text>
     <text x="26 34 42 50" y="366" style="fill:#000000;">jump</text>
     <text x="82" y="366" style="fill:#CCCCCC;">/</text>
   </g>

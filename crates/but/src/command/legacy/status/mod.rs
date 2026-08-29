@@ -1167,11 +1167,11 @@ fn print_common_merge_base_summary(
     let first_line = truncate_when_needed(first_line, 40, status_ctx.should_truncate_for_terminal);
     output.merge_base(
         Vec::from([Span::raw(connector), Span::raw(" ")]),
+        Vec::from([Span::styled(
+            status_ctx.common_merge_base_data.common_merge_base.clone(),
+            t.hint,
+        )]),
         Vec::from([
-            Span::styled(
-                status_ctx.common_merge_base_data.common_merge_base.clone(),
-                t.hint,
-            ),
             Span::raw(" (common base) "),
             Span::styled(
                 status_ctx.common_merge_base_data.commit_date.clone(),
@@ -1180,6 +1180,7 @@ fn print_common_merge_base_summary(
             Span::raw(" "),
             Span::raw(first_line.to_string()),
         ]),
+        status_ctx.common_merge_base_data.commit_id,
     )?;
     Ok(())
 }

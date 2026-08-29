@@ -2,7 +2,8 @@ use crate::{
     command::legacy::status::{
         FileLineContent, StatusOutputLine,
         output::{
-            BranchLineContent, CommitLineContent, StatusOutputContent, UncommittedLineContent,
+            BranchLineContent, CommitLineContent, MergeBaseLineContent, StatusOutputContent,
+            UncommittedLineContent,
         },
     },
     theme::Paint,
@@ -76,6 +77,14 @@ pub(super) fn render_oneshot(
             spans.append(&mut decoration_start);
             spans.append(&mut label);
             spans.append(&mut decoration_end);
+            spans.append(&mut suffix);
+        }
+        StatusOutputContent::MergeBase(MergeBaseLineContent {
+            mut id,
+            mut suffix,
+            commit_id: _,
+        }) => {
+            spans.append(&mut id);
             spans.append(&mut suffix);
         }
     }
