@@ -1,5 +1,5 @@
 use anyhow::Result;
-use but_core::{UnifiedPatch, WorktreeChanges, diff};
+use but_core::{IgnoredWorktreeTreeChangeStatus, TreeStatus, UnifiedPatch, WorktreeChanges, diff};
 use but_testsupport::gix_testtools;
 use snapbox::prelude::*;
 
@@ -437,6 +437,136 @@ WorktreeChanges {
         "Can only diff blobs and links, not Commit"
     );
     Ok(())
+}
+
+#[test]
+fn submodule_removed_from_index_with_retained_head_is_ineffective() -> Result<()> {
+    let repo = repo("submodule-removed-from-index-retained-head")?;
+    for actual in [
+        diff::worktree_changes(&repo)?,
+        diff::worktree_changes_no_renames(&repo)?,
+    ] {
+        assert!(
+            actual.changes.is_empty(),
+            "the retained checkout still matches the committed gitlink"
+        );
+        let [ignored] = actual.ignored_changes.as_slice() else {
+            panic!("the merged index and worktree change should be marked ineffective")
+        };
+        let path: &[u8] = ignored.path.as_ref();
+        assert_eq!(path, b"submodule", "the submodule path was merged");
+        assert_eq!(
+            ignored.status,
+            IgnoredWorktreeTreeChangeStatus::TreeIndexWorktreeChangeIneffective,
+            "the retained checkout cancels the net worktree change"
+        );
+        assert_staged_submodule_deletion(&actual);
+    }
+    Ok(())
+}
+
+#[test]
+fn submodule_removed_from_index_with_changed_head_is_modified() -> Result<()> {
+    let repo = repo("submodule-removed-from-index-changed-head")?;
+    for actual in [
+        diff::worktree_changes(&repo)?,
+        diff::worktree_changes_no_renames(&repo)?,
+    ] {
+        let [change] = actual.changes.as_slice() else {
+            panic!("the changed retained checkout should produce one effective change")
+        };
+        let path: &[u8] = change.path.as_ref();
+        assert_eq!(path, b"submodule", "the changed path is the submodule");
+        let TreeStatus::Modification {
+            previous_state,
+            state,
+            flags,
+        } = change.status
+        else {
+            panic!("the changed retained checkout should be a modification")
+        };
+        assert_eq!(
+            previous_state.kind,
+            gix::object::tree::EntryKind::Commit,
+            "the previous state is a gitlink"
+        );
+        assert_eq!(
+            state.kind,
+            gix::object::tree::EntryKind::Commit,
+            "the current state is a gitlink"
+        );
+        assert!(
+            state.id.is_null(),
+            "worktree states remain lazily hashed in the returned change"
+        );
+        assert_eq!(flags, None, "the entry kind did not change");
+        let [ignored] = actual.ignored_changes.as_slice() else {
+            panic!("the staged deletion should be marked as superseded by the worktree")
+        };
+        assert_eq!(
+            ignored.status,
+            IgnoredWorktreeTreeChangeStatus::TreeIndex,
+            "the retained checkout supersedes the staged deletion"
+        );
+        assert_staged_submodule_deletion(&actual);
+    }
+    Ok(())
+}
+
+#[test]
+fn submodule_removed_from_index_with_plain_directory_is_not_opened_as_repository() -> Result<()> {
+    let repo = repo("submodule-removed-from-index-plain-directory")?;
+    for actual in [
+        diff::worktree_changes(&repo)?,
+        diff::worktree_changes_no_renames(&repo)?,
+    ] {
+        assert!(
+            actual.changes.iter().any(|change| {
+                let path: &[u8] = change.path.as_ref();
+                path == b"submodule"
+                    && matches!(
+                        change.status,
+                        TreeStatus::Deletion { previous_state }
+                            if previous_state.kind == gix::object::tree::EntryKind::Commit
+                    )
+            }),
+            "the staged gitlink deletion remains a deletion"
+        );
+        assert!(
+            actual.changes.iter().any(|change| {
+                let path: &[u8] = change.path.as_ref();
+                path == b"submodule/modified"
+                    && matches!(
+                        change.status,
+                        TreeStatus::Addition { state, .. }
+                            if state.kind == gix::object::tree::EntryKind::Blob
+                    )
+            }),
+            "the plain directory is traversed for untracked files"
+        );
+        assert_staged_submodule_deletion(&actual);
+    }
+    Ok(())
+}
+
+fn assert_staged_submodule_deletion(actual: &WorktreeChanges) {
+    let [
+        gix::diff::index::Change::Deletion {
+            location,
+            entry_mode,
+            ..
+        },
+    ] = actual.index_changes.as_slice()
+    else {
+        panic!("the index should retain exactly the staged submodule deletion")
+    };
+    let location: &[u8] = location.as_ref();
+    assert_eq!(location, b"submodule", "the index deletion path is intact");
+    assert_eq!(
+        *entry_mode,
+        gix::index::entry::Mode::COMMIT,
+        "the index deletion remains a gitlink"
+    );
 }
 
 #[test]
