@@ -1,6 +1,7 @@
 <script lang="ts">
 	import SectionCardDisclaimer from "$components/shared/SectionCardDisclaimer.svelte";
 	import { GIT_CONFIG_SERVICE } from "$lib/config/gitConfigService";
+	import { classify } from "$lib/error/errorClassification";
 	import { parseError } from "$lib/error/parser";
 	import { OnboardingEvent, POSTHOG_WRAPPER } from "$lib/telemetry/posthog";
 	import { inject } from "@gitbutler/core/context";
@@ -32,16 +33,27 @@
 		loading = true;
 		errors = 0;
 		checks = [];
+		let stage: "fetch" | "push" = "fetch";
 
 		try {
 			const fetchCheck = gitConfig.checkGitFetch(projectId, remoteName);
 			checks = [{ name: "Fetch", promise: fetchCheck }];
 			await fetchCheck;
+			stage = "push";
 			const pushCheck = gitConfig.checkGitPush(projectId, remoteName, branchName);
 			checks = [...checks, { name: "Push", promise: pushCheck }];
 			await pushCheck;
-		} catch {
-			posthog.capture(OnboardingEvent.GitCheckCredentialsFailed);
+		} catch (error) {
+			const { code, userMessage } = classify(error);
+			posthog.captureOnboarding(
+				OnboardingEvent.GitCheckCredentialsFailed,
+				{
+					name: "Git credential check failed",
+					message: userMessage ?? "Git credential check failed.",
+					code,
+				},
+				{ stage },
+			);
 			errors = 1;
 		} finally {
 			loading = false;
