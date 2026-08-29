@@ -1,8 +1,9 @@
+import { expect } from "../src/expect.ts";
 import { forgeReview, githubForgeInfo, mergeStatus, mockForge, repoInfo } from "../src/forge.ts";
 import { applyUpstream, getButlerPort, openWorkspace, type GitButler } from "../src/setup.ts";
 import { test } from "../src/test.ts";
 import { waitForTestId } from "../src/util.ts";
-import { expect, type Page } from "@playwright/test";
+import { type Page } from "@playwright/test";
 import type { FakeGitHubOptions, FakeGitHubServer } from "../src/fakeGithub.ts";
 
 const PR_NUMBER = 42;

@@ -1,7 +1,7 @@
+import { expect } from "../src/expect.ts";
 import { applyUpstream, openWorkspace } from "../src/setup.ts";
 import { test } from "../src/test.ts";
 import { clickByTestId, commitRow, dragAndDropByLocator, getByTestId } from "../src/util.ts";
-import { expect } from "@playwright/test";
 import { writeFileSync } from "fs";
 
 test("should show commit-failed modal when amending causes a conflict", async ({

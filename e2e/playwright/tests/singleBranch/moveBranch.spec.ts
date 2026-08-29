@@ -15,6 +15,7 @@ import {
 	createNewBranch,
 } from "../../src/branch.ts";
 import { updateCommitMessage } from "../../src/commit.ts";
+import { expect } from "../../src/expect.ts";
 import { writeToFile } from "../../src/file.ts";
 import { test } from "../../src/test.ts";
 import {
@@ -24,7 +25,7 @@ import {
 	getByTestId,
 	stack,
 } from "../../src/util.ts";
-import { expect, type Page } from "@playwright/test";
+import { type Page } from "@playwright/test";
 import { execFileSync } from "node:child_process";
 import type { GitButler } from "../../src/setup.ts";
 

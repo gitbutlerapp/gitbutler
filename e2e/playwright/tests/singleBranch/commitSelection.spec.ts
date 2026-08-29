@@ -1,5 +1,6 @@
 import { setupSingleBranchProject, SINGLE_BRANCH_NAME } from "./helpers.ts";
 import { assertBranch, assertCommitSubjects, assertDirtyWorktree } from "../../src/branch.ts";
+import { expect } from "../../src/expect.ts";
 import { assertFileIsUncommitted } from "../../src/file.ts";
 import { test } from "../../src/test.ts";
 import {
@@ -9,7 +10,6 @@ import {
 	waitForElementToStabilize,
 	waitForTestId,
 } from "../../src/util.ts";
-import { expect } from "@playwright/test";
 
 test.use({
 	gitbutlerOptions: {

@@ -1,7 +1,8 @@
+import { expect } from "../src/expect.ts";
 import { applyUpstream, openWorkspace, type GitButler } from "../src/setup.ts";
 import { test } from "../src/test.ts";
 import { dragAndDropByLocator, MOD_KEY, stack, waitForTestId } from "../src/util.ts";
-import { expect, type Page } from "@playwright/test";
+import { type Page } from "@playwright/test";
 
 /**
  * Apply branch2 (modifies b_file) and branch3 (modifies c_file) — two

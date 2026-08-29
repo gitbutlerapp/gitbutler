@@ -6,10 +6,10 @@ import {
 	assertGitConfigValue,
 	assertRefDoesNotExist,
 } from "../../src/branch.ts";
+import { expect } from "../../src/expect.ts";
 import { gotoOnboarding } from "../../src/setup.ts";
 import { test } from "../../src/test.ts";
 import { clickByTestId, getByTestId, mockPickDirectory, waitForTestId } from "../../src/util.ts";
-import { expect } from "@playwright/test";
 
 test.use({
 	gitbutlerOptions: {

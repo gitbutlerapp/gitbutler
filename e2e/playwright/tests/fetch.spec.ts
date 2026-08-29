@@ -1,8 +1,9 @@
+import { expect } from "../src/expect.ts";
 import { forgeErrorBody, githubForgeInfo, mockForge } from "../src/forge.ts";
 import { openWorkspace } from "../src/setup.ts";
 import { test } from "../src/test.ts";
 import { clickByTestId, getByTestId } from "../src/util.ts";
-import { expect, type Page, type Request } from "@playwright/test";
+import { type Page, type Request } from "@playwright/test";
 import { execFileSync } from "node:child_process";
 
 function git(pathToRepo: string, args: string[]): string {

@@ -1,4 +1,5 @@
 import { assertBranch, createNewBranch, deleteBranch, unapplyStack } from "../src/branch.ts";
+import { expect } from "../src/expect.ts";
 import { startFakeGitHubServer, type FakeGitHubServer } from "../src/fakeGithub.ts";
 import { applyUpstream, getButlerPort, openWorkspace, type GitButler } from "../src/setup.ts";
 import { test } from "../src/test.ts";
@@ -12,7 +13,7 @@ import {
 	waitForTestId,
 	waitForTestIdToNotExist,
 } from "../src/util.ts";
-import { expect, type Page, type Request } from "@playwright/test";
+import { type Page, type Request } from "@playwright/test";
 import { execFileSync } from "child_process";
 import { existsSync, readFileSync, writeFileSync } from "fs";
 

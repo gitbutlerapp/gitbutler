@@ -1,7 +1,7 @@
+import { expect } from "../src/expect.ts";
 import { applyUpstream, openWorkspace } from "../src/setup.ts";
 import { test } from "../src/test.ts";
 import { dragAndDropByLocator, stack, waitForTestId } from "../src/util.ts";
-import { expect } from "@playwright/test";
 
 test("move branch to top of other stack and tear it off", async ({ page, gitbutler }) => {
 	await gitbutler.runScript("project-with-stacks.sh");

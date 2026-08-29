@@ -24,6 +24,7 @@ import {
 	verifyCommitMessageEditor,
 	verifyCommitPlaceholderPosition,
 } from "../../src/commit.ts";
+import { expect } from "../../src/expect.ts";
 import { assertFileContent, unstageAllFiles, writeToFile } from "../../src/file.ts";
 import { applyUpstream, type GitButler } from "../../src/setup.ts";
 import { test } from "../../src/test.ts";
@@ -35,7 +36,7 @@ import {
 	stack,
 	waitForTestId,
 } from "../../src/util.ts";
-import { expect, type Page } from "@playwright/test";
+import { type Page } from "@playwright/test";
 import { execFileSync } from "node:child_process";
 
 test.use({

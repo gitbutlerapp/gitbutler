@@ -1,5 +1,6 @@
+import { IDLE_BUDGET_MS, idleSince, watchIdle } from "./idle.ts";
 import { TestId } from "@gitbutler/ui/utils/testIds";
-import { expect, type Locator, type Page } from "@playwright/test";
+import { type Locator, type Page } from "@playwright/test";
 
 type TestIdValues = `${TestId}`;
 
@@ -39,15 +40,101 @@ export function stack(page: Page, branchName?: string): Locator {
 	});
 }
 
-export async function waitForTestId(page: Page, testId: TestIdValues): Promise<Locator> {
+/** How often the watchdog samples; small enough to be precise, large enough to be free. */
+const IDLE_POLL_MS = 250;
+
+/**
+ * Run `act` with no deadline of its own, failing once the app has been idle for
+ * `idleBudgetMs` without it finishing. See `idle.ts` for why idleness rather
+ * than a wall clock decides.
+ */
+async function untilTheAppGoesQuiet<T>(
+	page: Page,
+	describe: string,
+	idleBudgetMs: number,
+	act: () => Promise<T>,
+): Promise<T> {
+	watchIdle(page);
+	const startedAt = Date.now();
+	let done = false;
+
+	const acting = act().finally(() => {
+		done = true;
+	});
+	// The watchdog may win the race; keep its loser from surfacing as an
+	// unhandled rejection.
+	acting.catch(() => {});
+
+	const watchdog = (async (): Promise<T> => {
+		for (;;) {
+			await new Promise((resolve) => setTimeout(resolve, IDLE_POLL_MS));
+			// Stop counting the moment the action settles, so the loop cannot
+			// outlive it — `acting` has already resolved or rejected here.
+			if (done) return await acting;
+			const idleFor = idleSince(page, startedAt);
+			if (idleFor >= idleBudgetMs) {
+				throw new Error(
+					`Timed out ${describe}: the app made no request for ` +
+						`${Math.round(idleFor / 1000)}s, so it is not still working on it.`,
+				);
+			}
+		}
+	})();
+
+	return await Promise.race([acting, watchdog]);
+}
+
+/**
+ * Hover, bounded by app silence rather than by `actionTimeout`.
+ *
+ * Playwright waits for an element to be stable before hovering it, and a list
+ * still reflowing as its data arrives is not stable yet. That is the app being
+ * slow, not the action being stuck, so it gets the same rule as the waits.
+ */
+export async function hoverPatiently(
+	page: Page,
+	locator: Locator,
+	options?: { force?: boolean; position?: { x: number; y: number }; idleBudgetMs?: number },
+): Promise<void> {
+	await untilTheAppGoesQuiet(
+		page,
+		"hovering",
+		options?.idleBudgetMs ?? IDLE_BUDGET_MS,
+		async () =>
+			await locator.hover({
+				force: options?.force,
+				position: options?.position,
+				timeout: 0,
+			}),
+	);
+}
+
+export async function waitForTestId(
+	page: Page,
+	testId: TestIdValues,
+	options?: { idleBudgetMs?: number },
+): Promise<Locator> {
 	const element = getByTestId(page, testId);
-	await element.waitFor();
+	await untilTheAppGoesQuiet(
+		page,
+		`waiting for getByTestId(${JSON.stringify(testId)}) to be visible`,
+		options?.idleBudgetMs ?? IDLE_BUDGET_MS,
+		async () => await element.waitFor({ state: "visible", timeout: 0 }),
+	);
 	return element;
 }
 
-export async function waitForTestIdToNotExist(page: Page, testId: TestIdValues): Promise<void> {
-	const element = getByTestId(page, testId);
-	await element.waitFor({ state: "detached" });
+export async function waitForTestIdToNotExist(
+	page: Page,
+	testId: TestIdValues,
+	options?: { idleBudgetMs?: number },
+): Promise<void> {
+	await untilTheAppGoesQuiet(
+		page,
+		`waiting for getByTestId(${JSON.stringify(testId)}) to be detached`,
+		options?.idleBudgetMs ?? IDLE_BUDGET_MS,
+		async () => await getByTestId(page, testId).waitFor({ state: "detached", timeout: 0 }),
+	);
 }
 
 /**
@@ -84,10 +171,10 @@ export async function dragAndDropByTestId(
 	const source = await waitForTestId(page, sourceId);
 	const target = await waitForTestId(page, targetId);
 
-	await source.hover();
+	await hoverPatiently(page, source);
 	await page.mouse.down();
-	await target.hover();
-	await target.hover({ force: true });
+	await hoverPatiently(page, target);
+	await hoverPatiently(page, target, { force: true });
 	await page.mouse.up();
 }
 
@@ -108,11 +195,11 @@ export async function dragAndDropByLocator(
 	target: Locator,
 	options: DropOptions = {},
 ) {
-	await source.hover();
+	await hoverPatiently(page, source);
 	await page.mouse.down();
 	// Always wait a bit in case CSS causes content shift.
 	await page.waitForTimeout(100);
-	await target.hover({ force: options.force, position: options.position });
+	await hoverPatiently(page, target, { force: options.force, position: options.position });
 	// The drag system uses requestAnimationFrame to detect dropzones via
 	// document.elementFromPoint. Wait for at least one animation frame so the
 	// dropzone is detected as hovered before we release the mouse button.
@@ -127,10 +214,25 @@ export async function fillByTestId(
 	value: string,
 ): Promise<Locator> {
 	const element = await waitForTestId(page, testId);
-	await expect(async () => {
-		await element.fill(value);
-		await expect(element).toHaveValue(value);
-	}).toPass();
+	// Fill can race a re-render that resets the field, so retry until the value
+	// sticks — under the idle budget like every other wait. A function-subject
+	// `toPass()` would bypass src/expect.ts and burn the per-test timeout on a
+	// real failure.
+	await untilTheAppGoesQuiet(
+		page,
+		`filling getByTestId(${JSON.stringify(testId)})`,
+		IDLE_BUDGET_MS,
+		async () => {
+			// timeout: 0 on the inner calls too — the watchdog is the boundary
+			// here, and a 15s actionTimeout inside the loop would reintroduce a
+			// wall-clock failure while the app is still visibly working.
+			for (;;) {
+				await element.fill(value, { timeout: 0 });
+				if ((await element.inputValue({ timeout: 0 })) === value) return;
+				await new Promise((resolve) => setTimeout(resolve, IDLE_POLL_MS));
+			}
+		},
+	);
 	return element;
 }
 

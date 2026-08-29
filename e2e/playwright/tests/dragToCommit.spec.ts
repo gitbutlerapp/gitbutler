@@ -1,4 +1,5 @@
 import { updateCommitMessage, verifyCommitMessageEditor } from "../src/commit.ts";
+import { expect } from "../src/expect.ts";
 import {
 	assertFileContent,
 	assertFileIsStaged,
@@ -8,7 +9,6 @@ import {
 import { applyUpstream, openWorkspace } from "../src/setup.ts";
 import { test } from "../src/test.ts";
 import { clickByTestId, commitRow, dragAndDropByLocator, waitForTestId } from "../src/util.ts";
-import { expect } from "@playwright/test";
 import { writeFileSync } from "fs";
 
 test("should be able to start a commit by dragging a file", async ({ page, gitbutler }) => {

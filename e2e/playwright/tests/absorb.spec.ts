@@ -1,8 +1,8 @@
+import { expect } from "../src/expect.ts";
 import { assertFileContent, writeToFile } from "../src/file.ts";
 import { applyUpstream, openWorkspace } from "../src/setup.ts";
 import { test } from "../src/test.ts";
 import { clickByTestId, waitForTestId } from "../src/util.ts";
-import { expect } from "@playwright/test";
 
 test("should be able to absorb a file to a commit - simple", async ({ page, gitbutler }) => {
 	const filePath = gitbutler.pathInWorkdir("local-clone/a_file");

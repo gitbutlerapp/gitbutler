@@ -1,5 +1,6 @@
+import { expect } from "./expect.ts";
 import { clickByTestId, getByTestId, waitForTestId } from "./util.ts";
-import { expect, Page } from "@playwright/test";
+import { Page } from "@playwright/test";
 import fs from "node:fs";
 import path from "node:path";
 

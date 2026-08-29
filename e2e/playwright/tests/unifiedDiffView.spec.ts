@@ -1,3 +1,4 @@
+import { expect } from "../src/expect.ts";
 import { discardFile } from "../src/file.ts";
 import { getHunkHeaderSelector, getHunkLineSelector } from "../src/hunk.ts";
 import { openWorkspace, type GitButler } from "../src/setup.ts";
@@ -10,7 +11,7 @@ import {
 	waitForTestId,
 	waitForTestIdToNotExist,
 } from "../src/util.ts";
-import { expect, type Locator, type Page } from "@playwright/test";
+import { type Locator, type Page } from "@playwright/test";
 import { existsSync, readFileSync, writeFileSync } from "fs";
 import { join, resolve } from "path";
 
