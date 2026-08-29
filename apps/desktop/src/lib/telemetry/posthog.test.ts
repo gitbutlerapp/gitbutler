@@ -1,5 +1,42 @@
-import { sampleEvent } from "$lib/telemetry/posthog";
-import { describe, expect, test } from "vitest";
+import { EventContext } from "$lib/telemetry/eventContext";
+import { OnboardingEvent, PostHogWrapper, sampleEvent } from "$lib/telemetry/posthog";
+import { describe, expect, test, vi } from "vitest";
+import type { IBackend } from "$lib/backend";
+import type { SettingsService } from "$lib/settings/appSettings";
+
+function createPostHogWrapper() {
+	const capture = vi.fn();
+	const wrapper = new PostHogWrapper({} as SettingsService, {} as IBackend, new EventContext());
+	Reflect.set(wrapper, "_instance", { capture });
+	return { capture, wrapper };
+}
+
+describe("captureOnboarding", () => {
+	test("captures the parsed set-project-active error", () => {
+		const { capture, wrapper } = createPostHogWrapper();
+		const error = {
+			name: "Project activation failed",
+			message: "The project could not be opened",
+			code: "ProjectUnavailable",
+		};
+
+		wrapper.captureOnboarding(OnboardingEvent.SetProjectActiveFailed, error);
+
+		expect(capture).toHaveBeenCalledWith(OnboardingEvent.SetProjectActiveFailed, {
+			error_title: error.name,
+			error_message: error.message,
+			error_code: error.code,
+		});
+	});
+
+	test("does not fabricate error fields for a successful activation", () => {
+		const { capture, wrapper } = createPostHogWrapper();
+
+		wrapper.captureOnboarding(OnboardingEvent.SetProjectActive);
+
+		expect(capture).toHaveBeenCalledWith(OnboardingEvent.SetProjectActive, {});
+	});
+});
 
 describe("sampleEvent", () => {
 	test("stamps samplingRate on emitted sampled events", () => {

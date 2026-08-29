@@ -336,7 +336,7 @@
 				});
 			}
 		} catch (error: unknown) {
-			posthog.captureOnboarding(OnboardingEvent.SetProjectActiveFailed);
+			posthog.captureOnboarding(OnboardingEvent.SetProjectActiveFailed, error);
 			showError("Failed to set the project active", error);
 		}
 	}
