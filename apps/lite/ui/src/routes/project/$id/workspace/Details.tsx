@@ -1780,6 +1780,11 @@ const DiffFileHeader: FC<DiffFileHeaderProps> = (p) => {
 			acceptOriginDrop
 		>
 			<header
+				// Not a tab stop, but mouse-focusable: clicking the header's own chrome
+				// focuses it as the nearest focusable ancestor, so Tab walks this file's
+				// actions instead of restarting at the first file in the diff, which is
+				// where focus landing on the diff container sends it.
+				tabIndex={-1}
 				onContextMenu={(event) => {
 					void showNativeContextMenu(event, menuItems);
 				}}

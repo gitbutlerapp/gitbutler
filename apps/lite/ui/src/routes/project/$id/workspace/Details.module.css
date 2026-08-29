@@ -274,6 +274,13 @@
 	border-bottom: 1px solid var(--border-3);
 	white-space: nowrap;
 
+	/* Focusable only so a click lands here rather than on the diff container;
+	   the platform ring around a whole header would be noise, and the diff pane
+	   above already suppresses its own. */
+	&:focus {
+		outline: none;
+	}
+
 	&.lone {
 		border-bottom: none;
 	}
