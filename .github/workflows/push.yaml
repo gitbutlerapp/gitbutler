@@ -150,6 +150,12 @@ jobs:
           key: ${{ runner.os }}-playwright-${{ steps.get_playwright_version.outputs.playwright-version }}
       - run: pnpm ui:playwright:install:unit
         if: ${{ steps.playwright-cache.outputs.cache-hit != 'true' }}
+      - name: Announce test run on tests.but.dev
+        continue-on-error: true
+        uses: ./.github/actions/test-run-lifecycle
+        with:
+          token: ${{ secrets.TEST_RESULTS_TOKEN_VITEST }}
+          phase: start
       - run: pnpm test
         env:
           BUILDKITE_ANALYTICS_TOKEN: ${{ secrets.TEST_RESULTS_TOKEN_VITEST }}
@@ -159,6 +165,13 @@ jobs:
           BUILDKITE_ANALYTICS_KEY: ${{ github.run_id }}-${{ github.run_attempt }}
           BUILDKITE_ANALYTICS_BRANCH: ${{ github.head_ref || github.ref_name }}
           BUILDKITE_ANALYTICS_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+      - name: Close test run on tests.but.dev
+        if: ${{ always() && !cancelled() }}
+        continue-on-error: true
+        uses: ./.github/actions/test-run-lifecycle
+        with:
+          token: ${{ secrets.TEST_RESULTS_TOKEN_VITEST }}
+          phase: finish
 
   but-sdk-build-check:
     needs: changes
@@ -327,6 +340,12 @@ jobs:
           echo "a9f992321e8759818400d93abb9477b4b11422d18d216e8d208505bd73454103 cargo-nextest.tar.gz" | sha256sum -c -
           tar -xzf cargo-nextest.tar.gz -C ${CARGO_HOME:-~/.cargo}/bin
           rm cargo-nextest.tar.gz
+      - name: Announce test run on tests.but.dev
+        continue-on-error: true
+        uses: ./.github/actions/test-run-lifecycle
+        with:
+          token: ${{ secrets.TEST_RESULTS_TOKEN_CARGO }}
+          phase: start
       - name: Run workspace tests
         run: cargo nextest run --workspace --exclude gitbutler-tauri --exclude but-api-macros-tests --profile ci
       - name: Run doctests
@@ -356,6 +375,13 @@ jobs:
             -F "tags[language]=rust" \
             -F "tags[type]=unit" \
             https://tests.but.dev/v1/uploads
+      - name: Close test run on tests.but.dev
+        if: ${{ always() && !cancelled() }}
+        continue-on-error: true
+        uses: ./.github/actions/test-run-lifecycle
+        with:
+          token: ${{ secrets.TEST_RESULTS_TOKEN_CARGO }}
+          phase: finish
       # It's intentional to use 'name equals run-script' so it's easy to re-run locally on failure.
       - run: make test-modern-but
       - name: test vendored
@@ -728,6 +754,12 @@ jobs:
           key: ${{ runner.os }}-playwright-with-webkit-${{ steps.get_playwright_version.outputs.playwright-version }}
       - run: pnpm ui:playwright:install:ct
         if: ${{ steps.playwright-cache.outputs.cache-hit != 'true' }}
+      - name: Announce test run on tests.but.dev
+        continue-on-error: true
+        uses: ./.github/actions/test-run-lifecycle
+        with:
+          token: ${{ secrets.TEST_RESULTS_TOKEN_PLAYWRIGHT_CT }}
+          phase: start
       - name: run playwright tests
         run: pnpm test:ct
         env:
@@ -738,6 +770,13 @@ jobs:
           BUILDKITE_ANALYTICS_KEY: ${{ github.run_id }}-${{ github.run_attempt }}
           BUILDKITE_ANALYTICS_BRANCH: ${{ github.head_ref || github.ref_name }}
           BUILDKITE_ANALYTICS_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+      - name: Close test run on tests.but.dev
+        if: ${{ always() && !cancelled() }}
+        continue-on-error: true
+        uses: ./.github/actions/test-run-lifecycle
+        with:
+          token: ${{ secrets.TEST_RESULTS_TOKEN_PLAYWRIGHT_CT }}
+          phase: finish
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         if: ${{ !cancelled() }}
         with:
@@ -785,6 +824,12 @@ jobs:
           electron_sandbox="$(dirname "$electron_path")/chrome-sandbox"
           sudo chown root:root "$electron_sandbox"
           sudo chmod 4755 "$electron_sandbox"
+      - name: Announce test run on tests.but.dev
+        continue-on-error: true
+        uses: ./.github/actions/test-run-lifecycle
+        with:
+          token: ${{ secrets.TEST_RESULTS_TOKEN_LITE_E2E }}
+          phase: start
       - name: Run Lite E2E tests
         # Concurrent Electron launches can fail during renderer bootstrap on GitHub's Linux runners.
         run: xvfb-run --auto-servernum pnpm --filter @gitbutler/lite test:e2e --forbid-only --workers=1
@@ -796,6 +841,13 @@ jobs:
           BUILDKITE_ANALYTICS_KEY: ${{ github.run_id }}-${{ github.run_attempt }}
           BUILDKITE_ANALYTICS_BRANCH: ${{ github.head_ref || github.ref_name }}
           BUILDKITE_ANALYTICS_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+      - name: Close test run on tests.but.dev
+        if: ${{ always() && !cancelled() }}
+        continue-on-error: true
+        uses: ./.github/actions/test-run-lifecycle
+        with:
+          token: ${{ secrets.TEST_RESULTS_TOKEN_LITE_E2E }}
+          phase: finish
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         if: failure()
         with:

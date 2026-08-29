@@ -1,0 +1,45 @@
+name: test-run-lifecycle
+description: >-
+  Announce (phase: start) or close (phase: finish) a test run on
+  tests.but.dev, so the dashboard shows the run while it executes. Computes
+  the normalized run identity shared by every suite's uploads. Best effort by
+  design: pair with `continue-on-error: true` at the call site — this must
+  never fail or slow a test job.
+inputs:
+  token:
+    description: The suite's ingest token (a TEST_RESULTS_TOKEN_* secret)
+    required: true
+  phase:
+    description: start or finish
+    required: true
+runs:
+  using: "composite"
+  steps:
+    - name: POST run ${{ inputs.phase }}
+      shell: bash
+      env:
+        TEST_RESULTS_TOKEN: ${{ inputs.token }}
+        PHASE: ${{ inputs.phase }}
+        RUN_KEY: ${{ github.run_id }}-${{ github.run_attempt }}
+        RUN_BRANCH: ${{ github.head_ref || github.ref_name }}
+        RUN_COMMIT_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        RUN_NUMBER: ${{ github.run_number }}
+        RUN_URL: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
+      run: |
+        case "$PHASE" in
+          start)
+            URL="https://tests.but.dev/v1/runs/start"
+            BODY="{\"run_env\":{\"key\":\"$RUN_KEY\",\"branch\":\"$RUN_BRANCH\",\"commit_sha\":\"$RUN_COMMIT_SHA\",\"number\":\"$RUN_NUMBER\",\"url\":\"$RUN_URL\",\"ci\":\"github_actions\"}}"
+            ;;
+          finish)
+            URL="https://tests.but.dev/v1/runs/finish"
+            BODY="{\"run_env\":{\"key\":\"$RUN_KEY\"}}"
+            ;;
+          *)
+            echo "unknown phase: $PHASE" >&2; exit 0
+            ;;
+        esac
+        curl -sS --max-time 10 -X POST \
+          -H "Authorization: Token $TEST_RESULTS_TOKEN" \
+          -H "Content-Type: application/json" \
+          -d "$BODY" "$URL" || true

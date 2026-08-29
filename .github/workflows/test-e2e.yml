@@ -74,6 +74,13 @@ jobs:
         if: ${{ github.ref == 'refs/heads/master' }}
         run: cargo build -p but
 
+      - name: Announce test run on tests.but.dev
+        if: ${{ github.ref != 'refs/heads/master' }}
+        continue-on-error: true
+        uses: ./.github/actions/test-run-lifecycle
+        with:
+          token: ${{ secrets.TEST_RESULTS_TOKEN_BLACKBOX }}
+          phase: start
       # Run it through `xvfb-run` to have a fake display server which allows our
       # application to run headless without any changes to the code
       - name: WebdriverIO
@@ -105,6 +112,13 @@ jobs:
             -F "tags[language]=typescript" \
             -F "tags[type]=e2e" \
             https://tests.but.dev/v1/uploads
+      - name: Close test run on tests.but.dev
+        if: ${{ github.ref != 'refs/heads/master' && always() && !cancelled() }}
+        continue-on-error: true
+        uses: ./.github/actions/test-run-lifecycle
+        with:
+          token: ${{ secrets.TEST_RESULTS_TOKEN_BLACKBOX }}
+          phase: finish
       - name: Flatten test results
         if: failure()
         run: |
@@ -188,6 +202,12 @@ jobs:
           wait "$pnpm_pid" || status=1
           [ -n "$pw_pid" ] && { wait "$pw_pid" || status=1; }
           exit "$status"
+      - name: Announce test run on tests.but.dev
+        continue-on-error: true
+        uses: ./.github/actions/test-run-lifecycle
+        with:
+          token: ${{ secrets.TEST_RESULTS_TOKEN_PLAYWRIGHT }}
+          phase: start
       - name: Run Playwright tests
         run: pnpm exec turbo run test:e2e:playwright -- --shard="$PLAYWRIGHT_SHARD"
         env:
@@ -222,3 +242,19 @@ jobs:
         run: |
           test "$CHANGES_RESULT" = "success" &&
             { test "$SHOULD_RUN" != "true" || test "$SHARDS_RESULT" = "success"; }
+
+  playwright-finish:
+    needs: playwright
+    if: ${{ always() && !cancelled() }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          sparse-checkout: .github/actions/test-run-lifecycle
+      - name: Close test run on tests.but.dev
+        continue-on-error: true
+        uses: ./.github/actions/test-run-lifecycle
+        with:
+          token: ${{ secrets.TEST_RESULTS_TOKEN_PLAYWRIGHT }}
+          phase: finish
