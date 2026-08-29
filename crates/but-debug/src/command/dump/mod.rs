@@ -20,6 +20,7 @@ use crate::{
 
 mod diagnostics;
 mod progress;
+mod repo_installer;
 use progress::{DumpProgress, ProgressReader, ProgressWriter};
 
 /// Execute the `dump` subcommand.
@@ -31,6 +32,9 @@ pub(crate) fn run(
 ) -> Result<()> {
     match &dump_args.cmd {
         DumpSubcommands::Repo(repo_args) => run_repo(args, repo_args, out, err),
+        DumpSubcommands::RepoInstaller(installer_args) => {
+            repo_installer::run(args, installer_args, out, err)
+        }
         DumpSubcommands::Diagnostics(diagnostics_args) => {
             diagnostics::run(args, diagnostics_args, out, err)
         }
@@ -309,13 +313,48 @@ impl<'progress, W: io::Write + io::Seek> ArchiveWriter<'progress, W> {
     }
 
     fn add_generated_file(&mut self, entry_name: String, contents: &[u8]) -> Result<()> {
+        self.add_generated_file_with_options(entry_name, contents, generated_file_options())
+    }
+
+    fn add_generated_file_with_options(
+        &mut self,
+        entry_name: String,
+        contents: &[u8],
+        options: SimpleFileOptions,
+    ) -> Result<()> {
         self.progress.check_abort()?;
         if !self.written.insert(entry_name.clone()) {
             return Ok(());
         }
-        self.zip.start_file(entry_name, generated_file_options())?;
+        self.zip.start_file(entry_name, options)?;
         io::Write::write_all(&mut self.zip, contents)?;
         self.progress.add_file_processed();
+        Ok(())
+    }
+
+    fn add_file_with_options(
+        &mut self,
+        path: &Path,
+        entry_name: String,
+        options: SimpleFileOptions,
+    ) -> Result<()> {
+        self.progress.check_abort()?;
+        if !self.written.insert(entry_name.clone()) {
+            return Ok(());
+        }
+        let file = fs::File::open(path)?;
+        let mut file = ProgressReader::new(file, self.progress);
+        self.zip.start_file(entry_name, options)?;
+        io::copy(&mut file, &mut self.zip)?;
+        self.progress.add_file_processed();
+        Ok(())
+    }
+
+    fn add_directory(&mut self, entry_name: String) -> Result<()> {
+        self.progress.check_abort()?;
+        if self.written.insert(entry_name.clone()) {
+            self.zip.add_directory(entry_name, directory_options())?;
+        }
         Ok(())
     }
 
@@ -328,6 +367,15 @@ impl<'progress, W: io::Write + io::Seek> ArchiveWriter<'progress, W> {
     /// regular files are streamed into the zip with permissions derived from
     /// `meta`. Other filesystem node types are ignored.
     fn add_entry(&mut self, entry: ArchiveEntry) -> Result<()> {
+        let compression_method = entry.compression_method();
+        self.add_entry_with_compression(entry, compression_method)
+    }
+
+    fn add_entry_with_compression(
+        &mut self,
+        entry: ArchiveEntry,
+        compression_method: CompressionMethod,
+    ) -> Result<()> {
         self.progress.check_abort()?;
         if !self.written.insert(entry.entry_name.clone()) {
             return Ok(());
@@ -345,7 +393,7 @@ impl<'progress, W: io::Write + io::Seek> ArchiveWriter<'progress, W> {
             let file = fs::File::open(&entry.path)?;
             let mut file = ProgressReader::new(file, self.progress);
             self.zip
-                .start_file(&entry.entry_name, file_options(&entry))?;
+                .start_file(&entry.entry_name, file_options(&entry, compression_method))?;
             io::copy(&mut file, &mut self.zip)?;
             self.progress.add_file_processed();
         }
@@ -817,9 +865,9 @@ fn realpath(path: &Path, current_dir: &Path) -> Option<PathBuf> {
 }
 
 /// Return zip file options for a regular archive entry.
-fn file_options(entry: &ArchiveEntry) -> SimpleFileOptions {
+fn file_options(entry: &ArchiveEntry, compression_method: CompressionMethod) -> SimpleFileOptions {
     SimpleFileOptions::default()
-        .compression_method(entry.compression_method())
+        .compression_method(compression_method)
         .unix_permissions(file_permissions(&entry.meta))
 }
 
@@ -841,7 +889,7 @@ fn is_git_object_entry(entry_name: &str) -> bool {
 /// Return zip directory options.
 fn directory_options() -> SimpleFileOptions {
     SimpleFileOptions::default()
-        .compression_method(CompressionMethod::Bzip2)
+        .compression_method(CompressionMethod::Stored)
         .unix_permissions(0o755)
 }
 
@@ -849,6 +897,27 @@ fn directory_options() -> SimpleFileOptions {
 fn generated_file_options() -> SimpleFileOptions {
     SimpleFileOptions::default()
         .compression_method(CompressionMethod::Bzip2)
+        .unix_permissions(0o644)
+}
+
+/// Return zip file options for a generated executable.
+fn generated_executable_options() -> SimpleFileOptions {
+    SimpleFileOptions::default()
+        .compression_method(CompressionMethod::Deflated)
+        .unix_permissions(0o755)
+}
+
+/// Return portable zip file options for generated installer data.
+fn portable_file_options() -> SimpleFileOptions {
+    SimpleFileOptions::default()
+        .compression_method(CompressionMethod::Deflated)
+        .unix_permissions(0o644)
+}
+
+/// Return zip file options for content that is already compressed.
+fn stored_file_options() -> SimpleFileOptions {
+    SimpleFileOptions::default()
+        .compression_method(CompressionMethod::Stored)
         .unix_permissions(0o644)
 }
 

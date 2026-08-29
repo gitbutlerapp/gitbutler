@@ -2,12 +2,13 @@ use std::{
     collections::BTreeMap,
     ffi::OsString,
     fmt,
-    fs::File,
+    fs::{self, File},
     io::Read as _,
     path::{Path, PathBuf},
     process::{Command, Stdio},
 };
 
+use but_core::RepositoryExt as _;
 use but_testsupport::gix_testtools::{
     scripted_fixture_read_only, scripted_fixture_writable, tempfile::TempDir,
 };
@@ -550,6 +551,248 @@ stderr:
     Ok(())
 }
 
+#[cfg(unix)]
+#[test]
+fn repo_installer_restores_gitbutler_state_and_repository_refs() -> anyhow::Result<()> {
+    use std::os::unix::fs::PermissionsExt as _;
+
+    let fixture = writable_fixture("dump-repo-installer.sh")?;
+    let source = fixture.path().join("gitbutler");
+
+    // Exercise configured storage outside of .git. Configure every channel so this
+    // remains valid regardless of which application channel compiled the test.
+    let storage_base = fixture.path().join("external-gitbutler-state");
+    for key in [
+        "gitbutler.storagePath",
+        "gitbutler.nightly.storagePath",
+        "gitbutler.dev.storagePath",
+    ] {
+        git_at_dir(&source)
+            .args(["config", "--local", key])
+            .arg(&storage_base)
+            .run();
+    }
+    let source_repo = gix::open(&source)?;
+    let source_state = source_repo.gitbutler_storage_path()?;
+    fs::create_dir_all(
+        source_state
+            .parent()
+            .expect("external GitButler state has a parent"),
+    )?;
+    fs::rename(source.join(".git/gitbutler"), &source_state)?;
+
+    let output_dir = TempDir::new()?;
+    let output = output_dir.path().join("out.zip");
+    let dump_output = run_repo_installer(&source, &output)?;
+    snapbox::assert_data_eq!(
+        dump_output.display_for_snapshot(&output),
+        snapbox::str![[r#"
+stdout:
+Creating repository delta bundle
+Archive at: [output path]
+stderr:
+
+"#]]
+        .raw()
+    );
+
+    let archive_root = "gitbutler-repo-installer";
+    let mut archive = zip::ZipArchive::new(File::open(&output)?)?;
+    for index in 0..archive.len() {
+        let entry = archive.by_index(index)?;
+        assert!(
+            matches!(
+                entry.compression(),
+                zip::CompressionMethod::Stored | zip::CompressionMethod::Deflated
+            ),
+            "{} should use a widely supported zip compression method",
+            entry.name()
+        );
+    }
+    let install_entry = archive.by_name(&format!("{archive_root}/install.sh"))?;
+    assert_eq!(
+        install_entry.unix_mode().map(|mode| mode & 0o777),
+        Some(0o755),
+        "installer should be executable after extraction"
+    );
+    drop(install_entry);
+    archive.by_name(&format!("{archive_root}/repository.bundle"))?;
+    archive.by_name(&format!("{archive_root}/packed-refs"))?;
+    archive.by_name(&format!("{archive_root}/git-config"))?;
+    archive.by_name(&format!("{archive_root}/symrefs"))?;
+    archive.by_name(&format!("{archive_root}/gitbutler/nested/state.txt"))?;
+    drop(archive);
+
+    let extraction = TempDir::new()?;
+    unzip(&output, extraction.path())?;
+    let installer_root = extraction.path().join(archive_root);
+    let installer = installer_root.join("install.sh");
+    let bundle = installer_root.join("repository.bundle");
+    assert_ne!(
+        fs::metadata(&installer)?.permissions().mode() & 0o111,
+        0,
+        "extracted installer should retain its executable bit"
+    );
+    let bundle_heads = Command::new("git")
+        .args(["bundle", "list-heads"])
+        .arg(&bundle)
+        .output()?;
+    assert!(
+        bundle_heads.status.success(),
+        "could not list bundle refs: {}",
+        String::from_utf8_lossy(&bundle_heads.stderr)
+    );
+    assert!(
+        !String::from_utf8(bundle_heads.stdout)?
+            .lines()
+            .any(|line| line.contains(" refs/remotes/")),
+        "remote tips should not be bundled refs"
+    );
+    let remote_tip = git_stdout(&source, &["rev-parse", "refs/remotes/other/main"])?;
+    let bundle_data = fs::read(&bundle)?;
+    let header_end = bundle_data
+        .windows(2)
+        .position(|window| window == b"\n\n")
+        .expect("a valid bundle has a header terminator");
+    let prerequisite = format!("-{} ", remote_tip.trim());
+    assert!(
+        bundle_data[..header_end]
+            .windows(prerequisite.len())
+            .any(|window| window == prerequisite.as_bytes()),
+        "a remote tip needed by local history should be a bundle prerequisite"
+    );
+
+    let unrelated_cwd = TempDir::new()?;
+    let template_dir = fixture.path().join("git-template");
+    fs::create_dir_all(template_dir.join("gitbutler"))?;
+    let template_ref = template_dir.join("refs/heads/template-dangling");
+    fs::create_dir_all(template_ref.parent().expect("template ref has a parent"))?;
+    fs::write(&template_ref, "ref: refs/heads/missing\n")?;
+    let install_output = Command::new(&installer)
+        .current_dir(unrelated_cwd.path())
+        .env("GIT_DIR", source.join(".git"))
+        .env("GIT_WORK_TREE", &source)
+        .env("GIT_TEMPLATE_DIR", &template_dir)
+        .output()?;
+    assert!(
+        install_output.status.success(),
+        "installer failed\nstdout:\n{}\nstderr:\n{}",
+        String::from_utf8_lossy(&install_output.stdout),
+        String::from_utf8_lossy(&install_output.stderr)
+    );
+    let install_stdout = String::from_utf8_lossy(&install_output.stdout);
+    for message in [
+        "Cloning repository",
+        "Restoring repository configuration",
+        "Fetching remote prerequisite objects",
+        "Verifying repository delta bundle",
+        "Importing local Git objects",
+        "Restoring repository refs",
+        "Restoring HEAD and worktree",
+        "Restoring GitButler state",
+        "Repository restored at:",
+    ] {
+        assert!(
+            install_stdout.contains(message),
+            "installer should report the '{message}' step"
+        );
+    }
+
+    let installed = installer_root.join("gitbutler-clone");
+    assert_eq!(
+        refs_with_symbolic_targets(&installed)?,
+        refs_with_symbolic_targets(&source)?,
+        "installer should reproduce the exact ref targets and symbolic refs"
+    );
+    assert_eq!(
+        git_stdout(&installed, &["symbolic-ref", "HEAD"])?,
+        git_stdout(&source, &["symbolic-ref", "HEAD"])?,
+        "installer should restore HEAD"
+    );
+    assert_eq!(
+        git_stdout(&installed, &["symbolic-ref", "refs/gitbutler/dangling"])?,
+        "refs/heads/missing\n",
+        "installer should retain dangling symbolic refs"
+    );
+    assert!(
+        !installed.join(".git/refs/heads/template-dangling").exists(),
+        "installer should remove refs inherited from the Git template"
+    );
+    assert_eq!(
+        fs::read_to_string(installed.join("file.txt"))?,
+        "workspace\n",
+        "installer should check out the source HEAD"
+    );
+    assert_eq!(
+        fs::read_to_string(installed.join(".git/gitbutler/nested/state.txt"))?,
+        "state marker\n",
+        "installer should restore GitButler state"
+    );
+    assert_eq!(
+        fs::read(installed.join(".git/gitbutler/operations-log.toml"))?,
+        fs::read(source_state.join("operations-log.toml"))?,
+        "installer should preserve the operations log"
+    );
+    let reflog_only = fs::read_to_string(fixture.path().join("reflog-only-oid"))?;
+    let reflog_object = git_at_dir(&installed)
+        .args([
+            "cat-file",
+            "-e",
+            &format!("{}^{{commit}}", reflog_only.trim()),
+        ])
+        .output()?;
+    assert!(
+        !reflog_object.status.success(),
+        "reflog-only objects should not be bundled"
+    );
+
+    for key in [
+        "gitbutler.project.targetRef",
+        "gitbutler.project.targetCommitId",
+        "gitbutler.project.pushRemote",
+    ] {
+        assert_eq!(
+            git_stdout(&installed, &["config", "--local", "--get", key])?,
+            git_stdout(&source, &["config", "--local", "--get", key])?,
+            "installer should restore {key}"
+        );
+    }
+    let installed_repo = gix::open(&installed)?;
+    assert_eq!(
+        installed_repo.gitbutler_storage_path()?,
+        installed_repo.git_dir().join("gitbutler"),
+        "restored state should use the clone-local storage directory"
+    );
+
+    fs::rename(
+        &installed,
+        installer_root.join("gitbutler-clone-with-bundle"),
+    )?;
+    fs::remove_file(&bundle)?;
+    let no_bundle_output = Command::new(&installer)
+        .current_dir(unrelated_cwd.path())
+        .env("GIT_DIR", source.join(".git"))
+        .env("GIT_WORK_TREE", &source)
+        .env("GIT_TEMPLATE_DIR", &template_dir)
+        .output()?;
+    assert!(
+        !no_bundle_output.status.success(),
+        "installer should fail without its bundle\nstdout:\n{}\nstderr:\n{}",
+        String::from_utf8_lossy(&no_bundle_output.stdout),
+        String::from_utf8_lossy(&no_bundle_output.stderr)
+    );
+    assert!(
+        String::from_utf8_lossy(&no_bundle_output.stderr)
+            .contains("Required repository bundle is missing"),
+        "installer should explain why it failed"
+    );
+    assert!(
+        !installer_root.join("gitbutler-clone").exists(),
+        "installer should fail before cloning"
+    );
+    Ok(())
+}
+
 fn read_only_repo(fixture: &str, repo_name: &str) -> anyhow::Result<PathBuf> {
     Ok(scripted_fixture_read_only(fixture)
         .map_err(anyhow::Error::from_boxed)?
@@ -646,6 +889,49 @@ fn run_dump_diagnostics(repo: &Path, output: &Path) -> anyhow::Result<DumpOutput
         stdout: String::from_utf8(stdout)?,
         stderr: String::from_utf8(stderr)?,
     })
+}
+
+fn run_repo_installer(repo: &Path, output: &Path) -> anyhow::Result<DumpOutput> {
+    let args = [
+        OsString::from("but-debug"),
+        OsString::from("dump"),
+        OsString::from("repo-installer"),
+        OsString::from("-C"),
+        repo.as_os_str().to_owned(),
+        OsString::from("--output"),
+        output.as_os_str().to_owned(),
+        OsString::from("--no-open-archive-directory"),
+    ];
+    let mut stdout = Vec::new();
+    let mut stderr = Vec::new();
+    but_testsupport::isolated_app_data_dir(|| {
+        but_debug::handle_args(args.into_iter(), &mut stdout, &mut stderr)
+    })?;
+    Ok(DumpOutput {
+        stdout: String::from_utf8(stdout)?,
+        stderr: String::from_utf8(stderr)?,
+    })
+}
+
+fn refs_with_symbolic_targets(repo: &Path) -> anyhow::Result<String> {
+    git_stdout(
+        repo,
+        &[
+            "for-each-ref",
+            "--format=%(refname)%09%(objectname)%09%(symref)",
+        ],
+    )
+}
+
+fn git_stdout(repo: &Path, args: &[&str]) -> anyhow::Result<String> {
+    let output = git_at_dir(repo).args(args).output()?;
+    assert!(
+        output.status.success(),
+        "git {} failed:\n{}",
+        args.join(" "),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    Ok(String::from_utf8(output.stdout)?)
 }
 
 fn git_status(repo: &Path) -> anyhow::Result<String> {
