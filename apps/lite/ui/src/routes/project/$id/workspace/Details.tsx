@@ -2502,7 +2502,7 @@ const Diff: FC<{
 								disabled={preparedDiffFiles.length === 0}
 								onClick={toggleAllFilesReviewed}
 							>
-								{allFilesReviewed ? "Mark all unreviewed" : "Mark all reviewed"}
+								{allFilesReviewed ? "Mark all unviewed" : "Mark all viewed"}
 							</Toolbar.Button>
 							<ToggleGroupStyles>
 								<Toolbar.Button
