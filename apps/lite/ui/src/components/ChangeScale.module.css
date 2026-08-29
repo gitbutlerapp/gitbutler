@@ -1,0 +1,21 @@
+.container {
+	display: inline-flex;
+	/* Five fixed squares: the heading beside them truncates instead. */
+	flex-shrink: 0;
+	align-items: center;
+	gap: 1px;
+}
+
+.added,
+.removed {
+	inline-size: 5px;
+	block-size: 5px;
+}
+
+.added {
+	background-color: var(--text-safe);
+}
+
+.removed {
+	background-color: var(--text-danger);
+}

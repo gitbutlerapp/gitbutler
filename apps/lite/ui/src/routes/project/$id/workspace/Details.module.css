@@ -266,11 +266,11 @@
 
 .fileHeader {
 	display: grid;
-	grid-template-columns: auto 1fr auto auto auto;
-	column-gap: 12px;
+	grid-template-columns: auto 1fr auto;
+	column-gap: 8px;
 	align-items: center;
 	justify-content: space-between;
-	padding: 8px;
+	padding: 8px 10px;
 	border-bottom: 1px solid var(--border-3);
 	white-space: nowrap;
 
@@ -302,23 +302,45 @@
 	}
 }
 
-.fileHeaderActions {
-	display: flex;
-}
-
-.fileMeta {
+/* The trailing cluster: what the file changed, then what you can do about it. */
+.fileHeaderEnd {
 	display: flex;
 	align-items: center;
-	gap: 6px;
+	gap: 12px;
+}
+
+.fileHeaderActions {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+}
+
+/* Splits the file's read-only tallies from the controls that act on it. */
+.fileHeaderSeparator {
+	width: 1px;
+	height: 20px;
+	/* Makes up the 12px the design puts either side of it, over the 8px the
+	   surrounding toolbar gap gives. */
+	margin-inline: 2px;
+	background-color: var(--border-3);
 }
 
 .fileReview {
-	--button-height: 22px;
+	/* The box is the button's own mark, not a decorative icon: the tick inside it
+	   sits on the accent fill and must not be dimmed like a leading icon. */
+	--button-icon-opacity: 1;
+	--button-hover-icon-opacity: 1;
+	/* Wider than a small button's icon gap: the box reads as a control of its
+	   own, so it needs more air from the word than an icon would. */
 	--button-gap: 6px;
 }
 
-.fileReviewIndicator {
+/* The checkbox the design draws inside the button. It is the button's mark
+   rather than a Checkbox of its own: nesting a real one would put a second
+   control inside the first. Kept in step with Checkbox.module.css. */
+.fileReviewBox {
 	display: flex;
+	flex-shrink: 0;
 	align-items: center;
 	justify-content: center;
 	width: 14px;
@@ -333,6 +355,12 @@
 		box-shadow: inset 0 0 0 1px var(--fill-pop-bg);
 		color: var(--fill-pop-fg);
 	}
+}
+
+.fileMeta {
+	display: flex;
+	align-items: center;
+	gap: 8px;
 }
 
 .filePath {

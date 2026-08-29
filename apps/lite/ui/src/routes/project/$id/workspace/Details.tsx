@@ -86,7 +86,6 @@ import type {
 	TreeChange,
 } from "@gitbutler/but-sdk";
 import {
-	type CodeViewDiffItem,
 	type CodeViewItem,
 	type CodeView as CodeViewClass,
 	type CodeViewLineSelection,
@@ -128,6 +127,7 @@ import {
 } from "#ui/focus-scopes.ts";
 import { buildIndexByKey, getAdjacent } from "#ui/workspace/address-space.ts";
 import { ChangeStats } from "#ui/routes/project/$id/workspace/ChangeStats.tsx";
+import { ChangeScale } from "#ui/components/ChangeScale.tsx";
 import { DiffStats } from "#ui/components/DiffStats.tsx";
 import { ChangesHeaderRow } from "#ui/routes/project/$id/workspace/ChangesHeaderRow.tsx";
 import {
@@ -185,7 +185,6 @@ import { useDiffHunkDrag } from "./diff-hunk-drag.ts";
 import { diffLineTargetFromElement, type DiffLineTarget } from "./diff-line-target.ts";
 import { useHunkMenuItems } from "./useHunkMenuItems.ts";
 import { useRevealInFolder } from "./useRevealInFolder.ts";
-import { ChangeTypeBadge } from "./ChangeTypeBadge.tsx";
 import { AnnotationCard } from "#ui/routes/project/$id/workspace/AnnotationCard.tsx";
 import { ConflictBar } from "#ui/routes/project/$id/workspace/ConflictBar.tsx";
 import {
@@ -1557,7 +1556,6 @@ const DiffContents: FC<{
 					return (
 						<DiffFileHeader
 							projectId={projectId}
-							item={file.item}
 							address={file.address}
 							change={file.change}
 							hasDiff={item.type === "file" || file.item.fileDiff.hunks.length !== 0}
@@ -1736,7 +1734,6 @@ const DiffContents: FC<{
 
 type DiffFileHeaderProps = {
 	projectId: string;
-	item: CodeViewDiffItem<unknown>;
 	address: FileAddress;
 	change: TreeChange;
 	hasDiff: boolean;
@@ -1816,40 +1813,64 @@ const DiffFileHeader: FC<DiffFileHeaderProps> = (p) => {
 					{fileName}
 					{directoryPath !== null && <span className={styles.pathInit}>{directoryPath}</span>}
 				</h4>
-				<button
-					type="button"
-					aria-pressed={p.reviewState === "changed" ? "mixed" : p.reviewState === "reviewed"}
-					className={classes(
-						getButtonClassName({ variant: "outline", size: "small" }),
-						styles.fileReview,
-					)}
-					onClick={() => p.setReviewed(p.reviewState !== "reviewed")}
-				>
-					<span className={styles.fileReviewIndicator} aria-hidden="true">
-						{p.reviewState !== null && (
-							<Icon size={10} name={p.reviewState === "reviewed" ? "tick" : "minus"} />
-						)}
-					</span>
-					{reviewLabel}
-				</button>
-				<div className={styles.fileMeta}>
-					<ChangeTypeBadge type={p.item.fileDiff.type} />
+				<div className={styles.fileHeaderEnd}>
 					{p.lineStats && (
-						<DiffStats added={p.lineStats.linesAdded} removed={p.lineStats.linesRemoved} />
+						<div className={styles.fileMeta}>
+							<DiffStats
+								added={p.lineStats.linesAdded}
+								removed={p.lineStats.linesRemoved}
+								className="text-12"
+							/>
+							<ChangeScale added={p.lineStats.linesAdded} removed={p.lineStats.linesRemoved} />
+						</div>
 					)}
-				</div>
 
-				<Toolbar.Root aria-label="File actions" className={styles.fileHeaderActions}>
-					<Toolbar.Button
-						aria-label="File menu"
-						onClick={(event) => {
-							void showNativeMenuFromTrigger(event.currentTarget, menuItems);
-						}}
-						className={getButtonClassName({ size: "small", variant: "ghost", iconOnly: true })}
-					>
-						<Icon name="kebab" />
-					</Toolbar.Button>
-				</Toolbar.Root>
+					<Toolbar.Root aria-label="File actions" className={styles.fileHeaderActions}>
+						<Toolbar.Separator className={styles.fileHeaderSeparator} />
+						{/* One button carrying checkbox semantics, with the box drawn inside it,
+						    rather than a real Checkbox nested in a button or a label. Both of
+						    those leave two controls where the design has one, and Base UI's
+						    checkbox renders unfocusable inside a label. "Changed since you
+						    reviewed it" is the mixed state; the tooltip spells that out. */}
+						<Tooltip.Root>
+							<Tooltip.Trigger
+								render={
+									<Toolbar.Button
+										aria-pressed={
+											p.reviewState === "changed" ? "mixed" : p.reviewState === "reviewed"
+										}
+										className={classes(
+											getButtonClassName({ size: "small", variant: "ghost" }),
+											styles.fileReview,
+										)}
+										onClick={() => p.setReviewed(p.reviewState !== "reviewed")}
+									>
+										<span className={styles.fileReviewBox} aria-hidden="true">
+											{p.reviewState !== null && (
+												<Icon size={10} name={p.reviewState === "reviewed" ? "tick" : "minus"} />
+											)}
+										</span>
+										Reviewed
+									</Toolbar.Button>
+								}
+							/>
+							<Tooltip.Portal>
+								<Tooltip.Positioner sideOffset={4}>
+									<Tooltip.Popup render={<TooltipPopup />}>{reviewLabel}</Tooltip.Popup>
+								</Tooltip.Positioner>
+							</Tooltip.Portal>
+						</Tooltip.Root>
+						<Toolbar.Button
+							aria-label="File menu"
+							onClick={(event) => {
+								void showNativeMenuFromTrigger(event.currentTarget, menuItems);
+							}}
+							className={getButtonClassName({ size: "small", variant: "ghost", iconOnly: true })}
+						>
+							<Icon name="kebab" />
+						</Toolbar.Button>
+					</Toolbar.Root>
+				</div>
 			</header>
 		</OperationSourceC>
 	);
