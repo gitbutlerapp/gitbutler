@@ -1,5 +1,9 @@
 import { assert } from "#ui/assert.ts";
-import { getLineStats, patchLineStats } from "#ui/routes/project/$id/workspace/lineStats.ts";
+import {
+	describeLineStats,
+	getLineStats,
+	patchLineStats,
+} from "#ui/routes/project/$id/workspace/lineStats.ts";
 import {
 	parsePreparedDiffFile,
 	prepareDiffFiles,
@@ -66,5 +70,24 @@ describe("getLineStats", () => {
 		expect(
 			getLineStats([patch([oneLineEdit], 1, 1), { type: "Binary" }, null, patch([], 4, 2)]),
 		).toEqual({ linesAdded: 5, linesRemoved: 3 });
+	});
+});
+
+describe("describeLineStats", () => {
+	it("words both sides, singular where it has to", () => {
+		expect(describeLineStats({ linesAdded: 34, linesRemoved: 28 })).toEqual([
+			"34 lines added",
+			"28 lines removed",
+		]);
+		expect(describeLineStats({ linesAdded: 1, linesRemoved: 1 })).toEqual([
+			"1 line added",
+			"1 line removed",
+		]);
+	});
+
+	it("drops the side that did not change, and says nothing when neither did", () => {
+		expect(describeLineStats({ linesAdded: 60, linesRemoved: 0 })).toEqual(["60 lines added"]);
+		expect(describeLineStats({ linesAdded: 0, linesRemoved: 5 })).toEqual(["5 lines removed"]);
+		expect(describeLineStats({ linesAdded: 0, linesRemoved: 0 })).toEqual([]);
 	});
 });

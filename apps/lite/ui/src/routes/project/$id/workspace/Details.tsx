@@ -131,6 +131,7 @@ import { ChangeScale } from "#ui/components/ChangeScale.tsx";
 import { DiffStats } from "#ui/components/DiffStats.tsx";
 import { ChangesHeaderRow } from "#ui/routes/project/$id/workspace/ChangesHeaderRow.tsx";
 import {
+	describeLineStats,
 	getLineStats,
 	patchLineStats,
 	type LineStats,
@@ -1763,6 +1764,12 @@ const DiffFileHeader: FC<DiffFileHeaderProps> = (p) => {
 	const directoryPath = lastSepIdx !== -1 ? p.change.path.slice(0, lastSepIdx) : null;
 	const fileName = lastSepIdx !== -1 ? p.change.path.slice(lastSepIdx + 1) : p.change.path;
 
+	// The counts read as added/removed lines on sight, but only to someone who
+	// knows the colouring: the wording carries the units, for the tooltip and for
+	// screen readers alike.
+	const lineStatsParts = p.lineStats === null ? [] : describeLineStats(p.lineStats);
+	const lineStatsLabel = lineStatsParts.length === 0 ? null : lineStatsParts.join(", ");
+
 	const collapseLabel = p.collapsed ? "Unfold" : "Fold";
 	const reviewLabel =
 		p.reviewState === "reviewed"
@@ -1819,15 +1826,29 @@ const DiffFileHeader: FC<DiffFileHeaderProps> = (p) => {
 					{directoryPath !== null && <span className={styles.pathInit}>{directoryPath}</span>}
 				</h4>
 				<div className={styles.fileHeaderEnd}>
-					{p.lineStats && (
-						<div className={styles.fileMeta}>
-							<DiffStats
-								added={p.lineStats.linesAdded}
-								removed={p.lineStats.linesRemoved}
-								className="text-12"
+					{p.lineStats && lineStatsLabel !== null && (
+						<Tooltip.Root>
+							<Tooltip.Trigger
+								render={
+									<div aria-label={lineStatsLabel} className={styles.fileMeta}>
+										<DiffStats
+											added={p.lineStats.linesAdded}
+											removed={p.lineStats.linesRemoved}
+											className="text-12"
+										/>
+										<ChangeScale
+											added={p.lineStats.linesAdded}
+											removed={p.lineStats.linesRemoved}
+										/>
+									</div>
+								}
 							/>
-							<ChangeScale added={p.lineStats.linesAdded} removed={p.lineStats.linesRemoved} />
-						</div>
+							<Tooltip.Portal>
+								<Tooltip.Positioner sideOffset={4}>
+									<Tooltip.Popup render={<TooltipPopup />}>{lineStatsLabel}</Tooltip.Popup>
+								</Tooltip.Positioner>
+							</Tooltip.Portal>
+						</Tooltip.Root>
 					)}
 
 					<Toolbar.Root aria-label="File actions" className={styles.fileHeaderActions}>
