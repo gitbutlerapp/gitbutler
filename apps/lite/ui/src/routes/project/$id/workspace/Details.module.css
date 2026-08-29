@@ -251,6 +251,10 @@
 
 .prMain {
 	flex: 1;
+	/* Without this the automatic minimum size holds the column at its widest
+	   content — a quoted hunk, a long code span — so it never gives ground and
+	   the fixed panel beside it is pushed off the edge instead. */
+	min-width: 0;
 }
 
 .fileHeader {
