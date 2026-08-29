@@ -1,3 +1,4 @@
+import { expect } from "./expect.ts";
 import {
 	fillByTestId,
 	getByTestId,
@@ -5,7 +6,7 @@ import {
 	waitForElementToStabilize,
 	waitForTestId,
 } from "./util.ts";
-import { expect, Locator, Page } from "@playwright/test";
+import { Locator, Page } from "@playwright/test";
 
 /**
  * Open a commit drawer by clicking on the commit row.

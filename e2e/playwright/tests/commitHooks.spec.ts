@@ -1,7 +1,8 @@
+import { expect } from "../src/expect.ts";
 import { getButlerPort, type GitButler } from "../src/setup.ts";
 import { test } from "../src/test.ts";
 import { clickByTestId, commitRow, fillByTestId, getByTestId, waitForTestId } from "../src/util.ts";
-import { expect, type Page } from "@playwright/test";
+import { type Page } from "@playwright/test";
 import { existsSync } from "node:fs";
 
 /**

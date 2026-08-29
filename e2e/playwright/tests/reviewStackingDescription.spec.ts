@@ -1,4 +1,5 @@
 import { assertGitConfigValue } from "../src/branch.ts";
+import { expect } from "../src/expect.ts";
 import { mergeStatus, mockForge, repoInfo } from "../src/forge.ts";
 import { applyUpstream, getButlerPort, openWorkspace, type GitButler } from "../src/setup.ts";
 import { test } from "../src/test.ts";
@@ -9,7 +10,7 @@ import {
 	textEditorFillByTestId,
 	waitForTestId,
 } from "../src/util.ts";
-import { expect, type Page } from "@playwright/test";
+import { type Page } from "@playwright/test";
 import { execFileSync } from "node:child_process";
 import { readFileSync, writeFileSync } from "node:fs";
 import type { FakeGitHubReview, FakeGitHubServer } from "../src/fakeGithub.ts";

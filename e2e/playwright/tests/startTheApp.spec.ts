@@ -1,4 +1,5 @@
 import { GIT_CONFIG_GLOBAL } from "../src/env.ts";
+import { expect } from "../src/expect.ts";
 import { writeToFile } from "../src/file.ts";
 import { gotoOnboarding, startGitButler } from "../src/setup.ts";
 import { test } from "../src/test.ts";
@@ -11,7 +12,7 @@ import {
 	textEditorFillByTestId,
 	waitForTestId,
 } from "../src/util.ts";
-import { expect, type Page } from "@playwright/test";
+import { type Page } from "@playwright/test";
 
 async function addProjectAndOpenWorkspace(
 	page: Page,

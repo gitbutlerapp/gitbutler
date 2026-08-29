@@ -1,3 +1,4 @@
+import { expect } from "../src/expect.ts";
 import { applyUpstream, openWorkspace, type GitButler } from "../src/setup.ts";
 import { test } from "../src/test.ts";
 import {
@@ -7,7 +8,7 @@ import {
 	waitForElementToStabilize,
 	waitForTestId,
 } from "../src/util.ts";
-import { expect, type Page } from "@playwright/test";
+import { type Page } from "@playwright/test";
 
 /**
  * Apply branch1 (4 commits) and open the workspace.

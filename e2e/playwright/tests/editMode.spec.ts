@@ -1,7 +1,7 @@
+import { expect } from "../src/expect.ts";
 import { applyUpstream, openWorkspace } from "../src/setup.ts";
 import { test } from "../src/test.ts";
 import { clickByTestId, commitRow, waitForTestId } from "../src/util.ts";
-import { expect } from "@playwright/test";
 import { readFileSync, writeFileSync } from "fs";
 
 test("should be able to edit a commit through the edit mode", async ({ page, gitbutler }) => {

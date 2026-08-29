@@ -264,6 +264,15 @@ async function checkPort(port: number, host = "localhost") {
 
 const VITE_HOST = "localhost";
 
+/** Lines of a failed script's output carried in the rejection. */
+const TAIL_LINES = 40;
+
+/**
+ * Retained output, in UTF-16 code units (what `String.length`/`slice` count) —
+ * comfortably more than TAIL_LINES of any sane script.
+ */
+const TAIL_CHARS = 64 * 1024;
+
 // Colors for console output
 const colors = {
 	reset: "\x1b[0m",
@@ -288,7 +297,9 @@ function spawnProcess(
 ) {
 	const child = spawn(command, args, {
 		cwd,
-		stdio: "inherit",
+		// Piped rather than inherited so a failing script's output can ride
+		// along in the rejection; `runCommand` still echoes it live.
+		stdio: ["inherit", "pipe", "pipe"],
 		env: {
 			...process.env,
 			ELECTRON_ENV: "development",
@@ -352,15 +363,47 @@ async function runCommand(
 
 		const child = spawnProcess(command, args, cwd, env);
 
+		// Keep the tail of the output so a failure names the script and why it
+		// failed; without it CI only ever reports the bare exit code. Compacted
+		// as it grows, so a chatty script cannot hold its whole output in
+		// memory for the sake of a 40-line error tail.
+		const output: string[] = [];
+		let buffered = 0;
+		for (const [stream, sink] of [
+			[child.stdout, process.stdout],
+			[child.stderr, process.stderr],
+		] as const) {
+			stream?.setEncoding("utf8");
+			stream?.on("data", (chunk: string) => {
+				output.push(chunk);
+				buffered += chunk.length;
+				if (buffered > TAIL_CHARS * 2) {
+					const tail = output.join("").slice(-TAIL_CHARS);
+					output.length = 0;
+					output.push(tail);
+					buffered = tail.length;
+				}
+				sink.write(chunk);
+			});
+		}
+
 		child.on("message", (message) => {
 			log(`Child process message: ${message}`, colors.blue);
 		});
 
-		child.on("close", (code) => {
+		child.on("close", (code, signal) => {
 			if (code === 0) {
 				resolve();
 			} else {
-				reject(new Error(`Command failed with exit code ${code}`));
+				// A signal death reports null as the code; name the signal instead.
+				const cause = code === null ? `signal ${signal}` : `exit code ${code}`;
+				const tail = output.join("").trimEnd().split("\n").slice(-TAIL_LINES).join("\n");
+				reject(
+					new Error(
+						`Command failed with ${cause}: ${command} ${args.join(" ")}` +
+							(tail ? `\n${tail}` : ""),
+					),
+				);
 			}
 		});
 

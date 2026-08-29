@@ -1,3 +1,4 @@
+import { expect } from "../src/expect.ts";
 import { gotoOnboarding, openWorkspace } from "../src/setup.ts";
 import { test } from "../src/test.ts";
 import {
@@ -7,7 +8,6 @@ import {
 	stack,
 	waitForTestId,
 } from "../src/util.ts";
-import { expect } from "@playwright/test";
 
 test("should handle gracefully adding an existing project", async ({ page, gitbutler }) => {
 	const projectPath = gitbutler.pathInWorkdir("local-clone-2/");

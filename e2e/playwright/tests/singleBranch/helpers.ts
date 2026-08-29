@@ -1,6 +1,7 @@
+import { expect } from "../../src/expect.ts";
 import { openWorkspace } from "../../src/setup.ts";
 import { clickByTestId, getByTestId, stack, waitForTestId } from "../../src/util.ts";
-import { expect, type Locator, type Page } from "@playwright/test";
+import { type Locator, type Page } from "@playwright/test";
 import type { GitButler } from "../../src/setup.ts";
 
 export const SINGLE_BRANCH_NAME = "single-branch-fixture";

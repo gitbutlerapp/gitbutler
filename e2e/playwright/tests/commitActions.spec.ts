@@ -6,6 +6,7 @@ import {
 	verifyCommitMessageEditor,
 	verifyCommitPlaceholderPosition,
 } from "../src/commit.ts";
+import { expect } from "../src/expect.ts";
 import { stageFirstFile, unstageAllFiles, writeFiles } from "../src/file.ts";
 import { applyUpstream, openWorkspace } from "../src/setup.ts";
 import { test } from "../src/test.ts";
@@ -17,7 +18,7 @@ import {
 	stack,
 	waitForTestIdToNotExist,
 } from "../src/util.ts";
-import { expect, type Page } from "@playwright/test";
+import { type Page } from "@playwright/test";
 import { execFileSync } from "child_process";
 import { copyFileSync, writeFileSync } from "fs";
 import { join } from "path";

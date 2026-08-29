@@ -27,19 +27,40 @@ export default defineConfig({
 	workers: AMOUNT_OF_WORKERS,
 	/* Reporter to use. See https://playwright.dev/docs/test-reporters */
 	reporter: process.env.CI ? [["github"], ["buildkite-test-collector/playwright/reporter"]] : "dot",
-	/* Per-test timeout. The default 30s is too tight for tests that perform
-	   multiple commits in CI, where backend operations are slower. */
+	/* A backstop, not the deadline that normally fails a test. Waits and
+	   assertions give up 10s after the app falls silent (see src/idle.ts),
+	   which covers anything that is simply never arriving. What reaches this
+	   timeout is the case idleness cannot see — the app busy but not
+	   progressing, e.g. a poll that keeps firing while the awaited state never
+	   comes, or a request that never settles — plus `expect.poll` and the
+	   deliberate `waitForTimeout` sleeps in the poll-backoff tests.
+
+	   Sized from CI, which averages ~9s per test against ~4.9s locally. The
+	   slowest test is 18.1s locally, but 13s of that is a fixed sleep that does
+	   not scale, so it lands near 22s there; the slowest test with no fixed
+	   sleep lands near 28s. 120s keeps roughly 4x headroom, so a runner having
+	   a bad day still passes. Trimming it would only speed up genuinely stuck
+	   tests, which are now rare, at the cost of the margin that keeps slow
+	   runners green. */
 	timeout: 120_000,
-	/* Assertion timeout. The default 5s is too tight for CI where backend
-	   operations (commits, rebases, upstream integration) are slower. */
-	expect: { timeout: 15_000 },
+	/* Playwright's own assertion deadline is disabled: a fixed sub-deadline is
+	   a guess at how slow a runner is, and guessing low is what made a slow
+	   runner look like a broken one. Assertions are bounded by src/expect.ts
+	   instead, which retries while the app is still making requests and gives
+	   up once it has been idle for IDLE_BUDGET_MS, keeping Playwright's usual
+	   expected/received report. What still runs under this zero — expect.poll —
+	   is bounded only by the per-test timeout above. */
+	expect: { timeout: 0 },
 	/* Shared settings for all the projects below. See https://playwright.dev/docs/api/class-testoptions. */
 	use: {
 		/* Base URL to use in actions like `await page.goto('/')`. */
 		baseURL: `http://localhost:${DESKTOP_PORT}`,
 
 		/* Individual actions (click, fill, etc.) fail after 15s so a stuck
-		   action surfaces quickly instead of burning the full test timeout. */
+		   action surfaces quickly instead of burning the full test timeout.
+		   Waiting for the app to reach a state is deliberately not covered:
+		   the wait helpers and hoverPatiently in src/util.ts run under the
+		   idle budget in src/idle.ts instead. */
 		actionTimeout: 15_000,
 
 		/* Collect trace when retrying the failed test. See https://playwright.dev/docs/trace-viewer */

@@ -9,6 +9,7 @@ import {
 	assertCommitSubjects,
 	assertRefDoesNotExist,
 } from "../../src/branch.ts";
+import { expect } from "../../src/expect.ts";
 import { applyUpstream } from "../../src/setup.ts";
 import { test } from "../../src/test.ts";
 import {
@@ -19,7 +20,7 @@ import {
 	waitForTestId,
 	waitForTestIdToNotExist,
 } from "../../src/util.ts";
-import { expect, type Page } from "@playwright/test";
+import { type Page } from "@playwright/test";
 import { execFileSync } from "node:child_process";
 
 const FULLY_INTEGRATED_BRANCH = "fully-integrated-branch";

@@ -3,6 +3,7 @@ import {
 	type FakeGitHubOptions,
 	type FakeGitHubServer,
 } from "./fakeGithub.ts";
+import { watchIdle } from "./idle.ts";
 import { serverLogSink } from "./serverLog.ts";
 import { startGitButler, type GitButler } from "./setup.ts";
 import { test as base } from "@playwright/test";
@@ -67,6 +68,12 @@ export const test = base.extend<{
 	},
 	_autoArtifacts: [
 		async ({ page }, use, testInfo) => {
+			// Track in-flight requests from before the first request can start.
+			// Installed lazily instead, a request already in flight when the
+			// first wait begins would be invisible to the idle budget, and the
+			// watchdog could fire while the app is still working.
+			watchIdle(page);
+
 			const logs: string[] = [];
 			serverLogSink.length = 0;
 

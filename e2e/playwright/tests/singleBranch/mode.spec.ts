@@ -5,10 +5,10 @@ import {
 	SINGLE_BRANCH_NAME,
 } from "./helpers.ts";
 import { assertBranch, assertCommitSubjects, branchTip } from "../../src/branch.ts";
+import { expect } from "../../src/expect.ts";
 import { openWorkspace } from "../../src/setup.ts";
 import { test } from "../../src/test.ts";
 import { getByTestId, waitForTestId, waitForTestIdToNotExist } from "../../src/util.ts";
-import { expect } from "@playwright/test";
 
 test.describe("single-branch mode disabled", () => {
 	test("does not show the current-branch chip after leaving gitbutler/workspace", async ({

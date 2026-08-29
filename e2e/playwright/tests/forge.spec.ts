@@ -1,3 +1,4 @@
+import { expect } from "../src/expect.ts";
 import {
 	ciCheck,
 	ciCheckRunning,
@@ -13,7 +14,7 @@ import {
 import { applyUpstream, openWorkspace } from "../src/setup.ts";
 import { test } from "../src/test.ts";
 import { waitForTestId } from "../src/util.ts";
-import { expect, type Page, type Route } from "@playwright/test";
+import { type Page, type Route } from "@playwright/test";
 import type { ForgeInfo, ForgeReview } from "@gitbutler/but-sdk";
 
 const PR_NUMBER = 42;

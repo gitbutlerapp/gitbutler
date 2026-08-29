@@ -1,5 +1,6 @@
+import { expect } from "./expect.ts";
 import { clickByTestId, getByTestId, waitForTestId } from "./util.ts";
-import { expect, Page } from "@playwright/test";
+import { Page } from "@playwright/test";
 import { execFileSync } from "child_process";
 
 export async function openBranchContextMenu(page: Page, branchName: string) {

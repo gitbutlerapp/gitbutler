@@ -1,7 +1,7 @@
+import { expect } from "../src/expect.ts";
 import { applyUpstream, openWorkspace } from "../src/setup.ts";
 import { test } from "../src/test.ts";
 import { dragAndDropByLocator, MOD_KEY, stack } from "../src/util.ts";
-import { expect } from "@playwright/test";
 
 test("should move multiple selected commits to a different branch via drag and drop", async ({
 	page,

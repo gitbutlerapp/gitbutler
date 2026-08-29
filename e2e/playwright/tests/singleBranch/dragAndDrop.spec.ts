@@ -1,8 +1,8 @@
 import { setupSingleBranchProject, SINGLE_BRANCH_NAME } from "./helpers.ts";
 import { assertBranch, assertCleanWorktree, assertCommitSubjects } from "../../src/branch.ts";
+import { expect } from "../../src/expect.ts";
 import { test } from "../../src/test.ts";
 import { commitRow, dragAndDropByLocator, getByTestId } from "../../src/util.ts";
-import { expect } from "@playwright/test";
 
 test.use({
 	gitbutlerOptions: {
