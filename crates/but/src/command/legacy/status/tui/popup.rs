@@ -62,7 +62,7 @@ impl Popup {
     }
 
     /// Return the centered outer popup area within `area`.
-    fn outer_area(self, area: Rect) -> Rect {
+    pub(crate) fn outer_area(self, area: Rect) -> Rect {
         let horizontal_layout = Layout::horizontal([Constraint::Length(self.width)])
             .flex(Flex::Center)
             .split(area);
