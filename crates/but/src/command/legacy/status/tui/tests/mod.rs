@@ -257,8 +257,32 @@ fn help_popup_scrolls() {
     tui.input((KeyModifiers::CONTROL, 'u'))
         .assert_rendered_term_svg_eq(file!["snapshots/help_popup_scrolls_003.svg"]);
 
+    tui.input(Some(Event::Mouse(MouseEvent {
+        kind: MouseEventKind::ScrollDown,
+        column: 50,
+        row: 0,
+        modifiers: KeyModifiers::NONE,
+    })))
+    .assert_rendered_term_svg_eq(file!["snapshots/help_popup_scrolls_003.svg"]);
+
+    tui.input(Some(Event::Mouse(MouseEvent {
+        kind: MouseEventKind::ScrollDown,
+        column: 50,
+        row: 4,
+        modifiers: KeyModifiers::NONE,
+    })))
+    .assert_rendered_term_svg_eq(file!["snapshots/help_popup_scrolls_004.svg"]);
+
+    tui.input(Some(Event::Mouse(MouseEvent {
+        kind: MouseEventKind::ScrollUp,
+        column: 50,
+        row: 4,
+        modifiers: KeyModifiers::NONE,
+    })))
+    .assert_rendered_term_svg_eq(file!["snapshots/help_popup_scrolls_003.svg"]);
+
     tui.input(KeyCode::Esc)
-        .assert_rendered_term_svg_eq(file!["snapshots/help_popup_scrolls_004.svg"]);
+        .assert_rendered_term_svg_eq(file!["snapshots/help_popup_scrolls_005.svg"]);
 }
 
 #[test]

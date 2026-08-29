@@ -315,7 +315,9 @@ fn event_to_messages(ev: Event, app: &App, terminal_area: Rect, messages: &mut V
         }
         Event::Mouse(event) => match event.kind {
             MouseEventKind::ScrollDown => {
-                if app.modal.is_none() {
+                if mouse_is_over_help(app, terminal_area, event.column, event.row) {
+                    messages.push(Message::Help(HelpMessage::ScrollDown(3)));
+                } else if app.modal.is_none() {
                     if mouse_is_over_debug(app, terminal_area, event.column, event.row) {
                         messages.push(Message::DebugScrollDown(3));
                     } else if mouse_is_over_details(app, terminal_area, event.column, event.row) {
@@ -324,7 +326,9 @@ fn event_to_messages(ev: Event, app: &App, terminal_area: Rect, messages: &mut V
                 }
             }
             MouseEventKind::ScrollUp => {
-                if app.modal.is_none() {
+                if mouse_is_over_help(app, terminal_area, event.column, event.row) {
+                    messages.push(Message::Help(HelpMessage::ScrollUp(3)));
+                } else if app.modal.is_none() {
                     if mouse_is_over_debug(app, terminal_area, event.column, event.row) {
                         messages.push(Message::DebugScrollUp(3));
                     } else if mouse_is_over_details(app, terminal_area, event.column, event.row) {
@@ -340,6 +344,14 @@ fn event_to_messages(ev: Event, app: &App, terminal_area: Rect, messages: &mut V
             | MouseEventKind::ScrollRight => {}
         },
     }
+}
+
+fn mouse_is_over_help(app: &App, terminal_area: Rect, column: u16, row: u16) -> bool {
+    let Some(Modal::Help { help, .. }) = &app.modal else {
+        return false;
+    };
+    help.popup_area(terminal_area)
+        .contains(Position { x: column, y: row })
 }
 
 fn mouse_is_over_debug(app: &App, terminal_area: Rect, column: u16, row: u16) -> bool {
