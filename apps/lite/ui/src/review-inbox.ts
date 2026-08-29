@@ -30,6 +30,8 @@ export type InboxEntry = {
 	author: string | null;
 	/** How many items this entry coalesces — "3 comments". */
 	count: number;
+	/** The comment a click should land on, when the entry is about comments. */
+	commentId?: number | null;
 	snippet: string | null;
 	at: string;
 	seen: boolean;
@@ -93,6 +95,7 @@ const parseEntries = (raw: string | null): Array<InboxEntry> => {
 					typeof e.htmlUrl === "string" &&
 					(e.author === null || typeof e.author === "string") &&
 					typeof e.count === "number" &&
+					(e.commentId === undefined || e.commentId === null || typeof e.commentId === "number") &&
 					(e.snippet === null || typeof e.snippet === "string") &&
 					typeof e.at === "string" &&
 					!Number.isNaN(Date.parse(e.at)) &&

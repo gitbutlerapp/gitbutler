@@ -332,3 +332,137 @@
 	min-width: 0;
 	gap: 2px;
 }
+
+/* ---- Diff-anchored threads -------------------------------------------- */
+
+/* Threads sit inside a card, under whatever the review itself said. */
+.threads {
+	display: flex;
+	flex-direction: column;
+	gap: 6px;
+
+	&:not(:first-child) {
+		margin-block-start: 8px;
+	}
+}
+
+.thread {
+	overflow: hidden;
+	border: 1px solid var(--border-3);
+	border-radius: var(--radius-md);
+	background-color: var(--bg-2);
+}
+
+/* The whole anchor row toggles the thread, so it reads as one target. */
+.threadAnchor {
+	display: flex;
+	align-items: center;
+	width: 100%;
+	padding: 8px 10px;
+	gap: 6px;
+	color: var(--text-2);
+	text-align: start;
+
+	&:hover {
+		background-color: var(--bg-3);
+	}
+}
+
+.threadPath {
+	display: flex;
+	flex: 1;
+	min-width: 0;
+	color: var(--text-1);
+}
+
+/* The directory is what gives when the row is too narrow; the file name and
+   its line are the part that places the comment. */
+.threadDir {
+	overflow: hidden;
+	color: var(--text-3);
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.threadFile {
+	flex-shrink: 0;
+}
+
+.threadCount {
+	flex-shrink: 0;
+	color: var(--text-3);
+}
+
+/* Pierre draws the code itself; this only frames it, since the anchor row
+   above already carries the file and its lines. */
+.hunk {
+	/* Pierre lays the code out at its natural width, and inside a card that
+	   overruns — so the frame is what scrolls, or the overrun is unreachable. */
+	overflow-x: auto;
+	overflow-y: hidden;
+	border: 1px solid var(--border-3);
+	border-radius: var(--radius-md);
+	/* The body turns selection off app-wide; quoted code is there to be read
+	   and copied, so it opts back in the way the diff view does. Inherited,
+	   which is how it reaches the code inside the shadow root. */
+	user-select: text;
+}
+
+/* `hidden` alone loses to the flex display above, so the fold says it. */
+.threads[hidden] {
+	display: none;
+}
+
+/* The fold itself: quiet, since it stands for work already done. */
+.resolvedFold {
+	display: flex;
+	align-items: center;
+	align-self: flex-start;
+	gap: 6px;
+	color: var(--text-2);
+
+	&:hover {
+		color: var(--text-1);
+	}
+}
+
+.threadComments {
+	display: flex;
+	flex-direction: column;
+	padding: 10px;
+	gap: 10px;
+	border-block-start: 1px solid var(--border-3);
+	background-color: var(--bg-1);
+}
+
+.threadComment + .threadComment {
+	padding-block-start: 10px;
+	border-block-start: 1px solid var(--border-3);
+}
+
+.threadComment {
+	display: flex;
+	flex-direction: column;
+	gap: 6px;
+	color: var(--text-1);
+}
+
+/* A card by an agent (any bot author): tinted so automated feedback reads
+   apart from human conversation at a glance. */
+.cardAgent {
+	border-color: color-mix(in srgb, var(--fill-purple-bg) 35%, var(--border-3));
+	background-color: color-mix(in srgb, var(--fill-purple-bg) 4%, var(--bg-1));
+}
+
+/* The Activity section's reveal, in the app's designed link treatment. */
+.timelineMore {
+	align-self: flex-start;
+	margin-block-start: 4px;
+	padding: 0;
+	border: none;
+	background: none;
+	color: var(--text-2);
+	text-decoration: underline dotted;
+	text-underline-position: from-font;
+	cursor: pointer;
+}

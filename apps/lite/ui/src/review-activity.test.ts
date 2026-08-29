@@ -3,6 +3,7 @@ import {
 	attentionOf,
 	seenLedger,
 	itemMentions,
+	newestCommentId,
 	observeReviews,
 	type ReviewActivityItem,
 } from "./review-activity.ts";
@@ -10,6 +11,7 @@ import type {
 	ForgeReview,
 	ForgeReviewComment,
 	ForgeReviewSubmission,
+	ForgeReviewThread,
 	ForgeReviewTimelineEvent,
 	ForgeReviewUser,
 } from "@gitbutler/but-sdk";
@@ -51,8 +53,9 @@ const review = (overrides: Partial<ForgeReview> = {}): ForgeReview => ({
 	...overrides,
 });
 
-const comment = (author: string | null, atMs: number, body = ""): ReviewActivityItem => ({
+const comment = (author: string | null, atMs: number, body = "", id = 1): ReviewActivityItem => ({
 	kind: "comment",
+	id,
 	author,
 	body,
 	atMs,
@@ -63,7 +66,7 @@ const verdict = (
 	state: "approved" | "changesRequested" | "commented" | "dismissed",
 	atMs: number,
 	body: string | null = null,
-): ReviewActivityItem => ({ kind: "verdict", author, state, body, atMs });
+): ReviewActivityItem => ({ kind: "verdict", id: 900 + atMs, author, state, body, atMs });
 
 describe("attentionOf", () => {
 	it("treats someone else's comment as loud", () => {
@@ -223,7 +226,7 @@ describe("activityItems", () => {
 				reactions: [],
 			},
 		];
-		const items = activityItems(comments, [], [], at("2026-08-28T10:00:00Z"));
+		const items = activityItems(comments, [], [], [], at("2026-08-28T10:00:00Z"));
 		expect(items).toHaveLength(1);
 		expect(items[0]).toMatchObject({ kind: "comment", author: "alice" });
 	});
@@ -259,8 +262,70 @@ describe("activityItems", () => {
 				createdAt: "2026-08-28T11:40:00Z",
 			},
 		];
-		const items = activityItems([], submissions, events, 0);
+		const items = activityItems([], submissions, [], events, 0);
 		expect(items.map((item) => item.kind)).toEqual(["verdict", "reviewRequested", "committed"]);
+	});
+
+	it("reads diff-anchored comments as comments, mention and all", () => {
+		const threads: Array<ForgeReviewThread> = [
+			{
+				id: "PRRT_1",
+				path: "src/lib.rs",
+				line: 12,
+				startLine: 12,
+				originalLine: 12,
+				side: "new",
+				isResolved: false,
+				isOutdated: false,
+				comments: [
+					{
+						id: 1,
+						body: "@me this looks off",
+						author: user("alice"),
+						createdAt: "2026-08-28T11:00:00Z",
+						modifiedAt: null,
+						htmlUrl: "",
+						diffHunk: null,
+						reviewId: 7,
+					},
+					{
+						id: 2,
+						body: "before the cut",
+						author: user("alice"),
+						createdAt: "2026-08-28T09:00:00Z",
+						modifiedAt: null,
+						htmlUrl: "",
+						diffHunk: null,
+						reviewId: 7,
+					},
+				],
+			},
+		];
+		const items = activityItems([], [], threads, [], at("2026-08-28T10:00:00Z"));
+		expect(items).toHaveLength(1);
+		expect(items[0]).toMatchObject({ kind: "comment", author: "alice" });
+		// A mention left on a diff line waits for the user like any other.
+		expect(items.filter((item) => itemMentions(item, "me"))).toHaveLength(1);
+	});
+});
+
+describe("newestCommentId", () => {
+	it("points at the newest comment the toast is about", () => {
+		expect(
+			newestCommentId([
+				comment("alice", 10, "", 1),
+				comment("bob", 30, "", 3),
+				comment("carol", 20, "", 2),
+			]),
+		).toBe(3);
+	});
+
+	it("lands on a verdict's submission card", () => {
+		expect(newestCommentId([verdict("alice", "approved", 5)])).toBe(905);
+	});
+
+	it("has nowhere to land when the activity has no card", () => {
+		expect(newestCommentId([])).toBeNull();
 	});
 });
 

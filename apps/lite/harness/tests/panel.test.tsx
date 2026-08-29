@@ -171,6 +171,7 @@ test("someone else's review activity files one coalesced inbox entry and the unr
 		currentForgeLogin: () => "me",
 		listReviewComments: () => comments,
 		listReviewSubmissions: () => [],
+		listReviewThreads: () => [],
 		listReviewTimelineEvents: () => [],
 	});
 
@@ -209,6 +210,66 @@ test("someone else's review activity files one coalesced inbox entry and the unr
 	panel.unmount();
 });
 
+test("a mention left on a diff line is filed like any other", async () => {
+	// The same loop as the conversation case, but the comment hangs on a
+	// diff line — where reviewers actually leave most of them.
+	let review = fixtureForgeReview({ modifiedAt: "2026-01-01T10:00:00Z" });
+	let threads: Array<unknown> = [];
+
+	const panel = mountPanel({
+		headInfo: () =>
+			fixtureHeadInfo([[fixtureSegment({ branch: review.sourceBranch, commits: [] })]]),
+		changesInWorktree: () => fixtureWorktreeChanges([]),
+		forgeInfo: () => fixtureForgeInfo(),
+		listReviews: () => [review],
+		listReviewSeen: () => [{ number: review.number, seenModifiedAt: "2026-01-01T10:00:00Z" }],
+		currentForgeLogin: () => "me",
+		listReviewComments: () => [],
+		listReviewSubmissions: () => [],
+		listReviewThreads: () => threads,
+		listReviewTimelineEvents: () => [],
+	});
+
+	await vi.waitFor(() => expect(panel.container.textContent).toContain("PR"), settle);
+
+	review = { ...review, modifiedAt: "2026-01-01T11:00:00Z" };
+	threads = [
+		{
+			id: "PRRT_1",
+			path: "src/lib.rs",
+			line: 12,
+			startLine: 12,
+			originalLine: 12,
+			side: "new",
+			isResolved: false,
+			isOutdated: false,
+			comments: [
+				{
+					id: 1,
+					body: "@me is this the right place for it?",
+					author: { id: 2, login: "alice", name: null, email: null, avatarUrl: null, isBot: false },
+					createdAt: "2026-01-01T10:30:00Z",
+					modifiedAt: null,
+					htmlUrl: "",
+					diffHunk: null,
+					reviewId: 5,
+				},
+			],
+		},
+	];
+	const eventChannel = panel.watcher.channels.at(0);
+	if (eventChannel === undefined) throw new Error("no watcher subscription armed");
+	const event: WatcherEvent = { name: "gitFetch", payload: { type: "gitFetch", subject: null } };
+	panel.push(eventChannel, event);
+
+	await vi.waitFor(
+		() => expect(inboxEntries()[0]).toMatchObject({ kind: "mention", review: 7 }),
+		settle,
+	);
+
+	panel.unmount();
+});
+
 test("a mention toasts even when the review's branch is not in the workspace", async () => {
 	// One applied review to anchor the baseline, and one on a branch the
 	// workspace does not hold — only a mention may speak for the latter.
@@ -229,6 +290,7 @@ test("a mention toasts even when the review's branch is not in the workspace", a
 		listReviewComments: (params: { reviewId: number }) =>
 			params.reviewId === outside.number ? comments : [],
 		listReviewSubmissions: () => [],
+		listReviewThreads: () => [],
 		listReviewTimelineEvents: () => [],
 	});
 

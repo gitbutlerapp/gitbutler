@@ -3,5 +3,7 @@
 .fresh {
 	display: inline-flex;
 	align-items: center;
+	/* Prose lines render the marker flush against the text before it. */
+	margin-inline-start: 4px;
 	color: var(--fill-pop-bg);
 }

@@ -1,4 +1,5 @@
 import type { LocalAnnotationsByPath } from "#ui/annotation.ts";
+import type { ThreadsByPath } from "#ui/review-threads.ts";
 import type { GUISettings } from "#electron/settings.ts";
 import type { CodeView } from "@pierre/diffs";
 import type { SearchMarks } from "./diff-search-marks.ts";
@@ -487,12 +488,14 @@ export const getMinimapOverlays = ({
 	files,
 	geometry,
 	annotationsByPath,
+	threadsByPath,
 	selection,
 	searchMarks,
 }: {
 	files: Array<MinimapFile>;
 	geometry: MinimapGeometry;
 	annotationsByPath: LocalAnnotationsByPath;
+	threadsByPath: ThreadsByPath;
 	selection: MinimapSelection | null;
 	searchMarks: SearchMarks;
 }): MinimapOverlays => {
@@ -521,8 +524,15 @@ export const getMinimapOverlays = ({
 			return local === null ? null : block.top + local * scale;
 		};
 
+		// A local comment and a review thread share one pin: at this scale the
+		// mark says "something is written here", which is true of both.
 		for (const annotation of annotationsByPath.get(file.path) ?? []) {
 			const top = place(annotation.side, annotation.lineNumber);
+			if (top !== null) pins.push(top);
+		}
+
+		for (const thread of threadsByPath.get(file.path) ?? []) {
+			const top = place(thread.side, thread.lineNumber);
 			if (top !== null) pins.push(top);
 		}
 

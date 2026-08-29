@@ -30,6 +30,8 @@ import {
 export type Annotation =
 	/** Local review comments. */
 	| { _tag: "local"; id: string }
+	/** A diff comment thread on the branch's forge review. */
+	| { _tag: "forge"; threadId: string }
 	/** Workaround to render images w/o native library support. */
 	| { _tag: "image" };
 

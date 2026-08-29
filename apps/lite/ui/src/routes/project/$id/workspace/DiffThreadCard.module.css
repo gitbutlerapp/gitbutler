@@ -1,0 +1,52 @@
+/* Sits between two code lines, whose row is as wide as the widest line in
+   the file — hence the cap, which is also what the local comment card uses
+   so the two line up as siblings in the same diff. */
+.card {
+	display: flex;
+	flex-direction: column;
+	max-width: 100ch;
+	margin: 12px;
+	overflow: hidden;
+	/* The padding moved onto the sections so the header band can span the
+	   full width, the way a forge renders a review comment. */
+	border: 1px solid var(--border-3);
+	border-radius: var(--radius-card);
+	border-top-left-radius: 0;
+	background-color: var(--bg-1);
+}
+
+/* The comments, inset from the card edge the header band spans. */
+.comments {
+	display: flex;
+	flex-direction: column;
+	padding: 14px;
+	gap: 12px;
+}
+
+/* Reply here, everything else on the forge — the composer takes the width
+   when it unfolds, so the link stays pinned to the top of the row. */
+.footer {
+	display: flex;
+	align-items: flex-start;
+	justify-content: space-between;
+	padding: 10px 14px;
+	gap: 12px;
+	border-block-start: 1px solid var(--border-3);
+	background-color: var(--bg-2);
+
+	& > *:first-child {
+		flex: 1;
+	}
+}
+
+.forgeLink {
+	display: flex;
+	flex-shrink: 0;
+	align-items: center;
+	gap: 2px;
+	color: var(--text-2);
+
+	&:hover {
+		color: var(--text-1);
+	}
+}

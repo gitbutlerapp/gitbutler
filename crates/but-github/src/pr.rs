@@ -396,6 +396,36 @@ pub async fn list_pr_reviews(
         .context("Failed to list pull request reviews")
 }
 
+/// Reply into an existing review thread, returning the comment it made.
+pub async fn create_review_thread_reply(
+    preferred_account: Option<&crate::GithubAccountIdentifier>,
+    thread_id: &str,
+    body: &str,
+    storage: &but_forge_storage::Controller,
+) -> Result<crate::client::PullRequestReviewThreadComment> {
+    GitHubClient::from_storage(storage, preferred_account)?
+        .add_review_thread_reply(thread_id, body)
+        .await
+        .map_err(classify_forge_error)
+        .context("Failed to reply to the review thread")
+}
+
+/// List the diff-anchored review threads on a pull request, oldest first.
+pub async fn list_review_threads(
+    preferred_account: Option<&crate::GithubAccountIdentifier>,
+    owner: &str,
+    repo: &str,
+    pr_number: usize,
+    storage: &but_forge_storage::Controller,
+) -> Result<Vec<crate::client::PullRequestReviewThread>> {
+    let pr_number = pr_number.try_into().context("PR number is too large")?;
+    GitHubClient::from_storage(storage, preferred_account)?
+        .list_pull_request_review_threads(owner, repo, pr_number)
+        .await
+        .map_err(classify_forge_error)
+        .context("Failed to list pull request review threads")
+}
+
 pub async fn create_comment(
     preferred_account: Option<&crate::GithubAccountIdentifier>,
     owner: &str,

@@ -20,6 +20,7 @@ import { Icon } from "#ui/components/Icon.tsx";
 import type { IconName } from "#ui/components/iconNames.ts";
 import { TooltipPopup } from "#ui/components/Tooltip.tsx";
 import { type NativeMenuItem, nativeMenuItem, showNativeMenuFromTrigger } from "#ui/native-menu.ts";
+import { openLinkExternally } from "#ui/external-link.ts";
 import type { DraftPRExtras } from "#ui/pr.ts";
 import { formatAbsoluteTime, formatCompactDuration, formatRelativeTime } from "#ui/time.ts";
 import type {
@@ -51,9 +52,10 @@ const Section: FC<{
 	action?: ReactNode;
 	/** Reads as one block with the section above it: no divider, no gap. */
 	joined?: boolean;
+	className?: string;
 	children: ReactNode;
 }> = (p) => (
-	<div className={classes(styles.section, p.joined === true && styles.sectionJoined)}>
+	<div className={classes(styles.section, p.joined === true && styles.sectionJoined, p.className)}>
 		<div className={styles.sectionHeader}>
 			<h4 className={classes("text-12", styles.heading)}>{p.heading}</h4>
 			{p.action}
@@ -313,11 +315,6 @@ const reportOpenFailure = (error: unknown) => {
 	console.error(error);
 };
 
-const openLinkExternally = (evt: MouseEvent<HTMLAnchorElement>): void => {
-	evt.preventDefault();
-	window.lite.openInWebBrowser(evt.currentTarget.href).catch(reportOpenFailure);
-};
-
 /** A failing check, carrying the dot colour its conclusion earns. */
 type ProblemCheck = { check: CiCheck; tone: "danger" | "warn" | "muted" };
 
@@ -486,10 +483,12 @@ const verdictBits = (verdict: ReviewerVerdict): [IconName, string, string] =>
 		Match.exhaustive,
 	);
 
-export const PullRequestPanel: FC<{ projectId: string; review: ForgeReview }> = ({
-	projectId,
-	review,
-}) => {
+export const PullRequestPanel: FC<{
+	projectId: string;
+	review: ForgeReview;
+	/** The review's activity feed, shown as the panel's bottom section. */
+	activity?: ReactNode;
+}> = ({ projectId, review, activity }) => {
 	const { data: forgeInfo } = useQuery(forgeInfoOptions(projectId));
 	const { data: reviewers } = useQuery({
 		...listReviewSubmissionsQueryOptions({ projectId, reviewId: review.number }),
@@ -700,6 +699,8 @@ export const PullRequestPanel: FC<{ projectId: string; review: ForgeReview }> = 
 					</span>
 				</Section>
 			)}
+
+			{activity !== undefined && <Section heading="Activity">{activity}</Section>}
 		</aside>
 	);
 };

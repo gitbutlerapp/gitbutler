@@ -1,0 +1,23 @@
+/* Sits at the foot of a thread, aligned with its comments rather than the
+   card edge, so the fold reads as part of the conversation. */
+.open {
+	align-self: flex-start;
+	color: var(--text-2);
+}
+
+.composer {
+	display: flex;
+	flex-direction: column;
+	gap: 8px;
+}
+
+.input {
+	width: 100%;
+	resize: vertical;
+}
+
+.actions {
+	display: flex;
+	justify-content: flex-end;
+	gap: 6px;
+}
