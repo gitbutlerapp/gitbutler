@@ -59,7 +59,10 @@ impl DbHandle {
 
     pub fn ci_checks_mut(&mut self) -> rusqlite::Result<CiChecksHandleMut<'_>> {
         Ok(CiChecksHandleMut {
-            sp: self.conn.savepoint()?,
+            trans: crate::WriteScope::Owned(
+                self.conn
+                    .transaction_with_behavior(rusqlite::TransactionBehavior::Immediate)?,
+            ),
         })
     }
 }
@@ -71,7 +74,7 @@ impl<'conn> Transaction<'conn> {
 
     pub fn ci_checks_mut(&mut self) -> rusqlite::Result<CiChecksHandleMut<'_>> {
         Ok(CiChecksHandleMut {
-            sp: self.inner_mut().savepoint()?,
+            trans: crate::WriteScope::Nested(self.inner_mut().savepoint()?),
         })
     }
 }
@@ -82,7 +85,7 @@ pub struct CiChecksHandle<'conn> {
 
 pub struct CiChecksHandleMut<'conn> {
     // Use savepoint as transaction, otherwise use `Connection`.
-    sp: rusqlite::Savepoint<'conn>,
+    trans: crate::WriteScope<'conn>,
 }
 
 impl CiChecksHandle<'_> {
@@ -136,7 +139,7 @@ impl CiChecksHandle<'_> {
 impl CiChecksHandleMut<'_> {
     /// Enable read-only access functions.
     pub fn to_ref(&self) -> CiChecksHandle<'_> {
-        CiChecksHandle { conn: &self.sp }
+        CiChecksHandle { conn: &self.trans }
     }
 
     /// Sets the ci_checks table for a specific reference to the provided values.
@@ -145,14 +148,14 @@ impl CiChecksHandleMut<'_> {
     /// Consumes this handle because it commits the internal savepoint/transaction,
     /// which is also consuming.
     pub fn set_for_reference(self, ref_name: &str, checks: Vec<CiCheck>) -> rusqlite::Result<()> {
-        let sp = self.sp;
+        let trans = self.trans;
 
         // Delete existing entries for this reference
-        sp.execute("DELETE FROM ci_checks WHERE reference = ?1", [ref_name])?;
+        trans.execute("DELETE FROM ci_checks WHERE reference = ?1", [ref_name])?;
 
         // Insert new entries
         if !checks.is_empty() {
-            let mut stmt = sp.prepare(
+            let mut stmt = trans.prepare(
                 "INSERT INTO ci_checks (id, name, output_summary, output_text, output_title,
                                        started_at, status_type, status_conclusion, status_completed_at,
                                        head_sha, url, html_url, details_url, pull_requests,
@@ -183,15 +186,15 @@ impl CiChecksHandleMut<'_> {
             }
         }
 
-        sp.commit()?;
+        trans.commit()?;
         Ok(())
     }
 
     /// Deletes all CI check entries for a specific reference.
     pub fn delete_for_reference(self, ref_name: &str) -> rusqlite::Result<()> {
-        self.sp
+        self.trans
             .execute("DELETE FROM ci_checks WHERE reference = ?1", [ref_name])?;
-        self.sp.commit()?;
+        self.trans.commit()?;
         Ok(())
     }
 }

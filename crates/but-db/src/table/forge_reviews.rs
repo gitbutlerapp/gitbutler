@@ -87,7 +87,10 @@ impl DbHandle {
 
     pub fn forge_reviews_mut(&mut self) -> rusqlite::Result<ForgeReviewsHandleMut<'_>> {
         Ok(ForgeReviewsHandleMut {
-            sp: self.conn.savepoint()?,
+            trans: crate::WriteScope::Owned(
+                self.conn
+                    .transaction_with_behavior(rusqlite::TransactionBehavior::Immediate)?,
+            ),
         })
     }
 }
@@ -99,7 +102,7 @@ impl<'conn> Transaction<'conn> {
 
     pub fn forge_reviews_mut(&mut self) -> rusqlite::Result<ForgeReviewsHandleMut<'_>> {
         Ok(ForgeReviewsHandleMut {
-            sp: self.inner_mut().savepoint()?,
+            trans: crate::WriteScope::Nested(self.inner_mut().savepoint()?),
         })
     }
 }
@@ -109,7 +112,7 @@ pub struct ForgeReviewsHandle<'conn> {
 }
 
 pub struct ForgeReviewsHandleMut<'conn> {
-    sp: rusqlite::Savepoint<'conn>,
+    trans: crate::WriteScope<'conn>,
 }
 
 impl ForgeReviewsHandle<'_> {
@@ -158,19 +161,19 @@ impl ForgeReviewsHandle<'_> {
 impl ForgeReviewsHandleMut<'_> {
     /// Enable read-only access functions.
     pub fn to_ref(&self) -> ForgeReviewsHandle<'_> {
-        ForgeReviewsHandle { conn: &self.sp }
+        ForgeReviewsHandle { conn: &self.trans }
     }
 
     /// Sets the forge_reviews table to the provided values.
     /// Any existing entries that are not in the provided values are deleted.
     pub fn set_all(self, reviews: Vec<ForgeReview>) -> rusqlite::Result<()> {
-        self.sp.execute("DELETE FROM forge_reviews", [])?;
+        self.trans.execute("DELETE FROM forge_reviews", [])?;
 
         for review in reviews {
             self.upsert_without_commit(review)?;
         }
 
-        self.sp.commit()?;
+        self.trans.commit()?;
         Ok(())
     }
 
@@ -178,7 +181,7 @@ impl ForgeReviewsHandleMut<'_> {
     pub fn upsert(self, review: ForgeReview) -> rusqlite::Result<()> {
         self.upsert_without_commit(review)?;
 
-        self.sp.commit()?;
+        self.trans.commit()?;
         Ok(())
     }
 
@@ -210,7 +213,7 @@ impl ForgeReviewsHandleMut<'_> {
         merged_cutoff: chrono::NaiveDateTime,
         absent_open_cutoff: chrono::NaiveDateTime,
     ) -> rusqlite::Result<()> {
-        self.sp.execute(
+        self.trans.execute(
             "DELETE FROM forge_reviews WHERE struct_version != ?1",
             [struct_version],
         )?;
@@ -225,7 +228,7 @@ impl ForgeReviewsHandleMut<'_> {
         self.delete_open_reviews_absent_from_list(&listed_numbers, absent_open_cutoff)?;
         self.prune_merged_before(merged_cutoff)?;
 
-        self.sp.commit()?;
+        self.trans.commit()?;
         Ok(())
     }
 
@@ -245,7 +248,7 @@ impl ForgeReviewsHandleMut<'_> {
         absent_open_cutoff: chrono::NaiveDateTime,
     ) -> rusqlite::Result<()> {
         if listed_numbers.is_empty() {
-            self.sp.execute(
+            self.trans.execute(
                 "DELETE FROM forge_reviews \
                  WHERE merged_at IS NULL AND closed_at IS NULL \
                  AND last_sync_at <= ?1",
@@ -265,7 +268,7 @@ impl ForgeReviewsHandleMut<'_> {
         }
         params.push(&absent_open_cutoff);
 
-        self.sp.execute(
+        self.trans.execute(
             &format!(
                 "DELETE FROM forge_reviews \
                  WHERE merged_at IS NULL AND closed_at IS NULL \
@@ -280,7 +283,7 @@ impl ForgeReviewsHandleMut<'_> {
     /// Delete merged reviews whose `merged_at` is at or before `cutoff`. Does not
     /// commit; the caller owns the surrounding savepoint.
     fn prune_merged_before(&self, cutoff: chrono::NaiveDateTime) -> rusqlite::Result<()> {
-        self.sp.execute(
+        self.trans.execute(
             "DELETE FROM forge_reviews WHERE merged_at IS NOT NULL AND merged_at <= ?1",
             [cutoff],
         )?;
@@ -288,7 +291,7 @@ impl ForgeReviewsHandleMut<'_> {
     }
 
     fn upsert_without_commit(&self, review: ForgeReview) -> rusqlite::Result<()> {
-        self.sp.execute(
+        self.trans.execute(
             "INSERT INTO forge_reviews (html_url, number, title, body, author, labels, draft, \
              source_branch, target_branch, sha, integration_commit_shas, created_at, modified_at, merged_at, closed_at, \
              repository_ssh_url, repository_https_url, repo_owner, head_repo_is_fork, reviewers, \
@@ -351,7 +354,7 @@ impl ForgeReviewsHandleMut<'_> {
     /// Deletes reviews with a merge timestamp at or before `cutoff`.
     pub fn delete_merged_before(self, cutoff: chrono::NaiveDateTime) -> rusqlite::Result<()> {
         self.prune_merged_before(cutoff)?;
-        self.sp.commit()?;
+        self.trans.commit()?;
         Ok(())
     }
 }

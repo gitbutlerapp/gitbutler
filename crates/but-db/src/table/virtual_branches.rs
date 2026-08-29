@@ -152,7 +152,10 @@ impl DbHandle {
     /// Mutating methods on [`VirtualBranchesHandleMut`] consume the handle and commit automatically.
     pub fn virtual_branches_mut(&mut self) -> rusqlite::Result<VirtualBranchesHandleMut<'_>> {
         Ok(VirtualBranchesHandleMut {
-            sp: self.conn.savepoint()?,
+            trans: crate::WriteScope::Owned(
+                self.conn
+                    .transaction_with_behavior(rusqlite::TransactionBehavior::Immediate)?,
+            ),
         })
     }
 }
@@ -168,7 +171,7 @@ impl<'conn> Transaction<'conn> {
     /// Mutating methods on [`VirtualBranchesHandleMut`] consume the handle and commit automatically.
     pub fn virtual_branches_mut(&mut self) -> rusqlite::Result<VirtualBranchesHandleMut<'_>> {
         Ok(VirtualBranchesHandleMut {
-            sp: self.inner_mut().savepoint()?,
+            trans: crate::WriteScope::Nested(self.inner_mut().savepoint()?),
         })
     }
 }
@@ -185,7 +188,7 @@ pub struct VirtualBranchesHandle<'conn> {
 /// Created from [`DbHandle::virtual_branches_mut`] or [`Transaction::virtual_branches_mut`].
 /// Methods on this type consume the handle and commit on success.
 pub struct VirtualBranchesHandleMut<'conn> {
-    sp: rusqlite::Savepoint<'conn>,
+    trans: crate::WriteScope<'conn>,
 }
 
 impl VirtualBranchesHandle<'_> {
@@ -310,12 +313,12 @@ impl VirtualBranchesHandle<'_> {
 impl VirtualBranchesHandleMut<'_> {
     /// Convert this mutating handle into a read-only view on the same savepoint.
     pub fn to_ref(&self) -> VirtualBranchesHandle<'_> {
-        VirtualBranchesHandle { conn: &self.sp }
+        VirtualBranchesHandle { conn: &self.trans }
     }
 
     /// Caller must call commit on the transaction.
     fn set_state_in_place(&mut self, state: &VbState) -> rusqlite::Result<()> {
-        self.sp.execute(
+        self.trans.execute(
             "INSERT INTO vb_state (
                 id,
                 initialized,
@@ -343,7 +346,7 @@ impl VirtualBranchesHandleMut<'_> {
     /// Insert or update the singleton `vb_state` row (`id = 1`) and commit the savepoint.
     pub fn set_state(mut self, state: &VbState) -> rusqlite::Result<()> {
         self.set_state_in_place(state)?;
-        self.sp.commit()
+        self.trans.commit()
     }
 
     /// Replace all VB tables with the provided normalized snapshot.
@@ -352,10 +355,10 @@ impl VirtualBranchesHandleMut<'_> {
     pub fn replace_snapshot(mut self, snapshot: &VirtualBranchesSnapshot) -> rusqlite::Result<()> {
         self.set_state_in_place(&snapshot.state)?;
 
-        self.sp.execute("DELETE FROM vb_stacks", [])?;
+        self.trans.execute("DELETE FROM vb_stacks", [])?;
 
         {
-            let mut insert_stack = self.sp.prepare(
+            let mut insert_stack = self.trans.prepare(
                 "INSERT INTO vb_stacks (
                     id,
                     source_refname,
@@ -396,7 +399,7 @@ impl VirtualBranchesHandleMut<'_> {
         }
 
         {
-            let mut insert_head = self.sp.prepare(
+            let mut insert_head = self.trans.prepare(
                 "INSERT INTO vb_stack_heads (
                     stack_id,
                     position,
@@ -420,6 +423,6 @@ impl VirtualBranchesHandleMut<'_> {
             }
         }
 
-        self.sp.commit()
+        self.trans.commit()
     }
 }

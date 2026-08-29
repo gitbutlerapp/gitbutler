@@ -214,6 +214,46 @@ pub struct DbHandle {
     pub cache: OnDemand<CacheHandle>,
 }
 
+/// The write scope of a mutation handle.
+///
+/// Handles obtained from a [`DbHandle`] begin an *immediate* transaction, taking
+/// the write lock before anything is read. They have to: a mutation reads the
+/// rows it is about to replace, and a *deferred* transaction that reads first
+/// has its later write rejected with `SQLITE_BUSY` the moment another connection
+/// commits in between. SQLite does not run the busy handler for that case, so
+/// [`BUSY_TIMEOUT`](migration::BUSY_TIMEOUT) cannot wait it out and the caller
+/// just sees "database is locked". Holding the write lock from the start leaves
+/// no snapshot to invalidate.
+///
+/// Handles obtained from a [`Transaction`] nest a savepoint in it instead — the
+/// caller already decided how that transaction takes its locks.
+pub(crate) enum WriteScope<'conn> {
+    /// Begun by the handle itself, holding the write lock for its lifetime.
+    Owned(rusqlite::Transaction<'conn>),
+    /// Nested inside a transaction the caller already holds.
+    Nested(rusqlite::Savepoint<'conn>),
+}
+
+impl WriteScope<'_> {
+    pub(crate) fn commit(self) -> rusqlite::Result<()> {
+        match self {
+            WriteScope::Owned(transaction) => transaction.commit(),
+            WriteScope::Nested(savepoint) => savepoint.commit(),
+        }
+    }
+}
+
+impl std::ops::Deref for WriteScope<'_> {
+    type Target = rusqlite::Connection;
+
+    fn deref(&self) -> &Self::Target {
+        match self {
+            WriteScope::Owned(transaction) => transaction,
+            WriteScope::Nested(savepoint) => savepoint,
+        }
+    }
+}
+
 /// A wrapper for a [`rusqlite::Transaction`] to allow ORM handles to be created more easily,
 /// and make sure multiple dependent calls to the ORM can be consistent.
 pub struct Transaction<'conn> {

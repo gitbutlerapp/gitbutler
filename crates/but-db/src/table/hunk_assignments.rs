@@ -52,7 +52,14 @@ impl DbHandle {
 
     pub fn hunk_assignments_mut(&mut self) -> rusqlite::Result<HunkAssignmentsHandleMut<'_>> {
         Ok(HunkAssignmentsHandleMut {
-            sp: self.conn.savepoint()?,
+            // Deferred on purpose, unlike the other mutation handles. Callers
+            // hold this one across the hunk-assignment computation (the file
+            // watcher, `but-action`, `but clean`), so taking the write lock up
+            // front would block every other writer for as long as that takes.
+            // The cost is that a concurrent commit can still fail this handle's
+            // write with `SQLITE_BUSY`; the fix is to stop holding it across
+            // that work, not to widen the lock.
+            trans: crate::WriteScope::Nested(self.conn.savepoint()?),
         })
     }
 }
@@ -64,7 +71,7 @@ impl<'conn> Transaction<'conn> {
 
     pub fn hunk_assignments_mut(&mut self) -> rusqlite::Result<HunkAssignmentsHandleMut<'_>> {
         Ok(HunkAssignmentsHandleMut {
-            sp: self.inner_mut().savepoint()?,
+            trans: crate::WriteScope::Nested(self.inner_mut().savepoint()?),
         })
     }
 }
@@ -74,7 +81,7 @@ pub struct HunkAssignmentsHandle<'conn> {
 }
 
 pub struct HunkAssignmentsHandleMut<'conn> {
-    sp: rusqlite::Savepoint<'conn>,
+    trans: crate::WriteScope<'conn>,
 }
 
 impl HunkAssignmentsHandle<'_> {
@@ -102,17 +109,17 @@ impl HunkAssignmentsHandle<'_> {
 impl HunkAssignmentsHandleMut<'_> {
     /// Enable read-only access functions.
     pub fn to_ref(&self) -> HunkAssignmentsHandle<'_> {
-        HunkAssignmentsHandle { conn: &self.sp }
+        HunkAssignmentsHandle { conn: &self.trans }
     }
 
     /// Sets the hunk assignments table to the provided values.
     /// Any existing entries that are not in the provided values are deleted.
     /// `stack_id` is preserved only for reads of legacy rows and is no longer written.
     pub fn set_all(self, assignments: Vec<HunkAssignment>) -> rusqlite::Result<()> {
-        self.sp.execute("DELETE FROM hunk_assignments", [])?;
+        self.trans.execute("DELETE FROM hunk_assignments", [])?;
 
         for assignment in assignments {
-            self.sp.execute(
+            self.trans.execute(
                 "INSERT INTO hunk_assignments (id, hunk_header, path, path_bytes, branch_ref) \
                  VALUES (?1, ?2, ?3, ?4, ?5)",
                 rusqlite::params![
@@ -125,7 +132,7 @@ impl HunkAssignmentsHandleMut<'_> {
             )?;
         }
 
-        self.sp.commit()?;
+        self.trans.commit()?;
         Ok(())
     }
 }

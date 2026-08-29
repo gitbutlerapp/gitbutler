@@ -25,7 +25,7 @@ pub struct BranchOrderHandle<'conn> {
 
 /// Mutating accessor for ad-hoc branch ordering metadata.
 pub struct BranchOrderHandleMut<'conn> {
-    sp: rusqlite::Savepoint<'conn>,
+    trans: crate::WriteScope<'conn>,
 }
 
 impl DbHandle {
@@ -37,7 +37,10 @@ impl DbHandle {
     /// Return a mutating handle for ad-hoc branch ordering metadata.
     pub fn branch_order_mut(&mut self) -> rusqlite::Result<BranchOrderHandleMut<'_>> {
         Ok(BranchOrderHandleMut {
-            sp: self.conn.savepoint()?,
+            trans: crate::WriteScope::Owned(
+                self.conn
+                    .transaction_with_behavior(rusqlite::TransactionBehavior::Immediate)?,
+            ),
         })
     }
 }
@@ -51,7 +54,7 @@ impl<'conn> Transaction<'conn> {
     /// Return a mutating handle for ad-hoc branch ordering metadata.
     pub fn branch_order_mut(&mut self) -> rusqlite::Result<BranchOrderHandleMut<'_>> {
         Ok(BranchOrderHandleMut {
-            sp: self.inner_mut().savepoint()?,
+            trans: crate::WriteScope::Nested(self.inner_mut().savepoint()?),
         })
     }
 }
@@ -143,14 +146,14 @@ fn is_missing_branch_order_table(err: &rusqlite::Error) -> bool {
 impl BranchOrderHandleMut<'_> {
     /// Convert this mutating handle into a read-only view on the same savepoint.
     pub fn to_ref(&self) -> BranchOrderHandle<'_> {
-        BranchOrderHandle { conn: &self.sp }
+        BranchOrderHandle { conn: &self.trans }
     }
 
     /// Replace the persisted chain containing `branches` with `branches` in tip-to-base order.
     pub fn set_order(self, branches: &[String]) -> rusqlite::Result<()> {
-        let sp = self.sp;
+        let trans = self.trans;
         if branches.is_empty() {
-            sp.commit()?;
+            trans.commit()?;
             return Ok(());
         }
 
@@ -161,7 +164,7 @@ impl BranchOrderHandleMut<'_> {
             }
         }
 
-        let order = BranchOrderHandle { conn: &sp };
+        let order = BranchOrderHandle { conn: &trans };
         let mut refs_to_replace = BTreeSet::new();
         for branch in branches {
             refs_to_replace.insert(branch.as_str().to_owned());
@@ -171,13 +174,13 @@ impl BranchOrderHandleMut<'_> {
         }
 
         for branch in refs_to_replace {
-            sp.execute(
+            trans.execute(
                 "DELETE FROM branch_order WHERE branch_ref_name = ?1",
                 [branch],
             )?;
         }
 
-        let mut insert = sp.prepare(
+        let mut insert = trans.prepare(
             "INSERT INTO branch_order (branch_ref_name, parent_ref_name) VALUES (?1, ?2)",
         )?;
         for (idx, branch) in branches.iter().enumerate() {
@@ -186,76 +189,76 @@ impl BranchOrderHandleMut<'_> {
         }
         drop(insert);
 
-        sp.commit()
+        trans.commit()
     }
 
     /// Remove `ref_name` from its chain, connecting its child directly to its parent if needed.
     pub fn remove_reference(self, ref_name: &str) -> rusqlite::Result<()> {
-        let sp = self.sp;
-        remove_reference_in_savepoint(&sp, ref_name)?;
-        sp.commit()
+        let trans = self.trans;
+        remove_reference_in_savepoint(&trans, ref_name)?;
+        trans.commit()
     }
 
     /// Rename `old_ref_name` to `new_ref_name` everywhere it appears in branch-order metadata.
     pub fn rename_reference(self, old_ref_name: &str, new_ref_name: &str) -> rusqlite::Result<()> {
-        let sp = self.sp;
+        let trans = self.trans;
         if old_ref_name == new_ref_name {
-            sp.commit()?;
+            trans.commit()?;
             return Ok(());
         }
 
-        let order = BranchOrderHandle { conn: &sp };
+        let order = BranchOrderHandle { conn: &trans };
         let has_old = order.has_reference(old_ref_name)? || order.child_of(old_ref_name)?.is_some();
         if !has_old {
-            sp.commit()?;
+            trans.commit()?;
             return Ok(());
         }
         if order.has_reference(new_ref_name)? || order.child_of(new_ref_name)?.is_some() {
             return Err(rusqlite::Error::InvalidQuery);
         }
 
-        sp.execute(
+        trans.execute(
             "UPDATE branch_order SET parent_ref_name = ?1 WHERE parent_ref_name = ?2",
             [new_ref_name, old_ref_name],
         )?;
-        sp.execute(
+        trans.execute(
             "UPDATE branch_order SET branch_ref_name = ?1 WHERE branch_ref_name = ?2",
             [new_ref_name, old_ref_name],
         )?;
 
-        sp.commit()
+        trans.commit()
     }
 
     /// Remove branch-order rows for references not present in `existing_ref_names`.
     pub fn remove_missing_references(self, existing_ref_names: &[String]) -> rusqlite::Result<()> {
-        let sp = self.sp;
+        let trans = self.trans;
         let existing = existing_ref_names
             .iter()
             .map(String::as_str)
             .collect::<BTreeSet<_>>();
-        let refs = BranchOrderHandle { conn: &sp }.all_references()?;
+        let refs = BranchOrderHandle { conn: &trans }.all_references()?;
         for ref_name in refs {
             if !existing.contains(ref_name.as_str()) {
-                remove_reference_in_savepoint(&sp, &ref_name)?;
+                remove_reference_in_savepoint(&trans, &ref_name)?;
             }
         }
-        sp.commit()
+        trans.commit()
     }
 }
 
 fn remove_reference_in_savepoint(
-    sp: &rusqlite::Savepoint<'_>,
+    conn: &rusqlite::Connection,
     ref_name: &str,
 ) -> rusqlite::Result<()> {
-    let parent = BranchOrderHandle { conn: sp }.parent_of(ref_name)?;
-    let child = BranchOrderHandle { conn: sp }.child_of(ref_name)?;
+    let parent = BranchOrderHandle { conn }.parent_of(ref_name)?;
+    let child = BranchOrderHandle { conn }.child_of(ref_name)?;
 
-    sp.execute(
+    conn.execute(
         "DELETE FROM branch_order WHERE branch_ref_name = ?1",
         [ref_name],
     )?;
     if let Some(child) = child.as_ref() {
-        sp.execute(
+        conn.execute(
             "UPDATE branch_order SET parent_ref_name = ?1 WHERE branch_ref_name = ?2",
             rusqlite::params![parent, child],
         )?;
@@ -266,9 +269,9 @@ fn remove_reference_in_savepoint(
         _ => None,
     };
     if let Some(singleton) = singleton {
-        let order = BranchOrderHandle { conn: sp };
+        let order = BranchOrderHandle { conn };
         if order.parent_of(singleton)?.is_none() && order.child_of(singleton)?.is_none() {
-            sp.execute(
+            conn.execute(
                 "DELETE FROM branch_order WHERE branch_ref_name = ?1",
                 [singleton],
             )?;

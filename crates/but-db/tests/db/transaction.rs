@@ -196,3 +196,34 @@ fn two_handles_same_db() -> anyhow::Result<(DbHandle, DbHandle, tempfile::TempDi
     let db2 = DbHandle::new_in_directory(tmp.path())?;
     Ok((db1, db2, tmp))
 }
+
+/// A mutation handle from a [`DbHandle`] takes the write lock the moment it is
+/// created, before it reads anything.
+///
+/// It has to: a mutation reads the rows it is about to replace, and a *deferred*
+/// transaction that reads first has its later write rejected with `SQLITE_BUSY`
+/// as soon as another connection commits in between. SQLite does not run the
+/// busy handler for that case, so `busy_timeout` cannot wait it out and the
+/// caller just sees "database is locked". Holding the lock from the start leaves
+/// no snapshot to invalidate.
+#[test]
+fn a_mutation_takes_the_write_lock_before_it_reads() -> anyhow::Result<()> {
+    let (mut db1, mut db2, _tmp) = two_handles_same_db()?;
+
+    // Merely creating the handle must already exclude other writers.
+    let _mutation = db1.branch_order_mut()?;
+
+    let mut other = db2.transaction()?;
+    other.set_nonblocking()?;
+    let err = other
+        .branch_order_mut()?
+        .set_order(&["refs/heads/a".to_owned(), "refs/heads/b".to_owned()])
+        .unwrap_err();
+    assert_eq!(
+        err.sqlite_error_code(),
+        Some(ErrorCode::DatabaseBusy),
+        "another connection cannot commit while the mutation holds the write lock, \
+         so the mutation's read can never go stale under it"
+    );
+    Ok(())
+}
