@@ -553,7 +553,7 @@ fn resolve_squash_operation<'a>(
         SquashReword::UseTarget => HowToRewordTarget::UseTargetMessage,
     };
 
-    let resolved_args = match op {
+    let mut resolved_args = match op {
         SquashRoute::UncommittedToCommit { target } => ResolvedSquashArgsRef::Normal {
             sources: Vec::from([ResolvedCliIdArgRef::Uncommitted]),
             target: SquashTarget::Commit {
@@ -664,6 +664,29 @@ fn resolve_squash_operation<'a>(
             target: SquashTarget::Uncommitted,
         },
     };
+
+    // Remove the target from the list of sources. This makes it possible to mark all commits on a
+    // branch and squash into one of the marked commits. Not allowing that is overly strict.
+    match &mut resolved_args {
+        ResolvedSquashArgsRef::Normal { sources, target } => match target {
+            SquashTarget::Commit {
+                commit: target,
+                reword: _,
+            } => {
+                if sources.len() > 1 {
+                    sources.retain(|source| {
+                        if let ResolvedCliIdArgRef::Commit(source) = source {
+                            *source != target.as_ref()
+                        } else {
+                            true
+                        }
+                    });
+                }
+            }
+            SquashTarget::Uncommitted => {}
+        },
+        ResolvedSquashArgsRef::SingleBranchSourceAndTarget { .. } => {}
+    }
 
     let op = squash::resolve(resolved_args, ws, repo, merged).into_internal_error()?;
 
