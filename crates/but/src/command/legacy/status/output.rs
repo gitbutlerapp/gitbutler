@@ -250,11 +250,17 @@ impl StatusOutput<'_> {
     pub fn merge_base(
         &mut self,
         connector: Vec<Span<'static>>,
-        line: Vec<Span<'static>>,
+        id: Vec<Span<'static>>,
+        suffix: Vec<Span<'static>>,
+        commit_id: gix::ObjectId,
     ) -> anyhow::Result<()> {
         self.push_line(
             Some(connector),
-            StatusOutputContent::Plain(line),
+            StatusOutputContent::MergeBase(MergeBaseLineContent {
+                id,
+                suffix,
+                commit_id,
+            }),
             StatusOutputLineData::MergeBase,
         )
     }
@@ -280,6 +286,14 @@ pub enum StatusOutputContent {
     Branch(BranchLineContent),
     File(FileLineContent),
     Uncommitted(UncommittedLineContent),
+    MergeBase(MergeBaseLineContent),
+}
+
+#[derive(Debug, Clone)]
+pub struct MergeBaseLineContent {
+    pub id: Vec<Span<'static>>,
+    pub suffix: Vec<Span<'static>>,
+    pub commit_id: gix::ObjectId,
 }
 
 #[derive(Debug, Default, Clone)]

@@ -17,7 +17,8 @@ use crate::{
     command::legacy::status::{
         CommitLineContent, FileLineContent, StatusOutputLine,
         output::{
-            BranchLineContent, StatusOutputContent, StatusOutputLineData, UncommittedLineContent,
+            BranchLineContent, MergeBaseLineContent, StatusOutputContent, StatusOutputLineData,
+            UncommittedLineContent,
         },
         tui::app::{
             BranchMode, CherryPickMode, CommitMessageComposer, CommitMode, JumpMode, MoveMode,
@@ -530,10 +531,7 @@ fn render_status_list_item(
             if app.cursor == cursor_for_match {
                 return None;
             }
-            let current_line_id = data.cli_id()?;
-            let match_ = cursor_for_match.selected_line(&app.status_lines)?;
-            let id = match_.data.cli_id()?;
-            Some(id == current_line_id)
+            Some(cursor_for_match.index() == status_line_idx)
         })
         .unwrap_or(false)
     } else {
@@ -546,6 +544,22 @@ fn render_status_list_item(
         match content {
             StatusOutputContent::Plain(spans) => {
                 line.extend(spans);
+            }
+            StatusOutputContent::MergeBase(MergeBaseLineContent {
+                id,
+                suffix,
+                commit_id: _,
+            }) => {
+                if let Mode::Jump(jump_mode) = &*app.mode {
+                    line.extend(style_jump_mode_matches(
+                        id,
+                        jump_mode,
+                        is_selected || line_is_jump_match,
+                    ));
+                } else {
+                    line.extend(id);
+                }
+                line.extend(suffix);
             }
             StatusOutputContent::Commit(CommitLineContent {
                 sha,
