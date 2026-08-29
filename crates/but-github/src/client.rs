@@ -396,10 +396,7 @@ impl GitHubClient {
         };
 
         let response = self.client.post(&url).json(&body).send().await?;
-
-        if !response.status().is_success() {
-            bail!("Failed to create pull request: {}", response.status());
-        }
+        let response = ensure_success(response).await?;
 
         let pr: GitHubPullRequest = response.json().await?;
         Ok(pr.into())
