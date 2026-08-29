@@ -176,6 +176,12 @@ class GitButlerManager implements GitButler {
 		const envVars = {
 			E2E_TEST_APP_DATA_DIR: this.configDir,
 			GIT_CONFIG_GLOBAL: this.gitConfigGlobal,
+			// No ambient background sync (fetch/PR/CI refresh): the detached
+			// child it spawns outlives the script and keeps writing while the
+			// test's dirs are torn down. The Rust CLI tests set this too; the
+			// sync-vs-mutation race itself is covered deterministically in
+			// but-db's transaction tests.
+			NO_BG_TASKS: "1",
 			...this.env,
 			...env,
 		};
