@@ -37,3 +37,23 @@
 		box-shadow: inset 0 0 0 999px color-mix(in srgb, var(--fill-pop-bg) 12%, transparent);
 	}
 }
+
+/* A reviewed file is done with, so what the row says about it recedes. The tick
+   carries the news, and the row's actions stay as available as any other row's:
+   dimming a control reads as disabling it. */
+.reviewedRow > :not(.reviewedMark, [role="toolbar"]) {
+	opacity: 0.5;
+}
+
+.reviewedMark {
+	display: flex;
+	flex-shrink: 0;
+	align-self: center;
+	justify-content: center;
+	/* The box the change-type letter occupies, so a row that swaps one for the
+	   other keeps everything before it in place. Kept in step with the width
+	   FileStatusBadge.module.css sizes off its own text. */
+	width: 1.1em;
+	color: var(--text-pop);
+	font-size: 11px;
+}

@@ -186,6 +186,7 @@ import { useDiffHunkDrag } from "./diff-hunk-drag.ts";
 import { diffLineTargetFromElement, type DiffLineTarget } from "./diff-line-target.ts";
 import { useHunkMenuItems } from "./useHunkMenuItems.ts";
 import { useRevealInFolder } from "./useRevealInFolder.ts";
+import { reviewedPaths } from "./reviewed-paths.ts";
 import { AnnotationCard } from "#ui/routes/project/$id/workspace/AnnotationCard.tsx";
 import { ConflictBar } from "#ui/routes/project/$id/workspace/ConflictBar.tsx";
 import {
@@ -2270,6 +2271,10 @@ const Diff: FC<{
 		preparedDiffFiles.length > 0 &&
 		preparedDiffFiles.every(({ change, version }) => reviewedFiles.get(change.path)?.has(version));
 
+	// Resolved once for the whole list rather than per row: a row would have to
+	// find its own version to answer this.
+	const reviewedFilePaths = reviewedPaths(preparedDiffFiles, reviewedFiles);
+
 	const toggleAllFilesReviewed = (): void => {
 		setManualCollapseByItem(new Map());
 		setFilesReviewed({
@@ -2470,6 +2475,7 @@ const Diff: FC<{
 										selection={filesSelection}
 										addressSpace={filesAddressSpace}
 										fileParent={fileParent}
+										reviewedPaths={reviewedFilePaths}
 										canUncommit={!isCommitUncommitChangesPending}
 										uncommit={uncommit}
 										emptyLabel={

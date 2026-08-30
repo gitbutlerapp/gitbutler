@@ -15,6 +15,7 @@ import {
 	addressEquals,
 	commitIdentityKey,
 } from "#ui/addresses.ts";
+import { useReviewedPaths } from "#ui/routes/project/$id/workspace/reviewed-paths.ts";
 import { projectSlice } from "#ui/projects/state.ts";
 import { getTransferKind, getTransferTarget } from "#ui/operations/pending-operation.ts";
 import { OperationSourceC } from "#ui/routes/project/$id/workspace/OperationSourceC.tsx";
@@ -283,6 +284,11 @@ const UncommittedChanges: FC<
 		collapsedDirectories,
 		recentFirst,
 	});
+	const reviewedUncommittedPaths = useReviewedPaths({
+		projectId,
+		fileParent: uncommittedChangesFileParent,
+		changes: worktreeChanges?.changes ?? [],
+	});
 
 	const fileSelection = useSelection("uncommitted", addressSpace);
 	const activeList = useActiveList();
@@ -341,6 +347,7 @@ const UncommittedChanges: FC<
 							: "Nothing to commit"
 					}
 					fileParent={uncommittedChangesFileParent}
+					reviewedPaths={reviewedUncommittedPaths}
 					rows={fileRows}
 					ageBadgeNow={recentFirst ? ageBadgeNow : null}
 					collapsedDirectories={collapsedDirectories}
