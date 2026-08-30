@@ -102,6 +102,6 @@
 .separator {
 	align-self: stretch;
 	width: 1px;
-	margin-inline: 4px;
+	margin-inline: 6px;
 	background-color: var(--border-3);
 }
