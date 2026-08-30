@@ -86,7 +86,6 @@ import type {
 	TreeChange,
 } from "@gitbutler/but-sdk";
 import {
-	type CodeViewDiffItem,
 	type CodeViewItem,
 	type CodeView as CodeViewClass,
 	type CodeViewLineSelection,
@@ -128,9 +127,11 @@ import {
 } from "#ui/focus-scopes.ts";
 import { buildIndexByKey, getAdjacent } from "#ui/workspace/address-space.ts";
 import { ChangeStats } from "#ui/routes/project/$id/workspace/ChangeStats.tsx";
+import { ChangeScale } from "#ui/components/ChangeScale.tsx";
 import { DiffStats } from "#ui/components/DiffStats.tsx";
 import { ChangesHeaderRow } from "#ui/routes/project/$id/workspace/ChangesHeaderRow.tsx";
 import {
+	describeLineStats,
 	getLineStats,
 	patchLineStats,
 	type LineStats,
@@ -185,7 +186,7 @@ import { useDiffHunkDrag } from "./diff-hunk-drag.ts";
 import { diffLineTargetFromElement, type DiffLineTarget } from "./diff-line-target.ts";
 import { useHunkMenuItems } from "./useHunkMenuItems.ts";
 import { useRevealInFolder } from "./useRevealInFolder.ts";
-import { ChangeTypeBadge } from "./ChangeTypeBadge.tsx";
+import { reviewedPaths } from "./reviewed-paths.ts";
 import { AnnotationCard } from "#ui/routes/project/$id/workspace/AnnotationCard.tsx";
 import { ConflictBar } from "#ui/routes/project/$id/workspace/ConflictBar.tsx";
 import {
@@ -601,16 +602,58 @@ const DiffContents: FC<{
 		if (next) selectDiff(next);
 	};
 
+	// A file's first hunk stands in for the file itself — a folded file keeps
+	// only that one in the visible space, so it is always a reachable stop.
+	const isFileStartHunk = (hunk: HunkAddress): boolean => {
+		const key = hunkAddressIdentityKey(hunk);
+		return (
+			hunkAddressIdentityKey(assert(assert(hunkByKey.get(key)?.file.hunks[0])).address) === key
+		);
+	};
+
+	// `selectDiff` only nudges the hunk into view; landing on a file should put
+	// its header at the top, as picking the file in the file list does.
+	const selectFileStart = (hunk: HunkAddress): void => {
+		selectDiff(hunk);
+
+		const itemId = hunkByKey.get(hunkAddressIdentityKey(hunk))?.file.item.id;
+		if (itemId === undefined) return;
+		viewerRef.current?.scrollTo({ type: "item", id: itemId, align: "start" });
+	};
+
+	const moveSelectedFile = (offset: -1 | 1): void => {
+		const selection = selectedLinesHunk ?? diffSelection;
+		if (selection === null) {
+			const edge = visibleAddressSpace.items.at(offset === 1 ? 0 : -1);
+			if (edge) selectFileStart(edge);
+			return;
+		}
+
+		const selectionIndex = visibleAddressSpace.indexByKey.get(hunkAddressIdentityKey(selection));
+		if (selectionIndex === undefined) return;
+
+		// Going up from inside a file lands on that file's own start first, the
+		// way section navigation does, so the key always feels like "one file".
+		const startsOnFileStart = isFileStartHunk(selection);
+		let index = selectionIndex + (offset === -1 && !startsOnFileStart ? 0 : offset);
+
+		while (index >= 0 && index < visibleAddressSpace.items.length) {
+			const hunk = visibleAddressSpace.items[index];
+			if (hunk !== undefined && isFileStartHunk(hunk)) {
+				selectFileStart(hunk);
+				return;
+			}
+			index += offset;
+		}
+	};
+
 	useAddressSpaceHotkeys({
 		projectId,
 		addressSpace: visibleAddressSpace,
 		group: "Diff",
 		select: selectDiff,
 		selection: selectedLinesHunk ?? diffSelection,
-		selectSectionPredicate: (hunk) => {
-			const k = hunkAddressIdentityKey(hunk);
-			return hunkAddressIdentityKey(assert(assert(hunkByKey.get(k)?.file.hunks[0])).address) === k;
-		},
+		selectSectionPredicate: isFileStartHunk,
 		ref: focusScopeRef,
 		getKey: hunkAddressIdentityKey,
 		operationSourcesForItem: (hunk) => {
@@ -788,6 +831,40 @@ const DiffContents: FC<{
 		{
 			hotkey: "Alt+J",
 			callback: () => moveSelectedHunk(1),
+			options: {
+				conflictBehavior: "allow",
+				target: focusScopeRef,
+			},
+		},
+		{
+			hotkey: diffHotkeys.previousFile.hotkey,
+			callback: () => moveSelectedFile(-1),
+			options: {
+				conflictBehavior: "allow",
+				target: focusScopeRef,
+				meta: diffHotkeys.previousFile.meta,
+			},
+		},
+		{
+			hotkey: "Alt+Shift+K",
+			callback: () => moveSelectedFile(-1),
+			options: {
+				conflictBehavior: "allow",
+				target: focusScopeRef,
+			},
+		},
+		{
+			hotkey: diffHotkeys.nextFile.hotkey,
+			callback: () => moveSelectedFile(1),
+			options: {
+				conflictBehavior: "allow",
+				target: focusScopeRef,
+				meta: diffHotkeys.nextFile.meta,
+			},
+		},
+		{
+			hotkey: "Alt+Shift+J",
+			callback: () => moveSelectedFile(1),
 			options: {
 				conflictBehavior: "allow",
 				target: focusScopeRef,
@@ -1481,7 +1558,6 @@ const DiffContents: FC<{
 					return (
 						<DiffFileHeader
 							projectId={projectId}
-							item={file.item}
 							address={file.address}
 							change={file.change}
 							hasDiff={item.type === "file" || file.item.fileDiff.hunks.length !== 0}
@@ -1609,6 +1685,19 @@ const DiffContents: FC<{
             color: var(--text-1);
           }
 
+          /* Pierre pins the leading hunk separator flush against the file header:
+             its virtual layout models no gap before the first separator, so a real
+             margin would desync item heights. Inset the band inside the row
+             instead — same box, a little air under the header. */
+          [data-separator="line-info"][data-separator-first] {
+            background-color: transparent;
+
+            & [data-separator-wrapper] {
+              top: 6px;
+              height: calc(100% - 6px);
+            }
+          }
+
           ${diffGutterUnsafeCSS}
           ${diffSearchMarksUnsafeCSS}
         `,
@@ -1647,7 +1736,6 @@ const DiffContents: FC<{
 
 type DiffFileHeaderProps = {
 	projectId: string;
-	item: CodeViewDiffItem<unknown>;
 	address: FileAddress;
 	change: TreeChange;
 	hasDiff: boolean;
@@ -1677,6 +1765,12 @@ const DiffFileHeader: FC<DiffFileHeaderProps> = (p) => {
 	const directoryPath = lastSepIdx !== -1 ? p.change.path.slice(0, lastSepIdx) : null;
 	const fileName = lastSepIdx !== -1 ? p.change.path.slice(lastSepIdx + 1) : p.change.path;
 
+	// The counts read as added/removed lines on sight, but only to someone who
+	// knows the colouring: the wording carries the units, for the tooltip and for
+	// screen readers alike.
+	const lineStatsParts = p.lineStats === null ? [] : describeLineStats(p.lineStats);
+	const lineStatsLabel = lineStatsParts.length === 0 ? null : lineStatsParts.join(", ");
+
 	const collapseLabel = p.collapsed ? "Unfold" : "Fold";
 	const reviewLabel =
 		p.reviewState === "reviewed"
@@ -1694,6 +1788,11 @@ const DiffFileHeader: FC<DiffFileHeaderProps> = (p) => {
 			acceptOriginDrop
 		>
 			<header
+				// Not a tab stop, but mouse-focusable: clicking the header's own chrome
+				// focuses it as the nearest focusable ancestor, so Tab walks this file's
+				// actions instead of restarting at the first file in the diff, which is
+				// where focus landing on the diff container sends it.
+				tabIndex={-1}
 				onContextMenu={(event) => {
 					void showNativeContextMenu(event, menuItems);
 				}}
@@ -1727,40 +1826,78 @@ const DiffFileHeader: FC<DiffFileHeaderProps> = (p) => {
 					{fileName}
 					{directoryPath !== null && <span className={styles.pathInit}>{directoryPath}</span>}
 				</h4>
-				<button
-					type="button"
-					aria-pressed={p.reviewState === "changed" ? "mixed" : p.reviewState === "reviewed"}
-					className={classes(
-						getButtonClassName({ variant: "outline", size: "small" }),
-						styles.fileReview,
+				<div className={styles.fileHeaderEnd}>
+					{p.lineStats && lineStatsLabel !== null && (
+						<Tooltip.Root>
+							<Tooltip.Trigger
+								render={
+									<div aria-label={lineStatsLabel} className={styles.fileMeta}>
+										<DiffStats
+											added={p.lineStats.linesAdded}
+											removed={p.lineStats.linesRemoved}
+											className="text-12"
+										/>
+										<ChangeScale
+											added={p.lineStats.linesAdded}
+											removed={p.lineStats.linesRemoved}
+										/>
+									</div>
+								}
+							/>
+							<Tooltip.Portal>
+								<Tooltip.Positioner sideOffset={4}>
+									<Tooltip.Popup render={<TooltipPopup />}>{lineStatsLabel}</Tooltip.Popup>
+								</Tooltip.Positioner>
+							</Tooltip.Portal>
+						</Tooltip.Root>
 					)}
-					onClick={() => p.setReviewed(p.reviewState !== "reviewed")}
-				>
-					<span className={styles.fileReviewIndicator} aria-hidden="true">
-						{p.reviewState !== null && (
-							<Icon size={10} name={p.reviewState === "reviewed" ? "tick" : "minus"} />
-						)}
-					</span>
-					{reviewLabel}
-				</button>
-				<div className={styles.fileMeta}>
-					<ChangeTypeBadge type={p.item.fileDiff.type} />
-					{p.lineStats && (
-						<DiffStats added={p.lineStats.linesAdded} removed={p.lineStats.linesRemoved} />
-					)}
-				</div>
 
-				<Toolbar.Root aria-label="File actions" className={styles.fileHeaderActions}>
-					<Toolbar.Button
-						aria-label="File menu"
-						onClick={(event) => {
-							void showNativeMenuFromTrigger(event.currentTarget, menuItems);
-						}}
-						className={getButtonClassName({ size: "small", variant: "ghost", iconOnly: true })}
-					>
-						<Icon name="kebab" />
-					</Toolbar.Button>
-				</Toolbar.Root>
+					<Toolbar.Root aria-label="File actions" className={styles.fileHeaderActions}>
+						<Toolbar.Separator className={styles.fileHeaderSeparator} />
+						{/* One button carrying checkbox semantics, with the box drawn inside it,
+						    rather than a real Checkbox nested in a button or a label. Both of
+						    those leave two controls where the design has one, and Base UI's
+						    checkbox renders unfocusable inside a label. "Changed since you
+						    reviewed it" is the mixed state; the tooltip spells that out. */}
+						<Tooltip.Root>
+							<Tooltip.Trigger
+								render={
+									<Toolbar.Button
+										aria-pressed={
+											p.reviewState === "changed" ? "mixed" : p.reviewState === "reviewed"
+										}
+										className={classes(
+											getButtonClassName({ size: "small", variant: "ghost" }),
+											styles.fileReview,
+										)}
+										onClick={() => p.setReviewed(p.reviewState !== "reviewed")}
+									>
+										<span className={styles.fileReviewBox} aria-hidden="true">
+											{p.reviewState !== null && (
+												<Icon size={10} name={p.reviewState === "reviewed" ? "tick" : "minus"} />
+											)}
+										</span>
+										Reviewed
+									</Toolbar.Button>
+								}
+							/>
+							<Tooltip.Portal>
+								<Tooltip.Positioner sideOffset={4}>
+									<Tooltip.Popup render={<TooltipPopup />}>{reviewLabel}</Tooltip.Popup>
+								</Tooltip.Positioner>
+							</Tooltip.Portal>
+						</Tooltip.Root>
+						<Toolbar.Button
+							aria-label="File menu"
+							onClick={(event) => {
+								void showNativeMenuFromTrigger(event.currentTarget, menuItems);
+							}}
+							className={getButtonClassName({ size: "small", variant: "ghost", iconOnly: true })}
+						>
+							<Icon name="kebab" />
+						</Toolbar.Button>
+					</Toolbar.Root>
+				</div>
 			</header>
 		</OperationSourceC>
 	);
@@ -2134,6 +2271,10 @@ const Diff: FC<{
 		preparedDiffFiles.length > 0 &&
 		preparedDiffFiles.every(({ change, version }) => reviewedFiles.get(change.path)?.has(version));
 
+	// Resolved once for the whole list rather than per row: a row would have to
+	// find its own version to answer this.
+	const reviewedFilePaths = reviewedPaths(preparedDiffFiles, reviewedFiles);
+
 	const toggleAllFilesReviewed = (): void => {
 		setManualCollapseByItem(new Map());
 		setFilesReviewed({
@@ -2334,6 +2475,7 @@ const Diff: FC<{
 										selection={filesSelection}
 										addressSpace={filesAddressSpace}
 										fileParent={fileParent}
+										reviewedPaths={reviewedFilePaths}
 										canUncommit={!isCommitUncommitChangesPending}
 										uncommit={uncommit}
 										emptyLabel={
@@ -2366,7 +2508,7 @@ const Diff: FC<{
 								disabled={preparedDiffFiles.length === 0}
 								onClick={toggleAllFilesReviewed}
 							>
-								{allFilesReviewed ? "Mark all unreviewed" : "Mark all reviewed"}
+								{allFilesReviewed ? "Mark all unviewed" : "Mark all viewed"}
 							</Toolbar.Button>
 							<ToggleGroupStyles>
 								<Toolbar.Button

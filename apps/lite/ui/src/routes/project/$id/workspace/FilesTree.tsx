@@ -50,6 +50,9 @@ import type { TreeChange } from "@gitbutler/but-sdk";
 import type { CSSProperties } from "react";
 import { FileRowTooltipRoot, type FileRowTooltipPayload } from "./FileRowTooltip.tsx";
 
+/** One identity for every tree that has no reviewed paths, so the default is stable. */
+const EMPTY_REVIEWED_PATHS: ReadonlySet<string> = new Set();
+
 const useFilesTreeHotkeys = ({
 	checkRow,
 	addressSpace,
@@ -368,6 +371,12 @@ export const FilesTree: FC<
 		fileParent: FileParent;
 		/** The scope this tree's hotkeys are bound to; also stamped on the tree element. */
 		focusScope: FocusScope;
+		/**
+		 * Paths whose diff, as it currently stands, has been reviewed. Those rows
+		 * report it in place of their change type. Empty where reviewing does not
+		 * apply, which hides the mark.
+		 */
+		reviewedPaths?: ReadonlySet<string>;
 		emptyLabel?: string;
 		/**
 		 * Timestamp the row age badges are measured against; `null` hides them.
@@ -388,6 +397,7 @@ export const FilesTree: FC<
 	addressSpace,
 	fileParent,
 	focusScope,
+	reviewedPaths = EMPTY_REVIEWED_PATHS,
 	emptyLabel = "No changes.",
 	ageBadgeNow = null,
 	ref: refProp,
@@ -715,6 +725,7 @@ export const FilesTree: FC<
 													isSelected={isSelected}
 													scrollSelectedIntoView={false}
 													isChecked={checkedAddressKeys.has(addressIdentityKey(address))}
+													isReviewed={item._tag === "Change" && reviewedPaths.has(item.change.path)}
 													onSelect={() => onRowSelection(row.path)}
 													canCheck={canCheck && item._tag === "Change"}
 													checkFile={checkFile}
@@ -741,6 +752,7 @@ export const FilesTree: FC<
 											isSelected={isSelected}
 											scrollSelectedIntoView={false}
 											isChecked={checkedAddressKeys.has(addressIdentityKey(address))}
+											isReviewed={item._tag === "Change" && reviewedPaths.has(item.change.path)}
 											onSelect={() => onRowSelection(row.path)}
 											canCheck={false}
 											checkFile={() => {}}

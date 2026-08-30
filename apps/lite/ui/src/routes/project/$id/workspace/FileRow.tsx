@@ -39,6 +39,8 @@ type FileRowProps = {
 	canUncommit: boolean;
 	uncommit?: (change: TreeChange, extendToCheckedFiles: boolean) => void;
 	isChecked: boolean;
+	/** Whether the diff on show has been reviewed; the row says so in place of its change type. */
+	isReviewed: boolean;
 	checkFile: (evt: { path: string; shiftKey: boolean }) => void;
 	/** How many directories this row sits inside. Zero in list mode. */
 	depth: number;
@@ -90,6 +92,7 @@ export const FileRowPresentational: FC<FileRowPresentationalProps> = ({
 	branchNameByCommitId,
 	canCheck,
 	isChecked,
+	isReviewed,
 	checkFile,
 	depth,
 	pathDisplay,
@@ -127,7 +130,11 @@ export const FileRowPresentational: FC<FileRowPresentationalProps> = ({
 	return (
 		<Row
 			{...restProps}
-			className={classes(restProps.className, isFresh && styles.freshChange)}
+			className={classes(
+				restProps.className,
+				isFresh && styles.freshChange,
+				isReviewed && styles.reviewedRow,
+			)}
 			isChecked={isChecked}
 			onShiftSelect={
 				!anyOperationPending && canCheck
@@ -249,10 +256,21 @@ export const FileRowPresentational: FC<FileRowPresentationalProps> = ({
 			{item._tag === "Change" && (
 				<Tooltip.Trigger
 					handle={tooltipHandle}
-					payload={{ content: item.change.status.type }}
+					payload={{ content: isReviewed ? "Reviewed" : item.change.status.type }}
 					// By default it's a button, but we don't want this to be
 					// interactive.
-					render={<FileStatusBadge status={item.change.status.type} />}
+					render={
+						isReviewed ? (
+							// The tick stands in for the change type rather than joining it: a
+							// reviewed file's news is that it is done with, and the type is a
+							// hover away.
+							<span aria-label="Reviewed" className={styles.reviewedMark}>
+								<Icon size={11} name="tick" />
+							</span>
+						) : (
+							<FileStatusBadge status={item.change.status.type} />
+						)
+					}
 				/>
 			)}
 		</Row>
