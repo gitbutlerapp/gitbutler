@@ -18,7 +18,7 @@ import { mergeProps, useRender } from "@base-ui/react";
 import { useQuery } from "@tanstack/react-query";
 import { type FC, type ReactNode, useEffect, useEffectEvent, useRef } from "react";
 import { createRoot } from "react-dom/client";
-import type { DragData } from "./DragData.ts";
+import { NO_DRAG_ATTRIBUTE, type DragData } from "./DragData.ts";
 import { Match } from "effect";
 
 export const DragPreview: FC<{ children: ReactNode }> = ({ children }) => (
@@ -90,7 +90,14 @@ export const OperationSourceC: FC<
 				},
 			});
 		});
-	const canDrag = useEffectEvent(() => pendingOperation._tag !== "InlineEdit");
+	const canDrag: Parameters<typeof draggable>[0]["canDrag"] = useEffectEvent(({ input }) => {
+		if (pendingOperation._tag === "InlineEdit") return false;
+
+		// Regions like the commit box own their pointer gestures (text selection, mostly), so a drag
+		// starting inside one must not become an operation drag.
+		const over = document.elementFromPoint(input.clientX, input.clientY);
+		return over?.closest(`[${NO_DRAG_ATTRIBUTE}]`) == null;
+	});
 	const onDragStart = useEffectEvent(() => {
 		const dragSources = resolveDragSources();
 
