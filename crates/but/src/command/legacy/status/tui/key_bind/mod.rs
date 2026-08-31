@@ -42,16 +42,9 @@ pub fn default_key_binds(feature_flags: &FeatureFlags) -> KeyBinds {
             ModeDiscriminant::Squash => {
                 builder.squash_confirm().register();
                 builder.squash_use_target_message().register();
-                builder
-                    .commit()
-                    .hide_from_hotbar()
-                    .long_description("Switch to commit mode")
-                    .register();
-                builder
-                    .move_mode()
-                    .hide_from_hotbar()
-                    .long_description("Switch to move mode")
-                    .register();
+                builder.switch_to_commit_mode().register();
+                builder.switch_to_move_mode().register();
+                builder.switch_to_branch_mode().register();
                 register_non_mode_specific_key_binds(&mut builder, WithFocusDetails::No);
             }
             ModeDiscriminant::Commit => {
@@ -60,21 +53,14 @@ pub fn default_key_binds(feature_flags: &FeatureFlags) -> KeyBinds {
                 builder.commit_reword_inline().register();
                 builder.commit_toggle_insert_side().register();
                 builder.commit_to_new_branch().register();
-                builder
-                    .squash()
-                    .hide_from_hotbar()
-                    .long_description("Switch to squash mode")
-                    .register();
+                builder.switch_to_squash_mode().register();
                 register_non_mode_specific_key_binds(&mut builder, WithFocusDetails::No);
             }
             ModeDiscriminant::Move => {
                 builder.move_confirm().register();
                 builder.move_toggle_insert_side().register();
-                builder
-                    .squash()
-                    .hide_from_hotbar()
-                    .long_description("Switch to squash mode")
-                    .register();
+                builder.switch_to_squash_mode().register();
+                builder.switch_to_branch_mode().register();
                 register_non_mode_specific_key_binds(&mut builder, WithFocusDetails::No);
             }
             ModeDiscriminant::Stack => {
@@ -103,6 +89,8 @@ pub fn default_key_binds(feature_flags: &FeatureFlags) -> KeyBinds {
                 builder.branch_toggle_insert_side().register();
                 builder.discard().register();
                 builder.mark().register();
+                builder.switch_to_squash_mode().register();
+                builder.switch_to_move_mode().register();
                 register_non_mode_specific_key_binds(&mut builder, WithFocusDetails::No);
             }
             ModeDiscriminant::Details => {
@@ -456,6 +444,7 @@ impl KeyBindsBuilder<'_> {
             modes: self.modes.clone(),
             make_message,
             hide_from_hotbar: false,
+            hide_from_help: false,
             show_only_in_normal_mode_help_section: false,
             always_show_in_hot_bar: false,
             condition: None,
@@ -563,6 +552,7 @@ impl KeyBindsBuilder<'_> {
         self.key_bind("confirm", press().code(KeyCode::Enter), || {
             Message::Jump(JumpMessage::Confirm)
         })
+        .hide_from_help()
     }
 
     fn toggle_details(&mut self) -> KeyBindsInModesBuilder<'_> {
@@ -703,7 +693,7 @@ impl KeyBindsBuilder<'_> {
         self.key_bind("confirm", press().code(KeyCode::Enter), || {
             Message::Squash(SquashMessage::Confirm)
         })
-        .long_description("Squash target into selection")
+        .hide_from_help()
     }
 
     fn commit(&mut self) -> KeyBindsInModesBuilder<'_> {
@@ -886,18 +876,21 @@ impl KeyBindsBuilder<'_> {
         self.key_bind("confirm", press().code(KeyCode::Enter), || {
             Message::Reword(RewordMessage::InlineConfirm)
         })
+        .hide_from_help()
     }
 
     fn command_confirm(&mut self) -> KeyBindsInModesBuilder<'_> {
         self.key_bind("run command", press().code(KeyCode::Enter), || {
             Message::Command(CommandMessage::Confirm)
         })
+        .hide_from_help()
     }
 
     fn commit_confirm(&mut self) -> KeyBindsInModesBuilder<'_> {
         self.key_bind("confirm", press().code(KeyCode::Enter), || {
             Message::Commit(CommitMessage::Confirm)
         })
+        .hide_from_help()
     }
 
     fn commit_toggle_insert_side(&mut self) -> KeyBindsInModesBuilder<'_> {
@@ -938,6 +931,7 @@ impl KeyBindsBuilder<'_> {
         self.key_bind("confirm", press().code(KeyCode::Enter), || {
             Message::Move(MoveMessage::Confirm)
         })
+        .hide_from_help()
     }
 
     fn apply(&mut self) -> KeyBindsInModesBuilder<'_> {
@@ -965,6 +959,7 @@ impl KeyBindsBuilder<'_> {
         self.key_bind("confirm", press().code(KeyCode::Enter), || {
             Message::Stack(StackMessage::MoveConfirm)
         })
+        .hide_from_help()
     }
 
     fn cherry_pick(&mut self) -> KeyBindsInModesBuilder<'_> {
@@ -978,6 +973,7 @@ impl KeyBindsBuilder<'_> {
         self.key_bind("confirm", press().code(KeyCode::Enter), || {
             Message::CherryPick(CherryPickMessage::Confirm)
         })
+        .hide_from_help()
     }
 
     fn cherry_pick_toggle_insert_side(&mut self) -> KeyBindsInModesBuilder<'_> {
@@ -1137,6 +1133,22 @@ impl KeyBindsBuilder<'_> {
             || Message::Details(DetailsMessage::GotoBottom),
         )
     }
+
+    fn switch_to_commit_mode(&mut self) -> KeyBindsInModesBuilder<'_> {
+        self.commit().hide_from_help().hide_from_hotbar()
+    }
+
+    fn switch_to_move_mode(&mut self) -> KeyBindsInModesBuilder<'_> {
+        self.move_mode().hide_from_help().hide_from_hotbar()
+    }
+
+    fn switch_to_squash_mode(&mut self) -> KeyBindsInModesBuilder<'_> {
+        self.squash().hide_from_help().hide_from_hotbar()
+    }
+
+    fn switch_to_branch_mode(&mut self) -> KeyBindsInModesBuilder<'_> {
+        self.branch().hide_from_help().hide_from_hotbar()
+    }
 }
 
 fn register_normal_mode_key_binds(builder: &mut KeyBindsBuilder<'_>, without_marks: bool) {
@@ -1256,6 +1268,7 @@ struct KeyBindsInModesBuilder<'a> {
     modes: Vec<ModeDiscriminant>,
     make_message: MakeMessage,
     hide_from_hotbar: bool,
+    hide_from_help: bool,
     show_only_in_normal_mode_help_section: bool,
     always_show_in_hot_bar: bool,
     condition: Option<KeyBindCondition>,
@@ -1264,6 +1277,11 @@ struct KeyBindsInModesBuilder<'a> {
 impl KeyBindsInModesBuilder<'_> {
     fn hide_from_hotbar(mut self) -> Self {
         self.hide_from_hotbar = true;
+        self
+    }
+
+    fn hide_from_help(mut self) -> Self {
+        self.hide_from_help = true;
         self
     }
 
@@ -1310,6 +1328,7 @@ impl KeyBindsInModesBuilder<'_> {
             modes,
             make_message,
             hide_from_hotbar,
+            hide_from_help,
             show_only_in_normal_mode_help_section,
             always_show_in_hot_bar,
             condition,
@@ -1323,6 +1342,7 @@ impl KeyBindsInModesBuilder<'_> {
             modes,
             make_message,
             hide_from_hotbar,
+            hide_from_help,
             show_only_in_normal_mode_help_section,
             always_show_in_hot_bar,
             condition,
@@ -1339,6 +1359,7 @@ pub struct KeyBind {
     modes: Vec<ModeDiscriminant>,
     make_message: MakeMessage,
     hide_from_hotbar: bool,
+    hide_from_help: bool,
     show_only_in_normal_mode_help_section: bool,
     always_show_in_hot_bar: bool,
     condition: Option<KeyBindCondition>,
@@ -1371,6 +1392,10 @@ impl KeyBind {
 
     pub fn hide_from_hotbar(&self) -> bool {
         self.hide_from_hotbar
+    }
+
+    pub fn hide_from_help(&self) -> bool {
+        self.hide_from_help
     }
 
     pub fn always_show_in_hot_bar(&self) -> bool {

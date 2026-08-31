@@ -284,3 +284,29 @@ fn moving_multiple_commits() {
     tui.input(KeyCode::Enter)
         .assert_rendered_term_svg_eq(file!["snapshots/moving_multiple_commits_005.svg"]);
 }
+
+#[test]
+fn switch_from_move_mode_to_branch_mode() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["A"]);
+
+    let mut tui = test_status_tui(env);
+
+    tui.input('j');
+    tui.input('m').assert_rendered_term_svg_eq(file![
+        "snapshots/switch_from_move_mode_to_branch_mode_001.svg"
+    ]);
+    tui.input('b').assert_rendered_term_svg_eq(file![
+        "snapshots/switch_from_move_mode_to_branch_mode_002.svg"
+    ]);
+    tui.input(KeyCode::Esc);
+
+    tui.input('j');
+    tui.input('m').assert_rendered_term_svg_eq(file![
+        "snapshots/switch_from_move_mode_to_branch_mode_003.svg"
+    ]);
+    tui.input('b').assert_rendered_term_svg_eq(file![
+        "snapshots/switch_from_move_mode_to_branch_mode_004.svg"
+    ]);
+    tui.input(KeyCode::Esc);
+}
