@@ -151,7 +151,8 @@ impl MoveSource {
         match id {
             CliId::Branch(branch) => Some(Self::Branch(branch.clone())),
             CliId::Commit { commit, .. } => Some(Self::Commit(commit.clone())),
-            CliId::UncommittedHunkOrFile(..)
+            CliId::AnonymousSegment(..)
+            | CliId::UncommittedHunkOrFile(..)
             | CliId::PathPrefix { .. }
             | CliId::CommittedFile { .. }
             | CliId::CommittedHunk { .. }

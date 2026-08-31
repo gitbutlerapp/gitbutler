@@ -104,6 +104,9 @@ fn resolve(
                     bad_input("--target cannot be an empty branch").into()
                 }
                 ResolveTargetError::NotFound => bad_input("target not found").hint(hint).into(),
+                ResolveTargetError::AnonymousSegment(id) => {
+                    crate::args::atoms::anonymous_segment_error(&id)
+                }
                 ResolveTargetError::UseTargetMessageUnavailable
                 | ResolveTargetError::UseSourceMessageUnavailable
                 | ResolveTargetError::NoMessageUnavailable

@@ -124,6 +124,7 @@ fn jump_id_has_prefix(line: &StatusOutputLine, query: &str) -> bool {
         | CliId::Worktree { id, .. }
         | CliId::Stack { id, .. } => id.starts_with(query),
         CliId::Branch(branch) => branch.id.starts_with(query),
+        CliId::AnonymousSegment(segment) => segment.id.starts_with(query),
         CliId::CommittedHunk(..) => false,
     }
 }

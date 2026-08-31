@@ -854,6 +854,9 @@ fn resolve_sources(
             ResolvedCliIdArg::Branch(branch) => {
                 branch_sources.push(branch.resolve_local_branch_name()?);
             }
+            ResolvedCliIdArg::AnonymousSegment(segment) => {
+                return Err(crate::args::atoms::anonymous_segment_error(&segment.id));
+            }
             resolved => {
                 return Err(bad_input(format!("Cannot pass {resolved} as source"))
                     .arg_value(source_str)

@@ -145,7 +145,8 @@ fn uncommitted_source(cli_ids: &[Arc<CliId>]) -> CommitSource {
             CliId::UncommittedHunkOrFile(uncommitted) => {
                 CommitSource::UncommittedHunk(uncommitted.clone())
             }
-            CliId::Uncommitted { .. }
+            CliId::AnonymousSegment(..)
+            | CliId::Uncommitted { .. }
             | CliId::PathPrefix { .. }
             | CliId::CommittedFile { .. }
             | CliId::CommittedHunk { .. }

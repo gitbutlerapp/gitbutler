@@ -74,6 +74,12 @@ fn line_id(id: &CliId) -> Option<String> {
             format!("hunk:{}", hunk.hunks.head.hunk.path)
         }
         CliId::Branch(branch) => format!("branch:{}", branch.name),
+        CliId::AnonymousSegment(segment) => format!(
+            "anonymous:{}",
+            segment
+                .anchor_commit_id
+                .map_or_else(|| segment.id.clone(), |id| id.to_string())
+        ),
         CliId::CommittedFile {
             committed_file:
                 CommittedFileId {

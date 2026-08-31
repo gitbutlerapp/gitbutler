@@ -1,8 +1,10 @@
 use anyhow::{Result, bail};
 use bstr::{BString, ByteSlice};
 use but_api::diff::ComputeLineStats;
-use but_core::{DryRun, sync::RepoExclusive};
+use but_core::{DryRun, ref_metadata::StackId, sync::RepoExclusive};
 use but_ctx::Context;
+use but_workspace::branch::create_reference::{Anchor, Position};
+use gitbutler_oplog::entry::{OperationKind, SnapshotDetails};
 
 use super::{
     ShowDiffInEditor,
@@ -42,18 +44,43 @@ pub(crate) fn reword_target(
         let repo = ctx.repo.get()?;
         target.resolve_in_workspace(&repo, &id_map, Purpose::Target, None)?
     };
-
-    match target.into_branch_or_commit()? {
-        BranchOrCommit::Branch(BranchArg(name)) => {
+    let target = match target {
+        crate::args::atoms::ResolvedCliIdArg::AnonymousSegment(segment) => {
             if format {
-                return Err(anyhow::anyhow!(
-                    "--fix-formatting flag can only be used with commits, not branches"
+                return Err(bad_input(
+                    "--fix-formatting flag can only be used with commits, not anonymous branches",
                 )
                 .into());
             }
             if !matches!(show_diff_in_editor, ShowDiffInEditor::Unspecified) {
-                return Err(anyhow::anyhow!(
-                    "--diff and --no-diff flags can only be used with commits, not branches"
+                return Err(bad_input(
+                    "--diff and --no-diff flags can only be used with commits, not anonymous branches"
+                )
+                .into());
+            }
+            create_branch_for_anonymous_segment(
+                ctx,
+                out,
+                segment,
+                message,
+                guard.write_permission(),
+            )?;
+            return Ok(());
+        }
+        target => target,
+    };
+
+    match target.into_branch_or_commit()? {
+        BranchOrCommit::Branch(BranchArg(name)) => {
+            if format {
+                return Err(bad_input(
+                    "--fix-formatting flag can only be used with commits, not branches",
+                )
+                .into());
+            }
+            if !matches!(show_diff_in_editor, ShowDiffInEditor::Unspecified) {
+                return Err(bad_input(
+                    "--diff and --no-diff flags can only be used with commits, not branches",
                 )
                 .into());
             }
@@ -76,6 +103,58 @@ pub(crate) fn reword_target(
         }
     }
 
+    Ok(())
+}
+
+fn create_branch_for_anonymous_segment(
+    ctx: &mut Context,
+    out: &mut OutputChannel,
+    segment: crate::id::AnonymousSegmentId,
+    message: Option<&str>,
+    perm: &mut RepoExclusive,
+) -> CliResult<()> {
+    let non_validated_new_name = prepare_provided_message(message, "branch name")
+        .unwrap_or_else(|| get_branch_name_from_editor(""))?;
+    let new_ref = {
+        let (repo, ws, _db) = ctx.workspace_and_db_with_perm(perm.read_permission())?;
+        BranchArg(non_validated_new_name).resolve_for_creation(&repo, &ws)?
+    };
+
+    let cli_id = segment.id;
+    let anchor_commit_id = segment.anchor_commit_id.ok_or_else(|| {
+        bad_input(format!(
+            "Cannot name anonymous branch '{cli_id}' because it has no anchor commit"
+        ))
+    })?;
+    let snapshot_details = SnapshotDetails::new(OperationKind::CreateBranch);
+    let mut meta = ctx.meta()?;
+    let (new_ref, _ws) = but_transaction::with_transaction_with_perm(
+        ctx,
+        &mut meta,
+        perm,
+        snapshot_details,
+        DryRun::No,
+        |mut tx| {
+            tx.create_reference(
+                new_ref.as_ref(),
+                Anchor::AtCommit {
+                    commit_id: anchor_commit_id,
+                    position: Position::Above,
+                },
+                |_| StackId::generate(),
+                Some(0),
+            )?;
+            Ok(but_transaction::Commit(new_ref))
+        },
+    )?;
+
+    if let Some(out) = out.for_human() {
+        writeln!(
+            out,
+            "Named anonymous branch '{cli_id}' as '{}'",
+            new_ref.shorten()
+        )?;
+    }
     Ok(())
 }
 

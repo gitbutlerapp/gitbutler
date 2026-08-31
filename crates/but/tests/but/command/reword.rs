@@ -4,6 +4,85 @@ use snapbox::str;
 use crate::utils::Sandbox;
 
 #[test]
+fn names_an_anonymous_segment() {
+    let env =
+        Sandbox::init_scenario_with_target_and_default_settings("one-stack-anonymous-segment");
+    env.setup_metadata(&["A"]);
+    let anonymous_tip = env.invoke_git("rev-parse gitbutler/workspace^");
+
+    env.but("reword g0 -m recovered")
+        .assert()
+        .success()
+        .stderr_eq(str![])
+        .stdout_eq(str![[r#"
+Named anonymous branch 'g0' as 'recovered'
+
+"#]]);
+
+    assert_eq!(
+        env.invoke_git("rev-parse recovered"),
+        anonymous_tip,
+        "new branch reference names the anonymous segment tip"
+    );
+    env.but("status").assert().success().stdout_eq(str![[r#"
+╭┄ zz [uncommitted] (no changes)
+┊
+┊╭┄ re [recovered]
+┊●   sxu anonymous (no changes)
+┊│
+┊├┄ g0 [A]
+┊●   tpm add A
+├╯
+┊
+┴ 0dc3733 (common base) 2000-01-02 add M
+
+Hint: run `but help` for all commands
+
+"#]]);
+}
+
+#[test]
+fn rejects_naming_an_anonymous_segment_after_an_existing_branch() {
+    let env =
+        Sandbox::init_scenario_with_target_and_default_settings("one-stack-anonymous-segment");
+    env.setup_metadata(&["A"]);
+
+    env.but("reword g0 -m A")
+        .assert()
+        .failure()
+        .stdout_eq(str![])
+        .stderr_eq(str![[r#"
+Error: A branch named 'A' is already applied
+
+"#]]);
+}
+
+#[test]
+fn names_an_anonymous_segment_from_editor() {
+    let env =
+        Sandbox::init_scenario_with_target_and_default_settings("one-stack-anonymous-segment");
+    env.setup_metadata(&["A"]);
+    env.file(
+        "editor.sh",
+        "#!/usr/bin/env bash\nprintf 'from-editor\\n' > \"$1\"\n",
+    );
+
+    env.but("reword g0")
+        .env("GIT_EDITOR", "bash editor.sh")
+        .assert()
+        .success()
+        .stdout_eq(str![[r#"
+Named anonymous branch 'g0' as 'from-editor'
+
+"#]]);
+    assert_eq!(
+        env.invoke_git("rev-parse from-editor"),
+        env.invoke_git("rev-parse gitbutler/workspace^"),
+        "editor-provided name creates a reference at the segment tip"
+    );
+}
+
+#[test]
 fn reword_commit_with_message_flag() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
     snapbox::assert_data_eq!(

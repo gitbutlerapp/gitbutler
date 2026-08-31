@@ -1533,7 +1533,8 @@ mod tests {
                     ..
                 } => match &**cli_id {
                     CliId::UncommittedHunkOrFile(hunk) => Some(hunk.id.as_str()),
-                    CliId::PathPrefix { .. }
+                    CliId::AnonymousSegment(..)
+                    | CliId::PathPrefix { .. }
                     | CliId::CommittedFile { .. }
                     | CliId::CommittedHunk { .. }
                     | CliId::Branch(..)

@@ -697,7 +697,8 @@ impl App {
                     | Mode::Stack(..) => {}
                 }
             }
-            CliId::CommittedHunk(..)
+            CliId::AnonymousSegment(..)
+            | CliId::CommittedHunk(..)
             | CliId::PathPrefix { .. }
             | CliId::Stack { .. }
             | CliId::Worktree { .. } => {}

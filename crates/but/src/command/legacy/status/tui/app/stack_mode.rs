@@ -105,7 +105,8 @@ impl ReorderStackSource {
     pub fn matches(&self, id: &CliId) -> bool {
         match id {
             CliId::Branch(branch) => self.branch == *branch,
-            CliId::Stack { .. }
+            CliId::AnonymousSegment(..)
+            | CliId::Stack { .. }
             | CliId::UncommittedHunkOrFile(..)
             | CliId::PathPrefix { .. }
             | CliId::CommittedFile { .. }
@@ -241,7 +242,8 @@ fn stack_id_for_cli_id(cli_id: &CliId, status_lines: &[StatusOutputLine]) -> Opt
             id: _,
         } => other.commit_id == *commit_id,
         CliId::Commit { commit, id: _ } => other == commit,
-        CliId::UncommittedHunkOrFile(..)
+        CliId::AnonymousSegment(..)
+        | CliId::UncommittedHunkOrFile(..)
         | CliId::PathPrefix { .. }
         | CliId::Branch(..)
         | CliId::Uncommitted { .. }
@@ -257,7 +259,8 @@ fn stack_id_for_cli_id(cli_id: &CliId, status_lines: &[StatusOutputLine]) -> Opt
                     cli_id, stack_id, ..
                 } => match &**cli_id {
                     CliId::Commit { commit, id: _ } if commit_matches(commit) => *stack_id,
-                    CliId::UncommittedHunkOrFile(..)
+                    CliId::AnonymousSegment(..)
+                    | CliId::UncommittedHunkOrFile(..)
                     | CliId::PathPrefix { .. }
                     | CliId::CommittedFile { .. }
                     | CliId::CommittedHunk { .. }
@@ -287,6 +290,7 @@ fn stack_id_for_cli_id(cli_id: &CliId, status_lines: &[StatusOutputLine]) -> Opt
             })
         }
         CliId::Branch(branch) => branch.stack_id,
+        CliId::AnonymousSegment(segment) => segment.stack_id,
         CliId::Stack { stack_id, .. } => Some(*stack_id),
         CliId::UncommittedHunkOrFile(..)
         | CliId::PathPrefix { .. }
@@ -466,7 +470,8 @@ impl App {
                 };
                 (stack_id, &branch.name)
             }
-            CliId::UncommittedHunkOrFile(..)
+            CliId::AnonymousSegment(..)
+            | CliId::UncommittedHunkOrFile(..)
             | CliId::PathPrefix { .. }
             | CliId::CommittedFile { .. }
             | CliId::CommittedHunk { .. }
@@ -753,7 +758,8 @@ fn row_stack_ids(lines: &[StatusOutputLine]) -> Vec<Option<StackId>> {
                     stack_id
                 }
                 CliId::UncommittedHunkOrFile(..) | CliId::PathPrefix { .. } => current_stack_id,
-                CliId::Branch(..)
+                CliId::AnonymousSegment(..)
+                | CliId::Branch(..)
                 | CliId::Commit { .. }
                 | CliId::Uncommitted { .. }
                 | CliId::Worktree { .. }
@@ -802,6 +808,7 @@ fn row_stack_ids(lines: &[StatusOutputLine]) -> Vec<Option<StackId>> {
 fn stack_id_from_cli_id(cli_id: &CliId) -> Option<StackId> {
     match cli_id {
         CliId::Branch(branch) => branch.stack_id,
+        CliId::AnonymousSegment(segment) => segment.stack_id,
         CliId::Stack { stack_id, .. } => Some(*stack_id),
         CliId::UncommittedHunkOrFile(..)
         | CliId::PathPrefix { .. }

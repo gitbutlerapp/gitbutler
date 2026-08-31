@@ -13,6 +13,24 @@ use crate::{
     utils::{CommandExt, Sandbox},
 };
 
+#[test]
+fn rejects_unnamed_segment_as_source() {
+    let env =
+        Sandbox::init_scenario_with_target_and_default_settings("one-stack-anonymous-segment");
+    env.setup_metadata(&["A"]);
+
+    env.but("uncommit g0")
+        .assert()
+        .failure()
+        .stdout_eq(str![])
+        .stderr_eq(str![[r#"
+Error: Cannot operate on anonymous branch 'g0'
+
+Hint: Name it with `but reword g0` first! Note that the short ID is likely to change when the branch is named.
+
+"#]]);
+}
+
 /// Return the committed-file CLI id (e.g. `e8:nk`) for `file_path` in the commit
 /// at `commit_index` (newest-first) on `branch_name`.
 fn committed_file_id_in_commit(

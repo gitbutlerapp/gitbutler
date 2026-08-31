@@ -526,12 +526,13 @@ pub enum Subcommands {
     /// This will recreate the commit with the new message and then rebase any
     /// dependent commits on top of it.
     ///
-    /// You can also use `but reword <branch-id>` to rename the branch.
+    /// You can also use `but reword <branch-id>` to rename the branch, or
+    /// `but reword <anonymous-branch-id>` to give an anonymous branch a name.
     ///
     #[cfg(feature = "legacy")]
     #[cfg_attr(feature = "raw-clap-docs", clap(verbatim_doc_comment))]
     Reword {
-        /// Commit ID to edit the message for, or branch ID to rename
+        /// Commit ID to edit, branch ID to rename, or anonymous branch ID to name
         target: CliIdArg,
         /// The new commit message or branch name. If not provided, opens an editor.
         #[clap(short = 'm', long = "message", conflicts_with = "fix_formatting")]

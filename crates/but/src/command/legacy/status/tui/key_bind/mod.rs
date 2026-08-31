@@ -1587,7 +1587,8 @@ impl KeyBindCondition {
                 };
                 match selection {
                     CliId::UncommittedHunkOrFile(..) | CliId::Uncommitted { .. } => true,
-                    CliId::PathPrefix { .. }
+                    CliId::AnonymousSegment(..)
+                    | CliId::PathPrefix { .. }
                     | CliId::CommittedFile { .. }
                     | CliId::CommittedHunk { .. }
                     | CliId::Branch(..)

@@ -158,7 +158,8 @@ impl App {
 
                     let source = match &**selection {
                         CliId::Commit { commit, .. } => CherryPickSource::Commit(commit.clone()),
-                        CliId::UncommittedHunkOrFile(..)
+                        CliId::AnonymousSegment(..)
+                        | CliId::UncommittedHunkOrFile(..)
                         | CliId::PathPrefix { .. }
                         | CliId::CommittedFile { .. }
                         | CliId::CommittedHunk { .. }
@@ -244,7 +245,8 @@ impl App {
                     }))
                 }
 
-                CliId::UncommittedHunkOrFile(..)
+                CliId::AnonymousSegment(..)
+                | CliId::UncommittedHunkOrFile(..)
                 | CliId::PathPrefix { .. }
                 | CliId::CommittedFile { .. }
                 | CliId::CommittedHunk(..)
@@ -273,7 +275,8 @@ impl App {
                     order_commits_by_parentage: true,
                 }))
             }
-            CliId::Commit { .. }
+            CliId::AnonymousSegment(..)
+            | CliId::Commit { .. }
             | CliId::UncommittedHunkOrFile(..)
             | CliId::PathPrefix { .. }
             | CliId::CommittedFile { .. }

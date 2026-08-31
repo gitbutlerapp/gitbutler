@@ -289,6 +289,9 @@ fn resolve(repo: &gix::Repository, id_map: &IdMap, args: Platform) -> CliResult<
         let value = change.to_string();
         match change.resolve_in_workspace(repo, id_map, Purpose::Source, None)? {
             ResolvedCliIdArg::Branch(branch) => branch_sources.push(branch),
+            ResolvedCliIdArg::AnonymousSegment(segment) => {
+                return Err(crate::args::atoms::anonymous_segment_error(&segment.id));
+            }
             ResolvedCliIdArg::Commit(commit) => commit_sources.push(commit),
             ResolvedCliIdArg::CommittedFile(committed_file) => {
                 committed_file_sources.push(committed_file)

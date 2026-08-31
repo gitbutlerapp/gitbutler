@@ -1352,7 +1352,8 @@ fn open_tui_on_uncommitted_hunk(show_diff: bool) -> TestTui<App> {
             .into_iter()
             .find_map(|cli_id| match cli_id {
                 CliId::UncommittedHunkOrFile(file) if file.is_entire_file => Some(file),
-                CliId::UncommittedHunkOrFile(..)
+                CliId::AnonymousSegment(..)
+                | CliId::UncommittedHunkOrFile(..)
                 | CliId::PathPrefix { .. }
                 | CliId::CommittedFile { .. }
                 | CliId::CommittedHunk { .. }

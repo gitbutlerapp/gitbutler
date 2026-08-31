@@ -7,7 +7,10 @@ use crate::{
     CliError, CliId, CliResult, IdMap,
     args::atoms::BranchArg,
     bad_input,
-    id::{CommitId, CommitIdRef, CommittedFileId, CommittedHunk, IdAndHunk, UncommittedHunkOrFile},
+    id::{
+        AnonymousSegmentId, CommitId, CommitIdRef, CommittedFileId, CommittedHunk, IdAndHunk,
+        UncommittedHunkOrFile,
+    },
     theme,
     utils::change_source::ChangeSourceId,
 };
@@ -86,6 +89,7 @@ impl CliIdArg {
         };
         Ok(Some(match id {
             CliId::Branch(branch) => ResolvedCliIdArg::Branch(BranchArg(branch.name)),
+            CliId::AnonymousSegment(segment) => ResolvedCliIdArg::AnonymousSegment(segment),
             CliId::Commit { commit, .. } => ResolvedCliIdArg::Commit(commit),
             CliId::UncommittedHunkOrFile(uncommitted) => {
                 ResolvedCliIdArg::UncommittedHunkOrFile(Box::new(uncommitted))
@@ -185,6 +189,7 @@ impl CliIdArg {
         };
         match id {
             CliId::Branch(branch) => Ok(Some(BranchArg(branch.name))),
+            CliId::AnonymousSegment(segment) => Err(anonymous_segment_error(&segment.id)),
             _ => Ok(None),
         }
     }
@@ -346,6 +351,7 @@ impl CliIdArg {
     fn wrong_kind_error(&self, id: &CliId, expected: &'static str) -> CliError {
         let kind = match id {
             CliId::Branch(..) => "a branch",
+            CliId::AnonymousSegment(..) => "an anonymous branch",
             CliId::Commit { .. } => "a commit",
             CliId::UncommittedHunkOrFile(..) => "an uncommitted change",
             CliId::PathPrefix { .. } => "a path",
@@ -357,6 +363,14 @@ impl CliIdArg {
         };
         bad_input(format!("Invalid {expected}. '{self}' is {kind}")).into()
     }
+}
+
+pub(crate) fn anonymous_segment_error(id: &str) -> CliError {
+    bad_input(format!("Cannot operate on anonymous branch '{id}'"))
+        .hint(format!(
+            "Name it with `but reword {id}` first! Note that the short ID is likely to change when the branch is named."
+        ))
+        .into()
 }
 
 /// Which kinds of objects id resolution should prioritize in the event of ambiguity.
@@ -414,6 +428,7 @@ fn try_resolve_cli_id(
                 | CliId::CommittedHunk { .. }
                 | CliId::Uncommitted { .. }
                 | CliId::Worktree { .. }
+                | CliId::AnonymousSegment(..)
                 | CliId::Stack { .. } => {}
             }
         }
@@ -493,6 +508,7 @@ impl std::fmt::Display for Purpose {
 pub enum ResolvedCliIdArg {
     Commit(CommitId),
     Branch(BranchArg),
+    AnonymousSegment(AnonymousSegmentId),
     UncommittedHunkOrFile(Box<UncommittedHunkOrFile>),
     CommittedFile(CommittedFileId),
     CommittedHunk(Box<CommittedHunk>),
@@ -517,6 +533,9 @@ impl ResolvedCliIdArg {
                 return Ok(BranchOrCommit::Commit(commit));
             }
             ResolvedCliIdArg::Branch(branch) => return Ok(BranchOrCommit::Branch(branch)),
+            ResolvedCliIdArg::AnonymousSegment(segment) => {
+                return Err(anonymous_segment_error(&segment.id));
+            }
             other => other.kind_for_humans(),
         };
         Err(bad_input(format!("Expected a commit or a branch, got {kind}")).into())
@@ -526,6 +545,9 @@ impl ResolvedCliIdArg {
     pub fn into_branch_or_stack(self) -> CliResult<BranchOrStack> {
         let kind = match self {
             ResolvedCliIdArg::Branch(branch) => return Ok(BranchOrStack::Branch(branch)),
+            ResolvedCliIdArg::AnonymousSegment(segment) => {
+                return Err(anonymous_segment_error(&segment.id));
+            }
             ResolvedCliIdArg::Stack { id, stack_id } => {
                 return Ok(BranchOrStack::Stack { id, stack_id });
             }
@@ -542,6 +564,7 @@ impl ResolvedCliIdArg {
             ResolvedCliIdArg::CommittedFile { .. } => "a committed file",
             ResolvedCliIdArg::CommittedHunk { .. } => "a committed hunk",
             ResolvedCliIdArg::Branch { .. } => "a branch",
+            ResolvedCliIdArg::AnonymousSegment { .. } => "an anonymous branch",
             ResolvedCliIdArg::Commit { .. } => "a commit",
             ResolvedCliIdArg::Uncommitted => "uncommitted changes",
             ResolvedCliIdArg::Worktree(..) => "a worktree",
@@ -554,6 +577,9 @@ impl ResolvedCliIdArg {
         match self {
             ResolvedCliIdArg::Commit(commit) => ResolvedCliIdArgRef::Commit(commit.as_ref()),
             ResolvedCliIdArg::Branch(branch_arg) => ResolvedCliIdArgRef::Branch(&branch_arg.0),
+            ResolvedCliIdArg::AnonymousSegment(segment) => {
+                ResolvedCliIdArgRef::AnonymousSegment(segment)
+            }
             ResolvedCliIdArg::UncommittedHunkOrFile(hunk) => {
                 ResolvedCliIdArgRef::UncommittedHunkOrFile(hunk)
             }
@@ -592,6 +618,11 @@ impl PartialEq<CliId> for ResolvedCliIdArg {
             ResolvedCliIdArg::Branch(lhs) => {
                 if let CliId::Branch(rhs) = other {
                     return lhs.0 == rhs.name;
+                }
+            }
+            ResolvedCliIdArg::AnonymousSegment(lhs) => {
+                if let CliId::AnonymousSegment(rhs) = other {
+                    return lhs == rhs;
                 }
             }
             ResolvedCliIdArg::UncommittedHunkOrFile(lhs) => {
@@ -651,6 +682,9 @@ impl std::fmt::Display for ResolvedCliIdArg {
         match self {
             ResolvedCliIdArg::Commit(commit) => theme::Commit(commit.as_ref()).fmt(f),
             ResolvedCliIdArg::Branch(inner) => inner.fmt(f),
+            ResolvedCliIdArg::AnonymousSegment(segment) => {
+                write!(f, "anonymous branch {}", segment.id)
+            }
             ResolvedCliIdArg::UncommittedHunkOrFile(..) => f.write_str("uncommitted file or hunk"),
             ResolvedCliIdArg::PathPrefix { .. } => f.write_str("path"),
             ResolvedCliIdArg::CommittedFile(..) => f.write_str("committed file"),
@@ -668,6 +702,7 @@ impl std::fmt::Display for ResolvedCliIdArg {
 pub enum ResolvedCliIdArgRef<'a> {
     Commit(CommitIdRef<'a>),
     Branch(&'a str),
+    AnonymousSegment(&'a AnonymousSegmentId),
     UncommittedHunkOrFile(&'a UncommittedHunkOrFile),
     CommittedFile(&'a CommittedFileId),
     CommittedHunk(&'a CommittedHunk),

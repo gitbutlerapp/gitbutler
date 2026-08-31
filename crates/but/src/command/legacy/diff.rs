@@ -450,6 +450,9 @@ fn resolve(ctx: &Context, id_map: &IdMap, args: Platform) -> CliResult<DiffOpera
             let branch = branch.resolve_local_branch_name()?;
             Ok(DiffOperation::Branch { branch })
         }
+        ResolvedCliIdArg::AnonymousSegment(segment) => {
+            Err(crate::args::atoms::anonymous_segment_error(&segment.id))
+        }
         ResolvedCliIdArg::UncommittedHunkOrFile(hunk) => {
             Ok(DiffOperation::UncommittedHunkOrFile { hunk })
         }

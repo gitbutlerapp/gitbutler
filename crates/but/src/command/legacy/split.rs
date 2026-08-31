@@ -72,6 +72,9 @@ fn resolve(args: Platform, ctx: &Context, id_map: &IdMap) -> CliResult<MoveOpera
                 )?;
                 resolved_sources.push(committed_file);
             }
+            ResolvedCliIdArg::AnonymousSegment(segment) => {
+                return Err(crate::args::atoms::anonymous_segment_error(&segment.id));
+            }
             other @ (ResolvedCliIdArg::Commit(..)
             | ResolvedCliIdArg::CommittedHunk(..)
             | ResolvedCliIdArg::Branch(..)

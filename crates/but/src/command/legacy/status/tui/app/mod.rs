@@ -334,7 +334,8 @@ impl App {
             ResolvedCliIdArg::UncommittedHunkOrFile(hunk) if !hunk.is_entire_file => {
                 Some(CliId::UncommittedHunkOrFile((**hunk).clone()))
             }
-            ResolvedCliIdArg::Commit(..)
+            ResolvedCliIdArg::AnonymousSegment(..)
+            | ResolvedCliIdArg::Commit(..)
             | ResolvedCliIdArg::Branch(..)
             | ResolvedCliIdArg::UncommittedHunkOrFile(..)
             | ResolvedCliIdArg::CommittedFile(..)
@@ -1159,7 +1160,8 @@ impl App {
                                             CliId::UncommittedHunkOrFile(uncommitted) => {
                                                 Some(&uncommitted.hunks)
                                             }
-                                            CliId::PathPrefix { .. }
+                                            CliId::AnonymousSegment(..)
+                                            | CliId::PathPrefix { .. }
                                             | CliId::CommittedFile { .. }
                                             | CliId::CommittedHunk { .. }
                                             | CliId::Branch(..)
@@ -1207,7 +1209,8 @@ impl App {
                                 },
                             ));
                         }
-                        CliId::PathPrefix { .. }
+                        CliId::AnonymousSegment(..)
+                        | CliId::PathPrefix { .. }
                         | CliId::CommittedFile { .. }
                         | CliId::CommittedHunk { .. }
                         | CliId::Branch(..)
@@ -1592,7 +1595,8 @@ impl App {
                 uncommitted.hunks.first().hunk.path.to_str_lossy()
             }
             CliId::Worktree { name, .. } => name.to_str_lossy(),
-            CliId::CommittedHunk(..)
+            CliId::AnonymousSegment(..)
+            | CliId::CommittedHunk(..)
             | CliId::PathPrefix { .. }
             | CliId::Uncommitted { .. }
             | CliId::Stack { .. } => return Ok(()),
@@ -1646,7 +1650,8 @@ impl App {
             CliId::Worktree { id, name } => {
                 copy_selection_picker::worktree_picker(name.to_owned(), id.to_owned(), self.theme)
             }
-            CliId::CommittedHunk(..)
+            CliId::AnonymousSegment(..)
+            | CliId::CommittedHunk(..)
             | CliId::PathPrefix { .. }
             | CliId::Uncommitted { .. }
             | CliId::Stack { .. } => return Ok(()),
@@ -1682,7 +1687,8 @@ impl App {
                         committed_file: CommittedFileId { path, .. },
                         id: _,
                     } => Openable::try_from_relpath(&*ctx.repo.get()?, path.as_bstr()).map(Some),
-                    CliId::CommittedHunk(..)
+                    CliId::AnonymousSegment(..)
+                    | CliId::CommittedHunk(..)
                     | CliId::Commit { .. }
                     | CliId::Branch(_)
                     | CliId::PathPrefix { .. }

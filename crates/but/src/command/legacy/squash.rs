@@ -235,6 +235,9 @@ fn resolve_args(
                     ResolveTargetError::MessageUnavailable => {
                         bad_input("--message cannot be used when uncommitting").into()
                     }
+                    ResolveTargetError::AnonymousSegment(id) => {
+                        crate::args::atoms::anonymous_segment_error(&id)
+                    }
                     ResolveTargetError::InvalidTarget => bad_input(target_kind_hint)
                         .hint(CliIdArg::TARGET_MISSING_HINT)
                         .into(),
@@ -876,6 +879,9 @@ pub fn resolve_target(
 
             Ok(SquashTarget::Uncommitted)
         }
+        ResolvedCliIdArgRef::AnonymousSegment(segment) => {
+            Err(ResolveTargetError::AnonymousSegment(segment.id.clone()))
+        }
         ResolvedCliIdArgRef::UncommittedHunkOrFile(..)
         | ResolvedCliIdArgRef::CommittedFile { .. }
         | ResolvedCliIdArgRef::CommittedHunk { .. }
@@ -894,6 +900,7 @@ pub enum ResolveTargetError {
     NoMessageUnavailable,
     MessageUnavailable,
     InvalidTarget,
+    AnonymousSegment(String),
     Other(anyhow::Error),
 }
 
@@ -1071,6 +1078,9 @@ impl<'a> Squashable<'a> {
             ResolvedCliIdArgRef::Commit(commit) => return Ok(Self::Commit(commit.to_owned())),
             ResolvedCliIdArgRef::Branch(branch_name) => {
                 return Ok(Self::Branch(BranchArg(branch_name.to_owned())));
+            }
+            ResolvedCliIdArgRef::AnonymousSegment(segment) => {
+                return Err(crate::args::atoms::anonymous_segment_error(&segment.id));
             }
             ResolvedCliIdArgRef::UncommittedHunkOrFile(hunk) => {
                 return Ok(Self::UncommittedChange(

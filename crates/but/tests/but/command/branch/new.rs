@@ -3,6 +3,26 @@ use snapbox::str;
 use crate::utils::{CommandExt, Sandbox};
 
 #[test]
+fn rejects_unnamed_segment_as_anchor() {
+    let env =
+        Sandbox::init_scenario_with_target_and_default_settings("one-stack-anonymous-segment");
+    env.setup_metadata(&["A"]);
+
+    for command in ["branch new recovered -A g0", "branch new recovered -B g0"] {
+        env.but(command)
+            .assert()
+            .failure()
+            .stdout_eq(str![])
+            .stderr_eq(str![[r#"
+Error: Cannot operate on anonymous branch 'g0'
+
+Hint: Name it with `but reword g0` first! Note that the short ID is likely to change when the branch is named.
+
+"#]]);
+    }
+}
+
+#[test]
 fn outputs_branch_name() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
     snapbox::assert_data_eq!(

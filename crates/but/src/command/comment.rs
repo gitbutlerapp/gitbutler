@@ -285,6 +285,9 @@ fn resolve(ctx: &Context, args: Platform, perm: &RepoShared) -> CliResult<Commen
                     let value = commit.to_string();
                     match commit.resolve_in_workspace(&repo, &id_map, Purpose::Target, None)? {
                         ResolvedCliIdArg::Commit(commit) => Ok(commit.commit_id),
+                        ResolvedCliIdArg::AnonymousSegment(segment) => {
+                            Err(crate::args::atoms::anonymous_segment_error(&segment.id))
+                        }
                         _ => Err(bad_input("Only commits can be commented on")
                             .arg_name("--commit")
                             .arg_value(value)

@@ -86,7 +86,8 @@ impl Cursor {
     ) -> CliResult<Option<Self>> {
         let hint = "`TARGET` can be a commit, branch, committed file, uncommitted file, or uncommitted hunk";
         match &target {
-            ResolvedCliIdArg::Commit(..)
+            ResolvedCliIdArg::AnonymousSegment(..)
+            | ResolvedCliIdArg::Commit(..)
             | ResolvedCliIdArg::Branch(..)
             | ResolvedCliIdArg::Worktree(..)
             | ResolvedCliIdArg::Uncommitted
@@ -114,7 +115,8 @@ impl Cursor {
                 ResolvedCliIdArg::UncommittedHunkOrFile(hunk) if !hunk.is_entire_file => {
                     match &**cli_id {
                         CliId::UncommittedHunkOrFile(file) => hunk_is_child_of(file, hunk),
-                        CliId::PathPrefix { .. }
+                        CliId::AnonymousSegment(..)
+                        | CliId::PathPrefix { .. }
                         | CliId::CommittedFile { .. }
                         | CliId::CommittedHunk { .. }
                         | CliId::Branch(..)
@@ -124,7 +126,8 @@ impl Cursor {
                         | CliId::Stack { .. } => false,
                     }
                 }
-                ResolvedCliIdArg::Commit(..)
+                ResolvedCliIdArg::AnonymousSegment(..)
+                | ResolvedCliIdArg::Commit(..)
                 | ResolvedCliIdArg::Branch(..)
                 | ResolvedCliIdArg::UncommittedHunkOrFile(..)
                 | ResolvedCliIdArg::CommittedFile(..)
@@ -469,7 +472,8 @@ impl Cursor {
                     committed_file: CommittedFileId { commit_id, .. },
                     id: _,
                 }) => show_files.show_files_for(*commit_id),
-                Some(CliId::UncommittedHunkOrFile(..))
+                Some(CliId::AnonymousSegment(..))
+                | Some(CliId::UncommittedHunkOrFile(..))
                 | Some(CliId::PathPrefix { .. })
                 | Some(CliId::Branch(..))
                 | Some(CliId::Commit { .. })
@@ -1026,6 +1030,9 @@ pub(super) fn same_entity_for_reload(previous: &CliId, current: &CliId) -> bool 
             }
         }
         CliId::CommittedHunk(..) => false,
+        CliId::AnonymousSegment(previous) => {
+            matches!(current, CliId::AnonymousSegment(current) if previous == current)
+        }
         CliId::Branch(previous) => {
             if let CliId::Branch(current) = current {
                 previous == current
@@ -1102,7 +1109,8 @@ fn select_after_reload_for_cli_id(cli_id: &Arc<CliId>) -> SelectAfterReload {
             committed_file: CommittedFileId { commit_id, .. },
             id: _,
         } => SelectAfterReload::FirstFileInCommit(*commit_id),
-        CliId::CommittedHunk(..)
+        CliId::AnonymousSegment(..)
+        | CliId::CommittedHunk(..)
         | CliId::Uncommitted { .. }
         | CliId::UncommittedHunkOrFile(..)
         | CliId::PathPrefix { .. }
@@ -1373,7 +1381,8 @@ pub fn is_selectable_in_mode(
             if let Some(cli_id) = line.data.cli_id() {
                 match &**cli_id {
                     CliId::UncommittedHunkOrFile(..) | CliId::Uncommitted { .. } => true,
-                    CliId::PathPrefix { .. }
+                    CliId::AnonymousSegment(..)
+                    | CliId::PathPrefix { .. }
                     | CliId::CommittedFile { .. }
                     | CliId::CommittedHunk { .. }
                     | CliId::Branch(..)

@@ -205,6 +205,9 @@ fn resolve_source(
         ResolvedCliIdArg::UncommittedHunkOrFile(uncommitted) => {
             Ok(Openable::try_from_uncommitted(repo, &uncommitted)?)
         }
+        ResolvedCliIdArg::AnonymousSegment(segment) => {
+            Err(crate::args::atoms::anonymous_segment_error(&segment.id))
+        }
         resolved_id => Err(unexpected_source_kind(resolved_id)),
     }
 }
@@ -230,6 +233,9 @@ fn resolve_file_source(
                     unreachable!("entire-file source must resolve to one file")
                 }
             }
+        }
+        ResolvedCliIdArg::AnonymousSegment(segment) => {
+            Err(crate::args::atoms::anonymous_segment_error(&segment.id))
         }
         resolved_id => Err(unexpected_source_kind(resolved_id)),
     }
