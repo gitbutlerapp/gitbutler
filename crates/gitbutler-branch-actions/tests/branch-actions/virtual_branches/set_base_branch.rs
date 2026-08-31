@@ -30,10 +30,8 @@ fn uses_configured_committer_for_reflog() {
 
     std::fs::write(repo.path().join("feature.txt"), "feature").unwrap();
 
-    let repo = ctx.repo.get().unwrap();
-    let committer = repo.committer().transpose().unwrap().unwrap();
-    let expected_committer_identity = (committer.name.to_owned(), committer.email.to_owned());
-    drop(repo);
+    let expected_committer_identity =
+        ("gitbutler-test".into(), "gitbutler-test@example.com".into());
 
     let mut guard = ctx.exclusive_worktree_access();
     gitbutler_branch_actions::set_base_branch(
@@ -84,13 +82,20 @@ fn works_without_git_identity() {
             },
         )
         .unwrap();
-        let mut context_repo = ctx.repo.get_mut().unwrap();
-        context_repo.reload().unwrap();
-        assert!(
-            context_repo.committer().is_none(),
-            "the repository has no Git identity"
+        let fallback_committer_identity = {
+            let mut context_repo = ctx.repo.get_mut().unwrap();
+            context_repo.reload().unwrap();
+            let committer = context_repo.committer().transpose().unwrap().unwrap();
+            (committer.name.to_owned(), committer.email.to_owned())
+        };
+        assert_eq!(
+            fallback_committer_identity,
+            (
+                gitbutler_repo::GITBUTLER_COMMIT_AUTHOR_NAME.into(),
+                gitbutler_repo::GITBUTLER_COMMIT_AUTHOR_EMAIL.into(),
+            ),
+            "the context provides GitButler's fallback committer"
         );
-        drop(context_repo);
 
         let mut guard = ctx.exclusive_worktree_access();
         gitbutler_branch_actions::set_base_branch(
@@ -125,10 +130,7 @@ fn works_without_git_identity() {
                     "initialize workspace"
                 },
             ),
-            (
-                gitbutler_repo::GITBUTLER_COMMIT_AUTHOR_NAME.into(),
-                gitbutler_repo::GITBUTLER_COMMIT_AUTHOR_EMAIL.into(),
-            ),
+            fallback_committer_identity,
             "identity-free onboarding uses GitButler for its reflog"
         );
     }
