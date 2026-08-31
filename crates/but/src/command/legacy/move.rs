@@ -244,7 +244,7 @@ pub fn r#move(
 /// and [`MoveOperation::UnstackBranch`]) stay allowed: they re-anchor commits
 /// without changing their content, so upstream-integration detection still
 /// recognizes them.
-fn ensure_not_touching_merged_upstream(
+pub fn ensure_not_touching_merged_upstream(
     op: &MoveOperation,
     merged: &MergedUpstream,
 ) -> CliResult<()> {
@@ -628,7 +628,7 @@ fn resolve(
                 }
                 (
                     BranchTargetIsh::Workspace(target),
-                    ResolvedSources::CommittedChanges((source_commit, changes)),
+                    ResolvedSources::CommittedChanges(source_commit, changes),
                 ) => Ok(MoveOperation::ChangesRelativeTo(
                     MoveChangesRelativeToOperation {
                         source_commit,
@@ -640,7 +640,7 @@ fn resolve(
                 )),
                 (
                     BranchTargetIsh::WorktreeTip(name),
-                    ResolvedSources::CommittedChanges((source_commit, changes)),
+                    ResolvedSources::CommittedChanges(source_commit, changes),
                 ) => Ok(MoveOperation::ChangesRelativeTo(
                     MoveChangesRelativeToOperation {
                         source_commit,
@@ -650,7 +650,7 @@ fn resolve(
                 )),
                 (
                     BranchTargetIsh::Missing,
-                    ResolvedSources::CommittedChanges((source_commit, changes)),
+                    ResolvedSources::CommittedChanges(source_commit, changes),
                 ) => {
                     let branch_name =
                         BranchArg(branch.to_string()).resolve_for_creation(&repo, &ws)?;
@@ -679,7 +679,7 @@ fn resolve(
                     branch_name: None,
                 },
             )),
-            ResolvedSources::CommittedChanges((source_commit, changes)) => Ok(
+            ResolvedSources::CommittedChanges(source_commit, changes) => Ok(
                 MoveOperation::ChangesToNewBranch(MoveChangesToNewBranchOperation {
                     source_commit,
                     changes,
@@ -708,7 +708,7 @@ fn resolve(
                     branch_name: None,
                 },
             )),
-            ResolvedSources::CommittedChanges((source_commit, changes)) => Ok(
+            ResolvedSources::CommittedChanges(source_commit, changes) => Ok(
                 MoveOperation::ChangesToNewBranch(MoveChangesToNewBranchOperation {
                     source_commit,
                     changes,
@@ -798,7 +798,7 @@ fn create_move_above_or_below_op(
                 },
             ))
         }
-        ResolvedSources::CommittedChanges((source_commit, changes)) => Ok(
+        ResolvedSources::CommittedChanges(source_commit, changes) => Ok(
             MoveOperation::ChangesRelativeTo(MoveChangesRelativeToOperation {
                 changes,
                 source_commit,
@@ -815,7 +815,7 @@ enum ResolvedSources {
         /// order as the resolved commits - access by index!
         args: NonEmpty<CliIdArg>,
     },
-    CommittedChanges((CommitId, NonEmpty<DiffSpec>)),
+    CommittedChanges(CommitId, NonEmpty<DiffSpec>),
     Branch(FullName),
 }
 
@@ -899,7 +899,7 @@ fn resolve_sources(
             let changes = NonEmpty::from_vec(builder.into_diff_specs())
                 .expect("BUG: Cannot possibly not have any changes here");
 
-            Ok(ResolvedSources::CommittedChanges((source_commit, changes)))
+            Ok(ResolvedSources::CommittedChanges(source_commit, changes))
         }
         (None, None, Some(branches)) => {
             if !branches.tail.is_empty() {

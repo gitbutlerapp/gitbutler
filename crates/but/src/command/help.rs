@@ -165,6 +165,8 @@ fn print_grouped_with_truncation(
                 SubcommandDiscriminant::Squash => Group::EditingCommits,
                 #[cfg(feature = "legacy")]
                 SubcommandDiscriminant::Move => Group::EditingCommits,
+                #[cfg(feature = "legacy")]
+                SubcommandDiscriminant::Split => Group::EditingCommits,
 
                 #[cfg(feature = "legacy")]
                 SubcommandDiscriminant::Oplog => Group::OperationHistory,
@@ -389,6 +391,7 @@ Branching and Committing:
 Editing Commits:
   squash       Squash commits, branches, or changes
   move         Move commits and changes around
+  split        Split a commit in two
   absorb       Amends changes into the appropriate commits where they belong
   reword       Edit the commit message of the specified commit
   uncommit     Uncommit commits, branches, or committed files

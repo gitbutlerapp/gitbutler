@@ -285,6 +285,10 @@ pub enum Subcommands {
 
     #[cfg(feature = "legacy")]
     #[cfg_attr(feature = "raw-clap-docs", clap(verbatim_doc_comment))]
+    Split(split::Platform),
+
+    #[cfg(feature = "legacy")]
+    #[cfg_attr(feature = "raw-clap-docs", clap(verbatim_doc_comment))]
     #[clap(hide = true, name = "_reword2")]
     _Reword2(reword2::Platform),
 
@@ -1021,6 +1025,8 @@ pub mod redo;
 #[cfg(feature = "legacy")]
 pub mod reword2;
 pub mod skill;
+#[cfg(feature = "legacy")]
+pub mod split;
 #[cfg(feature = "legacy")]
 pub mod squash;
 #[cfg(feature = "legacy")]

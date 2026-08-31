@@ -13,6 +13,7 @@ pub enum CommandName {
     Amend,
     Squash,
     Move,
+    Split,
     Diff,
     Edit,
     Show,
