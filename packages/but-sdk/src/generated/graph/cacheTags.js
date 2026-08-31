@@ -46,6 +46,8 @@ export const apiInvalidates = {
 	addProject: ["Projects"],
 	addReviewLabels: ["Reviews"],
 	addReviewReaction: ["ReviewReactions"],
+	branchRemove: ["Branches", "Workspace"],
+	branchRename: ["Branches", "Workspace"],
 	createReviewComment: ["ReviewComments"],
 	deleteAllData: ["Projects"],
 	deleteProject: ["Projects"],

@@ -48,6 +48,8 @@ export declare const apiInvalidates: {
 	readonly addProject: readonly ["Projects"];
 	readonly addReviewLabels: readonly ["Reviews"];
 	readonly addReviewReaction: readonly ["ReviewReactions"];
+	readonly branchRemove: readonly ["Branches", "Workspace"];
+	readonly branchRename: readonly ["Branches", "Workspace"];
 	readonly createReviewComment: readonly ["ReviewComments"];
 	readonly deleteAllData: readonly ["Projects"];
 	readonly deleteProject: readonly ["Projects"];

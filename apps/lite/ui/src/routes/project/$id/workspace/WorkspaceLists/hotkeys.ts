@@ -133,7 +133,7 @@ export const useActiveListsHotkeys = ({
 	const { isPending: isWorkspaceIntegrateUpstreamPending, mutate: workspaceIntegrateUpstream } =
 		useWorkspaceIntegrateUpstream();
 	const { mutate: branchCreate } = useBranchCreate();
-	const { isPending: isBranchRemovePending, mutate: branchRemove } = useBranchRemove();
+	const { isPending: isBranchRemovePending, mutate: branchRemove } = useBranchRemove(projectId);
 
 	const openBranchPicker = () => {
 		dispatch(interfaceSlice.actions.openDialog({ dialog: { _tag: "BranchPicker" } }));
