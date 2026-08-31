@@ -755,6 +755,37 @@ pub async fn list_review_comments(
         .await
 }
 
+/// List the diff-anchored comment threads on a review, oldest first.
+#[but_api(napi, provides = [ReviewThreads])]
+#[instrument(err(Debug))]
+pub async fn list_review_threads(
+    ctx: ThreadSafeContext,
+    review_id: usize,
+) -> Result<Vec<but_forge::ForgeReviewThread>> {
+    let (storage, forge_repo_info, preferred_forge_user) = forge_endpoint_context(ctx)?;
+    but_forge::list_review_threads(&preferred_forge_user, &forge_repo_info, review_id, &storage)
+        .await
+}
+
+/// Reply into one of a review's diff-anchored comment threads.
+#[but_api(napi, invalidates = [ReviewThreads])]
+#[instrument(err(Debug))]
+pub async fn create_review_thread_reply(
+    ctx: ThreadSafeContext,
+    thread_id: String,
+    body: String,
+) -> Result<but_forge::ForgeReviewThreadComment> {
+    let (storage, forge_repo_info, preferred_forge_user) = forge_endpoint_context(ctx)?;
+    but_forge::create_review_thread_reply(
+        &preferred_forge_user,
+        &forge_repo_info,
+        &thread_id,
+        &body,
+        &storage,
+    )
+    .await
+}
+
 /// List the individual reactions (with who reacted) on a review itself.
 #[but_api(napi, provides = [ReviewReactions])]
 #[instrument(err(Debug))]

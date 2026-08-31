@@ -63,6 +63,8 @@ cache_tags! {
     ReviewTimeline,
     /// A forge review's submissions.
     ReviewSubmissions,
+    /// A forge review's diff-anchored comment threads.
+    ReviewThreads,
     /// Whether a forge review can merge.
     MergeStatus,
     /// CI check runs.

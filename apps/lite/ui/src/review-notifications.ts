@@ -10,6 +10,7 @@ import {
 	activityItems,
 	attentionOf,
 	itemMentions,
+	newestCommentId,
 	observeReviews,
 	seenLedger,
 	type ActivityLedger,
@@ -22,6 +23,7 @@ import {
 	headInfoQueryOptions,
 	listReviewCommentsQueryOptions,
 	listReviewSubmissionsQueryOptions,
+	listReviewThreadsQueryOptions,
 	listReviewTimelineEventsQueryOptions,
 	listReviewsQueryOptions,
 } from "#ui/api/queries.ts";
@@ -83,6 +85,8 @@ const entryOf = (
 			: new Date(newest.atMs).toISOString();
 	return {
 		id: `${review.number}:${kind}:${at}`,
+		// Where a click should land, when the entry is about comments.
+		commentId: newestCommentId(bucket),
 		kind,
 		review: review.number,
 		reviewTitle: review.title,
@@ -140,13 +144,17 @@ export const useReviewActivityInbox = (projectId: string): void => {
 		const reviewId = change.review.number;
 		// The client caches at staleTime Infinity; without an explicit 0 these
 		// would silently answer from cache and re-classify old items as new.
-		const [comments, submissions, events] = await Promise.all([
+		const [comments, submissions, threads, events] = await Promise.all([
 			client.fetchQuery({
 				...listReviewCommentsQueryOptions({ projectId, reviewId }),
 				staleTime: 0,
 			}),
 			client.fetchQuery({
 				...listReviewSubmissionsQueryOptions({ projectId, reviewId }),
+				staleTime: 0,
+			}),
+			client.fetchQuery({
+				...listReviewThreadsQueryOptions({ projectId, reviewId }),
 				staleTime: 0,
 			}),
 			// Mentions live in comment and verdict text, so a review outside
@@ -160,17 +168,19 @@ export const useReviewActivityInbox = (projectId: string): void => {
 		]);
 		// Outside the workspace only a mention is the user's business; on an
 		// applied branch anything short of silent lands in the inbox — the
-		// bell holds quiet facts like pushes that a toast never carried.
-		const items = activityItems(comments, submissions, events, change.sinceMs).filter((item) => {
-			const attention = attentionOf(item, login);
-			if (attention === "silent") return false;
-			if (!applied && !itemMentions(item, login)) return false;
-			// A request naming someone else, or a dismissed verdict, is
-			// bookkeeping rather than a message.
-			if (item.kind === "reviewRequested" && attention !== "loud") return false;
-			if (item.kind === "verdict" && item.state === "dismissed") return false;
-			return true;
-		});
+		// bell holds quiet facts like pushes alongside the loud ones.
+		const items = activityItems(comments, submissions, threads, events, change.sinceMs).filter(
+			(item) => {
+				const attention = attentionOf(item, login);
+				if (attention === "silent") return false;
+				if (!applied && !itemMentions(item, login)) return false;
+				// A request naming someone else, or a dismissed verdict, is
+				// bookkeeping rather than a message.
+				if (item.kind === "reviewRequested" && attention !== "loud") return false;
+				if (item.kind === "verdict" && item.state === "dismissed") return false;
+				return true;
+			},
+		);
 		const buckets = new Map<InboxKind, Array<ReviewActivityItem>>();
 		for (const item of items) {
 			const kind = inboxKindOf(item, login);

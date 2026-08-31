@@ -11,6 +11,7 @@ import type {
 	ForgeReviewComment,
 	ForgeReviewSubmission,
 	ForgeReviewSubmissionState,
+	ForgeReviewThread,
 	ForgeReviewTimelineEvent,
 } from "@gitbutler/but-sdk";
 
@@ -20,9 +21,10 @@ import type {
  * @public exported for the fabricated events in the test suite.
  */
 export type ReviewActivityItem =
-	| { kind: "comment"; author: string | null; body: string; atMs: number }
+	| { kind: "comment"; id: number; author: string | null; body: string; atMs: number }
 	| {
 			kind: "verdict";
+			id: number;
 			author: string | null;
 			state: ForgeReviewSubmissionState;
 			body: string | null;
@@ -73,6 +75,22 @@ export const attentionOf = (item: ReviewActivityItem, selfLogin: string | null):
 		case "committed":
 			return "quiet";
 	}
+};
+
+/**
+ * The card a notification should scroll to: the newest comment or verdict it
+ * is about. Null when the activity has no card of its own — a push or a
+ * review request lands nowhere in the conversation.
+ */
+export const newestCommentId = (loudItems: Array<ReviewActivityItem>): number | null => {
+	let newest: { id: number; atMs: number } | null = null;
+	for (const item of loudItems) {
+		// Comments and verdicts both render as anchored cards; the other
+		// kinds have no card of their own to land on.
+		if (item.kind !== "comment" && item.kind !== "verdict") continue;
+		if (newest === null || item.atMs > newest.atMs) newest = { id: item.id, atMs: item.atMs };
+	}
+	return newest?.id ?? null;
 };
 
 /** What the detector remembers about a review between polls. */
@@ -157,6 +175,7 @@ export const seenLedger = (
 export const activityItems = (
 	comments: Array<ForgeReviewComment>,
 	submissions: Array<ForgeReviewSubmission>,
+	threads: Array<ForgeReviewThread>,
 	events: Array<ForgeReviewTimelineEvent>,
 	sinceMs: number,
 ): Array<ReviewActivityItem> => {
@@ -166,10 +185,27 @@ export const activityItems = (
 		if (atMs > sinceMs) {
 			items.push({
 				kind: "comment",
+				id: comment.id,
 				author: comment.author?.login ?? null,
 				body: comment.body,
 				atMs,
 			});
+		}
+	}
+	// A comment on a diff line is a comment: same author, same loudness, and
+	// mentions are just as likely to be left there as in the conversation.
+	for (const thread of threads) {
+		for (const comment of thread.comments) {
+			const atMs = parseMs(comment.createdAt);
+			if (atMs > sinceMs) {
+				items.push({
+					kind: "comment",
+					id: comment.id,
+					author: comment.author?.login ?? null,
+					body: comment.body,
+					atMs,
+				});
+			}
 		}
 	}
 	for (const submission of submissions) {
@@ -177,6 +213,7 @@ export const activityItems = (
 		if (atMs > sinceMs) {
 			items.push({
 				kind: "verdict",
+				id: submission.id,
 				author: submission.author?.login ?? null,
 				state: submission.state,
 				body: submission.body,

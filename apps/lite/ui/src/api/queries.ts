@@ -312,6 +312,14 @@ export const listReviewSubmissionsQueryOptions = ({
 	});
 
 /** This query should be gated by PR capability lest it fail. */
+export const listReviewThreadsQueryOptions = ({ projectId, reviewId }: PayloadFor<"getReview">) =>
+	queryOptions({
+		queryKey: [projectId, "listReviewThreads", reviewId],
+		queryFn: () => window.lite.listReviewThreads({ projectId, reviewId }),
+		...forgePoll,
+	});
+
+/** This query should be gated by PR capability lest it fail. */
 export const listReviewTimelineEventsQueryOptions = ({
 	projectId,
 	reviewId,

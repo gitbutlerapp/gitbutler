@@ -45,6 +45,7 @@ export declare const apiParamNames: {
 	readonly commitUncommitChanges: readonly ["projectId", "commitId", "changes", "assignTo", "dryRun"];
 	readonly commitUncommitChangesFromCommits: readonly ["projectId", "sources", "assignTo", "dryRun"];
 	readonly createReviewComment: readonly ["projectId", "reviewId", "body"];
+	readonly createReviewThreadReply: readonly ["projectId", "threadId", "body"];
 	readonly currentForgeLogin: readonly ["projectId"];
 	readonly deleteAllData: readonly [];
 	readonly deleteProject: readonly ["projectId"];
@@ -97,6 +98,7 @@ export declare const apiParamNames: {
 	readonly listReviewComments: readonly ["projectId", "reviewId"];
 	readonly listReviewReactions: readonly ["projectId", "reviewId"];
 	readonly listReviewSubmissions: readonly ["projectId", "reviewId"];
+	readonly listReviewThreads: readonly ["projectId", "reviewId"];
 	readonly listReviewTimelineEvents: readonly ["projectId", "reviewId"];
 	readonly listReviewerCandidates: readonly ["projectId"];
 	readonly listReviews: readonly ["projectId", "cacheConfig"];

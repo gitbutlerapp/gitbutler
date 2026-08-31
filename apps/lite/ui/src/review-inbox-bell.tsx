@@ -25,7 +25,8 @@ import {
 } from "#ui/review-inbox.ts";
 import { usePrNotificationsLevel } from "#ui/review-seen.ts";
 import { store } from "#ui/store.ts";
-import { setCursor, setPage } from "#ui/use-cursor.ts";
+import { requestReviewFocus } from "#ui/review-focus.ts";
+import { setActiveList, setCursor, setPage } from "#ui/use-cursor.ts";
 import { Popover } from "@base-ui/react";
 import { useQuery } from "@tanstack/react-query";
 import { useState, type FC } from "react";
@@ -87,6 +88,10 @@ const Entry: FC<{
 			return;
 		}
 		setPage("workspace");
+		// The details pane follows the active list; with the uncommitted list
+		// driving it, the cursor and tab writes below would change nothing the
+		// reader can see.
+		setActiveList("applied");
 		setCursor("applied", branchAddress({ branchRef }));
 		store.dispatch(
 			projectSlice.actions.setSelectedBranchTab({
@@ -95,6 +100,9 @@ const Entry: FC<{
 				tab: "pr",
 			}),
 		);
+		// Landing on the comment is what makes the click worth it when the
+		// review is already on screen.
+		if (entry.commentId != null) requestReviewFocus(entry.review, entry.commentId);
 	};
 
 	return (

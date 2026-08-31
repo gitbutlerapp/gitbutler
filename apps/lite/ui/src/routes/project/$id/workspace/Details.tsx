@@ -30,6 +30,7 @@ import {
 	headInfoQueryOptions,
 	listEditorsQueryOptions,
 	listReviewsQueryOptions,
+	listReviewThreadsQueryOptions,
 	treeChangeDiffsQueryOptions,
 	workspaceFileQueryOptions,
 } from "#ui/api/queries.ts";
@@ -74,7 +75,10 @@ import { Icon } from "#ui/components/Icon.tsx";
 import { TooltipPopup } from "#ui/components/Tooltip.tsx";
 import { ToggleGroupStyles, ToggleStyles } from "#ui/components/ToggleGroup.tsx";
 import { OperationSourceC } from "#ui/routes/project/$id/workspace/OperationSourceC.tsx";
-import { PullRequestComments } from "#ui/routes/project/$id/workspace/PullRequestComments.tsx";
+import {
+	PullRequestComments,
+	ReviewTimeline,
+} from "#ui/routes/project/$id/workspace/PullRequestComments.tsx";
 import {
 	NewPullRequestPanel,
 	PullRequestPanel,
@@ -196,6 +200,13 @@ import { useHunkMenuItems } from "./useHunkMenuItems.ts";
 import { useRevealInFolder } from "./useRevealInFolder.ts";
 import { reviewedPaths } from "./reviewed-paths.ts";
 import { AnnotationCard } from "#ui/routes/project/$id/workspace/AnnotationCard.tsx";
+import { DiffThreadCard } from "#ui/routes/project/$id/workspace/DiffThreadCard.tsx";
+import {
+	type AnchoredThread,
+	threadsByPathForScope,
+	threadStillAnchored,
+	type ThreadsByPath,
+} from "#ui/review-threads.ts";
 import { ConflictBar } from "#ui/routes/project/$id/workspace/ConflictBar.tsx";
 import {
 	annotationSideToDiffSide,
@@ -241,6 +252,7 @@ export type DiffViewerHandle = CodeViewHandle<Annotation>;
 type PanelId = "files-panel" | "diff-panel";
 
 const EMPTY_ANNOTATIONS_BY_PATH: LocalAnnotationsByPath = new Map();
+const EMPTY_THREADS_BY_PATH: ThreadsByPath = new Map();
 const EMPTY_CONFLICTS: Array<ConflictedFile> = [];
 const EMPTY_MANUAL: Array<ManualConflict> = [];
 
@@ -297,6 +309,7 @@ const getCommitFileRowItems = ({
 const withAnnotations = (
 	diffView: DiffView,
 	annotationsByPath: LocalAnnotationsByPath,
+	threadsByPath: ThreadsByPath,
 ): DiffView => ({
 	...diffView,
 	items: diffView.items.map((item) => {
@@ -305,21 +318,33 @@ const withAnnotations = (
 		const file = diffView.fileByItemId.get(item.id);
 		if (!file) throw new Error("Diff view file not found by ID");
 
-		const persistedAnnotations = annotationsByPath.get(file.address.path);
-		if (!persistedAnnotations || persistedAnnotations.length === 0) return item;
+		const persistedAnnotations = annotationsByPath.get(file.address.path) ?? [];
+		const threads = threadsByPath.get(file.address.path) ?? [];
+		if (persistedAnnotations.length === 0 && threads.length === 0) return item;
 
-		const annotations: Array<DiffLineAnnotation<Annotation>> = persistedAnnotations.map(
-			({ id, lineNumber, side }) => ({
+		const annotations: Array<DiffLineAnnotation<Annotation>> = [
+			...persistedAnnotations.map(({ id, lineNumber, side }) => ({
 				lineNumber,
 				side,
-				metadata: { _tag: "local", id },
-			}),
-		);
+				metadata: { _tag: "local" as const, id },
+			})),
+			...threads.map(({ thread, lineNumber, side }) => ({
+				lineNumber,
+				side,
+				metadata: { _tag: "forge" as const, threadId: thread.id },
+			})),
+		];
 
 		// Annotations move when their backend anchor drifts, so the version must cover their
-		// positions and identities, not just their count.
+		// positions and identities, not just their count. A thread also carries its reply
+		// count, which is the one thing about it that changes in place.
 		const annoHash = hash(
-			persistedAnnotations.map((a) => `${a.id}:${a.side}:${a.lineNumber}`).join(),
+			[
+				...persistedAnnotations.map((a) => `${a.id}:${a.side}:${a.lineNumber}`),
+				...threads.map(
+					(t) => `${t.thread.id}:${t.side}:${t.lineNumber}:${t.thread.comments.length}`,
+				),
+			].join(),
 		);
 
 		const version = item.version;
@@ -398,6 +423,9 @@ const DiffContents: FC<{
 	projectId: string;
 	diffView: DiffView;
 	annotationsByPath: LocalAnnotationsByPath;
+	threadsByPath: ThreadsByPath;
+	/** The review those threads hang on, which is how a reply is cached. */
+	threadReviewId: number;
 	diffBackgrounds?: GUISettings["diffBackground"];
 	diffOverflow?: GUISettings["diffOverflow"];
 	diffStyle?: GUISettings["diffStyle"];
@@ -420,6 +448,8 @@ const DiffContents: FC<{
 	projectId,
 	diffView: { items, addressSpace, hunkByKey, fileByItemId, fileByPath },
 	annotationsByPath,
+	threadsByPath,
+	threadReviewId,
 	diffBackgrounds,
 	diffOverflow,
 	diffStyle,
@@ -1595,6 +1625,25 @@ const DiffContents: FC<{
 						);
 					}
 
+					if (anno.metadata._tag === "forge") {
+						const file = fileByItemId.get(item.id);
+						if (!file) return null;
+
+						const threadId = anno.metadata.threadId;
+						const anchored = (threadsByPath.get(file.address.path) ?? []).find(
+							({ thread }) => thread.id === threadId,
+						);
+						if (!anchored) return null;
+
+						return (
+							<DiffThreadCard
+								projectId={projectId}
+								reviewId={threadReviewId}
+								thread={anchored.thread}
+							/>
+						);
+					}
+
 					if (!isDiffAnnotation<Annotation>(anno)) return null;
 
 					const file = fileByItemId.get(item.id);
@@ -1734,6 +1783,7 @@ const DiffContents: FC<{
 					files={minimapFiles}
 					diffStyle={effectiveDiffStyle}
 					annotationsByPath={annotationsByPath}
+					threadsByPath={threadsByPath}
 					selection={minimapSelection}
 					searchMarks={searchMarks}
 				/>
@@ -2241,6 +2291,32 @@ const Diff: FC<{
 		? loadedAnnotationsByPath
 		: EMPTY_ANNOTATIONS_BY_PATH;
 
+	// The forge numbers its diff comments against the branch head, so they
+	// belong to the branch diff — `review-threads.ts` says why, and drops the
+	// ones this view cannot place.
+	const threadBranchName =
+		fileParent._tag === "Branch"
+			? branchDetailsParams(decodeBytes(fileParent.branchRef)).branchName
+			: null;
+	const { data: diffForgeInfo } = useQuery(forgeInfoOptions(projectId));
+	const { data: threadReview } = useQuery({
+		...listReviewsQueryOptions({ projectId, cacheConfig: "noCache" }),
+		enabled: threadBranchName !== null && diffForgeInfo?.capabilities.prService === true,
+		select: (reviews) => reviews.find((review) => review.sourceBranch === threadBranchName) ?? null,
+	});
+	const { data: threads } = useQuery({
+		...listReviewThreadsQueryOptions({ projectId, reviewId: threadReview?.number ?? 0 }),
+		enabled: threadReview != null,
+	});
+	// Grouped here rather than in `select`, which re-runs per render and would
+	// hand the minimap a new map every time — its paint loop compares by
+	// identity, so that would repaint the canvas on every scroll frame.
+	const threadsByPath = useMemo(
+		() =>
+			threads === undefined ? EMPTY_THREADS_BY_PATH : threadsByPathForScope(threads, fileParent),
+		[threads, fileParent],
+	);
+
 	// A directory row stands for the first file below it, so the diff has
 	// something to show while the cursor rests on a folder.
 	const activeFilePath =
@@ -2267,7 +2343,32 @@ const Diff: FC<{
 		[shownFileIndex, preparedDiffFiles],
 	);
 
-	const diffView = withAnnotations(diffViewSansAnno, annotationsByPath);
+	// The forge's line number is only as good as the diff it was left on: an
+	// amend or rebase it has not seen moves the code underneath. A thread
+	// whose quoted line no longer matches is dropped rather than hung on
+	// whatever now occupies that number — filtered once here, so every
+	// surface reading the map (the annotations, their cards, the minimap's
+	// pins) agrees on which threads exist.
+	const anchoredThreadsByPath = useMemo((): ThreadsByPath => {
+		if (threadsByPath.size === 0) return threadsByPath;
+		const anchored = new Map<string, Array<AnchoredThread>>();
+		for (const [path, threads] of threadsByPath) {
+			const file = diffViewSansAnno.fileByPath.get(path);
+			if (file === undefined) continue;
+			const kept = threads.filter(({ thread, lineNumber, side }) =>
+				threadStillAnchored(thread, lineNumber, side, file.item.fileDiff),
+			);
+			if (kept.length > 0) anchored.set(path, kept);
+		}
+		return anchored;
+	}, [threadsByPath, diffViewSansAnno]);
+
+	// Remapping every item hands identity-compared consumers a fresh tree;
+	// memoized like its inputs so an unrelated render costs nothing.
+	const diffView = useMemo(
+		() => withAnnotations(diffViewSansAnno, annotationsByPath, anchoredThreadsByPath),
+		[diffViewSansAnno, annotationsByPath, anchoredThreadsByPath],
+	);
 	const activeFileItemId =
 		activeFilePath === null
 			? null
@@ -2585,6 +2686,8 @@ const Diff: FC<{
 								projectId={projectId}
 								diffView={diffView}
 								annotationsByPath={annotationsByPath}
+								threadsByPath={anchoredThreadsByPath}
+								threadReviewId={threadReview?.number ?? 0}
 								diffBackgrounds={diffSettings?.diffBackground}
 								diffOverflow={diffSettings?.diffOverflow}
 								diffStyle={diffStyle}
@@ -3043,7 +3146,15 @@ const ReviewLayout: FC<{
 	editing?: { active: boolean; onDone: () => void };
 }> = ({ projectId, sourceBranch, review, editing }) => {
 	const { data: forgeInfo } = useQuery(forgeInfoOptions(projectId));
-	useMarkReviewSeenOnView(projectId, review, usePrNotificationsLevel() !== "off");
+	// The level is read unconditionally: behind `&&` the hook would be skipped
+	// on the render before the forge answers, changing the hook count.
+	const notificationsLevel = usePrNotificationsLevel();
+	useMarkReviewSeenOnView(
+		projectId,
+		review,
+		forgeInfo?.capabilities.prService === true && notificationsLevel !== "off",
+	);
+	const hasConversation = forgeInfo?.capabilities.reviewComments !== false;
 
 	return (
 		<div className={styles.prLayout}>
@@ -3060,12 +3171,16 @@ const ReviewLayout: FC<{
 					onDoneEditing={() => editing?.onDone()}
 				/>
 
-				{forgeInfo?.capabilities.reviewComments !== false && (
-					<PullRequestComments projectId={projectId} review={review} />
-				)}
+				{hasConversation && <PullRequestComments projectId={projectId} review={review} />}
 			</div>
 
-			<PullRequestPanel projectId={projectId} review={review} />
+			<PullRequestPanel
+				projectId={projectId}
+				review={review}
+				activity={
+					hasConversation ? <ReviewTimeline projectId={projectId} review={review} /> : undefined
+				}
+			/>
 		</div>
 	);
 };

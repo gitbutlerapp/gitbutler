@@ -244,21 +244,29 @@ const buildNativeMenuTemplate = (
 		};
 	});
 
-const registerTextInputContextMenu = (window: BrowserWindow): void => {
+/**
+ * The editing menu every native app offers: the full set in a field you can
+ * type in, and just the copy of a selection anywhere else — read-only text
+ * like a diff is there to be copied out of, and had no menu at all.
+ */
+const registerEditingContextMenu = (window: BrowserWindow): void => {
 	window.webContents.on("context-menu", (_event, params) => {
-		if (!params.isEditable) return;
+		const { editFlags, isEditable, selectionText } = params;
+		if (!isEditable && selectionText.trim() === "") return;
 
-		const { editFlags } = params;
-		const menu = Menu.buildFromTemplate([
-			{ role: "undo", enabled: editFlags.canUndo },
-			{ role: "redo", enabled: editFlags.canRedo },
-			{ type: "separator" },
-			{ role: "cut", enabled: editFlags.canCut },
-			{ role: "copy", enabled: editFlags.canCopy },
-			{ role: "paste", enabled: editFlags.canPaste },
-			{ type: "separator" },
-			{ role: "selectAll", enabled: editFlags.canSelectAll },
-		]);
+		const template: Array<Electron.MenuItemConstructorOptions> = isEditable
+			? [
+					{ role: "undo", enabled: editFlags.canUndo },
+					{ role: "redo", enabled: editFlags.canRedo },
+					{ type: "separator" },
+					{ role: "cut", enabled: editFlags.canCut },
+					{ role: "copy", enabled: editFlags.canCopy },
+					{ role: "paste", enabled: editFlags.canPaste },
+					{ type: "separator" },
+					{ role: "selectAll", enabled: editFlags.canSelectAll },
+				]
+			: [{ role: "copy", enabled: editFlags.canCopy }];
+		const menu = Menu.buildFromTemplate(template);
 
 		menu.popup({
 			window,
@@ -522,7 +530,7 @@ const createMainWindow = async (initialUrl?: string): Promise<void> => {
 			preload: path.join(currentDirPath, "preload.cjs"),
 		},
 	});
-	registerTextInputContextMenu(mainWindow);
+	registerEditingContextMenu(mainWindow);
 
 	const notifyFullScreenChange = () => {
 		mainWindow.webContents.send("fullScreenChange", mainWindow.isFullScreen());

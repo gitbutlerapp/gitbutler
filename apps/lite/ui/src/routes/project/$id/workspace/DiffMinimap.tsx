@@ -1,4 +1,5 @@
 import type { LocalAnnotationsByPath } from "#ui/annotation.ts";
+import type { ThreadsByPath } from "#ui/review-threads.ts";
 import { FileIcon } from "#ui/components/FileIcon.tsx";
 import type { GUISettings } from "#electron/settings.ts";
 import type { CodeViewHandle } from "@pierre/diffs/react";
@@ -52,6 +53,7 @@ export const DiffMinimap: FC<{
 	files: Array<MinimapFile>;
 	diffStyle: GUISettings["diffStyle"];
 	annotationsByPath: LocalAnnotationsByPath;
+	threadsByPath: ThreadsByPath;
 	selection: MinimapSelection | null;
 	/**
 	 * Subscribed to rather than passed as matches, so a keystroke in the search
@@ -61,7 +63,15 @@ export const DiffMinimap: FC<{
 		subscribe: (listener: () => void) => () => void;
 		getSnapshot: () => SearchMarks;
 	};
-}> = ({ viewerRef, files, diffStyle, annotationsByPath, selection, searchMarks }) => {
+}> = ({
+	viewerRef,
+	files,
+	diffStyle,
+	annotationsByPath,
+	threadsByPath,
+	selection,
+	searchMarks,
+}) => {
 	const marks = useSyncExternalStore(searchMarks.subscribe, searchMarks.getSnapshot);
 	const rulerRef = useRef<HTMLDivElement>(null);
 	const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -79,7 +89,14 @@ export const DiffMinimap: FC<{
 		scale: number;
 		scrollable: number;
 	} | null>(null);
-	const dataRef = useRef({ files, diffStyle, annotationsByPath, selection, marks });
+	const dataRef = useRef({
+		files,
+		diffStyle,
+		annotationsByPath,
+		threadsByPath,
+		selection,
+		marks,
+	});
 	const geometryRef = useRef<MinimapGeometry | null>(null);
 	const layoutRef = useRef<MinimapLayout | null>(null);
 	/** Where the map is wound to, which it keeps until the lens runs out of ruler. */
@@ -147,7 +164,7 @@ export const DiffMinimap: FC<{
 
 		const draw = (layout: MinimapLayout): void => {
 			const data = dataRef.current;
-			const { files, diffStyle, annotationsByPath, selection, marks } = data;
+			const { files, diffStyle, annotationsByPath, threadsByPath, selection, marks } = data;
 			const geometry = getMinimapGeometry(viewer, files);
 
 			geometryRef.current = geometry;
@@ -161,6 +178,7 @@ export const DiffMinimap: FC<{
 							files,
 							geometry,
 							annotationsByPath,
+							threadsByPath,
 							selection,
 							searchMarks: marks,
 						});
@@ -331,11 +349,19 @@ export const DiffMinimap: FC<{
 			previous.files !== files ||
 			previous.diffStyle !== diffStyle ||
 			previous.annotationsByPath !== annotationsByPath ||
+			previous.threadsByPath !== threadsByPath ||
 			previous.selection !== selection ||
 			previous.marks !== marks;
 		if (!changed) return;
 
-		dataRef.current = { files, diffStyle, annotationsByPath, selection, marks };
+		dataRef.current = {
+			files,
+			diffStyle,
+			annotationsByPath,
+			threadsByPath,
+			selection,
+			marks,
+		};
 		resyncRef.current?.();
 	});
 
