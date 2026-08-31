@@ -22,7 +22,7 @@ import {
 } from "#ui/api/queries.ts";
 import { usePrNotificationsLevel, useReviewUnread } from "#ui/review-seen.ts";
 import { decodeBytes } from "#ui/api/bytes.ts";
-import { Button, Toast, Toolbar, Tooltip } from "@base-ui/react";
+import { Button, Toolbar, Tooltip } from "@base-ui/react";
 import type {
 	BranchReference,
 	InsertSide,
@@ -37,7 +37,6 @@ import { classes } from "#ui/components/classes.ts";
 import { GraphSegment, type GraphSegmentStatus } from "#ui/components/GraphSegment.tsx";
 import { Icon } from "#ui/components/Icon.tsx";
 import { TooltipPopup } from "#ui/components/Tooltip.tsx";
-import { errorMessageForToast } from "#ui/errors.ts";
 import { sidebarHotkeys, selectionOperationHotkeys, toElectronAccelerator } from "#ui/hotkeys.ts";
 import {
 	nativeMenuItem,
@@ -221,7 +220,7 @@ export const BranchRow: FC<
 	);
 	const [isRenamePending, startRenameTransition] = useTransition();
 
-	const { mutateAsync: branchRename } = useBranchRename();
+	const { mutateAsync: branchRename } = useBranchRename(projectId);
 
 	const startEditing = () => {
 		startInlineEdit(address);
@@ -233,12 +232,10 @@ export const BranchRow: FC<
 		focusScope("sidebar");
 	};
 
-	const toastManager = Toast.useToastManager();
-
 	const { mutate: workspaceBranchAndAncestorsPush } = useWorkspaceBranchAndAncestorsPush(projectId);
 	const { mutate: commitInsertBlank } = useCommitInsertBlank();
 	const { isPending: isTearOffBranchPending, mutate: tearOffBranch } = useTearOffBranch();
-	const { isPending: isBranchRemovePending, mutate: branchRemove } = useBranchRemove();
+	const { isPending: isBranchRemovePending, mutate: branchRemove } = useBranchRemove(projectId);
 	const { mutate: branchCreate } = useBranchCreate();
 
 	const pushesMultipleBranches = downstackPushStatus.downstackBranches > 1;
@@ -248,23 +245,11 @@ export const BranchRow: FC<
 		if (trimmed === "" || trimmed === refName.displayName) return;
 		startRenameTransition(async () => {
 			setOptimisticBranchDisplayName(trimmed);
-			try {
-				await branchRename({
-					projectId,
-					refName: refName.fullNameBytes,
-					newName: trimmed,
-				});
-			} catch (error) {
-				// oxlint-disable-next-line no-console
-				console.error(error);
-
-				toastManager.add({
-					type: "error",
-					title: "Failed to rename branch",
-					description: errorMessageForToast(error),
-					priority: "high",
-				});
-			}
+			await branchRename({
+				projectId,
+				refName: refName.fullNameBytes,
+				newName: trimmed,
+			}).catch(() => undefined);
 		});
 	};
 

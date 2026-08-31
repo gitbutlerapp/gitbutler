@@ -1135,9 +1135,10 @@ export const useWorkspaceIntegrateUpstream = () => {
 	});
 };
 
-export const useBranchRemove = () => {
+export const useBranchRemove = (projectId: string) => {
 	const dispatch = useAppDispatch();
 	return useMutation({
+		mutationKey: [projectId, "branchRemove"],
 		mutationFn: window.lite.branchRemove,
 		onSuccess: (response, input, _context, mutation) => {
 			syncCoreCaches(mutation.client, dispatch, input.projectId, response);
@@ -1229,9 +1230,10 @@ export const useUnapplyStack = () =>
 		meta: { failureTitle: "Failed to unapply stack" },
 	});
 
-export const useBranchRename = () => {
+export const useBranchRename = (projectId: string) => {
 	const dispatch = useAppDispatch();
 	return useMutation({
+		mutationKey: [projectId, "branchRename"],
 		mutationFn: window.lite.branchRename,
 		onSuccess: async (response, input, _context, mutation) => {
 			syncCoreCaches(mutation.client, dispatch, input.projectId, response);

@@ -1053,7 +1053,11 @@ pub fn branch_create_with_perm(
 /// reverse of creating an empty branch above the checked-out one). For
 /// lower-level implementation details, see
 /// [`but_workspace::branch::remove_reference()`].
-#[but_api(napi, try_from = json::BranchRemoveResult)]
+#[but_api(
+    napi,
+    try_from = json::BranchRemoveResult,
+    invalidates = [Branches, Workspace]
+)]
 #[instrument(err(Debug))]
 pub fn branch_remove(
     ctx: &mut but_ctx::Context,
@@ -1215,7 +1219,11 @@ pub fn branch_remove_with_perm(
 /// an oplog snapshot on success, and returns the post-operation workspace view.
 /// It requires no stack id and works in both managed and ad-hoc/single-branch
 /// workspaces.
-#[but_api(napi, try_from = json::BranchRenameResult)]
+#[but_api(
+    napi,
+    try_from = json::BranchRenameResult,
+    invalidates = [Branches, Workspace]
+)]
 #[instrument(err(Debug))]
 pub fn branch_rename(
     ctx: &mut but_ctx::Context,

@@ -173,7 +173,7 @@ const BranchItem: FC<{
 	const review = branch.review;
 
 	const { isPending: isApplyPending, apply } = useApplyToWorkspace(projectId);
-	const { isPending: isBranchRemovePending, mutate: branchRemove } = useBranchRemove();
+	const { isPending: isBranchRemovePending, mutate: branchRemove } = useBranchRemove(projectId);
 
 	const toggleUnfolded = () => {
 		dispatch(projectSlice.actions.toggleBranchUnfolded({ projectId, branchRef }));
@@ -352,7 +352,7 @@ export const BranchesList: FC<
 
 	const panelRef = useRef<HTMLDivElement>(null);
 	const hotkeysRef = useRef<HTMLDivElement>(null);
-	const { isPending: isBranchRemovePending, mutate: branchRemove } = useBranchRemove();
+	const { isPending: isBranchRemovePending, mutate: branchRemove } = useBranchRemove(projectId);
 	const selectedBranchIsLocal =
 		selection?._tag === "Branch" && decodeBytes(selection.branchRef).startsWith("refs/heads/");
 	const removeBranch = (branchRef: Array<number>) => {
