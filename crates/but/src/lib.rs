@@ -855,6 +855,7 @@ async fn dispatch_subcommand(
         | Subcommands::Commit(..)
         | Subcommands::Squash(..)
         | Subcommands::Move(..)
+        | Subcommands::Split(..)
         | Subcommands::_Reword2(..)
         | Subcommands::Reword { .. }
         | Subcommands::Absorb { .. }
@@ -1272,6 +1273,20 @@ async fn dispatch_subcommand(
                 IntermediateChannel::new(out),
                 move_args,
             )?;
+            out.print_cli_output(outcome)?;
+            Some(ws)
+        }
+        #[cfg(feature = "legacy")]
+        Subcommands::Split(split_args) => {
+            use crate::utils::IntermediateChannel;
+
+            let status_after = args.status_after;
+            out.begin_status_after(status_after);
+            status_after_data = Some(status_after);
+
+            newly_conflicted_data = Some(command::legacy::conflict_notice::snapshot(&ctx));
+            let (outcome, ws) =
+                command::legacy::split::split(&mut ctx, IntermediateChannel::new(out), split_args)?;
             out.print_cli_output(outcome)?;
             Some(ws)
         }

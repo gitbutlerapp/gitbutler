@@ -193,6 +193,8 @@ impl Subcommands {
             #[cfg(feature = "legacy")]
             Subcommands::Move(..) => Move,
             #[cfg(feature = "legacy")]
+            Subcommands::Split(..) => Split,
+            #[cfg(feature = "legacy")]
             Subcommands::Land { .. } => Land,
             #[cfg(feature = "legacy")]
             Subcommands::Pick(..) => Pick,

@@ -52,6 +52,8 @@ mod reword2;
 mod setup;
 mod skill;
 #[cfg(feature = "legacy")]
+mod split;
+#[cfg(feature = "legacy")]
 mod squash;
 #[cfg(feature = "legacy")]
 mod status;

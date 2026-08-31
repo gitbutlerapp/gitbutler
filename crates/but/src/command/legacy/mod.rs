@@ -29,6 +29,7 @@ pub mod reword;
 pub mod reword2;
 pub mod setup;
 pub mod show;
+pub mod split;
 pub mod squash;
 pub mod status;
 pub mod r#switch;

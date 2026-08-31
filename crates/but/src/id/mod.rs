@@ -2115,6 +2115,13 @@ impl CommittedFileId {
             change_id: self.change_id.as_ref(),
         }
     }
+
+    pub fn as_commit_ref(&self) -> CommitIdRef<'_> {
+        CommitIdRef {
+            commit_id: self.commit_id,
+            change_id: self.change_id.as_ref(),
+        }
+    }
 }
 
 impl PartialEq for CommittedFileId {
