@@ -61,7 +61,9 @@ but diff <commit-id>    # Diff for specific commit
 inspect committed files or other entities one target at a time. Unlike `commit`,
 `amend`, and `discard`, it does not accept several positional IDs.
 
-**Hunk IDs:** For uncommitted changes, `but diff` shows each hunk with an ID (e.g., `qs:5`, `uo:d`). Pass these IDs to `but commit` for fine-grained, hunk-level commits.
+**Hunk IDs:** For uncommitted changes, bare `but diff` shows each hunk with an ID (e.g., `qs:5`, `uo:d`). Pass these IDs to `but commit` for fine-grained, hunk-level commits.
+
+`but diff <commit-id>` also shows committed hunk IDs in the form `<commit-id>:<file-id>:<hunk-id>`. These IDs are informational for now; no command accepts committed hunk IDs yet.
 
 For the full CLI ID model, `but help cli-ids` documents every ID kind and its stability.
 

@@ -91,7 +91,7 @@
     <text x="330" y="222" style="fill:#555555;">│</text>
     <text x="330 338 346 354 362 370 378 386 394 402 410" y="240" style="fill:#555555;">│─────────╮</text>
     <text x="330" y="258" style="fill:#555555;">│</text>
-    <text x="346 354 362 370 378" y="258" style="fill:#00AA00;">added</text>
+    <text x="346 354 362 370 378" y="258" style="fill:#0000AA;">t:t:6</text>
     <text x="394" y="258" style="fill:#CCCCCC;">A</text>
     <text x="410" y="258" style="fill:#555555;">│</text>
     <text x="330 338 346 354 362 370 378 386 394 402 410" y="276" style="fill:#555555;">│─────────╯</text>

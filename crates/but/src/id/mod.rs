@@ -10,6 +10,7 @@ use std::collections::{BTreeMap, HashMap};
 use std::str::{self, FromStr as _};
 
 use bstr::{BStr, BString, ByteSlice};
+use but_core::UnifiedPatch;
 use but_core::sync::RepoShared;
 use but_core::{ChangeId, ref_metadata::StackId};
 use but_ctx::Context;
@@ -66,7 +67,7 @@ struct UnqualifiedHunkId {
 }
 
 impl UnqualifiedHunkId {
-    fn short_id(&self) -> String {
+    fn short_id(&self) -> ShortId {
         let prefix = &self.id[..self.min_short_id_chars];
 
         match &self.collision_index {
@@ -306,25 +307,34 @@ impl<'a> Node<'a> for CommittedFile {
     ) -> anyhow::Result<Vec<Box<dyn Node<'a> + 'a>>> {
         let mut matches = Vec::<Box<dyn Node<'a> + 'a>>::new();
 
-        let mut hunks: Vec<but_core::SingleHunk> = vec![];
-
-        for tree_change in self.tree_changes.iter() {
-            let patch =
-                changes_in_commit.patch_for_tree_change(tree_change, id_map.diff_context_lines)?;
-
-            hunks.extend(but_core::SingleHunk::from_tree_change(tree_change, patch));
+        if self.tree_changes.len() > 1 {
+            // There isn't a whole lot we can do if there are multiple tree changes for a single
+            // path. The diff codepath currently has no way to produce this scenario so we'll ignore
+            // it until we can find a way to reproduce it.
+            tracing::warn!(
+                "Multiple tree changes for committed file {}, picking first ...",
+                &self.short_id
+            );
         }
+        let tree_change = self.tree_changes.head;
 
-        let mut short_ids_and_hunks: Vec<_> = hunks
-            .into_iter()
-            .map(|hunk| (UnqualifiedHunkId::default(), hunk))
-            .collect();
+        let Some(patch) =
+            changes_in_commit.patch_for_tree_change(&tree_change, id_map.diff_context_lines)?
+        else {
+            return Ok(matches);
+        };
+        let tree_change_with_id = TreeChangeWithId {
+            short_id: self.short_id,
+            inner: tree_change,
+        };
 
-        IdMap::assign_content_based_hunk_ids(short_ids_and_hunks.iter_mut())?;
-
-        for (hunk_short_id, hunk) in short_ids_and_hunks {
+        for (hunk_short_id, hunk) in identify_hunks_internal(&tree_change_with_id, patch)? {
             if hunk_short_id.matches_prefix(element) {
-                let short_id = format!("{}:{}", self.short_id, hunk_short_id.short_id());
+                let short_id = format!(
+                    "{}:{}",
+                    tree_change_with_id.short_id,
+                    hunk_short_id.short_id()
+                );
                 let cli_id = CliId::CommittedHunk(CommittedHunk {
                     committed_file: self.committed_file.clone(),
                     id: short_id,
@@ -347,6 +357,35 @@ impl<'a> Node<'a> for CommittedFile {
             id: self.short_id,
         }))
     }
+}
+
+/// Identify hunks for a single changed file (committed or uncommitted).
+pub fn identify_hunks(
+    tree_change: &TreeChangeWithId,
+    patch: UnifiedPatch,
+) -> anyhow::Result<Vec<IdAndHunk>> {
+    Ok(identify_hunks_internal(tree_change, patch)?
+        .into_iter()
+        .map(|(id, hunk)| IdAndHunk {
+            id: format!("{}:{}", tree_change.short_id, id.short_id()),
+            hunk,
+        })
+        .collect())
+}
+
+fn identify_hunks_internal(
+    tree_change: &TreeChangeWithId,
+    patch: UnifiedPatch,
+) -> anyhow::Result<Vec<(UnqualifiedHunkId, but_core::SingleHunk)>> {
+    let hunks = but_core::SingleHunk::from_tree_change(&tree_change.inner, Some(patch));
+    let mut short_ids_and_hunks: Vec<_> = hunks
+        .into_iter()
+        .map(|hunk| (UnqualifiedHunkId::default(), hunk))
+        .collect();
+
+    IdMap::assign_content_based_hunk_ids(short_ids_and_hunks.iter_mut())?;
+
+    Ok(short_ids_and_hunks)
 }
 
 #[derive(Debug)]
@@ -414,6 +453,14 @@ impl From<ChangeId> for ChangeIdWithShortId {
             change_id: value,
         }
     }
+}
+
+/// A commit that can be resolved in the [`IdMap`]
+pub enum CommitWithId<'a> {
+    /// A local commit.
+    Local(&'a WorkspaceCommitWithId),
+    /// A remote commit.
+    Remote(&'a RemoteCommitWithId),
 }
 
 /// A workspace commit with its short ID.
@@ -1406,42 +1453,26 @@ impl IdMap {
                 false
             };
 
-        for stack_with_id in self.indexed_stacks.borrow_owner().iter() {
-            for segment_with_id in stack_with_id.segments.iter() {
-                for workspace_commit_with_id in segment_with_id.workspace_commits.iter() {
-                    if element_matches_commit(
-                        workspace_commit_with_id.commit_id(),
-                        workspace_commit_with_id.change_id.as_ref(),
-                    ) {
-                        matches.push(Box::new(workspace_commit_with_id))
-                    }
+        for commit_with_id in self.commits() {
+            match commit_with_id {
+                CommitWithId::Local(commit)
+                    if element_matches_commit(commit.commit_id(), commit.change_id.as_ref()) =>
+                {
+                    matches.push(Box::new(commit))
                 }
-
-                for remote_commit_with_id in segment_with_id.remote_commits.iter() {
+                CommitWithId::Remote(commit)
                     if element_matches_commit(
-                        remote_commit_with_id.commit_id(),
+                        commit.commit_id(),
                         // We currently do not allow change ID matching against remote commits to
                         // prevent unnecessary ambiguity with local commits. If we do want this
                         // feature in the future, we should probably put remote commit change IDs in
                         // a separate namespace by prefixing something to them.
                         None,
-                    ) {
-                        matches.push(Box::new(remote_commit_with_id))
-                    }
+                    ) =>
+                {
+                    matches.push(Box::new(commit))
                 }
-            }
-        }
-
-        // Commits owned by a linked worktree resolve exactly like workspace commits - they
-        // just live outside the stacks.
-        for worktree in self.worktrees.values() {
-            for commit_with_id in worktree.commits.iter() {
-                if element_matches_commit(
-                    commit_with_id.commit_id(),
-                    commit_with_id.change_id.as_ref(),
-                ) {
-                    matches.push(Box::new(commit_with_id))
-                }
+                _ => (),
             }
         }
 
@@ -1670,6 +1701,44 @@ impl IdMap {
     /// Returns all known stacks.
     pub fn stacks(&self) -> &Vec<StackWithId> {
         self.indexed_stacks.borrow_owner()
+    }
+
+    /// Get a distinct commit by ID.
+    ///
+    /// Errors if the commit cannot be found or if there are multiple matches.
+    pub fn get_commit_by_id(&self, commit_id: gix::ObjectId) -> anyhow::Result<CommitWithId<'_>> {
+        let mut matches = self
+            .commits()
+            .filter(|commit_with_id| match commit_with_id {
+                CommitWithId::Local(commit) => commit.commit_id() == commit_id,
+                CommitWithId::Remote(commit) => commit.commit_id() == commit_id,
+            });
+
+        match (matches.next(), matches.next()) {
+            (Some(commit), None) => Ok(commit),
+            (Some(_), Some(_)) => Err(anyhow::anyhow!("Found multiple matches for {commit_id}")),
+            _ => Err(anyhow::anyhow!("Could not find commit {commit_id}")),
+        }
+    }
+
+    fn commits(&self) -> impl Iterator<Item = CommitWithId<'_>> {
+        let stack_commits = self.indexed_stacks.borrow_owner().iter().flat_map(|stack| {
+            stack.segments.iter().flat_map(|segment| {
+                segment
+                    .workspace_commits
+                    .iter()
+                    .map(CommitWithId::Local)
+                    .chain(segment.remote_commits.iter().map(CommitWithId::Remote))
+            })
+        });
+
+        stack_commits.chain(
+            // Commits owned by a linked worktree resolve exactly like workspace commits - they
+            // just live outside the stacks.
+            self.worktrees
+                .values()
+                .flat_map(|wt| wt.commits.iter().map(CommitWithId::Local)),
+        )
     }
 
     /// The change ID behind the primary identifier `but status` displays for

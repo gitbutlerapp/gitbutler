@@ -30,10 +30,15 @@ use unicode_width::UnicodeWidthStr as _;
 
 use crate::{
     CliId, IdMap,
-    id::{IdAndHunk, UncommittedHunk, UncommittedHunkOrFile},
+    id::{
+        CommitWithId, IdAndHunk, TreeChangeWithId, UncommittedHunk, UncommittedHunkOrFile,
+        identify_hunks,
+    },
     theme::Theme,
-    utils::change_source::ChangeSourceId,
-    utils::string_interning::{SharedStrings, Strings},
+    utils::{
+        change_source::ChangeSourceId,
+        string_interning::{SharedStrings, Strings},
+    },
 };
 
 /// Each line in the diff is considered to be part of a "section". A section is the group of lines
@@ -458,7 +463,7 @@ pub struct Options {
 }
 
 pub fn render_commit(
-    commit: ObjectId,
+    commit_id: ObjectId,
     change_id: Option<but_core::ChangeId>,
     ctx: &Context,
     theme: &'static Theme,
@@ -467,20 +472,24 @@ pub fn render_commit(
     out: &mut dyn DiffLineWriter,
 ) -> anyhow::Result<()> {
     let mut id_gen = id_gen.scoped("commits");
-    let mut id_gen = id_gen.scoped(commit);
+    let mut id_gen = id_gen.scoped(commit_id);
 
-    let commit_details =
-        but_api::diff::commit_details(ctx, commit, but_api::diff::ComputeLineStats::No)?;
+    let id_map = IdMap::legacy_new_from_context(ctx)?;
+
+    let commit_with_id = id_map.get_commit_by_id(commit_id)?;
+
+    let repo = ctx.repo.get()?;
 
     let header_id = id_gen.new_id("header");
 
     if !options.skip_commit_header {
+        let commit: but_core::Commit<'_> = repo.find_commit(commit_id)?.try_into()?;
         out.write_selectable_text(
             header_id,
             None,
             Line::from_iter([
                 Span::raw(format!("{:<11}", "Commit ID:")),
-                Span::styled(commit.to_hex().to_string(), theme.commit_id),
+                Span::styled(commit_id.to_hex().to_string(), theme.commit_id),
             ]),
         )?;
         if let Some(change_id) = change_id {
@@ -498,7 +507,7 @@ pub fn render_commit(
             None,
             Line::from_iter(
                 once(Span::raw(format!("{:<11}", "Author:")))
-                    .chain(render_signature(&commit_details.commit.author, theme)),
+                    .chain(render_signature(&commit.author, theme)),
             ),
         )?;
         out.write_selectable_text(
@@ -506,13 +515,13 @@ pub fn render_commit(
             None,
             Line::from_iter(
                 once(Span::raw(format!("{:<11}", "Committer:")))
-                    .chain(render_signature(&commit_details.commit.committer, theme)),
+                    .chain(render_signature(&commit.committer, theme)),
             ),
         )?;
 
         out.write_empty_line(header_id, None)?;
 
-        let message = commit_details.commit.message.to_string();
+        let message = commit.message.to_string();
         if message.is_empty() {
             out.write_selectable_text(
                 header_id,
@@ -525,22 +534,60 @@ pub fn render_commit(
         out.write_empty_line(header_id, None)?;
     }
 
-    let tree_changes = commit_details
-        .diff_with_first_parent
-        .iter()
-        .map(|change| TreeChange::from(change.clone()))
-        .collect::<Vec<_>>();
+    match commit_with_id {
+        CommitWithId::Local(workspace_commit) => {
+            let tree_changes = workspace_commit
+                .tree_changes_using_repo(&repo)?
+                .into_iter()
+                .filter_map(|tree_change| {
+                    let patch = tree_change
+                        .inner
+                        .unified_patch(&repo, ctx.settings.context_lines)
+                        .ok()
+                        .flatten()?;
+                    Some((tree_change, patch))
+                })
+                .collect::<Vec<_>>();
 
-    let tree_changes = tree_changes_with_patches(ctx, tree_changes);
+            if !options.skip_line_stats {
+                let mut line_stats = LineStats::default();
+                compute_line_stats_from_tree_changes(
+                    tree_changes.iter().map(|(_, patch)| patch),
+                    &mut line_stats,
+                );
+                out.write_selectable_text(header_id, None, render_line_stats(line_stats))?;
+                out.write_section_separator()?;
+            }
 
-    if !options.skip_line_stats {
-        let mut line_stats = LineStats::default();
-        compute_line_stats_from_tree_changes(&tree_changes, &mut line_stats);
-        out.write_selectable_text(header_id, None, render_line_stats(line_stats))?;
-        out.write_section_separator()?;
+            render_tree_changes_with_id(tree_changes, theme, &mut id_gen, out)?;
+        }
+        CommitWithId::Remote(remote_commit) => {
+            let commit_details = but_api::diff::commit_details(
+                ctx,
+                remote_commit.commit_id(),
+                but_api::diff::ComputeLineStats::No,
+            )?;
+            let tree_changes = commit_details
+                .diff_with_first_parent
+                .iter()
+                .map(|change| TreeChange::from(change.clone()))
+                .collect::<Vec<_>>();
+
+            let tree_changes = tree_changes_with_patches(ctx, tree_changes);
+
+            if !options.skip_line_stats {
+                let mut line_stats = LineStats::default();
+                compute_line_stats_from_tree_changes(
+                    tree_changes.iter().map(|(_, patch)| patch),
+                    &mut line_stats,
+                );
+                out.write_selectable_text(header_id, None, render_line_stats(line_stats))?;
+                out.write_section_separator()?;
+            }
+
+            render_tree_changes(tree_changes, theme, &mut id_gen, out)?;
+        }
     }
-
-    render_tree_changes(tree_changes, theme, &mut id_gen, out)?;
 
     Ok(())
 }
@@ -561,7 +608,10 @@ pub fn render_branch(
 
     if !options.skip_line_stats {
         let mut line_stats = LineStats::default();
-        compute_line_stats_from_tree_changes(&tree_changes, &mut line_stats);
+        compute_line_stats_from_tree_changes(
+            tree_changes.iter().map(|(_, patch)| patch),
+            &mut line_stats,
+        );
         out.write_selectable_text(
             id_gen.new_id("line_stats"),
             None,
@@ -742,20 +792,35 @@ pub fn render_committed_file(
     let mut id_gen = id_gen.scoped("committed_file");
     let mut id_gen = id_gen.scoped(commit);
 
-    let commit_details =
-        but_api::diff::commit_details(ctx, commit, but_api::diff::ComputeLineStats::No)?;
+    let id_map = IdMap::legacy_new_from_context(ctx)?;
 
-    let tree_changes = commit_details
-        .diff_with_first_parent
-        .iter()
-        .filter(|change| change.path == path)
-        .map(|change| TreeChange::from(change.clone()))
+    let workspace_commit = match id_map.get_commit_by_id(commit)? {
+        CommitWithId::Local(commit) => commit,
+        // We don't resolve committed files for remote commits at this time, so there is no current
+        // use case for rendering a committed file from a remote commit.
+        CommitWithId::Remote(_) => bail!("{commit} is a remote commit"),
+    };
+    let repo = ctx.repo.get()?;
+    let tree_changes = workspace_commit
+        .tree_changes_using_repo(&repo)?
+        .into_iter()
+        .filter(|tree_change| tree_change.inner.path == path)
+        .filter_map(|tree_change| {
+            let patch = tree_change
+                .inner
+                .unified_patch(&repo, ctx.settings.context_lines)
+                .ok()
+                .flatten()?;
+            Some((tree_change, patch))
+        })
         .collect::<Vec<_>>();
-    let tree_changes = tree_changes_with_patches(ctx, tree_changes);
 
     if !options.skip_line_stats {
         let mut line_stats = LineStats::default();
-        compute_line_stats_from_tree_changes(&tree_changes, &mut line_stats);
+        compute_line_stats_from_tree_changes(
+            tree_changes.iter().map(|(_, patch)| patch),
+            &mut line_stats,
+        );
         out.write_selectable_text(
             id_gen.new_id("line_stats"),
             None,
@@ -764,7 +829,7 @@ pub fn render_committed_file(
         out.write_section_separator()?;
     }
 
-    render_tree_changes(tree_changes, theme, &mut id_gen, out)?;
+    render_tree_changes_with_id(tree_changes, theme, &mut id_gen, out)?;
 
     Ok(())
 }
@@ -832,11 +897,11 @@ fn render_hunk(
     Ok(())
 }
 
-fn compute_line_stats_from_tree_changes(
-    tree_changes: &[(TreeChange, UnifiedPatch)],
+fn compute_line_stats_from_tree_changes<'a>(
+    patches: impl Iterator<Item = &'a UnifiedPatch>,
     line_stats: &mut LineStats,
 ) {
-    for (_tree_change, patch) in tree_changes {
+    for patch in patches {
         line_stats.files_changed += 1;
         match patch {
             UnifiedPatch::Patch {
@@ -851,6 +916,110 @@ fn compute_line_stats_from_tree_changes(
             UnifiedPatch::Binary | UnifiedPatch::TooLarge { .. } => {}
         }
     }
+}
+
+fn render_tree_changes_with_id(
+    tree_changes: Vec<(TreeChangeWithId, UnifiedPatch)>,
+    theme: &'static Theme,
+    id_gen: &mut IdGen<'_>,
+    out: &mut dyn DiffLineWriter,
+) -> anyhow::Result<()> {
+    let mut id_gen = id_gen.scoped("tree_changes");
+
+    for (tree_change_pos, (i, (tree_change, patch))) in
+        tree_changes.into_iter().enumerate().with_position()
+    {
+        let mut id_gen = id_gen.scoped(i);
+        match patch {
+            UnifiedPatch::Patch {
+                is_result_of_binary_to_text_conversion,
+                hunks,
+                ..
+            } if is_result_of_binary_to_text_conversion => {
+                // hunks from textconv are not addressable - we show all hunks in one go using
+                // the ID of the tree change (file).
+
+                let mut id_gen = id_gen.scoped("hunks");
+                let hunk_id = id_gen.new_id(0);
+
+                // TODO need cli ID for TUI selection to work
+                render_hunk_path_header(
+                    hunk_id,
+                    None,
+                    tree_change.inner.path.as_ref(),
+                    Some(ShortIdOrTreeStatus::ShortId(&tree_change.short_id)),
+                    out,
+                    theme,
+                )?;
+
+                let path = Arc::new(tree_change.inner.path.clone());
+                for (hunk_pos, (j, hunk)) in hunks.into_iter().enumerate().with_position() {
+                    let hunk_id = id_gen.new_id(j);
+
+                    render_unified_patch(
+                        hunk_id,
+                        None,
+                        &path,
+                        hunk,
+                        is_result_of_binary_to_text_conversion,
+                        theme,
+                        out,
+                    )?;
+
+                    if tree_change_pos.needs_padding_below() || hunk_pos.needs_padding_below() {
+                        out.write_section_separator()?;
+                    }
+                }
+            }
+            patch @ UnifiedPatch::Patch { .. } => {
+                let mut id_gen = id_gen.scoped("hunks");
+                let hunks = identify_hunks(&tree_change, patch)?;
+
+                for (hunk_pos, (j, hunk)) in hunks.into_iter().enumerate().with_position() {
+                    let hunk_id = id_gen.new_id(j);
+
+                    // TODO need cli ID for TUI selection to work
+                    render_hunk_path_header(
+                        hunk_id,
+                        None,
+                        tree_change.inner.path.as_ref(),
+                        Some(ShortIdOrTreeStatus::ShortId(&hunk.id)),
+                        out,
+                        theme,
+                    )?;
+
+                    render_hunk(hunk_id, None, &hunk.hunk, theme, out)?;
+
+                    if tree_change_pos.needs_padding_below() || hunk_pos.needs_padding_below() {
+                        out.write_section_separator()?;
+                    }
+                }
+            }
+            UnifiedPatch::Binary => {
+                render_binary_hunk(
+                    theme,
+                    out,
+                    tree_change_pos,
+                    tree_change.inner.path.as_ref(),
+                    Some(ShortIdOrTreeStatus::ShortId(&tree_change.short_id)),
+                    &mut id_gen,
+                )?;
+            }
+            UnifiedPatch::TooLarge { size_in_bytes } => {
+                render_too_large_hunk(
+                    theme,
+                    out,
+                    tree_change_pos,
+                    tree_change.inner.path.as_ref(),
+                    Some(ShortIdOrTreeStatus::ShortId(&tree_change.short_id)),
+                    id_gen,
+                    size_in_bytes,
+                )?;
+            }
+        }
+    }
+
+    Ok(())
 }
 
 fn render_tree_changes(
@@ -905,50 +1074,68 @@ fn render_tree_changes(
                 }
             }
             UnifiedPatch::Binary => {
-                let patch_id = id_gen.new_id("binary");
-
-                render_hunk_path_header(
-                    patch_id,
-                    None,
+                render_binary_hunk(
+                    theme,
+                    out,
+                    tree_change_pos,
                     tree_change.path.as_ref(),
                     Some(ShortIdOrTreeStatus::TreeStatus(&tree_change.status)),
-                    out,
-                    theme,
+                    &mut id_gen,
                 )?;
-
-                out.write_selectable_text(
-                    patch_id,
-                    None,
-                    "Binary file - no diff available".into(),
-                )?;
-
-                if tree_change_pos.needs_padding_below() {
-                    out.write_section_separator()?;
-                }
             }
             UnifiedPatch::TooLarge { size_in_bytes } => {
-                let patch_id = id_gen.new_id("too_large");
-
-                render_hunk_path_header(
-                    patch_id,
-                    None,
+                render_too_large_hunk(
+                    theme,
+                    out,
+                    tree_change_pos,
                     tree_change.path.as_ref(),
                     Some(ShortIdOrTreeStatus::TreeStatus(&tree_change.status)),
-                    out,
-                    theme,
+                    id_gen,
+                    size_in_bytes,
                 )?;
-
-                out.write_selectable_text(
-                    patch_id,
-                    None,
-                    format!("File too large ({size_in_bytes} bytes) - no diff available").into(),
-                )?;
-
-                if tree_change_pos.needs_padding_below() {
-                    out.write_section_separator()?;
-                }
             }
         }
+    }
+
+    Ok(())
+}
+
+fn render_too_large_hunk(
+    theme: &'static Theme,
+    out: &mut dyn DiffLineWriter,
+    tree_change_pos: Position,
+    path: &BStr,
+    status: Option<ShortIdOrTreeStatus<'_>>,
+    mut id_gen: IdGen<'_>,
+    size_in_bytes: u64,
+) -> Result<(), anyhow::Error> {
+    let patch_id = id_gen.new_id("too_large");
+    render_hunk_path_header(patch_id, None, path, status, out, theme)?;
+    out.write_selectable_text(
+        patch_id,
+        None,
+        format!("File too large ({size_in_bytes} bytes) - no diff available").into(),
+    )?;
+    if tree_change_pos.needs_padding_below() {
+        out.write_section_separator()?;
+    }
+
+    Ok(())
+}
+
+fn render_binary_hunk(
+    theme: &'static Theme,
+    out: &mut dyn DiffLineWriter,
+    tree_change_pos: Position,
+    path: &BStr,
+    status: Option<ShortIdOrTreeStatus<'_>>,
+    id_gen: &mut IdGen<'_>,
+) -> Result<(), anyhow::Error> {
+    let patch_id = id_gen.new_id("binary");
+    render_hunk_path_header(patch_id, None, path, status, out, theme)?;
+    out.write_selectable_text(patch_id, None, "Binary file - no diff available".into())?;
+    if tree_change_pos.needs_padding_below() {
+        out.write_section_separator()?;
     }
 
     Ok(())

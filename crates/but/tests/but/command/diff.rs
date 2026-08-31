@@ -177,6 +177,27 @@ fn json_committed_targets() {
 }
 
 #[test]
+fn remote_only_commit() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("remote-local-divergence");
+    env.setup_metadata(&["main", "A"]);
+
+    let remote_commit = env.invoke_git("rev-parse refs/remotes/origin/A");
+    env.but(format!("diff {remote_commit}"))
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+──────────────────────╮
+ added only-on-remote │
+──────────────────────╯
+
+@@ -1,0 +1,1 @@
+───────────────
+  ┊ 1 │ +only-on-remote
+
+"#]]);
+}
+
+#[test]
 fn json_tree_change_statuses() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
     env.setup_metadata(&["A", "B"]);
@@ -202,4 +223,60 @@ fn json_tree_change_statuses() {
         .success()
         .stderr_eq(snapbox::str![])
         .stdout_eq(snapbox::file!["snapshots/diff/json-tree-change-statuses.stdout"].raw());
+}
+
+/// A valid PNG file, useful if you want to test binary files.
+const PNG_BINARY_CONTENT: &[u8] = &[
+    0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A, 0x00, 0x00, 0x00, 0x0D, 0x49, 0x48, 0x44, 0x52,
+    0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x01, 0x08, 0x04, 0x00, 0x00, 0x00, 0xB5, 0x1C, 0x0C,
+    0x02, 0x00, 0x00, 0x00, 0x0B, 0x49, 0x44, 0x41, 0x54, 0x78, 0xDA, 0x63, 0x64, 0xF8, 0x0F, 0x00,
+    0x01, 0x05, 0x01, 0x01, 0x27, 0x18, 0xE3, 0x66, 0x00, 0x00, 0x00, 0x00, 0x49, 0x45, 0x4E, 0x44,
+    0xAE, 0x42, 0x60, 0x82,
+];
+
+#[test]
+#[cfg(unix)] // od is not available on Windows
+fn textconv_output_is_rendered_in_diff() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("zero-stacks");
+    env.setup_metadata(&[]);
+
+    env.file("file.png", PNG_BINARY_CONTENT);
+    env.file(".gitattributes", "*.png diff=png");
+    env.but("commit -m 'Add binary file'")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+Created commit 1 on new branch 'a-branch-1'
+
+"#]]);
+
+    env.invoke_git("config --local diff.png.textconv od");
+
+    env.but("diff 1")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+──────────────────────╮
+ 1:x:2 .gitattributes │
+──────────────────────╯
+
+@@ -1,0 +1,1 @@
+───────────────
+  ┊ 1 │ +*.png diff=png
+
+──────────────╮
+ 1:t file.png │
+──────────────╯
+
+(diff generated from binary-to-text conversion)
+@@ -1,0 +1,6 @@
+───────────────
+  ┊ 1 │ +0000000 050211 043516 005015 005032 000000 006400 044111 051104
+  ┊ 2 │ +0000020 000000 000400 000000 000400 002010 000000 132400 006034
+  ┊ 3 │ +0000040 000002 000000 044413 040504 074124 061732 174144 000017
+  ┊ 4 │ +0000060 002401 000401 014047 063343 000000 000000 042511 042116
+  ┊ 5 │ +0000100 041256 101140
+  ┊ 6 │ +0000104
+
+"#]]);
 }

@@ -77,14 +77,14 @@
     <text x="802" y="150" style="fill:#555555;">█</text>
     <text x="410" y="168" style="fill:#555555;">│</text>
     <text x="802" y="168" style="fill:#555555;">█</text>
-    <text x="410 418 426 434 442 450 458 466 474 482 490" y="186" style="fill:#555555;">│─────────╮</text>
+    <text x="410 418 426 434 442 450 458 466 474 482 490 498" y="186" style="fill:#555555;">│──────────╮</text>
     <text x="802" y="186" style="fill:#555555;">█</text>
     <text x="410" y="204" style="fill:#555555;">│</text>
-    <text x="426 434 442 450 458" y="204" style="fill:#00AA00;">added</text>
-    <text x="474" y="204" style="fill:#CCCCCC;">A</text>
-    <text x="490" y="204" style="fill:#555555;">│</text>
+    <text x="426 434 442 450 458 466" y="204" style="fill:#0000AA;">t:tm:6</text>
+    <text x="482" y="204" style="fill:#CCCCCC;">A</text>
+    <text x="498" y="204" style="fill:#555555;">│</text>
     <text x="802" y="204" style="fill:#555555;">█</text>
-    <text x="410 418 426 434 442 450 458 466 474 482 490" y="222" style="fill:#555555;">│─────────╯</text>
+    <text x="410 418 426 434 442 450 458 466 474 482 490 498" y="222" style="fill:#555555;">│──────────╯</text>
     <text x="410" y="240" style="fill:#555555;">│</text>
     <text x="410" y="258" style="fill:#555555;">│</text>
     <text x="418 426" y="258" style="fill:#CCCCCC;opacity:0.75;">@@</text>
@@ -101,7 +101,7 @@
     <text x="410" y="312" style="fill:#555555;">│</text>
     <text x="410 418 426 434 442 450 458 466 474 482 490 498 506" y="330" style="fill:#555555;">│───────────╮</text>
     <text x="410" y="348" style="fill:#555555;">│</text>
-    <text x="426 434 442 450 458" y="348" style="fill:#00AA00;">added</text>
+    <text x="426 434 442 450 458" y="348" style="fill:#0000AA;">t:k:c</text>
     <text x="474 482 490" y="348" style="fill:#CCCCCC;">one</text>
     <text x="506" y="348" style="fill:#555555;">│</text>
     <text x="26 34 42 50 58 66" y="366" style="fill:#FFFFFF;">normal</text>
