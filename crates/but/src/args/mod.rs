@@ -476,7 +476,6 @@ pub enum Subcommands {
     /// will prompt you to select a branch to create a PR for.
     ///
     #[cfg(feature = "legacy")]
-    #[clap(visible_alias = "review")]
     #[clap(visible_alias = "mr")]
     Pr(forge::pr::Platform),
 
