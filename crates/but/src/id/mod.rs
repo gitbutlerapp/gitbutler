@@ -15,6 +15,7 @@ use but_core::sync::RepoShared;
 use but_core::{ChangeId, ref_metadata::StackId};
 use but_ctx::Context;
 use but_graph::workspace::{Stack, StackCommit, StackSegment};
+use chrono::Local;
 use gix::hash::hasher;
 use nonempty::NonEmpty;
 use self_cell::self_cell;
@@ -453,6 +454,14 @@ impl From<ChangeId> for ChangeIdWithShortId {
             change_id: value,
         }
     }
+}
+
+/// A commit that can be resolved in the [`IdMap`]
+pub enum CommitWithId<'a> {
+    /// A local commit.
+    Local(&'a WorkspaceCommitWithId),
+    /// A remote commit.
+    Remote(&'a RemoteCommitWithId),
 }
 
 /// A workspace commit with its short ID.
@@ -1445,42 +1454,26 @@ impl IdMap {
                 false
             };
 
-        for stack_with_id in self.indexed_stacks.borrow_owner().iter() {
-            for segment_with_id in stack_with_id.segments.iter() {
-                for workspace_commit_with_id in segment_with_id.workspace_commits.iter() {
-                    if element_matches_commit(
-                        workspace_commit_with_id.commit_id(),
-                        workspace_commit_with_id.change_id.as_ref(),
-                    ) {
-                        matches.push(Box::new(workspace_commit_with_id))
-                    }
+        for commit_with_id in self.commits() {
+            match commit_with_id {
+                CommitWithId::Local(commit)
+                    if element_matches_commit(commit.commit_id(), commit.change_id.as_ref()) =>
+                {
+                    matches.push(Box::new(commit))
                 }
-
-                for remote_commit_with_id in segment_with_id.remote_commits.iter() {
+                CommitWithId::Remote(commit)
                     if element_matches_commit(
-                        remote_commit_with_id.commit_id(),
+                        commit.commit_id(),
                         // We currently do not allow change ID matching against remote commits to
                         // prevent unnecessary ambiguity with local commits. If we do want this
                         // feature in the future, we should probably put remote commit change IDs in
                         // a separate namespace by prefixing something to them.
                         None,
-                    ) {
-                        matches.push(Box::new(remote_commit_with_id))
-                    }
+                    ) =>
+                {
+                    matches.push(Box::new(commit))
                 }
-            }
-        }
-
-        // Commits owned by a linked worktree resolve exactly like workspace commits - they
-        // just live outside the stacks.
-        for worktree in self.worktrees.values() {
-            for commit_with_id in worktree.commits.iter() {
-                if element_matches_commit(
-                    commit_with_id.commit_id(),
-                    commit_with_id.change_id.as_ref(),
-                ) {
-                    matches.push(Box::new(commit_with_id))
-                }
+                _ => (),
             }
         }
 
@@ -1711,6 +1704,46 @@ impl IdMap {
         self.indexed_stacks.borrow_owner()
     }
 
+    /// Get the [WorkspaceCommitWithId] for the given commit ID.
+    pub fn get_workspace_commit_with_id(
+        &self,
+        commit_id: gix::ObjectId,
+    ) -> anyhow::Result<&WorkspaceCommitWithId> {
+        let mut matches = self
+            .commits()
+            .filter_map(|commit_with_id| match commit_with_id {
+                CommitWithId::Local(commit) if commit.commit_id() == commit_id => Some(commit),
+                _ => None,
+            });
+
+        match (matches.next(), matches.next()) {
+            (Some(commit), None) => Ok(commit),
+            _ => Err(anyhow::anyhow!(
+                "Could not identify commit {commit_id} in workspace"
+            )),
+        }
+    }
+
+    fn commits(&self) -> impl Iterator<Item = CommitWithId<'_>> {
+        let stack_commits = self.indexed_stacks.borrow_owner().iter().flat_map(|stack| {
+            stack.segments.iter().flat_map(|segment| {
+                segment
+                    .workspace_commits
+                    .iter()
+                    .map(CommitWithId::Local)
+                    .chain(segment.remote_commits.iter().map(CommitWithId::Remote))
+            })
+        });
+
+        stack_commits.chain(
+            // Commits owned by a linked worktree resolve exactly like workspace commits - they
+            // just live outside the stacks.
+            self.worktrees
+                .values()
+                .flat_map(|wt| wt.commits.iter().map(CommitWithId::Local)),
+        )
+    }
+
     /// The change ID behind the primary identifier `but status` displays for
     /// `commit_id`, with its disambiguated short form. Returns `None` when the
     /// sha is the identifier instead, i.e. for commits without a change ID or
@@ -1732,45 +1765,6 @@ impl IdMap {
             .find(|commit| commit.commit_id() == commit_id)?
             .change_id
             .as_ref()
-    }
-}
-
-/// Convenience methods to access objects from [`IdMap`] s.t. they can be displayed with correct
-/// identifiers.
-impl IdMap {
-    /// Get the [WorkspaceCommitWithId] for the given commit ID.
-    pub fn get_workspace_commit_with_id(
-        &self,
-        commit_id: gix::ObjectId,
-    ) -> anyhow::Result<&WorkspaceCommitWithId> {
-        let mut matches = Vec::<&WorkspaceCommitWithId>::new();
-
-        for stack_with_id in self.indexed_stacks.borrow_owner().iter() {
-            for segment_with_id in stack_with_id.segments.iter() {
-                for workspace_commit_with_id in segment_with_id.workspace_commits.iter() {
-                    if workspace_commit_with_id.inner.id == commit_id {
-                        matches.push(workspace_commit_with_id)
-                    }
-                }
-            }
-        }
-
-        // Commits owned by a linked worktree resolve exactly like workspace commits - they
-        // just live outside the stacks.
-        for worktree in self.worktrees.values() {
-            for commit_with_id in worktree.commits.iter() {
-                if commit_with_id.inner.id == commit_id {
-                    matches.push(commit_with_id)
-                }
-            }
-        }
-
-        match matches.as_slice() {
-            [commit] => Ok(commit),
-            _ => Err(anyhow::anyhow!(
-                "Could not identify commit {commit_id} in workspace"
-            )),
-        }
     }
 }
 

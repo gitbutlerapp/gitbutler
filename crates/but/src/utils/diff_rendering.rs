@@ -30,7 +30,10 @@ use unicode_width::UnicodeWidthStr as _;
 
 use crate::{
     CliId, IdMap,
-    id::{IdAndHunk, TreeChangeWithId, UncommittedHunk, UncommittedHunkOrFile, identify_hunks},
+    id::{
+        CommitWithId, IdAndHunk, TreeChangeWithId, UncommittedHunk, UncommittedHunkOrFile,
+        identify_hunks,
+    },
     theme::Theme,
     utils::{
         change_source::ChangeSourceId,
