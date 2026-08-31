@@ -300,6 +300,142 @@ fn workspace_projection_with_advanced_stack_tip() -> anyhow::Result<()> {
 }
 
 #[test]
+fn workspace_projection_with_stack_tip_advanced_by_two() -> anyhow::Result<()> {
+    // With the tip two commits ahead of the stale workspace commit, the workspace
+    // walk reaches the fork commit before the stack-branch walk does.
+    let (repo, mut meta, mut db) =
+        read_only_in_memory_scenario("ws/advanced-stack-tip-twice-outside-workspace")?;
+    add_stack_with_segments(&mut meta, 1, "B", StackState::InWorkspace, &["A"]);
+
+    snapbox::assert_data_eq!(
+        visualize_commit_graph_all(&repo)?,
+        snapbox::str![[r#"
+* 6d3fd90 (B) B-outside-2
+* cf6b678 B-outside-1
+| * 2076060 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+|/  
+* d69fe94 B
+* 09d8e52 (A) A
+* 85efbe4 (origin/main, main) M
+
+"#]]
+    );
+
+    let graph = Graph::from_head(
+        &repo,
+        &*meta,
+        default_project_meta(),
+        &mut db,
+        standard_options(),
+    )?
+    .validated()?;
+    snapbox::assert_data_eq!(
+        graph_dag(&graph),
+        snapbox::str![[r#"
+◎  📙B
+●  ·6d3fd90 (⌂)
+●  ·cf6b678 (⌂)
+│ ◎  👉📕gitbutler/workspace[🌳]
+│ ●  ·2076060 (⌂|🏘)
+├─╯
+●  ·d69fe94 (⌂|🏘)
+◎  📙A
+●  ·09d8e52 (⌂|🏘)
+│ ◎  origin/main
+├─╯
+◎  main <> origin/main
+●  🏁·85efbe4 (⌂|🏘|✓)
+"#]]
+    );
+    let ws = &graph.into_workspace()?;
+    snapbox::assert_data_eq!(
+        graph_workspace(ws).to_string(),
+        snapbox::str![[r#"
+📕🏘️:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 85efbe4
+└── ≡📙:B on 85efbe4 {1}
+    ├── 📙:B
+    │   ├── ·6d3fd90*
+    │   ├── ·cf6b678*
+    │   └── ·d69fe94 (🏘️)
+    └── 📙:A
+        └── ·09d8e52 (🏘️)
+
+"#]]
+    );
+
+    Ok(())
+}
+
+#[test]
+fn workspace_projection_with_stack_tip_advanced_by_two_in_single_branch_mode() -> anyhow::Result<()>
+{
+    // Like above, but `HEAD` stays on the advanced stack branch, as single-branch
+    // mode leaves it after committing there (GB-1948).
+    let (repo, mut meta, mut db) = read_only_in_memory_scenario(
+        "ws/advanced-stack-tip-twice-outside-workspace-single-branch",
+    )?;
+    add_stack_with_segments(&mut meta, 1, "B", StackState::InWorkspace, &["A"]);
+
+    snapbox::assert_data_eq!(
+        visualize_commit_graph_all(&repo)?,
+        snapbox::str![[r#"
+* 6d3fd90 (HEAD -> B) B-outside-2
+* cf6b678 B-outside-1
+| * 2076060 (gitbutler/workspace) GitButler Workspace Commit
+|/  
+* d69fe94 B
+* 09d8e52 (A) A
+* 85efbe4 (origin/main, main) M
+
+"#]]
+    );
+
+    let graph = Graph::from_head(
+        &repo,
+        &*meta,
+        default_project_meta(),
+        &mut db,
+        standard_options(),
+    )?
+    .validated()?;
+    snapbox::assert_data_eq!(
+        graph_dag(&graph),
+        snapbox::str![[r#"
+◎  👉📙B[🌳]
+●  ·6d3fd90 (⌂)
+●  ·cf6b678 (⌂)
+│ ◎  📕gitbutler/workspace
+│ ●  ·2076060 (⌂|🏘)
+├─╯
+●  ·d69fe94 (⌂|🏘)
+◎  📙A
+●  ·09d8e52 (⌂|🏘)
+│ ◎  origin/main
+├─╯
+◎  main <> origin/main
+●  🏁·85efbe4 (⌂|🏘|✓)
+"#]]
+    );
+    let ws = &graph.into_workspace()?;
+    snapbox::assert_data_eq!(
+        graph_workspace(ws).to_string(),
+        snapbox::str![[r#"
+⌂:B[🌳] <> ✓refs/remotes/origin/main on 85efbe4
+└── ≡📙:B[🌳] on 85efbe4 {1}
+    ├── 📙:B[🌳]
+    │   ├── ·6d3fd90
+    │   ├── ·cf6b678
+    │   └── ·d69fe94 (🏘️)
+    └── 📙:A
+        └── ·09d8e52 (🏘️)
+
+"#]]
+    );
+
+    Ok(())
+}
+
+#[test]
 fn no_overzealous_stacks_due_to_workspace_metadata() -> anyhow::Result<()> {
     // NOTE: Was supposed to reproduce #11459, but it found another issue instead.
     let (repo, mut meta, mut db) = read_only_in_memory_scenario("ws/reproduce-11459")?;

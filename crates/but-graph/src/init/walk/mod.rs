@@ -1049,7 +1049,12 @@ pub fn possibly_split_occupied_segment(
     let (top_sidx, mut bottom_sidx) =
         // If a normal branch walks into a workspace branch, put the workspace branch on top
         // so it doesn't own the existing commit.
+        // The wholesale swap below is only sound while `src` owns no commits yet. A non-empty
+        // `src` means two walks converged below both tips - a stack branch that advanced past
+        // its stale workspace commit meeting the workspace walk at the fork - and swapping
+        // would hand each segment the other's commits.
         if graph[dst_sidx].workspace_metadata().is_some() &&
+            graph[src_sidx].commits.is_empty() &&
             graph[src_sidx].ref_name()
                 .and_then(|rn| rn.category()).is_some_and(|c| matches!(c, Category::LocalBranch)) {
             // `dst` is basically swapping with `src`, so must swap commits and connections.
