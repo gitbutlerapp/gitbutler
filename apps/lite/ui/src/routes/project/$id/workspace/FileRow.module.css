@@ -54,6 +54,6 @@
 	   other keeps everything before it in place. Kept in step with the width
 	   FileStatusBadge.module.css sizes off its own text. */
 	width: 1.1em;
-	color: var(--text-pop);
+	color: var(--fill-pop-bg);
 	font-size: 11px;
 }
