@@ -12,8 +12,7 @@
 	flex-direction: column;
 	overflow: hidden;
 	border: 1px solid var(--border-2);
-	/* The design names `--radius-m`; the token set spells that size `--radius-lg`. */
-	border-radius: var(--radius-lg);
+	border-radius: var(--radius-popup);
 	background-color: var(--bg-1);
 	box-shadow: var(--shadow-md);
 }
