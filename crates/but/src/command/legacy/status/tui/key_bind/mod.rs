@@ -44,6 +44,7 @@ pub fn default_key_binds(feature_flags: &FeatureFlags) -> KeyBinds {
                 builder.squash_use_target_message().register();
                 builder.switch_to_commit_mode().register();
                 builder.switch_to_move_mode().register();
+                builder.switch_to_branch_mode().register();
                 register_non_mode_specific_key_binds(&mut builder, WithFocusDetails::No);
             }
             ModeDiscriminant::Commit => {
@@ -52,11 +53,7 @@ pub fn default_key_binds(feature_flags: &FeatureFlags) -> KeyBinds {
                 builder.commit_reword_inline().register();
                 builder.commit_toggle_insert_side().register();
                 builder.commit_to_new_branch().register();
-                builder
-                    .squash()
-                    .hide_from_hotbar()
-                    .long_description("Switch to squash mode")
-                    .register();
+                builder.switch_to_squash_mode().register();
                 register_non_mode_specific_key_binds(&mut builder, WithFocusDetails::No);
             }
             ModeDiscriminant::Move => {
@@ -1144,6 +1141,12 @@ impl KeyBindsBuilder<'_> {
         self.squash()
             .hide_from_hotbar()
             .long_description("Switch to squash mode")
+    }
+
+    fn switch_to_branch_mode(&mut self) -> KeyBindsInModesBuilder<'_> {
+        self.branch()
+            .hide_from_hotbar()
+            .long_description("Switch to branch mode")
     }
 }
 
