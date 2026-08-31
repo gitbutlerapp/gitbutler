@@ -41,18 +41,21 @@ workspace (gitbutler/workspace)
 
 ## CLI IDs: Short Identifiers
 
-Every object gets a short, human-readable CLI ID shown in `but status`. IDs are generated per-session and are unique across all entity types (no two objects share an ID) — always read them from `but status`.
+Every object gets a short, human-readable CLI ID shown in `but status` or `but diff`. IDs are generated per-session and are unique across all entity types (no two objects share an ID) — always read them from current command output.
 
 ```
-Commits:    1, kyn, mpq#0  (short change-ID prefix when the commit has one, sha prefix otherwise;
-                             a #N suffix disambiguates commits sharing a change ID)
-Branches:   fe, bu, ui     (unique 2–3 char substring of the branch name, e.g. "fe" from "feature-x";
-                             falls back to auto-generated ID if no unique substring exists)
-Files:      g, qs, uo      (derived from the file path, long enough to be unique)
-Hunks:      g:5, uo:d      (<file-id>:<hunk-id>; the hunk part is derived from the hunk's content)
-Committed files: kyn:n     (<commit-id>:<file-id>, shown under each commit in `but status -fv`)
-Stacks:     m0, n0          (auto-generated, 2–3 chars)
+Commits:          1, kyn, mpq#0  (short change-ID prefix when the commit has one, sha prefix otherwise;
+                                   a #N suffix disambiguates commits sharing a change ID)
+Branches:         fe, bu, ui     (unique 2–3 char substring of the branch name, e.g. "fe" from "feature-x";
+                                   falls back to auto-generated ID if no unique substring exists)
+Files:            g, qs, uo      (derived from the file path, long enough to be unique)
+Hunks:            g:5, uo:d      (<file-id>:<hunk-id>; uncommitted hunks shown by bare `but diff`)
+Committed files:  kyn:n          (<commit-id>:<file-id>, shown under each commit in `but status -fv`)
+Committed hunks:  kyn:n:5        (<commit-id>:<file-id>:<hunk-id>, shown by `but diff <commit-id>`)
+Stacks:           m0, n0         (auto-generated, 2–3 chars)
 ```
+
+Committed hunk IDs are informational for now; no command accepts them yet.
 
 **Why?** Git commit SHAs are long (40 chars). CLI IDs are short, variable-length, and unique within your current workspace context. Commits, files, and hunks may use a single character when that is unambiguous.
 
