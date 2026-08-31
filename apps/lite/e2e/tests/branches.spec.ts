@@ -68,7 +68,7 @@ test.describe("branches", () => {
 			).lite.watcherStopAll(),
 		);
 		await branch.click();
-		await appWindow.keyboard.press("ControlOrMeta+Backspace");
+		await appWindow.keyboard.press(process.platform === "darwin" ? "Meta+Backspace" : "Delete");
 
 		await expect(branch).toHaveCount(0);
 	});
