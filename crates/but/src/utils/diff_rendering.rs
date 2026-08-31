@@ -931,6 +931,46 @@ fn render_tree_changes_with_id(
     {
         let mut id_gen = id_gen.scoped(i);
         match patch {
+            UnifiedPatch::Patch {
+                is_result_of_binary_to_text_conversion,
+                hunks,
+                ..
+            } if is_result_of_binary_to_text_conversion => {
+                // hunks from textconv are not addressable - we show all hunks in one go using
+                // the ID of the tree change (file).
+
+                let mut id_gen = id_gen.scoped("hunks");
+                let hunk_id = id_gen.new_id(0);
+
+                // TODO need cli ID for TUI selection to work
+                render_hunk_path_header(
+                    hunk_id,
+                    None,
+                    tree_change.inner.path.as_ref(),
+                    Some(ShortIdOrTreeStatus::ShortId(&tree_change.short_id)),
+                    out,
+                    theme,
+                )?;
+
+                let path = Arc::new(tree_change.inner.path.clone());
+                for (hunk_pos, (j, hunk)) in hunks.into_iter().enumerate().with_position() {
+                    let hunk_id = id_gen.new_id(j);
+
+                    render_unified_patch(
+                        hunk_id,
+                        None,
+                        &path,
+                        hunk,
+                        is_result_of_binary_to_text_conversion,
+                        theme,
+                        out,
+                    )?;
+
+                    if tree_change_pos.needs_padding_below() || hunk_pos.needs_padding_below() {
+                        out.write_section_separator()?;
+                    }
+                }
+            }
             patch @ UnifiedPatch::Patch { .. } => {
                 let mut id_gen = id_gen.scoped("hunks");
                 let hunks = identify_hunks(&tree_change, patch)?;
@@ -961,9 +1001,7 @@ fn render_tree_changes_with_id(
                     out,
                     tree_change_pos,
                     tree_change.inner.path.as_ref(),
-                    Some(ShortIdOrTreeStatus::TreeStatus(
-                        &tree_change.inner.status.into(),
-                    )),
+                    Some(ShortIdOrTreeStatus::ShortId(&tree_change.short_id)),
                     &mut id_gen,
                 )?;
             }
@@ -973,9 +1011,7 @@ fn render_tree_changes_with_id(
                     out,
                     tree_change_pos,
                     tree_change.inner.path.as_ref(),
-                    Some(ShortIdOrTreeStatus::TreeStatus(
-                        &tree_change.inner.status.into(),
-                    )),
+                    Some(ShortIdOrTreeStatus::ShortId(&tree_change.short_id)),
                     id_gen,
                     size_in_bytes,
                 )?;
