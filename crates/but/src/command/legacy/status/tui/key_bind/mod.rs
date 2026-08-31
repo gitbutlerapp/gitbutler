@@ -552,6 +552,7 @@ impl KeyBindsBuilder<'_> {
         self.key_bind("confirm", press().code(KeyCode::Enter), || {
             Message::Jump(JumpMessage::Confirm)
         })
+        .hide_from_help()
     }
 
     fn toggle_details(&mut self) -> KeyBindsInModesBuilder<'_> {
@@ -692,7 +693,7 @@ impl KeyBindsBuilder<'_> {
         self.key_bind("confirm", press().code(KeyCode::Enter), || {
             Message::Squash(SquashMessage::Confirm)
         })
-        .long_description("Squash target into selection")
+        .hide_from_help()
     }
 
     fn commit(&mut self) -> KeyBindsInModesBuilder<'_> {
@@ -875,18 +876,21 @@ impl KeyBindsBuilder<'_> {
         self.key_bind("confirm", press().code(KeyCode::Enter), || {
             Message::Reword(RewordMessage::InlineConfirm)
         })
+        .hide_from_help()
     }
 
     fn command_confirm(&mut self) -> KeyBindsInModesBuilder<'_> {
         self.key_bind("run command", press().code(KeyCode::Enter), || {
             Message::Command(CommandMessage::Confirm)
         })
+        .hide_from_help()
     }
 
     fn commit_confirm(&mut self) -> KeyBindsInModesBuilder<'_> {
         self.key_bind("confirm", press().code(KeyCode::Enter), || {
             Message::Commit(CommitMessage::Confirm)
         })
+        .hide_from_help()
     }
 
     fn commit_toggle_insert_side(&mut self) -> KeyBindsInModesBuilder<'_> {
@@ -927,6 +931,7 @@ impl KeyBindsBuilder<'_> {
         self.key_bind("confirm", press().code(KeyCode::Enter), || {
             Message::Move(MoveMessage::Confirm)
         })
+        .hide_from_help()
     }
 
     fn apply(&mut self) -> KeyBindsInModesBuilder<'_> {
@@ -954,6 +959,7 @@ impl KeyBindsBuilder<'_> {
         self.key_bind("confirm", press().code(KeyCode::Enter), || {
             Message::Stack(StackMessage::MoveConfirm)
         })
+        .hide_from_help()
     }
 
     fn cherry_pick(&mut self) -> KeyBindsInModesBuilder<'_> {
@@ -967,6 +973,7 @@ impl KeyBindsBuilder<'_> {
         self.key_bind("confirm", press().code(KeyCode::Enter), || {
             Message::CherryPick(CherryPickMessage::Confirm)
         })
+        .hide_from_help()
     }
 
     fn cherry_pick_toggle_insert_side(&mut self) -> KeyBindsInModesBuilder<'_> {
