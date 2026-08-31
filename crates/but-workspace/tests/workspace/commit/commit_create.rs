@@ -5,6 +5,7 @@ use but_rebase::graph_rebase::{
     mutate::{InsertSide, RelativeToRef},
 };
 use but_workspace::commit::{ChangeSource, commit_create};
+use but_workspace::commit_engine::{Destination, create_commit};
 
 use crate::ref_info::with_workspace_commit::utils::named_writable_scenario_with_description_and_graph as writable_scenario;
 
@@ -14,6 +15,43 @@ fn worktree_changes_as_specs(repo: &gix::Repository) -> Result<Vec<DiffSpec>> {
         .into_iter()
         .map(DiffSpec::from)
         .collect())
+}
+
+#[test]
+fn new_commit_uses_configured_user_as_committer() -> Result<()> {
+    let tmp = tempfile::tempdir()?;
+    let repo = gix::init(tmp.path())?;
+    but_core::git_config::edit_repo_config(&repo, gix::config::Source::Local, |config| {
+        but_core::git_config::set_config_value(config, "user.name", "Configured User")?;
+        but_core::git_config::set_config_value(config, "user.email", "configured@example.com")
+    })?;
+    std::fs::write(tmp.path().join("file"), "content")?;
+
+    but_testsupport::isolated_app_data_dir(|| -> Result<()> {
+        let ctx = but_ctx::Context::open_with_repo_open_mode(
+            tmp.path(),
+            but_ctx::RepoOpenMode::Isolated,
+        )?;
+        let repo = ctx.repo.get()?;
+        let outcome = create_commit(
+            &repo,
+            Destination::NewCommit {
+                parent_commit_id: None,
+                stack_segment: None,
+                message: "new commit".into(),
+            },
+            worktree_changes_as_specs(&repo)?,
+            0,
+        )?;
+        let commit = repo.find_commit(outcome.new_commit.expect("a commit was created"))?;
+        let committer = commit.committer()?;
+        assert_eq!(
+            (committer.name.to_owned(), committer.email.to_owned()),
+            ("Configured User".into(), "configured@example.com".into()),
+            "a fallback committer must not override the configured user identity"
+        );
+        Ok(())
+    })
 }
 
 #[test]
