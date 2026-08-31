@@ -167,13 +167,11 @@
 	}
 
 	$effect(() => {
-		// A forced refetch may expose cached data while the request is in flight.
-		// Wait for the fresh plan before building drafts or enabling Apply.
+		// Don't wipe the plan while a background refetch is in flight: Apply
+		// goes disabled for the round trip and the browser swallows the click.
+		// `selectTemplate` already clears it when the key changes.
 		const query = initialBranchIntegration.result;
-		if (query.status !== "fulfilled") {
-			preparedIntegration = undefined;
-			return;
-		}
+		if (query.status !== "fulfilled") return;
 
 		const initial = query.data;
 		if (!initial || query.requestId === initializedRequestId) return;
