@@ -15,7 +15,6 @@ use but_core::sync::RepoShared;
 use but_core::{ChangeId, ref_metadata::StackId};
 use but_ctx::Context;
 use but_graph::workspace::{Stack, StackCommit, StackSegment};
-use chrono::Local;
 use gix::hash::hasher;
 use nonempty::NonEmpty;
 use self_cell::self_cell;
@@ -1704,23 +1703,21 @@ impl IdMap {
         self.indexed_stacks.borrow_owner()
     }
 
-    /// Get the [WorkspaceCommitWithId] for the given commit ID.
-    pub fn get_workspace_commit_with_id(
-        &self,
-        commit_id: gix::ObjectId,
-    ) -> anyhow::Result<&WorkspaceCommitWithId> {
+    /// Get a distinct commit by ID.
+    ///
+    /// Errors if the commit cannot be found or if there are multiple matches.
+    pub fn get_commit_by_id(&self, commit_id: gix::ObjectId) -> anyhow::Result<CommitWithId<'_>> {
         let mut matches = self
             .commits()
-            .filter_map(|commit_with_id| match commit_with_id {
-                CommitWithId::Local(commit) if commit.commit_id() == commit_id => Some(commit),
-                _ => None,
+            .filter(|commit_with_id| match commit_with_id {
+                CommitWithId::Local(commit) => commit.commit_id() == commit_id,
+                CommitWithId::Remote(commit) => commit.commit_id() == commit_id,
             });
 
         match (matches.next(), matches.next()) {
             (Some(commit), None) => Ok(commit),
-            _ => Err(anyhow::anyhow!(
-                "Could not identify commit {commit_id} in workspace"
-            )),
+            (Some(_), Some(_)) => Err(anyhow::anyhow!("Found multiple matches for {commit_id}")),
+            _ => Err(anyhow::anyhow!("Could not find commit {commit_id}")),
         }
     }
 

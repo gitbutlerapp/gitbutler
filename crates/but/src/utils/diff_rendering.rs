@@ -475,25 +475,15 @@ pub fn render_commit(
     let mut id_gen = id_gen.scoped(commit_id);
 
     let id_map = IdMap::legacy_new_from_context(ctx)?;
-    let workspace_commit = id_map.get_workspace_commit_with_id(commit_id)?;
+
+    let commit_with_id = id_map.get_commit_by_id(commit_id)?;
+
     let repo = ctx.repo.get()?;
-    let tree_changes = workspace_commit
-        .tree_changes_using_repo(&repo)?
-        .into_iter()
-        .filter_map(|tree_change| {
-            let patch = tree_change
-                .inner
-                .unified_patch(&repo, ctx.settings.context_lines)
-                .ok()
-                .flatten()?;
-            Some((tree_change, patch))
-        })
-        .collect::<Vec<_>>();
 
     let header_id = id_gen.new_id("header");
 
     if !options.skip_commit_header {
-        let commit = workspace_commit.inner.attach(&repo)?;
+        let commit: but_core::Commit<'_> = repo.find_commit(commit_id)?.try_into()?;
         out.write_selectable_text(
             header_id,
             None,
@@ -544,17 +534,60 @@ pub fn render_commit(
         out.write_empty_line(header_id, None)?;
     }
 
-    if !options.skip_line_stats {
-        let mut line_stats = LineStats::default();
-        compute_line_stats_from_tree_changes(
-            tree_changes.iter().map(|(_, patch)| patch),
-            &mut line_stats,
-        );
-        out.write_selectable_text(header_id, None, render_line_stats(line_stats))?;
-        out.write_section_separator()?;
-    }
+    match commit_with_id {
+        CommitWithId::Local(workspace_commit) => {
+            let tree_changes = workspace_commit
+                .tree_changes_using_repo(&repo)?
+                .into_iter()
+                .filter_map(|tree_change| {
+                    let patch = tree_change
+                        .inner
+                        .unified_patch(&repo, ctx.settings.context_lines)
+                        .ok()
+                        .flatten()?;
+                    Some((tree_change, patch))
+                })
+                .collect::<Vec<_>>();
 
-    render_tree_changes_with_id(tree_changes, theme, &mut id_gen, out)?;
+            if !options.skip_line_stats {
+                let mut line_stats = LineStats::default();
+                compute_line_stats_from_tree_changes(
+                    tree_changes.iter().map(|(_, patch)| patch),
+                    &mut line_stats,
+                );
+                out.write_selectable_text(header_id, None, render_line_stats(line_stats))?;
+                out.write_section_separator()?;
+            }
+
+            render_tree_changes_with_id(tree_changes, theme, &mut id_gen, out)?;
+        }
+        CommitWithId::Remote(remote_commit) => {
+            let commit_details = but_api::diff::commit_details(
+                ctx,
+                remote_commit.commit_id(),
+                but_api::diff::ComputeLineStats::No,
+            )?;
+            let tree_changes = commit_details
+                .diff_with_first_parent
+                .iter()
+                .map(|change| TreeChange::from(change.clone()))
+                .collect::<Vec<_>>();
+
+            let tree_changes = tree_changes_with_patches(ctx, tree_changes);
+
+            if !options.skip_line_stats {
+                let mut line_stats = LineStats::default();
+                compute_line_stats_from_tree_changes(
+                    tree_changes.iter().map(|(_, patch)| patch),
+                    &mut line_stats,
+                );
+                out.write_selectable_text(header_id, None, render_line_stats(line_stats))?;
+                out.write_section_separator()?;
+            }
+
+            render_tree_changes(tree_changes, theme, &mut id_gen, out)?;
+        }
+    }
 
     Ok(())
 }
@@ -760,7 +793,13 @@ pub fn render_committed_file(
     let mut id_gen = id_gen.scoped(commit);
 
     let id_map = IdMap::legacy_new_from_context(ctx)?;
-    let workspace_commit = id_map.get_workspace_commit_with_id(commit)?;
+
+    let workspace_commit = match id_map.get_commit_by_id(commit)? {
+        CommitWithId::Local(commit) => commit,
+        // We don't resolve committed files for remote commits at this time, so there is no current
+        // use case for rendering a committed file from a remote commit.
+        CommitWithId::Remote(_) => bail!("{commit} is a remote commit"),
+    };
     let repo = ctx.repo.get()?;
     let tree_changes = workspace_commit
         .tree_changes_using_repo(&repo)?

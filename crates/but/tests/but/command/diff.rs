@@ -177,6 +177,27 @@ fn json_committed_targets() {
 }
 
 #[test]
+fn remote_only_commit() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("remote-local-divergence");
+    env.setup_metadata(&["main", "A"]);
+
+    let remote_commit = env.invoke_git("rev-parse refs/remotes/origin/A");
+    env.but(format!("diff {remote_commit}"))
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+──────────────────────╮
+ added only-on-remote │
+──────────────────────╯
+
+@@ -1,0 +1,1 @@
+───────────────
+  ┊ 1 │ +only-on-remote
+
+"#]]);
+}
+
+#[test]
 fn json_tree_change_statuses() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
     env.setup_metadata(&["A", "B"]);
