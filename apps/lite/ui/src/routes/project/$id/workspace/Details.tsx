@@ -33,6 +33,14 @@ import {
 	treeChangeDiffsQueryOptions,
 	workspaceFileQueryOptions,
 } from "#ui/api/queries.ts";
+import {
+	SeenOnArrivalContext,
+	useMarkReviewSeenOnView,
+	usePrNotificationsLevel,
+	useReviewUnread,
+	useSeenOnArrival,
+} from "#ui/review-seen.ts";
+import rowStyles from "./Row.module.css";
 import { decodeBytes } from "#ui/api/bytes.ts";
 import type { ForgeReview, TargetCommitReview } from "@gitbutler/but-sdk";
 import { branchDetailsParams } from "#ui/branch.ts";
@@ -2876,7 +2884,16 @@ const LandedReviewView: FC<{ projectId: string; reviewId: number }> = ({ project
 		);
 	}
 	if (!review) return <div className={classes(styles.loadingTab, "text-13")}>Loading…</div>;
-	return <ReviewView projectId={projectId} sourceBranch={review.sourceBranch} review={review} />;
+	// Keyed: a switch to another review is a new visit, so the arrival
+	// snapshot and its markers start clean rather than surviving in place.
+	return (
+		<ReviewView
+			key={review.number}
+			projectId={projectId}
+			sourceBranch={review.sourceBranch}
+			review={review}
+		/>
+	);
 };
 
 /** A branch's own changes, whatever the branch's standing. */
@@ -2950,8 +2967,10 @@ const BranchTabToggle: FC<{
 	branchTab: BranchTab;
 	setBranchTab: (tab: BranchTab) => void;
 	prDisabled?: boolean;
+	/** Marks the Pull Request tab with an unread-activity dot. */
+	prUnread?: boolean;
 	className?: string;
-}> = ({ branchTab, setBranchTab, prDisabled = false, className }) => (
+}> = ({ branchTab, setBranchTab, prDisabled = false, prUnread = false, className }) => (
 	<ToggleGroup
 		render={<ToggleGroupStyles className={className} />}
 		value={[branchTab]}
@@ -2967,6 +2986,11 @@ const BranchTabToggle: FC<{
 		</Toggle>
 		<Toggle render={<ToggleStyles />} value={"pr" satisfies BranchTab} disabled={prDisabled}>
 			{prDisabled ? "No pull request" : "Pull Request"}
+			{!prDisabled && prUnread && (
+				<span className={rowStyles.unreadDot}>
+					<span className={rowStyles.unreadLabel}>New activity</span>
+				</span>
+			)}
 		</Toggle>
 	</ToggleGroup>
 );
@@ -3012,13 +3036,14 @@ const useBranchTabHotkeys = ({
  * Editing is the applied branch's affordance — the branches tab shows a review,
  * it does not work on one.
  */
-const ReviewView: FC<{
+const ReviewLayout: FC<{
 	projectId: string;
 	sourceBranch: string;
 	review: ForgeReview;
 	editing?: { active: boolean; onDone: () => void };
 }> = ({ projectId, sourceBranch, review, editing }) => {
 	const { data: forgeInfo } = useQuery(forgeInfoOptions(projectId));
+	useMarkReviewSeenOnView(projectId, review, usePrNotificationsLevel() !== "off");
 
 	return (
 		<div className={styles.prLayout}>
@@ -3042,6 +3067,19 @@ const ReviewView: FC<{
 
 			<PullRequestPanel projectId={projectId} review={review} />
 		</div>
+	);
+};
+
+/**
+ * An existing review, with what had been seen at arrival snapshotted so the
+ * conversation can badge what is actually new.
+ */
+const ReviewView: FC<ComponentProps<typeof ReviewLayout>> = (p) => {
+	const seenOnArrival = useSeenOnArrival(p.projectId, p.review.number);
+	return (
+		<SeenOnArrivalContext.Provider value={seenOnArrival}>
+			<ReviewLayout {...p} />
+		</SeenOnArrivalContext.Provider>
 	);
 };
 
@@ -3159,10 +3197,22 @@ const UnappliedBranchDetails: FC<BranchDetailsProps> = ({
 	const landedReviewId = listedLandedNumber ?? null;
 
 	const reviewTab = review ? (
-		<ReviewView projectId={projectId} sourceBranch={branchName} review={review} />
+		<ReviewView
+			key={review.number}
+			projectId={projectId}
+			sourceBranch={branchName}
+			review={review}
+		/>
 	) : landedReviewId !== null ? (
 		<LandedReviewView projectId={projectId} reviewId={landedReviewId} />
 	) : null;
+
+	const notificationsLevel = usePrNotificationsLevel();
+	const prUnread = useReviewUnread(
+		projectId,
+		{ number: review?.number ?? 0, modifiedAt: review?.modifiedAt ?? null },
+		review != null && forgeInfo?.capabilities.prService === true && notificationsLevel !== "off",
+	);
 
 	const chosenTab = useAppSelector((state) =>
 		projectSlice.selectors.selectBranchTab(state, projectId, branchName),
@@ -3191,6 +3241,7 @@ const UnappliedBranchDetails: FC<BranchDetailsProps> = ({
 						branchTab={branchTab}
 						setBranchTab={setBranchTab}
 						prDisabled={reviewTab === null}
+						prUnread={prUnread}
 					/>
 
 					<div className={styles.tabsRowRight}>
@@ -3292,13 +3343,27 @@ const AppliedBranchDetails: FC<BranchDetailsProps> = ({
 		branchTab === "pr" && hasOpenReview === false,
 	);
 
+	// Subscribed regardless of the chosen tab: the dot on the toggle is what
+	// tells a reader parked on the diff that the review moved.
+	const notificationsLevel = usePrNotificationsLevel();
+	const { data: openReview } = useQuery({
+		...listReviewsQueryOptions({ projectId, cacheConfig: "noCache" }),
+		enabled: !!forgeInfo?.capabilities.prService && notificationsLevel !== "off",
+		select: (reviews) => reviews.find((review) => review.sourceBranch === branchName) ?? null,
+	});
+	const prUnread = useReviewUnread(
+		projectId,
+		{ number: openReview?.number ?? 0, modifiedAt: openReview?.modifiedAt ?? null },
+		!!openReview && !!forgeInfo?.capabilities.prService && notificationsLevel !== "off",
+	);
+
 	return (
 		<div className={styles.container} ref={ref}>
 			<div className={styles.headerWrap}>
 				<BranchTitleRow branchName={branchName} />
 
 				<div className={styles.tabsRow}>
-					<BranchTabToggle branchTab={branchTab} setBranchTab={setBranchTab} />
+					<BranchTabToggle branchTab={branchTab} setBranchTab={setBranchTab} prUnread={prUnread} />
 
 					{branchTab === "pr" && !!forgeInfo?.capabilities.prService && (
 						<Suspense>
@@ -3365,6 +3430,7 @@ const AppliedBranchDetails: FC<BranchDetailsProps> = ({
 											/>
 										) : (
 											<ReviewView
+												key={review.number}
 												projectId={projectId}
 												sourceBranch={branchName}
 												review={review}

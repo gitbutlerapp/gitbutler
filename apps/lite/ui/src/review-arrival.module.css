@@ -1,0 +1,7 @@
+/* Colocated "new" marker: small pop-colored text that rides inside prose
+   lines and flex rows alike. */
+.fresh {
+	display: inline-flex;
+	align-items: center;
+	color: var(--fill-pop-bg);
+}

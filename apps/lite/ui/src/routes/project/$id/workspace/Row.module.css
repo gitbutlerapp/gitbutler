@@ -251,6 +251,28 @@
 	opacity: 0.4;
 }
 
+/* Unread-activity dot on a meta item such as the PR chip. */
+.unreadDot {
+	/* Anchors the hidden label; unanchored it would land at the document's
+	   own coordinates and stretch the page. */
+	position: relative;
+	flex-shrink: 0;
+	width: 6px;
+	height: 6px;
+	border-radius: 50%;
+	background-color: var(--fill-pop-bg);
+}
+
+/* What the dot means, for readers the dot cannot reach. Lives inside the
+   dot so the pair costs one flex slot and the label stays anchored. */
+.unreadLabel {
+	position: absolute;
+	width: 1px;
+	height: 1px;
+	overflow: hidden;
+	clip: rect(0, 0, 0, 0);
+}
+
 /* Button sitting in a meta row: stands a little further off from the facts it
    follows, since no separator dot divides them. */
 .metaButton {

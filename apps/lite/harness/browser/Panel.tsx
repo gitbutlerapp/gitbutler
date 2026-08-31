@@ -15,6 +15,8 @@ import { buildUncommittedFileRows } from "#ui/routes/project/$id/workspace/file-
 import { fileTreeAddressSpace } from "#ui/routes/project/$id/workspace/file-tree.ts";
 import { useFileDisplayMode } from "#ui/routes/project/$id/workspace/useFileDisplayMode.ts";
 import { WorkspaceLists } from "#ui/routes/project/$id/workspace/WorkspaceLists/WorkspaceLists.tsx";
+import { useReviewActivityInbox } from "#ui/review-notifications.ts";
+import { useStampReviewsSeen } from "#ui/review-seen.ts";
 import { useAppSelector } from "#ui/store.ts";
 import { setCursor } from "#ui/use-cursor.ts";
 import styles from "./Panel.module.css";
@@ -25,6 +27,10 @@ import styles from "./Panel.module.css";
  */
 export const Panel: FC = () => {
 	const { id: projectId } = useParams({ from: "/project/$id/workspace" });
+	// The panel toasts review activity like the app does — same detector, same
+	// declarations — so the harness rig can exercise the flow end to end.
+	useReviewActivityInbox(projectId);
+	useStampReviewsSeen(projectId);
 	const pendingOperation = useAppSelector((state) =>
 		projectSlice.selectors.selectPendingOperation(state, projectId),
 	);

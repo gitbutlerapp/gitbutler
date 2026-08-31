@@ -10,7 +10,7 @@ import { Button, Tooltip } from "@base-ui/react";
 import type { ProjectForFrontend } from "@gitbutler/but-sdk";
 import { useIsFetching, useIsMutating } from "@tanstack/react-query";
 import { Match } from "effect";
-import { type FC, useState } from "react";
+import { type FC, type ReactNode, useState } from "react";
 import styles from "./SidebarHeader.module.css";
 
 const ActivitySpinner: FC<{
@@ -30,7 +30,12 @@ const ActivitySpinner: FC<{
 		Match.orElse(() => null),
 	);
 
-	return !p.suppressed && status !== null && <Icon name="spinner" aria-label={status} />;
+	return (
+		!p.suppressed &&
+		status !== null && (
+			<Icon name="spinner" aria-label={status} className={styles.activitySpinner} />
+		)
+	);
 };
 
 const FetchFromRemotesButton: FC<{
@@ -85,6 +90,8 @@ export const SidebarHeader: FC<{
 	canOpenSettings: boolean;
 	onOpenSettings: () => void;
 	onOpenProjectPicker: () => void;
+	/** The notification bell, which decides its own visibility. */
+	bell?: ReactNode;
 }> = (p) => (
 	<header className={styles.workspaceControls}>
 		<TopLeftControls />
@@ -142,6 +149,7 @@ export const SidebarHeader: FC<{
 					</Tooltip.Positioner>
 				</Tooltip.Portal>
 			</Tooltip.Root>
+			{p.bell}
 		</div>
 	</header>
 );

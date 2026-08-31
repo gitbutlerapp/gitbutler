@@ -24,6 +24,9 @@ export const defaultSettings = {
 	minimap: false,
 	// Lite has always led with the file name; desktop leads with the path.
 	pathFirst: false,
+	// Loud = the notification bell and unread dots; quiet = dots only;
+	// off = no PR-activity tracking in the UI at all.
+	prNotifications: "loud",
 	terminalId: "",
 	// Pierre doesn't re-export BundledTheme from Shiki and it's not possible to extract it from the
 	// union, hence importing from Shiki. See also:

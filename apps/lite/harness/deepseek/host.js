@@ -44,6 +44,17 @@ return {
 			}
 		};
 
+		// Whether the `but` CLI is on PATH. Only the panel's mount probes it,
+		// so the check is one PATH lookup per plugin session, not per call.
+		const checkBut = async () => {
+			try {
+				await subprocess.resolveExecutable("but");
+				return true;
+			} catch (error) {
+				return false;
+			}
+		};
+
 		// Find the repo root: the client-forwarded workdir first, then every
 		// durable workspace path, then the sandbox root as a last resort. The
 		// first one containing apps/lite/harness/deepseek/cli.mjs wins. The
@@ -201,8 +212,13 @@ return {
 					]);
 					b.project = project;
 					b.platform = (ping && ping.platform) || "darwin";
+					// The panel itself runs off the repo's SDK bridge, not the
+					// `but` binary — but `but` is how a user reaches GitButler
+					// from the terminal (and the app the deep links land in), so
+					// a missing CLI is worth flagging to the panel.
+					b.but = await checkBut();
 				}
-				return { project: b.project, platform: b.platform };
+				return { project: b.project, platform: b.platform, but: b.but };
 			}),
 		);
 
@@ -228,7 +244,34 @@ return {
 			harness.handle("but.ipc", async (args) => {
 				const b = await ensureBridge();
 				if (!args || !args.endpoint) throw new Error("GitButler panel: but.ipc needs an endpoint");
-				return b.call("invoke", { endpoint: args.endpoint, params: args.params }, 30000);
+				try {
+					return await b.call("invoke", { endpoint: args.endpoint, params: args.params }, 30000);
+				} catch (error) {
+					// A branch can vanish between the list the panel derived from
+					// and the diff fetch (delete, integrate, pull): its diff is
+					// empty, not an error. Tolerate the missing ref so the panel
+					// does not surface the transient; anything else still throws.
+					if (
+						args.endpoint === "branchDiff" &&
+						/did not exist/.test(String((error && error.message) || error))
+					) {
+						return null;
+					}
+					// Listing open PRs paginates the forge; the listing can change
+					// mid-fetch (a PR opened or closed while pages were pulled).
+					// The panel only reads the list for badges, so a failed pass
+					// reads as "no open PRs right now" rather than crashing the
+					// panel's IPC.
+					if (
+						args.endpoint === "listReviews" &&
+						/changed while paginating|Failed to list open pull requests/.test(
+							String((error && error.message) || error),
+						)
+					) {
+						return [];
+					}
+					throw error;
+				}
 			}),
 		);
 

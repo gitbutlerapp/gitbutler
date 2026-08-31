@@ -1,6 +1,8 @@
 import type {
 	AiConfiguration,
 	Commit,
+	ForgeInfo,
+	ForgeReview,
 	ProjectForFrontend,
 	RefInfo,
 	Segment,
@@ -129,6 +131,51 @@ const fixtureAiConfiguration: AiConfiguration = {
  * The app-wide queries every mounted panel runs regardless of fixture: enough
  * of an answer for the components to render, nothing project-specific.
  */
+/** A GitHub-shaped forge with every capability, for review-flow tests. */
+export const fixtureForgeInfo = (): ForgeInfo => ({
+	name: "github",
+	baseUrl: "https://github.example/repo",
+	commitUrlPath: "/commit/",
+	prUrlPath: "/pull/",
+	unit: { name: "pull request", abbr: "PR", symbol: "#" },
+	posthogLabel: "PR",
+	capabilities: {
+		checks: false,
+		repoInfo: true,
+		prService: true,
+		listService: true,
+		reviewComments: true,
+		reviewManagement: true,
+	},
+});
+
+export const fixtureForgeReview = (overrides: Partial<ForgeReview> = {}): ForgeReview => ({
+	htmlUrl: "https://github.example/repo/pull/7",
+	number: 7,
+	title: "A fixture change",
+	body: null,
+	author: null,
+	labels: [],
+	draft: false,
+	sourceBranch: "feature-one",
+	targetBranch: "main",
+	sha: "0".repeat(40),
+	integrationCommitShas: [],
+	createdAt: "2026-01-01T09:00:00Z",
+	modifiedAt: "2026-01-01T10:00:00Z",
+	mergedAt: null,
+	closedAt: null,
+	repositorySshUrl: null,
+	repositoryHttpsUrl: null,
+	repoOwner: null,
+	headRepoIsFork: false,
+	reviewers: [],
+	autoMergeEnabled: false,
+	unitSymbol: "#",
+	lastSyncAt: "2026-01-01T10:00:00Z",
+	...overrides,
+});
+
 export const globalHandlers = (projectId: string): FakeHandlers => ({
 	readGUISettings: (): GUISettings => ({ version: 1 }),
 	listEditors: () => [],

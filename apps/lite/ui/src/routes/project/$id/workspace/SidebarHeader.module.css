@@ -1,7 +1,11 @@
 /* Too narrow for the project name, keep only the folder mark. The size is
-   the sidebar's `top` container, where the header renders. */
+   the sidebar's `top` container, where the header renders. The ambient
+   spinner goes with it: it cannot compress, and past the group's minimum
+   content it would paint over the action icons — the fetch button still
+   shows its own spinner for the case that matters. */
 @container (max-width: 275px) {
-	.workspaceNameLabel {
+	.workspaceNameLabel,
+	.activitySpinner {
 		display: none;
 	}
 }
@@ -16,11 +20,16 @@
 	display: flex;
 	align-items: center;
 	min-width: 0;
+	/* Shrinking stops at the contents' minimum; clip past it rather than
+	   painting over the action icons. */
+	overflow: hidden;
 	gap: 4px;
 }
 
 .workspaceControlsActions {
 	display: flex;
+	/* The icons are the row's controls; the name side gives ground first. */
+	flex-shrink: 0;
 	align-items: center;
 	margin-inline-start: auto;
 	gap: 2px;

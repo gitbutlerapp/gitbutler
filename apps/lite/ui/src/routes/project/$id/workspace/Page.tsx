@@ -76,6 +76,8 @@ import { Settings } from "./Settings/Settings.tsx";
 import { useBranchesList } from "./useBranchesList.ts";
 import { upstreamCommitReview, useUpstreamList } from "./useUpstreamList.ts";
 import { useStateReconciler as useReconcileState } from "#ui/reconcile.ts";
+import { useReviewActivityInbox } from "#ui/review-notifications.ts";
+import { useStampReviewsSeen } from "#ui/review-seen.ts";
 import {
 	setCursor,
 	setActiveList,
@@ -313,6 +315,8 @@ const ProjectPicker: FC<ProjectPickerProps> = (p) => {
 
 const PageBody: FC<{ projectId: string }> = ({ projectId }) => {
 	useReconcileState(projectId);
+	useReviewActivityInbox(projectId);
+	useStampReviewsSeen(projectId);
 
 	// A virtualised drag source may unmount before the drag ends, leaving us stuck in a pending
 	// operation state. This monitor is essentially a finally block for this scenario; its onDrop runs
