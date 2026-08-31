@@ -24,7 +24,7 @@
     <text x="10" y="114" style="fill:#555555;">│</text>
     <text x="98 106 114" y="114" style="fill:#0000AA;">↑/k</text>
     <text x="130 138" y="114" style="fill:#CCCCCC;">up</text>
-    <text x="802" y="114" style="fill:#555555;">║</text>
+    <text x="802" y="114" style="fill:#555555;">█</text>
     <text x="10" y="132" style="fill:#555555;">│</text>
     <text x="98 106 114" y="132" style="fill:#0000AA;">↓/j</text>
     <text x="130 138 146 154" y="132" style="fill:#CCCCCC;">down</text>

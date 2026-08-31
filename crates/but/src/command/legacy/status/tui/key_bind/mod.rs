@@ -444,6 +444,7 @@ impl KeyBindsBuilder<'_> {
             modes: self.modes.clone(),
             make_message,
             hide_from_hotbar: false,
+            hide_from_help: false,
             show_only_in_normal_mode_help_section: false,
             always_show_in_hot_bar: false,
             condition: None,
@@ -1127,27 +1128,19 @@ impl KeyBindsBuilder<'_> {
     }
 
     fn switch_to_commit_mode(&mut self) -> KeyBindsInModesBuilder<'_> {
-        self.commit()
-            .hide_from_hotbar()
-            .long_description("Switch to commit mode")
+        self.commit().hide_from_help().hide_from_hotbar()
     }
 
     fn switch_to_move_mode(&mut self) -> KeyBindsInModesBuilder<'_> {
-        self.move_mode()
-            .hide_from_hotbar()
-            .long_description("Switch to move mode")
+        self.move_mode().hide_from_help().hide_from_hotbar()
     }
 
     fn switch_to_squash_mode(&mut self) -> KeyBindsInModesBuilder<'_> {
-        self.squash()
-            .hide_from_hotbar()
-            .long_description("Switch to squash mode")
+        self.squash().hide_from_help().hide_from_hotbar()
     }
 
     fn switch_to_branch_mode(&mut self) -> KeyBindsInModesBuilder<'_> {
-        self.branch()
-            .hide_from_hotbar()
-            .long_description("Switch to branch mode")
+        self.branch().hide_from_help().hide_from_hotbar()
     }
 }
 
@@ -1268,6 +1261,7 @@ struct KeyBindsInModesBuilder<'a> {
     modes: Vec<ModeDiscriminant>,
     make_message: MakeMessage,
     hide_from_hotbar: bool,
+    hide_from_help: bool,
     show_only_in_normal_mode_help_section: bool,
     always_show_in_hot_bar: bool,
     condition: Option<KeyBindCondition>,
@@ -1276,6 +1270,11 @@ struct KeyBindsInModesBuilder<'a> {
 impl KeyBindsInModesBuilder<'_> {
     fn hide_from_hotbar(mut self) -> Self {
         self.hide_from_hotbar = true;
+        self
+    }
+
+    fn hide_from_help(mut self) -> Self {
+        self.hide_from_help = true;
         self
     }
 
@@ -1322,6 +1321,7 @@ impl KeyBindsInModesBuilder<'_> {
             modes,
             make_message,
             hide_from_hotbar,
+            hide_from_help,
             show_only_in_normal_mode_help_section,
             always_show_in_hot_bar,
             condition,
@@ -1335,6 +1335,7 @@ impl KeyBindsInModesBuilder<'_> {
             modes,
             make_message,
             hide_from_hotbar,
+            hide_from_help,
             show_only_in_normal_mode_help_section,
             always_show_in_hot_bar,
             condition,
@@ -1351,6 +1352,7 @@ pub struct KeyBind {
     modes: Vec<ModeDiscriminant>,
     make_message: MakeMessage,
     hide_from_hotbar: bool,
+    hide_from_help: bool,
     show_only_in_normal_mode_help_section: bool,
     always_show_in_hot_bar: bool,
     condition: Option<KeyBindCondition>,
@@ -1383,6 +1385,10 @@ impl KeyBind {
 
     pub fn hide_from_hotbar(&self) -> bool {
         self.hide_from_hotbar
+    }
+
+    pub fn hide_from_help(&self) -> bool {
+        self.hide_from_help
     }
 
     pub fn always_show_in_hot_bar(&self) -> bool {
