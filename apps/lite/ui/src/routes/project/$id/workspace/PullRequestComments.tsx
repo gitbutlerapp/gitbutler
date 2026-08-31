@@ -73,6 +73,7 @@ import {
 	type MouseEvent as ReactMouseEvent,
 	type ReactNode,
 	type RefObject,
+	useCallback,
 	useEffect,
 	useMemo,
 	useRef,
@@ -825,10 +826,10 @@ type TimelineItem =
 	| { kind: "event"; at: number; key: string; event: ForgeReviewTimelineEvent };
 
 const parseTimestamp = (value: string | null): number => {
-	if (value === null) return Number.MAX_SAFE_INTEGER;
+	if (value === null) return 0;
 	const ms = Date.parse(value);
 	// Undated items sink to the bottom rather than jumping the timeline.
-	return Number.isNaN(ms) ? Number.MAX_SAFE_INTEGER : ms;
+	return Number.isNaN(ms) ? 0 : ms;
 };
 
 const timelineItems = (
@@ -862,7 +863,10 @@ const timelineItems = (
 			event,
 		}),
 	);
-	return items.sort((a, b) => a.at - b.at);
+	// Newest first: the reader comes back for what changed, not to rewind.
+	// Reversed before the stable sort so items sharing a timestamp — commits
+	// pushed in one batch — read newest-first too, not in listing order.
+	return items.reverse().sort((a, b) => b.at - a.at);
 };
 
 /**
@@ -983,19 +987,61 @@ const Composer: FC<{
 	projectId: string;
 }> = ({ draft, setDraft, onSubmit, textareaRef, avatarUrl, projectId }) => {
 	const [scrolled, setScrolled] = useState(false);
+	// Folded to one quiet row until engaged; a draft arriving from outside —
+	// a reply quote, a failed submit restoring its text — unfolds it too.
+	const [engaged, setEngaged] = useState(false);
 	const empty = draft.trim() === "";
+	const expanded = engaged || !empty;
 	const composerRef = useRef<HTMLDivElement | null>(null);
+	// Stable, so it runs on real mount only — and the box only ever mounts by
+	// being unfolded, whatever asked for it, so focus follows.
+	const attachInput = useCallback(
+		(el: HTMLTextAreaElement | null) => {
+			textareaRef.current = el;
+			el?.focus();
+		},
+		[textareaRef],
+	);
+
+	const submit = () => {
+		onSubmit();
+		// The submit is optimistic, so the composer folds with it; a refusal
+		// restores the draft, which unfolds it again with the text intact.
+		setEngaged(false);
+	};
 
 	// Scoped to the composer, so the same chord on the description form below
 	// still submits that instead.
-	useHotkey(pullRequestHotkeys.comment.hotkey, onSubmit, {
+	useHotkey(pullRequestHotkeys.comment.hotkey, submit, {
 		conflictBehavior: "allow",
 		enabled: !empty,
 		target: composerRef,
 	});
 
+	if (!expanded) {
+		return (
+			<button
+				className={classes("text-13", styles.composerCollapsed)}
+				onFocus={() => setEngaged(true)}
+				aria-label="Write a comment"
+				type="button"
+			>
+				<Avatar src={avatarUrl} />
+				<span className={styles.composerPrompt}>Write a comment…</span>
+			</button>
+		);
+	}
+
 	return (
-		<div className={styles.composer} data-body-scrolled={scrolled || undefined} ref={composerRef}>
+		<div
+			className={styles.composer}
+			data-body-scrolled={scrolled || undefined}
+			// Leaving the whole composer with nothing written folds it back.
+			onBlur={(evt) => {
+				if (empty && !evt.currentTarget.contains(evt.relatedTarget)) setEngaged(false);
+			}}
+			ref={composerRef}
+		>
 			<MarkdownToolbar
 				className={styles.composerToolbar}
 				onInput={setDraft}
@@ -1008,10 +1054,16 @@ const Composer: FC<{
 					aria-label="Write a comment"
 					className={classes("text-13", "text-body", styles.composerInput)}
 					onChange={(evt) => setDraft(evt.currentTarget.value)}
+					onKeyDown={(evt) => {
+						if (evt.key === "Escape" && empty) {
+							evt.preventDefault();
+							setEngaged(false);
+						}
+					}}
 					// Only the flip re-renders: React bails out of an unchanged state.
 					onScroll={(evt) => setScrolled(evt.currentTarget.scrollTop > 0)}
 					placeholder="Write a comment…"
-					ref={textareaRef}
+					ref={attachInput}
 					value={draft}
 				/>
 			</div>
@@ -1024,7 +1076,7 @@ const Composer: FC<{
 				<button
 					className={getButtonClassName({ variant: "gray" })}
 					disabled={empty}
-					onClick={onSubmit}
+					onClick={submit}
 					type="button"
 				>
 					Comment
@@ -1076,13 +1128,11 @@ export const ReviewTimeline: FC<{ projectId: string; review: ForgeReview }> = ({
 		[events, currentLogin],
 	);
 
-	// `timelineItems` sorts oldest first, which the conversation wants and this
-	// does not: here the latest push is the point.
 	const items = useMemo(
 		() =>
-			timelineItems(review, undefined, undefined, [], events)
-				.filter((item) => item.kind === "opened" || item.kind === "event")
-				.reverse(),
+			timelineItems(review, undefined, undefined, [], events).filter(
+				(item) => item.kind === "opened" || item.kind === "event",
+			),
 		[review, events],
 	);
 
@@ -1261,6 +1311,14 @@ export const PullRequestComments: FC<{ projectId: string; review: ForgeReview }>
 	return (
 		<div className={styles.comments}>
 			<RegisterFreshItems source="conversation" items={freshItems} />
+			<Composer
+				avatarUrl={ownForgeAvatar(items, currentLogin) ?? profile?.picture}
+				projectId={projectId}
+				draft={draft}
+				onSubmit={handleSubmit}
+				setDraft={setDraft}
+				textareaRef={composerRef}
+			/>
 			{loading ? (
 				<div className={classes("text-13", styles.commentsEmpty)}>Loading…</div>
 			) : (
@@ -1299,15 +1357,6 @@ export const PullRequestComments: FC<{ projectId: string; review: ForgeReview }>
 					)}
 				</div>
 			)}
-
-			<Composer
-				avatarUrl={ownForgeAvatar(items, currentLogin) ?? profile?.picture}
-				projectId={projectId}
-				draft={draft}
-				onSubmit={handleSubmit}
-				setDraft={setDraft}
-				textareaRef={composerRef}
-			/>
 		</div>
 	);
 };
