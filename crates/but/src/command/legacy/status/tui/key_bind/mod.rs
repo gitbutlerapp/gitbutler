@@ -60,6 +60,7 @@ pub fn default_key_binds(feature_flags: &FeatureFlags) -> KeyBinds {
                 builder.move_confirm().register();
                 builder.move_toggle_insert_side().register();
                 builder.switch_to_squash_mode().register();
+                builder.switch_to_branch_mode().register();
                 register_non_mode_specific_key_binds(&mut builder, WithFocusDetails::No);
             }
             ModeDiscriminant::Stack => {

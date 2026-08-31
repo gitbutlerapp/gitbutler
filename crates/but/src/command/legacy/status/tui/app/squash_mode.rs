@@ -364,7 +364,7 @@ impl App {
                 // model, so the mode switch is simply not offered.
                 CommitSource::Worktree(..) => {}
             },
-            Mode::Move(move_mode) => match &*move_mode.source {
+            Mode::Move(move_mode) => match &move_mode.source {
                 MoveSource::Marks(commits) => {
                     self.squash_start_with_source(SquashSource::Marks(SquashMarks::Commits(
                         commits.clone(),

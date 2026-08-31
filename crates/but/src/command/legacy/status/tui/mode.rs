@@ -170,7 +170,7 @@ impl<'a> ModeRef<'a> {
                 CommandReturnMode::Normal(normal_mode) => normal_mode.marks.as_ref(),
                 CommandReturnMode::Details(details_mode) => details_mode.return_mode.marks(),
             },
-            ModeRef::Move(move_mode) => match &*move_mode.source {
+            ModeRef::Move(move_mode) => match &move_mode.source {
                 MoveSource::Marks(commits) => MarksRef::from_commits(commits),
                 MoveSource::Commit { .. } | MoveSource::Branch(..) => MarksRef::Empty,
             },

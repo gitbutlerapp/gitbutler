@@ -1163,7 +1163,7 @@ pub fn move_operation_display(
         source,
         insert_side,
     } = mode;
-    match &**source {
+    match source {
         MoveSource::Commit { .. } => match data {
             StatusOutputLineData::Commit { .. } => match insert_side {
                 InsertSide::Above => Some("move commit above"),

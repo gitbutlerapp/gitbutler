@@ -33,11 +33,12 @@ use crate::{
         },
         switch::{self, SwitchOperation},
     },
+    id::CommitId,
     theme::Theme,
     utils::{targeting::Side, time::format_relative_time},
 };
 
-use super::{Cursor, MoveCursorDiration, SquashMarks, SquashSource};
+use super::{Cursor, MoveCursorDiration, MoveSource, SquashMarks, SquashSource};
 
 #[derive(Debug, Clone)]
 pub struct BranchMode {
@@ -178,6 +179,28 @@ impl App {
                 | SquashSource::Commit(..)
                 | SquashSource::UncommittedHunk(..)
                 | SquashSource::CommittedFile(..) => return,
+            },
+            Mode::Move(move_mode) => match &move_mode.source {
+                MoveSource::Branch(branch_id) => {
+                    let Some(cursor_at_branch) =
+                        Cursor::select_branch(&branch_id.name, &self.status_lines)
+                    else {
+                        return;
+                    };
+                    self.cursor = cursor_at_branch;
+                    Mode::Branch(BranchMode {
+                        marks: marks.to_owned(),
+                        side: Side::Above,
+                    })
+                }
+                MoveSource::Marks(marks) => {
+                    // if one day you can move something else than commits this'll trigger a type
+                    // error so we're reminded to update it. Likely that means changing to
+                    // `match marks { ... }`
+                    _ = std::convert::identity::<&NonEmpty<CommitId>>(marks);
+                    return;
+                }
+                MoveSource::Commit(..) => return,
             },
             _ => Mode::Branch(BranchMode {
                 marks: marks.to_owned(),

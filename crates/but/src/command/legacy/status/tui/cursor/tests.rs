@@ -279,7 +279,7 @@ fn commit_line_with_classification(
 
 fn move_commit_mode(hex: &str) -> Mode {
     Mode::Move(MoveMode {
-        source: Arc::new(MoveSource::Commit(commit_id(hex))),
+        source: MoveSource::Commit(commit_id(hex)),
         insert_side: InsertSide::Below,
     })
 }
