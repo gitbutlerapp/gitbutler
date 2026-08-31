@@ -249,7 +249,7 @@
 .composer {
 	display: flex;
 	flex-direction: column;
-	margin-block-start: 14px;
+	margin-block-end: 14px;
 	border-radius: var(--radius-card);
 	outline: 1px solid var(--border-2);
 	outline-offset: -1px;
@@ -264,6 +264,32 @@
 		outline: var(--focus-ring);
 		outline-offset: -1.5px;
 	}
+}
+
+/* The composer at rest: one input-shaped row, unfolding on focus. */
+.composerCollapsed {
+	display: flex;
+	align-items: center;
+	width: 100%;
+	margin-block-end: 14px;
+	padding: 11px 16px;
+	gap: 12px;
+	border: none;
+	border-radius: var(--radius-card);
+	outline: 1px solid var(--border-2);
+	outline-offset: -1px;
+	background-color: var(--bg-1);
+	text-align: start;
+	cursor: text;
+	transition: outline-color var(--transition-fast);
+
+	&:hover {
+		outline-color: var(--border-1);
+	}
+}
+
+.composerPrompt {
+	color: var(--text-3);
 }
 
 .composerToolbar {
