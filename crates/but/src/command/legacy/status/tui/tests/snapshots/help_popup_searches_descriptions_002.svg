@@ -112,7 +112,7 @@
     <text x="386 394 402" y="222" style="fill:#CCCCCC;opacity:0.75;">elp</text>
     <text x="418" y="222" style="fill:#CCCCCC;opacity:0.75;text-decoration:underline;">m</text>
     <text x="426 434 442" y="222" style="fill:#CCCCCC;opacity:0.75;">enu</text>
-    <text x="802" y="222" style="fill:#555555;">█</text>
+    <text x="802" y="222" style="fill:#555555;">║</text>
     <text x="10" y="240" style="fill:#555555;">│</text>
     <text x="802" y="240" style="fill:#555555;">║</text>
     <text x="10" y="258" style="fill:#555555;">│</text>

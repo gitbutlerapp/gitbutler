@@ -244,6 +244,26 @@ impl App {
                 | SquashSource::CommittedFile(..)
                 | SquashSource::Uncommitted => return,
             },
+            Mode::Branch(branch_mode) => match branch_mode.marks.as_ref() {
+                MarksRef::Empty => {
+                    let Some(CliId::Branch(branch)) = self
+                        .cursor
+                        .selected_line(&self.status_lines)
+                        .and_then(|line| line.data.cli_id())
+                        .map(|id| &**id)
+                    else {
+                        return;
+                    };
+                    MoveMode {
+                        source: Arc::new(MoveSource::Branch(branch.clone())),
+                        insert_side: InsertSide::Above,
+                    }
+                }
+                MarksRef::Branches { .. }
+                | MarksRef::Hunks { .. }
+                | MarksRef::Commits { .. }
+                | MarksRef::CommittedFiles { .. } => return,
+            },
             _ => return,
         };
 

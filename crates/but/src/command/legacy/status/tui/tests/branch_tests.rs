@@ -602,3 +602,56 @@ fn switching_to_workspace() {
     tui.input(KeyCode::Enter)
         .assert_rendered_term_svg_eq(file!["snapshots/switching_to_workspace_004.svg"]);
 }
+
+#[test]
+fn switching_between_branch_mode_and_other_modes() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["A"]);
+
+    let mut tui = test_status_tui(env);
+
+    tui.input('j');
+
+    // switch to squash mode without marks
+    tui.input('b').assert_rendered_term_svg_eq(file![
+        "snapshots/switching_between_branch_mode_and_other_modes_001.svg"
+    ]);
+    tui.input('r').assert_rendered_term_svg_eq(file![
+        "snapshots/switching_between_branch_mode_and_other_modes_002.svg"
+    ]);
+    tui.input(KeyCode::Esc);
+
+    // switch to squash mode marks
+    tui.input('b').assert_rendered_term_svg_eq(file![
+        "snapshots/switching_between_branch_mode_and_other_modes_003.svg"
+    ]);
+    tui.input(' ').assert_rendered_term_svg_eq(file![
+        "snapshots/switching_between_branch_mode_and_other_modes_004.svg"
+    ]);
+    tui.input('r').assert_rendered_term_svg_eq(file![
+        "snapshots/switching_between_branch_mode_and_other_modes_005.svg"
+    ]);
+    tui.input(KeyCode::Esc);
+    tui.input(KeyCode::Esc);
+
+    // can switch to move mode without marks
+    tui.input('b').assert_rendered_term_svg_eq(file![
+        "snapshots/switching_between_branch_mode_and_other_modes_006.svg"
+    ]);
+    tui.input('m').assert_rendered_term_svg_eq(file![
+        "snapshots/switching_between_branch_mode_and_other_modes_007.svg"
+    ]);
+    tui.input(KeyCode::Esc);
+
+    // can switch to move mode with marks
+    // this doesn't enter move mode because branches can only be moved one at a time
+    tui.input('b').assert_rendered_term_svg_eq(file![
+        "snapshots/switching_between_branch_mode_and_other_modes_008.svg"
+    ]);
+    tui.input(' ').assert_rendered_term_svg_eq(file![
+        "snapshots/switching_between_branch_mode_and_other_modes_009.svg"
+    ]);
+    tui.input('m').assert_rendered_term_svg_eq(file![
+        "snapshots/switching_between_branch_mode_and_other_modes_010.svg"
+    ]);
+}

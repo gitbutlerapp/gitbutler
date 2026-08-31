@@ -42,16 +42,8 @@ pub fn default_key_binds(feature_flags: &FeatureFlags) -> KeyBinds {
             ModeDiscriminant::Squash => {
                 builder.squash_confirm().register();
                 builder.squash_use_target_message().register();
-                builder
-                    .commit()
-                    .hide_from_hotbar()
-                    .long_description("Switch to commit mode")
-                    .register();
-                builder
-                    .move_mode()
-                    .hide_from_hotbar()
-                    .long_description("Switch to move mode")
-                    .register();
+                builder.switch_to_commit_mode().register();
+                builder.switch_to_move_mode().register();
                 register_non_mode_specific_key_binds(&mut builder, WithFocusDetails::No);
             }
             ModeDiscriminant::Commit => {
@@ -70,11 +62,7 @@ pub fn default_key_binds(feature_flags: &FeatureFlags) -> KeyBinds {
             ModeDiscriminant::Move => {
                 builder.move_confirm().register();
                 builder.move_toggle_insert_side().register();
-                builder
-                    .squash()
-                    .hide_from_hotbar()
-                    .long_description("Switch to squash mode")
-                    .register();
+                builder.switch_to_squash_mode().register();
                 register_non_mode_specific_key_binds(&mut builder, WithFocusDetails::No);
             }
             ModeDiscriminant::Stack => {
@@ -103,6 +91,8 @@ pub fn default_key_binds(feature_flags: &FeatureFlags) -> KeyBinds {
                 builder.branch_toggle_insert_side().register();
                 builder.discard().register();
                 builder.mark().register();
+                builder.switch_to_squash_mode().register();
+                builder.switch_to_move_mode().register();
                 register_non_mode_specific_key_binds(&mut builder, WithFocusDetails::No);
             }
             ModeDiscriminant::Details => {
@@ -1136,6 +1126,24 @@ impl KeyBindsBuilder<'_> {
             press().shift().code(KeyCode::Char('G')),
             || Message::Details(DetailsMessage::GotoBottom),
         )
+    }
+
+    fn switch_to_commit_mode(&mut self) -> KeyBindsInModesBuilder<'_> {
+        self.commit()
+            .hide_from_hotbar()
+            .long_description("Switch to commit mode")
+    }
+
+    fn switch_to_move_mode(&mut self) -> KeyBindsInModesBuilder<'_> {
+        self.move_mode()
+            .hide_from_hotbar()
+            .long_description("Switch to move mode")
+    }
+
+    fn switch_to_squash_mode(&mut self) -> KeyBindsInModesBuilder<'_> {
+        self.squash()
+            .hide_from_hotbar()
+            .long_description("Switch to squash mode")
     }
 }
 

@@ -377,6 +377,31 @@ impl App {
                     self.squash_start_with_source(SquashSource::Branch(branch.clone()));
                 }
             },
+            Mode::Branch(branch_mode) => match branch_mode.marks.as_ref() {
+                MarksRef::Empty => {
+                    let Some(CliId::Branch(branch)) = self
+                        .cursor
+                        .selected_line(&self.status_lines)
+                        .and_then(|line| line.data.cli_id())
+                        .map(|id| &**id)
+                    else {
+                        return;
+                    };
+                    self.squash_start_with_source(SquashSource::Branch(branch.clone()));
+                }
+                MarksRef::Branches { head, tail } => {
+                    let marks = NonEmpty {
+                        head: head.to_owned(),
+                        tail: tail.to_owned(),
+                    };
+                    self.squash_start_with_source(SquashSource::Marks(SquashMarks::Branches(
+                        marks,
+                    )));
+                }
+                MarksRef::Hunks { .. }
+                | MarksRef::Commits { .. }
+                | MarksRef::CommittedFiles { .. } => {}
+            },
             _ => {}
         }
     }
