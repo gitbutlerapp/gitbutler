@@ -77,7 +77,7 @@
     <text x="410" y="168" style="fill:#555555;">│</text>
     <text x="410 418 426 434 442 450 458 466 474 482 490 498 506" y="186" style="fill:#555555;">│───────────╮</text>
     <text x="410" y="204" style="fill:#555555;">│</text>
-    <text x="426 434 442 450 458" y="204" style="fill:#00AA00;">added</text>
+    <text x="426 434 442 450 458" y="204" style="fill:#0000AA;">1:k:c</text>
     <text x="474 482 490" y="204" style="fill:#CCCCCC;">one</text>
     <text x="506" y="204" style="fill:#555555;">│</text>
     <text x="410 418 426 434 442 450 458 466 474 482 490 498 506" y="222" style="fill:#555555;">│───────────╯</text>

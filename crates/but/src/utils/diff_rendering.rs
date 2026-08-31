@@ -896,9 +896,9 @@ fn render_tree_changes_with_id(
                 for (hunk_pos, (j, hunk)) in hunks.into_iter().enumerate().with_position() {
                     let hunk_id = id_gen.new_id(j);
 
+                    // TODO need cli ID for TUI selection to work
                     render_hunk_path_header(
                         hunk_id,
-                        // TODO need cli ID for selectito work
                         None,
                         tree_change.inner.path.as_ref(),
                         Some(ShortIdOrTreeStatus::ShortId(&hunk.id)),
@@ -914,52 +914,29 @@ fn render_tree_changes_with_id(
                 }
             }
             UnifiedPatch::Binary => {
-                let patch_id = id_gen.new_id("binary");
-
-                render_hunk_path_header(
-                    patch_id,
-                    None,
+                render_binary_hunk(
+                    theme,
+                    out,
+                    tree_change_pos,
                     tree_change.inner.path.as_ref(),
                     Some(ShortIdOrTreeStatus::TreeStatus(
                         &tree_change.inner.status.into(),
                     )),
-                    out,
-                    theme,
+                    &mut id_gen,
                 )?;
-
-                out.write_selectable_text(
-                    patch_id,
-                    None,
-                    "Binary file - no diff available".into(),
-                )?;
-
-                if tree_change_pos.needs_padding_below() {
-                    out.write_section_separator()?;
-                }
             }
             UnifiedPatch::TooLarge { size_in_bytes } => {
-                let patch_id = id_gen.new_id("too_large");
-
-                render_hunk_path_header(
-                    patch_id,
-                    None,
+                render_too_large_hunk(
+                    theme,
+                    out,
+                    tree_change_pos,
                     tree_change.inner.path.as_ref(),
                     Some(ShortIdOrTreeStatus::TreeStatus(
                         &tree_change.inner.status.into(),
                     )),
-                    out,
-                    theme,
+                    id_gen,
+                    size_in_bytes,
                 )?;
-
-                out.write_selectable_text(
-                    patch_id,
-                    None,
-                    format!("File too large ({size_in_bytes} bytes) - no diff available").into(),
-                )?;
-
-                if tree_change_pos.needs_padding_below() {
-                    out.write_section_separator()?;
-                }
             }
         }
     }
@@ -1019,50 +996,68 @@ fn render_tree_changes(
                 }
             }
             UnifiedPatch::Binary => {
-                let patch_id = id_gen.new_id("binary");
-
-                render_hunk_path_header(
-                    patch_id,
-                    None,
+                render_binary_hunk(
+                    theme,
+                    out,
+                    tree_change_pos,
                     tree_change.path.as_ref(),
                     Some(ShortIdOrTreeStatus::TreeStatus(&tree_change.status)),
-                    out,
-                    theme,
+                    &mut id_gen,
                 )?;
-
-                out.write_selectable_text(
-                    patch_id,
-                    None,
-                    "Binary file - no diff available".into(),
-                )?;
-
-                if tree_change_pos.needs_padding_below() {
-                    out.write_section_separator()?;
-                }
             }
             UnifiedPatch::TooLarge { size_in_bytes } => {
-                let patch_id = id_gen.new_id("too_large");
-
-                render_hunk_path_header(
-                    patch_id,
-                    None,
+                render_too_large_hunk(
+                    theme,
+                    out,
+                    tree_change_pos,
                     tree_change.path.as_ref(),
                     Some(ShortIdOrTreeStatus::TreeStatus(&tree_change.status)),
-                    out,
-                    theme,
+                    id_gen,
+                    size_in_bytes,
                 )?;
-
-                out.write_selectable_text(
-                    patch_id,
-                    None,
-                    format!("File too large ({size_in_bytes} bytes) - no diff available").into(),
-                )?;
-
-                if tree_change_pos.needs_padding_below() {
-                    out.write_section_separator()?;
-                }
             }
         }
+    }
+
+    Ok(())
+}
+
+fn render_too_large_hunk(
+    theme: &'static Theme,
+    out: &mut dyn DiffLineWriter,
+    tree_change_pos: Position,
+    path: &BStr,
+    status: Option<ShortIdOrTreeStatus<'_>>,
+    mut id_gen: IdGen<'_>,
+    size_in_bytes: u64,
+) -> Result<(), anyhow::Error> {
+    let patch_id = id_gen.new_id("too_large");
+    render_hunk_path_header(patch_id, None, path, status, out, theme)?;
+    out.write_selectable_text(
+        patch_id,
+        None,
+        format!("File too large ({size_in_bytes} bytes) - no diff available").into(),
+    )?;
+    if tree_change_pos.needs_padding_below() {
+        out.write_section_separator()?;
+    }
+
+    Ok(())
+}
+
+fn render_binary_hunk(
+    theme: &'static Theme,
+    out: &mut dyn DiffLineWriter,
+    tree_change_pos: Position,
+    path: &BStr,
+    status: Option<ShortIdOrTreeStatus<'_>>,
+    id_gen: &mut IdGen<'_>,
+) -> Result<(), anyhow::Error> {
+    let patch_id = id_gen.new_id("binary");
+    render_hunk_path_header(patch_id, None, path, status, out, theme)?;
+    out.write_selectable_text(patch_id, None, "Binary file - no diff available".into())?;
+    if tree_change_pos.needs_padding_below() {
+        out.write_section_separator()?;
     }
 
     Ok(())
