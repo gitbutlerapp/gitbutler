@@ -83,7 +83,7 @@ export const useActiveListsHotkeys = ({
 }) => {
 	const { data: headInfoIndex } = useQuery({
 		...headInfoQueryOptions(projectId),
-		select: getHeadInfoIndex,
+		select: ({ headInfo }) => getHeadInfoIndex(headInfo),
 	});
 	const { data: forgeInfo } = useQuery(forgeInfoOptions(projectId));
 	const store = useAppStore();

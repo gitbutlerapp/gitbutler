@@ -405,7 +405,7 @@ export const FilesTree: FC<
 }) => {
 	const { data: headInfoIndex } = useQuery({
 		...headInfoQueryOptions(projectId),
-		select: getHeadInfoIndex,
+		select: ({ headInfo }) => getHeadInfoIndex(headInfo),
 	});
 	// Resolved once here rather than per row: a row that subscribes to the settings query
 	// is a row that re-renders with it. Selecting the boolean keeps that subscription to

@@ -149,7 +149,7 @@ export const CommitRow: FC<
 
 	const { data: headInfoIndex } = useQuery({
 		...headInfoQueryOptions(projectId),
-		select: getHeadInfoIndex,
+		select: ({ headInfo }) => getHeadInfoIndex(headInfo),
 	});
 
 	const deleteCommit = () => {

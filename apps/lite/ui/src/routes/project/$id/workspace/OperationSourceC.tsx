@@ -52,7 +52,7 @@ export const OperationSourceC: FC<
 }) => {
 	const { data: headInfoIndex } = useQuery({
 		...headInfoQueryOptions(projectId),
-		select: getHeadInfoIndex,
+		select: ({ headInfo }) => getHeadInfoIndex(headInfo),
 	});
 	const pendingOperation = useAppSelector((state) =>
 		projectSlice.selectors.selectPendingOperation(state, projectId),

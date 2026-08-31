@@ -158,6 +158,33 @@ pub use hex_hash::{ChangeIdString, HexHash, HexHashString};
 #[cfg(feature = "export-schema")]
 but_schemars::register_sdk_type!(HexHashString);
 
+/// A workspace projection paired with the checksum of the inputs it represents.
+#[cfg(feature = "legacy")]
+#[derive(Debug, Serialize)]
+#[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
+#[serde(rename_all = "camelCase")]
+pub struct HeadInfoResponse {
+    /// The projected workspace.
+    pub head_info: but_workspace::ui::RefInfo,
+    /// Present only when the inputs stayed unchanged while the projection was built.
+    pub workspace_revision: Option<String>,
+}
+
+#[cfg(all(feature = "legacy", feature = "export-schema"))]
+but_schemars::register_sdk_type!(HeadInfoResponse);
+
+#[cfg(feature = "legacy")]
+impl TryFrom<crate::legacy::workspace::HeadInfoResponse> for HeadInfoResponse {
+    type Error = anyhow::Error;
+
+    fn try_from(value: crate::legacy::workspace::HeadInfoResponse) -> Result<Self, Self::Error> {
+        Ok(Self {
+            head_info: value.head_info.try_into()?,
+            workspace_revision: value.workspace_revision,
+        })
+    }
+}
+
 /// Shared JSON transport type for mutation workspace results.
 #[derive(Debug, Serialize)]
 #[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
@@ -176,6 +203,8 @@ pub struct WorkspaceState {
     /// rendered graph projection.
     #[cfg(feature = "graph-workspace")]
     pub graph_workspace: but_workspace::ui::workspace::DetailedGraphWorkspace,
+    /// Checksum of the on-disk inputs represented by this workspace, or `null` for previews.
+    pub workspace_revision: Option<String>,
     /// True if a checkout occurred, and a conflict occurred during that
     /// checkout.
     pub checkout_conflict_occurred: bool,
@@ -198,6 +227,7 @@ impl TryFrom<crate::WorkspaceState> for WorkspaceState {
             head_info: value.head_info.try_into()?,
             #[cfg(feature = "graph-workspace")]
             graph_workspace: value.graph_workspace,
+            workspace_revision: value.workspace_revision,
             checkout_conflict_occurred: value.checkout_conflict_occurred,
         })
     }

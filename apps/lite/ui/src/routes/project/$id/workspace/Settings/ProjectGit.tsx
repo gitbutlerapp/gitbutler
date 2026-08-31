@@ -50,7 +50,7 @@ export const ProjectGit: FC<{ projectId: string }> = ({ projectId }) => {
 	// Credentials are tested against the target's remote, the same pair a push uses.
 	const { data: target } = useQuery({
 		...headInfoQueryOptions(projectId),
-		select: (info) => info.target?.remoteTrackingRef ?? null,
+		select: ({ headInfo }) => headInfo.target?.remoteTrackingRef ?? null,
 	});
 	const [credentials, setCredentials] = useState<CredentialCheckState>({ _tag: "Idle" });
 	const project = assert(projects.find((candidate) => candidate.id === projectId));

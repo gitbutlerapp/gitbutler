@@ -125,15 +125,20 @@ but_schemars::register_sdk_type!(WatcherGitHeadPayload);
 pub struct WatcherGitActivityPayload {
     /// The SHA of the repository's HEAD.
     pub head_sha: String,
+    /// Checksum of the workspace inputs after this watcher batch settled.
+    pub workspace_revision: Option<String>,
 }
 
 #[cfg(feature = "export-schema")]
 but_schemars::register_sdk_type!(WatcherGitActivityPayload);
 
-/// Workspace activity that requires the UI to re-read branch/stack state.
+/// Workspace activity that may require the UI to re-read branch/stack state.
 #[derive(Debug, Clone, Serialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
-pub struct WatcherWorkspaceActivityPayload;
+pub struct WatcherWorkspaceActivityPayload {
+    /// Checksum of the workspace inputs after this watcher batch settled.
+    pub workspace_revision: Option<String>,
+}
 
 #[cfg(feature = "export-schema")]
 but_schemars::register_sdk_type!(WatcherWorkspaceActivityPayload);

@@ -9,7 +9,8 @@ use but_hunk_dependency::ui::hunk_dependencies_for_workspace_changes_by_worktree
 use but_project_handle::{REFRESH_SENTINEL_PATH, process_sentinel_token};
 use but_settings::{AppSettings, AppSettingsWithDiskSync};
 use gitbutler_filemonitor::{
-    FETCH_HEAD, HEAD, HEAD_ACTIVITY, INDEX, InternalEvent, LOCAL_REFS_DIR, REMOTE_REFS_DIR,
+    CONFIG, CONFIG_WORKTREE, FETCH_HEAD, HEAD, HEAD_ACTIVITY, INDEX, InternalEvent, LOCAL_REFS_DIR,
+    PACKED_REFS, REMOTE_REFS_DIR, SHALLOW,
 };
 use gitbutler_operating_modes::operating_mode;
 use gix::bstr::ByteSlice as _;
@@ -147,6 +148,7 @@ impl Handler {
     ) -> Result<()> {
         let (head_ref_name, head_sha) = head_info(ctx)?;
         let mut saw_workspace_activity = false;
+        let mut requires_fresh_repository = false;
         for path in paths {
             let Some(file_name) = path.to_str() else {
                 continue;
@@ -171,6 +173,10 @@ impl Handler {
                 // workspace state"; coalesce into one emission after the loop.
                 _ if file_name.starts_with(REMOTE_REFS_DIR) => {
                     saw_workspace_activity = true;
+                }
+                CONFIG | CONFIG_WORKTREE | PACKED_REFS | SHALLOW => {
+                    saw_workspace_activity = true;
+                    requires_fresh_repository = true;
                 }
                 REFRESH_SENTINEL_PATH => {
                     // Skip the echo of our own write (its pid is already handled
@@ -208,7 +214,10 @@ impl Handler {
             }
         }
         if saw_workspace_activity {
-            self.emit_app_event(Change::WorkspaceActivity { project_id })?;
+            self.emit_app_event(Change::WorkspaceActivity {
+                project_id,
+                requires_fresh_repository,
+            })?;
         }
         Ok(())
     }

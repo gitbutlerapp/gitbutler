@@ -210,6 +210,10 @@ mod api;
 pub use api::FirstParent;
 /// Produce a graph from a Git repository.
 pub mod init;
+mod input_snapshot;
+pub use input_snapshot::{
+    WorkspaceInputSnapshot, capture_workspace_inputs, workspace_from_head_with_inputs,
+};
 
 #[path = "projection/mod.rs"]
 pub mod workspace;

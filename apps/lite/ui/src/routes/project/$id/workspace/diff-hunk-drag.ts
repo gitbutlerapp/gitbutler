@@ -1,4 +1,4 @@
-import { headInfoQueryOptions } from "#ui/api/queries.ts";
+import { headInfoSnapshotQueryOptions } from "#ui/api/queries.ts";
 import { cancelPendingOperation } from "#ui/use-cursor.ts";
 import { getHeadInfoIndex } from "#ui/api/ref-info.ts";
 import {
@@ -76,8 +76,8 @@ export const useDiffHunkDrag = <T>({
 			return pending._tag !== "InlineEdit";
 		},
 		getHeadInfoIndex: () => {
-			const headInfo = queryClient.getQueryData(headInfoQueryOptions(projectId).queryKey);
-			return headInfo ? getHeadInfoIndex(headInfo) : null;
+			const snapshot = queryClient.getQueryData(headInfoSnapshotQueryOptions(projectId).queryKey);
+			return snapshot ? getHeadInfoIndex(snapshot.headInfo) : null;
 		},
 		getHunkAddress,
 		getLineAddress,

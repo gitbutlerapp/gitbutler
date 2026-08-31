@@ -9,7 +9,7 @@
  */
 
 import { projectQueryKeys, type ProjectQueryKey } from "#ui/api/query-keys.ts";
-import { getReviewQueryOptions } from "#ui/api/queries.ts";
+import { getReviewQueryOptions, headInfoSnapshotQueryOptions } from "#ui/api/queries.ts";
 import { recordedPullRequest } from "#ui/api/ref-info.ts";
 import type { ForgeReview, WatcherEvent } from "@gitbutler/but-sdk";
 import { apiProvides, watcherInvalidates, type CacheTag } from "@gitbutler/but-sdk/cache-tags";
@@ -83,9 +83,8 @@ for (const query of projectQueryKeys) {
  * re-reading the target commits so their annotations can be matched.
  */
 const refreshIntegratedReviews = async (client: QueryClient, projectId: string): Promise<void> => {
-	const headInfo = await client.fetchQuery({
-		queryKey: [projectId, "headInfo"],
-		queryFn: () => window.lite.headInfo(projectId),
+	const { headInfo } = await client.fetchQuery({
+		...headInfoSnapshotQueryOptions(projectId),
 		staleTime: 0,
 	});
 	const reviewIds = new Set(
@@ -108,6 +107,89 @@ const refreshIntegratedReviews = async (client: QueryClient, projectId: string):
 	);
 };
 
+const mutationProjectId = (variables: unknown): string | undefined =>
+	typeof variables === "object" &&
+	variables !== null &&
+	"projectId" in variables &&
+	typeof variables.projectId === "string"
+		? variables.projectId
+		: undefined;
+
+const hasPendingWorkspaceMutation = (client: QueryClient, projectId: string): boolean =>
+	client
+		.getMutationCache()
+		.getAll()
+		.some(
+			(mutation) =>
+				mutation.state.status === "pending" &&
+				mutation.meta?.updatesWorkspace === true &&
+				(mutationProjectId(mutation.state.variables) ?? mutation.meta.projectId) === projectId,
+		);
+
+type DeferredHeadInfoEvent = {
+	revision: string | null;
+	unsubscribe: () => void;
+};
+
+const deferredHeadInfoEvents = new WeakMap<QueryClient, Map<string, DeferredHeadInfoEvent>>();
+
+const traceWorkspaceRevision = (outcome: string): void => {
+	// Temporary structured diagnostic for measuring suppression effectiveness in runtime logs.
+	if (import.meta.env.MODE === "test") return;
+	// oxlint-disable-next-line no-console
+	console.debug(`[workspace-revision] ${JSON.stringify({ outcome })}`);
+};
+
+const invalidateHeadInfoUnlessCurrent = (
+	client: QueryClient,
+	projectId: string,
+	revision: string | null,
+): void => {
+	const cachedRevision = client.getQueryData(
+		headInfoSnapshotQueryOptions(projectId).queryKey,
+	)?.workspaceRevision;
+	if (typeof revision === "string" && revision === cachedRevision) {
+		traceWorkspaceRevision("suppressed_match");
+		return;
+	}
+	traceWorkspaceRevision(
+		revision === null
+			? "refresh_null_event"
+			: typeof cachedRevision !== "string"
+				? "refresh_missing_cache_revision"
+				: "refresh_mismatch",
+	);
+	void client.invalidateQueries({ queryKey: [projectId, "headInfo"] });
+};
+
+const deferHeadInfoUntilMutationSettles = (
+	client: QueryClient,
+	projectId: string,
+	revision: string | null,
+): void => {
+	let deferredByProject = deferredHeadInfoEvents.get(client);
+	if (!deferredByProject) {
+		deferredByProject = new Map();
+		deferredHeadInfoEvents.set(client, deferredByProject);
+	}
+	const current = deferredByProject.get(projectId);
+	if (current) {
+		current.revision = revision;
+		traceWorkspaceRevision("deferred_event_replaced");
+		return;
+	}
+
+	traceWorkspaceRevision("deferred_for_mutation");
+	const deferred: DeferredHeadInfoEvent = { revision, unsubscribe: () => undefined };
+	deferredByProject.set(projectId, deferred);
+	deferred.unsubscribe = client.getMutationCache().subscribe(() => {
+		if (hasPendingWorkspaceMutation(client, projectId)) return;
+		deferred.unsubscribe();
+		deferredByProject.delete(projectId);
+		invalidateHeadInfoUnlessCurrent(client, projectId, deferred.revision);
+	});
+};
+
 export const handleProjectEvent = (
 	event: WatcherEvent,
 	projectId: string,
@@ -121,8 +203,24 @@ export const handleProjectEvent = (
 	if (payload.type === "gitHead")
 		client.setQueryData([projectId, "operatingMode"], () => payload.subject);
 
-	for (const query of invalidateOn.get(payload.type) ?? [])
-		void client.invalidateQueries({ queryKey: [projectId, query] });
+	const workspaceRevision: string | null =
+		payload.type === "gitActivity" || payload.type === "workspaceActivity"
+			? typeof payload.subject.workspaceRevision === "string"
+				? payload.subject.workspaceRevision
+				: null
+			: null;
+
+	for (const query of invalidateOn.get(payload.type) ?? []) {
+		if (query !== "headInfo") {
+			void client.invalidateQueries({ queryKey: [projectId, query] });
+			continue;
+		}
+		if (hasPendingWorkspaceMutation(client, projectId)) {
+			deferHeadInfoUntilMutationSettles(client, projectId, workspaceRevision);
+			continue;
+		}
+		invalidateHeadInfoUnlessCurrent(client, projectId, workspaceRevision);
+	}
 
 	// The annotations read the backend's review cache, so integrated reviews have
 	// to land before the listing is re-read. A failed refresh degrades to

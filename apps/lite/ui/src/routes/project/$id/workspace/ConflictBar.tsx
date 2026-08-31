@@ -52,7 +52,7 @@ export const ConflictBar: FC<Props> = (p) => {
 	// subscribes to the id alone.
 	const { data: stackId = null } = useQuery({
 		...headInfoQueryOptions(p.projectId),
-		select: (headInfo) =>
+		select: ({ headInfo }) =>
 			headInfo.stacks.find((stack) =>
 				stack.segments.some((segment) =>
 					segment.commits.some((commit) => commit.id === p.commitId),

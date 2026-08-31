@@ -58,7 +58,7 @@ export const useCheckedActions = ({
 	);
 	const { data: headInfoIndex } = useQuery({
 		...headInfoQueryOptions(projectId),
-		select: getHeadInfoIndex,
+		select: ({ headInfo }) => getHeadInfoIndex(headInfo),
 	});
 
 	// Hooks cannot be conditional, so a non-file set still has to name a parent; it gets no file

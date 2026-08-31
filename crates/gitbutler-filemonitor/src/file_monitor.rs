@@ -215,6 +215,7 @@ fn setup_legacy_watch(
     debouncer: &mut Debouncer<RecommendedWatcher, NoCache>,
     worktree_path: &Path,
     git_dir: &Path,
+    common_dir: &Path,
 ) -> Result<()> {
     let extra_git_dir_to_watch = {
         let mut enclosing_worktree_dir = git_dir.to_owned();
@@ -236,6 +237,15 @@ fn setup_legacy_watch(
                     debouncer
                         .watcher()
                         .watch(git_dir, notify::RecursiveMode::Recursive)
+                } else {
+                    Ok(())
+                }
+            })
+            .and_then(|()| {
+                if common_dir != git_dir {
+                    debouncer
+                        .watcher()
+                        .watch(common_dir, notify::RecursiveMode::NonRecursive)
                 } else {
                     Ok(())
                 }
@@ -284,12 +294,13 @@ pub fn spawn(
         worktree_path.display()
     ))?;
     let git_dir = repo.path().to_owned();
+    let common_dir = gix::path::realpath(repo.common_dir())?;
 
     let mut effective_watch_mode = watch_mode;
 
     match watch_mode {
         WatchMode::Legacy => {
-            setup_legacy_watch(&mut debouncer, &worktree_path, &git_dir)?;
+            setup_legacy_watch(&mut debouncer, &worktree_path, &git_dir, &common_dir)?;
         }
         WatchMode::Modern => {
             if let Err(err) = setup_watch_plan(
@@ -305,7 +316,7 @@ pub fn spawn(
                     "watch-plan setup failed; falling back to legacy watch mode"
                 );
                 effective_watch_mode = WatchMode::Legacy;
-                setup_legacy_watch(&mut debouncer, &worktree_path, &git_dir)?;
+                setup_legacy_watch(&mut debouncer, &worktree_path, &git_dir, &common_dir)?;
             }
         }
         WatchMode::Auto => {
@@ -327,12 +338,12 @@ pub fn spawn(
                             "watch-plan setup failed; falling back to legacy watch mode"
                         );
                         effective_watch_mode = WatchMode::Legacy;
-                        setup_legacy_watch(&mut debouncer, &worktree_path, &git_dir)?;
+                        setup_legacy_watch(&mut debouncer, &worktree_path, &git_dir, &common_dir)?;
                     }
                 }
             } else {
                 effective_watch_mode = WatchMode::Legacy;
-                setup_legacy_watch(&mut debouncer, &worktree_path, &git_dir)?;
+                setup_legacy_watch(&mut debouncer, &worktree_path, &git_dir, &common_dir)?;
             }
         }
     }
@@ -391,7 +402,7 @@ pub fn spawn(
                         .filter(|event| is_interesting_kind(event.kind))
                         .flat_map(|event| event.event.paths)
                         .map(|file| {
-                            let kind = classify_file(&git_dir, &file);
+                            let kind = classify_file(&git_dir, &common_dir, &file);
                             (file, kind)
                         })
                         .collect();
@@ -458,22 +469,31 @@ pub fn spawn(
                         match kind {
                             FileKind::ProjectIgnored => ignored += 1,
                             FileKind::GitUninteresting => git_noop += 1,
-                            FileKind::Project | FileKind::Git => match file_path
-                                .strip_prefix(&worktree_path)
-                            {
-                                Ok(relative_file_path) => {
-                                    if relative_file_path.as_os_str().is_empty() {
-                                        continue;
+                            FileKind::Git => {
+                                match file_path
+                                    .strip_prefix(&git_dir)
+                                    .or_else(|_| file_path.strip_prefix(&common_dir))
+                                {
+                                    Ok(relative_file_path)
+                                        if !relative_file_path.as_os_str().is_empty() =>
+                                    {
+                                        stripped_git_paths.insert(relative_file_path.to_owned());
                                     }
-                                    if let Ok(stripped) = relative_file_path.strip_prefix(".git") {
-                                        stripped_git_paths.insert(stripped.to_owned());
-                                    } else {
-                                        worktree_relative_paths
-                                            .insert(relative_file_path.to_owned());
-                                    };
+                                    Ok(_) => {}
+                                    Err(_) => {
+                                        tracing::warn!(%project_id, ?file_path, ?git_dir, ?common_dir, "failed to strip Git directory prefix");
+                                    }
                                 }
+                            }
+                            FileKind::Project => match file_path.strip_prefix(&worktree_path) {
+                                Ok(relative_file_path)
+                                    if !relative_file_path.as_os_str().is_empty() =>
+                                {
+                                    worktree_relative_paths.insert(relative_file_path.to_owned());
+                                }
+                                Ok(_) => {}
                                 Err(_) => {
-                                    tracing::warn!(%project_id, ?file_path, ?worktree_path, "failed to strip prefix");
+                                    tracing::warn!(%project_id, ?file_path, ?worktree_path, "failed to strip worktree prefix");
                                 }
                             },
                         }
@@ -596,6 +616,10 @@ pub const HEAD: &str = "HEAD";
 pub const HEAD_ACTIVITY: &str = "logs/HEAD";
 pub const INDEX: &str = "index";
 pub const GB_FLUSH: &str = "GB_FLUSH";
+pub const CONFIG: &str = "config";
+pub const CONFIG_WORKTREE: &str = "config.worktree";
+pub const PACKED_REFS: &str = "packed-refs";
+pub const SHALLOW: &str = "shallow";
 
 /// A classification for a changed file.
 #[derive(Debug, Eq, PartialEq)]
@@ -610,14 +634,21 @@ enum FileKind {
     ProjectIgnored,
 }
 
-fn classify_file(git_dir: &Path, file_path: &Path) -> FileKind {
-    if let Ok(check_file_path) = file_path.strip_prefix(git_dir) {
+fn classify_file(git_dir: &Path, common_dir: &Path, file_path: &Path) -> FileKind {
+    if let Ok(check_file_path) = file_path
+        .strip_prefix(git_dir)
+        .or_else(|_| file_path.strip_prefix(common_dir))
+    {
         if check_file_path == Path::new(FETCH_HEAD)
             || check_file_path == Path::new(HEAD_ACTIVITY)
             || check_file_path == Path::new(HEAD)
             || check_file_path == Path::new(GB_FLUSH)
             || check_file_path == Path::new(INDEX)
             || check_file_path == Path::new(REFRESH_SENTINEL_PATH)
+            || check_file_path == Path::new(CONFIG)
+            || check_file_path == Path::new(CONFIG_WORKTREE)
+            || check_file_path == Path::new(PACKED_REFS)
+            || check_file_path == Path::new(SHALLOW)
             || check_file_path.starts_with(LOCAL_REFS_DIR)
             || check_file_path.starts_with(REMOTE_REFS_DIR)
         {
@@ -639,10 +670,14 @@ mod tests {
         Path::new("/repo/.git")
     }
 
+    fn classify(file_path: &Path) -> FileKind {
+        classify_file(git_dir(), git_dir(), file_path)
+    }
+
     #[test]
     fn classify_local_ref() {
         assert_eq!(
-            classify_file(git_dir(), Path::new("/repo/.git/refs/heads/main")),
+            classify(Path::new("/repo/.git/refs/heads/main")),
             FileKind::Git
         );
     }
@@ -650,7 +685,7 @@ mod tests {
     #[test]
     fn classify_remote_ref() {
         assert_eq!(
-            classify_file(git_dir(), Path::new("/repo/.git/refs/remotes/origin/main")),
+            classify(Path::new("/repo/.git/refs/remotes/origin/main")),
             FileKind::Git
         );
     }
@@ -658,42 +693,48 @@ mod tests {
     #[test]
     fn classify_nested_remote_ref() {
         assert_eq!(
-            classify_file(
-                git_dir(),
-                Path::new("/repo/.git/refs/remotes/origin/feature/branch")
-            ),
+            classify(Path::new("/repo/.git/refs/remotes/origin/feature/branch")),
             FileKind::Git
         );
     }
 
     #[test]
     fn classify_head() {
+        assert_eq!(classify(Path::new("/repo/.git/HEAD")), FileKind::Git);
+    }
+
+    #[test]
+    fn classify_repository_configuration() {
+        assert_eq!(classify(Path::new("/repo/.git/config")), FileKind::Git);
         assert_eq!(
-            classify_file(git_dir(), Path::new("/repo/.git/HEAD")),
+            classify(Path::new("/repo/.git/config.worktree")),
             FileKind::Git
         );
     }
 
     #[test]
+    fn classify_packed_refs_and_shallow_boundary() {
+        assert_eq!(classify(Path::new("/repo/.git/packed-refs")), FileKind::Git);
+        assert_eq!(classify(Path::new("/repo/.git/shallow")), FileKind::Git);
+    }
+
+    #[test]
     fn classify_objects_as_uninteresting() {
         assert_eq!(
-            classify_file(git_dir(), Path::new("/repo/.git/objects/ab/cdef1234567890")),
+            classify(Path::new("/repo/.git/objects/ab/cdef1234567890")),
             FileKind::GitUninteresting
         );
     }
 
     #[test]
     fn classify_worktree_file() {
-        assert_eq!(
-            classify_file(git_dir(), Path::new("/repo/src/main.rs")),
-            FileKind::Project
-        );
+        assert_eq!(classify(Path::new("/repo/src/main.rs")), FileKind::Project);
     }
 
     #[test]
     fn classify_refresh_sentinel() {
         assert_eq!(
-            classify_file(git_dir(), Path::new("/repo/.git/gitbutler/REFRESH")),
+            classify(Path::new("/repo/.git/gitbutler/REFRESH")),
             FileKind::Git
         );
     }
@@ -702,10 +743,7 @@ mod tests {
     fn classify_metadata_store_as_uninteresting() {
         // The metadata store is uninteresting — the sentinel is what signals refreshes.
         assert_eq!(
-            classify_file(
-                git_dir(),
-                Path::new("/repo/.git/gitbutler/virtual_branches.toml")
-            ),
+            classify(Path::new("/repo/.git/gitbutler/virtual_branches.toml")),
             FileKind::GitUninteresting
         );
     }

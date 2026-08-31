@@ -9,6 +9,6 @@ pub use events::InternalEvent;
 
 mod file_monitor;
 pub use file_monitor::{
-    FETCH_HEAD, FileMonitorHandle, HEAD, HEAD_ACTIVITY, INDEX, LOCAL_REFS_DIR, REMOTE_REFS_DIR,
-    WatchMode, spawn,
+    CONFIG, CONFIG_WORKTREE, FETCH_HEAD, FileMonitorHandle, HEAD, HEAD_ACTIVITY, INDEX,
+    LOCAL_REFS_DIR, PACKED_REFS, REMOTE_REFS_DIR, SHALLOW, WatchMode, spawn,
 };

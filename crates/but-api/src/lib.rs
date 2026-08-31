@@ -17,6 +17,10 @@ use but_workspace::RefInfo;
 #[cfg(feature = "legacy")]
 pub mod legacy;
 
+/// Checksum of the inputs that determine the legacy workspace projection.
+#[cfg(feature = "legacy")]
+pub mod workspace_revision;
+
 /// Functions for GitHub authentication.
 pub mod github;
 
@@ -99,6 +103,9 @@ pub struct WorkspaceState {
     /// for more detail.
     #[cfg(feature = "graph-workspace")]
     pub graph_workspace: but_workspace::ui::workspace::DetailedGraphWorkspace,
+    /// Checksum of the on-disk inputs represented by this workspace, or `None` for previews and
+    /// when the checksum could not be computed safely.
+    pub workspace_revision: Option<String>,
     /// True if a checkout occurred, and a conflict occurred during that
     /// checkout.
     pub checkout_conflict_occurred: bool,

@@ -527,6 +527,8 @@ pub struct MaterializeOutcome<'ws, 'meta, M: RefMetadata> {
     pub meta: &'meta mut M,
     /// The database handle the editor was created with.
     pub db: &'meta mut but_db::DbHandle,
+    /// Stable semantic inputs captured around the final workspace refresh.
+    pub workspace_inputs: Option<but_graph::WorkspaceInputSnapshot>,
     /// True if a conflict occurred during checkout. This is always false if
     /// `allow_uncommitted_changes_to_conflict_with_new_head` in the options
     /// struct passed to the materialize call is false.

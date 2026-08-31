@@ -81,6 +81,7 @@ export declare const apiParamNames: {
 	readonly gitTestFetch: readonly ["projectId", "remoteName", "action"];
 	readonly gitTestPush: readonly ["projectId", "remoteName", "branchName"];
 	readonly headInfo: readonly ["projectId"];
+	readonly headInfoSnapshot: readonly ["projectId"];
 	readonly initApplicationNamespace: readonly ["identifier"];
 	readonly initGithubDeviceOauth: readonly [];
 	readonly listAvailableReviewTemplates: readonly ["projectId"];
