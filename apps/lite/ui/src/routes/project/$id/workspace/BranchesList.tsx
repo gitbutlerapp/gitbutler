@@ -490,6 +490,8 @@ export const BranchesList: FC<
 
 	// oxlint-disable-next-line react-hooks-js/incompatible-library -- https://github.com/TanStack/virtual/issues/1119#issuecomment-4648268095
 	const rowVirtualizer = useVirtualizer({
+		directDomUpdates: true,
+		directDomUpdatesMode: "transform",
 		count: stacks.length,
 		getScrollElement: () => scrollElementRef.current,
 		estimateSize: (index) => {
@@ -691,8 +693,7 @@ export const BranchesList: FC<
 					aria-activedescendant={selection ? treeItemId(selection) : undefined}
 					data-focus-scope={"sidebar" satisfies FocusScope}
 					className={classes(styles.tree, styles.virtualContainer)}
-					style={{ height: rowVirtualizer.getTotalSize() }}
-					ref={useMergedRefs(treeRef, useAutofocusScope())}
+					ref={useMergedRefs(rowVirtualizer.containerRef, treeRef, useAutofocusScope())}
 				>
 					{rowVirtualizer.getVirtualItems().map((virtualRow) => {
 						const stack = stacks[virtualRow.index];
