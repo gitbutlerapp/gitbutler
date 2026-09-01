@@ -1,8 +1,1 @@
-<svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
-  <path d="M14 6.50001L14 5.3829H7.45454L6.1958 3.00001H1.99999L1.99999 13H6.50001" stroke="#1C1917"
-    stroke-width="1.5" />
-  <path d="M9.00001 11.5H15V14.5H9.00001V11.5Z" fill="#D9D9D9" stroke="#1C1917" stroke-width="1.5" />
-  <path
-    d="M14 11V10.4049C14 9.30033 13.1046 8.4049 12 8.4049C10.8954 8.4049 10 9.30033 10 10.4049V11"
-    stroke="#1C1917" stroke-width="1.5" />
-</svg>
+<svg width="100%" height="100%" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg"><g clip-path="url(#clip0_1800_10322)"><path d="M14 6.50001L14 5.3829H7.45454L6.1958 3.00001H1.99999L1.99999 13H6.50001" stroke="currentColor" stroke-width="1.5" vector-effect="non-scaling-stroke"/><path d="M8.00001 11H16V15H8.00001V11Z" fill="currentColor" vector-effect="non-scaling-stroke"/><path d="M14 11V10.4049C14 9.30033 13.1046 8.4049 12 8.4049C10.8954 8.4049 10 9.30033 10 10.4049V11" stroke="currentColor" stroke-width="1.5" vector-effect="non-scaling-stroke"/></g><defs><clipPath id="clip0_1800_10322"><rect width="16" height="16" fill="currentColor" vector-effect="non-scaling-stroke"/></clipPath></defs></svg>

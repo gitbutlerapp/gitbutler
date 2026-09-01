@@ -65,6 +65,7 @@ export const BranchPicker: FC<Props> = ({ projectId, open, onOpenChange, onSelec
 			onOpenChange={onOpenChange}
 			onSelectItem={selectBranch}
 			placeholder="Search for branches…"
+			selectLabel="Go to branch"
 		/>
 	);
 };

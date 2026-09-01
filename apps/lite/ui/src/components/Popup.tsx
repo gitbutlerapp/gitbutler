@@ -5,7 +5,14 @@ import { Kbd } from "#ui/components/Kbd.tsx";
 import styles from "./Popup.module.css";
 import { AlertDialog, Dialog, mergeProps, Popover, useRender } from "@base-ui/react";
 import type { HotkeySequence } from "@tanstack/react-hotkeys";
-import type { ComponentProps, FC, ReactElement, ReactNode } from "react";
+import {
+	useEffect,
+	useState,
+	type ComponentProps,
+	type FC,
+	type ReactElement,
+	type ReactNode,
+} from "react";
 
 /**
  * The container every overlay in Lite is built from: modals, dropdowns and the toolbox all wear
@@ -13,11 +20,23 @@ import type { ComponentProps, FC, ReactElement, ReactNode } from "react";
  * hover card. Anything that opens over the app wants {@link Modal} or {@link Dropdown}, which wrap
  * this in the Base UI primitive carrying the focus and dismissal behaviour.
  *
+ * Pass `render` where the popup has to be a list primitive's own part — a combobox owns its popup
+ * and cannot be handed one. `anchored` is what {@link Dropdown} adds over {@link Modal}: it grows
+ * out of the corner it is anchored to rather than fading in place.
+ *
  * @public
  */
-export const Popup: FC<ComponentProps<"div">> = (props) => (
-	<div {...props} className={classes(props.className, styles.popup)} />
-);
+export const Popup: FC<{ anchored?: boolean } & useRender.ComponentProps<"div">> = ({
+	anchored = false,
+	render,
+	...props
+}) =>
+	useRender({
+		render: render ?? <div />,
+		props: mergeProps<"div">(props, {
+			className: classes(styles.popup, anchored && styles.dropdown),
+		}),
+	});
 
 /**
  * How wide a modal opens. The steps are the three widths the app already uses — a prompt, a
@@ -91,8 +110,21 @@ export const Modal: FC<ModalProps> = ({
 	const Root = alert ? AlertDialog.Root : Dialog.Root;
 	const Trigger = alert ? AlertDialog.Trigger : Dialog.Trigger;
 
+	// Base UI only plays the open animation when `open` turns true *after* mount, and the app mounts
+	// its modals already open — `{shown && <Picker open />}` in the workspace page. Holding the
+	// first frame closed gives Base UI the change it animates from. A modal that was already
+	// mounted when `open` flipped is past this by then and is unaffected.
+	const [pastFirstFrame, setPastFirstFrame] = useState(false);
+	useEffect(() => {
+		const frame = requestAnimationFrame(() => setPastFirstFrame(true));
+		return () => cancelAnimationFrame(frame);
+	}, []);
+
 	return (
-		<Root open={open} onOpenChange={onOpenChange}>
+		<Root
+			open={open === undefined ? undefined : open && pastFirstFrame}
+			onOpenChange={onOpenChange}
+		>
 			{trigger !== undefined && <Trigger render={trigger} />}
 			<Dialog.Portal>
 				<Dialog.Backdrop className={styles.backdrop} />
@@ -102,19 +134,18 @@ export const Modal: FC<ModalProps> = ({
 						align === "top" ? styles.viewportTop : styles.viewportCenter,
 					)}
 				>
-					<Dialog.Popup
+					<Popup
 						{...props}
-						initialFocus={initialFocus}
 						className={classes(
 							props.className,
-							styles.popup,
 							styles.modal,
 							sizeClassName(size),
 							recessed && styles.recessed,
 						)}
+						render={<Dialog.Popup initialFocus={initialFocus} />}
 					>
 						{children}
-					</Dialog.Popup>
+					</Popup>
 				</Dialog.Viewport>
 			</Dialog.Portal>
 		</Root>
@@ -159,12 +190,9 @@ export const Dropdown: FC<DropdownProps> = ({
 		<Popover.Trigger render={trigger} />
 		<Popover.Portal>
 			<Popover.Positioner side={side} align={align} sideOffset={sideOffset}>
-				<Popover.Popup
-					{...props}
-					className={classes(props.className, styles.popup, styles.dropdown)}
-				>
+				<Popup anchored {...props} render={<Popover.Popup />}>
 					{children}
-				</Popover.Popup>
+				</Popup>
 			</Popover.Positioner>
 		</Popover.Portal>
 	</Popover.Root>
@@ -178,36 +206,67 @@ export const Dropdown: FC<DropdownProps> = ({
  * A plain input by default. Pass `render` when the query drives a list primitive and the input has
  * to be that primitive's own — a picker's `Autocomplete.Input`, say.
  *
+ * Pass `onClear` while there is a query to clear: the row's trailing glyph becomes a button that
+ * empties the field. The row does not hold the query, so whether there is anything to clear is the
+ * caller's to say — leave `onClear` out and the row shows the magnifier it searches under.
+ *
  * @public
  */
-export const PopupSearch: FC<useRender.ComponentProps<"input">> = ({ render, ...props }) => (
-	<div className={styles.search}>
-		{useRender({
-			render: render ?? <input />,
-			props: mergeProps<"input">(props, {
-				className: classes("text-13", styles.searchInput),
-			}),
-		})}
-		<Icon name="search" className={styles.searchIcon} />
-	</div>
-);
+export const PopupSearch: FC<{ onClear?: () => void } & useRender.ComponentProps<"input">> = ({
+	render,
+	onClear,
+	...props
+}) => {
+	const input = useRender({
+		render: render ?? <input />,
+		props: mergeProps<"input">(props, {
+			className: classes("text-13", styles.searchInput),
+		}),
+	});
+
+	return (
+		<div className={styles.search}>
+			{input}
+			{onClear === undefined ? (
+				<Icon name="search" className={styles.searchIcon} />
+			) : (
+				<button type="button" className={styles.searchClear} onClick={onClear} aria-label="Clear">
+					<Icon name="cross-circle" />
+				</button>
+			)}
+		</div>
+	);
+};
 
 /**
  * A run of {@link PopupItem}s under an optional heading. Sections divide from one another, so a
  * popup can group its rows without the last group drawing a line against the container's edge.
  *
+ * A plain div by default. Pass `render` to make the section a list primitive's own group, which is
+ * how a combobox's groups label their own rows without restating the section's chrome.
+ *
  * @public
  */
-export const PopupSection: FC<{ label?: ReactNode } & ComponentProps<"div">> = ({
+export const PopupSection: FC<{ label?: ReactNode } & useRender.ComponentProps<"div">> = ({
 	label,
 	children,
+	render,
 	...props
-}) => (
-	<div {...props} className={classes(props.className, styles.section)}>
-		{label !== undefined && <div className={classes("text-12", styles.sectionLabel)}>{label}</div>}
-		<div className={styles.sectionItems}>{children}</div>
-	</div>
-);
+}) =>
+	useRender({
+		render: render ?? <div />,
+		props: mergeProps<"div">(props, {
+			className: styles.section,
+			children: (
+				<>
+					{label !== undefined && (
+						<div className={classes("text-12", styles.sectionLabel)}>{label}</div>
+					)}
+					<div className={styles.sectionItems}>{children}</div>
+				</>
+			),
+		}),
+	});
 
 /**
  * One row of a popup: an optional glyph, the label, and — at the far end — a shortcut and a

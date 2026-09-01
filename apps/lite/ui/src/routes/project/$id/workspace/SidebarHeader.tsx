@@ -1,9 +1,8 @@
 import { getButtonClassName } from "#ui/components/Button.tsx";
-import { classes } from "#ui/components/classes.ts";
-import { FolderIcon } from "#ui/components/FolderIcon.tsx";
 import { Icon } from "#ui/components/Icon.tsx";
 import { TooltipPopup } from "#ui/components/Tooltip.tsx";
-import { globalHotkeys, workspaceHotkeys } from "#ui/hotkeys.ts";
+import { workspaceHotkeys } from "#ui/hotkeys.ts";
+import { ProjectPicker } from "#ui/routes/project/$id/workspace/ProjectPicker.tsx";
 import { TopLeftControls } from "#ui/routes/project/$id/workspace/TopLeftControls.tsx";
 import { formatRelativeTime } from "#ui/time.ts";
 import { Button, Tooltip } from "@base-ui/react";
@@ -89,7 +88,6 @@ export const SidebarHeader: FC<{
 	onFetch: () => void;
 	canOpenSettings: boolean;
 	onOpenSettings: () => void;
-	onOpenProjectPicker: () => void;
 	/** The notification bell, which decides its own visibility. */
 	bell?: ReactNode;
 }> = (p) => (
@@ -97,28 +95,7 @@ export const SidebarHeader: FC<{
 		<TopLeftControls />
 
 		<div className={styles.workspaceControlsLeft}>
-			<Tooltip.Root>
-				<Tooltip.Trigger
-					aria-label={`${globalHotkeys.selectProject.meta.name} (current: ${p.project.title})`}
-					className={classes(
-						getButtonClassName({ variant: "ghost" }),
-						"text-15",
-						"text-bold",
-						styles.workspaceName,
-					)}
-					onClick={p.onOpenProjectPicker}
-				>
-					<FolderIcon className={styles.workspaceNameFolder} />
-					<span className={styles.workspaceNameLabel}>{p.project.title}</span>
-				</Tooltip.Trigger>
-				<Tooltip.Portal>
-					<Tooltip.Positioner sideOffset={4}>
-						<Tooltip.Popup render={<TooltipPopup kbd={globalHotkeys.selectProject.hotkey} />}>
-							{globalHotkeys.selectProject.meta.name}
-						</Tooltip.Popup>
-					</Tooltip.Positioner>
-				</Tooltip.Portal>
-			</Tooltip.Root>
+			<ProjectPicker project={p.project} />
 			<ActivitySpinner suppressed={p.isFetchPending} />
 		</div>
 

@@ -37,13 +37,31 @@
 	display: flex;
 	align-items: center;
 	min-height: 23px;
-	padding: 8px 10px 0;
+	padding: 8px 12px 0;
 	outline: 0;
-	color: var(--text-2);
+	color: var(--text-3);
 	font-size: 12px;
 	line-height: 1;
 	cursor: default;
 	user-select: none;
+}
+
+/* Sections divide from one another, so every section but the last is followed by a hairline — the
+   line a `PopupSection` draws with a border. Rows here are absolutely positioned, so the heading
+   below the line hosts it inside its own box rather than either section spacing itself off the
+   other. */
+.groupLabelDivided {
+	position: relative;
+	padding-top: 16px;
+	padding-bottom: 4px;
+
+	&:before {
+		position: absolute;
+		inset-inline: 0;
+		top: 4px;
+		border-top: 1px solid var(--border-3);
+		content: "";
+	}
 }
 
 /* A `PopupItem`'s metrics, laid out as a grid because the type sits at the far end of the row. */
@@ -53,6 +71,9 @@
 	grid-template-columns: minmax(0, 1fr) auto;
 	align-items: center;
 	min-height: 28px;
+	/* Inset from the list's edge, the way a `PopupSection` insets the rows it holds. A heading
+	   stays flush and reaches its 10px in with padding, so it and the labels under it stagger the
+	   2px the design gives them. */
 	margin-inline: 4px;
 	padding-inline: 8px;
 	gap: 8px;
@@ -92,39 +113,43 @@
 	font-size: 13px;
 }
 
+/* The keys the list answers to, held in view while the query keeps the focus. It stands on the
+   popup's own background rather than a recessed band — only the hairline divides it from the list.
+   A picker with an action of its own puts it at the far end. */
 .footer {
 	display: flex;
+	flex: none;
 	align-items: center;
 	justify-content: space-between;
-	padding: 0.625rem 0.75rem;
+	height: 36px;
+	padding-inline: 12px;
+	gap: 12px;
 	border-top: 1px solid var(--border-3);
 	background-color: var(--bg-2);
+}
+
+.hints {
+	display: flex;
+	align-items: center;
+	gap: 12px;
 	color: var(--text-2);
 	font-size: 12px;
 }
 
-.footerLeft {
+/* A hint is one phrase. Broken over two lines it stops reading as a key and what it does, and the
+   bar has no room to grow into anyway. */
+.hint {
 	display: flex;
 	align-items: center;
-	gap: 0.5rem;
+	gap: 6px;
+	white-space: nowrap;
 }
 
-.kbd {
-	display: inline-flex;
-	align-items: center;
-	justify-content: center;
-	min-width: 1.25rem;
-	height: 1.25rem;
-	padding: 0 0.25rem;
-	border: 1px solid var(--border-2);
-	border-radius: 0.25rem;
-	background-color: color-mix(var(--fill-gray-bg) 6%, transparent);
-	color: var(--text-1);
-	font-weight: 400;
-	font-size: 0.625rem;
-	line-height: 1;
-	font-family:
-		ui-monospace, SFMono-Regular, "SF Mono", Consolas, "Liberation Mono", Menlo, monospace;
+/* The glyph is the quieter half: what it does is the part being read, the key is what you already
+   know how to press. `kbd` is monospace by default, and these sit in a line of prose. */
+.hintKey {
+	color: var(--text-3);
+	font: inherit;
 }
 
 .visuallyHiddenClose {

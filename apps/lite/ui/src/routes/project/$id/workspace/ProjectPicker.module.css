@@ -1,0 +1,33 @@
+/* Wide enough for a project's name, and no wider — the trigger it hangs off is narrower than the
+   list it opens, so the anchor's width is no guide here.
+
+   Height is budgeted here rather than on the list: the search row and the actions below it are
+   part of what has to fit, and only the container knows what the positioner left it. */
+.popup {
+	width: 256px;
+	max-height: min(var(--available-height), 480px);
+}
+
+/* The list is the scroller, so its inset sits inside the scrolled area and the scrollbar keeps the
+   container's own edge. It takes whatever height the rows above and below it do not, and scrolls
+   only once a list of projects outgrows even that. */
+.list {
+	flex: 1;
+	min-height: 0;
+	overflow: auto;
+	/* A row scrolled into view brings the heading it sits under with it, rather than parking it
+	   under the search row. */
+	scroll-padding-block-start: 27px;
+}
+
+.empty {
+	padding-inline: 10px;
+	padding-block: 8px;
+	color: var(--text-2);
+}
+
+/* The action rows sit outside the list, so the divider one section draws against the next cannot
+   reach them. */
+.actions {
+	border-top: 1px solid var(--border-3);
+}

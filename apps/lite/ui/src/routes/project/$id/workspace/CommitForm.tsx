@@ -1,5 +1,4 @@
-import popupStyles from "#ui/components/Popup.module.css";
-import { PopupItem, PopupSearch } from "#ui/components/Popup.tsx";
+import { Popup, PopupItem, PopupSearch } from "#ui/components/Popup.tsx";
 import { setCursor } from "#ui/use-cursor.ts";
 import { useBranchCreate, useCommitCreate, useGenerateCommitMessage } from "#ui/api/mutations.ts";
 import {
@@ -52,9 +51,9 @@ export type CommitTargetComboboxItem = {
 const CommitTargetComboboxPopup: FC<{ current: CommitTargetComboboxItem | null }> = ({
 	current,
 }) => (
-	// Base UI's combobox owns its own popup part, so this cannot go through `Dropdown` — it wears
-	// the anchored-popup classes directly to open the way every other dropdown does.
-	<Combobox.Popup className={classes(popupStyles.popup, popupStyles.dropdown, styles.targetPopup)}>
+	// Base UI's combobox owns its own popup part, so this cannot go through `Dropdown` — `Popup`
+	// dresses the combobox's own popup instead, and it opens the way every other dropdown does.
+	<Popup anchored className={styles.targetPopup} render={<Combobox.Popup />}>
 		<PopupSearch
 			aria-label="Search targets"
 			placeholder="Search targets..."
@@ -81,7 +80,7 @@ const CommitTargetComboboxPopup: FC<{ current: CommitTargetComboboxItem | null }
 				</PopupItem>
 			)}
 		</Combobox.List>
-	</Combobox.Popup>
+	</Popup>
 );
 
 /**

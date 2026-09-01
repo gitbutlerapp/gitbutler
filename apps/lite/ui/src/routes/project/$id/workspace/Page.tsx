@@ -25,15 +25,11 @@ import {
 	type FocusScope,
 } from "#ui/focus-scopes.ts";
 import { projectSlice } from "#ui/projects/state.ts";
+import { useParams } from "@tanstack/react-router";
 import { interfaceSlice } from "#ui/interface/state.ts";
-import { PickerDialog } from "#ui/components/PickerDialog.tsx";
-import { AddProjectButton } from "#ui/components/AddProjectButton.tsx";
-import { useAddLocalRepository } from "#ui/components/useAddLocalRepository.ts";
 import { ResizeHandle } from "#ui/components/ResizeHandle.tsx";
 import { globalHotkeys, workspaceHotkeys } from "#ui/hotkeys.ts";
-import { writeLastOpenedProject } from "#ui/project.ts";
 import { useAppDispatch, useAppSelector, useAppStore } from "#ui/store.ts";
-import type { ProjectForFrontend } from "@gitbutler/but-sdk";
 import { useHotkey, useHotkeys, type UseHotkeyDefinition } from "@tanstack/react-hotkeys";
 import {
 	QueryErrorResetBoundary,
@@ -41,7 +37,6 @@ import {
 	useQuery,
 	useSuspenseQuery,
 } from "@tanstack/react-query";
-import { useNavigate, useParams } from "@tanstack/react-router";
 import { monitorForElements } from "@atlaskit/pragmatic-drag-and-drop/element/adapter";
 import { Match } from "effect";
 import {
@@ -256,60 +251,6 @@ const useWorkspaceHotkeys = (projectId: string) => {
 	]);
 };
 
-type ProjectPickerProps = {
-	open: boolean;
-	projects: Array<ProjectForFrontend>;
-	selectedProjectId: string;
-	onOpenChange: (open: boolean) => void;
-	onAddProject: () => void;
-	isAddingProject: boolean;
-};
-
-const ProjectPicker: FC<ProjectPickerProps> = (p) => {
-	const navigate = useNavigate();
-
-	const selectProject = (project: ProjectForFrontend) => {
-		p.onOpenChange(false);
-		void navigate({
-			to: "/project/$id/workspace",
-			params: { id: project.id },
-		});
-		writeLastOpenedProject(project.id);
-	};
-
-	return (
-		<PickerDialog
-			ariaLabel="Select project"
-			closeLabel="Close project picker"
-			emptyLabel="No projects found."
-			footerAction={
-				<AddProjectButton
-					size="small"
-					isPending={p.isAddingProject}
-					onClick={() => {
-						p.onOpenChange(false);
-						p.onAddProject();
-					}}
-				/>
-			}
-			getItemKey={(project) => project.id}
-			getItemLabel={(project) => project.title}
-			getItemType={(project) => (project.id === p.selectedProjectId ? "Current" : "Project")}
-			itemToStringValue={(project) => project.title}
-			items={[
-				{
-					value: "Projects",
-					items: p.projects,
-				},
-			]}
-			open={p.open}
-			onOpenChange={p.onOpenChange}
-			onSelectItem={selectProject}
-			placeholder="Search projects…"
-		/>
-	);
-};
-
 const PageBody: FC<{ projectId: string }> = ({ projectId }) => {
 	useReconcileState(projectId);
 	useReviewActivityInbox(projectId);
@@ -396,20 +337,11 @@ const PageBody: FC<{ projectId: string }> = ({ projectId }) => {
 		else dispatch(interfaceSlice.actions.closeDialog());
 	};
 
-	const setProjectPickerOpen = (open: boolean) => {
-		if (open) dispatch(interfaceSlice.actions.openDialog({ dialog: { _tag: "ProjectPicker" } }));
-		else dispatch(interfaceSlice.actions.closeDialog());
-	};
-
 	const setOperationsLogPickerOpen = (open: boolean) => {
 		if (open)
 			dispatch(interfaceSlice.actions.openDialog({ dialog: { _tag: "OperationsLogPicker" } }));
 		else dispatch(interfaceSlice.actions.closeDialog());
 	};
-
-	// Owned here rather than by the picker's footer button: the flow outlives
-	// the dialog, which unmounts on close.
-	const { addLocalRepository, isPending: isAddingProject } = useAddLocalRepository();
 
 	const setSettingsOpen = (open: boolean) => {
 		if (open) dispatch(interfaceSlice.actions.openDialog({ dialog: { _tag: "Settings" } }));
@@ -733,16 +665,9 @@ const PageBody: FC<{ projectId: string }> = ({ projectId }) => {
 							onOpenChange={setOperationsLogPickerOpen}
 						/>
 					),
-					ProjectPicker: () => (
-						<ProjectPicker
-							open
-							projects={projects}
-							selectedProjectId={projectId}
-							onOpenChange={setProjectPickerOpen}
-							onAddProject={() => void addLocalRepository()}
-							isAddingProject={isAddingProject}
-						/>
-					),
+					// The picker is an anchored dropdown living with the project name in the header, so
+					// this state only tells it to open — there is nothing for the switch to render.
+					ProjectPicker: () => null,
 					Settings: () => (
 						<Settings
 							open

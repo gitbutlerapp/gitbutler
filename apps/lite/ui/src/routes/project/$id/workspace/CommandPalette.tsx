@@ -109,6 +109,7 @@ export const CommandPalette: FC<Props> = ({ open, onOpenChange }) => {
 			onOpenChange={onOpenChange}
 			onSelectItem={runHotkey}
 			placeholder="Search hotkeys…"
+			selectLabel="Run"
 		/>
 	);
 };
