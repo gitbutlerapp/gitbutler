@@ -344,7 +344,9 @@ const useFilesTreeHotkeys = ({
 				projectId,
 			);
 			if (row?._tag === "Directory") {
-				const sources = row.filePaths.map((path) => fileAddress({ parent: fileParent, path }));
+				const sources = row.items.map((item) =>
+					fileAddress({ parent: fileParent, path: item.path }),
+				);
 				return sources.some((source) =>
 					checkedAddresses.some((checked) => addressEquals(checked, source)),
 				)
@@ -363,13 +365,13 @@ const DirectoryOperationSource: FC<
 	{
 		projectId: string;
 		fileParent: FileParent;
-		filePaths: Array<string>;
+		items: Array<FileRowItem>;
 	} & Omit<useRender.ComponentProps<"div">, "onDragStart">
-> = ({ projectId, fileParent, filePaths, render, ...props }) => (
+> = ({ projectId, fileParent, items, render, ...props }) => (
 	<OperationSourceC
 		{...props}
 		projectId={projectId}
-		sources={filePaths.map((path) => fileAddress({ parent: fileParent, path }))}
+		sources={items.map((item) => fileAddress({ parent: fileParent, path: item.path }))}
 		respectChecked
 		outline="outside"
 		acceptOriginDrop
@@ -462,7 +464,7 @@ const FilesTreeRow: FC<{
 				projectId={projectId}
 				path={row.path}
 				name={row.name}
-				fileCount={row.filePaths.length}
+				fileCount={row.items.length}
 				depth={row.depth}
 				isCollapsed={isCollapsed}
 				scrollSelectedIntoView={false}
@@ -499,7 +501,7 @@ const FilesTreeRow: FC<{
 						<DirectoryOperationSource
 							projectId={projectId}
 							fileParent={fileParent}
-							filePaths={row.filePaths}
+							items={row.items}
 							render={directoryRow}
 						/>
 					) : (
@@ -604,7 +606,7 @@ const FilesTreeVirtualList: FC<{
 	collapsedDirectories: Record<string, true>;
 	reviewedPaths: ReadonlySet<string>;
 	isFileChecked: (path: string) => boolean;
-	directoryCheckedState: (filePaths: Array<string>) => DirectoryCheckedState;
+	directoryCheckedState: (items: Array<FileRowItem>) => DirectoryCheckedState;
 	shared: RowShared;
 	scrollElementRef: RefObject<HTMLElement | null> | undefined;
 	scrollMargin: number;
@@ -691,7 +693,7 @@ const FilesTreeVirtualList: FC<{
 						inert={!addressSpaceIncludes(addressSpace, row.path, (path) => path)}
 						checkedState={
 							isDirectory
-								? directoryCheckedState(row.filePaths)
+								? directoryCheckedState(row.items)
 								: isFileChecked(row.path)
 									? "checked"
 									: "unchecked"
@@ -827,11 +829,11 @@ export const FilesTree: FC<
 	const isFileChecked = (path: string): boolean =>
 		checkedAddressKeys.has(addressIdentityKey(fileAddress({ parent: fileParent, path })));
 
-	const directoryCheckedState = (filePaths: Array<string>): DirectoryCheckedState => {
-		const paths = filePaths.filter(checkable);
-		const checkedCount = paths.filter((path) => isFileChecked(path)).length;
+	const directoryCheckedState = (items: Array<FileRowItem>): DirectoryCheckedState => {
+		const checkableItems = items.filter((item) => checkable(item.path));
+		const checkedCount = checkableItems.filter((item) => isFileChecked(item.path)).length;
 		if (checkedCount === 0) return "unchecked";
-		return checkedCount === paths.length ? "checked" : "indeterminate";
+		return checkedCount === checkableItems.length ? "checked" : "indeterminate";
 	};
 
 	const rangeResolver = addressSpaceRange<string, string>({
@@ -914,7 +916,7 @@ export const FilesTree: FC<
 		fileCheckRangeEnd.current = null;
 
 		const previous = checkedFilePaths();
-		const subject = new Set(row.filePaths);
+		const subject = new Set(row.items.map((item) => item.path));
 		applyCheckedFiles({
 			previous,
 			next: checked ? previous.union(subject) : previous.difference(subject),
@@ -928,7 +930,9 @@ export const FilesTree: FC<
 			const checked = checkedFilePaths();
 			checkDirectory({
 				path,
-				checked: !row.filePaths.filter(checkable).every((path) => checked.has(path)),
+				checked: !row.items
+					.filter((item) => checkable(item.path))
+					.every((item) => checked.has(item.path)),
 			});
 		} else {
 			if (!row || !checkable(path)) return null;
@@ -945,8 +949,10 @@ export const FilesTree: FC<
 				const row = rowByPath.get(path);
 				if (!row || !checkable(path)) return null;
 				if (row._tag === "File") return checked.has(path);
-				const paths = row.filePaths.filter(checkable);
-				return paths.length > 0 ? paths.every((path) => checked.has(path)) : null;
+				const checkableItems = row.items.filter((item) => checkable(item.path));
+				return checkableItems.length > 0
+					? checkableItems.every((item) => checked.has(item.path))
+					: null;
 			},
 		});
 		if (next !== null) onRowSelection(next);
@@ -971,7 +977,9 @@ export const FilesTree: FC<
 			const paths = rows
 				.values()
 				.filter((row) => row.depth === 0)
-				.flatMap((row) => (row._tag === "Directory" ? row.filePaths : row.path));
+				.flatMap((row) =>
+					row._tag === "Directory" ? row.items.map((item) => item.path) : row.path,
+				);
 
 			const previous = checkedFilePaths();
 			fileCheckRangeAnchor.current = null;
