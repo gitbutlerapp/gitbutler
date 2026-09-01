@@ -1,8 +1,7 @@
 import { getButtonClassName } from "#ui/components/Button.tsx";
 import { classes } from "#ui/components/classes.ts";
 import { FolderIcon } from "#ui/components/FolderIcon.tsx";
-import { PopupItem, PopupSearch, PopupSection } from "#ui/components/Popup.tsx";
-import popupStyles from "#ui/components/Popup.module.css";
+import { Popup, PopupItem, PopupSearch, PopupSection } from "#ui/components/Popup.tsx";
 import { TooltipPopup } from "#ui/components/Tooltip.tsx";
 import { useAddLocalRepository } from "#ui/components/useAddLocalRepository.ts";
 import { globalHotkeys } from "#ui/hotkeys.ts";
@@ -66,6 +65,12 @@ const groupProjects = (
 	];
 };
 
+/** The two localStorage records the list orders and labels itself from, read together. */
+const readRecords = () => ({
+	openedAt: readProjectsOpenedAt(),
+	marksById: readProjectsRepoMarks(),
+});
+
 /**
  * The project's name in the header, and the list of projects it opens.
  *
@@ -91,18 +96,21 @@ export const ProjectPicker: FC<{ project: ProjectForFrontend }> = (p) => {
 		writeProjectRepoMarks(p.project.id, { private: repoInfo.private, fork: repoInfo.fork });
 	}, [p.project.id, repoInfo]);
 
-	// Both records are read once per opening rather than per render: they are written on the way
-	// out of the picker, so what they order and label has to hold still while the list is up.
+	// Both records are read on the way into the picker rather than per render: they are written on
+	// the way out of it, so what they order and label has to hold still while the list is up. The
+	// reading then stays put once the picker closes — it is still on screen until its exit
+	// animation finishes, and rereading there would reorder the list as it fades.
 	const open = dialog._tag === "ProjectPicker";
-	const { groups, marksById } = useMemo(
-		() =>
-			open
-				? {
-						groups: groupProjects(projects, readProjectsOpenedAt()),
-						marksById: readProjectsRepoMarks(),
-					}
-				: { groups: [], marksById: {} },
-		[open, projects],
+	const [records, setRecords] = useState(readRecords);
+	const [recordsAreFor, setRecordsAreFor] = useState(open);
+	if (open !== recordsAreFor) {
+		setRecordsAreFor(open);
+		if (open) setRecords(readRecords());
+	}
+
+	const groups = useMemo(
+		() => groupProjects(projects, records.openedAt),
+		[projects, records.openedAt],
 	);
 
 	// The hotkey opens the picker from anywhere in the app, so what is open stays the dialog state's
@@ -161,9 +169,7 @@ export const ProjectPicker: FC<{ project: ProjectForFrontend }> = (p) => {
 
 			<Combobox.Portal>
 				<Combobox.Positioner align="start" sideOffset={4}>
-					<Combobox.Popup
-						className={classes(popupStyles.popup, popupStyles.dropdown, styles.popup)}
-					>
+					<Popup anchored className={styles.popup} render={<Combobox.Popup />}>
 						<PopupSearch
 							placeholder="Search projects…"
 							aria-label="Search projects"
@@ -175,34 +181,28 @@ export const ProjectPicker: FC<{ project: ProjectForFrontend }> = (p) => {
 						</Combobox.Empty>
 						<Combobox.List className={styles.list}>
 							{(group: ProjectGroup) => (
-								// A group wears what `PopupSection` wears — the same three classes it composes —
-								// because the section element here has to be Base UI's, to label its own rows.
-								<Combobox.Group
+								// The section element has to be Base UI's, so that the group labels its own rows.
+								<PopupSection
 									key={group.value}
-									items={group.items}
-									className={popupStyles.section}
+									label={<Combobox.GroupLabel render={<span />}>{group.value}</Combobox.GroupLabel>}
+									render={<Combobox.Group items={group.items} />}
 								>
-									<Combobox.GroupLabel className={classes("text-12", popupStyles.sectionLabel)}>
-										{group.value}
-									</Combobox.GroupLabel>
-									<div className={popupStyles.sectionItems}>
-										<Combobox.Collection>
-											{(project: ProjectForFrontend) => (
-												<PopupItem
-													key={project.id}
-													icon={projectIcon(marksById[project.id])}
-													// The project already open is marked rather than labelled: every
-													// other row would say "Project" to explain the one saying
-													// "Current".
-													trailing={project.id === p.project.id ? "tick" : undefined}
-													render={<Combobox.Item value={project} />}
-												>
-													{project.title}
-												</PopupItem>
-											)}
-										</Combobox.Collection>
-									</div>
-								</Combobox.Group>
+									<Combobox.Collection>
+										{(project: ProjectForFrontend) => (
+											<PopupItem
+												key={project.id}
+												icon={projectIcon(records.marksById[project.id])}
+												// The project already open is marked rather than labelled: every
+												// other row would say "Project" to explain the one saying
+												// "Current".
+												trailing={project.id === p.project.id ? "tick" : undefined}
+												render={<Combobox.Item value={project} />}
+											>
+												{project.title}
+											</PopupItem>
+										)}
+									</Combobox.Collection>
+								</PopupSection>
 							)}
 						</Combobox.List>
 						<PopupSection className={styles.actions}>
@@ -217,7 +217,7 @@ export const ProjectPicker: FC<{ project: ProjectForFrontend }> = (p) => {
 								{isAddingProject ? "Adding repository…" : "Add local repository"}
 							</PopupItem>
 						</PopupSection>
-					</Combobox.Popup>
+					</Popup>
 				</Combobox.Positioner>
 			</Combobox.Portal>
 		</Combobox.Root>
