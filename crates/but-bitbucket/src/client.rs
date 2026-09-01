@@ -510,6 +510,7 @@ impl BitbucketClient {
 
         Ok(BitbucketRepo {
             is_fork: repo.parent.is_some(),
+            is_private: repo.is_private,
             permission,
         })
     }
@@ -981,6 +982,7 @@ impl From<BitbucketApiPullRequest> for BitbucketPullRequest {
 #[derive(Debug)]
 pub struct BitbucketRepo {
     pub is_fork: bool,
+    pub is_private: bool,
     /// The authenticated user's permission: `admin`, `write` or `read`.
     pub permission: Option<String>,
 }
@@ -990,6 +992,8 @@ struct BitbucketApiRepository {
     /// Present (and non-null) only when the repository is a fork.
     #[serde(default)]
     parent: Option<serde::de::IgnoredAny>,
+    #[serde(default)]
+    is_private: bool,
 }
 
 /// A Bitbucket commit build status (Pipelines or any external CI that reports back).

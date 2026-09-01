@@ -1,37 +1,43 @@
 import { getButtonClassName } from "#ui/components/Button.tsx";
 import { classes } from "#ui/components/classes.ts";
 import { FolderIcon } from "#ui/components/FolderIcon.tsx";
-import { PopupItem, PopupSearch, PopupSection } from "#ui/components/Popup.tsx";
-import popupStyles from "#ui/components/Popup.module.css";
+import { Popup, PopupItem, PopupSearch, PopupSection } from "#ui/components/Popup.tsx";
 import { TooltipPopup } from "#ui/components/Tooltip.tsx";
 import { useAddLocalRepository } from "#ui/components/useAddLocalRepository.ts";
 import { globalHotkeys } from "#ui/hotkeys.ts";
 import { interfaceSlice } from "#ui/interface/state.ts";
-import { listProjectsQueryOptions } from "#ui/api/queries.ts";
-import { readProjectsOpenedAt, writeLastOpenedProject } from "#ui/project.ts";
+import { listProjectsQueryOptions, repoInfoQueryOptions } from "#ui/api/queries.ts";
+import {
+	readProjectsOpenedAt,
+	readProjectsRepoMarks,
+	writeLastOpenedProject,
+	writeProjectRepoMarks,
+	type ProjectRepoMarks,
+} from "#ui/project.ts";
 import { useAppDispatch, useAppSelector } from "#ui/store.ts";
 import { Button, Combobox, Tooltip } from "@base-ui/react";
+import type { IconName } from "#ui/components/iconNames.ts";
 import type { ProjectForFrontend } from "@gitbutler/but-sdk";
-import { useSuspenseQuery } from "@tanstack/react-query";
+import { useQuery, useSuspenseQuery } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
-import { useMemo, useState, type FC } from "react";
+import { useEffect, useMemo, useState, type FC } from "react";
 // The trigger is the header's project name, and the header's container query hides its label
 // when the sidebar narrows — so the button keeps wearing the header's classes.
 import headerStyles from "./SidebarHeader.module.css";
 import styles from "./ProjectPicker.module.css";
 
-/**
- * The project's name in the header, and the list of projects it opens.
- *
- * An anchored dropdown rather than a modal, built the way the commit target selector is: Base UI
- * anchors a popup to a trigger that is its own child, so the list lives with the button that
- * raises it. It is the same shape as the pickers built on `PickerDialog` minus the virtualiser,
- * which a list of a person's projects has no use for.
- */
 type ProjectGroup = { value: string; items: Array<ProjectForFrontend> };
 
 /** How many projects lead the list before the rest are folded into "Older". */
 const recentCount = 5;
+
+/**
+ * Private outranks fork, and a row has one glyph: who can see a repository is the sharper thing to
+ * know at a glance than where it came from. A project whose forge has not been asked yet — or has
+ * none to ask — is just a folder.
+ */
+const projectIcon = (marks: ProjectRepoMarks | undefined): IconName =>
+	marks?.private === true ? "folder-lock" : marks?.fork === true ? "folder-fork" : "folder";
 
 /**
  * The ones in use, most recently opened first, then everything else by name. Before anything has
@@ -59,6 +65,20 @@ const groupProjects = (
 	];
 };
 
+/** The two localStorage records the list orders and labels itself from, read together. */
+const readRecords = () => ({
+	openedAt: readProjectsOpenedAt(),
+	marksById: readProjectsRepoMarks(),
+});
+
+/**
+ * The project's name in the header, and the list of projects it opens.
+ *
+ * An anchored dropdown rather than a modal, built the way the commit target selector is: Base UI
+ * anchors a popup to a trigger that is its own child, so the list lives with the button that
+ * raises it. It is the same shape as the pickers built on `PickerDialog` minus the virtualiser,
+ * which a list of a person's projects has no use for.
+ */
 export const ProjectPicker: FC<{ project: ProjectForFrontend }> = (p) => {
 	const navigate = useNavigate();
 	const dispatch = useAppDispatch();
@@ -67,12 +87,30 @@ export const ProjectPicker: FC<{ project: ProjectForFrontend }> = (p) => {
 	const { addLocalRepository, isPending: isAddingProject } = useAddLocalRepository();
 	const [query, setQuery] = useState("");
 
-	// Read once per opening rather than per render: the stamp is written on the way out of the
-	// picker, so the order it produces has to hold still while the list is up.
+	// What a repository is cannot be read off a clone, so it is asked of the forge for whichever
+	// project is open and remembered. The list paints from what has been learned that way — a
+	// project not yet opened since the record began simply shows the plain folder.
+	const { data: repoInfo } = useQuery(repoInfoQueryOptions(p.project.id));
+	useEffect(() => {
+		if (repoInfo === undefined) return;
+		writeProjectRepoMarks(p.project.id, { private: repoInfo.private, fork: repoInfo.fork });
+	}, [p.project.id, repoInfo]);
+
+	// Both records are read on the way into the picker rather than per render: they are written on
+	// the way out of it, so what they order and label has to hold still while the list is up. The
+	// reading then stays put once the picker closes — it is still on screen until its exit
+	// animation finishes, and rereading there would reorder the list as it fades.
 	const open = dialog._tag === "ProjectPicker";
+	const [records, setRecords] = useState(readRecords);
+	const [recordsAreFor, setRecordsAreFor] = useState(open);
+	if (open !== recordsAreFor) {
+		setRecordsAreFor(open);
+		if (open) setRecords(readRecords());
+	}
+
 	const groups = useMemo(
-		() => (open ? groupProjects(projects, readProjectsOpenedAt()) : []),
-		[open, projects],
+		() => groupProjects(projects, records.openedAt),
+		[projects, records.openedAt],
 	);
 
 	// The hotkey opens the picker from anywhere in the app, so what is open stays the dialog state's
@@ -131,9 +169,7 @@ export const ProjectPicker: FC<{ project: ProjectForFrontend }> = (p) => {
 
 			<Combobox.Portal>
 				<Combobox.Positioner align="start" sideOffset={4}>
-					<Combobox.Popup
-						className={classes(popupStyles.popup, popupStyles.dropdown, styles.popup)}
-					>
+					<Popup anchored className={styles.popup} render={<Combobox.Popup />}>
 						<PopupSearch
 							placeholder="Search projects…"
 							aria-label="Search projects"
@@ -145,34 +181,28 @@ export const ProjectPicker: FC<{ project: ProjectForFrontend }> = (p) => {
 						</Combobox.Empty>
 						<Combobox.List className={styles.list}>
 							{(group: ProjectGroup) => (
-								// A group wears what `PopupSection` wears — the same three classes it composes —
-								// because the section element here has to be Base UI's, to label its own rows.
-								<Combobox.Group
+								// The section element has to be Base UI's, so that the group labels its own rows.
+								<PopupSection
 									key={group.value}
-									items={group.items}
-									className={popupStyles.section}
+									label={<Combobox.GroupLabel render={<span />}>{group.value}</Combobox.GroupLabel>}
+									render={<Combobox.Group items={group.items} />}
 								>
-									<Combobox.GroupLabel className={classes("text-12", popupStyles.sectionLabel)}>
-										{group.value}
-									</Combobox.GroupLabel>
-									<div className={popupStyles.sectionItems}>
-										<Combobox.Collection>
-											{(project: ProjectForFrontend) => (
-												<PopupItem
-													key={project.id}
-													icon="folder"
-													// The project already open is marked rather than labelled: every
-													// other row would say "Project" to explain the one saying
-													// "Current".
-													trailing={project.id === p.project.id ? "tick" : undefined}
-													render={<Combobox.Item value={project} />}
-												>
-													{project.title}
-												</PopupItem>
-											)}
-										</Combobox.Collection>
-									</div>
-								</Combobox.Group>
+									<Combobox.Collection>
+										{(project: ProjectForFrontend) => (
+											<PopupItem
+												key={project.id}
+												icon={projectIcon(records.marksById[project.id])}
+												// The project already open is marked rather than labelled: every
+												// other row would say "Project" to explain the one saying
+												// "Current".
+												trailing={project.id === p.project.id ? "tick" : undefined}
+												render={<Combobox.Item value={project} />}
+											>
+												{project.title}
+											</PopupItem>
+										)}
+									</Combobox.Collection>
+								</PopupSection>
 							)}
 						</Combobox.List>
 						<PopupSection className={styles.actions}>
@@ -187,7 +217,7 @@ export const ProjectPicker: FC<{ project: ProjectForFrontend }> = (p) => {
 								{isAddingProject ? "Adding repository…" : "Add local repository"}
 							</PopupItem>
 						</PopupSection>
-					</Combobox.Popup>
+					</Popup>
 				</Combobox.Positioner>
 			</Combobox.Portal>
 		</Combobox.Root>

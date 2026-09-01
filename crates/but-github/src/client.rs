@@ -1727,6 +1727,10 @@ pub struct GitHubRepository {
     pub permissions: Option<GitHubRepoPermissions>,
     #[serde(default)]
     pub fork: bool,
+    /// Whether the repository is private. Absent from the response only for
+    /// callers that cannot see the repo at all, which fail earlier.
+    #[serde(default)]
+    pub private: bool,
     #[serde(default)]
     pub delete_branch_on_merge: Option<bool>,
 }

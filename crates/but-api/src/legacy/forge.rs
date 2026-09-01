@@ -1123,7 +1123,7 @@ pub fn get_review(ctx: &Context, review_id: usize) -> Result<but_forge::ForgeRev
     )
 }
 
-#[but_api(napi)]
+#[but_api(napi, provides = [RepoInfo])]
 #[instrument(err(Debug))]
 pub async fn get_repo_info(ctx: ThreadSafeContext) -> Result<but_forge::RepoInfo> {
     let (storage, forge_repo_info, preferred_forge_user) = {

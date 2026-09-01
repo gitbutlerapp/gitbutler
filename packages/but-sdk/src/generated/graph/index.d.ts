@@ -4049,6 +4049,12 @@ export type RepoInfo = {
   permissions: RepoPermissions | null;
   fork: boolean;
   /**
+   * Whether the repo is visible only to people granted access.
+   * `None` when the forge does not report it — Azure, or a GitLab token
+   * without the scope to read project metadata.
+   */
+  private: boolean | null;
+  /**
    * Whether the repo deletes the source branch after a PR is merged
    * (GitHub's per-repo "Automatically delete head branches" setting).
    * `None` when the field wasn't returned by the forge.

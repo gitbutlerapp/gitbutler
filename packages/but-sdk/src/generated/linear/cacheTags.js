@@ -18,6 +18,7 @@ export const apiProvides = {
 	getAiConfiguration: ["AiConfiguration"],
 	getBlobFile: [],
 	getGbConfig: ["GbConfig"],
+	getRepoInfo: ["RepoInfo"],
 	getReview: ["Reviews"],
 	getReviewMergeStatus: ["MergeStatus"],
 	getWorkspaceFile: [],

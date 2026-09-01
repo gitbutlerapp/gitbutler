@@ -79,6 +79,8 @@ cache_tags! {
     ReviewerCandidates,
     /// Which forge the repository talks to.
     ForgeInfo,
+    /// Repo-level metadata from the forge: permissions, fork and visibility.
+    RepoInfo,
     /// Who the current project is logged in as on its forge.
     ForgeLogin,
     /// The forge accounts known to the app.
