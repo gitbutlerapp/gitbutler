@@ -1,3 +1,5 @@
+use itertools::Itertools as _;
+
 use crate::{command::undo::undo_commit::commit_empty_with_message, utils::Sandbox};
 
 mod undo_commit;
@@ -45,8 +47,15 @@ where
     }
 
     assert_ne!(
-        status_output_before, status_output_after_mutate,
-        "mutate must visibly change state"
+        status_output_before,
+        status_output_after_mutate,
+        "mutate must visibly change state. \
+        Got the following before and after running the command\n\n{}",
+        String::from_utf8(status_output_before.stdout.clone())
+            .unwrap()
+            .lines()
+            .map(|line| format!("    {line}"))
+            .join("\n"),
     );
 
     // Act
@@ -519,5 +528,71 @@ fn can_undo_but_clean() {
 
     run_mutate_undo_roundtrip_test(&env, |env| {
         env.but("clean").assert().success();
+    });
+}
+
+#[test]
+fn can_undo_but_switch_branch() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
+    env.setup_metadata(&["A", "B"]);
+
+    env.but("status")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄ zz [uncommitted] (no changes)
+┊
+┊╭┄ g0 [A]
+┊●   tpm add A
+├╯
+┊
+┊╭┄ h0 [B]
+┊●   lrm add B
+├╯
+┊
+┴ 0dc3733 (common base) 2000-01-02 add M
+
+Hint: run `but help` for all commands
+
+"#]]);
+
+    run_mutate_undo_roundtrip_test(&env, |env| {
+        env.but("switch A").assert().success();
+    });
+
+    run_mutate_undo_roundtrip_test(&env, |env| {
+        env.but("switch B").assert().success();
+    });
+
+    env.but("status")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄ zz [uncommitted] (no changes)
+┊
+┊╭┄ g0 [A]
+┊●   tpm add A
+├╯
+┊
+┊╭┄ h0 [B]
+┊●   lrm add B
+├╯
+┊
+┴ 0dc3733 (common base) 2000-01-02 add M
+
+Hint: run `but help` for all commands
+
+"#]]);
+
+    env.but("switch A").assert().success();
+
+    run_mutate_undo_roundtrip_test(&env, |env| {
+        env.but("switch B").assert().success();
+    });
+
+    env.but("switch B").assert().success();
+
+    run_mutate_undo_roundtrip_test(&env, |env| {
+        env.but("switch A").assert().success();
     });
 }

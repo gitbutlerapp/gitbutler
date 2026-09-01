@@ -13,6 +13,7 @@ export type Operation =
 	| "GenericBranchUpdate"
 	| "DeleteBranch"
 	| "ApplyBranch"
+	| "SwitchBranch"
 	| "DiscardLines"
 	| "DiscardHunk"
 	| "DiscardFile"

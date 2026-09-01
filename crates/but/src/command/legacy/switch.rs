@@ -3,6 +3,7 @@ use but_core::{
     sync::{RepoExclusive, RepoShared},
 };
 use but_ctx::Context;
+use gitbutler_oplog::entry::{OperationKind, SnapshotDetails};
 use gix::refs::FullName;
 use serde::Serialize;
 
@@ -88,7 +89,21 @@ pub fn run(
             Ok(SwitchOutcome::Workspace)
         }
         SwitchOperation::Branch { branch } => {
+            // TODO(david): why does `branch_checkout_with_perm` not do this?
+            let snapshot_details = SnapshotDetails::new(OperationKind::SwitchBranch);
+            let maybe_oplog_entry = but_oplog::UnmaterializedOplogSnapshot::from_details_with_perm(
+                ctx,
+                snapshot_details,
+                perm.read_permission(),
+                but_core::DryRun::No,
+            );
+
             but_api::branch::branch_checkout_with_perm(ctx, branch.clone(), perm)?;
+
+            if let Some(snapshot) = maybe_oplog_entry {
+                _ = snapshot.commit(ctx, perm);
+            }
+
             Ok(SwitchOutcome::Branch { branch })
         }
         SwitchOperation::NewBranch { name } => {
