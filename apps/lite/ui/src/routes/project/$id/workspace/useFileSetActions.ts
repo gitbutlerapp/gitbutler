@@ -13,7 +13,7 @@ import { startAbsorb, startKeyboardTransfer } from "#ui/use-cursor.ts";
 import { useQueryClient } from "@tanstack/react-query";
 
 /** A file address in the tagged form the checked set and the operation machinery carry. */
-export type FileSetAddress = Extract<Address, { _tag: "File" }>;
+type FileSetAddress = Extract<Address, { _tag: "File" }>;
 
 /**
  * The acts a list of files offers, addressed to a set rather than to one file: a row's
