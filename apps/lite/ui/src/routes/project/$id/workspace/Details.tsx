@@ -7,7 +7,6 @@ import { SuspenseQuery } from "@suspensive/react-query";
 import {
 	type PushBeforePublish,
 	useAddReviewLabels,
-	useCommitUncommitChanges,
 	useOpenInProgram,
 	useRequestReview,
 	useResolveCommitConflictHunks,
@@ -59,7 +58,6 @@ import {
 	type FileAddress,
 	fileAddress,
 	hunkAddress,
-	addressEquals,
 	type FileParent,
 	type HunkAddress,
 	type Address,
@@ -154,7 +152,6 @@ import {
 	type LineStats,
 } from "#ui/routes/project/$id/workspace/lineStats.ts";
 import { FilesTree } from "#ui/routes/project/$id/workspace/FilesTree.tsx";
-import { createDiffSpec } from "#ui/operations/diff-specs.ts";
 import { TopLeftControls } from "#ui/routes/project/$id/workspace/TopLeftControls.tsx";
 import {
 	changeFileRowItem,
@@ -471,8 +468,6 @@ const DiffContents: FC<{
 	viewerRef: RefObject<DiffViewerHandle | null>;
 	didScrollToViaFileRef: RefObject<boolean>;
 	minimapFiles: Array<MinimapFile> | null;
-	canUncommit: boolean;
-	uncommit: (change: TreeChange, extendToCheckedFiles: boolean) => void;
 }> = ({
 	activeFileItemId,
 	diffContextKey,
@@ -495,8 +490,6 @@ const DiffContents: FC<{
 	viewerRef,
 	didScrollToViaFileRef,
 	minimapFiles,
-	canUncommit,
-	uncommit,
 }) => {
 	const dispatch = useAppDispatch();
 	const newFocusableAnnotationIdRef = useRef<string | null>(null);
@@ -1754,8 +1747,6 @@ const DiffContents: FC<{
 							selected={item.id === selectedFileItemId}
 							setCollapsed={handleSetCollapsed(item.id)}
 							setReviewed={handleSetReviewed(item.id, file.change.path, version)}
-							canUncommit={canUncommit}
-							uncommit={uncommit}
 						/>
 					);
 				}}
@@ -1954,8 +1945,6 @@ type DiffFileHeaderProps = {
 	selected: boolean;
 	setCollapsed: (collapsed: boolean) => void;
 	setReviewed: (reviewed: boolean) => void;
-	canUncommit: boolean;
-	uncommit: (change: TreeChange, extendToCheckedFiles: boolean) => void;
 };
 
 const DiffFileHeader: FC<DiffFileHeaderProps> = (p) => {
@@ -1964,8 +1953,6 @@ const DiffFileHeader: FC<DiffFileHeaderProps> = (p) => {
 		address: p.address,
 		path: p.change.path,
 		change: p.change,
-		canUncommit: p.canUncommit,
-		uncommit: p.uncommit,
 	});
 
 	const lastSepIdx = p.change.path.lastIndexOf("/");
@@ -2314,7 +2301,6 @@ const Diff: FC<{
 	headerSlot,
 }) => {
 	const focusScopeRef = useRef<HTMLDivElement>(null);
-	const store = useAppStore();
 	const dispatch = useAppDispatch();
 	const { mutate: setFilesReviewed } = useSetFilesReviewed();
 	const [manualCollapseByItem, setManualCollapseByItem] = useState<Map<string, boolean>>(new Map());
@@ -2392,42 +2378,6 @@ const Diff: FC<{
 		[selection],
 	);
 
-	const { isPending: isCommitUncommitChangesPending, mutate: commitUncommitChanges } =
-		useCommitUncommitChanges();
-
-	const uncommit = (change: TreeChange, extendToCheckedFiles: boolean): void => {
-		if (fileParent._tag !== "Commit") return;
-
-		const sources = projectSlice.selectors.selectCheckedAddresses(store.getState(), projectId);
-
-		let subjectChanges = [change];
-		if (
-			extendToCheckedFiles &&
-			sources.length > 0 &&
-			sources.every(
-				(address) => address._tag === "File" && addressEquals(address.parent, fileParent),
-			)
-		) {
-			const checkedChanges = sources
-				.values()
-				.map((source) =>
-					changes.find((candidate) => source._tag === "File" && candidate.path === source.path),
-				)
-				.filter((x) => x != null)
-				.toArray();
-			if (checkedChanges.length !== sources.length) return;
-
-			subjectChanges = checkedChanges;
-		}
-
-		commitUncommitChanges({
-			projectId,
-			commitId: fileParent.commitId,
-			assignTo: null,
-			changes: subjectChanges.map((change) => createDiffSpec(change, [])),
-			dryRun: false,
-		});
-	};
 	const reviewedFilesContextId = weakFileParentIdentityKey(fileParent);
 	const { data: reviewedFiles } = useSuspenseQuery(
 		reviewedFilesQueryOptions(projectId, reviewedFilesContextId),
@@ -2759,8 +2709,6 @@ const Diff: FC<{
 						addressSpace={filesAddressSpace}
 						fileParent={fileParent}
 						reviewedPaths={reviewedFilePaths}
-						canUncommit={!isCommitUncommitChangesPending}
-						uncommit={uncommit}
 						ref={filesTreeRef}
 					/>
 				</div>
@@ -2879,8 +2827,6 @@ const Diff: FC<{
 								manualCollapseByItem={manualCollapseByItem}
 								setManualCollapse={setManualCollapse}
 								setFilesReviewed={setFilesReviewed}
-								canUncommit={!isCommitUncommitChangesPending}
-								uncommit={uncommit}
 								focusScopeRef={focusScopeRef}
 								viewerRef={viewerRef}
 								didScrollToViaFileRef={didScrollToViaFileRef}
