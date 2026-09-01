@@ -126,10 +126,6 @@ export const Sidebar: FC<{
 		dispatch(interfaceSlice.actions.openDialog({ dialog: { _tag: "ApplyBranchPicker" } }));
 	};
 
-	const openProjectPicker = () => {
-		dispatch(interfaceSlice.actions.openDialog({ dialog: { _tag: "ProjectPicker" } }));
-	};
-
 	const openSettings = () => {
 		dispatch(interfaceSlice.actions.openDialog({ dialog: { _tag: "Settings" } }));
 	};
@@ -267,7 +263,6 @@ export const Sidebar: FC<{
 					onFetch={fetchFromRemotes}
 					canOpenSettings={noOperationPending}
 					onOpenSettings={openSettings}
-					onOpenProjectPicker={openProjectPicker}
 				/>
 
 				<ToggleGroup

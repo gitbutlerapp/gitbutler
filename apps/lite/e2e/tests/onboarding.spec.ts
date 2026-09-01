@@ -22,7 +22,7 @@ test("adds a local repository without changing its branch", async ({
 	await appWindow.getByRole("button", { name: "Add local repository" }).click();
 
 	await expect(appWindow.getByTestId(/project=.*:workspace/)).toBeVisible();
-	const projectPicker = appWindow.getByRole("button", { name: /Select project/ });
+	const projectPicker = appWindow.getByRole("combobox", { name: /Select project/ });
 	await expect(projectPicker).toBeVisible();
 
 	await projectPicker.click();

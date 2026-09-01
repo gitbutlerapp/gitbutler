@@ -11,7 +11,7 @@ test.describe("with a seeded project", () => {
 
 	test("opens the project and navigates between views", async ({ appWindow }) => {
 		await expect(appWindow).toHaveURL(/\/project\/[^/]+\/workspace$/);
-		await expect(appWindow.getByRole("button", { name: /Select project/ })).toBeVisible();
+		await expect(appWindow.getByRole("combobox", { name: /Select project/ })).toBeVisible();
 
 		const pages = appWindow.getByRole("group", { name: "Pages" });
 		await pages.getByRole("button", { name: "Branches" }).click();

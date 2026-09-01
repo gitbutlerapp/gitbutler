@@ -15,7 +15,7 @@ test("navigates to a project added from the project picker", async ({
 	}, repositoryPath);
 
 	await expect(appWindow.getByTestId(/project=.*:workspace/)).toBeVisible();
-	const projectPicker = appWindow.getByRole("button", { name: /Select project/ });
+	const projectPicker = appWindow.getByRole("combobox", { name: /Select project/ });
 	await expect(projectPicker).toContainText("local-clone");
 
 	await projectPicker.click();

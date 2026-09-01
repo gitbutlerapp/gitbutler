@@ -111,8 +111,8 @@ test.describe("screenshots", () => {
 
 		test("project picker", async ({ appWindow }) => {
 			await openProject(appWindow);
-			await appWindow.getByRole("button", { name: /select project/i }).click();
-			await shoot(appWindow, "project-picker", '[class*="PickerDialog-module_popup"]');
+			await appWindow.getByRole("combobox", { name: /select project/i }).click();
+			await shoot(appWindow, "project-picker", '[class*="ProjectPicker-module_popup"]');
 		});
 	});
 
