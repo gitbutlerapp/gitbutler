@@ -57,6 +57,7 @@ export const CommitRow: FC<
 		checkCommit: (evt: { commitId: string; shiftKey: boolean }) => void;
 		amendCommit: () => void;
 		canAmendCommit: boolean;
+		scrollSelectedIntoView?: boolean;
 	} & ComponentProps<"div">
 > = ({
 	commit,

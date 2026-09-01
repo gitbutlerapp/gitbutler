@@ -331,7 +331,7 @@ export const Sidebar: FC<{
 				/>
 			)}
 
-			{page === "workspace" && (
+			<Activity mode={page === "workspace" ? "visible" : "hidden"}>
 				<WorkspaceLists
 					className={styles.page}
 					addressSpace={addressSpace}
@@ -371,7 +371,7 @@ export const Sidebar: FC<{
 						</RowToolbar>
 					}
 				/>
-			)}
+			</Activity>
 		</div>
 	);
 };
