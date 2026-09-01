@@ -44,7 +44,7 @@ The first token on each `but diff` / `but status` line is that line's ID. When a
 
 - Changes and sources are **positional, space-separated** IDs (`but commit -b feat -m "msg" qs:5 uo`). An uncommitted hunk ID is written `<file-id>:<hunk-id>` (e.g. `qs:5`, copied from bare `but diff`) — the part after the colon is the hunk's ID, **not** a line range (`qs:16-40` is invalid). Do not invent flags like `--changes` / `--hunk` / `--ids`, pass a line range, or comma-separate IDs — `nk,pn` is parsed as one ID and fails.
 - `but diff` is the exception: it accepts at most **one** target. Bare `but diff` shows all uncommitted files; inspect committed files or other entities one target at a time — never `but diff <id> <id>`.
-- A committed file is `<commit-id>:<file-id>` (e.g. `uyr:n`, shown under each commit). A committed hunk is `<commit-id>:<file-id>:<hunk-id>` and is shown by `but diff <commit-id>`, but is informational for now: no command accepts committed hunk IDs yet. `@` means the uncommitted area.
+- A committed file is `<commit-id>:<file-id>` (e.g. `uyr:n`, shown under each commit). A committed hunk is `<commit-id>:<file-id>:<hunk-id>` and is shown by `but diff <commit-id>`. `@` means the uncommitted area.
 - Commit IDs are stable change IDs that survive history edits (`amend`, `squash`, `move`, `uncommit`, `reword`). Commits without a change ID (e.g. upstream-only) lead with a sha prefix instead, and `#N`-suffixed refs disambiguate duplicates — both go stale after history edits, and a stale sha can silently resolve to the wrong commit. The `(sha …)` on verbose commit lines is informational — do not pass it to commands.
 - Branch short IDs are snapshot-local selectors. Use full branch names for branch-targeting mutations; short IDs are safe only for immediate read-only inspection.
 - File/hunk IDs copied from one diff read generally remain usable across chained commits. If one stops resolving, re-read `but diff` and retry.
@@ -66,11 +66,12 @@ The first token on each `but diff` / `but status` line is that line's ID. When a
 - Several commits from one diff: chain `but commit` calls with `&&` (commits stack oldest-first)
 - Commit at a specific history position: `--above <commit-or-branch>` or `--below <commit-or-branch>` instead of `-b`
 - Only one targeting flag (`-b` / `--above` / `--below`) per command. Targeting is **required** when more than one **stack** is applied; without it `but commit` fails with "Unclear where to commit. Found more than one stack". Several branches stacked together count as one stack — an untargeted commit then silently lands on the stack's top branch, so pass `-b` whenever the branch matters.
-- Always pass `-m "<msg>"` (or `--no-message`) to `but commit`, and to `but squash` whenever its sources are commits or branches unless the target is `@` — those compose a new message, and without a flag an editor opens and blocks. Squash sources that are uncommitted or committed files reuse the target's message and need no flag; squashing into `@` rejects message flags outright.
+- Always pass `-m "<msg>"` (or `--no-message`) to `but commit`, and to `but squash` whenever its sources are commits or branches unless the target is `@` — those compose a new message, and without a flag an editor opens and blocks. Squash sources that are uncommitted or committed files/hunks reuse the target's message and need no flag; squashing into `@` rejects message flags outright.
 - Amend: `but amend -t <commit-or-branch> <file-or-hunk-id> <file-or-hunk-id>` — a branch target resolves to its newest commit
-- Uncommit: `but uncommit <commit-id>` (whole commit), `but uncommit <branch>` (all commits and remove the branch), or `but uncommit <commit-id>:<file-id>` (one committed file); multiple committed-file sources in one call must come from one commit
+- Uncommit: `but uncommit <commit-id>` (whole commit), `but uncommit <branch>` (all commits and remove the branch), or `but uncommit <commit-id>:<file-id>[:<hunk-id>]` (one committed file or hunk); committed file/hunk sources may be mixed, but all must come from one commit
 - Insert empty commit: `but commit --empty -b <branch> -m "<msg>"`
 - Squash commits: `but squash <source-commit-id> [<source-commit-id>...] -t <target-commit-id> -m "<msg>"`
+- Move committed files/hunks between commits: `but squash <commit-id>:<file-id>[:<hunk-id>] -t <commit-id-or-@>`; all sources must come from one commit
 - Squash a whole branch into one commit: `but squash <branch> -m "<msg>"` (no `-t`)
 - Uncommit and remove a branch: `but uncommit <branch>`
 - Reorder commits: `but move <commit-id> --below <commit-id>` (`--above` for the other direction; **commit IDs**, not branch names)

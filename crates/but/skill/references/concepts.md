@@ -55,8 +55,6 @@ Committed hunks:  kyn:n:5        (<commit-id>:<file-id>:<hunk-id>, shown by `but
 Stacks:           m0, n0         (auto-generated, 2–3 chars)
 ```
 
-Committed hunk IDs are informational for now; no command accepts them yet.
-
 **Why?** Git commit SHAs are long (40 chars). CLI IDs are short, variable-length, and unique within your current workspace context. Commits, files, and hunks may use a single character when that is unambiguous.
 
 **Reading status output:** the first token on each line is that line's ID. Verbose commit lines append an informational `(sha …)` after the timestamp — it changes on every amend; do not pass it to commands.
@@ -69,6 +67,7 @@ Committed hunk IDs are informational for now; no command accepts them yet.
 but commit -b <branch-name> -m "message" <file-or-hunk-id>   # Commit selected changes to a branch
 but amend -t <commit-id> <file-or-hunk-id> <file-or-hunk-id>  # Amend file(s) or hunk(s) into commit
 but squash <commit-id> -t <commit-id> -m "message"         # Squash commits
+but squash <commit-id>:<file-id>:<hunk-id> -t <commit-id>   # Move a committed hunk
 ```
 
 IDs are positional and space-separated. `but help cli-ids` documents every ID kind in detail.
@@ -169,14 +168,14 @@ is a flag. `@` is a special ID meaning "the uncommitted area".
 and need no flag, and `-t @` rejects message flags outright.
 
 The two amend rows overlap with `but amend` — prefer `but amend -t nn a1`, which does only that and
-takes the same IDs. Reach for `squash` when the sources are commits, branches, or committed files,
-which `amend` does not accept.
+takes the same IDs. Reach for `squash` when the sources are commits, branches, or committed
+files/hunks, which `amend` does not accept.
 
 The other editing commands are narrower entry points on the same model:
 
 - `but amend -t <commit> <changes>` — amend uncommitted files/hunks into a known commit
-- `but uncommit <commits-branches-or-committed-files>` — move committed work back to uncommitted;
-  branches are removed, and committed files in one call must come from one commit
+- `but uncommit <commits-branches-or-committed-files-or-hunks>` — move committed work back to
+  uncommitted; branches are removed, and committed files/hunks in one call must come from one commit
 - `but move <sources> --above|--below|--branch|--unstack` — relocate commits, committed files, or a
   branch; this is the command with position control
 - `but discard <changes>` — drop work instead of relocating it
