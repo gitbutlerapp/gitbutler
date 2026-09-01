@@ -27,6 +27,51 @@ export const MyComponent: FC<Props> = (p) => {
 };
 ```
 
+# Design
+
+The visual language — how icons, color, and composition should look — is in
+`apps/lite/DESIGN.md`. Read it before changing anything users see. This section
+covers the tooling that enforces it.
+
+## Icons
+
+There are two icon sets with two separate scripts, and each script only walks
+its own directory:
+
+| Path                                      | Owner                                  | Script                                    |
+| ----------------------------------------- | -------------------------------------- | ----------------------------------------- |
+| `apps/lite/ui/src/components/icons/*.svg` | Lite                                   | `pnpm -F @gitbutler/lite optimize-icons`  |
+| `packages/ui/src/lib/icons/svg/*.svg`     | shared Svelte UI package (desktop/web) | `pnpm -F @gitbutler/ui optimize-ui-icons` |
+
+Running `optimize-ui-icons` will **not** touch a Lite icon, and vice versa.
+Dropping an SVG into the wrong folder is the most common reason an icon "won't
+optimize". File icons (`ui/src/components/file-icons/`) are deliberately not
+run through either script — recoloring them to `currentColor` would destroy
+them.
+
+To add an icon to Lite:
+
+1. Export it from Figma at 16×16 (⚛️ Lite Core library) as SVG.
+2. Save it to `ui/src/components/icons/` with a kebab-case name — the filename
+   _is_ the icon name (`folder-lock.svg` → `<Icon name="folder-lock" />`).
+3. Run:
+
+   ```console
+   $ pnpm -F @gitbutler/lite optimize-icons
+   ```
+
+4. Commit both the SVG and the regenerated `ui/src/components/iconNames.ts`.
+
+The script is `apps/lite/scripts/optimize-icons.mjs`; its header comment
+documents each transform and the export problems it can't fix. It is
+idempotent, so it's safe to run any time. `iconNames.ts` is generated — never
+hand-edit it; add or remove the SVG and re-run. Icons are inlined into the
+bundle as raw strings and injected with `dangerouslySetInnerHTML`, which is why
+the script minifies them.
+
+After running the script, render the icon in the app (or in `Icon.stories.tsx`)
+at both 16px and a larger size before committing.
+
 # State
 
 Share machinery, not state: when a new surface (a tab, pane, or mode) has its
