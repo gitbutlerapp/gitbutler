@@ -26,7 +26,6 @@ import {
 	type FC,
 	useDeferredValue,
 	useLayoutEffect,
-	useMemo,
 	useRef,
 	useState,
 } from "react";
@@ -329,31 +328,24 @@ const useFilesTreeHotkeys = ({
 	});
 };
 
+// Extracted as a component boundary for the compiler to memo.
 const DirectoryOperationSource: FC<
 	{
 		projectId: string;
 		fileParent: FileParent;
 		filePaths: Array<string>;
 	} & Omit<useRender.ComponentProps<"div">, "onDragStart">
-> = ({ projectId, fileParent, filePaths, render, ...props }) => {
-	// The compiler does not memoize derivations inside the virtual-row loop.
-	const sources = useMemo(
-		() => filePaths.map((path) => fileAddress({ parent: fileParent, path })),
-		[fileParent, filePaths],
-	);
-
-	return (
-		<OperationSourceC
-			{...props}
-			projectId={projectId}
-			sources={sources}
-			respectChecked
-			outline="outside"
-			acceptOriginDrop
-			render={render}
-		/>
-	);
-};
+> = ({ projectId, fileParent, filePaths, render, ...props }) => (
+	<OperationSourceC
+		{...props}
+		projectId={projectId}
+		sources={filePaths.map((path) => fileAddress({ parent: fileParent, path }))}
+		respectChecked
+		outline="outside"
+		acceptOriginDrop
+		render={render}
+	/>
+);
 
 export const FilesTree: FC<
 	{
