@@ -65,6 +65,7 @@ export const OperationsLogPicker: FC<Props> = ({ open, onOpenChange, projectId }
 			onOpenChange={onOpenChange}
 			onSelectItem={selectSnapshot}
 			placeholder="Search operations…"
+			selectLabel="Restore"
 			statusLabel={
 				isPending
 					? "Loading operations log…"

@@ -101,8 +101,11 @@ const VirtualizedListArea = <T,>({
 		estimateSize: () => 28,
 		getItemKey: getVirtualRowKey,
 		overscan: 4,
-		paddingStart: 8,
-		paddingEnd: 8,
+		// The list opens on a section heading, which carries the 8px a section puts above its
+		// title, so the list adds nothing of its own on top. Below the last row it stands off by
+		// the 4px a section's rows are inset by.
+		paddingStart: 0,
+		paddingEnd: 4,
 		scrollPaddingStart: 8,
 		scrollPaddingEnd: 8,
 	});
@@ -187,11 +190,13 @@ const VirtualizedListArea = <T,>({
 								const row = virtualRows[virtualItem.index];
 								if (row === undefined) return null;
 
+								// Only what the virtualizer decides. A row spans the list, and how far it
+								// insets itself from the edge is the row's own styling.
 								const style: CSSProperties = {
 									position: "absolute",
 									top: 0,
-									left: "0.5rem",
-									width: "calc(100% - 1rem)",
+									left: 0,
+									right: 0,
 									height: virtualItem.size,
 								};
 
@@ -202,7 +207,10 @@ const VirtualizedListArea = <T,>({
 											ref={virtualizer.measureElement}
 											data-index={virtualItem.index}
 											role="presentation"
-											className={styles.groupLabel}
+											className={classes(
+												styles.groupLabel,
+												virtualItem.index > 0 && styles.groupLabelDivided,
+											)}
 											style={style}
 										>
 											{row.group.value}
@@ -252,6 +260,9 @@ type Props<T> = {
 	onSelectItem: (item: T) => void;
 	open: boolean;
 	placeholder: string;
+	/** What pressing Enter does here — "Restore", "Apply", "Run". Named per picker rather than
+	 * defaulted, because "Select" tells the reader nothing they did not already assume. */
+	selectLabel: string;
 	statusLabel?: string;
 };
 
@@ -269,6 +280,7 @@ export const PickerDialog = <T,>({
 	onSelectItem,
 	open,
 	placeholder,
+	selectLabel,
 	statusLabel,
 }: Props<T>) => {
 	const inputRef = useRef<HTMLInputElement | null>(null);
@@ -317,6 +329,16 @@ export const PickerDialog = <T,>({
 				<PopupSearch
 					placeholder={placeholder}
 					aria-label={placeholder}
+					onClear={
+						inputValue === ""
+							? undefined
+							: () => {
+									setInputValue("");
+									// Clearing by pointer leaves the caret nowhere, and the picker is
+									// a field the next keystroke is meant to reach.
+									inputRef.current?.focus();
+								}
+					}
 					render={
 						// The key handling reaches for Base UI's own event extensions, so it belongs on
 						// the autocomplete's input rather than on the row that dresses it.
@@ -361,9 +383,17 @@ export const PickerDialog = <T,>({
 				/>
 
 				<div className={styles.footer}>
-					<div className={styles.footerLeft}>
-						<span>Activate</span>
-						<kbd className={styles.kbd}>Enter</kbd>
+					{/* Two hints is what a 420px bar holds. They go to the key nobody would guess and
+					    the word that changes with the picker; arrows and Esc do here what they do in
+					    every list, and paging yields the slot to the shortcut that has no equivalent
+					    anywhere else in the app. */}
+					<div className={styles.hints}>
+						<span className={styles.hint}>
+							<kbd className={styles.hintKey}>⌘↑ ⌘↓</kbd> First / last
+						</span>
+						<span className={styles.hint}>
+							<kbd className={styles.hintKey}>↵</kbd> {selectLabel}
+						</span>
 					</div>
 					{footerAction}
 				</div>

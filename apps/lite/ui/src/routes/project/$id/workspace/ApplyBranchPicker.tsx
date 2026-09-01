@@ -117,6 +117,7 @@ export const ApplyBranchPicker: FC<Props> = ({ open, onOpenChange, projectId }) 
 			onOpenChange={onOpenChange}
 			onSelectItem={selectBranch}
 			placeholder="Search for branches to apply…"
+			selectLabel="Apply branch"
 			statusLabel={statusLabel}
 		/>
 	);

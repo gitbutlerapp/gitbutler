@@ -5,7 +5,14 @@ import { Kbd } from "#ui/components/Kbd.tsx";
 import styles from "./Popup.module.css";
 import { AlertDialog, Dialog, mergeProps, Popover, useRender } from "@base-ui/react";
 import type { HotkeySequence } from "@tanstack/react-hotkeys";
-import type { ComponentProps, FC, ReactElement, ReactNode } from "react";
+import {
+	useEffect,
+	useState,
+	type ComponentProps,
+	type FC,
+	type ReactElement,
+	type ReactNode,
+} from "react";
 
 /**
  * The container every overlay in Lite is built from: modals, dropdowns and the toolbox all wear
@@ -91,8 +98,21 @@ export const Modal: FC<ModalProps> = ({
 	const Root = alert ? AlertDialog.Root : Dialog.Root;
 	const Trigger = alert ? AlertDialog.Trigger : Dialog.Trigger;
 
+	// Base UI only plays the open animation when `open` turns true *after* mount, and the app mounts
+	// its modals already open — `{shown && <Picker open />}` in the workspace page. Holding the
+	// first frame closed gives Base UI the change it animates from. A modal that was already
+	// mounted when `open` flipped is past this by then and is unaffected.
+	const [pastFirstFrame, setPastFirstFrame] = useState(false);
+	useEffect(() => {
+		const frame = requestAnimationFrame(() => setPastFirstFrame(true));
+		return () => cancelAnimationFrame(frame);
+	}, []);
+
 	return (
-		<Root open={open} onOpenChange={onOpenChange}>
+		<Root
+			open={open === undefined ? undefined : open && pastFirstFrame}
+			onOpenChange={onOpenChange}
+		>
 			{trigger !== undefined && <Trigger render={trigger} />}
 			<Dialog.Portal>
 				<Dialog.Backdrop className={styles.backdrop} />
@@ -178,19 +198,37 @@ export const Dropdown: FC<DropdownProps> = ({
  * A plain input by default. Pass `render` when the query drives a list primitive and the input has
  * to be that primitive's own — a picker's `Autocomplete.Input`, say.
  *
+ * Pass `onClear` while there is a query to clear: the row's trailing glyph becomes a button that
+ * empties the field. The row does not hold the query, so whether there is anything to clear is the
+ * caller's to say — leave `onClear` out and the row shows the magnifier it searches under.
+ *
  * @public
  */
-export const PopupSearch: FC<useRender.ComponentProps<"input">> = ({ render, ...props }) => (
-	<div className={styles.search}>
-		{useRender({
-			render: render ?? <input />,
-			props: mergeProps<"input">(props, {
-				className: classes("text-13", styles.searchInput),
-			}),
-		})}
-		<Icon name="search" className={styles.searchIcon} />
-	</div>
-);
+export const PopupSearch: FC<{ onClear?: () => void } & useRender.ComponentProps<"input">> = ({
+	render,
+	onClear,
+	...props
+}) => {
+	const input = useRender({
+		render: render ?? <input />,
+		props: mergeProps<"input">(props, {
+			className: classes("text-13", styles.searchInput),
+		}),
+	});
+
+	return (
+		<div className={styles.search}>
+			{input}
+			{onClear === undefined ? (
+				<Icon name="search" className={styles.searchIcon} />
+			) : (
+				<button type="button" className={styles.searchClear} onClick={onClear} aria-label="Clear">
+					<Icon name="cross-circle" />
+				</button>
+			)}
+		</div>
+	);
+};
 
 /**
  * A run of {@link PopupItem}s under an optional heading. Sections divide from one another, so a

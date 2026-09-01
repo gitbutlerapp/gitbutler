@@ -2,11 +2,6 @@
    adds a backdrop and centres itself in the window; a dropdown anchors to its trigger. Nothing
    else about the container differs between them. */
 .popup {
-	/* A popup's scroller spans the whole popup, so the gutter takes the popup's own background and
-	   there is no content beside it to divide from. */
-	--scrollbar-track-bg: var(--bg-1);
-	--scrollbar-track-border: transparent;
-
 	display: flex;
 	flex-direction: column;
 	/* The border is the container's edge, so content clips to it rather than squaring off the
@@ -24,8 +19,6 @@
 /* Recessed, so what sits on it reads as cards rather than sections — the arrangement a pane uses
    once it holds more than one group of things. */
 .recessed {
-	--scrollbar-track-bg: var(--bg-2);
-
 	background-color: var(--bg-2);
 }
 
@@ -112,8 +105,8 @@
 	display: flex;
 	flex: none;
 	align-items: center;
-	height: 32px;
-	padding-inline: 10px;
+	height: 36px;
+	padding-inline: 12px;
 	gap: 8px;
 	border-bottom: 1px solid var(--border-3);
 }
@@ -141,6 +134,20 @@
 	color: var(--text-3);
 }
 
+/* Takes the magnifier's place once there is a query, and carries a little more weight than it
+   did: the glyph is something to press rather than a mark of what the row is for. */
+.searchClear {
+	display: flex;
+	flex: none;
+	align-items: center;
+	color: var(--text-2);
+	cursor: default;
+
+	&:hover {
+		color: var(--text-1);
+	}
+}
+
 .section {
 	display: flex;
 	flex: none;
@@ -155,7 +162,7 @@
 
 .sectionLabel {
 	padding: 8px 10px 0;
-	color: var(--text-2);
+	color: var(--text-3);
 }
 
 .sectionItems {
