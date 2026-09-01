@@ -13,10 +13,8 @@
 }
 
 .popup {
-	display: flex;
 	row-gap: 12px;
-	flex-direction: column;
-	width: min(420px, calc(100vw - 32px));
+	padding: 16px;
 }
 
 .description {

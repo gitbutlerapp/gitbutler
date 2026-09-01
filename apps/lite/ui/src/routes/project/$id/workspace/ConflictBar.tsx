@@ -6,6 +6,7 @@ import { Icon } from "#ui/components/Icon.tsx";
 import { projectSlice } from "#ui/projects/state.ts";
 import { useAppDispatch, useAppSelector } from "#ui/store.ts";
 import { Dialog } from "@base-ui/react";
+import { Modal } from "#ui/components/Popup.tsx";
 import { useQuery } from "@tanstack/react-query";
 import type { FC } from "react";
 import styles from "./ConflictBar.module.css";
@@ -117,87 +118,86 @@ export const ConflictBar: FC<Props> = (p) => {
 			</button>
 
 			{total > 0 && (
-				<Dialog.Root>
-					<Dialog.Trigger
-						className={classes(
-							getButtonClassName({ variant: "outline", size: "small" }),
-							styles.resolve,
+				<Modal
+					size="large"
+					recessed
+					aria-labelledby="resolve-conflicts-heading"
+					className={styles.popup}
+					trigger={
+						<button
+							type="button"
+							className={classes(
+								getButtonClassName({ variant: "outline", size: "small" }),
+								styles.resolve,
+							)}
+						>
+							Resolve conflicts
+						</button>
+					}
+				>
+					<header className={styles.header}>
+						<Icon name="warning" />
+						<h1
+							id="resolve-conflicts-heading"
+							className={classes("text-14", "text-bold", styles.heading)}
+						>
+							{checkedLive.length > 0
+								? `${checkedLive.length} of ${total} conflict${total === 1 ? "" : "s"} selected`
+								: `Resolve ${total} conflict${total === 1 ? "" : "s"}`}
+						</h1>
+
+						{checkedLive.length > 0 && (
+							<div className={styles.actions}>
+								<button
+									type="button"
+									className={getButtonClassName({ variant: "outline", size: "small" })}
+									disabled={p.busy}
+									onClick={() => apply({ type: "theirs" })}
+								>
+									Accept incoming
+								</button>
+								<button
+									type="button"
+									className={getButtonClassName({ variant: "outline", size: "small" })}
+									disabled={p.busy}
+									onClick={() => apply({ type: "ours" })}
+								>
+									Accept current
+								</button>
+								<button
+									type="button"
+									className={getButtonClassName({ variant: "ghost", size: "small" })}
+									onClick={() =>
+										dispatch(projectSlice.actions.clearCheckedConflicts({ projectId: p.projectId }))
+									}
+								>
+									Clear
+								</button>
+							</div>
 						)}
-					>
-						Resolve conflicts
-					</Dialog.Trigger>
-					<Dialog.Portal>
-						<Dialog.Backdrop className={styles.backdrop} />
-						<Dialog.Viewport className={styles.viewport}>
-							<Dialog.Popup aria-labelledby="resolve-conflicts-heading" className={styles.popup}>
-								<header className={styles.header}>
-									<Icon name="warning" />
-									<h1
-										id="resolve-conflicts-heading"
-										className={classes("text-14", "text-bold", styles.heading)}
-									>
-										{checkedLive.length > 0
-											? `${checkedLive.length} of ${total} conflict${total === 1 ? "" : "s"} selected`
-											: `Resolve ${total} conflict${total === 1 ? "" : "s"}`}
-									</h1>
 
-									{checkedLive.length > 0 && (
-										<div className={styles.actions}>
-											<button
-												type="button"
-												className={getButtonClassName({ variant: "outline", size: "small" })}
-												disabled={p.busy}
-												onClick={() => apply({ type: "theirs" })}
-											>
-												Accept incoming
-											</button>
-											<button
-												type="button"
-												className={getButtonClassName({ variant: "outline", size: "small" })}
-												disabled={p.busy}
-												onClick={() => apply({ type: "ours" })}
-											>
-												Accept current
-											</button>
-											<button
-												type="button"
-												className={getButtonClassName({ variant: "ghost", size: "small" })}
-												onClick={() =>
-													dispatch(
-														projectSlice.actions.clearCheckedConflicts({ projectId: p.projectId }),
-													)
-												}
-											>
-												Clear
-											</button>
-										</div>
-									)}
+						<Dialog.Close
+							aria-label="Close"
+							className={getButtonClassName({
+								variant: "ghost",
+								size: "small",
+								iconOnly: true,
+							})}
+						>
+							<Icon name="cross" />
+						</Dialog.Close>
+					</header>
 
-									<Dialog.Close
-										aria-label="Close"
-										className={getButtonClassName({
-											variant: "ghost",
-											size: "small",
-											iconOnly: true,
-										})}
-									>
-										<Icon name="cross" />
-									</Dialog.Close>
-								</header>
-
-								<div className={styles.body}>
-									<ConflictedFiles
-										projectId={p.projectId}
-										commitId={p.commitId}
-										conflicts={p.conflicts}
-										busy={p.busy}
-										onResolve={p.onResolve}
-									/>
-								</div>
-							</Dialog.Popup>
-						</Dialog.Viewport>
-					</Dialog.Portal>
-				</Dialog.Root>
+					<div className={styles.body}>
+						<ConflictedFiles
+							projectId={p.projectId}
+							commitId={p.commitId}
+							conflicts={p.conflicts}
+							busy={p.busy}
+							onResolve={p.onResolve}
+						/>
+					</div>
+				</Modal>
 			)}
 		</div>
 	);

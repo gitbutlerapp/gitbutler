@@ -1,14 +1,13 @@
 import { getButtonClassName } from "#ui/components/Button.tsx";
 import { Icon } from "#ui/components/Icon.tsx";
 import { TooltipPopup } from "#ui/components/Tooltip.tsx";
-import { classes } from "#ui/components/classes.ts";
-import uiStyles from "#ui/components/ui.module.css";
+import { Modal } from "#ui/components/Popup.tsx";
 import { useUploadFiles } from "#ui/api/mutations.ts";
 import { userProfileQueryOptions } from "#ui/api/queries.ts";
 import * as md from "#ui/markdown-editing.ts";
 import { applyToTextarea } from "#ui/markdown-textarea.ts";
 import { ACCEPTED_FILE_TYPES, filesFromTransfer, uploadsToMarkdown } from "#ui/uploads.ts";
-import { AlertDialog, Tooltip } from "@base-ui/react";
+import { Dialog, Tooltip } from "@base-ui/react";
 import { useQuery } from "@tanstack/react-query";
 import { type FC, type RefObject, useEffect, useRef, useState } from "react";
 import styles from "./MarkdownAttachments.module.css";
@@ -129,46 +128,45 @@ export const MarkdownAttachments: FC<Props> = (p) => {
 				</Tooltip.Portal>
 			</Tooltip.Root>
 
-			<AlertDialog.Root open={pending.length > 0} onOpenChange={(open) => open || setPending([])}>
-				<AlertDialog.Portal>
-					<AlertDialog.Backdrop />
-					<AlertDialog.Popup
-						className={classes(uiStyles.popup, uiStyles.dialogPopup, styles.popup)}
+			<Modal
+				alert
+				size="small"
+				className={styles.popup}
+				open={pending.length > 0}
+				onOpenChange={(open) => open || setPending([])}
+			>
+				<Dialog.Title>
+					{pending.length === 1 ? "Upload this file?" : `Upload these ${pending.length} files?`}
+				</Dialog.Title>
+				<Dialog.Description className={styles.description}>
+					They are uploaded to gitbutler.com and anyone with the link can open them, which is what
+					lets the forge show them in your description.
+				</Dialog.Description>
+				<ul className={styles.files}>
+					{pending.map((file, index) => (
+						// Names repeat — two pasted images are both "pasted-image" —
+						// and the list is fixed while the dialog is open.
+						// oxlint-disable-next-line react/no-array-index-key
+						<li key={index}>{file.name}</li>
+					))}
+				</ul>
+				<div className={styles.actions}>
+					<button
+						className={getButtonClassName({ variant: "ghost" })}
+						onClick={() => setPending([])}
+						type="button"
 					>
-						<AlertDialog.Title>
-							{pending.length === 1 ? "Upload this file?" : `Upload these ${pending.length} files?`}
-						</AlertDialog.Title>
-						<AlertDialog.Description className={styles.description}>
-							They are uploaded to gitbutler.com and anyone with the link can open them, which is
-							what lets the forge show them in your description.
-						</AlertDialog.Description>
-						<ul className={styles.files}>
-							{pending.map((file, index) => (
-								// Names repeat — two pasted images are both "pasted-image" —
-								// and the list is fixed while the dialog is open.
-								// oxlint-disable-next-line react/no-array-index-key
-								<li key={index}>{file.name}</li>
-							))}
-						</ul>
-						<div className={styles.actions}>
-							<button
-								className={getButtonClassName({ variant: "ghost" })}
-								onClick={() => setPending([])}
-								type="button"
-							>
-								Cancel
-							</button>
-							<button
-								className={getButtonClassName({ variant: "pop" })}
-								onClick={confirm}
-								type="button"
-							>
-								Yes, upload
-							</button>
-						</div>
-					</AlertDialog.Popup>
-				</AlertDialog.Portal>
-			</AlertDialog.Root>
+						Cancel
+					</button>
+					<button
+						className={getButtonClassName({ variant: "pop" })}
+						onClick={confirm}
+						type="button"
+					>
+						Yes, upload
+					</button>
+				</div>
+			</Modal>
 		</>
 	);
 };

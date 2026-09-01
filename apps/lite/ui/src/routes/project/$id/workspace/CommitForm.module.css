@@ -146,46 +146,24 @@
 }
 
 .targetPopup {
-	display: flex;
-	flex-direction: column;
 	width: max(var(--anchor-width), 200px);
 }
 
-.targetInput {
-	padding-inline: 10px;
-	padding-block: 4px;
-	border-bottom: 1px solid var(--border-2);
-
-	&:focus {
-		outline: none;
-	}
-}
-
+/* The list is the scroller, so its inset sits inside the scrolled area and the scrollbar keeps
+   the container's own edge. */
 .targetList {
-	--approx-input-height: 50px;
-	max-height: min(300px, calc(var(--available-height) - var(--approx-input-height)));
+	--search-row-height: 32px;
+
+	max-height: min(300px, calc(var(--available-height) - var(--search-row-height)));
 	overflow: auto;
 
 	&:not(:empty) {
-		padding-block: 4px;
-	}
-}
-
-.targetItem {
-	padding-inline: 10px;
-	padding-block: 4px;
-	overflow: hidden;
-	text-overflow: ellipsis;
-	white-space: nowrap;
-	cursor: default;
-
-	&[data-highlighted] {
-		background-color: var(--bg-2);
+		padding: 4px;
 	}
 }
 
 .targetEmpty {
 	padding-inline: 10px;
-	padding-block: 4px;
-	color: var(--color-text-secondary);
+	padding-block: 8px;
+	color: var(--text-2);
 }

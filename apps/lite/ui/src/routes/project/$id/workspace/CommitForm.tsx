@@ -1,4 +1,5 @@
-import uiStyles from "#ui/components/ui.module.css";
+import popupStyles from "#ui/components/Popup.module.css";
+import { PopupItem, PopupSearch } from "#ui/components/Popup.tsx";
 import { setCursor } from "#ui/use-cursor.ts";
 import { useBranchCreate, useCommitCreate, useGenerateCommitMessage } from "#ui/api/mutations.ts";
 import {
@@ -48,25 +49,36 @@ export type CommitTargetComboboxItem = {
 	relativeTo: RelativeTo;
 };
 
-const CommitTargetComboboxPopup: FC = () => (
-	<Combobox.Popup className={classes(uiStyles.popup, "text-13", styles.targetPopup)}>
-		<Combobox.Input
+const CommitTargetComboboxPopup: FC<{ current: CommitTargetComboboxItem | null }> = ({
+	current,
+}) => (
+	// Base UI's combobox owns its own popup part, so this cannot go through `Dropdown` — it wears
+	// the anchored-popup classes directly to open the way every other dropdown does.
+	<Combobox.Popup className={classes(popupStyles.popup, popupStyles.dropdown, styles.targetPopup)}>
+		<PopupSearch
 			aria-label="Search targets"
 			placeholder="Search targets..."
-			className={styles.targetInput}
+			render={<Combobox.Input />}
 		/>
 		<Combobox.Empty>
-			<div className={styles.targetEmpty}>No targets found.</div>
+			<div className={classes("text-13", styles.targetEmpty)}>No targets found.</div>
 		</Combobox.Empty>
 		<Combobox.List className={styles.targetList}>
 			{(item: CommitTargetComboboxItem) => (
-				<Combobox.Item
+				<PopupItem
 					key={addressIdentityKey(item.address)}
-					value={item}
-					className={styles.targetItem}
+					icon={item.address._tag === "Commit" ? "commit" : "branch"}
+					// The bullseye marks where a commit would land, so it rides only the row that is
+					// the target now — the rest of the list is where it could go instead.
+					trailing={
+						current !== null && addressEquals(item.address, current.address)
+							? "bullseye"
+							: undefined
+					}
+					render={<Combobox.Item value={item} />}
 				>
 					{item.label}
-				</Combobox.Item>
+				</PopupItem>
 			)}
 		</Combobox.List>
 	</Combobox.Popup>
@@ -102,7 +114,7 @@ const CommitTargetCombobox: FC<{
 		{children}
 		<Combobox.Portal>
 			<Combobox.Positioner align="start" sideOffset={4}>
-				<CommitTargetComboboxPopup />
+				<CommitTargetComboboxPopup current={value} />
 			</Combobox.Positioner>
 		</Combobox.Portal>
 	</Combobox.Root>

@@ -1,11 +1,8 @@
-.popup {
-	width: min(420px, calc(100vw - 32px));
-}
-
 .form {
 	display: flex;
 	row-gap: 12px;
 	flex-direction: column;
+	padding: 16px;
 }
 
 .prompt {

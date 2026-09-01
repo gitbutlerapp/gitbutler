@@ -1,0 +1,213 @@
+/* The one surface every overlay in Lite wears — modals, dropdowns and the toolbox alike. A modal
+   adds a backdrop and centres itself in the window; a dropdown anchors to its trigger. Nothing
+   else about the container differs between them. */
+.popup {
+	/* A popup's scroller spans the whole popup, so the gutter takes the popup's own background and
+	   there is no content beside it to divide from. */
+	--scrollbar-track-bg: var(--bg-1);
+	--scrollbar-track-border: transparent;
+
+	display: flex;
+	flex-direction: column;
+	/* The border is the container's edge, so content clips to it rather than squaring off the
+	   corners it sits in. */
+	overflow: hidden;
+	border: 1px solid var(--border-2);
+	border-radius: var(--radius-popup);
+	/* A popup takes focus as it opens, and the browser would paint its own accent-coloured ring on
+	   a container no app rule covers. What is inside shows the focus instead. */
+	outline: none;
+	background-color: var(--bg-1);
+	box-shadow: var(--shadow-lg);
+}
+
+/* Recessed, so what sits on it reads as cards rather than sections — the arrangement a pane uses
+   once it holds more than one group of things. */
+.recessed {
+	--scrollbar-track-bg: var(--bg-2);
+
+	background-color: var(--bg-2);
+}
+
+.backdrop {
+	position: fixed;
+	inset: 0;
+	background-color: var(--bg-overlay);
+	transition: opacity var(--transition-popup);
+
+	&[data-starting-style],
+	&[data-ending-style] {
+		opacity: 0;
+	}
+}
+
+/* Holds the modal off the window edges at any size, and is what a modal's own height maxes out
+   against. */
+.viewport {
+	display: flex;
+	position: fixed;
+	justify-content: center;
+	inset: 0;
+	padding: 1rem;
+	overflow: hidden;
+}
+
+.viewportCenter {
+	align-items: center;
+}
+
+/* A picker opens under the pointer's resting height rather than dead centre, so the list grows
+   downward into the window the way a command palette does. */
+.viewportTop {
+	align-items: flex-start;
+	padding-top: 4.5rem;
+}
+
+.modal {
+	max-width: 100%;
+	max-height: 100%;
+	transition:
+		transform var(--transition-popup),
+		opacity var(--transition-popup);
+
+	/* Only reached when the caller keeps the modal mounted and toggles `open`. A caller that
+	   renders it already open — `{shown && <Picker open />}` — mounts past the starting state, and
+	   the modal appears without animating. */
+	&[data-starting-style],
+	&[data-ending-style] {
+		transform: translateY(-0.5rem) scale(0.97);
+		opacity: 0;
+	}
+}
+
+.sizeSmall {
+	width: 420px;
+}
+
+.sizeMedium {
+	width: 820px;
+}
+
+.sizeLarge {
+	width: 1100px;
+}
+
+/* Grows out of the corner it is anchored to, rather than from its own middle. */
+.dropdown {
+	transform-origin: var(--transform-origin);
+	transition:
+		transform var(--transition-popup),
+		opacity var(--transition-popup);
+
+	&[data-starting-style],
+	&[data-ending-style] {
+		transform: scale(0.96);
+		opacity: 0;
+	}
+}
+
+/* A full-bleed row at the popup's top edge: no border of its own, just the hairline dividing it
+   from the list it filters. */
+.search {
+	display: flex;
+	flex: none;
+	align-items: center;
+	height: 32px;
+	padding-inline: 10px;
+	gap: 8px;
+	border-bottom: 1px solid var(--border-3);
+}
+
+.searchInput {
+	flex: 1;
+	min-width: 0;
+	border: none;
+	background: none;
+	color: var(--text-1);
+
+	&::placeholder {
+		color: var(--text-3);
+	}
+
+	/* The popup is already the focus ring; a second one around a borderless input reads as
+	   clutter. */
+	&:focus {
+		outline: none;
+	}
+}
+
+.searchIcon {
+	flex: none;
+	color: var(--text-3);
+}
+
+.section {
+	display: flex;
+	flex: none;
+	flex-direction: column;
+}
+
+/* Sections divide from each other rather than closing themselves off, so the last one in a popup
+   never draws a line against the container's own edge. */
+.section + .section {
+	border-top: 1px solid var(--border-3);
+}
+
+.sectionLabel {
+	padding: 8px 10px 0;
+	color: var(--text-2);
+}
+
+.sectionItems {
+	display: flex;
+	flex-direction: column;
+	padding: 4px;
+}
+
+.item {
+	display: flex;
+	flex: none;
+	align-items: center;
+	width: 100%;
+	height: 28px;
+	padding-inline: 8px;
+	gap: 8px;
+	border: none;
+	border-radius: var(--radius-button);
+	background: none;
+	color: var(--text-1);
+	text-align: start;
+	cursor: default;
+
+	/* `data-highlighted` is what Base UI's list primitives set as the keyboard walks them, so
+	   pointer and keyboard land on the same tint. */
+	&:hover:not(:disabled, [data-disabled]),
+	&[data-highlighted] {
+		background-color: var(--list-item-hover-bg);
+	}
+
+	&:disabled,
+	&[data-disabled] {
+		cursor: not-allowed;
+		opacity: var(--opacity-disabled);
+	}
+}
+
+/* The label is what the row is about, so it takes the width and gives it back last. */
+.itemLabel {
+	flex: 1;
+	min-width: 0;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.itemIcon {
+	flex: none;
+	color: var(--text-2);
+}
+
+.itemKbd {
+	flex: none;
+	color: var(--text-3);
+}

@@ -7,15 +7,21 @@
 	align-items: stretch;
 }
 
+/* Chrome comes from the shared popup container; only what makes this one a toolbox lives here. */
 .toolbox {
-	display: flex;
-	flex-direction: column;
-	overflow: hidden;
-	border: 1px solid var(--border-2);
-	/* The design names `--radius-m`; the token set spells that size `--radius-lg`. */
-	border-radius: var(--radius-lg);
-	background-color: var(--bg-1);
-	box-shadow: var(--shadow-md);
+	flex: none;
+	transition:
+		transform var(--transition-popup),
+		opacity var(--transition-popup);
+
+	/* A modal and a dropdown animate against the states Base UI stamps on them as it opens and
+	   closes one. Nothing manages this bar's lifecycle — it is rendered while a selection exists
+	   and unmounted when it stops — so its entrance is the browser's own first-style transition
+	   instead. It rises, because it stands at the bottom of the window. */
+	@starting-style {
+		transform: translateY(0.5rem);
+		opacity: 0;
+	}
 }
 
 .meta {

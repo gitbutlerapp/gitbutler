@@ -1,9 +1,8 @@
-import { AlertDialog } from "@base-ui/react";
+import { Dialog } from "@base-ui/react";
 import { useEffect, useRef, useState } from "react";
 import type { FC, SyntheticEvent } from "react";
 import { getButtonClassName } from "#ui/components/Button.tsx";
-import { classes } from "#ui/components/classes.ts";
-import uiStyles from "#ui/components/ui.module.css";
+import { Modal } from "#ui/components/Popup.tsx";
 import styles from "./AskpassPromptDialog.module.css";
 import type { AskpassPromptEvent } from "@gitbutler/but-sdk";
 
@@ -75,55 +74,52 @@ export const AskpassPromptDialog: FC = () => {
 	};
 
 	return (
-		<AlertDialog.Root
+		<Modal
+			alert
+			size="small"
 			open={currentPrompt !== undefined}
 			onOpenChange={(open) => {
 				if (!open && currentPrompt && !submitting) void respond(currentPrompt, null);
 			}}
 		>
-			<AlertDialog.Portal>
-				<AlertDialog.Backdrop />
-				<AlertDialog.Popup className={classes(uiStyles.popup, uiStyles.dialogPopup, styles.popup)}>
-					{currentPrompt !== undefined && (
-						<form className={styles.form} onSubmit={submit}>
-							<AlertDialog.Title>Git credentials required</AlertDialog.Title>
-							<AlertDialog.Description className={styles.prompt}>
-								{getDescription(currentPrompt)}
-							</AlertDialog.Description>
-							<input
-								className={styles.input}
-								type={isSecretPrompt(currentPrompt.prompt) ? "password" : "text"}
-								value={currentResponse}
-								onChange={(event) =>
-									setResponse({ promptId: currentPrompt.id, value: event.target.value })
-								}
-								disabled={submitting}
-								aria-label="Credential response"
-							/>
-							{currentSubmitError !== null && (
-								<p className={styles.error}>Failed to send response: {currentSubmitError}</p>
-							)}
-							<div className={styles.actions}>
-								<button
-									type="button"
-									className={getButtonClassName({ variant: "ghost" })}
-									disabled={submitting}
-									onClick={() => void respond(currentPrompt, null)}
-								>
-									Cancel
-								</button>
-								<button
-									type="submit"
-									className={getButtonClassName({ variant: "pop" })}
-									disabled={submitting}
-								>
-									Continue
-								</button>
-							</div>
-						</form>
+			{currentPrompt !== undefined && (
+				<form className={styles.form} onSubmit={submit}>
+					<Dialog.Title>Git credentials required</Dialog.Title>
+					<Dialog.Description className={styles.prompt}>
+						{getDescription(currentPrompt)}
+					</Dialog.Description>
+					<input
+						className={styles.input}
+						type={isSecretPrompt(currentPrompt.prompt) ? "password" : "text"}
+						value={currentResponse}
+						onChange={(event) =>
+							setResponse({ promptId: currentPrompt.id, value: event.target.value })
+						}
+						disabled={submitting}
+						aria-label="Credential response"
+					/>
+					{currentSubmitError !== null && (
+						<p className={styles.error}>Failed to send response: {currentSubmitError}</p>
 					)}
-				</AlertDialog.Popup>
-			</AlertDialog.Portal>
-		</AlertDialog.Root>
+					<div className={styles.actions}>
+						<button
+							type="button"
+							className={getButtonClassName({ variant: "ghost" })}
+							disabled={submitting}
+							onClick={() => void respond(currentPrompt, null)}
+						>
+							Cancel
+						</button>
+						<button
+							type="submit"
+							className={getButtonClassName({ variant: "pop" })}
+							disabled={submitting}
+						>
+							Continue
+						</button>
+					</div>
+				</form>
+			)}
+		</Modal>
 	);
 };
