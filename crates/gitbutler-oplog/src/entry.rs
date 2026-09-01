@@ -129,68 +129,113 @@ impl Display for SnapshotDetails {
     }
 }
 
-#[derive(Debug, PartialEq, Clone, Copy, Serialize, Deserialize, strum::EnumIter)]
-#[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
-pub enum OperationKind {
-    CreateCommit,
-    CreateBranch,
-    StashIntoBranch,
-    SetBaseBranch,
-    MergeUpstream,
-    UpdateWorkspaceBase,
-    MoveHunk,
-    UpdateBranchName,
-    UpdateBranchNotes,
-    ReorderBranches,
-    UpdateBranchRemoteName,
-    GenericBranchUpdate,
-    DeleteBranch,
-    ApplyBranch,
-    DiscardLines,
-    DiscardHunk,
-    DiscardFile,
-    DiscardChanges,
-    Discard,
-    AmendCommit,
-    Absorb,
-    AutoCommit,
-    UndoCommit,
-    DiscardCommit,
-    UnapplyBranch,
-    CherryPick,
-    SquashCommit,
-    UpdateCommitMessage,
-    MoveCommit,
-    MoveBranch,
-    TearOffBranch,
-    /// Restore via `but undo`
-    RestoreFromSnapshotViaUndo,
-    /// Restore via `but redo`
-    RestoreFromSnapshotViaRedo,
-    /// Restore via `but oplog restore`
-    ///
-    /// Or old oplog entries that existed before `RestoreFromSnapshotViaUndo` and
-    /// `RestoreFromSnapshotViaRedo` were introduced.
-    RestoreFromSnapshot,
-    ReorderCommit,
-    InsertBlankCommit,
-    MoveCommitFile,
-    FileChanges,
-    EnterEditMode,
-    ResolveConflicts,
-    ResolveConflictsAi,
-    SyncWorkspace,
-    CreateDependentBranch,
-    RemoveDependentBranch,
-    UpdateDependentBranchName,
-    UpdateDependentBranchDescription,
-    UpdateDependentBranchPrNumber,
-    AutoHandleChangesBefore,
-    AutoHandleChangesAfter,
-    SplitBranch,
-    CleanWorkspace,
-    OnDemandSnapshot,
-    Unknown,
+// Generates the `OperationKind` enum with these two methods:
+//
+//     pub fn as_persisted_str(self) -> &'static str
+//     pub fn parse_persisted_str(s: &str) -> Option<Self>
+macro_rules! generate_to_and_from_persisted_str_methods {
+    (
+        $(#[$outer_meta:meta])*
+        pub enum $name:ident {
+            $(
+                $(#[$variant_meta:meta])*
+                $variant:ident
+            ),* $(,)?
+        }
+    ) =>{
+        $(#[$outer_meta])*
+        pub enum $name {
+            $(
+                $(#[$variant_meta])*
+                $variant,
+            )*
+        }
+
+        impl $name {
+            pub fn as_persisted_str(self) -> &'static str {
+                match self {
+                    $(
+                        Self::$variant => stringify!($variant),
+                    )*
+                }
+            }
+
+            pub fn parse_persisted_str(s: &str) -> Option<Self> {
+                Some(match s {
+                    $(
+                        stringify!($variant) => Self::$variant,
+                    )*
+                    _ => return None,
+                })
+            }
+        }
+    };
+}
+
+generate_to_and_from_persisted_str_methods! {
+    #[derive(Debug, PartialEq, Clone, Copy, Serialize, Deserialize, strum::EnumIter)]
+    #[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
+    pub enum OperationKind {
+        CreateCommit,
+        CreateBranch,
+        StashIntoBranch,
+        SetBaseBranch,
+        MergeUpstream,
+        UpdateWorkspaceBase,
+        MoveHunk,
+        UpdateBranchName,
+        UpdateBranchNotes,
+        ReorderBranches,
+        UpdateBranchRemoteName,
+        GenericBranchUpdate,
+        DeleteBranch,
+        ApplyBranch,
+        DiscardLines,
+        DiscardHunk,
+        DiscardFile,
+        DiscardChanges,
+        Discard,
+        AmendCommit,
+        Absorb,
+        AutoCommit,
+        UndoCommit,
+        DiscardCommit,
+        UnapplyBranch,
+        CherryPick,
+        SquashCommit,
+        UpdateCommitMessage,
+        MoveCommit,
+        MoveBranch,
+        TearOffBranch,
+        /// Restore via `but undo`
+        RestoreFromSnapshotViaUndo,
+        /// Restore via `but redo`
+        RestoreFromSnapshotViaRedo,
+        /// Restore via `but oplog restore`
+        ///
+        /// Or old oplog entries that existed before `RestoreFromSnapshotViaUndo` and
+        /// `RestoreFromSnapshotViaRedo` were introduced.
+        RestoreFromSnapshot,
+        ReorderCommit,
+        InsertBlankCommit,
+        MoveCommitFile,
+        FileChanges,
+        EnterEditMode,
+        ResolveConflicts,
+        ResolveConflictsAi,
+        SyncWorkspace,
+        CreateDependentBranch,
+        RemoveDependentBranch,
+        UpdateDependentBranchName,
+        UpdateDependentBranchDescription,
+        UpdateDependentBranchPrNumber,
+        AutoHandleChangesBefore,
+        AutoHandleChangesAfter,
+        SplitBranch,
+        CleanWorkspace,
+        OnDemandSnapshot,
+        Unknown,
+    }
 }
 
 #[cfg(feature = "export-schema")]
@@ -310,123 +355,6 @@ impl OperationKind {
             OperationKind::OnDemandSnapshot => "Created snapshot",
             OperationKind::Unknown => "Unknown operation",
         }
-    }
-
-    pub fn as_persisted_str(self) -> &'static str {
-        match self {
-            OperationKind::CreateCommit => "CreateCommit",
-            OperationKind::CreateBranch => "CreateBranch",
-            OperationKind::StashIntoBranch => "StashIntoBranch",
-            OperationKind::SetBaseBranch => "SetBaseBranch",
-            OperationKind::MergeUpstream => "MergeUpstream",
-            OperationKind::UpdateWorkspaceBase => "UpdateWorkspaceBase",
-            OperationKind::MoveHunk => "MoveHunk",
-            OperationKind::UpdateBranchName => "UpdateBranchName",
-            OperationKind::UpdateBranchNotes => "UpdateBranchNotes",
-            OperationKind::ReorderBranches => "ReorderBranches",
-            OperationKind::UpdateBranchRemoteName => "UpdateBranchRemoteName",
-            OperationKind::GenericBranchUpdate => "GenericBranchUpdate",
-            OperationKind::DeleteBranch => "DeleteBranch",
-            OperationKind::ApplyBranch => "ApplyBranch",
-            OperationKind::DiscardLines => "DiscardLines",
-            OperationKind::DiscardHunk => "DiscardHunk",
-            OperationKind::DiscardFile => "DiscardFile",
-            OperationKind::DiscardChanges => "DiscardChanges",
-            OperationKind::Discard => "Discard",
-            OperationKind::AmendCommit => "AmendCommit",
-            OperationKind::Absorb => "Absorb",
-            OperationKind::AutoCommit => "AutoCommit",
-            OperationKind::UndoCommit => "UndoCommit",
-            OperationKind::DiscardCommit => "DiscardCommit",
-            OperationKind::UnapplyBranch => "UnapplyBranch",
-            OperationKind::CherryPick => "CherryPick",
-            OperationKind::SquashCommit => "SquashCommit",
-            OperationKind::UpdateCommitMessage => "UpdateCommitMessage",
-            OperationKind::MoveCommit => "MoveCommit",
-            OperationKind::MoveBranch => "MoveBranch",
-            OperationKind::TearOffBranch => "TearOffBranch",
-            OperationKind::RestoreFromSnapshotViaUndo => "RestoreFromSnapshotViaUndo",
-            OperationKind::RestoreFromSnapshotViaRedo => "RestoreFromSnapshotViaRedo",
-            OperationKind::RestoreFromSnapshot => "RestoreFromSnapshot",
-            OperationKind::ReorderCommit => "ReorderCommit",
-            OperationKind::InsertBlankCommit => "InsertBlankCommit",
-            OperationKind::MoveCommitFile => "MoveCommitFile",
-            OperationKind::FileChanges => "FileChanges",
-            OperationKind::EnterEditMode => "EnterEditMode",
-            OperationKind::ResolveConflicts => "ResolveConflicts",
-            OperationKind::ResolveConflictsAi => "ResolveConflictsAi",
-            OperationKind::SyncWorkspace => "SyncWorkspace",
-            OperationKind::CreateDependentBranch => "CreateDependentBranch",
-            OperationKind::RemoveDependentBranch => "RemoveDependentBranch",
-            OperationKind::UpdateDependentBranchName => "UpdateDependentBranchName",
-            OperationKind::UpdateDependentBranchDescription => "UpdateDependentBranchDescription",
-            OperationKind::UpdateDependentBranchPrNumber => "UpdateDependentBranchPrNumber",
-            OperationKind::AutoHandleChangesBefore => "AutoHandleChangesBefore",
-            OperationKind::AutoHandleChangesAfter => "AutoHandleChangesAfter",
-            OperationKind::SplitBranch => "SplitBranch",
-            OperationKind::CleanWorkspace => "CleanWorkspace",
-            OperationKind::OnDemandSnapshot => "OnDemandSnapshot",
-            OperationKind::Unknown => "Unknown",
-        }
-    }
-
-    pub fn parse_persisted_str(s: &str) -> Option<Self> {
-        Some(match s {
-            "CreateCommit" => Self::CreateCommit,
-            "CreateBranch" => Self::CreateBranch,
-            "StashIntoBranch" => Self::StashIntoBranch,
-            "SetBaseBranch" => Self::SetBaseBranch,
-            "MergeUpstream" => Self::MergeUpstream,
-            "UpdateWorkspaceBase" => Self::UpdateWorkspaceBase,
-            "MoveHunk" => Self::MoveHunk,
-            "UpdateBranchName" => Self::UpdateBranchName,
-            "UpdateBranchNotes" => Self::UpdateBranchNotes,
-            "ReorderBranches" => Self::ReorderBranches,
-            "UpdateBranchRemoteName" => Self::UpdateBranchRemoteName,
-            "GenericBranchUpdate" => Self::GenericBranchUpdate,
-            "DeleteBranch" => Self::DeleteBranch,
-            "ApplyBranch" => Self::ApplyBranch,
-            "DiscardLines" => Self::DiscardLines,
-            "DiscardHunk" => Self::DiscardHunk,
-            "DiscardFile" => Self::DiscardFile,
-            "DiscardChanges" => Self::DiscardChanges,
-            "Discard" => Self::Discard,
-            "AmendCommit" => Self::AmendCommit,
-            "Absorb" => Self::Absorb,
-            "AutoCommit" => Self::AutoCommit,
-            "UndoCommit" => Self::UndoCommit,
-            "DiscardCommit" => Self::DiscardCommit,
-            "UnapplyBranch" => Self::UnapplyBranch,
-            "CherryPick" => Self::CherryPick,
-            "SquashCommit" => Self::SquashCommit,
-            "UpdateCommitMessage" => Self::UpdateCommitMessage,
-            "MoveCommit" => Self::MoveCommit,
-            "MoveBranch" => Self::MoveBranch,
-            "TearOffBranch" => Self::TearOffBranch,
-            "RestoreFromSnapshotViaUndo" => Self::RestoreFromSnapshotViaUndo,
-            "RestoreFromSnapshotViaRedo" => Self::RestoreFromSnapshotViaRedo,
-            "RestoreFromSnapshot" => Self::RestoreFromSnapshot,
-            "ReorderCommit" => Self::ReorderCommit,
-            "InsertBlankCommit" => Self::InsertBlankCommit,
-            "MoveCommitFile" => Self::MoveCommitFile,
-            "FileChanges" => Self::FileChanges,
-            "EnterEditMode" => Self::EnterEditMode,
-            "ResolveConflicts" => Self::ResolveConflicts,
-            "ResolveConflictsAi" => Self::ResolveConflictsAi,
-            "SyncWorkspace" => Self::SyncWorkspace,
-            "CreateDependentBranch" => Self::CreateDependentBranch,
-            "RemoveDependentBranch" => Self::RemoveDependentBranch,
-            "UpdateDependentBranchName" => Self::UpdateDependentBranchName,
-            "UpdateDependentBranchDescription" => Self::UpdateDependentBranchDescription,
-            "UpdateDependentBranchPrNumber" => Self::UpdateDependentBranchPrNumber,
-            "AutoHandleChangesBefore" => Self::AutoHandleChangesBefore,
-            "AutoHandleChangesAfter" => Self::AutoHandleChangesAfter,
-            "SplitBranch" => Self::SplitBranch,
-            "CleanWorkspace" => Self::CleanWorkspace,
-            "OnDemandSnapshot" => Self::OnDemandSnapshot,
-            "Unknown" => Self::Unknown,
-            _ => return None,
-        })
     }
 }
 
