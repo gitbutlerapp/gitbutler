@@ -428,6 +428,7 @@ const FilesTreeRow: FC<{
 		const directoryRow = (
 			<DirectoryRowComponent
 				projectId={projectId}
+				fileParent={fileParent}
 				path={row.path}
 				name={row.name}
 				items={row.items}
@@ -1034,6 +1035,7 @@ const treeItemId = (path: string): string => `files-treeitem-${encodeURIComponen
  */
 const ScrollingDirectoryRow: FC<ComponentProps<typeof DirectoryRow>> = ({
 	projectId: _projectId,
+	fileParent: _fileParent,
 	...props
 }) => <DirectoryRowPresentational {...props} menuItems={[]} presentationalOnly />;
 
