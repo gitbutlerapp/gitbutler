@@ -52,7 +52,9 @@ export type CommitTargetComboboxItem = {
 const CommitTargetComboboxPopup: FC<{ current: CommitTargetComboboxItem | null }> = ({
 	current,
 }) => (
-	<Combobox.Popup className={classes(popupStyles.popup, styles.targetPopup)}>
+	// Base UI's combobox owns its own popup part, so this cannot go through `Dropdown` — it wears
+	// the anchored-popup classes directly to open the way every other dropdown does.
+	<Combobox.Popup className={classes(popupStyles.popup, popupStyles.dropdown, styles.targetPopup)}>
 		<PopupSearch
 			aria-label="Search targets"
 			placeholder="Search targets..."

@@ -33,7 +33,7 @@
 	position: fixed;
 	inset: 0;
 	background-color: var(--bg-overlay);
-	transition: opacity 150ms cubic-bezier(0.45, 1.005, 0, 1.005);
+	transition: opacity var(--transition-popup);
 
 	&[data-starting-style],
 	&[data-ending-style] {
@@ -67,9 +67,12 @@
 	max-width: 100%;
 	max-height: 100%;
 	transition:
-		transform 150ms cubic-bezier(0.45, 1.005, 0, 1.005),
-		opacity 150ms;
+		transform var(--transition-popup),
+		opacity var(--transition-popup);
 
+	/* Only reached when the caller keeps the modal mounted and toggles `open`. A caller that
+	   renders it already open — `{shown && <Picker open />}` — mounts past the starting state, and
+	   the modal appears without animating. */
 	&[data-starting-style],
 	&[data-ending-style] {
 		transform: translateY(-0.5rem) scale(0.97);
@@ -93,8 +96,8 @@
 .dropdown {
 	transform-origin: var(--transform-origin);
 	transition:
-		transform 150ms cubic-bezier(0.45, 1.005, 0, 1.005),
-		opacity 150ms;
+		transform var(--transition-popup),
+		opacity var(--transition-popup);
 
 	&[data-starting-style],
 	&[data-ending-style] {

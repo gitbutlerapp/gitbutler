@@ -16,6 +16,9 @@
 	--list-item-hover-bg: color-mix(var(--fill-gray-bg) var(--opacity-bg-hover), transparent);
 	--focus-ring: 1.5px solid color-mix(in srgb, var(--fill-gray-bg) 70%, transparent);
 	--transition-fast: 0.08s ease;
+	/* How anything that opens over the app arrives: modals, dropdowns and the backdrop behind
+	   them, which are rendered as siblings and so cannot inherit it from one another. */
+	--transition-popup: 150ms cubic-bezier(0.45, 1.005, 0, 1.005);
 	--panel-padding-block: 12px;
 	--panel-padding-inline: 12px;
 
