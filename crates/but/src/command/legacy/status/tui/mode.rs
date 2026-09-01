@@ -160,9 +160,7 @@ impl<'a> ModeRef<'a> {
             },
             ModeRef::Commit(commit_mode) => match &*commit_mode.source {
                 CommitSource::Marks(hunks) => MarksRef::from_hunks(hunks),
-                CommitSource::Uncommitted
-                | CommitSource::UncommittedHunk(..)
-                | CommitSource::Worktree(..) => MarksRef::Empty,
+                CommitSource::UncommittedHunk(..) | CommitSource::Area(..) => MarksRef::Empty,
             },
             ModeRef::PickChanges(pick_uncommitted_mode) => pick_uncommitted_mode.marks.as_ref(),
             ModeRef::Details(details_mode) => details_mode.return_mode.marks(),

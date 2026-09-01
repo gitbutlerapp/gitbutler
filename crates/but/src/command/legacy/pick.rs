@@ -189,6 +189,7 @@ fn resolve(
                         | ResolvedCliIdArg::Uncommitted
                         | ResolvedCliIdArg::PathPrefix { .. }
                         | ResolvedCliIdArg::Worktree(..)
+                        | ResolvedCliIdArg::WorktreeUncommitted(..)
                         | ResolvedCliIdArg::Stack { .. } => Err(bad_input(format!(
                             "Only commits can be cherry-picked. {} is {}",
                             source,

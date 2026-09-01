@@ -170,6 +170,7 @@ impl App {
             | CliId::CommittedHunk { .. }
             | CliId::Uncommitted { .. }
             | CliId::Worktree { .. }
+            | CliId::WorktreeUncommitted { .. }
             | CliId::Stack { .. } => return Ok(()),
         };
 

@@ -404,7 +404,8 @@ impl App {
                 outcome.name.shorten().to_string()
             }
             StatusOutputLineData::UncommittedChanges { .. }
-            | StatusOutputLineData::WorktreeUncommittedChanges { .. }
+            | StatusOutputLineData::Worktree { .. }
+            | StatusOutputLineData::WorktreeUncommitted { .. }
             | StatusOutputLineData::MergeBase
             | StatusOutputLineData::UncommittedFile { .. } => {
                 let mut guard = ctx.exclusive_worktree_access();

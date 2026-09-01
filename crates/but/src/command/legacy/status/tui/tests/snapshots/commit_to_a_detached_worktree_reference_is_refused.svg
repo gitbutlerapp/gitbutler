@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="820" height="380" viewBox="0 0 820 380">
   <rect x="0" y="0" width="820" height="380" fill="#000000" />
-  <rect x="10" y="82" width="800" height="18" fill="#45475A" />
+  <rect x="10" y="118" width="800" height="18" fill="#45475A" />
   <rect x="10" y="352" width="80" height="18" fill="#555555" />
   <g font-family="Menlo, Monaco, 'Courier New', monospace" font-size="14" xml:space="preserve">
     <text x="10 18" y="24" style="fill:#CCCCCC;">╭┄</text>
@@ -17,16 +17,21 @@
     <text x="74" y="60" style="fill:#00AA00;">A</text>
     <text x="82" y="60" style="fill:#CCCCCC;">]</text>
     <text x="10 18" y="78" style="fill:#CCCCCC;">┊┊</text>
-    <text x="10 18 26 34" y="96" style="fill:#FFFFFF;font-weight:bold;">┊┊╭┄</text>
-    <text x="50 58" y="96" style="fill:#0000AA;font-weight:bold;">wt</text>
-    <text x="74" y="96" style="fill:#FFFFFF;font-weight:bold;">{</text>
-    <text x="82 90" y="96" style="fill:#00AAAA;font-weight:bold;">wt</text>
-    <text x="98" y="96" style="fill:#FFFFFF;font-weight:bold;">}</text>
+    <text x="10 18 26 34" y="96" style="fill:#CCCCCC;">┊┊╭┄</text>
+    <text x="50 58 66 74" y="96" style="fill:#0000AA;font-weight:bold;">wt:@</text>
+    <text x="90" y="96" style="fill:#CCCCCC;">{</text>
+    <text x="98 106 114 122 130 138 146 154" y="96" style="fill:#00AAAA;">worktree</text>
+    <text x="170 178 186 194 202 210 218 226 234 242 250" y="96" style="fill:#00AAAA;">uncommitted</text>
+    <text x="258" y="96" style="fill:#CCCCCC;">}</text>
     <text x="10 18 26" y="114" style="fill:#CCCCCC;">┊┊┊</text>
     <text x="58 66" y="114" style="fill:#0000AA;font-weight:bold;">ok</text>
     <text x="82" y="114" style="fill:#CCCCCC;">A</text>
     <text x="98 106 114 122 130 138 146 154 162 170 178" y="114" style="fill:#00AA00;">wt-file.txt</text>
-    <text x="10 18 26" y="132" style="fill:#CCCCCC;">┊┊┊</text>
+    <text x="10 18 26 34" y="132" style="fill:#FFFFFF;font-weight:bold;">┊┊├┄</text>
+    <text x="50 58" y="132" style="fill:#0000AA;font-weight:bold;">wt</text>
+    <text x="74" y="132" style="fill:#FFFFFF;font-weight:bold;">{</text>
+    <text x="82 90" y="132" style="fill:#00AAAA;font-weight:bold;">wt</text>
+    <text x="98" y="132" style="fill:#FFFFFF;font-weight:bold;">}</text>
     <text x="10 18 26" y="150" style="fill:#CCCCCC;">┊┊●</text>
     <text x="58" y="150" style="fill:#AA00AA;">n</text>
     <text x="66 74" y="150" style="fill:#CCCCCC;opacity:0.75;">ll</text>

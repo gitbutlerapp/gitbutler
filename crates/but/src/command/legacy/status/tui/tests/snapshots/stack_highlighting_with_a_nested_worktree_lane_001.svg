@@ -30,15 +30,20 @@
     <text x="178" y="60" style="fill:#FFFFFF;font-weight:bold;">]</text>
     <text x="10 18" y="78" style="fill:#FFFFFF;font-weight:bold;">┊┊</text>
     <text x="10 18 26 34" y="96" style="fill:#FFFFFF;font-weight:bold;">┊┊╭┄</text>
-    <text x="50 58" y="96" style="fill:#0000AA;font-weight:bold;opacity:0.75;">wt</text>
-    <text x="74" y="96" style="fill:#FFFFFF;font-weight:bold;opacity:0.75;">{</text>
-    <text x="82 90 98 106 114 122 130 138 146" y="96" style="fill:#00AAAA;font-weight:bold;opacity:0.75;">wt-branch</text>
-    <text x="154" y="96" style="fill:#FFFFFF;font-weight:bold;opacity:0.75;">}</text>
+    <text x="50 58 66 74" y="96" style="fill:#0000AA;font-weight:bold;opacity:0.75;">wt:@</text>
+    <text x="90" y="96" style="fill:#FFFFFF;font-weight:bold;opacity:0.75;">{</text>
+    <text x="98 106 114 122 130 138 146 154" y="96" style="fill:#00AAAA;font-weight:bold;opacity:0.75;">worktree</text>
+    <text x="170 178 186 194 202 210 218 226 234 242 250" y="96" style="fill:#00AAAA;font-weight:bold;opacity:0.75;">uncommitted</text>
+    <text x="258" y="96" style="fill:#FFFFFF;font-weight:bold;opacity:0.75;">}</text>
     <text x="10 18 26" y="114" style="fill:#FFFFFF;font-weight:bold;">┊┊┊</text>
     <text x="58 66" y="114" style="fill:#0000AA;font-weight:bold;opacity:0.75;">ok</text>
     <text x="82" y="114" style="fill:#FFFFFF;font-weight:bold;opacity:0.75;">A</text>
     <text x="98 106 114 122 130 138 146 154 162 170 178" y="114" style="fill:#00AA00;font-weight:bold;opacity:0.75;">wt-file.txt</text>
-    <text x="10 18 26" y="132" style="fill:#FFFFFF;font-weight:bold;">┊┊┊</text>
+    <text x="10 18 26 34" y="132" style="fill:#FFFFFF;font-weight:bold;">┊┊├┄</text>
+    <text x="50 58" y="132" style="fill:#0000AA;font-weight:bold;opacity:0.75;">wt</text>
+    <text x="74" y="132" style="fill:#FFFFFF;font-weight:bold;opacity:0.75;">{</text>
+    <text x="82 90 98 106 114 122 130 138 146" y="132" style="fill:#00AAAA;font-weight:bold;opacity:0.75;">wt-branch</text>
+    <text x="154" y="132" style="fill:#FFFFFF;font-weight:bold;opacity:0.75;">}</text>
     <text x="10 18 26" y="150" style="fill:#FFFFFF;font-weight:bold;">┊┊●</text>
     <text x="58" y="150" style="fill:#AA00AA;font-weight:bold;opacity:0.75;">n</text>
     <text x="66 74" y="150" style="fill:#FFFFFF;font-weight:bold;opacity:0.75;">ll</text>

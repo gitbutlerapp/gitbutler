@@ -1541,6 +1541,7 @@ mod tests {
                     | CliId::Commit { .. }
                     | CliId::Uncommitted { .. }
                     | CliId::Worktree { .. }
+                    | CliId::WorktreeUncommitted { .. }
                     | CliId::Stack { .. } => None,
                 },
                 DetailsLine::Text { .. }

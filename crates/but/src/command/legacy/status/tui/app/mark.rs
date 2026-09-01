@@ -701,6 +701,7 @@ impl App {
             | CliId::CommittedHunk(..)
             | CliId::PathPrefix { .. }
             | CliId::Stack { .. }
+            | CliId::WorktreeUncommitted { .. }
             | CliId::Worktree { .. } => {}
         }
 
@@ -869,7 +870,8 @@ fn handle_mark_uncommitted(
             | StatusOutputLineData::StagedChanges { .. }
             | StatusOutputLineData::StagedFile { .. }
             | StatusOutputLineData::UncommittedChanges { .. }
-            | StatusOutputLineData::WorktreeUncommittedChanges { .. }
+            | StatusOutputLineData::Worktree { .. }
+            | StatusOutputLineData::WorktreeUncommitted { .. }
             | StatusOutputLineData::Branch { .. }
             | StatusOutputLineData::Commit { .. }
             | StatusOutputLineData::CommitMessage

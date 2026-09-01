@@ -1553,9 +1553,9 @@ fn worktree_lanes() {
 ┊
 ┊╭┄ g0 [A]
 ┊┊
-┊┊╭┄ in {wt-inside}
+┊┊╭┄ in:@ {worktree uncommitted}
 ┊┊┊   wx A note.txt
-┊┊┊
+┊┊├┄ in {wt-inside}
 ┊┊●   pwn worktree work (no changes)
 ┊├╯
 ┊●   tpm add A
@@ -1563,12 +1563,14 @@ fn worktree_lanes() {
 ┊
 ┊╭┄ h0 [B]
 ┊┊
-┊┊╭┄ wt {wt-at} (no changes)
+┊┊╭┄ wt:@ {worktree uncommitted} (no changes)
+┊┊├┄ wt {wt-at}
 ┊├╯
 ┊●   lrm add B
 ├╯
 ┊
-┊╭┄ ou {wt-outside} (no changes)
+┊╭┄ ou:@ {worktree uncommitted} (no changes)
+┊├┄ ou {wt-outside}
 ┊●   zum off the target (no changes)
 ├╯
 ┊
@@ -1618,9 +1620,9 @@ off the target
 "#]]
         .raw(),
     );
-    // The worktree ID names that checkout's whole uncommitted area, and a filename
+    // `<worktree>:@` names that checkout's whole uncommitted area, and a filename
     // scoped by worktree name reaches into that checkout only.
-    env.but("diff in").assert().success().stdout_eq(
+    env.but("diff in:@").assert().success().stdout_eq(
         snapbox::str![[r#"
 ───────────────╮
  wx:a note.txt │
@@ -1763,9 +1765,11 @@ fn stacked_worktree_lanes() {
 ┊
 ┊╭┄ g0 [A]
 ┊┊
-┊┊╭┄ wt {wt-first} (no changes)
+┊┊╭┄ wt:@ {worktree uncommitted} (no changes)
+┊┊├┄ wt {wt-first}
 ┊┊┊
-┊┊┊╭┄ se {wt-second} (no changes)
+┊┊┊╭┄ se:@ {worktree uncommitted} (no changes)
+┊┊┊├┄ se {wt-second}
 ┊┊┊●   zzk second work (no changes)
 ┊┊├╯
 ┊┊●   tlr first work (no changes)

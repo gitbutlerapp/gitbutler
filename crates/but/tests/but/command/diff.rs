@@ -104,7 +104,7 @@ fn worktree() {
     add_dirty_worktree(&env, "wt-feature", "A");
     env.file("main.txt", "dirty in main\n");
 
-    env.but("diff wt-feature")
+    env.but("diff wt-feature:@")
         .assert()
         .success()
         .stderr_eq(snapbox::str![])
@@ -119,7 +119,7 @@ fn worktree() {
 
 "#]]);
 
-    env.but("diff --json wt-feature")
+    env.but("diff --json wt-feature:@")
         .allow_json()
         .assert()
         .success()
