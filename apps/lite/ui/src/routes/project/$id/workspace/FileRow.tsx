@@ -14,7 +14,14 @@ import { Toolbar, Tooltip } from "@base-ui/react";
 import type { ComponentProps, CSSProperties, FC, ReactNode } from "react";
 import styles from "./FileRow.module.css";
 import treeStyles from "./FilesTree.module.css";
-import { Row, RowCheckbox, RowLabel, RowLabelContainer, RowToolbar } from "./Row.tsx";
+import {
+	PresentationalRowButton,
+	Row,
+	RowCheckbox,
+	RowLabel,
+	RowLabelContainer,
+	RowToolbar,
+} from "./Row.tsx";
 import { getRowButtonClassName } from "./Row-utils.ts";
 import { DependencyIndicator } from "#ui/routes/project/$id/workspace/DependencyIndicator.tsx";
 import { useFileMenuItems } from "#ui/routes/project/$id/workspace/useFileMenuItems.ts";
@@ -59,18 +66,6 @@ type FileRowPresentationalProps = FileRowProps & {
 	menuItems: ReturnType<typeof useFileMenuItems>;
 	presentationalOnly?: boolean;
 };
-
-const PresentationalRowButton: FC<{ icon: "kebab" | "link" }> = ({ icon }) => (
-	<button
-		type="button"
-		inert
-		aria-hidden="true"
-		tabIndex={-1}
-		className={getRowButtonClassName({ iconOnly: true })}
-	>
-		<Icon name={icon} />
-	</button>
-);
 
 export const FileRow: FC<FileRowProps> = (props) => {
 	const { item, projectId, fileParent } = props;

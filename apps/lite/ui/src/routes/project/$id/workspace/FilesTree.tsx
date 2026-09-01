@@ -39,7 +39,11 @@ import { useRevealInFolder } from "./useRevealInFolder.ts";
 import { useHotkeys } from "@tanstack/react-hotkeys";
 import { useMergedRefs } from "@base-ui/utils/useMergedRefs";
 import { FileRow, FileRowPresentational } from "./FileRow.tsx";
-import { DirectoryRow, type DirectoryCheckedState } from "./DirectoryRow.tsx";
+import {
+	DirectoryRow,
+	DirectoryRowPresentational,
+	type DirectoryCheckedState,
+} from "./DirectoryRow.tsx";
 import type { FileRowItem } from "./file-row.ts";
 import { parentDirectoryRow, type FileTreeRow } from "./file-tree.ts";
 import { useFileDisplayMode } from "./useFileDisplayMode.ts";
@@ -418,12 +422,15 @@ const FilesTreeRow: FC<{
 	const virtStyle: CSSProperties = { position: "absolute", top: 0, left: 0, width: "100%", height };
 
 	if (row._tag === "Directory") {
+		// As for file rows: the cheap half while scrolling, the one that
+		// resolves a menu once the list settles.
+		const DirectoryRowComponent = interactive ? DirectoryRow : ScrollingDirectoryRow;
 		const directoryRow = (
-			<DirectoryRow
+			<DirectoryRowComponent
 				projectId={projectId}
 				path={row.path}
 				name={row.name}
-				fileCount={row.items.length}
+				items={row.items}
 				depth={row.depth}
 				isCollapsed={isCollapsed}
 				scrollSelectedIntoView={false}
@@ -437,6 +444,7 @@ const FilesTreeRow: FC<{
 				}}
 				isSelected={isSelected}
 				canCheck={canCheck}
+				anyOperationPending={anyOperationPending}
 				checkedState={checkedState}
 				checkDirectory={checkDirectory}
 				focusScope={focusScope}
@@ -1018,6 +1026,16 @@ export const FilesTree: FC<
 };
 
 const treeItemId = (path: string): string => `files-treeitem-${encodeURIComponent(path)}`;
+
+/**
+ * A directory row as it renders mid-scroll: the settled row's shape with no menu
+ * resolved behind it, which is what {@link FileRowPresentational} does with the
+ * same props.
+ */
+const ScrollingDirectoryRow: FC<ComponentProps<typeof DirectoryRow>> = ({
+	projectId: _projectId,
+	...props
+}) => <DirectoryRowPresentational {...props} menuItems={[]} presentationalOnly />;
 
 /**
  * One row of the flattened tree. Depth is reported rather than nested, which is
