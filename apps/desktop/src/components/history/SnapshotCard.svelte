@@ -113,6 +113,8 @@
 				return { text: `Unapply branch "${trailer("branch")}"`, icon: "branch" };
 			case "SwitchBranch":
 				return { text: `Switch branch`, icon: "branch" };
+			case "SwitchToWorkspace":
+				return { text: `Switch to workspace`, icon: "branch" };
 			case "ReorderBranches":
 				return {
 					text: `Reorder branches "${trailer("before")}" and "${trailer("after")}"`,

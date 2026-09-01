@@ -15,6 +15,14 @@ fn run_mutate_undo_roundtrip_test<F>(env: &Sandbox, mutate: F)
 where
     F: FnOnce(&Sandbox),
 {
+    run_mutate_undo_roundtrip_test_with_options(env, Options::default(), mutate)
+}
+
+#[track_caller]
+fn run_mutate_undo_roundtrip_test_with_options<F>(env: &Sandbox, options: Options, mutate: F)
+where
+    F: FnOnce(&Sandbox),
+{
     // Arrange
     let status_output_before = env
         .but("status")
@@ -46,17 +54,19 @@ where
         }
     }
 
-    assert_ne!(
-        status_output_before,
-        status_output_after_mutate,
-        "mutate must visibly change state. \
-        Got the following before and after running the command\n\n{}",
-        String::from_utf8(status_output_before.stdout.clone())
-            .unwrap()
-            .lines()
-            .map(|line| format!("    {line}"))
-            .join("\n"),
-    );
+    if options.require_status_changing_after_mutation {
+        assert_ne!(
+            status_output_before,
+            status_output_after_mutate,
+            "mutate must visibly change state. \
+            Got the following before and after running the command\n\n{}",
+            String::from_utf8(status_output_before.stdout.clone())
+                .unwrap()
+                .lines()
+                .map(|line| format!("    {line}"))
+                .join("\n"),
+        );
+    }
 
     // Act
     env.but("undo")
@@ -74,6 +84,18 @@ Undid [..] (2000-01-02 00:00:00): [..]
         .success()
         .stdout_eq(status_output_before.stdout)
         .stderr_eq(status_output_before.stderr);
+}
+
+struct Options {
+    require_status_changing_after_mutation: bool,
+}
+
+impl Default for Options {
+    fn default() -> Self {
+        Self {
+            require_status_changing_after_mutation: true,
+        }
+    }
 }
 
 #[test]
@@ -595,4 +617,152 @@ Hint: run `but help` for all commands
     run_mutate_undo_roundtrip_test(&env, |env| {
         env.but("switch A").assert().success();
     });
+}
+
+#[test]
+fn can_undo_but_switch_workspace_with_workspace_already_existing() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("zero-stacks");
+    env.setup_metadata(&[]);
+
+    env.but("commit -b A -m 'add A'").assert().success();
+    env.but("commit -b B -m 'add B'").assert().success();
+    env.but("commit -b C -m 'add C'").assert().success();
+
+    env.but("status")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄ zz [uncommitted] (no changes)
+┊
+┊╭┄ g0 [C]
+┊●   1#0 add C (no changes)
+├╯
+┊
+┊╭┄ h0 [B]
+┊●   1#1 add B (no changes)
+├╯
+┊
+┊╭┄ i0 [A]
+┊●   1#2 add A (no changes)
+├╯
+┊
+┴ 0dc3733 (common base) 2000-01-02 add M
+
+Hint: run `but help` for all commands
+
+"#]]);
+
+    env.but("switch A").assert().success();
+
+    env.but("status")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄ zz [uncommitted] (no changes)
+┊
+┊╭┄ g0 [A]
+┊●   1 add A (no changes)
+├╯
+┊
+┴ 0dc3733 (common base) 2000-01-02 add M
+
+Hint: run `but help` for all commands
+
+"#]]);
+
+    run_mutate_undo_roundtrip_test(&env, |env| {
+        env.but("switch --workspace").assert().success();
+
+        env.but("status")
+            .assert()
+            .success()
+            .stdout_eq(snapbox::str![[r#"
+╭┄ zz [uncommitted] (no changes)
+┊
+┊╭┄ g0 [C]
+┊●   1#0 add C (no changes)
+├╯
+┊
+┊╭┄ h0 [B]
+┊●   1#1 add B (no changes)
+├╯
+┊
+┊╭┄ i0 [A]
+┊●   1#2 add A (no changes)
+├╯
+┊
+┴ 0dc3733 (common base) 2000-01-02 add M
+
+Hint: run `but help` for all commands
+
+"#]]);
+    });
+}
+
+#[test]
+fn can_undo_but_switch_workspace_with_workspace_not_already_existing() {
+    let env = Sandbox::open_with_default_settings("single-branch-mode");
+
+    env.but("branch new my-branch").assert().success();
+
+    env.but("commit -m 'make a commit' -b my-branch")
+        .assert()
+        .success();
+
+    env.but("status")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄ zz [uncommitted] (no changes)
+┊
+┊╭┄ my [my-branch]
+┊●   1 make a commit (no changes)
+├╯
+┊
+┴ b1540e5 (common base) 2000-01-02 M
+
+Hint: run `but help` for all commands
+
+"#]]);
+
+    snapbox::assert_data_eq!(
+        env.git_log(),
+        snapbox::str![[r#"
+* 1e62c18 (HEAD -> my-branch) make a commit
+* b1540e5 (origin/main, origin/HEAD, main, gitbutler/target) M
+* e31e6ca add init
+
+"#]]
+    );
+
+    run_mutate_undo_roundtrip_test_with_options(
+        &env,
+        Options {
+            require_status_changing_after_mutation: false,
+        },
+        |env| {
+            env.but("switch --workspace").assert().success();
+
+            snapbox::assert_data_eq!(
+                env.git_log(),
+                snapbox::str![[r#"
+* 2e292d5 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+* 1e62c18 (my-branch) make a commit
+* b1540e5 (origin/main, origin/HEAD, main, gitbutler/target) M
+* e31e6ca add init
+
+"#]]
+            );
+        },
+    );
+
+    snapbox::assert_data_eq!(
+        env.git_log(),
+        snapbox::str![[r#"
+* 1e62c18 (HEAD -> my-branch) make a commit
+* b1540e5 (origin/main, origin/HEAD, main, gitbutler/target) M
+* e31e6ca add init
+
+"#]]
+    );
 }

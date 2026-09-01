@@ -14,6 +14,7 @@ export type Operation =
 	| "DeleteBranch"
 	| "ApplyBranch"
 	| "SwitchBranch"
+	| "SwitchToWorkspace"
 	| "DiscardLines"
 	| "DiscardHunk"
 	| "DiscardFile"

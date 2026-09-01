@@ -157,6 +157,7 @@ pub(crate) fn show_oplog(
                     | OperationKind::DeleteBranch
                     | OperationKind::ApplyBranch
                     | OperationKind::SwitchBranch
+                    | OperationKind::SwitchToWorkspace
                     | OperationKind::DiscardLines
                     | OperationKind::DiscardHunk
                     | OperationKind::DiscardFile
@@ -255,6 +256,7 @@ pub(crate) fn show_oplog(
                 | OperationKind::SplitBranch
                 | OperationKind::CleanWorkspace
                 | OperationKind::SwitchBranch
+                | OperationKind::SwitchToWorkspace
                 | OperationKind::Unknown => t.default.paint(operation_type.kind_str()),
             };
 
