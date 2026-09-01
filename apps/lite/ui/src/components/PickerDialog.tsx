@@ -17,6 +17,7 @@ import {
 	useState,
 } from "react";
 import { classes } from "#ui/components/classes.ts";
+import { formatForDisplaySorted } from "#ui/hotkeys.ts";
 import uiStyles from "#ui/components/ui.module.css";
 import styles from "./PickerDialog.module.css";
 
@@ -349,11 +350,16 @@ export const PickerDialog = <T,>({
 								const virtualizer = virtualizerRef.current;
 								if (!virtualizer) return;
 
-								if (event.metaKey && event.key === "ArrowUp") {
+								// `Mod` is ⌘ on macOS and Ctrl elsewhere, which is what the footer hint
+								// says it is; accepting both keeps the binding honest on every platform
+								// without a platform check, since neither is bound to anything else here.
+								const mod = event.metaKey || event.ctrlKey;
+
+								if (mod && event.key === "ArrowUp") {
 									event.preventDefault();
 									event.preventBaseUIHandler();
 									virtualizer.highlightEdgeItem("start");
-								} else if (event.metaKey && event.key === "ArrowDown") {
+								} else if (mod && event.key === "ArrowDown") {
 									event.preventDefault();
 									event.preventBaseUIHandler();
 									virtualizer.highlightEdgeItem("end");
@@ -389,10 +395,13 @@ export const PickerDialog = <T,>({
 					    anywhere else in the app. */}
 					<div className={styles.hints}>
 						<span className={styles.hint}>
-							<kbd className={styles.hintKey}>⌘↑ ⌘↓</kbd> First / last
+							<kbd className={styles.hintKey}>
+								{formatForDisplaySorted("Mod+ArrowUp")} {formatForDisplaySorted("Mod+ArrowDown")}
+							</kbd>{" "}
+							First / last
 						</span>
 						<span className={styles.hint}>
-							<kbd className={styles.hintKey}>↵</kbd> {selectLabel}
+							<kbd className={styles.hintKey}>{formatForDisplaySorted("Enter")}</kbd> {selectLabel}
 						</span>
 					</div>
 					{footerAction}
