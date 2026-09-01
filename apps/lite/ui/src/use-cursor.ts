@@ -96,14 +96,14 @@ const resolveCursorParam = <L extends UrlCursorName>(
 /** The cursor resolved against what the list currently shows. */
 export const useSelection = <L extends UrlCursorName>(
 	list: L,
-	addressSpace: AddressSpace<CursorItem[L]>,
+	addressSpace: AddressSpace<CursorItem[L]> | null | undefined,
 ): CursorItem[L] | null => {
 	const param = useSearch({
 		from: WORKSPACE_ROUTE,
 		select: (params: UrlQueryParams): string | undefined => params[list],
 	});
 
-	return resolveCursorParam(list, param, addressSpace);
+	return addressSpace == null ? null : resolveCursorParam(list, param, addressSpace);
 };
 
 /**
@@ -436,6 +436,7 @@ export const useCursorWriteBack = <L extends UrlCursorName>(
 		resolved !== null && storedParam !== encodeUnion(list, resolved) ? resolved : null;
 
 	useEffect(() => {
+		// oxlint-disable-next-line react-you-might-not-need-an-effect/no-event-handler -- Reconcile the URL cursor when the address space changes; this is not an event response.
 		if (outOfSync !== null) setCursor(list, outOfSync);
 	}, [outOfSync, list]);
 };

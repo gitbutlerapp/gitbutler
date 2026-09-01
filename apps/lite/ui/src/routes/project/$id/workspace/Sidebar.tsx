@@ -28,7 +28,7 @@ import { Activity, type FC, useRef } from "react";
 import { ToggleGroupStyles, ToggleStyles } from "#ui/components/ToggleGroup.tsx";
 import { WorkspaceLists } from "#ui/routes/project/$id/workspace/WorkspaceLists/WorkspaceLists.tsx";
 import { BranchesList } from "#ui/routes/project/$id/workspace/BranchesList.tsx";
-import type { BranchesListData } from "#ui/routes/project/$id/workspace/useBranchesList.ts";
+import type { BranchesListQueryResult } from "#ui/routes/project/$id/workspace/useBranchesList.ts";
 import { UpstreamList } from "#ui/routes/project/$id/workspace/UpstreamList.tsx";
 import type { UpstreamListData } from "#ui/routes/project/$id/workspace/useUpstreamList.ts";
 import { assert } from "#ui/assert.ts";
@@ -91,7 +91,7 @@ const WorkspaceActivityBadge: FC<{ projectId: string }> = ({ projectId }) => {
 
 export const Sidebar: FC<{
 	absorptionTargetCommitIds: ReadonlySet<string>;
-	branchesList: BranchesListData;
+	branchesList: BranchesListQueryResult;
 	upstreamList: UpstreamListData;
 	addressSpace: AddressSpace<Address>;
 	uncommittedAddressSpace: AddressSpace<string>;

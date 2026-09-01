@@ -13,12 +13,16 @@ import { projectSlice } from "#ui/projects/state.ts";
 import { useAppSelector } from "#ui/store.ts";
 import { buildIndexByKey, type AddressSpace } from "#ui/workspace/address-space.ts";
 import type { Commit, ListedBranch } from "@gitbutler/but-sdk";
-import { useQueries, useQuery } from "@tanstack/react-query";
+import { useQueries, useQuery, type UseQueryResult } from "@tanstack/react-query";
 import { useDeferredValue } from "react";
 
 type BranchesListBranch = {
 	branch: ListedBranch;
 	addressIndex: number;
+	/**
+	 * `undefined` means that the branch is folded, or that it's unfolded and that the query is either
+	 * loading or failed.
+	 */
 	commits: Array<Commit> | undefined;
 };
 
@@ -27,24 +31,15 @@ type BranchesListStack = {
 	commitCount: number;
 };
 
-export type BranchesListData = {
+type BranchesListContent = {
 	stacks: Array<BranchesListStack>;
 	stackIndexByAddressIndex: Array<number>;
 	addressSpace: AddressSpace<Address>;
-	/**
-	 * The listing query's state, so the page can tell a genuinely empty result
-	 * apart from one that has not arrived or failed.
-	 */
-	isPending: boolean;
-	isError: boolean;
 };
 
-type BranchesListContent = Pick<
-	BranchesListData,
-	"stacks" | "stackIndexByAddressIndex" | "addressSpace"
->;
+export type BranchesListQueryResult = UseQueryResult<BranchesListContent>;
 
-const emptyContent: BranchesListContent = {
+export const emptyBranchesListContent: BranchesListContent = {
 	stacks: [],
 	stackIndexByAddressIndex: [],
 	addressSpace: { items: [], indexByKey: new Map() },
@@ -57,7 +52,7 @@ const emptyContent: BranchesListContent = {
  * rendering and the selection resolution in the workspace page consume it, so
  * filtering and fold state cannot drift between the two.
  */
-export const useBranchesList = (projectId: string): BranchesListData => {
+export const useBranchesList = (projectId: string): BranchesListQueryResult => {
 	const active = usePage() === "branches";
 	const filters = useAppSelector((state) =>
 		projectSlice.selectors.selectBranchFilters(state, projectId),
@@ -89,11 +84,7 @@ export const useBranchesList = (projectId: string): BranchesListData => {
 	// input like `search` or `showEmpty` does. Deriving in render instead would
 	// rebuild the address space every pass and re-render every row that reads
 	// it through context.
-	const {
-		data: content = emptyContent,
-		isPending,
-		isError,
-	} = useQuery({
+	return useQuery({
 		...branchListQueryOptions(projectId),
 		enabled: active,
 		select: (listedStacks): BranchesListContent => {
@@ -136,6 +127,4 @@ export const useBranchesList = (projectId: string): BranchesListData => {
 			};
 		},
 	});
-
-	return { ...content, isPending, isError };
 };
