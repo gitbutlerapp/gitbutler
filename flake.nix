@@ -33,7 +33,7 @@
           pkgs.git
           pkgs.pkg-config
           pkgs.wget
-          pkgs.nodejs_22
+          pkgs.nodejs_24
           pkgs.pnpm
           pkgs.playwright-driver.browsers
           pkgs.cargo-flamegraph
