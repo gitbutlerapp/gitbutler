@@ -557,14 +557,22 @@ export const getMinimapOverlays = ({
 			{ side: selection.side, line: selection.start },
 			{ side: selection.endSide, line: selection.end },
 		];
-		const starts = endpoints.flatMap(({ side, line }) => locate(side, line) ?? []);
+		const starts = endpoints
+			.values()
+			.map(({ side, line }) => locate(side, line))
+			.filter((x) => x != null)
+			.toArray();
 		if (starts.length === 0) continue;
 
-		const ends = endpoints.flatMap(({ side, line }) => {
-			const start = locate(side, line);
-			if (start === null) return [];
-			return locate(side, line + 1) ?? start;
-		});
+		const ends = endpoints
+			.values()
+			.map(({ side, line }) => {
+				const start = locate(side, line);
+				if (start === null) return null;
+
+				return locate(side, line + 1) ?? start;
+			})
+			.filter((x) => x != null);
 		const top = Math.min(...starts);
 		const bottom = Math.max(...ends);
 		band = { top, height: Math.max(bottom - top, 0) };

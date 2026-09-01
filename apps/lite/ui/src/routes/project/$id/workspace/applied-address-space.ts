@@ -7,6 +7,7 @@ import {
 	type Address,
 } from "#ui/addresses.ts";
 import { decodeBytes } from "#ui/api/bytes.ts";
+import { reverseValues } from "#ui/iterator.ts";
 import { getOperations, type TransferKind } from "#ui/operations/operation.ts";
 import { getTransferKind, type PendingOperation } from "#ui/operations/pending-operation.ts";
 import { buildIndexByKey, type AddressSpace } from "#ui/workspace/address-space.ts";
@@ -34,24 +35,28 @@ export const buildAppliedAddressSpace = ({
 	foldedSegments: Record<string, true>;
 }): AddressSpace<Address> => {
 	const allItems = (): Array<Address> =>
-		headInfo?.stacks.toReversed().flatMap((stack) =>
-			stack.segments.flatMap((segment): Array<Address> => {
-				// Matches what WorkspaceLists renders: a folded segment shows a stub
-				// in place of its commits, so they are not navigable.
-				const folded =
-					segment.refName !== null &&
-					foldedSegments[decodeBytes(segment.refName.fullNameBytes)] === true;
+		reverseValues(headInfo?.stacks ?? [])
+			.flatMap((stack) =>
+				stack.segments.flatMap((segment): Array<Address> => {
+					// Matches what WorkspaceLists renders: a folded segment shows a stub
+					// in place of its commits, so they are not navigable.
+					const folded =
+						segment.refName !== null &&
+						foldedSegments[decodeBytes(segment.refName.fullNameBytes)] === true;
 
-				return [
-					...(segment.refName ? [branchAddress({ branchRef: segment.refName.fullNameBytes })] : []),
-					...(folded
-						? []
-						: segment.commits.map((commit) =>
-								commitAddress({ commitId: commit.id, changeId: commit.changeId }),
-							)),
-				];
-			}),
-		) ?? [];
+					return [
+						...(segment.refName
+							? [branchAddress({ branchRef: segment.refName.fullNameBytes })]
+							: []),
+						...(folded
+							? []
+							: segment.commits.map((commit) =>
+									commitAddress({ commitId: commit.id, changeId: commit.changeId }),
+								)),
+					];
+				}),
+			)
+			.toArray();
 
 	/**
 	 * While an operation is waiting for its target, only its sources and the

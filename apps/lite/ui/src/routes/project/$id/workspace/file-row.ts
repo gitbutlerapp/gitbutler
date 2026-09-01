@@ -2,6 +2,7 @@ import { getDependencyCommitIds, getHunkDependencyDiffsByPath } from "#ui/hunk.t
 import { compareFilePaths } from "#ui/file-order.ts";
 import { buildFileTreeRows, type FileDisplayMode, type FileTreeRow } from "./file-tree.ts";
 import type { TreeChange, WorktreeChanges } from "@gitbutler/but-sdk";
+import { iteratorConcat } from "#ui/iterator.ts";
 
 type ChangeFileRowItem = {
 	change: TreeChange;
@@ -37,25 +38,26 @@ export const conflictFileRowItem = ({
 	modifiedAtMs,
 });
 
-export const getChangesFileRowItems = (worktreeChanges: WorktreeChanges): Array<FileRowItem> => {
+export const getChangesFileRowItems = (
+	worktreeChanges: WorktreeChanges,
+): IteratorObject<FileRowItem> => {
 	const hunkDependencyDiffsByPath = getHunkDependencyDiffsByPath(
 		worktreeChanges.dependencies?.diffs ?? [],
 	);
 
 	// Conflicted files are kept out of `changes` until resolved, but they still
 	// sit on disk, so they carry a modification time like any other row.
-	const conflicts = worktreeChanges.ignoredChanges.flatMap((change) =>
-		change.status === "Conflict"
-			? [
-					conflictFileRowItem({
-						path: change.path,
-						modifiedAtMs: worktreeChanges.modificationTimes[change.path] ?? null,
-					}),
-				]
-			: [],
-	);
+	const conflicts = worktreeChanges.ignoredChanges
+		.values()
+		.filter((change) => change.status === "Conflict")
+		.map((change) =>
+			conflictFileRowItem({
+				path: change.path,
+				modifiedAtMs: worktreeChanges.modificationTimes[change.path] ?? null,
+			}),
+		);
 
-	const changes = worktreeChanges.changes.map((change) => {
+	const changes = worktreeChanges.changes.values().map((change) => {
 		const hunkDependencyDiffs = hunkDependencyDiffsByPath.get(change.path);
 		const dependencyCommitIds = hunkDependencyDiffs
 			? getDependencyCommitIds({ hunkDependencyDiffs })
@@ -69,7 +71,7 @@ export const getChangesFileRowItems = (worktreeChanges: WorktreeChanges): Array<
 		});
 	});
 
-	return [...conflicts, ...changes];
+	return iteratorConcat(conflicts, changes);
 };
 
 /**
@@ -90,9 +92,11 @@ export const buildUncommittedFileRows = ({
 	recentFirst: boolean;
 }): Array<FileTreeRow<FileRowItem>> =>
 	buildFileTreeRows({
-		items: (worktreeChanges ? getChangesFileRowItems(worktreeChanges) : []).filter((item) =>
-			pathMatchesFilter(item.path, filter),
-		),
+		items: worktreeChanges
+			? getChangesFileRowItems(worktreeChanges)
+					.filter((item) => pathMatchesFilter(item.path, filter))
+					.toArray()
+			: [],
 		mode,
 		collapsedDirectories,
 		compare: recentFirst ? compareRecentFirst : undefined,

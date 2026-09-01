@@ -64,7 +64,6 @@ import { buildUncommittedFileRows } from "./file-row.ts";
 import { fileTreeAddressSpace, selectedFilePath } from "./file-tree.ts";
 import { useFileDisplayMode } from "./useFileDisplayMode.ts";
 import styles from "./Page.module.css";
-import { useActiveElement } from "#ui/focus.ts";
 import { ApplyBranchPicker } from "./ApplyBranchPicker.tsx";
 import { BranchPicker } from "./BranchPicker.tsx";
 import { CommandPalette } from "./CommandPalette.tsx";
@@ -101,8 +100,6 @@ const useWorkspaceHotkeys = (projectId: string) => {
 	const detailsFullWindow = useAppSelector(interfaceSlice.selectors.selectDetailsFullWindow);
 	const dialog = useAppSelector(interfaceSlice.selectors.selectDialogState);
 	const canShowFiles = useCanShowFiles();
-	const activeElement = useActiveElement();
-	const focusedFocusScope = getFocusedScope(activeElement);
 	const noOperationPending = useAppSelector(
 		(state) => projectSlice.selectors.selectPendingOperation(state, projectId)._tag === "None",
 	);
@@ -175,7 +172,7 @@ const useWorkspaceHotkeys = (projectId: string) => {
 		{
 			hotkey: workspaceHotkeys.toggleFiles.hotkey,
 			callback: () => {
-				if (focusedFocusScope === "files" && getFilesVisible())
+				if (getFocusedScope(document.activeElement) === "files" && getFilesVisible())
 					focusScope(detailsFullWindow ? "diff" : "sidebar");
 
 				dispatch(projectSlice.actions.toggleFiles({ projectId }));

@@ -15,18 +15,15 @@ export type NativeMenuItemData = {
 
 export type NativeMenuItem = { _tag: "Separator" } | ({ _tag: "Item" } & NativeMenuItemData);
 
-/** @public */
 export const nativeMenuSeparator: NativeMenuItem = {
 	_tag: "Separator",
 };
 
-/** @public */
 export const nativeMenuItem = (item: NativeMenuItemData): NativeMenuItem => ({
 	_tag: "Item",
 	...item,
 });
 
-/** @public */
 export const nativeMenuItemsFromGroups = (
 	groups: Array<Array<NativeMenuItem>>,
 ): Array<NativeMenuItem> =>

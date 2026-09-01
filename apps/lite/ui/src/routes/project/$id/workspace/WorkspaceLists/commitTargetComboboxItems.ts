@@ -3,6 +3,7 @@ import { commitTitle } from "#ui/commit.ts";
 import { addressEquals, type Address } from "#ui/addresses.ts";
 import type { RefInfo } from "@gitbutler/but-sdk";
 import type { CommitTargetComboboxItem } from "../CommitForm.tsx";
+import { reverseValues } from "#ui/iterator.ts";
 
 export const buildCommitTargetComboboxItems = ({
 	headInfo,
@@ -29,23 +30,23 @@ export const buildCommitTargetComboboxItems = ({
 				] satisfies Array<CommitTargetComboboxItem>)
 			: []),
 		...(headInfo
-			? headInfo.stacks.toReversed().flatMap(
-					(stack): Array<CommitTargetComboboxItem> =>
-						stack.segments.flatMap((segment): Array<CommitTargetComboboxItem> => {
-							const refName = segment.refName;
-							if (!refName) return [];
+			? reverseValues(headInfo.stacks).flatMap(
+					(stack): IteratorObject<CommitTargetComboboxItem> =>
+						stack.segments
+							.values()
+							.map(({ refName }): CommitTargetComboboxItem | null => {
+								if (!refName) return null;
 
-							return [
-								{
+								return {
 									label: refName.displayName,
 									address: { _tag: "Branch", branchRef: refName.fullNameBytes },
 									relativeTo: {
 										type: "referenceBytes",
 										subject: refName.fullNameBytes,
 									},
-								},
-							];
-						}),
+								};
+							})
+							.filter((x) => x != null),
 				)
 			: []),
 	];

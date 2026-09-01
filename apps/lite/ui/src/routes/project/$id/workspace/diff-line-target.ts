@@ -43,9 +43,10 @@ export const diffLineTargetFromElement = ({
 	const line = diffLineFromElement(element);
 	if (!line) return null;
 
-	const [number] = LINE_NUMBER_ATTRIBUTES.flatMap(
-		(attribute) => element.getAttribute(attribute) ?? [],
-	);
+	const [number] = LINE_NUMBER_ATTRIBUTES.values()
+		.map((attr) => element.getAttribute(attr))
+		.filter((x) => x != null)
+		.take(1);
 	const lineNumber = Number.parseInt(number ?? "", 10);
 	if (!Number.isFinite(lineNumber)) return null;
 

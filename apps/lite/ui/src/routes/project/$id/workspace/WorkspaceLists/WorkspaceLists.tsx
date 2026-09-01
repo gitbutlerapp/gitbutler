@@ -94,6 +94,7 @@ import {
 	buildCommitTargetComboboxItems,
 	selectCommitTargetComboboxItem,
 } from "./commitTargetComboboxItems.ts";
+import { reverseValues } from "#ui/iterator.ts";
 
 const uncommittedChangesHeadingId = "uncommitted-changes-heading";
 
@@ -633,14 +634,14 @@ const StackC: FC<{
 			role="group"
 			aria-label="Stack"
 		>
-			{stack.segments.flatMap((segment, index) => {
+			{stack.segments.map((segment, index) => {
 				const key = segment.refName
 					? JSON.stringify(segment.refName.fullNameBytes)
 					: segment.commits[0]?.id;
 
 				// A segment is supposed to always either have a branch reference or at least one commit,
 				// however with the current API this may not be the case e.g. detached HEAD.
-				if (key === undefined) return [];
+				if (key === undefined) return null;
 
 				const downstackPushStatus = assert(downstackPushStatuses[index]);
 				const pushActivity: PushActivity =
@@ -771,17 +772,19 @@ const Stacks: FC<{
 				data-preview-source={activeList === "applied"}
 				ref={useMergedRefs(hotkeysRef, useAutofocusScope(activeList === "applied"))}
 			>
-				{(headInfo?.stacks.toReversed() ?? []).map((stack) => (
-					<StackC
-						key={stack.id}
-						projectId={projectId}
-						stack={stack}
-						checkCommit={checkCommit}
-						onAmendCommit={onAmendCommit}
-						canAmendCommit={canAmendCommit}
-						pendingPushBranches={pendingPushBranches}
-					/>
-				))}
+				{reverseValues(headInfo?.stacks ?? [])
+					.map((stack) => (
+						<StackC
+							key={stack.id}
+							projectId={projectId}
+							stack={stack}
+							checkCommit={checkCommit}
+							onAmendCommit={onAmendCommit}
+							canAmendCommit={canAmendCommit}
+							pendingPushBranches={pendingPushBranches}
+						/>
+					))
+					.toArray()}
 			</div>
 		</DryRunWorkspaceContext>
 	);
@@ -837,11 +840,14 @@ export const WorkspaceLists: FC<
 		commitAmend({
 			projectId,
 			commitId,
-			changes: worktreeChanges.changes.flatMap((change) =>
-				checkedUncommittedFilePaths.size === 0 || checkedUncommittedFilePaths.has(change.path)
-					? [createDiffSpec(change, [])]
-					: [],
-			),
+			changes: worktreeChanges.changes
+				.values()
+				.filter(
+					(change) =>
+						checkedUncommittedFilePaths.size === 0 || checkedUncommittedFilePaths.has(change.path),
+				)
+				.map((change) => createDiffSpec(change, []))
+				.toArray(),
 			changesSource: { type: "head" },
 			dryRun: false,
 		});
@@ -879,20 +885,28 @@ export const WorkspaceLists: FC<
 		dispatch(
 			projectSlice.actions.checkAddresses({
 				projectId,
-				addresses: Array.from(checkedCommits).flatMap((commitId) => {
-					const ctx = headInfoIndex?.commitContextByCommitId(commitId);
-					return ctx ? commitAddress({ commitId, changeId: ctx.commit.changeId }) : [];
-				}),
+				addresses: checkedCommits
+					.values()
+					.map((commitId) => {
+						const ctx = headInfoIndex?.commitContextByCommitId(commitId);
+						return ctx ? commitAddress({ commitId, changeId: ctx.commit.changeId }) : null;
+					})
+					.filter((x) => x != null)
+					.toArray(),
 				checked: true,
 			}),
 		);
 		dispatch(
 			projectSlice.actions.checkAddresses({
 				projectId,
-				addresses: Array.from(uncheckedCommits).flatMap((commitId) => {
-					const ctx = headInfoIndex?.commitContextByCommitId(commitId);
-					return ctx ? commitAddress({ commitId, changeId: ctx.commit.changeId }) : [];
-				}),
+				addresses: uncheckedCommits
+					.values()
+					.map((commitId) => {
+						const ctx = headInfoIndex?.commitContextByCommitId(commitId);
+						return ctx ? commitAddress({ commitId, changeId: ctx.commit.changeId }) : null;
+					})
+					.filter((x) => x != null)
+					.toArray(),
 				checked: false,
 			}),
 		);

@@ -27,10 +27,12 @@ export const addressSpaceRange =
 		const end = Math.max(anchorIndex, targetIndex);
 
 		return new Set(
-			navidx.items.slice(start, end + 1).flatMap((item) => {
-				const id = filterMap(item);
-				return id === null ? [] : [id];
-			}),
+			navidx.items
+				.values()
+				.drop(start)
+				.take(end - start + 1)
+				.map(filterMap)
+				.filter((x) => x != null),
 		);
 	};
 

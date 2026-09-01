@@ -448,20 +448,24 @@ export const hunkSelectionForLineNavigation = <T extends HunkLineSelection>({
 	if (rangeStart === -1 || rangeEnd === -1) return null;
 	const active = offset === 1 ? Math.max(rangeStart, rangeEnd) : Math.min(rangeStart, rangeEnd);
 
-	const positioned = selections.flatMap((selection) => {
-		const selectionRange = rangeFromLineGroups(selection.lineGroups);
-		if (!selectionRange) return [];
+	const positioned = selections
+		.values()
+		.map((selection) => {
+			const selectionRange = rangeFromLineGroups(selection.lineGroups);
+			if (!selectionRange) return null;
 
-		const start = indexOfPoint(lineIndex, selectionRange.start, selectionRange.side);
-		const end = indexOfPoint(
-			lineIndex,
-			selectionRange.end,
-			selectionRange.endSide ?? selectionRange.side,
-		);
-		if (start === -1 || end === -1) return [];
+			const start = indexOfPoint(lineIndex, selectionRange.start, selectionRange.side);
+			const end = indexOfPoint(
+				lineIndex,
+				selectionRange.end,
+				selectionRange.endSide ?? selectionRange.side,
+			);
+			if (start === -1 || end === -1) return null;
 
-		return [{ selection, start: Math.min(start, end), end: Math.max(start, end) }];
-	});
+			return { selection, start: Math.min(start, end), end: Math.max(start, end) };
+		})
+		.filter((x) => x != null)
+		.toArray();
 
 	const containingIndex = positioned.findIndex(
 		({ start, end }) => active >= start && active <= end,

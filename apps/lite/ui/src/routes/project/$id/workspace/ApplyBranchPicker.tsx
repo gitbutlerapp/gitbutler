@@ -22,34 +22,37 @@ type Props = {
 
 const listedBranchToApplyBranchPickerOptions = (
 	branch: ListedBranch,
-): Array<ApplyBranchPickerOption> => {
+): IteratorObject<ApplyBranchPickerOption> => {
 	if (branch.hasLocal) {
-		return [
+		return Iterator.from([
 			{
 				branchRef: branch.refName.full,
 				label: branch.displayName,
 				type: "Local",
 				updatedAt: branch.updatedAtMs,
 			},
-		];
+		]);
 	}
 
-	return branch.remoteRefs.flatMap(({ full }) => {
-		const { remote } = branchDetailsParams(full);
+	return branch.remoteRefs
+		.values()
+		.map(({ full }) => {
+			const { remote } = branchDetailsParams(full);
 
-		return remote !== null
-			? {
-					branchRef: full,
-					label: branch.displayName,
-					type: remote,
-					updatedAt: branch.updatedAtMs,
-				}
-			: [];
-	});
+			return remote == null
+				? null
+				: {
+						branchRef: full,
+						label: branch.displayName,
+						type: remote,
+						updatedAt: branch.updatedAtMs,
+					};
+		})
+		.filter((x) => x != null);
 };
 
 const groupApplyBranchPickerOptions = (
-	items: Array<ApplyBranchPickerOption>,
+	items: Iterable<ApplyBranchPickerOption>,
 ): Array<PickerDialogGroup<ApplyBranchPickerOption>> =>
 	Array.from(
 		Map.groupBy(items, (item) => item.type),
@@ -71,11 +74,11 @@ const listedStacksToApplyBranchPickerGroups = (
 	stacks: Array<ListedStack>,
 ): Array<PickerDialogGroup<ApplyBranchPickerOption>> =>
 	groupApplyBranchPickerOptions(
-		stacks.flatMap(({ status, branches }) =>
-			status === "unapplied" || status === "standalone"
-				? branches.flatMap(listedBranchToApplyBranchPickerOptions)
-				: [],
-		),
+		stacks
+			.values()
+			.filter(({ status }) => status === "unapplied" || status === "standalone")
+			.flatMap(({ branches }) => branches)
+			.flatMap(listedBranchToApplyBranchPickerOptions),
 	);
 
 export const ApplyBranchPicker: FC<Props> = ({ open, onOpenChange, projectId }) => {

@@ -16,6 +16,7 @@ import type {
 	ManualConflict,
 	ResolutionSpec,
 } from "@gitbutler/but-sdk";
+import type { CheckedConflict } from "#ui/projects/project.ts";
 
 type Props = {
 	projectId: string;
@@ -66,10 +67,18 @@ export const ConflictBar: FC<Props> = (p) => {
 
 	// Ids resolve to current positions; stale checks match nothing.
 	const liveByPath = new Map(p.conflicts.map((file) => [file.path, file]));
-	const checkedLive = checked.flatMap((check) => {
-		const index = liveByPath.get(check.path)?.hunks.findIndex((hunk) => hunk.id === check.id);
-		return index === undefined || index === -1 ? [] : [{ path: check.path, hunk: index + 1 }];
-	});
+	const checkedLive = checked
+		.values()
+		.map(
+			(check) =>
+				[
+					check,
+					liveByPath.get(check.path)?.hunks.findIndex((hunk) => hunk.id === check.id),
+				] as const,
+		)
+		.filter((pair): pair is [CheckedConflict, number] => pair[1] != null && pair[1] !== -1)
+		.map(([check, index]) => ({ path: check.path, hunk: index + 1 }))
+		.toArray();
 
 	const apply = (resolution: HunkResolution) => {
 		if (p.busy || checkedLive.length === 0) return;

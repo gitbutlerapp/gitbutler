@@ -33,11 +33,11 @@ const segmentToBranchPickerOption = ({
 	};
 };
 
-const stackToBranchPickerOptions = (stack: Stack): Array<BranchPickerOption> =>
-	stack.segments.flatMap((segment): Array<BranchPickerOption> => {
-		const option = segmentToBranchPickerOption({ segment });
-		return option ? [option] : [];
-	});
+const stackToBranchPickerOptions = (stack: Stack): IteratorObject<BranchPickerOption> =>
+	stack.segments
+		.values()
+		.map((segment) => segmentToBranchPickerOption({ segment }))
+		.filter((x) => x != null);
 
 export const BranchPicker: FC<Props> = ({ projectId, open, onOpenChange, onSelectBranch }) => {
 	const { data: headInfo } = useQuery(headInfoQueryOptions(projectId));
@@ -58,7 +58,7 @@ export const BranchPicker: FC<Props> = ({ projectId, open, onOpenChange, onSelec
 			items={[
 				{
 					value: "Branches",
-					items: headInfo?.stacks.flatMap(stackToBranchPickerOptions) ?? [],
+					items: headInfo?.stacks.values().flatMap(stackToBranchPickerOptions).toArray() ?? [],
 				},
 			]}
 			open={open}
