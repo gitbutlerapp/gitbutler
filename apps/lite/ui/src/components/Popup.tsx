@@ -20,11 +20,23 @@ import {
  * hover card. Anything that opens over the app wants {@link Modal} or {@link Dropdown}, which wrap
  * this in the Base UI primitive carrying the focus and dismissal behaviour.
  *
+ * Pass `render` where the popup has to be a list primitive's own part — a combobox owns its popup
+ * and cannot be handed one. `anchored` is what {@link Dropdown} adds over {@link Modal}: it grows
+ * out of the corner it is anchored to rather than fading in place.
+ *
  * @public
  */
-export const Popup: FC<ComponentProps<"div">> = (props) => (
-	<div {...props} className={classes(props.className, styles.popup)} />
-);
+export const Popup: FC<{ anchored?: boolean } & useRender.ComponentProps<"div">> = ({
+	anchored = false,
+	render,
+	...props
+}) =>
+	useRender({
+		render: render ?? <div />,
+		props: mergeProps<"div">(props, {
+			className: classes(styles.popup, anchored && styles.dropdown),
+		}),
+	});
 
 /**
  * How wide a modal opens. The steps are the three widths the app already uses — a prompt, a
@@ -122,19 +134,18 @@ export const Modal: FC<ModalProps> = ({
 						align === "top" ? styles.viewportTop : styles.viewportCenter,
 					)}
 				>
-					<Dialog.Popup
+					<Popup
 						{...props}
-						initialFocus={initialFocus}
 						className={classes(
 							props.className,
-							styles.popup,
 							styles.modal,
 							sizeClassName(size),
 							recessed && styles.recessed,
 						)}
+						render={<Dialog.Popup initialFocus={initialFocus} />}
 					>
 						{children}
-					</Dialog.Popup>
+					</Popup>
 				</Dialog.Viewport>
 			</Dialog.Portal>
 		</Root>
@@ -179,12 +190,9 @@ export const Dropdown: FC<DropdownProps> = ({
 		<Popover.Trigger render={trigger} />
 		<Popover.Portal>
 			<Popover.Positioner side={side} align={align} sideOffset={sideOffset}>
-				<Popover.Popup
-					{...props}
-					className={classes(props.className, styles.popup, styles.dropdown)}
-				>
+				<Popup anchored {...props} render={<Popover.Popup />}>
 					{children}
-				</Popover.Popup>
+				</Popup>
 			</Popover.Positioner>
 		</Popover.Portal>
 	</Popover.Root>
@@ -234,18 +242,31 @@ export const PopupSearch: FC<{ onClear?: () => void } & useRender.ComponentProps
  * A run of {@link PopupItem}s under an optional heading. Sections divide from one another, so a
  * popup can group its rows without the last group drawing a line against the container's edge.
  *
+ * A plain div by default. Pass `render` to make the section a list primitive's own group, which is
+ * how a combobox's groups label their own rows without restating the section's chrome.
+ *
  * @public
  */
-export const PopupSection: FC<{ label?: ReactNode } & ComponentProps<"div">> = ({
+export const PopupSection: FC<{ label?: ReactNode } & useRender.ComponentProps<"div">> = ({
 	label,
 	children,
+	render,
 	...props
-}) => (
-	<div {...props} className={classes(props.className, styles.section)}>
-		{label !== undefined && <div className={classes("text-12", styles.sectionLabel)}>{label}</div>}
-		<div className={styles.sectionItems}>{children}</div>
-	</div>
-);
+}) =>
+	useRender({
+		render: render ?? <div />,
+		props: mergeProps<"div">(props, {
+			className: styles.section,
+			children: (
+				<>
+					{label !== undefined && (
+						<div className={classes("text-12", styles.sectionLabel)}>{label}</div>
+					)}
+					<div className={styles.sectionItems}>{children}</div>
+				</>
+			),
+		}),
+	});
 
 /**
  * One row of a popup: an optional glyph, the label, and — at the far end — a shortcut and a
