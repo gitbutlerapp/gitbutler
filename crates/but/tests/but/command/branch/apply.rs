@@ -26,7 +26,7 @@ fn applying_empty_branch_from_single_branch_mode_preserves_current_stack() {
         .success()
         .stderr_eq(str![])
         .stdout_eq(str![[r#"
-╭┄ zz [uncommitted] (no changes)
+╭┄ @ [uncommitted] (no changes)
 ┊
 ┊╭┄ g0 [C] (no commits)
 ┊│
@@ -52,7 +52,7 @@ Hint: run `but help` for all commands
         .success()
         .stderr_eq(str![])
         .stdout_eq(str![[r#"
-╭┄ zz [uncommitted] (no changes)
+╭┄ @ [uncommitted] (no changes)
 ┊
 ┊╭┄ g0 [D] (no commits)
 ├╯

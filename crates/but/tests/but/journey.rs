@@ -129,7 +129,7 @@ Learn more at https://docs.gitbutler.com/cli-overview
         .assert()
         .success()
         .stdout_eq(str![[r#"
-╭┄ zz [uncommitted] (no changes)
+╭┄ @ [uncommitted] (no changes)
 ┊
 ┴ 6f66116 (common base) 2000-01-02 Initial empty commit
 

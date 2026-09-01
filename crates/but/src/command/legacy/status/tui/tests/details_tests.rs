@@ -1402,7 +1402,7 @@ fn marking_all_hunks_marks_file_with_multiple_files_changed() {
 }
 
 #[test]
-fn marking_zz_marks_all_hunks_in_detail_view() {
+fn marking_uncommitted_area_marks_all_hunks_in_detail_view() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("zero-stacks");
     env.setup_metadata(&[]);
 
@@ -1424,10 +1424,10 @@ fn marking_zz_marks_all_hunks_in_detail_view() {
     tui.input('g');
     tui.input('d');
     tui.input(' ').assert_rendered_term_svg_eq(file![
-        "snapshots/marking_zz_marks_all_hunks_in_detail_view_001.svg"
+        "snapshots/marking_uncommitted_area_marks_all_hunks_in_detail_view_001.svg"
     ]);
     tui.input(' ').assert_rendered_term_svg_eq(file![
-        "snapshots/marking_zz_marks_all_hunks_in_detail_view_002.svg"
+        "snapshots/marking_uncommitted_area_marks_all_hunks_in_detail_view_002.svg"
     ]);
 }
 

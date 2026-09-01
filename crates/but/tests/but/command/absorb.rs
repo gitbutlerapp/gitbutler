@@ -368,7 +368,7 @@ fn committed_hunk() {
         .success()
         .stderr_eq(snapbox::str![])
         .stdout_eq(snapbox::str![[r#"
-╭┄ zz [uncommitted]
+╭┄ @ [uncommitted]
 ┊   nk M a.txt
 ┊
 ┊╭┄ g0 [A]
@@ -420,7 +420,7 @@ Hint: you can run `but undo` to undo these changes
         .success()
         .stderr_eq(snapbox::str![])
         .stdout_eq(snapbox::str![[r#"
-╭┄ zz [uncommitted] (no changes)
+╭┄ @ [uncommitted] (no changes)
 ┊
 ┊╭┄ g0 [A]
 ┊●   1#0 partial change to a.txt 3

@@ -124,7 +124,7 @@ fn move_commit_above_other_commit() {
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
-╭┄ zz [uncommitted] (no changes)
+╭┄ @ [uncommitted] (no changes)
 ┊
 ┊╭┄ g0 [A]
 ┊●   ywx add second
@@ -149,7 +149,7 @@ Moved zll above commit ywx
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
-╭┄ zz [uncommitted] (no changes)
+╭┄ @ [uncommitted] (no changes)
 ┊
 ┊╭┄ g0 [A]
 ┊●   zll add first
@@ -172,7 +172,7 @@ fn move_commit_below_other_commit() {
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
-╭┄ zz [uncommitted] (no changes)
+╭┄ @ [uncommitted] (no changes)
 ┊
 ┊╭┄ g0 [A]
 ┊●   ywx add second
@@ -197,7 +197,7 @@ Moved ywx below commit zll
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
-╭┄ zz [uncommitted] (no changes)
+╭┄ @ [uncommitted] (no changes)
 ┊
 ┊╭┄ g0 [A]
 ┊●   zll add first
@@ -220,7 +220,7 @@ fn move_multiple_consecutive_commits_relative_to_other_commit() {
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
-╭┄ zz [uncommitted] (no changes)
+╭┄ @ [uncommitted] (no changes)
 ┊
 ┊╭┄ g0 [A]
 ┊●   usn add A13
@@ -259,7 +259,7 @@ Moved vvl, mzz [..] commit [..]
             .assert()
             .success()
             .stdout_eq(snapbox::str![[r#"
-╭┄ zz [uncommitted] (no changes)
+╭┄ @ [uncommitted] (no changes)
 ┊
 ┊╭┄ g0 [A]
 ┊●   usn add A13
@@ -296,7 +296,7 @@ fn move_multiple_non_consecutive_commits_in_arbitrary_order_relative_to_other_co
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
-╭┄ zz [uncommitted] (no changes)
+╭┄ @ [uncommitted] (no changes)
 ┊
 ┊╭┄ g0 [A]
 ┊●   usn add A13
@@ -340,7 +340,7 @@ Moved tpw, zpl, pyq [..] commit [..]
             .assert()
             .success()
             .stdout_eq(snapbox::str![[r#"
-╭┄ zz [uncommitted] (no changes)
+╭┄ @ [uncommitted] (no changes)
 ┊
 ┊╭┄ g0 [A]
 ┊●   usn add A13
@@ -377,7 +377,7 @@ fn moving_commits_above_branch_creates_branch_above() {
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
-╭┄ zz [uncommitted] (no changes)
+╭┄ @ [uncommitted] (no changes)
 ┊
 ┊╭┄ g0 [A]
 ┊●   ywx add second
@@ -402,7 +402,7 @@ Moved zll to new branch 'a-branch-1' above branch 'A'
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
-╭┄ zz [uncommitted] (no changes)
+╭┄ @ [uncommitted] (no changes)
 ┊
 ┊╭┄ br [a-branch-1]
 ┊●   zll add first
@@ -427,7 +427,7 @@ fn moving_commits_above_branch_without_changing_relative_order_only_creates_bran
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
-╭┄ zz [uncommitted] (no changes)
+╭┄ @ [uncommitted] (no changes)
 ┊
 ┊╭┄ g0 [A]
 ┊●   ywx add second
@@ -452,7 +452,7 @@ Moved ywx to new branch 'a-branch-1' above branch 'A'
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
-╭┄ zz [uncommitted] (no changes)
+╭┄ @ [uncommitted] (no changes)
 ┊
 ┊╭┄ br [a-branch-1]
 ┊●   ywx add second
@@ -477,7 +477,7 @@ fn moving_commits_below_branch_creates_branch_below() {
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
-╭┄ zz [uncommitted] (no changes)
+╭┄ @ [uncommitted] (no changes)
 ┊
 ┊╭┄ g0 [A]
 ┊●   ywx add second
@@ -502,7 +502,7 @@ Moved ywx to new branch 'a-branch-1' below branch 'A'
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
-╭┄ zz [uncommitted] (no changes)
+╭┄ @ [uncommitted] (no changes)
 ┊
 ┊╭┄ g0 [A]
 ┊●   zll add first
@@ -527,7 +527,7 @@ fn moving_commits_below_branch_without_changing_relative_order_only_creates_bran
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
-╭┄ zz [uncommitted] (no changes)
+╭┄ @ [uncommitted] (no changes)
 ┊
 ┊╭┄ g0 [A]
 ┊●   ywx add second
@@ -552,7 +552,7 @@ Moved zll to new branch 'a-branch-1' below branch 'A'
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
-╭┄ zz [uncommitted] (no changes)
+╭┄ @ [uncommitted] (no changes)
 ┊
 ┊╭┄ g0 [A]
 ┊●   ywx add second
@@ -577,7 +577,7 @@ fn moving_all_commits_above_branch_retains_branch() {
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
-╭┄ zz [uncommitted] (no changes)
+╭┄ @ [uncommitted] (no changes)
 ┊
 ┊╭┄ g0 [A]
 ┊●   ywx add second
@@ -602,7 +602,7 @@ Moved ywx, zll to new branch 'a-branch-1' above branch 'A'
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
-╭┄ zz [uncommitted] (no changes)
+╭┄ @ [uncommitted] (no changes)
 ┊
 ┊╭┄ br [a-branch-1]
 ┊●   ywx add second
@@ -627,7 +627,7 @@ fn moving_all_commits_below_branch_retains_branch() {
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
-╭┄ zz [uncommitted] (no changes)
+╭┄ @ [uncommitted] (no changes)
 ┊
 ┊╭┄ g0 [A]
 ┊●   ywx add second
@@ -652,7 +652,7 @@ Moved ywx, zll to new branch 'a-branch-1' below branch 'A'
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
-╭┄ zz [uncommitted] (no changes)
+╭┄ @ [uncommitted] (no changes)
 ┊
 ┊╭┄ g0 [A] (no commits)
 ┊│
@@ -677,7 +677,7 @@ fn move_commit_above_empty_branch() {
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
-╭┄ zz [uncommitted] (no changes)
+╭┄ @ [uncommitted] (no changes)
 ┊
 ┊╭┄ g0 [A]
 ┊●   tpm add A
@@ -704,7 +704,7 @@ Moved tpm to new branch 'a-branch-1' above branch 'B'
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
-╭┄ zz [uncommitted] (no changes)
+╭┄ @ [uncommitted] (no changes)
 ┊
 ┊╭┄ g0 [A] (no commits)
 ├╯
@@ -731,7 +731,7 @@ fn move_commit_below_empty_branch() {
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
-╭┄ zz [uncommitted] (no changes)
+╭┄ @ [uncommitted] (no changes)
 ┊
 ┊╭┄ g0 [A]
 ┊●   tpm add A
@@ -758,7 +758,7 @@ Moved tpm to new branch 'a-branch-1' below branch 'B'
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
-╭┄ zz [uncommitted] (no changes)
+╭┄ @ [uncommitted] (no changes)
 ┊
 ┊╭┄ g0 [A] (no commits)
 ├╯
@@ -785,7 +785,7 @@ fn above_or_below_unapplied_or_non_existing_branch_errors() {
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
-╭┄ zz [uncommitted] (no changes)
+╭┄ @ [uncommitted] (no changes)
 ┊
 ┊╭┄ g0 [A]
 ┊●   tpm add A
@@ -851,7 +851,7 @@ fn move_to_tip_of_branch() {
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
-╭┄ zz [uncommitted] (no changes)
+╭┄ @ [uncommitted] (no changes)
 ┊
 ┊╭┄ g0 [A]
 ┊●   tpm add A
@@ -879,7 +879,7 @@ Moved tpm to the tip of branch 'B'
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
-╭┄ zz [uncommitted] (no changes)
+╭┄ @ [uncommitted] (no changes)
 ┊
 ┊╭┄ g0 [A] (no commits)
 ├╯
@@ -905,7 +905,7 @@ fn move_to_tip_of_empty_branch() {
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
-╭┄ zz [uncommitted] (no changes)
+╭┄ @ [uncommitted] (no changes)
 ┊
 ┊╭┄ g0 [A]
 ┊●   tpm add A
@@ -932,7 +932,7 @@ Moved tpm to the tip of branch 'B'
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
-╭┄ zz [uncommitted] (no changes)
+╭┄ @ [uncommitted] (no changes)
 ┊
 ┊╭┄ g0 [A] (no commits)
 ├╯
@@ -957,7 +957,7 @@ fn move_to_tip_of_new_unstacked_branch() {
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
-╭┄ zz [uncommitted] (no changes)
+╭┄ @ [uncommitted] (no changes)
 ┊
 ┊╭┄ g0 [A]
 ┊●   ywx add second
@@ -982,7 +982,7 @@ Moved ywx to new branch 'new-branch'
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
-╭┄ zz [uncommitted] (no changes)
+╭┄ @ [uncommitted] (no changes)
 ┊
 ┊╭┄ ne [new-branch]
 ┊●   ywx add second
@@ -1008,7 +1008,7 @@ fn move_to_tip_of_new_unstacked_branch_with_canned_name() {
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
-╭┄ zz [uncommitted] (no changes)
+╭┄ @ [uncommitted] (no changes)
 ┊
 ┊╭┄ g0 [A]
 ┊●   ywx add second
@@ -1033,7 +1033,7 @@ Moved ywx to new branch 'a-branch-1'
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
-╭┄ zz [uncommitted] (no changes)
+╭┄ @ [uncommitted] (no changes)
 ┊
 ┊╭┄ br [a-branch-1]
 ┊●   ywx add second
@@ -1059,7 +1059,7 @@ fn move_file_below_commit_creates_commit() {
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
-╭┄ zz [uncommitted] (no changes)
+╭┄ @ [uncommitted] (no changes)
 ┊
 ┊╭┄ g0 [A]
 ┊●   ywx add second
@@ -1086,7 +1086,7 @@ Moved 1 change from ywx to new commit 1 below commit zll
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
-╭┄ zz [uncommitted] (no changes)
+╭┄ @ [uncommitted] (no changes)
 ┊
 ┊╭┄ g0 [A]
 ┊●   ywx add second (no changes)
@@ -1112,7 +1112,7 @@ fn move_file_above_commit_creates_commit() {
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
-╭┄ zz [uncommitted] (no changes)
+╭┄ @ [uncommitted] (no changes)
 ┊
 ┊╭┄ g0 [A]
 ┊●   ywx add second
@@ -1139,7 +1139,7 @@ Moved 1 change from zll to new commit 1 above commit ywx
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
-╭┄ zz [uncommitted] (no changes)
+╭┄ @ [uncommitted] (no changes)
 ┊
 ┊╭┄ g0 [A]
 ┊●   1 (no commit message)
@@ -1165,7 +1165,7 @@ fn move_file_below_branch_creates_branch_and_commit() {
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
-╭┄ zz [uncommitted] (no changes)
+╭┄ @ [uncommitted] (no changes)
 ┊
 ┊╭┄ g0 [A]
 ┊●   ywx add second
@@ -1192,7 +1192,7 @@ Moved 1 change from ywx to new commit 1 on new branch 'a-branch-1' below branch 
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
-╭┄ zz [uncommitted] (no changes)
+╭┄ @ [uncommitted] (no changes)
 ┊
 ┊╭┄ g0 [A]
 ┊●   ywx add second (no changes)
@@ -1220,7 +1220,7 @@ fn move_file_above_branch_creates_branch_and_commit() {
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
-╭┄ zz [uncommitted] (no changes)
+╭┄ @ [uncommitted] (no changes)
 ┊
 ┊╭┄ g0 [A]
 ┊●   ywx add second
@@ -1247,7 +1247,7 @@ Moved 1 change from zll to new commit 1 on new branch 'a-branch-1' above branch 
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
-╭┄ zz [uncommitted] (no changes)
+╭┄ @ [uncommitted] (no changes)
 ┊
 ┊╭┄ br [a-branch-1]
 ┊●   1 (no commit message)
@@ -1275,7 +1275,7 @@ fn move_file_to_branch_tip_creates_commit() {
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
-╭┄ zz [uncommitted] (no changes)
+╭┄ @ [uncommitted] (no changes)
 ┊
 ┊╭┄ g0 [A]
 ┊●   tpm add A
@@ -1305,7 +1305,7 @@ Moved 1 change from lrm to new commit 1 to the tip of branch 'A'
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
-╭┄ zz [uncommitted] (no changes)
+╭┄ @ [uncommitted] (no changes)
 ┊
 ┊╭┄ g0 [A]
 ┊●   1 (no commit message)
@@ -1334,7 +1334,7 @@ fn move_file_to_non_existing_branch_tip_creates_unstacked_branch_and_commit() {
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
-╭┄ zz [uncommitted] (no changes)
+╭┄ @ [uncommitted] (no changes)
 ┊
 ┊╭┄ g0 [A]
 ┊●   ywx add second
@@ -1361,7 +1361,7 @@ Moved 1 change from ywx to new commit 1 on new branch 'new-branch'
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
-╭┄ zz [uncommitted] (no changes)
+╭┄ @ [uncommitted] (no changes)
 ┊
 ┊╭┄ ne [new-branch]
 ┊●   1 (no commit message)
@@ -1390,7 +1390,7 @@ fn move_file_branch_without_argument_creates_unstacked_branch_with_canned_name_a
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
-╭┄ zz [uncommitted] (no changes)
+╭┄ @ [uncommitted] (no changes)
 ┊
 ┊╭┄ g0 [A]
 ┊●   ywx add second
@@ -1417,7 +1417,7 @@ Moved 1 change from ywx to new commit 1 on new branch 'a-branch-1'
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
-╭┄ zz [uncommitted] (no changes)
+╭┄ @ [uncommitted] (no changes)
 ┊
 ┊╭┄ br [a-branch-1]
 ┊●   1 (no commit message)
@@ -1457,7 +1457,7 @@ fn move_file_should_be_order_independent() {
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
-╭┄ zz [uncommitted] (no changes)
+╭┄ @ [uncommitted] (no changes)
 ┊
 ┊╭┄ br [a-branch-1]
 ┊●   1#0 Prepare for moves!
@@ -1486,7 +1486,7 @@ Moved 2 changes from 1 to new commit 1 above commit 1
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
-╭┄ zz [uncommitted] (no changes)
+╭┄ @ [uncommitted] (no changes)
 ┊
 ┊╭┄ br [a-branch-1]
 ┊●   1#0 (no commit message)
@@ -1518,7 +1518,7 @@ Moved 2 changes from 1 to new commit 1 above commit 1
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
-╭┄ zz [uncommitted] (no changes)
+╭┄ @ [uncommitted] (no changes)
 ┊
 ┊╭┄ br [a-branch-1]
 ┊●   1#0 (no commit message)
@@ -1546,7 +1546,7 @@ fn move_file_from_multiple_source_commits_is_not_allowed() {
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
-╭┄ zz [uncommitted] (no changes)
+╭┄ @ [uncommitted] (no changes)
 ┊
 ┊╭┄ g0 [A]
 ┊●   tpm add A
@@ -1586,7 +1586,7 @@ fn move_branch_above_within_same_stack() {
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
-╭┄ zz [uncommitted] (no changes)
+╭┄ @ [uncommitted] (no changes)
 ┊
 ┊╭┄ g0 [C]
 ┊●   wlx add C
@@ -1616,7 +1616,7 @@ Stacked branch 'B' on top of branch 'C'
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
-╭┄ zz [uncommitted] (no changes)
+╭┄ @ [uncommitted] (no changes)
 ┊
 ┊╭┄ g0 [B]
 ┊●   wwm add B
@@ -1647,7 +1647,7 @@ fn move_branch_below_within_same_stack() {
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
-╭┄zz [uncommitted] (no changes)
+╭┄@ [uncommitted] (no changes)
 ┊
 ┊╭┄g0 [C]
 ┊●   aebb090 add C
@@ -1677,7 +1677,7 @@ Moved branch 'C' below branch 'B'
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
-╭┄zz [uncommitted] (no changes)
+╭┄@ [uncommitted] (no changes)
 ┊
 ┊╭┄g0 [B]
 ┊●   223f14d add B
@@ -1705,7 +1705,7 @@ fn move_branch_above_to_other_stack() {
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
-╭┄ zz [uncommitted] (no changes)
+╭┄ @ [uncommitted] (no changes)
 ┊
 ┊╭┄ g0 [A]
 ┊●   tpm add A
@@ -1733,7 +1733,7 @@ Stacked branch 'B' on top of branch 'A'
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
-╭┄ zz [uncommitted] (no changes)
+╭┄ @ [uncommitted] (no changes)
 ┊
 ┊╭┄ g0 [B]
 ┊●   lrm add B
@@ -1758,7 +1758,7 @@ fn move_empty_branch_above_other_branch() {
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
-╭┄ zz [uncommitted] (no changes)
+╭┄ @ [uncommitted] (no changes)
 ┊
 ┊╭┄ g0 [A]
 ┊●   tpm add A
@@ -1785,7 +1785,7 @@ Stacked branch 'B' on top of branch 'A'
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
-╭┄ zz [uncommitted] (no changes)
+╭┄ @ [uncommitted] (no changes)
 ┊
 ┊╭┄ g0 [B] (no commits)
 ┊│
@@ -1820,7 +1820,7 @@ fn move_empty_branch_above_checked_out_branch_checks_it_out() {
     assert_status(
         &env,
         snapbox::str![[r#"
-╭┄ zz [uncommitted] (no changes)
+╭┄ @ [uncommitted] (no changes)
 ┊
 ┊╭┄ to [top] (no commits)
 ┊│
@@ -1839,7 +1839,7 @@ Hint: run `but help` for all commands
     assert_status(
         &env,
         snapbox::str![[r#"
-╭┄ zz [uncommitted] (no changes)
+╭┄ @ [uncommitted] (no changes)
 ┊
 ┊╭┄ mo [moved] (no commits)
 ┊│
@@ -1868,7 +1868,7 @@ fn move_empty_branch_below_the_tip_preserves_checkout() {
     assert_status(
         &env,
         snapbox::str![[r#"
-╭┄ zz [uncommitted] (no changes)
+╭┄ @ [uncommitted] (no changes)
 ┊
 ┊╭┄ em [empty-top] (no commits)
 ┊│
@@ -1891,7 +1891,7 @@ Hint: run `but help` for all commands
     assert_status(
         &env,
         snapbox::str![[r#"
-╭┄ zz [uncommitted] (no changes)
+╭┄ @ [uncommitted] (no changes)
 ┊
 ┊╭┄ em [empty-top] (no commits)
 ┊│
@@ -1926,7 +1926,7 @@ fn move_commit_branch_above_empty_dependents_keeps_them_empty() {
     assert_status(
         &env,
         snapbox::str![[r#"
-╭┄ zz [uncommitted] (no changes)
+╭┄ @ [uncommitted] (no changes)
 ┊
 ┊╭┄ em [empty-top] (no commits)
 ┊│
@@ -1950,7 +1950,7 @@ Hint: run `but help` for all commands
     assert_status(
         &env,
         snapbox::str![[r#"
-╭┄ zz [uncommitted] (no changes)
+╭┄ @ [uncommitted] (no changes)
 ┊
 ┊╭┄ co [commit-branch]
 ┊●   1 commit branch
@@ -1986,7 +1986,7 @@ fn move_middle_non_empty_branch_above_checked_out_branch() {
     assert_status(
         &env,
         snapbox::str![[r#"
-╭┄ zz [uncommitted] (no changes)
+╭┄ @ [uncommitted] (no changes)
 ┊
 ┊╭┄ g0 [C]
 ┊●   vuw add C
@@ -2010,7 +2010,7 @@ Hint: run `but help` for all commands
     assert_status(
         &env,
         snapbox::str![[r#"
-╭┄ zz [uncommitted] (no changes)
+╭┄ @ [uncommitted] (no changes)
 ┊
 ┊╭┄ g0 [B]
 ┊●   myy add B
@@ -2042,7 +2042,7 @@ fn move_bottom_non_empty_branch_above_checked_out_branch() {
     assert_status(
         &env,
         snapbox::str![[r#"
-╭┄ zz [uncommitted] (no changes)
+╭┄ @ [uncommitted] (no changes)
 ┊
 ┊╭┄ g0 [C]
 ┊●   vuw add C
@@ -2066,7 +2066,7 @@ Hint: run `but help` for all commands
     assert_status(
         &env,
         snapbox::str![[r#"
-╭┄ zz [uncommitted] (no changes)
+╭┄ @ [uncommitted] (no changes)
 ┊
 ┊╭┄ g0 [A]
 ┊●   nmq add A
@@ -2098,7 +2098,7 @@ fn move_checked_out_branch_down_checks_out_new_tip() {
     assert_status(
         &env,
         snapbox::str![[r#"
-╭┄ zz [uncommitted] (no changes)
+╭┄ @ [uncommitted] (no changes)
 ┊
 ┊╭┄ g0 [C]
 ┊●   vuw add C
@@ -2122,7 +2122,7 @@ Hint: run `but help` for all commands
     assert_status(
         &env,
         snapbox::str![[r#"
-╭┄ zz [uncommitted] (no changes)
+╭┄ @ [uncommitted] (no changes)
 ┊
 ┊╭┄ g0 [B]
 ┊●   myy add B
@@ -2159,7 +2159,7 @@ fn move_empty_checked_out_branch_down_keeps_it_empty() {
     assert_status(
         &env,
         snapbox::str![[r#"
-╭┄ zz [uncommitted] (no changes)
+╭┄ @ [uncommitted] (no changes)
 ┊
 ┊╭┄ g0 [C] (no commits)
 ┊│
@@ -2182,7 +2182,7 @@ Hint: run `but help` for all commands
     assert_status(
         &env,
         snapbox::str![[r#"
-╭┄ zz [uncommitted] (no changes)
+╭┄ @ [uncommitted] (no changes)
 ┊
 ┊╭┄ g0 [B]
 ┊●   myy add B
@@ -2220,7 +2220,7 @@ fn move_bottom_branch_above_checked_out_middle_leaves_hidden_tip_unchanged() {
     assert_status(
         &env,
         snapbox::str![[r#"
-╭┄ zz [uncommitted] (no changes)
+╭┄ @ [uncommitted] (no changes)
 ┊
 ┊╭┄ g0 [B]
 ┊●   myy add B
@@ -2241,7 +2241,7 @@ Hint: run `but help` for all commands
     assert_status(
         &env,
         snapbox::str![[r#"
-╭┄ zz [uncommitted] (no changes)
+╭┄ @ [uncommitted] (no changes)
 ┊
 ┊╭┄ g0 [A]
 ┊●   nmq add A
@@ -2279,7 +2279,7 @@ fn move_branch_below_to_other_stack() {
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
-╭┄zz [uncommitted] (no changes)
+╭┄@ [uncommitted] (no changes)
 ┊
 ┊╭┄g0 [A]
 ┊●   9477ae7 add A
@@ -2307,7 +2307,7 @@ Moved branch 'A' below branch 'B'
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
-╭┄zz [uncommitted] (no changes)
+╭┄@ [uncommitted] (no changes)
 ┊
 ┊╭┄g0 [B]
 ┊●   e776549 add B
@@ -2334,7 +2334,7 @@ fn unstack_tip_branch() {
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
-╭┄ zz [uncommitted] (no changes)
+╭┄ @ [uncommitted] (no changes)
 ┊
 ┊╭┄ g0 [C]
 ┊●   wlx add C
@@ -2364,7 +2364,7 @@ Unstacked branch 'C'
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
-╭┄ zz [uncommitted] (no changes)
+╭┄ @ [uncommitted] (no changes)
 ┊
 ┊╭┄ g0 [B]
 ┊●   wwm add B
@@ -2395,7 +2395,7 @@ fn unstack_middle_branch() {
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
-╭┄ zz [uncommitted] (no changes)
+╭┄ @ [uncommitted] (no changes)
 ┊
 ┊╭┄ g0 [C]
 ┊●   wlx add C
@@ -2425,7 +2425,7 @@ Unstacked branch 'B'
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
-╭┄ zz [uncommitted] (no changes)
+╭┄ @ [uncommitted] (no changes)
 ┊
 ┊╭┄ g0 [B]
 ┊●   wwm add B
@@ -2456,7 +2456,7 @@ fn unstack_bottom_branch() {
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
-╭┄ zz [uncommitted] (no changes)
+╭┄ @ [uncommitted] (no changes)
 ┊
 ┊╭┄ g0 [C]
 ┊●   wlx add C
@@ -2486,7 +2486,7 @@ Unstacked branch 'A'
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
-╭┄ zz [uncommitted] (no changes)
+╭┄ @ [uncommitted] (no changes)
 ┊
 ┊╭┄ g0 [A]
 ┊●   tpm add A
@@ -2518,7 +2518,7 @@ fn unstack_empty_branch() {
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
-╭┄ zz [uncommitted] (no changes)
+╭┄ @ [uncommitted] (no changes)
 ┊
 ┊╭┄ to [top] (no commits)
 ┊│
@@ -2543,7 +2543,7 @@ Unstacked branch 'top'
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
-╭┄ zz [uncommitted] (no changes)
+╭┄ @ [uncommitted] (no changes)
 ┊
 ┊╭┄ bo [bottom] (no commits)
 ├╯
@@ -2569,7 +2569,7 @@ fn unstack_branch_using_branch_arg() {
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
-╭┄ zz [uncommitted] (no changes)
+╭┄ @ [uncommitted] (no changes)
 ┊
 ┊╭┄ g0 [C]
 ┊●   wlx add C
@@ -2600,7 +2600,7 @@ Unstacked branch 'A'
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
-╭┄ zz [uncommitted] (no changes)
+╭┄ @ [uncommitted] (no changes)
 ┊
 ┊╭┄ g0 [A]
 ┊●   tpm add A
@@ -2629,7 +2629,7 @@ fn unstack_file() {
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
-╭┄ zz [uncommitted] (no changes)
+╭┄ @ [uncommitted] (no changes)
 ┊
 ┊╭┄ g0 [A]
 ┊●   ywx add second
@@ -2662,7 +2662,7 @@ fn unstack_commit() {
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
-╭┄ zz [uncommitted] (no changes)
+╭┄ @ [uncommitted] (no changes)
 ┊
 ┊╭┄ g0 [A]
 ┊●   ywx add second
@@ -2717,7 +2717,7 @@ fn cannot_move_multiple_branches_at_once() {
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
-╭┄ zz [uncommitted] (no changes)
+╭┄ @ [uncommitted] (no changes)
 ┊
 ┊╭┄ g0 [C]
 ┊●   wlx add C
@@ -2757,7 +2757,7 @@ fn cannot_move_branch_below() {
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
-╭┄ zz [uncommitted] (no changes)
+╭┄ @ [uncommitted] (no changes)
 ┊
 ┊╭┄ g0 [C]
 ┊●   wlx add C
@@ -2797,7 +2797,7 @@ fn cannot_mix_sources() {
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
-╭┄ zz [uncommitted] (no changes)
+╭┄ @ [uncommitted] (no changes)
 ┊
 ┊╭┄ g0 [A]
 ┊●   tpm add A
@@ -2861,7 +2861,7 @@ fn targeting_unapplied_branch_errors() {
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
-╭┄ zz [uncommitted] (no changes)
+╭┄ @ [uncommitted] (no changes)
 ┊
 ┊╭┄ g0 [A]
 ┊●   tpm add A
@@ -2895,7 +2895,7 @@ fn cannot_combine_targets() {
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
-╭┄ zz [uncommitted] (no changes)
+╭┄ @ [uncommitted] (no changes)
 ┊
 ┊╭┄ g0 [A]
 ┊●   ywx add second
@@ -3038,7 +3038,7 @@ fn cannot_move_from_uncommitted() {
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
-╭┄ zz [uncommitted]
+╭┄ @ [uncommitted]
 ┊   qs A file
 ┊
 ┊╭┄ g0 [A]
@@ -3062,11 +3062,11 @@ Cannot pass uncommitted file or hunk as source
 Hint: A source must be commit, committed file or branch
 
 "#]]);
-    env.but("move zz -b A")
+    env.but("move @ -b A")
         .assert()
         .failure()
         .stderr_eq(snapbox::str![[r#"
-Error: Bad input 'zz' for '<SOURCES>'
+Error: Bad input '@' for '<SOURCES>'
 
 Cannot pass uncommitted changes as source
 
@@ -3084,7 +3084,7 @@ fn cannot_move_to_uncommitted() {
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
-╭┄ zz [uncommitted] (no changes)
+╭┄ @ [uncommitted] (no changes)
 ┊
 ┊╭┄ g0 [A]
 ┊●   tpm add A
@@ -3096,7 +3096,7 @@ Hint: run `but help` for all commands
 
 "#]]);
 
-    env.but("move tpm --below zz")
+    env.but("move tpm --below @")
         .assert()
         .failure()
         .stderr_eq(snapbox::str![[r#"
@@ -3280,7 +3280,7 @@ fn move_onto_branch_with_dash_dash_branch() {
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
-╭┄ zz [uncommitted] (no changes)
+╭┄ @ [uncommitted] (no changes)
 ┊
 ┊╭┄ g0 [A]
 ┊●   tpm add A
@@ -3310,7 +3310,7 @@ Stacked branch 'B' on top of branch 'A'
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
-╭┄ zz [uncommitted] (no changes)
+╭┄ @ [uncommitted] (no changes)
 ┊
 ┊╭┄ g0 [B]
 ┊●   lrm add B
@@ -3337,7 +3337,7 @@ fn cannot_move_onto_new_branch_with_dash_dash_branch() {
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
-╭┄ zz [uncommitted] (no changes)
+╭┄ @ [uncommitted] (no changes)
 ┊
 ┊╭┄ g0 [A]
 ┊●   tpm add A

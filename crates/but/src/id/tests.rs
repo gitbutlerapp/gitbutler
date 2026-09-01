@@ -339,7 +339,7 @@ branches: [ g0 ]
 }
 
 #[test]
-fn branches_avoid_uncommitted_area_id() -> anyhow::Result<()> {
+fn branches_can_use_retired_uncommitted_area_id() -> anyhow::Result<()> {
     let stacks = vec![stack([segment("zza", [id(1)], None, [])])];
     let id_map = IdMap::new(
         stacks,
@@ -357,7 +357,7 @@ fn branches_avoid_uncommitted_area_id() -> anyhow::Result<()> {
         id_map.debug_state().to_debug(),
         snapbox::str![[r#"
 workspace_and_remote_commits_count: 1
-branches: [ za ]
+branches: [ zz ]
 
 
 "#]]
@@ -365,13 +365,13 @@ branches: [ za ]
 
     let expected = [CliId::Branch(BranchId {
         name: "zza".into(),
-        id: "za".into(),
+        id: "zz".into(),
         stack_id: None,
     })];
     assert_eq!(
-        id_map.parse("za", &TestChanges(changed_paths_fn))?,
+        id_map.parse("zz", &TestChanges(changed_paths_fn))?,
         expected,
-        "avoids uncommitted area ID (zz)"
+        "zz is available now that @ names the uncommitted area"
     );
     Ok(())
 }
@@ -1130,7 +1130,7 @@ fn same_path_in_several_sources_gets_distinct_ids() -> anyhow::Result<()> {
 }
 
 /// A linked worktree gets its own CLI ID, resolves by name, and scopes a
-/// filename to its own checkout the way `zz` does for the main worktree.
+/// filename to its own checkout the way `@` does for the main worktree.
 #[test]
 fn worktree_container_id() -> anyhow::Result<()> {
     let id_map = IdMap::new(
@@ -1318,10 +1318,10 @@ fn generated_segment_ids_do_not_collide_with_worktree_names() -> anyhow::Result<
     Ok(())
 }
 
-/// `zz` names the main worktree, so `zz:<path>` must not reach into a linked
+/// `@` names the main worktree, so `@:<path>` must not reach into a linked
 /// worktree that happens to have the same path dirty.
 #[test]
-fn zz_scopes_filenames_to_the_main_worktree() -> anyhow::Result<()> {
+fn at_scopes_filenames_to_the_main_worktree() -> anyhow::Result<()> {
     let id_map = IdMap::new(
         Vec::new(),
         vec![
@@ -1338,15 +1338,21 @@ fn zz_scopes_filenames_to_the_main_worktree() -> anyhow::Result<()> {
         bail!("unexpected IDs {commit_id} {parent_id:?}");
     };
 
-    let scoped = id_map.parse("zz:file", &TestChanges(changed_paths_fn))?;
-    assert_eq!(scoped.len(), 1, "`zz` only ever matches the main worktree");
+    assert_eq!(
+        id_map.parse("@", &TestChanges(changed_paths_fn))?,
+        [CliId::Uncommitted { id: "@".into() }],
+        "bare @ names the main worktree's whole uncommitted area"
+    );
+
+    let scoped = id_map.parse("@:file", &TestChanges(changed_paths_fn))?;
+    assert_eq!(scoped.len(), 1, "`@` only ever matches the main worktree");
     let CliId::UncommittedHunkOrFile(scoped) = &scoped[0] else {
         bail!("expected an uncommitted file, got {scoped:?}");
     };
     assert_eq!(
         scoped.source,
         ChangeSourceId::Head,
-        "`zz` scoping keeps the main worktree's copy"
+        "`@` scoping keeps the main worktree's copy"
     );
 
     // A bare filename is deliberately unscoped, so it reports both and the
@@ -1715,7 +1721,7 @@ fn colon_uncommitted_filename() -> anyhow::Result<()> {
     // Uncommitted works
     snapbox::assert_data_eq!(
         id_map
-            .parse("zz:uncommitted", &TestChanges(changed_paths_fn))?
+            .parse("@:uncommitted", &TestChanges(changed_paths_fn))?
             .to_debug(),
         snapbox::str![[r#"
 [
@@ -2179,10 +2185,10 @@ fn uncommitted_hunks_by_numeric_index() -> anyhow::Result<()> {
 
 "#]]
     );
-    // Files can also be accessed through zz
+    // Files can also be accessed through @.
     snapbox::assert_data_eq!(
         id_map
-            .parse("zz:uncommitted1.txt:#0", &TestChanges(changed_paths_fn))?
+            .parse("@:uncommitted1.txt:#0", &TestChanges(changed_paths_fn))?
             .to_debug(),
         snapbox::str![[r#"
 [
@@ -3330,7 +3336,7 @@ fn uncommitted_selector_is_not_shadowed_by_commit_change_id() -> anyhow::Result<
 }
 
 #[test]
-fn a_file_literally_named_zz_competes_with_the_uncommitted_area() -> anyhow::Result<()> {
+fn a_file_literally_named_at_competes_with_the_uncommitted_area() -> anyhow::Result<()> {
     let changed_paths_fn = |commit_id: gix::ObjectId,
                             parent_id: Option<gix::ObjectId>|
      -> anyhow::Result<Vec<but_core::TreeChange>> {
@@ -3338,24 +3344,24 @@ fn a_file_literally_named_zz_competes_with_the_uncommitted_area() -> anyhow::Res
     };
     let id_map = IdMap::new(
         vec![stack([segment("not-important", [], None, [])])],
-        vec![source_changes(ChangeSourceId::Head, vec![hunk("zz")])],
+        vec![source_changes(ChangeSourceId::Head, vec![hunk("@")])],
         gix::hashtable::HashMap::default(),
         Default::default(),
         3,
     )?;
 
-    // `zz` names the whole area, so a dirty file of the same name must surface
+    // `@` names the whole area, so a dirty file of the same name must surface
     // as a competing match for the resolver to report - not silently win, the
     // same way a file named after a worktree competes with the worktree.
-    let scoped = id_map.parse_uncommitted("zz", &TestChanges(changed_paths_fn))?;
+    let scoped = id_map.parse_uncommitted("@", &TestChanges(changed_paths_fn))?;
     match scoped.as_slice() {
         [
             CliId::UncommittedHunkOrFile(uncommitted),
             CliId::Uncommitted { .. },
         ] => {
-            assert_eq!(uncommitted.hunks.first().hunk.path, "zz");
+            assert_eq!(uncommitted.hunks.first().hunk.path, "@");
         }
-        other => panic!("expected the file named zz and the area sentinel, got {other:?}"),
+        other => panic!("expected the file named @ and the area sentinel, got {other:?}"),
     }
     Ok(())
 }

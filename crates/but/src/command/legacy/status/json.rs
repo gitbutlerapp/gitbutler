@@ -49,7 +49,7 @@ pub(crate) struct WorkspaceStatus {
 #[derive(Clone, Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub(crate) struct Worktree {
-    /// The CLI ID naming this worktree's uncommitted area, like `zz` names the main worktree's
+    /// The CLI ID naming this worktree's uncommitted area, like `@` names the main worktree's
     cli_id: String,
     /// The stable worktree name, i.e. the directory name under `$GIT_COMMON_DIR/worktrees/`
     name: String,

@@ -398,7 +398,7 @@ fn resolve_marks_several_conflicted_files_resolved_including_deleted() {
         .assert()
         .success()
         .stdout_eq(str![[r#"
-╭┄ zz [uncommitted]
+╭┄ @ [uncommitted]
 ┊   ts D commit.txt
 ┊   xw A other.txt
 ┊   or M second.txt

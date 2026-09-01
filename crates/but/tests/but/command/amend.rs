@@ -115,7 +115,7 @@ fn amend_without_source_implies_uncommitted() {
         .assert()
         .success()
         .stdout_eq(str![[r#"
-╭┄ zz [uncommitted]
+╭┄ @ [uncommitted]
 ┊   qs A file
 ┊
 ┊╭┄ g0 [A]
@@ -139,7 +139,7 @@ Amended tpm
         .stderr_eq(str![""]);
 
     env.but("status -f").assert().success().stdout_eq(str![[r#"
-╭┄ zz [uncommitted] (no changes)
+╭┄ @ [uncommitted] (no changes)
 ┊
 ┊╭┄ g0 [A]
 ┊●   tpm add A
@@ -374,7 +374,7 @@ Amended tpm
         .success()
         .stderr_eq(str![])
         .stdout_eq(str![[r#"
-╭┄ zz [uncommitted] (no changes)
+╭┄ @ [uncommitted] (no changes)
 ┊
 ┊╭┄ g0 [A]
 ┊┊
@@ -421,7 +421,7 @@ Amended lrm
         .success()
         .stderr_eq(str![])
         .stdout_eq(str![[r#"
-╭┄ zz [uncommitted] (no changes)
+╭┄ @ [uncommitted] (no changes)
 ┊
 ┊╭┄ g0 [A]
 ┊┊
@@ -489,7 +489,7 @@ fn amend_a_clean_worktree_has_nothing_to_amend() {
         .success()
         .stderr_eq(str![])
         .stdout_eq(str![[r#"
-╭┄ zz [uncommitted] (no changes)
+╭┄ @ [uncommitted] (no changes)
 ┊
 ┊╭┄ g0 [A]
 ┊┊
@@ -520,7 +520,7 @@ Hint: Run `but status` to show applicable targets
 "#]]);
 }
 
-/// `zz` expands to the main checkout's whole uncommitted area for amending, the way a
+/// `@` expands to the main checkout's whole uncommitted area for amending, the way a
 /// worktree's ID expands to its area.
 #[test]
 fn amend_the_uncommitted_area_by_id() {
@@ -529,7 +529,7 @@ fn amend_the_uncommitted_area_by_id() {
     env.file("one.txt", "first\n");
     env.file("two.txt", "second\n");
 
-    env.but("amend zz --target lrm")
+    env.but("amend @ --target lrm")
         .assert()
         .success()
         .stderr_eq(str![])
@@ -543,7 +543,7 @@ Amended lrm
         .success()
         .stderr_eq(str![])
         .stdout_eq(str![[r#"
-╭┄ zz [uncommitted] (no changes)
+╭┄ @ [uncommitted] (no changes)
 ┊
 ┊╭┄ g0 [A]
 ┊●   tpm add A

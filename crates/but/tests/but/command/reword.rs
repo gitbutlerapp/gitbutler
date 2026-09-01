@@ -25,7 +25,7 @@ Named anonymous branch 'g0' as 'recovered'
         "new branch reference names the anonymous segment tip"
     );
     env.but("status").assert().success().stdout_eq(str![[r#"
-╭┄ zz [uncommitted] (no changes)
+╭┄ @ [uncommitted] (no changes)
 ┊
 ┊╭┄ re [recovered]
 ┊●   sxu anonymous (no changes)

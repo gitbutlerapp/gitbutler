@@ -164,7 +164,7 @@ impl CommitSource {
             }
             CliId::UncommittedHunkOrFile(hunk) => Some(CommitSource::UncommittedHunk(hunk.clone())),
             // A worktree heading names that checkout's uncommitted area, so it is a source in
-            // exactly the way `zz` is one for the main worktree.
+            // exactly the way `@` is one for the main worktree.
             CliId::Worktree { name, .. } => Some(CommitSource::Worktree(name.clone())),
             CliId::AnonymousSegment(..)
             | CliId::PathPrefix { .. }

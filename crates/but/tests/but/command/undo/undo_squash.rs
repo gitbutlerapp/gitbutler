@@ -46,7 +46,7 @@ fn undo_uncommitted_area_to_commit() {
     let target_cli_id = branch_commit_cli_ids(&status_json(&env), "A")[0].clone();
 
     run_mutate_undo_roundtrip_test(&env, |env| {
-        env.but(format!("squash zz -t {target_cli_id} -u"))
+        env.but(format!("squash @ -t {target_cli_id} -u"))
             .assert()
             .success();
     });
@@ -67,7 +67,7 @@ fn undo_commit_to_uncommitted_area() {
     let source_cli_id = branch_commit_cli_ids(&status_json(&env), "A")[0].clone();
 
     run_mutate_undo_roundtrip_test(&env, |env| {
-        env.but(format!("squash {source_cli_id} -t zz"))
+        env.but(format!("squash {source_cli_id} -t @"))
             .assert()
             .success();
     });
@@ -102,7 +102,7 @@ fn undo_committed_file_to_uncommitted_area() {
     let source_cli_id = branch_commit_cli_ids(&status_json(&env), "A")[0].clone();
 
     run_mutate_undo_roundtrip_test(&env, |env| {
-        env.but(format!("squash {source_cli_id}:file-to-zz-a.txt -t zz"))
+        env.but(format!("squash {source_cli_id}:file-to-zz-a.txt -t @"))
             .assert()
             .success();
     });

@@ -80,10 +80,10 @@ worktree rests on — another worktree's commit included, lanes nest recursively
 its own below the stacks when it rests outside the workspace.
 The lane lists that checkout's uncommitted files and the commits the worktree owns; in `--json`
 they appear in a top-level `worktrees` array. The worktree ID on the heading names its whole
-uncommitted area the way `zz` names the main worktree's, and `<worktree-name>:<path>` scopes a
-filename to that checkout — `zz:<path>` keeps meaning the main worktree. A filename dirty in
+uncommitted area the way `@` names the main worktree's, and `<worktree-name>:<path>` scopes a
+filename to that checkout — `@:<path>` keeps meaning the main worktree. A filename dirty in
 several checkouts at once is ambiguous; the error suggests the scoped forms. A worktree file or
-heading ID — like `zz` for the main checkout — works as a `but commit` change and a `but amend`
+heading ID — like `@` for the main checkout — works as a `but commit` change and a `but amend`
 source: the change lands on the target and leaves that worktree's uncommitted area. Without a
 target flag, worktree changes commit to the tip of the worktree's own branch; an explicit target
 commit or branch does not have to be the worktree's own. One operation reads from one checkout
@@ -148,7 +148,7 @@ but move feature/frontend --unstack
 ## The Editing Model
 
 History editing is expressed as *sources* and a *target*. Sources are positional CLI IDs; the target
-is a flag. `zz` is a special ID meaning "the uncommitted area".
+is a flag. `@` is a special ID meaning "the uncommitted area".
 
 `but squash` carries most of the model — what it does depends on the kinds you combine:
 
@@ -159,14 +159,14 @@ is a flag. `zz` is a special ID meaning "the uncommitted area".
 | Commit(s)        | Branch        | Squash into the branch's newest   | `but squash mm -t <branch-name> -m "…"` |
 | Branch           | *(none)*      | Squash the branch into one commit | `but squash <branch-name> -m "…"`       |
 | Uncommitted file | Commit        | Amend the change into a commit    | `but squash a1 -t nn`         |
-| `zz`             | Commit        | Amend everything into a commit    | `but squash zz -t nn`         |
-| Commit           | `zz`          | Uncommit the commit               | `but squash mm -t zz`         |
-| Branch           | `zz`          | Uncommit and remove the branch    | `but squash <branch-name> -t zz`         |
+| `@`              | Commit        | Amend everything into a commit    | `but squash @ -t nn`                     |
+| Commit           | `@`           | Uncommit the commit               | `but squash mm -t @`                     |
+| Branch           | `@`           | Uncommit and remove the branch    | `but squash <branch-name> -t @`          |
 | Committed file   | Commit        | Move the file to another commit   | `but squash nn:a -t mm`       |
 
-**Message flags:** commits or branches compose a NEW message unless the target is `zz`, so without
+**Message flags:** commits or branches compose a NEW message unless the target is `@`, so without
 `-m` they open an editor and block — always pass one. The remaining rows reuse the target's message
-and need no flag, and `-t zz` rejects message flags outright.
+and need no flag, and `-t @` rejects message flags outright.
 
 The two amend rows overlap with `but amend` — prefer `but amend -t nn a1`, which does only that and
 takes the same IDs. Reach for `squash` when the sources are commits, branches, or committed files,

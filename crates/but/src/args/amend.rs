@@ -22,7 +22,7 @@ pub struct Platform {
 
     /// One or more uncommitted files or hunks to amend.
     ///
-    /// If omitted, all changes in the uncommitted area (`zz`) are amended.
+    /// If omitted, all changes in the uncommitted area (`@`) are amended.
     pub sources: Vec<CliIdArg>,
 
     #[clap(flatten)]

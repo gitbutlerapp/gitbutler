@@ -18,7 +18,7 @@ fn branch_key_from_uncommitted_creates_new_branch() {
     let mut tui = test_status_tui(env);
 
     tui.reload()
-        .assert_current_line_eq(str!["╭┄ zz [uncommitted] (no changes)"]);
+        .assert_current_line_eq(str!["╭┄ @ [uncommitted] (no changes)"]);
 
     tui.input('b');
     tui.input('n')
@@ -104,7 +104,7 @@ fn deleted_branch_name_can_be_reused_without_restoring_old_branch() {
     tui.input('y');
 
     tui.reload()
-        .assert_current_line_eq(str!["╭┄ zz [uncommitted] (no changes)"]);
+        .assert_current_line_eq(str!["╭┄ @ [uncommitted] (no changes)"]);
 
     tui.input('b');
     tui.input('n')
@@ -348,7 +348,7 @@ fn discard_marked_branches_from_branch_mode() {
 
     let mut tui = test_status_tui(env);
 
-    // we can enter branch mode on `zz [uncommitted]` so ensure it isn't markable
+    // we can enter branch mode on `@ [uncommitted]` so ensure it isn't markable
     tui.input('b');
     tui.input(' ').assert_rendered_term_svg_eq(file![
         "snapshots/discard_marked_branches_from_branch_mode_001.svg"

@@ -104,7 +104,7 @@
 				"type": "output",
 				"delay": 1500,
 				"lines": [
-					"╭┄<span class='t-blue'>zz</span> [<span class='t-green'>unstaged changes</span>]</span>",
+					"╭┄<span class='t-blue'>@</span> [<span class='t-green'>unstaged changes</span>]</span>",
 					"┊     <span class='t-dim'>no changes</span>",
 					"┊",
 					"┊╭┄<span class='t-blue'>li</span> [<span class='t-green'>liked-tweets</span>]",

@@ -88,7 +88,7 @@ fn uncommit_different_files_from_the_same_commit() {
         .success()
         .stderr_eq(str![])
         .stdout_eq(str![[r#"
-╭┄ zz [uncommitted] (no changes)
+╭┄ @ [uncommitted] (no changes)
 ┊
 ┊╭┄ g0 [A]
 ┊●   1 add c1 and c2
@@ -140,7 +140,7 @@ Uncommitted from 1
         .success()
         .stderr_eq(str![])
         .stdout_eq(str![[r#"
-╭┄ zz [uncommitted]
+╭┄ @ [uncommitted]
 ┊   ls A c1.txt
 ┊   wy A c2.txt
 ┊
@@ -308,7 +308,7 @@ fn uncommit_branches() {
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
-╭┄ zz [uncommitted] (no changes)
+╭┄ @ [uncommitted] (no changes)
 ┊
 ┊╭┄ g0 [A]
 ┊●   tpm add A
@@ -342,7 +342,7 @@ Uncommitted 'A', 'B', 'C'
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
-╭┄ zz [uncommitted]
+╭┄ @ [uncommitted]
 ┊   tm A A
 ┊   pl A B
 ┊   wx A C
@@ -359,7 +359,7 @@ Hint: run `but branch new` to create a new branch to work on
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
-╭┄ zz [uncommitted] (no changes)
+╭┄ @ [uncommitted] (no changes)
 ┊
 ┊╭┄ g0 [A]
 ┊●   tpm add A

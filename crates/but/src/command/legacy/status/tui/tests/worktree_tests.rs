@@ -66,7 +66,7 @@ fn worktree_lane_is_navigable() {
     let (mut tui, _editor) = worktree_tui();
 
     tui.reload()
-        .assert_current_line_eq(str!["╭┄ zz [uncommitted] (no changes)"]);
+        .assert_current_line_eq(str!["╭┄ @ [uncommitted] (no changes)"]);
     tui.input(KeyCode::Down)
         .assert_current_line_eq(str!["┊╭┄ g0 [A]"]);
     tui.input(KeyCode::Down)
@@ -116,7 +116,7 @@ fn remember_selection_on_worktree_heading() {
         .assert_current_line_eq(str!["┊┊╭┄ wt {wt-branch}"]);
 }
 
-/// A worktree heading names that checkout's uncommitted area, the way `zz` names the main
+/// A worktree heading names that checkout's uncommitted area, the way `@` names the main
 /// worktree's, so `c` on it offers those changes as a commit source.
 #[test]
 fn commit_source_from_a_worktree_heading() {
@@ -213,10 +213,10 @@ fn commit_a_main_worktree_change_onto_a_worktree() {
 
     tui.env().file("main-file.txt", "content");
     tui.reload()
-        .assert_current_line_eq(str!["╭┄ zz [uncommitted]"]);
+        .assert_current_line_eq(str!["╭┄ @ [uncommitted]"]);
 
     tui.input('c')
-        .assert_current_line_eq(str!["╭┄ << source >> << noop >> zz [uncommitted]"]);
+        .assert_current_line_eq(str!["╭┄ << source >> << noop >> @ [uncommitted]"]);
 
     tui.input([KeyCode::Down, KeyCode::Down])
         .assert_current_line_eq(str!["┊┊╭┄ wt {wt-branch}"]);
@@ -251,7 +251,7 @@ fn marks_spanning_checkouts_are_refused() {
 
     tui.env().file("main-file.txt", "content");
     tui.reload()
-        .assert_current_line_eq(str!["╭┄ zz [uncommitted]"]);
+        .assert_current_line_eq(str!["╭┄ @ [uncommitted]"]);
 
     // Mark the main worktree's file and the linked worktree's file.
     tui.input(KeyCode::Down)

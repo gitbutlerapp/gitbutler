@@ -123,7 +123,7 @@ fn can_undo_but_discard_file_modifications() {
     env.file("first", "This is new stuff");
 
     run_mutate_undo_roundtrip_test(&env, |env| {
-        env.but("discard zz").assert().success();
+        env.but("discard @").assert().success();
     });
 }
 
@@ -135,7 +135,7 @@ fn can_undo_but_discard_new_file() {
     env.file("totally_new_file", "This is new stuff");
 
     run_mutate_undo_roundtrip_test(&env, |env| {
-        env.but("discard zz").assert().success();
+        env.but("discard @").assert().success();
     });
 }
 
@@ -148,7 +148,7 @@ fn can_undo_but_discard_deletion() {
     std::fs::remove_file(&filepath).expect("must be able to delete file");
 
     run_mutate_undo_roundtrip_test(&env, |env| {
-        env.but("discard zz").assert().success();
+        env.but("discard @").assert().success();
     });
 }
 
@@ -162,7 +162,7 @@ fn can_undo_but_discard_rename() {
     std::fs::rename(&filepath, &new_filepath).expect("must be able to move file");
 
     run_mutate_undo_roundtrip_test(&env, |env| {
-        env.but("discard zz").assert().success();
+        env.but("discard @").assert().success();
     });
 }
 
@@ -562,7 +562,7 @@ fn can_undo_but_switch_branch() {
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
-╭┄ zz [uncommitted] (no changes)
+╭┄ @ [uncommitted] (no changes)
 ┊
 ┊╭┄ g0 [A]
 ┊●   tpm add A
@@ -590,7 +590,7 @@ Hint: run `but help` for all commands
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
-╭┄ zz [uncommitted] (no changes)
+╭┄ @ [uncommitted] (no changes)
 ┊
 ┊╭┄ g0 [A]
 ┊●   tpm add A
@@ -632,7 +632,7 @@ fn can_undo_but_switch_workspace_with_workspace_already_existing() {
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
-╭┄ zz [uncommitted] (no changes)
+╭┄ @ [uncommitted] (no changes)
 ┊
 ┊╭┄ g0 [C]
 ┊●   1#0 add C (no changes)
@@ -658,7 +658,7 @@ Hint: run `but help` for all commands
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
-╭┄ zz [uncommitted] (no changes)
+╭┄ @ [uncommitted] (no changes)
 ┊
 ┊╭┄ g0 [A]
 ┊●   1 add A (no changes)
@@ -677,7 +677,7 @@ Hint: run `but help` for all commands
             .assert()
             .success()
             .stdout_eq(snapbox::str![[r#"
-╭┄ zz [uncommitted] (no changes)
+╭┄ @ [uncommitted] (no changes)
 ┊
 ┊╭┄ g0 [C]
 ┊●   1#0 add C (no changes)
@@ -713,7 +713,7 @@ fn can_undo_but_switch_workspace_with_workspace_not_already_existing() {
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
-╭┄ zz [uncommitted] (no changes)
+╭┄ @ [uncommitted] (no changes)
 ┊
 ┊╭┄ my [my-branch]
 ┊●   1 make a commit (no changes)
