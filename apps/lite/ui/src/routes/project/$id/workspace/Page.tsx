@@ -343,9 +343,6 @@ const PageBody: FC<{ projectId: string }> = ({ projectId }) => {
 		else dispatch(interfaceSlice.actions.closeDialog());
 	};
 
-	// Owned here rather than by the picker's footer button: the flow outlives
-	// the dialog, which unmounts on close.
-
 	const setSettingsOpen = (open: boolean) => {
 		if (open) dispatch(interfaceSlice.actions.openDialog({ dialog: { _tag: "Settings" } }));
 		else dispatch(interfaceSlice.actions.closeDialog());
