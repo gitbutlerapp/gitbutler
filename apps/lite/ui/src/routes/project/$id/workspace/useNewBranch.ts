@@ -1,4 +1,5 @@
 import { useBranchCheckoutNew, useBranchCreate } from "#ui/api/mutations.ts";
+import { operatingModeQueryOptions } from "#ui/api/queries.ts";
 import { toElectronAccelerator, workspaceHotkeys } from "#ui/hotkeys.ts";
 import { nativeMenuItem, type NativeMenuItem } from "#ui/native-menu.ts";
 import { branchAddress } from "#ui/addresses.ts";
@@ -6,6 +7,7 @@ import { focusScope } from "#ui/focus-scopes.ts";
 import { setCursor, setPage } from "#ui/use-cursor.ts";
 import { projectSlice } from "#ui/projects/state.ts";
 import { useAppSelector } from "#ui/store.ts";
+import { useQuery } from "@tanstack/react-query";
 
 export type NewBranchActions = {
 	menuItems: Array<NativeMenuItem>;
@@ -13,6 +15,8 @@ export type NewBranchActions = {
 	isPending: boolean;
 	/** Whether a branch can be started at all, for the trigger's disabled state. */
 	enabled: boolean;
+	/** Whether the current workspace can accept another independent branch. */
+	canCreateInWorkspace: boolean;
 	/** The plain create, for the hotkey that skips the menu. */
 	createInWorkspace: () => void;
 	createAndSwitch: () => void;
@@ -30,6 +34,10 @@ export type NewBranchActions = {
  * while a menu's is still landing.
  */
 export const useNewBranch = (projectId: string): NewBranchActions => {
+	const { data: isOpenWorkspace } = useQuery({
+		...operatingModeQueryOptions(projectId),
+		select: (headAndMode) => headAndMode.operatingMode.type === "OpenWorkspace",
+	});
 	// Read here rather than taken from callers: a sidebar busy with a transfer
 	// or an absorb is no place to start a branch from, and that is true of every
 	// trigger rather than something each one should have to remember.
@@ -38,6 +46,9 @@ export const useNewBranch = (projectId: string): NewBranchActions => {
 	);
 	const { isPending: isCreatePending, mutate: branchCreate } = useBranchCreate();
 	const { isPending: isCheckoutPending, mutate: branchCheckoutNew } = useBranchCheckoutNew();
+	const isPending = isCreatePending || isCheckoutPending;
+	const enabled = noOperationPending && !isPending;
+	const canCreateInWorkspace = isOpenWorkspace === true && enabled;
 
 	const createInWorkspace = () => {
 		branchCreate(
@@ -65,7 +76,7 @@ export const useNewBranch = (projectId: string): NewBranchActions => {
 		menuItems: [
 			nativeMenuItem({
 				label: "New Branch in Workspace",
-				enabled: noOperationPending && !isCreatePending,
+				enabled: canCreateInWorkspace,
 				accelerator: toElectronAccelerator(workspaceHotkeys.createIndependentBranch.hotkey),
 				onSelect: createInWorkspace,
 			}),
@@ -76,8 +87,9 @@ export const useNewBranch = (projectId: string): NewBranchActions => {
 				onSelect: createAndSwitch,
 			}),
 		],
-		isPending: isCreatePending || isCheckoutPending,
-		enabled: noOperationPending && !isCreatePending && !isCheckoutPending,
+		isPending,
+		enabled,
+		canCreateInWorkspace,
 		createInWorkspace,
 		createAndSwitch,
 	};

@@ -197,7 +197,7 @@ export const Sidebar: FC<{
 			callback: newBranch.createInWorkspace,
 			options: {
 				conflictBehavior: "allow",
-				enabled: canCreateBranch,
+				enabled: newBranch.canCreateInWorkspace,
 				meta: workspaceHotkeys.createIndependentBranch.meta,
 				requireReset: true,
 			},
