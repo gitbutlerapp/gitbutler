@@ -15,7 +15,9 @@ import {
 } from "./setup.ts";
 
 type TestOptions = {
+	environmentVariables: Record<string, string | undefined>;
 	scenario: string | null;
+	useLoginShell: boolean;
 };
 
 type TestFixtures = {
@@ -30,7 +32,9 @@ const require = createRequire(import.meta.url);
 const electronPath = require("electron") as string;
 
 export const test = base.extend<TestOptions & TestFixtures>({
+	environmentVariables: [{}, { option: true }],
 	scenario: [null, { option: true }],
+	useLoginShell: [false, { option: true }],
 	// Playwright requires an object binding pattern even for fixtures without dependencies.
 	// oxlint-disable-next-line no-empty-pattern
 	mainProcessLogs: async ({}, provide) => {
@@ -45,7 +49,10 @@ export const test = base.extend<TestOptions & TestFixtures>({
 			removeLiteTestEnvironment(environment);
 		}
 	},
-	electronApp: async ({ headless, mainProcessLogs, testEnvironment }, provide) => {
+	electronApp: async (
+		{ environmentVariables, headless, mainProcessLogs, testEnvironment, useLoginShell },
+		provide,
+	) => {
 		const app = await _electron.launch({
 			executablePath: electronPath,
 			args: [`--user-data-dir=${testEnvironment.electronUserDataDir}`, paths.electronMain],
@@ -53,7 +60,10 @@ export const test = base.extend<TestOptions & TestFixtures>({
 				E2E_TEST_APP_DATA_DIR: testEnvironment.appDataDir,
 				GIT_CONFIG_GLOBAL: testEnvironment.gitConfig,
 				GITBUTLER_LITE_HEADLESS: String(headless),
+				SHELL: useLoginShell ? testEnvironment.loginShell : process.env.SHELL,
 				VITE_DEV_SERVER_URL: "http://127.0.0.1:5173",
+				...(useLoginShell ? { TERM: undefined } : {}),
+				...environmentVariables,
 			}),
 		});
 		app.on("console", (message) =>

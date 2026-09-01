@@ -27,6 +27,16 @@ export declare function addReviewLabels(projectId: string, reviewId: number, lab
 /** Add the caller's reaction to a review itself. */
 export declare function addReviewReaction(projectId: string, reviewId: number, kind: string): Promise<ForgeReviewReaction>
 
+/** Describes how the application startup environment was initialized. */
+export declare const enum ApplicationEnvironment {
+  /** The environment inherited from a terminal launch was preserved. */
+  Inherited = 'inherited',
+  /** The user's interactive login-shell environment was imported. */
+  Imported = 'imported',
+  /** The login-shell environment was unavailable, so the inherited environment was preserved. */
+  Unavailable = 'unavailable'
+}
+
 /**
  * Applies `existing_branch` using the behavior described by
  * [`apply_with_perm()`].
@@ -618,6 +628,14 @@ export declare function gitTestFetch(projectId: string, remoteName: string, acti
 export declare function gitTestPush(projectId: string, remoteName: string, branchName: string): Promise<void>
 
 export declare function headInfo(projectId: string): Promise<RefInfo>
+
+/**
+ * Initialize the environment inherited by backend child processes.
+ *
+ * Applications embedding the SDK must call this once during startup, before invoking other
+ * backend APIs or launching child processes.
+ */
+export declare function initApplicationEnvironment(): Promise<ApplicationEnvironment>
 
 /**
  * Initialize the secret namespace used by build-kind scoped credentials.

@@ -1,5 +1,13 @@
 import { spawn } from "node:child_process";
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import {
+	chmodSync,
+	existsSync,
+	mkdirSync,
+	mkdtempSync,
+	readFileSync,
+	rmSync,
+	writeFileSync,
+} from "node:fs";
 import os from "node:os";
 import path from "node:path";
 
@@ -11,11 +19,14 @@ export type LiteTestEnvironment = {
 	appDataDir: string;
 	electronUserDataDir: string;
 	gitConfig: string;
+	loginShell: string;
 	rootDir: string;
 	workdir: string;
 };
 
-export const processEnvironment = (overrides: Record<string, string>): Record<string, string> =>
+export const processEnvironment = (
+	overrides: Record<string, string | undefined>,
+): Record<string, string> =>
 	Object.fromEntries(
 		Object.entries({ ...process.env, ...overrides }).filter(
 			(entry): entry is [string, string] => entry[1] !== undefined,
@@ -27,6 +38,10 @@ export const createLiteTestEnvironment = (): LiteTestEnvironment => {
 	const appDataDir = path.join(rootDir, "app-data");
 	const electronUserDataDir = path.join(rootDir, "electron-user-data");
 	const gitConfig = path.join(rootDir, "gitconfig");
+	const loginShell = path.join(
+		rootDir,
+		process.platform === "win32" ? "login-shell.cmd" : "login-shell",
+	);
 	const workdir = path.join(rootDir, "workdir");
 
 	for (const directory of [appDataDir, electronUserDataDir, workdir])
@@ -42,8 +57,14 @@ export const createLiteTestEnvironment = (): LiteTestEnvironment => {
 		path.join(electronUserDataDir, "settings.json"),
 		JSON.stringify({ version: 1, autoUpdate: false, theme: "light" }, null, "\t"),
 	);
+	if (process.platform === "win32") {
+		writeFileSync(loginShell, "@echo off\r\nset GITBUTLER_LOGIN_SHELL_IMPORTED=1\r\nset\r\n");
+	} else {
+		writeFileSync(loginShell, "#!/bin/sh\nGITBUTLER_LOGIN_SHELL_IMPORTED=1 env\n");
+		chmodSync(loginShell, 0o755);
+	}
 
-	return { appDataDir, electronUserDataDir, gitConfig, rootDir, workdir };
+	return { appDataDir, electronUserDataDir, gitConfig, loginShell, rootDir, workdir };
 };
 
 export const removeLiteTestEnvironment = (environment: LiteTestEnvironment): void => {

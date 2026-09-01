@@ -16,6 +16,7 @@ import {
 import {
 	askpassInit,
 	askpassSubmitPromptResponse,
+	initApplicationEnvironment,
 	initApplicationNamespace,
 } from "@gitbutler/but-sdk";
 import {
@@ -572,6 +573,7 @@ if (!app.requestSingleInstanceLock()) {
 }
 
 void app.whenReady().then(async () => {
+	await initApplicationEnvironment();
 	applyGUISettings(await readSettings());
 	await initApplicationNamespace(null);
 	configureAskpass();

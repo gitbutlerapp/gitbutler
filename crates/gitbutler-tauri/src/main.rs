@@ -130,7 +130,7 @@ fn main() -> anyhow::Result<()> {
                 logs::init(app_handle, &app_log_dir, performance_logging, tokio_debug);
 
                 but_action::cli::auto_fix_broken_but_cli_symlink();
-                inherit_interactive_login_shell_environment_if_not_launched_from_terminal();
+                initialize_application_environment();
                 migrate_projects().ok();
 
                 tracing::info!(
@@ -442,32 +442,19 @@ fn migrate_projects() -> anyhow::Result<()> {
     Ok(())
 }
 
-/// Launch a shell as interactive login shell, similar to what a login terminal would do if we are not already in a terminal.
-///
-/// That way, each process launched by the backend will act similar to what users would get in their terminal,
-/// something vital to act more similar to Git, which is also launched from an interactive shell most of the time.
-fn inherit_interactive_login_shell_environment_if_not_launched_from_terminal() {
-    if std::env::var_os("TERM").is_some() {
-        tracing::info!(
-            "TERM is set - assuming the app is run from a terminal with suitable environment variables"
-        );
-        return;
-    }
-
+fn initialize_application_environment() {
     fn doit() {
-        if let Some(terminal_vars) = but_core::cmd::extract_interactive_login_shell_environment() {
-            tracing::info!(
+        match but_api::platform::init_application_environment() {
+            Ok(but_api::platform::ApplicationEnvironment::Inherited) => tracing::info!(
+                "TERM is set - assuming the app is run from a terminal with suitable environment variables"
+            ),
+            Ok(but_api::platform::ApplicationEnvironment::Imported) => tracing::info!(
                 "Inheriting static interactive shell environment, valid for the entire runtime of the application"
-            );
-            for (key, value) in terminal_vars {
-                unsafe {
-                    std::env::set_var(key, value);
-                }
-            }
-        } else {
-            tracing::info!(
+            ),
+            Ok(but_api::platform::ApplicationEnvironment::Unavailable) => tracing::info!(
                 "SHELL variable isn't set - launching with default GUI application environment "
-            );
+            ),
+            Err(err) => tracing::warn!(%err, "Failed to initialize the application environment"),
         }
     }
     if cfg!(windows) {

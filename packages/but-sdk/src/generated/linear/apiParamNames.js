@@ -73,6 +73,7 @@ export const apiParamNames = {
 	gitTestFetch: ["projectId", "remoteName", "action"],
 	gitTestPush: ["projectId", "remoteName", "branchName"],
 	headInfo: ["projectId"],
+	initApplicationEnvironment: [],
 	initApplicationNamespace: ["identifier"],
 	initGithubDeviceOauth: [],
 	listAvailableReviewTemplates: ["projectId"],

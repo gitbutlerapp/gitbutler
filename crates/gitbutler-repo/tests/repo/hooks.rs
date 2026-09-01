@@ -2,6 +2,8 @@ use std::fs;
 #[cfg(unix)]
 use std::os::unix::fs::PermissionsExt;
 use std::path::Path;
+#[cfg(unix)]
+use std::process::Command;
 
 use crate::support::RepoWithOrigin;
 use but_ctx::{Context, RepoOpenMode};
@@ -18,6 +20,72 @@ fn context_for_repo(workdir: &Path) -> Context {
     )
     .expect("can create context")
     .with_memory_app_cache()
+}
+
+#[cfg(unix)]
+#[test]
+fn pre_push_hook_inherits_application_path() -> anyhow::Result<()> {
+    const CHILD_MARKER: &str = "GITBUTLER_PRE_PUSH_PATH_TEST_CHILD";
+    const ARGS_OUTPUT: &str = "GITBUTLER_PRE_PUSH_PATH_TEST_ARGS";
+    const INPUT_OUTPUT: &str = "GITBUTLER_PRE_PUSH_PATH_TEST_INPUT";
+
+    if std::env::var_os(CHILD_MARKER).is_none() {
+        let test_project = RepoWithOrigin::default();
+        let workdir = test_project.local_repo.workdir().expect("non-bare");
+        let bin_dir = workdir.join("login-shell-bin");
+        let tool_path = bin_dir.join("gitbutler-hook-path-tool");
+        let args_path = workdir.join("hook-path-args");
+        let input_path = workdir.join("hook-path-input");
+        fs::create_dir_all(&bin_dir)?;
+        fs::write(
+            &tool_path,
+            "#!/bin/sh\nprintf '%s\\n' \"$*\" > \"$GITBUTLER_PRE_PUSH_PATH_TEST_ARGS\"\ncat > \"$GITBUTLER_PRE_PUSH_PATH_TEST_INPUT\"\n",
+        )?;
+        fs::set_permissions(&tool_path, fs::Permissions::from_mode(0o755))?;
+
+        let path = std::env::join_paths(std::iter::once(bin_dir).chain(std::env::split_paths(
+            &std::env::var_os("PATH").unwrap_or_default(),
+        )))?;
+        let result = Command::new(std::env::current_exe()?)
+            .args(["--exact", "hooks::pre_push_hook_inherits_application_path"])
+            .env(CHILD_MARKER, "1")
+            .env(ARGS_OUTPUT, &args_path)
+            .env(INPUT_OUTPUT, &input_path)
+            .env("PATH", path)
+            .output()?;
+
+        assert!(
+            result.status.success(),
+            "child hook test failed:\nstdout:\n{}\nstderr:\n{}",
+            String::from_utf8_lossy(&result.stdout),
+            String::from_utf8_lossy(&result.stderr)
+        );
+        assert_eq!(
+            fs::read_to_string(args_path)?,
+            "origin https://github.com/test/repo.git\n"
+        );
+        assert_pre_push_input(&fs::read_to_string(input_path)?);
+        return Ok(());
+    }
+
+    let test_project = RepoWithOrigin::default();
+    let repo = open_repo(test_project.local_repo.path())?;
+    let hook_path = repo.path().join("hooks/pre-push");
+    fs::write(&hook_path, "#!/bin/sh\ngitbutler-hook-path-tool \"$@\"\n")?;
+    fs::set_permissions(&hook_path, fs::Permissions::from_mode(0o755))?;
+
+    assert_eq!(
+        pre_push(
+            &repo,
+            "origin",
+            "https://github.com/test/repo.git",
+            repo.head_id()?.detach(),
+            &gitbutler_reference::RemoteRefname::new("origin", "master"),
+            true,
+        )?,
+        HookResult::Success
+    );
+    Ok(())
 }
 
 #[test]
@@ -141,14 +209,15 @@ fn pre_push_hook_success() -> anyhow::Result<()> {
 
     let input = std::fs::read_to_string(repo.workdir().expect("non-bare").join("hook.input"))
         .expect("test-hook to pipe its output");
-    let expected_pattern = "refs/heads/master ???????????????????????????????????????? refs/remotes/origin/master ????????????????????????????????????????\n";
-    let is_required_format = gix::glob::wildmatch(
-        expected_pattern.into(),
-        input.as_str().into(),
-        Default::default(),
-    );
-    assert!(is_required_format, "must match: {expected_pattern}");
+    assert_pre_push_input(&input);
     Ok(())
+}
+
+fn assert_pre_push_input(input: &str) {
+    let expected_pattern = "refs/heads/master ???????????????????????????????????????? refs/remotes/origin/master ????????????????????????????????????????\n";
+    let is_required_format =
+        gix::glob::wildmatch(expected_pattern.into(), input.into(), Default::default());
+    assert!(is_required_format, "must match: {expected_pattern}");
 }
 
 #[test]
