@@ -18,7 +18,7 @@
 	import { isExecutableStatus } from "$lib/hunks/change";
 	import { DIFF_SERVICE } from "$lib/hunks/diffService.svelte";
 	import { FILE_SELECTION_MANAGER } from "$lib/selection/fileSelectionManager.svelte";
-	import { type SelectionId } from "$lib/selection/key";
+	import { readKey, stableSelectionKey as idKey, type SelectionId } from "$lib/selection/key";
 	import { ScrollSelectionLock } from "$lib/selection/scrollSelectionLock.svelte";
 	import { UI_STATE } from "$lib/state/uiState.svelte";
 	import { inject } from "@gitbutler/core/context";
@@ -72,14 +72,32 @@
 
 	let virtualList = $state<VirtualList<TreeChange>>();
 	let highlightedIndex = $state<number | undefined>(untrack(() => startIndex));
+	let jump = $state.raw<[TreeChange[], ReturnType<typeof idKey>, string | undefined]>();
+	const lastAdded = $derived(idSelection.getById(selectionId).lastAdded);
+	const path = $derived($lastAdded ? readKey($lastAdded.key).path : undefined);
+	const own = $derived(jump?.[0] === changes && jump[1] === idKey(selectionId) && jump[2] === path);
+	const currentHighlightedIndex = $derived.by(() => {
+		if (changes.length === 0) return undefined;
+		const selectedIndex = own ? -1 : changes.findIndex((c) => c.path === path);
+		const fallback = highlightedIndex ?? startIndex ?? 0;
+		return selectedIndex >= 0 ? selectedIndex : Math.min(Math.max(fallback, 0), changes.length - 1);
+	});
 	// Prevents VirtualList scroll events from overwriting a user-clicked selection.
 	const scrollLock = new ScrollSelectionLock(getInitialLockedIndex());
+	$effect.pre(() => {
+		if (jump && !own) jump = undefined;
+		const index = currentHighlightedIndex;
+		if (index === undefined || index === untrack(() => highlightedIndex)) return;
+		scrollLock.set((highlightedIndex = index));
+		untrack(() => virtualList)?.jumpToIndex(index);
+	});
 	let floatingDiffOpen = $state(false);
 	let floatingDiffInitialIndex = $state(0);
 	let contextMenu = $state<ChangedFilesContextMenu>();
 	let activeMenuPath = $state<string | undefined>();
 
 	export function jumpToIndex(index: number) {
+		jump = [changes, idKey(selectionId), path];
 		highlightedIndex = index;
 		scrollLock.set(index);
 		if (allInOneDiff) {
@@ -99,10 +117,7 @@
 		icon="pop-out-bottom-right"
 		size="tag"
 		tooltip="Pop out diff view"
-		onclick={() => {
-			floatingDiffInitialIndex = highlightedIndex ?? startIndex ?? 0;
-			floatingDiffOpen = true;
-		}}
+		onclick={openFloatingDiff}
 	/>
 {/snippet}
 
@@ -209,7 +224,7 @@
 			}}
 		/>
 		{#if !allInOneDiff}
-			{@const index = highlightedIndex ?? startIndex ?? 0}
+			{@const index = currentHighlightedIndex ?? 0}
 			{@const change = changes[index]}
 			{#if change}
 				<div class="single-diff-view" data-remove-from-panning>
@@ -219,7 +234,7 @@
 		{:else}
 			<VirtualList
 				bind:this={virtualList}
-				{startIndex}
+				startIndex={currentHighlightedIndex}
 				grow
 				items={changes}
 				defaultHeight={173}
