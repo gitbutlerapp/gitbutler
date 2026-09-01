@@ -1,14 +1,21 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="820" height="380" viewBox="0 0 820 380">
   <rect x="0" y="0" width="820" height="380" fill="#000000" />
   <rect x="10" y="10" width="400" height="18" fill="#45475A" />
-  <rect x="418" y="154" width="392" height="18" fill="#004100" />
+  <rect x="18" y="28" width="16" height="18" fill="#0000AA" />
+  <rect x="18" y="46" width="16" height="18" fill="#0000AA" />
+  <rect x="426" y="64" width="16" height="18" fill="#0000AA" />
+  <rect x="418" y="154" width="392" height="18" fill="#2D5B2D" />
+  <rect x="418" y="172" width="392" height="18" fill="#353747" />
+  <rect x="418" y="190" width="392" height="18" fill="#353747" />
+  <rect x="418" y="208" width="392" height="18" fill="#353747" />
+  <rect x="426" y="262" width="16" height="18" fill="#0000AA" />
   <rect x="10" y="352" width="80" height="18" fill="#555555" />
   <g font-family="Menlo, Monaco, 'Courier New', monospace" font-size="14" xml:space="preserve">
     <text x="10 18" y="24" style="fill:#FFFFFF;font-weight:bold;">╭┄</text>
-    <text x="34 42" y="24" style="fill:#0000AA;font-weight:bold;">zz</text>
-    <text x="58" y="24" style="fill:#FFFFFF;font-weight:bold;">[</text>
-    <text x="66 74 82 90 98 106 114 122 130 138 146" y="24" style="fill:#00AAAA;font-weight:bold;">uncommitted</text>
-    <text x="154" y="24" style="fill:#FFFFFF;font-weight:bold;">]</text>
+    <text x="34" y="24" style="fill:#0000AA;font-weight:bold;">@</text>
+    <text x="50" y="24" style="fill:#FFFFFF;font-weight:bold;">[</text>
+    <text x="58 66 74 82 90 98 106 114 122 130 138" y="24" style="fill:#00AAAA;font-weight:bold;">uncommitted</text>
+    <text x="146" y="24" style="fill:#FFFFFF;font-weight:bold;">]</text>
     <text x="410" y="24" style="fill:#555555;">│</text>
     <text x="418" y="24" style="fill:#CCCCCC;">2</text>
     <text x="434 442 450 458 466" y="24" style="fill:#CCCCCC;">files</text>
@@ -17,32 +24,35 @@
     <text x="578 586" y="24" style="fill:#AA0000;">-1</text>
     <text x="802" y="24" style="fill:#555555;">█</text>
     <text x="10" y="42" style="fill:#CCCCCC;">┊</text>
+    <text x="18" y="42" style="fill:#000000;">✔︎</text>
     <text x="42 50" y="42" style="fill:#0000AA;font-weight:bold;">qs</text>
     <text x="66" y="42" style="fill:#CCCCCC;">M</text>
     <text x="82 90 98 106" y="42" style="fill:#AA5500;">file</text>
     <text x="410" y="42" style="fill:#555555;">│</text>
     <text x="802" y="42" style="fill:#555555;">█</text>
     <text x="10" y="60" style="fill:#CCCCCC;">┊</text>
+    <text x="18" y="60" style="fill:#000000;">✔︎</text>
     <text x="42 50" y="60" style="fill:#0000AA;font-weight:bold;">tw</text>
     <text x="66" y="60" style="fill:#CCCCCC;">A</text>
     <text x="82 90 98 106 114 122 130 138" y="60" style="fill:#00AA00;">new-file</text>
-    <text x="410 418 426 434 442 450 458 466 474 482 490 498 506" y="60" style="fill:#555555;">│───────────╮</text>
+    <text x="410 418 426 434 442 450 458 466 474 482 490 498 506 514 522 530" y="60" style="fill:#555555;">│──────────────╮</text>
     <text x="802" y="60" style="fill:#555555;">█</text>
     <text x="10" y="78" style="fill:#CCCCCC;">┊</text>
     <text x="410" y="78" style="fill:#555555;">│</text>
-    <text x="426 434 442 450" y="78" style="fill:#0000AA;">qs:9</text>
-    <text x="466 474 482 490" y="78" style="fill:#CCCCCC;">file</text>
-    <text x="506" y="78" style="fill:#555555;">│</text>
+    <text x="426" y="78" style="fill:#000000;">✔︎</text>
+    <text x="450 458 466 474" y="78" style="fill:#0000AA;">qs:9</text>
+    <text x="490 498 506 514" y="78" style="fill:#CCCCCC;">file</text>
+    <text x="530" y="78" style="fill:#555555;">│</text>
     <text x="802" y="78" style="fill:#555555;">█</text>
     <text x="10 18 26" y="96" style="fill:#CCCCCC;">┊╭┄</text>
-    <text x="42 50" y="96" style="fill:#0000AA;font-weight:bold;">br</text>
-    <text x="66" y="96" style="fill:#CCCCCC;">[</text>
-    <text x="74 82 90 98 106 114 122 130 138 146" y="96" style="fill:#00AA00;">c-branch-1</text>
-    <text x="154" y="96" style="fill:#CCCCCC;">]</text>
-    <text x="410 418 426 434 442 450 458 466 474 482 490 498 506" y="96" style="fill:#555555;">│───────────╯</text>
+    <text x="42 50" y="96" style="fill:#0000AA;font-weight:bold;opacity:0.75;">br</text>
+    <text x="66" y="96" style="fill:#CCCCCC;opacity:0.75;">[</text>
+    <text x="74 82 90 98 106 114 122 130 138 146" y="96" style="fill:#00AA00;opacity:0.75;">c-branch-1</text>
+    <text x="154" y="96" style="fill:#CCCCCC;opacity:0.75;">]</text>
+    <text x="410 418 426 434 442 450 458 466 474 482 490 498 506 514 522 530" y="96" style="fill:#555555;">│──────────────╯</text>
     <text x="802" y="96" style="fill:#555555;">█</text>
     <text x="10 18" y="114" style="fill:#CCCCCC;">┊●</text>
-    <text x="50" y="114" style="fill:#AA00AA;">1</text>
+    <text x="50" y="114" style="fill:#AA00AA;opacity:0.75;">1</text>
     <text x="66 74 82" y="114" style="fill:#CCCCCC;opacity:0.75;">(no</text>
     <text x="98 106 114 122 130 138" y="114" style="fill:#CCCCCC;opacity:0.75;">commit</text>
     <text x="154 162 170 178 186 194 202 210" y="114" style="fill:#CCCCCC;opacity:0.75;">message)</text>
@@ -60,11 +70,11 @@
     <text x="802" y="150" style="fill:#555555;">█</text>
     <text x="10" y="168" style="fill:#CCCCCC;">┴</text>
     <text x="26 34 42 50 58 66 74" y="168" style="fill:#CCCCCC;opacity:0.75;">0dc3733</text>
-    <text x="90 98 106 114 122 130 138" y="168" style="fill:#CCCCCC;">(common</text>
-    <text x="154 162 170 178 186" y="168" style="fill:#CCCCCC;">base)</text>
+    <text x="90 98 106 114 122 130 138" y="168" style="fill:#CCCCCC;opacity:0.75;">(common</text>
+    <text x="154 162 170 178 186" y="168" style="fill:#CCCCCC;opacity:0.75;">base)</text>
     <text x="202 210 218 226 234 242 250 258 266 274" y="168" style="fill:#CCCCCC;opacity:0.75;">2000-01-02</text>
-    <text x="290 298 306" y="168" style="fill:#CCCCCC;">add</text>
-    <text x="322" y="168" style="fill:#CCCCCC;">M</text>
+    <text x="290 298 306" y="168" style="fill:#CCCCCC;opacity:0.75;">add</text>
+    <text x="322" y="168" style="fill:#CCCCCC;opacity:0.75;">M</text>
     <text x="410" y="168" style="fill:#555555;">│</text>
     <text x="434" y="168" style="fill:#555555;">┊</text>
     <text x="450" y="168" style="fill:#00AA00;">1</text>
@@ -93,12 +103,13 @@
     <text x="466" y="222" style="fill:#555555;">│</text>
     <text x="490 498 506 514" y="222" style="fill:#CDD6F4;">line</text>
     <text x="410" y="240" style="fill:#555555;">│</text>
-    <text x="410 418 426 434 442 450 458 466 474 482 490 498 506" y="258" style="fill:#555555;">│───────────╮</text>
+    <text x="410 418 426 434 442 450 458 466 474 482 490 498 506 514 522 530" y="258" style="fill:#555555;">│──────────────╮</text>
     <text x="410" y="276" style="fill:#555555;">│</text>
-    <text x="426 434 442 450" y="276" style="fill:#0000AA;">qs:d</text>
-    <text x="466 474 482 490" y="276" style="fill:#CCCCCC;">file</text>
-    <text x="506" y="276" style="fill:#555555;">│</text>
-    <text x="410 418 426 434 442 450 458 466 474 482 490 498 506" y="294" style="fill:#555555;">│───────────╯</text>
+    <text x="426" y="276" style="fill:#000000;">✔︎</text>
+    <text x="450 458 466 474" y="276" style="fill:#0000AA;">qs:d</text>
+    <text x="490 498 506 514" y="276" style="fill:#CCCCCC;">file</text>
+    <text x="530" y="276" style="fill:#555555;">│</text>
+    <text x="410 418 426 434 442 450 458 466 474 482 490 498 506 514 522 530" y="294" style="fill:#555555;">│──────────────╯</text>
     <text x="410" y="312" style="fill:#555555;">│</text>
     <text x="410" y="330" style="fill:#555555;">│</text>
     <text x="418 426" y="330" style="fill:#CCCCCC;opacity:0.75;">@@</text>
@@ -125,13 +136,13 @@
     <text x="506" y="366" style="fill:#0000AA;">b</text>
     <text x="522 530 538 546 554 562" y="366" style="fill:#CCCCCC;opacity:0.75;">branch</text>
     <text x="578" y="366" style="fill:#CCCCCC;opacity:0.75;">•</text>
-    <text x="594" y="366" style="fill:#0000AA;">s</text>
-    <text x="610 618 626 634 642" y="366" style="fill:#CCCCCC;opacity:0.75;">stack</text>
-    <text x="658" y="366" style="fill:#CCCCCC;opacity:0.75;">•</text>
-    <text x="674" y="366" style="fill:#0000AA;">?</text>
-    <text x="690 698 706 714" y="366" style="fill:#CCCCCC;opacity:0.75;">help</text>
-    <text x="730" y="366" style="fill:#CCCCCC;opacity:0.75;">•</text>
-    <text x="746" y="366" style="fill:#0000AA;">q</text>
-    <text x="762 770 778 786" y="366" style="fill:#CCCCCC;opacity:0.75;">quit</text>
+    <text x="594" y="366" style="fill:#0000AA;">d</text>
+    <text x="610 618 626 634 642 650 658" y="366" style="fill:#CCCCCC;opacity:0.75;">details</text>
+    <text x="674" y="366" style="fill:#CCCCCC;opacity:0.75;">•</text>
+    <text x="690" y="366" style="fill:#0000AA;">?</text>
+    <text x="706 714 722 730" y="366" style="fill:#CCCCCC;opacity:0.75;">help</text>
+    <text x="746" y="366" style="fill:#CCCCCC;opacity:0.75;">•</text>
+    <text x="762" y="366" style="fill:#0000AA;">q</text>
+    <text x="778 786 794 802" y="366" style="fill:#CCCCCC;opacity:0.75;">quit</text>
   </g>
 </svg>
