@@ -440,6 +440,7 @@ const FilesTreeRow: FC<{
 				checkedState={checkedState}
 				checkDirectory={checkDirectory}
 				focusScope={focusScope}
+				tooltipHandle={tooltipHandle}
 				rail={rail}
 				inert={inert}
 				onSelect={() => onRowSelection(row.path)}

@@ -20,6 +20,7 @@ import {
 } from "./Row.tsx";
 import { getRowButtonClassName } from "./Row-utils.ts";
 import { TreeSteps, TreeStepsToggle } from "./TreeSteps.tsx";
+import type { FileRowTooltipPayload } from "./FileRowTooltip.tsx";
 import { useDirectoryMenuItems } from "./useDirectoryMenuItems.ts";
 import type { FileRowItem } from "./file-row.ts";
 
@@ -43,6 +44,7 @@ type DirectoryRowProps = {
 	checkedState: DirectoryCheckedState;
 	checkDirectory: (evt: { path: string; checked: boolean }) => void;
 	focusScope: FocusScope;
+	tooltipHandle: Tooltip.Handle<FileRowTooltipPayload>;
 	/** See {@link FilesTree}'s prop of the same name. */
 	rail?: ReactNode;
 } & ComponentProps<typeof Row>;
@@ -84,6 +86,7 @@ export const DirectoryRowPresentational: FC<DirectoryRowPresentationalProps> = (
 	checkedState,
 	checkDirectory,
 	focusScope,
+	tooltipHandle,
 	anyOperationPending,
 	menuItems,
 	presentationalOnly = false,
@@ -136,15 +139,40 @@ export const DirectoryRowPresentational: FC<DirectoryRowPresentationalProps> = (
 				checked={checkedState === "checked"}
 				indeterminate={checkedState === "indeterminate"}
 				className={styles.leadingCheckbox}
-				onCheckedChange={(checked) => {
-					checkDirectory({ path, checked });
-				}}
+				nativeButton
+				render={
+					presentationalOnly ? (
+						<button type="button" inert aria-hidden="true" tabIndex={-1} />
+					) : (
+						<Tooltip.Trigger
+							handle={tooltipHandle}
+							payload={{
+								content: "Check directory",
+								kbd: changesFileHotkeys.checkFile.hotkey,
+								kbdScope: focusScope,
+							}}
+						/>
+					)
+				}
+				onCheckedChange={
+					presentationalOnly
+						? undefined
+						: (checked) => {
+								checkDirectory({ path, checked });
+							}
+				}
 			/>
 		</div>
 
-		<RowLabelContainer>
+		{/* A folded chain names several segments at once and a deep row is narrow, so
+		    the whole path is a hover away, as a file's is. */}
+		<Tooltip.Trigger
+			handle={tooltipHandle}
+			payload={{ content: path }}
+			render={<RowLabelContainer />}
+		>
 			<RowLabel singleLine>{name}</RowLabel>
-		</RowLabelContainer>
+		</Tooltip.Trigger>
 
 		{!anyOperationPending &&
 			(presentationalOnly ? (
