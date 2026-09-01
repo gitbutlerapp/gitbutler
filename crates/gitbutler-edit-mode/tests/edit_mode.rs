@@ -233,19 +233,15 @@ fn multiple_commits_created_during_edit_mode() -> Result<()> {
         parents: [first_id.detach()].into(),
         ..commit
     })?;
-    repo.edit_reference(gix::refs::transaction::RefEdit {
-        change: gix::refs::transaction::Change::Update {
-            log: gix::refs::transaction::LogChange {
-                mode: gix::refs::transaction::RefLog::AndReference,
-                force_create_reflog: false,
-                message: b"arbitrary message".into(),
-            },
-            expected: gix::refs::transaction::PreviousValue::Any,
-            new: gix::refs::Target::Object(second_id.detach()),
-        },
-        name: "HEAD".try_into().unwrap(),
-        deref: true,
-    })?;
+    repo.edit_reference(
+        gix::refs::transaction::RefEdit::update(
+            "HEAD".try_into().unwrap(),
+            second_id.detach(),
+            gix::refs::transaction::PreviousValue::Any,
+            b"arbitrary message".as_slice(),
+        )
+        .with_deref(true),
+    )?;
     drop(repo);
 
     std::fs::write(worktree_dir.join("file"), "edited during edit mode\n")?;
@@ -309,19 +305,15 @@ fn apply_commit_on_itself() -> Result<()> {
         .find_reference("refs/heads/gitbutler/workspace")?
         .peel_to_commit()?
         .id;
-    repo.edit_reference(gix::refs::transaction::RefEdit {
-        change: gix::refs::transaction::Change::Update {
-            log: gix::refs::transaction::LogChange {
-                mode: gix::refs::transaction::RefLog::AndReference,
-                force_create_reflog: false,
-                message: b"arbitrary message".into(),
-            },
-            expected: gix::refs::transaction::PreviousValue::Any,
-            new: gix::refs::Target::Object(workspace_commit_id),
-        },
-        name: "HEAD".try_into().unwrap(),
-        deref: true,
-    })?;
+    repo.edit_reference(
+        gix::refs::transaction::RefEdit::update(
+            "HEAD".try_into().unwrap(),
+            workspace_commit_id,
+            gix::refs::transaction::PreviousValue::Any,
+            b"arbitrary message".as_slice(),
+        )
+        .with_deref(true),
+    )?;
     drop(repo);
 
     save_and_return_to_workspace(&mut ctx, guard.write_permission())?;
@@ -560,19 +552,12 @@ fn enter_edit_mode_works_with_only_integration_ref_present() -> Result<()> {
             gix::refs::transaction::PreviousValue::Any,
             "",
         )?;
-        repo.edit_reference(gix::refs::transaction::RefEdit {
-            change: gix::refs::transaction::Change::Update {
-                log: gix::refs::transaction::LogChange {
-                    mode: gix::refs::transaction::RefLog::AndReference,
-                    force_create_reflog: false,
-                    message: b"arbitrary message".into(),
-                },
-                expected: gix::refs::transaction::PreviousValue::Any,
-                new: gix::refs::Target::Symbolic(INTEGRATION_BRANCH_REF.try_into()?),
-            },
-            name: "HEAD".try_into().unwrap(),
-            deref: false,
-        })?;
+        repo.edit_reference(gix::refs::transaction::RefEdit::update(
+            "HEAD".try_into().unwrap(),
+            gix::refs::FullName::try_from(INTEGRATION_BRANCH_REF)?,
+            gix::refs::transaction::PreviousValue::Any,
+            b"arbitrary message".as_slice(),
+        ))?;
         repo.find_reference("refs/heads/gitbutler/workspace")?
             .delete()
             .context("expected workspace ref to exist")?;

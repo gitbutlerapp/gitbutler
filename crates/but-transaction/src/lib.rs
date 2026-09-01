@@ -24,7 +24,7 @@ use gix::{
     ObjectId,
     refs::{
         FullName, FullNameRef,
-        transaction::{Change, PreviousValue, RefEdit},
+        transaction::{PreviousValue, RefEdit},
     },
 };
 
@@ -1023,26 +1023,11 @@ impl PendingRefChanges {
         let EagerlyCreatedRef { name, previous } = created_ref;
         match previous {
             Some(target) => {
-                repo.edit_references([RefEdit {
-                    name,
-                    change: Change::Update {
-                        log: Default::default(),
-                        expected: PreviousValue::Any,
-                        new: target,
-                    },
-                    deref: false,
-                }])?;
+                repo.edit_references([RefEdit::update(name, target, PreviousValue::Any, "")])?;
             }
             None => {
                 if repo.try_find_reference(name.as_ref())?.is_some() {
-                    repo.edit_references([RefEdit {
-                        name,
-                        change: Change::Delete {
-                            log: gix::refs::transaction::RefLog::AndReference,
-                            expected: PreviousValue::MustExist,
-                        },
-                        deref: false,
-                    }])?;
+                    repo.edit_references([RefEdit::delete(name, PreviousValue::MustExist)])?;
                 }
             }
         }

@@ -8,10 +8,7 @@
 use anyhow::bail;
 use but_ctx::Context;
 use gitbutler_git::GitContextExt as _;
-use gix::refs::{
-    Target,
-    transaction::{Change, LogChange, PreviousValue, RefEdit, RefLog},
-};
+use gix::refs::transaction::{PreviousValue, RefEdit};
 
 /// Self-remote (`gb-local`) path: move `refs/heads/<target>` and the remote-tracking ref to the
 /// landed commit in a single transaction, guarded by a compare-and-swap on the previous target.
@@ -40,26 +37,21 @@ pub(super) fn update_local_target_refs(
     }
 
     // Advance both refs to the landed commit in one transaction, failing if either moved meanwhile.
-    let advance = Change::Update {
-        log: LogChange {
-            mode: RefLog::AndReference,
-            force_create_reflog: false,
-            message: "GitButler land".into(),
-        },
-        expected: PreviousValue::ExistingMustMatch(expected_target_oid.into()),
-        new: Target::Object(new_target_oid),
-    };
+    let expected = PreviousValue::ExistingMustMatch(expected_target_oid.into());
+    let ref_log_message = "GitButler land";
     let edits = [
-        RefEdit {
-            change: advance.clone(),
-            name: head_ref.try_into()?,
-            deref: false,
-        },
-        RefEdit {
-            change: advance,
-            name: tracking_ref.try_into()?,
-            deref: false,
-        },
+        RefEdit::update(
+            head_ref.try_into()?,
+            new_target_oid,
+            expected.clone(),
+            ref_log_message,
+        ),
+        RefEdit::update(
+            tracking_ref.try_into()?,
+            new_target_oid,
+            expected,
+            ref_log_message,
+        ),
     ];
 
     match repo.edit_references(edits) {
