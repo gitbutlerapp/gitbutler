@@ -27,7 +27,7 @@ import { usePrNotificationsLevel } from "#ui/review-seen.ts";
 import { store } from "#ui/store.ts";
 import { requestReviewFocus } from "#ui/review-focus.ts";
 import { setActiveList, setCursor, setPage } from "#ui/use-cursor.ts";
-import { Popover } from "@base-ui/react";
+import { Dropdown } from "#ui/components/Popup.tsx";
 import { useQuery } from "@tanstack/react-query";
 import { useState, type FC } from "react";
 import styles from "./review-inbox-bell.module.css";
@@ -154,47 +154,49 @@ export const NotificationBell: FC<{ projectId: string }> = ({ projectId }) => {
 	if (!shown) return null;
 
 	return (
-		<Popover.Root open={open} onOpenChange={setOpen}>
-			<Popover.Trigger
-				aria-label={unseen > 0 ? `Notifications, ${unseen} unread` : "Notifications"}
-				className={classes(getButtonClassName({ iconOnly: true, variant: "ghost" }), styles.bell)}
-			>
-				<Icon name="bell" />
-				{unseen > 0 && <span aria-hidden className={styles.bellDot} />}
-			</Popover.Trigger>
-			<Popover.Portal>
-				<Popover.Positioner align="start" sideOffset={6}>
-					<Popover.Popup className={styles.panel}>
-						<div className={styles.panelHeader}>
-							<span className={classes("text-12", "text-semibold")}>Notifications</span>
-							{unseen > 0 && (
-								<button
-									className={classes("text-12", styles.markAll)}
-									onClick={() => markInboxSeen(projectId)}
-									type="button"
-								>
-									Mark all read
-								</button>
-							)}
-						</div>
-						{entries.length === 0 ? (
-							<div className={classes("text-12", styles.empty)}>Nothing yet</div>
-						) : (
-							<div className={styles.list}>
-								{entries.map((entry) => (
-									<Entry
-										key={entry.id}
-										projectId={projectId}
-										entry={entry}
-										appliedRefs={appliedRefs}
-										onNavigate={() => setOpen(false)}
-									/>
-								))}
-							</div>
-						)}
-					</Popover.Popup>
-				</Popover.Positioner>
-			</Popover.Portal>
-		</Popover.Root>
+		<Dropdown
+			open={open}
+			onOpenChange={setOpen}
+			sideOffset={6}
+			className={styles.panel}
+			trigger={
+				<button
+					type="button"
+					aria-label={unseen > 0 ? `Notifications, ${unseen} unread` : "Notifications"}
+					className={classes(getButtonClassName({ iconOnly: true, variant: "ghost" }), styles.bell)}
+				>
+					<Icon name="bell" />
+					{unseen > 0 && <span aria-hidden className={styles.bellDot} />}
+				</button>
+			}
+		>
+			<div className={styles.panelHeader}>
+				<span className={classes("text-12", "text-semibold")}>Notifications</span>
+				{unseen > 0 && (
+					<button
+						className={classes("text-12", styles.markAll)}
+						onClick={() => markInboxSeen(projectId)}
+						type="button"
+					>
+						Mark all read
+					</button>
+				)}
+			</div>
+			{entries.length === 0 ? (
+				<div className={classes("text-12", styles.empty)}>Nothing yet</div>
+			) : (
+				<div className={styles.list}>
+					{entries.map((entry) => (
+						<Entry
+							key={entry.id}
+							projectId={projectId}
+							entry={entry}
+							appliedRefs={appliedRefs}
+							onNavigate={() => setOpen(false)}
+						/>
+					))}
+				</div>
+			)}
+		</Dropdown>
 	);
 };

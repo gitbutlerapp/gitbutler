@@ -1,4 +1,4 @@
-import uiStyles from "#ui/components/ui.module.css";
+import popupStyles from "#ui/components/Popup.module.css";
 import { setCursor } from "#ui/use-cursor.ts";
 import { useBranchCreate, useCommitCreate, useGenerateCommitMessage } from "#ui/api/mutations.ts";
 import {
@@ -49,7 +49,7 @@ export type CommitTargetComboboxItem = {
 };
 
 const CommitTargetComboboxPopup: FC = () => (
-	<Combobox.Popup className={classes(uiStyles.popup, "text-13", styles.targetPopup)}>
+	<Combobox.Popup className={classes(popupStyles.popup, "text-13", styles.targetPopup)}>
 		<Combobox.Input
 			aria-label="Search targets"
 			placeholder="Search targets..."

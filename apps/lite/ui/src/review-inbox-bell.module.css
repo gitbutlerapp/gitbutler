@@ -22,18 +22,8 @@
 }
 
 .panel {
-	display: flex;
-	flex-direction: column;
 	width: 380px;
 	max-height: min(60vh, 560px);
-	overflow: hidden;
-	border: 1px solid var(--border-2);
-	border-radius: 8px;
-	/* The popup takes focus on open; the browser would paint its own
-	   accent-colored ring on a div no app rule covers. */
-	outline: none;
-	background-color: var(--bg-1);
-	box-shadow: 0 8px 24px rgb(0 0 0 / 15%);
 }
 
 .panelHeader {

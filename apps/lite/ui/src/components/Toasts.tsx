@@ -3,7 +3,7 @@ import type { FC } from "react";
 import { classes } from "#ui/components/classes.ts";
 import { getButtonClassName } from "#ui/components/Button.tsx";
 import styles from "./Toasts.module.css";
-import uiStyles from "#ui/components/ui.module.css";
+import popupStyles from "#ui/components/Popup.module.css";
 
 export const Toasts: FC = () => {
 	const { toasts } = Toast.useToastManager();
@@ -12,7 +12,11 @@ export const Toasts: FC = () => {
 		<Toast.Portal>
 			<Toast.Viewport className={styles.viewport}>
 				{toasts.map((toast) => (
-					<Toast.Root key={toast.id} toast={toast} className={classes(uiStyles.popup, styles.root)}>
+					<Toast.Root
+						key={toast.id}
+						toast={toast}
+						className={classes(popupStyles.popup, styles.root)}
+					>
 						<Toast.Content className={styles.content}>
 							<Toast.Title render={<strong />} className="text-15 text-semibold" />
 							<Toast.Description

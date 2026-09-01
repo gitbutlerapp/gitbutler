@@ -1,4 +1,4 @@
-import { Dialog } from "@base-ui/react";
+import { Modal } from "#ui/components/Popup.tsx";
 import { Suspense, useState, type FC } from "react";
 import { classes } from "#ui/components/classes.ts";
 import { Icon } from "#ui/components/Icon.tsx";
@@ -64,72 +64,72 @@ export const Settings: FC<Props> = (p) => {
 	const Content = pageContent[selected];
 
 	return (
-		<Dialog.Root open={p.open} onOpenChange={p.onOpenChange}>
-			<Dialog.Portal>
-				<Dialog.Backdrop className={styles.backdrop} />
-				<Dialog.Viewport className={styles.viewport}>
-					<Dialog.Popup aria-labelledby="settings-heading" className={styles.popup}>
-						<nav aria-label="Settings pages" className={styles.sidebar}>
-							<h1 id="settings-heading" className={classes("text-14", "text-bold", styles.heading)}>
-								Settings
-							</h1>
+		<Modal
+			size="medium"
+			recessed
+			open={p.open}
+			onOpenChange={p.onOpenChange}
+			aria-labelledby="settings-heading"
+			className={styles.popup}
+		>
+			<nav aria-label="Settings pages" className={styles.sidebar}>
+				<h1 id="settings-heading" className={classes("text-14", "text-bold", styles.heading)}>
+					Settings
+				</h1>
 
-							{groups.map((group) => (
-								<div key={group.scope} className={styles.group}>
-									{showHeadings && (
-										<h2 className={classes("text-12", styles.groupHeading)}>
-											{group.scope === "global" ? "Application" : p.projectName}
-										</h2>
-									)}
+				{groups.map((group) => (
+					<div key={group.scope} className={styles.group}>
+						{showHeadings && (
+							<h2 className={classes("text-12", styles.groupHeading)}>
+								{group.scope === "global" ? "Application" : p.projectName}
+							</h2>
+						)}
 
-									{group.pages.map((page) => (
-										<button
-											key={page.key}
-											type="button"
-											aria-current={page.key === selected ? "page" : undefined}
-											className={classes(
-												"text-13",
-												"text-semibold",
-												styles.link,
-												page.key === selected && styles.linkSelected,
-											)}
-											onClick={() => setSelected(page.key)}
-										>
-											<Icon name={page.icon} className={styles.linkIcon} />
-											<span>{page.label}</span>
-										</button>
-									))}
-								</div>
-							))}
+						{group.pages.map((page) => (
+							<button
+								key={page.key}
+								type="button"
+								aria-current={page.key === selected ? "page" : undefined}
+								className={classes(
+									"text-13",
+									"text-semibold",
+									styles.link,
+									page.key === selected && styles.linkSelected,
+								)}
+								onClick={() => setSelected(page.key)}
+							>
+								<Icon name={page.icon} className={styles.linkIcon} />
+								<span>{page.label}</span>
+							</button>
+						))}
+					</div>
+				))}
 
-							<div className={styles.social}>
-								{externalLinks.map((link) => (
-									<button
-										key={link.label}
-										type="button"
-										className={classes("text-13", "text-semibold", styles.link)}
-										onClick={() => void window.lite.openInWebBrowser(link.url)}
-									>
-										<Icon name={link.icon} className={styles.linkIcon} />
-										<span>{link.label}</span>
-										<span aria-hidden className={styles.linkExternal}>
-											↗
-										</span>
-									</button>
-								))}
-							</div>
-						</nav>
+				<div className={styles.social}>
+					{externalLinks.map((link) => (
+						<button
+							key={link.label}
+							type="button"
+							className={classes("text-13", "text-semibold", styles.link)}
+							onClick={() => void window.lite.openInWebBrowser(link.url)}
+						>
+							<Icon name={link.icon} className={styles.linkIcon} />
+							<span>{link.label}</span>
+							<span aria-hidden className={styles.linkExternal}>
+								↗
+							</span>
+						</button>
+					))}
+				</div>
+			</nav>
 
-						<div className={styles.content}>
-							<div className={styles.contentColumn}>
-								<Suspense fallback={<div className="text-13">Loading…</div>}>
-									<Content projectId={p.projectId} />
-								</Suspense>
-							</div>
-						</div>
-					</Dialog.Popup>
-				</Dialog.Viewport>
-			</Dialog.Portal>
-		</Dialog.Root>
+			<div className={styles.content}>
+				<div className={styles.contentColumn}>
+					<Suspense fallback={<div className="text-13">Loading…</div>}>
+						<Content projectId={p.projectId} />
+					</Suspense>
+				</div>
+			</div>
+		</Modal>
 	);
 };

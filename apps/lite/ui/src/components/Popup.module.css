@@ -14,8 +14,19 @@
 	overflow: hidden;
 	border: 1px solid var(--border-2);
 	border-radius: var(--radius-popup);
+	/* A popup takes focus as it opens, and the browser would paint its own accent-coloured ring on
+	   a container no app rule covers. What is inside shows the focus instead. */
+	outline: none;
 	background-color: var(--bg-1);
 	box-shadow: var(--shadow-lg);
+}
+
+/* Recessed, so what sits on it reads as cards rather than sections — the arrangement a pane uses
+   once it holds more than one group of things. */
+.recessed {
+	--scrollbar-track-bg: var(--bg-2);
+
+	background-color: var(--bg-2);
 }
 
 .backdrop {

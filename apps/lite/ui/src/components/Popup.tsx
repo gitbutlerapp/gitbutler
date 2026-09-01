@@ -53,6 +53,15 @@ export type ModalProps = {
 	 * @default "center"
 	 */
 	align?: "center" | "top";
+	/**
+	 * Recesses the modal's own ground so the groups inside it read as cards sitting on it, rather
+	 * than as sections of one sheet. For a pane holding more than one group — settings, a resolver.
+	 *
+	 * @default false
+	 */
+	recessed?: boolean;
+	/** What takes focus as the modal opens, when the first tabbable element is not the right one. */
+	initialFocus?: ComponentProps<typeof Dialog.Popup>["initialFocus"];
 } & ComponentProps<"div">;
 
 /**
@@ -72,6 +81,8 @@ export const Modal: FC<ModalProps> = ({
 	alert = false,
 	size = "medium",
 	align = "center",
+	recessed = false,
+	initialFocus,
 	children,
 	...props
 }) => {
@@ -93,7 +104,14 @@ export const Modal: FC<ModalProps> = ({
 				>
 					<Dialog.Popup
 						{...props}
-						className={classes(props.className, styles.popup, styles.modal, sizeClassName(size))}
+						initialFocus={initialFocus}
+						className={classes(
+							props.className,
+							styles.popup,
+							styles.modal,
+							sizeClassName(size),
+							recessed && styles.recessed,
+						)}
 					>
 						{children}
 					</Dialog.Popup>
@@ -157,11 +175,19 @@ export const Dropdown: FC<DropdownProps> = ({
  * list below by a hairline rather than fenced off in a field of its own — the popup is already the
  * box the query sits in.
  *
+ * A plain input by default. Pass `render` when the query drives a list primitive and the input has
+ * to be that primitive's own — a picker's `Autocomplete.Input`, say.
+ *
  * @public
  */
-export const PopupSearch: FC<ComponentProps<"input">> = (props) => (
+export const PopupSearch: FC<useRender.ComponentProps<"input">> = ({ render, ...props }) => (
 	<div className={styles.search}>
-		<input {...props} className={classes(props.className, "text-13", styles.searchInput)} />
+		{useRender({
+			render: render ?? <input />,
+			props: mergeProps<"input">(props, {
+				className: classes("text-13", styles.searchInput),
+			}),
+		})}
 		<Icon name="search" className={styles.searchIcon} />
 	</div>
 );

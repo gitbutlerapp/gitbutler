@@ -36,42 +36,11 @@
 	gap: 8px;
 }
 
-.backdrop {
-	position: fixed;
-	inset: 0;
-	background-color: var(--bg-overlay);
-}
-
-.viewport {
-	display: flex;
-	position: fixed;
-	inset: 0;
-	/* Keeps a clear band of backdrop around the popup at any size, and is
-	   what the popup's resize maxes out against. */
-	padding: 3rem;
-}
-
 .popup {
-	display: flex;
-	flex-direction: column;
-	width: min(1100px, 100%);
 	/* The minimums yield to narrow or tiled windows rather than overflow them. */
 	min-width: min(520px, 100%);
-	max-width: 100%;
 	height: min(80vh, 1200px);
 	min-height: min(360px, 100%);
-	max-height: 100%;
-	margin: auto;
-	overflow: hidden;
-	border: 1px solid var(--border-2);
-	border-radius: var(--radius-lg);
-	background-color: var(--bg-2);
-	box-shadow:
-		0 0.5px 1px rgb(0 0 0 / 0.12),
-		0 1px 3px -1px rgb(0 0 0 / 0.04),
-		0 2px 4px -1px rgb(0 0 0 / 0.04),
-		0 4px 8px -2px rgb(0 0 0 / 0.04),
-		0 12px 14px -4px rgb(0 0 0 / 0.04);
 	/* Native grip in the bottom-right corner; the viewport padding bounds it. */
 	resize: both;
 }

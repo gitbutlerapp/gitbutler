@@ -1,6 +1,7 @@
 import { classes } from "#ui/components/classes.ts";
 import { Icon } from "./Icon.tsx";
 import type { IconName } from "./iconNames.ts";
+import { Popup } from "#ui/components/Popup.tsx";
 import styles from "./Toolbox.module.css";
 import type { ComponentProps, FC, ReactNode } from "react";
 
@@ -23,7 +24,7 @@ export const ToolboxStack: FC<ComponentProps<"div">> = (props) => (
  * @public
  */
 export const Toolbox: FC<ComponentProps<"div">> = (props) => (
-	<div {...props} className={classes(props.className, styles.toolbox)} />
+	<Popup {...props} className={classes(props.className, styles.toolbox)} />
 );
 
 /**

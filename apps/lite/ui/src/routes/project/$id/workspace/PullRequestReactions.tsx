@@ -2,7 +2,8 @@ import { getButtonClassName } from "#ui/components/Button.tsx";
 import { classes } from "#ui/components/classes.ts";
 import { Icon } from "#ui/components/Icon.tsx";
 import { TooltipPopup } from "#ui/components/Tooltip.tsx";
-import { Popover, Tooltip } from "@base-ui/react";
+import { Tooltip } from "@base-ui/react";
+import { Dropdown } from "#ui/components/Popup.tsx";
 import type { ForgeReviewReaction, ForgeReviewReactionCount } from "@gitbutler/but-sdk";
 import { type FC, useState } from "react";
 import styles from "./PullRequestReactions.module.css";
@@ -140,46 +141,39 @@ export const Reactions: FC<{
 			})}
 
 			{onToggle !== undefined && (
-				<Popover.Root open={pickerOpen} onOpenChange={setPickerOpen}>
-					<Popover.Trigger
-						render={
+				<Dropdown
+					open={pickerOpen}
+					onOpenChange={setPickerOpen}
+					className={styles.reactionPicker}
+					trigger={
+						<button
+							aria-label="Add reaction"
+							className={getButtonClassName({ variant: "ghost", iconOnly: true })}
+							type="button"
+						>
+							<Icon name="smiley" />
+						</button>
+					}
+				>
+					{reactionGlyphs.map(([kind, glyph]) => {
+						const mine = mineFor(kind);
+						return (
 							<button
-								aria-label="Add reaction"
-								className={getButtonClassName({ variant: "ghost", iconOnly: true })}
+								key={kind}
+								aria-label={`React with ${reactionName(kind)}`}
+								aria-pressed={mine !== undefined}
+								className={classes(styles.pickerItem, mine !== undefined && styles.pickerItemMine)}
+								onClick={() => {
+									toggle(kind, mine);
+									setPickerOpen(false);
+								}}
 								type="button"
-							/>
-						}
-					>
-						<Icon name="smiley" />
-					</Popover.Trigger>
-					<Popover.Portal>
-						<Popover.Positioner align="start" sideOffset={4}>
-							<Popover.Popup className={styles.reactionPicker}>
-								{reactionGlyphs.map(([kind, glyph]) => {
-									const mine = mineFor(kind);
-									return (
-										<button
-											key={kind}
-											aria-label={`React with ${reactionName(kind)}`}
-											aria-pressed={mine !== undefined}
-											className={classes(
-												styles.pickerItem,
-												mine !== undefined && styles.pickerItemMine,
-											)}
-											onClick={() => {
-												toggle(kind, mine);
-												setPickerOpen(false);
-											}}
-											type="button"
-										>
-											{glyph}
-										</button>
-									);
-								})}
-							</Popover.Popup>
-						</Popover.Positioner>
-					</Popover.Portal>
-				</Popover.Root>
+							>
+								{glyph}
+							</button>
+						);
+					})}
+				</Dropdown>
 			)}
 		</div>
 	);

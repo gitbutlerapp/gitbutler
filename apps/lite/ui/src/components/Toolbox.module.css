@@ -7,14 +7,9 @@
 	align-items: stretch;
 }
 
+/* Chrome comes from the shared popup container; only what makes this one a toolbox lives here. */
 .toolbox {
-	display: flex;
-	flex-direction: column;
-	overflow: hidden;
-	border: 1px solid var(--border-2);
-	border-radius: var(--radius-popup);
-	background-color: var(--bg-1);
-	box-shadow: var(--shadow-md);
+	flex: none;
 }
 
 .meta {

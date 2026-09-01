@@ -33,25 +33,11 @@
 	}
 }
 
-/* Horizontal emoji row, with the same chrome as the tooltip popup. */
+/* A horizontal row rather than the popup's usual stack of rows. */
 .reactionPicker {
-	display: flex;
+	flex-direction: row;
 	padding: 4px;
 	gap: 2px;
-	/* Grow out of the anchored corner, same curve as the picker dialog. */
-	transform-origin: var(--transform-origin);
-	border-radius: var(--radius-button);
-	background-color: var(--bg-1);
-	box-shadow: var(--shadow-tooltip);
-	transition:
-		transform 150ms cubic-bezier(0.45, 1.005, 0, 1.005),
-		opacity 150ms;
-
-	&[data-starting-style],
-	&[data-ending-style] {
-		transform: scale(0.9);
-		opacity: 0;
-	}
 }
 
 .pickerItem {

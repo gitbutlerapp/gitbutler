@@ -3,6 +3,7 @@
  */
 
 import { Autocomplete, Dialog } from "@base-ui/react";
+import { Modal, PopupSearch } from "#ui/components/Popup.tsx";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import {
 	type CSSProperties,
@@ -97,7 +98,7 @@ const VirtualizedListArea = <T,>({
 		directDomUpdatesMode: "transform",
 		count: virtualRows.length,
 		getScrollElement: () => scrollElementRef.current,
-		estimateSize: () => 32,
+		estimateSize: () => 28,
 		getItemKey: getVirtualRowKey,
 		overscan: 4,
 		paddingStart: 8,
@@ -277,91 +278,96 @@ export const PickerDialog = <T,>({
 	const deferredInputValue = useDeferredValue(inputValue);
 
 	return (
-		<Dialog.Root open={open} onOpenChange={onOpenChange}>
-			<Dialog.Portal>
-				<Dialog.Backdrop className={styles.backdrop} />
-				<Dialog.Viewport className={styles.viewport}>
-					<Dialog.Popup className={styles.popup} aria-label={ariaLabel} initialFocus={inputRef}>
-						<Autocomplete.Root
-							items={items}
-							inline
-							open
-							value={deferredInputValue}
-							onValueChange={setInputValue}
-							virtualized
-							onItemHighlighted={(_, { reason, index }) => {
-								highlightedItemIndexRef.current = index < 0 ? null : index;
-								const virtualizer = virtualizerRef.current;
-								if (!virtualizer || index < 0) return;
+		<Modal
+			size="small"
+			align="top"
+			open={open}
+			onOpenChange={onOpenChange}
+			aria-label={ariaLabel}
+			initialFocus={inputRef}
+			className={styles.popup}
+		>
+			<Autocomplete.Root
+				items={items}
+				inline
+				open
+				value={deferredInputValue}
+				onValueChange={setInputValue}
+				virtualized
+				onItemHighlighted={(_, { reason, index }) => {
+					highlightedItemIndexRef.current = index < 0 ? null : index;
+					const virtualizer = virtualizerRef.current;
+					if (!virtualizer || index < 0) return;
 
-								const isStart = index === 0;
-								const isEnd = index === virtualizer.itemCount - 1;
-								const shouldScroll =
-									reason === "none" || (reason === "keyboard" && (isStart || isEnd));
-								if (shouldScroll) {
-									queueMicrotask(() => {
-										virtualizerRef.current?.scrollToItemIndex(index, {
-											align: isEnd ? "start" : "end",
-										});
-									});
+					const isStart = index === 0;
+					const isEnd = index === virtualizer.itemCount - 1;
+					const shouldScroll = reason === "none" || (reason === "keyboard" && (isStart || isEnd));
+					if (shouldScroll) {
+						queueMicrotask(() => {
+							virtualizerRef.current?.scrollToItemIndex(index, {
+								align: isEnd ? "start" : "end",
+							});
+						});
+					}
+				}}
+				autoHighlight="always"
+				keepHighlight
+				itemToStringValue={itemToStringValue ?? getItemLabel}
+			>
+				<PopupSearch
+					placeholder={placeholder}
+					aria-label={placeholder}
+					render={
+						// The key handling reaches for Base UI's own event extensions, so it belongs on
+						// the autocomplete's input rather than on the row that dresses it.
+						<Autocomplete.Input
+							ref={inputRef}
+							value={inputValue}
+							onKeyDown={(event) => {
+								const virtualizer = virtualizerRef.current;
+								if (!virtualizer) return;
+
+								if (event.metaKey && event.key === "ArrowUp") {
+									event.preventDefault();
+									event.preventBaseUIHandler();
+									virtualizer.highlightEdgeItem("start");
+								} else if (event.metaKey && event.key === "ArrowDown") {
+									event.preventDefault();
+									event.preventBaseUIHandler();
+									virtualizer.highlightEdgeItem("end");
+								} else if (event.key === "PageUp") {
+									event.preventDefault();
+									event.preventBaseUIHandler();
+									virtualizer.highlightPageItem(highlightedItemIndexRef.current, -1);
+								} else if (event.key === "PageDown") {
+									event.preventDefault();
+									event.preventBaseUIHandler();
+									virtualizer.highlightPageItem(highlightedItemIndexRef.current, 1);
 								}
 							}}
-							autoHighlight="always"
-							keepHighlight
-							itemToStringValue={itemToStringValue ?? getItemLabel}
-						>
-							<Autocomplete.Input
-								ref={inputRef}
-								value={inputValue}
-								onKeyDown={(event) => {
-									const virtualizer = virtualizerRef.current;
-									if (!virtualizer) return;
+						/>
+					}
+				/>
+				<Dialog.Close className={styles.visuallyHiddenClose}>{closeLabel}</Dialog.Close>
 
-									if (event.metaKey && event.key === "ArrowUp") {
-										event.preventDefault();
-										event.preventBaseUIHandler();
-										virtualizer.highlightEdgeItem("start");
-									} else if (event.metaKey && event.key === "ArrowDown") {
-										event.preventDefault();
-										event.preventBaseUIHandler();
-										virtualizer.highlightEdgeItem("end");
-									} else if (event.key === "PageUp") {
-										event.preventDefault();
-										event.preventBaseUIHandler();
-										virtualizer.highlightPageItem(highlightedItemIndexRef.current, -1);
-									} else if (event.key === "PageDown") {
-										event.preventDefault();
-										event.preventBaseUIHandler();
-										virtualizer.highlightPageItem(highlightedItemIndexRef.current, 1);
-									}
-								}}
-								className={styles.input}
-								placeholder={placeholder}
-								aria-label={placeholder}
-							/>
-							<Dialog.Close className={styles.visuallyHiddenClose}>{closeLabel}</Dialog.Close>
+				<VirtualizedListArea
+					emptyLabel={emptyLabel}
+					getItemKey={getItemKey}
+					getItemLabel={getItemLabel}
+					getItemType={getItemType}
+					onSelectItem={onSelectItem}
+					statusLabel={statusLabel}
+					virtualizerRef={virtualizerRef}
+				/>
 
-							<VirtualizedListArea
-								emptyLabel={emptyLabel}
-								getItemKey={getItemKey}
-								getItemLabel={getItemLabel}
-								getItemType={getItemType}
-								onSelectItem={onSelectItem}
-								statusLabel={statusLabel}
-								virtualizerRef={virtualizerRef}
-							/>
-
-							<div className={styles.footer}>
-								<div className={styles.footerLeft}>
-									<span>Activate</span>
-									<kbd className={styles.kbd}>Enter</kbd>
-								</div>
-								{footerAction}
-							</div>
-						</Autocomplete.Root>
-					</Dialog.Popup>
-				</Dialog.Viewport>
-			</Dialog.Portal>
-		</Dialog.Root>
+				<div className={styles.footer}>
+					<div className={styles.footerLeft}>
+						<span>Activate</span>
+						<kbd className={styles.kbd}>Enter</kbd>
+					</div>
+					{footerAction}
+				</div>
+			</Autocomplete.Root>
+		</Modal>
 	);
 };

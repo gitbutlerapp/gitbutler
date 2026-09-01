@@ -1,37 +1,8 @@
-.backdrop {
-	position: fixed;
-	inset: 0;
-	background-color: var(--bg-overlay);
-}
-
-.viewport {
-	display: flex;
-	position: fixed;
-	inset: 0;
-	padding: 4.5rem 1rem;
-}
-
-/*
- * Recessed, so the sidebar and each group of settings read as cards sitting on it —
- * the arrangement desktop's settings use, on the tokens both apps share.
- */
+/* The sidebar sits beside the content rather than above it, so this pane lays itself out in a row
+   where the container stacks. Its recessed ground is the `recessed` modal variant. */
 .popup {
-	display: flex;
-	width: min(820px, 100%);
+	flex-direction: row;
 	height: min(76vh, 1000px);
-	margin: auto;
-	overflow: hidden;
-	border: 1px solid var(--border-2);
-	border-radius: var(--radius-lg);
-	background-color: var(--bg-2);
-	box-shadow:
-		0 0.5px 1px rgb(0 0 0 / 0.12),
-		0 1px 3px -1px rgb(0 0 0 / 0.04),
-		0 2px 4px -1px rgb(0 0 0 / 0.04),
-		0 4px 8px -2px rgb(0 0 0 / 0.04),
-		0 12px 14px -4px rgb(0 0 0 / 0.04),
-		0 24px 64px -8px rgb(0 0 0 / 0.04),
-		0 40px 48px -32px rgb(0 0 0 / 0.04);
 }
 
 .sidebar {

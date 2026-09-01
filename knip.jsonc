@@ -21,7 +21,6 @@
 				"ui/src/electron.d.ts!",
 				"ui/src/react-css-properties.d.ts!",
 				"ui/src/components/ToggleGroup.tsx!",
-				"ui/src/components/Popup.tsx!",
 			],
 			"project": [
 				"electron/src/**!",
