@@ -25,7 +25,7 @@ export type FileTreeRow<T> = {
 			/** The last path segment, or several joined when a sole-child chain was folded in. */
 			name: string;
 			/** Every file below this directory, in the order expanding it would reveal them. */
-			filePaths: Array<string>;
+			items: Array<T>;
 	  }
 	| { _tag: "File"; item: T }
 );
@@ -77,15 +77,15 @@ const foldSoleChildren = <T>(name: string, directory: Directory<T>): NamedDirect
 	return folded;
 };
 
-/** One directory's worth of rows, and every file path below it. */
-type Collected<T> = { rows: Array<FileTreeRow<T>>; filePaths: Array<string> };
+/** One directory's worth of rows, and every file below it. */
+type Collected<T> = { rows: Array<FileTreeRow<T>>; items: Array<T> };
 
-const appendFilePaths = <T extends { path: string }>(
+const appendItems = <T extends { path: string }>(
 	directory: Directory<T>,
-	filePaths: Array<string>,
+	items: Array<T>,
 ): void => {
-	for (const child of directory.directories.values()) appendFilePaths(child, filePaths);
-	for (const item of directory.items) filePaths.push(item.path);
+	for (const child of directory.directories.values()) appendItems(child, items);
+	for (const item of directory.items) items.push(item);
 };
 
 const collectRows = <T extends { path: string }>({
@@ -100,7 +100,7 @@ const collectRows = <T extends { path: string }>({
 	collapsedDirectories: Record<string, true>;
 }): Collected<T> => {
 	const rows: Array<FileTreeRow<T>> = [];
-	const filePaths: Array<string> = [];
+	const below: Array<T> = [];
 	const setSize = directory.directories.size + directory.items.length;
 	let positionInSet = 1;
 
@@ -109,13 +109,13 @@ const collectRows = <T extends { path: string }>({
 		const { name: foldedName, directory: foldedDirectory } = folded;
 		const path = prefix === "" ? foldedName : `${prefix}/${foldedName}`;
 		const collapsed = collapsedDirectories[path] === true;
-		let below: Collected<T>;
+		let collected: Collected<T>;
 		if (collapsed) {
-			const filePaths: Array<string> = [];
-			appendFilePaths(foldedDirectory, filePaths);
-			below = { rows: [], filePaths };
+			const items: Array<T> = [];
+			appendItems(foldedDirectory, items);
+			collected = { rows: [], items };
 		} else {
-			below = collectRows({
+			collected = collectRows({
 				directory: foldedDirectory,
 				prefix: path,
 				depth: depth + 1,
@@ -130,20 +130,20 @@ const collectRows = <T extends { path: string }>({
 			depth,
 			positionInSet,
 			setSize,
-			filePaths: below.filePaths,
+			items: collected.items,
 		});
 		positionInSet++;
-		if (!collapsed) for (const row of below.rows) rows.push(row);
-		for (const filePath of below.filePaths) filePaths.push(filePath);
+		if (!collapsed) for (const row of collected.rows) rows.push(row);
+		for (const item of collected.items) below.push(item);
 	}
 
 	for (const item of directory.items) {
 		rows.push({ _tag: "File", path: item.path, item, depth, positionInSet, setSize });
 		positionInSet++;
-		filePaths.push(item.path);
+		below.push(item);
 	}
 
-	return { rows, filePaths };
+	return { rows, items: below };
 };
 
 export const buildFileTreeRows = <T extends { path: string }>({
@@ -188,7 +188,7 @@ export const fileTreeAddressSpace = <T>(rows: Array<FileTreeRow<T>>): AddressSpa
  * a folder. A path the rows don't hold is passed through, since the caller's
  * own list may reach further than the filtered rows do.
  */
-export const selectedFilePath = <T>(
+export const selectedFilePath = <T extends { path: string }>(
 	rows: Array<FileTreeRow<T>>,
 	selection: string | null,
 ): string | null => {
@@ -197,7 +197,7 @@ export const selectedFilePath = <T>(
 	const row = rows.find((row) => row.path === selection);
 	if (row === undefined) return selection;
 
-	return row._tag === "File" ? row.path : (row.filePaths[0] ?? null);
+	return row._tag === "File" ? row.path : (row.items[0]?.path ?? null);
 };
 
 /** The directory row a row sits in, or `null` at the top level. */
