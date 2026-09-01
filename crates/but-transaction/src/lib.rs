@@ -7,8 +7,13 @@ use anyhow::Context as _;
 use bstr::{BStr, BString, ByteVec};
 use but_api::WorkspaceState;
 use but_core::{
-    DiffSpec, DryRun, RefMetadata, commit::CommitIdentifiers, ref_metadata, sync::RepoExclusive,
+    DiffSpec, DryRun, RefMetadata,
+    commit::CommitIdentifiers,
+    ref_metadata,
+    sync::RepoExclusive,
     tree::create_tree::RejectionReason,
+    update_head_reference,
+    worktree::{checkout, safe_checkout_from_head},
 };
 use but_ctx::Context;
 use but_oplog::legacy::SnapshotDetails;
@@ -23,7 +28,7 @@ use but_workspace::commit::{
 use gix::{
     ObjectId,
     refs::{
-        FullName, FullNameRef,
+        FullName, FullNameRef, Target,
         transaction::{Change, PreviousValue, RefEdit},
     },
 };
@@ -111,6 +116,27 @@ where
         dry_run,
     );
 
+    let (should_rollback, outcome) = with_transaction_with_perm_only(ctx, meta, perm, dry_run, f)?;
+
+    if !should_rollback && let Some(snapshot) = maybe_oplog_entry {
+        snapshot.commit(ctx, perm)?;
+    }
+
+    Ok(outcome)
+}
+
+pub fn with_transaction_with_perm_only<M, F, T>(
+    ctx: &mut Context,
+    meta: &mut M,
+    perm: &mut RepoExclusive,
+    dry_run: DryRun,
+    f: F,
+) -> anyhow::Result<(bool, T::Outcome)>
+where
+    F: FnOnce(Transaction<'_, '_, M>) -> anyhow::Result<T>,
+    M: RefMetadata,
+    T: TransactionOutcome,
+{
     let (should_rollback, outcome) = {
         let context_lines = ctx.settings.context_lines;
         let (repo, mut ws, mut db) = ctx.workspace_mut_and_db_mut_with_perm(perm)?;
@@ -125,6 +151,7 @@ where
             pending_metadata_updates: Vec::new(),
             pending_created_independent_refs: Vec::new(),
             pending_ref_changes: PendingRefChanges::default(),
+            pending_checkout: None,
             context_lines,
             materialize_without_checkout: MaterializeWithoutCheckout::Either,
         };
@@ -149,6 +176,7 @@ where
             pending_metadata_updates,
             pending_created_independent_refs,
             mut pending_ref_changes,
+            pending_checkout,
             context_lines: _,
             materialize_without_checkout,
         } = inner;
@@ -165,11 +193,14 @@ where
                 pending_metadata_removals,
                 pending_metadata_updates,
                 pending_created_independent_refs,
-                dry_run,
-                matches!(
-                    materialize_without_checkout,
-                    MaterializeWithoutCheckout::Yes
-                ),
+                FinalizeOptions {
+                    checkout: pending_checkout,
+                    dry_run,
+                    materialize_without_checkout: matches!(
+                        materialize_without_checkout,
+                        MaterializeWithoutCheckout::Yes
+                    ),
+                },
             )
             .map(Some)
         };
@@ -190,11 +221,7 @@ where
         (should_rollback, outcome)
     };
 
-    if !should_rollback && let Some(snapshot) = maybe_oplog_entry {
-        snapshot.commit(ctx, perm)?;
-    }
-
-    Ok(outcome)
+    Ok((should_rollback, outcome))
 }
 
 /// A workspace transaction that allows changing multiple operations and having them all succeed or
@@ -222,6 +249,8 @@ where
     pending_metadata_updates: Vec<PendingMetadataUpdate>,
     pending_created_independent_refs: Vec<PendingCreatedIndependentRef>,
     pending_ref_changes: PendingRefChanges,
+    // A checkout cannot happen until the in-memory rebase and its references are materialized.
+    pending_checkout: Option<FullName>,
     // Commits given to `squash_commits`, `reword_commit`, etc are allowed to be the original
     // commits from live repo. This is used to map those to the rebased in-memory commits.
     //
@@ -336,6 +365,26 @@ where
             let new_commit = rebase.lookup_commit(commit_selector)?;
             Ok((new_commit, MaterializeWithoutCheckout::No, rebase))
         })
+    }
+
+    /// Check out `branch` when the transaction commits.
+    ///
+    /// The checkout is deferred until all in-memory commits and reference changes have been
+    /// materialized. Consequently, operations after this call still observe the checkout from
+    /// before the transaction. Calling this more than once replaces the previously requested final
+    /// checkout.
+    pub fn checkout(&mut self, branch: &FullNameRef) -> anyhow::Result<()> {
+        anyhow::ensure!(
+            branch.category() == Some(gix::refs::Category::LocalBranch),
+            "Can only check out local branches under refs/heads, got '{}'",
+            branch.as_bstr()
+        );
+
+        resolve_checkout_target(self.repo(), branch)?;
+
+        self.request_materialization(MaterializeWithoutCheckout::No)?;
+        self.inner.pending_checkout = Some(branch.to_owned());
+        Ok(())
     }
 
     pub fn remove_reference(&mut self, ref_name: &FullNameRef) -> anyhow::Result<()> {
@@ -958,10 +1007,18 @@ where
         let (outcome, materialize_without_checkout, new_rebase) =
             f(editor, &self.inner.commit_mappings)?;
 
-        match (
-            self.inner.materialize_without_checkout,
-            materialize_without_checkout,
-        ) {
+        self.request_materialization(materialize_without_checkout)?;
+
+        self.inner.commit_mappings = CommitMappings(new_rebase.history.commit_mappings());
+        self.inner.rebase = Some(new_rebase);
+        Ok(outcome)
+    }
+
+    fn request_materialization(
+        &mut self,
+        requested: MaterializeWithoutCheckout,
+    ) -> anyhow::Result<()> {
+        match (self.inner.materialize_without_checkout, requested) {
             (_, MaterializeWithoutCheckout::Either) => {}
             (MaterializeWithoutCheckout::Either, requested) => {
                 self.inner.materialize_without_checkout = requested;
@@ -971,10 +1028,7 @@ where
                 "cannot mix operations that require `materialize` and `materialize_without_checkout`"
             ),
         }
-
-        self.inner.commit_mappings = CommitMappings(new_rebase.history.commit_mappings());
-        self.inner.rebase = Some(new_rebase);
-        Ok(outcome)
+        Ok(())
     }
 }
 
@@ -983,6 +1037,12 @@ enum MaterializeWithoutCheckout {
     Yes,
     No,
     Either,
+}
+
+struct FinalizeOptions {
+    checkout: Option<FullName>,
+    dry_run: DryRun,
+    materialize_without_checkout: bool,
 }
 
 #[derive(Debug, Default)]
@@ -1321,11 +1381,33 @@ fn workspace_state_from_rebase<M: RefMetadata>(
     pending_metadata_removals: Vec<FullName>,
     pending_metadata_updates: Vec<PendingMetadataUpdate>,
     pending_created_independent_refs: Vec<PendingCreatedIndependentRef>,
-    dry_run: DryRun,
-    materialize_without_checkout: bool,
+    options: FinalizeOptions,
 ) -> anyhow::Result<WorkspaceState> {
+    let FinalizeOptions {
+        checkout: pending_checkout,
+        dry_run,
+        materialize_without_checkout,
+    } = options;
     if dry_run.into() {
-        return WorkspaceState::from_successful_rebase(rebase, repo, dry_run);
+        let Some(branch) = pending_checkout else {
+            return WorkspaceState::from_successful_rebase(rebase, repo, dry_run);
+        };
+        let target = rebase
+            .reference_target(branch.as_ref())
+            .or_else(|_| resolve_checkout_target(rebase.repo(), branch.as_ref()))?;
+        let replaced_commits = rebase.history.commit_mappings();
+        let workspace = rebase
+            .overlayed_graph_with_workspace_overrides(Some((target, branch)), None)?
+            .into_workspace()?;
+        let mut rebase = rebase;
+        let (repo, meta, db) = rebase.repo_meta_and_db_mut();
+        return WorkspaceState::from_workspace_with_db(
+            &workspace,
+            meta,
+            repo,
+            replaced_commits,
+            db,
+        );
     }
 
     let materialized = if materialize_without_checkout {
@@ -1373,8 +1455,72 @@ fn workspace_state_from_rebase<M: RefMetadata>(
     for ref_name in pending_metadata_removals {
         materialized.meta.remove(ref_name.as_ref())?;
     }
+    if let Some(branch) = pending_checkout {
+        checkout_reference(repo, branch.as_ref())?;
+        let project_meta = materialized.workspace.graph.project_meta.clone();
+        materialized.workspace.refresh_from_head(
+            repo,
+            &*materialized.meta,
+            project_meta,
+            &mut *materialized.db,
+        )?;
+    }
 
     WorkspaceState::from_materialized(materialized, repo)
+}
+
+fn resolve_checkout_target(
+    repo: &gix::Repository,
+    reference_name: &FullNameRef,
+) -> anyhow::Result<ObjectId> {
+    let mut reference = repo
+        .find_reference(reference_name)
+        .with_context(|| format!("Could not find ref '{}'", reference_name.as_bstr()))?;
+    let target = reference
+        .peel_to_id()
+        .with_context(|| format!("Could not resolve ref '{}'", reference_name.as_bstr()))?
+        .detach();
+    repo.find_commit(target).with_context(|| {
+        format!(
+            "Ref '{}' does not point to a commit",
+            reference_name.as_bstr()
+        )
+    })?;
+    Ok(target)
+}
+
+fn checkout_reference(repo: &gix::Repository, reference_name: &FullNameRef) -> anyhow::Result<()> {
+    let current_head = repo
+        .head_id()
+        .context("Cannot check out a branch while HEAD is unborn")?
+        .detach();
+    let target = resolve_checkout_target(repo, reference_name)?;
+    let target_commit = repo.find_commit(target)?;
+
+    safe_checkout_from_head(
+        target,
+        repo,
+        checkout::Options {
+            skip_head_update: true,
+            ..Default::default()
+        },
+    )
+    .with_context(|| {
+        format!(
+            "Could not safely check out '{}' from {current_head} to {target}",
+            reference_name.as_bstr()
+        )
+    })?;
+    update_head_reference(
+        repo,
+        Target::Symbolic(reference_name.to_owned()),
+        false,
+        "checkout",
+        reference_name.as_bstr(),
+        target_commit.parent_ids().count(),
+    )
+    .with_context(|| format!("Could not update HEAD to '{}'", reference_name.as_bstr()))?;
+    Ok(())
 }
 
 /// Intermediate outcome after creating a commit.
