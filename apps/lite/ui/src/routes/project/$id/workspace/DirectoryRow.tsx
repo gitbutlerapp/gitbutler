@@ -4,6 +4,7 @@ import { classes } from "#ui/components/classes.ts";
 import { TooltipPopup } from "#ui/components/Tooltip.tsx";
 import { changesFileHotkeys } from "#ui/hotkeys.ts";
 import { showNativeContextMenu, showNativeMenuFromTrigger } from "#ui/native-menu.ts";
+import type { FileParent } from "#ui/addresses.ts";
 import type { FocusScope } from "#ui/focus-scopes.ts";
 import { Toolbar, Tooltip } from "@base-ui/react";
 import type { ComponentProps, FC, ReactNode } from "react";
@@ -27,6 +28,7 @@ export type DirectoryCheckedState = "checked" | "indeterminate" | "unchecked";
 
 type DirectoryRowProps = {
 	projectId: string;
+	fileParent: FileParent;
 	path: string;
 	/** The trailing path segments this row stands for, e.g. `src/lib`. */
 	name: string;
@@ -45,7 +47,7 @@ type DirectoryRowProps = {
 	rail?: ReactNode;
 } & ComponentProps<typeof Row>;
 
-type DirectoryRowPresentationalProps = Omit<DirectoryRowProps, "projectId"> & {
+type DirectoryRowPresentationalProps = Omit<DirectoryRowProps, "projectId" | "fileParent"> & {
 	menuItems: ReturnType<typeof useDirectoryMenuItems>;
 	/** The row as it renders mid-scroll: its shape, with nothing behind it. */
 	presentationalOnly?: boolean;
@@ -55,13 +57,15 @@ type DirectoryRowPresentationalProps = Omit<DirectoryRowProps, "projectId"> & {
  * Split from the presentational half exactly as {@link FileRow} is: the menu costs a
  * handful of queries per row, which a list being scrolled should not be paying.
  */
-export const DirectoryRow: FC<DirectoryRowProps> = ({ projectId, ...props }) => {
-	const { path, items, isCollapsed, onToggleCollapsed } = props;
+export const DirectoryRow: FC<DirectoryRowProps> = ({ projectId, fileParent, ...props }) => {
+	const { path, items, checkedState, isCollapsed, onToggleCollapsed } = props;
 
 	const menuItems = useDirectoryMenuItems({
 		projectId,
+		fileParent,
 		path,
 		items,
+		checkedState,
 		isCollapsed,
 		onToggleCollapsed,
 	});
