@@ -50,7 +50,6 @@ import { useFileDisplayMode } from "./useFileDisplayMode.ts";
 import { checkedRange, addressSpaceRange, selectionAfterChecking } from "#ui/checking.ts";
 import { useOpenInProgram } from "#ui/api/mutations.ts";
 import { useFileSetActions, useFileSetSubject } from "./useFileSetActions.ts";
-import type { TreeChange } from "@gitbutler/but-sdk";
 import type { CSSProperties } from "react";
 import { FileRowTooltipRoot, type FileRowTooltipPayload } from "./FileRowTooltip.tsx";
 
@@ -69,7 +68,7 @@ const useFilesTreeHotkeys = ({
 	rows,
 	selection,
 	selectedRow,
-	selectedChange,
+	selectedChangePaths,
 	toggleDirectoryCollapsed,
 }: {
 	checkAll: () => void;
@@ -83,7 +82,8 @@ const useFilesTreeHotkeys = ({
 	rows: Array<FileTreeRow<FileRowItem>>;
 	selection: string | null;
 	selectedRow: FileTreeRow<FileRowItem> | undefined;
-	selectedChange: TreeChange | null;
+	/** What the selected row stands for: its own file, or every file below a directory. */
+	selectedChangePaths: Array<string>;
 	toggleDirectoryCollapsed: (path: string) => void;
 }) => {
 	const noOperationPending = useAppSelector(
@@ -101,19 +101,15 @@ const useFilesTreeHotkeys = ({
 
 	const store = useAppStore();
 
-	const selectedChangesFile = fileParent._tag === "UncommittedChanges" ? selection : null;
-
 	// As with the other list-wide hotkeys, checked files are the subject when there are any.
 	const subject = useFileSetSubject({
 		projectId,
 		fileParent,
 		promote: true,
-		own: () =>
-			selectedChange === null
-				? []
-				: [fileAddress({ parent: fileParent, path: selectedChange.path })],
-		ownCount: 1,
+		own: () => selectedChangePaths.map((path) => fileAddress({ parent: fileParent, path })),
+		ownCount: selectedChangePaths.length,
 	});
+	const hasSelectedChanges = selectedChangePaths.length > 0;
 
 	// Repeats must follow the pending cursor before React renders it. Null ends the held-key run
 	// so it cannot reverse and undo the checks; a fresh keypress starts from the selected row.
@@ -134,22 +130,16 @@ const useFilesTreeHotkeys = ({
 		if (item !== null) nextCheckedRow.current = checkRow({ path: item, shiftKey: false });
 	};
 
-	const discardSelectedFile = () => {
-		if (selectedChange === null) return;
-
-		void actions.discard(subject.addresses());
+	const discardSelectedRow = () => {
+		if (hasSelectedChanges) void actions.discard(subject.addresses());
 	};
 
-	const uncommitSelectedFile = () => {
-		if (selectedChange === null) return;
-
-		actions.uncommit(subject.addresses());
+	const uncommitSelectedRow = () => {
+		if (hasSelectedChanges) actions.uncommit(subject.addresses());
 	};
 
-	const absorbSelectedFile = () => {
-		if (selectedChange === null) return;
-
-		actions.absorb(subject.addresses());
+	const absorbSelectedRow = () => {
+		if (hasSelectedChanges) actions.absorb(subject.addresses());
 	};
 
 	/**
@@ -174,7 +164,7 @@ const useFilesTreeHotkeys = ({
 		toggleDirectoryCollapsed(parent.path);
 	};
 
-	const canDiscardSelectedFile = selectedChange !== null && actions.canDiscard;
+	const canDiscardSelectedRow = hasSelectedChanges && actions.canDiscard;
 
 	const canCheckTheseFiles = useAppSelector((state) =>
 		projectSlice.selectors.selectCanCheckFiles(state, projectId, fileParent),
@@ -194,10 +184,10 @@ const useFilesTreeHotkeys = ({
 		},
 		{
 			hotkey: changesFileHotkeys.absorb.hotkey,
-			callback: absorbSelectedFile,
+			callback: absorbSelectedRow,
 			options: {
 				conflictBehavior: "allow",
-				enabled: selectedChange !== null && actions.canAbsorb && noOperationPending,
+				enabled: hasSelectedChanges && actions.canAbsorb && noOperationPending,
 				target: ref,
 				meta: changesFileHotkeys.absorb.meta,
 			},
@@ -216,10 +206,10 @@ const useFilesTreeHotkeys = ({
 		},
 		{
 			hotkey: changesFileHotkeys.discard.hotkey,
-			callback: discardSelectedFile,
+			callback: discardSelectedRow,
 			options: {
 				conflictBehavior: "allow",
-				enabled: noOperationPending && canDiscardSelectedFile,
+				enabled: noOperationPending && canDiscardSelectedRow,
 				target: ref,
 				meta: changesFileHotkeys.discard.meta,
 			},
@@ -237,45 +227,46 @@ const useFilesTreeHotkeys = ({
 		},
 		{
 			hotkey: changesFileHotkeys.openInEditor.hotkey,
+			// A row's path is all opening it takes, and an editor takes a directory
+			// as readily as a file, so this reaches whatever the cursor is on.
 			callback: () => {
-				if (!preferredEditor || selectedChangesFile === null) return;
+				if (!preferredEditor || selection === null) return;
 
 				openInProgram({
 					projectId,
 					programId: preferredEditor.id,
-					path: selectedChangesFile,
+					path: selection,
 					lineNr: null,
 				});
 			},
 			options: {
 				conflictBehavior: "allow",
-				enabled: preferredEditor && selectedChangesFile !== null,
+				enabled: preferredEditor && selection !== null,
 				target: ref,
 				meta: changesFileHotkeys.openInEditor.meta,
 			},
 		},
 		{
 			hotkey: changesFileHotkeys.revealInFolder.hotkey,
-			// Not limited to uncommitted files the way the editor binding above
-			// is: a row's path locates the file in the worktree whichever list
-			// it came from, which is all revealing it needs.
+			// A row's path locates it in the worktree whichever list it came from and
+			// whichever kind of row it is, which is all revealing it needs.
 			callback: () => {
 				if (selection === null) return;
 				void revealInFolder(selection);
 			},
 			options: {
 				conflictBehavior: "allow",
-				enabled: selectedRow?._tag === "File",
+				enabled: selection !== null,
 				target: ref,
 				meta: changesFileHotkeys.revealInFolder.meta,
 			},
 		},
 		{
 			hotkey: changesFileHotkeys.uncommit.hotkey,
-			callback: uncommitSelectedFile,
+			callback: uncommitSelectedRow,
 			options: {
 				conflictBehavior: "allow",
-				enabled: noOperationPending && selectedChange !== null && actions.canUncommit,
+				enabled: noOperationPending && hasSelectedChanges && actions.canUncommit,
 				target: ref,
 				meta: changesFileHotkeys.uncommit.meta,
 			},
@@ -780,8 +771,9 @@ export const FilesTree: FC<
 	);
 	const checkable = (path: string) => !conflictPaths.has(path);
 	const selectedRow = selection === null ? undefined : rowByPath.get(selection);
-	const selectedItem = selectedRow?._tag === "File" ? selectedRow.item : undefined;
-	const selectedChange = selectedItem?._tag === "Change" ? selectedItem.change : null;
+	// A directory row stands for every file below it, so the list hotkeys reach a whole
+	// subtree the way its menu does. Conflicts have no change to act on either way.
+	const selectedChangePaths = changePathsOfRow(selectedRow);
 
 	// The tree already names the directory a row sits under, so repeating it on
 	// the row itself would say it twice.
@@ -962,7 +954,7 @@ export const FilesTree: FC<
 		rows,
 		selection,
 		selectedRow,
-		selectedChange,
+		selectedChangePaths,
 		toggleDirectoryCollapsed: onToggleDirectoryCollapsed,
 	});
 
@@ -1024,6 +1016,15 @@ export const FilesTree: FC<
 			)}
 		</div>
 	);
+};
+
+/** The changes a row stands for: its own, or every one below a directory. */
+const changePathsOfRow = (row: FileTreeRow<FileRowItem> | undefined): Array<string> => {
+	if (row === undefined) return [];
+	if (row._tag === "Directory")
+		return row.items.filter((item) => item._tag === "Change").map((item) => item.path);
+
+	return row.item._tag === "Change" ? [row.path] : [];
 };
 
 const treeItemId = (path: string): string => `files-treeitem-${encodeURIComponent(path)}`;
