@@ -98,6 +98,7 @@ fn resolve(args: Platform, ctx: &Context, id_map: &IdMap) -> CliResult<MoveOpera
             | ResolvedCliIdArg::UncommittedHunkOrFile(..)
             | ResolvedCliIdArg::Uncommitted
             | ResolvedCliIdArg::Worktree(..)
+            | ResolvedCliIdArg::WorktreeUncommitted(..)
             | ResolvedCliIdArg::PathPrefix { .. }
             | ResolvedCliIdArg::Stack { .. }) => {
                 return Err(bad_input(format!(

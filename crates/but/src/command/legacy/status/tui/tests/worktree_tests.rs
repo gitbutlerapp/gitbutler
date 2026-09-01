@@ -60,7 +60,25 @@ fn sibling_worktree_lanes_are_separated_after_uncommitted_files() {
     ]);
 }
 
-/// The lane, its heading, its uncommitted file and its commit are all reachable with the cursor.
+/// `wt` is a strict prefix of its own area's `wt:@`, so typing it can never become the only
+/// match; the ID typed out in full still jumps to the reference, and one more character reaches
+/// the area.
+#[test]
+fn jump_to_a_worktree_reference_despite_its_area_extending_the_id() {
+    let (mut tui, _editor) = worktree_tui();
+
+    tui.reload();
+    tui.input('/');
+    tui.input("wt")
+        .assert_current_line_eq(str!["┊┊├┄ wt {wt-branch}"]);
+
+    tui.input('/');
+    tui.input("wt:")
+        .assert_current_line_eq(str!["┊┊├┄ wt {wt-branch}"]);
+}
+
+/// Both of the lane's headings, its uncommitted file and its commit are all reachable with the
+/// cursor.
 #[test]
 fn worktree_lane_is_navigable() {
     let (mut tui, _editor) = worktree_tui();
@@ -70,9 +88,11 @@ fn worktree_lane_is_navigable() {
     tui.input(KeyCode::Down)
         .assert_current_line_eq(str!["┊╭┄ g0 [A]"]);
     tui.input(KeyCode::Down)
-        .assert_current_line_eq(str!["┊┊╭┄ wt {wt-branch}"]);
+        .assert_current_line_eq(str!["┊┊╭┄ wt:@ {worktree uncommitted}"]);
     tui.input(KeyCode::Down)
         .assert_current_line_eq(str!["┊┊┊   ok A wt-file.txt"]);
+    tui.input(KeyCode::Down)
+        .assert_current_line_eq(str!["┊┊├┄ wt {wt-branch}"]);
     tui.input(KeyCode::Down)
         .assert_current_line_eq(str!["┊┊●   nll add W"])
         .assert_rendered_term_svg_eq(file!["snapshots/worktree_lane_is_navigable_final.svg"]);
@@ -90,8 +110,10 @@ fn stack_highlighting_with_a_nested_worktree_lane() {
     ]);
 }
 
+/// The two rows of a lane persist separately: they carry distinct remember keys, so a
+/// collision between them would silently restore the wrong one.
 #[test]
-fn remember_selection_on_worktree_heading() {
+fn remember_selection_on_worktree_rows() {
     let env =
         Sandbox::init_scenario_with_target_and_default_settings_slow("one-stack-with-worktree");
     env.setup_metadata(&["A"]);
@@ -108,48 +130,96 @@ fn remember_selection_on_worktree_heading() {
 
     tui.reload();
     tui.input([KeyCode::Down, KeyCode::Down])
-        .assert_current_line_eq(str!["┊┊╭┄ wt {wt-branch}"]);
+        .assert_current_line_eq(str!["┊┊╭┄ wt:@ {worktree uncommitted}"]);
     tui.input('q');
 
     let mut tui = test_status_tui_with_options(tui.into_env(), options());
     tui.reload()
-        .assert_current_line_eq(str!["┊┊╭┄ wt {wt-branch}"]);
+        .assert_current_line_eq(str!["┊┊╭┄ wt:@ {worktree uncommitted}"]);
+
+    tui.input([KeyCode::Down, KeyCode::Down])
+        .assert_current_line_eq(str!["┊┊├┄ wt {wt-branch}"]);
+    tui.input('q');
+
+    let mut tui = test_status_tui_with_options(tui.into_env(), options());
+    tui.reload()
+        .assert_current_line_eq(str!["┊┊├┄ wt {wt-branch}"]);
 }
 
-/// A worktree heading names that checkout's uncommitted area, the way `@` names the main
-/// worktree's, so `c` on it offers those changes as a commit source.
+/// A worktree's uncommitted area names that checkout's changes the way `@` names the main
+/// worktree's, so `c` on it offers those changes as a commit source - and marks itself a
+/// no-op destination, exactly as `@` does.
 #[test]
-fn commit_source_from_a_worktree_heading() {
+fn commit_source_from_a_worktree_area() {
     let (mut tui, _editor) = worktree_tui();
 
     tui.reload();
     tui.input([KeyCode::Down, KeyCode::Down])
-        .assert_current_line_eq(str!["┊┊╭┄ wt {wt-branch}"]);
+        .assert_current_line_eq(str!["┊┊╭┄ wt:@ {worktree uncommitted}"]);
 
-    // The heading claims the source inline; its extension line advertises the destination.
     tui.input('c')
-        .assert_current_line_eq(str!["┊┊╭┄ << source >> wt {wt-branch}"])
+        .assert_current_line_eq(str![
+            "┊┊╭┄ << source >> << noop >> wt:@ {worktree uncommitted}"
+        ])
         .assert_rendered_term_svg_eq(file![
-            "snapshots/commit_source_from_a_worktree_heading_final.svg"
+            "snapshots/commit_source_from_a_worktree_area_final.svg"
         ]);
 }
 
-/// Committing every uncommitted change of a worktree at once, from its heading, which is both
-/// the source and the destination.
+/// Committing every uncommitted change of a worktree at once: the area row is the source, and
+/// the reference row two below it is the destination.
 #[test]
 fn commit_all_changes_of_a_worktree() {
     let (mut tui, editor) = worktree_tui();
 
     tui.reload();
     tui.input([KeyCode::Down, KeyCode::Down])
-        .assert_current_line_eq(str!["┊┊╭┄ wt {wt-branch}"]);
+        .assert_current_line_eq(str!["┊┊╭┄ wt:@ {worktree uncommitted}"]);
 
     tui.input('c');
+    // In commit mode the area's own file rows are not selectable, so one step down from the
+    // area row reaches the reference row that receives the commit.
+    tui.input(KeyCode::Down)
+        .assert_current_line_eq(str!["┊┊├┄ wt {wt-branch}"]);
     with_var("GIT_EDITOR", Some(editor), || {
         tui.input(KeyCode::Enter);
     });
 
     // The worktree's branch moved to the new commit and the stack tip stayed put.
+    snapbox::assert_data_eq!(
+        tui.env().git_log(),
+        str![[r#"
+* edd3eb7 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+| * 27f2344 (wt-branch) commit from worktree
+| * 998a235 add W
+|/  
+* 9477ae7 (A) add A
+* 0dc3733 (origin/main, origin/HEAD, main, gitbutler/target) add M
+
+"#]]
+        .raw()
+    );
+}
+
+/// `c` on the reference row offers that checkout's own changes, the way `c` on a branch row
+/// offers the main area's, so confirming right there commits everything in the worktree.
+#[test]
+fn commit_all_changes_of_a_worktree_from_its_reference() {
+    let (mut tui, editor) = worktree_tui();
+
+    tui.reload();
+    tui.input([KeyCode::Down, KeyCode::Down, KeyCode::Down, KeyCode::Down])
+        .assert_current_line_eq(str!["┊┊├┄ wt {wt-branch}"]);
+
+    tui.input('c')
+        .assert_current_line_eq(str!["┊┊├┄ wt {wt-branch}"])
+        .assert_rendered_term_svg_eq(file![
+            "snapshots/commit_all_changes_of_a_worktree_from_its_reference_001.svg"
+        ]);
+    with_var("GIT_EDITOR", Some(editor), || {
+        tui.input(KeyCode::Enter);
+    });
+
     snapbox::assert_data_eq!(
         tui.env().git_log(),
         str![[r#"
@@ -178,10 +248,10 @@ fn commit_one_worktree_file_onto_its_own_branch() {
     tui.input('c')
         .assert_current_line_eq(str!["┊┊┊   << source >> << noop >> ok A wt-file.txt"]);
 
-    // Up onto the worktree's own lane heading, which offers itself as the destination via the
+    // Down onto the worktree's reference row, which offers itself as the destination via the
     // `<< commit to worktree >>` extension line.
-    tui.input(KeyCode::Up)
-        .assert_current_line_eq(str!["┊┊╭┄ wt {wt-branch}"])
+    tui.input(KeyCode::Down)
+        .assert_current_line_eq(str!["┊┊├┄ wt {wt-branch}"])
         .assert_rendered_term_svg_eq(file![
             "snapshots/commit_one_worktree_file_onto_its_own_branch_001.svg"
         ]);
@@ -219,7 +289,7 @@ fn commit_a_main_worktree_change_onto_a_worktree() {
         .assert_current_line_eq(str!["╭┄ << source >> << noop >> @ [uncommitted]"]);
 
     tui.input([KeyCode::Down, KeyCode::Down])
-        .assert_current_line_eq(str!["┊┊╭┄ wt {wt-branch}"]);
+        .assert_current_line_eq(str!["┊┊├┄ wt {wt-branch}"]);
 
     with_var("GIT_EDITOR", Some(editor), || {
         tui.input(KeyCode::Enter);
@@ -262,8 +332,8 @@ fn marks_spanning_checkouts_are_refused() {
     tui.input(' ');
 
     tui.input('c');
-    tui.input(KeyCode::Up)
-        .assert_current_line_eq(str!["┊┊╭┄ wt {wt-branch}"]);
+    tui.input(KeyCode::Down)
+        .assert_current_line_eq(str!["┊┊├┄ wt {wt-branch}"]);
 
     // The refusal shows as an error and nothing was committed.
     tui.input(KeyCode::Enter)
@@ -282,10 +352,10 @@ fn marks_spanning_checkouts_are_refused() {
     );
 }
 
-/// A detached worktree has no branch to move, so committing onto its heading is refused
+/// A detached worktree has no branch to move, so committing onto its reference row is refused
 /// instead of silently committing somewhere else.
 #[test]
-fn commit_to_a_detached_worktree_heading_is_refused() {
+fn commit_to_a_detached_worktree_reference_is_refused() {
     let (mut tui, _editor) = worktree_tui();
 
     but_testsupport::invoke_bash_at_dir(
@@ -295,16 +365,19 @@ fn commit_to_a_detached_worktree_heading_is_refused() {
             .join(".git/gitbutler/test-worktrees/wt"),
     );
 
-    // Detached, the heading falls back to the worktree's name.
+    // Detached, the reference row falls back to the worktree's name.
     tui.reload();
     tui.input([KeyCode::Down, KeyCode::Down])
-        .assert_current_line_eq(str!["┊┊╭┄ wt {wt}"]);
+        .assert_current_line_eq(str!["┊┊╭┄ wt:@ {worktree uncommitted}"]);
 
-    tui.input('c')
-        .assert_current_line_eq(str!["┊┊╭┄ << source >> wt {wt}"]);
+    tui.input('c').assert_current_line_eq(str![
+        "┊┊╭┄ << source >> << noop >> wt:@ {worktree uncommitted}"
+    ]);
+    tui.input(KeyCode::Down)
+        .assert_current_line_eq(str!["┊┊├┄ wt {wt}"]);
 
     tui.input(KeyCode::Enter).assert_rendered_term_svg_eq(file![
-        "snapshots/commit_to_a_detached_worktree_heading_is_refused.svg"
+        "snapshots/commit_to_a_detached_worktree_reference_is_refused.svg"
     ]);
     snapbox::assert_data_eq!(
         tui.env().git_log(),
@@ -320,27 +393,27 @@ fn commit_to_a_detached_worktree_heading_is_refused() {
     );
 }
 
-/// `n` on a worktree heading inserts an empty commit at the tip of the worktree's branch, the
-/// way it does on a branch heading in the workspace.
+/// `n` on a worktree's reference row inserts an empty commit at the tip of that worktree's
+/// branch, the way it does on a branch heading in the workspace.
 #[test]
-fn empty_commit_on_a_worktree_heading() {
+fn empty_commit_on_a_worktree_reference() {
     let (mut tui, _editor) = worktree_tui();
 
     tui.reload();
-    tui.input([KeyCode::Down, KeyCode::Down])
-        .assert_current_line_eq(str!["┊┊╭┄ wt {wt-branch}"]);
+    tui.input([KeyCode::Down, KeyCode::Down, KeyCode::Down, KeyCode::Down])
+        .assert_current_line_eq(str!["┊┊├┄ wt {wt-branch}"]);
 
     tui.input('n')
         .assert_rendered_term_svg_eq(file![
-            "snapshots/empty_commit_on_a_worktree_heading_final.svg"
+            "snapshots/empty_commit_on_a_worktree_reference_final.svg"
         ])
         .assert_current_line_eq(str!["┊┊●   uxy (no commit message) (no changes)"]);
 }
 
-/// A worktree heading is a move target: confirming on it moves the commit to the tip of the
-/// branch the worktree has checked out.
+/// A worktree's reference row is a move target: confirming on it moves the commit to the tip
+/// of the branch the worktree has checked out.
 #[test]
-fn move_commit_below_a_worktree_heading() {
+fn move_commit_below_a_worktree_reference() {
     let (mut tui, _editor) = worktree_tui();
 
     tui.reload();
@@ -351,15 +424,15 @@ fn move_commit_below_a_worktree_heading() {
         .assert_current_line_eq(str!["┊●   oun (no commit message) (no changes)"]);
 
     tui.input('m');
-    // Past the worktree's own commit, onto its heading.
+    // Past the worktree's own commit, onto its reference row.
     tui.input([KeyCode::Up, KeyCode::Up])
-        .assert_current_line_eq(str!["┊┊╭┄ wt {wt-branch}"])
+        .assert_current_line_eq(str!["┊┊├┄ wt {wt-branch}"])
         .assert_rendered_term_svg_eq(file![
-            "snapshots/move_commit_below_a_worktree_heading_001.svg"
+            "snapshots/move_commit_below_a_worktree_reference_001.svg"
         ]);
 
     tui.input(KeyCode::Enter).assert_rendered_term_svg_eq(file![
-        "snapshots/move_commit_below_a_worktree_heading_002.svg"
+        "snapshots/move_commit_below_a_worktree_reference_002.svg"
     ]);
 
     // The empty commit left the stack for the tip of the worktree's branch.

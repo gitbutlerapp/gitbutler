@@ -343,6 +343,7 @@ impl App {
             | ResolvedCliIdArg::Uncommitted
             | ResolvedCliIdArg::PathPrefix { .. }
             | ResolvedCliIdArg::Worktree(..)
+            | ResolvedCliIdArg::WorktreeUncommitted(..)
             | ResolvedCliIdArg::Stack { .. } => None,
         });
         let initial_committed_file = matches!(
@@ -1168,6 +1169,7 @@ impl App {
                                             | CliId::Commit { .. }
                                             | CliId::Stack { .. }
                                             | CliId::Worktree { .. }
+                                            | CliId::WorktreeUncommitted { .. }
                                             | CliId::Uncommitted { .. } => None,
                                         }
                                     }
@@ -1177,7 +1179,8 @@ impl App {
                                     | StatusOutputLineData::StagedChanges { .. }
                                     | StatusOutputLineData::StagedFile { .. }
                                     | StatusOutputLineData::UncommittedChanges { .. }
-                                    | StatusOutputLineData::WorktreeUncommittedChanges { .. }
+                                    | StatusOutputLineData::Worktree { .. }
+                                    | StatusOutputLineData::WorktreeUncommitted { .. }
                                     | StatusOutputLineData::Branch { .. }
                                     | StatusOutputLineData::Commit { .. }
                                     | StatusOutputLineData::CommitMessage
@@ -1216,6 +1219,7 @@ impl App {
                         | CliId::Branch(..)
                         | CliId::Commit { .. }
                         | CliId::Worktree { .. }
+                        | CliId::WorktreeUncommitted { .. }
                         | CliId::Stack { .. } => {
                             messages.push(Message::Reload(
                                 None,
@@ -1516,10 +1520,11 @@ impl App {
                     ReloadCause::Mutation,
                 ));
             }
-            StatusOutputLineData::WorktreeUncommittedChanges { cli_id } => {
-                // A worktree heading is the top of its lane, so the empty commit goes to the tip
-                // of the branch checked out there. The main `@` heading names no branch, so it
-                // stays a no-op.
+            StatusOutputLineData::WorktreeUncommitted { .. } => return Ok(()),
+            StatusOutputLineData::Worktree { cli_id } => {
+                // The reference row is the top of its lane, so the empty commit goes to the tip
+                // of the branch checked out there. The uncommitted areas name no branch, so they
+                // stay no-ops.
                 let CliId::Worktree { name, .. } = &**cli_id else {
                     return Ok(());
                 };
@@ -1599,6 +1604,7 @@ impl App {
             | CliId::CommittedHunk(..)
             | CliId::PathPrefix { .. }
             | CliId::Uncommitted { .. }
+            | CliId::WorktreeUncommitted { .. }
             | CliId::Stack { .. } => return Ok(()),
         };
 
@@ -1654,6 +1660,7 @@ impl App {
             | CliId::CommittedHunk(..)
             | CliId::PathPrefix { .. }
             | CliId::Uncommitted { .. }
+            | CliId::WorktreeUncommitted { .. }
             | CliId::Stack { .. } => return Ok(()),
         };
         self.modal = Some(Modal::CopySelectionPicker {
@@ -1694,6 +1701,7 @@ impl App {
                     | CliId::PathPrefix { .. }
                     | CliId::Uncommitted { .. }
                     | CliId::Worktree { .. }
+                    | CliId::WorktreeUncommitted { .. }
                     | CliId::Stack { .. } => Ok(None),
                 }
             }

@@ -114,7 +114,7 @@ impl StatusOutput<'_> {
         )
     }
 
-    pub fn uncommitted_changes_in_worktree(
+    pub fn worktree(
         &mut self,
         connector: Vec<Span<'static>>,
         line: UncommittedLineContent,
@@ -123,7 +123,22 @@ impl StatusOutput<'_> {
         self.push_line(
             Some(connector),
             StatusOutputContent::Uncommitted(line),
-            StatusOutputLineData::WorktreeUncommittedChanges {
+            StatusOutputLineData::Worktree {
+                cli_id: Arc::new(id),
+            },
+        )
+    }
+
+    pub fn worktree_uncommitted(
+        &mut self,
+        connector: Vec<Span<'static>>,
+        line: UncommittedLineContent,
+        id: CliId,
+    ) -> anyhow::Result<()> {
+        self.push_line(
+            Some(connector),
+            StatusOutputContent::Uncommitted(line),
+            StatusOutputLineData::WorktreeUncommitted {
                 cli_id: Arc::new(id),
             },
         )
@@ -390,7 +405,8 @@ impl StatusOutputLine {
             StatusOutputLineData::StagedChanges { .. }
             | StatusOutputLineData::StagedFile { .. }
             | StatusOutputLineData::UncommittedChanges { .. }
-            | StatusOutputLineData::WorktreeUncommittedChanges { .. }
+            | StatusOutputLineData::Worktree { .. }
+            | StatusOutputLineData::WorktreeUncommitted { .. }
             | StatusOutputLineData::UncommittedFile { .. }
             | StatusOutputLineData::CommitMessage
             | StatusOutputLineData::MergeBase
@@ -422,7 +438,10 @@ pub enum StatusOutputLineData {
     UncommittedChanges {
         cli_id: Arc<CliId>,
     },
-    WorktreeUncommittedChanges {
+    Worktree {
+        cli_id: Arc<CliId>,
+    },
+    WorktreeUncommitted {
         cli_id: Arc<CliId>,
     },
     UncommittedFile {
@@ -453,7 +472,8 @@ impl StatusOutputLineData {
     pub fn cli_id(&self) -> Option<&Arc<CliId>> {
         match self {
             StatusOutputLineData::UncommittedChanges { cli_id }
-            | StatusOutputLineData::WorktreeUncommittedChanges { cli_id }
+            | StatusOutputLineData::Worktree { cli_id }
+            | StatusOutputLineData::WorktreeUncommitted { cli_id }
             | StatusOutputLineData::UncommittedFile { cli_id }
             | StatusOutputLineData::Branch { cli_id, .. }
             | StatusOutputLineData::StagedChanges { cli_id }

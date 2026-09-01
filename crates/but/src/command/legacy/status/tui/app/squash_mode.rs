@@ -28,7 +28,7 @@ use crate::{
     },
     id::{BranchId, CommitId, CommittedFileId, UncommittedHunkOrFile},
     tui::TerminalGuard,
-    utils::merged_upstream::MergedUpstream,
+    utils::{change_source::ChangeSourceId, merged_upstream::MergedUpstream},
 };
 
 use super::{
@@ -349,7 +349,7 @@ impl App {
                 | MarksRef::CommittedFiles { .. } => {}
             },
             Mode::Commit(commit_mode) => match &*commit_mode.source {
-                CommitSource::Uncommitted => {
+                CommitSource::Area(ChangeSourceId::Head) => {
                     self.squash_start_with_source(SquashSource::Uncommitted);
                 }
                 CommitSource::UncommittedHunk(hunk) => {
@@ -361,8 +361,8 @@ impl App {
                     )));
                 }
                 // Squashing a whole linked worktree's changes into a commit has no source to
-                // model, so the mode switch is simply not offered.
-                CommitSource::Worktree(..) => {}
+                // model yet, so the mode switch is simply not offered.
+                CommitSource::Area(ChangeSourceId::Worktree(..)) => {}
             },
             Mode::Move(move_mode) => match &move_mode.source {
                 MoveSource::Marks(commits) => {
@@ -430,6 +430,7 @@ impl App {
             | CliId::CommittedHunk(..)
             | CliId::PathPrefix { .. }
             | CliId::Stack { .. }
+            | CliId::WorktreeUncommitted { .. }
             | CliId::Worktree { .. } => {}
         }
     }

@@ -904,6 +904,7 @@ pub fn resolve_target(
         | ResolvedCliIdArgRef::CommittedHunk { .. }
         | ResolvedCliIdArgRef::PathPrefix { .. }
         | ResolvedCliIdArgRef::Worktree(..)
+        | ResolvedCliIdArgRef::WorktreeUncommitted(..)
         | ResolvedCliIdArgRef::Stack { .. } => Err(ResolveTargetError::InvalidTarget),
     }
 }
@@ -1118,6 +1119,7 @@ impl<'a> Squashable<'a> {
                 ));
             }
             ResolvedCliIdArgRef::Worktree(..) => "a worktree",
+            ResolvedCliIdArgRef::WorktreeUncommitted(..) => "a worktree's uncommitted changes",
             ResolvedCliIdArgRef::Stack { .. } => "a stack",
         };
         Err(bad_input(format!(
