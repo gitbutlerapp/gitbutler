@@ -95,17 +95,11 @@ jobs:
             -f "labels[]=screenshots needed" --silent
           cat > /tmp/comment.md <<EOF
           ${marker}
-          This pull request changes Lite's UI, so it is labelled
-          \`screenshots needed\`. Before/after screenshots make it reviewable
-          without checking the branch out.
+          This pull request changes Lite's UI, so it is labelled \`screenshots needed\`. Before/after screenshots make it reviewable without checking the branch out.
 
-          Attach them however you like — drag images straight into a comment, or
-          have an agent capture them for you (the \`lite-screenshots\` skill in
-          this repository does it against seeded fixtures).
+          Attach them however you like — drag images straight into a comment, or have an agent capture them for you (the \`lite-screenshots\` skill in this repository does it against seeded fixtures).
 
-          Swap the label for \`screenshots\` once they are posted, or remove it if
-          this change is not visual. Either sticks — this is asked once per pull
-          request, so later pushes will not put it back.
+          Swap the label for \`screenshots\` once they are posted, or remove it if this change is not visual. Either sticks — this is asked once per pull request, so later pushes will not put it back.
           EOF
           # No point tagging them on their own pull request.
           if [ "${AUTHOR}" != "${DESIGNER}" ]; then
