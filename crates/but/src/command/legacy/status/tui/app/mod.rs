@@ -1518,7 +1518,7 @@ impl App {
             }
             StatusOutputLineData::WorktreeUncommittedChanges { cli_id } => {
                 // A worktree heading is the top of its lane, so the empty commit goes to the tip
-                // of the branch checked out there. The main `zz` heading names no branch, so it
+                // of the branch checked out there. The main `@` heading names no branch, so it
                 // stays a no-op.
                 let CliId::Worktree { name, .. } = &**cli_id else {
                     return Ok(());

@@ -42,7 +42,7 @@ pub(crate) enum SourceScope {
     /// Match commits, branches, stacks, and uncommitted files alike.
     Any,
     /// Match only uncommitted files and hunks (plus their explicit containers
-    /// `zz`, `dir/`, and `@{stack}`), so commit and branch IDs minted after a
+    /// `@`, `dir/`, and `@{stack}`), so commit and branch IDs minted after a
     /// file ID was printed cannot shadow it.
     UncommittedOnly,
 }
@@ -50,7 +50,14 @@ pub(crate) enum SourceScope {
 /// A helper to indicate that this is a short-id as a user would see.
 pub(crate) type ShortId = String;
 
-pub(crate) const UNCOMMITTED: &str = "zz";
+pub(crate) const UNCOMMITTED: &str = "@";
+
+/// As zz has been the uncommitted area for so long, there's a non-zero chance there are scripts out
+/// there that would try to run e.g. `but discard zz` to discard uncommitted, and then accidentally
+/// discard something else instead without noticing. Therefore, for some time to come we reserve the
+/// old uncommitted identifier for some time to come before releasing it for use by other
+/// resources.
+pub(crate) const OLD_UNCOMMITTED: &str = "zz";
 
 const INDEX_SEPARATOR: char = '#';
 
@@ -755,7 +762,7 @@ pub struct IdMap {
 }
 
 /// A linked worktree with its short ID, naming that checkout's uncommitted area
-/// the way `zz` names the main worktree's.
+/// the way `@` names the main worktree's.
 #[derive(Debug, Clone)]
 pub struct WorktreeWithId {
     /// The name-derived short CLI ID for this worktree (at least 2 characters).
@@ -1236,7 +1243,7 @@ impl IdMap {
 
     /// The main worktree's uncommitted hunks under the path prefix `element`.
     ///
-    /// Deliberately restricted to [`ChangeSourceId::Head`], mirroring `zz`: a
+    /// Deliberately restricted to [`ChangeSourceId::Head`], mirroring `@`: a
     /// prefix spanning several checkouts could never be committed in one go, as
     /// an operation only ever reads changes from a single source.
     fn parse_uncommitted_path_prefix<'a>(&'a self, element: &str) -> Vec<Box<dyn Node<'a> + 'a>> {
@@ -1328,6 +1335,14 @@ impl IdMap {
             return Ok(vec![]);
         }
 
+        if element == OLD_UNCOMMITTED {
+            // this should be a bad_input but it's just too much of a hassle to convert the entire
+            // call chain to use CliResult. This is fine for a temporary error message.
+            anyhow::bail!(
+                "The uncommitted area has been renamed from '{OLD_UNCOMMITTED}' to '{UNCOMMITTED}'. Repeat the command with '{UNCOMMITTED}' instead to proceed."
+            )
+        }
+
         // Parse known suffixes.
         if let Some(prefix) = element.strip_suffix("@{stack}") {
             let mut matches = Vec::<Box<dyn Node<'a> + 'a>>::new();
@@ -1366,11 +1381,11 @@ impl IdMap {
         // Unscoped: a path dirty in several checkouts matches all of them, and the
         // caller reports the ambiguity so it can be resolved with a file ID.
         matches.extend(self.parse_uncommitted_filename(element, None));
-        // A worktree names its own uncommitted area, so like `zz` it resolves in
+        // A worktree names its own uncommitted area, so like `@` it resolves in
         // both scopes rather than only the full one.
         matches.extend(self.parse_worktree_name(element));
-        // `zz` competes here for the same reason a worktree name does: a dirty file
-        // called `zz` must surface as an ambiguity, not silently shadow the area.
+        // `@` competes here for the same reason a worktree name does: a dirty file
+        // called `@` must surface as an ambiguity, not silently shadow the area.
         if element == UNCOMMITTED {
             matches.push(Box::new(Unstaged {}));
         }
@@ -1513,7 +1528,7 @@ impl<'a> Node<'a> for &'a WorktreeWithId {
         _changes_in_commit: &dyn ChangesInCommit,
     ) -> anyhow::Result<Vec<Box<dyn Node<'a> + 'a>>> {
         // `<worktree>:<path>` is how a path that is dirty in several checkouts is
-        // narrowed down to one, mirroring `zz:<path>` for the main worktree.
+        // narrowed down to one, mirroring `@:<path>` for the main worktree.
         Ok(id_map.parse_uncommitted_filename(element, Some(&self.source())))
     }
 
@@ -1529,7 +1544,7 @@ impl<'a> Node<'a> for &'a WorktreeWithId {
     }
 }
 
-/// The `zz` uncommitted-area sentinel as a parse node: children are unstaged
+/// The `@` uncommitted-area sentinel as a parse node: children are unstaged
 /// filenames, and by itself it resolves to [`CliId::Uncommitted`]. Shared by
 /// the full and the uncommitted-scoped element parsers so the sentinel cannot
 /// drift between them.
@@ -1543,7 +1558,7 @@ impl<'a> Node<'a> for Unstaged {
         id_map: &'a IdMap,
         _changes_in_commit: &dyn ChangesInCommit,
     ) -> anyhow::Result<Vec<Box<dyn Node<'a> + 'a>>> {
-        // `zz` means the main worktree, so `zz:<path>` must never reach into a
+        // `@` means the main worktree, so `@:<path>` must never reach into a
         // linked worktree that happens to have the same path dirty.
         Ok(id_map.parse_uncommitted_filename(element, Some(&ChangeSourceId::Head)))
     }
@@ -1578,7 +1593,7 @@ impl IdMap {
     /// uncommitted changes, so a file ID handed out by an earlier command cannot
     /// be invalidated by a commit minted in between.
     ///
-    /// Container selectors still surface their containers: bare `zz` yields
+    /// Container selectors still surface their containers: bare `@` yields
     /// [`CliId::Uncommitted`], `dir/` yields [`CliId::PathPrefix`], and
     /// `X@{stack}` resolves its stack (and can yield
     /// [`CliId::Stack`]); callers validate the kinds they accept.

@@ -58,7 +58,7 @@ fn open_uncommitted_file_with() {
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
-╭┄ zz [uncommitted]
+╭┄ @ [uncommitted]
 ┊   xk A new-file.txt
 ┊
 ┴ 0dc3733 (common base) 2000-01-02 add M
@@ -263,7 +263,7 @@ fn open_uncommitted_hunk_in_file_that_contains_spaces_and_shell_metacharacters()
     );
 
     env.but("status").assert().success().stdout_eq(snapbox::str![[r#"
-╭┄ zz [uncommitted]
+╭┄ @ [uncommitted]
 ┊   pv M file with some $meta; cat A > new-file.txt; spaces in it.txt
 ┊
 ┊╭┄ br [a-branch-1]
@@ -309,7 +309,7 @@ fn cannot_open_committed_changes() {
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
-╭┄ zz [uncommitted] (no changes)
+╭┄ @ [uncommitted] (no changes)
 ┊
 ┊╭┄ g0 [A]
 ┊●   tpm add A
@@ -399,7 +399,7 @@ fn user_defined_program_path_executable_handles_shell_metacharacters() {
     .unwrap();
 
     env.but("status -f").assert().success().stdout_eq(snapbox::str![[r#"
-╭┄ zz [uncommitted]
+╭┄ @ [uncommitted]
 ┊   pv M file with some $meta; cat A > new-file.txt; spaces in it.txt
 ┊
 ┊╭┄ br [a-branch-1]
@@ -508,7 +508,7 @@ fn user_defined_program_defaults_to_default_open_args() {
     .unwrap();
 
     env.but("status -f").assert().success().stdout_eq(snapbox::str![[r#"
-╭┄ zz [uncommitted]
+╭┄ @ [uncommitted]
 ┊   uv M file.txt
 ┊
 ┊╭┄ br [a-branch-1]
@@ -788,7 +788,7 @@ filepath='/[..]/file.txt'
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
-╭┄ zz [uncommitted]
+╭┄ @ [uncommitted]
 ┊   tt A Dockerfile
 ┊   zn A file.md
 ┊   uv A file.txt
@@ -809,7 +809,7 @@ Hint: run `but branch new` to create a new branch to work on
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
-╭┄ zz [uncommitted]
+╭┄ @ [uncommitted]
 ┊   tt A Dockerfile
 ┊   zn A file.md
 ┊   ul A file.md.touch
@@ -831,7 +831,7 @@ Hint: run `but branch new` to create a new branch to work on
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
-╭┄ zz [uncommitted]
+╭┄ @ [uncommitted]
 ┊   tt A Dockerfile
 ┊   mu A Dockerfile.touch
 ┊   zn A file.md

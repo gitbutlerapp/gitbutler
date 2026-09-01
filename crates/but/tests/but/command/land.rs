@@ -16,7 +16,7 @@ fn land_rejects_single_branch_mode() {
         .success()
         .stderr_eq(str![])
         .stdout_eq(str![[r#"
-╭┄ zz [uncommitted] (no changes)
+╭┄ @ [uncommitted] (no changes)
 ┊
 ┊╭┄ ma [main]
 ┊●   nmy M (no changes)
@@ -43,7 +43,7 @@ Failed to land branch. `but land` requires an active GitButler workspace (`gitbu
         .success()
         .stderr_eq(str![])
         .stdout_eq(str![[r#"
-╭┄ zz [uncommitted] (no changes)
+╭┄ @ [uncommitted] (no changes)
 ┊
 ┊╭┄ ma [main]
 ┊●   nmy M (no changes)

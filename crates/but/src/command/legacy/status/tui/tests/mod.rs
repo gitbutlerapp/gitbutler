@@ -338,7 +338,7 @@ fn basic_cursor_movement() {
 
     tui.reload()
         .assert_rendered_term_svg_eq(file!["snapshots/basic_cursor_movement_001.svg"])
-        .assert_current_line_eq(str!["╭┄ zz [uncommitted] (no changes)"]);
+        .assert_current_line_eq(str!["╭┄ @ [uncommitted] (no changes)"]);
 
     tui.input(KeyCode::Down)
         .assert_current_line_eq(str!["┊╭┄ g0 [A]"]);
@@ -367,7 +367,7 @@ fn basic_cursor_movement() {
         KeyCode::Up,
         KeyCode::Up,
     ])
-    .assert_current_line_eq(str!["╭┄ zz [uncommitted] (no changes)"]);
+    .assert_current_line_eq(str!["╭┄ @ [uncommitted] (no changes)"]);
 }
 
 #[test]
@@ -378,7 +378,7 @@ fn movement_aliases_j_k() {
     let mut tui = test_status_tui(env);
 
     tui.reload()
-        .assert_current_line_eq(str!["╭┄ zz [uncommitted] (no changes)"]);
+        .assert_current_line_eq(str!["╭┄ @ [uncommitted] (no changes)"]);
 
     tui.input('j').assert_current_line_eq(str!["┊╭┄ g0 [A]"]);
 
@@ -388,7 +388,7 @@ fn movement_aliases_j_k() {
     tui.input('k').assert_current_line_eq(str!["┊╭┄ g0 [A]"]);
 
     tui.input('k')
-        .assert_current_line_eq(str!["╭┄ zz [uncommitted] (no changes)"]);
+        .assert_current_line_eq(str!["╭┄ @ [uncommitted] (no changes)"]);
 }
 
 #[test]
@@ -399,7 +399,7 @@ fn section_jumps_shift_j_k() {
     let mut tui = test_status_tui(env);
 
     tui.reload()
-        .assert_current_line_eq(str!["╭┄ zz [uncommitted] (no changes)"]);
+        .assert_current_line_eq(str!["╭┄ @ [uncommitted] (no changes)"]);
 
     tui.input((KeyModifiers::SHIFT, 'J'))
         .assert_current_line_eq(str!["┊╭┄ g0 [A]"]);
@@ -411,7 +411,7 @@ fn section_jumps_shift_j_k() {
         .assert_current_line_eq(str!["┊╭┄ g0 [A]"]);
 
     tui.input((KeyModifiers::SHIFT, 'K'))
-        .assert_current_line_eq(str!["╭┄ zz [uncommitted] (no changes)"]);
+        .assert_current_line_eq(str!["╭┄ @ [uncommitted] (no changes)"]);
 }
 
 #[test]
@@ -422,7 +422,7 @@ fn shift_k_from_commit_moves_to_current_section_header_first() {
     let mut tui = test_status_tui(env);
 
     tui.reload()
-        .assert_current_line_eq(str!["╭┄ zz [uncommitted] (no changes)"]);
+        .assert_current_line_eq(str!["╭┄ @ [uncommitted] (no changes)"]);
 
     tui.input([KeyCode::Down, KeyCode::Down])
         .assert_current_line_eq(str!["┊●   tpm add A"]);
@@ -431,7 +431,7 @@ fn shift_k_from_commit_moves_to_current_section_header_first() {
         .assert_current_line_eq(str!["┊╭┄ g0 [A]"]);
 
     tui.input((KeyModifiers::SHIFT, 'K'))
-        .assert_current_line_eq(str!["╭┄ zz [uncommitted] (no changes)"]);
+        .assert_current_line_eq(str!["╭┄ @ [uncommitted] (no changes)"]);
 }
 
 #[test]
@@ -442,7 +442,7 @@ fn shift_k_from_second_stack_commit_moves_to_its_header() {
     let mut tui = test_status_tui(env);
 
     tui.reload()
-        .assert_current_line_eq(str!["╭┄ zz [uncommitted] (no changes)"]);
+        .assert_current_line_eq(str!["╭┄ @ [uncommitted] (no changes)"]);
 
     tui.input((KeyModifiers::SHIFT, 'J'))
         .assert_current_line_eq(str!["┊╭┄ g0 [A]"]);
@@ -475,7 +475,7 @@ fn cursor_movement_scrolls_viewport_down() {
         .assert_rendered_term_svg_eq(file![
             "snapshots/cursor_movement_scrolls_viewport_down_001.svg"
         ])
-        .assert_current_line_eq(str!["╭┄ zz [uncommitted] (no changes)"]);
+        .assert_current_line_eq(str!["╭┄ @ [uncommitted] (no changes)"]);
 
     tui.input([KeyCode::Down, KeyCode::Down, KeyCode::Down, KeyCode::Down])
         .assert_rendered_term_svg_eq(file![
@@ -508,7 +508,7 @@ fn cursor_movement_scrolls_viewport_up() {
         .assert_rendered_term_svg_eq(file![
             "snapshots/cursor_movement_scrolls_viewport_up_002.svg"
         ])
-        .assert_current_line_eq(str!["╭┄ zz [uncommitted] (no changes)"]);
+        .assert_current_line_eq(str!["╭┄ @ [uncommitted] (no changes)"]);
 }
 
 #[test]
@@ -630,7 +630,7 @@ fn creating_empty_commits() {
 
     tui.reload()
         .assert_rendered_term_svg_eq(file!["snapshots/creating_empty_commits_001.svg"])
-        .assert_current_line_eq(str!["╭┄ zz [uncommitted] (no changes)"]);
+        .assert_current_line_eq(str!["╭┄ @ [uncommitted] (no changes)"]);
 
     tui.input(KeyCode::Down)
         .assert_current_line_eq(str!["┊╭┄ g0 [A]"]);
@@ -653,7 +653,7 @@ fn inline_reword() {
 
     tui.reload()
         .assert_rendered_term_svg_eq(file!["snapshots/inline_reword_001.svg"])
-        .assert_current_line_eq(str!["╭┄ zz [uncommitted] (no changes)"]);
+        .assert_current_line_eq(str!["╭┄ @ [uncommitted] (no changes)"]);
 
     tui.input(KeyCode::Down)
         .assert_current_line_eq(str!["┊╭┄ g0 [A]"]);
@@ -705,12 +705,12 @@ fn esc_leaves_squash_mode() {
     let mut tui = test_status_tui(env);
 
     tui.reload()
-        .assert_current_line_eq(str!["╭┄ zz [uncommitted] (no changes)"]);
+        .assert_current_line_eq(str!["╭┄ @ [uncommitted] (no changes)"]);
 
     tui.env().file("test.txt", "content");
 
     tui.reload()
-        .assert_current_line_eq(str!["╭┄ zz [uncommitted]"]);
+        .assert_current_line_eq(str!["╭┄ @ [uncommitted]"]);
 
     tui.input(KeyCode::Down)
         .assert_current_line_eq(str!["┊   vo A test.txt"]);
@@ -737,10 +737,10 @@ fn mode_key_c_enters_and_escape_leaves_commit_mode() {
         .assert_rendered_term_svg_eq(file![
             "snapshots/mode_toggle_key_c_enters_and_leaves_commit_mode_001.svg"
         ])
-        .assert_current_line_eq(str!["╭┄ << source >> << noop >> zz [uncommitted]"]);
+        .assert_current_line_eq(str!["╭┄ << source >> << noop >> @ [uncommitted]"]);
 
     tui.input(KeyCode::Esc)
-        .assert_current_line_eq(str!["╭┄ zz [uncommitted]"]);
+        .assert_current_line_eq(str!["╭┄ @ [uncommitted]"]);
 }
 
 #[test]
@@ -1148,7 +1148,7 @@ fn jumping_up_down_non_normal_mode() {
     tui.input((KeyModifiers::CONTROL, 'd'))
         .assert_current_line_eq(str!["┊●   << amend >> 1#8 commit #4 (no changes)"]);
     tui.input((KeyModifiers::CONTROL, 'u'))
-        .assert_current_line_eq(str!["╭┄ << source >> zz [uncommitted]"]);
+        .assert_current_line_eq(str!["╭┄ << source >> @ [uncommitted]"]);
 }
 
 #[test]
@@ -1296,9 +1296,9 @@ fn opening_on_different_targets() {
         .reload()
         .assert_current_line_eq(str!["┊╭┄ g0 [A]"]);
 
-    open_tui_at("zz")
+    open_tui_at("@")
         .reload()
-        .assert_current_line_eq(str!["╭┄ zz [uncommitted] (no changes)"]);
+        .assert_current_line_eq(str!["╭┄ @ [uncommitted] (no changes)"]);
 }
 
 #[test]

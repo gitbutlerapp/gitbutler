@@ -16,7 +16,7 @@ Updated commit message for [..]
 "#]]);
 
     env.but("status -vf").assert().success().stdout_eq(str![[r#"
-╭┄ zz [uncommitted] (no changes)
+╭┄ @ [uncommitted] (no changes)
 ┊
 ┊╭┄ g0 [A]
 ┊● tpm author 2000-01-01 00:00:00 +0000 (sha 3ffa6ce)
@@ -47,7 +47,7 @@ fn rewords_commit_from_editor() {
         .success();
 
     env.but("status -vf").assert().success().stdout_eq(str![[r#"
-╭┄ zz [uncommitted] (no changes)
+╭┄ @ [uncommitted] (no changes)
 ┊
 ┊╭┄ g0 [A]
 ┊● tpm author 2000-01-01 00:00:00 +0000 (sha 4945c18)
@@ -126,7 +126,7 @@ fn emits_json_for_commit_reword() {
 "#]]);
 
     env.but("status -vf").assert().success().stdout_eq(str![[r#"
-╭┄ zz [uncommitted] (no changes)
+╭┄ @ [uncommitted] (no changes)
 ┊
 ┊╭┄ g0 [A]
 ┊● tpm author 2000-01-01 00:00:00 +0000 (sha dfe058b)
@@ -178,7 +178,7 @@ Hint: Most likely you want `but pull`, which updates the workspace and removes l
         .assert()
         .success()
         .stdout_eq(str![[r#"
-╭┄ zz [uncommitted] (no changes)
+╭┄ @ [uncommitted] (no changes)
 ┊
 ┊╭┄ g0 [A] (merged upstream)
 ┊● nyq author 2000-01-01 00:00:00 +0000 (sha b019c15)
@@ -215,7 +215,7 @@ Renamed 'A' to 'renamed-branch'
 "#]]);
 
     env.but("status -vf").assert().success().stdout_eq(str![[r#"
-╭┄ zz [uncommitted] (no changes)
+╭┄ @ [uncommitted] (no changes)
 ┊
 ┊╭┄ re [renamed-branch]
 ┊● tpm author 2000-01-01 00:00:00 +0000 (sha 9477ae7)

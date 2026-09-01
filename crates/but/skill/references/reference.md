@@ -228,18 +228,18 @@ but squash <branch> -m "msg"                       # Squash all commits on a bra
 but squash <branch> -t <commit> -m "msg"           # Squash a branch into a commit, removing the branch
 but squash <commit> -t <branch> -m "msg"           # Target a branch: squashes into its newest commit
 but squash <file-or-hunk-id> -t <commit>           # Amend an uncommitted change (`but amend` does this)
-but squash zz -t <commit>                          # Amend all uncommitted changes into a commit
-but squash <commit> -t zz                          # Uncommit a commit
-but squash <branch> -t zz                          # Uncommit all commits and remove the branch
+but squash @ -t <commit>                           # Amend all uncommitted changes into a commit
+but squash <commit> -t @                           # Uncommit a commit
+but squash <branch> -t @                           # Uncommit all commits and remove the branch
 but squash <commit-id>:<file-id> -t <commit>       # Move a committed file into another commit
 ```
 
-All sources must be the same kind (all commits, all branches, all uncommitted changes, `zz`, or all
+All sources must be the same kind (all commits, all branches, all uncommitted changes, `@`, or all
 committed files) and committed-file sources must come from one commit. If `-t` is omitted, `<SOURCES>`
 must be exactly one branch, which squashes that branch's commits together.
 
 Message flags (mutually exclusive). Commit and branch sources compose a new message unless the
-target is `zz`, so without a flag they open an editor and block — always pass one. Uncommitted and
+target is `@`, so without a flag they open an editor and block — always pass one. Uncommitted and
 committed-file sources reuse the target's message and need no flag:
 
 ```bash
@@ -249,7 +249,7 @@ committed-file sources reuse the target's message and need no flag:
 --use-source-message      # Keep the sources' message, drop the target's
 ```
 
-None of the message flags may be used when the target is `zz`.
+None of the message flags may be used when the target is `@`.
 
 For multiple independent squash groups, prefer newer/top groups first; change-ID refs from
 one status read stay valid across squashes (the target keeps its ref), so the
@@ -325,7 +325,7 @@ Permanently drop branches, commits, or changes. Undo with `but undo`.
 ```bash
 but discard <file-id>              # Discard an uncommitted file's changes
 but discard <hunk-id>              # Discard a single hunk
-but discard zz                     # Discard all uncommitted changes
+but discard @                      # Discard all uncommitted changes
 but discard <commit-id>            # Drop a commit
 but discard <commit-id>:<file-id>  # Drop one file's changes from its commit
 but discard <branch>               # Drop a branch and its commits

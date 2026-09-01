@@ -28,13 +28,13 @@ pub struct Platform {
     /// Can be supplied any number of times, each value being appended to the preceding ones with a
     /// blank line in between.
     ///
-    /// This cannot be used when `TARGET` is the uncommitted area (`zz`).
+    /// This cannot be used when `TARGET` is the uncommitted area (`@`).
     #[clap(short, long, group = "commit_message")]
     pub message: Option<Vec<String>>,
 
     /// Creates the commit without a commit message.
     ///
-    /// This cannot be used when `TARGET` is the uncommitted area (`zz`).
+    /// This cannot be used when `TARGET` is the uncommitted area (`@`).
     #[clap(long, group = "commit_message")]
     pub no_message: bool,
 
@@ -42,7 +42,7 @@ pub struct Platform {
     ///
     /// The message of the source(s) will be discarded.
     ///
-    /// This cannot be used when `TARGET` is the uncommitted area (`zz`).
+    /// This cannot be used when `TARGET` is the uncommitted area (`@`).
     #[clap(long, short = 'u', group = "commit_message")]
     pub use_target_message: bool,
 
@@ -51,7 +51,7 @@ pub struct Platform {
     /// The message of the target will be discarded.
     ///
     /// Cannot be used if `<SOURCES>` are not committed, if `TARGET` is the uncommitted area
-    /// (`zz`), or if moving committed changes between commits.
+    /// (`@`), or if moving committed changes between commits.
     #[clap(long, group = "commit_message")]
     pub use_source_message: bool,
 
@@ -61,19 +61,19 @@ pub struct Platform {
     ///
     /// If `TARGET` is a branch the sources will be added to that branch's newest commit (its tip).
     ///
-    /// If `TARGET` is the uncommitted area (`zz`) the sources will be uncommitted.
+    /// If `TARGET` is the uncommitted area (`@`) the sources will be uncommitted.
     #[clap(long, short)]
     pub target: Option<CliIdArg>,
 
     /// The sources to squash.
     ///
-    /// If `--target` is provided and `<SOURCES>` is omitted, the uncommitted area (`zz`) is used.
+    /// If `--target` is provided and `<SOURCES>` is omitted, the uncommitted area (`@`) is used.
     ///
     /// If `<SOURCES>` is one or more commits they will be squashed into the target.
     ///
     /// If `<SOURCES>` is one or more branches all the commits on the branches will be squashed
     /// into the target and the branches will be removed. When the target is the uncommitted area
-    /// (`zz`), all commits on the branches are uncommitted.
+    /// (`@`), all commits on the branches are uncommitted.
     ///
     /// If `TARGET` is omitted and `<SOURCES>` is exactly one branch all commits on the branch will
     /// be squashed.
@@ -81,7 +81,7 @@ pub struct Platform {
     /// If `<SOURCES>` is one or more uncommitted files or hunks they will be squashed into the
     /// target.
     ///
-    /// If `<SOURCES>` is the uncommitted area (`zz`) all uncommitted changes will be squashed into
+    /// If `<SOURCES>` is the uncommitted area (`@`) all uncommitted changes will be squashed into
     /// the target.
     ///
     /// If `<SOURCES>` is a committed file those changes will be moved into the target. All changes
@@ -89,7 +89,7 @@ pub struct Platform {
     /// commits into a single target.
     ///
     /// It is not possible to mix sources of different types, i.e., all sources must either be
-    /// commits, branches, uncommitted files, `zz`, or committed files.
+    /// commits, branches, uncommitted files, `@`, or committed files.
     #[clap(required_unless_present = "target")]
     pub sources: Vec<CliIdArg>,
 

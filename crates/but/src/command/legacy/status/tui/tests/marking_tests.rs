@@ -36,10 +36,10 @@ fn marking_uncommitted_toggles_all_uncommitted_files() {
     let mut tui = test_status_tui(env);
 
     tui.reload()
-        .assert_current_line_eq(str!["╭┄ zz [uncommitted]"]);
+        .assert_current_line_eq(str!["╭┄ @ [uncommitted]"]);
 
     tui.input(' ')
-        .assert_current_line_eq(str!["╭┄ zz [uncommitted]"]);
+        .assert_current_line_eq(str!["╭┄ @ [uncommitted]"]);
 
     tui.input(KeyCode::Down)
         .assert_current_line_eq(str!["┊✔︎  nk A a.txt"]);

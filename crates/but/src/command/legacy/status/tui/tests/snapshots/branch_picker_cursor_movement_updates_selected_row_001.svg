@@ -6,9 +6,10 @@
   <rect x="10" y="352" width="80" height="18" fill="#555555" />
   <g font-family="Menlo, Monaco, 'Courier New', monospace" font-size="14" xml:space="preserve">
     <text x="10 18" y="24" style="fill:#FFFFFF;font-weight:bold;">╭┄</text>
-    <text x="34 42" y="24" style="fill:#0000AA;font-weight:bold;">zz</text>
-    <text x="58" y="24" style="fill:#FFFFFF;font-weight:bold;">[</text>
-    <text x="66 74 82 90 98 106 114 122 130 138 146" y="24" style="fill:#00AAAA;font-weight:bold;">uncommitted</text>
+    <text x="34" y="24" style="fill:#0000AA;font-weight:bold;">@</text>
+    <text x="50" y="24" style="fill:#FFFFFF;font-weight:bold;">[</text>
+    <text x="58 66 74 82 90 98 106 114 122 130 138" y="24" style="fill:#00AAAA;font-weight:bold;">uncommitted</text>
+    <text x="146" y="24" style="fill:#FFFFFF;font-weight:bold;">]</text>
     <text x="154 162 170 178 186 194 202 210 218 226 234 242 250 258 266 274 282 290 298 306 314 322 330 338 346 354 362 370 378 386 394 402 410 418 426 434 442 450 458 466 474 482 490 498 506 514 522 530 538 546 554 562 570 578 586 594 602 610 618 626 634 642 650 658 666" y="24" style="fill:#555555;">╭───────────────────────────────────────────────────────────────╮</text>
     <text x="10" y="42" style="fill:#CCCCCC;">┊</text>
     <text x="154" y="42" style="fill:#555555;">│</text>

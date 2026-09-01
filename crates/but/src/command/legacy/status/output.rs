@@ -333,11 +333,11 @@ pub struct FileLineContent {
     pub path: Vec<Span<'static>>,
 }
 
-/// Considering the example "zz [uncommitted] (no changes)" see the field docs for what exactly
+/// Considering the example "@ [uncommitted] (no changes)" see the field docs for what exactly
 /// they correspond to.
 #[derive(Debug, Default, Clone)]
 pub struct UncommittedLineContent {
-    /// "zz" in the example
+    /// "@" in the example
     pub id: Vec<Span<'static>>,
     /// " [" in the example
     pub decoration_start: Vec<Span<'static>>,
@@ -356,7 +356,7 @@ pub struct StatusOutputLine {
     ///
     /// Example:
     ///
-    /// ╭┄zz [uncommitted]                                                       | Some("╭┄")
+    /// ╭┄@ [uncommitted]                                                       | Some("╭┄")
     /// ┊   ur M flake.nix                                                       | Some("┊   ")
     /// ┊                                                                        | Some("┊ ")
     /// ┊╭┄dp [dp-branch-4]                                                      | Some("┊╭┄")

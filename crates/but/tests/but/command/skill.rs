@@ -192,7 +192,7 @@ fn agent_skill_notices_can_be_disabled_in_persisted_settings() {
             .success()
             // Repeated status output remains normal while notices are disabled.
             .stdout_eq(snapbox::str![[r#"
-╭┄ zz [uncommitted] (no changes)
+╭┄ @ [uncommitted] (no changes)
 ┊
 ┴ 0dc3733 (common base) 2000-01-02 add M
 

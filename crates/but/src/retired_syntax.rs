@@ -344,7 +344,8 @@ fn amend_hint(tail: &[OsString], agent: bool) -> Option<String> {
 }
 
 /// The retired `but move` grammar: `but move <source> <target> [--after]`,
-/// with comma-separated multi-commit sources and `zz` as the unstack target.
+/// with comma-separated multi-commit sources and the uncommitted-area selector as the unstack
+/// target. Both retired `zz` and current `@` spellings receive the migration hint.
 #[derive(Debug, clap::Parser)]
 struct RetiredMove {
     source: Option<String>,
@@ -364,12 +365,13 @@ fn move_hint(tail: &[OsString], agent: bool) -> Option<String> {
             return None;
         };
         let sources: Vec<&str> = source.split(',').collect();
-        if !plain(&target) || sources.iter().any(|source| !plain(source)) {
+        let unstack_target = target == "zz" || target == "@";
+        if (!unstack_target && !plain(&target)) || sources.iter().any(|source| !plain(source)) {
             return None;
         }
         let sources = sources.join(" ");
-        if target == "zz" {
-            // A `zz` target tore a branch off its stack.
+        if unstack_target {
+            // An uncommitted-area target tore a branch off its stack.
             return (!retired.after)
                 .then(|| equivalent_body("move", &format!("but move {sources} --unstack")));
         }
@@ -809,12 +811,14 @@ mod tests {
         // Comma-separated multi-commit sources become positionals.
         let hint = failure_hint(&["move", "ab,cd", "ef"], false).expect("a hint");
         assert!(hint.contains("but move ab cd --below ef"), "got {hint:?}");
-        // `--after` only applied to commit targets, and the `zz` target tore
+        // `--after` only applied to commit targets, and an uncommitted-area target tore
         // a branch off; both map to a single modern equivalent.
         assert_eq!(
             suggested(&["move", "ab", "cd", "--after"]),
             "but move ab --above cd"
         );
+        assert_eq!(suggested(&["move", "ab", "@"]), "but move ab --unstack");
+        // Preserve teaching hint for invocations written before `@` replaced `zz`.
         assert_eq!(suggested(&["move", "ab", "zz"]), "but move ab --unstack");
     }
 
@@ -823,6 +827,7 @@ mod tests {
         // `--after` never applied to the unstack target, so there is no
         // equivalent to suggest — but the flag itself is a retired-only
         // marker.
+        assert_generic(&["move", "ab", "@", "--after"], "move");
         assert_generic(&["move", "ab", "zz", "--after"], "move");
     }
 

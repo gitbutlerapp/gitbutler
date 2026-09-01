@@ -35,9 +35,9 @@ fn jumping_around() {
     tui.input(KeyCode::Enter)
         .assert_rendered_term_svg_eq(file!["snapshots/jumping_around_006.svg"]);
 
-    // jumping to zz
+    // jumping to @
     tui.input('/');
-    tui.input('z')
+    tui.input('@')
         .assert_rendered_term_svg_eq(file!["snapshots/jumping_around_008.svg"]);
 }
 

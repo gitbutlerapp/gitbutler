@@ -100,7 +100,7 @@ fn command_mode_keeps_input_when_command_exits_non_zero() {
 
     tui.input(KeyCode::Enter)
         .assert_rendered_term_svg_eq(file!["snapshots/command_mode_failure_001.svg"])
-        .assert_current_line_eq(str!["╭┄ zz [uncommitted] (no changes)"]);
+        .assert_current_line_eq(str!["╭┄ @ [uncommitted] (no changes)"]);
 }
 
 #[test]

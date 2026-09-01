@@ -247,7 +247,7 @@ impl CliIdArg {
             CliId::Worktree { name, .. } => Ok(Some(
                 id_map.uncommitted_files_in(&ChangeSourceId::Worktree(name)),
             )),
-            // `zz` names the main checkout's uncommitted area the same way, so it
+            // `@` names the main checkout's uncommitted area the same way, so it
             // expands to the files a bare `but commit` takes.
             CliId::Uncommitted { .. } => {
                 Ok(Some(id_map.uncommitted_files_in(&ChangeSourceId::Head)))
@@ -271,7 +271,7 @@ impl CliIdArg {
         let target = if target_ids.peek().is_none() {
             target
         } else {
-            // A worktree or `zz` names an uncommitted area, so they compete here:
+            // A worktree or `@` names an uncommitted area, so they compete here:
             // dropping them would let a file of the same name silently shadow the area.
             let mut uncommitted = std::iter::once(target)
                 .chain(target_ids)

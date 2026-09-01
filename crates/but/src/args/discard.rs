@@ -7,7 +7,7 @@ use crate::args::atoms::CliIdArg;
 /// Discard branches, commits, or changes.
 ///
 /// Changes may be selected by branch, commit, committed file, uncommitted file, or uncommitted
-/// hunk CLI ID. Use `zz`, or omit `<CHANGES>`, to discard all uncommitted changes.
+/// hunk CLI ID. Use `@`, or omit `<CHANGES>`, to discard all uncommitted changes.
 ///
 /// All provided changes must be the same kind. Committed files must come from the same commit.
 ///

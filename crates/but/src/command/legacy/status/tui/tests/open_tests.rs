@@ -205,7 +205,7 @@ fn cannot_open_uncommitted_area() {
 
     let mut tui = test_status_tui(env);
     tui.reload()
-        .assert_current_line_eq(str!["╭┄ zz [uncommitted] (no changes)"]);
+        .assert_current_line_eq(str!["╭┄ @ [uncommitted] (no changes)"]);
 
     let app_data_dir = tui.env().projects_root().display().to_string();
     with_var("E2E_TEST_APP_DATA_DIR", Some(app_data_dir), || {

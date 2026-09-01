@@ -136,7 +136,7 @@ pub enum HelpTopic {
     /// * **Uncommitted file:** A path-derived ID that is typically 1-3 characters
     /// * **Uncommitted hunk:** `<uncommitted_file_cli_id>:<hunk_cli_id>`
     ///     - Run `but diff` to show all current uncommitted hunks and their IDs
-    /// * **Uncommitted area:** Always `zz`
+    /// * **Uncommitted area:** Always `@`
     /// * **Committed file:** `<commit_cli_id>:<file_cli_id>`
     ///     - Run `but status -f` to show committed files
     /// * **Committed hunk:** `<commit_cli_id>:<file_cli_id>:<hunk_cli_id>`

@@ -174,7 +174,7 @@ fn single_branch_pull_replaces_a_fully_integrated_checkout() {
         .success()
         .stderr_eq(str![])
         .stdout_eq(str![[r#"
-╭┄ zz [uncommitted] (no changes)
+╭┄ @ [uncommitted] (no changes)
 ┊
 ┊╭┄ g0 [A] (merged upstream)
 ┊●   1 add A
@@ -224,7 +224,7 @@ Run `but pull` to update your branches
         .success()
         .stderr_eq(str![])
         .stdout_eq(str![[r#"
-╭┄ zz [uncommitted] (no changes)
+╭┄ @ [uncommitted] (no changes)
 ┊
 ┊╭┄ br [a-branch-1] (no commits)
 ├╯
@@ -268,7 +268,7 @@ fn single_branch_pull_prunes_an_integrated_lower_branch() {
         .success()
         .stderr_eq(str![])
         .stdout_eq(str![[r#"
-╭┄ zz [uncommitted] (no changes)
+╭┄ @ [uncommitted] (no changes)
 ┊
 ┊╭┄ g0 [A]
 ┊●   1#0 add A
@@ -315,7 +315,7 @@ Run `but pull` to update your branches
         .success()
         .stderr_eq(str![])
         .stdout_eq(str![[r#"
-╭┄ zz [uncommitted] (no changes)
+╭┄ @ [uncommitted] (no changes)
 ┊
 ┊╭┄ g0 [A]
 ┊●   1 add A
@@ -358,7 +358,7 @@ fn single_branch_pull_keeps_an_empty_branch_above_an_integrated_branch() {
         .success()
         .stderr_eq(str![])
         .stdout_eq(str![[r#"
-╭┄ zz [uncommitted] (no changes)
+╭┄ @ [uncommitted] (no changes)
 ┊
 ┊╭┄ to [top] (no commits)
 ┊│
@@ -407,7 +407,7 @@ Run `but pull` to update your branches
         .success()
         .stderr_eq(str![])
         .stdout_eq(str![[r#"
-╭┄ zz [uncommitted] (no changes)
+╭┄ @ [uncommitted] (no changes)
 ┊
 ┊╭┄ to [top] (no commits)
 ├╯
@@ -458,7 +458,7 @@ fn pull_prunes_integrated_stack_and_keeps_remaining_stack_parent() {
     env.setup_metadata_at_target(&["A", "B"], "origin/main");
 
     env.but("status").assert().success().stdout_eq(str![[r#"
-╭┄ zz [uncommitted] (no changes)
+╭┄ @ [uncommitted] (no changes)
 ┊
 ┊╭┄ g0 [A] (no commits)
 ├╯
@@ -477,7 +477,7 @@ Hint: origin/main moved ahead; run `but pull` to update the workspace
     env.but("pull").assert().success();
 
     env.but("status").assert().success().stdout_eq(str![[r#"
-╭┄ zz [uncommitted] (no changes)
+╭┄ @ [uncommitted] (no changes)
 ┊
 ┊╭┄ g0 [B]
 ┊◐   lrm add B
@@ -529,7 +529,7 @@ fn pull_prunes_integrated_branch_from_partial_stack() {
     env.setup_single_stack_metadata_at_target(&["A", "C"], "refs/heads/base");
 
     env.but("status").assert().success().stdout_eq(str![[r#"
-╭┄ zz [uncommitted] (no changes)
+╭┄ @ [uncommitted] (no changes)
 ┊
 ┊╭┄ g0 [A]
 ┊●   ozt add A
@@ -549,7 +549,7 @@ Hint: branches marked `(merged upstream)` have landed; run `but pull` to remove 
     env.but("pull").assert().success();
 
     env.but("status").assert().success().stdout_eq(str![[r#"
-╭┄ zz [uncommitted] (no changes)
+╭┄ @ [uncommitted] (no changes)
 ┊
 ┊╭┄ g0 [A]
 ┊◐   ozt add A
@@ -610,7 +610,7 @@ fn pull_check_uses_workspace_dry_run_for_partial_stack() {
     env.setup_single_stack_metadata_at_target(&["A", "C"], "refs/heads/base");
 
     env.but("status").assert().success().stdout_eq(str![[r#"
-╭┄ zz [uncommitted] (no changes)
+╭┄ @ [uncommitted] (no changes)
 ┊
 ┊╭┄ g0 [A]
 ┊●   ozt add A
@@ -657,7 +657,7 @@ Run `but pull` to update your branches
     );
 
     env.but("status").assert().success().stdout_eq(str![[r#"
-╭┄ zz [uncommitted] (no changes)
+╭┄ @ [uncommitted] (no changes)
 ┊
 ┊╭┄ g0 [A]
 ┊●   ozt add A
@@ -682,7 +682,7 @@ fn pull_check_reports_conflicted_branches_as_rebasable() {
     env.invoke_git("remote set-url origin .");
 
     env.but("status").assert().success().stdout_eq(str![[r#"
-╭┄ zz [uncommitted] (no changes)
+╭┄ @ [uncommitted] (no changes)
 ┊
 ┊╭┄ g0 [A]
 ┊●   nyo A-change
@@ -721,7 +721,7 @@ Hint: origin/main moved ahead; run `but pull` to update the workspace
     env.but("pull").assert().success();
 
     env.but("status").assert().success().stdout_eq(str![[r#"
-╭┄ zz [uncommitted] (no changes)
+╭┄ @ [uncommitted] (no changes)
 ┊
 ┊╭┄ g0 [A]
 ┊◐   nyo A-change (no changes) {conflicted}
@@ -740,7 +740,7 @@ fn pull_checks_out_canned_branch_after_all_stacks_integrate() {
     env.setup_metadata_at_target(&["A", "B"], "origin/main");
 
     env.but("status").assert().success().stdout_eq(str![[r#"
-╭┄ zz [uncommitted] (no changes)
+╭┄ @ [uncommitted] (no changes)
 ┊
 ┊╭┄ g0 [A] (no commits)
 ├╯
@@ -758,7 +758,7 @@ Hint: origin/main moved ahead; run `but pull` to update the workspace
     env.but("pull").assert().success();
 
     env.but("status").assert().success().stdout_eq(str![[r#"
-╭┄ zz [uncommitted] (no changes)
+╭┄ @ [uncommitted] (no changes)
 ┊
 ┊╭┄ br [a-branch-1] (no commits)
 ├╯
@@ -796,7 +796,7 @@ fn pull_keeps_empty_workspace_after_all_stacks_integrate_outside_single_branch_m
     env.but("pull").assert().success();
 
     env.but("status").assert().success().stdout_eq(str![[r#"
-╭┄ zz [uncommitted] (no changes)
+╭┄ @ [uncommitted] (no changes)
 ┊
 ┴ 7e5d4e1 (common base) 2000-01-02 add upstream
 
@@ -830,7 +830,7 @@ fn pull_reparents_empty_workspace_when_target_advances() {
     env.invoke_git("checkout gitbutler/workspace");
 
     env.but("status").assert().success().stdout_eq(str![[r#"
-╭┄ zz [uncommitted] (no changes)
+╭┄ @ [uncommitted] (no changes)
 ┊
 ┴ 0dc3733 (common base) 2000-01-02 add M
 
@@ -841,7 +841,7 @@ Hint: run `but branch new` to create a new branch to work on
     env.but("pull").assert().success();
 
     env.but("status").assert().success().stdout_eq(str![[r#"
-╭┄ zz [uncommitted] (no changes)
+╭┄ @ [uncommitted] (no changes)
 ┊
 ┴ 526bb83 (common base) 2000-01-02 upstream-change
 
@@ -866,7 +866,7 @@ fn pull_does_not_report_branch_rebase_conflicts_as_worktree_conflicts() {
     env.file("shared.txt", "local\nunchanged\nextra local work\n");
 
     env.but("status").assert().success().stdout_eq(str![[r#"
-╭┄ zz [uncommitted]
+╭┄ @ [uncommitted]
 ┊   ot M shared.txt
 ┊
 ┊╭┄ g0 [A]
@@ -903,7 +903,7 @@ Hint: run `but diff` to see uncommitted changes and `but commit -b <branch> -m "
     );
 
     env.but("status").assert().success().stdout_eq(str![[r#"
-╭┄ zz [uncommitted]
+╭┄ @ [uncommitted]
 ┊   ot M shared.txt
 ┊
 ┊╭┄ g0 [A]
@@ -925,7 +925,7 @@ fn pull_json_reports_branch_rebase_conflicts_as_successful_integration() {
     env.setup_metadata_at_target(&["A"], "main");
 
     env.but("status").assert().success().stdout_eq(str![[r#"
-╭┄ zz [uncommitted] (no changes)
+╭┄ @ [uncommitted] (no changes)
 ┊
 ┊╭┄ g0 [A]
 ┊●   vxp local change
@@ -966,7 +966,7 @@ Hint: origin/main moved ahead; run `but pull` to update the workspace
     );
 
     env.but("status").assert().success().stdout_eq(str![[r#"
-╭┄ zz [uncommitted] (no changes)
+╭┄ @ [uncommitted] (no changes)
 ┊
 ┊╭┄ g0 [A]
 ┊◐   vxp local change (no changes) {conflicted}
@@ -987,7 +987,7 @@ fn pull_reports_conflict_in_lower_branch_of_stack() {
     env.setup_single_stack_metadata_at_target(&["A", "B"], "main");
 
     env.but("status").assert().success().stdout_eq(str![[r#"
-╭┄ zz [uncommitted] (no changes)
+╭┄ @ [uncommitted] (no changes)
 ┊
 ┊╭┄ g0 [A]
 ┊●   [..] top change
@@ -1029,7 +1029,7 @@ To undo this operation:
 "#]]);
 
     env.but("status").assert().success().stdout_eq(str![[r#"
-╭┄ zz [uncommitted] (no changes)
+╭┄ @ [uncommitted] (no changes)
 ┊
 ┊╭┄ g0 [A]
 ┊◐   rvk top change
@@ -1053,7 +1053,7 @@ fn pull_reports_conflicts_in_multiple_branches_of_stack() {
     env.setup_single_stack_metadata_at_target(&["A", "B"], "main");
 
     env.but("status").assert().success().stdout_eq(str![[r#"
-╭┄ zz [uncommitted] (no changes)
+╭┄ @ [uncommitted] (no changes)
 ┊
 ┊╭┄ g0 [A]
 ┊●   [..] top change
@@ -1097,7 +1097,7 @@ To undo this operation:
 "#]]);
 
     env.but("status").assert().success().stdout_eq(str![[r#"
-╭┄ zz [uncommitted] (no changes)
+╭┄ @ [uncommitted] (no changes)
 ┊
 ┊╭┄ g0 [A]
 ┊◐   wmr top change (no changes) {conflicted}
@@ -1170,7 +1170,7 @@ To undo this operation:
 "#]]);
 
     env.but("status").assert().success().stdout_eq(str![[r#"
-╭┄ zz [uncommitted]
+╭┄ @ [uncommitted]
 ┊    shared.txt {conflicted}
 ┊
 ┊╭┄ g0 [A]

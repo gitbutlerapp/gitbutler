@@ -25,7 +25,7 @@ fn assert_workspace_status(env: &crate::utils::Sandbox) {
         .success()
         .stderr_eq(str![])
         .stdout_eq(str![[r#"
-╭┄ zz [uncommitted] (no changes)
+╭┄ @ [uncommitted] (no changes)
 ┊
 ┊╭┄ g0 [A]
 ┊●   tpm add A
@@ -134,7 +134,7 @@ fn switching_to_lower_branch_only_shows_it_in_single_branch_mode() {
         .success()
         .stderr_eq(str![])
         .stdout_eq(str![[r#"
-╭┄ zz [uncommitted] (no changes)
+╭┄ @ [uncommitted] (no changes)
 ┊
 ┊╭┄ g0 [B]
 ┊●   wwm add B
@@ -158,7 +158,7 @@ Hint: run `but help` for all commands
         .success()
         .stderr_eq(str![])
         .stdout_eq(str![[r#"
-╭┄ zz [uncommitted] (no changes)
+╭┄ @ [uncommitted] (no changes)
 ┊
 ┊╭┄ g0 [A]
 ┊●   tpm add A
@@ -186,7 +186,7 @@ fn switching_to_reordered_empty_branch_preserves_lower_branches() {
         .success()
         .stderr_eq(str![])
         .stdout_eq(str![[r#"
-╭┄ zz [uncommitted] (no changes)
+╭┄ @ [uncommitted] (no changes)
 ┊
 ┊╭┄ g0 [B] (no commits)
 ├╯
@@ -219,7 +219,7 @@ Switched to branch 'A'
         .success()
         .stderr_eq(str![])
         .stdout_eq(str![[r#"
-╭┄ zz [uncommitted] (no changes)
+╭┄ @ [uncommitted] (no changes)
 ┊
 ┊╭┄ g0 [A] (no commits)
 ┊│
@@ -392,7 +392,7 @@ fn switching_to_workspace_creates_workspace_if_necessary() {
         .success()
         .stderr_eq(str![])
         .stdout_eq(str![[r#"
-╭┄ zz [uncommitted] (no changes)
+╭┄ @ [uncommitted] (no changes)
 ┊
 ┊╭┄ ma [main] (no commits)
 ├╯
@@ -432,7 +432,7 @@ Switched to workspace
         .success()
         .stderr_eq(str![])
         .stdout_eq(str![[r#"
-╭┄ zz [uncommitted] (no changes)
+╭┄ @ [uncommitted] (no changes)
 ┊
 ┴ b1540e5 (common base) 2000-01-02 M
 

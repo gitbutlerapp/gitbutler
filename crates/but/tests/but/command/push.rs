@@ -52,7 +52,7 @@ fn assert_single_branch_status_before_push(env: &Sandbox) {
         .success()
         .stderr_eq(str![])
         .stdout_eq(str![[r#"
-╭┄ zz [uncommitted] (no changes)
+╭┄ @ [uncommitted] (no changes)
 ┊
 ┊╭┄ ma [main]
 ┊●   1 unpushed work
@@ -72,7 +72,7 @@ fn assert_single_branch_status_after_push(env: &Sandbox) {
         .success()
         .stderr_eq(str![])
         .stdout_eq(str![[r#"
-╭┄ zz [uncommitted] (no changes)
+╭┄ @ [uncommitted] (no changes)
 ┊
 ┊╭┄ ma [main] (merged upstream)
 ┊●   1 unpushed work

@@ -36,7 +36,7 @@ fn discard_removes_selected_change() {
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
-╭┄ zz [uncommitted] (no changes)
+╭┄ @ [uncommitted] (no changes)
 ┊
 ┊╭┄ g0 [A]
 ┊●   tpm add A
@@ -72,7 +72,7 @@ fn discard_removes_path_prefix_mixed_with_file() {
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
-╭┄ zz [uncommitted]
+╭┄ @ [uncommitted]
 ┊   nl A path/to-other.txt
 ┊
 ┊╭┄ g0 [A]
@@ -120,7 +120,7 @@ fn concurrent_discard_to_independent_files_succeeds() {
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
-╭┄ zz [uncommitted] (no changes)
+╭┄ @ [uncommitted] (no changes)
 ┊
 ┊╭┄ g0 [A]
 ┊●   tpm add A
@@ -205,7 +205,7 @@ fn discard_rename_does_not_discard_unrelated_changes() {
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
-╭┄ zz [uncommitted]
+╭┄ @ [uncommitted]
 ┊   tz A src/keep-me.ts
 ┊
 ┊╭┄ g0 [A]
@@ -249,7 +249,7 @@ fn discard_the_whole_uncommitted_changes() {
     .unwrap();
     env.file("src/keep-me.ts", "export const keep = true;\n");
 
-    env.but("discard zz").assert().success();
+    env.but("discard @").assert().success();
 
     assert!(
         env.projects_root()
@@ -268,7 +268,7 @@ fn discard_the_whole_uncommitted_changes() {
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
-╭┄ zz [uncommitted] (no changes)
+╭┄ @ [uncommitted] (no changes)
 ┊
 ┊╭┄ g0 [A]
 ┊●   1 seed rename source only
@@ -304,7 +304,7 @@ fn discarding_multiple_hunks_in_a_file_works() {
         .success();
 
     env.file(file_path, "a\nb\nc\n1\n2\n3\n4\n5\n6\n7\nd\ne\nf");
-    env.but("discard zz").assert().success();
+    env.but("discard @").assert().success();
 
     assert!(
         env.projects_root().join("src/some_file.txt").exists(),
@@ -330,7 +330,7 @@ fn discard_multiple_uncommitted_files_outputs_json() {
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
-╭┄ zz [uncommitted]
+╭┄ @ [uncommitted]
 ┊   rv A first-uncommitted.txt
 ┊   xs A second-uncommitted.txt
 ┊
@@ -364,7 +364,7 @@ Hint: run `but diff` to see uncommitted changes and `but commit -b <branch> -m "
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
-╭┄ zz [uncommitted] (no changes)
+╭┄ @ [uncommitted] (no changes)
 ┊
 ┊╭┄ g0 [A]
 ┊●   tpm add A
@@ -406,7 +406,7 @@ Discarded commit 1
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
-╭┄ zz [uncommitted]
+╭┄ @ [uncommitted]
 ┊    commit.txt {conflicted}
 ┊
 ┊╭┄ g0 [A]
@@ -468,7 +468,7 @@ Discarded commit 1
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
-╭┄ zz [uncommitted]
+╭┄ @ [uncommitted]
 ┊    commit.txt {conflicted}
 ┊
 ┊╭┄ g0 [A]
@@ -530,7 +530,7 @@ fn discard_multiple_commits_outputs_human() {
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
-╭┄ zz [uncommitted] (no changes)
+╭┄ @ [uncommitted] (no changes)
 ┊
 ┊╭┄ g0 [A]
 ┊●   1#0 second discardable commit
@@ -559,7 +559,7 @@ Discarded commits 1, 1
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
-╭┄ zz [uncommitted] (no changes)
+╭┄ @ [uncommitted] (no changes)
 ┊
 ┊╭┄ g0 [A]
 ┊●   tpm add A
@@ -598,7 +598,7 @@ fn discard_committed_files_outputs_new_commit_in_json() {
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
-╭┄ zz [uncommitted] (no changes)
+╭┄ @ [uncommitted] (no changes)
 ┊
 ┊╭┄ g0 [A]
 ┊●   1 files to selectively discard
@@ -636,7 +636,7 @@ Hint: run `but help` for all commands
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
-╭┄ zz [uncommitted] (no changes)
+╭┄ @ [uncommitted] (no changes)
 ┊
 ┊╭┄ g0 [A]
 ┊●   1 files to selectively discard
@@ -697,7 +697,7 @@ Cannot mix different types of sources
 Hint: Discard branches, commits, committed files, or uncommitted changes separately
 
 "#]]);
-    env.but("discard zz uncommitted.txt")
+    env.but("discard @ uncommitted.txt")
         .assert()
         .failure()
         .stderr_eq(snapbox::str![[r#"
@@ -713,7 +713,7 @@ Hint: Discard branches, commits, committed files, or uncommitted changes separat
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
-╭┄ zz [uncommitted]
+╭┄ @ [uncommitted]
 ┊   ln A uncommitted.txt
 ┊
 ┊╭┄ g0 [A]
@@ -765,7 +765,7 @@ Hint: Discard committed files from each commit separately
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
-╭┄ zz [uncommitted] (no changes)
+╭┄ @ [uncommitted] (no changes)
 ┊
 ┊╭┄ g0 [A]
 ┊●   1#0 second committed source
@@ -889,7 +889,7 @@ warning: this operation left 1 commit(s) conflicted: [..]. Resolve with `but res
 }
 
 #[test]
-fn discard_defaults_to_zz() {
+fn discard_defaults_to_uncommitted_area() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
     env.setup_metadata(&["A"]);
 
@@ -907,7 +907,7 @@ Discarded uncommitted changes from src/discard-me.ts
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
-╭┄ zz [uncommitted] (no changes)
+╭┄ @ [uncommitted] (no changes)
 ┊
 ┊╭┄ g0 [A]
 ┊●   tpm add A

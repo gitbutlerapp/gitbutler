@@ -5,10 +5,10 @@
   <rect x="10" y="352" width="88" height="18" fill="#FFA500" />
   <g font-family="Menlo, Monaco, 'Courier New', monospace" font-size="14" xml:space="preserve">
     <text x="10 18" y="24" style="fill:#CCCCCC;">╭┄</text>
-    <text x="34 42" y="24" style="fill:#0000AA;font-weight:bold;">zz</text>
-    <text x="58" y="24" style="fill:#CCCCCC;">[</text>
-    <text x="66 74 82 90 98 106 114 122 130 138 146" y="24" style="fill:#00AAAA;">uncommitted</text>
-    <text x="154" y="24" style="fill:#CCCCCC;">]</text>
+    <text x="34" y="24" style="fill:#0000AA;font-weight:bold;">@</text>
+    <text x="50" y="24" style="fill:#CCCCCC;">[</text>
+    <text x="58 66 74 82 90 98 106 114 122 130 138" y="24" style="fill:#00AAAA;">uncommitted</text>
+    <text x="146" y="24" style="fill:#CCCCCC;">]</text>
     <text x="410" y="24" style="fill:#FFA500;">▌</text>
     <text x="418" y="24" style="fill:#CCCCCC;">1</text>
     <text x="434 442 450 458" y="24" style="fill:#CCCCCC;">file</text>

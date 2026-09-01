@@ -14,10 +14,10 @@
     <text x="138 146" y="24" style="fill:#000000;font-weight:bold;">&lt;&lt;</text>
     <text x="162 170 178 186" y="24" style="fill:#000000;font-weight:bold;">noop</text>
     <text x="202 210" y="24" style="fill:#000000;font-weight:bold;">&gt;&gt;</text>
-    <text x="226 234" y="24" style="fill:#0000AA;font-weight:bold;">zz</text>
-    <text x="250" y="24" style="fill:#FFFFFF;font-weight:bold;">[</text>
-    <text x="258 266 274 282 290 298 306 314 322 330 338" y="24" style="fill:#00AAAA;font-weight:bold;">uncommitted</text>
-    <text x="346" y="24" style="fill:#FFFFFF;font-weight:bold;">]</text>
+    <text x="226" y="24" style="fill:#0000AA;font-weight:bold;">@</text>
+    <text x="242" y="24" style="fill:#FFFFFF;font-weight:bold;">[</text>
+    <text x="250 258 266 274 282 290 298 306 314 322 330" y="24" style="fill:#00AAAA;font-weight:bold;">uncommitted</text>
+    <text x="338" y="24" style="fill:#FFFFFF;font-weight:bold;">]</text>
     <text x="10" y="42" style="fill:#CCCCCC;">┊</text>
     <text x="42 50" y="42" style="fill:#0000AA;font-weight:bold;opacity:0.75;">kl</text>
     <text x="82" y="42" style="fill:#CCCCCC;opacity:0.75;">A</text>

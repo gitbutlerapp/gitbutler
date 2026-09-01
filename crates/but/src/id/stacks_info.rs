@@ -5,7 +5,8 @@ use but_core::ChangeId;
 use but_graph::workspace::Stack;
 
 use crate::id::{
-    RemoteCommitWithId, SegmentWithId, ShortId, StackWithId, UNCOMMITTED, WorkspaceCommitWithId,
+    OLD_UNCOMMITTED, RemoteCommitWithId, SegmentWithId, ShortId, StackWithId,
+    WorkspaceCommitWithId,
     id_usage::{IdUsage, UintId},
 };
 
@@ -118,7 +119,9 @@ fn populate_branch_short_ids(
     non_hex_used_short_ids: &mut HashSet<ShortId>,
     uncommitted_short_filenames: &HashSet<BString>,
 ) -> anyhow::Result<()> {
-    let _ = mark_name_short_id_used(UNCOMMITTED.as_bytes(), id_usage, non_hex_used_short_ids);
+    // Keep the old uncommitted-area ID out of both generated and reverse-hex short-ID namespaces
+    // so upgrading cannot silently reassign it to another resource.
+    let _ = mark_name_short_id_used(OLD_UNCOMMITTED.as_bytes(), id_usage, non_hex_used_short_ids);
     for uncommitted_short_filename in uncommitted_short_filenames {
         let _ =
             mark_name_short_id_used(uncommitted_short_filename, id_usage, non_hex_used_short_ids);

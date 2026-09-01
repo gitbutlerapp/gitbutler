@@ -133,7 +133,7 @@ Picked d3e2ba3 onto branch 'A' to create 1
 "#]]);
 
     env.but("status -v").assert().success().stdout_eq(str![[r#"
-╭┄ zz [uncommitted] (no changes)
+╭┄ @ [uncommitted] (no changes)
 ┊
 ┊╭┄ g0 [A]
 ┊● 1 author 2000-01-01 00:00:00 +0000 (sha b40d58b)
@@ -165,7 +165,7 @@ Picked 9477ae7 onto new branch 'new-branch' to create 1
 "#]]);
 
     env.but("status -v").assert().success().stdout_eq(str![[r#"
-╭┄ zz [uncommitted] (no changes)
+╭┄ @ [uncommitted] (no changes)
 ┊
 ┊╭┄ ne [new-branch]
 ┊● 1 author 2000-01-01 00:00:00 +0000 (sha f033235)
@@ -195,7 +195,7 @@ Picked d3e2ba3 to create 1
 "#]]);
 
     env.but("status -v").assert().success().stdout_eq(str![[r#"
-╭┄ zz [uncommitted] (no changes)
+╭┄ @ [uncommitted] (no changes)
 ┊
 ┊╭┄ g0 [A]
 ┊● 1 author 2000-01-01 00:00:00 +0000 (sha b40d58b)
@@ -227,7 +227,7 @@ Picked d3e2ba3 to create 1
 "#]]);
 
     env.but("status -v").assert().success().stdout_eq(str![[r#"
-╭┄ zz [uncommitted] (no changes)
+╭┄ @ [uncommitted] (no changes)
 ┊
 ┊╭┄ g0 [A]
 ┊● tpm author 2000-01-01 00:00:00 +0000 (sha c341b3d)
@@ -259,7 +259,7 @@ Picked d3e2ba3 onto new branch 'a-branch-1' to create 1
 "#]]);
 
     env.but("status -v").assert().success().stdout_eq(str![[r#"
-╭┄ zz [uncommitted] (no changes)
+╭┄ @ [uncommitted] (no changes)
 ┊
 ┊╭┄ br [a-branch-1]
 ┊● 1 author 2000-01-01 00:00:00 +0000 (sha b40d58b)
@@ -293,7 +293,7 @@ Picked d3e2ba3 onto new branch 'a-branch-1' to create 1
 "#]]);
 
     env.but("status -v").assert().success().stdout_eq(str![[r#"
-╭┄ zz [uncommitted] (no changes)
+╭┄ @ [uncommitted] (no changes)
 ┊
 ┊╭┄ g0 [A]
 ┊● tpm author 2000-01-01 00:00:00 +0000 (sha c341b3d)

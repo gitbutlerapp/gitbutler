@@ -17,7 +17,7 @@ fn discard_prompt_can_be_cancelled() {
     tui.env().file("test.txt", "content");
 
     tui.reload()
-        .assert_current_line_eq(str!["╭┄ zz [uncommitted]"]);
+        .assert_current_line_eq(str!["╭┄ @ [uncommitted]"]);
 
     tui.input('x')
         .assert_rendered_contains("Discard uncommitted changes?")
@@ -26,7 +26,7 @@ fn discard_prompt_can_be_cancelled() {
     tui.input('n');
 
     tui.reload()
-        .assert_current_line_eq(str!["╭┄ zz [uncommitted]"])
+        .assert_current_line_eq(str!["╭┄ @ [uncommitted]"])
         .assert_rendered_term_svg_eq(file!["snapshots/discard_prompt_can_be_cancelled_final.svg"]);
 }
 
@@ -40,7 +40,7 @@ fn discard_uncommitted_confirm_yes_discards_changes() {
     tui.env().file("test.txt", "content");
 
     tui.reload()
-        .assert_current_line_eq(str!["╭┄ zz [uncommitted]"]);
+        .assert_current_line_eq(str!["╭┄ @ [uncommitted]"]);
 
     tui.input('x')
         .assert_rendered_contains("Discard uncommitted changes?");
@@ -48,7 +48,7 @@ fn discard_uncommitted_confirm_yes_discards_changes() {
     tui.input('y');
 
     tui.reload()
-        .assert_current_line_eq(str!["╭┄ zz [uncommitted] (no changes)"]);
+        .assert_current_line_eq(str!["╭┄ @ [uncommitted] (no changes)"]);
 
     let status = tui.env().invoke_git("status --porcelain");
     assert_eq!(status, "");
@@ -68,7 +68,7 @@ fn discard_uncommitted_cancel_keeps_changes() {
     tui.env().file("test.txt", "content");
 
     tui.reload()
-        .assert_current_line_eq(str!["╭┄ zz [uncommitted]"]);
+        .assert_current_line_eq(str!["╭┄ @ [uncommitted]"]);
 
     tui.input('x')
         .assert_rendered_contains("Discard uncommitted changes?");
@@ -76,7 +76,7 @@ fn discard_uncommitted_cancel_keeps_changes() {
     tui.input('n');
 
     tui.reload()
-        .assert_current_line_eq(str!["╭┄ zz [uncommitted]"]);
+        .assert_current_line_eq(str!["╭┄ @ [uncommitted]"]);
 
     let status = tui.env().invoke_git("status --porcelain");
     assert!(
@@ -178,7 +178,7 @@ fn discard_stack_confirm_yes_discards_staged_changes() {
     tui.env().file("test.txt", "content");
 
     tui.reload()
-        .assert_current_line_eq(str!["╭┄ zz [uncommitted]"]);
+        .assert_current_line_eq(str!["╭┄ @ [uncommitted]"]);
 
     tui.input(KeyCode::Down)
         .assert_current_line_eq(str!["┊   vo A test.txt"]);
@@ -194,7 +194,7 @@ fn discard_stack_confirm_yes_discards_staged_changes() {
         .assert_current_line_eq(str!["┊●   tpm add A"]);
 
     tui.input([KeyCode::Up, KeyCode::Up])
-        .assert_current_line_eq(str!["╭┄ zz [uncommitted] (no changes)"]);
+        .assert_current_line_eq(str!["╭┄ @ [uncommitted] (no changes)"]);
 
     tui.input('x')
         .assert_rendered_contains("Discard uncommitted changes?")
@@ -203,7 +203,7 @@ fn discard_stack_confirm_yes_discards_staged_changes() {
     tui.input('y');
 
     tui.reload()
-        .assert_current_line_eq(str!["╭┄ zz [uncommitted] (no changes)"]);
+        .assert_current_line_eq(str!["╭┄ @ [uncommitted] (no changes)"]);
 
     let status = tui.env().invoke_git("status --porcelain");
     assert_eq!(status, "");

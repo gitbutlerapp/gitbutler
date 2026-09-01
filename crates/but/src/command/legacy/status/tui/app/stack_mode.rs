@@ -653,7 +653,7 @@ impl App {
 //
 // For example with
 //
-// ╭┄ zz [uncommitted] (no changes)
+// ╭┄ @ [uncommitted] (no changes)
 // ┊
 // ┊╭┄ dp [dp-one]                   <- cursor on this line
 // ┊●   abc (no commit message)
@@ -670,7 +670,7 @@ impl App {
 // ```
 // Some([
 //     [
-//         false,    // ╭┄ zz [uncommitted] (no changes)
+//         false,    // ╭┄ @ [uncommitted] (no changes)
 //         false,    // ┊
 //         true,     // ┊╭┄ dp [dp-one]                   <- cursor on this line
 //         true,     // ┊●   abc (no commit message)

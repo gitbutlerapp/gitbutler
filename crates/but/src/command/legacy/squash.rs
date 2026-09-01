@@ -204,7 +204,7 @@ fn resolve_args(
                 .collect::<CliResult<Vec<_>>>()?
         };
 
-        let target_kind_hint = "--target must be an applied commit, branch, or zz";
+        let target_kind_hint = "--target must be an applied commit, branch, or @";
         let hint = format!("{}. {}", target_kind_hint, CliIdArg::TARGET_MISSING_HINT);
         let resolved_target = target
             .resolve_in_workspace(
@@ -358,7 +358,7 @@ pub fn resolve<'a>(
                     Squashable::UncommittedChange(change) => {
                         uncommitted_change_sources.push(change)
                     }
-                    Squashable::Uncommitted(zz) => uncommitted_sources.push(zz),
+                    Squashable::Uncommitted(uncommitted) => uncommitted_sources.push(uncommitted),
                     Squashable::CommittedFile(committed_file) => {
                         committed_file_sources.push(committed_file)
                     }

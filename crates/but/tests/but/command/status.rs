@@ -78,7 +78,7 @@ fn single_branch_status_hides_branches_above_head() {
         .success()
         .stderr_eq(snapbox::str![])
         .stdout_eq(snapbox::str![[r#"
-╭┄ zz [uncommitted] (no changes)
+╭┄ @ [uncommitted] (no changes)
 ┊
 ┊╭┄ g0 [B]
 ┊●   wwm add B
@@ -153,7 +153,7 @@ fn anonymous_segment() {
         .success()
         .stderr_eq(snapbox::str![])
         .stdout_eq(snapbox::str![[r#"
-╭┄ zz [uncommitted] (no changes)
+╭┄ @ [uncommitted] (no changes)
 ┊
 ┊╭┄ g0
 ┊●   sxu anonymous (no changes)
@@ -688,7 +688,7 @@ fn status_upstream_and_merge_base_messages_truncate_when_unpaged() {
         .success()
         .stderr_eq(snapbox::str![])
         .stdout_eq(snapbox::str![[r#"
-╭┄ zz [uncommitted] (no changes)
+╭┄ @ [uncommitted] (no changes)
 ┊
 ┊╭┄ g0 [A] [✓ upstream merges cleanly]
 ┊●   lvx add A
@@ -733,7 +733,7 @@ fn status_marks_merged_upstream_without_upstream_flag() {
         .success()
         .stderr_eq(snapbox::str![])
         .stdout_eq(snapbox::str![[r#"
-╭┄ zz [uncommitted] (no changes)
+╭┄ @ [uncommitted] (no changes)
 ┊
 ┊╭┄ g0 [A] (merged upstream)
 ┊●   nyq A-change
@@ -773,7 +773,7 @@ Applied remote branch 'origin/document-but-pr-skill' to workspace
         .success()
         .stderr_eq(snapbox::str![])
         .stdout_eq(snapbox::str![[r#"
-╭┄ zz [uncommitted] (no changes)
+╭┄ @ [uncommitted] (no changes)
 ┊
 ┊╭┄ do [document-but-pr-skill] (merged upstream) (no commits)
 ├╯
@@ -855,7 +855,7 @@ fn unmerged_empty_branch_above_merged_one_is_not_treated_as_merged() {
         .success()
         .stderr_eq(snapbox::str![])
         .stdout_eq(snapbox::str![[r#"
-╭┄ zz [uncommitted] (no changes)
+╭┄ @ [uncommitted] (no changes)
 ┊
 ┊╭┄ to [top] (no commits)
 ┊│
@@ -1016,7 +1016,7 @@ fn status_upstream_prunes_untracked_integrated_branch() {
         .success()
         .stderr_eq(snapbox::str![])
         .stdout_eq(snapbox::str![[r#"
-╭┄ zz [uncommitted] (no changes)
+╭┄ @ [uncommitted] (no changes)
 ┊
 ┊╭┄ g0 [A] (merged upstream)
 ┊●   nyq A-change
@@ -1059,7 +1059,7 @@ fn status_upstream_prunes_metadata_tracked_integrated_branches() {
         .success()
         .stderr_eq(snapbox::str![])
         .stdout_eq(snapbox::str![[r#"
-╭┄ zz [uncommitted] (no changes)
+╭┄ @ [uncommitted] (no changes)
 ┊
 ┊╭┄ g0 [A] (merged upstream)
 ┊●   nyq A-change
@@ -1110,7 +1110,7 @@ fn status_upstream_prunes_with_different_bases() {
         .success()
         .stderr_eq(snapbox::str![])
         .stdout_eq(snapbox::str![[r#"
-╭┄ zz [uncommitted] (no changes)
+╭┄ @ [uncommitted] (no changes)
 ┊
 ┊╭┄ g0 [A] [✓ upstream merges cleanly]
 ┊●   nyq A-change
@@ -1257,7 +1257,7 @@ fn agent_status_explains_rewritten_commit_marker() {
         .success()
         .stderr_eq(snapbox::str![])
         .stdout_eq(snapbox::str![[r#"
-╭┄ zz [uncommitted] (no changes)
+╭┄ @ [uncommitted] (no changes)
 ┊
 ┊╭┄ g0 [A]
 ┊◐   [..] add one
@@ -1282,7 +1282,7 @@ To work effectively with but, run: but skill install
 Then read the installed SKILL.md path printed by that command and continue.
 This notice repeats until the skill is installed. If it still appears after installing, report it instead of retrying.
 
-╭┄ zz [uncommitted] (no changes)
+╭┄ @ [uncommitted] (no changes)
 ┊
 ┊╭┄ g0 [A]
 ┊◐   [..] add one
@@ -1319,7 +1319,7 @@ printf '100644 %s 1\tconflicted.txt\n100644 %s 2\tconflicted.txt\n100644 %s 3\tc
         .success()
         .stderr_eq(snapbox::str![])
         .stdout_eq(snapbox::str![[r#"
-╭┄ zz [uncommitted]
+╭┄ @ [uncommitted]
 ┊    conflicted.txt {conflicted}
 ┊
 ┊╭┄ g0 [A]
@@ -1412,7 +1412,7 @@ fn status_file_prefixed_with_persisted_or_synthetic_change_id() {
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
-╭┄ zz [uncommitted] (no changes)
+╭┄ @ [uncommitted] (no changes)
 ┊
 ┊╭┄ g0 [A]
 ┊●   123 Commit with change ID
@@ -1441,7 +1441,7 @@ fn file_ids_are_nicely_aligned() {
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
-╭┄ zz [uncommitted]
+╭┄ @ [uncommitted]
 ┊   rr A file-0.txt
 ┊   kr A file-1.txt
 ┊   tp A file-2.txt
@@ -1465,7 +1465,7 @@ Hint: run `but branch new` to create a new branch to work on
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
-╭┄ zz [uncommitted] (no changes)
+╭┄ @ [uncommitted] (no changes)
 ┊
 ┊╭┄ br [a-branch-1]
 ┊●   1 add files
@@ -1492,7 +1492,7 @@ Hint: run `but help` for all commands
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
-╭┄ zz [uncommitted] (no changes)
+╭┄ @ [uncommitted] (no changes)
 ┊
 ┊╭┄ br [a-branch-1]
 ┊● 1 author 2000-01-01 00:00:00 +0000 (sha 5877ef4)
@@ -1549,7 +1549,7 @@ fn worktree_lanes() {
         .success()
         .stderr_eq(snapbox::str![])
         .stdout_eq(snapbox::str![[r#"
-╭┄ zz [uncommitted] (no changes)
+╭┄ @ [uncommitted] (no changes)
 ┊
 ┊╭┄ g0 [A]
 ┊┊
@@ -1759,7 +1759,7 @@ fn stacked_worktree_lanes() {
         .success()
         .stderr_eq(snapbox::str![])
         .stdout_eq(snapbox::str![[r#"
-╭┄ zz [uncommitted] (no changes)
+╭┄ @ [uncommitted] (no changes)
 ┊
 ┊╭┄ g0 [A]
 ┊┊
@@ -1832,6 +1832,50 @@ fn status_from_inside_a_linked_worktree_is_refused() {
         .stdout_eq(snapbox::str![])
         .stderr_eq(snapbox::str![[r#"
 Error: non-main worktrees are not supported
+
+"#]]);
+}
+
+#[test]
+fn status_renders_correctly_when_filename_reverse_hex_starts_with_old_uncommitted() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("zero-stacks");
+    env.setup_metadata(&[]);
+
+    env.file("file-1594", "content");
+
+    env.but("status")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄ @ [uncommitted]
+┊   zzs A file-1594
+┊
+┴ 0dc3733 (common base) 2000-01-02 add M
+
+Hint: run `but branch new` to create a new branch to work on
+
+"#]]);
+}
+
+#[test]
+fn status_renders_correctly_when_branch_name_is_precisely_old_uncommitted() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("zero-stacks");
+    env.setup_metadata(&[]);
+
+    env.but("branch new zz").assert().success();
+
+    env.but("status")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┊╭┄ g0 [zz] (no commits)
+├╯
+┊
+┴ 0dc3733 (common base) 2000-01-02 add M
+
+Hint: run `but help` for all commands
 
 "#]]);
 }
