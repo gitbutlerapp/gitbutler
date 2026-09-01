@@ -41,6 +41,7 @@ import type {
 } from "@gitbutler/but-sdk";
 
 import { useMutationState, useQuery } from "@tanstack/react-query";
+import { defaultRangeExtractor, type Range, useVirtualizer } from "@tanstack/react-virtual";
 import type { PayloadFor } from "#electron/ipc.ts";
 import { Match } from "effect";
 import {
@@ -48,9 +49,13 @@ import {
 	createContext,
 	type FC,
 	Fragment,
+	type RefObject,
 	type ReactNode,
 	use,
+	useCallback,
+	useLayoutEffect,
 	useRef,
+	useState,
 } from "react";
 import { Group, Panel, useDefaultLayout } from "react-resizable-panels";
 import styles from "./WorkspaceLists.module.css";
@@ -94,12 +99,30 @@ import {
 	buildCommitTargetComboboxItems,
 	selectCommitTargetComboboxItem,
 } from "./commitTargetComboboxItems.ts";
-import { reverseValues } from "#ui/iterator.ts";
 
 const uncommittedChangesHeadingId = "uncommitted-changes-heading";
 
 const DryRunWorkspaceContext = createContext<WorkspaceState | null>(null);
 DryRunWorkspaceContext.displayName = "DryRunWorkspaceContext";
+
+/** Get a virtualisation range extractor which includes the provided index, if any. */
+const getRangeExtractorWithIndex = (range: Range, idx: number | undefined): Array<number> => {
+	// The default range is contiguous.
+	const idxs = defaultRangeExtractor(range);
+
+	// Only indices in the virtualiser's current item set can be pinned.
+	if (idx === undefined || idx < 0 || idx >= range.count) return idxs;
+
+	const fstIdx = idxs[0];
+	const lastIdx = idxs.at(-1);
+
+	// The virtualiser positions items independently of extractor order, so an out-of-range index can
+	// be safely appended in O(1). This affects DOM output order, but that's not relevant to us.
+	if (fstIdx === undefined || lastIdx === undefined || idx < fstIdx || idx > lastIdx)
+		idxs.push(idx);
+
+	return idxs;
+};
 
 // This must be unique as to not collide with other IDs, and stable because it's
 // stored in local storage.
@@ -409,6 +432,13 @@ const BranchSegment: FC<{
 	checkCommit: (evt: { commitId: string; shiftKey: boolean }) => void;
 	onAmendCommit: (commitId: string) => void;
 	canAmendCommit: boolean;
+	scrollElementRef: RefObject<HTMLDivElement | null>;
+	stackScrollStart: number;
+	stackSize: number;
+	segmentIndex: number;
+	selectedCommitIndex: number | undefined;
+	positionInSet: number;
+	setSize: number;
 }> = ({
 	projectId,
 	segment,
@@ -422,14 +452,31 @@ const BranchSegment: FC<{
 	checkCommit,
 	onAmendCommit,
 	canAmendCommit,
+	scrollElementRef,
+	stackScrollStart,
+	stackSize,
+	segmentIndex,
+	selectedCommitIndex,
+	positionInSet,
+	setSize,
 }) => {
 	const address = branchAddress({ branchRef: refName.fullNameBytes });
+	const isFolded = useAppSelector((state) =>
+		projectSlice.selectors.selectSegmentFolded(
+			state,
+			projectId,
+			decodeBytes(refName.fullNameBytes),
+		),
+	);
 
 	return (
 		<TreeItem
 			address={address}
 			aria-label={refName.displayName}
-			aria-expanded
+			aria-expanded={segment.commits.length > 0 ? !isFolded : undefined}
+			aria-level={1}
+			aria-posinset={positionInSet}
+			aria-setsize={setSize}
 			render={<AddressC projectId={projectId} address={address} outline="outside" />}
 		>
 			<BranchRow
@@ -451,12 +498,21 @@ const BranchSegment: FC<{
 			{/* oxlint-disable-next-line jsx-a11y/prefer-tag-over-role -- Tree items need ARIA group semantics. */}
 			<div role="group">
 				<SegmentContent
+					ariaLevel={2}
+					isFolded={isFolded}
+					positionOffset={0}
+					setSize={segment.commits.length}
 					projectId={projectId}
 					segment={segment}
 					stackId={stack.id}
 					checkCommit={checkCommit}
 					onAmendCommit={onAmendCommit}
 					canAmendCommit={canAmendCommit}
+					scrollElementRef={scrollElementRef}
+					stackScrollStart={stackScrollStart}
+					stackSize={stackSize}
+					segmentIndex={segmentIndex}
+					selectedCommitIndex={selectedCommitIndex}
 				/>
 			</div>
 		</TreeItem>
@@ -497,18 +553,90 @@ const SegmentContent: FC<{
 	checkCommit: (evt: { commitId: string; shiftKey: boolean }) => void;
 	onAmendCommit: (commitId: string) => void;
 	canAmendCommit: boolean;
-}> = ({ projectId, segment, stackId, checkCommit, onAmendCommit, canAmendCommit }) => {
-	// A plain boolean, so this re-renders only when this segment's own fold
-	// state changes rather than on every fold anywhere.
-	const isFolded = useAppSelector(
-		(state) =>
-			segment.refName !== null &&
-			projectSlice.selectors.selectSegmentFolded(
-				state,
-				projectId,
-				decodeBytes(segment.refName.fullNameBytes),
-			),
+	scrollElementRef: RefObject<HTMLDivElement | null>;
+	stackScrollStart: number;
+	stackSize: number;
+	segmentIndex: number;
+	selectedCommitIndex: number | undefined;
+	ariaLevel: number;
+	isFolded: boolean;
+	positionOffset: number;
+	setSize: number;
+}> = ({
+	projectId,
+	segment,
+	stackId,
+	checkCommit,
+	onAmendCommit,
+	canAmendCommit,
+	scrollElementRef,
+	stackScrollStart,
+	stackSize,
+	segmentIndex,
+	selectedCommitIndex,
+	ariaLevel,
+	isFolded,
+	positionOffset,
+	setSize,
+}) => {
+	const getCommitKey = useCallback(
+		(index: number) => segment.commits[index]?.id ?? index,
+		[segment.commits],
 	);
+
+	// Inline edit state lives in the selected row's DOM, so keep it mounted during manual scroll.
+	const rangeExtractorWithSelected = useCallback(
+		(range: Range) => getRangeExtractorWithIndex(range, selectedCommitIndex),
+		[selectedCommitIndex],
+	);
+
+	const commitListRef = useRef<HTMLDivElement>(null);
+	const [scrollMargin, setScrollMargin] = useState(stackScrollStart);
+
+	// oxlint-disable-next-line react-hooks-js/incompatible-library -- https://github.com/TanStack/virtual/issues/1119#issuecomment-4648268095
+	const rowVirtualizer = useVirtualizer({
+		directDomUpdates: true,
+		directDomUpdatesMode: "transform",
+		count: isFolded ? 0 : segment.commits.length,
+		getScrollElement: () => scrollElementRef.current,
+		initialOffset: () => scrollElementRef.current?.scrollTop ?? 0,
+		// Keep in sync with --single-line-row-height.
+		estimateSize: () => 28,
+		getItemKey: getCommitKey,
+		rangeExtractor: rangeExtractorWithSelected,
+		scrollMargin,
+		// Matches --scroll-gradient-height.
+		scrollPaddingStart: 14,
+		scrollPaddingEnd: 14,
+	});
+
+	const containerRef = useMergedRefs(rowVirtualizer.containerRef, commitListRef);
+
+	// Nested commit lists share the stack scroller, so keep this segment's start in scroller
+	// coordinates current when its stack or an earlier segment changes size.
+	useLayoutEffect(() => {
+		const element = commitListRef.current;
+		if (!element) return;
+
+		const nextScrollMargin = stackScrollStart + element.offsetTop;
+		setScrollMargin((currentScrollMargin) =>
+			currentScrollMargin === nextScrollMargin ? currentScrollMargin : nextScrollMargin,
+		);
+	}, [segmentIndex, stackScrollStart, stackSize]);
+
+	// Activity reconnects layout effects on reveal without changing the selection. Remember the
+	// handled commit so revealing the tab preserves manual scroll.
+	const lastRevealedCommitIndexRef = useRef<number>(undefined);
+
+	useLayoutEffect(() => {
+		if (
+			selectedCommitIndex !== undefined &&
+			selectedCommitIndex !== lastRevealedCommitIndexRef.current
+		)
+			rowVirtualizer.scrollToIndex(selectedCommitIndex, { align: "auto" });
+
+		lastRevealedCommitIndexRef.current = selectedCommitIndex;
+	}, [rowVirtualizer, selectedCommitIndex]);
 
 	if (segment.commits.length === 0) return <EmptySegmentContent segment={segment} />;
 	// The branch row stands in for a folded segment: it takes the group glyph
@@ -519,8 +647,11 @@ const SegmentContent: FC<{
 	const dryRunHeadInfoIndex = dryRunWorkspace ? getHeadInfoIndex(dryRunWorkspace.headInfo) : null;
 
 	return (
-		<div>
-			{segment.commits.map((commit) => {
+		<div ref={containerRef} className={styles.virtualContainer}>
+			{rowVirtualizer.getVirtualItems().map((virtualRow) => {
+				const commit = segment.commits[virtualRow.index];
+				if (commit === undefined) return null;
+
 				const address = commitAddress({ commitId: commit.id, changeId: commit.changeId });
 				const dryRunCommitId = dryRunWorkspace?.replacedCommits[commit.id];
 				const dryRunCommit =
@@ -528,29 +659,45 @@ const SegmentContent: FC<{
 						? (dryRunHeadInfoIndex?.commitContextByCommitId(dryRunCommitId)?.commit ?? null)
 						: null;
 				return (
-					<TreeItem
+					<div
 						key={commit.id}
-						address={address}
-						aria-label={commitTitle(commit.message) ?? "(no message)"}
-						render={
-							<AddressC
-								projectId={projectId}
-								address={address}
-								outline="outside"
-								render={
-									<CommitRow
-										commit={commit}
-										stackId={stackId}
-										checkCommit={checkCommit}
-										amendCommit={() => onAmendCommit(commit.id)}
-										canAmendCommit={canAmendCommit}
-										projectId={projectId}
-										dryRunCommit={dryRunCommit}
-									/>
-								}
-							/>
-						}
-					/>
+						data-index={virtualRow.index}
+						ref={rowVirtualizer.measureElement}
+						// We can't set fixed height here as an optimisation due to inline reword.
+						style={{
+							position: "absolute",
+							top: 0,
+							left: 0,
+							width: "100%",
+						}}
+					>
+						<TreeItem
+							address={address}
+							aria-label={commitTitle(commit.message) ?? "(no message)"}
+							aria-level={ariaLevel}
+							aria-posinset={positionOffset + virtualRow.index + 1}
+							aria-setsize={setSize}
+							render={
+								<AddressC
+									projectId={projectId}
+									address={address}
+									outline="outside"
+									render={
+										<CommitRow
+											commit={commit}
+											stackId={stackId}
+											checkCommit={checkCommit}
+											amendCommit={() => onAmendCommit(commit.id)}
+											canAmendCommit={canAmendCommit}
+											projectId={projectId}
+											dryRunCommit={dryRunCommit}
+											scrollSelectedIntoView={false}
+										/>
+									}
+								/>
+							}
+						/>
+					</div>
 				);
 			})}
 		</div>
@@ -613,28 +760,61 @@ const SegmentRailConnector: FC<{
 	);
 };
 
-const StackC: FC<{
-	projectId: string;
-	stack: Stack;
-	checkCommit: (evt: { commitId: string; shiftKey: boolean }) => void;
-	onAmendCommit: (commitId: string) => void;
-	canAmendCommit: boolean;
-	pendingPushBranches: Set<string>;
-}> = ({ projectId, stack, checkCommit, onAmendCommit, canAmendCommit, pendingPushBranches }) => {
+const StackC: FC<
+	{
+		projectId: string;
+		stack: Stack;
+		checkCommit: (evt: { commitId: string; shiftKey: boolean }) => void;
+		onAmendCommit: (commitId: string) => void;
+		canAmendCommit: boolean;
+		pendingPushBranches: Set<string>;
+		scrollElementRef: RefObject<HTMLDivElement | null>;
+		stackScrollStart: number;
+		stackSize: number;
+		selectedSegmentIndex: number | undefined;
+		selectedCommitIndex: number | undefined;
+	} & ComponentProps<"div">
+> = ({
+	projectId,
+	stack,
+	checkCommit,
+	onAmendCommit,
+	canAmendCommit,
+	pendingPushBranches,
+	scrollElementRef,
+	stackScrollStart,
+	stackSize,
+	selectedSegmentIndex,
+	selectedCommitIndex,
+	...props
+}) => {
 	const canTearOffBranch = stack.segments.length > 1;
 	const downstackPushStatuses = downstackPushStatusesFromSegments(stack.segments);
 	const topmostPendingPushIndex = stack.segments.findIndex(
 		(segment) =>
 			segment.refName && pendingPushBranches.has(decodeBytes(segment.refName.fullNameBytes)),
 	);
+	// Each stack group is a root sibling set. A branch is one root item whose commits are children;
+	// an unbranched segment contributes its commits directly to the root set.
+	const rootPositionOffsets: Array<number> = [];
+	let rootSetSize = 0;
+	for (const segment of stack.segments) {
+		rootPositionOffsets.push(rootSetSize);
+		rootSetSize += segment.refName === null ? segment.commits.length : 1;
+	}
 
 	return (
 		<StackCard
+			{...props}
+			className={classes(props.className, styles.virtualStack)}
 			// oxlint-disable-next-line jsx-a11y/prefer-tag-over-role -- This is a group of treeitems.
 			role="group"
 			aria-label="Stack"
 		>
 			{stack.segments.map((segment, index) => {
+				// oxlint-disable-next-line typescript/no-non-null-assertion -- Equivalent iteration above.
+				const segmentPositionOffset = rootPositionOffsets[index]!;
+
 				const key = segment.refName
 					? JSON.stringify(segment.refName.fullNameBytes)
 					: segment.commits[0]?.id;
@@ -668,15 +848,35 @@ const StackC: FC<{
 									checkCommit={checkCommit}
 									onAmendCommit={onAmendCommit}
 									canAmendCommit={canAmendCommit}
+									scrollElementRef={scrollElementRef}
+									stackScrollStart={stackScrollStart}
+									stackSize={stackSize}
+									segmentIndex={index}
+									positionInSet={segmentPositionOffset + 1}
+									setSize={rootSetSize}
+									selectedCommitIndex={
+										selectedSegmentIndex === index ? selectedCommitIndex : undefined
+									}
 								/>
 							) : (
 								<SegmentContent
+									ariaLevel={1}
+									isFolded={false}
+									positionOffset={segmentPositionOffset}
+									setSize={rootSetSize}
 									projectId={projectId}
 									segment={segment}
 									stackId={stack.id}
 									checkCommit={checkCommit}
 									onAmendCommit={onAmendCommit}
 									canAmendCommit={canAmendCommit}
+									scrollElementRef={scrollElementRef}
+									stackScrollStart={stackScrollStart}
+									stackSize={stackSize}
+									segmentIndex={index}
+									selectedCommitIndex={
+										selectedSegmentIndex === index ? selectedCommitIndex : undefined
+									}
 								/>
 							)}
 						</div>
@@ -739,6 +939,10 @@ const Stacks: FC<{
 		operation: dryRunOperation,
 	});
 	const dryRunWorkspace = dryRunOperationResult?.workspace ?? null;
+	const stacks = (headInfo?.stacks ?? []).toReversed();
+	const foldedSegments = useAppSelector((state) =>
+		projectSlice.selectors.selectFoldedSegments(state, projectId),
+	);
 	const pendingPushBranches = new Set(
 		useMutationState({
 			filters: {
@@ -749,6 +953,98 @@ const Stacks: FC<{
 				(mutation.state.variables as PayloadFor<"workspaceBranchAndAncestorsPush">).branch,
 		}),
 	);
+	const scrollElementRef = useRef<HTMLDivElement>(null);
+	const retainScrollElement = useCallback((element: HTMLDivElement | null) => {
+		if (element) scrollElementRef.current = element;
+	}, []);
+	const getStackKey = useCallback((index: number) => stacks[index]?.id ?? index, [stacks]);
+	const headInfoIndex = headInfo ? getHeadInfoIndex(headInfo) : undefined;
+	const selectedContext =
+		selection?._tag === "Branch"
+			? headInfoIndex?.branchContextByRefBytes(selection.branchRef)
+			: selection?._tag === "Commit"
+				? headInfoIndex?.commitContextByCommitId(selection.commitId)
+				: undefined;
+	const selectedStackIndex =
+		selectedContext === undefined ? undefined : stacks.length - selectedContext.stackIndex - 1;
+	const selectedSegmentIndex = selectedContext?.segmentIndex;
+	const selectedCommitIndex =
+		selection?._tag === "Commit"
+			? headInfoIndex?.commitContextByCommitId(selection.commitId)?.commitIndex
+			: undefined;
+
+	// Pin the containing stack too, otherwise the nested selected row can still be unmounted.
+	const rangeExtractorWithSelected = useCallback(
+		(range: Range) => getRangeExtractorWithIndex(range, selectedStackIndex),
+		[selectedStackIndex],
+	);
+
+	// oxlint-disable-next-line react-hooks-js/incompatible-library -- https://github.com/TanStack/virtual/issues/1119#issuecomment-4648268095
+	const rowVirtualizer = useVirtualizer({
+		directDomUpdates: true,
+		directDomUpdatesMode: "transform",
+		count: stacks.length,
+		getScrollElement: () => scrollElementRef.current,
+		estimateSize: (index) => {
+			// Keep in sync with Row.module.css and StackCard.module.css. Measurements replace this
+			// estimate once a stack is mounted; its main job is to make far-away stacks reachable.
+			const singleLineRowHeight = 28;
+			const branchRowHeight = 54;
+			const stackBodyPaddingStart = 6;
+			const stackBorderHeight = 1;
+			const stackSeparatorHeight = index === 0 ? 0 : 1;
+			const finalConnectorHeight = 8;
+			const betweenSegmentConnectorHeight = 14;
+			const stack = stacks[index];
+			if (stack === undefined) return singleLineRowHeight;
+
+			let contentHeight = 0;
+			for (const segment of stack.segments) {
+				if (segment.refName !== null) contentHeight += branchRowHeight;
+
+				const isFolded =
+					segment.refName !== null &&
+					foldedSegments[decodeBytes(segment.refName.fullNameBytes)] === true;
+				if (!isFolded) contentHeight += Math.max(1, segment.commits.length) * singleLineRowHeight;
+			}
+
+			return (
+				stackBodyPaddingStart +
+				stackBorderHeight +
+				stackSeparatorHeight +
+				contentHeight +
+				finalConnectorHeight +
+				Math.max(0, stack.segments.length - 1) * betweenSegmentConnectorHeight
+			);
+		},
+		getItemKey: getStackKey,
+		rangeExtractor: rangeExtractorWithSelected,
+		gap: 10,
+		// Matches --scroll-gradient-height.
+		scrollPaddingStart: 14,
+		scrollPaddingEnd: 14,
+	});
+
+	const selectedAddressKey = selection === null ? undefined : addressIdentityKey(selection);
+	const lastRevealedAddressKeyRef = useRef<string>(undefined);
+
+	// If the selected row's stack is not rendered, reveal the stack first. Its branch row or nested
+	// commit virtualizer then handles precise alignment.
+	useLayoutEffect(() => {
+		const selectedStackIsMounted = rowVirtualizer
+			.getVirtualItems()
+			.some((virtualRow) => virtualRow.index === selectedStackIndex);
+
+		if (
+			selectedAddressKey !== undefined &&
+			selectedAddressKey !== lastRevealedAddressKeyRef.current &&
+			selectedStackIndex !== undefined &&
+			!selectedStackIsMounted
+		)
+			rowVirtualizer.scrollToIndex(selectedStackIndex, { align: "auto" });
+
+		lastRevealedAddressKeyRef.current = selectedAddressKey;
+	}, [rowVirtualizer, selectedAddressKey, selectedStackIndex]);
 
 	const hotkeysRef = useRef<HTMLDivElement>(null);
 	useActiveListsHotkeys({
@@ -763,28 +1059,55 @@ const Stacks: FC<{
 
 	return (
 		<DryRunWorkspaceContext value={dryRunWorkspace}>
-			<div
-				tabIndex={0}
-				role="tree"
-				aria-activedescendant={selection ? treeItemId(selection) : undefined}
-				className={classes(styles.tree, styles.stacks)}
-				data-focus-scope={"sidebar" satisfies FocusScope}
-				data-preview-source={activeList === "applied"}
-				ref={useMergedRefs(hotkeysRef, useAutofocusScope(activeList === "applied"))}
-			>
-				{reverseValues(headInfo?.stacks ?? [])
-					.map((stack) => (
-						<StackC
-							key={stack.id}
-							projectId={projectId}
-							stack={stack}
-							checkCommit={checkCommit}
-							onAmendCommit={onAmendCommit}
-							canAmendCommit={canAmendCommit}
-							pendingPushBranches={pendingPushBranches}
-						/>
-					))
-					.toArray()}
+			<div ref={retainScrollElement} className={classes(uiStyles.scroller, styles.stacksScroller)}>
+				<div
+					tabIndex={0}
+					role="tree"
+					aria-activedescendant={selection ? treeItemId(selection) : undefined}
+					className={classes(styles.tree, styles.stacks, styles.virtualContainer)}
+					data-focus-scope={"sidebar" satisfies FocusScope}
+					data-preview-source={activeList === "applied"}
+					ref={useMergedRefs(
+						rowVirtualizer.containerRef,
+						hotkeysRef,
+						useAutofocusScope(activeList === "applied"),
+					)}
+				>
+					{rowVirtualizer.getVirtualItems().map((virtualRow) => {
+						const stack = stacks[virtualRow.index];
+						if (stack === undefined) return null;
+
+						return (
+							<StackC
+								key={stack.id ?? virtualRow.index}
+								data-index={virtualRow.index}
+								ref={rowVirtualizer.measureElement}
+								style={{
+									position: "absolute",
+									top: 0,
+									left: 0,
+									width: "100%",
+									transform: `translateY(${virtualRow.start}px)`,
+								}}
+								projectId={projectId}
+								stack={stack}
+								checkCommit={checkCommit}
+								onAmendCommit={onAmendCommit}
+								canAmendCommit={canAmendCommit}
+								pendingPushBranches={pendingPushBranches}
+								scrollElementRef={scrollElementRef}
+								stackScrollStart={virtualRow.start}
+								stackSize={virtualRow.size}
+								selectedSegmentIndex={
+									selectedStackIndex === virtualRow.index ? selectedSegmentIndex : undefined
+								}
+								selectedCommitIndex={
+									selectedStackIndex === virtualRow.index ? selectedCommitIndex : undefined
+								}
+							/>
+						);
+					})}
+				</div>
 			</div>
 		</DryRunWorkspaceContext>
 	);
@@ -996,15 +1319,13 @@ export const WorkspaceLists: FC<
 						actions={stacksHeaderActions}
 					/>
 
-					<div className={classes(uiStyles.scroller, styles.stacksScroller)}>
-						<Stacks
-							projectId={projectId}
-							checkCommit={checkCommit}
-							onAmendCommit={amendCommit}
-							canAmendCommit={canAmendCommit}
-							onEdgeSpill={spillIntoUncommittedChanges}
-						/>
-					</div>
+					<Stacks
+						projectId={projectId}
+						checkCommit={checkCommit}
+						onAmendCommit={amendCommit}
+						canAmendCommit={canAmendCommit}
+						onEdgeSpill={spillIntoUncommittedChanges}
+					/>
 				</Panel>
 			</Group>
 		</WorkspaceListsProvider>

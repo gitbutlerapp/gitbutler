@@ -94,17 +94,14 @@
 /* The cards run the full width of the panel, so nothing insets them and the
    scroll separator already spans it. */
 .stacks {
-	display: flex;
-	/* The panel's own background is all that separates one card from the next. */
-	row-gap: 10px;
-	flex-direction: column;
+	box-sizing: content-box;
 	padding-bottom: var(--panel-padding-block);
+}
 
-	/* Each card carries its own floor, but here they stand in a band of panel
-	   background rather than flush against each other, so every card after the
-	   first needs a lid to close the band. The first is already closed by the
-	   panel header above it. */
-	& > * + * {
-		border-block-start: 1px solid var(--border-section);
-	}
+.virtualContainer {
+	position: relative;
+}
+
+.virtualStack:not([data-index="0"]) {
+	border-block-start: 1px solid var(--border-section);
 }

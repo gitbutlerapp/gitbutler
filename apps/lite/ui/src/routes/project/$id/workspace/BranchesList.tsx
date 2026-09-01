@@ -97,7 +97,11 @@ const InertRow: FC<{ branch: ListedBranch; label: string }> = ({ branch, label }
 	</Row>
 );
 
-const CommitItem: FC<{ commit: Commit }> = ({ commit }) => {
+const CommitItem: FC<{
+	commit: Commit;
+	positionInSet: number;
+	setSize: number;
+}> = ({ commit, positionInSet, setSize }) => {
 	const address = commitAddress({ commitId: commit.id, changeId: commit.changeId });
 	const isSelected = useIsSelected(address);
 	const title = commitTitle(commit.message);
@@ -117,6 +121,9 @@ const CommitItem: FC<{ commit: Commit }> = ({ commit }) => {
 			id={treeItemId(address)}
 			role="treeitem"
 			aria-label={title ?? "(no message)"}
+			aria-level={2}
+			aria-posinset={positionInSet}
+			aria-setsize={setSize}
 			aria-selected={isSelected}
 			isSelected={isSelected}
 			scrollSelectedIntoView={false}
@@ -229,7 +236,11 @@ const BranchCommits: FC<{
 							height: virtualRow.size,
 						}}
 					>
-						<CommitItem commit={commit} />
+						<CommitItem
+							commit={commit}
+							positionInSet={virtualRow.index + 1}
+							setSize={commits.length}
+						/>
 					</div>
 				);
 			})}
@@ -248,6 +259,8 @@ const BranchItem: FC<{
 	stackSize: number;
 	branchAddressIndex: number;
 	selectedCommitIndex: number | undefined;
+	positionInSet: number;
+	setSize: number;
 }> = ({
 	projectId,
 	branch,
@@ -259,6 +272,8 @@ const BranchItem: FC<{
 	stackSize,
 	branchAddressIndex,
 	selectedCommitIndex,
+	positionInSet,
+	setSize,
 }) => {
 	const dispatch = useAppDispatch();
 	const branchRef = branch.refName.full;
@@ -330,6 +345,9 @@ const BranchItem: FC<{
 			id={treeItemId(address)}
 			role="treeitem"
 			aria-label={branch.displayName}
+			aria-level={1}
+			aria-posinset={positionInSet}
+			aria-setsize={setSize}
 			aria-selected={isSelected}
 			// A branch with nothing to unfold is a leaf: omit the attribute
 			// entirely rather than reporting it as collapsed.
@@ -490,6 +508,8 @@ export const BranchesList: FC<
 
 	// oxlint-disable-next-line react-hooks-js/incompatible-library -- https://github.com/TanStack/virtual/issues/1119#issuecomment-4648268095
 	const rowVirtualizer = useVirtualizer({
+		directDomUpdates: true,
+		directDomUpdatesMode: "transform",
 		count: stacks.length,
 		getScrollElement: () => scrollElementRef.current,
 		estimateSize: (index) => {
@@ -691,8 +711,7 @@ export const BranchesList: FC<
 					aria-activedescendant={selection ? treeItemId(selection) : undefined}
 					data-focus-scope={"sidebar" satisfies FocusScope}
 					className={classes(styles.tree, styles.virtualContainer)}
-					style={{ height: rowVirtualizer.getTotalSize() }}
-					ref={useMergedRefs(treeRef, useAutofocusScope())}
+					ref={useMergedRefs(rowVirtualizer.containerRef, treeRef, useAutofocusScope())}
 				>
 					{rowVirtualizer.getVirtualItems().map((virtualRow) => {
 						const stack = stacks[virtualRow.index];
@@ -735,6 +754,8 @@ export const BranchesList: FC<
 												stackSize={virtualRow.size}
 												branchAddressIndex={addressIndex}
 												selectedCommitIndex={selectedCommitIndex}
+												positionInSet={index + 1}
+												setSize={stack.branches.length}
 											/>
 
 											{/* Carries the rail down to the next branch, and past the
