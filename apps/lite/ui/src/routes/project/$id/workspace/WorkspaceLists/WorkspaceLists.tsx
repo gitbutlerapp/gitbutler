@@ -322,7 +322,6 @@ const UncommittedChanges: FC<
 					<FilesTree
 						className={styles.uncommittedFiles}
 						aria-labelledby={uncommittedChangesHeadingId}
-						canUncommit={false}
 						data-preview-source={activeList === "uncommitted"}
 						focusScope="uncommitted-files"
 						fileParent={uncommittedChangesFileParent}

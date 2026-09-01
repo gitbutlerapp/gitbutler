@@ -1,26 +1,18 @@
 import rowStyles from "./Row.module.css";
-import { startAbsorb } from "#ui/use-cursor.ts";
 import {
-	changesInWorktreeQueryOptions,
 	guiSettingsQueryOptions,
 	headInfoQueryOptions,
 	listEditorsQueryOptions,
 } from "#ui/api/queries.ts";
 import { getHeadInfoIndex } from "#ui/api/ref-info.ts";
 import { defaultSettings } from "#ui/settings.ts";
-import {
-	uncommittedChangesFileParent,
-	fileAddress,
-	addressEquals,
-	addressIdentityKey,
-	type FileParent,
-} from "#ui/addresses.ts";
+import { fileAddress, addressEquals, addressIdentityKey, type FileParent } from "#ui/addresses.ts";
 import { projectSlice } from "#ui/projects/state.ts";
 import { useAppDispatch, useAppSelector, useAppStore } from "#ui/store.ts";
 import { classes } from "#ui/components/classes.ts";
 import { getRangeExtractorWithIndices } from "#ui/virtual.ts";
 import { mergeProps, Tooltip, useRender } from "@base-ui/react";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import { type Range, useVirtualizer } from "@tanstack/react-virtual";
 import {
 	type ComponentProps,
@@ -36,7 +28,7 @@ import {
 import styles from "./FilesTree.module.css";
 import { Row, RowLabel, RowLabelContainer } from "./Row.tsx";
 import { OperationSourceC } from "#ui/routes/project/$id/workspace/OperationSourceC.tsx";
-import { focusScope, useAddressSpaceHotkeys, type FocusScope } from "#ui/focus-scopes.ts";
+import { useAddressSpaceHotkeys, type FocusScope } from "#ui/focus-scopes.ts";
 import {
 	addressSpaceIncludes,
 	getAdjacent,
@@ -52,7 +44,8 @@ import type { FileRowItem } from "./file-row.ts";
 import { parentDirectoryRow, type FileTreeRow } from "./file-tree.ts";
 import { useFileDisplayMode } from "./useFileDisplayMode.ts";
 import { checkedRange, addressSpaceRange, selectionAfterChecking } from "#ui/checking.ts";
-import { useDiscardFileChanges, useOpenInProgram } from "#ui/api/mutations.ts";
+import { useOpenInProgram } from "#ui/api/mutations.ts";
+import { useFileSetActions, useFileSetSubject } from "./useFileSetActions.ts";
 import type { TreeChange } from "@gitbutler/but-sdk";
 import type { CSSProperties } from "react";
 import { FileRowTooltipRoot, type FileRowTooltipPayload } from "./FileRowTooltip.tsx";
@@ -69,8 +62,6 @@ const useFilesTreeHotkeys = ({
 	projectId,
 	ref,
 	fileParent,
-	canUncommit,
-	uncommit,
 	rows,
 	selection,
 	selectedRow,
@@ -85,8 +76,6 @@ const useFilesTreeHotkeys = ({
 	projectId: string;
 	ref: React.RefObject<HTMLElement | null>;
 	fileParent: FileParent;
-	canUncommit: boolean;
-	uncommit?: (change: TreeChange, extendToCheckedFiles: boolean) => void;
 	rows: Array<FileTreeRow<FileRowItem>>;
 	selection: string | null;
 	selectedRow: FileTreeRow<FileRowItem> | undefined;
@@ -104,50 +93,23 @@ const useFilesTreeHotkeys = ({
 	});
 	const { mutate: openInProgram } = useOpenInProgram();
 	const revealInFolder = useRevealInFolder(projectId);
-	const { canDiscard, discard } = useDiscardFileChanges({ projectId, fileParent });
+	const actions = useFileSetActions({ projectId, fileParent });
 
 	const store = useAppStore();
-	const queryClient = useQueryClient();
 
 	const selectedChangesFile = fileParent._tag === "UncommittedChanges" ? selection : null;
-	const selectedUncommittedChange =
-		fileParent._tag === "UncommittedChanges" ? selectedChange : null;
 
-	const absorbSelectedFile = () => {
-		if (selectedUncommittedChange === null) return;
-		const checkedPaths = projectSlice.selectors.selectCheckedUncommittedFilePaths(
-			store.getState(),
-			projectId,
-		);
-		const checkedChanges =
-			checkedPaths.size === 0
-				? null
-				: queryClient
-						.getQueryData(changesInWorktreeQueryOptions(projectId).queryKey)
-						?.changes.filter((change) => checkedPaths.has(change.path));
-		if (checkedPaths.size > 0 && !checkedChanges) return;
-
-		startAbsorb({
-			sources: (checkedPaths.size > 0
-				? Array.from(checkedPaths, (path) =>
-						fileAddress({ parent: uncommittedChangesFileParent, path }),
-					)
-				: null) ?? [
-				fileAddress({
-					parent: uncommittedChangesFileParent,
-					path: selectedUncommittedChange.path,
-				}),
-			],
-			sourceTarget: {
-				type: "treeChanges",
-				subject: {
-					changes: checkedChanges ?? [selectedUncommittedChange],
-					assignedStackId: null,
-				},
-			},
-		});
-		focusScope("sidebar");
-	};
+	// As with the other list-wide hotkeys, checked files are the subject when there are any.
+	const subject = useFileSetSubject({
+		projectId,
+		fileParent,
+		promote: true,
+		own: () =>
+			selectedChange === null
+				? []
+				: [fileAddress({ parent: fileParent, path: selectedChange.path })],
+		ownCount: 1,
+	});
 
 	// Repeats must follow the pending cursor before React renders it. Null ends the held-key run
 	// so it cannot reverse and undo the checks; a fresh keypress starts from the selected row.
@@ -171,14 +133,19 @@ const useFilesTreeHotkeys = ({
 	const discardSelectedFile = () => {
 		if (selectedChange === null) return;
 
-		// As with the other list-wide hotkeys, checked files are the subject when there are any.
-		void discard({ change: selectedChange, extendToCheckedFiles: true });
+		void actions.discard(subject.addresses());
 	};
 
 	const uncommitSelectedFile = () => {
-		if (selectedChange === null || fileParent._tag !== "Commit") return;
+		if (selectedChange === null) return;
 
-		uncommit?.(selectedChange, true);
+		actions.uncommit(subject.addresses());
+	};
+
+	const absorbSelectedFile = () => {
+		if (selectedChange === null) return;
+
+		actions.absorb(subject.addresses());
 	};
 
 	/**
@@ -203,7 +170,7 @@ const useFilesTreeHotkeys = ({
 		toggleDirectoryCollapsed(parent.path);
 	};
 
-	const canDiscardSelectedFile = selectedChange !== null && canDiscard;
+	const canDiscardSelectedFile = selectedChange !== null && actions.canDiscard;
 
 	const canCheckTheseFiles = useAppSelector((state) =>
 		projectSlice.selectors.selectCanCheckFiles(state, projectId, fileParent),
@@ -226,7 +193,7 @@ const useFilesTreeHotkeys = ({
 			callback: absorbSelectedFile,
 			options: {
 				conflictBehavior: "allow",
-				enabled: selectedChangesFile !== null && noOperationPending,
+				enabled: selectedChange !== null && actions.canAbsorb && noOperationPending,
 				target: ref,
 				meta: changesFileHotkeys.absorb.meta,
 			},
@@ -304,11 +271,7 @@ const useFilesTreeHotkeys = ({
 			callback: uncommitSelectedFile,
 			options: {
 				conflictBehavior: "allow",
-				enabled:
-					noOperationPending &&
-					selectedChange !== null &&
-					fileParent._tag === "Commit" &&
-					canUncommit,
+				enabled: noOperationPending && selectedChange !== null && actions.canUncommit,
 				target: ref,
 				meta: changesFileHotkeys.uncommit.meta,
 			},
@@ -392,8 +355,6 @@ type RowShared = {
 	pathDisplay: "lead" | "trail" | "hidden";
 	canCheck: boolean;
 	anyOperationPending: boolean;
-	canUncommit: boolean;
-	uncommit?: (change: TreeChange, extendToCheckedFiles: boolean) => void;
 	checkFile: (evt: { path: string; shiftKey: boolean }) => void;
 	checkDirectory: (evt: { path: string; checked: boolean }) => void;
 	onRowSelection: (selection: string) => void;
@@ -447,8 +408,6 @@ const FilesTreeRow: FC<{
 		pathDisplay,
 		canCheck,
 		anyOperationPending,
-		canUncommit,
-		uncommit,
 		checkFile,
 		checkDirectory,
 		onRowSelection,
@@ -551,8 +510,6 @@ const FilesTreeRow: FC<{
 								checkFile={checkFile}
 								projectId={projectId}
 								fileParent={fileParent}
-								canUncommit={canUncommit}
-								uncommit={uncommit}
 								focusScope={focusScope}
 								tooltipHandle={tooltipHandle}
 								ageBadgeNow={ageBadgeNow}
@@ -719,8 +676,6 @@ export const FilesTree: FC<
 	{
 		projectId: string;
 		rows: Array<FileTreeRow<FileRowItem>>;
-		canUncommit: boolean;
-		uncommit?: (change: TreeChange, extendToCheckedFiles: boolean) => void;
 		collapsedDirectories: Record<string, true>;
 		onToggleDirectoryCollapsed: (path: string) => void;
 		selection: string | null;
@@ -753,8 +708,6 @@ export const FilesTree: FC<
 	} & ComponentProps<"div">
 > = ({
 	rows,
-	canUncommit,
-	uncommit,
 	collapsedDirectories,
 	onToggleDirectoryCollapsed,
 	selection,
@@ -997,8 +950,6 @@ export const FilesTree: FC<
 		projectId,
 		ref,
 		fileParent,
-		canUncommit,
-		uncommit,
 		rows,
 		selection,
 		selectedRow,
@@ -1015,8 +966,6 @@ export const FilesTree: FC<
 		pathDisplay,
 		canCheck,
 		anyOperationPending,
-		canUncommit,
-		uncommit,
 		checkFile,
 		checkDirectory,
 		onRowSelection,
