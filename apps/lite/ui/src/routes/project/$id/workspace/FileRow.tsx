@@ -21,7 +21,6 @@ import { useFileMenuItems } from "#ui/routes/project/$id/workspace/useFileMenuIt
 import type { FileRowItem } from "./file-row.ts";
 import { TreeSteps } from "./TreeSteps.tsx";
 import { ageBadgeOpacity, formatAgeBadge, formatRelativeTime } from "@gitbutler/ui-react/time.ts";
-import type { TreeChange } from "@gitbutler/but-sdk";
 import type { FileRowTooltipPayload } from "./FileRowTooltip.tsx";
 
 /** Pulse lifetime. The 30s clock driving it can stretch this by up to a tick. */
@@ -36,8 +35,6 @@ type FileRowProps = {
 	fileParent: FileParent;
 	branchNameByCommitId: (commitId: string) => string | undefined;
 	canCheck: boolean;
-	canUncommit: boolean;
-	uncommit?: (change: TreeChange, extendToCheckedFiles: boolean) => void;
 	isChecked: boolean;
 	/** Whether the diff on show has been reviewed; the row says so in place of its change type. */
 	isReviewed: boolean;
@@ -57,7 +54,7 @@ type FileRowProps = {
 	rail?: ReactNode;
 } & Omit<ComponentProps<typeof Row>, "projectId">;
 
-type FileRowPresentationalProps = Omit<FileRowProps, "canUncommit" | "uncommit"> & {
+type FileRowPresentationalProps = FileRowProps & {
 	anyOperationPending: boolean;
 	menuItems: ReturnType<typeof useFileMenuItems>;
 	presentationalOnly?: boolean;
@@ -75,7 +72,7 @@ const PresentationalRowButton: FC<{ icon: "kebab" | "link" }> = ({ icon }) => (
 	</button>
 );
 
-export const FileRow: FC<FileRowProps> = ({ canUncommit, uncommit, ...props }) => {
+export const FileRow: FC<FileRowProps> = (props) => {
 	const { item, projectId, fileParent } = props;
 	const relativePath = item._tag === "Change" ? item.change.path : item.path;
 
@@ -87,8 +84,6 @@ export const FileRow: FC<FileRowProps> = ({ canUncommit, uncommit, ...props }) =
 		address: { parent: fileParent, path: relativePath },
 		path: relativePath,
 		change: item._tag === "Change" ? item.change : undefined,
-		canUncommit,
-		uncommit,
 	});
 
 	return (
