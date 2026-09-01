@@ -129,6 +129,12 @@ pub fn handle(ctx: &but_ctx::Context, cli_id: CliIdArg) -> CliResult<ExpandOutco
     let id_map = IdMap::new_from_context(ctx, guard.read_permission())?;
     let repo = ctx.repo.get()?;
     let matches = cli_id.parse(&repo, &id_map)?;
+    if let Some(segment) = matches.iter().find_map(|id| match id {
+        CliId::AnonymousSegment(segment) => Some(segment),
+        _ => None,
+    }) {
+        return Err(crate::args::atoms::anonymous_segment_error(&segment.id));
+    }
     let resources = matches
         .into_iter()
         .flat_map(resources_from_cli_id)
@@ -155,6 +161,9 @@ fn resources_from_cli_id(cli_id: CliId) -> Vec<Resource> {
             short_id: branch.id,
             name: branch.name,
         }],
+        CliId::AnonymousSegment(_) => {
+            unreachable!("anonymous segments are rejected before resource conversion")
+        }
         CliId::UncommittedHunkOrFile(uncommitted) if uncommitted.is_entire_file => {
             vec![Resource::UncommittedFile {
                 path: uncommitted.hunks.first().hunk.path.to_string(),

@@ -18,9 +18,9 @@ fn anonymous_segment_reports_recovery_workflow() {
         .assert()
         .failure()
         .stderr_eq(str![[r#"
-Error: Cannot unapply segment 'g0' because it has no branch reference
+Error: Cannot operate on anonymous branch 'g0'
 
-Hint: Run `but branch new <name> --above <commit-id>` with the segment's top commit ID from `but status`, then run `but unapply <name>`.
+Hint: Name it with `but reword g0` first! Note that the short ID is likely to change when the branch is named.
 
 "#]])
         .stdout_eq(str![]);

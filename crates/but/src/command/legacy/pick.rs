@@ -179,6 +179,9 @@ fn resolve(
                 {
                     match resolved {
                         ResolvedCliIdArg::Commit(commit_id) => Ok(commit_id.commit_id),
+                        ResolvedCliIdArg::AnonymousSegment(segment) => {
+                            Err(crate::args::atoms::anonymous_segment_error(&segment.id))
+                        }
                         ResolvedCliIdArg::Branch(..)
                         | ResolvedCliIdArg::UncommittedHunkOrFile(..)
                         | ResolvedCliIdArg::CommittedFile(..)

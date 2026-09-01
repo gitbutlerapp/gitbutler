@@ -4,6 +4,7 @@ use but_core::{DiffSpec, HunkHeader};
 
 use crate::{
     CliId,
+    args::atoms::anonymous_segment_error,
     id::{CommitId, CommittedFileId, IdAndHunk, UncommittedHunkOrFile},
     utils::change_source::{ChangeSourceId, ChangeSourceRepo},
 };
@@ -69,6 +70,9 @@ impl<'a> DiffSpecBuilder<'a> {
             } => self.push_changes_from_committed_file(*commit_id, path.as_ref()),
             CliId::Branch(branch) => {
                 anyhow::bail!("Cannot compute diff specs for branch `{}`", branch.name)
+            }
+            CliId::AnonymousSegment(segment) => {
+                anyhow::bail!("{}", anonymous_segment_error(&segment.id))
             }
             CliId::Commit {
                 commit:

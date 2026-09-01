@@ -4,6 +4,31 @@ use super::util::{
 use crate::utils::{CommandExt as _, Sandbox};
 
 #[test]
+fn rejects_unnamed_segment_as_target() {
+    let env =
+        Sandbox::init_scenario_with_target_and_default_settings("one-stack-anonymous-segment");
+    env.setup_metadata(&["A"]);
+    env.file("new.txt", "content\n");
+
+    for command in [
+        "commit -b g0 -m test",
+        "commit -A g0 -m test",
+        "commit -B g0 -m test",
+    ] {
+        env.but(command)
+            .assert()
+            .failure()
+            .stdout_eq(snapbox::str![])
+            .stderr_eq(snapbox::str![[r#"
+Error: Cannot operate on anonymous branch 'g0'
+
+Hint: Name it with `but reword g0` first! Note that the short ID is likely to change when the branch is named.
+
+"#]]);
+    }
+}
+
+#[test]
 fn commits_a_dirty_file_on_a_new_branch_in_single_branch_mode() {
     let env = Sandbox::open_with_default_settings("one-fork");
     env.but("config feature single-branch enable")

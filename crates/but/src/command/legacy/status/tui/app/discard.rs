@@ -230,7 +230,8 @@ impl App {
                         },
                     )
                 }
-                CliId::CommittedHunk(..)
+                CliId::AnonymousSegment(..)
+                | CliId::CommittedHunk(..)
                 | CliId::Stack { .. }
                 | CliId::PathPrefix { .. }
                 | CliId::Worktree { .. } => return Ok(()),

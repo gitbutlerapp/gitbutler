@@ -1651,11 +1651,15 @@ fn print_group(
             };
 
             let branch = segment.branch_name().unwrap_or(BStr::new("")).to_string();
+            let is_anonymous = segment.branch_name().is_none();
             let branch_cli_id = lookup_cli_id_for_short_id(
                 &status_ctx.id_map,
                 &repo,
                 &segment.short_id,
-                |id| matches!(id, CliId::Branch(..)),
+                |id| {
+                    matches!(id, CliId::AnonymousSegment(..)) == is_anonymous
+                        && matches!(id, CliId::Branch(..) | CliId::AnonymousSegment(..))
+                },
                 "branch",
             )?;
             let mut branch_suffix = Vec::new();

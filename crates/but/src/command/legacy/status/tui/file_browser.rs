@@ -63,7 +63,8 @@ impl FileBrowser {
             .into_iter()
             .map(|change| change.path_bytes.to_vec().into_path_buf_lossy())
             .collect::<Vec<_>>(),
-            CliId::UncommittedHunkOrFile(..)
+            CliId::AnonymousSegment(..)
+            | CliId::UncommittedHunkOrFile(..)
             | CliId::PathPrefix { .. }
             | CliId::CommittedFile { .. }
             | CliId::CommittedHunk { .. }

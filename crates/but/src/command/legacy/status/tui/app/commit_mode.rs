@@ -166,7 +166,8 @@ impl CommitSource {
             // A worktree heading names that checkout's uncommitted area, so it is a source in
             // exactly the way `zz` is one for the main worktree.
             CliId::Worktree { name, .. } => Some(CommitSource::Worktree(name.clone())),
-            CliId::PathPrefix { .. }
+            CliId::AnonymousSegment(..)
+            | CliId::PathPrefix { .. }
             | CliId::CommittedFile { .. }
             | CliId::CommittedHunk { .. }
             | CliId::Stack { .. } => None,
@@ -385,7 +386,8 @@ impl App {
                     name: worktree_branch(&repo, name.as_ref())?,
                 }
             }
-            CliId::UncommittedHunkOrFile(..)
+            CliId::AnonymousSegment(..)
+            | CliId::UncommittedHunkOrFile(..)
             | CliId::PathPrefix { .. }
             | CliId::CommittedFile { .. }
             | CliId::CommittedHunk { .. }
@@ -434,7 +436,8 @@ impl App {
                 },
             }),
 
-            CliId::PathPrefix { .. }
+            CliId::AnonymousSegment(..)
+            | CliId::PathPrefix { .. }
             | CliId::CommittedFile { .. }
             | CliId::CommittedHunk { .. }
             | CliId::Commit { .. }

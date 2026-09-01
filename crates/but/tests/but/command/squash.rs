@@ -9,6 +9,26 @@ use crate::{
     utils::{CommandExt, Sandbox},
 };
 
+#[test]
+fn rejects_unnamed_segment_as_source_or_target() {
+    let env =
+        Sandbox::init_scenario_with_target_and_default_settings("one-stack-anonymous-segment");
+    env.setup_metadata(&["A"]);
+
+    for command in ["squash g0 -m test", "squash tpm -t g0 -m test"] {
+        env.but(command)
+            .assert()
+            .failure()
+            .stdout_eq(str![])
+            .stderr_eq(str![[r#"
+Error: Cannot operate on anonymous branch 'g0'
+
+Hint: Name it with `but reword g0` first! Note that the short ID is likely to change when the branch is named.
+
+"#]]);
+    }
+}
+
 fn one_branch_three_commits() -> Sandbox {
     let env = Sandbox::init_scenario_with_target_and_default_settings("zero-stacks");
     env.setup_metadata(&[]);

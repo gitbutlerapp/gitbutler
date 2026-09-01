@@ -627,6 +627,9 @@ fn route_commit_above_or_below(
             merged.ensure_branch_not_merged(name.as_ref())?;
             CommitRelativeToTarget::BranchTip { name }
         }
+        ResolvedCliIdArg::AnonymousSegment(segment) => {
+            return Err(crate::args::atoms::anonymous_segment_error(&segment.id));
+        }
         resolved => match resolved
             .into_branch_or_commit()
             .hint("Run `but status` to show applicable targets")?

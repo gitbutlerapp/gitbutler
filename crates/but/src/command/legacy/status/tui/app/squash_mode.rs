@@ -426,7 +426,8 @@ impl App {
             } => {
                 self.squash_start_with_source(SquashSource::CommittedFile(committed_file.clone()));
             }
-            CliId::CommittedHunk(..)
+            CliId::AnonymousSegment(..)
+            | CliId::CommittedHunk(..)
             | CliId::PathPrefix { .. }
             | CliId::Stack { .. }
             | CliId::Worktree { .. } => {}

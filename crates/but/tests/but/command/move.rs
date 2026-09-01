@@ -9,6 +9,26 @@ use crate::{
 };
 
 #[test]
+fn rejects_unnamed_segment_as_source_or_target() {
+    let env =
+        Sandbox::init_scenario_with_target_and_default_settings("one-stack-anonymous-segment");
+    env.setup_metadata(&["A"]);
+
+    for command in ["move g0 -A tpm", "move tpm -A g0", "move tpm -B g0"] {
+        env.but(command)
+            .assert()
+            .failure()
+            .stdout_eq(snapbox::str![])
+            .stderr_eq(snapbox::str![[r#"
+Error: Cannot operate on anonymous branch 'g0'
+
+Hint: Name it with `but reword g0` first! Note that the short ID is likely to change when the branch is named.
+
+"#]]);
+    }
+}
+
+#[test]
 fn move_commits_outputs_json() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack-two-commits");
     env.setup_metadata(&["A"]);

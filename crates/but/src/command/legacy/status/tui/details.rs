@@ -381,6 +381,10 @@ impl Details {
                     },
                 )
             }
+            CliId::AnonymousSegment(..) => {
+                self.diff_not_supported("(anonymous branches must be named with `but reword` before viewing their diff)");
+                Ok(true)
+            }
             CliId::Stack { .. } => {
                 self.diff_not_supported("(viewing diffs for stacks is not supported)");
                 Ok(true)
@@ -1261,7 +1265,8 @@ impl Details {
         };
         match status_selection {
             CliId::UncommittedHunkOrFile(..) | CliId::Uncommitted { .. } => true,
-            CliId::PathPrefix { .. }
+            CliId::AnonymousSegment(..)
+            | CliId::PathPrefix { .. }
             | CliId::CommittedFile { .. }
             | CliId::CommittedHunk { .. }
             | CliId::Branch(..)

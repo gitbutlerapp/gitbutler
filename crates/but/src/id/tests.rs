@@ -1241,10 +1241,10 @@ worktrees: [ or worktree-01 ]
     Ok(())
 }
 
-/// Generated IDs for named and anonymous branch segments remain reserved when
-/// worktree IDs are allocated later.
+/// Generated IDs for named and anonymous segments remain reserved when worktree IDs are allocated
+/// later, while retaining their distinct CLI ID kinds.
 #[test]
-fn generated_branch_ids_do_not_collide_with_worktree_names() -> anyhow::Result<()> {
+fn generated_segment_ids_do_not_collide_with_worktree_names() -> anyhow::Result<()> {
     let mut anonymous_segment = segment("unused", [], None, []);
     anonymous_segment.ref_info = None;
     let id_map = IdMap::new(
@@ -1281,6 +1281,29 @@ fn generated_branch_ids_do_not_collide_with_worktree_names() -> anyhow::Result<(
      -> anyhow::Result<Vec<but_core::TreeChange>> {
         bail!("unexpected IDs {commit_id} {parent_id:?}");
     };
+    let segment_ids = branch_ids
+        .iter()
+        .map(|id| id_map.parse(id, &TestChanges(changed_paths_fn)))
+        .collect::<anyhow::Result<Vec<_>>>()?;
+    assert_eq!(
+        segment_ids
+            .iter()
+            .flatten()
+            .filter(|id| matches!(id, CliId::Branch(_)))
+            .count(),
+        1,
+        "named segment resolves as branch"
+    );
+    assert_eq!(
+        segment_ids
+            .iter()
+            .flatten()
+            .filter(|id| matches!(id, CliId::AnonymousSegment(_)))
+            .count(),
+        1,
+        "anonymous segment resolves as its own CLI ID kind"
+    );
+
     for worktree in id_map.worktrees.values() {
         assert_eq!(
             id_map.parse(&worktree.short_id, &TestChanges(changed_paths_fn))?,

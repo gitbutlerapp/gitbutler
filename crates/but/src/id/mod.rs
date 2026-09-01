@@ -661,11 +661,21 @@ impl<'a> Node<'a> for &'a SegmentWithId {
         _short_id: &str,
         _id_map: &IdMap,
     ) -> anyhow::Result<Option<CliId>> {
-        Ok(Some(CliId::Branch(BranchId {
-            name: self.branch_name().unwrap_or_default().to_string(),
-            id: self.short_id.clone(),
-            stack_id: self.stack_id,
-        })))
+        Ok(Some(match self.branch_name() {
+            Some(name) => CliId::Branch(BranchId {
+                name: name.to_string(),
+                id: self.short_id.clone(),
+                stack_id: self.stack_id,
+            }),
+            None => CliId::AnonymousSegment(AnonymousSegmentId {
+                id: self.short_id.clone(),
+                stack_id: self.stack_id,
+                anchor_commit_id: self
+                    .workspace_commits
+                    .first()
+                    .map(WorkspaceCommitWithId::commit_id),
+            }),
+        }))
     }
 }
 
@@ -1781,6 +1791,7 @@ fn cli_ids_refer_to_same_entity(lhs: &CliId, rhs: &CliId) -> bool {
         ) => l == r,
         (CliId::CommittedHunk(l), CliId::CommittedHunk(r)) => l == r,
         (CliId::Branch(l), CliId::Branch(r)) => l == r,
+        (CliId::AnonymousSegment(l), CliId::AnonymousSegment(r)) => l == r,
         (
             CliId::Stack {
                 stack_id: lhs_stack_id,
@@ -1917,6 +1928,8 @@ pub enum CliId {
     CommittedHunk(CommittedHunk),
     /// A branch.
     Branch(BranchId),
+    /// A segment in workspace metadata without a corresponding branch reference.
+    AnonymousSegment(AnonymousSegmentId),
     /// A commit in the workspace identified by its SHA.
     Commit {
         /// The commit identifier.
@@ -1965,6 +1978,7 @@ impl PartialEq for CliId {
             ) => l == r,
             (CliId::CommittedHunk(l), CliId::CommittedHunk(r)) => l == r,
             (Self::Branch(l), Self::Branch(r)) => l == r,
+            (Self::AnonymousSegment(l), Self::AnonymousSegment(r)) => l == r,
             (Self::Commit { commit: l, id: _ }, Self::Commit { commit: r, id: _ }) => l == r,
             (Self::Stack { id: l_id, .. }, Self::Stack { id: r_id, .. }) => l_id == r_id,
             (Self::Uncommitted { .. }, Self::Uncommitted { .. }) => true,
@@ -1986,6 +2000,7 @@ impl CliId {
             CliId::CommittedFile { .. } => "a committed file",
             CliId::CommittedHunk { .. } => "a committed file or hunk",
             CliId::Branch(..) => "a branch",
+            CliId::AnonymousSegment(..) => "an anonymous branch",
             CliId::Commit { .. } => "a commit",
             CliId::Uncommitted { .. } => "the uncommitted area",
             CliId::Worktree { .. } => "a worktree",
@@ -2001,6 +2016,7 @@ impl CliId {
             | CliId::CommittedFile { id, .. }
             | CliId::CommittedHunk(CommittedHunk { id, .. })
             | CliId::Branch(BranchId { id, .. })
+            | CliId::AnonymousSegment(AnonymousSegmentId { id, .. })
             | CliId::Commit { id, .. }
             | CliId::Stack { id, .. }
             | CliId::Worktree { id, .. }
@@ -2011,7 +2027,8 @@ impl CliId {
     /// Get the stack id, if any.
     pub fn stack_id(&self) -> Option<StackId> {
         match self {
-            CliId::Branch(BranchId { stack_id, .. }) => *stack_id,
+            CliId::Branch(BranchId { stack_id, .. })
+            | CliId::AnonymousSegment(AnonymousSegmentId { stack_id, .. }) => *stack_id,
             CliId::Stack { stack_id, .. } => Some(*stack_id),
             CliId::PathPrefix { .. }
             | CliId::UncommittedHunkOrFile(..)
@@ -2224,6 +2241,28 @@ impl PartialEq for CommittedFileIdRef<'_> {
             change_id: _,
         } = self;
         *commit_id == other.commit_id && path == &other.path
+    }
+}
+
+/// CLI identity and naming anchor for a segment without a branch reference.
+#[derive(Debug, Clone, Eq)]
+pub struct AnonymousSegmentId {
+    /// Short CLI ID displayed by status.
+    pub id: ShortId,
+    /// Stack containing this segment, when backed by workspace metadata.
+    pub stack_id: Option<StackId>,
+    /// Top commit where a branch can be created to name this segment.
+    pub anchor_commit_id: Option<gix::ObjectId>,
+}
+
+impl PartialEq for AnonymousSegmentId {
+    fn eq(&self, other: &Self) -> bool {
+        self.stack_id == other.stack_id
+            && match (self.anchor_commit_id, other.anchor_commit_id) {
+                (Some(lhs), Some(rhs)) => lhs == rhs,
+                (None, None) => self.id == other.id,
+                (Some(_), None) | (None, Some(_)) => false,
+            }
     }
 }
 
