@@ -11,6 +11,10 @@ export const presentableOperation = (
 			return { text: "Amend commit", icon: "edit" };
 		case "ApplyBranch":
 			return { text: "Apply branch", icon: "branch" };
+		case "SwitchBranch":
+			return { text: "Switch branch", icon: "branch" };
+		case "SwitchToWorkspace":
+			return { text: "Switch to workspace", icon: "branch" };
 		case "AutoCommit":
 			return { text: "Auto commit changes", icon: "ai" };
 		case "AutoHandleChangesAfter":

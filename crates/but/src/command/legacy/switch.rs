@@ -3,6 +3,7 @@ use but_core::{
     sync::{RepoExclusive, RepoShared},
 };
 use but_ctx::Context;
+use gitbutler_oplog::entry::{OperationKind, SnapshotDetails};
 use gix::refs::FullName;
 use serde::Serialize;
 
@@ -81,14 +82,42 @@ pub fn run(
                 repo.try_find_reference(WORKSPACE_REF_NAME)?.is_some()
             };
             if workspace_exists {
+                // TODO(david): why does `workspace_checkout_with_perm` not do this?
+                let snapshot_details = SnapshotDetails::new(OperationKind::SwitchToWorkspace);
+                let maybe_oplog_entry =
+                    but_oplog::UnmaterializedOplogSnapshot::from_details_with_perm(
+                        ctx,
+                        snapshot_details,
+                        perm.read_permission(),
+                        but_core::DryRun::No,
+                    );
                 but_api::branch::workspace_checkout_with_perm(ctx, perm)?;
+
+                if let Some(snapshot) = maybe_oplog_entry {
+                    _ = snapshot.commit(ctx, perm);
+                }
             } else {
                 but_api::legacy::virtual_branches::switch_back_to_workspace_with_perm(ctx, perm)?;
             }
+
             Ok(SwitchOutcome::Workspace)
         }
         SwitchOperation::Branch { branch } => {
+            // TODO(david): why does `branch_checkout_with_perm` not do this?
+            let snapshot_details = SnapshotDetails::new(OperationKind::SwitchBranch);
+            let maybe_oplog_entry = but_oplog::UnmaterializedOplogSnapshot::from_details_with_perm(
+                ctx,
+                snapshot_details,
+                perm.read_permission(),
+                but_core::DryRun::No,
+            );
+
             but_api::branch::branch_checkout_with_perm(ctx, branch.clone(), perm)?;
+
+            if let Some(snapshot) = maybe_oplog_entry {
+                _ = snapshot.commit(ctx, perm);
+            }
+
             Ok(SwitchOutcome::Branch { branch })
         }
         SwitchOperation::NewBranch { name } => {
