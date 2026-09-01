@@ -17,7 +17,7 @@ use gix::{
     reference::Category,
     refs::{
         FullNameRef, Target,
-        transaction::{Change, LogChange, PreviousValue, RefEdit, RefLog},
+        transaction::{PreviousValue, RefEdit},
     },
 };
 use tracing::instrument;
@@ -1073,52 +1073,30 @@ fn set_head_to_reference(
     new_ref: Option<&gix::refs::FullNameRef>,
 ) -> anyhow::Result<()> {
     let edits = match new_ref {
-        None => {
-            let head_message = "GitButler checkout workspace during apply-branch".into();
-            vec![RefEdit {
-                change: Change::Update {
-                    log: LogChange {
-                        mode: RefLog::AndReference,
-                        force_create_reflog: false,
-                        message: head_message,
-                    },
-                    expected: PreviousValue::Any,
-                    new: Target::Object(new_ref_target),
-                },
-                name: "HEAD".try_into().expect("well-formed root ref"),
-                deref: true,
-            }]
-        }
+        None => vec![
+            RefEdit::update(
+                "HEAD".try_into().expect("well-formed root ref"),
+                new_ref_target,
+                PreviousValue::Any,
+                "GitButler checkout workspace during apply-branch",
+            )
+            .with_deref(true),
+        ],
         Some(new_ref) => {
             // This also means we want HEAD to point to it.
-            let head_message = "GitButler switch to workspace during apply-branch".into();
             vec![
-                RefEdit {
-                    change: Change::Update {
-                        log: LogChange {
-                            mode: RefLog::AndReference,
-                            force_create_reflog: false,
-                            message: head_message,
-                        },
-                        expected: PreviousValue::Any,
-                        new: Target::Symbolic(new_ref.to_owned()),
-                    },
-                    name: "HEAD".try_into().expect("well-formed root ref"),
-                    deref: false,
-                },
-                RefEdit {
-                    change: Change::Update {
-                        log: LogChange {
-                            mode: RefLog::AndReference,
-                            force_create_reflog: false,
-                            message: "created by GitButler during apply-branch".into(),
-                        },
-                        expected: PreviousValue::Any,
-                        new: Target::Object(new_ref_target),
-                    },
-                    name: new_ref.to_owned(),
-                    deref: false,
-                },
+                RefEdit::update(
+                    "HEAD".try_into().expect("well-formed root ref"),
+                    new_ref.to_owned(),
+                    PreviousValue::Any,
+                    "GitButler switch to workspace during apply-branch",
+                ),
+                RefEdit::update(
+                    new_ref.to_owned(),
+                    new_ref_target,
+                    PreviousValue::Any,
+                    "created by GitButler during apply-branch",
+                ),
             ]
         }
     };

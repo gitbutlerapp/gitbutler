@@ -4,10 +4,7 @@ use but_testsupport::{
     open_repo,
 };
 use gitbutler_operating_modes::{EditModeMetadata, write_edit_mode_metadata};
-use gix::refs::{
-    Target,
-    transaction::{Change, LogChange, PreviousValue, RefEdit, RefLog},
-};
+use gix::refs::transaction::{PreviousValue, RefEdit};
 
 struct Case {
     ctx: Context,
@@ -40,19 +37,12 @@ fn create_and_checkout_branch(ctx: &Context, branch_name: &str) {
         "test branch creation",
     )
     .unwrap();
-    repo.edit_reference(RefEdit {
-        change: Change::Update {
-            log: LogChange {
-                mode: RefLog::AndReference,
-                force_create_reflog: false,
-                message: gix::reference::log::message("test", "switch HEAD".into(), 0),
-            },
-            expected: PreviousValue::Any,
-            new: Target::Symbolic(branch_ref),
-        },
-        name: "HEAD".try_into().unwrap(),
-        deref: false,
-    })
+    repo.edit_reference(RefEdit::update(
+        "HEAD".try_into().unwrap(),
+        branch_ref,
+        PreviousValue::Any,
+        gix::reference::log::message("test", "switch HEAD".into(), 0),
+    ))
     .unwrap();
 }
 

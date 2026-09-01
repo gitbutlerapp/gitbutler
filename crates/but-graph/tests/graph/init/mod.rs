@@ -2472,15 +2472,12 @@ fn ad_hoc_branch_at_target_tip_rests_on_the_target_tip() -> anyhow::Result<()> {
     .to_thread_local();
     let m1 = commit(&repo, "M1")?;
     create_branches(&repo, m1, ["refs/heads/feature"])?;
-    repo.edit_reference(gix::refs::transaction::RefEdit {
-        change: gix::refs::transaction::Change::Update {
-            log: gix::refs::transaction::LogChange::default(),
-            expected: gix::refs::transaction::PreviousValue::Any,
-            new: gix::refs::Target::Symbolic(ref_name("refs/heads/feature")),
-        },
-        name: ref_name("HEAD"),
-        deref: false,
-    })?;
+    repo.edit_reference(gix::refs::transaction::RefEdit::update(
+        ref_name("HEAD"),
+        ref_name("refs/heads/feature"),
+        gix::refs::transaction::PreviousValue::Any,
+        "",
+    ))?;
     let f1 = commit_with_parent(&repo, "F1", m1)?;
     // The checked-out branch and the target both point at F1, while the target's local
     // tracking branch `main` stayed behind at M1.
