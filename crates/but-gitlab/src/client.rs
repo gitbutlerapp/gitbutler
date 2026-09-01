@@ -584,6 +584,8 @@ impl GitLabClient {
             #[serde(default)]
             forked_from_project: Option<GitLabApiProjectRef>,
             #[serde(default)]
+            visibility: Option<String>,
+            #[serde(default)]
             remove_source_branch_after_merge: Option<bool>,
             #[serde(default)]
             permissions: Option<GitLabApiPermissions>,
@@ -635,6 +637,7 @@ impl GitLabClient {
             http_url_to_repo: project.http_url_to_repo,
             default_branch: project.default_branch,
             forked_from_project_id: project.forked_from_project.map(|fork| fork.id),
+            visibility: project.visibility,
             remove_source_branch_after_merge: project.remove_source_branch_after_merge,
             access_level,
         })
@@ -967,6 +970,9 @@ pub struct GitLabProject {
     pub http_url_to_repo: String,
     pub default_branch: Option<String>,
     pub forked_from_project_id: Option<i64>,
+    /// `private`, `internal` or `public`. GitLab omits it for callers whose
+    /// token lacks the scope to read project metadata.
+    pub visibility: Option<String>,
     pub remove_source_branch_after_merge: Option<bool>,
     /// Higher of project-level and group-level access for the caller.
     /// GitLab levels: 10=Guest, 20=Reporter, 30=Developer,

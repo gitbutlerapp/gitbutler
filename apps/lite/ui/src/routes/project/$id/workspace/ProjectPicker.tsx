@@ -7,31 +7,38 @@ import { TooltipPopup } from "#ui/components/Tooltip.tsx";
 import { useAddLocalRepository } from "#ui/components/useAddLocalRepository.ts";
 import { globalHotkeys } from "#ui/hotkeys.ts";
 import { interfaceSlice } from "#ui/interface/state.ts";
-import { listProjectsQueryOptions } from "#ui/api/queries.ts";
-import { readProjectsOpenedAt, writeLastOpenedProject } from "#ui/project.ts";
+import { listProjectsQueryOptions, repoInfoQueryOptions } from "#ui/api/queries.ts";
+import {
+	readProjectsOpenedAt,
+	readProjectsRepoMarks,
+	writeLastOpenedProject,
+	writeProjectRepoMarks,
+	type ProjectRepoMarks,
+} from "#ui/project.ts";
 import { useAppDispatch, useAppSelector } from "#ui/store.ts";
 import { Button, Combobox, Tooltip } from "@base-ui/react";
+import type { IconName } from "#ui/components/iconNames.ts";
 import type { ProjectForFrontend } from "@gitbutler/but-sdk";
-import { useSuspenseQuery } from "@tanstack/react-query";
+import { useQuery, useSuspenseQuery } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
-import { useMemo, useState, type FC } from "react";
+import { useEffect, useMemo, useState, type FC } from "react";
 // The trigger is the header's project name, and the header's container query hides its label
 // when the sidebar narrows — so the button keeps wearing the header's classes.
 import headerStyles from "./SidebarHeader.module.css";
 import styles from "./ProjectPicker.module.css";
 
-/**
- * The project's name in the header, and the list of projects it opens.
- *
- * An anchored dropdown rather than a modal, built the way the commit target selector is: Base UI
- * anchors a popup to a trigger that is its own child, so the list lives with the button that
- * raises it. It is the same shape as the pickers built on `PickerDialog` minus the virtualiser,
- * which a list of a person's projects has no use for.
- */
 type ProjectGroup = { value: string; items: Array<ProjectForFrontend> };
 
 /** How many projects lead the list before the rest are folded into "Older". */
 const recentCount = 5;
+
+/**
+ * Private outranks fork, and a row has one glyph: who can see a repository is the sharper thing to
+ * know at a glance than where it came from. A project whose forge has not been asked yet — or has
+ * none to ask — is just a folder.
+ */
+const projectIcon = (marks: ProjectRepoMarks | undefined): IconName =>
+	marks?.private === true ? "folder-lock" : marks?.fork === true ? "folder-fork" : "folder";
 
 /**
  * The ones in use, most recently opened first, then everything else by name. Before anything has
@@ -59,6 +66,14 @@ const groupProjects = (
 	];
 };
 
+/**
+ * The project's name in the header, and the list of projects it opens.
+ *
+ * An anchored dropdown rather than a modal, built the way the commit target selector is: Base UI
+ * anchors a popup to a trigger that is its own child, so the list lives with the button that
+ * raises it. It is the same shape as the pickers built on `PickerDialog` minus the virtualiser,
+ * which a list of a person's projects has no use for.
+ */
 export const ProjectPicker: FC<{ project: ProjectForFrontend }> = (p) => {
 	const navigate = useNavigate();
 	const dispatch = useAppDispatch();
@@ -67,11 +82,26 @@ export const ProjectPicker: FC<{ project: ProjectForFrontend }> = (p) => {
 	const { addLocalRepository, isPending: isAddingProject } = useAddLocalRepository();
 	const [query, setQuery] = useState("");
 
-	// Read once per opening rather than per render: the stamp is written on the way out of the
-	// picker, so the order it produces has to hold still while the list is up.
+	// What a repository is cannot be read off a clone, so it is asked of the forge for whichever
+	// project is open and remembered. The list paints from what has been learned that way — a
+	// project not yet opened since the record began simply shows the plain folder.
+	const { data: repoInfo } = useQuery(repoInfoQueryOptions(p.project.id));
+	useEffect(() => {
+		if (repoInfo === undefined) return;
+		writeProjectRepoMarks(p.project.id, { private: repoInfo.private, fork: repoInfo.fork });
+	}, [p.project.id, repoInfo]);
+
+	// Both records are read once per opening rather than per render: they are written on the way
+	// out of the picker, so what they order and label has to hold still while the list is up.
 	const open = dialog._tag === "ProjectPicker";
-	const groups = useMemo(
-		() => (open ? groupProjects(projects, readProjectsOpenedAt()) : []),
+	const { groups, marksById } = useMemo(
+		() =>
+			open
+				? {
+						groups: groupProjects(projects, readProjectsOpenedAt()),
+						marksById: readProjectsRepoMarks(),
+					}
+				: { groups: [], marksById: {} },
 		[open, projects],
 	);
 
@@ -160,7 +190,7 @@ export const ProjectPicker: FC<{ project: ProjectForFrontend }> = (p) => {
 											{(project: ProjectForFrontend) => (
 												<PopupItem
 													key={project.id}
-													icon="folder"
+													icon={projectIcon(marksById[project.id])}
 													// The project already open is marked rather than labelled: every
 													// other row would say "Project" to explain the one saying
 													// "Current".

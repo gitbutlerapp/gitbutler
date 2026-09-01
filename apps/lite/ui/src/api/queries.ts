@@ -437,6 +437,21 @@ export const listProjectsQueryOptions = queryOptions({
 	queryFn: () => window.lite.listProjectsStateless(),
 });
 
+/**
+ * Repo-level metadata from the forge for one project. Needs forge credentials
+ * and a recognised remote, so it fails for a purely local repo — callers treat
+ * a failure as "not known" rather than an error worth showing.
+ */
+export const repoInfoQueryOptions = (projectId: string) =>
+	queryOptions({
+		queryKey: [projectId, "getRepoInfo"],
+		queryFn: () => window.lite.getRepoInfo(projectId),
+		// Visibility and permissions change on the forge, not here, so there is
+		// nothing local to invalidate on — age it out instead.
+		staleTime: 60 * 60_000,
+		retry: false,
+	});
+
 export const listEditorsQueryOptions = queryOptions({
 	queryKey: ["editors"],
 	queryFn: () => window.lite.listEditors(),

@@ -47,6 +47,10 @@ pub async fn get_repo_info(
 pub struct RepoInfo {
     pub permissions: Option<RepoPermissions>,
     pub fork: bool,
+    /// Whether the repo is visible only to people granted access.
+    /// `None` when the forge does not report it — Azure, or a GitLab token
+    /// without the scope to read project metadata.
+    pub private: Option<bool>,
     /// Whether the repo deletes the source branch after a PR is merged
     /// (GitHub's per-repo "Automatically delete head branches" setting).
     /// `None` when the field wasn't returned by the forge.
@@ -81,6 +85,7 @@ impl From<but_github::GitHubRepository> for RepoInfo {
                 pull: p.pull,
             }),
             fork: value.fork,
+            private: Some(value.private),
             delete_branch_on_merge: value.delete_branch_on_merge,
         }
     }
@@ -128,6 +133,7 @@ impl From<but_bitbucket::BitbucketRepo> for RepoInfo {
         RepoInfo {
             permissions,
             fork: value.is_fork,
+            private: Some(value.is_private),
             // Bitbucket has no per-repo "delete source branch after merge" flag
             // exposed on the repository object.
             delete_branch_on_merge: None,
@@ -149,6 +155,12 @@ impl From<but_gitlab::GitLabProject> for RepoInfo {
         RepoInfo {
             permissions,
             fork: value.forked_from_project_id.is_some(),
+            // Everything GitLab does not call `public` is restricted to some
+            // group of people, so `internal` counts as private here.
+            private: value
+                .visibility
+                .as_deref()
+                .map(|visibility| visibility != "public"),
             delete_branch_on_merge: value.remove_source_branch_after_merge,
         }
     }
@@ -161,6 +173,7 @@ mod tests {
     fn bb_repo(permission: Option<&str>, is_fork: bool) -> but_bitbucket::BitbucketRepo {
         but_bitbucket::BitbucketRepo {
             is_fork,
+            is_private: false,
             permission: permission.map(str::to_owned),
         }
     }
@@ -198,5 +211,42 @@ mod tests {
     fn bitbucket_fork_flag_is_propagated() {
         assert!(RepoInfo::from(bb_repo(Some("read"), true)).fork);
         assert!(!RepoInfo::from(bb_repo(Some("read"), false)).fork);
+    }
+
+    fn gl_project(visibility: Option<&str>) -> but_gitlab::GitLabProject {
+        but_gitlab::GitLabProject {
+            id: 1,
+            path_with_namespace: "group/repo".to_owned(),
+            ssh_url_to_repo: String::new(),
+            http_url_to_repo: String::new(),
+            default_branch: None,
+            forked_from_project_id: None,
+            visibility: visibility.map(str::to_owned),
+            remove_source_branch_after_merge: None,
+            access_level: None,
+        }
+    }
+
+    #[test]
+    fn gitlab_counts_everything_but_public_as_private() {
+        assert_eq!(
+            RepoInfo::from(gl_project(Some("private"))).private,
+            Some(true)
+        );
+        // Visible to everyone signed in to the instance, which is not the same
+        // as visible to anyone.
+        assert_eq!(
+            RepoInfo::from(gl_project(Some("internal"))).private,
+            Some(true)
+        );
+        assert_eq!(
+            RepoInfo::from(gl_project(Some("public"))).private,
+            Some(false)
+        );
+    }
+
+    #[test]
+    fn gitlab_without_visibility_reports_unknown_rather_than_public() {
+        assert_eq!(RepoInfo::from(gl_project(None)).private, None);
     }
 }
