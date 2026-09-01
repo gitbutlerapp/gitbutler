@@ -482,7 +482,7 @@ const PageBody: FC<{ projectId: string }> = ({ projectId }) => {
 	const upstreamList = useUpstreamList(projectId);
 
 	const appliedSelection = useSelection("applied", appliedAddressSpace);
-	const branchesSelection = useSelection("unapplied", branchesList.addressSpace);
+	const branchesSelection = useSelection("unapplied", branchesList.data?.addressSpace);
 	const upstreamSelection = useSelection("upstream", upstreamList.addressSpace);
 
 	const { data: worktreeChanges } = useQuery(changesInWorktreeQueryOptions(projectId));

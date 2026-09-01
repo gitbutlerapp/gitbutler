@@ -79,7 +79,7 @@ test.describe("workspace focus", () => {
 		const toggleFiles = appWindow.getByRole("button", { name: "Toggle files" });
 		if ((await toggleFiles.getAttribute("aria-pressed")) !== "true") await toggleFiles.click();
 
-		const sidebar = appWindow.locator('[data-focus-scope="sidebar"]');
+		const sidebar = appWindow.locator('[data-focus-scope="sidebar"]:visible');
 		const files = appWindow.locator('[data-focus-scope="files"]');
 		const diff = appWindow.locator('[data-focus-scope="diff"]');
 		const selectedFile = files.locator('[role="treeitem"][aria-selected="true"]');
@@ -88,7 +88,9 @@ test.describe("workspace focus", () => {
 		const selectedFileBackground = () =>
 			selectedFile.evaluate((element) => getComputedStyle(element).backgroundColor);
 
-		await sidebar.focus();
+		await diff.focus();
+		await appWindow.keyboard.press("2");
+		await expect(sidebar).toBeFocused();
 		let blurredBackground = "";
 		// Capture inside the successful poll so a virtualized row replacement cannot empty the baseline.
 		await expect

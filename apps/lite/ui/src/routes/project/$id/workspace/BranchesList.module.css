@@ -40,13 +40,19 @@
 /* One card's floor divides it from the next, so they sit together without a
    gap. */
 .tree {
-	display: flex;
-	flex-direction: column;
+	/* Its explicit virtual height defines the scroll extent. The absolutely positioned cards have no
+	   intrinsic height, so allowing this flex child to shrink would size the scrollbar only to the
+	   furthest currently rendered card. */
+	flex-shrink: 0;
 
 	&:focus {
 		/* The focus state is displayed on the item row instead. */
 		outline: none;
 	}
+}
+
+.virtualContainer {
+	position: relative;
 }
 
 .heading {
