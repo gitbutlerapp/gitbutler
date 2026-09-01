@@ -52,6 +52,13 @@ pub(crate) type ShortId = String;
 
 pub(crate) const UNCOMMITTED: &str = "@";
 
+/// As zz has been the uncommitted area for so long, there's a non-zero chance there are scripts out
+/// there that would try to run e.g. `but discard zz` to discard uncommitted, and then accidentally
+/// discard something else instead without noticing. Therefore, for some time to come we reserve the
+/// old uncommitted identifier for some time to come before releasing it for use by other
+/// resources.
+pub(crate) const OLD_UNCOMMITTED: &str = "zz";
+
 const INDEX_SEPARATOR: char = '#';
 
 /// The ID of a hunk, without its namespace (file).
@@ -1326,6 +1333,14 @@ impl IdMap {
     ) -> anyhow::Result<Vec<Box<dyn Node<'a> + 'a>>> {
         if element.is_empty() {
             return Ok(vec![]);
+        }
+
+        if element == OLD_UNCOMMITTED {
+            // this should be a bad_input but it's just too much of a hassle to convert the entire
+            // call chain to use CliResult. This is fine for a temporary error message.
+            anyhow::bail!(
+                "The uncommitted area has been renamed from '{OLD_UNCOMMITTED}' to '{UNCOMMITTED}'. Repeat the command with '{UNCOMMITTED}' instead to proceed."
+            )
         }
 
         // Parse known suffixes.

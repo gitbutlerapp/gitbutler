@@ -15,7 +15,7 @@ use snapbox::{assert_data_eq, prelude::*};
 use crate::{
     CliId, IdMap,
     args::atoms::CliIdArg,
-    id::{BranchId, ChangesInCommit, CommitId, id_usage::UintId},
+    id::{BranchId, ChangesInCommit, CommitId, OLD_UNCOMMITTED, id_usage::UintId},
     utils::change_source::ChangeSourceId,
 };
 
@@ -339,7 +339,30 @@ branches: [ g0 ]
 }
 
 #[test]
-fn branches_can_use_retired_uncommitted_area_id() -> anyhow::Result<()> {
+fn parsing_retired_uncommitted_area_errors() {
+    let id_map = IdMap::new(
+        Vec::new(),
+        Vec::new(),
+        Default::default(),
+        Default::default(),
+        3,
+    )
+    .unwrap();
+    let parse_error = id_map
+        .parse(
+            OLD_UNCOMMITTED,
+            &TestChanges(|_, _| bail!("shouldn't be used")),
+        )
+        .unwrap_err();
+
+    assert_eq!(
+        parse_error.to_string(),
+        "The uncommitted area has been renamed from 'zz' to '@'. Repeat the command with '@' instead to proceed."
+    )
+}
+
+#[test]
+fn branches_avoid_retired_uncommitted_area_id() -> anyhow::Result<()> {
     let stacks = vec![stack([segment("zza", [id(1)], None, [])])];
     let id_map = IdMap::new(
         stacks,
@@ -357,7 +380,7 @@ fn branches_can_use_retired_uncommitted_area_id() -> anyhow::Result<()> {
         id_map.debug_state().to_debug(),
         snapbox::str![[r#"
 workspace_and_remote_commits_count: 1
-branches: [ zz ]
+branches: [ za ]
 
 
 "#]]
@@ -365,13 +388,40 @@ branches: [ zz ]
 
     let expected = [CliId::Branch(BranchId {
         name: "zza".into(),
-        id: "zz".into(),
+        id: "za".into(),
         stack_id: None,
     })];
     assert_eq!(
-        id_map.parse("zz", &TestChanges(changed_paths_fn))?,
+        id_map.parse("za", &TestChanges(changed_paths_fn))?,
         expected,
-        "zz is available now that @ names the uncommitted area"
+        "avoids retired uncommitted area ID (zz)"
+    );
+    Ok(())
+}
+
+#[test]
+fn uncommitted_files_avoid_retired_uncommitted_area_id() -> anyhow::Result<()> {
+    // SHA-1("file-1594") starts with 0x00, which maps to reverse-hex `zz`.
+    let id_map = IdMap::new(
+        Vec::new(),
+        vec![source_changes(
+            ChangeSourceId::Head,
+            vec![hunk("file-1594")],
+        )],
+        gix::hashtable::HashMap::default(),
+        Default::default(),
+        3,
+    )?;
+
+    snapbox::assert_data_eq!(
+        id_map.debug_state().to_debug(),
+        snapbox::str![[r#"
+workspace_and_remote_commits_count: 0
+uncommitted_files: [ zzs ]
+uncommitted_hunks: [ zzs:q ]
+
+
+"#]]
     );
     Ok(())
 }
