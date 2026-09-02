@@ -111,8 +111,11 @@ fn moving_stacks() {
 
 #[test]
 fn applying_stacks() {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("zero-stacks");
+    let mut env = Sandbox::init_scenario_with_target_and_default_settings("zero-stacks");
     env.setup_metadata(&[]);
+    // Unapplying every stack should leave an empty managed workspace to apply into.
+    // In single branch mode the second-to-last unapply checks out the remaining branch instead.
+    env.app_settings_mut().feature_flags.single_branch = false;
 
     let mut tui = test_status_tui(env);
 

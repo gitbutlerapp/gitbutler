@@ -94,6 +94,10 @@ fn pick_duplicate_sources_outputs_each_commit_once() {
 #[test]
 fn pick_commit_to_new_branch_outputs_json() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    // Keep the managed workspace: in single-branch mode unapply would check out a plain branch.
+    env.but("config feature single-branch disable")
+        .assert()
+        .success();
     env.setup_metadata(&["A"]);
 
     env.but("unapply A").assert().success();
@@ -152,6 +156,10 @@ Hint: run `but help` for all commands
 #[test]
 fn pick_commit_to_new_branch() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    // Keep the managed workspace: in single-branch mode unapply would check out a plain branch.
+    env.but("config feature single-branch disable")
+        .assert()
+        .success();
     env.setup_metadata(&["A"]);
 
     env.but("unapply A").assert().success();
@@ -246,6 +254,10 @@ Hint: run `but help` for all commands
 #[test]
 fn pick_commit_above_branch() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
+    // Keep the managed workspace: in single-branch mode unapply would check out a plain branch.
+    env.but("config feature single-branch disable")
+        .assert()
+        .success();
     env.setup_metadata(&["A", "B"]);
 
     env.but("unapply B").assert().success();
@@ -280,6 +292,10 @@ Hint: run `but help` for all commands
 #[test]
 fn pick_commit_below_branch() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
+    // Keep the managed workspace: in single-branch mode unapply would check out a plain branch.
+    env.but("config feature single-branch disable")
+        .assert()
+        .success();
     env.setup_metadata(&["A", "B"]);
 
     env.but("unapply B").assert().success();

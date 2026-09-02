@@ -23,7 +23,14 @@ fn remove_deprecated_settings(customizations: &mut serde_json::Value) -> bool {
         .get_mut("featureFlags")
         .and_then(serde_json::Value::as_object_mut)
     {
-        for deprecated in ["apply3", "unapplyV3", "undo", "rules", "cv3"] {
+        for deprecated in [
+            "apply3",
+            "unapplyV3",
+            "unapplyV3Pgm",
+            "undo",
+            "rules",
+            "cv3",
+        ] {
             if feature_flags.remove(deprecated).is_some() {
                 removed = true;
             }
@@ -216,6 +223,7 @@ mod tests {
                     "undo": true,
                     "rules": true,
                     "cv3": true,
+                    "unapplyV3Pgm": true,
                     "singleBranch": true
                 }
             }"#,
@@ -234,6 +242,7 @@ mod tests {
         assert_eq!(saved["featureFlags"].get("undo"), None);
         assert_eq!(saved["featureFlags"].get("rules"), None);
         assert_eq!(saved["featureFlags"].get("cv3"), None);
+        assert_eq!(saved["featureFlags"].get("unapplyV3Pgm"), None);
     }
 
     #[test]

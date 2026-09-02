@@ -955,7 +955,7 @@ export declare function initGithubDeviceOauth(): Promise<Verification>
 export declare function listAvailableReviewTemplates(projectId: string): Promise<Array<string>>
 
 /**
- * {@link ../../../../../crates/but-api/src/legacy/virtual_branches.rs:681}
+ * {@link ../../../../../crates/but-api/src/legacy/virtual_branches.rs:682}
  */
 export declare function listBranches(projectId: string, filter: BranchListingFilter | null): Promise<Array<BranchListing>>
 
@@ -2799,8 +2799,6 @@ export type ExtraCsp = {
 };
 
 export type FeatureFlags = {
-  /** Use the V3 unapply compatibility mode that keeps workspace commits unless deleting the workspace ref. */
-  unapplyV3Pgm: boolean;
   /** Enable single branch mode. */
   singleBranch: boolean;
   /**
@@ -2821,7 +2819,6 @@ export type FeatureFlags = {
 
 /** Update request for [`crate::app_settings::FeatureFlags`]. */
 export type FeatureFlagsUpdate = {
-  unapplyV3Pgm?: boolean | null;
   singleBranch?: boolean | null;
   worktreeManipulation?: boolean | null;
 };

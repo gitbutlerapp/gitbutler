@@ -383,16 +383,10 @@ pub(crate) fn feature_config(
         return Ok(());
     }
 
-    let flags = [
-        (
-            FeatureFlag::UnapplyV3Pgm,
-            settings.feature_flags.unapply_v3_pgm,
-        ),
-        (
-            FeatureFlag::SingleBranch,
-            settings.feature_flags.single_branch,
-        ),
-    ];
+    let flags = [(
+        FeatureFlag::SingleBranch,
+        settings.feature_flags.single_branch,
+    )];
     if let Some(out) = out.for_human() {
         writeln!(out, "\n{}:", t.important.paint("Feature Flags"))?;
         writeln!(out)?;
@@ -410,7 +404,6 @@ pub(crate) fn feature_config(
         }
     } else if let Some(out) = out.for_json() {
         out.write_value(serde_json::json!({
-            "unapply_v3_pgm": settings.feature_flags.unapply_v3_pgm,
             "single_branch": settings.feature_flags.single_branch,
         }))?;
     }
@@ -420,19 +413,16 @@ pub(crate) fn feature_config(
 
 fn feature_flag_value(flags: &but_settings::app_settings::FeatureFlags, flag: FeatureFlag) -> bool {
     match flag {
-        FeatureFlag::UnapplyV3Pgm => flags.unapply_v3_pgm,
         FeatureFlag::SingleBranch => flags.single_branch,
     }
 }
 
 fn feature_flag_update(flag: FeatureFlag, enabled: bool) -> FeatureFlagsUpdate {
     let mut update = FeatureFlagsUpdate {
-        unapply_v3_pgm: None,
         single_branch: None,
         worktree_manipulation: None,
     };
     match flag {
-        FeatureFlag::UnapplyV3Pgm => update.unapply_v3_pgm = Some(enabled),
         FeatureFlag::SingleBranch => update.single_branch = Some(enabled),
     }
     update
