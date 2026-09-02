@@ -222,13 +222,19 @@ export const SectionHeaderRow: FC<
 		 */
 		leading?: ReactNode;
 		actions?: ReactNode;
+		/**
+		 * Sets the label back, for a section whose label states an absence rather
+		 * than naming it. The type stays a heading — it is the same row holding
+		 * the same slot — and only its weight on the eye changes.
+		 */
+		fadedLabel?: boolean;
 	} & Omit<ComponentProps<typeof Row>, "interactive" | "onSelect" | "isSelected">
-> = ({ label, leading, actions, children, ...props }) => (
+> = ({ label, leading, actions, fadedLabel, children, ...props }) => (
 	<Row {...props} className={classes(props.className, styles.sectionHeader)} interactive={false}>
 		{leading}
 
 		<RowLabelContainer>
-			<RowLabel heading singleLine>
+			<RowLabel heading singleLine className={fadedLabel ? styles.fadedLabel : undefined}>
 				{label}
 			</RowLabel>
 

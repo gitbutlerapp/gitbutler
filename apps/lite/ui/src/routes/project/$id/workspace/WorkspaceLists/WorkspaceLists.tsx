@@ -304,6 +304,9 @@ const UncommittedChanges: FC<
 	const collapsed = useAppSelector((state) =>
 		projectSlice.selectors.selectSidebarPanelCollapsed(state, projectId, "uncommitted"),
 	);
+	// Loaded and holding nothing, as opposed to not loaded yet: the header takes
+	// over the empty wording, so it must not say it before the answer is in.
+	const isClean = worktreeChanges !== undefined && worktreeChanges.changes.length === 0;
 
 	const panelRef = useRef<HTMLDivElement>(null);
 	const fileListRef = useRef<HTMLDivElement>(null);
@@ -328,11 +331,13 @@ const UncommittedChanges: FC<
 		<div
 			{...props}
 			className={classes(props.className, styles.uncommittedChanges)}
+			data-clean={isClean}
 			ref={useMergedRefs(props.ref, panelRef)}
 		>
 			{fileFilter.rowProps === null || collapsed ? (
 				<UncommittedChangesRow
 					changes={worktreeChanges?.changes ?? []}
+					isClean={isClean}
 					headingId={uncommittedChangesHeadingId}
 					projectId={projectId}
 					onOpenFilter={fileFilter.open}
@@ -347,41 +352,48 @@ const UncommittedChanges: FC<
 			    as with the sidebar's own pages, so the list comes back scrolled and
 			    filtered the way it was left. */}
 			<Activity mode={collapsed ? "hidden" : "visible"}>
-				<div
-					className={classes(
-						uiStyles.scroller,
-						uiStyles.scrollerWithSeparator,
-						styles.uncommittedChangesTree,
-					)}
-				>
-					<FilesTree
-						aria-labelledby={uncommittedChangesHeadingId}
-						canUncommit={false}
-						data-preview-source={activeList === "uncommitted"}
-						focusScope="uncommitted-files"
-						emptyLabel={
-							filter !== null && (worktreeChanges?.changes.length ?? 0) > 0
-								? "No matching files."
-								: "Nothing to commit"
-						}
-						fileParent={uncommittedChangesFileParent}
-						reviewedPaths={reviewedUncommittedPaths}
-						rows={fileRows}
-						ageBadgeNow={recentFirst ? ageBadgeNow : null}
-						collapsedDirectories={collapsedDirectories}
-						onToggleDirectoryCollapsed={(path) =>
-							dispatch(
-								projectSlice.actions.toggleUncommittedFilesDirectoryCollapsed({ projectId, path }),
-							)
-						}
-						addressSpace={addressSpace}
-						onRowSelection={onActiveFileSelection}
-						onEdgeSpill={onEdgeSpill}
-						projectId={projectId}
-						ref={useMergedRefs(fileListRef, useAutofocusScope(activeList === "uncommitted"))}
-						selection={fileSelection}
-					/>
-				</div>
+				{/* A clean worktree drops the list as well: the header says so now, and
+				    an empty row under it would only say it twice. */}
+				<Activity mode={isClean ? "hidden" : "visible"}>
+					<div
+						className={classes(
+							uiStyles.scroller,
+							uiStyles.scrollerWithSeparator,
+							styles.uncommittedChangesTree,
+						)}
+					>
+						<FilesTree
+							aria-labelledby={uncommittedChangesHeadingId}
+							canUncommit={false}
+							data-preview-source={activeList === "uncommitted"}
+							focusScope="uncommitted-files"
+							emptyLabel={
+								filter !== null && (worktreeChanges?.changes.length ?? 0) > 0
+									? "No matching files."
+									: "Nothing to commit"
+							}
+							fileParent={uncommittedChangesFileParent}
+							reviewedPaths={reviewedUncommittedPaths}
+							rows={fileRows}
+							ageBadgeNow={recentFirst ? ageBadgeNow : null}
+							collapsedDirectories={collapsedDirectories}
+							onToggleDirectoryCollapsed={(path) =>
+								dispatch(
+									projectSlice.actions.toggleUncommittedFilesDirectoryCollapsed({
+										projectId,
+										path,
+									}),
+								)
+							}
+							addressSpace={addressSpace}
+							onRowSelection={onActiveFileSelection}
+							onEdgeSpill={onEdgeSpill}
+							projectId={projectId}
+							ref={useMergedRefs(fileListRef, useAutofocusScope(activeList === "uncommitted"))}
+							selection={fileSelection}
+						/>
+					</div>
+				</Activity>
 
 				<CommitForm
 					projectId={projectId}

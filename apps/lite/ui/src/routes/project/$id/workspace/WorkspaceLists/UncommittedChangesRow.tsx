@@ -27,14 +27,21 @@ import { RowToolbar, SectionHeaderRow } from "../Row.tsx";
 import { useFileDisplayModeMenuItems } from "../useFileDisplayModeMenuItems.ts";
 import { PanelFoldToggle } from "./PanelFoldToggle.tsx";
 import { useQueries } from "@tanstack/react-query";
+import styles from "./UncommittedChangesRow.module.css";
 import { treeChangeDiffsQueryOptions } from "#ui/api/queries.ts";
 
 export const UncommittedChangesRow: FC<{
 	changes: Array<TreeChange>;
+	/**
+	 * Whether the worktree is known to be clean. Distinct from an empty
+	 * `changes`, which is also what a worktree that has not loaded yet looks
+	 * like — the header must not flash the clean wording on the way in.
+	 */
+	isClean: boolean;
 	headingId: string;
 	projectId: string;
 	onOpenFilter: () => void;
-}> = ({ changes, headingId, projectId, onOpenFilter }) => {
+}> = ({ changes, isClean, headingId, projectId, onOpenFilter }) => {
 	const lineStats = useQueries({
 		queries: changes.map((change) => treeChangeDiffsQueryOptions({ projectId, change })),
 		combine: (results) => getLineStats(results.map((result) => result.data)),
@@ -122,7 +129,22 @@ export const UncommittedChangesRow: FC<{
 	return (
 		<SectionHeaderRow
 			id={headingId}
-			label="Uncommitted"
+			// With nothing to show, the header is the only line left, so it says the
+			// state instead of naming a section whose contents would repeat it. The
+			// name stays in the accessible text: this row labels the file tree and
+			// is how the section is reached by heading, and neither should rename
+			// itself every time the worktree empties.
+			label={
+				isClean ? (
+					<>
+						<span className={styles.headingName}>Uncommitted. </span>
+						Nothing to commit
+					</>
+				) : (
+					"Uncommitted"
+				)
+			}
+			fadedLabel={isClean}
 			leading={<PanelFoldToggle projectId={projectId} panel="uncommitted" />}
 			onContextMenu={(event) => {
 				void showNativeContextMenu(event, menuItems);
