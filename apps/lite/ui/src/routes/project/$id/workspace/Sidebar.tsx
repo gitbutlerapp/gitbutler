@@ -315,7 +315,7 @@ export const Sidebar: FC<{
 				/>
 			</Activity>
 
-			{page === "upstream" && (
+			<Activity mode={page === "upstream" ? "visible" : "hidden"}>
 				<UpstreamList
 					className={styles.page}
 					projectId={projectId}
@@ -324,7 +324,7 @@ export const Sidebar: FC<{
 					isUpdatePending={isWorkspaceIntegrateUpstreamPending}
 					onUpdateWorkspace={updateWorkspace}
 				/>
-			)}
+			</Activity>
 
 			<Activity mode={page === "workspace" ? "visible" : "hidden"}>
 				<WorkspaceLists

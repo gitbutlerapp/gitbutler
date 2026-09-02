@@ -15,6 +15,7 @@ import { projectSlice } from "#ui/projects/state.ts";
 import { useAutofocusScope, useAddressSpaceHotkeys, type FocusScope } from "#ui/focus-scopes.ts";
 import { useAppDispatch } from "#ui/store.ts";
 import { RelativeTime } from "#ui/components/RelativeTime.tsx";
+import { getRangeExtractorWithIndices } from "#ui/virtual.ts";
 import {
 	olderTargetCommitsInfiniteQueryOptions,
 	workspaceTargetCommitsQueryOptions,
@@ -22,7 +23,16 @@ import {
 import { Button } from "@base-ui/react";
 import { useMergedRefs } from "@base-ui/utils/useMergedRefs";
 import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
-import { type ComponentProps, type FC, useRef, useState } from "react";
+import { type Range, useVirtualizer } from "@tanstack/react-virtual";
+import {
+	type ComponentProps,
+	type FC,
+	useCallback,
+	useLayoutEffect,
+	useMemo,
+	useRef,
+	useState,
+} from "react";
 import { Row, RowLabel, RowLabelContainer, RowLabelFooter, SectionHeaderRow } from "./Row.tsx";
 import { treeItemId, useIsSelected as useIsSelectedInList } from "./Row-utils.ts";
 import type {
@@ -36,6 +46,13 @@ import styles from "./UpstreamList.module.css";
 const pluralRules = new Intl.PluralRules("en");
 
 const useIsSelected = (address: Address): boolean => useIsSelectedInList(address, "upstream");
+
+const upstreamCommitAddress = (item: UpstreamCommitItem): Address =>
+	commitAddress({
+		commitId: item.commit.id,
+		// This is a hack that should be revisited...
+		changeId: item.commit.changeId ?? item.commit.id,
+	});
 
 /**
  * The target branch the incoming commits below it belong to. It heads the card
@@ -57,6 +74,8 @@ const TargetHeadRow: FC<{ label: string }> = ({ label }) => (
 
 const TargetCommitRow: FC<{
 	item: UpstreamCommitItem;
+	positionInSet: number;
+	setSize: number;
 	/**
 	 * Overrides the rail colour the commit's own position would give it. The
 	 * older section is one unbroken length of target line, so its rows keep the
@@ -64,9 +83,9 @@ const TargetCommitRow: FC<{
 	 * which is true of every row there, and so tells the reader nothing.
 	 */
 	status?: GraphSegmentStatus;
-}> = ({ item, status }) => {
+}> = ({ item, positionInSet, setSize, status }) => {
 	const { commit, review, inWorkspace } = item;
-	const address = commitAddress({ commitId: commit.id, changeId: commit.changeId ?? commit.id });
+	const address = upstreamCommitAddress(item);
 	const isSelected = useIsSelected(address);
 	// A commit that landed a review is shown as that review: its title says
 	// what changed, where "Merge pull request #N from …" only says that it did.
@@ -80,8 +99,12 @@ const TargetCommitRow: FC<{
 			id={treeItemId(address)}
 			role="treeitem"
 			aria-label={title ?? "(no message)"}
+			aria-level={1}
+			aria-posinset={positionInSet}
+			aria-setsize={setSize}
 			aria-selected={isSelected}
 			isSelected={isSelected}
+			scrollSelectedIntoView={false}
 			onSelect={() => setCursor("upstream", address)}
 		>
 			<GraphSegment glyph="commit" status={status ?? (inWorkspace ? "Integrated" : "Upstream")} />
@@ -330,38 +353,31 @@ const RunTail: FC = () => (
 	</div>
 );
 
-const listItem = (
-	projectId: string,
-	item: UpstreamListItem,
-	/**
-	 * Set on the region's first row, which opens the workspace rail: a branch
-	 * forks it into being rather than joining it, and a fold toggle heads it
-	 * with nothing drawn above the rings.
-	 */
-	opensRail: boolean,
-) => {
+type VirtualRow =
+	| { type: "sectionStart"; key: string }
+	| { type: "sectionEnd"; key: string }
+	| { type: "regionBreak"; key: string }
+	| { type: "targetHead"; key: string; label: string }
+	| { type: "message"; key: string; message: string }
+	| {
+			type: "item";
+			key: string;
+			item: UpstreamListItem;
+			opensRail: boolean;
+			status?: GraphSegmentStatus;
+	  }
+	| { type: "railEdge"; key: string; status: GraphSegmentStatus; edge: "head" | "tail" }
+	| { type: "runTail"; key: string }
+	| { type: "update"; key: string };
+
+const itemKey = (item: UpstreamListItem): string => {
 	switch (item.type) {
 		case "commit":
-			return <TargetCommitRow key={item.commit.id} item={item} />;
+			return `commit-${item.commit.id}`;
 		case "branch":
-			return (
-				<UpstreamBranchRow
-					key={`${item.stackKey}/${item.name}`}
-					item={item}
-					glyph={opensRail ? "forkRight" : "joinRight"}
-				/>
-			);
+			return `branch-${item.stackKey}/${item.name}`;
 		case "expander":
-			return (
-				<SegmentExpanderRow
-					key={`expander-${item.segmentId}`}
-					projectId={projectId}
-					segmentId={item.segmentId}
-					count={item.count}
-					expanded={item.expanded}
-					opensRail={opensRail}
-				/>
-			);
+			return `expander-${item.segmentId}`;
 		default:
 			return item satisfies never;
 	}
@@ -395,6 +411,10 @@ export const UpstreamList: FC<
 	useCursorWriteBack("upstream", addressSpace);
 
 	const hotkeysRef = useRef<HTMLDivElement>(null);
+	const scrollElementRef = useRef<HTMLDivElement>(null);
+	const retainScrollElement = useCallback((element: HTMLDivElement | null) => {
+		if (element) scrollElementRef.current = element;
+	}, []);
 
 	useAddressSpaceHotkeys({
 		projectId,
@@ -410,17 +430,179 @@ export const UpstreamList: FC<
 	// show: the base can be behind with nothing to list.
 	const canUpdate = canUpdateWorkspace;
 
-	const targetItems = items.slice(0, incomingItemCount);
-	const workspaceItems = items.slice(incomingItemCount);
-	// Whatever comes first opens the workspace rail, fold toggle or branch alike;
-	// everything under it joins a rail that is already running.
-	const railHead = workspaceItems[0];
-	// The rail's tail carries on from the last branch, so it has to be coloured
-	// the same as the segment it continues rather than always as local work.
-	const lastBranch = workspaceItems.findLast((item) => item.type === "branch");
-	// The listing parts once, under everything about what is coming in. Whichever
-	// region opens what is below carries that break.
-	const breaksFromIncoming = workspaceItems.length > 0 ? "workspace" : "older";
+	// This component cannot be compiled by React Compiler due to the virtualiser - see the lint
+	// ignore - hence the manual memo.
+	const { virtualRows, virtualIndexByAddressKey } = useMemo(() => {
+		const targetItems = items.slice(0, incomingItemCount);
+		const workspaceItems = items.slice(incomingItemCount);
+		// Whatever comes first opens the workspace rail, fold toggle or branch alike;
+		// everything under it joins a rail that is already running.
+		const railHead = workspaceItems[0];
+		// The rail's tail carries on from the last branch, so it has to be coloured
+		// the same as the segment it continues rather than always as local work.
+		const lastBranch = workspaceItems.findLast((item) => item.type === "branch");
+		// The listing parts once, under everything about what is coming in. Whichever
+		// region opens what is below carries that break.
+		const breaksFromIncoming = workspaceItems.length > 0 ? "workspace" : "older";
+
+		const virtualRows: Array<VirtualRow> = [{ type: "sectionStart", key: "target-start" }];
+		if (targetLabel !== null)
+			virtualRows.push({ type: "targetHead", key: "target-head", label: targetLabel });
+		if (isError) {
+			virtualRows.push({
+				type: "message",
+				key: "error",
+				message: "Unable to load incoming commits.",
+			});
+		}
+		if (!isError && isPending && items.length === 0) {
+			virtualRows.push({
+				type: "message",
+				key: "loading",
+				message: "Loading incoming commits…",
+			});
+		}
+		if (!isError && !isPending && targetLabel === null) {
+			virtualRows.push({
+				type: "message",
+				key: "no-target",
+				message: "No target branch is configured for this project.",
+			});
+		}
+		for (const item of targetItems) {
+			virtualRows.push({
+				type: "item",
+				key: `target-${itemKey(item)}`,
+				item,
+				opensRail: false,
+			});
+		}
+		if (targetLabel !== null) {
+			virtualRows.push({
+				type: "railEdge",
+				key: "target-tail",
+				status: "Upstream",
+				edge: "tail",
+			});
+		}
+		virtualRows.push({ type: "sectionEnd", key: "target-end" });
+
+		if (!isError && !isPending && targetLabel !== null)
+			virtualRows.push({ type: "update", key: "update" });
+
+		if (workspaceItems.length > 0) {
+			if (breaksFromIncoming === "workspace")
+				virtualRows.push({ type: "regionBreak", key: "workspace-break" });
+			virtualRows.push({ type: "sectionStart", key: "workspace-start" });
+			for (const [index, item] of workspaceItems.entries()) {
+				virtualRows.push({
+					type: "item",
+					key: `workspace-${itemKey(item)}`,
+					item,
+					opensRail: item === railHead,
+				});
+				const next = workspaceItems[index + 1];
+				if (item.type === "commit" && next !== undefined && next.type !== "commit")
+					virtualRows.push({ type: "runTail", key: `${item.commit.id}-tail` });
+			}
+			virtualRows.push({
+				type: "railEdge",
+				key: "workspace-tail",
+				status: lastBranch?.integrated === true ? "Integrated" : "LocalOnly",
+				edge: "tail",
+			});
+			virtualRows.push({ type: "sectionEnd", key: "workspace-end" });
+		}
+
+		if (olderItems.length > 0) {
+			if (breaksFromIncoming === "older")
+				virtualRows.push({ type: "regionBreak", key: "older-break" });
+			virtualRows.push(
+				{ type: "sectionStart", key: "older-start" },
+				{ type: "railEdge", key: "older-head", status: "Upstream", edge: "head" },
+			);
+			for (const item of olderItems) {
+				virtualRows.push({
+					type: "item",
+					key: `older-${itemKey(item)}`,
+					item,
+					opensRail: false,
+					status: "Upstream",
+				});
+			}
+			virtualRows.push(
+				{ type: "railEdge", key: "older-tail", status: "Upstream", edge: "tail" },
+				{ type: "sectionEnd", key: "older-end" },
+			);
+		}
+
+		const virtualIndexByAddressKey = new Map<string, number>();
+		for (const [index, row] of virtualRows.entries()) {
+			if (row.type !== "item" || row.item.type !== "commit") continue;
+			virtualIndexByAddressKey.set(addressIdentityKey(upstreamCommitAddress(row.item)), index);
+		}
+
+		return { virtualRows, virtualIndexByAddressKey };
+	}, [incomingItemCount, isError, isPending, items, olderItems, targetLabel]);
+
+	const selectedAddressKey = selection === null ? undefined : addressIdentityKey(selection);
+	const selectedVirtualIndex =
+		selectedAddressKey === undefined ? undefined : virtualIndexByAddressKey.get(selectedAddressKey);
+	const getVirtualRowKey = useCallback(
+		(index: number) => virtualRows[index]?.key ?? index,
+		[virtualRows],
+	);
+	const rangeExtractorWithSelected = useCallback(
+		(range: Range) =>
+			getRangeExtractorWithIndices(
+				range,
+				selectedVirtualIndex === undefined ? [] : [selectedVirtualIndex],
+			),
+		[selectedVirtualIndex],
+	);
+
+	// oxlint-disable-next-line react-hooks-js/incompatible-library -- https://github.com/TanStack/virtual/issues/1119#issuecomment-4648268095
+	const rowVirtualizer = useVirtualizer({
+		directDomUpdates: true,
+		directDomUpdatesMode: "transform",
+		count: virtualRows.length,
+		getScrollElement: () => scrollElementRef.current,
+		estimateSize: (index) => {
+			switch (virtualRows[index]?.type) {
+				case "sectionStart":
+					return 6;
+				case "sectionEnd":
+					return 7;
+				case "regionBreak":
+					return 9;
+				case "railEdge":
+					return 8;
+				case "runTail":
+					return 4;
+				case "update":
+					return 100;
+				default:
+					return 40;
+			}
+		},
+		getItemKey: getVirtualRowKey,
+		rangeExtractor: rangeExtractorWithSelected,
+		// Matches --scroll-gradient-height.
+		scrollPaddingStart: 14,
+		scrollPaddingEnd: 14,
+	});
+
+	const lastRevealedAddressKeyRef = useRef<string>(undefined);
+	useLayoutEffect(() => {
+		if (
+			selectedAddressKey !== undefined &&
+			selectedAddressKey !== lastRevealedAddressKeyRef.current &&
+			selectedVirtualIndex !== undefined
+		)
+			rowVirtualizer.scrollToIndex(selectedVirtualIndex, { align: "auto" });
+
+		lastRevealedAddressKeyRef.current = selectedAddressKey;
+	}, [rowVirtualizer, selectedAddressKey, selectedVirtualIndex]);
 
 	return (
 		<div {...restProps} className={classes(restProps.className, styles.container)}>
@@ -440,89 +622,88 @@ export const UpstreamList: FC<
 				aria-activedescendant={selection ? treeItemId(selection) : undefined}
 				data-focus-scope={"sidebar" satisfies FocusScope}
 				className={classes(uiStyles.scroller, styles.list)}
-				ref={useMergedRefs(hotkeysRef, useAutofocusScope())}
+				ref={useMergedRefs(hotkeysRef, retainScrollElement, useAutofocusScope())}
 			>
-				<div role="none" className={styles.section}>
-					{targetLabel !== null && <TargetHeadRow label={targetLabel} />}
+				<div role="none" ref={rowVirtualizer.containerRef} className={styles.virtualContainer}>
+					{rowVirtualizer.getVirtualItems().map((virtualRow) => {
+						const row = virtualRows[virtualRow.index];
+						if (row === undefined) return null;
 
-					{isError && (
-						<p role="none" className={classes("text-13", styles.message)}>
-							Unable to load incoming commits.
-						</p>
-					)}
-
-					{!isError && isPending && items.length === 0 && (
-						<p role="none" className={classes("text-13", styles.message)}>
-							Loading incoming commits…
-						</p>
-					)}
-
-					{!isError && !isPending && targetLabel === null && (
-						<p role="none" className={classes("text-13", styles.message)}>
-							No target branch is configured for this project.
-						</p>
-					)}
-
-					{targetItems.map((item) => listItem(projectId, item, false))}
-
-					{targetLabel !== null && <RailEdge status="Upstream" edge="tail" />}
+						return (
+							<div
+								key={row.key}
+								data-index={virtualRow.index}
+								ref={rowVirtualizer.measureElement}
+								role="none"
+								className={classes(
+									row.type === "sectionStart" && styles.sectionStart,
+									row.type === "sectionEnd" && styles.sectionEnd,
+									row.type === "regionBreak" && styles.regionBreak,
+									(row.type === "targetHead" ||
+										row.type === "message" ||
+										row.type === "item" ||
+										row.type === "railEdge" ||
+										row.type === "runTail") &&
+										styles.sectionRow,
+									row.type === "railEdge" && styles.railEdgeRow,
+								)}
+								style={{
+									position: "absolute",
+									top: 0,
+									left: 0,
+									width: "100%",
+								}}
+							>
+								{row.type === "targetHead" ? (
+									<TargetHeadRow label={row.label} />
+								) : row.type === "message" ? (
+									<p role="none" className={classes("text-13", styles.message)}>
+										{row.message}
+									</p>
+								) : row.type === "item" ? (
+									row.item.type === "commit" ? (
+										<TargetCommitRow
+											item={row.item}
+											positionInSet={
+												// oxlint-disable-next-line typescript/no-non-null-assertion
+												addressSpace.indexByKey.get(
+													addressIdentityKey(upstreamCommitAddress(row.item)),
+												)! + 1
+											}
+											setSize={addressSpace.items.length}
+											status={row.status}
+										/>
+									) : row.item.type === "branch" ? (
+										<UpstreamBranchRow
+											item={row.item}
+											glyph={row.opensRail ? "forkRight" : "joinRight"}
+										/>
+									) : (
+										<SegmentExpanderRow
+											projectId={projectId}
+											segmentId={row.item.segmentId}
+											count={row.item.count}
+											expanded={row.item.expanded}
+											opensRail={row.opensRail}
+										/>
+									)
+								) : row.type === "railEdge" ? (
+									<RailEdge status={row.status} edge={row.edge} />
+								) : row.type === "runTail" ? (
+									<RunTail />
+								) : row.type === "update" ? (
+									<UpdateBlock
+										incomingCount={incomingCount}
+										hasIntegrated={hasIntegrated}
+										canUpdate={canUpdate}
+										isUpdatePending={isUpdatePending}
+										onUpdateWorkspace={onUpdateWorkspace}
+									/>
+								) : null}
+							</div>
+						);
+					})}
 				</div>
-
-				{!isError && !isPending && targetLabel !== null && (
-					<UpdateBlock
-						incomingCount={incomingCount}
-						hasIntegrated={hasIntegrated}
-						canUpdate={canUpdate}
-						isUpdatePending={isUpdatePending}
-						onUpdateWorkspace={onUpdateWorkspace}
-					/>
-				)}
-
-				{workspaceItems.length > 0 && (
-					<div
-						role="none"
-						className={classes(
-							styles.section,
-							breaksFromIncoming === "workspace" && styles.regionBreak,
-						)}
-					>
-						{workspaceItems.flatMap((item, index) => {
-							const row = listItem(projectId, item, item === railHead);
-							// Commits only appear here as the body of an expanded run, so
-							// the last one before anything else is where a run closes.
-							const next = workspaceItems[index + 1];
-							return item.type === "commit" && next !== undefined && next.type !== "commit"
-								? [row, <RunTail key={`${item.commit.id}-tail`} />]
-								: [row];
-						})}
-
-						<RailEdge
-							status={lastBranch?.integrated === true ? "Integrated" : "LocalOnly"}
-							edge="tail"
-						/>
-					</div>
-				)}
-
-				{olderItems.length > 0 && (
-					<div
-						role="none"
-						className={classes(
-							styles.section,
-							breaksFromIncoming === "older" && styles.regionBreak,
-						)}
-					>
-						{/* The run opens mid-line rather than at a fork, so a stub
-						    supplies the rail the first row would otherwise start from
-						    nothing. */}
-						<RailEdge status="Upstream" edge="head" />
-
-						{olderItems.map((item) => (
-							<TargetCommitRow key={item.commit.id} item={item} status="Upstream" />
-						))}
-
-						<RailEdge status="Upstream" edge="tail" />
-					</div>
-				)}
 
 				<LoadMoreOlder projectId={projectId} hasOlder={hasOlder} />
 			</div>

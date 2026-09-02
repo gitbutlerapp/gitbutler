@@ -37,14 +37,34 @@
 	}
 }
 
-/* The rows inside carry their own inline inset, so a section only holds them
-   off its ceiling and floor. */
-.section {
-	display: flex;
-	flex-direction: column;
-	padding-block: 6px;
-	border-block-end: 1px solid var(--border-section);
+/* The virtualizer gives this container the full list height and positions its
+   rows absolutely within it. Keep that height from shrinking in the list's
+   flex layout. */
+.virtualContainer {
+	position: relative;
+	flex-shrink: 0;
+}
+
+.sectionRow,
+.sectionStart,
+.sectionEnd {
 	background-color: var(--bg-1);
+}
+
+.sectionStart {
+	height: 6px;
+}
+
+.sectionEnd {
+	height: 7px;
+	border-block-end: 1px solid var(--border-section);
+}
+
+/* The clipped rail edge overhangs its measured row into the adjacent section
+   spacer. Keep that overhang above the spacer's background so the line reaches
+   the section border. */
+.railEdgeRow {
+	z-index: 1;
 }
 
 /* The one break in the listing: what is coming in above, where the workspace
@@ -52,8 +72,9 @@
    so the halves are parted by the panel's own fill showing through instead —
    ruled on both sides, so each half still closes and opens on a floor. */
 .regionBreak {
-	margin-block-start: 8px;
-	border-block-start: 1px solid var(--border-section);
+	height: 9px;
+	border-block-end: 1px solid var(--border-section);
+	background-color: var(--bg-2);
 }
 
 /* A band that acts on the listing rather than showing part of it: the update

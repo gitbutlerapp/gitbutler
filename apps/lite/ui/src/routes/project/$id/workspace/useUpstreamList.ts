@@ -11,11 +11,7 @@ import { buildIndexByKey, type AddressSpace } from "#ui/workspace/address-space.
 import type { RefInfo, TargetCommit, TargetCommitReview } from "@gitbutler/but-sdk";
 import { useInfiniteQuery, useQueries, useQuery } from "@tanstack/react-query";
 
-// Stable empties for the inactive-tab result, so consumers' identities do not
-// churn while the page is hidden.
-const noItems: Array<UpstreamListItem> = [];
 const noCommits: Array<UpstreamCommitItem> = [];
-const emptyAddressSpace: AddressSpace<Address> = { items: [], indexByKey: new Map() };
 
 /**
  * Commit items are cached per target commit, so list rebuilds (expansion
@@ -323,24 +319,6 @@ export const useUpstreamList = (projectId: string): UpstreamListData => {
 				: null;
 			const isPending = targetResult.isPending || headInfoResult.isPending;
 			const isError = targetResult.isError || headInfoResult.isError;
-
-			// While another page is shown, only the page badge consumes this
-			// list, but headInfo refetches on every workspace mutation —
-			// skip the item and address-space derivation nobody would see.
-			if (!active) {
-				return {
-					items: noItems,
-					incomingItemCount: 0,
-					olderItems: noCommits,
-					hasOlder: false,
-					targetLabel,
-					incomingCount,
-					hasIntegrated: false,
-					addressSpace: emptyAddressSpace,
-					isPending,
-					isError,
-				};
-			}
 
 			const stacks = headInfo ? workspaceStackBranches(headInfo) : [];
 			const commits = targetCommits.map(asItem);

@@ -10,7 +10,7 @@ import {
 	type HotkeyOptions,
 	type HotkeySequence,
 	type SequenceOptions,
-	useHotkeyRegistrations,
+	toHotkeyRegistrationView,
 } from "@tanstack/react-hotkeys";
 import { useState, type FC } from "react";
 
@@ -53,15 +53,13 @@ const isEnabled = <T extends HotkeyOptions | SequenceOptions>(
 		opts.target === window ||
 		opts.target === activeElement);
 
-export const CommandPalette: FC<Props> = ({ open, onOpenChange }) => {
-	const [initialActiveElement] = useState(() => document.activeElement);
-	const { hotkeys, sequences } = useHotkeyRegistrations();
-
+const getCommandPaletteItems = (activeElement: Element | null) => {
 	const hotkeyItems: IteratorObject<CommandPaletteItem> = iteratorConcat(
-		hotkeys
-			.values()
+		getHotkeyManager()
+			.registrations.state.values()
+			.map(toHotkeyRegistrationView)
 			.map((hotkey): CommandPaletteItem | null =>
-				isEnabled(hotkey.options, initialActiveElement)
+				isEnabled(hotkey.options, activeElement)
 					? {
 							group: hotkey.options.meta.group,
 							id: hotkey.id,
@@ -72,10 +70,10 @@ export const CommandPalette: FC<Props> = ({ open, onOpenChange }) => {
 					: null,
 			)
 			.filter((x) => x != null),
-		sequences
-			.values()
+		getSequenceManager()
+			.registrations.state.values()
 			.map((sequence): CommandPaletteItem | null =>
-				isEnabled(sequence.options, initialActiveElement)
+				isEnabled(sequence.options, activeElement)
 					? {
 							group: sequence.options.meta.group,
 							id: sequence.id,
@@ -87,7 +85,12 @@ export const CommandPalette: FC<Props> = ({ open, onOpenChange }) => {
 			)
 			.filter((x) => x != null),
 	);
-	const items = groupCommandPaletteItems(hotkeyItems);
+
+	return groupCommandPaletteItems(hotkeyItems);
+};
+
+export const CommandPalette: FC<Props> = ({ open, onOpenChange }) => {
+	const [items] = useState(() => getCommandPaletteItems(document.activeElement));
 
 	const runHotkey = (item: CommandPaletteItem) => {
 		onOpenChange(false);
