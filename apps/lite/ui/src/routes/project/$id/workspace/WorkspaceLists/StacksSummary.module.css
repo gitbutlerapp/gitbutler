@@ -1,0 +1,18 @@
+/* Mirrors the uncommitted header's own stats, which sit in the same slot on the
+   panel above: short, fixed-width, and never the thing that truncates. */
+.container {
+	display: inline-flex;
+	column-gap: 6px;
+	flex-shrink: 0;
+	align-items: center;
+}
+
+/* Plain text beside the count, the way the uncommitted header sets its line
+   totals next to its file count — a badge here would read as a second, equal
+   tally rather than a note about the first. */
+.unpushed {
+	display: inline-flex;
+	column-gap: 2px;
+	align-items: center;
+	color: var(--text-2);
+}

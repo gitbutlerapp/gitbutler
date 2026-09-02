@@ -80,6 +80,7 @@ import { BranchRow, type PushActivity } from "./BranchRow.tsx";
 import { useActiveListsHotkeys } from "./hotkeys.ts";
 import { UncommittedChangesRow } from "./UncommittedChangesRow.tsx";
 import { PanelFoldToggle } from "./PanelFoldToggle.tsx";
+import { StacksSummary } from "./StacksSummary.tsx";
 import { ListFilterRow } from "../ListFilterRow.tsx";
 import { useListFilter } from "../useListFilter.ts";
 import { buildUncommittedFileRows } from "../file-row.ts";
@@ -1337,7 +1338,11 @@ export const WorkspaceLists: FC<
 						className={styles.stacksHeader}
 						leading={<PanelFoldToggle projectId={projectId} panel="stacks" />}
 						actions={stacksHeaderActions}
-					/>
+					>
+						{/* Only while folded, as with a branch row's commit count: the rows
+						    below say all of this and more when they are on screen. */}
+						{stacksCollapsed && <StacksSummary stacks={headInfo?.stacks ?? []} />}
+					</SectionHeaderRow>
 
 					<Activity mode={stacksCollapsed ? "hidden" : "visible"}>
 						<Stacks
