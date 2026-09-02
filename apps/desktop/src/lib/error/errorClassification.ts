@@ -157,6 +157,13 @@ Your GitHub token appears expired. Please log out and back in to refresh it. (Se
 	`,
 	},
 	GitHubOrgOAuthRestricted: GH_ORG_AUTH_CLASSIFICATION,
+	GitHubOrgSamlRestricted: {
+		severity: "error",
+		terminal: true,
+		title: "GitHub SAML SSO Authorization Required",
+		userMessage:
+			"This GitHub organization requires SAML SSO. Authorize the GitButler OAuth app on the organization's SSO page, or authorize your personal access token in GitHub's token SSO settings, then try again.",
+	},
 	/**
 	 * The GitHub token can't read the requested resource — a fine-grained
 	 * PAT missing a read permission such as Checks. Terminal until the

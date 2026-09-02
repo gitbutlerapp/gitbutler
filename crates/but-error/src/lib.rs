@@ -179,6 +179,10 @@ pub enum Code {
     /// blocked the GitButler OAuth app. Terminal until the org approves the
     /// app or the user switches credentials — retrying won't help.
     GitHubOrgOAuthRestricted,
+    /// A GitHub organization requires SAML SSO authorization for the
+    /// current OAuth or personal access token. Terminal until the user
+    /// authorizes the credential for the organization.
+    GitHubOrgSamlRestricted,
     /// GitHub returned 403 "Resource not accessible by personal access
     /// token" — the token works but lacks a read permission such as Checks.
     /// Terminal until the user grants the permission or reconnects with
