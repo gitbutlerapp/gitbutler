@@ -21,7 +21,7 @@ import { createRoot } from "react-dom/client";
 import type { DragData } from "./DragData.ts";
 import { parseDragData } from "./DragData.ts";
 import { DragPreview } from "./OperationSourceC.tsx";
-import { addressesLabel, hunkAddressesLabel } from "./addressLabel.ts";
+import { addressesLabel } from "./addressLabel.ts";
 import { setDiffDragPreviewSources } from "./diff-gutter.ts";
 import { diffLineTargetFromElement, type DiffLineTarget } from "./diff-line-target.ts";
 
@@ -126,7 +126,7 @@ export const useDiffHunkDrag = <T>({
 				: [hunkAddress(hunk)];
 		};
 
-		// The grip says what it holds before it is pressed: the same lines the drop would move,
+		// The grip marks what it holds before it is pressed: the same lines the drop would move,
 		// which is the containing hunk unless checked lines or the selection widen it.
 		const handlePointerOver = (event: Event) => {
 			const overHandle = event
@@ -139,17 +139,7 @@ export const useDiffHunkDrag = <T>({
 				overHandle && event instanceof PointerEvent && configRef.current.canDrag()
 					? resolveSources(event)
 					: null;
-			// The same words the drag preview will carry, so the grip answers before it is pressed.
-			// Checked sources can reach past hunks, and those are only ever counted.
-			let label: string | undefined;
-			if (sources) {
-				const hunks = sources.flatMap((source) => (source._tag === "Hunk" ? [source] : []));
-				label =
-					hunks.length === sources.length
-						? hunkAddressesLabel(hunks)
-						: `${sources.length.toLocaleString()} items`;
-			}
-			setDiffDragPreviewSources(host, sources, label);
+			setDiffDragPreviewSources(host, sources);
 		};
 		const handlePointerLeave = () => setDiffDragPreviewSources(host, null);
 		const shadowRoot = host.shadowRoot;
