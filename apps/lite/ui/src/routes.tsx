@@ -13,6 +13,7 @@ import {
 } from "@tanstack/react-router";
 import type { FC } from "react";
 import styles from "./routes.module.css";
+import type { QueryKeyPrefix } from "./api/query-keys.ts";
 
 /**
  * Every route definition and the assembled tree, in one place. The routes/
@@ -96,6 +97,9 @@ const watchProject = (match: ProjectMatch | null) => {
 				.watcherSubscribe(id, (event) => handleProjectEvent(event, id, match.context.queryClient))
 				// Allow the route to render and handle failure via its queries.
 				.catch(() => undefined);
+
+			if (next !== undefined)
+				void match.context.queryClient.invalidateQueries<QueryKeyPrefix>({ queryKey: [id] });
 		}
 		if (previous !== undefined) await window.lite.watcherUnsubscribe(previous).catch(() => false);
 		return next;

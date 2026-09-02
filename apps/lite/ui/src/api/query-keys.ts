@@ -33,7 +33,7 @@ type LocalQueryKey =
 	| "projectAiSettings"
 	| "reviewedFiles";
 
-type QueryKey =
+export type QueryKeyPrefix =
 	| [projectId: string, ProjectQueryKey]
 	| [projectId: string, LocalQueryKey]
 	| [GlobalQueryKey];
@@ -45,6 +45,6 @@ declare module "@tanstack/react-query" {
 		 * error wherever a key is written — building one, invalidating it, or
 		 * reading it back — without each site having to say so.
 		 */
-		queryKey: readonly [...QueryKey, ...ReadonlyArray<unknown>];
+		queryKey: readonly [...QueryKeyPrefix, ...ReadonlyArray<unknown>];
 	}
 }
