@@ -1,11 +1,29 @@
 use snapbox::str;
+use std::path::Path;
 
+use super::util::{add_worktree_with_commit, enable_worktree_manipulation, status_json};
 use crate::utils::{CommandExt as _, Sandbox};
+use but_core::RepositoryExt as _;
+use but_testsupport::{invoke_bash_at_dir, open_repo};
 
 fn expand_env() -> Sandbox {
     let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
     env.setup_metadata(&["A"]);
     env
+}
+
+fn assert_head_expands(env: &Sandbox, worktree: &Path) {
+    let repo = open_repo(worktree).unwrap();
+    let commit = but_core::Commit::from_id(repo.head_id().unwrap()).unwrap();
+    let commit_id = commit.id.detach();
+    let change_id = commit.change_id();
+
+    env.but(format!("_expand {commit_id}"))
+        .current_dir(worktree)
+        .assert()
+        .success()
+        .stderr_eq(str![])
+        .stdout_eq(format!("Matches: 1\n\ncommit: {change_id} {commit_id}\n"));
 }
 
 /// A valid PNG file, useful if you want to test binary files.
@@ -40,6 +58,93 @@ branch: g0 A
 Matches: 1
 
 uncommitted area
+
+"#]]);
+}
+
+#[test]
+fn resolves_displayed_worktree_commit_from_the_linked_worktree() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
+    env.setup_metadata(&["A", "B"]);
+    enable_worktree_manipulation(&env);
+
+    // Initialize worktree state before adding the worktree under test; the first
+    // flag-on read archives worktrees that were already present.
+    env.but("status").assert().success();
+    let worktree = add_worktree_with_commit(&env, "expand-worktree", "A");
+    let status = status_json(&env);
+    let commit = status["worktrees"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|worktree| worktree["name"].as_str() == Some("expand-worktree"))
+        .and_then(|worktree| worktree["commits"].as_array())
+        .and_then(|commits| commits.first())
+        .expect("status should display the worktree commit");
+    let cli_id = commit["cliId"].as_str().unwrap();
+    let change_id = commit["changeId"].as_str().unwrap();
+    let commit_id = commit["commitId"].as_str().unwrap();
+    let expected = format!("Matches: 1\n\ncommit: {change_id} {commit_id}\n");
+    let database = env
+        .open_repo()
+        .gitbutler_storage_path()
+        .unwrap()
+        .join("but.sqlite");
+    let database_before = std::fs::read(&database).unwrap();
+
+    env.but(format!("_expand {cli_id}"))
+        .current_dir(worktree)
+        .assert()
+        .success()
+        .stderr_eq(str![])
+        .stdout_eq(expected.clone());
+    env.but(format!("_expand {cli_id}"))
+        .assert()
+        .success()
+        .stderr_eq(str![])
+        .stdout_eq(expected);
+    assert_eq!(
+        std::fs::read(database).unwrap(),
+        database_before,
+        "expansion should not mutate the main worktree database"
+    );
+}
+
+#[test]
+fn resolves_invoking_worktree_commit_when_worktree_manipulation_is_disabled() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
+    env.setup_metadata(&["A", "B"]);
+    let worktree = add_worktree_with_commit(&env, "expand-feature-off", "A");
+
+    assert_head_expands(&env, &worktree);
+}
+
+#[test]
+fn resolves_from_worktree_of_bare_repository() {
+    let env = expand_env();
+    let bare = env.app_data_dir().join("expand-bare.git");
+    let worktree = env.app_data_dir().join("expand-bare-worktree");
+    invoke_bash_at_dir(
+        &format!(
+            r#"git clone -q --bare . "{bare}"
+git -C "{bare}" worktree add -q -b expand-bare-worktree "{worktree}" A"#,
+            bare = bare.display(),
+            worktree = worktree.display()
+        ),
+        env.projects_root(),
+    );
+
+    assert_head_expands(&env, &worktree);
+
+    enable_worktree_manipulation(&env);
+    let commit_id = open_repo(&worktree).unwrap().head_id().unwrap().detach();
+    env.but(format!("_expand {commit_id}"))
+        .current_dir(worktree)
+        .assert()
+        .failure()
+        .stdout_eq(str![])
+        .stderr_eq(str![[r#"
+Error: Worktree-aware ID expansion requires a main worktree
 
 "#]]);
 }

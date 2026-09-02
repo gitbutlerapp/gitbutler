@@ -125,9 +125,26 @@ impl CliOutput for ExpandOutcome {
 }
 
 pub fn handle(ctx: &but_ctx::Context, cli_id: CliIdArg) -> CliResult<ExpandOutcome> {
-    let guard = ctx.shared_worktree_access();
-    let id_map = IdMap::new_from_context(ctx, guard.read_permission())?;
     let repo = ctx.repo.get()?;
+    let main_ctx = if ctx.settings.feature_flags.worktree_manipulation
+        && repo.git_dir() != repo.common_dir()
+    {
+        let main_repo = repo.main_repo()?;
+        if main_repo.is_bare() {
+            return Err(
+                anyhow::anyhow!("Worktree-aware ID expansion requires a main worktree").into(),
+            );
+        }
+        Some(but_ctx::Context::from_repo_with_settings(
+            main_repo,
+            ctx.settings.clone(),
+        )?)
+    } else {
+        None
+    };
+    let state_ctx = main_ctx.as_ref().unwrap_or(ctx);
+    let guard = state_ctx.shared_worktree_access();
+    let id_map = IdMap::new_from_context(state_ctx, guard.read_permission())?;
     let matches = cli_id.parse(&repo, &id_map)?;
     if let Some(segment) = matches.iter().find_map(|id| match id {
         CliId::AnonymousSegment(segment) => Some(segment),
