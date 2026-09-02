@@ -1,0 +1,27 @@
+/* Sits between the header and the commit form, inset to the same column the
+   file rows would occupy so the panel keeps one left edge whether or not there
+   is a list. */
+.note {
+	display: flex;
+	column-gap: 4px;
+	align-items: center;
+	margin: 0;
+	padding-inline: 14px;
+	overflow: hidden;
+	color: var(--text-2);
+	font-size: 13px;
+	line-height: var(--single-line-row-height);
+	white-space: nowrap;
+
+	& [data-icon] {
+		flex-shrink: 0;
+		opacity: 0.7;
+	}
+}
+
+/* The branch is the only part that can run long, so it is the part that gives
+   way — the time beside it stays whole. */
+.branch {
+	overflow: hidden;
+	text-overflow: ellipsis;
+}

@@ -565,6 +565,14 @@ export const CommitForm: FC<{
 			}}
 			className={classes(styles.form, className)}
 		>
+			{/* The consequence belongs at the point the decision is made, and visibly
+			    rather than on hover: the collapsed button can be reached with a
+			    hotkey, and a tooltip would never have said this to anyone driving
+			    the form from the keyboard. */}
+			{!hasWorktreeChanges && (
+				<p className={classes("text-12", styles.emptyCommitNote)}>This commit will be empty</p>
+			)}
+
 			<textarea
 				// The form is only rendered expanded after interacting with the
 				// "Start commit" trigger, so focusing the input is expected.

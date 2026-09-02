@@ -167,3 +167,13 @@
 	padding-block: 8px;
 	color: var(--text-2);
 }
+
+/* Sits above the message box while the worktree is clean, saying what the
+   commit about to be written would be. Muted: it is a note about the state,
+   not a warning about a mistake — an empty commit is a thing people mean. */
+.emptyCommitNote {
+	margin: 0;
+	padding-inline: var(--panel-padding-inline, 12px);
+	padding-block-start: 8px;
+	color: var(--text-2);
+}
