@@ -4,6 +4,12 @@ import { useState } from "react";
 
 const meta = preview.meta({
 	component: Switch,
+	parameters: {
+		design: {
+			type: "figma",
+			url: "https://www.figma.com/design/cqdnAotT8n9op8WGYLOHg4/%E2%9A%9B%EF%B8%8F-Lite-Core?node-id=699-614",
+		},
+	},
 });
 
 const Toggleable = ({ disabled = false }: { disabled?: boolean }) => {
