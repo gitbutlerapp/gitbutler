@@ -6,6 +6,7 @@ use but_api::open::{
     list_program_specs, list_program_specs_for_file,
     program::{OpenSpec, ProgramSpec, open_in_program_unchecked},
 };
+use but_core::SingleHunk;
 use but_ctx::Context;
 use gix::utils::AsBStr;
 use itertools::Itertools as _;
@@ -46,17 +47,24 @@ impl Openable {
         repo: &gix::Repository,
         uncommitted: &UncommittedHunkOrFile,
     ) -> anyhow::Result<Self> {
-        let hunk = &uncommitted.hunks.first().hunk;
+        Self::try_from_hunk(
+            repo,
+            &uncommitted.hunks.first().hunk,
+            uncommitted.is_entire_file,
+        )
+    }
 
+    /// Try to create an [`Openable`] from a hunk.
+    fn try_from_hunk(
+        repo: &gix::Repository,
+        hunk: &SingleHunk,
+        is_entire_file: bool,
+    ) -> anyhow::Result<Self> {
         let path = repo
             .workdir_path(hunk.path.as_bstr())
             .ok_or_else(|| anyhow::anyhow!("Failed to resolve path to hunk"))?;
 
-        let openable = match (
-            uncommitted.is_entire_file,
-            &hunk.hunk_header,
-            hunk.line_nums(),
-        ) {
+        let openable = match (is_entire_file, &hunk.hunk_header, hunk.line_nums()) {
             (false, Some(hunk_header), Some((line_nums_added, line_nums_removed))) => {
                 Openable::Hunk(Hunk {
                     // Truncate line numbers - the probability of exceeding a u32 is infinitesimally small.
@@ -201,9 +209,16 @@ fn resolve_source(
     id_map: &IdMap,
     source: &CliIdArg,
 ) -> CliResult<Openable> {
-    match source.resolve_in_workspace(repo, id_map, Purpose::Uncommitted, None)? {
+    match source.resolve_in_workspace(repo, id_map, Purpose::Target, None)? {
         ResolvedCliIdArg::UncommittedHunkOrFile(uncommitted) => {
             Ok(Openable::try_from_uncommitted(repo, &uncommitted)?)
+        }
+        ResolvedCliIdArg::CommittedFile(committed_file) => Ok(Openable::try_from_relpath(
+            repo,
+            committed_file.path.as_bstr(),
+        )?),
+        ResolvedCliIdArg::CommittedHunk(committed_hunk) => {
+            Ok(Openable::try_from_hunk(repo, &committed_hunk.hunk, false)?)
         }
         ResolvedCliIdArg::AnonymousSegment(segment) => {
             Err(crate::args::atoms::anonymous_segment_error(&segment.id))
@@ -217,14 +232,10 @@ fn resolve_file_source(
     id_map: &IdMap,
     source: &CliIdArg,
 ) -> CliResult<PathBuf> {
-    match source.resolve_in_workspace(repo, id_map, Purpose::Uncommitted, None)? {
+    match source.resolve_in_workspace(repo, id_map, Purpose::Target, None)? {
         ResolvedCliIdArg::UncommittedHunkOrFile(uncommitted) => {
             if !uncommitted.is_entire_file {
-                return Err(bad_input(format!(
-                    "Only entire files can be opened when multiple sources are provided; \
-                     '{source}' is a hunk"
-                ))
-                .into());
+                return Err(hunk_with_multiple_sources_error(source));
             }
 
             match Openable::try_from_uncommitted(repo, &uncommitted)? {
@@ -234,6 +245,11 @@ fn resolve_file_source(
                 }
             }
         }
+        ResolvedCliIdArg::CommittedFile(committed_file) => repo
+            .workdir_path(committed_file.path.as_bstr())
+            .context("Failed to resolve path")
+            .map_err(Into::into),
+        ResolvedCliIdArg::CommittedHunk(_) => Err(hunk_with_multiple_sources_error(source)),
         ResolvedCliIdArg::AnonymousSegment(segment) => {
             Err(crate::args::atoms::anonymous_segment_error(&segment.id))
         }
@@ -241,9 +257,17 @@ fn resolve_file_source(
     }
 }
 
+fn hunk_with_multiple_sources_error(source: &CliIdArg) -> CliError {
+    bad_input(format!(
+        "Only entire files can be opened when multiple sources are provided; \
+         '{source}' is a hunk"
+    ))
+    .into()
+}
+
 fn unexpected_source_kind(resolved_id: ResolvedCliIdArg) -> CliError {
     bad_input(format!(
-        "Expected uncommitted file or hunk, got {}",
+        "Expected file or hunk, got {}",
         resolved_id.kind_for_humans()
     ))
     .into()
