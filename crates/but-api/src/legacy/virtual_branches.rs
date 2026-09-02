@@ -516,9 +516,10 @@ fn assigned_diffspec_for_stack(
 
 /// Unapply a stack through the newer workspace metadata implementation.
 ///
-/// This deliberately keeps the workspace reference and workspace merge commit in
-/// place for compatibility with the legacy API surface while using the workspace
-/// metadata unapply implementation.
+/// Outside single branch mode this deliberately keeps the workspace reference and
+/// workspace merge commit in place for compatibility with the legacy API surface.
+/// In single branch mode the workspace reference is dropped once it is no longer
+/// needed, so unapplying the second-to-last stack checks out the remaining branch.
 /// We implement plumbing here, particularly relative to assignment handling,
 /// to facilitate the eventual removal of `gitbutler-branch-actions`.
 ///
@@ -562,7 +563,7 @@ fn unapply_stack_v3_with_perm(
 
     let mut meta = ctx.legacy_meta_mut(perm)?;
     let (repo, mut ws, _) = ctx.workspace_mut_and_db_with_perm(perm)?;
-    let workspace_disposition = if ctx.settings.feature_flags.unapply_v3_pgm {
+    let workspace_disposition = if ctx.settings.feature_flags.single_branch {
         WorkspaceDisposition::PreventUnnecessaryWorkspaceReferencesKeepWorkspaceCommit
     } else {
         WorkspaceDisposition::KeepWorkspaceCommit

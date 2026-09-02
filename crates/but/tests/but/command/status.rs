@@ -569,6 +569,10 @@ fn status_hint_clean_workspace() {
 #[test]
 fn status_hint_when_no_branches() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    // Keep the managed workspace: in single-branch mode unapply would check out a plain branch.
+    env.but("config feature single-branch disable")
+        .assert()
+        .success();
     env.setup_metadata(&["A"]);
 
     env.but("unapply A").assert().success();

@@ -43,7 +43,7 @@ test.use({
 	gitbutlerOptions: {
 		config: {
 			onboardingComplete: true,
-			featureFlags: { singleBranch: true, unapplyV3Pgm: false },
+			featureFlags: { singleBranch: true },
 		},
 	},
 });
@@ -583,16 +583,7 @@ async function openManagedWorkspace(
 	return gitbutler.pathInWorkdir("local-clone");
 }
 
-test.describe("unapply-v3-pgm enabled", () => {
-	test.use({
-		gitbutlerOptions: {
-			config: {
-				onboardingComplete: true,
-				featureFlags: { singleBranch: true, unapplyV3Pgm: true },
-			},
-		},
-	});
-
+test.describe("unapplying stacks", () => {
 	test("stays managed with two stacks, then moves to a single checkout", async ({
 		page,
 		gitbutler,
@@ -733,15 +724,26 @@ test.describe("unapply-v3-pgm enabled", () => {
 	});
 });
 
-test("keeps the managed workspace when unapply-v3-pgm is disabled", async ({ page, gitbutler }) => {
-	const localClone = await openManagedWorkspace(page, gitbutler, "branch1", "branch3");
+test.describe("single-branch mode disabled", () => {
+	test.use({
+		gitbutlerOptions: {
+			config: {
+				onboardingComplete: true,
+				featureFlags: { singleBranch: false },
+			},
+		},
+	});
 
-	await unapplyStack(page, "branch3");
+	test("keeps the managed workspace when a stack is unapplied", async ({ page, gitbutler }) => {
+		const localClone = await openManagedWorkspace(page, gitbutler, "branch1", "branch3");
 
-	await assertSymbolicHead("gitbutler/workspace", localClone);
-	await expectCurrentBranchChip(page, "gitbutler/workspace");
-	await expect(stack(page)).toHaveCount(1);
-	await expect(stack(page, "branch1")).toBeVisible();
+		await unapplyStack(page, "branch3");
+
+		// The current-branch chip only renders in single-branch mode, so assert on the repository.
+		await assertSymbolicHead("gitbutler/workspace", localClone);
+		await expect(stack(page)).toHaveCount(1);
+		await expect(stack(page, "branch1")).toBeVisible();
+	});
 });
 
 test("rebuilds an enclosed ad-hoc workspace around the current and applied branches", async ({

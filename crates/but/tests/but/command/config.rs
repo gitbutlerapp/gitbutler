@@ -170,7 +170,6 @@ fn feature_config_shell_output_uses_valid_identifiers() {
 
 Feature Flags:
 
-  unapply-v3-pgm: disabled
   single-branch: enabled
 
 "#]]);

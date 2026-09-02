@@ -255,6 +255,10 @@ fn json_output_with_dangling_commits() {
 #[test]
 fn teardown_informs_of_checkout_to_when_there_are_no_stacks() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    // Keep the managed workspace: in single-branch mode unapply would check out a plain branch.
+    env.but("config feature single-branch disable")
+        .assert()
+        .success();
     env.setup_metadata(&["A"]);
     env.but("unapply A").assert().success();
 
@@ -270,6 +274,10 @@ Error: Failed to determine checkout target branch. Specify a target branch with 
 #[test]
 fn teardown_checks_out_to_branch_override() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    // Keep the managed workspace: in single-branch mode unapply would check out a plain branch.
+    env.but("config feature single-branch disable")
+        .assert()
+        .success();
     env.setup_metadata(&["A"]);
     env.but("unapply A").assert().success();
 
@@ -302,6 +310,10 @@ fn teardown_checks_out_to_branch_override() {
 #[test]
 fn teardown_checks_out_to_branch_override_with_qualified_ref_name() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    // Keep the managed workspace: in single-branch mode unapply would check out a plain branch.
+    env.but("config feature single-branch disable")
+        .assert()
+        .success();
     env.setup_metadata(&["A"]);
     env.but("unapply A").assert().success();
 

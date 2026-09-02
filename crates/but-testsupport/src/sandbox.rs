@@ -505,7 +505,6 @@ impl Sandbox {
                 oauth_client_id: "but journey tests won't use github".to_string(),
             },
             feature_flags: FeatureFlags {
-                unapply_v3_pgm: false,
                 single_branch: true,
                 watch_mode: "auto".into(),
                 write_commit_evolution: true,

@@ -36,8 +36,6 @@ but_schemars::register_sdk_type!(GitHubOAuthAppSettings);
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, schemars::JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct FeatureFlags {
-    /// Use the V3 unapply compatibility mode that keeps workspace commits unless deleting the workspace ref.
-    pub unapply_v3_pgm: bool,
     /// Enable single branch mode.
     pub single_branch: bool,
     /// Control how the filesystem watch should be established.
