@@ -1289,19 +1289,8 @@ pub fn run(
         } => {
             let context_lines = ctx.settings.context_lines;
             let (repo, ..) = ctx.workspace_and_db_mut_with_perm(perm.read_permission())?;
-            let commit = repo.find_commit(source.commit_id)?;
-
-            // TODO optimize, we've already run this diff... Possibly attach tree change to committed hunk?
-            let tree_changes = but_core::diff::tree_changes(
-                &repo,
-                commit.parent_ids().next().map(|id| id.detach()),
-                source.commit_id,
-            )?
-            .into_iter()
-            .map(Into::into)
-            .collect::<Vec<but_core::ui::TreeChange>>();
-
             let mut builder = DiffSpecBuilder::new(&repo, context_lines);
+            let mut tree_changes = None;
             for change in sources {
                 match change {
                     CommittedChange::File(committed_file) => builder
@@ -1310,7 +1299,25 @@ pub fn run(
                             committed_file.path.as_ref(),
                         )?,
                     CommittedChange::Hunk(hunk) => {
-                        builder.push_hunks_with_changes([hunk.hunk], &tree_changes)
+                        if tree_changes.is_none() {
+                            let commit = repo.find_commit(source.commit_id)?;
+                            tree_changes = Some(
+                                but_core::diff::tree_changes(
+                                    &repo,
+                                    commit.parent_ids().next().map(|id| id.detach()),
+                                    source.commit_id,
+                                )?
+                                .into_iter()
+                                .map(Into::into)
+                                .collect::<Vec<but_core::ui::TreeChange>>(),
+                            );
+                        }
+                        builder.push_hunks_with_changes(
+                            [hunk.hunk],
+                            tree_changes
+                                .as_ref()
+                                .expect("tree changes are initialized for committed hunks"),
+                        )
                     }
                 }
             }
@@ -1353,18 +1360,7 @@ pub fn run(
             let context_lines = ctx.settings.context_lines;
             let (repo, ..) = ctx.workspace_and_db_mut_with_perm(perm.read_permission())?;
             let mut builder = DiffSpecBuilder::new(&repo, context_lines);
-            let commit = repo.find_commit(source.commit_id)?;
-
-            // TODO optimize, we've already run this diff... Possibly attach tree change to committed hunk?
-            let tree_changes = but_core::diff::tree_changes(
-                &repo,
-                commit.parent_ids().next().map(|id| id.detach()),
-                source.commit_id,
-            )?
-            .into_iter()
-            .map(Into::into)
-            .collect::<Vec<but_core::ui::TreeChange>>();
-
+            let mut tree_changes = None;
             for change in sources {
                 match change {
                     CommittedChange::File(committed_file) => builder
@@ -1373,7 +1369,25 @@ pub fn run(
                             committed_file.path.as_ref(),
                         )?,
                     CommittedChange::Hunk(hunk) => {
-                        builder.push_hunks_with_changes([hunk.hunk], &tree_changes)
+                        if tree_changes.is_none() {
+                            let commit = repo.find_commit(source.commit_id)?;
+                            tree_changes = Some(
+                                but_core::diff::tree_changes(
+                                    &repo,
+                                    commit.parent_ids().next().map(|id| id.detach()),
+                                    source.commit_id,
+                                )?
+                                .into_iter()
+                                .map(Into::into)
+                                .collect::<Vec<but_core::ui::TreeChange>>(),
+                            );
+                        }
+                        builder.push_hunks_with_changes(
+                            [hunk.hunk],
+                            tree_changes
+                                .as_ref()
+                                .expect("tree changes are initialized for committed hunks"),
+                        )
                     }
                 }
             }
