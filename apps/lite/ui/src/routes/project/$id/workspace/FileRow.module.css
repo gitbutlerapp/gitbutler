@@ -38,10 +38,11 @@
 	}
 }
 
-/* A reviewed file is done with, so what the row says about it recedes. The tick
-   carries the news, and the row's actions stay as available as any other row's:
-   dimming a control reads as disabling it. */
-.reviewedRow > :not(.reviewedMark, [role="toolbar"]) {
+/* A reviewed file is done with, so what the row says about it recedes: its mark
+   and its name. The tick carries the news, and the row's controls — the
+   checkbox included — stay as available as any other row's: dimming a control
+   reads as disabling it. */
+.reviewedFade {
 	opacity: 0.5;
 }
 
