@@ -234,7 +234,7 @@ impl NewUnstackedBranchOperation {
         )?;
 
         if switch {
-            but_api::branch::branch_checkout_with_perm(ctx, new_ref.clone(), perm)?;
+            but_api::branch::branch_checkout_with_perm_only(ctx, new_ref.clone(), perm)?;
         }
 
         Ok(NewOutcome {
@@ -301,7 +301,7 @@ impl NewUnstackedBranchOperation {
                 },
             )?;
 
-            but_api::branch::branch_checkout_with_perm(ctx, new_ref.clone(), perm)?;
+            but_api::branch::branch_checkout_with_perm_only(ctx, new_ref.clone(), perm)?;
         } else if switch {
             drop(repo);
 
@@ -325,7 +325,7 @@ impl NewUnstackedBranchOperation {
                 },
             )?;
 
-            but_api::branch::branch_checkout_with_perm(ctx, new_ref.clone(), perm)?;
+            but_api::branch::branch_checkout_with_perm_only(ctx, new_ref.clone(), perm)?;
         } else {
             // if we're not on the target then enter a workspace and create the branch
 
@@ -469,7 +469,7 @@ impl NewStackedBranchOperation {
         )?;
 
         if checkout_after_create || switch {
-            but_api::branch::branch_checkout_with_perm(ctx, new_ref.clone(), perm)?;
+            but_api::branch::branch_checkout_with_perm_only(ctx, new_ref.clone(), perm)?;
         }
 
         Ok(NewOutcome {

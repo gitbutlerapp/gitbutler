@@ -369,7 +369,7 @@ pub fn run(
     };
     if checkout_after_create && let Some(BranchNameTarget::New(branch_name)) = &outcome.branch_name
     {
-        but_api::branch::branch_checkout_with_perm(ctx, branch_name.clone(), perm)?;
+        but_api::branch::branch_checkout_with_perm_only(ctx, branch_name.clone(), perm)?;
     }
 
     Ok((outcome, ws))

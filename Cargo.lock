@@ -844,7 +844,6 @@ dependencies = [
  "but-installer",
  "but-llm",
  "but-meta",
- "but-oplog",
  "but-path",
  "but-project-handle",
  "but-rebase",
