@@ -11,8 +11,7 @@ export type BadgeVariant =
 	| "danger"
 	| "purple"
 	| "blue"
-	| "pop"
-	| "integrated";
+	| "pop";
 
 /** @public */
 export type BadgeSize = "regular" | "large";
@@ -59,7 +58,6 @@ export const Badge: FC<{ variant: BadgeVariant; size?: BadgeSize } & ComponentPr
 				Match.when("purple", () => styles.purple),
 				Match.when("blue", () => styles.blue),
 				Match.when("pop", () => styles.pop),
-				Match.when("integrated", () => styles.integrated),
 				Match.exhaustive,
 			),
 		)}
