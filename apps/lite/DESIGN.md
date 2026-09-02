@@ -79,3 +79,46 @@ language/filetype glyphs that carry their own brand colors (the Rust gear, the
 TypeScript square). They are deliberately full-color and are the only icons
 that don't inherit `currentColor`. Use them for files and file-shaped things
 only — never as general-purpose UI icons.
+
+## Tooltips
+
+**Short.** A tooltip is a label, not a sentence. Aim for two to five words,
+sentence case, no full stop. The popup caps at 240px and wraps, but a tooltip
+that needs two lines of prose is usually explaining something the UI should
+have made obvious on its own — or it belongs in a popup, an empty state, or the
+docs.
+
+**Never repeat the trigger's own label.** A tooltip that says "Commit" over a
+button reading _Commit_ is noise on every hover. If a control already says what
+it does, the tooltip has to add something — a shortcut, the reason it is
+disabled, the full value behind a truncation — or not exist. The Commit button
+does this literally: its tooltip is disabled while its label is visible and
+turns back on only when the button collapses to an icon.
+
+**What a tooltip is for.** Three jobs, and not much else:
+
+- **Naming an icon-only control.** The icon carries the meaning, the tooltip
+  spells it out. Use the imperative — "Copy branch name", "Hide form", "Toggle
+  line wrapping".
+- **Revealing what didn't fit.** The truncated path, the branch name, the
+  absolute time behind "3h ago", the counts behind a stats badge. Here the
+  tooltip is the value itself, not a description of it.
+- **Saying why something is disabled.** A disabled control can't explain
+  itself, so its tooltip does: "No changes to commit", "Set up AI in Settings →
+  Application → AI". Swap the hint in for the normal tooltip while the reason
+  applies.
+
+**Shortcuts go in the `kbd` slot, not the text.** Don't write "Fetch (⌘R)" —
+pass the hotkey and let `TooltipPopup` render the keycaps. Pass `kbdScope`
+alongside it when the hotkey is bound to a pane: a shortcut that does nothing
+from where the user is standing is worse than no shortcut at all.
+
+**A tooltip is never the only way to know.** It needs hover, so it doesn't
+exist for keyboard or screen readers, and it's out of reach of touch. An
+icon-only button gets an `aria-label` as well — the tooltip repeats that name,
+it doesn't supply it. Nothing a user must read to proceed lives only in a
+tooltip, and nothing inside one is clickable.
+
+**Say it the way the rest of Lite says it.** Tooltips get the same plain, warm
+wording as every other string — the friendly word over git's own term, and the
+same wording as the menu item or button elsewhere that does the same thing.
