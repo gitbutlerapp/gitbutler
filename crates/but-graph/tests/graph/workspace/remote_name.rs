@@ -1,5 +1,5 @@
 use but_core::RefMetadata;
-use but_graph::Graph;
+use but_graph::Workspace;
 use but_testsupport::visualize_commit_graph_all;
 
 use super::target_meta;
@@ -12,9 +12,8 @@ fn with_target_ref_extracts_remote_name() -> anyhow::Result<()> {
 
     add_workspace(&mut meta);
 
-    let ws = Graph::from_head(&repo, &*meta, target_meta(), &mut db, standard_options())?
-        .validated()?
-        .into_workspace()?;
+    let ws = Workspace::from_head(&repo, &*meta, target_meta(), &mut db, standard_options())?
+        .validated()?;
 
     assert!(ws.target_ref.is_some());
     assert_eq!(
@@ -32,15 +31,14 @@ fn returns_none_when_no_target_and_no_push_remote() -> anyhow::Result<()> {
 
     add_workspace(&mut meta);
 
-    let ws = Graph::from_head(
+    let ws = Workspace::from_head(
         &repo,
         &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
         &mut db,
         standard_options(),
     )?
-    .validated()?
-    .into_workspace()?;
+    .validated()?;
 
     assert!(ws.target_ref.is_none(), "should not have a target_ref");
     assert!(
@@ -74,17 +72,17 @@ fn target_local_tracking_ref_exists_when_other_branch_metadata_names_the_same_ti
     branch.update_times(false);
     meta.set_branch(&branch)?;
 
-    let ws = Graph::from_head(&repo, &*meta, target_meta(), &mut db, standard_options())?
-        .validated()?
-        .into_workspace()?;
+    let ws = Workspace::from_head(&repo, &*meta, target_meta(), &mut db, standard_options())?
+        .validated()?;
     // the target remote and its local tracking branch get sibling links even when another branch owns the shared commit
     snapbox::assert_data_eq!(
-        graph_dag(&ws.graph),
+        graph_dag(&ws),
         snapbox::str![[r#"
 ◎  B
 │ ◎  👉📕gitbutler/workspace[🌳]
-│ │ ◎  origin/main
 │ │ ◎  main <> origin/main
+│ ├─╯
+│ │ ◎  origin/main
 │ ├─╯
 │ ◎  📙A
 ├─╯

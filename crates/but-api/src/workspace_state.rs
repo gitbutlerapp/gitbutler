@@ -102,7 +102,7 @@ impl WorkspaceState {
                 workspace,
                 repo,
                 but_workspace::ref_info::Options {
-                    project_meta: workspace.graph.project_meta.clone(),
+                    project_meta: workspace.project_meta.clone(),
                     traversal: but_graph::init::Options::limited(),
                     expensive_commit_info: true,
                     ..Default::default()
@@ -179,7 +179,7 @@ impl WorkspaceState {
         replaced_commits: BTreeMap<gix::ObjectId, gix::ObjectId>,
         prs_by_head: &HashMap<String, but_forge::ReviewAssociation>,
     ) -> anyhow::Result<WorkspaceState> {
-        let workspace = rebase.overlayed_graph()?.into_workspace()?;
+        let workspace = rebase.overlayed_workspace()?;
         let (repo, meta, db) = rebase.repo_meta_and_db_mut();
         Self::from_workspace_with_prs(
             &workspace,

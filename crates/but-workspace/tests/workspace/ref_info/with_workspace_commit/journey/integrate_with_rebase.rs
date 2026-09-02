@@ -72,7 +72,7 @@ Ok(
                 ),
                 segments: [
                     ref_info::ui::Segment {
-                        id: NodeIndex(3),
+                        id: 2,
                         ref_name: "►A",
                         remote_tracking_ref_name: "refs/remotes/origin/A",
                         commits: [
@@ -93,19 +93,31 @@ Ok(
                 ref_name: FullName(
                     "refs/remotes/origin/main",
                 ),
-                segment_index: NodeIndex(1),
+                tip_commit_id: Some(
+                    Sha1(eabf2989a998260c7fbe181b33d5772705d62907),
+                ),
+                local_tracking: Some(
+                    RefInfo {
+                        ref_name: FullName(
+                            "refs/heads/main",
+                        ),
+                        commit_id: Some(
+                            Sha1(eabf2989a998260c7fbe181b33d5772705d62907),
+                        ),
+                        worktree: None,
+                    },
+                ),
                 commits_ahead: 5,
             },
         ),
         target_commit: Some(
             TargetCommit {
                 commit_id: Sha1(eabf2989a998260c7fbe181b33d5772705d62907),
-                segment_index: NodeIndex(2),
             },
         ),
         is_target_current: true,
         lower_bound: Some(
-            NodeIndex(5),
+            Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
         ),
         is_managed_ref: true,
         is_managed_commit: true,
@@ -183,7 +195,7 @@ Ok(
                 ),
                 segments: [
                     ref_info::ui::Segment {
-                        id: NodeIndex(3),
+                        id: 2,
                         ref_name: "►A",
                         remote_tracking_ref_name: "refs/remotes/origin/A",
                         commits: [
@@ -204,19 +216,31 @@ Ok(
                 ref_name: FullName(
                     "refs/remotes/origin/main",
                 ),
-                segment_index: NodeIndex(1),
+                tip_commit_id: Some(
+                    Sha1(d89aadb67d5c32e6a63cad3d36020b5e8e192a91),
+                ),
+                local_tracking: Some(
+                    RefInfo {
+                        ref_name: FullName(
+                            "refs/heads/main",
+                        ),
+                        commit_id: Some(
+                            Sha1(d89aadb67d5c32e6a63cad3d36020b5e8e192a91),
+                        ),
+                        worktree: None,
+                    },
+                ),
                 commits_ahead: 5,
             },
         ),
         target_commit: Some(
             TargetCommit {
                 commit_id: Sha1(d89aadb67d5c32e6a63cad3d36020b5e8e192a91),
-                segment_index: NodeIndex(2),
             },
         ),
         is_target_current: true,
         lower_bound: Some(
-            NodeIndex(5),
+            Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
         ),
         is_managed_ref: true,
         is_managed_commit: true,
@@ -292,7 +316,7 @@ Ok(
                 ),
                 segments: [
                     ref_info::ui::Segment {
-                        id: NodeIndex(3),
+                        id: 2,
                         ref_name: "►A",
                         remote_tracking_ref_name: "refs/remotes/origin/A",
                         commits: [
@@ -313,19 +337,31 @@ Ok(
                 ref_name: FullName(
                     "refs/remotes/origin/main",
                 ),
-                segment_index: NodeIndex(1),
+                tip_commit_id: Some(
+                    Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
+                ),
+                local_tracking: Some(
+                    RefInfo {
+                        ref_name: FullName(
+                            "refs/heads/main",
+                        ),
+                        commit_id: Some(
+                            Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
+                        ),
+                        worktree: None,
+                    },
+                ),
                 commits_ahead: 0,
             },
         ),
         target_commit: Some(
             TargetCommit {
                 commit_id: Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
-                segment_index: NodeIndex(2),
             },
         ),
         is_target_current: true,
         lower_bound: Some(
-            NodeIndex(2),
+            Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
         ),
         is_managed_ref: true,
         is_managed_commit: true,
@@ -403,7 +439,7 @@ Ok(
                 ),
                 segments: [
                     ref_info::ui::Segment {
-                        id: NodeIndex(3),
+                        id: 2,
                         ref_name: "►A",
                         remote_tracking_ref_name: "refs/remotes/origin/A",
                         commits: [
@@ -424,19 +460,31 @@ Ok(
                 ref_name: FullName(
                     "refs/remotes/origin/main",
                 ),
-                segment_index: NodeIndex(1),
+                tip_commit_id: Some(
+                    Sha1(7a2d071f19ec7551996099943167460ff2c2dd9d),
+                ),
+                local_tracking: Some(
+                    RefInfo {
+                        ref_name: FullName(
+                            "refs/heads/main",
+                        ),
+                        commit_id: Some(
+                            Sha1(7a2d071f19ec7551996099943167460ff2c2dd9d),
+                        ),
+                        worktree: None,
+                    },
+                ),
                 commits_ahead: 5,
             },
         ),
         target_commit: Some(
             TargetCommit {
                 commit_id: Sha1(7a2d071f19ec7551996099943167460ff2c2dd9d),
-                segment_index: NodeIndex(2),
             },
         ),
         is_target_current: true,
         lower_bound: Some(
-            NodeIndex(5),
+            Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
         ),
         is_managed_ref: true,
         is_managed_commit: true,

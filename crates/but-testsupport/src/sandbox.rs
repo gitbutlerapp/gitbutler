@@ -254,17 +254,18 @@ impl Sandbox {
             .unwrap()
     }
 
-    /// Return the graph at `HEAD`, along with the `(graph, repo, meta)` repository and metadata used to create it.
-    pub fn graph_at_head(
+    /// Return the workspace at `HEAD`, along with the `(workspace, repo, meta)` repository and
+    /// metadata used to create it.
+    pub fn workspace_at_head(
         &self,
     ) -> (
-        but_graph::Graph,
+        but_graph::Workspace,
         gix::Repository,
         impl but_core::RefMetadata,
     ) {
         let repo = self.open_repo();
         let meta = self.meta();
-        let graph = but_graph::Graph::from_head(
+        let ws = but_graph::Workspace::from_head(
             &repo,
             &meta,
             self.project_meta(),
@@ -272,20 +273,20 @@ impl Sandbox {
             but_graph::init::Options::default(),
         )
         .unwrap();
-        (graph, repo, meta)
+        (ws, repo, meta)
     }
 
-    /// Return a worktree visualisation, freshly read from [Self::graph_at_head()].
+    /// Return a worktree visualisation, freshly read from [Self::workspace_at_head()].
     pub fn workspace_debug_at_head(&self) -> String {
-        let (graph, _repo, _meta) = self.graph_at_head();
-        graph_workspace_determinisitcally(&graph.into_workspace().unwrap()).to_string()
+        let (ws, _repo, _meta) = self.workspace_at_head();
+        graph_workspace_determinisitcally(&ws).to_string()
     }
 
-    /// Open the graph at `HEAD` as SVG for debugging.
+    /// Open the workspace's commit graph at `HEAD` as SVG for debugging.
     #[cfg(unix)]
     pub fn open_graph_at_head_as_svg(&self) {
-        let (graph, _repo, _meta) = self.graph_at_head();
-        graph.open_as_svg();
+        let (ws, _repo, _meta) = self.workspace_at_head();
+        ws.open_as_svg();
     }
 
     /// Show a git log for all refs.

@@ -27,7 +27,7 @@ fn discard_middle_commit_in_non_managed_workspace() -> Result<()> {
     let two = repo.rev_parse_single("two")?;
     let three = repo.rev_parse_single("three")?;
 
-    let mut ws = graph.into_workspace()?;
+    let mut ws = graph;
     let editor = Editor::create(&mut ws, &mut meta, &repo, &mut db)?;
     let outcome = discard_commits(editor, [two.detach()])?;
 
@@ -100,7 +100,7 @@ fn discard_tip_commit_in_workspace_stack() -> Result<()> {
     let b = repo.rev_parse_single("B")?;
     let c = repo.rev_parse_single("C")?;
 
-    let mut ws = graph.into_workspace()?;
+    let mut ws = graph;
     snapbox::assert_data_eq!(
         graph_workspace(&ws).to_string(),
         snapbox::str![[r#"
@@ -185,7 +185,7 @@ fn discard_bottom_commit_in_workspace_stack() -> Result<()> {
     let c = repo.rev_parse_single("C")?;
     let main = repo.rev_parse_single("main")?;
 
-    let mut ws = graph.into_workspace()?;
+    let mut ws = graph;
     snapbox::assert_data_eq!(
         graph_workspace(&ws).to_string(),
         snapbox::str![[r#"
@@ -268,7 +268,7 @@ fn can_discard_conflicted_commit() -> Result<()> {
 
     let conflicted = repo.rev_parse_single("conflicted")?;
 
-    let mut ws = graph.into_workspace()?;
+    let mut ws = graph;
     let editor = Editor::create(&mut ws, &mut meta, &repo, &mut db)?;
     let outcome = discard_commits(editor, [conflicted.detach()])?;
 
@@ -305,7 +305,7 @@ fn discard_multiple_commits_in_single_rebase() -> Result<()> {
     let two = repo.rev_parse_single("two")?;
     let three = repo.rev_parse_single("three")?;
 
-    let mut ws = graph.into_workspace()?;
+    let mut ws = graph;
     let editor = Editor::create(&mut ws, &mut meta, &repo, &mut db)?;
     // Discard both two and three in a single operation.
     let outcome = discard_commits(editor, [two.into(), three.into()])?;
@@ -377,7 +377,7 @@ fn discard_both_commits_in_workspace_stack() -> Result<()> {
     let c = repo.rev_parse_single("C")?;
     let main = repo.rev_parse_single("main")?;
 
-    let mut ws = graph.into_workspace()?;
+    let mut ws = graph;
     let editor = Editor::create(&mut ws, &mut meta, &repo, &mut db)?;
     // Discard both B and C in one rebase.
     let outcome = discard_commits(editor, [b.into(), c.into()])?;

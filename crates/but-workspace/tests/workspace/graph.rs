@@ -12,7 +12,7 @@
 
 use anyhow::Result;
 use but_core::ref_metadata::ProjectMeta;
-use but_graph::{Graph, init::Options};
+use but_graph::{Workspace, init::Options};
 use but_meta::VirtualBranchesTomlMetadata;
 use but_testsupport::{gix_testtools::tempfile::TempDir, visualize_commit_graph_all};
 use but_workspace::workspace::{
@@ -50,8 +50,8 @@ fn detailed(
     };
     // The fixture is shared and read-only, so the database stands alone.
     let mut db = but_testsupport::in_memory_db();
-    let graph = Graph::from_head(&repo, &meta, project_meta, &mut db, Options::limited())?;
-    let mut ws = graph.into_workspace()?;
+    let graph = Workspace::from_head(&repo, &meta, project_meta, &mut db, Options::limited())?;
+    let mut ws = graph;
     let detailed = detailed_graph_workspace(&mut ws, &mut meta, &repo, &mut db)?;
     Ok((repo, detailed))
 }
@@ -74,7 +74,7 @@ fn detailed_writable(
         target_commit_id: Some(target_sha),
         push_remote: None,
     };
-    let graph = Graph::from_head(
+    let graph = Workspace::from_head(
         &repo,
         &meta,
         project_meta,
@@ -84,7 +84,7 @@ fn detailed_writable(
             ..Options::limited()
         },
     )?;
-    let mut ws = graph.into_workspace()?;
+    let mut ws = graph;
     let detailed = detailed_graph_workspace(&mut ws, &mut meta, &repo, &mut db)?;
     Ok((tmp, detailed))
 }
@@ -629,13 +629,6 @@ fn disjoint_stacks_stay_separate() -> Result<()> {
         render(&detailed),
         snapbox::str![[r#"
 # Stack 0
-◎  0 refs/heads/stack-b
-●  1 cb7021b B2
-●  2 ce3278a B1
-  linear    ref=0  rows=[0, 1, 2]
-  reference ref=0  rows=[0, 1, 2]
-
-# Stack 1
 ◎  0 refs/heads/stack-a
 ●  1 49c06ff A2
 ●  2 ff76d2f A1
@@ -645,6 +638,13 @@ fn disjoint_stacks_stay_separate() -> Result<()> {
   linear    ref=3  rows=[3, 4]
   reference ref=0  rows=[0, 1, 2]
   reference ref=3  rows=[3, 4]
+
+# Stack 1
+◎  0 refs/heads/stack-b
+●  1 cb7021b B2
+●  2 ce3278a B1
+  linear    ref=0  rows=[0, 1, 2]
+  reference ref=0  rows=[0, 1, 2]
 "#]]
     );
     Ok(())
@@ -658,13 +658,6 @@ fn disjoint_stacks_stay_separate_with_target() -> Result<()> {
         render(&detailed),
         snapbox::str![[r#"
 # Stack 0
-◎  0 refs/heads/stack-b
-●  1 cb7021b B2
-●  2 ce3278a B1
-  linear    ref=0  rows=[0, 1, 2]
-  reference ref=0  rows=[0, 1, 2]
-
-# Stack 1
 ◎  0 refs/heads/stack-a
 ●  1 49c06ff A2
 ●  2 ff76d2f A1
@@ -673,6 +666,13 @@ fn disjoint_stacks_stay_separate_with_target() -> Result<()> {
   linear    ref=3  rows=[3]
   reference ref=0  rows=[0, 1, 2]
   reference ref=3  rows=[3]
+
+# Stack 1
+◎  0 refs/heads/stack-b
+●  1 cb7021b B2
+●  2 ce3278a B1
+  linear    ref=0  rows=[0, 1, 2]
+  reference ref=0  rows=[0, 1, 2]
 "#]]
     );
     Ok(())
@@ -1153,7 +1153,7 @@ fn commit_state_uses_similarity_for_local_and_remote() -> Result<()> {
     let target_sha = project_meta
         .target_commit_id
         .context("scenario should configure a target")?;
-    let graph = Graph::from_head(
+    let graph = Workspace::from_head(
         &repo,
         &*meta,
         project_meta,
@@ -1163,7 +1163,7 @@ fn commit_state_uses_similarity_for_local_and_remote() -> Result<()> {
             ..Options::limited()
         },
     )?;
-    let mut ws = graph.into_workspace()?;
+    let mut ws = graph;
     let detailed = detailed_graph_workspace(&mut ws, &mut *meta, &repo, &mut db)?;
     snapbox::assert_data_eq!(
         render_commit_state(&detailed),

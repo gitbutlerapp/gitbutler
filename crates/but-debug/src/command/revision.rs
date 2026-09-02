@@ -3,7 +3,6 @@
 use std::io::{self, Write as _};
 
 use anyhow::{Context as _, Result, bail, ensure};
-use but_graph::FirstParent;
 use but_graph::init::Tip;
 use gix::{odb::store::RefreshMode, reference::Category, revision::plumbing::Spec};
 
@@ -51,7 +50,7 @@ fn log(
     graph_commits.extend(excluded);
 
     let graph_tips = args_to_tips(repo, &log_args.graph)?;
-    let graph = {
+    let ws = {
         let _span =
             tracing::info_span!("build graph", commit_count = graph_commits.len()).entered();
         graph_for_revisions(repo, meta, &graph_commits, graph_tips)?
@@ -59,11 +58,10 @@ fn log(
 
     let _span = tracing::info_span!("traverse graph").entered();
     let commits = if let Some(excluded) = excluded {
-        graph.find_commit_ids_reachable_from_a_not_b(
-            included,
-            excluded,
-            FirstParent::from(log_args.first_parent),
-        )?
+        let cg = ws
+            .commit_graph_ref()
+            .context("the traversal produced no commit graph")?;
+        cg.commits_reachable_from_a_not_b(included, excluded, log_args.first_parent)
     } else {
         bail!("Need to specify a rev-spec of form `a..b` to indicate an exclusion for now.")
     };
@@ -100,39 +98,22 @@ fn merge_base(
     };
 
     let graph_tips = args_to_tips(repo, &merge_base_args.graph)?;
-    let graph = {
+    let ws = {
         let _span = tracing::info_span!("build graph", commit_count = commits.len()).entered();
         graph_for_revisions(repo, meta, &commits, graph_tips)?
-    };
-
-    let segments = {
-        let _span = tracing::info_span!("map commit ids to segments", commit_count = commits.len())
-            .entered();
-        commits
-            .iter()
-            .copied()
-            .map(|commit_id| graph.segment_id_by_commit_id(commit_id))
-            .collect::<Result<Vec<_>>>()
-            .context("Failed to map commit ids to graph segments")?
     };
 
     let merge_base = {
         let _span = tracing::info_span!("compute octopus merge-base", commit_count = commits.len())
             .entered();
-        graph
-            .find_merge_base_octopus(segments)
-            .map(|segment_id| {
-                graph
-                    .tip_skip_empty(segment_id)
-                    .map(|commit| commit.id)
-                    .with_context(|| {
-                        format!(
-                            "BUG: Segment {segment_id:?} does not contain a reachable tip commit"
-                        )
-                    })
-            })
-            .transpose()
-            .context("Failed to compute octopus merge-base from graph")?
+        let cg = ws
+            .commit_graph_ref()
+            .context("the traversal produced no commit graph")?;
+        // Octopus merge-base: reduce the revisions pairwise. `merge_base` resolves to the commit
+        // directly, so no segment/tip mapping is needed.
+        commits
+            .split_first()
+            .and_then(|(&first, rest)| rest.iter().try_fold(first, |acc, &c| cg.merge_base(acc, c)))
     };
 
     let Some(merge_base) = merge_base else {
@@ -190,7 +171,7 @@ fn graph_for_revisions(
     meta: &EmptyRefMetadata,
     commits: &[gix::ObjectId],
     graph_tips: Vec<Tip>,
-) -> Result<but_graph::Graph> {
+) -> Result<but_graph::Workspace> {
     let first = *commits
         .first()
         .context("BUG: revision graph requires at least one commit")?;
@@ -209,7 +190,7 @@ fn graph_for_revisions(
         )
         .chain(graph_tips);
 
-    but_graph::Graph::from_commit_traversal_tips(
+    but_graph::Workspace::from_commit_traversal_tips(
         repo,
         tips,
         meta,

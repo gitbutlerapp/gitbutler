@@ -41,7 +41,7 @@ impl Archival {
         let meta = ctx.meta()?;
         let project_meta = ctx.project_meta()?;
         let mut db = ctx.db.get_cache_mut()?;
-        let mut graph = but_graph::Graph::from_head(
+        let mut ws = but_graph::Workspace::from_head(
             &repo,
             &meta,
             project_meta.clone(),
@@ -51,9 +51,10 @@ impl Archival {
         .or_else(|_| {
             // Assume it fails because of post-processing, try again without.
             options.dangerously_skip_postprocessing_for_debugging = true;
-            but_graph::Graph::from_head(&repo, &meta, project_meta, &mut db, options)
+            but_graph::Workspace::from_head(&repo, &meta, project_meta, &mut db, options)
         })?;
-        let dot_file_contents = graph.anonymize(&repo.remote_names())?.dot_graph_pruned();
+        ws.anonymize(&repo.remote_names())?;
+        let dot_file_contents = ws.dot_graph_pruned(ws.lower_bound);
         let output_file = self.cache_dir.join(format!(
             "commit-graph-anon-{date}.zip",
             date = filesafe_date_time()

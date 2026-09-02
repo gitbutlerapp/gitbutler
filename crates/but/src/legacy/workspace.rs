@@ -64,11 +64,11 @@ fn head_info(
         options.worktrees =
             edit_mode_workspace_ref.is_none() && ctx.settings.feature_flags.worktree_manipulation;
         let mut db = ctx.db.get_cache_mut()?;
-        let graph = match &edit_mode_workspace_ref {
+        match &edit_mode_workspace_ref {
             Some(ref_name) => {
                 let mut reference = repo.find_reference(ref_name.as_ref())?;
                 let id = reference.peel_to_id()?;
-                but_graph::Graph::from_commit_traversal(
+                but_graph::Workspace::from_commit_traversal(
                     id,
                     reference.name().to_owned(),
                     &meta,
@@ -77,11 +77,14 @@ fn head_info(
                     options,
                 )?
             }
-            None => {
-                but_graph::Graph::from_head(&repo, &meta, ctx.project_meta()?, &mut db, options)?
-            }
-        };
-        graph.into_workspace()?
+            None => but_graph::Workspace::from_head(
+                &repo,
+                &meta,
+                ctx.project_meta()?,
+                &mut db,
+                options,
+            )?,
+        }
     };
     let gerrit_mode_enabled = repo.git_settings()?.gitbutler_gerrit_mode.unwrap_or(false);
     let db = gerrit_mode_enabled

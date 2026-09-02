@@ -340,8 +340,9 @@ pub(super) mod function {
                         workspace.try_find_segment_owner_indexes_by_refname(anchor_ref.as_ref())?;
                     let segment = &workspace.stacks[stack_idx].segments[seg_idx];
 
-                    workspace
-                        .tip_commit_by_segment_id(segment.id)
+                    segment
+                        .tip_commit_id
+                        .and_then(|tip| workspace.commit_graph_ref()?.commit(tip))
                         .map(|commit| position.resolve_commit(commit.into(), ws_base))
                         .context(
                             "BUG: we should always see through to the base or eligible commits",
@@ -418,12 +419,9 @@ pub(super) mod function {
                     let (stack_idx, seg_idx) =
                         workspace.try_find_segment_owner_indexes_by_refname(anchor_ref.as_ref())?;
                     let segment = &workspace.stacks[stack_idx].segments[seg_idx];
-                    let ref_target_id = workspace
-                        .tip_commit_by_segment_id(segment.id)
-                        .map(|commit| commit.id)
-                        .context(
-                            "BUG: we should always see through to the base or eligible commits",
-                        )?;
+                    let ref_target_id = segment.tip_commit_id.context(
+                        "BUG: we should always see through to the base or eligible commits",
+                    )?;
                     AnchorResolution::positioned(
                         ref_target_id,
                         Some(ref_target_id) != ws_base,
@@ -458,6 +456,7 @@ pub(super) mod function {
                     .map(|()| existing)
             })
             .transpose()?;
+
         // Assure this commit is in the workspace as well.
         if check_if_id_in_workspace {
             workspace.try_find_owner_indexes_by_commit_id(ref_target_id)?;
@@ -490,12 +489,10 @@ pub(super) mod function {
                 overlay = overlay.with_entrypoint(ref_target_id, Some(new_tip));
             }
 
-            workspace
-                .graph
-                .redo_traversal_with_overlay(repo, meta, overlay)?
+            workspace.redo_traversal_into_workspace_with_overlay(repo, meta, overlay)?
         };
 
-        let updated_workspace = graph_with_new_ref.into_workspace()?;
+        let updated_workspace = graph_with_new_ref;
         let has_new_ref_as_standalone_segment = updated_workspace
             .find_segment_and_stack_by_refname(ref_name)
             .is_some();

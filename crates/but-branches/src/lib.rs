@@ -12,12 +12,12 @@ use std::collections::{BTreeMap, BTreeSet};
 
 use bstr::{BStr, BString, ByteSlice};
 use but_core::{RefMetadata, WORKSPACE_REF_NAME};
-use but_graph::{Graph, SegmentIndex, Workspace};
+use but_graph::Workspace;
 use gix::{
     prelude::ObjectIdExt,
     refs::{Category, FullName},
 };
-use walk::OwnedHistory;
+use walk::{OwnedHistory, SegmentIndex};
 
 /// Options for [`list()`].
 #[derive(Debug, Default, Clone)]
@@ -213,13 +213,9 @@ pub fn list(
     );
     let tip_infos = tip_commit_infos(repo, tips);
 
-    let ctx = ListingContext::new(
-        &ws,
-        remote_names,
-        refs_by_identity,
-        tip_infos,
-        walk::target_of(&ws),
-    );
+    let topo = walk::Topology::new(&ws, repo);
+    let target = walk::target_of(&topo);
+    let ctx = ListingContext::new(&ws, topo, remote_names, refs_by_identity, tip_infos, target);
 
     let mut consumed = BTreeSet::<BString>::new();
     let mut stacks = Vec::new();
@@ -274,6 +270,8 @@ struct Participant {
 /// of thousands of branches.
 struct ListingContext<'a> {
     ws: &'a Workspace,
+    /// The branch topology of `ws`, the only source of graph answers.
+    topo: walk::Topology<'a>,
     remote_names: gix::remote::Names,
     /// All enumerated branch refs, grouped by branch name, in enumeration order.
     refs_by_identity: BTreeMap<BString, Vec<BranchRef>>,
@@ -292,17 +290,19 @@ struct ListingContext<'a> {
 impl<'a> ListingContext<'a> {
     fn new(
         ws: &'a Workspace,
+        topo: walk::Topology<'a>,
         remote_names: gix::remote::Names,
         refs_by_identity: BTreeMap<BString, Vec<BranchRef>>,
         tip_infos: BTreeMap<gix::ObjectId, (gix::actor::Signature, i64)>,
         target: Option<(gix::ObjectId, SegmentIndex)>,
     ) -> Self {
         ListingContext {
-            segment_by_ref: walk::ref_index(&ws.graph),
+            segment_by_ref: walk::ref_index(&topo),
             target_reachable: target
-                .map(|(_, start)| walk::reachable_from(&ws.graph, start))
+                .map(|(_, start)| walk::reachable_from(&topo, start))
                 .unwrap_or_default(),
             ws,
+            topo,
             remote_names,
             refs_by_identity,
             tip_infos,
@@ -315,12 +315,12 @@ impl<'a> ListingContext<'a> {
     /// makes the count unknowable.
     fn commits_ahead_of_target(&self, start: SegmentIndex) -> Option<usize> {
         self.target_tip?;
-        walk::count_outside(self.graph(), &self.target_reachable, start)
+        walk::count_outside(self.topo(), &self.target_reachable, start)
     }
 
     fn owned_history(&self, start: SegmentIndex, identity: &BString) -> OwnedHistory {
         walk::owned_history(
-            self.graph(),
+            self.topo(),
             start,
             identity,
             &self.remote_names,
@@ -366,9 +366,9 @@ impl<'a> ListingContext<'a> {
             // The projection's commits look exact even when the bottom graph
             // segment was cut short, as in a shallow clone.
             let clipped = segment
-                .commits_by_segment
+                .commits
                 .last()
-                .is_some_and(|&(sidx, _)| walk::traversal_was_clipped(self.graph(), sidx));
+                .is_some_and(|commit| self.topo().commit_clipped(commit.id));
             branches.push(ListedBranch {
                 display_name,
                 has_local: ref_name.category() == Some(Category::LocalBranch),
@@ -376,7 +376,10 @@ impl<'a> ListingContext<'a> {
                 ref_name,
                 tip,
                 commit_count: (!clipped).then_some(segment.commits.len()),
-                commits_ahead_of_target: self.commits_ahead_of_target(segment.id),
+                commits_ahead_of_target: self
+                    .topo()
+                    .branch_of_stack_segment(segment)
+                    .and_then(|branch| self.commits_ahead_of_target(branch)),
                 last_author,
                 updated_at_ms,
             });
@@ -589,8 +592,8 @@ impl<'a> ListingContext<'a> {
         }
     }
 
-    fn graph(&self) -> &Graph {
-        &self.ws.graph
+    fn topo(&self) -> &walk::Topology<'a> {
+        &self.topo
     }
 }
 

@@ -24,14 +24,13 @@ mod changes_in_branch {
 "#]]
         );
 
-        let graph = but_graph::Graph::from_head(
+        let ws = but_graph::Workspace::from_head(
             &repo,
             &*meta,
             project_meta(&repo)?,
             &mut db,
             Options::limited(),
         )?;
-        let ws = graph.into_workspace()?;
 
         snapbox::assert_data_eq!(
             ui::diff::changes_in_branch(&repo, &ws, r("refs/heads/A"))?.to_debug(),

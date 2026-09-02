@@ -228,16 +228,10 @@ pub fn commit_uncommit_only_with_perm(
             })?;
 
     let (workspace, replaced_commits, repo, meta, db) = if dry_run.into() {
-        let graph = rebase.overlayed_graph()?;
+        let workspace = rebase.overlayed_workspace()?;
         let replaced_commits = rebase.history.commit_mappings();
         let (repo, meta, db) = rebase.repo_meta_and_db_mut();
-        (
-            &mut graph.into_workspace()?,
-            replaced_commits,
-            repo,
-            meta,
-            db,
-        )
+        (&mut { workspace }, replaced_commits, repo, meta, db)
     } else {
         let materialized = rebase.materialize_without_checkout()?;
         (
@@ -324,16 +318,10 @@ pub fn commit_uncommit_changes_only_with_perm(
         but_workspace::commit::uncommit_changes(editor, commit_id, changes, context_lines)?;
 
     let (workspace, replaced_commits, repo, meta, db) = if dry_run.into() {
-        let graph = outcome.rebase.overlayed_graph()?;
+        let workspace = outcome.rebase.overlayed_workspace()?;
         let replaced_commits = outcome.rebase.history.commit_mappings();
         let (repo, meta, db) = outcome.rebase.repo_meta_and_db_mut();
-        (
-            &mut graph.into_workspace()?,
-            replaced_commits,
-            repo,
-            meta,
-            db,
-        )
+        (&mut { workspace }, replaced_commits, repo, meta, db)
     } else {
         let materialized = outcome.rebase.materialize_without_checkout()?;
         (
@@ -494,16 +482,10 @@ pub fn commit_uncommit_changes_from_commits_only_with_perm(
     let mut rebase = outcome.rebase;
     let (workspace, replaced_commits, repo, meta, db) = if dry_run.into() {
         if let Some(rebase) = rebase.as_mut() {
-            let graph = rebase.overlayed_graph()?;
+            let workspace = rebase.overlayed_workspace()?;
             let replaced_commits = rebase.history.commit_mappings();
             let (repo, meta, db) = rebase.repo_meta_and_db_mut();
-            (
-                &mut graph.into_workspace()?,
-                replaced_commits,
-                repo,
-                meta,
-                db,
-            )
+            (&mut { workspace }, replaced_commits, repo, meta, db)
         } else {
             (&mut *ws, BTreeMap::new(), &*repo, &mut meta, &mut *db)
         }

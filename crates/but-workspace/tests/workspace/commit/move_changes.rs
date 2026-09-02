@@ -35,7 +35,7 @@ fn move_changes_same_commit_is_noop() -> Result<()> {
     );
 
     let commit_id = repo.rev_parse_single("three")?.detach();
-    let mut ws = graph.into_workspace()?;
+    let mut ws = graph;
     let editor = Editor::create(&mut ws, &mut _meta, &repo, &mut db)?;
 
     // Moving changes from a commit to itself should be a no-op
@@ -45,7 +45,7 @@ fn move_changes_same_commit_is_noop() -> Result<()> {
     // Materialize should succeed
     outcome.rebase.materialize(Default::default())?;
 
-    // Graph should be unchanged
+    // Workspace should be unchanged
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
         snapbox::str![[r#"
@@ -103,7 +103,7 @@ aac5238
     );
 
     // Move three.txt from commit three to commit two
-    let mut ws = graph.into_workspace()?;
+    let mut ws = graph;
     let editor = Editor::create(&mut ws, &mut _meta, &repo, &mut db)?;
     let outcome = move_changes_between_commits(
         editor,
@@ -125,7 +125,7 @@ aac5238
 "#]]
     );
 
-    // Graph structure should be maintained (commit hashes will change)
+    // Workspace structure should be maintained (commit hashes will change)
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
         snapbox::str![[r#"
@@ -191,7 +191,7 @@ fn move_file_from_parent_to_head() -> Result<()> {
     let two_id = repo.rev_parse_single("two")?.detach();
 
     // Move two.txt from commit two up to commit three
-    let mut ws = graph.into_workspace()?;
+    let mut ws = graph;
     let editor = Editor::create(&mut ws, &mut _meta, &repo, &mut db)?;
     let outcome = move_changes_between_commits(
         editor,
@@ -213,7 +213,7 @@ fn move_file_from_parent_to_head() -> Result<()> {
 "#]]
     );
 
-    // Graph structure should be maintained
+    // Workspace structure should be maintained
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
         snapbox::str![[r#"
@@ -277,7 +277,7 @@ fn move_file_between_non_adjacent_commits() -> Result<()> {
     let one_id = repo.rev_parse_single("one")?.detach();
 
     // Move three.txt from commit three to commit one (skipping two)
-    let mut ws = graph.into_workspace()?;
+    let mut ws = graph;
     let editor = Editor::create(&mut ws, &mut _meta, &repo, &mut db)?;
     let outcome = move_changes_between_commits(
         editor,
@@ -300,7 +300,7 @@ fn move_file_between_non_adjacent_commits() -> Result<()> {
 "#]]
     );
 
-    // Graph structure should be maintained
+    // Workspace structure should be maintained
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
         snapbox::str![[r#"
@@ -371,7 +371,7 @@ fn error_when_changes_not_found_in_source() -> Result<()> {
     let two_id = repo.rev_parse_single("two")?.detach();
 
     // Try to move a file that doesn't exist in source commit
-    let mut ws = graph.into_workspace()?;
+    let mut ws = graph;
     let editor = Editor::create(&mut ws, &mut _meta, &repo, &mut db)?;
     let result = move_changes_between_commits(
         editor,

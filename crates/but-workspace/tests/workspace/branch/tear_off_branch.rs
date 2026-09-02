@@ -32,7 +32,7 @@ fn tear_off_top_most_branch() -> anyhow::Result<()> {
         .raw()
     );
 
-    let mut ws = graph.into_workspace()?;
+    let mut ws = graph;
     snapbox::assert_data_eq!(
         graph_workspace(&ws).to_string(),
         snapbox::str![[r#"
@@ -61,7 +61,7 @@ fn tear_off_top_most_branch() -> anyhow::Result<()> {
     // Materialize the operation
     rebase.materialize(Default::default())?;
     set_workspace_metadata(&mut meta, &ws, ws_meta)?;
-    let project_meta = ws.graph.project_meta.clone();
+    let project_meta = ws.project_meta.clone();
     ws.refresh_from_head(&repo, &meta, project_meta, &mut db)?;
 
     snapbox::assert_data_eq!(
@@ -125,7 +125,7 @@ fn tear_off_bottom_most_branch() -> anyhow::Result<()> {
         .raw()
     );
 
-    let mut ws = graph.into_workspace()?;
+    let mut ws = graph;
     snapbox::assert_data_eq!(
         graph_workspace(&ws).to_string(),
         snapbox::str![[r#"
@@ -154,7 +154,7 @@ fn tear_off_bottom_most_branch() -> anyhow::Result<()> {
     // Materialize the operation
     rebase.materialize(Default::default())?;
     set_workspace_metadata(&mut meta, &ws, ws_meta)?;
-    let project_meta = ws.graph.project_meta.clone();
+    let project_meta = ws.project_meta.clone();
     ws.refresh_from_head(&repo, &meta, project_meta, &mut db)?;
 
     snapbox::assert_data_eq!(
@@ -218,7 +218,7 @@ fn tear_off_only_branch_in_stack() -> anyhow::Result<()> {
         .raw()
     );
 
-    let mut ws = graph.into_workspace()?;
+    let mut ws = graph;
     snapbox::assert_data_eq!(
         graph_workspace(&ws).to_string(),
         snapbox::str![[r#"
@@ -247,7 +247,7 @@ fn tear_off_only_branch_in_stack() -> anyhow::Result<()> {
     // Materialize the operation
     rebase.materialize(Default::default())?;
     set_workspace_metadata(&mut meta, &ws, ws_meta)?;
-    let project_meta = ws.graph.project_meta.clone();
+    let project_meta = ws.project_meta.clone();
     ws.refresh_from_head(&repo, &meta, project_meta, &mut db)?;
 
     snapbox::assert_data_eq!(
@@ -302,7 +302,7 @@ fn tear_off_from_single_stack_in_ws_top() -> anyhow::Result<()> {
 "#]]
     );
 
-    let mut ws = graph.into_workspace()?;
+    let mut ws = graph;
     snapbox::assert_data_eq!(
         graph_workspace(&ws).to_string(),
         snapbox::str![[r#"
@@ -328,7 +328,7 @@ fn tear_off_from_single_stack_in_ws_top() -> anyhow::Result<()> {
     // Materialize the operation
     rebase.materialize(Default::default())?;
     set_workspace_metadata(&mut meta, &ws, ws_meta)?;
-    let project_meta = ws.graph.project_meta.clone();
+    let project_meta = ws.project_meta.clone();
     ws.refresh_from_head(&repo, &meta, project_meta, &mut db)?;
 
     snapbox::assert_data_eq!(
@@ -380,7 +380,7 @@ fn tear_off_from_single_stack_in_ws_bottom() -> anyhow::Result<()> {
 "#]]
     );
 
-    let mut ws = graph.into_workspace()?;
+    let mut ws = graph;
     snapbox::assert_data_eq!(
         graph_workspace(&ws).to_string(),
         snapbox::str![[r#"
@@ -406,7 +406,7 @@ fn tear_off_from_single_stack_in_ws_bottom() -> anyhow::Result<()> {
     // Materialize the operation
     rebase.materialize(Default::default())?;
     set_workspace_metadata(&mut meta, &ws, ws_meta)?;
-    let project_meta = ws.graph.project_meta.clone();
+    let project_meta = ws.project_meta.clone();
     ws.refresh_from_head(&repo, &meta, project_meta, &mut db)?;
 
     snapbox::assert_data_eq!(
@@ -459,7 +459,7 @@ fn tear_off_empty_branch() -> anyhow::Result<()> {
 "#]]
     );
 
-    let mut ws = graph.into_workspace()?;
+    let mut ws = graph;
     snapbox::assert_data_eq!(
         graph_workspace(&ws).to_string(),
         snapbox::str![[r#"
@@ -484,7 +484,7 @@ fn tear_off_empty_branch() -> anyhow::Result<()> {
     // Materialize the operation
     rebase.materialize(Default::default())?;
     set_workspace_metadata(&mut meta, &ws, ws_meta)?;
-    let project_meta = ws.graph.project_meta.clone();
+    let project_meta = ws.project_meta.clone();
     ws.refresh_from_head(&repo, &meta, project_meta, &mut db)?;
 
     snapbox::assert_data_eq!(
@@ -535,7 +535,7 @@ fn tear_off_non_empty_branch() -> anyhow::Result<()> {
 "#]]
     );
 
-    let mut ws = graph.into_workspace()?;
+    let mut ws = graph;
     snapbox::assert_data_eq!(
         graph_workspace(&ws).to_string(),
         snapbox::str![[r#"
@@ -560,7 +560,7 @@ fn tear_off_non_empty_branch() -> anyhow::Result<()> {
     // Materialize the operation
     rebase.materialize(Default::default())?;
     set_workspace_metadata(&mut meta, &ws, ws_meta)?;
-    let project_meta = ws.graph.project_meta.clone();
+    let project_meta = ws.project_meta.clone();
     ws.refresh_from_head(&repo, &meta, project_meta, &mut db)?;
 
     snapbox::assert_data_eq!(

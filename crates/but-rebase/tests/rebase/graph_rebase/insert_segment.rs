@@ -1,9 +1,11 @@
 //! These tests exercise the insert segment operation.
 use anyhow::{Context, Result};
 use bstr::ByteSlice;
-use but_graph::Graph;
+use but_graph::Workspace;
 use but_rebase::graph_rebase::{Editor, mutate};
-use but_testsupport::{git_status, graph_tree, visualize_commit_graph, visualize_commit_graph_all};
+use but_testsupport::{
+    branch_tree, git_status, visualize_commit_graph, visualize_commit_graph_all,
+};
 use snapbox::IntoData;
 
 use crate::utils::{fixture_writable, standard_options};
@@ -49,7 +51,7 @@ fn insert_single_node_segment_above() -> Result<()> {
     );
     snapbox::assert_data_eq!(git_status(&repo)?, snapbox::str![""]);
 
-    let graph = Graph::from_head(
+    let graph = Workspace::from_head(
         &repo,
         &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
@@ -57,7 +59,7 @@ fn insert_single_node_segment_above() -> Result<()> {
         standard_options(),
     )?
     .validated()?;
-    let mut ws = graph.into_workspace()?;
+    let mut ws = graph;
     let mut editor = Editor::create(&mut ws, &mut *meta, &repo, &mut db)?;
 
     let a = repo.rev_parse_single("A")?.detach();
@@ -77,31 +79,31 @@ fn insert_single_node_segment_above() -> Result<()> {
     editor.insert_segment(b_selector, delimiter, mutate::InsertSide::Above)?;
 
     let outcome = editor.rebase()?;
-    let overlayed = graph_tree(&outcome.overlayed_graph()?).to_string();
+    let overlayed = branch_tree(&outcome.overlayed_workspace()?).to_string();
     snapbox::assert_data_eq!(
         &overlayed,
         snapbox::str![[r#"
 
-└── 👉►:0[0]:main[🌳]
-    └── ·ee7f107 (⌂)
-        ├── ►:1[1]:A
-        │   └── ·69221b4 (⌂)
-        │       ├── ►:3[2]:B
-        │       │   ├── ·a748762 (⌂)
-        │       │   └── ·62e05ba (⌂)
-        │       │       └── ►:4[3]:anon:
-        │       │           └── 🏁·8f0d338 (⌂) ►tags/base
-        │       └── →:4:
-        └── ►:2[1]:C
-            ├── ·930563a (⌂)
-            ├── ·68a2fc3 (⌂)
-            └── ·984fd1c (⌂)
-                └── →:4:
+└── 👉:0:►main
+    ├── ·ee7f107 (⌂)
+    ├── :1:►A
+    │   ├── ·69221b4 (⌂)
+    │   ├── :3:►B
+    │   │   ├── ·a748762 (⌂)
+    │   │   ├── ·62e05ba (⌂)
+    │   │   └── :4:►anon:
+    │   │       └── 🏁·8f0d338 (⌂) ►base
+    │   └── →:4:►anon:
+    └── :2:►C
+        ├── ·930563a (⌂)
+        ├── ·68a2fc3 (⌂)
+        ├── ·984fd1c (⌂)
+        └── →:4:►anon:
 
 "#]]
     );
     let outcome = outcome.materialize(Default::default())?;
-    assert_eq!(overlayed, graph_tree(&outcome.workspace.graph).to_string());
+    assert_eq!(overlayed, branch_tree(outcome.workspace).to_string());
 
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
@@ -148,7 +150,7 @@ fn insert_single_node_segment_below() -> Result<()> {
     );
     snapbox::assert_data_eq!(git_status(&repo)?, snapbox::str![""]);
 
-    let graph = Graph::from_head(
+    let graph = Workspace::from_head(
         &repo,
         &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
@@ -156,7 +158,7 @@ fn insert_single_node_segment_below() -> Result<()> {
         standard_options(),
     )?
     .validated()?;
-    let mut ws = graph.into_workspace()?;
+    let mut ws = graph;
     let mut editor = Editor::create(&mut ws, &mut *meta, &repo, &mut db)?;
 
     let a = repo.rev_parse_single("A")?.detach();
@@ -176,33 +178,33 @@ fn insert_single_node_segment_below() -> Result<()> {
     editor.insert_segment(b_selector, delimiter, mutate::InsertSide::Below)?;
 
     let outcome = editor.rebase()?;
-    let overlayed = graph_tree(&outcome.overlayed_graph()?).to_string();
+    let overlayed = branch_tree(&outcome.overlayed_workspace()?).to_string();
     snapbox::assert_data_eq!(
         &overlayed,
         snapbox::str![[r#"
 
-└── 👉►:0[0]:main[🌳]
-    └── ·b005f3c (⌂)
-        ├── ►:1[2]:A
-        │   └── ·7f0cc55 (⌂)
-        │       ├── ►:4[3]:anon:
-        │       │   └── ·62e05ba (⌂)
-        │       │       └── ►:5[4]:anon:
-        │       │           └── 🏁·8f0d338 (⌂) ►tags/base
-        │       └── →:5:
-        ├── ►:2[1]:B
-        │   └── ·a3301fe (⌂)
-        │       └── →:1: (A)
-        └── ►:3[1]:C
-            ├── ·930563a (⌂)
-            ├── ·68a2fc3 (⌂)
-            └── ·984fd1c (⌂)
-                └── →:5:
+└── 👉:0:►main
+    ├── ·b005f3c (⌂)
+    ├── :1:►A
+    │   ├── ·7f0cc55 (⌂)
+    │   ├── :4:►anon:
+    │   │   ├── ·62e05ba (⌂)
+    │   │   └── :5:►anon:
+    │   │       └── 🏁·8f0d338 (⌂) ►base
+    │   └── →:5:►anon:
+    ├── :2:►B
+    │   ├── ·a3301fe (⌂)
+    │   └── →:1:►A
+    └── :3:►C
+        ├── ·930563a (⌂)
+        ├── ·68a2fc3 (⌂)
+        ├── ·984fd1c (⌂)
+        └── →:5:►anon:
 
 "#]]
     );
     let outcome = outcome.materialize(Default::default())?;
-    assert_eq!(overlayed, graph_tree(&outcome.workspace.graph).to_string());
+    assert_eq!(overlayed, branch_tree(outcome.workspace).to_string());
 
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
@@ -250,7 +252,7 @@ fn insert_multi_node_segment_above() -> Result<()> {
     );
     snapbox::assert_data_eq!(git_status(&repo)?, snapbox::str![""]);
 
-    let graph = Graph::from_head(
+    let graph = Workspace::from_head(
         &repo,
         &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
@@ -258,7 +260,7 @@ fn insert_multi_node_segment_above() -> Result<()> {
         standard_options(),
     )?
     .validated()?;
-    let mut ws = graph.into_workspace()?;
+    let mut ws = graph;
     let mut editor = Editor::create(&mut ws, &mut *meta, &repo, &mut db)?;
 
     let a = repo.rev_parse_single("A")?.detach();
@@ -282,32 +284,32 @@ fn insert_multi_node_segment_above() -> Result<()> {
     editor.insert_segment(a_selector, delimiter, mutate::InsertSide::Above)?;
 
     let outcome = editor.rebase()?;
-    let overlayed = graph_tree(&outcome.overlayed_graph()?).to_string();
+    let overlayed = branch_tree(&outcome.overlayed_workspace()?).to_string();
     snapbox::assert_data_eq!(
         &overlayed,
         snapbox::str![[r#"
 
-└── 👉►:0[0]:main[🌳]
-    └── ·61b2679 (⌂)
-        ├── ►:1[1]:anon:
-        │   └── ·758c8a3 (⌂) ►A, ►B
-        │       └── ►:3[2]:anon:
-        │           └── ·db40ffc (⌂)
-        │               ├── ►:4[3]:anon:
-        │               │   └── ·add59d2 (⌂)
-        │               │       └── ►:5[4]:anon:
-        │               │           └── 🏁·8f0d338 (⌂) ►tags/base
-        │               └── →:5:
-        └── ►:2[1]:C
-            ├── ·930563a (⌂)
-            ├── ·68a2fc3 (⌂)
-            └── ·984fd1c (⌂)
-                └── →:5:
+└── 👉:0:►main
+    ├── ·61b2679 (⌂)
+    ├── :1:►anon:
+    │   ├── ·758c8a3 (⌂) ►A, ►B
+    │   └── :3:►anon:
+    │       ├── ·db40ffc (⌂)
+    │       ├── :4:►anon:
+    │       │   ├── ·add59d2 (⌂)
+    │       │   └── :5:►anon:
+    │       │       └── 🏁·8f0d338 (⌂) ►base
+    │       └── →:5:►anon:
+    └── :2:►C
+        ├── ·930563a (⌂)
+        ├── ·68a2fc3 (⌂)
+        ├── ·984fd1c (⌂)
+        └── →:5:►anon:
 
 "#]]
     );
     let outcome = outcome.materialize(Default::default())?;
-    assert_eq!(overlayed, graph_tree(&outcome.workspace.graph).to_string());
+    assert_eq!(overlayed, branch_tree(outcome.workspace).to_string());
 
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
@@ -355,7 +357,7 @@ fn insert_multi_node_segment_below() -> Result<()> {
     );
     snapbox::assert_data_eq!(git_status(&repo)?, snapbox::str![""]);
 
-    let graph = Graph::from_head(
+    let graph = Workspace::from_head(
         &repo,
         &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
@@ -363,7 +365,7 @@ fn insert_multi_node_segment_below() -> Result<()> {
         standard_options(),
     )?
     .validated()?;
-    let mut ws = graph.into_workspace()?;
+    let mut ws = graph;
     let mut editor = Editor::create(&mut ws, &mut *meta, &repo, &mut db)?;
 
     let a = repo.rev_parse_single("A")?.detach();
@@ -387,31 +389,31 @@ fn insert_multi_node_segment_below() -> Result<()> {
     editor.insert_segment(a_selector, delimiter, mutate::InsertSide::Below)?;
 
     let outcome = editor.rebase()?;
-    let overlayed = graph_tree(&outcome.overlayed_graph()?).to_string();
+    let overlayed = branch_tree(&outcome.overlayed_workspace()?).to_string();
     snapbox::assert_data_eq!(
         &overlayed,
         snapbox::str![[r#"
 
-└── 👉►:0[0]:main[🌳]
-    └── ·4db28a9 (⌂)
-        ├── ►:1[1]:A
-        │   └── ·71dfc8f (⌂)
-        │       └── ►:2[2]:B
-        │           ├── ·a748762 (⌂)
-        │           └── ·62e05ba (⌂)
-        │               └── ►:4[3]:anon:
-        │                   └── 🏁·8f0d338 (⌂) ►tags/base
-        ├── →:2: (B)
-        └── ►:3[1]:C
-            ├── ·930563a (⌂)
-            ├── ·68a2fc3 (⌂)
-            └── ·984fd1c (⌂)
-                └── →:4:
+└── 👉:0:►main
+    ├── ·4db28a9 (⌂)
+    ├── :1:►A
+    │   ├── ·71dfc8f (⌂)
+    │   └── :2:►B
+    │       ├── ·a748762 (⌂)
+    │       ├── ·62e05ba (⌂)
+    │       └── :4:►anon:
+    │           └── 🏁·8f0d338 (⌂) ►base
+    ├── →:2:►B
+    └── :3:►C
+        ├── ·930563a (⌂)
+        ├── ·68a2fc3 (⌂)
+        ├── ·984fd1c (⌂)
+        └── →:4:►anon:
 
 "#]]
     );
     let outcome = outcome.materialize(Default::default())?;
-    assert_eq!(overlayed, graph_tree(&outcome.workspace.graph).to_string());
+    assert_eq!(overlayed, branch_tree(outcome.workspace).to_string());
 
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
@@ -459,7 +461,7 @@ fn insert_single_node_segment_above_with_explicit_children() -> Result<()> {
     );
     snapbox::assert_data_eq!(git_status(&repo)?, snapbox::str![""]);
 
-    let graph = Graph::from_head(
+    let graph = Workspace::from_head(
         &repo,
         &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
@@ -467,7 +469,7 @@ fn insert_single_node_segment_above_with_explicit_children() -> Result<()> {
         standard_options(),
     )?
     .validated()?;
-    let mut ws = graph.into_workspace()?;
+    let mut ws = graph;
     let mut editor = Editor::create(&mut ws, &mut *meta, &repo, &mut db)?;
 
     let a = repo.rev_parse_single("A")?.detach();
@@ -497,34 +499,34 @@ fn insert_single_node_segment_above_with_explicit_children() -> Result<()> {
     )?;
 
     let outcome = editor.rebase()?;
-    let overlayed = graph_tree(&outcome.overlayed_graph()?).to_string();
+    let overlayed = branch_tree(&outcome.overlayed_workspace()?).to_string();
     snapbox::assert_data_eq!(
         &overlayed,
         snapbox::str![[r#"
 
-└── 👉►:0[0]:main[🌳]
-    └── ·cca953f (⌂)
-        ├── ►:1[2]:A
-        │   └── ·69221b4 (⌂)
-        │       ├── ►:2[3]:B
-        │       │   ├── ·a748762 (⌂)
-        │       │   └── ·62e05ba (⌂)
-        │       │       └── ►:4[4]:anon:
-        │       │           └── 🏁·8f0d338 (⌂) ►tags/base
-        │       └── →:4:
-        ├── →:2: (B)
-        └── ►:3[1]:C
-            └── ·76e2160 (⌂)
-                ├── ►:5[2]:anon:
-                │   ├── ·68a2fc3 (⌂)
-                │   └── ·984fd1c (⌂)
-                │       └── →:4:
-                └── →:1: (A)
+└── 👉:0:►main
+    ├── ·cca953f (⌂)
+    ├── :1:►A
+    │   ├── ·69221b4 (⌂)
+    │   ├── :2:►B
+    │   │   ├── ·a748762 (⌂)
+    │   │   ├── ·62e05ba (⌂)
+    │   │   └── :4:►anon:
+    │   │       └── 🏁·8f0d338 (⌂) ►base
+    │   └── →:4:►anon:
+    ├── →:2:►B
+    └── :3:►C
+        ├── ·76e2160 (⌂)
+        ├── :5:►anon:
+        │   ├── ·68a2fc3 (⌂)
+        │   ├── ·984fd1c (⌂)
+        │   └── →:4:►anon:
+        └── →:1:►A
 
 "#]]
     );
     let outcome = outcome.materialize(Default::default())?;
-    assert_eq!(overlayed, graph_tree(&outcome.workspace.graph).to_string());
+    assert_eq!(overlayed, branch_tree(outcome.workspace).to_string());
 
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
@@ -578,7 +580,7 @@ fn insert_single_node_segment_below_with_explicit_parents() -> Result<()> {
     );
     snapbox::assert_data_eq!(git_status(&repo)?, snapbox::str![""]);
 
-    let graph = Graph::from_head(
+    let graph = Workspace::from_head(
         &repo,
         &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
@@ -586,7 +588,7 @@ fn insert_single_node_segment_below_with_explicit_parents() -> Result<()> {
         standard_options(),
     )?
     .validated()?;
-    let mut ws = graph.into_workspace()?;
+    let mut ws = graph;
     let mut editor = Editor::create(&mut ws, &mut *meta, &repo, &mut db)?;
 
     let a = repo.rev_parse_single("A")?.detach();
@@ -616,34 +618,34 @@ fn insert_single_node_segment_below_with_explicit_parents() -> Result<()> {
     )?;
 
     let outcome = editor.rebase()?;
-    let overlayed = graph_tree(&outcome.overlayed_graph()?).to_string();
+    let overlayed = branch_tree(&outcome.overlayed_workspace()?).to_string();
     snapbox::assert_data_eq!(
         &overlayed,
         snapbox::str![[r#"
 
-└── 👉►:0[0]:main[🌳]
-    └── ·54f9cab (⌂)
-        ├── ►:1[1]:A
-        │   └── ·9501727 (⌂)
-        │       ├── ►:4[4]:anon:
-        │       │   └── 🏁·8f0d338 (⌂) ►tags/base
-        │       └── ►:2[2]:B
-        │           └── ·347772f (⌂)
-        │               ├── ►:3[3]:C
-        │               │   ├── ·930563a (⌂)
-        │               │   ├── ·68a2fc3 (⌂)
-        │               │   └── ·984fd1c (⌂)
-        │               │       └── →:4:
-        │               └── ►:5[3]:anon:
-        │                   └── ·62e05ba (⌂)
-        │                       └── →:4:
-        ├── →:2: (B)
-        └── →:3: (C)
+└── 👉:0:►main
+    ├── ·54f9cab (⌂)
+    ├── :1:►A
+    │   ├── ·9501727 (⌂)
+    │   ├── :4:►anon:
+    │   │   └── 🏁·8f0d338 (⌂) ►base
+    │   └── :2:►B
+    │       ├── ·347772f (⌂)
+    │       ├── :3:►C
+    │       │   ├── ·930563a (⌂)
+    │       │   ├── ·68a2fc3 (⌂)
+    │       │   ├── ·984fd1c (⌂)
+    │       │   └── →:4:►anon:
+    │       └── :5:►anon:
+    │           ├── ·62e05ba (⌂)
+    │           └── →:4:►anon:
+    ├── →:2:►B
+    └── →:3:►C
 
 "#]]
     );
     let outcome = outcome.materialize(Default::default())?;
-    assert_eq!(overlayed, graph_tree(&outcome.workspace.graph).to_string());
+    assert_eq!(overlayed, branch_tree(outcome.workspace).to_string());
     assert_eq!(
         parent_subjects(&repo, "B")?,
         [
@@ -683,7 +685,7 @@ fn insert_single_node_segment_below_with_explicit_parents() -> Result<()> {
 #[test]
 fn insert_single_node_segment_below_can_append_reparented_parent() -> Result<()> {
     let (repo, _tmp, mut meta, mut db) = fixture_writable("three-branches-merged")?;
-    let graph = Graph::from_head(
+    let graph = Workspace::from_head(
         &repo,
         &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
@@ -691,7 +693,7 @@ fn insert_single_node_segment_below_can_append_reparented_parent() -> Result<()>
         standard_options(),
     )?
     .validated()?;
-    let mut ws = graph.into_workspace()?;
+    let mut ws = graph;
     let mut editor = Editor::create(&mut ws, &mut *meta, &repo, &mut db)?;
 
     let a = repo.rev_parse_single("A")?.detach();

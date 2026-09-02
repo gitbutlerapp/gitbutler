@@ -29,7 +29,7 @@ fn squash_top_commit_into_parent() -> Result<()> {
     let target_id = repo.rev_parse_single("two")?.detach();
     let subject_tree = repo.find_commit(subject_id)?.tree_id()?.detach();
 
-    let mut ws = graph.into_workspace()?;
+    let mut ws = graph;
     let editor = Editor::create(&mut ws, &mut _meta, &repo, &mut db)?;
     let outcome = squash_commits(
         editor,
@@ -96,7 +96,7 @@ fn squash_top_commit_into_parent_keeping_target_message() -> Result<()> {
     let subject_id = repo.rev_parse_single("three")?.detach();
     let target_id = repo.rev_parse_single("two")?.detach();
 
-    let mut ws = graph.into_workspace()?;
+    let mut ws = graph;
     let editor = Editor::create(&mut ws, &mut _meta, &repo, &mut db)?;
     let outcome = squash_commits(
         editor,
@@ -136,7 +136,7 @@ fn squash_top_commit_into_parent_keeping_subject_message() -> Result<()> {
     let subject_id = repo.rev_parse_single("three")?.detach();
     let target_id = repo.rev_parse_single("two")?.detach();
 
-    let mut ws = graph.into_workspace()?;
+    let mut ws = graph;
     let editor = Editor::create(&mut ws, &mut _meta, &repo, &mut db)?;
     let outcome = squash_commits(
         editor,
@@ -178,7 +178,7 @@ fn squash_reorders_when_subject_is_not_on_top() -> Result<()> {
     let target_id = repo.rev_parse_single("three")?.detach();
     let target_tree = repo.find_commit(target_id)?.tree_id()?.detach();
 
-    let mut ws = graph.into_workspace()?;
+    let mut ws = graph;
     let editor = Editor::create(&mut ws, &mut _meta, &repo, &mut db)?;
     let outcome = squash_commits(
         editor,
@@ -224,7 +224,7 @@ fn squash_deduplicates_duplicate_subjects() -> Result<()> {
     let subject_id = repo.rev_parse_single("three")?.detach();
     let target_id = repo.rev_parse_single("two")?.detach();
 
-    let mut ws = graph.into_workspace()?;
+    let mut ws = graph;
     let editor = Editor::create(&mut ws, &mut _meta, &repo, &mut db)?;
     let outcome = squash_commits(
         editor,
@@ -263,7 +263,7 @@ fn squash_same_commit_is_rejected() -> Result<()> {
 
     let commit_id = repo.rev_parse_single("two")?.detach();
 
-    let mut ws = graph.into_workspace()?;
+    let mut ws = graph;
     let editor = Editor::create(&mut ws, &mut _meta, &repo, &mut db)?;
 
     let err = squash_commits(
@@ -300,7 +300,7 @@ fn squash_rejects_target_in_subject_commit_ids() -> Result<()> {
     let subject_id = repo.rev_parse_single("three")?.detach();
     let target_id = repo.rev_parse_single("two")?.detach();
 
-    let mut ws = graph.into_workspace()?;
+    let mut ws = graph;
     let editor = Editor::create(&mut ws, &mut _meta, &repo, &mut db)?;
 
     let err = squash_commits(
@@ -337,7 +337,7 @@ fn squash_down_keeps_topmost_tree_for_shared_file_lineage() -> Result<()> {
     let subject_id = repo.rev_parse_single("three")?.detach();
     let target_id = repo.rev_parse_single("two")?.detach();
 
-    let mut ws = graph.into_workspace()?;
+    let mut ws = graph;
     let editor = Editor::create(&mut ws, &mut _meta, &repo, &mut db)?;
     let outcome = squash_commits(
         editor,
@@ -383,7 +383,7 @@ fn squash_move_subject_below_target_for_shared_file_lineage() -> Result<()> {
     let subject_id = repo.rev_parse_single("two")?.detach();
     let target_id = repo.rev_parse_single("three")?.detach();
 
-    let mut ws = graph.into_workspace()?;
+    let mut ws = graph;
     let editor = Editor::create(&mut ws, &mut _meta, &repo, &mut db)?;
     let outcome = squash_commits(
         editor,
@@ -435,7 +435,7 @@ fn squash_move_subject_above_target_out_of_order_for_shared_file_lineage() -> Re
     let subject_id = repo.rev_parse_single("three")?.detach();
     let target_id = repo.rev_parse_single("one")?.detach();
 
-    let mut ws = graph.into_workspace()?;
+    let mut ws = graph;
     let editor = Editor::create(&mut ws, &mut _meta, &repo, &mut db)?;
     let err = squash_commits(
         editor,
@@ -470,7 +470,7 @@ fn squash_across_stacks_subject_into_target() -> Result<()> {
             add_stack_with_segments(meta, 2, "B", StackState::InWorkspace, &[]);
         })?;
 
-    let mut ws = graph.into_workspace()?;
+    let mut ws = graph;
     let normalized = visualize_commit_graph_all(&repo)?.replace("  \n", "\n");
     snapbox::assert_data_eq!(
         normalized,
@@ -553,7 +553,7 @@ fn squash_across_stacks_target_into_subject() -> Result<()> {
             add_stack_with_segments(meta, 2, "B", StackState::InWorkspace, &[]);
         })?;
 
-    let mut ws = graph.into_workspace()?;
+    let mut ws = graph;
 
     let normalized = visualize_commit_graph_all(&repo)?.replace("  \n", "\n");
     snapbox::assert_data_eq!(
@@ -654,7 +654,7 @@ fn squash_cross_stack_commit_does_not_pull_in_ancestor_tree_state() -> Result<()
         .raw()
     );
 
-    let mut ws = graph.into_workspace()?;
+    let mut ws = graph;
     let subject_id = repo.rev_parse_single("C")?.detach();
     let target_id = repo.rev_parse_single("A")?.detach();
     let editor = Editor::create(&mut ws, &mut meta, &repo, &mut db)?;
@@ -730,7 +730,7 @@ fn squash_cross_stack_commit_with_deeper_stacks_does_not_pull_in_ancestor_tree_s
     let c_id = repo.rev_parse_single("C")?.detach();
     let e_id = repo.rev_parse_single("E")?.detach();
 
-    let mut ws = graph.into_workspace()?;
+    let mut ws = graph;
     let editor = Editor::create(&mut ws, &mut meta, &repo, &mut db)?;
     let outcome = squash_commits(
         editor,
@@ -910,7 +910,7 @@ fn squash_all_c_commits_into_second_commit_of_b_keeps_new_file_content() -> Resu
     let c_third = repo.rev_parse_single("C~2")?.detach();
     let target_id = repo.rev_parse_single("B~1")?.detach();
 
-    let mut ws = graph.into_workspace()?;
+    let mut ws = graph;
     let editor = Editor::create(&mut ws, &mut meta, &repo, &mut db)?;
     let outcome = squash_commits(
         editor,

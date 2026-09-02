@@ -15,7 +15,7 @@ use but_core::{DiffSpec, RepositoryExt};
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum WorktreeBase {
     /// The base commit is owned by one of the workspace stacks - or by a worktree listed
-    /// earlier in [tip order](but_graph::Graph::worktree_tips), for worktrees stacked on
+    /// earlier in [tip order](but_graph::Workspace::worktree_tips), for worktrees stacked on
     /// each other - so the worktree branches off the workspace and belongs *inside* it
     /// when presented.
     InWorkspace(gix::ObjectId),
@@ -70,10 +70,12 @@ pub fn worktree_infos(
     workspace: &but_graph::Workspace,
     repo: &gix::Repository,
 ) -> Vec<WorktreeInfo> {
-    let graph = &workspace.graph;
-    if graph.worktree_tips.is_empty() {
+    if workspace.worktree_tips.is_empty() {
         return Vec::new();
     }
+    let Some(commit_graph) = workspace.commit_graph_ref() else {
+        return Vec::new();
+    };
 
     // Commits no worktree may own: everything in the workspace stacks, plus - as tips are
     // processed - the commits already claimed by an earlier worktree, so worktrees stacked
@@ -86,19 +88,18 @@ pub fn worktree_infos(
         .collect();
 
     let mut out = Vec::new();
-    for tip in &graph.worktree_tips {
+    for tip in &workspace.worktree_tips {
         let head = tip.id;
-        let Ok(sidx) = graph.segment_id_by_commit_id(head) else {
-            // Another tip may have claimed the commit for a segment we can't walk from, or a
-            // traversal limit cut it off. Either way there is nothing to show.
+        if commit_graph.commit(head).is_none() {
+            // A traversal limit cut the tip off. There is nothing to show.
             tracing::warn!(
                 worktree = %tip.name,
                 %head,
                 "Worktree tip is not part of the graph, skipping it"
             );
             continue;
-        };
-        let (commits, base) = commits_and_base(graph, sidx, head, &off_limits, workspace);
+        }
+        let (commits, base) = commits_and_base(commit_graph, head, &off_limits, workspace);
         let local_commits: Vec<_> = match commits
             .iter()
             .map(|commit| crate::ref_info::LocalCommit::try_from_stack_commit(commit, repo))
@@ -127,11 +128,10 @@ pub fn worktree_infos(
     out
 }
 
-/// Walk down from `head` (owned by `sidx`) along the first parent, collecting commits until
-/// reaching a commit in `off_limits` or the target of `workspace`.
+/// Walk down from `head` along the first parent, collecting commits until reaching a commit in
+/// `off_limits` or the target of `workspace`.
 fn commits_and_base(
-    graph: &but_graph::Graph,
-    sidx: but_graph::SegmentIndex,
+    commit_graph: &but_graph::commit_graph::CommitGraph,
     head: gix::ObjectId,
     off_limits: &gix::hashtable::HashSet<gix::ObjectId>,
     workspace: &but_graph::Workspace,
@@ -140,35 +140,28 @@ fn commits_and_base(
 
     let mut commits = Vec::new();
     let mut base = None;
-    // `head` can sit in the middle of its segment when another tip owns the segment's first commit.
-    let mut before_head = true;
-    graph.visit_segments_downward_along_first_parent_include_start(sidx, |segment| {
-        for commit in &segment.commits {
-            if before_head {
-                if commit.id != head {
-                    continue;
-                }
-                before_head = false;
-            }
-            if off_limits.contains(&commit.id) {
-                base = Some(WorktreeBase::InWorkspace(commit.id));
-                return true;
-            }
-            // Reachable from the target branch means at or below the target - a per-commit
-            // property, unlike global measures such as segment generations, which cannot tell
-            // deep unrelated history apart from history below the target. The stored target
-            // commit is checked as well in case the target branch was rewritten and no longer
-            // reaches it.
-            if commit.flags.contains(but_graph::CommitFlags::Integrated)
-                || target_commit_id == Some(commit.id)
-            {
-                base = Some(WorktreeBase::Outside(commit.id));
-                return true;
-            }
-            commits.push(but_graph::workspace::StackCommit::from_graph_commit(commit));
+    let mut cur = Some(head);
+    while let Some(id) = cur {
+        let Some(commit) = commit_graph.commit(id) else {
+            break;
+        };
+        if off_limits.contains(&id) {
+            base = Some(WorktreeBase::InWorkspace(id));
+            break;
         }
-        false
-    });
+        // Reachable from the target branch means at or below the target - a per-commit
+        // property, unlike global measures such as segment generations, which cannot tell
+        // deep unrelated history apart from history below the target. The stored target
+        // commit is checked as well in case the target branch was rewritten and no longer
+        // reaches it.
+        if commit.flags.contains(but_graph::CommitFlags::Integrated) || target_commit_id == Some(id)
+        {
+            base = Some(WorktreeBase::Outside(id));
+            break;
+        }
+        commits.push(but_graph::workspace::StackCommit::from_graph_commit(commit));
+        cur = commit_graph.first_parent_id(id);
+    }
     (commits, base)
 }
 

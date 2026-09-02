@@ -3148,13 +3148,12 @@ Created commit 1 on branch 'wt-feature'
     snapbox::assert_data_eq!(
         env.git_log(),
         snapbox::str![[r#"
-*   b963596 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+*   c128bce (HEAD -> gitbutler/workspace) GitButler Workspace Commit
 |/  
-| * d3e2ba3 (B) add B
+* | d3e2ba3 (B) add B
 | | * cc2a9bc (wt-feature) note from the worktree
 | |/  
-|/|   
-* | 9477ae7 (A) add A
+| * 9477ae7 (A) add A
 |/  
 * 0dc3733 (origin/main, origin/HEAD, main, gitbutler/target) add M
 

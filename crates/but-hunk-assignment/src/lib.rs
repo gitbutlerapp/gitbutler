@@ -770,8 +770,8 @@ mod tests {
     use bstr::BString;
     use but_core::{HunkHeader, ref_metadata::StackId};
     use but_graph::{
-        SegmentIndex, Workspace,
-        workspace::{Stack, StackSegment, WorkspaceKind},
+        Workspace,
+        workspace::{Stack, StackSegment},
     };
 
     use super::*;
@@ -838,17 +838,7 @@ mod tests {
     }
 
     fn empty_workspace() -> Workspace {
-        Workspace {
-            graph: but_graph::Graph::default(),
-            id: Default::default(),
-            kind: WorkspaceKind::AdHoc,
-            stacks: vec![],
-            lower_bound: None,
-            lower_bound_segment_id: None,
-            target_ref: None,
-            target_commit: None,
-            metadata: None,
-        }
+        Workspace::for_testing(vec![])
     }
 
     fn branch_ref(name: &str) -> gix::refs::FullName {
@@ -863,16 +853,20 @@ mod tests {
                 worktree: None,
             }),
             remote_tracking_ref_name: None,
-            remote_tracking_branch_segment_id: None,
-            id: SegmentIndex::new(id),
+            remote_tip_id: None,
+            tip_commit_id: None,
+            generation: 0,
+            id,
             commits: vec![],
             commits_outside: None,
             base: None,
             base_segment_id: None,
+            base_ref_name: None,
             commits_by_segment: vec![],
             commits_on_remote: vec![],
             metadata: None,
             is_entrypoint: false,
+            projected_from_outside: false,
         }
     }
 
@@ -888,10 +882,7 @@ mod tests {
     }
 
     fn workspace_with_stacks(stacks: Vec<Stack>) -> Workspace {
-        Workspace {
-            stacks,
-            ..empty_workspace()
-        }
+        Workspace::for_testing(stacks)
     }
 
     fn deep_eq(a: &HunkAssignment, b: &HunkAssignment) -> bool {

@@ -1,6 +1,6 @@
 //! Some tests that explicitly test the overlay functionality
 
-use but_graph::{Graph, init::Overlay};
+use but_graph::{Workspace, init::Overlay};
 use but_testsupport::visualize_commit_graph_all;
 use snapbox::IntoData;
 
@@ -32,7 +32,7 @@ fn drop_and_add_regular_refs() -> anyhow::Result<()> {
         .raw()
     );
 
-    let graph = Graph::from_head(
+    let graph = Workspace::from_head(
         &repo,
         &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
@@ -75,7 +75,7 @@ fn drop_and_add_regular_refs() -> anyhow::Result<()> {
         }])
         .with_dropped_references(["refs/heads/C".try_into()?]);
 
-    let graph = graph.redo_traversal_with_overlay(&repo, &*meta, overlay)?;
+    let graph = graph.redo_traversal_into_workspace_with_overlay(&repo, &*meta, overlay)?;
 
     snapbox::assert_data_eq!(
         graph_dag(&graph),
@@ -131,7 +131,7 @@ fn drop_head_ref() -> anyhow::Result<()> {
         .raw()
     );
 
-    let graph = Graph::from_head(
+    let graph = Workspace::from_head(
         &repo,
         &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
@@ -166,7 +166,7 @@ fn drop_head_ref() -> anyhow::Result<()> {
 
     let overlay = Overlay::default().with_dropped_references(["refs/heads/merged".try_into()?]);
 
-    let graph = graph.redo_traversal_with_overlay(&repo, &*meta, overlay)?;
+    let graph = graph.redo_traversal_into_workspace_with_overlay(&repo, &*meta, overlay)?;
 
     snapbox::assert_data_eq!(
         graph_dag(&graph),
@@ -221,7 +221,7 @@ fn overriding_references() -> anyhow::Result<()> {
         .raw()
     );
 
-    let graph = Graph::from_head(
+    let graph = Workspace::from_head(
         &repo,
         &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
@@ -274,7 +274,7 @@ fn overriding_references() -> anyhow::Result<()> {
             },
         ]);
 
-    let graph = graph.redo_traversal_with_overlay(&repo, &*meta, overlay)?;
+    let graph = graph.redo_traversal_into_workspace_with_overlay(&repo, &*meta, overlay)?;
 
     snapbox::assert_data_eq!(
         graph_dag(&graph),
@@ -315,7 +315,7 @@ fn overriding_references() -> anyhow::Result<()> {
         },
     ]);
 
-    let graph = graph.redo_traversal_with_overlay(&repo, &*meta, overlay)?;
+    let graph = graph.redo_traversal_into_workspace_with_overlay(&repo, &*meta, overlay)?;
 
     snapbox::assert_data_eq!(
         graph_dag(&graph),
@@ -350,7 +350,7 @@ fn overriding_references() -> anyhow::Result<()> {
         peeled: Some(merged_b.detach()),
     }]);
 
-    let graph = graph.redo_traversal_with_overlay(&repo, &*meta, overlay)?;
+    let graph = graph.redo_traversal_into_workspace_with_overlay(&repo, &*meta, overlay)?;
 
     snapbox::assert_data_eq!(
         graph_dag(&graph),

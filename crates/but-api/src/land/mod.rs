@@ -527,7 +527,7 @@ fn scan_stack(ctx: &mut Context, branch: &str) -> anyhow::Result<Option<StackSca
         &ws,
         &repo,
         but_workspace::ref_info::Options {
-            project_meta: ws.graph.project_meta.clone(),
+            project_meta: ws.project_meta.clone(),
             traversal: but_graph::init::Options::limited(),
             expensive_commit_info: true,
             ..Default::default()

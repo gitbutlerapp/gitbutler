@@ -46,7 +46,7 @@ fn move_top_commit_to_top_of_another_stack() -> anyhow::Result<()> {
         .raw()
     );
 
-    let mut ws = graph.into_workspace()?;
+    let mut ws = graph;
     snapbox::assert_data_eq!(
         graph_workspace(&ws).to_string(),
         snapbox::str![[r#"
@@ -78,7 +78,7 @@ fn move_top_commit_to_top_of_another_stack() -> anyhow::Result<()> {
     // Materialize the operation
     let materialization = rebase.materialize(Default::default())?;
     let commit_mapping = materialization.history.commit_mappings();
-    let project_meta = ws.graph.project_meta.clone();
+    let project_meta = ws.project_meta.clone();
     ws.refresh_from_head(&repo, &meta, project_meta, &mut db)?;
 
     let new_c_commit = commit_mapping.get(&c_commit);
@@ -155,7 +155,7 @@ fn move_bottom_commit_to_top_of_another_stack() -> anyhow::Result<()> {
         .raw()
     );
 
-    let mut ws = graph.into_workspace()?;
+    let mut ws = graph;
     snapbox::assert_data_eq!(
         graph_workspace(&ws).to_string(),
         snapbox::str![[r#"
@@ -187,7 +187,7 @@ fn move_bottom_commit_to_top_of_another_stack() -> anyhow::Result<()> {
     // Materialize the operation
     let materialization = rebase.materialize(Default::default())?;
     let commit_mapping = materialization.history.commit_mappings();
-    let project_meta = ws.graph.project_meta.clone();
+    let project_meta = ws.project_meta.clone();
     ws.refresh_from_head(&repo, &meta, project_meta, &mut db)?;
 
     let new_b_commit = commit_mapping.get(&b_commit);
@@ -266,7 +266,7 @@ fn move_top_commit_to_bottom_of_another_stack() -> anyhow::Result<()> {
         .raw()
     );
 
-    let mut ws = graph.into_workspace()?;
+    let mut ws = graph;
     snapbox::assert_data_eq!(
         graph_workspace(&ws).to_string(),
         snapbox::str![[r#"
@@ -298,7 +298,7 @@ fn move_top_commit_to_bottom_of_another_stack() -> anyhow::Result<()> {
     // Materialize the operation
     let materialization = rebase.materialize(Default::default())?;
     let commit_mapping = materialization.history.commit_mappings();
-    let project_meta = ws.graph.project_meta.clone();
+    let project_meta = ws.project_meta.clone();
     ws.refresh_from_head(&repo, &meta, project_meta, &mut db)?;
 
     let new_a_commit = commit_mapping.get(&a_commit);
@@ -375,7 +375,7 @@ fn move_bottom_commit_to_bottom_of_another_stack() -> anyhow::Result<()> {
         .raw()
     );
 
-    let mut ws = graph.into_workspace()?;
+    let mut ws = graph;
     snapbox::assert_data_eq!(
         graph_workspace(&ws).to_string(),
         snapbox::str![[r#"
@@ -407,7 +407,7 @@ fn move_bottom_commit_to_bottom_of_another_stack() -> anyhow::Result<()> {
     // Materialize the operation
     let materialization = rebase.materialize(Default::default())?;
     let commit_mapping = materialization.history.commit_mappings();
-    let project_meta = ws.graph.project_meta.clone();
+    let project_meta = ws.project_meta.clone();
     ws.refresh_from_head(&repo, &meta, project_meta, &mut db)?;
 
     let new_a_commit = commit_mapping.get(&a_commit);
@@ -486,7 +486,7 @@ fn move_single_commit_to_the_top_of_another_branch() -> anyhow::Result<()> {
         .raw()
     );
 
-    let mut ws = graph.into_workspace()?;
+    let mut ws = graph;
     snapbox::assert_data_eq!(
         graph_workspace(&ws).to_string(),
         snapbox::str![[r#"
@@ -517,7 +517,7 @@ fn move_single_commit_to_the_top_of_another_branch() -> anyhow::Result<()> {
     // Materialize the operation
     let materialization = rebase.materialize(Default::default())?;
     let commit_mapping = materialization.history.commit_mappings();
-    let project_meta = ws.graph.project_meta.clone();
+    let project_meta = ws.project_meta.clone();
     ws.refresh_from_head(&repo, &meta, project_meta, &mut db)?;
 
     let new_a_commit = commit_mapping.get(&a_commit);
@@ -588,7 +588,7 @@ fn move_single_commit_to_the_bottom_of_another_branch() -> anyhow::Result<()> {
         .raw()
     );
 
-    let mut ws = graph.into_workspace()?;
+    let mut ws = graph;
     snapbox::assert_data_eq!(
         graph_workspace(&ws).to_string(),
         snapbox::str![[r#"
@@ -620,7 +620,7 @@ fn move_single_commit_to_the_bottom_of_another_branch() -> anyhow::Result<()> {
     // Materialize the operation
     let materialization = rebase.materialize(Default::default())?;
     let commit_mapping = materialization.history.commit_mappings();
-    let project_meta = ws.graph.project_meta.clone();
+    let project_meta = ws.project_meta.clone();
     ws.refresh_from_head(&repo, &meta, project_meta, &mut db)?;
 
     let new_b_commit = commit_mapping.get(&b_commit);
@@ -694,7 +694,7 @@ fn move_commit_to_empty_branch() -> anyhow::Result<()> {
         .raw()
     );
 
-    let mut ws = graph.into_workspace()?;
+    let mut ws = graph;
     snapbox::assert_data_eq!(
         graph_workspace(&ws).to_string(),
         snapbox::str![[r#"
@@ -720,7 +720,7 @@ fn move_commit_to_empty_branch() -> anyhow::Result<()> {
 
     // Materialize the operation
     rebase.materialize(Default::default())?;
-    let project_meta = ws.graph.project_meta.clone();
+    let project_meta = ws.project_meta.clone();
     ws.refresh_from_head(&repo, &meta, project_meta, &mut db)?;
 
     let tip_of_b_branch = repo.rev_parse_single("B")?.detach();
@@ -774,7 +774,7 @@ fn move_commit_in_non_managed_workspace() -> anyhow::Result<()> {
 "#]]
     );
 
-    let mut ws = graph.into_workspace()?;
+    let mut ws = graph;
     snapbox::assert_data_eq!(
         graph_workspace(&ws).to_string(),
         snapbox::str![[r#"
@@ -802,7 +802,7 @@ fn move_commit_in_non_managed_workspace() -> anyhow::Result<()> {
 
     // Materialize the operation
     rebase.materialize(Default::default())?;
-    let project_meta = ws.graph.project_meta.clone();
+    let project_meta = ws.project_meta.clone();
     ws.refresh_from_head(&repo, &meta, project_meta, &mut db)?;
 
     let tip_of_three_branch = repo.rev_parse_single("three")?.detach();
@@ -868,7 +868,7 @@ fn reorder_merge_commit_above_keeps_child_commits_visible() -> anyhow::Result<()
         .raw()
     );
 
-    let mut ws = graph.into_workspace()?;
+    let mut ws = graph;
     snapbox::assert_data_eq!(
         graph_workspace(&ws).to_string(),
         snapbox::str![[r#"
@@ -895,7 +895,7 @@ fn reorder_merge_commit_above_keeps_child_commits_visible() -> anyhow::Result<()
     )?;
 
     rebase.materialize(Default::default())?;
-    let project_meta = ws.graph.project_meta.clone();
+    let project_meta = ws.project_meta.clone();
     ws.refresh_from_head(&repo, &meta, project_meta, &mut db)?;
 
     let post_move_graph = visualize_commit_graph_all(&repo)?;
@@ -951,7 +951,7 @@ fn reorder_merge_commit_below_keeps_child_commits_visible() -> anyhow::Result<()
         .raw()
     );
 
-    let mut ws = graph.into_workspace()?;
+    let mut ws = graph;
     snapbox::assert_data_eq!(
         graph_workspace(&ws).to_string(),
         snapbox::str![[r#"
@@ -978,7 +978,7 @@ fn reorder_merge_commit_below_keeps_child_commits_visible() -> anyhow::Result<()
     )?;
 
     rebase.materialize(Default::default())?;
-    let project_meta = ws.graph.project_meta.clone();
+    let project_meta = ws.project_meta.clone();
     ws.refresh_from_head(&repo, &meta, project_meta, &mut db)?;
 
     let post_move_graph = visualize_commit_graph_all(&repo)?;
@@ -1025,7 +1025,7 @@ fn reorder_commit_in_non_managed_workspace() -> anyhow::Result<()> {
 "#]]
     );
 
-    let mut ws = graph.into_workspace()?;
+    let mut ws = graph;
     snapbox::assert_data_eq!(
         graph_workspace(&ws).to_string(),
         snapbox::str![[r#"
@@ -1055,7 +1055,7 @@ fn reorder_commit_in_non_managed_workspace() -> anyhow::Result<()> {
     // Materialize the operation
     let materialization = rebase.materialize(Default::default())?;
     let commit_mappings = materialization.history.commit_mappings();
-    let project_meta = ws.graph.project_meta.clone();
+    let project_meta = ws.project_meta.clone();
     ws.refresh_from_head(&repo, &meta, project_meta, &mut db)?;
 
     let new_commit_two = commit_mappings.get(&two_commit);
@@ -1107,7 +1107,7 @@ fn reorder_commit_in_non_managed_workspace() -> anyhow::Result<()> {
 }
 #[test]
 fn move_mixed_main_and_worktree_commits_to_another_worktree() -> anyhow::Result<()> {
-    use but_graph::Graph;
+    use but_graph::Workspace;
     use but_meta::VirtualBranchesTomlMetadata;
     use but_testsupport::git_status_at_dir;
 
@@ -1118,7 +1118,7 @@ fn move_mixed_main_and_worktree_commits_to_another_worktree() -> anyhow::Result<
     // Adoption already ran, so both linked worktrees are discovered as active tips.
     let mut db = but_testsupport::project_db(&repo)?;
     db.worktree_meta_mut().mark_adopted()?;
-    let graph = Graph::from_head(
+    let graph = Workspace::from_head(
         &repo,
         &*meta,
         Default::default(),
@@ -1147,7 +1147,7 @@ fn move_mixed_main_and_worktree_commits_to_another_worktree() -> anyhow::Result<
 
     let main = repo.rev_parse_single("main")?.detach();
     let feat = repo.rev_parse_single("feat")?.detach();
-    let mut ws = graph.into_workspace()?;
+    let mut ws = graph;
     let editor = Editor::create(&mut ws, &mut *meta, &repo, &mut db)?;
     but_workspace::commit::move_commits(
         editor,

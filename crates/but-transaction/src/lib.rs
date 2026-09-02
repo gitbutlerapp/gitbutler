@@ -541,8 +541,7 @@ where
             .rebase
             .as_ref()
             .expect("rebase is always Some(_)")
-            .overlayed_graph()?
-            .into_workspace()?;
+            .overlayed_workspace()?;
 
         let ref_name = workspace
             .ref_name()
@@ -575,19 +574,18 @@ where
             .try_find_reference(ref_name)?
             .map(|reference| reference.target().into());
 
-        let graph = self
+        let workspace = self
             .inner
             .rebase
             .as_ref()
             .expect("rebase is always Some(_)")
-            .overlayed_graph()?;
-        let workspace = graph.into_workspace()?;
+            .overlayed_workspace()?;
         let (anchor, anchor_segment_oldest_commit_id) = match anchor {
             Some(but_workspace::branch::create_reference::Anchor::AtSegment {
                 ref_name,
                 position,
             }) => {
-                let (_, segment) =
+                let (stack, segment) =
                     workspace.try_find_segment_and_stack_by_refname(ref_name.as_ref())?;
                 if matches!(
                     position,
@@ -604,14 +602,17 @@ where
                         None,
                     )
                 } else {
+                    // An empty segment rests on the first commit below it in its stack, or on
+                    // the stack's base.
                     let oldest_commit_id = segment
                         .commits
                         .last()
                         .map(|commit| commit.id)
                         .or_else(|| {
-                            workspace
-                                .tip_commit_by_segment_id(segment.id)
-                                .map(|commit| commit.id)
+                            let idx = stack.segments.iter().position(|s| s.id == segment.id)?;
+                            stack.segments[idx..]
+                                .iter()
+                                .find_map(|s| s.commits.first().map(|c| c.id).or(s.base))
                         })
                         .ok_or_else(|| {
                             anyhow::anyhow!(
@@ -1396,9 +1397,7 @@ fn workspace_state_from_rebase<M: RefMetadata>(
             .reference_target(branch.as_ref())
             .or_else(|_| resolve_checkout_target(rebase.repo(), branch.as_ref()))?;
         let replaced_commits = rebase.history.commit_mappings();
-        let workspace = rebase
-            .overlayed_graph_with_workspace_overrides(Some((target, branch)), None)?
-            .into_workspace()?;
+        let workspace = rebase.overlayed_workspace_with_overrides(Some((target, branch)), None)?;
         let mut rebase = rebase;
         let (repo, meta, db) = rebase.repo_meta_and_db_mut();
         return WorkspaceState::from_workspace_with_db(
@@ -1457,7 +1456,7 @@ fn workspace_state_from_rebase<M: RefMetadata>(
     }
     if let Some(branch) = pending_checkout {
         checkout_reference(repo, branch.as_ref())?;
-        let project_meta = materialized.workspace.graph.project_meta.clone();
+        let project_meta = materialized.workspace.project_meta.clone();
         materialized.workspace.refresh_from_head(
             repo,
             &*materialized.meta,

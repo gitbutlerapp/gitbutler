@@ -38,4 +38,10 @@ git commit -m "main-advance"
 setup_target_to_match_main
 
 git checkout B
-create_workspace_commit_once A B extra-untracked extra-untracked-2
+create_workspace_commit_once A B
+# extra-untracked / extra-untracked-2 sit on the base (an ancestor of the workspace), so `git merge`
+# cannot list them as workspace-commit parents. Rewrite the workspace commit with the base as an
+# extra parent so a registered empty branch there surfaces as its own stack — the projection derives
+# stacks only from the workspace commit's parents.
+new_ws=$(git commit-tree "HEAD^{tree}" -p A -p B -p base -m "GitButler Workspace Commit")
+git update-ref refs/heads/gitbutler/workspace "$new_ws"

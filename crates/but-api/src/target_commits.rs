@@ -300,8 +300,7 @@ fn merged_reviews_by_integration_sha(
     project_meta: &but_core::ref_metadata::ProjectMeta,
     db: &but_db::DbHandle,
 ) -> anyhow::Result<HashMap<gix::ObjectId, TargetCommitReview>> {
-    let Some(target_branch_name) =
-        target_branch_name(&ws.graph.symbolic_remote_names, project_meta)
+    let Some(target_branch_name) = target_branch_name(&ws.symbolic_remote_names, project_meta)
     else {
         return Ok(HashMap::new());
     };

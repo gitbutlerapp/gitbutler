@@ -29,7 +29,7 @@ pub fn head_info(ctx: &but_ctx::Context) -> Result<but_workspace::RefInfo> {
     // borrows the database again below.
     let ws = {
         let mut db = ctx.db.get_cache_mut()?;
-        but_graph::Graph::from_head(
+        but_graph::Workspace::from_head(
             &repo,
             &meta,
             ctx.project_meta()?,
@@ -39,7 +39,6 @@ pub fn head_info(ctx: &but_ctx::Context) -> Result<but_workspace::RefInfo> {
                 ..but_graph::init::Options::limited()
             },
         )?
-        .into_workspace()?
     };
     let gerrit_mode_enabled = repo.git_settings()?.gitbutler_gerrit_mode.unwrap_or(false);
     let db = gerrit_mode_enabled
@@ -82,8 +81,8 @@ pub fn show_graph_svg(ctx: &Context) -> Result<()> {
     let repo = ctx.open_isolated_repo()?;
     let meta = ctx.meta()?;
     let mut db = ctx.db.get_cache_mut()?;
-    let graph = but_graph::Graph::from_head(&repo, &meta, ctx.project_meta()?, &mut db, options)?;
-    graph.open_as_svg();
+    let ws = but_graph::Workspace::from_head(&repo, &meta, ctx.project_meta()?, &mut db, options)?;
+    ws.open_as_svg();
     Ok(())
 }
 
@@ -432,7 +431,7 @@ pub fn workspace_branch_and_ancestors_push_only(
     let repo = ctx.clone_repo_for_merging_non_persisting()?;
     let meta = ctx.meta()?;
     let mut db = ctx.db.get_cache_mut()?;
-    let ws = but_graph::Graph::from_head(
+    let ws = but_graph::Workspace::from_head(
         &repo,
         &meta,
         ctx.project_meta()?,
@@ -441,8 +440,7 @@ pub fn workspace_branch_and_ancestors_push_only(
             worktrees: ctx.settings.feature_flags.worktree_manipulation,
             ..but_graph::init::Options::limited()
         },
-    )?
-    .into_workspace()?;
+    )?;
     let gerrit_mode_enabled = repo.git_settings()?.gitbutler_gerrit_mode.unwrap_or(false);
     let gerrit_mode = if gerrit_mode_enabled {
         but_workspace::ref_info::GerritMode::Enabled(db.gerrit_metadata())

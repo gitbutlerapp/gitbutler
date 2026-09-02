@@ -2,9 +2,9 @@
 //! graphs are returned.
 
 use anyhow::Result;
-use but_graph::Graph;
+use but_graph::Workspace;
 use but_rebase::graph_rebase::Editor;
-use but_testsupport::{graph_tree, graph_workspace, visualize_commit_graph_all};
+use but_testsupport::{branch_tree, graph_workspace, visualize_commit_graph_all};
 use snapbox::prelude::*;
 
 use crate::utils::{fixture_writable, standard_options};
@@ -25,7 +25,7 @@ fn four_commits() -> Result<()> {
 "#]]
     );
 
-    let graph = Graph::from_head(
+    let graph = Workspace::from_head(
         &repo,
         &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
@@ -34,15 +34,15 @@ fn four_commits() -> Result<()> {
     )?
     .validated()?;
 
-    let mut ws = graph.clone().into_workspace()?;
+    let mut ws = graph.clone();
     let editor = Editor::create(&mut ws, &mut *meta, &repo, &mut db)?;
     let outcome = editor.rebase()?;
-    let overlayed = graph_tree(&outcome.overlayed_graph()?).to_string();
+    let overlayed = branch_tree(&outcome.overlayed_workspace()?).to_string();
     snapbox::assert_data_eq!(
         &overlayed,
         snapbox::str![[r#"
 
-└── 👉►:0[0]:main[🌳]
+└── 👉:0:►main
     ├── ·120e3a9 (⌂)
     ├── ·a96434e (⌂)
     ├── ·d591dfe (⌂)
@@ -51,7 +51,7 @@ fn four_commits() -> Result<()> {
 "#]]
     );
     let outcome = outcome.materialize(Default::default())?;
-    assert_eq!(overlayed, graph_tree(&outcome.workspace.graph).to_string());
+    assert_eq!(overlayed, branch_tree(outcome.workspace).to_string());
 
     assert_eq!(visualize_commit_graph_all(&repo)?, before);
     snapbox::assert_data_eq!(
@@ -82,7 +82,7 @@ fn four_commits_with_short_traversal() -> Result<()> {
     );
 
     let options = standard_options().with_hard_limit(4);
-    let graph = Graph::from_head(
+    let graph = Workspace::from_head(
         &repo,
         &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
@@ -90,7 +90,7 @@ fn four_commits_with_short_traversal() -> Result<()> {
         options,
     )?
     .validated()?;
-    let mut ws = graph.clone().into_workspace()?;
+    let mut ws = graph.clone();
 
     snapbox::assert_data_eq!(
         graph_workspace(&ws).to_string(),
@@ -107,12 +107,12 @@ fn four_commits_with_short_traversal() -> Result<()> {
     );
     let editor = Editor::create(&mut ws, &mut *meta, &repo, &mut db)?;
     let outcome = editor.rebase()?;
-    let overlayed = graph_tree(&outcome.overlayed_graph()?).to_string();
+    let overlayed = branch_tree(&outcome.overlayed_workspace()?).to_string();
     snapbox::assert_data_eq!(
         &overlayed,
         snapbox::str![[r#"
 
-└── 👉►:0[0]:main[🌳]
+└── 👉:0:►main
     ├── ·120e3a9 (⌂)
     ├── ·a96434e (⌂)
     ├── ·d591dfe (⌂)
@@ -121,7 +121,7 @@ fn four_commits_with_short_traversal() -> Result<()> {
 "#]]
     );
     let outcome = outcome.materialize(Default::default())?;
-    assert_eq!(overlayed, graph_tree(&outcome.workspace.graph).to_string());
+    assert_eq!(overlayed, branch_tree(outcome.workspace).to_string());
 
     assert_eq!(visualize_commit_graph_all(&repo)?, before);
     snapbox::assert_data_eq!(
@@ -155,7 +155,7 @@ fn merge_in_the_middle() -> Result<()> {
         .raw()
     );
 
-    let graph = Graph::from_head(
+    let graph = Workspace::from_head(
         &repo,
         &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
@@ -164,30 +164,30 @@ fn merge_in_the_middle() -> Result<()> {
     )?
     .validated()?;
 
-    let mut ws = graph.clone().into_workspace()?;
+    let mut ws = graph.clone();
     let editor = Editor::create(&mut ws, &mut *meta, &repo, &mut db)?;
     let outcome = editor.rebase()?;
-    let overlayed = graph_tree(&outcome.overlayed_graph()?).to_string();
+    let overlayed = branch_tree(&outcome.overlayed_workspace()?).to_string();
     snapbox::assert_data_eq!(
         &overlayed,
         snapbox::str![[r#"
 
-└── 👉►:0[0]:with-inner-merge[🌳]
-    └── ·e8ee978 (⌂)
-        └── ►:1[1]:anon:
-            └── ·2fc288c (⌂)
-                ├── ►:2[2]:A
-                │   └── ·add59d2 (⌂)
-                │       └── ►:4[3]:main
-                │           └── 🏁·8f0d338 (⌂) ►tags/base
-                └── ►:3[2]:B
-                    └── ·984fd1c (⌂)
-                        └── →:4: (main)
+└── 👉:0:►with-inner-merge
+    ├── ·e8ee978 (⌂)
+    └── :1:►anon:
+        ├── ·2fc288c (⌂)
+        ├── :2:►A
+        │   ├── ·add59d2 (⌂)
+        │   └── :4:►main
+        │       └── 🏁·8f0d338 (⌂) ►base
+        └── :3:►B
+            ├── ·984fd1c (⌂)
+            └── →:4:►main
 
 "#]]
     );
     let outcome = outcome.materialize(Default::default())?;
-    assert_eq!(overlayed, graph_tree(&outcome.workspace.graph).to_string());
+    assert_eq!(overlayed, branch_tree(outcome.workspace).to_string());
 
     assert_eq!(visualize_commit_graph_all(&repo)?, before);
     snapbox::assert_data_eq!(
@@ -225,7 +225,7 @@ fn three_branches_merged() -> Result<()> {
         .raw()
     );
 
-    let graph = Graph::from_head(
+    let graph = Workspace::from_head(
         &repo,
         &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
@@ -234,34 +234,34 @@ fn three_branches_merged() -> Result<()> {
     )?
     .validated()?;
 
-    let mut ws = graph.clone().into_workspace()?;
+    let mut ws = graph.clone();
     let editor = Editor::create(&mut ws, &mut *meta, &repo, &mut db)?;
     let outcome = editor.rebase()?;
-    let overlayed = graph_tree(&outcome.overlayed_graph()?).to_string();
+    let overlayed = branch_tree(&outcome.overlayed_workspace()?).to_string();
     snapbox::assert_data_eq!(
         &overlayed,
         snapbox::str![[r#"
 
-└── 👉►:0[0]:main[🌳]
-    └── ·1348870 (⌂)
-        ├── ►:1[1]:A
-        │   └── ·add59d2 (⌂)
-        │       └── ►:4[2]:anon:
-        │           └── 🏁·8f0d338 (⌂) ►tags/base
-        ├── ►:2[1]:B
-        │   ├── ·a748762 (⌂)
-        │   └── ·62e05ba (⌂)
-        │       └── →:4:
-        └── ►:3[1]:C
-            ├── ·930563a (⌂)
-            ├── ·68a2fc3 (⌂)
-            └── ·984fd1c (⌂)
-                └── →:4:
+└── 👉:0:►main
+    ├── ·1348870 (⌂)
+    ├── :1:►A
+    │   ├── ·add59d2 (⌂)
+    │   └── :4:►anon:
+    │       └── 🏁·8f0d338 (⌂) ►base
+    ├── :2:►B
+    │   ├── ·a748762 (⌂)
+    │   ├── ·62e05ba (⌂)
+    │   └── →:4:►anon:
+    └── :3:►C
+        ├── ·930563a (⌂)
+        ├── ·68a2fc3 (⌂)
+        ├── ·984fd1c (⌂)
+        └── →:4:►anon:
 
 "#]]
     );
     let outcome = outcome.materialize(Default::default())?;
-    assert_eq!(overlayed, graph_tree(&outcome.workspace.graph).to_string());
+    assert_eq!(overlayed, branch_tree(outcome.workspace).to_string());
 
     assert_eq!(visualize_commit_graph_all(&repo)?, before);
     snapbox::assert_data_eq!(

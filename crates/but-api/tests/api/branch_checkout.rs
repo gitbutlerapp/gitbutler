@@ -180,6 +180,7 @@ RefInfo {
             ),
             segments: [
                 ref_info::ui::Segment {
+                    id: 0,
                     ref_name: "►feature[🌳]",
                     remote_tracking_ref_name: "None",
                     commits: [
@@ -199,6 +200,20 @@ RefInfo {
             ref_name: FullName(
                 "refs/remotes/origin/main",
             ),
+            tip_commit_id: Some(
+                Sha1(5374caf21933aee76b72bad8d6e30949c7a30e04),
+            ),
+            local_tracking: Some(
+                RefInfo {
+                    ref_name: FullName(
+                        "refs/heads/main",
+                    ),
+                    commit_id: Some(
+                        Sha1(5374caf21933aee76b72bad8d6e30949c7a30e04),
+                    ),
+                    worktree: None,
+                },
+            ),
             commits_ahead: 0,
         },
     ),
@@ -209,6 +224,7 @@ RefInfo {
     ),
     is_target_current: true,
     lower_bound: Some(
+        Sha1(5374caf21933aee76b72bad8d6e30949c7a30e04),
     ),
     is_managed_ref: false,
     is_managed_commit: false,
@@ -317,7 +333,7 @@ RefInfo {
             ),
             segments: [
                 ref_info::ui::Segment {
-                    id: NodeIndex(0),
+                    id: 0,
                     ref_name: "►new-branch[🌳]",
                     remote_tracking_ref_name: "None",
                     commits: [],
@@ -335,19 +351,31 @@ RefInfo {
             ref_name: FullName(
                 "refs/remotes/origin/main",
             ),
-            segment_index: NodeIndex(1),
+            tip_commit_id: Some(
+                Sha1(5374caf21933aee76b72bad8d6e30949c7a30e04),
+            ),
+            local_tracking: Some(
+                RefInfo {
+                    ref_name: FullName(
+                        "refs/heads/main",
+                    ),
+                    commit_id: Some(
+                        Sha1(5374caf21933aee76b72bad8d6e30949c7a30e04),
+                    ),
+                    worktree: None,
+                },
+            ),
             commits_ahead: 0,
         },
     ),
     target_commit: Some(
         TargetCommit {
             commit_id: Sha1(5374caf21933aee76b72bad8d6e30949c7a30e04),
-            segment_index: NodeIndex(0),
         },
     ),
     is_target_current: true,
     lower_bound: Some(
-        NodeIndex(0),
+        Sha1(5374caf21933aee76b72bad8d6e30949c7a30e04),
     ),
     is_managed_ref: false,
     is_managed_commit: false,

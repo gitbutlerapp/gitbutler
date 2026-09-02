@@ -12,7 +12,7 @@
 
 use anyhow::Result;
 use but_core::ref_metadata::ProjectMeta;
-use but_graph::Graph;
+use but_graph::Workspace;
 use but_rebase::graph_rebase::Editor;
 use but_testsupport::visualize_commit_graph_all;
 use snapbox::IntoData;
@@ -25,7 +25,7 @@ use crate::utils::{fixture_writable, standard_options};
 fn render(fixture: &str, target: Option<&str>) -> Result<String> {
     let (repo, _tmp, mut meta, mut db) = fixture_writable(fixture)?;
 
-    let graph = Graph::from_head(
+    let graph = Workspace::from_head(
         &repo,
         &*meta,
         ProjectMeta::default(),
@@ -33,11 +33,11 @@ fn render(fixture: &str, target: Option<&str>) -> Result<String> {
         standard_options(),
     )?
     .validated()?;
-    let mut ws = graph.into_workspace()?;
+    let mut ws = graph;
 
     // The projection bounds stacks at the target commit, so wire it onto the
     // workspace graph that the editor reads from.
-    ws.graph.project_meta = ProjectMeta {
+    ws.project_meta = ProjectMeta {
         target_commit_id: target
             .map(|t| repo.rev_parse_single(t).map(|id| id.detach()))
             .transpose()?,
@@ -363,16 +363,16 @@ fn disjoint_stacks_stay_separate() -> Result<()> {
 ●  f97c026 GitButler Workspace Commit
 
 # Stack 0
-◎  refs/heads/stack-b
-●  cb7021b B2
-●  ce3278a B1
-
-# Stack 1
 ◎  refs/heads/stack-a
 ●  49c06ff A2
 ●  ff76d2f A1
 ◎  refs/heads/main
 ●  965998b base
+
+# Stack 1
+◎  refs/heads/stack-b
+●  cb7021b B2
+●  ce3278a B1
 "#]]
     );
     Ok(())
@@ -395,15 +395,15 @@ fn disjoint_stacks_stay_separate_with_target() -> Result<()> {
 ●  f97c026 GitButler Workspace Commit
 
 # Stack 0
-◎  refs/heads/stack-b
-●  cb7021b B2
-●  ce3278a B1
-
-# Stack 1
 ◎  refs/heads/stack-a
 ●  49c06ff A2
 ●  ff76d2f A1
 ◎  refs/heads/main
+
+# Stack 1
+◎  refs/heads/stack-b
+●  cb7021b B2
+●  ce3278a B1
 "#]]
     );
     Ok(())

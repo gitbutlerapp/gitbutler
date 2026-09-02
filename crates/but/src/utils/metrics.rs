@@ -627,7 +627,7 @@ fn read_only_workspace(ctx: &but_ctx::Context) -> Option<but_graph::Workspace> {
     )
     .ok()?;
     let mut db = ctx.db.get_cache_mut().ok()?;
-    let graph = but_graph::Graph::from_head(
+    but_graph::Workspace::from_head(
         &repo,
         &meta,
         ctx.project_meta().ok()?,
@@ -637,8 +637,7 @@ fn read_only_workspace(ctx: &but_ctx::Context) -> Option<but_graph::Workspace> {
             ..but_graph::init::Options::limited()
         },
     )
-    .ok()?;
-    graph.into_workspace().ok()
+    .ok()
 }
 
 #[derive(Debug, Clone)]

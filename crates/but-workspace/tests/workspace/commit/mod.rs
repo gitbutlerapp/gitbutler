@@ -43,7 +43,7 @@ mod from_new_merge_with_metadata {
 
         let stacks = ["add-A"];
         add_stacks(&mut meta, stacks);
-        let graph = but_graph::Graph::from_head(
+        let graph = but_graph::Workspace::from_head(
             &repo,
             &*meta,
             but_core::ref_metadata::ProjectMeta::default(),
@@ -53,7 +53,8 @@ mod from_new_merge_with_metadata {
         let out = WorkspaceCommit::from_new_merge_with_metadata(
             &to_stacks(stacks),
             None,
-            &graph,
+            graph.commit_graph_ref().expect("a traversal happened"),
+            &graph.ref_tips,
             &repo,
             None,
         )?;
@@ -112,7 +113,7 @@ f53c910
 
         let stacks = ["add-D", "add-A", "add-C", "add-B"];
         add_stacks(&mut meta, stacks);
-        let graph = but_graph::Graph::from_head(
+        let graph = but_graph::Workspace::from_head(
             &repo,
             &*meta,
             but_core::ref_metadata::ProjectMeta::default(),
@@ -122,7 +123,8 @@ f53c910
         let out = WorkspaceCommit::from_new_merge_with_metadata(
             &to_stacks(stacks),
             None,
-            &graph,
+            graph.commit_graph_ref().expect("a traversal happened"),
+            &graph.ref_tips,
             &repo,
             Some("refs/heads/has-no-effect-outside-conflicts".try_into()?),
         )?;
@@ -217,7 +219,7 @@ https://docs.gitbutler.com/features/branch-management/integration-branch
 "#]]
         );
         add_stacks(&mut meta, ["add-A", "add-B", "add-C"]);
-        let graph = but_graph::Graph::from_head(
+        let graph = but_graph::Workspace::from_head(
             &repo,
             &*meta,
             but_core::ref_metadata::ProjectMeta::default(),
@@ -225,14 +227,16 @@ https://docs.gitbutler.com/features/branch-management/integration-branch
             Options::limited(),
         )?;
 
-        let add_c_ref = "refs/heads/add-C".try_into()?;
-        let (segment, commit) = graph
-            .segment_and_commit_by_ref_name(add_c_ref)
+        let add_c_ref: &gix::refs::FullNameRef = "refs/heads/add-C".try_into()?;
+        let commit_id = graph
+            .named_segments
+            .iter()
+            .find(|(name, _)| name.as_ref() == add_c_ref)
+            .map(|(_, tip)| *tip)
             .expect("add-C is visible in the graph");
         let anon_c_tip = Tip {
             name: None,
-            commit_id: commit.id,
-            segment_idx: segment.id,
+            commit_id,
         };
 
         let mut stacks = to_stacks(["add-A", "add-D", "add-B"]);
@@ -244,7 +248,8 @@ https://docs.gitbutler.com/features/branch-management/integration-branch
         let out = WorkspaceCommit::from_new_merge_with_metadata(
             &stacks,
             [(2, anon_c_tip)],
-            &graph,
+            graph.commit_graph_ref().expect("a traversal happened"),
+            &graph.ref_tips,
             &repo,
             None,
         )?;
@@ -303,7 +308,7 @@ Outcome {
             "clean-A",
         ];
         add_stacks(&mut meta, stacks);
-        let graph = but_graph::Graph::from_head(
+        let graph = but_graph::Workspace::from_head(
             &repo,
             &*meta,
             but_core::ref_metadata::ProjectMeta::default(),
@@ -314,7 +319,8 @@ Outcome {
         let out = WorkspaceCommit::from_new_merge_with_metadata(
             &to_stacks(stacks),
             None,
-            &graph,
+            graph.commit_graph_ref().expect("a traversal happened"),
+            &graph.ref_tips,
             &repo,
             Some("refs/heads/conflict-hero".try_into()?),
         )?;
@@ -368,7 +374,8 @@ Outcome {
         let out = WorkspaceCommit::from_new_merge_with_metadata(
             &to_stacks(stacks),
             None,
-            &graph,
+            graph.commit_graph_ref().expect("a traversal happened"),
+            &graph.ref_tips,
             &repo,
             None,
         )?;
@@ -436,7 +443,7 @@ Outcome {
         let stacks = ["tip-conflicted", "unrelated"];
         add_stacks(&mut meta, stacks);
 
-        graph = graph.redo_traversal_with_overlay(
+        graph = graph.redo_traversal_into_workspace_with_overlay(
             &repo,
             &meta,
             Overlay::default().with_references_if_new([
@@ -454,7 +461,8 @@ Outcome {
         let out = WorkspaceCommit::from_new_merge_with_metadata(
             &to_stacks(stacks),
             None,
-            &graph,
+            graph.commit_graph_ref().expect("a traversal happened"),
+            &graph.ref_tips,
             &repo,
             None,
         )?;
@@ -517,7 +525,7 @@ Outcome {
         // NOTE: the caller would be expected to have prepared a graph that contains these branches.
         let stacks = ["clean-A", "conflict-C1", "clean-B", "conflict-C2"];
         add_stacks(&mut meta, stacks);
-        let graph = but_graph::Graph::from_head(
+        let graph = but_graph::Workspace::from_head(
             &repo,
             &*meta,
             but_core::ref_metadata::ProjectMeta::default(),
@@ -528,7 +536,8 @@ Outcome {
         let out = WorkspaceCommit::from_new_merge_with_metadata(
             &to_stacks(stacks),
             None,
-            &graph,
+            graph.commit_graph_ref().expect("a traversal happened"),
+            &graph.ref_tips,
             &repo,
             None,
         )?;
@@ -605,7 +614,8 @@ fc2bf71
         let out = WorkspaceCommit::from_new_merge_with_metadata(
             &to_stacks(stacks),
             None,
-            &graph,
+            graph.commit_graph_ref().expect("a traversal happened"),
+            &graph.ref_tips,
             &repo,
             Some("refs/heads/conflict-C2".try_into()?),
         )?;
@@ -682,7 +692,8 @@ https://docs.gitbutler.com/features/branch-management/integration-branch
         let out = WorkspaceCommit::from_new_merge_with_metadata(
             &to_stacks(["conflict-C2", "conflict-C2", "conflict-C1", "clean-A"]),
             None,
-            &graph,
+            graph.commit_graph_ref().expect("a traversal happened"),
+            &graph.ref_tips,
             &repo,
             Some("refs/heads/conflict-C1".try_into()?),
         )?;

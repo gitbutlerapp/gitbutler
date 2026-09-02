@@ -1185,10 +1185,8 @@ pub fn branch_remove_with_perm(
         };
         let deleted_meta = meta.remove(ref_name.as_ref())?;
         if deleted_ref || deleted_meta {
-            let new_ws = ws
-                .graph
-                .redo_traversal_with_overlay(&repo, &meta, Default::default())?
-                .into_workspace()?;
+            let new_ws =
+                ws.redo_traversal_into_workspace_with_overlay(&repo, &meta, Default::default())?;
             *ws = new_ws;
             true
         } else {
@@ -2054,9 +2052,8 @@ fn branch_workspace_from_rebase<M: but_core::RefMetadata>(
             })
             .transpose()?;
         let replaced_commits = rebase.history.commit_mappings();
-        let workspace = rebase
-            .overlayed_graph_with_workspace_overrides(entrypoint, branch_stack_order)?
-            .into_workspace()?;
+        let workspace =
+            rebase.overlayed_workspace_with_overrides(entrypoint, branch_stack_order)?;
         let (repo, meta, db) = rebase.repo_meta_and_db_mut();
         return WorkspaceState::from_workspace_with_db(
             &workspace,
@@ -2070,7 +2067,7 @@ fn branch_workspace_from_rebase<M: but_core::RefMetadata>(
     let materialized = rebase.materialize(Default::default())?;
     if let Some(order) = branch_stack_order {
         materialized.meta.set_branch_stack_order(order)?;
-        let project_meta = materialized.workspace.graph.project_meta.clone();
+        let project_meta = materialized.workspace.project_meta.clone();
         materialized.workspace.refresh_from_head(
             repo,
             &*materialized.meta,

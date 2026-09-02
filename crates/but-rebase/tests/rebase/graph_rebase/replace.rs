@@ -1,8 +1,8 @@
 //! These tests exercise the replace operation.
 use anyhow::{Context, Result};
-use but_graph::Graph;
+use but_graph::Workspace;
 use but_rebase::graph_rebase::{Editor, Step};
-use but_testsupport::{git_status, graph_tree, visualize_commit_graph_all, visualize_tree};
+use but_testsupport::{branch_tree, git_status, visualize_commit_graph_all, visualize_tree};
 use snapbox::prelude::*;
 
 use crate::utils::{fixture_writable, standard_options};
@@ -29,7 +29,7 @@ fn reword_a_commit() -> Result<()> {
 
     let head_tree = repo.head_tree()?.id;
 
-    let graph = Graph::from_head(
+    let graph = Workspace::from_head(
         &repo,
         &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
@@ -38,7 +38,7 @@ fn reword_a_commit() -> Result<()> {
     )?
     .validated()?;
 
-    let mut ws = graph.into_workspace()?;
+    let mut ws = graph;
     let mut editor = Editor::create(&mut ws, &mut *meta, &repo, &mut db)?;
 
     // get the original a
@@ -58,27 +58,27 @@ fn reword_a_commit() -> Result<()> {
     editor.replace(a_selector, Step::new_pick(a_new))?;
 
     let outcome = editor.rebase()?;
-    let overlayed = graph_tree(&outcome.overlayed_graph()?).to_string();
+    let overlayed = branch_tree(&outcome.overlayed_workspace()?).to_string();
     snapbox::assert_data_eq!(
         &overlayed,
         snapbox::str![[r#"
 
-└── 👉►:0[0]:with-inner-merge[🌳]
-    └── ·78aaae2 (⌂)
-        └── ►:1[1]:anon:
-            └── ·53af95a (⌂)
-                ├── ►:2[2]:A
-                │   └── ·6de6b92 (⌂)
-                │       └── ►:4[3]:main
-                │           └── 🏁·8f0d338 (⌂) ►tags/base
-                └── ►:3[2]:B
-                    └── ·984fd1c (⌂)
-                        └── →:4: (main)
+└── 👉:0:►with-inner-merge
+    ├── ·78aaae2 (⌂)
+    └── :1:►anon:
+        ├── ·53af95a (⌂)
+        ├── :2:►A
+        │   ├── ·6de6b92 (⌂)
+        │   └── :4:►main
+        │       └── 🏁·8f0d338 (⌂) ►base
+        └── :3:►B
+            ├── ·984fd1c (⌂)
+            └── →:4:►main
 
 "#]]
     );
     let outcome = outcome.materialize(Default::default())?;
-    assert_eq!(overlayed, graph_tree(&outcome.workspace.graph).to_string());
+    assert_eq!(overlayed, branch_tree(outcome.workspace).to_string());
 
     assert_eq!(head_tree, repo.head_tree()?.id);
 
@@ -141,7 +141,7 @@ f766d1f
 
 "#]].raw());
 
-    let graph = Graph::from_head(
+    let graph = Workspace::from_head(
         &repo,
         &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
@@ -150,7 +150,7 @@ f766d1f
     )?
     .validated()?;
 
-    let mut ws = graph.into_workspace()?;
+    let mut ws = graph;
     let mut editor = Editor::create(&mut ws, &mut *meta, &repo, &mut db)?;
 
     // get the original a
@@ -181,27 +181,27 @@ f766d1f
     editor.replace(a_selector, Step::new_pick(a_new))?;
 
     let outcome = editor.rebase()?;
-    let overlayed = graph_tree(&outcome.overlayed_graph()?).to_string();
+    let overlayed = branch_tree(&outcome.overlayed_workspace()?).to_string();
     snapbox::assert_data_eq!(
         &overlayed,
         snapbox::str![[r#"
 
-└── 👉►:0[0]:with-inner-merge[🌳]
-    └── ·e7221b5 (⌂)
-        └── ►:1[1]:anon:
-            └── ·8101192 (⌂)
-                ├── ►:2[2]:A
-                │   └── ·f1905a8 (⌂)
-                │       └── ►:4[3]:main
-                │           └── 🏁·8f0d338 (⌂) ►tags/base
-                └── ►:3[2]:B
-                    └── ·984fd1c (⌂)
-                        └── →:4: (main)
+└── 👉:0:►with-inner-merge
+    ├── ·e7221b5 (⌂)
+    └── :1:►anon:
+        ├── ·8101192 (⌂)
+        ├── :2:►A
+        │   ├── ·f1905a8 (⌂)
+        │   └── :4:►main
+        │       └── 🏁·8f0d338 (⌂) ►base
+        └── :3:►B
+            ├── ·984fd1c (⌂)
+            └── →:4:►main
 
 "#]]
     );
     let outcome = outcome.materialize(Default::default())?;
-    assert_eq!(overlayed, graph_tree(&outcome.workspace.graph).to_string());
+    assert_eq!(overlayed, branch_tree(outcome.workspace).to_string());
 
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,

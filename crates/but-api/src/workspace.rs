@@ -496,7 +496,7 @@ fn forge_review_integration_hints(
     db: &but_db::DbHandle,
 ) -> anyhow::Result<Vec<ReviewIntegrationHint>> {
     let Some(target_branch_name) =
-        target_branch_name(&workspace.graph.symbolic_remote_names, project_meta)
+        target_branch_name(&workspace.symbolic_remote_names, project_meta)
     else {
         return Ok(vec![]);
     };

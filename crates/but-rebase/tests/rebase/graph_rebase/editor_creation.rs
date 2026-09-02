@@ -1,7 +1,7 @@
 use anyhow::Result;
-use but_graph::{Graph, init::Tip};
+use but_graph::{Workspace, init::Tip};
 use but_rebase::graph_rebase::{Editor, GraphEditorOptions, testing::Testing as _};
-use but_testsupport::{StackState, graph_tree, visualize_commit_graph_all};
+use but_testsupport::{StackState, branch_tree, visualize_commit_graph_all};
 use snapbox::IntoData;
 
 use crate::{
@@ -24,7 +24,7 @@ fn four_commits() -> Result<()> {
 "#]]
     );
 
-    let graph = Graph::from_head(
+    let graph = Workspace::from_head(
         &repo,
         &*meta,
         Default::default(),
@@ -33,7 +33,7 @@ fn four_commits() -> Result<()> {
     )?
     .validated()?;
 
-    let mut ws = graph.into_workspace()?;
+    let mut ws = graph;
     let editor = Editor::create(&mut ws, &mut *meta, &repo, &mut db)?;
 
     snapbox::assert_data_eq!(
@@ -69,7 +69,7 @@ fn merge_in_the_middle() -> Result<()> {
         .raw()
     );
 
-    let graph = Graph::from_head(
+    let graph = Workspace::from_head(
         &repo,
         &*meta,
         Default::default(),
@@ -78,7 +78,7 @@ fn merge_in_the_middle() -> Result<()> {
     )?
     .validated()?;
 
-    let mut ws = graph.into_workspace()?;
+    let mut ws = graph;
     let editor = Editor::create(&mut ws, &mut *meta, &repo, &mut db)?;
 
     snapbox::assert_data_eq!(
@@ -125,7 +125,7 @@ fn three_branches_merged() -> Result<()> {
         .raw()
     );
 
-    let graph = Graph::from_head(
+    let graph = Workspace::from_head(
         &repo,
         &*meta,
         Default::default(),
@@ -134,7 +134,7 @@ fn three_branches_merged() -> Result<()> {
     )?
     .validated()?;
 
-    let mut ws = graph.into_workspace()?;
+    let mut ws = graph;
     let editor = Editor::create(&mut ws, &mut *meta, &repo, &mut db)?;
 
     snapbox::assert_data_eq!(
@@ -177,7 +177,7 @@ fn many_references() -> Result<()> {
 "#]]
     );
 
-    let graph = Graph::from_head(
+    let graph = Workspace::from_head(
         &repo,
         &*meta,
         Default::default(),
@@ -187,10 +187,10 @@ fn many_references() -> Result<()> {
     .validated()?;
 
     snapbox::assert_data_eq!(
-        graph_tree(&graph).to_string(),
+        branch_tree(&graph).to_string(),
         snapbox::str![[r#"
 
-└── 👉►:0[0]:main[🌳]
+└── 👉:0:►main
     ├── ·120e3a9 (⌂)
     ├── ·a96434e (⌂)
     ├── ·d591dfe (⌂) ►X, ►Y, ►Z
@@ -199,7 +199,7 @@ fn many_references() -> Result<()> {
 "#]]
     );
 
-    let mut ws = graph.into_workspace()?;
+    let mut ws = graph;
     let editor = Editor::create(&mut ws, &mut *meta, &repo, &mut db)?;
 
     snapbox::assert_data_eq!(
@@ -240,7 +240,7 @@ fn first_parent_leg_long() -> Result<()> {
         .raw()
     );
 
-    let graph = Graph::from_head(
+    let graph = Workspace::from_head(
         &repo,
         &*meta,
         Default::default(),
@@ -250,27 +250,27 @@ fn first_parent_leg_long() -> Result<()> {
     .validated()?;
 
     snapbox::assert_data_eq!(
-        graph_tree(&graph).to_string(),
+        branch_tree(&graph).to_string(),
         snapbox::str![[r#"
 
-└── 👉►:0[0]:with-inner-merge[🌳]
-    └── ·6ac5745 (⌂)
-        └── ►:1[1]:anon:
-            └── ·d20f547 (⌂)
-                ├── ►:2[2]:A
-                │   ├── ·198d2e4 (⌂)
-                │   ├── ·7325853 (⌂)
-                │   └── ·add59d2 (⌂)
-                │       └── ►:4[3]:main
-                │           └── 🏁·8f0d338 (⌂) ►tags/base
-                └── ►:3[2]:B
-                    └── ·984fd1c (⌂)
-                        └── →:4: (main)
+└── 👉:0:►with-inner-merge
+    ├── ·6ac5745 (⌂)
+    └── :1:►anon:
+        ├── ·d20f547 (⌂)
+        ├── :2:►A
+        │   ├── ·198d2e4 (⌂)
+        │   ├── ·7325853 (⌂)
+        │   ├── ·add59d2 (⌂)
+        │   └── :4:►main
+        │       └── 🏁·8f0d338 (⌂) ►base
+        └── :3:►B
+            ├── ·984fd1c (⌂)
+            └── →:4:►main
 
 "#]]
     );
 
-    let mut ws = graph.into_workspace()?;
+    let mut ws = graph;
     let editor = Editor::create(&mut ws, &mut *meta, &repo, &mut db)?;
 
     snapbox::assert_data_eq!(
@@ -317,7 +317,7 @@ fn second_parent_leg_long() -> Result<()> {
         .raw()
     );
 
-    let graph = Graph::from_head(
+    let graph = Workspace::from_head(
         &repo,
         &*meta,
         Default::default(),
@@ -327,27 +327,27 @@ fn second_parent_leg_long() -> Result<()> {
     .validated()?;
 
     snapbox::assert_data_eq!(
-        graph_tree(&graph).to_string(),
+        branch_tree(&graph).to_string(),
         snapbox::str![[r#"
 
-└── 👉►:0[0]:with-inner-merge[🌳]
-    └── ·a6775ea (⌂)
-        └── ►:1[1]:anon:
-            └── ·b85214b (⌂)
-                ├── ►:2[2]:A
-                │   └── ·add59d2 (⌂)
-                │       └── ►:4[3]:main
-                │           └── 🏁·8f0d338 (⌂) ►tags/base
-                └── ►:3[2]:B
-                    ├── ·f87f875 (⌂)
-                    ├── ·cb181a0 (⌂)
-                    └── ·984fd1c (⌂)
-                        └── →:4: (main)
+└── 👉:0:►with-inner-merge
+    ├── ·a6775ea (⌂)
+    └── :1:►anon:
+        ├── ·b85214b (⌂)
+        ├── :2:►A
+        │   ├── ·add59d2 (⌂)
+        │   └── :4:►main
+        │       └── 🏁·8f0d338 (⌂) ►base
+        └── :3:►B
+            ├── ·f87f875 (⌂)
+            ├── ·cb181a0 (⌂)
+            ├── ·984fd1c (⌂)
+            └── →:4:►main
 
 "#]]
     );
 
-    let mut ws = graph.into_workspace()?;
+    let mut ws = graph;
     let editor = Editor::create(&mut ws, &mut *meta, &repo, &mut db)?;
 
     snapbox::assert_data_eq!(
@@ -398,33 +398,33 @@ fn workspace_with_empty_stack() -> Result<()> {
         .raw()
     );
 
-    let graph =
-        Graph::from_head(&repo, &*meta, target_meta(), &mut db, standard_options())?.validated()?;
+    let graph = Workspace::from_head(&repo, &*meta, target_meta(), &mut db, standard_options())?
+        .validated()?;
 
     snapbox::assert_data_eq!(
-        graph_tree(&graph).to_string(),
+        branch_tree(&graph).to_string(),
         snapbox::str![[r#"
 
-├── 👉📕►►►:0[0]:gitbutler/workspace[🌳]
-│   └── ·74bcc92 (⌂|🏘)
-│       ├── 📙►:3[1]:stack-1
-│       │   ├── ·2169646 (⌂|🏘)
-│       │   └── ·46ef828 (⌂|🏘)
-│       │       └── ►:4[2]:anon:
-│       │           ├── ·f555940 (⌂|🏘|✓)
-│       │           ├── ·d664be0 (⌂|🏘|✓)
-│       │           └── 🏁·fafd9d0 (⌂|🏘|✓)
-│       └── 📙►:5[1]:stack-2
-│           └── →:4:
-└── ►:1[0]:origin/main
-    └── ►:2[1]:main <> origin/main
-        └── ·a0f2ac5 (⌂|✓)
-            └── →:4:
+├── 👉:0:►gitbutler/workspace
+│   ├── ·74bcc92 (⌂|🏘)
+│   ├── :3:►stack-1
+│   │   ├── ·2169646 (⌂|🏘)
+│   │   ├── ·46ef828 (⌂|🏘)
+│   │   └── :4:►anon:
+│   │       ├── ·f555940 (⌂|🏘|✓)
+│   │       ├── ·d664be0 (⌂|🏘|✓)
+│   │       └── 🏁·fafd9d0 (⌂|🏘|✓)
+│   └── :5:►stack-2
+│       └── →:4:►anon:
+└── :2:►origin/main
+    └── :1:►main
+        ├── ·a0f2ac5 (⌂|✓)
+        └── →:4:►anon:
 
 "#]]
     );
 
-    let mut ws = graph.into_workspace()?;
+    let mut ws = graph;
     let editor = Editor::create(&mut ws, &mut *meta, &repo, &mut db)?;
 
     snapbox::assert_data_eq!(
@@ -470,31 +470,31 @@ fn workspace_with_three_empty_stacks() -> Result<()> {
 "#]]
     );
 
-    let graph =
-        Graph::from_head(&repo, &*meta, target_meta(), &mut db, standard_options())?.validated()?;
+    let graph = Workspace::from_head(&repo, &*meta, target_meta(), &mut db, standard_options())?
+        .validated()?;
 
     snapbox::assert_data_eq!(
-        graph_tree(&graph).to_string(),
+        branch_tree(&graph).to_string(),
         snapbox::str![[r#"
 
-├── 👉📕►►►:0[0]:gitbutler/workspace[🌳]
-│   └── ·a26ae77 (⌂|🏘)
-│       ├── 📙►:4[1]:stack-1
-│       │   └── ►:3[2]:anon:
-│       │       └── 🏁·fafd9d0 (⌂|🏘|✓)
-│       ├── 📙►:5[1]:stack-2
-│       │   └── →:3:
-│       └── 📙►:6[1]:stack-3
-│           └── →:3:
-└── ►:1[0]:origin/main
-    └── ►:2[1]:main <> origin/main
-        └── ·1cf9cf4 (⌂|✓)
-            └── →:3:
+├── 👉:0:►gitbutler/workspace
+│   ├── ·a26ae77 (⌂|🏘)
+│   ├── :6:►stack-3
+│   │   └── :3:►anon:
+│   │       └── 🏁·fafd9d0 (⌂|🏘|✓)
+│   ├── :5:►stack-2
+│   │   └── →:3:►anon:
+│   └── :4:►stack-1
+│       └── →:3:►anon:
+└── :2:►origin/main
+    └── :1:►main
+        ├── ·1cf9cf4 (⌂|✓)
+        └── →:3:►anon:
 
 "#]]
     );
 
-    let mut ws = graph.into_workspace()?;
+    let mut ws = graph;
     let editor = Editor::create(&mut ws, &mut *meta, &repo, &mut db)?;
 
     snapbox::assert_data_eq!(
@@ -538,7 +538,7 @@ fn commit_with_two_parents() -> Result<()> {
         .raw()
     );
 
-    let graph = Graph::from_head(
+    let graph = Workspace::from_head(
         &repo,
         &*meta,
         Default::default(),
@@ -548,19 +548,19 @@ fn commit_with_two_parents() -> Result<()> {
     .validated()?;
 
     snapbox::assert_data_eq!(
-        graph_tree(&graph).to_string(),
+        branch_tree(&graph).to_string(),
         snapbox::str![[r#"
 
-└── 👉►:0[0]:main[🌳]
-    └── ·d70d863 (⌂)
-        ├── ►:1[1]:anon:
-        │   └── 🏁·35b8235 (⌂)
-        └── →:1:
+└── 👉:0:►main
+    ├── ·d70d863 (⌂)
+    ├── :1:►anon:
+    │   └── 🏁·35b8235 (⌂)
+    └── →:1:►anon:
 
 "#]]
     );
 
-    let mut ws = graph.into_workspace()?;
+    let mut ws = graph;
     let editor = Editor::create(&mut ws, &mut *meta, &repo, &mut db)?;
 
     snapbox::assert_data_eq!(
@@ -584,9 +584,10 @@ fn includes_extra_refs_in_editor_creation() -> Result<()> {
     let main_ref = gix::refs::FullName::try_from("refs/heads/main")?;
 
     {
-        let graph = Graph::from_head(&repo, &*meta, target_meta(), &mut db, standard_options())?
-            .validated()?;
-        let mut ws = graph.into_workspace()?;
+        let graph =
+            Workspace::from_head(&repo, &*meta, target_meta(), &mut db, standard_options())?
+                .validated()?;
+        let mut ws = graph;
         let editor = Editor::create(&mut ws, &mut *meta, &repo, &mut db)?;
 
         snapbox::assert_data_eq!(
@@ -612,9 +613,10 @@ fn includes_extra_refs_in_editor_creation() -> Result<()> {
     }
 
     {
-        let graph = Graph::from_head(&repo, &*meta, target_meta(), &mut db, standard_options())?
-            .validated()?;
-        let mut ws = graph.into_workspace()?;
+        let graph =
+            Workspace::from_head(&repo, &*meta, target_meta(), &mut db, standard_options())?
+                .validated()?;
+        let mut ws = graph;
         let editor = Editor::create_with_opts(
             &mut ws,
             &mut *meta,
@@ -676,7 +678,7 @@ fn merge_first_parent_older_than_second() -> Result<()> {
         .raw()
     );
 
-    let graph = Graph::from_head(
+    let graph = Workspace::from_head(
         &repo,
         &*meta,
         Default::default(),
@@ -686,27 +688,27 @@ fn merge_first_parent_older_than_second() -> Result<()> {
     .validated()?;
 
     snapbox::assert_data_eq!(
-        graph_tree(&graph).to_string(),
+        branch_tree(&graph).to_string(),
         snapbox::str![[r#"
 
-└── 👉►:0[0]:first-parent[🌳]
-    └── ·738ea18 (⌂)
-        └── ►:1[1]:anon:
-            └── ·408ca26 (⌂)
-                ├── ►:3[2]:anon:
-                │   └── ·2854fa2 (⌂)
-                │       └── ►:4[3]:main
-                │           └── 🏁·793a434 (⌂) ►tags/base
-                └── ►:2[2]:second-parent
-                    ├── ·75369b0 (⌂)
-                    ├── ·553bbf7 (⌂)
-                    └── ·72614bb (⌂)
-                        └── →:4: (main)
+└── 👉:0:►first-parent
+    ├── ·738ea18 (⌂)
+    └── :1:►anon:
+        ├── ·408ca26 (⌂)
+        ├── :2:►second-parent
+        │   ├── ·75369b0 (⌂)
+        │   ├── ·553bbf7 (⌂)
+        │   ├── ·72614bb (⌂)
+        │   └── :4:►main
+        │       └── 🏁·793a434 (⌂) ►base
+        └── :3:►anon:
+            ├── ·2854fa2 (⌂)
+            └── →:4:►main
 
 "#]]
     );
 
-    let mut ws = graph.into_workspace()?;
+    let mut ws = graph;
     let editor = Editor::create(&mut ws, &mut *meta, &repo, &mut db)?;
 
     snapbox::assert_data_eq!(
@@ -751,7 +753,7 @@ fn immutable_entrypoints_propogate_until_mutable_entrypoints() -> Result<()> {
 "#]]
     );
 
-    let graph = Graph::from_commit_traversal_tips(
+    let graph = Workspace::from_commit_traversal_tips(
         &repo,
         [
             Tip::entrypoint(
@@ -776,30 +778,30 @@ fn immutable_entrypoints_propogate_until_mutable_entrypoints() -> Result<()> {
     .validated()?;
 
     snapbox::assert_data_eq!(
-        graph_tree(&graph).to_string(),
+        branch_tree(&graph).to_string(),
         snapbox::str![[r#"
 
-├── ►:0[0]:explicit-const
-│   └── ·be4ae80 (⌂) ►main
-│       └── ►:3[1]:implicit-const
-│           └── ·120e3a9 (⌂)
-│               └── ►:6[2]:explicit-mut
-│                   └── ·a96434e (⌂)
-│                       └── ►:5[3]:foo
-│                           ├── ·d591dfe (⌂)
-│                           └── 🏁·35b8235 (⌂)
-└── ►:1[0]:explicit-const-2
-    └── ·d9fa122 (⌂)
-        └── ►:4[1]:implicit-const-2
-            └── ·85bccf0 (⌂)
-                └── 👉►:2[2]:implicit-mut
-                    └── ·c8dd361 (⌂)
-                        └── →:5: (foo)
+├── :0:►explicit-const
+│   ├── ·be4ae80 (⌂) ►main
+│   └── :3:►implicit-const
+│       ├── ·120e3a9 (⌂)
+│       └── :6:►explicit-mut
+│           ├── ·a96434e (⌂)
+│           └── :5:►foo
+│               ├── ·d591dfe (⌂)
+│               └── 🏁·35b8235 (⌂)
+└── :1:►explicit-const-2
+    ├── ·d9fa122 (⌂)
+    └── :4:►implicit-const-2
+        ├── ·85bccf0 (⌂)
+        └── 👉:2:►implicit-mut
+            ├── ·c8dd361 (⌂)
+            └── →:5:►foo
 
 "#]]
     );
 
-    let mut ws = graph.into_workspace()?;
+    let mut ws = graph;
     let opts = GraphEditorOptions {
         extra_mutable_refs: vec!["refs/heads/explicit-mut".try_into()?],
         ..Default::default()

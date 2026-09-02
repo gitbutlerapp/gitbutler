@@ -3730,16 +3730,20 @@ mod util {
         StackSegment {
             ref_info,
             remote_tracking_ref_name: None,
-            remote_tracking_branch_segment_id: None,
+            remote_tip_id: None,
+            tip_commit_id: local_commit_ids.first().copied(),
+            generation: 0,
             id: Default::default(),
             commits,
             commits_outside: None,
             base,
             base_segment_id: None,
+            base_ref_name: None,
             commits_by_segment: Vec::new(),
             commits_on_remote,
             metadata: None,
             is_entrypoint: false,
+            projected_from_outside: false,
         }
     }
 

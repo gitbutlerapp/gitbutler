@@ -1595,11 +1595,12 @@ Hint: run `but help` for all commands
     snapbox::assert_data_eq!(
         env.git_log(),
         snapbox::str![[r#"
-*-.   6afce52 (gitbutler/workspace) GitButler Workspace Commit
+*-.   1c2f3ce (gitbutler/workspace) GitButler Workspace Commit
 |/ /  
 | | * 9477ae7 (A) add A
 | |/  
-* / d3e2ba3 (B) add B
+|/|   
+| * d3e2ba3 (B) add B
 |/  
 * 0dc3733 (HEAD -> a-branch-1, origin/main, origin/HEAD, main, gitbutler/target) add M
 
@@ -1623,11 +1624,12 @@ Hint: run `but help` for all commands
     snapbox::assert_data_eq!(
         env.git_log(),
         snapbox::str![[r#"
-*-.   6afce52 (gitbutler/workspace) GitButler Workspace Commit
+*-.   1c2f3ce (gitbutler/workspace) GitButler Workspace Commit
 |/ /  
 | | * 9477ae7 (A) add A
 | |/  
-* / d3e2ba3 (B) add B
+|/|   
+| * d3e2ba3 (B) add B
 |/  
 * 0dc3733 (HEAD -> a-branch-2, origin/main, origin/HEAD, main, gitbutler/target, a-branch-1) add M
 

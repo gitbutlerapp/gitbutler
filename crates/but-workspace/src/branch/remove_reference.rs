@@ -84,10 +84,9 @@ pub fn remove_reference(
     }
 
     let stack_id = stack.id;
-    let mut graph = workspace
-        .graph
-        .redo_traversal_with_overlay(repo, meta, Default::default())?;
-    let ws = graph.into_workspace()?;
+    let mut graph =
+        workspace.redo_traversal_into_workspace_with_overlay(repo, meta, Default::default())?;
+    let ws = graph;
     if avoid_anonymous_stacks {
         let Some(stack) = ws.stacks.iter().find(|s| s.id == stack_id) else {
             // The whole stack is gone, so nothing that could be anonymous.
@@ -104,7 +103,7 @@ pub fn remove_reference(
                 .iter()
                 .find_map(|s| {
                     let rn = s.ref_name()?;
-                    ws.tip_commit_by_segment_id(s.id).map(|c| (rn, c.id))
+                    s.tip_commit_id.map(|id| (rn, id))
                 })
                 .with_context(|| {
                     "BUG: should not try to delete branch if anon \
@@ -117,10 +116,9 @@ pub fn remove_reference(
                 PreviousValue::MustExistAndMatch(gix::refs::Target::Object(target_id)),
                 "move segment reference up to avoid anonymous stack",
             )?;
-            graph = ws
-                .graph
-                .redo_traversal_with_overlay(repo, meta, Default::default())?;
-            Ok(Some(graph.into_workspace()?))
+            graph =
+                ws.redo_traversal_into_workspace_with_overlay(repo, meta, Default::default())?;
+            Ok(Some(graph))
         } else {
             Ok(Some(ws))
         }

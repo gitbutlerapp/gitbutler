@@ -285,7 +285,7 @@ impl<'ws, 'graph, M: RefMetadata> SuccessfulRebase<'ws, 'graph, M> {
 
         repo.edit_references(ref_edits)?;
 
-        let project_meta = self.workspace.graph.project_meta.clone();
+        let project_meta = self.workspace.project_meta.clone();
         self.workspace
             .refresh_from_head(&repo, &*self.meta, project_meta, &mut *self.db)?;
 

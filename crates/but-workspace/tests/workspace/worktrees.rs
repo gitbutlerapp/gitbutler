@@ -1,6 +1,6 @@
 use anyhow::Result;
 use bstr::{BStr, ByteSlice};
-use but_graph::Graph;
+use but_graph::Workspace;
 use but_workspace::ref_info::LocalCommitRelation;
 use but_workspace::worktrees::WorktreeBase;
 
@@ -21,7 +21,7 @@ fn ref_info_with_worktree_tips(
     let mut db = but_testsupport::in_memory_db();
     // Adoption already ran, so the fixture worktrees count as active.
     db.worktree_meta_mut().mark_adopted()?;
-    let graph = Graph::from_head(
+    let graph = Workspace::from_head(
         repo,
         meta,
         project_meta,
@@ -33,7 +33,7 @@ fn ref_info_with_worktree_tips(
     )?
     .validated()?;
     but_workspace::graph_to_ref_info(
-        &graph.into_workspace()?,
+        &graph,
         repo,
         but_workspace::ref_info::Options {
             expensive_commit_info: true,
@@ -135,15 +135,14 @@ fn worktrees_are_empty_without_seeded_tips() -> Result<()> {
     let meta = but_meta::VirtualBranchesTomlMetadata::from_path(
         repo.path().join("should-never-be-written.toml"),
     )?;
-    let graph = Graph::from_head(
+    let graph = Workspace::from_head(
         &repo,
         &meta,
         Default::default(),
         &mut db,
         but_graph::init::Options::limited(),
     )?;
-    let info =
-        but_workspace::graph_to_ref_info(&graph.into_workspace()?, &repo, Default::default())?;
+    let info = but_workspace::graph_to_ref_info(&graph, &repo, Default::default())?;
     assert!(
         info.worktrees.is_empty(),
         "worktrees are only projected when the traversal was seeded with their tips"

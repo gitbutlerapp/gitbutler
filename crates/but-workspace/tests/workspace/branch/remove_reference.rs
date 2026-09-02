@@ -35,7 +35,7 @@ Single commit, no main remote/target, no ws commit, but ws-reference
 
 "#]]
     );
-    let ws = graph.into_workspace()?;
+    let ws = graph;
     // the workspace is empty.
     snapbox::assert_data_eq!(
         graph_workspace(&ws).to_string(),
@@ -83,7 +83,7 @@ Single commit, no main remote/target, no ws commit, but ws-reference
 
 "#]]
     );
-    let ws = ws.graph.into_workspace_of_redone_traversal(&repo, &meta)?;
+    let ws = ws.into_workspace_of_redone_traversal(&repo, &meta)?;
     snapbox::assert_data_eq!(
         graph_workspace(&ws).to_string(),
         snapbox::str![[r#"
@@ -121,7 +121,7 @@ Single commit, target, no ws commit, but ws-reference and a named segment, and b
 "#]]
     );
 
-    let mut ws = graph.into_workspace()?;
+    let mut ws = graph;
     snapbox::assert_data_eq!(
         graph_workspace(&ws).to_string(),
         snapbox::str![[r#"
@@ -152,7 +152,7 @@ Single commit, target, no ws commit, but ws-reference and a named segment, and b
         .expect("we deleted something");
     }
 
-    let ws = ws.graph.into_workspace_of_redone_traversal(&repo, &meta)?;
+    let ws = ws.into_workspace_of_redone_traversal(&repo, &meta)?;
     snapbox::assert_data_eq!(
         graph_workspace(&ws).to_string(),
         snapbox::str![[r#"
@@ -202,7 +202,7 @@ Two commits in main, target setup, ws commit, many more usable branches
 
 "#]]
     );
-    let mut ws = graph.into_workspace()?;
+    let mut ws = graph;
     snapbox::assert_data_eq!(
         graph_workspace(&ws).to_string(),
         snapbox::str![[r#"
@@ -324,7 +324,7 @@ Single commit, no main remote/target, no ws commit, but ws-reference
 "#]]
     );
 
-    let ws = graph.into_workspace()?;
+    let ws = graph;
     snapbox::assert_data_eq!(
         graph_workspace(&ws).to_string(),
         snapbox::str![[r#"
@@ -375,7 +375,7 @@ Single commit, no main remote/target, no ws commit, but ws-reference
         "recreate ref to show metadata is present and unchanged",
     )?;
 
-    let ws = ws.graph.into_workspace_of_redone_traversal(&repo, &meta)?;
+    let ws = ws.into_workspace_of_redone_traversal(&repo, &meta)?;
     snapbox::assert_data_eq!(
         graph_workspace(&ws).to_string(),
         snapbox::str![[r#"
@@ -461,7 +461,7 @@ Single commit, no main remote/target, no ws commit, but ws-reference
 
 "#]]
     );
-    let ws = ws.graph.into_workspace_of_redone_traversal(&repo, &meta)?;
+    let ws = ws.into_workspace_of_redone_traversal(&repo, &meta)?;
     // The workspace is completely empty.
     snapbox::assert_data_eq!(
         graph_workspace(&ws).to_string(),

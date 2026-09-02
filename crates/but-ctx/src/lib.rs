@@ -776,14 +776,14 @@ impl Context {
 
     /// Must not be called while a database handle is borrowed: graph construction takes
     /// one unconditionally, whether or not worktree discovery is enabled.
-    fn workspace_from_head(&self) -> anyhow::Result<but_graph::Workspace> {
+    pub fn workspace_from_head(&self) -> anyhow::Result<but_graph::Workspace> {
         let repo = self.repo.get()?;
         let meta = but_meta::BranchOrderMetadata::from_paths_read_only(
             self.project_data_dir().join("virtual_branches.toml"),
             self.project_data_dir(),
         )?;
         let mut db = self.db.get_cache_mut()?;
-        let graph = but_graph::Graph::from_head(
+        but_graph::Workspace::from_head(
             &repo,
             &meta,
             self.project_meta()?,
@@ -792,8 +792,7 @@ impl Context {
                 worktrees: self.settings.feature_flags.worktree_manipulation,
                 ..but_graph::init::Options::limited()
             },
-        )?;
-        graph.into_workspace()
+        )
     }
 
     /// Project the current workspace without reading from or updating the workspace cache.
@@ -827,7 +826,7 @@ impl Context {
         let mut reference = repo.find_reference(ref_name)?;
         let tip = reference.peel_to_id()?;
         let mut db = self.db.get_cache_mut()?;
-        let graph = but_graph::Graph::from_commit_traversal(
+        but_graph::Workspace::from_commit_traversal(
             tip,
             reference.name().to_owned(),
             &meta,
@@ -837,8 +836,7 @@ impl Context {
                 worktrees: self.settings.feature_flags.worktree_manipulation,
                 ..but_graph::init::Options::limited()
             },
-        )?;
-        graph.into_workspace()
+        )
     }
 }
 

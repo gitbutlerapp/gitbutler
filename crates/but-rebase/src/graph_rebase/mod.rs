@@ -5,6 +5,7 @@
 //! and in the darknes bind them.
 
 mod creation;
+pub(crate) mod inputs;
 pub mod rebase;
 pub mod traverse;
 use std::collections::{BTreeMap, HashMap};
@@ -322,7 +323,7 @@ impl<'ws, 'meta, M: RefMetadata> SuccessfulRebase<'ws, 'meta, M> {
     /// Returns the in-memory repository that backs this rebase preview.
     ///
     /// This repository may contain objects that have not been persisted yet,
-    /// which makes it suitable for dry-run inspection of [`Self::overlayed_graph`].
+    /// which makes it suitable for dry-run inspection of [`Self::overlayed_workspace`].
     pub fn repo(&self) -> &gix::Repository {
         &self.repo
     }
@@ -331,7 +332,7 @@ impl<'ws, 'meta, M: RefMetadata> SuccessfulRebase<'ws, 'meta, M> {
     /// ref-metadata the editor was created with.
     ///
     /// Use this to build post-rebase projections that need both, like a
-    /// workspace preview computed from [`Self::overlayed_graph`].
+    /// workspace preview computed from [`Self::overlayed_workspace`].
     pub fn repo_and_meta_mut(&mut self) -> (&gix::Repository, &mut M) {
         (&self.repo, self.meta)
     }
@@ -401,14 +402,14 @@ impl<'ws, 'meta, M: RefMetadata> SuccessfulRebase<'ws, 'meta, M> {
         }
     }
 
-    /// Returns a preview of what the but-graph will look like after
-    /// materialization.
+    /// Returns a preview of what the workspace will look like after
+    /// materialization, projected directly from a re-traversal with the pending edits applied.
     ///
     /// Any objects referenced in the resulting graph must be accessed via the
     /// in-memory repository owned by this [`SuccessfulRebase`] (`self.repo`),
     /// since they might exist only in memory.
-    pub fn overlayed_graph(&self) -> Result<but_graph::Graph> {
-        self.overlayed_graph_with_workspace_overrides(None, None)
+    pub fn overlayed_workspace(&self) -> Result<but_graph::Workspace> {
+        self.overlayed_workspace_with_overrides(None, None)
     }
 
     /// Return the post-rebase graph with optional ad-hoc workspace projection overrides.
@@ -417,11 +418,11 @@ impl<'ws, 'meta, M: RefMetadata> SuccessfulRebase<'ws, 'meta, M> {
     /// checkout changes that are deliberately not persisted. The override entrypoint must name the
     /// commit and local reference that would be checked out, while `branch_stack_order` supplies the
     /// tip-to-base order that would be written to ref metadata.
-    pub fn overlayed_graph_with_workspace_overrides(
+    pub fn overlayed_workspace_with_overrides(
         &self,
         entrypoint: Option<(gix::ObjectId, gix::refs::FullName)>,
         branch_stack_order: Option<&[gix::refs::FullName]>,
-    ) -> Result<but_graph::Graph> {
+    ) -> Result<but_graph::Workspace> {
         let dropped_refs = self.ref_edits.iter().filter_map(|edit| match &edit.change {
             gix::refs::transaction::Change::Delete { .. } => Some(edit.name.clone()),
             _ => None,
@@ -459,9 +460,9 @@ impl<'ws, 'meta, M: RefMetadata> SuccessfulRebase<'ws, 'meta, M> {
         if let Some(branch_stack_order) = branch_stack_order {
             overlay = overlay.with_branch_stack_order_override(branch_stack_order.iter().cloned());
         }
-        let mut graph = self.workspace.graph.clone();
-        graph.worktree_tips = self.worktree_tips_after_rebase()?;
-        graph.redo_traversal_with_overlay(&self.repo, self.meta, overlay)
+        let mut workspace = self.workspace.clone();
+        workspace.worktree_tips = self.worktree_tips_after_rebase()?;
+        workspace.redo_traversal_into_workspace_with_overlay(&self.repo, self.meta, overlay)
     }
 
     /// Resolve `selector` to the identifiers of its commit pick including the change id.

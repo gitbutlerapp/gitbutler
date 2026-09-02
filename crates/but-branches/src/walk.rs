@@ -6,16 +6,23 @@
 //! `tests/branches` decide whether the port preserved behavior. The stack
 //! builders in `lib.rs` still read projection *data* (workspace stacks and their
 //! segments), but ask no topology questions of their own.
+//!
+//! Topology is read from the workspace's [`BranchGraph`](but_graph::BranchGraph): a flat
+//! adjacency list of branches (named or anonymous runs of commits, plus empty named
+//! routing nodes), where a "segment" is a branch index into that list.
 
-use std::collections::{BTreeMap, BTreeSet};
+use std::collections::{BTreeMap, BTreeSet, HashMap};
 
 use bstr::BString;
 use but_core::RefMetadata;
-use but_graph::{CommitFlags, Graph, SegmentIndex, Workspace, init::Tip};
+use but_graph::{CommitFlags, Workspace, branch_graph::Branch, init::Tip};
 
 use gix::refs::{Category, FullName};
 
 use crate::display_identity;
+
+/// An index into the branch list of the [`Topology`], the unit of ownership in the listing.
+pub(crate) type SegmentIndex = usize;
 
 /// Build the workspace graph from `head`, additionally traversing the given
 /// `(tip, ref name)` pairs, and report whether a traversal limit cut it short.
@@ -28,7 +35,7 @@ pub(crate) fn build_workspace(
     db: &mut but_db::DbHandle,
     traversal: but_graph::init::Options,
 ) -> anyhow::Result<(Workspace, bool)> {
-    let graph = Graph::from_commit_traversal_with_extra_tips(
+    let ws = Workspace::from_commit_traversal_with_extra_tips(
         head,
         head_ref,
         extra_tips
@@ -39,23 +46,132 @@ pub(crate) fn build_workspace(
         db,
         traversal,
     )?;
-    let incomplete = graph.hard_limit_hit();
-    Ok((graph.into_workspace()?, incomplete))
+    let incomplete = ws.hard_limit_hit;
+    Ok((ws, incomplete))
 }
 
-/// The target branch tip and the segment owning it, if there is a target.
-pub(crate) fn target_of(ws: &Workspace) -> Option<(gix::ObjectId, SegmentIndex)> {
+/// The branch topology of a workspace, with the reverse edges and lookups the listing needs
+/// precomputed once so per-branch queries stay cheap.
+pub(crate) struct Topology<'a> {
+    ws: &'a Workspace,
+    branches: Vec<Branch>,
+    /// Per branch, the branches connecting *into* it.
+    incoming: Vec<Vec<SegmentIndex>>,
+    /// The branch owning each walked commit.
+    owner_of_commit: HashMap<gix::ObjectId, SegmentIndex>,
+    /// The branch named by each ref name.
+    by_ref: BTreeMap<FullName, SegmentIndex>,
+}
+
+impl<'a> Topology<'a> {
+    /// Read the topology of `ws`; `repo` only resolves the workspace commit by message.
+    pub(crate) fn new(ws: &'a Workspace, repo: &gix::Repository) -> Self {
+        let branches = ws.branch_graph(repo).branches;
+        let mut incoming = vec![Vec::new(); branches.len()];
+        let mut owner_of_commit = HashMap::new();
+        let mut by_ref = BTreeMap::new();
+        for (idx, branch) in branches.iter().enumerate() {
+            for &(target, _) in &branch.outgoing {
+                if let Some(sources) = incoming.get_mut(target) {
+                    sources.push(idx);
+                }
+            }
+            for commit in &branch.commits {
+                owner_of_commit.insert(commit.id, idx);
+            }
+            if let Some(name) = &branch.ref_name {
+                by_ref.entry(name.clone()).or_insert(idx);
+            }
+        }
+        Topology {
+            ws,
+            branches,
+            incoming,
+            owner_of_commit,
+            by_ref,
+        }
+    }
+
+    fn branch(&self, idx: SegmentIndex) -> &Branch {
+        &self.branches[idx]
+    }
+
+    /// The branch owning `commit`, if it was walked.
+    pub(crate) fn owner_of(&self, commit: gix::ObjectId) -> Option<SegmentIndex> {
+        self.owner_of_commit.get(&commit).copied()
+    }
+
+    /// The branch a projected stack segment corresponds to: the one carrying its name, else the
+    /// one owning its tip commit.
+    pub(crate) fn branch_of_stack_segment(
+        &self,
+        segment: &but_graph::workspace::StackSegment,
+    ) -> Option<SegmentIndex> {
+        segment
+            .ref_name()
+            .and_then(|name| self.by_ref.get(name).copied())
+            .or_else(|| segment.tip().and_then(|tip| self.owner_of(tip)))
+    }
+
+    /// The first-parent successor of `idx`: the lowest parent-order edge.
+    fn first_parent(&self, idx: SegmentIndex) -> Option<SegmentIndex> {
+        self.branch(idx)
+            .outgoing
+            .iter()
+            .min_by_key(|(_, order)| *order)
+            .map(|(target, _)| *target)
+    }
+
+    /// The commit `idx` resolves to: its first commit, or, for an empty branch, the first commit
+    /// of the branch it routes to (unambiguously, i.e. through a single outgoing edge).
+    fn tip_skip_empty(&self, mut idx: SegmentIndex) -> Option<gix::ObjectId> {
+        for _ in 0..self.branches.len().max(1) {
+            let branch = self.branch(idx);
+            if let Some(commit) = branch.commits.first() {
+                return Some(commit.id);
+            }
+            match branch.outgoing.as_slice() {
+                [(next, _)] => idx = *next,
+                _ => return None,
+            }
+        }
+        None
+    }
+
+    /// Whether `commit` was walked but its history below was not: the traversal limit or a
+    /// shallow boundary cut it off, so history exists that is not part of the graph.
+    pub(crate) fn commit_clipped(&self, commit: gix::ObjectId) -> bool {
+        let Some(commit_graph) = self.ws.commit_graph_ref() else {
+            return false;
+        };
+        let Some(node) = commit_graph.commit(commit) else {
+            return false;
+        };
+        if node.flags.contains(CommitFlags::ShallowBoundary) {
+            return true;
+        }
+        !node.parent_ids.is_empty() && commit_graph.walked_parent_count(commit) == 0
+    }
+}
+
+/// The target branch tip and the branch owning it, if there is a target.
+pub(crate) fn target_of(topo: &Topology<'_>) -> Option<(gix::ObjectId, SegmentIndex)> {
+    let ws = topo.ws;
     ws.target_ref
         .as_ref()
         .and_then(|target| {
-            ws.graph
-                .resolve_to_unambiguously_pointed_to_commit(target.segment_index)
-                .map(|(commit, segment)| (commit.id, segment))
+            let tip = target.tip_commit_id?;
+            let idx = topo
+                .by_ref
+                .get(&target.ref_name)
+                .copied()
+                .or_else(|| topo.owner_of(tip))?;
+            Some((tip, idx))
         })
-        .or(ws
-            .target_commit
-            .as_ref()
-            .map(|target| (target.commit_id, target.segment_index)))
+        .or_else(|| {
+            let target = ws.target_commit.as_ref()?;
+            Some((target.commit_id, topo.owner_of(target.commit_id)?))
+        })
 }
 
 /// How a ref relates to the segment the [`ref_index()`] maps it to.
@@ -93,29 +209,22 @@ impl Anchor {
     }
 }
 
-/// Map every ref name found on a segment or one of its commits to that segment,
-/// along with the commit the ref points to: the segment's first commit, or for
-/// empty segments the peeled id recorded on the ref itself.
+/// Map every ref name found on a branch or one of its commits to that branch,
+/// along with the commit the ref points to: the branch's first commit, or for
+/// empty branches the commit they route to.
 pub(crate) fn ref_index(
-    graph: &Graph,
+    topo: &Topology<'_>,
 ) -> BTreeMap<FullName, (SegmentIndex, Option<gix::ObjectId>)> {
     let mut index = BTreeMap::new();
-    for sidx in graph.segments() {
-        let segment = &graph[sidx];
-        if let Some(info) = &segment.ref_info {
-            index.insert(
-                info.ref_name.clone(),
-                (
-                    sidx,
-                    segment.commits.first().map(|c| c.id).or(info.commit_id),
-                ),
-            );
+    for (idx, branch) in topo.branches.iter().enumerate() {
+        if let Some(name) = &branch.ref_name {
+            index.insert(name.clone(), (idx, topo.tip_skip_empty(idx)));
         }
-        for commit in &segment.commits {
+        for commit in &branch.commits {
             for info in &commit.refs {
                 index
                     .entry(info.ref_name.clone())
-                    .or_insert((sidx, Some(commit.id)));
+                    .or_insert((idx, Some(commit.id)));
             }
         }
     }
@@ -124,53 +233,41 @@ pub(crate) fn ref_index(
 
 /// All segments reachable from `start`, including itself.
 ///
-/// Unlike [`Graph::find_segments_reachable_from_a_not_b()`], the result is computed
-/// once and shared as the excluded set across every branch's [`count_outside()`]
-/// call, which is what keeps the listing linear in the number of branches.
-pub(crate) fn reachable_from(graph: &Graph, start: SegmentIndex) -> BTreeSet<SegmentIndex> {
-    use but_graph::petgraph::{Direction, visit::EdgeRef};
+/// The result is computed once and shared as the excluded set across every branch's
+/// [`count_outside()`] call, which is what keeps the listing linear in the number of branches.
+pub(crate) fn reachable_from(topo: &Topology<'_>, start: SegmentIndex) -> BTreeSet<SegmentIndex> {
     let mut reachable = BTreeSet::new();
     let mut queue = vec![start];
-    while let Some(sidx) = queue.pop() {
-        if !reachable.insert(sidx) {
+    while let Some(idx) = queue.pop() {
+        if !reachable.insert(idx) {
             continue;
         }
-        queue.extend(
-            graph
-                .edges_directed(sidx, Direction::Outgoing)
-                .map(|edge| edge.target()),
-        );
+        queue.extend(topo.branch(idx).outgoing.iter().map(|(target, _)| *target));
     }
     reachable
 }
 
 /// Count the commits reachable from `start` but not through `excluded` segments,
-/// or `None` if the count would be cut short by a traversal limit — a clip-awareness
-/// that [`Graph::find_commits_reachable_from_a_not_b()`] does not offer.
+/// or `None` if the count would be cut short by a traversal limit.
 pub(crate) fn count_outside(
-    graph: &Graph,
+    topo: &Topology<'_>,
     excluded: &BTreeSet<SegmentIndex>,
     start: SegmentIndex,
 ) -> Option<usize> {
-    use but_graph::petgraph::{Direction, visit::EdgeRef};
     let mut seen = BTreeSet::new();
     let mut queue = vec![start];
     let mut count = 0;
-    while let Some(sidx) = queue.pop() {
-        if excluded.contains(&sidx) || !seen.insert(sidx) {
+    while let Some(idx) = queue.pop() {
+        if excluded.contains(&idx) || !seen.insert(idx) {
             continue;
         }
-        count += graph[sidx].commits.len();
-        if traversal_was_clipped(graph, sidx) {
+        count += topo.branch(idx).commits.len();
+        if traversal_was_clipped(topo, idx) {
             // The connection to the excluded set lies beyond the traversal limit;
             // an exact-looking count would be wrong.
             return None;
         }
-        queue.extend(
-            graph
-                .edges_directed(sidx, Direction::Outgoing)
-                .map(|edge| edge.target()),
-        );
+        queue.extend(topo.branch(idx).outgoing.iter().map(|(target, _)| *target));
     }
     Some(count)
 }
@@ -191,7 +288,7 @@ pub(crate) struct OwnedHistory {
 /// history shared with other branches. This is the single definition of where
 /// one branch ends, used for both commit counts and stack inference.
 pub(crate) fn owned_history(
-    graph: &Graph,
+    topo: &Topology<'_>,
     start: SegmentIndex,
     identity: &BString,
     remote_names: &gix::remote::Names,
@@ -202,34 +299,40 @@ pub(crate) fn owned_history(
         boundary: None,
         clipped: false,
     };
-    graph.visit_segments_downward_along_first_parent_include_start(start, |seg| {
-        if boundary_flags(seg, target_tip) {
-            return true;
+    let mut seen = BTreeSet::new();
+    let mut cur = Some(start);
+    while let Some(idx) = cur {
+        if !seen.insert(idx) {
+            break;
         }
-        if seg.id != start {
-            if segment_has_foreign_name(seg, identity, remote_names) {
-                if traversal_was_clipped(graph, seg.id) {
+        let branch = topo.branch(idx);
+        if boundary_flags(branch, target_tip) {
+            break;
+        }
+        if idx != start {
+            if branch_has_foreign_name(branch, identity, remote_names) {
+                if traversal_was_clipped(topo, idx) {
                     // The boundary segment was never actually walked; the full
                     // graph may have continued through it differently, so neither
                     // the count nor the boundary can be trusted.
                     out.clipped = true;
                 } else {
-                    out.boundary = Some(seg.id);
+                    out.boundary = Some(idx);
                 }
-                return true;
+                break;
             }
-            if is_shared_history(graph, seg.id) {
-                return true;
+            if is_shared_history(topo, idx) {
+                break;
             }
         }
-        out.commit_count += seg.commits.len();
-        if traversal_was_clipped(graph, seg.id) {
+        out.commit_count += branch.commits.len();
+        if traversal_was_clipped(topo, idx) {
             // The fork point lies beyond the traversal limit.
             out.clipped = true;
-            return true;
+            break;
         }
-        false
-    });
+        cur = topo.first_parent(idx);
+    }
     out
 }
 
@@ -244,44 +347,37 @@ pub(crate) fn segment_tip(segment: &but_graph::workspace::StackSegment) -> Optio
 
 /// Return `true` if traversal stopped at `segment` due to a limit or a shallow
 /// boundary, meaning history below it exists but is not part of the graph.
-pub(crate) fn traversal_was_clipped(graph: &Graph, segment: SegmentIndex) -> bool {
-    use but_graph::{StopCondition, petgraph::Direction};
-    if graph.stop_condition(segment).is_some_and(|condition| {
-        condition.intersects(StopCondition::Limit | StopCondition::ShallowBoundary)
-    }) {
-        return true;
+pub(crate) fn traversal_was_clipped(topo: &Topology<'_>, segment: SegmentIndex) -> bool {
+    let branch = topo.branch(segment);
+    if let Some(last) = branch.commits.last() {
+        return topo.commit_clipped(last.id);
     }
     // An empty segment without connections is a tip whose commit was never walked,
     // which only happens when the traversal was cut short before reaching it.
-    graph.hard_limit_hit()
-        && graph[segment].commits.is_empty()
-        && graph
-            .edges_directed(segment, Direction::Outgoing)
-            .next()
-            .is_none()
+    topo.ws.hard_limit_hit && branch.outgoing.is_empty()
 }
 
-/// Return `true` if `segment` is named after a branch other than `identity`.
+/// Return `true` if `branch` is named after a branch other than `identity`.
 ///
-/// A segment named by the branch's own remote-tracking ref is transparent: a branch
+/// A branch named by the branch's own remote-tracking ref is transparent: a branch
 /// whose remote lags behind still owns the commits below the remote's position.
-fn segment_has_foreign_name(
-    segment: &but_graph::Segment,
+fn branch_has_foreign_name(
+    branch: &Branch,
     identity: &BString,
     remote_names: &gix::remote::Names,
 ) -> bool {
-    segment
-        .ref_info
+    branch
+        .ref_name
         .as_ref()
-        .is_some_and(|info| display_identity(&info.ref_name, remote_names) != *identity)
+        .is_some_and(|name| display_identity(name, remote_names) != *identity)
 }
 
-/// Return `true` if `segment` starts history that belongs to the workspace or target.
+/// Return `true` if `branch` starts history that belongs to the workspace or target.
 ///
 /// The comparison with `target_tip` matters when the target tip is also reachable
 /// as local history, where its commit carries no integrated flag.
-fn boundary_flags(segment: &but_graph::Segment, target_tip: Option<gix::ObjectId>) -> bool {
-    let Some(first_commit) = segment.commits.first() else {
+fn boundary_flags(branch: &Branch, target_tip: Option<gix::ObjectId>) -> bool {
+    let Some(first_commit) = branch.commits.first() else {
         return false;
     };
     first_commit
@@ -291,20 +387,19 @@ fn boundary_flags(segment: &but_graph::Segment, target_tip: Option<gix::ObjectId
 }
 
 /// Return `true` if `segment` is history shared with other branches, i.e. more than
-/// one segment connects to it. This bounds commit counts at fork points in
+/// one branch connects to it. This bounds commit counts at fork points in
 /// repositories without a target, where no commit carries an integrated flag.
 ///
-/// Connections from remote-tracking segments don't count as sharing: a branch whose
+/// Connections from remote-tracking branches don't count as sharing: a branch whose
 /// own remote lags behind still owns the commits below the remote's position.
-fn is_shared_history(graph: &Graph, segment: SegmentIndex) -> bool {
-    use but_graph::petgraph::{Direction, visit::EdgeRef};
-    graph
-        .edges_directed(segment, Direction::Incoming)
-        .filter(|edge| {
-            graph[edge.source()]
-                .ref_info
+fn is_shared_history(topo: &Topology<'_>, segment: SegmentIndex) -> bool {
+    topo.incoming[segment]
+        .iter()
+        .filter(|&&source| {
+            topo.branch(source)
+                .ref_name
                 .as_ref()
-                .is_none_or(|info| info.ref_name.category() != Some(Category::RemoteBranch))
+                .is_none_or(|name| name.category() != Some(Category::RemoteBranch))
         })
         .count()
         > 1

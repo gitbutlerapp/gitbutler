@@ -1,19 +1,20 @@
-//! A way to represent the graph in a simplified (but more usable) form.
+//! A way to represent the commit graph in a simplified (but more usable) form.
 //!
-//! This is the current default way of GitButler to perceive its world, but most inexpensively generated to stay
-//! close to the source of truth, [The Graph](crate::Graph).
+//! This is the current default way of GitButler to perceive its world, inexpensively projected from
+//! the commit-first traversal's [`CommitGraph`](crate::commit_graph::CommitGraph) and metadata.
 //!
 //! These types are not for direct consumption, but should be processed further for consumption by the user.
 
 /// Types related to the stack representation for graphs.
 ///
 /// Note that these are always a simplification, degenerating information, while maintaining a link back to the graph.
+pub(crate) mod direct;
 mod stack;
 pub use stack::{Stack, StackCommit, StackCommitDebugFlags, StackCommitFlags, StackSegment};
 
 #[expect(clippy::module_inception)]
 pub(crate) mod workspace;
-pub use workspace::{TargetCommit, TargetRef, WorkspaceKind};
+pub use workspace::{AncestorWorkspaceCommit, TargetCommit, TargetRef, WorkspaceKind};
 
 #[cfg(feature = "legacy")]
 pub use workspace::api::HeadStatus;
