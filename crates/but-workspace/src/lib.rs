@@ -231,6 +231,10 @@ pub struct WorkspaceCommit<'repo> {
 /// This is an important property as there are applications of [`DiffSpec`] sequences that are
 /// currently very sensitive to ordering, such as when discarding file renamings, additions and
 /// deletions of intersecting paths.
+///
+/// Corner case: If the same (path, previous_path) pair has entries both for individual hunks and
+/// the entire file, only the entire file is retained, regardless of where in the order the
+/// entire-file [`DiffSpec`] appeared.
 pub fn flatten_diff_specs(input: impl IntoIterator<Item = DiffSpec>) -> Vec<DiffSpec> {
     let mut output: IndexMap<String, DiffSpec> = IndexMap::new();
     for spec in input {
@@ -244,7 +248,14 @@ pub fn flatten_diff_specs(input: impl IntoIterator<Item = DiffSpec>) -> Vec<Diff
         );
         output
             .entry(key)
-            .and_modify(|e| e.hunk_headers.extend(spec.hunk_headers.clone()))
+            .and_modify(|e| {
+                if e.hunk_headers.is_empty() || spec.hunk_headers.is_empty() {
+                    // there's at least one entire-file entry -> result is entire file
+                    e.hunk_headers.clear();
+                } else {
+                    e.hunk_headers.extend(spec.hunk_headers.clone())
+                }
+            })
             .or_insert(spec);
     }
     output.into_values().collect()

@@ -133,6 +133,13 @@ but status -fv
 
 # 2. Move utils.js from nn to mm
 but squash nn:a2 -t mm -u    # Committed file nn:a2 (utils.js) → commit mm, keep mm's message
+
+# Alternatively, move only one hunk instead of the whole file
+but diff nn                  # Read the committed hunk ID
+but squash nn:a2:5 -t mm     # Move only hunk 5; target message is reused
+
+# Or move that committed hunk back to uncommitted
+but squash nn:a2:5 -t @
 ```
 
 ### Scenario C: Moving Commit to Different Branch

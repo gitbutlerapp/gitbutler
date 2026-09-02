@@ -63,7 +63,7 @@ inspect committed files or other entities one target at a time. Unlike `commit`,
 
 **Hunk IDs:** For uncommitted changes, bare `but diff` shows each hunk with an ID (e.g., `qs:5`, `uo:d`). Pass these IDs to `but commit` for fine-grained, hunk-level commits.
 
-`but diff <commit-id>` also shows committed hunk IDs in the form `<commit-id>:<file-id>:<hunk-id>`. These IDs are informational for now; no command accepts committed hunk IDs yet.
+`but diff <commit-id>` also shows committed hunk IDs in the form `<commit-id>:<file-id>:<hunk-id>`. Pass one or more from the same commit to `but squash` to move those hunks into another commit or the uncommitted area.
 
 For the full CLI ID model, `but help cli-ids` documents every ID kind and its stability.
 
@@ -232,10 +232,12 @@ but squash @ -t <commit>                           # Amend all uncommitted chang
 but squash <commit> -t @                           # Uncommit a commit
 but squash <branch> -t @                           # Uncommit all commits and remove the branch
 but squash <commit-id>:<file-id> -t <commit>       # Move a committed file into another commit
+but squash <commit-id>:<file-id>:<hunk-id> -t <commit>  # Move a committed hunk into another commit
+but squash <commit-id>:<file-id>:<hunk-id> -t @     # Move a committed hunk to uncommitted
 ```
 
-All sources must be the same kind (all commits, all branches, all uncommitted changes, `@`, or all
-committed files) and committed-file sources must come from one commit. If `-t` is omitted, `<SOURCES>`
+All sources must be the same category (all commits, all branches, all uncommitted changes, `@`, or
+committed changes). Committed file and hunk sources may be mixed, but must come from one commit. If `-t` is omitted, `<SOURCES>`
 must be exactly one branch, which squashes that branch's commits together.
 
 Message flags (mutually exclusive). Commit and branch sources compose a new message unless the
@@ -258,7 +260,7 @@ when a ref is sha-based or `#N`-suffixed.
 
 ### `but amend -t <commit-or-branch> <SOURCES>...`
 
-Amend uncommitted files/hunks into a specific commit. Use when you know exactly which commit the change belongs to — prefer it over the equivalent `squash` form. Sources must be uncommitted; `amend` rejects commits and committed files, so use `squash` or `move` for those. A branch target resolves to that branch's newest commit, so name the commit explicitly when the change belongs further down.
+Amend uncommitted files/hunks into a specific commit. Use when you know exactly which commit the change belongs to — prefer it over the equivalent `squash` form. Sources must be uncommitted; `amend` rejects commits and committed files/hunks. Use `squash` for committed hunks, and `squash` or `move` for committed files. A branch target resolves to that branch's newest commit, so name the commit explicitly when the change belongs further down.
 
 ```bash
 but amend -t <commit-id> <file-id> <hunk-id>
@@ -293,17 +295,18 @@ sources onto that branch's tip (nothing is created); a branch source is refused 
 
 ### `but uncommit <SOURCES>...`
 
-Move commits, branches, or committed files back to the uncommitted area.
+Move commits, branches, or committed files/hunks back to the uncommitted area.
 
 ```bash
-but uncommit <commit-id>                 # Uncommit an entire commit
-but uncommit <branch>                    # Uncommit all commits and remove the branch
-but uncommit <commit-id>:<file-id>       # Uncommit one file from its commit
+but uncommit <commit-id>                          # Uncommit an entire commit
+but uncommit <branch>                             # Uncommit all commits and remove the branch
+but uncommit <commit-id>:<file-id>                # Uncommit one file from its commit
+but uncommit <commit-id>:<file-id>:<hunk-id>      # Uncommit one hunk from its commit
 ```
 
-Multiple whole commits or multiple branches may be passed together, but source kinds cannot be
-mixed. Uncommitting a branch also removes an empty branch. Multiple committed-file sources must all
-come from the same commit; uncommit files from different commits in separate commands.
+Multiple whole commits or multiple branches may be passed together, but source categories cannot be
+mixed. Uncommitting a branch also removes an empty branch. Committed file/hunk sources may be mixed,
+but all must come from the same commit; uncommit changes from different commits in separate commands.
 
 When you need file and hunk IDs to recommit selectively, use
 `but uncommit <id> && but diff` in one shell call.

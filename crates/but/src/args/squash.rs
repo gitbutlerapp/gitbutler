@@ -84,12 +84,12 @@ pub struct Platform {
     /// If `<SOURCES>` is the uncommitted area (`@`) all uncommitted changes will be squashed into
     /// the target.
     ///
-    /// If `<SOURCES>` is a committed file those changes will be moved into the target. All changes
-    /// must come from the same commit. It is not possible to move changes from multiple source
-    /// commits into a single target.
+    /// If `<SOURCES>` is one or more committed files or hunks, those changes will be moved into the
+    /// target. Committed files and hunks may be mixed, but all must come from the same commit. It is
+    /// not possible to move changes from multiple source commits into a single target.
     ///
     /// It is not possible to mix sources of different types, i.e., all sources must either be
-    /// commits, branches, uncommitted files, `@`, or committed files.
+    /// commits, branches, uncommitted changes, `@`, or committed changes.
     #[clap(required_unless_present = "target")]
     pub sources: Vec<CliIdArg>,
 
@@ -104,5 +104,5 @@ Examples:
   but squash <commit>... -t <other-commit> -m \"message\"   # squash commits into another commit
   but squash <branch> -m \"message\"                # squash a branch into a single commit
   but squash <file> -t <commit>                    # move an uncommitted file into a commit
-  but squash <commit>:<file> -t <other-commit>     # move a committed file to another commit
+  but squash <commit>:<file>:<hunk> -t <other-commit> # move a committed hunk to another commit
 ";

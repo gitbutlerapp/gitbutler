@@ -141,7 +141,6 @@ pub enum HelpTopic {
     ///     - Run `but status -f` to show committed files
     /// * **Committed hunk:** `<commit_cli_id>:<file_cli_id>:<hunk_cli_id>`
     ///     - Run `but diff <commit_cli_id>` to show committed hunks and their IDs
-    ///     - Committed hunk IDs are informational for now; no command accepts them yet
     ///
     /// Many CLI IDs depend on the context and may change if the context changes, such as when new
     /// data is written to files, commits are made or rearranged and branches are created or

@@ -193,7 +193,7 @@ fn uncommit_rejects_files_from_different_commits() {
         .failure()
         .stdout_eq(str![])
         .stderr_eq(str![[r#"
-Error: All committed files must come from the same commit. Found files from [..] and [..]
+Error: All committed changes must come from the same commit. Found changes from [..] and [..]
 
 "#]]);
 
