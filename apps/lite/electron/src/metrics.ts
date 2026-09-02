@@ -30,6 +30,7 @@ const POSTHOG_HOST = "https://eu.i.posthog.com";
 const APP_NAME = "gitbutler-lite";
 const CONTAINER = "electron";
 const SHUTDOWN_TIMEOUT_MS = 2000;
+const ACTIVE_API_COMMAND_SHUTDOWN_GRACE_MS = SHUTDOWN_TIMEOUT_MS / 2;
 const FAILURE_LIMIT_FLAG = "lite-api-command-failure-limit";
 const FAILURE_LIMIT_CONFIG_ID = "gitbutler-lite-failure-limit";
 const FAILURE_LIMIT_CONFIG_TIMEOUT_MS = 1_000;
@@ -38,10 +39,22 @@ let client: PostHog | null = null;
 let distinctId = "";
 let appVersion = "";
 let failureLimit = apiCommandFailureLimitConfig(undefined);
-let sampleApiCommand = createApiCommandSampler({ failureLimit });
+let apiCommandSampler = createApiCommandSampler({ failureLimit });
+let shutdownPromise: Promise<void> | null = null;
+const activeApiCommands = new Set<Promise<unknown>>();
+
+const captureSuppressedFailures = (): void => {
+	for (const failure of apiCommandSampler.drainSuppressedFailures())
+		capture("api_command", { ...failure, failure: true, samplingRate: 1 });
+};
+
+const resetApiCommandSampler = (): void => {
+	captureSuppressedFailures();
+	apiCommandSampler = createApiCommandSampler({ failureLimit });
+};
 
 const setDistinctId = (nextDistinctId: string): void => {
-	if (distinctId !== nextDistinctId) sampleApiCommand = createApiCommandSampler({ failureLimit });
+	if (distinctId !== nextDistinctId) resetApiCommandSampler();
 	distinctId = nextDistinctId;
 };
 
@@ -51,7 +64,7 @@ const configureFailureLimit = async (metricsClient: PostHog): Promise<void> => {
 			FAILURE_LIMIT_FLAG,
 			FAILURE_LIMIT_CONFIG_ID,
 		);
-		if (client !== metricsClient) return;
+		if (client !== metricsClient || shutdownPromise !== null) return;
 
 		const nextFailureLimit = apiCommandFailureLimitConfig(payload);
 		if (
@@ -61,7 +74,7 @@ const configureFailureLimit = async (metricsClient: PostHog): Promise<void> => {
 			return;
 
 		failureLimit = nextFailureLimit;
-		sampleApiCommand = createApiCommandSampler({ failureLimit });
+		resetApiCommandSampler();
 	} catch {
 		// The built-in defaults are safe when remote configuration is unavailable.
 	}
@@ -125,10 +138,12 @@ const capture = (event: string, properties: Record<string, unknown>): void => {
 export const withApiCommandCapture =
 	(command: string, handler: (params: unknown) => unknown) =>
 	async (params: unknown): Promise<unknown> => {
-		if (client === null) return handler(params);
+		const metricsClient = client;
+		if (metricsClient === null || shutdownPromise !== null) return handler(params);
 		const start = performance.now();
 		const record = (failure: boolean) => {
-			const decision = sampleApiCommand(command, failure);
+			if (client !== metricsClient) return;
+			const decision = apiCommandSampler.sample(command, failure);
 			if (decision === null) return;
 			capture("api_command", {
 				command,
@@ -137,13 +152,22 @@ export const withApiCommandCapture =
 				...decision,
 			});
 		};
+		let failure = false;
+		const invocation = (async () => {
+			try {
+				return await handler(params);
+			} catch (error) {
+				failure = true;
+				throw error;
+			} finally {
+				record(failure);
+			}
+		})();
+		activeApiCommands.add(invocation);
 		try {
-			const result = await handler(params);
-			record(false);
-			return result;
-		} catch (error) {
-			record(true);
-			throw error;
+			return await invocation;
+		} finally {
+			activeApiCommands.delete(invocation);
 		}
 	};
 
@@ -154,7 +178,7 @@ export const withApiCommandCapture =
  * desktop app, which resets it — since it is still the same person using us.
  */
 export const metricsOnLogin = async (profile: UserProfile): Promise<void> => {
-	if (client === null) return;
+	if (client === null || shutdownPromise !== null) return;
 	setDistinctId(`user_${profile.id}`);
 	try {
 		await updateTelemetryDistinctId(distinctId);
@@ -165,13 +189,36 @@ export const metricsOnLogin = async (profile: UserProfile): Promise<void> => {
 };
 
 /**
- * Flushes queued events, since the client only holds them in memory. Returns
- * null when there is nothing to flush, so quitting can proceed immediately —
- * and does so on the second call, making the quit handler reentrant.
+ * Gives active API commands half the shutdown budget, then flushes queued
+ * events with the time left. Returns null once there is nothing left to flush,
+ * making the quit handler reentrant.
  */
+const finishMetricsShutdown = async (flushing: PostHog): Promise<void> => {
+	const deadline = performance.now() + SHUTDOWN_TIMEOUT_MS;
+	if (activeApiCommands.size !== 0) {
+		let timeout: ReturnType<typeof setTimeout> | undefined;
+		await Promise.race([
+			Promise.allSettled(activeApiCommands),
+			new Promise<void>((resolve) => {
+				timeout = setTimeout(resolve, ACTIVE_API_COMMAND_SHUTDOWN_GRACE_MS);
+			}),
+		]);
+		if (timeout !== undefined) clearTimeout(timeout);
+	}
+
+	captureSuppressedFailures();
+	client = null;
+	await flushing.shutdown(Math.max(0, Math.ceil(deadline - performance.now())));
+};
+
 export const shutdownMetrics = (): Promise<void> | null => {
+	if (shutdownPromise !== null) return shutdownPromise;
 	if (client === null) return null;
 	const flushing = client;
-	client = null;
-	return flushing.shutdown(SHUTDOWN_TIMEOUT_MS).catch(() => undefined);
+	shutdownPromise = finishMetricsShutdown(flushing)
+		.catch(() => undefined)
+		.finally(() => {
+			shutdownPromise = null;
+		});
+	return shutdownPromise;
 };
