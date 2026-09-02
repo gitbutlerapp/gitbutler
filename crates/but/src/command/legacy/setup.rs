@@ -186,6 +186,17 @@ pub(crate) fn repo(
     out: &mut OutputChannel,
     perm: &mut RepoExclusive,
 ) -> anyhow::Result<()> {
+    let discovered = gix::discover(repo_path)?;
+    if discovered.git_dir() != discovered.common_dir() {
+        let main_worktree = discovered.main_repo()?;
+        anyhow::bail!(
+            "`but setup` cannot run from a linked worktree; run it from the main worktree{}",
+            main_worktree
+                .workdir()
+                .map(|dir| format!(" at {}", dir.display()))
+                .unwrap_or_default()
+        );
+    }
     let t = theme::get();
     let mut target_info: Option<TargetInfo> = None;
 

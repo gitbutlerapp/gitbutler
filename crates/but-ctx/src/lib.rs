@@ -352,7 +352,7 @@ impl Context {
         repo_open_mode: RepoOpenMode,
     ) -> anyhow::Result<Context> {
         let directory = directory.as_ref();
-        let gitdir = gix::discover(directory)?.git_dir().to_owned();
+        let gitdir = discover_main_repo(directory)?.git_dir().to_owned();
         let repo = open_repo(&gitdir, repo_open_mode)?;
         Self::from_repo_with_legacy_support(repo, repo_open_mode)
     }
@@ -365,7 +365,7 @@ impl Context {
         repo_open_mode: RepoOpenMode,
     ) -> anyhow::Result<Context> {
         let directory = directory.as_ref();
-        let gitdir = gix::discover(directory)?.git_dir().to_owned();
+        let gitdir = discover_main_repo(directory)?.git_dir().to_owned();
         let repo = open_repo(&gitdir, repo_open_mode)?;
         Self::from_repo_with_legacy_support_and_channel(repo, repo_open_mode, channel)
     }
@@ -1055,6 +1055,16 @@ fn new_ondemand_repo(gitdir: PathBuf, repo_open_mode: RepoOpenMode) -> OnDemand<
             repo
         })
     })
+}
+
+/// Discover the Git repository containing `directory`, resolving a linked worktree to the repository
+/// of its main worktree so that callers see the same workspace no matter which checkout they run in.
+pub fn discover_main_repo(directory: impl AsRef<Path>) -> anyhow::Result<gix::Repository> {
+    let repo = gix::discover(directory)?;
+    if repo.git_dir() == repo.common_dir() {
+        return Ok(repo);
+    }
+    Ok(repo.main_repo()?)
 }
 
 fn open_repo(gitdir: &Path, repo_open_mode: RepoOpenMode) -> anyhow::Result<gix::Repository> {
