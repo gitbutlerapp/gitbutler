@@ -5,7 +5,9 @@ use nonempty::NonEmpty;
 use crate::{
     CliId,
     command::legacy::{
-        discard::{self, DiscardOperation, DiscardOutcome, UncommittedSelection},
+        discard::{
+            self, CommittedDiscardSource, DiscardOperation, DiscardOutcome, UncommittedSelection,
+        },
         status::{
             output::StatusOutputLineData,
             tui::{
@@ -186,7 +188,7 @@ impl App {
                         commit_id: committed_file.commit_id,
                         change_id: committed_file.change_id.clone(),
                     };
-                    let path = committed_file.path.to_owned();
+                    let committed_file = committed_file.clone();
 
                     self.to_be_discarded =
                         Vec::from([Selectable::CommittedFile(committed_file.clone())]);
@@ -194,18 +196,22 @@ impl App {
                         message_on_drop::message_on_drop(Message::DropToBeDiscarded, messages);
 
                     Confirm::new(
-                        NonEmpty::new(format!("Discard changes to {path}?").into()),
+                        NonEmpty::new(
+                            format!("Discard changes to {}?", committed_file.path).into(),
+                        ),
                         self.theme,
                         move |ctx, messages| {
-                            let DiscardOutcome::CommittedFiles {
+                            let DiscardOutcome::CommittedChanges {
                                 source: _,
                                 paths: _,
                                 new_commit,
                             } = run_discard(
                                 ctx,
-                                DiscardOperation::CommittedFiles {
+                                DiscardOperation::Committed {
                                     source: commit,
-                                    paths: NonEmpty::new(path),
+                                    changes: NonEmpty::new(CommittedDiscardSource::File(
+                                        committed_file,
+                                    )),
                                 },
                             )?
                             else {
@@ -287,8 +293,8 @@ impl App {
                         .all(|file| file.commit_id == source.commit_id),
                     "BUG: marked committed files must come from one commit"
                 );
-                let paths = files.clone().map(|file| file.path);
-                DiscardOperation::CommittedFiles { source, paths }
+                let changes = files.clone().map(CommittedDiscardSource::File);
+                DiscardOperation::Committed { source, changes }
             }
         };
 
@@ -318,7 +324,7 @@ impl App {
                             .copied()
                             .unwrap_or(commit_id)
                     }),
-                    DiscardOutcome::CommittedFiles {
+                    DiscardOutcome::CommittedChanges {
                         source,
                         paths: _,
                         new_commit,

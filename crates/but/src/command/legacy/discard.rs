@@ -1,6 +1,6 @@
 //! Implementation of the `but discard` command.
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 
 use anyhow::{Context as _, bail};
 use bstr::{BString, ByteSlice as _};
@@ -24,7 +24,7 @@ use crate::{
         discard::Platform,
     },
     bad_input,
-    id::{CommitId, CommittedFileId, IdAndHunk, UncommittedHunkOrFile},
+    id::{CommitId, CommittedFileId, CommittedHunk, IdAndHunk, UncommittedHunkOrFile},
     theme::{self, Theme},
     utils::{
         CliOutput, CliOutputHuman, CommitIdJson, IntermediateChannel, WriteWithUtils,
@@ -36,9 +36,9 @@ use crate::{
 pub enum DiscardOperation {
     Branches(NonEmpty<FullName>),
     Commits(NonEmpty<CommitId>),
-    CommittedFiles {
+    Committed {
         source: CommitId,
-        paths: NonEmpty<BString>,
+        changes: NonEmpty<CommittedDiscardSource>,
     },
     Uncommitted(UncommittedSelection),
 }
@@ -49,7 +49,7 @@ enum ClassifiedDiscardables {
     Branches(NonEmpty<BranchArg>),
     UncommittedChanges(NonEmpty<UncommittedDiscardSource>),
     Uncommitted,
-    CommittedFiles(NonEmpty<CommittedFileId>),
+    CommittedChanges(NonEmpty<CommittedDiscardSource>),
 }
 
 impl ClassifiedDiscardables {
@@ -58,7 +58,7 @@ impl ClassifiedDiscardables {
         branch_sources: Vec<BranchArg>,
         uncommitted_change_sources: Vec<UncommittedDiscardSource>,
         uncommitted_sources: Vec<()>,
-        committed_file_sources: Vec<CommittedFileId>,
+        committed_file_sources: Vec<CommittedDiscardSource>,
     ) -> CliResult<Self> {
         let has_commits = !commit_sources.is_empty();
         let has_branches = !branch_sources.is_empty();
@@ -94,8 +94,8 @@ impl ClassifiedDiscardables {
             Ok(Self::UncommittedChanges(changes))
         } else if has_uncommitted {
             Ok(Self::Uncommitted)
-        } else if let Some(files) = NonEmpty::from_vec(committed_file_sources) {
-            Ok(Self::CommittedFiles(files))
+        } else if let Some(changes) = NonEmpty::from_vec(committed_file_sources) {
+            Ok(Self::CommittedChanges(changes))
         } else {
             Ok(Self::Uncommitted)
         }
@@ -120,6 +120,21 @@ pub enum UncommittedDiscardSource {
     PathPrefix(NonEmpty<IdAndHunk>),
 }
 
+#[derive(Clone, Debug)]
+pub(crate) enum CommittedDiscardSource {
+    Hunk(CommittedHunk),
+    File(CommittedFileId),
+}
+
+impl CommittedDiscardSource {
+    fn committed_file(&self) -> &CommittedFileId {
+        match self {
+            CommittedDiscardSource::Hunk(hunk) => &hunk.committed_file,
+            CommittedDiscardSource::File(file) => file,
+        }
+    }
+}
+
 #[must_use]
 pub enum DiscardOutcome {
     Branches(NonEmpty<FullName>),
@@ -128,7 +143,7 @@ pub enum DiscardOutcome {
         /// Rewritten surviving commits, used by callers to retain their selection.
         replaced_commits: BTreeMap<ObjectId, ObjectId>,
     },
-    CommittedFiles {
+    CommittedChanges {
         source: CommitId,
         paths: NonEmpty<BString>,
         new_commit: CommitId,
@@ -165,7 +180,7 @@ impl CliOutputHuman for DiscardOutcome {
                     writeln!(out, "Discarded commits {commits}")?;
                 }
             }
-            DiscardOutcome::CommittedFiles {
+            DiscardOutcome::CommittedChanges {
                 source,
                 paths,
                 new_commit,
@@ -173,7 +188,7 @@ impl CliOutputHuman for DiscardOutcome {
                 let paths = paths.iter().map(|path| path.as_bstr()).join(", ");
                 writeln!(
                     out,
-                    "Discarded {paths} from {} to create {}",
+                    "Discarded changes from {paths} from {} to create {}",
                     theme::Commit(source),
                     theme::Commit(new_commit)
                 )?;
@@ -203,7 +218,7 @@ impl CliOutput for DiscardOutcome {
             Commits {
                 commits: Vec<CommitIdJson>,
             },
-            CommittedFiles {
+            CommittedChanges {
                 source_commit_id: HexHash,
                 #[serde(skip_serializing_if = "Option::is_none")]
                 source_change_id: Option<ChangeIdString>,
@@ -230,11 +245,11 @@ impl CliOutput for DiscardOutcome {
             } => Output::Commits {
                 commits: commits.into_iter().map(Into::into).collect(),
             },
-            DiscardOutcome::CommittedFiles {
+            DiscardOutcome::CommittedChanges {
                 source,
                 paths,
                 new_commit,
-            } => Output::CommittedFiles {
+            } => Output::CommittedChanges {
                 source_commit_id: source.commit_id.into(),
                 source_change_id: source.change_id.map(Into::into),
                 new_commit_id: new_commit.commit_id.into(),
@@ -281,7 +296,7 @@ fn resolve(repo: &gix::Repository, id_map: &IdMap, args: Platform) -> CliResult<
 
     let mut branch_sources = Vec::new();
     let mut commit_sources = Vec::new();
-    let mut committed_file_sources = Vec::new();
+    let mut committed_change_sources = Vec::new();
     let mut uncommitted_change_sources = Vec::new();
     let mut uncommitted_sources = Vec::new();
 
@@ -294,14 +309,10 @@ fn resolve(repo: &gix::Repository, id_map: &IdMap, args: Platform) -> CliResult<
             }
             ResolvedCliIdArg::Commit(commit) => commit_sources.push(commit),
             ResolvedCliIdArg::CommittedFile(committed_file) => {
-                committed_file_sources.push(committed_file)
+                committed_change_sources.push(CommittedDiscardSource::File(committed_file))
             }
-            ResolvedCliIdArg::CommittedHunk(..) => {
-                return Err(bad_input("Committed hunks cannot be discarded")
-                    .arg_name("<CHANGES>")
-                    .arg_value(value)
-                    .hint("Use committed file CLI IDs instead")
-                    .into());
+            ResolvedCliIdArg::CommittedHunk(hunk) => {
+                committed_change_sources.push(CommittedDiscardSource::Hunk(*hunk))
             }
             ResolvedCliIdArg::UncommittedHunkOrFile(change) => {
                 uncommitted_change_sources.push(UncommittedDiscardSource::HunkOrFile(*change))
@@ -334,7 +345,7 @@ fn resolve(repo: &gix::Repository, id_map: &IdMap, args: Platform) -> CliResult<
         branch_sources,
         uncommitted_change_sources,
         uncommitted_sources,
-        committed_file_sources,
+        committed_change_sources,
     )?;
 
     match classified {
@@ -351,25 +362,23 @@ fn resolve(repo: &gix::Repository, id_map: &IdMap, args: Platform) -> CliResult<
             Ok(DiscardOperation::Branches(branches))
         }
         ClassifiedDiscardables::Commits(commits) => Ok(DiscardOperation::Commits(commits)),
-        ClassifiedDiscardables::CommittedFiles(committed_files) => {
+        ClassifiedDiscardables::CommittedChanges(committed_files) => {
             let NonEmpty { head, tail } = committed_files;
+
             let CommittedFileId {
                 commit_id,
-                path,
                 change_id,
-            } = head;
-            let source = CommitId {
-                commit_id,
-                change_id,
+                path: _,
+            } = head.committed_file();
+
+            let head_source_commit = CommitId {
+                commit_id: *commit_id,
+                change_id: change_id.clone(),
             };
-            let mut paths = vec![path];
-            for CommittedFileId {
-                commit_id,
-                path,
-                change_id: _,
-            } in tail
-            {
-                if commit_id != source.commit_id {
+            let mut changes = NonEmpty::new(head);
+
+            for change in tail {
+                if change.committed_file().commit_id != head_source_commit.commit_id {
                     return Err(
                         bad_input("All committed files must come from the same commit")
                             .arg_name("<CHANGES>")
@@ -377,12 +386,12 @@ fn resolve(repo: &gix::Repository, id_map: &IdMap, args: Platform) -> CliResult<
                             .into(),
                     );
                 }
-                paths.push(path);
+                changes.push(change);
             }
-            let paths = paths.into_iter().unique().collect();
-            let paths = NonEmpty::from_vec(paths)
-                .expect("committed files being non-empty means paths are non-empty");
-            Ok(DiscardOperation::CommittedFiles { source, paths })
+            Ok(DiscardOperation::Committed {
+                source: head_source_commit,
+                changes,
+            })
         }
         ClassifiedDiscardables::Uncommitted => {
             Ok(DiscardOperation::Uncommitted(UncommittedSelection::All))
@@ -425,18 +434,57 @@ pub fn run(
             ExecutableDiscardOperation::Branches { branches, commits }
         }
         DiscardOperation::Commits(commits) => ExecutableDiscardOperation::Commits(commits),
-        DiscardOperation::CommittedFiles { source, paths } => {
+        DiscardOperation::Committed { source, changes } => {
+            let mut tree_changes = None;
+            let mut paths = BTreeSet::new();
+
             let changes = {
                 let context_lines = ctx.settings.context_lines;
                 let (repo, ..) = ctx.workspace_and_db_mut_with_perm(perm.read_permission())?;
                 let mut builder = DiffSpecBuilder::new(&repo, context_lines);
-                for path in &paths {
-                    builder.push_changes_from_committed_file(source.commit_id, path.as_bstr())?;
+                for change in changes {
+                    match change {
+                        CommittedDiscardSource::File(file) => {
+                            let path = file.path;
+                            builder.push_changes_from_committed_file(
+                                source.commit_id,
+                                path.as_ref(),
+                            )?;
+                            paths.insert(path);
+                        }
+                        CommittedDiscardSource::Hunk(hunk) => {
+                            paths.insert(hunk.committed_file.path);
+
+                            if tree_changes.is_none() {
+                                let commit = repo.find_commit(source.commit_id)?;
+                                tree_changes = Some(
+                                    but_core::diff::tree_changes(
+                                        &repo,
+                                        commit.parent_ids().next().map(|id| id.detach()),
+                                        source.commit_id,
+                                    )?
+                                    .into_iter()
+                                    .map(Into::into)
+                                    .collect::<Vec<but_core::ui::TreeChange>>(),
+                                );
+                            }
+
+                            builder.push_hunks_with_changes(
+                                [hunk.hunk],
+                                tree_changes
+                                    .as_ref()
+                                    .expect("tree changes are initialized for committed hunks"),
+                            )
+                        }
+                    }
                 }
                 builder.into_diff_specs()
             };
+            let paths: NonEmpty<BString> = NonEmpty::from_vec(paths.into_iter().collect())
+                .context("Paths must not be empty")?;
+
             anyhow::ensure!(!changes.is_empty(), "No committed changes to discard");
-            ExecutableDiscardOperation::CommittedFiles {
+            ExecutableDiscardOperation::CommittedChanges {
                 source,
                 paths,
                 changes,
@@ -495,13 +543,13 @@ pub fn run(
                         replaced_commits: BTreeMap::new(),
                     }
                 }
-                ExecutableDiscardOperation::CommittedFiles {
+                ExecutableDiscardOperation::CommittedChanges {
                     source,
                     paths,
                     changes,
                 } => {
                     let new_commit = tx.discard_changes_from_commit(source.commit_id, changes)?;
-                    DiscardOutcome::CommittedFiles {
+                    DiscardOutcome::CommittedChanges {
                         source,
                         paths,
                         new_commit: new_commit.into(),
@@ -545,7 +593,7 @@ enum ExecutableDiscardOperation {
         commits: Vec<CommitId>,
     },
     Commits(NonEmpty<CommitId>),
-    CommittedFiles {
+    CommittedChanges {
         source: CommitId,
         paths: NonEmpty<BString>,
         changes: Vec<DiffSpec>,

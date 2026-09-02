@@ -429,7 +429,7 @@ pub fn resolve<'a>(
 
                     let source_commit_id = first.committed_file().commit_id;
                     let source_change_id = first.committed_file().change_id.clone();
-                    let mut sources = Vec::from([first]);
+                    let mut sources = vec![first];
                     for change in committed_changes.into_iter().skip(1) {
                         let commit_id = change.committed_file().commit_id;
 
