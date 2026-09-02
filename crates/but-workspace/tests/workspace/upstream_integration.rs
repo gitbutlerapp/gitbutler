@@ -176,8 +176,8 @@ fn diamond_partially_historically_integrated_merge() -> Result<()> {
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
         snapbox::str![[r#"
-* 292b0b3 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
-*   ed5f276 (E) Merge refs/remotes/origin/master into merge
+* 61cce4f (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+*   b379f5e (E) Merge refs/remotes/origin/master into E
 |\  
 | * 7de2393 (origin/master, master) o4
 | *   7d62953 (o3) o3
@@ -357,8 +357,8 @@ fn diamond_partially_content_integrated_merge() -> Result<()> {
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
         snapbox::str![[r#"
-* ebd6fa2 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
-*   0a395ba (E) Merge refs/remotes/origin/master into merge
+* 6a96563 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+*   9073990 (E) Merge refs/remotes/origin/master into E
 |\  
 | * 162b064 (origin/master, master) o4
 | * dd87d69 (o3) B
@@ -603,7 +603,7 @@ fn integrated_bottom_branch_no_workspace_merge() -> Result<()> {
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
         snapbox::str![[r#"
-*   7ce831c (HEAD -> A) Merge refs/remotes/origin/main into merge
+*   874bd64 (HEAD -> A) Merge refs/remotes/origin/main into A
 |\  
 | * 8c8a843 (origin/main) add X1
 * | e792f40 add A1
@@ -686,8 +686,8 @@ fn merge_upstream_with_conflicting_target_materializes_conflicted_merge_commit()
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
         snapbox::str![[r#"
-* 379fa91 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
-*   9b4efdf (A) [conflict] Merge refs/remotes/origin/A into merge
+* 93bd4fe (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+*   1ef8813 (A) [conflict] Merge refs/remotes/origin/A into A
 |\  
 | * f03fc2c (origin/A, new-origin) remote change in A 1
 * | 61c4a24 local change in A 1
@@ -719,7 +719,7 @@ fn merge_upstream_with_conflicting_target_materializes_conflicted_merge_commit()
     snapbox::assert_data_eq!(
         branch_tip.message_raw()?.to_string(),
         snapbox::str![[r#"
-[conflict] Merge refs/remotes/origin/A into merge
+[conflict] Merge refs/remotes/origin/A into A
 
 GitButler-Conflict: This is a GitButler-managed conflicted commit. Files are auto-resolved
    using the "ours" side. The commit tree contains additional directories:
