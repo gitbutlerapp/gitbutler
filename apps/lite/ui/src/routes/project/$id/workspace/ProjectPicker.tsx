@@ -7,6 +7,7 @@ import { useAddLocalRepository } from "#ui/components/useAddLocalRepository.ts";
 import { globalHotkeys } from "#ui/hotkeys.ts";
 import { interfaceSlice } from "#ui/interface/state.ts";
 import { listProjectsQueryOptions, repoInfoQueryOptions } from "#ui/api/queries.ts";
+import { getRangeExtractorWithIndices } from "#ui/virtual.ts";
 import {
 	readProjectsOpenedAt,
 	readProjectsRepoMarks,
@@ -20,13 +21,33 @@ import type { IconName } from "#ui/components/iconNames.ts";
 import type { ProjectForFrontend } from "@gitbutler/but-sdk";
 import { useQuery, useSuspenseQuery } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
-import { useEffect, useMemo, useState, type FC } from "react";
+import { type Range, useVirtualizer } from "@tanstack/react-virtual";
+import {
+	type FC,
+	type RefObject,
+	useCallback,
+	useDeferredValue,
+	useEffect,
+	useId,
+	useImperativeHandle,
+	useMemo,
+	useRef,
+	useState,
+} from "react";
 // The trigger is the header's project name, and the header's container query hides its label
 // when the sidebar narrows — so the button keeps wearing the header's classes.
 import headerStyles from "./SidebarHeader.module.css";
 import styles from "./ProjectPicker.module.css";
 
 type ProjectGroup = { value: string; items: Array<ProjectForFrontend> };
+
+type VirtualProject = {
+	groupIndex: number;
+	isFirstInGroup: boolean;
+	project: ProjectForFrontend;
+};
+
+type ProjectVirtualizer = ReturnType<typeof useVirtualizer<HTMLDivElement, Element>>;
 
 /** How many projects lead the list before the rest are folded into "Older". */
 const recentCount = 5;
@@ -71,14 +92,133 @@ const readRecords = () => ({
 	marksById: readProjectsRepoMarks(),
 });
 
-/**
- * The project's name in the header, and the list of projects it opens.
- *
- * An anchored dropdown rather than a modal, built the way the commit target selector is: Base UI
- * anchors a popup to a trigger that is its own child, so the list lives with the button that
- * raises it. It is the same shape as the pickers built on `PickerDialog` minus the virtualiser,
- * which a list of a person's projects has no use for.
- */
+const VirtualizedProjectList: FC<{
+	currentProjectId: string;
+	highlightedProjectIndex: number | null;
+	marksById: Record<string, ProjectRepoMarks>;
+	virtualizerRef: RefObject<ProjectVirtualizer | null>;
+}> = ({ currentProjectId, highlightedProjectIndex, marksById, virtualizerRef }) => {
+	const scrollElementRef = useRef<HTMLDivElement | null>(null);
+	const groupDescriptionId = useId();
+	const filteredGroups = Combobox.useFilteredItems<ProjectGroup>();
+
+	// React Compiler leaves components using useVirtualizer uncompiled, hence manual memo.
+	const virtualProjects = useMemo(
+		() =>
+			filteredGroups.flatMap((group, groupIndex) =>
+				group.items.map(
+					(project, projectIndex): VirtualProject => ({
+						groupIndex,
+						isFirstInGroup: projectIndex === 0,
+						project,
+					}),
+				),
+			),
+		[filteredGroups],
+	);
+
+	const pinnedIndices = useMemo(() => {
+		const indices = new Set<number>();
+		let groupStartIndex = 0;
+
+		for (const group of filteredGroups) {
+			if (group.items.length === 0) continue;
+
+			indices.add(groupStartIndex);
+			groupStartIndex += group.items.length;
+		}
+
+		if (highlightedProjectIndex !== null) indices.add(highlightedProjectIndex);
+
+		return Array.from(indices);
+	}, [filteredGroups, highlightedProjectIndex]);
+
+	const getVirtualRowKey = useCallback(
+		(index: number) => virtualProjects[index]?.project.id ?? index,
+		[virtualProjects],
+	);
+
+	const rangeExtractorWithPinnedRows = useCallback(
+		(range: Range) => getRangeExtractorWithIndices(range, pinnedIndices),
+		[pinnedIndices],
+	);
+
+	// oxlint-disable-next-line react-hooks-js/incompatible-library -- https://github.com/TanStack/virtual/issues/1119#issuecomment-4648268095
+	const virtualizer = useVirtualizer({
+		directDomUpdates: true,
+		directDomUpdatesMode: "transform",
+		count: virtualProjects.length,
+		getScrollElement: () => scrollElementRef.current,
+		estimateSize: (index) => {
+			const row = virtualProjects[index];
+			if (!row?.isFirstInGroup) return 28;
+			return row.groupIndex > 0 ? 59 : 54;
+		},
+		getItemKey: getVirtualRowKey,
+		rangeExtractor: rangeExtractorWithPinnedRows,
+		paddingEnd: 4,
+		scrollPaddingStart: 8,
+		scrollPaddingEnd: 8,
+	});
+	useImperativeHandle(virtualizerRef, () => virtualizer);
+
+	return (
+		<Combobox.List ref={scrollElementRef} className={styles.list}>
+			{virtualProjects.length > 0 && (
+				<div ref={virtualizer.containerRef} role="presentation" className={styles.virtualContainer}>
+					{virtualizer.getVirtualItems().map((virtualItem) => {
+						const row = virtualProjects[virtualItem.index];
+						if (row === undefined) return null;
+						const group = filteredGroups[row.groupIndex];
+						if (group === undefined) return null;
+
+						return (
+							<div
+								key={virtualItem.key}
+								ref={virtualizer.measureElement}
+								data-index={virtualItem.index}
+								role="presentation"
+								className={styles.virtualProject}
+							>
+								{row.isFirstInGroup && (
+									<div
+										id={`${groupDescriptionId}-${row.groupIndex}`}
+										aria-hidden="true"
+										className={classes(
+											"text-12",
+											styles.groupLabel,
+											row.groupIndex > 0 && styles.groupLabelDivided,
+										)}
+									>
+										{group.value}
+									</div>
+								)}
+
+								<PopupItem
+									icon={projectIcon(marksById[row.project.id])}
+									trailing={row.project.id === currentProjectId ? "tick" : undefined}
+									className={styles.projectItem}
+									render={
+										<Combobox.Item
+											index={virtualItem.index}
+											value={row.project}
+											aria-describedby={`${groupDescriptionId}-${row.groupIndex}`}
+											aria-setsize={virtualProjects.length}
+											aria-posinset={virtualItem.index + 1}
+										/>
+									}
+								>
+									{row.project.title}
+								</PopupItem>
+							</div>
+						);
+					})}
+				</div>
+			)}
+		</Combobox.List>
+	);
+};
+
 export const ProjectPicker: FC<{ project: ProjectForFrontend }> = (p) => {
 	const navigate = useNavigate();
 	const dispatch = useAppDispatch();
@@ -86,6 +226,9 @@ export const ProjectPicker: FC<{ project: ProjectForFrontend }> = (p) => {
 	const { data: projects } = useSuspenseQuery(listProjectsQueryOptions);
 	const { addLocalRepository, isPending: isAddingProject } = useAddLocalRepository();
 	const [query, setQuery] = useState("");
+	const [highlightedProjectIndex, setHighlightedProjectIndex] = useState<number | null>(null);
+	const deferredQuery = useDeferredValue(query);
+	const virtualizerRef = useRef<ProjectVirtualizer | null>(null);
 
 	// What a repository is cannot be read off a clone, so it is asked of the forge for whichever
 	// project is open and remembered. The list paints from what has been learned that way — a
@@ -137,12 +280,27 @@ export const ProjectPicker: FC<{ project: ProjectForFrontend }> = (p) => {
 			onOpenChange={setOpen}
 			value={p.project}
 			onValueChange={selectProject}
-			inputValue={query}
+			inputValue={deferredQuery}
 			onInputValueChange={setQuery}
 			itemToStringLabel={(project) => project.title}
 			itemToStringValue={(project) => project.id}
 			isItemEqualToValue={(a, b) => a.id === b.id}
 			autoHighlight
+			virtualized
+			onItemHighlighted={(project, { reason, index }) => {
+				setHighlightedProjectIndex(project === undefined ? null : index);
+
+				const virtualizer = virtualizerRef.current;
+				if (project === undefined || !virtualizer) return;
+
+				const isStart = index === 0;
+				const isEnd = index === virtualizer.options.count - 1;
+				if (reason === "none" || (reason === "keyboard" && (isStart || isEnd))) {
+					queueMicrotask(() => {
+						virtualizerRef.current?.scrollToIndex(index, { align: isEnd ? "start" : "end" });
+					});
+				}
+			}}
 		>
 			<Tooltip.Root>
 				<Combobox.Trigger
@@ -174,37 +332,19 @@ export const ProjectPicker: FC<{ project: ProjectForFrontend }> = (p) => {
 							placeholder="Search projects…"
 							aria-label="Search projects"
 							onClear={query === "" ? undefined : () => setQuery("")}
-							render={<Combobox.Input />}
+							render={<Combobox.Input value={query} />}
 						/>
 						<Combobox.Empty>
 							<div className={classes("text-13", styles.empty)}>No projects found.</div>
 						</Combobox.Empty>
-						<Combobox.List className={styles.list}>
-							{(group: ProjectGroup) => (
-								// The section element has to be Base UI's, so that the group labels its own rows.
-								<PopupSection
-									key={group.value}
-									label={<Combobox.GroupLabel render={<span />}>{group.value}</Combobox.GroupLabel>}
-									render={<Combobox.Group items={group.items} />}
-								>
-									<Combobox.Collection>
-										{(project: ProjectForFrontend) => (
-											<PopupItem
-												key={project.id}
-												icon={projectIcon(records.marksById[project.id])}
-												// The project already open is marked rather than labelled: every
-												// other row would say "Project" to explain the one saying
-												// "Current".
-												trailing={project.id === p.project.id ? "tick" : undefined}
-												render={<Combobox.Item value={project} />}
-											>
-												{project.title}
-											</PopupItem>
-										)}
-									</Combobox.Collection>
-								</PopupSection>
-							)}
-						</Combobox.List>
+
+						<VirtualizedProjectList
+							currentProjectId={p.project.id}
+							highlightedProjectIndex={highlightedProjectIndex}
+							marksById={records.marksById}
+							virtualizerRef={virtualizerRef}
+						/>
+
 						<PopupSection className={styles.actions}>
 							<PopupItem
 								trailing="plus"

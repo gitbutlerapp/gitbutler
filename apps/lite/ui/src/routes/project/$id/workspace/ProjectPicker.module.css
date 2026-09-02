@@ -20,6 +20,41 @@
 	scroll-padding-block-start: 27px;
 }
 
+.virtualContainer {
+	position: relative;
+}
+
+.virtualProject {
+	position: absolute;
+	top: 0;
+	left: 0;
+	width: 100%;
+}
+
+.groupLabel {
+	padding: 8px 10px 4px;
+	color: var(--text-3);
+}
+
+.groupLabelDivided {
+	position: relative;
+	/* Previous section inset, divider, then the next heading's inset: 4px + 1px + 8px. */
+	padding-top: 13px;
+
+	&::before {
+		position: absolute;
+		inset-inline: 0;
+		top: 4px;
+		border-top: 1px solid var(--border-3);
+		content: "";
+	}
+}
+
+.projectItem {
+	width: calc(100% - 8px);
+	margin-inline: 4px;
+}
+
 .empty {
 	padding-inline: 10px;
 	padding-block: 8px;
