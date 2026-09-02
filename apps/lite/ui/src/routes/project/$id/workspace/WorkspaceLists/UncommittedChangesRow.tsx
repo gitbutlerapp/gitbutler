@@ -144,7 +144,6 @@ export const UncommittedChangesRow: FC<{
 					"Uncommitted"
 				)
 			}
-			fadedLabel={isClean}
 			leading={<PanelFoldToggle projectId={projectId} panel="uncommitted" />}
 			onContextMenu={(event) => {
 				void showNativeContextMenu(event, menuItems);

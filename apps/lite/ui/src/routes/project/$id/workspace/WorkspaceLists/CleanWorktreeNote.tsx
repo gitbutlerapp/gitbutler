@@ -44,16 +44,15 @@ const selectLastCommit = (headInfo: RefInfo): LastCommit | null => {
 };
 
 /**
- * The one line a clean worktree gets, under the header that says it is clean.
+ * What a clean worktree says under the header, set as the title's subtitle.
  *
- * It reports the last commit rather than explaining that an empty commit is
- * possible: this is the state the sidebar rests in, so the line is read
- * constantly, and "did that land, and where?" is the live question at rest
- * while an empty commit is a rare and deliberate act. A repository with no
- * commits has nothing to report, and there the empty commit is the most useful
- * thing left to say.
+ * Two lines: where the last commit went, which is the live question at rest —
+ * did that land, and where — and that an empty commit is still on offer, said
+ * here in plain sight rather than in a tooltip, since the button below has a
+ * hotkey and a tooltip never reaches anyone using it. A repository with no
+ * commits has nothing to report on the first line and keeps only the second.
  *
- * Its own component so that the clock only re-renders this line, and its
+ * Its own component so that the clock only re-renders this block, and its
  * derivation rides the query's `select` rather than running here.
  */
 export const CleanWorktreeNote: FC<{ projectId: string }> = ({ projectId }) => {
@@ -68,18 +67,22 @@ export const CleanWorktreeNote: FC<{ projectId: string }> = ({ projectId }) => {
 
 	if (lastCommit === undefined) return null;
 
-	if (lastCommit === null) return <p className={styles.note}>You can still make an empty commit</p>;
-
 	return (
-		<p className={styles.note}>
-			<span>Last commit {formatRelativeTime(lastCommit.committedAt, now)}</span>
+		<div className={styles.note}>
+			{lastCommit !== null && (
+				<p className={styles.line}>
+					<span>Last commit {formatRelativeTime(lastCommit.committedAt, now)}</span>
 
-			{lastCommit.branch !== null && (
-				<>
-					<Icon size={12} name="arrow-right" />
-					<span className={styles.branch}>{lastCommit.branch}</span>
-				</>
+					{lastCommit.branch !== null && (
+						<>
+							<Icon size={12} name="arrow-right" />
+							<span className={styles.branch}>{lastCommit.branch}</span>
+						</>
+					)}
+				</p>
 			)}
-		</p>
+
+			<p className={styles.line}>You can create an empty commit</p>
+		</div>
 	);
 };

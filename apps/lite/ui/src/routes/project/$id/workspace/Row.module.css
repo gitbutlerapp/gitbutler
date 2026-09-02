@@ -301,14 +301,6 @@
 	white-space: nowrap;
 }
 
-/* A section header whose label states an absence rather than naming the
-   section. It keeps the heading's type — the same row is still holding the same
-   slot, and changing the type as well would read as a different kind of row —
-   and steps back on opacity alone. */
-.fadedLabel {
-	opacity: 0.5;
-}
-
 .fadedText {
 	color: var(--text-2);
 

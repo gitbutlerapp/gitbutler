@@ -48,14 +48,6 @@
 	display: flex;
 	flex-direction: column;
 	min-height: 0;
-
-	/* A clean worktree drops the file list, leaving the form directly under the
-	   header. The gap that stood between the form and a list of files is more
-	   than two adjacent rows want, and the header's own padding already carries
-	   most of the space the eye reads between them. */
-	&[data-clean="true"] > .commitForm {
-		margin-block-start: 4px;
-	}
 }
 
 .uncommittedChangesTree {

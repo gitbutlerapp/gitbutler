@@ -332,7 +332,6 @@ const UncommittedChanges: FC<
 		<div
 			{...props}
 			className={classes(props.className, styles.uncommittedChanges)}
-			data-clean={isClean}
 			ref={useMergedRefs(props.ref, panelRef)}
 		>
 			{fileFilter.rowProps === null || collapsed ? (

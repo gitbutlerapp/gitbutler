@@ -529,16 +529,14 @@ export const CommitForm: FC<{
 				    The accent is spent on the one action this panel exists for, and with
 				    nothing staged that is no longer what it is. The button stays live —
 				    an empty commit is a real thing to want — but steps back to a quiet
-				    outline, and its tooltip names the one thing the label does not: that
-				    a commit made now would be empty. The header says there is nothing to
-				    commit, so the tooltip does not say it a second time. */}
+				    outline. What committing now would make is said by the panel's own
+				    note above, in plain sight, so the button does not repeat it. */}
 				<DropdownButton
 					className={styles.startCommitSplit}
 					variant={hasWorktreeChanges ? "pop" : "outline"}
 					id={startCommitButtonId}
 					onClick={() => setIsExpanded(true)}
 					disabled={!noOperationPending}
-					actionTooltip={hasWorktreeChanges ? undefined : "Makes an empty commit"}
 					menuLabel="Commit options"
 					menuDisabled={!(canAmend || canCommit)}
 					onMenuTrigger={(trigger) => {
@@ -565,14 +563,6 @@ export const CommitForm: FC<{
 			}}
 			className={classes(styles.form, className)}
 		>
-			{/* The consequence belongs at the point the decision is made, and visibly
-			    rather than on hover: the collapsed button can be reached with a
-			    hotkey, and a tooltip would never have said this to anyone driving
-			    the form from the keyboard. */}
-			{!hasWorktreeChanges && (
-				<p className={classes("text-12", styles.emptyCommitNote)}>This commit will be empty</p>
-			)}
-
 			<textarea
 				// The form is only rendered expanded after interacting with the
 				// "Start commit" trigger, so focusing the input is expected.
