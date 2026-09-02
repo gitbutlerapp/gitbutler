@@ -3355,3 +3355,71 @@ Squashed nsn into tpm
         "the squashed-in change stays checked out in the worktree"
     );
 }
+
+/// A worktree's commit uncommits into that worktree's area, so `@` is refused for it and its
+/// own area is the target; a workspace commit cannot target a worktree's area either.
+#[test]
+fn uncommit_a_worktree_commit_into_its_own_area() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["A"]);
+    super::util::enable_worktree_manipulation(&env);
+    env.but("status").assert().success();
+    let wt_dir = super::util::add_worktree_with_commit(&env, "wt-feature", "A");
+
+    env.but("squash 580bef0 --target @")
+        .assert()
+        .failure()
+        .stderr_eq(snapbox::str![[r#"
+Error: Commit 580bef0 belongs to worktree wt-feature, so it can only be uncommitted into that checkout's area
+
+Hint: Use `--target wt-feature:@`
+
+"#]]);
+    env.but("squash tpm --target wt:@")
+        .assert()
+        .failure()
+        .stderr_eq(snapbox::str![[r#"
+Error: Commit 9477ae7 belongs to the workspace, so it can only be uncommitted into that checkout's area
+
+Hint: Use `--target @`
+
+"#]]);
+
+    env.but("squash 580bef0 --target wt:@")
+        .assert()
+        .success()
+        .stderr_eq(str![])
+        .stdout_eq(snapbox::str![[r#"
+Uncommitted nsn
+
+"#]]);
+    env.but("status")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┊╭┄ g0 [A]
+┊┊
+┊┊╭┄ wt:@ {worktree uncommitted}
+┊┊┊   nv A wt-file.txt
+┊┊├┄ wt {wt-feature}
+┊├╯
+┊●   tpm add A
+├╯
+┊
+┴ 0dc3733 (common base) 2000-01-02 add M
+
+Hint: run `but help` for all commands
+
+"#]]);
+    snapbox::assert_data_eq!(
+        but_testsupport::visualize_commit_graph_all_from_dir(&wt_dir).unwrap(),
+        snapbox::str![[r#"
+* edd3eb7 (gitbutler/workspace) GitButler Workspace Commit
+* 9477ae7 (HEAD -> wt-feature, A) add A
+* 0dc3733 (origin/main, origin/HEAD, main, gitbutler/target) add M
+
+"#]]
+    );
+}

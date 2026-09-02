@@ -230,6 +230,7 @@ but squash <commit> -t <branch> -m "msg"           # Target a branch: squashes i
 but squash <file-or-hunk-id> -t <commit>           # Amend an uncommitted change (`but amend` does this)
 but squash @ -t <commit>                           # Amend all uncommitted changes into a commit
 but squash <commit> -t @                           # Uncommit a commit
+but squash <commit> -t <worktree-id>:@             # Uncommit a worktree's commit into its area
 but squash <branch> -t @                           # Uncommit all commits and remove the branch
 but squash <commit-id>:<file-id> -t <commit>       # Move a committed file into another commit
 but squash <commit-id>:<file-id>:<hunk-id> -t <commit> # Move a committed hunk into another commit
