@@ -395,6 +395,22 @@ mod error {
         }
 
         #[test]
+        fn static_context_hides_saml_authorization_url() {
+            const MESSAGE: &str = "Authorize this GitHub credential for SAML SSO, then try again.";
+            let err = anyhow!("HTTP 403 Forbidden")
+                .context(r#"Resource protected by organization SAML enforcement. Visit https://example.invalid/orgs/example/sso?authorization_request=redacted"#)
+                .context(Context::new_static(Code::GitHubOrgSamlRestricted, MESSAGE))
+                .context("Failed to load a pull request");
+            let serialized = json(err);
+            let expected = format!(r#"{{"code":"GitHubOrgSamlRestricted","message":"{MESSAGE}"}}"#);
+            assert_eq!(serialized, expected, "the API sends only static guidance");
+            let leaked = ["authorization_request", "/sso?"]
+                .iter()
+                .any(|detail| serialized.contains(detail));
+            assert!(!leaked, "per-request SSO details must stay private");
+        }
+
+        #[test]
         fn find_context_without_message() {
             let err = anyhow!("err msg").context(Context::from(Code::Validation));
             assert_eq!(

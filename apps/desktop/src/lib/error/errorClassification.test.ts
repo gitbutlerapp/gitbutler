@@ -141,6 +141,25 @@ describe("classify", () => {
 			expect(result.terminal).toBe(true);
 			expect(result.userMessage).toContain("permission");
 		});
+
+		test("GitHubOrgSamlRestricted is terminal with credential-neutral SSO guidance", () => {
+			const error = new IpcError(
+				{
+					message: "This GitHub organization requires SAML SSO authorization.",
+					code: "GitHubOrgSamlRestricted",
+				},
+				"list_reviews",
+			);
+			const result = classify(error);
+
+			expect(result.code).toBe("GitHubOrgSamlRestricted");
+			expect(result.severity).toBe("error");
+			expect(result.terminal).toBe(true);
+			expect(result.title).toBe("GitHub SAML SSO Authorization Required");
+			expect(result.userMessage).toContain("OAuth app");
+			expect(result.userMessage).toContain("personal access token");
+			expect(result.userMessage).toContain("then try again");
+		});
 	});
 
 	describe("default severity", () => {

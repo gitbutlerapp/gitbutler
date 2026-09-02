@@ -3,6 +3,7 @@
 	import GitHubAccountBadge from "$components/forge/GitHubAccountBadge.svelte";
 	import GitLabAccountBadge from "$components/forge/GitLabAccountBadge.svelte";
 	import ForgeAccountConfig from "$components/projectSettings/ForgeAccountConfig.svelte";
+	import GitHubOrgRestrictionNotice from "$components/projectSettings/GitHubOrgRestrictionNotice.svelte";
 	import { GIT_CONFIG_SERVICE } from "$lib/config/gitConfigService";
 	import { isNormalizedError } from "$lib/error/normalizedError";
 	import {
@@ -25,7 +26,7 @@
 	import { PROJECTS_SERVICE } from "$lib/project/projectsService";
 	import { inject } from "@gitbutler/core/context";
 	import { reactive } from "@gitbutler/shared/reactiveUtils.svelte";
-	import { CardGroup, InfoMessage, Link, Select, SelectItem } from "@gitbutler/ui";
+	import { CardGroup, Select, SelectItem } from "@gitbutler/ui";
 
 	import type { Project } from "$lib/project/project";
 	import type {
@@ -79,8 +80,8 @@
 	const listingService = inject(LISTING_SERVICE);
 	const listingState = $derived(listingService.listingState(projectId));
 	const listingError = $derived(listingState.result.error);
-	const githubOrgRestricted = $derived(
-		isNormalizedError(listingError) && listingError.code === "GitHubOrgOAuthRestricted",
+	const listingErrorCode = $derived(
+		isNormalizedError(listingError) ? listingError.code : undefined,
 	);
 
 	// GitLab hooks
@@ -261,22 +262,7 @@
 			requestType="pull request"
 		>
 			{#snippet notice()}
-				{#if githubOrgRestricted}
-					<InfoMessage style="warning" filled outlined={false}>
-						{#snippet title()}
-							Restricted by a GitHub organization
-						{/snippet}
-						{#snippet content()}
-							An organization that owns this repository has blocked the GitButler OAuth app, so pull
-							requests can't be listed or created right now. Ask an organization owner to approve
-							the app, or connect an account that uses a personal access token — see the
-							<Link
-								href="https://docs.gitbutler.com/features/forge-integration/github-integration?utm_source=gitbutler-app&utm_medium=settings-banner&utm_campaign=org-oauth-restriction#connect-a-github-account"
-								>docs</Link
-							>.
-						{/snippet}
-					</InfoMessage>
-				{/if}
+				<GitHubOrgRestrictionNotice errorCode={listingErrorCode} />
 			{/snippet}
 		</ForgeAccountConfig>
 	{/if}

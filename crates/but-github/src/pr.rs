@@ -2,6 +2,7 @@ use anyhow::{Context as _, Result};
 
 use crate::client::{GitHubClient, HttpStatusError};
 
+const GITHUB_ORG_SAML_RESTRICTION_MESSAGE: &str = "This GitHub organization requires SAML SSO. Authorize the GitButler OAuth app on the organization's SSO page, or authorize your personal access token in GitHub's token SSO settings, then try again.";
 pub async fn list(
     preferred_account: Option<&crate::GithubAccountIdentifier>,
     owner: &str,
@@ -55,9 +56,8 @@ pub async fn list_for_commit(
         .context("Failed to list pull requests for commit")
 }
 
-/// Tag transport / auth failures with a `but_error::Code` so the desktop
-/// can present them appropriately (silent for offline, re-auth hint for 401).
-/// Only applied to read paths — mutations should still surface failures.
+/// Tag selected transport, auth, and permission failures with a
+/// `but_error::Code` so callers can present actionable guidance.
 pub(crate) fn classify_forge_error(err: anyhow::Error) -> anyhow::Error {
     if let Some(reqwest_err) = err.downcast_ref::<reqwest::Error>()
         && crate::is_network_error(reqwest_err)
@@ -74,35 +74,31 @@ pub(crate) fn classify_forge_error(err: anyhow::Error) -> anyhow::Error {
                 "GitHub authentication failed.",
             ));
         }
-        // GitHub explains an organization-level OAuth App block in the 403
-        // body, which `ensure_success` keeps as context in the chain.
-        if http_err.status == reqwest::StatusCode::FORBIDDEN
-            && err
-                .chain()
-                .any(|cause| cause.to_string().contains("OAuth App access restrictions"))
-        {
-            return err.context(but_error::Context::new_static(
-                but_error::Code::GitHubOrgOAuthRestricted,
-                "A GitHub organization has restricted access for the GitButler OAuth app. Ask an organization owner to approve it, or authenticate with a personal access token instead.",
-            ));
-        }
-        // "Resource not accessible by personal access token": the token
-        // works but lacks a permission, e.g. a fine-grained PAT without
-        // Checks read access. Terminal until the user grants it. Other
-        // permission-shaped 403 wordings (integration tokens, SAML
-        // enforcement) deliberately stay `Unknown` until telemetry shows
-        // they actually occur.
-        if http_err.status == reqwest::StatusCode::FORBIDDEN
-            && err.chain().any(|cause| {
-                cause
-                    .to_string()
-                    .contains("Resource not accessible by personal access token")
-            })
-        {
-            return err.context(but_error::Context::new_static(
-                but_error::Code::GitHubInsufficientPermissions,
-                "Your GitHub token doesn't have permission to read this. Grant the token the missing repository read permission (such as Checks), or reconnect GitHub with different credentials.",
-            ));
+        if http_err.status == reqwest::StatusCode::FORBIDDEN {
+            // `ensure_success` keeps GitHub's response body in the chain.
+            let contains =
+                |needle: &str| err.chain().any(|cause| cause.to_string().contains(needle));
+            let context = if contains("OAuth App access restrictions") {
+                Some(but_error::Context::new_static(
+                    but_error::Code::GitHubOrgOAuthRestricted,
+                    "A GitHub organization has restricted access for the GitButler OAuth app. Ask an organization owner to approve it, or authenticate with a personal access token instead.",
+                ))
+            } else if contains("Resource protected by organization SAML enforcement") {
+                Some(but_error::Context::new_static(
+                    but_error::Code::GitHubOrgSamlRestricted,
+                    GITHUB_ORG_SAML_RESTRICTION_MESSAGE,
+                ))
+            } else if contains("Resource not accessible by personal access token") {
+                Some(but_error::Context::new_static(
+                    but_error::Code::GitHubInsufficientPermissions,
+                    "Your GitHub token doesn't have permission to read this. Grant the token the missing repository read permission (such as Checks), or reconnect GitHub with different credentials.",
+                ))
+            } else {
+                None
+            };
+            if let Some(context) = context {
+                return err.context(context);
+            }
         }
     }
     err
@@ -511,6 +507,63 @@ mod tests {
     }
 
     #[test]
+    fn saml_enforcement_403_gets_dedicated_code_and_static_message() {
+        let bodies = [
+            r#"403 Forbidden: {"message":"Resource protected by organization SAML enforcement. You must grant your OAuth token access to this organization."}"#,
+            r#"403 Forbidden: {"message":"Resource protected by organization SAML enforcement. You must grant your OAuth token access to an organization within this enterprise. Visit https://example.invalid/orgs/example/sso?authorization_request=redacted and try again."}"#,
+            // Compatibility fixture for GitHub's PAT-token wording.
+            r#"403 Forbidden: {"message":"Resource protected by organization SAML enforcement. You must grant your Personal Access token access to this organization."}"#,
+        ];
+        for body in bodies {
+            let err = classify_forge_error(http_error(reqwest::StatusCode::FORBIDDEN, body));
+            let ctx = err
+                .downcast_ref::<but_error::Context>()
+                .expect("a SAML enforcement 403 needs a frontend context");
+            assert_eq!(
+                (ctx.code, ctx.message.as_deref()),
+                (
+                    but_error::Code::GitHubOrgSamlRestricted,
+                    Some(GITHUB_ORG_SAML_RESTRICTION_MESSAGE)
+                ),
+                "SAML responses need a dedicated code and static guidance"
+            );
+            let message = ctx.message.as_deref().expect("SAML guidance is present");
+            assert!(
+                !["authorization_request", "/sso?"]
+                    .iter()
+                    .any(|detail| message.contains(detail)),
+                "the classifier must discard per-request SSO details"
+            );
+        }
+    }
+
+    #[test]
+    fn saml_phrase_requires_reqwest_http_403() {
+        let body = r#"Resource protected by organization SAML enforcement. You must authorize this credential."#;
+        let code = |err: anyhow::Error| {
+            classify_forge_error(err)
+                .downcast_ref::<but_error::Context>()
+                .map(|ctx| ctx.code)
+        };
+        assert_eq!(
+            code(http_error(reqwest::StatusCode::UNAUTHORIZED, body)),
+            Some(but_error::Code::GitHubTokenExpired),
+            "401 retains its authentication classification"
+        );
+        assert_eq!(
+            code(http_error(reqwest::StatusCode::NOT_FOUND, body)),
+            None,
+            "a phrase-bearing 404 stays unclassified"
+        );
+        // GraphQL errors returned with HTTP 200 have no HttpStatusError.
+        assert_eq!(
+            code(anyhow::anyhow!(body)),
+            None,
+            "GraphQL 200 errors stay outside the status classifier"
+        );
+    }
+
+    #[test]
     fn pat_permission_403_gets_dedicated_code() {
         let err = classify_forge_error(http_error(
             reqwest::StatusCode::FORBIDDEN,
@@ -531,6 +584,7 @@ mod tests {
         for body in [
             r#"403 Forbidden: {"message":"Resource not accessible by integration"}"#,
             r#"403 Forbidden: {"message":"API rate limit exceeded for user ID 1."}"#,
+            r#"403 Forbidden: {"message":"See the SAML setup guide","documentation_url":"https://example.invalid/docs/saml-enforcement"}"#,
             r#"403 Forbidden: {"message":"Repository access blocked"}"#,
         ] {
             let err = classify_forge_error(http_error(reqwest::StatusCode::FORBIDDEN, body));
