@@ -80,7 +80,7 @@ describe("api command metrics", () => {
 		await metrics.shutdownMetrics();
 	});
 
-	test("applies failure limits, rethrows errors, and resets buckets on login", async () => {
+	test("applies failure limits, rethrows errors, and flushes before resetting on login", async () => {
 		const metrics = await initMetrics({ bucketSize: 1, refillIntervalSeconds: 10 });
 		const error = new Error("failed");
 		const wrapped = metrics.withApiCommandCapture(
@@ -108,10 +108,161 @@ describe("api command metrics", () => {
 		expect(mocks.client.capture).not.toHaveBeenCalled();
 
 		await metrics.metricsOnLogin(profile(2));
+		expect(mocks.client.capture).toHaveBeenCalledOnce();
+		expect(mocks.client.capture.mock.lastCall?.[0]).toMatchObject({
+			distinctId: "user_1",
+			properties: {
+				command: "treeChangeDiffs",
+				failure: true,
+				occurrenceCount: 1,
+				samplingRate: 1,
+			},
+		});
+		mocks.client.capture.mockClear();
 		await expect(wrapped(null)).rejects.toBe(error);
 		const capturedAfterLogin = mocks.client.capture.mock.lastCall?.[0];
 		expect(capturedAfterLogin?.distinctId).toBe("user_2");
 		expect(capturedAfterLogin?.properties.occurrenceCount).toBe(1);
 		await metrics.shutdownMetrics();
+	});
+
+	test("flushes suppressed failure counts on shutdown", async () => {
+		const metrics = await initMetrics({ bucketSize: 1, refillIntervalSeconds: 60 });
+		const error = new Error("failed");
+		const treeDiffs = metrics.withApiCommandCapture(
+			"treeChangeDiffs",
+			vi.fn().mockRejectedValue(error),
+		);
+		const fetchStatus = metrics.withApiCommandCapture(
+			"workspaceFetchStatus",
+			vi.fn().mockRejectedValue(error),
+		);
+
+		await expect(treeDiffs(null)).rejects.toBe(error);
+		await expect(treeDiffs(null)).rejects.toBe(error);
+		await expect(treeDiffs(null)).rejects.toBe(error);
+		await expect(fetchStatus(null)).rejects.toBe(error);
+		await expect(fetchStatus(null)).rejects.toBe(error);
+		mocks.client.capture.mockClear();
+		mocks.client.shutdown.mockImplementationOnce(() => {
+			expect(mocks.client.capture).toHaveBeenCalledTimes(2);
+			return Promise.resolve();
+		});
+
+		await metrics.shutdownMetrics();
+
+		expect(mocks.client.capture.mock.calls.map(([event]) => event.properties)).toEqual([
+			expect.objectContaining({
+				command: "treeChangeDiffs",
+				failure: true,
+				occurrenceCount: 2,
+				samplingRate: 1,
+			}),
+			expect.objectContaining({
+				command: "workspaceFetchStatus",
+				failure: true,
+				occurrenceCount: 1,
+				samplingRate: 1,
+			}),
+		]);
+	});
+
+	test("waits for all active commands before draining suppressed failures", async () => {
+		const metrics = await initMetrics({ bucketSize: 1, refillIntervalSeconds: 60 });
+		const error = new Error("failed");
+		let failPending: (error: Error) => void = () => {};
+		let finishPending: () => void = () => {};
+		const handler = vi
+			.fn()
+			.mockRejectedValueOnce(error)
+			.mockImplementationOnce(
+				() =>
+					new Promise((_, reject) => {
+						failPending = reject;
+					}),
+			);
+		const wrapped = metrics.withApiCommandCapture("treeChangeDiffs", handler);
+		const otherWrapped = metrics.withApiCommandCapture(
+			"commitCreate",
+			() =>
+				new Promise<void>((resolve) => {
+					finishPending = resolve;
+				}),
+		);
+
+		await expect(wrapped(null)).rejects.toBe(error);
+		const pending = wrapped(null);
+		const otherPending = otherWrapped(null);
+		mocks.client.capture.mockClear();
+		const shutdown = metrics.shutdownMetrics();
+
+		expect(shutdown).not.toBeNull();
+		expect(mocks.client.shutdown).not.toHaveBeenCalled();
+		failPending(error);
+		await expect(pending).rejects.toBe(error);
+		expect(mocks.client.shutdown).not.toHaveBeenCalled();
+		finishPending();
+		await otherPending;
+		await shutdown;
+
+		expect(mocks.client.capture.mock.calls.map(([event]) => event.properties)).toEqual([
+			expect.objectContaining({ command: "commitCreate", failure: false, samplingRate: 1 }),
+			expect.objectContaining({
+				command: "treeChangeDiffs",
+				failure: true,
+				occurrenceCount: 1,
+				samplingRate: 1,
+			}),
+		]);
+		expect(mocks.client.shutdown).toHaveBeenCalledOnce();
+	});
+
+	test("bounds the wait for an active command", async () => {
+		vi.useFakeTimers();
+		try {
+			const metrics = await initMetrics();
+			const error = new Error("failed");
+			let failPending: (error: Error) => void = () => {};
+			const wrapped = metrics.withApiCommandCapture(
+				"treeChangeDiffs",
+				() =>
+					new Promise((_, reject) => {
+						failPending = reject;
+					}),
+			);
+			const pending = wrapped(null);
+
+			const shutdown = metrics.shutdownMetrics();
+			expect(mocks.client.shutdown).not.toHaveBeenCalled();
+
+			await vi.advanceTimersByTimeAsync(1_000);
+			await shutdown;
+			expect(mocks.client.shutdown).toHaveBeenCalledWith(1_000);
+
+			failPending(error);
+			await expect(pending).rejects.toBe(error);
+			expect(mocks.client.capture).not.toHaveBeenCalled();
+		} finally {
+			vi.useRealTimers();
+		}
+	});
+
+	test("keeps an in-progress shutdown reentrant until flushing finishes", async () => {
+		const metrics = await initMetrics();
+		let finishShutdown: () => void = () => {};
+		mocks.client.shutdown.mockReturnValueOnce(
+			new Promise<void>((resolve) => {
+				finishShutdown = resolve;
+			}),
+		);
+
+		const firstShutdown = metrics.shutdownMetrics();
+		const secondShutdown = metrics.shutdownMetrics();
+
+		expect(firstShutdown).toBe(secondShutdown);
+		expect(mocks.client.shutdown).toHaveBeenCalledOnce();
+		finishShutdown();
+		await firstShutdown;
+		expect(metrics.shutdownMetrics()).toBeNull();
 	});
 });
