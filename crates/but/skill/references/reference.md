@@ -195,7 +195,7 @@ but commit --empty -b <branch> -m "message"  # Insert an empty commit
 
 **Important:** `but commit -b <branch> -m "msg"` with no IDs commits ALL uncommitted changes. Pass IDs to commit only specific files or hunks.
 
-`but commit` is not supported from linked worktrees. Use Git directly for the worktree-local commit, and do not run `but setup` there.
+Running `but commit` from inside a linked worktree acts on the main workspace, exactly as from the main checkout: bare `but commit` takes the main worktree's changes, and `but commit <worktree>:@` takes that worktree's own (experimental worktree flag). Do not run `but setup` from a linked worktree.
 
 **Committing specific files or hunks:** Start with `but diff` for selective dirty commits, then pass CLI IDs as positional arguments:
 - **File IDs** from `but diff` or `but status -fv`: commits entire files

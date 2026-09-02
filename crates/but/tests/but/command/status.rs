@@ -1803,12 +1803,10 @@ second work
 "#]]);
 }
 
-/// `but status` refuses to run from inside a linked worktree. This gate is what keeps the
-/// lane rendering sound: IDs are minted from the main checkout only, so a status that ran
-/// here would list worktrees without IDs and have to skip their lanes. Whoever lifts this
-/// restriction must revisit how [`worktree_lanes`] get their IDs.
+/// Running from inside a linked worktree resolves to the main worktree, so the workspace and
+/// its IDs are the same as they are from the main checkout.
 #[test]
-fn status_from_inside_a_linked_worktree_is_refused() {
+fn status_from_inside_a_linked_worktree_shows_the_main_workspace() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
     env.setup_metadata(&["A", "B"]);
     enable_worktree_manipulation(&env);
@@ -1832,10 +1830,26 @@ fn status_from_inside_a_linked_worktree_is_refused() {
     env.but("status")
         .current_dir(wt.join("wt-inside"))
         .assert()
-        .failure()
-        .stdout_eq(snapbox::str![])
-        .stderr_eq(snapbox::str![[r#"
-Error: non-main worktrees are not supported
+        .success()
+        .stderr_eq(snapbox::str![])
+        .stdout_eq(snapbox::str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┊╭┄ g0 [A]
+┊┊
+┊┊╭┄ wt:@ {worktree uncommitted} (no changes)
+┊┊├┄ wt {wt-inside}
+┊├╯
+┊●   tpm add A
+├╯
+┊
+┊╭┄ h0 [B]
+┊●   lrm add B
+├╯
+┊
+┴ 0dc3733 (common base) 2000-01-02 add M
+
+Hint: run `but help` for all commands
 
 "#]]);
 }

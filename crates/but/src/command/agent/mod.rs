@@ -244,7 +244,7 @@ struct RepoInfo {
 }
 
 fn discover_repo(current_dir: &Path) -> Option<RepoInfo> {
-    let repo = gix::discover(current_dir).ok()?;
+    let repo = but_ctx::discover_main_repo(current_dir).ok()?;
     let root = repo.workdir()?.to_path_buf();
     let needs_setup = repo_needs_setup(&root);
     Some(RepoInfo { root, needs_setup })
@@ -776,7 +776,8 @@ fn print_setup_complete(out: &mut OutputChannel) -> Result<()> {
 
 #[cfg(feature = "legacy")]
 fn run_but_setup(current_dir: &Path, out: &mut OutputChannel) -> Result<()> {
-    let repo = gix::discover(current_dir).context("No git repository found for `but setup`.")?;
+    let repo = but_ctx::discover_main_repo(current_dir)
+        .context("No git repository found for `but setup`.")?;
     let mut ctx = but_ctx::Context::from_repo_with_settings(repo, crate::app_settings()?.clone())?;
     let mut guard = ctx.exclusive_worktree_access();
     crate::command::legacy::setup::repo(&mut ctx, current_dir, out, guard.write_permission())
