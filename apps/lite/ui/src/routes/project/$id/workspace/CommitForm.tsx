@@ -5,12 +5,14 @@ import {
 	aiConfigurationQueryOptions,
 	branchCannedNameQueryOptions,
 	headInfoQueryOptions,
+	operatingModeQueryOptions,
 } from "#ui/api/queries.ts";
 import { getHeadInfoIndex, resolveRelativeTo } from "#ui/api/ref-info.ts";
 import { getButtonClassName } from "#ui/components/Button.tsx";
 import { classes } from "#ui/components/classes.ts";
 import { DropdownButton } from "#ui/components/DropdownButton.tsx";
 import { Icon } from "#ui/components/Icon.tsx";
+import type { IconName } from "#ui/components/iconNames.ts";
 import { Kbd } from "#ui/components/Kbd.tsx";
 import { TooltipPopup } from "#ui/components/Tooltip.tsx";
 import {
@@ -20,7 +22,7 @@ import {
 import { draftCommitMessageQueryOptions, usePersistDraftCommitMessage } from "#ui/commit.ts";
 import { changesHotkeys, sidebarHotkeys, toElectronAccelerator } from "#ui/hotkeys.ts";
 import { nativeMenuItem, showNativeMenuFromTrigger, type NativeMenuItem } from "#ui/native-menu.ts";
-import { addressEquals, addressIdentityKey, type Address } from "#ui/addresses.ts";
+import { addressIdentityKey, type Address } from "#ui/addresses.ts";
 import { createDiffSpec } from "#ui/operations/diff-specs.ts";
 import { NO_DRAG_ATTRIBUTE } from "#ui/routes/project/$id/workspace/DragData.ts";
 import { projectSlice } from "#ui/projects/state.ts";
@@ -48,9 +50,28 @@ export type CommitTargetComboboxItem = {
 	relativeTo: RelativeTo;
 };
 
-const CommitTargetComboboxPopup: FC<{ current: CommitTargetComboboxItem | null }> = ({
-	current,
-}) => (
+/**
+ * The picker's one row that is not a target: choosing it has the commit create
+ * a branch on submit and land there. It has no `Address` because the branch
+ * does not exist until then, and that absence is what tells the row apart.
+ */
+const newBranchItem = { label: "New branch", address: null } as const;
+/** Stands in for a missing target where a target's identity key is expected. */
+const noTargetKey = "no-target";
+type CommitTargetPickerItem = CommitTargetComboboxItem | typeof newBranchItem;
+
+const pickerItemKey = (item: CommitTargetPickerItem) =>
+	item.address === null ? "new-branch" : addressIdentityKey(item.address);
+const pickerItemIcon = (item: CommitTargetPickerItem | null): IconName =>
+	item === null
+		? "branch"
+		: item.address === null
+			? "plus"
+			: item.address._tag === "Commit"
+				? "commit"
+				: "branch";
+
+const CommitTargetComboboxPopup: FC<{ current: CommitTargetPickerItem | null }> = ({ current }) => (
 	// Base UI's combobox owns its own popup part, so this cannot go through `Dropdown` — `Popup`
 	// dresses the combobox's own popup instead, and it opens the way every other dropdown does.
 	<Popup anchored className={styles.targetPopup} render={<Combobox.Popup />}>
@@ -63,14 +84,14 @@ const CommitTargetComboboxPopup: FC<{ current: CommitTargetComboboxItem | null }
 			<div className={classes("text-13", styles.targetEmpty)}>No targets found.</div>
 		</Combobox.Empty>
 		<Combobox.List className={styles.targetList}>
-			{(item: CommitTargetComboboxItem) => (
+			{(item: CommitTargetPickerItem) => (
 				<PopupItem
-					key={addressIdentityKey(item.address)}
-					icon={item.address._tag === "Commit" ? "commit" : "branch"}
+					key={pickerItemKey(item)}
+					icon={pickerItemIcon(item)}
 					// The bullseye marks where a commit would land, so it rides only the row that is
 					// the target now — the rest of the list is where it could go instead.
 					trailing={
-						current !== null && addressEquals(item.address, current.address)
+						current !== null && pickerItemKey(item) === pickerItemKey(current)
 							? "bullseye"
 							: undefined
 					}
@@ -89,15 +110,15 @@ const CommitTargetComboboxPopup: FC<{ current: CommitTargetComboboxItem | null }
  * the collapsed "Start commit" button.
  */
 const CommitTargetCombobox: FC<{
-	items: Array<CommitTargetComboboxItem>;
-	value: CommitTargetComboboxItem | null;
+	items: Array<CommitTargetPickerItem>;
+	value: CommitTargetPickerItem | null;
 	open: boolean;
 	onOpenChange: (open: boolean) => void;
-	onValueChange: (item: CommitTargetComboboxItem | null) => void;
+	onValueChange: (item: CommitTargetPickerItem | null) => void;
 	disabled: boolean;
 	children: ReactNode;
 }> = ({ items, value, open, onOpenChange, onValueChange, disabled, children }) => (
-	<Combobox.Root<CommitTargetComboboxItem>
+	<Combobox.Root<CommitTargetPickerItem>
 		items={items}
 		open={open}
 		onOpenChange={onOpenChange}
@@ -105,8 +126,8 @@ const CommitTargetCombobox: FC<{
 		value={value}
 		onValueChange={onValueChange}
 		itemToStringLabel={(x) => x.label}
-		itemToStringValue={(x) => addressIdentityKey(x.address)}
-		isItemEqualToValue={(a, b) => addressEquals(a.address, b.address)}
+		itemToStringValue={pickerItemKey}
+		isItemEqualToValue={(a, b) => pickerItemKey(a) === pickerItemKey(b)}
 		autoHighlight
 		disabled={disabled}
 	>
@@ -157,6 +178,12 @@ export const CommitForm: FC<{
 	const formRef = useRef<HTMLFormElement | null>(null);
 
 	const { data: draftMessage } = useQuery(draftCommitMessageQueryOptions(projectId));
+	// Same gate as the sidebar's "New Branch in Workspace": outside an open
+	// workspace a new lane is not what starting a branch means.
+	const { data: isOpenWorkspace = false } = useQuery({
+		...operatingModeQueryOptions(projectId),
+		select: (headAndMode) => headAndMode.operatingMode.type === "OpenWorkspace",
+	});
 	const { mutate: persistDraftMessage } = usePersistDraftCommitMessage();
 	const { data: isAiConfigured = false } = useQuery({
 		...aiConfigurationQueryOptions,
@@ -180,11 +207,22 @@ export const CommitForm: FC<{
 	const isCommitOrAmendPending =
 		isCommitCreatePending || isAmendCommitPending || isBranchCreatePending;
 
-	// Only meaningful without a branch to commit onto, and pointless to fetch
-	// otherwise: with branches present the target comes from the combobox.
+	// The picker's "New branch" choice, remembered against the target it was
+	// made over: the applied selection is the commit target, so selecting
+	// another branch or commit in the outline supersedes it the way it would any
+	// picked target.
+	const [newBranchOver, setNewBranchOver] = useState<string | null>(null);
+	const currentTargetKey = commitTarget ? addressIdentityKey(commitTarget.address) : noTargetKey;
+	const willCreateBranch = hasNoBranches || newBranchOver === currentTargetKey;
+	const pickerValue: CommitTargetPickerItem | null = willCreateBranch
+		? newBranchItem
+		: commitTarget;
+
+	// Only meaningful when the commit creates a branch, and pointless to fetch
+	// otherwise: the target then comes from the combobox.
 	const { data: cannedBranchName } = useQuery({
 		...branchCannedNameQueryOptions(projectId),
-		enabled: hasNoBranches,
+		enabled: willCreateBranch,
 	});
 	const draftBranchLabel = cannedBranchName ?? "New branch";
 
@@ -217,21 +255,23 @@ export const CommitForm: FC<{
 		return () => observer.disconnect();
 	};
 
-	const canCommitOrAmendBase =
-		noOperationPending && commitTarget !== null && !isCommitOrAmendPending && !isGenerating;
-	// Without branches there is no target to pick, but the commit creates one, so
-	// it must not be blocked. Amending still needs a commit that already exists.
-	const canCommit =
-		canCommitOrAmendBase ||
-		(noOperationPending && hasNoBranches && !isCommitOrAmendPending && !isGenerating);
+	const ready = noOperationPending && !isCommitOrAmendPending && !isGenerating;
+	// A commit that creates its branch needs no target, so it must not be blocked
+	// on one. Amending still needs a commit that already exists.
+	const canCommit = ready && (commitTarget !== null || willCreateBranch);
 	const amendTargetCommitId =
 		commitTarget && headInfoIndex
 			? resolveRelativeTo({ headInfoIndex, relativeTo: commitTarget.relativeTo })
 			: null;
-	const canAmend = canCommitOrAmendBase && canAmendCommit && amendTargetCommitId !== null;
+	const canAmend = ready && canAmendCommit && amendTargetCommitId !== null;
 
-	const selectBranch = (option: CommitTargetComboboxItem | null) => {
-		if (option) setCursor("applied", option.address);
+	const selectTarget = (option: CommitTargetPickerItem | null) => {
+		if (option?.address === null) {
+			setNewBranchOver(currentTargetKey);
+		} else if (option) {
+			setNewBranchOver(null);
+			setCursor("applied", option.address);
+		}
 		setOpen(false);
 	};
 
@@ -279,21 +319,23 @@ export const CommitForm: FC<{
 	};
 
 	const createCommit = () => {
-		if (commitTarget) {
-			commitOnto(commitTarget.relativeTo);
+		if (!willCreateBranch) {
+			if (commitTarget) commitOnto(commitTarget.relativeTo);
 			return;
 		}
 
-		// An empty workspace has nothing to commit onto, so the branch is created
-		// first — lazily, so that merely opening the commit form writes no ref. On
-		// failure `useBranchCreate` toasts and no commit is attempted, leaving the
-		// form and its draft message untouched.
-		if (!hasNoBranches || !worktreeChanges) return;
+		// The branch is created first — lazily, so that merely choosing it writes
+		// no ref. On failure `useBranchCreate` toasts and no commit is attempted,
+		// leaving the form and its draft message untouched.
+		if (!worktreeChanges) return;
 
 		branchCreate(
 			{ projectId, newRef: null, placement: { type: "independent" } },
 			{
 				onSuccess: (response) => {
+					// The new branch is the target from here on, also for the retry
+					// should the commit itself fail.
+					setNewBranchOver(null);
 					setCursor("applied", {
 						_tag: "Branch",
 						branchRef: response.newRef.fullNameBytes,
@@ -411,61 +453,70 @@ export const CommitForm: FC<{
 
 	const commitTextareaLabel = "Compose commit message";
 
+	// The collapsed row and the expanded footer show the same picker, differing
+	// only in how the trigger is dressed. A render function rather than a
+	// component, so the picker state needs no threading through props.
+	const renderTargetPicker = (trigger: { className: string; iconSize?: number }) => (
+		<CommitTargetCombobox
+			// The new-branch row goes last, so that `autoHighlight` lands on a target
+			// and Enter never creates a branch by accident.
+			items={isOpenWorkspace ? [...targetComboboxItems, newBranchItem] : targetComboboxItems}
+			value={pickerValue}
+			open={open}
+			onOpenChange={setOpen}
+			onValueChange={selectTarget}
+			disabled={!ready || hasNoBranches}
+		>
+			<Tooltip.Root>
+				<Combobox.Trigger
+					className={trigger.className}
+					aria-label={
+						willCreateBranch ? `Will create branch ${draftBranchLabel}` : "Select commit target"
+					}
+					render={<Button focusableWhenDisabled render={<Tooltip.Trigger />} />}
+				>
+					<Icon name="bullseye" size={trigger.iconSize} />
+					<Icon name={pickerItemIcon(pickerValue)} size={trigger.iconSize} />
+				</Combobox.Trigger>
+				<Tooltip.Portal>
+					<Tooltip.Positioner sideOffset={4}>
+						<Tooltip.Popup
+							render={
+								<TooltipPopup
+									kbd={hasNoBranches ? undefined : changesHotkeys.selectCommitTarget.hotkey}
+								/>
+							}
+						>
+							{willCreateBranch ? (
+								<span className={styles.tooltipTarget}>
+									<span className={styles.tooltipTargetLabel}>Will create branch:</span>
+									<span className={styles.tooltipTargetName}>{draftBranchLabel}</span>
+								</span>
+							) : commitTarget ? (
+								<span className={styles.tooltipTarget}>
+									<span className={styles.tooltipTargetLabel}>Target:</span>
+									<span className={styles.tooltipTargetName}>{commitTarget.label}</span>
+								</span>
+							) : (
+								"Select commit target"
+							)}
+						</Tooltip.Popup>
+					</Tooltip.Positioner>
+				</Tooltip.Portal>
+			</Tooltip.Root>
+		</CommitTargetCombobox>
+	);
+
 	if (!isExpanded) {
 		return (
 			<div {...{ [NO_DRAG_ATTRIBUTE]: "" }} className={classes(styles.startCommitRow, className)}>
-				<CommitTargetCombobox
-					items={targetComboboxItems}
-					value={commitTarget ?? null}
-					open={open}
-					onOpenChange={setOpen}
-					onValueChange={selectBranch}
-					disabled={!noOperationPending || isCommitOrAmendPending || hasNoBranches}
-				>
-					<Tooltip.Root>
-						<Combobox.Trigger
-							className={classes(
-								getButtonClassName({ variant: "outline" }),
-								styles.collapsedTargetTrigger,
-							)}
-							aria-label={
-								hasNoBranches ? `Will create branch ${draftBranchLabel}` : "Select commit target"
-							}
-							render={<Button focusableWhenDisabled render={<Tooltip.Trigger />} />}
-						>
-							<Icon name="bullseye" size={14} />
-							<Icon
-								name={commitTarget?.address._tag === "Commit" ? "commit" : "branch"}
-								size={14}
-							/>
-						</Combobox.Trigger>
-						<Tooltip.Portal>
-							<Tooltip.Positioner sideOffset={4}>
-								<Tooltip.Popup
-									render={
-										<TooltipPopup
-											kbd={hasNoBranches ? undefined : changesHotkeys.selectCommitTarget.hotkey}
-										/>
-									}
-								>
-									{hasNoBranches ? (
-										<span className={styles.tooltipTarget}>
-											<span className={styles.tooltipTargetLabel}>Will create branch:</span>
-											<span className={styles.tooltipTargetName}>{draftBranchLabel}</span>
-										</span>
-									) : commitTarget ? (
-										<span className={styles.tooltipTarget}>
-											<span className={styles.tooltipTargetLabel}>Target:</span>
-											<span className={styles.tooltipTargetName}>{commitTarget.label}</span>
-										</span>
-									) : (
-										"Select commit target"
-									)}
-								</Tooltip.Popup>
-							</Tooltip.Positioner>
-						</Tooltip.Portal>
-					</Tooltip.Root>
-				</CommitTargetCombobox>
+				{renderTargetPicker({
+					className: classes(
+						getButtonClassName({ variant: "outline" }),
+						styles.collapsedTargetTrigger,
+					),
+					iconSize: 14,
+				})}
 
 				{/* Amend ignores the message, so its affordance belongs here rather than
 				    behind the message composer. Mirrors the hotkeys, which are registered
@@ -524,59 +575,9 @@ export const CommitForm: FC<{
 			<div className={styles.footer}>
 				<div className={styles.footerRow}>
 					<div className={styles.footerStart}>
-						<CommitTargetCombobox
-							items={targetComboboxItems}
-							value={commitTarget ?? null}
-							open={open}
-							onOpenChange={setOpen}
-							onValueChange={selectBranch}
-							disabled={
-								!noOperationPending || isCommitOrAmendPending || isGenerating || hasNoBranches
-							}
-						>
-							<Tooltip.Root>
-								<Combobox.Trigger
-									className={classes(
-										getButtonClassName({ variant: "ghost" }),
-										styles.targetTrigger,
-									)}
-									aria-label={
-										hasNoBranches
-											? `Will create branch ${draftBranchLabel}`
-											: "Select commit target"
-									}
-									render={<Button focusableWhenDisabled render={<Tooltip.Trigger />} />}
-								>
-									<Icon name="bullseye" />
-									<Icon name={commitTarget?.address._tag === "Commit" ? "commit" : "branch"} />
-								</Combobox.Trigger>
-								<Tooltip.Portal>
-									<Tooltip.Positioner sideOffset={4}>
-										<Tooltip.Popup
-											render={
-												<TooltipPopup
-													kbd={hasNoBranches ? undefined : changesHotkeys.selectCommitTarget.hotkey}
-												/>
-											}
-										>
-											{hasNoBranches ? (
-												<span className={styles.tooltipTarget}>
-													<span className={styles.tooltipTargetLabel}>Will create branch:</span>
-													<span className={styles.tooltipTargetName}>{draftBranchLabel}</span>
-												</span>
-											) : commitTarget ? (
-												<span className={styles.tooltipTarget}>
-													<span className={styles.tooltipTargetLabel}>Target:</span>
-													<span className={styles.tooltipTargetName}>{commitTarget.label}</span>
-												</span>
-											) : (
-												"Select commit target"
-											)}
-										</Tooltip.Popup>
-									</Tooltip.Positioner>
-								</Tooltip.Portal>
-							</Tooltip.Root>
-						</CommitTargetCombobox>
+						{renderTargetPicker({
+							className: classes(getButtonClassName({ variant: "ghost" }), styles.targetTrigger),
+						})}
 
 						<div aria-hidden className={styles.footerSeparator} />
 						<Tooltip.Root>
