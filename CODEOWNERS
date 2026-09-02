@@ -1,11 +1,11 @@
 /CODEOWNERS @krlvi @schacon
-/.github @krlvi @schacon @Caleb-T-Owens @estib-vega @mtsgrd @slarse
-/crates/but-core @krlvi @Caleb-T-Owens @estib-vega @jonathantanmy2
-/crates/but-ctx @krlvi @Caleb-T-Owens @estib-vega @jonathantanmy2
-/crates/but-db @krlvi @Caleb-T-Owens @estib-vega @jonathantanmy2
-/crates/but-fs @krlvi @Caleb-T-Owens @estib-vega @jonathantanmy2
-/crates/but-graph @krlvi @Caleb-T-Owens @estib-vega @jonathantanmy2
-/crates/but-rebase @krlvi @Caleb-T-Owens @estib-vega @jonathantanmy2
-/crates/but-meta @krlvi @Caleb-T-Owens @estib-vega @jonathantanmy2
-/crates/but-secret @krlvi @Caleb-T-Owens @estib-vega @jonathantanmy2
-/crates/but-update @krlvi @Caleb-T-Owens @estib-vega @jonathantanmy2
+/.github @krlvi @schacon @Caleb-T-Owens @mtsgrd @slarse
+/crates/but-core @krlvi @Caleb-T-Owens @jonathantanmy2
+/crates/but-ctx @krlvi @Caleb-T-Owens @jonathantanmy2
+/crates/but-db @krlvi @Caleb-T-Owens @jonathantanmy2
+/crates/but-fs @krlvi @Caleb-T-Owens @jonathantanmy2
+/crates/but-graph @krlvi @Caleb-T-Owens @jonathantanmy2
+/crates/but-rebase @krlvi @Caleb-T-Owens @jonathantanmy2
+/crates/but-meta @krlvi @Caleb-T-Owens @jonathantanmy2
+/crates/but-secret @krlvi @Caleb-T-Owens @jonathantanmy2
+/crates/but-update @krlvi @Caleb-T-Owens @jonathantanmy2
