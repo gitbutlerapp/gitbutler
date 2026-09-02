@@ -57,8 +57,6 @@ export type ActiveList = "applied" | "uncommitted";
 
 export type CheckableAddress = Extract<Address, { _tag: "Commit" | "File" | "Hunk" }>;
 
-export type BranchTab = "diff" | "pr";
-
 /**
  * A conflict checked for a batch resolution. Ids survive the rewrites that
  * compact hunk positions, so checks carry across; the commit id is remapped.
@@ -87,7 +85,6 @@ type WorkspaceState = {
 	 * aimed, so it clears itself and leaves this behind to say why.
 	 */
 	notice: string | null;
-	selectedBranchTabs: Record<string, BranchTab>;
 	/**
 	 * The diff cursor. Its five siblings live in the URL (use-cursor.ts); this
 	 * one holds an exact visual line range in Redux instead of a URL query param.
@@ -127,7 +124,6 @@ const createInitialWorkspaceState = (): WorkspaceState => ({
 	dependencyCommitIds: [],
 	pendingOperation: noPendingOperation,
 	notice: null,
-	selectedBranchTabs: {},
 	diffCursor: null,
 	uncommittedFilesFilter: null,
 	filesFilter: null,
@@ -481,14 +477,6 @@ export const projectReducers = {
 		const other = otherSidebarPanel(panel);
 		state.sidebarPanelFocus = state.sidebarPanelFocus === other ? "both" : other;
 	},
-	setSelectedBranchTab: (
-		state: ProjectState,
-		{ branchName, tab }: { branchName: string; tab: BranchTab },
-	) => {
-		if (state.workspace.selectedBranchTabs[branchName] === tab) return;
-
-		state.workspace.selectedBranchTabs[branchName] = tab;
-	},
 
 	toggleSegmentFolded: (state: ProjectState, { branchRef }: { branchRef: string }) => {
 		if (state.workspace.foldedSegments[branchRef]) delete state.workspace.foldedSegments[branchRef];
@@ -658,8 +646,6 @@ export const projectSelectors = {
 	 * caller supplies the default, since whether the Pull Request tab is worth
 	 * opening on depends on forge data the store does not hold.
 	 */
-	selectBranchTab: (state: ProjectState, branchName: string): BranchTab | undefined =>
-		state.workspace.selectedBranchTabs[branchName],
 
 	selectUncommittedFilesFilter: (state: ProjectState) => state.workspace.uncommittedFilesFilter,
 	selectUncommittedFilesRecentFirst: (state: ProjectState) =>

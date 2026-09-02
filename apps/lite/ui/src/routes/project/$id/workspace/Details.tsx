@@ -66,7 +66,8 @@ import {
 } from "#ui/addresses.ts";
 import type { DiffLineSelection } from "#ui/cursors.ts";
 import { checkedRange, addressSpaceRange } from "#ui/checking.ts";
-import type { BranchTab, CheckableAddress } from "#ui/projects/project.ts";
+import type { CheckableAddress } from "#ui/projects/project.ts";
+import { type BranchTab, useChosenBranchTab, writeBranchTab } from "#ui/branch-tab.ts";
 import { projectSlice } from "#ui/projects/state.ts";
 import { interfaceSlice } from "#ui/interface/state.ts";
 import { Badge } from "#ui/components/Badge.tsx";
@@ -3341,7 +3342,6 @@ const UnappliedBranchDetails: FC<BranchDetailsProps> = ({
 	viewerRef,
 	didScrollToViaFileRef,
 }) => {
-	const dispatch = useAppDispatch();
 	const branchName = branchDetailsParams(decodeBytes(branch.branchRef)).branchName;
 	const { data: forgeInfo } = useQuery(forgeInfoOptions(projectId));
 	// Same query key as the applied branch's, so the two share one listing
@@ -3386,20 +3386,20 @@ const UnappliedBranchDetails: FC<BranchDetailsProps> = ({
 		review != null && forgeInfo?.capabilities.prService === true && notificationsLevel !== "off",
 	);
 
-	const chosenTab = useAppSelector((state) =>
-		projectSlice.selectors.selectBranchTab(state, projectId, branchName),
-	);
+	const chosenTab = useChosenBranchTab();
 	// The review is what the branch is judged by, so a branch that has one —
 	// open or landed — opens on it; without one only the diff is on offer.
-	const branchTab = chosenTab ?? (reviewTab !== null ? "pr" : "diff");
-	const setBranchTab = (tab: BranchTab) => {
-		dispatch(projectSlice.actions.setSelectedBranchTab({ projectId, branchName, tab }));
-	};
+	const branchTab = reviewTab !== null ? (chosenTab ?? "pr") : "diff";
 
 	const ref = useRef<HTMLDivElement>(null);
 	// The review is the only second tab on offer here, so the toggle and the keys
 	// that drive it both wait for one to exist.
-	useBranchTabHotkeys({ branchTab, setBranchTab, target: ref, enabled: reviewTab !== null });
+	useBranchTabHotkeys({
+		branchTab,
+		setBranchTab: writeBranchTab,
+		target: ref,
+		enabled: reviewTab !== null,
+	});
 
 	const { isPending: isApplyPending, apply } = useApplyToWorkspace(projectId);
 
@@ -3411,7 +3411,7 @@ const UnappliedBranchDetails: FC<BranchDetailsProps> = ({
 				<div className={styles.tabsRow}>
 					<BranchTabToggle
 						branchTab={branchTab}
-						setBranchTab={setBranchTab}
+						setBranchTab={writeBranchTab}
 						prDisabled={reviewTab === null}
 						prUnread={prUnread}
 					/>
@@ -3431,7 +3431,7 @@ const UnappliedBranchDetails: FC<BranchDetailsProps> = ({
 			</div>
 
 			<Suspense fallback={<div className={classes(styles.loadingTab, "text-13")}>Loading…</div>}>
-				{reviewTab !== null && branchTab === "pr" ? (
+				{branchTab === "pr" ? (
 					<div className={styles.prTabScroll}>
 						<div className={styles.prTab}>{reviewTab}</div>
 					</div>
@@ -3460,32 +3460,25 @@ const AppliedBranchDetails: FC<BranchDetailsProps> = ({
 	const { data: forgeInfo } = useQuery(forgeInfoOptions(projectId));
 	const { data: headInfo } = useQuery(headInfoQueryOptions(projectId));
 	const headInfoIndex = headInfo ? getHeadInfoIndex(headInfo) : null;
-	const dispatch = useAppDispatch();
 	const branchRef = decodeBytes(branch.branchRef);
 	const branchName = branchDetailsParams(branchRef).branchName;
-	const chosenTab = useAppSelector((state) =>
-		projectSlice.selectors.selectBranchTab(state, projectId, branchName),
-	);
+	const chosenTab = useChosenBranchTab();
 	// The review is where an applied branch is headed, so a forge that serves
 	// pull requests opens on that tab — the create form when none exists yet.
 	// Without such a forge the tab is a dead form, so the diff leads.
 	const branchTab = chosenTab ?? (forgeInfo?.capabilities.prService ? "pr" : "diff");
-
-	const setBranchTab = (tab: BranchTab) => {
-		dispatch(projectSlice.actions.setSelectedBranchTab({ projectId, branchName, tab }));
-	};
 
 	// Per-PR by construction: BranchDetails is keyed on the branch identity,
 	// so a selection change remounts this component and resets the mode.
 	const [prEditing, setPrEditing] = useState(false);
 
 	const startPrEdit = () => {
-		setBranchTab("pr");
+		writeBranchTab("pr");
 		setPrEditing(true);
 	};
 
 	const ref = useRef<HTMLDivElement>(null);
-	useBranchTabHotkeys({ branchTab, setBranchTab, target: ref });
+	useBranchTabHotkeys({ branchTab, setBranchTab: writeBranchTab, target: ref });
 
 	// Use push status of segment, not branch details; something about remote
 	// tracking refs.
@@ -3535,7 +3528,11 @@ const AppliedBranchDetails: FC<BranchDetailsProps> = ({
 				<BranchTitleRow branchName={branchName} />
 
 				<div className={styles.tabsRow}>
-					<BranchTabToggle branchTab={branchTab} setBranchTab={setBranchTab} prUnread={prUnread} />
+					<BranchTabToggle
+						branchTab={branchTab}
+						setBranchTab={writeBranchTab}
+						prUnread={prUnread}
+					/>
 
 					{branchTab === "pr" && !!forgeInfo?.capabilities.prService && (
 						<Suspense>

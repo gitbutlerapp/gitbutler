@@ -9,12 +9,12 @@
 
 import { forgeInfoOptions, headInfoQueryOptions } from "#ui/api/queries.ts";
 import { branchAddress } from "#ui/addresses.ts";
+import { writeBranchTab } from "#ui/branch-tab.ts";
 import { Icon } from "#ui/components/Icon.tsx";
 import type { IconName } from "#ui/components/iconNames.ts";
 import { RelativeTime } from "#ui/components/RelativeTime.tsx";
 import { classes } from "#ui/components/classes.ts";
 import { getButtonClassName } from "#ui/components/Button.tsx";
-import { projectSlice } from "#ui/projects/state.ts";
 import { appliedRefsByName } from "#ui/review-notifications.ts";
 import {
 	markInboxSeen,
@@ -24,7 +24,6 @@ import {
 	type InboxKind,
 } from "#ui/review-inbox.ts";
 import { usePrNotificationsLevel } from "#ui/review-seen.ts";
-import { store } from "#ui/store.ts";
 import { requestReviewFocus } from "#ui/review-focus.ts";
 import { setActiveList, setCursor, setPage } from "#ui/use-cursor.ts";
 import { Dropdown } from "#ui/components/Popup.tsx";
@@ -93,13 +92,7 @@ const Entry: FC<{
 		// reader can see.
 		setActiveList("applied");
 		setCursor("applied", branchAddress({ branchRef }));
-		store.dispatch(
-			projectSlice.actions.setSelectedBranchTab({
-				projectId,
-				branchName: entry.sourceBranch,
-				tab: "pr",
-			}),
-		);
+		writeBranchTab("pr");
 		// Landing on the comment is what makes the click worth it when the
 		// review is already on screen.
 		if (entry.commentId != null) requestReviewFocus(entry.review, entry.commentId);
