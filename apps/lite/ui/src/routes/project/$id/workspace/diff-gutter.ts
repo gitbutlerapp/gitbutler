@@ -681,6 +681,12 @@ const createGutterStore = <T>(
 	const ensureHoverListeners = (host: HTMLElement, shadowRoot: ShadowRoot): void => {
 		if (removeHoverListenersByHost.has(host)) return;
 
+		/** The card stands for one line-number cell, so it goes wherever that cell is not. */
+		const hideActions = () => {
+			commentTargetsByHost.delete(host);
+			actionCardsByHost.get(host)?.card.remove();
+		};
+
 		// CSS can see the hovered column, but cannot match its dynamic hunk key to the rest of the
 		// hunk's own band or to the checkbox at the top of it. The line checkbox stays local to :hover.
 		const handlePointerOver = (event: Event) => {
@@ -693,11 +699,13 @@ const createGutterStore = <T>(
 						target instanceof HTMLElement && target.hasAttribute("data-column-number"),
 				);
 			const itemId = itemIdsByHost.get(host);
-			if (!cell || itemId === undefined) return;
+			// The code beside the numbers is still inside the view, so leaving the view is not what
+			// takes the card back. A pointer anywhere off the cells is already off the line it named.
+			if (!cell || itemId === undefined) return hideActions();
 
 			const target = diffLineTargetFromElement({ element: cell, itemId });
 			const actions = actionCardsByHost.get(host);
-			if (!target || !actions) return;
+			if (!target || !actions) return hideActions();
 
 			commentTargetsByHost.set(host, target);
 			// A context line has no hunk to hand over, so the card arrives there without its grip.
@@ -709,8 +717,7 @@ const createGutterStore = <T>(
 		};
 		const handlePointerLeave = () => {
 			setHoveredGroup(host, undefined);
-			commentTargetsByHost.delete(host);
-			actionCardsByHost.get(host)?.card.remove();
+			hideActions();
 		};
 		shadowRoot.addEventListener("pointerover", handlePointerOver);
 		host.addEventListener("pointerleave", handlePointerLeave);
