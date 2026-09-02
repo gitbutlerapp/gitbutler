@@ -99,13 +99,13 @@ fn checkout_returns_head_info_matching_fresh_head_info() -> anyhow::Result<()> {
 
         snapbox::assert_data_eq!(
             crate::support::repository_graph(&repo)?,
-            snapbox::str![["
+            snapbox::str![[r#"
 * b720e1f (sibling) sibling
 | * edd8381 (HEAD -> feature) feature
 |/  
-* 5374caf (origin/main, main) main
+* 5374caf (origin/main, main, gitbutler/target) main
 
-"]]
+"#]]
         );
     }
 

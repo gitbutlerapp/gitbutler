@@ -1033,7 +1033,7 @@ pub fn branch_create_with_perm(
         WorkspaceState::from_workspace_with_db(&ws, &mut meta, &repo, BTreeMap::new(), &mut db)?;
     drop((ws, repo, db, meta));
     if checkout_after_create {
-        let checkout = branch_checkout_with_perm(ctx, new_ref.clone(), perm)?;
+        let checkout = branch_checkout_with_perm_only(ctx, new_ref.clone(), perm)?;
         return Ok(BranchCreateResult {
             workspace: checkout.workspace,
             new_ref,
@@ -1146,7 +1146,7 @@ pub fn branch_remove_with_perm(
     if let Some(below) = move_head_to {
         // Land `HEAD` on the reference underneath. The old tip now sits above
         // the entrypoint and is no longer part of the downward projection.
-        branch_checkout_with_perm(ctx, below, perm)?;
+        branch_checkout_with_perm_only(ctx, below, perm)?;
     }
 
     let mut meta = ctx.meta()?;
@@ -1578,7 +1578,7 @@ pub fn branch_checkout_new_with_perm(
         branch
     };
 
-    branch_checkout_with_perm(ctx, branch, perm)
+    branch_checkout_with_perm_only(ctx, branch, perm)
 }
 
 /// Switch to the workspace reference
@@ -1589,41 +1589,75 @@ pub fn workspace_checkout(ctx: &mut but_ctx::Context) -> anyhow::Result<BranchCh
     workspace_checkout_with_perm(ctx, guard.write_permission())
 }
 
-/// Checks out the GitButler workspace reference under caller-held exclusive repository access.
+/// Switch to the workspace reference under caller-held exclusive repository access.
 pub fn workspace_checkout_with_perm(
     ctx: &mut but_ctx::Context,
     perm: &mut RepoExclusive,
 ) -> anyhow::Result<BranchCheckoutResult> {
+    let snapshot_details = SnapshotDetails::new(OperationKind::SwitchToWorkspace);
+    let maybe_oplog_entry = but_oplog::UnmaterializedOplogSnapshot::from_details_with_perm(
+        ctx,
+        snapshot_details,
+        perm.read_permission(),
+        but_core::DryRun::No,
+    );
+
+    let result = workspace_checkout_with_perm_only(ctx, perm)?;
+
+    if let Some(snapshot) = maybe_oplog_entry {
+        _ = snapshot.commit(ctx, perm);
+    }
+
+    Ok(result)
+}
+
+/// Checks out the GitButler workspace reference under caller-held exclusive repository access.
+pub fn workspace_checkout_with_perm_only(
+    ctx: &mut but_ctx::Context,
+    perm: &mut RepoExclusive,
+) -> anyhow::Result<BranchCheckoutResult> {
     let workspace_ref: gix::refs::FullName = WORKSPACE_REF_NAME.try_into()?;
-    checkout_ref_with_perm(ctx, workspace_ref, perm)
+    branch_checkout_with_perm_only(ctx, workspace_ref, perm)
 }
 
 /// Checks out an existing local branch under caller-held exclusive repository
 /// access.
-///
-/// TODO: Decide whether branch checkout should record an oplog snapshot. For
-/// now this deliberately performs only the Git checkout and workspace
-/// projection rebuild.
 pub fn branch_checkout_with_perm(
     ctx: &mut but_ctx::Context,
     branch: gix::refs::FullName,
     perm: &mut RepoExclusive,
 ) -> anyhow::Result<BranchCheckoutResult> {
-    if !branch.as_bstr().starts_with_str("refs/heads/") {
-        bail!(
-            "Can only check out local branches under refs/heads, got '{}'",
-            branch.as_bstr()
-        );
+    let snapshot_details = SnapshotDetails::new(OperationKind::SwitchBranch);
+    let maybe_oplog_entry = but_oplog::UnmaterializedOplogSnapshot::from_details_with_perm(
+        ctx,
+        snapshot_details,
+        perm.read_permission(),
+        but_core::DryRun::No,
+    );
+
+    let result = branch_checkout_with_perm_only(ctx, branch, perm)?;
+
+    if let Some(snapshot) = maybe_oplog_entry {
+        _ = snapshot.commit(ctx, perm);
     }
 
-    checkout_ref_with_perm(ctx, branch, perm)
+    Ok(result)
 }
 
-fn checkout_ref_with_perm(
+/// Checks out an existing local branch under caller-held exclusive repository
+/// access without creating an oplog entry.
+pub fn branch_checkout_with_perm_only(
     ctx: &mut but_ctx::Context,
     reference_name: gix::refs::FullName,
     perm: &mut RepoExclusive,
 ) -> anyhow::Result<BranchCheckoutResult> {
+    if !reference_name.as_bstr().starts_with_str("refs/heads/") {
+        bail!(
+            "Can only check out local branches under refs/heads, got '{}'",
+            reference_name.as_bstr()
+        );
+    }
+
     {
         let repo = ctx.repo.get()?;
         let current_head = repo
@@ -1914,7 +1948,7 @@ pub fn move_branch_with_perm(
     if let Some(new_tip) = new_tip
         && !is_dry_run
     {
-        let checkout = branch_checkout_with_perm(ctx, new_tip, perm)?;
+        let checkout = branch_checkout_with_perm_only(ctx, new_tip, perm)?;
         return Ok(MoveBranchResult {
             workspace: checkout.workspace,
         });
