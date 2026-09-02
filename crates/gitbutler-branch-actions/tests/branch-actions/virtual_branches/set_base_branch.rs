@@ -61,6 +61,47 @@ fn uses_configured_committer_for_reflog() {
 }
 
 #[test]
+fn unrelated_target_is_an_actionable_precondition_failure() {
+    let Test { repo, ctx, .. } = &mut Test::default();
+    let gix_repo = repo.open();
+    gix_repo
+        .commit(
+            "refs/remotes/origin/unrelated",
+            "unrelated root",
+            gix_repo.object_hash().empty_tree(),
+            std::iter::empty::<gix::ObjectId>(),
+        )
+        .unwrap();
+
+    let mut guard = ctx.exclusive_worktree_access();
+    let err = gitbutler_branch_actions::set_base_branch(
+        ctx,
+        &"refs/remotes/origin/unrelated".parse().unwrap(),
+        guard.write_permission(),
+    )
+    .unwrap_err();
+    drop(guard);
+
+    assert!(
+        gix_repo
+            .try_find_reference(but_core::WORKSPACE_REF_NAME)
+            .unwrap()
+            .is_none(),
+        "rejecting an unrelated target must not initialize the workspace"
+    );
+    assert_eq!(
+        err.custom_context().map(|ctx| ctx.code),
+        Some(Code::PreconditionFailed),
+        "an unrelated target is a recoverable selection problem"
+    );
+    assert!(
+        err.to_string()
+            .contains("Fetch more history or choose another branch"),
+        "the error tells onboarding how the user can recover"
+    );
+}
+
+#[test]
 fn works_without_git_identity() {
     for branch_matches_target in [true, false] {
         let Test { repo, ctx, .. } = &mut Test::default();
@@ -385,7 +426,8 @@ fn fills_missing_target_commit_id_from_existing_target_ref() {
 
     assert_eq!(
         ctx.project_meta().unwrap().target_commit_id,
-        Some(expected_target_id)
+        Some(expected_target_id),
+        "the missing target commit is repaired from the configured target"
     );
 }
 

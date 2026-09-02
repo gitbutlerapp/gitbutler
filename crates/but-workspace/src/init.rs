@@ -10,6 +10,7 @@ use but_core::{
     git_config::{edit_repo_config, ensure_config_value},
     ref_metadata::ProjectMeta,
 };
+use but_error::bail_precondition;
 
 /// Infer a default remote-tracking target from repository configuration without changing state.
 ///
@@ -60,6 +61,58 @@ fn is_existing_branch_on_remote(
         .is_some_and(|mut reference| reference.peel_to_commit().is_ok()))
 }
 
+/// Return the merge-base of `head` and `target_head`, or an actionable precondition failure when
+/// their histories are unrelated or incomplete.
+fn merge_base_with_target(
+    repo: &gix::Repository,
+    head: gix::ObjectId,
+    target_head: gix::ObjectId,
+) -> Result<gix::ObjectId> {
+    match repo.merge_base(head, target_head) {
+        Ok(id) => Ok(id.detach()),
+        Err(gix::repository::merge_base::Error::FindMergeBase(_))
+        | Err(gix::repository::merge_base::Error::NotFound { .. }) => bail_precondition!(
+            "The selected target has no common history with HEAD. Fetch more history or choose another branch."
+        ),
+        Err(err) => Err(err).context(format!(
+            "Failed to calculate merge base between {head} and {target_head}"
+        )),
+    }
+}
+
+/// Return whether `commit` exists and is reachable from `target_head`.
+fn target_contains_commit(
+    repo: &gix::Repository,
+    target_head: gix::ObjectId,
+    commit: gix::ObjectId,
+) -> Result<bool> {
+    if repo.try_find_object(commit)?.is_none() {
+        return Ok(false);
+    }
+    match repo.merge_base(commit, target_head) {
+        Ok(id) => Ok(id.detach() == commit),
+        Err(gix::repository::merge_base::Error::FindMergeBase(_))
+        | Err(gix::repository::merge_base::Error::NotFound { .. }) => Ok(false),
+        Err(err) => Err(err).context(format!(
+            "Failed to validate existing target commit {commit} against {target_head}"
+        )),
+    }
+}
+
+/// Resolve the target commit from stable `head` and target-tip snapshots.
+pub fn resolve_target_commit(
+    repo: &gix::Repository,
+    head: gix::ObjectId,
+    target_head: gix::ObjectId,
+    existing: Option<gix::ObjectId>,
+) -> Result<gix::ObjectId> {
+    let merge_base = merge_base_with_target(repo, head, target_head)?;
+    match existing {
+        Some(existing) if target_contains_commit(repo, target_head, existing)? => Ok(existing),
+        _ => Ok(merge_base),
+    }
+}
+
 /// Make `target_ref` the project's default target and initialize project metadata,
 /// without changing the currently checked out branch.
 ///
@@ -69,8 +122,9 @@ fn is_existing_branch_on_remote(
 /// * store the target as [`ProjectMeta`] via [`ProjectMeta::persist()`],
 /// * set `log.excludeDecoration = refs/gitbutler` in the repository-local Git config.
 ///
-/// The target commit id is only computed - as the merge-base between `HEAD` and
-/// `target_ref` - if it isn't already set; an existing value is never overwritten.
+/// The selected target ref is always stored. An existing target commit id is retained when it is
+/// reachable from that target; otherwise it is replaced by the merge-base with `HEAD`. The target
+/// is always validated against `HEAD` before metadata is persisted.
 /// `push_remote`, if `Some`, is validated and stored; if `None`, an existing push remote
 /// is kept as is.
 ///
@@ -122,24 +176,8 @@ pub fn set_target_ref_and_init_project(
         .url(gix::remote::Direction::Fetch)
         .with_context(|| format!("failed to get remote url for '{remote_name}'"))?;
 
-    let sha = match repaired.target_commit_id {
-        Some(existing) => existing,
-        None => {
-            let head_commit = repo
-                .head()
-                .context("Failed to get HEAD reference")?
-                .peel_to_commit()
-                .context("Failed to peel HEAD reference to commit")?
-                .id;
-            repo.merge_base(head_commit, target_head)
-                .with_context(|| {
-                    format!(
-                        "Failed to calculate merge base between {head_commit} and {target_head}"
-                    )
-                })?
-                .detach()
-        }
-    };
+    let head = repo.head_id().context("Failed to resolve HEAD")?.detach();
+    let sha = resolve_target_commit(repo, head, target_head, repaired.target_commit_id)?;
 
     let push_remote = match push_remote {
         Some(name) => {

@@ -1400,10 +1400,10 @@ export declare function setReviewTemplate(projectId: string, templatePath: strin
  * managed workspace mode.
  *
  * This acquires exclusive worktree access from `ctx` before updating project metadata.
- * See [`but_workspace::init::set_target_ref_and_init_project()`] for details; notably the
- * target commit id is only computed when it wasn't set before, and an omitted
- * `push_remote` keeps the currently configured one. It deliberately records no oplog
- * snapshot - only project metadata changes, no repository state.
+ * See [`but_workspace::init::set_target_ref_and_init_project()`] for details. The target is always
+ * validated against `HEAD`; an unreachable stored target commit is replaced by their merge-base.
+ * An omitted `push_remote` preserves its current value. It deliberately records no oplog snapshot
+ * because only project metadata changes, not repository state.
  *
  * {@link ../../../../../crates/but-api/src/workspace.rs:273}
  */

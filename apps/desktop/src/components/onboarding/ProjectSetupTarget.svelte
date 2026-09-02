@@ -6,6 +6,7 @@
 	import { getBestBranch, getBestRemote, getBranchRemoteFromRef } from "$lib/branches/branchUtils";
 	import { projectLandDirectly } from "$lib/config/config";
 	import { GIT_CONFIG_SERVICE } from "$lib/config/gitConfigService";
+	import { classify, type ClassifiedError } from "$lib/error/errorClassification";
 	import { PROJECTS_SERVICE } from "$lib/project/projectsService";
 	import { SETTINGS_SERVICE } from "$lib/settings/appSettings";
 	import { combineResults } from "$lib/state/helpers";
@@ -17,6 +18,7 @@
 		CardGroup,
 		Checkbox,
 		Icon,
+		InfoMessage,
 		Link,
 		Select,
 		SelectItem,
@@ -30,10 +32,12 @@
 		projectId: string;
 		projectName: string;
 		remoteBranches: RemoteBranchInfo[];
-		onBranchSelected?: (branch: string[]) => void;
+		onBranchSelected: (branch: [branchName: string, pushRemote: string]) => Promise<void>;
+		onOpenProject: () => Promise<boolean>;
 	}
 
-	const { projectId, projectName, remoteBranches, onBranchSelected }: Props = $props();
+	const { projectId, projectName, remoteBranches, onBranchSelected, onOpenProject }: Props =
+		$props();
 
 	const posthog = inject(POSTHOG_WRAPPER);
 	const gitConfig = inject(GIT_CONFIG_SERVICE);
@@ -45,6 +49,8 @@
 	const landDirectly = $derived(projectLandDirectly(projectId));
 
 	let loading = $state<boolean>(false);
+	let targetWasSet = $state(false);
+	let targetError = $state<ClassifiedError>();
 	let showMoreInfo = $state<boolean>(false);
 
 	// split all the branches by the first '/' and gather the unique remote names
@@ -66,11 +72,25 @@
 	const remote = $derived(selectedRemote ?? defaultRemote);
 
 	async function onSetTargetClick() {
-		if (!branch || !remote) return;
-		posthog.captureOnboarding(OnboardingEvent.ProjectSetupContinue, undefined, {
-			landDirectly: $landDirectly,
-		});
-		onBranchSelected?.([branch.name, remote]);
+		if (!branch || !remote || loading) return;
+		loading = true;
+		targetError = undefined;
+		if (!targetWasSet) {
+			posthog.captureOnboarding(OnboardingEvent.ProjectSetupContinue, undefined, {
+				landDirectly: $landDirectly,
+			});
+			try {
+				await onBranchSelected([branch.name, remote]);
+				targetWasSet = true;
+			} catch (error) {
+				const classified = classify(error);
+				if (classified.severity !== "silent") targetError = classified;
+				loading = false;
+				return;
+			}
+		}
+		if (await onOpenProject()) return;
+		loading = false;
 	}
 
 	const projectsService = inject(PROJECTS_SERVICE);
@@ -95,6 +115,7 @@
 			<Select
 				value={branch?.name}
 				options={remoteBranches.map((b) => ({ label: b.name, value: b.name }))}
+				disabled={loading || targetWasSet}
 				wide
 				onselect={(value) => {
 					selectedBranch = { name: value };
@@ -122,6 +143,7 @@
 				<Select
 					value={remote}
 					options={remotes.map((r) => ({ label: r, value: r }))}
+					disabled={loading || targetWasSet}
 					onselect={(value) => {
 						const newSelectedRemote = remotes.find((r) => r === value);
 						selectedRemote = newSelectedRemote ?? remote;
@@ -242,8 +264,17 @@
 		</div>
 	{/if}
 
+	{#if targetError}
+		{@const error = targetError}
+		<InfoMessage style={error.severity === "warning" ? "warning" : "danger"}>
+			{#snippet content()}
+				{error.userMessage ?? error.message}
+			{/snippet}
+		</InfoMessage>
+	{/if}
+
 	<div class="action-buttons">
-		<Button kind="outline" onclick={deleteProjectAndGoBack}>Cancel</Button>
+		<Button kind="outline" disabled={loading} onclick={deleteProjectAndGoBack}>Cancel</Button>
 		<Button
 			style="pop"
 			{loading}
@@ -252,7 +283,7 @@
 			testId={TestId.ProjectSetupPageTargetContinueButton}
 			id="set-base-branch"
 		>
-			Let's go
+			{targetWasSet ? "Open project" : "Let's go"}
 		</Button>
 	</div>
 </div>
