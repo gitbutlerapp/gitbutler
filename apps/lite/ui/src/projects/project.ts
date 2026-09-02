@@ -138,8 +138,25 @@ const createInitialWorkspaceState = (): WorkspaceState => ({
 
 export type PageId = "workspace" | "upstream" | "branches";
 
+/** One of the two stacked lists the workspace sidebar is split into. */
+export type SidebarPanel = "uncommitted" | "stacks";
+
+/** The panel that is not `panel`. */
+const otherSidebarPanel = (panel: SidebarPanel): SidebarPanel =>
+	panel === "uncommitted" ? "stacks" : "uncommitted";
+
 export type ProjectState = {
 	filesVisible: boolean;
+	/**
+	 * Which sidebar panel has the workspace tree to itself, the other being
+	 * collapsed to its header, or `"both"` when they share it.
+	 *
+	 * One field rather than a collapsed flag per panel: collapsing both would
+	 * leave a sidebar of two headers and nothing else, and naming the panel that
+	 * is open makes that state unrepresentable instead of something every reader
+	 * has to guard against.
+	 */
+	sidebarPanelFocus: SidebarPanel | "both";
 	branches: BranchesState;
 	upstream: UpstreamState;
 	workspace: WorkspaceState;
@@ -147,6 +164,7 @@ export type ProjectState = {
 
 export const createInitialProjectState = (): ProjectState => ({
 	filesVisible: true,
+	sidebarPanelFocus: "both",
 	branches: createInitialBranchesState(),
 	upstream: createInitialUpstreamState(),
 	workspace: createInitialWorkspaceState(),
@@ -454,6 +472,15 @@ export const projectReducers = {
 	toggleFiles: (state: ProjectState) => {
 		state.filesVisible = !state.filesVisible;
 	},
+	/**
+	 * Collapses `panel` to its header, or restores it when it is the collapsed
+	 * one. Collapsing while the other panel is already collapsed swaps which one
+	 * is open rather than closing the sidebar down to two headers.
+	 */
+	toggleSidebarPanelCollapsed: (state: ProjectState, { panel }: { panel: SidebarPanel }) => {
+		const other = otherSidebarPanel(panel);
+		state.sidebarPanelFocus = state.sidebarPanelFocus === other ? "both" : other;
+	},
 	setSelectedBranchTab: (
 		state: ProjectState,
 		{ branchName, tab }: { branchName: string; tab: BranchTab },
@@ -623,6 +650,9 @@ const selectDependencyCommitIds = createSelector(
 
 export const projectSelectors = {
 	selectFilesVisible: (state: ProjectState) => state.filesVisible,
+	/** Whether `panel` is collapsed to its header, the other having the tree. */
+	selectSidebarPanelCollapsed: (state: ProjectState, panel: SidebarPanel) =>
+		state.sidebarPanelFocus === otherSidebarPanel(panel),
 	/**
 	 * The explicitly chosen tab, or `undefined` when none was picked — the
 	 * caller supplies the default, since whether the Pull Request tab is worth

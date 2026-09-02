@@ -4,11 +4,21 @@
 		outline: none;
 	}
 
-	/* The uncommitted panel is never taller than its content: the panel layout
-	   only says how tall the user would like it, flexbox caps it at what there
-	   is to show and hands the rest to the stacks. `!important` overrides the
-	   inline `max-height: 100%` the panel element ships with. */
-	> :has(> .uncommittedChangesOuterPanel) {
+	/* Exactly one of the two panels is capped at its content; the other is the
+	   greedy one that takes whatever is left. Capping both would strand the
+	   space below them, capping neither would let the top one push the bottom
+	   one off. `!important` overrides the inline `max-height: 100%` the panel
+	   element ships with.
+
+	   Normally the cap sits on the uncommitted panel: the panel layout only says
+	   how tall the user would like it, and the stacks take the rest. Folding the
+	   stacks moves the cap onto them, since a header alone cannot absorb the
+	   slack the uncommitted list would then leave. */
+	&:not([data-folded-panel="stacks"]) > :has(> .uncommittedChangesOuterPanel) {
+		max-height: max-content !important;
+	}
+
+	&[data-folded-panel="stacks"] > :has(> .stacksPanel) {
 		max-height: max-content !important;
 	}
 }
@@ -80,6 +90,12 @@
 	display: flex;
 	flex-direction: column;
 	background-color: var(--bg-2);
+
+	/* Folded, the header is the whole panel, so the border that separates it
+	   from the list below has nothing left to separate. */
+	&[data-collapsed="true"] > .stacksHeader {
+		border-block-end: none;
+	}
 }
 
 .stacksHeader {

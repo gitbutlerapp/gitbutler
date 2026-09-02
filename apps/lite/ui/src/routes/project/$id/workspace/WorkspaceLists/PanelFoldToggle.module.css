@@ -1,0 +1,23 @@
+/* Sits on the header's leading edge, ahead of the label. Unlike the fold
+   control on branch rows it is always visible: a panel folded down to this
+   header would otherwise offer nothing to click to get it back. */
+.toggle {
+	display: flex;
+	flex-shrink: 0;
+	align-items: center;
+	justify-content: center;
+	/* Matches the width one directory step takes in the trees below, so the
+	   chevron sits over the same column as theirs. */
+	width: 12px;
+	height: var(--single-line-row-height);
+	padding: 0;
+	border: none;
+	background: none;
+	color: var(--text-3);
+	cursor: pointer;
+
+	&:hover,
+	&:focus-visible {
+		color: var(--text-2);
+	}
+}

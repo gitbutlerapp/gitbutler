@@ -25,6 +25,7 @@ import { getRowButtonClassName } from "../Row-utils.ts";
 import { ChangeStats } from "../ChangeStats.tsx";
 import { RowToolbar, SectionHeaderRow } from "../Row.tsx";
 import { useFileDisplayModeMenuItems } from "../useFileDisplayModeMenuItems.ts";
+import { PanelFoldToggle } from "./PanelFoldToggle.tsx";
 import { useQueries } from "@tanstack/react-query";
 import { treeChangeDiffsQueryOptions } from "#ui/api/queries.ts";
 
@@ -122,6 +123,7 @@ export const UncommittedChangesRow: FC<{
 		<SectionHeaderRow
 			id={headingId}
 			label="Uncommitted"
+			leading={<PanelFoldToggle projectId={projectId} panel="uncommitted" />}
 			onContextMenu={(event) => {
 				void showNativeContextMenu(event, menuItems);
 			}}
