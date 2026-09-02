@@ -105,8 +105,7 @@ pub async fn store_github_enterprise_pat(
 #[instrument(err(Debug))]
 pub fn forget_github_account(account: but_github::GithubAccountIdentifier) -> Result<()> {
     let storage = but_forge_storage::Controller::from_path(but_path::app_data_dir()?);
-    but_github::forget_gh_access_token(&account, &storage).ok();
-    Ok(())
+    but_github::forget_gh_access_token(&account, &storage)
 }
 
 /// Removes all stored GitHub credentials.

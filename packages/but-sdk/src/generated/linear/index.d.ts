@@ -752,7 +752,7 @@ export declare function getAiConfiguration(): Promise<AiConfiguration>
  * * `Ok(None)` - No credentials stored for this account
  * * `Err(_)` - If the API request fails or credentials are invalid
  *
- * {@link ../../../../../crates/but-api/src/bitbucket.rs:73}
+ * {@link ../../../../../crates/but-api/src/bitbucket.rs:72}
  */
 export declare function getBbUser(account: BitbucketAccountIdentifier): Promise<BitbucketAuthenticatedUserSensitive | null>
 
@@ -791,7 +791,7 @@ export declare function getGbConfig(projectId: string): Promise<GitConfigSetting
  * * `Ok(None)` - No credentials stored for this account
  * * `Err(_)` - If the API request fails or credentials are invalid
  *
- * {@link ../../../../../crates/but-api/src/github.rs:142}
+ * {@link ../../../../../crates/but-api/src/github.rs:141}
  */
 export declare function getGhUser(account: GithubAccountIdentifier): Promise<GithubAuthenticatedUserSensitive | null>
 
@@ -811,7 +811,7 @@ export declare function getGhUser(account: GithubAccountIdentifier): Promise<Git
  * * `Ok(None)` - No credentials stored for this account
  * * `Err(_)` - If the API request fails or credentials are invalid
  *
- * {@link ../../../../../crates/but-api/src/gitlab.rs:101}
+ * {@link ../../../../../crates/but-api/src/gitlab.rs:100}
  */
 export declare function getGlUser(account: GitlabAccountIdentifier): Promise<GitlabAuthenticatedUserSensitive | null>
 
@@ -986,7 +986,7 @@ export declare function listEditors(): Promise<Array<Editor>>
  * * `Ok(Vec<BitbucketAccountIdentifier>)` - List of all known accounts
  * * `Err(_)` - If storage access fails
  *
- * {@link ../../../../../crates/but-api/src/bitbucket.rs:88}
+ * {@link ../../../../../crates/but-api/src/bitbucket.rs:87}
  */
 export declare function listKnownBitbucketAccounts(): Promise<Array<BitbucketAccountIdentifier>>
 
@@ -1001,7 +1001,7 @@ export declare function listKnownBitbucketAccounts(): Promise<Array<BitbucketAcc
  * * `Ok(Vec<GithubAccountIdentifier>)` - List of all known accounts
  * * `Err(_)` - If storage access fails
  *
- * {@link ../../../../../crates/but-api/src/github.rs:160}
+ * {@link ../../../../../crates/but-api/src/github.rs:159}
  */
 export declare function listKnownGithubAccounts(): Promise<Array<GithubAccountIdentifier>>
 
@@ -1016,7 +1016,7 @@ export declare function listKnownGithubAccounts(): Promise<Array<GithubAccountId
  * * `Ok(Vec<GitlabAccountIdentifier>)` - List of all known accounts
  * * `Err(_)` - If storage access fails
  *
- * {@link ../../../../../crates/but-api/src/gitlab.rs:119}
+ * {@link ../../../../../crates/but-api/src/gitlab.rs:118}
  */
 export declare function listKnownGitlabAccounts(): Promise<Array<GitlabAccountIdentifier>>
 

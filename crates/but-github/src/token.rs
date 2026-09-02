@@ -16,17 +16,21 @@ pub fn persist_gh_access_token(
     persist_github_account(&oauth_account, storage)
 }
 
-/// Delete a GitHub account access token for a given username.
+/// Forget a GitHub account, deleting its access token.
+///
+/// The stored account is removed even when its access token is missing from the keychain,
+/// so an account whose secret was erased out from under us can still be forgotten.
 pub fn delete_gh_access_token(
     account_id: &GithubAccountIdentifier,
     storage: &but_forge_storage::Controller,
 ) -> Result<()> {
-    let account = find_github_account(account_id, storage)?;
-    if let Some(account) = account {
-        delete_github_account(&account, storage)
-    } else {
-        Ok(())
-    }
+    let Some(secret_key) = forget_stored_github_account(account_id, storage)? else {
+        return Ok(());
+    };
+
+    static FAIR_QUEUE: Mutex<()> = Mutex::new(());
+    let _one_at_a_time_to_prevent_races = FAIR_QUEUE.lock().unwrap();
+    secret::delete(&secret_key, secret::Namespace::BuildKind)
 }
 
 /// Retrieve a GitHub account access token for a given username.
@@ -271,18 +275,6 @@ fn persist_github_account(
     )
 }
 
-fn delete_github_account(
-    account: &GitHubAccount,
-    storage: &but_forge_storage::Controller,
-) -> Result<()> {
-    let secret_key = account.secret_key();
-    storage.remove_github_account(&account.into())?;
-
-    static FAIR_QUEUE: Mutex<()> = Mutex::new(());
-    let _one_at_a_time_to_prevent_races = FAIR_QUEUE.lock().unwrap();
-    secret::delete(&secret_key, secret::Namespace::BuildKind)
-}
-
 fn delete_all_github_accounts(storage: &but_forge_storage::Controller) -> Result<()> {
     let keys_to_delete = storage.clear_all_github_accounts()?;
     static FAIR_QUEUE: Mutex<()> = Mutex::new(());
@@ -293,66 +285,100 @@ fn delete_all_github_accounts(storage: &but_forge_storage::Controller) -> Result
     Ok(())
 }
 
+/// Remove the stored account matching `account_id`, returning the key of the secret to erase.
+///
+/// Matching is by account identity alone, so a stored account is removable even when its
+/// access token can no longer be retrieved.
+fn forget_stored_github_account(
+    account_id: &GithubAccountIdentifier,
+    storage: &but_forge_storage::Controller,
+) -> Result<Option<String>> {
+    let Some(account) = find_stored_github_account(account_id, storage)? else {
+        return Ok(None);
+    };
+    let secret_key = account.access_token_key().to_owned();
+    storage.remove_github_account(&account)?;
+    Ok(Some(secret_key))
+}
+
+fn find_stored_github_account(
+    account_id: &GithubAccountIdentifier,
+    storage: &but_forge_storage::Controller,
+) -> Result<Option<but_forge_storage::settings::GitHubAccount>> {
+    Ok(storage
+        .github_accounts()?
+        .into_iter()
+        .find(|account| GithubAccountIdentifier::from(account) == *account_id))
+}
+
 fn find_github_account(
     account_id: &GithubAccountIdentifier,
     storage: &but_forge_storage::Controller,
 ) -> Result<Option<GitHubAccount>> {
-    let accounts = storage.github_accounts()?;
-    let result = match account_id {
-        GithubAccountIdentifier::OAuthUsername { username } => {
-            accounts.iter().find_map(|account| {
-                if let but_forge_storage::settings::GitHubAccount::OAuth {
-                    username: acct_username,
-                    access_token_key,
-                } = account
-                    && acct_username == username
-                    && let Some(access_token) =
-                        retrieve_github_secret(access_token_key).ok().flatten()
-                {
-                    return Some(GitHubAccount::OAuth {
-                        username: acct_username.clone(),
-                        access_token,
-                    });
-                }
-                None
-            })
-        }
-        GithubAccountIdentifier::PatUsername { username } => accounts.iter().find_map(|account| {
-            if let but_forge_storage::settings::GitHubAccount::Pat {
-                username: acct_username,
-                access_token_key,
-            } = account
-                && acct_username == username
-                && let Some(access_token) = retrieve_github_secret(access_token_key).ok().flatten()
-            {
-                return Some(GitHubAccount::Pat {
-                    username: acct_username.clone(),
-                    access_token,
-                });
-            }
-            None
-        }),
-        GithubAccountIdentifier::Enterprise { username, host } => {
-            accounts.iter().find_map(|account| {
-                if let but_forge_storage::settings::GitHubAccount::Enterprise {
-                    username: acct_username,
-                    host: acct_host,
-                    access_token_key,
-                } = account
-                    && acct_host == host
-                    && acct_username == username
-                    && let Some(access_token) =
-                        retrieve_github_secret(access_token_key).ok().flatten()
-                {
-                    return Some(GitHubAccount::Enterprise {
-                        username: acct_username.clone(),
-                        host: acct_host.clone(),
-                        access_token,
-                    });
-                }
-                None
-            })
-        }
+    let Some(account) = find_stored_github_account(account_id, storage)? else {
+        return Ok(None);
     };
-    Ok(result)
+    let Some(access_token) = retrieve_github_secret(account.access_token_key())
+        .ok()
+        .flatten()
+    else {
+        return Ok(None);
+    };
+    Ok(Some(GitHubAccount::new(account_id, access_token)))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn test_storage() -> (but_forge_storage::Controller, tempfile::TempDir) {
+        let dir = tempfile::tempdir().unwrap();
+        (
+            but_forge_storage::Controller::from_path(dir.path().to_owned()),
+            dir,
+        )
+    }
+
+    /// An account whose access token is gone from the keychain must still be forgettable,
+    /// otherwise it is stuck in the account list forever.
+    #[test]
+    fn orphaned_account_is_forgotten() {
+        let (storage, _dir) = test_storage();
+        let account = but_forge_storage::settings::GitHubAccount::Pat {
+            username: "octocat".into(),
+            access_token_key: "github_pat_octocat".into(),
+        };
+        storage.add_github_account(&account).unwrap();
+
+        let account_id = GithubAccountIdentifier::pat("octocat");
+        // No secret was ever persisted, so the account has no retrievable access token.
+        assert!(
+            find_github_account(&account_id, &storage)
+                .unwrap()
+                .is_none()
+        );
+
+        let secret_key = forget_stored_github_account(&account_id, &storage).unwrap();
+
+        assert_eq!(secret_key.as_deref(), Some("github_pat_octocat"));
+        assert!(storage.github_accounts().unwrap().is_empty());
+    }
+
+    #[test]
+    fn forgetting_an_unknown_account_is_a_no_op() {
+        let (storage, _dir) = test_storage();
+        let account = but_forge_storage::settings::GitHubAccount::Pat {
+            username: "octocat".into(),
+            access_token_key: "github_pat_octocat".into(),
+        };
+        storage.add_github_account(&account).unwrap();
+
+        // Same username, different account kind.
+        let secret_key =
+            forget_stored_github_account(&GithubAccountIdentifier::oauth("octocat"), &storage)
+                .unwrap();
+
+        assert_eq!(secret_key, None);
+        assert_eq!(storage.github_accounts().unwrap().len(), 1);
+    }
 }
