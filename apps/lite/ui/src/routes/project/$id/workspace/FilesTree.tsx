@@ -18,12 +18,14 @@ import {
 import { projectSlice } from "#ui/projects/state.ts";
 import { useAppDispatch, useAppSelector, useAppStore } from "#ui/store.ts";
 import { classes } from "#ui/components/classes.ts";
+import { getRangeExtractorWithIndices } from "#ui/virtual.ts";
 import { mergeProps, Tooltip, useRender } from "@base-ui/react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useVirtualizer } from "@tanstack/react-virtual";
+import { type Range, useVirtualizer } from "@tanstack/react-virtual";
 import {
 	type ComponentProps,
 	type FC,
+	useCallback,
 	useDeferredValue,
 	useLayoutEffect,
 	useRef,
@@ -424,6 +426,13 @@ export const FilesTree: FC<
 	const [tooltipHandle] = useState(() => Tooltip.createHandle<FileRowTooltipPayload>());
 
 	const ref = useRef<HTMLDivElement>(null);
+	const selectedRowIndex =
+		selection !== null ? (addressSpace.indexByKey.get(selection) ?? null) : null;
+	const rangeExtractorWithSelected = useCallback(
+		(range: Range) =>
+			getRangeExtractorWithIndices(range, selectedRowIndex === null ? [] : [selectedRowIndex]),
+		[selectedRowIndex],
+	);
 
 	// oxlint-disable-next-line react-hooks-js/incompatible-library -- https://github.com/TanStack/virtual/issues/1119#issuecomment-4648268095
 	const rowVirtualizer = useVirtualizer({
@@ -434,6 +443,7 @@ export const FilesTree: FC<
 		// Keep in sync with --single-line-row-height.
 		estimateSize: () => 28,
 		getItemKey: (index) => rows[index]?.path ?? index,
+		rangeExtractor: rangeExtractorWithSelected,
 		// Matches --scroll-gradient-height.
 		scrollPaddingStart: 14,
 		scrollPaddingEnd: 14,
@@ -457,8 +467,6 @@ export const FilesTree: FC<
 	);
 	const checkable = (path: string) => !conflictPaths.has(path);
 	const selectedRow = selection === null ? undefined : rowByPath.get(selection);
-	const selectedRowIndex =
-		selection !== null ? (addressSpace.indexByKey.get(selection) ?? null) : null;
 	const selectedItem = selectedRow?._tag === "File" ? selectedRow.item : undefined;
 	const selectedChange = selectedItem?._tag === "Change" ? selectedItem.change : null;
 

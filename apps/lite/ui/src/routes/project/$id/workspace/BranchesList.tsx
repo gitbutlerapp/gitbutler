@@ -25,11 +25,12 @@ import { projectSlice } from "#ui/projects/state.ts";
 import { useAutofocusScope, useAddressSpaceHotkeys, type FocusScope } from "#ui/focus-scopes.ts";
 import { useAppDispatch, useAppSelector } from "#ui/store.ts";
 import { RelativeTime } from "#ui/components/RelativeTime.tsx";
+import { getRangeExtractorWithIndices } from "#ui/virtual.ts";
 import type { Commit, ListedBranch } from "@gitbutler/but-sdk";
 import { Toolbar } from "@base-ui/react";
 import { useMergedRefs } from "@base-ui/utils/useMergedRefs";
 import { useHotkey } from "@tanstack/react-hotkeys";
-import { useVirtualizer } from "@tanstack/react-virtual";
+import { type Range, useVirtualizer } from "@tanstack/react-virtual";
 import {
 	type ComponentProps,
 	type FC,
@@ -161,6 +162,14 @@ const BranchCommits: FC<{
 	selectedCommitIndex,
 }) => {
 	const getCommitKey = useCallback((index: number) => commits?.[index]?.id ?? index, [commits]);
+	const rangeExtractorWithSelected = useCallback(
+		(range: Range) =>
+			getRangeExtractorWithIndices(
+				range,
+				selectedCommitIndex === undefined ? [] : [selectedCommitIndex],
+			),
+		[selectedCommitIndex],
+	);
 
 	const commitListRef = useRef<HTMLDivElement>(null);
 	const [scrollMargin, setScrollMargin] = useState(stackScrollStart);
@@ -175,6 +184,7 @@ const BranchCommits: FC<{
 		// Keep in sync with --single-line-row-height.
 		estimateSize: () => 28,
 		getItemKey: getCommitKey,
+		rangeExtractor: rangeExtractorWithSelected,
 		scrollMargin,
 		// Matches --scroll-gradient-height.
 		scrollPaddingStart: 14,
@@ -505,6 +515,19 @@ export const BranchesList: FC<
 		(index: number) => stacks[index]?.branches[0]?.branch.refName.full ?? index,
 		[stacks],
 	);
+	const selectedAddressKey = selection === null ? undefined : addressIdentityKey(selection);
+	const selectedAddressIndex =
+		selectedAddressKey === undefined ? undefined : addressSpace.indexByKey.get(selectedAddressKey);
+	const selectedStackIndex =
+		selectedAddressIndex === undefined ? undefined : stackIndexByAddressIndex[selectedAddressIndex];
+	const rangeExtractorWithSelected = useCallback(
+		(range: Range) =>
+			getRangeExtractorWithIndices(
+				range,
+				selectedStackIndex === undefined ? [] : [selectedStackIndex],
+			),
+		[selectedStackIndex],
+	);
 
 	// oxlint-disable-next-line react-hooks-js/incompatible-library -- https://github.com/TanStack/virtual/issues/1119#issuecomment-4648268095
 	const rowVirtualizer = useVirtualizer({
@@ -535,16 +558,11 @@ export const BranchesList: FC<
 			);
 		},
 		getItemKey: getStackKey,
+		rangeExtractor: rangeExtractorWithSelected,
 		// Matches --scroll-gradient-height.
 		scrollPaddingStart: 14,
 		scrollPaddingEnd: 14,
 	});
-
-	const selectedAddressKey = selection === null ? undefined : addressIdentityKey(selection);
-	const selectedAddressIndex =
-		selectedAddressKey === undefined ? undefined : addressSpace.indexByKey.get(selectedAddressKey);
-	const selectedStackIndex =
-		selectedAddressIndex === undefined ? undefined : stackIndexByAddressIndex[selectedAddressIndex];
 
 	// Activity reconnects layout effects on reveal without changing the selection. Remember the
 	// handled address so revealing the tab preserves manual scroll.

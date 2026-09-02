@@ -41,7 +41,7 @@ import type {
 } from "@gitbutler/but-sdk";
 
 import { useMutationState, useQuery } from "@tanstack/react-query";
-import { defaultRangeExtractor, type Range, useVirtualizer } from "@tanstack/react-virtual";
+import { type Range, useVirtualizer } from "@tanstack/react-virtual";
 import type { PayloadFor } from "#electron/ipc.ts";
 import { Match } from "effect";
 import {
@@ -90,6 +90,7 @@ import {
 import { checkedRange, addressSpaceRange } from "#ui/checking.ts";
 import { TooltipPopup } from "#ui/components/Tooltip.tsx";
 import { focusScope, useAutofocusScope, type FocusScope } from "#ui/focus-scopes.ts";
+import { getRangeExtractorWithIndices } from "#ui/virtual.ts";
 import { FilesTree } from "#ui/routes/project/$id/workspace/FilesTree.tsx";
 import {
 	CommitForm,
@@ -104,25 +105,6 @@ const uncommittedChangesHeadingId = "uncommitted-changes-heading";
 
 const DryRunWorkspaceContext = createContext<WorkspaceState | null>(null);
 DryRunWorkspaceContext.displayName = "DryRunWorkspaceContext";
-
-/** Get a virtualisation range extractor which includes the provided index, if any. */
-const getRangeExtractorWithIndex = (range: Range, idx: number | undefined): Array<number> => {
-	// The default range is contiguous.
-	const idxs = defaultRangeExtractor(range);
-
-	// Only indices in the virtualiser's current item set can be pinned.
-	if (idx === undefined || idx < 0 || idx >= range.count) return idxs;
-
-	const fstIdx = idxs[0];
-	const lastIdx = idxs.at(-1);
-
-	// The virtualiser positions items independently of extractor order, so an out-of-range index can
-	// be safely appended in O(1). This affects DOM output order, but that's not relevant to us.
-	if (fstIdx === undefined || lastIdx === undefined || idx < fstIdx || idx > lastIdx)
-		idxs.push(idx);
-
-	return idxs;
-};
 
 // This must be unique as to not collide with other IDs, and stable because it's
 // stored in local storage.
@@ -586,7 +568,11 @@ const SegmentContent: FC<{
 
 	// Inline edit state lives in the selected row's DOM, so keep it mounted during manual scroll.
 	const rangeExtractorWithSelected = useCallback(
-		(range: Range) => getRangeExtractorWithIndex(range, selectedCommitIndex),
+		(range: Range) =>
+			getRangeExtractorWithIndices(
+				range,
+				selectedCommitIndex === undefined ? [] : [selectedCommitIndex],
+			),
 		[selectedCommitIndex],
 	);
 
@@ -975,7 +961,11 @@ const Stacks: FC<{
 
 	// Pin the containing stack too, otherwise the nested selected row can still be unmounted.
 	const rangeExtractorWithSelected = useCallback(
-		(range: Range) => getRangeExtractorWithIndex(range, selectedStackIndex),
+		(range: Range) =>
+			getRangeExtractorWithIndices(
+				range,
+				selectedStackIndex === undefined ? [] : [selectedStackIndex],
+			),
 		[selectedStackIndex],
 	);
 

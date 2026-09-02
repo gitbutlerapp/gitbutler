@@ -4,7 +4,8 @@
 
 import { Autocomplete, Dialog } from "@base-ui/react";
 import { Modal, PopupSearch } from "#ui/components/Popup.tsx";
-import { useVirtualizer } from "@tanstack/react-virtual";
+import { getRangeExtractorWithIndices } from "#ui/virtual.ts";
+import { type Range, useVirtualizer } from "@tanstack/react-virtual";
 import {
 	type CSSProperties,
 	type ReactNode,
@@ -45,6 +46,7 @@ type VirtualizedListAreaProps<T> = {
 	getItemKey: (item: T) => string;
 	getItemLabel: (item: T) => string;
 	getItemType: (item: T, group: PickerDialogGroup<T>) => ReactNode;
+	highlightedItemIndex: number | null;
 	onSelectItem: (item: T) => void;
 	statusLabel?: string;
 	virtualizerRef: RefObject<VirtualizerHandle | null>;
@@ -55,6 +57,7 @@ const VirtualizedListArea = <T,>({
 	getItemKey,
 	getItemLabel,
 	getItemType,
+	highlightedItemIndex,
 	onSelectItem,
 	statusLabel,
 	virtualizerRef,
@@ -93,6 +96,18 @@ const VirtualizedListArea = <T,>({
 	);
 
 	const itemCount = virtualRows.length - filteredGroups.length;
+	const highlightedVirtualRowIndex =
+		highlightedItemIndex === null
+			? undefined
+			: virtualRowIndexByItemIndex.get(highlightedItemIndex);
+	const rangeExtractorWithHighlighted = useCallback(
+		(range: Range) =>
+			getRangeExtractorWithIndices(
+				range,
+				highlightedVirtualRowIndex === undefined ? [] : [highlightedVirtualRowIndex],
+			),
+		[highlightedVirtualRowIndex],
+	);
 
 	const virtualizer = useVirtualizer({
 		directDomUpdates: true,
@@ -101,7 +116,7 @@ const VirtualizedListArea = <T,>({
 		getScrollElement: () => scrollElementRef.current,
 		estimateSize: () => 28,
 		getItemKey: getVirtualRowKey,
-		overscan: 4,
+		rangeExtractor: rangeExtractorWithHighlighted,
 		// The list opens on a section heading, which carries the 8px a section puts above its
 		// title, so the list adds nothing of its own on top. Below the last row it stands off by
 		// the 4px a section's rows are inset by.
@@ -286,7 +301,7 @@ export const PickerDialog = <T,>({
 }: Props<T>) => {
 	const inputRef = useRef<HTMLInputElement | null>(null);
 	const virtualizerRef = useRef<VirtualizerHandle | null>(null);
-	const highlightedItemIndexRef = useRef<number | null>(null);
+	const [highlightedItemIndex, setHighlightedItemIndex] = useState<number | null>(null);
 	const [inputValue, setInputValue] = useState("");
 	const deferredInputValue = useDeferredValue(inputValue);
 
@@ -308,7 +323,7 @@ export const PickerDialog = <T,>({
 				onValueChange={setInputValue}
 				virtualized
 				onItemHighlighted={(_, { reason, index }) => {
-					highlightedItemIndexRef.current = index < 0 ? null : index;
+					setHighlightedItemIndex(index < 0 ? null : index);
 					const virtualizer = virtualizerRef.current;
 					if (!virtualizer || index < 0) return;
 
@@ -366,11 +381,11 @@ export const PickerDialog = <T,>({
 								} else if (event.key === "PageUp") {
 									event.preventDefault();
 									event.preventBaseUIHandler();
-									virtualizer.highlightPageItem(highlightedItemIndexRef.current, -1);
+									virtualizer.highlightPageItem(highlightedItemIndex, -1);
 								} else if (event.key === "PageDown") {
 									event.preventDefault();
 									event.preventBaseUIHandler();
-									virtualizer.highlightPageItem(highlightedItemIndexRef.current, 1);
+									virtualizer.highlightPageItem(highlightedItemIndex, 1);
 								}
 							}}
 						/>
@@ -383,6 +398,7 @@ export const PickerDialog = <T,>({
 					getItemKey={getItemKey}
 					getItemLabel={getItemLabel}
 					getItemType={getItemType}
+					highlightedItemIndex={highlightedItemIndex}
 					onSelectItem={onSelectItem}
 					statusLabel={statusLabel}
 					virtualizerRef={virtualizerRef}
