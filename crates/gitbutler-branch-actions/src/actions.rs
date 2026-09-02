@@ -14,5 +14,13 @@ pub fn set_base_branch(
     perm: &mut RepoExclusive,
 ) -> Result<BaseBranch> {
     let _ = ctx.create_snapshot(SnapshotDetails::new(OperationKind::SetBaseBranch), perm);
+    set_base_branch_only(ctx, target_branch, perm)
+}
+
+pub fn set_base_branch_only(
+    ctx: &Context,
+    target_branch: &RemoteRefname,
+    perm: &mut RepoExclusive,
+) -> Result<BaseBranch> {
     base::set_base_branch(ctx, perm, target_branch)
 }

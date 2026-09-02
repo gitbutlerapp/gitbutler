@@ -2,7 +2,7 @@
 
 mod actions;
 // This is our API
-pub use actions::set_base_branch;
+pub use actions::{set_base_branch, set_base_branch_only};
 
 pub mod base;
 pub use base::BaseBranch;
