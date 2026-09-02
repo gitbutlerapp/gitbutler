@@ -64,7 +64,9 @@ export const createWatcherHandlers = () => {
 				counter += 1;
 				const eventChannel = `workspace:watcher-event:${counter}`;
 				channels.push(eventChannel);
-				return { subscriptionId: `subscription-${counter}`, eventChannel };
+				// Unique across panels, as the host's are: a panel releasing its
+				// predecessor's id must not hit its own.
+				return { subscriptionId: crypto.randomUUID(), eventChannel };
 			},
 			watcherUnsubscribe: () => true,
 		} satisfies FakeHandlers,

@@ -70,6 +70,45 @@ const indexRoute = createRoute({
 	component: IndexPage,
 });
 
+/** What a project match carries that its watcher subscription needs. */
+type ProjectMatch = { params: { id: string }; context: RouteContext };
+
+/**
+ * The window's one watcher subscription and the project it was requested
+ * for, kept beside the route because the route is a module singleton.
+ * Requests are chained, so the previous subscription is dropped once the
+ * next is live however navigations overlap.
+ */
+let watched: { projectId?: string; subscription: Promise<string | undefined> } = {
+	subscription: Promise.resolve(undefined),
+};
+
+/** Replace the subscription with one for the match's project, or with none. */
+const watchProject = (match: ProjectMatch | null) => {
+	const subscription = watched.subscription.then(async (previous) => {
+		// The next one first: the host keeps a project's watcher running while
+		// any subscription holds it, so re-opening the current project neither
+		// restarts the watcher nor drops the events in between.
+		let next: string | undefined;
+		if (match !== null) {
+			const { id } = match.params;
+			next = await window.lite
+				.watcherSubscribe(id, (event) => handleProjectEvent(event, id, match.context.queryClient))
+				// Allow the route to render and handle failure via its queries.
+				.catch(() => undefined);
+		}
+		if (previous !== undefined) await window.lite.watcherUnsubscribe(previous).catch(() => false);
+		return next;
+	});
+	watched = { projectId: match?.params.id, subscription };
+	return subscription;
+};
+
+/** Hooks see the match on screen; they step in only when the loader's request was for another. */
+const settleOn = (match: ProjectMatch) => {
+	if (watched.projectId !== match.params.id) void watchProject(match);
+};
+
 const projectRoute = createRoute({
 	getParentRoute: () => rootRoute,
 	path: "project/$id",
@@ -85,21 +124,17 @@ const projectRoute = createRoute({
 		const projects = await window.lite.listProjectsStateless();
 		if (!projects.some((project) => project.id === params.id)) throw redirect({ to: "/" });
 	},
-	loader: async ({ params, context }) => {
-		// Allow the route to render and handle failure via its queries.
-		try {
-			const subscriptionId = await window.lite.watcherSubscribe(params.id, (event) =>
-				handleProjectEvent(event, params.id, context.queryClient),
-			);
-			return { subscriptionId };
-		} catch {
-			return { subscriptionId: undefined };
-		}
+	// Armed in the loader so the watcher is live before the page's queries
+	// run. Switching projects reruns the loader without an `onLeave` in
+	// between (the route id stays the same, only `$id` changes), and a switch
+	// abandoned for the project already on screen reruns nothing at all, so
+	// the hooks settle the subscription on whichever match is committed.
+	loader: async (match) => {
+		await watchProject(match);
 	},
-	onLeave: ({ loaderData }) => {
-		if (loaderData?.subscriptionId !== undefined)
-			void window.lite.watcherUnsubscribe(loaderData.subscriptionId);
-	},
+	onEnter: settleOn,
+	onStay: settleOn,
+	onLeave: () => void watchProject(null),
 });
 
 const str = (value: unknown): string | undefined =>
