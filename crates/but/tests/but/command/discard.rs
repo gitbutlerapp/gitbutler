@@ -620,7 +620,7 @@ Hint: run `but help` for all commands
         .success()
         .stdout_eq(snapbox::str![[r#"
 {
-  "type": "committedFiles",
+  "type": "committedChanges",
   "sourceCommitId": "c61e0f8eb6e54760c5a265d93044bf29b7a5716a",
   "sourceChangeId": "1",
   "paths": [
@@ -731,7 +731,7 @@ Hint: run `but diff` to see uncommitted changes and `but commit -b <branch> -m "
 }
 
 #[test]
-fn discard_rejects_committed_files_from_multiple_commits() {
+fn discard_rejects_committed_changes_from_multiple_commits() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
     env.setup_metadata(&["A"]);
 
@@ -781,6 +781,369 @@ Hint: Discard committed files from each commit separately
 Hint: run `but help` for all commands
 
 "#]]);
+}
+
+#[test]
+fn discard_committed_hunk_in_modified_file() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("zero-stacks");
+    env.setup_metadata(&[]);
+
+    let original_content = "one
+two
+three
+four
+five
+six
+seven
+";
+    env.file("file.txt", original_content);
+    env.but("commit -m 'Add file'").assert().success();
+
+    env.file("file.txt", format!("first\n{original_content}last\n"));
+    env.but("commit -m 'Modify file'").assert().success();
+
+    env.but("diff 1#0")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+──────────────────╮
+ 1#0:u:2 file.txt │
+──────────────────╯
+
+@@ -1,3 +1,4 @@
+───────────────
+  ┊ 1 │ +first
+1 ┊ 2 │  one
+2 ┊ 3 │  two
+3 ┊ 4 │  three
+
+──────────────────╮
+ 1#0:u:e file.txt │
+──────────────────╯
+
+@@ -5,3 +6,4 @@
+───────────────
+5 ┊  6 │  five
+6 ┊  7 │  six
+7 ┊  8 │  seven
+  ┊  9 │ +last
+
+"#]]);
+
+    env.but("discard 1#0:u:2")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+Discarded changes from file.txt from 1 to create 1
+
+"#]]);
+
+    env.but("diff 1#0")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+──────────────────╮
+ 1#0:u:e file.txt │
+──────────────────╯
+
+@@ -5,3 +5,4 @@
+───────────────
+5 ┊ 5 │  five
+6 ┊ 6 │  six
+7 ┊ 7 │  seven
+  ┊ 8 │ +last
+
+"#]]);
+}
+
+#[test]
+fn discard_single_committed_hunk_in_deleted_file_discards_deletion() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["A"]);
+
+    env.remove_file("A");
+    env.but("commit -m 'Delete file'").assert().success();
+
+    env.but("diff 1")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+─────────╮
+ 1:t:a A │
+─────────╯
+
+@@ -1,1 +1,0 @@
+───────────────
+1 ┊   │ -A
+
+"#]]);
+
+    env.but("discard 1:t:a")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+Discarded changes from A from 1 to create 1
+
+"#]]);
+
+    // commit now has no changes
+    env.but("status -f")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┊╭┄ g0 [A]
+┊●   1 Delete file (no changes)
+┊●   tpm add A
+┊│     tpm:t A A
+├╯
+┊
+┴ 0dc3733 (common base) 2000-01-02 add M
+
+Hint: run `but help` for all commands
+
+"#]]);
+}
+
+#[test]
+fn discard_single_committed_hunk_in_added_file_discards_addition() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["A"]);
+
+    env.but("status -f")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┊╭┄ g0 [A]
+┊●   tpm add A
+┊│     tpm:t A A
+├╯
+┊
+┴ 0dc3733 (common base) 2000-01-02 add M
+
+Hint: run `but help` for all commands
+
+"#]]);
+    env.but("diff tpm")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+─────────╮
+ t:t:6 A │
+─────────╯
+
+@@ -1,0 +1,1 @@
+───────────────
+  ┊ 1 │ +A
+
+"#]]);
+
+    env.but("discard tpm:t:6")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+Discarded changes from A from tpm to create tpm
+
+"#]]);
+
+    // commit now has no changes
+    env.but("status -f")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┊╭┄ g0 [A]
+┊●   tpm add A (no changes)
+├╯
+┊
+┴ 0dc3733 (common base) 2000-01-02 add M
+
+Hint: run `but help` for all commands
+
+"#]]);
+}
+
+#[test]
+fn discard_final_content_hunk_in_renamed_file_does_not_discard_rename_itself() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("zero-stacks");
+    env.setup_metadata(&["A"]);
+
+    let original_content = "one\ntwo\nthree\n";
+    env.file("file.txt", original_content);
+    env.but("commit -m 'Add file'")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+Created commit 1 on new branch 'a-branch-1'
+
+"#]]);
+
+    env.remove_file("file.txt");
+    env.file("renamed_file.txt", format!("{original_content}\nnew"));
+    env.but("commit -m 'Rename and edit file'")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+Created commit 1 on branch 'a-branch-1'
+
+"#]]);
+
+    env.but("status -f")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┊╭┄ br [a-branch-1]
+┊●   1#0 Rename and edit file
+┊│     1#0:q R renamed_file.txt
+┊●   1#1 Add file
+┊│     1#1:u A file.txt
+├╯
+┊
+┴ 0dc3733 (common base) 2000-01-02 add M
+
+Hint: run `but help` for all commands
+
+"#]]);
+
+    env.but("diff 1#0")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+──────────────────────────╮
+ 1#0:q:7 renamed_file.txt │
+──────────────────────────╯
+
+@@ -1,3 +1,5 @@
+───────────────
+1 ┊ 1 │  one
+2 ┊ 2 │  two
+3 ┊ 3 │  three
+  ┊ 4 │ +
+  ┊ 5 │ +new
+
+"#]]);
+
+    env.but("discard 1#0:q:7")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+Discarded changes from renamed_file.txt from 1 to create 1
+
+"#]]);
+
+    env.but("status -f")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┊╭┄ br [a-branch-1]
+┊●   1#0 Rename and edit file
+┊│     1#0:q R renamed_file.txt
+┊●   1#1 Add file
+┊│     1#1:u A file.txt
+├╯
+┊
+┴ 0dc3733 (common base) 2000-01-02 add M
+
+Hint: run `but help` for all commands
+
+"#]]);
+    env.but("diff 1#0")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+──────────────────────────╮
+ 1#0:q:q renamed_file.txt │
+──────────────────────────╯
+
+No diff available - file is either empty, binary, or too large
+
+"#]]);
+}
+
+/// This is here to document this strange corner case that we probably don't want to have. Pending a
+/// decision on what to do with "unihunks", for renamed files especially.
+#[test]
+fn discard_unihunk_in_renamed_file_without_content_discards_rename() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["A"]);
+
+    env.rename_file("A", "B");
+    env.but("commit -m 'Rename file A -> B'")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+Created commit 1 on branch 'A'
+
+"#]]);
+
+    env.but("status -f")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┊╭┄ g0 [A]
+┊●   1 Rename file A -> B
+┊│     1:p R B
+┊●   tpm add A
+┊│     tpm:t A A
+├╯
+┊
+┴ 0dc3733 (common base) 2000-01-02 add M
+
+Hint: run `but help` for all commands
+
+"#]]);
+
+    env.but("diff 1")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+─────────╮
+ 1:p:q B │
+─────────╯
+
+No diff available - file is either empty, binary, or too large
+
+"#]]);
+
+    env.but("discard 1:p:q")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+Discarded changes from B from 1 to create 1
+
+"#]]);
+
+    env.but("status -f")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┊╭┄ g0 [A]
+┊●   1 Rename file A -> B (no changes)
+┊●   tpm add A
+┊│     tpm:t A A
+├╯
+┊
+┴ 0dc3733 (common base) 2000-01-02 add M
+
+Hint: run `but help` for all commands
+
+"#]]);
+    env.but("diff 1")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![""]);
 }
 
 #[test]
