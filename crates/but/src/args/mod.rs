@@ -677,7 +677,7 @@ pub enum Subcommands {
     #[clap(hide = true, name = "_open")]
     #[cfg_attr(feature = "raw-clap-docs", clap(verbatim_doc_comment))]
     _Open {
-        /// One or more uncommitted files or hunks to open.
+        /// One or more files or hunks to open.
         #[clap(num_args = 1..)]
         sources: Vec<CliIdArg>,
         /// The program to use for opening.

@@ -293,7 +293,7 @@ fn cannot_open_non_existing_cli_id() {
         .assert()
         .failure()
         .stderr_eq(snapbox::str![[r#"
-Error: Could not find uncommitted change: 'notexist'
+Error: Could not find target: 'notexist'
 
 Hint: Run `but status` for applicable targets.
 
@@ -301,32 +301,55 @@ Hint: Run `but status` for applicable targets.
 }
 
 #[test]
-fn cannot_open_committed_changes() {
+fn open_committed_file() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
     env.setup_metadata(&["A"]);
 
-    env.but("status -f")
+    env.but("_open tpm:t -p echo")
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
-╭┄ @ [uncommitted] (no changes)
-┊
-┊╭┄ g0 [A]
-┊●   tpm add A
-┊│     tpm:t A A
-├╯
-┊
-┴ 0dc3733 (common base) 2000-01-02 add M
-
-Hint: run `but help` for all commands
+filepath='/[..]/A'
 
 "#]]);
+}
+
+#[test]
+fn open_committed_hunks() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("zero-stacks");
+    let content = "one\ntwo\nthree\nfour\nfive\nsix\nseven\n";
+
+    env.file("file", content);
+    env.but("commit -m 'Add file'").assert().success();
+    env.file("file", format!("beginning\n{content}end"));
+    env.but("commit -m 'Update file'").assert().success();
+
+    env.but("_open 1#0:q:3 -p echo")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+filepath='/[..]/file' line_number='1'
+
+"#]]);
+    env.but("_open 1#0:q:8 -p echo")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+filepath='/[..]/file' line_number='9'
+
+"#]]);
+}
+
+#[test]
+fn cannot_open_branch_or_commit() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["A"]);
 
     env.but("_open A -p echo")
         .assert()
         .failure()
         .stderr_eq(snapbox::str![[r#"
-Error: Expected uncommitted file or hunk, got a branch
+Error: Expected file or hunk, got a branch
 
 "#]]);
 
@@ -334,15 +357,7 @@ Error: Expected uncommitted file or hunk, got a branch
         .assert()
         .failure()
         .stderr_eq(snapbox::str![[r#"
-Error: Expected uncommitted file or hunk, got a commit
-
-"#]]);
-
-    env.but("_open tpm:t -p echo")
-        .assert()
-        .failure()
-        .stderr_eq(snapbox::str![[r#"
-Error: Expected uncommitted file or hunk, got a committed file
+Error: Expected file or hunk, got a commit
 
 "#]]);
 }
