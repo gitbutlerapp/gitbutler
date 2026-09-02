@@ -289,7 +289,42 @@ fn changing_the_target_ref_preserves_the_target_commit_id() {
     assert_eq!(
         project_meta.target_commit_id,
         Some(initial_target_id),
-        "the stored id is kept verbatim even for a different target branch"
+        "the stored id is kept verbatim when it remains reachable from the new target"
+    );
+}
+
+#[test]
+fn changing_to_a_diverged_target_recomputes_the_target_commit_id() {
+    let (repo, _tmp) = scenario();
+    let root = repo.head_id().unwrap().detach();
+    let old_target = empty_commit_on_top(&repo, root, "old target");
+    let head = empty_commit_on_top(&repo, old_target, "head");
+    repo.reference(
+        "refs/remotes/origin/main",
+        old_target,
+        PreviousValue::Any,
+        "test",
+    )
+    .unwrap();
+    repo.reference("refs/heads/main", head, PreviousValue::Any, "test")
+        .unwrap();
+    set_target_ref(&repo, "refs/remotes/origin/main", None).unwrap();
+
+    let diverged_target = empty_commit_on_top(&repo, root, "diverged target");
+    repo.reference(
+        "refs/remotes/origin/other",
+        diverged_target,
+        PreviousValue::Any,
+        "test",
+    )
+    .unwrap();
+    set_target_ref(&repo, "refs/remotes/origin/other", None).unwrap();
+
+    let project_meta = stored_meta(&repo);
+    assert_eq!(
+        project_meta.target_commit_id,
+        Some(root),
+        "the stored target commit must be reachable from the replacement target"
     );
 }
 
@@ -309,8 +344,7 @@ fn fills_missing_target_commit_id_from_existing_target_ref() {
     .unwrap();
 
     // Advance only the remote-tracking ref, leaving `HEAD` behind, so the target tip
-    // (which migration repair fills in) differs from `merge_base(HEAD, target)`
-    // (which the fresh-init fallback would compute).
+    // (which migration repair fills in) differs from `merge_base(HEAD, target)`.
     let old_tip = repo
         .find_reference(target_ref)
         .unwrap()
@@ -326,7 +360,7 @@ fn fills_missing_target_commit_id_from_existing_target_ref() {
     assert_eq!(
         stored_meta(&repo).target_commit_id,
         Some(new_target_tip),
-        "a missing id is filled from the stored target ref's tip, not the merge-base"
+        "a missing id is filled from the stored target ref's tip after validating its history"
     );
 }
 
@@ -364,6 +398,107 @@ fn push_remote_changes_without_changing_target() {
 
 mod error {
     use super::*;
+    use but_error::{AnyhowContextExt, Code};
+
+    #[test]
+    fn unrelated_target_is_an_actionable_precondition_failure() {
+        let (repo, _tmp) = scenario();
+        let meta_before = stored_meta(&repo);
+        let exclude_decoration_before = repo
+            .config_snapshot()
+            .string("log.excludeDecoration")
+            .map(|value| value.to_owned());
+        repo.commit(
+            "refs/remotes/origin/unrelated",
+            "unrelated root",
+            repo.object_hash().empty_tree(),
+            std::iter::empty::<gix::ObjectId>(),
+        )
+        .unwrap();
+
+        let err = set_target_ref(&repo, "refs/remotes/origin/unrelated", None).unwrap_err();
+
+        assert_eq!(
+            err.custom_context().map(|ctx| ctx.code),
+            Some(Code::PreconditionFailed),
+            "an unrelated target is a recoverable selection problem"
+        );
+        assert!(
+            err.to_string()
+                .contains("Fetch more history or choose another branch"),
+            "the error tells onboarding how the user can recover"
+        );
+        assert_eq!(
+            stored_meta(&repo),
+            meta_before,
+            "rejecting an unrelated target must not write project metadata"
+        );
+        assert_eq!(
+            repo.config_snapshot()
+                .string("log.excludeDecoration")
+                .map(|value| value.to_owned()),
+            exclude_decoration_before,
+            "rejecting an unrelated target must not finish project initialization"
+        );
+    }
+
+    #[test]
+    fn stale_commit_without_target_ref_does_not_bypass_validation() {
+        let (repo, _tmp) = scenario();
+        let meta_before = ProjectMeta {
+            target_ref: None,
+            target_commit_id: Some(repo.head_id().unwrap().detach()),
+            push_remote: None,
+        };
+        meta_before.persist(&repo).unwrap();
+        repo.commit(
+            "refs/remotes/origin/unrelated",
+            "unrelated root",
+            repo.object_hash().empty_tree(),
+            std::iter::empty::<gix::ObjectId>(),
+        )
+        .unwrap();
+
+        let err = set_target_ref(&repo, "refs/remotes/origin/unrelated", None).unwrap_err();
+
+        assert_eq!(
+            err.custom_context().map(|ctx| ctx.code),
+            Some(Code::PreconditionFailed),
+            "an orphaned target id must not authorize an unrelated target"
+        );
+        assert_eq!(
+            stored_meta(&repo),
+            meta_before,
+            "rejecting the target must preserve the incomplete metadata for recovery"
+        );
+    }
+
+    #[test]
+    fn existing_target_does_not_bypass_unrelated_target_validation() {
+        let (repo, _tmp) = scenario();
+        set_target_ref(&repo, "refs/remotes/origin/main", None).unwrap();
+        let meta_before = stored_meta(&repo);
+        repo.commit(
+            "refs/remotes/origin/unrelated",
+            "unrelated root",
+            repo.object_hash().empty_tree(),
+            std::iter::empty::<gix::ObjectId>(),
+        )
+        .unwrap();
+
+        let err = set_target_ref(&repo, "refs/remotes/origin/unrelated", None).unwrap_err();
+
+        assert_eq!(
+            err.custom_context().map(|ctx| ctx.code),
+            Some(Code::PreconditionFailed),
+            "an existing target pair must not authorize an unrelated replacement"
+        );
+        assert_eq!(
+            stored_meta(&repo),
+            meta_before,
+            "rejecting the replacement target must preserve existing metadata"
+        );
+    }
 
     #[test]
     fn missing_remote_branch() {
@@ -373,6 +508,41 @@ mod error {
                 .unwrap_err()
                 .to_string(),
             "remote branch 'refs/remotes/origin/missing' not found"
+        );
+    }
+
+    #[test]
+    fn missing_stored_target_commit_is_recomputed() {
+        let (repo, _tmp) = scenario();
+        let missing = gix::ObjectId::from_hex(b"1111111111111111111111111111111111111111").unwrap();
+        ProjectMeta {
+            target_ref: Some("refs/remotes/origin/main".try_into().unwrap()),
+            target_commit_id: Some(missing),
+            push_remote: None,
+        }
+        .persist(&repo)
+        .unwrap();
+
+        set_target_ref(&repo, "refs/remotes/origin/main", None).unwrap();
+
+        let stored = stored_meta(&repo).target_commit_id.unwrap();
+        assert_ne!(
+            stored, missing,
+            "the missing stored object must not be retained"
+        );
+        assert_eq!(
+            stored,
+            repo.merge_base(
+                repo.head_id().unwrap().detach(),
+                repo.find_reference("refs/remotes/origin/main")
+                    .unwrap()
+                    .peel_to_commit()
+                    .unwrap()
+                    .id
+            )
+            .unwrap()
+            .detach(),
+            "the missing stored object is replaced by the validated merge-base"
         );
     }
 

@@ -197,12 +197,12 @@ pub(crate) fn set_base_branch(
         .id;
 
     // calculate the commit as the merge-base between HEAD in ctx and this target commit
-    let target_commit_oid = repo
-        .merge_base(current_head_commit, target_branch_head)
-        .map(|id| id.detach())
-        .context(format!(
-            "Failed to calculate merge base between {current_head_commit} and {target_branch_head}"
-        ))?;
+    let target_commit_oid = but_workspace::init::resolve_target_commit(
+        &repo,
+        current_head_commit,
+        target_branch_head,
+        None,
+    )?;
 
     let project_meta = ProjectMeta {
         target_ref: Some(target_branch_ref.to_string().try_into()?),
