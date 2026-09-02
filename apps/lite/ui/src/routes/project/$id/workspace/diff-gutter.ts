@@ -29,7 +29,6 @@ const ACTIONS_ATTRIBUTE = "data-gitbutler-diff-actions";
 const ACTIONS_FILLED_ATTRIBUTE = "data-gitbutler-diff-actions-filled";
 const ACTIONS_DRAGGABLE_ATTRIBUTE = "data-gitbutler-diff-actions-draggable";
 const DRAG_PREVIEW_ATTRIBUTE = "data-gitbutler-diff-drag-preview";
-const DRAG_COUNT_ATTRIBUTE = "data-gitbutler-diff-drag-count";
 const HUNK_BAND_ATTRIBUTE = "data-gitbutler-diff-hunk-band";
 const HUNK_BAND_CHECKED_ATTRIBUTE = "data-checked";
 const COMMENT_SLOT_ATTRIBUTE = "data-gitbutler-diff-comment-slot";
@@ -54,7 +53,7 @@ export const diffGutterUnsafeCSS = `
 		   controls sit over it — so it is painted in the surface the other break reveals, which is
 		   Pierre's own and not the app's, since the two part ways in the dark theme. */
 		--gitbutler-diff-gutter-seam: 2px;
-		/* The inset of the card's first control, which the count above it lines up with. */
+		/* The inset the card keeps around the controls it carries. */
 		--gitbutler-diff-actions-padding: 2px;
 		--gitbutler-diff-gutter-seam-color: var(--diffs-background, var(--bg-1));
 	}
@@ -207,30 +206,6 @@ export const diffGutterUnsafeCSS = `
 		height: 16px;
 	}
 
-	/* What the grip is holding, in the words its drag preview will repeat. It floats clear of the
-	   card rather than sitting in it, so reaching the grip never moves what the pointer is aiming
-	   at. Only a hovered grip fills it, and an empty one is not there at all. */
-	[${DRAG_COUNT_ATTRIBUTE}] {
-		position: absolute;
-		inset-block-end: calc(100% + 4px);
-		/* Clear of the card's own padding, so the count and the grip share a leading edge. */
-		inset-inline-start: var(--gitbutler-diff-actions-padding);
-		z-index: 1;
-		padding: 2px 6px;
-		border-radius: var(--radius-card);
-		background-color: var(--bg-1);
-		box-shadow: var(--shadow-tooltip);
-		color: var(--text-1);
-		font-size: 11px;
-		line-height: 1.4;
-		white-space: nowrap;
-		pointer-events: none;
-	}
-
-	[${DRAG_COUNT_ATTRIBUTE}]:empty {
-		display: none;
-	}
-
 	/* The grip and whatever the annotate slot brings are separate acts, so a rule stands between
 	   them. It belongs to the grip, and so is gone on any line the grip itself is gone from. */
 	[${ACTIONS_ATTRIBUTE}][${ACTIONS_FILLED_ATTRIBUTE}] > [${GUTTER_DRAG_HANDLE_ATTRIBUTE}] {
@@ -332,7 +307,6 @@ const sourcesKey = (sources: Array<Address> | null): string =>
 	sources?.map(addressIdentityKey).join("|") ?? "";
 
 const dragPreviewSourcesByHost = new Map<HTMLElement, Array<Address>>();
-const dragPreviewLabelsByHost = new Map<HTMLElement, string>();
 const dragPreviewKeysByHost = new Map<HTMLElement, string>();
 const dragPreviewSyncByHost = new Map<HTMLElement, () => void>();
 
@@ -346,7 +320,6 @@ const dragPreviewSyncByHost = new Map<HTMLElement, () => void>();
 export const setDiffDragPreviewSources = (
 	host: HTMLElement,
 	sources: Array<Address> | null,
-	label?: string,
 ): void => {
 	const key = sourcesKey(sources);
 	if ((dragPreviewKeysByHost.get(host) ?? "") === key) return;
@@ -354,12 +327,9 @@ export const setDiffDragPreviewSources = (
 	if (sources === null || sources.length === 0) {
 		dragPreviewSourcesByHost.delete(host);
 		dragPreviewKeysByHost.delete(host);
-		dragPreviewLabelsByHost.delete(host);
 	} else {
 		dragPreviewSourcesByHost.set(host, sources);
 		dragPreviewKeysByHost.set(host, key);
-		if (label === undefined) dragPreviewLabelsByHost.delete(host);
-		else dragPreviewLabelsByHost.set(host, label);
 	}
 	dragPreviewSyncByHost.get(host)?.();
 };
@@ -367,7 +337,6 @@ export const setDiffDragPreviewSources = (
 const forgetDragPreview = (host: HTMLElement): void => {
 	dragPreviewSourcesByHost.delete(host);
 	dragPreviewKeysByHost.delete(host);
-	dragPreviewLabelsByHost.delete(host);
 	dragPreviewSyncByHost.delete(host);
 };
 
@@ -380,7 +349,6 @@ const keepPointerDownOutOfLineSelection = (event: PointerEvent): void => {
 
 type ActionsCard = {
 	card: HTMLElement;
-	count: HTMLElement;
 	slot: HTMLSlotElement;
 };
 
@@ -397,10 +365,6 @@ const createActionsCard = (slotName: string): ActionsCard => {
 	// Bundled app asset, same source the Icon component draws from.
 	dragHandle.innerHTML = assert(icons.get("drag-vertical"));
 
-	const count = document.createElement("span");
-	count.setAttribute(DRAG_COUNT_ATTRIBUTE, "");
-	count.setAttribute("aria-hidden", "true");
-
 	const slot = document.createElement("slot");
 	slot.name = slotName;
 	slot.setAttribute(COMMENT_SLOT_ATTRIBUTE, "");
@@ -409,8 +373,8 @@ const createActionsCard = (slotName: string): ActionsCard => {
 		card.toggleAttribute(ACTIONS_FILLED_ATTRIBUTE, slot.assignedNodes().length > 0);
 	});
 
-	card.append(dragHandle, count, slot);
-	return { card, count, slot };
+	card.append(dragHandle, slot);
+	return { card, slot };
 };
 
 const ensureHunkBand = (
@@ -681,6 +645,12 @@ const createGutterStore = <T>(
 	const ensureHoverListeners = (host: HTMLElement, shadowRoot: ShadowRoot): void => {
 		if (removeHoverListenersByHost.has(host)) return;
 
+		/** The card stands for one line-number cell, so it goes wherever that cell is not. */
+		const hideActions = () => {
+			commentTargetsByHost.delete(host);
+			actionCardsByHost.get(host)?.card.remove();
+		};
+
 		// CSS can see the hovered column, but cannot match its dynamic hunk key to the rest of the
 		// hunk's own band or to the checkbox at the top of it. The line checkbox stays local to :hover.
 		const handlePointerOver = (event: Event) => {
@@ -693,11 +663,13 @@ const createGutterStore = <T>(
 						target instanceof HTMLElement && target.hasAttribute("data-column-number"),
 				);
 			const itemId = itemIdsByHost.get(host);
-			if (!cell || itemId === undefined) return;
+			// The code beside the numbers is still inside the view, so leaving the view is not what
+			// takes the card back. A pointer anywhere off the cells is already off the line it named.
+			if (!cell || itemId === undefined) return hideActions();
 
 			const target = diffLineTargetFromElement({ element: cell, itemId });
 			const actions = actionCardsByHost.get(host);
-			if (!target || !actions) return;
+			if (!target || !actions) return hideActions();
 
 			commentTargetsByHost.set(host, target);
 			// A context line has no hunk to hand over, so the card arrives there without its grip.
@@ -709,8 +681,7 @@ const createGutterStore = <T>(
 		};
 		const handlePointerLeave = () => {
 			setHoveredGroup(host, undefined);
-			commentTargetsByHost.delete(host);
-			actionCardsByHost.get(host)?.card.remove();
+			hideActions();
 		};
 		shadowRoot.addEventListener("pointerover", handlePointerOver);
 		host.addEventListener("pointerleave", handlePointerLeave);
@@ -764,7 +735,6 @@ const createGutterStore = <T>(
 				slotName: actions.slot.name,
 				getTarget: () => commentTargetsByHost.get(host),
 			} satisfies GutterTarget["comment"]);
-		actions.count.textContent = dragPreviewLabelsByHost.get(host) ?? "";
 		const groupsByKey = new Map<string, GutterCheckboxGroup>();
 		const controlsByGroup = new Map<string, Array<HTMLElement>>();
 		const bandsByGroup = new Map<string, Array<HTMLElement>>();

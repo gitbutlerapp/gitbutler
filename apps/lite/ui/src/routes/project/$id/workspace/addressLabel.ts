@@ -5,7 +5,7 @@ import type { Address } from "#ui/addresses.ts";
 import { assert } from "#ui/assert.ts";
 
 /** What a set of hunk lines amounts to: "+3 -1 lines", the words a drag of them carries. */
-export const hunkAddressesLabel = (addresses: Array<Extract<Address, { _tag: "Hunk" }>>) => {
+const hunkAddressesLabel = (addresses: Array<Extract<Address, { _tag: "Hunk" }>>) => {
 	const add = addresses.reduce(
 		(sum, address) =>
 			sum +
