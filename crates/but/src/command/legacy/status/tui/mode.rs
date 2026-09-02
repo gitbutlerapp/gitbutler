@@ -150,7 +150,7 @@ impl<'a> ModeRef<'a> {
     pub fn marks_ref(self) -> MarksRef<'a> {
         match self {
             ModeRef::Normal(normal_mode) => normal_mode.marks.as_ref(),
-            ModeRef::Squash(SquashMode { source, reword: _ }) => match source {
+            ModeRef::Squash(SquashMode { source, .. }) => match source {
                 SquashSource::Marks(marks) => marks.as_ref(),
                 SquashSource::Uncommitted
                 | SquashSource::Branch(..)

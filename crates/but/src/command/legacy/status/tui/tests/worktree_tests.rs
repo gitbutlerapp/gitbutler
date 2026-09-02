@@ -469,3 +469,51 @@ fn cherry_picking_commits_into_worktrees() {
         "snapshots/cherry_picking_commits_into_worktrees_002.svg"
     ]);
 }
+
+/// A worktree's commit uncommits into that worktree's area, never the main one, and the cursor
+/// lands on that area afterwards.
+#[test]
+fn uncommit_a_worktree_commit_into_its_own_area() {
+    let (mut tui, _editor) = worktree_tui();
+
+    tui.reload();
+    tui.input([
+        KeyCode::Down,
+        KeyCode::Down,
+        KeyCode::Down,
+        KeyCode::Down,
+        KeyCode::Down,
+    ])
+    .assert_current_line_eq(str!["┊┊●   nll add W"]);
+    tui.input('r');
+    // Past the worktree's reference row and files to its own area.
+    tui.input('k')
+        .assert_current_line_eq(str!["┊┊╭┄ << uncommit >> wt:@ {worktree uncommitted}"])
+        .assert_rendered_term_svg_eq(file![
+            "snapshots/uncommit_a_worktree_commit_into_its_own_area_001.svg"
+        ]);
+    // The main area is not a target for a worktree's commit, so the branch above is as far as
+    // the cursor goes.
+    tui.input('k')
+        .assert_current_line_eq(str!["┊╭┄ << squash >> g0 [A]"]);
+    tui.input('k')
+        .assert_current_line_eq(str!["┊╭┄ << squash >> g0 [A]"]);
+
+    tui.input('j')
+        .assert_current_line_eq(str!["┊┊╭┄ << uncommit >> wt:@ {worktree uncommitted}"]);
+    tui.input(KeyCode::Enter)
+        .assert_current_line_eq(str!["┊┊╭┄ wt:@ {worktree uncommitted}"])
+        .assert_rendered_term_svg_eq(file![
+            "snapshots/uncommit_a_worktree_commit_into_its_own_area_002.svg"
+        ]);
+    snapbox::assert_data_eq!(
+        tui.env().git_log(),
+        str![[r#"
+* edd3eb7 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+* 9477ae7 (wt-branch, A) add A
+* 0dc3733 (origin/main, origin/HEAD, main, gitbutler/target) add M
+
+"#]]
+        .raw()
+    );
+}

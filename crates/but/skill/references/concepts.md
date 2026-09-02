@@ -91,6 +91,8 @@ at a time — a selection mixing checkouts is refused. A worktree is also a targ
 place the commit on the tip of the branch the worktree has checked out (`--above` is refused —
 that is its uncommitted area). A worktree's own commits carry ordinary commit IDs: `reword`, `move`,
 `squash`, and `pick` accept them, and the worktree's branch and checkout follow the rewrite.
+Uncommitting one lands in that worktree's uncommitted area, so `squash -t` names it by the
+worktree's area ID (`<id>:@`), not `@`; `but uncommit` infers it.
 
 ## Parallel vs Stacked Branches
 

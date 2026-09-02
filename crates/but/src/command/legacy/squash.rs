@@ -218,7 +218,17 @@ fn resolve_args(
             )
             .with_hint(|| hint.clone())?;
 
-        let target = match resolve_target(resolved_target.as_ref(), reword, head_info, repo) {
+        let sources = resolved_sources
+            .iter()
+            .map(ResolvedCliIdArg::as_ref)
+            .collect::<Vec<_>>();
+        let target = match resolve_target(
+            resolved_target.as_ref(),
+            &sources,
+            reword,
+            head_info,
+            repo,
+        ) {
             Ok(target) => target,
             Err(err) => {
                 return Err(match err {
@@ -240,6 +250,20 @@ fn resolve_args(
                     }
                     ResolveTargetError::AnonymousSegment(id) => {
                         crate::args::atoms::anonymous_segment_error(&id)
+                    }
+                    ResolveTargetError::OwnedByAnotherCheckout { commit, owner } => {
+                        let (place, area) = match &owner {
+                            ChangeSourceId::Head => ("the workspace".to_string(), "@".to_string()),
+                            ChangeSourceId::Worktree(name) => {
+                                (format!("worktree {name}"), format!("{name}:@"))
+                            }
+                        };
+                        bad_input(format!(
+                            "Commit {} belongs to {place}, so it can only be uncommitted into that checkout's area",
+                            commit.to_hex_with_len(7)
+                        ))
+                        .hint(format!("Use `--target {area}`"))
+                        .into()
                     }
                     ResolveTargetError::InvalidTarget => bad_input(target_kind_hint)
                         .hint(CliIdArg::TARGET_MISSING_HINT)
@@ -835,6 +859,7 @@ impl MoveCommittedChangesTarget {
 
 pub fn resolve_target(
     target: ResolvedCliIdArgRef<'_>,
+    sources: &[ResolvedCliIdArgRef<'_>],
     reword: HowToRewordTarget,
     head_info: &RefInfo,
     repo: &gix::Repository,
@@ -875,7 +900,7 @@ pub fn resolve_target(
 
             Err(ResolveTargetError::NotFound)
         }
-        ResolvedCliIdArgRef::Uncommitted => {
+        ResolvedCliIdArgRef::Uncommitted | ResolvedCliIdArgRef::WorktreeUncommitted(..) => {
             match reword {
                 HowToRewordTarget::UseTargetMessage => {
                     return Err(ResolveTargetError::UseTargetMessageUnavailable);
@@ -894,6 +919,27 @@ pub fn resolve_target(
                 },
             }
 
+            // An uncommit lands in the checkout that owns the commit, so the area named as the
+            // target has to be that checkout's.
+            let checkout = match target {
+                ResolvedCliIdArgRef::WorktreeUncommitted(name) => {
+                    ChangeSourceId::Worktree(name.to_owned())
+                }
+                _ => ChangeSourceId::Head,
+            };
+            let source_commits = sources.iter().filter_map(|source| match source {
+                ResolvedCliIdArgRef::Commit(commit) => Some(commit.commit_id),
+                ResolvedCliIdArgRef::CommittedFile(file) => Some(file.commit_id),
+                ResolvedCliIdArgRef::CommittedHunk(hunk) => Some(hunk.committed_file.commit_id),
+                _ => None,
+            });
+            for commit in source_commits {
+                let owner = crate::utils::worktrees::commit_owner(head_info, commit);
+                if owner != checkout {
+                    return Err(ResolveTargetError::OwnedByAnotherCheckout { commit, owner });
+                }
+            }
+
             Ok(SquashTarget::Uncommitted)
         }
         ResolvedCliIdArgRef::AnonymousSegment(segment) => {
@@ -904,7 +950,6 @@ pub fn resolve_target(
         | ResolvedCliIdArgRef::CommittedHunk { .. }
         | ResolvedCliIdArgRef::PathPrefix { .. }
         | ResolvedCliIdArgRef::Worktree(..)
-        | ResolvedCliIdArgRef::WorktreeUncommitted(..)
         | ResolvedCliIdArgRef::Stack { .. } => Err(ResolveTargetError::InvalidTarget),
     }
 }
@@ -919,6 +964,11 @@ pub enum ResolveTargetError {
     MessageUnavailable,
     InvalidTarget,
     AnonymousSegment(String),
+    /// A source commit belongs to `owner`, whose area is not the one named as the target.
+    OwnedByAnotherCheckout {
+        commit: gix::ObjectId,
+        owner: ChangeSourceId,
+    },
     Other(anyhow::Error),
 }
 
