@@ -104,7 +104,7 @@ fn resolve(args: Platform, ctx: &Context, id_map: &IdMap) -> CliResult<MoveOpera
             | ResolvedCliIdArg::PathPrefix { .. }
             | ResolvedCliIdArg::Stack { .. }) => {
                 return Err(bad_input(format!(
-                    "Expected a committed file, got {}",
+                    "Expected a committed change, got {}",
                     other.kind_for_humans()
                 ))
                 .into());

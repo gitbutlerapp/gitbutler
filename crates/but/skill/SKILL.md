@@ -116,7 +116,13 @@ Edge case: if wanted and unwanted edits are in the same diff hunk, GitButler can
 
 ### Split an existing commit
 
-Use this when an existing commit should be replaced by selected smaller commits.
+For a two-way split, move selected committed files or hunks directly into a new commit:
+
+1. `but diff <source-commit-id>` — read committed file and hunk IDs.
+2. `but split <committed-file-or-hunk-id> [<committed-file-or-hunk-id>...]` — sources may mix files and hunks, but must come from one commit. The command creates a no-message commit immediately above the source and leaves unselected changes in the source.
+3. Add `--status-after` when the next step needs the rewritten commit IDs, for example to run `but reword <new-commit-id> -m "<message>"`.
+
+For more than two replacement commits or when every message must be chosen during creation:
 
 1. `but status -fv` when you need the source commit, branch name, or placement anchor.
 2. `but uncommit <source-commit-id> && but diff` in one shell call exposes the commit's changes and prints the resulting file and hunk IDs.
