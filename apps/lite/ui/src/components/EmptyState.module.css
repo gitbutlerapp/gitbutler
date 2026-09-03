@@ -1,0 +1,59 @@
+/* Spacing mirrors the "Empty state" component in ⚛️ Lite Core: 24 under the
+   illustration, 8 between the two lines, 14 above the actions.
+
+   The bottom padding is that component's optical counterweight, and it is
+   padding rather than a margin so that centring the box moves the ink. The
+   block's weight sits low — two lines of type and a row of buttons under a
+   light illustration — so a box centred on its geometry reads as sitting below
+   centre. Padding the foot by 60 lifts what you actually see by 30. Whatever
+   centres this component centres the padded box, which is the whole trick.
+
+   Centring itself belongs to the host, not here: only the host knows whether
+   its surface scrolls, and a scrolling one needs `justify-content: safe center`
+   so a short panel falls back to the top rather than putting the block's head
+   out of reach above the scroll origin. */
+.empty {
+	display: flex;
+	flex-shrink: 0;
+	flex-direction: column;
+	align-items: center;
+	padding-inline: var(--panel-padding-inline);
+	padding-block-end: 60px;
+	gap: 24px;
+	text-align: center;
+}
+
+.body {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	gap: 14px;
+}
+
+/* Both lines wrap balanced (`text-balance`, applied in the component). A
+   centred block with a long line and a two-word orphan under it reads as
+   broken, and the copy here is short enough that the browser's line-count cap
+   never comes into it. The width is capped for the same reason: past about 32
+   characters a line stops being scannable at a glance, and balancing a line
+   that ran the whole panel would only even out something already too wide. */
+.lines {
+	display: flex;
+	flex-direction: column;
+	max-width: 32ch;
+	gap: 8px;
+}
+
+.title {
+	margin: 0;
+	color: var(--text-1);
+}
+
+.description {
+	margin: 0;
+	color: var(--text-2);
+}
+
+.actions {
+	display: flex;
+	gap: 6px;
+}
