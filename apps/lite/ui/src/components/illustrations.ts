@@ -36,6 +36,3 @@ export const illustrations = { cactus, waving } as const;
 
 /** @public */
 export type IllustrationName = keyof typeof illustrations;
-
-/** Every illustration, for the catalogue story. */
-export const illustrationNames = Object.keys(illustrations) as Array<IllustrationName>;

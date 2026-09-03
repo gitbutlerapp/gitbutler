@@ -15,6 +15,7 @@ import { buildUncommittedFileRows } from "#ui/routes/project/$id/workspace/file-
 import { fileTreeAddressSpace } from "#ui/routes/project/$id/workspace/file-tree.ts";
 import { useFileDisplayMode } from "#ui/routes/project/$id/workspace/useFileDisplayMode.ts";
 import { WorkspaceLists } from "#ui/routes/project/$id/workspace/WorkspaceLists/WorkspaceLists.tsx";
+import { useNewBranch } from "#ui/routes/project/$id/workspace/useNewBranch.ts";
 import { useReviewActivityInbox } from "#ui/review-notifications.ts";
 import { useStampReviewsSeen } from "#ui/review-seen.ts";
 import { useAppSelector } from "#ui/store.ts";
@@ -86,6 +87,8 @@ export const Panel: FC = () => {
 	// The app registers these focus hotkeys in Page.tsx, which the panel never
 	// renders — so the panel owns its own copies: 1 focuses the uncommitted
 	// files list, 2 the stacks/branches list (the sidebar scope).
+	const newBranch = useNewBranch(projectId);
+
 	useHotkeys([
 		{
 			hotkey: "1",
@@ -100,6 +103,10 @@ export const Panel: FC = () => {
 	return (
 		<div className={styles.panel}>
 			<WorkspaceLists
+				// The panel is this harness's whole sidebar, so it owns the single
+				// instance the app's sidebar owns: two would each hold their own
+				// mutation, and neither in-flight guard would see the other's create.
+				newBranch={newBranch}
 				addressSpace={appliedAddressSpace}
 				uncommittedAddressSpace={uncommittedAddressSpace}
 				absorptionTargetCommitIds={absorptionTargetCommitIds}

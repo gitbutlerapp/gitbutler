@@ -1,8 +1,10 @@
 import preview from "#storybook/preview";
 import { Illustration } from "./Illustration.tsx";
-import { illustrationNames } from "./illustrations.ts";
+import { illustrations, type IllustrationName } from "./illustrations.ts";
 
-const names = [...illustrationNames].sort((a, b) => a.localeCompare(b));
+const names = (Object.keys(illustrations) as Array<IllustrationName>).sort((a, b) =>
+	a.localeCompare(b),
+);
 
 const meta = preview.type<{ args: { width: number } }>().meta({
 	argTypes: {

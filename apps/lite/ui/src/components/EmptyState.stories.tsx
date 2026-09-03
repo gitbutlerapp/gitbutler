@@ -2,7 +2,7 @@ import preview from "#storybook/preview";
 import { getButtonClassName } from "./Button.tsx";
 import { EmptyState } from "./EmptyState.tsx";
 import { Icon } from "./Icon.tsx";
-import { illustrationNames } from "./illustrations.ts";
+import { illustrations, type IllustrationName } from "./illustrations.ts";
 
 const meta = preview.meta({
 	component: EmptyState,
@@ -15,7 +15,7 @@ const meta = preview.meta({
 	argTypes: {
 		illustration: {
 			control: "select",
-			options: [undefined, ...illustrationNames],
+			options: [undefined, ...(Object.keys(illustrations) as Array<IllustrationName>)],
 		},
 	},
 	args: {
