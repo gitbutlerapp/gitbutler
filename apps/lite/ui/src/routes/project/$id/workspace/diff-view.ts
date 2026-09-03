@@ -54,7 +54,7 @@ export const codeViewItemMetrics = {
 type PrepareDiffFilesDeps = {
 	fileParent: FileParent;
 	changes: Array<TreeChange>;
-	treeChangeDiffs: Array<UnifiedPatch | null>;
+	treeChangeDiffs: Array<UnifiedPatch | null | undefined>;
 };
 
 export type PreparedDiffFile = {
@@ -111,22 +111,25 @@ export const prepareDiffFiles = ({
 	changes,
 	treeChangeDiffs,
 }: PrepareDiffFilesDeps): Array<PreparedDiffFile> =>
-	changes.map((change, index) => {
+	treeChangeDiffs.flatMap((treeChangeDiff, index) => {
+		const change = changes[index];
+		if (change === undefined || treeChangeDiff === undefined) return [];
 		const file: FileAddress = { parent: fileParent, path: change.path };
-		const treeChangeDiff = treeChangeDiffs[index] ?? null;
 		const patch = synthesizeFilePatch(
 			change,
 			treeChangeDiff?.type === "Patch" ? treeChangeDiff.subject.hunks : [],
 		);
 
-		return {
-			file,
-			fileId: weakFileIdentityKey(file),
-			change,
-			treeChangeDiff,
-			patch,
-			version: hash(patch),
-		};
+		return [
+			{
+				file,
+				fileId: weakFileIdentityKey(file),
+				change,
+				treeChangeDiff,
+				patch,
+				version: hash(patch),
+			},
+		];
 	});
 
 export const parsePreparedDiffFile = (

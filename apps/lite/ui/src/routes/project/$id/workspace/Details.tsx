@@ -2135,7 +2135,7 @@ const buildFilesRows = ({
 		collapsedDirectories,
 	});
 
-const withLineStats = (treeChangeDiffs: Array<UnifiedPatch | null>) => ({
+const withLineStats = (treeChangeDiffs: Array<UnifiedPatch | null | undefined>) => ({
 	treeChangeDiffs,
 	lineStats: getLineStats(treeChangeDiffs),
 });
@@ -2409,6 +2409,7 @@ const Diff: FC<{
 
 	const allFilesReviewed =
 		preparedDiffFiles.length > 0 &&
+		preparedDiffFiles.length === changes.length &&
 		preparedDiffFiles.every(({ change, version }) => reviewedFiles.get(change.path)?.has(version));
 
 	// Resolved once for the whole list rather than per row: a row would have to
@@ -2668,7 +2669,9 @@ const Diff: FC<{
 						<Toolbar.Root aria-label="Diff controls" className={styles.diffControls}>
 							<Toolbar.Button
 								className={getButtonClassName({ variant: "outline" })}
-								disabled={preparedDiffFiles.length === 0}
+								disabled={
+									preparedDiffFiles.length === 0 || preparedDiffFiles.length !== changes.length
+								}
 								onClick={toggleAllFilesReviewed}
 							>
 								{allFilesReviewed ? "Mark all unviewed" : "Mark all viewed"}

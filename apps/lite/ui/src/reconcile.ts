@@ -322,7 +322,7 @@ export const useStateReconciler = (projectId: string): void => {
 		})
 		.filter((x) => x != null)
 		.toArray();
-	const { data: validCheckedHunkKeys = new Set<string>() } = useQuery({
+	const { data: validCheckedHunkKeys = new Set<string>(), isFetching: checkingHunks } = useQuery({
 		...treeChangesDiffsQueryOptions({
 			projectId,
 			changes: checkedHunkFiles.map(({ change }) => change),
@@ -359,6 +359,6 @@ export const useStateReconciler = (projectId: string): void => {
 		}
 	});
 	useLayoutEffect(() => {
-		reconcileCheckedHunks(validCheckedHunkKeys);
-	}, [validCheckedHunkKeys]);
+		if (!checkingHunks) reconcileCheckedHunks(validCheckedHunkKeys);
+	}, [validCheckedHunkKeys, checkingHunks]);
 };

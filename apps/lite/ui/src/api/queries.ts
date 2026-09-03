@@ -1,9 +1,14 @@
 import type { PayloadFor } from "#electron/ipc.ts";
 import { aggregateCIChecks } from "#ui/ci.ts";
 import { clampAutoFetch, defaultSettings } from "#ui/settings.ts";
-import type { ForgeReview, TreeChange } from "@gitbutler/but-sdk";
-import { infiniteQueryOptions, queryOptions } from "@tanstack/react-query";
+import type { ForgeReview, TreeChange, UnifiedPatch } from "@gitbutler/but-sdk";
+import {
+	experimental_streamedQuery,
+	infiniteQueryOptions,
+	queryOptions,
+} from "@tanstack/react-query";
 import * as ms from "ms";
+import pMap from "p-map";
 
 /**
  * The name the backend would generate for a branch created right now. Used to
@@ -537,8 +542,29 @@ export const treeChangesDiffsQueryOptions = ({
 }) =>
 	queryOptions({
 		queryKey: [projectId, "treeChangeDiffs", changes],
-		queryFn: () =>
-			Promise.all(changes.map((change) => window.lite.treeChangeDiffs({ projectId, change }))),
+		queryFn: experimental_streamedQuery<Array<UnifiedPatch | null>, Array<UnifiedPatch | null>>({
+			initialValue: [],
+			refetchMode: "replace",
+			reducer: (results, batch) => results.concat(batch),
+			async *streamFn({ signal }) {
+				// Use half the logical cores to parallelize native diffs with room for UI work. This is a
+				// rough first pass and can be reduced should there be resource contention.
+				const concurrency = Math.max(1, Math.floor(navigator.hardwareConcurrency / 2));
+
+				// Grow publications so rebuilding the accumulated view stays linear overall.
+				for (
+					let batchStart = 0, batchSize = 64;
+					batchStart < changes.length;
+					batchStart += batchSize, batchSize *= 2
+				) {
+					yield await pMap(
+						changes.slice(batchStart, batchStart + batchSize),
+						(change) => window.lite.treeChangeDiffs({ projectId, change }),
+						{ concurrency, signal },
+					);
+				}
+			},
+		}),
 	});
 
 export const absorptionPlanQueryOptions = ({ projectId, target }: PayloadFor<"absorptionPlan">) =>
