@@ -3255,3 +3255,54 @@ Hint: Use a longer ID to disambiguate
 
 "#]]);
 }
+
+// regression test for https://linear.app/gitbutler/issue/GB-1948/repo-borked-after-committing-in-sbm
+#[test]
+fn committing_twice_to_checked_out_workspace_branch_in_single_branch_mode_keeps_status_valid() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["A"]);
+
+    env.but("switch A").assert().success();
+
+    env.but("commit --no-message -b A").assert().success();
+
+    // One commit on the checked-out branch leaves the workspace commit stale by one.
+    env.but("status")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┊╭┄ g0 [A]
+┊●   1 (no commit message) (no changes)
+┊●   tpm add A
+├╯
+┊
+┴ 0dc3733 (common base) 2000-01-02 add M
+
+Hint: run `but help` for all commands
+
+"#]]);
+
+    env.but("commit --no-message -b A").assert().success();
+
+    // The second commit puts the branch two ahead of the workspace commit, the shape that
+    // used to corrupt the graph.
+    env.but("status")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┊╭┄ g0 [A]
+┊●   1#0 (no commit message) (no changes)
+┊●   1#1 (no commit message) (no changes)
+┊●   tpm add A
+├╯
+┊
+┴ 0dc3733 (common base) 2000-01-02 add M
+
+Hint: run `but help` for all commands
+
+"#]]);
+}

@@ -300,6 +300,217 @@ fn workspace_projection_with_advanced_stack_tip() -> anyhow::Result<()> {
 }
 
 #[test]
+fn workspace_projection_with_stack_tip_advanced_by_two() -> anyhow::Result<()> {
+    // With the tip two commits ahead of the stale workspace commit, the workspace
+    // walk reaches the fork commit before the stack-branch walk does.
+    let (repo, mut meta, mut db) =
+        read_only_in_memory_scenario("ws/advanced-stack-tip-twice-outside-workspace")?;
+    add_stack_with_segments(&mut meta, 1, "B", StackState::InWorkspace, &["A"]);
+
+    // `B` is two commits past the fork the workspace commit was made from, so the workspace
+    // walk reaches `d69fe94` before `B` does.
+    snapbox::assert_data_eq!(
+        visualize_commit_graph_all(&repo)?,
+        snapbox::str![[r#"
+* 6d3fd90 (B) B-outside-2
+* cf6b678 B-outside-1
+| * 2076060 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+|/  
+* d69fe94 B
+* 09d8e52 (A) A
+* 85efbe4 (origin/main, main) M
+
+"#]]
+    );
+
+    let graph = Graph::from_head(
+        &repo,
+        &*meta,
+        default_project_meta(),
+        &mut db,
+        standard_options(),
+    )?
+    .validated()?;
+    // `B` keeps both outside commits and connects down into the workspace segment, which
+    // still owns the fork commit.
+    snapbox::assert_data_eq!(
+        graph_dag(&graph),
+        snapbox::str![[r#"
+◎  📙B
+●  ·6d3fd90 (⌂)
+●  ·cf6b678 (⌂)
+│ ◎  👉📕gitbutler/workspace[🌳]
+│ ●  ·2076060 (⌂|🏘)
+├─╯
+●  ·d69fe94 (⌂|🏘)
+◎  📙A
+●  ·09d8e52 (⌂|🏘)
+│ ◎  origin/main
+├─╯
+◎  main <> origin/main
+●  🏁·85efbe4 (⌂|🏘|✓)
+"#]]
+    );
+    let ws = &graph.into_workspace()?;
+    // The advanced commits show on `B` as outside the workspace, the fork commit stays managed.
+    snapbox::assert_data_eq!(
+        graph_workspace(ws).to_string(),
+        snapbox::str![[r#"
+📕🏘️:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 85efbe4
+└── ≡📙:B on 85efbe4 {1}
+    ├── 📙:B
+    │   ├── ·6d3fd90*
+    │   ├── ·cf6b678*
+    │   └── ·d69fe94 (🏘️)
+    └── 📙:A
+        └── ·09d8e52 (🏘️)
+
+"#]]
+    );
+
+    Ok(())
+}
+
+#[test]
+fn workspace_projection_with_stack_tip_advanced_by_two_in_single_branch_mode() -> anyhow::Result<()>
+{
+    // Like above, but `HEAD` stays on the advanced stack branch, as single-branch
+    // mode leaves it after committing there (GB-1948).
+    let (repo, mut meta, mut db) = read_only_in_memory_scenario(
+        "ws/advanced-stack-tip-twice-outside-workspace-single-branch",
+    )?;
+    add_stack_with_segments(&mut meta, 1, "B", StackState::InWorkspace, &["A"]);
+
+    // Same shape, but `HEAD` stays on `B`, as single-branch mode leaves it after committing.
+    snapbox::assert_data_eq!(
+        visualize_commit_graph_all(&repo)?,
+        snapbox::str![[r#"
+* 6d3fd90 (HEAD -> B) B-outside-2
+* cf6b678 B-outside-1
+| * 2076060 (gitbutler/workspace) GitButler Workspace Commit
+|/  
+* d69fe94 B
+* 09d8e52 (A) A
+* 85efbe4 (origin/main, main) M
+
+"#]]
+    );
+
+    let graph = Graph::from_head(
+        &repo,
+        &*meta,
+        default_project_meta(),
+        &mut db,
+        standard_options(),
+    )?
+    .validated()?;
+    // `B` is the entrypoint and keeps its own commits; the workspace segment keeps the fork commit.
+    snapbox::assert_data_eq!(
+        graph_dag(&graph),
+        snapbox::str![[r#"
+◎  👉📙B[🌳]
+●  ·6d3fd90 (⌂)
+●  ·cf6b678 (⌂)
+│ ◎  📕gitbutler/workspace
+│ ●  ·2076060 (⌂|🏘)
+├─╯
+●  ·d69fe94 (⌂|🏘)
+◎  📙A
+●  ·09d8e52 (⌂|🏘)
+│ ◎  origin/main
+├─╯
+◎  main <> origin/main
+●  🏁·85efbe4 (⌂|🏘|✓)
+"#]]
+    );
+    let ws = &graph.into_workspace()?;
+    // The projection is anchored on `B` itself and lists the new commits as regular stack commits.
+    snapbox::assert_data_eq!(
+        graph_workspace(ws).to_string(),
+        snapbox::str![[r#"
+⌂:B[🌳] <> ✓refs/remotes/origin/main on 85efbe4
+└── ≡📙:B[🌳] on 85efbe4 {1}
+    ├── 📙:B[🌳]
+    │   ├── ·6d3fd90
+    │   ├── ·cf6b678
+    │   └── ·d69fe94 (🏘️)
+    └── 📙:A
+        └── ·09d8e52 (🏘️)
+
+"#]]
+    );
+
+    Ok(())
+}
+
+#[test]
+fn workspace_projection_with_branch_on_top_of_workspace_commit() -> anyhow::Result<()> {
+    // `HEAD` is on a branch that was created on top of the workspace commit, so the
+    // entrypoint walk runs into the workspace segment at its tip commit.
+    let (repo, mut meta, mut db) =
+        read_only_in_memory_scenario("ws/branch-on-top-of-workspace-commit")?;
+    add_stack_with_segments(&mut meta, 1, "A", StackState::InWorkspace, &[]);
+
+    // `C` sits two commits above the workspace commit, which itself sits on top of the stack.
+    snapbox::assert_data_eq!(
+        visualize_commit_graph_all(&repo)?,
+        snapbox::str![[r#"
+* d453f2a (HEAD -> C) C-2
+* 70d125c C-1
+* d990875 (gitbutler/workspace) GitButler Workspace Commit
+* 09d8e52 (A) A
+* 85efbe4 (origin/main, main) M
+
+"#]]
+    );
+
+    let graph = Graph::from_head(
+        &repo,
+        &*meta,
+        default_project_meta(),
+        &mut db,
+        standard_options(),
+    )?
+    .validated()?;
+    // The entrypoint keeps its own commits and connects down into the workspace segment
+    // instead of trading commits with it.
+    snapbox::assert_data_eq!(
+        graph_dag(&graph),
+        snapbox::str![[r#"
+◎  👉C[🌳]
+●  ·d453f2a (⌂)
+●  ·70d125c (⌂)
+◎  📕gitbutler/workspace
+●  ·d990875 (⌂|🏘)
+◎  📙A
+●  ·09d8e52 (⌂|🏘)
+│ ◎  origin/main
+├─╯
+◎  main <> origin/main
+●  🏁·85efbe4 (⌂|🏘|✓)
+"#]]
+    );
+    let ws = &graph.into_workspace()?;
+    // `C` acts as an ad-hoc workspace whose stack absorbs the managed commit and `A` below it.
+    snapbox::assert_data_eq!(
+        graph_workspace(ws).to_string(),
+        snapbox::str![[r#"
+⌂:C[🌳] <> ✓refs/remotes/origin/main on 85efbe4
+└── ≡:C[🌳] on 85efbe4 {1}
+    ├── :C[🌳]
+    │   ├── ·d453f2a
+    │   ├── ·70d125c
+    │   └── ·d990875 (🏘️)
+    └── 📙:A
+        └── ·09d8e52 (🏘️)
+
+"#]]
+    );
+
+    Ok(())
+}
+
+#[test]
 fn no_overzealous_stacks_due_to_workspace_metadata() -> anyhow::Result<()> {
     // NOTE: Was supposed to reproduce #11459, but it found another issue instead.
     let (repo, mut meta, mut db) = read_only_in_memory_scenario("ws/reproduce-11459")?;

@@ -238,6 +238,51 @@ mkdir ws
     git checkout gitbutler/workspace
   )
 
+  # Like above, but the advance is two commits deep so the workspace walk reaches
+  # the fork commit before the stack-branch walk does.
+  git init advanced-stack-tip-twice-outside-workspace
+  (cd advanced-stack-tip-twice-outside-workspace
+    commit M
+    setup_target_to_match_main
+    git checkout -b A
+      commit A
+    git checkout -b B
+      commit B
+    create_workspace_commit_once B
+    git checkout B
+      commit B-outside-1
+      commit B-outside-2
+    git checkout gitbutler/workspace
+  )
+
+  # Like above, but HEAD stays on the advanced branch (single-branch mode).
+  git init advanced-stack-tip-twice-outside-workspace-single-branch
+  (cd advanced-stack-tip-twice-outside-workspace-single-branch
+    commit M
+    setup_target_to_match_main
+    git checkout -b A
+      commit A
+    git checkout -b B
+      commit B
+    create_workspace_commit_once B
+    git checkout B
+      commit B-outside-1
+      commit B-outside-2
+  )
+
+  # A branch created on top of the workspace commit itself, with HEAD on it.
+  git init branch-on-top-of-workspace-commit
+  (cd branch-on-top-of-workspace-commit
+    commit M
+    setup_target_to_match_main
+    git checkout -b A
+      commit A
+    create_workspace_commit_once A
+    git checkout -b C
+      commit C-1
+      commit C-2
+  )
+
   git init reproduce-11459
   (cd reproduce-11459
     commit M1
