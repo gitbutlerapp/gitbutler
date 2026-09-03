@@ -307,6 +307,8 @@ fn workspace_projection_with_stack_tip_advanced_by_two() -> anyhow::Result<()> {
         read_only_in_memory_scenario("ws/advanced-stack-tip-twice-outside-workspace")?;
     add_stack_with_segments(&mut meta, 1, "B", StackState::InWorkspace, &["A"]);
 
+    // `B` is two commits past the fork the workspace commit was made from, so the workspace
+    // walk reaches `d69fe94` before `B` does.
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
         snapbox::str![[r#"
@@ -329,6 +331,8 @@ fn workspace_projection_with_stack_tip_advanced_by_two() -> anyhow::Result<()> {
         standard_options(),
     )?
     .validated()?;
+    // `B` keeps both outside commits and connects down into the workspace segment, which
+    // still owns the fork commit.
     snapbox::assert_data_eq!(
         graph_dag(&graph),
         snapbox::str![[r#"
@@ -348,6 +352,7 @@ fn workspace_projection_with_stack_tip_advanced_by_two() -> anyhow::Result<()> {
 "#]]
     );
     let ws = &graph.into_workspace()?;
+    // The advanced commits show on `B` as outside the workspace, the fork commit stays managed.
     snapbox::assert_data_eq!(
         graph_workspace(ws).to_string(),
         snapbox::str![[r#"
@@ -376,6 +381,7 @@ fn workspace_projection_with_stack_tip_advanced_by_two_in_single_branch_mode() -
     )?;
     add_stack_with_segments(&mut meta, 1, "B", StackState::InWorkspace, &["A"]);
 
+    // Same shape, but `HEAD` stays on `B`, as single-branch mode leaves it after committing.
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
         snapbox::str![[r#"
@@ -398,6 +404,7 @@ fn workspace_projection_with_stack_tip_advanced_by_two_in_single_branch_mode() -
         standard_options(),
     )?
     .validated()?;
+    // `B` is the entrypoint and keeps its own commits; the workspace segment keeps the fork commit.
     snapbox::assert_data_eq!(
         graph_dag(&graph),
         snapbox::str![[r#"
@@ -417,6 +424,7 @@ fn workspace_projection_with_stack_tip_advanced_by_two_in_single_branch_mode() -
 "#]]
     );
     let ws = &graph.into_workspace()?;
+    // The projection is anchored on `B` itself and lists the new commits as regular stack commits.
     snapbox::assert_data_eq!(
         graph_workspace(ws).to_string(),
         snapbox::str![[r#"
