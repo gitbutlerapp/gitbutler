@@ -1,7 +1,7 @@
 import type { PayloadFor } from "#electron/ipc.ts";
 import { aggregateCIChecks } from "#ui/ci.ts";
 import { clampAutoFetch, defaultSettings } from "#ui/settings.ts";
-import type { ForgeReview } from "@gitbutler/but-sdk";
+import type { ForgeReview, TreeChange } from "@gitbutler/but-sdk";
 import { infiniteQueryOptions, queryOptions } from "@tanstack/react-query";
 import * as ms from "ms";
 
@@ -526,6 +526,19 @@ export const treeChangeDiffsQueryOptions = ({ projectId, change }: PayloadFor<"t
 	queryOptions({
 		queryKey: [projectId, "treeChangeDiffs", change],
 		queryFn: () => window.lite.treeChangeDiffs({ projectId, change }),
+	});
+
+export const treeChangesDiffsQueryOptions = ({
+	projectId,
+	changes,
+}: {
+	projectId: string;
+	changes: Array<TreeChange>;
+}) =>
+	queryOptions({
+		queryKey: [projectId, "treeChangeDiffs", changes],
+		queryFn: () =>
+			Promise.all(changes.map((change) => window.lite.treeChangeDiffs({ projectId, change }))),
 	});
 
 export const absorptionPlanQueryOptions = ({ projectId, target }: PayloadFor<"absorptionPlan">) =>

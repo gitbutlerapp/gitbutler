@@ -26,9 +26,9 @@ import { ChangeStats } from "../ChangeStats.tsx";
 import { RowToolbar, SectionHeaderRow } from "../Row.tsx";
 import { useFileDisplayModeMenuItems } from "../useFileDisplayModeMenuItems.ts";
 import { PanelFoldToggle } from "./PanelFoldToggle.tsx";
-import { useQueries } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import styles from "./UncommittedChangesRow.module.css";
-import { treeChangeDiffsQueryOptions } from "#ui/api/queries.ts";
+import { treeChangesDiffsQueryOptions } from "#ui/api/queries.ts";
 
 export const UncommittedChangesRow: FC<{
 	changes: Array<TreeChange>;
@@ -42,9 +42,9 @@ export const UncommittedChangesRow: FC<{
 	projectId: string;
 	onOpenFilter: () => void;
 }> = ({ changes, isClean, headingId, projectId, onOpenFilter }) => {
-	const lineStats = useQueries({
-		queries: changes.map((change) => treeChangeDiffsQueryOptions({ projectId, change })),
-		combine: (results) => getLineStats(results.map((result) => result.data)),
+	const { data: lineStats = getLineStats([]) } = useQuery({
+		...treeChangesDiffsQueryOptions({ projectId, changes }),
+		select: getLineStats,
 	});
 
 	const address = uncommittedChangesAddress;
