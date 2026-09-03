@@ -1,12 +1,41 @@
 #!/usr/bin/env node
 
 /**
- * Icon optimization script.
+ * Icon optimization script for apps/lite/ui/src/components/icons.
  *
- * - Normalizes width/height to "100%"
- * - Replaces color values in fill/stroke with "currentColor"
- * - Minifies SVG markup
- * - Regenerates iconNames.ts
+ * Each transform exists for a concrete reason:
+ *
+ * - width/height -> "100%". Figma exports fixed pixels (width="16"), but
+ *   sizing is owned by CSS: Icon.module.css sets a --icon-size box and the SVG
+ *   fills it. A hardcoded width would ignore <Icon size={20} />. viewBox is
+ *   kept — that preserves aspect ratio and makes percentage sizing meaningful.
+ * - fill/stroke colors -> "currentColor", so one asset works on light and dark
+ *   themes and in accent-colored containers. "none" is preserved: it's a
+ *   structural value (an unfilled outline shape), not a color.
+ * - vector-effect="non-scaling-stroke" on shape elements. Icons are drawn on a
+ *   16px grid with 1.5px strokes; without this, a scaled-up icon reads heavier
+ *   than its neighbours.
+ * - Minification. Icons are inlined into the bundle as raw strings and
+ *   injected via dangerouslySetInnerHTML, so Figma's indentation would ship to
+ *   the user and land in the DOM. It also gives icons a canonical single-line
+ *   form, so a re-export produces a clean diff instead of a whitespace-only one.
+ * - iconNames.ts regeneration. IconName is a generated union of the filenames
+ *   on disk, which is what makes <Icon name="folder-lock" /> compile-time
+ *   checked. Never hand-edit it.
+ *
+ * This is a text transform, not a geometry pass. It won't clean up what Figma
+ * leaves behind — check the export by hand for:
+ *
+ * - Stray placeholder or mask shapes. A leftover rectangle exported as
+ *   fill="#D9D9D9" becomes fill="currentColor" and paints a solid block over
+ *   the icon.
+ * - Geometry outside the viewBox. Anything beyond "0 0 16 16" is clipped or
+ *   overflows unpredictably.
+ * - clipPath ids. Figma emits ids like clip0_1800_10322. Several icons are
+ *   inlined into the same document, so ids must stay unique — keep Figma's
+ *   generated suffix rather than renaming to something generic like "clip0".
+ * - Off-grid coordinates. 13.999999 instead of 14 means the frame wasn't
+ *   aligned to the pixel grid in Figma; fix it at the source.
  */
 
 import fs from "node:fs";

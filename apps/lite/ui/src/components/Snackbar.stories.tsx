@@ -3,6 +3,12 @@ import { Snackbar, type SnackbarVariant } from "./Snackbar.tsx";
 
 const meta = preview.meta({
 	component: Snackbar,
+	parameters: {
+		design: {
+			type: "figma",
+			url: "https://www.figma.com/design/cqdnAotT8n9op8WGYLOHg4/%E2%9A%9B%EF%B8%8F-Lite-Core?node-id=1706-1682",
+		},
+	},
 	argTypes: {
 		variant: {
 			control: "inline-radio",
