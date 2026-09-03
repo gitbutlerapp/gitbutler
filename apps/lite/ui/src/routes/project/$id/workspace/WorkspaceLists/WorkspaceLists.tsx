@@ -80,7 +80,7 @@ import { BranchRow, type PushActivity } from "./BranchRow.tsx";
 import { useActiveListsHotkeys } from "./hotkeys.ts";
 import { UncommittedChangesRow } from "./UncommittedChangesRow.tsx";
 import { PanelFoldToggle } from "./PanelFoldToggle.tsx";
-import { CleanWorktreeNote } from "./CleanWorktreeNote.tsx";
+import { LastCommitLine } from "./LastCommitLine.tsx";
 import { StacksSummary } from "./StacksSummary.tsx";
 import { ListFilterRow } from "../ListFilterRow.tsx";
 import { useListFilter } from "../useListFilter.ts";
@@ -332,6 +332,7 @@ const UncommittedChanges: FC<
 		<div
 			{...props}
 			className={classes(props.className, styles.uncommittedChanges)}
+			data-clean={isClean}
 			ref={useMergedRefs(props.ref, panelRef)}
 		>
 			{fileFilter.rowProps === null || collapsed ? (
@@ -352,7 +353,7 @@ const UncommittedChanges: FC<
 			    as with the sidebar's own pages, so the list comes back scrolled and
 			    filtered the way it was left. */}
 			<Activity mode={collapsed ? "hidden" : "visible"}>
-				{isClean && <CleanWorktreeNote projectId={projectId} />}
+				{isClean && <LastCommitLine projectId={projectId} />}
 
 				{/* A clean worktree drops the list as well: the header says so now, and
 				    an empty row under it would only say it twice. */}

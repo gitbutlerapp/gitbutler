@@ -529,14 +529,15 @@ export const CommitForm: FC<{
 				    The accent is spent on the one action this panel exists for, and with
 				    nothing staged that is no longer what it is. The button stays live —
 				    an empty commit is a real thing to want — but steps back to a quiet
-				    outline. What committing now would make is said by the panel's own
-				    note above, in plain sight, so the button does not repeat it. */}
+				    outline, and carries the one thing the header does not say: that a
+				    commit made now would be empty. */}
 				<DropdownButton
 					className={styles.startCommitSplit}
 					variant={hasWorktreeChanges ? "pop" : "outline"}
 					id={startCommitButtonId}
 					onClick={() => setIsExpanded(true)}
 					disabled={!noOperationPending}
+					actionTooltip={hasWorktreeChanges ? undefined : "Makes an empty commit"}
 					menuLabel="Commit options"
 					menuDisabled={!(canAmend || canCommit)}
 					onMenuTrigger={(trigger) => {

@@ -177,9 +177,9 @@ export const UncommittedChangesRow: FC<{
 				)
 			}
 		>
-			{/* A zero is not worth a badge: the empty list below already says there
-			    is nothing here, and a count that only ever reads "0" reads as a
-			    problem rather than as the resting state. */}
+			{/* A zero is not worth a badge: the title already says there is nothing
+			    here, and a count that only ever reads "0" reads as a problem rather
+			    than as the resting state. */}
 			{changes.length > 0 && <ChangeStats fileCount={changes.length} lineStats={lineStats} />}
 		</SectionHeaderRow>
 	);
