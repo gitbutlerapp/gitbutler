@@ -152,10 +152,6 @@ fn absorb_assignments(
     skipped_merged: Vec<String>,
 ) -> anyhow::Result<()> {
     let total_rejected = but_api::legacy::absorb::absorb_with_perm(ctx, absorption_plan, perm)?;
-    // Refresh the workspace commit so `gitbutler/workspace` HEAD stays in sync
-    // with the rewritten branch commits. Without this, tools that inspect HEAD
-    // (e.g. pre-push hooks that stash against it) see a stale synthetic commit.
-    gitbutler_branch_actions::update_workspace_commit_with_perm(ctx, false, perm)?;
 
     // Display completion message
     let t = theme::get();
