@@ -436,6 +436,73 @@ fn workspace_projection_with_stack_tip_advanced_by_two_in_single_branch_mode() -
 }
 
 #[test]
+fn workspace_projection_with_branch_on_top_of_workspace_commit() -> anyhow::Result<()> {
+    // `HEAD` is on a branch that was created on top of the workspace commit, so the
+    // entrypoint walk runs into the workspace segment at its tip commit.
+    let (repo, mut meta, mut db) =
+        read_only_in_memory_scenario("ws/branch-on-top-of-workspace-commit")?;
+    add_stack_with_segments(&mut meta, 1, "A", StackState::InWorkspace, &[]);
+
+    // `C` sits two commits above the workspace commit, which itself sits on top of the stack.
+    snapbox::assert_data_eq!(
+        visualize_commit_graph_all(&repo)?,
+        snapbox::str![[r#"
+* d453f2a (HEAD -> C) C-2
+* 70d125c C-1
+* d990875 (gitbutler/workspace) GitButler Workspace Commit
+* 09d8e52 (A) A
+* 85efbe4 (origin/main, main) M
+
+"#]]
+    );
+
+    let graph = Graph::from_head(
+        &repo,
+        &*meta,
+        default_project_meta(),
+        &mut db,
+        standard_options(),
+    )?
+    .validated()?;
+    // The entrypoint keeps its own commits and connects down into the workspace segment
+    // instead of trading commits with it.
+    snapbox::assert_data_eq!(
+        graph_dag(&graph),
+        snapbox::str![[r#"
+◎  👉C[🌳]
+●  ·d453f2a (⌂)
+●  ·70d125c (⌂)
+◎  📕gitbutler/workspace
+●  ·d990875 (⌂|🏘)
+◎  📙A
+●  ·09d8e52 (⌂|🏘)
+│ ◎  origin/main
+├─╯
+◎  main <> origin/main
+●  🏁·85efbe4 (⌂|🏘|✓)
+"#]]
+    );
+    let ws = &graph.into_workspace()?;
+    // `C` acts as an ad-hoc workspace whose stack absorbs the managed commit and `A` below it.
+    snapbox::assert_data_eq!(
+        graph_workspace(ws).to_string(),
+        snapbox::str![[r#"
+⌂:C[🌳] <> ✓refs/remotes/origin/main on 85efbe4
+└── ≡:C[🌳] on 85efbe4 {1}
+    ├── :C[🌳]
+    │   ├── ·d453f2a
+    │   ├── ·70d125c
+    │   └── ·d990875 (🏘️)
+    └── 📙:A
+        └── ·09d8e52 (🏘️)
+
+"#]]
+    );
+
+    Ok(())
+}
+
+#[test]
 fn no_overzealous_stacks_due_to_workspace_metadata() -> anyhow::Result<()> {
     // NOTE: Was supposed to reproduce #11459, but it found another issue instead.
     let (repo, mut meta, mut db) = read_only_in_memory_scenario("ws/reproduce-11459")?;

@@ -270,6 +270,19 @@ mkdir ws
       commit B-outside-2
   )
 
+  # A branch created on top of the workspace commit itself, with HEAD on it.
+  git init branch-on-top-of-workspace-commit
+  (cd branch-on-top-of-workspace-commit
+    commit M
+    setup_target_to_match_main
+    git checkout -b A
+      commit A
+    create_workspace_commit_once A
+    git checkout -b C
+      commit C-1
+      commit C-2
+  )
+
   git init reproduce-11459
   (cd reproduce-11459
     commit M1
