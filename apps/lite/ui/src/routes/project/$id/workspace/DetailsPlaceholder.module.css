@@ -1,0 +1,16 @@
+/* The pane is a single grid cell (`Page.module.css` `.panel`), so this fills it
+   and centres the block in it.
+
+   `safe`, and a size container, for the same reasons the sidebar's hosts have
+   them: a short pane falls back to the top rather than putting the block's head
+   out of reach above the scroll origin, and the block scales its counterweight
+   to the room it actually has. */
+.host {
+	container-type: size;
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	justify-content: safe center;
+	overflow: auto;
+	background-color: var(--bg-2);
+}

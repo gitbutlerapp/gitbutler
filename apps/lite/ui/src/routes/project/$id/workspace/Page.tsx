@@ -63,6 +63,7 @@ import { ApplyBranchPicker } from "./ApplyBranchPicker.tsx";
 import { BranchPicker } from "./BranchPicker.tsx";
 import { CommandPalette } from "./CommandPalette.tsx";
 import { OperationsLogPicker } from "./OperationsLogPicker.tsx";
+import { DetailsPlaceholder } from "./DetailsPlaceholder.tsx";
 import { Sidebar } from "./Sidebar.tsx";
 import { OperationControls } from "#ui/routes/project/$id/workspace/OperationControls.tsx";
 import { ErrorBoundary } from "#ui/components/ErrorBoundary.tsx";
@@ -82,6 +83,7 @@ import {
 	useSelection,
 	useActiveList,
 } from "#ui/use-cursor.ts";
+import type { ActiveList } from "#ui/projects/project.ts";
 import { defaultSettings } from "#ui/settings.ts";
 import { parseDragData } from "./DragData.ts";
 
@@ -475,6 +477,19 @@ const PageBody: FC<{ projectId: string }> = ({ projectId }) => {
 	const uncommittedFilesSelection = useSelection("uncommitted", uncommittedAddressSpace);
 
 	const activeList = useActiveList();
+	// Which list's cursor drives the pane. Normally the active one, but a cursor
+	// is null only when its list is empty, and an empty list has no details to
+	// give: rather than go blank beside a sibling with content in it, the pane
+	// shows the sibling. Only the pane bends — `activeList` still says where the
+	// user is standing, which is what operations and the keyboard act on.
+	const detailsList: ActiveList =
+		activeList === "applied"
+			? appliedSelection === null && uncommittedFilesSelection !== null
+				? "uncommitted"
+				: "applied"
+			: uncommittedFilesSelection === null && appliedSelection !== null
+				? "applied"
+				: "uncommitted";
 	// The page picks only which list's cursor drives the pane; one Details
 	// component then dispatches on the selection itself. The uncommitted arm is
 	// the genuine fork — its cursor is a path, not an address. Memoised because
@@ -490,26 +505,52 @@ const PageBody: FC<{ projectId: string }> = ({ projectId }) => {
 
 		return Match.value(page).pipe(
 			Match.when("workspace", () =>
-				Match.value(activeList).pipe(
-					Match.when("applied", () => (
-						<Details selection={appliedSelection} review={null} {...viewProps} />
-					)),
-					Match.when(
-						"uncommitted",
-						() =>
-							uncommittedFilesSelection !== null && (
-								<UncommittedFilesDetails path={uncommittedFilesSelection} {...viewProps} />
-							),
+				Match.value(detailsList).pipe(
+					Match.when("applied", () =>
+						appliedSelection === null ? (
+							// Both lists are empty by now: `detailsList` would have picked the
+							// uncommitted one if it had anything to show.
+							<DetailsPlaceholder
+								title="Nothing to show yet"
+								description="Details of whatever you select appear in this pane"
+							/>
+						) : (
+							<Details selection={appliedSelection} review={null} {...viewProps} />
+						),
+					),
+					Match.when("uncommitted", () =>
+						uncommittedFilesSelection === null ? (
+							<DetailsPlaceholder
+								title="Nothing to show yet"
+								description="Details of whatever you select appear in this pane"
+							/>
+						) : (
+							<UncommittedFilesDetails path={uncommittedFilesSelection} {...viewProps} />
+						),
 					),
 					Match.exhaustive,
 				),
 			),
-			Match.when("upstream", () => (
-				<Details selection={upstreamSelection} review={upstreamReview} {...viewProps} />
-			)),
-			Match.when("branches", () => (
-				<Details selection={branchesSelection} review={null} {...viewProps} />
-			)),
+			Match.when("upstream", () =>
+				upstreamSelection === null ? (
+					<DetailsPlaceholder
+						title="Upstream commits appear here"
+						description="Whatever lands on your target branch before you bring it in"
+					/>
+				) : (
+					<Details selection={upstreamSelection} review={upstreamReview} {...viewProps} />
+				),
+			),
+			Match.when("branches", () =>
+				branchesSelection === null ? (
+					<DetailsPlaceholder
+						title="Branch details appear here"
+						description="The commits, files and pull request of whichever branch you pick"
+					/>
+				) : (
+					<Details selection={branchesSelection} review={null} {...viewProps} />
+				),
+			),
 			Match.exhaustive,
 		);
 	}, [
@@ -521,7 +562,7 @@ const PageBody: FC<{ projectId: string }> = ({ projectId }) => {
 		uncommittedFilesSelection,
 		upstreamReview,
 		upstreamSelection,
-		activeList,
+		detailsList,
 	]);
 
 	const deferredDetails = useDeferredValue(details);
