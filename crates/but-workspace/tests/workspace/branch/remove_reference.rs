@@ -14,7 +14,7 @@ use crate::{
 
 #[test]
 fn no_errors_due_to_idempotency_in_empty_workspace() -> anyhow::Result<()> {
-    let (_tmp, graph, repo, mut meta, desc, _db) =
+    let (_tmp, graph, mut repo, mut meta, desc, _db) =
         named_writable_scenario_with_args_and_description_and_graph(
             "single-branch-no-ws-commit-no-target",
             ["A", "B"],
@@ -49,7 +49,7 @@ Single commit, no main remote/target, no ws commit, but ws-reference
         assert!(
             but_workspace::branch::remove_reference(
                 Category::LocalBranch.to_full_name(name)?.as_ref(),
-                &repo,
+                &mut repo,
                 &ws,
                 &mut meta,
                 remove_reference::Options {
@@ -63,7 +63,7 @@ Single commit, no main remote/target, no ws commit, but ws-reference
         assert!(
             but_workspace::branch::remove_reference(
                 Category::LocalBranch.to_full_name(name)?.as_ref(),
-                &repo,
+                &mut repo,
                 &ws,
                 &mut meta,
                 remove_reference::Options {
@@ -97,7 +97,7 @@ Single commit, no main remote/target, no ws commit, but ws-reference
 
 #[test]
 fn journey_single_branch_no_ws_commit_no_target() -> anyhow::Result<()> {
-    let (_tmp, graph, repo, mut meta, desc, _db) =
+    let (_tmp, graph, mut repo, mut meta, desc, _db) =
         named_writable_scenario_with_description_and_graph(
             "single-branch-3-commits-no-ws-commit-more-branches",
             |meta| {
@@ -140,7 +140,7 @@ Single commit, target, no ws commit, but ws-reference and a named segment, and b
         let r = Category::LocalBranch.to_full_name(name)?;
         ws = but_workspace::branch::remove_reference(
             r.as_ref(),
-            &repo,
+            &mut repo,
             &ws,
             &mut meta,
             remove_reference::Options {
@@ -170,7 +170,7 @@ Single commit, target, no ws commit, but ws-reference and a named segment, and b
 
 #[test]
 fn journey_single_branch_ws_commit_no_target() -> anyhow::Result<()> {
-    let (_tmp, graph, repo, mut meta, desc, _db) =
+    let (_tmp, graph, mut repo, mut meta, desc, _db) =
         named_writable_scenario_with_description_and_graph(
             "single-branch-4-commits-more-branches",
             |meta| {
@@ -226,7 +226,7 @@ Two commits in main, target setup, ws commit, many more usable branches
         let r = Category::LocalBranch.to_full_name(name)?;
         ws = but_workspace::branch::remove_reference(
             r.as_ref(),
-            &repo,
+            &mut repo,
             &ws,
             &mut meta,
             remove_reference::Options {
@@ -255,7 +255,7 @@ Two commits in main, target setup, ws commit, many more usable branches
         let r = Category::LocalBranch.to_full_name(name)?;
         ws = but_workspace::branch::remove_reference(
             r.as_ref(),
-            &repo,
+            &mut repo,
             &ws,
             &mut meta,
             remove_reference::Options {
@@ -280,7 +280,7 @@ Two commits in main, target setup, ws commit, many more usable branches
 
     let err = but_workspace::branch::remove_reference(
         r("refs/heads/A1-3"),
-        &repo,
+        &mut repo,
         &ws,
         &mut meta,
         remove_reference::Options {
@@ -300,7 +300,7 @@ Two commits in main, target setup, ws commit, many more usable branches
 
 #[test]
 fn journey_no_ws_commit_no_target() -> anyhow::Result<()> {
-    let (_tmp, graph, repo, mut meta, desc, _db) =
+    let (_tmp, graph, mut repo, mut meta, desc, _db) =
         named_writable_scenario_with_args_and_description_and_graph(
             "single-branch-no-ws-commit-no-target",
             ["A", "B", "C", "D", "E"],
@@ -340,10 +340,14 @@ Single commit, no main remote/target, no ws commit, but ws-reference
 "#]]
     );
 
+    but_core::git_config::edit_repo_config(&repo, gix::config::Source::Local, |config| {
+        but_core::git_config::set_config_value(config, "branch.A.remote", "origin")
+    })?;
+
     let ref_name = r("refs/heads/A");
     let ws = but_workspace::branch::remove_reference(
         ref_name,
-        &repo,
+        &mut repo,
         &ws,
         &mut meta,
         remove_reference::Options {
@@ -352,6 +356,12 @@ Single commit, no main remote/target, no ws commit, but ws-reference
         },
     )?
     .expect("we deleted something");
+    assert!(
+        but_core::git_config::open_repo_local_config_for_reading(&repo)?
+            .string("branch.A.remote")
+            .is_none(),
+        "deleting a local branch removes its local branch configuration"
+    );
 
     snapbox::assert_data_eq!(
         graph_workspace(&ws).to_string(),
@@ -367,7 +377,7 @@ Single commit, no main remote/target, no ws commit, but ws-reference
 "#]]
     );
 
-    let main_id = repo.head_id()?;
+    let main_id = repo.head_id()?.detach();
     repo.reference(
         ref_name,
         main_id,
@@ -393,7 +403,7 @@ Single commit, no main remote/target, no ws commit, but ws-reference
 
     let mut ws = but_workspace::branch::remove_reference(
         ref_name,
-        &repo,
+        &mut repo,
         &ws,
         &mut meta,
         remove_reference::Options::default(),
@@ -424,7 +434,7 @@ Single commit, no main remote/target, no ws commit, but ws-reference
     assert!(
         but_workspace::branch::remove_reference(
             ref_name,
-            &repo,
+            &mut repo,
             &ws,
             &mut meta,
             remove_reference::Options::default(),
@@ -441,7 +451,7 @@ Single commit, no main remote/target, no ws commit, but ws-reference
         let r = Category::LocalBranch.to_full_name(name)?;
         ws = but_workspace::branch::remove_reference(
             r.as_ref(),
-            &repo,
+            &mut repo,
             &ws,
             &mut meta,
             remove_reference::Options {

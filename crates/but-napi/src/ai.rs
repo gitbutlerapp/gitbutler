@@ -22,7 +22,7 @@ pub async fn stream_ai_response(
     on_token: ThreadsafeFunction<String, ()>,
 ) -> napi::Result<String> {
     let response = tokio::task::spawn_blocking(move || -> Result<String> {
-        let config = gix::config::File::from_globals()?;
+        let config = gix::config(None, &gix::open::Options::default())?;
         let provider = LLMProvider::from_git_config(&config)
             .context("AI provider is not completely configured")?;
         let model = provider.model_or_default();

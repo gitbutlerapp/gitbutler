@@ -547,19 +547,20 @@ impl Context {
 /// Trampolines that create new uncached instances of major types.
 impl Context {
     /// Create a cached workspace as seen from the current HEAD for editing, and return it,
-    /// along with `(&repo, &mut ws, &mut db)`.
-    /// `perm` ensures exclusive process-wide access to the repository.
+    /// along with `(guard, &mut repo, &mut ws, &mut db)`.
+    /// The guard ensures exclusive process-wide access to the repository.
     /// Once the repository is changed, the cached workspace should be updated.
     ///
     /// # IMPORTANT
     /// * if the workspace was changed, write the new workspace back into `&mut ws`.
+    /// * Keep the guard alive like `let (_guard, …) = …`!
     #[instrument(name = "Context::workspace_mut_and_db_mut", level = "debug", skip_all)]
     #[expect(clippy::type_complexity)]
     pub fn workspace_mut_and_db_mut(
         &mut self,
     ) -> anyhow::Result<(
         RepoExclusiveGuard,
-        cell::Ref<'_, gix::Repository>,
+        cell::RefMut<'_, gix::Repository>,
         cell::RefMut<'_, but_graph::Workspace>,
         cell::RefMut<'_, but_db::DbHandle>,
     )> {
@@ -569,13 +570,12 @@ impl Context {
     }
 
     /// Create a cached workspace as seen from the current HEAD for editing, and return it,
-    /// along with `(&repo, &mut ws, &mut db)`.
+    /// along with `(&mut repo, &mut ws, &mut db)`.
     /// `perm` ensures exclusive process-wide access to the repository.
     /// Once the repository is changed, the cached workspace should be updated.
     ///
     /// # IMPORTANT
     /// * if the workspace was changed, write it back into `&mut ws`.
-    /// * Keep the guard alive like `let (_guard, …) = …`!
     #[instrument(
         name = "Context::workspace_mut_and_db_mut_with_perm",
         level = "debug",
@@ -585,16 +585,14 @@ impl Context {
         &mut self,
         _perm: &mut RepoExclusive,
     ) -> anyhow::Result<(
-        cell::Ref<'_, gix::Repository>,
+        cell::RefMut<'_, gix::Repository>,
         cell::RefMut<'_, but_graph::Workspace>,
         cell::RefMut<'_, but_db::DbHandle>,
     )> {
-        let repo = self.repo.get()?;
         if let Ok(cached) =
             cell::RefMut::filter_map(self.workspace.try_borrow_mut()?, |opt| opt.as_mut())
         {
-            let db = self.db.get_cache_mut()?;
-            return Ok((repo, cached, db));
+            return Ok((self.repo.get_mut()?, cached, self.db.get_cache_mut()?));
         }
         let ws = self.workspace_from_head()?;
         {
@@ -603,17 +601,15 @@ impl Context {
         }
         let ws = cell::RefMut::filter_map(self.workspace.borrow_mut(), |opt| opt.as_mut())
             .unwrap_or_else(|_| unreachable!("just set the value"));
-        let db = self.db.get_cache_mut()?;
-        Ok((repo, ws, db))
+        Ok((self.repo.get_mut()?, ws, self.db.get_cache_mut()?))
     }
 
     /// Create a new cached workspace as seen from the current HEAD for *reading* and return it,
-    /// along with `(guard, &repo, &mut ws, &mut db)`.
+    /// along with `(guard, &repo, &ws, &mut db)`.
     /// The `db` is writable as this is more useful and naturally synced.
     /// The guard is for shared access to the repository.
     ///
     /// # IMPORTANT
-    /// * if the workspace was changed, write it back into `&mut ws`.
     /// * Keep the guard alive like `let (_guard, …) = …`!
     #[instrument(name = "Context::workspace_and_db_mut", level = "debug", skip_all)]
     #[expect(clippy::type_complexity)]
@@ -631,13 +627,8 @@ impl Context {
     }
 
     /// Create a new cached workspace as seen from the current HEAD for *reading* and return it,
-    /// along with `(&repo, &mut ws, &mut db)`, given a read-`perm`ission.
+    /// along with `(&repo, &ws, &mut db)`, given a read-`perm`ission.
     /// The `db` is writable as this is more useful and naturally synced.
-    /// The guard is for shared access to the repository.
-    ///
-    /// # IMPORTANT
-    /// * if the workspace was changed, write it back into `&mut ws`.
-    /// * Keep the guard alive like `let (_guard, …) = …`!
     #[instrument(
         name = "Context::workspace_and_db_mut_with_perm",
         level = "debug",
@@ -666,7 +657,7 @@ impl Context {
     }
 
     /// Create a new cached workspace as seen from the current HEAD for *writing* and return it,
-    /// along with `(guard, &repo, &mut ws, &db)`.
+    /// along with `(guard, &mut repo, &mut ws, &db)`.
     /// The `db` is read-only.
     /// The guard is for exclusive access to the repository.
     ///
@@ -679,7 +670,7 @@ impl Context {
         &mut self,
     ) -> anyhow::Result<(
         RepoExclusiveGuard,
-        cell::Ref<'_, gix::Repository>,
+        cell::RefMut<'_, gix::Repository>,
         cell::RefMut<'_, but_graph::Workspace>,
         cell::Ref<'_, but_db::DbHandle>,
     )> {
@@ -688,8 +679,8 @@ impl Context {
         Ok((guard, repo, ws, db))
     }
 
-    /// Create a new cached workspace as seen from the current HEAD for *reading* and return it,
-    /// along with `(&repo, &mut ws, &db)`, given a read-`perm`ission.
+    /// Create a new cached workspace as seen from the current HEAD for *writing* and return it,
+    /// along with `(&mut repo, &mut ws, &db)`, given a write-`perm`ission.
     /// The `db` is read-only.
     ///
     /// # IMPORTANT
@@ -700,17 +691,17 @@ impl Context {
         skip_all
     )]
     pub fn workspace_mut_and_db_with_perm(
-        &self,
+        &mut self,
         _perm: &RepoExclusive,
     ) -> anyhow::Result<(
-        cell::Ref<'_, gix::Repository>,
+        cell::RefMut<'_, gix::Repository>,
         cell::RefMut<'_, but_graph::Workspace>,
         cell::Ref<'_, but_db::DbHandle>,
     )> {
         if let Ok(cached) =
             cell::RefMut::filter_map(self.workspace.try_borrow_mut()?, |opt| opt.as_mut())
         {
-            return Ok((self.repo.get()?, cached, self.db.get_cache()?));
+            return Ok((self.repo.get_mut()?, cached, self.db.get_cache()?));
         }
         let ws = self.workspace_from_head()?;
         {
@@ -719,7 +710,7 @@ impl Context {
         }
         let ws = cell::RefMut::filter_map(self.workspace.borrow_mut(), |opt| opt.as_mut())
             .unwrap_or_else(|_| unreachable!("just set the value"));
-        Ok((self.repo.get()?, ws, self.db.get_cache()?))
+        Ok((self.repo.get_mut()?, ws, self.db.get_cache()?))
     }
 
     /// Create a new cached workspace as seen from the current HEAD for *reading* and return it,

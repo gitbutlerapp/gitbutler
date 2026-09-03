@@ -71,6 +71,37 @@ value=foo #value comment
             );
             Ok(())
         }
+
+        #[test]
+        fn does_not_truncate_a_locked_config() -> anyhow::Result<()> {
+            let (mut repo, _tmp, _meta, _db) = fixture_writable("four-commits")?;
+            repo.config_snapshot_mut()
+                .set_raw_value(gix::config::tree::Core::CONFIG_LOCK_TIMEOUT, "0")?;
+            let config_path = repo.path().join("config");
+            let original = br#"# keep this configuration intact
+[special]
+value = original
+"#;
+            std::fs::write(&config_path, original)?;
+            let lock_path = repo.path().join("config.lock");
+            std::fs::write(&lock_path, b"held")?;
+
+            let result = commit::save_author_if_unset_in_repo(
+                &repo,
+                gix::config::Source::Local,
+                "user",
+                "email",
+            );
+            std::fs::remove_file(lock_path)?;
+
+            result.expect_err("the existing config lock must prevent the write");
+            assert_eq!(
+                std::fs::read(config_path)?,
+                original,
+                "a failed transaction leaves the existing configuration untouched"
+            );
+            Ok(())
+        }
     }
 }
 

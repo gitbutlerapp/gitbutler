@@ -1,21 +1,25 @@
 //! Shared helpers for editing Git configuration files.
 
-use anyhow::Result;
-use but_core::git_config::edit_repo_config;
+use anyhow::{Context as _, Result};
+use but_core::git_config::{edit_config, edit_repo_config};
 
 boolean_enums::gen_boolean_enum!(pub EditGlobalConfig);
 
 /// `edit` either the `repo`-local or user-global Git config, depending on `global`.
 /// It compares the edited config to its previous value to determine whether to persist it.
+/// A repository is required only for local edits.
 pub(crate) fn edit_git_config(
-    repo: &gix::Repository,
+    repo: Option<&gix::Repository>,
     global: EditGlobalConfig,
     edit: impl FnOnce(&mut gix::config::File) -> Result<()>,
 ) -> Result<bool> {
-    let source = if global.into() {
-        gix::config::Source::User
+    if global.into() {
+        edit_config(None, gix::config::Source::User, edit)
     } else {
-        gix::config::Source::Local
-    };
-    edit_repo_config(repo, source, edit)
+        edit_repo_config(
+            repo.context("Local Git configuration requires a git repository")?,
+            gix::config::Source::Local,
+            edit,
+        )
+    }
 }

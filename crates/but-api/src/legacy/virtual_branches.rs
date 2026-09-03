@@ -108,7 +108,7 @@ pub fn delete_local_branch(
     let branch_refname = local_branch_refname(refname, &given_name)?;
     let mut guard = ctx.exclusive_worktree_access();
     let mut meta = ctx.legacy_meta_mut(guard.write_permission())?;
-    let (repo, mut ws, _) = ctx.workspace_mut_and_db_with_perm(guard.write_permission())?;
+    let (mut repo, mut ws, _) = ctx.workspace_mut_and_db_with_perm(guard.write_permission())?;
 
     if ws
         .metadata
@@ -123,7 +123,7 @@ pub fn delete_local_branch(
 
     if let Some(new_ws) = but_workspace::branch::remove_reference(
         branch_refname.as_ref(),
-        &repo,
+        &mut repo,
         &ws,
         &mut meta,
         but_workspace::branch::remove_reference::Options {
@@ -133,15 +133,10 @@ pub fn delete_local_branch(
     )? {
         *ws = new_ws;
     } else {
-        if let Some(reference) = repo.try_find_reference(branch_refname.as_ref())? {
-            let safe_delete = but_core::branch::SafeDelete::new(&repo)?;
-            let outcome = safe_delete.delete_reference(&reference)?;
-            if let Some(paths) = outcome.checked_out_in_worktree_dirs {
-                bail_precondition!(
-                    "Refusing to delete a branch that is checked out. Worktrees are: {paths:?}"
-                );
-            }
-        }
+        but_workspace::branch::remove_reference::delete_local_branch(
+            &mut repo,
+            branch_refname.as_ref(),
+        )?;
         meta.remove(branch_refname.as_ref())?;
         if let Some(metadata) = &mut ws.metadata {
             metadata.remove_segment(branch_refname.as_ref());
@@ -561,9 +556,10 @@ fn unapply_stack_v3_with_perm(
 
     commit_assigned_diffspec(ctx, branch_to_unapply.as_ref(), assigned_diffspec, perm)?;
 
+    let single_branch = ctx.settings.feature_flags.single_branch;
     let mut meta = ctx.legacy_meta_mut(perm)?;
     let (repo, mut ws, _) = ctx.workspace_mut_and_db_with_perm(perm)?;
-    let workspace_disposition = if ctx.settings.feature_flags.single_branch {
+    let workspace_disposition = if single_branch {
         WorkspaceDisposition::PreventUnnecessaryWorkspaceReferencesKeepWorkspaceCommit
     } else {
         WorkspaceDisposition::KeepWorkspaceCommit

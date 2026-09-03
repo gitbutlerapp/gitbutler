@@ -437,11 +437,10 @@ fn ensure_review_remote(
 fn find_remote_by_url(repo: &gix::Repository, remote_url: &str) -> Result<Option<String>> {
     for name in repo.remote_names().iter() {
         let remote = repo.find_remote(name)?;
-        let Some(url) = remote.url(gix::remote::Direction::Fetch) else {
-            continue;
-        };
-        let configured = url.to_bstring().to_str_lossy().into_owned();
-        if remote_urls_match(&configured, remote_url) {
+        if remote
+            .urls(gix::remote::Direction::Fetch)
+            .any(|url| remote_urls_match(url.to_bstring().to_str_lossy().as_ref(), remote_url))
+        {
             return Ok(Some(name.to_string()));
         }
     }
@@ -711,6 +710,32 @@ mod tests {
             find_remote_by_url(&repo, "/tmp/alice/widgets.git")?,
             Some("alice".to_string()),
             "existing exact-url fork remotes should be reused"
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn review_remote_reuses_matching_secondary_url() -> Result<()> {
+        let tmp = tempfile::tempdir()?;
+        git_at_dir(tmp.path()).args(["init"]).run();
+        git_at_dir(tmp.path())
+            .args(["remote", "add", "alice", "/tmp/alice/primary.git"])
+            .run();
+        git_at_dir(tmp.path())
+            .args([
+                "remote",
+                "set-url",
+                "--add",
+                "alice",
+                "/tmp/alice/widgets.git",
+            ])
+            .run();
+        let repo = open_repo(tmp.path())?;
+
+        assert_eq!(
+            find_remote_by_url(&repo, "/tmp/alice/widgets.git")?,
+            Some("alice".to_string()),
+            "all configured fetch URLs should identify an existing review remote"
         );
         Ok(())
     }

@@ -721,7 +721,7 @@ mod behind_count {
             "branch C must be applied for the multi-stack behind-count scenario"
         );
         *workspace = outcome.workspace;
-        drop(workspace);
+        drop((repo, workspace));
         drop(guard);
 
         // Stack A is farthest behind (3 commits behind origin/master).

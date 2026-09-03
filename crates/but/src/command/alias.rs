@@ -15,36 +15,22 @@ use crate::{
     utils::OutputChannel,
 };
 
-/// Represents where an alias is configured
-#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
-#[serde(rename_all = "lowercase")]
-pub enum AliasScope {
-    Local,
-    Global,
-    Both,
-}
-
-impl std::fmt::Display for AliasScope {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            AliasScope::Local => write!(f, "local"),
-            AliasScope::Global => write!(f, "global"),
-            AliasScope::Both => write!(f, "both"),
-        }
-    }
-}
-
-/// An alias entry with its name, value, and scope
+/// An alias entry with its name, effective value, and all contributing scopes.
 #[derive(Debug, Clone, Serialize)]
 pub struct AliasEntry {
     pub name: String,
     pub value: String,
-    pub scope: AliasScope,
+    /// Unique scopes in configuration traversal order; user and XDG config share `global`.
+    pub scopes: Vec<&'static str>,
 }
 
 /// List all configured `but` aliases
-pub fn list(repo: &gix::Repository, out: &mut OutputChannel) -> Result<()> {
-    let user_aliases = get_all_aliases(repo)?;
+pub fn list(ctx: Option<&Context>, out: &mut OutputChannel) -> Result<()> {
+    let repo = ctx.map(|ctx| ctx.repo.get()).transpose()?;
+    let user_aliases = match repo.as_deref() {
+        Some(repo) => get_all_aliases(&repo.config_snapshot()),
+        None => get_all_aliases(&gix::config(None, &gix::open::Options::default())?),
+    };
 
     // Get default aliases
     let default_aliases = get_default_aliases();
@@ -81,11 +67,7 @@ pub fn list(repo: &gix::Repository, out: &mut OutputChannel) -> Result<()> {
             writeln!(out)?;
 
             for alias in &user_aliases {
-                let scope_indicator = match alias.scope {
-                    AliasScope::Local => t.hint.paint("(local)"),
-                    AliasScope::Global => t.hint.paint("(global)"),
-                    AliasScope::Both => t.hint.paint("(local+global)"),
-                };
+                let scope_indicator = t.hint.paint(format!("({})", alias.scopes.join("+")));
                 writeln!(
                     out,
                     "  {:<width$}  {}  {} {}",
@@ -136,24 +118,13 @@ pub fn list(repo: &gix::Repository, out: &mut OutputChannel) -> Result<()> {
             }
         }
     } else if let Some(out) = out.for_json() {
-        let user_json: Vec<serde_json::Value> = user_aliases
-            .iter()
-            .map(|a| {
-                serde_json::json!({
-                    "name": a.name,
-                    "value": a.value,
-                    "scope": a.scope
-                })
-            })
-            .collect();
-
         let default_json: serde_json::Map<String, serde_json::Value> = default_aliases
             .into_iter()
             .map(|(k, v)| (k, serde_json::Value::String(v)))
             .collect();
 
         out.write_value(serde_json::json!({
-            "user": user_json,
+            "user": user_aliases,
             "default": default_json
         }))?;
     }
@@ -161,12 +132,10 @@ pub fn list(repo: &gix::Repository, out: &mut OutputChannel) -> Result<()> {
     Ok(())
 }
 
-/// Get all user-configured aliases from local and global git config and defaults
-fn get_all_aliases(repo: &gix::Repository) -> Result<Vec<AliasEntry>> {
+/// Get configured aliases from every source, preserving the last value for each name.
+fn get_all_aliases(cfg: &gix::config::File) -> Vec<AliasEntry> {
     // Track aliases by name with their scopes
-    let mut alias_map: HashMap<String, (String, bool, bool)> = HashMap::new(); // name -> (value, is_local, is_global)
-
-    let cfg = repo.config_snapshot();
+    let mut alias_map: HashMap<String, (String, Vec<&'static str>)> = HashMap::new();
 
     for section in cfg.sections() {
         let header = section.header();
@@ -175,13 +144,17 @@ fn get_all_aliases(repo: &gix::Repository) -> Result<Vec<AliasEntry>> {
             continue;
         }
 
-        // Determine if this section is from local or global config
-        let source = section.meta().source;
-        let is_local = matches!(
-            source,
-            gix::config::Source::Local | gix::config::Source::Worktree
-        );
-        let is_global = matches!(source, gix::config::Source::User | gix::config::Source::Git);
+        let scope = match section.meta().source {
+            gix::config::Source::GitInstallation => "git-installation",
+            gix::config::Source::System => "system",
+            gix::config::Source::Git | gix::config::Source::User => "global",
+            gix::config::Source::Local => "local",
+            gix::config::Source::Worktree => "worktree",
+            gix::config::Source::Env => "env",
+            gix::config::Source::Cli => "cli",
+            gix::config::Source::Api => "api",
+            gix::config::Source::EnvOverride => "env-override",
+        };
 
         let subsection = header.subsection_name().map(|s| s.to_str_lossy());
 
@@ -206,35 +179,28 @@ fn get_all_aliases(repo: &gix::Repository) -> Result<Vec<AliasEntry>> {
 
                 alias_map
                     .entry(alias_name)
-                    .and_modify(|(v, local, global)| {
+                    .and_modify(|(v, scopes)| {
                         *v = value.clone(); // Last value wins
-                        if is_local {
-                            *local = true;
-                        }
-                        if is_global {
-                            *global = true;
+                        if !scopes.contains(&scope) {
+                            scopes.push(scope);
                         }
                     })
-                    .or_insert((value, is_local, is_global));
+                    .or_insert((value, vec![scope]));
             }
         }
     }
 
     let mut user_aliases: Vec<AliasEntry> = alias_map
         .into_iter()
-        .map(|(name, (value, is_local, is_global))| {
-            let scope = match (is_local, is_global) {
-                (true, true) => AliasScope::Both,
-                (true, false) => AliasScope::Local,
-                (false, true) => AliasScope::Global,
-                (false, false) => AliasScope::Local, // Shouldn't happen, but default to local
-            };
-            AliasEntry { name, value, scope }
+        .map(|(name, (value, scopes))| AliasEntry {
+            name,
+            value,
+            scopes,
         })
         .collect();
 
     user_aliases.sort_by(|a, b| a.name.cmp(&b.name));
-    Ok(user_aliases)
+    user_aliases
 }
 
 /// Get all default aliases
@@ -244,7 +210,7 @@ fn get_default_aliases() -> Vec<(String, String)> {
 
 /// Add a new alias
 pub fn add(
-    ctx: &mut Context,
+    ctx: Option<&Context>,
     out: &mut OutputChannel,
     name: &str,
     value: &str,
@@ -256,8 +222,8 @@ pub fn add(
     }
 
     let is_global: bool = global.into();
-    let repo = ctx.repo.get()?;
-    edit_git_config(&repo, global, |config| {
+    let repo = ctx.map(|ctx| ctx.repo.get()).transpose()?;
+    edit_git_config(repo.as_deref(), global, |config| {
         set_alias(config, name, value)?;
         Ok(())
     })?;
@@ -288,14 +254,14 @@ pub fn add(
 
 /// Remove an alias
 pub fn remove(
-    ctx: &mut Context,
+    ctx: Option<&Context>,
     out: &mut OutputChannel,
     name: &str,
     global: EditGlobalConfig,
 ) -> Result<()> {
     let is_global: bool = global.into();
-    let repo = ctx.repo.get()?;
-    let success = edit_git_config(&repo, global, |config| {
+    let repo = ctx.map(|ctx| ctx.repo.get()).transpose()?;
+    let success = edit_git_config(repo.as_deref(), global, |config| {
         remove_alias(config, name);
         Ok(())
     })?;
@@ -340,4 +306,48 @@ fn set_alias(config: &mut gix::config::File, name: &str, value: &str) -> Result<
         .set(name, value)
         .with_context(|| format!("invalid alias name for git config: {name}"))?;
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn alias_scopes_preserve_all_sources_and_precedence() -> Result<()> {
+        use gix::config::{File, Source, file::Metadata};
+
+        let mut combined = File::new(Metadata::from(Source::Api));
+        for (source, scope) in [
+            (Source::GitInstallation, "git-installation"),
+            (Source::System, "system"),
+            (Source::Git, "global"),
+            (Source::User, "global"),
+            (Source::Local, "local"),
+            (Source::Worktree, "worktree"),
+            (Source::Env, "env"),
+            (Source::Cli, "cli"),
+            (Source::Api, "api"),
+            (Source::EnvOverride, "env-override"),
+        ] {
+            let mut config = File::new(Metadata::from(source));
+            set_alias(&mut config, "example", scope)?;
+            // Every source is reported accurately even when it is the only source.
+            snapbox::assert_data_eq!(
+                serde_json::to_string(&get_all_aliases(&config))?,
+                serde_json::json!([{"name": "example", "value": scope, "scopes": [scope]}])
+                    .to_string()
+            );
+            combined.append(config)?;
+        }
+        // Repeated scopes are deduplicated, and the last source still supplies the value.
+        snapbox::assert_data_eq!(
+            serde_json::to_string(&get_all_aliases(&combined))?,
+            serde_json::json!([{
+                "name": "example",
+                "value": "env-override",
+                "scopes": ["git-installation", "system", "global", "local", "worktree", "env", "cli", "api", "env-override"]
+            }]).to_string()
+        );
+        Ok(())
+    }
 }

@@ -25,26 +25,32 @@ fn config_path(repo: Option<&gix::Repository>, source: gix::config::Source) -> R
     Ok(path)
 }
 
-/// Open the Git config for `source` for editing, creating it first if needed.
-/// `repo` is used to resolve repo-local paths, depending on `source`.
-/// Return `(config, lock)`.
-/// Write it back with [`write_locked_config()`].
-pub fn open_config_for_editing(
+fn open_config_for_editing(
     repo: Option<&gix::Repository>,
     source: gix::config::Source,
 ) -> Result<(gix::config::File, gix::lock::File)> {
     let path = config_path(repo, source)?;
     std::fs::create_dir_all(path.parent().context("git config path has no parent")?)?;
-    let lock = gix::lock::File::acquire_to_update_resource(
+    let mut lock = gix::lock::File::acquire_to_update_resource_following_symlinks(
         &path,
         gix::lock::acquire::Fail::AfterDurationWithBackoff(std::time::Duration::from_secs(1)),
         None,
     )?;
-    if !path.exists() {
-        std::fs::File::create(&path)?;
-    }
-    let config = gix::config::File::from_path_no_includes(path.clone(), source)
-        .with_context(|| format!("failed to open {source:?} git config at {}", path.display()))?;
+    // TODO(ST): replace this entire function with `gix::config::FileTransaction` once it can be
+    //           created without repository.
+    let path = lock.resource_path().to_owned();
+    let config = match std::fs::metadata(&path) {
+        Ok(meta) => {
+            lock.with_mut(|file| file.set_permissions(meta.permissions()))?;
+            gix::config::File::from_path_no_includes(path.clone(), source).with_context(|| {
+                format!("failed to open {source:?} git config at {}", path.display())
+            })?
+        }
+        Err(err) if err.kind() == std::io::ErrorKind::NotFound => {
+            gix::config::File::new(gix::config::file::Metadata::from(source).at(path))
+        }
+        Err(err) => return Err(err.into()),
+    };
     Ok((config, lock))
 }
 
@@ -65,22 +71,7 @@ pub fn open_repo_local_config_for_reading(repo: &gix::Repository) -> Result<gix:
         .with_context(|| format!("failed to open {source:?} git config at {}", path.display()))
 }
 
-/// Open the user-global Git config for reading without acquiring a write lock.
-///
-/// If the config file doesn't exist yet, an empty in-memory config is returned.
-pub fn open_global_config_for_reading() -> Result<gix::config::File> {
-    let path = config_path(None, gix::config::Source::User)?;
-    if !path.exists() {
-        return Ok(gix::config::File::new(gix::config::file::Metadata::from(
-            gix::config::Source::User,
-        )));
-    }
-    gix::config::File::from_path_no_includes(path.clone(), gix::config::Source::User)
-        .with_context(|| format!("failed to open User git config at {}", path.display()))
-}
-
-/// Serialize a Git `config` file back to disk at `lock`.
-pub fn write_locked_config(config: &gix::config::File, mut lock: gix::lock::File) -> Result<()> {
+fn commit_standalone_config(config: &gix::config::File, mut lock: gix::lock::File) -> Result<()> {
     let path = lock.resource_path();
     config
         .write_to(&mut lock)
@@ -96,6 +87,12 @@ pub fn write_locked_config(config: &gix::config::File, mut lock: gix::lock::File
 /// Open the Git config for `source` using `repo` when needed, let `edit` mutate it, and
 /// write it back if the edited configuration differs from its original state.
 /// Return `true` if the file changed and was written, `false` otherwise.
+///
+/// `repo` supplies the base directory when `source` resolves to a relative path, including
+/// relative paths from environment overrides. Local config is resolved against `repo.common_dir()`;
+/// worktree config and other relative paths are resolved against `repo.git_dir()`.
+/// Pass `None` when the configuration path is absolute, as is usual for user-global config.
+/// A relative path with `repo: None` is an error. Editing does not refresh `repo`'s cached configuration.
 pub fn edit_config(
     repo: Option<&gix::Repository>,
     source: gix::config::Source,
@@ -106,7 +103,7 @@ pub fn edit_config(
     edit(&mut config)?;
     let changed = config.to_bstring() != previous_contents;
     if changed {
-        write_locked_config(&config, lock)?;
+        commit_standalone_config(&config, lock)?;
     }
     Ok(changed)
 }

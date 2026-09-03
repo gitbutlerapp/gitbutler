@@ -29,7 +29,7 @@ export declare function absorptionPlan(projectId: string, target: AbsorptionTarg
 /**
  * Add the caller's reaction to one comment.
  *
- * {@link ../../../../../crates/but-api/src/legacy/forge.rs:863}
+ * {@link ../../../../../crates/but-api/src/legacy/forge.rs:888}
  */
 export declare function addCommentReaction(projectId: string, commentId: number, kind: string): Promise<ForgeReviewReaction>
 
@@ -44,14 +44,14 @@ export declare function addProject(path: string): Promise<AddProjectOutcome>
 /**
  * Add labels to a review; returns the resulting label set.
  *
- * {@link ../../../../../crates/but-api/src/legacy/forge.rs:991}
+ * {@link ../../../../../crates/but-api/src/legacy/forge.rs:1016}
  */
 export declare function addReviewLabels(projectId: string, reviewId: number, labels: Array<string>): Promise<Array<ForgeReviewLabel>>
 
 /**
  * Add the caller's reaction to a review itself.
  *
- * {@link ../../../../../crates/but-api/src/legacy/forge.rs:825}
+ * {@link ../../../../../crates/but-api/src/legacy/forge.rs:850}
  */
 export declare function addReviewReaction(projectId: string, reviewId: number, kind: string): Promise<ForgeReviewReaction>
 
@@ -135,7 +135,7 @@ export declare function apply(projectId: string, existingBranch: string): Promis
  * `dry_run` is enabled, the returned workspace previews the integration
  * result and no oplog entry is persisted.
  *
- * {@link ../../../../../crates/but-api/src/branch.rs:1822}
+ * {@link ../../../../../crates/but-api/src/branch.rs:1814}
  */
 export declare function applyBranchIntegration(projectId: string, branch: string, integration: InteractiveIntegration, dryRun: boolean): Promise<IntegrateBranchResult>
 
@@ -174,7 +174,7 @@ export declare function branchCannedName(projectId: string): Promise<string>
  * symbolically at `branch`. The branch must be an existing full local branch
  * name under `refs/heads/`.
  *
- * {@link ../../../../../crates/but-api/src/branch.rs:1523}
+ * {@link ../../../../../crates/but-api/src/branch.rs:1515}
  */
 export declare function branchCheckout(projectId: string, branch: FullNameBytes): Promise<BranchCheckoutResult>
 
@@ -186,7 +186,7 @@ export declare function branchCheckout(projectId: string, branch: FullNameBytes)
  * before creating `refs/heads/<name>`. If omitted, a unique canned branch name
  * is generated. The resulting branch must not already exist.
  *
- * {@link ../../../../../crates/but-api/src/branch.rs:1539}
+ * {@link ../../../../../crates/but-api/src/branch.rs:1531}
  */
 export declare function branchCheckoutNew(projectId: string, name: string | null): Promise<BranchCheckoutResult>
 
@@ -215,7 +215,7 @@ export declare function branchDetails(projectId: string, branchName: string, rem
  * diff is computed against the current workspace state. For lower-level
  * implementation details, see [`but_workspace::ui::diff::changes_in_branch()`].
  *
- * {@link ../../../../../crates/but-api/src/branch.rs:1719}
+ * {@link ../../../../../crates/but-api/src/branch.rs:1711}
  */
 export declare function branchDiff(projectId: string, branch: string): Promise<TreeChanges>
 
@@ -248,7 +248,7 @@ export declare function branchLand(projectId: string, branch: string, noFf: bool
  * workspace-related ones. Ahead-counts are relative to the
  * project's configured target branch, which clients know from the project APIs.
  *
- * {@link ../../../../../crates/but-api/src/branch.rs:1736}
+ * {@link ../../../../../crates/but-api/src/branch.rs:1728}
  */
 export declare function branchList(projectId: string): Promise<Array<ListedStack>>
 
@@ -281,7 +281,7 @@ export declare function branchRemove(projectId: string, refName: FullNameBytes):
  * It requires no stack id and works in both managed and ad-hoc/single-branch
  * workspaces.
  *
- * {@link ../../../../../crates/but-api/src/branch.rs:1222}
+ * {@link ../../../../../crates/but-api/src/branch.rs:1214}
  */
 export declare function branchRename(projectId: string, refName: FullNameBytes, newName: string): Promise<BranchRenameResult>
 
@@ -577,14 +577,14 @@ export declare function commitUncommitChangesFromCommits(projectId: string, sour
 /**
  * Post a top-level conversation comment on a review.
  *
- * {@link ../../../../../crates/but-api/src/legacy/forge.rs:1077}
+ * {@link ../../../../../crates/but-api/src/legacy/forge.rs:1102}
  */
 export declare function createReviewComment(projectId: string, reviewId: number, body: string): Promise<ForgeReviewComment>
 
 /**
  * Reply into one of a review's diff-anchored comment threads.
  *
- * {@link ../../../../../crates/but-api/src/legacy/forge.rs:777}
+ * {@link ../../../../../crates/but-api/src/legacy/forge.rs:802}
  */
 export declare function createReviewThreadReply(projectId: string, threadId: string, body: string): Promise<ForgeReviewThreadComment>
 
@@ -592,12 +592,12 @@ export declare function createReviewThreadReply(projectId: string, threadId: str
  * The login this project's forge calls authenticate as, if any account is
  * configured. Resolved from stored accounts; no network.
  *
- * {@link ../../../../../crates/but-api/src/legacy/forge.rs:964}
+ * {@link ../../../../../crates/but-api/src/legacy/forge.rs:989}
  */
 export declare function currentForgeLogin(projectId: string): Promise<string | null>
 
 /**
- * {@link ../../../../../crates/but-api/src/legacy/git.rs:68}
+ * {@link ../../../../../crates/but-api/src/legacy/git.rs:66}
  */
 export declare function deleteAllData(): Promise<void>
 
@@ -609,7 +609,7 @@ export declare function deleteProject(projectId: ProjectHandleOrLegacyProjectId)
 /**
  * Delete a top-level conversation comment on a review.
  *
- * {@link ../../../../../crates/but-api/src/legacy/forge.rs:949}
+ * {@link ../../../../../crates/but-api/src/legacy/forge.rs:974}
  */
 export declare function deleteReviewComment(projectId: string, commentId: number): Promise<void>
 
@@ -817,7 +817,7 @@ export declare function getGlUser(account: GitlabAccountIdentifier): Promise<Git
 /**
  * Get the initial upstream integration script for `branch`.
  *
- * {@link ../../../../../crates/but-api/src/branch.rs:1798}
+ * {@link ../../../../../crates/but-api/src/branch.rs:1790}
  */
 export declare function getInitialBranchIntegration(projectId: string, branch: string, strategy: BranchIntegrationStrategy | null): Promise<InitialBranchIntegration>
 
@@ -836,22 +836,22 @@ export declare function getLoginToken(): Promise<LoginToken>
 export declare function getRedoTargetSnapshot(projectId: string): Promise<Snapshot | null>
 
 /**
- * {@link ../../../../../crates/but-api/src/legacy/forge.rs:1132}
+ * {@link ../../../../../crates/but-api/src/legacy/forge.rs:1157}
  */
 export declare function getRepoInfo(projectId: string): Promise<RepoInfo>
 
 /**
- * {@link ../../../../../crates/but-api/src/legacy/forge.rs:1106}
+ * {@link ../../../../../crates/but-api/src/legacy/forge.rs:1131}
  */
 export declare function getReview(projectId: string, reviewId: number): Promise<ForgeReview>
 
 /**
- * {@link ../../../../../crates/but-api/src/legacy/forge.rs:736}
+ * {@link ../../../../../crates/but-api/src/legacy/forge.rs:761}
  */
 export declare function getReviewBaseRepoUrl(projectId: string, reviewId: number): Promise<string | null>
 
 /**
- * {@link ../../../../../crates/but-api/src/legacy/forge.rs:1095}
+ * {@link ../../../../../crates/but-api/src/legacy/forge.rs:1120}
  */
 export declare function getReviewMergeStatus(projectId: string, reviewId: number): Promise<ReviewMergeStatus>
 
@@ -902,12 +902,12 @@ export declare function getWorkspace(projectId: string): Promise<DetailedGraphWo
 export declare function getWorkspaceFile(projectId: string, relativePath: string): Promise<FileInfo>
 
 /**
- * {@link ../../../../../crates/but-api/src/legacy/git.rs:41}
+ * {@link ../../../../../crates/but-api/src/legacy/git.rs:39}
  */
 export declare function gitTestFetch(projectId: string, remoteName: string, action: string | null): Promise<void>
 
 /**
- * {@link ../../../../../crates/but-api/src/legacy/git.rs:30}
+ * {@link ../../../../../crates/but-api/src/legacy/git.rs:28}
  */
 export declare function gitTestPush(projectId: string, remoteName: string, branchName: string): Promise<void>
 
@@ -954,19 +954,19 @@ export declare function initGithubDeviceOauth(): Promise<Verification>
 export declare function listAvailableReviewTemplates(projectId: string): Promise<Array<string>>
 
 /**
- * {@link ../../../../../crates/but-api/src/legacy/virtual_branches.rs:682}
+ * {@link ../../../../../crates/but-api/src/legacy/virtual_branches.rs:678}
  */
 export declare function listBranches(projectId: string, filter: BranchListingFilter | null): Promise<Array<BranchListing>>
 
 /**
- * {@link ../../../../../crates/but-api/src/legacy/forge.rs:1155}
+ * {@link ../../../../../crates/but-api/src/legacy/forge.rs:1180}
  */
 export declare function listCiChecks(projectId: string, reference: string, cacheConfig: CacheConfig | null): Promise<Array<CiCheck>>
 
 /**
  * List the individual reactions (with who reacted) on one comment.
  *
- * {@link ../../../../../crates/but-api/src/legacy/forge.rs:808}
+ * {@link ../../../../../crates/but-api/src/legacy/forge.rs:833}
  */
 export declare function listCommentReactions(projectId: string, commentId: number): Promise<Array<ForgeReviewReaction>>
 
@@ -1034,28 +1034,28 @@ export declare function listProjectsStateless(): Promise<Array<ProjectForFronten
 /**
  * List the labels defined on the repository backing this project's reviews.
  *
- * {@link ../../../../../crates/but-api/src/legacy/forge.rs:983}
+ * {@link ../../../../../crates/but-api/src/legacy/forge.rs:1008}
  */
 export declare function listRepoLabels(projectId: string): Promise<Array<ForgeReviewLabel>>
 
 /**
  * List the top-level conversation comments on a review, oldest first.
  *
- * {@link ../../../../../crates/but-api/src/legacy/forge.rs:753}
+ * {@link ../../../../../crates/but-api/src/legacy/forge.rs:778}
  */
 export declare function listReviewComments(projectId: string, reviewId: number): Promise<Array<ForgeReviewComment>>
 
 /**
  * List users who can be requested to review on this project's repository.
  *
- * {@link ../../../../../crates/but-api/src/legacy/forge.rs:1029}
+ * {@link ../../../../../crates/but-api/src/legacy/forge.rs:1054}
  */
 export declare function listReviewerCandidates(projectId: string): Promise<Array<ForgeReviewUser>>
 
 /**
  * List the individual reactions (with who reacted) on a review itself.
  *
- * {@link ../../../../../crates/but-api/src/legacy/forge.rs:796}
+ * {@link ../../../../../crates/but-api/src/legacy/forge.rs:821}
  */
 export declare function listReviewReactions(projectId: string, reviewId: number): Promise<Array<ForgeReviewReaction>>
 
@@ -1065,28 +1065,28 @@ export declare function listReviewReactions(projectId: string, reviewId: number)
 export declare function listReviews(projectId: string, cacheConfig: CacheConfig | null): Promise<Array<ForgeReview>>
 
 /**
- * {@link ../../../../../crates/but-api/src/legacy/forge.rs:2140}
+ * {@link ../../../../../crates/but-api/src/legacy/forge.rs:2165}
  */
 export declare function listReviewsForBranch(projectId: string, branch: string, filter: ForgeReviewFilter | null): Promise<Array<ForgeReview>>
 
 /**
  * List the submitted reviews (approvals, change requests) on a review.
  *
- * {@link ../../../../../crates/but-api/src/legacy/forge.rs:918}
+ * {@link ../../../../../crates/but-api/src/legacy/forge.rs:943}
  */
 export declare function listReviewSubmissions(projectId: string, reviewId: number): Promise<Array<ForgeReviewSubmission>>
 
 /**
  * List the diff-anchored comment threads on a review, oldest first.
  *
- * {@link ../../../../../crates/but-api/src/legacy/forge.rs:765}
+ * {@link ../../../../../crates/but-api/src/legacy/forge.rs:790}
  */
 export declare function listReviewThreads(projectId: string, reviewId: number): Promise<Array<ForgeReviewThread>>
 
 /**
  * List the pushed commits and review requests on a review's timeline.
  *
- * {@link ../../../../../crates/but-api/src/legacy/forge.rs:901}
+ * {@link ../../../../../crates/but-api/src/legacy/forge.rs:926}
  */
 export declare function listReviewTimelineEvents(projectId: string, reviewId: number): Promise<Array<ForgeReviewTimelineEvent>>
 
@@ -1119,7 +1119,7 @@ export declare function loginAndPersist(token: string): Promise<UserProfile>
 /**
  * Merge a review on the forge.
  *
- * {@link ../../../../../crates/but-api/src/legacy/forge.rs:1314}
+ * {@link ../../../../../crates/but-api/src/legacy/forge.rs:1339}
  */
 export declare function mergeReview(projectId: string, reviewId: number, mergeMethod: ReviewMergeMethod | null): Promise<void>
 
@@ -1131,7 +1131,7 @@ export declare function mergeReview(projectId: string, reviewId: number, mergeMe
  * `dry_run` is enabled, the returned workspace previews the move and no oplog
  * entry is persisted.
  *
- * {@link ../../../../../crates/but-api/src/branch.rs:1879}
+ * {@link ../../../../../crates/but-api/src/branch.rs:1871}
  */
 export declare function moveBranch(projectId: string, subjectBranch: string, targetBranch: string, dryRun: boolean): Promise<MoveBranchResult>
 
@@ -1244,7 +1244,7 @@ export declare const enum ProgramCategory {
 }
 
 /**
- * {@link ../../../../../crates/but-api/src/legacy/forge.rs:1193}
+ * {@link ../../../../../crates/but-api/src/legacy/forge.rs:1218}
  */
 export declare function publishReview(projectId: string, params: PublishReviewInput): Promise<PublishReviewOutcome>
 
@@ -1264,28 +1264,28 @@ export declare function removeBranch(projectId: string, stackId: string, branchN
 /**
  * Remove one of the caller's reactions from one comment.
  *
- * {@link ../../../../../crates/but-api/src/legacy/forge.rs:882}
+ * {@link ../../../../../crates/but-api/src/legacy/forge.rs:907}
  */
 export declare function removeCommentReaction(projectId: string, commentId: number, reactionId: number): Promise<void>
 
 /**
  * Remove one label from a review.
  *
- * {@link ../../../../../crates/but-api/src/legacy/forge.rs:1010}
+ * {@link ../../../../../crates/but-api/src/legacy/forge.rs:1035}
  */
 export declare function removeReviewLabel(projectId: string, reviewId: number, label: string): Promise<void>
 
 /**
  * Remove one of the caller's reactions from a review itself.
  *
- * {@link ../../../../../crates/but-api/src/legacy/forge.rs:844}
+ * {@link ../../../../../crates/but-api/src/legacy/forge.rs:869}
  */
 export declare function removeReviewReaction(projectId: string, reviewId: number, reactionId: number): Promise<void>
 
 /**
  * Request reviews from the given users on a review.
  *
- * {@link ../../../../../crates/but-api/src/legacy/forge.rs:1039}
+ * {@link ../../../../../crates/but-api/src/legacy/forge.rs:1064}
  */
 export declare function requestReview(projectId: string, reviewId: number, logins: Array<string>): Promise<void>
 
@@ -1375,14 +1375,14 @@ export declare function setPushRemote(projectId: string, pushRemote: string): Pr
 /**
  * Enable or disable a review's auto-merge.
  *
- * {@link ../../../../../crates/but-api/src/legacy/forge.rs:1334}
+ * {@link ../../../../../crates/but-api/src/legacy/forge.rs:1359}
  */
 export declare function setReviewAutoMerge(projectId: string, reviewId: number, enable: boolean): Promise<void>
 
 /**
  * Set a review to draft or ready-for-review
  *
- * {@link ../../../../../crates/but-api/src/legacy/forge.rs:1354}
+ * {@link ../../../../../crates/but-api/src/legacy/forge.rs:1379}
  */
 export declare function setReviewDraftiness(projectId: string, reviewId: number, draft: boolean): Promise<void>
 
@@ -1475,7 +1475,7 @@ export declare function storeGitlabPat(accessToken: string): Promise<GitlabAuthS
  * `dry_run` is enabled, the returned workspace previews the tear-off and no
  * oplog entry is persisted.
  *
- * {@link ../../../../../crates/but-api/src/branch.rs:1966}
+ * {@link ../../../../../crates/but-api/src/branch.rs:1958}
  */
 export declare function tearOffBranch(projectId: string, subjectBranch: string, dryRun: boolean): Promise<MoveBranchResult>
 
@@ -1498,7 +1498,7 @@ export declare function treeChangeDiffs(projectId: string, change: TreeChange): 
  * See [`unapply_stack_with_perm()`] for how assigned changes are collected before
  * delegating to the underlying mutation.
  *
- * {@link ../../../../../crates/but-api/src/legacy/virtual_branches.rs:468}
+ * {@link ../../../../../crates/but-api/src/legacy/virtual_branches.rs:463}
  */
 export declare function unapplyStack(projectId: string, stackId: string): Promise<void>
 
@@ -1530,21 +1530,21 @@ export declare function updateProjectSettings(projectId: ProjectHandleOrLegacyPr
  * Update arbitrary fields of a single review (title, body, state, target base).
  * Each `None` leaves that field unchanged on the forge.
  *
- * {@link ../../../../../crates/but-api/src/legacy/forge.rs:1386}
+ * {@link ../../../../../crates/but-api/src/legacy/forge.rs:1411}
  */
 export declare function updateReview(projectId: string, reviewId: number, title: string | null, body: string | null, state: ReviewState | null, targetBase: string | null): Promise<void>
 
 /**
  * Edit a top-level conversation comment on a review.
  *
- * {@link ../../../../../crates/but-api/src/legacy/forge.rs:930}
+ * {@link ../../../../../crates/but-api/src/legacy/forge.rs:955}
  */
 export declare function updateReviewComment(projectId: string, commentId: number, body: string): Promise<ForgeReviewComment>
 
 /**
  * Update stacked reviews: description footers and, optionally, target branches.
  *
- * {@link ../../../../../crates/but-api/src/legacy/forge.rs:1410}
+ * {@link ../../../../../crates/but-api/src/legacy/forge.rs:1435}
  */
 export declare function updateReviewFooters(projectId: string, reviews: Array<ForgeReviewUpdate>): Promise<void>
 
@@ -1566,14 +1566,14 @@ export declare function uploadFile(params: UploadFileParams): Promise<Upload>
  * Additionally, it cleans up stale CI check entries for references that are no longer
  * part of any applied stack.
  *
- * {@link ../../../../../crates/but-api/src/legacy/forge.rs:2174}
+ * {@link ../../../../../crates/but-api/src/legacy/forge.rs:2199}
  */
 export declare function warmCiChecksCache(projectId: string): Promise<void>
 
 /**
  * Withdraw review requests for the given users on a review.
  *
- * {@link ../../../../../crates/but-api/src/legacy/forge.rs:1058}
+ * {@link ../../../../../crates/but-api/src/legacy/forge.rs:1083}
  */
 export declare function withdrawReviewRequest(projectId: string, reviewId: number, logins: Array<string>): Promise<void>
 
@@ -1587,7 +1587,7 @@ export declare function workspaceBranchAndAncestorsPush(projectId: string, withF
 /**
  * Switch to the workspace reference
  *
- * {@link ../../../../../crates/but-api/src/branch.rs:1585}
+ * {@link ../../../../../crates/but-api/src/branch.rs:1577}
  */
 export declare function workspaceCheckout(projectId: string): Promise<BranchCheckoutResult>
 

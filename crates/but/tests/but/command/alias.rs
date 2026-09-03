@@ -26,32 +26,44 @@ fn local_alias_roundtrip_uses_repo_config() {
 }
 
 #[test]
-fn global_alias_roundtrip_uses_global_config() {
+fn global_aliases_work_outside_a_repository() {
     let env = Sandbox::empty();
-    env.invoke_bash("git init repo");
     let global_config = env.projects_root().join("global.gitconfig");
 
-    env.but("-C repo alias add st status --global")
+    env.but("alias add features 'config feature' --global")
         .env("GIT_CONFIG_GLOBAL", &global_config)
         .assert()
         .success();
     assert_eq!(
-        env.invoke_git("config --file global.gitconfig --get but.alias.st"),
-        "status"
-    );
-    env.invoke_git_fails(
-        "-C repo config --local --get but.alias.st",
-        "global alias should not touch the repo-local config",
+        env.invoke_git("config --file global.gitconfig --get but.alias.features"),
+        "config feature"
     );
 
-    env.but("-C repo alias remove st --global")
+    env.but("alias list")
+        .env("GIT_CONFIG_GLOBAL", &global_config)
+        .assert()
+        .success();
+
+    env.but("features")
+        .env("GIT_CONFIG_GLOBAL", &global_config)
+        .assert()
+        .success();
+
+    env.but("alias remove features --global")
         .env("GIT_CONFIG_GLOBAL", &global_config)
         .assert()
         .success();
     env.invoke_git_fails(
-        "config --file global.gitconfig --get but.alias.st",
+        "config --file global.gitconfig --get but.alias.features",
         "global alias should be removed from the configured global file",
     );
+    env.but("alias add mine status")
+        .assert()
+        .failure()
+        .stderr_eq(snapbox::str![[r#"
+Error: Local Git configuration requires a git repository
+
+"#]]);
 }
 
 #[cfg(feature = "legacy")]

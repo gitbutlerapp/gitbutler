@@ -978,6 +978,25 @@ fn main_with_advanced_remote_tracking_branch() -> anyhow::Result<()> {
 "#]]
     );
 
+    // Applying origin/feature must use the fetch refspec to create review/feature and set its
+    // upstream merge ref to refs/heads/review/feature, instead of guessing feature from the name.
+    // Replace the wildcard mapping so it cannot mask this renamed mapping, while keeping main
+    // mapped for the already-tracked branch checked below.
+    but_core::git_config::edit_repo_config(&repo, gix::config::Source::Local, |config| {
+        but_core::git_config::set_config_value(
+            config,
+            "remote.origin.fetch",
+            "+refs/heads/main:refs/remotes/origin/main",
+        )?;
+        but_core::git_config::ensure_config_value(
+            config,
+            "remote.origin.fetch",
+            "+refs/heads/review/feature:refs/remotes/origin/feature",
+        )?;
+        Ok(())
+    })?;
+    repo.reload()?;
+
     let mut meta = InMemoryRefMetadata::default();
     meta.workspaces.push((
         "refs/heads/gitbutler/workspace".try_into()?,
@@ -1038,7 +1057,7 @@ Outcome {
 Outcome {
     workspace_changed: true,
     workspace_ref_created: true,
-    applied_branches: "[refs/heads/main, refs/heads/feature]",
+    applied_branches: "[refs/heads/main, refs/heads/review/feature]",
 }
 
 "#]]
@@ -1049,8 +1068,8 @@ Outcome {
         graph_workspace(&ws).to_string(),
         snapbox::str![[r#"
 📕🏘️:gitbutler/workspace[🌳] <> ✓!
-└── ≡📙:feature {2ec}
-    ├── 📙:feature
+└── ≡📙:review/feature {5ad}
+    ├── 📙:review/feature
     │   └── ·6b40b15 (🏘️)
     └── 📙:main
         └── ·3183e43 (🏘️)
@@ -1062,8 +1081,8 @@ Outcome {
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
         snapbox::str![[r#"
-* 3d23cfb (HEAD -> gitbutler/workspace) GitButler Workspace Commit
-* 6b40b15 (origin/feature, feature) without-local-tracking
+* 95baf27 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+* 6b40b15 (origin/feature, review/feature) without-local-tracking
 | * 552e7dc (origin/main) only-on-remote
 |/  
 * 3183e43 (main) M1
@@ -1073,13 +1092,13 @@ Outcome {
 
     repo.reload()?;
     let config = repo.config_snapshot();
-    let section = config.section("branch", Some("feature".into()))?;
+    let section = config.section("branch", Some("review/feature".into()))?;
     snapbox::assert_data_eq!(
         section.to_bstring().to_string(),
         snapbox::str![[r#"
-[branch "feature"]
+[branch "review/feature"]
 	remote = origin
-	merge = refs/heads/feature
+	merge = refs/heads/review/feature
 
 "#]]
     );

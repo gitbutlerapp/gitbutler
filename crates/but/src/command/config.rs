@@ -84,7 +84,7 @@ pub async fn exec(
     cmd: Option<Subcommands>,
 ) -> Result<()> {
     match cmd {
-        Some(Subcommands::User { cmd }) => user_config(ctx, out, cmd).await,
+        Some(Subcommands::User { cmd }) => user_config(Some(ctx), out, cmd).await,
         Some(Subcommands::Target {
             branch,
             push_remote,
@@ -460,7 +460,7 @@ struct UserConfigInfo {
 }
 
 /// Get user configuration info from git config
-fn get_user_config_info(config: &gix::config::Snapshot<'_>) -> UserConfigInfo {
+fn get_user_config_info(config: &gix::config::File) -> UserConfigInfo {
     let (name, name_scope) = get_config_string_and_scope(config, "user.name");
     let (email, email_scope) = get_config_string_and_scope(config, "user.email");
     let (_editor, editor_scope) = get_config_string_and_scope(config, "core.editor");
@@ -512,19 +512,21 @@ fn write_user_config_human(out: &mut dyn std::fmt::Write, info: &UserConfigInfo)
 }
 
 /// Handle user config subcommand
-async fn user_config(
-    ctx: &mut Context,
+pub(crate) async fn user_config(
+    ctx: Option<&Context>,
     out: &mut OutputChannel,
     cmd: Option<UserSubcommand>,
 ) -> Result<()> {
     let t = theme::get();
-    let repo = ctx.repo.get()?;
+    let repo = ctx.map(|ctx| ctx.repo.get()).transpose()?;
 
     match cmd {
         // View user config
         None => {
-            let config = repo.config_snapshot();
-            let user_info = get_user_config_info(&config);
+            let user_info = match repo.as_deref() {
+                Some(repo) => get_user_config_info(&repo.config_snapshot()),
+                None => get_user_config_info(&gix::config(None, &gix::open::Options::default())?),
+            };
 
             if let Some(out) = out.for_human() {
                 writeln!(out, "{}:", t.important.paint("\nUser Configuration"))?;
@@ -550,7 +552,7 @@ async fn user_config(
         // Set user config
         Some(UserSubcommand::Set { key, value, global }) => {
             let git_key = key.to_git_key();
-            edit_git_config(&repo, global.into(), |config| {
+            edit_git_config(repo.as_deref(), global.into(), |config| {
                 set_config_value(config, git_key, &value)?;
                 Ok(())
             })?;
@@ -578,7 +580,7 @@ async fn user_config(
         // Unset user config
         Some(UserSubcommand::Unset { key, global }) => {
             let git_key = key.to_git_key();
-            edit_git_config(&repo, global.into(), |config| {
+            edit_git_config(repo.as_deref(), global.into(), |config| {
                 remove_config_value(config, git_key)?;
                 Ok(())
             })?;
@@ -1703,7 +1705,7 @@ fn edit_ai_git_config(
         }
         AiScope::Local => {
             let repo = repo.context("Local AI configuration requires a git repository")?;
-            edit_git_config(repo, false.into(), edit)?;
+            edit_git_config(Some(repo), false.into(), edit)?;
             Ok(())
         }
     }
@@ -1789,7 +1791,7 @@ fn apply_openrouter_config(
 fn get_ai_config_info(repo: Option<&gix::Repository>, scope: AiScope) -> Result<AiConfigInfo> {
     match scope {
         AiScope::Global => {
-            let file = gix::config::File::from_globals()?;
+            let file = gix::config(None, &gix::open::Options::default())?;
             Ok(AiConfigInfo::from_git_config(&file))
         }
         AiScope::Local => {
@@ -1990,7 +1992,7 @@ fn push_remote_config(
 }
 
 fn get_config_string_and_scope(
-    config: &gix::config::Snapshot<'_>,
+    config: &gix::config::File,
     key: &str,
 ) -> (Option<String>, Option<gix::config::Source>) {
     let mut scope = None;
