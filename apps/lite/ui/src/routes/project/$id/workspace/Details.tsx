@@ -90,6 +90,7 @@ import {
 } from "#ui/routes/project/$id/workspace/PullRequestForm.tsx";
 import { useAppDispatch, useAppSelector, useAppStore } from "#ui/store.ts";
 import { classes } from "#ui/components/classes.ts";
+import { EmptyState } from "#ui/components/EmptyState.tsx";
 import { Toggle, ToggleGroup, Toolbar, Tooltip } from "@base-ui/react";
 import type {
 	CommitDetails as CommitDetailsData,
@@ -1584,9 +1585,9 @@ const DiffContents: FC<{
 			return { oldFile, newFile };
 		});
 
-	return items.length === 0 ? (
-		<p className="text-13">No changes.</p>
-	) : (
+	// `Diff` short-circuits the whole tab before this renders, so an empty item
+	// list here is a frame between renders rather than a state to describe.
+	return items.length === 0 ? null : (
 		<>
 			<CodeView
 				ref={viewerRef}
@@ -2552,6 +2553,31 @@ const Diff: FC<{
 		panelIds,
 	});
 
+	// Hoisted out of the JSX below, where they used to be called inline: the
+	// empty branch that follows returns before that JSX, and a hook reached only
+	// on one branch is a hook called conditionally.
+	const diffContentsRef = useMergedRefs(focusScopeRef, diffContentsEl, useAutofocusScope());
+
+	// One statement, not three. With no changes the header badge already reads 0,
+	// so a file list and a viewer both saying so as well would be the same fact
+	// three times across two columns — and two empty columns read as broken
+	// rather than as deliberate. The whole body becomes the one block instead.
+	if (changes.length === 0) {
+		return (
+			<div className={classes(styles.diffTab, styles.diffTabEmpty)}>
+				<EmptyState
+					illustration="waving"
+					title="No file changes"
+					description={
+						fileParent._tag === "Commit"
+							? "This commit changes no files"
+							: "Nothing on this branch changes any files"
+					}
+				/>
+			</div>
+		);
+	}
+
 	return (
 		<div className={styles.diffTab}>
 			<Group
@@ -2693,7 +2719,7 @@ const Diff: FC<{
 							// oxlint-disable-next-line jsx_a11y/no-noninteractive-tabindex -- Revisit this when we add hunk/line selection.
 							tabIndex={0}
 							className={styles.diffContentsContainer}
-							ref={useMergedRefs(focusScopeRef, diffContentsEl, useAutofocusScope())}
+							ref={diffContentsRef}
 						>
 							<DiffContents
 								activeFileItemId={activeFileItemId}
