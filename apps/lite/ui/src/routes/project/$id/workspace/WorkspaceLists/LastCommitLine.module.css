@@ -6,8 +6,10 @@
 	display: flex;
 	column-gap: 4px;
 	align-items: center;
+	justify-content: flex-start;
 	margin: 0;
 	padding-inline: calc(12px + 12px + 8px) 12px;
+	padding-block: 0 14px;
 	overflow: hidden;
 	color: var(--text-2);
 	white-space: nowrap;

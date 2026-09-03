@@ -67,9 +67,17 @@ export const LastCommitLine: FC<{ projectId: string }> = ({ projectId }) => {
 	// render rather than as two staggered ones.
 	const now = useNow(lastCommit === null || lastCommit === undefined ? null : 30_000);
 
-	// Nothing committed yet is the one case with nothing to report, and no
-	// sentence worth keeping the line alive for.
-	if (lastCommit === undefined || lastCommit === null) return null;
+	// Not loaded is not the same as nothing to report: the line holds its peace
+	// on the way in rather than claiming an empty history it has not checked.
+	if (lastCommit === undefined) return null;
+
+	// A workspace with no commits of its own — an unborn HEAD, or a project just
+	// added and still level with its target. Named as the workspace's emptiness
+	// rather than the repository's: a clone with years of history lands here
+	// too, and "No commits yet" on its own would be saying something false
+	// about it.
+	if (lastCommit === null)
+		return <p className={classes("text-13", styles.line)}>No commits in this workspace yet</p>;
 
 	const age = `${formatCompactRelativeTime(lastCommit.committedAt, now)} ago`;
 	const spoken =
@@ -82,7 +90,7 @@ export const LastCommitLine: FC<{ projectId: string }> = ({ projectId }) => {
 			<Tooltip.Trigger
 				render={<p aria-label={spoken} className={classes("text-13", styles.line)} />}
 			>
-				<span className={styles.age}>{age}</span>
+				<span className={styles.age}>Last commit {age}</span>
 
 				{lastCommit.branch !== null && (
 					<>
