@@ -51,7 +51,6 @@ fn resolve(args: Platform, ctx: &Context, id_map: &IdMap) -> CliResult<MoveOpera
     let context_lines = ctx.settings.context_lines;
     let repo = ctx.repo.get()?;
 
-    let mut resolved_sources = Vec::<CommittedFileId>::new();
     let mut builder = DiffSpecBuilder::new(&repo, context_lines);
 
     let mut tree_changes = None;
@@ -66,13 +65,11 @@ fn resolve(args: Platform, ctx: &Context, id_map: &IdMap) -> CliResult<MoveOpera
                     committed_file.commit_id,
                     committed_file.path.as_ref(),
                 )?;
-                resolved_sources.push(committed_file);
             }
             ResolvedCliIdArg::CommittedHunk(hunk) => {
                 ensure_distinct_source_commit(&mut head_source_commit, &hunk.committed_file)?;
 
                 if tree_changes.is_none() {
-                    let repo = ctx.repo.get()?;
                     let source_commit = repo.find_commit(hunk.committed_file.commit_id)?;
                     tree_changes = Some(
                         but_core::diff::tree_changes(
