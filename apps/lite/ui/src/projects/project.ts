@@ -196,6 +196,12 @@ export const projectReducers = {
 		)
 			workspaceState.pendingOperation = pendingInlineEdit({ address: branchAddress(newBranch) });
 
+		const oldRef = decodeBytes(oldBranch.branchRef);
+		if (workspaceState.foldedSegments[oldRef]) {
+			delete workspaceState.foldedSegments[oldRef];
+			workspaceState.foldedSegments[decodeBytes(newBranch.branchRef)] = true;
+		}
+
 		const oldFileParent = branchFileParent(oldBranch);
 		const newFileParent = branchFileParent(newBranch);
 		for (const [key, address] of Object.entries(workspaceState.checkedAddresses)) {
