@@ -63,7 +63,7 @@ pub fn workspace_target_commits(
 
     let mut cursor = match from {
         // Continue below the cursor commit.
-        Some(HexHash(from)) => repo.find_commit(from)?.decode()?.parents().next(),
+        Some(HexHash(from)) => present_first_parent(&repo.find_commit(from)?),
         None => Some(
             repo.find_reference(target_ref.ref_name.as_ref())?
                 .peel_to_commit()?
@@ -103,10 +103,7 @@ pub fn workspace_target_commits(
             break;
         }
         let commit = repo.find_commit(id)?;
-        cursor = commit
-            .parent_ids()
-            .next()
-            .map(|parent_id| parent_id.detach());
+        cursor = present_first_parent(&commit);
         let commit: but_workspace::ui::UpstreamCommit = commit.try_into()?;
         let review = reviews_by_integration_sha
             .remove(&id)
@@ -127,6 +124,16 @@ pub fn workspace_target_commits(
         commits,
         has_more: cursor.is_some(),
     })
+}
+
+/// The first parent of `commit`, or `None` at a root commit or when the parent
+/// object is not present locally, as below the boundary of a shallow clone.
+fn present_first_parent(commit: &gix::Commit<'_>) -> Option<gix::ObjectId> {
+    commit
+        .parent_ids()
+        .next()
+        .map(|id| id.detach())
+        .filter(|id| commit.repo.has_object(id))
 }
 
 /// The first-parent line commit at which the base listing naturally ends: the
@@ -152,11 +159,7 @@ fn natural_end_of_line(
     {
         position_by_id.insert(id, line.len());
         line.push(id);
-        cursor = repo
-            .find_commit(id)?
-            .parent_ids()
-            .next()
-            .map(|id| id.detach());
+        cursor = present_first_parent(&repo.find_commit(id)?);
     }
 
     let mut end: Option<usize> = None;
@@ -175,11 +178,7 @@ fn natural_end_of_line(
                 end = Some(end.map_or(position, |deepest| deepest.max(position)));
                 break;
             }
-            cursor = repo
-                .find_commit(id)?
-                .parent_ids()
-                .next()
-                .map(|id| id.detach());
+            cursor = present_first_parent(&repo.find_commit(id)?);
             steps += 1;
         }
     }

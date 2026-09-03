@@ -251,3 +251,46 @@ fn continuation_excludes_its_cursor_and_reports_more_history() -> anyhow::Result
     );
     Ok(())
 }
+
+/// Paging below the tip of a shallow clone stops at the missing parent instead of failing.
+#[test]
+fn continuation_stops_gracefully_in_a_shallow_clone() -> anyhow::Result<()> {
+    let tmp = tempfile::tempdir()?;
+    let remote_dir = tmp.path().join("remote");
+    std::fs::create_dir(&remote_dir)?;
+    git_at_dir(&remote_dir)
+        .args(["init", "-b", "main", "--object-format=sha1"])
+        .run();
+    write_file(&remote_dir, "file", "initial\n")?;
+    git_at_dir(&remote_dir).args(["add", "file"]).run();
+    git_at_dir(&remote_dir)
+        .args(["commit", "-m", "initial"])
+        .run();
+    write_file(&remote_dir, "file", "second\n")?;
+    git_at_dir(&remote_dir)
+        .args(["commit", "-am", "second"])
+        .run();
+
+    // `--depth` is ignored for local path clones, so use the file protocol.
+    let clone_dir = tmp.path().join("clone");
+    let remote_url = format!("file://{}", remote_dir.display());
+    git_at_dir(tmp.path())
+        .args(["clone", "--depth", "1", &remote_url])
+        .arg(&clone_dir)
+        .run();
+
+    let mut ctx =
+        but_ctx::Context::from_repo_for_testing(open_repo(&clone_dir)?)?.with_memory_app_cache();
+    let target_ref = gix::refs::FullName::try_from("refs/remotes/origin/main")?;
+    but_api::workspace::set_target_ref_and_init_project(&mut ctx, target_ref.as_ref(), None)?;
+    let head_id = ctx.repo.get()?.head_id()?.detach();
+
+    let page =
+        but_api::target_commits::workspace_target_commits(&ctx, Some(HexHash(head_id)), Some(100))?;
+    assert!(
+        page.commits.is_empty(),
+        "the tip's parent is missing, so nothing lies below it"
+    );
+    assert!(!page.has_more, "a missing parent ends the history");
+    Ok(())
+}
