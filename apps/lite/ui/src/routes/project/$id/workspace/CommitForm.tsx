@@ -412,9 +412,7 @@ export const CommitForm: FC<{
 		},
 		{
 			hotkey: changesHotkeys.commit.hotkey,
-			callback: (event) => {
-				if (!event.repeat) createCommit();
-			},
+			callback: createCommit,
 			options: {
 				conflictBehavior: "allow",
 				enabled: canCommit,
