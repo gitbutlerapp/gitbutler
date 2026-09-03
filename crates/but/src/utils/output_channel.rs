@@ -19,6 +19,7 @@ use crate::{
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ConfirmDefault {
     Yes,
+    #[expect(dead_code)]
     No,
 }
 
