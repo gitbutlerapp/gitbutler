@@ -34,10 +34,15 @@ if [ "${PERF_ENV_ISOLATED:-}" != 1 ]; then
     MIN_RUNS_VALUE=${PERF_MIN_RUNS:-20}
     RUNS_VALUE=${PERF_RUNS:-}
     SHOW_OUTPUT_VALUE=${PERF_SHOW_OUTPUT:-0}
+    RESULTS_DIR_VALUE=${PERF_RESULTS_DIR:-}
     case "$SHOW_OUTPUT_VALUE" in
         0|1) ;;
         *) perf_die "PERF_SHOW_OUTPUT must be 0 or 1" ;;
     esac
+    if [ -n "$RESULTS_DIR_VALUE" ]; then
+        mkdir -p "$RESULTS_DIR_VALUE"
+        RESULTS_DIR_VALUE=$(CDPATH='' cd "$RESULTS_DIR_VALUE" && pwd)
+    fi
 
     exec env -i \
         PATH="$PATH_VALUE" \
@@ -51,6 +56,7 @@ if [ "${PERF_ENV_ISOLATED:-}" != 1 ]; then
         PERF_MIN_RUNS="$MIN_RUNS_VALUE" \
         PERF_RUNS="$RUNS_VALUE" \
         PERF_SHOW_OUTPUT="$SHOW_OUTPUT_VALUE" \
+        PERF_RESULTS_DIR="$RESULTS_DIR_VALUE" \
         BUT_BIN="$BUT_BIN" \
         GIT_BIN="$GIT_BIN" \
         HYPERFINE_BIN="$HYPERFINE_BIN" \
@@ -97,6 +103,21 @@ perf_hyperfine() {
     fi
 }
 
+perf_benchmark_scenario() {
+    if [ -n "$PERF_RUNS" ]; then
+        set -- --warmup "$PERF_WARMUP" --runs "$PERF_RUNS"
+    else
+        set -- --warmup "$PERF_WARMUP" --min-runs "$PERF_MIN_RUNS"
+    fi
+    if [ -n "$PERF_RESULTS_DIR" ]; then
+        set -- "$@" --export-json "$PERF_RESULTS_DIR/$scenario_name.json"
+    fi
+    perf_hyperfine "$@" \
+        --prepare "$setup_script" \
+        --shell=none \
+        "$test_script"
+}
+
 scenario_root=$PERF_ROOT/scenarios
 if [ "$#" -eq 0 ]; then
     set --
@@ -126,19 +147,5 @@ for scenario_name in "$@"; do
     "$test_script"
 
     printf 'Benchmarking %s...\n' "$scenario_name" >&2
-    if [ -n "$PERF_RUNS" ]; then
-        perf_hyperfine \
-            --warmup "$PERF_WARMUP" \
-            --runs "$PERF_RUNS" \
-            --prepare "$setup_script" \
-            --shell=none \
-            "$test_script"
-    else
-        perf_hyperfine \
-            --warmup "$PERF_WARMUP" \
-            --min-runs "$PERF_MIN_RUNS" \
-            --prepare "$setup_script" \
-            --shell=none \
-            "$test_script"
-    fi
+    perf_benchmark_scenario
 done

@@ -31,6 +31,25 @@ PERF_RUNS=2 \
 ./crates/but/tests/performance/run.sh squash-10-committed-hunks
 ```
 
+Export one Hyperfine JSON file per scenario:
+
+```sh
+PERF_RESULTS_DIR="$PWD/target/performance-results" \
+./crates/but/tests/performance/run.sh
+```
+
+Result filenames match scenario names:
+
+```text
+target/performance-results/
+├── squash-10-committed-hunks.json
+└── status-many-uncommitted-changes.json
+```
+
+Runner creates results directory when needed and overwrites same-named result from an
+earlier run. Hyperfine JSON contains summary statistics and individual sample timings,
+making it suitable for CI artifacts and comparison tooling.
+
 Defaults are three warmups and at least twenty measured runs. `run.sh` builds `but`
 with Cargo's optimized `bench` profile when `BUT_BIN` is unset. Always name scenario
 explicitly while developing so unrelated scenarios do not run.
