@@ -64,7 +64,7 @@ import { forgeHunkPatch, threadStillAnchoredInFile } from "#ui/review-threads.ts
 import { defaultSettings } from "#ui/settings.ts";
 import { pullRequestHotkeys } from "#ui/hotkeys.ts";
 import { FreshBadge, RegisterFreshItems } from "#ui/review-arrival.tsx";
-import { useHotkey } from "@tanstack/react-hotkeys";
+import { useHotkeys } from "@tanstack/react-hotkeys";
 import { PatchDiff } from "@pierre/diffs/react";
 import { useQuery } from "@tanstack/react-query";
 import { clearReviewFocus, useRequestedComment } from "#ui/review-focus.ts";
@@ -1009,14 +1009,20 @@ const Composer: FC<{
 		// restores the draft, which unfolds it again with the text intact.
 		setEngaged(false);
 	};
-
-	// Scoped to the composer, so the same chord on the description form below
-	// still submits that instead.
-	useHotkey(pullRequestHotkeys.comment.hotkey, submit, {
-		conflictBehavior: "allow",
-		enabled: !empty,
-		target: composerRef,
-	});
+	// The target only exists while expanded, hence this workaround for:
+	//   https://github.com/TanStack/hotkeys/issues/147
+	useHotkeys(
+		[
+			{
+				hotkey: pullRequestHotkeys.comment.hotkey,
+				callback: () => {
+					if (!empty) submit();
+				},
+				options: { conflictBehavior: "allow" },
+			},
+		],
+		{ target: composerRef },
+	);
 
 	if (!expanded) {
 		return (
