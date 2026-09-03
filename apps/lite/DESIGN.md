@@ -176,3 +176,66 @@ same place stay in the panel header's controls rather than crowding the block.
 committing with no branches creates one — the button is a shortcut and should
 read as one, and a body line promising the automatic path shouldn't sit under a
 highlighted button arguing the opposite.
+
+## Toasts and snackbars
+
+Two ways of saying what just happened, and the choice between them is about
+**where the news belongs**, not how bad it is.
+
+**A snackbar is a sentence next to the thing it is about.** One glyph, one
+line, floated over the surface that caused it — `Snackbar.tsx`, ⚛️ Lite Core
+node `1706-1682`. It has no title and no room for one: if the news won't fit in
+a line the reader can take in without stopping, it isn't a snackbar. The
+workspace uses it for a refused operation, seated in the toolbox lane where the
+operation's own controls stood, so the answer arrives where the user was
+already looking.
+
+**A toast is a card in the corner of the window.** A title, a description that
+can hold real content — a list of rejected paths, an error message — and
+buttons, in a 250px stack at the bottom right. It's the surface for news that
+outlives the place that produced it: a background failure, an operation that
+half-succeeded, an uncaught error from anywhere in the app.
+
+**Pick by whether the surface is still there.** If the user is standing in
+front of the thing that failed, say it there — a snackbar keeps the cause and
+the consequence in one glance. If the news would land on a screen that has
+moved on, or the user could reasonably be somewhere else by now, it needs the
+corner and it needs a title to say what it is about. Errors from mutations and
+from the React root take the corner for exactly this reason: nothing else knows
+where they came from.
+
+**Pick by whether it needs reading twice.** A snackbar states an outcome and
+goes; five seconds is the workspace's measure, and a click anywhere on it ends
+it early. A toast can hold a paragraph, a bulleted breakdown, and a retry, and
+it waits. Anything the user may want to copy, act on, or read a second time is
+a toast.
+
+**Nothing routine gets either one.** A success the UI already shows — the
+commit that appeared in the list, the branch that is now on screen — needs no
+announcement. Reach for one of these only when the result is invisible, partial,
+or refused.
+
+**The verdict is carried by the glyph, not the surface.** All three snackbar
+variants wear the same ground and the same border; `info`, `danger` and `safe`
+differ only in the leading icon, so a run of them reads as a row of statements
+rather than a traffic light. Don't add a colored fill to make one louder — if
+it needs more weight than a line, it needs to be a toast.
+
+**A snackbar's way out is optional; a toast's is not.** Give a snackbar
+`onDismiss` only when it will sit there until dealt with — it then grows a
+divider and a close button, and the row grows with it. One that leaves on a
+timer carries no close button at all: the only close button on screen should
+belong to whatever the user still has in hand. Toasts always carry Dismiss,
+plus at most one action beside it.
+
+**Say it the way the rest of Lite says it.** Same plain, warm wording as
+tooltips and empty states. A snackbar is one sentence, sentence case, no full
+stop. A toast title names what happened in a short line — "Some changes were
+not committed" — and the description carries the detail; don't split one
+thought across the two.
+
+**Both announce themselves to screen readers, differently.** A snackbar is
+`role="status"` and waits its turn, except `danger`, which is `role="alert"`
+and interrupts. Toasts get theirs from the toast viewport. Neither is the only
+way to know something: a state the user must act on belongs in the UI itself,
+not in a surface that leaves.
