@@ -119,6 +119,11 @@
 	   plain centring would push the block's top out of reach above the scroll
 	   origin, where nothing can scroll back to it. */
 	&[data-empty="true"] {
+		/* Only while empty, so the virtualised list is never inside a size
+		   container. It lets the empty block scale its counterweight to the
+		   panel the splitter left it. */
+		container-type: size;
+
 		display: flex;
 		flex-direction: column;
 		justify-content: safe center;

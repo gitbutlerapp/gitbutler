@@ -29,6 +29,8 @@ const meta = preview.meta({
 		(Story) => (
 			<div
 				style={{
+					// As the app's host does: the counterweight scales to this box.
+					containerType: "size",
 					display: "flex",
 					flexDirection: "column",
 					justifyContent: "safe center",

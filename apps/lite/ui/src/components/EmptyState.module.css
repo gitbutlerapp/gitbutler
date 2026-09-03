@@ -8,6 +8,14 @@
    centre. Padding the foot by 60 lifts what you actually see by 30. Whatever
    centres this component centres the padded box, which is the whole trick.
 
+   It scales with the height it is being centred in, because a lift is only
+   worth having while there is room to lift into: 60 is a tenth of a tall
+   sidebar and half of a panel dragged to its minimum, where `safe center` has
+   already given up and top-aligned, and the padding would be nothing but dead
+   scroll. `cqh` needs the host to declare `container-type: size`; where none
+   does, it falls back to the viewport, which is the right order of magnitude
+   for a full-height surface and still shrinks on a small window.
+
    Centring itself belongs to the host, not here: only the host knows whether
    its surface scrolls, and a scrolling one needs `justify-content: safe center`
    so a short panel falls back to the top rather than putting the block's head
@@ -18,7 +26,7 @@
 	flex-direction: column;
 	align-items: center;
 	padding-inline: var(--panel-padding-inline);
-	padding-block-end: 60px;
+	padding-block-end: min(80px, 14cqh);
 	gap: 24px;
 	text-align: center;
 }
