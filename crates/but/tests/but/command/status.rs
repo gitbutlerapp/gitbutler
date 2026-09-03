@@ -405,12 +405,12 @@ fn uncommitted_and_committed_file_cli_ids() {
 ...
               "changes": [
                 {
-                  "cliId": "1#0:n",
+                  "cliId": "w:n",
                   "filePath": "a.txt",
                   "changeType": "modified"
                 },
                 {
-                  "cliId": "1#0:p",
+                  "cliId": "w:p",
                   "filePath": "b.txt",
                   "changeType": "modified"
                 }
@@ -420,12 +420,12 @@ fn uncommitted_and_committed_file_cli_ids() {
 ...
               "changes": [
                 {
-                  "cliId": "1#1:n",
+                  "cliId": "u:n",
                   "filePath": "a.txt",
                   "changeType": "added"
                 },
                 {
-                  "cliId": "1#1:p",
+                  "cliId": "u:p",
                   "filePath": "b.txt",
                   "changeType": "added"
                 }
@@ -1472,17 +1472,17 @@ Hint: run `but branch new` to create a new branch to work on
 ╭┄ @ [uncommitted] (no changes)
 ┊
 ┊╭┄ br [a-branch-1]
-┊●   1 add files
-┊│     1:r  A file-0.txt
-┊│     1:k  A file-1.txt
-┊│     1:t  A file-2.txt
-┊│     1:v  A file-3.txt
-┊│     1:wx A file-4.txt
-┊│     1:wv A file-5.txt
-┊│     1:wk A file-6.txt
-┊│     1:x  A file-7.txt
-┊│     1:m  A file-8.txt
-┊│     1:z  A file-9.txt
+┊●   rlo add files
+┊│     rlo:r  A file-0.txt
+┊│     rlo:k  A file-1.txt
+┊│     rlo:t  A file-2.txt
+┊│     rlo:v  A file-3.txt
+┊│     rlo:wx A file-4.txt
+┊│     rlo:wv A file-5.txt
+┊│     rlo:wk A file-6.txt
+┊│     rlo:x  A file-7.txt
+┊│     rlo:m  A file-8.txt
+┊│     rlo:z  A file-9.txt
 ├╯
 ┊
 ┴ 0dc3733 (common base) 2000-01-02 add M
@@ -1499,18 +1499,18 @@ Hint: run `but help` for all commands
 ╭┄ @ [uncommitted] (no changes)
 ┊
 ┊╭┄ br [a-branch-1]
-┊● 1 author 2000-01-01 00:00:00 +0000 (sha 5877ef4)
+┊● rlo author 2000-01-01 00:00:00 +0000 (sha 2309e7c)
 ┊│     add files
-┊│     1:r  A file-0.txt
-┊│     1:k  A file-1.txt
-┊│     1:t  A file-2.txt
-┊│     1:v  A file-3.txt
-┊│     1:wx A file-4.txt
-┊│     1:wv A file-5.txt
-┊│     1:wk A file-6.txt
-┊│     1:x  A file-7.txt
-┊│     1:m  A file-8.txt
-┊│     1:z  A file-9.txt
+┊│     rlo:r  A file-0.txt
+┊│     rlo:k  A file-1.txt
+┊│     rlo:t  A file-2.txt
+┊│     rlo:v  A file-3.txt
+┊│     rlo:wx A file-4.txt
+┊│     rlo:wv A file-5.txt
+┊│     rlo:wk A file-6.txt
+┊│     rlo:x  A file-7.txt
+┊│     rlo:m  A file-8.txt
+┊│     rlo:z  A file-9.txt
 ├╯
 ┊
 ┴ 0dc3733 (common base) 2000-01-02 add M

@@ -197,7 +197,7 @@ pub fn configure_test_repo(env: &Sandbox) {
     env.invoke_git("config tag.gpgsign false");
     env.invoke_git("config init.defaultBranch main");
     env.invoke_git("config protocol.file.allow always");
-    env.invoke_git("config gitbutler.testing.changeId 1");
+    env.invoke_git("config gitbutler.testing.changeId content-hash");
 }
 
 pub fn with_stable_commit_env<R>(closure: impl FnOnce() -> R) -> R {

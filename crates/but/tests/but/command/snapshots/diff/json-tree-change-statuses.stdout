@@ -1,6 +1,22 @@
 {
   "changes": [
     {
+      "path": "A",
+      "status": "added",
+      "diff": {
+        "type": "patch",
+        "hunks": [
+          {
+            "oldStart": 1,
+            "oldLines": 0,
+            "newStart": 1,
+            "newLines": 1,
+            "diff": "@@ -1,0 +1,1 @@\n+A\n"
+          }
+        ]
+      }
+    },
+    {
       "path": "added.txt",
       "status": "added",
       "diff": {
@@ -17,44 +33,35 @@
       }
     },
     {
-      "path": "deleted.txt",
-      "status": "deleted",
-      "diff": {
-        "type": "patch",
-        "hunks": [
-          {
-            "oldStart": 1,
-            "oldLines": 1,
-            "newStart": 1,
-            "newLines": 0,
-            "diff": "@@ -1,1 +1,0 @@\n-delete me\n"
-          }
-        ]
-      }
-    },
-    {
       "path": "modified.txt",
-      "status": "modified",
+      "status": "added",
       "diff": {
         "type": "patch",
         "hunks": [
           {
             "oldStart": 1,
-            "oldLines": 1,
+            "oldLines": 0,
             "newStart": 1,
             "newLines": 1,
-            "diff": "@@ -1,1 +1,1 @@\n-before\n+after\n"
+            "diff": "@@ -1,0 +1,1 @@\n+after\n"
           }
         ]
       }
     },
     {
       "path": "renamed-after.txt",
-      "status": "renamed",
-      "oldPath": "renamed-before.txt",
+      "status": "added",
       "diff": {
         "type": "patch",
-        "hunks": []
+        "hunks": [
+          {
+            "oldStart": 1,
+            "oldLines": 0,
+            "newStart": 1,
+            "newLines": 1,
+            "diff": "@@ -1,0 +1,1 @@\n+rename me\n"
+          }
+        ]
       }
     }
   ]

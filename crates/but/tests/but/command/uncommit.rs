@@ -91,9 +91,9 @@ fn uncommit_different_files_from_the_same_commit() {
 ╭┄ @ [uncommitted] (no changes)
 ┊
 ┊╭┄ g0 [A]
-┊●   1 add c1 and c2
-┊│     1:l A c1.txt
-┊│     1:w A c2.txt
+┊●   xkv add c1 and c2
+┊│     xkv:l A c1.txt
+┊│     xkv:w A c2.txt
 ┊●   tpm add A
 ┊│     tpm:t A A
 ├╯
@@ -131,7 +131,7 @@ Hint: run `but help` for all commands
         .success()
         .stderr_eq(str![])
         .stdout_eq(str![[r#"
-Uncommitted from 1
+Uncommitted from xkv
 
 "#]]);
 
@@ -145,7 +145,7 @@ Uncommitted from 1
 ┊   wy A c2.txt
 ┊
 ┊╭┄ g0 [A]
-┊●   1 add c1 and c2 (no changes)
+┊●   xkv add c1 and c2 (no changes)
 ┊●   tpm add A
 ┊│     tpm:t A A
 ├╯

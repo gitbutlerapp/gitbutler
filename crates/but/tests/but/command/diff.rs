@@ -235,7 +235,7 @@ fn json_tree_change_statuses() {
     .unwrap();
     env.but("commit -b A -m status-target").assert().success();
 
-    env.but("diff --json 1#0")
+    env.but("diff --json A")
         .allow_json()
         .assert()
         .success()
@@ -264,18 +264,18 @@ fn textconv_output_is_rendered_in_diff() {
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
-Created commit 1 on new branch 'a-branch-1'
+Created commit xnw on new branch 'a-branch-1'
 
 "#]]);
 
     env.invoke_git("config --local diff.png.textconv od");
 
-    env.but("diff 1")
+    env.but("diff xnw")
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
 ──────────────────────╮
- 1:x:2 .gitattributes │
+ x:x:2 .gitattributes │
 ──────────────────────╯
 
 @@ -1,0 +1,1 @@
@@ -283,7 +283,7 @@ Created commit 1 on new branch 'a-branch-1'
   ┊ 1 │ +*.png diff=png
 
 ──────────────╮
- 1:t file.png │
+ x:t file.png │
 ──────────────╯
 
 (diff generated from binary-to-text conversion)

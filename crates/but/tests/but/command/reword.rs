@@ -131,7 +131,7 @@ fn reword_commit_with_change_id_shows_change_id() {
         .assert()
         .success()
         .stdout_eq(str![[r#"
-Updated commit message for 1
+Updated commit message for uzw
 
 "#]]);
 }

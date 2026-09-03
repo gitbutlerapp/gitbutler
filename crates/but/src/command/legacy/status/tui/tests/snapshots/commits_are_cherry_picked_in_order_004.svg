@@ -17,21 +17,23 @@
     <text x="74 82 90 98 106 114 122 130 138 146" y="60" style="fill:#00AA00;">c-branch-1</text>
     <text x="154" y="60" style="fill:#CCCCCC;">]</text>
     <text x="10 18" y="78" style="fill:#CCCCCC;">┊●</text>
-    <text x="50 58 66" y="78" style="fill:#AA00AA;">1#0</text>
+    <text x="50" y="78" style="fill:#AA00AA;">u</text>
+    <text x="58 66" y="78" style="fill:#CCCCCC;opacity:0.75;">so</text>
     <text x="82 90 98 106 114 122" y="78" style="fill:#CCCCCC;">change</text>
     <text x="138" y="78" style="fill:#CCCCCC;">A</text>
     <text x="10 18" y="96" style="fill:#CCCCCC;">┊│</text>
-    <text x="66 74 82 90 98" y="96" style="fill:#0000AA;font-weight:bold;">1#0:t</text>
-    <text x="114" y="96" style="fill:#CCCCCC;">M</text>
-    <text x="130" y="96" style="fill:#AA5500;">A</text>
+    <text x="66 74 82" y="96" style="fill:#0000AA;font-weight:bold;">u:t</text>
+    <text x="98" y="96" style="fill:#CCCCCC;">M</text>
+    <text x="114" y="96" style="fill:#AA5500;">A</text>
     <text x="10 18" y="114" style="fill:#FFFFFF;font-weight:bold;">┊●</text>
-    <text x="50 58 66" y="114" style="fill:#AA00AA;font-weight:bold;">1#1</text>
+    <text x="50" y="114" style="fill:#AA00AA;font-weight:bold;">s</text>
+    <text x="58 66" y="114" style="fill:#FFFFFF;font-weight:bold;opacity:0.75;">qq</text>
     <text x="82 90 98" y="114" style="fill:#FFFFFF;font-weight:bold;">add</text>
     <text x="114" y="114" style="fill:#FFFFFF;font-weight:bold;">A</text>
     <text x="10 18" y="132" style="fill:#CCCCCC;">┊│</text>
-    <text x="66 74 82 90 98" y="132" style="fill:#0000AA;font-weight:bold;">1#1:t</text>
-    <text x="114" y="132" style="fill:#CCCCCC;">A</text>
-    <text x="130" y="132" style="fill:#00AA00;">A</text>
+    <text x="66 74 82" y="132" style="fill:#0000AA;font-weight:bold;">s:t</text>
+    <text x="98" y="132" style="fill:#CCCCCC;">A</text>
+    <text x="114" y="132" style="fill:#00AA00;">A</text>
     <text x="10 18" y="150" style="fill:#CCCCCC;">├╯</text>
     <text x="10" y="168" style="fill:#CCCCCC;">┊</text>
     <text x="10 18 26" y="186" style="fill:#CCCCCC;">┊╭┄</text>
@@ -40,13 +42,14 @@
     <text x="74" y="186" style="fill:#00AA00;">A</text>
     <text x="82" y="186" style="fill:#CCCCCC;">]</text>
     <text x="10 18" y="204" style="fill:#CCCCCC;">┊●</text>
-    <text x="50 58 66" y="204" style="fill:#AA00AA;">1#2</text>
+    <text x="50" y="204" style="fill:#AA00AA;">v</text>
+    <text x="58 66" y="204" style="fill:#CCCCCC;opacity:0.75;">rs</text>
     <text x="82 90 98 106 114 122" y="204" style="fill:#CCCCCC;">change</text>
     <text x="138" y="204" style="fill:#CCCCCC;">A</text>
     <text x="10 18" y="222" style="fill:#CCCCCC;">┊│</text>
-    <text x="66 74 82 90 98" y="222" style="fill:#0000AA;font-weight:bold;">1#2:t</text>
-    <text x="114" y="222" style="fill:#CCCCCC;">M</text>
-    <text x="130" y="222" style="fill:#AA5500;">A</text>
+    <text x="66 74 82" y="222" style="fill:#0000AA;font-weight:bold;">v:t</text>
+    <text x="98" y="222" style="fill:#CCCCCC;">M</text>
+    <text x="114" y="222" style="fill:#AA5500;">A</text>
     <text x="10 18" y="240" style="fill:#CCCCCC;">┊●</text>
     <text x="50" y="240" style="fill:#AA00AA;">t</text>
     <text x="58 66" y="240" style="fill:#CCCCCC;opacity:0.75;">pm</text>

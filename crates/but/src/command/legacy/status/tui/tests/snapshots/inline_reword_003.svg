@@ -17,7 +17,8 @@
     <text x="74" y="60" style="fill:#00AA00;">A</text>
     <text x="82" y="60" style="fill:#CCCCCC;">]</text>
     <text x="10 18" y="78" style="fill:#FFFFFF;font-weight:bold;">┊●</text>
-    <text x="50" y="78" style="fill:#AA00AA;font-weight:bold;">1</text>
+    <text x="50" y="78" style="fill:#AA00AA;font-weight:bold;">o</text>
+    <text x="58 66" y="78" style="fill:#FFFFFF;font-weight:bold;opacity:0.75;">un</text>
     <text x="10 18" y="96" style="fill:#CCCCCC;">┊●</text>
     <text x="50" y="96" style="fill:#AA00AA;">t</text>
     <text x="58 66" y="96" style="fill:#CCCCCC;opacity:0.75;">pm</text>

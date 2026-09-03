@@ -324,10 +324,69 @@ Headers {
 mod create {
     use anyhow::Context as _;
     use bstr::ByteSlice;
-    use but_core::commit::{self, SignCommit};
+    use but_core::commit::{self, Headers, SignCommit};
     use but_error::Code;
     use but_testsupport::{writable_scenario, writable_scenario_with_ssh_key};
-    use gix::{objs::commit::SIGNATURE_FIELD_NAME, refs};
+    use gix::{
+        objs::{WriteTo as _, commit::SIGNATURE_FIELD_NAME},
+        refs,
+    };
+
+    #[test]
+    fn content_hash_change_id_is_derived_from_commit_without_its_change_id_header()
+    -> anyhow::Result<()> {
+        let (mut repo, _tmp) = writable_scenario("single-unsigned");
+        repo.config_snapshot_mut()
+            .set_raw_value("gitbutler.testing.changeId", "content-hash")?;
+        let mut new_commit = commit_from_head(&repo, "content-derived change ID")?;
+        Headers::from_config(&repo.config_snapshot()).set_in_commit(&mut new_commit);
+
+        let oid = commit::create(&repo, new_commit, None, SignCommit::No)?;
+        let commit = repo.find_commit(oid)?.decode()?.to_owned()?;
+        let actual_change_id = Headers::try_from_commit(&commit)
+            .and_then(|headers| headers.change_id)
+            .context("created commit should have a change ID")?;
+
+        let mut commit_without_change_id = commit;
+        let change_id_pos = commit_without_change_id
+            .extra_headers()
+            .find_pos("change-id")
+            .context("created commit should have a change-id header")?;
+        commit_without_change_id.extra_headers.remove(change_id_pos);
+        let mut buf = Vec::new();
+        commit_without_change_id.write_to(&mut buf)?;
+        let content_id =
+            gix::objs::compute_hash(repo.object_hash(), gix::object::Kind::Commit, &buf)?;
+        let expected_change_id = Headers::synthetic_change_id_from_commit_id(content_id);
+
+        assert_eq!(
+            actual_change_id, expected_change_id,
+            "change ID should represent final commit content without the change-id header"
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn content_hash_mode_keeps_an_existing_change_id() -> anyhow::Result<()> {
+        let (mut repo, _tmp) = writable_scenario("single-unsigned");
+        repo.config_snapshot_mut()
+            .set_raw_value("gitbutler.testing.changeId", "content-hash")?;
+        let mut new_commit = commit_from_head(&repo, "preserve change ID")?;
+        let expected_change_id = but_core::ChangeId::from_number_for_testing(42);
+        Headers::from_change_id(expected_change_id.clone()).set_in_commit(&mut new_commit);
+
+        let oid = commit::create(&repo, new_commit, None, SignCommit::No)?;
+        let commit = repo.find_commit(oid)?.decode()?.to_owned()?;
+        let actual_change_id = Headers::try_from_commit(&commit)
+            .and_then(|headers| headers.change_id)
+            .context("created commit should retain its change ID")?;
+
+        assert_eq!(
+            actual_change_id, expected_change_id,
+            "content-hash mode should only replace its reserved placeholder"
+        );
+        Ok(())
+    }
 
     #[test]
     fn signs_commits_when_enabled() -> anyhow::Result<()> {

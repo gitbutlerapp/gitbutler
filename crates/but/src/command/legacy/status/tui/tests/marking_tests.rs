@@ -221,7 +221,7 @@ fn can_only_mark_files_from_one_commit() {
 
     tui.input('j');
     tui.input(' ')
-        .assert_current_line_eq(str!["┊│     1#0:t A two"])
+        .assert_current_line_eq(str!["┊│     l:t A two"])
         .assert_backstack_eq([BackstackEntry::Mark, BackstackEntry::ShowFileList])
         .assert_rendered_term_svg_eq(file![
             "snapshots/can_only_mark_files_from_one_commit_002.svg"
@@ -230,7 +230,7 @@ fn can_only_mark_files_from_one_commit() {
     // we shouldn't be allowed to select lines outside the commit files
     for _ in 0..10 {
         tui.input('j')
-            .assert_current_line_eq(str!["┊│     1#0:t A two"])
+            .assert_current_line_eq(str!["┊│     l:t A two"])
             .assert_backstack_eq([BackstackEntry::Mark, BackstackEntry::ShowFileList])
             .assert_rendered_term_svg_eq(file![
                 "snapshots/can_only_mark_files_from_one_commit_003.svg"
@@ -238,7 +238,7 @@ fn can_only_mark_files_from_one_commit() {
     }
     for _ in 0..10 {
         tui.input('k')
-            .assert_current_line_eq(str!["┊✔︎     1#0:o A three"])
+            .assert_current_line_eq(str!["┊✔︎     l:o A three"])
             .assert_backstack_eq([BackstackEntry::Mark, BackstackEntry::ShowFileList])
             .assert_rendered_term_svg_eq(file![
                 "snapshots/can_only_mark_files_from_one_commit_004.svg"

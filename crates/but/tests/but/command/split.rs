@@ -17,9 +17,9 @@ fn split_commit() {
 ╭┄ @ [uncommitted] (no changes)
 ┊
 ┊╭┄ br [a-branch-1]
-┊●   1 original
-┊│     1:k A one
-┊│     1:t A two
+┊●   lsw original
+┊│     lsw:k A one
+┊│     lsw:t A two
 ├╯
 ┊
 ┴ 0dc3733 (common base) 2000-01-02 add M
@@ -28,11 +28,11 @@ Hint: run `but help` for all commands
 
 "#]]);
 
-    env.but("split 1:k")
+    env.but("split lsw:k")
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
-Moved 1 change from 1 to new commit 1 above commit 1
+Moved 1 change from lsw to new commit qkw above commit lsw
 
 "#]]);
 
@@ -43,10 +43,10 @@ Moved 1 change from 1 to new commit 1 above commit 1
 ╭┄ @ [uncommitted] (no changes)
 ┊
 ┊╭┄ br [a-branch-1]
-┊●   1#0 (no commit message)
-┊│     1#0:k A one
-┊●   1#1 original
-┊│     1#1:t A two
+┊●   qkw (no commit message)
+┊│     qkw:k A one
+┊●   lsw original
+┊│     lsw:t A two
 ├╯
 ┊
 ┴ 0dc3733 (common base) 2000-01-02 add M
@@ -268,10 +268,10 @@ fn cannot_split_sources_from_multiple_commits() {
 ╭┄ @ [uncommitted] (no changes)
 ┊
 ┊╭┄ br [a-branch-1]
-┊●   1#0 original
-┊│     1#0:t A two
-┊●   1#1 original
-┊│     1#1:k A one
+┊●   qxq original
+┊│     qxq:t A two
+┊●   zts original
+┊│     zts:k A one
 ├╯
 ┊
 ┴ 0dc3733 (common base) 2000-01-02 add M
@@ -284,7 +284,9 @@ Hint: run `but help` for all commands
         .assert()
         .failure()
         .stderr_eq(snapbox::str![[r#"
-Error: Can only split changes from one commit. Got 1 and 1
+Error: Could not find source: '1#0:t'
+
+Hint: Run `but status` for applicable targets.
 
 "#]]);
 }

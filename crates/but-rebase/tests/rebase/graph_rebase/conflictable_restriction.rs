@@ -197,9 +197,9 @@ fn if_a_commit_has_been_configured_not_to_conflict_and_doesnt_end_up_conflicted_
         snapbox::str![[r#"
 
 └── 👉►:0[0]:main[🌳]
-    └── ·8b4d335 (⌂) ►c
+    └── ·df438f2 (⌂) ►c
         └── ►:1[1]:b
-            ├── ·7762cf9 (⌂)
+            ├── ·0c6475b (⌂)
             └── ·3b3bd41 (⌂)
                 └── ►:2[2]:a
                     └── ·5e0ba46 (⌂)
@@ -215,8 +215,8 @@ fn if_a_commit_has_been_configured_not_to_conflict_and_doesnt_end_up_conflicted_
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
         snapbox::str![[r#"
-* 8b4d335 (HEAD -> main, c) c
-* 7762cf9 (b) I'm a new commit! Hello there
+* df438f2 (HEAD -> main, c) c
+* 0c6475b (b) I'm a new commit! Hello there
 * 3b3bd41 b
 * 5e0ba46 (a) a
 * 6155f21 (base) base

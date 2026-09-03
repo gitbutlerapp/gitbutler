@@ -19,16 +19,17 @@
     <text x="74" y="78" style="fill:#00AA00;">A</text>
     <text x="82" y="78" style="fill:#CCCCCC;">]</text>
     <text x="10 18" y="96" style="fill:#FFFFFF;font-weight:bold;">┊●</text>
-    <text x="50" y="96" style="fill:#AA00AA;font-weight:bold;">1</text>
-    <text x="66 74 82" y="96" style="fill:#FFFFFF;font-weight:bold;opacity:0.75;">(no</text>
-    <text x="98 106 114 122 130 138" y="96" style="fill:#FFFFFF;font-weight:bold;opacity:0.75;">commit</text>
-    <text x="154 162 170 178 186 194 202 210" y="96" style="fill:#FFFFFF;font-weight:bold;opacity:0.75;">message)</text>
+    <text x="50" y="96" style="fill:#AA00AA;font-weight:bold;">w</text>
+    <text x="58 66" y="96" style="fill:#FFFFFF;font-weight:bold;opacity:0.75;">tl</text>
+    <text x="82 90 98" y="96" style="fill:#FFFFFF;font-weight:bold;opacity:0.75;">(no</text>
+    <text x="114 122 130 138 146 154" y="96" style="fill:#FFFFFF;font-weight:bold;opacity:0.75;">commit</text>
+    <text x="170 178 186 194 202 210 218 226" y="96" style="fill:#FFFFFF;font-weight:bold;opacity:0.75;">message)</text>
     <text x="10 18" y="114" style="fill:#CCCCCC;">┊│</text>
-    <text x="66 74 82" y="114" style="fill:#0000AA;font-weight:bold;">1:k</text>
+    <text x="66 74 82" y="114" style="fill:#0000AA;font-weight:bold;">w:k</text>
     <text x="98" y="114" style="fill:#CCCCCC;">A</text>
     <text x="114 122 130" y="114" style="fill:#00AA00;">one</text>
     <text x="10 18" y="132" style="fill:#CCCCCC;">┊│</text>
-    <text x="66 74 82" y="132" style="fill:#0000AA;font-weight:bold;">1:o</text>
+    <text x="66 74 82" y="132" style="fill:#0000AA;font-weight:bold;">w:o</text>
     <text x="98" y="132" style="fill:#CCCCCC;">A</text>
     <text x="114 122 130 138 146" y="132" style="fill:#00AA00;">three</text>
     <text x="10 18" y="150" style="fill:#CCCCCC;">┊●</text>

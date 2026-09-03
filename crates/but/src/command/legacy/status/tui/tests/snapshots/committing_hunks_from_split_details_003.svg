@@ -14,13 +14,13 @@
     <text x="410" y="24" style="fill:#555555;">│</text>
     <text x="418 426 434 442 450 458" y="24" style="fill:#CCCCCC;">Commit</text>
     <text x="474 482 490" y="24" style="fill:#CCCCCC;">ID:</text>
-    <text x="506 514 522 530 538 546 554 562 570 578 586 594 602 610 618 626 634 642 650 658 666 674 682 690 698 706 714 722 730 738 746 754 762 770 778 786 794" y="24" style="fill:#00AAAA;">161827dfb753ab835140e9bec9b8932c29691</text>
+    <text x="506 514 522 530 538 546 554 562 570 578 586 594 602 610 618 626 634 642 650 658 666 674 682 690 698 706 714 722 730 738 746 754 762 770 778 786 794" y="24" style="fill:#00AAAA;">607352e26d3a3e48310b5fe32008192f10767</text>
     <text x="802" y="24" style="fill:#555555;">█</text>
     <text x="10" y="42" style="fill:#CCCCCC;">┊</text>
     <text x="410" y="42" style="fill:#555555;">│</text>
     <text x="418 426 434 442 450 458" y="42" style="fill:#CCCCCC;">Change</text>
     <text x="474 482 490" y="42" style="fill:#CCCCCC;">ID:</text>
-    <text x="506" y="42" style="fill:#AA00AA;">1</text>
+    <text x="506 514 522 530 538 546 554 562 570 578 586 594 602 610 618 626 634 642 650 658 666 674 682 690 698 706 714 722 730 738 746 754" y="42" style="fill:#AA00AA;">kppwppwzzzynrymywkzrnvopplmottsw</text>
     <text x="802" y="42" style="fill:#555555;">█</text>
     <text x="10 18 26" y="60" style="fill:#CCCCCC;">┊╭┄</text>
     <text x="42 50" y="60" style="fill:#0000AA;font-weight:bold;">g0</text>
@@ -37,10 +37,11 @@
     <text x="786 794" y="60" style="fill:#00AAAA;">Sa</text>
     <text x="802" y="60" style="fill:#555555;">█</text>
     <text x="10 18" y="78" style="fill:#FFFFFF;font-weight:bold;">┊●</text>
-    <text x="50" y="78" style="fill:#AA00AA;font-weight:bold;">1</text>
-    <text x="66 74 82" y="78" style="fill:#FFFFFF;font-weight:bold;opacity:0.75;">(no</text>
-    <text x="98 106 114 122 130 138" y="78" style="fill:#FFFFFF;font-weight:bold;opacity:0.75;">commit</text>
-    <text x="154 162 170 178 186 194 202 210" y="78" style="fill:#FFFFFF;font-weight:bold;opacity:0.75;">message)</text>
+    <text x="50" y="78" style="fill:#AA00AA;font-weight:bold;">k</text>
+    <text x="58 66" y="78" style="fill:#FFFFFF;font-weight:bold;opacity:0.75;">pp</text>
+    <text x="82 90 98" y="78" style="fill:#FFFFFF;font-weight:bold;opacity:0.75;">(no</text>
+    <text x="114 122 130 138 146 154" y="78" style="fill:#FFFFFF;font-weight:bold;opacity:0.75;">commit</text>
+    <text x="170 178 186 194 202 210 218 226" y="78" style="fill:#FFFFFF;font-weight:bold;opacity:0.75;">message)</text>
     <text x="410" y="78" style="fill:#555555;">│</text>
     <text x="418 426 434 442 450 458 466 474 482 490" y="78" style="fill:#CCCCCC;">Committer:</text>
     <text x="506 514 522 530 538 546 554 562 570" y="78" style="fill:#FFFF55;">committer</text>
@@ -85,7 +86,7 @@
     <text x="410 418 426 434 442 450 458 466 474 482 490 498 506" y="186" style="fill:#555555;">│───────────╮</text>
     <text x="802" y="186" style="fill:#555555;">█</text>
     <text x="410" y="204" style="fill:#555555;">│</text>
-    <text x="426 434 442 450 458" y="204" style="fill:#0000AA;">1:k:c</text>
+    <text x="426 434 442 450 458" y="204" style="fill:#0000AA;">k:k:c</text>
     <text x="474 482 490" y="204" style="fill:#CCCCCC;">one</text>
     <text x="506" y="204" style="fill:#555555;">│</text>
     <text x="802" y="204" style="fill:#555555;">█</text>
@@ -110,7 +111,7 @@
     <text x="410" y="312" style="fill:#555555;">│</text>
     <text x="410 418 426 434 442 450 458 466 474 482 490 498 506" y="330" style="fill:#555555;">│───────────╮</text>
     <text x="410" y="348" style="fill:#555555;">│</text>
-    <text x="426 434 442 450 458" y="348" style="fill:#0000AA;">1:t:c</text>
+    <text x="426 434 442 450 458" y="348" style="fill:#0000AA;">k:t:c</text>
     <text x="474 482 490" y="348" style="fill:#CCCCCC;">two</text>
     <text x="506" y="348" style="fill:#555555;">│</text>
     <text x="26 34 42 50 58 66" y="366" style="fill:#FFFFFF;">normal</text>

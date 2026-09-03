@@ -176,8 +176,8 @@ fn diamond_partially_historically_integrated_merge() -> Result<()> {
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
         snapbox::str![[r#"
-* 292b0b3 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
-*   ed5f276 (E) Merge refs/remotes/origin/master into merge
+* dcb5024 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+*   e9b2f42 (E) Merge refs/remotes/origin/master into merge
 |\  
 | * 7de2393 (origin/master, master) o4
 | *   7d62953 (o3) o3
@@ -357,8 +357,8 @@ fn diamond_partially_content_integrated_merge() -> Result<()> {
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
         snapbox::str![[r#"
-* ebd6fa2 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
-*   0a395ba (E) Merge refs/remotes/origin/master into merge
+* aed8274 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+*   ec29bcc (E) Merge refs/remotes/origin/master into merge
 |\  
 | * 162b064 (origin/master, master) o4
 | * dd87d69 (o3) B
@@ -603,7 +603,7 @@ fn integrated_bottom_branch_no_workspace_merge() -> Result<()> {
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
         snapbox::str![[r#"
-*   7ce831c (HEAD -> A) Merge refs/remotes/origin/main into merge
+*   0428fd0 (HEAD -> A) Merge refs/remotes/origin/main into merge
 |\  
 | * 8c8a843 (origin/main) add X1
 * | e792f40 add A1
@@ -686,8 +686,8 @@ fn merge_upstream_with_conflicting_target_materializes_conflicted_merge_commit()
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
         snapbox::str![[r#"
-* 379fa91 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
-*   9b4efdf (A) [conflict] Merge refs/remotes/origin/A into merge
+* ad8e361 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+*   9046a0c (A) [conflict] Merge refs/remotes/origin/A into merge
 |\  
 | * f03fc2c (origin/A, new-origin) remote change in A 1
 * | 61c4a24 local change in A 1

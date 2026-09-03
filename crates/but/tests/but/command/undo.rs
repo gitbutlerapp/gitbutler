@@ -397,7 +397,7 @@ fn can_undo_and_redo_commit_with_ordinary_branch_checked_out() {
         .assert()
         .success();
     let committed = snapbox::str![[r#"
-* 1e62c18 (HEAD -> my-branch) make a commit
+* afb88e5 (HEAD -> my-branch) make a commit
 * b1540e5 (origin/main, origin/HEAD, main, gitbutler/target) M
 * e31e6ca add init
 
@@ -483,9 +483,9 @@ fn can_undo_but_squash_with_two_commits() {
         .stdout_eq(snapbox::str![[r#"
 Operations History
 ──────────────────────────────────────────────────
-4ae3505 2000-01-02 00:00:00 [UNDO] Restored from snapshot: Squashed commit (6198fdb)
-6198fdb 2000-01-02 00:00:00 [SQUASH] Squashed commit
-226d961 2000-01-02 00:00:00 [COMMIT] Created commit
+e940ce1 2000-01-02 00:00:00 [UNDO] Restored from snapshot: Squashed commit (f45a6ee)
+f45a6ee 2000-01-02 00:00:00 [SQUASH] Squashed commit
+ed549de 2000-01-02 00:00:00 [COMMIT] Created commit
 f858e61 2000-01-02 00:00:00 [COMMIT] Created commit
 
 "#]]);
@@ -516,10 +516,10 @@ fn can_undo_but_squash_with_three_commits() {
         .stdout_eq(snapbox::str![[r#"
 Operations History
 ──────────────────────────────────────────────────
-9a03a21 2000-01-02 00:00:00 [UNDO] Restored from snapshot: Squashed commit (c23e673)
-c23e673 2000-01-02 00:00:00 [SQUASH] Squashed commit
-19a80ff 2000-01-02 00:00:00 [COMMIT] Created commit
-226d961 2000-01-02 00:00:00 [COMMIT] Created commit
+1127adf 2000-01-02 00:00:00 [UNDO] Restored from snapshot: Squashed commit (0a9b32d)
+0a9b32d 2000-01-02 00:00:00 [SQUASH] Squashed commit
+7c74cf0 2000-01-02 00:00:00 [COMMIT] Created commit
+ed549de 2000-01-02 00:00:00 [COMMIT] Created commit
 f858e61 2000-01-02 00:00:00 [COMMIT] Created commit
 
 "#]]);
@@ -549,9 +549,9 @@ fn can_undo_but_squash_with_two_commits_with_message() {
         .stdout_eq(snapbox::str![[r#"
 Operations History
 ──────────────────────────────────────────────────
-1346c87 2000-01-02 00:00:00 [UNDO] Restored from snapshot: Squashed commit (6198fdb)
-6198fdb 2000-01-02 00:00:00 [SQUASH] Squashed commit
-226d961 2000-01-02 00:00:00 [COMMIT] Created commit
+7ffe829 2000-01-02 00:00:00 [UNDO] Restored from snapshot: Squashed commit (f45a6ee)
+f45a6ee 2000-01-02 00:00:00 [SQUASH] Squashed commit
+ed549de 2000-01-02 00:00:00 [COMMIT] Created commit
 f858e61 2000-01-02 00:00:00 [COMMIT] Created commit
 
 "#]]);
@@ -577,9 +577,9 @@ fn can_undo_but_squash_with_branch() {
         .stdout_eq(snapbox::str![[r#"
 Operations History
 ──────────────────────────────────────────────────
-cddab76 2000-01-02 00:00:00 [UNDO] Restored from snapshot: Squashed commit (6198fdb)
-6198fdb 2000-01-02 00:00:00 [SQUASH] Squashed commit
-226d961 2000-01-02 00:00:00 [COMMIT] Created commit
+090591a 2000-01-02 00:00:00 [UNDO] Restored from snapshot: Squashed commit (f45a6ee)
+f45a6ee 2000-01-02 00:00:00 [SQUASH] Squashed commit
+ed549de 2000-01-02 00:00:00 [COMMIT] Created commit
 f858e61 2000-01-02 00:00:00 [COMMIT] Created commit
 
 "#]]);
@@ -605,9 +605,9 @@ fn can_undo_but_squash_with_branch_and_drop_message() {
         .stdout_eq(snapbox::str![[r#"
 Operations History
 ──────────────────────────────────────────────────
-1b983eb 2000-01-02 00:00:00 [UNDO] Restored from snapshot: Squashed commit (6198fdb)
-6198fdb 2000-01-02 00:00:00 [SQUASH] Squashed commit
-226d961 2000-01-02 00:00:00 [COMMIT] Created commit
+e539a24 2000-01-02 00:00:00 [UNDO] Restored from snapshot: Squashed commit (f45a6ee)
+f45a6ee 2000-01-02 00:00:00 [SQUASH] Squashed commit
+ed549de 2000-01-02 00:00:00 [COMMIT] Created commit
 f858e61 2000-01-02 00:00:00 [COMMIT] Created commit
 
 "#]]);
@@ -707,15 +707,15 @@ fn can_undo_but_switch_workspace_with_workspace_already_existing() {
 ╭┄ @ [uncommitted] (no changes)
 ┊
 ┊╭┄ g0 [C]
-┊●   1#0 add C (no changes)
+┊●   t#0 add C (no changes)
 ├╯
 ┊
 ┊╭┄ h0 [B]
-┊●   1#1 add B (no changes)
+┊●   t#1 add B (no changes)
 ├╯
 ┊
 ┊╭┄ i0 [A]
-┊●   1#2 add A (no changes)
+┊●   t#2 add A (no changes)
 ├╯
 ┊
 ┴ 0dc3733 (common base) 2000-01-02 add M
@@ -733,7 +733,7 @@ Hint: run `but help` for all commands
 ╭┄ @ [uncommitted] (no changes)
 ┊
 ┊╭┄ g0 [A]
-┊●   1 add A (no changes)
+┊●   tqv add A (no changes)
 ├╯
 ┊
 ┴ 0dc3733 (common base) 2000-01-02 add M
@@ -752,15 +752,15 @@ Hint: run `but help` for all commands
 ╭┄ @ [uncommitted] (no changes)
 ┊
 ┊╭┄ g0 [C]
-┊●   1#0 add C (no changes)
+┊●   t#0 add C (no changes)
 ├╯
 ┊
 ┊╭┄ h0 [B]
-┊●   1#1 add B (no changes)
+┊●   t#1 add B (no changes)
 ├╯
 ┊
 ┊╭┄ i0 [A]
-┊●   1#2 add A (no changes)
+┊●   t#2 add A (no changes)
 ├╯
 ┊
 ┴ 0dc3733 (common base) 2000-01-02 add M
@@ -788,7 +788,7 @@ fn can_undo_but_switch_workspace_with_workspace_not_already_existing() {
 ╭┄ @ [uncommitted] (no changes)
 ┊
 ┊╭┄ my [my-branch]
-┊●   1 make a commit (no changes)
+┊●   lsm make a commit (no changes)
 ├╯
 ┊
 ┴ b1540e5 (common base) 2000-01-02 M
@@ -800,7 +800,7 @@ Hint: run `but help` for all commands
     snapbox::assert_data_eq!(
         env.git_log(),
         snapbox::str![[r#"
-* 1e62c18 (HEAD -> my-branch) make a commit
+* afb88e5 (HEAD -> my-branch) make a commit
 * b1540e5 (origin/main, origin/HEAD, main, gitbutler/target) M
 * e31e6ca add init
 
@@ -818,8 +818,8 @@ Hint: run `but help` for all commands
             snapbox::assert_data_eq!(
                 env.git_log(),
                 snapbox::str![[r#"
-* 2e292d5 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
-* 1e62c18 (my-branch) make a commit
+* 47cd27c (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+* afb88e5 (my-branch) make a commit
 * b1540e5 (origin/main, origin/HEAD, main, gitbutler/target) M
 * e31e6ca add init
 
@@ -831,7 +831,7 @@ Hint: run `but help` for all commands
     snapbox::assert_data_eq!(
         env.git_log(),
         snapbox::str![[r#"
-* 1e62c18 (HEAD -> my-branch) make a commit
+* afb88e5 (HEAD -> my-branch) make a commit
 * b1540e5 (origin/main, origin/HEAD, main, gitbutler/target) M
 * e31e6ca add init
 

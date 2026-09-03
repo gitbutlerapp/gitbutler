@@ -68,8 +68,8 @@ fn move_committed_changes_outputs_json() {
   "sourceCommitId": "9ac4652535fde457cb4cb3b36f0d9a64135de4c8",
   "sourceChangeId": "ywxsopnrxtuqozktnmnmwxmwlpxsokpn",
   "numChanges": 1,
-  "newCommitId": "8e35f84e6f99cf09d1fa04c8df71d98b954865c5",
-  "newChangeId": "1",
+  "newCommitId": "d4d87dbb2dac7a9f650922bae9be1f9d1e427994",
+  "newChangeId": "qkwnvqwsnrxqqxpznwlutzvwtmpxmxky",
   "branch": "new-branch"
 }
 
@@ -1078,7 +1078,7 @@ Hint: run `but help` for all commands
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
-Moved 1 change from ywx to new commit 1 below commit zll
+Moved 1 change from ywx to new commit qkw below commit zll
 
 "#]]);
 
@@ -1092,8 +1092,8 @@ Moved 1 change from ywx to new commit 1 below commit zll
 ┊●   ywx add second (no changes)
 ┊●   zll add first
 ┊│     zll:l A first
-┊●   1 (no commit message)
-┊│     1:w A second
+┊●   qkw (no commit message)
+┊│     qkw:w A second
 ├╯
 ┊
 ┴ 1bbc04b (common base) 2000-01-02 add Base
@@ -1131,7 +1131,7 @@ Hint: run `but help` for all commands
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
-Moved 1 change from zll to new commit 1 above commit ywx
+Moved 1 change from zll to new commit qkw above commit ywx
 
 "#]]);
 
@@ -1142,8 +1142,8 @@ Moved 1 change from zll to new commit 1 above commit ywx
 ╭┄ @ [uncommitted] (no changes)
 ┊
 ┊╭┄ g0 [A]
-┊●   1 (no commit message)
-┊│     1:l A first
+┊●   qkw (no commit message)
+┊│     qkw:l A first
 ┊●   ywx add second
 ┊│     ywx:w A second
 ┊●   zll add first (no changes)
@@ -1184,7 +1184,7 @@ Hint: run `but help` for all commands
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
-Moved 1 change from ywx to new commit 1 on new branch 'a-branch-1' below branch 'A'
+Moved 1 change from ywx to new commit qkw on new branch 'a-branch-1' below branch 'A'
 
 "#]]);
 
@@ -1200,8 +1200,8 @@ Moved 1 change from ywx to new commit 1 on new branch 'a-branch-1' below branch 
 ┊│     zll:l A first
 ┊│
 ┊├┄ br [a-branch-1]
-┊●   1 (no commit message)
-┊│     1:w A second
+┊●   qkw (no commit message)
+┊│     qkw:w A second
 ├╯
 ┊
 ┴ 1bbc04b (common base) 2000-01-02 add Base
@@ -1239,7 +1239,7 @@ Hint: run `but help` for all commands
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
-Moved 1 change from zll to new commit 1 on new branch 'a-branch-1' above branch 'A'
+Moved 1 change from zll to new commit qkw on new branch 'a-branch-1' above branch 'A'
 
 "#]]);
 
@@ -1250,8 +1250,8 @@ Moved 1 change from zll to new commit 1 on new branch 'a-branch-1' above branch 
 ╭┄ @ [uncommitted] (no changes)
 ┊
 ┊╭┄ br [a-branch-1]
-┊●   1 (no commit message)
-┊│     1:l A first
+┊●   qkw (no commit message)
+┊│     qkw:l A first
 ┊│
 ┊├┄ g0 [A]
 ┊●   ywx add second
@@ -1297,7 +1297,7 @@ Hint: run `but help` for all commands
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
-Moved 1 change from lrm to new commit 1 to the tip of branch 'A'
+Moved 1 change from lrm to new commit qkw to the tip of branch 'A'
 
 "#]]);
 
@@ -1308,8 +1308,8 @@ Moved 1 change from lrm to new commit 1 to the tip of branch 'A'
 ╭┄ @ [uncommitted] (no changes)
 ┊
 ┊╭┄ g0 [A]
-┊●   1 (no commit message)
-┊│     1:p A B
+┊●   qkw (no commit message)
+┊│     qkw:p A B
 ┊●   tpm add A
 ┊│     tpm:t A A
 ├╯
@@ -1353,7 +1353,7 @@ Hint: run `but help` for all commands
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
-Moved 1 change from ywx to new commit 1 on new branch 'new-branch'
+Moved 1 change from ywx to new commit qkw on new branch 'new-branch'
 
 "#]]);
 
@@ -1364,8 +1364,8 @@ Moved 1 change from ywx to new commit 1 on new branch 'new-branch'
 ╭┄ @ [uncommitted] (no changes)
 ┊
 ┊╭┄ ne [new-branch]
-┊●   1 (no commit message)
-┊│     1:w A second
+┊●   qkw (no commit message)
+┊│     qkw:w A second
 ├╯
 ┊
 ┊╭┄ g0 [A]
@@ -1409,7 +1409,7 @@ Hint: run `but help` for all commands
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
-Moved 1 change from ywx to new commit 1 on new branch 'a-branch-1'
+Moved 1 change from ywx to new commit qkw on new branch 'a-branch-1'
 
 "#]]);
 
@@ -1420,8 +1420,8 @@ Moved 1 change from ywx to new commit 1 on new branch 'a-branch-1'
 ╭┄ @ [uncommitted] (no changes)
 ┊
 ┊╭┄ br [a-branch-1]
-┊●   1 (no commit message)
-┊│     1:w A second
+┊●   qkw (no commit message)
+┊│     qkw:w A second
 ├╯
 ┊
 ┊╭┄ g0 [A]
@@ -1456,13 +1456,13 @@ seven
     env.file("file", format!("beginning\n{content}end"));
     env.but("commit -m 'Update file'").assert().success();
 
-    env.but("diff 1#0")
+    env.but("diff szk")
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
-──────────────╮
- 1#0:q:3 file │
-──────────────╯
+────────────╮
+ s:q:3 file │
+────────────╯
 
 @@ -1,3 +1,4 @@
 ───────────────
@@ -1471,9 +1471,9 @@ seven
 2 ┊ 3 │  two
 3 ┊ 4 │  three
 
-──────────────╮
- 1#0:q:8 file │
-──────────────╯
+────────────╮
+ s:q:8 file │
+────────────╯
 
 @@ -5,3 +6,4 @@
 ───────────────
@@ -1484,11 +1484,11 @@ seven
 
 "#]]);
 
-    env.but("move 1#0:q:3 --above 1#1")
+    env.but("move szk:q:3 --above knw")
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
-Moved 1 change from 1 to new commit 1 above commit 1
+Moved 1 change from szk to new commit qkw above commit knw
 
 "#]]);
 
@@ -1499,12 +1499,12 @@ Moved 1 change from 1 to new commit 1 above commit 1
 ╭┄ @ [uncommitted] (no changes)
 ┊
 ┊╭┄ br [a-branch-1]
-┊●   1#0 Update file
-┊│     1#0:q M file
-┊●   1#1 (no commit message)
-┊│     1#1:q M file
-┊●   1#2 Add file
-┊│     1#2:q A file
+┊●   szk Update file
+┊│     szk:q M file
+┊●   qkw (no commit message)
+┊│     qkw:q M file
+┊●   knw Add file
+┊│     knw:q A file
 ├╯
 ┊
 ┴ 0dc3733 (common base) 2000-01-02 add M
@@ -1514,13 +1514,13 @@ Hint: run `but help` for all commands
 "#]]);
 
     // Source commit retains only hunk that was not moved.
-    env.but("diff 1#0")
+    env.but("diff szk")
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
-──────────────╮
- 1#0:q:8 file │
-──────────────╯
+────────────╮
+ s:q:8 file │
+────────────╯
 
 @@ -6,3 +6,4 @@
 ───────────────
@@ -1532,13 +1532,13 @@ Hint: run `but help` for all commands
 "#]]);
 
     // New commit contains only selected hunk.
-    env.but("diff 1#1")
+    env.but("diff qkw")
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
-──────────────╮
- 1#1:q:3 file │
-──────────────╯
+────────────╮
+ q:q:3 file │
+────────────╯
 
 @@ -1,3 +1,4 @@
 ───────────────
@@ -1582,12 +1582,12 @@ seven
     };
 
     // Entire file is baseline.
-    env.but("move 1#0:q --above 1#0").assert().success();
+    env.but("move szk:q --above szk").assert().success();
     let trees_entire_file = commit_trees(&env);
 
     // Hunk order.
     env.but("undo").assert().success();
-    env.but("move 1#0:q:3 1#0:q:8 --above 1#0")
+    env.but("move szk:q:3 szk:q:8 --above szk")
         .assert()
         .success();
     assert_eq!(
@@ -1598,7 +1598,7 @@ seven
 
     // Reverse hunk order.
     env.but("undo").assert().success();
-    env.but("move 1#0:q:8 1#0:q:3 --above 1#0")
+    env.but("move szk:q:8 szk:q:3 --above szk")
         .assert()
         .success();
     assert_eq!(
@@ -1609,7 +1609,7 @@ seven
 
     // Repeated hunks.
     env.but("undo").assert().success();
-    env.but("move 1#0:q:8 1#0:q:3 1#0:q:8 --above 1#0")
+    env.but("move szk:q:8 szk:q:3 szk:q:8 --above szk")
         .assert()
         .success();
     assert_eq!(
@@ -1620,7 +1620,7 @@ seven
 
     // Hunk then file.
     env.but("undo").assert().success();
-    env.but("move 1#0:q:8 1#0:q --above 1#0").assert().success();
+    env.but("move szk:q:8 szk:q --above szk").assert().success();
     assert_eq!(
         commit_trees(&env),
         trees_entire_file,
@@ -1629,7 +1629,7 @@ seven
 
     // File then hunk.
     env.but("undo").assert().success();
-    env.but("move 1#0:q 1#0:q:8 --above 1#0").assert().success();
+    env.but("move szk:q szk:q:8 --above szk").assert().success();
     assert_eq!(
         commit_trees(&env),
         trees_entire_file,
@@ -1660,12 +1660,12 @@ fn move_file_should_be_order_independent() {
 ╭┄ @ [uncommitted] (no changes)
 ┊
 ┊╭┄ br [a-branch-1]
-┊●   1#0 Prepare for moves!
-┊│     1#0:u R moved
-┊│     1#0:p A new/file
-┊│     1#0:t A unrelated
-┊●   1#1 Add new file
-┊│     1#1:n A new
+┊●   nlk Prepare for moves!
+┊│     nlk:u R moved
+┊│     nlk:p A new/file
+┊│     nlk:t A unrelated
+┊●   zqr Add new file
+┊│     zqr:n A new
 ├╯
 ┊
 ┴ 0dc3733 (common base) 2000-01-02 add M
@@ -1674,11 +1674,11 @@ Hint: run `but help` for all commands
 
 "#]]);
 
-    env.but("move 1#0:u 1#0:p --above 1#0")
+    env.but("move nlk:u nlk:p --above nlk")
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
-Moved 2 changes from 1 to new commit 1 above commit 1
+Moved 2 changes from nlk to new commit qkw above commit nlk
 
 "#]]);
 
@@ -1689,13 +1689,13 @@ Moved 2 changes from 1 to new commit 1 above commit 1
 ╭┄ @ [uncommitted] (no changes)
 ┊
 ┊╭┄ br [a-branch-1]
-┊●   1#0 (no commit message)
-┊│     1#0:u R moved
-┊│     1#0:p A new/file
-┊●   1#1 Prepare for moves!
-┊│     1#1:t A unrelated
-┊●   1#2 Add new file
-┊│     1#2:n A new
+┊●   qkw (no commit message)
+┊│     qkw:u R moved
+┊│     qkw:p A new/file
+┊●   nlk Prepare for moves!
+┊│     nlk:t A unrelated
+┊●   zqr Add new file
+┊│     zqr:n A new
 ├╯
 ┊
 ┴ 0dc3733 (common base) 2000-01-02 add M
@@ -1706,11 +1706,11 @@ Hint: run `but help` for all commands
 
     env.but("undo").assert().success();
 
-    env.but("move 1#0:p 1#0:u --above 1#0")
+    env.but("move nlk:p nlk:u --above nlk")
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
-Moved 2 changes from 1 to new commit 1 above commit 1
+Moved 2 changes from nlk to new commit qkw above commit nlk
 
 "#]]);
 
@@ -1721,13 +1721,13 @@ Moved 2 changes from 1 to new commit 1 above commit 1
 ╭┄ @ [uncommitted] (no changes)
 ┊
 ┊╭┄ br [a-branch-1]
-┊●   1#0 (no commit message)
-┊│     1#0:u R moved
-┊│     1#0:p A new/file
-┊●   1#1 Prepare for moves!
-┊│     1#1:t A unrelated
-┊●   1#2 Add new file
-┊│     1#2:n A new
+┊●   qkw (no commit message)
+┊│     qkw:u R moved
+┊│     qkw:p A new/file
+┊●   nlk Prepare for moves!
+┊│     nlk:t A unrelated
+┊●   zqr Add new file
+┊│     zqr:n A new
 ├╯
 ┊
 ┴ 0dc3733 (common base) 2000-01-02 add M
@@ -2133,7 +2133,7 @@ fn move_commit_branch_above_empty_dependents_keeps_them_empty() {
 ┊├┄ mp [empty-low] (no commits)
 ┊│
 ┊├┄ co [commit-branch]
-┊●   1 commit branch
+┊●   nwz commit branch
 ├╯
 ┊
 ┴ b1540e5 (common base) 2000-01-02 M
@@ -2153,7 +2153,7 @@ Hint: run `but help` for all commands
 ╭┄ @ [uncommitted] (no changes)
 ┊
 ┊╭┄ co [commit-branch]
-┊●   1 commit branch
+┊●   nwz commit branch
 ┊│
 ┊├┄ em [empty-top] (no commits)
 ┊│
@@ -2881,7 +2881,7 @@ Hint: run `but help` for all commands
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
-Moved 1 change from zll to new commit 1 on new branch 'a-branch-1'
+Moved 1 change from zll to new commit qkw on new branch 'a-branch-1'
 
 "#]]);
 }

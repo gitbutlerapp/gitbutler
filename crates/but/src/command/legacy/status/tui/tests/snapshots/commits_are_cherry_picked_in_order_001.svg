@@ -26,11 +26,12 @@
     <text x="74" y="114" style="fill:#00AA00;">A</text>
     <text x="82" y="114" style="fill:#CCCCCC;">]</text>
     <text x="10 18" y="132" style="fill:#FFFFFF;font-weight:bold;">┊●</text>
-    <text x="50" y="132" style="fill:#AA00AA;font-weight:bold;">1</text>
-    <text x="66 74 82 90 98 106" y="132" style="fill:#FFFFFF;font-weight:bold;">change</text>
-    <text x="122" y="132" style="fill:#FFFFFF;font-weight:bold;">A</text>
+    <text x="50" y="132" style="fill:#AA00AA;font-weight:bold;">v</text>
+    <text x="58 66" y="132" style="fill:#FFFFFF;font-weight:bold;opacity:0.75;">rs</text>
+    <text x="82 90 98 106 114 122" y="132" style="fill:#FFFFFF;font-weight:bold;">change</text>
+    <text x="138" y="132" style="fill:#FFFFFF;font-weight:bold;">A</text>
     <text x="10 18" y="150" style="fill:#CCCCCC;">┊│</text>
-    <text x="66 74 82" y="150" style="fill:#0000AA;font-weight:bold;">1:t</text>
+    <text x="66 74 82" y="150" style="fill:#0000AA;font-weight:bold;">v:t</text>
     <text x="98" y="150" style="fill:#CCCCCC;">M</text>
     <text x="114" y="150" style="fill:#AA5500;">A</text>
     <text x="10 18" y="168" style="fill:#CCCCCC;">┊●</text>

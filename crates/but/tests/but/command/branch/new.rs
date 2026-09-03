@@ -378,7 +378,7 @@ Created branch 'middle'
 ╭┄ @ [uncommitted] (no changes)
 ┊
 ┊╭┄ mi [middle]
-┊●   1 on middle (no changes)
+┊●   lsm on middle (no changes)
 ├╯
 ┊
 ┴ b1540e5 (common base) 2000-01-02 M
@@ -407,10 +407,10 @@ Created branch 'top' above branch 'middle'
 ╭┄ @ [uncommitted] (no changes)
 ┊
 ┊╭┄ to [top]
-┊●   1#0 on top (no changes)
+┊●   qzl on top (no changes)
 ┊│
 ┊├┄ mi [middle]
-┊●   1#1 on middle (no changes)
+┊●   lsm on middle (no changes)
 ├╯
 ┊
 ┴ b1540e5 (common base) 2000-01-02 M
@@ -422,8 +422,8 @@ Hint: run `but help` for all commands
     snapbox::assert_data_eq!(
         env.git_log(),
         snapbox::str![[r#"
-* 278079d (HEAD -> top) on top
-* 8e3d31a (middle) on middle
+* 426ad51 (HEAD -> top) on top
+* 8b08d79 (middle) on middle
 * b1540e5 (origin/main, origin/HEAD, main, gitbutler/target) M
 * e31e6ca add init
 
@@ -446,10 +446,10 @@ Created branch 'bottom' below branch 'middle'
 ╭┄ @ [uncommitted] (no changes)
 ┊
 ┊╭┄ to [top]
-┊●   1#0 on top (no changes)
+┊●   qzl on top (no changes)
 ┊│
 ┊├┄ mi [middle]
-┊●   1#1 on middle (no changes)
+┊●   lsm on middle (no changes)
 ┊│
 ┊├┄ bo [bottom] (no commits)
 ├╯
@@ -472,13 +472,13 @@ Hint: run `but help` for all commands
 ╭┄ @ [uncommitted] (no changes)
 ┊
 ┊╭┄ to [top]
-┊●   1#0 on top (no changes)
+┊●   qzl on top (no changes)
 ┊│
 ┊├┄ mi [middle]
-┊●   1#1 on middle (no changes)
+┊●   l#0 on middle (no changes)
 ┊│
 ┊├┄ bo [bottom]
-┊●   1#2 on bottom (no changes)
+┊●   l#1 on bottom (no changes)
 ├╯
 ┊
 ┴ b1540e5 (common base) 2000-01-02 M
@@ -507,16 +507,16 @@ Created branch 'between-middle-and-top' above branch 'middle'
 ╭┄ @ [uncommitted] (no changes)
 ┊
 ┊╭┄ to [top]
-┊●   1#0 on top (no changes)
+┊●   qzl on top (no changes)
 ┊│
 ┊├┄ et [between-middle-and-top]
-┊●   1#1 on between-middle-and-top (no changes)
+┊●   pky on between-middle-and-top (no changes)
 ┊│
 ┊├┄ mi [middle]
-┊●   1#2 on middle (no changes)
+┊●   l#0 on middle (no changes)
 ┊│
 ┊├┄ bo [bottom]
-┊●   1#3 on bottom (no changes)
+┊●   l#1 on bottom (no changes)
 ├╯
 ┊
 ┴ b1540e5 (common base) 2000-01-02 M
@@ -528,10 +528,10 @@ Hint: run `but help` for all commands
     snapbox::assert_data_eq!(
         env.git_log(),
         snapbox::str![[r#"
-* a54744f (HEAD -> top) on top
-* 8406d60 (between-middle-and-top) on between-middle-and-top
-* 5614135 (middle) on middle
-* 9133168 (bottom) on bottom
+* 36d9d21 (HEAD -> top) on top
+* 0daea9a (between-middle-and-top) on between-middle-and-top
+* 2596ebb (middle) on middle
+* ff665ad (bottom) on bottom
 * b1540e5 (origin/main, origin/HEAD, main, gitbutler/target) M
 * e31e6ca add init
 
@@ -677,7 +677,7 @@ fn create_branch_above_non_empty_branch() {
 ╭┄ @ [uncommitted] (no changes)
 ┊
 ┊╭┄ bo [bottom]
-┊●   1 (no commit message) (no changes)
+┊●   tqv (no commit message) (no changes)
 ├╯
 ┊
 ┴ 0dc3733 (common base) 2000-01-02 add M
@@ -700,7 +700,7 @@ Created branch 'top' above branch 'bottom'
 ┊╭┄ to [top] (no commits)
 ┊│
 ┊├┄ bo [bottom]
-┊●   1 (no commit message) (no changes)
+┊●   tqv (no commit message) (no changes)
 ├╯
 ┊
 ┴ 0dc3733 (common base) 2000-01-02 add M
@@ -787,7 +787,7 @@ fn create_branch_below_non_empty_branch() {
 ╭┄ @ [uncommitted] (no changes)
 ┊
 ┊╭┄ to [top]
-┊●   1 (no commit message) (no changes)
+┊●   tqv (no commit message) (no changes)
 ├╯
 ┊
 ┴ 0dc3733 (common base) 2000-01-02 add M
@@ -808,7 +808,7 @@ Created branch 'bottom' below branch 'top'
 ╭┄ @ [uncommitted] (no changes)
 ┊
 ┊╭┄ to [top]
-┊●   1 (no commit message) (no changes)
+┊●   tqv (no commit message) (no changes)
 ┊│
 ┊├┄ bo [bottom] (no commits)
 ├╯
@@ -833,9 +833,9 @@ fn create_branch_above_commit() {
 ╭┄ @ [uncommitted] (no changes)
 ┊
 ┊╭┄ my [my-branch]
-┊●   1#0 top (no changes)
-┊●   1#1 middle (no changes)
-┊●   1#2 bottom (no changes)
+┊●   zou top (no changes)
+┊●   uxw middle (no changes)
+┊●   tqv bottom (no changes)
 ├╯
 ┊
 ┴ 0dc3733 (common base) 2000-01-02 add M
@@ -844,11 +844,11 @@ Hint: run `but help` for all commands
 
 "#]]);
 
-    env.but("branch new --above 1#1")
+    env.but("branch new --above uxw")
         .assert()
         .success()
         .stdout_eq(str![[r#"
-Created branch 'a-branch-1' above commit 1
+Created branch 'a-branch-1' above commit uxw
 
 "#]]);
 
@@ -856,11 +856,11 @@ Created branch 'a-branch-1' above commit 1
 ╭┄ @ [uncommitted] (no changes)
 ┊
 ┊╭┄ my [my-branch]
-┊●   1#0 top (no changes)
+┊●   zou top (no changes)
 ┊│
 ┊├┄ br [a-branch-1]
-┊●   1#1 middle (no changes)
-┊●   1#2 bottom (no changes)
+┊●   uxw middle (no changes)
+┊●   tqv bottom (no changes)
 ├╯
 ┊
 ┴ 0dc3733 (common base) 2000-01-02 add M
@@ -869,11 +869,11 @@ Hint: run `but help` for all commands
 
 "#]]);
 
-    env.but("branch new --above 1#0")
+    env.but("branch new --above zou")
         .assert()
         .success()
         .stdout_eq(str![[r#"
-Created branch 'a-branch-2' above commit 1
+Created branch 'a-branch-2' above commit zou
 
 "#]]);
 
@@ -883,11 +883,11 @@ Created branch 'a-branch-2' above commit 1
 ┊╭┄ my [my-branch] (no commits)
 ┊│
 ┊├┄ br [a-branch-2]
-┊●   1#0 top (no changes)
+┊●   zou top (no changes)
 ┊│
 ┊├┄ ra [a-branch-1]
-┊●   1#1 middle (no changes)
-┊●   1#2 bottom (no changes)
+┊●   uxw middle (no changes)
+┊●   tqv bottom (no changes)
 ├╯
 ┊
 ┴ 0dc3733 (common base) 2000-01-02 add M
@@ -910,9 +910,9 @@ fn create_branch_below_commit() {
 ╭┄ @ [uncommitted] (no changes)
 ┊
 ┊╭┄ my [my-branch]
-┊●   1#0 top (no changes)
-┊●   1#1 middle (no changes)
-┊●   1#2 bottom (no changes)
+┊●   zou top (no changes)
+┊●   uxw middle (no changes)
+┊●   tqv bottom (no changes)
 ├╯
 ┊
 ┴ 0dc3733 (common base) 2000-01-02 add M
@@ -921,11 +921,11 @@ Hint: run `but help` for all commands
 
 "#]]);
 
-    env.but("branch new --below 1#1")
+    env.but("branch new --below uxw")
         .assert()
         .success()
         .stdout_eq(str![[r#"
-Created branch 'a-branch-1' below commit 1
+Created branch 'a-branch-1' below commit uxw
 
 "#]]);
 
@@ -933,11 +933,11 @@ Created branch 'a-branch-1' below commit 1
 ╭┄ @ [uncommitted] (no changes)
 ┊
 ┊╭┄ my [my-branch]
-┊●   1#0 top (no changes)
-┊●   1#1 middle (no changes)
+┊●   zou top (no changes)
+┊●   uxw middle (no changes)
 ┊│
 ┊├┄ br [a-branch-1]
-┊●   1#2 bottom (no changes)
+┊●   tqv bottom (no changes)
 ├╯
 ┊
 ┴ 0dc3733 (common base) 2000-01-02 add M
@@ -946,11 +946,11 @@ Hint: run `but help` for all commands
 
 "#]]);
 
-    env.but("branch new --below 1#2")
+    env.but("branch new --below tqv")
         .assert()
         .success()
         .stdout_eq(str![[r#"
-Created branch 'a-branch-2' below commit 1
+Created branch 'a-branch-2' below commit tqv
 
 "#]]);
 
@@ -958,11 +958,11 @@ Created branch 'a-branch-2' below commit 1
 ╭┄ @ [uncommitted] (no changes)
 ┊
 ┊╭┄ my [my-branch]
-┊●   1#0 top (no changes)
-┊●   1#1 middle (no changes)
+┊●   zou top (no changes)
+┊●   uxw middle (no changes)
 ┊│
 ┊├┄ br [a-branch-1]
-┊●   1#2 bottom (no changes)
+┊●   tqv bottom (no changes)
 ┊│
 ┊├┄ ra [a-branch-2] (no commits)
 ├╯
@@ -1379,10 +1379,10 @@ fn in_single_branch_mode_switching_to_stacked_branches_with_commits_works() {
 ╭┄ @ [uncommitted] (no changes)
 ┊
 ┊╭┄ mi [middle]
-┊●   1#0 on middle (no changes)
+┊●   ylm on middle (no changes)
 ┊│
 ┊├┄ bo [bottom]
-┊●   1#1 on bottom (no changes)
+┊●   lsm on bottom (no changes)
 ├╯
 ┊
 ┴ b1540e5 (common base) 2000-01-02 M
@@ -1394,8 +1394,8 @@ Hint: run `but help` for all commands
     snapbox::assert_data_eq!(
         env.git_log(),
         snapbox::str![[r#"
-* 5614135 (HEAD -> middle) on middle
-* 9133168 (bottom) on bottom
+* c5ca33e (HEAD -> middle) on middle
+* ff665ad (bottom) on bottom
 * b1540e5 (origin/main, origin/HEAD, main, gitbutler/target) M
 * e31e6ca add init
 
@@ -1408,7 +1408,7 @@ Hint: run `but help` for all commands
 ╭┄ @ [uncommitted] (no changes)
 ┊
 ┊╭┄ bo [bottom]
-┊●   1 on bottom (no changes)
+┊●   lsm on bottom (no changes)
 ├╯
 ┊
 ┴ b1540e5 (common base) 2000-01-02 M
@@ -1420,8 +1420,8 @@ Hint: run `but help` for all commands
     snapbox::assert_data_eq!(
         env.git_log(),
         snapbox::str![[r#"
-* 5614135 (middle) on middle
-* 9133168 (HEAD -> bottom) on bottom
+* c5ca33e (middle) on middle
+* ff665ad (HEAD -> bottom) on bottom
 * b1540e5 (origin/main, origin/HEAD, main, gitbutler/target) M
 * e31e6ca add init
 
@@ -1438,11 +1438,11 @@ Hint: run `but help` for all commands
 ╭┄ @ [uncommitted] (no changes)
 ┊
 ┊╭┄ ne [new-branch]
-┊●   1#0 on new-branch (no changes)
+┊●   l#0 on new-branch (no changes)
 ├╯
 ┊
 ┊╭┄ bo [bottom]
-┊●   1#1 on bottom (no changes)
+┊●   l#1 on bottom (no changes)
 ├╯
 ┊
 ┴ b1540e5 (common base) 2000-01-02 M
@@ -1454,12 +1454,12 @@ Hint: run `but help` for all commands
     snapbox::assert_data_eq!(
         env.git_log(),
         snapbox::str![[r#"
-*   ca16105 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+*   4fe5ec0 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
 |/  
-* | f6cc4a5 (new-branch) on new-branch
-| | * 5614135 (middle) on middle
+* | 1c8b0db (new-branch) on new-branch
+| | * c5ca33e (middle) on middle
 | |/  
-| * 9133168 (bottom) on bottom
+| * ff665ad (bottom) on bottom
 |/  
 * b1540e5 (origin/main, origin/HEAD, main, gitbutler/target) M
 * e31e6ca add init
@@ -1530,7 +1530,7 @@ fn in_single_branch_mode_creating_and_switching_to_new_branches_with_commits() {
 ╭┄ @ [uncommitted] (no changes)
 ┊
 ┊╭┄ on [one]
-┊●   1 on one (no changes)
+┊●   lsm on one (no changes)
 ├╯
 ┊
 ┴ b1540e5 (common base) 2000-01-02 M
@@ -1542,7 +1542,7 @@ Hint: run `but help` for all commands
     snapbox::assert_data_eq!(
         env.git_log(),
         snapbox::str![[r#"
-* 10cdc18 (HEAD -> one) on one
+* 26559e2 (HEAD -> one) on one
 * b1540e5 (origin/main, origin/HEAD, main, gitbutler/target) M
 * e31e6ca add init
 
@@ -1566,7 +1566,7 @@ Hint: run `but help` for all commands
     snapbox::assert_data_eq!(
         env.git_log(),
         snapbox::str![[r#"
-* 10cdc18 (one) on one
+* 26559e2 (one) on one
 * b1540e5 (HEAD -> two, origin/main, origin/HEAD, main, gitbutler/target) M
 * e31e6ca add init
 

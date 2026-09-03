@@ -38,9 +38,9 @@ fn insert_below_commit() -> Result<()> {
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
         snapbox::str![[r#"
-* 1b97135 (HEAD -> three) commit three
-* 5f398b2 (two) commit two
-* b3b14c2 
+* bdea705 (HEAD -> three) commit three
+* b7af41f (two) commit two
+* b216146 
 | * 16fd221 (origin/two) commit two
 |/  
 * 8b426d0 (one) commit one
@@ -83,8 +83,8 @@ fn insert_above_commit() -> Result<()> {
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
         snapbox::str![[r#"
-* 2b11859 (HEAD -> three) commit three
-* 024b774 (two) 
+* f6276fd (HEAD -> three) commit three
+* a2b712e (two) 
 * 16fd221 (origin/two) commit two
 * 8b426d0 (one) commit one
 
@@ -126,8 +126,8 @@ fn insert_below_reference() -> Result<()> {
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
         snapbox::str![[r#"
-* 2b11859 (HEAD -> three) commit three
-* 024b774 (two) 
+* f6276fd (HEAD -> three) commit three
+* a2b712e (two) 
 * 16fd221 (origin/two) commit two
 * 8b426d0 (one) commit one
 
@@ -169,8 +169,8 @@ fn insert_above_reference() -> Result<()> {
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
         snapbox::str![[r#"
-* 2b11859 (HEAD -> three) commit three
-* 024b774 
+* f6276fd (HEAD -> three) commit three
+* a2b712e 
 * 16fd221 (origin/two, two) commit two
 * 8b426d0 (one) commit one
 

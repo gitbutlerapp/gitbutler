@@ -19,7 +19,7 @@ fn copying_change_id_doesnt_include_disambiguation() {
 
     // Ideally this would include the disambiguation but the change id in CliId::Commit doesn't
     // include it. In the future it will.
-    tui.input('y').assert_copied_text_eq("1");
+    tui.input('y').assert_copied_text_eq("mzrzmqqn");
 }
 
 #[test]
@@ -95,7 +95,8 @@ fn copies_every_commit_value() {
 
     tui.input(COPY_MORE);
     tui.input([KeyCode::Down; 2]);
-    tui.input(KeyCode::Enter).assert_copied_text_eq("1");
+    tui.input(KeyCode::Enter)
+        .assert_copied_text_eq("omyuzposspozzzlpxqkzstlkmxpvxzqs");
 
     tui.input(COPY_MORE);
     tui.input([KeyCode::Down; 3]);

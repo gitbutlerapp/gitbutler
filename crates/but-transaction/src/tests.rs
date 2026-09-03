@@ -738,8 +738,8 @@ fn move_commits_then_commit_relative_to_moved_commit() {
     snapbox::assert_data_eq!(
         env.git_log(),
         snapbox::str![[r#"
-* 4eb318d (HEAD -> gitbutler/workspace) GitButler Workspace Commit
-* a381780 (branch) 
+* d70d81f (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+* 3fb70d9 (branch) 
 * b18afe3 add file-one
 * 5fdd02a add file-three
 * 0d4aae5 add file-two

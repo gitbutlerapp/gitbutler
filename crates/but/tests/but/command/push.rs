@@ -55,7 +55,7 @@ fn assert_single_branch_status_before_push(env: &Sandbox) {
 ╭┄ @ [uncommitted] (no changes)
 ┊
 ┊╭┄ ma [main]
-┊●   1 unpushed work
+┊●   pxt unpushed work
 ┊●   nmy M (no changes)
 ├╯
 ┊
@@ -75,11 +75,11 @@ fn assert_single_branch_status_after_push(env: &Sandbox) {
 ╭┄ @ [uncommitted] (no changes)
 ┊
 ┊╭┄ ma [main] (merged upstream)
-┊●   1 unpushed work
+┊●   pxt unpushed work
 ┊●   nmy M (no changes)
 ├╯
 ┊
-┊● d50ec84 (upstream: origin/main) 2 new commits
+┊● d781bd0 (upstream: origin/main) 2 new commits
 ├╯ e31e6ca (common base) 2000-01-02 add init
 
 Hint: origin/main moved ahead; run `but pull` to update the workspace

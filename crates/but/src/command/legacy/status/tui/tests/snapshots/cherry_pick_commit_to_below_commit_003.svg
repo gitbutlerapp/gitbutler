@@ -34,9 +34,10 @@
     <text x="82 90 98" y="150" style="fill:#CCCCCC;">add</text>
     <text x="114" y="150" style="fill:#CCCCCC;">B</text>
     <text x="10 18" y="168" style="fill:#FFFFFF;font-weight:bold;">┊●</text>
-    <text x="50" y="168" style="fill:#AA00AA;font-weight:bold;">1</text>
-    <text x="66 74 82" y="168" style="fill:#FFFFFF;font-weight:bold;">add</text>
-    <text x="98" y="168" style="fill:#FFFFFF;font-weight:bold;">A</text>
+    <text x="50" y="168" style="fill:#AA00AA;font-weight:bold;">s</text>
+    <text x="58 66" y="168" style="fill:#FFFFFF;font-weight:bold;opacity:0.75;">qq</text>
+    <text x="82 90 98" y="168" style="fill:#FFFFFF;font-weight:bold;">add</text>
+    <text x="114" y="168" style="fill:#FFFFFF;font-weight:bold;">A</text>
     <text x="10 18" y="186" style="fill:#CCCCCC;">├╯</text>
     <text x="10" y="204" style="fill:#CCCCCC;">┊</text>
     <text x="10" y="222" style="fill:#CCCCCC;">┴</text>

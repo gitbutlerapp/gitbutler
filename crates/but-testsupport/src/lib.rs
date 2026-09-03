@@ -142,7 +142,7 @@ pub fn open_repo_config() -> anyhow::Result<gix::open::Options> {
                 .validated_assignment("2000-01-01 00:00:00 +0000".into())?,
             gix::config::tree::gitoxide::Commit::COMMITTER_DATE
                 .validated_assignment("2000-01-02 00:00:00 +0000".into())?,
-            "gitbutler.testing.changeId=1".to_owned().into(),
+            "gitbutler.testing.changeId=content-hash".to_owned().into(),
         ]);
     Ok(config)
 }
