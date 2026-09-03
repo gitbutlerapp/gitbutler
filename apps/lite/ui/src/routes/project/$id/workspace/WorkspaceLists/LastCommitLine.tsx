@@ -1,10 +1,8 @@
 import { headInfoQueryOptions } from "#ui/api/queries.ts";
 import { classes } from "#ui/components/classes.ts";
 import { Icon } from "#ui/components/Icon.tsx";
-import { TooltipPopup } from "#ui/components/Tooltip.tsx";
 import { useNow } from "#ui/components/useNow.ts";
-import { formatAbsoluteTime, formatCompactRelativeTime } from "#ui/time.ts";
-import { Tooltip } from "@base-ui/react";
+import { formatCompactRelativeTime } from "#ui/time.ts";
 import type { RefInfo } from "@gitbutler/but-sdk";
 import { useQuery } from "@tanstack/react-query";
 import type { FC } from "react";
@@ -52,8 +50,7 @@ const selectLastCommit = (headInfo: RefInfo): LastCommit | null => {
  * The one line a clean worktree gets, and it reports rather than instructs:
  * this is the state the sidebar rests in, so the line is read constantly, and
  * "did that land, and where?" is the live question at rest. Written the short
- * way — the age, an arrow, the branch — because at rest it is read at a glance,
- * with the exact time behind the tooltip for anyone who wants it.
+ * way — the age, an arrow, the branch — because at rest it is read at a glance.
  *
  * Its own component so that the clock re-renders only this line, and its
  * derivation rides the query's `select` rather than running here.
@@ -86,26 +83,15 @@ export const LastCommitLine: FC<{ projectId: string }> = ({ projectId }) => {
 			: `Last commit ${age} on ${lastCommit.branch}`;
 
 	return (
-		<Tooltip.Root>
-			<Tooltip.Trigger
-				render={<p aria-label={spoken} className={classes("text-13", styles.line)} />}
-			>
-				<span className={styles.age}>Last commit {age}</span>
+		<p aria-label={spoken} className={classes("text-13", styles.line)}>
+			<span className={styles.age}>Last commit {age}</span>
 
-				{lastCommit.branch !== null && (
-					<>
-						<Icon size={12} name="arrow-right" />
-						<span className={styles.branch}>{lastCommit.branch}</span>
-					</>
-				)}
-			</Tooltip.Trigger>
-			<Tooltip.Portal>
-				<Tooltip.Positioner sideOffset={4}>
-					<Tooltip.Popup render={<TooltipPopup />}>
-						Last commit {formatAbsoluteTime(lastCommit.committedAt)}
-					</Tooltip.Popup>
-				</Tooltip.Positioner>
-			</Tooltip.Portal>
-		</Tooltip.Root>
+			{lastCommit.branch !== null && (
+				<>
+					<Icon size={12} name="arrow-right" />
+					<span className={styles.branch}>{lastCommit.branch}</span>
+				</>
+			)}
+		</p>
 	);
 };
