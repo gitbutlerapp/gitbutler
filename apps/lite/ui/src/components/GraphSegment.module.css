@@ -4,6 +4,26 @@
 
 	color: var(--commit-status-color);
 
+	/* Selected rows set --selection-inverted; flipping to the opposite color
+	   scheme resolves the line tokens to their inverted values, so the rail
+	   stays legible against the row's inverted selection background. */
+	@container style(--selection-inverted: true) {
+		color-scheme: dark;
+
+		@media (prefers-color-scheme: dark) {
+			color-scheme: light;
+		}
+	}
+}
+
+/* A stretch of the rail in another status's colour, given by its own status;
+   without one it keeps the glyph's. */
+.tone {
+	color: var(--commit-status-color);
+}
+
+.container,
+.tone {
 	&[data-status="LocalOnly"] {
 		--commit-status-color: var(--commit-local);
 	}
@@ -23,24 +43,15 @@
 	&[data-status="Diverged"] {
 		--commit-status-color: var(--commit-local);
 	}
-
-	/* Selected rows set --selection-inverted; flipping to the opposite color
-	   scheme resolves the line tokens to their inverted values, so the rail
-	   stays legible against the row's inverted selection background. */
-	@container style(--selection-inverted: true) {
-		color-scheme: dark;
-
-		@media (prefers-color-scheme: dark) {
-			color-scheme: light;
-		}
-	}
 }
 
-/* The rail is the glyph colour faded back, so it reads as a quieter companion
-   to the node without needing a token of its own. */
+/* The rail is the glyph colour faded back into the card, so it reads as a
+   quieter companion to the node without needing a token of its own. Blended
+   rather than translucent, so it is one colour wherever it runs; the
+   selection inversion above flips the card colour with the rest. Keep in
+   sync with Rails.module.css and Section.module.css. */
 .line {
-	stroke: currentColor;
-	stroke-opacity: 0.4;
+	stroke: color-mix(in srgb, currentColor 40%, var(--bg-1));
 }
 
 .mainSegment {

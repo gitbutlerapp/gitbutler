@@ -1,3 +1,4 @@
+import type { ActiveList } from "#ui/projects/project.ts";
 import { Match } from "effect";
 import { addressEquals, type Address, uncommittedChangesAddress } from "#ui/addresses.ts";
 import type { Placement, TransferKind } from "#ui/operations/operation.ts";
@@ -76,7 +77,7 @@ export const getTransferKind = (transfer: PendingTransfer): TransferKind =>
 export const getTransferTarget = (
 	transfer: PendingTransfer,
 	appliedSelection: Address | null,
-	activeList: "applied" | "uncommitted",
+	activeList: ActiveList,
 ): Address | null =>
 	Match.value(transfer).pipe(
 		Match.tagsExhaustive({

@@ -51,9 +51,19 @@ import {
 	upstreamReducers,
 	type UpstreamState,
 } from "./upstream.ts";
+import {
+	createInitialGraphState,
+	getGraphSelectors,
+	graphReducers,
+	type GraphState,
+} from "./graph.ts";
 
-/** The workspace page's two lists; the one named here is active and drives the details pane. */
-export type ActiveList = "applied" | "uncommitted";
+/**
+ * The workspace page's lists, in the order the details pane falls back
+ * through them; the one named active drives the pane.
+ */
+export const activeLists = ["applied", "uncommitted"] as const;
+export type ActiveList = (typeof activeLists)[number];
 
 export type CheckableAddress = Extract<Address, { _tag: "Commit" | "File" | "Hunk" }>;
 
@@ -159,6 +169,7 @@ export type ProjectState = {
 	sidebarPanelFocus: SidebarPanel | "both";
 	branches: BranchesState;
 	upstream: UpstreamState;
+	graph: GraphState;
 	workspace: WorkspaceState;
 };
 
@@ -167,6 +178,7 @@ export const createInitialProjectState = (): ProjectState => ({
 	sidebarPanelFocus: "both",
 	branches: createInitialBranchesState(),
 	upstream: createInitialUpstreamState(),
+	graph: createInitialGraphState(),
 	workspace: createInitialWorkspaceState(),
 });
 
@@ -187,6 +199,21 @@ export const projectReducers = {
 	},
 	toggleUpstreamSegment: (state: ProjectState, { segmentId }: { segmentId: string }) => {
 		upstreamReducers.toggleSegment(state.upstream, { segmentId });
+	},
+	toggleGraphIncoming: (state: ProjectState) => {
+		graphReducers.toggleIncoming(state.graph);
+	},
+	toggleGraphBase: (state: ProjectState) => {
+		graphReducers.toggleBase(state.graph);
+	},
+	showMoreGraphOlder: (state: ProjectState) => {
+		graphReducers.showMoreOlder(state.graph);
+	},
+	showMoreGraphRun: (state: ProjectState, { runId }: { runId: string }) => {
+		graphReducers.showMoreRun(state.graph, { runId });
+	},
+	foldGraphRun: (state: ProjectState, { runId }: { runId: string }) => {
+		graphReducers.foldRun(state.graph, { runId });
 	},
 	startInlineEdit: (state: ProjectState, edit: PendingInlineEdit) => {
 		state.workspace.pendingOperation = pendingInlineEdit(edit);
@@ -730,4 +757,5 @@ export const projectSelectors = {
 	},
 	...getBranchesSelectors((state: ProjectState) => state.branches),
 	...getUpstreamSelectors((state: ProjectState) => state.upstream),
+	...getGraphSelectors((state: ProjectState) => state.graph),
 };

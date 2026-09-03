@@ -1,0 +1,198 @@
+.chevron {
+	flex-shrink: 0;
+	align-self: center;
+	color: var(--text-2);
+}
+
+/* How many commits the target has that the workspace does not: beside the
+   merge base's label, in the incoming rows' colour. */
+.incoming {
+	flex-shrink: 0;
+	margin-inline-start: 8px;
+	color: var(--commit-upstream);
+	font-weight: 500;
+}
+
+/* A fold: rows inside collapse to nothing and open to their height. */
+.fold {
+	display: grid;
+	grid-template-rows: 0fr;
+	transition: grid-template-rows 180ms ease-out;
+}
+
+.fold[data-open="true"] {
+	grid-template-rows: 1fr;
+}
+
+.foldInner {
+	display: flex;
+	flex-direction: column;
+	min-height: 0;
+	overflow: hidden;
+}
+
+/* The section's colours: the grey the row glyphs draw their rails in, and
+   the incoming rows' colour, each at the glyphs' 40%; keep in sync with
+   GraphSegment.module.css and Rails.module.css. */
+.card,
+.base,
+.history {
+	--rail: color-mix(in srgb, var(--commit-local) 40%, var(--bg-1));
+	--leg: color-mix(in srgb, var(--commit-upstream) 40%, var(--bg-1));
+}
+
+/* The section's rails, on the line its rows' glyphs sit on (half a glyph
+   into the row inset): each element draws the line over its own stretch,
+   where its rows' glyphs do not. */
+.card::after,
+.base::before,
+.history[data-open="true"]::before {
+	position: absolute;
+	left: calc(var(--row-padding-inline-start) + 8px - 0.75px);
+	width: 1.5px;
+	background-color: var(--rail);
+	content: "";
+}
+
+/* The target's card, a card gap under the last stack's: a forked stack
+   card's look, bordered top and bottom, its rows between a little air above
+   and below, a header row alone when folded. It sits a gap right of the
+   main line, which passes behind it, with the incoming commits on a leg of
+   their own that bends onto the line under the card (see .bend). Over
+   whatever the rails draw under it, docked or in its place. Keep in sync
+   with StackCard.module.css and WorkspaceLists.module.css. */
+.card {
+	--air: 4px;
+
+	z-index: 2;
+	position: relative;
+	margin-block-start: 20px;
+	padding-block: var(--air);
+	border-block: 1px solid var(--border-section);
+	background-color: var(--bg-1);
+
+	/* Folded, it docks at the scroller's foot while its place is below it,
+	   so the news of what is incoming stays in view. Unfolded it keeps its
+	   place: a docked card's toggle scrolls there before opening it. */
+	&[data-folded="true"] {
+		position: sticky;
+		bottom: 0;
+	}
+
+	/* The main line passing behind the card, quieter, between its borders,
+	   above the rows and translucent over their fills: the line a forked
+	   stack card draws behind itself, in WorkspaceLists.module.css. */
+	&::before {
+		z-index: 1;
+		position: absolute;
+		inset-block: 0;
+		left: calc(var(--main-line-x) - 0.75px);
+		width: 1.5px;
+		background-color: color-mix(in srgb, var(--commit-local) 16%, transparent);
+		content: "";
+		pointer-events: none;
+	}
+
+	/* The leg: the target's line from under the header's chevron, clear of it
+	   by its 10px (the air and 24px into the row, whose centre is 14px in),
+	   down the rows, which draw the same colour over their own stretch, and
+	   on over the card's floor to the bend under it. */
+	&::after {
+		--out-of-chevron: calc(var(--air) + 24px);
+
+		z-index: -1;
+		inset-block: 0 -1px;
+		background: linear-gradient(
+			transparent var(--out-of-chevron),
+			var(--leg) var(--out-of-chevron)
+		);
+	}
+}
+
+/* The leg's bend, drawn against the base header in the gap above it: from
+   the target card's floor, a gap right of the main line, onto the line at
+   the header's top; the main line runs straight through the same gap. Keep
+   in sync with layout.ts's LEG_BEND. */
+.bend {
+	position: absolute;
+	top: calc(-1 * var(--gap));
+	left: 0;
+	width: 32px;
+	height: var(--gap);
+	overflow: visible;
+	fill: none;
+	stroke: var(--leg);
+	stroke-linecap: round;
+	stroke-linejoin: round;
+	stroke-width: 1.5;
+	pointer-events: none;
+}
+
+/* The ref row, a card gap under the last stack's. */
+.ref {
+	margin-block-start: 20px;
+}
+
+/* The base header sits a card gap below the last stack's card, where a
+   fork has to bend, and a smaller gap below the target's card or the ref
+   row. Positioned, so its rail piece is placed against it. */
+.base {
+	--gap: 20px;
+
+	position: relative;
+	margin-block-start: var(--gap);
+}
+
+.card + .base,
+.ref + .base {
+	--gap: 12px;
+}
+
+.history {
+	position: relative;
+}
+
+/* The gap above the base header, from the row or card above it, and into
+   its chevron: half a row less the chevron's 10px of clearance. When the
+   base header comes first, the SVG's own run through the gap under the
+   cards coincides with it. Out of the chevron into the rows while unfolded. */
+.base::before {
+	top: calc(-1 * var(--gap));
+	height: calc(var(--gap) + 4px);
+}
+
+.history[data-open="true"]::before {
+	top: -4px;
+	height: 4px;
+}
+
+/* A quiet note beside a header's label. */
+.caption {
+	margin-inline-start: 8px;
+	color: var(--text-3);
+	font-weight: 400;
+}
+
+/* A control in the label's line: centred on it, whatever its height, so the
+   row keeps its height. */
+.action {
+	display: flex;
+	align-items: center;
+	height: var(--single-line-row-label-line-height);
+}
+
+.rows {
+	display: flex;
+	flex-direction: column;
+}
+
+.elided {
+	color: var(--text-3);
+	font-style: italic;
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.fold {
+		transition: none;
+	}
+}

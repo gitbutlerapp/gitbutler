@@ -12,7 +12,7 @@ import {
 import { forgeInfoOptions, headInfoQueryOptions } from "#ui/api/queries.ts";
 import { classes } from "#ui/components/classes.ts";
 import { ConflictIcon } from "#ui/components/ConflictIcon.tsx";
-import { GraphSegment } from "#ui/components/GraphSegment.tsx";
+import { GraphSegment, type GraphSegmentStatus } from "#ui/components/GraphSegment.tsx";
 import { Icon } from "#ui/components/Icon.tsx";
 import { TooltipPopup } from "#ui/components/Tooltip.tsx";
 import { commitBody, commitForgeUrl, commitIsDiverged, commitTitle } from "#ui/commit.ts";
@@ -58,6 +58,8 @@ export const CommitRow: FC<
 		amendCommit: () => void;
 		canAmendCommit: boolean;
 		scrollSelectedIntoView?: boolean;
+		/** The rail below the commit's circle: the next icon's colour, or plain under a card's last. */
+		below?: GraphSegmentStatus;
 	} & ComponentProps<"div">
 > = ({
 	commit,
@@ -67,6 +69,7 @@ export const CommitRow: FC<
 	checkCommit,
 	amendCommit,
 	canAmendCommit,
+	below,
 	...restProps
 }) => {
 	const { data: forgeInfo } = useQuery(forgeInfoOptions(projectId));
@@ -387,6 +390,7 @@ export const CommitRow: FC<
 				<GraphSegment
 					glyph="commit"
 					status={commitIsDiverged(commit) ? "Diverged" : commit.state.type}
+					below={below}
 				/>
 				<Tooltip.Root
 					// This gets in the way when the user tries to move their hover to a

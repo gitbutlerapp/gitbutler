@@ -27,6 +27,7 @@ import { useHotkeys } from "@tanstack/react-hotkeys";
 import { Activity, type FC, useRef } from "react";
 import { ToggleGroupStyles, ToggleStyles } from "#ui/components/ToggleGroup.tsx";
 import { WorkspaceLists } from "#ui/routes/project/$id/workspace/WorkspaceLists/WorkspaceLists.tsx";
+import type { Graph } from "#ui/routes/project/$id/workspace/Graph/usePlan.ts";
 import { BranchesList } from "#ui/routes/project/$id/workspace/BranchesList.tsx";
 import type { BranchesListContent } from "#ui/routes/project/$id/workspace/useBranchesList.ts";
 import { UpstreamList } from "#ui/routes/project/$id/workspace/UpstreamList.tsx";
@@ -95,6 +96,7 @@ export const Sidebar: FC<{
 	branchesPending: boolean;
 	branchesError: boolean;
 	upstreamList: UpstreamListData;
+	graph: Graph;
 	addressSpace: AddressSpace<Address>;
 	uncommittedAddressSpace: AddressSpace<string>;
 	onActiveFileSelection: (selection: string) => void;
@@ -106,6 +108,7 @@ export const Sidebar: FC<{
 	branchesPending,
 	branchesError,
 	upstreamList,
+	graph,
 	addressSpace,
 	uncommittedAddressSpace,
 	onActiveFileSelection,
@@ -335,6 +338,7 @@ export const Sidebar: FC<{
 			<Activity mode={page === "workspace" ? "visible" : "hidden"}>
 				<WorkspaceLists
 					className={styles.page}
+					graph={graph}
 					addressSpace={addressSpace}
 					uncommittedAddressSpace={uncommittedAddressSpace}
 					absorptionTargetCommitIds={absorptionTargetCommitIds}
