@@ -2153,9 +2153,16 @@ const Diff: FC<{
 	viewerRef: RefObject<DiffViewerHandle | null>;
 	didScrollToViaFileRef: RefObject<boolean>;
 	headerSlot?: ReactNode;
+	/**
+	 * Whether this scope may have a files panel at all. Its caller knows, and the
+	 * URL no longer does: the pane can be driven by a list the `active` param is
+	 * not naming.
+	 */
+	canShowFiles: boolean;
 }> = ({
 	changes: unsortedChanges,
 	filesVisible,
+	canShowFiles,
 	filesItems,
 	conflicts = EMPTY_CONFLICTS,
 	manualConflicts = EMPTY_MANUAL,
@@ -2202,7 +2209,6 @@ const Diff: FC<{
 		}),
 	});
 
-	const canShowFiles = useCanShowFiles();
 	const detailsFullWindow = useAppSelector(interfaceSlice.selectors.selectDetailsFullWindow);
 
 	// Change stats live in the files panel, or — in the uncommitted scope, which has no files
@@ -3001,6 +3007,7 @@ const CommitDetails: FC<{
 				<Diff
 					changes={changes}
 					filesVisible={filesVisible}
+					canShowFiles={canShowFiles}
 					filesItems={filesItems}
 					conflicts={conflicts?.files}
 					manualConflicts={conflicts?.manual}
@@ -3068,6 +3075,7 @@ const BranchDiff: FC<BranchDetailsProps> = ({
 				<Diff
 					changes={branchDiff.changes}
 					filesVisible={filesVisible}
+					canShowFiles={canShowFiles}
 					filesItems={branchDiff.changes.map((change) =>
 						changeFileRowItem({
 							change,
@@ -3644,11 +3652,16 @@ const FileDetails: FC<{
 	didScrollToViaFileRef: RefObject<boolean>;
 }> = ({ path, projectId, onActiveFileSelection, viewerRef, didScrollToViaFileRef }) => {
 	const detailsFullWindow = useAppSelector(interfaceSlice.selectors.selectDetailsFullWindow);
-	const filesVisibleState = useAppSelector((state) =>
-		projectSlice.selectors.selectFilesVisible(state, projectId),
-	);
-	const canShowFiles = useCanShowFiles();
-	const filesVisible = canShowFiles && filesVisibleState;
+	// This view is the uncommitted scope, and the sidebar's own "Uncommitted"
+	// list is already its files panel — a second one here would only repeat it,
+	// so the user's files-visible setting has nothing to apply to.
+	//
+	// A constant rather than `useCanShowFiles()`, which reads the URL's active
+	// list as a proxy for what drives the pane: the pane can be driven by the
+	// uncommitted list while the param still names the applied one, and the
+	// proxy then answers for the wrong scope.
+	const canShowFiles = false;
+	const filesVisible = false;
 	const { data: worktreeChanges } = useSuspenseQuery(changesInWorktreeQueryOptions(projectId));
 	const filesItems = getChangesFileRowItems(worktreeChanges).toArray();
 	const changes = filesItems
@@ -3678,6 +3691,7 @@ const FileDetails: FC<{
 				<Diff
 					changes={changes}
 					filesVisible={filesVisible}
+					canShowFiles={canShowFiles}
 					filesItems={filesItems}
 					onPassiveFileSelection={selectFile}
 					selection={fileAddress({ parent: uncommittedChangesFileParent, path })}
