@@ -233,9 +233,15 @@ fn json_tree_change_statuses() {
         env.projects_root().join("renamed-after.txt"),
     )
     .unwrap();
-    env.but("commit -b A -m status-target").assert().success();
+    env.but("commit -b A -m status-target")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+Created commit oul on branch 'A'
 
-    env.but("diff --json A")
+"#]]);
+
+    env.but("diff --json oul")
         .allow_json()
         .assert()
         .success()

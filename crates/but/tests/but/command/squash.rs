@@ -823,18 +823,17 @@ Hint: run `but help` for all commands
 
 "#]]);
 
+    // Unapplied commits have no change ID in the workspace map, so use the commit ID intentionally.
+    let unapplied_target = env.invoke_git("rev-parse --short=7 refs/heads/second");
     env.but("unapply second").assert().success();
 
-    // Unapplied commits have no change ID in the workspace map, so use the commit ID intentionally.
-    env.but("squash zxw -t d15f721")
+    env.but(format!("squash zxw -t {unapplied_target}"))
         .assert()
         .failure()
-        .stderr_eq(snapbox::str![[r#"
-Error: Could not find target: 'd15f721'
-
-Hint: --target must be an applied commit, branch, or @. Run `but status` for applicable targets.
-
-"#]]);
+        .stderr_eq(format!(
+            "Error: Could not find target: '{unapplied_target}'\n\n\
+             Hint: --target must be an applied commit, branch, or @. Run `but status` for applicable targets.\n"
+        ));
 }
 
 #[test]
