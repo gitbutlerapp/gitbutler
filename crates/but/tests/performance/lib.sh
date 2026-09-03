@@ -2,8 +2,8 @@
 
 # Shared support for end-to-end `but` performance scenarios.
 
-PERF_DEFAULT_FIXTURE_REV=cf9f4aad6fe7511d5aeb9fd7c83fc62e18a9e1b6
-export PERF_DEFAULT_FIXTURE_REV
+PERF_FIXTURE_COMMIT=cf9f4aad6fe7511d5aeb9fd7c83fc62e18a9e1b6
+export PERF_FIXTURE_COMMIT
 
 perf_die() {
     printf 'performance test error: %s\n' "$*" >&2

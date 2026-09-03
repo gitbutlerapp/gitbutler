@@ -12,8 +12,7 @@ if [ "${PERF_ENV_ISOLATED:-}" != 1 ]; then
 
     GIT_BIN=$(command -v git)
     HYPERFINE_BIN=$(command -v hyperfine)
-    fixture_revision=${PERF_FIXTURE_REV:-$PERF_DEFAULT_FIXTURE_REV}
-    perf_assert_full_oid "$fixture_revision"
+    perf_assert_full_oid "$PERF_FIXTURE_COMMIT"
 
     if [ -n "${BUT_BIN:-}" ]; then
         case "$BUT_BIN" in
@@ -47,7 +46,7 @@ if [ "${PERF_ENV_ISOLATED:-}" != 1 ]; then
         PERF_SOURCE_REPO="$REPO_ROOT" \
         PERF_SESSION_ROOT="$PERF_SESSION_ROOT" \
         PERF_FIXTURE_REPO="$PERF_SESSION_ROOT/fixture.git" \
-        PERF_FIXTURE_REV="$fixture_revision" \
+        PERF_FIXTURE_COMMIT="$PERF_FIXTURE_COMMIT" \
         PERF_WARMUP="$WARMUP_VALUE" \
         PERF_MIN_RUNS="$MIN_RUNS_VALUE" \
         PERF_RUNS="$RUNS_VALUE" \
@@ -85,10 +84,10 @@ cleanup() {
 trap cleanup EXIT HUP INT TERM
 
 mkdir -p "$HOME" "$E2E_TEST_APP_DATA_DIR"
-printf 'Fixture revision: %s\n' "$PERF_FIXTURE_REV"
+printf 'Fixture commit: %s\n' "$PERF_FIXTURE_COMMIT"
 printf 'Benchmark binary: %s\n' "$BUT_BIN"
 printf 'Creating immutable GitButler history fixture...\n' >&2
-perf_create_gitbutler_fixture "$PERF_FIXTURE_REPO" "$PERF_SOURCE_REPO" "$PERF_FIXTURE_REV"
+perf_create_gitbutler_fixture "$PERF_FIXTURE_REPO" "$PERF_SOURCE_REPO" "$PERF_FIXTURE_COMMIT"
 
 perf_hyperfine() {
     if [ "$PERF_SHOW_OUTPUT" = 1 ]; then

@@ -85,15 +85,6 @@ and home directory. Pushes can mutate only the per-sample bare remote.
 Scenario scripts may mutate anything under `$PERF_RUN_ROOT`. They must not write
 to `$PERF_FIXTURE_REPO` or `$PERF_SOURCE_REPO`.
 
-For an intentional experiment, fixture revision can be overridden with another
-full lowercase object ID:
-
-```sh
-PERF_FIXTURE_REV=<40-character-sha> ./crates/but/tests/performance/run.sh
-```
-
-Always record printed fixture revision with results.
-
 ## Configuration isolation
 
 Runner rebuilds benchmark environment from an allowlist. Among other controls:
@@ -106,7 +97,7 @@ Runner rebuilds benchmark environment from an allowlist. Among other controls:
 - source repository configuration and hooks are not copied.
 
 Repository-owned `.gitattributes`, `.gitignore`, and source contents remain part of
-fixture because they represent workload at pinned revision.
+fixture because they represent workload at pinned commit.
 
 ## Sharing setup data with test
 
