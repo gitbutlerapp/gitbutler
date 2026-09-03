@@ -1,9 +1,11 @@
 use std::io::Write;
 
 mod output_channel;
+use anyhow::Context as _;
 use but_api::json::{ChangeIdString, HexHash};
 use but_core::sync::RepoShared;
 use but_ctx::Context;
+use gix::refs::FullName;
 pub(crate) use output_channel::PromptLine;
 pub use output_channel::{
     CliOutput, CliOutputHuman, Confirm, ConfirmDefault, ConfirmOrEmpty, InputOutputChannel,
@@ -120,4 +122,13 @@ pub fn in_single_branch_mode(ctx: &Context) -> anyhow::Result<bool> {
 pub fn in_single_branch_mode_with_perm(ctx: &Context, perm: &RepoShared) -> anyhow::Result<bool> {
     Ok(ctx.settings.feature_flags.single_branch
         && gitbutler_operating_modes::in_outside_workspace_mode(ctx, perm)?)
+}
+
+pub fn head_name(repo: &gix::Repository) -> anyhow::Result<FullName> {
+    Ok(repo
+        .head()?
+        .referent_name()
+        .filter(|name| name.category() == Some(gix::refs::Category::LocalBranch))
+        .context("HEAD must refer to a local branch")?
+        .to_owned())
 }

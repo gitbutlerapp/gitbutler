@@ -26,7 +26,7 @@ use crate::{
     print_deprecation_warning,
     theme::{self, Theme},
     utils::{
-        CliOutput, CliOutputHuman, IntermediateChannel, WriteWithUtils,
+        CliOutput, CliOutputHuman, IntermediateChannel, WriteWithUtils, head_name,
         in_single_branch_mode_with_perm, merged_upstream::MergedUpstream, targeting::Side,
     },
 };
@@ -487,15 +487,6 @@ impl NewStackedBranchOperation {
             target: Some((target, side)),
         })
     }
-}
-
-fn head_name(repo: &gix::Repository) -> anyhow::Result<FullName> {
-    Ok(repo
-        .head()?
-        .referent_name()
-        .filter(|name| name.category() == Some(gix::refs::Category::LocalBranch))
-        .context("single-branch branch creation requires HEAD to be a local branch")?
-        .to_owned())
 }
 
 #[must_use]

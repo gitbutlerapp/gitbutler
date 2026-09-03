@@ -421,10 +421,20 @@ pub fn apply(
                 )?;
             (tip, false)
         }
-        Some(mut existing_workspace_reference) => {
-            let id = existing_workspace_reference.peel_to_id()?;
-            (id.detach(), true)
-        }
+        Some(mut existing_workspace_reference) => match &ws.kind {
+            WorkspaceKind::Managed { .. } | WorkspaceKind::ManagedMissingWorkspaceCommit { .. } => {
+                let id = existing_workspace_reference.peel_to_id()?;
+                (id.detach(), true)
+            }
+            // If starting from an adhoc workspace, re-create the managed workspace from the current
+            // HEAD and not from the old workspace. Branches that were previously applied might have
+            // moved and thus the old workspace will contain out of date commits that'll become
+            // anonymous segments.
+            WorkspaceKind::AdHoc => {
+                let tip = repo.head_id()?;
+                (tip.detach(), true)
+            }
+        },
     };
 
     let mut ws_md = meta.workspace(workspace_ref_name_to_update.as_ref())?;

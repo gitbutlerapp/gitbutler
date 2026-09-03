@@ -608,7 +608,7 @@ fn apply_branch_conflicting_with_workspace_reports_error() {
         .assert()
         .failure()
         .stderr_eq(str![[r#"
-Failed to apply branch: 'conflicting-branch' conflicts with existing stack: A
+Failed to apply branch: 'conflicting-branch' conflicts with existing stack: 'A'
 
 "#]])
         .stdout_eq(str![""]);
@@ -618,7 +618,7 @@ Failed to apply branch: 'conflicting-branch' conflicts with existing stack: A
         .assert()
         .failure()
         .stderr_eq(str![[r#"
-Failed to apply branch: 'conflicting-branch' conflicts with existing stack: A
+Failed to apply branch: 'conflicting-branch' conflicts with existing stack: 'A'
 
 "#]])
         .stdout_eq(str![""]);

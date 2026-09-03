@@ -146,7 +146,7 @@ impl std::fmt::Display for ConflictAbortedOutcome {
                 .outcome
                 .conflicting_stacks
                 .iter()
-                .map(|stack| stack.ref_name.shorten().to_string())
+                .map(|stack| theme::Branch(&stack.ref_name).to_string())
                 .collect::<Vec<_>>()
                 .join(", ");
             write!(

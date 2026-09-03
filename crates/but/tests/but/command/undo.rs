@@ -967,3 +967,43 @@ fn can_undo_single_branch_mode_but_branch_new_below() {
             .success();
     });
 }
+
+#[test]
+fn can_undo_switch_workspace_applying_multiple_branches() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("zero-stacks");
+    env.setup_metadata(&[]);
+
+    env.but("commit -b one --no-message").assert().success();
+    env.but("commit -b two --no-message").assert().success();
+    env.but("commit -b three --no-message").assert().success();
+
+    env.but("switch one").assert().success();
+
+    run_mutate_undo_roundtrip_test(&env, |env| {
+        env.but("switch --workspace").assert().success();
+    });
+}
+
+#[test]
+fn switching_to_workspace_from_workspace_doesnt_create_snapshot() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("zero-stacks");
+    env.setup_metadata(&[]);
+
+    env.but("oplog list")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+No operations found in history.
+
+"#]]);
+
+    env.but("switch --workspace").assert().success();
+
+    env.but("oplog list")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+No operations found in history.
+
+"#]]);
+}
