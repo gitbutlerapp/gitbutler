@@ -155,13 +155,16 @@ see — what the next action will do, or the live answer behind the emptiness: a
 count, a branch name, a time. "You have 5 branches to pick from" earns its
 place; "There is nothing here" repeats the title and the picture both.
 
-**Both lines wrap balanced.** They get `text-balance`, and the block's measure
-is capped around 32 characters so there is something to balance. Centred text
-with a long line and a two-word orphan under it reads as broken, and the cap is
-the other half of the same rule: past about 32 characters a line stops being
-scannable at a glance, and evening out a line that ran the whole panel would
-only tidy something already too wide. Figma has no equivalent, so lines there
-are broken by hand — the component's description says so.
+**The block caps at 320px.** It is a block, not a banner, and the details pane
+it can land in is over a thousand pixels wide. The cap is on the component, so
+no host has to remember it, and it is the measure the copy is set in — nothing
+inside sets a narrower one.
+
+**Both lines wrap balanced.** They get `text-balance`, and 320 is what gives
+them something to balance within. Centred text with a full line and a two-word
+orphan under it reads as broken, which is the whole reason for the rule. Figma
+has no equivalent, so lines there are broken by hand — the component's
+description says so.
 
 **At most two buttons, and never `pop`.** The surface's accent is already spent
 on its primary action elsewhere — Start commit sits directly above the stacks
