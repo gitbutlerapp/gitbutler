@@ -32,6 +32,7 @@ import {
 	type TransferKind,
 } from "#ui/operations/operation.ts";
 import { projectSlice } from "#ui/projects/state.ts";
+import { isCommitFormKeyEvent } from "#ui/routes/project/$id/workspace/commitFormEvent.ts";
 import { addressLabel, addressesLabel } from "#ui/routes/project/$id/workspace/addressLabel.ts";
 import { useCheckedActions } from "#ui/routes/project/$id/workspace/useCheckedActions.ts";
 import { useAppDispatch, useAppSelector } from "#ui/store.ts";
@@ -111,7 +112,7 @@ const useControlHotkeys = ({
 	onCancel,
 	confirm,
 }: {
-	onCancel: () => void;
+	onCancel: UseHotkeyDefinition["callback"];
 	confirm?: Confirm;
 }): void => {
 	const confirmHotkeys: Array<Omit<UseHotkeyDefinition, "callback">> = [
@@ -201,7 +202,14 @@ const CheckedAddressOperationControls: FC<{
 	const cancel = () => {
 		dispatch(projectSlice.actions.clearCheckedAddresses({ projectId }));
 	};
-	useControlHotkeys({ onCancel: cancel });
+	useControlHotkeys({
+		// The commit form closes on the same press, and the files checked for it to commit are the
+		// one thing that has to outlive it.
+		onCancel: (event) => {
+			if (isCommitFormKeyEvent(event)) return;
+			cancel();
+		},
+	});
 
 	if (checkedContext === null) return;
 

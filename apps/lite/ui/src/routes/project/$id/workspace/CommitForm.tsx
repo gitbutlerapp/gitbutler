@@ -24,6 +24,7 @@ import { changesHotkeys, sidebarHotkeys, toElectronAccelerator } from "#ui/hotke
 import { nativeMenuItem, showNativeMenuFromTrigger, type NativeMenuItem } from "#ui/native-menu.ts";
 import { addressIdentityKey, type Address } from "#ui/addresses.ts";
 import { createDiffSpec } from "#ui/operations/diff-specs.ts";
+import { COMMIT_FORM_ATTRIBUTE } from "#ui/routes/project/$id/workspace/commitFormEvent.ts";
 import { NO_DRAG_ATTRIBUTE } from "#ui/routes/project/$id/workspace/DragData.ts";
 import { projectSlice } from "#ui/projects/state.ts";
 import { projectAiSettingsQueryOptions } from "#ui/project-ai-settings.ts";
@@ -554,7 +555,7 @@ export const CommitForm: FC<{
 	return (
 		// oxlint-disable-next-line jsx-a11y/no-noninteractive-element-interactions -- Used for persistence, not UI per se.
 		<form
-			{...{ [NO_DRAG_ATTRIBUTE]: "" }}
+			{...{ [NO_DRAG_ATTRIBUTE]: "", [COMMIT_FORM_ATTRIBUTE]: "" }}
 			ref={formRef}
 			onSubmit={submit}
 			onBlur={(e) => {
