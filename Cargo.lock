@@ -4020,6 +4020,7 @@ dependencies = [
  "anyhow",
  "but-core",
  "but-ctx",
+ "but-db",
  "but-meta",
  "but-schemars",
  "but-serde",

@@ -39,6 +39,7 @@ use crate::{entry::Version, reflog::ReflogCommits};
 const AUTO_TRACK_LIMIT_BYTES: u64 = 0;
 
 const PROJECT_META_FILE: &str = "project_meta.toml";
+const BRANCH_ORDER_FILE: &str = "branch_order.toml";
 
 #[derive(serde::Serialize, serde::Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -126,6 +127,7 @@ impl TryFrom<SnapshotProjectMeta> for ProjectMeta {
 /// ├── index-conflicts/…
 /// ├── target_tree/…
 /// ├── project_meta.toml
+/// ├── branch_order.toml
 /// ├── virtual_branches
 /// │   └── [branch-id]
 /// │       ├── commit-message.txt
@@ -603,7 +605,11 @@ fn snapshot_checkout(
 fn snapshot_metadata(
     snapshot_tree: &gix::Tree<'_>,
     repo: &gix::Repository,
-) -> Result<(ProjectMeta, VirtualBranches)> {
+) -> Result<(
+    ProjectMeta,
+    VirtualBranches,
+    Option<but_db::BranchOrderSnapshot>,
+)> {
     let vb_toml_entry = snapshot_tree
         .lookup_entry_by_path("virtual_branches.toml")?
         .context("failed to get virtual_branches.toml blob")?;
@@ -650,7 +656,23 @@ fn snapshot_metadata(
         }
     };
     project_meta.target_commit_id_or_err()?;
-    Ok((project_meta, virtual_branches))
+    let branch_order = snapshot_tree
+        .lookup_entry_by_path(BRANCH_ORDER_FILE)?
+        .map(|entry| -> Result<_> {
+            let blob = repo
+                .find_blob(entry.id())
+                .context("failed to convert branch_order.toml tree entry to blob")?;
+            let snapshot: but_db::BranchOrderSnapshot =
+                toml::from_str(from_utf8(&blob.data).context("branch_order.toml is not UTF-8")?)
+                    .context("failed to parse branch_order.toml")?;
+            snapshot
+                .validate()
+                .map_err(anyhow::Error::msg)
+                .context("invalid branch_order.toml")?;
+            Ok(snapshot)
+        })
+        .transpose()?;
+    Ok((project_meta, virtual_branches, branch_order))
 }
 
 mod legacy_virtual_branches {
@@ -797,6 +819,9 @@ fn prepare_snapshot_with_target_and_ref(
         &project_meta,
     )?)?)?;
     snapshot_tree.upsert(PROJECT_META_FILE, EntryKind::Blob, project_meta_blob)?;
+    let branch_order = ctx.db.get_cache()?.branch_order().get_snapshot()?;
+    let branch_order_blob = repo.write_blob(toml::to_string(&branch_order)?.as_bytes())?;
+    snapshot_tree.upsert(BRANCH_ORDER_FILE, EntryKind::Blob, branch_order_blob)?;
 
     if let Some(ref_name) = additional_ref {
         snapshot_tree.upsert(
@@ -1014,9 +1039,9 @@ fn restore_snapshot(
     let repo = ctx.repo.get()?;
     let snapshot_commit = repo.find_commit(snapshot_commit_id)?;
     let snapshot_tree = snapshot_commit.tree()?;
-    // Validate both metadata formats before creating the before-restore snapshot or mutating the
+    // Validate all metadata formats before creating the before-restore snapshot or mutating the
     // worktree, refs, config, TOML, or database.
-    let (restored_project_meta, restored_virtual_branches) =
+    let (restored_project_meta, restored_virtual_branches, restored_branch_order) =
         snapshot_metadata(&snapshot_tree, &repo)?;
     let restored_checkout = snapshot_checkout(&snapshot_tree, &repo)?;
     let restored_reference = snapshot_reference(&snapshot_tree, &repo)?;
@@ -1182,6 +1207,12 @@ fn restore_snapshot(
         ctx,
         restored_vb_toml.as_bytes(),
     )?;
+    if let Some(branch_order) = restored_branch_order {
+        ctx.db
+            .get_cache_mut()?
+            .branch_order_mut()?
+            .replace_snapshot(&branch_order)?;
+    }
 
     // Now that legacy metadata has been restored, update references to reflect the restored heads.
     for stack in legacy_virtual_branches::in_workspace_stacks(vb_state.data()) {
@@ -1377,7 +1408,7 @@ fn tree_from_applied_vbranches(
         .context("no entry at 'target_entry'")?;
     let target_tree_id = target_tree_entry.id().detach();
 
-    let (project_meta, vbs_from_toml) = snapshot_metadata(&snapshot_tree, repo)?;
+    let (project_meta, vbs_from_toml, _) = snapshot_metadata(&snapshot_tree, repo)?;
     let default_target_oid = project_meta.target_commit_id_or_err()?;
     let applied_branch_trees: Vec<_> = legacy_virtual_branches::in_workspace_stacks(&vbs_from_toml)
         .map(|stack| {

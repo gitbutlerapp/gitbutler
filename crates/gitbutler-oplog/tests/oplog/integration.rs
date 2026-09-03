@@ -12,6 +12,198 @@ use gitbutler_oplog::{OplogExt, RestoreKind};
 use gix::bstr::ByteSlice as _;
 
 #[test]
+fn snapshot_with_additional_ref_includes_branch_order() -> anyhow::Result<()> {
+    let Test { repo, ctx } = &mut Test::from_scenario("one-stack-two-commits", &["A"]);
+    set_branch_order(ctx, &["refs/heads/A", "refs/heads/B"])?;
+    let additional_ref: gix::refs::FullName = "refs/heads/A".try_into()?;
+    let mut guard = ctx.exclusive_worktree_access();
+    let tree_id =
+        ctx.prepare_snapshot_with_ref(additional_ref.as_ref(), guard.read_permission())?;
+    let snapshot_id = ctx.commit_snapshot(
+        tree_id,
+        SnapshotDetails::new(OperationKind::OnDemandSnapshot),
+        guard.write_permission(),
+    )?;
+
+    assert!(
+        snapshot_blob(&repo.open_repo(), snapshot_id, "branch_order.toml")?
+            .contains("refs/heads/A"),
+        "the additional-ref snapshot path should include branch-order metadata"
+    );
+    Ok(())
+}
+
+#[test]
+fn restore_snapshot_replaces_branch_order() -> anyhow::Result<()> {
+    let Test { repo, ctx } = &mut Test::from_scenario("one-stack-two-commits", &["A"]);
+    set_branch_order(ctx, &["refs/heads/A", "refs/heads/B"])?;
+    let expected = ctx.db.get_cache()?.branch_order().get_snapshot()?;
+    let mut guard = ctx.exclusive_worktree_access();
+    let snapshot_id = ctx.create_snapshot(
+        SnapshotDetails::new(OperationKind::OnDemandSnapshot),
+        guard.write_permission(),
+    )?;
+    assert!(
+        snapshot_blob(&repo.open_repo(), snapshot_id, "branch_order.toml")?
+            .contains("refs/heads/A"),
+        "the oplog snapshot should contain branch-order metadata"
+    );
+
+    set_branch_order(ctx, &["refs/heads/C", "refs/heads/D"])?;
+    ctx.restore_snapshot(
+        snapshot_id,
+        RestoreKind::RestoreFromSnapshotViaUndo,
+        guard.write_permission(),
+    )?;
+
+    assert_eq!(
+        ctx.db.get_cache()?.branch_order().get_snapshot()?,
+        expected,
+        "restoring should replace the complete branch-order table"
+    );
+    Ok(())
+}
+
+#[test]
+fn restore_snapshot_restores_explicitly_empty_branch_order() -> anyhow::Result<()> {
+    let Test { ctx, .. } = &mut Test::from_scenario("one-stack-two-commits", &["A"]);
+    let mut guard = ctx.exclusive_worktree_access();
+    let snapshot_id = ctx.create_snapshot(
+        SnapshotDetails::new(OperationKind::OnDemandSnapshot),
+        guard.write_permission(),
+    )?;
+    set_branch_order(ctx, &["refs/heads/A", "refs/heads/B"])?;
+
+    ctx.restore_snapshot(
+        snapshot_id,
+        RestoreKind::RestoreFromSnapshotViaUndo,
+        guard.write_permission(),
+    )?;
+
+    assert!(
+        ctx.db
+            .get_cache()?
+            .branch_order()
+            .get_snapshot()?
+            .entries
+            .is_empty(),
+        "an explicitly empty snapshot should clear branch order"
+    );
+    Ok(())
+}
+
+#[test]
+fn restore_legacy_snapshot_preserves_current_branch_order() -> anyhow::Result<()> {
+    let Test { repo, ctx } = &mut Test::from_scenario("one-stack-two-commits", &["A"]);
+    let mut guard = ctx.exclusive_worktree_access();
+    let snapshot_id = ctx.create_snapshot(
+        SnapshotDetails::new(OperationKind::OnDemandSnapshot),
+        guard.write_permission(),
+    )?;
+    let legacy_snapshot_id = snapshot_without_branch_order(&repo.open_repo(), snapshot_id)?;
+    set_branch_order(ctx, &["refs/heads/A", "refs/heads/B"])?;
+    let expected = ctx.db.get_cache()?.branch_order().get_snapshot()?;
+
+    ctx.restore_snapshot(
+        legacy_snapshot_id,
+        RestoreKind::RestoreFromSnapshotViaUndo,
+        guard.write_permission(),
+    )?;
+
+    assert_eq!(
+        ctx.db.get_cache()?.branch_order().get_snapshot()?,
+        expected,
+        "a snapshot without branch-order data should preserve current metadata"
+    );
+    Ok(())
+}
+
+#[test]
+fn malformed_branch_order_fails_before_restore_mutates_state() -> anyhow::Result<()> {
+    let Test { repo, ctx } = &mut Test::from_scenario("one-stack-two-commits", &["A"]);
+    set_branch_order(ctx, &["refs/heads/A", "refs/heads/B"])?;
+    let expected = ctx.db.get_cache()?.branch_order().get_snapshot()?;
+    let mut guard = ctx.exclusive_worktree_access();
+    let snapshot_id = ctx.create_snapshot(
+        SnapshotDetails::new(OperationKind::OnDemandSnapshot),
+        guard.write_permission(),
+    )?;
+    let malformed_snapshot_id =
+        snapshot_with_branch_order(&repo.open_repo(), snapshot_id, b"not valid = [")?;
+    let oplog_head = ctx.oplog_head()?;
+
+    let error = ctx
+        .restore_snapshot(
+            malformed_snapshot_id,
+            RestoreKind::RestoreFromSnapshotViaUndo,
+            guard.write_permission(),
+        )
+        .expect_err("malformed branch-order metadata must fail restore");
+
+    assert!(
+        error
+            .to_string()
+            .contains("failed to parse branch_order.toml"),
+        "restore should identify malformed branch-order data: {error:#}"
+    );
+    assert_eq!(
+        ctx.db.get_cache()?.branch_order().get_snapshot()?,
+        expected,
+        "failed validation should leave branch order unchanged"
+    );
+    assert_eq!(
+        ctx.oplog_head()?,
+        oplog_head,
+        "failed validation should not advance the oplog"
+    );
+    Ok(())
+}
+
+#[test]
+fn invalid_branch_order_fails_before_restore_mutates_worktree() -> anyhow::Result<()> {
+    let Test { repo, ctx } = &mut Test::from_scenario("one-stack-two-commits", &["A"]);
+    let mut guard = ctx.exclusive_worktree_access();
+    let snapshot_id = ctx.create_snapshot(
+        SnapshotDetails::new(OperationKind::OnDemandSnapshot),
+        guard.write_permission(),
+    )?;
+    let invalid_snapshot_id = snapshot_with_branch_order(
+        &repo.open_repo(),
+        snapshot_id,
+        br#"
+[[entries]]
+branch_ref_name = "refs/heads/A"
+parent_ref_name = "refs/heads/B"
+
+[[entries]]
+branch_ref_name = "refs/heads/C"
+parent_ref_name = "refs/heads/B"
+"#,
+    )?;
+    let changed_path = repo.projects_root().join("first");
+    fs::write(&changed_path, "changed after snapshot")?;
+
+    let error = ctx
+        .restore_snapshot(
+            invalid_snapshot_id,
+            RestoreKind::RestoreFromSnapshotViaUndo,
+            guard.write_permission(),
+        )
+        .expect_err("invalid branch-order metadata must fail restore");
+
+    assert!(
+        error.to_string().contains("invalid branch_order.toml"),
+        "restore should identify invalid branch-order data: {error:#}"
+    );
+    assert_eq!(
+        fs::read_to_string(changed_path)?,
+        "changed after snapshot",
+        "validation should happen before the worktree is restored"
+    );
+    Ok(())
+}
+
+#[test]
 fn restore_snapshot_reverts_the_target() -> anyhow::Result<()> {
     let Test { repo, ctx, .. } = &mut Test::default();
 
@@ -770,6 +962,51 @@ fn snapshot_blob(
         .lookup_entry_by_path(path)?
         .with_context(|| format!("snapshot contains {path}"))?;
     Ok(repo.find_blob(entry.id())?.data.to_str()?.to_owned())
+}
+
+fn set_branch_order(ctx: &Context, refs: &[&str]) -> anyhow::Result<()> {
+    ctx.db.get_cache_mut()?.branch_order_mut()?.set_order(
+        &refs
+            .iter()
+            .map(|name| (*name).to_owned())
+            .collect::<Vec<_>>(),
+    )?;
+    Ok(())
+}
+
+fn snapshot_without_branch_order(
+    repo: &gix::Repository,
+    snapshot_id: gix::ObjectId,
+) -> anyhow::Result<gix::ObjectId> {
+    let snapshot = repo.find_commit(snapshot_id)?;
+    let mut tree = snapshot.tree()?.edit()?;
+    tree.remove("branch_order.toml")?;
+    Ok(repo
+        .write_object(gix::objs::Commit {
+            tree: tree.write()?.detach(),
+            ..snapshot.decode()?.to_owned()?
+        })?
+        .detach())
+}
+
+fn snapshot_with_branch_order(
+    repo: &gix::Repository,
+    snapshot_id: gix::ObjectId,
+    contents: &[u8],
+) -> anyhow::Result<gix::ObjectId> {
+    let snapshot = repo.find_commit(snapshot_id)?;
+    let mut tree = snapshot.tree()?.edit()?;
+    tree.upsert(
+        "branch_order.toml",
+        gix::object::tree::EntryKind::Blob,
+        repo.write_blob(contents)?,
+    )?;
+    Ok(repo
+        .write_object(gix::objs::Commit {
+            tree: tree.write()?.detach(),
+            ..snapshot.decode()?.to_owned()?
+        })?
+        .detach())
 }
 
 fn snapshot_as_legacy(

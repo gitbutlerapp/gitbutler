@@ -72,7 +72,7 @@ pub mod worktrees;
 #[rustfmt::skip]
 pub use table::{
     hunk_assignments::{HunkAssignmentsHandleMut, HunkAssignmentsHandle, HunkAssignment},
-    branch_order::{BranchOrderHandle, BranchOrderHandleMut},
+    branch_order::{BranchOrderEntry, BranchOrderHandle, BranchOrderHandleMut, BranchOrderSnapshot},
     butler_actions::ButlerAction,
     claude::{ClaudeMessage, ClaudePermissionRequest, ClaudeSession},
     file_write_locks::FileWriteLock,
