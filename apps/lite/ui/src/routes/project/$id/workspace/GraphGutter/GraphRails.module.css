@@ -1,0 +1,23 @@
+/* Above the rows, so a selected or hovered row's background never hides a
+   rail; the rails only ever cross the glyph column, never text. */
+.rails {
+	z-index: 1;
+	position: absolute;
+	inset: 0;
+	overflow: visible;
+	pointer-events: none;
+}
+
+/* A stretch that runs behind a card: still there, but faint and dashed. */
+.through {
+	stroke-dasharray: 2 4;
+	stroke-opacity: 0.4;
+}
+
+.lane {
+	fill: none;
+	stroke: var(--border-2);
+	stroke-linecap: round;
+	stroke-linejoin: round;
+	stroke-width: 1.5;
+}

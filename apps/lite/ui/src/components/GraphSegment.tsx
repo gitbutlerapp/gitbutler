@@ -55,6 +55,26 @@ const groupHeadGlyph = (
 	</>
 );
 
+/** The commit node without the tail below it, for the row a rail ends on. */
+const commitFootGlyph = (
+	<>
+		<path className={styles.line} d="M8 0V11" strokeWidth="1.5" />
+		<path
+			d="M11.5 14C11.5 15.933 9.933 17.5 8 17.5C6.067 17.5 4.5 15.933 4.5 14C4.5 12.067 6.067 10.5 8 10.5C9.933 10.5 11.5 12.067 11.5 14Z"
+			stroke="currentColor"
+			strokeWidth="1.5"
+		/>
+	</>
+);
+
+/** The rings without the tail below them, for the row a rail ends on. */
+const groupFootGlyph = (
+	<>
+		<path className={styles.line} d="M8 0V2.78571" strokeWidth="1.5" />
+		<path d={groupRingsPath} stroke="currentColor" strokeWidth="1.5" />
+	</>
+);
+
 /** @public */
 export type GraphSegmentGlyph = keyof typeof glyphPaths | "commit" | "group" | "groupHead";
 
@@ -90,9 +110,20 @@ export type GraphSegmentStatus = "Diverged" | "Upstream" | CommitState["type"];
 interface GraphSegmentProps extends ComponentProps<"div"> {
 	glyph: GraphSegmentGlyph;
 	status: GraphSegmentStatus;
+	/**
+	 * The rail ends on this row: the commit and group glyphs lose their tail
+	 * below, and nothing stretches on under a taller row.
+	 */
+	railEnds?: boolean;
 }
 
-export const GraphSegment: FC<GraphSegmentProps> = ({ glyph, className, status, ...props }) => (
+export const GraphSegment: FC<GraphSegmentProps> = ({
+	glyph,
+	className,
+	status,
+	railEnds = false,
+	...props
+}) => (
 	<div {...props} className={classes(className, styles.container)} data-status={status}>
 		<svg
 			className={classes(styles.mainSegment, isGroupGlyph(glyph) && styles.groupSegment)}
@@ -102,7 +133,11 @@ export const GraphSegment: FC<GraphSegmentProps> = ({ glyph, className, status, 
 			aria-hidden="true"
 			focusable="false"
 		>
-			{glyph === "commit" ? (
+			{railEnds && glyph === "commit" ? (
+				commitFootGlyph
+			) : railEnds && glyph === "group" ? (
+				groupFootGlyph
+			) : glyph === "commit" ? (
 				commitGlyph
 			) : glyph === "group" ? (
 				groupGlyph
@@ -113,7 +148,7 @@ export const GraphSegment: FC<GraphSegmentProps> = ({ glyph, className, status, 
 			)}
 		</svg>
 
-		{stretchableGlyphs.has(glyph) && (
+		{stretchableGlyphs.has(glyph) && !railEnds && (
 			<svg
 				viewBox="0 0 16 28"
 				preserveAspectRatio="none"

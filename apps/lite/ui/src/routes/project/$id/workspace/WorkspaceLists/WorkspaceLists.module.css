@@ -131,13 +131,19 @@
 }
 
 /* The cards run the full width of the panel, so nothing insets them and the
-   scroll separator already spans it. */
+   scroll separator already spans it; the upstream section below supplies the
+   room under the last card. */
 .stacks {
 	box-sizing: content-box;
-	padding-bottom: var(--panel-padding-block);
 }
 
 .virtualContainer {
+	position: relative;
+}
+
+/* The positioned box the rails SVG covers: the cards and the upstream section
+   below them. */
+.content {
 	position: relative;
 }
 

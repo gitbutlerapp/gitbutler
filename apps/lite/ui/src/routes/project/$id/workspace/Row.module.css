@@ -14,6 +14,8 @@
 	   up. The two ends are separate because a row that ends in a toolbar wants
 	   less trailing inset than leading. */
 	padding-inline: var(--row-padding-inline-start, 12px) var(--row-padding-inline-end, 8px);
+	/* The graph's inset moves when a line comes or goes; keep in sync with GraphRails. */
+	transition: padding-inline-start 180ms ease-out;
 
 	&[inert] {
 		opacity: 0.5;
@@ -372,4 +374,10 @@
 	.containerSelected:not(.containerHighlighted),
 .containerSelected:not(.containerHighlighted):has(:is(textarea, input):focus) {
 	--selection-inverted: true;
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.row {
+		transition: none;
+	}
 }

@@ -1,0 +1,74 @@
+/* A card gap above the header, where the lines turn onto one row, and one
+   below the rows, matching. Constant across fold states, so opening a fold
+   does not shift the scroll. */
+.section {
+	display: flex;
+	flex-direction: column;
+	padding-block: 20px;
+}
+
+.chevron {
+	flex-shrink: 0;
+	align-self: center;
+	color: var(--text-2);
+}
+
+.incoming {
+	flex-shrink: 0;
+	margin-inline-start: 8px;
+	color: var(--commit-upstream);
+	font-weight: 500;
+}
+
+/* A fold: rows inside collapse to nothing and open to their height. */
+.fold {
+	display: grid;
+	grid-template-rows: 0fr;
+	transition: grid-template-rows 180ms ease-out;
+}
+
+.fold[data-open="true"] {
+	grid-template-rows: 1fr;
+}
+
+.foldInner {
+	display: flex;
+	flex-direction: column;
+	min-height: 0;
+	overflow: hidden;
+}
+
+/* The base header sits a card gap below whatever is above it: the ref row,
+   the folded upstream header, or the incoming card. A moved-on target's leg
+   bends into the trunk in that gap, like a card's exit through the gap
+   between cards. */
+.baseHeader {
+	margin-block-start: 20px;
+}
+
+.baseId {
+	margin-inline-start: 8px;
+	color: var(--text-3);
+	font-weight: 400;
+}
+
+/* The incoming leg's card, a card gap off the header above. */
+.leg {
+	margin-block-start: 20px;
+}
+
+/* Mirrors the card body's air above its first row. */
+.legRows {
+	padding-block-end: 6px;
+}
+
+.elided {
+	color: var(--text-3);
+	font-style: italic;
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.fold {
+		transition: none;
+	}
+}

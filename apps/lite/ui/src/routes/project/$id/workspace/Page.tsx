@@ -48,6 +48,7 @@ import {
 	useMemo,
 	useRef,
 	useState,
+	type ReactNode,
 } from "react";
 import { Group, Panel, useDefaultLayout } from "react-resizable-panels";
 import { branchAddress, type BranchAddress, uncommittedChangesFileParent } from "#ui/addresses.ts";
@@ -83,7 +84,7 @@ import {
 	useSelection,
 	useActiveList,
 } from "#ui/use-cursor.ts";
-import type { ActiveList } from "#ui/projects/project.ts";
+import { activeLists, type ActiveList } from "#ui/projects/project.ts";
 import { defaultSettings } from "#ui/settings.ts";
 import { parseDragData } from "./DragData.ts";
 
@@ -483,25 +484,11 @@ const PageBody: FC<{ projectId: string }> = ({ projectId }) => {
 	const uncommittedFilesSelection = useSelection("uncommitted", uncommittedAddressSpace);
 
 	const activeList = useActiveList();
-	// Which list's cursor drives the pane. Normally the active one, but a cursor
-	// is null only when its list is empty, and an empty list has no details to
-	// give: rather than go blank beside a sibling with content in it, the pane
-	// shows the sibling. Only the pane bends — `activeList` still says where the
-	// user is standing, which is what operations and the keyboard act on.
-	const detailsList: ActiveList =
-		activeList === "applied"
-			? appliedSelection === null && uncommittedFilesSelection !== null
-				? "uncommitted"
-				: "applied"
-			: uncommittedFilesSelection === null && appliedSelection !== null
-				? "applied"
-				: "uncommitted";
-	// The page picks only which list's cursor drives the pane; one Details
-	// component then dispatches on the selection itself. The uncommitted arm is
-	// the genuine fork — its cursor is a path, not an address. Memoised because
-	// `useDeferredValue` compares by identity, so a freshly built element every
-	// render would defer every render. Looked up outside the memo so the details
-	// only rebuild when the review itself changes, not on every list rerun.
+	// One Details component dispatches on the selection itself; the uncommitted
+	// list is the genuine fork, its cursor a path, not an address. Memoised
+	// because `useDeferredValue` compares by identity, so a freshly built element
+	// every render would defer every render. Looked up outside the memo so the
+	// details only rebuild when the review itself changes, not on every list rerun.
 	const upstreamReview =
 		upstreamSelection?._tag === "Commit"
 			? upstreamCommitReview(upstreamList, upstreamSelection.commitId)
@@ -509,33 +496,42 @@ const PageBody: FC<{ projectId: string }> = ({ projectId }) => {
 	const details = useMemo(() => {
 		const viewProps = { projectId, onActiveFileSelection, viewerRef, didScrollToViaFileRef };
 
-		return Match.value(page).pipe(
-			Match.when("workspace", () =>
-				Match.value(detailsList).pipe(
-					Match.when("applied", () =>
-						appliedSelection === null ? (
-							// Both lists are empty by now: `detailsList` would have picked the
-							// uncommitted one if it had anything to show.
-							<DetailsPlaceholder
-								title="Nothing to show yet"
-								description="Details of whatever you select appear in this pane"
-							/>
-						) : (
-							<Details selection={appliedSelection} review={null} {...viewProps} />
-						),
-					),
-					Match.when("uncommitted", () =>
-						uncommittedFilesSelection === null ? (
-							<DetailsPlaceholder
-								title="Nothing to show yet"
-								description="Details of whatever you select appear in this pane"
-							/>
-						) : (
-							<UncommittedFilesDetails path={uncommittedFilesSelection} {...viewProps} />
-						),
-					),
-					Match.exhaustive,
+		// Each workspace list's details, null while its cursor is: a cursor is
+		// null only when its list is empty, and an empty list has nothing to give.
+		const detailsFor: { [L in ActiveList]: ReactNode } = {
+			applied:
+				appliedSelection === null ? null : (
+					<Details selection={appliedSelection} review={null} {...viewProps} />
 				),
+			uncommitted:
+				uncommittedFilesSelection === null ? null : (
+					<UncommittedFilesDetails path={uncommittedFilesSelection} {...viewProps} />
+				),
+			// Selected from the stacks graph on the workspace page.
+			upstream:
+				upstreamSelection === null ? null : (
+					<Details selection={upstreamSelection} review={upstreamReview} {...viewProps} />
+				),
+		};
+		// The pane follows the active list, else the first sibling with something
+		// to show, rather than going blank beside content. Only the pane bends:
+		// `activeList` still says where the user stands, which is what operations
+		// and the keyboard act on.
+		const detailsList =
+			[activeList, ...activeLists.filter((list) => list !== activeList)].find(
+				(list) => detailsFor[list] !== null,
+			) ?? activeList;
+
+		return Match.value(page).pipe(
+			Match.when(
+				"workspace",
+				() =>
+					detailsFor[detailsList] ?? (
+						<DetailsPlaceholder
+							title="Nothing to show yet"
+							description="Details of whatever you select appear in this pane"
+						/>
+					),
 			),
 			Match.when("upstream", () =>
 				upstreamSelection === null ? (
@@ -568,7 +564,7 @@ const PageBody: FC<{ projectId: string }> = ({ projectId }) => {
 		uncommittedFilesSelection,
 		upstreamReview,
 		upstreamSelection,
-		detailsList,
+		activeList,
 	]);
 
 	const deferredDetails = useDeferredValue(details);
