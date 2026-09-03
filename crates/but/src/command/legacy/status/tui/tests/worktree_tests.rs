@@ -146,7 +146,7 @@ fn remember_selection_on_worktree_rows() {
         .assert_current_line_eq(str!["┊┊├┄ wt {wt-branch}"]);
 }
 
-/// A worktree's uncommitted area names that checkout's changes the way `@` names the main
+/// A worktree's uncommitted area names that worktree's changes the way `@` names the main
 /// worktree's, so `c` on it offers those changes as a commit source - and marks itself a
 /// no-op destination, exactly as `@` does.
 #[test]
@@ -201,7 +201,7 @@ fn commit_all_changes_of_a_worktree() {
     );
 }
 
-/// `c` on the reference row offers that checkout's own changes, the way `c` on a branch row
+/// `c` on the reference row offers that worktree's own changes, the way `c` on a branch row
 /// offers the main area's, so confirming right there commits everything in the worktree.
 #[test]
 fn commit_all_changes_of_a_worktree_from_its_reference() {
@@ -313,10 +313,10 @@ fn commit_a_main_worktree_change_onto_a_worktree() {
     snapbox::assert_data_eq!(tui.env().git_status(), str![""]);
 }
 
-/// Marks spanning the main checkout and a linked worktree have no single source repository to
-/// read from, so confirming such a commit is refused rather than mixing checkouts.
+/// Marks spanning the main worktree and a linked worktree have no single source repository to
+/// read from, so confirming such a commit is refused rather than mixing worktrees.
 #[test]
-fn marks_spanning_checkouts_are_refused() {
+fn marks_spanning_worktrees_are_refused() {
     let (mut tui, _editor) = worktree_tui();
 
     tui.env().file("main-file.txt", "content");
@@ -337,7 +337,7 @@ fn marks_spanning_checkouts_are_refused() {
 
     // The refusal shows as an error and nothing was committed.
     tui.input(KeyCode::Enter)
-        .assert_rendered_term_svg_eq(file!["snapshots/marks_spanning_checkouts_are_refused.svg"]);
+        .assert_rendered_term_svg_eq(file!["snapshots/marks_spanning_worktrees_are_refused.svg"]);
     snapbox::assert_data_eq!(
         tui.env().git_log(),
         str![[r#"

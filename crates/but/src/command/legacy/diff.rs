@@ -479,7 +479,7 @@ fn resolve(ctx: &Context, id_map: &IdMap, args: Platform) -> CliResult<DiffOpera
             "Worktree {name} has no changes of its own"
         ))
         .hint(format!(
-            "Use `{name}:{}` for that checkout's uncommitted changes",
+            "Use `{name}:{}` for that worktree's uncommitted changes",
             crate::id::UNCOMMITTED
         ))
         .into()),

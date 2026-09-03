@@ -65,7 +65,7 @@ pub enum CommitMessageComposer {
 pub enum CommitSource {
     Marks(NonEmpty<UncommittedHunkOrFile>),
     UncommittedHunk(UncommittedHunkOrFile),
-    /// Every uncommitted change of one checkout.
+    /// Every uncommitted change of one worktree.
     UncommittedArea(ChangeSourceId),
 }
 
@@ -148,8 +148,8 @@ impl CommitSource {
             }
             CliId::UncommittedHunkOrFile(hunk) => Some(CommitSource::UncommittedHunk(hunk.clone())),
             // The reference offers the area whose changes land on its lane by default, the way a
-            // branch row offers the main area: `c` then confirm on it commits the checkout's own
-            // changes, never another checkout's.
+            // branch row offers the main area: `c` then confirm on it commits the worktree's own
+            // changes, never another worktree's.
             CliId::WorktreeUncommitted { name, .. } | CliId::Worktree { name, .. } => Some(
                 CommitSource::UncommittedArea(ChangeSourceId::Worktree(name.clone())),
             ),

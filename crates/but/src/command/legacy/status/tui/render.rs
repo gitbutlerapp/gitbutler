@@ -1132,7 +1132,7 @@ pub fn commit_operation_display(
             }
         }
         // The reference row is the top of the worktree's lane, which is the only place a commit
-        // made from that checkout can go. Scoping to a stack excludes it, as a worktree branch is
+        // made from that worktree can go. Scoping to a stack excludes it, as a worktree branch is
         // by definition outside the workspace.
         StatusOutputLineData::Worktree { .. } => {
             scope_to_stack.is_none().then_some("commit to worktree")

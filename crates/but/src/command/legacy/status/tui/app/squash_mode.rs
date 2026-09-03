@@ -984,7 +984,7 @@ fn squash_route_from_committed_file<'a>(
     }
 }
 
-/// Whether `target` names the uncommitted area of the checkout in `uncommitted_area`.
+/// Whether `target` names the uncommitted area of the worktree in `uncommitted_area`.
 fn is_uncommit_target(target: &CliId, uncommitted_area: Option<&ChangeSourceId>) -> bool {
     match (target, uncommitted_area) {
         (CliId::Uncommitted { .. }, Some(ChangeSourceId::Head)) => true,

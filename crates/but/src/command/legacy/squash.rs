@@ -251,7 +251,7 @@ fn resolve_args(
                     ResolveTargetError::AnonymousSegment(id) => {
                         crate::args::atoms::anonymous_segment_error(&id)
                     }
-                    ResolveTargetError::OwnedByAnotherCheckout { commit, owner } => {
+                    ResolveTargetError::OwnedByAnotherWorktree { commit, owner } => {
                         let (place, area) = match &owner {
                             ChangeSourceId::Head => ("the workspace".to_string(), "@".to_string()),
                             ChangeSourceId::Worktree(name) => {
@@ -259,7 +259,7 @@ fn resolve_args(
                             }
                         };
                         bad_input(format!(
-                            "Commit {} belongs to {place}, so it can only be uncommitted into that checkout's area",
+                            "Commit {} belongs to {place}, so it can only be uncommitted into that worktree's area",
                             commit.to_hex_with_len(7)
                         ))
                         .hint(format!("Use `--target {area}`"))
@@ -919,9 +919,9 @@ pub fn resolve_target(
                 },
             }
 
-            // An uncommit lands in the checkout that owns the commit, so the area named as the
-            // target has to be that checkout's.
-            let checkout = match target {
+            // An uncommit lands in the worktree that owns the commit, so the area named as the
+            // target has to be that worktree's.
+            let worktree = match target {
                 ResolvedCliIdArgRef::WorktreeUncommitted(name) => {
                     ChangeSourceId::Worktree(name.to_owned())
                 }
@@ -935,8 +935,8 @@ pub fn resolve_target(
             });
             for commit in source_commits {
                 let owner = crate::utils::worktrees::commit_owner(head_info, commit);
-                if owner != checkout {
-                    return Err(ResolveTargetError::OwnedByAnotherCheckout { commit, owner });
+                if owner != worktree {
+                    return Err(ResolveTargetError::OwnedByAnotherWorktree { commit, owner });
                 }
             }
 
@@ -965,7 +965,7 @@ pub enum ResolveTargetError {
     InvalidTarget,
     AnonymousSegment(String),
     /// A source commit belongs to `owner`, whose area is not the one named as the target.
-    OwnedByAnotherCheckout {
+    OwnedByAnotherWorktree {
         commit: gix::ObjectId,
         owner: ChangeSourceId,
     },

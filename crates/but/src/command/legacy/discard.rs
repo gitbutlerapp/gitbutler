@@ -335,7 +335,7 @@ fn resolve(repo: &gix::Repository, id_map: &IdMap, args: Platform) -> CliResult<
                     .arg_name("<CHANGES>")
                     .arg_value(value)
                     .hint(format!(
-                        "Use `{name}:{}` to name that checkout's uncommitted changes",
+                        "Use `{name}:{}` to name that worktree's uncommitted changes",
                         crate::id::UNCOMMITTED
                     ))
                     .into());

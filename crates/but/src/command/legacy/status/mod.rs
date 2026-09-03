@@ -1786,7 +1786,7 @@ fn print_group(
 
 /// Print one uncommitted-changes heading and the files below it.
 ///
-/// The worktree reference row: the lane the checkout's commits hang off, naming the
+/// The worktree reference row: the lane the worktree's commits hang off, naming the
 /// branch checked out there.
 ///
 /// Sits below the area's files rather than above them, so `├┄` rather than `╭┄`.

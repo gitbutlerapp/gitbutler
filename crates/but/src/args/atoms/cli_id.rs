@@ -255,7 +255,7 @@ impl CliIdArg {
             ))
             .arg_value(self.0.clone())
             .hint(format!(
-                "Use `{id}:{}` for that checkout's uncommitted changes",
+                "Use `{id}:{}` for that worktree's uncommitted changes",
                 crate::id::UNCOMMITTED
             ))
             .into()),

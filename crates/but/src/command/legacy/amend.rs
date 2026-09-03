@@ -112,7 +112,7 @@ fn resolve(
                 | ResolveTargetError::UseSourceMessageUnavailable
                 | ResolveTargetError::NoMessageUnavailable
                 | ResolveTargetError::MessageUnavailable
-                | ResolveTargetError::OwnedByAnotherCheckout { .. }
+                | ResolveTargetError::OwnedByAnotherWorktree { .. }
                 | ResolveTargetError::InvalidTarget => bad_input(target_hint)
                     .hint(CliIdArg::TARGET_MISSING_HINT)
                     .into(),

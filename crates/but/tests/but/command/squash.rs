@@ -3370,7 +3370,7 @@ fn uncommit_a_worktree_commit_into_its_own_area() {
         .assert()
         .failure()
         .stderr_eq(snapbox::str![[r#"
-Error: Commit 580bef0 belongs to worktree wt-feature, so it can only be uncommitted into that checkout's area
+Error: Commit 580bef0 belongs to worktree wt-feature, so it can only be uncommitted into that worktree's area
 
 Hint: Use `--target wt-feature:@`
 
@@ -3379,7 +3379,7 @@ Hint: Use `--target wt-feature:@`
         .assert()
         .failure()
         .stderr_eq(snapbox::str![[r#"
-Error: Commit 9477ae7 belongs to the workspace, so it can only be uncommitted into that checkout's area
+Error: Commit 9477ae7 belongs to the workspace, so it can only be uncommitted into that worktree's area
 
 Hint: Use `--target @`
 

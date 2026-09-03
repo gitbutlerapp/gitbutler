@@ -1,6 +1,6 @@
 use crate::args::atoms::CliIdArg;
 
-/// Manage linked worktrees (experimental, requires the `worktreeManipulation` feature flag).
+/// Manage worktrees (experimental, requires the `worktreeManipulation` feature flag).
 ///
 /// Without a subcommand, lists the worktrees.
 #[derive(Debug, clap::Parser)]
@@ -12,7 +12,7 @@ pub struct Platform {
 
 #[derive(Debug, clap::Subcommand)]
 pub enum Subcommands {
-    /// List linked worktrees, most recently updated first.
+    /// List worktrees, most recently updated first.
     ///
     /// By default this lists every active worktree and the three most recently updated
     /// archived ones. A worktree is shown by its name, followed by the branch it has checked

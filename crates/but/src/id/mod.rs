@@ -1549,7 +1549,7 @@ impl<'a> Node<'a> for &'a WorktreeWithId {
         // `<worktree>:<path>` is how a path that is dirty in several checkouts is
         // narrowed down to one, mirroring `@:<path>` for the main worktree.
         let mut matches = id_map.parse_uncommitted_filename(element, Some(&self.source()));
-        // `<worktree>:@` is that checkout's uncommitted area. Pushed rather than
+        // `<worktree>:@` is that worktree's uncommitted area. Pushed rather than
         // returned early so a file in this worktree literally named `@` competes
         // with it as an ambiguity, exactly as one does with the bare `@` sentinel.
         if element == UNCOMMITTED {
@@ -1988,7 +1988,7 @@ pub enum CliId {
         /// The CLI ID for the uncommitted area.
         id: ShortId,
     },
-    /// A linked worktree, as the reference whose lane holds that checkout's
+    /// A linked worktree, as the reference whose lane holds that worktree's
     /// commits and the branch checked out there.
     ///
     /// Its uncommitted changes are [`Self::WorktreeUncommitted`]; this ID never
@@ -2071,7 +2071,7 @@ impl CliId {
         }
     }
 
-    /// The checkout whose uncommitted changes this ID names, if it names any.
+    /// The worktree whose uncommitted changes this ID names, if it names any.
     ///
     /// The total form of the question every `matches!(id, CliId::Uncommitted { .. })`
     /// was asking while there was only one area. A worktree *reference* holds no

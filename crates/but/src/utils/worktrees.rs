@@ -81,7 +81,7 @@ pub(crate) fn worktree_branch_target(
     }))
 }
 
-/// The checkout an uncommit of `commit` lands in: the linked worktree that owns it, or the main
+/// The worktree an uncommit of `commit` lands in: the linked worktree that owns it, or the main
 /// worktree for a workspace commit.
 pub(crate) fn commit_owner(
     head_info: &but_workspace::RefInfo,

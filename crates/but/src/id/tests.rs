@@ -1263,7 +1263,7 @@ fn worktree_container_id() -> anyhow::Result<()> {
     Ok(())
 }
 
-/// `<worktree>:@` names that checkout's uncommitted area, the way `@` names the
+/// `<worktree>:@` names that worktree's uncommitted area, the way `@` names the
 /// main worktree's, and is distinct from the worktree reference itself.
 #[test]
 fn worktree_uncommitted_area_id() -> anyhow::Result<()> {
@@ -1317,7 +1317,7 @@ fn worktree_uncommitted_area_id() -> anyhow::Result<()> {
     assert_eq!(
         by_short_id[0].uncommitted_area(),
         Some(ChangeSourceId::Worktree("wt-a".into())),
-        "the area names its own checkout"
+        "the area names its own worktree"
     );
     assert_eq!(
         reference[0].uncommitted_area(),
@@ -1330,7 +1330,7 @@ fn worktree_uncommitted_area_id() -> anyhow::Result<()> {
     assert_eq!(
         main[0].uncommitted_area(),
         Some(ChangeSourceId::Head),
-        "the bare sentinel is still the main checkout"
+        "the bare sentinel is still the main worktree"
     );
 
     Ok(())
