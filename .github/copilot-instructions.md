@@ -344,3 +344,10 @@ corepack prepare pnpm@10.17.0 --activate
 9. **Security**: Check dependencies for vulnerabilities before adding them
 10. **Code marked for refactoring**: Be extra careful with crates in the "Code Hitlist" section
 11. **but CLI happy path testing only**: CLI tests are expensive and should be limited to what really matters.
+
+## Review Guidelines
+
+Follow these guidelines when reviewing code.
+
+- Do not report type errors. CI will catch those.
+- Don't review formatting such as commas, indentation, etc
