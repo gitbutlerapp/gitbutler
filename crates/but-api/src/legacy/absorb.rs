@@ -34,8 +34,7 @@ use but_core::DryRun;
 /// This acquires exclusive worktree access from `ctx` before creating the
 /// snapshot and rewriting commits.
 ///
-/// Before applying the plan, this records an `Absorb` oplog snapshot and refreshes the
-/// synthetic workspace commit after the rewritten commits are in place.
+/// Before applying the plan, this records an `Absorb` oplog snapshot.
 #[but_api(napi)]
 #[instrument(err(Debug))]
 pub fn absorb(ctx: &mut Context, absorption_plan: Vec<CommitAbsorption>) -> anyhow::Result<usize> {
@@ -49,18 +48,7 @@ pub fn absorb(ctx: &mut Context, absorption_plan: Vec<CommitAbsorption>) -> anyh
         )
         .ok(); // Ignore errors for snapshot creation
 
-    let total_rejected = absorb_with_perm(ctx, absorption_plan, guard.write_permission())?;
-
-    // Refresh the workspace commit so `gitbutler/workspace` HEAD stays in sync
-    // with the rewritten branch commits. Without this, tools that inspect HEAD
-    // (e.g. pre-push hooks that stash against it) see a stale synthetic commit.
-    gitbutler_branch_actions::update_workspace_commit_with_perm(
-        ctx,
-        false,
-        guard.write_permission(),
-    )?;
-
-    Ok(total_rejected)
+    absorb_with_perm(ctx, absorption_plan, guard.write_permission())
 }
 
 /// Absorb the changes described by `absorption_plan` using the exclusive repository

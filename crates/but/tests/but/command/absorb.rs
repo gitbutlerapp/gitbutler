@@ -637,6 +637,43 @@ fn workspace_head_is_refreshed_after_absorb() {
         ws_before, ws_after,
         "gitbutler/workspace HEAD should be refreshed after absorb"
     );
+    // The refreshed workspace commit merges the rewritten stack tips.
+    let mut parents: Vec<_> = repo
+        .find_commit(ws_after)
+        .unwrap()
+        .parent_ids()
+        .map(|id| id.detach())
+        .collect();
+    let mut tips =
+        ["A", "B"].map(|branch| repo.rev_parse_single(branch.as_bytes()).unwrap().detach());
+    parents.sort();
+    tips.sort();
+    assert_eq!(
+        parents, tips,
+        "workspace commit parents must be the current stack tips"
+    );
+    // The workspace tree carries the absorbed content, so tools inspecting
+    // HEAD see the amended state rather than a stale one.
+    let blob = repo
+        .rev_parse_single(b"gitbutler/workspace:a.txt")
+        .unwrap()
+        .object()
+        .unwrap();
+    snapbox::assert_data_eq!(
+        blob.data.as_bstr().to_string(),
+        snapbox::str![[r#"
+firsta
+line
+line
+line
+line
+line
+line
+line
+lasta
+
+"#]]
+    );
 }
 
 #[test]
@@ -736,4 +773,46 @@ fn absorb_json_reports_partially_skipped_merged_upstream_commits() {
 warning: skipped absorbing into 1 merged-upstream commit(s): 756ee31. Run `but pull` to update the workspace, or pass --allow-merged to absorb anyway.
 
 "#]]);
+}
+
+/// Regression test for GB-1534: in single-branch mode absorb must amend the
+/// checked-out branch without recreating `gitbutler/workspace` and moving
+/// `HEAD` onto it.
+#[test]
+fn single_branch_absorb_keeps_head_on_branch() {
+    let env = Sandbox::open_with_default_settings("single-branch-mode");
+    env.but("branch new feature").assert().success();
+    env.file("file.txt", "a\nb\nc\n");
+    env.but("commit -m 'change b'").assert().success();
+    env.file("file.txt", "a\nB\nc\n");
+
+    env.but("absorb").assert().success().stderr_eq(str![""]);
+
+    let repo = env.open_repo();
+    let blob = repo
+        .rev_parse_single(b"feature:file.txt")
+        .unwrap()
+        .object()
+        .unwrap();
+    // The change was absorbed into the branch commit.
+    snapbox::assert_data_eq!(
+        blob.data.as_bstr().to_string(),
+        snapbox::str![[r#"
+a
+B
+c
+
+"#]]
+    );
+    assert_eq!(
+        env.invoke_git("symbolic-ref --short HEAD"),
+        "feature",
+        "absorb must leave HEAD on the checked-out branch"
+    );
+    assert!(
+        repo.try_find_reference("refs/heads/gitbutler/workspace")
+            .unwrap()
+            .is_none(),
+        "absorb must not create a workspace ref in single-branch mode"
+    );
 }

@@ -12,10 +12,9 @@ export declare function abortEditAndReturnToWorkspace(projectId: string, force: 
  * This acquires exclusive worktree access from `ctx` before creating the
  * snapshot and rewriting commits.
  *
- * Before applying the plan, this records an `Absorb` oplog snapshot and refreshes the
- * synthetic workspace commit after the rewritten commits are in place.
+ * Before applying the plan, this records an `Absorb` oplog snapshot.
  *
- * {@link ../../../../../crates/but-api/src/legacy/absorb.rs:39}
+ * {@link ../../../../../crates/but-api/src/legacy/absorb.rs:38}
  */
 export declare function absorb(projectId: string, absorptionPlan: Array<CommitAbsorption>): Promise<number>
 
@@ -23,7 +22,7 @@ export declare function absorb(projectId: string, absorptionPlan: Array<CommitAb
  * Build an absorption plan for `target` using the behavior documented by
  * [`absorption_plan_with_perm()`].
  *
- * {@link ../../../../../crates/but-api/src/legacy/absorb.rs:105}
+ * {@link ../../../../../crates/but-api/src/legacy/absorb.rs:93}
  */
 export declare function absorptionPlan(projectId: string, target: AbsorptionTarget): Promise<Array<CommitAbsorption>>
 
