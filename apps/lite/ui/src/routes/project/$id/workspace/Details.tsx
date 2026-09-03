@@ -2568,7 +2568,12 @@ const Diff: FC<{
 	// so a file list and a viewer both saying so as well would be the same fact
 	// three times across two columns — and two empty columns read as broken
 	// rather than as deliberate. The whole body becomes the one block instead.
-	if (changes.length === 0) {
+	//
+	// Conflicts are the exception, and not a cosmetic one: the conflict bar lives
+	// in the layout below, and it carries the only route into edit mode from
+	// here. A conflicted commit can hold no diffable changes at all, so
+	// collapsing on the count alone takes that route away with them.
+	if (changes.length === 0 && conflicts.length === 0 && manualConflicts.length === 0) {
 		return (
 			<div className={classes(styles.diffTab, styles.diffTabEmpty)}>
 				<EmptyState
