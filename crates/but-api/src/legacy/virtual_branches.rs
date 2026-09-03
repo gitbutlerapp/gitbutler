@@ -29,7 +29,7 @@ use gitbutler_reference::{Refname, normalize_branch_name as normalize_name};
 use gix::reference::Category;
 use tracing::instrument;
 
-use crate::legacy::workspace::canned_branch_name;
+use crate::branch::branch_canned_name;
 // Parameter structs for all functions
 
 #[but_api]
@@ -47,7 +47,7 @@ pub fn create_virtual_branch(
     let stack_entry = {
         let branch_name = match branch.name {
             Some(name) => normalize_name(&name)?,
-            None => canned_branch_name(ctx)?,
+            None => branch_canned_name(ctx)?,
         };
         let new_ref = Category::LocalBranch
             .to_full_name(branch_name.as_str())

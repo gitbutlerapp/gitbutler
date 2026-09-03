@@ -20,8 +20,6 @@ use gitbutler_oplog::{
 };
 use tracing::instrument;
 
-use crate::json::HexHash;
-
 #[but_api(napi, try_from = but_workspace::ui::RefInfo, provides = [Workspace])]
 #[instrument(err(Debug))]
 pub fn head_info(ctx: &but_ctx::Context) -> Result<but_workspace::RefInfo> {
@@ -332,35 +330,6 @@ pub fn stash_into_branch(
     super::virtual_branches::unapply_stack_with_perm(ctx, stack_id, perm)?;
 
     outcome
-}
-
-/// Returns a new available branch name based on a simple template - user_initials-branch-count
-/// The main point of this is to be able to provide branch names that are not already taken.
-/// This checks local branches and the short-names of remote tracking branches. The reason for
-/// the latter is that the but-graph traversal, for now, associates local branches
-/// with remote tracking branches by name, not only by configuration, to support older GitButler setups.
-///
-// TODO(apply): once the new apply is used by default, we can start thinking about phasing this out
-//              as it will setup normal Git tracking branch associations via `.git/config`.
-#[but_api]
-#[instrument(err(Debug))]
-pub fn canned_branch_name(ctx: &Context) -> Result<String> {
-    let rn = but_core::branch::unique_canned_refname(&*ctx.repo.get()?)?;
-    Ok(rn.shorten().to_string())
-}
-
-#[but_api]
-#[instrument(err(Debug))]
-pub fn target_commits(
-    ctx: &but_ctx::Context,
-    last_commit_id: Option<HexHash>,
-    page_size: Option<usize>,
-) -> Result<Vec<but_workspace::ui::Commit>> {
-    but_workspace::legacy::log_target_first_parent(
-        ctx,
-        last_commit_id.map(|id| id.into()),
-        page_size.unwrap_or(30),
-    )
 }
 
 /// Push a branch and any parent references that lie within the current workspace projection.

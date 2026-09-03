@@ -846,13 +846,10 @@ export class StackService {
 		);
 	}
 
-	async targetCommits(projectId: string, lastCommitId: string | undefined, pageSize: number) {
+	async targetCommits(projectId: string, from: string | undefined, limit: number) {
 		return await this.backendApi.endpoints.targetCommits.fetch(
-			{ projectId, lastCommitId, pageSize },
-			{
-				forceRefetch: true,
-				transform: (commits) => commitSelectors.selectAll(commits),
-			},
+			{ projectId, from, limit },
+			{ forceRefetch: true },
 		);
 	}
 

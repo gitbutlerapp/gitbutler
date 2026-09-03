@@ -205,7 +205,7 @@ export declare function branchCheckoutNew(projectId: string, name: string | null
 export declare function branchCreate(projectId: string, newRef: MaybeLossyFullNameRef, placement: BranchCreatePlacement): Promise<BranchCreateResult>
 
 /**
- * {@link ../../../../../crates/but-api/src/legacy/workspace.rs:155}
+ * {@link ../../../../../crates/but-api/src/legacy/workspace.rs:153}
  */
 export declare function branchDetails(projectId: string, branchName: string, remote: string | null): Promise<BranchDetails>
 
@@ -626,7 +626,7 @@ export declare function deleteUser(): Promise<void>
  *
  * Returns the `worktree_changes` that couldn't be applied,
  *
- * {@link ../../../../../crates/but-api/src/legacy/workspace.rs:222}
+ * {@link ../../../../../crates/but-api/src/legacy/workspace.rs:220}
  */
 export declare function discardWorktreeChanges(projectId: string, worktreeChanges: Array<DiffSpec>): Promise<Array<DiffSpec>>
 
@@ -913,7 +913,7 @@ export declare function gitTestFetch(projectId: string, remoteName: string, acti
 export declare function gitTestPush(projectId: string, remoteName: string, branchName: string): Promise<void>
 
 /**
- * {@link ../../../../../crates/but-api/src/legacy/workspace.rs:25}
+ * {@link ../../../../../crates/but-api/src/legacy/workspace.rs:23}
  */
 export declare function headInfo(projectId: string): Promise<RefInfo>
 
@@ -1581,7 +1581,7 @@ export declare function withdrawReviewRequest(projectId: string, reviewId: numbe
 /**
  * Push a branch and any parent references that lie within the current workspace projection.
  *
- * {@link ../../../../../crates/but-api/src/legacy/workspace.rs:367}
+ * {@link ../../../../../crates/but-api/src/legacy/workspace.rs:336}
  */
 export declare function workspaceBranchAndAncestorsPush(projectId: string, withForce: boolean, skipForcePushProtection: boolean, branch: string, runHooks: boolean, pushOpts: Array<PushFlag>): Promise<PushResult>
 

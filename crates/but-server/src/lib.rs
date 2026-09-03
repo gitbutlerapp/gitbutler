@@ -472,6 +472,14 @@ pub async fn run(config: Config) -> anyhow::Result<()> {
             but_post(but_api::branch::branch_rename_cmd),
         )
         .route(
+            "/branch_canned_name",
+            but_post(but_api::branch::branch_canned_name_cmd),
+        )
+        .route(
+            "/workspace_target_commits",
+            but_post(but_api::target_commits::workspace_target_commits_cmd),
+        )
+        .route(
             "/get_initial_branch_integration",
             but_post(but_api::branch::get_initial_branch_integration_cmd),
         )
@@ -508,14 +516,6 @@ pub async fn run(config: Config) -> anyhow::Result<()> {
         .route(
             "/stash_into_branch",
             but_post(legacy::workspace::stash_into_branch_cmd),
-        )
-        .route(
-            "/canned_branch_name",
-            but_post(legacy::workspace::canned_branch_name_cmd),
-        )
-        .route(
-            "/target_commits",
-            but_post(legacy::workspace::target_commits_cmd),
         )
         .route(
             "/workspace_branch_and_ancestors_push",

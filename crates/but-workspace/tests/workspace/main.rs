@@ -8,8 +8,6 @@ mod graph;
 mod init;
 mod push;
 mod ref_info;
-mod shallow_clone;
-mod target_history;
 mod tree_manipulation;
 mod ui;
 mod upstream_integration;

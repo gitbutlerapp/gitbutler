@@ -294,3 +294,46 @@ fn continuation_stops_gracefully_in_a_shallow_clone() -> anyhow::Result<()> {
     assert!(!page.has_more, "a missing parent ends the history");
     Ok(())
 }
+
+/// With an ordinary branch checked out, the listing walks the persisted GitButler target,
+/// not the checked-out branch's own upstream.
+#[test]
+fn ordinary_checkout_lists_the_persisted_target() -> anyhow::Result<()> {
+    let (repo, tmp) = repo_with_feature_branch()?;
+    drop(repo);
+    // `feature` tracks a remote branch of its own, and the target moves on past it.
+    for args in [
+        vec!["switch", "feature"],
+        vec!["update-ref", "refs/remotes/origin/feature", "feature"],
+        vec!["config", "branch.feature.remote", "origin"],
+        vec!["config", "branch.feature.merge", "refs/heads/feature"],
+        vec!["update-ref", "refs/remotes/origin/main", "main"],
+    ] {
+        git_at_dir(tmp.path()).args(args).run();
+    }
+
+    let mut ctx =
+        but_ctx::Context::from_repo_for_testing(open_repo(tmp.path())?)?.with_memory_app_cache();
+    let target_ref = gix::refs::FullName::try_from("refs/remotes/origin/main")?;
+    but_api::workspace::set_target_ref_and_init_project(&mut ctx, target_ref.as_ref(), None)?;
+    let (main_tip, feature_tip) = {
+        let repo = ctx.repo.get()?;
+        (
+            repo.rev_parse_single("refs/remotes/origin/main")?.detach(),
+            repo.rev_parse_single("refs/remotes/origin/feature")?
+                .detach(),
+        )
+    };
+    assert_ne!(
+        main_tip, feature_tip,
+        "the branch upstream must differ from the target to tell them apart"
+    );
+
+    let page = but_api::target_commits::workspace_target_commits(&ctx, None, Some(1))?;
+    assert_eq!(
+        page.commits.first().map(|entry| entry.commit.id),
+        Some(main_tip),
+        "the target history starts at the persisted target, not the branch upstream"
+    );
+    Ok(())
+}

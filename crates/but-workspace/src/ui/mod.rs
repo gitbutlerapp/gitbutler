@@ -78,15 +78,6 @@ pub struct Commit {
 #[cfg(feature = "export-schema")]
 but_schemars::register_sdk_type!(Commit);
 
-impl TryFrom<gix::Commit<'_>> for Commit {
-    type Error = anyhow::Error;
-    fn try_from(commit: gix::Commit<'_>) -> Result<Self, Self::Error> {
-        let commit = but_core::Commit::try_from(commit)?;
-        let has_conflicts = commit.is_conflicted();
-        Ok(Commit::from_commit_owned(commit.detach(), has_conflicts))
-    }
-}
-
 impl Commit {
     /// Convert a detached `commit`. Its tree is not accessible without a repository,
     /// so the caller must provide `has_conflicts` as determined by
