@@ -70,5 +70,15 @@
 	color: var(--text-2);
 }
 
+/* Empty, the list's one block is centred in it, the way the stacks panel does
+   it: `safe` so a short list falls back to the top instead of putting the
+   block's head out of reach above the scroll origin, and a size container so
+   the block can scale its counterweight to the room it actually has. */
+.list[data-empty="true"] {
+	container-type: size;
+
+	justify-content: safe center;
+}
+
 /* The label column and its meta line now live in Row.module.css, shared with
    the workspace outline's branch rows. */
