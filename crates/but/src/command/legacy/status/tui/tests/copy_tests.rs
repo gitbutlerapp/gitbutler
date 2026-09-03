@@ -1,7 +1,9 @@
 use but_testsupport::Sandbox;
 use crossterm::event::{KeyCode, KeyModifiers};
 
-use crate::command::legacy::status::tui::tests::utils::test_status_tui;
+use crate::command::legacy::status::tui::tests::utils::{
+    TestTuiOptions, test_status_tui, test_status_tui_with_options,
+};
 
 const COPY_MORE: (KeyModifiers, char) = (KeyModifiers::SHIFT, 'Y');
 
@@ -10,7 +12,13 @@ fn copying_change_id_doesnt_include_disambiguation() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("zero-stacks");
     env.setup_metadata(&[]);
 
-    let mut tui = test_status_tui(env);
+    let mut tui = test_status_tui_with_options(
+        env,
+        TestTuiOptions {
+            testing_change_id: Some("1"),
+            ..Default::default()
+        },
+    );
 
     tui.input('b');
     tui.input('n');
@@ -19,7 +27,7 @@ fn copying_change_id_doesnt_include_disambiguation() {
 
     // Ideally this would include the disambiguation but the change id in CliId::Commit doesn't
     // include it. In the future it will.
-    tui.input('y').assert_copied_text_eq("mzrzmqqn");
+    tui.input('y').assert_copied_text_eq("1");
 }
 
 #[test]

@@ -640,13 +640,11 @@ Examples:
 fn cannot_mix_sources() {
     let env = one_branch_three_commits();
 
-    env.but("squash a-branch-1 1#0 --target 1#2")
+    env.but("squash a-branch-1 wmm --target unl")
         .assert()
         .failure()
         .stderr_eq(snapbox::str![[r#"
-Error: Could not find source: '1#0'
-
-Hint: Run `but status` for applicable targets.
+Error: Cannot mix different types of sources
 
 "#]]);
 }
@@ -655,13 +653,13 @@ Hint: Run `but status` for applicable targets.
 fn cannot_squash_multiple_commits_without_target() {
     let env = one_branch_three_commits();
 
-    env.but("squash 1#0 1#2")
+    env.but("squash wmm unl")
         .assert()
         .failure()
         .stderr_eq(snapbox::str![[r#"
 Error: When --target isn't used the source must be exactly one branch
 
-Hint: To squash into the last source, use `but squash 1#0 -t 1#2`
+Hint: To squash into the last source, use `but squash wmm -t unl`
 
 "#]]);
 }
@@ -708,13 +706,11 @@ Error: Need at least 2 commits to squash
 fn cannot_squash_commit_into_itself() {
     let env = one_branch_three_commits();
 
-    env.but("squash 1#0 -t 1#0")
+    env.but("squash wmm -t wmm")
         .assert()
         .failure()
         .stderr_eq(snapbox::str![[r#"
-Error: Could not find source: '1#0'
-
-Hint: Run `but status` for applicable targets.
+Error: Cannot squash a commit into itself
 
 "#]]);
 }
@@ -744,13 +740,11 @@ fn cannot_squash_empty_branch_into_commit() {
 
     env.but("branch new empty-branch").assert().success();
 
-    env.but("squash empty-branch -t 1")
+    env.but("squash empty-branch -t a-branch-1")
         .assert()
         .failure()
         .stderr_eq(snapbox::str![[r#"
-Error: Could not find target: '1'
-
-Hint: --target must be an applied commit, branch, or @. Run `but status` for applicable targets.
+Error: Need at least 2 commits to squash
 
 "#]]);
 }
@@ -790,13 +784,11 @@ Hint: run `but help` for all commands
 
 "#]]);
 
-    env.but("squash 1#0 -t 1#2")
+    env.but("squash nwl -t oyv")
         .assert()
         .failure()
         .stderr_eq(snapbox::str![[r#"
-Error: Could not find source: '1#0'
-
-Hint: Run `but status` for applicable targets.
+Error: Cannot squash commits that would result in merge conflicts
 
 "#]]);
 }
@@ -834,13 +826,13 @@ Hint: run `but help` for all commands
     env.but("unapply second").assert().success();
 
     // Unapplied commits have no change ID in the workspace map, so use the commit ID intentionally.
-    env.but("squash 1#0 -t d15f721")
+    env.but("squash zxw -t d15f721")
         .assert()
         .failure()
         .stderr_eq(snapbox::str![[r#"
-Error: Could not find source: '1#0'
+Error: Could not find target: 'd15f721'
 
-Hint: Run `but status` for applicable targets.
+Hint: --target must be an applied commit, branch, or @. Run `but status` for applicable targets.
 
 "#]]);
 }
@@ -1226,13 +1218,11 @@ Hint: run `but help` for all commands
 
 "#]]);
 
-    env.but("squash 1#0:o 1#1:t -t 1#2 -u")
+    env.but("squash wmm:o zxw:t -t unl -u")
         .assert()
         .failure()
         .stderr_eq(snapbox::str![[r#"
-Error: Could not find source: '1#0:o'
-
-Hint: Run `but status` for applicable targets.
+Error: All committed changes must come from the same commit. Found changes from [..] and [..]
 
 "#]]);
 }
@@ -1272,13 +1262,11 @@ Hint: run `but help` for all commands
 
 "#]]);
 
-    env.but("squash 1#0:q -t 1#2 -u")
+    env.but("squash xnw:q -t lrm -u")
         .assert()
         .failure()
         .stderr_eq(snapbox::str![[r#"
-Error: Could not find source: '1#0:q'
-
-Hint: Run `but status` for applicable targets.
+Error: Failed to apply changes to destination commit - merge conflict
 
 "#]]);
 }
@@ -1532,23 +1520,19 @@ Hint: run `but help` for all commands
 
 "#]]);
 
-    env.but("squash 1#2 -t @")
+    env.but("squash lrm -t @")
         .assert()
         .failure()
         .stderr_eq(snapbox::str![[r#"
-Error: Could not find source: '1#2'
-
-Hint: Run `but status` for applicable targets.
+Error: Cannot uncommit commits that would result in merge conflicts
 
 "#]]);
 
-    env.but("squash 1#2:q -t @")
+    env.but("squash lrm:q -t @")
         .assert()
         .failure()
         .stderr_eq(snapbox::str![[r#"
-Error: Could not find source: '1#2:q'
-
-Hint: Run `but status` for applicable targets.
+Error: Cannot uncommit hunks that would result in merge conflicts
 
 "#]]);
 }

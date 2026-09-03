@@ -63,6 +63,7 @@ Matches: 0
 fn resolves_duplicated_change_ids() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("zero-stacks");
     env.setup_metadata(&[]);
+    set_change_id(&env, "1");
 
     env.but("commit -m first").assert().success();
     env.but("commit -m second").assert().success();
@@ -71,16 +72,18 @@ fn resolves_duplicated_change_ids() {
         .assert()
         .success()
         .stdout_eq(str![[r#"
-Matches: 0
+Matches: 1
 
+commit: 1 e8564e1938a8b7e00c0f3cf88d08f0687d6863d3
 
 "#]]);
     env.but("_expand 1#1")
         .assert()
         .success()
         .stdout_eq(str![[r#"
-Matches: 0
+Matches: 1
 
+commit: 1 71c4380695ab83fc7ff085860bb656ab27ed524e
 
 "#]]);
 }
@@ -267,12 +270,13 @@ Created commit oln on new branch 'a-branch-1'
 
 "#]]);
 
-    env.but("_expand 1:qs:7")
+    env.but("_expand oln:qs:7")
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
-Matches: 0
+Matches: 1
 
+committed hunk: 94d0f7aa1b81428805071f9a45ed6533dee4160a file @@ -1,0 +1,1 @@
 
 "#]]);
 }
@@ -304,12 +308,13 @@ Created commit nul on new branch 'a-branch-1'
 
 "#]]);
 
-    env.but("_expand 1:nx:q")
+    env.but("_expand nul:nx:q")
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
-Matches: 0
+Matches: 1
 
+committed hunk: 673f0a6533ac3929ad467b4f7a0b935853775963 image.png <no hunk header>
 
 "#]]);
 }
@@ -318,6 +323,7 @@ Matches: 0
 fn identical_committed_hunks_qualified_by_commit() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("zero-stacks");
     env.setup_metadata(&[]);
+    set_change_id(&env, "1");
 
     let repeated_content = "line\n".repeat(10);
 
@@ -327,7 +333,7 @@ fn identical_committed_hunks_qualified_by_commit() {
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
-Created commit lwk on new branch 'a-branch-1'
+Created commit 1 on new branch 'a-branch-1'
 
 "#]]);
 
@@ -360,7 +366,7 @@ Created commit lwk on new branch 'a-branch-1'
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
-Created commit kkx on branch 'a-branch-1'
+Created commit 1 on branch 'a-branch-1'
 
 "#]]);
 
@@ -389,7 +395,7 @@ Created commit kkx on branch 'a-branch-1'
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
-Created commit nsu on branch 'a-branch-1'
+Created commit 1 on branch 'a-branch-1'
 
 "#]]);
 
@@ -421,7 +427,7 @@ Created commit nsu on branch 'a-branch-1'
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
-Created commit twz on branch 'a-branch-1'
+Created commit 1 on branch 'a-branch-1'
 
 "#]]);
 
@@ -432,18 +438,18 @@ Created commit twz on branch 'a-branch-1'
 ╭┄ @ [uncommitted] (no changes)
 ┊
 ┊╭┄ br [a-branch-1]
-┊● twz author 2000-01-01 00:00:00 +0000 (sha 6a6b0b9)
+┊● 1#0 author 2000-01-01 00:00:00 +0000 (sha 6f4b52a)
 ┊│     Add new line
-┊│     twz:q M file
-┊● nsu author 2000-01-01 00:00:00 +0000 (sha d2b566a)
+┊│     1#0:q M file
+┊● 1#1 author 2000-01-01 00:00:00 +0000 (sha 120d589)
 ┊│     Revert
-┊│     nsu:q M file
-┊● kkx author 2000-01-01 00:00:00 +0000 (sha 55ea192)
+┊│     1#1:q M file
+┊● 1#2 author 2000-01-01 00:00:00 +0000 (sha bc7dd74)
 ┊│     Add new line
-┊│     kkx:q M file
-┊● lwk author 2000-01-01 00:00:00 +0000 (sha 50ebd78)
+┊│     1#2:q M file
+┊● 1#3 author 2000-01-01 00:00:00 +0000 (sha 86543ac)
 ┊│     Add file
-┊│     lwk:q A file
+┊│     1#3:q A file
 ├╯
 ┊
 ┴ 0dc3733 (common base) 2000-01-02 add M
@@ -458,8 +464,10 @@ Hint: run `but help` for all commands
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
-Matches: 0
+Matches: 2
 
+committed hunk: 6f4b52a36cae46b54446f6a90d6781bacbce12dc file @@ -8,6 +8,7 @@
+committed hunk: bc7dd74811af27895beecb37a245cc34291274ad file @@ -8,6 +8,7 @@
 
 "#]]);
 
@@ -468,8 +476,9 @@ Matches: 0
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
-Matches: 0
+Matches: 1
 
+committed hunk: 6f4b52a36cae46b54446f6a90d6781bacbce12dc file @@ -8,6 +8,7 @@
 
 "#]]);
 
@@ -478,8 +487,9 @@ Matches: 0
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
-Matches: 0
+Matches: 1
 
+committed hunk: bc7dd74811af27895beecb37a245cc34291274ad file @@ -8,6 +8,7 @@
 
 "#]]);
 }
@@ -488,6 +498,7 @@ Matches: 0
 fn resolves_committed_hunk_id_duplicates() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("zero-stacks");
     env.setup_metadata(&[]);
+    set_change_id(&env, "1");
 
     let repeated_content = "line\n".repeat(10);
 
@@ -500,7 +511,7 @@ fn resolves_committed_hunk_id_duplicates() {
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
-Created commit plv on new branch 'a-branch-1'
+Created commit 1 on new branch 'a-branch-1'
 
 "#]]);
     env.file(
@@ -546,7 +557,7 @@ Created commit plv on new branch 'a-branch-1'
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
-Created commit luo on branch 'a-branch-1'
+Created commit 1 on branch 'a-branch-1'
 
 "#]]);
 
@@ -560,12 +571,12 @@ Created commit luo on branch 'a-branch-1'
 ╭┄ @ [uncommitted] (no changes)
 ┊
 ┊╭┄ br [a-branch-1]
-┊●   pzr Delete content
-┊│     pzr:q M file
-┊●   luo Edit file
-┊│     luo:q M file
-┊●   plv Add file
-┊│     plv:q A file
+┊●   1#0 Delete content
+┊│     1#0:q M file
+┊●   1#1 Edit file
+┊│     1#1:q M file
+┊●   1#2 Add file
+┊│     1#2:q A file
 ├╯
 ┊
 ┴ 0dc3733 (common base) 2000-01-02 add M
@@ -578,8 +589,10 @@ Hint: run `but help` for all commands
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
-Matches: 0
+Matches: 2
 
+committed hunk: ecdc91c3a88413a31b1a2ba4000198593dbcbb9e file @@ -8,6 +8,7 @@
+committed hunk: ecdc91c3a88413a31b1a2ba4000198593dbcbb9e file @@ -18,6 +19,7 @@
 
 "#]]);
 
@@ -587,8 +600,9 @@ Matches: 0
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
-Matches: 0
+Matches: 1
 
+committed hunk: ecdc91c3a88413a31b1a2ba4000198593dbcbb9e file @@ -8,6 +8,7 @@
 
 "#]]);
 
@@ -596,8 +610,9 @@ Matches: 0
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
-Matches: 0
+Matches: 1
 
+committed hunk: ecdc91c3a88413a31b1a2ba4000198593dbcbb9e file @@ -18,6 +19,7 @@
 
 "#]]);
 }

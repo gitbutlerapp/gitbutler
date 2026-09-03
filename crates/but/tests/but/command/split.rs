@@ -280,13 +280,11 @@ Hint: run `but help` for all commands
 
 "#]]);
 
-    env.but("split 1#0:t 1#1:k")
+    env.but("split qxq:t zts:k")
         .assert()
         .failure()
         .stderr_eq(snapbox::str![[r#"
-Error: Could not find source: '1#0:t'
-
-Hint: Run `but status` for applicable targets.
+Error: Can only split files from one commit. Got qxq and zts
 
 "#]]);
 }
