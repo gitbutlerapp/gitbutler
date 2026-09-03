@@ -1438,6 +1438,206 @@ Hint: run `but help` for all commands
 }
 
 #[test]
+fn move_committed_hunk_above_commit_creates_commit() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("zero-stacks");
+
+    let content = "one
+two
+three
+four
+five
+six
+seven
+";
+
+    env.file("file", content);
+    env.but("commit -m 'Add file'").assert().success();
+
+    env.file("file", format!("beginning\n{content}end"));
+    env.but("commit -m 'Update file'").assert().success();
+
+    env.but("diff 1#0")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+──────────────╮
+ 1#0:q:3 file │
+──────────────╯
+
+@@ -1,3 +1,4 @@
+───────────────
+  ┊ 1 │ +beginning
+1 ┊ 2 │  one
+2 ┊ 3 │  two
+3 ┊ 4 │  three
+
+──────────────╮
+ 1#0:q:8 file │
+──────────────╯
+
+@@ -5,3 +6,4 @@
+───────────────
+5 ┊  6 │  five
+6 ┊  7 │  six
+7 ┊  8 │  seven
+  ┊  9 │ +end
+
+"#]]);
+
+    env.but("move 1#0:q:3 --above 1#1")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+Moved 1 change from 1 to new commit 1 above commit 1
+
+"#]]);
+
+    env.but("status -f")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┊╭┄ br [a-branch-1]
+┊●   1#0 Update file
+┊│     1#0:q M file
+┊●   1#1 (no commit message)
+┊│     1#1:q M file
+┊●   1#2 Add file
+┊│     1#2:q A file
+├╯
+┊
+┴ 0dc3733 (common base) 2000-01-02 add M
+
+Hint: run `but help` for all commands
+
+"#]]);
+
+    // Source commit retains only hunk that was not moved.
+    env.but("diff 1#0")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+──────────────╮
+ 1#0:q:8 file │
+──────────────╯
+
+@@ -6,3 +6,4 @@
+───────────────
+6 ┊  6 │  five
+7 ┊  7 │  six
+8 ┊  8 │  seven
+  ┊  9 │ +end
+
+"#]]);
+
+    // New commit contains only selected hunk.
+    env.but("diff 1#1")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+──────────────╮
+ 1#1:q:3 file │
+──────────────╯
+
+@@ -1,3 +1,4 @@
+───────────────
+  ┊ 1 │ +beginning
+1 ┊ 2 │  one
+2 ┊ 3 │  two
+3 ┊ 4 │  three
+
+"#]]);
+}
+
+#[test]
+fn move_committed_hunks_in_different_ways_yields_same_result() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("zero-stacks");
+
+    let content = "one
+two
+three
+four
+five
+six
+seven
+";
+
+    env.file("file", content);
+    env.but("commit -m 'Add file'").assert().success();
+
+    env.file("file", format!("beginning\n{content}end"));
+    env.but("commit -m 'Update file'").assert().success();
+
+    let commit_trees = |env: &Sandbox| {
+        status_json(env)["stacks"][0]["branches"][0]["commits"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|commit| {
+                let commit_id = commit["commitId"].as_str().unwrap();
+                env.invoke_git(&format!("rev-parse {commit_id}^{{tree}}"))
+            })
+            .collect::<Vec<_>>()
+    };
+
+    // Entire file is baseline.
+    env.but("move 1#0:q --above 1#0").assert().success();
+    let trees_entire_file = commit_trees(&env);
+
+    // Hunk order.
+    env.but("undo").assert().success();
+    env.but("move 1#0:q:3 1#0:q:8 --above 1#0")
+        .assert()
+        .success();
+    assert_eq!(
+        commit_trees(&env),
+        trees_entire_file,
+        "outcome should be the same regardless of hunk order"
+    );
+
+    // Reverse hunk order.
+    env.but("undo").assert().success();
+    env.but("move 1#0:q:8 1#0:q:3 --above 1#0")
+        .assert()
+        .success();
+    assert_eq!(
+        commit_trees(&env),
+        trees_entire_file,
+        "outcome should be the same regardless of hunk order"
+    );
+
+    // Repeated hunks.
+    env.but("undo").assert().success();
+    env.but("move 1#0:q:8 1#0:q:3 1#0:q:8 --above 1#0")
+        .assert()
+        .success();
+    assert_eq!(
+        commit_trees(&env),
+        trees_entire_file,
+        "repeated hunks are deduplicated"
+    );
+
+    // Hunk then file.
+    env.but("undo").assert().success();
+    env.but("move 1#0:q:8 1#0:q --above 1#0").assert().success();
+    assert_eq!(
+        commit_trees(&env),
+        trees_entire_file,
+        "file overlapping with hunks is deduplicated",
+    );
+
+    // File then hunk.
+    env.but("undo").assert().success();
+    env.but("move 1#0:q 1#0:q:8 --above 1#0").assert().success();
+    assert_eq!(
+        commit_trees(&env),
+        trees_entire_file,
+        "hunks overlapping with a file are deduplicated",
+    );
+}
+
+#[test]
 fn move_file_should_be_order_independent() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("zero-stacks");
     env.setup_metadata(&[]);
@@ -3059,7 +3259,7 @@ Error: Bad input 'qs' for '<SOURCES>'
 
 Cannot pass uncommitted file or hunk as source
 
-Hint: A source must be commit, committed file or branch
+Hint: A source must be a commit, committed change or branch
 
 "#]]);
     env.but("move @ -b A")
@@ -3070,7 +3270,7 @@ Error: Bad input '@' for '<SOURCES>'
 
 Cannot pass uncommitted changes as source
 
-Hint: A source must be commit, committed file or branch
+Hint: A source must be a commit, committed change or branch
 
 "#]]);
 }
