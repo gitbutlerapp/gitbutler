@@ -119,8 +119,8 @@ const collectRows = <T extends { path: string }>({
 			filePaths: below.filePaths,
 		});
 		positionInSet++;
-		if (collapsedDirectories[path] !== true) rows.push(...below.rows);
-		filePaths.push(...below.filePaths);
+		if (collapsedDirectories[path] !== true) for (const row of below.rows) rows.push(row);
+		for (const filePath of below.filePaths) filePaths.push(filePath);
 	}
 
 	for (const item of directory.items) {

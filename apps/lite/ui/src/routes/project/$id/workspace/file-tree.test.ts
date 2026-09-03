@@ -100,6 +100,29 @@ describe("buildFileTreeRows", () => {
 			filePaths: ["src/ui/row.ts", "src/app.ts"],
 		});
 	});
+
+	test("handles a directory larger than the function argument limit", () => {
+		const fileCount = 150_000;
+		const largeTree = (collapsedDirectories: Record<string, true> = {}) =>
+			buildFileTreeRows({
+				items: Array.from({ length: fileCount }, (_, index) => ({
+					path: `target/debug/file-${index}`,
+				})),
+				mode: "tree",
+				collapsedDirectories,
+				compare: () => 0,
+			});
+
+		const expanded = largeTree();
+		expect(expanded).toHaveLength(fileCount + 1);
+		expect(expanded[0]?._tag === "Directory" ? expanded[0].filePaths : []).toHaveLength(fileCount);
+
+		const collapsed = largeTree({ "target/debug": true });
+		expect(collapsed).toHaveLength(1);
+		expect(collapsed[0]?._tag === "Directory" ? collapsed[0].filePaths : []).toHaveLength(
+			fileCount,
+		);
+	});
 });
 
 describe("selectedFilePath", () => {
