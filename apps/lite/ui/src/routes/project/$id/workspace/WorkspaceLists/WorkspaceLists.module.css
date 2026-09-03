@@ -113,6 +113,16 @@
 
 .stacksScroller {
 	flex-grow: 1;
+
+	/* Empty, the panel's one block is centred in it. `safe` is what makes that
+	   survive the splitter being dragged down to the panel's 120px minimum:
+	   plain centring would push the block's top out of reach above the scroll
+	   origin, where nothing can scroll back to it. */
+	&[data-empty="true"] {
+		display: flex;
+		flex-direction: column;
+		justify-content: safe center;
+	}
 }
 
 /* The cards run the full width of the panel, so nothing insets them and the

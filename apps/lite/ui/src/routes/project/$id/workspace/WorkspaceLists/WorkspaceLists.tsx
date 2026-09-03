@@ -81,6 +81,8 @@ import { useActiveListsHotkeys } from "./hotkeys.ts";
 import { UncommittedChangesRow } from "./UncommittedChangesRow.tsx";
 import { PanelFoldToggle } from "./PanelFoldToggle.tsx";
 import { LastCommitLine } from "./LastCommitLine.tsx";
+import { NoStacks } from "./NoStacks.tsx";
+import type { NewBranchActions } from "../useNewBranch.ts";
 import { StacksSummary } from "./StacksSummary.tsx";
 import { ListFilterRow } from "../ListFilterRow.tsx";
 import { useListFilter } from "../useListFilter.ts";
@@ -918,11 +920,12 @@ const focusCommitMessageInput = () => {
 
 const Stacks: FC<{
 	projectId: string;
+	newBranch: NewBranchActions;
 	checkCommit: (evt: { commitId: string; shiftKey: boolean }) => void;
 	onAmendCommit: (commitId: string) => void;
 	canAmendCommit: boolean;
 	onEdgeSpill: (offset: -1 | 1) => void;
-}> = ({ projectId, checkCommit, onAmendCommit, canAmendCommit, onEdgeSpill }) => {
+}> = ({ projectId, newBranch, checkCommit, onAmendCommit, canAmendCommit, onEdgeSpill }) => {
 	const addressSpace = useAddressSpace();
 	const { data: headInfo } = useQuery(headInfoQueryOptions(projectId));
 	const selection = useSelection("applied", addressSpace);
@@ -957,6 +960,9 @@ const Stacks: FC<{
 	});
 	const dryRunWorkspace = dryRunOperationResult?.workspace ?? null;
 	const stacks = (headInfo?.stacks ?? []).toReversed();
+	// Undefined `headInfo` is still loading, which is not the same as "empty" —
+	// treating it as empty would flash the empty state on every open.
+	const isEmpty = headInfo !== undefined && stacks.length === 0;
 	const foldedSegments = useAppSelector((state) =>
 		projectSlice.selectors.selectFoldedSegments(state, projectId),
 	);
@@ -1080,7 +1086,11 @@ const Stacks: FC<{
 
 	return (
 		<DryRunWorkspaceContext value={dryRunWorkspace}>
-			<div ref={retainScrollElement} className={classes(uiStyles.scroller, styles.stacksScroller)}>
+			<div
+				ref={retainScrollElement}
+				className={classes(uiStyles.scroller, styles.stacksScroller)}
+				data-empty={isEmpty}
+			>
 				<div
 					tabIndex={0}
 					role="tree"
@@ -1129,6 +1139,8 @@ const Stacks: FC<{
 						);
 					})}
 				</div>
+
+				{isEmpty && <NoStacks projectId={projectId} newBranch={newBranch} />}
 			</div>
 		</DryRunWorkspaceContext>
 	);
@@ -1142,6 +1154,7 @@ export const WorkspaceLists: FC<
 		absorptionTargetCommitIds: ReadonlySet<string>;
 		onActiveFileSelection: (selection: string) => void;
 		stacksHeaderActions?: ReactNode;
+		newBranch: NewBranchActions;
 	} & ComponentProps<"div">
 > = ({
 	projectId,
@@ -1150,6 +1163,7 @@ export const WorkspaceLists: FC<
 	absorptionTargetCommitIds,
 	onActiveFileSelection,
 	stacksHeaderActions,
+	newBranch,
 	...props
 }) => {
 	const { data: headInfo } = useQuery(headInfoQueryOptions(projectId));
@@ -1365,6 +1379,7 @@ export const WorkspaceLists: FC<
 					<Activity mode={stacksCollapsed ? "hidden" : "visible"}>
 						<Stacks
 							projectId={projectId}
+							newBranch={newBranch}
 							checkCommit={checkCommit}
 							onAmendCommit={amendCommit}
 							canAmendCommit={canAmendCommit}
