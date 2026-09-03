@@ -637,6 +637,21 @@ fn workspace_head_is_refreshed_after_absorb() {
         ws_before, ws_after,
         "gitbutler/workspace HEAD should be refreshed after absorb"
     );
+    // The refreshed workspace commit merges the rewritten stack tips.
+    let mut parents: Vec<_> = repo
+        .find_commit(ws_after)
+        .unwrap()
+        .parent_ids()
+        .map(|id| id.detach())
+        .collect();
+    let mut tips =
+        ["A", "B"].map(|branch| repo.rev_parse_single(branch.as_bytes()).unwrap().detach());
+    parents.sort();
+    tips.sort();
+    assert_eq!(
+        parents, tips,
+        "workspace commit parents must be the current stack tips"
+    );
     // The workspace tree carries the absorbed content, so tools inspecting
     // HEAD see the amended state rather than a stale one.
     let blob = repo
