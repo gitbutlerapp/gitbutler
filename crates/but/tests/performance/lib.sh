@@ -110,6 +110,7 @@ EOF
 
 perf_create_gitbutler_workspace() {
     destination=$1
+    target_revision=${2:-}
     : "${PERF_FIXTURE_REPO:?PERF_FIXTURE_REPO is not set}"
     : "${BUT_BIN:?BUT_BIN is not set}"
 
@@ -117,6 +118,11 @@ perf_create_gitbutler_workspace() {
     "$GIT_BIN" clone --quiet --bare --shared "$PERF_FIXTURE_REPO" "$remote"
     "$GIT_BIN" -C "$remote" config gc.auto 0
     "$GIT_BIN" -C "$remote" config maintenance.auto false
+    if [ -n "$target_revision" ]; then
+        "$GIT_BIN" -C "$remote" cat-file -e "$target_revision^{commit}" ||
+            perf_die "workspace target does not exist in fixture: $target_revision"
+        "$GIT_BIN" -C "$remote" update-ref refs/heads/main "$target_revision"
+    fi
 
     "$GIT_BIN" clone --quiet --shared "$remote" "$destination"
     "$GIT_BIN" -C "$destination" config gc.auto 0
@@ -137,6 +143,15 @@ perf_git() {
 perf_but() {
     : "${PERF_REPO:?PERF_REPO is not set}"
     "$BUT_BIN" -C "$PERF_REPO" "$@"
+}
+
+perf_exec_but() {
+    : "${PERF_REPO:?PERF_REPO is not set}"
+    if [ "${PERF_SHOW_OUTPUT:-0}" = 1 ]; then
+        exec "$BUT_BIN" -C "$PERF_REPO" "$@"
+    else
+        exec "$BUT_BIN" -C "$PERF_REPO" "$@" >/dev/null
+    fi
 }
 
 perf_state_begin() {

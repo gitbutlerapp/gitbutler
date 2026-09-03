@@ -34,6 +34,11 @@ if [ "${PERF_ENV_ISOLATED:-}" != 1 ]; then
     WARMUP_VALUE=${PERF_WARMUP:-3}
     MIN_RUNS_VALUE=${PERF_MIN_RUNS:-20}
     RUNS_VALUE=${PERF_RUNS:-}
+    SHOW_OUTPUT_VALUE=${PERF_SHOW_OUTPUT:-0}
+    case "$SHOW_OUTPUT_VALUE" in
+        0|1) ;;
+        *) perf_die "PERF_SHOW_OUTPUT must be 0 or 1" ;;
+    esac
 
     exec env -i \
         PATH="$PATH_VALUE" \
@@ -46,6 +51,7 @@ if [ "${PERF_ENV_ISOLATED:-}" != 1 ]; then
         PERF_WARMUP="$WARMUP_VALUE" \
         PERF_MIN_RUNS="$MIN_RUNS_VALUE" \
         PERF_RUNS="$RUNS_VALUE" \
+        PERF_SHOW_OUTPUT="$SHOW_OUTPUT_VALUE" \
         BUT_BIN="$BUT_BIN" \
         GIT_BIN="$GIT_BIN" \
         HYPERFINE_BIN="$HYPERFINE_BIN" \
@@ -84,6 +90,14 @@ printf 'Benchmark binary: %s\n' "$BUT_BIN"
 printf 'Creating immutable GitButler history fixture...\n' >&2
 perf_create_gitbutler_fixture "$PERF_FIXTURE_REPO" "$PERF_SOURCE_REPO" "$PERF_FIXTURE_REV"
 
+perf_hyperfine() {
+    if [ "$PERF_SHOW_OUTPUT" = 1 ]; then
+        "$HYPERFINE_BIN" --show-output "$@"
+    else
+        "$HYPERFINE_BIN" "$@"
+    fi
+}
+
 scenario_root=$PERF_ROOT/scenarios
 if [ "$#" -eq 0 ]; then
     set --
@@ -114,14 +128,14 @@ for scenario_name in "$@"; do
 
     printf 'Benchmarking %s...\n' "$scenario_name" >&2
     if [ -n "$PERF_RUNS" ]; then
-        "$HYPERFINE_BIN" \
+        perf_hyperfine \
             --warmup "$PERF_WARMUP" \
             --runs "$PERF_RUNS" \
             --prepare "$setup_script" \
             --shell=none \
             "$test_script"
     else
-        "$HYPERFINE_BIN" \
+        perf_hyperfine \
             --warmup "$PERF_WARMUP" \
             --min-runs "$PERF_MIN_RUNS" \
             --prepare "$setup_script" \

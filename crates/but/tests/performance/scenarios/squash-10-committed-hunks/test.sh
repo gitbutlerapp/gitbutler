@@ -19,7 +19,7 @@ perf_state_load
 : "${HUNK_9:?missing HUNK_9}"
 : "${HUNK_10:?missing HUNK_10}"
 
-exec "$BUT_BIN" -C "$PERF_REPO" squash \
+perf_exec_but squash \
     "$HUNK_1" \
     "$HUNK_2" \
     "$HUNK_3" \
@@ -31,5 +31,4 @@ exec "$BUT_BIN" -C "$PERF_REPO" squash \
     "$HUNK_9" \
     "$HUNK_10" \
     --target "$TARGET_COMMIT" \
-    --use-target-message \
-    >/dev/null
+    --use-target-message

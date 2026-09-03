@@ -21,7 +21,7 @@ From any directory:
 Run selected scenarios:
 
 ```sh
-./crates/but/tests/performance/run.sh squash-10-committed-hunks
+./crates/but/tests/performance/run.sh status-many-uncommitted-changes
 ```
 
 Use an existing binary or shorten a development run:
@@ -31,6 +31,13 @@ BUT_BIN=/absolute/path/to/but \
 PERF_WARMUP=0 \
 PERF_RUNS=2 \
 ./crates/but/tests/performance/run.sh squash-10-committed-hunks
+```
+
+Show command output during smoke test and every measured run:
+
+```sh
+PERF_SHOW_OUTPUT=1 PERF_WARMUP=0 PERF_RUNS=1 \
+./crates/but/tests/performance/run.sh status-many-uncommitted-changes
 ```
 
 Defaults are three warmups and at least twenty measured runs. `run.sh` builds `but`
@@ -46,7 +53,9 @@ For every Hyperfine warmup and measured run:
 Compilation, repository creation, GitButler setup, scenario commits, and selector
 discovery are excluded. Process startup, CLI parsing, repository loading, operation,
 and output generation are included. Scenario output is normally redirected to
-`/dev/null` for consistency.
+`/dev/null` for consistency. Set `PERF_SHOW_OUTPUT=1` to keep stdout/stderr and pass
+Hyperfine's `--show-output`; terminal rendering then becomes part of measured cost and
+results should not be compared directly with default runs.
 
 A smoke setup and test run happens before Hyperfine starts. This catches broken
 fixtures and selectors without adding a failed sample.
@@ -152,8 +161,20 @@ perf_reset_run_root
 perf_create_gitbutler_workspace "$PERF_REPO"
 ```
 
+Pass optional second argument to use an ancestor as workspace target while retaining
+all history from session fixture:
+
+```sh
+perf_create_gitbutler_workspace "$PERF_REPO" "$target_commit"
+```
+
 Keep setup deterministic and validate assumptions before writing scenario state.
 `test.sh` should load state if needed and finish with `exec "$BUT_BIN" ...`.
+
+## Included scenarios
+
+- `squash-10-committed-hunks`: squash ten committed hunks from one file into previous commit.
+- `status-many-uncommitted-changes`: time `but status` after uncommitting real GitButler commit `702092d61c92c8d2093fc853b038c6f26b28207c`, which replaced insta snapshots with snapbox and changes 92 files, with 40,185 insertions and 30,208 deletions.
 
 ## Interpreting results
 
