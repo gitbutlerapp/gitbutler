@@ -361,6 +361,7 @@ type RowShared = {
 	ageBadgeNow: number | null;
 	pathDisplay: "lead" | "trail" | "hidden";
 	canCheck: boolean;
+	anyOperationPending: boolean;
 	canUncommit: boolean;
 	uncommit?: (change: TreeChange, extendToCheckedFiles: boolean) => void;
 	checkFile: (evt: { path: string; shiftKey: boolean }) => void;
@@ -414,6 +415,7 @@ const FilesTreeRow: FC<{
 		ageBadgeNow,
 		pathDisplay,
 		canCheck,
+		anyOperationPending,
 		canUncommit,
 		uncommit,
 		checkFile,
@@ -536,7 +538,7 @@ const FilesTreeRow: FC<{
 						isChecked={isChecked}
 						isReviewed={isReviewed}
 						onSelect={() => onRowSelection(row.path)}
-						canCheck={false}
+						canCheck={canCheck && item._tag === "Change"}
 						checkFile={() => {}}
 						projectId={projectId}
 						fileParent={fileParent}
@@ -544,8 +546,9 @@ const FilesTreeRow: FC<{
 						tooltipHandle={tooltipHandle}
 						ageBadgeNow={ageBadgeNow}
 						branchNameByCommitId={() => undefined}
-						anyOperationPending
+						anyOperationPending={anyOperationPending}
 						menuItems={[]}
+						presentationalOnly
 					/>
 				)
 			}
@@ -730,10 +733,12 @@ export const FilesTree: FC<
 	const canCheck = useAppSelector((state) =>
 		projectSlice.selectors.selectCanCheckFiles(state, projectId, fileParent),
 	);
-	const hasPendingOperationSources = useAppSelector((state) => {
-		const pendingOperation = projectSlice.selectors.selectPendingOperation(state, projectId);
-		return pendingOperation._tag === "Absorb" || pendingOperation._tag === "Transfer";
-	});
+	const pendingOperationTag = useAppSelector(
+		(state) => projectSlice.selectors.selectPendingOperation(state, projectId)._tag,
+	);
+	const anyOperationPending = pendingOperationTag !== "None";
+	const hasPendingOperationSources =
+		pendingOperationTag === "Absorb" || pendingOperationTag === "Transfer";
 	const checkedAddressKeys = useAppSelector((state) =>
 		projectSlice.selectors.selectCheckedAddressKeys(state, projectId),
 	);
@@ -898,6 +903,7 @@ export const FilesTree: FC<
 		ageBadgeNow,
 		pathDisplay,
 		canCheck,
+		anyOperationPending,
 		canUncommit,
 		uncommit,
 		checkFile,
