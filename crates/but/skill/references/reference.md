@@ -63,7 +63,7 @@ inspect committed files or other entities one target at a time. Unlike `commit`,
 
 **Hunk IDs:** For uncommitted changes, bare `but diff` shows each hunk with an ID (e.g., `qs:5`, `uo:d`). Pass these IDs to `but commit` for fine-grained, hunk-level commits.
 
-`but diff <commit-id>` also shows committed hunk IDs in the form `<commit-id>:<file-id>:<hunk-id>`. Pass one or more from the same commit to `but squash` to move those hunks into another commit or the uncommitted area.
+`but diff <commit-id>` also shows committed hunk IDs in the form `<commit-id>:<file-id>:<hunk-id>`. A committed file ID uses the shorter `<commit-id>:<file-id>` form. When passing several committed changes to an operation, select them from the same commit.
 
 For the full CLI ID model, `but help cli-ids` documents every ID kind and its stability.
 
@@ -232,17 +232,18 @@ but squash @ -t <commit>                           # Amend all uncommitted chang
 but squash <commit> -t @                           # Uncommit a commit
 but squash <branch> -t @                           # Uncommit all commits and remove the branch
 but squash <commit-id>:<file-id> -t <commit>       # Move a committed file into another commit
-but squash <commit-id>:<file-id>:<hunk-id> -t <commit>  # Move a committed hunk into another commit
+but squash <commit-id>:<file-id>:<hunk-id> -t <commit> # Move a committed hunk into another commit
+but squash <commit-id>:<file-id> -t @               # Move a committed file to uncommitted
 but squash <commit-id>:<file-id>:<hunk-id> -t @     # Move a committed hunk to uncommitted
 ```
 
 All sources must be the same category (all commits, all branches, all uncommitted changes, `@`, or
-committed changes). Committed file and hunk sources may be mixed, but must come from one commit. If `-t` is omitted, `<SOURCES>`
+committed changes). Committed files and hunks may be mixed, but must come from one commit. If `-t` is omitted, `<SOURCES>`
 must be exactly one branch, which squashes that branch's commits together.
 
 Message flags (mutually exclusive). Commit and branch sources compose a new message unless the
 target is `@`, so without a flag they open an editor and block — always pass one. Uncommitted and
-committed-file sources reuse the target's message and need no flag:
+committed-change sources reuse the target's message and need no flag:
 
 ```bash
 -m "msg"                # New message; repeat -m to append paragraphs
@@ -260,7 +261,7 @@ when a ref is sha-based or `#N`-suffixed.
 
 ### `but amend -t <commit-or-branch> <SOURCES>...`
 
-Amend uncommitted files/hunks into a specific commit. Use when you know exactly which commit the change belongs to — prefer it over the equivalent `squash` form. Sources must be uncommitted; `amend` rejects commits and committed files/hunks. Use `squash` for committed hunks, and `squash` or `move` for committed files. A branch target resolves to that branch's newest commit, so name the commit explicitly when the change belongs further down.
+Amend uncommitted changes into a specific commit. Use when you know exactly which commit the change belongs to — prefer it over the equivalent `squash` form. A branch target resolves to that branch's newest commit, so name the commit explicitly when the change belongs further down.
 
 ```bash
 but amend -t <commit-id> <file-id> <hunk-id>
@@ -271,7 +272,7 @@ Decide the target commit yourself: check `but status -fv`, find the commit the c
 
 ### `but move <SOURCES>... <--above|--below|--branch|--unstack>`
 
-Move commits, committed files, or a branch to a different location. Sources are positional and
+Move commits, committed changes, or a branch to a different location. Sources are positional and
 space-separated; a target flag is required.
 
 ```bash
@@ -283,19 +284,20 @@ but move <commit> -b <branch>                      # Move commit to the tip of a
 but move <commit> --unstack                        # Move commit onto a new unstacked branch
 but move <branch> --above <target-branch>          # Stack branch on top of target branch
 but move <branch> --unstack                        # Tear off (unstack) a branch
-but move <commit-id>:<file-id> --above <commit>    # Move a committed file into a new commit above another
+but move <commit-id>:<file-id> --above <commit>    # Move a committed file into a new commit
+but move <commit-id>:<file-id>:<hunk-id> --above <commit> # Move a committed hunk into a new commit
 ```
 
-Sources may not mix kinds, all committed files must come from the same commit, and only one branch
-may be moved at a time. Source order does not matter. For a branch source only `--above` and
-`--unstack` apply; `--below` and `-b <name>` require commit or committed-file sources. `--branch`
+Sources may not mix categories, all committed changes must come from the same commit, and only one
+branch may be moved at a time. Source order does not matter. For a branch source only `--above` and
+`--unstack` apply; `--below` and `-b <name>` require commit or committed-change sources. `--branch`
 with no value is equivalent to `--unstack`. With the experimental worktree flag on, `-b` also
-accepts a linked worktree or the branch checked out in it, moving commit or committed-file
+accepts a linked worktree or the branch checked out in it, moving commit or committed-change
 sources onto that branch's tip (nothing is created); a branch source is refused there.
 
 ### `but uncommit <SOURCES>...`
 
-Move commits, branches, or committed files/hunks back to the uncommitted area.
+Move commits, branches, or committed changes back to the uncommitted area.
 
 ```bash
 but uncommit <commit-id>                          # Uncommit an entire commit
@@ -305,7 +307,7 @@ but uncommit <commit-id>:<file-id>:<hunk-id>      # Uncommit one hunk from its c
 ```
 
 Multiple whole commits or multiple branches may be passed together, but source categories cannot be
-mixed. Uncommitting a branch also removes an empty branch. Committed file/hunk sources may be mixed,
+mixed. Uncommitting a branch also removes an empty branch. Committed files and hunks may be mixed,
 but all must come from the same commit; uncommit changes from different commits in separate commands.
 
 When you need file and hunk IDs to recommit selectively, use
@@ -334,7 +336,7 @@ but discard <commit-id>:<file-id>  # Drop one file's changes from its commit
 but discard <branch>               # Drop a branch and its commits
 ```
 
-All provided IDs must be the same kind, and committed files must come from the same commit.
+All provided IDs must be from the same category, and committed changes must come from the same commit.
 
 ## Conflict Resolution
 

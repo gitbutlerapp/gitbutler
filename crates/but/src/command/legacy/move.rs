@@ -23,7 +23,7 @@ use crate::{
         r#move::Platform,
     },
     bad_input,
-    id::{CommitId, CommittedFileId},
+    id::{CommitId, CommittedFileId, CommittedHunk},
     theme::{self, Theme},
     utils::{
         CliOutput, CliOutputHuman, IntermediateChannel, WriteWithUtils,
@@ -819,6 +819,20 @@ enum ResolvedSources {
     Branch(FullName),
 }
 
+enum CommittedChange {
+    Hunk(CommittedHunk),
+    File(CommittedFileId),
+}
+
+impl CommittedChange {
+    fn committed_file(&self) -> &CommittedFileId {
+        match self {
+            CommittedChange::Hunk(hunk) => &hunk.committed_file,
+            CommittedChange::File(file) => file,
+        }
+    }
+}
+
 fn resolve_sources(
     repo: &gix::Repository,
     context_lines: u32,
@@ -826,7 +840,7 @@ fn resolve_sources(
     sources: impl IntoIterator<Item = CliIdArg>,
 ) -> CliResult<ResolvedSources> {
     let mut commit_sources = Vec::new();
-    let mut file_sources = Vec::new();
+    let mut change_sources = Vec::new();
     let mut branch_sources = Vec::new();
     let mut args = Vec::new();
 
@@ -838,18 +852,11 @@ fn resolve_sources(
             ResolvedCliIdArg::Commit(source) => {
                 commit_sources.push(source);
             }
-            ResolvedCliIdArg::CommittedFile(CommittedFileId {
-                commit_id,
-                path,
-                change_id,
-            }) => {
-                file_sources.push((
-                    CommitId {
-                        commit_id,
-                        change_id,
-                    },
-                    path,
-                ));
+            ResolvedCliIdArg::CommittedFile(file) => {
+                change_sources.push(CommittedChange::File(file));
+            }
+            ResolvedCliIdArg::CommittedHunk(hunk) => {
+                change_sources.push(CommittedChange::Hunk(*hunk));
             }
             ResolvedCliIdArg::Branch(branch) => {
                 branch_sources.push(branch.resolve_local_branch_name()?);
@@ -861,7 +868,7 @@ fn resolve_sources(
                 return Err(bad_input(format!("Cannot pass {resolved} as source"))
                     .arg_value(source_str)
                     .arg_name("<SOURCES>")
-                    .hint("A source must be commit, committed file or branch")
+                    .hint("A source must be a commit, committed change or branch")
                     .into());
             }
         }
@@ -869,7 +876,7 @@ fn resolve_sources(
 
     match (
         NonEmpty::from_vec(commit_sources),
-        NonEmpty::from_vec(file_sources),
+        NonEmpty::from_vec(change_sources),
         NonEmpty::from_vec(branch_sources),
     ) {
         (Some(resolved_commits), None, None) => {
@@ -882,11 +889,13 @@ fn resolve_sources(
                 args,
             })
         }
-        (None, Some(files), None) => {
+        (None, Some(changes), None) => {
             let mut builder = DiffSpecBuilder::new(repo, context_lines);
-            let source_commit = files.head.0.clone();
-            for (commit, path) in files {
-                if commit.as_ref() != source_commit.as_ref() {
+            let source_file = changes.head.committed_file().clone();
+            let mut tree_changes = None;
+
+            for change in changes {
+                if change.committed_file().commit_id != source_file.commit_id {
                     return Err(
                         bad_input("Cannot move changes from multiple commits")
                             .hint("Move changes from a single commit at first, then squash additional changes into the new commit")
@@ -894,7 +903,36 @@ fn resolve_sources(
                     );
                 }
 
-                builder.push_changes_from_committed_file(commit.commit_id, path.as_bstr())?;
+                match change {
+                    CommittedChange::File(file) => {
+                        builder.push_changes_from_committed_file(
+                            file.commit_id,
+                            file.path.as_bstr(),
+                        )?;
+                    }
+                    CommittedChange::Hunk(hunk) => {
+                        if tree_changes.is_none() {
+                            let source_commit = repo.find_commit(source_file.commit_id)?;
+                            tree_changes = Some(
+                                but_core::diff::tree_changes(
+                                    repo,
+                                    source_commit.parent_ids().next().map(|id| id.detach()),
+                                    source_file.commit_id,
+                                )?
+                                .into_iter()
+                                .map(Into::into)
+                                .collect::<Vec<but_core::ui::TreeChange>>(),
+                            );
+                        }
+
+                        builder.push_hunks_with_changes(
+                            [hunk.hunk],
+                            tree_changes
+                                .as_ref()
+                                .expect("tree changes are initialized for committed hunks"),
+                        )
+                    }
+                }
             }
 
             // It doesn't appear as if we need to sort DiffSpecs when they're resolved on a file
@@ -902,7 +940,13 @@ fn resolve_sources(
             let changes = NonEmpty::from_vec(builder.into_diff_specs())
                 .expect("BUG: Cannot possibly not have any changes here");
 
-            Ok(ResolvedSources::CommittedChanges(source_commit, changes))
+            Ok(ResolvedSources::CommittedChanges(
+                CommitId {
+                    commit_id: source_file.commit_id,
+                    change_id: source_file.change_id,
+                },
+                changes,
+            ))
         }
         (None, None, Some(branches)) => {
             if !branches.tail.is_empty() {

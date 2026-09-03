@@ -67,7 +67,8 @@ Stacks:           m0, n0         (auto-generated, 2–3 chars)
 but commit -b <branch-name> -m "message" <file-or-hunk-id>   # Commit selected changes to a branch
 but amend -t <commit-id> <file-or-hunk-id> <file-or-hunk-id>  # Amend file(s) or hunk(s) into commit
 but squash <commit-id> -t <commit-id> -m "message"         # Squash commits
-but squash <commit-id>:<file-id>:<hunk-id> -t <commit-id>   # Move a committed hunk
+but move <commit-id>:<file-id> --above <commit-id>           # Reposition a committed file
+but move <commit-id>:<file-id>:<hunk-id> --above <commit-id> # Reposition a committed hunk
 ```
 
 IDs are positional and space-separated. `but help cli-ids` documents every ID kind in detail.
@@ -161,22 +162,21 @@ is a flag. `@` is a special ID meaning "the uncommitted area".
 | `@`              | Commit        | Amend everything into a commit    | `but squash @ -t nn`                     |
 | Commit           | `@`           | Uncommit the commit               | `but squash mm -t @`                     |
 | Branch           | `@`           | Uncommit and remove the branch    | `but squash <branch-name> -t @`          |
-| Committed file   | Commit        | Move the file to another commit   | `but squash nn:a -t mm`       |
+| Committed change | Commit        | Move the change to another commit | `but squash nn:a -t mm`       |
 
 **Message flags:** commits or branches compose a NEW message unless the target is `@`, so without
 `-m` they open an editor and block — always pass one. The remaining rows reuse the target's message
 and need no flag, and `-t @` rejects message flags outright.
 
 The two amend rows overlap with `but amend` — prefer `but amend -t nn a1`, which does only that and
-takes the same IDs. Reach for `squash` when the sources are commits, branches, or committed
-files/hunks, which `amend` does not accept.
+takes the same IDs.
 
 The other editing commands are narrower entry points on the same model:
 
-- `but amend -t <commit> <changes>` — amend uncommitted files/hunks into a known commit
-- `but uncommit <commits-branches-or-committed-files-or-hunks>` — move committed work back to
-  uncommitted; branches are removed, and committed files/hunks in one call must come from one commit
-- `but move <sources> --above|--below|--branch|--unstack` — relocate commits, committed files, or a
+- `but amend -t <commit> <changes>` — amend uncommitted changes into a known commit
+- `but uncommit <commits-branches-or-committed-changes>` — move committed work back to uncommitted;
+  branches are removed, and committed changes in one call must come from one commit
+- `but move <sources> --above|--below|--branch|--unstack` — relocate commits, committed changes, or a
   branch; this is the command with position control
 - `but discard <changes>` — drop work instead of relocating it
 
