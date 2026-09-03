@@ -66,7 +66,7 @@ pub enum CommitSource {
     Marks(NonEmpty<UncommittedHunkOrFile>),
     UncommittedHunk(UncommittedHunkOrFile),
     /// Every uncommitted change of one checkout.
-    Area(ChangeSourceId),
+    UncommittedArea(ChangeSourceId),
 }
 
 impl ModeRender for CommitMode {
@@ -128,7 +128,9 @@ impl CommitSource {
                     false
                 }
             }
-            CommitSource::Area(source) => other.uncommitted_area().as_ref() == Some(source),
+            CommitSource::UncommittedArea(source) => {
+                other.uncommitted_area().as_ref() == Some(source)
+            }
             CommitSource::UncommittedHunk(lhs) => {
                 if let CliId::UncommittedHunkOrFile(rhs) = other {
                     lhs == rhs || hunk_is_child_of(rhs, lhs)
@@ -142,15 +144,15 @@ impl CommitSource {
     fn try_from_cli_id(id: &CliId) -> Option<Self> {
         match id {
             CliId::Branch(..) | CliId::Commit { .. } | CliId::Uncommitted { .. } => {
-                Some(CommitSource::Area(ChangeSourceId::Head))
+                Some(CommitSource::UncommittedArea(ChangeSourceId::Head))
             }
             CliId::UncommittedHunkOrFile(hunk) => Some(CommitSource::UncommittedHunk(hunk.clone())),
             // The reference offers the area whose changes land on its lane by default, the way a
             // branch row offers the main area: `c` then confirm on it commits the checkout's own
             // changes, never another checkout's.
-            CliId::WorktreeUncommitted { name, .. } | CliId::Worktree { name, .. } => {
-                Some(CommitSource::Area(ChangeSourceId::Worktree(name.clone())))
-            }
+            CliId::WorktreeUncommitted { name, .. } | CliId::Worktree { name, .. } => Some(
+                CommitSource::UncommittedArea(ChangeSourceId::Worktree(name.clone())),
+            ),
             CliId::AnonymousSegment(..)
             | CliId::PathPrefix { .. }
             | CliId::CommittedFile { .. }
@@ -251,7 +253,9 @@ impl App {
             },
             Mode::Squash(squash_mode) => match &squash_mode.source {
                 SquashSource::Uncommitted => {
-                    self.handle_commit_start_source(CommitSource::Area(ChangeSourceId::Head));
+                    self.handle_commit_start_source(CommitSource::UncommittedArea(
+                        ChangeSourceId::Head,
+                    ));
                 }
                 SquashSource::UncommittedHunk(hunk) => {
                     self.handle_commit_start_source(CommitSource::UncommittedHunk(hunk.clone()));
@@ -510,7 +514,9 @@ where
         CommitSource::Marks(hunks) => commit::CommitSelection::Changes(Box::new(
             UncommittedSelection::new(hunks.clone()).map_err(CliError::into_internal)?,
         )),
-        CommitSource::Area(source) => commit::CommitSelection::AllChanges(source.clone()),
+        CommitSource::UncommittedArea(source) => {
+            commit::CommitSelection::AllChanges(source.clone())
+        }
         CommitSource::UncommittedHunk(hunk) => commit::CommitSelection::Changes(Box::new(
             UncommittedSelection::new(NonEmpty::new(hunk.clone()))
                 .map_err(CliError::into_internal)?,

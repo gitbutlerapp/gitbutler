@@ -2123,7 +2123,7 @@ fn is_selectable_is_true_in_inline_reword_mode() {
 fn is_selectable_in_commit_mode_scopes_commit_targets_to_stack() {
     let scoped_stack_id = StackId::single_branch_id();
     let mode = Mode::Commit(CommitMode {
-        source: Arc::new(CommitSource::Area(ChangeSourceId::Head)),
+        source: Arc::new(CommitSource::UncommittedArea(ChangeSourceId::Head)),
         insert_side: Side::Above,
         scope_to_stack: Some(scoped_stack_id),
         message_composer: CommitMessageComposer::default(),

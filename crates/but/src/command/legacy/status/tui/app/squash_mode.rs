@@ -82,16 +82,17 @@ impl SquashSource {
         marks.contains_cli_id(other) || marks.contains_child_of(other)
     }
 
-    pub fn can_target(&self, target: &CliId, uncommit_area: Option<&ChangeSourceId>) -> bool {
-        self.operation_for_target(target, uncommit_area).is_some()
+    pub fn can_target(&self, target: &CliId, uncommitted_area: Option<&ChangeSourceId>) -> bool {
+        self.operation_for_target(target, uncommitted_area)
+            .is_some()
     }
 
     pub fn operation_for_target(
         &self,
         target: &CliId,
-        uncommit_area: Option<&ChangeSourceId>,
+        uncommitted_area: Option<&ChangeSourceId>,
     ) -> Option<&'static str> {
-        Some(match self.route(target, uncommit_area)? {
+        Some(match self.route(target, uncommitted_area)? {
             SquashRoute::UncommittedHunkToCommit { .. }
             | SquashRoute::UncommittedToBranch { .. }
             | SquashRoute::UncommittedHunkToBranch { .. }
@@ -109,9 +110,10 @@ impl SquashSource {
         })
     }
 
-    /// The checkout whose uncommitted area the sources uncommit into: none unless every source
-    /// is owned by the same checkout, as one uncommit rewrites one checkout.
-    pub fn uncommit_area(&self, head_info: &but_workspace::RefInfo) -> Option<ChangeSourceId> {
+    /// The worktree whose uncommitted area the sources uncommit into: none
+    /// unless every source is owned by the same worktree, as one uncommit
+    /// rewrites one worktree.
+    pub fn uncommitted_area(&self, head_info: &but_workspace::RefInfo) -> Option<ChangeSourceId> {
         let commits: Vec<gix::ObjectId> = match self {
             SquashSource::Uncommitted
             | SquashSource::UncommittedHunk(..)
@@ -138,7 +140,7 @@ impl SquashSource {
     fn route<'a>(
         &'a self,
         target: &'a CliId,
-        uncommit_area: Option<&ChangeSourceId>,
+        uncommitted_area: Option<&ChangeSourceId>,
     ) -> Option<SquashRoute<'a>> {
         match self {
             SquashSource::Uncommitted => match target {
@@ -154,16 +156,16 @@ impl SquashSource {
                 _ => None,
             },
             SquashSource::Commit(source_commit) => {
-                squash_route_from_commit(source_commit.into(), target, uncommit_area)
+                squash_route_from_commit(source_commit.into(), target, uncommitted_area)
             }
             SquashSource::Marks(SquashMarks::Commits(source_commits)) => {
-                squash_route_from_commit(source_commits.into(), target, uncommit_area)
+                squash_route_from_commit(source_commits.into(), target, uncommitted_area)
             }
             SquashSource::Branch(source_branch) => {
-                squash_route_from_branch(source_branch.into(), target, uncommit_area)
+                squash_route_from_branch(source_branch.into(), target, uncommitted_area)
             }
             SquashSource::Marks(SquashMarks::Branches(source_branches)) => {
-                squash_route_from_branch(source_branches.into(), target, uncommit_area)
+                squash_route_from_branch(source_branches.into(), target, uncommitted_area)
             }
             SquashSource::UncommittedHunk(source_hunk) => {
                 squash_route_from_uncommitted_hunk(source_hunk.into(), target)
@@ -172,10 +174,10 @@ impl SquashSource {
                 squash_route_from_uncommitted_hunk(source_hunks.into(), target)
             }
             SquashSource::CommittedFile(source_file) => {
-                squash_route_from_committed_file(source_file.into(), target, uncommit_area)
+                squash_route_from_committed_file(source_file.into(), target, uncommitted_area)
             }
             SquashSource::Marks(SquashMarks::CommittedFiles(source_files)) => {
-                squash_route_from_committed_file(source_files.into(), target, uncommit_area)
+                squash_route_from_committed_file(source_files.into(), target, uncommitted_area)
             }
         }
     }
@@ -238,8 +240,8 @@ enum SquashRoute<'a> {
 pub struct SquashMode {
     pub source: SquashSource,
     pub reword: SquashReword,
-    /// See [`SquashSource::uncommit_area()`]; resolved by [`App::handle_squash()`] on entry.
-    pub uncommit_area: Option<ChangeSourceId>,
+    /// See [`SquashSource::uncommitted_area()`]; resolved by [`App::handle_squash()`] on entry.
+    pub uncommitted_area: Option<ChangeSourceId>,
 }
 
 impl ModeRender for SquashMode {
@@ -255,7 +257,7 @@ impl ModeRender for SquashMode {
 
         if let Some(display) = self
             .source
-            .operation_for_target(target, self.uncommit_area.as_ref())
+            .operation_for_target(target, self.uncommitted_area.as_ref())
         {
             if self.source.contains(target) {
                 line.extend([source_span(app.theme), Span::raw(" ")]);
@@ -338,7 +340,7 @@ impl App {
                 .get_mut_and_i_promise_not_to_switch_to_a_different_state()
         {
             let head_info = but_api::legacy::workspace::head_info(ctx)?;
-            mode.uncommit_area = mode.source.uncommit_area(&head_info);
+            mode.uncommitted_area = mode.source.uncommitted_area(&head_info);
         }
 
         Ok(())
@@ -400,7 +402,7 @@ impl App {
                 | MarksRef::CommittedFiles { .. } => {}
             },
             Mode::Commit(commit_mode) => match &*commit_mode.source {
-                CommitSource::Area(ChangeSourceId::Head) => {
+                CommitSource::UncommittedArea(ChangeSourceId::Head) => {
                     self.squash_start_with_source(SquashSource::Uncommitted);
                 }
                 CommitSource::UncommittedHunk(hunk) => {
@@ -413,7 +415,7 @@ impl App {
                 }
                 // Squashing a whole linked worktree's changes into a commit has no source to
                 // model yet, so the mode switch is simply not offered.
-                CommitSource::Area(ChangeSourceId::Worktree(..)) => {}
+                CommitSource::UncommittedArea(ChangeSourceId::Worktree(..)) => {}
             },
             Mode::Move(move_mode) => match &move_mode.source {
                 MoveSource::Marks(commits) => {
@@ -512,7 +514,7 @@ impl App {
                 *mode = Mode::Squash(SquashMode {
                     source,
                     reword: SquashReword::Infer,
-                    uncommit_area: None,
+                    uncommitted_area: None,
                 });
             });
 
@@ -523,7 +525,7 @@ impl App {
         let Mode::Squash(SquashMode {
             source,
             reword,
-            uncommit_area,
+            uncommitted_area: uncommitted_area,
         }) = self
             .mode
             .get_mut_and_i_promise_not_to_switch_to_a_different_state()
@@ -532,7 +534,7 @@ impl App {
         };
         if let Some(line) = self.cursor.selected_line(&self.status_lines)
             && let Some(target) = line.data.cli_id()
-            && !source.can_target(target, uncommit_area.as_ref())
+            && !source.can_target(target, uncommitted_area.as_ref())
         {
             return;
         }
@@ -555,7 +557,7 @@ impl App {
         let Mode::Squash(SquashMode {
             source,
             reword,
-            uncommit_area,
+            uncommitted_area: uncommitted_area,
         }) = &*self.mode
         else {
             return Ok(());
@@ -579,7 +581,7 @@ impl App {
             source,
             target,
             *reword,
-            uncommit_area.as_ref(),
+            uncommitted_area.as_ref(),
             &repo,
             &ws,
             &head_info,
@@ -638,13 +640,13 @@ fn resolve_squash_operation<'a>(
     source: &'a SquashSource,
     target: &'a CliId,
     reword: SquashReword,
-    uncommit_area: Option<&ChangeSourceId>,
+    uncommitted_area: Option<&ChangeSourceId>,
     repo: &gix::Repository,
     ws: &Workspace,
     head_info: &but_workspace::RefInfo,
     merged: &MergedUpstream,
 ) -> anyhow::Result<Option<SquashOperation<'a>>> {
-    let Some(op) = source.route(target, uncommit_area) else {
+    let Some(op) = source.route(target, uncommitted_area) else {
         return Ok(None);
     };
 
@@ -865,7 +867,7 @@ impl<'a, T> NonEmptyRef<'a, T> {
 fn squash_route_from_commit<'a>(
     source_commits: NonEmptyRef<'a, CommitId>,
     target: &'a CliId,
-    uncommit_area: Option<&ChangeSourceId>,
+    uncommitted_area: Option<&ChangeSourceId>,
 ) -> Option<SquashRoute<'a>> {
     match target {
         CliId::Commit {
@@ -892,9 +894,11 @@ fn squash_route_from_commit<'a>(
             sources: source_commits,
             target: &branch.name,
         }),
-        _ if is_uncommit_target(target, uncommit_area) => Some(SquashRoute::CommitToUncommitted {
-            sources: source_commits,
-        }),
+        _ if is_uncommit_target(target, uncommitted_area) => {
+            Some(SquashRoute::CommitToUncommitted {
+                sources: source_commits,
+            })
+        }
         _ => None,
     }
 }
@@ -902,7 +906,7 @@ fn squash_route_from_commit<'a>(
 fn squash_route_from_branch<'a>(
     source_branches: NonEmptyRef<'a, BranchId>,
     target: &'a CliId,
-    uncommit_area: Option<&ChangeSourceId>,
+    uncommitted_area: Option<&ChangeSourceId>,
 ) -> Option<SquashRoute<'a>> {
     if source_branches.len() == 1
         && let CliId::Branch(target_branch) = target
@@ -924,7 +928,7 @@ fn squash_route_from_branch<'a>(
                 sources: source_branches,
                 target: &branch.name,
             }),
-            _ if is_uncommit_target(target, uncommit_area) => {
+            _ if is_uncommit_target(target, uncommitted_area) => {
                 Some(SquashRoute::BranchToUncommitted {
                     sources: source_branches,
                 })
@@ -957,7 +961,7 @@ fn squash_route_from_uncommitted_hunk<'a>(
 fn squash_route_from_committed_file<'a>(
     source_files: NonEmptyRef<'a, CommittedFileId>,
     target: &'a CliId,
-    uncommit_area: Option<&ChangeSourceId>,
+    uncommitted_area: Option<&ChangeSourceId>,
 ) -> Option<SquashRoute<'a>> {
     match target {
         CliId::Commit {
@@ -971,7 +975,7 @@ fn squash_route_from_committed_file<'a>(
             sources: source_files,
             target: &branch.name,
         }),
-        _ if is_uncommit_target(target, uncommit_area) => {
+        _ if is_uncommit_target(target, uncommitted_area) => {
             Some(SquashRoute::CommittedFileToUncommitted {
                 sources: source_files,
             })
@@ -980,9 +984,9 @@ fn squash_route_from_committed_file<'a>(
     }
 }
 
-/// Whether `target` names the uncommitted area of the checkout in `uncommit_area`.
-fn is_uncommit_target(target: &CliId, uncommit_area: Option<&ChangeSourceId>) -> bool {
-    match (target, uncommit_area) {
+/// Whether `target` names the uncommitted area of the checkout in `uncommitted_area`.
+fn is_uncommit_target(target: &CliId, uncommitted_area: Option<&ChangeSourceId>) -> bool {
+    match (target, uncommitted_area) {
         (CliId::Uncommitted { .. }, Some(ChangeSourceId::Head)) => true,
         (CliId::WorktreeUncommitted { name, .. }, Some(ChangeSourceId::Worktree(owner))) => {
             name == owner
