@@ -34,6 +34,7 @@ import type {
 	TreeStats,
 	TreeChanges,
 	CommitDetails,
+	TargetCommitPage,
 	DiffSpec,
 	MoveChangesResult,
 	CommitCherryPickResult,
@@ -938,7 +939,7 @@ export function buildStackEndpoints(build: BackendEndpointBuilder) {
 				projectId: string;
 			}
 		>({
-			extraOptions: { command: "canned_branch_name" },
+			extraOptions: { command: "branch_canned_name" },
 			query: (args) => args,
 		}),
 		normalizeBranchName: build.query<
@@ -951,17 +952,15 @@ export function buildStackEndpoints(build: BackendEndpointBuilder) {
 			query: (args) => args,
 		}),
 		targetCommits: build.query<
-			EntityState<Commit, string>,
+			TargetCommitPage,
 			{
 				projectId: string;
-				lastCommitId: string | undefined;
-				pageSize: number;
+				from: string | undefined;
+				limit: number;
 			}
 		>({
-			extraOptions: { command: "target_commits" },
+			extraOptions: { command: "workspace_target_commits" },
 			query: (args) => args,
-			transformResponse: (commits: Commit[]) =>
-				commitAdapter.addMany(commitAdapter.getInitialState(), commits),
 		}),
 		templates: build.query<string[], { projectId: string; forge: string }>({
 			extraOptions: { command: "pr_templates" },

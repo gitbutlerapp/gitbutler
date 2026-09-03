@@ -8,7 +8,7 @@
 	import { createCommitSelection } from "$lib/selection/key";
 	import { STACK_SERVICE } from "$lib/stacks/stackService.svelte";
 	import { UI_STATE } from "$lib/state/uiState.svelte";
-	import { type Commit } from "@gitbutler/but-sdk";
+	import { type UpstreamCommit } from "@gitbutler/but-sdk";
 	import { inject } from "@gitbutler/core/context";
 
 	import VirtualList from "@gitbutler/ui/components/VirtualList.svelte";
@@ -28,11 +28,10 @@
 	const uiState = inject(UI_STATE);
 
 	const baseBranchQuery = $derived(baseBranchService.baseBranch(projectId));
-	const baseSha = $derived(baseBranchQuery.response?.baseSha);
 
 	let selectedCommitId = $state<string | undefined>();
-	let loadedIds = $state<string[]>([]);
-	let commits = $state<Commit[]>([]);
+	let commits = $state<UpstreamCommit[]>([]);
+	let hasMore = $state(true);
 	let loading = $state(false);
 	let throttled = $state(false);
 
@@ -41,19 +40,15 @@
 			throttled = true;
 			return;
 		}
+		if (!hasMore) return;
 		loading = true;
 		try {
-			if (!baseSha) return;
-			if (loadedIds.length === 0) {
-				commits = commits.concat(await getPage(undefined));
-				loadedIds.push(baseSha);
-				return;
-			}
-			const nextId = commits.at(-1)?.id;
-			if (nextId && !loadedIds.includes(nextId)) {
-				commits = commits.concat(await getPage(nextId));
-				loadedIds.push(nextId);
-			}
+			const from = commits.at(-1)?.id;
+			const page = await stackService.targetCommits(projectId, from, 50);
+			commits = commits.concat(page.commits.map((entry) => entry.commit));
+			// The first page ends at the workspace's fork point rather than at the end of
+			// history, so only a continuation page can report that nothing older remains.
+			hasMore = page.commits.length > 0 && (from === undefined || page.hasMore);
 		} finally {
 			loading = false;
 			if (throttled) {
@@ -61,11 +56,6 @@
 				loadMore();
 			}
 		}
-	}
-
-	async function getPage(commitId: string | undefined) {
-		const result = await stackService.targetCommits(projectId, commitId, 50);
-		return result || [];
 	}
 
 	onMount(() => {
@@ -103,12 +93,10 @@
 							<CommitListItem
 								disableCommitActions
 								type="LocalAndRemote"
-								diverged={commit.state.type === "LocalAndRemote" &&
-									commit.id !== commit.state.subject}
+								diverged={false}
 								commitId={commit.id}
 								branchName={branch.branchName}
 								commitMessage={commit.message}
-								gerritReviewUrl={commit.gerritReviewUrl ?? undefined}
 								committedAt={commitCommittedAt(commit)}
 								author={commit.author}
 								selected={commit.id === selectedCommitId}

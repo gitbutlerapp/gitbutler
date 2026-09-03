@@ -389,6 +389,39 @@ Redid [..] (2000-01-02 00:00:00): [..]
 }
 
 #[test]
+fn can_undo_and_redo_commit_with_ordinary_branch_checked_out() {
+    let env = Sandbox::open_with_default_settings("single-branch-mode");
+    env.but("branch new my-branch").assert().success();
+
+    env.but("commit -m 'make a commit' -b my-branch")
+        .assert()
+        .success();
+    let committed = snapbox::str![[r#"
+* 1e62c18 (HEAD -> my-branch) make a commit
+* b1540e5 (origin/main, origin/HEAD, main, gitbutler/target) M
+* e31e6ca add init
+
+"#]];
+    // The commit lands on the checked-out branch; no workspace branch is involved.
+    snapbox::assert_data_eq!(env.git_log(), committed.clone());
+
+    env.but("undo").assert().success();
+    // Undo drops the commit while HEAD stays on the branch instead of moving to a workspace.
+    snapbox::assert_data_eq!(
+        env.git_log(),
+        snapbox::str![[r#"
+* b1540e5 (HEAD -> my-branch, origin/main, origin/HEAD, main, gitbutler/target) M
+* e31e6ca add init
+
+"#]]
+    );
+
+    env.but("redo").assert().success();
+    // Redo restores the commit, again with HEAD on the branch.
+    snapbox::assert_data_eq!(env.git_log(), committed);
+}
+
+#[test]
 fn can_undo_but_branch_delete() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack-two-commits");
     env.setup_metadata(&["A"]);

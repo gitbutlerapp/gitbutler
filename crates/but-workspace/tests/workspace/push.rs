@@ -311,3 +311,59 @@ fn force_push_protection_is_observed_when_pushing_top_branch() -> anyhow::Result
 
     Ok(())
 }
+
+#[test]
+fn pushing_with_an_ordinary_branch_checked_out_pushes_it_and_its_ancestors() -> anyhow::Result<()> {
+    let (_tmp, repo, meta) = fixture("push-single-branch")?;
+    assert!(
+        repo.find_reference("refs/heads/gitbutler/workspace")
+            .is_err(),
+        "the fixture has no workspace branch"
+    );
+    let (info, _) = head_info(&repo, &meta)?;
+    assert_eq!(
+        logical_scope(&info, "top"),
+        ["top", "bottom"],
+        "the checked-out branch and its ancestor form the push scope"
+    );
+    assert_eq!(
+        status(&info, "bottom"),
+        CompletelyUnpushed,
+        "nothing has been pushed yet"
+    );
+    assert_eq!(
+        status(&info, "top"),
+        CompletelyUnpushed,
+        "nothing has been pushed yet"
+    );
+
+    let result = push(&repo, &meta, r("refs/heads/top"), false, false, false)?;
+    assert_eq!(
+        result
+            .branch_to_remote
+            .iter()
+            .map(|(branch, _, _)| branch.as_str())
+            .collect::<Vec<_>>(),
+        ["bottom", "top"],
+        "the checked-out branch and its unpushed ancestor are pushed"
+    );
+
+    apply_remote_tracking_updates(&repo, &result)?;
+    let (info, _) = head_info(&repo, &meta)?;
+    assert_eq!(
+        status(&info, "bottom"),
+        NothingToPush,
+        "the ancestor is current after the push"
+    );
+    assert_eq!(
+        status(&info, "top"),
+        NothingToPush,
+        "the checked-out branch is current after the push"
+    );
+    assert_eq!(
+        repo.head_name()?.map(|name| name.as_bstr().to_string()),
+        Some("refs/heads/top".into()),
+        "pushing leaves the checkout untouched"
+    );
+    Ok(())
+}
