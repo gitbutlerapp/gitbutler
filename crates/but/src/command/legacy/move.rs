@@ -868,7 +868,7 @@ fn resolve_sources(
                 return Err(bad_input(format!("Cannot pass {resolved} as source"))
                     .arg_value(source_str)
                     .arg_name("<SOURCES>")
-                    .hint("A source must be commit, committed file or branch")
+                    .hint("A source must be a commit, committed change or branch")
                     .into());
             }
         }

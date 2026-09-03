@@ -116,9 +116,9 @@ but squash feature -m "Implement feature"
 but squash rr pp nn mm -t kk -m "Implement feature"
 ```
 
-### Scenario B: Moving Files Between Commits
+### Scenario B: Moving Committed Changes
 
-**Situation:** A file was committed in the wrong commit, need to move it.
+**Situation:** A change was committed in the wrong commit, need to move it.
 
 ```bash
 # 1. See which files are in which commits
@@ -134,9 +134,12 @@ but status -fv
 # 2. Move utils.js from nn to mm
 but squash nn:a2 -t mm -u    # Committed file nn:a2 (utils.js) → commit mm, keep mm's message
 
-# Alternatively, move only one hunk instead of the whole file
+# Alternatively, move only one hunk from the file
 but diff nn                  # Read the committed hunk ID
-but squash nn:a2:5 -t mm     # Move only hunk 5; target message is reused
+but squash nn:a2:5 -t mm     # Target message is reused
+
+# Or put that committed hunk in a new commit at a chosen position
+but move nn:a2:5 --above mm
 
 # Or move that committed hunk back to uncommitted
 but squash nn:a2:5 -t @

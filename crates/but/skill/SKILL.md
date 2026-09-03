@@ -66,12 +66,13 @@ The first token on each `but diff` / `but status` line is that line's ID. When a
 - Several commits from one diff: chain `but commit` calls with `&&` (commits stack oldest-first)
 - Commit at a specific history position: `--above <commit-or-branch>` or `--below <commit-or-branch>` instead of `-b`
 - Only one targeting flag (`-b` / `--above` / `--below`) per command. Targeting is **required** when more than one **stack** is applied; without it `but commit` fails with "Unclear where to commit. Found more than one stack". Several branches stacked together count as one stack — an untargeted commit then silently lands on the stack's top branch, so pass `-b` whenever the branch matters.
-- Always pass `-m "<msg>"` (or `--no-message`) to `but commit`, and to `but squash` whenever its sources are commits or branches unless the target is `@` — those compose a new message, and without a flag an editor opens and blocks. Squash sources that are uncommitted or committed files/hunks reuse the target's message and need no flag; squashing into `@` rejects message flags outright.
+- Always pass `-m "<msg>"` (or `--no-message`) to `but commit`, and to `but squash` whenever its sources are commits or branches unless the target is `@` — those compose a new message, and without a flag an editor opens and blocks. Squash sources that are uncommitted or committed changes reuse the target's message and need no flag; squashing into `@` rejects message flags outright.
 - Amend: `but amend -t <commit-or-branch> <file-or-hunk-id> <file-or-hunk-id>` — a branch target resolves to its newest commit
-- Uncommit: `but uncommit <commit-id>` (whole commit), `but uncommit <branch>` (all commits and remove the branch), or `but uncommit <commit-id>:<file-id>[:<hunk-id>]` (one committed file or hunk); committed file/hunk sources may be mixed, but all must come from one commit
+- Uncommit: `but uncommit <commit-id>` (whole commit), `but uncommit <branch>` (all commits and remove branch), `but uncommit <commit-id>:<file-id>` (committed file), or `but uncommit <commit-id>:<file-id>:<hunk-id>` (committed hunk); committed files and hunks may be mixed, but all must come from one commit
 - Insert empty commit: `but commit --empty -b <branch> -m "<msg>"`
 - Squash commits: `but squash <source-commit-id> [<source-commit-id>...] -t <target-commit-id> -m "<msg>"`
-- Move committed files/hunks between commits: `but squash <commit-id>:<file-id>[:<hunk-id>] -t <commit-id-or-@>`; all sources must come from one commit
+- Move committed changes into an existing commit or `@`: `but squash <commit-id>:<file-id> -t <commit-id-or-@>` for a committed file; `but squash <commit-id>:<file-id>:<hunk-id> -t <commit-id-or-@>` for a committed hunk; all sources must come from one commit
+- Move committed changes into a new commit at a chosen position: `but move <commit-id>:<file-id> --above <commit-or-branch>` for a committed file; `but move <commit-id>:<file-id>:<hunk-id> --above <commit-or-branch>` for a committed hunk (`--below`, `--branch`, and `--unstack` also work)
 - Squash a whole branch into one commit: `but squash <branch> -m "<msg>"` (no `-t`)
 - Uncommit and remove a branch: `but uncommit <branch>`
 - Reorder commits: `but move <commit-id> --below <commit-id>` (`--above` for the other direction; **commit IDs**, not branch names)
@@ -79,7 +80,7 @@ The first token on each `but diff` / `but status` line is that line's ID. When a
 - Move commit to branch top: `but move <commit-id> -b <branch>`
 - Stack branches: `but move <branch-name> --above <target-branch-name>` (**use full branch names**)
 - Tear off a branch: `but move <branch> --unstack`
-- Discard: `but discard <id> [<id>...]` — accepts branches, commits, committed files, uncommitted files/hunks, or `@` for all uncommitted changes
+- Discard: `but discard <id> [<id>...]` — accepts branches, commits, committed changes, uncommitted changes, or `@` for all uncommitted changes
 - Push: `but push <top-branch>` — pushes the selected branch and its ancestors; to update a stack, select its top branch once and never loop. Bare `but push` pushes all unpushed work when run non-interactively — one push per stack (its topmost unpushed branch, ancestors included), so output has one entry per stack, not per branch. It exits non-zero if any stack failed; stacks that already pushed stay pushed, and rerunning after fixing the failure is safe (up-to-date stacks are skipped)
 - Pull (update workspace from the target): `but pull` — the output reports the result; `but pull --check` previews without updating when a preview is actually needed
 - Create PR: `but pr new <branch-name> [-m "Title..."] [-F pr_message.txt] [-t] [--draft]` — auto-pushes first; do not run `but push` before it
