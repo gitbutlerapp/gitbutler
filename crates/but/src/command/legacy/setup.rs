@@ -620,19 +620,12 @@ fn setup_local_remote(repo: &gix::Repository, out: &mut OutputChannel) -> anyhow
 
     // Create refs/remotes/gb-local/HEAD as a symbolic reference
     let head_ref_name: gix::refs::FullName = "refs/remotes/gb-local/HEAD".try_into()?;
-    repo.edit_reference(gix::refs::transaction::RefEdit {
-        change: gix::refs::transaction::Change::Update {
-            log: gix::refs::transaction::LogChange {
-                mode: gix::refs::transaction::RefLog::AndReference,
-                force_create_reflog: false,
-                message: "GitButler local remote HEAD".into(),
-            },
-            expected: gix::refs::transaction::PreviousValue::Any,
-            new: gix::refs::Target::Symbolic(branch_ref_name),
-        },
-        name: head_ref_name,
-        deref: false,
-    })?;
+    repo.edit_reference(gix::refs::transaction::RefEdit::update(
+        head_ref_name,
+        branch_ref_name,
+        gix::refs::transaction::PreviousValue::Any,
+        "GitButler local remote HEAD",
+    ))?;
 
     if let Some(out) = out.for_human() {
         writeln!(

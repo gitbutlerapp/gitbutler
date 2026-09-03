@@ -6,7 +6,7 @@ use gix::{
     prelude::ObjectIdExt,
     refs::{
         Target,
-        transaction::{Change, LogChange, PreviousValue, RefEdit, RefLog},
+        transaction::{PreviousValue, RefEdit},
     },
 };
 use std::path::PathBuf;
@@ -31,21 +31,17 @@ pub fn update_head_reference(
     message: &BStr,
     num_parents: usize,
 ) -> anyhow::Result<Vec<RefEdit>> {
-    Ok(repo.edit_reference(RefEdit {
-        change: Change::Update {
-            log: LogChange {
-                mode: RefLog::AndReference,
-                force_create_reflog: false,
-                message: gix::reference::log::message(operation, message, num_parents),
-            },
+    Ok(repo.edit_reference(
+        RefEdit::update(
+            "HEAD".try_into().expect("root refs are always valid"),
+            new_target,
             // We use this helper only under higher-level repository coordination, so we intentionally
             // keep the expected value loose here and rely on ref locking for the actual write.
-            expected: PreviousValue::Any,
-            new: new_target,
-        },
-        name: "HEAD".try_into().expect("root refs are always valid"),
-        deref,
-    })?)
+            PreviousValue::Any,
+            gix::reference::log::message(operation, message, num_parents),
+        )
+        .with_deref(deref),
+    )?)
 }
 
 /// Easy access of settings relevant to GitButler for retrieval and storage in Git settings.

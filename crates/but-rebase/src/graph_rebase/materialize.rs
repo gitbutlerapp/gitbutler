@@ -8,7 +8,7 @@ use gix::{
     bstr::{BString, ByteSlice as _},
     refs::{
         Target,
-        transaction::{Change, LogChange, PreviousValue, RefEdit, RefLog},
+        transaction::{PreviousValue, RefEdit},
     },
 };
 
@@ -58,19 +58,12 @@ fn detached_worktree_head_edits(specs: &[LinkedCheckoutSpec]) -> Result<Vec<RefE
                         spec.name
                     )
                 })?;
-            Ok(RefEdit {
-                change: Change::Update {
-                    log: LogChange {
-                        mode: RefLog::AndReference,
-                        force_create_reflog: false,
-                        message: gix::reference::log::message("rebase", "HEAD".into(), 1),
-                    },
-                    expected: PreviousValue::MustExistAndMatch(Target::Object(spec.initial_head)),
-                    new: Target::Object(spec.target),
-                },
+            Ok(RefEdit::update(
                 name,
-                deref: false,
-            })
+                spec.target,
+                PreviousValue::MustExistAndMatch(Target::Object(spec.initial_head)),
+                gix::reference::log::message("rebase", "HEAD".into(), 1),
+            ))
         })
         .collect()
 }
@@ -264,23 +257,12 @@ impl<'ws, 'graph, M: RefMetadata> SuccessfulRebase<'ws, 'graph, M> {
             && repo.head_name()?.as_ref() != Some(&refname)
         {
             let ref_short_name = refname.shorten().to_owned();
-            ref_edits.push(RefEdit {
-                change: Change::Update {
-                    log: LogChange {
-                        mode: RefLog::AndReference,
-                        force_create_reflog: false,
-                        message: gix::reference::log::message(
-                            "safe checkout",
-                            ref_short_name.as_ref(),
-                            0,
-                        ),
-                    },
-                    expected: PreviousValue::Any,
-                    new: Target::Symbolic(refname),
-                },
-                name: "HEAD".try_into().expect("root refs are always valid"),
-                deref: false,
-            });
+            ref_edits.push(RefEdit::update(
+                "HEAD".try_into().expect("root refs are always valid"),
+                refname,
+                PreviousValue::Any,
+                gix::reference::log::message("safe checkout", ref_short_name.as_ref(), 0),
+            ));
         }
 
         repo.edit_references(ref_edits)?;

@@ -132,7 +132,7 @@ pub(crate) mod function {
         prelude::ObjectIdExt,
         refs::{
             FullName, FullNameRef, Target,
-            transaction::{Change, LogChange, PreviousValue, RefEdit, RefLog},
+            transaction::{PreviousValue, RefEdit},
         },
     };
 
@@ -421,19 +421,12 @@ pub(crate) mod function {
             "BUG: workspace ref '{}' points to {actual_workspace_ref_id}, expected {expected_workspace_ref_id}",
             workspace_ref_name.shorten()
         );
-        repo.edit_reference(RefEdit {
-            change: Change::Update {
-                log: LogChange {
-                    mode: RefLog::AndReference,
-                    force_create_reflog: false,
-                    message: "GitButler switch to workspace during unapply-branch".into(),
-                },
-                expected: PreviousValue::Any,
-                new: Target::Symbolic(workspace_ref_name.to_owned()),
-            },
-            name: "HEAD".try_into().expect("well-formed root ref"),
-            deref: false,
-        })?;
+        repo.edit_reference(RefEdit::update(
+            "HEAD".try_into().expect("well-formed root ref"),
+            workspace_ref_name.to_owned(),
+            PreviousValue::Any,
+            "GitButler switch to workspace during unapply-branch",
+        ))?;
         Ok(())
     }
 
@@ -791,19 +784,12 @@ pub(crate) mod function {
                 ..Default::default()
             },
         )?;
-        repo.edit_reference(RefEdit {
-            change: Change::Update {
-                log: LogChange {
-                    mode: RefLog::AndReference,
-                    force_create_reflog: false,
-                    message: "GitButler update workspace during unapply-branch".into(),
-                },
-                expected: PreviousValue::Any,
-                new: Target::Object(new_head_id),
-            },
-            name: workspace_ref_name.to_owned(),
-            deref: false,
-        })?;
+        repo.edit_reference(RefEdit::update(
+            workspace_ref_name.to_owned(),
+            new_head_id,
+            PreviousValue::Any,
+            "GitButler update workspace during unapply-branch",
+        ))?;
         Ok(())
     }
 
@@ -925,30 +911,16 @@ pub(crate) mod function {
         workspace_ref_commit_id: gix::ObjectId,
     ) -> anyhow::Result<()> {
         repo.edit_references([
-            RefEdit {
-                change: Change::Delete {
-                    log: RefLog::AndReference,
-                    expected: PreviousValue::MustExistAndMatch(Target::Object(
-                        workspace_ref_commit_id,
-                    )),
-                },
-                name: workspace_ref_name.to_owned(),
-                deref: false,
-            },
-            RefEdit {
-                change: Change::Update {
-                    log: LogChange {
-                        mode: RefLog::AndReference,
-                        force_create_reflog: false,
-                        message: "GitButler switch away from workspace during unapply-branch"
-                            .into(),
-                    },
-                    expected: PreviousValue::Any,
-                    new: Target::Symbolic(target_ref.to_owned()),
-                },
-                name: "HEAD".try_into().expect("well-formed root ref"),
-                deref: false,
-            },
+            RefEdit::delete(
+                workspace_ref_name.to_owned(),
+                PreviousValue::MustExistAndMatch(Target::Object(workspace_ref_commit_id)),
+            ),
+            RefEdit::update(
+                "HEAD".try_into().expect("well-formed root ref"),
+                target_ref.to_owned(),
+                PreviousValue::Any,
+                "GitButler switch away from workspace during unapply-branch",
+            ),
         ])?;
         Ok(())
     }

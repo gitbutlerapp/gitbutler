@@ -252,36 +252,22 @@ fn update_current_head(repo: &gix::Repository, target: gix::ObjectId, message: &
 }
 
 fn set_head_symbolic(repo: &gix::Repository, target: &str) {
-    repo.edit_reference(gix::refs::transaction::RefEdit {
-        change: gix::refs::transaction::Change::Update {
-            log: gix::refs::transaction::LogChange {
-                mode: gix::refs::transaction::RefLog::AndReference,
-                force_create_reflog: false,
-                message: b"test: set HEAD".into(),
-            },
-            expected: PreviousValue::Any,
-            new: gix::refs::Target::Symbolic(target.try_into().unwrap()),
-        },
-        name: "HEAD".try_into().unwrap(),
-        deref: false,
-    })
+    repo.edit_reference(gix::refs::transaction::RefEdit::update(
+        "HEAD".try_into().unwrap(),
+        gix::refs::FullName::try_from(target).unwrap(),
+        PreviousValue::Any,
+        b"test: set HEAD".as_slice(),
+    ))
     .expect("HEAD can be set");
 }
 
 fn set_head_detached(repo: &gix::Repository, target: gix::ObjectId) {
-    repo.edit_reference(gix::refs::transaction::RefEdit {
-        change: gix::refs::transaction::Change::Update {
-            log: gix::refs::transaction::LogChange {
-                mode: gix::refs::transaction::RefLog::AndReference,
-                force_create_reflog: false,
-                message: b"test: detach HEAD".into(),
-            },
-            expected: PreviousValue::Any,
-            new: gix::refs::Target::Object(target),
-        },
-        name: "HEAD".try_into().unwrap(),
-        deref: false,
-    })
+    repo.edit_reference(gix::refs::transaction::RefEdit::update(
+        "HEAD".try_into().unwrap(),
+        target,
+        PreviousValue::Any,
+        b"test: detach HEAD".as_slice(),
+    ))
     .expect("HEAD can be detached");
 }
 
