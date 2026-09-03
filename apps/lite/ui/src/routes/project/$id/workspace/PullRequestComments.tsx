@@ -64,8 +64,8 @@ import { forgeHunkPatch, threadStillAnchoredInFile } from "#ui/review-threads.ts
 import { defaultSettings } from "#ui/settings.ts";
 import { pullRequestHotkeys } from "#ui/hotkeys.ts";
 import { FreshBadge, RegisterFreshItems } from "#ui/review-arrival.tsx";
-import { useHotkey } from "@tanstack/react-hotkeys";
 import { PatchDiff } from "@pierre/diffs/react";
+import { matchesKeyboardEvent } from "@tanstack/react-hotkeys";
 import { useQuery } from "@tanstack/react-query";
 import { clearReviewFocus, useRequestedComment } from "#ui/review-focus.ts";
 import {
@@ -992,7 +992,6 @@ const Composer: FC<{
 	const [engaged, setEngaged] = useState(false);
 	const empty = draft.trim() === "";
 	const expanded = engaged || !empty;
-	const composerRef = useRef<HTMLDivElement | null>(null);
 	// Stable, so it runs on real mount only — and the box only ever mounts by
 	// being unfolded, whatever asked for it, so focus follows.
 	const attachInput = useCallback(
@@ -1010,14 +1009,6 @@ const Composer: FC<{
 		setEngaged(false);
 	};
 
-	// Scoped to the composer, so the same chord on the description form below
-	// still submits that instead.
-	useHotkey(pullRequestHotkeys.comment.hotkey, submit, {
-		conflictBehavior: "allow",
-		enabled: !empty,
-		target: composerRef,
-	});
-
 	if (!expanded) {
 		return (
 			<button
@@ -1033,14 +1024,20 @@ const Composer: FC<{
 	}
 
 	return (
+		// oxlint-disable-next-line jsx-a11y/no-static-element-interactions -- The composer owns its advertised shortcut while any child control is focused.
 		<div
 			className={styles.composer}
 			data-body-scrolled={scrolled || undefined}
+			onKeyDown={(evt) => {
+				if (!matchesKeyboardEvent(evt.nativeEvent, pullRequestHotkeys.comment.hotkey)) return;
+				evt.preventDefault();
+				evt.stopPropagation();
+				if (!evt.repeat && !empty) submit();
+			}}
 			// Leaving the whole composer with nothing written folds it back.
 			onBlur={(evt) => {
 				if (empty && !evt.currentTarget.contains(evt.relatedTarget)) setEngaged(false);
 			}}
-			ref={composerRef}
 		>
 			<MarkdownToolbar
 				className={styles.composerToolbar}
