@@ -107,6 +107,23 @@
 	grid-template-columns: minmax(0, 1fr);
 }
 
+/* With no changes the tab holds one block instead of the two panels. Centred
+   the way the sidebar's and the pane's empty hosts are: `safe` so a short tab
+   falls back to the top rather than putting the block's head out of reach, and
+   a size container so the block scales its counterweight to the room. */
+.diffTabEmpty {
+	container-type: size;
+	display: flex;
+	flex-direction: column;
+	justify-content: safe center;
+	overflow: auto;
+	/* The paper, not the panel tint: this sits under the details view's own
+	   header, as that view's content, so it takes the ground the diff and file
+	   list would have had. The standalone pane placeholder has no header above
+	   it and is the whole surface, so it keeps `--bg-2` instead. */
+	background-color: var(--bg-1);
+}
+
 .filesPanelContent {
 	display: flex;
 	grid-row: 1 / -1;

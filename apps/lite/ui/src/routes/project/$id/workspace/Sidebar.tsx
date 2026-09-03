@@ -334,6 +334,7 @@ export const Sidebar: FC<{
 					absorptionTargetCommitIds={absorptionTargetCommitIds}
 					projectId={projectId}
 					onActiveFileSelection={onActiveFileSelection}
+					newBranch={newBranch}
 					stacksHeaderActions={
 						<RowToolbar forceVisible>
 							<Tooltip.Root>

@@ -4,11 +4,21 @@
 		outline: none;
 	}
 
-	/* The uncommitted panel is never taller than its content: the panel layout
-	   only says how tall the user would like it, flexbox caps it at what there
-	   is to show and hands the rest to the stacks. `!important` overrides the
-	   inline `max-height: 100%` the panel element ships with. */
-	> :has(> .uncommittedChangesOuterPanel) {
+	/* Exactly one of the two panels is capped at its content; the other is the
+	   greedy one that takes whatever is left. Capping both would strand the
+	   space below them, capping neither would let the top one push the bottom
+	   one off. `!important` overrides the inline `max-height: 100%` the panel
+	   element ships with.
+
+	   Normally the cap sits on the uncommitted panel: the panel layout only says
+	   how tall the user would like it, and the stacks take the rest. Folding the
+	   stacks moves the cap onto them, since a header alone cannot absorb the
+	   slack the uncommitted list would then leave. */
+	&:not([data-folded-panel="stacks"]) > :has(> .uncommittedChangesOuterPanel) {
+		max-height: max-content !important;
+	}
+
+	&[data-folded-panel="stacks"] > :has(> .stacksPanel) {
 		max-height: max-content !important;
 	}
 }
@@ -38,6 +48,14 @@
 	display: flex;
 	flex-direction: column;
 	min-height: 0;
+
+	/* A clean worktree drops the file list, leaving the form directly under the
+	   header. The gap that stood between the form and a list of files is more
+	   than two adjacent rows want, and the header's own padding already carries
+	   most of the space the eye reads between them. */
+	&[data-clean="true"] > .commitForm {
+		margin-block-start: 4px;
+	}
 }
 
 .uncommittedChangesTree {
@@ -80,6 +98,12 @@
 	display: flex;
 	flex-direction: column;
 	background-color: var(--bg-2);
+
+	/* Folded, the header is the whole panel, so the border that separates it
+	   from the list below has nothing left to separate. */
+	&[data-collapsed="true"] > .stacksHeader {
+		border-block-end: none;
+	}
 }
 
 .stacksHeader {
@@ -89,6 +113,21 @@
 
 .stacksScroller {
 	flex-grow: 1;
+
+	/* Empty, the panel's one block is centred in it. `safe` is what makes that
+	   survive the splitter being dragged down to the panel's 120px minimum:
+	   plain centring would push the block's top out of reach above the scroll
+	   origin, where nothing can scroll back to it. */
+	&[data-empty="true"] {
+		/* Only while empty, so the virtualised list is never inside a size
+		   container. It lets the empty block scale its counterweight to the
+		   panel the splitter left it. */
+		container-type: size;
+
+		display: flex;
+		flex-direction: column;
+		justify-content: safe center;
+	}
 }
 
 /* The cards run the full width of the panel, so nothing insets them and the

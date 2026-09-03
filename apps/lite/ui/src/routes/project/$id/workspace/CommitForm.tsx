@@ -256,6 +256,10 @@ export const CommitForm: FC<{
 	};
 
 	const ready = noOperationPending && !isCommitOrAmendPending && !isGenerating;
+	// Only used for emphasis, never to gate the action: committing a clean
+	// worktree writes an empty commit, which `create_tree` supports deliberately
+	// (an empty change list keeps the parent's tree) and people do want.
+	const hasWorktreeChanges = (worktreeChanges?.changes.length ?? 0) > 0;
 	// A commit that creates its branch needs no target, so it must not be blocked
 	// on one. Amending still needs a commit that already exists.
 	const canCommit = ready && (commitTarget !== null || willCreateBranch);
@@ -520,13 +524,20 @@ export const CommitForm: FC<{
 
 				{/* Amend ignores the message, so its affordance belongs here rather than
 				    behind the message composer. Mirrors the hotkeys, which are registered
-				    regardless of whether the form is expanded. */}
+				    regardless of whether the form is expanded.
+
+				    The accent is spent on the one action this panel exists for, and with
+				    nothing staged that is no longer what it is. The button stays live —
+				    an empty commit is a real thing to want — but steps back to a quiet
+				    outline, and carries the one thing the header does not say: that a
+				    commit made now would be empty. */}
 				<DropdownButton
 					className={styles.startCommitSplit}
-					variant="pop"
+					variant={hasWorktreeChanges ? "pop" : "outline"}
 					id={startCommitButtonId}
 					onClick={() => setIsExpanded(true)}
 					disabled={!noOperationPending}
+					actionTooltip={hasWorktreeChanges ? undefined : "Makes an empty commit"}
 					menuLabel="Commit options"
 					menuDisabled={!(canAmend || canCommit)}
 					onMenuTrigger={(trigger) => {

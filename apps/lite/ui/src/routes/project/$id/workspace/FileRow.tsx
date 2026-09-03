@@ -130,11 +130,7 @@ export const FileRowPresentational: FC<FileRowPresentationalProps> = ({
 	return (
 		<Row
 			{...restProps}
-			className={classes(
-				restProps.className,
-				isFresh && styles.freshChange,
-				isReviewed && styles.reviewedRow,
-			)}
+			className={classes(restProps.className, isFresh && styles.freshChange)}
 			isChecked={isChecked}
 			onShiftSelect={
 				!anyOperationPending && canCheck
@@ -154,7 +150,10 @@ export const FileRowPresentational: FC<FileRowPresentationalProps> = ({
 			<TreeSteps depth={depth} />
 
 			<div className={treeStyles.leading}>
-				<FileIcon fileName={fileName} className={treeStyles.leadingMark} />
+				<FileIcon
+					fileName={fileName}
+					className={classes(treeStyles.leadingMark, isReviewed && styles.reviewedFade)}
+				/>
 				<RowCheckbox
 					disabled={anyOperationPending || !canCheck}
 					aria-label={`Check file ${relativePath}`}
@@ -185,7 +184,7 @@ export const FileRowPresentational: FC<FileRowPresentationalProps> = ({
 				payload={{
 					content: agedTooltip !== null ? `${rowTooltip} — ${agedTooltip}` : rowTooltip,
 				}}
-				render={<RowLabelContainer />}
+				render={<RowLabelContainer className={classes(isReviewed && styles.reviewedFade)} />}
 			>
 				{item._tag === "Conflict" && (
 					<ConflictIcon

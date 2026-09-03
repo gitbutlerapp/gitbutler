@@ -45,6 +45,7 @@ import { type Range, useVirtualizer } from "@tanstack/react-virtual";
 import type { PayloadFor } from "#electron/ipc.ts";
 import { Match } from "effect";
 import {
+	Activity,
 	type ComponentProps,
 	createContext,
 	type FC,
@@ -78,6 +79,11 @@ import { CommitRow } from "./CommitRow.tsx";
 import { BranchRow, type PushActivity } from "./BranchRow.tsx";
 import { useActiveListsHotkeys } from "./hotkeys.ts";
 import { UncommittedChangesRow } from "./UncommittedChangesRow.tsx";
+import { PanelFoldToggle } from "./PanelFoldToggle.tsx";
+import { LastCommitLine } from "./LastCommitLine.tsx";
+import { NoStacks } from "./NoStacks.tsx";
+import type { NewBranchActions } from "../useNewBranch.ts";
+import { StacksSummary } from "./StacksSummary.tsx";
 import { ListFilterRow } from "../ListFilterRow.tsx";
 import { useListFilter } from "../useListFilter.ts";
 import { buildUncommittedFileRows } from "../file-row.ts";
@@ -298,6 +304,12 @@ const UncommittedChanges: FC<
 
 	const fileSelection = useSelection("uncommitted", addressSpace);
 	const activeList = useActiveList();
+	const collapsed = useAppSelector((state) =>
+		projectSlice.selectors.selectSidebarPanelCollapsed(state, projectId, "uncommitted"),
+	);
+	// Loaded and holding nothing, as opposed to not loaded yet: the header takes
+	// over the empty wording, so it must not say it before the answer is in.
+	const isClean = worktreeChanges !== undefined && worktreeChanges.changes.length === 0;
 
 	const panelRef = useRef<HTMLDivElement>(null);
 	const fileListRef = useRef<HTMLDivElement>(null);
@@ -322,11 +334,13 @@ const UncommittedChanges: FC<
 		<div
 			{...props}
 			className={classes(props.className, styles.uncommittedChanges)}
+			data-clean={isClean}
 			ref={useMergedRefs(props.ref, panelRef)}
 		>
-			{fileFilter.rowProps === null ? (
+			{fileFilter.rowProps === null || collapsed ? (
 				<UncommittedChangesRow
 					changes={worktreeChanges?.changes ?? []}
+					isClean={isClean}
 					headingId={uncommittedChangesHeadingId}
 					projectId={projectId}
 					onOpenFilter={fileFilter.open}
@@ -335,54 +349,73 @@ const UncommittedChanges: FC<
 				<ListFilterRow {...fileFilter.rowProps} />
 			)}
 
-			<div
-				className={classes(
-					uiStyles.scroller,
-					uiStyles.scrollerWithSeparator,
-					styles.uncommittedChangesTree,
-				)}
-			>
-				<FilesTree
-					aria-labelledby={uncommittedChangesHeadingId}
-					canUncommit={false}
-					data-preview-source={activeList === "uncommitted"}
-					focusScope="uncommitted-files"
-					emptyLabel={
-						filter !== null && (worktreeChanges?.changes.length ?? 0) > 0
-							? "No matching files."
-							: "Nothing to commit"
-					}
-					fileParent={uncommittedChangesFileParent}
-					reviewedPaths={reviewedUncommittedPaths}
-					rows={fileRows}
-					ageBadgeNow={recentFirst ? ageBadgeNow : null}
-					collapsedDirectories={collapsedDirectories}
-					onToggleDirectoryCollapsed={(path) =>
-						dispatch(
-							projectSlice.actions.toggleUncommittedFilesDirectoryCollapsed({ projectId, path }),
-						)
-					}
-					addressSpace={addressSpace}
-					onRowSelection={onActiveFileSelection}
-					onEdgeSpill={onEdgeSpill}
-					projectId={projectId}
-					ref={useMergedRefs(fileListRef, useAutofocusScope(activeList === "uncommitted"))}
-					selection={fileSelection}
-				/>
-			</div>
+			{/* Collapsed, the header is the whole panel: its file count and line stats
+			    are the only sign left that there is uncommitted work, so they stay
+			    while the list and the commit form go. Hidden rather than unmounted,
+			    as with the sidebar's own pages, so the list comes back scrolled and
+			    filtered the way it was left. */}
+			<Activity mode={collapsed ? "hidden" : "visible"}>
+				{isClean && <LastCommitLine projectId={projectId} />}
 
-			<CommitForm
-				projectId={projectId}
-				commitTarget={commitTarget}
-				targetComboboxItems={targetComboboxItems}
-				hasNoBranches={hasNoBranches}
-				startCommitButtonId={startCommitButtonId}
-				commitMessageInputId={commitMessageInputId}
-				className={styles.commitForm}
-				onAmendCommit={onAmendCommit}
-				canAmendCommit={canAmendCommit}
-				worktreeChanges={worktreeChanges}
-			/>
+				{/* A clean worktree drops the list as well: the header says so now, and
+				    an empty row under it would only say it twice. An unloaded one drops
+				    it too — its rows are empty for want of an answer, not because there
+				    is none, and the empty row would otherwise flash "Nothing to commit"
+				    under a header still reading "Uncommitted". */}
+				<Activity mode={isClean || worktreeChanges === undefined ? "hidden" : "visible"}>
+					<div
+						className={classes(
+							uiStyles.scroller,
+							uiStyles.scrollerWithSeparator,
+							styles.uncommittedChangesTree,
+						)}
+					>
+						<FilesTree
+							aria-labelledby={uncommittedChangesHeadingId}
+							canUncommit={false}
+							data-preview-source={activeList === "uncommitted"}
+							focusScope="uncommitted-files"
+							emptyLabel={
+								filter !== null && (worktreeChanges?.changes.length ?? 0) > 0
+									? "No matching files."
+									: "Nothing to commit"
+							}
+							fileParent={uncommittedChangesFileParent}
+							reviewedPaths={reviewedUncommittedPaths}
+							rows={fileRows}
+							ageBadgeNow={recentFirst ? ageBadgeNow : null}
+							collapsedDirectories={collapsedDirectories}
+							onToggleDirectoryCollapsed={(path) =>
+								dispatch(
+									projectSlice.actions.toggleUncommittedFilesDirectoryCollapsed({
+										projectId,
+										path,
+									}),
+								)
+							}
+							addressSpace={addressSpace}
+							onRowSelection={onActiveFileSelection}
+							onEdgeSpill={onEdgeSpill}
+							projectId={projectId}
+							ref={useMergedRefs(fileListRef, useAutofocusScope(activeList === "uncommitted"))}
+							selection={fileSelection}
+						/>
+					</div>
+				</Activity>
+
+				<CommitForm
+					projectId={projectId}
+					commitTarget={commitTarget}
+					targetComboboxItems={targetComboboxItems}
+					hasNoBranches={hasNoBranches}
+					startCommitButtonId={startCommitButtonId}
+					commitMessageInputId={commitMessageInputId}
+					className={styles.commitForm}
+					onAmendCommit={onAmendCommit}
+					canAmendCommit={canAmendCommit}
+					worktreeChanges={worktreeChanges}
+				/>
+			</Activity>
 		</div>
 	);
 };
@@ -887,11 +920,12 @@ const focusCommitMessageInput = () => {
 
 const Stacks: FC<{
 	projectId: string;
+	newBranch: NewBranchActions;
 	checkCommit: (evt: { commitId: string; shiftKey: boolean }) => void;
 	onAmendCommit: (commitId: string) => void;
 	canAmendCommit: boolean;
 	onEdgeSpill: (offset: -1 | 1) => void;
-}> = ({ projectId, checkCommit, onAmendCommit, canAmendCommit, onEdgeSpill }) => {
+}> = ({ projectId, newBranch, checkCommit, onAmendCommit, canAmendCommit, onEdgeSpill }) => {
 	const addressSpace = useAddressSpace();
 	const { data: headInfo } = useQuery(headInfoQueryOptions(projectId));
 	const selection = useSelection("applied", addressSpace);
@@ -926,6 +960,9 @@ const Stacks: FC<{
 	});
 	const dryRunWorkspace = dryRunOperationResult?.workspace ?? null;
 	const stacks = (headInfo?.stacks ?? []).toReversed();
+	// Undefined `headInfo` is still loading, which is not the same as "empty" —
+	// treating it as empty would flash the empty state on every open.
+	const isEmpty = headInfo !== undefined && stacks.length === 0;
 	const foldedSegments = useAppSelector((state) =>
 		projectSlice.selectors.selectFoldedSegments(state, projectId),
 	);
@@ -1049,7 +1086,11 @@ const Stacks: FC<{
 
 	return (
 		<DryRunWorkspaceContext value={dryRunWorkspace}>
-			<div ref={retainScrollElement} className={classes(uiStyles.scroller, styles.stacksScroller)}>
+			<div
+				ref={retainScrollElement}
+				className={classes(uiStyles.scroller, styles.stacksScroller)}
+				data-empty={isEmpty}
+			>
 				<div
 					tabIndex={0}
 					role="tree"
@@ -1098,6 +1139,8 @@ const Stacks: FC<{
 						);
 					})}
 				</div>
+
+				{isEmpty && <NoStacks projectId={projectId} newBranch={newBranch} />}
 			</div>
 		</DryRunWorkspaceContext>
 	);
@@ -1111,6 +1154,7 @@ export const WorkspaceLists: FC<
 		absorptionTargetCommitIds: ReadonlySet<string>;
 		onActiveFileSelection: (selection: string) => void;
 		stacksHeaderActions?: ReactNode;
+		newBranch: NewBranchActions;
 	} & ComponentProps<"div">
 > = ({
 	projectId,
@@ -1119,6 +1163,7 @@ export const WorkspaceLists: FC<
 	absorptionTargetCommitIds,
 	onActiveFileSelection,
 	stacksHeaderActions,
+	newBranch,
 	...props
 }) => {
 	const { data: headInfo } = useQuery(headInfoQueryOptions(projectId));
@@ -1225,6 +1270,13 @@ export const WorkspaceLists: FC<
 		);
 	};
 
+	const stacksCollapsed = useAppSelector((state) =>
+		projectSlice.selectors.selectSidebarPanelCollapsed(state, projectId, "stacks"),
+	);
+	const uncommittedCollapsed = useAppSelector((state) =>
+		projectSlice.selectors.selectSidebarPanelCollapsed(state, projectId, "uncommitted"),
+	);
+
 	const layoutId = `project=${projectId}:sidebar-tree`;
 	const sidebarLayout = useDefaultLayout({
 		id: layoutId,
@@ -1235,15 +1287,17 @@ export const WorkspaceLists: FC<
 	// their boundary: entering a pane selects its item nearest to the border,
 	// while the pane being left keeps its selection. An empty neighbor keeps
 	// focus where it is. Mod+Alt+arrow pane toggling stays selection-neutral.
+	// A folded panel has no rows to land on, so arrow keys stop at the boundary
+	// rather than moving the selection into a list nobody can see.
 	const spillIntoStacks = (offset: -1 | 1) => {
-		if (offset !== 1) return;
+		if (offset !== 1 || stacksCollapsed) return;
 		const item = addressSpace.items.at(0);
 		if (item === undefined) return;
 		setCursor("applied", item);
 		focusScope("sidebar");
 	};
 	const spillIntoUncommittedChanges = (offset: -1 | 1) => {
-		if (offset !== -1) return;
+		if (offset !== -1 || uncommittedCollapsed) return;
 		const path = uncommittedAddressSpace.items.at(-1);
 		if (path === undefined) return;
 		onActiveFileSelection(path);
@@ -1260,6 +1314,9 @@ export const WorkspaceLists: FC<
 				id={layoutId}
 				orientation="vertical"
 				className={classes(props.className, styles.tree)}
+				data-folded-panel={
+					stacksCollapsed ? "stacks" : uncommittedCollapsed ? "uncommitted" : "none"
+				}
 				defaultLayout={sidebarLayout.defaultLayout}
 				onLayoutChanged={sidebarLayout.onLayoutChanged}
 			>
@@ -1302,20 +1359,33 @@ export const WorkspaceLists: FC<
 
 				<ResizeHandle />
 
-				<Panel id={"stacks-panel" satisfies PanelId} className={styles.stacksPanel} minSize={120}>
+				<Panel
+					id={"stacks-panel" satisfies PanelId}
+					className={styles.stacksPanel}
+					data-collapsed={stacksCollapsed}
+					minSize={120}
+				>
 					<SectionHeaderRow
 						label="Stacks and branches"
 						className={styles.stacksHeader}
+						leading={<PanelFoldToggle projectId={projectId} panel="stacks" />}
 						actions={stacksHeaderActions}
-					/>
+					>
+						{/* Only while folded, as with a branch row's commit count: the rows
+						    below say all of this and more when they are on screen. */}
+						{stacksCollapsed && <StacksSummary stacks={headInfo?.stacks ?? []} />}
+					</SectionHeaderRow>
 
-					<Stacks
-						projectId={projectId}
-						checkCommit={checkCommit}
-						onAmendCommit={amendCommit}
-						canAmendCommit={canAmendCommit}
-						onEdgeSpill={spillIntoUncommittedChanges}
-					/>
+					<Activity mode={stacksCollapsed ? "hidden" : "visible"}>
+						<Stacks
+							projectId={projectId}
+							newBranch={newBranch}
+							checkCommit={checkCommit}
+							onAmendCommit={amendCommit}
+							canAmendCommit={canAmendCommit}
+							onEdgeSpill={spillIntoUncommittedChanges}
+						/>
+					</Activity>
 				</Panel>
 			</Group>
 		</WorkspaceListsProvider>

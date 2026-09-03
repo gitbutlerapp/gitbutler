@@ -1,0 +1,21 @@
+/* Sized by width alone: unlike an icon, an illustration is not square, and its
+   height has to come from its own viewBox or it distorts.
+
+   `fit-content` is the asset's own width — each illustration was drawn at a
+   size and renders at it, rather than every one being squeezed to a single
+   default. A `width` prop overrides it.
+
+   `--border-1` rather than a text colour: the strokes are the drawing's
+   outline, and this is the token ⚛️ Lite Core binds them to. */
+.illustration {
+	display: block;
+	flex-shrink: 0;
+	width: var(--illustration-width, fit-content);
+	color: var(--border-1);
+
+	& > svg {
+		display: block;
+		width: 100%;
+		height: auto;
+	}
+}

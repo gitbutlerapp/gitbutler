@@ -1,0 +1,12 @@
+/* The section's name, kept for screen readers and heading navigation while the
+   visible label states the empty worktree instead. */
+.headingName {
+	position: absolute;
+	width: 1px;
+	height: 1px;
+	margin: -1px;
+	padding: 0;
+	overflow: hidden;
+	clip: rect(0, 0, 0, 0);
+	white-space: nowrap;
+}

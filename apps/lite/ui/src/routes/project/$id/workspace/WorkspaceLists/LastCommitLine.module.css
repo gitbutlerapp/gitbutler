@@ -1,0 +1,32 @@
+/* The title's subtitle, so it starts where the title's text does: the header
+   row's inset, then its fold toggle and the gap after it. Not the row edge — a
+   line that starts further left than the words above it reads as a stray row
+   rather than as the header's continuation. */
+.line {
+	display: flex;
+	column-gap: 4px;
+	align-items: center;
+	justify-content: flex-start;
+	margin: 0;
+	padding-inline: calc(12px + 12px + 8px) 12px;
+	padding-block: 0 14px;
+	overflow: hidden;
+	color: var(--text-2);
+	white-space: nowrap;
+
+	& [data-icon] {
+		flex-shrink: 0;
+		opacity: 0.7;
+	}
+}
+
+/* The age is the half that is always short, so it is the half that stays whole
+   when the panel runs out of room. */
+.age {
+	flex-shrink: 0;
+}
+
+.branch {
+	overflow: hidden;
+	text-overflow: ellipsis;
+}

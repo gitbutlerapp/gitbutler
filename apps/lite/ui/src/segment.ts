@@ -57,6 +57,44 @@ export const downstackPushStatusFromSegments = (segments: Array<Segment>): Downs
 		emptyDownstackPushStatus,
 	);
 
+/**
+ * What a folded stacks panel is standing in for: how many branches it holds,
+ * how many of those still have commits to push, and whether any of them is
+ * conflicted.
+ *
+ * Branch-wise rather than stack-wise, because a branch is what the folded rows
+ * would have shown one of, and a stack of five branches with one unpushed is
+ * not "one unpushed stack" to anybody reading the number.
+ */
+type WorkspaceStacksSummary = {
+	branches: number;
+	unpushedBranches: number;
+	hasConflicts: boolean;
+};
+
+export const workspaceStacksSummary = (stacks: Array<Stack>): WorkspaceStacksSummary => {
+	const summary: WorkspaceStacksSummary = {
+		branches: 0,
+		unpushedBranches: 0,
+		hasConflicts: false,
+	};
+
+	for (const stack of stacks) {
+		for (const segment of stack.segments) {
+			// Branchless segments are not rows of their own, so they are not counted
+			// — but their commits still belong to the branch below them, and a
+			// conflict in one is still a conflict this panel is hiding.
+			if (segment.refName) {
+				summary.branches += 1;
+				if (pushStatusRequiresPush(segment.pushStatus)) summary.unpushedBranches += 1;
+			}
+			if (segment.commits.some((commit) => commit.hasConflicts)) summary.hasConflicts = true;
+		}
+	}
+
+	return summary;
+};
+
 export const downstackPushStatusesFromSegments = (
 	segments: Array<Segment>,
 ): Array<DownstackPushStatus> =>

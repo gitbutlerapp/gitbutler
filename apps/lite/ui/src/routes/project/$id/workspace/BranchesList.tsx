@@ -6,6 +6,7 @@ import { assert } from "#ui/assert.ts";
 import { branchIsEmpty, type BranchFilters } from "#ui/branch.ts";
 import { commitIsDiverged, commitTitle } from "#ui/commit.ts";
 import { classes } from "#ui/components/classes.ts";
+import { EmptyState } from "#ui/components/EmptyState.tsx";
 import {
 	GraphSegment,
 	type GraphSegmentGlyph,
@@ -494,6 +495,13 @@ export const BranchesList: FC<
 		(state) => projectSlice.selectors.selectPendingOperation(state, projectId)._tag === "None",
 	);
 
+	// `onlyStacks` is the one filter that hides branches the resting list would
+	// show — the other two default to narrowing and only ever widen from there —
+	// so it, and a search, are what make an empty list a no-match rather than a
+	// state at rest.
+	const isNarrowed = (search ?? "").trim() !== "" || filters.onlyStacks;
+	const isEmptyAtRest = stacks.length === 0 && !isPending && !isError && !isNarrowed;
+
 	const selection = useSelection("unapplied", addressSpace);
 	useCursorWriteBack("unapplied", addressSpace);
 
@@ -709,18 +717,31 @@ export const BranchesList: FC<
 				<ListFilterRow {...branchFilter.rowProps} />
 			)}
 
-			<div ref={retainScrollElement} className={classes(uiStyles.scroller, styles.list)}>
-				{stacks.length === 0 && (
-					<p className={classes("text-13", styles.msg)}>
-						{isPending
-							? "Loading branches…"
-							: isError
-								? "Unable to load branches."
-								: (search ?? "").trim() !== ""
-									? "No matching branches."
-									: "No branches."}
-					</p>
-				)}
+			<div
+				ref={retainScrollElement}
+				className={classes(uiStyles.scroller, styles.list)}
+				data-empty={isEmptyAtRest}
+			>
+				{/* Loading, failing and narrowed-to-nothing all stay one line where the
+				    rows would be: none of them is a surface at rest, and an answer about
+				    a filter belongs next to the filter that caused it. Only a list that
+				    is empty with nothing narrowing it gets the block. */}
+				{stacks.length === 0 &&
+					(isPending ? (
+						<p className={classes("text-13", styles.msg)}>Loading branches…</p>
+					) : isError ? (
+						<p className={classes("text-13", styles.msg)}>Unable to load branches.</p>
+					) : isNarrowed ? (
+						<p className={classes("text-13", styles.msg)}>No matching branches.</p>
+					) : (
+						<EmptyState
+							illustration="cactus"
+							title="No branches here"
+							// No button: the header's `+` already starts one, and it is the
+							// only action this state has.
+							description="Branches you are not working on show up in this list"
+						/>
+					))}
 
 				<div
 					tabIndex={0}

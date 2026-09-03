@@ -90,6 +90,7 @@ import {
 } from "#ui/routes/project/$id/workspace/PullRequestForm.tsx";
 import { useAppDispatch, useAppSelector, useAppStore } from "#ui/store.ts";
 import { classes } from "#ui/components/classes.ts";
+import { EmptyState } from "#ui/components/EmptyState.tsx";
 import { Toggle, ToggleGroup, Toolbar, Tooltip } from "@base-ui/react";
 import type {
 	CommitDetails as CommitDetailsData,
@@ -1584,9 +1585,9 @@ const DiffContents: FC<{
 			return { oldFile, newFile };
 		});
 
-	return items.length === 0 ? (
-		<p className="text-13">No changes.</p>
-	) : (
+	// `Diff` short-circuits the whole tab before this renders, so an empty item
+	// list here is a frame between renders rather than a state to describe.
+	return items.length === 0 ? null : (
 		<>
 			<CodeView
 				ref={viewerRef}
@@ -2152,9 +2153,16 @@ const Diff: FC<{
 	viewerRef: RefObject<DiffViewerHandle | null>;
 	didScrollToViaFileRef: RefObject<boolean>;
 	headerSlot?: ReactNode;
+	/**
+	 * Whether this scope may have a files panel at all. Its caller knows, and the
+	 * URL no longer does: the pane can be driven by a list the `active` param is
+	 * not naming.
+	 */
+	canShowFiles: boolean;
 }> = ({
 	changes: unsortedChanges,
 	filesVisible,
+	canShowFiles,
 	filesItems,
 	conflicts = EMPTY_CONFLICTS,
 	manualConflicts = EMPTY_MANUAL,
@@ -2201,7 +2209,6 @@ const Diff: FC<{
 		}),
 	});
 
-	const canShowFiles = useCanShowFiles();
 	const detailsFullWindow = useAppSelector(interfaceSlice.selectors.selectDetailsFullWindow);
 
 	// Change stats live in the files panel, or — in the uncommitted scope, which has no files
@@ -2552,6 +2559,36 @@ const Diff: FC<{
 		panelIds,
 	});
 
+	// Hoisted out of the JSX below, where they used to be called inline: the
+	// empty branch that follows returns before that JSX, and a hook reached only
+	// on one branch is a hook called conditionally.
+	const diffContentsRef = useMergedRefs(focusScopeRef, diffContentsEl, useAutofocusScope());
+
+	// One statement, not three. With no changes the header badge already reads 0,
+	// so a file list and a viewer both saying so as well would be the same fact
+	// three times across two columns — and two empty columns read as broken
+	// rather than as deliberate. The whole body becomes the one block instead.
+	//
+	// Conflicts are the exception, and not a cosmetic one: the conflict bar lives
+	// in the layout below, and it carries the only route into edit mode from
+	// here. A conflicted commit can hold no diffable changes at all, so
+	// collapsing on the count alone takes that route away with them.
+	if (changes.length === 0 && conflicts.length === 0 && manualConflicts.length === 0) {
+		return (
+			<div className={classes(styles.diffTab, styles.diffTabEmpty)}>
+				<EmptyState
+					illustration="waving"
+					title="No file changes"
+					description={
+						fileParent._tag === "Commit"
+							? "This commit changes no files"
+							: "Nothing on this branch changes any files"
+					}
+				/>
+			</div>
+		);
+	}
+
 	return (
 		<div className={styles.diffTab}>
 			<Group
@@ -2693,7 +2730,7 @@ const Diff: FC<{
 							// oxlint-disable-next-line jsx_a11y/no-noninteractive-tabindex -- Revisit this when we add hunk/line selection.
 							tabIndex={0}
 							className={styles.diffContentsContainer}
-							ref={useMergedRefs(focusScopeRef, diffContentsEl, useAutofocusScope())}
+							ref={diffContentsRef}
 						>
 							<DiffContents
 								activeFileItemId={activeFileItemId}
@@ -2975,6 +3012,7 @@ const CommitDetails: FC<{
 				<Diff
 					changes={changes}
 					filesVisible={filesVisible}
+					canShowFiles={canShowFiles}
 					filesItems={filesItems}
 					conflicts={conflicts?.files}
 					manualConflicts={conflicts?.manual}
@@ -3042,6 +3080,7 @@ const BranchDiff: FC<BranchDetailsProps> = ({
 				<Diff
 					changes={branchDiff.changes}
 					filesVisible={filesVisible}
+					canShowFiles={canShowFiles}
 					filesItems={branchDiff.changes.map((change) =>
 						changeFileRowItem({
 							change,
@@ -3618,11 +3657,16 @@ const FileDetails: FC<{
 	didScrollToViaFileRef: RefObject<boolean>;
 }> = ({ path, projectId, onActiveFileSelection, viewerRef, didScrollToViaFileRef }) => {
 	const detailsFullWindow = useAppSelector(interfaceSlice.selectors.selectDetailsFullWindow);
-	const filesVisibleState = useAppSelector((state) =>
-		projectSlice.selectors.selectFilesVisible(state, projectId),
-	);
-	const canShowFiles = useCanShowFiles();
-	const filesVisible = canShowFiles && filesVisibleState;
+	// This view is the uncommitted scope, and the sidebar's own "Uncommitted"
+	// list is already its files panel — a second one here would only repeat it,
+	// so the user's files-visible setting has nothing to apply to.
+	//
+	// A constant rather than `useCanShowFiles()`, which reads the URL's active
+	// list as a proxy for what drives the pane: the pane can be driven by the
+	// uncommitted list while the param still names the applied one, and the
+	// proxy then answers for the wrong scope.
+	const canShowFiles = false;
+	const filesVisible = false;
 	const { data: worktreeChanges } = useSuspenseQuery(changesInWorktreeQueryOptions(projectId));
 	const filesItems = getChangesFileRowItems(worktreeChanges).toArray();
 	const changes = filesItems
@@ -3652,6 +3696,7 @@ const FileDetails: FC<{
 				<Diff
 					changes={changes}
 					filesVisible={filesVisible}
+					canShowFiles={canShowFiles}
 					filesItems={filesItems}
 					onPassiveFileSelection={selectFile}
 					selection={fileAddress({ parent: uncommittedChangesFileParent, path })}

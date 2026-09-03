@@ -1,0 +1,76 @@
+/* Spacing mirrors the "Empty state" component in ⚛️ Lite Core: 24 under the
+   illustration, 8 between the two lines, 14 above the actions.
+
+   The bottom padding is that component's optical counterweight, and it is
+   padding rather than a margin so that centring the box moves the ink. The
+   block's weight sits low — two lines of type and a row of buttons under a
+   light illustration — so a box centred on its geometry reads as sitting below
+   centre. Padding the foot by 60 lifts what you actually see by 30. Whatever
+   centres this component centres the padded box, which is the whole trick.
+
+   It scales with the height it is being centred in, because a lift is only
+   worth having while there is room to lift into: 60 is a tenth of a tall
+   sidebar and half of a panel dragged to its minimum, where `safe center` has
+   already given up and top-aligned, and the padding would be nothing but dead
+   scroll. `cqh` needs the host to declare `container-type: size`; where none
+   does, it falls back to the viewport, which is the right order of magnitude
+   for a full-height surface and still shrinks on a small window.
+
+   Capped at 320 so the block stays a block on any surface it lands on: the
+   details pane is over a thousand pixels wide, and text, actions or a wide
+   illustration would otherwise spread across it. This is the only measure —
+   the lines inside take theirs from here.
+
+   Centring itself belongs to the host, not here: only the host knows whether
+   its surface scrolls, and a scrolling one needs `justify-content: safe center`
+   so a short panel falls back to the top rather than putting the block's head
+   out of reach above the scroll origin. */
+.empty {
+	display: flex;
+	flex-shrink: 0;
+	flex-direction: column;
+	align-items: center;
+	max-width: 320px;
+	/* Centres itself horizontally whatever the host is — block, flex or grid —
+	   so the cap above cannot pin the block to one edge. Without this every host
+	   would have to remember an `align-items`, and the two that forgot would only
+	   show it once the block was narrower than the surface. */
+	margin-inline: auto;
+	padding-inline: var(--panel-padding-inline);
+	padding-block-end: min(80px, 14cqh);
+	gap: 24px;
+	text-align: center;
+}
+
+.body {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	gap: 14px;
+}
+
+/* Both lines wrap balanced (`text-balance`, applied in the component). A
+   centred block with a long line and a two-word orphan under it reads as
+   broken, and the copy here is short enough that the browser's line-count cap
+   never comes into it. The measure it balances within is the block's own 320,
+   which is what stops a line running the width of a pane. */
+.lines {
+	display: flex;
+	flex-direction: column;
+	gap: 8px;
+}
+
+.title {
+	margin: 0;
+	color: var(--text-1);
+}
+
+.description {
+	margin: 0;
+	color: var(--text-2);
+}
+
+.actions {
+	display: flex;
+	gap: 6px;
+}
