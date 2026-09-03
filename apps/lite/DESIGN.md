@@ -122,3 +122,54 @@ tooltip, and nothing inside one is clickable.
 **Say it the way the rest of Lite says it.** Tooltips get the same plain, warm
 wording as every other string — the friendly word over git's own term, and the
 same wording as the menu item or button elsewhere that does the same thing.
+
+## Empty states
+
+**One component, in ⚛️ Lite Core: "Empty state".** An illustration slot, a
+title, a body line, and an actions slot. Its description in Figma carries the
+same rules as this section; change one and change the other.
+
+**It is for a surface that is genuinely empty, at rest.** Not a loading state —
+"not loaded" is not the same as "nothing to report", and a panel that claims an
+emptiness it hasn't checked yet will flash the wrong words on every open. Not a
+filter that matched nothing either: that belongs in a line where the list would
+be, next to the filter that caused it.
+
+**Centred, and only in a panel with room for it.** A short strip — the
+uncommitted list above its commit form — takes a single muted line inset to the
+column its rows would occupy, not this. Panels resize, so a centred block needs
+`justify-content: safe center`: plain centring pushes the top of the block out
+of reach above the scroll origin when the splitter comes down.
+
+**Centred optically, which is not the same as centred.** The block's weight
+sits low — two lines of type and a row of buttons under a light illustration —
+so centring it on its geometry reads as sitting below the middle. The component
+carries 60px of bottom padding to correct for it, and the frontend carries the
+same: padding rather than a margin, so that centring the box moves the ink,
+lifting what you see by half of what you add. Keep the two in step; if the
+block's proportions change, the counterweight is what changes with them.
+
+**The title names the state; the body says what happens next.** One short line
+each, sentence case, no full stop. The body's job is the thing the user can't
+see — what the next action will do, or the live answer behind the emptiness: a
+count, a branch name, a time. "You have 5 branches to pick from" earns its
+place; "There is nothing here" repeats the title and the picture both.
+
+**Both lines wrap balanced.** They get `text-balance`, and the block's measure
+is capped around 32 characters so there is something to balance. Centred text
+with a long line and a two-word orphan under it reads as broken, and the cap is
+the other half of the same rule: past about 32 characters a line stops being
+scannable at a glance, and evening out a line that ran the whole panel would
+only tidy something already too wide. Figma has no equivalent, so lines there
+are broken by hand — the component's description says so.
+
+**At most two buttons, and never `pop`.** The surface's accent is already spent
+on its primary action elsewhere — Start commit sits directly above the stacks
+panel — and if two things pop, neither does. Gray marks the likelier of two,
+outline takes the other; a button on its own stays outline. Rarer routes to the
+same place stay in the panel header's controls rather than crowding the block.
+
+**A button is not always owed.** Where the app handles the state on its own —
+committing with no branches creates one — the button is a shortcut and should
+read as one, and a body line promising the automatic path shouldn't sit under a
+highlighted button arguing the opposite.
