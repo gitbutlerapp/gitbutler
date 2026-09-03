@@ -238,7 +238,7 @@ pub(super) fn confirm_direct_target_update(
     } else {
         format!("Land {branch_name} and everything below it directly onto {target_display}?")
     };
-    if inout.confirm(question, ConfirmDefault::No)? == Confirm::No {
+    if inout.confirm(question, ConfirmDefault::Yes)? == Confirm::No {
         bail!("Land cancelled");
     }
 
