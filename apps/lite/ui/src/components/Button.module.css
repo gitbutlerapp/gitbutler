@@ -73,7 +73,7 @@
 :where(.regular) {
 	--button-gap: 6px;
 	--button-height: 28px;
-	--button-padding-inline: 8px;
+	--button-padding-inline: 10px;
 	--icon-size: 16px;
 
 	&:where(.iconOnly) {
