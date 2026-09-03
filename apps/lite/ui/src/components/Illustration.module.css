@@ -1,0 +1,14 @@
+/* Sized by width alone: unlike an icon, an illustration is not square, and its
+   height has to come from its own viewBox or it distorts. */
+.illustration {
+	display: block;
+	flex-shrink: 0;
+	width: var(--illustration-width, 96px);
+	color: var(--text-3);
+
+	& > svg {
+		display: block;
+		width: 100%;
+		height: auto;
+	}
+}
