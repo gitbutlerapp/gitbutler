@@ -10,7 +10,7 @@ use crate::{
     },
     bad_input,
     command::legacy::r#move::{self, MoveChangesRelativeToOperation, MoveOperation, MoveTarget},
-    id::CommittedFileId,
+    id::{CommitId, CommittedFileId},
     theme,
     utils::{
         IntermediateChannel, diff_specs::DiffSpecBuilder, merged_upstream::MergedUpstream,
@@ -51,32 +51,49 @@ fn resolve(args: Platform, ctx: &Context, id_map: &IdMap) -> CliResult<MoveOpera
     let context_lines = ctx.settings.context_lines;
     let repo = ctx.repo.get()?;
 
-    let mut resolved_sources = Vec::<CommittedFileId>::new();
     let mut builder = DiffSpecBuilder::new(&repo, context_lines);
+
+    let mut tree_changes = None;
+    let mut head_source_commit = None;
+
     for source in sources {
         match source.resolve_in_workspace(&repo, id_map, Purpose::Source, None)? {
             ResolvedCliIdArg::CommittedFile(committed_file) => {
-                if let Some(first) = resolved_sources.first()
-                    && first.commit_id != committed_file.commit_id
-                {
-                    return Err(bad_input(format!(
-                        "Can only split files from one commit. Got {} and {}",
-                        theme::Commit(first.as_commit_ref()),
-                        theme::Commit(committed_file.as_commit_ref())
-                    ))
-                    .into());
-                }
+                ensure_distinct_source_commit(&mut head_source_commit, &committed_file)?;
+
                 builder.push_changes_from_committed_file(
                     committed_file.commit_id,
                     committed_file.path.as_ref(),
                 )?;
-                resolved_sources.push(committed_file);
+            }
+            ResolvedCliIdArg::CommittedHunk(hunk) => {
+                ensure_distinct_source_commit(&mut head_source_commit, &hunk.committed_file)?;
+
+                if tree_changes.is_none() {
+                    let source_commit = repo.find_commit(hunk.committed_file.commit_id)?;
+                    tree_changes = Some(
+                        but_core::diff::tree_changes(
+                            &repo,
+                            source_commit.parent_ids().next().map(|id| id.detach()),
+                            hunk.committed_file.commit_id,
+                        )?
+                        .into_iter()
+                        .map(Into::into)
+                        .collect::<Vec<but_core::ui::TreeChange>>(),
+                    );
+                }
+
+                builder.push_hunks_with_changes(
+                    [hunk.hunk],
+                    tree_changes
+                        .as_ref()
+                        .expect("tree changes are initialized for committed hunks"),
+                )
             }
             ResolvedCliIdArg::AnonymousSegment(segment) => {
                 return Err(crate::args::atoms::anonymous_segment_error(&segment.id));
             }
             other @ (ResolvedCliIdArg::Commit(..)
-            | ResolvedCliIdArg::CommittedHunk(..)
             | ResolvedCliIdArg::Branch(..)
             | ResolvedCliIdArg::UncommittedHunkOrFile(..)
             | ResolvedCliIdArg::Uncommitted
@@ -84,7 +101,7 @@ fn resolve(args: Platform, ctx: &Context, id_map: &IdMap) -> CliResult<MoveOpera
             | ResolvedCliIdArg::PathPrefix { .. }
             | ResolvedCliIdArg::Stack { .. }) => {
                 return Err(bad_input(format!(
-                    "Expected a committed file, got {}",
+                    "Expected a committed change, got {}",
                     other.kind_for_humans()
                 ))
                 .into());
@@ -92,22 +109,40 @@ fn resolve(args: Platform, ctx: &Context, id_map: &IdMap) -> CliResult<MoveOpera
         }
     }
 
-    let resolved_sources = NonEmpty::from_vec(resolved_sources)
-        .expect("sources is required in the clap args so they'll never be empty");
-
     let changes = NonEmpty::from_vec(builder.into_diff_specs())
         .expect("BUG: Cannot possibly not have any changes here");
-
-    let source_commit = resolved_sources.head.as_commit_ref().to_owned();
+    let head_source_commit =
+        head_source_commit.expect("BUG: Cannot possibly not have a head source commit here");
 
     Ok(MoveOperation::ChangesRelativeTo(
         MoveChangesRelativeToOperation {
-            source_commit: source_commit.clone(),
+            source_commit: head_source_commit.clone(),
             changes,
             target: MoveTarget::Commit {
-                commit: source_commit,
+                commit: head_source_commit,
                 side: Side::Above,
             },
         },
     ))
+}
+
+fn ensure_distinct_source_commit(
+    head_source_commit: &mut Option<CommitId>,
+    committed_file: &CommittedFileId,
+) -> CliResult<()> {
+    let source_commit = head_source_commit.get_or_insert_with(|| CommitId {
+        commit_id: committed_file.commit_id,
+        change_id: committed_file.change_id.clone(),
+    });
+
+    if source_commit.commit_id != committed_file.commit_id {
+        return Err(bad_input(format!(
+            "Can only split changes from one commit. Got {} and {}",
+            theme::Commit(source_commit.as_ref()),
+            theme::Commit(committed_file.as_commit_ref())
+        ))
+        .into());
+    }
+
+    Ok(())
 }
