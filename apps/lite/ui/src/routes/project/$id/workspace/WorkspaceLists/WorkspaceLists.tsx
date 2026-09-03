@@ -356,8 +356,11 @@ const UncommittedChanges: FC<
 				{isClean && <LastCommitLine projectId={projectId} />}
 
 				{/* A clean worktree drops the list as well: the header says so now, and
-				    an empty row under it would only say it twice. */}
-				<Activity mode={isClean ? "hidden" : "visible"}>
+				    an empty row under it would only say it twice. An unloaded one drops
+				    it too — its rows are empty for want of an answer, not because there
+				    is none, and the empty row would otherwise flash "Nothing to commit"
+				    under a header still reading "Uncommitted". */}
+				<Activity mode={isClean || worktreeChanges === undefined ? "hidden" : "visible"}>
 					<div
 						className={classes(
 							uiStyles.scroller,
