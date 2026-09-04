@@ -38,13 +38,39 @@ fn parse_github_oauth_response<T: serde::de::DeserializeOwned>(body: &str) -> Re
         let description = value
             .get("error_description")
             .and_then(serde_json::Value::as_str);
-        anyhow::bail!(
+        let err = anyhow::anyhow!(
             "GitHub returned an error: {} ({})",
             error,
             description.unwrap_or("no description"),
         );
+        return Err(match device_flow_context(error) {
+            Some(context) => err.context(context),
+            None => err,
+        });
     }
     serde_json::from_value(value).context("Response body did not match expected schema")
+}
+
+/// A static, code-bearing context for terminal device-flow statuses, so the API serializes
+/// guidance instead of GitHub's description. Pending statuses stay as they are: callers poll
+/// through them, and the provider text remains the inner error for the CLI and Lite.
+fn device_flow_context(status: &str) -> Option<but_error::Context> {
+    use but_error::{Code, Context};
+    match status {
+        "authorization_pending" | "slow_down" => None,
+        "expired_token" => Some(Context::new_static(
+            Code::GitHubDeviceCodeExpired,
+            "The GitHub device code has expired",
+        )),
+        "access_denied" => Some(Context::new_static(
+            Code::GitHubDeviceAccessDenied,
+            "Authorization was denied on GitHub",
+        )),
+        _ => Some(Context::new_static(
+            Code::GitHubDeviceFlowRejected,
+            "GitHub rejected the device authorization request",
+        )),
+    }
 }
 
 pub async fn init_github_device_oauth() -> Result<Verification> {
@@ -508,6 +534,83 @@ mod tests {
             );
         } else {
             panic!("Expected a network error but request succeeded");
+        }
+    }
+
+    #[test]
+    fn device_flow_statuses_carry_static_context_but_keep_provider_text() {
+        use but_error::{AnyhowContextExt as _, Code};
+        let secret = "device_code=3584d274 user_code=WDJB-MJHT https://github.com/login/device";
+        let rejected = Some((
+            Code::GitHubDeviceFlowRejected,
+            "GitHub rejected the device authorization request",
+        ));
+        let cases: [(&str, Option<(Code, &str)>); 9] = [
+            ("authorization_pending", None),
+            ("slow_down", None),
+            (
+                "expired_token",
+                Some((
+                    Code::GitHubDeviceCodeExpired,
+                    "The GitHub device code has expired",
+                )),
+            ),
+            (
+                "access_denied",
+                Some((
+                    Code::GitHubDeviceAccessDenied,
+                    "Authorization was denied on GitHub",
+                )),
+            ),
+            ("incorrect_client_credentials", rejected),
+            ("incorrect_device_code", rejected),
+            ("unsupported_grant_type", rejected),
+            ("device_flow_disabled", rejected),
+            ("brand_new_status", rejected),
+        ];
+        for (status, expected) in cases {
+            let body = format!(r#"{{"error":"{status}","error_description":"{secret}"}}"#);
+            let err = parse_github_oauth_response::<serde_json::Value>(&body)
+                .expect_err("an OAuth error status is a failure");
+            match (err.custom_context(), expected) {
+                (None, None) => {}
+                (Some(ctx), Some((code, message))) => {
+                    assert_eq!(ctx.code, code, "{status}");
+                    assert_eq!(ctx.message.as_deref(), Some(message), "{status}");
+                }
+                (ctx, expected) => panic!("{status}: got {ctx:?}, expected {expected:?}"),
+            }
+            // `but_api::json::Error` serializes the context message when present, else the chain.
+            let api_message = err
+                .custom_context_or_error_chain()
+                .message
+                .expect("always a message");
+            if expected.is_some() {
+                assert!(
+                    !api_message.contains(secret) && !api_message.contains(status),
+                    "{status}: provider detail must not reach the API: {api_message}"
+                );
+            } else {
+                assert!(
+                    api_message.contains(status),
+                    "{status}: pending statuses keep today's message"
+                );
+            }
+            // Alternate display (Lite, CLI) keeps the provider status as the inner error.
+            let display = format!("{err:#}");
+            assert!(
+                display.contains(&format!("GitHub returned an error: {status} (")),
+                "{status}: {display}"
+            );
+        }
+    }
+
+    #[test]
+    fn non_provider_parse_failures_are_not_contextualized() {
+        use but_error::AnyhowContextExt as _;
+        for body in ["not json", r#"{"unexpected":"shape"}"#] {
+            let err = parse_github_oauth_response::<Verification>(body).expect_err("bad body");
+            assert!(err.custom_context().is_none(), "{body:?}: {err:#}");
         }
     }
 }
