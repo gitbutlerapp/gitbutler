@@ -482,6 +482,12 @@ pub fn assign(
 /// precise fallback and kept returning usable `assignments`, but the original
 /// error is preserved so callers can log or surface degraded accuracy. It is
 /// `None` when assignment reconciliation completed normally.
+///
+/// Reconciliation is skipped, and `assignments` is empty without anything being persisted,
+/// while the working tree does not hold the workspace's uncommitted changes. Edit mode parks
+/// them in a ref and checks them out until it ends, and reconciling against the working tree
+/// there would delete every assignment that covers them. The stored assignments are left as
+/// they are and come back on the next read once the workspace is checked out again.
 pub fn assignments_with_fallback(
     db: HunkAssignmentsHandleMut,
     repo: &gix::Repository,
@@ -494,6 +500,33 @@ pub fn assignments_with_fallback(
     Ok((hunk_assignments, None))
 }
 
+/// Return `true` if `repo`'s working tree still holds the workspace's uncommitted changes.
+///
+/// Edit mode checks those changes out of the working tree and parks them in a ref until it ends,
+/// pointing `HEAD` at a branch of its own that is no part of the workspace. Having a branch of
+/// the workspace checked out instead is not that situation: the changes are still there.
+fn worktree_holds_workspace_changes(
+    repo: &gix::Repository,
+    workspace: &but_graph::Workspace,
+) -> bool {
+    let Some(workspace_ref) = workspace.ref_name() else {
+        // Nothing names the workspace, so it is whatever happens to be checked out.
+        return true;
+    };
+    let head_ref = match repo.head_ref() {
+        Ok(Some(head_ref)) => head_ref,
+        // A detached `HEAD` is none of the modes that park the workspace's changes.
+        Ok(None) => return true,
+        // Without knowing what is checked out, keeping assignments that are no longer current
+        // is the cheaper mistake: they reconcile again on the next read, deletion is final.
+        Err(_) => return false,
+    };
+    head_ref.name() == workspace_ref
+        || workspace
+            .find_segment_and_stack_by_refname(head_ref.name())
+            .is_some()
+}
+
 fn reconcile_worktree_changes_with_worktree(
     db: HunkAssignmentsHandleMut,
     repo: &gix::Repository,
@@ -501,6 +534,12 @@ fn reconcile_worktree_changes_with_worktree(
     worktree_changes: Option<impl IntoIterator<Item = impl Into<but_core::TreeChange>>>,
     context_lines: u32,
 ) -> Result<Vec<HunkAssignment>> {
+    // Reconciling a working tree the workspace's changes were parked out of would delete every
+    // assignment covering them, so leave the stored assignments alone until they are back.
+    if !worktree_holds_workspace_changes(repo, workspace) {
+        return Ok(vec![]);
+    }
+
     let worktree_changes: Vec<but_core::TreeChange> = match worktree_changes {
         Some(wtc) => wtc.into_iter().map(Into::into).collect(),
         None => but_core::diff::worktree_changes(repo)?.changes,
