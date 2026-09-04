@@ -1,5 +1,6 @@
 mod changes_in_branch {
-    use but_graph::init::Options;
+
+    use but_graph::walk::Options;
     use but_testsupport::visualize_commit_graph_all;
     use but_workspace::ui;
     use snapbox::prelude::*;
@@ -11,7 +12,7 @@ mod changes_in_branch {
 
     #[test]
     fn multiple_inside_and_outside_of_workspace() -> anyhow::Result<()> {
-        let (repo, meta, mut db) = read_only_in_memory_scenario("remote-advanced-ff")?;
+        let (repo, meta) = read_only_in_memory_scenario("remote-advanced-ff")?;
         snapbox::assert_data_eq!(
             visualize_commit_graph_all(&repo)?,
             snapbox::str![[r#"
@@ -24,14 +25,16 @@ mod changes_in_branch {
 "#]]
         );
 
-        let graph = but_graph::Graph::from_head(
+        let ws = but_graph::Workspace::from_head(
             &repo,
             &*meta,
-            project_meta(&repo)?,
-            &mut db,
+            but_core::ref_metadata::ProjectMeta {
+                target_ref: Some("refs/remotes/origin/main".try_into()?),
+                ..Default::default()
+            },
+            &mut but_testsupport::in_memory_db(),
             Options::limited(),
         )?;
-        let ws = graph.into_workspace()?;
 
         snapbox::assert_data_eq!(
             ui::diff::changes_in_branch(&repo, &ws, r("refs/heads/A"))?.to_debug(),
@@ -175,7 +178,7 @@ TreeChanges {
         let mut ref_info: ui::RefInfo = but_workspace::head_info(
             &repo,
             &*meta,
-            &mut db,
+            &mut but_testsupport::in_memory_db(),
             but_workspace::ref_info::Options {
                 project_meta: project_meta(&repo)?,
                 ..Default::default()
@@ -307,7 +310,7 @@ TreeChanges {
               "changeId": null
             }
           ],
-          "commitsOutside": null,
+          "advancedOutside": [],
           "metadata": null,
           "isEntrypoint": false,
           "pushStatus": "unpushedCommitsRequiringForce",
@@ -496,7 +499,7 @@ TreeChanges {
               "changeId": null
             }
           ],
-          "commitsOutside": null,
+          "advancedOutside": [],
           "metadata": null,
           "isEntrypoint": true,
           "pushStatus": "unpushedCommitsRequiringForce",

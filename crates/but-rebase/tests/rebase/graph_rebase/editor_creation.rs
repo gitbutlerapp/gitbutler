@@ -1,17 +1,30 @@
 use anyhow::Result;
-use but_graph::{Graph, init::Tip};
-use but_rebase::graph_rebase::{Editor, GraphEditorOptions, testing::Testing as _};
-use but_testsupport::{StackState, graph_tree, visualize_commit_graph_all};
-use snapbox::IntoData;
+use but_graph::{Workspace, walk::Seed};
+use but_rebase::graph_rebase::{CommitSpec, Editor, EditorStoreOptions, testing::Testing as _};
+use but_testsupport::{StackState, graph_dag, visualize_commit_graph_all};
+use snapbox::prelude::*;
 
 use crate::{
     graph_rebase::add_stack_with_segments,
-    utils::{fixture, fixture_writable, standard_options, target_meta},
+    utils::{fixture, fixture_writable, standard_options},
 };
+
+/// Project metadata is project-wide now, so tests hand it to the build directly rather
+/// than reading it back off workspace metadata.
+pub fn project_meta(_meta: &impl but_core::RefMetadata) -> but_core::ref_metadata::ProjectMeta {
+    but_core::ref_metadata::ProjectMeta {
+        target_ref: Some(
+            "refs/remotes/origin/main"
+                .try_into()
+                .expect("statically known to be valid"),
+        ),
+        ..Default::default()
+    }
+}
 
 #[test]
 fn four_commits() -> Result<()> {
-    let (repo, mut meta, mut db) = fixture("four-commits")?;
+    let (repo, mut meta) = fixture("four-commits")?;
 
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
@@ -24,17 +37,15 @@ fn four_commits() -> Result<()> {
 "#]]
     );
 
-    let graph = Graph::from_head(
+    let ws = Workspace::from_head(
         &repo,
         &*meta,
-        Default::default(),
-        &mut db,
+        project_meta(&*meta),
+        &mut but_testsupport::in_memory_db(),
         standard_options(),
     )?
     .validated()?;
-
-    let mut ws = graph.into_workspace()?;
-    let editor = Editor::create(&mut ws, &mut *meta, &repo, &mut db)?;
+    let editor = Editor::create(ws.commit_graph(), ws.project_meta(), &mut *meta, &repo)?;
 
     snapbox::assert_data_eq!(
         editor.steps_ascii(),
@@ -52,7 +63,7 @@ fn four_commits() -> Result<()> {
 
 #[test]
 fn merge_in_the_middle() -> Result<()> {
-    let (repo, mut meta, mut db) = fixture("merge-in-the-middle")?;
+    let (repo, mut meta) = fixture("merge-in-the-middle")?;
 
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
@@ -69,17 +80,15 @@ fn merge_in_the_middle() -> Result<()> {
         .raw()
     );
 
-    let graph = Graph::from_head(
+    let ws = Workspace::from_head(
         &repo,
         &*meta,
-        Default::default(),
-        &mut db,
+        project_meta(&*meta),
+        &mut but_testsupport::in_memory_db(),
         standard_options(),
     )?
     .validated()?;
-
-    let mut ws = graph.into_workspace()?;
-    let editor = Editor::create(&mut ws, &mut *meta, &repo, &mut db)?;
+    let editor = Editor::create(ws.commit_graph(), ws.project_meta(), &mut *meta, &repo)?;
 
     snapbox::assert_data_eq!(
         editor.steps_ascii(),
@@ -104,7 +113,7 @@ fn merge_in_the_middle() -> Result<()> {
 
 #[test]
 fn three_branches_merged() -> Result<()> {
-    let (repo, mut meta, mut db) = fixture("three-branches-merged")?;
+    let (repo, mut meta) = fixture("three-branches-merged")?;
 
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
@@ -125,17 +134,15 @@ fn three_branches_merged() -> Result<()> {
         .raw()
     );
 
-    let graph = Graph::from_head(
+    let ws = Workspace::from_head(
         &repo,
         &*meta,
-        Default::default(),
-        &mut db,
+        project_meta(&*meta),
+        &mut but_testsupport::in_memory_db(),
         standard_options(),
     )?
     .validated()?;
-
-    let mut ws = graph.into_workspace()?;
-    let editor = Editor::create(&mut ws, &mut *meta, &repo, &mut db)?;
+    let editor = Editor::create(ws.commit_graph(), ws.project_meta(), &mut *meta, &repo)?;
 
     snapbox::assert_data_eq!(
         editor.steps_ascii(),
@@ -164,7 +171,7 @@ fn three_branches_merged() -> Result<()> {
 
 #[test]
 fn many_references() -> Result<()> {
-    let (repo, mut meta, mut db) = fixture("many-references")?;
+    let (repo, mut meta) = fixture("many-references")?;
 
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
@@ -177,30 +184,25 @@ fn many_references() -> Result<()> {
 "#]]
     );
 
-    let graph = Graph::from_head(
+    let ws = Workspace::from_head(
         &repo,
         &*meta,
-        Default::default(),
-        &mut db,
+        project_meta(&*meta),
+        &mut but_testsupport::in_memory_db(),
         standard_options(),
     )?
     .validated()?;
 
     snapbox::assert_data_eq!(
-        graph_tree(&graph).to_string(),
+        graph_dag(&ws),
         snapbox::str![[r#"
-
-└── 👉►:0[0]:main[🌳]
-    ├── ·120e3a9 (⌂)
-    ├── ·a96434e (⌂)
-    ├── ·d591dfe (⌂) ►X, ►Y, ►Z
-    └── 🏁·35b8235 (⌂)
-
+*  👉·120e3a9 (⌂) ►main[🌳]
+*  ·a96434e (⌂)
+*  ·d591dfe (⌂) ►X, ►Y, ►Z
+*  🏁·35b8235 (⌂)
 "#]]
     );
-
-    let mut ws = graph.into_workspace()?;
-    let editor = Editor::create(&mut ws, &mut *meta, &repo, &mut db)?;
+    let editor = Editor::create(ws.commit_graph(), ws.project_meta(), &mut *meta, &repo)?;
 
     snapbox::assert_data_eq!(
         editor.steps_ascii(),
@@ -221,7 +223,7 @@ fn many_references() -> Result<()> {
 
 #[test]
 fn first_parent_leg_long() -> Result<()> {
-    let (repo, mut meta, mut db) = fixture("first-parent-leg-long")?;
+    let (repo, mut meta) = fixture("first-parent-leg-long")?;
 
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
@@ -240,38 +242,30 @@ fn first_parent_leg_long() -> Result<()> {
         .raw()
     );
 
-    let graph = Graph::from_head(
+    let ws = Workspace::from_head(
         &repo,
         &*meta,
-        Default::default(),
-        &mut db,
+        project_meta(&*meta),
+        &mut but_testsupport::in_memory_db(),
         standard_options(),
     )?
     .validated()?;
 
     snapbox::assert_data_eq!(
-        graph_tree(&graph).to_string(),
+        graph_dag(&ws),
         snapbox::str![[r#"
-
-└── 👉►:0[0]:with-inner-merge[🌳]
-    └── ·6ac5745 (⌂)
-        └── ►:1[1]:anon:
-            └── ·d20f547 (⌂)
-                ├── ►:2[2]:A
-                │   ├── ·198d2e4 (⌂)
-                │   ├── ·7325853 (⌂)
-                │   └── ·add59d2 (⌂)
-                │       └── ►:4[3]:main
-                │           └── 🏁·8f0d338 (⌂) ►tags/base
-                └── ►:3[2]:B
-                    └── ·984fd1c (⌂)
-                        └── →:4: (main)
-
+*  👉·6ac5745 (⌂) ►with-inner-merge[🌳]
+*    ·d20f547 (⌂)
+├─╮
+* │  ·198d2e4 (⌂) ►A
+* │  ·7325853 (⌂)
+* │  ·add59d2 (⌂)
+│ *  ·984fd1c (⌂) ►B
+├─╯
+*  🏁·8f0d338 (⌂) ►main, ►tags/base
 "#]]
     );
-
-    let mut ws = graph.into_workspace()?;
-    let editor = Editor::create(&mut ws, &mut *meta, &repo, &mut db)?;
+    let editor = Editor::create(ws.commit_graph(), ws.project_meta(), &mut *meta, &repo)?;
 
     snapbox::assert_data_eq!(
         editor.steps_ascii(),
@@ -298,7 +292,7 @@ fn first_parent_leg_long() -> Result<()> {
 
 #[test]
 fn second_parent_leg_long() -> Result<()> {
-    let (repo, mut meta, mut db) = fixture("second-parent-leg-long")?;
+    let (repo, mut meta) = fixture("second-parent-leg-long")?;
 
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
@@ -317,38 +311,30 @@ fn second_parent_leg_long() -> Result<()> {
         .raw()
     );
 
-    let graph = Graph::from_head(
+    let ws = Workspace::from_head(
         &repo,
         &*meta,
-        Default::default(),
-        &mut db,
+        project_meta(&*meta),
+        &mut but_testsupport::in_memory_db(),
         standard_options(),
     )?
     .validated()?;
 
     snapbox::assert_data_eq!(
-        graph_tree(&graph).to_string(),
+        graph_dag(&ws),
         snapbox::str![[r#"
-
-└── 👉►:0[0]:with-inner-merge[🌳]
-    └── ·a6775ea (⌂)
-        └── ►:1[1]:anon:
-            └── ·b85214b (⌂)
-                ├── ►:2[2]:A
-                │   └── ·add59d2 (⌂)
-                │       └── ►:4[3]:main
-                │           └── 🏁·8f0d338 (⌂) ►tags/base
-                └── ►:3[2]:B
-                    ├── ·f87f875 (⌂)
-                    ├── ·cb181a0 (⌂)
-                    └── ·984fd1c (⌂)
-                        └── →:4: (main)
-
+*  👉·a6775ea (⌂) ►with-inner-merge[🌳]
+*    ·b85214b (⌂)
+├─╮
+* │  ·add59d2 (⌂) ►A
+│ *  ·f87f875 (⌂) ►B
+│ *  ·cb181a0 (⌂)
+│ *  ·984fd1c (⌂)
+├─╯
+*  🏁·8f0d338 (⌂) ►main, ►tags/base
 "#]]
     );
-
-    let mut ws = graph.into_workspace()?;
-    let editor = Editor::create(&mut ws, &mut *meta, &repo, &mut db)?;
+    let editor = Editor::create(ws.commit_graph(), ws.project_meta(), &mut *meta, &repo)?;
 
     snapbox::assert_data_eq!(
         editor.steps_ascii(),
@@ -375,7 +361,7 @@ fn second_parent_leg_long() -> Result<()> {
 
 #[test]
 fn workspace_with_empty_stack() -> Result<()> {
-    let (repo, _tmpdir, mut meta, mut db) = fixture_writable("workspace-with-empty-stack")?;
+    let (repo, _tmpdir, mut meta) = fixture_writable("workspace-with-empty-stack")?;
 
     add_stack_with_segments(&mut meta, 1, "stack-1", StackState::InWorkspace, &[]);
     add_stack_with_segments(&mut meta, 2, "stack-2", StackState::InWorkspace, &[]);
@@ -398,34 +384,33 @@ fn workspace_with_empty_stack() -> Result<()> {
         .raw()
     );
 
-    let graph =
-        Graph::from_head(&repo, &*meta, target_meta(), &mut db, standard_options())?.validated()?;
+    let ws = Workspace::from_head(
+        &repo,
+        &*meta,
+        project_meta(&*meta),
+        &mut but_testsupport::in_memory_db(),
+        standard_options(),
+    )?
+    .validated()?;
 
     snapbox::assert_data_eq!(
-        graph_tree(&graph).to_string(),
+        graph_dag(&ws),
         snapbox::str![[r#"
-
-├── 👉📕►►►:0[0]:gitbutler/workspace[🌳]
-│   └── ·74bcc92 (⌂|🏘)
-│       ├── 📙►:3[1]:stack-1
-│       │   ├── ·2169646 (⌂|🏘)
-│       │   └── ·46ef828 (⌂|🏘)
-│       │       └── ►:4[2]:anon:
-│       │           ├── ·f555940 (⌂|🏘|✓)
-│       │           ├── ·d664be0 (⌂|🏘|✓)
-│       │           └── 🏁·fafd9d0 (⌂|🏘|✓)
-│       └── 📙►:5[1]:stack-2
-│           └── →:4:
-└── ►:1[0]:origin/main
-    └── ►:2[1]:main <> origin/main
-        └── ·a0f2ac5 (⌂|✓)
-            └── →:4:
-
+*  ·a0f2ac5 (⌂|✓) ►main, ►origin/main <> origin/main
+│ *  👉·74bcc92 (⌂|🏘)
+╭─┤
+│ *  ·2169646 (⌂|🏘) ►stack-1
+│ *  ·46ef828 (⌂|🏘)
+├─╯
+*  ·f555940 (⌂|🏘|✓) ►stack-2
+*  ·d664be0 (⌂|🏘|✓)
+*  🏁·fafd9d0 (⌂|🏘|✓)
+layout:
+  materialized parents: 74bcc92: 2169646 f555940
+  empty chain anchors: 2169646^ f555940
 "#]]
     );
-
-    let mut ws = graph.into_workspace()?;
-    let editor = Editor::create(&mut ws, &mut *meta, &repo, &mut db)?;
+    let editor = Editor::create(ws.commit_graph(), ws.project_meta(), &mut *meta, &repo)?;
 
     snapbox::assert_data_eq!(
         editor.steps_ascii(),
@@ -453,7 +438,7 @@ fn workspace_with_empty_stack() -> Result<()> {
 
 #[test]
 fn workspace_with_three_empty_stacks() -> Result<()> {
-    let (repo, _tmpdir, mut meta, mut db) = fixture_writable("workspace-with-three-empty-stacks")?;
+    let (repo, _tmpdir, mut meta) = fixture_writable("workspace-with-three-empty-stacks")?;
 
     add_stack_with_segments(&mut meta, 1, "stack-1", StackState::InWorkspace, &[]);
     add_stack_with_segments(&mut meta, 2, "stack-2", StackState::InWorkspace, &[]);
@@ -470,32 +455,28 @@ fn workspace_with_three_empty_stacks() -> Result<()> {
 "#]]
     );
 
-    let graph =
-        Graph::from_head(&repo, &*meta, target_meta(), &mut db, standard_options())?.validated()?;
+    let ws = Workspace::from_head(
+        &repo,
+        &*meta,
+        project_meta(&*meta),
+        &mut but_testsupport::in_memory_db(),
+        standard_options(),
+    )?
+    .validated()?;
 
     snapbox::assert_data_eq!(
-        graph_tree(&graph).to_string(),
+        graph_dag(&ws),
         snapbox::str![[r#"
-
-├── 👉📕►►►:0[0]:gitbutler/workspace[🌳]
-│   └── ·a26ae77 (⌂|🏘)
-│       ├── 📙►:4[1]:stack-1
-│       │   └── ►:3[2]:anon:
-│       │       └── 🏁·fafd9d0 (⌂|🏘|✓)
-│       ├── 📙►:5[1]:stack-2
-│       │   └── →:3:
-│       └── 📙►:6[1]:stack-3
-│           └── →:3:
-└── ►:1[0]:origin/main
-    └── ►:2[1]:main <> origin/main
-        └── ·1cf9cf4 (⌂|✓)
-            └── →:3:
-
+*  ·1cf9cf4 (⌂|✓) ►main, ►origin/main <> origin/main
+│ *  👉·a26ae77 (⌂|🏘)
+├─╯
+*  🏁·fafd9d0 (⌂|🏘|✓) ►stack-1, ►stack-2, ►stack-3
+layout:
+  materialized parents: a26ae77: fafd9d0 fafd9d0 fafd9d0
+  empty chain anchors: fafd9d0 fafd9d0 fafd9d0
 "#]]
     );
-
-    let mut ws = graph.into_workspace()?;
-    let editor = Editor::create(&mut ws, &mut *meta, &repo, &mut db)?;
+    let editor = Editor::create(ws.commit_graph(), ws.project_meta(), &mut *meta, &repo)?;
 
     snapbox::assert_data_eq!(
         editor.steps_ascii(),
@@ -519,9 +500,223 @@ fn workspace_with_three_empty_stacks() -> Result<()> {
     Ok(())
 }
 
+/// The most common production shape: the target `origin/main` sits at the BASE of the
+/// stacks, squarely on the mutability walk from HEAD. Remote-tracking refs must stay
+/// immutable regardless of reachability — only push/fetch may move them.
+#[test]
+fn workspace_with_target_at_stack_base() -> Result<()> {
+    let (repo, _tmpdir, mut meta) = fixture_writable("workspace-two-stacks")?;
+
+    add_stack_with_segments(&mut meta, 1, "stack-a", StackState::InWorkspace, &[]);
+    add_stack_with_segments(&mut meta, 2, "stack-b", StackState::InWorkspace, &[]);
+
+    snapbox::assert_data_eq!(
+        visualize_commit_graph_all(&repo)?,
+        snapbox::str![[r#"
+*   1162583 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+|\  
+| * afc3f8f (stack-b) B2
+| * b3ee99c B1
+* | 49c06ff (stack-a) A2
+* | ff76d2f A1
+|/  
+* 965998b (origin/main, main) base
+
+"#]]
+        .raw()
+    );
+
+    let ws = Workspace::from_head(
+        &repo,
+        &*meta,
+        project_meta(&*meta),
+        &mut but_testsupport::in_memory_db(),
+        standard_options(),
+    )?
+    .validated()?;
+    let editor = Editor::create(ws.commit_graph(), ws.project_meta(), &mut *meta, &repo)?;
+
+    snapbox::assert_data_eq!(
+        editor.steps_ascii(),
+        snapbox::str![[r#"
+◎  refs/heads/gitbutler/workspace
+●    1162583 GitButler Workspace Commit
+├─╮
+◎ │  refs/heads/stack-a
+● │  49c06ff A2
+● │  ff76d2f A1
+│ ◎  refs/heads/stack-b
+│ ●  afc3f8f B2
+│ ●  b3ee99c B1
+├─╯
+◎  refs/heads/main
+│ ◎  refs/remotes/origin/main (immutable)
+├─╯
+●  965998b base
+"#]]
+    );
+
+    Ok(())
+}
+
+/// Same shape but WITHOUT a local `main`: the target `origin/main` itself names the
+/// segment owning the integrated base history, placing it directly on the mutability
+/// walk from HEAD. It must still come out immutable.
+#[test]
+fn workspace_with_target_at_stack_base_no_local_main() -> Result<()> {
+    let (repo, _tmpdir, mut meta) = fixture_writable("workspace-two-stacks")?;
+    repo.find_reference("refs/heads/main")?.delete()?;
+
+    add_stack_with_segments(&mut meta, 1, "stack-a", StackState::InWorkspace, &[]);
+    add_stack_with_segments(&mut meta, 2, "stack-b", StackState::InWorkspace, &[]);
+
+    snapbox::assert_data_eq!(
+        visualize_commit_graph_all(&repo)?,
+        snapbox::str![[r#"
+*   1162583 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+|\  
+| * afc3f8f (stack-b) B2
+| * b3ee99c B1
+* | 49c06ff (stack-a) A2
+* | ff76d2f A1
+|/  
+* 965998b (origin/main) base
+
+"#]]
+        .raw()
+    );
+
+    let ws = Workspace::from_head(
+        &repo,
+        &*meta,
+        project_meta(&*meta),
+        &mut but_testsupport::in_memory_db(),
+        standard_options(),
+    )?
+    .validated()?;
+    let editor = Editor::create(ws.commit_graph(), ws.project_meta(), &mut *meta, &repo)?;
+
+    snapbox::assert_data_eq!(
+        editor.steps_ascii(),
+        snapbox::str![[r#"
+◎  refs/heads/gitbutler/workspace
+●    1162583 GitButler Workspace Commit
+├─╮
+◎ │  refs/heads/stack-a
+● │  49c06ff A2
+● │  ff76d2f A1
+│ ◎  refs/heads/stack-b
+│ ●  afc3f8f B2
+│ ●  b3ee99c B1
+├─╯
+◎  refs/remotes/origin/main (immutable)
+●  965998b base
+"#]]
+    );
+
+    Ok(())
+}
+
+/// Ops that would move, rename, delete, or unhook an immutable reference fail loudly
+/// instead of succeeding session-only (materialization would refuse the write anyway).
+#[test]
+fn ops_on_immutable_refs_fail() -> Result<()> {
+    use but_rebase::graph_rebase::{
+        anchor::{Cut, Range},
+        mutate::{InsertSide, Reconnect},
+    };
+
+    let (repo, _tmpdir, mut meta) = fixture_writable("workspace-two-stacks")?;
+    repo.find_reference("refs/heads/main")?.delete()?;
+    add_stack_with_segments(&mut meta, 1, "stack-a", StackState::InWorkspace, &[]);
+    add_stack_with_segments(&mut meta, 2, "stack-b", StackState::InWorkspace, &[]);
+
+    let ws = Workspace::from_head(
+        &repo,
+        &*meta,
+        project_meta(&*meta),
+        &mut but_testsupport::in_memory_db(),
+        standard_options(),
+    )?
+    .validated()?;
+    let mut editor = Editor::create(ws.commit_graph(), ws.project_meta(), &mut *meta, &repo)?;
+
+    let remote = editor.select_reference("refs/remotes/origin/main".try_into()?)?;
+    let stack_a = editor.select_reference("refs/heads/stack-a".try_into()?)?;
+    let expected = "reference refs/remotes/origin/main is immutable \
+                    and cannot be moved, renamed, or deleted";
+
+    // Delete and rename (replace on a ref entry).
+    snapbox::assert_data_eq!(
+        editor.remove_reference(remote).unwrap_err().to_string(),
+        snapbox::str![
+            "reference refs/remotes/origin/main is immutable and cannot be moved, renamed, or deleted"
+        ]
+    );
+    // Re-point (an edge FROM a reference is its downward link).
+    assert_eq!(
+        editor
+            .insert_parent(remote, stack_a, 0)
+            .unwrap_err()
+            .to_string(),
+        expected
+    );
+    // Unhook (disconnecting the lone-reference segment).
+    assert_eq!(
+        editor
+            .disconnect(
+                Range {
+                    child: remote.into(),
+                    parent: remote.into(),
+                },
+                Cut::All,
+                Cut::All,
+                Reconnect::Heal,
+            )
+            .unwrap_err()
+            .to_string(),
+        expected
+    );
+    // Move (re-anchoring the lone-reference segment elsewhere).
+    assert_eq!(
+        editor
+            .move_reference(remote, stack_a, InsertSide::Above)
+            .unwrap_err()
+            .to_string(),
+        expected
+    );
+    // Splitting the reference off its pick (a pick inserted below re-points it).
+    let new_commit = {
+        let base = repo.rev_parse_single("refs/remotes/origin/main")?;
+        let base = base.object()?.into_commit();
+        repo.write_object(gix::objs::Commit {
+            tree: base.tree_id()?.detach(),
+            parents: Default::default(),
+            author: base.author()?.into(),
+            committer: base.committer()?.into(),
+            encoding: None,
+            message: "detached".into(),
+            extra_headers: vec![],
+        })?
+        .detach()
+    };
+    assert_eq!(
+        editor
+            .insert_commit(remote, CommitSpec::new(new_commit), InsertSide::Below)
+            .unwrap_err()
+            .to_string(),
+        expected
+    );
+
+    // A mutable ref standing beside the immutable one is untouched by the guard.
+    editor.remove_reference(stack_a)?;
+
+    Ok(())
+}
+
 #[test]
 fn commit_with_two_parents() -> Result<()> {
-    let (repo, _tmpdir, mut meta, mut db) = fixture_writable("single-commit")?;
+    let (repo, _tmpdir, mut meta) = fixture_writable("single-commit")?;
 
     let base = repo.rev_parse_single("HEAD")?;
     let base = base.object()?.into_commit();
@@ -538,30 +733,23 @@ fn commit_with_two_parents() -> Result<()> {
         .raw()
     );
 
-    let graph = Graph::from_head(
+    let ws = Workspace::from_head(
         &repo,
         &*meta,
-        Default::default(),
-        &mut db,
+        project_meta(&*meta),
+        &mut but_testsupport::in_memory_db(),
         standard_options(),
     )?
     .validated()?;
 
     snapbox::assert_data_eq!(
-        graph_tree(&graph).to_string(),
+        graph_dag(&ws),
         snapbox::str![[r#"
-
-└── 👉►:0[0]:main[🌳]
-    └── ·d70d863 (⌂)
-        ├── ►:1[1]:anon:
-        │   └── 🏁·35b8235 (⌂)
-        └── →:1:
-
+*  👉·d70d863 (⌂) ►main[🌳]
+*  🏁·35b8235 (⌂)
 "#]]
     );
-
-    let mut ws = graph.into_workspace()?;
-    let editor = Editor::create(&mut ws, &mut *meta, &repo, &mut db)?;
+    let editor = Editor::create(ws.commit_graph(), ws.project_meta(), &mut *meta, &repo)?;
 
     snapbox::assert_data_eq!(
         editor.steps_ascii(),
@@ -577,17 +765,22 @@ fn commit_with_two_parents() -> Result<()> {
 
 #[test]
 fn includes_extra_refs_in_editor_creation() -> Result<()> {
-    let (repo, _tmpdir, mut meta, mut db) = fixture_writable("workspace-with-empty-stack")?;
+    let (repo, _tmpdir, mut meta) = fixture_writable("workspace-with-empty-stack")?;
     add_stack_with_segments(&mut meta, 1, "stack-1", StackState::InWorkspace, &[]);
     add_stack_with_segments(&mut meta, 2, "stack-2", StackState::InWorkspace, &[]);
 
     let main_ref = gix::refs::FullName::try_from("refs/heads/main")?;
 
     {
-        let graph = Graph::from_head(&repo, &*meta, target_meta(), &mut db, standard_options())?
-            .validated()?;
-        let mut ws = graph.into_workspace()?;
-        let editor = Editor::create(&mut ws, &mut *meta, &repo, &mut db)?;
+        let ws = Workspace::from_head(
+            &repo,
+            &*meta,
+            project_meta(&*meta),
+            &mut but_testsupport::in_memory_db(),
+            standard_options(),
+        )?
+        .validated()?;
+        let editor = Editor::create(ws.commit_graph(), ws.project_meta(), &mut *meta, &repo)?;
 
         snapbox::assert_data_eq!(
             editor.steps_ascii(),
@@ -612,15 +805,20 @@ fn includes_extra_refs_in_editor_creation() -> Result<()> {
     }
 
     {
-        let graph = Graph::from_head(&repo, &*meta, target_meta(), &mut db, standard_options())?
-            .validated()?;
-        let mut ws = graph.into_workspace()?;
+        let ws = Workspace::from_head(
+            &repo,
+            &*meta,
+            project_meta(&*meta),
+            &mut but_testsupport::in_memory_db(),
+            standard_options(),
+        )?
+        .validated()?;
         let editor = Editor::create_with_opts(
-            &mut ws,
+            ws.commit_graph(),
+            ws.project_meta(),
             &mut *meta,
             &repo,
-            &mut db,
-            &GraphEditorOptions {
+            &EditorStoreOptions {
                 extra_mutable_refs: vec![main_ref.clone()],
                 ..<_>::default()
             },
@@ -657,7 +855,7 @@ fn includes_extra_refs_in_editor_creation() -> Result<()> {
 /// that doesn't match parent_ids, which the editor must correct.
 #[test]
 fn merge_first_parent_older_than_second() -> Result<()> {
-    let (repo, mut meta, mut db) = fixture("merge-first-parent-older")?;
+    let (repo, mut meta) = fixture("merge-first-parent-older")?;
 
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
@@ -676,38 +874,30 @@ fn merge_first_parent_older_than_second() -> Result<()> {
         .raw()
     );
 
-    let graph = Graph::from_head(
+    let ws = Workspace::from_head(
         &repo,
         &*meta,
-        Default::default(),
-        &mut db,
+        project_meta(&*meta),
+        &mut but_testsupport::in_memory_db(),
         standard_options(),
     )?
     .validated()?;
 
     snapbox::assert_data_eq!(
-        graph_tree(&graph).to_string(),
+        graph_dag(&ws),
         snapbox::str![[r#"
-
-└── 👉►:0[0]:first-parent[🌳]
-    └── ·738ea18 (⌂)
-        └── ►:1[1]:anon:
-            └── ·408ca26 (⌂)
-                ├── ►:3[2]:anon:
-                │   └── ·2854fa2 (⌂)
-                │       └── ►:4[3]:main
-                │           └── 🏁·793a434 (⌂) ►tags/base
-                └── ►:2[2]:second-parent
-                    ├── ·75369b0 (⌂)
-                    ├── ·553bbf7 (⌂)
-                    └── ·72614bb (⌂)
-                        └── →:4: (main)
-
+*  👉·738ea18 (⌂) ►first-parent[🌳]
+*    ·408ca26 (⌂)
+├─╮
+* │  ·2854fa2 (⌂)
+│ *  ·75369b0 (⌂) ►second-parent
+│ *  ·553bbf7 (⌂)
+│ *  ·72614bb (⌂)
+├─╯
+*  🏁·793a434 (⌂) ►main, ►tags/base
 "#]]
     );
-
-    let mut ws = graph.into_workspace()?;
-    let editor = Editor::create(&mut ws, &mut *meta, &repo, &mut db)?;
+    let editor = Editor::create(ws.commit_graph(), ws.project_meta(), &mut *meta, &repo)?;
 
     snapbox::assert_data_eq!(
         editor.steps_ascii(),
@@ -733,7 +923,7 @@ fn merge_first_parent_older_than_second() -> Result<()> {
 
 #[test]
 fn immutable_entrypoints_propogate_until_mutable_entrypoints() -> Result<()> {
-    let (repo, mut meta, mut db) = fixture("extra-refs-to-include")?;
+    let (repo, mut meta) = fixture("extra-refs-to-include")?;
 
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
@@ -751,60 +941,56 @@ fn immutable_entrypoints_propogate_until_mutable_entrypoints() -> Result<()> {
 "#]]
     );
 
-    let graph = Graph::from_commit_traversal_tips(
+    let ws = Workspace::from_seeds(
         &repo,
         [
-            Tip::entrypoint(
+            Seed::entrypoint(
                 repo.rev_parse_single("refs/heads/implicit-mut")?.detach(),
                 Some("refs/heads/implicit-mut".try_into()?),
             ),
-            Tip::reachable(
+            Seed::reachable(
                 repo.rev_parse_single("refs/heads/explicit-const")?.detach(),
                 Some("refs/heads/explicit-const".try_into()?),
             ),
-            Tip::reachable(
+            Seed::reachable(
                 repo.rev_parse_single("refs/heads/explicit-const-2")?
                     .detach(),
                 Some("refs/heads/explicit-const-2".try_into()?),
             ),
         ],
         &*meta,
-        Default::default(),
-        &mut db,
+        project_meta(&*meta),
+        &mut but_testsupport::in_memory_db(),
         standard_options(),
     )?
     .validated()?;
 
     snapbox::assert_data_eq!(
-        graph_tree(&graph).to_string(),
+        graph_dag(&ws),
         snapbox::str![[r#"
-
-├── ►:0[0]:explicit-const
-│   └── ·be4ae80 (⌂) ►main
-│       └── ►:3[1]:implicit-const
-│           └── ·120e3a9 (⌂)
-│               └── ►:6[2]:explicit-mut
-│                   └── ·a96434e (⌂)
-│                       └── ►:5[3]:foo
-│                           ├── ·d591dfe (⌂)
-│                           └── 🏁·35b8235 (⌂)
-└── ►:1[0]:explicit-const-2
-    └── ·d9fa122 (⌂)
-        └── ►:4[1]:implicit-const-2
-            └── ·85bccf0 (⌂)
-                └── 👉►:2[2]:implicit-mut
-                    └── ·c8dd361 (⌂)
-                        └── →:5: (foo)
-
+*  ·be4ae80 (⌂) ►explicit-const, ►main
+*  ·120e3a9 (⌂) ►implicit-const
+*  ·a96434e (⌂) ►explicit-mut
+│ *  ·d9fa122 (⌂) ►explicit-const-2
+│ *  ·85bccf0 (⌂) ►implicit-const-2
+│ *  👉·c8dd361 (⌂) ►implicit-mut
+├─╯
+*  ·d591dfe (⌂) ►foo
+*  🏁·35b8235 (⌂)
 "#]]
     );
 
-    let mut ws = graph.into_workspace()?;
-    let opts = GraphEditorOptions {
+    let opts = EditorStoreOptions {
         extra_mutable_refs: vec!["refs/heads/explicit-mut".try_into()?],
         ..Default::default()
     };
-    let editor = Editor::create_with_opts(&mut ws, &mut *meta, &repo, &mut db, &opts)?;
+    let editor = Editor::create_with_opts(
+        ws.commit_graph(),
+        ws.project_meta(),
+        &mut *meta,
+        &repo,
+        &opts,
+    )?;
 
     snapbox::assert_data_eq!(
         editor.steps_ascii(),

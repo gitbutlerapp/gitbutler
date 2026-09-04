@@ -7,13 +7,10 @@ use gix::prelude::ObjectIdExt;
 
 use crate::{
     commit::{DateMode, create},
-    graph_rebase::{
-        Editor, Pick, Selector, Step, ToCommitSelector, ToReferenceSelector,
-        util::collect_ordered_parents,
-    },
+    graph_rebase::{CommitIndex, Editor, RefIndex},
 };
 
-impl<M: RefMetadata> Editor<'_, '_, M> {
+impl<M: RefMetadata> Editor<'_, M> {
     /// Returns a reference to the in-memory repository.
     pub fn repo(&self) -> &gix::Repository {
         &self.repo
@@ -66,48 +63,33 @@ impl<M: RefMetadata> Editor<'_, '_, M> {
         but_core::Commit::from_id(id.attach(&self.repo)).map(|c| c.detach())
     }
 
-    /// Finds a commit that is selectable in the editor graph and is
-    /// found in the editor's repo.
-    ///
-    /// Returns the normalized selector and the found commit.
-    pub fn find_selectable_commit(
-        &self,
-        selector: impl ToCommitSelector,
-    ) -> Result<(Selector, but_core::CommitOwned)> {
-        let selector = self
-            .history
-            .normalize_selector(selector.to_commit_selector(self)?)?;
-        let Step::Pick(Pick { id, .. }) = &self.graph[selector.id] else {
-            bail!("BUG: Expected pick step from commit selector. This should never happen");
+    /// Load the full commit the commit at `commit` currently holds from the editor's
+    /// repository — the payload-loading twin of [`Editor::spec_of`](crate::graph_rebase::Editor::spec_of).
+    pub fn commit_of(&self, commit: CommitIndex) -> Result<but_core::CommitOwned> {
+        let Some(id) = self.store.commit_id(commit) else {
+            bail!("The addressed commit was removed");
         };
-        Ok((selector, self.find_commit(*id)?))
+        self.find_commit(id)
     }
 
-    /// Finds the first pick parent of a reference
-    pub fn find_reference_target(
-        &self,
-        selector: impl ToReferenceSelector,
-    ) -> Result<(Selector, but_core::CommitOwned)> {
-        let selector = self
-            .history
-            .normalize_selector(selector.to_reference_selector(self)?)?;
+    /// Finds the first commit parent of a reference
+    pub fn target_of(&self, reference: RefIndex) -> Result<(CommitIndex, but_core::CommitOwned)> {
+        let first_parent = self
+            .store
+            .resolve_to_commit(reference)
+            .context("Failed to find a parent for selected reference in the commit graph.")?;
 
-        let parents = collect_ordered_parents(&self.graph, selector.id);
-        let first_parent = parents
-            .first()
-            .context("Failed to find a parent for selected reference in the step graph.")?;
-
-        let Step::Pick(pick) = &self.graph[*first_parent] else {
-            bail!("BUG: collect_ordered_parents provided a non-pick return value");
+        let Some(id) = self.store.commit_id(first_parent) else {
+            bail!("BUG: resolve_to_commit returned a non-commit entry");
         };
 
-        Ok((self.new_selector(*first_parent), self.find_commit(pick.id)?))
+        Ok((first_parent, self.find_commit(id)?))
     }
 
     /// Writes a commit with correct signing to the in memory repository.
     ///
     /// This does not update the commit mappings; a rewrite is only recorded
-    /// once the commit is installed into the graph via [`Editor::replace`] or
+    /// once the commit is installed into the graph via [`Editor::replace_commit`] or
     /// a rebase.
     pub fn new_commit(
         &self,
@@ -155,5 +137,20 @@ impl<M: RefMetadata> Editor<'_, '_, M> {
             id: gix::ObjectId::null(kind),
             inner: obj,
         })
+    }
+
+    /// Write an empty merge-commit object carrying `message` — no parents yet; the
+    /// caller wires them. Authorship is kept (a merge synthesizes existing work).
+    /// The date mode is `CommitterKeepAuthorKeep`, not the `Update` that
+    /// [`Self::new_squashed_commit`] uses: the template here is a fresh
+    /// [`Self::empty_commit`] whose committer time is already now, whereas a squash
+    /// copies a stale existing commit and must refresh it.
+    pub fn new_merge_commit(
+        &self,
+        message: impl Into<gix::bstr::BString>,
+    ) -> Result<gix::ObjectId> {
+        let mut commit = self.empty_commit()?;
+        commit.message = message.into();
+        self.new_commit(commit, DateMode::CommitterKeepAuthorKeep)
     }
 }

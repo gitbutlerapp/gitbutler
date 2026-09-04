@@ -4,20 +4,20 @@ use anyhow::{Result, bail};
 use but_core::{DiffSpec, RefMetadata, RepositoryExt};
 use but_rebase::{
     commit::DateMode,
-    graph_rebase::{Editor, Selector, Step, SuccessfulRebase, ToCommitSelector},
+    graph_rebase::{CommitIndex, CommitSpec, Editor, RebasedEditor},
 };
 
 use crate::tree_manipulation::{ChangesSource, create_tree_without_diff};
 
 /// The result of a move_changes_between_commits operation.
 #[derive(Debug)]
-pub struct MoveChangesOutcome<'ws, 'meta, M: RefMetadata> {
+pub struct MoveChangesOutcome<'meta, M: RefMetadata> {
     /// The successful rebase result
-    pub rebase: SuccessfulRebase<'ws, 'meta, M>,
-    /// Selector pointing to the source commit (with changes removed)
-    pub source_selector: Selector,
-    /// Selector pointing to the destination commit (with changes added)
-    pub destination_selector: Selector,
+    pub rebase: RebasedEditor<'meta, M>,
+    /// CommitIndex pointing to the source commit (with changes removed)
+    pub source: CommitIndex,
+    /// CommitIndex pointing to the destination commit (with changes added)
+    pub destination: CommitIndex,
 }
 
 /// Move changes from one commit to another.
@@ -35,28 +35,29 @@ pub struct MoveChangesOutcome<'ws, 'meta, M: RefMetadata> {
 ///
 /// ## Returns
 ///
-/// Returns the rebase outcome along with selectors pointing to both the
+/// Returns the rebase outcome along with entries pointing to both the
 /// modified source and destination commits. The caller should call
-/// `outcome.rebase.materialize(Default::default())` to persist the changes.
-pub fn move_changes_between_commits<'ws, 'meta, M: RefMetadata>(
-    mut editor: Editor<'ws, 'meta, M>,
-    source_commit: impl ToCommitSelector,
-    destination_commit: impl ToCommitSelector,
+/// `outcome.rebase.materialize()` to persist the changes.
+pub fn move_changes_between_commits<'meta, M: RefMetadata>(
+    mut editor: Editor<'meta, M>,
+    source_commit: CommitIndex,
+    destination_commit: CommitIndex,
     changes_to_move: impl IntoIterator<Item = DiffSpec>,
     context_lines: u32,
-) -> Result<MoveChangesOutcome<'ws, 'meta, M>> {
-    let (source_selector, source_commit) = editor.find_selectable_commit(source_commit)?;
-    let (destination_selector, destination_commit) =
-        editor.find_selectable_commit(destination_commit)?;
+) -> Result<MoveChangesOutcome<'meta, M>> {
+    let source = source_commit;
+    let source_commit = editor.commit_of(source)?;
+    let (destination, destination_commit) =
+        (destination_commit, editor.commit_of(destination_commit)?);
 
     // Early return if source and destination are the same
     if source_commit.id == destination_commit.id {
-        // Select the commit to get a valid selector, then just rebase (no-op)
+        // Select the commit to get a valid entry, then just rebase (no-op)
         let outcome = editor.rebase()?;
         return Ok(MoveChangesOutcome {
             rebase: outcome,
-            source_selector,
-            destination_selector,
+            source,
+            destination,
         });
     }
 
@@ -88,11 +89,11 @@ pub fn move_changes_between_commits<'ws, 'meta, M: RefMetadata>(
         editor.new_commit(new_source_commit, DateMode::CommitterUpdateAuthorKeep)?
     };
 
-    editor.replace(source_selector, Step::new_pick(new_source_commit_id))?;
+    editor.replace_commit(source, CommitSpec::new(new_source_commit_id))?;
 
     // Rebase and get potentially rebased destination commit
     let mut editor = editor.rebase()?.into_editor();
-    let (_, rebased_destination_commit) = editor.find_selectable_commit(destination_selector)?;
+    let rebased_destination_commit = editor.commit_of(destination)?;
     let destination_tree_id = {
         let rebased_destination_commit = rebased_destination_commit.clone().attach(editor.repo());
         if rebased_destination_commit.is_conflicted() {
@@ -125,16 +126,13 @@ pub fn move_changes_between_commits<'ws, 'meta, M: RefMetadata>(
         editor.new_commit(commit, DateMode::CommitterUpdateAuthorKeep)?
     };
 
-    editor.replace(
-        destination_selector,
-        Step::new_pick(new_destination_commit_id),
-    )?;
+    editor.replace_commit(destination, CommitSpec::new(new_destination_commit_id))?;
 
     let outcome = editor.rebase()?;
 
     Ok(MoveChangesOutcome {
         rebase: outcome,
-        source_selector,
-        destination_selector,
+        source,
+        destination,
     })
 }

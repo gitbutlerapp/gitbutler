@@ -2,10 +2,7 @@ use crate::WorkspaceState;
 use but_api_macros::but_api;
 use but_core::{DryRun, sync::RepoExclusive};
 use but_oplog::legacy::{OperationKind, SnapshotDetails};
-use but_rebase::graph_rebase::{
-    Editor, LookupStep as _,
-    mutate::{InsertSide, RelativeTo},
-};
+use but_rebase::graph_rebase::{Editor, anchor::Anchor, mutate::InsertSide};
 use tracing::instrument;
 
 use super::types::CommitInsertBlankResult;
@@ -19,7 +16,7 @@ use super::types::CommitInsertBlankResult;
 #[instrument(err(Debug))]
 pub fn commit_insert_blank_only(
     ctx: &mut but_ctx::Context,
-    #[but_api(crate::commit::json::RelativeTo)] relative_to: RelativeTo,
+    #[but_api(crate::commit::json::RelativeTo)] relative_to: Anchor,
     side: InsertSide,
     dry_run: DryRun,
 ) -> anyhow::Result<CommitInsertBlankResult> {
@@ -34,19 +31,20 @@ pub fn commit_insert_blank_only(
 /// commit without materializing the rebase.
 pub(crate) fn commit_insert_blank_only_impl(
     ctx: &mut but_ctx::Context,
-    relative_to: RelativeTo,
+    relative_to: Anchor,
     side: InsertSide,
     dry_run: DryRun,
     perm: &mut RepoExclusive,
 ) -> anyhow::Result<CommitInsertBlankResult> {
     let mut meta = ctx.meta()?;
     let (repo, mut ws, mut db) = ctx.workspace_mut_and_db_mut_with_perm(perm)?;
-    let editor = Editor::create(&mut ws, &mut meta, &repo, &mut db)?;
+    let editor = Editor::for_workspace(&ws, &mut meta, &repo)?;
 
-    let (rebase, blank_commit_selector) =
-        but_workspace::commit::insert_blank_commit(editor, side, relative_to)?;
-    let new_commit = rebase.lookup_pick(blank_commit_selector)?;
-    let workspace = WorkspaceState::from_successful_rebase(rebase, &repo, dry_run)?;
+    let (rebase, blank_commit_handle) =
+        but_workspace::commit::insert_blank_commit(editor, relative_to, side)?;
+    let new_commit = rebase.id_of(blank_commit_handle)?;
+    let workspace =
+        WorkspaceState::from_successful_rebase_with_db(&mut ws, rebase, &repo, dry_run, &mut db)?;
 
     Ok(CommitInsertBlankResult {
         new_commit,
@@ -64,7 +62,7 @@ pub(crate) fn commit_insert_blank_only_impl(
 #[instrument(err(Debug))]
 pub fn commit_insert_blank(
     ctx: &mut but_ctx::Context,
-    #[but_api(crate::commit::json::RelativeTo)] relative_to: RelativeTo,
+    #[but_api(crate::commit::json::RelativeTo)] relative_to: Anchor,
     side: InsertSide,
     dry_run: DryRun,
 ) -> anyhow::Result<CommitInsertBlankResult> {
@@ -83,7 +81,7 @@ pub fn commit_insert_blank(
 /// [`but_workspace::commit::insert_blank_commit()`].
 pub fn commit_insert_blank_with_perm(
     ctx: &mut but_ctx::Context,
-    relative_to: RelativeTo,
+    relative_to: Anchor,
     side: InsertSide,
     dry_run: DryRun,
     perm: &mut RepoExclusive,

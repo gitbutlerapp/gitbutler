@@ -1,20 +1,20 @@
-//! These tests cover the signing behavior on the Step::Pick.
+//! These tests cover the signing behavior on the commit spec.
 
 use anyhow::Result;
 use but_core::commit::SignCommit;
-use but_graph::Graph;
-use but_rebase::graph_rebase::{Editor, GraphEditorOptions, Pick, Step, cherry_pick::PickMode};
-use but_testsupport::{cat_commit, graph_tree, visualize_commit_graph_all};
+use but_graph::Workspace;
+use but_rebase::graph_rebase::{CommitSpec, Editor, EditorStoreOptions, cherry_pick::PickMode};
+use but_testsupport::{cat_commit, graph_dag, visualize_commit_graph_all};
 
 use crate::utils::{fixture_writable_with_signing, standard_options};
 
 #[test]
 fn commits_maintain_state_if_not_cherry_picked() -> Result<()> {
-    let (repo, _tmpdir, mut meta, mut db) = fixture_writable_with_signing("four-commits-signed")?;
+    let (repo, _tmpdir, mut meta) = fixture_writable_with_signing("four-commits-signed")?;
 
     let before = visualize_commit_graph_all(&repo)?;
     snapbox::assert_data_eq!(
-        &before,
+        before.as_str(),
         snapbox::str![[r#"
 * dd72792 (HEAD -> main, c) c
 * e5aa7b5 (b) b
@@ -24,43 +24,38 @@ fn commits_maintain_state_if_not_cherry_picked() -> Result<()> {
 "#]]
     );
 
-    let graph = Graph::from_head(
+    let mut ws = Workspace::from_head(
         &repo,
         &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
-        &mut db,
+        &mut but_testsupport::in_memory_db(),
         standard_options(),
     )?
     .validated()?;
-    let mut ws = graph.into_workspace()?;
-    let mut editor = Editor::create(&mut ws, &mut *meta, &repo, &mut db)?;
+    let mut editor = Editor::create(ws.commit_graph(), ws.project_meta(), &mut *meta, &repo)?;
 
     // Modify the "c" commit to no longer be signed
     let c = repo.rev_parse_single("c")?;
     let c_sel = editor.select_commit(c.detach())?;
-    let mut pick = Pick::new_pick(c.detach());
+    let mut pick = CommitSpec::new(c.detach());
     pick.sign_commit = SignCommit::No;
-    editor.replace(c_sel, Step::Pick(pick))?;
+    editor.replace_commit(c_sel, pick)?;
 
     let outcome = editor.rebase()?;
-    let overlayed = graph_tree(&outcome.overlayed_graph()?).to_string();
+    let overlayed =
+        graph_dag(&ws.rederive_with(outcome.repo(), outcome.meta(), outcome.overlay()?)?);
     snapbox::assert_data_eq!(
-        &overlayed,
+        overlayed.as_str(),
         snapbox::str![[r#"
-
-└── 👉►:0[0]:main[🌳]
-    └── ·dd72792 (⌂) ►c
-        └── ►:1[1]:b
-            └── ·e5aa7b5 (⌂)
-                └── ►:2[2]:a
-                    └── ·3bfeb52 (⌂)
-                        └── ►:3[3]:base
-                            └── 🏁·b6e2f57 (⌂)
-
+*  👉·dd72792 (⌂) ►c, ►main[🌳]
+*  ·e5aa7b5 (⌂) ►b
+*  ·3bfeb52 (⌂) ►a
+*  🏁·b6e2f57 (⌂) ►base
 "#]]
     );
-    let outcome = outcome.materialize(Default::default())?;
-    assert_eq!(overlayed, graph_tree(&outcome.workspace.graph).to_string());
+    let (outcome, _) = outcome.materialize()?;
+    ws.refresh_from_commit_graph(outcome, &repo, &*meta, &mut but_testsupport::in_memory_db())?;
+    assert_eq!(overlayed, graph_dag(&ws));
 
     assert_eq!(visualize_commit_graph_all(&repo)?, before);
 
@@ -69,11 +64,11 @@ fn commits_maintain_state_if_not_cherry_picked() -> Result<()> {
 
 #[test]
 fn commits_are_signed_by_default() -> Result<()> {
-    let (repo, _tmpdir, mut meta, mut db) = fixture_writable_with_signing("four-commits-signed")?;
+    let (repo, _tmpdir, mut meta) = fixture_writable_with_signing("four-commits-signed")?;
 
     let before = visualize_commit_graph_all(&repo)?;
     snapbox::assert_data_eq!(
-        &before,
+        before.as_str(),
         snapbox::str![[r#"
 * dd72792 (HEAD -> main, c) c
 * e5aa7b5 (b) b
@@ -83,38 +78,35 @@ fn commits_are_signed_by_default() -> Result<()> {
 "#]]
     );
 
-    let graph = Graph::from_head(
+    let mut ws = Workspace::from_head(
         &repo,
         &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
-        &mut db,
+        &mut but_testsupport::in_memory_db(),
         standard_options(),
     )?
     .validated()?;
-    let mut ws = graph.into_workspace()?;
-    let mut editor = Editor::create(&mut ws, &mut *meta, &repo, &mut db)?;
+    let mut editor = Editor::create(ws.commit_graph(), ws.project_meta(), &mut *meta, &repo)?;
 
     // Remove the "b" commit so "c" gets cherry-picked
     let b = repo.rev_parse_single("b")?;
     let b_sel = editor.select_commit(b.detach())?;
-    editor.replace(b_sel, Step::None)?;
+    editor.drop_commit(b_sel)?;
 
     let outcome = editor.rebase()?;
-    let overlayed = graph_tree(&outcome.overlayed_graph()?).to_string();
+    let overlayed =
+        graph_dag(&ws.rederive_with(outcome.repo(), outcome.meta(), outcome.overlay()?)?);
     snapbox::assert_data_eq!(
-        &overlayed,
+        overlayed.as_str(),
         snapbox::str![[r#"
-
-└── 👉►:0[0]:main[🌳]
-    ├── ·06106c2 (⌂) ►c
-    └── ·3bfeb52 (⌂) ►a, ►b
-        └── ►:1[1]:base
-            └── 🏁·b6e2f57 (⌂)
-
+*  👉·06106c2 (⌂) ►c, ►main[🌳]
+*  ·3bfeb52 (⌂) ►a, ►b
+*  🏁·b6e2f57 (⌂) ►base
 "#]]
     );
-    let outcome = outcome.materialize(Default::default())?;
-    assert_eq!(overlayed, graph_tree(&outcome.workspace.graph).to_string());
+    let (outcome, _) = outcome.materialize()?;
+    ws.refresh_from_commit_graph(outcome, &repo, &*meta, &mut but_testsupport::in_memory_db())?;
+    assert_eq!(overlayed, graph_dag(&ws));
 
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
@@ -160,11 +152,11 @@ c
 
 #[test]
 fn when_cherry_picking_dont_resign_if_not_set() -> Result<()> {
-    let (repo, _tmpdir, mut meta, mut db) = fixture_writable_with_signing("four-commits-signed")?;
+    let (repo, _tmpdir, mut meta) = fixture_writable_with_signing("four-commits-signed")?;
 
     let before = visualize_commit_graph_all(&repo)?;
     snapbox::assert_data_eq!(
-        &before,
+        before.as_str(),
         snapbox::str![[r#"
 * dd72792 (HEAD -> main, c) c
 * e5aa7b5 (b) b
@@ -174,45 +166,42 @@ fn when_cherry_picking_dont_resign_if_not_set() -> Result<()> {
 "#]]
     );
 
-    let graph = Graph::from_head(
+    let mut ws = Workspace::from_head(
         &repo,
         &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
-        &mut db,
+        &mut but_testsupport::in_memory_db(),
         standard_options(),
     )?
     .validated()?;
-    let mut ws = graph.into_workspace()?;
-    let mut editor = Editor::create(&mut ws, &mut *meta, &repo, &mut db)?;
+    let mut editor = Editor::create(ws.commit_graph(), ws.project_meta(), &mut *meta, &repo)?;
 
     // Modify the "c" commit to no longer be signed
     let c = repo.rev_parse_single("c")?;
     let c_sel = editor.select_commit(c.detach())?;
-    let mut pick = Pick::new_pick(c.detach());
+    let mut pick = CommitSpec::new(c.detach());
     pick.sign_commit = SignCommit::No;
-    editor.replace(c_sel, Step::Pick(pick))?;
+    editor.replace_commit(c_sel, pick)?;
 
     // Remove the "b" commit so "c" gets cherry-picked
     let b = repo.rev_parse_single("b")?;
     let b_sel = editor.select_commit(b.detach())?;
-    editor.replace(b_sel, Step::None)?;
+    editor.drop_commit(b_sel)?;
 
     let outcome = editor.rebase()?;
-    let overlayed = graph_tree(&outcome.overlayed_graph()?).to_string();
+    let overlayed =
+        graph_dag(&ws.rederive_with(outcome.repo(), outcome.meta(), outcome.overlay()?)?);
     snapbox::assert_data_eq!(
-        &overlayed,
+        overlayed.as_str(),
         snapbox::str![[r#"
-
-└── 👉►:0[0]:main[🌳]
-    ├── ·a773b84 (⌂) ►c
-    └── ·3bfeb52 (⌂) ►a, ►b
-        └── ►:1[1]:base
-            └── 🏁·b6e2f57 (⌂)
-
+*  👉·a773b84 (⌂) ►c, ►main[🌳]
+*  ·3bfeb52 (⌂) ►a, ►b
+*  🏁·b6e2f57 (⌂) ►base
 "#]]
     );
-    let outcome = outcome.materialize(Default::default())?;
-    assert_eq!(overlayed, graph_tree(&outcome.workspace.graph).to_string());
+    let (outcome, _) = outcome.materialize()?;
+    ws.refresh_from_commit_graph(outcome, &repo, &*meta, &mut but_testsupport::in_memory_db())?;
+    assert_eq!(overlayed, graph_dag(&ws));
 
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
@@ -246,13 +235,13 @@ c
 /// cherry-picked and signed even in absence of other changes, regardless of signing config.
 #[test]
 fn force_picked_commit_with_sign_yes_is_signed_when_otherwise_unchanged() -> Result<()> {
-    let (repo, _tmpdir, mut meta, mut db) = fixture_writable_with_signing(
+    let (repo, _tmpdir, mut meta) = fixture_writable_with_signing(
         "unsigned-commits-with-signing-key-setup-but-signing-disabled",
     )?;
 
     let before = visualize_commit_graph_all(&repo)?;
     snapbox::assert_data_eq!(
-        &before,
+        before.as_str(),
         snapbox::str![[r#"
 * ea8caac (HEAD -> main, top) top
 * 135e6ba (mid) mid
@@ -261,21 +250,20 @@ fn force_picked_commit_with_sign_yes_is_signed_when_otherwise_unchanged() -> Res
 "#]]
     );
 
-    let graph = Graph::from_head(
+    let ws = Workspace::from_head(
         &repo,
         &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
-        &mut db,
+        &mut but_testsupport::in_memory_db(),
         standard_options(),
     )?
     .validated()?;
-    let mut ws = graph.into_workspace()?;
     let mut editor = Editor::create_with_opts(
-        &mut ws,
+        ws.commit_graph(),
+        ws.project_meta(),
         &mut *meta,
         &repo,
-        &mut db,
-        &GraphEditorOptions {
+        &EditorStoreOptions {
             default_sign_commit: SignCommit::No,
             ..<_>::default()
         },
@@ -284,13 +272,14 @@ fn force_picked_commit_with_sign_yes_is_signed_when_otherwise_unchanged() -> Res
     // Force sign the top commit
     let top_commit_id = repo.rev_parse_single("top")?.detach();
     let top_commit_sel = editor.select_commit(top_commit_id)?;
-    let mut pick = Pick::new_pick(top_commit_id);
+    let mut pick = CommitSpec::new(top_commit_id);
     pick.pick_mode = PickMode::Force;
     pick.sign_commit = SignCommit::Yes;
-    editor.replace(top_commit_sel, Step::Pick(pick))?;
+    editor.replace_commit(top_commit_sel, pick)?;
 
     let outcome = editor.rebase()?;
-    let materialize_outcome = outcome.materialize(Default::default())?;
+    let history = outcome.commit_mappings();
+    outcome.materialize()?;
 
     let after = visualize_commit_graph_all(&repo)?;
     snapbox::assert_data_eq!(
@@ -303,7 +292,7 @@ fn force_picked_commit_with_sign_yes_is_signed_when_otherwise_unchanged() -> Res
 "#]]
     );
 
-    let commit_mappings = materialize_outcome.history.commit_mappings();
+    let commit_mappings = history.clone();
     assert_eq!(
         commit_mappings.len(),
         1,
@@ -330,13 +319,13 @@ fn force_picked_commit_with_sign_yes_is_signed_when_otherwise_unchanged() -> Res
 /// on descendants that are picked with [`SignCommit::No`].
 #[test]
 fn force_picked_ancestor_does_not_sign_descendants_picked_with_sign_commit_no() -> Result<()> {
-    let (repo, _tmpdir, mut meta, mut db) = fixture_writable_with_signing(
+    let (repo, _tmpdir, mut meta) = fixture_writable_with_signing(
         "unsigned-commits-with-signing-key-setup-but-signing-disabled",
     )?;
 
     let before = visualize_commit_graph_all(&repo)?;
     snapbox::assert_data_eq!(
-        &before,
+        before.as_str(),
         snapbox::str![[r#"
 * ea8caac (HEAD -> main, top) top
 * 135e6ba (mid) mid
@@ -345,21 +334,20 @@ fn force_picked_ancestor_does_not_sign_descendants_picked_with_sign_commit_no() 
 "#]]
     );
 
-    let graph = Graph::from_head(
+    let ws = Workspace::from_head(
         &repo,
         &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
-        &mut db,
+        &mut but_testsupport::in_memory_db(),
         standard_options(),
     )?
     .validated()?;
-    let mut ws = graph.into_workspace()?;
     let mut editor = Editor::create_with_opts(
-        &mut ws,
+        ws.commit_graph(),
+        ws.project_meta(),
         &mut *meta,
         &repo,
-        &mut db,
-        &GraphEditorOptions {
+        &EditorStoreOptions {
             default_sign_commit: SignCommit::No,
             ..<_>::default()
         },
@@ -371,13 +359,14 @@ fn force_picked_ancestor_does_not_sign_descendants_picked_with_sign_commit_no() 
     // We pick the mid commit with forced signing. This should cause it to be signed, but its
     // descendant top commit should _not_ get signed as it was picked with SignCommit::No
     let mid_sel = editor.select_commit(mid_commit_id)?;
-    let mut pick = Pick::new_pick(mid_commit_id);
+    let mut pick = CommitSpec::new(mid_commit_id);
     pick.pick_mode = PickMode::Force;
     pick.sign_commit = SignCommit::Yes;
-    editor.replace(mid_sel, Step::Pick(pick))?;
+    editor.replace_commit(mid_sel, pick)?;
 
     let outcome = editor.rebase()?;
-    let materialize_outcome = outcome.materialize(Default::default())?;
+    let history = outcome.commit_mappings();
+    outcome.materialize()?;
 
     let after = visualize_commit_graph_all(&repo)?;
     snapbox::assert_data_eq!(
@@ -390,7 +379,7 @@ fn force_picked_ancestor_does_not_sign_descendants_picked_with_sign_commit_no() 
 "#]]
     );
 
-    let commit_mappings = materialize_outcome.history.commit_mappings();
+    let commit_mappings = history.clone();
     assert_eq!(
         commit_mappings.len(),
         2,
@@ -433,13 +422,13 @@ fn force_picked_ancestor_does_not_sign_descendants_picked_with_sign_commit_no() 
 #[test]
 fn force_picked_ancestor_triggers_cascading_signatures_on_descendants_picked_with_sign_commit_yes()
 -> Result<()> {
-    let (repo, _tmpdir, mut meta, mut db) = fixture_writable_with_signing(
+    let (repo, _tmpdir, mut meta) = fixture_writable_with_signing(
         "unsigned-commits-with-signing-key-setup-but-signing-disabled",
     )?;
 
     let before = visualize_commit_graph_all(&repo)?;
     snapbox::assert_data_eq!(
-        &before,
+        before.as_str(),
         snapbox::str![[r#"
 * ea8caac (HEAD -> main, top) top
 * 135e6ba (mid) mid
@@ -448,21 +437,20 @@ fn force_picked_ancestor_triggers_cascading_signatures_on_descendants_picked_wit
 "#]]
     );
 
-    let graph = Graph::from_head(
+    let ws = Workspace::from_head(
         &repo,
         &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
-        &mut db,
+        &mut but_testsupport::in_memory_db(),
         standard_options(),
     )?
     .validated()?;
-    let mut ws = graph.into_workspace()?;
     let mut editor = Editor::create_with_opts(
-        &mut ws,
+        ws.commit_graph(),
+        ws.project_meta(),
         &mut *meta,
         &repo,
-        &mut db,
-        &GraphEditorOptions {
+        &EditorStoreOptions {
             default_sign_commit: SignCommit::Yes,
             ..<_>::default()
         },
@@ -474,13 +462,14 @@ fn force_picked_ancestor_triggers_cascading_signatures_on_descendants_picked_wit
     // We pick the mid commit with force. This should cause it to be signed, and its descendant
     // top commit should get signed through the cascading rewrites.
     let mid_sel = editor.select_commit(mid_commit_id)?;
-    let mut pick = Pick::new_pick(mid_commit_id);
+    let mut pick = CommitSpec::new(mid_commit_id);
     pick.pick_mode = PickMode::Force;
     pick.sign_commit = SignCommit::Yes;
-    editor.replace(mid_sel, Step::Pick(pick))?;
+    editor.replace_commit(mid_sel, pick)?;
 
     let outcome = editor.rebase()?;
-    let materialize_outcome = outcome.materialize(Default::default())?;
+    let history = outcome.commit_mappings();
+    outcome.materialize()?;
 
     let after = visualize_commit_graph_all(&repo)?;
     snapbox::assert_data_eq!(
@@ -493,7 +482,7 @@ fn force_picked_ancestor_triggers_cascading_signatures_on_descendants_picked_wit
 "#]]
     );
 
-    let commit_mappings = materialize_outcome.history.commit_mappings();
+    let commit_mappings = history.clone();
     assert_eq!(
         commit_mappings.len(),
         2,
@@ -533,13 +522,13 @@ fn force_picked_ancestor_triggers_cascading_signatures_on_descendants_picked_wit
 #[test]
 fn commit_picked_with_sign_if_enabled_is_not_signed_when_signing_config_is_disabled() -> Result<()>
 {
-    let (repo, _tmpdir, mut meta, mut db) = fixture_writable_with_signing(
+    let (repo, _tmpdir, mut meta) = fixture_writable_with_signing(
         "unsigned-commits-with-signing-key-setup-but-signing-disabled",
     )?;
 
     let before = visualize_commit_graph_all(&repo)?;
     snapbox::assert_data_eq!(
-        &before,
+        before.as_str(),
         snapbox::str![[r#"
 * ea8caac (HEAD -> main, top) top
 * 135e6ba (mid) mid
@@ -548,21 +537,21 @@ fn commit_picked_with_sign_if_enabled_is_not_signed_when_signing_config_is_disab
 "#]]
     );
 
-    let graph = Graph::from_head(
+    let ws = Workspace::from_head(
         &repo,
         &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
-        &mut db,
+        &mut but_testsupport::in_memory_db(),
         standard_options(),
     )?
     .validated()?;
-    let mut ws = graph.into_workspace()?;
+
     let mut editor = Editor::create_with_opts(
-        &mut ws,
+        ws.commit_graph(),
+        ws.project_meta(),
         &mut *meta,
         &repo,
-        &mut db,
-        &GraphEditorOptions {
+        &EditorStoreOptions {
             default_sign_commit: SignCommit::IfSignCommitsEnabled,
             ..<_>::default()
         },
@@ -574,10 +563,11 @@ fn commit_picked_with_sign_if_enabled_is_not_signed_when_signing_config_is_disab
     // Delete the mid commit so the top commit gets picked. The top commit should _NOT_ get signed
     // as signing config is not enabled, and there is a sign guard in place on the pick.
     let mid_sel = editor.select_commit(mid_commit_id)?;
-    editor.replace(mid_sel, Step::None)?;
+    editor.drop_commit(mid_sel)?;
 
     let outcome = editor.rebase()?;
-    let materialize_outcome = outcome.materialize(Default::default())?;
+    let history = outcome.commit_mappings();
+    outcome.materialize()?;
 
     let after = visualize_commit_graph_all(&repo)?;
     snapbox::assert_data_eq!(
@@ -589,7 +579,7 @@ fn commit_picked_with_sign_if_enabled_is_not_signed_when_signing_config_is_disab
 "#]]
     );
 
-    let commit_mappings = materialize_outcome.history.commit_mappings();
+    let commit_mappings = history.clone();
     assert_eq!(
         commit_mappings.len(),
         1,
@@ -616,13 +606,13 @@ fn commit_picked_with_sign_if_enabled_is_not_signed_when_signing_config_is_disab
 /// picked with [`PickMode::Force`] and [`SignCommit::Yes`].
 #[test]
 fn parentless_commit_force_picked_with_sign_yes_is_signed() -> Result<()> {
-    let (repo, _tmpdir, mut meta, mut db) = fixture_writable_with_signing(
+    let (repo, _tmpdir, mut meta) = fixture_writable_with_signing(
         "unsigned-commits-with-signing-key-setup-but-signing-disabled",
     )?;
 
     let before = visualize_commit_graph_all(&repo)?;
     snapbox::assert_data_eq!(
-        &before,
+        before.as_str(),
         snapbox::str![[r#"
 * ea8caac (HEAD -> main, top) top
 * 135e6ba (mid) mid
@@ -631,21 +621,21 @@ fn parentless_commit_force_picked_with_sign_yes_is_signed() -> Result<()> {
 "#]]
     );
 
-    let graph = Graph::from_head(
+    let ws = Workspace::from_head(
         &repo,
         &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
-        &mut db,
+        &mut but_testsupport::in_memory_db(),
         standard_options(),
     )?
     .validated()?;
-    let mut ws = graph.into_workspace()?;
+
     let mut editor = Editor::create_with_opts(
-        &mut ws,
+        ws.commit_graph(),
+        ws.project_meta(),
         &mut *meta,
         &repo,
-        &mut db,
-        &GraphEditorOptions {
+        &EditorStoreOptions {
             default_sign_commit: SignCommit::IfSignCommitsEnabled,
             ..<_>::default()
         },
@@ -655,15 +645,16 @@ fn parentless_commit_force_picked_with_sign_yes_is_signed() -> Result<()> {
 
     // We pick the base commit with force, which should cause it to get signed.
     let base_sel = editor.select_commit(base_commit_id)?;
-    let mut pick = Pick::new_pick(base_commit_id);
+    let mut pick = CommitSpec::new(base_commit_id);
     pick.pick_mode = PickMode::Force;
     pick.sign_commit = SignCommit::Yes;
-    editor.replace(base_sel, Step::Pick(pick))?;
+    editor.replace_commit(base_sel, pick)?;
 
     let outcome = editor.rebase()?;
-    let materialize_outcome = outcome.materialize(Default::default())?;
+    let history = outcome.commit_mappings();
+    outcome.materialize()?;
 
-    let commit_mappings = materialize_outcome.history.commit_mappings();
+    let commit_mappings = history.clone();
     let new_base_commit_id = commit_mappings
         .get(&base_commit_id)
         .expect("the base commit should be in the commit mappings");

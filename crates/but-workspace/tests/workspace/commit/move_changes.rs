@@ -22,7 +22,7 @@ fn visualize_tree(id: gix::Id<'_>) -> String {
 
 #[test]
 fn move_changes_same_commit_is_noop() -> Result<()> {
-    let (_tmp, graph, repo, mut _meta, _description, mut db) =
+    let (_tmp, ws, repo, mut _meta, _description) =
         writable_scenario("reword-three-commits", |_| {})?;
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
@@ -35,15 +35,17 @@ fn move_changes_same_commit_is_noop() -> Result<()> {
     );
 
     let commit_id = repo.rev_parse_single("three")?.detach();
-    let mut ws = graph.into_workspace()?;
-    let editor = Editor::create(&mut ws, &mut _meta, &repo, &mut db)?;
+    let editor = Editor::create(ws.commit_graph(), ws.project_meta(), &mut _meta, &repo)?;
 
     // Moving changes from a commit to itself should be a no-op
-    let outcome =
-        move_changes_between_commits(editor, commit_id, commit_id, Vec::<DiffSpec>::new(), 0)?;
+    let outcome = {
+        let subject = editor.select_commit(commit_id)?;
+        let destination = editor.select_commit(commit_id)?;
+        move_changes_between_commits(editor, subject, destination, Vec::<DiffSpec>::new(), 0)?
+    };
 
     // Materialize should succeed
-    outcome.rebase.materialize(Default::default())?;
+    outcome.rebase.materialize()?;
 
     // Graph should be unchanged
     snapbox::assert_data_eq!(
@@ -61,7 +63,7 @@ fn move_changes_same_commit_is_noop() -> Result<()> {
 
 #[test]
 fn move_file_from_head_to_parent() -> Result<()> {
-    let (_tmp, graph, repo, mut _meta, _description, mut db) =
+    let (_tmp, ws, repo, mut _meta, _description) =
         writable_scenario("reword-three-commits", |_| {})?;
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
@@ -103,19 +105,21 @@ aac5238
     );
 
     // Move three.txt from commit three to commit two
-    let mut ws = graph.into_workspace()?;
-    let editor = Editor::create(&mut ws, &mut _meta, &repo, &mut db)?;
+    let editor = Editor::create(ws.commit_graph(), ws.project_meta(), &mut _meta, &repo)?;
+    let subject = editor.select_commit(three_id)?;
+    let destination = editor.select_commit(two_id)?;
     let outcome = move_changes_between_commits(
         editor,
-        three_id,
-        two_id,
+        subject,
+        destination,
         vec![diff_spec_for_file("three.txt")],
         0,
     )?;
 
-    let materialized = outcome.rebase.materialize(Default::default())?;
+    let commit_mappings = outcome.rebase.commit_mappings();
+    outcome.rebase.materialize()?;
     snapbox::assert_data_eq!(
-        materialized.history.commit_mappings().to_debug(),
+        commit_mappings.to_debug(),
         snapbox::str![[r#"
 {
     Sha1(16fd22163adbb1118551777970db5fb4b59f6b9d): Sha1(198bf421399ca45dfc033777ed30ea2241c55ff4),
@@ -175,7 +179,7 @@ e0495e9
 
 #[test]
 fn move_file_from_parent_to_head() -> Result<()> {
-    let (_tmp, graph, repo, mut _meta, _description, mut db) =
+    let (_tmp, ws, repo, mut _meta, _description) =
         writable_scenario("reword-three-commits", |_| {})?;
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
@@ -191,19 +195,21 @@ fn move_file_from_parent_to_head() -> Result<()> {
     let two_id = repo.rev_parse_single("two")?.detach();
 
     // Move two.txt from commit two up to commit three
-    let mut ws = graph.into_workspace()?;
-    let editor = Editor::create(&mut ws, &mut _meta, &repo, &mut db)?;
+    let editor = Editor::create(ws.commit_graph(), ws.project_meta(), &mut _meta, &repo)?;
+    let subject = editor.select_commit(two_id)?;
+    let destination = editor.select_commit(three_id)?;
     let outcome = move_changes_between_commits(
         editor,
-        two_id,
-        three_id,
+        subject,
+        destination,
         vec![diff_spec_for_file("two.txt")],
         0,
     )?;
 
-    let materialized = outcome.rebase.materialize(Default::default())?;
+    let commit_mappings = outcome.rebase.commit_mappings();
+    outcome.rebase.materialize()?;
     snapbox::assert_data_eq!(
-        materialized.history.commit_mappings().to_debug(),
+        commit_mappings.to_debug(),
         snapbox::str![[r#"
 {
     Sha1(16fd22163adbb1118551777970db5fb4b59f6b9d): Sha1(ebc7217ab9e33830c4f09601dfda826eb2e9fed0),
@@ -261,7 +267,7 @@ e0495e9
 
 #[test]
 fn move_file_between_non_adjacent_commits() -> Result<()> {
-    let (_tmp, graph, repo, mut _meta, _description, mut db) =
+    let (_tmp, ws, repo, mut _meta, _description) =
         writable_scenario("reword-three-commits", |_| {})?;
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
@@ -277,19 +283,21 @@ fn move_file_between_non_adjacent_commits() -> Result<()> {
     let one_id = repo.rev_parse_single("one")?.detach();
 
     // Move three.txt from commit three to commit one (skipping two)
-    let mut ws = graph.into_workspace()?;
-    let editor = Editor::create(&mut ws, &mut _meta, &repo, &mut db)?;
+    let editor = Editor::create(ws.commit_graph(), ws.project_meta(), &mut _meta, &repo)?;
+    let subject = editor.select_commit(three_id)?;
+    let destination = editor.select_commit(one_id)?;
     let outcome = move_changes_between_commits(
         editor,
-        three_id,
-        one_id,
+        subject,
+        destination,
         vec![diff_spec_for_file("three.txt")],
         0,
     )?;
 
-    let materialized = outcome.rebase.materialize(Default::default())?;
+    let commit_mappings = outcome.rebase.commit_mappings();
+    outcome.rebase.materialize()?;
     snapbox::assert_data_eq!(
-        materialized.history.commit_mappings().to_debug(),
+        commit_mappings.to_debug(),
         snapbox::str![[r#"
 {
     Sha1(16fd22163adbb1118551777970db5fb4b59f6b9d): Sha1(d5ac8ac48b1eb997e273a131a88d57e4b8ae970d),
@@ -364,19 +372,20 @@ e0495e9
 
 #[test]
 fn error_when_changes_not_found_in_source() -> Result<()> {
-    let (_tmp, graph, repo, mut _meta, _description, mut db) =
+    let (_tmp, ws, repo, mut _meta, _description) =
         writable_scenario("reword-three-commits", |_| {})?;
 
     let three_id = repo.rev_parse_single("three")?.detach();
     let two_id = repo.rev_parse_single("two")?.detach();
 
     // Try to move a file that doesn't exist in source commit
-    let mut ws = graph.into_workspace()?;
-    let editor = Editor::create(&mut ws, &mut _meta, &repo, &mut db)?;
+    let editor = Editor::create(ws.commit_graph(), ws.project_meta(), &mut _meta, &repo)?;
+    let subject = editor.select_commit(three_id)?;
+    let destination = editor.select_commit(two_id)?;
     let result = move_changes_between_commits(
         editor,
-        three_id,
-        two_id,
+        subject,
+        destination,
         vec![diff_spec_for_file("nonexistent.txt")],
         0,
     );

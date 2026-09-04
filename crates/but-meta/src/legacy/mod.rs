@@ -2,7 +2,7 @@ use std::{
     any::Any,
     cell::RefCell,
     cmp::Ordering,
-    collections::{BTreeMap, HashSet, btree_map},
+    collections::{BTreeSet, HashSet},
     ops::{Deref, DerefMut},
     path::{Path, PathBuf},
     time::Instant,
@@ -132,21 +132,22 @@ impl Snapshot {
         let mut changed = false;
         let mut empty_stacks_to_remove = Vec::new();
         let null_id = gix::hash::Kind::Sha1.null();
-        let projected_segment_ids = projected_workspace
-            .filter(|workspace| workspace.kind.has_managed_commit())
+        let projected_refnames = projected_workspace
+            .filter(|workspace| workspace.kind().has_managed_commit())
             .map(|workspace| {
                 workspace
-                    .stacks
+                    .display_stacks()
+                    .unwrap_or_default()
                     .iter()
                     .flat_map(|stack| stack.segments.iter())
                     .filter_map(|segment| {
                         segment
                             .ref_name()
-                            .map(|ref_name| (ref_name.shorten().to_string(), segment.id))
+                            .map(|ref_name| ref_name.shorten().to_string())
                     })
-                    .collect::<BTreeMap<_, _>>()
+                    .collect::<BTreeSet<_>>()
             });
-        let mut seen_refnames = BTreeMap::<String, Option<but_graph::SegmentIndex>>::new();
+        let mut seen_refnames = BTreeSet::<String>::new();
         for (stack_id, stack) in self
             .content
             .branches
@@ -181,23 +182,15 @@ impl Snapshot {
                     if !seen_in_this_stack.insert(head.name.clone()) {
                         return Some(head_idx);
                     }
-                    let projected_segment_id = projected_segment_ids
-                        .as_ref()
-                        .and_then(|ids| ids.get(&head.name).copied());
-                    match seen_refnames.entry(head.name.clone()) {
-                        btree_map::Entry::Vacant(entry) => {
-                            entry.insert(projected_segment_id);
-                            None
-                        }
-                        btree_map::Entry::Occupied(entry) => {
-                            let preserve_duplicate = entry
-                                .get()
-                                .as_ref()
-                                .zip(projected_segment_id)
-                                .is_some_and(|(seen, current)| *seen == current);
-                            (!preserve_duplicate).then_some(head_idx)
-                        }
+                    if seen_refnames.insert(head.name.clone()) {
+                        return None;
                     }
+                    // A repeated head name survives only when the projection still shows
+                    // a segment of that name — the same one every duplicate resolves to.
+                    let preserve_duplicate = projected_refnames
+                        .as_ref()
+                        .is_some_and(|names| names.contains(&head.name));
+                    (!preserve_duplicate).then_some(head_idx)
                 })
                 .collect();
             for head_idx in head_indices_to_remove.into_iter().rev() {
@@ -243,18 +236,16 @@ impl Snapshot {
             },
             write_on_drop: false,
         });
-        let project_meta = ProjectMeta::resolve(repo)?;
-        let graph = but_graph::Graph::from_commit_traversal(
+        but_graph::Workspace::from_tip(
             commit_id,
             reference.name().to_owned(),
             &*sideeffect_free_meta,
-            project_meta,
+            ProjectMeta::resolve(repo)?,
             // A throwaway handle: this side-effect free view must not touch the
             // project database, and worktree discovery stays off.
             &mut but_db::DbHandle::new_at_path(":memory:")?,
-            but_graph::init::Options::limited(),
-        )?;
-        graph.into_workspace()
+            but_graph::walk::Options::limited(),
+        )
     }
 }
 
@@ -1007,6 +998,7 @@ impl VirtualBranchesTomlMetadata {
                                 WorkspaceStackBranch {
                                     ref_name,
                                     archived: sb.archived,
+                                    parents: None,
                                 }
                             })
                         })

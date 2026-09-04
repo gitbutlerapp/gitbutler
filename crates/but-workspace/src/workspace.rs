@@ -4,9 +4,7 @@ use std::collections::{HashMap, HashSet};
 
 use anyhow::Result;
 use but_core::RefMetadata;
-use but_rebase::graph_rebase::{
-    Editor, LookupStep, Pick, Selector, Step, workspace::ReferenceStatus,
-};
+use but_rebase::graph_rebase::{Editor, EditorIndex, workspace::ReferenceStatus};
 use gix::prelude::ObjectIdExt;
 use renderdag::{Ancestor, GraphRowRenderer, LinkLine, NodeLine, PadLine, Renderer};
 
@@ -87,15 +85,29 @@ pub struct DetailedGraphWorkspace {
     pub stacks: Vec<Stack>,
 }
 
+/// Preview the workspace as it will look after `rebase` materializes, without materializing:
+/// project the rebase's already-mutated commit graph directly, serving its pending ref edits
+/// and entrypoint from the overlay — no repository rewalk.
+pub fn overlayed_workspace<M: RefMetadata>(
+    substrate: &but_graph::Workspace,
+    rebase: &but_rebase::graph_rebase::RebasedEditor<'_, M>,
+) -> Result<but_graph::Workspace> {
+    substrate.preview_from_commit_graph(
+        rebase.commit_graph().clone(),
+        rebase.repo(),
+        rebase.meta(),
+        rebase.overlay()?,
+    )
+}
+
 /// A detailed graph workspace
 pub fn detailed_graph_workspace<M: RefMetadata>(
-    workspace: &mut but_graph::Workspace,
+    workspace: &but_graph::Workspace,
     meta: &mut M,
     repo: &gix::Repository,
-    db: &mut but_db::DbHandle,
 ) -> Result<DetailedGraphWorkspace> {
-    let editor = Editor::create(workspace, meta, repo, db)?;
-    let ws = editor.graph_workspace()?;
+    let editor = Editor::for_workspace(workspace, meta, repo)?;
+    let ws = editor.graph_workspace(&workspace.stacks)?;
 
     Ok(DetailedGraphWorkspace {
         stacks: ws
@@ -107,28 +119,28 @@ pub fn detailed_graph_workspace<M: RefMetadata>(
 }
 
 fn stack_rows<M: RefMetadata>(
-    editor: &Editor<'_, '_, M>,
+    editor: &Editor<'_, M>,
     stack: &but_rebase::graph_rebase::Subgraph,
-    reference_status: &HashMap<Selector, ReferenceStatus>,
-    commit_state: &HashMap<Selector, CommitState>,
+    reference_status: &HashMap<EditorIndex, ReferenceStatus>,
+    commit_state: &HashMap<EditorIndex, CommitState>,
 ) -> Result<Stack> {
     let mut visible_nodes = HashSet::new();
-    for selector in &stack.nodes {
-        if is_visible_step(editor, *selector)? {
-            visible_nodes.insert(*selector);
+    for entry in &stack.entries {
+        if is_visible_step(editor, *entry)? {
+            visible_nodes.insert(*entry);
         }
     }
     let parents_by_node = visible_nodes
         .iter()
         .copied()
-        .map(|node| Ok((node, visible_parents(editor, &stack.nodes, node)?)))
+        .map(|node| Ok((node, visible_parents(editor, &stack.entries, node)?)))
         .collect::<Result<HashMap<_, _>>>()?;
 
     // Seed the traversal from the stack's visible tips (nodes no visible child
     // points at), ordered deterministically: commits before references, then by
     // id / refname. This keeps the render order stable without leaning on graph
     // internals or hash iteration order.
-    let has_visible_child: HashSet<Selector> =
+    let has_visible_child: HashSet<EditorIndex> =
         parents_by_node.values().flatten().copied().collect();
     let mut tips = vec![];
     for &node in &visible_nodes {
@@ -137,10 +149,10 @@ fn stack_rows<M: RefMetadata>(
         }
     }
     tips.sort_by(|(a, _), (b, _)| a.cmp(b));
-    let seeds: Vec<Selector> = tips.into_iter().map(|(_, node)| node).collect();
+    let seeds: Vec<EditorIndex> = tips.into_iter().map(|(_, node)| node).collect();
 
-    let mut renderer = GraphRowRenderer::<Selector>::new();
-    let mut rows: Vec<(Selector, GraphRow)> = vec![];
+    let mut renderer = GraphRowRenderer::<EditorIndex>::new();
+    let mut rows: Vec<(EditorIndex, GraphRow)> = vec![];
     for node in topological_order(&visible_nodes, &parents_by_node, &seeds) {
         let parents = parents_by_node
             .get(&node)
@@ -162,45 +174,46 @@ fn stack_rows<M: RefMetadata>(
         ));
     }
 
-    let row_idxs_by_selector = rows
+    let row_idxs_by_entry = rows
         .iter()
         .enumerate()
-        .map(|(idx, (selector, _))| (*selector, idx))
+        .map(|(idx, (entry, _))| (*entry, idx))
         .collect::<HashMap<_, _>>();
     let children_by_node = children_by_node(&parents_by_node);
 
     Ok(Stack {
         linear_segments: linear_segments(&rows, &parents_by_node, &children_by_node),
-        reference_segments: reference_segments(&rows, &parents_by_node, &row_idxs_by_selector),
+        reference_segments: reference_segments(&rows, &parents_by_node, &row_idxs_by_entry),
         rows: rows.into_iter().map(|(_, row)| row).collect(),
     })
 }
 
-fn is_visible_step<M: RefMetadata>(editor: &Editor<'_, '_, M>, selector: Selector) -> Result<bool> {
-    Ok(match editor.lookup_step(selector)? {
-        Step::Pick(_) => true,
-        Step::Reference { refname, .. } => {
-            refname.category() == Some(gix::refs::Category::LocalBranch)
+fn is_visible_step<M: RefMetadata>(editor: &Editor<'_, M>, entry: EditorIndex) -> Result<bool> {
+    if editor.is_removed(entry) {
+        return Ok(false);
+    }
+    Ok(match entry {
+        EditorIndex::Commit(_) => true,
+        EditorIndex::Ref(reference) => {
+            editor.name_of(reference)?.category() == Some(gix::refs::Category::LocalBranch)
         }
-        Step::None => false,
     })
 }
 
 fn visible_parents<M: RefMetadata>(
-    editor: &Editor<'_, '_, M>,
-    stack_nodes: &HashSet<Selector>,
-    selector: Selector,
-) -> Result<Vec<Selector>> {
+    editor: &Editor<'_, M>,
+    stack_nodes: &HashSet<EditorIndex>,
+    entry: EditorIndex,
+) -> Result<Vec<EditorIndex>> {
     fn walk<M: RefMetadata>(
-        editor: &Editor<'_, '_, M>,
-        stack_nodes: &HashSet<Selector>,
-        selector: Selector,
-        seen: &mut HashSet<Selector>,
-        out: &mut Vec<Selector>,
+        editor: &Editor<'_, M>,
+        stack_nodes: &HashSet<EditorIndex>,
+        entry: EditorIndex,
+        seen: &mut HashSet<EditorIndex>,
+        out: &mut Vec<EditorIndex>,
     ) -> Result<()> {
-        let mut parents = editor.direct_parents(selector)?;
-        parents.sort_by_key(|(_, order)| *order);
-        for (parent, _) in parents {
+        let parents = editor.position_parents(entry)?;
+        for parent in parents {
             if !stack_nodes.contains(&parent) || !seen.insert(parent) {
                 continue;
             }
@@ -214,20 +227,19 @@ fn visible_parents<M: RefMetadata>(
     }
 
     let mut out = vec![];
-    walk(editor, stack_nodes, selector, &mut HashSet::new(), &mut out)?;
+    walk(editor, stack_nodes, entry, &mut HashSet::new(), &mut out)?;
     Ok(out)
 }
 
 /// Deterministic ordering key for seed tips: commits before references, then by
 /// id / refname. Mirrors `graph_rebase::testing::compare_heads`.
-fn seed_key<M: RefMetadata>(
-    editor: &Editor<'_, '_, M>,
-    selector: Selector,
-) -> Result<(u8, String)> {
-    Ok(match editor.lookup_step(selector)? {
-        Step::Pick(Pick { id, .. }) => (0, id.to_string()),
-        Step::Reference { refname, .. } => (1, refname.as_bstr().to_string()),
-        Step::None => (2, String::new()),
+fn seed_key<M: RefMetadata>(editor: &Editor<'_, M>, entry: EditorIndex) -> Result<(u8, String)> {
+    if editor.is_removed(entry) {
+        return Ok((2, String::new()));
+    }
+    Ok(match entry {
+        EditorIndex::Commit(commit) => (0, editor.id_of(commit)?.to_string()),
+        EditorIndex::Ref(reference) => (1, editor.name_of(reference)?.as_bstr().to_string()),
     })
 }
 
@@ -240,12 +252,12 @@ fn seed_key<M: RefMetadata>(
 /// branch tip-to-base before moving to the next seed. Mirrors
 /// `graph_rebase::testing::topological_order`.
 fn topological_order(
-    nodes: &HashSet<Selector>,
-    parents_by_node: &HashMap<Selector, Vec<Selector>>,
-    seeds: &[Selector],
-) -> Vec<Selector> {
+    nodes: &HashSet<EditorIndex>,
+    parents_by_node: &HashMap<EditorIndex, Vec<EditorIndex>>,
+    seeds: &[EditorIndex],
+) -> Vec<EditorIndex> {
     // `in_degree` counts the children still to be emitted before a node is ready.
-    let mut in_degree: HashMap<Selector, usize> = nodes.iter().map(|&n| (n, 0)).collect();
+    let mut in_degree: HashMap<EditorIndex, usize> = nodes.iter().map(|&n| (n, 0)).collect();
     for parents in parents_by_node.values() {
         for parent in parents {
             if let Some(deg) = in_degree.get_mut(parent) {
@@ -260,7 +272,7 @@ fn topological_order(
     // then push the parents so they're explored in edge order.
     let mut out = vec![];
     let mut visited = HashSet::new();
-    let mut stack: Vec<Selector> = seeds.iter().rev().copied().collect();
+    let mut stack: Vec<EditorIndex> = seeds.iter().rev().copied().collect();
     while let Some(node) = stack.pop() {
         if visited.contains(&node) || in_degree.get(&node).is_some_and(|&d| d > 0) {
             continue;
@@ -282,15 +294,15 @@ fn topological_order(
 }
 
 fn linear_segments(
-    rows: &[(Selector, GraphRow)],
-    parents_by_node: &HashMap<Selector, Vec<Selector>>,
-    children_by_node: &HashMap<Selector, Vec<Selector>>,
+    rows: &[(EditorIndex, GraphRow)],
+    parents_by_node: &HashMap<EditorIndex, Vec<EditorIndex>>,
+    children_by_node: &HashMap<EditorIndex, Vec<EditorIndex>>,
 ) -> Vec<LinearSegment> {
     let mut segments = vec![LinearSegment {
         reference_idx: None,
         row_idxs: vec![],
     }];
-    for (idx, (selector, row)) in rows.iter().enumerate() {
+    for (idx, (entry, row)) in rows.iter().enumerate() {
         if matches!(row.data, GraphRowData::Reference { .. }) {
             segments.push(LinearSegment {
                 reference_idx: Some(idx),
@@ -300,10 +312,10 @@ fn linear_segments(
         }
 
         let is_fork_or_merge = parents_by_node
-            .get(selector)
+            .get(entry)
             .is_some_and(|parents| parents.len() > 1)
             || children_by_node
-                .get(selector)
+                .get(entry)
                 .is_some_and(|children| children.len() > 1);
         if is_fork_or_merge
             && segments
@@ -332,9 +344,9 @@ fn linear_segments(
 }
 
 fn children_by_node(
-    parents_by_node: &HashMap<Selector, Vec<Selector>>,
-) -> HashMap<Selector, Vec<Selector>> {
-    let mut children_by_node: HashMap<Selector, Vec<Selector>> = HashMap::new();
+    parents_by_node: &HashMap<EditorIndex, Vec<EditorIndex>>,
+) -> HashMap<EditorIndex, Vec<EditorIndex>> {
+    let mut children_by_node: HashMap<EditorIndex, Vec<EditorIndex>> = HashMap::new();
     for (child, parents) in parents_by_node {
         for parent in parents {
             children_by_node.entry(*parent).or_default().push(*child);
@@ -344,20 +356,20 @@ fn children_by_node(
 }
 
 fn reference_segments(
-    rows: &[(Selector, GraphRow)],
-    parents_by_node: &HashMap<Selector, Vec<Selector>>,
-    row_idxs_by_selector: &HashMap<Selector, usize>,
+    rows: &[(EditorIndex, GraphRow)],
+    parents_by_node: &HashMap<EditorIndex, Vec<EditorIndex>>,
+    row_idxs_by_entry: &HashMap<EditorIndex, usize>,
 ) -> Vec<ReferenceSegment> {
     rows.iter()
         .enumerate()
         .filter(|(_, (_, row))| matches!(row.data, GraphRowData::Reference { .. }))
         .map(|(reference_idx, (reference, _))| {
-            let mut segment_selectors = HashSet::from([*reference]);
+            let mut segment_entries = HashSet::from([*reference]);
             let mut tips = vec![*reference];
             let mut row_idxs = vec![reference_idx];
             while let Some(tip) = tips.pop() {
                 for parent in parents_by_node.get(&tip).into_iter().flatten() {
-                    let Some(parent_idx) = row_idxs_by_selector.get(parent).copied() else {
+                    let Some(parent_idx) = row_idxs_by_entry.get(parent).copied() else {
                         continue;
                     };
                     // Stop at references: each reference owns the commits down to
@@ -369,7 +381,7 @@ fn reference_segments(
                     {
                         continue;
                     }
-                    if segment_selectors.insert(*parent) {
+                    if segment_entries.insert(*parent) {
                         row_idxs.push(parent_idx);
                         tips.push(*parent);
                     }
@@ -385,23 +397,25 @@ fn reference_segments(
 }
 
 fn row_data<M: RefMetadata>(
-    editor: &Editor<'_, '_, M>,
-    selector: Selector,
-    reference_status: &HashMap<Selector, ReferenceStatus>,
-    commit_state: &HashMap<Selector, CommitState>,
+    editor: &Editor<'_, M>,
+    entry: EditorIndex,
+    reference_status: &HashMap<EditorIndex, ReferenceStatus>,
+    commit_state: &HashMap<EditorIndex, CommitState>,
 ) -> Result<GraphRowData> {
-    Ok(match editor.lookup_step(selector)? {
-        Step::Pick(Pick { id, .. }) => GraphRowData::Commit {
-            commit: but_core::Commit::from_id(id.attach(editor.repo()))?.into(),
+    if editor.is_removed(entry) {
+        unreachable!("removed entries are not visible rows");
+    }
+    Ok(match entry {
+        EditorIndex::Commit(commit) => GraphRowData::Commit {
+            commit: but_core::Commit::from_id(editor.id_of(commit)?.attach(editor.repo()))?.into(),
             state: commit_state
-                .get(&selector)
+                .get(&entry)
                 .cloned()
                 .unwrap_or(CommitState::LocalOnly),
         },
-        Step::Reference { refname, .. } => GraphRowData::Reference {
-            ref_name: refname,
-            additional_ref_info: reference_status.get(&selector).cloned(),
+        EditorIndex::Ref(reference) => GraphRowData::Reference {
+            ref_name: editor.name_of(reference)?,
+            additional_ref_info: reference_status.get(&entry).cloned(),
         },
-        Step::None => unreachable!("None steps are not visible rows"),
     })
 }

@@ -181,7 +181,7 @@ pub fn branch_land(
         let mut guard = ctx.exclusive_worktree_access();
         {
             let (_repo, ws, _db) = ctx.workspace_and_db_with_perm(guard.read_permission())?;
-            if !ws.kind.has_managed_ref() {
+            if !ws.kind().has_managed_ref() {
                 bail!(
                     "`but land` requires an active GitButler workspace (`gitbutler/workspace`). \
                      Switch into the workspace and try again."
@@ -527,8 +527,8 @@ fn scan_stack(ctx: &mut Context, branch: &str) -> anyhow::Result<Option<StackSca
         &ws,
         &repo,
         but_workspace::ref_info::Options {
-            project_meta: ws.graph.project_meta.clone(),
-            traversal: but_graph::init::Options::limited(),
+            project_meta: ws.project_meta().clone(),
+            traversal: but_graph::walk::Options::limited(),
             expensive_commit_info: true,
             ..Default::default()
         },

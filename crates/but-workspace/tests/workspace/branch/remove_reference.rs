@@ -14,7 +14,7 @@ use crate::{
 
 #[test]
 fn no_errors_due_to_idempotency_in_empty_workspace() -> anyhow::Result<()> {
-    let (_tmp, graph, repo, mut meta, desc, _db) =
+    let (_tmp, ws, repo, mut meta, desc) =
         named_writable_scenario_with_args_and_description_and_graph(
             "single-branch-no-ws-commit-no-target",
             ["A", "B"],
@@ -35,12 +35,13 @@ Single commit, no main remote/target, no ws commit, but ws-reference
 
 "#]]
     );
-    let ws = graph.into_workspace()?;
     // the workspace is empty.
     snapbox::assert_data_eq!(
         graph_workspace(&ws).to_string(),
         snapbox::str![[r#"
-📕🏘️⚠️:gitbutler/workspace[🌳] <> ✓! on 3183e43
+📕⌂:gitbutler/workspace[🌳] <> ✓! on 3183e43
+└── ≡:anon: {1}
+    └── :anon:
 
 "#]]
     );
@@ -83,11 +84,13 @@ Single commit, no main remote/target, no ws commit, but ws-reference
 
 "#]]
     );
-    let ws = ws.graph.into_workspace_of_redone_traversal(&repo, &meta)?;
+    let ws = ws.rederive_with(&repo, &meta, Default::default())?;
     snapbox::assert_data_eq!(
         graph_workspace(&ws).to_string(),
         snapbox::str![[r#"
-📕🏘️⚠️:gitbutler/workspace[🌳] <> ✓! on 3183e43
+📕⌂:gitbutler/workspace[🌳] <> ✓! on 3183e43
+└── ≡:anon: {1}
+    └── :anon:
 
 "#]]
     );
@@ -97,13 +100,12 @@ Single commit, no main remote/target, no ws commit, but ws-reference
 
 #[test]
 fn journey_single_branch_no_ws_commit_no_target() -> anyhow::Result<()> {
-    let (_tmp, graph, repo, mut meta, desc, _db) =
-        named_writable_scenario_with_description_and_graph(
-            "single-branch-3-commits-no-ws-commit-more-branches",
-            |meta| {
-                add_stack_with_segments(meta, 0, "A", StackState::InWorkspace, &[]);
-            },
-        )?;
+    let (_tmp, mut ws, repo, mut meta, desc) = named_writable_scenario_with_description_and_graph(
+        "single-branch-3-commits-no-ws-commit-more-branches",
+        |meta| {
+            add_stack_with_segments(meta, 0, "A", StackState::InWorkspace, &[]);
+        },
+    )?;
     snapbox::assert_data_eq!(
         desc,
         snapbox::str![[r#"
@@ -121,11 +123,10 @@ Single commit, target, no ws commit, but ws-reference and a named segment, and b
 "#]]
     );
 
-    let mut ws = graph.into_workspace()?;
     snapbox::assert_data_eq!(
         graph_workspace(&ws).to_string(),
         snapbox::str![[r#"
-📕🏘️⚠️:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 3183e43
+📕⌂:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 3183e43
 └── ≡📙:A on 3183e43 {0}
     ├── 📙:A
     │   └── ·c2878fb (🏘️) ►A2
@@ -152,12 +153,12 @@ Single commit, target, no ws commit, but ws-reference and a named segment, and b
         .expect("we deleted something");
     }
 
-    let ws = ws.graph.into_workspace_of_redone_traversal(&repo, &meta)?;
+    let ws = ws.rederive_with(&repo, &meta, Default::default())?;
     snapbox::assert_data_eq!(
         graph_workspace(&ws).to_string(),
         snapbox::str![[r#"
-📕🏘️⚠️:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 3183e43
-└── ≡:anon: on 3183e43
+📕⌂:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 3183e43
+└── ≡:anon: on 3183e43 {1}
     └── :anon:
         ├── ·c2878fb (🏘️)
         └── ·49d4b34 (🏘️)
@@ -170,19 +171,18 @@ Single commit, target, no ws commit, but ws-reference and a named segment, and b
 
 #[test]
 fn journey_single_branch_ws_commit_no_target() -> anyhow::Result<()> {
-    let (_tmp, graph, repo, mut meta, desc, _db) =
-        named_writable_scenario_with_description_and_graph(
-            "single-branch-4-commits-more-branches",
-            |meta| {
-                add_stack_with_segments(
-                    meta,
-                    0,
-                    "A",
-                    StackState::InWorkspace,
-                    &["A2-3", "A2-2", "A2-1", "A1-1", "A1-2", "A1-3"],
-                );
-            },
-        )?;
+    let (_tmp, mut ws, repo, mut meta, desc) = named_writable_scenario_with_description_and_graph(
+        "single-branch-4-commits-more-branches",
+        |meta| {
+            add_stack_with_segments(
+                meta,
+                0,
+                "A",
+                StackState::InWorkspace,
+                &["A2-3", "A2-2", "A2-1", "A1-1", "A1-2", "A1-3"],
+            );
+        },
+    )?;
 
     snapbox::assert_data_eq!(
         desc,
@@ -202,7 +202,6 @@ Two commits in main, target setup, ws commit, many more usable branches
 
 "#]]
     );
-    let mut ws = graph.into_workspace()?;
     snapbox::assert_data_eq!(
         graph_workspace(&ws).to_string(),
         snapbox::str![[r#"
@@ -300,7 +299,7 @@ Two commits in main, target setup, ws commit, many more usable branches
 
 #[test]
 fn journey_no_ws_commit_no_target() -> anyhow::Result<()> {
-    let (_tmp, graph, repo, mut meta, desc, _db) =
+    let (_tmp, ws, repo, mut meta, desc) =
         named_writable_scenario_with_args_and_description_and_graph(
             "single-branch-no-ws-commit-no-target",
             ["A", "B", "C", "D", "E"],
@@ -324,16 +323,14 @@ Single commit, no main remote/target, no ws commit, but ws-reference
 "#]]
     );
 
-    let ws = graph.into_workspace()?;
     snapbox::assert_data_eq!(
         graph_workspace(&ws).to_string(),
         snapbox::str![[r#"
-📕🏘️⚠️:gitbutler/workspace[🌳] <> ✓! on 3183e43
-├── ≡📙:A on 3183e43 {0}
-│   ├── 📙:A
-│   ├── 📙:B
-│   └── 📙:C
-└── ≡📙:D on 3183e43 {1}
+📕⌂:gitbutler/workspace[🌳] <> ✓! on 3183e43
+└── ≡📙:A on 3183e43 {0}
+    ├── 📙:A
+    ├── 📙:B
+    ├── 📙:C
     ├── 📙:D
     └── 📙:E
 
@@ -356,11 +353,10 @@ Single commit, no main remote/target, no ws commit, but ws-reference
     snapbox::assert_data_eq!(
         graph_workspace(&ws).to_string(),
         snapbox::str![[r#"
-📕🏘️⚠️:gitbutler/workspace[🌳] <> ✓! on 3183e43
-├── ≡📙:B on 3183e43 {0}
-│   ├── 📙:B
-│   └── 📙:C
-└── ≡📙:D on 3183e43 {1}
+📕⌂:gitbutler/workspace[🌳] <> ✓! on 3183e43
+└── ≡📙:B on 3183e43 {0}
+    ├── 📙:B
+    ├── 📙:C
     ├── 📙:D
     └── 📙:E
 
@@ -375,16 +371,15 @@ Single commit, no main remote/target, no ws commit, but ws-reference
         "recreate ref to show metadata is present and unchanged",
     )?;
 
-    let ws = ws.graph.into_workspace_of_redone_traversal(&repo, &meta)?;
+    let ws = ws.rederive_with(&repo, &meta, Default::default())?;
     snapbox::assert_data_eq!(
         graph_workspace(&ws).to_string(),
         snapbox::str![[r#"
-📕🏘️⚠️:gitbutler/workspace[🌳] <> ✓! on 3183e43
-├── ≡📙:A on 3183e43 {0}
-│   ├── 📙:A
-│   ├── 📙:B
-│   └── 📙:C
-└── ≡📙:D on 3183e43 {1}
+📕⌂:gitbutler/workspace[🌳] <> ✓! on 3183e43
+└── ≡📙:A on 3183e43 {0}
+    ├── 📙:A
+    ├── 📙:B
+    ├── 📙:C
     ├── 📙:D
     └── 📙:E
 
@@ -409,11 +404,10 @@ Single commit, no main remote/target, no ws commit, but ws-reference
     snapbox::assert_data_eq!(
         graph_workspace(&ws).to_string(),
         snapbox::str![[r#"
-📕🏘️⚠️:gitbutler/workspace[🌳] <> ✓! on 3183e43
-├── ≡📙:B on 3183e43 {0}
-│   ├── 📙:B
-│   └── 📙:C
-└── ≡📙:D on 3183e43 {1}
+📕⌂:gitbutler/workspace[🌳] <> ✓! on 3183e43
+└── ≡📙:B on 3183e43 {0}
+    ├── 📙:B
+    ├── 📙:C
     ├── 📙:D
     └── 📙:E
 
@@ -461,12 +455,14 @@ Single commit, no main remote/target, no ws commit, but ws-reference
 
 "#]]
     );
-    let ws = ws.graph.into_workspace_of_redone_traversal(&repo, &meta)?;
+    let ws = ws.rederive_with(&repo, &meta, Default::default())?;
     // The workspace is completely empty.
     snapbox::assert_data_eq!(
         graph_workspace(&ws).to_string(),
         snapbox::str![[r#"
-📕🏘️⚠️:gitbutler/workspace[🌳] <> ✓! on 3183e43
+📕⌂:gitbutler/workspace[🌳] <> ✓! on 3183e43
+└── ≡:anon: {1}
+    └── :anon:
 
 "#]]
     );

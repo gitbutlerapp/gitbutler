@@ -1,18 +1,18 @@
 //! These tests exercise the disconnect operation.
-use snapbox::IntoData;
+use snapbox::prelude::*;
 use std::collections::HashSet;
 
 use anyhow::{Context, Result};
-use but_graph::Graph;
-use but_rebase::graph_rebase::{Editor, Step, mutate};
-use but_testsupport::{git_status, graph_tree, visualize_commit_graph_all};
+use but_graph::Workspace;
+use but_rebase::graph_rebase::{Editor, anchor, mutate::Reconnect};
+use but_testsupport::{git_status, graph_dag, visualize_commit_graph_all};
 use gix::prelude::ObjectIdExt;
 
 use crate::utils::{fixture_writable, standard_options};
 
 #[test]
 fn disconnect_and_remove_middle_commit_in_linear_history() -> Result<()> {
-    let (repo, _tmpdir, mut meta, mut db) = fixture_writable("four-commits")?;
+    let (repo, _tmpdir, mut meta) = fixture_writable("four-commits")?;
 
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
@@ -26,50 +26,43 @@ fn disconnect_and_remove_middle_commit_in_linear_history() -> Result<()> {
     );
     snapbox::assert_data_eq!(git_status(&repo)?, snapbox::str![""]);
 
-    let graph = Graph::from_head(
+    let mut ws = Workspace::from_head(
         &repo,
         &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
-        &mut db,
+        &mut but_testsupport::in_memory_db(),
         standard_options(),
     )?
     .validated()?;
-    let mut ws = graph.into_workspace()?;
-    let mut editor = Editor::create(&mut ws, &mut *meta, &repo, &mut db)?;
+    let mut editor = Editor::create(ws.commit_graph(), ws.project_meta(), &mut *meta, &repo)?;
 
     let b = repo.rev_parse_single("HEAD~")?.detach();
-    let b_selector = editor
+    let b_handle = editor
         .select_commit(b)
         .context("Failed to find commit b in editor graph")?;
 
-    let target = mutate::SegmentDelimiter {
-        child: b_selector,
-        parent: b_selector,
+    let target = anchor::Range {
+        child: b_handle.into(),
+        parent: b_handle.into(),
     };
 
-    editor.disconnect_segment_from(
-        target,
-        mutate::SelectorSet::All,
-        mutate::SelectorSet::All,
-        false,
-    )?;
-    editor.replace(b_selector, Step::None)?;
+    editor.disconnect(target, anchor::Cut::All, anchor::Cut::All, Reconnect::Heal)?;
+    editor.drop_commit(b_handle)?;
 
     let outcome = editor.rebase()?;
-    let overlayed = graph_tree(&outcome.overlayed_graph()?).to_string();
+    let overlayed =
+        graph_dag(&ws.rederive_with(outcome.repo(), outcome.meta(), outcome.overlay()?)?);
     snapbox::assert_data_eq!(
-        &overlayed,
+        overlayed.as_str(),
         snapbox::str![[r#"
-
-└── 👉►:0[0]:main[🌳]
-    ├── ·b4fd8ee (⌂)
-    ├── ·d591dfe (⌂)
-    └── 🏁·35b8235 (⌂)
-
+*  👉·b4fd8ee (⌂) ►main[🌳]
+*  ·d591dfe (⌂)
+*  🏁·35b8235 (⌂)
 "#]]
     );
-    let outcome = outcome.materialize(Default::default())?;
-    assert_eq!(overlayed, graph_tree(&outcome.workspace.graph).to_string());
+    let (outcome, _) = outcome.materialize()?;
+    ws.refresh_from_commit_graph(outcome, &repo, &*meta, &mut but_testsupport::in_memory_db())?;
+    assert_eq!(overlayed, graph_dag(&ws));
 
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
@@ -87,7 +80,7 @@ fn disconnect_and_remove_middle_commit_in_linear_history() -> Result<()> {
 
 #[test]
 fn disconnect_and_remove_two_middle_commits_in_linear_history() -> Result<()> {
-    let (repo, _tmpdir, mut meta, mut db) = fixture_writable("four-commits")?;
+    let (repo, _tmpdir, mut meta) = fixture_writable("four-commits")?;
 
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
@@ -101,54 +94,47 @@ fn disconnect_and_remove_two_middle_commits_in_linear_history() -> Result<()> {
     );
     snapbox::assert_data_eq!(git_status(&repo)?, snapbox::str![""]);
 
-    let graph = Graph::from_head(
+    let mut ws = Workspace::from_head(
         &repo,
         &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
-        &mut db,
+        &mut but_testsupport::in_memory_db(),
         standard_options(),
     )?
     .validated()?;
-    let mut ws = graph.into_workspace()?;
-    let mut editor = Editor::create(&mut ws, &mut *meta, &repo, &mut db)?;
+    let mut editor = Editor::create(ws.commit_graph(), ws.project_meta(), &mut *meta, &repo)?;
 
     let b = repo.rev_parse_single("HEAD~")?.detach();
-    let b_selector = editor
+    let b_handle = editor
         .select_commit(b)
         .context("Failed to find commit b in editor graph")?;
     let a = repo.rev_parse_single("HEAD~2")?.detach();
-    let a_selector = editor
+    let a_handle = editor
         .select_commit(a)
         .context("Failed to find commit a in editor graph")?;
 
-    let delimiter = mutate::SegmentDelimiter {
-        child: b_selector,
-        parent: a_selector,
+    let range = anchor::Range {
+        child: b_handle.into(),
+        parent: a_handle.into(),
     };
 
-    editor.disconnect_segment_from(
-        delimiter,
-        mutate::SelectorSet::All,
-        mutate::SelectorSet::All,
-        false,
-    )?;
-    editor.replace(b_selector, Step::None)?;
-    editor.replace(a_selector, Step::None)?;
+    editor.disconnect(range, anchor::Cut::All, anchor::Cut::All, Reconnect::Heal)?;
+    editor.drop_commit(b_handle)?;
+    editor.drop_commit(a_handle)?;
 
     let outcome = editor.rebase()?;
-    let overlayed = graph_tree(&outcome.overlayed_graph()?).to_string();
+    let overlayed =
+        graph_dag(&ws.rederive_with(outcome.repo(), outcome.meta(), outcome.overlay()?)?);
     snapbox::assert_data_eq!(
-        &overlayed,
+        overlayed.as_str(),
         snapbox::str![[r#"
-
-└── 👉►:0[0]:main[🌳]
-    ├── ·19f8134 (⌂)
-    └── 🏁·35b8235 (⌂)
-
+*  👉·19f8134 (⌂) ►main[🌳]
+*  🏁·35b8235 (⌂)
 "#]]
     );
-    let outcome = outcome.materialize(Default::default())?;
-    assert_eq!(overlayed, graph_tree(&outcome.workspace.graph).to_string());
+    let (outcome, _) = outcome.materialize()?;
+    ws.refresh_from_commit_graph(outcome, &repo, &*meta, &mut but_testsupport::in_memory_db())?;
+    assert_eq!(overlayed, graph_dag(&ws));
 
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
@@ -165,7 +151,7 @@ fn disconnect_and_remove_two_middle_commits_in_linear_history() -> Result<()> {
 
 #[test]
 fn disconnect_and_remove_commit_in_merge_history_rewires_children() -> Result<()> {
-    let (repo, _tmpdir, mut meta, mut db) = fixture_writable("merge-in-the-middle")?;
+    let (repo, _tmpdir, mut meta) = fixture_writable("merge-in-the-middle")?;
 
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
@@ -183,55 +169,46 @@ fn disconnect_and_remove_commit_in_merge_history_rewires_children() -> Result<()
     );
     snapbox::assert_data_eq!(git_status(&repo)?, snapbox::str![""]);
 
-    let graph = Graph::from_head(
+    let mut ws = Workspace::from_head(
         &repo,
         &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
-        &mut db,
+        &mut but_testsupport::in_memory_db(),
         standard_options(),
     )?
     .validated()?;
-    let mut ws = graph.into_workspace()?;
-    let mut editor = Editor::create(&mut ws, &mut *meta, &repo, &mut db)?;
+    let mut editor = Editor::create(ws.commit_graph(), ws.project_meta(), &mut *meta, &repo)?;
 
     let a = repo.rev_parse_single("A")?.detach();
-    let a_selector = editor
+    let a_handle = editor
         .select_commit(a)
         .context("Failed to find commit a in editor graph")?;
 
-    let delimiter = mutate::SegmentDelimiter {
-        child: a_selector,
-        parent: a_selector,
+    let range = anchor::Range {
+        child: a_handle.into(),
+        parent: a_handle.into(),
     };
 
-    editor.disconnect_segment_from(
-        delimiter,
-        mutate::SelectorSet::All,
-        mutate::SelectorSet::All,
-        false,
-    )?;
-    editor.replace(a_selector, Step::None)?;
+    editor.disconnect(range, anchor::Cut::All, anchor::Cut::All, Reconnect::Heal)?;
+    editor.drop_commit(a_handle)?;
 
     let outcome = editor.rebase()?;
-    let overlayed = graph_tree(&outcome.overlayed_graph()?).to_string();
+    let overlayed =
+        graph_dag(&ws.rederive_with(outcome.repo(), outcome.meta(), outcome.overlay()?)?);
     snapbox::assert_data_eq!(
-        &overlayed,
+        overlayed.as_str(),
         snapbox::str![[r#"
-
-└── 👉►:0[0]:with-inner-merge[🌳]
-    └── ·4023659 (⌂)
-        └── ►:1[1]:anon:
-            └── ·01c4df0 (⌂)
-                ├── ►:2[3]:anon:
-                │   └── 🏁·8f0d338 (⌂) ►A, ►main, ►tags/base
-                └── ►:3[2]:B
-                    └── ·984fd1c (⌂)
-                        └── →:2:
-
+*  👉·4023659 (⌂) ►with-inner-merge[🌳]
+*    ·01c4df0 (⌂)
+├─╮
+│ *  ·984fd1c (⌂) ►B
+├─╯
+*  🏁·8f0d338 (⌂) ►A, ►main, ►tags/base
 "#]]
     );
-    let outcome = outcome.materialize(Default::default())?;
-    assert_eq!(overlayed, graph_tree(&outcome.workspace.graph).to_string());
+    let (outcome, _) = outcome.materialize()?;
+    ws.refresh_from_commit_graph(outcome, &repo, &*meta, &mut but_testsupport::in_memory_db())?;
+    assert_eq!(overlayed, graph_dag(&ws));
 
     let a_now = repo.rev_parse_single("A")?.detach();
     let base = repo.rev_parse_single("base")?.detach();
@@ -257,7 +234,7 @@ fn disconnect_and_remove_commit_in_merge_history_rewires_children() -> Result<()
 
 #[test]
 fn disconnect_and_remove_merge_with_two_parents_and_two_children() -> Result<()> {
-    let (repo, _tmpdir, mut meta, mut db) = fixture_writable("merge-with-two-children")?;
+    let (repo, _tmpdir, mut meta) = fixture_writable("merge-with-two-children")?;
 
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
@@ -279,61 +256,50 @@ fn disconnect_and_remove_merge_with_two_parents_and_two_children() -> Result<()>
     );
     snapbox::assert_data_eq!(git_status(&repo)?, snapbox::str![""]);
 
-    let graph = Graph::from_head(
+    let mut ws = Workspace::from_head(
         &repo,
         &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
-        &mut db,
+        &mut but_testsupport::in_memory_db(),
         standard_options(),
     )?
     .validated()?;
-    let mut ws = graph.into_workspace()?;
-    let mut editor = Editor::create(&mut ws, &mut *meta, &repo, &mut db)?;
+    let mut editor = Editor::create(ws.commit_graph(), ws.project_meta(), &mut *meta, &repo)?;
 
     let merge = repo.rev_parse_single("M")?.detach();
-    let merge_selector = editor
+    let merge_handle = editor
         .select_commit(merge)
         .context("Failed to find merge commit M in editor graph")?;
 
-    let delimiter = mutate::SegmentDelimiter {
-        child: merge_selector,
-        parent: merge_selector,
+    let range = anchor::Range {
+        child: merge_handle.into(),
+        parent: merge_handle.into(),
     };
 
-    editor.disconnect_segment_from(
-        delimiter,
-        mutate::SelectorSet::All,
-        mutate::SelectorSet::All,
-        false,
-    )?;
-    editor.replace(merge_selector, Step::None)?;
+    editor.disconnect(range, anchor::Cut::All, anchor::Cut::All, Reconnect::Heal)?;
+    editor.drop_commit(merge_handle)?;
 
     let outcome = editor.rebase()?;
-    let overlayed = graph_tree(&outcome.overlayed_graph()?).to_string();
+    let overlayed =
+        graph_dag(&ws.rederive_with(outcome.repo(), outcome.meta(), outcome.overlay()?)?);
     snapbox::assert_data_eq!(
-        &overlayed,
+        overlayed.as_str(),
         snapbox::str![[r#"
-
-└── 👉►:0[0]:with-two-children[🌳]
-    └── ·87269f1 (⌂)
-        ├── ►:1[1]:C1
-        │   └── ·3e50be4 (⌂)
-        │       ├── ►:3[2]:anon:
-        │       │   └── ·bc0e772 (⌂) ►M, ►P1
-        │       │       └── ►:5[3]:main
-        │       │           └── 🏁·7674a5e (⌂) ►tags/base
-        │       └── ►:4[2]:P2
-        │           └── ·392a8f8 (⌂)
-        │               └── →:5: (main)
-        └── ►:2[1]:C2
-            └── ·c291781 (⌂)
-                ├── →:3:
-                └── →:4: (P2)
-
+*    👉·87269f1 (⌂) ►with-two-children[🌳]
+├─╮
+* │    ·3e50be4 (⌂) ►C1
+├───╮
+│ * │  ·c291781 (⌂) ►C2
+╭─┴─╮
+*   │  ·bc0e772 (⌂) ►M, ►P1
+│   *  ·392a8f8 (⌂) ►P2
+├───╯
+*  🏁·7674a5e (⌂) ►main, ►tags/base
 "#]]
     );
-    let outcome = outcome.materialize(Default::default())?;
-    assert_eq!(overlayed, graph_tree(&outcome.workspace.graph).to_string());
+    let (outcome, _) = outcome.materialize()?;
+    ws.refresh_from_commit_graph(outcome, &repo, &*meta, &mut but_testsupport::in_memory_db())?;
+    assert_eq!(overlayed, graph_dag(&ws));
 
     let p1 = repo.rev_parse_single("P1")?.detach();
     let p2 = repo.rev_parse_single("P2")?.detach();
@@ -392,7 +358,7 @@ fn disconnect_and_remove_merge_with_two_parents_and_two_children() -> Result<()>
 
 #[test]
 fn disconnect_and_remove_merge_with_two_parents_and_two_children_from_one_side() -> Result<()> {
-    let (repo, _tmpdir, mut meta, mut db) = fixture_writable("merge-with-two-children")?;
+    let (repo, _tmpdir, mut meta) = fixture_writable("merge-with-two-children")?;
 
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
@@ -414,72 +380,65 @@ fn disconnect_and_remove_merge_with_two_parents_and_two_children_from_one_side()
     );
     snapbox::assert_data_eq!(git_status(&repo)?, snapbox::str![""]);
 
-    let graph = Graph::from_head(
+    let mut ws = Workspace::from_head(
         &repo,
         &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
-        &mut db,
+        &mut but_testsupport::in_memory_db(),
         standard_options(),
     )?
     .validated()?;
-    let mut ws = graph.into_workspace()?;
-    let mut editor = Editor::create(&mut ws, &mut *meta, &repo, &mut db)?;
+    let mut editor = Editor::create(ws.commit_graph(), ws.project_meta(), &mut *meta, &repo)?;
 
     let merge = repo.rev_parse_single("M")?.detach();
     let m_reference = "refs/heads/M".try_into()?;
     let child_one = repo.rev_parse_single("C1")?.detach();
     let parent_one = "refs/heads/P1".try_into()?;
-    let m_reference_selector = editor
+    let m_reference_handle = editor
         .select_reference(m_reference)
         .context("Failed to find P1 reference in editor graph")?;
-    let merge_commit_selector = editor
+    let merge_commit_handle = editor
         .select_commit(merge)
         .context("Failed to find merge commit M in editor graph")?;
-    let child_one_selector = editor
+    let child_one_handle = editor
         .select_commit(child_one)
         .context("Failed to find C1 referent in editor graph")?;
-    let parent_one_selector = editor
+    let parent_one_handle = editor
         .select_reference(parent_one)
         .context("Failed to find P1 reference in editor graph")?;
 
-    let delimiter = mutate::SegmentDelimiter {
-        child: m_reference_selector,
-        parent: merge_commit_selector,
+    let range = anchor::Range {
+        child: m_reference_handle.into(),
+        parent: merge_commit_handle.into(),
     };
 
-    editor.disconnect_segment_from(
-        delimiter,
-        mutate::SelectorSet::Some(mutate::SomeSelectors::new(vec![child_one_selector])?),
-        mutate::SelectorSet::Some(mutate::SomeSelectors::new(vec![parent_one_selector])?),
-        false,
+    editor.disconnect(
+        range,
+        anchor::Cut::only([child_one_handle]),
+        anchor::Cut::only([parent_one_handle]),
+        Reconnect::Heal,
     )?;
 
     let outcome = editor.rebase()?;
-    let overlayed = graph_tree(&outcome.overlayed_graph()?).to_string();
+    let overlayed =
+        graph_dag(&ws.rederive_with(outcome.repo(), outcome.meta(), outcome.overlay()?)?);
     snapbox::assert_data_eq!(
-        &overlayed,
+        overlayed.as_str(),
         snapbox::str![[r#"
-
-└── 👉►:0[0]:with-two-children[🌳]
-    └── ·9de031b (⌂)
-        ├── ►:1[1]:C1
-        │   └── ·54d0b0d (⌂)
-        │       └── ►:3[2]:P1
-        │           └── ·bc0e772 (⌂)
-        │               └── ►:5[4]:main
-        │                   └── 🏁·7674a5e (⌂) ►tags/base
-        └── ►:2[1]:C2
-            └── ·41cb528 (⌂)
-                └── ►:4[2]:M
-                    └── ·9f6b11a (⌂)
-                        └── ►:6[3]:P2
-                            └── ·392a8f8 (⌂)
-                                └── →:5: (main)
-
+*    👉·9de031b (⌂) ►with-two-children[🌳]
+├─╮
+* │  ·54d0b0d (⌂) ►C1
+* │  ·bc0e772 (⌂) ►P1
+│ *  ·41cb528 (⌂) ►C2
+│ *  ·9f6b11a (⌂) ►M
+│ *  ·392a8f8 (⌂) ►P2
+├─╯
+*  🏁·7674a5e (⌂) ►main, ►tags/base
 "#]]
     );
-    let outcome = outcome.materialize(Default::default())?;
-    assert_eq!(overlayed, graph_tree(&outcome.workspace.graph).to_string());
+    let (outcome, _) = outcome.materialize()?;
+    ws.refresh_from_commit_graph(outcome, &repo, &*meta, &mut but_testsupport::in_memory_db())?;
+    assert_eq!(overlayed, graph_dag(&ws));
 
     let p1 = repo.rev_parse_single("P1")?.detach();
     let m = repo.rev_parse_single("M")?.detach();
@@ -534,7 +493,7 @@ fn disconnect_and_remove_merge_with_two_parents_and_two_children_from_one_side()
 }
 #[test]
 fn disconnect_remove_merge_with_two_parents_and_two_children_children_only() -> Result<()> {
-    let (repo, _tmpdir, mut meta, mut db) = fixture_writable("merge-with-two-children")?;
+    let (repo, _tmpdir, mut meta) = fixture_writable("merge-with-two-children")?;
 
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
@@ -556,66 +515,77 @@ fn disconnect_remove_merge_with_two_parents_and_two_children_children_only() -> 
     );
     snapbox::assert_data_eq!(git_status(&repo)?, snapbox::str![""]);
 
-    let graph = Graph::from_head(
+    let mut ws = Workspace::from_head(
         &repo,
         &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
-        &mut db,
+        &mut but_testsupport::in_memory_db(),
         standard_options(),
     )?
     .validated()?;
-    let mut ws = graph.into_workspace()?;
-    let mut editor = Editor::create(&mut ws, &mut *meta, &repo, &mut db)?;
+    let mut editor = Editor::create(ws.commit_graph(), ws.project_meta(), &mut *meta, &repo)?;
 
     let merge = repo.rev_parse_single("M")?.detach();
     let m_reference = "refs/heads/M".try_into()?;
     let parent_one = "refs/heads/P1".try_into()?;
-    let m_reference_selector = editor
+    let m_reference_handle = editor
         .select_reference(m_reference)
         .context("Failed to find P1 reference in editor graph")?;
-    let merge_commit_selector = editor
+    let merge_commit_handle = editor
         .select_commit(merge)
         .context("Failed to find merge commit M in editor graph")?;
-    let parent_one_selector = editor
+    let parent_one_handle = editor
         .select_reference(parent_one)
         .context("Failed to find P1 reference in editor graph")?;
 
-    let delimiter = mutate::SegmentDelimiter {
-        child: m_reference_selector,
-        parent: merge_commit_selector,
+    let range = anchor::Range {
+        child: m_reference_handle.into(),
+        parent: merge_commit_handle.into(),
     };
 
-    editor.disconnect_segment_from(
-        delimiter,
-        mutate::SelectorSet::None,
-        mutate::SelectorSet::Some(mutate::SomeSelectors::new(vec![parent_one_selector])?),
-        false,
+    editor.disconnect(
+        range,
+        anchor::Cut::Nothing,
+        anchor::Cut::only([parent_one_handle]),
+        Reconnect::Heal,
     )?;
 
     let outcome = editor.rebase()?;
-    let overlayed = graph_tree(&outcome.overlayed_graph()?).to_string();
+    let overlayed =
+        graph_dag(&ws.rederive_with(outcome.repo(), outcome.meta(), outcome.overlay()?)?);
     snapbox::assert_data_eq!(
-        &overlayed,
+        overlayed.as_str(),
         snapbox::str![[r#"
-
-└── 👉►:0[0]:with-two-children[🌳]
-    └── ·b87b6c9 (⌂)
-        ├── ►:1[1]:C1
-        │   └── ·76ecfed (⌂)
-        │       └── ►:3[2]:M
-        │           └── ·9f6b11a (⌂)
-        │               └── ►:4[3]:P2
-        │                   └── ·392a8f8 (⌂)
-        │                       └── ►:5[4]:main
-        │                           └── 🏁·7674a5e (⌂) ►tags/base
-        └── ►:2[1]:C2
-            └── ·41cb528 (⌂)
-                └── →:3: (M)
-
+*    👉·b87b6c9 (⌂) ►with-two-children[🌳]
+├─╮
+* │  ·76ecfed (⌂) ►C1
+│ *  ·41cb528 (⌂) ►C2
+├─╯
+*  ·9f6b11a (⌂) ►M
+*  ·392a8f8 (⌂) ►P2
+*  🏁·7674a5e (⌂) ►main, ►tags/base
 "#]]
     );
-    let outcome = outcome.materialize(Default::default())?;
-    assert_eq!(overlayed, graph_tree(&outcome.workspace.graph).to_string());
+    let (outcome, _) = outcome.materialize()?;
+    ws.refresh_from_commit_graph(outcome, &repo, &*meta, &mut but_testsupport::in_memory_db())?;
+    // Same workspace, one substrate difference: the write-through arena keeps the
+    // disconnected P1 region alive as external context (its on-disk ref revives it),
+    // while the fresh walk above never reaches it.
+    snapbox::assert_data_eq!(
+        graph_dag(&ws),
+        snapbox::str![[r#"
+*    👉·b87b6c9 (⌂) ►with-two-children[🌳]
+├─╮
+* │  ·76ecfed (⌂) ►C1
+│ *  ·41cb528 (⌂) ►C2
+├─╯
+*  ·9f6b11a (⌂) ►M
+*  ·392a8f8 (⌂) ►P2
+│ *  🟣bc0e772 ►P1
+├─╯
+*  🏁·7674a5e (⌂) ►main, ►tags/base
+"#]]
+    );
 
     let p1 = repo.rev_parse_single("P1")?.detach();
     let p2 = repo.rev_parse_single("P2")?.detach();
@@ -695,81 +665,75 @@ fn disconnect_remove_merge_with_two_parents_and_two_children_children_only() -> 
 }
 
 #[test]
-fn disconnect_fails_when_parents_to_disconnect_is_none() -> Result<()> {
-    let (repo, _tmpdir, mut meta, mut db) = fixture_writable("merge-with-two-children")?;
+fn disconnect_fails_when_healing_with_no_parents_severed() -> Result<()> {
+    let (repo, _tmpdir, mut meta) = fixture_writable("merge-with-two-children")?;
 
     let before = visualize_commit_graph_all(&repo)?;
 
-    let graph = Graph::from_head(
+    let mut ws = Workspace::from_head(
         &repo,
         &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
-        &mut db,
+        &mut but_testsupport::in_memory_db(),
         standard_options(),
     )?
     .validated()?;
-    let mut ws = graph.into_workspace()?;
-    let mut editor = Editor::create(&mut ws, &mut *meta, &repo, &mut db)?;
+    let mut editor = Editor::create(ws.commit_graph(), ws.project_meta(), &mut *meta, &repo)?;
 
     let merge = repo.rev_parse_single("M")?.detach();
     let m_reference = "refs/heads/M".try_into()?;
     let child_one = repo.rev_parse_single("C1")?.detach();
-    let m_reference_selector = editor
+    let m_reference_handle = editor
         .select_reference(m_reference)
         .context("Failed to find M reference in editor graph")?;
-    let merge_commit_selector = editor
+    let merge_commit_handle = editor
         .select_commit(merge)
         .context("Failed to find merge commit M in editor graph")?;
-    let child_one_selector = editor
+    let child_one_handle = editor
         .select_commit(child_one)
         .context("Failed to find C1 referent in editor graph")?;
 
-    let delimiter = mutate::SegmentDelimiter {
-        child: m_reference_selector,
-        parent: merge_commit_selector,
+    let range = anchor::Range {
+        child: m_reference_handle.into(),
+        parent: merge_commit_handle.into(),
     };
 
     let err = editor
-        .disconnect_segment_from(
-            delimiter,
-            mutate::SelectorSet::Some(mutate::SomeSelectors::new(vec![child_one_selector])?),
-            mutate::SelectorSet::None,
-            false,
+        .disconnect(
+            range,
+            anchor::Cut::only([child_one_handle]),
+            anchor::Cut::Nothing,
+            Reconnect::Heal,
         )
-        .expect_err("expected disconnect to fail for parents=SelectorSet::None");
+        .expect_err("healing with no parents severed has nothing to stitch to");
     assert!(
         err.to_string()
-            .contains("Invalid parents to disconnect: SelectorSet::None is not allowed"),
+            .contains("cutting no parents requires `Reconnect::Skip`"),
         "unexpected error: {err:#}"
     );
 
     let outcome = editor.rebase()?;
-    let overlayed = graph_tree(&outcome.overlayed_graph()?).to_string();
+    let overlayed =
+        graph_dag(&ws.rederive_with(outcome.repo(), outcome.meta(), outcome.overlay()?)?);
     snapbox::assert_data_eq!(
-        &overlayed,
+        overlayed.as_str(),
         snapbox::str![[r#"
-
-└── 👉►:0[0]:with-two-children[🌳]
-    └── ·d1cc4c7 (⌂)
-        ├── ►:1[1]:C1
-        │   └── ·f94f259 (⌂)
-        │       └── ►:3[2]:M
-        │           └── ·c5d1178 (⌂)
-        │               ├── ►:4[3]:P1
-        │               │   └── ·bc0e772 (⌂)
-        │               │       └── ►:6[4]:main
-        │               │           └── 🏁·7674a5e (⌂) ►tags/base
-        │               └── ►:5[3]:P2
-        │                   └── ·392a8f8 (⌂)
-        │                       └── →:6: (main)
-        └── ►:2[1]:C2
-            └── ·ce6aca9 (⌂)
-                └── →:3: (M)
-
+*    👉·d1cc4c7 (⌂) ►with-two-children[🌳]
+├─╮
+* │  ·f94f259 (⌂) ►C1
+│ *  ·ce6aca9 (⌂) ►C2
+├─╯
+*    ·c5d1178 (⌂) ►M
+├─╮
+* │  ·bc0e772 (⌂) ►P1
+│ *  ·392a8f8 (⌂) ►P2
+├─╯
+*  🏁·7674a5e (⌂) ►main, ►tags/base
 "#]]
     );
-    let outcome = outcome.materialize(Default::default())?;
-    assert_eq!(overlayed, graph_tree(&outcome.workspace.graph).to_string());
+    let (outcome, _) = outcome.materialize()?;
+    ws.refresh_from_commit_graph(outcome, &repo, &*meta, &mut but_testsupport::in_memory_db())?;
+    assert_eq!(overlayed, graph_dag(&ws));
 
     let after = visualize_commit_graph_all(&repo)?;
     assert_eq!(before, after, "graph should remain unchanged on failure");
@@ -779,80 +743,73 @@ fn disconnect_fails_when_parents_to_disconnect_is_none() -> Result<()> {
 
 #[test]
 fn disconnect_fails_fast_if_parent_to_disconnect_is_not_direct_parent() -> Result<()> {
-    let (repo, _tmpdir, mut meta, mut db) = fixture_writable("merge-with-two-children")?;
+    let (repo, _tmpdir, mut meta) = fixture_writable("merge-with-two-children")?;
 
     let before = visualize_commit_graph_all(&repo)?;
 
-    let graph = Graph::from_head(
+    let mut ws = Workspace::from_head(
         &repo,
         &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
-        &mut db,
+        &mut but_testsupport::in_memory_db(),
         standard_options(),
     )?
     .validated()?;
-    let mut ws = graph.into_workspace()?;
-    let mut editor = Editor::create(&mut ws, &mut *meta, &repo, &mut db)?;
+    let mut editor = Editor::create(ws.commit_graph(), ws.project_meta(), &mut *meta, &repo)?;
 
     let merge = repo.rev_parse_single("M")?.detach();
     let m_reference = "refs/heads/M".try_into()?;
     let child_one = repo.rev_parse_single("C1")?.detach();
-    let m_reference_selector = editor
+    let m_reference_handle = editor
         .select_reference(m_reference)
         .context("Failed to find M reference in editor graph")?;
-    let merge_commit_selector = editor
+    let merge_commit_handle = editor
         .select_commit(merge)
         .context("Failed to find merge commit M in editor graph")?;
-    let child_one_selector = editor
+    let child_one_handle = editor
         .select_commit(child_one)
         .context("Failed to find C1 referent in editor graph")?;
 
-    let delimiter = mutate::SegmentDelimiter {
-        child: m_reference_selector,
-        parent: merge_commit_selector,
+    let range = anchor::Range {
+        child: m_reference_handle.into(),
+        parent: merge_commit_handle.into(),
     };
 
     let err = editor
-        .disconnect_segment_from(
-            delimiter,
-            mutate::SelectorSet::Some(mutate::SomeSelectors::new(vec![child_one_selector])?),
-            mutate::SelectorSet::Some(mutate::SomeSelectors::new(vec![child_one_selector])?),
-            false,
+        .disconnect(
+            range,
+            anchor::Cut::only([child_one_handle]),
+            anchor::Cut::only([child_one_handle]),
+            Reconnect::Heal,
         )
-        .expect_err("expected disconnect to fail for non-parent selector");
+        .expect_err("expected disconnect to fail for non-parent handle");
     assert!(
-        err.to_string()
-            .contains("requested parent is not a direct parent"),
+        err.to_string().contains("not a direct parent of the range"),
         "unexpected error: {err:#}"
     );
 
     let outcome = editor.rebase()?;
-    let overlayed = graph_tree(&outcome.overlayed_graph()?).to_string();
+    let overlayed =
+        graph_dag(&ws.rederive_with(outcome.repo(), outcome.meta(), outcome.overlay()?)?);
     snapbox::assert_data_eq!(
-        &overlayed,
+        overlayed.as_str(),
         snapbox::str![[r#"
-
-└── 👉►:0[0]:with-two-children[🌳]
-    └── ·d1cc4c7 (⌂)
-        ├── ►:1[1]:C1
-        │   └── ·f94f259 (⌂)
-        │       └── ►:3[2]:M
-        │           └── ·c5d1178 (⌂)
-        │               ├── ►:4[3]:P1
-        │               │   └── ·bc0e772 (⌂)
-        │               │       └── ►:6[4]:main
-        │               │           └── 🏁·7674a5e (⌂) ►tags/base
-        │               └── ►:5[3]:P2
-        │                   └── ·392a8f8 (⌂)
-        │                       └── →:6: (main)
-        └── ►:2[1]:C2
-            └── ·ce6aca9 (⌂)
-                └── →:3: (M)
-
+*    👉·d1cc4c7 (⌂) ►with-two-children[🌳]
+├─╮
+* │  ·f94f259 (⌂) ►C1
+│ *  ·ce6aca9 (⌂) ►C2
+├─╯
+*    ·c5d1178 (⌂) ►M
+├─╮
+* │  ·bc0e772 (⌂) ►P1
+│ *  ·392a8f8 (⌂) ►P2
+├─╯
+*  🏁·7674a5e (⌂) ►main, ►tags/base
 "#]]
     );
-    let outcome = outcome.materialize(Default::default())?;
-    assert_eq!(overlayed, graph_tree(&outcome.workspace.graph).to_string());
+    let (outcome, _) = outcome.materialize()?;
+    ws.refresh_from_commit_graph(outcome, &repo, &*meta, &mut but_testsupport::in_memory_db())?;
+    assert_eq!(overlayed, graph_dag(&ws));
 
     let after = visualize_commit_graph_all(&repo)?;
     assert_eq!(before, after, "graph should remain unchanged on failure");
@@ -862,83 +819,113 @@ fn disconnect_fails_fast_if_parent_to_disconnect_is_not_direct_parent() -> Resul
 
 #[test]
 fn disconnect_fails_fast_if_child_to_disconnect_is_not_direct_child() -> Result<()> {
-    let (repo, _tmpdir, mut meta, mut db) = fixture_writable("merge-with-two-children")?;
+    let (repo, _tmpdir, mut meta) = fixture_writable("merge-with-two-children")?;
 
     let before = visualize_commit_graph_all(&repo)?;
 
-    let graph = Graph::from_head(
+    let mut ws = Workspace::from_head(
         &repo,
         &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
-        &mut db,
+        &mut but_testsupport::in_memory_db(),
         standard_options(),
     )?
     .validated()?;
-    let mut ws = graph.into_workspace()?;
-    let mut editor = Editor::create(&mut ws, &mut *meta, &repo, &mut db)?;
+    let mut editor = Editor::create(ws.commit_graph(), ws.project_meta(), &mut *meta, &repo)?;
 
     let merge = repo.rev_parse_single("M")?.detach();
     let m_reference = "refs/heads/M".try_into()?;
     let parent_one = "refs/heads/P1".try_into()?;
-    let m_reference_selector = editor
+    let m_reference_handle = editor
         .select_reference(m_reference)
         .context("Failed to find M reference in editor graph")?;
-    let merge_commit_selector = editor
+    let merge_commit_handle = editor
         .select_commit(merge)
         .context("Failed to find merge commit M in editor graph")?;
-    let parent_one_selector = editor
+    let parent_one_handle = editor
         .select_reference(parent_one)
         .context("Failed to find P1 reference in editor graph")?;
 
-    let delimiter = mutate::SegmentDelimiter {
-        child: m_reference_selector,
-        parent: merge_commit_selector,
+    let range = anchor::Range {
+        child: m_reference_handle.into(),
+        parent: merge_commit_handle.into(),
     };
 
     let err = editor
-        .disconnect_segment_from(
-            delimiter,
-            mutate::SelectorSet::Some(mutate::SomeSelectors::new(vec![parent_one_selector])?),
-            mutate::SelectorSet::Some(mutate::SomeSelectors::new(vec![parent_one_selector])?),
-            false,
+        .disconnect(
+            range,
+            anchor::Cut::only([parent_one_handle]),
+            anchor::Cut::only([parent_one_handle]),
+            Reconnect::Heal,
         )
-        .expect_err("expected disconnect to fail for non-child selector");
+        .expect_err("expected disconnect to fail for non-child handle");
     assert!(
-        err.to_string()
-            .contains("requested child is not a direct parent"),
+        err.to_string().contains("not a direct child of the range"),
         "unexpected error: {err:#}"
     );
 
     let outcome = editor.rebase()?;
-    let overlayed = graph_tree(&outcome.overlayed_graph()?).to_string();
+    let overlayed =
+        graph_dag(&ws.rederive_with(outcome.repo(), outcome.meta(), outcome.overlay()?)?);
     snapbox::assert_data_eq!(
-        &overlayed,
+        overlayed.as_str(),
         snapbox::str![[r#"
-
-└── 👉►:0[0]:with-two-children[🌳]
-    └── ·d1cc4c7 (⌂)
-        ├── ►:1[1]:C1
-        │   └── ·f94f259 (⌂)
-        │       └── ►:3[2]:M
-        │           └── ·c5d1178 (⌂)
-        │               ├── ►:4[3]:P1
-        │               │   └── ·bc0e772 (⌂)
-        │               │       └── ►:6[4]:main
-        │               │           └── 🏁·7674a5e (⌂) ►tags/base
-        │               └── ►:5[3]:P2
-        │                   └── ·392a8f8 (⌂)
-        │                       └── →:6: (main)
-        └── ►:2[1]:C2
-            └── ·ce6aca9 (⌂)
-                └── →:3: (M)
-
+*    👉·d1cc4c7 (⌂) ►with-two-children[🌳]
+├─╮
+* │  ·f94f259 (⌂) ►C1
+│ *  ·ce6aca9 (⌂) ►C2
+├─╯
+*    ·c5d1178 (⌂) ►M
+├─╮
+* │  ·bc0e772 (⌂) ►P1
+│ *  ·392a8f8 (⌂) ►P2
+├─╯
+*  🏁·7674a5e (⌂) ►main, ►tags/base
 "#]]
     );
-    let outcome = outcome.materialize(Default::default())?;
-    assert_eq!(overlayed, graph_tree(&outcome.workspace.graph).to_string());
+    let (outcome, _) = outcome.materialize()?;
+    ws.refresh_from_commit_graph(outcome, &repo, &*meta, &mut but_testsupport::in_memory_db())?;
+    assert_eq!(overlayed, graph_dag(&ws));
 
     let after = visualize_commit_graph_all(&repo)?;
     assert_eq!(before, after, "graph should remain unchanged on failure");
 
+    Ok(())
+}
+
+/// An empty `Cut::Only` is `Cut::Nothing` in disguise; the operation refuses it with a
+/// message that points at the honest spelling.
+#[test]
+fn disconnect_rejects_an_empty_cut() -> Result<()> {
+    let (repo, _tmpdir, mut meta) = fixture_writable("four-commits")?;
+
+    let ws = Workspace::from_head(
+        &repo,
+        &*meta,
+        but_core::ref_metadata::ProjectMeta::default(),
+        &mut but_testsupport::in_memory_db(),
+        standard_options(),
+    )?
+    .validated()?;
+    let mut editor = Editor::create(ws.commit_graph(), ws.project_meta(), &mut *meta, &repo)?;
+
+    let subject = editor.select_commit(repo.rev_parse_single("@~1")?.detach())?;
+    let range = anchor::Range {
+        child: subject.into(),
+        parent: subject.into(),
+    };
+    let err = editor
+        .disconnect(
+            range,
+            anchor::Cut::only(Vec::<but_rebase::graph_rebase::EditorIndex>::new()),
+            anchor::Cut::All,
+            Reconnect::Heal,
+        )
+        .expect_err("an empty Only names no edges");
+    assert!(
+        err.to_string()
+            .contains("use `Cut::Nothing` to sever nothing"),
+        "the error teaches the honest spelling: {err:#}"
+    );
     Ok(())
 }

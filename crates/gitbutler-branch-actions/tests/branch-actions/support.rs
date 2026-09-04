@@ -51,9 +51,9 @@ pub fn stack_details(ctx: &Context) -> Vec<(StackId, Stack)> {
         &mut db,
         but_workspace::ref_info::Options {
             project_meta: ctx.project_meta().unwrap(),
-            traversal: but_graph::init::Options {
+            traversal: but_graph::walk::Options {
                 worktrees: ctx.settings.feature_flags.worktree_manipulation,
-                ..but_graph::init::Options::limited()
+                ..but_graph::walk::Options::limited()
             },
             expensive_commit_info: true,
             ..Default::default()

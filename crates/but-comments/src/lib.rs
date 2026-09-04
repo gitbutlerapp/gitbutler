@@ -501,8 +501,8 @@ fn change_id_index(
     let mut index = HashMap::new();
     for stack in &workspace.stacks {
         for segment in &stack.segments {
-            for commit in &segment.commits {
-                let commit = but_core::Commit::from_id(commit.id.attach(repo))?;
+            for commit_id in &segment.commits {
+                let commit = but_core::Commit::from_id(commit_id.attach(repo))?;
                 // The child-most commit wins when a change-id occurs twice.
                 index
                     .entry(commit.change_id().to_string())

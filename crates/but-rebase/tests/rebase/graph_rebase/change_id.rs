@@ -1,8 +1,8 @@
 //! Change id tests
 
 use anyhow::Result;
-use but_graph::Graph;
-use but_rebase::graph_rebase::{Editor, LookupStep, Step, ToSelector};
+use but_graph::Workspace;
+use but_rebase::graph_rebase::Editor;
 use gix::prelude::ObjectIdExt;
 use snapbox::prelude::*;
 
@@ -10,7 +10,7 @@ use crate::utils::{fixture_writable, standard_options};
 
 #[test]
 fn temporary_change_id_persisted() -> Result<()> {
-    let (repo, _tmpdir, mut meta, mut db) = fixture_writable("four-commits")?;
+    let (repo, _tmpdir, mut meta) = fixture_writable("four-commits")?;
 
     let target = repo.rev_parse_single("HEAD~")?;
     let target_parent = repo.rev_parse_single("HEAD~~")?;
@@ -27,24 +27,24 @@ fn temporary_change_id_persisted() -> Result<()> {
 "#]]
     );
 
-    let graph = Graph::from_head(
+    let ws = Workspace::from_head(
         &repo,
         &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
-        &mut db,
+        &mut but_testsupport::in_memory_db(),
         standard_options(),
     )?
     .validated()?;
 
     // An operation to cause the parent we care about to be rebased
-    let mut ws = graph.into_workspace()?;
-    let mut editor = Editor::create(&mut ws, &mut *meta, &repo, &mut db)?;
-    let target_selector = target.to_selector(&editor)?;
-    editor.replace(target_parent, Step::None)?;
+    let mut editor = Editor::create(ws.commit_graph(), ws.project_meta(), &mut *meta, &repo)?;
+    let target_handle = editor.select_commit(target.detach())?;
+    let target_parent = editor.select_commit(target_parent.detach())?;
+    editor.drop_commit(target_parent)?;
 
     let outcome = editor.rebase()?;
 
-    let new_target = outcome.lookup_pick(target_selector)?;
+    let new_target = outcome.id_of(target_handle)?;
     let new_target_commit = but_core::Commit::from_id(new_target.attach(outcome.repo()))?;
     snapbox::assert_data_eq!(
         new_target_commit.extra_headers.to_debug(),
@@ -74,19 +74,17 @@ fn temporary_change_id_persisted() -> Result<()> {
 
 #[test]
 fn empty_commit_uses_content_hash_placeholder_until_materialization() -> Result<()> {
-    let (repo, _tmpdir, mut meta, mut db) = fixture_writable("four-commits")?;
+    let (repo, _tmpdir, mut meta) = fixture_writable("four-commits")?;
 
-    let graph = Graph::from_head(
+    let ws = Workspace::from_head(
         &repo,
         &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
-        &mut db,
+        &mut but_testsupport::in_memory_db(),
         standard_options(),
     )?
     .validated()?;
-
-    let mut ws = graph.into_workspace()?;
-    let editor = Editor::create(&mut ws, &mut *meta, &repo, &mut db)?;
+    let editor = Editor::create(ws.commit_graph(), ws.project_meta(), &mut *meta, &repo)?;
 
     let ec = editor.empty_commit()?;
 

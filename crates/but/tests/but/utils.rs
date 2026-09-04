@@ -137,6 +137,7 @@ impl Sandbox {
                 .map(|branch_name| WorkspaceStackBranch {
                     ref_name: r(&format!("refs/heads/{branch_name}")).to_owned(),
                     archived: false,
+                    parents: None,
                 })
                 .collect(),
             workspacecommit_relation: WorkspaceCommitRelation::Merged,

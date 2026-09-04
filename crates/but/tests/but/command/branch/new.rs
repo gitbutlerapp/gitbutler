@@ -994,10 +994,8 @@ fn can_create_new_branches_above_merged_branches_but_not_below() {
 ┊╭┄ do [document-but-pr-skill] (merged upstream) (no commits)
 ├╯
 ┊
-┊● 55165db (upstream: origin/main) 1 new commit
-├╯ 55165db (common base) 2000-01-02 merge document-but-pr-skill
+┴ 55165db (common base) 2000-01-02 merge document-but-pr-skill
 
-Hint: origin/main moved ahead; run `but pull` to update the workspace
 Hint: branches marked `(merged upstream)` have landed; run `but pull` to remove them, or start new work on another branch
 
 "#]]);
@@ -1023,10 +1021,8 @@ Created branch 'a-branch-1' above branch 'document-but-pr-skill'
 ┊├┄ do [document-but-pr-skill] (merged upstream) (no commits)
 ├╯
 ┊
-┊● 55165db (upstream: origin/main) 1 new commit
-├╯ 55165db (common base) 2000-01-02 merge document-but-pr-skill
+┴ 55165db (common base) 2000-01-02 merge document-but-pr-skill
 
-Hint: origin/main moved ahead; run `but pull` to update the workspace
 Hint: branches marked `(merged upstream)` have landed; run `but pull` to remove them, or start new work on another branch
 
 "#]]);
@@ -1186,8 +1182,7 @@ Created branch 'two'
     snapbox::assert_data_eq!(
         env.git_log(),
         snapbox::str![[r#"
-* 8ad759d (HEAD -> gitbutler/workspace) GitButler Workspace Commit
-|/
+* cd7cc56 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
 * b1540e5 (origin/main, origin/HEAD, two, one, main, gitbutler/target) M
 * e31e6ca add init
 
@@ -1215,8 +1210,7 @@ Hint: run `but help` for all commands
     snapbox::assert_data_eq!(
         env.git_log(),
         snapbox::str![[r#"
-* 8ad759d (gitbutler/workspace) GitButler Workspace Commit
-|/
+* cd7cc56 (gitbutler/workspace) GitButler Workspace Commit
 * b1540e5 (HEAD -> one, origin/main, origin/HEAD, two, main, gitbutler/target) M
 * e31e6ca add init
 
@@ -1248,8 +1242,7 @@ Created branch 'three'
     snapbox::assert_data_eq!(
         env.git_log(),
         snapbox::str![[r#"
-* 9e991f4 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
-|/
+* 7fe7e4b (HEAD -> gitbutler/workspace) GitButler Workspace Commit
 * b1540e5 (origin/main, origin/HEAD, two, three, one, main, gitbutler/target) M
 * e31e6ca add init
 
@@ -1348,8 +1341,7 @@ Hint: run `but help` for all commands
     snapbox::assert_data_eq!(
         env.git_log(),
         snapbox::str![[r#"
-* 10e74ab (HEAD -> gitbutler/workspace) GitButler Workspace Commit
-|/
+* 60cf6ed (HEAD -> gitbutler/workspace) GitButler Workspace Commit
 * b1540e5 (origin/main, origin/HEAD, new-branch, middle, main, gitbutler/target, bottom) M
 * e31e6ca add init
 
@@ -1595,11 +1587,12 @@ Hint: run `but help` for all commands
     snapbox::assert_data_eq!(
         env.git_log(),
         snapbox::str![[r#"
-*-.   6afce52 (gitbutler/workspace) GitButler Workspace Commit
+*-.   7f708b1 (gitbutler/workspace) GitButler Workspace Commit
 |/ /  
-| | * 9477ae7 (A) add A
+| | * d3e2ba3 (B) add B
 | |/  
-* / d3e2ba3 (B) add B
+|/|   
+| * 9477ae7 (A) add A
 |/  
 * 0dc3733 (HEAD -> a-branch-1, origin/main, origin/HEAD, main, gitbutler/target) add M
 
@@ -1611,23 +1604,21 @@ Hint: run `but help` for all commands
     env.but("status").assert().success().stdout_eq(str![[r#"
 ╭┄ @ [uncommitted] (no changes)
 ┊
-┊╭┄ br [a-branch-2] (no commits)
-├╯
-┊
 ┴ 0dc3733 (common base) 2000-01-02 add M
 
-Hint: run `but help` for all commands
+Hint: run `but branch new` to create a new branch to work on
 
 "#]]);
 
     snapbox::assert_data_eq!(
         env.git_log(),
         snapbox::str![[r#"
-*-.   6afce52 (gitbutler/workspace) GitButler Workspace Commit
+*-.   7f708b1 (gitbutler/workspace) GitButler Workspace Commit
 |/ /  
-| | * 9477ae7 (A) add A
+| | * d3e2ba3 (B) add B
 | |/  
-* / d3e2ba3 (B) add B
+|/|   
+| * 9477ae7 (A) add A
 |/  
 * 0dc3733 (HEAD -> a-branch-2, origin/main, origin/HEAD, main, gitbutler/target, a-branch-1) add M
 
