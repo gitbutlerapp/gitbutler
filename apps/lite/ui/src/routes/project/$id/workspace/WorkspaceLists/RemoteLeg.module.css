@@ -1,0 +1,46 @@
+/* Air between the branch row and the leg's head. The glyph is clipped to a
+   stub so only a length of the branch's rail shows through it, insetted like
+   a row so the rail lands on the same line. */
+.legAir {
+	display: flex;
+	height: 6px;
+	padding-inline: var(--row-padding-inline-start, 12px) var(--row-padding-inline-end, 8px);
+	overflow: hidden;
+}
+
+/* The two rails side by side, gapless so the connector row's horizontal line
+   runs from one into the other without a break. */
+.rails {
+	display: flex;
+}
+
+/* Stacks the remote glyph over a clipped stub of rail, so the leg's line
+   reaches the row's bottom edge even when the glyph's own canvas comes up
+   short (the rings' canvas is 2px shorter than the row). */
+.remoteRail {
+	display: flex;
+	flex-direction: column;
+}
+
+.railStub {
+	flex-grow: 1;
+	flex-basis: 0;
+	overflow: hidden;
+}
+
+/* Only the top half of the curve's canvas carries ink, so the row is clipped
+   to it rather than spending a full row's height on two lines meeting. */
+.connector {
+	height: 16px;
+	min-height: auto;
+	overflow: hidden;
+}
+
+.ahead {
+	flex-shrink: 0;
+}
+
+/* The rewritten-only leg while folded: present, not pressing. */
+.quiet {
+	opacity: 0.55;
+}

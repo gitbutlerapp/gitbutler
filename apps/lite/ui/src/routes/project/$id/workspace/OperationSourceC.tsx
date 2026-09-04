@@ -1,6 +1,7 @@
 import { type Address, addressIdentityKey } from "#ui/addresses.ts";
 import { cancelPendingOperation } from "#ui/use-cursor.ts";
 import { getOperationSources, pointerTransfer } from "#ui/operations/pending-operation.ts";
+import type { TransferKind } from "#ui/operations/operation.ts";
 import styles from "./OperationSourceC.module.css";
 import { addressesLabel } from "./addressLabel.ts";
 import { headInfoQueryOptions } from "#ui/api/queries.ts";
@@ -33,6 +34,12 @@ export const OperationSourceC: FC<
 		sources: Array<Address>;
 		/** Whether any checked source expands the transfer to the complete checked set. */
 		respectChecked: boolean;
+		/**
+		 * What dropping this source performs. Copy is for sources the workspace
+		 * does not hold — the remote leg's commits — where moving means nothing.
+		 * @default "move"
+		 */
+		kind?: TransferKind;
 		outline: OperationSourceOutline;
 		/**
 		 * Accept dropping a drag back on its exact source element when it has no organic operation
@@ -45,6 +52,7 @@ export const OperationSourceC: FC<
 	projectId,
 	sources,
 	respectChecked,
+	kind = "move",
 	outline,
 	acceptOriginDrop = false,
 	render,
@@ -106,6 +114,7 @@ export const OperationSourceC: FC<
 				projectId,
 				transfer: pointerTransfer({
 					sources: dragSources,
+					kind,
 					target: null,
 					placement: null,
 				}),
@@ -113,7 +122,7 @@ export const OperationSourceC: FC<
 		);
 	});
 
-	const getInitialData = useEffectEvent((): DragData => ({ sources: resolveDragSources() }));
+	const getInitialData = useEffectEvent((): DragData => ({ sources: resolveDragSources(), kind }));
 
 	useEffect(() => {
 		const element = dragRef.current;

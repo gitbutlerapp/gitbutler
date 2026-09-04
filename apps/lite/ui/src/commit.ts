@@ -1,3 +1,4 @@
+import { formatAbsoluteTime } from "#ui/time.ts";
 import type { Commit, ForgeInfo } from "@gitbutler/but-sdk";
 import { queryOptions, useMutation } from "@tanstack/react-query";
 import * as idb from "idb-keyval";
@@ -24,6 +25,15 @@ export const usePersistDraftCommitMessage = () =>
 	});
 
 export const shortCommitId = (commitId: string): string => commitId.slice(0, 7);
+
+/**
+ * A commit row's hover text: who, and when, in the house absolute format.
+ * An empty author name leaves just the time.
+ */
+export const authorTooltip = (author: { name: string }, timestamp: number): string => {
+	const when = formatAbsoluteTime(timestamp);
+	return author.name === "" ? when : `${author.name} · ${when}`;
+};
 
 export const commitTitle = (input: string): string | undefined => {
 	const trimmed = input.trim();

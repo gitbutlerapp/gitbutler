@@ -37,6 +37,21 @@ const commitGlyph = (
 	</>
 );
 
+/**
+ * The commit node without the tail above it, for the row a rail's tip stands
+ * on: the track stops at the bubble instead of running on past it.
+ */
+const commitHeadGlyph = (
+	<>
+		<path className={styles.line} d="M8 17V28" strokeWidth="1.5" />
+		<path
+			d="M11.5 14C11.5 15.933 9.933 17.5 8 17.5C6.067 17.5 4.5 15.933 4.5 14C4.5 12.067 6.067 10.5 8 10.5C9.933 10.5 11.5 12.067 11.5 14Z"
+			stroke="currentColor"
+			strokeWidth="1.5"
+		/>
+	</>
+);
+
 const groupRingsPath =
 	"M11.0862 8.1524C11.3502 7.6602 11.5 7.0976 11.5 6.5C11.5 4.567 9.933 3 8 3C6.067 3 4.5 4.567 4.5 6.5C4.5 7.0976 4.64977 7.6602 4.91382 8.1524M5 11.8038C4.68259 11.277 4.5 10.6598 4.5 10C4.5 8.067 6.067 6.5 8 6.5C9.933 6.5 11.5 8.067 11.5 10C11.5 10.6598 11.3174 11.277 11 11.8038M11.5 13.5C11.5 15.433 9.933 17 8 17C6.067 17 4.5 15.433 4.5 13.5C4.5 11.567 6.067 10 8 10C9.933 10 11.5 11.567 11.5 13.5Z";
 
@@ -56,7 +71,12 @@ const groupHeadGlyph = (
 );
 
 /** @public */
-export type GraphSegmentGlyph = keyof typeof glyphPaths | "commit" | "group" | "groupHead";
+export type GraphSegmentGlyph =
+	| keyof typeof glyphPaths
+	| "commit"
+	| "commitHead"
+	| "group"
+	| "groupHead";
 
 /** Both are drawn on the group glyph's shorter canvas. */
 const isGroupGlyph = (glyph: GraphSegmentGlyph): boolean =>
@@ -104,6 +124,8 @@ export const GraphSegment: FC<GraphSegmentProps> = ({ glyph, className, status, 
 		>
 			{glyph === "commit" ? (
 				commitGlyph
+			) : glyph === "commitHead" ? (
+				commitHeadGlyph
 			) : glyph === "group" ? (
 				groupGlyph
 			) : glyph === "groupHead" ? (

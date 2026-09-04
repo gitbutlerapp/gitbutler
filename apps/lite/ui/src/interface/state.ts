@@ -7,7 +7,9 @@ type Dialog =
 	| { _tag: "CommandPalette" }
 	| { _tag: "OperationsLogPicker" }
 	| { _tag: "ProjectPicker" }
-	| { _tag: "Settings" };
+	| { _tag: "Settings" }
+	/** The update-from-remote flow, for the applied branch named by full ref. */
+	| { _tag: "UpdateFromRemote"; branchRef: string };
 
 type InterfaceState = {
 	detailsFullWindow: boolean;

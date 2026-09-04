@@ -9,7 +9,7 @@ import {
 import { decodeBytes } from "#ui/api/bytes.ts";
 import { reverseValues } from "#ui/iterator.ts";
 import { getOperations, type TransferKind } from "#ui/operations/operation.ts";
-import { getTransferKind, type PendingOperation } from "#ui/operations/pending-operation.ts";
+import type { PendingOperation } from "#ui/operations/pending-operation.ts";
 import { buildIndexByKey, type AddressSpace } from "#ui/workspace/address-space.ts";
 import type { RefInfo } from "@gitbutler/but-sdk";
 import { Match } from "effect";
@@ -90,7 +90,7 @@ export const buildAppliedAddressSpace = ({
 				compatibleItems({
 					sources: operation.sources,
 					isCompatibleTarget: (address) =>
-						hasAnyOperation(operation.sources, address, getTransferKind(operation)),
+						hasAnyOperation(operation.sources, address, operation.kind),
 				}),
 			InlineEdit: (x) => [x.address],
 		}),

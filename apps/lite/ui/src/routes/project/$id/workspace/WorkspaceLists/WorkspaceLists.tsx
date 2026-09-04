@@ -17,7 +17,7 @@ import {
 } from "#ui/addresses.ts";
 import { useReviewedPaths } from "#ui/routes/project/$id/workspace/reviewed-paths.ts";
 import { projectSlice } from "#ui/projects/state.ts";
-import { getTransferKind, getTransferTarget } from "#ui/operations/pending-operation.ts";
+import { getTransferTarget } from "#ui/operations/pending-operation.ts";
 import { OperationSourceC } from "#ui/routes/project/$id/workspace/OperationSourceC.tsx";
 import {
 	OperationTarget as OperationTarget_,
@@ -79,6 +79,7 @@ import { useNow } from "#ui/components/useNow.ts";
 import { segmentBottomRelativeTo } from "#ui/api/stack.ts";
 import { assert } from "#ui/assert.ts";
 import { CommitRow } from "./CommitRow.tsx";
+import { RemoteLeg } from "./RemoteLeg.tsx";
 import { BranchRow, type PushActivity } from "./BranchRow.tsx";
 import { useActiveListsHotkeys } from "./hotkeys.ts";
 import { UncommittedChangesRow } from "./UncommittedChangesRow.tsx";
@@ -92,6 +93,7 @@ import { useListFilter } from "../useListFilter.ts";
 import { buildUncommittedFileRows } from "../file-row.ts";
 import { useFileDisplayMode } from "../useFileDisplayMode.ts";
 import {
+	canIntegrateUpstream,
 	canRemoveBranchReference,
 	downstackPushStatusesFromSegments,
 	type DownstackPushStatus,
@@ -186,7 +188,7 @@ const OperationTarget: FC<
 							sources: mode.sources,
 							target: address,
 							placement: mode.placement,
-							kind: getTransferKind(mode),
+							kind: mode.kind,
 						})?.label,
 					};
 				},
@@ -500,6 +502,7 @@ const BranchSegment: FC<{
 			decodeBytes(refName.fullNameBytes),
 		),
 	);
+	const graphStatus = segmentPushStatusToGraphSegmentStatus(segment.pushStatus);
 
 	return (
 		<TreeItem
@@ -519,8 +522,9 @@ const BranchSegment: FC<{
 				downstackPushStatus={downstackPushStatus}
 				pushActivity={pushActivity}
 				pushStatus={segment.pushStatus}
+				canUpdateFromRemote={canIntegrateUpstream(segment)}
 				recordedPullRequest={recordedPullRequest(segment)}
-				graphStatus={segmentPushStatusToGraphSegmentStatus(segment.pushStatus)}
+				graphStatus={graphStatus}
 				bottomRelativeTo={segmentBottomRelativeTo(segment)}
 				isTopSegment={isTopSegment}
 				commitCount={segment.commits.length}
@@ -529,6 +533,18 @@ const BranchSegment: FC<{
 
 			{/* oxlint-disable-next-line jsx-a11y/prefer-tag-over-role -- Tree items need ARIA group semantics. */}
 			<div role="group">
+				{/* Gated here so the common no-divergence case pays no mount: the
+				    leg subscribes to the address space and the store. One
+				    predicate with the menu item above, so every surface agrees
+				    on when an update is on offer. */}
+				{canIntegrateUpstream(segment) && (
+					<RemoteLeg
+						projectId={projectId}
+						segment={segment}
+						refName={refName}
+						graphStatus={graphStatus}
+					/>
+				)}
 				<SegmentContent
 					ariaLevel={2}
 					isFolded={isFolded}
@@ -1030,7 +1046,7 @@ const Stacks: FC<{
 						sources: mode.sources,
 						target,
 						placement: mode.placement,
-						kind: getTransferKind(mode),
+						kind: mode.kind,
 					})?.operation;
 				},
 			}),

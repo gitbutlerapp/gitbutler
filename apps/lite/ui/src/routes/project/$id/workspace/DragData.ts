@@ -1,11 +1,17 @@
 import type { Address } from "#ui/addresses.ts";
+import type { TransferKind } from "#ui/operations/operation.ts";
 
 export type DragData = {
 	sources: Array<Address>;
+	/** What dropping performs — a drag from the remote leg copies, the rest move. */
+	kind: TransferKind;
 };
 
 export const parseDragData = (data: unknown): DragData | null => {
-	if (typeof data !== "object" || data === null || !("sources" in data)) return null;
+	// Both fields, so a payload from elsewhere cannot reach the operation
+	// machinery half-formed and crash it mid-drag.
+	if (typeof data !== "object" || data === null || !("sources" in data) || !("kind" in data))
+		return null;
 	return data as DragData;
 };
 

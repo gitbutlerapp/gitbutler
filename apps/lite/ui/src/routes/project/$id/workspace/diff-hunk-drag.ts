@@ -151,6 +151,7 @@ export const useDiffHunkDrag = <T>({
 			canDrag: ({ input }) => configRef.current.canDrag() && resolveSources(input) !== null,
 			getInitialData: ({ input }): DragData => ({
 				sources: resolveSources(input) ?? [],
+				kind: "move",
 			}),
 			onGenerateDragPreview: ({ nativeSetDragImage, source }) => {
 				const sources = parseDragData(source.data)?.sources;
@@ -187,6 +188,7 @@ export const useDiffHunkDrag = <T>({
 						projectId: config.projectId,
 						transfer: pointerTransfer({
 							sources,
+							kind: "move",
 							target: null,
 							placement: null,
 						}),

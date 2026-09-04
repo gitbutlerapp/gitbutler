@@ -32,6 +32,8 @@ export type KeyboardTransfer = {
  */
 type PointerTransfer = {
 	sources: Array<Address>;
+	/** What dropping performs — a drag from the remote leg copies, the rest move. */
+	kind: TransferKind;
 	target: Address | null;
 	placement: Placement | null;
 };
@@ -61,17 +63,16 @@ export const keyboardTransfer = ({
 
 export const pointerTransfer = ({
 	sources,
+	kind,
 	target,
 	placement,
 }: PointerTransfer): PendingTransfer => ({
 	_tag: "Pointer",
 	sources,
+	kind,
 	target,
 	placement,
 });
-
-export const getTransferKind = (transfer: PendingTransfer): TransferKind =>
-	transfer._tag === "Keyboard" ? transfer.kind : "move";
 
 export const getTransferTarget = (
 	transfer: PendingTransfer,
