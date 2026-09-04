@@ -82,6 +82,54 @@ A GitHub organization has restricted access for the GitButler OAuth app. Ask an 
 };
 
 /**
+ * Terminal GitHub device-flow outcomes, tagged by `but-github` with a
+ * static message. The settings OAuth flow shows this guidance verbatim
+ * through `classifyGitHubDeviceOAuthFailure`; pending statuses are not
+ * tagged and keep the generic fallback.
+ */
+const GITHUB_DEVICE_OAUTH_CLASSIFICATIONS = {
+	GitHubDeviceCodeExpired: {
+		severity: "warning",
+		userMessage:
+			"The GitHub device code has expired. Start the authorization again to get a new code.",
+	},
+	GitHubDeviceAccessDenied: {
+		severity: "warning",
+		userMessage:
+			"The authorization request was denied on GitHub. Start again and approve GitButler on the device activation page.",
+	},
+	GitHubDeviceFlowRejected: {
+		severity: "error",
+		userMessage:
+			"GitHub rejected the device authorization request. Start again, or connect with a personal access token instead.",
+	},
+} satisfies Partial<Record<Code, Classification & { userMessage: string }>>;
+
+export type GitHubDeviceOAuthFailure = { message: string; code?: Code; severity: Severity };
+
+/**
+ * A fixed, safe description of a failed device-OAuth step: the static guidance
+ * for one of the device-flow codes above, or a generic label with no code.
+ * Total over any throwable — the parser is not — and never echoes the raw
+ * message, which can carry device codes or request detail.
+ */
+export function classifyGitHubDeviceOAuthFailure(error: unknown): GitHubDeviceOAuthFailure {
+	try {
+		const { code } = classify(error);
+		if (code && Object.hasOwn(GITHUB_DEVICE_OAUTH_CLASSIFICATIONS, code)) {
+			const { userMessage, severity } =
+				GITHUB_DEVICE_OAUTH_CLASSIFICATIONS[
+					code as keyof typeof GITHUB_DEVICE_OAUTH_CLASSIFICATIONS
+				];
+			return { message: userMessage, code, severity };
+		}
+	} catch {
+		// Fall through to the generic label.
+	}
+	return { message: "GitHub authentication failed", severity: "error" };
+}
+
+/**
  * Per-`Code` presentation rules. This table is the single source of
  * truth for "how should a backend error code show up to users?" — add
  * a code-keyed entry here rather than special-casing inside callers
@@ -156,6 +204,7 @@ With \`seahorse\` or equivalent, create a \`Login\` password store, right click 
 Your GitHub token appears expired. Please log out and back in to refresh it. (Settings -> Integrations -> Forget)
 	`,
 	},
+	...GITHUB_DEVICE_OAUTH_CLASSIFICATIONS,
 	GitHubOrgOAuthRestricted: GH_ORG_AUTH_CLASSIFICATION,
 	GitHubOrgSamlRestricted: {
 		severity: "error",

@@ -4,6 +4,7 @@
 	import githubLogoSvg from "$lib/assets/unsized-logos/github.svg?raw";
 	import { CLIPBOARD_SERVICE } from "$lib/backend/clipboard";
 	import { URL_SERVICE } from "$lib/backend/url";
+	import { classifyGitHubDeviceOAuthFailure } from "$lib/error/errorClassification";
 	import { GITHUB_USER_SERVICE } from "$lib/forge/github/githubUserService.svelte";
 	import { OnboardingEvent, POSTHOG_WRAPPER } from "$lib/telemetry/posthog";
 	import { inject } from "@gitbutler/core/context";
@@ -71,17 +72,29 @@
 		gheHostError = undefined;
 	}
 
+	/** One safe label serves the console, the toast, and telemetry; the raw rejection is never shown. */
+	function reportOAuthFailure(err: unknown) {
+		const { message, code, severity } = classifyGitHubDeviceOAuthFailure(err);
+		const failure = { name: "GitHub OAuth failed", message, ...(code && { code }) };
+		console.error("GitHub device OAuth failed", failure);
+		(severity === "warning" ? toasts.warning : toasts.error)(message);
+		posthog.captureOnboarding(OnboardingEvent.GitHubOAuthFailed, failure);
+	}
+
 	function gitHubStartOauth() {
 		posthog.captureOnboarding(OnboardingEvent.GitHubInitiateOAuth);
-		githubUserService.initDeviceOauth().then((verification) => {
-			userCode = verification.user_code;
-			deviceCode = verification.device_code;
-			showingFlow = "oauthFlow";
-			// Reset all step flags for a fresh auth flow
-			codeCopied = false;
-			GhActivationLinkPressed = false;
-			GhActivationPageOpened = false;
-		});
+		githubUserService
+			.initDeviceOauth()
+			.then((verification) => {
+				userCode = verification.user_code;
+				deviceCode = verification.device_code;
+				showingFlow = "oauthFlow";
+				// Reset all step flags for a fresh auth flow
+				codeCopied = false;
+				GhActivationLinkPressed = false;
+				GhActivationPageOpened = false;
+			})
+			.catch(reportOAuthFailure);
 	}
 
 	async function gitHubOauthCheckStatus(deviceCode: string) {
@@ -89,10 +102,8 @@
 		try {
 			await githubUserService.checkAuthStatus({ deviceCode });
 			toasts.success("GitHub authenticated");
-		} catch (err: any) {
-			console.error(err);
-			toasts.error("GitHub authentication failed");
-			posthog.captureOnboarding(OnboardingEvent.GitHubOAuthFailed);
+		} catch (err: unknown) {
+			reportOAuthFailure(err);
 		} finally {
 			// Reset the auth flow on completion
 			cleanupAuthFlow();

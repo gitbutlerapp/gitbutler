@@ -192,6 +192,16 @@ pub enum Code {
     /// authenticated or logged out. Cached forge data stays valid; retrying
     /// without re-authenticating won't help.
     ForgeNotAuthenticated,
+    /// The GitHub device-flow code expired before the user authorized it.
+    /// Terminal for that code; starting the flow again issues a new one.
+    GitHubDeviceCodeExpired,
+    /// The user denied the GitHub device-flow authorization request.
+    /// Terminal for that code; starting the flow again is the only recovery.
+    GitHubDeviceAccessDenied,
+    /// GitHub refused the device-flow request for any other terminal reason
+    /// (bad client credentials or device code, unsupported grant type, the
+    /// device flow being disabled for the app). Retrying the same code won't help.
+    GitHubDeviceFlowRejected,
     /// The operation was rejected because the current state doesn't allow it.
     /// Not a bug — the user's request simply can't be fulfilled right now.
     /// The frontend should present this as a warning rather than an error.

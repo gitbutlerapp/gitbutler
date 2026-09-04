@@ -1,8 +1,9 @@
 import { persistSwallowGitHubOrgAuthErrors } from "$lib/config/config";
 import { SilentError } from "$lib/error/error";
-import { classify } from "$lib/error/errorClassification";
+import { classify, classifyGitHubDeviceOAuthFailure } from "$lib/error/errorClassification";
 import { IpcError } from "$lib/error/normalizedError";
 import { describe, expect, test } from "vitest";
+import type { Code } from "@gitbutler/but-sdk";
 
 /**
  * The classifier owns "how should this error show up to the user?"
@@ -159,6 +160,73 @@ describe("classify", () => {
 			expect(result.userMessage).toContain("OAuth app");
 			expect(result.userMessage).toContain("personal access token");
 			expect(result.userMessage).toContain("then try again");
+		});
+	});
+
+	describe("GitHub device-flow codes", () => {
+		test.each<[Code, string, RegExp]>([
+			["GitHubDeviceCodeExpired", "warning", /device code has expired/],
+			["GitHubDeviceAccessDenied", "warning", /was denied on GitHub/],
+			["GitHubDeviceFlowRejected", "error", /rejected the device authorization/],
+		])("%s carries %s severity and recovery guidance", (code, severity, guidance) => {
+			const error = new IpcError({ message: "static", code }, "check_github_auth_status");
+			const result = classify(error);
+			expect(result.code).toBe(code);
+			expect(result.severity).toBe(severity);
+			expect(result.userMessage).toMatch(guidance);
+		});
+
+		test("pending statuses and arbitrary codes get no guidance", () => {
+			const pending = new IpcError(
+				{
+					message:
+						"GitHub returned an error: authorization_pending (The authorization request is still pending.)",
+					code: "Unknown",
+				},
+				"check_github_auth_status",
+			);
+			expect(classify(pending).userMessage).toBeUndefined();
+			const arbitrary = { message: "failure", code: "constructor" };
+			expect(classify(arbitrary).userMessage).toBeUndefined();
+		});
+	});
+
+	describe("classifyGitHubDeviceOAuthFailure", () => {
+		const generic = { message: "GitHub authentication failed", severity: "error" };
+		const raw =
+			"GitHub returned an error: access_denied (device_code 3584d274 https://github.com/login/device)";
+
+		test.each<[Code, string, RegExp]>([
+			["GitHubDeviceCodeExpired", "warning", /device code has expired/],
+			["GitHubDeviceAccessDenied", "warning", /was denied on GitHub/],
+			["GitHubDeviceFlowRejected", "error", /rejected the device authorization/],
+		])("%s yields its static guidance, code, and %s severity", (code, severity, guidance) => {
+			const result = classifyGitHubDeviceOAuthFailure({ message: raw, code });
+			expect(result).toEqual({ message: expect.stringMatching(guidance), code, severity });
+			expect(result.message).not.toContain("3584d274");
+		});
+
+		test.each([
+			[
+				"a pending status",
+				{ message: raw.replace("access_denied", "authorization_pending"), code: "Unknown" },
+			],
+			["a code that is only an inherited key", { message: raw, code: "constructor" }],
+			["a code that is a prototype key", { message: raw, code: "__proto__" }],
+			["a secret-rich code string", { message: raw, code: "gho_secret" }],
+			["a thrown string", raw],
+			["undefined", undefined],
+			["a bigint", 1n],
+			[
+				"a cyclic object",
+				(() => {
+					const c: Record<string, unknown> = {};
+					c.self = c;
+					return c;
+				})(),
+			],
+		])("%s falls back to the generic label without a code", (_, error) => {
+			expect(classifyGitHubDeviceOAuthFailure(error)).toEqual(generic);
 		});
 	});
 
