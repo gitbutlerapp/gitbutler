@@ -5,7 +5,7 @@ use but_graph::init::{Options, Tip};
 use but_rebase::graph_rebase::mutate::RelativeTo;
 use but_testsupport::{
     CommandExt, InMemoryRefMetadata, git, git_at_dir, graph_workspace, open_repo,
-    visualize_commit_graph_all,
+    visualize_commit_graph_all, visualize_commit_graph_all_from_dir,
 };
 use but_workspace::{
     BottomUpdate, BottomUpdateKind, ReviewIntegrationHint, fast_forward_local_tracking_branch,
@@ -13,7 +13,7 @@ use but_workspace::{
 };
 use gix::prelude::ObjectIdExt;
 use gix::refs::transaction::PreviousValue;
-use snapbox::IntoData;
+use snapbox::{IntoData, ToDebug};
 
 use crate::ref_info::with_workspace_commit::utils::{
     StackState, add_stack, add_stack_with_segments, named_writable_scenario_with_description,
@@ -448,6 +448,7 @@ fn integrated_bottom_branch_no_workspace_rebase() -> Result<()> {
 
     rebase.materialize(Default::default())?;
 
+    // `B` is gone and `A` sits directly on the integrated target tip.
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
         snapbox::str![[r#"
@@ -459,16 +460,6 @@ fn integrated_bottom_branch_no_workspace_rebase() -> Result<()> {
 "#]]
     );
 
-    assert!(
-        repo.try_find_reference("B")?.is_none(),
-        "the integrated bottom branch should be removed from the refs after rebase integration"
-    );
-    assert_eq!(
-        repo.rev_parse_single("A^")?,
-        repo.rev_parse_single("origin/main")?,
-        "the top branch should be reparented directly onto the integrated target tip"
-    );
-
     Ok(())
 }
 
@@ -477,10 +468,22 @@ fn integrated_bottom_branch_does_not_delete_local_main_or_master() -> Result<()>
     let (_tmp, repo, mut meta, _description, mut db) =
         named_writable_scenario_with_description("integrated-bottom-branch-no-workspace")?;
     let target_sha = repo.rev_parse_single("main")?.detach();
-    let integrated_bottom_commit = repo.rev_parse_single("B")?.detach();
 
     git(&repo).args(["branch", "-f", "main", "B"]).run();
     git(&repo).args(["branch", "master", "B"]).run();
+
+    // Local `main` and `master` share the integrated bottom branch's commit.
+    snapbox::assert_data_eq!(
+        visualize_commit_graph_all(&repo)?,
+        snapbox::str![[r#"
+* e792f40 (HEAD -> A) add A1
+| * 8c8a843 (origin/main) add X1
+|/  
+* b38b04b (master, main, B) add B1
+* 3183e43 M1
+
+"#]]
+    );
 
     let project_meta = target_project_meta("refs/remotes/origin/main", target_sha)?;
     let graph = but_graph::Graph::from_commit_traversal_tips(
@@ -510,24 +513,21 @@ fn integrated_bottom_branch_does_not_delete_local_main_or_master() -> Result<()>
         &mut db,
         vec![BottomUpdate {
             kind: BottomUpdateKind::Rebase,
-            selector: RelativeTo::Commit(integrated_bottom_commit),
+            selector: RelativeTo::Commit(repo.rev_parse_single("B")?.detach()),
         }],
     )?;
     rebase.materialize(Default::default())?;
 
-    assert!(
-        repo.try_find_reference("B")?.is_none(),
-        "ordinary integrated local branches should still be removed",
-    );
-    assert_eq!(
-        repo.rev_parse_single("main")?,
-        integrated_bottom_commit,
-        "local main should be protected from integrated-branch deletion",
-    );
-    assert_eq!(
-        repo.rev_parse_single("master")?,
-        integrated_bottom_commit,
-        "local master should be protected from integrated-branch deletion",
+    // `B` is removed like any integrated branch while `main` and `master` are left alone.
+    snapbox::assert_data_eq!(
+        visualize_commit_graph_all(&repo)?,
+        snapbox::str![[r#"
+* 10e781b (HEAD -> A) add A1
+* 8c8a843 (origin/main) add X1
+* b38b04b (master, main) add B1
+* 3183e43 M1
+
+"#]]
     );
 
     Ok(())
@@ -600,6 +600,7 @@ fn integrated_bottom_branch_no_workspace_merge() -> Result<()> {
 
     rebase.materialize(Default::default())?;
 
+    // `B` is gone and `A` became a merge whose second parent is the integrated target tip.
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
         snapbox::str![[r#"
@@ -613,24 +614,6 @@ fn integrated_bottom_branch_no_workspace_merge() -> Result<()> {
 
 "#]]
         .raw()
-    );
-
-    assert!(
-        repo.try_find_reference("B")?.is_none(),
-        "the integrated bottom branch should be removed from the refs after merge integration"
-    );
-
-    let branch_tip = repo.find_commit(repo.rev_parse_single("A")?)?;
-    let parents = branch_tip.parent_ids().collect::<Vec<_>>();
-    assert_eq!(
-        parents.len(),
-        2,
-        "merge integration should create a merge commit at the top of the stack"
-    );
-    assert_eq!(
-        parents[1],
-        repo.rev_parse_single("origin/main")?,
-        "merge integration should keep the integrated target tip as the second parent"
     );
 
     Ok(())
@@ -1575,16 +1558,26 @@ fn fully_integrated_direct_checkout_creates_unique_canned_branch_at_target_tip()
     git(&repo).args(["checkout", "A"]).run();
     remove_managed_workspace_ref(&repo)?;
     let target_sha = repo.rev_parse_single("main")?.detach();
-    let target_tip = repo.rev_parse_single("origin/main")?.detach();
-    let branch_1: gix::refs::FullName = "refs/heads/branch-1".try_into()?;
-    let branch_2: gix::refs::FullName = "refs/heads/branch-2".try_into()?;
 
     repo.reference(
-        branch_1.as_ref(),
-        target_tip,
+        "refs/heads/branch-1",
+        repo.rev_parse_single("origin/main")?.detach(),
         PreviousValue::MustNotExist,
         "reserve first canned branch name",
     )?;
+    // `branch-1` already occupies the first canned name at the target tip.
+    let graph_before = visualize_commit_graph_all(&repo)?;
+    snapbox::assert_data_eq!(
+        &graph_before,
+        snapbox::str![[r#"
+* 6b20716 (origin/main, branch-1) add X
+* ffde79e (HEAD -> A) add A
+* 86b55e6 add B
+* 8d5739f (main) add C
+
+"#]]
+    );
+
     let project_meta = target_project_meta("refs/remotes/origin/main", target_sha)?;
     let graph = but_graph::Graph::from_head(
         &repo,
@@ -1610,38 +1603,39 @@ fn fully_integrated_direct_checkout_creates_unique_canned_branch_at_target_tip()
         }],
     )?;
 
+    // The dry-run overlay already shows the replacement canned branch as the checkout.
     let preview = rebase.overlayed_graph()?.into_workspace()?;
-    assert_eq!(
-        preview.ref_name(),
-        Some(branch_2.as_ref()),
-        "dry-run overlay should show the replacement canned branch as the checked-out branch"
-    );
-    assert!(
-        repo.try_find_reference(branch_2.as_ref())?.is_none(),
-        "dry-run preview should not create the replacement branch on disk"
+    snapbox::assert_data_eq!(
+        graph_workspace(&preview).to_string(),
+        snapbox::str![[r#"
+⌂:branch-2[🌳] <> ✓refs/remotes/origin/main⇣3 on 8d5739f
+└── ≡:branch-2[🌳] on 8d5739f {1}
+    └── :branch-2[🌳]
+        ├── ·6b20716 (✓) ►branch-1
+        ├── ·ffde79e (✓)
+        └── ·86b55e6 (✓)
+
+"#]]
     );
     drop(preview);
+    assert_eq!(
+        visualize_commit_graph_all(&repo)?,
+        graph_before,
+        "the dry-run overlay writes nothing to the repository"
+    );
 
     rebase.materialize(Default::default())?;
 
-    assert!(
-        repo.try_find_reference("A")?.is_none(),
-        "fully integrated checked-out branch should be removed"
-    );
-    assert_eq!(
-        repo.find_reference(branch_1.as_ref())?.id(),
-        target_tip,
-        "the pre-existing canned branch collision should be left untouched"
-    );
-    assert_eq!(
-        repo.find_reference(branch_2.as_ref())?.id(),
-        target_tip,
-        "replacement canned branch should point at the latest target tip"
-    );
-    assert_eq!(
-        repo.head_name()?,
-        Some(branch_2),
-        "HEAD should stay attached to the replacement canned branch"
+    // `A` is gone, `branch-1` is untouched and HEAD moved to the fresh `branch-2` at the target tip.
+    snapbox::assert_data_eq!(
+        visualize_commit_graph_all(&repo)?,
+        snapbox::str![[r#"
+* 6b20716 (HEAD -> branch-2, origin/main, branch-1) add X
+* ffde79e add A
+* 86b55e6 add B
+* 8d5739f (main) add C
+
+"#]]
     );
 
     Ok(())
@@ -1654,18 +1648,20 @@ fn empty_integrated_direct_checkout_is_replaced() -> Result<()> {
     force_prefixless_canned_branch_name(&mut repo)?;
     remove_managed_workspace_ref(&repo)?;
     let target_sha = repo.rev_parse_single("main")?.detach();
-    let target_tip = repo.rev_parse_single("origin/main")?.detach();
-    let topic_tip = repo.rev_parse_single("topic")?.detach();
-    let remote_topic_tip = repo.rev_parse_single("origin/topic")?.detach();
 
-    assert_eq!(
-        topic_tip, remote_topic_tip,
-        "the empty local branch should be classified through its tracking tip"
-    );
-    assert_eq!(
-        repo.merge_base(remote_topic_tip, target_tip)?,
-        remote_topic_tip,
-        "the tracking tip should be reachable from the target"
+    // The checked-out `topic` is classified through `origin/topic`, which the target already contains.
+    snapbox::assert_data_eq!(
+        visualize_commit_graph_all(&repo)?,
+        snapbox::str![[r#"
+* ca35689 (origin/main) upstream commit
+*   77ca528 (main) merge topic
+|\  
+| * c5c76db (HEAD -> topic, origin/topic) add topic
+|/  
+* e6248dc add base
+
+"#]]
+        .raw()
     );
 
     let project_meta = target_project_meta("refs/remotes/origin/main", target_sha)?;
@@ -1680,13 +1676,15 @@ fn empty_integrated_direct_checkout_is_replaced() -> Result<()> {
         },
     )?;
     let mut workspace = graph.into_workspace()?;
-    assert!(
-        workspace
-            .stacks
-            .first()
-            .and_then(|stack| stack.segments.first())
-            .is_some_and(|segment| segment.commits.is_empty()),
-        "the checked-out branch should be empty in the workspace projection"
+    // The checked-out branch owns no commits of its own.
+    snapbox::assert_data_eq!(
+        graph_workspace(&workspace).to_string(),
+        snapbox::str![[r#"
+⌂:topic[🌳] <> ✓refs/remotes/origin/main⇣2 on c5c76db
+└── ≡:topic[🌳] <> origin/topic on c5c76db {1}
+    └── :topic[🌳] <> origin/topic
+
+"#]]
     );
 
     let project_meta = workspace.graph.project_meta.clone();
@@ -1703,14 +1701,19 @@ fn empty_integrated_direct_checkout_is_replaced() -> Result<()> {
     )?;
     rebase.materialize(Default::default())?;
 
-    assert!(
-        repo.try_find_reference("topic")?.is_none(),
-        "an empty checked-out branch should be removed when its tracking tip is integrated"
-    );
-    assert_eq!(
-        repo.head_id()?,
-        target_tip,
-        "replacement checkout should land at the latest target tip"
+    // `topic` is removed and the replacement checkout lands on the target tip.
+    snapbox::assert_data_eq!(
+        visualize_commit_graph_all(&repo)?,
+        snapbox::str![[r#"
+* ca35689 (HEAD -> branch-1, origin/main) upstream commit
+*   77ca528 (main) merge topic
+|\  
+| * c5c76db (origin/topic) add topic
+|/  
+* e6248dc add base
+
+"#]]
+        .raw()
     );
 
     Ok(())
@@ -1727,7 +1730,21 @@ fn local_only_empty_direct_checkout_is_preserved() -> Result<()> {
         .args(["update-ref", "-d", "refs/remotes/origin/topic"])
         .run();
     let target_sha = repo.rev_parse_single("main")?.detach();
-    let target_tip = repo.rev_parse_single("origin/main")?.detach();
+
+    // `topic` tracks the never-pushed `pushed-topic`, so no remote tip can classify it.
+    snapbox::assert_data_eq!(
+        visualize_commit_graph_all(&repo)?,
+        snapbox::str![[r#"
+* ca35689 (origin/main) upstream commit
+*   77ca528 (main) merge topic
+|\  
+| * c5c76db (HEAD -> topic) add topic
+|/  
+* e6248dc add base
+
+"#]]
+        .raw()
+    );
 
     let project_meta = target_project_meta("refs/remotes/origin/main", target_sha)?;
     let graph = but_graph::Graph::from_head(
@@ -1760,15 +1777,19 @@ fn local_only_empty_direct_checkout_is_preserved() -> Result<()> {
     )?;
     rebase.materialize(Default::default())?;
 
-    assert_eq!(
-        repo.find_reference("topic")?.id(),
-        target_tip,
-        "an empty local-only branch should ignore a review matching only its local name"
-    );
-    assert_eq!(
-        repo.head_name()?,
-        Some(gix::refs::FullName::try_from("refs/heads/topic")?),
-        "the preserved local-only branch should remain checked out"
+    // A review matching only the local name is ignored: `topic` stays checked out, now at the target tip.
+    snapbox::assert_data_eq!(
+        visualize_commit_graph_all(&repo)?,
+        snapbox::str![[r#"
+* ca35689 (HEAD -> topic, origin/main) upstream commit
+*   77ca528 (main) merge topic
+|\  
+| * c5c76db add topic
+|/  
+* e6248dc add base
+
+"#]]
+        .raw()
     );
 
     Ok(())
@@ -1786,8 +1807,22 @@ fn empty_direct_checkout_with_merged_review_for_pushed_branch_is_replaced() -> R
         .args(["update-ref", "-d", "refs/remotes/origin/topic"])
         .run();
     let target_sha = repo.rev_parse_single("main")?.detach();
-    let target_tip = repo.rev_parse_single("origin/main")?.detach();
     let review_head = repo.rev_parse_single("topic")?.detach();
+
+    // `topic` tracks `pushed-topic`, whose review merged at `topic`'s own tip.
+    snapbox::assert_data_eq!(
+        visualize_commit_graph_all(&repo)?,
+        snapbox::str![[r#"
+* ca35689 (origin/main) upstream commit
+*   77ca528 (main) merge topic
+|\  
+| * c5c76db (HEAD -> topic) add topic
+|/  
+* e6248dc add base
+
+"#]]
+        .raw()
+    );
 
     let project_meta = target_project_meta("refs/remotes/origin/main", target_sha)?;
     let graph = but_graph::Graph::from_head(
@@ -1820,14 +1855,19 @@ fn empty_direct_checkout_with_merged_review_for_pushed_branch_is_replaced() -> R
     )?;
     out.rebase.materialize(Default::default())?;
 
-    assert!(
-        repo.try_find_reference("topic")?.is_none(),
-        "an empty checked-out branch should be removed when its associated review is merged"
-    );
-    assert_eq!(
-        repo.head_id()?,
-        target_tip,
-        "replacement checkout should land at the latest target tip"
+    // `topic` is removed and the replacement checkout lands on the target tip.
+    snapbox::assert_data_eq!(
+        visualize_commit_graph_all(&repo)?,
+        snapbox::str![[r#"
+* ca35689 (HEAD -> branch-1, origin/main) upstream commit
+*   77ca528 (main) merge topic
+|\  
+| * c5c76db add topic
+|/  
+* e6248dc add base
+
+"#]]
+        .raw()
     );
 
     Ok(())
@@ -1845,10 +1885,20 @@ fn empty_direct_checkout_ignores_same_named_review_for_different_head() -> Resul
         .run();
     let target_sha = repo.rev_parse_single("main")?.detach();
     let target_tip = repo.rev_parse_single("origin/main")?.detach();
-    let topic_tip = repo.rev_parse_single("topic")?.detach();
-    assert_ne!(
-        topic_tip, target_tip,
-        "the colliding review head must differ from the checked-out branch tip"
+
+    // The colliding review merged at the target tip, which is not where `topic` points.
+    snapbox::assert_data_eq!(
+        visualize_commit_graph_all(&repo)?,
+        snapbox::str![[r#"
+* ca35689 (origin/main) upstream commit
+*   77ca528 (main) merge topic
+|\  
+| * c5c76db (HEAD -> topic) add topic
+|/  
+* e6248dc add base
+
+"#]]
+        .raw()
     );
 
     let project_meta = target_project_meta("refs/remotes/origin/main", target_sha)?;
@@ -1882,15 +1932,19 @@ fn empty_direct_checkout_ignores_same_named_review_for_different_head() -> Resul
     )?;
     out.rebase.materialize(Default::default())?;
 
-    assert_eq!(
-        repo.find_reference("topic")?.id(),
-        target_tip,
-        "a same-named review for another head must not delete the local branch"
-    );
-    assert_eq!(
-        repo.head_name()?,
-        Some(gix::refs::FullName::try_from("refs/heads/topic")?),
-        "the preserved branch should remain checked out"
+    // A same-named review for another head does not delete `topic`; it stays checked out at the target tip.
+    snapbox::assert_data_eq!(
+        visualize_commit_graph_all(&repo)?,
+        snapbox::str![[r#"
+* ca35689 (HEAD -> topic, origin/main) upstream commit
+*   77ca528 (main) merge topic
+|\  
+| * c5c76db add topic
+|/  
+* e6248dc add base
+
+"#]]
+        .raw()
     );
 
     Ok(())
@@ -1906,27 +1960,29 @@ fn fully_integrated_direct_checkout_creates_canned_branch_at_merge_target_tip() 
     git(&repo).args(["checkout", "A"]).run();
     remove_managed_workspace_ref(&repo)?;
     let target_sha = repo.rev_parse_single("main")?.detach();
-    let target_tip = repo.rev_parse_single("origin/main")?.detach();
-    let target_tip_parent = repo
-        .find_commit(target_tip)?
-        .parent_ids()
-        .next()
-        .context("target tip should have a parent")?
-        .detach();
-    assert_eq!(
-        repo.find_commit(target_tip_parent)?.parent_ids().count(),
-        2,
-        "this fixture must exercise a target tip based on a merge commit"
-    );
-    let branch_1: gix::refs::FullName = "refs/heads/branch-1".try_into()?;
-    let branch_2: gix::refs::FullName = "refs/heads/branch-2".try_into()?;
 
     repo.reference(
-        branch_1.as_ref(),
-        target_tip,
+        "refs/heads/branch-1",
+        repo.rev_parse_single("origin/main")?.detach(),
         PreviousValue::MustNotExist,
         "reserve first canned branch name",
     )?;
+    // The target tip sits on a merge commit, and `branch-1` already occupies the first canned name.
+    snapbox::assert_data_eq!(
+        visualize_commit_graph_all(&repo)?,
+        snapbox::str![[r#"
+* f27db86 (origin/main, branch-1) add X
+*   4f5589a D
+|\  
+| * ffde79e (HEAD -> A) add A
+| * 86b55e6 add B
+|/  
+* 8d5739f (main) add C
+
+"#]]
+        .raw()
+    );
+
     let project_meta = target_project_meta("refs/remotes/origin/main", target_sha)?;
     let graph = but_graph::Graph::from_head(
         &repo,
@@ -1952,29 +2008,37 @@ fn fully_integrated_direct_checkout_creates_canned_branch_at_merge_target_tip() 
         }],
     )?;
 
+    // The dry-run overlay already shows the replacement canned branch as the checkout.
     let preview = rebase.overlayed_graph()?.into_workspace()?;
-    assert_eq!(
-        preview.ref_name(),
-        Some(branch_2.as_ref()),
-        "dry-run overlay should show the replacement canned branch as the checked-out branch"
+    snapbox::assert_data_eq!(
+        graph_workspace(&preview).to_string(),
+        snapbox::str![[r#"
+⌂:branch-2[🌳] <> ✓refs/remotes/origin/main⇣4 on 8d5739f
+└── ≡:branch-2[🌳] on 8d5739f {1}
+    └── :branch-2[🌳]
+        ├── ·f27db86 (✓) ►branch-1
+        └── ·4f5589a (✓)
+
+"#]]
     );
     drop(preview);
 
     rebase.materialize(Default::default())?;
 
-    assert!(
-        repo.try_find_reference("A")?.is_none(),
-        "fully integrated checked-out branch should be removed"
-    );
-    assert_eq!(
-        repo.find_reference(branch_2.as_ref())?.id(),
-        target_tip,
-        "replacement canned branch should point at the exact merge target tip, not a replayed merge"
-    );
-    assert_eq!(
-        repo.head_name()?,
-        Some(branch_2),
-        "HEAD should stay attached to the replacement canned branch"
+    // `A` is gone and `branch-2` sits on the exact merge target tip rather than a replayed merge.
+    snapbox::assert_data_eq!(
+        visualize_commit_graph_all(&repo)?,
+        snapbox::str![[r#"
+* f27db86 (HEAD -> branch-2, origin/main, branch-1) add X
+*   4f5589a D
+|\  
+| * ffde79e add A
+| * 86b55e6 add B
+|/  
+* 8d5739f (main) add C
+
+"#]]
+        .raw()
     );
 
     Ok(())
@@ -2251,11 +2315,17 @@ fn dry_run_reports_index_only_conflicts_against_resulting_workspace_head() -> Re
         }],
     )?;
 
-    let conflicts = worktree_conflicts_for_rebase(&rebase)?;
-    assert_eq!(
-        conflicts,
-        vec![but_serde::BStringForFrontend::from("shared.txt")],
-        "index-only conflict preview should report staged paths that would conflict on the resulting workspace head"
+    // The staged change conflicts with the resulting workspace head even though the worktree is clean.
+    snapbox::assert_data_eq!(
+        worktree_conflicts_for_rebase(&rebase)?.to_debug(),
+        snapbox::str![[r#"
+[
+    BStringForFrontend(
+        "shared.txt",
+    ),
+]
+
+"#]]
     );
 
     Ok(())
@@ -2477,8 +2547,6 @@ fn fully_integrated_two_stacks_checkout_canned_branch_at_target_tip() -> Result<
         named_writable_scenario_with_description("fully-integrated-two-stacks")?;
     force_prefixless_canned_branch_name(&mut repo)?;
     let target_sha = repo.rev_parse_single("main~2")?.detach();
-    let target_tip = repo.rev_parse_single("origin/main")?.detach();
-    let fallback_ref: gix::refs::FullName = "refs/heads/branch-1".try_into()?;
 
     let project_meta = target_project_meta("refs/remotes/origin/main", target_sha)?;
     add_stack(&mut meta, 1, "A", StackState::InWorkspace);
@@ -2494,8 +2562,9 @@ fn fully_integrated_two_stacks_checkout_canned_branch_at_target_tip() -> Result<
         },
     )?;
 
+    let graph_before = visualize_commit_graph_all(&repo)?;
     snapbox::assert_data_eq!(
-        visualize_commit_graph_all(&repo)?,
+        &graph_before,
         snapbox::str![[r#"
 *   9d7da88 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
 |\  
@@ -2551,29 +2620,46 @@ fn fully_integrated_two_stacks_checkout_canned_branch_at_target_tip() -> Result<
         true,
     )?;
 
+    // The dry-run overlay already shows the canned branch as the checkout.
     let preview = out.rebase.overlayed_graph()?.into_workspace()?;
-    assert_eq!(
-        preview.ref_name(),
-        Some(fallback_ref.as_ref()),
-        "dry-run overlay should show the canned branch as the checkout"
-    );
-    assert!(
-        repo.try_find_reference(fallback_ref.as_ref())?.is_none(),
-        "dry-run preview should not create the canned branch on disk"
+    snapbox::assert_data_eq!(
+        graph_workspace(&preview).to_string(),
+        snapbox::str![[r#"
+⌂:branch-1[🌳] <> ✓refs/remotes/origin/main⇣4 on 3183e43
+└── ≡:branch-1[🌳] on 3183e43 {1}
+    └── :branch-1[🌳]
+        ├── ·5f7d45e (✓)
+        └── ·1f7670a (✓)
+
+"#]]
     );
     drop(preview);
+    assert_eq!(
+        visualize_commit_graph_all(&repo)?,
+        graph_before,
+        "the dry-run overlay writes nothing to the repository"
+    );
 
     out.rebase.materialize(Default::default())?;
 
-    assert!(repo.try_find_reference("A")?.is_none());
-    assert!(repo.try_find_reference("B")?.is_none());
-    assert!(
-        repo.try_find_reference(but_core::WORKSPACE_REF_NAME)?
-            .is_none(),
-        "the empty managed workspace reference should be removed"
+    // `A`, `B` and the emptied managed workspace are all gone; HEAD sits on `branch-1` at the target tip.
+    snapbox::assert_data_eq!(
+        visualize_commit_graph_all(&repo)?,
+        snapbox::str![[r#"
+*   5f7d45e (HEAD -> branch-1, origin/main, main) Merging B into base
+|\  
+| * b38b04b add B1
+* |   1f7670a Merging A into base
+|\ \  
+| |/  
+|/|   
+| * 905d6e5 add A1
+|/  
+* 3183e43 M1
+
+"#]]
+        .raw()
     );
-    assert_eq!(repo.find_reference(fallback_ref.as_ref())?.id(), target_tip);
-    assert_eq!(repo.head_name()?, Some(fallback_ref));
 
     Ok(())
 }
@@ -3140,10 +3226,19 @@ fn integrated_bottom_under_empty_direct_checkout_is_removed_and_top_is_preserved
     let target_sha = repo.rev_parse_single("main^")?.detach();
     let target_tip = repo.rev_parse_single("origin/main")?.detach();
     let bottom_tip = repo.rev_parse_single("bottom")?.detach();
-    let top_tip = repo.rev_parse_single("top")?.detach();
-    assert_eq!(
-        top_tip, bottom_tip,
-        "the checked-out top branch should initially be empty above bottom"
+
+    // The checked-out `top` is empty above the integrated `bottom`.
+    snapbox::assert_data_eq!(
+        visualize_commit_graph_all(&repo)?,
+        snapbox::str![[r#"
+*   334227d (origin/main, main) merge bottom
+|\  
+| * 141de4f (HEAD -> top, origin/bottom, bottom) add bottom
+|/  
+* 563a7fc add base
+
+"#]]
+        .raw()
     );
 
     let project_meta = target_project_meta("refs/remotes/origin/main", target_sha)?;
@@ -3171,19 +3266,18 @@ fn integrated_bottom_under_empty_direct_checkout_is_removed_and_top_is_preserved
     )?;
     out.rebase.materialize(Default::default())?;
 
-    assert!(
-        repo.try_find_reference("bottom")?.is_none(),
-        "the integrated bottom branch should be deleted"
-    );
-    assert_eq!(
-        repo.find_reference("top")?.id(),
-        target_tip,
-        "the empty top branch should advance to the target tip"
-    );
-    assert_eq!(
-        repo.head_name()?,
-        Some(gix::refs::FullName::try_from("refs/heads/top")?),
-        "the empty top branch should remain checked out"
+    // `bottom` is deleted while the empty `top` stays checked out and advances to the target tip.
+    snapbox::assert_data_eq!(
+        visualize_commit_graph_all(&repo)?,
+        snapbox::str![[r#"
+*   334227d (HEAD -> top, origin/main, main) merge bottom
+|\  
+| * 141de4f (origin/bottom) add bottom
+|/  
+* 563a7fc add base
+
+"#]]
+        .raw()
     );
 
     Ok(())
@@ -3801,6 +3895,20 @@ fn review_hint_integrates_prefix_but_keeps_extra_local_commit() -> Result<()> {
         .args(["commit", "-m", "post-review local commit"])
         .run();
 
+    // The review merged at `A`'s original tip; one local commit has been added above it since.
+    snapbox::assert_data_eq!(
+        visualize_commit_graph_all(&repo)?,
+        snapbox::str![[r#"
+* af64870 (HEAD -> A) post-review local commit
+* e792f40 add A1
+| * 8c8a843 (origin/main) add X1
+|/  
+* b38b04b (B) add B1
+* 3183e43 (main) M1
+
+"#]]
+    );
+
     let graph = but_graph::Graph::from_commit_traversal_tips(
         &repo,
         [
@@ -3838,21 +3946,16 @@ fn review_hint_integrates_prefix_but_keeps_extra_local_commit() -> Result<()> {
     )?;
     out.rebase.materialize(Default::default())?;
 
-    assert!(
-        repo.try_find_reference("A")?.is_some(),
-        "branch should remain because a local commit still sits above the merged review head",
-    );
-    assert_eq!(
-        repo.rev_parse_single("A^")?,
-        repo.rev_parse_single("origin/main")?,
-        "remaining local tip should be rebased onto the advanced target",
-    );
-    assert_eq!(
-        repo.find_commit(repo.rev_parse_single("A")?)?
-            .message_raw()?
-            .to_str()?
-            .trim_end(),
-        "post-review local commit",
+    // `A` survives with only the post-review commit, rebased onto the advanced target.
+    snapbox::assert_data_eq!(
+        visualize_commit_graph_all(&repo)?,
+        snapbox::str![[r#"
+* 6f3e139 (HEAD -> A) post-review local commit
+* 8c8a843 (origin/main) add X1
+* b38b04b add B1
+* 3183e43 (main) M1
+
+"#]]
     );
 
     Ok(())
@@ -3988,12 +4091,25 @@ fn fast_forwards_local_target_branch() -> Result<()> {
     let target_ref: gix::refs::FullName = "refs/remotes/origin/main".try_into()?;
     let target_id = repo.find_reference(&target_ref)?.id().detach();
 
+    // `feature` tracks `origin/main` and is strictly behind it.
+    snapbox::assert_data_eq!(
+        visualize_commit_graph_all(&repo)?,
+        snapbox::str![[r#"
+* d96dd53 (HEAD -> main, origin/main) two
+* b0898fa (feature) add one
+
+"#]]
+    );
+
     fast_forward_local_tracking_branch(&repo, target_ref.as_ref(), target_id)?;
 
-    assert_eq!(
-        repo.find_reference("refs/heads/feature")?.id().detach(),
-        target_id,
-        "the local tracking branch should fast-forward to the target"
+    snapbox::assert_data_eq!(
+        visualize_commit_graph_all(&repo)?,
+        snapbox::str![[r#"
+* d96dd53 (HEAD -> main, origin/main, feature) two
+* b0898fa add one
+
+"#]]
     );
     Ok(())
 }
@@ -4014,14 +4130,30 @@ fn leaves_diverged_local_target_branch_unchanged() -> Result<()> {
     let repo = open_repo(tmp.path())?;
     let target_ref: gix::refs::FullName = "refs/remotes/origin/main".try_into()?;
     let target_id = repo.find_reference(&target_ref)?.id().detach();
-    let local_id = repo.find_reference("refs/heads/feature")?.id().detach();
+
+    // `feature` tracks `origin/main` but has diverged from it.
+    snapbox::assert_data_eq!(
+        visualize_commit_graph_all(&repo)?,
+        snapbox::str![[r#"
+* 30789a6 (HEAD -> feature) feature
+| * d96dd53 (origin/main, main) two
+|/  
+* b0898fa add one
+
+"#]]
+    );
 
     fast_forward_local_tracking_branch(&repo, target_ref.as_ref(), target_id)?;
 
-    assert_eq!(
-        repo.find_reference("refs/heads/feature")?.id().detach(),
-        local_id,
-        "a diverged local target branch must stay unchanged"
+    snapbox::assert_data_eq!(
+        visualize_commit_graph_all(&repo)?,
+        snapbox::str![[r#"
+* 30789a6 (HEAD -> feature) feature
+| * d96dd53 (origin/main, main) two
+|/  
+* b0898fa add one
+
+"#]]
     );
     Ok(())
 }
@@ -4030,15 +4162,27 @@ fn leaves_diverged_local_target_branch_unchanged() -> Result<()> {
 fn leaves_local_target_refs_unchanged() -> Result<()> {
     let (repo, _tmp) = repo_with_local_target_branches()?;
     let local_target: gix::refs::FullName = "refs/heads/feature".try_into()?;
-    let local_id = repo.find_reference(&local_target)?.id().detach();
     let newer_id = repo.find_reference("refs/heads/main")?.id().detach();
+
+    snapbox::assert_data_eq!(
+        visualize_commit_graph_all(&repo)?,
+        snapbox::str![[r#"
+* d96dd53 (HEAD -> main) two
+* b0898fa (origin/main, feature) add one
+
+"#]]
+    );
 
     fast_forward_local_tracking_branch(&repo, local_target.as_ref(), newer_id)?;
 
-    assert_eq!(
-        repo.find_reference(&local_target)?.id().detach(),
-        local_id,
-        "local target refs must not be updated"
+    // A local target ref is never advanced, even to a tip that is ahead of it.
+    snapbox::assert_data_eq!(
+        visualize_commit_graph_all(&repo)?,
+        snapbox::str![[r#"
+* d96dd53 (HEAD -> main) two
+* b0898fa (origin/main, feature) add one
+
+"#]]
     );
     Ok(())
 }
@@ -4058,19 +4202,27 @@ fn prefers_same_named_local_target_branch() -> Result<()> {
     let repo = open_repo(tmp.path())?;
     let target_ref: gix::refs::FullName = "refs/remotes/origin/main".try_into()?;
     let target_id = repo.find_reference(&target_ref)?.id().detach();
-    let feature_id = repo.find_reference("refs/heads/feature")?.id().detach();
+
+    // Both `main` and `feature` track `origin/main` from the same commit behind it.
+    snapbox::assert_data_eq!(
+        visualize_commit_graph_all(&repo)?,
+        snapbox::str![[r#"
+* d96dd53 (origin/main) two
+* b0898fa (HEAD -> feature, main) add one
+
+"#]]
+    );
 
     fast_forward_local_tracking_branch(&repo, target_ref.as_ref(), target_id)?;
 
-    assert_eq!(
-        repo.find_reference("refs/heads/main")?.id().detach(),
-        target_id,
-        "the same-named main branch should fast-forward to the target"
-    );
-    assert_eq!(
-        repo.find_reference("refs/heads/feature")?.id().detach(),
-        feature_id,
-        "the same-named main branch should be preferred over another tracker"
+    // Only the same-named `main` fast-forwards; the other tracker is left alone.
+    snapbox::assert_data_eq!(
+        visualize_commit_graph_all(&repo)?,
+        snapbox::str![[r#"
+* d96dd53 (origin/main, main) two
+* b0898fa (HEAD -> feature) add one
+
+"#]]
     );
     Ok(())
 }
@@ -4099,14 +4251,27 @@ fn leaves_checked_out_local_target_branch_unchanged() -> Result<()> {
     let repo = open_repo(tmp.path())?;
     let target_ref: gix::refs::FullName = "refs/remotes/origin/main".try_into()?;
     let target_id = repo.find_reference(&target_ref)?.id().detach();
-    let local_id = repo.find_reference("refs/heads/main")?.id().detach();
+
+    // Seen from the linked worktree: `main` is checked out there, behind `origin/main`.
+    snapbox::assert_data_eq!(
+        visualize_commit_graph_all_from_dir(&linked_path)?,
+        snapbox::str![[r#"
+* d96dd53 (origin/main) two
+* b0898fa (HEAD -> main, feature) add one
+
+"#]]
+    );
 
     fast_forward_local_tracking_branch(&repo, target_ref.as_ref(), target_id)?;
 
-    assert_eq!(
-        repo.find_reference("refs/heads/main")?.id().detach(),
-        local_id,
-        "a checked-out target branch must stay aligned with its worktree"
+    // `main` stays aligned with its worktree checkout.
+    snapbox::assert_data_eq!(
+        visualize_commit_graph_all_from_dir(&linked_path)?,
+        snapbox::str![[r#"
+* d96dd53 (origin/main) two
+* b0898fa (HEAD -> main, feature) add one
+
+"#]]
     );
     Ok(())
 }
