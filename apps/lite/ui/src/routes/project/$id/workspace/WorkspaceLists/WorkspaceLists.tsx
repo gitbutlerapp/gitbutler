@@ -1168,9 +1168,11 @@ export const WorkspaceLists: FC<
 }) => {
 	const { data: headInfo } = useQuery(headInfoQueryOptions(projectId));
 	const { data: worktreeChanges } = useQuery(changesInWorktreeQueryOptions(projectId));
-	const headInfoIndex = headInfo ? getHeadInfoIndex(headInfo) : undefined;
-
 	const appliedSelection = useSelection("applied", addressSpace);
+	// After the hook on purpose: a hook call between the index and the commit
+	// target derivation below stops the compiler from memoizing that derivation,
+	// and a fresh commit target every render re-renders the uncommitted list.
+	const headInfoIndex = headInfo ? getHeadInfoIndex(headInfo) : undefined;
 	const commitTargetComboboxItems = buildCommitTargetComboboxItems({
 		headInfo,
 		headInfoIndex,
