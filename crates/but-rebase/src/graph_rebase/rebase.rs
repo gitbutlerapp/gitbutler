@@ -14,6 +14,7 @@ use crate::graph_rebase::{
     Editor, Pick, Step, StepGraph, StepGraphIndex, SuccessfulRebase,
     cherry_pick::{CherryPickOutcome, cherry_pick},
     util::collect_ordered_parents,
+    workspace_commit,
 };
 
 impl<'ws, 'graph, M: RefMetadata> Editor<'ws, 'graph, M> {
@@ -67,6 +68,18 @@ impl<'ws, 'graph, M: RefMetadata> Editor<'ws, 'graph, M> {
                         pick.tree_merge_mode,
                         pick.sign_commit,
                     )?;
+                    let outcome = match outcome {
+                        failure @ CherryPickOutcome::FailedToMergeBases { .. } => {
+                            workspace_commit::replay_single_parent_delta(
+                                &self.repo,
+                                pick.id,
+                                &ontos,
+                                pick.sign_commit,
+                            )?
+                            .unwrap_or(failure)
+                        }
+                        outcome => outcome,
+                    };
 
                     if matches!(outcome, CherryPickOutcome::ConflictedCommit(_))
                         && !pick.conflictable
