@@ -546,7 +546,7 @@ fn many_uncommitted_files_do_not_exhaust_generated_ids() -> anyhow::Result<()> {
     assert_eq!(
         id_map.uncommitted_files.len(),
         FILE_COUNT,
-        "all uncommitted files should receive path-derived IDs"
+        "all uncommitted files receive path-derived IDs"
     );
     let file_id = id_map
         .uncommitted_files
@@ -555,34 +555,106 @@ fn many_uncommitted_files_do_not_exhaust_generated_ids() -> anyhow::Result<()> {
         .expect("at least one uncommitted file")
         .short_id
         .clone();
-    let resolved_file = id_map.parse(&file_id, &TestChanges(|_, _| unreachable!()))?;
-    assert!(matches!(
-        resolved_file.as_slice(),
-        [CliId::UncommittedHunkOrFile(_)]
-    ));
-    assert_eq!(resolved_file[0].to_short_string(), file_id);
+    // The issued file ID resolves to its file.
+    snapbox::assert_data_eq!(
+        (
+            &file_id,
+            id_map.parse(&file_id, &TestChanges(|_, _| unreachable!()))?
+        )
+            .to_debug(),
+        snapbox::str![[r#"
+(
+    "kkkl",
+    [
+        UncommittedHunkOrFile(
+            UncommittedHunkOrFile {
+                id: "kkkl",
+                hunks: NonEmpty {
+                    head: IdAndHunk {
+                        id: "kkkl:e",
+                        hunk: SingleHunk {
+                            hunk_header: None,
+                            path: "untracked-9681",
+                            diff: None,
+                        },
+                    },
+                    tail: [],
+                },
+                is_entire_file: true,
+                source: Head,
+            },
+        ),
+    ],
+)
 
-    let real_ids: Vec<_> = id_map
+"#]]
+    );
+
+    // Both branches and both stacks keep distinct generated IDs that resolve to themselves.
+    let real_ids = id_map
         .branch_ids()
         .into_iter()
         .chain(id_map.stack_ids.values().map(CliId::to_short_string))
-        .collect();
-    assert_eq!(real_ids.len(), 4);
-    for (index, real_id) in real_ids.iter().enumerate() {
-        assert!(
-            !real_ids[..index].contains(real_id),
-            "real IDs should be unique"
-        );
-        let resolved = id_map.parse(real_id, &TestChanges(|_, _| unreachable!()))?;
-        assert!(
-            matches!(
-                resolved.as_slice(),
-                [CliId::Branch(_) | CliId::Stack { .. }]
+        .map(|real_id| {
+            id_map
+                .parse(&real_id, &TestChanges(|_, _| unreachable!()))
+                .map(|resolved| (real_id, resolved))
+        })
+        .collect::<anyhow::Result<Vec<_>>>()?;
+    snapbox::assert_data_eq!(
+        real_ids.to_debug(),
+        snapbox::str![[r#"
+[
+    (
+        "g0",
+        [
+            Branch(
+                BranchId {
+                    name: "0",
+                    id: "g0",
+                    stack_id: Some(
+                        00000000-0000-0000-0000-000000000001,
+                    ),
+                },
             ),
-            "real IDs should resolve after synthetic fallback"
-        );
-        assert_eq!(resolved[0].to_short_string(), *real_id);
-    }
+        ],
+    ),
+    (
+        "h0",
+        [
+            Branch(
+                BranchId {
+                    name: "1",
+                    id: "h0",
+                    stack_id: Some(
+                        00000000-0000-0000-0000-000000000002,
+                    ),
+                },
+            ),
+        ],
+    ),
+    (
+        "i0",
+        [
+            Stack {
+                id: "i0",
+                stack_id: 00000000-0000-0000-0000-000000000001,
+            },
+        ],
+    ),
+    (
+        "j0",
+        [
+            Stack {
+                id: "j0",
+                stack_id: 00000000-0000-0000-0000-000000000002,
+            },
+        ],
+    ),
+]
+
+"#]]
+    );
     Ok(())
 }
 
@@ -1217,47 +1289,104 @@ fn worktree_container_id() -> anyhow::Result<()> {
 
     // The short ID resolves to the same worktree.
     let short_id = by_name[0].to_short_string();
-    let by_id = id_map.parse(&short_id, &TestChanges(changed_paths_fn))?;
-    assert_eq!(by_id, by_name, "name and short ID name the same worktree");
-
-    let one_char_prefix = short_id
-        .chars()
-        .next()
-        .expect("worktree short IDs are non-empty")
-        .to_string();
-    assert!(
+    snapbox::assert_data_eq!(
         id_map
-            .parse(&one_char_prefix, &TestChanges(changed_paths_fn))?
-            .is_empty(),
-        "worktree short IDs require an exact match"
+            .parse(&short_id, &TestChanges(changed_paths_fn))?
+            .to_debug(),
+        snapbox::str![[r#"
+[
+    Worktree {
+        id: "wt",
+        name: "wt-a",
+    },
+]
+
+"#]]
     );
 
-    // `<worktree>:<path>` disambiguates a path that is dirty in several checkouts.
-    let scoped = id_map.parse("wt-a:file", &TestChanges(changed_paths_fn))?;
-    assert_eq!(scoped.len(), 1, "scoped to one checkout");
-    let CliId::UncommittedHunkOrFile(scoped) = &scoped[0] else {
-        bail!("expected an uncommitted file, got {scoped:?}");
-    };
-    assert_eq!(
-        scoped.source,
-        ChangeSourceId::Worktree("wt-a".into()),
-        "the scoped match comes from the named checkout"
+    // Worktree short IDs require an exact match, so a one-character prefix finds nothing.
+    snapbox::assert_data_eq!(
+        id_map
+            .parse(&short_id[..1], &TestChanges(changed_paths_fn))?
+            .to_debug(),
+        snapbox::str![[r#"
+[]
+
+"#]]
+    );
+
+    // `<worktree>:<path>` disambiguates a path that is dirty in several checkouts,
+    // keeping the named checkout's copy.
+    snapbox::assert_data_eq!(
+        id_map
+            .parse("wt-a:file", &TestChanges(changed_paths_fn))?
+            .to_debug(),
+        snapbox::str![[r#"
+[
+    UncommittedHunkOrFile(
+        UncommittedHunkOrFile {
+            id: "rp",
+            hunks: NonEmpty {
+                head: IdAndHunk {
+                    id: "rp:e",
+                    hunk: SingleHunk {
+                        hunk_header: None,
+                        path: "file",
+                        diff: None,
+                    },
+                },
+                tail: [],
+            },
+            is_entire_file: true,
+            source: Worktree(
+                "wt-a",
+            ),
+        },
+    ),
+]
+
+"#]]
     );
 
     // The container expands to every file in that checkout, which is what
     // `but commit <worktree>` commits.
-    let expanded = id_map.uncommitted_files_in(&ChangeSourceId::Worktree("wt-a".into()));
-    assert_eq!(expanded.len(), 1, "only the one dirty file lives in wt-a");
-    assert_eq!(
-        expanded[0].hunks.first().hunk.path,
-        "file",
-        "expansion yields that checkout's own file"
+    snapbox::assert_data_eq!(
+        id_map
+            .uncommitted_files_in(&ChangeSourceId::Worktree("wt-a".into()))
+            .to_debug(),
+        snapbox::str![[r#"
+[
+    UncommittedHunkOrFile {
+        id: "rp",
+        hunks: NonEmpty {
+            head: IdAndHunk {
+                id: "rp:e",
+                hunk: SingleHunk {
+                    hunk_header: None,
+                    path: "file",
+                    diff: None,
+                },
+            },
+            tail: [],
+        },
+        is_entire_file: true,
+        source: Worktree(
+            "wt-a",
+        ),
+    },
+]
+
+"#]]
     );
-    assert!(
+    // A clean worktree expands to nothing.
+    snapbox::assert_data_eq!(
         id_map
             .uncommitted_files_in(&ChangeSourceId::Worktree("wt-b".into()))
-            .is_empty(),
-        "a clean worktree expands to nothing"
+            .to_debug(),
+        snapbox::str![[r#"
+[]
+
+"#]]
     );
 
     Ok(())
@@ -1298,39 +1427,97 @@ fn worktree_uncommitted_area_id() -> anyhow::Result<()> {
     );
 
     // The full name reaches the same area, so a printed `<name>:@` hint resolves.
-    let by_name = id_map.parse("wt-a:@", &TestChanges(changed_paths_fn))?;
-    assert_eq!(by_name, by_short_id, "name and short ID name the same area");
+    snapbox::assert_data_eq!(
+        id_map
+            .parse("wt-a:@", &TestChanges(changed_paths_fn))?
+            .to_debug(),
+        snapbox::str![[r#"
+[
+    WorktreeUncommitted {
+        id: "wt:@",
+        name: "wt-a",
+    },
+]
+
+"#]]
+    );
 
     // The rendered ID round-trips, which is what makes it copy-pasteable from `but status`.
-    let round_tripped = id_map.parse(
-        &by_short_id[0].to_short_string(),
-        &TestChanges(changed_paths_fn),
-    )?;
-    assert_eq!(round_tripped, by_short_id, "the printed ID resolves back");
+    snapbox::assert_data_eq!(
+        id_map
+            .parse(
+                &by_short_id[0].to_short_string(),
+                &TestChanges(changed_paths_fn),
+            )?
+            .to_debug(),
+        snapbox::str![[r#"
+[
+    WorktreeUncommitted {
+        id: "wt:@",
+        name: "wt-a",
+    },
+]
+
+"#]]
+    );
 
     // The reference and its area are different entities, not two spellings of one.
     let reference = id_map.parse("wt", &TestChanges(changed_paths_fn))?;
-    assert_ne!(
-        reference, by_short_id,
-        "the lane and its uncommitted area are distinct IDs"
-    );
-    assert_eq!(
-        by_short_id[0].uncommitted_area(),
-        Some(ChangeSourceId::Worktree("wt-a".into())),
-        "the area names its own worktree"
-    );
-    assert_eq!(
-        reference[0].uncommitted_area(),
-        None,
-        "the reference holds no changes"
+    snapbox::assert_data_eq!(
+        reference.to_debug(),
+        snapbox::str![[r#"
+[
+    Worktree {
+        id: "wt",
+        name: "wt-a",
+    },
+]
+
+"#]]
     );
 
     // `@` alone stays the main worktree's area and never reaches into a linked one.
     let main = id_map.parse(UNCOMMITTED, &TestChanges(changed_paths_fn))?;
-    assert_eq!(
-        main[0].uncommitted_area(),
-        Some(ChangeSourceId::Head),
-        "the bare sentinel is still the main worktree"
+    snapbox::assert_data_eq!(
+        main.to_debug(),
+        snapbox::str![[r#"
+[
+    Uncommitted {
+        id: "@",
+    },
+]
+
+"#]]
+    );
+
+    // Each area names its own checkout; the reference holds no changes.
+    let areas = [&by_short_id[0], &reference[0], &main[0]]
+        .map(|id| (id.to_short_string(), id.uncommitted_area()));
+    snapbox::assert_data_eq!(
+        areas.to_debug(),
+        snapbox::str![[r#"
+[
+    (
+        "wt:@",
+        Some(
+            Worktree(
+                "wt-a",
+            ),
+        ),
+    ),
+    (
+        "wt",
+        None,
+    ),
+    (
+        "@",
+        Some(
+            Head,
+        ),
+    ),
+]
+
+"#]]
     );
 
     Ok(())
@@ -1381,62 +1568,83 @@ fn generated_segment_ids_do_not_collide_with_worktree_names() -> anyhow::Result<
         3,
     )?;
 
-    let branch_ids = id_map.branch_ids();
-    assert_eq!(
-        branch_ids,
-        ["g0", "h0"],
-        "the named fallback and anonymous segment use generated IDs"
+    // The named fallback and anonymous segment use generated IDs, which stay
+    // reserved: the worktrees named after them get other IDs.
+    snapbox::assert_data_eq!(
+        id_map.debug_state().to_debug(),
+        snapbox::str![[r#"
+workspace_and_remote_commits_count: 0
+branches: [ g0, h0 ]
+worktrees: [ or h0-worktree, wo g0-worktree ]
+
+
+"#]]
     );
-    let worktree_ids: Vec<_> = id_map
-        .worktrees
-        .values()
-        .map(|worktree| worktree.short_id.as_str())
-        .collect();
-    for branch_id in &branch_ids {
-        assert!(
-            !worktree_ids.contains(&branch_id.as_str()),
-            "generated branch ID {branch_id} remains reserved"
-        );
-    }
 
     let changed_paths_fn = |commit_id: gix::ObjectId,
                             parent_id: Option<gix::ObjectId>|
      -> anyhow::Result<Vec<but_core::TreeChange>> {
         bail!("unexpected IDs {commit_id} {parent_id:?}");
     };
-    let segment_ids = branch_ids
+    // The named segment resolves as a branch, the anonymous one as its own CLI ID kind.
+    let segment_ids = id_map
+        .branch_ids()
         .iter()
         .map(|id| id_map.parse(id, &TestChanges(changed_paths_fn)))
         .collect::<anyhow::Result<Vec<_>>>()?;
-    assert_eq!(
-        segment_ids
-            .iter()
-            .flatten()
-            .filter(|id| matches!(id, CliId::Branch(_)))
-            .count(),
-        1,
-        "named segment resolves as branch"
-    );
-    assert_eq!(
-        segment_ids
-            .iter()
-            .flatten()
-            .filter(|id| matches!(id, CliId::AnonymousSegment(_)))
-            .count(),
-        1,
-        "anonymous segment resolves as its own CLI ID kind"
+    snapbox::assert_data_eq!(
+        segment_ids.to_debug(),
+        snapbox::str![[r#"
+[
+    [
+        Branch(
+            BranchId {
+                name: "ab",
+                id: "g0",
+                stack_id: None,
+            },
+        ),
+    ],
+    [
+        AnonymousSegment(
+            AnonymousSegmentId {
+                id: "h0",
+                stack_id: None,
+                anchor_commit_id: None,
+            },
+        ),
+    ],
+]
+
+"#]]
     );
 
-    for worktree in id_map.worktrees.values() {
-        assert_eq!(
-            id_map.parse(&worktree.short_id, &TestChanges(changed_paths_fn))?,
-            [CliId::Worktree {
-                id: worktree.short_id.clone(),
-                name: worktree.name.clone(),
-            }],
-            "each displayed worktree ID resolves to its worktree"
-        );
-    }
+    // Each displayed worktree ID resolves to its worktree.
+    let worktree_ids = id_map
+        .worktrees
+        .values()
+        .map(|worktree| id_map.parse(&worktree.short_id, &TestChanges(changed_paths_fn)))
+        .collect::<anyhow::Result<Vec<_>>>()?;
+    snapbox::assert_data_eq!(
+        worktree_ids.to_debug(),
+        snapbox::str![[r#"
+[
+    [
+        Worktree {
+            id: "wo",
+            name: "g0-worktree",
+        },
+    ],
+    [
+        Worktree {
+            id: "or",
+            name: "h0-worktree",
+        },
+    ],
+]
+
+"#]]
+    );
 
     Ok(())
 }
@@ -1461,30 +1669,100 @@ fn at_scopes_filenames_to_the_main_worktree() -> anyhow::Result<()> {
         bail!("unexpected IDs {commit_id} {parent_id:?}");
     };
 
-    assert_eq!(
-        id_map.parse("@", &TestChanges(changed_paths_fn))?,
-        [CliId::Uncommitted { id: "@".into() }],
-        "bare @ names the main worktree's whole uncommitted area"
+    // Bare `@` names the main worktree's whole uncommitted area.
+    snapbox::assert_data_eq!(
+        id_map
+            .parse("@", &TestChanges(changed_paths_fn))?
+            .to_debug(),
+        snapbox::str![[r#"
+[
+    Uncommitted {
+        id: "@",
+    },
+]
+
+"#]]
     );
 
-    let scoped = id_map.parse("@:file", &TestChanges(changed_paths_fn))?;
-    assert_eq!(scoped.len(), 1, "`@` only ever matches the main worktree");
-    let CliId::UncommittedHunkOrFile(scoped) = &scoped[0] else {
-        bail!("expected an uncommitted file, got {scoped:?}");
-    };
-    assert_eq!(
-        scoped.source,
-        ChangeSourceId::Head,
-        "`@` scoping keeps the main worktree's copy"
+    // `@` only ever matches the main worktree, so scoping keeps its copy.
+    snapbox::assert_data_eq!(
+        id_map
+            .parse("@:file", &TestChanges(changed_paths_fn))?
+            .to_debug(),
+        snapbox::str![[r#"
+[
+    UncommittedHunkOrFile(
+        UncommittedHunkOrFile {
+            id: "qs",
+            hunks: NonEmpty {
+                head: IdAndHunk {
+                    id: "qs:e",
+                    hunk: SingleHunk {
+                        hunk_header: None,
+                        path: "file",
+                        diff: None,
+                    },
+                },
+                tail: [],
+            },
+            is_entire_file: true,
+            source: Head,
+        },
+    ),
+]
+
+"#]]
     );
 
-    // A bare filename is deliberately unscoped, so it reports both and the
-    // caller turns that into an ambiguity error.
-    let unscoped = id_map.parse("file", &TestChanges(changed_paths_fn))?;
-    assert_eq!(
-        unscoped.len(),
-        2,
-        "a bare path matches every checkout it is dirty in"
+    // A bare filename is deliberately unscoped, so it reports every checkout it
+    // is dirty in and the caller turns that into an ambiguity error.
+    snapbox::assert_data_eq!(
+        id_map
+            .parse("file", &TestChanges(changed_paths_fn))?
+            .to_debug(),
+        snapbox::str![[r#"
+[
+    UncommittedHunkOrFile(
+        UncommittedHunkOrFile {
+            id: "qs",
+            hunks: NonEmpty {
+                head: IdAndHunk {
+                    id: "qs:e",
+                    hunk: SingleHunk {
+                        hunk_header: None,
+                        path: "file",
+                        diff: None,
+                    },
+                },
+                tail: [],
+            },
+            is_entire_file: true,
+            source: Head,
+        },
+    ),
+    UncommittedHunkOrFile(
+        UncommittedHunkOrFile {
+            id: "rp",
+            hunks: NonEmpty {
+                head: IdAndHunk {
+                    id: "rp:e",
+                    hunk: SingleHunk {
+                        hunk_header: None,
+                        path: "file",
+                        diff: None,
+                    },
+                },
+                tail: [],
+            },
+            is_entire_file: true,
+            source: Worktree(
+                "wt-a",
+            ),
+        },
+    ),
+]
+
+"#]]
     );
 
     Ok(())
@@ -1958,30 +2236,41 @@ fn duplicate_tree_changes_for_committed_files_are_coalesced_for_short_id_assignm
 
     let changes = super::short_ids_from_tree_changes(vec![first, second])?;
 
-    assert_eq!(
-        changes.len(),
-        1,
-        "duplicate path/commit tree change goes into single bucket"
-    );
+    // Both tree changes for the path go into a single bucket, each retained in order.
+    snapbox::assert_data_eq!(
+        changes.to_debug(),
+        snapbox::str![[r#"
+[
+    (
+        NonEmpty {
+            head: TreeChange {
+                path: "file.txt",
+                status: Addition {
+                    state: ChangeState {
+                        id: Sha1(0000000000000000000000000000000000000000),
+                        kind: Blob,
+                    },
+                    is_untracked: false,
+                },
+            },
+            tail: [
+                TreeChange {
+                    path: "file.txt",
+                    status: Deletion {
+                        previous_state: ChangeState {
+                            id: Sha1(0000000000000000000000000000000000000000),
+                            kind: Blob,
+                        },
+                    },
+                },
+            ],
+        },
+        "uvwtvwskpzypsmwlvymvtsvympuvovuy",
+        "u",
+    ),
+]
 
-    assert_eq!(
-        changes[0].0.len(),
-        2,
-        "both tree changes are individually represented"
-    );
-    assert!(
-        matches!(
-            changes[0].0[0].status,
-            but_core::TreeStatus::Addition { .. }
-        ),
-        "first tree change is retained"
-    );
-    assert!(
-        matches!(
-            changes[0].0[1].status,
-            but_core::TreeStatus::Deletion { .. }
-        ),
-        "second tree change is retained"
+"#]]
     );
     Ok(())
 }
@@ -2013,20 +2302,74 @@ fn committed_files_are_deduplicated_by_commit_oid_path() -> anyhow::Result<()> {
         })
     };
 
-    // Verify we can look up both files both by ID and filename
-    assert!(id_map.parse("02:uv", &TestChanges(changed_paths_fn))?.len() == 1);
-    assert!(id_map.parse("02:xw", &TestChanges(changed_paths_fn))?.len() == 1);
-    assert!(
-        id_map
-            .parse("02:file.txt", &TestChanges(changed_paths_fn))?
-            .len()
-            == 1
-    );
-    assert!(
-        id_map
-            .parse("02:other.txt", &TestChanges(changed_paths_fn))?
-            .len()
-            == 1
+    // Both files resolve exactly once, by ID and by filename.
+    let lookups = ["02:uv", "02:xw", "02:file.txt", "02:other.txt"]
+        .into_iter()
+        .map(|selector| {
+            id_map
+                .parse(selector, &TestChanges(changed_paths_fn))
+                .map(|matches| (selector, matches))
+        })
+        .collect::<anyhow::Result<Vec<_>>>()?;
+    snapbox::assert_data_eq!(
+        lookups.to_debug(),
+        snapbox::str![[r#"
+[
+    (
+        "02:uv",
+        [
+            CommittedFile {
+                committed_file: CommittedFileId {
+                    commit_id: Sha1(0202020202020202020202020202020202020202),
+                    path: "file.txt",
+                    change_id: None,
+                },
+                id: "0:u",
+            },
+        ],
+    ),
+    (
+        "02:xw",
+        [
+            CommittedFile {
+                committed_file: CommittedFileId {
+                    commit_id: Sha1(0202020202020202020202020202020202020202),
+                    path: "other.txt",
+                    change_id: None,
+                },
+                id: "0:x",
+            },
+        ],
+    ),
+    (
+        "02:file.txt",
+        [
+            CommittedFile {
+                committed_file: CommittedFileId {
+                    commit_id: Sha1(0202020202020202020202020202020202020202),
+                    path: "file.txt",
+                    change_id: None,
+                },
+                id: "0:u",
+            },
+        ],
+    ),
+    (
+        "02:other.txt",
+        [
+            CommittedFile {
+                committed_file: CommittedFileId {
+                    commit_id: Sha1(0202020202020202020202020202020202020202),
+                    path: "other.txt",
+                    change_id: None,
+                },
+                id: "0:x",
+            },
+        ],
+    ),
+]
+
+"#]]
     );
 
     Ok(())
@@ -3149,18 +3492,31 @@ fn dedupe_does_not_hide_ambiguity_between_distinct_commits() -> anyhow::Result<(
         bail!("unexpected IDs {commit_id} {parent_id:?}");
     };
 
-    let matches = id_map.parse("21", &TestChanges(changed_paths_fn))?;
-    assert_eq!(
-        matches.len(),
-        2,
-        "distinct commits sharing a prefix must remain ambiguous"
+    // Distinct commits sharing a prefix remain ambiguous.
+    snapbox::assert_data_eq!(
+        id_map
+            .parse("21", &TestChanges(changed_paths_fn))?
+            .to_debug(),
+        snapbox::str![[r#"
+[
+    Commit {
+        commit: CommitId {
+            commit_id: Sha1(21aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa),
+            change_id: None,
+        },
+        id: "21a",
+    },
+    Commit {
+        commit: CommitId {
+            commit_id: Sha1(21bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb),
+            change_id: None,
+        },
+        id: "21b",
+    },
+]
+
+"#]]
     );
-    assert!(matches.iter().any(
-        |m| matches!(m, CliId::Commit { commit: CommitId { commit_id, .. }, id: _ } if *commit_id == id1)
-    ));
-    assert!(matches.iter().any(
-        |m| matches!(m, CliId::Commit { commit: CommitId { commit_id, .. }, id: _ } if *commit_id == id2)
-    ));
 
     Ok(())
 }
@@ -3190,21 +3546,34 @@ fn dedupe_does_not_hide_ambiguity_between_branches_in_different_stacks() -> anyh
         bail!("unexpected IDs {commit_id} {parent_id:?}");
     };
 
-    let matches = id_map.parse("foo", &TestChanges(changed_paths_fn))?;
-    assert_eq!(
-        matches.len(),
-        2,
-        "same branch name across different stacks must remain ambiguous"
-    );
-    assert!(
-        matches
-            .iter()
-            .any(|m| matches!(m, CliId::Branch(branch) if branch.name == "foo" && branch.stack_id == Some(StackId::from_number_for_testing(1))))
-    );
-    assert!(
-        matches
-            .iter()
-            .any(|m| matches!(m, CliId::Branch(branch) if branch.name == "foo" && branch.stack_id == Some(StackId::from_number_for_testing(2))))
+    // The same branch name across different stacks remains ambiguous.
+    snapbox::assert_data_eq!(
+        id_map
+            .parse("foo", &TestChanges(changed_paths_fn))?
+            .to_debug(),
+        snapbox::str![[r#"
+[
+    Branch(
+        BranchId {
+            name: "foo",
+            id: "fo",
+            stack_id: Some(
+                00000000-0000-0000-0000-000000000001,
+            ),
+        },
+    ),
+    Branch(
+        BranchId {
+            name: "foo",
+            id: "oo",
+            stack_id: Some(
+                00000000-0000-0000-0000-000000000002,
+            ),
+        },
+    ),
+]
+
+"#]]
     );
 
     Ok(())
@@ -3382,6 +3751,7 @@ fn uncommitted_selector_is_not_shadowed_by_commit_change_id() -> anyhow::Result<
             _ => None,
         })
         .expect("one uncommitted file");
+    snapbox::assert_data_eq!(file_id.as_str(), snapbox::str!["rl"]);
 
     // A commit is created whose random change ID starts with that file ID.
     let id1 = id(1);
@@ -3403,56 +3773,152 @@ fn uncommitted_selector_is_not_shadowed_by_commit_change_id() -> anyhow::Result<
     )?;
 
     // In the full namespace the commit shadows the previously issued file ID.
-    let full = id_map.parse(&file_id, &TestChanges(changed_paths_fn()))?;
-    assert!(
-        matches!(full.as_slice(), [CliId::Commit { .. }]),
-        "the commit change ID shadows the file ID in the full namespace: {full:?}"
+    snapbox::assert_data_eq!(
+        id_map
+            .parse(&file_id, &TestChanges(changed_paths_fn()))?
+            .to_debug(),
+        snapbox::str![[r#"
+[
+    Commit {
+        commit: CommitId {
+            commit_id: Sha1(0101010101010101010101010101010101010101),
+            change_id: Some(
+                "rlzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz",
+            ),
+        },
+        id: "0",
+    },
+]
+
+"#]]
     );
 
-    // Scoped to uncommitted files, the same selector still finds the file.
-    let scoped = id_map.parse_uncommitted(&file_id, &TestChanges(changed_paths_fn()))?;
-    match scoped.as_slice() {
-        [CliId::UncommittedHunkOrFile(uncommitted)] => {
-            assert_eq!(
-                uncommitted.hunks.first().hunk.path,
-                "README.md",
-                "the selector resolves to the file it was issued for"
-            );
-        }
-        other => panic!("expected the uncommitted file, got {other:?}"),
-    }
+    // Scoped to uncommitted files, the same selector still finds the file it was issued for.
+    snapbox::assert_data_eq!(
+        id_map
+            .parse_uncommitted(&file_id, &TestChanges(changed_paths_fn()))?
+            .to_debug(),
+        snapbox::str![[r#"
+[
+    UncommittedHunkOrFile(
+        UncommittedHunkOrFile {
+            id: "rln",
+            hunks: NonEmpty {
+                head: IdAndHunk {
+                    id: "rln:e",
+                    hunk: SingleHunk {
+                        hunk_header: None,
+                        path: "README.md",
+                        diff: None,
+                    },
+                },
+                tail: [],
+            },
+            is_entire_file: true,
+            source: Head,
+        },
+    ),
+]
+
+"#]]
+    );
 
     // Hunk selectors under the file keep working too.
-    let hunk =
-        id_map.parse_uncommitted(&format!("{file_id}:e"), &TestChanges(changed_paths_fn()))?;
-    assert!(
-        matches!(hunk.as_slice(), [CliId::UncommittedHunkOrFile(_)]),
-        "hunk selector resolves in the scoped namespace: {hunk:?}"
+    let hunk_selector = format!("{file_id}:e");
+    snapbox::assert_data_eq!(
+        id_map
+            .parse_uncommitted(&hunk_selector, &TestChanges(changed_paths_fn()))?
+            .to_debug(),
+        snapbox::str![[r#"
+[
+    UncommittedHunkOrFile(
+        UncommittedHunkOrFile {
+            id: "rln:e",
+            hunks: NonEmpty {
+                head: IdAndHunk {
+                    id: "rln:e",
+                    hunk: SingleHunk {
+                        hunk_header: None,
+                        path: "README.md",
+                        diff: None,
+                    },
+                },
+                tail: [],
+            },
+            is_entire_file: false,
+            source: Head,
+        },
+    ),
+]
+
+"#]]
     );
 
     let tmp = tempfile::TempDir::new()?;
     let repo = gix::init(tmp.path())?;
-    let resolved = CliIdArg(format!("{file_id}:e"))
-        .try_resolve_uncommitted(&repo, &id_map)
-        .expect("selector resolution succeeds")
-        .expect("the issued hunk selector still resolves");
-    assert_eq!(resolved.len(), 1, "exactly one hunk resolves");
-    assert_eq!(resolved[0].hunks.first().hunk.path, "README.md");
+    // The issued hunk selector still resolves to exactly that hunk.
+    snapbox::assert_data_eq!(
+        CliIdArg(hunk_selector.clone())
+            .try_resolve_uncommitted(&repo, &id_map)
+            .expect("selector resolution succeeds")
+            .to_debug(),
+        snapbox::str![[r#"
+Some(
+    [
+        UncommittedHunkOrFile {
+            id: "rln:e",
+            hunks: NonEmpty {
+                head: IdAndHunk {
+                    id: "rln:e",
+                    hunk: SingleHunk {
+                        hunk_header: None,
+                        path: "README.md",
+                        diff: None,
+                    },
+                },
+                tail: [],
+            },
+            is_entire_file: false,
+            source: Head,
+        },
+    ],
+)
 
-    let resolved = CliIdArg(format!("{file_id}:e"))
-        .resolve_in_workspace(
-            &repo,
-            &id_map,
-            crate::args::atoms::Purpose::Uncommitted,
-            None,
-        )
-        .expect("a command requiring an uncommitted selector resolves the issued hunk");
-    assert!(
-        matches!(
-            resolved,
-            crate::args::atoms::ResolvedCliIdArg::UncommittedHunkOrFile(_)
-        ),
-        "the shared uncommitted-purpose resolver keeps the issued hunk"
+"#]]
+    );
+
+    // The shared uncommitted-purpose resolver keeps the issued hunk.
+    snapbox::assert_data_eq!(
+        CliIdArg(hunk_selector)
+            .resolve_in_workspace(
+                &repo,
+                &id_map,
+                crate::args::atoms::Purpose::Uncommitted,
+                None,
+            )
+            .expect("a command requiring an uncommitted selector resolves the issued hunk")
+            .to_debug(),
+        snapbox::str![[r#"
+UncommittedHunkOrFile(
+    UncommittedHunkOrFile {
+        id: "rln:e",
+        hunks: NonEmpty {
+            head: IdAndHunk {
+                id: "rln:e",
+                hunk: SingleHunk {
+                    hunk_header: None,
+                    path: "README.md",
+                    diff: None,
+                },
+            },
+            tail: [],
+        },
+        is_entire_file: false,
+        source: Head,
+    },
+)
+
+"#]]
     );
 
     Ok(())
@@ -3507,43 +3973,90 @@ fn uncommitted_scope_does_not_prefix_match_a_branch_short_id() -> anyhow::Result
         3,
     )?;
 
-    let full = id_map.parse("kp", &TestChanges(changed_paths_fn))?;
-    assert!(
-        matches!(full.as_slice(), [CliId::Branch(..)]),
-        "precondition: the full namespace resolves 'kp' to the branch: {full:?}"
+    // Precondition: the full namespace resolves `kp` to the branch.
+    snapbox::assert_data_eq!(
+        id_map
+            .parse("kp", &TestChanges(changed_paths_fn))?
+            .to_debug(),
+        snapbox::str![[r#"
+[
+    Branch(
+        BranchId {
+            name: "kp",
+            id: "kp",
+            stack_id: None,
+        },
+    ),
+]
+
+"#]]
     );
 
     // The scoped parser must NOT silently resolve the displayed branch ID to
-    // the file by hex-prefix accident — an empty result lets callers produce
+    // the file by hex-prefix accident: an empty result lets callers produce
     // the targeted "is a branch" error via their full-namespace fallback.
-    let scoped = id_map.parse_uncommitted("kp", &TestChanges(changed_paths_fn))?;
-    assert_eq!(
-        scoped,
-        vec![],
-        "a displayed branch ID never resolves to a file in the uncommitted scope"
+    snapbox::assert_data_eq!(
+        id_map
+            .parse_uncommitted("kp", &TestChanges(changed_paths_fn))?
+            .to_debug(),
+        snapbox::str![[r#"
+[]
+
+"#]]
     );
 
     // A longer prefix that no branch owns still resolves the file.
-    let scoped = id_map.parse_uncommitted("kpo", &TestChanges(changed_paths_fn))?;
-    assert!(
-        matches!(scoped.as_slice(), [CliId::UncommittedHunkOrFile(_)]),
-        "file prefixes beyond the branch ID keep resolving: {scoped:?}"
+    snapbox::assert_data_eq!(
+        id_map
+            .parse_uncommitted("kpo", &TestChanges(changed_paths_fn))?
+            .to_debug(),
+        snapbox::str![[r#"
+[
+    UncommittedHunkOrFile(
+        UncommittedHunkOrFile {
+            id: "kpo",
+            hunks: NonEmpty {
+                head: IdAndHunk {
+                    id: "kpo:e",
+                    hunk: SingleHunk {
+                        hunk_header: None,
+                        path: "foo242",
+                        diff: None,
+                    },
+                },
+                tail: [],
+            },
+            is_entire_file: true,
+            source: Head,
+        },
+    ),
+]
+
+"#]]
     );
 
     let tmp = tempfile::TempDir::new()?;
     let repo = gix::init(tmp.path())?;
-    let resolved = CliIdArg("kp".to_owned())
-        .resolve_in_workspace(
-            &repo,
-            &id_map,
-            crate::args::atoms::Purpose::Uncommitted,
-            None,
-        )
-        .expect("the full lookup should preserve a non-uncommitted match");
-    assert!(
-        matches!(resolved, crate::args::atoms::ResolvedCliIdArg::Branch(_)),
-        "when the uncommitted-only lookup deliberately yields nothing, the full lookup \
-         preserves the branch kind for the caller's targeted error: {resolved:?}"
+    // When the uncommitted-only lookup deliberately yields nothing, the full
+    // lookup preserves the branch kind for the caller's targeted error.
+    snapbox::assert_data_eq!(
+        CliIdArg("kp".to_owned())
+            .resolve_in_workspace(
+                &repo,
+                &id_map,
+                crate::args::atoms::Purpose::Uncommitted,
+                None,
+            )
+            .expect("the full lookup preserves a non-uncommitted match")
+            .to_debug(),
+        snapbox::str![[r#"
+Branch(
+    BranchArg(
+        "kp",
+    ),
+)
+
+"#]]
     );
     Ok(())
 }
