@@ -33,6 +33,7 @@ import { ResizeHandle } from "#ui/components/ResizeHandle.tsx";
 import uiStyles from "#ui/components/ui.module.css";
 import type {
 	BranchReference,
+	Commit,
 	Segment,
 	Stack,
 	PushStatus,
@@ -48,6 +49,7 @@ import {
 	Activity,
 	type ComponentProps,
 	createContext,
+	type CSSProperties,
 	type FC,
 	Fragment,
 	type RefObject,
@@ -55,6 +57,7 @@ import {
 	use,
 	useCallback,
 	useLayoutEffect,
+	useMemo,
 	useRef,
 	useState,
 } from "react";
@@ -671,54 +674,107 @@ const SegmentContent: FC<{
 				const commit = segment.commits[virtualRow.index];
 				if (commit === undefined) return null;
 
-				const address = commitAddress({ commitId: commit.id, changeId: commit.changeId });
 				const dryRunCommitId = dryRunWorkspace?.replacedCommits[commit.id];
 				const dryRunCommit =
 					dryRunCommitId !== undefined
 						? (dryRunHeadInfoIndex?.commitContextByCommitId(dryRunCommitId)?.commit ?? null)
 						: null;
 				return (
-					<div
+					<CommitItem
 						key={commit.id}
-						data-index={virtualRow.index}
-						ref={rowVirtualizer.measureElement}
-						// We can't set fixed height here as an optimisation due to inline reword.
-						style={{
-							position: "absolute",
-							top: 0,
-							left: 0,
-							width: "100%",
-						}}
-					>
-						<TreeItem
-							address={address}
-							aria-label={commitTitle(commit.message) ?? "(no message)"}
-							aria-level={ariaLevel}
-							aria-posinset={positionOffset + virtualRow.index + 1}
-							aria-setsize={setSize}
-							render={
-								<AddressC
-									projectId={projectId}
-									address={address}
-									outline="outside"
-									render={
-										<CommitRow
-											commit={commit}
-											stackId={stackId}
-											checkCommit={checkCommit}
-											amendCommit={() => onAmendCommit(commit.id)}
-											canAmendCommit={canAmendCommit}
-											projectId={projectId}
-											dryRunCommit={dryRunCommit}
-											scrollSelectedIntoView={false}
-										/>
-									}
-								/>
-							}
-						/>
-					</div>
+						index={virtualRow.index}
+						measureElement={rowVirtualizer.measureElement}
+						commit={commit}
+						projectId={projectId}
+						stackId={stackId}
+						checkCommit={checkCommit}
+						onAmendCommit={onAmendCommit}
+						canAmendCommit={canAmendCommit}
+						dryRunCommit={dryRunCommit}
+						ariaLevel={ariaLevel}
+						positionInSet={positionOffset + virtualRow.index + 1}
+						setSize={setSize}
+					/>
 				);
 			})}
+		</div>
+	);
+};
+
+/**
+ * One virtualised commit row. Its own component so that a re-render of the
+ * segment leaves the row's element tree cached when nothing about the commit
+ * changed: {@link SegmentContent} is left uncompiled by its virtualizer, so
+ * anything built inline there is rebuilt, and re-renders every row, on every
+ * render.
+ */
+const CommitItem: FC<{
+	index: number;
+	measureElement: (element: HTMLDivElement | null) => void;
+	commit: Commit;
+	projectId: string;
+	stackId: string | null;
+	checkCommit: (evt: { commitId: string; shiftKey: boolean }) => void;
+	onAmendCommit: (commitId: string) => void;
+	canAmendCommit: boolean;
+	dryRunCommit: Commit | null;
+	ariaLevel: number;
+	positionInSet: number;
+	setSize: number;
+}> = ({
+	index,
+	measureElement,
+	commit,
+	projectId,
+	stackId,
+	checkCommit,
+	onAmendCommit,
+	canAmendCommit,
+	dryRunCommit,
+	ariaLevel,
+	positionInSet,
+	setSize,
+}) => {
+	const address = commitAddress({ commitId: commit.id, changeId: commit.changeId });
+
+	return (
+		<div
+			data-index={index}
+			ref={measureElement}
+			// We can't set fixed height here as an optimisation due to inline reword.
+			style={{
+				position: "absolute",
+				top: 0,
+				left: 0,
+				width: "100%",
+			}}
+		>
+			<TreeItem
+				address={address}
+				aria-label={commitTitle(commit.message) ?? "(no message)"}
+				aria-level={ariaLevel}
+				aria-posinset={positionInSet}
+				aria-setsize={setSize}
+				render={
+					<AddressC
+						projectId={projectId}
+						address={address}
+						outline="outside"
+						render={
+							<CommitRow
+								commit={commit}
+								stackId={stackId}
+								checkCommit={checkCommit}
+								amendCommit={() => onAmendCommit(commit.id)}
+								canAmendCommit={canAmendCommit}
+								projectId={projectId}
+								dryRunCommit={dryRunCommit}
+								scrollSelectedIntoView={false}
+							/>
+						}
+					/>
+				}
+			/>
 		</div>
 	);
 };
@@ -808,7 +864,21 @@ const StackC: FC<
 	...props
 }) => {
 	const canTearOffBranch = stack.segments.length > 1;
-	const downstackPushStatuses = downstackPushStatusesFromSegments(stack.segments);
+	// Manual memo: the compiler folds this into the props scope, where it is rebuilt
+	// on every render and hands each branch row a fresh status.
+	const downstackPushStatuses = useMemo(
+		() => downstackPushStatusesFromSegments(stack.segments),
+		[stack.segments],
+	);
+	// Built here rather than passed in: the uncompiled parent would rebuild the object,
+	// and with it this whole card, on every render.
+	const style: CSSProperties = {
+		position: "absolute",
+		top: 0,
+		left: 0,
+		width: "100%",
+		transform: `translateY(${stackScrollStart}px)`,
+	};
 	const topmostPendingPushIndex = stack.segments.findIndex(
 		(segment) =>
 			segment.refName && pendingPushBranches.has(decodeBytes(segment.refName.fullNameBytes)),
@@ -825,6 +895,7 @@ const StackC: FC<
 	return (
 		<StackCard
 			{...props}
+			style={style}
 			className={classes(props.className, styles.virtualStack)}
 			// oxlint-disable-next-line jsx-a11y/prefer-tag-over-role -- This is a group of treeitems.
 			role="group"
@@ -966,15 +1037,19 @@ const Stacks: FC<{
 	const foldedSegments = useAppSelector((state) =>
 		projectSlice.selectors.selectFoldedSegments(state, projectId),
 	);
-	const pendingPushBranches = new Set(
-		useMutationState({
-			filters: {
-				mutationKey: [projectId, "workspaceBranchAndAncestorsPush"],
-				status: "pending",
-			},
-			select: (mutation) =>
-				(mutation.state.variables as PayloadFor<"workspaceBranchAndAncestorsPush">).branch,
-		}),
+	const pendingPushBranchList = useMutationState({
+		filters: {
+			mutationKey: [projectId, "workspaceBranchAndAncestorsPush"],
+			status: "pending",
+		},
+		select: (mutation) =>
+			(mutation.state.variables as PayloadFor<"workspaceBranchAndAncestorsPush">).branch,
+	});
+	// React Compiler leaves components using useVirtualizer uncompiled, hence manual memo:
+	// a fresh Set every render would re-render every stack.
+	const pendingPushBranches = useMemo(
+		() => new Set(pendingPushBranchList),
+		[pendingPushBranchList],
 	);
 	const scrollElementRef = useRef<HTMLDivElement>(null);
 	const retainScrollElement = useCallback((element: HTMLDivElement | null) => {
@@ -1113,13 +1188,6 @@ const Stacks: FC<{
 								key={stack.id ?? virtualRow.index}
 								data-index={virtualRow.index}
 								ref={rowVirtualizer.measureElement}
-								style={{
-									position: "absolute",
-									top: 0,
-									left: 0,
-									width: "100%",
-									transform: `translateY(${virtualRow.start}px)`,
-								}}
 								projectId={projectId}
 								stack={stack}
 								checkCommit={checkCommit}
