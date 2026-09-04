@@ -36,8 +36,8 @@ impl Context {
     /// adoption archives every worktree on disk, so letting it run afterwards would
     /// silently revert what was explicitly asked for here.
     ///
-    /// Rows are never pruned, so this also succeeds for a worktree that isn't on
-    /// disk (any more) - such a row simply stays invisible to listings.
+    /// This also succeeds for a worktree git doesn't know (any more), but the next
+    /// read forgets such a row again.
     ///
     /// Must not be called while a database handle is borrowed.
     pub fn set_worktree_archived(&self, name: &gix::bstr::BStr, archived: bool) -> Result<()> {
