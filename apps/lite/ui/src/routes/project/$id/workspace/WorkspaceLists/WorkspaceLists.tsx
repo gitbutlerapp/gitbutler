@@ -266,10 +266,17 @@ const UncommittedChanges: FC<
 		projectId: string;
 		targetComboboxItems: Array<CommitTargetComboboxItem>;
 		hasNoBranches: boolean;
-		onAmendCommit: (commitId: string) => void;
+		/**
+		 * Not `on*`-named on purpose, nor are the two callbacks below: this
+		 * component is the `render` element of an operation target, and base-ui's
+		 * `mergeProps` wraps every `on*` function prop it passes through in a new
+		 * function. Callbacks that arrive wrapped change identity on every render,
+		 * and everything below that keys on them re-renders with them.
+		 */
+		amendCommit: (commitId: string) => void;
 		canAmendCommit: boolean;
-		onActiveFileSelection: (selection: string) => void;
-		onEdgeSpill: (offset: -1 | 1) => void;
+		selectActiveFile: (selection: string) => void;
+		spillEdge: (offset: -1 | 1) => void;
 		worktreeChanges: WorktreeChanges | undefined;
 	} & Omit<ComponentProps<"div">, "children">
 > = ({
@@ -278,10 +285,10 @@ const UncommittedChanges: FC<
 	projectId,
 	targetComboboxItems,
 	hasNoBranches,
-	onAmendCommit,
+	amendCommit,
 	canAmendCommit,
-	onActiveFileSelection,
-	onEdgeSpill,
+	selectActiveFile,
+	spillEdge,
 	worktreeChanges,
 	...props
 }) => {
@@ -333,7 +340,7 @@ const UncommittedChanges: FC<
 		selectionKey: fileSelection,
 		firstKey: fileRows[0]?.path,
 		onEnterList: () => {
-			if (fileSelection !== null) onActiveFileSelection(fileSelection);
+			if (fileSelection !== null) selectActiveFile(fileSelection);
 		},
 		panelRef,
 		listRef: fileListRef,
@@ -404,8 +411,8 @@ const UncommittedChanges: FC<
 								)
 							}
 							addressSpace={addressSpace}
-							onRowSelection={onActiveFileSelection}
-							onEdgeSpill={onEdgeSpill}
+							onRowSelection={selectActiveFile}
+							onEdgeSpill={spillEdge}
 							projectId={projectId}
 							ref={useMergedRefs(fileListRef, useAutofocusScope(activeList === "uncommitted"))}
 							selection={fileSelection}
@@ -421,7 +428,7 @@ const UncommittedChanges: FC<
 					startCommitButtonId={startCommitButtonId}
 					commitMessageInputId={commitMessageInputId}
 					className={styles.commitForm}
-					onAmendCommit={onAmendCommit}
+					onAmendCommit={amendCommit}
 					canAmendCommit={canAmendCommit}
 					worktreeChanges={worktreeChanges}
 				/>
@@ -1422,10 +1429,10 @@ export const WorkspaceLists: FC<
 										projectId={projectId}
 										targetComboboxItems={commitTargetComboboxItems}
 										hasNoBranches={hasNoBranches}
-										onAmendCommit={amendCommit}
+										amendCommit={amendCommit}
 										canAmendCommit={canAmendCommit}
-										onActiveFileSelection={onActiveFileSelection}
-										onEdgeSpill={spillIntoStacks}
+										selectActiveFile={onActiveFileSelection}
+										spillEdge={spillIntoStacks}
 										worktreeChanges={worktreeChanges}
 									/>
 								}
