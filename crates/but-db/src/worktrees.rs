@@ -96,10 +96,13 @@ pub fn worktree_head(repo: &gix::Repository, name: &BStr) -> Result<Option<Workt
 /// The first-ever read *adopts*: every worktree already on disk (whether usable or
 /// not) is archived, assuming it predates GitButler's worktree support, and an
 /// explicit marker records that adoption ran even when no worktree exists yet. A
-/// worktree created after adoption is active until explicitly archived; rows are
-/// never pruned - stale rows are invisible as listings intersect with the worktrees
-/// on disk - so a worktree recreated under a previously archived name stays
-/// archived until explicitly unarchived.
+/// worktree created after adoption is active until explicitly archived.
+///
+/// Every read also forgets the rows of worktrees git no longer knows - removed,
+/// pruned, or their administrative directory deleted by hand - so a worktree
+/// created later under such a name starts out active. A worktree whose checkout
+/// is gone but whose administrative directory git still keeps (prunable, possibly
+/// locked or on unmounted media) keeps its row until git itself prunes it.
 ///
 /// Worktrees whose checkout is gone from disk (prunable) are never returned.
 /// Entries are identity only - whether a worktree has a usable `HEAD` (readable,
@@ -125,7 +128,7 @@ pub fn worktrees_with_state(
     }
     let (all_names, mut worktrees) = enumerate_worktrees(repo)?;
 
-    let archived = adopt_and_read_archived(db, &all_names)?;
+    let archived = reconcile_archived(db, &all_names)?;
 
     for wt in &mut worktrees {
         wt.archived = archived.contains(&wt.name);
@@ -184,14 +187,15 @@ fn enumerate_worktrees(repo: &gix::Repository) -> Result<(Vec<BString>, Vec<Work
     Ok((all_names, out))
 }
 
-/// Return the names of all archived worktrees, first running the one-time adoption
-/// if it never ran: all `names` currently on disk are archived and the adoption
-/// marker is written, in one transaction.
+/// Return the names of all archived worktrees among `names`, the worktrees git
+/// knows, first running the one-time adoption if it never ran: all `names` are
+/// archived and the adoption marker is written, in one transaction. Rows whose
+/// name is not in `names` are forgotten.
 ///
 /// The marker is explicit so nothing is inferred from the table content: in
 /// particular a project's first worktree, created after adoption already ran with
 /// zero worktrees on disk, starts out active.
-fn adopt_and_read_archived(db: &mut DbHandle, names: &[BString]) -> Result<BTreeSet<BString>> {
+fn reconcile_archived(db: &mut DbHandle, names: &[BString]) -> Result<BTreeSet<BString>> {
     if !db.worktree_meta().adoption_ran()? {
         // An immediate transaction avoids the un-retried `SQLITE_BUSY_SNAPSHOT` a
         // deferred read-then-write would fail with when racing another writer, and
@@ -209,9 +213,19 @@ fn adopt_and_read_archived(db: &mut DbHandle, names: &[BString]) -> Result<BTree
         }
         trans.commit()?;
     }
-    Ok(db
+    let (known, forgotten): (Vec<_>, Vec<_>) = db
         .worktree_meta()
         .list()?
+        .into_iter()
+        .partition(|row| names.iter().any(|name| name == &row.name));
+    if !forgotten.is_empty() {
+        let mut trans = db.immediate_transaction()?;
+        for row in forgotten {
+            trans.worktree_meta_mut().delete(&row.name)?;
+        }
+        trans.commit()?;
+    }
+    Ok(known
         .into_iter()
         .filter(|row| row.archived)
         .map(|row| BString::from(row.name))

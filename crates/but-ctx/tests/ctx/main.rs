@@ -476,6 +476,22 @@ fn active_names(ctx: &Context) -> anyhow::Result<Vec<String>> {
         .collect())
 }
 
+fn db_state(ctx: &Context) -> anyhow::Result<String> {
+    let db = ctx.db.get_cache_mut()?;
+    Ok(format!(
+        "adopted: {}, rows: {:?}",
+        db.worktree_meta().adoption_ran()?,
+        db.worktree_meta()
+            .list()?
+            .into_iter()
+            .map(|row| (
+                String::from_utf8_lossy(&row.name).into_owned(),
+                row.archived
+            ))
+            .collect::<Vec<_>>()
+    ))
+}
+
 #[test]
 fn setting_archived_state_before_the_first_read_survives_adoption() -> anyhow::Result<()> {
     let root = TempDir::new()?;
@@ -617,6 +633,42 @@ fn pruned_worktrees_are_adopted_but_not_returned() -> anyhow::Result<()> {
         Vec::<String>::new(),
         "even unarchived, a pruned checkout is excluded - it is unusable, not merely hidden"
     );
+    Ok(())
+}
+
+#[test]
+fn rows_of_worktrees_git_forgot_are_pruned_on_read() -> anyhow::Result<()> {
+    let (repo, _tmp) = writable_scenario_slow("worktree-seeding");
+    let workdir = repo.workdir().expect("fixture is non-bare").to_owned();
+    let mut ctx = Context::from_repo_for_testing(repo)?;
+    ctx.settings.feature_flags.worktree_manipulation = true;
+    assert_eq!(active_names(&ctx)?, Vec::<String>::new());
+    snapbox::assert_data_eq!(
+        db_state(&ctx)?,
+        snapbox::str![[r#"adopted: true, rows: [("wt-a", true), ("wt-b", true)]"#]]
+    );
+
+    // A deleted checkout leaves the worktree prunable, but git still knows it and
+    // so does the database; a removed worktree is forgotten by both.
+    std::fs::remove_dir_all(workdir.join("wt-a"))?;
+    but_testsupport::invoke_bash("git worktree remove wt-b", &*ctx.repo.get()?);
+    assert_eq!(active_names(&ctx)?, Vec::<String>::new());
+    snapbox::assert_data_eq!(
+        db_state(&ctx)?,
+        snapbox::str![[r#"adopted: true, rows: [("wt-a", true)]"#]]
+    );
+
+    but_testsupport::invoke_bash(
+        "git worktree prune
+         git worktree add wt-b feat-b",
+        &*ctx.repo.get()?,
+    );
+    assert_eq!(
+        active_names(&ctx)?,
+        ["wt-b"],
+        "a worktree created under a forgotten name starts out active"
+    );
+    snapbox::assert_data_eq!(db_state(&ctx)?, snapbox::str!["adopted: true, rows: []"]);
     Ok(())
 }
 
@@ -775,21 +827,6 @@ fn workspace_from_head_seeds_active_worktree_tips() -> anyhow::Result<()> {
     let workspace_graph = |ctx: &Context| -> anyhow::Result<String> {
         let (_guard, _repo, ws, _db) = ctx.workspace_and_db()?;
         Ok(graph_tree(&ws.graph).to_string())
-    };
-    let db_state = |ctx: &Context| -> anyhow::Result<String> {
-        let db = ctx.db.get_cache_mut()?;
-        Ok(format!(
-            "adopted: {}, rows: {:?}",
-            db.worktree_meta().adoption_ran()?,
-            db.worktree_meta()
-                .list()?
-                .into_iter()
-                .map(|row| (
-                    String::from_utf8_lossy(&row.name).into_owned(),
-                    row.archived
-                ))
-                .collect::<Vec<_>>()
-        ))
     };
 
     // Flag off: no tips are seeded and the database is untouched.
