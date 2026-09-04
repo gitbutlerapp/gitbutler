@@ -132,7 +132,7 @@ impl UnifiedPatch {
             ),
             path.as_bstr(),
             ResourceKind::NewOrDestination,
-            repo,
+            &NullIdIsMissing(repo),
         ) {
             Ok(()) => {}
             Err(
@@ -157,7 +157,7 @@ impl UnifiedPatch {
             ),
             actual_previous_path,
             ResourceKind::OldOrSource,
-            repo,
+            &NullIdIsMissing(repo),
         ) {
             Ok(()) => {}
             Err(
@@ -274,6 +274,37 @@ fn detect_and_convert_to_utf8(content: BString) -> BString {
 
 fn compute_line_changes(diff: &gix::diff::blob::Diff) -> (u32, u32) {
     (diff.count_additions(), diff.count_removals())
+}
+
+/// Worktree-side resources are handed to the diff platform with the null id. The end-of-line
+/// filter still asks the object database for that id to compare against the index version,
+/// and every such miss makes the database rescan its pack directory. Answer null ids here
+/// so the object database is never consulted for them.
+struct NullIdIsMissing<'a>(&'a gix::Repository);
+
+impl gix::objs::Find for NullIdIsMissing<'_> {
+    fn try_find<'a>(
+        &self,
+        id: &gix::oid,
+        buffer: &'a mut Vec<u8>,
+    ) -> Result<Option<gix::objs::Data<'a>>, gix::objs::find::Error> {
+        if id.is_null() {
+            return Ok(None);
+        }
+        gix::objs::Find::try_find(self.0, id, buffer)
+    }
+}
+
+impl gix::objs::FindHeader for NullIdIsMissing<'_> {
+    fn try_header(
+        &self,
+        id: &gix::oid,
+    ) -> Result<Option<gix::objs::Header>, gix::objs::find::Error> {
+        if id.is_null() {
+            return Ok(None);
+        }
+        gix::objs::FindHeader::try_header(self.0, id)
+    }
 }
 
 /// Produce a filter from `repo` and `state` using `mode` that is able to perform diffs of `state`.
