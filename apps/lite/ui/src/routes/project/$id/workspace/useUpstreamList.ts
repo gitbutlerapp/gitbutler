@@ -3,7 +3,7 @@ import {
 	olderTargetCommitsInfiniteQueryOptions,
 	workspaceTargetCommitsQueryOptions,
 } from "#ui/api/queries.ts";
-import { usePage } from "#ui/use-cursor.ts";
+import { useActiveList, usePage } from "#ui/use-cursor.ts";
 import { commitAddress, addressIdentityKey, type Address } from "#ui/addresses.ts";
 import { projectSlice } from "#ui/projects/state.ts";
 import { useAppSelector } from "#ui/store.ts";
@@ -275,7 +275,10 @@ const buildItems = (
  * workspace page consume it, so the two cannot drift apart.
  */
 export const useUpstreamList = (projectId: string): UpstreamListData => {
-	const active = usePage() === "upstream";
+	// Also live while the workspace page's stacks graph drives Details from it.
+	const page = usePage();
+	const activeList = useActiveList();
+	const active = page === "upstream" || (page === "workspace" && activeList === "upstream");
 	const expandedSegments = useAppSelector((state) =>
 		projectSlice.selectors.selectExpandedUpstreamSegments(state, projectId),
 	);

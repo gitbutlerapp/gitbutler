@@ -1,6 +1,6 @@
 import { decodeBytes } from "#ui/api/bytes.ts";
 import type { CursorItem, CursorName } from "#ui/cursors.ts";
-import type { PageId } from "#ui/projects/project.ts";
+import type { ActiveList, PageId } from "#ui/projects/project.ts";
 import type { Address } from "#ui/addresses.ts";
 
 /**
@@ -14,7 +14,7 @@ import type { Address } from "#ui/addresses.ts";
  */
 export type UrlQueryParams = {
 	page?: Exclude<PageId, "workspace">;
-	active?: "uncommitted";
+	active?: Exclude<ActiveList, "applied">;
 	applied?: string;
 	uncommitted?: string;
 	unapplied?: string;

@@ -1,7 +1,18 @@
 import rowStyles from "../Row.module.css";
-import { setCursor, useIsCursorAt, useSelection, useActiveList } from "#ui/use-cursor.ts";
+import {
+	setActiveList,
+	setCursor,
+	useActiveList,
+	useIsCursorAt,
+	useSelection,
+} from "#ui/use-cursor.ts";
 import { useCommitAmend } from "#ui/api/mutations.ts";
-import { changesInWorktreeQueryOptions, headInfoQueryOptions } from "#ui/api/queries.ts";
+import {
+	changesInWorktreeQueryOptions,
+	headInfoQueryOptions,
+	olderTargetCommitsInfiniteQueryOptions,
+	workspaceTargetCommitsQueryOptions,
+} from "#ui/api/queries.ts";
 import { getHeadInfoIndex, recordedPullRequest } from "#ui/api/ref-info.ts";
 import { decodeBytes } from "#ui/api/bytes.ts";
 import { commitIsDiverged, commitTitle } from "#ui/commit.ts";
@@ -41,29 +52,32 @@ import type {
 	WorkspaceState,
 } from "@gitbutler/but-sdk";
 
-import { useMutationState, useQuery } from "@tanstack/react-query";
+import { useInfiniteQuery, useMutationState, useQuery } from "@tanstack/react-query";
 import { type Range, useVirtualizer } from "@tanstack/react-virtual";
 import type { PayloadFor } from "#electron/ipc.ts";
 import { Match } from "effect";
 import {
 	Activity,
-	type ComponentProps,
-	createContext,
 	type CSSProperties,
-	type FC,
 	Fragment,
-	type RefObject,
-	type ReactNode,
+	createContext,
 	use,
 	useCallback,
 	useLayoutEffect,
 	useMemo,
 	useRef,
 	useState,
+	type ComponentProps,
+	type FC,
+	type ReactNode,
+	type RefObject,
 } from "react";
 import { Group, Panel, useDefaultLayout } from "react-resizable-panels";
 import styles from "./WorkspaceLists.module.css";
 import { Row, RowLabel, RowLabelContainer, SectionHeaderRow } from "../Row.tsx";
+import { GraphRails } from "../GraphGutter/GraphRails.tsx";
+import { type MoreBelow, TrunkSection } from "../GraphGutter/TrunkSection.tsx";
+import { CARD_GAP, planGutter, rowInsetFor } from "../GraphGutter/graph-layout.ts";
 import { StackCard } from "../StackCard.tsx";
 import stackCardStyles from "../StackCard.module.css";
 import { treeItemId } from "../Row-utils.ts";
@@ -1044,10 +1058,78 @@ const Stacks: FC<{
 		operation: dryRunOperation,
 	});
 	const dryRunWorkspace = dryRunOperationResult?.workspace ?? null;
-	const stacks = (headInfo?.stacks ?? []).toReversed();
+	// Cards ordered by base depth, the upstream section below, and the rails
+	// between them drawn in one SVG over both.
+	const { data: trunk } = useQuery(workspaceTargetCommitsQueryOptions(projectId));
+	const [incomingExpanded, setIncomingExpanded] = useState(false);
+	const [baseExpanded, setBaseExpanded] = useState(false);
+	const [expandedRuns, setExpandedRuns] = useState<ReadonlySet<string>>(() => new Set());
+	// Older history below the deepest fork point: the listing's own tail first,
+	// then pages fetched on demand, shared with the Upstream tab.
+	const [olderShown, setOlderShown] = useState(false);
+	const olderFrom = trunk?.commits.at(-1)?.commit.id ?? "";
+	const olderQuery = useInfiniteQuery(olderTargetCommitsInfiniteQueryOptions(projectId, olderFrom));
+	const olderPagesData = olderQuery.data;
+	const olderPages = useMemo(
+		() => olderPagesData?.pages.flatMap((page) => page.commits) ?? [],
+		[olderPagesData],
+	);
+	const listOrder = useMemo(() => (headInfo?.stacks ?? []).toReversed(), [headInfo]);
+	const target = headInfo?.target ?? null;
+	// Explicit: the compiler does not memoise calls to imported functions, and
+	// the rails re-measure whenever the plan's identity changes.
+	const plan = useMemo(
+		() =>
+			planGutter(
+				listOrder,
+				target,
+				trunk,
+				{ incomingExpanded, baseExpanded, expandedRuns, olderShown },
+				olderPages,
+			),
+		[
+			listOrder,
+			target,
+			trunk,
+			incomingExpanded,
+			baseExpanded,
+			expandedRuns,
+			olderShown,
+			olderPages,
+		],
+	);
+	// Shown to its start: nothing held back, and a page came back with nothing
+	// older behind it.
+	const historyEnds =
+		plan.olderHidden === 0 && olderPagesData !== undefined && !olderQuery.hasNextPage;
+	const moreBelow: MoreBelow =
+		olderFrom === ""
+			? "hidden"
+			: olderQuery.isFetching
+				? "loading"
+				: olderQuery.isError
+					? "failed"
+					: historyEnds
+						? "hidden"
+						: "idle";
+	// The first click reveals what is already held; every later one fetches a page.
+	const showMore = () => {
+		if (plan.olderHidden === 0) void olderQuery.fetchNextPage();
+		setOlderShown(true);
+	};
+	const stacks = useMemo(
+		() =>
+			plan.order.flatMap((index) => {
+				const stack = listOrder[index];
+				return stack === undefined ? [] : [stack];
+			}),
+		[plan, listOrder],
+	);
 	// Undefined `headInfo` is still loading, which is not the same as "empty" —
 	// treating it as empty would flash the empty state on every open.
 	const isEmpty = headInfo !== undefined && stacks.length === 0;
+	const [content, setContent] = useState<HTMLDivElement | null>(null);
+	const [section, setSection] = useState<HTMLDivElement | null>(null);
 	const foldedSegments = useAppSelector((state) =>
 		projectSlice.selectors.selectFoldedSegments(state, projectId),
 	);
@@ -1077,8 +1159,10 @@ const Stacks: FC<{
 			: selection?._tag === "Commit"
 				? headInfoIndex?.commitContextByCommitId(selection.commitId)
 				: undefined;
-	const selectedStackIndex =
-		selectedContext === undefined ? undefined : stacks.length - selectedContext.stackIndex - 1;
+	const selectedStack =
+		selectedContext === undefined ? undefined : headInfo?.stacks[selectedContext.stackIndex];
+	const selectedStackIndexRaw = selectedStack === undefined ? -1 : stacks.indexOf(selectedStack);
+	const selectedStackIndex = selectedStackIndexRaw === -1 ? undefined : selectedStackIndexRaw;
 	const selectedSegmentIndex = selectedContext?.segmentIndex;
 	const selectedCommitIndex =
 		selection?._tag === "Commit"
@@ -1086,12 +1170,15 @@ const Stacks: FC<{
 			: undefined;
 
 	// Pin the containing stack too, otherwise the nested selected row can still be unmounted.
+	// In index order: a pinned index that sits appended while off-range and in place once the
+	// range reaches it would move every card's node on each flip, and the scroller re-anchors on
+	// every move, snapping the scroll back at that boundary.
 	const rangeExtractorWithSelected = useCallback(
 		(range: Range) =>
 			getRangeExtractorWithIndices(
 				range,
 				selectedStackIndex === undefined ? [] : [selectedStackIndex],
-			),
+			).sort((a, b) => a - b),
 		[selectedStackIndex],
 	);
 
@@ -1135,7 +1222,7 @@ const Stacks: FC<{
 		},
 		getItemKey: getStackKey,
 		rangeExtractor: rangeExtractorWithSelected,
-		gap: 10,
+		gap: CARD_GAP,
 		// Matches --scroll-gradient-height.
 		scrollPaddingStart: 14,
 		scrollPaddingEnd: 14,
@@ -1173,6 +1260,14 @@ const Stacks: FC<{
 		pendingPushBranches,
 	});
 
+	const toggleRun = (runId: string) =>
+		setExpandedRuns((runs) => {
+			const next = new Set(runs);
+			if (next.has(runId)) next.delete(runId);
+			else next.add(runId);
+			return next;
+		});
+
 	return (
 		<DryRunWorkspaceContext value={dryRunWorkspace}>
 			<div
@@ -1180,46 +1275,71 @@ const Stacks: FC<{
 				className={classes(uiStyles.scroller, styles.stacksScroller)}
 				data-empty={isEmpty}
 			>
-				<div
-					tabIndex={0}
-					role="tree"
-					aria-activedescendant={selection ? treeItemId(selection) : undefined}
-					className={classes(styles.tree, styles.stacks, styles.virtualContainer)}
-					data-focus-scope={"sidebar" satisfies FocusScope}
-					data-preview-source={activeList === "applied"}
-					ref={useMergedRefs(
-						rowVirtualizer.containerRef,
-						hotkeysRef,
-						useAutofocusScope(activeList === "applied"),
-					)}
-				>
-					{rowVirtualizer.getVirtualItems().map((virtualRow) => {
-						const stack = stacks[virtualRow.index];
-						if (stack === undefined) return null;
+				<div ref={setContent} className={styles.content}>
+					<GraphRails
+						plan={plan}
+						virtualizer={rowVirtualizer}
+						content={content}
+						section={section}
+					/>
+					{/* oxlint-disable-next-line jsx-a11y/click-events-have-key-events -- The tree's keys live in its hotkeys. */}
+					<div
+						tabIndex={0}
+						role="tree"
+						aria-activedescendant={selection ? treeItemId(selection) : undefined}
+						className={classes(styles.tree, styles.stacks, styles.virtualContainer)}
+						// Every card's rows sit on the one rail, past the lines running behind the cards.
+						style={{ "--row-padding-inline-start": `${rowInsetFor(plan.railX)}px` }}
+						// With the upstream section able to drive Details, a card row
+						// clicked hands it back to the applied list.
+						onClick={() => setActiveList("applied")}
+						data-focus-scope={"sidebar" satisfies FocusScope}
+						data-preview-source={activeList === "applied"}
+						ref={useMergedRefs(
+							rowVirtualizer.containerRef,
+							hotkeysRef,
+							useAutofocusScope(activeList === "applied"),
+						)}
+					>
+						{rowVirtualizer.getVirtualItems().map((virtualRow) => {
+							const stack = stacks[virtualRow.index];
+							if (stack === undefined) return null;
 
-						return (
-							<StackC
-								key={stack.id ?? virtualRow.index}
-								data-index={virtualRow.index}
-								ref={rowVirtualizer.measureElement}
-								projectId={projectId}
-								stack={stack}
-								checkCommit={checkCommit}
-								onAmendCommit={onAmendCommit}
-								canAmendCommit={canAmendCommit}
-								pendingPushBranches={pendingPushBranches}
-								scrollElementRef={scrollElementRef}
-								stackScrollStart={virtualRow.start}
-								stackSize={virtualRow.size}
-								selectedSegmentIndex={
-									selectedStackIndex === virtualRow.index ? selectedSegmentIndex : undefined
-								}
-								selectedCommitIndex={
-									selectedStackIndex === virtualRow.index ? selectedCommitIndex : undefined
-								}
-							/>
-						);
-					})}
+							return (
+								<StackC
+									key={stack.id ?? virtualRow.index}
+									data-index={virtualRow.index}
+									ref={rowVirtualizer.measureElement}
+									projectId={projectId}
+									stack={stack}
+									checkCommit={checkCommit}
+									onAmendCommit={onAmendCommit}
+									canAmendCommit={canAmendCommit}
+									pendingPushBranches={pendingPushBranches}
+									scrollElementRef={scrollElementRef}
+									stackScrollStart={virtualRow.start}
+									stackSize={virtualRow.size}
+									selectedSegmentIndex={
+										selectedStackIndex === virtualRow.index ? selectedSegmentIndex : undefined
+									}
+									selectedCommitIndex={
+										selectedStackIndex === virtualRow.index ? selectedCommitIndex : undefined
+									}
+								/>
+							);
+						})}
+					</div>
+					<TrunkSection
+						ref={setSection}
+						projectId={projectId}
+						plan={plan}
+						moreBelow={moreBelow}
+						historyEnds={historyEnds}
+						onToggleIncoming={() => setIncomingExpanded((expanded) => !expanded)}
+						onToggleBase={() => setBaseExpanded((expanded) => !expanded)}
+						onToggleRun={toggleRun}
+						onShowMore={showMore}
+					/>
 				</div>
 
 				{isEmpty && <NoStacks projectId={projectId} newBranch={newBranch} />}

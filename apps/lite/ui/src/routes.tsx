@@ -1,4 +1,5 @@
 import type { UrlQueryParams } from "#ui/cursor-url.ts";
+import { activeLists } from "#ui/projects/project.ts";
 import { handleProjectEvent } from "#ui/project-events.ts";
 import { readLastOpenedProject, readLastPlace } from "#ui/project.ts";
 import { IndexPage } from "#ui/routes/IndexPage.tsx";
@@ -159,11 +160,11 @@ export const createRouteTree = ({ workspace }: { workspace: FC }) => {
 		// so a corrupt or stale URL opens the page at defaults.
 		validateSearch: (params: Record<string, unknown>): UrlQueryParams => {
 			const page = str(params.page);
-			const active = str(params.active);
+			const active = activeLists.find((list) => list === params.active);
 
 			return {
 				page: page === "upstream" || page === "branches" ? page : undefined,
-				active: active === "uncommitted" ? active : undefined,
+				active: active === undefined || active === "applied" ? undefined : active,
 				applied: str(params.applied),
 				uncommitted: str(params.uncommitted),
 				unapplied: str(params.unapplied),

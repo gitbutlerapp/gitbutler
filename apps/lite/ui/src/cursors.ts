@@ -1,3 +1,4 @@
+import type { ActiveList } from "#ui/projects/project.ts";
 import {
 	branchFileParent,
 	commitFileParent,
@@ -44,7 +45,7 @@ export type CursorName = keyof CursorItem;
  */
 export type WorkspaceCursorSnapshot = {
 	page?: "upstream" | "branches";
-	active?: "uncommitted";
+	active?: Exclude<ActiveList, "applied">;
 	applied?: string;
 	uncommitted?: string;
 	files?: string;

@@ -52,8 +52,12 @@ import {
 	type UpstreamState,
 } from "./upstream.ts";
 
-/** The workspace page's two lists; the one named here is active and drives the details pane. */
-export type ActiveList = "applied" | "uncommitted";
+/**
+ * The workspace page's lists, in the order the details pane falls back
+ * through them; the one named active drives the pane.
+ */
+export const activeLists = ["applied", "uncommitted", "upstream"] as const;
+export type ActiveList = (typeof activeLists)[number];
 
 export type CheckableAddress = Extract<Address, { _tag: "Commit" | "File" | "Hunk" }>;
 

@@ -72,7 +72,8 @@ const TargetHeadRow: FC<{ label: string }> = ({ label }) => (
 	</Row>
 );
 
-const TargetCommitRow: FC<{
+/** Shared with the workspace page's stacks graph, which lists the same commits. */
+export const TargetCommitRow: FC<{
 	item: UpstreamCommitItem;
 	positionInSet: number;
 	setSize: number;
@@ -83,7 +84,9 @@ const TargetCommitRow: FC<{
 	 * which is true of every row there, and so tells the reader nothing.
 	 */
 	status?: GraphSegmentStatus;
-}> = ({ item, positionInSet, setSize, status }) => {
+	/** The rail ends on this row: the history has no commit below it. */
+	railEnds?: boolean;
+}> = ({ item, positionInSet, setSize, status, railEnds }) => {
 	const { commit, review, inWorkspace } = item;
 	const address = upstreamCommitAddress(item);
 	const isSelected = useIsSelected(address);
@@ -107,7 +110,11 @@ const TargetCommitRow: FC<{
 			scrollSelectedIntoView={false}
 			onSelect={() => setCursor("upstream", address)}
 		>
-			<GraphSegment glyph="commit" status={status ?? (inWorkspace ? "Integrated" : "Upstream")} />
+			<GraphSegment
+				glyph="commit"
+				status={status ?? (inWorkspace ? "Integrated" : "Upstream")}
+				railEnds={railEnds}
+			/>
 			<div className={styles.label}>
 				<RowLabelContainer>
 					{/* Commits the workspace already has are not dimmed: the row is
