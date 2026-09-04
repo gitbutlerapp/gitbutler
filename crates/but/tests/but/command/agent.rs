@@ -4,50 +4,61 @@ use crate::utils::{CommandExt, Sandbox};
 
 fn assert_default_policy(policy: &str) {
     assert!(
-        policy.contains("<!-- gitbutler-agent-setup:start -->"),
-        "policy should include the managed block start marker, got: {policy}"
+        policy.lines().count() <= 18,
+        "default policy should be at most 18 lines, got {}: {policy}",
+        policy.lines().count()
     );
     assert!(
-        policy
-            .contains("Use GitButler (`but`) for version-control inspection and write operations"),
-        "policy should include baseline GitButler write guidance, got: {policy}"
+        policy.len() <= 1_800,
+        "default policy should be at most 1,800 bytes, got {}: {policy}",
+        policy.len()
+    );
+    assert!(
+        policy.contains("<!-- gitbutler-agent-setup:start -->"),
+        "policy should include the managed block start marker, got: {policy}"
     );
     assert!(
         policy.contains("otherwise modify another agent's work"),
         "policy should include multi-agent isolation guidance, got: {policy}"
     );
     assert!(
-        policy.contains("For commit just/only/specific changes on a new branch"),
-        "policy should include the selected-change fast path, got: {policy}"
-    );
-    assert!(
-        policy.contains("For that fast path, after the commit succeeds, stop and summarize"),
-        "policy should tell agents not to re-verify the fast path unnecessarily, got: {policy}"
-    );
-    assert!(
-        policy.contains("Use the installed GitButler skill for command recipes and syntax"),
+        policy.contains("Use the installed GitButler skill"),
         "policy should point agents to the installed skill for command details, got: {policy}"
     );
     assert!(
-        policy.contains("Mutation commands report their result without appending workspace status"),
-        "policy should explain concise mutation output, got: {policy}"
+        policy.contains(
+            "If `but` reports `Setup required`, use plain Git equivalents and do not run `but setup` unless the user asks"
+        ),
+        "policy should explain the safe setup fallback, got: {policy}"
     );
     assert!(
-        policy.contains("Add `--status-after` only when the next step needs"),
-        "policy should explain situational status opt-in, got: {policy}"
+        policy.contains("Use a dedicated branch for each agent session")
+            && !policy.contains("dedicated GitButler branch"),
+        "policy should keep the session branch rule valid under the plain-Git fallback, got: {policy}"
     );
     assert!(
-        policy.contains("amend an unpublished local commit"),
-        "policy should include default fold-fixes preference, got: {policy}"
+        policy.contains("Fold small follow-up fixes into the unpublished commit they belong to")
+            && policy
+                .contains("ask before rewriting pushed, reviewed, shared, or ambiguous history"),
+        "policy should include the concise fold-fixes preference, got: {policy}"
     );
     assert!(
-        policy.contains("Use GitButler to move the relevant changes"),
-        "policy should include default amend guidance, got: {policy}"
+        policy.contains("Suggest splitting unrelated changes into separate commits."),
+        "policy should include the concise split preference, got: {policy}"
     );
-    assert!(
-        policy.contains("If one file contains unrelated changes"),
-        "policy should include default split suggestion preference, got: {policy}"
-    );
+    for old_recipe in [
+        "For commit just/only/specific changes on a new branch",
+        "For that fast path, after the commit succeeds",
+        "Mutation commands report their result without appending workspace status",
+        "Add `--status-after` only when the next step needs",
+        "amend an unpublished local commit",
+        "If one file contains unrelated changes, split them by hunk",
+    ] {
+        assert!(
+            !policy.contains(old_recipe),
+            "default policy should omit old recipe {old_recipe}, got: {policy}"
+        );
+    }
     assert!(
         policy.contains("<!-- gitbutler-agent-setup:end -->"),
         "policy should include the managed block end marker, got: {policy}"
