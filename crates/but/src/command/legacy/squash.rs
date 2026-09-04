@@ -259,7 +259,7 @@ fn resolve_args(
                             }
                         };
                         bad_input(format!(
-                            "Commit {} belongs to {place}, so it can only be uncommitted into that worktree's area",
+                            "Commit {} belongs to {place}, so it can only be uncommitted into {area}",
                             theme::Commit(commit)
                         ))
                         .hint(format!("Use `--target {area}`"))
