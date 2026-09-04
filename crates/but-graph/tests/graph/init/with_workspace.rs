@@ -5734,17 +5734,38 @@ fn local_branch_tracking_the_target_does_not_duplicate_the_target_segment() -> a
         standard_options(),
     )?
     .validated()?;
-    let target_segments = graph
-        .segments()
-        .filter(|sidx| {
-            graph[*sidx]
-                .ref_name()
-                .is_some_and(|rn| rn.as_bstr() == "refs/remotes/origin/main")
-        })
-        .count();
-    assert_eq!(
-        target_segments, 1,
-        "the initial target tip owns the only segment for the target ref"
+    // A duplicate would show as a second `origin/main` segment, or as segments
+    // disconnected from the base.
+    snapbox::assert_data_eq!(
+        graph_tree(&graph).to_string(),
+        snapbox::str![[r#"
+
+├── 👉📕►►►:0[0]:gitbutler/workspace[🌳]
+│   └── ·2b30d94 (⌂|🏘)
+│       ├── ►:2[1]:D
+│       │   └── ·9895054 (⌂|🏘)
+│       │       └── ►:6[2]:C
+│       │           ├── ·de625cc (⌂|🏘)
+│       │           ├── ·23419f8 (⌂|🏘)
+│       │           └── ·5dc4389 (⌂|🏘)
+│       │               └── ►:7[3]:shared
+│       │                   ├── ·d4f537e (⌂|🏘)
+│       │                   ├── ·b448757 (⌂|🏘)
+│       │                   └── ·e9a378d (⌂|🏘)
+│       │                       └── ►:5[4]:main <> origin/main
+│       │                           └── 🏁·3183e43 (⌂|🏘|✓)
+│       ├── ►:3[1]:A
+│       │   └── ·0bad3af (⌂|🏘)
+│       │       └── →:7: (shared)
+│       └── ►:4[1]:B
+│           ├── ·acdc49a (⌂|🏘)
+│           └── ·f0117e0 (⌂|🏘)
+│               └── →:7: (shared)
+└── ►:1[0]:origin/main
+    └── 🟣bce0c5e (✓)
+        └── →:5: (main →:1:)
+
+"#]]
     );
     Ok(())
 }
@@ -11052,32 +11073,32 @@ fn worktree_ref_survives_metadata_normalization() -> anyhow::Result<()> {
         read_only_in_memory_scenario("ws/worktree-ref-at-applied-branch")?;
     add_stack_with_segments(&mut meta, 0, "foo", StackState::InWorkspace, &["wsref"]);
     db.worktree_meta_mut().mark_adopted()?;
-    let ws = Graph::from_head(&repo, &*meta, default_project_meta(), &mut db, options())?
+    let md = Graph::from_head(&repo, &*meta, default_project_meta(), &mut db, options())?
         .validated()?
-        .into_workspace()?;
-    let md = ws
+        .into_workspace()?
         .metadata_from_projection()?
         .expect("workspace metadata exists");
-    let stack = md
-        .stacks
-        .iter()
-        .find(|stack| {
-            stack
-                .branches
-                .iter()
-                .any(|branch| branch.ref_name.as_ref().shorten() == "foo")
-        })
-        .expect("foo's stack is recorded");
-    assert!(
-        stack
-            .branches
-            .iter()
-            .any(|branch| branch.ref_name.as_ref().shorten() == "wsref"),
-        "the worktree-checked-out branch stays recorded in its stack"
-    );
-    assert!(
-        stack.workspacecommit_relation.is_in_workspace(),
-        "the stack remains applied"
+    snapbox::assert_data_eq!(
+        md.stacks.to_debug(),
+        snapbox::str![[r#"
+[
+    WorkspaceStack {
+        id: 00000000-0000-0000-0000-000000000000,
+        branches: [
+            WorkspaceStackBranch {
+                ref_name: "refs/heads/foo",
+                archived: false,
+            },
+            WorkspaceStackBranch {
+                ref_name: "refs/heads/wsref",
+                archived: false,
+            },
+        ],
+        workspacecommit_relation: Merged,
+    },
+]
+
+"#]]
     );
 
     // As the only branch of its stack: no projected stack matches it at all,
@@ -11086,25 +11107,28 @@ fn worktree_ref_survives_metadata_normalization() -> anyhow::Result<()> {
         read_only_in_memory_scenario("ws/worktree-ref-at-applied-branch")?;
     add_stack_with_segments(&mut meta, 0, "wsref", StackState::InWorkspace, &[]);
     db.worktree_meta_mut().mark_adopted()?;
-    let ws = Graph::from_head(&repo, &*meta, default_project_meta(), &mut db, options())?
+    let md = Graph::from_head(&repo, &*meta, default_project_meta(), &mut db, options())?
         .validated()?
-        .into_workspace()?;
-    let md = ws
+        .into_workspace()?
         .metadata_from_projection()?
         .expect("workspace metadata exists");
-    let stack = md
-        .stacks
-        .iter()
-        .find(|stack| {
-            stack
-                .branches
-                .iter()
-                .any(|branch| branch.ref_name.as_ref().shorten() == "wsref")
-        })
-        .expect("the single-branch stack is still recorded");
-    assert!(
-        stack.workspacecommit_relation.is_in_workspace(),
-        "a stack whose only branch is checked out in a worktree remains applied"
+    snapbox::assert_data_eq!(
+        md.stacks.to_debug(),
+        snapbox::str![[r#"
+[
+    WorkspaceStack {
+        id: 00000000-0000-0000-0000-000000000000,
+        branches: [
+            WorkspaceStackBranch {
+                ref_name: "refs/heads/wsref",
+                archived: false,
+            },
+        ],
+        workspacecommit_relation: Merged,
+    },
+]
+
+"#]]
     );
     Ok(())
 }
