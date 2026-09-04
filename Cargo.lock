@@ -4035,6 +4035,7 @@ dependencies = [
  "pretty_assertions",
  "schemars 1.2.1",
  "serde",
+ "snapbox",
  "strum 0.27.2",
  "tempfile",
  "toml 0.9.12+spec-1.1.0",

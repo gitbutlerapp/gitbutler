@@ -37,6 +37,7 @@ schemars = { workspace = true, optional = true }
 but-testsupport = { workspace = true, features = ["sandbox"] }
 git2.workspace = true
 pretty_assertions = "1.4"
+snapbox.workspace = true
 tempfile.workspace = true
 
 [lints]
