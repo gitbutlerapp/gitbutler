@@ -152,7 +152,14 @@ const OperationTarget: FC<
 	const addressSpace = useAddressSpace();
 
 	type ActiveOperation = { placement: Placement; tooltip?: string | undefined };
-	const selection = useSelection("applied", addressSpace);
+	// The cursor only picks the target of a keyboard transfer, so follow it only
+	// then: a target that tracks the cursor at all times re-renders, along with
+	// the whole row it wraps, on every cursor move.
+	const keyboardTransferPending = useAppSelector((state) => {
+		const pendingOperation = projectSlice.selectors.selectPendingOperation(state, projectId);
+		return pendingOperation._tag === "Transfer" && pendingOperation.value._tag === "Keyboard";
+	});
+	const selection = useSelection("applied", keyboardTransferPending ? addressSpace : null);
 	const activeList = useActiveList();
 	const activeOperation = useAppSelector((state) => {
 		const pendingOperation = projectSlice.selectors.selectPendingOperation(state, projectId);

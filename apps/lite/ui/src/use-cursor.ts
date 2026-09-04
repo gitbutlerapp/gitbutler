@@ -93,30 +93,43 @@ const resolveCursorParam = <L extends UrlCursorName>(
 	addressSpace.items[0] ??
 	null;
 
-/** The cursor resolved against what the list currently shows. */
+/**
+ * The cursor resolved against what the list currently shows. Without an
+ * address space there is nothing to resolve against, so the selector reads
+ * nothing either: a caller that passes `null` while it has no use for the
+ * cursor is not re-rendered by cursor moves.
+ */
 export const useSelection = <L extends UrlCursorName>(
 	list: L,
 	addressSpace: AddressSpace<CursorItem[L]> | null | undefined,
 ): CursorItem[L] | null => {
 	const param = useSearch({
 		from: WORKSPACE_ROUTE,
-		select: (params: UrlQueryParams): string | undefined => params[list],
+		select: (params: UrlQueryParams): string | undefined =>
+			addressSpace == null ? undefined : params[list],
 	});
 
 	return addressSpace == null ? null : resolveCursorParam(list, param, addressSpace);
 };
 
 /**
- * Whether the resolved cursor rests on `item`. A primitive, so a cursor move
- * re-renders the two affected rows rather than the whole list.
+ * Whether the resolved cursor rests on `item`. Resolved inside the selector so
+ * the subscription is to a primitive: a cursor move re-renders the two
+ * affected rows rather than the whole list.
  */
 export const useIsCursorAt = <L extends UrlCursorName>(
 	list: L,
 	addressSpace: AddressSpace<CursorItem[L]>,
 	item: CursorItem[L],
 ): boolean => {
-	const resolved = useSelection(list, addressSpace);
-	return resolved !== null && cursorKey[list](resolved) === cursorKey[list](item);
+	const key = cursorKey[list](item);
+	return useSearch({
+		from: WORKSPACE_ROUTE,
+		select: (params: UrlQueryParams): boolean => {
+			const resolved = resolveCursorParam(list, params[list], addressSpace);
+			return resolved !== null && cursorKey[list](resolved) === key;
+		},
+	});
 };
 
 /**
