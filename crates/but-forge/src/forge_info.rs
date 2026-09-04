@@ -117,46 +117,35 @@ fn build_base_url(remote_url: &str, repo_info: &ForgeRepoInfo, accounts: &[Forge
     } else {
         repo_info.protocol.as_str()
     };
-    let parsed = git_url_parse::GitUrl::parse(remote_url).ok();
+    let parsed = crate::remote_url::RemoteUrl::parse(remote_url);
     let host = parsed
         .as_ref()
-        .and_then(|u| u.host().map(|h| h.to_string()))
+        .map(|url| url.host.clone())
         .unwrap_or_else(|| match repo_info.forge {
             ForgeName::GitHub => "github.com".into(),
             ForgeName::GitLab => "gitlab.com".into(),
             ForgeName::Bitbucket => "bitbucket.org".into(),
             ForgeName::Azure => "dev.azure.com".into(),
         });
-    let host = match parsed.as_ref().and_then(|u| u.port()) {
+    let host = match parsed.as_ref().and_then(|url| url.port) {
         Some(port) if !rewrote_scheme => format!("{host}:{port}"),
         _ => host,
     };
+    // Owners may contain namespace separators (GitLab groups or Azure org/project).
+    let owner = repo_info
+        .owner
+        .split('/')
+        .map(urlencoding::encode)
+        .collect::<Vec<_>>()
+        .join("/");
+    let repo = urlencoding::encode(&repo_info.repo);
     match repo_info.forge {
         ForgeName::Azure => {
-            // `derive_forge_repo_info` uses git-url-parse's GenericProvider,
-            // which mangles Azure's org/project/repo triple into a single
-            // owner/repo pair — dropping the repo name (and for SSH remotes
-            // the org too). Re-parse with the Azure-specific provider.
             // Web URLs are {host}/{org}/{project}/_git/{repo}; the browser
             // host is always dev.azure.com (the ssh.* host can't open in a
-            // browser).
+            // browser). Azure repository owners include both org and project.
             let host = host.strip_prefix("ssh.").unwrap_or(&host);
-            match git_url_parse::GitUrl::parse(remote_url).ok().and_then(|u| {
-                u.provider_info::<git_url_parse::types::provider::AzureDevOpsProvider>()
-                    .ok()
-            }) {
-                Some(az) => format!(
-                    "{scheme}://{host}/{}/{}/_git/{}",
-                    az.org(),
-                    az.project(),
-                    az.repo()
-                ),
-                // Fallback: best-effort with the generic owner/repo.
-                None => format!(
-                    "{scheme}://{host}/{}/_git/{}",
-                    repo_info.owner, repo_info.repo
-                ),
-            }
+            format!("{scheme}://{host}/{owner}/_git/{repo}")
         }
         _ => {
             // An http(s) remote's own origin is authoritative; only rewritten
@@ -165,8 +154,6 @@ fn build_base_url(remote_url: &str, repo_info: &ForgeRepoInfo, accounts: &[Forge
                 .then(|| account_web_origin(accounts, &repo_info.forge, &host))
                 .flatten()
                 .unwrap_or_else(|| format!("{scheme}://{host}"));
-            let owner = &repo_info.owner;
-            let repo = &repo_info.repo;
             format!("{origin}/{owner}/{repo}")
         }
     }
@@ -288,6 +275,31 @@ mod tests {
     }
 
     #[test]
+    fn azure_browser_url_preserves_path_escaping() {
+        for remote in [
+            "https://dev.azure.com/org/My%20Project/_git/repo",
+            "https://dev.azure.com/org/project/_git/repo%25one",
+            "https://dev.azure.com/org/project/_git/repo%23one",
+        ] {
+            let info = forge_info(remote, &[]).unwrap();
+            assert_eq!(
+                info.base_url, remote,
+                "browser URLs must preserve encoded path characters in {remote}"
+            );
+        }
+    }
+
+    #[test]
+    fn azure_https_v3_organization_browser_url() {
+        let remote = "https://dev.azure.com/v3/project/_git/repo";
+        let info = forge_info(remote, &[]).unwrap();
+        assert_eq!(
+            info.base_url, remote,
+            "an organization named v3 must remain part of the browser URL"
+        );
+    }
+
+    #[test]
     fn azure_ssh_base_url_uses_browsable_https_host() {
         let info = forge_info("git@ssh.dev.azure.com:v3/myorg/myproject/myrepo", &[]).unwrap();
         assert_eq!(info.name, ForgeName::Azure);
@@ -315,6 +327,12 @@ mod tests {
     }
 
     #[test]
+    fn github_repository_name_can_contain_dot_git() {
+        let info = forge_info("git@github.com:owner/example.github.io.git", &[]).unwrap();
+        assert_eq!(info.base_url, "https://github.com/owner/example.github.io");
+    }
+
+    #[test]
     fn github_ssh_base_url_and_fork_compare() {
         let info = forge_info("git@github.com:owner/repo.git", &[]).unwrap();
         assert_eq!(info.name, ForgeName::GitHub);
@@ -332,6 +350,12 @@ mod tests {
             url,
             "https://github.com/owner/repo/compare/main...fork:feat"
         );
+    }
+
+    #[test]
+    fn gitlab_nested_group_base_url() {
+        let info = forge_info("https://gitlab.com/group/subgroup/repo.git", &[]).unwrap();
+        assert_eq!(info.base_url, "https://gitlab.com/group/subgroup/repo");
     }
 
     #[test]

@@ -33,7 +33,7 @@ but-schemars = { workspace = true, optional = true }
 chrono.workspace = true
 tokio = { workspace = true, features = ["rt-multi-thread"] }
 
-git-url-parse = "0.6.0"
+gix = { workspace = true }
 urlencoding.workspace = true
 serde.workspace = true
 serde_json = { workspace = true, features = ["arbitrary_precision"] }
