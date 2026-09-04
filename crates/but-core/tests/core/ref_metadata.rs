@@ -760,6 +760,7 @@ Workspace {
 mod project_meta {
     use but_core::ref_metadata::ProjectMeta;
     use but_testsupport::read_only_in_memory_scenario;
+    use snapbox::prelude::*;
 
     #[test]
     fn malformed_target_ref_and_commit_id_read_as_none() -> anyhow::Result<()> {
@@ -771,18 +772,21 @@ mod project_meta {
         )?;
 
         let actual = ProjectMeta::try_from_config(&config)?;
-        assert_eq!(
-            actual.target_ref, None,
-            "a target ref that isn't a full ref name is ignored instead of failing the whole read"
-        );
-        assert_eq!(
-            actual.target_commit_id, None,
-            "a target commit id that isn't a hexadecimal object id is ignored as well"
-        );
-        assert_eq!(
-            actual.push_remote.as_deref(),
-            Some("upstream"),
-            "well-formed values are still read despite malformed siblings"
+        // A target ref that isn't a full ref name and a target commit id that isn't a
+        // hexadecimal object id are ignored instead of failing the whole read, while
+        // their well-formed sibling is still read.
+        snapbox::assert_data_eq!(
+            actual.to_debug(),
+            snapbox::str![[r#"
+ProjectMeta {
+    target_ref: None,
+    target_commit_id: None,
+    push_remote: Some(
+        "upstream",
+    ),
+}
+
+"#]]
         );
         Ok(())
     }
@@ -795,10 +799,18 @@ mod project_meta {
         )?;
 
         let actual = ProjectMeta::try_from_config(&config)?;
-        assert_eq!(
-            actual.target_ref, None,
-            "a target ref that isn't a remote tracking branch would wrongly be seeded as remote \
-             target tip, so it's ignored"
+        // A target ref that isn't a remote tracking branch would wrongly be seeded as
+        // remote target tip, so it's ignored.
+        snapbox::assert_data_eq!(
+            actual.to_debug(),
+            snapbox::str![[r#"
+ProjectMeta {
+    target_ref: None,
+    target_commit_id: None,
+    push_remote: None,
+}
+
+"#]]
         );
         Ok(())
     }
@@ -806,32 +818,25 @@ mod project_meta {
     #[test]
     fn push_remote_name_falls_back_to_textual_remote_name() -> anyhow::Result<()> {
         let repo = read_only_in_memory_scenario("multiple-remotes-with-tracking-branches")?;
-
-        let meta = ProjectMeta {
-            target_ref: Some(gix::refs::FullName::try_from(
-                "refs/remotes/gone/release/1.x".to_owned(),
-            )?),
-            target_commit_id: None,
-            push_remote: None,
+        let push_remote_name = |target_ref: &str| -> anyhow::Result<String> {
+            let meta = ProjectMeta {
+                target_ref: Some(gix::refs::FullName::try_from(target_ref.to_owned())?),
+                ..Default::default()
+            };
+            meta.push_remote_name(&repo)
         };
-        assert_eq!(
-            meta.push_remote_name(&repo)?,
-            "gone",
-            "with no matching configured remote and a slash in the branch name, \
-             the first path component after refs/remotes/ is used, like legacy metadata stored"
+
+        // With no matching configured remote and a slash in the branch name, the first
+        // path component after refs/remotes/ is used, like legacy metadata stored it.
+        snapbox::assert_data_eq!(
+            push_remote_name("refs/remotes/gone/release/1.x")?,
+            snapbox::str!["gone"]
         );
-
-        let meta = ProjectMeta {
-            target_ref: Some(gix::refs::FullName::try_from(
-                "refs/remotes/nested/remote/feature/a".to_owned(),
-            )?),
-            target_commit_id: None,
-            push_remote: None,
-        };
-        assert_eq!(
-            meta.push_remote_name(&repo)?,
-            "nested/remote",
-            "configured remotes remain the primary path so remote names containing '/' still work"
+        // Configured remotes remain the primary path so remote names containing '/'
+        // still work.
+        snapbox::assert_data_eq!(
+            push_remote_name("refs/remotes/nested/remote/feature/a")?,
+            snapbox::str!["nested/remote"]
         );
         Ok(())
     }
@@ -845,13 +850,21 @@ mod project_meta {
         )?;
 
         let actual = ProjectMeta::try_from_config(&config)?;
-        assert_eq!(
-            actual.target_ref.map(|name| name.to_string()),
-            Some("refs/remotes/origin/main".to_string())
-        );
-        assert_eq!(
-            actual.target_commit_id, None,
-            "the null id is a placeholder for an unknown commit and must read as absent"
+        // The null id is a placeholder for an unknown commit and must read as absent.
+        snapbox::assert_data_eq!(
+            actual.to_debug(),
+            snapbox::str![[r#"
+ProjectMeta {
+    target_ref: Some(
+        FullName(
+            "refs/remotes/origin/main",
+        ),
+    ),
+    target_commit_id: None,
+    push_remote: None,
+}
+
+"#]]
         );
         Ok(())
     }
