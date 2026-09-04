@@ -293,7 +293,7 @@ fn resolves_binary_committed_hunk() {
         .success()
         .stdout_eq(snapbox::str![[r#"
 ────────────────╮
- nx:q image.png │
+ nx:e image.png │
 ────────────────╯
 
 No diff available - file is either empty, binary, or too large
@@ -308,7 +308,7 @@ Created commit nul on new branch 'a-branch-1'
 
 "#]]);
 
-    env.but("_expand nul:nx:q")
+    env.but("_expand nul:nx:e")
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"

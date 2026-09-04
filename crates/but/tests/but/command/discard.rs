@@ -1063,7 +1063,7 @@ Hint: run `but help` for all commands
         .success()
         .stdout_eq(snapbox::str![[r#"
 ─────────────────────────╮
- xl:q:q renamed_file.txt │
+ xl:q:e renamed_file.txt │
 ─────────────────────────╯
 
 No diff available - file is either empty, binary, or too large
@@ -1111,14 +1111,14 @@ Hint: run `but help` for all commands
         .success()
         .stdout_eq(snapbox::str![[r#"
 ─────────╮
- y:p:q B │
+ y:p:e B │
 ─────────╯
 
 No diff available - file is either empty, binary, or too large
 
 "#]]);
 
-    env.but("discard ylp:p:q")
+    env.but("discard ylp:p:e")
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"

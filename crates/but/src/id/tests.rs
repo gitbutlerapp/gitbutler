@@ -418,7 +418,7 @@ fn uncommitted_files_avoid_retired_uncommitted_area_id() -> anyhow::Result<()> {
         snapbox::str![[r#"
 workspace_and_remote_commits_count: 0
 uncommitted_files: [ zzs ]
-uncommitted_hunks: [ zzs:q ]
+uncommitted_hunks: [ zzs:e ]
 
 
 "#]]
@@ -499,7 +499,7 @@ fn branches_avoid_uncommitted_filenames() -> anyhow::Result<()> {
 workspace_and_remote_commits_count: 1
 branches: [ ij ]
 uncommitted_files: [ nx, yz ]
-uncommitted_hunks: [ nx:q, yz:q ]
+uncommitted_hunks: [ nx:e, yz:e ]
 
 
 "#]]
@@ -666,7 +666,7 @@ fn non_commit_ids_do_not_collide() -> anyhow::Result<()> {
 workspace_and_remote_commits_count: 1
 branches: [ h0 ]
 uncommitted_files: [ kv, ro ]
-uncommitted_hunks: [ kv:q, ro:q#0-2, ro:q#1-2 ]
+uncommitted_hunks: [ kv:e, ro:e#0-2, ro:e#1-2 ]
 stacks: [ j0 ]
 
 
@@ -701,7 +701,7 @@ stacks: [ j0 ]
             id: "kv",
             hunks: NonEmpty {
                 head: IdAndHunk {
-                    id: "kv:q",
+                    id: "kv:e",
                     hunk: SingleHunk {
                         hunk_header: None,
                         path: "uncommitted2.txt",
@@ -716,10 +716,10 @@ stacks: [ j0 ]
     ),
     UncommittedHunkOrFile(
         UncommittedHunkOrFile {
-            id: "kv:q",
+            id: "kv:e",
             hunks: NonEmpty {
                 head: IdAndHunk {
-                    id: "kv:q",
+                    id: "kv:e",
                     hunk: SingleHunk {
                         hunk_header: None,
                         path: "uncommitted2.txt",
@@ -737,7 +737,7 @@ stacks: [ j0 ]
             id: "ro",
             hunks: NonEmpty {
                 head: IdAndHunk {
-                    id: "ro:q#0-2",
+                    id: "ro:e#0-2",
                     hunk: SingleHunk {
                         hunk_header: Some(
                             HunkHeader("-1,2", "+1,2"),
@@ -748,7 +748,7 @@ stacks: [ j0 ]
                 },
                 tail: [
                     IdAndHunk {
-                        id: "ro:q#1-2",
+                        id: "ro:e#1-2",
                         hunk: SingleHunk {
                             hunk_header: Some(
                                 HunkHeader("-3,2", "+3,2"),
@@ -765,10 +765,10 @@ stacks: [ j0 ]
     ),
     UncommittedHunkOrFile(
         UncommittedHunkOrFile {
-            id: "ro:q#0-2",
+            id: "ro:e#0-2",
             hunks: NonEmpty {
                 head: IdAndHunk {
-                    id: "ro:q#0-2",
+                    id: "ro:e#0-2",
                     hunk: SingleHunk {
                         hunk_header: Some(
                             HunkHeader("-1,2", "+1,2"),
@@ -785,10 +785,10 @@ stacks: [ j0 ]
     ),
     UncommittedHunkOrFile(
         UncommittedHunkOrFile {
-            id: "ro:q#1-2",
+            id: "ro:e#1-2",
             hunks: NonEmpty {
                 head: IdAndHunk {
-                    id: "ro:q#1-2",
+                    id: "ro:e#1-2",
                     hunk: SingleHunk {
                         hunk_header: Some(
                             HunkHeader("-3,2", "+3,2"),
@@ -882,7 +882,7 @@ fn ids_are_case_sensitive() -> anyhow::Result<()> {
 workspace_and_remote_commits_count: 1
 branches: [ h0 ]
 uncommitted_files: [ ln ]
-uncommitted_hunks: [ ln:q ]
+uncommitted_hunks: [ ln:e ]
 
 
 "#]]
@@ -945,7 +945,7 @@ uncommitted_hunks: [ ln:q ]
             id: "ln",
             hunks: NonEmpty {
                 head: IdAndHunk {
-                    id: "ln:q",
+                    id: "ln:e",
                     hunk: SingleHunk {
                         hunk_header: None,
                         path: "uncommitted.txt",
@@ -1028,7 +1028,7 @@ fn uncommitted_files_disambiguate_between_themselves() -> anyhow::Result<()> {
             id: "kpo",
             hunks: NonEmpty {
                 head: IdAndHunk {
-                    id: "kpo:q",
+                    id: "kpo:e",
                     hunk: SingleHunk {
                         hunk_header: None,
                         path: "foo242",
@@ -1046,7 +1046,7 @@ fn uncommitted_files_disambiguate_between_themselves() -> anyhow::Result<()> {
             id: "kpr",
             hunks: NonEmpty {
                 head: IdAndHunk {
-                    id: "kpr:q",
+                    id: "kpr:e",
                     hunk: SingleHunk {
                         hunk_header: None,
                         path: "foo23",
@@ -1075,7 +1075,7 @@ fn uncommitted_files_disambiguate_between_themselves() -> anyhow::Result<()> {
             id: "kpo",
             hunks: NonEmpty {
                 head: IdAndHunk {
-                    id: "kpo:q",
+                    id: "kpo:e",
                     hunk: SingleHunk {
                         hunk_header: None,
                         path: "foo242",
@@ -1103,7 +1103,7 @@ fn uncommitted_files_disambiguate_between_themselves() -> anyhow::Result<()> {
             id: "kpr",
             hunks: NonEmpty {
                 head: IdAndHunk {
-                    id: "kpr:q",
+                    id: "kpr:e",
                     hunk: SingleHunk {
                         hunk_header: None,
                         path: "foo23",
@@ -1569,7 +1569,7 @@ fn uncommitted_files_disambiguate_with_branch() -> anyhow::Result<()> {
             id: "qsy",
             hunks: NonEmpty {
                 head: IdAndHunk {
-                    id: "qsy:q",
+                    id: "qsy:e",
                     hunk: SingleHunk {
                         hunk_header: None,
                         path: "file",
@@ -1623,7 +1623,7 @@ fn longer_id_is_ok() -> anyhow::Result<()> {
             id: "kp",
             hunks: NonEmpty {
                 head: IdAndHunk {
-                    id: "kp:q",
+                    id: "kp:e",
                     hunk: SingleHunk {
                         hunk_header: None,
                         path: "foo23",
@@ -1677,7 +1677,7 @@ fn reverse_hex_filename_is_its_own_id() -> anyhow::Result<()> {
             id: "kl",
             hunks: NonEmpty {
                 head: IdAndHunk {
-                    id: "kl:q",
+                    id: "kl:e",
                     hunk: SingleHunk {
                         hunk_header: None,
                         path: "klmxyz",
@@ -1740,7 +1740,7 @@ fn branch_and_file_by_name() -> anyhow::Result<()> {
             id: "zo",
             hunks: NonEmpty {
                 head: IdAndHunk {
-                    id: "zo:q",
+                    id: "zo:e",
                     hunk: SingleHunk {
                         hunk_header: None,
                         path: "foo",
@@ -1793,7 +1793,7 @@ fn colon_uncommitted_filename() -> anyhow::Result<()> {
             id: "nv",
             hunks: NonEmpty {
                 head: IdAndHunk {
-                    id: "nv:q",
+                    id: "nv:e",
                     hunk: SingleHunk {
                         hunk_header: None,
                         path: "assigned",
@@ -1823,7 +1823,7 @@ fn colon_uncommitted_filename() -> anyhow::Result<()> {
             id: "nv",
             hunks: NonEmpty {
                 head: IdAndHunk {
-                    id: "nv:q",
+                    id: "nv:e",
                     hunk: SingleHunk {
                         hunk_header: None,
                         path: "assigned",
@@ -1853,7 +1853,7 @@ fn colon_uncommitted_filename() -> anyhow::Result<()> {
             id: "pv",
             hunks: NonEmpty {
                 head: IdAndHunk {
-                    id: "pv:q",
+                    id: "pv:e",
                     hunk: SingleHunk {
                         hunk_header: None,
                         path: "uncommitted",
@@ -1902,7 +1902,7 @@ fn uncommitted_path() -> anyhow::Result<()> {
         id: "prefix/",
         hunks: NonEmpty {
             head: IdAndHunk {
-                id: "yz:q",
+                id: "yz:e",
                 hunk: SingleHunk {
                     hunk_header: None,
                     path: "prefix/a",
@@ -1911,7 +1911,7 @@ fn uncommitted_path() -> anyhow::Result<()> {
             },
             tail: [
                 IdAndHunk {
-                    id: "uo:q",
+                    id: "uo:e",
                     hunk: SingleHunk {
                         hunk_header: None,
                         path: "prefix/b",
@@ -2139,7 +2139,7 @@ fn short_uncommitted_files_are_properly_reverse_hexed() -> anyhow::Result<()> {
             id: "ky",
             hunks: NonEmpty {
                 head: IdAndHunk {
-                    id: "ky:q",
+                    id: "ky:e",
                     hunk: SingleHunk {
                         hunk_header: None,
                         path: "k",
@@ -2168,7 +2168,7 @@ fn short_uncommitted_files_are_properly_reverse_hexed() -> anyhow::Result<()> {
             id: "klx",
             hunks: NonEmpty {
                 head: IdAndHunk {
-                    id: "klx:q",
+                    id: "klx:e",
                     hunk: SingleHunk {
                         hunk_header: None,
                         path: "kl",
@@ -2197,7 +2197,7 @@ fn short_uncommitted_files_are_properly_reverse_hexed() -> anyhow::Result<()> {
             id: "klml",
             hunks: NonEmpty {
                 head: IdAndHunk {
-                    id: "klml:q",
+                    id: "klml:e",
                     hunk: SingleHunk {
                         hunk_header: None,
                         path: "klm",
@@ -2255,10 +2255,10 @@ fn uncommitted_hunks_by_numeric_index() -> anyhow::Result<()> {
 [
     UncommittedHunkOrFile(
         UncommittedHunkOrFile {
-            id: "ro:q#0-2",
+            id: "ro:e#0-2",
             hunks: NonEmpty {
                 head: IdAndHunk {
-                    id: "ro:q#0-2",
+                    id: "ro:e#0-2",
                     hunk: SingleHunk {
                         hunk_header: Some(
                             HunkHeader("-1,2", "+1,2"),
@@ -2286,10 +2286,10 @@ fn uncommitted_hunks_by_numeric_index() -> anyhow::Result<()> {
 [
     UncommittedHunkOrFile(
         UncommittedHunkOrFile {
-            id: "ro:q#0-2",
+            id: "ro:e#0-2",
             hunks: NonEmpty {
                 head: IdAndHunk {
-                    id: "ro:q#0-2",
+                    id: "ro:e#0-2",
                     hunk: SingleHunk {
                         hunk_header: Some(
                             HunkHeader("-1,2", "+1,2"),
@@ -2317,10 +2317,10 @@ fn uncommitted_hunks_by_numeric_index() -> anyhow::Result<()> {
 [
     UncommittedHunkOrFile(
         UncommittedHunkOrFile {
-            id: "ro:q#0-2",
+            id: "ro:e#0-2",
             hunks: NonEmpty {
                 head: IdAndHunk {
-                    id: "ro:q#0-2",
+                    id: "ro:e#0-2",
                     hunk: SingleHunk {
                         hunk_header: Some(
                             HunkHeader("-1,2", "+1,2"),
@@ -2497,19 +2497,19 @@ fn uncommitted_hunks_by_id() -> anyhow::Result<()> {
         .raw()
     );
 
-    // hunk without diff gets q identifier
+    // Hunk without diff gets an identifier from the empty-content prefix.
     snapbox::assert_data_eq!(
         id_map
-            .parse("hunk_without_diff.txt:q", &TestChanges(changed_paths_fn))?
+            .parse("hunk_without_diff.txt:e", &TestChanges(changed_paths_fn))?
             .to_debug(),
         snapbox::str![[r#"
 [
     UncommittedHunkOrFile(
         UncommittedHunkOrFile {
-            id: "wp:q",
+            id: "wp:e",
             hunks: NonEmpty {
                 head: IdAndHunk {
-                    id: "wp:q",
+                    id: "wp:e",
                     hunk: SingleHunk {
                         hunk_header: None,
                         path: "hunk_without_diff.txt",
@@ -3424,7 +3424,7 @@ fn uncommitted_selector_is_not_shadowed_by_commit_change_id() -> anyhow::Result<
 
     // Hunk selectors under the file keep working too.
     let hunk =
-        id_map.parse_uncommitted(&format!("{file_id}:q"), &TestChanges(changed_paths_fn()))?;
+        id_map.parse_uncommitted(&format!("{file_id}:e"), &TestChanges(changed_paths_fn()))?;
     assert!(
         matches!(hunk.as_slice(), [CliId::UncommittedHunkOrFile(_)]),
         "hunk selector resolves in the scoped namespace: {hunk:?}"
@@ -3432,14 +3432,14 @@ fn uncommitted_selector_is_not_shadowed_by_commit_change_id() -> anyhow::Result<
 
     let tmp = tempfile::TempDir::new()?;
     let repo = gix::init(tmp.path())?;
-    let resolved = CliIdArg(format!("{file_id}:q"))
+    let resolved = CliIdArg(format!("{file_id}:e"))
         .try_resolve_uncommitted(&repo, &id_map)
         .expect("selector resolution succeeds")
         .expect("the issued hunk selector still resolves");
     assert_eq!(resolved.len(), 1, "exactly one hunk resolves");
     assert_eq!(resolved[0].hunks.first().hunk.path, "README.md");
 
-    let resolved = CliIdArg(format!("{file_id}:q"))
+    let resolved = CliIdArg(format!("{file_id}:e"))
         .resolve_in_workspace(
             &repo,
             &id_map,

@@ -25,7 +25,7 @@ use crate::id::{
 };
 use crate::theme;
 use crate::utils::change_source::{self, ChangeSourceId, SourceChanges};
-use crate::utils::get_change_id_for_commit;
+use crate::utils::{detect_agent, get_change_id_for_commit};
 
 mod file_info;
 mod id_usage;
@@ -71,6 +71,22 @@ struct UnqualifiedHunkId {
     /// The collision index if there are other hunks with the exact same ID. Otherwise this is
     /// empty.
     collision_index: Option<String>,
+}
+
+/// This is a hopefully short term hack in place to allow us to increase the minimum size of short
+/// IDs for agents, s.t. they are less likely to lengthen/shorten during `but` operations.
+///
+/// Once we have structured data for short IDs, this can be done away with.
+///
+/// For obvious reasons this does not respect "agent output formatting", as that's not available
+/// here and it'd be silly to pull it in all the way. This will work for the vast majority of agent
+/// invocations, and that's good enough for now.
+fn min_length_for_prefix_based_short_ids() -> usize {
+    if detect_agent::detect().is_some() {
+        3
+    } else {
+        1
+    }
 }
 
 impl UnqualifiedHunkId {
@@ -179,6 +195,7 @@ fn assign_short_ids(
     let mut common_with_previous_len = 0;
     let mut reverse_hex_short_ids: Vec<_> = reverse_hex_short_ids.into_iter().collect();
     let mut remaining = reverse_hex_short_ids.as_mut_slice();
+    let global_min_short_id_chars = min_length_for_prefix_based_short_ids();
 
     while let Some(((reverse_hex, short_ids), rest)) = remaining.split_first_mut() {
         // TODO should compare UTF8 chars instead of bytes once we start putting full branch names
@@ -189,7 +206,8 @@ fn assign_short_ids(
                 common_prefix_len(reverse_hex, next_reverse_hex)
             });
 
-        let min_disambiguation_len = 1 + common_with_previous_len.max(common_with_next_len);
+        let min_disambiguation_len =
+            (1 + common_with_previous_len.max(common_with_next_len)).max(global_min_short_id_chars);
 
         let num_conflicting_ids = short_ids.len();
         for (i, short_id) in short_ids.iter_mut().flatten().enumerate() {
@@ -1043,15 +1061,16 @@ impl IdMap {
         })
     }
 
-    const HUNK_EMPTY_CONTENT_PREFIX: &str = "q";
+    const HUNK_EMPTY_CONTENT_PREFIX: &str = "empty-content-hash";
 
     /// Assign unique hunk IDs based on content hash into the input iterator's first element.
     ///
     /// On hash collisions, the IDs are disambiguated based on the amount of collisions for that
     /// particular hash.
     ///
-    /// Hunks that lack a diff get a content hash of "q" and then rely on the disambiguation
-    /// mechanism if there are multiple such hunks.
+    /// Hunks that lack a diff get a bogus content hash of "empty-content-hash" and then rely on the
+    /// disambiguation mechanism if there are multiple such hunks. As it contains dashes, it cannot
+    /// collide with any real hunk content hashes.
     ///
     /// In summary, the formats are:
     ///
@@ -1066,12 +1085,15 @@ impl IdMap {
     /// commit/discard of a leading colliding hunk from causing trailing colliding hunks to get new
     /// IDs that previously pointed to other colliding hunks.
     ///
-    /// Note that hunks that lack a diff follow the same rules, only that `<prefix>="q"` always.
+    /// Note that hunks that lack a diff follow the same rules, using a prefix of
+    /// [`HUNK_EMPTY_CONTENT_PREFIX`] instead.
     fn assign_content_based_hunk_ids<'a>(
         short_ids_and_hunks: impl Iterator<Item = &'a mut (UnqualifiedHunkId, but_core::SingleHunk)>,
     ) -> anyhow::Result<()> {
         let mut content_hash_to_short_ids: BTreeMap<String, Vec<&'a mut UnqualifiedHunkId>> =
             BTreeMap::new();
+        let global_min_short_id_chars = min_length_for_prefix_based_short_ids();
+
         for (hunk_id, hunk) in short_ids_and_hunks {
             let content_hash = match hunk.diff.as_ref() {
                 Some(diff) => {
@@ -1106,7 +1128,7 @@ impl IdMap {
                     .map(|(content_hash, _)| content_hash.as_bytes())
                     .unwrap_or_default(),
             );
-            let min_short_id_chars = 1
+            let min_short_id_chars = global_min_short_id_chars
                 .max(len_in_common_with_next + 1)
                 .max(len_in_common_with_last + 1);
 
