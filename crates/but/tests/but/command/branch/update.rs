@@ -329,7 +329,7 @@ fn integrate_merge_dry_run_marks_conflicted_preview_commits() {
 Preview
 
 * A
-● __ ec97e2f Merge dbf2a866824eab2a4c485b30bcfba70af8502900 into previous commit {conflicted}
+● uk d1f9d65 Merge dbf2a866824eab2a4c485b30bcfba70af8502900 into previous commit {conflicted}
 ● __ 57ca948 local change in A
 o 6a997fd
 
@@ -422,9 +422,9 @@ EOF
     snapbox::assert_data_eq!(
         env.git_log(),
         snapbox::str![[r#"
-*   9e0c28c (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+*   646aabb (HEAD -> gitbutler/workspace) GitButler Workspace Commit
 |\  
-| *   30a8d17 (A) Merge 28baf9a2794d7722ceff84f2967b5186545b8a48 into previous commit
+| *   d1f1cff (A) Merge 28baf9a2794d7722ceff84f2967b5186545b8a48 into previous commit
 | |\  
 | | * 28baf9a (origin/A) add only-on-remote
 | |/  

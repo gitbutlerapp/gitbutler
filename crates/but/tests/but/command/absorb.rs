@@ -84,7 +84,7 @@ fn uncommitted_file() {
         .stdout_eq(snapbox::str![[r#"
 Found 1 changed file to absorb:
 
-Absorbed to commit: 1 a.txt
+Absorbed to commit: pxx a.txt
   (files locked to commit due to hunk range overlap)
     a.txt @1,4 +1,4
     a.txt @6,4 +6,4
@@ -172,7 +172,7 @@ fn uncommitted_hunk() {
         .stdout_eq(snapbox::str![[r#"
 Found 1 changed file to absorb:
 
-Absorbed to commit: 1 a.txt
+Absorbed to commit: pxx a.txt
   (files locked to commit due to hunk range overlap)
     a.txt @1,4 +1,4
 
@@ -372,14 +372,14 @@ fn committed_hunk() {
 ┊   nk M a.txt
 ┊
 ┊╭┄ g0 [A]
-┊●   1#0 partial change to a.txt 3
-┊│     1#0:n M a.txt
-┊●   1#1 partial change to a.txt 2
-┊│     1#1:n M a.txt
-┊●   1#2 partial change to a.txt 1
-┊│     1#2:n M a.txt
-┊●   1#3 a.txt
-┊│     1#3:n A a.txt
+┊●   sll partial change to a.txt 3
+┊│     sll:n M a.txt
+┊●   sol partial change to a.txt 2
+┊│     sol:n M a.txt
+┊●   rzm partial change to a.txt 1
+┊│     rzm:n M a.txt
+┊●   pxx a.txt
+┊│     pxx:n A a.txt
 ┊●   tpm add A
 ┊│     tpm:t A A
 ├╯
@@ -401,11 +401,11 @@ Hint: run `but diff` to see uncommitted changes and `but commit -b <branch> -m "
         .stdout_eq(snapbox::str![[r#"
 Found 1 changed file to absorb:
 
-Absorbed to commit: 1 partial change to a.txt 2
+Absorbed to commit: sol partial change to a.txt 2
   (files locked to commit due to hunk range overlap)
     a.txt @1,4 +1,4
 
-Absorbed to commit: 1 partial change to a.txt 3
+Absorbed to commit: sll partial change to a.txt 3
   (files locked to commit due to hunk range overlap)
     a.txt @6,4 +6,4
 
@@ -423,14 +423,14 @@ Hint: you can run `but undo` to undo these changes
 ╭┄ @ [uncommitted] (no changes)
 ┊
 ┊╭┄ g0 [A]
-┊●   1#0 partial change to a.txt 3
-┊│     1#0:n M a.txt
-┊●   1#1 partial change to a.txt 2
-┊│     1#1:n M a.txt
-┊●   1#2 partial change to a.txt 1
-┊│     1#2:n M a.txt
-┊●   1#3 a.txt
-┊│     1#3:n A a.txt
+┊●   sll partial change to a.txt 3
+┊│     sll:n M a.txt
+┊●   sol partial change to a.txt 2
+┊│     sol:n M a.txt
+┊●   rzm partial change to a.txt 1
+┊│     rzm:n M a.txt
+┊●   pxx a.txt
+┊│     pxx:n A a.txt
 ┊●   tpm add A
 ┊│     tpm:t A A
 ├╯
@@ -532,7 +532,7 @@ fn dry_run_shows_plan_without_changes() {
         .stdout_eq(snapbox::str![[r#"
 Found 1 changed file to absorb:
 
-Absorbed to commit: 1 a.txt
+Absorbed to commit: pxx a.txt
   (files locked to commit due to hunk range overlap)
     a.txt @1,4 +1,4
     a.txt @6,4 +6,4

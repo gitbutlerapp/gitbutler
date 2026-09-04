@@ -63,6 +63,7 @@ Matches: 0
 fn resolves_duplicated_change_ids() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("zero-stacks");
     env.setup_metadata(&[]);
+    set_change_id(&env, "1");
 
     env.but("commit -m first").assert().success();
     env.but("commit -m second").assert().success();
@@ -265,17 +266,17 @@ fn resolves_committed_hunk() {
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
-Created commit 1 on new branch 'a-branch-1'
+Created commit oln on new branch 'a-branch-1'
 
 "#]]);
 
-    env.but("_expand 1:qs:7")
+    env.but("_expand oln:qs:7")
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
 Matches: 1
 
-committed hunk: d4d928e2cf0ad11076e9419d8f946642e8650d6b file @@ -1,0 +1,1 @@
+committed hunk: 94d0f7aa1b81428805071f9a45ed6533dee4160a file @@ -1,0 +1,1 @@
 
 "#]]);
 }
@@ -303,17 +304,17 @@ No diff available - file is either empty, binary, or too large
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
-Created commit 1 on new branch 'a-branch-1'
+Created commit nul on new branch 'a-branch-1'
 
 "#]]);
 
-    env.but("_expand 1:nx:q")
+    env.but("_expand nul:nx:q")
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
 Matches: 1
 
-committed hunk: 80ebb9fd760bfb1522b5eb209be8b2783494c1b8 image.png <no hunk header>
+committed hunk: 673f0a6533ac3929ad467b4f7a0b935853775963 image.png <no hunk header>
 
 "#]]);
 }
@@ -322,6 +323,7 @@ committed hunk: 80ebb9fd760bfb1522b5eb209be8b2783494c1b8 image.png <no hunk head
 fn identical_committed_hunks_qualified_by_commit() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("zero-stacks");
     env.setup_metadata(&[]);
+    set_change_id(&env, "1");
 
     let repeated_content = "line\n".repeat(10);
 
@@ -496,6 +498,7 @@ committed hunk: bc7dd74811af27895beecb37a245cc34291274ad file @@ -8,6 +8,7 @@
 fn resolves_committed_hunk_id_duplicates() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("zero-stacks");
     env.setup_metadata(&[]);
+    set_change_id(&env, "1");
 
     let repeated_content = "line\n".repeat(10);
 

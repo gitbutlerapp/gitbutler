@@ -31,10 +31,11 @@
     <text x="74 82 90 98 106 114 122 130 138 146" y="132" style="fill:#00AA00;">c-branch-1</text>
     <text x="154" y="132" style="fill:#CCCCCC;">]</text>
     <text x="10 18" y="150" style="fill:#FFFFFF;font-weight:bold;">┊●</text>
-    <text x="50" y="150" style="fill:#AA00AA;font-weight:bold;">1</text>
-    <text x="66 74 82" y="150" style="fill:#FFFFFF;font-weight:bold;opacity:0.75;">(no</text>
-    <text x="98 106 114 122 130 138" y="150" style="fill:#FFFFFF;font-weight:bold;opacity:0.75;">commit</text>
-    <text x="154 162 170 178 186 194 202 210" y="150" style="fill:#FFFFFF;font-weight:bold;opacity:0.75;">message)</text>
+    <text x="50" y="150" style="fill:#AA00AA;font-weight:bold;">r</text>
+    <text x="58 66" y="150" style="fill:#FFFFFF;font-weight:bold;opacity:0.75;">xq</text>
+    <text x="82 90 98" y="150" style="fill:#FFFFFF;font-weight:bold;opacity:0.75;">(no</text>
+    <text x="114 122 130 138 146 154" y="150" style="fill:#FFFFFF;font-weight:bold;opacity:0.75;">commit</text>
+    <text x="170 178 186 194 202 210 218 226" y="150" style="fill:#FFFFFF;font-weight:bold;opacity:0.75;">message)</text>
     <text x="10 18" y="168" style="fill:#CCCCCC;">├╯</text>
     <text x="10" y="186" style="fill:#CCCCCC;">┊</text>
     <text x="10" y="204" style="fill:#CCCCCC;">┴</text>

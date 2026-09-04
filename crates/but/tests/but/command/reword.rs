@@ -127,11 +127,11 @@ fn reword_commit_with_change_id_shows_change_id() {
     env.file("new.txt", "content\n");
     env.but("commit -b A -m 'add new.txt'").assert().success();
 
-    env.but("reword 1 -m 'reworded'")
+    env.but("reword uzw -m 'reworded'")
         .assert()
         .success()
         .stdout_eq(str![[r#"
-Updated commit message for 1
+Updated commit message for uzw
 
 "#]]);
 }

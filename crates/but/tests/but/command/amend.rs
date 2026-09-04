@@ -74,7 +74,7 @@ fn amend_rejects_dependency_changes() {
         .stderr_eq(str![[r#"
 Error: Cannot amend: 1 change could not be applied:
   first
-    line 1 depends on foo (1)
+    line 1 depends on foo (xsz)
 
 Hint: to apply these changes, stack bar on top of foo and try again — commits already on the branch move with it:
   but move bar --above foo

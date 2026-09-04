@@ -106,7 +106,7 @@ fn single_stack_journey() -> Result<()> {
     snapbox::assert_data_eq!(
         visualize_commit_graph(&repo, out.top_commit)?,
         snapbox::str![[r#"
-* 0fce812 second step: squash b into a
+* f9b8343 second step: squash b into a
 * 35b8235 base
 
 "#]]
@@ -117,13 +117,13 @@ fn single_stack_journey() -> Result<()> {
         out.to_debug(),
         snapbox::str![[r#"
 RebaseOutput {
-    top_commit: Sha1(0fce812ca0874f04f883a2a91191175535cac1c5),
+    top_commit: Sha1(f9b83431ec517614abb5d0898687a89159b0aa80),
     references: [
         ReferenceSpec {
             reference: Virtual(
                 "anchor",
             ),
-            commit_id: Sha1(0fce812ca0874f04f883a2a91191175535cac1c5),
+            commit_id: Sha1(f9b83431ec517614abb5d0898687a89159b0aa80),
             previous_commit_id: Sha1(a96434e2505c2ea0896cf4f58fec0778e074d3da),
         },
     ],
@@ -133,21 +133,21 @@ RebaseOutput {
                 Sha1(35b8235197020a417e9405ab5d4db6f204e8d84b),
             ),
             Sha1(d591dfed1777b8f00f5b7b6f427537eeb5878178),
-            Sha1(8ccdf30390de9029cb5726a046783992c5f67067),
+            Sha1(fdb9c68f1ad828598bdb2711246b958b7eef9f19),
         ),
         (
             Some(
                 Sha1(35b8235197020a417e9405ab5d4db6f204e8d84b),
             ),
             Sha1(a96434e2505c2ea0896cf4f58fec0778e074d3da),
-            Sha1(0fce812ca0874f04f883a2a91191175535cac1c5),
+            Sha1(f9b83431ec517614abb5d0898687a89159b0aa80),
         ),
         (
             Some(
                 Sha1(35b8235197020a417e9405ab5d4db6f204e8d84b),
             ),
             Sha1(a96434e2505c2ea0896cf4f58fec0778e074d3da),
-            Sha1(0fce812ca0874f04f883a2a91191175535cac1c5),
+            Sha1(f9b83431ec517614abb5d0898687a89159b0aa80),
         ),
     ],
 }
@@ -205,9 +205,9 @@ fn amended_commit() -> Result<()> {
     snapbox::assert_data_eq!(
         visualize_commit_graph(&repo, out.top_commit)?,
         snapbox::str![[r#"
-*-.   6a38e67 Merge branches 'A', 'B' and 'C' - rewritten
+*-.   005b14d Merge branches 'A', 'B' and 'C' - rewritten
 |\ \  
-| | * 806db8c C: add another 10 lines to new file - amended
+| | * c7d70ef C: add another 10 lines to new file - amended
 | | * 68a2fc3 C: add 10 lines to new file
 | | * 984fd1c C: new file with 10 lines
 | * | a748762 (B) B: another 10 lines at the bottom
@@ -225,7 +225,7 @@ fn amended_commit() -> Result<()> {
         out.to_debug(),
         snapbox::str![[r#"
 RebaseOutput {
-    top_commit: Sha1(6a38e6718b008686a81969c07f8654dd68f7b824),
+    top_commit: Sha1(005b14dbbb183d0f1c147f1d14e2a2b9c7abe633),
     references: [],
     commit_mapping: [
         (
@@ -233,14 +233,14 @@ RebaseOutput {
                 Sha1(68a2fc349e13a186e6d65871a31bad244d25e6f4),
             ),
             Sha1(930563a048351f05b14cc7b9c0a48640e5a306b0),
-            Sha1(806db8cb9559776b351f5dd222755793a465fe87),
+            Sha1(c7d70ef1f1a7c47fb30db62dca147429dac8b6c2),
         ),
         (
             Some(
                 Sha1(68a2fc349e13a186e6d65871a31bad244d25e6f4),
             ),
             Sha1(134887021e06909021776c023a608f8ef179e859),
-            Sha1(6a38e6718b008686a81969c07f8654dd68f7b824),
+            Sha1(005b14dbbb183d0f1c147f1d14e2a2b9c7abe633),
         ),
     ],
 }
@@ -295,9 +295,9 @@ fn reorder_merge_in_reverse() -> Result<()> {
     snapbox::assert_data_eq!(
         visualize_commit_graph(&repo, out.top_commit)?,
         snapbox::str![[r#"
-* eb90e58 was dd59d2 below merge
-* 5d38e6f was e8ee978 on top
-*   418a03b was merge 2fc288c one below top
+* 50e7e4c was dd59d2 below merge
+* bae2ba5 was e8ee978 on top
+*   65288c7 was merge 2fc288c one below top
 |\  
 | * 984fd1c (B) C: new file with 10 lines
 |/  
@@ -310,7 +310,7 @@ fn reorder_merge_in_reverse() -> Result<()> {
         out.to_debug(),
         snapbox::str![[r#"
 RebaseOutput {
-    top_commit: Sha1(eb90e584f71ba2b0f122d9778abd0225bde3c669),
+    top_commit: Sha1(50e7e4c717718f098c1b578ccf7007d59f20daef),
     references: [],
     commit_mapping: [
         (
@@ -318,21 +318,21 @@ RebaseOutput {
                 Sha1(8f0d33828e5c859c95fb9e9fc063374fdd482536),
             ),
             Sha1(2fc288c36c8bb710c78203f78ea9883724ce142b),
-            Sha1(418a03b1f9da47d9c4cbb3aeea0222899dc0c9c4),
+            Sha1(65288c75beb4a6f472029dffc7c644875f25d2be),
         ),
         (
             Some(
                 Sha1(8f0d33828e5c859c95fb9e9fc063374fdd482536),
             ),
             Sha1(e8ee978dac10e6a85006543ef08be07c5824b4f7),
-            Sha1(5d38e6f5ca16c627bb1f45485dda9b7012287f13),
+            Sha1(bae2ba56ef093d4cf085cf5704d77bb75009373e),
         ),
         (
             Some(
                 Sha1(8f0d33828e5c859c95fb9e9fc063374fdd482536),
             ),
             Sha1(add59d26b2ffd7468fcb44c2db48111dd8f481e5),
-            Sha1(eb90e584f71ba2b0f122d9778abd0225bde3c669),
+            Sha1(50e7e4c717718f098c1b578ccf7007d59f20daef),
         ),
     ],
 }
@@ -392,7 +392,7 @@ fn reorder_with_conflict_and_remerge_and_pick_from_conflicts() -> Result<()> {
         out.to_debug(),
         snapbox::str![[r#"
 RebaseOutput {
-    top_commit: Sha1(f37e580d3175c9b30a77e666d2658d2cbb7997b0),
+    top_commit: Sha1(469558c7c4c36d29a92859c5e0e521cea254dd57),
     references: [],
     commit_mapping: [
         (
@@ -400,28 +400,28 @@ RebaseOutput {
                 Sha1(8f0d33828e5c859c95fb9e9fc063374fdd482536),
             ),
             Sha1(984fd1c6d3975901147b1f02aae6ef0a16e5904e),
-            Sha1(a037d4a2c1313b991c91f8bd0086643f8f39f0ea),
+            Sha1(e5c725a3fb1b8c92451a04d9dd86d6bd269d76ab),
         ),
         (
             Some(
                 Sha1(8f0d33828e5c859c95fb9e9fc063374fdd482536),
             ),
             Sha1(930563a048351f05b14cc7b9c0a48640e5a306b0),
-            Sha1(07cd1572284045c95f430a6b4cf57bfb9bf06812),
+            Sha1(d3c63cc2c9286d397720a0b592f3ed21bca1d52e),
         ),
         (
             Some(
                 Sha1(8f0d33828e5c859c95fb9e9fc063374fdd482536),
             ),
             Sha1(68a2fc349e13a186e6d65871a31bad244d25e6f4),
-            Sha1(582fc4172c4bd0af5ac2092c2e86bdca1ed19c8e),
+            Sha1(cffa6a3056e67dcfaf8482617be5e60d56834a36),
         ),
         (
             Some(
                 Sha1(8f0d33828e5c859c95fb9e9fc063374fdd482536),
             ),
             Sha1(134887021e06909021776c023a608f8ef179e859),
-            Sha1(f37e580d3175c9b30a77e666d2658d2cbb7997b0),
+            Sha1(469558c7c4c36d29a92859c5e0e521cea254dd57),
         ),
     ],
 }
@@ -431,11 +431,11 @@ RebaseOutput {
     snapbox::assert_data_eq!(
         visualize_commit_graph(&repo, out.top_commit)?,
         snapbox::str![[r#"
-*-.   f37e580 Re-merge branches 'A', 'B' and 'C'
+*-.   469558c Re-merge branches 'A', 'B' and 'C'
 |\ \  
-| | * 582fc41 C~1
-| | * 07cd157 [conflict] C
-| | * a037d4a C~2
+| | * cffa6a3 C~1
+| | * d3c63cc [conflict] C
+| | * e5c725a C~2
 | * | a748762 (B) B: another 10 lines at the bottom
 | * | 62e05ba B: 10 lines at the bottom
 | |/  
@@ -486,11 +486,11 @@ f92b9c1
         conflict_commit_id.object()?.data.as_bstr().to_string(),
         snapbox::str![[r#"
 tree f92b9c1f55ce8576eb80c7fb32eb295ef8f7b288
-parent a037d4a2c1313b991c91f8bd0086643f8f39f0ea
+parent e5c725a3fb1b8c92451a04d9dd86d6bd269d76ab
 author author <author@example.com> 946684800 +0000
 committer Committer (Memory Override) <committer@example.com> 946771200 +0000
 gitbutler-headers-version 2
-change-id 1
+change-id tvqkmqxpowoyosykwzoktulqknpvypwv
 
 [conflict] C
 
@@ -519,11 +519,11 @@ GitButler-Conflict: This is a GitButler-managed conflicted commit. Files are aut
 tree 6abc3da6f1642bfd5543ef97f98b924f4f232a96
 parent add59d26b2ffd7468fcb44c2db48111dd8f481e5
 parent a7487625f079bedf4d20e48f052312c010117b38
-parent 582fc4172c4bd0af5ac2092c2e86bdca1ed19c8e
+parent cffa6a3056e67dcfaf8482617be5e60d56834a36
 author author <author@example.com> 946684800 +0000
 committer Committer (Memory Override) <committer@example.com> 946771200 +0000
 gitbutler-headers-version 2
-change-id 1
+change-id qutxpsntutpmpxvllyxuwumnkqmuxnxs
 
 Re-merge branches 'A', 'B' and 'C'
 "#]]
@@ -544,7 +544,7 @@ parent 8f0d33828e5c859c95fb9e9fc063374fdd482536
 author author <author@example.com> 946684800 +0000
 committer Committer (Memory Override) <committer@example.com> 946771200 +0000
 gitbutler-headers-version 2
-change-id 1
+change-id qouxtqnurnuxukrypyrmotplppooouvs
 
 C~2
 "#]]
@@ -677,11 +677,11 @@ fn reversible_conflicts() -> anyhow::Result<()> {
     snapbox::assert_data_eq!(
         visualize_commit_graph(&repo, out.top_commit)?,
         snapbox::str![[r#"
-*-.   f37e580 Re-merge branches 'A', 'B' and 'C'
+*-.   469558c Re-merge branches 'A', 'B' and 'C'
 |\ \  
-| | * 582fc41 C~1
-| | * 07cd157 [conflict] C
-| | * a037d4a C~2
+| | * cffa6a3 C~1
+| | * d3c63cc [conflict] C
+| | * e5c725a C~2
 | * | a748762 (B) B: another 10 lines at the bottom
 | * | 62e05ba B: 10 lines at the bottom
 | |/  
@@ -760,7 +760,7 @@ fn pick_the_first_commit_with_no_parents_for_squashing() -> Result<()> {
     snapbox::assert_data_eq!(
         visualize_commit_graph(&repo, out.top_commit)?,
         snapbox::str![[r#"
-* e380582 reworded base after squash
+* 647bbc7 reworded base after squash
 
 "#]]
     );
@@ -768,7 +768,7 @@ fn pick_the_first_commit_with_no_parents_for_squashing() -> Result<()> {
         out.to_debug(),
         snapbox::str![[r#"
 RebaseOutput {
-    top_commit: Sha1(e3805829c98eb212c529d5e853a94283ed32747c),
+    top_commit: Sha1(647bbc7cdbd8e18fd778261250d4a0dbc485e47a),
     references: [],
     commit_mapping: [
         (
@@ -779,7 +779,7 @@ RebaseOutput {
         (
             None,
             Sha1(d591dfed1777b8f00f5b7b6f427537eeb5878178),
-            Sha1(e3805829c98eb212c529d5e853a94283ed32747c),
+            Sha1(647bbc7cdbd8e18fd778261250d4a0dbc485e47a),
         ),
     ],
 }

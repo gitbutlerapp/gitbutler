@@ -22,11 +22,12 @@
     <text x="82 90 98" y="78" style="fill:#CCCCCC;">add</text>
     <text x="114" y="78" style="fill:#CCCCCC;">A</text>
     <text x="10 18" y="96" style="fill:#FFFFFF;font-weight:bold;">┊●</text>
-    <text x="50" y="96" style="fill:#AA00AA;font-weight:bold;">1</text>
-    <text x="66 74 82 90 98 106" y="96" style="fill:#FFFFFF;font-weight:bold;">commit</text>
-    <text x="122 130 138 146" y="96" style="fill:#FFFFFF;font-weight:bold;">from</text>
-    <text x="162 170 178" y="96" style="fill:#FFFFFF;font-weight:bold;">tui</text>
-    <text x="194 202 210 218" y="96" style="fill:#FFFFFF;font-weight:bold;">test</text>
+    <text x="50 58" y="96" style="fill:#AA00AA;font-weight:bold;">zy</text>
+    <text x="66" y="96" style="fill:#FFFFFF;font-weight:bold;opacity:0.75;">m</text>
+    <text x="82 90 98 106 114 122" y="96" style="fill:#FFFFFF;font-weight:bold;">commit</text>
+    <text x="138 146 154 162" y="96" style="fill:#FFFFFF;font-weight:bold;">from</text>
+    <text x="178 186 194" y="96" style="fill:#FFFFFF;font-weight:bold;">tui</text>
+    <text x="210 218 226 234" y="96" style="fill:#FFFFFF;font-weight:bold;">test</text>
     <text x="10 18" y="114" style="fill:#CCCCCC;">├╯</text>
     <text x="10" y="132" style="fill:#CCCCCC;">┊</text>
     <text x="10" y="150" style="fill:#CCCCCC;">┴</text>

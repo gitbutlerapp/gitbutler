@@ -209,8 +209,8 @@ fn discard_rename_does_not_discard_unrelated_changes() {
 ┊   tz A src/keep-me.ts
 ┊
 ┊╭┄ g0 [A]
-┊●   1 seed rename source only
-┊│     1:l A src/rename-source-only.ts
+┊●   uwm seed rename source only
+┊│     uwm:l A src/rename-source-only.ts
 ┊●   tpm add A
 ┊│     tpm:t A A
 ├╯
@@ -271,8 +271,8 @@ fn discard_the_whole_uncommitted_changes() {
 ╭┄ @ [uncommitted] (no changes)
 ┊
 ┊╭┄ g0 [A]
-┊●   1 seed rename source only
-┊│     1:l A src/rename-source-only.ts
+┊●   uwm seed rename source only
+┊│     uwm:l A src/rename-source-only.ts
 ┊●   tpm add A
 ┊│     tpm:t A A
 ├╯
@@ -396,7 +396,7 @@ fn discard_resulting_in_workdir_ud_conflict() {
         .success()
         .stderr_eq("")
         .stdout_eq(snapbox::str![[r#"
-Discarded commit 1
+Discarded commit tvn
 
 ⚠ A conflict occurred during checkout. Run `but status` for more information.
 
@@ -458,7 +458,7 @@ fn discard_resulting_in_workdir_uu_conflict() {
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
-Discarded commit 1
+Discarded commit syk
 
 ⚠ A conflict occurred during checkout. Run `but status` for more information.
 
@@ -472,8 +472,8 @@ Discarded commit 1
 ┊    commit.txt {conflicted}
 ┊
 ┊╭┄ g0 [A]
-┊●   1 commit
-┊│     1:t A commit.txt
+┊●   pmw commit
+┊│     pmw:t A commit.txt
 ┊●   tpm add A
 ┊│     tpm:t A A
 ├╯
@@ -533,10 +533,10 @@ fn discard_multiple_commits_outputs_human() {
 ╭┄ @ [uncommitted] (no changes)
 ┊
 ┊╭┄ g0 [A]
-┊●   1#0 second discardable commit
-┊│     1#0:r A second-commit.txt
-┊●   1#1 first discardable commit
-┊│     1#1:m A first-commit.txt
+┊●   yqn second discardable commit
+┊│     yqn:r A second-commit.txt
+┊●   lmp first discardable commit
+┊│     lmp:m A first-commit.txt
 ┊●   tpm add A
 ┊│     tpm:t A A
 ├╯
@@ -551,7 +551,7 @@ Hint: run `but help` for all commands
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
-Discarded commits 1, 1
+Discarded commits lmp, yqn
 
 "#]]);
 
@@ -601,9 +601,9 @@ fn discard_committed_files_outputs_new_commit_in_json() {
 ╭┄ @ [uncommitted] (no changes)
 ┊
 ┊╭┄ g0 [A]
-┊●   1 files to selectively discard
-┊│     1:n A discarded-from-commit.txt
-┊│     1:x A retained-in-commit.txt
+┊●   toz files to selectively discard
+┊│     toz:n A discarded-from-commit.txt
+┊│     toz:x A retained-in-commit.txt
 ┊●   tpm add A
 ┊│     tpm:t A A
 ├╯
@@ -621,13 +621,13 @@ Hint: run `but help` for all commands
         .stdout_eq(snapbox::str![[r#"
 {
   "type": "committedChanges",
-  "sourceCommitId": "c61e0f8eb6e54760c5a265d93044bf29b7a5716a",
-  "sourceChangeId": "1",
+  "sourceCommitId": "7df37764a21d5510d4108ad82bfaf98bc926a1a8",
+  "sourceChangeId": "tozmluwlnkpxmqykupputuolovmvyprt",
   "paths": [
     "discarded-from-commit.txt"
   ],
-  "newCommitId": "372ab397ba61d3368a1a9e769f39af3997c4e1ad",
-  "newChangeId": "1"
+  "newCommitId": "ab57cd43e38112a1b44246daf6eb509f6097f5a4",
+  "newChangeId": "tozmluwlnkpxmqykupputuolovmvyprt"
 }
 
 "#]]);
@@ -639,8 +639,8 @@ Hint: run `but help` for all commands
 ╭┄ @ [uncommitted] (no changes)
 ┊
 ┊╭┄ g0 [A]
-┊●   1 files to selectively discard
-┊│     1:x A retained-in-commit.txt
+┊●   toz files to selectively discard
+┊│     toz:x A retained-in-commit.txt
 ┊●   tpm add A
 ┊│     tpm:t A A
 ├╯
@@ -717,8 +717,8 @@ Hint: Discard branches, commits, committed files, or uncommitted changes separat
 ┊   ln A uncommitted.txt
 ┊
 ┊╭┄ g0 [A]
-┊●   1 committed source
-┊│     1:z A committed.txt
+┊●   opq committed source
+┊│     opq:z A committed.txt
 ┊●   tpm add A
 ┊│     tpm:t A A
 ├╯
@@ -768,10 +768,10 @@ Hint: Discard committed files from each commit separately
 ╭┄ @ [uncommitted] (no changes)
 ┊
 ┊╭┄ g0 [A]
-┊●   1#0 second committed source
-┊│     1#0:q A second-committed.txt
-┊●   1#1 first committed source
-┊│     1#1:t A first-committed.txt
+┊●   lqq second committed source
+┊│     lqq:q A second-committed.txt
+┊●   ssw first committed source
+┊│     ssw:t A first-committed.txt
 ┊●   tpm add A
 ┊│     tpm:t A A
 ├╯
@@ -801,14 +801,15 @@ seven
 
     env.file("file.txt", format!("first\n{original_content}last\n"));
     env.but("commit -m 'Modify file'").assert().success();
+    let modified_commit = env.invoke_git("rev-parse refs/heads/a-branch-1");
 
-    env.but("diff 1#0")
+    env.but(format!("diff {modified_commit}"))
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
-──────────────────╮
- 1#0:u:2 file.txt │
-──────────────────╯
+────────────────╮
+ x:u:2 file.txt │
+────────────────╯
 
 @@ -1,3 +1,4 @@
 ───────────────
@@ -817,9 +818,9 @@ seven
 2 ┊ 3 │  two
 3 ┊ 4 │  three
 
-──────────────────╮
- 1#0:u:e file.txt │
-──────────────────╯
+────────────────╮
+ x:u:e file.txt │
+────────────────╯
 
 @@ -5,3 +6,4 @@
 ───────────────
@@ -830,21 +831,22 @@ seven
 
 "#]]);
 
-    env.but("discard 1#0:u:2")
+    env.but(format!("discard {modified_commit}:u:2"))
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
-Discarded changes from file.txt from 1 to create 1
+Discarded changes from file.txt from xsw to create xsw
 
 "#]]);
 
-    env.but("diff 1#0")
+    let rewritten_commit = env.invoke_git("rev-parse refs/heads/a-branch-1");
+    env.but(format!("diff {rewritten_commit}"))
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
-──────────────────╮
- 1#0:u:e file.txt │
-──────────────────╯
+────────────────╮
+ x:u:e file.txt │
+────────────────╯
 
 @@ -5,3 +5,4 @@
 ───────────────
@@ -863,13 +865,14 @@ fn discard_single_committed_hunk_in_deleted_file_discards_deletion() {
 
     env.remove_file("A");
     env.but("commit -m 'Delete file'").assert().success();
+    let delete_commit = env.invoke_git("rev-parse refs/heads/A");
 
-    env.but("diff 1")
+    env.but(format!("diff {delete_commit}"))
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
 ─────────╮
- 1:t:a A │
+ s:t:a A │
 ─────────╯
 
 @@ -1,1 +1,0 @@
@@ -878,11 +881,11 @@ fn discard_single_committed_hunk_in_deleted_file_discards_deletion() {
 
 "#]]);
 
-    env.but("discard 1:t:a")
+    env.but(format!("discard {delete_commit}:t:a"))
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
-Discarded changes from A from 1 to create 1
+Discarded changes from A from sum to create sum
 
 "#]]);
 
@@ -894,7 +897,7 @@ Discarded changes from A from 1 to create 1
 ╭┄ @ [uncommitted] (no changes)
 ┊
 ┊╭┄ g0 [A]
-┊●   1 Delete file (no changes)
+┊●   sum Delete file (no changes)
 ┊●   tpm add A
 ┊│     tpm:t A A
 ├╯
@@ -978,7 +981,7 @@ fn discard_final_content_hunk_in_renamed_file_does_not_discard_rename_itself() {
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
-Created commit 1 on new branch 'a-branch-1'
+Created commit xvz on new branch 'a-branch-1'
 
 "#]]);
 
@@ -988,7 +991,7 @@ Created commit 1 on new branch 'a-branch-1'
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
-Created commit 1 on branch 'a-branch-1'
+Created commit xlx on branch 'a-branch-1'
 
 "#]]);
 
@@ -999,10 +1002,10 @@ Created commit 1 on branch 'a-branch-1'
 ╭┄ @ [uncommitted] (no changes)
 ┊
 ┊╭┄ br [a-branch-1]
-┊●   1#0 Rename and edit file
-┊│     1#0:q R renamed_file.txt
-┊●   1#1 Add file
-┊│     1#1:u A file.txt
+┊●   xlx Rename and edit file
+┊│     xlx:q R renamed_file.txt
+┊●   xvz Add file
+┊│     xvz:u A file.txt
 ├╯
 ┊
 ┴ 0dc3733 (common base) 2000-01-02 add M
@@ -1011,13 +1014,13 @@ Hint: run `but help` for all commands
 
 "#]]);
 
-    env.but("diff 1#0")
+    env.but("diff xlx")
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
-──────────────────────────╮
- 1#0:q:7 renamed_file.txt │
-──────────────────────────╯
+─────────────────────────╮
+ xl:q:7 renamed_file.txt │
+─────────────────────────╯
 
 @@ -1,3 +1,5 @@
 ───────────────
@@ -1029,11 +1032,11 @@ Hint: run `but help` for all commands
 
 "#]]);
 
-    env.but("discard 1#0:q:7")
+    env.but("discard xlx:q:7")
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
-Discarded changes from renamed_file.txt from 1 to create 1
+Discarded changes from renamed_file.txt from xlx to create xlx
 
 "#]]);
 
@@ -1044,10 +1047,10 @@ Discarded changes from renamed_file.txt from 1 to create 1
 ╭┄ @ [uncommitted] (no changes)
 ┊
 ┊╭┄ br [a-branch-1]
-┊●   1#0 Rename and edit file
-┊│     1#0:q R renamed_file.txt
-┊●   1#1 Add file
-┊│     1#1:u A file.txt
+┊●   xlx Rename and edit file
+┊│     xlx:q R renamed_file.txt
+┊●   xvz Add file
+┊│     xvz:u A file.txt
 ├╯
 ┊
 ┴ 0dc3733 (common base) 2000-01-02 add M
@@ -1055,13 +1058,13 @@ Discarded changes from renamed_file.txt from 1 to create 1
 Hint: run `but help` for all commands
 
 "#]]);
-    env.but("diff 1#0")
+    env.but("diff xlx")
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
-──────────────────────────╮
- 1#0:q:q renamed_file.txt │
-──────────────────────────╯
+─────────────────────────╮
+ xl:q:q renamed_file.txt │
+─────────────────────────╯
 
 No diff available - file is either empty, binary, or too large
 
@@ -1080,7 +1083,7 @@ fn discard_unihunk_in_renamed_file_without_content_discards_rename() {
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
-Created commit 1 on branch 'A'
+Created commit ylp on branch 'A'
 
 "#]]);
 
@@ -1091,8 +1094,8 @@ Created commit 1 on branch 'A'
 ╭┄ @ [uncommitted] (no changes)
 ┊
 ┊╭┄ g0 [A]
-┊●   1 Rename file A -> B
-┊│     1:p R B
+┊●   ylp Rename file A -> B
+┊│     ylp:p R B
 ┊●   tpm add A
 ┊│     tpm:t A A
 ├╯
@@ -1103,23 +1106,23 @@ Hint: run `but help` for all commands
 
 "#]]);
 
-    env.but("diff 1")
+    env.but("diff ylp")
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
 ─────────╮
- 1:p:q B │
+ y:p:q B │
 ─────────╯
 
 No diff available - file is either empty, binary, or too large
 
 "#]]);
 
-    env.but("discard 1:p:q")
+    env.but("discard ylp:p:q")
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
-Discarded changes from B from 1 to create 1
+Discarded changes from B from ylp to create ylp
 
 "#]]);
 
@@ -1130,7 +1133,7 @@ Discarded changes from B from 1 to create 1
 ╭┄ @ [uncommitted] (no changes)
 ┊
 ┊╭┄ g0 [A]
-┊●   1 Rename file A -> B (no changes)
+┊●   ylp Rename file A -> B (no changes)
 ┊●   tpm add A
 ┊│     tpm:t A A
 ├╯
@@ -1140,7 +1143,7 @@ Discarded changes from B from 1 to create 1
 Hint: run `but help` for all commands
 
 "#]]);
-    env.but("diff 1")
+    env.but("diff ylp")
         .assert()
         .success()
         .stdout_eq(snapbox::str![""]);

@@ -1215,8 +1215,8 @@ fn integrate_branch_with_merge_step_does_not_require_preceding_commit() -> Resul
     snapbox::assert_data_eq!(
         normalized_graph_snapshot(&repo)?,
         snapbox::str![[r#"
-* 1934603 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
-*   dc8c3e4 (A) Merge 715d7b0b14844b459ef031a7332283932e99a6a5 into previous commit
+* 575b836 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+*   d14d4c7 (A) Merge 715d7b0b14844b459ef031a7332283932e99a6a5 into previous commit
 |\
 | | * 6a17628 (origin/A) remote change in A 2
 | |/
@@ -1377,9 +1377,9 @@ fn integrate_upstream_commits_into_local_with_merge_step() -> Result<()> {
     snapbox::assert_data_eq!(
         normalized_graph_snapshot(&repo)?,
         snapbox::str![[r#"
-* a74b8e3 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
-* fdc285b (A) local change in A 2
-*   0d584c5 Merge 715d7b0b14844b459ef031a7332283932e99a6a5 into previous commit
+* 746624b (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+* f9c6e49 (A) local change in A 2
+*   48d5c10 Merge 715d7b0b14844b459ef031a7332283932e99a6a5 into previous commit
 |\
 * | 86838ae local change in A 1
 | | * 6a17628 (origin/A) remote change in A 2
@@ -1479,8 +1479,8 @@ fn integrate_upstream_commits_into_local_with_all_locals_then_merge_second_remot
     snapbox::assert_data_eq!(
         normalized_graph_snapshot(&repo)?,
         snapbox::str![[r#"
-* a11c807 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
-*   93bbd52 (A) Merge 6a176285f918d0e4249373b102abe662d4eeeb29 into previous commit
+* 8729586 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+*   049a2ea (A) Merge 6a176285f918d0e4249373b102abe662d4eeeb29 into previous commit
 |\
 | * 6a17628 (origin/A) remote change in A 2
 | * 715d7b0 remote change in A 1
@@ -1559,12 +1559,12 @@ fn integrate_upstream_commits_into_local_with_two_merges_in_sequence() -> Result
     snapbox::assert_data_eq!(
         normalized_graph_snapshot(&repo)?,
         snapbox::str![[r#"
-* d69c4de (HEAD -> gitbutler/workspace) GitButler Workspace Commit
-*   ab7f588 (A) Merge 6a176285f918d0e4249373b102abe662d4eeeb29 into previous commit
+* 0fde470 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+*   e4e832d (A) Merge 6a176285f918d0e4249373b102abe662d4eeeb29 into previous commit
 |\
 | * 6a17628 (origin/A) remote change in A 2
-* | fdc285b local change in A 2
-* | 0d584c5 Merge 715d7b0b14844b459ef031a7332283932e99a6a5 into previous commit
+* | f9c6e49 local change in A 2
+* | 48d5c10 Merge 715d7b0b14844b459ef031a7332283932e99a6a5 into previous commit
 |\|
 | * 715d7b0 remote change in A 1
 * | 86838ae local change in A 1
@@ -2647,8 +2647,8 @@ fn integrate_upstream_commits_into_local_with_merge_remote_into_local_conflicts(
     snapbox::assert_data_eq!(
         normalized_graph_snapshot(&repo)?,
         snapbox::str![[r#"
-* 9b44771 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
-*   c813ff0 (A) [conflict] Merge f03fc2cb7251fb1707fa0f7bee28eb507ec1405c into previous commit
+* a41d4aa (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+*   e22740e (A) [conflict] Merge f03fc2cb7251fb1707fa0f7bee28eb507ec1405c into previous commit
 |\
 | * f03fc2c (origin/A, new-origin) remote change in A 1
 * | 61c4a24 local change in A 1

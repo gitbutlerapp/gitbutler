@@ -45,12 +45,13 @@
     <text x="330" y="150" style="fill:#00AA00;font-weight:bold;">B</text>
     <text x="338" y="150" style="fill:#FFFFFF;font-weight:bold;">]</text>
     <text x="10 18" y="168" style="fill:#CCCCCC;">┊●</text>
-    <text x="50" y="168" style="fill:#AA00AA;">1</text>
-    <text x="66 74 82" y="168" style="fill:#CCCCCC;opacity:0.75;">(no</text>
-    <text x="98 106 114 122 130 138" y="168" style="fill:#CCCCCC;opacity:0.75;">commit</text>
-    <text x="154 162 170 178 186 194 202 210" y="168" style="fill:#CCCCCC;opacity:0.75;">message)</text>
-    <text x="226 234 242" y="168" style="fill:#CCCCCC;opacity:0.75;">(no</text>
-    <text x="258 266 274 282 290 298 306 314" y="168" style="fill:#CCCCCC;opacity:0.75;">changes)</text>
+    <text x="50" y="168" style="fill:#AA00AA;">n</text>
+    <text x="58 66" y="168" style="fill:#CCCCCC;opacity:0.75;">py</text>
+    <text x="82 90 98" y="168" style="fill:#CCCCCC;opacity:0.75;">(no</text>
+    <text x="114 122 130 138 146 154" y="168" style="fill:#CCCCCC;opacity:0.75;">commit</text>
+    <text x="170 178 186 194 202 210 218 226" y="168" style="fill:#CCCCCC;opacity:0.75;">message)</text>
+    <text x="242 250 258" y="168" style="fill:#CCCCCC;opacity:0.75;">(no</text>
+    <text x="274 282 290 298 306 314 322 330" y="168" style="fill:#CCCCCC;opacity:0.75;">changes)</text>
     <text x="10 18" y="186" style="fill:#CCCCCC;">┊●</text>
     <text x="50" y="186" style="fill:#AA00AA;">l</text>
     <text x="58 66" y="186" style="fill:#CCCCCC;opacity:0.75;">rm</text>

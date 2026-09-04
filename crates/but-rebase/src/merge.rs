@@ -103,7 +103,7 @@ pub(crate) fn octopus(
         )
     } else {
         crate::commit::update_committer(repo, &mut target_merge_commit)?;
-        Ok(repo.write_object(target_merge_commit)?.detach())
+        but_core::commit::create(repo, target_merge_commit, None, SignCommit::No)
     }
 }
 

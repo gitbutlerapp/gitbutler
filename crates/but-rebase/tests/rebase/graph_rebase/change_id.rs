@@ -73,7 +73,7 @@ fn temporary_change_id_persisted() -> Result<()> {
 }
 
 #[test]
-fn empty_commit_uses_default_change_id() -> Result<()> {
+fn empty_commit_uses_content_hash_placeholder_until_materialization() -> Result<()> {
     let (repo, _tmpdir, mut meta, mut db) = fixture_writable("four-commits")?;
 
     let graph = Graph::from_head(
@@ -90,7 +90,10 @@ fn empty_commit_uses_default_change_id() -> Result<()> {
 
     let ec = editor.empty_commit()?;
 
-    snapbox::assert_data_eq!(ec.change_id().to_string(), snapbox::str!["1"]);
+    snapbox::assert_data_eq!(
+        ec.change_id().to_string(),
+        snapbox::str!["gitbutler-content-hash-placeholder"]
+    );
     snapbox::assert_data_eq!(
         ec.extra_headers.to_debug(),
         snapbox::str![[r#"
@@ -101,7 +104,7 @@ fn empty_commit_uses_default_change_id() -> Result<()> {
     ),
     (
         "change-id",
-        "1",
+        "gitbutler-content-hash-placeholder",
     ),
 ]
 

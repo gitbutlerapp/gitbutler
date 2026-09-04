@@ -17,14 +17,16 @@
     <text x="74" y="60" style="fill:#00AA00;">A</text>
     <text x="82" y="60" style="fill:#CCCCCC;">]</text>
     <text x="10 18" y="78" style="fill:#FFFFFF;font-weight:bold;">┊●</text>
-    <text x="50 58 66" y="78" style="fill:#AA00AA;font-weight:bold;">1#0</text>
+    <text x="50" y="78" style="fill:#AA00AA;font-weight:bold;">m</text>
+    <text x="58 66" y="78" style="fill:#FFFFFF;font-weight:bold;opacity:0.75;">ul</text>
     <text x="82 90 98" y="78" style="fill:#FFFFFF;font-weight:bold;opacity:0.75;">(no</text>
     <text x="114 122 130 138 146 154" y="78" style="fill:#FFFFFF;font-weight:bold;opacity:0.75;">commit</text>
     <text x="170 178 186 194 202 210 218 226" y="78" style="fill:#FFFFFF;font-weight:bold;opacity:0.75;">message)</text>
     <text x="242 250 258" y="78" style="fill:#FFFFFF;font-weight:bold;opacity:0.75;">(no</text>
     <text x="274 282 290 298 306 314 322 330" y="78" style="fill:#FFFFFF;font-weight:bold;opacity:0.75;">changes)</text>
     <text x="10 18" y="96" style="fill:#CCCCCC;">┊●</text>
-    <text x="50 58 66" y="96" style="fill:#AA00AA;">1#1</text>
+    <text x="50" y="96" style="fill:#AA00AA;">o</text>
+    <text x="58 66" y="96" style="fill:#CCCCCC;opacity:0.75;">un</text>
     <text x="82 90 98" y="96" style="fill:#CCCCCC;opacity:0.75;">(no</text>
     <text x="114 122 130 138 146 154" y="96" style="fill:#CCCCCC;opacity:0.75;">commit</text>
     <text x="170 178 186 194 202 210 218 226" y="96" style="fill:#CCCCCC;opacity:0.75;">message)</text>

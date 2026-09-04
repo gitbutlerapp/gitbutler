@@ -177,10 +177,10 @@ fn single_branch_pull_replaces_a_fully_integrated_checkout() {
 ╭┄ @ [uncommitted] (no changes)
 ┊
 ┊╭┄ g0 [A] (merged upstream)
-┊●   1 add A
+┊●   tyt add A
 ├╯
 ┊
-┊● f12cbfa (upstream: origin/main) 2 new commits
+┊● 5aa8cbc (upstream: origin/main) 2 new commits
 ├╯ 85efbe4 (common base) 2000-01-02 M
 
 Hint: origin/main moved ahead; run `but pull` to update the workspace
@@ -197,8 +197,8 @@ Hint: branches marked `(merged upstream)` have landed; run `but pull` to remove 
 Base branch:	origin/main
 Upstream:	2 new commits on origin/main
 
-  f12cbfa add upstream[..]
-  b17b7d2 merge A[..]
+  5aa8cbc add upstream 
+  7608f76 merge A 
 
 Branch Status
   [integrated] A
@@ -229,7 +229,7 @@ Run `but pull` to update your branches
 ┊╭┄ br [a-branch-1] (no commits)
 ├╯
 ┊
-┴ f12cbfa (common base) 2000-01-02 add upstream
+┴ 5aa8cbc (common base) 2000-01-02 add upstream
 
 Hint: run `but help` for all commands
 
@@ -271,13 +271,13 @@ fn single_branch_pull_prunes_an_integrated_lower_branch() {
 ╭┄ @ [uncommitted] (no changes)
 ┊
 ┊╭┄ g0 [A]
-┊●   1#0 add A
+┊●   uxq add A
 ┊│
 ┊├┄ h0 [C] (merged upstream)
-┊●   1#1 add C
+┊●   ovp add C
 ├╯
 ┊
-┊● 1a9cade (upstream: origin/main) 2 new commits
+┊● dba3edc (upstream: origin/main) 2 new commits
 ├╯ 85efbe4 (common base) 2000-01-02 M
 
 Hint: origin/main moved ahead; run `but pull` to update the workspace
@@ -294,8 +294,8 @@ Hint: branches marked `(merged upstream)` have landed; run `but pull` to remove 
 Base branch:	origin/main
 Upstream:	2 new commits on origin/main
 
-  1a9cade add upstream[..]
-  c251e1d merge C[..]
+  dba3edc add upstream 
+  509b051 merge C 
 
 Branch Status
   [ok] A
@@ -318,10 +318,10 @@ Run `but pull` to update your branches
 ╭┄ @ [uncommitted] (no changes)
 ┊
 ┊╭┄ g0 [A]
-┊●   1 add A
+┊●   uxq add A
 ├╯
 ┊
-┴ 1a9cade (common base) 2000-01-02 add upstream
+┴ dba3edc (common base) 2000-01-02 add upstream
 
 Hint: run `but help` for all commands
 
@@ -363,10 +363,10 @@ fn single_branch_pull_keeps_an_empty_branch_above_an_integrated_branch() {
 ┊╭┄ to [top] (no commits)
 ┊│
 ┊├┄ bo [bottom] (merged upstream)
-┊●   1 add bottom
+┊●   lwy add bottom
 ├╯
 ┊
-┊● 9f8a4d4 (upstream: origin/main) 1 new commit
+┊● 3ea7b57 (upstream: origin/main) 1 new commit
 ├╯ 85efbe4 (common base) 2000-01-02 M
 
 Hint: origin/main moved ahead; run `but pull` to update the workspace
@@ -383,7 +383,7 @@ Hint: branches marked `(merged upstream)` have landed; run `but pull` to remove 
 Base branch:	origin/main
 Upstream:	1 new commits on origin/main
 
-  9f8a4d4 merge bottom[..]
+  3ea7b57 merge bottom 
 
 Branch Status
   [ok] top
@@ -412,7 +412,7 @@ Run `but pull` to update your branches
 ┊╭┄ to [top] (no commits)
 ├╯
 ┊
-┴ 9f8a4d4 (common base) 2000-01-02 merge bottom
+┴ 3ea7b57 (common base) 2000-01-02 merge bottom
 
 Hint: run `but help` for all commands
 

@@ -77,7 +77,7 @@ Hint: run `but diff` to see uncommitted changes and `but commit -b <branch> -m "
     .success()
     .stderr_eq(snapbox::str![])
     .stdout_eq(snapbox::str![[r#"
-Created commit 1 on new branch 'feature'
+Created commit wpv on new branch 'feature'
 
 "#]]);
 
@@ -89,8 +89,8 @@ Created commit 1 on new branch 'feature'
 ╭┄ @ [uncommitted] (no changes)
 ┊
 ┊╭┄ at [feature]
-┊●   1 add ad-hoc file
-┊│     1:x A ad-hoc.txt
+┊●   wpv add ad-hoc file
+┊│     wpv:x A ad-hoc.txt
 ┊│
 ┊├┄ ma [main]
 ┊●   nmy M (no changes)
@@ -158,7 +158,7 @@ Hint: run `but diff` to see uncommitted changes and `but commit -b <branch> -m "
         .success()
         .stderr_eq(snapbox::str![])
         .stdout_eq(snapbox::str![[r#"
-Created commit 1 on branch 'main'
+Created commit woz on branch 'main'
 
 "#]]);
 
@@ -170,7 +170,7 @@ Created commit 1 on branch 'main'
 ╭┄ @ [uncommitted] (no changes)
 ┊
 ┊╭┄ ma [main]
-┊●   1 commit on main
+┊●   woz commit on main
 ┊●   nmy M (no changes)
 ├╯
 ┊
@@ -226,10 +226,10 @@ fn commits_at_each_branch_in_an_existing_single_branch_stack() {
 ┊   tk A bottom.txt
 ┊
 ┊╭┄ to [top]
-┊●   1#0 top base (no changes)
+┊●   tzq top base (no changes)
 ┊│
 ┊├┄ mi [middle]
-┊●   1#1 middle base (no changes)
+┊●   lsm middle base (no changes)
 ┊│
 ┊├┄ ma [main]
 ┊●   nmy M (no changes)
@@ -261,15 +261,15 @@ Hint: run `but diff` to see uncommitted changes and `but commit -b <branch> -m "
 ╭┄ @ [uncommitted] (no changes)
 ┊
 ┊╭┄ to [top]
-┊●   1#0 top position
-┊●   1#1 top base (no changes)
+┊●   tun top position
+┊●   tzq top base (no changes)
 ┊│
 ┊├┄ mi [middle]
-┊●   1#2 middle position
-┊●   1#3 middle base (no changes)
+┊●   swr middle position
+┊●   lsm middle base (no changes)
 ┊│
 ┊├┄ ma [main]
-┊●   1#4 bottom position
+┊●   rtw bottom position
 ┊●   nmy M (no changes)
 ├╯
 ┊
@@ -322,7 +322,7 @@ fn commits_on_top_of_a_checked_out_managed_workspace_branch() {
         .success()
         .stderr_eq(snapbox::str![])
         .stdout_eq(snapbox::str![[r#"
-Created commit 1 on new branch 'feature'
+Created commit umu on new branch 'feature'
 
 "#]]);
 
@@ -351,7 +351,7 @@ fn no_message_nothing_to_commit() {
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
-Created commit 1 on branch 'A'
+Created commit orn on branch 'A'
 
 "#]]);
 
@@ -362,7 +362,7 @@ Created commit 1 on branch 'A'
 ╭┄ @ [uncommitted] (no changes)
 ┊
 ┊╭┄ g0 [A]
-┊●   1 (no commit message) (no changes)
+┊●   orn (no commit message) (no changes)
 ┊●   tpm add A
 ├╯
 ┊
@@ -384,7 +384,7 @@ fn no_args_single_head_no_message_human_output() {
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
-Created commit 1 on branch 'A'
+Created commit ssv on branch 'A'
 
 "#]]);
 
@@ -395,7 +395,7 @@ Created commit 1 on branch 'A'
 ╭┄ @ [uncommitted] (no changes)
 ┊
 ┊╭┄ g0 [A]
-┊●   1 (no commit message)
+┊●   ssv (no commit message)
 ┊●   tpm add A
 ├╯
 ┊
@@ -476,8 +476,8 @@ fn agent_commit_json_uses_native_result_without_status_by_default() {
         .success()
         .stdout_eq(snapbox::str![[r#"
 {
-  "commitId": "7bbfdca68284535242b93595db5f6a5bc885a124",
-  "changeId": "1"
+  "commitId": "ad3beae727eb9f82f063c32ccff084d97ad0fd5e",
+  "changeId": "ssvtnomvyusxrxwspzwsqkssnkmsnylz"
 }
 
 "#]]);
@@ -495,8 +495,8 @@ fn non_agent_commit_json_uses_native_result() {
         .success()
         .stdout_eq(snapbox::str![[r#"
 {
-  "commitId": "7bbfdca68284535242b93595db5f6a5bc885a124",
-  "changeId": "1"
+  "commitId": "ad3beae727eb9f82f063c32ccff084d97ad0fd5e",
+  "changeId": "ssvtnomvyusxrxwspzwsqkssnkmsnylz"
 }
 
 "#]]);
@@ -526,7 +526,7 @@ fn no_args_single_head_message_from_editor() {
 ╭┄ @ [uncommitted] (no changes)
 ┊
 ┊╭┄ g0 [A]
-┊●   1 commit from editor
+┊●   yqu commit from editor
 ┊●   tpm add A
 ├╯
 ┊
@@ -553,7 +553,7 @@ fn single_head_with_message() {
 ╭┄ @ [uncommitted] (no changes)
 ┊
 ┊╭┄ g0 [A]
-┊●   1 add file.txt
+┊●   ssv add file.txt
 ┊●   tpm add A
 ├╯
 ┊
@@ -582,7 +582,7 @@ fn can_repeat_message() {
 ╭┄ @ [uncommitted] (no changes)
 ┊
 ┊╭┄ g0 [A]
-┊● 1 author 2000-01-01 00:00:00 +0000 (sha b141567)
+┊● ssv author 2000-01-01 00:00:00 +0000 (sha 7d7d2c3)
 ┊│     add file.txt  with more  text lines
 ┊● tpm author 2000-01-01 00:00:00 +0000 (sha 9477ae7)
 ┊│     add A 
@@ -594,12 +594,12 @@ Hint: run `but help` for all commands
 
 "#]]);
 
-    env.but("show 1")
+    env.but("show ssv")
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
-Commit:    b14156794f81a138bd06c2a5287fd5db15408b56
-Change-ID: 1
+Commit:    7d7d2c3983374b1e495bcd9c01693c2aa5452592
+Change-ID: ssvtnomvyusxrxwspzwsqkssnkmsnylz
 Author:    author <author@example.com>
 Date:      2000-01-02 00:00:00 +0000 (26y ago)
 Committer: committer <committer@example.com>
@@ -639,7 +639,7 @@ fn editor_user_writes_no_message() {
 ╭┄ @ [uncommitted] (no changes)
 ┊
 ┊╭┄ g0 [A]
-┊●   1 (no commit message)
+┊●   pvt (no commit message)
 ┊●   tpm add A
 ├╯
 ┊
@@ -688,7 +688,7 @@ fn create_commit_on_new_branch() {
 ╭┄ @ [uncommitted] (no changes)
 ┊
 ┊╭┄ br [a-branch-1]
-┊●   1 (no commit message)
+┊●   ssn (no commit message)
 ├╯
 ┊
 ┴ 0dc3733 (common base) 2000-01-02 add M
@@ -714,7 +714,7 @@ fn create_commit_on_user_provided_branch() {
 ╭┄ @ [uncommitted] (no changes)
 ┊
 ┊╭┄ fi [file]
-┊●   1 add first
+┊●   xsz add first
 ├╯
 ┊
 ┴ 0dc3733 (common base) 2000-01-02 add M
@@ -734,8 +734,8 @@ Hint: run `but help` for all commands
 ╭┄ @ [uncommitted] (no changes)
 ┊
 ┊╭┄ fi [file]
-┊●   1#0 add second
-┊●   1#1 add first
+┊●   pzu add second
+┊●   xsz add first
 ├╯
 ┊
 ┴ 0dc3733 (common base) 2000-01-02 add M
@@ -755,12 +755,12 @@ Hint: run `but help` for all commands
 ╭┄ @ [uncommitted] (no changes)
 ┊
 ┊╭┄ ot [other]
-┊●   1#0 add third
+┊●   xlz add third
 ├╯
 ┊
 ┊╭┄ fi [file]
-┊●   1#1 add second
-┊●   1#2 add first
+┊●   pzu add second
+┊●   xsz add first
 ├╯
 ┊
 ┴ 0dc3733 (common base) 2000-01-02 add M
@@ -782,13 +782,13 @@ Hint: run `but help` for all commands
 ╭┄ @ [uncommitted] (no changes)
 ┊
 ┊╭┄ ot [other]
-┊●   1#0 add fourth
-┊●   1#1 add third
+┊●   ruw add fourth
+┊●   xlz add third
 ├╯
 ┊
 ┊╭┄ fi [file]
-┊●   1#2 add second
-┊●   1#3 add first
+┊●   pzu add second
+┊●   xsz add first
 ├╯
 ┊
 ┴ 0dc3733 (common base) 2000-01-02 add M
@@ -814,7 +814,7 @@ fn create_commit_on_new_branch_with_canned_name() {
 ╭┄ @ [uncommitted] (no changes)
 ┊
 ┊╭┄ br [a-branch-1]
-┊●   1 add file.txt
+┊●   ssn add file.txt
 ├╯
 ┊
 ┊╭┄ g0 [A]
@@ -865,7 +865,7 @@ fn bails_on_rejected_specs() {
         .stderr_eq(snapbox::str![[r#"
 Error: Cannot commit: 1 change could not be applied:
   first
-    line 1 depends on foo (1)
+    line 1 depends on foo (xsz)
 
 Hint: to apply these changes, create bar stacked on top of foo and try again:
   but branch new bar --anchor foo
@@ -885,8 +885,8 @@ fn newly_created_branches_are_included_in_json_output() {
         .success()
         .stdout_eq(snapbox::str![[r#"
 {
-  "commitId": "5a6fc56305c69edc974a5ed2d100c525db8fd288",
-  "changeId": "1",
+  "commitId": "8c943b731b5fd0ef35713335f5bf3eefd72438b7",
+  "changeId": "xszxqqqtxkpszmvzupomruxpmqspsplz",
   "branch": "foo"
 }
 
@@ -914,7 +914,7 @@ fn empty_flag_to_force_empty_commit_when_changes_exist() {
 ┊   vq A changes
 ┊
 ┊╭┄ br [a-branch-1]
-┊●   1 empty commit despite changes in worktree (no changes)
+┊●   tqv empty commit despite changes in worktree (no changes)
 ├╯
 ┊
 ┴ 0dc3733 (common base) 2000-01-02 add M
@@ -976,7 +976,7 @@ Hint: run `but help` for all commands
 ┊
 ┊╭┄ g0 [A]
 ┊●   ywx add second
-┊●   1 (no commit message) (no changes)
+┊●   wmr (no commit message) (no changes)
 ┊●   zll add first
 ├╯
 ┊
@@ -1022,7 +1022,7 @@ Hint: run `but help` for all commands
 ┊╭┄ g0 [A]
 ┊●   ywx add second
 ┊●   zll add first
-┊●   1 (no commit message) (no changes)
+┊●   vlt (no commit message) (no changes)
 ├╯
 ┊
 ┴ 1bbc04b (common base) 2000-01-02 add Base
@@ -1069,7 +1069,7 @@ Hint: run `but diff` to see uncommitted changes and `but commit -b <branch> -m "
 ┊
 ┊╭┄ g0 [A]
 ┊●   ywx add second
-┊●   1 add file.txt
+┊●   nzt add file.txt
 ┊●   zll add first
 ├╯
 ┊
@@ -1115,7 +1115,7 @@ Hint: run `but diff` to see uncommitted changes and `but commit -b <branch> -m "
 ╭┄ @ [uncommitted] (no changes)
 ┊
 ┊╭┄ br [a-branch-1]
-┊●   1 add file.txt
+┊●   zwq add file.txt
 ┊│
 ┊├┄ g0 [A]
 ┊●   tpm add A
@@ -1166,7 +1166,7 @@ Hint: run `but diff` to see uncommitted changes and `but commit -b <branch> -m "
 ┊╭┄ g0 [A]
 ┊●   ywx add second
 ┊●   zll add first
-┊●   1 add file.txt
+┊●   xkx add file.txt
 ├╯
 ┊
 ┴ 1bbc04b (common base) 2000-01-02 add Base
@@ -1214,7 +1214,7 @@ Hint: run `but diff` to see uncommitted changes and `but commit -b <branch> -m "
 ┊●   tpm add A
 ┊│
 ┊├┄ br [a-branch-1]
-┊●   1 add file.txt
+┊●   xvw add file.txt
 ├╯
 ┊
 ┴ 0dc3733 (common base) 2000-01-02 add M
@@ -1264,7 +1264,7 @@ Hint: run `but diff` to see uncommitted changes and `but commit -b <branch> -m "
 ┊●   zll add first
 ┊│
 ┊├┄ br [a-branch-1]
-┊●   1 add file.txt
+┊●   xkx add file.txt
 ├╯
 ┊
 ┴ 1bbc04b (common base) 2000-01-02 add Base
@@ -1522,8 +1522,8 @@ Hint: run `but diff` to see uncommitted changes and `but commit -b <branch> -m "
 ┊   twop A two
 ┊
 ┊╭┄ g0 [A]
-┊●   1 (no commit message)
-┊│     1:k A one
+┊●   sor (no commit message)
+┊│     sor:k A one
 ┊●   tpm add A
 ┊│     tpm:t A A
 ├╯
@@ -1585,10 +1585,10 @@ fn hunks_within_file_are_not_order_dependent() {
 ╭┄ @ [uncommitted] (no changes)
 ┊
 ┊╭┄ g0 [A]
-┊●   1#0 (no commit message)
-┊│     1#0:q M file
-┊●   1#1 (no commit message)
-┊│     1#1:q A file
+┊●   tnw (no commit message)
+┊│     tnw:q M file
+┊●   nrl (no commit message)
+┊│     nrl:q A file
 ┊●   tpm add A
 ┊│     tpm:t A A
 ├╯
@@ -1610,10 +1610,10 @@ Hint: run `but help` for all commands
 ╭┄ @ [uncommitted] (no changes)
 ┊
 ┊╭┄ g0 [A]
-┊●   1#0 (no commit message)
-┊│     1#0:q M file
-┊●   1#1 (no commit message)
-┊│     1#1:q A file
+┊●   tnw (no commit message)
+┊│     tnw:q M file
+┊●   nrl (no commit message)
+┊│     nrl:q A file
 ┊●   tpm add A
 ┊│     tpm:t A A
 ├╯
@@ -1677,10 +1677,10 @@ fn overlapping_changes_to_modified_file_are_deduplicated() {
 ╭┄ @ [uncommitted] (no changes)
 ┊
 ┊╭┄ g0 [A]
-┊●   1#0 (no commit message)
-┊│     1#0:q M file
-┊●   1#1 (no commit message)
-┊│     1#1:q A file
+┊●   tnw (no commit message)
+┊│     tnw:q M file
+┊●   nrl (no commit message)
+┊│     nrl:q A file
 ┊●   tpm add A
 ┊│     tpm:t A A
 ├╯
@@ -1702,10 +1702,10 @@ Hint: run `but help` for all commands
 ╭┄ @ [uncommitted] (no changes)
 ┊
 ┊╭┄ g0 [A]
-┊●   1#0 (no commit message)
-┊│     1#0:q M file
-┊●   1#1 (no commit message)
-┊│     1#1:q A file
+┊●   tnw (no commit message)
+┊│     tnw:q M file
+┊●   nrl (no commit message)
+┊│     nrl:q A file
 ┊●   tpm add A
 ┊│     tpm:t A A
 ├╯
@@ -1783,9 +1783,9 @@ Hint: run `but diff` to see uncommitted changes and `but commit -b <branch> -m "
 ┊   om A path/other/to/third.txt
 ┊
 ┊╭┄ g0 [A]
-┊●   1 (no commit message)
-┊│     1:m A path/to/first.txt
-┊│     1:r A path/to/second.txt
+┊●   vnz (no commit message)
+┊│     vnz:m A path/to/first.txt
+┊│     vnz:r A path/to/second.txt
 ┊●   tpm add A
 ┊│     tpm:t A A
 ├╯
@@ -1825,10 +1825,10 @@ fn path_prefix_with_mix_of_modifications() {
 ┊   xv M dir/to_modify.txt
 ┊
 ┊╭┄ g0 [A]
-┊●   1 (no commit message)
-┊│     1:l A dir/to_delete.txt
-┊│     1:n A dir/to_empty.txt
-┊│     1:x A dir/to_modify.txt
+┊●   oxm (no commit message)
+┊│     oxm:l A dir/to_delete.txt
+┊│     oxm:n A dir/to_empty.txt
+┊│     oxm:x A dir/to_modify.txt
 ┊●   tpm add A
 ┊│     tpm:t A A
 ├╯
@@ -1848,14 +1848,14 @@ Hint: run `but diff` to see uncommitted changes and `but commit -b <branch> -m "
 ╭┄ @ [uncommitted] (no changes)
 ┊
 ┊╭┄ g0 [A]
-┊●   1#0 (no commit message)
-┊│     1#0:l D dir/to_delete.txt
-┊│     1#0:n M dir/to_empty.txt
-┊│     1#0:x M dir/to_modify.txt
-┊●   1#1 (no commit message)
-┊│     1#1:l A dir/to_delete.txt
-┊│     1#1:n A dir/to_empty.txt
-┊│     1#1:x A dir/to_modify.txt
+┊●   wkl (no commit message)
+┊│     wkl:l D dir/to_delete.txt
+┊│     wkl:n M dir/to_empty.txt
+┊│     wkl:x M dir/to_modify.txt
+┊●   oxm (no commit message)
+┊│     oxm:l A dir/to_delete.txt
+┊│     oxm:n A dir/to_empty.txt
+┊│     oxm:x A dir/to_modify.txt
 ┊●   tpm add A
 ┊│     tpm:t A A
 ├╯
@@ -1866,29 +1866,29 @@ Hint: run `but help` for all commands
 
 "#]]);
 
-    env.but("diff 1#0")
+    env.but("diff wkl")
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
-───────────────────────────╮
- 1#0:l:e dir/to_delete.txt │
-───────────────────────────╯
+─────────────────────────╮
+ w:l:e dir/to_delete.txt │
+─────────────────────────╯
 
 @@ -1,1 +1,0 @@
 ───────────────
 1 ┊   │ -second
 
-──────────────────────────╮
- 1#0:n:e dir/to_empty.txt │
-──────────────────────────╯
+────────────────────────╮
+ w:n:e dir/to_empty.txt │
+────────────────────────╯
 
 @@ -1,1 +1,0 @@
 ───────────────
 1 ┊   │ -third
 
-───────────────────────────╮
- 1#0:x:3 dir/to_modify.txt │
-───────────────────────────╯
+─────────────────────────╮
+ w:x:3 dir/to_modify.txt │
+─────────────────────────╯
 
 @@ -1,1 +1,2 @@
 ───────────────
@@ -1933,7 +1933,7 @@ fn committing_above_an_empty_branch() {
 ╭┄ @ [uncommitted] (no changes)
 ┊
 ┊╭┄ br [a-branch-1]
-┊●   1 add one
+┊●   onv add one
 ┊│
 ┊├┄ to [top] (no commits)
 ├╯
@@ -1967,7 +1967,7 @@ fn committing_below_empty_branch_with_empty_branch_below() {
 ┊╭┄ to [top] (no commits)
 ┊│
 ┊├┄ br [a-branch-1]
-┊●   1 add one
+┊●   onv add one
 ┊│
 ┊├┄ mi [middle] (no commits)
 ├╯
@@ -2009,10 +2009,10 @@ fn committing_below_non_top_empty_branch() {
 ┊├┄ mi [middle] (no commits)
 ┊│
 ┊├┄ br [a-branch-1]
-┊●   1#0 add two
+┊●   tpm add two
 ┊│
 ┊├┄ bo [bottom]
-┊●   1#1 add one
+┊●   onv add one
 ├╯
 ┊
 ┴ 0dc3733 (common base) 2000-01-02 add M
@@ -2063,7 +2063,7 @@ Hint: run `but diff` to see uncommitted changes and `but commit -b <branch> -m "
 ┊╭┄ to [top] (no commits)
 ┊│
 ┊├┄ br [a-branch-1]
-┊●   1 add one
+┊●   onv add one
 ├╯
 ┊
 ┴ 0dc3733 (common base) 2000-01-02 add M
@@ -2087,10 +2087,10 @@ Hint: run `but diff` to see uncommitted changes and `but commit -b <branch> -m "
 ┊╭┄ to [top] (no commits)
 ┊│
 ┊├┄ br [a-branch-1]
-┊●   1#0 add two
+┊●   tpm add two
 ┊│
 ┊├┄ bo [bottom]
-┊●   1#1 add one
+┊●   onv add one
 ├╯
 ┊
 ┴ 0dc3733 (common base) 2000-01-02 add M
@@ -2128,7 +2128,7 @@ fn commit_to_existing_branch_via_short_code() {
 ╭┄ @ [uncommitted] (no changes)
 ┊
 ┊╭┄ g0 [A]
-┊●   1 new commit (no changes)
+┊●   orn new commit (no changes)
 ┊●   tpm add A
 ├╯
 ┊
@@ -2155,7 +2155,7 @@ fn commit_to_new_branch_with_same_name_as_file() {
 ╭┄ @ [uncommitted] (no changes)
 ┊
 ┊╭┄ fi [file]
-┊●   1 add file
+┊●   lys add file
 ├╯
 ┊
 ┴ 0dc3733 (common base) 2000-01-02 add M
@@ -2196,8 +2196,8 @@ fn can_overspecify_hunk_id() {
 ╭┄ @ [uncommitted] (no changes)
 ┊
 ┊╭┄ br [a-branch-1]
-┊●   1 Add file
-┊│     1:q A file
+┊●   lkv Add file
+┊│     lkv:q A file
 ├╯
 ┊
 ┴ 0dc3733 (common base) 2000-01-02 add M
@@ -2336,7 +2336,7 @@ fn new_branches_are_created_on_top() {
 ╭┄ @ [uncommitted] (no changes)
 ┊
 ┊╭┄ br [a-branch-1]
-┊●   1 (no commit message) (no changes)
+┊●   tqv (no commit message) (no changes)
 ├╯
 ┊
 ┊╭┄ g0 [A]
@@ -2367,9 +2367,9 @@ fn committing_modified_and_renamed_file() {
 ╭┄ @ [uncommitted] (no changes)
 ┊
 ┊╭┄ br [a-branch-1]
-┊●   1 add files
-┊│     1:q A file
-┊│     1:k A file-2
+┊●   ouv add files
+┊│     ouv:q A file
+┊│     ouv:k A file-2
 ├╯
 ┊
 ┴ 0dc3733 (common base) 2000-01-02 add M
@@ -2390,9 +2390,9 @@ Hint: run `but help` for all commands
 ┊   kw D file-2
 ┊
 ┊╭┄ br [a-branch-1]
-┊●   1 add files
-┊│     1:q A file
-┊│     1:k A file-2
+┊●   ouv add files
+┊│     ouv:q A file
+┊│     ouv:k A file-2
 ├╯
 ┊
 ┴ 0dc3733 (common base) 2000-01-02 add M
@@ -2410,12 +2410,12 @@ Hint: run `but diff` to see uncommitted changes and `but commit -b <branch> -m "
 ╭┄ @ [uncommitted] (no changes)
 ┊
 ┊╭┄ br [a-branch-1]
-┊●   1#0 change file
-┊│     1#0:q M file
-┊│     1#0:k D file-2
-┊●   1#1 add files
-┊│     1#1:q A file
-┊│     1#1:k A file-2
+┊●   kwv change file
+┊│     kwv:q M file
+┊│     kwv:k D file-2
+┊●   ouv add files
+┊│     ouv:q A file
+┊│     ouv:k A file-2
 ├╯
 ┊
 ┴ 0dc3733 (common base) 2000-01-02 add M
@@ -2458,7 +2458,7 @@ fn default_target_skips_merged_upstream_branch() {
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
-Created commit 1 on branch 'B'
+Created commit mst on branch 'B'
 
 "#]]);
 }
@@ -2476,7 +2476,7 @@ fn default_target_creates_new_branch_when_all_branches_merged_upstream() {
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
-Created commit 1 on new branch 'a-branch-1'
+Created commit zmn on new branch 'a-branch-1'
 
 "#]]);
 }
@@ -2527,7 +2527,7 @@ fn branch_flag_with_allow_merged_permits_merged_upstream_branch() {
         .success()
         .stderr_eq(snapbox::str![])
         .stdout_eq(snapbox::str![[r#"
-Created commit 1 on branch 'A'
+Created commit vty on branch 'A'
 
 "#]]);
 }
@@ -2548,7 +2548,7 @@ fn partially_integrated_stack_guards_only_the_landed_commit() {
         .success()
         .stderr_eq(snapbox::str![])
         .stdout_eq(snapbox::str![[r#"
-Created commit 1 on branch 'A'
+Created commit rox on branch 'A'
 
 "#]]);
 
@@ -2607,7 +2607,7 @@ fn retired_syntax_is_translated_and_hinted() {
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
-Created commit 1 on new branch 'my-branch'
+Created commit mrr on new branch 'my-branch'
 
 "#]])
         .stderr_eq(snapbox::str![[r#"
@@ -2629,7 +2629,7 @@ See `but commit --help` for details.
 ┊   or A three
 ┊
 ┊╭┄ my [my-branch]
-┊●   1 add one and two
+┊●   mrr add one and two
 ├╯
 ┊
 ┴ 0dc3733 (common base) 2000-01-02 add M
@@ -2776,7 +2776,7 @@ Hint: run `but help` for all commands
         .success()
         .stderr_eq(snapbox::str![])
         .stdout_eq(snapbox::str![[r#"
-Created commit 1 on branch 'A'
+Created commit lpo on branch 'A'
 
 "#]]);
 
@@ -2789,8 +2789,8 @@ Created commit 1 on branch 'A'
 ╭┄ @ [uncommitted] (no changes)
 ┊
 ┊╭┄ g0 [A]
-┊●   1 note from worktree
-┊│     1:u A note.txt
+┊●   lpo note from worktree
+┊│     lpo:u A note.txt
 ┊┊
 ┊┊╭┄ wt {wt-feature} (no changes)
 ┊├╯
@@ -2825,7 +2825,7 @@ fn commit_a_worktrees_whole_uncommitted_area() {
         .success()
         .stderr_eq(snapbox::str![])
         .stdout_eq(snapbox::str![[r#"
-Created commit 1 on branch 'B'
+Created commit ulz on branch 'B'
 
 "#]]);
 
@@ -2845,8 +2845,8 @@ Created commit 1 on branch 'B'
 ├╯
 ┊
 ┊╭┄ h0 [B]
-┊●   1 everything from the worktree
-┊│     1:u A note.txt
+┊●   ulz everything from the worktree
+┊│     ulz:u A note.txt
 ┊●   lrm add B
 ┊│     lrm:p A B
 ├╯
@@ -2895,7 +2895,7 @@ fn commit_the_uncommitted_area_by_id() {
         .success()
         .stderr_eq(snapbox::str![])
         .stdout_eq(snapbox::str![[r#"
-Created commit 1 on branch 'A'
+Created commit vvy on branch 'A'
 
 "#]]);
 
@@ -2908,9 +2908,9 @@ Created commit 1 on branch 'A'
 ╭┄ @ [uncommitted] (no changes)
 ┊
 ┊╭┄ g0 [A]
-┊●   1 everything at once
-┊│     1:z A one.txt
-┊│     1:p A two.txt
+┊●   vvy everything at once
+┊│     vvy:z A one.txt
+┊│     vvy:p A two.txt
 ┊●   tpm add A
 ┊│     tpm:t A A
 ├╯
@@ -2951,7 +2951,7 @@ fn commit_below_a_worktree_targets_its_branch_tip() {
         .success()
         .stderr_eq(snapbox::str![])
         .stdout_eq(snapbox::str![[r#"
-Created commit 1 on branch 'wt-inside'
+Created commit nuy on branch 'wt-inside'
 
 "#]]);
 
@@ -2962,7 +2962,7 @@ Created commit 1 on branch 'wt-inside'
 *   c128bce (HEAD -> gitbutler/workspace) GitButler Workspace Commit
 |/  
 * | d3e2ba3 (B) add B
-| | * f2ab70b (wt-inside) onto the worktree branch
+| | * efe5cc8 (wt-inside) onto the worktree branch
 | | * 580bef0 add W
 | |/  
 | * 9477ae7 (A) add A
@@ -3016,7 +3016,7 @@ fn commit_b_targets_a_worktree_by_id() {
         .success()
         .stderr_eq(snapbox::str![])
         .stdout_eq(snapbox::str![[r#"
-Created commit 1 on branch 'wt-inside'
+Created commit nuy on branch 'wt-inside'
 
 "#]]);
 }
@@ -3045,7 +3045,7 @@ fn commit_b_targets_a_worktrees_branch_by_name() {
         .success()
         .stderr_eq(snapbox::str![])
         .stdout_eq(snapbox::str![[r#"
-Created commit 1 on branch 'wt-branch'
+Created commit szp on branch 'wt-branch'
 
 "#]]);
 }
@@ -3067,7 +3067,7 @@ fn commit_from_a_worktree_defaults_to_its_own_branch() {
         .success()
         .stderr_eq(snapbox::str![])
         .stdout_eq(snapbox::str![[r#"
-Created commit 1 on branch 'wt-feature'
+Created commit vzp on branch 'wt-feature'
 
 "#]]);
 
@@ -3079,7 +3079,7 @@ Created commit 1 on branch 'wt-feature'
 *   c128bce (HEAD -> gitbutler/workspace) GitButler Workspace Commit
 |/  
 * | d3e2ba3 (B) add B
-| | * d7bdd3b (wt-feature) note from the worktree
+| | * 7551b20 (wt-feature) note from the worktree
 | | * 580bef0 add W
 | |/  
 | * 9477ae7 (A) add A
@@ -3099,8 +3099,8 @@ Created commit 1 on branch 'wt-feature'
 ┊╭┄ g0 [A]
 ┊┊
 ┊┊╭┄ wt {wt-feature} (no changes)
-┊┊●   1 note from the worktree
-┊┊│     1:u A note.txt
+┊┊●   vzp note from the worktree
+┊┊│     vzp:u A note.txt
 ┊┊●   nsn add W
 ┊┊│     nsn:m A wt-file.txt
 ┊├╯
@@ -3139,7 +3139,7 @@ fn commit_from_a_worktree_sharing_its_branch_tip_advances_only_the_worktree() {
         .success()
         .stderr_eq(snapbox::str![])
         .stdout_eq(snapbox::str![[r#"
-Created commit 1 on branch 'wt-feature'
+Created commit lpo on branch 'wt-feature'
 
 "#]]);
 
@@ -3151,7 +3151,7 @@ Created commit 1 on branch 'wt-feature'
 *   b963596 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
 |/  
 | * d3e2ba3 (B) add B
-| | * cc2a9bc (wt-feature) note from the worktree
+| | * 0a6784b (wt-feature) note from the worktree
 | |/  
 |/|   
 * | 9477ae7 (A) add A
@@ -3274,7 +3274,7 @@ fn committing_twice_to_checked_out_workspace_branch_in_single_branch_mode_keeps_
 ╭┄ @ [uncommitted] (no changes)
 ┊
 ┊╭┄ g0 [A]
-┊●   1 (no commit message) (no changes)
+┊●   orn (no commit message) (no changes)
 ┊●   tpm add A
 ├╯
 ┊
@@ -3295,8 +3295,8 @@ Hint: run `but help` for all commands
 ╭┄ @ [uncommitted] (no changes)
 ┊
 ┊╭┄ g0 [A]
-┊●   1#0 (no commit message) (no changes)
-┊●   1#1 (no commit message) (no changes)
+┊●   mwn (no commit message) (no changes)
+┊●   orn (no commit message) (no changes)
 ┊●   tpm add A
 ├╯
 ┊

@@ -267,7 +267,7 @@ fn open_uncommitted_hunk_in_file_that_contains_spaces_and_shell_metacharacters()
 ┊   pv M file with some $meta; cat A > new-file.txt; spaces in it.txt
 ┊
 ┊╭┄ br [a-branch-1]
-┊●   1 Add file
+┊●   psz Add file
 ├╯
 ┊
 ┴ 0dc3733 (common base) 2000-01-02 add M
@@ -324,14 +324,14 @@ fn open_committed_hunks() {
     env.file("file", format!("beginning\n{content}end"));
     env.but("commit -m 'Update file'").assert().success();
 
-    env.but("_open 1#0:q:3 -p echo")
+    env.but("_open szk:q:3 -p echo")
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
 filepath='/[..]/file' line_number='1'
 
 "#]]);
-    env.but("_open 1#0:q:8 -p echo")
+    env.but("_open szk:q:8 -p echo")
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
@@ -418,8 +418,8 @@ fn user_defined_program_path_executable_handles_shell_metacharacters() {
 ┊   pv M file with some $meta; cat A > new-file.txt; spaces in it.txt
 ┊
 ┊╭┄ br [a-branch-1]
-┊●   1 Add file
-┊│     1:p A file with some $meta; cat A > new-file.txt; spaces in it.txt
+┊●   psz Add file
+┊│     psz:p A file with some $meta; cat A > new-file.txt; spaces in it.txt
 ├╯
 ┊
 ┴ 0dc3733 (common base) 2000-01-02 add M
@@ -527,8 +527,8 @@ fn user_defined_program_defaults_to_default_open_args() {
 ┊   uv M file.txt
 ┊
 ┊╭┄ br [a-branch-1]
-┊●   1 Add file
-┊│     1:u A file.txt
+┊●   zon Add file
+┊│     zon:u A file.txt
 ├╯
 ┊
 ┴ 0dc3733 (common base) 2000-01-02 add M

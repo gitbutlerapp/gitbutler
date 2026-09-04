@@ -17,9 +17,9 @@ fn split_commit() {
 ╭┄ @ [uncommitted] (no changes)
 ┊
 ┊╭┄ br [a-branch-1]
-┊●   1 original
-┊│     1:k A one
-┊│     1:t A two
+┊●   lsw original
+┊│     lsw:k A one
+┊│     lsw:t A two
 ├╯
 ┊
 ┴ 0dc3733 (common base) 2000-01-02 add M
@@ -28,11 +28,11 @@ Hint: run `but help` for all commands
 
 "#]]);
 
-    env.but("split 1:k")
+    env.but("split lsw:k")
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
-Moved 1 change from 1 to new commit 1 above commit 1
+Moved 1 change from lsw to new commit qkw above commit lsw
 
 "#]]);
 
@@ -43,10 +43,10 @@ Moved 1 change from 1 to new commit 1 above commit 1
 ╭┄ @ [uncommitted] (no changes)
 ┊
 ┊╭┄ br [a-branch-1]
-┊●   1#0 (no commit message)
-┊│     1#0:k A one
-┊●   1#1 original
-┊│     1#1:t A two
+┊●   qkw (no commit message)
+┊│     qkw:k A one
+┊●   lsw original
+┊│     lsw:t A two
 ├╯
 ┊
 ┴ 0dc3733 (common base) 2000-01-02 add M
@@ -75,13 +75,13 @@ seven
     env.file("file", format!("beginning\n{content}end"));
     env.but("commit -m 'Update file'").assert().success();
 
-    env.but("diff 1#0")
+    env.but("diff szk")
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
-──────────────╮
- 1#0:q:3 file │
-──────────────╯
+────────────╮
+ s:q:3 file │
+────────────╯
 
 @@ -1,3 +1,4 @@
 ───────────────
@@ -90,9 +90,9 @@ seven
 2 ┊ 3 │  two
 3 ┊ 4 │  three
 
-──────────────╮
- 1#0:q:8 file │
-──────────────╯
+────────────╮
+ s:q:8 file │
+────────────╯
 
 @@ -5,3 +6,4 @@
 ───────────────
@@ -103,11 +103,11 @@ seven
 
 "#]]);
 
-    env.but("split 1#0:q:3")
+    env.but("split szk:q:3")
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
-Moved 1 change from 1 to new commit 1 above commit 1
+Moved 1 change from szk to new commit qkw above commit szk
 
 "#]]);
 
@@ -118,12 +118,12 @@ Moved 1 change from 1 to new commit 1 above commit 1
 ╭┄ @ [uncommitted] (no changes)
 ┊
 ┊╭┄ br [a-branch-1]
-┊●   1#0 (no commit message)
-┊│     1#0:q M file
-┊●   1#1 Update file
-┊│     1#1:q M file
-┊●   1#2 Add file
-┊│     1#2:q A file
+┊●   qkw (no commit message)
+┊│     qkw:q M file
+┊●   szk Update file
+┊│     szk:q M file
+┊●   knw Add file
+┊│     knw:q A file
 ├╯
 ┊
 ┴ 0dc3733 (common base) 2000-01-02 add M
@@ -133,13 +133,13 @@ Hint: run `but help` for all commands
 "#]]);
 
     // New commit contains only selected hunk.
-    env.but("diff 1#0")
+    env.but("diff qkw")
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
-──────────────╮
- 1#0:q:3 file │
-──────────────╯
+────────────╮
+ q:q:3 file │
+────────────╯
 
 @@ -1,3 +1,4 @@
 ───────────────
@@ -151,13 +151,13 @@ Hint: run `but help` for all commands
 "#]]);
 
     // Source commit retains only hunk that was not split out.
-    env.but("diff 1#1")
+    env.but("diff szk")
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
-──────────────╮
- 1#1:q:8 file │
-──────────────╯
+────────────╮
+ s:q:8 file │
+────────────╯
 
 @@ -5,3 +5,4 @@
 ───────────────
@@ -201,12 +201,12 @@ seven
     };
 
     // Entire file is baseline.
-    env.but("split 1#0:q").assert().success();
+    env.but("split szk:q").assert().success();
     let trees_entire_file = commit_trees(&env);
 
     // Hunk order.
     env.but("undo").assert().success();
-    env.but("split 1#0:q:3 1#0:q:8").assert().success();
+    env.but("split szk:q:3 szk:q:8").assert().success();
     assert_eq!(
         commit_trees(&env),
         trees_entire_file,
@@ -215,7 +215,7 @@ seven
 
     // Reverse hunk order.
     env.but("undo").assert().success();
-    env.but("split 1#0:q:8 1#0:q:3").assert().success();
+    env.but("split szk:q:8 szk:q:3").assert().success();
     assert_eq!(
         commit_trees(&env),
         trees_entire_file,
@@ -224,7 +224,7 @@ seven
 
     // Repeated hunks.
     env.but("undo").assert().success();
-    env.but("split 1#0:q:8 1#0:q:3 1#0:q:8").assert().success();
+    env.but("split szk:q:8 szk:q:3 szk:q:8").assert().success();
     assert_eq!(
         commit_trees(&env),
         trees_entire_file,
@@ -233,7 +233,7 @@ seven
 
     // Hunk then file.
     env.but("undo").assert().success();
-    env.but("split 1#0:q:8 1#0:q").assert().success();
+    env.but("split szk:q:8 szk:q").assert().success();
     assert_eq!(
         commit_trees(&env),
         trees_entire_file,
@@ -242,7 +242,7 @@ seven
 
     // File then hunk.
     env.but("undo").assert().success();
-    env.but("split 1#0:q 1#0:q:8").assert().success();
+    env.but("split szk:q szk:q:8").assert().success();
     assert_eq!(
         commit_trees(&env),
         trees_entire_file,
@@ -268,10 +268,10 @@ fn cannot_split_sources_from_multiple_commits() {
 ╭┄ @ [uncommitted] (no changes)
 ┊
 ┊╭┄ br [a-branch-1]
-┊●   1#0 original
-┊│     1#0:t A two
-┊●   1#1 original
-┊│     1#1:k A one
+┊●   qxq original
+┊│     qxq:t A two
+┊●   zts original
+┊│     zts:k A one
 ├╯
 ┊
 ┴ 0dc3733 (common base) 2000-01-02 add M
@@ -280,11 +280,11 @@ Hint: run `but help` for all commands
 
 "#]]);
 
-    env.but("split 1#0:t 1#1:k")
+    env.but("split qxq:t zts:k")
         .assert()
         .failure()
         .stderr_eq(snapbox::str![[r#"
-Error: Can only split changes from one commit. Got 1 and 1
+Error: Can only split changes from one commit. Got qxq and zts
 
 "#]]);
 }

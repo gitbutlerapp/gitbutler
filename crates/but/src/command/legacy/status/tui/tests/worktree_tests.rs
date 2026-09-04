@@ -154,7 +154,7 @@ fn commit_all_changes_of_a_worktree() {
         tui.env().git_log(),
         str![[r#"
 * edd3eb7 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
-| * 352ea1d (wt-branch) commit from worktree
+| * 27f2344 (wt-branch) commit from worktree
 | * 998a235 add W
 |/  
 * 9477ae7 (A) add A
@@ -194,7 +194,7 @@ fn commit_one_worktree_file_onto_its_own_branch() {
         tui.env().git_log(),
         str![[r#"
 * edd3eb7 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
-| * 352ea1d (wt-branch) commit from worktree
+| * 27f2344 (wt-branch) commit from worktree
 | * 998a235 add W
 |/  
 * 9477ae7 (A) add A
@@ -229,7 +229,7 @@ fn commit_a_main_worktree_change_onto_a_worktree() {
         tui.env().git_log(),
         str![[r#"
 * edd3eb7 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
-| * 9fa1815 (wt-branch) commit from worktree
+| * cdc9ff4 (wt-branch) commit from worktree
 | * 998a235 add W
 |/  
 * 9477ae7 (A) add A
@@ -334,7 +334,7 @@ fn empty_commit_on_a_worktree_heading() {
         .assert_rendered_term_svg_eq(file![
             "snapshots/empty_commit_on_a_worktree_heading_final.svg"
         ])
-        .assert_current_line_eq(str!["┊┊●   1 (no commit message) (no changes)"]);
+        .assert_current_line_eq(str!["┊┊●   uxy (no commit message) (no changes)"]);
 }
 
 /// A worktree heading is a move target: confirming on it moves the commit to the tip of the
@@ -348,7 +348,7 @@ fn move_commit_below_a_worktree_heading() {
         .assert_current_line_eq(str!["┊╭┄ g0 [A]"]);
     // An empty commit moves without conflicts, so the move itself is all this test sees.
     tui.input('n')
-        .assert_current_line_eq(str!["┊●   1 (no commit message) (no changes)"]);
+        .assert_current_line_eq(str!["┊●   oun (no commit message) (no changes)"]);
 
     tui.input('m');
     // Past the worktree's own commit, onto its heading.
@@ -367,7 +367,7 @@ fn move_commit_below_a_worktree_heading() {
         tui.env().git_log(),
         str![[r#"
 * 6919fdf (HEAD -> gitbutler/workspace) GitButler Workspace Commit
-| * 1ce4908 (wt-branch) 
+| * 401b057 (wt-branch) 
 | * 20da4fb add W
 |/  
 * 9477ae7 (A) add A

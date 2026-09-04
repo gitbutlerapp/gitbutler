@@ -23,9 +23,10 @@
     <text x="74" y="96" style="fill:#00AA00;">A</text>
     <text x="82" y="96" style="fill:#CCCCCC;">]</text>
     <text x="10 18" y="114" style="fill:#CCCCCC;">┊●</text>
-    <text x="50" y="114" style="fill:#AA00AA;">1</text>
-    <text x="66 74 82" y="114" style="fill:#CCCCCC;">Add</text>
-    <text x="98 106 114 122" y="114" style="fill:#CCCCCC;">file</text>
+    <text x="50 58" y="114" style="fill:#AA00AA;">zy</text>
+    <text x="66" y="114" style="fill:#CCCCCC;opacity:0.75;">t</text>
+    <text x="82 90 98" y="114" style="fill:#CCCCCC;">Add</text>
+    <text x="114 122 130 138" y="114" style="fill:#CCCCCC;">file</text>
     <text x="10 18" y="132" style="fill:#CCCCCC;">┊●</text>
     <text x="50" y="132" style="fill:#AA00AA;">t</text>
     <text x="58 66" y="132" style="fill:#CCCCCC;opacity:0.75;">pm</text>

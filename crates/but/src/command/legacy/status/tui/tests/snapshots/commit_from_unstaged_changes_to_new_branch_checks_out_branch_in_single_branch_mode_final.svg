@@ -18,11 +18,12 @@
     <text x="74 82 90 98 106 114 122 130 138 146" y="60" style="fill:#00AA00;">c-branch-1</text>
     <text x="154" y="60" style="fill:#CCCCCC;">]</text>
     <text x="10 18" y="78" style="fill:#FFFFFF;font-weight:bold;">┊●</text>
-    <text x="50" y="78" style="fill:#AA00AA;font-weight:bold;">1</text>
-    <text x="66 74 82 90 98 106" y="78" style="fill:#FFFFFF;font-weight:bold;">commit</text>
-    <text x="122 130 138 146" y="78" style="fill:#FFFFFF;font-weight:bold;">from</text>
-    <text x="162 170 178" y="78" style="fill:#FFFFFF;font-weight:bold;">tui</text>
-    <text x="194 202 210 218" y="78" style="fill:#FFFFFF;font-weight:bold;">test</text>
+    <text x="50" y="78" style="fill:#AA00AA;font-weight:bold;">o</text>
+    <text x="58 66" y="78" style="fill:#FFFFFF;font-weight:bold;opacity:0.75;">qn</text>
+    <text x="82 90 98 106 114 122" y="78" style="fill:#FFFFFF;font-weight:bold;">commit</text>
+    <text x="138 146 154 162" y="78" style="fill:#FFFFFF;font-weight:bold;">from</text>
+    <text x="178 186 194" y="78" style="fill:#FFFFFF;font-weight:bold;">tui</text>
+    <text x="210 218 226 234" y="78" style="fill:#FFFFFF;font-weight:bold;">test</text>
     <text x="10 18" y="96" style="fill:#CCCCCC;">┊│</text>
     <text x="10 18 26" y="114" style="fill:#CCCCCC;">┊├┄</text>
     <text x="42 50" y="114" style="fill:#0000AA;font-weight:bold;">g0</text>
