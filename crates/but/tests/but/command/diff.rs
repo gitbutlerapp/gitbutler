@@ -95,6 +95,133 @@ fn path_prefix() {
 "#]]);
 }
 
+/// Diff committed and uncommitted using AI_AGENT output that forces more characters in short IDs.
+#[test]
+fn diff_different_changes_with_agent_output() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("zero-stacks");
+    env.setup_metadata(&[]);
+
+    env.file("to-modify.txt", "initial\n");
+    env.file("to-rename.txt", "renamed\n");
+    env.file("to-delete.txt", "deleted\n");
+    env.but("commit -m 'Add files to modify'")
+        .assert()
+        .success();
+
+    env.but("status -f")
+        .env("AI_AGENT", "test-agent")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┊╭┄ br [a-branch-1]
+┊●   txl Add files to modify
+┊│     txl:usv A to-delete.txt
+┊│     txl:lou A to-modify.txt
+┊│     txl:ztt A to-rename.txt
+├╯
+┊
+┴ 0dc3733 (common base) 2000-01-02 add M
+
+Hint: commits are listed newest first. The first token on each line is the ID to use in commands.
+Hint: run `but help` for all commands
+
+"#]]);
+
+    env.file("to-modify.txt", "modified\n");
+    env.rename_file("to-rename.txt", "renamed.txt");
+    env.remove_file("to-delete.txt");
+    env.file("added.txt", "added\n");
+
+    // uncommitted output
+    env.but("diff @")
+        .env("AI_AGENT", "test-agent")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+───────────────────╮
+ nxx:213 added.txt │
+───────────────────╯
+
+@@ -1,0 +1,1 @@
+───────────────
+  ┊ 1 │ +added
+
+─────────────────────╮
+ szk:emp renamed.txt │
+─────────────────────╯
+
+No diff available - file is either empty, binary, or too large
+
+───────────────────────╮
+ usv:0a5 to-delete.txt │
+───────────────────────╯
+
+@@ -1,1 +1,0 @@
+───────────────
+1 ┊   │ -deleted
+
+───────────────────────╮
+ lou:b28 to-modify.txt │
+───────────────────────╯
+
+@@ -1,1 +1,1 @@
+───────────────
+1 ┊   │ -initial
+  ┊ 1 │ +modified
+
+"#]]);
+
+    env.but("commit -m 'Add, delete and rename files'")
+        .env("AI_AGENT", "test-agent")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+Created commit vxw on branch 'a-branch-1'
+
+"#]]);
+
+    // committed output
+    env.but("diff vxw")
+        .env("AI_AGENT", "test-agent")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+───────────────────────╮
+ vxw:nxx:213 added.txt │
+───────────────────────╯
+
+@@ -1,0 +1,1 @@
+───────────────
+  ┊ 1 │ +added
+
+─────────────────────────╮
+ vxw:szk:emp renamed.txt │
+─────────────────────────╯
+
+No diff available - file is either empty, binary, or too large
+
+───────────────────────────╮
+ vxw:usv:0a5 to-delete.txt │
+───────────────────────────╯
+
+@@ -1,1 +1,0 @@
+───────────────
+1 ┊   │ -deleted
+
+───────────────────────────╮
+ vxw:lou:b28 to-modify.txt │
+───────────────────────────╯
+
+@@ -1,1 +1,1 @@
+───────────────
+1 ┊   │ -initial
+  ┊ 1 │ +modified
+
+"#]]);
+}
+
 #[test]
 fn worktree() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
