@@ -1109,7 +1109,7 @@ fn reorder_commit_in_non_managed_workspace() -> anyhow::Result<()> {
 fn move_mixed_main_and_worktree_commits_to_another_worktree() -> anyhow::Result<()> {
     use but_graph::Graph;
     use but_meta::VirtualBranchesTomlMetadata;
-    use but_testsupport::git_status_at_dir;
+    use but_testsupport::{git_status_at_dir, visualize_disk_tree_with_hashes_skip_dot_git};
 
     let (repo, _tmp) = crate::utils::writable_scenario_slow("worktree-move-mixed");
     let mut meta = std::mem::ManuallyDrop::new(VirtualBranchesTomlMetadata::from_path(
@@ -1176,30 +1176,34 @@ fn move_mixed_main_and_worktree_commits_to_another_worktree() -> anyhow::Result<
         .raw()
     );
 
+    // Both linked checkouts follow their rewritten refs cleanly.
     let workdir = repo.workdir().expect("non-bare repo");
-    assert_eq!(
-        git_status_at_dir(workdir.join("wt"))?,
-        "",
-        "the source linked checkout follows its moved-out ref cleanly"
-    );
-    assert_eq!(
+    snapbox::assert_data_eq!(git_status_at_dir(workdir.join("wt"))?, snapbox::str![[""]]);
+    snapbox::assert_data_eq!(
         git_status_at_dir(workdir.join("other"))?,
-        "",
-        "the destination linked checkout follows its rewritten ref"
+        snapbox::str![[""]]
     );
-    assert!(
-        !workdir.join("wt/wt-file").exists(),
-        "`feat` stays behind on the base, so its checkout no longer contains the moved-away commit's file"
+    // `feat` stayed behind on the base, so `wt-file` left its checkout.
+    snapbox::assert_data_eq!(
+        visualize_disk_tree_with_hashes_skip_dot_git(&workdir.join("wt"))?.to_string(),
+        snapbox::str![[r#"
+.
+├── .git:100644:[..]
+└── base:100644:df967b96a579e45a18b8251732d16804b2e56a55
+
+"#]]
     );
-    assert_eq!(
-        std::fs::read_to_string(workdir.join("other/ws-file"))?,
-        "workspace\n",
-        "the destination checkout contains the main source"
-    );
-    assert_eq!(
-        std::fs::read_to_string(workdir.join("other/wt-file"))?,
-        "worktree\n",
-        "the destination checkout contains the worktree source"
+    // The destination checkout holds both sources with their original content.
+    snapbox::assert_data_eq!(
+        visualize_disk_tree_with_hashes_skip_dot_git(&workdir.join("other"))?.to_string(),
+        snapbox::str![[r#"
+.
+├── .git:100644:[..]
+├── base:100644:df967b96a579e45a18b8251732d16804b2e56a55
+├── ws-file:100644:9e6bf7cd693d8a666eeaefcdfb1e2354131edd0c
+└── wt-file:100644:bf589be5086e19c187c42698ecd9a64452ca5d9e
+
+"#]]
     );
     Ok(())
 }
