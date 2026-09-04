@@ -387,11 +387,19 @@ const PageBody: FC<{ projectId: string }> = ({ projectId }) => {
 		},
 	]);
 
+	// These two hooks sit above the derivation below on purpose. The compiler
+	// cannot memoize a value whose mutable range spans a hook call, and a hook
+	// between `new Set(...)` and `buildAppliedAddressSpace(...)` left both
+	// unmemoized: every render rebuilt the address space and re-rendered every
+	// row that reads it through context.
+	const { data: headInfo } = useQuery(headInfoQueryOptions(projectId));
+	const foldedSegments = useAppSelector((state) =>
+		projectSlice.selectors.selectFoldedSegments(state, projectId),
+	);
 	const absorptionPlanTarget = Match.value(pendingOperation).pipe(
 		Match.tags({ Absorb: ({ sourceTarget }) => sourceTarget }),
 		Match.orElse(() => null),
 	);
-	const { data: headInfo } = useQuery(headInfoQueryOptions(projectId));
 	const [absorptionPlanQuery] = useQueries({
 		queries: (absorptionPlanTarget ? [absorptionPlanTarget] : []).map((target) =>
 			absorptionPlanQueryOptions({ projectId, target }),
@@ -401,9 +409,6 @@ const PageBody: FC<{ projectId: string }> = ({ projectId }) => {
 		absorptionPlanQuery?.data?.map(({ commitId }) => commitId),
 	);
 
-	const foldedSegments = useAppSelector((state) =>
-		projectSlice.selectors.selectFoldedSegments(state, projectId),
-	);
 	const appliedAddressSpace = buildAppliedAddressSpace({
 		headInfo,
 		pendingOperation,
@@ -412,11 +417,16 @@ const PageBody: FC<{ projectId: string }> = ({ projectId }) => {
 	});
 
 	const page = usePage();
-	const branchesList = useBranchesList(projectId);
+	// Destructured here: the result object itself is a new identity every render.
+	const {
+		data: branches,
+		isPending: branchesPending,
+		isError: branchesError,
+	} = useBranchesList(projectId);
 	const upstreamList = useUpstreamList(projectId);
 
 	const appliedSelection = useSelection("applied", appliedAddressSpace);
-	const branchesSelection = useSelection("unapplied", branchesList.data?.addressSpace);
+	const branchesSelection = useSelection("unapplied", branches?.addressSpace);
 	const upstreamSelection = useSelection("upstream", upstreamList.addressSpace);
 
 	const { data: worktreeChanges } = useQuery(changesInWorktreeQueryOptions(projectId));
@@ -654,7 +664,9 @@ const PageBody: FC<{ projectId: string }> = ({ projectId }) => {
 							<Sidebar
 								projectId={projectId}
 								project={selectedProject}
-								branchesList={branchesList}
+								branches={branches}
+								branchesPending={branchesPending}
+								branchesError={branchesError}
 								upstreamList={upstreamList}
 								addressSpace={appliedAddressSpace}
 								uncommittedAddressSpace={uncommittedAddressSpace}

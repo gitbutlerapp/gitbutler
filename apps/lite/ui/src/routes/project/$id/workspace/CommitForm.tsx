@@ -390,8 +390,11 @@ export const CommitForm: FC<{
 			},
 		);
 	};
-	const commitMenuItems: Array<NativeMenuItem> = [
-		// oxlint-disable-next-line react-hooks-js/refs -- The ref is only read by the onSelect callback.
+	// Built when the menu opens rather than during render: the callbacks close
+	// over the textarea ref, and handing them to a function in render is a ref
+	// read as far as React Compiler is concerned, which left this whole
+	// component uncompiled.
+	const commitMenuItems = (): Array<NativeMenuItem> => [
 		nativeMenuItem({
 			label: "Commit",
 			enabled: canCommit,
@@ -542,7 +545,7 @@ export const CommitForm: FC<{
 					menuLabel="Commit options"
 					menuDisabled={!(canAmend || canCommit)}
 					onMenuTrigger={(trigger) => {
-						void showNativeMenuFromTrigger(trigger, commitMenuItems);
+						void showNativeMenuFromTrigger(trigger, commitMenuItems());
 					}}
 				>
 					Start commit
