@@ -308,12 +308,13 @@ Created commit nul on new branch 'a-branch-1'
 
 "#]]);
 
-    env.but("_expand nul:nx:q")
+    env.but("_expand nul:nx:e")
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
-Matches: 0
+Matches: 1
 
+committed hunk: 673f0a6533ac3929ad467b4f7a0b935853775963 image.png <no hunk header>
 
 "#]]);
 }

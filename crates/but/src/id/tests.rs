@@ -2424,7 +2424,7 @@ fn uncommitted_hunks_by_id() -> anyhow::Result<()> {
         .raw()
     );
 
-    // hunk without diff gets q identifier
+    // Hunk without diff gets an identifier from the empty-content prefix.
     snapbox::assert_data_eq!(
         id_map
             .parse("hunk_without_diff.txt:e", &TestChanges(changed_paths_fn))?

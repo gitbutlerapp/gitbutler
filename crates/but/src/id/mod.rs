@@ -1066,7 +1066,8 @@ impl IdMap {
     /// commit/discard of a leading colliding hunk from causing trailing colliding hunks to get new
     /// IDs that previously pointed to other colliding hunks.
     ///
-    /// Note that hunks that lack a diff follow the same rules, only that `<prefix>="q"` always.
+    /// Note that hunks that lack a diff follow the same rules, using a prefix of
+    /// [`HUNK_EMPTY_CONTENT_PREFIX`] instead.
     fn assign_content_based_hunk_ids<'a>(
         short_ids_and_hunks: impl Iterator<Item = &'a mut (UnqualifiedHunkId, but_core::SingleHunk)>,
     ) -> anyhow::Result<()> {
