@@ -80,6 +80,14 @@ const foldSoleChildren = <T>(name: string, directory: Directory<T>): NamedDirect
 /** One directory's worth of rows, and every file path below it. */
 type Collected<T> = { rows: Array<FileTreeRow<T>>; filePaths: Array<string> };
 
+const appendFilePaths = <T extends { path: string }>(
+	directory: Directory<T>,
+	filePaths: Array<string>,
+): void => {
+	for (const child of directory.directories.values()) appendFilePaths(child, filePaths);
+	for (const item of directory.items) filePaths.push(item.path);
+};
+
 const collectRows = <T extends { path: string }>({
 	directory,
 	prefix,
@@ -100,14 +108,20 @@ const collectRows = <T extends { path: string }>({
 		const folded = foldSoleChildren(name, child);
 		const { name: foldedName, directory: foldedDirectory } = folded;
 		const path = prefix === "" ? foldedName : `${prefix}/${foldedName}`;
-		// Walked whether or not it is collapsed: collapsing keeps a directory's rows
-		// out of the list, but it still answers for its files at its own checkbox.
-		const below = collectRows({
-			directory: foldedDirectory,
-			prefix: path,
-			depth: depth + 1,
-			collapsedDirectories,
-		});
+		const collapsed = collapsedDirectories[path] === true;
+		let below: Collected<T>;
+		if (collapsed) {
+			const filePaths: Array<string> = [];
+			appendFilePaths(foldedDirectory, filePaths);
+			below = { rows: [], filePaths };
+		} else {
+			below = collectRows({
+				directory: foldedDirectory,
+				prefix: path,
+				depth: depth + 1,
+				collapsedDirectories,
+			});
+		}
 
 		rows.push({
 			_tag: "Directory",
@@ -119,8 +133,8 @@ const collectRows = <T extends { path: string }>({
 			filePaths: below.filePaths,
 		});
 		positionInSet++;
-		if (collapsedDirectories[path] !== true) rows.push(...below.rows);
-		filePaths.push(...below.filePaths);
+		if (!collapsed) for (const row of below.rows) rows.push(row);
+		for (const filePath of below.filePaths) filePaths.push(filePath);
 	}
 
 	for (const item of directory.items) {

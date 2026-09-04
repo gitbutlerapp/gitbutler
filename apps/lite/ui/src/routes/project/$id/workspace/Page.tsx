@@ -13,7 +13,7 @@ import {
 	headInfoQueryOptions,
 	listProjectsQueryOptions,
 	operatingModeQueryOptions,
-	treeChangeDiffsQueryOptions,
+	treeChangesDiffsQueryOptions,
 } from "#ui/api/queries.ts";
 import { EditModePage } from "./EditModePage.tsx";
 import { useRestoreSnapshot } from "#ui/api/mutations.ts";
@@ -450,16 +450,12 @@ const PageBody: FC<{ projectId: string }> = ({ projectId }) => {
 	// Directories take the cursor as files do, so the index follows the layout the
 	// list renders — and a collapsed directory takes its files out of it too.
 	const uncommittedAddressSpace = fileTreeAddressSpace(uncommittedFileRows);
-	const uncommittedTreeChangeDiffs = useQueries({
-		queries:
-			worktreeChanges?.changes.map((change) =>
-				treeChangeDiffsQueryOptions({ projectId, change }),
-			) ?? [],
-		combine: (results) => {
-			if (!worktreeChanges || results.some((result) => result.data === undefined)) return null;
-
-			return results.map((result) => result.data ?? null);
-		},
+	const { data: uncommittedTreeChangeDiffs } = useQuery({
+		...treeChangesDiffsQueryOptions({
+			projectId,
+			changes: worktreeChanges?.changes ?? [],
+		}),
+		enabled: worktreeChanges !== undefined,
 	});
 
 	const onActiveUncommittedFileSelection = (selection: string) => {

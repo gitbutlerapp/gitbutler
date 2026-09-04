@@ -1,9 +1,15 @@
 import type { PayloadFor } from "#electron/ipc.ts";
 import { aggregateCIChecks } from "#ui/ci.ts";
 import { clampAutoFetch, defaultSettings } from "#ui/settings.ts";
-import type { ForgeReview } from "@gitbutler/but-sdk";
-import { infiniteQueryOptions, queryOptions } from "@tanstack/react-query";
+import type { ForgeReview, TreeChange, UnifiedPatch } from "@gitbutler/but-sdk";
+import {
+	experimental_streamedQuery,
+	hashKey,
+	infiniteQueryOptions,
+	queryOptions,
+} from "@tanstack/react-query";
 import * as ms from "ms";
+import pMap from "p-map";
 
 /**
  * The name the backend would generate for a branch created right now. Used to
@@ -527,6 +533,63 @@ export const treeChangeDiffsQueryOptions = ({ projectId, change }: PayloadFor<"t
 		queryKey: [projectId, "treeChangeDiffs", change],
 		queryFn: () => window.lite.treeChangeDiffs({ projectId, change }),
 	});
+
+/**
+ * Idiomatic usage of useQuery may rerender frequently for some UX requirements. The query must hash
+ * the full key again on each render.
+ *
+ * Its stable, value-based hasher requires traversing every change. Hashing a ~5k-file query key was
+ * benchmarked at ~20ms. This cost is virtually eliminated by reusing a previously-cached hash.
+ *
+ * The payload has no stable aggregate identifier we could use instead.
+ */
+const treeChangeDiffHashes = new WeakMap<Array<TreeChange>, string>();
+
+export const treeChangesDiffsQueryOptions = ({
+	projectId,
+	changes,
+}: {
+	projectId: string;
+	changes: Array<TreeChange>;
+}) => {
+	const queryKey = [projectId, "treeChangeDiffs", changes] as const;
+
+	// We don't expect to ever see the same changes reference across projects.
+	// This can use getOrInsertComputed once our version of Node.js has caught up.
+	let queryHash = treeChangeDiffHashes.get(changes);
+	if (queryHash === undefined) {
+		queryHash = hashKey(queryKey);
+		treeChangeDiffHashes.set(changes, queryHash);
+	}
+
+	return queryOptions({
+		queryKey,
+		queryHash,
+		queryFn: experimental_streamedQuery<Array<UnifiedPatch | null>, Array<UnifiedPatch | null>>({
+			initialValue: [],
+			refetchMode: "replace",
+			reducer: (results, batch) => results.concat(batch),
+			async *streamFn({ signal }) {
+				// Use half the logical cores to parallelize native diffs with room for UI work. This is a
+				// rough first pass and can be reduced should there be resource contention.
+				const concurrency = Math.max(1, Math.floor(navigator.hardwareConcurrency / 2));
+
+				// Grow publications so rebuilding the accumulated view stays linear overall.
+				for (
+					let batchStart = 0, batchSize = 64;
+					batchStart < changes.length;
+					batchStart += batchSize, batchSize *= 2
+				) {
+					yield await pMap(
+						changes.slice(batchStart, batchStart + batchSize),
+						(change) => window.lite.treeChangeDiffs({ projectId, change }),
+						{ concurrency, signal },
+					);
+				}
+			},
+		}),
+	});
+};
 
 export const absorptionPlanQueryOptions = ({ projectId, target }: PayloadFor<"absorptionPlan">) =>
 	queryOptions({

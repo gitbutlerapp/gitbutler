@@ -1,8 +1,8 @@
-import { treeChangeDiffsQueryOptions } from "#ui/api/queries.ts";
+import { treeChangesDiffsQueryOptions } from "#ui/api/queries.ts";
 import { weakFileParentIdentityKey, type FileParent } from "#ui/addresses.ts";
 import { reviewedFilesQueryOptions, type ReviewedFileVersions } from "#ui/reviewed-files.ts";
 import type { TreeChange } from "@gitbutler/but-sdk";
-import { useQueries, useQuery } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import { prepareDiffFiles, type PreparedDiffFile } from "./diff-view.ts";
 
 /**
@@ -44,23 +44,25 @@ export const useReviewedPaths = ({
 	);
 	const reviewedChanges = changes.filter((change) => reviewedFiles?.has(change.path));
 
-	return useQueries({
-		queries: reviewedChanges.map((change) => treeChangeDiffsQueryOptions({ projectId, change })),
-		// Folded down in `combine` rather than in render: react-query caches the
+	const { data: paths = EMPTY_REVIEWED_PATHS } = useQuery({
+		...treeChangesDiffsQueryOptions({ projectId, changes: reviewedChanges }),
+		enabled: reviewedFiles !== undefined && reviewedChanges.length > 0,
+		// Folded down in `select` rather than in render: react-query caches the
 		// result against this closure, so the set keeps its identity while the
 		// diffs do.
-		combine: (results) =>
+		select: (treeChangeDiffs) =>
 			reviewedFiles === undefined
 				? EMPTY_REVIEWED_PATHS
 				: reviewedPaths(
 						prepareDiffFiles({
 							fileParent,
 							changes: reviewedChanges,
-							treeChangeDiffs: results.map((result) => result.data ?? null),
+							treeChangeDiffs,
 						}),
 						reviewedFiles,
 					),
 	});
+	return paths;
 };
 
 const EMPTY_REVIEWED_PATHS: ReadonlySet<string> = new Set();

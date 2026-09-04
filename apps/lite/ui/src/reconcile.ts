@@ -10,7 +10,7 @@ import {
 	changesInWorktreeQueryOptions,
 	commitDetailsWithLineStatsQueryOptions,
 	headInfoQueryOptions,
-	treeChangeDiffsQueryOptions,
+	treeChangesDiffsQueryOptions,
 } from "./api/queries.ts";
 import { currentParams, remapSearchBranch } from "#ui/use-cursor.ts";
 import { getHeadInfoIndex, type HeadInfoIndex } from "./api/ref-info.ts";
@@ -322,15 +322,16 @@ export const useStateReconciler = (projectId: string): void => {
 		})
 		.filter((x) => x != null)
 		.toArray();
-	const validCheckedHunkKeys = useQueries({
-		queries: checkedHunkFiles.map(({ change }) =>
-			treeChangeDiffsQueryOptions({ projectId, change }),
-		),
-		combine: (results): Set<string> =>
+	const { data: validCheckedHunkKeys = new Set<string>(), isFetching: checkingHunks } = useQuery({
+		...treeChangesDiffsQueryOptions({
+			projectId,
+			changes: checkedHunkFiles.map(({ change }) => change),
+		}),
+		select: (treeChangeDiffs): Set<string> =>
 			new Set(
-				results
+				treeChangeDiffs
 					.values()
-					.map(({ data: patch }, index) => {
+					.map((patch, index) => {
 						const file = checkedHunkFiles[index];
 						return file && patch?.type === "Patch" ? { file, patch } : null;
 					})
@@ -358,6 +359,6 @@ export const useStateReconciler = (projectId: string): void => {
 		}
 	});
 	useLayoutEffect(() => {
-		reconcileCheckedHunks(validCheckedHunkKeys);
-	}, [validCheckedHunkKeys]);
+		if (!checkingHunks) reconcileCheckedHunks(validCheckedHunkKeys);
+	}, [validCheckedHunkKeys, checkingHunks]);
 };

@@ -31,7 +31,7 @@ import {
 	listEditorsQueryOptions,
 	listReviewsQueryOptions,
 	listReviewThreadsQueryOptions,
-	treeChangeDiffsQueryOptions,
+	treeChangesDiffsQueryOptions,
 	workspaceFileQueryOptions,
 } from "#ui/api/queries.ts";
 import {
@@ -43,7 +43,7 @@ import {
 } from "#ui/review-seen.ts";
 import rowStyles from "./Row.module.css";
 import { decodeBytes } from "#ui/api/bytes.ts";
-import type { ForgeReview, TargetCommitReview } from "@gitbutler/but-sdk";
+import type { ForgeReview, TargetCommitReview, UnifiedPatch } from "@gitbutler/but-sdk";
 import { branchDetailsParams } from "#ui/branch.ts";
 import { commitBody, commitTitle, shortCommitId } from "#ui/commit.ts";
 import {
@@ -112,7 +112,6 @@ import {
 	keepPreviousData,
 	useQuery,
 	useQueryClient,
-	useSuspenseQueries,
 	useSuspenseQuery,
 } from "@tanstack/react-query";
 import { Match } from "effect";
@@ -2136,6 +2135,11 @@ const buildFilesRows = ({
 		collapsedDirectories,
 	});
 
+const withLineStats = (treeChangeDiffs: Array<UnifiedPatch | null | undefined>) => ({
+	treeChangeDiffs,
+	lineStats: getLineStats(treeChangeDiffs),
+});
+
 const Diff: FC<{
 	changes: Array<TreeChange>;
 	filesVisible: boolean;
@@ -2297,12 +2301,12 @@ const Diff: FC<{
 
 	// Eagerly fetch all diffs regardless of unidiff setting, both for UX and for the total line
 	// stats.
-	const { treeChangeDiffs, lineStats } = useSuspenseQueries({
-		queries: changes.map((change) => treeChangeDiffsQueryOptions({ projectId, change })),
-		combine: (results) => {
-			const treeChangeDiffs = results.map((result) => result.data);
-			return { treeChangeDiffs, lineStats: getLineStats(treeChangeDiffs) };
-		},
+	const {
+		data: { treeChangeDiffs, lineStats },
+	} = useSuspenseQuery({
+		// Don't sort the changes input here as that could produce a distinct query key.
+		...treeChangesDiffsQueryOptions({ projectId, changes: unsortedChanges }),
+		select: withLineStats,
 	});
 
 	const { data: loadedAnnotationsByPath = EMPTY_ANNOTATIONS_BY_PATH } = useQuery({
@@ -2346,16 +2350,19 @@ const Diff: FC<{
 	const activeFilePath =
 		selection._tag === "File" ? selection.path : selectedFilePath(filesRows, filesSelection);
 
+	const preparedDiffFiles = useMemo(
+		() =>
+			prepareDiffFiles({ fileParent, changes: unsortedChanges, treeChangeDiffs }).sort((a, b) =>
+				compareFilePaths(a.change.path, b.change.path),
+			),
+		[fileParent, unsortedChanges, treeChangeDiffs],
+	);
 	// Keyed on the file's index, not its path: scrolling moves the selection, so
 	// keying on path reparsed every file per boundary crossed. `null` is
 	// render-all, distinct from the -1 of a path matching no file.
 	const shownFileIndex = renderAllFiles
 		? null
-		: changes.findIndex((change) => change.path === activeFilePath);
-	const preparedDiffFiles = useMemo(
-		() => prepareDiffFiles({ fileParent, changes, treeChangeDiffs }),
-		[fileParent, changes, treeChangeDiffs],
-	);
+		: preparedDiffFiles.findIndex(({ change }) => change.path === activeFilePath);
 
 	const diffViewSansAnno = useMemo(
 		() =>
@@ -2402,6 +2409,7 @@ const Diff: FC<{
 
 	const allFilesReviewed =
 		preparedDiffFiles.length > 0 &&
+		preparedDiffFiles.length === changes.length &&
 		preparedDiffFiles.every(({ change, version }) => reviewedFiles.get(change.path)?.has(version));
 
 	// Resolved once for the whole list rather than per row: a row would have to
@@ -2479,13 +2487,6 @@ const Diff: FC<{
 
 	const tabSize = diffSettings?.diffTabSize ?? defaultSettings.diffTabSize;
 
-	// The minimap maps whatever the viewer holds — every file, or the one file
-	// shown at a time. Keyed on that file's index rather than its path so the
-	// map doesn't rebuild as scrolling moves the selection through the list.
-	const shownIndex = renderAllFiles
-		? -1
-		: changes.findIndex((change) => change.path === activeFilePath);
-
 	const minimapShown = diffSettings?.minimap ?? defaultSettings.minimap;
 	// Modelling the map reads every line of the diff, so a ruler nobody asked for
 	// shouldn't be parsed for either.
@@ -2494,15 +2495,15 @@ const Diff: FC<{
 			minimapShown
 				? getMinimapFiles({
 						files:
-							shownIndex < 0
+							shownFileIndex === null || shownFileIndex < 0
 								? preparedDiffFiles
-								: preparedDiffFiles.slice(shownIndex, shownIndex + 1),
+								: preparedDiffFiles.slice(shownFileIndex, shownFileIndex + 1),
 						diffStyle,
 						tabSize,
 						wrapColumns,
 					})
 				: [],
-		[minimapShown, shownIndex, preparedDiffFiles, diffStyle, tabSize, wrapColumns],
+		[minimapShown, shownFileIndex, preparedDiffFiles, diffStyle, tabSize, wrapColumns],
 	);
 
 	useHotkeys([
@@ -2668,7 +2669,9 @@ const Diff: FC<{
 						<Toolbar.Root aria-label="Diff controls" className={styles.diffControls}>
 							<Toolbar.Button
 								className={getButtonClassName({ variant: "outline" })}
-								disabled={preparedDiffFiles.length === 0}
+								disabled={
+									preparedDiffFiles.length === 0 || preparedDiffFiles.length !== changes.length
+								}
 								onClick={toggleAllFilesReviewed}
 							>
 								{allFilesReviewed ? "Mark all unviewed" : "Mark all viewed"}
