@@ -1280,7 +1280,7 @@ dependencies = [
  "but-schemars",
  "but-utils",
  "chrono",
- "git-url-parse",
+ "gix",
  "schemars 1.2.1",
  "serde",
  "serde_json",
@@ -3744,17 +3744,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "getset"
-version = "0.1.7"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6cf442baaabe4213ce7d1239afc26c039180b6456da2cededa316ae2c8a77a77"
-dependencies = [
- "proc-macro2",
- "quote",
- "syn 2.0.118",
-]
-
-[[package]]
 name = "gimli"
 version = "0.32.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3804,18 +3793,6 @@ dependencies = [
  "sha1",
  "thiserror 2.0.18",
  "time",
-]
-
-[[package]]
-name = "git-url-parse"
-version = "0.6.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8df306e4dfc91752e89b74c88ee876c8518890600f82255254828f9192dd003c"
-dependencies = [
- "getset",
- "nom 8.0.0",
- "thiserror 2.0.18",
- "url",
 ]
 
 [[package]]
