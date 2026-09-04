@@ -1,4 +1,5 @@
 use std::{
+    fmt::Write as _,
     fs,
     sync::{Arc, Barrier},
     thread,
@@ -11,6 +12,7 @@ use but_testsupport::{
     CommandExt as _, git, gix_testtools::tempfile::TempDir, graph_tree, open_repo,
     writable_scenario_slow,
 };
+use snapbox::ToDebug as _;
 
 #[test]
 fn new_from_project_handle_uses_repo_gitdir() -> anyhow::Result<()> {
@@ -107,9 +109,7 @@ fn project_data_dir_comes_from_git_config() -> anyhow::Result<()> {
 
 #[test]
 fn sync_context_preserves_project_data_dir() -> anyhow::Result<()> {
-    let repo_dir = TempDir::new()?;
-    gix::init(repo_dir.path())?;
-    let repo = open_repo(repo_dir.path())?;
+    let (repo, _tmp) = but_testsupport::writable_scenario("unborn-empty");
     let ctx = Context::from_repo_for_testing(repo)?;
 
     let sync = ctx.to_sync();
@@ -120,29 +120,25 @@ fn sync_context_preserves_project_data_dir() -> anyhow::Result<()> {
 
 #[test]
 fn discover_with_app_channel_uses_requested_project_data_dir() -> anyhow::Result<()> {
-    let repo_dir = TempDir::new()?;
-    let repo = gix::init(repo_dir.path())?;
-    let nightly_key =
-        but_project_handle::storage_path_config_key_for_app_channel(AppChannel::Nightly);
-    let dev_key = but_project_handle::storage_path_config_key_for_app_channel(AppChannel::Dev);
-    git(&repo)
-        .args(["config", "--local", nightly_key, "gitbutler-nightly"])
-        .run();
-    git(&repo)
-        .args(["config", "--local", dev_key, "gitbutler-dev"])
-        .run();
+    let (repo, _tmp) = but_testsupport::writable_scenario("storage-path-per-channel");
+    let workdir = repo.workdir().expect("fixture is non-bare");
+    let project_data_dir = |channel: AppChannel| -> anyhow::Result<String> {
+        let ctx = Context::discover_with_app_channel(workdir, channel)?;
+        let project_data_dir = ctx.project_data_dir();
+        Ok(project_data_dir
+            .strip_prefix(&ctx.gitdir)?
+            .display()
+            .to_string())
+    };
 
     but_testsupport::isolated_app_data_dir(|| {
-        let nightly_ctx = Context::discover_with_app_channel(repo_dir.path(), AppChannel::Nightly)?;
-        assert_eq!(
-            nightly_ctx.project_data_dir(),
-            nightly_ctx.gitdir.join("gitbutler-nightly")
+        snapbox::assert_data_eq!(
+            project_data_dir(AppChannel::Nightly)?,
+            snapbox::str!["gitbutler-nightly"]
         );
-
-        let dev_ctx = Context::discover_with_app_channel(repo_dir.path(), AppChannel::Dev)?;
-        assert_eq!(
-            dev_ctx.project_data_dir(),
-            dev_ctx.gitdir.join("gitbutler-dev")
+        snapbox::assert_data_eq!(
+            project_data_dir(AppChannel::Dev)?,
+            snapbox::str!["gitbutler-dev"]
         );
         Ok(())
     })
@@ -154,27 +150,36 @@ fn set_project_meta_persists_git_config() -> anyhow::Result<()> {
     let ctx = Context::from_repo_for_testing(repo)?;
     let project_meta = project_meta(target_commit_id, "refs/remotes/origin/main", "fork")?;
 
-    assert_eq!(ctx.project_meta()?, ProjectMeta::default());
+    snapbox::assert_data_eq!(
+        project_meta_summary(ctx.project_meta()?),
+        snapbox::str!["target_ref=<unset>; target_commit_id=<unset>; push_remote=<unset>"]
+    );
 
     ctx.set_project_meta(project_meta.clone())?;
-    assert_eq!(ctx.project_meta()?, project_meta);
+    snapbox::assert_data_eq!(
+        project_meta_summary(ctx.project_meta()?),
+        snapbox::str![
+            "target_ref=refs/remotes/origin/main; target_commit_id=d5d98f5; push_remote=fork"
+        ]
+    );
 
     let changed = ProjectMeta {
         push_remote: Some("another-fork".into()),
         ..project_meta
     };
-    ctx.set_project_meta(changed.clone())?;
-    assert_eq!(ctx.project_meta()?, changed);
+    ctx.set_project_meta(changed)?;
+    snapbox::assert_data_eq!(
+        project_meta_summary(ctx.project_meta()?),
+        snapbox::str![
+            "target_ref=refs/remotes/origin/main; target_commit_id=d5d98f5; push_remote=another-fork"
+        ]
+    );
     Ok(())
 }
 
 #[test]
 fn set_project_meta_fills_missing_target_commit_id_from_target_ref() -> anyhow::Result<()> {
     let (_tmp, repo, _target_commit_id) = run_fixture("project-meta-base")?;
-    let expected_target_id = {
-        let mut target_ref = repo.find_reference("refs/remotes/origin/main")?;
-        target_ref.peel_to_commit()?.id
-    };
     let ctx = Context::from_repo_for_testing(repo)?;
 
     ctx.set_project_meta(ProjectMeta {
@@ -183,10 +188,13 @@ fn set_project_meta_fills_missing_target_commit_id_from_target_ref() -> anyhow::
         push_remote: Some("fork".into()),
     })?;
 
-    assert_eq!(
-        ctx.project_meta()?.target_commit_id,
-        Some(expected_target_id),
-        "migration should fill a missing target commit from the target ref tip"
+    // Migration fills a missing target commit from the target ref tip, which the
+    // fixture points at its only commit.
+    snapbox::assert_data_eq!(
+        project_meta_summary(ctx.project_meta()?),
+        snapbox::str![
+            "target_ref=refs/remotes/origin/main; target_commit_id=d5d98f5; push_remote=fork"
+        ]
     );
     Ok(())
 }
@@ -207,10 +215,12 @@ fn set_project_meta_preserves_existing_target_commit_id() -> anyhow::Result<()> 
         push_remote: None,
     })?;
 
-    assert_eq!(
-        ctx.project_meta()?.target_commit_id,
-        Some(stable_target),
-        "an existing stable target must not move to the current ref tip"
+    // An existing stable target must not move to the current ref tip.
+    snapbox::assert_data_eq!(
+        project_meta_summary(ctx.project_meta()?),
+        snapbox::str![
+            "target_ref=refs/remotes/origin/main; target_commit_id=1111111; push_remote=<unset>"
+        ]
     );
     Ok(())
 }
@@ -226,7 +236,10 @@ fn set_project_meta_clears_missing_target_ref() -> anyhow::Result<()> {
         push_remote: Some("fork".into()),
     })?;
 
-    assert_eq!(ctx.project_meta()?.target_ref, None);
+    snapbox::assert_data_eq!(
+        project_meta_summary(ctx.project_meta()?),
+        snapbox::str!["target_ref=<unset>; target_commit_id=<unset>; push_remote=fork"]
+    );
     Ok(())
 }
 
@@ -247,7 +260,10 @@ fn project_meta_defaults_when_config_and_toml_are_unset() -> anyhow::Result<()> 
 fn project_meta_observes_changes_made_through_other_repository_handles() -> anyhow::Result<()> {
     let (_tmp, repo, target_commit_id) = run_fixture("project-meta-base")?;
     let ctx = Context::from_repo_for_testing(repo)?;
-    assert_eq!(ctx.project_meta()?.target_ref, None);
+    snapbox::assert_data_eq!(
+        project_meta_summary(ctx.project_meta()?),
+        snapbox::str!["target_ref=<unset>; target_commit_id=<unset>; push_remote=<unset>"]
+    );
 
     // Write through an independent handle, like another process would.
     let other_ctx = Context::from_repo_for_testing(open_repo(&ctx.gitdir)?)?;
@@ -257,34 +273,45 @@ fn project_meta_observes_changes_made_through_other_repository_handles() -> anyh
         "fork",
     )?)?;
 
-    assert_eq!(
-        ctx.project_meta()?.target_ref.map(|name| name.to_string()),
-        Some("refs/remotes/origin/main".to_string()),
-        "a long-lived context observes target changes made elsewhere"
+    // A long-lived context observes target changes made elsewhere.
+    snapbox::assert_data_eq!(
+        project_meta_summary(ctx.project_meta()?),
+        snapbox::str![
+            "target_ref=refs/remotes/origin/main; target_commit_id=d5d98f5; push_remote=fork"
+        ]
     );
     Ok(())
 }
 
 #[test]
 fn context_creation_ports_legacy_toml_before_cleanup() -> anyhow::Result<()> {
-    let (_tmp, repo, target_commit_id) = run_fixture("project-meta-toml")?;
+    let (_tmp, repo, _target_commit_id) = run_fixture("project-meta-toml")?;
     let ctx = Context::from_repo_for_testing(repo)?;
-    let expected = project_meta(target_commit_id, "refs/remotes/origin/main", "fork")?;
 
-    assert_eq!(ctx.project_meta()?, expected);
+    snapbox::assert_data_eq!(
+        project_meta_summary(ctx.project_meta()?),
+        snapbox::str![
+            "target_ref=refs/remotes/origin/main; target_commit_id=d5d98f5; push_remote=fork"
+        ]
+    );
 
     fs::write(
         ctx.project_data_dir().join("virtual_branches.toml"),
         "[branches]\n",
     )?;
     let reopened = Context::from_repo_for_testing(open_repo(&ctx.gitdir)?)?;
-    assert_eq!(reopened.project_meta()?, expected);
+    snapbox::assert_data_eq!(
+        project_meta_summary(reopened.project_meta()?),
+        snapbox::str![
+            "target_ref=refs/remotes/origin/main; target_commit_id=d5d98f5; push_remote=fork"
+        ]
+    );
     Ok(())
 }
 
 #[test]
 fn concurrent_context_creation_ports_legacy_toml() -> anyhow::Result<()> {
-    let (_tmp, repo, target_commit_id) = run_fixture("project-meta-toml")?;
+    let (_tmp, repo, _target_commit_id) = run_fixture("project-meta-toml")?;
     let gitdir = repo.git_dir().to_owned();
     let barrier = Arc::new(Barrier::new(9));
     let repos = (0..8)
@@ -307,10 +334,12 @@ fn concurrent_context_creation_ports_legacy_toml() -> anyhow::Result<()> {
     for thread in threads {
         thread.join().expect("context creation does not panic")?;
     }
-    assert_eq!(
-        ProjectMeta::resolve(&repo)?,
-        project_meta(target_commit_id, "refs/remotes/origin/main", "fork")?,
-        "legacy project metadata is ported"
+    // Legacy project metadata is ported.
+    snapbox::assert_data_eq!(
+        project_meta_summary(ProjectMeta::resolve(&repo)?),
+        snapbox::str![
+            "target_ref=refs/remotes/origin/main; target_commit_id=d5d98f5; push_remote=fork"
+        ]
     );
     Ok(())
 }
@@ -330,7 +359,7 @@ fn context_creation_preserves_unmarked_project_config() -> anyhow::Result<()> {
     snapbox::assert_data_eq!(
         project_meta_summary(ctx.project_meta()?),
         snapbox::str![
-            "target_ref=refs/remotes/upstream/trunk; target_commit_id=[OID]; push_remote=origin"
+            "target_ref=refs/remotes/upstream/trunk; target_commit_id=d5d98f5; push_remote=origin"
         ]
     );
     Ok(())
@@ -345,7 +374,7 @@ fn project_meta_reads_git_config_and_ignores_stale_toml() -> anyhow::Result<()> 
     snapbox::assert_data_eq!(
         project_meta_summary(actual),
         snapbox::str![
-            "target_ref=refs/remotes/upstream/trunk; target_commit_id=[OID]; push_remote=origin"
+            "target_ref=refs/remotes/upstream/trunk; target_commit_id=d5d98f5; push_remote=origin"
         ]
     );
     Ok(())
@@ -376,80 +405,60 @@ fn project_meta_summary(project_meta: ProjectMeta) -> String {
             .target_ref
             .as_ref()
             .map_or("<unset>".into(), ToString::to_string),
-        project_meta.target_commit_id.map_or("<unset>", |_| "[OID]"),
+        project_meta
+            .target_commit_id
+            .map_or("<unset>".into(), |id| id.to_hex_with_len(7).to_string()),
         project_meta.push_remote.as_deref().unwrap_or("<unset>")
     )
 }
 
 #[test]
 fn worktree_adoption_archives_preexisting_worktrees() -> anyhow::Result<()> {
-    let root = TempDir::new()?;
-    gix::init(root.path().join("main"))?;
-    let repo = open_repo(&root.path().join("main"))?;
-    but_testsupport::invoke_bash(
-        "git commit --allow-empty -m M
-         git worktree add -b feat-a ../wt-a
-         git worktree add -b feat-b ../wt-b",
-        &repo,
-    );
+    let (repo, _tmp) = writable_scenario_slow("worktree-seeding");
     let mut ctx = Context::from_repo_for_testing(repo)?;
     ctx.settings.feature_flags.worktree_manipulation = true;
 
-    assert_eq!(
-        active_names(&ctx)?,
-        Vec::<String>::new(),
-        "the first-ever read adopts, archiving all pre-existing worktrees"
+    // The first-ever read adopts, archiving all pre-existing worktrees.
+    snapbox::assert_data_eq!(active_names(&ctx)?, snapbox::str!["[]"]);
+    snapbox::assert_data_eq!(
+        db_state(&ctx)?,
+        snapbox::str![[r#"adopted: true, rows: [("wt-a", true), ("wt-b", true)]"#]]
     );
 
     but_testsupport::invoke_bash(
-        "git worktree add -b feat-c ../wt-c
-         git -C ../wt-c commit --allow-empty -m C1",
+        "git worktree add -b feat-c wt-c
+         git -C wt-c commit --allow-empty -m C1",
         &*ctx.repo.get()?,
     );
-    let active: Vec<_> = ctx
-        .worktrees_with_state()?
-        .into_iter()
-        .filter(|wt| !wt.archived)
-        .collect();
-    assert_eq!(
-        active
-            .iter()
-            .map(|wt| wt.name.to_string())
-            .collect::<Vec<_>>(),
-        ["wt-c"],
-        "worktrees created after adoption are active by default"
+    // A worktree created after adoption is active by default, archived ones are
+    // returned with their flag set rather than filtered out, and the path is the
+    // checkout, not the admin dir under `.git/worktrees/`.
+    snapbox::assert_data_eq!(
+        worktree_entries(&ctx)?,
+        snapbox::str![[r#"
+wt-a archived=true path=wt-a
+wt-b archived=true path=wt-b
+wt-c archived=false path=wt-c
+
+"#]]
     );
-    let head = ctx
-        .worktree_head("wt-c".into())?
-        .expect("an active worktree on a born branch resolves a head");
-    assert_eq!(
-        head.ref_name
-            .as_ref()
-            .map(|name| name.as_bstr().to_string()),
-        Some("refs/heads/feat-c".into()),
-        "the checked-out branch is resolved for ref-first graph seeding"
-    );
-    assert_eq!(
-        head.id,
-        ctx.repo.get()?.rev_parse_single("feat-c")?,
-        "the head is the worktree's own HEAD, which has advanced past the main one"
-    );
-    assert_eq!(
-        active[0].path.canonicalize()?,
-        root.path().join("wt-c").canonicalize()?,
-        "the checkout path is reported, not the admin dir under .git/worktrees/"
-    );
-    assert_eq!(
-        ctx.worktrees_with_state()?
-            .iter()
-            .map(|wt| (wt.name.to_string(), wt.archived))
-            .collect::<Vec<_>>(),
-        [
-            ("wt-a".to_string(), true),
-            ("wt-b".to_string(), true),
-            ("wt-c".to_string(), false)
-        ],
-        "archived entries are returned with their flag set, not filtered out"
+    // The checked-out branch is resolved for ref-first graph seeding, at the
+    // worktree's own HEAD which has advanced past the main one.
+    snapbox::assert_data_eq!(
+        ctx.worktree_head("wt-c".into())?.to_debug(),
+        snapbox::str![[r#"
+Some(
+    WorktreeHead {
+        ref_name: Some(
+            FullName(
+                "refs/heads/feat-c",
+            ),
+        ),
+        id: Sha1(339e6f33492cc35912cd386fe831b8123a3fa1d0),
+    },
+)
+
+"#]]
     );
 
     {
@@ -459,21 +468,36 @@ fn worktree_adoption_archives_preexisting_worktrees() -> anyhow::Result<()> {
             archived: false,
         })?;
     }
-    assert_eq!(
-        active_names(&ctx)?,
-        ["wt-a", "wt-c"],
-        "unarchiving makes a pre-existing worktree visible again"
-    );
+    // Unarchiving makes a pre-existing worktree visible again.
+    snapbox::assert_data_eq!(active_names(&ctx)?, snapbox::str![[r#"["wt-a", "wt-c"]"#]]);
     Ok(())
 }
 
-fn active_names(ctx: &Context) -> anyhow::Result<Vec<String>> {
-    Ok(ctx
+fn active_names(ctx: &Context) -> anyhow::Result<String> {
+    let names: Vec<_> = ctx
         .worktrees_with_state()?
         .into_iter()
         .filter(|wt| !wt.archived)
         .map(|wt| wt.name.to_string())
-        .collect())
+        .collect();
+    Ok(format!("{names:?}"))
+}
+
+fn worktree_entries(ctx: &Context) -> anyhow::Result<String> {
+    let workdir = gix::path::realpath(ctx.workdir_or_gitdir()?)?;
+    let mut out = String::new();
+    for wt in ctx.worktrees_with_state()? {
+        let path = gix::path::realpath(&wt.path)?;
+        let path = path.strip_prefix(&workdir).unwrap_or(path.as_path());
+        writeln!(
+            out,
+            "{} archived={} path={}",
+            wt.name,
+            wt.archived,
+            path.display()
+        )?;
+    }
+    Ok(out)
 }
 
 fn db_state(ctx: &Context) -> anyhow::Result<String> {
@@ -492,16 +516,14 @@ fn db_state(ctx: &Context) -> anyhow::Result<String> {
     ))
 }
 
+fn workspace_graph(ctx: &Context) -> anyhow::Result<String> {
+    let (_guard, _repo, ws, _db) = ctx.workspace_and_db()?;
+    Ok(graph_tree(&ws.graph).to_string())
+}
+
 #[test]
 fn setting_archived_state_before_the_first_read_survives_adoption() -> anyhow::Result<()> {
-    let root = TempDir::new()?;
-    gix::init(root.path().join("main"))?;
-    let repo = open_repo(&root.path().join("main"))?;
-    but_testsupport::invoke_bash(
-        "git commit --allow-empty -m M
-         git worktree add -b feat-a ../wt-a",
-        &repo,
-    );
+    let (repo, _tmp) = writable_scenario_slow("worktree-seeding");
     let mut ctx = Context::from_repo_for_testing(repo)?;
     ctx.settings.feature_flags.worktree_manipulation = true;
 
@@ -510,128 +532,116 @@ fn setting_archived_state_before_the_first_read_survives_adoption() -> anyhow::R
     // on disk and quietly undo this.
     ctx.set_worktree_archived("wt-a".into(), false)?;
 
-    assert_eq!(
-        active_names(&ctx)?,
-        ["wt-a"],
-        "the explicit request outlives the adoption it triggered"
+    // The explicit request outlives the adoption it triggered.
+    snapbox::assert_data_eq!(active_names(&ctx)?, snapbox::str![[r#"["wt-a"]"#]]);
+    snapbox::assert_data_eq!(
+        db_state(&ctx)?,
+        snapbox::str![[r#"adopted: true, rows: [("wt-a", false), ("wt-b", true)]"#]]
     );
     Ok(())
 }
 
 #[test]
 fn worktree_manipulation_flag_gates_worktree_state() -> anyhow::Result<()> {
-    let root = TempDir::new()?;
-    gix::init(root.path().join("main"))?;
-    let repo = open_repo(&root.path().join("main"))?;
-    but_testsupport::invoke_bash(
-        "git commit --allow-empty -m M
-         git worktree add -b feat-a ../wt-a",
-        &repo,
-    );
+    let (repo, _tmp) = writable_scenario_slow("worktree-seeding");
 
     // Flag off: nothing is returned and no adoption side-effects happen.
     let ctx = Context::from_repo_for_testing(repo.clone())?;
-    assert_eq!(active_names(&ctx)?, Vec::<String>::new());
-    {
-        let db = ctx.db.get_cache_mut()?;
-        assert!(
-            !db.worktree_meta().adoption_ran()?,
-            "flag off must not adopt"
-        );
-        assert_eq!(
-            db.worktree_meta().list()?.len(),
-            0,
-            "flag off must not touch the worktree_meta table"
-        );
-    }
+    snapbox::assert_data_eq!(active_names(&ctx)?, snapbox::str!["[]"]);
+    snapbox::assert_data_eq!(db_state(&ctx)?, snapbox::str!["adopted: false, rows: []"]);
 
-    // Flag on: the first read adopts (archives) the pre-existing worktree.
+    // Flag on: the first read adopts, archiving the pre-existing worktrees.
     let mut ctx = Context::from_repo_for_testing(repo)?;
     ctx.settings.feature_flags.worktree_manipulation = true;
-    assert_eq!(
-        active_names(&ctx)?,
-        Vec::<String>::new(),
-        "pre-existing worktrees are archived at adoption"
-    );
-    let db = ctx.db.get_cache_mut()?;
-    assert!(db.worktree_meta().adoption_ran()?);
-    assert_eq!(
-        db.worktree_meta().list()?.len(),
-        1,
-        "adoption records the pre-existing worktree as archived"
+    snapbox::assert_data_eq!(active_names(&ctx)?, snapbox::str!["[]"]);
+    snapbox::assert_data_eq!(
+        db_state(&ctx)?,
+        snapbox::str![[r#"adopted: true, rows: [("wt-a", true), ("wt-b", true)]"#]]
     );
     Ok(())
 }
 
 #[test]
 fn worktree_adoption_with_zero_worktrees_is_persisted() -> anyhow::Result<()> {
-    let root = TempDir::new()?;
-    gix::init(root.path().join("main"))?;
-    let repo = open_repo(&root.path().join("main"))?;
-    but_testsupport::invoke_bash("git commit --allow-empty -m M", &repo);
+    let (repo, _tmp) = but_testsupport::writable_scenario("no-worktrees");
     let mut ctx = Context::from_repo_for_testing(repo)?;
     ctx.settings.feature_flags.worktree_manipulation = true;
 
-    assert_eq!(active_names(&ctx)?, Vec::<String>::new());
+    snapbox::assert_data_eq!(active_names(&ctx)?, snapbox::str!["[]"]);
+    // The explicit marker keeps the adoption alive even though it archived nothing.
+    snapbox::assert_data_eq!(db_state(&ctx)?, snapbox::str!["adopted: true, rows: []"]);
 
-    // The explicit marker keeps the adoption alive even though it archived
-    // nothing, so a project's first worktree is active instead of being swept
-    // into a re-run of adoption.
+    // So a project's first worktrees are active instead of being swept into a
+    // re-run of adoption, detached ones included.
     but_testsupport::invoke_bash(
-        "git worktree add -b feat ../wt-new
-         git worktree add --detach ../wt-detached",
+        "git worktree add -b feat wt-new
+         git worktree add --detach wt-detached",
         &*ctx.repo.get()?,
     );
-    assert_eq!(
+    snapbox::assert_data_eq!(
         active_names(&ctx)?,
-        ["wt-detached", "wt-new"],
-        "worktrees created after adoption are active, detached ones included"
+        snapbox::str![[r#"["wt-detached", "wt-new"]"#]]
     );
-    let detached = ctx
-        .worktree_head("wt-detached".into())?
-        .expect("a detached HEAD still resolves to its commit");
-    assert_eq!(
-        detached.ref_name, None,
-        "a detached worktree resolves without a ref name"
+    // A detached HEAD still resolves to its commit, without a ref name.
+    snapbox::assert_data_eq!(
+        ctx.worktree_head("wt-detached".into())?.to_debug(),
+        snapbox::str![[r#"
+Some(
+    WorktreeHead {
+        ref_name: None,
+        id: Sha1(85efbe4d5a663bff0ed8fb5fbc38a72be0592f55),
+    },
+)
+
+"#]]
     );
     Ok(())
 }
 
 #[test]
 fn pruned_worktrees_are_adopted_but_not_returned() -> anyhow::Result<()> {
-    let root = TempDir::new()?;
-    gix::init(root.path().join("main"))?;
-    let repo = open_repo(&root.path().join("main"))?;
-    but_testsupport::invoke_bash(
-        "git commit --allow-empty -m M
-         git worktree add -b feat ../wt-gone",
-        &repo,
-    );
-    std::fs::remove_dir_all(root.path().join("wt-gone"))?;
-
+    let (repo, _tmp) = writable_scenario_slow("worktrees-without-heads");
     let mut ctx = Context::from_repo_for_testing(repo)?;
     ctx.settings.feature_flags.worktree_manipulation = true;
-    assert_eq!(
-        active_names(&ctx)?,
-        Vec::<String>::new(),
-        "a deleted checkout directory makes the worktree prunable, not active"
+
+    // A deleted checkout directory makes `wt-gone` prunable: it is not returned at
+    // all, yet it was still archived at adoption.
+    snapbox::assert_data_eq!(
+        worktree_entries(&ctx)?,
+        snapbox::str![[r#"
+wt-unborn archived=true path=wt-unborn
+wt-ws archived=true path=wt-ws
+
+"#]]
     );
+    snapbox::assert_data_eq!(
+        db_state(&ctx)?,
+        snapbox::str![[
+            r#"adopted: true, rows: [("wt-gone", true), ("wt-unborn", true), ("wt-ws", true)]"#
+        ]]
+    );
+
     {
         let mut db = ctx.db.get_cache_mut()?;
-        assert_eq!(
-            db.worktree_meta().get(b"wt-gone")?.map(|row| row.archived),
-            Some(true),
-            "the unusable worktree was still archived at adoption"
-        );
         db.worktree_meta_mut().upsert(but_db::WorktreeMeta {
             name: b"wt-gone".to_vec(),
             archived: false,
         })?;
     }
-    assert_eq!(
-        active_names(&ctx)?,
-        Vec::<String>::new(),
-        "even unarchived, a pruned checkout is excluded - it is unusable, not merely hidden"
+    // Even unarchived, a pruned checkout is excluded - it is unusable, not merely hidden.
+    snapbox::assert_data_eq!(
+        worktree_entries(&ctx)?,
+        snapbox::str![[r#"
+wt-unborn archived=true path=wt-unborn
+wt-ws archived=true path=wt-ws
+
+"#]]
+    );
+    snapbox::assert_data_eq!(
+        db_state(&ctx)?,
+        snapbox::str![[
+            r#"adopted: true, rows: [("wt-gone", false), ("wt-unborn", true), ("wt-ws", true)]"#
+        ]]
     );
     Ok(())
 }
@@ -642,7 +652,7 @@ fn rows_of_worktrees_git_forgot_are_pruned_on_read() -> anyhow::Result<()> {
     let workdir = repo.workdir().expect("fixture is non-bare").to_owned();
     let mut ctx = Context::from_repo_for_testing(repo)?;
     ctx.settings.feature_flags.worktree_manipulation = true;
-    assert_eq!(active_names(&ctx)?, Vec::<String>::new());
+    snapbox::assert_data_eq!(active_names(&ctx)?, snapbox::str!["[]"]);
     snapbox::assert_data_eq!(
         db_state(&ctx)?,
         snapbox::str![[r#"adopted: true, rows: [("wt-a", true), ("wt-b", true)]"#]]
@@ -652,7 +662,7 @@ fn rows_of_worktrees_git_forgot_are_pruned_on_read() -> anyhow::Result<()> {
     // so does the database; a removed worktree is forgotten by both.
     std::fs::remove_dir_all(workdir.join("wt-a"))?;
     but_testsupport::invoke_bash("git worktree remove wt-b", &*ctx.repo.get()?);
-    assert_eq!(active_names(&ctx)?, Vec::<String>::new());
+    snapbox::assert_data_eq!(active_names(&ctx)?, snapbox::str!["[]"]);
     snapbox::assert_data_eq!(
         db_state(&ctx)?,
         snapbox::str![[r#"adopted: true, rows: [("wt-a", true)]"#]]
@@ -663,34 +673,19 @@ fn rows_of_worktrees_git_forgot_are_pruned_on_read() -> anyhow::Result<()> {
          git worktree add wt-b feat-b",
         &*ctx.repo.get()?,
     );
-    assert_eq!(
-        active_names(&ctx)?,
-        ["wt-b"],
-        "a worktree created under a forgotten name starts out active"
-    );
+    // A worktree created under a forgotten name starts out active.
+    snapbox::assert_data_eq!(active_names(&ctx)?, snapbox::str![[r#"["wt-b"]"#]]);
     snapbox::assert_data_eq!(db_state(&ctx)?, snapbox::str!["adopted: true, rows: []"]);
     Ok(())
 }
 
 #[test]
 fn unborn_head_worktrees_enumerate_but_resolve_no_head() -> anyhow::Result<()> {
-    let root = TempDir::new()?;
-    gix::init(root.path().join("main"))?;
-    let repo = open_repo(&root.path().join("main"))?;
-    but_testsupport::invoke_bash(
-        "git commit --allow-empty -m M
-         git worktree add -b feat ../wt-unborn
-         git -C ../wt-unborn symbolic-ref HEAD refs/heads/never-born",
-        &repo,
-    );
-
+    let (repo, _tmp) = writable_scenario_slow("worktrees-without-heads");
     let mut ctx = Context::from_repo_for_testing(repo)?;
     ctx.settings.feature_flags.worktree_manipulation = true;
-    assert_eq!(
-        active_names(&ctx)?,
-        Vec::<String>::new(),
-        "the unborn worktree was archived at adoption like any other"
-    );
+    // The unborn worktree was archived at adoption like any other.
+    snapbox::assert_data_eq!(active_names(&ctx)?, snapbox::str!["[]"]);
     {
         let mut db = ctx.db.get_cache_mut()?;
         db.worktree_meta_mut().upsert(but_db::WorktreeMeta {
@@ -698,99 +693,96 @@ fn unborn_head_worktrees_enumerate_but_resolve_no_head() -> anyhow::Result<()> {
             archived: false,
         })?;
     }
-    assert_eq!(
-        active_names(&ctx)?,
-        ["wt-unborn"],
-        "the worktree itself enumerates - its checkout exists on disk"
-    );
-    assert!(
-        ctx.worktree_head("wt-unborn".into())?.is_none(),
-        "but an unborn HEAD has no commit to resolve - consumers skip it, not an error"
+    // The worktree itself enumerates - its checkout exists on disk.
+    snapbox::assert_data_eq!(active_names(&ctx)?, snapbox::str![[r#"["wt-unborn"]"#]]);
+    // But an unborn HEAD has no commit to resolve - consumers skip it, not an error.
+    snapbox::assert_data_eq!(
+        ctx.worktree_head("wt-unborn".into())?.to_debug(),
+        snapbox::str![[r#"
+None
+
+"#]]
     );
     Ok(())
 }
 
 #[test]
 fn workspace_ref_worktrees_enumerate_but_never_resolve_or_seed() -> anyhow::Result<()> {
-    let root = TempDir::new()?;
-    gix::init(root.path().join("main"))?;
-    let repo = open_repo(&root.path().join("main"))?;
-    but_testsupport::invoke_bash(
-        "git commit --allow-empty -m M
-         git branch gitbutler/workspace
-         git worktree add ../wt-ws gitbutler/workspace",
-        &repo,
-    );
-
+    let (repo, _tmp) = writable_scenario_slow("worktrees-without-heads");
     let mut ctx = Context::from_repo_for_testing(repo)?;
     ctx.settings.feature_flags.worktree_manipulation = true;
-    assert_eq!(active_names(&ctx)?, Vec::<String>::new());
+    // A workspace-ref worktree is still adopted like any other.
+    snapbox::assert_data_eq!(active_names(&ctx)?, snapbox::str!["[]"]);
+    snapbox::assert_data_eq!(
+        db_state(&ctx)?,
+        snapbox::str![[
+            r#"adopted: true, rows: [("wt-gone", true), ("wt-unborn", true), ("wt-ws", true)]"#
+        ]]
+    );
     {
         let mut db = ctx.db.get_cache_mut()?;
-        assert_eq!(
-            db.worktree_meta().get(b"wt-ws")?.map(|row| row.archived),
-            Some(true),
-            "a workspace-ref worktree is still adopted like any other"
-        );
         db.worktree_meta_mut().upsert(but_db::WorktreeMeta {
             name: b"wt-ws".to_vec(),
             archived: false,
         })?;
     }
-    assert_eq!(
-        active_names(&ctx)?,
-        ["wt-ws"],
-        "the worktree itself enumerates - its checkout exists on disk"
+    // The worktree itself enumerates - its checkout exists on disk.
+    snapbox::assert_data_eq!(active_names(&ctx)?, snapbox::str![[r#"["wt-ws"]"#]]);
+    // But a worktree on the workspace ref never resolves a head - GitButler
+    // manages that ref itself.
+    snapbox::assert_data_eq!(
+        ctx.worktree_head("wt-ws".into())?.to_debug(),
+        snapbox::str![[r#"
+None
+
+"#]]
     );
-    assert!(
-        ctx.worktree_head("wt-ws".into())?.is_none(),
-        "but a worktree on the workspace ref never resolves a head - \
-         GitButler manages that ref itself"
-    );
+    // And so it is never seeded into graph traversal.
     let (_guard, _repo, ws, _db) = ctx.workspace_and_db()?;
-    assert_eq!(
-        ws.graph.worktree_tips.len(),
-        0,
-        "and so it is never seeded into graph traversal"
+    snapbox::assert_data_eq!(
+        ws.graph.worktree_tips.to_debug(),
+        snapbox::str![[r#"
+[]
+
+"#]]
     );
     Ok(())
 }
 
 #[test]
 fn worktree_state_is_unreachable_from_linked_worktree_contexts() -> anyhow::Result<()> {
-    let root = TempDir::new()?;
-    gix::init(root.path().join("main"))?;
-    let repo = open_repo(&root.path().join("main"))?;
-    but_testsupport::invoke_bash(
-        "git commit --allow-empty -m M
-         git worktree add -b feat-a ../wt-a",
-        &repo,
-    );
+    let (repo, _tmp) = writable_scenario_slow("worktree-seeding");
+    let wt_a = repo.workdir().expect("fixture is non-bare").join("wt-a");
 
     // A context opened inside a linked worktree stores its database in the
     // worktree's private git dir - adoption and archived state written there
     // would silently diverge from the main worktree's database.
-    let mut ctx = Context::from_repo_for_testing(open_repo(&root.path().join("wt-a"))?)?;
-    assert_eq!(
-        active_names(&ctx)?,
-        Vec::<String>::new(),
-        "with the flag off even a linked-worktree context returns nothing, without erroring"
-    );
-    assert!(
-        ctx.workspace_and_db().is_ok(),
-        "with the flag off, workspace building in a linked worktree is unaffected"
+    let mut ctx = Context::from_repo_for_testing(open_repo(&wt_a)?)?;
+    // With the flag off even a linked-worktree context returns nothing, without
+    // erroring, and workspace building is unaffected.
+    snapbox::assert_data_eq!(active_names(&ctx)?, snapbox::str!["[]"]);
+    snapbox::assert_data_eq!(
+        workspace_graph(&ctx)?,
+        snapbox::str![[r#"
+
+└── 👉►:0[0]:feat-a[📁wt-a@repo]
+    └── ·7076dee (⌂)
+        └── ►:1[1]:main[🌳]
+            └── 🏁·85efbe4 (⌂)
+
+"#]]
     );
     ctx.settings.feature_flags.worktree_manipulation = true;
-    assert!(
-        ctx.worktrees_with_state()
-            .unwrap_err()
-            .to_string()
-            .contains("main worktree"),
-        "linked-worktree contexts must be refused, not given their own state"
+    // Linked-worktree contexts are refused, not given their own state.
+    snapbox::assert_data_eq!(
+        ctx.worktrees_with_state().unwrap_err().to_string(),
+        snapbox::str![
+            "worktree state must be read from the main worktree - a linked-worktree context has its own database, letting adoption and archived state diverge"
+        ]
     );
     // A fresh context bypasses the workspace cached by the flag-off call above.
     // Workspace building inherits the refusal - seeding must not read diverging state.
-    let mut ctx = Context::from_repo_for_testing(open_repo(&root.path().join("wt-a"))?)?;
+    let mut ctx = Context::from_repo_for_testing(open_repo(&wt_a)?)?;
     ctx.settings.feature_flags.worktree_manipulation = true;
     snapbox::assert_data_eq!(
         ctx.workspace_and_db()
@@ -804,19 +796,15 @@ fn worktree_state_is_unreachable_from_linked_worktree_contexts() -> anyhow::Resu
 
     // The same holds for worktrees of a bare repository, whose git dirs contain
     // no `.git` path component for kind heuristics to latch onto.
-    but_testsupport::invoke_bash_at_dir(
-        "git clone --bare main bare.git
-         git -C bare.git worktree add -b feat-bare ../wt-bare",
-        root.path(),
-    );
-    let mut ctx = Context::from_repo_for_testing(open_repo(&root.path().join("wt-bare"))?)?;
+    let (repo, _tmp) = writable_scenario_slow("bare-clone-worktree");
+    let wt_bare = repo.workdir().expect("fixture is non-bare").join("wt-bare");
+    let mut ctx = Context::from_repo_for_testing(open_repo(&wt_bare)?)?;
     ctx.settings.feature_flags.worktree_manipulation = true;
-    assert!(
-        ctx.worktrees_with_state()
-            .unwrap_err()
-            .to_string()
-            .contains("main worktree"),
-        "a worktree of a bare repository is still a linked-worktree context"
+    snapbox::assert_data_eq!(
+        ctx.worktrees_with_state().unwrap_err().to_string(),
+        snapbox::str![
+            "worktree state must be read from the main worktree - a linked-worktree context has its own database, letting adoption and archived state diverge"
+        ]
     );
     Ok(())
 }
@@ -824,10 +812,6 @@ fn worktree_state_is_unreachable_from_linked_worktree_contexts() -> anyhow::Resu
 #[test]
 fn workspace_from_head_seeds_active_worktree_tips() -> anyhow::Result<()> {
     let (repo, _tmp) = writable_scenario_slow("worktree-seeding");
-    let workspace_graph = |ctx: &Context| -> anyhow::Result<String> {
-        let (_guard, _repo, ws, _db) = ctx.workspace_and_db()?;
-        Ok(graph_tree(&ws.graph).to_string())
-    };
 
     // Flag off: no tips are seeded and the database is untouched.
     let ctx = Context::from_repo_for_testing(repo.clone())?;
