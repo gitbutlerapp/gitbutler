@@ -323,7 +323,7 @@ impl CliIdArg {
                     let hint = if same_path_once_per_checkout {
                         let path = &files[0].hunks.first().hunk.path;
                         format!(
-                            "'{self}' is uncommitted in several checkouts; scope it as {}",
+                            "'{self}' is uncommitted in several worktrees; scope it as {}",
                             sources
                                 .iter()
                                 .map(|source| format!("`{source}:{path}`"))

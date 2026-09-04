@@ -77,6 +77,19 @@ fn jump_to_a_worktree_reference_despite_its_area_extending_the_id() {
         .assert_current_line_eq(str!["┊┊├┄ wt {wt-branch}"]);
 }
 
+/// The same path dirty in the main worktree and a linked one is two rows, and the jump lands
+/// on the linked worktree's rather than the main worktree's row above it.
+#[test]
+fn jump_to_a_file_that_is_also_dirty_in_the_main_worktree() {
+    let (mut tui, _editor) = worktree_tui();
+    tui.env().file("wt-file.txt", "main change");
+
+    tui.reload();
+    tui.input('/');
+    tui.input("ok")
+        .assert_current_line_eq(str!["┊┊┊   ok A wt-file.txt"]);
+}
+
 /// Both of the lane's headings, its uncommitted file and its commit are all reachable with the
 /// cursor.
 #[test]

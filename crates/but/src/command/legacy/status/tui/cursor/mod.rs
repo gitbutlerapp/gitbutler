@@ -882,9 +882,8 @@ pub(super) fn same_entity_for_reload(previous: &CliId, current: &CliId) -> bool 
                     return false;
                 }
                 if previous.is_entire_file {
-                    let previous = previous.hunks.first();
-                    let current = current.hunks.first();
-                    previous.hunk.path == current.hunk.path
+                    previous.source == current.source
+                        && previous.hunks.first().hunk.path == current.hunks.first().hunk.path
                 } else {
                     previous == current
                 }

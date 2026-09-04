@@ -260,7 +260,7 @@ fn resolve_args(
                         };
                         bad_input(format!(
                             "Commit {} belongs to {place}, so it can only be uncommitted into that worktree's area",
-                            commit.to_hex_with_len(7)
+                            theme::Commit(commit)
                         ))
                         .hint(format!("Use `--target {area}`"))
                         .into()
@@ -900,48 +900,15 @@ pub fn resolve_target(
 
             Err(ResolveTargetError::NotFound)
         }
-        ResolvedCliIdArgRef::Uncommitted | ResolvedCliIdArgRef::WorktreeUncommitted(..) => {
-            match reword {
-                HowToRewordTarget::UseTargetMessage => {
-                    return Err(ResolveTargetError::UseTargetMessageUnavailable);
-                }
-                HowToRewordTarget::UseSourceMessage => {
-                    return Err(ResolveTargetError::UseSourceMessageUnavailable);
-                }
-                HowToRewordTarget::Reword(reword_op) => match reword_op {
-                    CommitMessageSource::Empty => {
-                        return Err(ResolveTargetError::NoMessageUnavailable);
-                    }
-                    CommitMessageSource::Provided(_) => {
-                        return Err(ResolveTargetError::MessageUnavailable);
-                    }
-                    CommitMessageSource::Editor { .. } => {}
-                },
-            }
-
-            // An uncommit lands in the worktree that owns the commit, so the area named as the
-            // target has to be that worktree's.
-            let worktree = match target {
-                ResolvedCliIdArgRef::WorktreeUncommitted(name) => {
-                    ChangeSourceId::Worktree(name.to_owned())
-                }
-                _ => ChangeSourceId::Head,
-            };
-            let source_commits = sources.iter().filter_map(|source| match source {
-                ResolvedCliIdArgRef::Commit(commit) => Some(commit.commit_id),
-                ResolvedCliIdArgRef::CommittedFile(file) => Some(file.commit_id),
-                ResolvedCliIdArgRef::CommittedHunk(hunk) => Some(hunk.committed_file.commit_id),
-                _ => None,
-            });
-            for commit in source_commits {
-                let owner = crate::utils::worktrees::commit_owner(head_info, commit);
-                if owner != worktree {
-                    return Err(ResolveTargetError::OwnedByAnotherWorktree { commit, owner });
-                }
-            }
-
-            Ok(SquashTarget::Uncommitted)
+        ResolvedCliIdArgRef::Uncommitted => {
+            resolve_uncommit_target(ChangeSourceId::Head, sources, reword, head_info)
         }
+        ResolvedCliIdArgRef::WorktreeUncommitted(name) => resolve_uncommit_target(
+            ChangeSourceId::Worktree(name.to_owned()),
+            sources,
+            reword,
+            head_info,
+        ),
         ResolvedCliIdArgRef::AnonymousSegment(segment) => {
             Err(ResolveTargetError::AnonymousSegment(segment.id.clone()))
         }
@@ -952,6 +919,55 @@ pub fn resolve_target(
         | ResolvedCliIdArgRef::Worktree(..)
         | ResolvedCliIdArgRef::Stack { .. } => Err(ResolveTargetError::InvalidTarget),
     }
+}
+
+/// An uncommit lands in the worktree that owns the commit, so the area named as the target has
+/// to be `worktree`'s.
+fn resolve_uncommit_target(
+    worktree: ChangeSourceId,
+    sources: &[ResolvedCliIdArgRef<'_>],
+    reword: HowToRewordTarget,
+    head_info: &RefInfo,
+) -> Result<SquashTarget, ResolveTargetError> {
+    match reword {
+        HowToRewordTarget::UseTargetMessage => {
+            return Err(ResolveTargetError::UseTargetMessageUnavailable);
+        }
+        HowToRewordTarget::UseSourceMessage => {
+            return Err(ResolveTargetError::UseSourceMessageUnavailable);
+        }
+        HowToRewordTarget::Reword(reword_op) => match reword_op {
+            CommitMessageSource::Empty => {
+                return Err(ResolveTargetError::NoMessageUnavailable);
+            }
+            CommitMessageSource::Provided(_) => {
+                return Err(ResolveTargetError::MessageUnavailable);
+            }
+            CommitMessageSource::Editor { .. } => {}
+        },
+    }
+
+    let source_commits = sources.iter().filter_map(|source| match source {
+        ResolvedCliIdArgRef::Commit(commit) => Some(commit.commit_id),
+        ResolvedCliIdArgRef::CommittedFile(file) => Some(file.commit_id),
+        ResolvedCliIdArgRef::CommittedHunk(hunk) => Some(hunk.committed_file.commit_id),
+        ResolvedCliIdArgRef::Branch(..)
+        | ResolvedCliIdArgRef::AnonymousSegment(..)
+        | ResolvedCliIdArgRef::UncommittedHunkOrFile(..)
+        | ResolvedCliIdArgRef::PathPrefix { .. }
+        | ResolvedCliIdArgRef::Uncommitted
+        | ResolvedCliIdArgRef::Worktree(..)
+        | ResolvedCliIdArgRef::WorktreeUncommitted(..)
+        | ResolvedCliIdArgRef::Stack { .. } => None,
+    });
+    for commit in source_commits {
+        let owner = crate::utils::worktrees::commit_owner(head_info, commit);
+        if owner != worktree {
+            return Err(ResolveTargetError::OwnedByAnotherWorktree { commit, owner });
+        }
+    }
+
+    Ok(SquashTarget::Uncommitted)
 }
 
 #[derive(Debug)]
