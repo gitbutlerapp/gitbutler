@@ -1,5 +1,3 @@
-use git_url_parse::{GitUrl, types::provider::GenericProvider};
-
 mod forge;
 pub use crate::forge::{ForgeName, ForgeRepoInfo, ForgeUser, deserialize_preferred_forge_user_opt};
 
@@ -10,6 +8,7 @@ pub use db::{cached_review_states, list_cached_forge_reviews};
 mod forge_info;
 mod merge_message;
 pub use merge_message::{MergedReviewFromMessage, merged_review_from_message};
+mod remote_url;
 mod repo;
 mod review;
 pub use association::{
@@ -61,24 +60,21 @@ fn determine_forge_from_host(host: &str) -> Option<ForgeName> {
 /// Looking at the known accounts involves retrieving data from storage, so that is a bit more expensive
 /// and that's why it's a fallback mechanism.
 pub fn derive_forge_repo_info(url: &str) -> Option<ForgeRepoInfo> {
-    let git_url = GitUrl::parse(url).ok()?;
-    let host = git_url.host()?;
-    let protocol = git_url.scheme()?;
-
-    let provider_info: GenericProvider = git_url.provider_info().ok()?;
+    let remote = remote_url::RemoteUrl::parse(url)?;
     // Attempt to figure out the forge by looking at the host string and
     // falling back to matching it to the known accounts custom host URL.
-    let forge = determine_forge_from_host(host).or_else(|| {
+    let forge = determine_forge_from_host(&remote.host).or_else(|| {
         // Only fetch the accounts if it can't determine the forge type from the repository's host.
         let accounts = get_all_forge_accounts().unwrap_or_default();
-        match_host_to_accounts_custom_host(host, &accounts)
+        match_host_to_accounts_custom_host(&remote.host, &accounts)
     })?;
+    let (owner, repo) = remote.repository_parts(&forge)?;
 
     Some(ForgeRepoInfo {
         forge,
-        owner: provider_info.owner().to_string(),
-        repo: provider_info.repo().to_string(),
-        protocol: protocol.to_string(),
+        owner,
+        repo,
+        protocol: remote.protocol,
     })
 }
 
@@ -194,9 +190,96 @@ pub fn get_all_forge_accounts() -> anyhow::Result<Vec<ForgeUser>> {
 #[cfg(test)]
 mod tests {
     use super::{
-        ForgeName, ForgeRepoInfo, ForgeUser, current_forge_login,
+        ForgeName, ForgeRepoInfo, ForgeUser, current_forge_login, derive_forge_repo_info,
         match_host_to_accounts_custom_host, normalize_host_for_comparison,
     };
+
+    #[test]
+    fn derives_supported_forge_repository_urls() {
+        let cases = [
+            (
+                "git@github.com:owner/example.github.io.git",
+                ForgeName::GitHub,
+                "owner",
+                "example.github.io",
+                "ssh",
+            ),
+            (
+                "https://github.com/owner/example.github.io.git",
+                ForgeName::GitHub,
+                "owner",
+                "example.github.io",
+                "https",
+            ),
+            (
+                "https://github.com/owner/repository.git.git",
+                ForgeName::GitHub,
+                "owner",
+                "repository.git",
+                "https",
+            ),
+            (
+                "https://github.com/owner/repo/",
+                ForgeName::GitHub,
+                "owner",
+                "repo",
+                "https",
+            ),
+            (
+                "https://gitlab.com/group/subgroup/repo.git",
+                ForgeName::GitLab,
+                "group/subgroup",
+                "repo",
+                "https",
+            ),
+            (
+                "git@bitbucket.org:owner/repo.git",
+                ForgeName::Bitbucket,
+                "owner",
+                "repo",
+                "ssh",
+            ),
+            (
+                "https://dev.azure.com/org/project/_git/repo",
+                ForgeName::Azure,
+                "org/project",
+                "repo",
+                "https",
+            ),
+            (
+                "git@ssh.dev.azure.com:v3/org/project/repo.git",
+                ForgeName::Azure,
+                "org/project",
+                "repo",
+                "ssh",
+            ),
+        ];
+
+        for (url, forge, owner, repo, protocol) in cases {
+            let actual = derive_forge_repo_info(url).unwrap();
+            assert_eq!(actual.forge, forge, "forge should be derived from {url}");
+            assert_eq!(actual.owner, owner, "owner should be derived from {url}");
+            assert_eq!(actual.repo, repo, "repository should be derived from {url}");
+            assert_eq!(
+                actual.protocol, protocol,
+                "protocol should be derived from {url}"
+            );
+        }
+    }
+
+    #[test]
+    fn rejects_non_forge_and_malformed_repository_urls() {
+        for url in [
+            "../local-repo",
+            "file:///tmp/repo",
+            "https://github.com/owner",
+        ] {
+            assert!(
+                derive_forge_repo_info(url).is_none(),
+                "{url} does not identify a hosted forge repository"
+            );
+        }
+    }
 
     fn github_repo_info() -> ForgeRepoInfo {
         ForgeRepoInfo {
