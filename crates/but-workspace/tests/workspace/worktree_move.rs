@@ -2,6 +2,7 @@ use anyhow::Result;
 use but_core::DiffSpec;
 use but_testsupport::git_status_at_dir;
 use but_workspace::worktrees::{move_uncommitted_changes, open_worktree_repo};
+use snapbox::str;
 
 use crate::utils::writable_scenario_slow;
 
@@ -26,31 +27,69 @@ fn full_move_preserves_unrelated_main_changes_and_clears_the_worktree() -> Resul
     )?;
     // Main's own, unrelated uncommitted change, which the move must not disturb.
     std::fs::write(main_dir.join("main-file"), "main-only-edited\n")?;
+    snapbox::assert_data_eq!(
+        git_status_at_dir(main_dir)?,
+        str![[r#"
+ M main-file
+?? wt/
+
+"#]]
+    );
+    snapbox::assert_data_eq!(
+        git_status_at_dir(&wt_dir)?,
+        str![[r#"
+ M shared
+?? wt-file
+
+"#]]
+    );
 
     let outcome = move_uncommitted_changes(&repo, &wt_repo, None, 0)?;
     assert!(!outcome.conflict_occurred);
 
-    assert_eq!(
-        std::fs::read_to_string(main_dir.join("shared"))?,
-        "line1-wt\nline2\nline3\nline4\nline5\nline6\nline7\n",
-        "the worktree's tracked modification landed in main"
-    );
-    assert_eq!(
-        std::fs::read_to_string(main_dir.join("wt-file"))?,
-        "wt-only\n",
-        "the worktree's untracked addition landed in main"
-    );
-    assert_eq!(
-        std::fs::read_to_string(main_dir.join("main-file"))?,
-        "main-only-edited\n",
-        "main's own unrelated uncommitted change survived the merge untouched"
-    );
+    // Both worktree changes are staged in main while main's own edit is untouched on disk.
+    // Note the index: it was rewritten to the moved tree, which never contained `main-file`,
+    // so the file HEAD tracks shows as a staged deletion next to its untracked on-disk edit.
+    snapbox::assert_data_eq!(
+        git_status_at_dir(main_dir)?,
+        str![[r#"
+D  main-file
+M  shared
+A  wt-file
+?? main-file
+?? wt/
 
-    let wt_status = git_status_at_dir(&wt_dir)?;
-    assert_eq!(
-        wt_status, "",
-        "a clean move clears everything it moved out of the worktree: {wt_status}"
+"#]]
     );
+    snapbox::assert_data_eq!(
+        std::fs::read_to_string(main_dir.join("shared"))?,
+        str![[r#"
+line1-wt
+line2
+line3
+line4
+line5
+line6
+line7
+
+"#]]
+    );
+    snapbox::assert_data_eq!(
+        std::fs::read_to_string(main_dir.join("wt-file"))?,
+        str![[r#"
+wt-only
+
+"#]]
+    );
+    snapbox::assert_data_eq!(
+        std::fs::read_to_string(main_dir.join("main-file"))?,
+        str![[r#"
+main-only-edited
+
+"#]]
+    );
+    // A clean move clears everything it moved out of the worktree.
+    snapbox::assert_data_eq!(git_status_at_dir(&wt_dir)?, str![[r#""#]]);
     Ok(())
 }
 
@@ -70,31 +109,66 @@ fn conflicting_move_writes_markers_into_main_and_still_clears_the_worktree() -> 
         main_dir.join("shared"),
         "line1-main\nline2\nline3\nline4\nline5\nline6\nline7\n",
     )?;
+    snapbox::assert_data_eq!(
+        git_status_at_dir(main_dir)?,
+        str![[r#"
+ M shared
+?? wt/
+
+"#]]
+    );
+    snapbox::assert_data_eq!(
+        git_status_at_dir(&wt_dir)?,
+        str![[r#"
+ M shared
+?? wt-file
+
+"#]]
+    );
 
     let outcome = move_uncommitted_changes(&repo, &wt_repo, None, 0)?;
     assert!(outcome.conflict_occurred);
 
-    let merged = std::fs::read_to_string(main_dir.join("shared"))?;
-    assert!(
-        merged.contains("<<<<<<<") && merged.contains("=======") && merged.contains(">>>>>>>"),
-        "conflict markers were written into main's working directory: {merged}"
-    );
-    assert!(
-        merged.contains("line1-wt"),
-        "the worktree's pre-move content survives verbatim inside the conflict markers: {merged}"
-    );
-    assert_eq!(
-        std::fs::read_to_string(main_dir.join("wt-file"))?,
-        "wt-only\n",
-        "the non-conflicting untracked addition still moved over"
-    );
+    // The worktree's pre-move content survives verbatim inside the conflict markers; `main-file`
+    // shows the same index rewrite as in the clean move above.
+    snapbox::assert_data_eq!(
+        git_status_at_dir(main_dir)?,
+        str![[r#"
+D  main-file
+UU shared
+A  wt-file
+?? main-file
+?? wt/
 
-    assert_eq!(
-        git_status_at_dir(&wt_dir)?,
-        "",
-        "the worktree is cleared even though the destination conflicted - its content isn't \
-         lost, it's now inside the conflict markers in main"
+"#]]
     );
+    snapbox::assert_data_eq!(
+        std::fs::read_to_string(main_dir.join("shared"))?,
+        str![[r#"
+<<<<<<< ours
+line1-main
+=======
+line1-wt
+>>>>>>> theirs
+line2
+line3
+line4
+line5
+line6
+line7
+
+"#]]
+    );
+    snapbox::assert_data_eq!(
+        std::fs::read_to_string(main_dir.join("wt-file"))?,
+        str![[r#"
+wt-only
+
+"#]]
+    );
+    // The worktree is cleared even though the destination conflicted - its content isn't
+    // lost, it's now inside the conflict markers in main.
+    snapbox::assert_data_eq!(git_status_at_dir(&wt_dir)?, str![[r#""#]]);
     Ok(())
 }
 
@@ -110,6 +184,21 @@ fn selecting_one_hunk_leaves_the_other_dirty_in_the_worktree() -> Result<()> {
         wt_dir.join("shared"),
         "line1-wt\nline2\nline3\nline4\nline5\nline6\nline7-wt\n",
     )?;
+    snapbox::assert_data_eq!(
+        git_status_at_dir(main_dir)?,
+        str![[r#"
+?? wt/
+
+"#]]
+    );
+    snapbox::assert_data_eq!(
+        git_status_at_dir(&wt_dir)?,
+        str![[r#"
+ M shared
+?? wt-file
+
+"#]]
+    );
 
     let change = but_core::diff::worktree_changes(&wt_repo)?
         .changes
@@ -136,23 +225,53 @@ fn selecting_one_hunk_leaves_the_other_dirty_in_the_worktree() -> Result<()> {
     let outcome = move_uncommitted_changes(&repo, &wt_repo, Some(selection), 0)?;
     assert!(!outcome.conflict_occurred);
 
-    assert_eq!(
+    // Only the selected hunk landed in main; the unselected untracked file didn't move, and
+    // `main-file` shows the same index rewrite as in the full move.
+    snapbox::assert_data_eq!(
+        git_status_at_dir(main_dir)?,
+        str![[r#"
+D  main-file
+M  shared
+?? main-file
+?? wt/
+
+"#]]
+    );
+    snapbox::assert_data_eq!(
         std::fs::read_to_string(main_dir.join("shared"))?,
-        "line1-wt\nline2\nline3\nline4\nline5\nline6\nline7\n",
-        "only the selected hunk landed in main"
+        str![[r#"
+line1-wt
+line2
+line3
+line4
+line5
+line6
+line7
+
+"#]]
     );
-    assert_eq!(
+    // The unselected hunk and the untracked file remain dirty in the worktree; the hunk is
+    // staged there because the checkout rewrote the worktree's index as well.
+    snapbox::assert_data_eq!(
+        git_status_at_dir(&wt_dir)?,
+        str![[r#"
+M  shared
+?? wt-file
+
+"#]]
+    );
+    snapbox::assert_data_eq!(
         std::fs::read_to_string(wt_dir.join("shared"))?,
-        "line1\nline2\nline3\nline4\nline5\nline6\nline7-wt\n",
-        "the unselected hunk remains dirty in the worktree"
-    );
-    assert!(
-        !main_dir.join("wt-file").exists(),
-        "the untracked addition wasn't selected, so it wasn't moved"
-    );
-    assert!(
-        wt_dir.join("wt-file").exists(),
-        "the untracked addition wasn't selected, so it stays in the worktree"
+        str![[r#"
+line1
+line2
+line3
+line4
+line5
+line6
+line7-wt
+
+"#]]
     );
     Ok(())
 }
@@ -166,7 +285,7 @@ fn moving_nothing_is_an_error() -> Result<()> {
     std::fs::remove_file(wt_dir.join("wt-file"))?;
 
     let err = move_uncommitted_changes(&repo, &wt_repo, None, 0).unwrap_err();
-    assert_eq!(err.to_string(), "No changes to move");
+    snapbox::assert_data_eq!(format!("{err:#}"), str!["No changes to move"]);
     Ok(())
 }
 
@@ -176,6 +295,6 @@ fn moving_an_empty_selection_is_an_error() -> Result<()> {
     let wt_repo = open_worktree_repo(&repo, "wt".into())?;
 
     let err = move_uncommitted_changes(&repo, &wt_repo, Some(Vec::new()), 0).unwrap_err();
-    assert_eq!(err.to_string(), "No changes were selected to move");
+    snapbox::assert_data_eq!(format!("{err:#}"), str!["No changes were selected to move"]);
     Ok(())
 }
