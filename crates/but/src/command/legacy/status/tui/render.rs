@@ -1131,12 +1131,13 @@ pub fn commit_operation_display(
                 }
             }
         }
-        // A linked worktree's heading doubles as the top of its lane, which is the only place a
-        // commit made from that checkout can go. Scoping to a stack excludes it, as a worktree
-        // branch is by definition outside the workspace.
-        StatusOutputLineData::WorktreeUncommittedChanges { .. } => {
+        // The reference row is the top of the worktree's lane, which is the only place a commit
+        // made from that worktree can go. Scoping to a stack excludes it, as a worktree branch is
+        // by definition outside the workspace.
+        StatusOutputLineData::Worktree { .. } => {
             scope_to_stack.is_none().then_some("commit to worktree")
         }
+        StatusOutputLineData::WorktreeUncommitted { .. } => None,
         StatusOutputLineData::StagedChanges { .. }
         | StatusOutputLineData::StagedFile { .. }
         | StatusOutputLineData::UncommittedChanges { .. }
@@ -1170,11 +1171,10 @@ pub fn move_operation_display(
                 InsertSide::Below => Some("move commit below"),
             },
             StatusOutputLineData::Branch { .. } => Some("move commit to branch"),
-            // A linked worktree's heading doubles as the top of its lane, which is the only
-            // place in the lane a whole commit can move to.
-            StatusOutputLineData::WorktreeUncommittedChanges { .. } => {
-                Some("move commit to worktree")
-            }
+            // The reference row is the top of the worktree's lane, which is the only place in
+            // the lane a whole commit can move to.
+            StatusOutputLineData::Worktree { .. } => Some("move commit to worktree"),
+            StatusOutputLineData::WorktreeUncommitted { .. } => None,
             StatusOutputLineData::MergeBase => Some("move commit to new branch"),
             StatusOutputLineData::UpdateNotice
             | StatusOutputLineData::Connector
@@ -1205,13 +1205,14 @@ pub fn move_operation_display(
                     Some("move commits to branch")
                 }
             }
-            StatusOutputLineData::WorktreeUncommittedChanges { .. } => {
+            StatusOutputLineData::Worktree { .. } => {
                 if marks.len() == 1 {
                     Some("move commit to worktree")
                 } else {
                     Some("move commits to worktree")
                 }
             }
+            StatusOutputLineData::WorktreeUncommitted { .. } => None,
             StatusOutputLineData::MergeBase => {
                 if marks.len() == 1 {
                     Some("move commit to new branch")
@@ -1244,7 +1245,8 @@ pub fn move_operation_display(
             | StatusOutputLineData::StagedChanges { .. }
             | StatusOutputLineData::StagedFile { .. }
             | StatusOutputLineData::UncommittedChanges { .. }
-            | StatusOutputLineData::WorktreeUncommittedChanges { .. }
+            | StatusOutputLineData::Worktree { .. }
+            | StatusOutputLineData::WorktreeUncommitted { .. }
             | StatusOutputLineData::UncommittedFile { .. }
             | StatusOutputLineData::CommitMessage
             | StatusOutputLineData::EmptyCommitMessage
@@ -1268,7 +1270,8 @@ pub fn reorder_operation_display(
         | StatusOutputLineData::StagedChanges { .. }
         | StatusOutputLineData::StagedFile { .. }
         | StatusOutputLineData::UncommittedChanges { .. }
-        | StatusOutputLineData::WorktreeUncommittedChanges { .. }
+        | StatusOutputLineData::Worktree { .. }
+        | StatusOutputLineData::WorktreeUncommitted { .. }
         | StatusOutputLineData::UncommittedFile { .. }
         | StatusOutputLineData::Branch { .. }
         | StatusOutputLineData::Commit { .. }
@@ -1305,7 +1308,8 @@ pub fn stack_operation_display(
         | StatusOutputLineData::StagedChanges { .. }
         | StatusOutputLineData::StagedFile { .. }
         | StatusOutputLineData::UncommittedChanges { .. }
-        | StatusOutputLineData::WorktreeUncommittedChanges { .. }
+        | StatusOutputLineData::Worktree { .. }
+        | StatusOutputLineData::WorktreeUncommitted { .. }
         | StatusOutputLineData::UncommittedFile { .. }
         | StatusOutputLineData::Commit { .. }
         | StatusOutputLineData::CommitMessage
@@ -1330,7 +1334,8 @@ pub fn cherry_pick_operation_display(
             InsertSide::Above => Some("pick above"),
             InsertSide::Below => Some("pick below"),
         },
-        StatusOutputLineData::WorktreeUncommittedChanges { .. } => Some("pick to worktree"),
+        StatusOutputLineData::Worktree { .. } => Some("pick to worktree"),
+        StatusOutputLineData::WorktreeUncommitted { .. } => None,
         StatusOutputLineData::UpdateNotice
         | StatusOutputLineData::UncommittedChanges { .. }
         | StatusOutputLineData::Connector
@@ -1358,7 +1363,8 @@ pub fn branch_operation_display(
         | StatusOutputLineData::Branch { .. }
         | StatusOutputLineData::MergeBase => Some("branch"),
         StatusOutputLineData::UpdateNotice
-        | StatusOutputLineData::WorktreeUncommittedChanges { .. }
+        | StatusOutputLineData::Worktree { .. }
+        | StatusOutputLineData::WorktreeUncommitted { .. }
         | StatusOutputLineData::Connector
         | StatusOutputLineData::BetweenStacks
         | StatusOutputLineData::StagedChanges { .. }

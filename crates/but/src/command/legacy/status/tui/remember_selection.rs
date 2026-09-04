@@ -106,6 +106,7 @@ fn line_id(id: &CliId) -> Option<String> {
         }
         CliId::Uncommitted { id } => format!("uncommitted:{id}"),
         CliId::Worktree { name, .. } => format!("worktree:{name}"),
+        CliId::WorktreeUncommitted { name, .. } => format!("worktree-uncommitted:{name}"),
         CliId::CommittedHunk(..) | CliId::PathPrefix { .. } | CliId::Stack { .. } => return None,
     })
 }

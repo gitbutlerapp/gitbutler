@@ -73,25 +73,27 @@ but move <commit-id>:<file-id>:<hunk-id> --above <commit-id> # Reposition a comm
 
 IDs are positional and space-separated. `but help cli-ids` documents every ID kind in detail.
 
-**Linked worktrees** (experimental, only with the `worktreeManipulation` feature flag on): each
-active linked worktree gets its own ID and is drawn in `but status` as a lane — a braced
+**Worktrees** (experimental, only with the `worktreeManipulation` feature flag on): each
+active worktree gets its own ID and is drawn in `but status` as a lane — a braced
 `{<branch>}` heading (the worktree name when its `HEAD` is detached) nested above the commit the
 worktree rests on — another worktree's commit included, lanes nest recursively — or standing on
 its own below the stacks when it rests outside the workspace.
-The lane lists that checkout's uncommitted files and the commits the worktree owns; in `--json`
+The lane lists that worktree's uncommitted files and the commits the worktree owns; in `--json`
 they appear in a top-level `worktrees` array. The worktree ID on the heading names its whole
 uncommitted area the way `@` names the main worktree's, and `<worktree-name>:<path>` scopes a
-filename to that checkout — `@:<path>` keeps meaning the main worktree. A filename dirty in
-several checkouts at once is ambiguous; the error suggests the scoped forms. A worktree file or
-heading ID — like `@` for the main checkout — works as a `but commit` change and a `but amend`
+filename to that worktree — `@:<path>` keeps meaning the main worktree. A filename dirty in
+several worktrees at once is ambiguous; the error suggests the scoped forms. A worktree file or
+heading ID — like `@` for the main worktree — works as a `but commit` change and a `but amend`
 source: the change lands on the target and leaves that worktree's uncommitted area. Without a
 target flag, worktree changes commit to the tip of the worktree's own branch; an explicit target
-commit or branch does not have to be the worktree's own. One operation reads from one checkout
-at a time — a selection mixing checkouts is refused. A worktree is also a target: `but commit`,
+commit or branch does not have to be the worktree's own. One operation reads from one worktree
+at a time — a selection mixing worktrees is refused. A worktree is also a target: `but commit`,
 `but move`, and `but pick` with `-b <worktree-id-or-its-branch-name>` or `--below <worktree-id>`
 place the commit on the tip of the branch the worktree has checked out (`--above` is refused —
 that is its uncommitted area). A worktree's own commits carry ordinary commit IDs: `reword`, `move`,
 `squash`, and `pick` accept them, and the worktree's branch and checkout follow the rewrite.
+Uncommitting one lands in that worktree's uncommitted area, so `squash -t` names it by the
+worktree's area ID (`<id>:@`), not `@`; `but uncommit` infers it.
 
 ## Parallel vs Stacked Branches
 

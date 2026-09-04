@@ -321,7 +321,7 @@ fn resolve(repo: &gix::Repository, id_map: &IdMap, args: Platform) -> CliResult<
             ResolvedCliIdArg::PathPrefix { id: _, hunks } => {
                 uncommitted_change_sources.push(UncommittedDiscardSource::PathPrefix(hunks))
             }
-            ResolvedCliIdArg::Worktree(name) => {
+            ResolvedCliIdArg::WorktreeUncommitted(name) => {
                 return Err(bad_input(format!(
                     "Changes in worktree {name} cannot be discarded as a whole"
                 ))
@@ -329,6 +329,16 @@ fn resolve(repo: &gix::Repository, id_map: &IdMap, args: Platform) -> CliResult<
                 .arg_value(value)
                 .hint("Discard its files or hunks by their CLI IDs instead")
                 .into());
+            }
+            ResolvedCliIdArg::Worktree(name) => {
+                return Err(bad_input(format!("Worktree {name} cannot be discarded"))
+                    .arg_name("<CHANGES>")
+                    .arg_value(value)
+                    .hint(format!(
+                        "Use `{name}:{}` to name that worktree's uncommitted changes",
+                        crate::id::UNCOMMITTED
+                    ))
+                    .into());
             }
             ResolvedCliIdArg::Stack { .. } => {
                 return Err(bad_input("Stacks cannot be discarded")

@@ -1,7 +1,12 @@
 use anyhow::Context as _;
 use bstr::{BStr, ByteSlice as _};
 
-use crate::{CliResult, IdMap, args::atoms::CliIdArg, bad_input, utils::targeting::Side};
+use crate::{
+    CliResult, IdMap,
+    args::atoms::CliIdArg,
+    bad_input,
+    utils::{change_source::ChangeSourceId, targeting::Side},
+};
 
 /// The branch checked out in the linked worktree `name`, which is where a commit made from that
 /// checkout goes and where a commit moved onto its lane lands.
@@ -74,4 +79,19 @@ pub(crate) fn worktree_branch_target(
         (branch.shorten().as_bytes() == wanted || branch.as_bstr().as_bytes() == wanted)
             .then_some(branch)
     }))
+}
+
+/// The worktree an uncommit of `commit` lands in: the linked worktree that owns it, or the main
+/// worktree for a workspace commit.
+pub(crate) fn commit_owner(
+    head_info: &but_workspace::RefInfo,
+    commit: gix::ObjectId,
+) -> ChangeSourceId {
+    head_info
+        .worktrees
+        .iter()
+        .find(|worktree| worktree.commits.iter().any(|owned| owned.id == commit))
+        .map_or(ChangeSourceId::Head, |worktree| {
+            ChangeSourceId::Worktree(worktree.name.clone())
+        })
 }

@@ -150,7 +150,7 @@ impl<'a> ModeRef<'a> {
     pub fn marks_ref(self) -> MarksRef<'a> {
         match self {
             ModeRef::Normal(normal_mode) => normal_mode.marks.as_ref(),
-            ModeRef::Squash(SquashMode { source, reword: _ }) => match source {
+            ModeRef::Squash(SquashMode { source, .. }) => match source {
                 SquashSource::Marks(marks) => marks.as_ref(),
                 SquashSource::Uncommitted
                 | SquashSource::Branch(..)
@@ -160,9 +160,9 @@ impl<'a> ModeRef<'a> {
             },
             ModeRef::Commit(commit_mode) => match &*commit_mode.source {
                 CommitSource::Marks(hunks) => MarksRef::from_hunks(hunks),
-                CommitSource::Uncommitted
-                | CommitSource::UncommittedHunk(..)
-                | CommitSource::Worktree(..) => MarksRef::Empty,
+                CommitSource::UncommittedHunk(..) | CommitSource::UncommittedArea(..) => {
+                    MarksRef::Empty
+                }
             },
             ModeRef::PickChanges(pick_uncommitted_mode) => pick_uncommitted_mode.marks.as_ref(),
             ModeRef::Details(details_mode) => details_mode.return_mode.marks(),

@@ -1,6 +1,5 @@
 use std::sync::Arc;
 
-use bstr::BString;
 use but_core::ref_metadata::StackId;
 use but_ctx::Context;
 use gix::refs::Category;
@@ -65,19 +64,14 @@ pub enum CommitMessageComposer {
 #[derive(Debug)]
 pub enum CommitSource {
     Marks(NonEmpty<UncommittedHunkOrFile>),
-    Uncommitted,
     UncommittedHunk(UncommittedHunkOrFile),
-    /// Every uncommitted change of a linked worktree, the way [`Self::Uncommitted`] means every
-    /// uncommitted change of the main one.
-    Worktree(BString),
+    /// Every uncommitted change of one worktree.
+    UncommittedArea(ChangeSourceId),
 }
 
 impl ModeRender for CommitMode {
     fn operation_extension(&self, data: &StatusOutputLineData) -> Option<OperationExtension<'_>> {
-        let is_worktree_heading = matches!(
-            data,
-            StatusOutputLineData::WorktreeUncommittedChanges { .. }
-        );
+        let is_worktree_heading = matches!(data, StatusOutputLineData::Worktree { .. });
         let direction = if matches!(data, StatusOutputLineData::Commit { .. }) {
             self.insert_side.into()
         } else if matches!(data, StatusOutputLineData::Branch { .. }) || is_worktree_heading {
@@ -103,13 +97,6 @@ impl ModeRender for CommitMode {
             return;
         };
         if !self.source.contains(target) {
-            return;
-        }
-        // A worktree heading is both the source of its own changes and a genuine destination.
-        // The destination half is advertised by its extension line, so the line itself only
-        // claims the source instead of the no-op marker a pure source would get.
-        if matches!(&**target, CliId::Worktree { .. }) {
-            line.extend([source_span(app.theme), Span::raw(" ")]);
             return;
         }
         render_commit_operation_target_marker(app, data, self, line);
@@ -141,11 +128,8 @@ impl CommitSource {
                     false
                 }
             }
-            CommitSource::Uncommitted => {
-                matches!(other, CliId::Uncommitted { .. })
-            }
-            CommitSource::Worktree(name) => {
-                matches!(other, CliId::Worktree { name: other, .. } if other == name)
+            CommitSource::UncommittedArea(source) => {
+                other.uncommitted_area().as_ref() == Some(source)
             }
             CommitSource::UncommittedHunk(lhs) => {
                 if let CliId::UncommittedHunkOrFile(rhs) = other {
@@ -160,12 +144,15 @@ impl CommitSource {
     fn try_from_cli_id(id: &CliId) -> Option<Self> {
         match id {
             CliId::Branch(..) | CliId::Commit { .. } | CliId::Uncommitted { .. } => {
-                Some(CommitSource::Uncommitted)
+                Some(CommitSource::UncommittedArea(ChangeSourceId::Head))
             }
             CliId::UncommittedHunkOrFile(hunk) => Some(CommitSource::UncommittedHunk(hunk.clone())),
-            // A worktree heading names that checkout's uncommitted area, so it is a source in
-            // exactly the way `@` is one for the main worktree.
-            CliId::Worktree { name, .. } => Some(CommitSource::Worktree(name.clone())),
+            // The reference offers the area whose changes land on its lane by default, the way a
+            // branch row offers the main area: `c` then confirm on it commits the worktree's own
+            // changes, never another worktree's.
+            CliId::WorktreeUncommitted { name, .. } | CliId::Worktree { name, .. } => Some(
+                CommitSource::UncommittedArea(ChangeSourceId::Worktree(name.clone())),
+            ),
             CliId::AnonymousSegment(..)
             | CliId::PathPrefix { .. }
             | CliId::CommittedFile { .. }
@@ -266,7 +253,9 @@ impl App {
             },
             Mode::Squash(squash_mode) => match &squash_mode.source {
                 SquashSource::Uncommitted => {
-                    self.handle_commit_start_source(CommitSource::Uncommitted);
+                    self.handle_commit_start_source(CommitSource::UncommittedArea(
+                        ChangeSourceId::Head,
+                    ));
                 }
                 SquashSource::UncommittedHunk(hunk) => {
                     self.handle_commit_start_source(CommitSource::UncommittedHunk(hunk.clone()));
@@ -364,10 +353,7 @@ impl App {
             return Ok(());
         };
 
-        // A worktree heading is both the source of its own changes and the top of its lane, which
-        // is where they belong, so confirming on it commits rather than cancelling.
-        let is_own_worktree_lane = matches!(&**data, CliId::Worktree { .. });
-        if source.contains(data) && !is_own_worktree_lane {
+        if source.contains(data) {
             messages.push(Message::EnterNormalModeAfterConfirmingOperation);
             return Ok(());
         }
@@ -388,6 +374,7 @@ impl App {
             }
             CliId::AnonymousSegment(..)
             | CliId::UncommittedHunkOrFile(..)
+            | CliId::WorktreeUncommitted { .. }
             | CliId::PathPrefix { .. }
             | CliId::CommittedFile { .. }
             | CliId::CommittedHunk { .. }
@@ -442,6 +429,7 @@ impl App {
             | CliId::CommittedHunk { .. }
             | CliId::Commit { .. }
             | CliId::Worktree { .. }
+            | CliId::WorktreeUncommitted { .. }
             | CliId::Stack { .. } => return Ok(()),
         };
 
@@ -526,9 +514,8 @@ where
         CommitSource::Marks(hunks) => commit::CommitSelection::Changes(Box::new(
             UncommittedSelection::new(hunks.clone()).map_err(CliError::into_internal)?,
         )),
-        CommitSource::Uncommitted => commit::CommitSelection::AllChanges(ChangeSourceId::Head),
-        CommitSource::Worktree(name) => {
-            commit::CommitSelection::AllChanges(ChangeSourceId::Worktree(name.clone()))
+        CommitSource::UncommittedArea(source) => {
+            commit::CommitSelection::AllChanges(source.clone())
         }
         CommitSource::UncommittedHunk(hunk) => commit::CommitSelection::Changes(Box::new(
             UncommittedSelection::new(NonEmpty::new(hunk.clone()))

@@ -43,10 +43,7 @@ impl ModeRender for CherryPickMode {
         {
             self.insert_side.into()
         } else if matches!(data, StatusOutputLineData::Branch { .. })
-            || matches!(
-                data,
-                StatusOutputLineData::WorktreeUncommittedChanges { .. }
-            )
+            || matches!(data, StatusOutputLineData::Worktree { .. })
         {
             ExtensionDirection::Below
         } else {
@@ -166,6 +163,7 @@ impl App {
                         | CliId::Branch(..)
                         | CliId::Uncommitted { .. }
                         | CliId::Worktree { .. }
+                        | CliId::WorktreeUncommitted { .. }
                         | CliId::Stack { .. } => return,
                     };
 
@@ -251,6 +249,7 @@ impl App {
                 | CliId::CommittedFile { .. }
                 | CliId::CommittedHunk(..)
                 | CliId::Uncommitted { .. }
+                | CliId::WorktreeUncommitted { .. }
                 | CliId::Stack { .. } => Ok(None),
             }
         })
@@ -283,6 +282,7 @@ impl App {
             | CliId::CommittedHunk { .. }
             | CliId::Uncommitted { .. }
             | CliId::Worktree { .. }
+            | CliId::WorktreeUncommitted { .. }
             | CliId::Stack { .. } => Ok(None),
         })
     }

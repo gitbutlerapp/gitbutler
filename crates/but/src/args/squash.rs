@@ -61,7 +61,8 @@ pub struct Platform {
     ///
     /// If `TARGET` is a branch the sources will be added to that branch's newest commit (its tip).
     ///
-    /// If `TARGET` is the uncommitted area (`@`) the sources will be uncommitted.
+    /// If `TARGET` is the uncommitted area (`@`) the sources will be uncommitted. A commit owned by a
+    /// worktree uncommits into that worktree's area instead, named by its ID (`<id>:@`).
     #[clap(long, short)]
     pub target: Option<CliIdArg>,
 

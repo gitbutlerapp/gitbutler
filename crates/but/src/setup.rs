@@ -106,7 +106,7 @@ pub fn init_ctx(
 ) -> anyhow::Result<Context> {
     let app_settings = crate::app_settings()?;
     // lets try to get the repo from the current directory
-    let repo = match gix::discover(&args.current_dir) {
+    let repo = match but_ctx::discover_main_repo(&args.current_dir) {
         Ok(repo) => repo,
         Err(_) => anyhow::bail!(
             "No git repository found at {}\nPlease run 'but setup' to initialize the project.",

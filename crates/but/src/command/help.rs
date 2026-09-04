@@ -380,7 +380,7 @@ Inspection:
 Branching and Committing:
   commit       Create a commit
   branch       Commands for managing branches
-  worktree     Manage linked worktrees (experimental, requires the worktreeMan…
+  worktree     Manage worktrees (experimental, requires the worktreeManipulati…
   discard      Discard branches, commits, or changes
   resolve      Resolve conflicts in a commit or in uncommitted files
   unapply      Unapply a branch
@@ -484,7 +484,7 @@ Checkout the full docs here: https://docs.gitbutler.com/cli-overview
 
 Branching and Committing:
   branch       Commands for managing branches
-  worktree     Manage linked worktrees (experimental, requires the worktreeMan…
+  worktree     Manage worktrees (experimental, requires the worktreeManipulati…
 
 Other Commands:
   gui          Open the GitButler GUI for the current project

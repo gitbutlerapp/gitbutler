@@ -1361,6 +1361,7 @@ fn open_tui_on_uncommitted_hunk(show_diff: bool) -> TestTui<App> {
                 | CliId::Commit { .. }
                 | CliId::Uncommitted { .. }
                 | CliId::Worktree { .. }
+                | CliId::WorktreeUncommitted { .. }
                 | CliId::Stack { .. } => None,
             })
             .expect("target file should have a CLI ID");

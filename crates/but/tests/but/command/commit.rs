@@ -2755,8 +2755,9 @@ fn commit_a_file_from_a_linked_worktree() {
 ┊
 ┊╭┄ g0 [A]
 ┊┊
-┊┊╭┄ wt {wt-feature}
+┊┊╭┄ wt:@ {worktree uncommitted}
 ┊┊┊   nl A note.txt
+┊┊├┄ wt {wt-feature}
 ┊├╯
 ┊●   tpm add A
 ├╯
@@ -2792,7 +2793,8 @@ Created commit lpo on branch 'A'
 ┊●   lpo note from worktree
 ┊│     lpo:u A note.txt
 ┊┊
-┊┊╭┄ wt {wt-feature} (no changes)
+┊┊╭┄ wt:@ {worktree uncommitted} (no changes)
+┊┊├┄ wt {wt-feature}
 ┊├╯
 ┊●   tpm add A
 ┊│     tpm:t A A
@@ -2820,7 +2822,7 @@ fn commit_a_worktrees_whole_uncommitted_area() {
     env.but("status").assert().success();
     add_dirty_worktree(&env, "wt-feature", "A");
 
-    env.but("commit wt -b B -m 'everything from the worktree'")
+    env.but("commit wt:@ -b B -m 'everything from the worktree'")
         .assert()
         .success()
         .stderr_eq(snapbox::str![])
@@ -2838,7 +2840,8 @@ Created commit ulz on branch 'B'
 ┊
 ┊╭┄ g0 [A]
 ┊┊
-┊┊╭┄ wt {wt-feature} (no changes)
+┊┊╭┄ wt:@ {worktree uncommitted} (no changes)
+┊┊├┄ wt {wt-feature}
 ┊├╯
 ┊●   tpm add A
 ┊│     tpm:t A A
@@ -3062,7 +3065,7 @@ fn commit_from_a_worktree_defaults_to_its_own_branch() {
     let wt_dir = crate::command::util::add_worktree_with_commit(&env, "wt-feature", "A");
     std::fs::write(wt_dir.join("note.txt"), "dirty\n").unwrap();
 
-    env.but("commit wt -m 'note from the worktree'")
+    env.but("commit wt:@ -m 'note from the worktree'")
         .assert()
         .success()
         .stderr_eq(snapbox::str![])
@@ -3098,7 +3101,8 @@ Created commit vzp on branch 'wt-feature'
 ┊
 ┊╭┄ g0 [A]
 ┊┊
-┊┊╭┄ wt {wt-feature} (no changes)
+┊┊╭┄ wt:@ {worktree uncommitted} (no changes)
+┊┊├┄ wt {wt-feature}
 ┊┊●   vzp note from the worktree
 ┊┊│     vzp:u A note.txt
 ┊┊●   nsn add W
@@ -3134,7 +3138,7 @@ fn commit_from_a_worktree_sharing_its_branch_tip_advances_only_the_worktree() {
     env.but("status").assert().success();
     add_dirty_worktree(&env, "wt-feature", "A");
 
-    env.but("commit wt -m 'note from the worktree'")
+    env.but("commit wt:@ -m 'note from the worktree'")
         .assert()
         .success()
         .stderr_eq(snapbox::str![])
@@ -3181,7 +3185,7 @@ fn commit_from_a_detached_worktree_is_refused() {
         env.projects_root(),
     );
 
-    env.but("commit wt-detached -m 'nowhere to go'")
+    env.but("commit wt-detached:@ -m 'nowhere to go'")
         .assert()
         .failure()
         .stdout_eq(snapbox::str![])

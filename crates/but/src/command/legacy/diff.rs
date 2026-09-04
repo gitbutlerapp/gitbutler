@@ -58,7 +58,7 @@ impl CliOutputHuman for DiffOutcome<'_> {
             DiffOperation::Uncommitted => {
                 diff_rendering::render_uncommitted(ctx, theme, &mut id_gen, options, &mut writer)?;
             }
-            DiffOperation::Worktree { name } => {
+            DiffOperation::WorktreeUncommitted { name } => {
                 diff_rendering::render_uncommitted_source(
                     ctx,
                     ChangeSourceId::Worktree(name),
@@ -295,7 +295,7 @@ impl CliOutput for DiffOutcome<'_> {
                             .collect(),
                     )
                 }
-                DiffOperation::Worktree { name } => {
+                DiffOperation::WorktreeUncommitted { name } => {
                     let id_map = IdMap::legacy_new_from_context(ctx)?;
                     let source = ChangeSourceId::Worktree(name.clone());
                     hunk_changes(
@@ -471,7 +471,18 @@ fn resolve(ctx: &Context, id_map: &IdMap, args: Platform) -> CliResult<DiffOpera
             Err(bad_input("viewing diffs for committed hunks is not supported").into())
         }
         ResolvedCliIdArg::PathPrefix { id, hunks } => Ok(DiffOperation::PathPrefix { id, hunks }),
-        ResolvedCliIdArg::Worktree(name) => Ok(DiffOperation::Worktree { name }),
+        ResolvedCliIdArg::WorktreeUncommitted(name) => {
+            Ok(DiffOperation::WorktreeUncommitted { name })
+        }
+        // The reference names the lane's commits, which no diff operation renders yet.
+        ResolvedCliIdArg::Worktree(name) => Err(bad_input(format!(
+            "Worktree {name} has no changes of its own"
+        ))
+        .hint(format!(
+            "Use `{name}:{}` for that worktree's uncommitted changes",
+            crate::id::UNCOMMITTED
+        ))
+        .into()),
         ResolvedCliIdArg::Stack { .. } => {
             Err(bad_input("viewing diffs for stack assignments is not supported").into())
         }
@@ -485,7 +496,7 @@ fn run(ctx: &mut Context, op: DiffOperation) -> anyhow::Result<DiffOutcome<'_>> 
 #[derive(Debug)]
 enum DiffOperation {
     Uncommitted,
-    Worktree {
+    WorktreeUncommitted {
         name: BString,
     },
     Commit {

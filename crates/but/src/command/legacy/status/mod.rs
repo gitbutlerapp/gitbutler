@@ -1316,21 +1316,21 @@ fn print_worktree_lanes_on(
     status_ctx: &StatusContext<'_>,
     base: gix::ObjectId,
     depth: usize,
-    lane_separator_for_first_child_worktree: Option<LaneSeparator>,
     output: &mut StatusOutput<'_>,
 ) -> anyhow::Result<()> {
-    for (idx, worktree) in status_ctx
+    for worktree in status_ctx
         .worktrees
         .iter()
         .filter(|wt| wt.base.map(|base| base.commit_id()) == Some(base))
-        .enumerate()
     {
-        let separator = if idx == 0 {
-            lane_separator_for_first_child_worktree
-        } else {
-            Some(LaneSeparator::Above)
-        };
-        print_worktree_lane(ctx, status_ctx, worktree, depth, separator, output)?;
+        print_worktree_lane(
+            ctx,
+            status_ctx,
+            worktree,
+            depth,
+            Some(LaneSeparator::Above),
+            output,
+        )?;
     }
     Ok(())
 }
@@ -1366,14 +1366,8 @@ fn print_worktree_lane(
     print_uncommitted_group(
         &repo,
         status_ctx,
-        CliId::Worktree {
-            id: with_id.short_id.clone(),
-            name: with_id.name.clone(),
-        },
-        &worktree.ref_name.as_ref().map_or_else(
-            || worktree.name.to_string(),
-            |name| name.shorten().to_string(),
-        ),
+        with_id.uncommitted_id(),
+        "worktree uncommitted",
         ("{", "}"),
         &files,
         status_ctx.changes_in_source(&source),
@@ -1383,27 +1377,14 @@ fn print_worktree_lane(
         output,
     )?;
 
-    let mut show_uncommitted_files_and_commit_separator =
-        !files.is_empty() && !with_id.commits.is_empty();
-    if show_uncommitted_files_and_commit_separator {
-        output.connector(in_lane(depth, [Span::raw("┊"), Span::raw("┊")]))?;
-    }
+    // The reference row separates the area's files from the lane's commits, which is the
+    // job the bare `┊┊` connector used to do.
+    print_worktree_row(with_id, worktree, depth + 1, output)?;
 
     for commit in &with_id.commits {
         // Worktrees stack on each other too; base assignment follows tip order, so the
         // resting-on relation cannot cycle and this recursion terminates.
-        print_worktree_lanes_on(
-            ctx,
-            status_ctx,
-            commit.commit_id(),
-            depth + 1,
-            if std::mem::take(&mut show_uncommitted_files_and_commit_separator) {
-                None
-            } else {
-                Some(LaneSeparator::Above)
-            },
-            output,
-        )?;
+        print_worktree_lanes_on(ctx, status_ctx, commit.commit_id(), depth + 1, output)?;
 
         let inner = status_ctx
             .local_commits_by_id
@@ -1748,14 +1729,7 @@ fn print_group(
             for commit in segment.workspace_commits.iter() {
                 // Commits are listed newest first, so a worktree branching off this commit
                 // opens its lane just above it and closes back onto it.
-                print_worktree_lanes_on(
-                    ctx,
-                    status_ctx,
-                    commit.commit_id(),
-                    1,
-                    Some(LaneSeparator::Above),
-                    output,
-                )?;
+                print_worktree_lanes_on(ctx, status_ctx, commit.commit_id(), 1, output)?;
                 let inner = status_ctx
                     .local_commits_by_id
                     .get(&commit.commit_id())
@@ -1812,6 +1786,34 @@ fn print_group(
 
 /// Print one uncommitted-changes heading and the files below it.
 ///
+/// The worktree reference row: the lane the worktree's commits hang off, naming the
+/// branch checked out there.
+///
+/// Sits below the area's files rather than above them, so `├┄` rather than `╭┄`.
+fn print_worktree_row(
+    with_id: &crate::id::WorktreeWithId,
+    worktree: &but_workspace::worktrees::WorktreeInfo,
+    depth: usize,
+    output: &mut StatusOutput<'_>,
+) -> anyhow::Result<()> {
+    let t = crate::theme::get();
+    let cli_id = with_id.reference_id();
+    let line = UncommittedLineContent {
+        id: Vec::from([Span::styled(cli_id.to_short_string().to_string(), t.cli_id)]),
+        decoration_start: Vec::from([Span::raw(" {")]),
+        label: Vec::from([Span::styled(
+            worktree.ref_name.as_ref().map_or_else(
+                || worktree.name.to_string(),
+                |name| name.shorten().to_string(),
+            ),
+            t.info,
+        )]),
+        decoration_end: Vec::from([Span::raw("}")]),
+        suffix: Vec::new(),
+    };
+    output.worktree(in_lane(depth, [Span::raw("├┄ ")]), line, cli_id)
+}
+
 /// `changes` supplies the tree status letters and must come from the same
 /// checkout as `files`, or every file renders without one. `decoration` brackets the label:
 /// `[]` for the main worktree's area, `{}` for a linked worktree's.
@@ -1840,8 +1842,8 @@ fn print_uncommitted_group(
             Vec::new()
         },
     };
-    if matches!(cli_id, CliId::Worktree { .. }) {
-        output.uncommitted_changes_in_worktree(in_lane(depth, [Span::raw("╭┄ ")]), line, cli_id)?;
+    if matches!(cli_id, CliId::WorktreeUncommitted { .. }) {
+        output.worktree_uncommitted(in_lane(depth, [Span::raw("╭┄ ")]), line, cli_id)?;
     } else {
         output.uncommitted_changes(in_lane(depth, [Span::raw("╭┄ ")]), line, cli_id)?;
     }

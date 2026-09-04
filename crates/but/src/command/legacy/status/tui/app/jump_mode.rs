@@ -66,15 +66,20 @@ fn find_line_by_jump_id<'a>(
 
     let mut matches = lines
         .iter()
-        .filter(|line| prefix_match(query, line, return_mode, show_files_flag));
+        .filter(|line| prefix_match(query, line, return_mode, show_files_flag))
+        .peekable();
 
     let needle = matches.next()?;
-
-    if matches.next().is_none() && jump_id_has_prefix(needle, query) {
-        Some(needle)
-    } else {
-        None
+    if matches.peek().is_none() {
+        return Some(needle);
     }
+    // A worktree's `wt` is a strict prefix of its own area `wt:@`, so typing it can never
+    // become unique; an ID typed out in full wins over the IDs extending it.
+    std::iter::once(needle).chain(matches).find(|line| {
+        line.data
+            .cli_id()
+            .is_some_and(|id| id.to_short_string() == query)
+    })
 }
 
 pub fn prefix_match(
@@ -122,6 +127,7 @@ fn jump_id_has_prefix(line: &StatusOutputLine, query: &str) -> bool {
         | CliId::CommittedFile { id, .. }
         | CliId::Uncommitted { id }
         | CliId::Worktree { id, .. }
+        | CliId::WorktreeUncommitted { id, .. }
         | CliId::Stack { id, .. } => id.starts_with(query),
         CliId::Branch(branch) => branch.id.starts_with(query),
         CliId::AnonymousSegment(segment) => segment.id.starts_with(query),

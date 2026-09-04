@@ -1594,6 +1594,7 @@ impl KeyBindCondition {
                     | CliId::Branch(..)
                     | CliId::Commit { .. }
                     | CliId::Worktree { .. }
+                    | CliId::WorktreeUncommitted { .. }
                     | CliId::Stack { .. } => false,
                 }
             }

@@ -23,7 +23,7 @@ use crate::{
         },
     },
     id::{BranchId, CommitId, CommittedFileId, IdAndHunk, UncommittedHunkOrFile},
-    utils::targeting::Side,
+    utils::{change_source::ChangeSourceId, targeting::Side},
 };
 
 fn line(data: StatusOutputLineData) -> StatusOutputLine {
@@ -38,8 +38,15 @@ fn uncommitted_area(id: &str) -> Arc<CliId> {
     Arc::new(CliId::Uncommitted { id: id.into() })
 }
 
-fn worktree_area(name: &str, id: &str) -> Arc<CliId> {
+fn worktree_cli_id(name: &str, id: &str) -> Arc<CliId> {
     Arc::new(CliId::Worktree {
+        id: id.into(),
+        name: name.into(),
+    })
+}
+
+fn worktree_uncommitted_cli_id(name: &str, id: &str) -> Arc<CliId> {
+    Arc::new(CliId::WorktreeUncommitted {
         id: id.into(),
         name: name.into(),
     })
@@ -153,6 +160,7 @@ fn uncommitted_source(cli_ids: &[Arc<CliId>]) -> CommitSource {
             | CliId::Branch(BranchId { .. })
             | CliId::Stack { .. }
             | CliId::Worktree { .. }
+            | CliId::WorktreeUncommitted { .. }
             | CliId::Commit { .. } => panic!("test cli ID should be uncommitted"),
         }
     } else {
@@ -1682,8 +1690,8 @@ fn section_navigation_stops_on_worktree_headings() {
             stack_id: None,
             classification: CommitClassification::LocalOnly,
         }),
-        line(StatusOutputLineData::WorktreeUncommittedChanges {
-            cli_id: worktree_area("worktree", "w0"),
+        line(StatusOutputLineData::Worktree {
+            cli_id: worktree_uncommitted_cli_id("worktree", "w0"),
         }),
         uncommitted_file_line("worktree-file", "u0"),
         branch_line("other", "b1"),
@@ -2070,18 +2078,25 @@ fn move_stack_skips_noop_target_below_source() {
 }
 
 #[test]
-fn worktree_heading_remains_selectable_with_uncommitted_marks() {
+fn worktree_area_remains_selectable_with_uncommitted_marks() {
     let marked_file = uncommitted_file_line("marked.txt", "u0");
     let mode = Mode::Normal(NormalMode {
         marks: marks([markable(marked_file.data.cli_id().unwrap())]),
     });
-    let worktree_heading = line(StatusOutputLineData::WorktreeUncommittedChanges {
-        cli_id: worktree_area("worktree", "w0"),
+    let area = line(StatusOutputLineData::WorktreeUncommitted {
+        cli_id: worktree_uncommitted_cli_id("worktree", "w0:@"),
+    });
+    let reference = line(StatusOutputLineData::Worktree {
+        cli_id: worktree_cli_id("worktree", "w0"),
     });
 
     assert!(
-        is_selectable_in_mode(&worktree_heading, mode.as_ref(), FilesStatusFlag::All,),
-        "linked-worktree headings remain selectable while uncommitted changes are marked",
+        is_selectable_in_mode(&area, mode.as_ref(), FilesStatusFlag::All),
+        "a linked worktree's uncommitted area stays selectable while hunks are marked",
+    );
+    assert!(
+        !is_selectable_in_mode(&reference, mode.as_ref(), FilesStatusFlag::All),
+        "a worktree reference holds no hunks, so marking hunks does not reach it",
     );
 }
 
@@ -2108,7 +2123,7 @@ fn is_selectable_is_true_in_inline_reword_mode() {
 fn is_selectable_in_commit_mode_scopes_commit_targets_to_stack() {
     let scoped_stack_id = StackId::single_branch_id();
     let mode = Mode::Commit(CommitMode {
-        source: Arc::new(CommitSource::Uncommitted),
+        source: Arc::new(CommitSource::UncommittedArea(ChangeSourceId::Head)),
         insert_side: Side::Above,
         scope_to_stack: Some(scoped_stack_id),
         message_composer: CommitMessageComposer::default(),
@@ -2184,10 +2199,15 @@ fn status_line(rendered: &str) -> StatusOutputLineData {
                 cli_id: random_cli_id(),
             }
         }
-        "┊┊┊╭┄ wt {worktree} (no changes)"
-        | "┊┊╭┄ wt {worktree} (no changes)"
-        | "┊╭┄ wt {worktree} (no changes)" => {
-            StatusOutputLineData::WorktreeUncommittedChanges {
+        "┊┊┊╭┄ wt:@ {worktree uncommitted} (no changes)"
+        | "┊┊╭┄ wt:@ {worktree uncommitted} (no changes)"
+        | "┊╭┄ wt:@ {worktree uncommitted} (no changes)" => {
+            StatusOutputLineData::WorktreeUncommitted {
+                cli_id: random_cli_id(),
+            }
+        }
+        "┊┊┊├┄ wt {worktree}" | "┊┊├┄ wt {worktree}" | "┊├┄ wt {worktree}" => {
+            StatusOutputLineData::Worktree {
                 cli_id: random_cli_id(),
             }
         }
@@ -2463,11 +2483,13 @@ fn lines_part_of_current_branch_with_stacked_worktrees() {
         ┊
         ┊╭┄ br [branch]
         ┊┊
-        ┊┊╭┄ wt {worktree} (no changes)
+        ┊┊╭┄ wt:@ {worktree uncommitted} (no changes)
+        ┊┊├┄ wt {worktree}
         ┊┊●   abc (no commit message)
         ┊├╯
         ┊┊
-        ┊┊╭┄ wt {worktree} (no changes)
+        ┊┊╭┄ wt:@ {worktree uncommitted} (no changes)
+        ┊┊├┄ wt {worktree}
         ┊├╯
         ┊●   abc (no commit message)
         ├╯
@@ -2484,11 +2506,13 @@ fn lines_part_of_current_branch_with_stacked_worktrees() {
             false, // ┊
             true,  // ┊╭┄ br [branch]
             true,  // ┊┊
-            true,  // ┊┊╭┄ wt {worktree} (no changes)
+            true,  // ┊┊╭┄ wt:@ {worktree uncommitted} (no changes)
+            true,  // ┊┊├┄ wt {worktree}
             true,  // ┊┊●   abc (no commit message)
             true,  // ┊├╯
             true,  // ┊┊
-            true,  // ┊┊╭┄ wt {worktree} (no changes)
+            true,  // ┊┊╭┄ wt:@ {worktree uncommitted} (no changes)
+            true,  // ┊┊├┄ wt {worktree}
             true,  // ┊├╯
             true,  // ┊●   abc (no commit message)
             false, // ├╯
@@ -2496,50 +2520,6 @@ fn lines_part_of_current_branch_with_stacked_worktrees() {
             false, // ┴ c94099713d (common base) 2026-08-26 Merge pull request
         ]),
         Cursor(2)
-            .lines_part_of_current_branch(&mode, &lines)
-            .unwrap(),
-    );
-
-    assert_eq!(
-        Vec::from([
-            false, // ╭┄ @ [uncommitted] (no changes)
-            false, // ┊
-            false, // ┊╭┄ br [branch]
-            false, // ┊┊
-            true,  // ┊┊╭┄ wt {worktree} (no changes)
-            true,  // ┊┊●   abc (no commit message)
-            false, // ┊├╯
-            false, // ┊┊
-            false, // ┊┊╭┄ wt {worktree} (no changes)
-            false, // ┊├╯
-            false, // ┊●   abc (no commit message)
-            false, // ├╯
-            false, // ┊
-            false, // ┴ c94099713d (common base) 2026-08-26 Merge pull request
-        ]),
-        Cursor(4)
-            .lines_part_of_current_branch(&mode, &lines)
-            .unwrap(),
-    );
-
-    assert_eq!(
-        Vec::from([
-            false, // ╭┄ @ [uncommitted] (no changes)
-            false, // ┊
-            false, // ┊╭┄ br [branch]
-            false, // ┊┊
-            false, // ┊┊╭┄ wt {worktree} (no changes)
-            false, // ┊┊●   abc (no commit message)
-            false, // ┊├╯
-            false, // ┊┊
-            true,  // ┊┊╭┄ wt {worktree} (no changes)
-            false, // ┊├╯
-            false, // ┊●   abc (no commit message)
-            false, // ├╯
-            false, // ┊
-            false, // ┴ c94099713d (common base) 2026-08-26 Merge pull request
-        ]),
-        Cursor(8)
             .lines_part_of_current_branch(&mode, &lines)
             .unwrap(),
     );
@@ -2554,7 +2534,8 @@ fn lines_part_of_current_branch_with_stacked_worktrees_with_commits_above() {
         ┊╭┄ br [branch]
         ┊●   abc (no commit message)
         ┊┊
-        ┊┊╭┄ wt {worktree} (no changes)
+        ┊┊╭┄ wt:@ {worktree uncommitted} (no changes)
+        ┊┊├┄ wt {worktree}
         ┊┊●   abc (no commit message)
         ┊├╯
         ┊●   abc (no commit message)
@@ -2573,110 +2554,11 @@ fn lines_part_of_current_branch_with_stacked_worktrees_with_commits_above() {
             true,  // ┊╭┄ br [branch]
             true,  // ┊●   abc (no commit message)
             true,  // ┊┊
-            true,  // ┊┊╭┄ wt {worktree} (no changes)
+            true,  // ┊┊╭┄ wt:@ {worktree uncommitted} (no changes)
+            true,  // ┊┊├┄ wt {worktree}
             true,  // ┊┊●   abc (no commit message)
             true,  // ┊├╯
             true,  // ┊●   abc (no commit message)
-            false, // ├╯
-            false, // ┊
-            false, // ┴ c94099713d (common base) 2026-08-26 Merge pull request
-        ]),
-        Cursor(2)
-            .lines_part_of_current_branch(&mode, &lines)
-            .unwrap(),
-    );
-}
-
-#[test]
-fn lines_part_of_current_branch_with_independent_worktrees() {
-    let lines = status_lines(
-        r#"
-        ╭┄ @ [uncommitted] (no changes)
-        ┊
-        ┊╭┄ wt {worktree} (no changes)
-        ┊●   abc (no commit message)
-        ├╯
-        ┊
-        ┴ c94099713d (common base) 2026-08-26 Merge pull request
-        "#,
-    );
-
-    let mode = Mode::Branch(BranchMode::default());
-
-    assert_eq!(
-        Vec::from([
-            false, // ╭┄ @ [uncommitted] (no changes)
-            false, // ┊
-            true,  // ┊╭┄ wt {worktree} (no changes)
-            true,  // ┊●   abc (no commit message)
-            false, // ├╯
-            false, // ┊
-            false, // ┴ c94099713d (common base) 2026-08-26 Merge pull request
-        ]),
-        Cursor(2)
-            .lines_part_of_current_branch(&mode, &lines)
-            .unwrap(),
-    );
-}
-
-#[test]
-fn lines_part_of_current_branch_with_independent_dirty_worktrees() {
-    let lines = status_lines(
-        r#"
-        ╭┄ @ [uncommitted] (no changes)
-        ┊
-        ┊╭┄ wt {worktree} (no changes)
-        ┊┊   ab M file.rs
-        ┊┊
-        ┊●   abc (no commit message)
-        ├╯
-        ┊
-        ┴ c94099713d (common base) 2026-08-26 Merge pull request
-        "#,
-    );
-
-    let mode = Mode::Branch(BranchMode::default());
-
-    assert_eq!(
-        Vec::from([
-            false, // ╭┄ @ [uncommitted] (no changes)
-            false, // ┊
-            true,  // ┊╭┄ wt {worktree} (no changes)
-            true,  // ┊┊   ab M file.rs
-            true,  // ┊┊
-            true,  // ┊●   abc (no commit message)
-            false, // ├╯
-            false, // ┊
-            false, // ┴ c94099713d (common base) 2026-08-26 Merge pull request
-        ]),
-        Cursor(2)
-            .lines_part_of_current_branch(&mode, &lines)
-            .unwrap(),
-    );
-}
-
-#[test]
-fn lines_part_of_current_branch_with_independent_dirty_worktrees_without_commits() {
-    let lines = status_lines(
-        r#"
-        ╭┄ @ [uncommitted] (no changes)
-        ┊
-        ┊╭┄ wt {worktree} (no changes)
-        ┊┊   ab M file.rs
-        ├╯
-        ┊
-        ┴ c94099713d (common base) 2026-08-26 Merge pull request
-        "#,
-    );
-
-    let mode = Mode::Branch(BranchMode::default());
-
-    assert_eq!(
-        Vec::from([
-            false, // ╭┄ @ [uncommitted] (no changes)
-            false, // ┊
-            true,  // ┊╭┄ wt {worktree} (no changes)
-            true,  // ┊┊   ab M file.rs
             false, // ├╯
             false, // ┊
             false, // ┴ c94099713d (common base) 2026-08-26 Merge pull request
@@ -2696,8 +2578,9 @@ fn lines_part_of_current_branch_with_dirty_stacked_worktrees() {
         ┊╭┄ br [branch]
         ┊●   abc (no commit message)
         ┊┊
-        ┊┊╭┄ wt {worktree} (no changes)
+        ┊┊╭┄ wt:@ {worktree uncommitted} (no changes)
         ┊┊┊   ab M file.rs
+        ┊┊├┄ wt {worktree}
         ┊├╯
         ┊●   abc (no commit message)
         ├╯
@@ -2715,8 +2598,9 @@ fn lines_part_of_current_branch_with_dirty_stacked_worktrees() {
             true,  // ┊╭┄ br [branch]
             true,  // ┊●   abc (no commit message)
             true,  // ┊┊
-            true,  // ┊┊╭┄ wt {worktree} (no changes)
+            true,  // ┊┊╭┄ wt:@ {worktree uncommitted} (no changes)
             true,  // ┊┊┊   ab M file.rs
+            true,  // ┊┊├┄ wt {worktree}
             true,  // ┊├╯
             true,  // ┊●   abc (no commit message)
             false, // ├╯
@@ -2738,9 +2622,9 @@ fn lines_part_of_current_branch_with_dirty_stacked_worktrees_with_commits() {
         ┊╭┄ br [branch]
         ┊●   abc (no commit message)
         ┊┊
-        ┊┊╭┄ wt {worktree} (no changes)
+        ┊┊╭┄ wt:@ {worktree uncommitted} (no changes)
         ┊┊┊   ab M file.rs
-        ┊┊┊
+        ┊┊├┄ wt {worktree}
         ┊┊●   abc (no commit message)
         ┊├╯
         ┊●   abc (no commit message)
@@ -2759,9 +2643,9 @@ fn lines_part_of_current_branch_with_dirty_stacked_worktrees_with_commits() {
             true,  // ┊╭┄ br [branch]
             true,  // ┊●   abc (no commit message)
             true,  // ┊┊
-            true,  // ┊┊╭┄ wt {worktree} (no changes)
+            true,  // ┊┊╭┄ wt:@ {worktree uncommitted} (no changes)
             true,  // ┊┊┊   ab M file.rs
-            true,  // ┊┊┊
+            true,  // ┊┊├┄ wt {worktree}
             true,  // ┊┊●   abc (no commit message)
             true,  // ┊├╯
             true,  // ┊●   abc (no commit message)
@@ -2776,55 +2660,6 @@ fn lines_part_of_current_branch_with_dirty_stacked_worktrees_with_commits() {
 }
 
 #[test]
-fn lines_part_of_current_worktree_with_nested_worktree() {
-    let lines = status_lines(
-        r#"
-        ╭┄ @ [uncommitted] (no changes)
-        ┊
-        ┊╭┄ br [branch]
-        ┊┊
-        ┊┊╭┄ wt {worktree} (no changes)
-        ┊┊┊
-        ┊┊┊╭┄ wt {worktree} (no changes)
-        ┊┊┊●   abc (no commit message)
-        ┊┊├╯
-        ┊┊●   abc (no commit message)
-        ┊├╯
-        ┊●   abc (no commit message)
-        ├╯
-        ┊
-        ┴ c94099713d (common base) 2026-08-26 Merge pull request
-        "#,
-    );
-
-    let mode = Mode::Branch(BranchMode::default());
-
-    assert_eq!(
-        Vec::from([
-            false, // ╭┄ @ [uncommitted] (no changes)
-            false, // ┊
-            false, // ┊╭┄ br [branch]
-            false, // ┊┊
-            true,  // ┊┊╭┄ wt {worktree} (no changes)
-            true,  // ┊┊┊
-            true,  // ┊┊┊╭┄ wt {worktree} (no changes)
-            true,  // ┊┊┊●   abc (no commit message)
-            true,  // ┊┊├╯
-            true,  // ┊┊●   abc (no commit message)
-            false, // ┊├╯
-            false, // ┊●   abc (no commit message)
-            false, // ├╯
-            false, // ┊
-            false, // ┴ c94099713d (common base) 2026-08-26 Merge pull request
-        ]),
-        Cursor(4)
-            .lines_part_of_current_branch(&mode, &lines)
-            .unwrap(),
-        "the selected worktree should remain highlighted after its nested worktree closes",
-    );
-}
-
-#[test]
 fn lines_part_of_current_branch_with_dirty_worktree_commit_files() {
     let lines = status_lines(
         r#"
@@ -2832,9 +2667,9 @@ fn lines_part_of_current_branch_with_dirty_worktree_commit_files() {
         ┊
         ┊╭┄ br [branch]
         ┊┊
-        ┊┊╭┄ wt {worktree} (no changes)
+        ┊┊╭┄ wt:@ {worktree uncommitted} (no changes)
         ┊┊┊   ab M file.rs
-        ┊┊┊
+        ┊┊├┄ wt {worktree}
         ┊┊●   abc (no commit message)
         ┊┊│     ab M committed.rs
         ┊├╯
@@ -2853,9 +2688,9 @@ fn lines_part_of_current_branch_with_dirty_worktree_commit_files() {
             false, // ┊
             true,  // ┊╭┄ br [branch]
             true,  // ┊┊
-            true,  // ┊┊╭┄ wt {worktree} (no changes)
+            true,  // ┊┊╭┄ wt:@ {worktree uncommitted} (no changes)
             true,  // ┊┊┊   ab M file.rs
-            true,  // ┊┊┊
+            true,  // ┊┊├┄ wt {worktree}
             true,  // ┊┊●   abc (no commit message)
             true,  // ┊┊│     ab M committed.rs
             true,  // ┊├╯
@@ -2879,12 +2714,13 @@ fn lines_part_of_current_branch_with_nested_worktree_between_dirty_worktree_comm
         ┊
         ┊╭┄ br [branch]
         ┊┊
-        ┊┊╭┄ wt {worktree} (no changes)
+        ┊┊╭┄ wt:@ {worktree uncommitted} (no changes)
         ┊┊┊   ab M file.rs
-        ┊┊┊
+        ┊┊├┄ wt {worktree}
         ┊┊●   abc (no commit message)
         ┊┊┊
-        ┊┊┊╭┄ wt {worktree} (no changes)
+        ┊┊┊╭┄ wt:@ {worktree uncommitted} (no changes)
+        ┊┊┊├┄ wt {worktree}
         ┊┊┊●   abc (no commit message)
         ┊┊├╯
         ┊┊●   abc (no commit message)
@@ -2904,12 +2740,13 @@ fn lines_part_of_current_branch_with_nested_worktree_between_dirty_worktree_comm
             false, // ┊
             true,  // ┊╭┄ br [branch]
             true,  // ┊┊
-            true,  // ┊┊╭┄ wt {worktree} (no changes)
+            true,  // ┊┊╭┄ wt:@ {worktree uncommitted} (no changes)
             true,  // ┊┊┊   ab M file.rs
-            true,  // ┊┊┊
+            true,  // ┊┊├┄ wt {worktree}
             true,  // ┊┊●   abc (no commit message)
             true,  // ┊┊┊
-            true,  // ┊┊┊╭┄ wt {worktree} (no changes)
+            true,  // ┊┊┊╭┄ wt:@ {worktree uncommitted} (no changes)
+            true,  // ┊┊┊├┄ wt {worktree}
             true,  // ┊┊┊●   abc (no commit message)
             true,  // ┊┊├╯
             true,  // ┊┊●   abc (no commit message)
@@ -2926,8 +2763,9 @@ fn lines_part_of_current_branch_with_nested_worktree_between_dirty_worktree_comm
     );
 }
 
+/// Fixed by GB-1915: the typed reference row lets each lane earn and spend exactly one
+/// connector, which the peek-ahead heuristic this replaced could not get right.
 #[test]
-#[ignore = "https://linear.app/gitbutler/issue/GB-1915/fix-lines-part-of-current-branch-with-dirty-nested-worktree-between"]
 fn lines_part_of_current_branch_with_dirty_nested_worktree_between_dirty_worktree_commits() {
     let lines = status_lines(
         r#"
@@ -2935,14 +2773,14 @@ fn lines_part_of_current_branch_with_dirty_nested_worktree_between_dirty_worktre
         ┊
         ┊╭┄ br [branch]
         ┊┊
-        ┊┊╭┄ wt {worktree} (no changes)
+        ┊┊╭┄ wt:@ {worktree uncommitted} (no changes)
         ┊┊┊   ab M file.rs
-        ┊┊┊
+        ┊┊├┄ wt {worktree}
         ┊┊●   abc (no commit message)
         ┊┊┊
-        ┊┊┊╭┄ wt {worktree} (no changes)
+        ┊┊┊╭┄ wt:@ {worktree uncommitted} (no changes)
         ┊┊┊┊   ab M file.rs
-        ┊┊┊┊
+        ┊┊┊├┄ wt {worktree}
         ┊┊┊●   abc (no commit message)
         ┊┊├╯
         ┊┊●   abc (no commit message)
@@ -2962,14 +2800,14 @@ fn lines_part_of_current_branch_with_dirty_nested_worktree_between_dirty_worktre
             false, // ┊
             true,  // ┊╭┄ br [branch]
             true,  // ┊┊
-            true,  // ┊┊╭┄ wt {worktree} (no changes)
+            true,  // ┊┊╭┄ wt:@ {worktree uncommitted} (no changes)
             true,  // ┊┊┊   ab M file.rs
-            true,  // ┊┊┊
+            true,  // ┊┊├┄ wt {worktree}
             true,  // ┊┊●   abc (no commit message)
             true,  // ┊┊┊
-            true,  // ┊┊┊╭┄ wt {worktree} (no changes)
+            true,  // ┊┊┊╭┄ wt:@ {worktree uncommitted} (no changes)
             true,  // ┊┊┊┊   ab M file.rs
-            true,  // ┊┊┊┊
+            true,  // ┊┊┊├┄ wt {worktree}
             true,  // ┊┊┊●   abc (no commit message)
             true,  // ┊┊├╯
             true,  // ┊┊●   abc (no commit message)
@@ -2995,13 +2833,14 @@ fn lines_part_of_current_branch_with_dirty_nested_worktrees_with_commits() {
         ┊╭┄ br [branch]
         ┊●   abc (no commit message)
         ┊┊
-        ┊┊╭┄ wt {worktree} (no changes)
+        ┊┊╭┄ wt:@ {worktree uncommitted} (no changes)
         ┊┊┊   ab M file.rs
-        ┊┊┊
+        ┊┊├┄ wt {worktree}
         ┊┊●   abc (no commit message)
         ┊├╯
         ┊┊
-        ┊┊╭┄ wt {worktree} (no changes)
+        ┊┊╭┄ wt:@ {worktree uncommitted} (no changes)
+        ┊┊├┄ wt {worktree}
         ┊├╯
         ┊●   abc (no commit message)
         ├╯
@@ -3019,13 +2858,14 @@ fn lines_part_of_current_branch_with_dirty_nested_worktrees_with_commits() {
             true,  // ┊╭┄ br [branch]
             true,  // ┊●   abc (no commit message)
             true,  // ┊┊
-            true,  // ┊┊╭┄ wt {worktree} (no changes)
+            true,  // ┊┊╭┄ wt:@ {worktree uncommitted} (no changes)
             true,  // ┊┊┊   ab M file.rs
-            true,  // ┊┊┊
+            true,  // ┊┊├┄ wt {worktree}
             true,  // ┊┊●   abc (no commit message)
             true,  // ┊├╯
             true,  // ┊┊
-            true,  // ┊┊╭┄ wt {worktree} (no changes)
+            true,  // ┊┊╭┄ wt:@ {worktree uncommitted} (no changes)
+            true,  // ┊┊├┄ wt {worktree}
             true,  // ┊├╯
             true,  // ┊●   abc (no commit message)
             false, // ├╯

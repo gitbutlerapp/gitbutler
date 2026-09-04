@@ -15,7 +15,7 @@ use snapbox::{assert_data_eq, prelude::*};
 use crate::{
     CliId, IdMap,
     args::atoms::CliIdArg,
-    id::{BranchId, ChangesInCommit, CommitId, OLD_UNCOMMITTED, id_usage::UintId},
+    id::{BranchId, ChangesInCommit, CommitId, OLD_UNCOMMITTED, UNCOMMITTED, id_usage::UintId},
     utils::change_source::ChangeSourceId,
 };
 
@@ -1258,6 +1258,79 @@ fn worktree_container_id() -> anyhow::Result<()> {
             .uncommitted_files_in(&ChangeSourceId::Worktree("wt-b".into()))
             .is_empty(),
         "a clean worktree expands to nothing"
+    );
+
+    Ok(())
+}
+
+/// `<worktree>:@` names that worktree's uncommitted area, the way `@` names the
+/// main worktree's, and is distinct from the worktree reference itself.
+#[test]
+fn worktree_uncommitted_area_id() -> anyhow::Result<()> {
+    let id_map = IdMap::new(
+        Vec::new(),
+        vec![
+            source_changes(ChangeSourceId::Head, vec![hunk("file")]),
+            source_changes(ChangeSourceId::Worktree("wt-a".into()), vec![hunk("file")]),
+        ],
+        gix::hashtable::HashMap::default(),
+        Default::default(),
+        3,
+    )?;
+    let changed_paths_fn = |commit_id: gix::ObjectId,
+                            parent_id: Option<gix::ObjectId>|
+     -> anyhow::Result<Vec<but_core::TreeChange>> {
+        bail!("unexpected IDs {commit_id} {parent_id:?}");
+    };
+
+    let by_short_id = id_map.parse("wt:@", &TestChanges(changed_paths_fn))?;
+    snapbox::assert_data_eq!(
+        by_short_id.to_debug(),
+        snapbox::str![[r#"
+[
+    WorktreeUncommitted {
+        id: "wt:@",
+        name: "wt-a",
+    },
+]
+
+"#]]
+    );
+
+    // The full name reaches the same area, so a printed `<name>:@` hint resolves.
+    let by_name = id_map.parse("wt-a:@", &TestChanges(changed_paths_fn))?;
+    assert_eq!(by_name, by_short_id, "name and short ID name the same area");
+
+    // The rendered ID round-trips, which is what makes it copy-pasteable from `but status`.
+    let round_tripped = id_map.parse(
+        &by_short_id[0].to_short_string(),
+        &TestChanges(changed_paths_fn),
+    )?;
+    assert_eq!(round_tripped, by_short_id, "the printed ID resolves back");
+
+    // The reference and its area are different entities, not two spellings of one.
+    let reference = id_map.parse("wt", &TestChanges(changed_paths_fn))?;
+    assert_ne!(
+        reference, by_short_id,
+        "the lane and its uncommitted area are distinct IDs"
+    );
+    assert_eq!(
+        by_short_id[0].uncommitted_area(),
+        Some(ChangeSourceId::Worktree("wt-a".into())),
+        "the area names its own worktree"
+    );
+    assert_eq!(
+        reference[0].uncommitted_area(),
+        None,
+        "the reference holds no changes"
+    );
+
+    // `@` alone stays the main worktree's area and never reaches into a linked one.
+    let main = id_map.parse(UNCOMMITTED, &TestChanges(changed_paths_fn))?;
+    assert_eq!(
+        main[0].uncommitted_area(),
+        Some(ChangeSourceId::Head),
+        "the bare sentinel is still the main worktree"
     );
 
     Ok(())

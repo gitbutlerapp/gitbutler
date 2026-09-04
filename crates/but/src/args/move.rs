@@ -42,7 +42,7 @@ pub struct Platform {
     /// If `BRANCH` does not exist, it is created as an unstacked branch for commit or
     /// committed-change sources. Using a branch source with a nonexistent `BRANCH` is an error.
     ///
-    /// If `BRANCH` is a linked worktree or a branch checked out in one, commit or
+    /// If `BRANCH` is a worktree or a branch checked out in one, commit or
     /// committed-change sources are moved onto the tip of that worktree's branch.
     ///
     /// If `BRANCH` is omitted, an unstacked branch with a generated name is created. This is
@@ -71,7 +71,7 @@ pub struct Platform {
     /// branch. Branches are treated as buckets, meaning that "below a branch" is treated as below
     /// the oldest ancestor on that branch.
     ///
-    /// If `BRANCH_OR_COMMIT` is a linked worktree, `<SOURCES>` are placed on the tip of the branch
+    /// If `BRANCH_OR_COMMIT` is a worktree, `<SOURCES>` are placed on the tip of the branch
     /// that worktree has checked out.
     ///
     /// This target is only applicable for `<SOURCES>` that are commits or committed changes.

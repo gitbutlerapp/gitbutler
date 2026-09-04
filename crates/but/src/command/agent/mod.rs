@@ -244,7 +244,7 @@ struct RepoInfo {
 }
 
 fn discover_repo(current_dir: &Path) -> Option<RepoInfo> {
-    let repo = gix::discover(current_dir).ok()?;
+    let repo = but_ctx::discover_main_repo(current_dir).ok()?;
     let root = repo.workdir()?.to_path_buf();
     let needs_setup = repo_needs_setup(&root);
     Some(RepoInfo { root, needs_setup })

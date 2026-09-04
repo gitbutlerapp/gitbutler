@@ -189,13 +189,13 @@ but commit --empty -b <branch> -m "message"  # Insert an empty commit
 
 **Where the commit goes:** `-b`/`--branch`, `-A`/`--above`, and `-B`/`--below` are mutually exclusive.
 
-- `-b <branch>` places the commit at the tip of `<branch>`, creating it as an unstacked branch if it does not exist. `-b` with no value creates a branch with a generated name. Targeting a branch that exists but is not applied is an error — except a branch checked out in a linked worktree (experimental worktree flag), which is targeted at its tip, as is a worktree named directly.
-- `--above <commit>` / `--below <commit>` insert relative to a commit on that commit's branch. Against a branch, they create a new branch above/below it. Against a linked worktree (experimental worktree flag), `--below` targets the tip of its checked-out branch and `--above` is refused.
+- `-b <branch>` places the commit at the tip of `<branch>`, creating it as an unstacked branch if it does not exist. `-b` with no value creates a branch with a generated name. Targeting a branch that exists but is not applied is an error — except a branch checked out in a worktree (experimental worktree flag), which is targeted at its tip, as is a worktree named directly.
+- `--above <commit>` / `--below <commit>` insert relative to a commit on that commit's branch. Against a branch, they create a new branch above/below it. Against a worktree (experimental worktree flag), `--below` targets the tip of its checked-out branch and `--above` is refused.
 - With no branches applied, a new branch is created. With one applied stack, the commit goes to its top branch's tip. With more than one stack, a targeting flag is **required** — otherwise the command fails with "Unclear where to commit. Found more than one stack". The gate is stacks, not branches: several branches stacked together take an untargeted commit on the stack's top branch.
 
 **Important:** `but commit -b <branch> -m "msg"` with no IDs commits ALL uncommitted changes. Pass IDs to commit only specific files or hunks.
 
-`but commit` is not supported from linked worktrees. Use Git directly for the worktree-local commit, and do not run `but setup` there.
+Running `but commit` from inside a worktree acts on the main workspace, exactly as from the main worktree: bare `but commit` takes the main worktree's changes, and `but commit <worktree>:@` takes that worktree's own changes. Worktrees require the experimental worktree flag. `but setup` refuses to run from a worktree.
 
 **Committing specific files or hunks:** Start with `but diff` for selective dirty commits, then pass CLI IDs as positional arguments:
 - **File IDs** from `but diff` or `but status -fv`: commits entire files
@@ -230,6 +230,7 @@ but squash <commit> -t <branch> -m "msg"           # Target a branch: squashes i
 but squash <file-or-hunk-id> -t <commit>           # Amend an uncommitted change (`but amend` does this)
 but squash @ -t <commit>                           # Amend all uncommitted changes into a commit
 but squash <commit> -t @                           # Uncommit a commit
+but squash <commit> -t <worktree-id>:@             # Uncommit a worktree's commit into its area
 but squash <branch> -t @                           # Uncommit all commits and remove the branch
 but squash <commit-id>:<file-id> -t <commit>       # Move a committed file into another commit
 but squash <commit-id>:<file-id>:<hunk-id> -t <commit> # Move a committed hunk into another commit
@@ -292,7 +293,7 @@ Sources may not mix categories, all committed changes must come from the same co
 branch may be moved at a time. Source order does not matter. For a branch source only `--above` and
 `--unstack` apply; `--below` and `-b <name>` require commit or committed-change sources. `--branch`
 with no value is equivalent to `--unstack`. With the experimental worktree flag on, `-b` also
-accepts a linked worktree or the branch checked out in it, moving commit or committed-change
+accepts a worktree or the branch checked out in it, moving commit or committed-change
 sources onto that branch's tip (nothing is created); a branch source is refused there.
 
 ### `but uncommit <SOURCES>...`

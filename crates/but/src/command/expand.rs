@@ -47,6 +47,9 @@ enum Resource {
     Worktree {
         name: String,
     },
+    WorktreeUncommitted {
+        name: String,
+    },
     Stack {
         stack_id: String,
     },
@@ -83,6 +86,9 @@ impl std::fmt::Display for Resource {
             Resource::PathPrefix { path } => write!(f, "path prefix: {path}"),
             Resource::Uncommitted => f.write_str("uncommitted area"),
             Resource::Worktree { name } => write!(f, "worktree: {name}"),
+            Resource::WorktreeUncommitted { name } => {
+                write!(f, "worktree uncommitted area: {name}")
+            }
             Resource::Stack { stack_id } => write!(f, "stack: {stack_id}"),
         }
     }
@@ -207,6 +213,9 @@ fn resources_from_cli_id(cli_id: CliId) -> Vec<Resource> {
         CliId::PathPrefix { id, .. } => vec![Resource::PathPrefix { path: id }],
         CliId::Uncommitted { .. } => vec![Resource::Uncommitted],
         CliId::Worktree { name, .. } => vec![Resource::Worktree {
+            name: name.to_string(),
+        }],
+        CliId::WorktreeUncommitted { name, .. } => vec![Resource::WorktreeUncommitted {
             name: name.to_string(),
         }],
         CliId::Stack { stack_id, .. } => vec![Resource::Stack {

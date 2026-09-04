@@ -77,10 +77,7 @@ impl ModeRender for MoveMode {
                     ExtensionDirection::Above
                 },
             })
-        } else if matches!(
-            data,
-            StatusOutputLineData::WorktreeUncommittedChanges { .. }
-        ) {
+        } else if matches!(data, StatusOutputLineData::Worktree { .. }) {
             // Below the heading is the top of the worktree's lane, which is where the moved
             // commit goes. A branch source has no place there.
             match &self.source {
@@ -158,6 +155,7 @@ impl MoveSource {
             | CliId::CommittedHunk { .. }
             | CliId::Uncommitted { .. }
             | CliId::Worktree { .. }
+            | CliId::WorktreeUncommitted { .. }
             | CliId::Stack { .. } => None,
         }
     }
@@ -328,7 +326,8 @@ impl App {
                     return Ok(());
                 }
             }
-            StatusOutputLineData::WorktreeUncommittedChanges { cli_id } => {
+            StatusOutputLineData::WorktreeUncommitted { .. } => return Ok(()),
+            StatusOutputLineData::Worktree { cli_id } => {
                 if let CliId::Worktree { name, .. } = &**cli_id {
                     let repo = ctx.repo.get()?;
                     MoveTarget::WorktreeTip(crate::utils::worktrees::worktree_branch(

@@ -780,6 +780,25 @@ impl WorktreeWithId {
     pub fn source(&self) -> ChangeSourceId {
         ChangeSourceId::Worktree(self.name.clone())
     }
+
+    /// This worktree's lane, as an ID.
+    pub fn reference_id(&self) -> CliId {
+        CliId::Worktree {
+            id: self.short_id.clone(),
+            name: self.name.clone(),
+        }
+    }
+
+    /// This worktree's uncommitted area, as an ID.
+    ///
+    /// Derived from [`Self::short_id`], so the two IDs exist together or not at all
+    /// and neither perturbs the short-ID allocators.
+    pub fn uncommitted_id(&self) -> CliId {
+        CliId::WorktreeUncommitted {
+            id: format!("{}:{UNCOMMITTED}", self.short_id),
+            name: self.name.clone(),
+        }
+    }
 }
 
 fn common_prefix_len(a: &[u8], b: &[u8]) -> usize {
@@ -1529,7 +1548,16 @@ impl<'a> Node<'a> for &'a WorktreeWithId {
     ) -> anyhow::Result<Vec<Box<dyn Node<'a> + 'a>>> {
         // `<worktree>:<path>` is how a path that is dirty in several checkouts is
         // narrowed down to one, mirroring `@:<path>` for the main worktree.
-        Ok(id_map.parse_uncommitted_filename(element, Some(&self.source())))
+        let mut matches = id_map.parse_uncommitted_filename(element, Some(&self.source()));
+        // `<worktree>:@` is that worktree's uncommitted area. Pushed rather than
+        // returned early so a file in this worktree literally named `@` competes
+        // with it as an ambiguity, exactly as one does with the bare `@` sentinel.
+        if element == UNCOMMITTED {
+            matches.push(Box::new(Leaf {
+                cli_id: self.uncommitted_id(),
+            }));
+        }
+        Ok(matches)
     }
 
     fn to_cli_id(
@@ -1537,10 +1565,7 @@ impl<'a> Node<'a> for &'a WorktreeWithId {
         _short_id: &str,
         _id_map: &IdMap,
     ) -> anyhow::Result<Option<CliId>> {
-        Ok(Some(CliId::Worktree {
-            id: self.short_id.clone(),
-            name: self.name.clone(),
-        }))
+        Ok(Some(self.reference_id()))
     }
 }
 
@@ -1819,6 +1844,10 @@ fn cli_ids_refer_to_same_entity(lhs: &CliId, rhs: &CliId) -> bool {
         ) => lhs_stack_id == rhs_stack_id,
         (CliId::Uncommitted { .. }, CliId::Uncommitted { .. }) => true,
         (CliId::Worktree { name: l, .. }, CliId::Worktree { name: r, .. }) => l == r,
+        (
+            CliId::WorktreeUncommitted { name: l, .. },
+            CliId::WorktreeUncommitted { name: r, .. },
+        ) => l == r,
         _ => false,
     }
 }
@@ -1959,10 +1988,24 @@ pub enum CliId {
         /// The CLI ID for the uncommitted area.
         id: ShortId,
     },
-    /// A linked worktree, naming that checkout's uncommitted area the way
-    /// [`Self::Uncommitted`] names the main worktree's.
+    /// A linked worktree, as the reference whose lane holds that worktree's
+    /// commits and the branch checked out there.
+    ///
+    /// Its uncommitted changes are [`Self::WorktreeUncommitted`]; this ID never
+    /// denotes them, so it is never a change source.
     Worktree {
         /// The name-derived short CLI ID for this worktree (at least 2 characters).
+        id: ShortId,
+        /// The stable worktree name, i.e. the directory name under
+        /// `$GIT_COMMON_DIR/worktrees/`.
+        name: BString,
+    },
+    /// A linked worktree's uncommitted area, the way [`Self::Uncommitted`] names
+    /// the main worktree's.
+    WorktreeUncommitted {
+        /// The selector, `<worktree-short-id>:@`, derived from the worktree's own
+        /// ID rather than allocated, so it consumes no slot in the short-ID pools
+        /// and no other ID moves.
         id: ShortId,
         /// The stable worktree name, i.e. the directory name under
         /// `$GIT_COMMON_DIR/worktrees/`.
@@ -1998,6 +2041,10 @@ impl PartialEq for CliId {
             (Self::Stack { id: l_id, .. }, Self::Stack { id: r_id, .. }) => l_id == r_id,
             (Self::Uncommitted { .. }, Self::Uncommitted { .. }) => true,
             (Self::Worktree { name: l, .. }, Self::Worktree { name: r, .. }) => l == r,
+            (
+                Self::WorktreeUncommitted { name: l, .. },
+                Self::WorktreeUncommitted { name: r, .. },
+            ) => l == r,
             _ => false,
         }
     }
@@ -2019,7 +2066,29 @@ impl CliId {
             CliId::Commit { .. } => "a commit",
             CliId::Uncommitted { .. } => "the uncommitted area",
             CliId::Worktree { .. } => "a worktree",
+            CliId::WorktreeUncommitted { .. } => "a worktree's uncommitted area",
             CliId::Stack { .. } => "a stack",
+        }
+    }
+
+    /// The worktree whose uncommitted changes this ID names, if it names any.
+    ///
+    /// The total form of the question every `matches!(id, CliId::Uncommitted { .. })`
+    /// was asking while there was only one area. A worktree *reference* holds no
+    /// changes, so it yields `None`.
+    pub fn uncommitted_area(&self) -> Option<ChangeSourceId> {
+        match self {
+            CliId::Uncommitted { .. } => Some(ChangeSourceId::Head),
+            CliId::WorktreeUncommitted { name, .. } => Some(ChangeSourceId::Worktree(name.clone())),
+            CliId::UncommittedHunkOrFile(..)
+            | CliId::PathPrefix { .. }
+            | CliId::CommittedFile { .. }
+            | CliId::CommittedHunk(..)
+            | CliId::Branch(..)
+            | CliId::AnonymousSegment(..)
+            | CliId::Commit { .. }
+            | CliId::Worktree { .. }
+            | CliId::Stack { .. } => None,
         }
     }
 
@@ -2035,6 +2104,7 @@ impl CliId {
             | CliId::Commit { id, .. }
             | CliId::Stack { id, .. }
             | CliId::Worktree { id, .. }
+            | CliId::WorktreeUncommitted { id, .. }
             | CliId::Uncommitted { id, .. } => id.clone(),
         }
     }
@@ -2051,6 +2121,7 @@ impl CliId {
             | CliId::CommittedHunk { .. }
             | CliId::Commit { .. }
             | CliId::Worktree { .. }
+            | CliId::WorktreeUncommitted { .. }
             | CliId::Uncommitted { .. } => None,
         }
     }

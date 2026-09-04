@@ -363,7 +363,7 @@ impl Details {
                     },
                 )
             }
-            CliId::Worktree { name, .. } => {
+            CliId::WorktreeUncommitted { name, .. } => {
                 let name = name.clone();
                 self.poll_render_thread(
                     ctx,
@@ -380,6 +380,10 @@ impl Details {
                         )
                     },
                 )
+            }
+            CliId::Worktree { .. } => {
+                self.diff_not_supported("(a worktree reference has no diff of its own)");
+                Ok(true)
             }
             CliId::AnonymousSegment(..) => {
                 self.diff_not_supported("(anonymous branches must be named with `but reword` before viewing their diff)");
@@ -1272,6 +1276,7 @@ impl Details {
             | CliId::Branch(..)
             | CliId::Commit { .. }
             | CliId::Worktree { .. }
+            | CliId::WorktreeUncommitted { .. }
             | CliId::Stack { .. } => false,
         }
     }

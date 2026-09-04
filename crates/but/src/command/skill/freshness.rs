@@ -99,7 +99,7 @@ fn agent_skill_freshness_check() -> Option<AgentSkillNotice> {
 /// Report a missing skill before normal agent-driven commands.
 fn agent_skill_install_hint(current_dir: &std::path::Path) -> Option<AgentSkillNotice> {
     let agent = detect_agent::detect()?;
-    let workdir = gix::discover(current_dir)
+    let workdir = but_ctx::discover_main_repo(current_dir)
         .ok()
         .and_then(|repo| repo.workdir().map(std::path::Path::to_path_buf));
     let installations = agent_skill_installations(agent, workdir.as_deref())?;
