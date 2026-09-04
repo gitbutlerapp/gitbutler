@@ -4,6 +4,7 @@ import { clampAutoFetch, defaultSettings } from "#ui/settings.ts";
 import type { ForgeReview, TreeChange, UnifiedPatch } from "@gitbutler/but-sdk";
 import {
 	experimental_streamedQuery,
+	hashKey,
 	infiniteQueryOptions,
 	queryOptions,
 } from "@tanstack/react-query";
@@ -533,15 +534,37 @@ export const treeChangeDiffsQueryOptions = ({ projectId, change }: PayloadFor<"t
 		queryFn: () => window.lite.treeChangeDiffs({ projectId, change }),
 	});
 
+/**
+ * Idiomatic usage of useQuery may rerender frequently for some UX requirements. The query must hash
+ * the full key again on each render.
+ *
+ * Its stable, value-based hasher requires traversing every change. Hashing a ~5k-file query key was
+ * benchmarked at ~20ms. This cost is virtually eliminated by reusing a previously-cached hash.
+ *
+ * The payload has no stable aggregate identifier we could use instead.
+ */
+const treeChangeDiffHashes = new WeakMap<Array<TreeChange>, string>();
+
 export const treeChangesDiffsQueryOptions = ({
 	projectId,
 	changes,
 }: {
 	projectId: string;
 	changes: Array<TreeChange>;
-}) =>
-	queryOptions({
-		queryKey: [projectId, "treeChangeDiffs", changes],
+}) => {
+	const queryKey = [projectId, "treeChangeDiffs", changes] as const;
+
+	// We don't expect to ever see the same changes reference across projects.
+	// This can use getOrInsertComputed once our version of Node.js has caught up.
+	let queryHash = treeChangeDiffHashes.get(changes);
+	if (queryHash === undefined) {
+		queryHash = hashKey(queryKey);
+		treeChangeDiffHashes.set(changes, queryHash);
+	}
+
+	return queryOptions({
+		queryKey,
+		queryHash,
 		queryFn: experimental_streamedQuery<Array<UnifiedPatch | null>, Array<UnifiedPatch | null>>({
 			initialValue: [],
 			refetchMode: "replace",
@@ -566,6 +589,7 @@ export const treeChangesDiffsQueryOptions = ({
 			},
 		}),
 	});
+};
 
 export const absorptionPlanQueryOptions = ({ projectId, target }: PayloadFor<"absorptionPlan">) =>
 	queryOptions({
