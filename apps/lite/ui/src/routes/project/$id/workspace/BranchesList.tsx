@@ -62,7 +62,7 @@ import {
 } from "./Row-utils.ts";
 import { StackCard } from "./StackCard.tsx";
 import stackCardStyles from "./StackCard.module.css";
-import { emptyBranchesListContent, type BranchesListQueryResult } from "./useBranchesList.ts";
+import { emptyBranchesListContent, type BranchesListContent } from "./useBranchesList.ts";
 import {
 	startKeyboardTransfer,
 	setCursor,
@@ -468,23 +468,21 @@ const BranchItem: FC<{
 export const BranchesList: FC<
 	{
 		projectId: string;
-		list: BranchesListQueryResult;
+		branches: BranchesListContent | undefined;
+		isPending: boolean;
+		isError: boolean;
 		/**
 		 * Owned by the sidebar and shared with its unapplied header, so both `+`
 		 * buttons offer the same menu and see the same create in flight.
 		 */
 		newBranch: NewBranchActions;
 	} & ComponentProps<"div">
-> = ({ projectId, list, newBranch, ...restProps }) => {
+> = ({ projectId, branches, isPending, isError, newBranch, ...restProps }) => {
 	const dispatch = useAppDispatch();
 
-	// WorkspacePage resolves selection from this query result and passes the same result down, so
-	// selection and rendering consume the same data snapshot.
-	const {
-		data: { stacks, stackIndexByAddressIndex, addressSpace } = emptyBranchesListContent,
-		isPending,
-		isError,
-	} = list;
+	// WorkspacePage resolves selection from this query data and passes the same data down, so
+	// selection and rendering consume the same snapshot.
+	const { stacks, stackIndexByAddressIndex, addressSpace } = branches ?? emptyBranchesListContent;
 	const filters = useAppSelector((state) =>
 		projectSlice.selectors.selectBranchFilters(state, projectId),
 	);

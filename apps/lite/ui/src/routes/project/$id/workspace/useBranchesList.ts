@@ -31,13 +31,11 @@ type BranchesListStack = {
 	commitCount: number;
 };
 
-type BranchesListContent = {
+export type BranchesListContent = {
 	stacks: Array<BranchesListStack>;
 	stackIndexByAddressIndex: Array<number>;
 	addressSpace: AddressSpace<Address>;
 };
-
-export type BranchesListQueryResult = UseQueryResult<BranchesListContent>;
 
 export const emptyBranchesListContent: BranchesListContent = {
 	stacks: [],
@@ -52,7 +50,7 @@ export const emptyBranchesListContent: BranchesListContent = {
  * rendering and the selection resolution in the workspace page consume it, so
  * filtering and fold state cannot drift between the two.
  */
-export const useBranchesList = (projectId: string): BranchesListQueryResult => {
+export const useBranchesList = (projectId: string): UseQueryResult<BranchesListContent> => {
 	const active = usePage() === "branches";
 	const filters = useAppSelector((state) =>
 		projectSlice.selectors.selectBranchFilters(state, projectId),

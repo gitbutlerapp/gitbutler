@@ -417,11 +417,16 @@ const PageBody: FC<{ projectId: string }> = ({ projectId }) => {
 	});
 
 	const page = usePage();
-	const branchesList = useBranchesList(projectId);
+	// Destructured here: the result object itself is a new identity every render.
+	const {
+		data: branches,
+		isPending: branchesPending,
+		isError: branchesError,
+	} = useBranchesList(projectId);
 	const upstreamList = useUpstreamList(projectId);
 
 	const appliedSelection = useSelection("applied", appliedAddressSpace);
-	const branchesSelection = useSelection("unapplied", branchesList.data?.addressSpace);
+	const branchesSelection = useSelection("unapplied", branches?.addressSpace);
 	const upstreamSelection = useSelection("upstream", upstreamList.addressSpace);
 
 	const { data: worktreeChanges } = useQuery(changesInWorktreeQueryOptions(projectId));
@@ -659,7 +664,9 @@ const PageBody: FC<{ projectId: string }> = ({ projectId }) => {
 							<Sidebar
 								projectId={projectId}
 								project={selectedProject}
-								branchesList={branchesList}
+								branches={branches}
+								branchesPending={branchesPending}
+								branchesError={branchesError}
 								upstreamList={upstreamList}
 								addressSpace={appliedAddressSpace}
 								uncommittedAddressSpace={uncommittedAddressSpace}
