@@ -73,14 +73,28 @@ impl WatcherEventKind {
     /// [`crate::tags`]. A fetch moves remote-tracking refs and refreshes the
     /// forge cache; activity means the repository changed; worktree changes
     /// mean the files did.
-    pub fn invalidates(self) -> &'static [CacheTag] {
+    pub fn invalidates(self) -> Vec<CacheTag> {
         use CacheTag as T;
         match self {
             WatcherEventKind::GitFetch => {
-                &[T::Branches, T::TargetCommits, T::FetchStatus, T::Reviews]
+                vec![T::Branches, T::TargetCommits, T::FetchStatus, T::Reviews]
             }
-            WatcherEventKind::GitHead => &[T::OperatingMode],
-            WatcherEventKind::GitActivity | WatcherEventKind::WorkspaceActivity => &[
+            // HEAD moving restates the whole repository: which branches and
+            // commits compose the workspace, and what the uncommitted diff is
+            // measured against — so a move between two branches changes
+            // everything an activity event would, even though no commit landed.
+            // It changes the mode on top of that.
+            //
+            // Taken from the activity arm rather than restated, so a tag added
+            // there cannot be forgotten here. A checkout also writes the reflog
+            // and so raises `GitActivity` alongside this, but that is a property
+            // of `git checkout`, not of HEAD moving.
+            WatcherEventKind::GitHead => {
+                let mut tags = vec![T::OperatingMode];
+                tags.extend(WatcherEventKind::GitActivity.invalidates());
+                tags
+            }
+            WatcherEventKind::GitActivity | WatcherEventKind::WorkspaceActivity => vec![
                 T::Branches,
                 T::TargetCommits,
                 T::Workspace,
@@ -92,7 +106,7 @@ impl WatcherEventKind {
                 T::Comments,
             ],
             WatcherEventKind::WorktreeChanges => {
-                &[T::Diffs, T::WorktreeChanges, T::AbsorptionPlan, T::Comments]
+                vec![T::Diffs, T::WorktreeChanges, T::AbsorptionPlan, T::Comments]
             }
         }
     }
