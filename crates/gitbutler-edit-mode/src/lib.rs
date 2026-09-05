@@ -388,14 +388,7 @@ pub(crate) fn save_and_return_to_workspace(ctx: &Context, perm: &mut RepoExclusi
     let new_workspace = WorkspaceState::create(ctx, perm.read_permission())?;
     let uncommtied_changes = get_uncommitted_changes(repo)?;
 
-    update_uncommitted_changes_with_tree(
-        ctx,
-        old_workspace,
-        new_workspace,
-        Some(uncommtied_changes),
-        Some(true),
-        perm,
-    )?;
+    restore_uncommitted_changes(ctx, old_workspace, new_workspace, uncommtied_changes, perm)?;
 
     // Currently if the index goes wonky then files don't appear quite right.
     // This just makes sure the index is all good.
@@ -416,6 +409,46 @@ pub(crate) fn save_and_return_to_workspace(ctx: &Context, perm: &mut RepoExclusi
 
     cleanup_edit_mode(ctx, repo)?;
 
+    Ok(())
+}
+
+/// Bring the stashed uncommitted changes back after the workspace moved.
+///
+/// Transplanting them onto the recomputed workspace is best, but that
+/// recomputation merges every stack head against the stored target and can
+/// fail on workspaces that only hold together through the recorded workspace
+/// commit. Failing there used to abort the save halfway: the rewrite was
+/// already durable, the stash was never restored, and its ref never cleaned
+/// up — the files just vanished. Fall back to checking the stash out
+/// verbatim: noisier diffs beat lost work.
+#[doc(hidden)]
+pub fn restore_uncommitted_changes(
+    ctx: &Context,
+    old: WorkspaceState,
+    new: WorkspaceState,
+    stashed_tree: gix::ObjectId,
+    perm: &mut RepoExclusive,
+) -> Result<()> {
+    if let Err(err) =
+        update_uncommitted_changes_with_tree(ctx, old, new, Some(stashed_tree), Some(true), perm)
+    {
+        tracing::warn!(
+            ?err,
+            "could not transplant stashed changes onto the new workspace; restoring them verbatim"
+        );
+        #[expect(deprecated, reason = "checkout/materialization boundary")]
+        let repo = &*ctx.git2_repo.get()?;
+        let tree = repo.find_tree(stashed_tree.to_git2())?;
+        repo.checkout_tree(
+            tree.as_object(),
+            Some(CheckoutBuilder::new().force().remove_untracked(true)),
+        )
+        .with_context(|| {
+            format!(
+                "Failed to restore stashed uncommitted changes; they are preserved in {UNCOMMITTED_CHANGES_REF}"
+            )
+        })?;
+    }
     Ok(())
 }
 
