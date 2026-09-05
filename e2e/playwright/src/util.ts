@@ -40,7 +40,7 @@ export function stack(page: Page, branchName?: string): Locator {
 	});
 }
 
-/** How often the watchdog samples; small enough to be precise, large enough to be free. */
+/** Pacing between retry attempts (the watchdog itself sleeps adaptively). */
 const IDLE_POLL_MS = 250;
 
 /**
@@ -64,21 +64,30 @@ async function untilTheAppGoesQuiet<T>(
 	// The watchdog may win the race; keep its loser from surfacing as an
 	// unhandled rejection.
 	acting.catch(() => {});
+	// For racing sleeps below: settles when the action does, never rejects.
+	const settled = acting.then(
+		() => undefined,
+		() => undefined,
+	);
 
 	const watchdog = (async (): Promise<T> => {
-		for (;;) {
-			await new Promise((resolve) => setTimeout(resolve, IDLE_POLL_MS));
-			// Stop counting the moment the action settles, so the loop cannot
-			// outlive it — `acting` has already resolved or rejected here.
+		// While the app is active, idleness cannot reach the budget sooner
+		// than `idleBudgetMs - idleFor` from now, so sleep exactly that long
+		// and wake early if the action settles: expiry lands on time instead
+		// of up to a polling interval late, and nothing keeps ticking once
+		// the action is done.
+		let idleFor: number;
+		while ((idleFor = idleSince(page, startedAt)) < idleBudgetMs) {
+			await Promise.race([
+				settled,
+				new Promise((resolve) => setTimeout(resolve, idleBudgetMs - idleFor)),
+			]);
 			if (done) return await acting;
-			const idleFor = idleSince(page, startedAt);
-			if (idleFor >= idleBudgetMs) {
-				throw new Error(
-					`Timed out ${describe}: the app made no request for ` +
-						`${Math.round(idleFor / 1000)}s, so it is not still working on it.`,
-				);
-			}
 		}
+		throw new Error(
+			`Timed out ${describe}: the app made no request for ` +
+				`${Math.round(idleFor / 1000)}s, so it is not still working on it.`,
+		);
 	})();
 
 	return await Promise.race([acting, watchdog]);
@@ -218,21 +227,42 @@ export async function fillByTestId(
 	// sticks — under the idle budget like every other wait. A function-subject
 	// `toPass()` would bypass src/expect.ts and burn the per-test timeout on a
 	// real failure.
-	await untilTheAppGoesQuiet(
-		page,
-		`filling getByTestId(${JSON.stringify(testId)})`,
-		IDLE_BUDGET_MS,
-		async () => {
-			// timeout: 0 on the inner calls too — the watchdog is the boundary
-			// here, and a 15s actionTimeout inside the loop would reintroduce a
-			// wall-clock failure while the app is still visibly working.
-			for (;;) {
-				await element.fill(value, { timeout: 0 });
-				if ((await element.inputValue({ timeout: 0 })) === value) return;
-				await new Promise((resolve) => setTimeout(resolve, IDLE_POLL_MS));
-			}
-		},
-	);
+	let lastError: unknown;
+	try {
+		await untilTheAppGoesQuiet(
+			page,
+			`filling getByTestId(${JSON.stringify(testId)})`,
+			IDLE_BUDGET_MS,
+			async () => {
+				// timeout: 0 on the inner calls too — the watchdog is the boundary
+				// here, and a 15s actionTimeout inside the loop would reintroduce a
+				// wall-clock failure while the app is still visibly working.
+				let filled: string | undefined;
+				while (filled !== value) {
+					try {
+						await element.fill(value, { timeout: 0 });
+						filled = await element.inputValue({ timeout: 0 });
+					} catch (error) {
+						// A re-render can detach the node mid-action or briefly make
+						// the locator ambiguous — the app changing, not a verdict.
+						// The watchdog stays the only failure boundary; the last
+						// error rides along on it below so a permanent problem is
+						// still named.
+						lastError = error;
+						filled = undefined;
+					}
+					if (filled !== value) {
+						await new Promise((resolve) => setTimeout(resolve, IDLE_POLL_MS));
+					}
+				}
+			},
+		);
+	} catch (error) {
+		if (error instanceof Error && lastError instanceof Error) {
+			error.message += `\nlast attempt failed with: ${lastError.message}`;
+		}
+		throw error;
+	}
 	return element;
 }
 
