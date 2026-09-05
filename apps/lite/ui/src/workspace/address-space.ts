@@ -17,16 +17,27 @@ export const getAdjacent = <T>({
 	selection,
 	offset,
 	getKey,
+	predicate,
 }: {
 	addressSpace: AddressSpace<T>;
 	selection: T;
 	offset: -1 | 1;
 	getKey: (item: T) => string;
+	/** Rejected items are skipped; this predicate does not stop traversal at a group boundary. */
+	predicate?: (item: T) => boolean;
 }): T | null => {
 	const selectionIndex = addressSpace.indexByKey.get(getKey(selection));
 	if (selectionIndex === undefined) return null;
 
-	return addressSpace.items[selectionIndex + offset] ?? null;
+	for (
+		let index = selectionIndex + offset;
+		index >= 0 && index < addressSpace.items.length;
+		index += offset
+	) {
+		const item = addressSpace.items[index];
+		if (item !== undefined && (predicate?.(item) ?? true)) return item;
+	}
+	return null;
 };
 
 export const addressSpaceIncludes = <T>(

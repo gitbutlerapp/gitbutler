@@ -1,5 +1,67 @@
-import { checkedRange } from "./checking.ts";
+import { checkedRange, selectionAfterChecking } from "./checking.ts";
 import { describe, expect, it } from "vitest";
+
+describe("selectionAfterChecking", () => {
+	for (const checked of [false, true]) {
+		it.each([
+			[null, null, null],
+			[null, false, "next"],
+			[null, true, null],
+			[false, null, "previous"],
+			[true, null, null],
+			[true, true, null],
+			[false, false, "next"],
+			[true, false, "next"],
+			[false, true, "previous"],
+		] as const)(
+			`after toggling to ${checked}, previous matches=%s, next matches=%s: %s`,
+			(previous, next, expected) => {
+				const states = {
+					current: checked,
+					previous: previous === null ? null : previous === checked,
+					next: next === null ? null : next === checked,
+				};
+				expect(
+					selectionAfterChecking({
+						selection: "current" as keyof typeof states,
+						getAdjacent: (offset) => (offset === 1 ? "next" : "previous"),
+						getChecked: (item) => states[item],
+					}),
+				).toBe(expected);
+			},
+		);
+	}
+
+	it("stays on an uncheckable row", () => {
+		expect(
+			selectionAfterChecking({
+				selection: "conflict",
+				getAdjacent: () => "file",
+				getChecked: (item) => (item === "conflict" ? null : false),
+			}),
+		).toBeNull();
+	});
+
+	it("fills then clears a run, reversing at its edge", () => {
+		const items = ["a", "b", "c"];
+		const checked = new Set<string>();
+		let selection = "a";
+		const positions = [];
+		for (let step = 0; step < 6; step++) {
+			if (checked.has(selection)) checked.delete(selection);
+			else checked.add(selection);
+			selection =
+				selectionAfterChecking({
+					selection,
+					getAdjacent: (offset) => items[items.indexOf(selection) + offset] ?? null,
+					getChecked: (item) => checked.has(item),
+				}) ?? selection;
+			positions.push(selection);
+		}
+		expect(positions).toEqual(["b", "c", "c", "b", "a", "a"]);
+		expect(checked.size).toBe(0);
+	});
+});
 
 describe("checkedRange", () => {
 	const items = ["a", "b", "c", "d", "e"];
