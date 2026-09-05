@@ -65,7 +65,7 @@ import {
 	weakFileParentIdentityKey,
 } from "#ui/addresses.ts";
 import type { DiffLineSelection } from "#ui/cursors.ts";
-import { checkedRange, addressSpaceRange } from "#ui/checking.ts";
+import { checkedRange, addressSpaceRange, selectionAfterChecking } from "#ui/checking.ts";
 import type { BranchTab, CheckableAddress } from "#ui/projects/project.ts";
 import { projectSlice } from "#ui/projects/state.ts";
 import { interfaceSlice } from "#ui/interface/state.ts";
@@ -713,6 +713,16 @@ const DiffContents: FC<{
 		directionalNavigation: false,
 	});
 
+	const selectAndRevealLines = (selection: CodeViewLineSelection): void => {
+		applySelectedLines(selection);
+		viewerRef.current?.scrollTo({
+			type: "range",
+			id: selection.id,
+			range: selection.range,
+			align: "nearest",
+		});
+	};
+
 	const moveSelectedLines = (offset: -1 | 1, extend: boolean): void => {
 		if (!selectedLines) return;
 		const file = fileByItemId.get(selectedLines.id);
@@ -727,28 +737,77 @@ const DiffContents: FC<{
 		});
 		if (!range) return;
 
-		const selection = { id: selectedLines.id, range };
-		applySelectedLines(selection);
-		viewerRef.current?.scrollTo({
-			type: "range",
-			id: selection.id,
-			range,
-			align: "nearest",
-		});
+		selectAndRevealLines({ id: selectedLines.id, range });
 	};
 
-	function toggleSelectedLinesChecked(event: KeyboardEvent): void {
-		if (event.composedPath().some(isInteractiveElement)) return;
-		const addresses = addressesForSelectedLines(selectedLines, "line");
-		if (addresses.length === 0) return;
+	const nextCheckedLine = useRef<CodeViewLineSelection>(null);
 
+	function toggleSelectedLinesChecked(event: KeyboardEvent): void {
+		if (event.composedPath().some(isInteractiveElement) || !selectedLines) return;
 		event.preventDefault();
 		event.stopPropagation();
+		if (event.shiftKey) {
+			nextCheckedLine.current = null;
+			checkSelectedLines(selectedLines, true);
+			return;
+		}
+		const item = event.repeat ? nextCheckedLine.current : selectedLines;
+		if (item !== null) nextCheckedLine.current = checkSelectedLines(item, false);
+	}
+
+	function checkSelectedLines(
+		selection: CodeViewLineSelection,
+		shiftKey: boolean,
+	): CodeViewLineSelection | null {
+		const addresses = addressesForSelectedLines(selection, "line");
+		if (addresses.length === 0) return null;
 		const state = store.getState();
 		const checked = !addresses.every((address) =>
 			projectSlice.selectors.selectAddressChecked(state, projectId, address),
 		);
 		dispatch(projectSlice.actions.checkAddresses({ projectId, addresses, checked }));
+
+		if (shiftKey) return null;
+		const { range, id } = selection;
+		if (
+			range.start !== range.end ||
+			(range.endSide ?? range.side ?? "additions") !== (range.side ?? "additions")
+		)
+			return null;
+		const currentAddress = addresses[0];
+		const file = fileByItemId.get(id);
+		if (!currentAddress || file?.patch?.type !== "Patch") return null;
+		const nextState = store.getState();
+		const next = selectionAfterChecking({
+			selection,
+			getAdjacent: (offset) => {
+				const nextRange = moveSelectedLineRange({
+					hunks: file.item.fileDiff.hunks,
+					range,
+					diffStyle: effectiveDiffStyle,
+					offset,
+					extend: false,
+				});
+				return nextRange ? { id, range: nextRange } : null;
+			},
+			getChecked: (selection) => {
+				const addresses = addressesForSelectedLines(selection, "line");
+				if (
+					addresses.length === 0 ||
+					addresses.some(
+						(address) =>
+							address.hunkHeader.oldStart !== currentAddress.hunkHeader.oldStart ||
+							address.hunkHeader.newStart !== currentAddress.hunkHeader.newStart,
+					)
+				)
+					return null;
+				return addresses.every((address) =>
+					projectSlice.selectors.selectAddressChecked(nextState, projectId, address),
+				);
+			},
+		});
+		if (next) selectAndRevealLines(next);
+		return next;
 	}
 
 	const handleCreateComment = (

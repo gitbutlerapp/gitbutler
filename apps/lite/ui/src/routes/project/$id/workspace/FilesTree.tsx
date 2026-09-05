@@ -35,7 +35,11 @@ import styles from "./FilesTree.module.css";
 import { Row, RowLabel, RowLabelContainer } from "./Row.tsx";
 import { OperationSourceC } from "#ui/routes/project/$id/workspace/OperationSourceC.tsx";
 import { focusScope, useAddressSpaceHotkeys, type FocusScope } from "#ui/focus-scopes.ts";
-import { addressSpaceIncludes, type AddressSpace } from "#ui/workspace/address-space.ts";
+import {
+	addressSpaceIncludes,
+	getAdjacent,
+	type AddressSpace,
+} from "#ui/workspace/address-space.ts";
 import { changesFileHotkeys } from "#ui/hotkeys.ts";
 import { useRevealInFolder } from "./useRevealInFolder.ts";
 import { useHotkeys } from "@tanstack/react-hotkeys";
@@ -45,7 +49,7 @@ import { DirectoryRow, type DirectoryCheckedState } from "./DirectoryRow.tsx";
 import type { FileRowItem } from "./file-row.ts";
 import { parentDirectoryRow, type FileTreeRow } from "./file-tree.ts";
 import { useFileDisplayMode } from "./useFileDisplayMode.ts";
-import { checkedRange, addressSpaceRange } from "#ui/checking.ts";
+import { checkedRange, addressSpaceRange, selectionAfterChecking } from "#ui/checking.ts";
 import { useDiscardFileChanges, useOpenInProgram } from "#ui/api/mutations.ts";
 import type { TreeChange } from "@gitbutler/but-sdk";
 import type { CSSProperties } from "react";
@@ -70,7 +74,7 @@ const useFilesTreeHotkeys = ({
 	selectedChange,
 	toggleDirectoryCollapsed,
 }: {
-	checkRow: (evt: { path: string; shiftKey: boolean }) => void;
+	checkRow: (evt: { path: string; shiftKey: boolean; repeat: boolean }) => void;
 	addressSpace: AddressSpace<string>;
 	onRowSelection: (selection: string) => void;
 	onEdgeSpill?: (offset: -1 | 1) => void;
@@ -148,7 +152,7 @@ const useFilesTreeHotkeys = ({
 
 		event.preventDefault();
 		event.stopPropagation();
-		checkRow({ path: selection, shiftKey: event.shiftKey });
+		checkRow({ path: selection, shiftKey: event.shiftKey, repeat: event.repeat });
 	};
 
 	const discardSelectedFile = () => {
@@ -752,6 +756,7 @@ export const FilesTree: FC<
 
 	const fileCheckRangeAnchor = useRef<string>(null);
 	const fileCheckRangeEnd = useRef<string>(null);
+	const nextCheckedRow = useRef<string>(null);
 	const rowByPath = new Map(rows.map((row) => [row.path, row]));
 	// Conflicts have no change to commit or discard yet, so they never get checked.
 	const conflictPaths = new Set(
@@ -867,19 +872,48 @@ export const FilesTree: FC<
 		});
 	};
 
-	/** Space and the row checkboxes both land here, whichever kind of row it is. */
-	const checkRow = ({ path, shiftKey }: { path: string; shiftKey: boolean }): void => {
+	/** Keyboard checking for either kind of row. */
+	const checkRow = ({ path, shiftKey }: { path: string; shiftKey: boolean }): string | null => {
 		const row = rowByPath.get(path);
 		if (row?._tag === "Directory") {
-			checkDirectory({ path, checked: directoryCheckedState(row.filePaths) !== "checked" });
-			return;
+			const checked = checkedFilePaths();
+			checkDirectory({
+				path,
+				checked: !row.filePaths.filter(checkable).every((path) => checked.has(path)),
+			});
+		} else {
+			if (!row || !checkable(path)) return null;
+			checkFile({ path, shiftKey });
 		}
 
-		checkFile({ path, shiftKey });
+		if (shiftKey) return null;
+		const checked = checkedFilePaths();
+		const next = selectionAfterChecking({
+			selection: path,
+			getAdjacent: (offset) =>
+				getAdjacent({ addressSpace, selection: path, offset, getKey: (path) => path }),
+			getChecked: (path) => {
+				const row = rowByPath.get(path);
+				if (!row || !checkable(path)) return null;
+				if (row._tag === "File") return checked.has(path);
+				const paths = row.filePaths.filter(checkable);
+				return paths.length > 0 ? paths.every((path) => checked.has(path)) : null;
+			},
+		});
+		if (next !== null) onRowSelection(next);
+		return next;
 	};
 
 	useFilesTreeHotkeys({
-		checkRow,
+		checkRow: ({ path, shiftKey, repeat }) => {
+			if (shiftKey) {
+				nextCheckedRow.current = null;
+				checkRow({ path, shiftKey });
+				return;
+			}
+			const item = repeat ? nextCheckedRow.current : path;
+			if (item !== null) nextCheckedRow.current = checkRow({ path: item, shiftKey: false });
+		},
 		addressSpace,
 		onRowSelection,
 		onEdgeSpill,
