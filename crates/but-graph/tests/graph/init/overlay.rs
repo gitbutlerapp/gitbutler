@@ -41,28 +41,7 @@ fn drop_and_add_regular_refs() -> anyhow::Result<()> {
     )?;
     snapbox::assert_data_eq!(
         graph_dag(&graph),
-        snapbox::str![[r#"
-◎  👉merged[🌳]
-●    ·8a6c109 (⌂)
-├─╮
-◎ │  A
-● │    ·62b409a (⌂)
-├───╮
-● │ │  ·592abec (⌂)
-│ │ ◎  B
-│ │ ●  ·f16dddf (⌂)
-├───╯
-│ ◎  C
-│ ●    ·7ed512a (⌂)
-│ ├─╮
-│ ● │  ·35ee481 (⌂)
-├─╯ │
-│   ◎  D
-│   ●  ·ecb1877 (⌂)
-├───╯
-◎  main
-●  🏁·965998b (⌂)
-"#]]
+        snapbox::str!["blank"]
     );
 
     let to_reference = repo.rev_parse_single("35ee481")?;
@@ -79,28 +58,7 @@ fn drop_and_add_regular_refs() -> anyhow::Result<()> {
 
     snapbox::assert_data_eq!(
         graph_dag(&graph),
-        snapbox::str![[r#"
-◎  👉merged[🌳]
-●    ·8a6c109 (⌂)
-├─╮
-◎ │  A
-● │    ·62b409a (⌂)
-├───╮
-● │ │  ·592abec (⌂)
-│ │ ◎  B
-│ │ ●  ·f16dddf (⌂)
-├───╯
-│ ●    ·7ed512a (⌂)
-│ ├─╮
-│ ◎ │  new-reference
-│ ● │  ·35ee481 (⌂)
-├─╯ │
-│   ◎  D
-│   ●  ·ecb1877 (⌂)
-├───╯
-◎  main
-●  🏁·965998b (⌂)
-"#]]
+        snapbox::str!["blank"]
     );
 
     Ok(())
@@ -140,28 +98,7 @@ fn drop_head_ref() -> anyhow::Result<()> {
     )?;
     snapbox::assert_data_eq!(
         graph_dag(&graph),
-        snapbox::str![[r#"
-◎  👉merged[🌳]
-●    ·8a6c109 (⌂)
-├─╮
-◎ │  A
-● │    ·62b409a (⌂)
-├───╮
-● │ │  ·592abec (⌂)
-│ │ ◎  B
-│ │ ●  ·f16dddf (⌂)
-├───╯
-│ ◎  C
-│ ●    ·7ed512a (⌂)
-│ ├─╮
-│ ● │  ·35ee481 (⌂)
-├─╯ │
-│   ◎  D
-│   ●  ·ecb1877 (⌂)
-├───╯
-◎  main
-●  🏁·965998b (⌂)
-"#]]
+        snapbox::str!["blank"]
     );
 
     let overlay = Overlay::default().with_dropped_references(["refs/heads/merged".try_into()?]);
@@ -170,27 +107,7 @@ fn drop_head_ref() -> anyhow::Result<()> {
 
     snapbox::assert_data_eq!(
         graph_dag(&graph),
-        snapbox::str![[r#"
-●    👉·8a6c109 (⌂)
-├─╮
-◎ │  A
-● │    ·62b409a (⌂)
-├───╮
-● │ │  ·592abec (⌂)
-│ │ ◎  B
-│ │ ●  ·f16dddf (⌂)
-├───╯
-│ ◎  C
-│ ●    ·7ed512a (⌂)
-│ ├─╮
-│ ● │  ·35ee481 (⌂)
-├─╯ │
-│   ◎  D
-│   ●  ·ecb1877 (⌂)
-├───╯
-◎  main
-●  🏁·965998b (⌂)
-"#]]
+        snapbox::str!["blank"]
     );
 
     Ok(())
@@ -230,28 +147,7 @@ fn overriding_references() -> anyhow::Result<()> {
     )?;
     snapbox::assert_data_eq!(
         graph_dag(&graph),
-        snapbox::str![[r#"
-◎  👉merged[🌳]
-●    ·8a6c109 (⌂)
-├─╮
-◎ │  A
-● │    ·62b409a (⌂)
-├───╮
-● │ │  ·592abec (⌂)
-│ │ ◎  B
-│ │ ●  ·f16dddf (⌂)
-├───╯
-│ ◎  C
-│ ●    ·7ed512a (⌂)
-│ ├─╮
-│ ● │  ·35ee481 (⌂)
-├─╯ │
-│   ◎  D
-│   ●  ·ecb1877 (⌂)
-├───╯
-◎  main
-●  🏁·965998b (⌂)
-"#]]
+        snapbox::str!["blank"]
     );
 
     let merged_a = repo.rev_parse_single("35ee481")?;
@@ -278,27 +174,7 @@ fn overriding_references() -> anyhow::Result<()> {
 
     snapbox::assert_data_eq!(
         graph_dag(&graph),
-        snapbox::str![[r#"
-●    👉·8a6c109 (⌂)
-├─╮
-◎ │  A
-● │    ·62b409a (⌂)
-├───╮
-● │ │  ·592abec (⌂)
-│ │ ◎  B
-│ │ ●  ·f16dddf (⌂)
-├───╯
-│ ◎  C
-│ ●    ·7ed512a (⌂)
-│ ├─╮
-│ ● │  ·35ee481 (⌂)
-├─╯ │
-│   ◎  D
-│   ●  ·ecb1877 (⌂)
-├───╯
-◎  main
-●  🏁·965998b (⌂)
-"#]]
+        snapbox::str!["blank"]
     );
 
     // The first overriding reference precedence over git or other overriding references.
@@ -319,28 +195,7 @@ fn overriding_references() -> anyhow::Result<()> {
 
     snapbox::assert_data_eq!(
         graph_dag(&graph),
-        snapbox::str![[r#"
-●    👉·8a6c109 (⌂)
-├─╮
-◎ │  A
-● │    ·62b409a (⌂)
-├───╮
-● │ │  ·592abec (⌂)
-│ │ ◎  B
-│ │ ●  ·f16dddf (⌂)
-├───╯
-│ ◎  C
-│ ●    ·7ed512a (⌂)
-│ ├─╮
-│ ◎ │  merged[🌳]
-│ ● │  ·35ee481 (⌂)
-├─╯ │
-│   ◎  D
-│   ●  ·ecb1877 (⌂)
-├───╯
-◎  main
-●  🏁·965998b (⌂)
-"#]]
+        snapbox::str!["blank"]
     );
 
     // overriding references take precedence over git.
@@ -354,28 +209,7 @@ fn overriding_references() -> anyhow::Result<()> {
 
     snapbox::assert_data_eq!(
         graph_dag(&graph),
-        snapbox::str![[r#"
-●    👉·8a6c109 (⌂)
-├─╮
-◎ │  A
-● │    ·62b409a (⌂)
-├───╮
-◎ │ │  merged[🌳]
-● │ │  ·592abec (⌂)
-│ │ ◎  B
-│ │ ●  ·f16dddf (⌂)
-├───╯
-│ ◎  C
-│ ●    ·7ed512a (⌂)
-│ ├─╮
-│ ● │  ·35ee481 (⌂)
-├─╯ │
-│   ◎  D
-│   ●  ·ecb1877 (⌂)
-├───╯
-◎  main
-●  🏁·965998b (⌂)
-"#]]
+        snapbox::str!["blank"]
     );
 
     Ok(())

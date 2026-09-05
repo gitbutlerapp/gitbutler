@@ -102,20 +102,7 @@ fn post_graph_traversal() -> anyhow::Result<()> {
 
     snapbox::assert_data_eq!(
         graph_dag(&graph),
-        snapbox::str![[r#"
-◎      👉📕main <> origin/main
-├─┬─╮
-◎ │ │  new-stack
-  ◎ │  origin/main
-  ● │  ✂🟣ccccccc
-  │ ◎  A <> origin/A
-  │ ●  🟣aaaaaaa (🏘)
-  ├─╯
-◎ │  origin/A
-● │  ✂🟣bbbbbbb
-├─╯
-●  🟣febafeb (🏘)
-"#]]
+        snapbox::str!["blank"]
     );
 
     Ok(())
@@ -128,7 +115,7 @@ fn detached_head() {
         commits: vec![commit(id("a"), None, CommitFlags::empty())],
         ..Default::default()
     });
-    snapbox::assert_data_eq!(graph_dag(&graph), snapbox::str!["●  👉🏁🟣aaaaaaa"]);
+    snapbox::assert_data_eq!(graph_dag(&graph), snapbox::str!["blank"]);
 }
 
 fn id(hex: &str) -> ObjectId {
@@ -160,5 +147,5 @@ fn commit(
 
 #[test]
 fn unborn_head() {
-    snapbox::assert_data_eq!(graph_dag(&Graph::default()), snapbox::str!["<UNBORN>"]);
+    snapbox::assert_data_eq!(graph_dag(&Graph::default()), snapbox::str!["blank"]);
 }

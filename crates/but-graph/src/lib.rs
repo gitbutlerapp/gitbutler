@@ -198,7 +198,9 @@
 #![forbid(unsafe_code)]
 #![deny(missing_docs)]
 
+mod nosegment;
 mod segment;
+mod topowalk;
 /// Use this for basic types like [`petgraph::Direction`], and graph algorithms.
 pub use petgraph;
 pub use segment::{

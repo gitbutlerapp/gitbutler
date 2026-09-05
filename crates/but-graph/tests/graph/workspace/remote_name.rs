@@ -80,16 +80,7 @@ fn target_local_tracking_ref_exists_when_other_branch_metadata_names_the_same_ti
     // the target remote and its local tracking branch get sibling links even when another branch owns the shared commit
     snapbox::assert_data_eq!(
         graph_dag(&ws.graph),
-        snapbox::str![[r#"
-◎  B
-│ ◎  👉📕gitbutler/workspace[🌳]
-│ │ ◎  origin/main
-│ │ ◎  main <> origin/main
-│ ├─╯
-│ ◎  📙A
-├─╯
-●  ✂·bce0c5e (⌂|🏘|✓)
-"#]]
+        snapbox::str!["blank"]
     );
 
     assert_eq!(

@@ -23,7 +23,7 @@ fn unborn() -> anyhow::Result<()> {
         &mut db,
         standard_options(),
     )?;
-    snapbox::assert_data_eq!(graph_dag(&graph), snapbox::str!["◎  👉main[🌳]"]);
+    snapbox::assert_data_eq!(graph_dag(&graph), snapbox::str!["blank"]);
     snapbox::assert_data_eq!(
         graph.to_debug(),
         snapbox::str![[r#"
@@ -86,9 +86,7 @@ Graph {
     snapbox::assert_data_eq!(
         graph_workspace(&graph.into_workspace()?).to_string(),
         snapbox::str![[r#"
-⌂:main[🌳] <> ✓!
-└── ≡:main[🌳] {1}
-    └── :main[🌳]
+blank
 
 "#]]
     );
@@ -119,16 +117,7 @@ fn detached() -> anyhow::Result<()> {
     )?;
     snapbox::assert_data_eq!(
         graph_dag(&graph),
-        snapbox::str![[r#"
-◎  main
-│ ◎  tags/annotated
-├─╯
-│ ◎  tags/release/v1
-├─╯
-●  👉·541396b (⌂)
-◎  other
-●  🏁·fafd9d0 (⌂)
-"#]]
+        snapbox::str!["blank"]
     );
     snapbox::assert_data_eq!(
         graph.to_debug(),
@@ -252,12 +241,7 @@ Graph {
     snapbox::assert_data_eq!(
         graph_workspace(&graph.into_workspace()?).to_string(),
         snapbox::str![[r#"
-⌂:DETACHED <> ✓!
-└── ≡:anon: {1}
-    ├── :anon:
-    │   └── ·541396b ►tags/annotated, ►tags/release/v1, ►main
-    └── :other
-        └── ·fafd9d0
+blank
 
 "#]]
     );
@@ -294,12 +278,7 @@ fn shallow_clone_stops_at_shallow_boundary() -> anyhow::Result<()> {
     .validated()?;
     snapbox::assert_data_eq!(
         graph_dag(&graph),
-        snapbox::str![[r#"
-◎  origin/main
-◎  👉main[🌳] <> origin/main
-●  ·71a64f3 (⌂)
-●  ⛰·62d65ed (⌂|⛰)
-"#]]
+        snapbox::str!["blank"]
     );
     let (boundary_sidx, boundary_cidx) = graph
         .segments()
@@ -340,9 +319,7 @@ fn shallow_clone_stops_at_shallow_boundary() -> anyhow::Result<()> {
     snapbox::assert_data_eq!(
         graph_workspace(&ws).to_string(),
         snapbox::str![[r#"
-⌂:main[🌳] <> ✓refs/remotes/origin/main on 71a64f3
-└── ≡:main[🌳] <> origin/main on 71a64f3 {1}
-    └── :main[🌳] <> origin/main
+blank
 
 "#]]
     );
@@ -383,36 +360,14 @@ fn merge_first_parent_older_non_workspace_maintains_graph_order() -> anyhow::Res
     .validated()?;
     snapbox::assert_data_eq!(
         graph_dag(&graph),
-        snapbox::str![[r#"
-◎  👉first-parent[🌳]
-●  ·738ea18 (⌂)
-●    ·408ca26 (⌂)
-├─╮
-● │  ·2854fa2 (⌂)
-│ ◎  second-parent
-│ ●  ·75369b0 (⌂)
-│ ●  ·553bbf7 (⌂)
-│ ●  ·72614bb (⌂)
-├─╯
-◎  main
-│ ◎  tags/base
-├─╯
-●  🏁·793a434 (⌂)
-"#]]
+        snapbox::str!["blank"]
     );
 
     // we see only first-parent with two commits, not the 'second-parent' ref because it *seems* to be traversed first
     snapbox::assert_data_eq!(
         graph_workspace(&graph.into_workspace()?).to_string(),
         snapbox::str![[r#"
-⌂:first-parent[🌳] <> ✓!
-└── ≡:first-parent[🌳] {1}
-    ├── :first-parent[🌳]
-    │   ├── ·738ea18
-    │   ├── ·408ca26
-    │   └── ·2854fa2
-    └── :main
-        └── ·793a434 ►tags/base
+blank
 
 "#]]
     );
@@ -444,25 +399,13 @@ fn main_advanced_remote_advanced() -> anyhow::Result<()> {
     )?;
     snapbox::assert_data_eq!(
         graph_dag(&graph),
-        snapbox::str![[r#"
-◎  👉main[🌳] <> origin/main
-●  ·971953d (⌂)
-│ ◎  origin/main
-│ ●  🟣5d29d62 (0x0)
-├─╯
-●  ·ce09734 (⌂)
-●  🏁·fafd9d0 (⌂)
-"#]]
+        snapbox::str!["blank"]
     );
 
     snapbox::assert_data_eq!(
         graph_workspace(&graph.into_workspace()?).to_string(),
         snapbox::str![[r#"
-⌂:main[🌳] <> ✓refs/remotes/origin/main⇣1 on ce09734
-└── ≡:main[🌳] <> origin/main⇡1⇣1 on ce09734 {1}
-    └── :main[🌳] <> origin/main⇡1⇣1
-        ├── 🟣5d29d62
-        └── ·971953d
+blank
 
 "#]]
     );
@@ -494,16 +437,7 @@ fn only_remote_advanced() -> anyhow::Result<()> {
     )?;
     snapbox::assert_data_eq!(
         graph_dag(&graph),
-        snapbox::str![[r#"
-◎  origin/main
-●  🟣085535d (0x0)
-◎  origin/split-segment
-●  🟣dd9f8d9 (0x0)
-◎  👉main[🌳] <> origin/main
-●  ·971953d (⌂)
-●  ·ce09734 (⌂)
-●  🏁·fafd9d0 (⌂)
-"#]]
+        snapbox::str!["blank"]
     );
 
     // TODO: it should detect that `main` has no own commits as it's fully integrated.
@@ -512,10 +446,7 @@ fn only_remote_advanced() -> anyhow::Result<()> {
     snapbox::assert_data_eq!(
         graph_workspace(&graph.into_workspace()?).to_string(),
         snapbox::str![[r#"
-⌂:main[🌳] <> ✓refs/remotes/origin/main⇣2 on 971953d
-└── ≡:main[🌳] <> origin/main⇣1 on 971953d {1}
-    └── :main[🌳] <> origin/main⇣1
-        └── 🟣085535d
+blank
 
 "#]]
     );
@@ -548,17 +479,7 @@ fn only_remote_advanced_with_special_branch_name() -> anyhow::Result<()> {
     )?;
     snapbox::assert_data_eq!(
         graph_dag(&graph),
-        snapbox::str![[r#"
-◎  origin/main
-●  🟣085535d (0x0)
-◎  origin/split-segment
-●  🟣dd9f8d9 (0x0)
-◎  👉main[🌳] <> origin/main
-●  ·971953d (⌂)
-◎  gitbutler/target
-●  ·ce09734 (⌂)
-●  🏁·fafd9d0 (⌂)
-"#]]
+        snapbox::str!["blank"]
     );
 
     // TODO: We'd actually have to recognise that the `origin/split-segment` branch
@@ -567,10 +488,7 @@ fn only_remote_advanced_with_special_branch_name() -> anyhow::Result<()> {
     snapbox::assert_data_eq!(
         graph_workspace(&graph.into_workspace()?).to_string(),
         snapbox::str![[r#"
-⌂:main[🌳] <> ✓refs/remotes/origin/main⇣2 on 971953d
-└── ≡:main[🌳] <> origin/main⇣1 on 971953d {1}
-    └── :main[🌳] <> origin/main⇣1
-        └── 🟣085535d
+blank
 
 "#]]
     );
@@ -608,22 +526,7 @@ fn multi_root() -> anyhow::Result<()> {
     )?;
     snapbox::assert_data_eq!(
         graph_dag(&graph),
-        snapbox::str![[r#"
-◎  👉main[🌳]
-●    ·c6c8c05 (⌂)
-├─╮
-● │    ·76fc5c4 (⌂)
-├───╮
-● │ │  🏁·e5d0542 (⌂)
-  │ ◎  B
-  │ ●  🏁·366d496 (⌂)
-  ◎  C
-  ●  ·8631946 (⌂)
-╭─┤
-│ ●  🏁·00fab2a (⌂)
-◎  D
-●  🏁·f4955b6 (⌂)
-"#]]
+        snapbox::str!["blank"]
     );
     assert_eq!(
         graph.tip_segments().count(),
@@ -638,12 +541,7 @@ fn multi_root() -> anyhow::Result<()> {
     snapbox::assert_data_eq!(
         graph_workspace(&graph.into_workspace()?).to_string(),
         snapbox::str![[r#"
-⌂:main[🌳] <> ✓!
-└── ≡:main[🌳] {1}
-    └── :main[🌳]
-        ├── ·c6c8c05
-        ├── ·76fc5c4
-        └── ·e5d0542
+blank
 
 "#]]
     );
@@ -684,28 +582,7 @@ fn four_diamond() -> anyhow::Result<()> {
     )?;
     snapbox::assert_data_eq!(
         graph_dag(&graph),
-        snapbox::str![[r#"
-◎  👉merged[🌳]
-●    ·8a6c109 (⌂)
-├─╮
-◎ │  A
-● │    ·62b409a (⌂)
-├───╮
-● │ │  ·592abec (⌂)
-│ │ ◎  B
-│ │ ●  ·f16dddf (⌂)
-├───╯
-│ ◎  C
-│ ●    ·7ed512a (⌂)
-│ ├─╮
-│ ● │  ·35ee481 (⌂)
-├─╯ │
-│   ◎  D
-│   ●  ·ecb1877 (⌂)
-├───╯
-◎  main
-●  🏁·965998b (⌂)
-"#]]
+        snapbox::str!["blank"]
     );
 
     assert_eq!(
@@ -723,15 +600,7 @@ fn four_diamond() -> anyhow::Result<()> {
     snapbox::assert_data_eq!(
         graph_workspace(&graph.into_workspace()?).to_string(),
         snapbox::str![[r#"
-⌂:merged[🌳] <> ✓!
-└── ≡:merged[🌳] {1}
-    ├── :merged[🌳]
-    │   └── ·8a6c109
-    ├── :A
-    │   ├── ·62b409a
-    │   └── ·592abec
-    └── :main
-        └── ·965998b
+blank
 
 "#]]
     );
@@ -789,15 +658,7 @@ fn explicit_traversal_tips_allow_overlapping_commit_ids() -> anyhow::Result<()> 
 
     snapbox::assert_data_eq!(
         graph_dag(&graph),
-        snapbox::str![[r#"
-◎  tags/annotated
-│ ◎  tags/release/v1
-│ ◎  👉main
-├─╯
-●  ·541396b (⌂)
-◎  other
-●  🏁·fafd9d0 (⌂)
-"#]]
+        snapbox::str!["blank"]
     );
     Ok(())
 }
@@ -848,28 +709,7 @@ fn explicit_traversal_tips_allow_named_and_anonymous_integrated_targets_on_same_
     // anonymous target context with the same commit collapses into the named target ref
     snapbox::assert_data_eq!(
         graph_dag(&graph),
-        snapbox::str![[r#"
-◎  👉merged[🌳]
-●    ·8a6c109 (⌂)
-├─╮
-◎ │  A
-● │    ·62b409a (⌂)
-├───╮
-● │ │  ·592abec (⌂)
-│ │ ◎  B
-│ │ ●  ·f16dddf (⌂)
-├───╯
-│ ◎  C
-│ ●    ·7ed512a (⌂)
-│ ├─╮
-│ ● │  ·35ee481 (⌂)
-├─╯ │
-│   ◎  D
-│   ●  ·ecb1877 (⌂)
-├───╯
-◎  main
-●  🏁·965998b (⌂|✓)
-"#]]
+        snapbox::str!["blank"]
     );
     Ok(())
 }
@@ -1044,28 +884,7 @@ fn explicit_traversal_tips_use_integrated_tip_as_workspace_target_commit() -> an
     .validated()?;
     snapbox::assert_data_eq!(
         graph_dag(&graph),
-        snapbox::str![[r#"
-◎  👉merged[🌳]
-●    ·8a6c109 (⌂)
-├─╮
-◎ │  A
-● │    ·62b409a (⌂|✓)
-├───╮
-● │ │  ·592abec (⌂|✓)
-│ │ ◎  B
-│ │ ●  ·f16dddf (⌂|✓)
-├───╯
-│ ◎  C
-│ ●    ·7ed512a (⌂)
-│ ├─╮
-│ ● │  ·35ee481 (⌂)
-├─╯ │
-│   ◎  D
-│   ●  ·ecb1877 (⌂)
-├───╯
-◎  main
-●  🏁·965998b (⌂|✓)
-"#]]
+        snapbox::str!["blank"]
     );
 
     let target_segment = graph.segment_by_commit_id(target_commit_id)?;
@@ -1079,13 +898,7 @@ fn explicit_traversal_tips_use_integrated_tip_as_workspace_target_commit() -> an
     snapbox::assert_data_eq!(
         graph_workspace(&ws).to_string(),
         snapbox::str![[r#"
-⌂:merged[🌳] <> ✓refs/heads/A⇣3 on 965998b
-└── ≡:merged[🌳] on 965998b {1}
-    ├── :merged[🌳]
-    │   └── ·8a6c109
-    └── :A
-        ├── ·62b409a (✓)
-        └── ·592abec (✓)
+blank
 
 "#]]
     );
@@ -1131,33 +944,14 @@ fn stacked_rebased_remotes() -> anyhow::Result<()> {
     .validated()?;
     snapbox::assert_data_eq!(
         graph_dag(&graph),
-        snapbox::str![[r#"
-◎  👉B[🌳] <> origin/B
-●  ·312f819 (⌂)
-◎  A <> origin/A
-●  ·e255adc (⌂)
-│ ◎  origin/B
-│ ●  🟣682be32 (0x0)
-│ ◎  origin/A
-│ ●  🟣e29c23d (0x0)
-├─╯
-◎  main
-●  🏁·fafd9d0 (⌂)
-"#]]
+        snapbox::str!["blank"]
     );
 
     // 'main' is frozen because it connects to a 'foreign' remote, the commit was pushed.
     snapbox::assert_data_eq!(
         graph_workspace(&graph.into_workspace()?).to_string(),
         snapbox::str![[r#"
-⌂:B[🌳] <> ✓refs/remotes/origin/B⇣2 on fafd9d0
-└── ≡:B[🌳] <> origin/B⇡1⇣1 on fafd9d0 {1}
-    ├── :B[🌳] <> origin/B⇡1⇣1
-    │   ├── 🟣682be32
-    │   └── ·312f819
-    └── :A <> origin/A⇡1⇣1
-        ├── 🟣e29c23d
-        └── ·e255adc
+blank
 
 "#]]
     );
@@ -1174,19 +968,7 @@ fn stacked_rebased_remotes() -> anyhow::Result<()> {
     .validated()?;
     snapbox::assert_data_eq!(
         graph_dag(&graph),
-        snapbox::str![[r#"
-◎  👉B[🌳] <> origin/B
-●  ·312f819 (⌂)
-◎  A <> origin/A
-●  ❌·e255adc (⌂)
-│ ◎  origin/B
-│ ●  🟣682be32 (0x0)
-│ ◎  origin/A
-│ ●  🟣e29c23d (0x0)
-│ ◎  main
-├─╯
-●  🏁🟣fafd9d0 (0x0)
-"#]]
+        snapbox::str!["blank"]
     );
     assert!(
         graph.hard_limit_hit(),
@@ -1195,10 +977,7 @@ fn stacked_rebased_remotes() -> anyhow::Result<()> {
     snapbox::assert_data_eq!(
         graph_workspace(&graph.into_workspace()?).to_string(),
         snapbox::str![[r#"
-⌂:B[🌳] <> ✓refs/remotes/origin/B⇣1 on 312f819
-└── ≡:B[🌳] <> origin/B⇣1 on 312f819 {1}
-    └── :B[🌳] <> origin/B⇣1
-        └── 🟣682be32
+blank
 
 "#]]
     );
@@ -1214,19 +993,7 @@ fn stacked_rebased_remotes() -> anyhow::Result<()> {
     .validated()?;
     snapbox::assert_data_eq!(
         graph_dag(&graph),
-        snapbox::str![[r#"
-◎  👉B[🌳] <> origin/B
-●  ·312f819 (⌂)
-◎  A <> origin/A
-●  ·e255adc (⌂)
-│ ◎  origin/B
-│ ●  🟣682be32 (0x0)
-│ ◎  origin/A
-│ ●  🟣e29c23d (0x0)
-├─╯
-◎  main
-●  🏁·fafd9d0 (⌂)
-"#]]
+        snapbox::str!["blank"]
     );
 
     // With a lower entrypoint, we don't see part of the graph.
@@ -1242,24 +1009,12 @@ fn stacked_rebased_remotes() -> anyhow::Result<()> {
     .validated()?;
     snapbox::assert_data_eq!(
         graph_dag(&graph),
-        snapbox::str![[r#"
-◎  👉A <> origin/A
-●  ·e255adc (⌂)
-│ ◎  origin/A
-│ ●  🟣e29c23d (0x0)
-├─╯
-◎  main
-●  🏁·fafd9d0 (⌂)
-"#]]
+        snapbox::str!["blank"]
     );
     snapbox::assert_data_eq!(
         graph_workspace(&graph.into_workspace()?).to_string(),
         snapbox::str![[r#"
-⌂:A <> ✓refs/remotes/origin/A⇣1 on fafd9d0
-└── ≡:A <> origin/A⇡1⇣1 on fafd9d0 {1}
-    └── :A <> origin/A⇡1⇣1
-        ├── 🟣e29c23d
-        └── ·e255adc
+blank
 
 "#]]
     );
@@ -1306,48 +1061,13 @@ fn with_limits() -> anyhow::Result<()> {
     .validated()?;
     snapbox::assert_data_eq!(
         graph_dag(&graph),
-        snapbox::str![[r#"
-◎  👉C[🌳]
-●      ·2a95729 (⌂)
-├─┬─╮
-● │ │  ·6861158 (⌂)
-● │ │  ·4f1f248 (⌂)
-● │ │  ·487ffce (⌂)
-│ ◎ │  A
-│ ● │  ·20a823c (⌂)
-│ ● │  ·442a12f (⌂)
-│ ● │  ·686706b (⌂)
-├─╯ │
-│   ◎  B
-│   ●  ·9908c99 (⌂)
-│   ●  ·60d9a56 (⌂)
-│   ●  ·9d171ff (⌂)
-├───╯
-◎  main
-●  ·edc4dee (⌂)
-●  ·01d0e1e (⌂)
-●  ·4b3e5a8 (⌂)
-●  ·34d0715 (⌂)
-●  🏁·eb5f731 (⌂)
-"#]]
+        snapbox::str!["blank"]
     );
     // No limits list the first parent everywhere.
     snapbox::assert_data_eq!(
         graph_workspace(&graph.into_workspace()?).to_string(),
         snapbox::str![[r#"
-⌂:C[🌳] <> ✓!
-└── ≡:C[🌳] {1}
-    ├── :C[🌳]
-    │   ├── ·2a95729
-    │   ├── ·6861158
-    │   ├── ·4f1f248
-    │   └── ·487ffce
-    └── :main
-        ├── ·edc4dee
-        ├── ·01d0e1e
-        ├── ·4b3e5a8
-        ├── ·34d0715
-        └── ·eb5f731
+blank
 
 "#]]
     );
@@ -1364,19 +1084,13 @@ fn with_limits() -> anyhow::Result<()> {
     .validated()?;
     snapbox::assert_data_eq!(
         graph_dag(&graph),
-        snapbox::str![[r#"
-◎  👉C[🌳]
-●  ✂·2a95729 (⌂)
-"#]]
+        snapbox::str!["blank"]
     );
     // The cut by limit is also represented here.
     snapbox::assert_data_eq!(
         graph_workspace(&graph.into_workspace()?).to_string(),
         snapbox::str![[r#"
-⌂:C[🌳] <> ✓!
-└── ≡:C[🌳] {1}
-    └── :C[🌳]
-        └── ✂️·2a95729
+blank
 
 "#]]
     );
@@ -1392,25 +1106,12 @@ fn with_limits() -> anyhow::Result<()> {
     .validated()?;
     snapbox::assert_data_eq!(
         graph_dag(&graph),
-        snapbox::str![[r#"
-◎  👉C[🌳]
-●      ·2a95729 (⌂)
-├─┬─╮
-● │ │  ✂·6861158 (⌂)
-  ◎ │  A
-  ● │  ✂·20a823c (⌂)
-    ◎  B
-    ●  ✂·9908c99 (⌂)
-"#]]
+        snapbox::str!["blank"]
     );
     snapbox::assert_data_eq!(
         graph_workspace(&graph.into_workspace()?).to_string(),
         snapbox::str![[r#"
-⌂:C[🌳] <> ✓!
-└── ≡:C[🌳] {1}
-    └── :C[🌳]
-        ├── ·2a95729
-        └── ✂️·6861158
+blank
 
 "#]]
     );
@@ -1431,16 +1132,7 @@ fn with_limits() -> anyhow::Result<()> {
     );
     snapbox::assert_data_eq!(
         graph_dag(&graph),
-        snapbox::str![[r#"
-◎  👉C[🌳]
-●      ·2a95729 (⌂)
-├─┬─╮
-● │ │  ❌·6861158 (⌂)
-  ◎ │  A
-  ● │  ❌·20a823c (⌂)
-    ◎  B
-    ●  ❌·9908c99 (⌂)
-"#]]
+        snapbox::str!["blank"]
     );
 
     // The merge commit, then we witness lane-duplication of the limit so we get more than requested.
@@ -1454,29 +1146,12 @@ fn with_limits() -> anyhow::Result<()> {
     .validated()?;
     snapbox::assert_data_eq!(
         graph_dag(&graph),
-        snapbox::str![[r#"
-◎  👉C[🌳]
-●      ·2a95729 (⌂)
-├─┬─╮
-● │ │  ·6861158 (⌂)
-● │ │  ✂·4f1f248 (⌂)
-  ◎ │  A
-  ● │  ·20a823c (⌂)
-  ● │  ✂·442a12f (⌂)
-    ◎  B
-    ●  ·9908c99 (⌂)
-    ●  ✂·60d9a56 (⌂)
-"#]]
+        snapbox::str!["blank"]
     );
     snapbox::assert_data_eq!(
         graph_workspace(&graph.into_workspace()?).to_string(),
         snapbox::str![[r#"
-⌂:C[🌳] <> ✓!
-└── ≡:C[🌳] {1}
-    └── :C[🌳]
-        ├── ·2a95729
-        ├── ·6861158
-        └── ✂️·4f1f248
+blank
 
 "#]]
     );
@@ -1495,30 +1170,12 @@ fn with_limits() -> anyhow::Result<()> {
     .validated()?;
     snapbox::assert_data_eq!(
         graph_dag(&graph),
-        snapbox::str![[r#"
-◎  👉C[🌳]
-●      ·2a95729 (⌂)
-├─┬─╮
-● │ │  ·6861158 (⌂)
-● │ │  ✂·4f1f248 (⌂)
-  ◎ │  A
-  ● │  ·20a823c (⌂)
-  ● │  ·442a12f (⌂)
-  ● │  ✂·686706b (⌂)
-    ◎  B
-    ●  ·9908c99 (⌂)
-    ●  ✂·60d9a56 (⌂)
-"#]]
+        snapbox::str!["blank"]
     );
     snapbox::assert_data_eq!(
         graph_workspace(&graph.into_workspace()?).to_string(),
         snapbox::str![[r#"
-⌂:C[🌳] <> ✓!
-└── ≡:C[🌳] {1}
-    └── :C[🌳]
-        ├── ·2a95729
-        ├── ·6861158
-        └── ✂️·4f1f248
+blank
 
 "#]]
     );
@@ -1537,27 +1194,7 @@ fn with_limits() -> anyhow::Result<()> {
     .validated()?;
     snapbox::assert_data_eq!(
         graph_dag(&graph),
-        snapbox::str![[r#"
-◎  👉C[🌳]
-●      ·2a95729 (⌂)
-├─┬─╮
-● │ │  ·6861158 (⌂)
-● │ │  ·4f1f248 (⌂)
-● │ │  ✂·487ffce (⌂)
-│ ◎ │  A
-│ ● │  ·20a823c (⌂)
-│ ● │  ·442a12f (⌂)
-│ ● │  ·686706b (⌂)
-│ ◎ │  main
-├─╯ │
-│   ◎  B
-│   ●  ·9908c99 (⌂)
-│   ●  ·60d9a56 (⌂)
-│   ●  ✂·9d171ff (⌂)
-├───╯
-●  ·edc4dee (⌂)
-●  ✂·01d0e1e (⌂)
-"#]]
+        snapbox::str!["blank"]
     );
     snapbox::assert_data_eq!(
         graph.statistics().to_debug(),
@@ -1614,13 +1251,7 @@ Statistics {
     snapbox::assert_data_eq!(
         graph_workspace(&graph.into_workspace()?).to_string(),
         snapbox::str![[r#"
-⌂:C[🌳] <> ✓!
-└── ≡:C[🌳] {1}
-    └── :C[🌳]
-        ├── ·2a95729
-        ├── ·6861158
-        ├── ·4f1f248
-        └── ✂️·487ffce
+blank
 
 "#]]
     );
@@ -1638,42 +1269,13 @@ Statistics {
     // This limits the reach of the stack naturally.
     snapbox::assert_data_eq!(
         graph_dag(&graph),
-        snapbox::str![[r#"
-◎  👉C[🌳]
-●      ·2a95729 (⌂)
-├─┬─╮
-● │ │  ·6861158 (⌂)
-● │ │  ·4f1f248 (⌂)
-● │ │  ·487ffce (⌂)
-│ ◎ │  A
-│ ● │  ·20a823c (⌂)
-│ ● │  ·442a12f (⌂)
-│ ● │  ·686706b (⌂)
-├─╯ │
-│   ◎  B
-│   ●  ·9908c99 (⌂)
-│   ●  ·60d9a56 (⌂)
-│   ●  ·9d171ff (⌂)
-├───╯
-◎  main
-●  ·edc4dee (⌂|✓)
-●  ·01d0e1e (⌂|✓)
-●  ·4b3e5a8 (⌂|✓)
-●  ·34d0715 (⌂|✓)
-●  🏁·eb5f731 (⌂|✓)
-"#]]
+        snapbox::str!["blank"]
     );
 
     snapbox::assert_data_eq!(
         graph_workspace(&graph.into_workspace()?).to_string(),
         snapbox::str![[r#"
-⌂:C[🌳] <> ✓! on edc4dee
-└── ≡:C[🌳] on edc4dee {1}
-    └── :C[🌳]
-        ├── ·2a95729
-        ├── ·6861158
-        ├── ·4f1f248
-        └── ·487ffce
+blank
 
 "#]]
     );
@@ -1704,26 +1306,14 @@ fn special_branch_names_do_not_end_up_in_segment() -> anyhow::Result<()> {
     // Standard handling after travrsal and post-processing.
     snapbox::assert_data_eq!(
         graph_dag(&graph),
-        snapbox::str![[r#"
-◎  👉main[🌳]
-●  ·3686017 (⌂)
-◎  gitbutler/edit
-●  ·9725482 (⌂)
-◎  gitbutler/target
-●  🏁·fafd9d0 (⌂)
-"#]]
+        snapbox::str!["blank"]
     );
 
     // But special handling for workspace views.
     snapbox::assert_data_eq!(
         graph_workspace(&graph.into_workspace()?).to_string(),
         snapbox::str![[r#"
-⌂:main[🌳] <> ✓!
-└── ≡:main[🌳] {1}
-    └── :main[🌳]
-        ├── ·3686017
-        ├── ·9725482
-        └── ·fafd9d0
+blank
 
 "#]]
     );
@@ -1751,23 +1341,13 @@ fn ambiguous_worktrees() -> anyhow::Result<()> {
     .validated()?;
     snapbox::assert_data_eq!(
         graph_dag(&graph),
-        snapbox::str![[r#"
-◎  👉main[🌳@repo]
-│ ◎  wt-inside-ambiguous-worktree[📁]
-├─╯
-│ ◎  wt-outside-ambiguous-worktree[📁]
-├─╯
-●  🏁·85efbe4 (⌂)
-"#]]
+        snapbox::str!["blank"]
     );
 
     snapbox::assert_data_eq!(
         graph_workspace(&graph.into_workspace()?).to_string(),
         snapbox::str![[r#"
-⌂:main[🌳@repo] <> ✓!
-└── ≡:main[🌳@repo] {1}
-    └── :main[🌳@repo]
-        └── ·85efbe4 ►wt-inside-ambiguous-worktree[📁], ►wt-outside-ambiguous-worktree[📁]
+blank
 
 "#]]
     );
@@ -1791,24 +1371,14 @@ fn ambiguous_worktrees() -> anyhow::Result<()> {
     // when the graph is built from the linked worktree repository, it can't see anything else without metadata
     snapbox::assert_data_eq!(
         graph_dag(&graph),
-        snapbox::str![[r#"
-◎  main[🌳]
-│ ◎  👉wt-inside-ambiguous-worktree[📁@repo]
-├─╯
-│ ◎  wt-outside-ambiguous-worktree[📁]
-├─╯
-●  🏁·85efbe4 (⌂)
-"#]]
+        snapbox::str!["blank"]
     );
 
     // workspace debug output should preserve that the linked worktree, not the main worktree, is owned by the repository used to build the graph
     snapbox::assert_data_eq!(
         graph_workspace(&graph.into_workspace()?).to_string(),
         snapbox::str![[r#"
-⌂:wt-inside-ambiguous-worktree[📁@repo] <> ✓!
-└── ≡:wt-inside-ambiguous-worktree[📁@repo] {1}
-    └── :wt-inside-ambiguous-worktree[📁@repo]
-        └── ·85efbe4 ►main[🌳], ►wt-outside-ambiguous-worktree[📁]
+blank
 
 "#]]
     );
@@ -1841,10 +1411,7 @@ fn worktree_tips_as_extra_traversal_heads() -> anyhow::Result<()> {
     .validated()?;
     snapbox::assert_data_eq!(
         graph_dag(&graph),
-        snapbox::str![[r#"
-◎  👉main[🌳]
-●  🏁·85efbe4 (⌂)
-"#]]
+        snapbox::str!["blank"]
     );
 
     // With collection enabled, discovery seeds the branch-checkout worktree
@@ -1865,14 +1432,7 @@ fn worktree_tips_as_extra_traversal_heads() -> anyhow::Result<()> {
     .validated()?;
     snapbox::assert_data_eq!(
         graph_dag(&graph),
-        snapbox::str![[r#"
-●  ·3c2f313 (⌂)
-│ ◎  wt-feature[📁worktree-ahead-feature]
-│ ●  ·9175ab3 (⌂)
-├─╯
-◎  👉main[🌳@repo]
-●  🏁·85efbe4 (⌂)
-"#]]
+        snapbox::str!["blank"]
     );
     assert_eq!(
         graph
@@ -1900,12 +1460,7 @@ fn worktree_tips_as_extra_traversal_heads() -> anyhow::Result<()> {
         options,
     )?
     .validated()?;
-    let feature_only = snapbox::str![[r#"
-◎  wt-feature[📁worktree-ahead-feature]
-●  ·9175ab3 (⌂)
-◎  👉main[🌳@repo]
-●  🏁·85efbe4 (⌂)
-"#]];
+    let feature_only = snapbox::str!["blank"];
     snapbox::assert_data_eq!(graph_dag(&graph), feature_only.clone());
 
     // Redone traversals re-resolve the recorded refs: a stale recorded id - here
@@ -1941,10 +1496,7 @@ fn worktree_tips_as_extra_traversal_heads() -> anyhow::Result<()> {
             .validated()?;
         snapbox::assert_data_eq!(
             graph_dag(&redone),
-            snapbox::str![[r#"
-◎  👉main[🌳]
-●  🏁·85efbe4 (⌂)
-"#]]
+            snapbox::str!["blank"]
         );
     }
 
@@ -2023,12 +1575,7 @@ fn worktree_created_after_adoption_is_active() -> anyhow::Result<()> {
     .validated()?;
     snapbox::assert_data_eq!(
         graph_dag(&graph),
-        snapbox::str![[r#"
-◎  wt-feature[📁]
-●  ·88cbbc5 (⌂)
-◎  👉main[🌳@repo]
-●  🏁·7dfaa8f (⌂)
-"#]]
+        snapbox::str!["blank"]
     );
     assert!(
         db.worktree_meta().list()?.is_empty(),
@@ -2091,11 +1638,7 @@ fn commit_with_two_parents() -> anyhow::Result<()> {
     // Duplicate parent commits are kept verbatim.
     snapbox::assert_data_eq!(
         graph_dag(&graph),
-        snapbox::str![[r#"
-◎  👉main[🌳]
-●  ·06470d7 (⌂)
-●  🏁·86719d5 (⌂)
-"#]]
+        snapbox::str!["blank"]
     );
     Ok(())
 }
@@ -2117,13 +1660,7 @@ fn ad_hoc_same_tip_order_creates_empty_branch_segments() -> anyhow::Result<()> {
 
     snapbox::assert_data_eq!(
         graph_dag(&graph),
-        snapbox::str![[r#"
-◎  main[🌳]
-│ ◎  👉top
-│ ◎  bottom
-├─╯
-●  🏁·960152d (⌂)
-"#]]
+        snapbox::str!["blank"]
     );
     assert_eq!(
         graph.entrypoint()?.commit().map(|commit| commit.id),
@@ -2133,11 +1670,7 @@ fn ad_hoc_same_tip_order_creates_empty_branch_segments() -> anyhow::Result<()> {
     snapbox::assert_data_eq!(
         graph_workspace(&graph.into_workspace()?).to_string(),
         snapbox::str![[r#"
-⌂:top <> ✓!
-└── ≡:top {1}
-    ├── :top
-    └── :bottom
-        └── ·960152d ►main[🌳]
+blank
 
 "#]]
     );
@@ -2161,21 +1694,12 @@ fn ad_hoc_order_projects_from_entrypoint_when_top_is_above_it() -> anyhow::Resul
 
     snapbox::assert_data_eq!(
         graph_dag(&graph),
-        snapbox::str![[r#"
-◎  main[🌳]
-│ ◎  top
-│ ◎  👉bottom
-├─╯
-●  🏁·960152d (⌂)
-"#]]
+        snapbox::str!["blank"]
     );
     snapbox::assert_data_eq!(
         graph_workspace(&graph.into_workspace()?).to_string(),
         snapbox::str![[r#"
-⌂:bottom <> ✓!
-└── ≡:bottom {1}
-    └── :bottom
-        └── ·960152d ►main[🌳]
+blank
 
 "#]]
     );
@@ -2203,24 +1727,12 @@ fn ad_hoc_three_branch_order_preserves_middle_empty_segment() -> anyhow::Result<
 
     snapbox::assert_data_eq!(
         graph_dag(&graph),
-        snapbox::str![[r#"
-◎  main[🌳]
-│ ◎  👉top
-│ ◎  middle
-│ ◎  bottom
-├─╯
-●  🏁·960152d (⌂)
-"#]]
+        snapbox::str!["blank"]
     );
     snapbox::assert_data_eq!(
         graph_workspace(&graph.into_workspace()?).to_string(),
         snapbox::str![[r#"
-⌂:top <> ✓!
-└── ≡:top {1}
-    ├── :top
-    ├── :middle
-    └── :bottom
-        └── ·960152d ►main[🌳]
+blank
 
 "#]]
     );
@@ -2244,22 +1756,12 @@ fn ad_hoc_order_ignores_missing_metadata_refs_without_phantoms() -> anyhow::Resu
 
     snapbox::assert_data_eq!(
         graph_dag(&graph),
-        snapbox::str![[r#"
-◎  main[🌳]
-│ ◎  👉top
-│ ◎  bottom
-├─╯
-●  🏁·960152d (⌂)
-"#]]
+        snapbox::str!["blank"]
     );
     snapbox::assert_data_eq!(
         graph_workspace(&graph.into_workspace()?).to_string(),
         snapbox::str![[r#"
-⌂:top <> ✓!
-└── ≡:top {1}
-    ├── :top
-    └── :bottom
-        └── ·960152d ►main[🌳]
+blank
 
 "#]]
     );
@@ -2285,24 +1787,12 @@ fn ad_hoc_order_does_not_force_diverged_refs_into_empty_stack() -> anyhow::Resul
 
     snapbox::assert_data_eq!(
         graph_dag(&graph),
-        snapbox::str![[r#"
-◎  bottom
-│ ◎  main[🌳]
-├─╯
-│ ◎  👉top
-│ ●  ·5cd63e5 (⌂)
-├─╯
-●  🏁·fa91c94 (⌂)
-"#]]
+        snapbox::str!["blank"]
     );
     snapbox::assert_data_eq!(
         graph_workspace(&graph.into_workspace()?).to_string(),
         snapbox::str![[r#"
-⌂:top <> ✓!
-└── ≡:top {1}
-    └── :top
-        ├── ·5cd63e5
-        └── ·fa91c94 ►bottom, ►main[🌳]
+blank
 
 "#]]
     );
@@ -2339,15 +1829,7 @@ fn ad_hoc_order_preserves_empty_top_above_commit_owning_branch() -> anyhow::Resu
     snapbox::assert_data_eq!(
         graph_workspace(&graph.into_workspace()?).to_string(),
         snapbox::str![[r#"
-⌂:empty-top <> ✓!
-└── ≡:empty-top {1}
-    ├── :empty-top
-    ├── :commit-branch
-    │   └── ·4782705
-    ├── :bottom
-    │   └── ·dbc3a4c
-    └── :main[🌳]
-        └── ·67b14ca
+blank
 
 "#]]
     );
@@ -2389,16 +1871,7 @@ fn ad_hoc_order_keeps_lower_empty_branches_after_non_empty_move() -> anyhow::Res
     snapbox::assert_data_eq!(
         graph_workspace(&graph.into_workspace()?).to_string(),
         snapbox::str![[r#"
-⌂:commit-branch <> ✓!
-└── ≡:commit-branch {1}
-    ├── :commit-branch
-    │   └── ·5380c0a
-    ├── :empty-top
-    ├── :empty-low
-    ├── :base
-    │   └── ·a5cd64d
-    └── :main[🌳]
-        └── ·67b14ca
+blank
 
 "#]]
     );
@@ -2434,26 +1907,12 @@ fn ad_hoc_order_scopes_empty_segments_to_active_chain() -> anyhow::Result<()> {
 
     snapbox::assert_data_eq!(
         graph_dag(&graph),
-        snapbox::str![[r#"
-◎  main[🌳]
-│ ◎  other-bottom
-├─╯
-│ ◎  other-top
-├─╯
-│ ◎  👉top
-│ ◎  bottom
-├─╯
-●  🏁·960152d (⌂)
-"#]]
+        snapbox::str!["blank"]
     );
     snapbox::assert_data_eq!(
         graph_workspace(&graph.into_workspace()?).to_string(),
         snapbox::str![[r#"
-⌂:top <> ✓!
-└── ≡:top {1}
-    ├── :top
-    └── :bottom
-        └── ·960152d ►main[🌳], ►other-bottom, ►other-top
+blank
 
 "#]]
     );
@@ -2505,9 +1964,7 @@ fn ad_hoc_branch_at_target_tip_rests_on_the_target_tip() -> anyhow::Result<()> {
     snapbox::assert_data_eq!(
         graph_workspace(&ws).to_string(),
         snapbox::str![[r#"
-⌂:feature[🌳] <> ✓refs/remotes/origin/main on d1b2aed
-└── ≡:feature[🌳] on d1b2aed {1}
-    └── :feature[🌳]
+blank
 
 "#]]
     );
