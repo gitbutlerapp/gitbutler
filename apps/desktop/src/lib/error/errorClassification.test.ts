@@ -104,6 +104,23 @@ describe("classify", () => {
 			expect(result.severity).toBe("warning");
 			expect(result.userMessage).toContain("credentials");
 		});
+
+		test("ForgeUnrecognized is a terminal warning with guidance, not silence", () => {
+			// `list_reviews` tags a target remote that maps to no supported forge.
+			// Pollers must stop on it, while an explicit Sync still gets told why.
+			const error = new IpcError(
+				{
+					message: "No forge could be determined for this repository branch",
+					code: "ForgeUnrecognized",
+				},
+				"list_reviews",
+			);
+			const result = classify(error);
+			expect(result.severity).toBe("warning");
+			expect(result.terminal).toBe(true);
+			expect(result.message).toBe("No forge could be determined for this repository branch");
+			expect(result.userMessage).toContain("target branch");
+		});
 	});
 
 	describe("severity: error with userMessage", () => {

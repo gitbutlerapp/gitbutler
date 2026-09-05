@@ -294,9 +294,15 @@ pub fn list_reviews(
 
     let db = &mut *ctx.db.get_cache_mut()?;
 
+    // Typed so the desktop can treat an unrecognized forge as an expected,
+    // terminal listing state instead of retrying it on a timer.
+    let forge_repo_info = forge_repo_info.context(but_error::Context::new_static(
+        but_error::Code::ForgeUnrecognized,
+        "No forge could be determined for this repository branch",
+    ))?;
     but_forge::list_forge_reviews_with_cache(
         preferred_forge_user,
-        &forge_repo_info.context("No forge could be determined for this repository branch")?,
+        &forge_repo_info,
         &storage,
         db,
         cache_config,
