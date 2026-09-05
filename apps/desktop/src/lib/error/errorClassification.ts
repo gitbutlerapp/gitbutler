@@ -214,16 +214,15 @@ Your GitHub token appears expired. Please log out and back in to refresh it. (Se
 			"This GitHub organization requires SAML SSO. Authorize the GitButler OAuth app on the organization's SSO page, or authorize your personal access token in GitHub's token SSO settings, then try again.",
 	},
 	/**
-	 * The GitHub token can't read the requested resource — a fine-grained
-	 * PAT missing a read permission such as Checks. Terminal until the
-	 * user grants it or reconnects.
+	 * GitHub denied or hid the requested repository resource. Terminal until
+	 * the user grants access, reconnects, or updates the repository configuration.
 	 */
 	GitHubInsufficientPermissions: {
 		severity: "error",
 		terminal: true,
 		title: "GitHub Permissions Error",
 		userMessage: `
-Your GitHub token doesn't have permission to read part of this repository (for example CI checks). Grant the token the missing read permission on GitHub, or reconnect GitHub under Settings → Integrations.
+GitHub could not access this repository or part of it (for example CI checks). Check that the repository still exists, grant the missing read permission, or reconnect GitHub under Settings → Integrations.
 		`,
 	},
 	/**

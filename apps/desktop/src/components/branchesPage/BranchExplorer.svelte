@@ -81,9 +81,7 @@
 	const listServiceEnabled = $derived(!!forgeInfo?.capabilities.listService);
 	const reviewUnitAbbr = $derived(forgeInfo?.unit.abbr ?? "PR");
 
-	const prs = $derived(
-		listServiceEnabled ? listingService.list(projectId, 15 * 60 * 1000) : undefined,
-	);
+	const prs = $derived(listServiceEnabled ? listingService.list(projectId) : undefined);
 
 	const branchesQuery = $derived(branchService.list(projectId));
 	const combined = $derived(

@@ -12,8 +12,24 @@ pub async fn list(
     GitHubClient::from_storage(storage, preferred_account)?
         .list_open_pulls(owner, repo)
         .await
-        .map_err(classify_forge_error)
+        .map_err(classify_review_list_error)
         .context("Failed to list open pull requests")
+}
+
+/// A 404 on the open-PR listing means the repository is gone or invisible to
+/// this account, so retrying cannot succeed: it is tagged as a permission
+/// problem right here. Every other error goes through [`classify_forge_error`].
+fn classify_review_list_error(err: anyhow::Error) -> anyhow::Error {
+    if err
+        .downcast_ref::<HttpStatusError>()
+        .is_some_and(|http_err| http_err.status == reqwest::StatusCode::NOT_FOUND)
+    {
+        return err.context(but_error::Context::new_static(
+            but_error::Code::GitHubInsufficientPermissions,
+            "GitHub could not find this repository. Check that it still exists and that your account can access it.",
+        ));
+    }
+    classify_forge_error(err)
 }
 pub async fn list_recently_closed(
     preferred_account: Option<&crate::GithubAccountIdentifier>,
@@ -574,6 +590,30 @@ mod tests {
             ctx.map(|c| c.code),
             Some(but_error::Code::GitHubInsufficientPermissions),
             "a PAT permission 403 is terminal and needs its remediation surfaced"
+        );
+    }
+
+    #[test]
+    fn review_list_404_classification_is_operation_local() {
+        let list_err = classify_review_list_error(http_error(
+            reqwest::StatusCode::NOT_FOUND,
+            r#"404 Not Found: {"message":"Not Found"}"#,
+        ));
+        assert_eq!(
+            list_err
+                .downcast_ref::<but_error::Context>()
+                .map(|ctx| ctx.code),
+            Some(but_error::Code::GitHubInsufficientPermissions),
+            "a review-list 404 needs repository access before retrying can succeed"
+        );
+
+        let other_err = classify_forge_error(http_error(
+            reqwest::StatusCode::NOT_FOUND,
+            r#"404 Not Found: {"message":"Not Found"}"#,
+        ));
+        assert!(
+            other_err.downcast_ref::<but_error::Context>().is_none(),
+            "other GitHub read operations keep their existing 404 semantics"
         );
     }
 

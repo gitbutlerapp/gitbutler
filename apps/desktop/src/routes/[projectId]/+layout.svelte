@@ -16,6 +16,7 @@
 	import { FORGE_INFO_SERVICE } from "$lib/forge/forgeInfo.svelte";
 	import { GITLAB_USER_SERVICE } from "$lib/forge/gitlab/gitlabUserService.svelte";
 	import { LISTING_SERVICE } from "$lib/forge/listingService.svelte";
+	import { createPollBackoff } from "$lib/forge/shared/pollErrorBackoff.svelte";
 	import { GIT_SERVICE } from "$lib/git/gitService";
 	import { MODE_SERVICE } from "$lib/mode/modeService";
 	import { showInfo, showWarning } from "$lib/notifications/toasts";
@@ -91,18 +92,23 @@
 	const canListReviews = $derived(
 		projectForgeInfoQuery.response?.capabilities.listService ?? false,
 	);
-	const forgeReviews = $derived(
-		canListReviews ? listingService.list(projectId, 15 * 60 * 1000) : undefined,
-	);
-
 	// Keep one project-level subscription alive so a cold workspace populates
-	// the backend forge cache even when the Branches view is never opened.
-	// Reading the result makes the lazy derived query part of this component's
-	// reactive graph; cache-write completion invalidates head_info in the service.
-	$effect(() => {
-		const result = forgeReviews?.result;
-		void result;
+	// the backend forge cache even when the Branches view is never opened. The
+	// backoff's effect reads the result, which makes the lazy derived query
+	// part of this component's reactive graph.
+	const POLL_INTERVAL = 15 * 60 * 1000;
+	const reviewListBackoff = createPollBackoff({
+		getKey: () => projectId,
+		getResult: () => forgeReviews?.result,
+		getElapsedMs: () => 0,
+		getShouldStop: () => false,
 	});
+	const reviewListPollingInterval = $derived(
+		reviewListBackoff.pollingInterval === 0 ? 0 : POLL_INTERVAL,
+	);
+	const forgeReviews = $derived(
+		canListReviews ? listingService.list(projectId, reviewListPollingInterval) : undefined,
+	);
 
 	// Migrate stored GitLab access token from the legacy location to the
 	// per-account secrets entry on app load. Safe no-op when already done.

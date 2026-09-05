@@ -1,8 +1,8 @@
 import { classify } from "$lib/error/errorClassification";
 import { getPollingInterval } from "$lib/forge/shared/progressivePolling";
+import { QueryStatus } from "@reduxjs/toolkit/query";
 
-/** The bits of a query result the backoff cares about. */
-type PollResult = { isError?: boolean; error?: unknown; startedTimeStamp?: number } | undefined;
+type PollResult = { status: QueryStatus; error?: unknown; startedTimeStamp?: number } | undefined;
 
 /**
  * Progressive polling that backs off as a query keeps failing.
@@ -18,6 +18,13 @@ type PollResult = { isError?: boolean; error?: unknown; startedTimeStamp?: numbe
  * — no interval will fix it. Refetch-on-focus and manual retries still
  * probe, and a success clears the stop.
  *
+ * A pending result (a poll or retry in flight) changes nothing: only the
+ * request's outcome does. Treating it as healthy would clear the backoff on
+ * every poll and re-count the same failure once it completes, so the interval
+ * would flip on each completion instead of settling.
+ *
+ * `getKey` scopes the state: a key change (e.g. a new project) starts over.
+ *
  * The failure count is `$state` written from an `$effect`, not a `$derived` off
  * the query: `pollingInterval` feeds the query's own subscription, so deriving
  * the error straight back out of the query would form a reactive cycle. The
@@ -31,28 +38,28 @@ export function createPollBackoff(deps: {
 	getResult: () => PollResult;
 	getElapsedMs: () => number;
 	getShouldStop: () => boolean;
+	getKey?: () => unknown;
 }) {
 	let consecutiveErrors = $state(0);
 	let terminalError = $state(false);
-	// Not reactive: just remembers which poll we last counted, so a re-running
-	// effect doesn't double-count a single failed request.
-	let lastPolledStamp: number | undefined = undefined;
+	let lastKey = deps.getKey?.();
+	let lastPolledStamp: number | undefined;
 
 	$effect(() => {
+		const key = deps.getKey?.();
+		if (lastKey !== key) [lastKey, consecutiveErrors, terminalError] = [key, 0, false];
 		const result = deps.getResult();
-		const errored = result?.isError ?? false;
+		const status = result?.status;
 		const stamp = result?.startedTimeStamp;
 
-		if (!errored) {
-			// A healthy (or absent) result clears the backoff.
+		if (status === QueryStatus.pending) return;
+		if (!result || status !== QueryStatus.rejected) {
 			if (consecutiveErrors !== 0) consecutiveErrors = 0;
 			if (terminalError) terminalError = false;
 			lastPolledStamp = stamp;
 			return;
 		}
-
-		const terminal = result?.error ? (classify(result.error).terminal ?? false) : false;
-		if (terminal !== terminalError) terminalError = terminal;
+		if (!terminalError && result.error && classify(result.error).terminal) terminalError = true;
 
 		if (consecutiveErrors === 0) {
 			// First failed poll: step out to the short interval.
