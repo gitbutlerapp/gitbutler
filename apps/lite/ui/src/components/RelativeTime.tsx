@@ -4,12 +4,8 @@ import { formatAbsoluteTime, formatCompactRelativeTime, formatRelativeTime } fro
 import { Tooltip } from "@base-ui/react";
 import type { FC } from "react";
 
-/**
- * How often an unpinned timestamp re-reads the clock. The wording is exact to
- * the second below a minute and coarse above it, so this is the point where
- * waiting longer would start to show.
- */
-const TICK_MS = 30_000;
+/** Refresh periodically as timestamps age out of "just now" and into minutes. */
+const TICK_MS = 60_000;
 
 /** A relative timestamp whose hover tooltip carries the absolute time. */
 export const RelativeTime: FC<{

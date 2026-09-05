@@ -38,7 +38,7 @@ describe("RelativeTime", () => {
 
 	it("ages in place while nothing else re-renders it", () => {
 		act(() => root.render(<RelativeTime timestamp={start} />));
-		expect(container.textContent).toBe("in 0 seconds");
+		expect(container.textContent).toBe("just now");
 
 		act(() => {
 			vi.advanceTimersByTime(5 * 60_000);
@@ -55,7 +55,7 @@ describe("RelativeTime", () => {
 		});
 
 		// A pinned list stays stable no matter how long it is left open.
-		expect(container.textContent).toBe("in 0 seconds");
+		expect(container.textContent).toBe("just now");
 	});
 
 	it("refreshes an edited annotation's clock before the next tick", () => {
@@ -77,7 +77,7 @@ describe("RelativeTime", () => {
 
 		renderAnnotation(start + 19_000);
 
-		expect(container.querySelector("time")?.textContent).toBe("1 second ago");
+		expect(container.querySelector("time")?.textContent).toBe("just now");
 		expect(container.querySelector("textarea")).toBe(textarea);
 		expect(textarea.value).toBe("Edited comment");
 		expect(document.activeElement).toBe(textarea);
@@ -85,6 +85,10 @@ describe("RelativeTime", () => {
 		act(() => {
 			vi.advanceTimersByTime(30_000);
 		});
-		expect(container.querySelector("time")?.textContent).toBe("31 seconds ago");
+		expect(container.querySelector("time")?.textContent).toBe("just now");
+		act(() => {
+			vi.advanceTimersByTime(30_000);
+		});
+		expect(container.querySelector("time")?.textContent).toBe("1 minute ago");
 	});
 });
