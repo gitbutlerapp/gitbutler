@@ -202,6 +202,9 @@ pub enum Code {
     /// (bad client credentials or device code, unsupported grant type, the
     /// device flow being disabled for the app). Retrying the same code won't help.
     GitHubDeviceFlowRejected,
+    /// The target remote maps to no supported forge, so there is nothing to
+    /// list reviews from. Terminal until the target or remote changes.
+    ForgeUnrecognized,
     /// The operation was rejected because the current state doesn't allow it.
     /// Not a bug — the user's request simply can't be fulfilled right now.
     /// The frontend should present this as a warning rather than an error.

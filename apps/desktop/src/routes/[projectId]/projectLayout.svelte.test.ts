@@ -1,6 +1,7 @@
 import ProjectLayout from "./+layout.svelte";
 import { BACKEND } from "$lib/backend";
 import { BASE_BRANCH_SERVICE } from "$lib/baseBranch/baseBranchService.svelte";
+import { buildBranchEndpoints } from "$lib/branches/branchEndpoints";
 import { BRANCH_SERVICE } from "$lib/branches/branchService.svelte";
 import { FORGE_INFO_SERVICE } from "$lib/forge/forgeInfo.svelte";
 import { GITLAB_USER_SERVICE } from "$lib/forge/gitlab/gitlabUserService.svelte";
@@ -81,6 +82,15 @@ const nonterminalError = {
 		code: "Unknown" as const,
 	},
 };
+// What `list_reviews` returns when the target remote maps to no supported forge.
+const unrecognizedForgeError = {
+	error: {
+		origin: "ipc" as const,
+		name: "API error: (list_reviews)",
+		message: "No forge could be determined for this repository branch",
+		code: "ForgeUnrecognized" as const,
+	},
+};
 
 class ReactiveStoreState {
 	root = $state.raw<any>();
@@ -102,7 +112,11 @@ function query(response?: unknown) {
 	};
 }
 
-type Response = typeof success | typeof terminalError | typeof nonterminalError;
+type Response =
+	| typeof success
+	| typeof terminalError
+	| typeof nonterminalError
+	| typeof unrecognizedForgeError;
 
 function setup(
 	responses: Array<Response | Promise<Response>>,
@@ -123,7 +137,12 @@ function setup(
 	)({
 		reducerPath: "backend",
 		tagTypes: Object.values(ReduxTag),
-		baseQuery: async () => await responses[Math.min(calls++, responses.length - 1)]!,
+		// Only `list_reviews` consumes scripted responses; other commands
+		// (e.g. `set_base_branch`) succeed without counting as a call.
+		baseQuery: async (_args: unknown, _api: unknown, extra: any) =>
+			extra?.command === "list_reviews"
+				? await responses[Math.min(calls++, responses.length - 1)]!
+				: { data: null },
 		endpoints: () => ({}),
 	});
 	const store = configureStore({
@@ -135,6 +154,7 @@ function setup(
 	storeRef.state = storeState;
 	const listingService =
 		listingServiceOverride ?? new ListingService(api as never, store.dispatch as never);
+	api.injectEndpoints({ endpoints: (build) => buildBranchEndpoints(build as never) });
 	const forgeInfo = { capabilities: { listService: true } };
 	function noop() {}
 	async function asyncNoop() {}
@@ -311,6 +331,42 @@ describe("project review-list polling", () => {
 			"project-b",
 			POLL_INTERVAL,
 		]);
+		harness.rendered.unmount();
+		harness.storeState.unsubscribe();
+	});
+
+	test("stops polling an unrecognized forge until a supported target retries", async () => {
+		vi.useFakeTimers();
+		const responses: Response[] = [unrecognizedForgeError];
+		const harness = setup(responses);
+		await settle();
+		expect(harness.calls).toBe(1);
+
+		// The poll owner re-subscribes once while it drops the interval to 0;
+		// from then on no interval request may be scheduled.
+		await vi.advanceTimersByTimeAsync(POLL_INTERVAL);
+		await settle();
+		const converged = harness.calls;
+		expect(converged).toBeLessThanOrEqual(2);
+		await vi.advanceTimersByTimeAsync(POLL_INTERVAL * 2);
+		expect(harness.calls, "unrecognized forge kept scheduling interval requests").toBe(converged);
+
+		// Re-targeting onto a supported remote retries immediately.
+		responses.splice(0, responses.length, success);
+		await harness.store.dispatch(
+			(harness.api.endpoints as any).setTarget.initiate({
+				projectId: PROJECT_ID,
+				branch: "origin/main",
+			}),
+		);
+		await settle();
+		expect(harness.calls, "target change did not retry the listing").toBe(converged + 1);
+		const listed = (harness.api.endpoints as any).listPrs.select(PROJECT_ID)(
+			harness.store.getState(),
+		);
+		expect(listed.isError).toBe(false);
+		expect(listed.data.ids).toEqual(["topic"]);
+
 		harness.rendered.unmount();
 		harness.storeState.unsubscribe();
 	});

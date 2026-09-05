@@ -51,6 +51,9 @@ export function buildBranchEndpoints(build: BackendEndpointBuilder) {
 			query: (args) => args,
 			invalidatesTags: [
 				invalidatesType(ReduxTag.ForgeProvider),
+				// The review listing follows the target remote: a stopped
+				// (unrecognized-forge) listing must retry once it changes.
+				invalidatesList(ReduxTag.PullRequests),
 				invalidatesType(ReduxTag.BaseBranchData),
 				invalidatesList(ReduxTag.Stacks),
 				invalidatesList(ReduxTag.StackDetails),
@@ -66,6 +69,7 @@ export function buildBranchEndpoints(build: BackendEndpointBuilder) {
 			query: (args) => args,
 			invalidatesTags: [
 				invalidatesType(ReduxTag.ForgeProvider),
+				invalidatesList(ReduxTag.PullRequests),
 				invalidatesType(ReduxTag.BaseBranchData),
 				invalidatesList(ReduxTag.Stacks),
 				invalidatesList(ReduxTag.StackDetails),

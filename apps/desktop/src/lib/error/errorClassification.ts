@@ -237,6 +237,17 @@ GitHub could not access this repository or part of it (for example CI checks). C
 		userMessage:
 			"You are not logged in to your forge. Connect your account under Settings → Integrations to work with pull requests.",
 	},
+	/**
+	 * The target remote maps to no supported forge, so `list_reviews` has
+	 * nothing to poll. Terminal until the target or remote changes; not
+	 * silent, so an explicit Sync still explains why nothing was listed.
+	 */
+	ForgeUnrecognized: {
+		severity: "warning",
+		terminal: true,
+		userMessage:
+			"The target branch's remote isn't a GitHub, GitLab, or Bitbucket repository GitButler recognizes, so pull requests can't be listed. Pick a target branch on a supported remote in the project settings.",
+	},
 	ProjectDatabaseIncompatible: {
 		severity: "error",
 		userMessage: `
