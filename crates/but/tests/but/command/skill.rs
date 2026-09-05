@@ -26,6 +26,45 @@ fn path_ends_with_gitbutler_agents_dir(path: &str) -> bool {
 }
 
 #[test]
+fn skill_flag_prints_base_skill_text_to_stdout() {
+    let env = Sandbox::empty();
+
+    let version_stdout = env
+        .but("--version")
+        .assert()
+        .success()
+        .get_output()
+        .stdout
+        .clone();
+    let version = std::str::from_utf8(&version_stdout)
+        .unwrap()
+        .trim()
+        .strip_prefix("but ")
+        .expect("`but --version` output starts with the binary name")
+        .to_string();
+
+    let stdout = env
+        .but("--skill")
+        .assert()
+        .success()
+        .stderr_eq(str![[]])
+        .get_output()
+        .stdout
+        .clone();
+
+    let expected = include_str!("../../../skill/SKILL.md").replacen(
+        "version: 0.0.0",
+        &format!("version: {version}"),
+        1,
+    );
+    assert_eq!(
+        std::str::from_utf8(&stdout).unwrap(),
+        expected,
+        "`but --skill` prints the bundled SKILL.md with the CLI version injected"
+    );
+}
+
+#[test]
 fn skill_check_local_outside_repo_fails() {
     let env = Sandbox::empty();
 

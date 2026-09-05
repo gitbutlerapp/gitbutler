@@ -980,6 +980,12 @@ fn prepare_skill_content(version: &str) -> Result<String> {
     Ok(inject_version(skill_content, version))
 }
 
+/// The bundled base skill text (SKILL.md) with the CLI version injected,
+/// as printed by `but --skill`.
+pub fn base_skill_text() -> Result<String> {
+    prepare_skill_content(option_env!("VERSION").unwrap_or("dev"))
+}
+
 /// Write the bundled skill files into `install_path`, creating the directory
 /// structure as needed and injecting the CLI version into SKILL.md. Returns the
 /// version that was written.
