@@ -22,7 +22,7 @@ export const Annotation: FC<Props> = ({ textareaRef, ...p }) => (
 					dateTime={new Date(p.updatedAt).toISOString()}
 					className={classes(styles.date, "text-12")}
 				>
-					<RelativeTime timestamp={p.updatedAt} />
+					<RelativeTime key={p.updatedAt} timestamp={p.updatedAt} />
 				</time>
 			)}
 		</header>
