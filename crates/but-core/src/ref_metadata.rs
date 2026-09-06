@@ -117,6 +117,7 @@ impl Workspace {
                             .unwrap_or(WorkspaceStackBranch {
                                 ref_name: branch,
                                 archived: false,
+                                parents: None,
                             }),
                     );
                 }
@@ -134,6 +135,7 @@ impl Workspace {
                         .map(|ref_name| WorkspaceStackBranch {
                             ref_name,
                             archived: false,
+                            parents: None,
                         })
                         .collect(),
                     workspacecommit_relation: WorkspaceCommitRelation::Merged,
@@ -156,6 +158,7 @@ impl Workspace {
         };
 
         let stack = &mut self.stacks[stack_idx];
+        stack.splice_branch_edges(segment_idx);
         stack.branches.remove(segment_idx);
 
         if stack.branches.is_empty() {
@@ -191,6 +194,7 @@ impl Workspace {
             self.stacks[stack_idx].workspacecommit_relation = WorkspaceCommitRelation::Outside;
         } else {
             // It's a segment in the middle, remove its metadata.
+            self.stacks[stack_idx].splice_branch_edges(segment_idx);
             self.stacks[stack_idx].branches.remove(segment_idx);
         }
 
@@ -227,6 +231,7 @@ impl Workspace {
             branches: vec![WorkspaceStackBranch {
                 ref_name: branch.to_owned(),
                 archived: false,
+                parents: None,
             }],
         };
         let stack_idx = match order.map(|idx| idx.min(self.stacks.len())) {
@@ -261,6 +266,7 @@ impl Workspace {
             WorkspaceStackBranch {
                 ref_name: branch.to_owned(),
                 archived: false,
+                parents: None,
             },
         );
         Some(true)
@@ -502,6 +508,25 @@ impl ProjectMeta {
         )?;
         set_or_remove(config, PROJECT_PUSH_REMOTE, self.push_remote.as_deref())?;
         git_config::set_config_value(config, PROJECT_PORTED_META, "true")
+    }
+
+    /// Drop project metadata from repository-local Git config, including the ported marker.
+    ///
+    /// For when the workspace it mirrors is removed outright: a target left behind here would
+    /// keep resolving for a workspace that no longer exists.
+    pub fn remove_from_local_config(repo: &gix::Repository) -> anyhow::Result<()> {
+        git_config::edit_repo_config(repo, gix::config::Source::Local, |config| {
+            for key in [
+                PROJECT_TARGET_REF,
+                PROJECT_TARGET_COMMIT_ID,
+                PROJECT_PUSH_REMOTE,
+                PROJECT_PORTED_META,
+            ] {
+                git_config::remove_config_value(config, key)?;
+            }
+            Ok(())
+        })?;
+        Ok(())
     }
 }
 
@@ -877,11 +902,22 @@ pub struct WorkspaceStackBranch {
     /// However, they must disappear once the whole stack has been integrated and the workspace has moved past it.
     /// Note that this flag must be stored with the workspace as it must survive the deletion of a reference.
     pub archived: bool,
+    /// The in-stack branches this one rests on — the DAG declaration for graphs
+    /// INSIDE a stack. `None` = implied by list adjacency (the legacy chain: the
+    /// next entry, the last entry resting on the stack base). `Some(vec![])` = rests
+    /// directly on the stack base. Structure is validated by
+    /// [`WorkspaceStack::validate_structure`]; the branches list stays the declared
+    /// topological (display) order — every parent is listed BELOW its child.
+    pub parents: Option<Vec<gix::refs::FullName>>,
 }
 
 impl std::fmt::Debug for WorkspaceStackBranch {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let WorkspaceStackBranch { ref_name, archived } = self;
+        let WorkspaceStackBranch {
+            ref_name,
+            archived,
+            parents: _,
+        } = self;
         f.debug_struct("WorkspaceStackBranch")
             .field("ref_name", &ref_name.as_bstr())
             .field("archived", archived)
@@ -893,6 +929,254 @@ impl WorkspaceStack {
     /// The name of the stack itself, if it exists.
     pub fn ref_name(&self) -> Option<&gix::refs::FullName> {
         self.branches.first().map(|b| &b.ref_name)
+    }
+
+    /// Whether any branch declares explicit [`parents`](WorkspaceStackBranch::parents) —
+    /// the stack is (potentially) a DAG rather than the implied chain.
+    pub fn has_explicit_parents(&self) -> bool {
+        self.branches.iter().any(|b| b.parents.is_some())
+    }
+
+    /// The declared parent edges as `(child_idx, parent_idx)` pairs, implied chain
+    /// adjacency resolved (a `None`-parents entry rests on the NEXT entry; the last
+    /// such entry rests on the stack base and contributes no edge). Explicit parent
+    /// names that don't resolve in-stack are skipped here —
+    /// [`validate_structure`](Self::validate_structure) reports them.
+    pub fn parent_edges(&self) -> Vec<(usize, usize)> {
+        let index_of =
+            |name: &gix::refs::FullName| self.branches.iter().position(|b| b.ref_name == *name);
+        let mut edges = Vec::new();
+        for (idx, branch) in self.branches.iter().enumerate() {
+            match &branch.parents {
+                None => {
+                    if idx + 1 < self.branches.len() {
+                        edges.push((idx, idx + 1));
+                    }
+                }
+                Some(parents) => {
+                    edges.extend(parents.iter().filter_map(index_of).map(|pidx| (idx, pidx)));
+                }
+            }
+        }
+        edges
+    }
+
+    /// Validate the DAG declaration. Stacks without explicit
+    /// parents keep the legacy chain tolerance and always pass; a declaring stack must
+    /// uphold: unique branch names, every parent in-stack and not itself, no duplicate
+    /// parent entries, every edge pointing DOWNWARD in list order (child before parent
+    /// — which makes the list a linear extension and the graph acyclic), exactly one
+    /// tip and it is the first entry, and every branch reachable from the tip.
+    pub fn validate_structure(&self) -> anyhow::Result<()> {
+        use anyhow::bail;
+        if !self.has_explicit_parents() {
+            return Ok(());
+        }
+        let mut seen = std::collections::BTreeSet::new();
+        for b in &self.branches {
+            if !seen.insert(b.ref_name.as_bstr()) {
+                bail!("Branch '{}' is listed twice in its stack", b.ref_name);
+            }
+        }
+        for (idx, b) in self.branches.iter().enumerate() {
+            let Some(parents) = &b.parents else { continue };
+            let mut parent_seen = std::collections::BTreeSet::new();
+            for p in parents {
+                if *p == b.ref_name {
+                    bail!("Branch '{}' cannot rest on itself", b.ref_name);
+                }
+                if !parent_seen.insert(p.as_bstr()) {
+                    bail!("Branch '{}' lists parent '{p}' twice", b.ref_name);
+                }
+                let Some(pidx) = self.branches.iter().position(|x| x.ref_name == *p) else {
+                    bail!(
+                        "Branch '{}' rests on '{p}', which is not in its stack",
+                        b.ref_name
+                    );
+                };
+                if pidx <= idx {
+                    bail!(
+                        "Branch '{}' rests on '{p}', which is declared above it — the list must stay a linear extension (children before parents)",
+                        b.ref_name
+                    );
+                }
+            }
+        }
+        let edges = self.parent_edges();
+        let is_parent: std::collections::BTreeSet<usize> = edges.iter().map(|&(_, p)| p).collect();
+        let tips: Vec<usize> = (0..self.branches.len())
+            .filter(|idx| !is_parent.contains(idx))
+            .collect();
+        if tips != [0] {
+            bail!(
+                "A stack has exactly one tip, its first branch — found tip candidates at positions {tips:?}"
+            );
+        }
+        let mut reachable = vec![false; self.branches.len()];
+        let mut queue = vec![0usize];
+        while let Some(idx) = queue.pop() {
+            if std::mem::replace(&mut reachable[idx], true) {
+                continue;
+            }
+            queue.extend(edges.iter().filter(|&&(c, _)| c == idx).map(|&(_, p)| p));
+        }
+        if let Some(unreached) = reachable.iter().position(|r| !r) {
+            bail!(
+                "Branch '{}' is not connected to the stack tip",
+                self.branches[unreached].ref_name
+            );
+        }
+        Ok(())
+    }
+
+    /// The effective parents of the branch at `idx`: its explicit declaration, or the
+    /// implied chain adjacency (the next entry; empty at the bottom).
+    fn effective_parents(&self, idx: usize) -> Vec<gix::refs::FullName> {
+        match self.branches.get(idx).and_then(|b| b.parents.as_ref()) {
+            Some(p) => p.clone(),
+            None => self
+                .branches
+                .get(idx + 1)
+                .map(|b| vec![b.ref_name.clone()])
+                .unwrap_or_default(),
+        }
+    }
+
+    /// Rewire edges so removing the branch at `segment_idx` keeps its children resting
+    /// on its parents (the splice), then let the caller remove the entry. A no-op for
+    /// plain chains, whose list splice IS the edge splice.
+    pub(crate) fn splice_branch_edges(&mut self, segment_idx: usize) {
+        if !self.has_explicit_parents() {
+            return;
+        }
+        let removed_name = self.branches[segment_idx].ref_name.clone();
+        let removed_parents = self.effective_parents(segment_idx);
+        for (idx, b) in self.branches.iter_mut().enumerate() {
+            if idx == segment_idx {
+                continue;
+            }
+            match &mut b.parents {
+                Some(parents) => {
+                    if let Some(pos) = parents.iter().position(|p| *p == removed_name) {
+                        parents.remove(pos);
+                        let mut insert_at = pos;
+                        for rp in &removed_parents {
+                            if !parents.contains(rp) {
+                                parents.insert(insert_at, rp.clone());
+                                insert_at += 1;
+                            }
+                        }
+                    }
+                }
+                None => {
+                    // The implied child directly above inherits explicitly: after the
+                    // removal its adjacency would silently point elsewhere.
+                    if idx + 1 == segment_idx {
+                        b.parents = Some(removed_parents.clone());
+                    }
+                }
+            }
+        }
+    }
+
+    /// Add `branch` as a FORK resting on `parent`, inserted directly above it in list order.
+    /// Only children that declare `parent` EXPLICITLY keep resting on it: a child relying on
+    /// implied chain adjacency ends up resting on `branch` instead, so `parent` gains a second
+    /// child only in an already-declaring stack.
+    pub fn add_fork(
+        &mut self,
+        branch: gix::refs::FullName,
+        parent: &gix::refs::FullNameRef,
+    ) -> anyhow::Result<()> {
+        use anyhow::{Context, bail};
+        if self
+            .branches
+            .iter()
+            .any(|b| b.ref_name.as_ref() == branch.as_ref())
+        {
+            bail!("Branch '{branch}' is already in the stack");
+        }
+        let parent_idx = self
+            .branches
+            .iter()
+            .position(|b| b.ref_name.as_ref() == parent)
+            .with_context(|| format!("Fork parent '{parent}' is not in the stack"))?;
+        self.branches.insert(
+            parent_idx,
+            WorkspaceStackBranch {
+                ref_name: branch,
+                archived: false,
+                parents: Some(vec![parent.to_owned()]),
+            },
+        );
+        self.validate_structure()
+    }
+
+    /// Insert `branch` ON the existing edge from `child` down to `parent`:
+    /// `child` then rests on `branch`, which rests on `parent`.
+    pub fn insert_on_edge(
+        &mut self,
+        branch: gix::refs::FullName,
+        child: &gix::refs::FullNameRef,
+        parent: &gix::refs::FullNameRef,
+    ) -> anyhow::Result<()> {
+        use anyhow::{Context, bail};
+        if self
+            .branches
+            .iter()
+            .any(|b| b.ref_name.as_ref() == branch.as_ref())
+        {
+            bail!("Branch '{branch}' is already in the stack");
+        }
+        let child_idx = self
+            .branches
+            .iter()
+            .position(|b| b.ref_name.as_ref() == child)
+            .with_context(|| format!("Edge child '{child}' is not in the stack"))?;
+        let parent_idx = self
+            .branches
+            .iter()
+            .position(|b| b.ref_name.as_ref() == parent)
+            .with_context(|| format!("Edge parent '{parent}' is not in the stack"))?;
+        let mut child_parents = self.effective_parents(child_idx);
+        let Some(pos) = child_parents.iter().position(|p| p.as_ref() == parent) else {
+            bail!("'{child}' does not rest on '{parent}' — no such edge to insert on");
+        };
+        child_parents[pos] = branch.clone();
+        self.branches[child_idx].parents = Some(child_parents);
+        self.branches.insert(
+            parent_idx,
+            WorkspaceStackBranch {
+                ref_name: branch,
+                archived: false,
+                parents: Some(vec![parent.to_owned()]),
+            },
+        );
+        self.validate_structure()
+    }
+
+    /// Declare that `branch` ALSO rests on `extra_parent` — a merge point. The extra
+    /// parent must be declared below `branch`, and callers must ensure the branch
+    /// OWNS its merge commit (an empty branch cannot be a merge point — a
+    /// graph-level fact enforced by the operations layer).
+    pub fn add_merge_parent(
+        &mut self,
+        branch: &gix::refs::FullNameRef,
+        extra_parent: &gix::refs::FullNameRef,
+    ) -> anyhow::Result<()> {
+        use anyhow::{Context, bail};
+        let idx = self
+            .branches
+            .iter()
+            .position(|b| b.ref_name.as_ref() == branch)
+            .with_context(|| format!("Branch '{branch}' is not in the stack"))?;
+        let mut parents = self.effective_parents(idx);
+        if parents.iter().any(|p| p.as_ref() == extra_parent) {
+            bail!("'{branch}' already rests on '{extra_parent}'");
+        }
+        parents.push(extra_parent.to_owned());
+        self.branches[idx].parents = Some(parents);
+        self.validate_structure()
     }
 
     /// The same as [`ref_name()`](Self::ref_name()), but returns an actual `Ref`.

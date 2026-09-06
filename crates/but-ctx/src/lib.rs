@@ -783,17 +783,16 @@ impl Context {
             self.project_data_dir(),
         )?;
         let mut db = self.db.get_cache_mut()?;
-        let graph = but_graph::Graph::from_head(
+        but_graph::Workspace::from_head(
             &repo,
             &meta,
             self.project_meta()?,
             &mut db,
-            but_graph::init::Options {
+            but_graph::walk::Options {
                 worktrees: self.settings.feature_flags.worktree_manipulation,
-                ..but_graph::init::Options::limited()
+                ..but_graph::walk::Options::limited()
             },
-        )?;
-        graph.into_workspace()
+        )
     }
 
     /// Project the current workspace without reading from or updating the workspace cache.
@@ -827,18 +826,17 @@ impl Context {
         let mut reference = repo.find_reference(ref_name)?;
         let tip = reference.peel_to_id()?;
         let mut db = self.db.get_cache_mut()?;
-        let graph = but_graph::Graph::from_commit_traversal(
+        but_graph::Workspace::from_tip(
             tip,
             reference.name().to_owned(),
             &meta,
             self.project_meta()?,
             &mut db,
-            but_graph::init::Options {
+            but_graph::walk::Options {
                 worktrees: self.settings.feature_flags.worktree_manipulation,
-                ..but_graph::init::Options::limited()
+                ..but_graph::walk::Options::limited()
             },
-        )?;
-        graph.into_workspace()
+        )
     }
 }
 

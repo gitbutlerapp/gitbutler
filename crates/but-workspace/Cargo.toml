@@ -65,6 +65,8 @@ but-schemars = { workspace = true, optional = true }
 sapling-renderdag.workspace = true
 
 [dev-dependencies]
+# LOCAL-ONLY: rand feeds the uncommitted fuzz harnesses (tests/workspace/branch/fuzz.rs).
+rand.workspace = true
 # We just want to test everything, with the goal that 'legacy' can one day go away.
 but-workspace = { workspace = true, features = ["legacy"] }
 but-meta = { workspace = true, features = ["legacy"] }
@@ -72,7 +74,6 @@ but-testsupport.workspace = true
 but-askpass.workspace = true
 # To name the renderdag geometry types (NodeLine/LinkLine) when rendering
 # `detailed_graph_workspace` rows to box-drawing in tests.
-sapling-renderdag.workspace = true
 snapbox.workspace = true
 # for stable hashes in `gitbuter-` crates while we use them.
 # TODO: remove once `gitbutler-repo` isn't needed anymore.

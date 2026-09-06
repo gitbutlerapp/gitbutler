@@ -51,6 +51,7 @@ fn seed_metadata(repo: &gix::Repository) -> Result<()> {
         branches: vec![WorkspaceStackBranch {
             ref_name: "refs/heads/branchy".try_into()?,
             archived: false,
+            parents: None,
         }],
         workspacecommit_relation: WorkspaceCommitRelation::Merged,
     });
@@ -67,7 +68,7 @@ fn seed_metadata(repo: &gix::Repository) -> Result<()> {
 }
 
 fn stack_id(ws: &but_graph::Workspace) -> Result<StackId> {
-    ws.stacks
+    ws.display_stacks()?
         .first()
         .context("expected workspace stack")?
         .id

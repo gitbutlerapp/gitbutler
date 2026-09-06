@@ -6,8 +6,7 @@ use anyhow::bail;
 use but_core::{RefMetadata, commit::Headers};
 use but_rebase::commit::DateMode;
 use but_rebase::graph_rebase::{
-    Editor, Selector, Step, SuccessfulRebase, ToSelector as _,
-    mutate::{InsertSide, RelativeTo},
+    CommitIndex, CommitSpec, Editor, EditorIndex, RebasedEditor, anchor::Anchor, mutate::InsertSide,
 };
 
 /// Cherry-pick commits above or below a commit, or below a reference, in the
@@ -19,12 +18,12 @@ use but_rebase::graph_rebase::{
 /// `git cherry-pick`: the first source lands at `side` of `relative_to`, and each later one
 /// directly above the one before it.
 /// Child commits, and the target commit, if applicable, are rebased atop the cherry-picked commits.
-pub fn cherry_pick_commits<'ws, 'meta, M: RefMetadata>(
-    mut editor: Editor<'ws, 'meta, M>,
+pub fn cherry_pick_commits<'meta, M: RefMetadata>(
+    mut editor: Editor<'meta, M>,
     source_commits: impl IntoIterator<Item = gix::ObjectId>,
-    relative_to: RelativeTo,
+    relative_to: Anchor,
     side: InsertSide,
-) -> anyhow::Result<(SuccessfulRebase<'ws, 'meta, M>, Vec<Selector>)> {
+) -> anyhow::Result<(RebasedEditor<'meta, M>, Vec<CommitIndex>)> {
     let mut seen = HashSet::new();
     let sources = source_commits
         .into_iter()
@@ -35,15 +34,15 @@ pub fn cherry_pick_commits<'ws, 'meta, M: RefMetadata>(
     }
     if matches!(
         (&relative_to, side),
-        (RelativeTo::Reference(_), InsertSide::Above)
+        (Anchor::Reference(_), InsertSide::Above)
     ) {
         bail!("Cannot cherry-pick above a reference")
     }
 
-    let target = relative_to.to_selector(&editor)?;
+    let target = editor.resolve_anchor(relative_to)?;
 
-    let mut inserted_selectors = Vec::with_capacity(sources.len());
-    let mut previous_selector = None;
+    let mut inserted_handles = Vec::with_capacity(sources.len());
+    let mut previous_handle = None;
     for source in sources {
         // Give the copy its own change ID, retaining all other metadata.
         let mut template = editor.find_commit(source)?;
@@ -52,14 +51,15 @@ pub fn cherry_pick_commits<'ws, 'meta, M: RefMetadata>(
         headers.set_in_commit(&mut template.inner);
         let template_id = editor.new_commit(template, DateMode::CommitterUpdateAuthorKeep)?;
 
-        let (anchor, insert_side) = match previous_selector {
-            Some(selector) => (selector, InsertSide::Above),
+        let (anchor, insert_side) = match previous_handle {
+            Some(handle) => (EditorIndex::from(handle), InsertSide::Above),
             None => (target, side),
         };
-        let selector = editor.insert(anchor, Step::new_untracked_pick(template_id), insert_side)?;
-        inserted_selectors.push(selector);
-        previous_selector = Some(selector);
+        let handle =
+            editor.insert_commit(anchor, CommitSpec::untracked(template_id), insert_side)?;
+        inserted_handles.push(handle);
+        previous_handle = Some(handle);
     }
 
-    Ok((editor.rebase()?, inserted_selectors))
+    Ok((editor.rebase()?, inserted_handles))
 }

@@ -7,10 +7,7 @@ use but_core::RepositoryExt;
 use but_ctx::{Context, ThreadSafeContext};
 use but_rebase::{
     RebaseOutput,
-    graph_rebase::{
-        Editor, LookupStep as _,
-        mutate::{InsertSide, RelativeToRef},
-    },
+    graph_rebase::{Editor, anchor::Anchor, mutate::InsertSide},
 };
 use but_workspace::commit_engine;
 use gitbutler_commit::commit_ext::CommitExt;
@@ -29,17 +26,16 @@ pub fn head_info(ctx: &but_ctx::Context) -> Result<but_workspace::RefInfo> {
     // borrows the database again below.
     let ws = {
         let mut db = ctx.db.get_cache_mut()?;
-        but_graph::Graph::from_head(
+        but_graph::Workspace::from_head(
             &repo,
             &meta,
             ctx.project_meta()?,
             &mut db,
-            but_graph::init::Options {
+            but_graph::walk::Options {
                 worktrees: ctx.settings.feature_flags.worktree_manipulation,
-                ..but_graph::init::Options::limited()
+                ..but_graph::walk::Options::limited()
             },
         )?
-        .into_workspace()?
     };
     let gerrit_mode_enabled = repo.git_settings()?.gitbutler_gerrit_mode.unwrap_or(false);
     let db = gerrit_mode_enabled
@@ -54,7 +50,7 @@ pub fn head_info(ctx: &but_ctx::Context) -> Result<but_workspace::RefInfo> {
         &repo,
         but_workspace::ref_info::Options {
             project_meta: ctx.project_meta()?,
-            traversal: but_graph::init::Options::limited(),
+            traversal: but_graph::walk::Options::limited(),
             expensive_commit_info: true,
             gerrit_mode,
         },
@@ -76,14 +72,15 @@ pub fn head_info(ctx: &but_ctx::Context) -> Result<but_workspace::RefInfo> {
 #[but_api]
 #[instrument(err(Debug))]
 pub fn show_graph_svg(ctx: &Context) -> Result<()> {
-    let mut options = but_graph::init::Options::limited();
+    let mut options = but_graph::walk::Options::limited();
     options.collect_tags = true;
     options.worktrees = ctx.settings.feature_flags.worktree_manipulation;
     let repo = ctx.open_isolated_repo()?;
     let meta = ctx.meta()?;
     let mut db = ctx.db.get_cache_mut()?;
-    let graph = but_graph::Graph::from_head(&repo, &meta, ctx.project_meta()?, &mut db, options)?;
-    graph.open_as_svg();
+    let graph =
+        but_graph::Workspace::from_head(&repo, &meta, ctx.project_meta()?, &mut db, options)?;
+    graph.open_graph_as_svg();
     Ok(())
 }
 
@@ -266,8 +263,9 @@ pub fn stash_into_branch(
     )?;
     let stack_id = {
         let (_, ws, _) = ctx.workspace_mut_and_db_with_perm(perm)?;
-        ws.find_segment_and_stack_by_refname(full_ref_name.as_ref())
-            .and_then(|(stack, _)| stack.id)
+        let stacks = ws.display_stacks()?;
+        but_graph::workspace::find_segment_owner_indexes_by_refname(&stacks, full_ref_name.as_ref())
+            .and_then(|(stack_idx, _)| stacks[stack_idx].id)
             .context("created stash branch is missing its stack id")?
     };
 
@@ -276,33 +274,30 @@ pub fn stash_into_branch(
     let outcome = {
         let context_lines = ctx.settings.context_lines;
         let mut meta = ctx.meta()?;
-        let (repo, mut ws, mut db) = ctx.workspace_mut_and_db_mut_with_perm(perm)?;
-        let editor = Editor::create(&mut ws, &mut meta, &repo, &mut db)?;
+        let (repo, ws, _) = ctx.workspace_mut_and_db_with_perm(perm)?;
+        let editor = Editor::for_workspace(&ws, &mut meta, &repo)?;
         let but_workspace::commit::CommitCreateOutcome {
             rebase,
-            commit_selector,
+            commit,
             rejected_specs,
         } = but_workspace::commit::commit_create(
             editor,
             worktree_changes,
-            RelativeToRef::Reference(full_ref_name.as_ref()),
+            Anchor::Reference(full_ref_name.clone()),
             InsertSide::Below,
             "Mo-Stashed changes",
             context_lines,
             but_workspace::commit::ChangeSource::Head,
         )?;
 
-        let new_commit = commit_selector
-            .map(|selector| rebase.lookup_pick(selector))
-            .transpose()?;
+        let new_commit = commit.map(|handle| rebase.id_of(handle)).transpose()?;
         let rebase_output = if let Some(new_commit) = new_commit {
-            let materialized = rebase.materialize(Default::default())?;
-            let commit_mapping: Vec<_> = materialized
-                .history
+            let commit_mapping: Vec<_> = rebase
                 .commit_mappings()
                 .into_iter()
                 .map(|(old, new)| (None, old, new))
                 .collect();
+            rebase.materialize()?;
             (!commit_mapping.is_empty()).then_some(RebaseOutput {
                 top_commit: new_commit,
                 references: Vec::new(),
@@ -432,17 +427,16 @@ pub fn workspace_branch_and_ancestors_push_only(
     let repo = ctx.clone_repo_for_merging_non_persisting()?;
     let meta = ctx.meta()?;
     let mut db = ctx.db.get_cache_mut()?;
-    let ws = but_graph::Graph::from_head(
+    let ws = but_graph::Workspace::from_head(
         &repo,
         &meta,
         ctx.project_meta()?,
         &mut db,
-        but_graph::init::Options {
+        but_graph::walk::Options {
             worktrees: ctx.settings.feature_flags.worktree_manipulation,
-            ..but_graph::init::Options::limited()
+            ..but_graph::walk::Options::limited()
         },
-    )?
-    .into_workspace()?;
+    )?;
     let gerrit_mode_enabled = repo.git_settings()?.gitbutler_gerrit_mode.unwrap_or(false);
     let gerrit_mode = if gerrit_mode_enabled {
         but_workspace::ref_info::GerritMode::Enabled(db.gerrit_metadata())
@@ -454,7 +448,7 @@ pub fn workspace_branch_and_ancestors_push_only(
         &repo,
         but_workspace::ref_info::Options {
             project_meta: ctx.project_meta()?,
-            traversal: but_graph::init::Options::limited(),
+            traversal: but_graph::walk::Options::limited(),
             expensive_commit_info: true,
             gerrit_mode,
         },

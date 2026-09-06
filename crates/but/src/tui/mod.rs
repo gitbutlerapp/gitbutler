@@ -296,6 +296,13 @@ pub trait Tui {
     where
         T: TerminalGuard,
         anyhow::Error: From<<T::Backend as Backend>::Error>;
+
+    /// Make the next [`render`](Self::render) draw a frame even if nothing changed.
+    ///
+    /// Tests clear the terminal between events to sidestep the test backend's lack of
+    /// wide-character side effects; an event that changes nothing must still repaint.
+    #[cfg(test)]
+    fn request_render(&mut self) {}
 }
 
 /// Required to abstract over input/output channels for the TUI.

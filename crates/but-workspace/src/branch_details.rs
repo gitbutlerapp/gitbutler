@@ -32,7 +32,7 @@ pub fn branch_details(
     let integration_branch_name = project_meta
         .target_ref
         .clone()
-        .context("TODO: a target to integrate with is currently needed for a workspace commit")?;
+        .context("Branch details require a configured target branch to integrate with")?;
     let mut integration_branch = repo
         .find_reference(&integration_branch_name)
         .context("The branch to integrate with must be present")?;

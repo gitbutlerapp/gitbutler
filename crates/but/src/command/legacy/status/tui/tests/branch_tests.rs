@@ -473,10 +473,10 @@ fn create_and_switch_to_stacked_branch() {
     snapbox::assert_data_eq!(
         tui.env().git_log(),
         snapbox::str![[r#"
-*   c128bce (gitbutler/workspace) GitButler Workspace Commit
+*   8e93f22 (gitbutler/workspace) GitButler Workspace Commit
 |/  
-| * 9477ae7 (HEAD -> c-branch-1, A) add A
-* | d3e2ba3 (B) add B
+| * d3e2ba3 (B) add B
+* | 9477ae7 (HEAD -> c-branch-1, A) add A
 |/  
 * 0dc3733 (origin/main, origin/HEAD, main, gitbutler/target) add M
 

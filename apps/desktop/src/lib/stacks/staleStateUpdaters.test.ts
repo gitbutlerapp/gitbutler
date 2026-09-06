@@ -47,7 +47,7 @@ function makeDetails(
 			remoteTrackingRefName: null,
 			commits: (b.commits ?? []) as any,
 			commitsOnRemote: (b.upstreamCommits ?? []) as any,
-			commitsOutside: null,
+			advancedOutside: [],
 			metadata: null,
 			isEntrypoint: false,
 			pushStatus: "nothingToPush",

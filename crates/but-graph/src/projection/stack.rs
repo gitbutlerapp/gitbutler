@@ -1,12 +1,13 @@
+//! The shapes the projection emits: [`Stack`]s of [`StackSegment`]s holding
+//! [`StackCommit`]s — a deliberately simplified, display-ready view that degenerates
+//! graph detail while keeping ids that link back to it.
+
 use std::fmt::Formatter;
 
-use anyhow::{Context as _, bail};
 use bitflags::bitflags;
 use but_core::{ref_metadata, ref_metadata::StackId};
-use gix::prelude::ObjectIdExt;
-use petgraph::Direction;
 
-use crate::{CommitFlags, Graph, SegmentIndex, SegmentMetadata, init::PetGraph};
+use crate::CommitFlags;
 
 /// A list of segments that together represent a list of dependent branches, stacked on top of each other.
 #[derive(Clone)]
@@ -17,16 +18,15 @@ pub struct Stack {
     /// The branch-name denoted segments of the stack from its tip to the point of reference, typically a merge-base.
     /// This array is never empty.
     pub segments: Vec<StackSegment>,
+    /// Derivation-time only: the engine's fork/merge edges between
+    /// [`segments`](Self::segments), carried into the segment graph's stored
+    /// edges. `None` for an unforked stack — those derive plain adjacency — and
+    /// the display materialization never sets it.
+    pub branch_parents: Option<Vec<(usize, usize)>>,
 }
 
-/// Query
 impl Stack {
-    /// Return the first commit of the first segment, or `None` this stack is completely empty, or has only empty segments.
-    pub fn tip(&self) -> Option<gix::ObjectId> {
-        self.segments
-            .first()
-            .and_then(|s| s.commits.first().map(|c| c.id))
-    }
+    // ── Query ──
 
     /// Return the name of the first segment of the stack.
     pub fn ref_name(&self) -> Option<&gix::refs::FullNameRef> {
@@ -43,20 +43,22 @@ impl Stack {
         })
     }
 
-    /// The [base](StackSegment::base) of the last of our segments.
+    /// The graph [base](StackSegment::base) of the last of our segments — the fact, for operations.
     pub fn base(&self) -> Option<gix::ObjectId> {
         self.segments.last().and_then(|s| s.base)
     }
 
-    /// The [base_segment_id](StackSegment::base_segment_id) of the last of our segments.
-    pub fn base_segment_id(&self) -> Option<SegmentIndex> {
-        self.segments.last().and_then(|s| s.base_segment_id)
+    /// What the stack is SHOWN to rest on: the last segment's [`StackSegment::resting_on`].
+    pub fn resting_on(&self) -> Option<gix::ObjectId> {
+        self.segments.last().and_then(|s| s.resting_on())
     }
-}
 
-impl Stack {
-    pub(crate) fn from_base_and_segments(
-        graph: &PetGraph,
+    // ── Construction ──
+
+    /// Thread each segment's base from the segment below it, no graph needed — the last
+    /// segment's fork point is a display value that `recompute_last_segment_fork_point`
+    /// derives later, if a prune moves the stack's bottom.
+    pub(crate) fn from_base_and_segments_raw(
         mut segments: Vec<StackSegment>,
         id: Option<StackId>,
     ) -> Self {
@@ -64,56 +66,38 @@ impl Stack {
         let mut cur = iter.next();
         while let Some((a, b)) = cur.zip(iter.next()) {
             a.base = b.commits.first().map(|c| c.id);
-            a.base_segment_id = b.id.into();
             cur = Some(b);
         }
-        let mut stack = Stack { id, segments };
-        stack.recompute_last_segment_base(graph);
-        stack
+        Stack {
+            id,
+            segments,
+            branch_parents: None,
+        }
     }
 
-    /// Recompute the last segment's base from its bottom commit's first-parent neighbour, or,
-    /// once pruning emptied the segment, from the commit its tip points to.
+    /// Derive the last segment's [fork point](StackSegment::fork_point) from the stack's bottom
+    /// commit's first parent.
     ///
-    /// Needed after the stack's bottom is truncated (e.g. by integrated-trunk pruning),
-    /// which leaves the collection-time base pointing at a segment no longer in the stack.
-    pub(crate) fn recompute_last_segment_base(&mut self, graph: &PetGraph) {
+    /// Needed after the stack's bottom is truncated (e.g. by integrated-trunk pruning), which
+    /// leaves the collection-time base pointing below territory no longer in the stack. This writes
+    /// the DISPLAY value only — the graph base it was derived from stays as the producer left it.
+    pub(crate) fn recompute_last_segment_fork_point(&mut self, cg: &crate::CommitGraph) {
+        let bottom = self
+            .segments
+            .iter()
+            .rev()
+            .find_map(|s| s.commits.last().map(|c| c.id));
         let Some(last_segment) = self.segments.last_mut() else {
             return;
         };
-        let last_aggregated_sidx = match last_segment.commits_by_segment.last() {
-            Some((sidx, _)) => *sidx,
-            None => {
-                // The projection holds no commits for this segment. If its graph segment still
-                // does, those were pruned as integrated and the branch now rests on the commit
-                // it points to. A truly empty ref keeps its collection-time base.
-                if let Some(first) = graph[last_segment.id].commits.first() {
-                    last_segment.base = Some(first.id);
-                    last_segment.base_segment_id = Some(last_segment.id);
-                }
-                return;
-            }
+        let Some(bottom) = bottom else {
+            return;
         };
-        let first_parent_sidx = graph
-            .neighbors_directed(last_aggregated_sidx, Direction::Outgoing)
-            .next();
-        last_segment.base = first_parent_sidx.and_then(|sidx| {
-            graph[sidx].commits.first().and_then(|c| {
-                if c.parent_ids.is_empty() || graph[sidx].commits.get(1).is_some() {
-                    return c.id.into();
-                }
-                graph
-                    .neighbors_directed(sidx, Direction::Outgoing)
-                    .next()
-                    .is_some()
-                    .then_some(c.id)
-            })
-        });
-        last_segment.base_segment_id = first_parent_sidx.filter(|_| last_segment.base.is_some());
+        last_segment.fork_point = cg.all_parent_ids(bottom).first().copied();
     }
-}
 
-impl Stack {
+    // ── Debug ──
+
     /// A one-line string representing the stack itself, without its contents.
     ///
     /// Use `id_override` to have it use this (usually controlled) id instead of what otherwise
@@ -130,19 +114,19 @@ impl Stack {
     /// Like [`Self::debug_string()`], but includes graph-contextual worktree ownership markers.
     pub fn debug_string_with_graph_context(
         &self,
-        graph: &Graph,
+        ws: &crate::Workspace,
         id_override: Option<StackId>,
     ) -> String {
         let mut dbg = self.segments.first().map_or_else(
             || "<anon>".into(),
-            |s| s.debug_string_with_graph_context(graph),
+            |s| s.debug_string_with_graph_context(ws),
         );
         self.push_debug_suffix(&mut dbg, id_override);
         dbg
     }
 
     fn push_debug_suffix(&self, dbg: &mut String, id_override: Option<StackId>) {
-        if let Some(base) = self.base() {
+        if let Some(base) = self.resting_on() {
             dbg.push_str(" on ");
             dbg.push_str(&base.to_hex_with_len(7).to_string());
         }
@@ -174,14 +158,8 @@ impl std::fmt::Debug for Stack {
 
 /// A typically named set of linearized commits, obtained by first-parent-only traversal.
 ///
-/// Note that this maybe an aggregation of multiple [graph segments](crate::Segment).
-///
-/// ### WARNING
-///
-/// As it stands, we may 'doctor' the `ref_name`, `remote_tracking_ref_name` and `metadata` *if* `commits_outside` is not
-/// `None`. This is to help with visualisation, but makes this data much less usable in algorithms, at least if
-/// these fields are significant.
-#[derive(Clone)]
+/// Note that this is a single run of commits, cut where the next branch name takes over.
+#[derive(Clone, Default)]
 pub struct StackSegment {
     /// The unambiguous or disambiguated name of the branch at the tip of the segment, i.e. at the first commit,
     /// along with its worktree information.
@@ -193,49 +171,29 @@ pub struct StackSegment {
     /// named segment.
     pub ref_info: Option<crate::RefInfo>,
     /// The name of the remote tracking branch of this segment, if present, i.e. `refs/remotes/origin/main`.
-    /// Its presence means [`commits_outside`](Self::commits_outside) are possibly available.
     pub remote_tracking_ref_name: Option<gix::refs::FullName>,
-    /// If `remote_tracking_ref_name` is set, this field is also set to make accessing the respective segment easy,
-    /// avoiding a search through the entire graph.
-    /// It *only* ever points to the remote tracking branch segment.
-    pub remote_tracking_branch_segment_id: Option<SegmentIndex>,
-    /// An ID which uniquely identifies the [first graph segment](crate::Segment) that is contained
-    /// in this instance.
-    /// This is always the first id in the `commits_by_segment`.
-    /// Note that it's not suitable to permanently identify the segment, so should not be persisted,
-    /// and is only stable within this graph as it exists right now. Traversing the graph again will yield
-    /// different IDs in an unpredictable way as the underlying commit-graph may have changed.
-    /// Also, one cannot assume that one of its commits belongs to a graph segment of this ID directly,
-    /// there is no 1:1 mapping.
-    pub id: SegmentIndex,
     /// The portion of commits that can be reached from the tip of the *branch* downwards to the next [StackSegment],
     /// so that they are unique for this stack segment and not included in any other stack or stack segment.
     /// The walk is performed **along the first parent only**.
     ///
     /// The list could be empty for when this is a dedicated empty segment as insertion position of commits.
     pub commits: Vec<StackCommit>,
-    /// All commits *that are not workspace commits* reachable by (and including commits in) this segment.
-    /// The list was created by walking all parents, not only the first parent.
-    /// Note that the tips of these commits is the `sibling_segment_id` which in this case is `Some`
-    /// if this field is `Some`.
-    /// When set, we will also have copied the `ref_name`, `metadata` and `remote_tracking_ref_name` from
-    /// `sibling_segment_id` over to this segment to provide more meaningful information.
-    pub commits_outside: Option<Vec<StackCommit>>,
-    /// This is always the `first()` commit in `commits` of the next stacksegment, or the first commit of
-    /// the first ancestor segment.
-    /// It can be imagined as the base upon which the segment is resting, or the connection point to the rest
-    /// of the commit-graph along the first parent.
+    /// Where this segment RESTS IN THE GRAPH: the `first()` commit in `commits` of the next
+    /// stacksegment, or the first commit of the first ancestor segment — the connection point to
+    /// the rest of the commit-graph along the first parent.
     /// It is `None` if the stack segment contains the first commit in the history, an orphan without ancestry,
     /// or if the history traversal was stopped early.
+    ///
+    /// A GRAPH FACT, written once by whoever produced the stack and never revised. Contrast
+    /// [`fork_point`](Self::fork_point), which is what the DISPLAY shows.
     pub base: Option<gix::ObjectId>,
-    /// If `base` is set, this is the segment owning the commit.
-    /// This is particularly interesting if this is the bottom-most segment in a stack as it typically connects to
-    /// the first segment outside the stack.
-    pub base_segment_id: Option<SegmentIndex>,
-    /// A mapping of `(segment_idx, offset)` to know which segment contributed the commits of the
-    /// given offset into `commits`. The offsets are ascending, starting at `0`.
-    /// This is useful to be able to retain the ability to associate a commit to a segment in the graph.
-    pub commits_by_segment: Vec<(SegmentIndex, usize)>,
+    /// Where this branch FORKS FROM THE TARGET, once the display has pruned the integrated history
+    /// below it — per branch, unlike the stack-wide [`base`](Self::base) it is derived from.
+    ///
+    /// `None` means "no different from `base`", so only a pass that actually moves a segment's
+    /// bottom sets it. Read it through [`Self::resting_on`], never directly, and note it is a
+    /// DISPLAY value: operations want the graph fact instead.
+    pub fork_point: Option<gix::ObjectId>,
     /// Commits that are *only* reachable from the tip of the remote-tracking branch that is associated with this branch,
     /// down to the first (and possibly unrelated) non-remote commit.
     /// Note that these commits may not have an actual commit-graph connection to the local
@@ -243,15 +201,45 @@ pub struct StackSegment {
     /// Further, despite being in a simple list, their order is based on a simple topological walk, so
     /// this form doesn't imply a linear history.
     pub commits_on_remote: Vec<StackCommit>,
+    /// Branches DECLARED in this segment's stack whose refs have moved OUTSIDE the workspace,
+    /// each with the commits between its ref and this segment — commits the workspace does
+    /// not contain.
+    ///
+    /// The segment is never renamed after them — [`ref_info`](Self::ref_info) only ever
+    /// reflects a ref that actually points at it, which for a lane left behind is usually
+    /// none. This records the relationship instead, so a display can say "`B` has moved
+    /// ahead of this lane by these commits" without the projection pretending the lane is
+    /// still `B`.
+    pub advanced_outside: Vec<AdvancedOutside>,
     /// Read-only branch metadata with additional information, or `None` if nothing was present.
     pub metadata: Option<ref_metadata::Branch>,
-    /// This is `true` for exactly one segment in a workspace if the entrypoint of [the traversal](Graph::from_commit_traversal())
+    /// This is `true` for exactly one segment in a workspace if the entrypoint of the traversal
     /// is this segment, and the surrounding workspace is provided for context.
     /// This means one will see the entire workspace, while knowing the focus is on one specific segment.
     pub is_entrypoint: bool,
 }
 
+/// A declared branch whose ref has ADVANCED outside the workspace: the user committed to it
+/// directly (plain `git commit` on the branch), so the ref now points at commits the
+/// workspace merge does not contain.
+#[derive(Debug, Clone, Eq, PartialEq)]
+pub struct AdvancedOutside {
+    /// The branch that moved, e.g. `refs/heads/B`.
+    pub ref_name: gix::refs::FullName,
+    /// The commits from the ref's position down to (excluding) the first workspace commit —
+    /// newest first, first-parent only. What the workspace is missing.
+    pub commits_outside: Vec<StackCommit>,
+}
+
 /// Access
+impl StackSegment {
+    /// An empty segment for tests outside this crate that assemble projections by hand.
+    #[doc(hidden)]
+    pub fn default_for_testing() -> Self {
+        Self::default()
+    }
+}
+
 impl StackSegment {
     /// Return the top-most commit id, or `None` if this segment is empty.
     pub fn tip(&self) -> Option<gix::ObjectId> {
@@ -263,174 +251,47 @@ impl StackSegment {
         self.ref_info.as_ref().map(|ri| ri.ref_name.as_ref())
     }
 
-    /// Returns an iterator over all reachable reference names, that is the name of the segment if present
-    /// and all ref-names pointing to/stored in local commits.
-    pub fn ref_names(&self) -> impl Iterator<Item = &gix::refs::FullNameRef> {
-        self.ref_info
-            .as_ref()
-            .map(|ri| ri.ref_name.as_ref())
-            .into_iter()
-            .chain(
-                self.commits
-                    .iter()
-                    .flat_map(|c| c.refs.iter().map(|ri| ri.ref_name.as_ref())),
-            )
-    }
-
-    /// Return `true` if this segment *would* be anonymous if it wasn't for the out-of-workspace segment to be projected onto this one.
-    ///
-    /// This is signaled by its underlying graph segment being unnamed, with a sibling set.
-    pub fn is_projected_from_outside(&self, graph: &Graph) -> bool {
-        let segment = &graph[self.id];
-        segment.ref_info.is_none() && segment.sibling_segment_id.is_some()
+    /// What this segment is shown to rest on: its [fork point](Self::fork_point) where the display
+    /// derived one, else the graph [`base`](Self::base).
+    pub fn resting_on(&self) -> Option<gix::ObjectId> {
+        self.fork_point.or(self.base)
     }
 }
 
 impl std::fmt::Debug for StackSegment {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct(&format!("StackSegment({})", self.debug_string()))
-            .field("commits", &self.commits)
-            .field("commits_on_remote", &self.commits_on_remote)
-            .field("commits_outside", &self.commits_outside)
-            .finish()
+        let mut out = f.debug_struct(&format!("StackSegment({})", self.debug_string()));
+        out.field("commits", &self.commits)
+            .field("commits_on_remote", &self.commits_on_remote);
+        // Rare fact, shown only when present — most snapshots have no advanced branches.
+        if !self.advanced_outside.is_empty() {
+            out.field("advanced_outside", &self.advanced_outside);
+        }
+        out.finish()
     }
 }
 
 impl StackSegment {
-    /// Given a list of *graph* `segments` to aggregate, produce a stack segment that is like the combination
-    /// of a remote segment and a local ones, along with more detailed commits and (if possible) without
-    /// anonymous portions.
-    ///
-    /// It's like reconstructing a first-parent traversal from the segmented graph, which splits each time there
-    /// is an unambiguous ref pointing to a commit, or when it splits a segment by incoming connection.
-    ///
-    /// `graph` is used to look up the remote segment and find its commits.
-    pub(crate) fn from_graph_segments(
-        segments: &[&crate::Segment],
-        graph: &Graph,
-    ) -> anyhow::Result<Self> {
-        let mut segments_iter = segments.iter();
-        let &&crate::Segment {
-            id,
-            generation: _,
-            ref_info: ref ref_name,
-            ref remote_tracking_ref_name,
-            sibling_segment_id: _,
-            remote_tracking_branch_segment_id,
-            commits: _,
-            ref metadata,
-        } = segments_iter
-            .next()
-            .context("BUG: need one or more segments")?;
-
-        let mut commits_by_segment = Vec::new();
-        let mut is_first = true;
-        let (mut ref_name, mut metadata, mut remote_tracking_ref_name) =
-            (ref_name, metadata, remote_tracking_ref_name);
-        let mut commits_outside = None::<Vec<_>>;
-        for s in segments {
-            let mut stack_commits = Vec::new();
-            if let Some(sibling_sidx) = s
-                .sibling_segment_id
-                .filter(|_| is_first && ref_name.is_none())
-            {
-                let sibling = &graph[sibling_sidx];
-                ref_name = &sibling.ref_info;
-                metadata = &sibling.metadata;
-                remote_tracking_ref_name = &sibling.remote_tracking_ref_name;
-                graph.visit_all_segments_including_start_until(
-                    sibling_sidx,
-                    Direction::Outgoing,
-                    |s| {
-                        let prune = true;
-                        if s.commits
-                            .iter()
-                            .any(|c| c.flags.contains(CommitFlags::InWorkspace))
-                        {
-                            return prune;
-                        }
-                        commits_outside
-                            .get_or_insert_default()
-                            .extend(s.commits.iter().map(StackCommit::from_graph_commit));
-                        !prune
-                    },
-                );
-            }
-            for commit in &s.commits {
-                stack_commits.push(StackCommit::from_graph_commit(commit));
-            }
-            commits_by_segment.push((s.id, stack_commits));
-            is_first = false;
-        }
-        // The last (actual) segment could be partial.
-        if let Some(commits) = commits_by_segment.last_mut().and_then(|(sidx, commits)| {
-            graph
-                .stop_condition(*sidx)
-                .is_some_and(|condition| condition.at_limit())
-                .then_some(commits)
-        }) && let Some(commit) = commits.last_mut()
-        {
-            commit.flags |= StackCommitFlags::EarlyEnd;
-        }
-
-        Ok(StackSegment {
-            ref_info: ref_name.clone(),
-            id,
-            remote_tracking_ref_name: remote_tracking_ref_name.clone(),
-            remote_tracking_branch_segment_id,
-            // `base` is set later in the context of the entire stack.
-            base: None,
-            base_segment_id: None,
-            commits_by_segment: {
-                let mut ofs = 0;
-                commits_by_segment
-                    .iter()
-                    .map(|(sidx, commits)| {
-                        let res = (*sidx, ofs);
-                        ofs += commits.len();
-                        res
-                    })
-                    .collect()
-            },
-            commits: commits_by_segment
-                .into_iter()
-                .flat_map(|(_sid, commits)| commits)
-                .collect(),
-            commits_outside,
-            // Will be set later once all stacks are known.
-            commits_on_remote: Vec::new(),
-            metadata: metadata
-                .as_ref()
-                .map(|md| match md {
-                    SegmentMetadata::Branch(md) => Ok(md.clone()),
-                    SegmentMetadata::Workspace(_) => {
-                        bail!(
-                            "BUG: Should always stop stacks at workspaces, \
-                        but got a stack that thinks it's a workspace"
-                        )
-                    }
-                })
-                .transpose()?,
-            is_entrypoint: false, /* to be set later */
-        })
-    }
-
     /// Digest as much as possible into a single line.
     pub fn debug_string(&self) -> String {
-        self.debug_string_with_ref_name_remote(Graph::ref_and_remote_debug_string(
+        // Segment indices are ephemeral; keep them out of snapshot output.
+        self.debug_string_with_ref_name_remote(crate::debug::ref_and_remote_debug_string(
             self.ref_info.as_ref(),
             self.remote_tracking_ref_name.as_ref(),
+            None,
+            None,
         ))
     }
 
     /// Like [`Self::debug_string()`], but includes graph-contextual worktree ownership markers.
-    pub fn debug_string_with_graph_context(&self, graph: &Graph) -> String {
-        self.debug_string_with_ref_name_remote(
-            graph.ref_and_remote_debug_string_with_graph_context(
-                self.ref_info.as_ref(),
-                self.remote_tracking_ref_name.as_ref(),
-            ),
-        )
+    pub fn debug_string_with_graph_context(&self, ws: &crate::Workspace) -> String {
+        self.debug_string_with_ref_name_remote(crate::debug::ref_and_remote_debug_string_inner(
+            self.ref_info.as_ref(),
+            self.remote_tracking_ref_name.as_ref(),
+            None,
+            None,
+            ws.multiple_worktrees_referenced(),
+        ))
     }
 
     fn debug_string_with_ref_name_remote(&self, ref_name_remote: String) -> String {
@@ -459,7 +320,7 @@ impl StackSegment {
                 "".into()
             } else {
                 format!("⇣{}", self.commits_on_remote.len())
-            }
+            },
         )
     }
 }
@@ -480,26 +341,12 @@ pub struct StackCommit {
 
 /// Utilities
 impl StackCommit {
-    /// Attach this commit to `repo` for more detailed access of the commit itself
-    /// via [`but_core::Commit`].
-    ///
-    /// # Performance Warning
-    ///
-    /// Don't do this light-heartedly as it decodes the commit, parses it, *and* copies
-    /// all fields into an owned instance. This is expensive.
-    pub fn attach<'repo>(
-        &self,
-        repo: &'repo gix::Repository,
-    ) -> anyhow::Result<but_core::Commit<'repo>> {
-        but_core::Commit::from_id(self.id.attach(repo))
-    }
-
     /// Return an iterator over all reference names that point to this commit.
     pub fn ref_iter(&self) -> impl Iterator<Item = &gix::refs::FullNameRef> + Clone {
         self.refs.iter().map(|ri| ri.ref_name.as_ref())
     }
 
-    /// Collect additional information on `commit` using `repo`.
+    /// The projection's view of the graph `commit`, without repository access.
     pub fn from_graph_commit(commit: &crate::Commit) -> Self {
         StackCommit {
             id: commit.id,
@@ -552,7 +399,10 @@ impl StackCommit {
                     self.refs
                         .iter()
                         .map(|ri| format!("►{}", {
-                            Graph::ref_debug_string(ri.ref_name.as_ref(), ri.worktree.as_ref())
+                            crate::debug::ref_debug_string(
+                                ri.ref_name.as_ref(),
+                                ri.worktree.as_ref(),
+                            )
                         }))
                         .collect::<Vec<_>>()
                         .join(", ")

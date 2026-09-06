@@ -379,7 +379,7 @@
 //!  │ t │             │       ┌─┐          Each commit is only listed once, and
 //!  │ s │             │       └3┘          consistently based on an algorithm.
 //!  │   │             │        │
-//!  │   │            ┌─┐       │           This also means that one has to handle
+//!  │   │            ┌─┐       │           This also means that one has to entry
 //!  └───┘            WMB───────┘           all commits at once.
 //!
 //!
@@ -482,24 +482,21 @@ impl OnWorkspaceMergeConflict {
 /// and must be supplied explicitly when rebuilding a workspace merge commit.
 ///
 /// Each returned tuple is `(parent_index, tip)`: `parent_index` is the stack's position in the
-/// projected workspace so the merge builder can insert the anonymous tip at the same parent slot,
-/// and `tip` is the commit/segment pair to merge, with no ref name attached.
+/// projected workspace so the merge builder can insert the anonymous tip at the same parent number,
+/// and `tip` is the commit to merge, with no ref name attached.
 pub(crate) fn anon_stacks(
-    stacks: &[but_graph::workspace::Stack],
-) -> impl Iterator<Item = (usize, crate::commit::merge::Tip)> {
+    stacks: &[but_graph::workspace::SegmentStack],
+) -> impl Iterator<Item = (usize, crate::commit::merge::Seed)> + '_ {
     stacks.iter().enumerate().filter_map(|(idx, s)| {
-        if s.ref_name().is_none() {
-            s.tip_skip_empty().and_then(|cid| {
-                s.segments.first().map(|s| {
-                    (
-                        idx,
-                        crate::commit::merge::Tip {
-                            name: None,
-                            commit_id: cid,
-                            segment_idx: s.id,
-                        },
-                    )
-                })
+        if s.top().is_some_and(|seg| seg.ref_name.is_none()) {
+            s.tip_skip_empty().map(|cid| {
+                (
+                    idx,
+                    crate::commit::merge::Seed {
+                        name: None,
+                        commit_id: cid,
+                    },
+                )
             })
         } else {
             None
@@ -508,17 +505,103 @@ pub(crate) fn anon_stacks(
 }
 
 /// Ensure every metadata stack that should be merged was visible in the graph.
+///
+/// A branch metadata declares but that does not exist yet is UNBORN, not missing: it has no
+/// commit to merge and nothing is wrong. Only a branch that exists while the graph knows
+/// nothing of it means the two disagree.
 pub(crate) fn ensure_no_missing_stacks(
+    repo: &gix::Repository,
     merge: &crate::commit::merge::Outcome,
 ) -> anyhow::Result<()> {
-    if merge.missing_stacks.is_empty() {
+    let missing: Vec<_> = merge
+        .missing_stacks
+        .iter()
+        .filter(|name| {
+            repo.try_find_reference(name.as_ref())
+                .ok()
+                .flatten()
+                .is_some_and(
+                    |r| !matches!(r.target(), gix::refs::TargetRef::Object(id) if id.is_null()),
+                )
+        })
+        .collect();
+    if missing.is_empty() {
         Ok(())
     } else {
         Err(anyhow::anyhow!(
-            "Somehow some of the workspace stacks weren't part of the graph: {:#?}",
-            merge.missing_stacks
+            "Somehow some of the workspace stacks weren't part of the graph: {missing:#?}",
         ))
     }
+}
+
+/// The standard GitButler reference-transaction edits apply and unapply build their HEAD and
+/// workspace-ref moves from. All use `PreviousValue::Any` — HEAD moves are not optimistically
+/// locked (unchanged, long-standing behavior).
+pub(crate) mod ref_edits {
+    use gix::refs::{
+        FullName, FullNameRef, Target,
+        transaction::{Change, LogChange, PreviousValue, RefEdit},
+    };
+
+    fn log(message: &str) -> LogChange {
+        LogChange {
+            mode: gix::refs::transaction::RefLog::AndReference,
+            force_create_reflog: false,
+            message: message.into(),
+        }
+    }
+
+    /// Point `HEAD` symbolically at `target`.
+    pub(crate) fn head_to_ref(target: &FullNameRef, message: &str) -> RefEdit {
+        RefEdit {
+            change: Change::Update {
+                log: log(message),
+                expected: PreviousValue::Any,
+                new: Target::Symbolic(target.to_owned()),
+            },
+            name: "HEAD".try_into().expect("well-formed root ref"),
+            deref: false,
+        }
+    }
+
+    /// Point `HEAD` (through its referent) at `id` — the detached/checkout form.
+    pub(crate) fn head_to_commit(id: gix::ObjectId, message: &str) -> RefEdit {
+        RefEdit {
+            change: Change::Update {
+                log: log(message),
+                expected: PreviousValue::Any,
+                new: Target::Object(id),
+            },
+            name: "HEAD".try_into().expect("well-formed root ref"),
+            deref: true,
+        }
+    }
+
+    /// Point `name` at `id`.
+    pub(crate) fn ref_to_commit(name: FullName, id: gix::ObjectId, message: &str) -> RefEdit {
+        RefEdit {
+            change: Change::Update {
+                log: log(message),
+                expected: PreviousValue::Any,
+                new: Target::Object(id),
+            },
+            name,
+            deref: false,
+        }
+    }
+}
+
+/// Bail when the workspace commit of `ws` is buried in history rather than at the top —
+/// the shared precondition of apply and unapply.
+pub(crate) fn ensure_workspace_commit_at_top(
+    ws: &but_graph::Workspace,
+    repo: &gix::Repository,
+) -> anyhow::Result<()> {
+    use crate::ref_info::WorkspaceExt as _;
+    if ws.has_workspace_commit_in_ancestry(repo) {
+        anyhow::bail!("Refusing to work on workspace whose workspace commit isn't at the top");
+    }
+    Ok(())
 }
 
 /// Find `branch` in `repo` and reject it if it resolves to a symbolic reference.

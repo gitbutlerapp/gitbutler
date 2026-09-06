@@ -1,8 +1,8 @@
 //! These tests exercise the insert operation.
 use anyhow::{Context, Result};
-use but_graph::Graph;
-use but_rebase::graph_rebase::{Editor, Step, mutate::InsertSide};
-use but_testsupport::{git_status, graph_tree, visualize_commit_graph_all};
+use but_graph::Workspace;
+use but_rebase::graph_rebase::{CommitSpec, Editor, mutate::InsertSide};
+use but_testsupport::{git_status, graph_dag, visualize_commit_graph_all};
 use snapbox::prelude::*;
 
 use crate::utils::{fixture_writable, standard_options};
@@ -10,7 +10,7 @@ use crate::utils::{fixture_writable, standard_options};
 /// Inserting below a merge commit should inherit all of it's parents
 #[test]
 fn insert_below_merge_commit() -> Result<()> {
-    let (repo, _tmpdir, mut meta, mut db) = fixture_writable("merge-in-the-middle")?;
+    let (repo, _tmpdir, mut meta) = fixture_writable("merge-in-the-middle")?;
 
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
@@ -28,17 +28,15 @@ fn insert_below_merge_commit() -> Result<()> {
     );
     snapbox::assert_data_eq!(git_status(&repo)?, snapbox::str![""]);
 
-    let graph = Graph::from_head(
+    let mut ws = Workspace::from_head(
         &repo,
         &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
-        &mut db,
+        &mut but_testsupport::in_memory_db(),
         standard_options(),
     )?
     .validated()?;
-
-    let mut ws = graph.into_workspace()?;
-    let mut editor = Editor::create(&mut ws, &mut *meta, &repo, &mut db)?;
+    let mut editor = Editor::create(ws.commit_graph(), ws.project_meta(), &mut *meta, &repo)?;
 
     let merge_id = repo.rev_parse_single("HEAD~")?;
 
@@ -49,35 +47,32 @@ fn insert_below_merge_commit() -> Result<()> {
     let new_commit = repo.write_object(merge_obj.inner)?.detach();
 
     // select the merge commit
-    let selector = editor
+    let handle = editor
         .select_commit(merge_id.detach())
         .context("Failed to find commit a in editor graph")?;
     // replace it with the new one
-    editor.insert(selector, Step::new_pick(new_commit), InsertSide::Below)?;
+    editor.insert_commit(handle, CommitSpec::new(new_commit), InsertSide::Below)?;
 
     let outcome = editor.rebase()?;
-    let overlayed = graph_tree(&outcome.overlayed_graph()?).to_string();
+    let overlayed =
+        graph_dag(&ws.rederive_with(outcome.repo(), outcome.meta(), outcome.overlay()?)?);
     snapbox::assert_data_eq!(
-        &overlayed,
+        overlayed.as_str(),
         snapbox::str![[r#"
-
-└── 👉►:0[0]:with-inner-merge[🌳]
-    ├── ·f699c45 (⌂)
-    └── ·16b7c68 (⌂)
-        └── ►:1[1]:anon:
-            └── ·8ca0053 (⌂)
-                ├── ►:2[2]:A
-                │   └── ·add59d2 (⌂)
-                │       └── ►:4[3]:main
-                │           └── 🏁·8f0d338 (⌂) ►tags/base
-                └── ►:3[2]:B
-                    └── ·984fd1c (⌂)
-                        └── →:4: (main)
-
+*  👉·f699c45 (⌂) ►with-inner-merge[🌳]
+*  ·16b7c68 (⌂)
+*    ·8ca0053 (⌂)
+├─╮
+* │  ·add59d2 (⌂) ►A
+│ *  ·984fd1c (⌂) ►B
+├─╯
+*  🏁·8f0d338 (⌂) ►main, ►tags/base
 "#]]
     );
-    let outcome = outcome.materialize(Default::default())?;
-    assert_eq!(overlayed, graph_tree(&outcome.workspace.graph).to_string());
+    let history = outcome.commit_mappings();
+    let (outcome, _) = outcome.materialize()?;
+    ws.refresh_from_commit_graph(outcome, &repo, &*meta, &mut but_testsupport::in_memory_db())?;
+    assert_eq!(overlayed, graph_dag(&ws));
 
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
@@ -96,7 +91,7 @@ fn insert_below_merge_commit() -> Result<()> {
     );
     snapbox::assert_data_eq!(git_status(&repo)?, snapbox::str![""]);
     snapbox::assert_data_eq!(
-        outcome.history.commit_mappings().to_debug(),
+        history.to_debug(),
         snapbox::str![[r#"
 {
     Sha1(231acb683a6ecfb1ff546952057c4b3d3764b28c): Sha1(8ca0053aa15fe12ab6b467a82bedf86401628c17),
@@ -113,7 +108,7 @@ fn insert_below_merge_commit() -> Result<()> {
 /// Inserting below a merge commit should inherit all of it's parents
 #[test]
 fn insert_below_merge_commit_excluded_mappings() -> Result<()> {
-    let (repo, _tmpdir, mut meta, mut db) = fixture_writable("merge-in-the-middle")?;
+    let (repo, _tmpdir, mut meta) = fixture_writable("merge-in-the-middle")?;
 
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
@@ -131,17 +126,15 @@ fn insert_below_merge_commit_excluded_mappings() -> Result<()> {
     );
     snapbox::assert_data_eq!(git_status(&repo)?, snapbox::str![""]);
 
-    let graph = Graph::from_head(
+    let mut ws = Workspace::from_head(
         &repo,
         &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
-        &mut db,
+        &mut but_testsupport::in_memory_db(),
         standard_options(),
     )?
     .validated()?;
-
-    let mut ws = graph.into_workspace()?;
-    let mut editor = Editor::create(&mut ws, &mut *meta, &repo, &mut db)?;
+    let mut editor = Editor::create(ws.commit_graph(), ws.project_meta(), &mut *meta, &repo)?;
 
     let merge_id = repo.rev_parse_single("HEAD~")?;
 
@@ -152,39 +145,32 @@ fn insert_below_merge_commit_excluded_mappings() -> Result<()> {
     let new_commit = repo.write_object(merge_obj.inner)?.detach();
 
     // select the merge commit
-    let selector = editor
+    let handle = editor
         .select_commit(merge_id.detach())
         .context("Failed to find commit a in editor graph")?;
     // replace it with the new one
-    editor.insert(
-        selector,
-        Step::new_untracked_pick(new_commit),
-        InsertSide::Below,
-    )?;
+    editor.insert_commit(handle, CommitSpec::untracked(new_commit), InsertSide::Below)?;
 
     let outcome = editor.rebase()?;
-    let overlayed = graph_tree(&outcome.overlayed_graph()?).to_string();
+    let overlayed =
+        graph_dag(&ws.rederive_with(outcome.repo(), outcome.meta(), outcome.overlay()?)?);
     snapbox::assert_data_eq!(
-        &overlayed,
+        overlayed.as_str(),
         snapbox::str![[r#"
-
-└── 👉►:0[0]:with-inner-merge[🌳]
-    ├── ·f699c45 (⌂)
-    └── ·16b7c68 (⌂)
-        └── ►:1[1]:anon:
-            └── ·8ca0053 (⌂)
-                ├── ►:2[2]:A
-                │   └── ·add59d2 (⌂)
-                │       └── ►:4[3]:main
-                │           └── 🏁·8f0d338 (⌂) ►tags/base
-                └── ►:3[2]:B
-                    └── ·984fd1c (⌂)
-                        └── →:4: (main)
-
+*  👉·f699c45 (⌂) ►with-inner-merge[🌳]
+*  ·16b7c68 (⌂)
+*    ·8ca0053 (⌂)
+├─╮
+* │  ·add59d2 (⌂) ►A
+│ *  ·984fd1c (⌂) ►B
+├─╯
+*  🏁·8f0d338 (⌂) ►main, ►tags/base
 "#]]
     );
-    let outcome = outcome.materialize(Default::default())?;
-    assert_eq!(overlayed, graph_tree(&outcome.workspace.graph).to_string());
+    let history = outcome.commit_mappings();
+    let (outcome, _) = outcome.materialize()?;
+    ws.refresh_from_commit_graph(outcome, &repo, &*meta, &mut but_testsupport::in_memory_db())?;
+    assert_eq!(overlayed, graph_dag(&ws));
 
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
@@ -203,7 +189,7 @@ fn insert_below_merge_commit_excluded_mappings() -> Result<()> {
     );
     snapbox::assert_data_eq!(git_status(&repo)?, snapbox::str![""]);
     snapbox::assert_data_eq!(
-        outcome.history.commit_mappings().to_debug(),
+        history.to_debug(),
         snapbox::str![[r#"
 {
     Sha1(2fc288c36c8bb710c78203f78ea9883724ce142b): Sha1(16b7c68c1dae39aa8b5e4c56e3bc4b1d508cfb25),
@@ -219,7 +205,7 @@ fn insert_below_merge_commit_excluded_mappings() -> Result<()> {
 /// Inserting above a commit should inherit it's parents
 #[test]
 fn insert_above_commit_with_two_children() -> Result<()> {
-    let (repo, _tmpdir, mut meta, mut db) = fixture_writable("merge-in-the-middle")?;
+    let (repo, _tmpdir, mut meta) = fixture_writable("merge-in-the-middle")?;
 
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
@@ -237,17 +223,15 @@ fn insert_above_commit_with_two_children() -> Result<()> {
     );
     snapbox::assert_data_eq!(git_status(&repo)?, snapbox::str![""]);
 
-    let graph = Graph::from_head(
+    let mut ws = Workspace::from_head(
         &repo,
         &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
-        &mut db,
+        &mut but_testsupport::in_memory_db(),
         standard_options(),
     )?
     .validated()?;
-
-    let mut ws = graph.into_workspace()?;
-    let mut editor = Editor::create(&mut ws, &mut *meta, &repo, &mut db)?;
+    let mut editor = Editor::create(ws.commit_graph(), ws.project_meta(), &mut *meta, &repo)?;
 
     let base_id = repo.rev_parse_single("base")?;
 
@@ -258,35 +242,32 @@ fn insert_above_commit_with_two_children() -> Result<()> {
     let new_commit = repo.write_object(base_obj.inner)?.detach();
 
     // select the merge commit
-    let selector = editor
+    let handle = editor
         .select_commit(base_id.detach())
         .context("Failed to find commit a in editor graph")?;
     // replace it with the new one
-    editor.insert(selector, Step::new_pick(new_commit), InsertSide::Above)?;
+    editor.insert_commit(handle, CommitSpec::new(new_commit), InsertSide::Above)?;
 
     let outcome = editor.rebase()?;
-    let overlayed = graph_tree(&outcome.overlayed_graph()?).to_string();
+    let overlayed =
+        graph_dag(&ws.rederive_with(outcome.repo(), outcome.meta(), outcome.overlay()?)?);
     snapbox::assert_data_eq!(
-        &overlayed,
+        overlayed.as_str(),
         snapbox::str![[r#"
-
-└── 👉►:0[0]:with-inner-merge[🌳]
-    └── ·42f9ff4 (⌂)
-        └── ►:1[1]:anon:
-            └── ·5219d30 (⌂)
-                ├── ►:2[2]:A
-                │   └── ·72d9d9b (⌂)
-                │       └── ►:4[3]:main
-                │           ├── ·3dc4e45 (⌂)
-                │           └── 🏁·8f0d338 (⌂) ►tags/base
-                └── ►:3[2]:B
-                    └── ·df0cf44 (⌂)
-                        └── →:4: (main)
-
+*  👉·42f9ff4 (⌂) ►with-inner-merge[🌳]
+*    ·5219d30 (⌂)
+├─╮
+* │  ·72d9d9b (⌂) ►A
+│ *  ·df0cf44 (⌂) ►B
+├─╯
+*  ·3dc4e45 (⌂) ►main
+*  🏁·8f0d338 (⌂) ►tags/base
 "#]]
     );
-    let outcome = outcome.materialize(Default::default())?;
-    assert_eq!(overlayed, graph_tree(&outcome.workspace.graph).to_string());
+    let history = outcome.commit_mappings();
+    let (outcome, _) = outcome.materialize()?;
+    ws.refresh_from_commit_graph(outcome, &repo, &*meta, &mut but_testsupport::in_memory_db())?;
+    assert_eq!(overlayed, graph_dag(&ws));
 
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
@@ -305,7 +286,7 @@ fn insert_above_commit_with_two_children() -> Result<()> {
     );
     snapbox::assert_data_eq!(git_status(&repo)?, snapbox::str![""]);
     snapbox::assert_data_eq!(
-        outcome.history.commit_mappings().to_debug(),
+        history.to_debug(),
         snapbox::str![[r#"
 {
     Sha1(2fc288c36c8bb710c78203f78ea9883724ce142b): Sha1(5219d30048fd87943c2c87401527b75f26a1f8be),

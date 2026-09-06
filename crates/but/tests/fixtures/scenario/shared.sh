@@ -78,7 +78,24 @@ function create_workspace_commit_once() {
   if [ $# == 1 ] || [ $# == 0 ]; then
     git commit --allow-empty -m "$workspace_commit_subject"
   else
+    local before
+    before=$(git rev-parse HEAD)
     git merge --no-ff -m "$workspace_commit_subject" "${@}"
+    # A merge that had nothing to merge leaves no workspace commit (a workspace reference on
+    # a plain commit), which some scenarios rely on. When one was made, `git merge` may have
+    # dropped heads that are already ancestors and put the checked-out head first: rebuild
+    # with every arg as a parent, in arg order, to match how but writes workspace commits
+    # (a stack's lane is its parent position, empty stacks included).
+    if [ "$(git rev-parse HEAD)" != "$before" ]; then
+      local expected actual
+      expected=$(git rev-parse "$@" | tr '\n' ' ')
+      actual=$(git show -s --format='%P ' HEAD)
+      if [ "$actual" != "$expected" ]; then
+        local parent_args=() p
+        for p in "$@"; do parent_args+=(-p "$p"); done
+        git reset --hard "$(git commit-tree "$(git rev-parse "HEAD^{tree}")" "${parent_args[@]}" -m "$workspace_commit_subject")"
+      fi
+    fi
   fi
 }
 
