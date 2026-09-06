@@ -4,19 +4,12 @@ import styles from "./Rails.module.css";
 import { CARD_GAP, type Card, rails } from "./layout.ts";
 
 /*
- * One SVG behind the cards, drawing the rails through the gaps between them
- * from the virtualiser's measurements, so the gaps beside cards scrolled out
- * of the DOM get theirs too. Every card draws its own rails to its edges,
- * and the upstream section draws its own from its first row, in
- * Section.module.css.
+ * One SVG behind the cards, drawing the gaps between them from the
+ * virtualiser's measurements, so gaps beside unmounted cards are drawn too.
+ * Cards and the section draw their own rails.
  */
 export const Rails: FC<{
-	/**
-	 * The cards' measurements in plan order: the virtualiser's own cache,
-	 * replaced as cards are measured. Read after its total, which refreshes
-	 * it, and by index: it is a lazy view whose items exist once read, so
-	 * anything that skips holes, `map` included, misses the unread ones.
-	 */
+	/** The virtualiser's measurement cache. Read after its total, and by index: it is a lazy view, and `map` skips the unread. */
 	cards: ArrayLike<VirtualItem>;
 	/** Where the cards end; null without a base, when there is nothing to fork off and nothing is drawn. */
 	cardsEnd: number | null;

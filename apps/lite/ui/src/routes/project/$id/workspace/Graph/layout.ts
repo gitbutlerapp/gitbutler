@@ -4,27 +4,20 @@ import { remoteTrackingLabel } from "#ui/branch.ts";
 import type { RefInfo, Stack, TargetCommit, TargetCommitPage } from "@gitbutler/but-sdk";
 
 /*
- * The stacks section as a graph: the order the cards come in, which rows
- * the upstream section shows, and the rail paths between them. Pure: pixels
- * come in as measured anchors and go out as SVG path strings.
+ * The stacks section as a graph: card order, which section rows show, and
+ * the rail paths between the cards. Pure: measured pixels in, SVG paths out.
  *
- * The rules: one main line runs up the left, from the last row of the
- * upstream section through the section and on past every card, on the
- * card's left, into the top card, which sits on it. Every other card forks
- * off it to the right in the gap under the card: its rows sit one gap right
- * of the main line, and its rail bends down onto the main line below its
- * floor. A target that has moved on gets a card like that too: its incoming
- * commits sit on a leg beside the main line, which bends onto it under the
- * card, at the merge base. Nothing else is drawn. The SVG draws only the
- * gaps between the stack cards: every card draws its own rails to its
- * edges, and the section draws its own, in Section.module.css.
+ * One main line runs up the left into the top card. Every other card, and a
+ * moved-on target's, sits a gap to its right and bends onto the line in the
+ * gap under it. The SVG draws only the gaps between stack cards; cards and
+ * the section draw their own rails (Section.module.css).
  */
 
-/** The forked cards' rail sits this far right of the main line, which runs on behind them. */
+/** How far right of the main line the forked cards' rail sits. */
 const COLUMN_GAP = 12;
-/** The main line's x, a gap and a half in from the edge. */
+/** The main line's x. */
 export const MAIN_X = 18;
-/** The forked cards' rail, and a moved-on target's: where their row glyphs sit; the top card's sit on the main line. */
+/** The forked cards' rail, and a moved-on target's. */
 export const CARD_X = MAIN_X + COLUMN_GAP;
 /** A rail's x inside a row: the row inset plus half the glyph. Keep in sync with Row.module.css. */
 const GLYPH_X = 20;
@@ -34,19 +27,10 @@ const ROW_INSET = 12;
 export const rowInsetFor = (x: number): number => x - (GLYPH_X - ROW_INSET);
 /** Every turn is a quarter circle of this radius. */
 const CORNER_R = 4;
-/**
- * Vertical gap between cards, where a card's rail bends onto its line. Every
- * stretch the lines bend through is this tall: the room above the upstream
- * header, the room under it while folded, and the room around the incoming
- * card. Keep in sync with Section.module.css.
- */
+/** The gap between cards, tall enough for a rail to bend through. Keep in sync with Section.module.css. */
 export const CARD_GAP = 20;
-/**
- * The folded target card's height, which a row scrolled into view clears
- * while the card docks: its borders, its air, its header row and its air.
- * Keep in sync with Section.module.css.
- */
-export const DOCKED_HEIGHT = 2 + 4 + 28 + 4;
+/** The stuck merge base row's height, hairline and air included, which a row scrolled into view clears. Keep in sync with Section.module.css. */
+export const DOCKED_HEIGHT = 1 + 4 + 28 + 4;
 /** A long list, a run or the older history, shows this much at first, and this much more with each ask. */
 export const FIRST = 10;
 export const MORE = 20;
@@ -62,11 +46,7 @@ type Folds = {
 	moreOlder: number;
 };
 
-/**
- * A target commit as a value: the address the graph, the Upstream tab and the
- * applied list agree on. The change id falls back to the commit id, which
- * should be revisited.
- */
+/** A target commit as a value, shared with the Upstream tab. The change id falls back to the commit id; revisit. */
 export const targetCommitAddress = (commit: TargetCommit): Address =>
 	commitAddress({
 		commitId: commit.commit.id,
@@ -92,45 +72,28 @@ export type Plan = {
 	order: Array<number>;
 	/** The target's row: its label and how many commits are incoming. Not a value: nothing selects it. */
 	header: { label: string; incoming: number };
-	/**
-	 * The target's tip is the base itself, with nothing incoming: one row
-	 * stands for both, the base commit under the ref's name.
-	 */
+	/** The target's tip is the base itself: one row stands for both. */
 	refOnBase: boolean;
 	incomingExpanded: boolean;
 	baseExpanded: boolean;
-	/**
-	 * The commit the stacks nearest the tip sit on, named by the base header
-	 * and left out of the rows under it. Not a value either: the header only
-	 * folds. Null while unknown.
-	 */
+	/** The commit the stacks nearest the tip sit on; the base header names it. Null while unknown. */
 	base: TargetCommit | null;
-	/**
-	 * Commits on the target the workspace does not have yet: they sit ahead of
-	 * the base on their own leg beside the main line. Empty while folded.
-	 */
+	/** Commits on the target the workspace lacks, on their leg. Empty while folded. */
 	incoming: Array<Run>;
 	/** Below the base, on the main line; empty while the base is folded. */
 	belowBase: Array<Item>;
-	/** Older history below the deepest fork point, as much of it as is shown: what the listing holds, then the pages fetched; plain rows. Empty while the base is folded. */
+	/** Older history below the deepest fork point, as much as is shown. Empty while the base is folded. */
 	older: Array<TargetCommit>;
 	/** Older history loaded but not shown yet: what the next ask reveals before any page is fetched. */
 	olderHidden: number;
 };
 
-/**
- * A stretch of the target line: a commit a workspace stack forks from, or
- * the run of commits between such fork points.
- */
+/** A stretch of the target line: a stack's base, or the run between such forks. */
 type TargetItem =
 	| { type: "fork"; commit: TargetCommit }
 	| { type: "run"; commits: Array<TargetCommit>; inWorkspace: boolean };
 
-/**
- * Cut the target line at the workspace's fork points: each stack's base
- * stands on its own, and the commits between them group into maximal runs
- * sharing one relation to the workspace.
- */
+/** Cut the target line at the stacks' bases; between them, maximal runs with one relation to the workspace. */
 const segmentAtForks = (
 	commits: ReadonlyArray<TargetCommit>,
 	stacks: ReadonlyArray<Stack>,
@@ -153,9 +116,8 @@ const segmentAtForks = (
 const foldRuns = (line: ReadonlyArray<TargetItem>, folds: Folds): Array<Item> =>
 	line.slice(0, line.findLastIndex((item) => item.type === "fork") + 1).map((item) => {
 		if (item.type === "fork") return { kind: "fork", commit: item.commit };
-		// Incoming runs keep their newest in view; runs the workspace already
-		// has fold entirely. Each ask reveals more. A fold hiding a single row
-		// is not worth the row.
+		// Incoming runs show their newest; runs the workspace has fold entirely.
+		// A fold hiding one row is not worth it.
 		const incoming = !item.inWorkspace;
 		const id = assert(item.commits[0]).commit.id;
 		const asked = folds.moreRuns[id] ?? 0;
@@ -182,8 +144,7 @@ export const layout = (
 	const commits = listing?.commits ?? [];
 	const line = segmentAtForks(commits, stacks);
 	const items = foldRuns(line, folds);
-	// What the listing holds below the deepest fork point heads the older
-	// history, before the pages fetched for it.
+	// The listing's tail below the deepest fork heads the older history.
 	const trailing = line
 		.slice(line.findLastIndex((item) => item.type === "fork") + 1)
 		.flatMap((item) => (item.type === "fork" ? [item.commit] : item.commits));
@@ -195,9 +156,8 @@ export const layout = (
 		(item) => item.kind !== "fork" || item.commit.commit.id !== base?.commit.id,
 	);
 
-	// Deeper bases first, nearest their own history's end; a base the listing
-	// does not reach is deeper than any listed, all of them equally, so they
-	// keep the order given.
+	// Deeper bases first; a base the listing does not reach counts as deepest,
+	// keeping the order given.
 	const forkOrder = items.flatMap((item) => (item.kind === "fork" ? [item.commit.commit.id] : []));
 	const depth = (stack: Stack): number => {
 		const index = stack.base === null ? -1 : forkOrder.indexOf(stack.base);
@@ -273,10 +233,7 @@ export type Card = { topY: number; bottomY: number };
 const ARC_K = 0.5523;
 const n = (value: number): string => String(Math.round(value * 100) / 100);
 
-/**
- * An S-bend from one line to another: straight, a quarter-turn toward the
- * other line, straight across, a quarter-turn back down, straight on.
- */
+/** An S-bend from one line to another: two quarter-turns joined by a straight. */
 const sBend = (x0: number, y0: number, x1: number, y1: number): string => {
 	const dir = x1 > x0 ? 1 : -1;
 	const r = CORNER_R;
@@ -292,7 +249,7 @@ const sBend = (x0: number, y0: number, x1: number, y1: number): string => {
 };
 
 /** The gap under the target's card, which its leg bends through. Keep in sync with Section.module.css. */
-const LEG_GAP = 12;
+export const LEG_GAP = 12;
 /** The leg's bend under the target's card: off the card's floor, onto the main line at the merge base header's top. */
 export const LEG_BEND = `M ${n(CARD_X)} 0 ${sBend(CARD_X, 0, MAIN_X, LEG_GAP)}`;
 
@@ -302,12 +259,8 @@ const runDown = (rails: Array<string>, x: number, from: number, to: number): voi
 };
 
 /**
- * The rails through the gaps between the cards, as SVG paths; every card
- * draws its own to its edges. The top card sits on the main line, which runs
- * on from its floor, through each gap into the card below, and through the
- * gap under the last card to the upstream section's first row; from there
- * the section carries it itself. Every other card's rail bends off its
- * floor onto the main line in the gap below it.
+ * The rails through the gaps between the cards: the main line from the top
+ * card's floor down to the section, and each other card's bend onto it.
  */
 export const rails = (cards: ReadonlyArray<Card>, cardsEnd: number): Array<string> => {
 	const paths: Array<string> = [];

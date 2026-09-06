@@ -16,8 +16,7 @@
 	}
 }
 
-/* A stretch of the rail in another status's colour, given by its own status;
-   without one it keeps the glyph's. */
+/* A stretch of the rail in another status's colour; without one, the glyph's. */
 .tone {
 	color: var(--commit-status-color);
 }
@@ -45,11 +44,9 @@
 	}
 }
 
-/* The rail is the glyph colour faded back into the card, so it reads as a
-   quieter companion to the node without needing a token of its own. Blended
-   rather than translucent, so it is one colour wherever it runs; the
-   selection inversion above flips the card colour with the rest. Keep in
-   sync with Rails.module.css and Section.module.css. */
+/* The glyph colour faded into the card. Blended, not translucent, so it is
+   one colour wherever it runs; the inversion above flips the card colour
+   too. Keep in sync with Rails.module.css and Section.module.css. */
 .line {
 	stroke: color-mix(in srgb, currentColor 40%, var(--bg-1));
 }
