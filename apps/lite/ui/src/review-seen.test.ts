@@ -1,5 +1,11 @@
 /** @vitest-environment jsdom */
-import { isItemSkipped, markItemSeen, markReviewSeen, registerReviewItems } from "./review-seen.ts";
+import {
+	isItemSkipped,
+	markItemSeen,
+	markReviewSeen,
+	markReviewsSeenUpTo,
+	registerReviewItems,
+} from "./review-seen.ts";
 import { describe, expect, it } from "vitest";
 
 /**
@@ -104,5 +110,80 @@ describe("markItemSeen", () => {
 
 		markItemSeen(projectId, 7, "c:2");
 		expect(unseenOf(projectId)[7]).toBeUndefined();
+	});
+});
+
+describe("markReviewsSeenUpTo", () => {
+	it("advances each watermark monotonically and drops the review's skips", () => {
+		const projectId = freshProject();
+		localStorage.setItem(
+			`pr_activity_seen:v1:${projectId}`,
+			JSON.stringify({ 7: at(0), 8: at(30), 9: at(0) }),
+		);
+		localStorage.setItem(
+			`pr_activity_unseen:v1:${projectId}`,
+			JSON.stringify({ 7: [["c:1", at(5)]], 9: [["c:2", at(5)]] }),
+		);
+
+		markReviewsSeenUpTo(
+			projectId,
+			new Map([
+				[7, at(10)],
+				[8, at(10)],
+			]),
+		);
+
+		expect(marksOf(projectId)).toEqual({ 7: at(10), 8: at(30), 9: at(0) });
+		expect(isItemSkipped(projectId, 7, "c:1")).toBe(false);
+		expect(isItemSkipped(projectId, 9, "c:2")).toBe(true);
+	});
+
+	it("clears skips at or before the cutoff and keeps those after it", () => {
+		const projectId = freshProject();
+		localStorage.setItem(`pr_activity_seen:v1:${projectId}`, JSON.stringify({ 7: at(0) }));
+		localStorage.setItem(
+			`pr_activity_unseen:v1:${projectId}`,
+			JSON.stringify({
+				7: [
+					["c:1", at(5)],
+					["c:2", at(10)],
+					["c:3", at(15)],
+				],
+			}),
+		);
+
+		// Repeated stamps settle on the newest as the cutoff, in either order.
+		markReviewsSeenUpTo(projectId, [
+			[7, at(10)],
+			[7, at(5)],
+		]);
+
+		expect(marksOf(projectId)[7]).toBe(at(10));
+		expect(unseenOf(projectId)[7]?.map(([key]) => key)).toEqual(["c:3"]);
+	});
+
+	it("settles repeated stamps on the newest, and writes nothing when nothing changes", () => {
+		const projectId = freshProject();
+		localStorage.setItem(`pr_activity_seen:v1:${projectId}`, JSON.stringify({ 7: at(0) }));
+
+		markReviewsSeenUpTo(projectId, [
+			[7, at(10)],
+			[7, at(5)],
+		]);
+		expect(marksOf(projectId)[7]).toBe(at(10));
+
+		localStorage.removeItem(`pr_activity_seen:v1:${projectId}`);
+		markReviewsSeenUpTo(projectId, [[7, at(5)]]);
+		// The cached mark was already past at(5): no write, so storage stays clear.
+		expect(localStorage.getItem(`pr_activity_seen:v1:${projectId}`)).toBeNull();
+
+		// A skip-only change writes the skips, not the marks.
+		localStorage.setItem(
+			`pr_activity_unseen:v1:${projectId}`,
+			JSON.stringify({ 7: [["c:1", at(5)]] }),
+		);
+		markReviewsSeenUpTo(projectId, [[7, at(10)]]);
+		expect(isItemSkipped(projectId, 7, "c:1")).toBe(false);
+		expect(localStorage.getItem(`pr_activity_seen:v1:${projectId}`)).toBeNull();
 	});
 });

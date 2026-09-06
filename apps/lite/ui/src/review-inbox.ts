@@ -7,6 +7,7 @@
  * in-memory snapshots.
  */
 
+import { markReviewsSeenUpTo } from "#ui/review-seen.ts";
 import { useSyncExternalStore } from "react";
 
 export type InboxKind =
@@ -167,9 +168,20 @@ export const addInboxEntries = (projectId: string, entries: Array<InboxEntry>): 
 	writeEntries(projectId, next);
 };
 
-/** Mark the given entries seen; without ids, everything. */
+/**
+ * Mark the given entries seen; without ids, everything — which also
+ * declares each represented review read up to its newest entry.
+ */
 export const markInboxSeen = (projectId: string, ids?: ReadonlyArray<string>): void => {
 	const entries = readEntries(projectId);
+	// Every current entry, seen or not: a watermark can lag entries already
+	// seen, and the declaration must cover it.
+	if (ids === undefined) {
+		markReviewsSeenUpTo(
+			projectId,
+			entries.map((entry) => [entry.review, entry.at] as const),
+		);
+	}
 	const wanted = ids === undefined ? null : new Set(ids);
 	if (!entries.some((entry) => !entry.seen && (wanted === null || wanted.has(entry.id)))) return;
 	writeEntries(
