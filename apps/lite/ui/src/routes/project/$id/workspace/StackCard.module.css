@@ -31,3 +31,11 @@
 	min-height: auto;
 	overflow: hidden;
 }
+
+/* In the stacks graph a rail runs on from the card's floor: the stub runs
+   over the border to the card's edge, and the rail picks it up there rather
+   than crossing the border. */
+.card[data-graph] .railConnector:last-child {
+	height: 9px;
+	margin-block-end: -1px;
+}

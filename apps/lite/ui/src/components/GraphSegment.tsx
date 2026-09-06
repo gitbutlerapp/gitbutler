@@ -26,14 +26,26 @@ const glyphPaths = {
 	joinBoth: "M16 14L8 14M0 14H8M8 0V14M8 28V14",
 };
 
-const commitGlyph = (
+/**
+ * A stretch of the rail in another status's colour, or the glyph's own when
+ * none is given: the line past an icon, where it belongs to the icon at its
+ * other end.
+ */
+const Tone: FC<{ status: GraphSegmentStatus | undefined; d: string }> = ({ status, d }) => (
+	<g className={styles.tone} data-status={status}>
+		<path className={styles.line} d={d} strokeWidth="1.5" />
+	</g>
+);
+
+const commitGlyph = (below: GraphSegmentStatus | undefined) => (
 	<>
-		<path className={styles.line} d="M8 0V11M8 17V28" strokeWidth="1.5" />
+		<path className={styles.line} d="M8 0V11" strokeWidth="1.5" />
 		<path
 			d="M11.5 14C11.5 15.933 9.933 17.5 8 17.5C6.067 17.5 4.5 15.933 4.5 14C4.5 12.067 6.067 10.5 8 10.5C9.933 10.5 11.5 12.067 11.5 14Z"
 			stroke="currentColor"
 			strokeWidth="1.5"
 		/>
+		<Tone status={below} d="M8 17V28" />
 	</>
 );
 
@@ -52,6 +64,58 @@ const groupHeadGlyph = (
 	<>
 		<path className={styles.line} d="M8 17.0038V26" strokeWidth="1.5" />
 		<path d={groupRingsPath} stroke="currentColor" strokeWidth="1.5" />
+	</>
+);
+
+/** The commit node without the tail below it, for the row a rail ends on. */
+const commitFootGlyph = (
+	<>
+		<path className={styles.line} d="M8 0V11" strokeWidth="1.5" />
+		<path
+			d="M11.5 14C11.5 15.933 9.933 17.5 8 17.5C6.067 17.5 4.5 15.933 4.5 14C4.5 12.067 6.067 10.5 8 10.5C9.933 10.5 11.5 12.067 11.5 14Z"
+			stroke="currentColor"
+			strokeWidth="1.5"
+		/>
+	</>
+);
+
+/** A branch's tick on a rail that continues above: the stretch above and below it in others' colours. */
+const joinRightGlyph = (
+	above: GraphSegmentStatus | undefined,
+	below: GraphSegmentStatus | undefined,
+) => (
+	<>
+		<Tone status={above} d="M8 14V0" />
+		<path className={styles.line} d="M16 14H8" strokeWidth="1.5" />
+		<Tone status={below} d="M8 14V28" />
+	</>
+);
+
+/** A branch's tick starting a rail: the stretch below it in another's colour. */
+const forkRightGlyph = (below: GraphSegmentStatus | undefined) => (
+	<>
+		<path className={styles.line} d="M16 14H14C10.6863 14 8 16.6863 8 20" strokeWidth="1.5" />
+		<Tone status={below} d="M8 20V28" />
+	</>
+);
+
+/** The rings on the row's centre line, for a single-line row of their own. */
+const groupCenteredGlyph = (
+	<>
+		<path className={styles.line} d="M8 0V6.7857M8 21.0038V28" strokeWidth="1.5" />
+		<g transform="translate(0 4)">
+			<path d={groupRingsPath} stroke="currentColor" strokeWidth="1.5" />
+		</g>
+	</>
+);
+
+/** The centred rings without the tail below them, for the row a rail ends on. */
+const groupCenteredFootGlyph = (
+	<>
+		<path className={styles.line} d="M8 0V6.7857" strokeWidth="1.5" />
+		<g transform="translate(0 4)">
+			<path d={groupRingsPath} stroke="currentColor" strokeWidth="1.5" />
+		</g>
 	</>
 );
 
@@ -90,22 +154,64 @@ export type GraphSegmentStatus = "Diverged" | "Upstream" | CommitState["type"];
 interface GraphSegmentProps extends ComponentProps<"div"> {
 	glyph: GraphSegmentGlyph;
 	status: GraphSegmentStatus;
+	/**
+	 * The rail ends on this row: the commit glyph and the centred group glyph
+	 * lose their tail below, and nothing stretches on under a taller row.
+	 */
+	railEnds?: boolean;
+	/**
+	 * The group's rings sit on the row's centre line, for a single-line row
+	 * of their own; otherwise they head a folded indicator from a row's
+	 * second line down, on a shorter canvas.
+	 */
+	centered?: boolean;
+	/**
+	 * The rail above or below the glyph's icon in another status's colour.
+	 * A stretch between two icons is the lower icon's; above a branch's tick,
+	 * and below a card's last icon, the rail is plain.
+	 */
+	above?: GraphSegmentStatus;
+	below?: GraphSegmentStatus;
 }
 
-export const GraphSegment: FC<GraphSegmentProps> = ({ glyph, className, status, ...props }) => (
+export const GraphSegment: FC<GraphSegmentProps> = ({
+	glyph,
+	className,
+	status,
+	railEnds = false,
+	centered = false,
+	above,
+	below,
+	...props
+}) => (
 	<div {...props} className={classes(className, styles.container)} data-status={status}>
 		<svg
-			className={classes(styles.mainSegment, isGroupGlyph(glyph) && styles.groupSegment)}
-			viewBox={isGroupGlyph(glyph) ? "0 0 16 26" : "0 0 16 28"}
+			className={classes(
+				styles.mainSegment,
+				isGroupGlyph(glyph) && !centered && styles.groupSegment,
+			)}
+			viewBox={isGroupGlyph(glyph) && !centered ? "0 0 16 26" : "0 0 16 28"}
 			fill="none"
 			xmlns="http://www.w3.org/2000/svg"
 			aria-hidden="true"
 			focusable="false"
 		>
-			{glyph === "commit" ? (
-				commitGlyph
+			{railEnds && glyph === "commit" ? (
+				commitFootGlyph
+			) : railEnds && glyph === "group" && centered ? (
+				groupCenteredFootGlyph
+			) : glyph === "commit" ? (
+				commitGlyph(below)
+			) : glyph === "joinRight" ? (
+				joinRightGlyph(above, below)
+			) : glyph === "forkRight" ? (
+				forkRightGlyph(below)
 			) : glyph === "group" ? (
-				groupGlyph
+				centered ? (
+					groupCenteredGlyph
+				) : (
+					groupGlyph
+				)
 			) : glyph === "groupHead" ? (
 				groupHeadGlyph
 			) : (
@@ -113,7 +219,7 @@ export const GraphSegment: FC<GraphSegmentProps> = ({ glyph, className, status, 
 			)}
 		</svg>
 
-		{stretchableGlyphs.has(glyph) && (
+		{stretchableGlyphs.has(glyph) && !railEnds && (
 			<svg
 				viewBox="0 0 16 28"
 				preserveAspectRatio="none"
@@ -123,7 +229,7 @@ export const GraphSegment: FC<GraphSegmentProps> = ({ glyph, className, status, 
 				aria-hidden="true"
 				focusable="false"
 			>
-				<path className={styles.line} d={glyphPaths.parent} strokeWidth="1.5" />
+				<Tone status={below} d={glyphPaths.parent} />
 			</svg>
 		)}
 	</div>

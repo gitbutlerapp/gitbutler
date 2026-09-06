@@ -1,5 +1,5 @@
 import rowStyles from "../Row.module.css";
-import { setCursor, useIsCursorAt, useSelection, useActiveList } from "#ui/use-cursor.ts";
+import { setCursor, useActiveList, useIsCursorAt, useSelection } from "#ui/use-cursor.ts";
 import { useCommitAmend } from "#ui/api/mutations.ts";
 import { changesInWorktreeQueryOptions, headInfoQueryOptions } from "#ui/api/queries.ts";
 import { getHeadInfoIndex, recordedPullRequest } from "#ui/api/ref-info.ts";
@@ -47,23 +47,35 @@ import type { PayloadFor } from "#electron/ipc.ts";
 import { Match } from "effect";
 import {
 	Activity,
-	type ComponentProps,
-	createContext,
 	type CSSProperties,
-	type FC,
 	Fragment,
-	type RefObject,
-	type ReactNode,
+	createContext,
 	use,
 	useCallback,
 	useLayoutEffect,
 	useMemo,
 	useRef,
 	useState,
+	type ComponentProps,
+	type FC,
+	type ReactNode,
+	type RefObject,
 } from "react";
 import { Group, Panel, useDefaultLayout } from "react-resizable-panels";
 import styles from "./WorkspaceLists.module.css";
 import { Row, RowLabel, RowLabelContainer, SectionHeaderRow } from "../Row.tsx";
+import { Rails } from "../Graph/Rails.tsx";
+import { type MoreBelow, Section } from "../Graph/Section.tsx";
+import {
+	CARD_GAP,
+	CARD_X,
+	DOCKED_HEIGHT,
+	MAIN_X,
+	foldAddresses,
+	foldAt,
+	rowInsetFor,
+} from "../Graph/layout.ts";
+import type { Graph } from "../Graph/usePlan.ts";
 import { StackCard } from "../StackCard.tsx";
 import stackCardStyles from "../StackCard.module.css";
 import { treeItemId } from "../Row-utils.ts";
@@ -451,6 +463,10 @@ const segmentPushStatusToGraphSegmentStatus = (pushStatus: PushStatus): GraphSeg
 	}
 };
 
+/** A commit's glyph colour: its state's, or the diverged one's. */
+const commitGraphStatus = (commit: Commit): GraphSegmentStatus =>
+	commitIsDiverged(commit) ? "Diverged" : commit.state.type;
+
 const BranchSegment: FC<{
 	projectId: string;
 	segment: Segment;
@@ -465,6 +481,7 @@ const BranchSegment: FC<{
 	onAmendCommit: (commitId: string) => void;
 	canAmendCommit: boolean;
 	scrollElementRef: RefObject<HTMLDivElement | null>;
+	scrollPaddingEnd: number;
 	stackScrollStart: number;
 	stackSize: number;
 	segmentIndex: number;
@@ -485,6 +502,7 @@ const BranchSegment: FC<{
 	onAmendCommit,
 	canAmendCommit,
 	scrollElementRef,
+	scrollPaddingEnd,
 	stackScrollStart,
 	stackSize,
 	segmentIndex,
@@ -493,6 +511,9 @@ const BranchSegment: FC<{
 	setSize,
 }) => {
 	const address = branchAddress({ branchRef: refName.fullNameBytes });
+	// The rail below the branch's tick is its first commit's; plain when it has none.
+	const firstCommit = segment.commits[0];
+	const railBelow = firstCommit === undefined ? "LocalOnly" : commitGraphStatus(firstCommit);
 	const isFolded = useAppSelector((state) =>
 		projectSlice.selectors.selectSegmentFolded(
 			state,
@@ -524,6 +545,7 @@ const BranchSegment: FC<{
 				bottomRelativeTo={segmentBottomRelativeTo(segment)}
 				isTopSegment={isTopSegment}
 				commitCount={segment.commits.length}
+				railBelow={railBelow}
 				stack={stack}
 			/>
 
@@ -541,6 +563,7 @@ const BranchSegment: FC<{
 					onAmendCommit={onAmendCommit}
 					canAmendCommit={canAmendCommit}
 					scrollElementRef={scrollElementRef}
+					scrollPaddingEnd={scrollPaddingEnd}
 					stackScrollStart={stackScrollStart}
 					stackSize={stackSize}
 					segmentIndex={segmentIndex}
@@ -586,6 +609,7 @@ const SegmentContent: FC<{
 	onAmendCommit: (commitId: string) => void;
 	canAmendCommit: boolean;
 	scrollElementRef: RefObject<HTMLDivElement | null>;
+	scrollPaddingEnd: number;
 	stackScrollStart: number;
 	stackSize: number;
 	segmentIndex: number;
@@ -602,6 +626,7 @@ const SegmentContent: FC<{
 	onAmendCommit,
 	canAmendCommit,
 	scrollElementRef,
+	scrollPaddingEnd,
 	stackScrollStart,
 	stackSize,
 	segmentIndex,
@@ -641,9 +666,9 @@ const SegmentContent: FC<{
 		getItemKey: getCommitKey,
 		rangeExtractor: rangeExtractorWithSelected,
 		scrollMargin,
-		// Matches --scroll-gradient-height.
+		// Matches --scroll-gradient-height; the foot also clears the target's docked card.
 		scrollPaddingStart: 14,
-		scrollPaddingEnd: 14,
+		scrollPaddingEnd,
 	});
 
 	const containerRef = useMergedRefs(rowVirtualizer.containerRef, commitListRef);
@@ -687,6 +712,8 @@ const SegmentContent: FC<{
 			{rowVirtualizer.getVirtualItems().map((virtualRow) => {
 				const commit = segment.commits[virtualRow.index];
 				if (commit === undefined) return null;
+				// The rail below the commit is the next one's; plain under the last.
+				const next = segment.commits[virtualRow.index + 1];
 
 				const dryRunCommitId = dryRunWorkspace?.replacedCommits[commit.id];
 				const dryRunCommit =
@@ -699,6 +726,7 @@ const SegmentContent: FC<{
 						index={virtualRow.index}
 						measureElement={rowVirtualizer.measureElement}
 						commit={commit}
+						below={next === undefined ? "LocalOnly" : commitGraphStatus(next)}
 						projectId={projectId}
 						stackId={stackId}
 						checkCommit={checkCommit}
@@ -726,6 +754,7 @@ const CommitItem: FC<{
 	index: number;
 	measureElement: (element: HTMLDivElement | null) => void;
 	commit: Commit;
+	below: GraphSegmentStatus;
 	projectId: string;
 	stackId: string | null;
 	checkCommit: (evt: { commitId: string; shiftKey: boolean }) => void;
@@ -739,6 +768,7 @@ const CommitItem: FC<{
 	index,
 	measureElement,
 	commit,
+	below,
 	projectId,
 	stackId,
 	checkCommit,
@@ -777,6 +807,7 @@ const CommitItem: FC<{
 						render={
 							<CommitRow
 								commit={commit}
+								below={below}
 								stackId={stackId}
 								checkCommit={checkCommit}
 								amendCommit={() => onAmendCommit(commit.id)}
@@ -835,16 +866,8 @@ const SegmentRailConnector: FC<{
 			className={stackCardStyles.railConnector}
 			inert={!addressSpaceIncludes(addressSpace, standsFor, addressIdentityKey)}
 		>
-			<GraphSegment
-				glyph="parent"
-				status={
-					lastCommit === undefined
-						? segmentPushStatusToGraphSegmentStatus(segment.pushStatus)
-						: commitIsDiverged(lastCommit)
-							? "Diverged"
-							: lastCommit.state.type
-				}
-			/>
+			{/* Plain: a branch's colour runs from its tick down to its commits, not past them. */}
+			<GraphSegment glyph="parent" status="LocalOnly" />
 		</Row>
 	);
 };
@@ -858,8 +881,11 @@ const StackC: FC<
 		canAmendCommit: boolean;
 		pendingPushBranches: Set<string>;
 		scrollElementRef: RefObject<HTMLDivElement | null>;
+		scrollPaddingEnd: number;
 		stackScrollStart: number;
 		stackSize: number;
+		/** Sits a gap right of the main line, which runs on behind it, rather than on it. */
+		forked: boolean;
 		selectedSegmentIndex: number | undefined;
 		selectedCommitIndex: number | undefined;
 	} & ComponentProps<"div">
@@ -871,8 +897,10 @@ const StackC: FC<
 	canAmendCommit,
 	pendingPushBranches,
 	scrollElementRef,
+	scrollPaddingEnd,
 	stackScrollStart,
 	stackSize,
+	forked,
 	selectedSegmentIndex,
 	selectedCommitIndex,
 	...props
@@ -892,6 +920,7 @@ const StackC: FC<
 		left: 0,
 		width: "100%",
 		transform: `translateY(${stackScrollStart}px)`,
+		"--row-padding-inline-start": `${rowInsetFor(forked ? CARD_X : MAIN_X)}px`,
 	};
 	const topmostPendingPushIndex = stack.segments.findIndex(
 		(segment) =>
@@ -911,6 +940,10 @@ const StackC: FC<
 			{...props}
 			style={style}
 			className={classes(props.className, styles.virtualStack)}
+			// In the graph the card draws its rails to its edges: see StackCard.module.css
+			// and WorkspaceLists.module.css.
+			data-graph
+			data-forked={forked}
 			// oxlint-disable-next-line jsx-a11y/prefer-tag-over-role -- This is a group of treeitems.
 			role="group"
 			aria-label="Stack"
@@ -953,6 +986,7 @@ const StackC: FC<
 									onAmendCommit={onAmendCommit}
 									canAmendCommit={canAmendCommit}
 									scrollElementRef={scrollElementRef}
+									scrollPaddingEnd={scrollPaddingEnd}
 									stackScrollStart={stackScrollStart}
 									stackSize={stackSize}
 									segmentIndex={index}
@@ -975,6 +1009,7 @@ const StackC: FC<
 									onAmendCommit={onAmendCommit}
 									canAmendCommit={canAmendCommit}
 									scrollElementRef={scrollElementRef}
+									scrollPaddingEnd={scrollPaddingEnd}
 									stackScrollStart={stackScrollStart}
 									stackSize={stackSize}
 									segmentIndex={index}
@@ -1005,16 +1040,18 @@ const focusCommitMessageInput = () => {
 
 const Stacks: FC<{
 	projectId: string;
+	graph: Graph;
 	newBranch: NewBranchActions;
 	checkCommit: (evt: { commitId: string; shiftKey: boolean }) => void;
 	onAmendCommit: (commitId: string) => void;
 	canAmendCommit: boolean;
 	onEdgeSpill: (offset: -1 | 1) => void;
-}> = ({ projectId, newBranch, checkCommit, onAmendCommit, canAmendCommit, onEdgeSpill }) => {
+}> = ({ projectId, graph, newBranch, checkCommit, onAmendCommit, canAmendCommit, onEdgeSpill }) => {
 	const addressSpace = useAddressSpace();
 	const { data: headInfo } = useQuery(headInfoQueryOptions(projectId));
 	const selection = useSelection("applied", addressSpace);
 	const activeList = useActiveList();
+	const dispatch = useAppDispatch();
 	const dryRunOperation = useAppSelector((state) => {
 		const pendingOperation = projectSlice.selectors.selectPendingOperation(state, projectId);
 
@@ -1044,10 +1081,33 @@ const Stacks: FC<{
 		operation: dryRunOperation,
 	});
 	const dryRunWorkspace = dryRunOperationResult?.workspace ?? null;
-	const stacks = (headInfo?.stacks ?? []).toReversed();
+	// Cards in the graph's order, the upstream section below, and the rails
+	// between them drawn in one SVG over both. The host computed the plan once
+	// and built the address space from it.
+	const { plan, stacks, olderQuery, olderFrom, forgetOlder } = graph;
+	const olderPagesData = olderQuery.data;
+	// Shown to its start: everything loaded is shown, and a page came back
+	// with nothing older behind it.
+	const historyEnds =
+		olderPagesData !== undefined && !olderQuery.hasNextPage && plan.olderHidden === 0;
+	const moreBelow: MoreBelow =
+		olderFrom === ""
+			? "hidden"
+			: olderQuery.isFetching
+				? "loading"
+				: olderQuery.isError
+					? "failed"
+					: historyEnds
+						? "hidden"
+						: "idle";
+	const showMore = () => dispatch(projectSlice.actions.showMoreGraphOlder({ projectId }));
 	// Undefined `headInfo` is still loading, which is not the same as "empty" —
 	// treating it as empty would flash the empty state on every open.
 	const isEmpty = headInfo !== undefined && stacks.length === 0;
+	// Docked, the target's folded card lies over what scrolls past under it:
+	// a row scrolled into view clears it, as it clears the gradient at the
+	// foot otherwise.
+	const scrollPaddingEnd = plan.header.incoming > 0 && !plan.incomingExpanded ? DOCKED_HEIGHT : 14;
 	const foldedSegments = useAppSelector((state) =>
 		projectSlice.selectors.selectFoldedSegments(state, projectId),
 	);
@@ -1077,8 +1137,10 @@ const Stacks: FC<{
 			: selection?._tag === "Commit"
 				? headInfoIndex?.commitContextByCommitId(selection.commitId)
 				: undefined;
-	const selectedStackIndex =
-		selectedContext === undefined ? undefined : stacks.length - selectedContext.stackIndex - 1;
+	const selectedStack =
+		selectedContext === undefined ? undefined : headInfo?.stacks[selectedContext.stackIndex];
+	const selectedStackIndexRaw = selectedStack === undefined ? -1 : stacks.indexOf(selectedStack);
+	const selectedStackIndex = selectedStackIndexRaw === -1 ? undefined : selectedStackIndexRaw;
 	const selectedSegmentIndex = selectedContext?.segmentIndex;
 	const selectedCommitIndex =
 		selection?._tag === "Commit"
@@ -1086,12 +1148,15 @@ const Stacks: FC<{
 			: undefined;
 
 	// Pin the containing stack too, otherwise the nested selected row can still be unmounted.
+	// In index order: a pinned index that sits appended while off-range and in place once the
+	// range reaches it would move every card's node on each flip, and the scroller re-anchors on
+	// every move, snapping the scroll back at that boundary.
 	const rangeExtractorWithSelected = useCallback(
 		(range: Range) =>
 			getRangeExtractorWithIndices(
 				range,
 				selectedStackIndex === undefined ? [] : [selectedStackIndex],
-			),
+			).sort((a, b) => a - b),
 		[selectedStackIndex],
 	);
 
@@ -1135,13 +1200,19 @@ const Stacks: FC<{
 		},
 		getItemKey: getStackKey,
 		rangeExtractor: rangeExtractorWithSelected,
-		gap: 10,
-		// Matches --scroll-gradient-height.
+		gap: CARD_GAP,
+		// Matches --scroll-gradient-height; the foot also clears the target's docked card.
 		scrollPaddingStart: 14,
-		scrollPaddingEnd: 14,
+		scrollPaddingEnd,
 	});
 
 	const selectedAddressKey = selection === null ? undefined : addressIdentityKey(selection);
+	// The fold the selection sits in, looked up once per selection or plan:
+	// the hotkeys ask on every render.
+	const selectedFold = useMemo(
+		() => (selection === null ? null : foldAt(plan, selection)),
+		[plan, selection],
+	);
 	const lastRevealedAddressKeyRef = useRef<string>(undefined);
 
 	// If the selected row's stack is not rendered, reveal the stack first. Its branch row or nested
@@ -1162,6 +1233,15 @@ const Stacks: FC<{
 		lastRevealedAddressKeyRef.current = selectedAddressKey;
 	}, [rowVirtualizer, selectedAddressKey, selectedStackIndex]);
 
+	const toggleIncoming = () => dispatch(projectSlice.actions.toggleGraphIncoming({ projectId }));
+	const toggleBase = () => {
+		if (plan.baseExpanded) forgetOlder();
+		dispatch(projectSlice.actions.toggleGraphBase({ projectId }));
+	};
+	const showMoreRun = (runId: string) =>
+		dispatch(projectSlice.actions.showMoreGraphRun({ projectId, runId }));
+	const foldRun = (runId: string) =>
+		dispatch(projectSlice.actions.foldGraphRun({ projectId, runId }));
 	const hotkeysRef = useRef<HTMLDivElement>(null);
 	useActiveListsHotkeys({
 		addressSpace,
@@ -1171,7 +1251,26 @@ const Stacks: FC<{
 		focusCommitMessageInput,
 		onEdgeSpill,
 		pendingPushBranches,
+		// The fold key on a section row closes the fold it sits in and parks the
+		// cursor on the row above the fold, since the headers are not values.
+		sectionToggle:
+			selectedFold === null
+				? null
+				: () => {
+						const first = foldAddresses(plan, selectedFold)[0];
+						const index =
+							first === undefined
+								? undefined
+								: addressSpace.indexByKey.get(addressIdentityKey(first));
+						const above = index === undefined ? undefined : addressSpace.items[index - 1];
+						if (above !== undefined) setCursor("applied", above);
+						if (selectedFold === "incoming") toggleIncoming();
+						else toggleBase();
+					},
 	});
+
+	// The total first: it refreshes the measurements the rails then read.
+	const cardsEnd = plan.base === null ? null : rowVirtualizer.getTotalSize();
 
 	return (
 		<DryRunWorkspaceContext value={dryRunWorkspace}>
@@ -1180,46 +1279,75 @@ const Stacks: FC<{
 				className={classes(uiStyles.scroller, styles.stacksScroller)}
 				data-empty={isEmpty}
 			>
+				{/* One tree: the cards and the upstream section below them share the
+				    applied list's cursor, and arrow keys walk them in reading order. */}
 				<div
 					tabIndex={0}
 					role="tree"
 					aria-activedescendant={selection ? treeItemId(selection) : undefined}
-					className={classes(styles.tree, styles.stacks, styles.virtualContainer)}
+					className={classes(styles.tree, styles.content)}
+					// The merge base and its history sit on the main line; the stack
+					// cards and a moved-on target's set their own inset, and those a
+					// gap right of the line draw it behind themselves. A row is
+					// indented only where the line runs behind it.
+					style={{
+						"--row-padding-inline-start": `${rowInsetFor(MAIN_X)}px`,
+						"--main-line-x": `${MAIN_X}px`,
+					}}
 					data-focus-scope={"sidebar" satisfies FocusScope}
 					data-preview-source={activeList === "applied"}
-					ref={useMergedRefs(
-						rowVirtualizer.containerRef,
+					ref={useMergedRefs<HTMLDivElement>(
 						hotkeysRef,
 						useAutofocusScope(activeList === "applied"),
 					)}
 				>
-					{rowVirtualizer.getVirtualItems().map((virtualRow) => {
-						const stack = stacks[virtualRow.index];
-						if (stack === undefined) return null;
+					<Rails cards={rowVirtualizer.measurementsCache} cardsEnd={cardsEnd} />
+					<div
+						className={classes(styles.stacks, styles.virtualContainer)}
+						ref={rowVirtualizer.containerRef}
+					>
+						{rowVirtualizer.getVirtualItems().map((virtualRow) => {
+							const stack = stacks[virtualRow.index];
+							if (stack === undefined) return null;
 
-						return (
-							<StackC
-								key={stack.id ?? virtualRow.index}
-								data-index={virtualRow.index}
-								ref={rowVirtualizer.measureElement}
-								projectId={projectId}
-								stack={stack}
-								checkCommit={checkCommit}
-								onAmendCommit={onAmendCommit}
-								canAmendCommit={canAmendCommit}
-								pendingPushBranches={pendingPushBranches}
-								scrollElementRef={scrollElementRef}
-								stackScrollStart={virtualRow.start}
-								stackSize={virtualRow.size}
-								selectedSegmentIndex={
-									selectedStackIndex === virtualRow.index ? selectedSegmentIndex : undefined
-								}
-								selectedCommitIndex={
-									selectedStackIndex === virtualRow.index ? selectedCommitIndex : undefined
-								}
-							/>
-						);
-					})}
+							return (
+								<StackC
+									key={stack.id ?? virtualRow.index}
+									data-index={virtualRow.index}
+									ref={rowVirtualizer.measureElement}
+									forked={virtualRow.index > 0}
+									projectId={projectId}
+									stack={stack}
+									checkCommit={checkCommit}
+									onAmendCommit={onAmendCommit}
+									canAmendCommit={canAmendCommit}
+									pendingPushBranches={pendingPushBranches}
+									scrollElementRef={scrollElementRef}
+									scrollPaddingEnd={scrollPaddingEnd}
+									stackScrollStart={virtualRow.start}
+									stackSize={virtualRow.size}
+									selectedSegmentIndex={
+										selectedStackIndex === virtualRow.index ? selectedSegmentIndex : undefined
+									}
+									selectedCommitIndex={
+										selectedStackIndex === virtualRow.index ? selectedCommitIndex : undefined
+									}
+								/>
+							);
+						})}
+					</div>
+					<Section
+						projectId={projectId}
+						plan={plan}
+						moreBelow={moreBelow}
+						historyEnds={historyEnds}
+						onToggleIncoming={toggleIncoming}
+						onToggleBase={toggleBase}
+						onShowMoreRun={showMoreRun}
+						onFoldRun={foldRun}
+						onShowMore={showMore}
+						scrollElementRef={scrollElementRef}
+					/>
 				</div>
 
 				{isEmpty && <NoStacks projectId={projectId} newBranch={newBranch} />}
@@ -1231,6 +1359,8 @@ const Stacks: FC<{
 export const WorkspaceLists: FC<
 	{
 		projectId: string;
+		/** The stacks graph, computed once by the host that built the address space. */
+		graph: Graph;
 		addressSpace: AddressSpace<Address>;
 		uncommittedAddressSpace: AddressSpace<string>;
 		absorptionTargetCommitIds: ReadonlySet<string>;
@@ -1240,6 +1370,7 @@ export const WorkspaceLists: FC<
 	} & ComponentProps<"div">
 > = ({
 	projectId,
+	graph,
 	addressSpace,
 	uncommittedAddressSpace,
 	absorptionTargetCommitIds,
@@ -1463,6 +1594,7 @@ export const WorkspaceLists: FC<
 					<Activity mode={stacksCollapsed ? "hidden" : "visible"}>
 						<Stacks
 							projectId={projectId}
+							graph={graph}
 							newBranch={newBranch}
 							checkCommit={checkCommit}
 							onAmendCommit={amendCommit}

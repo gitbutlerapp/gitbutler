@@ -23,6 +23,7 @@ import { type NativeMenuItem, nativeMenuItem, showNativeMenuFromTrigger } from "
 import { openLinkExternally } from "#ui/external-link.ts";
 import type { DraftPRExtras } from "#ui/pr.ts";
 import { formatAbsoluteTime, formatCompactDuration, formatRelativeTime } from "#ui/time.ts";
+import { useCopied } from "#ui/routes/project/$id/workspace/useCopied.ts";
 import type {
 	CiCheck,
 	ForgeReview,
@@ -33,7 +34,7 @@ import type {
 import { Tooltip } from "@base-ui/react";
 import { useQuery } from "@tanstack/react-query";
 import { Match } from "effect";
-import { type FC, type MouseEvent, type ReactNode, useLayoutEffect, useRef, useState } from "react";
+import type { FC, MouseEvent, ReactNode } from "react";
 import styles from "./PullRequestPanel.module.css";
 
 type ReviewStatus = "open" | "draft" | "merged" | "closed";
@@ -138,29 +139,13 @@ const Label: FC<{ label: ForgeReviewLabel }> = ({ label }) => {
 };
 
 const CopyableBranch: FC<{ name: string }> = ({ name }) => {
-	const [copied, setCopied] = useState(false);
-	const resetTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-	const handleCopy = () => {
-		void window.lite.clipboardWriteText(name);
-		setCopied(true);
-
-		if (resetTimeoutRef.current !== null) clearTimeout(resetTimeoutRef.current);
-		resetTimeoutRef.current = setTimeout(() => setCopied(false), 1500);
-	};
-
-	useLayoutEffect(
-		() => () => {
-			if (resetTimeoutRef.current !== null) clearTimeout(resetTimeoutRef.current);
-		},
-		[],
-	);
+	const { copied, copy } = useCopied(name);
 
 	return (
 		<Tooltip.Root>
 			<Tooltip.Trigger
 				className={styles.sourceBranch}
-				onClick={handleCopy}
+				onClick={copy}
 				render={<button type="button" aria-label="Copy branch name" />}
 			>
 				{copied ? "Copied!" : name}

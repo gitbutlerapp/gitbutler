@@ -10,7 +10,8 @@ import {
 	type GraphSegmentStatus,
 } from "#ui/components/GraphSegment.tsx";
 import { Icon } from "#ui/components/Icon.tsx";
-import { commitAddress, addressIdentityKey, type Address } from "#ui/addresses.ts";
+import { addressIdentityKey } from "#ui/addresses.ts";
+import { targetCommitAddress } from "./Graph/layout.ts";
 import { projectSlice } from "#ui/projects/state.ts";
 import { useAutofocusScope, useAddressSpaceHotkeys, type FocusScope } from "#ui/focus-scopes.ts";
 import { useAppDispatch } from "#ui/store.ts";
@@ -45,15 +46,6 @@ import styles from "./UpstreamList.module.css";
 
 const pluralRules = new Intl.PluralRules("en");
 
-const useIsSelected = (address: Address): boolean => useIsSelectedInList(address, "upstream");
-
-const upstreamCommitAddress = (item: UpstreamCommitItem): Address =>
-	commitAddress({
-		commitId: item.commit.id,
-		// This is a hack that should be revisited...
-		changeId: item.commit.changeId ?? item.commit.id,
-	});
-
 /**
  * The target branch the incoming commits below it belong to. It heads the card
  * the way a stack's own name heads a stack card, and starts the target rail
@@ -72,7 +64,8 @@ const TargetHeadRow: FC<{ label: string }> = ({ label }) => (
 	</Row>
 );
 
-const TargetCommitRow: FC<{
+/** Shared with the workspace page's stacks graph, which lists the same commits. */
+export const TargetCommitRow: FC<{
 	item: UpstreamCommitItem;
 	positionInSet: number;
 	setSize: number;
@@ -83,10 +76,16 @@ const TargetCommitRow: FC<{
 	 * which is true of every row there, and so tells the reader nothing.
 	 */
 	status?: GraphSegmentStatus;
-}> = ({ item, positionInSet, setSize, status }) => {
+	/** The rail ends on this row: the history has no commit below it. */
+	railEnds?: boolean;
+	/** The cursor the row is on: the Upstream tab's own, or the applied list's in the stacks graph. */
+	list?: "applied" | "upstream";
+	/** Out of its list for now, as a pending operation leaves it: not a value to move to. */
+	inert?: boolean;
+}> = ({ item, positionInSet, setSize, status, railEnds, list = "upstream", inert }) => {
 	const { commit, review, inWorkspace } = item;
-	const address = upstreamCommitAddress(item);
-	const isSelected = useIsSelected(address);
+	const address = targetCommitAddress(item);
+	const isSelected = useIsSelectedInList(address, list);
 	// A commit that landed a review is shown as that review: its title says
 	// what changed, where "Merge pull request #N from …" only says that it did.
 	const title = review?.title ?? commitTitle(commit.message);
@@ -100,14 +99,20 @@ const TargetCommitRow: FC<{
 			role="treeitem"
 			aria-label={title ?? "(no message)"}
 			aria-level={1}
-			aria-posinset={positionInSet}
-			aria-setsize={setSize}
+			aria-posinset={inert ? undefined : positionInSet}
+			aria-setsize={inert ? undefined : setSize}
 			aria-selected={isSelected}
 			isSelected={isSelected}
-			scrollSelectedIntoView={false}
-			onSelect={() => setCursor("upstream", address)}
+			inert={inert}
+			// The Upstream tab virtualises and scrolls for itself.
+			scrollSelectedIntoView={list === "applied"}
+			onSelect={() => setCursor(list, address)}
 		>
-			<GraphSegment glyph="commit" status={status ?? (inWorkspace ? "Integrated" : "Upstream")} />
+			<GraphSegment
+				glyph="commit"
+				status={status ?? (inWorkspace ? "Integrated" : "Upstream")}
+				railEnds={railEnds}
+			/>
 			<div className={styles.label}>
 				<RowLabelContainer>
 					{/* Commits the workspace already has are not dimmed: the row is
@@ -539,7 +544,7 @@ export const UpstreamList: FC<
 		const virtualIndexByAddressKey = new Map<string, number>();
 		for (const [index, row] of virtualRows.entries()) {
 			if (row.type !== "item" || row.item.type !== "commit") continue;
-			virtualIndexByAddressKey.set(addressIdentityKey(upstreamCommitAddress(row.item)), index);
+			virtualIndexByAddressKey.set(addressIdentityKey(targetCommitAddress(row.item)), index);
 		}
 
 		return { virtualRows, virtualIndexByAddressKey };
@@ -667,7 +672,7 @@ export const UpstreamList: FC<
 											positionInSet={
 												// oxlint-disable-next-line typescript/no-non-null-assertion
 												addressSpace.indexByKey.get(
-													addressIdentityKey(upstreamCommitAddress(row.item)),
+													addressIdentityKey(targetCommitAddress(row.item)),
 												)! + 1
 											}
 											setSize={addressSpace.items.length}

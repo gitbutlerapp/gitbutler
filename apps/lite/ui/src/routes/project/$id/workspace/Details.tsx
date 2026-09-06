@@ -73,6 +73,7 @@ import { Badge } from "#ui/components/Badge.tsx";
 import { getButtonClassName } from "#ui/components/Button.tsx";
 import { Icon } from "#ui/components/Icon.tsx";
 import { TooltipPopup } from "#ui/components/Tooltip.tsx";
+import { useCopied } from "#ui/routes/project/$id/workspace/useCopied.ts";
 import { ToggleGroupStyles, ToggleStyles } from "#ui/components/ToggleGroup.tsx";
 import { OperationSourceC } from "#ui/routes/project/$id/workspace/OperationSourceC.tsx";
 import {
@@ -2774,29 +2775,13 @@ const CopyableId: FC<{
 	displayValue: string;
 	copyValue: string;
 }> = ({ label, icon, displayValue, copyValue }) => {
-	const [copied, setCopied] = useState(false);
-	const resetTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-	const handleCopy = () => {
-		void window.lite.clipboardWriteText(copyValue);
-		setCopied(true);
-
-		if (resetTimeoutRef.current !== null) clearTimeout(resetTimeoutRef.current);
-		resetTimeoutRef.current = setTimeout(() => setCopied(false), 1500);
-	};
-
-	useLayoutEffect(
-		() => () => {
-			if (resetTimeoutRef.current !== null) clearTimeout(resetTimeoutRef.current);
-		},
-		[],
-	);
+	const { copied, copy } = useCopied(copyValue);
 
 	return (
 		<Tooltip.Root>
 			<Tooltip.Trigger
 				className={styles.commitDetailsMetaSha}
-				onClick={handleCopy}
+				onClick={copy}
 				render={<button type="button" aria-label={label} />}
 			>
 				<Icon size={14} name={copied ? "tick" : icon} />

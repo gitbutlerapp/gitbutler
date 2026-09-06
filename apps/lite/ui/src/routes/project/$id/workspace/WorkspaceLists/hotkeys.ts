@@ -72,6 +72,7 @@ export const useActiveListsHotkeys = ({
 	focusCommitMessageInput,
 	onEdgeSpill,
 	pendingPushBranches,
+	sectionToggle,
 }: {
 	addressSpace: AddressSpace<Address>;
 	projectId: string;
@@ -80,6 +81,8 @@ export const useActiveListsHotkeys = ({
 	focusCommitMessageInput: () => void;
 	onEdgeSpill?: (offset: -1 | 1) => void;
 	pendingPushBranches: Set<string>;
+	/** The action that toggles the fold the selection sits in; null when it sits in none. */
+	sectionToggle?: (() => void) | null;
 }) => {
 	const { data: headInfoIndex } = useQuery({
 		...headInfoQueryOptions(projectId),
@@ -404,7 +407,9 @@ export const useActiveListsHotkeys = ({
 	};
 
 	const defaultSidebarHotkeysEnabled = noOperationPending;
-	const isSelectedCommit = selection?._tag === "Commit";
+	// A commit the workspace does not hold (a remote leg's, the target's) is
+	// selectable to look at, not to act on.
+	const isSelectedCommit = selectedCommit !== null;
 	const isSelectedBranch = selection?._tag === "Branch";
 	const isSelectedStackPushPending =
 		selectionStack?.segments.some(
@@ -607,10 +612,14 @@ export const useActiveListsHotkeys = ({
 		},
 		{
 			hotkey: sidebarHotkeys.toggleFoldBranch.hotkey,
-			callback: toggleFoldSelected,
+			callback: () => {
+				if (sectionToggle) sectionToggle();
+				else toggleFoldSelected();
+			},
 			options: {
 				conflictBehavior: "allow",
-				enabled: defaultSidebarHotkeysEnabled && foldableSegmentRef !== null,
+				enabled:
+					defaultSidebarHotkeysEnabled && (foldableSegmentRef !== null || sectionToggle != null),
 				target: ref,
 				meta: sidebarHotkeys.toggleFoldBranch.meta,
 			},

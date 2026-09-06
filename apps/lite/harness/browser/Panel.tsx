@@ -3,14 +3,11 @@ import { useParams } from "@tanstack/react-router";
 import { useHotkeys } from "@tanstack/react-hotkeys";
 import { Match } from "effect";
 import type { FC } from "react";
-import {
-	absorptionPlanQueryOptions,
-	changesInWorktreeQueryOptions,
-	headInfoQueryOptions,
-} from "#ui/api/queries.ts";
+import { absorptionPlanQueryOptions, changesInWorktreeQueryOptions } from "#ui/api/queries.ts";
 import { focusScope } from "#ui/focus-scopes.ts";
 import { projectSlice } from "#ui/projects/state.ts";
 import { buildAppliedAddressSpace } from "#ui/routes/project/$id/workspace/applied-address-space.ts";
+import { usePlan } from "#ui/routes/project/$id/workspace/Graph/usePlan.ts";
 import { buildUncommittedFileRows } from "#ui/routes/project/$id/workspace/file-row.ts";
 import { fileTreeAddressSpace } from "#ui/routes/project/$id/workspace/file-tree.ts";
 import { useFileDisplayMode } from "#ui/routes/project/$id/workspace/useFileDisplayMode.ts";
@@ -39,7 +36,6 @@ export const Panel: FC = () => {
 		Match.tags({ Absorb: ({ sourceTarget }) => sourceTarget }),
 		Match.orElse(() => null),
 	);
-	const { data: headInfo } = useQuery(headInfoQueryOptions(projectId));
 	const [absorptionPlanQuery] = useQueries({
 		queries: (absorptionPlanTarget ? [absorptionPlanTarget] : []).map((target) =>
 			absorptionPlanQueryOptions({ projectId, target }),
@@ -52,8 +48,10 @@ export const Panel: FC = () => {
 	const foldedSegments = useAppSelector((state) =>
 		projectSlice.selectors.selectFoldedSegments(state, projectId),
 	);
+	const graph = usePlan(projectId);
 	const appliedAddressSpace = buildAppliedAddressSpace({
-		headInfo,
+		stacks: graph.stacks,
+		plan: graph.plan,
 		pendingOperation,
 		absorptionTargetCommitIds,
 		foldedSegments,
@@ -107,6 +105,7 @@ export const Panel: FC = () => {
 				// instance the app's sidebar owns: two would each hold their own
 				// mutation, and neither in-flight guard would see the other's create.
 				newBranch={newBranch}
+				graph={graph}
 				addressSpace={appliedAddressSpace}
 				uncommittedAddressSpace={uncommittedAddressSpace}
 				absorptionTargetCommitIds={absorptionTargetCommitIds}

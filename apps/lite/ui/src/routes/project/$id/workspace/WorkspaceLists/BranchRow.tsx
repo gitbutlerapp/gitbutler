@@ -135,6 +135,8 @@ export const BranchRow: FC<
 		bottomRelativeTo: RelativeTo | null;
 		isTopSegment: boolean;
 		commitCount: number;
+		/** The rail below the branch's tick: its first commit's colour, or plain without one. */
+		railBelow: GraphSegmentStatus;
 		/** The stack this branch sits in, for the stack-wide menu items. */
 		stack: Stack;
 	} & ComponentProps<"div">
@@ -151,6 +153,7 @@ export const BranchRow: FC<
 	bottomRelativeTo,
 	isTopSegment,
 	commitCount,
+	railBelow,
 	stack,
 	...restProps
 }) => {
@@ -454,6 +457,8 @@ export const BranchRow: FC<
 									<GraphSegment
 										glyph={isTopSegment ? "forkRight" : "joinRight"}
 										status={graphStatus}
+										above="LocalOnly"
+										below={railBelow}
 									/>
 								}
 								foldedIndicator={<GraphSegment glyph="group" status={graphStatus} />}
@@ -473,7 +478,12 @@ export const BranchRow: FC<
 					</Tooltip.Portal>
 				</Tooltip.Root>
 			) : (
-				<GraphSegment glyph={isTopSegment ? "forkRight" : "joinRight"} status={graphStatus} />
+				<GraphSegment
+					glyph={isTopSegment ? "forkRight" : "joinRight"}
+					status={graphStatus}
+					above="LocalOnly"
+					below={railBelow}
+				/>
 			)}
 
 			{isRenaming ? (
