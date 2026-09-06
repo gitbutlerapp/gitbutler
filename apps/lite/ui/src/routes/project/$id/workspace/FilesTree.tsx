@@ -438,6 +438,7 @@ const FilesTreeRow: FC<{
 				canCheck={canCheck}
 				anyOperationPending={anyOperationPending}
 				checkedState={checkedState}
+				isReviewed={isReviewed}
 				checkDirectory={checkDirectory}
 				focusScope={focusScope}
 				tooltipHandle={tooltipHandle}
@@ -565,6 +566,7 @@ const FilesTreeVirtualList: FC<{
 	reviewedPaths: ReadonlySet<string>;
 	isFileChecked: (path: string) => boolean;
 	directoryCheckedState: (items: Array<FileRowItem>) => DirectoryCheckedState;
+	directoryReviewed: (items: Array<FileRowItem>) => boolean;
 	shared: RowShared;
 	scrollElementRef: RefObject<HTMLElement | null> | undefined;
 	scrollMargin: number;
@@ -579,6 +581,7 @@ const FilesTreeVirtualList: FC<{
 	reviewedPaths,
 	isFileChecked,
 	directoryCheckedState,
+	directoryReviewed,
 	shared,
 	scrollElementRef,
 	scrollMargin,
@@ -657,7 +660,9 @@ const FilesTreeVirtualList: FC<{
 									: "unchecked"
 						}
 						isReviewed={
-							!isDirectory && row.item._tag === "Change" && reviewedPaths.has(row.item.change.path)
+							isDirectory
+								? directoryReviewed(row.items)
+								: row.item._tag === "Change" && reviewedPaths.has(row.item.change.path)
 						}
 						isCollapsed={isDirectory && collapsedDirectories[row.path] === true}
 						holdsSelection={
@@ -789,6 +794,14 @@ export const FilesTree: FC<
 		const checkedCount = checkableItems.filter((item) => isFileChecked(item.path)).length;
 		if (checkedCount === 0) return "unchecked";
 		return checkedCount === checkableItems.length ? "checked" : "indeterminate";
+	};
+
+	// A directory is reviewed once every change below it is — the same "all of
+	// them" its checkbox reads by. Conflicts have no diff to review, so, as with
+	// checking, they don't count; a directory holding nothing else is not reviewed.
+	const directoryReviewed = (items: Array<FileRowItem>): boolean => {
+		const changePaths = items.filter((item) => item._tag === "Change").map((item) => item.path);
+		return changePaths.length > 0 && changePaths.every((path) => reviewedPaths.has(path));
 	};
 
 	const rangeResolver = addressSpaceRange<string, string>({
@@ -1008,6 +1021,7 @@ export const FilesTree: FC<
 					reviewedPaths={reviewedPaths}
 					isFileChecked={isFileChecked}
 					directoryCheckedState={directoryCheckedState}
+					directoryReviewed={directoryReviewed}
 					shared={shared}
 					scrollElementRef={scrollElementRef}
 					scrollMargin={scrollMargin}
