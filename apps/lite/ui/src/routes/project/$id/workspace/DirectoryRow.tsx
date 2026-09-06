@@ -9,6 +9,7 @@ import type { FocusScope } from "#ui/focus-scopes.ts";
 import { Toolbar, Tooltip } from "@base-ui/react";
 import type { ComponentProps, FC, ReactNode } from "react";
 import styles from "./FilesTree.module.css";
+import fileRowStyles from "./FileRow.module.css";
 import rowStyles from "./Row.module.css";
 import {
 	PresentationalRowButton,
@@ -42,6 +43,8 @@ type DirectoryRowProps = {
 	/** Read once by the list rather than per row; see {@link FilesTree}'s prop of the same name. */
 	anyOperationPending: boolean;
 	checkedState: DirectoryCheckedState;
+	/** Whether every change below this directory has been reviewed; the row says so, as a file row does. */
+	isReviewed: boolean;
 	checkDirectory: (evt: { path: string; checked: boolean }) => void;
 	focusScope: FocusScope;
 	tooltipHandle: Tooltip.Handle<FileRowTooltipPayload>;
@@ -84,6 +87,7 @@ export const DirectoryRowPresentational: FC<DirectoryRowPresentationalProps> = (
 	onToggleCollapsed,
 	canCheck,
 	checkedState,
+	isReviewed,
 	checkDirectory,
 	focusScope,
 	tooltipHandle,
@@ -132,7 +136,9 @@ export const DirectoryRowPresentational: FC<DirectoryRowPresentationalProps> = (
 		{/* The folder stands where a file's type icon stands, and gives way to the
 		    checkbox on the same terms. */}
 		<div className={styles.leading}>
-			<FolderIcon className={styles.leadingMark} />
+			<FolderIcon
+				className={classes(styles.leadingMark, isReviewed && fileRowStyles.reviewedFade)}
+			/>
 			<RowCheckbox
 				disabled={anyOperationPending || !canCheck}
 				aria-label={`Check directory ${path}`}
@@ -169,7 +175,7 @@ export const DirectoryRowPresentational: FC<DirectoryRowPresentationalProps> = (
 		<Tooltip.Trigger
 			handle={tooltipHandle}
 			payload={{ content: path }}
-			render={<RowLabelContainer />}
+			render={<RowLabelContainer className={classes(isReviewed && fileRowStyles.reviewedFade)} />}
 		>
 			<RowLabel singleLine>{name}</RowLabel>
 		</Tooltip.Trigger>
@@ -198,6 +204,20 @@ export const DirectoryRowPresentational: FC<DirectoryRowPresentationalProps> = (
 			<span className={classes(styles.fileCount, rowStyles.fadedText, "text-11")}>
 				{items.length}
 			</span>
+		)}
+
+		{/* The same tick a reviewed file row shows in place of its change type: every
+		    change below this directory is done with. */}
+		{isReviewed && (
+			<Tooltip.Trigger
+				handle={tooltipHandle}
+				payload={{ content: "Reviewed" }}
+				render={
+					<span aria-label="Reviewed" className={fileRowStyles.reviewedMark}>
+						<Icon size={11} name="tick" />
+					</span>
+				}
+			/>
 		)}
 	</Row>
 );
