@@ -16,17 +16,21 @@ pub fn persist_gl_access_token(
     persist_gitlab_account(&oauth_account, storage)
 }
 
-/// Delete a GitLab account access token for a given username.
+/// Forget a GitLab account, deleting its access token.
+///
+/// The stored account is removed even when its access token is missing from the keychain,
+/// so an account whose secret was erased out from under us can still be forgotten.
 pub fn delete_gl_access_token(
     account_id: &GitlabAccountIdentifier,
     storage: &but_forge_storage::Controller,
 ) -> Result<()> {
-    let account = find_gitlab_account(account_id, storage)?;
-    if let Some(account) = account {
-        delete_gitlab_account(&account, storage)
-    } else {
-        Ok(())
-    }
+    let Some(secret_key) = forget_stored_gitlab_account(account_id, storage)? else {
+        return Ok(());
+    };
+
+    static FAIR_QUEUE: Mutex<()> = Mutex::new(());
+    let _one_at_a_time_to_prevent_races = FAIR_QUEUE.lock().unwrap();
+    secret::delete(&secret_key, secret::Namespace::BuildKind)
 }
 
 /// Retrieve a GitLab account access token for a given username.
@@ -235,18 +239,6 @@ fn persist_gitlab_account(
     )
 }
 
-fn delete_gitlab_account(
-    account: &GitLabAccount,
-    storage: &but_forge_storage::Controller,
-) -> Result<()> {
-    let secret_key = account.secret_key();
-    storage.remove_gitlab_account(&account.into())?;
-
-    static FAIR_QUEUE: Mutex<()> = Mutex::new(());
-    let _one_at_a_time_to_prevent_races = FAIR_QUEUE.lock().unwrap();
-    secret::delete(&secret_key, secret::Namespace::BuildKind)
-}
-
 fn delete_all_gitlab_accounts(storage: &but_forge_storage::Controller) -> Result<()> {
     let keys_to_delete = storage.clear_all_gitlab_accounts()?;
     static FAIR_QUEUE: Mutex<()> = Mutex::new(());
@@ -257,48 +249,101 @@ fn delete_all_gitlab_accounts(storage: &but_forge_storage::Controller) -> Result
     Ok(())
 }
 
+/// Remove the stored account matching `account_id`, returning the key of the secret to erase.
+///
+/// Matching is by account identity alone, so a stored account is removable even when its
+/// access token can no longer be retrieved.
+fn forget_stored_gitlab_account(
+    account_id: &GitlabAccountIdentifier,
+    storage: &but_forge_storage::Controller,
+) -> Result<Option<String>> {
+    let Some(account) = find_stored_gitlab_account(account_id, storage)? else {
+        return Ok(None);
+    };
+    let secret_key = account.access_token_key().to_owned();
+    storage.remove_gitlab_account(&account)?;
+    Ok(Some(secret_key))
+}
+
+fn find_stored_gitlab_account(
+    account_id: &GitlabAccountIdentifier,
+    storage: &but_forge_storage::Controller,
+) -> Result<Option<but_forge_storage::settings::GitLabAccount>> {
+    Ok(storage
+        .gitlab_accounts()?
+        .into_iter()
+        .find(|account| GitlabAccountIdentifier::from(account) == *account_id))
+}
+
 fn find_gitlab_account(
     account_id: &GitlabAccountIdentifier,
     storage: &but_forge_storage::Controller,
 ) -> Result<Option<GitLabAccount>> {
-    let accounts = storage.gitlab_accounts()?;
-    let result = match account_id {
-        GitlabAccountIdentifier::PatUsername { username } => accounts.iter().find_map(|account| {
-            if let but_forge_storage::settings::GitLabAccount::Pat {
-                username: acct_username,
-                access_token_key,
-            } = account
-                && acct_username == username
-                && let Some(access_token) = retrieve_gitlab_secret(access_token_key).ok().flatten()
-            {
-                return Some(GitLabAccount::Pat {
-                    username: acct_username.clone(),
-                    access_token,
-                });
-            }
-            None
-        }),
-        GitlabAccountIdentifier::SelfHosted { username, host } => {
-            accounts.iter().find_map(|account| {
-                if let but_forge_storage::settings::GitLabAccount::SelfHosted {
-                    username: acct_username,
-                    host: acct_host,
-                    access_token_key,
-                } = account
-                    && acct_host == host
-                    && acct_username == username
-                    && let Some(access_token) =
-                        retrieve_gitlab_secret(access_token_key).ok().flatten()
-                {
-                    return Some(GitLabAccount::SelfHosted {
-                        username: acct_username.clone(),
-                        host: acct_host.clone(),
-                        access_token,
-                    });
-                }
-                None
-            })
-        }
+    let Some(account) = find_stored_gitlab_account(account_id, storage)? else {
+        return Ok(None);
     };
-    Ok(result)
+    let Some(access_token) = retrieve_gitlab_secret(account.access_token_key())
+        .ok()
+        .flatten()
+    else {
+        return Ok(None);
+    };
+    Ok(Some(GitLabAccount::new(account_id, access_token)))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn test_storage() -> (but_forge_storage::Controller, tempfile::TempDir) {
+        let dir = tempfile::tempdir().unwrap();
+        (
+            but_forge_storage::Controller::from_path(dir.path().to_owned()),
+            dir,
+        )
+    }
+
+    /// An account whose access token is gone from the keychain must still be forgettable,
+    /// otherwise it is stuck in the account list forever.
+    #[test]
+    fn orphaned_account_is_forgotten() {
+        let (storage, _dir) = test_storage();
+        storage
+            .add_gitlab_account(&but_forge_storage::settings::GitLabAccount::Pat {
+                username: "octocat".into(),
+                access_token_key: "gitlab_pat_octocat".into(),
+            })
+            .unwrap();
+
+        let account_id = GitlabAccountIdentifier::pat("octocat");
+        // No secret was ever persisted, so the account has no retrievable access token.
+        assert!(
+            find_gitlab_account(&account_id, &storage)
+                .unwrap()
+                .is_none()
+        );
+
+        let secret_key = forget_stored_gitlab_account(&account_id, &storage).unwrap();
+
+        assert_eq!(secret_key.as_deref(), Some("gitlab_pat_octocat"));
+        assert!(storage.gitlab_accounts().unwrap().is_empty());
+    }
+
+    #[test]
+    fn forgetting_an_unknown_account_is_a_no_op() {
+        let (storage, _dir) = test_storage();
+        storage
+            .add_gitlab_account(&but_forge_storage::settings::GitLabAccount::Pat {
+                username: "octocat".into(),
+                access_token_key: "gitlab_pat_octocat".into(),
+            })
+            .unwrap();
+
+        let secret_key =
+            forget_stored_gitlab_account(&GitlabAccountIdentifier::pat("someone-else"), &storage)
+                .unwrap();
+
+        assert_eq!(secret_key, None);
+        assert_eq!(storage.gitlab_accounts().unwrap().len(), 1);
+    }
 }

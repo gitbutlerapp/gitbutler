@@ -64,8 +64,7 @@ pub async fn store_gitlab_selfhosted_pat(
 #[instrument(err(Debug))]
 pub fn forget_gitlab_account(account: but_gitlab::GitlabAccountIdentifier) -> Result<()> {
     let storage = but_forge_storage::Controller::from_path(but_path::app_data_dir()?);
-    but_gitlab::forget_gl_access_token(&account, &storage).ok();
-    Ok(())
+    but_gitlab::forget_gl_access_token(&account, &storage)
 }
 
 /// Removes all stored GitLab credentials.
