@@ -37,21 +37,28 @@ const commitGlyph = (
 	</>
 );
 
-const groupRingsPath =
-	"M11.0862 8.1524C11.3502 7.6602 11.5 7.0976 11.5 6.5C11.5 4.567 9.933 3 8 3C6.067 3 4.5 4.567 4.5 6.5C4.5 7.0976 4.64977 7.6602 4.91382 8.1524M5 11.8038C4.68259 11.277 4.5 10.6598 4.5 10C4.5 8.067 6.067 6.5 8 6.5C9.933 6.5 11.5 8.067 11.5 10C11.5 10.6598 11.3174 11.277 11 11.8038M11.5 13.5C11.5 15.433 9.933 17 8 17C6.067 17 4.5 15.433 4.5 13.5C4.5 11.567 6.067 10 8 10C9.933 10 11.5 11.567 11.5 13.5Z";
+const groupRingPaths = [
+	"M11.0862 8.1524C11.3502 7.6602 11.5 7.0976 11.5 6.5C11.5 4.567 9.933 3 8 3C6.067 3 4.5 4.567 4.5 6.5C4.5 7.0976 4.64977 7.6602 4.91382 8.1524",
+	"M5 11.8038C4.68259 11.277 4.5 10.6598 4.5 10C4.5 8.067 6.067 6.5 8 6.5C9.933 6.5 11.5 8.067 11.5 10C11.5 10.6598 11.3174 11.277 11 11.8038",
+	"M11.5 13.5C11.5 15.433 9.933 17 8 17C6.067 17 4.5 15.433 4.5 13.5C4.5 11.567 6.067 10 8 10C9.933 10 11.5 11.567 11.5 13.5Z",
+];
 
-const groupGlyph = (
+const groupGlyphs = [1, 2, 3].map((count) => (
 	<>
-		<path className={styles.line} d="M8 0V2.78571M8 17.0038V26" strokeWidth="1.5" />
-		<path d={groupRingsPath} stroke="currentColor" strokeWidth="1.5" />
+		<path
+			className={styles.line}
+			d={`M8 0V${2.78571 + (3 - count) * 3.5}M8 17.0038V26`}
+			strokeWidth="1.5"
+		/>
+		<path d={groupRingPaths.slice(-count).join("")} stroke="currentColor" strokeWidth="1.5" />
 	</>
-);
+));
 
 /** The rings without the tail above them, for a row that starts a rail. */
 const groupHeadGlyph = (
 	<>
 		<path className={styles.line} d="M8 17.0038V26" strokeWidth="1.5" />
-		<path d={groupRingsPath} stroke="currentColor" strokeWidth="1.5" />
+		<path d={groupRingPaths.join("")} stroke="currentColor" strokeWidth="1.5" />
 	</>
 );
 
@@ -90,9 +97,17 @@ export type GraphSegmentStatus = "Diverged" | "Upstream" | CommitState["type"];
 interface GraphSegmentProps extends ComponentProps<"div"> {
 	glyph: GraphSegmentGlyph;
 	status: GraphSegmentStatus;
+	/** Hidden commits for the group glyph; counts above two use three rings. */
+	groupCount?: number;
 }
 
-export const GraphSegment: FC<GraphSegmentProps> = ({ glyph, className, status, ...props }) => (
+export const GraphSegment: FC<GraphSegmentProps> = ({
+	glyph,
+	className,
+	status,
+	groupCount = 3,
+	...props
+}) => (
 	<div {...props} className={classes(className, styles.container)} data-status={status}>
 		<svg
 			className={classes(styles.mainSegment, isGroupGlyph(glyph) && styles.groupSegment)}
@@ -105,7 +120,7 @@ export const GraphSegment: FC<GraphSegmentProps> = ({ glyph, className, status, 
 			{glyph === "commit" ? (
 				commitGlyph
 			) : glyph === "group" ? (
-				groupGlyph
+				groupGlyphs[groupCount === 1 ? 0 : groupCount === 2 ? 1 : 2]
 			) : glyph === "groupHead" ? (
 				groupHeadGlyph
 			) : (

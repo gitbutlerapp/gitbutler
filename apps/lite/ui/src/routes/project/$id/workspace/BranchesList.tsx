@@ -377,7 +377,13 @@ const BranchItem: FC<{
 						aria-label={unfolded ? "Fold commits" : "Unfold commits"}
 						onClick={toggleUnfolded}
 						glyph={<GraphSegment glyph={railGlyph} status={branchGraphStatus(branch)} />}
-						foldedIndicator={<GraphSegment glyph="group" status={branchGraphStatus(branch)} />}
+						foldedIndicator={
+							<GraphSegment
+								glyph="group"
+								status={branchGraphStatus(branch)}
+								groupCount={branch.commitCount ?? undefined}
+							/>
+						}
 					/>
 				) : (
 					<GraphSegment glyph={railGlyph} status={branchGraphStatus(branch)} />

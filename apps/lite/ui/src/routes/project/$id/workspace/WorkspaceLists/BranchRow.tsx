@@ -456,7 +456,9 @@ export const BranchRow: FC<
 										status={graphStatus}
 									/>
 								}
-								foldedIndicator={<GraphSegment glyph="group" status={graphStatus} />}
+								foldedIndicator={
+									<GraphSegment glyph="group" status={graphStatus} groupCount={commitCount} />
+								}
 							/>
 						}
 					/>
