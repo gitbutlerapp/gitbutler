@@ -148,6 +148,13 @@ emptiness it hasn't checked yet will flash the wrong words on every open. Not a
 filter that matched nothing either: that belongs in a line where the list would
 be, next to the filter that caused it.
 
+**Never a stand-in that looks like content.** Gray avatar circles and text
+bars where the reviewers would go are what every app draws while it is still
+loading, so a section that draws them at rest reads as stuck, not empty. The PR
+panel's Reviewers and Labels used to do this, and lost the shapes for an "Add
+reviewers" button: the empty section says what fills it, and a control is the
+one thing a skeleton never shows.
+
 **Centred, and only in a panel with room for it.** A short strip — the
 uncommitted list above its commit form — takes a single muted line inset to the
 column its rows would occupy, not this. Panels resize, so a centred block needs
