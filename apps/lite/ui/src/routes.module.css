@@ -11,7 +11,7 @@
 .content {
 	display: flex;
 	flex-direction: column;
-	height: 100dvh;
+	height: 100%;
 	overflow: auto;
 	background: var(--bg-1);
 }

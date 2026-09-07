@@ -13,8 +13,12 @@ describe("formatRelativeTime", () => {
 		new Intl.RelativeTimeFormat("en", { numeric: "always", style: "long" }),
 	);
 
-	it("formats seconds", () => {
-		expect(formatRelativeTime(now - 2_000, now)).toMatchInlineSnapshot(`"2 seconds ago"`);
+	it("uses just now for the first minute", () => {
+		expect(formatRelativeTime(now, now)).toBe("just now");
+		expect(formatRelativeTime(now - 2_000, now)).toBe("just now");
+		expect(formatRelativeTime(now - 59_999, now)).toBe("just now");
+		expect(formatRelativeTime(now - 60_000, now)).toBe("1 minute ago");
+		expect(formatRelativeTime(now + 2_000, now)).toBe("in 2 seconds");
 	});
 
 	it("formats minutes", () => {

@@ -4,13 +4,13 @@ import { Icon } from "#ui/components/Icon.tsx";
 import { defaultSettings } from "#ui/settings.ts";
 import { useQuery } from "@tanstack/react-query";
 import type { CSSProperties, FC, MouseEvent } from "react";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import ReactMarkdown from "react-markdown";
 import rehypeRaw from "rehype-raw";
 import rehypeSanitize, { defaultSchema } from "rehype-sanitize";
 import remarkGemoji from "remark-gemoji";
 import remarkGfm from "remark-gfm";
-import type { BundledLanguage, ThemedToken } from "shiki";
+import { codeToTokens, type BundledLanguage } from "shiki";
 import styles from "./Markdown.module.css";
 
 const openExternally = (evt: MouseEvent<HTMLAnchorElement>): void => {
@@ -101,39 +101,23 @@ const CodeBlock: FC<{ language: string; code: string }> = ({ language, code }) =
 	const light = themeCfg?.light ?? defaultSettings.syntaxHighlighting.light;
 	const dark = themeCfg?.dark ?? defaultSettings.syntaxHighlighting.dark;
 
-	const [tokens, setTokens] = useState<Array<Array<ThemedToken>> | null>(null);
+	const { data: tokensResult } = useQuery({
+		queryKey: ["markdownTokens", code, language, light, dark],
+		queryFn: () =>
+			codeToTokens(code, {
+				// Invalid names reject and we keep the plain fallback.
+				lang: language as BundledLanguage,
+				themes: { light, dark },
+				defaultColor: false,
+				cssVariablePrefix: "--shiki-",
+			}),
+	});
 
-	useEffect(() => {
-		const effect = { cancelled: false };
-		void (async () => {
-			try {
-				const { codeToTokens } = await import("shiki");
-				const result = await codeToTokens(code, {
-					// Invalid names reject and we keep the plain fallback.
-					lang: language as BundledLanguage,
-					themes: { light, dark },
-					defaultColor: false,
-					cssVariablePrefix: "--shiki-",
-				});
-				if (!effect.cancelled) setTokens(result.tokens);
-			} catch (error) {
-				// Plain rendering is the deliberate fallback for unknown
-				// languages, but the failure should still be visible.
-				// oxlint-disable-next-line no-console
-				console.error(error);
-				if (!effect.cancelled) setTokens(null);
-			}
-		})();
-		return () => {
-			effect.cancelled = true;
-		};
-	}, [code, language, light, dark]);
-
-	if (tokens === null) return <code>{code}</code>;
+	if (tokensResult === undefined) return <code>{code}</code>;
 
 	return (
 		<code className={styles.highlighted}>
-			{tokens.map((line, lineIdx) => (
+			{tokensResult.tokens.map((line, lineIdx) => (
 				// Lines are positional; there is no stable identity to key on.
 				// oxlint-disable-next-line react/no-array-index-key
 				<span key={lineIdx}>

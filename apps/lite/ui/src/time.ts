@@ -2,6 +2,8 @@
 export const formatRelativeTimeWith =
 	(rtf: Intl.RelativeTimeFormat) =>
 	(timestamp: number, now = Date.now()): string => {
+		if (timestamp <= now && now - timestamp < 60_000) return "just now";
+
 		const seconds = Math.round((timestamp - now) / 1000);
 		const absSeconds = Math.abs(seconds);
 

@@ -18,7 +18,8 @@ export type GlobalQueryKey =
 	| "forgeAccounts"
 	| "userProfile"
 	| "projects"
-	| "guiSettings";
+	| "guiSettings"
+	| "markdownTokens";
 
 /**
  * Client state kept in the query cache, so nothing declares for them. `dryRun`

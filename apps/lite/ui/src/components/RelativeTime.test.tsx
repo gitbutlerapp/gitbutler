@@ -14,6 +14,7 @@ globalThis.IS_REACT_ACT_ENVIRONMENT = true;
 globalThis.window.lite = { platform: "darwin" } as unknown as typeof window.lite;
 
 const { RelativeTime } = await import("./RelativeTime.tsx");
+const { Annotation } = await import("./Annotation.tsx");
 
 describe("RelativeTime", () => {
 	let container: HTMLDivElement;
@@ -37,7 +38,7 @@ describe("RelativeTime", () => {
 
 	it("ages in place while nothing else re-renders it", () => {
 		act(() => root.render(<RelativeTime timestamp={start} />));
-		expect(container.textContent).toBe("in 0 seconds");
+		expect(container.textContent).toBe("just now");
 
 		act(() => {
 			vi.advanceTimersByTime(5 * 60_000);
@@ -54,6 +55,40 @@ describe("RelativeTime", () => {
 		});
 
 		// A pinned list stays stable no matter how long it is left open.
-		expect(container.textContent).toBe("in 0 seconds");
+		expect(container.textContent).toBe("just now");
+	});
+
+	it("refreshes an edited annotation's clock before the next tick", () => {
+		const renderAnnotation = (updatedAt: number) =>
+			act(() =>
+				root.render(
+					<Annotation author="You" defaultBody="Comment" name="comment" updatedAt={updatedAt} />,
+				),
+			);
+
+		renderAnnotation(start - 60_000);
+		const textarea = container.querySelector("textarea");
+		if (textarea === null) throw new Error("Missing annotation textarea");
+		textarea.value = "Edited comment";
+		textarea.focus();
+		act(() => {
+			vi.advanceTimersByTime(20_000);
+		});
+
+		renderAnnotation(start + 19_000);
+
+		expect(container.querySelector("time")?.textContent).toBe("just now");
+		expect(container.querySelector("textarea")).toBe(textarea);
+		expect(textarea.value).toBe("Edited comment");
+		expect(document.activeElement).toBe(textarea);
+
+		act(() => {
+			vi.advanceTimersByTime(30_000);
+		});
+		expect(container.querySelector("time")?.textContent).toBe("just now");
+		act(() => {
+			vi.advanceTimersByTime(30_000);
+		});
+		expect(container.querySelector("time")?.textContent).toBe("1 minute ago");
 	});
 });

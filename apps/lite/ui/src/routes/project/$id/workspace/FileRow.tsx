@@ -58,7 +58,20 @@ type FileRowProps = {
 type FileRowPresentationalProps = Omit<FileRowProps, "canUncommit" | "uncommit"> & {
 	anyOperationPending: boolean;
 	menuItems: ReturnType<typeof useFileMenuItems>;
+	presentationalOnly?: boolean;
 };
+
+const PresentationalRowButton: FC<{ icon: "kebab" | "link" }> = ({ icon }) => (
+	<button
+		type="button"
+		inert
+		aria-hidden="true"
+		tabIndex={-1}
+		className={getRowButtonClassName({ iconOnly: true })}
+	>
+		<Icon name={icon} />
+	</button>
+);
 
 export const FileRow: FC<FileRowProps> = ({ canUncommit, uncommit, ...props }) => {
 	const { item, projectId, fileParent } = props;
@@ -99,6 +112,7 @@ export const FileRowPresentational: FC<FileRowPresentationalProps> = ({
 	focusScope,
 	anyOperationPending,
 	menuItems,
+	presentationalOnly = false,
 	tooltipHandle,
 	ageBadgeNow = null,
 	...restProps
@@ -133,19 +147,23 @@ export const FileRowPresentational: FC<FileRowPresentationalProps> = ({
 			className={classes(restProps.className, isFresh && styles.freshChange)}
 			isChecked={isChecked}
 			onShiftSelect={
-				!anyOperationPending && canCheck
+				!presentationalOnly && !anyOperationPending && canCheck
 					? () => checkFile({ path: relativePath, shiftKey: true })
 					: undefined
 			}
-			onContextMenu={(event) => {
-				// Hand the file path along so a plugin host can add its own
-				// actions (the app's native menus ignore it).
-				void showNativeContextMenu(
-					event,
-					menuItems,
-					fileParent._tag === "UncommittedChanges" ? { path: relativePath } : undefined,
-				);
-			}}
+			onContextMenu={
+				presentationalOnly
+					? undefined
+					: (event) => {
+							// Hand the file path along so a plugin host can add its own
+							// actions (the app's native menus ignore it).
+							void showNativeContextMenu(
+								event,
+								menuItems,
+								fileParent._tag === "UncommittedChanges" ? { path: relativePath } : undefined,
+							);
+						}
+			}
 		>
 			<TreeSteps depth={depth} />
 
@@ -161,21 +179,29 @@ export const FileRowPresentational: FC<FileRowPresentationalProps> = ({
 					className={treeStyles.leadingCheckbox}
 					nativeButton
 					render={
-						<Tooltip.Trigger
-							handle={tooltipHandle}
-							payload={{
-								content: changesFileHotkeys.checkFile.meta.name,
-								kbd: changesFileHotkeys.checkFile.hotkey,
-								kbdScope: focusScope,
-							}}
-						/>
+						presentationalOnly ? (
+							<button type="button" inert aria-hidden="true" tabIndex={-1} />
+						) : (
+							<Tooltip.Trigger
+								handle={tooltipHandle}
+								payload={{
+									content: changesFileHotkeys.checkFile.meta.name,
+									kbd: changesFileHotkeys.checkFile.hotkey,
+									kbdScope: focusScope,
+								}}
+							/>
+						)
 					}
-					onCheckedChange={(_checked, { event }) => {
-						const shiftKey =
-							(event instanceof MouseEvent || event instanceof KeyboardEvent) &&
-							event.shiftKey === true;
-						checkFile({ path: relativePath, shiftKey });
-					}}
+					onCheckedChange={
+						presentationalOnly
+							? undefined
+							: (_checked, { event }) => {
+									const shiftKey =
+										(event instanceof MouseEvent || event instanceof KeyboardEvent) &&
+										event.shiftKey === true;
+									checkFile({ path: relativePath, shiftKey });
+								}
+					}
 				/>
 			</div>
 
@@ -204,23 +230,28 @@ export const FileRowPresentational: FC<FileRowPresentationalProps> = ({
 				</RowLabel>
 			</Tooltip.Trigger>
 
-			{!anyOperationPending && (
-				<Toolbar.Root aria-label="File actions" render={<RowToolbar />}>
-					<Toolbar.Button
-						aria-label="File menu"
-						onClick={(event) => {
-							void showNativeMenuFromTrigger(
-								event.currentTarget,
-								menuItems,
-								fileParent._tag === "UncommittedChanges" ? { path: relativePath } : undefined,
-							);
-						}}
-						className={getRowButtonClassName({ iconOnly: true })}
-					>
-						<Icon name="kebab" />
-					</Toolbar.Button>
-				</Toolbar.Root>
-			)}
+			{!anyOperationPending &&
+				(presentationalOnly ? (
+					<RowToolbar aria-hidden="true">
+						<PresentationalRowButton icon="kebab" />
+					</RowToolbar>
+				) : (
+					<Toolbar.Root aria-label="File actions" render={<RowToolbar />}>
+						<Toolbar.Button
+							aria-label="File menu"
+							onClick={(event) => {
+								void showNativeMenuFromTrigger(
+									event.currentTarget,
+									menuItems,
+									fileParent._tag === "UncommittedChanges" ? { path: relativePath } : undefined,
+								);
+							}}
+							className={getRowButtonClassName({ iconOnly: true })}
+						>
+							<Icon name="kebab" />
+						</Toolbar.Button>
+					</Toolbar.Root>
+				))}
 
 			{ageBadge !== null && ageMs !== null && (
 				<span
@@ -234,7 +265,12 @@ export const FileRowPresentational: FC<FileRowPresentationalProps> = ({
 			{!anyOperationPending &&
 				item._tag === "Change" &&
 				fileParent._tag === "UncommittedChanges" &&
-				item.dependencyCommitIds.length > 0 && (
+				item.dependencyCommitIds.length > 0 &&
+				(presentationalOnly ? (
+					<RowToolbar forceVisible aria-hidden="true">
+						<PresentationalRowButton icon="link" />
+					</RowToolbar>
+				) : (
 					<Toolbar.Root aria-label="File actions" render={<RowToolbar forceVisible />}>
 						<Toolbar.Button
 							render={
@@ -250,7 +286,7 @@ export const FileRowPresentational: FC<FileRowPresentationalProps> = ({
 							<Icon name="link" />
 						</Toolbar.Button>
 					</Toolbar.Root>
-				)}
+				))}
 
 			{item._tag === "Change" && (
 				<Tooltip.Trigger
