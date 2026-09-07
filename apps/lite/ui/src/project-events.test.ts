@@ -1,8 +1,12 @@
+import {
+	olderTargetCommitsInfiniteQueryOptions,
+	workspaceTargetCommitsQueryOptions,
+} from "#ui/api/queries.ts";
 import { projectQueryKeys } from "#ui/api/query-keys.ts";
 import { handleProjectEvent } from "#ui/project-events.ts";
 import type { WatcherEvent } from "@gitbutler/but-sdk";
 import { apiProvides, watcherInvalidates } from "@gitbutler/but-sdk/cache-tags";
-import type { QueryClient } from "@tanstack/react-query";
+import { QueryClient } from "@tanstack/react-query";
 import { describe, expect, it } from "vitest";
 
 const provides: Record<string, ReadonlyArray<string> | undefined> = apiProvides;
@@ -79,5 +83,34 @@ describe("handled separately", () => {
 		expect(invalidated).not.toContain("workspaceTargetCommits");
 		await new Promise((resolve) => setTimeout(resolve, 0));
 		expect(invalidated).toContain("workspaceTargetCommits");
+	});
+
+	it("keeps the older target pages through activity, dropping them only on a fetch", async () => {
+		// A real client, because the regression was React Query matching the older
+		// pages by key prefix — something a recording double cannot see.
+		const baseKey = workspaceTargetCommitsQueryOptions("p1").queryKey;
+		const olderKey = olderTargetCommitsInfiniteQueryOptions("p1", "cursor").queryKey;
+		const seeded = (event: string) => {
+			const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+			client.setQueryData(baseKey, { commits: [], hasMore: true });
+			client.setQueryData(olderKey, { pages: [], pageParams: [] });
+			handleProjectEvent(
+				{ name: event, payload: { type: event, subject: null } } as WatcherEvent,
+				"p1",
+				client,
+			);
+			return client;
+		};
+
+		for (const event of ["gitActivity", "workspaceActivity"] as const) {
+			const client = seeded(event);
+			await new Promise((resolve) => setTimeout(resolve, 0));
+			expect(client.getQueryState(baseKey)?.isInvalidated, `after ${event}`).toBe(true);
+			expect(client.getQueryState(olderKey)?.isInvalidated, `after ${event}`).toBe(false);
+		}
+
+		const client = seeded("gitFetch");
+		await new Promise((resolve) => setTimeout(resolve, 0));
+		expect(client.getQueryState(olderKey)?.isInvalidated).toBe(true);
 	});
 });

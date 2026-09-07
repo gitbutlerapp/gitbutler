@@ -23,7 +23,9 @@ export type GlobalQueryKey =
 	| "markdownTokens";
 
 /**
- * Client state kept in the query cache, so nothing declares for them. `dryRun`
+ * Keys nothing declares for in Rust, so no event refreshes them by tag. Mostly
+ * client state, but `olderTargetCommits` is server data held out on purpose, so
+ * only the handlers naming it can drop the pages the user loaded. `dryRun`
  * memoizes an imperative preview: its key carries the operation and changes it
  * was measured against, and nothing refreshes it in place. `branchIntegration`
  * is the update flow's plan and preview, refetched each time the flow asks.
@@ -35,7 +37,8 @@ type LocalQueryKey =
 	| "prMergeMethod"
 	| "prDraft"
 	| "projectAiSettings"
-	| "reviewedFiles";
+	| "reviewedFiles"
+	| "olderTargetCommits";
 
 export type QueryKeyPrefix =
 	| [projectId: string, ProjectQueryKey]

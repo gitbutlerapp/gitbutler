@@ -237,12 +237,13 @@ const olderTargetCommitsPageSize = 25;
  * when the user asks, so nothing below the workspace's fork points loads
  * unbidden.
  *
- * Keyed under the base listing's own root, so whatever invalidates the target
- * line — a fetch, a workspace update — reaches the pages hanging off it too.
+ * Keyed apart from the base listing so ordinary workspace activity cannot drop
+ * the pages the user loaded. What does move these commits — a fetch, an
+ * upstream integration — has to invalidate this key explicitly.
  */
 export const olderTargetCommitsInfiniteQueryOptions = (projectId: string, from: string) =>
 	infiniteQueryOptions({
-		queryKey: [projectId, "workspaceTargetCommits", { olderThan: from }],
+		queryKey: [projectId, "olderTargetCommits", { olderThan: from }],
 		queryFn: ({ pageParam }) =>
 			window.lite.workspaceTargetCommits({
 				projectId,

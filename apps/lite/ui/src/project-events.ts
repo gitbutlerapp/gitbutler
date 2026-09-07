@@ -142,6 +142,7 @@ export const handleProjectEvent = (
 				void client.invalidateQueries({
 					queryKey: [projectId, "workspaceTargetCommits"],
 				});
+				void client.invalidateQueries({ queryKey: [projectId, "olderTargetCommits"] });
 			});
 	}
 };

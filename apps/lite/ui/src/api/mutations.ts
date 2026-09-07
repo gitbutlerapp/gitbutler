@@ -1354,6 +1354,10 @@ export const useWorkspaceIntegrateUpstream = () => {
 				predicate: (query) =>
 					response.targetCommits == null || query.queryKey.length > queryKey.length,
 			});
+			// The older pages hang off their own key, so the invalidation above cannot reach them.
+			void mutation.client.invalidateQueries({
+				queryKey: [input.projectId, "olderTargetCommits"],
+			});
 		},
 		onError: (error, input) => {
 			toastManager.add({
