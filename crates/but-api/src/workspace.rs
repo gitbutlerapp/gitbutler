@@ -258,16 +258,21 @@ pub(crate) fn with_workspace_transaction<T>(
         &mut gix::Repository,
         &mut but_graph::Workspace,
         &mut but_db::Transaction<'_>,
+        &mut but_rebase::graph_rebase::recovery::GitRecovery,
     ) -> anyhow::Result<T>,
 ) -> anyhow::Result<T> {
     let result: anyhow::Result<T> = (|| {
         let (mut repo, mut workspace, mut db) = ctx.workspace_mut_and_db_mut_with_perm(perm)?;
         let mut transaction = db.immediate_transaction()?;
-        let result = operation(&mut repo, &mut workspace, &mut transaction)?;
+        let mut recovery = but_rebase::graph_rebase::recovery::GitRecovery::default();
+        let result = match operation(&mut repo, &mut workspace, &mut transaction, &mut recovery) {
+            Ok(result) => result,
+            Err(err) => return Err(recovery.rollback_error(&repo, err)),
+        };
         if dry_run.into() {
             transaction.rollback()?;
-        } else {
-            transaction.commit()?;
+        } else if let Err(err) = transaction.commit() {
+            return Err(recovery.rollback_error(&repo, err.into()));
         }
         drop((repo, db));
         if matches!(dry_run, DryRun::No) {
@@ -967,7 +972,7 @@ pub fn workspace_integrate_upstream_only_with_perm(
     perm: &mut RepoExclusive,
 ) -> anyhow::Result<WorkspaceIntegrateUpstreamOutcome> {
     let project_meta = ctx.project_meta()?;
-    let outcome = with_workspace_transaction(ctx, perm, dry_run, |repo, ws, db| {
+    let outcome = with_workspace_transaction(ctx, perm, dry_run, |repo, ws, db, recovery| {
         let review_hints =
             match forge_review_integration_hints(ws, &project_meta, db.connection(), repo) {
                 Ok(review_hints) => review_hints,
@@ -1012,7 +1017,7 @@ pub fn workspace_integrate_upstream_only_with_perm(
             });
         }
 
-        let materialized = rebase.materialize(Default::default())?;
+        let materialized = recovery.materialize(rebase, Default::default())?;
         project_meta.persist(repo)?;
         if let Err(err) = but_workspace::fast_forward_local_tracking_branch(
             repo,
@@ -1102,7 +1107,7 @@ mod tests {
             &mut ctx,
             guard.write_permission(),
             but_core::DryRun::No,
-            |_, workspace, _| {
+            |_, workspace, _, _| {
                 workspace.graph.project_meta.push_remote = Some("cached-transaction".into());
                 Ok(())
             },
@@ -1112,6 +1117,65 @@ mod tests {
             workspace.graph.project_meta.push_remote.as_deref(),
             Some("cached-transaction"),
             "successful operations retain their workspace instead of rebuilding it from Git"
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn late_workspace_transaction_failure_restores_git_state() -> anyhow::Result<()> {
+        let (repo, _tmp) = repo_with_feature_branch()?;
+        let mut ctx = but_ctx::Context::from_repo_for_testing(repo)?.with_memory_app_cache();
+        let mut guard = ctx.exclusive_worktree_access();
+        let before_head = ctx.repo.get()?.head_id()?.detach();
+        let index_path = ctx.repo.get()?.index_path();
+        let before_index = std::fs::read(&index_path)?;
+        let file_path = ctx
+            .repo
+            .get()?
+            .workdir()
+            .expect("fixture has a worktree")
+            .join("file.txt");
+        let before_file = std::fs::read(&file_path)?;
+        let error = super::with_workspace_transaction(
+            &mut ctx,
+            guard.write_permission(),
+            but_core::DryRun::No,
+            |repo, workspace, db, recovery| {
+                let editor =
+                    but_rebase::graph_rebase::Editor::create(workspace, repo, db.connection_mut())?;
+                let (rebase, _) = but_workspace::commit::insert_blank_commit(
+                    editor,
+                    but_rebase::graph_rebase::mutate::InsertSide::Above,
+                    before_head,
+                )?;
+                crate::WorkspaceState::from_successful_rebase_with_recovery(
+                    rebase,
+                    repo,
+                    but_core::DryRun::No,
+                    recovery,
+                )?;
+                Err::<(), _>(anyhow::anyhow!("reject response after materialization"))
+            },
+        )
+        .expect_err("the response fails after Git materialization");
+        assert!(
+            format!("{error:#}").contains("reject response"),
+            "the regression reaches the late failure"
+        );
+        assert_eq!(
+            ctx.repo.get()?.head_id()?.detach(),
+            before_head,
+            "late failure restores the original branch tip"
+        );
+        assert_eq!(
+            std::fs::read(index_path)?,
+            before_index,
+            "late failure restores exact staging bytes"
+        );
+        assert_eq!(
+            std::fs::read(file_path)?,
+            before_file,
+            "late failure preserves worktree contents"
         );
         Ok(())
     }

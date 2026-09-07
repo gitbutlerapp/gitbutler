@@ -1027,13 +1027,17 @@ pub fn branch_create_with_perm(
         perm.read_permission(),
         DryRun::No,
     );
-    let workspace =
-        crate::workspace::with_workspace_transaction(ctx, perm, DryRun::No, |repo, ws, db| {
+    let workspace = crate::workspace::with_workspace_transaction(
+        ctx,
+        perm,
+        DryRun::No,
+        |repo, ws, db, recovery| {
             let editor = Editor::create(ws, repo, db.connection_mut())?;
             let rebase =
                 but_workspace::branch::create_reference(editor, new_ref.as_ref(), anchor, order)?;
-            WorkspaceState::from_successful_rebase(rebase, repo, DryRun::No)
-        })?;
+            WorkspaceState::from_successful_rebase_with_recovery(rebase, repo, DryRun::No, recovery)
+        },
+    )?;
 
     if let Some(snapshot) = maybe_oplog_entry {
         snapshot.commit(ctx, perm).ok();
@@ -1094,8 +1098,11 @@ pub fn branch_name_segment_with_perm(
         perm.read_permission(),
         DryRun::No,
     );
-    let workspace =
-        crate::workspace::with_workspace_transaction(ctx, perm, DryRun::No, |repo, ws, db| {
+    let workspace = crate::workspace::with_workspace_transaction(
+        ctx,
+        perm,
+        DryRun::No,
+        |repo, ws, db, recovery| {
             let editor = Editor::create(ws, repo, db.connection_mut())?;
             let rebase = but_workspace::branch::name_segment(
                 editor,
@@ -1103,8 +1110,9 @@ pub fn branch_name_segment_with_perm(
                 commit_id,
                 new_ref.as_ref(),
             )?;
-            WorkspaceState::from_successful_rebase(rebase, repo, DryRun::No)
-        })?;
+            WorkspaceState::from_successful_rebase_with_recovery(rebase, repo, DryRun::No, recovery)
+        },
+    )?;
 
     ctx.reload_repo_and_invalidate_workspace(perm)?;
     if let Some(snapshot) = maybe_oplog_entry {
@@ -1173,8 +1181,11 @@ pub fn branch_remove_with_perm(
     );
 
     let target = ctx.project_meta().ok().and_then(|meta| meta.target_ref);
-    let (workspace, changed) =
-        crate::workspace::with_workspace_transaction(ctx, perm, DryRun::No, |repo, ws, db| {
+    let (workspace, changed) = crate::workspace::with_workspace_transaction(
+        ctx,
+        perm,
+        DryRun::No,
+        |repo, ws, db, _recovery| {
             // Decide whether we must move `HEAD` off `ref_name` before deleting it. In an
             // ad-hoc workspace the checked-out reference is the projection tip; we only
             // allow removing it when it owns no commits and has another named reference
@@ -1281,7 +1292,8 @@ pub fn branch_remove_with_perm(
                 db.connection_mut(),
             )?;
             Ok((workspace, changed))
-        })?;
+        },
+    )?;
 
     if changed && let Some(snapshot) = maybe_oplog_entry {
         snapshot.commit(ctx, perm).ok();
@@ -1392,8 +1404,11 @@ pub fn branch_rename_with_perm(
         DryRun::No,
     );
 
-    let workspace =
-        crate::workspace::with_workspace_transaction(ctx, perm, DryRun::No, |repo, ws, db| {
+    let workspace = crate::workspace::with_workspace_transaction(
+        ctx,
+        perm,
+        DryRun::No,
+        |repo, ws, db, recovery| {
             repo.find_reference(ref_name.as_ref())
                 .with_context(|| format!("Branch '{}' does not exist", ref_name.shorten()))?;
             let meta = db.meta()?;
@@ -1417,7 +1432,7 @@ pub fn branch_rename_with_perm(
                 .1
                 .meta_mut()?
                 .rename(ref_name.as_ref(), new_ref.as_ref())?;
-            rebase.materialize(Default::default())?;
+            recovery.materialize(rebase, Default::default())?;
             let project_meta = ws.graph.project_meta.clone();
             ws.refresh_from_head(repo, project_meta, &mut db.connection_mut())?;
             WorkspaceState::from_workspace_with_db(
@@ -1427,7 +1442,8 @@ pub fn branch_rename_with_perm(
                 Vec::new(),
                 db.connection_mut(),
             )
-        })?;
+        },
+    )?;
 
     // Rebuild the workspace from scratch: this re-reads HEAD, so the moved-HEAD case needs no
     // stale-entrypoint handling.
@@ -1595,30 +1611,35 @@ pub fn branch_checkout_with_perm_only(
     reference_name: gix::refs::FullName,
     perm: &mut RepoExclusive,
 ) -> anyhow::Result<BranchCheckoutResult> {
-    crate::workspace::with_workspace_transaction(ctx, perm, DryRun::No, |repo, ws, db| {
-        let reference_name = match reference_name.category() {
-            Some(gix::refs::Category::LocalBranch) => reference_name,
-            Some(gix::refs::Category::RemoteBranch) => {
-                but_workspace::branch::local_tracking_branch(repo, reference_name.as_ref())?
-            }
-            _ => bail!(
-                "Can only check out local branches under refs/heads or remote-tracking branches under refs/remotes, got '{}'",
-                reference_name.as_bstr()
-            ),
-        };
-        checkout_reference(repo, reference_name.as_ref())?;
-        repo.reload()?;
-        let project_meta = ws.graph.project_meta.clone();
-        ws.refresh_from_head(repo, project_meta, &mut db.connection_mut())?;
-        let workspace = WorkspaceState::from_workspace_with_db(
-            ws,
-            repo,
-            BTreeMap::new(),
-            Vec::new(),
-            db.connection_mut(),
-        )?;
-        Ok(BranchCheckoutResult { workspace })
-    })
+    crate::workspace::with_workspace_transaction(
+        ctx,
+        perm,
+        DryRun::No,
+        |repo, ws, db, _recovery| {
+            let reference_name = match reference_name.category() {
+                Some(gix::refs::Category::LocalBranch) => reference_name,
+                Some(gix::refs::Category::RemoteBranch) => {
+                    but_workspace::branch::local_tracking_branch(repo, reference_name.as_ref())?
+                }
+                _ => bail!(
+                    "Can only check out local branches under refs/heads or remote-tracking branches under refs/remotes, got '{}'",
+                    reference_name.as_bstr()
+                ),
+            };
+            checkout_reference(repo, reference_name.as_ref())?;
+            repo.reload()?;
+            let project_meta = ws.graph.project_meta.clone();
+            ws.refresh_from_head(repo, project_meta, &mut db.connection_mut())?;
+            let workspace = WorkspaceState::from_workspace_with_db(
+                ws,
+                repo,
+                BTreeMap::new(),
+                Vec::new(),
+                db.connection_mut(),
+            )?;
+            Ok(BranchCheckoutResult { workspace })
+        },
+    )
 }
 
 fn checkout_reference(
@@ -1825,7 +1846,7 @@ pub fn apply_branch_integration_with_perm(
         perm,
         OperationKind::GenericBranchUpdate,
         dry_run,
-        |repo, ws, db| {
+        |repo, ws, db, recovery| {
             let rebase = but_workspace::branch::integrate_branch_with_steps(
                 branch,
                 integration,
@@ -1835,7 +1856,9 @@ pub fn apply_branch_integration_with_perm(
             )?;
 
             Ok(IntegrateBranchResult {
-                workspace: WorkspaceState::from_successful_rebase(rebase, repo, dry_run)?,
+                workspace: WorkspaceState::from_successful_rebase_with_recovery(
+                    rebase, repo, dry_run, recovery,
+                )?,
             })
         },
     )
@@ -1895,12 +1918,14 @@ pub fn move_branch_with_perm(
         perm,
         OperationKind::MoveBranch,
         dry_run,
-        |repo, ws, db| {
+        |repo, ws, db, recovery| {
             let editor = Editor::create(ws, repo, db.connection_mut())?;
             let rebase =
                 but_workspace::branch::move_branch(editor, subject_branch, relative_to, side)?;
             Ok(MoveBranchResult {
-                workspace: WorkspaceState::from_successful_rebase(rebase, repo, dry_run)?,
+                workspace: WorkspaceState::from_successful_rebase_with_recovery(
+                    rebase, repo, dry_run, recovery,
+                )?,
             })
         },
     )
@@ -1944,11 +1969,13 @@ pub fn tear_off_branch_with_perm(
         perm,
         OperationKind::TearOffBranch,
         dry_run,
-        |repo, ws, db| {
+        |repo, ws, db, recovery| {
             let editor = Editor::create(ws, repo, db.connection_mut())?;
             let rebase = but_workspace::branch::tear_off_branch(editor, subject_branch)?;
             Ok(MoveBranchResult {
-                workspace: WorkspaceState::from_successful_rebase(rebase, repo, dry_run)?,
+                workspace: WorkspaceState::from_successful_rebase_with_recovery(
+                    rebase, repo, dry_run, recovery,
+                )?,
             })
         },
     )
@@ -1966,6 +1993,7 @@ where
         &mut gix::Repository,
         &mut but_graph::Workspace,
         &mut but_db::Transaction<'_>,
+        &mut but_rebase::graph_rebase::recovery::GitRecovery,
     ) -> anyhow::Result<T>,
 {
     let maybe_oplog_entry = but_oplog::UnmaterializedOplogSnapshot::from_details_with_perm(

@@ -833,3 +833,6 @@ mod test {
         Ok(())
     }
 }
+
+/// Receipts for restoring completed Git mutations after a surrounding operation fails.
+pub mod recovery;

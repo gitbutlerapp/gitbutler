@@ -619,7 +619,7 @@ pub fn local_tracking_branch(
 
 /// Functions and types related to adding a branch to the workspace.
 pub mod apply;
-pub use apply::apply;
+pub use apply::{apply, apply_with_changes};
 
 /// Functions and types related to removing a branch from the workspace.
 pub mod unapply;
