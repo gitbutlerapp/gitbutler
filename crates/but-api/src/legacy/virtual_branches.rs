@@ -273,14 +273,18 @@ pub fn update_stack_order_with_perm(
     let workspace_ref = ws
         .ref_name()
         .context("Updating stack order requires a managed workspace")?;
-    let mut workspace_metadata = db.meta()?.workspace(workspace_ref)?;
+    let mut workspace_metadata = db
+        .meta()?
+        .workspace(workspace_ref)
+        .cloned()
+        .unwrap_or_default();
     let changed = apply_stack_order_updates(&mut workspace_metadata, stacks)?;
 
     if changed {
-        let updated_metadata = (*workspace_metadata).clone();
-        db.meta_mut()?.set_workspace(&workspace_metadata)?;
-        ws.metadata = Some(updated_metadata);
+        db.meta_mut()?
+            .set_workspace(workspace_ref, &workspace_metadata)?;
         sort_projected_stacks_like_metadata(&mut ws.stacks, &workspace_metadata.stacks);
+        ws.metadata = Some(workspace_metadata);
     }
 
     Ok(())

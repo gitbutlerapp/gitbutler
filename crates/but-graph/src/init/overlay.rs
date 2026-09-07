@@ -461,61 +461,41 @@ pub(crate) struct OverlayMetadata<'meta> {
 impl OverlayMetadata<'_> {
     pub fn iter_workspaces(
         &self,
-    ) -> impl Iterator<Item = (gix::refs::FullName, ref_metadata::Workspace)> {
+    ) -> impl Iterator<Item = (&gix::refs::FullNameRef, &ref_metadata::Workspace)> {
         self.inner.workspaces().map(|(ref_name, ws)| {
-            if let Some((_ws_ref, ws_override)) = self
+            let workspace = self
                 .workspace
                 .as_ref()
-                .filter(|(ws_ref, _ws_data)| *ws_ref == ref_name)
-            {
-                (ref_name, ws_override.clone())
-            } else {
-                (ref_name, ws)
-            }
+                .filter(|(ws_ref, _)| ws_ref.as_ref() == ref_name)
+                .map(|(_, value)| value)
+                .unwrap_or(ws);
+            (ref_name, workspace)
         })
     }
 
-    pub fn workspace_opt(
-        &self,
-        ref_name: &gix::refs::FullNameRef,
-    ) -> anyhow::Result<Option<ref_metadata::Workspace>> {
-        if let Some((_ws_ref, ws_meta)) = self
-            .workspace
+    pub fn workspace(&self, ref_name: &gix::refs::FullNameRef) -> Option<&ref_metadata::Workspace> {
+        self.workspace
             .as_ref()
-            .filter(|(ws_ref, _ws_meta)| ws_ref.as_ref() == ref_name)
-        {
-            return Ok(Some(ws_meta.clone()));
-        }
-        let opt = self.inner.workspace_opt(ref_name)?;
-        Ok(opt.map(|ws_data| ws_data.clone()))
+            .filter(|(ws_ref, _)| ws_ref.as_ref() == ref_name)
+            .map(|(_, value)| value)
+            .or_else(|| self.inner.workspace(ref_name))
     }
 
-    pub fn branch_opt(
-        &self,
-        ref_name: &gix::refs::FullNameRef,
-    ) -> anyhow::Result<Option<ref_metadata::Branch>> {
-        if let Some(overlay_branch) = self
-            .meta_branches
+    pub fn branch(&self, ref_name: &gix::refs::FullNameRef) -> Option<&ref_metadata::Branch> {
+        self.meta_branches
             .iter()
-            .find_map(|(rn, branch)| (rn.as_ref() == ref_name).then(|| branch.clone()))
-        {
-            return Ok(Some(overlay_branch));
-        }
-        let opt = self.inner.branch_opt(ref_name)?;
-        Ok(opt.map(|data| data.clone()))
+            .find_map(|(rn, branch)| (rn.as_ref() == ref_name).then_some(branch))
+            .or_else(|| self.inner.branch(ref_name))
     }
 
     pub fn branch_stack_order(
         &self,
         ref_name: &gix::refs::FullNameRef,
-    ) -> anyhow::Result<Option<Vec<gix::refs::FullName>>> {
-        if let Some(branches) = self
-            .branch_stack_orders
+    ) -> Option<&[gix::refs::FullName]> {
+        self.branch_stack_orders
             .iter()
             .find(|branches| branches.iter().any(|branch| branch.as_ref() == ref_name))
-        {
-            return Ok(Some(branches.clone()));
-        }
-        self.inner.branch_stack_order(ref_name)
+            .map(Vec::as_slice)
+            .or_else(|| self.inner.branch_stack_order(ref_name))
     }
 }

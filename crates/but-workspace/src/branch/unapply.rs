@@ -248,7 +248,10 @@ pub(crate) mod function {
             // This is an ad-hoc workspace by merit of being unnamed.
             bail!("Cannot unapply a branch from an ad-hoc detached workspace");
         };
-        let mut ws_md = meta.workspace(workspace_ref_name.as_ref())?;
+        let mut ws_md = meta
+            .workspace(workspace_ref_name.as_ref())
+            .cloned()
+            .unwrap_or_default();
         if ws.kind.has_managed_ref() || ws.has_metadata() {
             ws.reconcile_metadata(&mut ws_md)?;
         }
@@ -300,11 +303,10 @@ pub(crate) mod function {
             workspace_disposition,
             branch_commit_id,
         )?;
-        db.meta_mut()?.set_workspace(&ws_md)?;
+        db.meta_mut()?
+            .set_workspace(workspace_ref_name.as_ref(), &ws_md)?;
         // Update the workspace *only* after a successful workspace commit merge.
-        let overlay = Overlay::default()
-            .with_dropped_references([branch.to_owned()])
-            .with_workspace_metadata_override(Some((workspace_ref_name.to_owned(), ws_md.clone())));
+        let overlay = Overlay::default().with_dropped_references([branch.to_owned()]);
         let ws = ws
             .graph
             .redo_traversal_with_overlay(repo, &db.meta()?, overlay)?

@@ -72,9 +72,16 @@ fn target_local_tracking_ref_exists_when_other_branch_metadata_names_the_same_ti
     // is no longer applied, but its branch metadata still disambiguates the
     // same commit that `main` and `origin/main` also point to.
     let branch_name = "refs/heads/A";
-    let mut branch = meta.meta().unwrap().branch(branch_name.try_into()?)?;
+    let mut branch = meta
+        .meta()
+        .unwrap()
+        .branch(branch_name.try_into()?)
+        .cloned()
+        .unwrap_or_default();
     branch.update_times(false);
-    meta.meta_mut().unwrap().set_branch(&branch)?;
+    meta.meta_mut()
+        .unwrap()
+        .set_branch(branch_name.try_into()?, &branch)?;
 
     let ws = Graph::from_head(
         &repo,

@@ -162,18 +162,18 @@ fn metadata_writes_are_private_until_commit_and_roll_back() -> anyhow::Result<()
                 .db()
                 .meta()?;
             assert!(
-                metadata.branch_opt(name.as_ref())?.is_some(),
+                metadata.branch(name.as_ref()).is_some(),
                 "the transaction sees its metadata writes"
             );
             assert!(
-                observer.meta()?.branch_opt(name.as_ref())?.is_none(),
+                observer.meta()?.branch(name.as_ref()).is_none(),
                 "another connection cannot see uncommitted metadata"
             );
             Ok(tx.rollback(()))
         },
     )?;
     assert!(
-        observer.meta()?.branch_opt(name.as_ref())?.is_none(),
+        observer.meta()?.branch(name.as_ref()).is_none(),
         "rollback discards metadata writes"
     );
     assert!(
@@ -421,7 +421,7 @@ fn create_reference_records_branch_stack_order_in_single_branch_mode() {
             .meta()
             .unwrap()
             .branch_stack_order(main.as_ref())
-            .unwrap(),
+            .map(<[_]>::to_vec),
         Some(vec![new_branch, main]),
         "single-branch transaction should persist the recorded branch order"
     );
@@ -466,7 +466,7 @@ fn create_reference_rolls_back_branch_stack_order_in_single_branch_mode() {
             .meta()
             .unwrap()
             .branch_stack_order(main.as_ref())
-            .unwrap(),
+            .map(<[_]>::to_vec),
         None,
         "rolled-back single-branch transaction should not persist branch order"
     );

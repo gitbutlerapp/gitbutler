@@ -1331,8 +1331,8 @@ pub fn branch_rename_with_perm(
             // have moved the refs — bailing there would leave the repository renamed while the metadata
             // stayed keyed by the old name. Preflighting here keeps the ref and metadata steps from
             // diverging.
-            if db.meta()?.branch_opt(new_ref.as_ref())?.is_some()
-                || db.meta()?.branch_stack_order(new_ref.as_ref())?.is_some()
+            if db.meta()?.branch(new_ref.as_ref()).is_some()
+                || db.meta()?.branch_stack_order(new_ref.as_ref()).is_some()
             {
                 bail_precondition!("A branch named '{}' already exists", new_ref.shorten());
             }
@@ -2116,9 +2116,10 @@ fn branch_workspace_from_rebase(
             .refresh_from_head(repo, project_meta, &mut materialized.db)?;
     }
     if let Some((ws_meta, ref_name)) = ws_meta.zip(materialized.workspace.ref_name()) {
-        let mut md = materialized.db.meta()?.workspace(ref_name)?;
-        *md = ws_meta;
-        materialized.db.meta_mut()?.set_workspace(&md)?;
+        materialized
+            .db
+            .meta_mut()?
+            .set_workspace(ref_name, &ws_meta)?;
     }
 
     if let Some(new_tip) = new_tip {

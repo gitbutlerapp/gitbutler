@@ -590,7 +590,8 @@ mod tests {
             ctx.db
                 .get_cache()?
                 .meta()?
-                .branch(branch_name.as_ref())?
+                .branch(branch_name.as_ref())
+                .expect("review association was saved")
                 .review
                 .pull_request,
             Some(42)
@@ -1533,9 +1534,9 @@ fn persist_review_association(
     review_number: usize,
 ) -> Result<()> {
     let mut db = ctx.db.get_cache_mut()?;
-    let mut branch = db.meta()?.branch(branch_name)?;
+    let mut branch = db.meta()?.branch(branch_name).cloned().unwrap_or_default();
     branch.review.pull_request = Some(review_number);
-    db.meta_mut()?.set_branch(&branch)
+    db.meta_mut()?.set_branch(branch_name, &branch)
 }
 
 /// Merge a review on the forge.

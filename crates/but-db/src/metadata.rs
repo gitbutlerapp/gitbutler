@@ -1,8 +1,4 @@
-use std::{
-    collections::BTreeSet,
-    ops::{Deref, DerefMut},
-    path::Path,
-};
+use std::{collections::BTreeSet, path::Path};
 
 use anyhow::{Context as _, Result, ensure};
 use but_core::{
@@ -29,11 +25,13 @@ use crate::{
 
 /// An owned, consistent snapshot of reference metadata from the project database.
 ///
-/// Reads do not keep a connection borrowed. Obtain a fresh snapshot after writing metadata.
+/// Reads borrow this snapshot, without keeping a connection borrowed. To edit metadata, clone a
+/// value (or create a default), change its fields, and save it with [`MetadataMut::set_workspace()`]
+/// or [`MetadataMut::set_branch()`]. Obtain a fresh snapshot after writing metadata.
 #[derive(Clone, Debug)]
 pub struct Metadata {
     workspace: Workspace,
-    branches: Vec<(FullName, StackId, Branch)>,
+    branches: Vec<(FullName, Branch)>,
     branch_orders: Vec<Vec<FullName>>,
 }
 
@@ -47,47 +45,6 @@ impl Default for Metadata {
             branches: Vec::new(),
             branch_orders: Vec::new(),
         }
-    }
-}
-
-/// A metadata value associated with its reference name.
-///
-/// The value is detached from the database. Saving it resolves its reference against current rows,
-/// so a workspace edit cannot leave a branch handle pointing at a stale stack.
-#[derive(Debug)]
-pub struct MetadataHandle<T> {
-    ref_name: FullName,
-    value: T,
-    is_default: bool,
-    stack_id: Option<StackId>,
-}
-
-impl<T> MetadataHandle<T> {
-    /// Whether this value was absent when the snapshot was read.
-    pub fn is_default(&self) -> bool {
-        self.is_default
-    }
-
-    /// The stack containing this branch when the snapshot was read, if any.
-    pub fn stack_id(&self) -> Option<StackId> {
-        self.stack_id
-    }
-}
-
-impl<T> AsRef<FullNameRef> for MetadataHandle<T> {
-    fn as_ref(&self) -> &FullNameRef {
-        self.ref_name.as_ref()
-    }
-}
-impl<T> Deref for MetadataHandle<T> {
-    type Target = T;
-    fn deref(&self) -> &T {
-        &self.value
-    }
-}
-impl<T> DerefMut for MetadataHandle<T> {
-    fn deref_mut(&mut self) -> &mut T {
-        &mut self.value
     }
 }
 
@@ -237,7 +194,6 @@ impl Metadata {
                 };
                 metadata.branches.push((
                     name,
-                    id,
                     Branch {
                         ref_info: RefInfo::default(),
                         review: Review {
@@ -276,76 +232,42 @@ impl Metadata {
         Ok(metadata)
     }
 
-    /// Read workspace metadata, returning a detached default when absent.
-    pub fn workspace(&self, ref_name: &FullNameRef) -> Result<MetadataHandle<Workspace>> {
-        let value = if is_workspace_ref_name(ref_name) {
-            self.workspace.clone()
-        } else {
-            Workspace::default()
-        };
-        Ok(MetadataHandle {
-            ref_name: ref_name.to_owned(),
-            is_default: value.stacks.is_empty(),
-            value,
-            stack_id: None,
-        })
+    /// Borrow workspace metadata when the workspace has persisted stacks.
+    pub fn workspace(&self, ref_name: &FullNameRef) -> Option<&Workspace> {
+        (is_workspace_ref_name(ref_name) && !self.workspace.stacks.is_empty())
+            .then_some(&self.workspace)
     }
 
-    /// Read branch metadata, returning a detached default when absent.
-    pub fn branch(&self, ref_name: &FullNameRef) -> Result<MetadataHandle<Branch>> {
-        let value = self
-            .branches
+    /// Borrow branch metadata when a persisted branch has this name.
+    pub fn branch(&self, ref_name: &FullNameRef) -> Option<&Branch> {
+        self.branches
             .iter()
-            .find(|(name, _, _)| name.as_ref() == ref_name);
-        Ok(MetadataHandle {
-            ref_name: ref_name.to_owned(),
-            value: value.map(|(_, _, value)| value.clone()).unwrap_or_default(),
-            is_default: value.is_none(),
-            stack_id: value.map(|(_, id, _)| *id),
-        })
-    }
-
-    /// Read a workspace only when metadata exists for it.
-    pub fn workspace_opt(
-        &self,
-        ref_name: &FullNameRef,
-    ) -> Result<Option<MetadataHandle<Workspace>>> {
-        let value = self.workspace(ref_name)?;
-        Ok((!value.is_default()).then_some(value))
-    }
-
-    /// Read a branch only when metadata exists for it.
-    pub fn branch_opt(&self, ref_name: &FullNameRef) -> Result<Option<MetadataHandle<Branch>>> {
-        let value = self.branch(ref_name)?;
-        Ok((!value.is_default()).then_some(value))
+            .find_map(|(name, value)| (name.as_ref() == ref_name).then_some(value))
     }
 
     /// Enumerate persisted workspaces by name and value.
-    pub fn workspaces(&self) -> impl Iterator<Item = (FullName, Workspace)> + '_ {
+    pub fn workspaces(&self) -> impl Iterator<Item = (&FullNameRef, &Workspace)> {
         (!self.workspace.stacks.is_empty())
-            .then(|| {
-                (
-                    WORKSPACE_REF_NAME.try_into().expect("valid workspace ref"),
-                    self.workspace.clone(),
-                )
-            })
+            .then_some((
+                WORKSPACE_REF_NAME.try_into().expect("valid workspace ref"),
+                &self.workspace,
+            ))
             .into_iter()
     }
 
     /// Enumerate persisted branches by name and value, in stack order.
-    pub fn branches(&self) -> impl Iterator<Item = (FullName, Branch)> + '_ {
+    pub fn branches(&self) -> impl Iterator<Item = (&FullNameRef, &Branch)> {
         self.branches
             .iter()
-            .map(|(name, _, value)| (name.clone(), value.clone()))
+            .map(|(name, value)| (name.as_ref(), value))
     }
 
-    /// Return the stored chain containing this reference, from tip to base.
-    pub fn branch_stack_order(&self, ref_name: &FullNameRef) -> Result<Option<Vec<FullName>>> {
-        Ok(self
-            .branch_orders
+    /// Borrow the stored chain containing this reference, from tip to base.
+    pub fn branch_stack_order(&self, ref_name: &FullNameRef) -> Option<&[FullName]> {
+        self.branch_orders
             .iter()
             .find(|chain| chain.iter().any(|name| name.as_ref() == ref_name))
-            .cloned())
+            .map(Vec::as_slice)
     }
 }
 
@@ -396,9 +318,9 @@ impl MetadataMut<'_> {
     }
 
     /// Save workspace grouping and branch order together, preserving unrelated fields in existing rows.
-    pub fn set_workspace(mut self, value: &MetadataHandle<Workspace>) -> Result<()> {
+    pub fn set_workspace(mut self, ref_name: &FullNameRef, value: &Workspace) -> Result<()> {
         ensure!(
-            is_workspace_ref_name(value.as_ref()),
+            is_workspace_ref_name(ref_name),
             "This backend doesn't support saving arbitrary workspaces"
         );
         let mut snapshot = self.snapshot()?;
@@ -485,10 +407,10 @@ impl MetadataMut<'_> {
     }
 
     /// Save branch review data, resolving its current stack instead of using a stale snapshot index.
-    pub fn set_branch(mut self, value: &MetadataHandle<Branch>) -> Result<()> {
+    pub fn set_branch(mut self, ref_name: &FullNameRef, value: &Branch) -> Result<()> {
         let mut snapshot = self.snapshot()?;
         let mut stored = stored_stacks(&snapshot);
-        match find_branch(&stored, value.as_ref()) {
+        match find_branch(&stored, ref_name) {
             Some((stack_idx, head_idx)) => {
                 let head = &mut stored[stack_idx].heads[head_idx];
                 head.pr_number = value.review.pull_request.map(i64::try_from).transpose()?;
@@ -496,7 +418,7 @@ impl MetadataMut<'_> {
             }
             None => {
                 let row = new_stack(StackId::generate(), stored.len(), false);
-                let mut head = new_head(value.as_ref(), value)?;
+                let mut head = new_head(ref_name, value)?;
                 head.stack_id = row.id.clone();
                 stored.push(StoredStack {
                     row,

@@ -3669,9 +3669,11 @@ fn integrate_and_materialize(
     if let Some(ref_name) = materialized.workspace.ref_name()
         && let Some(ws_meta) = ws_meta
     {
-        let mut md = materialized.db.meta().unwrap().workspace(ref_name)?;
-        *md = ws_meta;
-        materialized.db.meta_mut().unwrap().set_workspace(&md)?;
+        materialized
+            .db
+            .meta_mut()
+            .unwrap()
+            .set_workspace(ref_name, &ws_meta)?;
     }
     drop(materialized);
 
@@ -3680,7 +3682,7 @@ fn integrate_and_materialize(
 
 fn ensure_managed_workspace_metadata(meta: &mut but_db::DbHandle) -> Result<()> {
     let ref_name = gix::refs::FullName::try_from(but_core::WORKSPACE_REF_NAME)?;
-    if meta.meta()?.workspace(ref_name.as_ref())?.is_default() {
+    if meta.meta()?.workspace(ref_name.as_ref()).is_none() {
         crate::ref_info::with_workspace_commit::utils::add_workspace(meta);
     }
     Ok(())
@@ -3712,9 +3714,11 @@ fn integrate_with_hints_and_materialize(
     if let Some(ref_name) = materialized.workspace.ref_name()
         && let Some(ws_meta) = ws_meta
     {
-        let mut md = materialized.db.meta().unwrap().workspace(ref_name)?;
-        *md = ws_meta;
-        materialized.db.meta_mut().unwrap().set_workspace(&md)?;
+        materialized
+            .db
+            .meta_mut()
+            .unwrap()
+            .set_workspace(ref_name, &ws_meta)?;
     }
     drop(materialized);
 

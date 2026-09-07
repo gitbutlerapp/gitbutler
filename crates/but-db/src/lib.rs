@@ -63,7 +63,7 @@ mod connection;
 mod handle;
 mod metadata;
 pub use connection::{Connection, ConnectionMut};
-pub use metadata::{Metadata, MetadataHandle, MetadataMut};
+pub use metadata::{Metadata, MetadataMut};
 mod table;
 mod transaction;
 

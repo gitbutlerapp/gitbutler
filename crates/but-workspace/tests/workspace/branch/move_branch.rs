@@ -1245,9 +1245,7 @@ fn set_workspace_metadata(
     ws_meta: Option<but_core::ref_metadata::Workspace>,
 ) -> anyhow::Result<()> {
     if let Some((ws_meta, ref_name)) = ws_meta.zip(ws.ref_name()) {
-        let mut md = meta.meta().unwrap().workspace(ref_name)?;
-        *md = ws_meta;
-        meta.meta_mut().unwrap().set_workspace(&md)?;
+        meta.meta_mut().unwrap().set_workspace(ref_name, &ws_meta)?;
     }
     Ok(())
 }
@@ -1571,13 +1569,16 @@ mod single_branch_mode {
 "#]]
         );
         assert_eq!(
-            meta.meta().unwrap().branch_stack_order(main_ref)?,
-            Some(vec![
-                r("refs/heads/main").to_owned(),
-                r("refs/heads/empty-top").to_owned(),
-                r("refs/heads/empty-bottom").to_owned(),
-                r("refs/heads/base").to_owned(),
-            ]),
+            meta.meta().unwrap().branch_stack_order(main_ref),
+            Some(
+                [
+                    r("refs/heads/main").to_owned(),
+                    r("refs/heads/empty-top").to_owned(),
+                    r("refs/heads/empty-bottom").to_owned(),
+                    r("refs/heads/base").to_owned(),
+                ]
+                .as_slice()
+            ),
         );
 
         // Move `empty-bottom` on top of `empty-top` (both empty) - a pure metadata reorder.
@@ -1602,13 +1603,16 @@ mod single_branch_mode {
 
         // The ad-hoc order is updated: `empty-bottom` now sits above `empty-top`.
         assert_eq!(
-            meta.meta().unwrap().branch_stack_order(main_ref)?,
-            Some(vec![
-                r("refs/heads/main").to_owned(),
-                r("refs/heads/empty-bottom").to_owned(),
-                r("refs/heads/empty-top").to_owned(),
-                r("refs/heads/base").to_owned(),
-            ]),
+            meta.meta().unwrap().branch_stack_order(main_ref),
+            Some(
+                [
+                    r("refs/heads/main").to_owned(),
+                    r("refs/heads/empty-bottom").to_owned(),
+                    r("refs/heads/empty-top").to_owned(),
+                    r("refs/heads/base").to_owned(),
+                ]
+                .as_slice()
+            ),
         );
 
         // Re-projecting from the reloaded metadata reflects the new order, and no commit was moved.
@@ -1909,7 +1913,8 @@ mod single_branch_mode {
 
         let (_tmp, repo, mut meta, project_meta) = ad_hoc_workspace_with_two_empty_branches()?;
         let main_ref = r("refs/heads/main");
-        let order_before = meta.meta().unwrap().branch_stack_order(main_ref)?;
+        let metadata_before = meta.meta().unwrap();
+        let order_before = metadata_before.branch_stack_order(main_ref);
         let tip = repo.find_reference(main_ref)?.peel_to_id()?.detach();
 
         // Two refs at the tip that were never added to `branch_order`. They show up only as commit
@@ -1952,7 +1957,7 @@ mod single_branch_mode {
             "Couldn't find branch to move in workspace with reference name: refs/heads/x"
         );
         assert_eq!(
-            meta.meta().unwrap().branch_stack_order(main_ref)?,
+            meta.meta().unwrap().branch_stack_order(main_ref),
             order_before,
             "the branch order must be untouched"
         );
@@ -1965,7 +1970,8 @@ mod single_branch_mode {
     fn move_branch_does_not_persist_branch_order() -> anyhow::Result<()> {
         let (_tmp, repo, mut meta, project_meta) = ad_hoc_workspace_with_two_empty_branches()?;
         let main_ref = r("refs/heads/main");
-        let order_before = meta.meta().unwrap().branch_stack_order(main_ref)?;
+        let metadata_before = meta.meta().unwrap();
+        let order_before = metadata_before.branch_stack_order(main_ref);
 
         let mut ws = but_graph::Graph::from_head(
             &repo,
@@ -1999,7 +2005,7 @@ mod single_branch_mode {
         );
         // ...but nothing is written to metadata until the caller persists it.
         assert_eq!(
-            meta.meta().unwrap().branch_stack_order(main_ref)?,
+            meta.meta().unwrap().branch_stack_order(main_ref),
             order_before,
             "move_branch must not persist branch order on its own"
         );

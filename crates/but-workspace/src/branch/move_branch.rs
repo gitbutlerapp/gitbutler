@@ -254,18 +254,15 @@ pub(super) mod function {
             // target and entrypoint lookups are defensive fallbacks so that, should the projection ever
             // surface a segment that isn't tracked yet, we extend the real chain instead of clobbering
             // it down to just the moved refs.
-            match meta.branch_stack_order(subject_branch_name)? {
-                Some(order) => order,
-                None => match meta.branch_stack_order(target_branch_name)? {
-                    Some(order) => order,
-                    None => entrypoint
+            meta.branch_stack_order(subject_branch_name)
+                .or_else(|| meta.branch_stack_order(target_branch_name))
+                .or_else(|| {
+                    entrypoint
                         .as_ref()
-                        .map(|entrypoint| meta.branch_stack_order(entrypoint.as_ref()))
-                        .transpose()?
-                        .flatten()
-                        .unwrap_or_else(|| stack_branch_order(source_stack)),
-                },
-            }
+                        .and_then(|entrypoint| meta.branch_stack_order(entrypoint.as_ref()))
+                })
+                .map(<[_]>::to_vec)
+                .unwrap_or_else(|| stack_branch_order(source_stack))
         };
         let previous_order = existing_order.clone();
         let new_order =

@@ -1877,10 +1877,7 @@ Single commit, target, no ws commit, but ws-reference
                 "the reference wasn't changed to the desired location"
             );
             assert!(
-                meta.meta()
-                    .unwrap()
-                    .branch(ws_ref_name.as_ref())?
-                    .is_default(),
+                meta.meta().unwrap().branch(ws_ref_name.as_ref()).is_none(),
                 "no data was stored"
             );
         }
@@ -1955,10 +1952,7 @@ Single commit, target, no ws commit, but ws-reference
                 "the reference wasn't changed to the desired location"
             );
             assert!(
-                meta.meta()
-                    .unwrap()
-                    .branch(ws_ref_name.as_ref())?
-                    .is_default(),
+                meta.meta().unwrap().branch(ws_ref_name.as_ref()).is_none(),
                 "no data was stored"
             );
         }
@@ -1991,10 +1985,7 @@ Single commit, target, no ws commit, but ws-reference
                 "the reference wasn't changed to the desired location"
             );
             assert!(
-                meta.meta()
-                    .unwrap()
-                    .branch(ws_ref_name.as_ref())?
-                    .is_default(),
+                meta.meta().unwrap().branch(ws_ref_name.as_ref()).is_none(),
                 "no data was stored"
             );
         }
@@ -2017,10 +2008,7 @@ Single commit, target, no ws commit, but ws-reference
             "Existing refs outside the workspace should fail explicitly instead of surfacing the generic segment error"
         );
         assert!(
-            meta.meta()
-                .unwrap()
-                .branch(outside_ref.as_ref())?
-                .is_default(),
+            meta.meta().unwrap().branch(outside_ref.as_ref()).is_none(),
             "no data was stored"
         );
         assert_eq!(
@@ -2242,7 +2230,7 @@ fn errors() -> anyhow::Result<()> {
             "the reference isn't physically available"
         );
         assert!(
-            meta.meta().unwrap().branch(ref_name.as_ref())?.is_default(),
+            meta.meta().unwrap().branch(ref_name.as_ref()).is_none(),
             "no data was stored"
         );
     }
@@ -2271,7 +2259,7 @@ fn errors() -> anyhow::Result<()> {
             "the reference isn't physically available"
         );
         assert!(
-            meta.meta().unwrap().branch(ref_name.as_ref())?.is_default(),
+            meta.meta().unwrap().branch(ref_name.as_ref()).is_none(),
             "no data was stored"
         );
     }
@@ -2302,7 +2290,7 @@ fn errors() -> anyhow::Result<()> {
             "the reference isn't physically available"
         );
         assert!(
-            meta.meta().unwrap().branch(a_ref.as_ref())?.is_default(),
+            meta.meta().unwrap().branch(a_ref.as_ref()).is_none(),
             "no data was stored"
         );
     }
@@ -2353,7 +2341,7 @@ fn errors() -> anyhow::Result<()> {
                 It does try though."
         );
         assert!(
-            meta.meta().unwrap().branch(a_ref)?.is_default(),
+            meta.meta().unwrap().branch(a_ref).is_none(),
             "no data was stored"
         );
         assert_ne!(
@@ -2404,7 +2392,7 @@ fn errors() -> anyhow::Result<()> {
         "Commit d79bba960b112dbd25d45921c47eeda22288022b isn't part of the workspace",
     );
     assert!(
-        meta.meta().unwrap().branch(a_ref)?.is_default(),
+        meta.meta().unwrap().branch(a_ref).is_none(),
         "no data was stored"
     );
     assert_ne!(
@@ -2476,8 +2464,8 @@ fn journey_with_commits() -> anyhow::Result<()> {
 
 "#]]
     );
-    let md = meta.meta().unwrap().branch(new_name)?;
-    assert!(!md.is_default(), "It should have set the date at least");
+    let metadata = meta.meta().unwrap();
+    let md = metadata.branch(new_name).expect("metadata is present");
     assert!(md.ref_info.updated_at.is_none());
     assert!(
         md.ref_info.created_at.is_none(),
@@ -2568,7 +2556,7 @@ fn journey_with_commits() -> anyhow::Result<()> {
     )?;
 
     assert!(
-        meta.meta().unwrap().branch(main_ref)?.is_default(),
+        meta.meta().unwrap().branch(main_ref).is_none(),
         "no data was stored, it wasn't stored before either, for independent branches\
             There should be no benefit doing that."
     );
@@ -2602,7 +2590,7 @@ fn journey_with_commits() -> anyhow::Result<()> {
     )?;
 
     assert!(
-        !meta.meta().unwrap().branch(main_ref)?.is_default(),
+        meta.meta().unwrap().branch(main_ref).is_some(),
         "Data is created/updated for dependent branches though,
             which is a way to make segments appear if there were not visible before due to ambiguity."
     );
@@ -2874,11 +2862,8 @@ mod ad_hoc_at_reference {
         let expected: Vec<gix::refs::FullName> =
             expected.iter().copied().map(|s| r(s).to_owned()).collect();
         assert_eq!(
-            meta.meta()
-                .unwrap()
-                .branch_stack_order(anchor)
-                .expect("order is readable"),
-            Some(expected),
+            meta.meta().unwrap().branch_stack_order(anchor),
+            Some(expected.as_slice()),
         );
     }
 
@@ -3156,7 +3141,7 @@ mod ad_hoc_at_reference {
             "no ref should be created for a missing anchor"
         );
         assert_eq!(
-            meta.meta().unwrap().branch_stack_order(missing_anchor)?,
+            meta.meta().unwrap().branch_stack_order(missing_anchor),
             None
         );
         Ok(())
@@ -3173,7 +3158,7 @@ mod ad_hoc_at_reference {
             err.to_string().contains("relative to itself"),
             "self-referential placement must be rejected: {err}"
         );
-        assert_eq!(meta.meta().unwrap().branch_stack_order(main_ref)?, None);
+        assert_eq!(meta.meta().unwrap().branch_stack_order(main_ref), None);
         Ok(())
     }
 
@@ -3194,7 +3179,7 @@ mod ad_hoc_at_reference {
         );
         // The failure must be atomic: the ref is untouched and no order was persisted.
         assert_eq!(repo.find_reference(existing_ref)?.id(), older);
-        assert_eq!(meta.meta().unwrap().branch_stack_order(main_ref)?, None);
+        assert_eq!(meta.meta().unwrap().branch_stack_order(main_ref), None);
         Ok(())
     }
 
@@ -3210,7 +3195,7 @@ mod ad_hoc_at_reference {
             err.to_string().contains("collides with existing branch"),
             "a name colliding with an existing branch should be reported clearly: {err}"
         );
-        assert_eq!(meta.meta().unwrap().branch_stack_order(main_ref)?, None);
+        assert_eq!(meta.meta().unwrap().branch_stack_order(main_ref), None);
         Ok(())
     }
 

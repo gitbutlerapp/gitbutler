@@ -64,16 +64,20 @@ fn metadata_edits_write_only_changed_rows() -> anyhow::Result<()> {
     };
 
     let name: gix::refs::FullName = "refs/heads/series-a".try_into()?;
-    let mut branch = db.meta()?.branch(name.as_ref())?;
+    let mut branch = db
+        .meta()?
+        .branch(name.as_ref())
+        .cloned()
+        .unwrap_or_default();
     branch.review.pull_request = Some(42);
-    db.meta_mut()?.set_branch(&branch)?;
+    db.meta_mut()?.set_branch(name.as_ref(), &branch)?;
     assert_eq!(
         writes()?,
         vec![("vb_stack_heads".into(), "UPDATE".into())],
         "editing one review must leave all other rows untouched"
     );
     observer.execute("DELETE FROM writes", [])?;
-    db.meta_mut()?.set_branch(&branch)?;
+    db.meta_mut()?.set_branch(name.as_ref(), &branch)?;
     assert!(
         writes()?.is_empty(),
         "saving unchanged metadata writes no rows"

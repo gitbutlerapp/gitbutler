@@ -152,7 +152,10 @@ fn write_workspace_metadata(repo: &gix::Repository, stacks: &[StackSpec<'_>]) ->
     let mut db = but_testsupport::project_db(repo)?;
     let meta = db.meta()?;
     let workspace_ref = gix::refs::FullName::try_from("refs/heads/gitbutler/workspace")?;
-    let mut workspace = meta.workspace(workspace_ref.as_ref())?;
+    let mut workspace = meta
+        .workspace(workspace_ref.as_ref())
+        .cloned()
+        .unwrap_or_default();
     workspace.stacks = stacks
         .iter()
         .map(|stack| {
@@ -177,7 +180,8 @@ fn write_workspace_metadata(repo: &gix::Repository, stacks: &[StackSpec<'_>]) ->
             })
         })
         .collect::<Result<Vec<_>>>()?;
-    db.meta_mut()?.set_workspace(&workspace)?;
+    db.meta_mut()?
+        .set_workspace(workspace_ref.as_ref(), &workspace)?;
 
     ProjectMeta {
         target_ref: Some("refs/remotes/origin/main".try_into()?),

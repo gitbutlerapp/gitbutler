@@ -524,9 +524,7 @@ impl<'rebase, 'conn> Transaction<'_, 'rebase, 'conn> {
             .as_mut()
             .expect("rebase is always Some(_)")
             .repo_and_db_mut();
-        let mut handle = db.meta()?.workspace(ref_name.as_ref())?;
-        *handle = ws_meta;
-        db.meta_mut()?.set_workspace(&handle)?;
+        db.meta_mut()?.set_workspace(ref_name.as_ref(), &ws_meta)?;
 
         Ok(())
     }
@@ -610,13 +608,12 @@ impl<'rebase, 'conn> Transaction<'_, 'rebase, 'conn> {
         if !creates_independent_branch
             && let Some(workspace_meta) = workspace.metadata_from_projection()?
         {
-            let mut handle = db.meta()?.workspace(
+            db.meta_mut()?.set_workspace(
                 workspace
                     .ref_name()
                     .context("managed workspace has a ref")?,
+                &workspace_meta,
             )?;
-            *handle = workspace_meta;
-            db.meta_mut()?.set_workspace(&handle)?;
         }
         but_workspace::branch::create_reference(
             ref_name,

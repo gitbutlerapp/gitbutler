@@ -39,7 +39,10 @@ fn command_ctx(folder: &str) -> Result<(Context, TempDir)> {
 fn seed_metadata(repo: &gix::Repository) -> Result<()> {
     let mut db = but_testsupport::project_db(repo)?;
     let meta = db.meta()?;
-    let mut ws = meta.workspace("refs/heads/gitbutler/workspace".try_into()?)?;
+    let mut ws = meta
+        .workspace("refs/heads/gitbutler/workspace".try_into()?)
+        .cloned()
+        .unwrap_or_default();
     ws.stacks.clear();
     ws.stacks.push(WorkspaceStack {
         id: StackId::from_number_for_testing(1),
@@ -49,7 +52,8 @@ fn seed_metadata(repo: &gix::Repository) -> Result<()> {
         }],
         workspacecommit_relation: WorkspaceCommitRelation::Merged,
     });
-    db.meta_mut()?.set_workspace(&ws)?;
+    db.meta_mut()?
+        .set_workspace("refs/heads/gitbutler/workspace".try_into()?, &ws)?;
     ProjectMeta {
         target_ref: Some("refs/remotes/origin/main".try_into()?),
         target_commit_id: Some(repo.rev_parse_single("refs/remotes/origin/main")?.detach()),
