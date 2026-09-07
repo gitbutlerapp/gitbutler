@@ -27,10 +27,7 @@ import { WorkspaceLists } from "#ui/routes/project/$id/workspace/WorkspaceLists/
 import type { Graph } from "#ui/routes/project/$id/workspace/Graph/usePlan.ts";
 import { BranchesList } from "#ui/routes/project/$id/workspace/BranchesList.tsx";
 import type { BranchesListContent } from "#ui/routes/project/$id/workspace/useBranchesList.ts";
-import { UpstreamList } from "#ui/routes/project/$id/workspace/UpstreamList.tsx";
-import type { UpstreamListData } from "#ui/routes/project/$id/workspace/useUpstreamList.ts";
 import { assert } from "#ui/assert.ts";
-import { Badge } from "#ui/components/Badge.tsx";
 import type { PageId } from "#ui/projects/project.ts";
 import styles from "./Sidebar.module.css";
 import { SidebarHeader } from "#ui/routes/project/$id/workspace/SidebarHeader.tsx";
@@ -40,27 +37,18 @@ import { RowToolbar } from "#ui/routes/project/$id/workspace/Row.tsx";
 import { getRowButtonClassName } from "#ui/routes/project/$id/workspace/Row-utils.ts";
 
 /** The tabs in the order they are shown, for cycling with `[` and `]`. */
-const pageOrder: Array<PageId> = ["workspace", "upstream", "branches"];
+const pageOrder: Array<PageId> = ["workspace", "branches"];
 
 const adjacentPage = (tab: PageId, offset: -1 | 1): PageId => {
 	const index = pageOrder.indexOf(tab);
 	return assert(pageOrder[(index + offset + pageOrder.length) % pageOrder.length]);
 };
 
-/**
- * Counts past this are shown as `99+`: the badge sits inside a tab, where a
- * third digit takes width from the tab labels, and at that size the number is
- * a rough sense of how far behind the workspace is rather than a figure to
- * read. The upstream page states the exact count.
- */
-const maxBadgeCount = 99;
-
 export const Sidebar: FC<{
 	absorptionTargetCommitIds: ReadonlySet<string>;
 	branches: BranchesListContent | undefined;
 	branchesPending: boolean;
 	branchesError: boolean;
-	upstreamList: UpstreamListData;
 	graph: Graph;
 	addressSpace: AddressSpace<Address>;
 	uncommittedAddressSpace: AddressSpace<string>;
@@ -72,7 +60,6 @@ export const Sidebar: FC<{
 	branches,
 	branchesPending,
 	branchesError,
-	upstreamList,
 	graph,
 	addressSpace,
 	uncommittedAddressSpace,
@@ -253,21 +240,6 @@ export const Sidebar: FC<{
 					</Toggle>
 					<Toggle
 						render={<ToggleStyles />}
-						value={"upstream" satisfies PageId}
-						aria-label="Upstream"
-					>
-						<Icon name="inbox" />
-						<span className={styles.tabLabel}>Upstream</span>
-						{upstreamList.incomingCount > 0 && (
-							<Badge variant="fillGray">
-								{upstreamList.incomingCount > maxBadgeCount
-									? `${maxBadgeCount}+`
-									: upstreamList.incomingCount}
-							</Badge>
-						)}
-					</Toggle>
-					<Toggle
-						render={<ToggleStyles />}
 						value={"branches" satisfies PageId}
 						aria-label="Branches"
 					>
@@ -285,17 +257,6 @@ export const Sidebar: FC<{
 					isPending={branchesPending}
 					isError={branchesError}
 					newBranch={newBranch}
-				/>
-			</Activity>
-
-			<Activity mode={page === "upstream" ? "visible" : "hidden"}>
-				<UpstreamList
-					className={styles.page}
-					projectId={projectId}
-					list={upstreamList}
-					canUpdateWorkspace={canUpdateWorkspace}
-					isUpdatePending={isWorkspaceIntegrateUpstreamPending}
-					onUpdateWorkspace={updateWorkspace}
 				/>
 			</Activity>
 

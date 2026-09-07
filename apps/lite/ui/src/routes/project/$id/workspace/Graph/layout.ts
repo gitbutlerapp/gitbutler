@@ -46,7 +46,7 @@ type Folds = {
 	moreOlder: number;
 };
 
-/** A target commit as a value, shared with the Upstream tab. The change id falls back to the commit id; revisit. */
+/** A target commit as a value. The change id falls back to the commit id; revisit. */
 export const targetCommitAddress = (commit: TargetCommit): Address =>
 	commitAddress({
 		commitId: commit.commit.id,

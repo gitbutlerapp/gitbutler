@@ -5,11 +5,6 @@ import type { CommitState } from "@gitbutler/but-sdk";
 
 const glyphPaths = {
 	parent: "M8 0V28",
-	/* The parent line with its overhead dropped, for a row that starts a rail
-	   rather than continuing one. It begins where the group glyph's rings do, so
-	   a fold toggle heading a rail starts its line in the same place whether the
-	   run it holds is folded away or on screen. */
-	parentHead: "M8 3V28",
 	horizontal: "M-9.53674e-07 14L16 14",
 	space: "",
 	// Forks
@@ -51,14 +46,6 @@ const groupRingsPath =
 const groupGlyph = (
 	<>
 		<path className={styles.line} d="M8 0V2.78571M8 17.0038V26" strokeWidth="1.5" />
-		<path d={groupRingsPath} stroke="currentColor" strokeWidth="1.5" />
-	</>
-);
-
-/** The rings without the tail above them, for a row that starts a rail. */
-const groupHeadGlyph = (
-	<>
-		<path className={styles.line} d="M8 17.0038V26" strokeWidth="1.5" />
 		<path d={groupRingsPath} stroke="currentColor" strokeWidth="1.5" />
 	</>
 );
@@ -116,18 +103,9 @@ const groupCenteredFootGlyph = (
 );
 
 /** @public */
-export type GraphSegmentGlyph = keyof typeof glyphPaths | "commit" | "group" | "groupHead";
+export type GraphSegmentGlyph = keyof typeof glyphPaths | "commit" | "group";
 
-/** Both are drawn on the group glyph's shorter canvas. */
-const isGroupGlyph = (glyph: GraphSegmentGlyph): boolean =>
-	glyph === "group" || glyph === "groupHead";
-
-/**
- * Glyphs whose rail carries on past the drawing, so a taller row goes on
- * drawing it. The head glyphs are left out: what they start is the rail below
- * them, and the band would draw over the very space they exist to leave empty
- * in a column that stacks upwards.
- */
+/** Glyphs whose rail carries on past the drawing, so a taller row goes on drawing it. */
 const stretchableGlyphs = new Set<GraphSegmentGlyph>([
 	"parent",
 	"commit",
@@ -171,11 +149,8 @@ export const GraphSegment: FC<GraphSegmentProps> = ({
 }) => (
 	<div {...props} className={classes(className, styles.container)} data-status={status}>
 		<svg
-			className={classes(
-				styles.mainSegment,
-				isGroupGlyph(glyph) && !centered && styles.groupSegment,
-			)}
-			viewBox={isGroupGlyph(glyph) && !centered ? "0 0 16 26" : "0 0 16 28"}
+			className={classes(styles.mainSegment, glyph === "group" && !centered && styles.groupSegment)}
+			viewBox={glyph === "group" && !centered ? "0 0 16 26" : "0 0 16 28"}
 			fill="none"
 			xmlns="http://www.w3.org/2000/svg"
 			aria-hidden="true"
@@ -197,8 +172,6 @@ export const GraphSegment: FC<GraphSegmentProps> = ({
 				) : (
 					groupGlyph
 				)
-			) : glyph === "groupHead" ? (
-				groupHeadGlyph
 			) : (
 				<path className={styles.line} d={glyphPaths[glyph]} strokeWidth="1.5" />
 			)}

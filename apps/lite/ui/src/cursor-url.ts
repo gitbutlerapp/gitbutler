@@ -18,7 +18,6 @@ export type UrlQueryParams = {
 	applied?: string;
 	uncommitted?: string;
 	unapplied?: string;
-	upstream?: string;
 	files?: string;
 };
 
@@ -53,7 +52,6 @@ const encodePath = (path: string): string => path;
 const cursorParam: { [L in UrlCursorName]: (item: CursorItem[L]) => string | null } = {
 	applied: encodeAddress,
 	unapplied: encodeAddress,
-	upstream: encodeAddress,
 	uncommitted: encodePath,
 	files: encodePath,
 };

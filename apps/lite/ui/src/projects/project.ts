@@ -46,12 +46,6 @@ import {
 import { decodeBytes } from "#ui/api/bytes.ts";
 import type { FocusScope } from "#ui/focus-scopes.ts";
 import {
-	createInitialUpstreamState,
-	getUpstreamSelectors,
-	upstreamReducers,
-	type UpstreamState,
-} from "./upstream.ts";
-import {
 	createInitialGraphState,
 	getGraphSelectors,
 	graphReducers,
@@ -146,7 +140,7 @@ const createInitialWorkspaceState = (): WorkspaceState => ({
 	filesCollapsedDirectories: {},
 });
 
-export type PageId = "workspace" | "upstream" | "branches";
+export type PageId = "workspace" | "branches";
 
 /** One of the two stacked lists the workspace sidebar is split into. */
 export type SidebarPanel = "uncommitted" | "stacks";
@@ -168,7 +162,6 @@ export type ProjectState = {
 	 */
 	sidebarPanelFocus: SidebarPanel | "both";
 	branches: BranchesState;
-	upstream: UpstreamState;
 	graph: GraphState;
 	workspace: WorkspaceState;
 };
@@ -177,7 +170,6 @@ export const createInitialProjectState = (): ProjectState => ({
 	filesVisible: true,
 	sidebarPanelFocus: "both",
 	branches: createInitialBranchesState(),
-	upstream: createInitialUpstreamState(),
 	graph: createInitialGraphState(),
 	workspace: createInitialWorkspaceState(),
 });
@@ -196,9 +188,6 @@ export const projectReducers = {
 			return;
 
 		state.workspace.diffCursor = selection;
-	},
-	toggleUpstreamSegment: (state: ProjectState, { segmentId }: { segmentId: string }) => {
-		upstreamReducers.toggleSegment(state.upstream, { segmentId });
 	},
 	toggleGraphIncoming: (state: ProjectState) => {
 		graphReducers.toggleIncoming(state.graph);
@@ -756,6 +745,5 @@ export const projectSelectors = {
 		);
 	},
 	...getBranchesSelectors((state: ProjectState) => state.branches),
-	...getUpstreamSelectors((state: ProjectState) => state.upstream),
 	...getGraphSelectors((state: ProjectState) => state.graph),
 };

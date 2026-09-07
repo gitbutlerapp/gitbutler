@@ -163,12 +163,11 @@ export const createRouteTree = ({ workspace }: { workspace: FC }) => {
 			const active = activeLists.find((list) => list === params.active);
 
 			return {
-				page: page === "upstream" || page === "branches" ? page : undefined,
+				page: page === "branches" ? page : undefined,
 				active: active === undefined || active === "applied" ? undefined : active,
 				applied: str(params.applied),
 				uncommitted: str(params.uncommitted),
 				unapplied: str(params.unapplied),
-				upstream: str(params.upstream),
 				files: str(params.files),
 			};
 		},

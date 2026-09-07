@@ -30,7 +30,7 @@ import type { FocusScope } from "#ui/focus-scopes.ts";
 
 /**
  * The one way in and out of navigation state. The URL holds the page, the
- * active list and the five item cursors; the store holds the exact diff line
+ * active list and the four item cursors; the store holds the exact diff line
  * selection (see cursor-url.ts for why). Callers never see the split: reads are
  * hooks here, writes are plain calls — the router and the store are both
  * module-level, so moving a cursor needs no dispatch and no hook.
@@ -397,7 +397,7 @@ export const startInlineEdit = (address: InlineEditAddress): void => {
 
 /* ------------------------------------------------------- rewrite handling */
 
-const addressParams = ["applied", "unapplied", "upstream"] as const;
+const addressParams = ["applied", "unapplied"] as const;
 
 /**
  * Rewrite `commit:` params after a commit rewrite. `change:` params need no
