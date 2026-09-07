@@ -129,10 +129,8 @@ fn create_branch_for_anonymous_segment(
         crate::id::LaneId::Stack(_) => but_graph::WorktreeKind::Main,
         crate::id::LaneId::Worktree(name) => but_graph::WorktreeKind::LinkedId(name),
     };
-    let mut meta = ctx.meta()?;
     let (new_ref, _ws) = but_transaction::with_transaction_with_perm(
         ctx,
-        &mut meta,
         perm,
         SnapshotDetails::new(OperationKind::CreateBranch),
         DryRun::No,

@@ -7,14 +7,13 @@ use crate::init::{
 
 #[test]
 fn worktree_segments_are_found_alongside_stack_segments() -> anyhow::Result<()> {
-    let (repo, mut meta, mut db) = read_only_in_memory_scenario("ws/worktree-ref-mid-stack")?;
+    let (repo, mut meta) = read_only_in_memory_scenario("ws/worktree-ref-mid-stack")?;
     add_stack_with_segments(&mut meta, 0, "foo", StackState::InWorkspace, &[]);
-    db.worktree_meta_mut().mark_adopted()?;
+    meta.worktree_meta_mut().mark_adopted()?;
     let ws = Graph::from_head(
         &repo,
-        &*meta,
         default_project_meta(&repo),
-        &mut db,
+        &mut meta.connection_mut(),
         but_graph::init::Options {
             worktrees: true,
             ..standard_options()

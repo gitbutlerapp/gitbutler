@@ -22,12 +22,10 @@ fn feature_push_uses_publication_remote_without_target_upstream() -> anyhow::Res
         project_meta.remote_target_ref(&repo)?.is_none(),
         "main must have no configured target upstream"
     );
-    let meta = but_testsupport::InMemoryRefMetadata::default();
     let mut db = but_testsupport::in_memory_db();
     let (info, workspace) = but_workspace::head_info_and_workspace(
         &repo,
-        &meta,
-        &mut db,
+        &mut db.connection_mut(),
         but_workspace::ref_info::Options {
             project_meta,
             expensive_commit_info: true,

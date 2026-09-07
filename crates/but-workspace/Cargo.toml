@@ -67,7 +67,6 @@ sapling-renderdag.workspace = true
 [dev-dependencies]
 # We just want to test everything, with the goal that 'legacy' can one day go away.
 but-workspace = { workspace = true, features = ["legacy"] }
-but-meta = { workspace = true, features = ["legacy"] }
 but-testsupport.workspace = true
 but-askpass.workspace = true
 # To name the renderdag geometry types (NodeLine/LinkLine) when rendering

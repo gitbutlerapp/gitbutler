@@ -26,13 +26,12 @@ use crate::utils::{fixture_writable, standard_options};
 /// resolved against the repo) and render its [`Editor::graph_workspace`]
 /// projection. All borrows stay local so callers just snapshot the string.
 fn render(fixture: &str, target: Option<&str>) -> Result<String> {
-    let (repo, _tmp, mut meta, mut db) = fixture_writable(fixture)?;
+    let (repo, _tmp, mut meta) = fixture_writable(fixture)?;
 
     let graph = Graph::from_head(
         &repo,
-        &*meta,
         ProjectMeta::default(),
-        &mut db,
+        &mut meta.connection_mut(),
         standard_options(),
     )?
     .validated()?;
@@ -46,7 +45,7 @@ fn render(fixture: &str, target: Option<&str>) -> Result<String> {
             .transpose()?,
         ..Default::default()
     };
-    let editor = Editor::create(&mut ws, &mut *meta, &repo, &mut db)?;
+    let editor = Editor::create(&mut ws, &repo, meta.connection_mut())?;
 
     editor.graph_workspace_ascii()
 }
@@ -76,18 +75,17 @@ fn configure_main_upstream(repo: &mut gix::Repository, tip: &str) -> Result<()> 
 
 #[test]
 fn local_target_ahead_of_upstream_is_not_integrated() -> Result<()> {
-    let (mut repo, _tmp, mut meta, mut db) = fixture_writable("workspace-signed")?;
+    let (mut repo, _tmp, mut meta) = fixture_writable("workspace-signed")?;
     configure_main_upstream(&mut repo, "b")?;
     let mut ws = Graph::from_head(
         &repo,
-        &*meta,
         local_main_target(&repo)?,
-        &mut db,
+        &mut meta.connection_mut(),
         standard_options(),
     )?
     .validated()?
     .into_workspace()?;
-    let editor = Editor::create(&mut ws, &mut *meta, &repo, &mut db)?;
+    let editor = Editor::create(&mut ws, &repo, meta.connection_mut())?;
     let commit = editor.select_commit(repo.rev_parse_single("c")?.detach())?;
     let branch = editor.select_reference("refs/heads/c".try_into()?)?;
     let projection = editor.graph_workspace()?;
@@ -108,7 +106,7 @@ fn local_target_ahead_of_upstream_is_not_integrated() -> Result<()> {
 
 #[test]
 fn diverged_target_distinguishes_local_work_from_landed_work() -> Result<()> {
-    let (repo, _tmp, mut meta, mut db) = fixture_writable("diverged-local-target")?;
+    let (repo, _tmp, mut meta) = fixture_writable("diverged-local-target")?;
     let local_tip = repo.rev_parse_single("main")?.detach();
     let upstream_tip = repo.rev_parse_single("origin/main")?.detach();
     let merge_base = repo
@@ -122,14 +120,13 @@ fn diverged_target_distinguishes_local_work_from_landed_work() -> Result<()> {
     );
     let mut ws = Graph::from_head(
         &repo,
-        &*meta,
         local_main_target(&repo)?,
-        &mut db,
+        &mut meta.connection_mut(),
         standard_options(),
     )?
     .validated()?
     .into_workspace()?;
-    let editor = Editor::create(&mut ws, &mut *meta, &repo, &mut db)?;
+    let editor = Editor::create(&mut ws, &repo, meta.connection_mut())?;
     let local_commit = editor.select_commit(local_tip)?;
     let upstream_commit = editor.select_commit(upstream_tip)?;
     let main = editor.select_reference("refs/heads/main".try_into()?)?;
@@ -164,7 +161,7 @@ fn diverged_target_distinguishes_local_work_from_landed_work() -> Result<()> {
 
 #[test]
 fn upstream_ahead_of_local_target_is_integrated() -> Result<()> {
-    let (mut repo, _tmp, mut meta, mut db) = fixture_writable("workspace-signed")?;
+    let (mut repo, _tmp, mut meta) = fixture_writable("workspace-signed")?;
     configure_main_upstream(&mut repo, "c")?;
     repo.reference(
         "refs/heads/main",
@@ -174,14 +171,13 @@ fn upstream_ahead_of_local_target_is_integrated() -> Result<()> {
     )?;
     let mut ws = Graph::from_head(
         &repo,
-        &*meta,
         local_main_target(&repo)?,
-        &mut db,
+        &mut meta.connection_mut(),
         standard_options(),
     )?
     .validated()?
     .into_workspace()?;
-    let editor = Editor::create(&mut ws, &mut *meta, &repo, &mut db)?;
+    let editor = Editor::create(&mut ws, &repo, meta.connection_mut())?;
     let commit = editor.select_commit(repo.rev_parse_single("c")?.detach())?;
     let branch = editor.select_reference("refs/heads/c".try_into()?)?;
     let projection = editor.graph_workspace()?;
@@ -202,7 +198,7 @@ fn upstream_ahead_of_local_target_is_integrated() -> Result<()> {
 
 #[test]
 fn upstream_tip_is_integrated_without_its_reference_step() -> Result<()> {
-    let (mut repo, _tmp, mut meta, mut db) = fixture_writable("workspace-signed")?;
+    let (mut repo, _tmp, mut meta) = fixture_writable("workspace-signed")?;
     configure_main_upstream(&mut repo, "c")?;
     repo.reference(
         "refs/heads/main",
@@ -212,14 +208,13 @@ fn upstream_tip_is_integrated_without_its_reference_step() -> Result<()> {
     )?;
     let mut ws = Graph::from_head(
         &repo,
-        &*meta,
         local_main_target(&repo)?,
-        &mut db,
+        &mut meta.connection_mut(),
         standard_options(),
     )?
     .validated()?
     .into_workspace()?;
-    let mut editor = Editor::create(&mut ws, &mut *meta, &repo, &mut db)?;
+    let mut editor = Editor::create(&mut ws, &repo, meta.connection_mut())?;
     let upstream = editor.select_reference("refs/remotes/origin/main".try_into()?)?;
     editor.replace_with_none(upstream)?;
     assert!(
@@ -248,16 +243,21 @@ fn upstream_tip_is_integrated_without_its_reference_step() -> Result<()> {
 
 #[test]
 fn local_target_without_upstream_does_not_mark_work_integrated() -> Result<()> {
-    let (repo, _tmp, mut meta, mut db) = fixture_writable("workspace-signed")?;
+    let (repo, _tmp, mut meta) = fixture_writable("workspace-signed")?;
     let project_meta = local_main_target(&repo)?;
     assert!(
         project_meta.remote_target_ref(&repo)?.is_none(),
         "fixture has no upstream"
     );
-    let mut ws = Graph::from_head(&repo, &*meta, project_meta, &mut db, standard_options())?
-        .validated()?
-        .into_workspace()?;
-    let editor = Editor::create(&mut ws, &mut *meta, &repo, &mut db)?;
+    let mut ws = Graph::from_head(
+        &repo,
+        project_meta,
+        &mut meta.connection_mut(),
+        standard_options(),
+    )?
+    .validated()?
+    .into_workspace()?;
+    let editor = Editor::create(&mut ws, &repo, meta.connection_mut())?;
     let branch = editor.select_reference("refs/heads/c".try_into()?)?;
     let projection = editor.graph_workspace()?;
     let commit = editor.select_commit(repo.rev_parse_single("c")?.detach())?;
@@ -278,7 +278,7 @@ fn local_target_without_upstream_does_not_mark_work_integrated() -> Result<()> {
 
 #[test]
 fn pushed_feature_is_local_and_remote_without_a_target_upstream() -> Result<()> {
-    let (mut repo, _tmp, mut meta, mut db) = fixture_writable("workspace-signed")?;
+    let (mut repo, _tmp, mut meta) = fixture_writable("workspace-signed")?;
     let tip = repo.rev_parse_single("c")?.detach();
     repo.reference(
         "refs/remotes/origin/c",
@@ -298,10 +298,15 @@ fn pushed_feature_is_local_and_remote_without_a_target_upstream() -> Result<()> 
         project_meta.remote_target_ref(&repo)?.is_none(),
         "main has no upstream, but c does"
     );
-    let mut ws = Graph::from_head(&repo, &*meta, project_meta, &mut db, standard_options())?
-        .validated()?
-        .into_workspace()?;
-    let editor = Editor::create(&mut ws, &mut *meta, &repo, &mut db)?;
+    let mut ws = Graph::from_head(
+        &repo,
+        project_meta,
+        &mut meta.connection_mut(),
+        standard_options(),
+    )?
+    .validated()?
+    .into_workspace()?;
+    let editor = Editor::create(&mut ws, &repo, meta.connection_mut())?;
     let commit = editor.select_commit(tip)?;
     let branch = editor.select_reference("refs/heads/c".try_into()?)?;
     let projection = editor.graph_workspace()?;
@@ -321,7 +326,7 @@ fn pushed_feature_is_local_and_remote_without_a_target_upstream() -> Result<()> 
 /// so the single stack reaches all the way down to `base`.
 #[test]
 fn single_stack_no_target() -> Result<()> {
-    let (repo, _tmp, _meta, _db) = fixture_writable("workspace-signed")?;
+    let (repo, _tmp, _meta) = fixture_writable("workspace-signed")?;
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
         snapbox::str![[r#"
@@ -390,7 +395,7 @@ fn single_stack_with_target() -> Result<()> {
 /// de-duplication merges them into a single stack.
 #[test]
 fn overlapping_stacks_merge_into_one() -> Result<()> {
-    let (repo, _tmp, _meta, _db) = fixture_writable("workspace-with-empty-stack")?;
+    let (repo, _tmp, _meta) = fixture_writable("workspace-with-empty-stack")?;
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
         snapbox::str![[r#"
@@ -435,7 +440,7 @@ fn overlapping_stacks_merge_into_one() -> Result<()> {
 /// so they collapse into a single stack.
 #[test]
 fn three_stacks_same_base_collapse() -> Result<()> {
-    let (repo, _tmp, _meta, _db) = fixture_writable("workspace-with-three-empty-stacks")?;
+    let (repo, _tmp, _meta) = fixture_writable("workspace-with-three-empty-stacks")?;
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
         snapbox::str![[r#"
@@ -474,7 +479,7 @@ fn three_stacks_same_base_collapse() -> Result<()> {
 /// alone does not separate stacks that branch off a common ref.
 #[test]
 fn divergent_stacks_sharing_base_merge_with_target() -> Result<()> {
-    let (repo, _tmp, _meta, _db) = fixture_writable("workspace-two-stacks")?;
+    let (repo, _tmp, _meta) = fixture_writable("workspace-two-stacks")?;
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
         snapbox::str![[r#"
@@ -546,7 +551,7 @@ fn divergent_stacks_sharing_base_merge() -> Result<()> {
 /// and nothing above the workspace; everything from HEAD lands in one stack.
 #[test]
 fn pegged_no_target() -> Result<()> {
-    let (repo, _tmp, _meta, _db) = fixture_writable("four-commits")?;
+    let (repo, _tmp, _meta) = fixture_writable("four-commits")?;
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
         snapbox::str![[r#"
@@ -606,7 +611,7 @@ fn pegged_with_target() -> Result<()> {
 /// separate, even without a target.
 #[test]
 fn disjoint_stacks_stay_separate() -> Result<()> {
-    let (repo, _tmp, _meta, _db) = fixture_writable("workspace-disjoint-stacks")?;
+    let (repo, _tmp, _meta) = fixture_writable("workspace-disjoint-stacks")?;
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
         snapbox::str![[r#"
@@ -683,7 +688,7 @@ fn disjoint_stacks_stay_separate_with_target() -> Result<()> {
 /// HEAD lands in `above_workspace` and there are no stacks.
 #[test]
 fn workspace_branch_without_managed_commit() -> Result<()> {
-    let (repo, _tmp, _meta, _db) = fixture_writable("workspace-without-managed-commit")?;
+    let (repo, _tmp, _meta) = fixture_writable("workspace-without-managed-commit")?;
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
         snapbox::str![[r#"

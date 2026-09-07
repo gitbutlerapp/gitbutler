@@ -13,7 +13,7 @@ use crate::utils::{fixture_writable, standard_options};
 
 #[test]
 fn by_default_conflicts_are_allowed() -> Result<()> {
-    let (repo, _tmpdir, mut meta, mut db) = fixture_writable("four-commits-one-file")?;
+    let (repo, _tmpdir, mut meta) = fixture_writable("four-commits-one-file")?;
 
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
@@ -28,15 +28,14 @@ fn by_default_conflicts_are_allowed() -> Result<()> {
 
     let graph = Graph::from_head(
         &repo,
-        &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
-        &mut db,
+        &mut meta.connection_mut(),
         standard_options(),
     )?
     .validated()?;
 
     let mut ws = graph.into_workspace()?;
-    let mut editor = Editor::create(&mut ws, &mut *meta, &repo, &mut db)?;
+    let mut editor = Editor::create(&mut ws, &repo, meta.connection_mut())?;
 
     // Replacing b with none will cause c to conflict
     let b = repo.rev_parse_single("b")?;
@@ -49,11 +48,14 @@ fn by_default_conflicts_are_allowed() -> Result<()> {
         &overlayed,
         snapbox::str![[r#"
 
-└── 👉►:0[0]:main[🌳]
-    ├── ·04d1892 (⌂) ►c
-    └── ·5e0ba46 (⌂) ►a, ►b
-        └── ►:1[1]:base
-            └── 🏁·6155f21 (⌂)
+└── 👉►:2[0]:main[🌳]
+    └── ►:0[1]:c
+        └── ·04d1892 (⌂)
+            └── ►:4[2]:b
+                └── ►:3[3]:a
+                    └── ·5e0ba46 (⌂)
+                        └── ►:1[4]:base
+                            └── 🏁·6155f21 (⌂)
 
 "#]]
     );
@@ -66,10 +68,12 @@ fn by_default_conflicts_are_allowed() -> Result<()> {
 └── 👉►:0[0]:main[🌳]
     └── ·45942da (⌂)
         └── ►:1[1]:c
-            ├── ·04d1892 (⌂)
-            └── ·5e0ba46 (⌂) ►a, ►b
-                └── ►:2[2]:base
-                    └── 🏁·6155f21 (⌂)
+            └── ·04d1892 (⌂)
+                └── ►:4[2]:b
+                    └── ►:3[3]:a
+                        └── ·5e0ba46 (⌂)
+                            └── ►:2[4]:base
+                                └── 🏁·6155f21 (⌂)
 
 "#]]
     );
@@ -144,7 +148,7 @@ GitButler-Conflict: This is a GitButler-managed conflicted commit. Files are aut
 #[test]
 fn if_a_commit_has_been_configured_not_to_conflict_but_ends_up_conflicted_an_error_is_raised()
 -> Result<()> {
-    let (repo, _tmpdir, mut meta, mut db) = fixture_writable("four-commits-one-file")?;
+    let (repo, _tmpdir, mut meta) = fixture_writable("four-commits-one-file")?;
 
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
@@ -159,15 +163,14 @@ fn if_a_commit_has_been_configured_not_to_conflict_but_ends_up_conflicted_an_err
 
     let graph = Graph::from_head(
         &repo,
-        &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
-        &mut db,
+        &mut meta.connection_mut(),
         standard_options(),
     )?
     .validated()?;
 
     let mut ws = graph.into_workspace()?;
-    let mut editor = Editor::create(&mut ws, &mut *meta, &repo, &mut db)?;
+    let mut editor = Editor::create(&mut ws, &repo, meta.connection_mut())?;
 
     // Replacing b with none will cause c to conflict
     let b = repo.rev_parse_single("b")?;
@@ -199,7 +202,7 @@ Err(
 #[test]
 fn if_a_commit_has_been_configured_not_to_conflict_and_doesnt_end_up_conflicted_result_is_ok()
 -> Result<()> {
-    let (repo, _tmpdir, mut meta, mut db) = fixture_writable("four-commits-one-file")?;
+    let (repo, _tmpdir, mut meta) = fixture_writable("four-commits-one-file")?;
 
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
@@ -214,15 +217,14 @@ fn if_a_commit_has_been_configured_not_to_conflict_and_doesnt_end_up_conflicted_
 
     let graph = Graph::from_head(
         &repo,
-        &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
-        &mut db,
+        &mut meta.connection_mut(),
         standard_options(),
     )?
     .validated()?;
 
     let mut ws = graph.into_workspace()?;
-    let mut editor = Editor::create(&mut ws, &mut *meta, &repo, &mut db)?;
+    let mut editor = Editor::create(&mut ws, &repo, meta.connection_mut())?;
 
     // Insert an empty commit above b to cause c to get cherry picked with out a conflict
     let b = repo.rev_parse_single("b")?;
@@ -246,15 +248,16 @@ fn if_a_commit_has_been_configured_not_to_conflict_and_doesnt_end_up_conflicted_
         &overlayed,
         snapbox::str![[r#"
 
-└── 👉►:0[0]:main[🌳]
-    └── ·df438f2 (⌂) ►c
-        └── ►:1[1]:b
-            ├── ·0c6475b (⌂)
-            └── ·3b3bd41 (⌂)
-                └── ►:2[2]:a
-                    └── ·5e0ba46 (⌂)
-                        └── ►:3[3]:base
-                            └── 🏁·6155f21 (⌂)
+└── 👉►:4[0]:main[🌳]
+    └── ►:0[1]:c
+        └── ·df438f2 (⌂)
+            └── ►:1[2]:b
+                ├── ·0c6475b (⌂)
+                └── ·3b3bd41 (⌂)
+                    └── ►:2[3]:a
+                        └── ·5e0ba46 (⌂)
+                            └── ►:3[4]:base
+                                └── 🏁·6155f21 (⌂)
 
 "#]]
     );
@@ -279,16 +282,16 @@ fn if_a_commit_has_been_configured_not_to_conflict_and_doesnt_end_up_conflicted_
 
 #[test]
 fn a_padded_tip_stays_until_its_conflict_is_gone() -> Result<()> {
-    let (repo, _tmpdir, mut meta, mut db) = fixture_writable("four-commits-one-file")?;
-    let mut ws = workspace(&repo, &*meta, &mut db)?;
-    let mut editor = Editor::create(&mut ws, &mut *meta, &repo, &mut db)?;
+    let (repo, _tmpdir, mut meta) = fixture_writable("four-commits-one-file")?;
+    let mut ws = workspace(&repo, &mut meta)?;
+    let mut editor = Editor::create(&mut ws, &repo, meta.connection_mut())?;
     let b = editor.select_commit(repo.rev_parse_single("b")?.detach())?;
     editor.replace_with_none(b)?;
     editor.rebase()?.materialize(Default::default())?;
     let padded = repo.rev_parse_single("main")?.detach();
 
-    let mut ws = workspace(&repo, &*meta, &mut db)?;
-    let outcome = Editor::create(&mut ws, &mut *meta, &repo, &mut db)?.rebase()?;
+    let mut ws = workspace(&repo, &mut meta)?;
+    let outcome = Editor::create(&mut ws, &repo, meta.connection_mut())?.rebase()?;
     assert!(
         !outcome.references_updated()?,
         "main already points at the padding commit a checkout of the conflicted c lands on"
@@ -300,8 +303,8 @@ fn a_padded_tip_stays_until_its_conflict_is_gone() -> Result<()> {
         "an edit that changes nothing keeps the padding commit"
     );
 
-    let mut ws = workspace(&repo, &*meta, &mut db)?;
-    let mut editor = Editor::create(&mut ws, &mut *meta, &repo, &mut db)?;
+    let mut ws = workspace(&repo, &mut meta)?;
+    let mut editor = Editor::create(&mut ws, &repo, meta.connection_mut())?;
     let c = editor.select_commit(repo.rev_parse_single("c")?.detach())?;
     editor.replace_with_none(c)?;
     editor.rebase()?.materialize(Default::default())?;
@@ -322,9 +325,9 @@ fn a_padded_tip_stays_until_its_conflict_is_gone() -> Result<()> {
 
 #[test]
 fn without_checkout_a_conflicted_tip_is_padded_too() -> Result<()> {
-    let (repo, _tmpdir, mut meta, mut db) = fixture_writable("four-commits-one-file")?;
-    let mut ws = workspace(&repo, &*meta, &mut db)?;
-    let mut editor = Editor::create(&mut ws, &mut *meta, &repo, &mut db)?;
+    let (repo, _tmpdir, mut meta) = fixture_writable("four-commits-one-file")?;
+    let mut ws = workspace(&repo, &mut meta)?;
+    let mut editor = Editor::create(&mut ws, &repo, meta.connection_mut())?;
     let b = editor.select_commit(repo.rev_parse_single("b")?.detach())?;
     editor.replace_with_none(b)?;
     editor.rebase()?.materialize_without_checkout()?;
@@ -344,16 +347,11 @@ fn without_checkout_a_conflicted_tip_is_padded_too() -> Result<()> {
     Ok(())
 }
 
-fn workspace(
-    repo: &gix::Repository,
-    meta: &impl but_core::RefMetadata,
-    db: &mut but_db::DbHandle,
-) -> Result<but_graph::Workspace> {
+fn workspace(repo: &gix::Repository, meta: &mut but_db::DbHandle) -> Result<but_graph::Workspace> {
     Graph::from_head(
         repo,
-        meta,
         but_core::ref_metadata::ProjectMeta::default(),
-        db,
+        &mut meta.connection_mut(),
         standard_options(),
     )?
     .validated()?

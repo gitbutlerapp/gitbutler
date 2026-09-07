@@ -111,7 +111,7 @@ Hint: run `but branch new` to create a new branch to work on
 
 #[cfg(feature = "legacy")]
 #[test]
-fn migration_from_virtual_branches_toml_with_multiple_tracking_branches() {
+fn status_ignores_legacy_toml_with_multiple_tracking_branches() {
     let env = Sandbox::open_with_default_settings("single-branch-mode");
 
     // projects that were never ported to git config still have their target in
@@ -129,18 +129,6 @@ fn migration_from_virtual_branches_toml_with_multiple_tracking_branches() {
 
     // create a second branch that also tracks origin/main
     env.invoke_git("branch --track main-tracking origin/main");
-
-    env.but("status")
-        .assert()
-        .failure()
-        .stderr_eq(snapbox::str![[r#"
-Error: Multiple local branches track origin/main
-
-Hint: Choose a local target branch with `but config target <branch>`
-
-"#]]);
-
-    env.but("config target main").assert().success();
 
     env.but("status")
         .assert()

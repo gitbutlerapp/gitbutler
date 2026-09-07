@@ -12,10 +12,7 @@ use std::collections::{BTreeMap, HashMap};
 use anyhow::{Context, Result, bail};
 use but_core::ChangeId;
 use but_core::commit::CommitIdentifiers;
-use but_core::{
-    RefMetadata,
-    commit::{SignCommit, padding},
-};
+use but_core::commit::{SignCommit, padding};
 use but_graph::init::Overlay;
 pub use creation::GraphEditorOptions;
 use gix::{
@@ -192,7 +189,7 @@ pub trait ToSelector {
     /// Converts a given object into a selector. Calling `to_selector` on an
     /// object asserts that the reciever was a object that is selectable in the
     /// graph.
-    fn to_selector(&self, editor: &Editor<impl RefMetadata>) -> Result<Selector>;
+    fn to_selector(&self, editor: &Editor<'_, '_, '_>) -> Result<Selector>;
 }
 
 /// Convert a type to a selector, and ensures that it is type commit.
@@ -200,7 +197,7 @@ pub trait ToCommitSelector {
     /// Converts a given object into a selector. Calling `to_commit_selector` on
     /// an object asserts that the reciever has a selectable pick step in the
     /// graph.
-    fn to_commit_selector(&self, editor: &Editor<impl RefMetadata>) -> Result<Selector>;
+    fn to_commit_selector(&self, editor: &Editor<'_, '_, '_>) -> Result<Selector>;
 }
 
 /// Convert a type to a selector, and ensures that it is type reference.
@@ -208,7 +205,7 @@ pub trait ToReferenceSelector {
     /// Converts a given object into a selector. Calling `to_reference_selector` on
     /// an object asserts that the reciever has a selectable reference step in
     /// the graph.
-    fn to_reference_selector(&self, editor: &Editor<impl RefMetadata>) -> Result<Selector>;
+    fn to_reference_selector(&self, editor: &Editor<'_, '_, '_>) -> Result<Selector>;
 }
 
 /// Points to a step in the rebase editor.
@@ -226,7 +223,7 @@ pub struct Selector {
 }
 
 impl ToCommitSelector for Selector {
-    fn to_commit_selector(&self, editor: &Editor<impl RefMetadata>) -> Result<Selector> {
+    fn to_commit_selector(&self, editor: &Editor<'_, '_, '_>) -> Result<Selector> {
         let selector = editor.history.normalize_selector(*self)?;
         let step = &editor.graph[selector.id];
         if !matches!(step, Step::Pick(_)) {
@@ -238,7 +235,7 @@ impl ToCommitSelector for Selector {
 }
 
 impl ToReferenceSelector for Selector {
-    fn to_reference_selector(&self, editor: &Editor<impl RefMetadata>) -> Result<Selector> {
+    fn to_reference_selector(&self, editor: &Editor<'_, '_, '_>) -> Result<Selector> {
         let selector = editor.history.normalize_selector(*self)?;
         let step = &editor.graph[selector.id];
         if !matches!(step, Step::Reference { .. }) {
@@ -250,7 +247,7 @@ impl ToReferenceSelector for Selector {
 }
 
 impl ToSelector for Selector {
-    fn to_selector(&self, _: &Editor<impl RefMetadata>) -> Result<Selector> {
+    fn to_selector(&self, _: &Editor<'_, '_, '_>) -> Result<Selector> {
         Ok(*self)
     }
 }
@@ -286,7 +283,7 @@ pub(crate) enum Checkout {
 
 /// Used to manipulate a set of picks.
 #[derive(Debug)]
-pub struct Editor<'ws, 'meta, M: RefMetadata> {
+pub struct Editor<'ws, 'db, 'conn> {
     /// The internal graph of steps
     graph: StepGraph,
     /// Initial references. This is used to track any references that might need
@@ -300,17 +297,14 @@ pub struct Editor<'ws, 'meta, M: RefMetadata> {
     history: RevisionHistory,
     /// A reference to the workspace that the editor was created for.
     workspace: &'ws mut but_graph::Workspace,
-    /// A reference to the metadata that the editor was created for.
-    meta: &'meta mut M,
     /// A handle to the project database, shared with the resulting
-    /// [`SuccessfulRebase`]. It re-uses the `'meta` lifetime to avoid growing
-    /// the editor's generics.
-    db: &'meta mut but_db::DbHandle,
+    /// [`SuccessfulRebase`] and its materialized outcome.
+    db: but_db::ConnectionMut<'db, 'conn>,
 }
 
 /// Represents a successful rebase, and any valid, but potentially conflicting scenarios it had.
 #[derive(Debug)]
-pub struct SuccessfulRebase<'ws, 'meta, M: RefMetadata> {
+pub struct SuccessfulRebase<'ws, 'db, 'conn> {
     pub(crate) repo: gix::Repository,
     pub(crate) initial_references: Vec<gix::refs::FullName>,
     /// Any reference edits that need to be committed as a result of the history
@@ -323,14 +317,12 @@ pub struct SuccessfulRebase<'ws, 'meta, M: RefMetadata> {
     pub history: RevisionHistory,
     /// A reference to the workspace that the editor was created for.
     workspace: &'ws mut but_graph::Workspace,
-    /// A reference to the metadata that the editor was created for.
-    meta: &'meta mut M,
     /// The database handle inherited from the [`Editor`], so [`Self::into_editor`]
     /// can hand it back.
-    db: &'meta mut but_db::DbHandle,
+    db: but_db::ConnectionMut<'db, 'conn>,
 }
 
-impl<'ws, 'meta, M: RefMetadata> SuccessfulRebase<'ws, 'meta, M> {
+impl<'ws, 'db, 'conn> SuccessfulRebase<'ws, 'db, 'conn> {
     /// Returns the in-memory repository that backs this rebase preview.
     ///
     /// This repository may contain objects that have not been persisted yet,
@@ -339,23 +331,16 @@ impl<'ws, 'meta, M: RefMetadata> SuccessfulRebase<'ws, 'meta, M> {
         &self.repo
     }
 
-    /// Returns the preview repository together with mutable access to the
-    /// ref-metadata the editor was created with.
-    ///
-    /// Use this to build post-rebase projections that need both, like a
-    /// workspace preview computed from [`Self::overlayed_graph`].
-    pub fn repo_and_meta_mut(&mut self) -> (&gix::Repository, &mut M) {
-        (&self.repo, self.meta)
+    /// Returns a read-only view of the database used by this rebase.
+    pub fn db(&self) -> &but_db::ConnectionMut<'db, 'conn> {
+        &self.db
     }
 
-    /// Returns the database handle the editor was created with.
-    pub fn db(&self) -> &but_db::DbHandle {
-        self.db
-    }
-
-    /// Like [`Self::repo_and_meta_mut`], but also returns the database handle.
-    pub fn repo_meta_and_db_mut(&mut self) -> (&gix::Repository, &mut M, &mut but_db::DbHandle) {
-        (&self.repo, self.meta, self.db)
+    /// Returns the preview repository together with the database used by this rebase.
+    pub fn repo_and_db_mut(
+        &mut self,
+    ) -> (&gix::Repository, &mut but_db::ConnectionMut<'db, 'conn>) {
+        (&self.repo, &mut self.db)
     }
 
     /// The project metadata the workspace is projected from, both by
@@ -566,36 +551,38 @@ impl<'ws, 'meta, M: RefMetadata> SuccessfulRebase<'ws, 'meta, M> {
                 (id, Some(ref_name))
             });
         let branch_stacks = self.branch_stacks()?;
-        let workspace_metadata = branch_stacks.workspace_metadata(&*self.meta)?;
+        let meta = self.db.meta()?;
+        let workspace_metadata = branch_stacks.workspace_metadata(&meta)?;
         let branch_metadata = workspace_metadata
             .iter()
             .flat_map(|workspace| &workspace.stacks)
             .flat_map(|stack| &stack.branches)
             .map(|branch| {
-                let metadata = self.meta.branch(branch.ref_name.as_ref())?;
-                Ok((branch.ref_name.clone(), (*metadata).clone()))
+                let metadata = meta
+                    .branch(branch.ref_name.as_ref())
+                    .cloned()
+                    .unwrap_or_default();
+                (branch.ref_name.clone(), metadata)
             })
-            .collect::<Result<Vec<_>>>()?;
+            .collect::<Vec<_>>();
+        let workspace_ref: gix::refs::FullName = but_core::WORKSPACE_REF_NAME.try_into()?;
         let mut overlay = Overlay::default()
             .with_references(updated_refs)
             .with_dropped_references(dropped_refs)
             .with_entrypoint(entrypoint_id, entrypoint_refname)
             .with_branch_metadata_override(branch_metadata)
             .with_workspace_metadata_override(
-                workspace_metadata
-                    .map(|workspace| (workspace.as_ref().to_owned(), (*workspace).clone())),
+                workspace_metadata.map(|workspace| (workspace_ref, workspace)),
             );
         if let Some(branch_stack_order) = branch_stack_order {
             overlay = overlay.with_branch_stack_order_override(branch_stack_order.iter().cloned());
         }
-        if self.meta.can_persist_branch_stack_order() {
-            for stack in branch_stacks.ad_hoc {
-                overlay = overlay.with_branch_stack_order_override(stack);
-            }
+        for stack in branch_stacks.ad_hoc {
+            overlay = overlay.with_branch_stack_order_override(stack);
         }
         let mut graph = self.workspace.graph.clone();
         graph.worktree_tips = self.worktree_tips_after_rebase()?;
-        graph.redo_traversal_with_overlay(&self.repo, self.meta, overlay)
+        graph.redo_traversal_with_overlay(&self.repo, &self.db.meta()?, overlay)
     }
 
     /// Resolve `selector` to the identifiers of its commit pick including the change id.
@@ -665,16 +652,14 @@ impl PaddedTip {
 
 /// The outcome of a materialize
 #[derive(Debug)]
-pub struct MaterializeOutcome<'ws, 'meta, M: RefMetadata> {
+pub struct MaterializeOutcome<'ws, 'db, 'conn> {
     pub(crate) graph: StepGraph,
     /// Provides data about how the editor instance was transformed.
     pub history: RevisionHistory,
     /// A reference to the workspace that the editor was created for.
     pub workspace: &'ws mut but_graph::Workspace,
-    /// A reference to the metadata that the editor was created for.
-    pub meta: &'meta mut M,
     /// The database handle the editor was created with.
-    pub db: &'meta mut but_db::DbHandle,
+    pub db: but_db::ConnectionMut<'db, 'conn>,
     /// True if a conflict occurred during checkout. This is always false if
     /// `allow_uncommitted_changes_to_conflict_with_new_head` in the options
     /// struct passed to the materialize call is false.
@@ -703,19 +688,19 @@ pub trait LookupStep {
     }
 }
 
-impl<M: RefMetadata> LookupStep for Editor<'_, '_, M> {
+impl LookupStep for Editor<'_, '_, '_> {
     fn lookup_step(&self, selector: Selector) -> Result<Step> {
         lookup_step(&self.graph, &self.history, selector)
     }
 }
 
-impl<M: RefMetadata> LookupStep for SuccessfulRebase<'_, '_, M> {
+impl LookupStep for SuccessfulRebase<'_, '_, '_> {
     fn lookup_step(&self, selector: Selector) -> Result<Step> {
         lookup_step(&self.graph, &self.history, selector)
     }
 }
 
-impl<M: RefMetadata> LookupStep for MaterializeOutcome<'_, '_, M> {
+impl LookupStep for MaterializeOutcome<'_, '_, '_> {
     fn lookup_step(&self, selector: Selector) -> Result<Step> {
         lookup_step(&self.graph, &self.history, selector)
     }
@@ -740,7 +725,7 @@ pub struct RevisionHistory {
     pub conflicted_commits: Vec<(gix::ObjectId, ChangeId)>,
 }
 
-impl<'ws, 'meta, M: RefMetadata> Editor<'ws, 'meta, M> {
+impl<'ws, 'db, 'conn> Editor<'ws, 'db, 'conn> {
     pub(crate) fn new_selector(&self, id: StepGraphIndex) -> Selector {
         Selector {
             id,

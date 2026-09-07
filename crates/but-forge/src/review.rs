@@ -524,12 +524,12 @@ pub fn list_forge_reviews_with_cache(
     let reviews = match cache_config {
         // The cache also retains settled reviews for the branch association;
         // the listing serves only the open ones, matching a fresh sync.
-        CacheConfig::CacheOnly => crate::list_cached_forge_reviews(db)?
+        CacheConfig::CacheOnly => crate::list_cached_forge_reviews(db.connection())?
             .into_iter()
             .filter(ForgeReview::is_open)
             .collect(),
         CacheConfig::CacheWithFallback { max_age_seconds } => {
-            let cached = crate::db::reviews_from_cache(db)?;
+            let cached = crate::db::reviews_from_cache(db.connection())?;
             if let Some(reviews) =
                 cached.fresh_rows(max_age_seconds, chrono::Local::now().naive_local())
             {
@@ -538,10 +538,11 @@ pub fn list_forge_reviews_with_cache(
             match sync_listed_reviews(preferred_forge_user, forge_repo_info, storage, db) {
                 Ok(reviews) => reviews,
                 Err(err) => {
-                    let cached_open: Vec<ForgeReview> = crate::list_cached_forge_reviews(db)?
-                        .into_iter()
-                        .filter(ForgeReview::is_open)
-                        .collect();
+                    let cached_open: Vec<ForgeReview> =
+                        crate::list_cached_forge_reviews(db.connection())?
+                            .into_iter()
+                            .filter(ForgeReview::is_open)
+                            .collect();
                     if serves_stale_reviews(&err, !cached_open.is_empty()) {
                         cached_open
                     } else {
@@ -3776,6 +3777,49 @@ mod tests {
         assert!(
             open_review_vanished(&[(1, false), (3, false)], &listing),
             "an open row missing from the listing is about to be deleted, so its fate must be swept first"
+        );
+    }
+
+    #[test]
+    fn missing_credentials_do_not_turn_a_stale_cache_into_an_empty_listing() {
+        let tmp = tempfile::tempdir().unwrap();
+        let mut db = but_db::DbHandle::new_in_directory(tmp.path()).unwrap();
+        // No accounts are stored, so client construction fails before any
+        // network request — the listing must not pretend the forge is empty.
+        let storage = but_forge_storage::Controller::from_path(tmp.path());
+        // `cached_review` stamps `last_sync_at` at the epoch, well past the
+        // fallback window, so the cached read attempts a live refresh.
+        db.forge_reviews_mut()
+            .unwrap()
+            .set_all(vec![cached_review(1, None, None).try_into().unwrap()])
+            .unwrap();
+
+        let reviews = list_forge_reviews_with_cache(
+            None,
+            &repo_info("owner", "repo"),
+            &storage,
+            &mut db,
+            Some(CacheConfig::CacheWithFallback {
+                max_age_seconds: 300,
+            }),
+        )
+        .unwrap();
+
+        let listed: Vec<i64> = reviews.iter().map(|review| review.number).collect();
+        assert_eq!(
+            listed,
+            vec![1],
+            "a failed credential lookup must serve the last known open reviews"
+        );
+        let persisted: Vec<i64> = crate::list_cached_forge_reviews(db.connection())
+            .unwrap()
+            .iter()
+            .map(|review| review.number)
+            .collect();
+        assert_eq!(
+            persisted,
+            vec![1],
+            "a failed credential lookup must not delete the last known open reviews"
         );
     }
 

@@ -4,7 +4,7 @@ use std::collections::HashSet;
 
 use anyhow::Result;
 use but_core::{
-    RefMetadata, WORKSPACE_REF_NAME,
+    WORKSPACE_REF_NAME,
     ref_metadata::{
         StackId, StackKind, Workspace, WorkspaceCommitRelation, WorkspaceStack,
         WorkspaceStackBranch,
@@ -44,15 +44,15 @@ impl BranchStacks {
     ///
     /// A stack keeps the id and the position of the stack that held its lowest known branch
     /// before, and stacks that are new to the metadata follow in parent order.
-    pub(crate) fn workspace_metadata<M: RefMetadata>(
-        &self,
-        meta: &M,
-    ) -> Result<Option<M::Handle<Workspace>>> {
+    pub(crate) fn workspace_metadata(&self, meta: &but_db::Metadata) -> Result<Option<Workspace>> {
         let Some(stacks) = &self.workspace else {
             return Ok(None);
         };
         let workspace_ref: FullName = WORKSPACE_REF_NAME.try_into()?;
-        let mut workspace = meta.workspace(workspace_ref.as_ref())?;
+        let mut workspace = meta
+            .workspace(workspace_ref.as_ref())
+            .cloned()
+            .unwrap_or_default();
         let mut kept_ids = HashSet::new();
         workspace.stacks = stacks
             .iter()
@@ -83,25 +83,26 @@ impl BranchStacks {
     }
 
     /// Make `meta` describe these stacks, returning whether that changed anything.
-    pub(crate) fn persist<M: RefMetadata>(&self, meta: &mut M) -> Result<bool> {
+    pub(crate) fn persist(&self, db: &mut but_db::ConnectionMut<'_, '_>) -> Result<bool> {
+        let meta = db.meta()?;
         let mut changed = false;
-        if let Some(workspace) = self.workspace_metadata(meta)?
-            && *meta.workspace(workspace.as_ref())? != *workspace
-        {
-            meta.set_workspace(&workspace)?;
-            changed = true;
+        if let Some(workspace) = self.workspace_metadata(&meta)? {
+            let workspace_ref: FullName = WORKSPACE_REF_NAME.try_into()?;
+            if meta.workspace(workspace_ref.as_ref()) != Some(&workspace) {
+                db.meta_mut()?
+                    .set_workspace(workspace_ref.as_ref(), &workspace)?;
+                changed = true;
+            }
         }
-        if meta.can_persist_branch_stack_order() {
-            for stack in &self.ad_hoc {
-                let Some(tip) = stack.first() else { continue };
-                if meta.branch_stack_order(tip.as_ref())?.as_ref() != Some(stack) {
-                    meta.set_branch_stack_order(stack)?;
-                    changed = true;
-                }
+        for stack in &self.ad_hoc {
+            let Some(tip) = stack.first() else { continue };
+            if meta.branch_stack_order(tip.as_ref()) != Some(stack.as_slice()) {
+                db.meta_mut()?.set_branch_stack_order(stack)?;
+                changed = true;
             }
         }
         for branch in &self.removed_references {
-            meta.remove(branch.as_ref())?;
+            db.meta_mut()?.remove(branch.as_ref())?;
         }
         Ok(changed)
     }
@@ -135,7 +136,7 @@ fn find_reference(graph: &StepGraph, name: &gix::refs::FullNameRef) -> Option<St
     )
 }
 
-impl<M: RefMetadata> SuccessfulRebase<'_, '_, M> {
+impl SuccessfulRebase<'_, '_, '_> {
     /// The stacks of local branches this rewrite results in.
     pub fn branch_stacks(&self) -> Result<BranchStacks> {
         let graph = &self.graph;
@@ -202,7 +203,12 @@ impl<M: RefMetadata> SuccessfulRebase<'_, '_, M> {
 
         let checked_out_in_worktrees: HashSet<_> = worktrees.iter().copied().collect();
         let workspace_ref: FullName = WORKSPACE_REF_NAME.try_into()?;
-        let workspace_metadata = self.meta.workspace(workspace_ref.as_ref())?;
+        let workspace_metadata = self
+            .db
+            .meta()?
+            .workspace(workspace_ref.as_ref())
+            .cloned()
+            .unwrap_or_default();
         let upstream: HashSet<_> = project_meta
             .remote_target_ref(&self.repo)?
             .as_ref()

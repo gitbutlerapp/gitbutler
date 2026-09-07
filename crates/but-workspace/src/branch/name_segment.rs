@@ -1,4 +1,3 @@
-use but_core::RefMetadata;
 use but_graph::WorktreeKind;
 use but_rebase::graph_rebase::{Editor, LookupStep, Pick, Selector, Step, SuccessfulRebase};
 
@@ -14,12 +13,12 @@ use crate::branch::{
 /// [`create_reference()`] would.
 ///
 /// Fail if `ref_name` is already taken.
-pub fn name_segment<'ws, 'meta, M: RefMetadata>(
-    mut editor: Editor<'ws, 'meta, M>,
+pub fn name_segment<'ws, 'db, 'conn>(
+    mut editor: Editor<'ws, 'db, 'conn>,
     checkout: &WorktreeKind,
     top: gix::ObjectId,
     ref_name: &gix::refs::FullNameRef,
-) -> anyhow::Result<SuccessfulRebase<'ws, 'meta, M>> {
+) -> anyhow::Result<SuccessfulRebase<'ws, 'db, 'conn>> {
     ensure_name_is_available(&editor, ref_name)?;
     let Some(head) =
         checkout_head(&editor, checkout).filter(|head| is_pick_of(&editor, *head, top))
@@ -35,20 +34,13 @@ pub fn name_segment<'ws, 'meta, M: RefMetadata>(
     editor.rebase()
 }
 
-fn checkout_head<M: RefMetadata>(
-    editor: &Editor<'_, '_, M>,
-    checkout: &WorktreeKind,
-) -> Option<Selector> {
+fn checkout_head(editor: &Editor<'_, '_, '_>, checkout: &WorktreeKind) -> Option<Selector> {
     match checkout {
         WorktreeKind::Main => editor.head(),
         WorktreeKind::LinkedId(name) => editor.worktree_head(name.as_ref()),
     }
 }
 
-fn is_pick_of<M: RefMetadata>(
-    editor: &Editor<'_, '_, M>,
-    head: Selector,
-    top: gix::ObjectId,
-) -> bool {
+fn is_pick_of(editor: &Editor<'_, '_, '_>, head: Selector, top: gix::ObjectId) -> bool {
     matches!(editor.lookup_step(head), Ok(Step::Pick(Pick { id, .. })) if id == top)
 }

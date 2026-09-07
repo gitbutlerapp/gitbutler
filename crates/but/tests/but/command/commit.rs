@@ -129,6 +129,9 @@ Hint: run `but help` for all commands
 #[test]
 fn commits_on_the_checked_out_branch_in_single_branch_mode() {
     let env = Sandbox::open_with_default_settings("one-fork");
+    // Keep the branch under test distinct from the inferred local main target.
+    env.invoke_git("checkout -b feature");
+    env.invoke_git("branch -f main origin/main");
     let old_head = env.invoke_git("rev-parse HEAD");
     env.file("existing.txt", "content\n");
 
@@ -140,11 +143,11 @@ fn commits_on_the_checked_out_branch_in_single_branch_mode() {
 ╭┄ @ [uncommitted]
 ┊   pr A existing.txt
 ┊
-┊╭┄ ma [main] [HEAD]
+┊╭┄ at [feature] [HEAD]
 ┊●   nmy M (no changes)
 ├╯
 ┊
-┴ e31e6ca (common base, origin/main) 2000-01-02 add init
+┴ e31e6ca (common base, main, origin/main) 2000-01-02 add init
 
 Hint: run `but diff` to see uncommitted changes and `but commit -b <branch> -m "message" <id>` to commit them
 
@@ -155,7 +158,7 @@ Hint: run `but diff` to see uncommitted changes and `but commit -b <branch> -m "
         .success()
         .stderr_eq(snapbox::str![])
         .stdout_eq(snapbox::str![[r#"
-Created commit woz on branch 'main'
+Created commit woz on branch 'feature'
 
 "#]]);
 
@@ -166,12 +169,12 @@ Created commit woz on branch 'main'
         .stdout_eq(snapbox::str![[r#"
 ╭┄ @ [uncommitted] (no changes)
 ┊
-┊╭┄ ma [main] [HEAD]
+┊╭┄ at [feature] [HEAD]
 ┊●   woz commit on main
 ┊●   nmy M (no changes)
 ├╯
 ┊
-┴ e31e6ca (common base, origin/main) 2000-01-02 add init
+┴ e31e6ca (common base, main, origin/main) 2000-01-02 add init
 
 Hint: run `but help` for all commands
 
@@ -179,7 +182,7 @@ Hint: run `but help` for all commands
 
     assert_eq!(
         env.invoke_git("symbolic-ref --short HEAD"),
-        "main",
+        "feature",
         "committing to the checked-out branch should keep it checked out"
     );
     assert_eq!(
@@ -200,12 +203,19 @@ Hint: run `but help` for all commands
 #[test]
 fn commits_at_each_branch_in_an_existing_single_branch_stack() {
     let env = Sandbox::open_with_default_settings("one-fork");
+    // Keep the branch under test distinct from the inferred local main target.
+    env.invoke_git("checkout -b feature");
+    env.invoke_git("branch -f main origin/main");
 
-    env.but("branch new middle").assert().success();
+    env.but("branch new middle --above feature")
+        .assert()
+        .success();
+    env.invoke_git("checkout middle");
     env.but("commit --empty -b middle -m 'middle base'")
         .assert()
         .success();
     env.but("branch new top --above middle").assert().success();
+    env.invoke_git("checkout top");
     env.but("commit --empty -b top -m 'top base'")
         .assert()
         .success();
@@ -225,17 +235,17 @@ fn commits_at_each_branch_in_an_existing_single_branch_stack() {
 ┊├┄ mi [middle]
 ┊●   lsm middle base (no changes)
 ┊│
-┊├┄ ma [main]
+┊├┄ at [feature]
 ┊●   nmy M (no changes)
 ├╯
 ┊
-┴ e31e6ca (common base, origin/main) 2000-01-02 add init
+┴ e31e6ca (common base, main, origin/main) 2000-01-02 add init
 
 Hint: run `but diff` to see uncommitted changes and `but commit -b <branch> -m "message" <id>` to commit them
 
 "#]]);
 
-    env.but("commit -b main -m 'bottom position'")
+    env.but("commit -b feature -m 'bottom position'")
         .assert()
         .success();
     env.file("middle.txt", "middle\n");
@@ -262,12 +272,12 @@ Hint: run `but diff` to see uncommitted changes and `but commit -b <branch> -m "
 ┊●   swr middle position
 ┊●   lsm middle base (no changes)
 ┊│
-┊├┄ ma [main]
+┊├┄ at [feature]
 ┊●   rtw bottom position
 ┊●   nmy M (no changes)
 ├╯
 ┊
-┴ e31e6ca (common base, origin/main) 2000-01-02 add init
+┴ e31e6ca (common base, main, origin/main) 2000-01-02 add init
 
 Hint: run `but help` for all commands
 
@@ -279,7 +289,7 @@ Hint: run `but help` for all commands
         "commits should remain ordered at the bottom, middle, and top branch positions"
     );
     assert_eq!(
-        env.invoke_git("show -s --format=%s main"),
+        env.invoke_git("show -s --format=%s feature"),
         "bottom position"
     );
     assert_eq!(
@@ -1204,6 +1214,7 @@ fn failed_commit_switch_restores_ad_hoc_stack_refs() {
         .success();
     env.but("commit --empty -m middle").assert().success();
     env.but("branch new top --above middle").assert().success();
+    env.invoke_git("checkout top");
     env.file("first.txt", "original\n");
     env.but("commit -m 'add first'").assert().success();
     env.file("first.txt", "modified\n");

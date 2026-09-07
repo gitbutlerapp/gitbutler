@@ -80,10 +80,7 @@ impl<'a> Anchor<'a> {
 
 pub(super) mod function {
     use anyhow::Context as _;
-    use but_core::{
-        RefMetadata,
-        branch::{find_unique_refname_excluding, refuse_colliding_refname},
-    };
+    use but_core::branch::{find_unique_refname_excluding, refuse_colliding_refname};
     use but_error::bail_precondition;
     use but_rebase::graph_rebase::{
         Editor, LookupStep, Selector, Step, SuccessfulRebase, mutate::InsertSide,
@@ -107,12 +104,12 @@ pub(super) mod function {
     /// created if `HEAD` is on the workspace reference without one.
     ///
     /// Fail if `ref_name` is already taken, in the repository or in the editor.
-    pub fn create_reference<'ws, 'meta, 'anchor, M: RefMetadata>(
-        editor: Editor<'ws, 'meta, M>,
+    pub fn create_reference<'ws, 'db, 'conn, 'anchor>(
+        editor: Editor<'ws, 'db, 'conn>,
         ref_name: &gix::refs::FullNameRef,
         anchor: impl Into<Option<Anchor<'anchor>>>,
         order: impl Into<Option<usize>>,
-    ) -> anyhow::Result<SuccessfulRebase<'ws, 'meta, M>> {
+    ) -> anyhow::Result<SuccessfulRebase<'ws, 'db, 'conn>> {
         ensure_name_is_available(&editor, ref_name)?;
         if editor.repo().head()?.is_unborn() {
             bail_precondition!("Cannot create reference on unborn branch");
@@ -149,8 +146,8 @@ pub(super) mod function {
         editor.rebase()
     }
 
-    pub(in crate::branch) fn ensure_name_is_available<M: RefMetadata>(
-        editor: &Editor<'_, '_, M>,
+    pub(in crate::branch) fn ensure_name_is_available(
+        editor: &Editor<'_, '_, '_>,
         ref_name: &gix::refs::FullNameRef,
     ) -> anyhow::Result<()> {
         let available = find_unique_refname_excluding(editor.repo(), ref_name, |name| {
@@ -162,8 +159,8 @@ pub(super) mod function {
         refuse_colliding_refname(editor.repo(), ref_name, None)
     }
 
-    fn placement<M: RefMetadata>(
-        editor: &Editor<'_, '_, M>,
+    fn placement(
+        editor: &Editor<'_, '_, '_>,
         workspace: &but_graph::Workspace,
         anchor: Option<Anchor<'_>>,
     ) -> anyhow::Result<Placement> {
@@ -230,8 +227,8 @@ pub(super) mod function {
         Ok(placement)
     }
 
-    fn select_anchor<M: RefMetadata>(
-        editor: &Editor<'_, '_, M>,
+    fn select_anchor(
+        editor: &Editor<'_, '_, '_>,
         anchor: &gix::refs::FullNameRef,
     ) -> anyhow::Result<Selector> {
         match editor.try_select_reference(anchor) {
@@ -243,8 +240,8 @@ pub(super) mod function {
         }
     }
 
-    fn ensure_commit_below<M: RefMetadata>(
-        editor: &Editor<'_, '_, M>,
+    fn ensure_commit_below(
+        editor: &Editor<'_, '_, '_>,
         target: Selector,
         side: InsertSide,
     ) -> anyhow::Result<()> {
