@@ -16,6 +16,7 @@ import {
 	type QueryArgFrom,
 	type ResultTypeFrom,
 	type StartQueryActionCreatorOptions,
+	type SubscriptionOptions,
 } from "@reduxjs/toolkit/query";
 import { createSubscriber } from "svelte/reactivity";
 import type {
@@ -23,8 +24,8 @@ import type {
 	Transformer,
 	CustomResult,
 	ExtensionDefinitions,
-	QueryExtensions,
 	ReactiveQuery,
+	SubscribedQuery,
 } from "$lib/state/butlerModule";
 import type { HookContext } from "$lib/state/context";
 import type { Prettify } from "@gitbutler/shared/utils/typeUtils";
@@ -96,25 +97,34 @@ export function buildQueryHooks<Definitions extends ExtensionDefinitions>({
 	function useQuery<T extends TransformerFn>(
 		queryArg: unknown,
 		options?: { transform?: T } & StartQueryActionCreatorOptions,
-	): ReactiveQuery<T extends Transformer<ReturnType<T>> ? ReturnType<T> : T, QueryExtensions> {
+	): SubscribedQuery<T extends Transformer<ReturnType<T>> ? ReturnType<T> : T> {
 		// const startTime = Date.now();
 		const dispatch = getDispatch();
 		let query: QueryActionCreatorResult<any> | undefined;
+		// Kept current by `updateSubscriptionOptions`, so a later resubscribe
+		// starts from the latest options rather than the ones passed at creation.
+		let subscriptionOptions = options?.subscriptionOptions;
 		const subscribe = createSubscriber(() => {
 			query = dispatch(
 				initiate(queryArg, {
 					subscribe: options?.subscribe,
-					subscriptionOptions: options?.subscriptionOptions,
+					subscriptionOptions,
 					forceRefetch: options?.forceRefetch,
 				}),
 			);
 			return () => {
 				query?.unsubscribe();
+				query = undefined;
 			};
 		});
 
 		async function refetch() {
 			await query?.refetch();
+		}
+
+		function updateSubscriptionOptions(update: SubscriptionOptions) {
+			subscriptionOptions = { ...subscriptionOptions, ...update };
+			query?.updateSubscriptionOptions(subscriptionOptions);
 		}
 
 		const selector = $derived(select(queryArg));
@@ -155,6 +165,7 @@ export function buildQueryHooks<Definitions extends ExtensionDefinitions>({
 				subscribe();
 				return output.data;
 			},
+			updateSubscriptionOptions,
 		};
 	}
 

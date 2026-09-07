@@ -70,11 +70,11 @@
 	});
 	const pollingInterval = $derived(backoff.pollingInterval);
 
-	const checksQuery = $derived(
-		enabled
-			? checksService?.get(projectId, branchName, { subscriptionOptions: { pollingInterval } })
-			: undefined,
-	);
+	const checksQuery = $derived(enabled ? checksService?.get(projectId, branchName) : undefined);
+	// In place rather than by re-creating the query: see `SubscribedQuery`.
+	$effect(() => {
+		checksQuery?.updateSubscriptionOptions({ pollingInterval });
+	});
 
 	const loading = $derived(checksQuery?.result.isLoading);
 

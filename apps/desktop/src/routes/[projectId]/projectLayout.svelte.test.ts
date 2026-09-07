@@ -320,11 +320,13 @@ describe("project review-list polling", () => {
 		});
 		const intervals: Array<[string, number | undefined]> = [];
 		const listingService = {
-			list(projectId: string, pollingInterval?: number) {
-				intervals.push([projectId, pollingInterval]);
+			list(projectId: string) {
 				return {
 					get result() {
 						return result;
+					},
+					updateSubscriptionOptions({ pollingInterval }: { pollingInterval?: number }) {
+						intervals.push([projectId, pollingInterval]);
 					},
 				} as never;
 			},
