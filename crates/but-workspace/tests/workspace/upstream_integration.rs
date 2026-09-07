@@ -1335,7 +1335,7 @@ fn fully_integrated_single_branch_with_stale_target_parent_reparents_workspace_c
         }],
     )?;
 
-    // This is the `but land` reconcile shape: the workspace commit merges the landed stack and
+    // This is the `but merge` reconcile shape: the workspace commit merges the landed stack and
     // the stale target directly (an unnamed empty lane at the base). Removing the integrated
     // stack must not leave the workspace commit parented on the stale base — that would
     // materialize the old target's tree over the worktree.

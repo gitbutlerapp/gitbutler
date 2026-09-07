@@ -1,6 +1,6 @@
 //! Deciding the merge topology and building the commit that lands on the target.
 //!
-//! Lifted from the `but land` CLI command. This is pure `gix`/topology logic with no
+//! Lifted from the `but merge` CLI command. This is pure `gix`/topology logic with no
 //! workspace, stack, or `Context` dependency — it takes a repository and two refs.
 
 use anyhow::bail;
@@ -50,7 +50,7 @@ pub(super) fn decide_land_outcome(
     // No common ancestor: refuse rather than merge two unrelated histories onto the target.
     let Some(merge_base) = super::merge_base_opt(repo, feature_oid, target_oid)? else {
         bail!(
-            "Cannot land {branch_name}: it shares no history with {fetch_remote_name}/{target_branch_name}"
+            "Cannot merge {branch_name}: it shares no history with {fetch_remote_name}/{target_branch_name}"
         );
     };
 
@@ -100,9 +100,9 @@ pub(super) fn decide_land_outcome(
             format!(" Conflicting paths: {}.", paths.join(", "))
         };
         bail!(
-            "Cannot land {branch_name}: merging into {fetch_remote_name}/{target_branch_name} \
+            "Cannot merge {branch_name}: merging into {fetch_remote_name}/{target_branch_name} \
              resulted in conflicts.{detail} Rebase {branch_name} onto the target and resolve, then \
-             re-run `but land {branch_name}`."
+             re-run `but merge {branch_name}`."
         );
     }
     let merged_tree = merge.tree.write()?.detach();

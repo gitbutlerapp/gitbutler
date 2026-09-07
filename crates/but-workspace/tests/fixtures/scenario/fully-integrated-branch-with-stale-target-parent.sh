@@ -8,7 +8,7 @@ source "${BASH_SOURCE[0]%/*}/shared.sh"
 
 # A stack A sits on the old target commit M, and the workspace commit merges
 # both A and the old target directly (an unnamed empty lane at the base). The
-# target ref has advanced to contain A, exactly like right after `but land`
+# target ref has advanced to contain A, exactly like right after `but merge`
 # fast-forwarded it. Integrating must reparent the workspace commit onto the
 # advanced target instead of leaving it on the stale base.
 git init

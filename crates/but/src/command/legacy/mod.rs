@@ -16,7 +16,7 @@ pub(crate) mod conflict_notice;
 pub mod diff;
 pub mod discard;
 pub mod forge;
-pub mod land;
+pub mod merge;
 pub mod r#move;
 pub mod open;
 pub mod oplog;
