@@ -1,17 +1,11 @@
 use std::{ops::Deref, path::PathBuf, str::FromStr};
 
-use but_core::{
-    RefMetadata,
-    ref_metadata::{
-        StackId, ValueInfo,
-        WorkspaceCommitRelation::{Merged, Outside},
-        WorkspaceStack, WorkspaceStackBranch,
-    },
+use but_core::ref_metadata::{
+    StackId,
+    WorkspaceCommitRelation::{Merged, Outside},
+    WorkspaceStack, WorkspaceStackBranch,
 };
-use but_meta::{
-    BranchOrderMetadata, VirtualBranchesTomlMetadata,
-    virtual_branches_legacy_types::{Stack as LegacyStack, StackBranch},
-};
+use but_meta::virtual_branches_legacy_types::{Stack as LegacyStack, StackBranch};
 use but_testsupport::{
     debug_str,
     gix_testtools::tempfile::{TempDir, tempdir},
@@ -21,61 +15,17 @@ use snapbox::prelude::*;
 
 #[test]
 fn journey() -> anyhow::Result<()> {
-    let (mut store, _tmp) = vb_store_rw("virtual-branches-01")?;
-
-    assert_eq!(store.iter().count(), 15, "There are items to test on");
-    roundtrip_journey(&mut store)?;
-    let writable_toml_path = store.path().to_owned();
-    drop(store);
-    // The file exists, but is empty and valid. This is handled correctly by code
-    // that cares about the file.
-    snapbox::assert_data_eq!(
-        std::fs::read_to_string(&writable_toml_path)?,
-        snapbox::str![[r#"
-[branches]
-
-"#]]
-    );
-
-    let store = VirtualBranchesTomlMetadata::from_path(&writable_toml_path)?;
-    assert_eq!(
-        store.iter().count(),
-        0,
-        "on drop we write the file immediately"
-    );
-    drop(store);
+    let (mut db, tmp) = vb_store_rw("virtual-branches-01")?;
+    roundtrip_journey(&mut db)?;
+    drop(db);
+    let db = but_db::DbHandle::new_in_directory(tmp.path())?;
     assert!(
-        writable_toml_path.exists(),
-        "default content is mirrored back to TOML"
+        db.meta()?.branches().next().is_none(),
+        "metadata removals survive reopening"
     );
-    snapbox::assert_data_eq!(
-        std::fs::read_to_string(&writable_toml_path)?,
-        snapbox::str![[r#"
-[branches]
-
-"#]]
-    );
-
-    Ok(())
-}
-
-#[test]
-fn read_only_store_does_not_write_on_drop() -> anyhow::Result<()> {
-    let tmp = TempDir::new()?;
-    let writable_toml_path = tmp.path().join("vb.toml");
-    std::fs::copy(vb_fixture("virtual-branches-01"), &writable_toml_path)?;
-    let original = std::fs::read_to_string(&writable_toml_path)?;
-
-    {
-        let mut store = VirtualBranchesTomlMetadata::from_path_read_only(&writable_toml_path)?;
-        store.data_mut().branches.clear();
-        store.set_changed_to_necessitate_write();
-    }
-
-    assert_eq!(
-        std::fs::read_to_string(&writable_toml_path)?,
-        original,
-        "read-only metadata is projection input and must not reconcile or persist on drop"
+    assert!(
+        !tmp.path().join("vb.toml").exists(),
+        "metadata writes never create a TOML mirror"
     );
     Ok(())
 }
@@ -83,10 +33,9 @@ fn read_only_store_does_not_write_on_drop() -> anyhow::Result<()> {
 #[test]
 fn managed_workspace_order_is_available_to_ad_hoc_workspaces() -> anyhow::Result<()> {
     let tmp = TempDir::new()?;
-    let mut store =
-        BranchOrderMetadata::from_paths(tmp.path().join("virtual-branches.toml"), tmp.path())?;
+    let mut store = but_db::DbHandle::new_in_directory(tmp.path())?;
     let workspace_name: gix::refs::FullName = "refs/heads/gitbutler/workspace".try_into()?;
-    let mut workspace = store.workspace(workspace_name.as_ref())?;
+    let mut workspace = store.meta()?.workspace(workspace_name.as_ref())?;
     let refs = ["C", "A", "D", "B"]
         .map(|name| format!("refs/heads/{name}").try_into())
         .into_iter()
@@ -114,15 +63,15 @@ fn managed_workspace_order_is_available_to_ad_hoc_workspaces() -> anyhow::Result
         },
     ];
 
-    store.set_workspace(&workspace)?;
+    store.meta_mut()?.set_workspace(&workspace)?;
 
     assert_eq!(
-        store.branch_stack_order(refs[1].as_ref())?,
+        store.meta()?.branch_stack_order(refs[1].as_ref())?,
         Some(refs[..3].to_vec()),
         "managed stack order should be reusable after checking out its middle branch"
     );
     assert_eq!(
-        store.branch_stack_order(refs[3].as_ref())?,
+        store.meta()?.branch_stack_order(refs[3].as_ref())?,
         Some(vec![refs[3].clone()]),
         "independent stacks should remain independent"
     );
@@ -130,30 +79,11 @@ fn managed_workspace_order_is_available_to_ad_hoc_workspaces() -> anyhow::Result
 }
 
 #[test]
-fn writable_store_does_not_reconcile_on_drop() -> anyhow::Result<()> {
-    let (repo, _tmp) = but_testsupport::writable_scenario("dlib-standin");
-    let path = repo.path().join("virtual_branches.toml");
-    std::fs::copy(vb_fixture("non-unique-branches"), &path)?;
-
-    let mut store = VirtualBranchesTomlMetadata::from_path(&path)?;
-    store.set_changed_to_necessitate_write();
-    store.write_unreconciled()?;
-    let unreconciled = std::fs::read_to_string(&path)?;
-    store.set_changed_to_necessitate_write();
-    drop(store);
-
-    assert_eq!(
-        std::fs::read_to_string(path)?,
-        unreconciled,
-        "dropping writable metadata must persist without reconciling it against the workspace"
-    );
-    Ok(())
-}
-
-#[test]
 fn read_only() -> anyhow::Result<()> {
     let (mut store, _tmp) = vb_store_rw("virtual-branches-01")?;
-    let ws = store.workspace("refs/heads/gitbutler/workspace".try_into()?)?;
+    let ws = store
+        .meta()?
+        .workspace("refs/heads/gitbutler/workspace".try_into()?)?;
     assert!(!ws.is_default(), "value read from file");
     let (actual, uuids) = sanitize_uuids_and_timestamps_with_mapping(debug_str(&ws.stacks));
     snapbox::assert_data_eq!(
@@ -258,12 +188,13 @@ fn read_only() -> anyhow::Result<()> {
         );
     }
 
+    let meta = store.meta()?;
     let branches = ws
         .stacks
         .iter()
         .flat_map(|stack| &stack.branches)
         .map(|branch| {
-            let b = store
+            let b = meta
                 .branch(branch.ref_name.as_ref())
                 .expect("branch is present for each refs mentioned in workspace");
             let b_id = b
@@ -390,50 +321,31 @@ fn read_only() -> anyhow::Result<()> {
 "#]]
     );
 
-    let toml_path = store.path().to_owned();
-    assert!(toml_path.exists(), "the file is still present");
-    let toml_content = std::fs::read_to_string(&toml_path)?;
-    let was_deleted = store.remove("refs/heads/gitbutler/workspace".try_into()?)?;
-    assert!(was_deleted, "This basically clears out everything");
-    assert!(
-        toml_path.exists(),
-        "workspace clear keeps an empty TOML mirror"
-    );
-    // The file exists, but is empty and valid. This is handled correctly by code
-    // that cares about the file.
-    assert_eq!(
-        std::fs::read_to_string(&toml_path)?,
-        toml_content,
-        "The content of the toml file didn't change as syncing happens on drop"
-    );
+    let was_deleted = store
+        .meta_mut()?
+        .remove("refs/heads/gitbutler/workspace".try_into()?)?;
+    assert!(was_deleted, "deleting workspace metadata clears its stacks");
 
     // Asking for the workspace
-    let ws = store.workspace("refs/heads/gitbutler/integration".try_into()?)?;
+    let ws = store
+        .meta()?
+        .workspace("refs/heads/gitbutler/integration".try_into()?)?;
     assert!(
         ws.is_default(),
         "The workspace was deleted so it doesn't exist anymore"
     );
 
-    let was_deleted = store.remove("refs/heads/gitbutler/workspace".try_into()?)?;
+    let was_deleted = store
+        .meta_mut()?
+        .remove("refs/heads/gitbutler/workspace".try_into()?)?;
     assert!(
         !was_deleted,
         "and clearing out everything can only happen once"
     );
     assert_eq!(
-        store.iter().count(),
+        store.meta()?.workspaces().count() + store.meta()?.branches().count(),
         0,
         "deleting the workspace deletes all stacks, at least in this backend"
-    );
-
-    drop(store);
-
-    assert!(toml_path.exists(), "the TOML mirror stays available");
-    snapbox::assert_data_eq!(
-        std::fs::read_to_string(&toml_path)?,
-        snapbox::str![[r#"
-[branches]
-
-"#]]
     );
 
     Ok(())
@@ -445,7 +357,7 @@ fn create_workspace_and_stacks_with_branches_from_scratch_with_workspace_and_una
     let (mut store, _tmp) = empty_vb_store_rw()?;
 
     let ws_ref = "refs/heads/gitbutler/workspace".try_into()?;
-    let mut ws_md = store.workspace(ws_ref)?;
+    let mut ws_md = store.meta()?.workspace(ws_ref)?;
     snapbox::assert_data_eq!(
         ws_md.deref().to_debug(),
         snapbox::str![[r#"
@@ -477,9 +389,9 @@ Workspace {
             archived: false,
         }],
     });
-    store.set_workspace(&ws_md)?;
+    store.meta_mut()?.set_workspace(&ws_md)?;
 
-    let ws_md = store.workspace(ws_ref)?;
+    let ws_md = store.meta()?.workspace(ws_ref)?;
     snapbox::assert_data_eq!(
         ws_md.deref().to_debug(),
         snapbox::str![[r#"
@@ -512,11 +424,11 @@ Workspace {
 "#]]
     );
 
-    let toml_path = store.path().to_owned();
+    let database_path = but_db::DbHandle::db_file_path(_tmp.path());
     drop(store);
 
-    let mut store = VirtualBranchesTomlMetadata::from_path(&toml_path)?;
-    let mut ws_md = store.workspace(ws_ref)?;
+    let mut store = but_db::DbHandle::new_at_path(&database_path)?;
+    let mut ws_md = store.meta()?.workspace(ws_ref)?;
     snapbox::assert_data_eq!(
         ws_md.deref().to_debug(),
         snapbox::str![[r#"
@@ -553,8 +465,8 @@ Workspace {
     ws_md.stacks[1].workspacecommit_relation = Merged;
 
     // It's totally possible to change 'in_workspace' directly.
-    store.set_workspace(&ws_md)?;
-    let mut ws_md = store.workspace(ws_ref)?;
+    store.meta_mut()?.set_workspace(&ws_md)?;
+    let mut ws_md = store.meta()?.workspace(ws_ref)?;
     snapbox::assert_data_eq!(
         ws_md.deref().to_debug(),
         snapbox::str![[r#"
@@ -602,11 +514,11 @@ Workspace {
             }],
         });
     }
-    store.set_workspace(&ws_md)?;
+    store.meta_mut()?.set_workspace(&ws_md)?;
 
     // We are NOT able to retrieve the original names as the backend can't capture it thanks to partial names and the
     // assumption that we never use remote branches directly.
-    let ws_md = store.workspace(ws_ref)?;
+    let ws_md = store.meta()?.workspace(ws_ref)?;
     snapbox::assert_data_eq!(
         ws_md.deref().to_debug(),
         snapbox::str![[r#"
@@ -643,8 +555,9 @@ Workspace {
 }
 
 #[test]
-fn set_workspace_stack_only_changes_are_written_on_drop() -> anyhow::Result<()> {
+fn set_workspace_stack_only_changes_persist() -> anyhow::Result<()> {
     let (mut store, _tmp) = empty_vb_store_rw()?;
+    let mut data = payload(&store)?;
     let first_stack_id = StackId::from_number_for_testing(1);
     let second_stack_id = StackId::from_number_for_testing(2);
     let first_head = gix::ObjectId::from_str("1111111111111111111111111111111111111111")?;
@@ -675,34 +588,27 @@ fn set_workspace_stack_only_changes_are_written_on_drop() -> anyhow::Result<()> 
     );
     second_stack.id = second_stack_id;
 
-    store
-        .data_mut()
-        .branches
-        .insert(first_stack_id, first_stack);
-    store
-        .data_mut()
-        .branches
-        .insert(second_stack_id, second_stack);
-    store.set_changed_to_necessitate_write();
-    store.write_unreconciled()?;
+    data.branches.insert(first_stack_id, first_stack);
+    data.branches.insert(second_stack_id, second_stack);
+    set_payload(&mut store, &data)?;
 
-    let toml_path = store.path().to_owned();
+    let database_path = but_db::DbHandle::db_file_path(_tmp.path());
     drop(store);
 
     let ws_ref: gix::refs::FullName = "refs/heads/gitbutler/workspace".try_into()?;
-    let mut store = VirtualBranchesTomlMetadata::from_path(&toml_path)?;
-    let mut ws = store.workspace(ws_ref.as_ref())?;
+    let mut store = but_db::DbHandle::new_at_path(&database_path)?;
+    let mut ws = store.meta()?.workspace(ws_ref.as_ref())?;
     assert_eq!(ws.stacks.len(), 2, "fixture starts with both stacks");
     ws.stacks.retain(|stack| stack.id == first_stack_id);
-    store.set_workspace(&ws)?;
+    store.meta_mut()?.set_workspace(&ws)?;
     drop(store);
 
-    let store = VirtualBranchesTomlMetadata::from_path(&toml_path)?;
-    let ws = store.workspace(ws_ref.as_ref())?;
+    let store = but_db::DbHandle::new_at_path(&database_path)?;
+    let ws = store.meta()?.workspace(ws_ref.as_ref())?;
     assert_eq!(
         ws.stacks.len(),
         1,
-        "stack-only workspace metadata changes must be persisted on drop"
+        "stack-only workspace metadata changes must be persisted"
     );
     assert_eq!(ws.stacks[0].id, first_stack_id);
     Ok(())
@@ -712,17 +618,13 @@ fn set_workspace_stack_only_changes_are_written_on_drop() -> anyhow::Result<()> 
 fn create_workspace_and_stacks_with_branches_from_scratch() -> anyhow::Result<()> {
     let (mut store, _tmp) = empty_vb_store_rw()?;
 
-    let toml_path = store.path().to_owned();
+    let database_path = but_db::DbHandle::db_file_path(_tmp.path());
     let branch_name: gix::refs::FullName = "refs/heads/feat".try_into()?;
-    let mut branch = store.branch(branch_name.as_ref())?;
+    let mut branch = store.meta()?.branch(branch_name.as_ref())?;
     assert!(branch.is_default(), "nothing was there yet");
-    assert!(toml_path.exists(), "TOML mirror exists from initialization");
-    snapbox::assert_data_eq!(
-        std::fs::read_to_string(&toml_path)?,
-        snapbox::str![[r#"
-[branches]
-
-"#]]
+    assert!(
+        store.virtual_branches().get_snapshot()?.is_none(),
+        "opening the database does not manufacture metadata"
     );
     assert_eq!(branch.stack_id(), None, "default values have no stack-id");
 
@@ -730,11 +632,12 @@ fn create_workspace_and_stacks_with_branches_from_scratch() -> anyhow::Result<()
         pull_request: Some(42),
         review_id: Some("review-id".into()),
     };
-    store.set_branch(&branch)?;
+    store.meta_mut()?.set_branch(&branch)?;
+    let branch = store.meta()?.branch(branch_name.as_ref())?;
     let id = branch.stack_id().expect("now a stack-id was generated");
 
     let workspace_name: gix::refs::FullName = "refs/heads/gitbutler/workspace".try_into()?;
-    let mut ws = store.workspace(workspace_name.as_ref())?;
+    let mut ws = store.meta()?.workspace(workspace_name.as_ref())?;
     assert!(
         !ws.is_default(),
         "the branch is auto-added to the workspace - even though it's not 'in_workspace'"
@@ -768,12 +671,13 @@ fn create_workspace_and_stacks_with_branches_from_scratch() -> anyhow::Result<()
         }],
     });
     store
+        .meta_mut()?
         .set_workspace(&ws)
         .expect("This is the way to add branches");
     assert_eq!(ws.stack_id(), None);
 
     // Assure `ws` is what we think it should be - a single stack with one branch.
-    let mut ws = store.workspace(workspace_name.as_ref())?;
+    let mut ws = store.meta()?.workspace(workspace_name.as_ref())?;
     let (actual, uuids) = sanitize_uuids_and_timestamps_with_mapping(debug_str(&ws.stacks));
     snapbox::assert_data_eq!(
         actual,
@@ -812,10 +716,11 @@ fn create_workspace_and_stacks_with_branches_from_scratch() -> anyhow::Result<()
     );
     assert_eq!(ws.stacks[0].ref_name(), Some(&stacked_branch_name));
     store
+        .meta_mut()?
         .set_workspace(&ws)
         .expect("This is the way to add branches");
 
-    let mut ws = store.workspace(workspace_name.as_ref())?;
+    let mut ws = store.meta()?.workspace(workspace_name.as_ref())?;
     let (actual, uuids) = sanitize_uuids_and_timestamps_with_mapping(debug_str(&ws.stacks));
     snapbox::assert_data_eq!(
         actual,
@@ -843,11 +748,9 @@ fn create_workspace_and_stacks_with_branches_from_scratch() -> anyhow::Result<()
         "the stack is still named after the first branch"
     );
 
+    let archived = toml::to_string(&payload(&store)?)?;
     drop(store);
-
-    assert!(toml_path.exists(), "file was written due to change");
-    let (actual, uuids) =
-        sanitize_uuids_and_timestamps_with_mapping(std::fs::read_to_string(&toml_path)?);
+    let (actual, uuids) = sanitize_uuids_and_timestamps_with_mapping(archived);
     snapbox::assert_data_eq!(
         actual,
         snapbox::str![[r#"
@@ -888,8 +791,8 @@ CommitId = "0000000000000000000000000000000000000000"
         "the written file also contains the id we have set for the first branch, which is a stack now."
     );
 
-    let mut store = VirtualBranchesTomlMetadata::from_path(&toml_path)?;
-    let new_ws = store.workspace(workspace_name.as_ref())?;
+    let mut store = but_db::DbHandle::new_at_path(&database_path)?;
+    let new_ws = store.meta()?.workspace(workspace_name.as_ref())?;
     assert_eq!(
         new_ws.deref(),
         ws.deref(),
@@ -931,8 +834,8 @@ CommitId = "0000000000000000000000000000000000000000"
             archived: true,
         },
     );
-    store.set_workspace(&ws)?;
-    let mut ws = store.workspace(workspace_name.as_ref())?;
+    store.meta_mut()?.set_workspace(&ws)?;
+    let mut ws = store.meta()?.workspace(workspace_name.as_ref())?;
     let (actual, uuids) = sanitize_uuids_and_timestamps_with_mapping(debug_str(&ws.stacks));
     snapbox::assert_data_eq!(
         actual,
@@ -962,19 +865,20 @@ CommitId = "0000000000000000000000000000000000000000"
     assert!(uuids.contains_key(&id.to_string()));
 
     ws.stacks[0].branches[1].archived = false;
-    store.set_workspace(&ws)?;
-    let ws = store.workspace(ws.as_ref())?;
+    store.meta_mut()?.set_workspace(&ws)?;
+    let ws = store.meta()?.workspace(ws.as_ref())?;
     assert!(
         !ws.stacks[0].branches[1].archived,
         "it's possible to turn the archived flag off on existing branches"
     );
 
     let second_stack: gix::refs::FullName = "refs/heads/second-stack".try_into()?;
-    let mut branch = store.branch(second_stack.as_ref())?;
+    let mut branch = store.meta()?.branch(second_stack.as_ref())?;
     branch.review.pull_request = Some(23);
-    store.set_branch(&branch)?;
+    store.meta_mut()?.set_branch(&branch)?;
+    let branch = store.meta()?.branch(second_stack.as_ref())?;
 
-    let mut ws = store.workspace(ws.as_ref())?;
+    let mut ws = store.meta()?.workspace(ws.as_ref())?;
     assert_eq!(
         ws.stacks.len(),
         2,
@@ -992,8 +896,8 @@ CommitId = "0000000000000000000000000000000000000000"
             archived: true,
         }],
     });
-    store.set_workspace(&ws)?;
-    let mut ws = store.workspace(ws.as_ref())?;
+    store.meta_mut()?.set_workspace(&ws)?;
+    let mut ws = store.meta()?.workspace(ws.as_ref())?;
     // Two stacks are present now.
     let (actual, uuids) = sanitize_uuids_and_timestamps_with_mapping(debug_str(&ws.stacks));
     snapbox::assert_data_eq!(
@@ -1036,8 +940,8 @@ CommitId = "0000000000000000000000000000000000000000"
     assert!(uuids.contains_key(&second_id.to_string()));
 
     ws.stacks.pop();
-    store.set_workspace(&ws)?;
-    let mut ws = store.workspace(ws.as_ref())?;
+    store.meta_mut()?.set_workspace(&ws)?;
+    let mut ws = store.meta()?.workspace(ws.as_ref())?;
     assert_eq!(
         ws.stacks.len(),
         1,
@@ -1053,16 +957,16 @@ CommitId = "0000000000000000000000000000000000000000"
             archived: true,
         }],
     });
-    store.set_workspace(&ws)?;
-    let ws = store.workspace(ws.as_ref())?;
+    store.meta_mut()?.set_workspace(&ws)?;
+    let ws = store.meta()?.workspace(ws.as_ref())?;
     assert_eq!(
         ws.stacks.len(),
         2,
         "re-added second stack to be able to remove it again"
     );
 
-    assert!(store.remove(second_stack.as_ref())?);
-    let ws = store.workspace(ws.as_ref())?;
+    assert!(store.meta_mut()?.remove(second_stack.as_ref())?);
+    let ws = store.meta()?.workspace(ws.as_ref())?;
     assert_eq!(
         ws.stacks.len(),
         1,
@@ -1071,24 +975,24 @@ CommitId = "0000000000000000000000000000000000000000"
 
     // Remove everything
     assert!(
-        store.remove(stacked_branch_name.as_ref())?,
+        store.meta_mut()?.remove(stacked_branch_name.as_ref())?,
         "there was something to remove"
     );
     assert!(
-        !store.remove(stacked_branch_name.as_ref())?,
+        !store.meta_mut()?.remove(stacked_branch_name.as_ref())?,
         "nothing left to remove"
     );
     assert!(
-        store.remove(branch_name.as_ref())?,
+        store.meta_mut()?.remove(branch_name.as_ref())?,
         "there was something to remove, still"
     );
     assert!(
-        !store.remove(branch_name.as_ref())?,
+        !store.meta_mut()?.remove(branch_name.as_ref())?,
         "nothing left to remove"
     );
-    assert!(store.remove(archived_branch.as_ref())?);
+    assert!(store.meta_mut()?.remove(archived_branch.as_ref())?);
 
-    let ws = store.workspace(workspace_name.as_ref())?;
+    let ws = store.meta()?.workspace(workspace_name.as_ref())?;
     assert!(
         ws.is_default(),
         "it's empty, so no difference to a default one"
@@ -1105,16 +1009,10 @@ Workspace {
     );
 
     drop(store);
-    snapbox::assert_data_eq!(
-        std::fs::read_to_string(&toml_path)?,
-        snapbox::str![[r#"
-[branches]
-
-"#]]
-    );
+    let store = but_db::DbHandle::new_at_path(&database_path)?;
     assert!(
-        toml_path.exists(),
-        "default state is still mirrored into TOML"
+        store.meta()?.branches().next().is_none(),
+        "all branches remain deleted after reopening"
     );
 
     Ok(())
@@ -1124,7 +1022,7 @@ Workspace {
 fn create_workspace_from_scratch_workspace_first() -> anyhow::Result<()> {
     let (mut store, _tmp) = empty_vb_store_rw()?;
     let workspace_name = "refs/heads/gitbutler/integration".try_into()?;
-    let mut ws = store.workspace(workspace_name)?;
+    let mut ws = store.meta()?.workspace(workspace_name)?;
     ws.stacks.push(WorkspaceStack {
         id: StackId::from_number_for_testing(1),
         workspacecommit_relation: Outside,
@@ -1190,14 +1088,14 @@ fn create_workspace_from_scratch_workspace_first() -> anyhow::Result<()> {
 
 "#]]
     );
-    store.set_workspace(&ws)?;
-    let stored_ws = store.workspace(workspace_name)?;
+    store.meta_mut()?.set_workspace(&ws)?;
+    let stored_ws = store.meta()?.workspace(workspace_name)?;
     assert_eq!(stored_ws.deref(), ws.deref());
 
     // Pop archived branch.
     ws.stacks[0].branches.pop();
-    store.set_workspace(&ws)?;
-    let mut ws = store.workspace(workspace_name)?;
+    store.meta_mut()?.set_workspace(&ws)?;
+    let mut ws = store.meta()?.workspace(workspace_name)?;
     snapbox::assert_data_eq!(
         ws.stacks.to_debug(),
         snapbox::str![[r#"
@@ -1234,31 +1132,32 @@ fn create_workspace_from_scratch_workspace_first() -> anyhow::Result<()> {
     // Remove the last branch, but leave the stack.
     ws.stacks[1].branches.pop();
 
-    let err = store.set_workspace(&ws).unwrap_err();
+    let err = store.meta_mut()?.set_workspace(&ws).unwrap_err();
     assert_eq!(
         err.to_string(),
-        "BUG: incoming stack is probably empty, caller should have removed the whole stack"
+        "Cannot save an empty metadata stack",
+        "empty stacks must be removed instead of persisted"
     );
     ws.stacks.pop();
     assert_eq!(ws.stacks.len(), 1);
 
     // The workspace is empty now, no sack left
     ws.stacks.pop();
-    store.set_workspace(&ws)?;
+    store.meta_mut()?.set_workspace(&ws)?;
 
-    let stored_ws = store.workspace(workspace_name)?;
+    let stored_ws = store.meta()?.workspace(workspace_name)?;
     assert_eq!(
         stored_ws.deref(),
         ws.deref(),
         "this state reproduces when queried, so no stack is left"
     );
 
-    let toml_path = store.path().to_owned();
+    let database_path = but_db::DbHandle::db_file_path(_tmp.path());
     drop(store);
 
     // Stacks are still there, but not in workspace, they carry data. But can't test it due to hashmap-instability.
-    let mut store = VirtualBranchesTomlMetadata::from_path(toml_path)?;
-    let stored_ws = store.workspace(workspace_name)?;
+    let mut store = but_db::DbHandle::new_at_path(database_path)?;
+    let stored_ws = store.meta()?.workspace(workspace_name)?;
     assert_eq!(
         stored_ws.deref(),
         ws.deref(),
@@ -1266,7 +1165,7 @@ fn create_workspace_from_scratch_workspace_first() -> anyhow::Result<()> {
     );
 
     let below_top: &gix::refs::FullNameRef = "refs/heads/one-below-top".try_into()?;
-    let branch = store.branch(below_top)?;
+    let branch = store.meta()?.branch(below_top)?;
     assert!(
         branch.is_default(),
         "Workspace branches have been deleted, so they remain gone, and this branch was recreate."
@@ -1274,9 +1173,12 @@ fn create_workspace_from_scratch_workspace_first() -> anyhow::Result<()> {
     // The stack with the branch now exists, and it is NOT in the workspace by default - this is a feature of
     // the implementation under test here, this data is disjoint otherwise.
     // By making it not in the workspace, users should be forced to not rely on this.
-    store.set_branch(&branch)?;
+    store.meta_mut()?.set_branch(&branch)?;
     snapbox::assert_data_eq!(
-        sanitize_uuids_and_timestamps(format!("{:#?}", store.workspace(workspace_name)?.deref())),
+        sanitize_uuids_and_timestamps(format!(
+            "{:#?}",
+            store.meta()?.workspace(workspace_name)?.deref()
+        )),
         snapbox::str![[r#"
 Workspace {
     ref_info: RefInfo { created_at: "2023-01-31 14:55:57 +0000", updated_at: None },
@@ -1298,19 +1200,23 @@ Workspace {
 
     // Create a branch implicitly, but turn it into a dependent branch later.
     let another_branch: &gix::refs::FullNameRef = "refs/heads/two-below-top".try_into()?;
-    let branch = store.branch(another_branch)?;
-    store.set_branch(&branch)?;
+    let branch = store.meta()?.branch(another_branch)?;
+    store.meta_mut()?.set_branch(&branch)?;
 
-    let mut ws = store.workspace(workspace_name)?;
+    let mut ws = store.meta()?.workspace(workspace_name)?;
     let branch = ws.stacks[1].branches.pop().expect("exactly one branch");
     ws.stacks.pop();
     // Ordering also works
     ws.stacks[0].branches.insert(0, branch);
     store
+        .meta_mut()?
         .set_workspace(&ws)
         .expect("setting the data works, despite having changed the branch association");
     snapbox::assert_data_eq!(
-        sanitize_uuids_and_timestamps(format!("{:#?}", store.workspace(workspace_name)?.deref())),
+        sanitize_uuids_and_timestamps(format!(
+            "{:#?}",
+            store.meta()?.workspace(workspace_name)?.deref()
+        )),
         snapbox::str![[r#"
 Workspace {
     ref_info: RefInfo { created_at: "2023-01-31 14:55:57 +0000", updated_at: None },
@@ -1341,12 +1247,10 @@ fn vb_fixture(name: &str) -> PathBuf {
     format!("tests/fixtures/legacy/{name}.toml").into()
 }
 
-fn vb_store_rw(name: &str) -> anyhow::Result<(VirtualBranchesTomlMetadata, TempDir)> {
-    let tmp = TempDir::new()?;
-    let writable_toml_path = tmp.path().join("vb.toml");
-    std::fs::copy(vb_fixture(name), &writable_toml_path)?;
-
-    let store = VirtualBranchesTomlMetadata::from_path(&writable_toml_path)?;
+fn vb_store_rw(name: &str) -> anyhow::Result<(but_db::DbHandle, TempDir)> {
+    let (mut store, tmp) = empty_vb_store_rw()?;
+    let data = toml::from_str(&std::fs::read_to_string(vb_fixture(name))?)?;
+    set_payload(&mut store, &data)?;
     Ok((store, tmp))
 }
 
@@ -1371,75 +1275,83 @@ fn rename_onto_an_existing_branch_is_rejected() -> anyhow::Result<()> {
 
     // Persist two distinct branches (each ends up in its own stack).
     for name in [&a, &b] {
-        let mut branch = store.branch(name.as_ref())?;
+        let mut branch = store.meta()?.branch(name.as_ref())?;
         branch.review.pull_request = Some(1);
-        store.set_branch(&branch)?;
+        store.meta_mut()?.set_branch(&branch)?;
     }
 
     // Renaming `a` onto the existing `b` must be rejected rather than creating a duplicate head.
     let err = store
+        .meta_mut()?
         .rename(a.as_ref(), b.as_ref())
         .expect_err("cannot rename onto an existing branch");
     assert!(err.to_string().contains("already exists"), "{err}");
-    assert!(store.branch_opt(a.as_ref())?.is_some());
-    assert!(store.branch_opt(b.as_ref())?.is_some());
+    assert!(store.meta()?.branch_opt(a.as_ref())?.is_some());
+    assert!(store.meta()?.branch_opt(b.as_ref())?.is_some());
 
     // Renaming onto a fresh name works and moves the metadata in place.
     let c: gix::refs::FullName = "refs/heads/c".try_into()?;
-    store.rename(a.as_ref(), c.as_ref())?;
-    assert!(store.branch_opt(a.as_ref())?.is_none());
-    assert!(store.branch_opt(c.as_ref())?.is_some());
+    store.meta_mut()?.rename(a.as_ref(), c.as_ref())?;
+    assert!(store.meta()?.branch_opt(a.as_ref())?.is_none());
+    assert!(store.meta()?.branch_opt(c.as_ref())?.is_some());
 
     // Renaming a branch onto its own name is a no-op, not a self-conflict.
-    store.rename(c.as_ref(), c.as_ref())?;
-    assert!(store.branch_opt(c.as_ref())?.is_some());
+    store.meta_mut()?.rename(c.as_ref(), c.as_ref())?;
+    assert!(store.meta()?.branch_opt(c.as_ref())?.is_some());
 
     Ok(())
 }
 
-fn empty_vb_store_rw() -> anyhow::Result<(VirtualBranchesTomlMetadata, TempDir)> {
+fn empty_vb_store_rw() -> anyhow::Result<(but_db::DbHandle, TempDir)> {
     let tmp = tempdir()?;
-    let store = VirtualBranchesTomlMetadata::from_path(tmp.path().join("vb.toml"))?;
+    let store = but_db::DbHandle::new_in_directory(tmp.path())?;
     Ok((store, tmp))
 }
 
-/// Assure everything can round-trip and the data looks consistent, independently of the actual data,
-/// from a store that already contains data.
-fn roundtrip_journey(metadata: &mut impl RefMetadata) -> anyhow::Result<()> {
-    // TODO: retrieve and set tests for all items, round-tripping
-    let all_items = metadata.iter().map(Result::unwrap).collect::<Vec<_>>();
-    for (ref_name, md) in &all_items {
-        if let Some(ws_from_iter) = md.downcast_ref::<but_core::ref_metadata::Workspace>() {
-            let ws = metadata.workspace(ref_name.as_ref())?;
-            assert!(!ws.is_default(), "default data won't be iterated");
-            if let Err(err) = metadata.set_workspace(&ws)
-                && err.to_string().contains("unsupported")
-            {
-                continue;
-            }
-            assert_eq!(
-                metadata.workspace(ref_name.as_ref())?.deref(),
-                ws_from_iter,
-                "nothing should change, it's a no-op"
-            );
-        } else if let Some(br_from_iter) = md.downcast_ref::<but_core::ref_metadata::Branch>() {
-            let br = metadata.branch(ref_name.as_ref())?;
-            assert!(!br.is_default(), "default data won't be iterated");
-            metadata
-                .set_branch(&br)
-                .expect("updates have no reason to fail, even if no-op");
-            assert_eq!(
-                metadata.branch(ref_name.as_ref())?.deref(),
-                br_from_iter,
-                "nothing should change, it's a no-op"
-            );
-        }
-    }
+fn payload(
+    db: &but_db::DbHandle,
+) -> anyhow::Result<but_meta::virtual_branches_legacy_types::VirtualBranches> {
+    but_meta::legacy_storage::snapshot_to_legacy(
+        &db.virtual_branches().get_snapshot()?.unwrap_or_default(),
+    )
+}
 
-    for (ref_name, _md) in all_items {
-        metadata.remove(ref_name.as_ref())?;
+fn set_payload(
+    db: &mut but_db::DbHandle,
+    data: &but_meta::virtual_branches_legacy_types::VirtualBranches,
+) -> anyhow::Result<()> {
+    db.meta_mut()?
+        .replace_snapshot(&but_meta::legacy_storage::legacy_to_snapshot(data)?)?;
+    Ok(())
+}
+
+fn roundtrip_journey(db: &mut but_db::DbHandle) -> anyhow::Result<()> {
+    let metadata = db.meta()?;
+    for (name, expected) in metadata.workspaces() {
+        let workspace = db.meta()?.workspace(name.as_ref())?;
+        db.meta_mut()?.set_workspace(&workspace)?;
+        assert_eq!(
+            *db.meta()?.workspace(name.as_ref())?,
+            expected,
+            "workspace roundtrip preserves data"
+        );
     }
-    assert_eq!(metadata.iter().count(), 0, "Nothing is left after deletion");
+    for (name, expected) in metadata.branches() {
+        let branch = db.meta()?.branch(name.as_ref())?;
+        db.meta_mut()?.set_branch(&branch)?;
+        assert_eq!(
+            *db.meta()?.branch(name.as_ref())?,
+            expected,
+            "branch roundtrip preserves data"
+        );
+    }
+    for (name, _) in metadata.workspaces() {
+        db.meta_mut()?.remove(name.as_ref())?;
+    }
+    assert!(
+        db.meta()?.branches().next().is_none(),
+        "workspace deletion removes its branches"
+    );
     Ok(())
 }
 
@@ -1453,8 +1365,8 @@ fn legacy_change_id_deserializes_as_null_sha() -> anyhow::Result<()> {
     let test_stack_id = "12345678-1234-5678-1234-567812345678";
 
     // Verify that the legacy ChangeId was deserialized as a null SHA
-    let stack = store
-        .data()
+    let data = payload(&store)?;
+    let stack = data
         .branches
         .get(&but_core::ref_metadata::StackId::from_str(test_stack_id).unwrap())
         .expect("stack should exist");
@@ -1471,62 +1383,11 @@ fn legacy_change_id_deserializes_as_null_sha() -> anyhow::Result<()> {
 }
 
 #[test]
-fn removes_duplicate_heads_even_if_they_point_to_the_same_commit() -> anyhow::Result<()> {
-    let (mut store, _tmp) = empty_vb_store_rw()?;
-    let head = gix::ObjectId::from_str("1111111111111111111111111111111111111111")?;
-
-    let first = LegacyStack::new_with_just_heads(
-        vec![StackBranch {
-            head,
-            name: "shared".into(),
-            pr_number: None,
-            archived: false,
-            review_id: None,
-        }],
-        0,
-        true,
-    );
-    let second = LegacyStack::new_with_just_heads(
-        vec![StackBranch {
-            head,
-            name: "shared".into(),
-            pr_number: None,
-            archived: false,
-            review_id: None,
-        }],
-        1,
-        true,
-    );
-    let first_id = first.id;
-    let second_id = second.id;
-    store.data_mut().branches.insert(first_id, first);
-    store.data_mut().branches.insert(second_id, second);
-    store.set_changed_to_necessitate_write();
-
-    let path = store.path().to_owned();
-    drop(store);
-
-    let store = VirtualBranchesTomlMetadata::from_path(path)?;
-    let shared_heads = store
-        .data()
-        .branches
-        .values()
-        .flat_map(|stack| stack.heads.iter())
-        .filter(|head| head.name == "shared")
-        .count();
-    assert_eq!(
-        shared_heads, 1,
-        "without a workspace projection, duplicate names still use first-wins cleanup",
-    );
-
-    Ok(())
-}
-
-#[test]
 fn garbage_collect_removes_outside_workspace_stack_at_target() -> anyhow::Result<()> {
     let repo = but_testsupport::read_only_in_memory_scenario("dlib-standin")?;
     let target = repo.head_id()?.detach();
     let (mut store, _tmp) = empty_vb_store_rw()?;
+    let mut data = payload(&store)?;
 
     let workspace_stack = LegacyStack::new_with_just_heads(
         vec![StackBranch {
@@ -1552,19 +1413,14 @@ fn garbage_collect_removes_outside_workspace_stack_at_target() -> anyhow::Result
     );
     let workspace_stack_id = workspace_stack.id;
     let outside_stack_id = outside_stack.id;
-    store
-        .data_mut()
-        .branches
-        .insert(workspace_stack_id, workspace_stack);
-    store
-        .data_mut()
-        .branches
-        .insert(outside_stack_id, outside_stack);
+    data.branches.insert(workspace_stack_id, workspace_stack);
+    data.branches.insert(outside_stack_id, outside_stack);
 
-    store.garbage_collect(&repo, &project_meta(target))?;
+    set_payload(&mut store, &data)?;
+    but_meta::garbage_collect(&repo, &project_meta(target), &mut store.connection_mut())?;
 
-    assert!(store.data().branches.contains_key(&workspace_stack_id));
-    assert!(!store.data().branches.contains_key(&outside_stack_id));
+    assert!(payload(&store)?.branches.contains_key(&workspace_stack_id));
+    assert!(!payload(&store)?.branches.contains_key(&outside_stack_id));
     Ok(())
 }
 
@@ -1574,6 +1430,7 @@ fn garbage_collect_removes_outside_workspace_stack_with_missing_head() -> anyhow
     let target = repo.head_id()?.detach();
     let missing_head = gix::ObjectId::from_hex(b"30696678319e0fa3a20e54f22d47fc8cf1ceaade")?;
     let (mut store, _tmp) = empty_vb_store_rw()?;
+    let mut data = payload(&store)?;
     let outside_stack = LegacyStack::new_with_just_heads(
         vec![StackBranch {
             head: missing_head,
@@ -1586,14 +1443,12 @@ fn garbage_collect_removes_outside_workspace_stack_with_missing_head() -> anyhow
         false,
     );
     let outside_stack_id = outside_stack.id;
-    store
-        .data_mut()
-        .branches
-        .insert(outside_stack_id, outside_stack);
+    data.branches.insert(outside_stack_id, outside_stack);
 
-    store.garbage_collect(&repo, &project_meta(target))?;
+    set_payload(&mut store, &data)?;
+    but_meta::garbage_collect(&repo, &project_meta(target), &mut store.connection_mut())?;
 
-    assert!(!store.data().branches.contains_key(&outside_stack_id));
+    assert!(!payload(&store)?.branches.contains_key(&outside_stack_id));
     Ok(())
 }
 
@@ -1610,6 +1465,7 @@ fn garbage_collect_removes_outside_workspace_stack_with_broken_ref() -> anyhow::
     )?;
     repo.reload()?;
     let (mut store, _tmp) = empty_vb_store_rw()?;
+    let mut data = payload(&store)?;
     let outside_stack = LegacyStack::new_with_just_heads(
         vec![StackBranch {
             head: target,
@@ -1622,121 +1478,12 @@ fn garbage_collect_removes_outside_workspace_stack_with_broken_ref() -> anyhow::
         false,
     );
     let outside_stack_id = outside_stack.id;
-    store
-        .data_mut()
-        .branches
-        .insert(outside_stack_id, outside_stack);
+    data.branches.insert(outside_stack_id, outside_stack);
 
-    store.garbage_collect(&repo, &project_meta(target))?;
+    set_payload(&mut store, &data)?;
+    but_meta::garbage_collect(&repo, &project_meta(target), &mut store.connection_mut())?;
 
-    assert!(!store.data().branches.contains_key(&outside_stack_id));
-    Ok(())
-}
-
-#[test]
-fn preserves_duplicate_heads_if_they_map_to_the_same_workspace_segment() -> anyhow::Result<()> {
-    let (repo, _repo_tmp) = but_testsupport::writable_scenario("ws/multi-lane-with-shared-segment");
-    let path = repo.path().join("virtual_branches.toml");
-    let mut store = VirtualBranchesTomlMetadata::from_path(&path)?;
-    but_core::ref_metadata::ProjectMeta {
-        target_ref: Some("refs/remotes/origin/main".try_into()?),
-        target_commit_id: None,
-        push_remote: Some("origin".into()),
-    }
-    .persist(&repo)?;
-
-    let stack_a = LegacyStack::new_with_just_heads(
-        vec![
-            StackBranch::new_with_zero_head("shared".into(), None, None, false),
-            StackBranch::new_with_zero_head("A".into(), None, None, false),
-        ],
-        0,
-        true,
-    );
-    let stack_b = LegacyStack::new_with_just_heads(
-        vec![
-            StackBranch::new_with_zero_head("shared".into(), None, None, false),
-            StackBranch::new_with_zero_head("B".into(), None, None, false),
-        ],
-        1,
-        true,
-    );
-    let stack_d = LegacyStack::new_with_just_heads(
-        vec![
-            StackBranch::new_with_zero_head("shared".into(), None, None, false),
-            StackBranch::new_with_zero_head("C".into(), None, None, false),
-            StackBranch::new_with_zero_head("D".into(), None, None, false),
-        ],
-        2,
-        true,
-    );
-    store.data_mut().branches.insert(stack_a.id, stack_a);
-    store.data_mut().branches.insert(stack_b.id, stack_b);
-    store.data_mut().branches.insert(stack_d.id, stack_d);
-    store.set_changed_to_necessitate_write();
-
-    store.write_unreconciled()?;
-
-    let store = VirtualBranchesTomlMetadata::from_path(path)?;
-    let shared_heads = store
-        .data()
-        .branches
-        .values()
-        .flat_map(|stack| stack.heads.iter())
-        .filter(|head| head.name == "shared")
-        .count();
-    assert_eq!(
-        shared_heads, 3,
-        "repo-backed cleanup should preserve duplicate names when they resolve to the same projected segment",
-    );
-
-    Ok(())
-}
-
-#[test]
-fn removes_within_stack_duplicate_heads_even_when_mapped_to_a_segment_13345() -> anyhow::Result<()>
-{
-    let (repo, _repo_tmp) = but_testsupport::writable_scenario("ws/multi-lane-with-shared-segment");
-    let path = repo.path().join("virtual_branches.toml");
-    let mut store = VirtualBranchesTomlMetadata::from_path(&path)?;
-    but_core::ref_metadata::ProjectMeta {
-        target_ref: Some("refs/remotes/origin/main".try_into()?),
-        target_commit_id: None,
-        push_remote: Some("origin".into()),
-    }
-    .persist(&repo)?;
-
-    // A single stack that lists "shared" twice.
-    // Even though "shared" maps to a real projected segment, one stack must never repeat a branch.
-    let stack = LegacyStack::new_with_just_heads(
-        vec![
-            StackBranch::new_with_zero_head("shared".into(), None, None, false),
-            StackBranch::new_with_zero_head("shared".into(), None, None, false),
-            StackBranch::new_with_zero_head("A".into(), None, None, false),
-        ],
-        0,
-        true,
-    );
-    let stack_id = stack.id;
-    store.data_mut().branches.insert(stack_id, stack);
-    store.set_changed_to_necessitate_write();
-
-    store.write_unreconciled()?;
-
-    let store = VirtualBranchesTomlMetadata::from_path(path)?;
-    let shared_in_stack = store.data().branches.get(&stack_id).map(|stack| {
-        stack
-            .heads
-            .iter()
-            .filter(|head| head.name == "shared")
-            .count()
-    });
-    assert_eq!(
-        shared_in_stack,
-        Some(1),
-        "the stack must not keep the same branch twice, even when it maps to a projected segment",
-    );
-
+    assert!(!payload(&store)?.branches.contains_key(&outside_stack_id));
     Ok(())
 }
 
@@ -1748,6 +1495,7 @@ fn removes_within_stack_duplicate_heads_even_when_mapped_to_a_segment_13345() ->
 #[test]
 fn duplicate_names_in_unapplied_stacks_do_not_steal_applied_branches() -> anyhow::Result<()> {
     let (mut store, _tmp) = empty_vb_store_rw()?;
+    let mut data = payload(&store)?;
     let lower_head = gix::ObjectId::from_str("1111111111111111111111111111111111111111")?;
     let tip_head = gix::ObjectId::from_str("2222222222222222222222222222222222222222")?;
     let stale_head = gix::ObjectId::from_str("3333333333333333333333333333333333333333")?;
@@ -1785,22 +1533,27 @@ fn duplicate_names_in_unapplied_stacks_do_not_steal_applied_branches() -> anyhow
     );
     let applied_id = applied.id;
     let stale_id = stale.id;
-    store.data_mut().branches.insert(applied_id, applied);
-    store.data_mut().branches.insert(stale_id, stale);
+    data.branches.insert(applied_id, applied);
+    data.branches.insert(stale_id, stale);
 
     // Reading the workspace and writing it back unchanged must not regroup branches.
+    set_payload(&mut store, &data)?;
     let workspace_name: gix::refs::FullName = "refs/heads/gitbutler/workspace".try_into()?;
-    let ws = store.workspace(workspace_name.as_ref())?;
-    store.set_workspace(&ws)?;
+    let ws = store.meta()?.workspace(workspace_name.as_ref())?;
+    store.meta_mut()?.set_workspace(&ws)?;
 
     let names = |stack_id: StackId| {
-        store.data().branches.get(&stack_id).map(|stack| {
-            stack
-                .heads
-                .iter()
-                .map(|head| head.name.clone())
-                .collect::<Vec<_>>()
-        })
+        payload(&store)
+            .unwrap()
+            .branches
+            .get(&stack_id)
+            .map(|stack| {
+                stack
+                    .heads
+                    .iter()
+                    .map(|head| head.name.clone())
+                    .collect::<Vec<_>>()
+            })
     };
     assert_eq!(
         names(applied_id),
@@ -1813,7 +1566,7 @@ fn duplicate_names_in_unapplied_stacks_do_not_steal_applied_branches() -> anyhow
         "the stale stack keeps only its own copy",
     );
     assert_eq!(
-        store.data().branches[&stale_id].heads[0].head,
+        payload(&store)?.branches[&stale_id].heads[0].head,
         stale_head,
         "the stale copy is untouched",
     );
@@ -1826,6 +1579,7 @@ fn duplicate_names_in_unapplied_stacks_do_not_steal_applied_branches() -> anyhow
 #[test]
 fn shared_segment_names_stay_in_their_own_applied_stacks() -> anyhow::Result<()> {
     let (mut store, _tmp) = empty_vb_store_rw()?;
+    let mut data = payload(&store)?;
     let shared_head = gix::ObjectId::from_str("1111111111111111111111111111111111111111")?;
 
     let names = |heads: &[&str]| {
@@ -1844,21 +1598,26 @@ fn shared_segment_names_stay_in_their_own_applied_stacks() -> anyhow::Result<()>
     let stack_b = LegacyStack::new_with_just_heads(names(&["shared", "B"]), 1, true);
     let stack_a_id = stack_a.id;
     let stack_b_id = stack_b.id;
-    store.data_mut().branches.insert(stack_a_id, stack_a);
-    store.data_mut().branches.insert(stack_b_id, stack_b);
+    data.branches.insert(stack_a_id, stack_a);
+    data.branches.insert(stack_b_id, stack_b);
 
+    set_payload(&mut store, &data)?;
     let workspace_name: gix::refs::FullName = "refs/heads/gitbutler/workspace".try_into()?;
-    let ws = store.workspace(workspace_name.as_ref())?;
-    store.set_workspace(&ws)?;
+    let ws = store.meta()?.workspace(workspace_name.as_ref())?;
+    store.meta_mut()?.set_workspace(&ws)?;
 
     let head_names = |stack_id: StackId| {
-        store.data().branches.get(&stack_id).map(|stack| {
-            stack
-                .heads
-                .iter()
-                .map(|head| head.name.clone())
-                .collect::<Vec<_>>()
-        })
+        payload(&store)
+            .unwrap()
+            .branches
+            .get(&stack_id)
+            .map(|stack| {
+                stack
+                    .heads
+                    .iter()
+                    .map(|head| head.name.clone())
+                    .collect::<Vec<_>>()
+            })
     };
     assert_eq!(
         head_names(stack_a_id),
@@ -1869,42 +1628,6 @@ fn shared_segment_names_stay_in_their_own_applied_stacks() -> anyhow::Result<()>
         head_names(stack_b_id),
         Some(vec!["shared".to_string(), "B".to_string()]),
         "the second applied stack keeps its copy of the shared segment",
-    );
-    Ok(())
-}
-
-#[cfg(unix)]
-#[test]
-fn falls_back_to_in_memory_db_when_persistent_db_open_fails() -> anyhow::Result<()> {
-    use std::os::unix::fs::PermissionsExt as _;
-
-    let tmp = tempdir()?;
-    let toml_path = tmp.path().join("virtual_branches.toml");
-    std::fs::write(&toml_path, "[branches]\n")?;
-
-    let original_permissions = std::fs::metadata(tmp.path())?.permissions();
-    let mut read_only_permissions = original_permissions.clone();
-    read_only_permissions.set_mode(0o555);
-    std::fs::set_permissions(tmp.path(), read_only_permissions)?;
-
-    let store_result = VirtualBranchesTomlMetadata::from_path(&toml_path);
-
-    // Restore permissions so TempDir cleanup can remove the directory.
-    std::fs::set_permissions(tmp.path(), original_permissions)?;
-
-    let _store = store_result?;
-
-    assert!(
-        !tmp.path().join("but.sqlite").exists(),
-        "failed on-disk DB open should not leave a persistent sqlite file behind"
-    );
-    assert!(
-        !tmp.path().join("but.sqlite-wal").exists(),
-        "failed on-disk DB open should not leave sqlite wal sidecars behind"
-    );
-    assert!(
-        !tmp.path().join("but.sqlite-shm").exists(),
-        "failed on-disk DB open should not leave sqlite shm sidecars behind"
     );
     Ok(())
 }

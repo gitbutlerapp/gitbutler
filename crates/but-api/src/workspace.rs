@@ -10,7 +10,7 @@ use anyhow::Context as _;
 use bstr::{BString, ByteSlice};
 use but_api_macros::but_api;
 use but_core::{
-    DryRun, RefMetadata, extract_remote_name_and_short_name, is_workspace_ref_name,
+    DryRun, extract_remote_name_and_short_name, is_workspace_ref_name,
     sync::{RepoExclusive, RepoShared},
 };
 use but_error::AnyhowContextExt as _;
@@ -376,7 +376,9 @@ pub(crate) fn prune_missing_branch_stack_order(ctx: &but_ctx::Context) -> anyhow
             .map(|reference| reference.name().to_owned())
             .collect::<Vec<_>>()
     };
-    ctx.meta()?
+    ctx.db
+        .get_cache_mut()?
+        .meta_mut()?
         .remove_missing_branch_stack_order_references(&local_branch_refs)?;
     Ok(())
 }
@@ -409,10 +411,9 @@ pub fn get_workspace(
     ctx: &but_ctx::Context,
     perm: &RepoShared,
 ) -> anyhow::Result<but_workspace::ui::workspace::DetailedGraphWorkspace> {
-    let mut meta = ctx.meta()?;
     let (repo, workspace, mut db) = ctx.workspace_and_db_mut_with_perm(perm)?;
     let mut workspace = workspace.clone();
-    but_workspace::workspace::detailed_graph_workspace(&mut workspace, &mut meta, &repo, &mut db)
+    but_workspace::workspace::detailed_graph_workspace(&mut workspace, &repo, db.connection_mut())
         .map(Into::into)
 }
 
@@ -703,7 +704,7 @@ fn forge_review_integration_hints(
         return Ok(vec![]);
     }
 
-    let associated_reviews = but_forge::list_cached_forge_reviews(db)?;
+    let associated_reviews = but_forge::list_cached_forge_reviews(db.connection())?;
 
     Ok(review_integration_hints_from_reviews(
         &target_branch_name,
@@ -830,7 +831,6 @@ pub fn workspace_integrate_upstream_only_with_perm(
     dry_run: DryRun,
     perm: &mut RepoExclusive,
 ) -> anyhow::Result<WorkspaceIntegrateUpstreamOutcome> {
-    let mut meta = ctx.meta()?;
     let single_branch_mode = ctx.settings.feature_flags.single_branch;
     let (workspace_state, worktree_conflicts) = {
         let project_meta = ctx.project_meta()?;
@@ -852,10 +852,9 @@ pub fn workspace_integrate_upstream_only_with_perm(
             project_meta,
         } = but_workspace::integrate_upstream_with_hints(
             &mut ws,
-            &mut meta,
             project_meta,
             &repo,
-            &mut db,
+            db.connection_mut(),
             updates,
             &review_hints,
             single_branch_mode,
@@ -876,7 +875,7 @@ pub fn workspace_integrate_upstream_only_with_perm(
             });
         }
 
-        let materialized = rebase.materialize(Default::default())?;
+        let mut materialized = rebase.materialize(Default::default())?;
         project_meta.persist(&repo)?;
         if let Err(err) = but_workspace::fast_forward_local_tracking_branch(
             &repo,
@@ -890,9 +889,9 @@ pub fn workspace_integrate_upstream_only_with_perm(
             && let Some(ws_meta) = ws_meta
             && is_workspace_ref_name(ref_name)
         {
-            let mut md = materialized.meta.workspace(ref_name)?;
+            let mut md = materialized.db.meta()?.workspace(ref_name)?;
             *md = ws_meta;
-            materialized.meta.set_workspace(&md)?;
+            materialized.db.meta_mut()?.set_workspace(&md)?;
         }
 
         let workspace_state = WorkspaceState::from_materialized(materialized, &repo)?;
@@ -924,7 +923,6 @@ mod tests {
     use super::{
         review_integration_hints_from_reviews, target_branch_name, workspace_fetch_from_remotes,
     };
-    use but_core::RefMetadata;
     use but_testsupport::{CommandExt, git_at_dir, open_repo};
     use std::collections::HashSet;
     use std::path::Path;
@@ -1094,7 +1092,9 @@ mod tests {
         let feature: gix::refs::FullName = "refs/heads/feature".try_into()?;
         let main = repo.head_name()?.expect("HEAD is symbolic").to_owned();
         let mut ctx = but_ctx::Context::from_repo_for_testing(repo)?.with_memory_app_cache();
-        ctx.meta()?
+        ctx.db
+            .get_cache_mut()?
+            .meta_mut()?
             .set_branch_stack_order(&[feature.clone(), main.clone()])?;
 
         git_at_dir(tmp.path())
@@ -1105,7 +1105,11 @@ mod tests {
             .expect_err("the configured origin does not exist");
 
         assert!(
-            ctx.meta()?.branch_stack_order(main.as_ref())?.is_none(),
+            ctx.db
+                .get_cache()?
+                .meta()?
+                .branch_stack_order(main.as_ref())?
+                .is_none(),
             "failed fetch should still prune missing branch-order references"
         );
         Ok(())

@@ -5,13 +5,12 @@ use crate::init::utils::{add_workspace, read_only_in_memory_scenario, standard_o
 
 #[test]
 fn child_most_stack_base_wins_over_the_target() -> anyhow::Result<()> {
-    let (repo, mut meta, mut db) = read_only_in_memory_scenario("ws/two-branches-one-below-base")?;
+    let (repo, mut meta) = read_only_in_memory_scenario("ws/two-branches-one-below-base")?;
     add_workspace(&mut meta);
     let ws = Graph::from_head(
         &repo,
-        &*meta,
         target_meta(&repo),
-        &mut db,
+        &mut meta.connection_mut(),
         standard_options(),
     )?
     .validated()?
@@ -34,13 +33,12 @@ fn child_most_stack_base_wins_over_the_target() -> anyhow::Result<()> {
 
 #[test]
 fn target_commit_without_stacks() -> anyhow::Result<()> {
-    let (repo, mut meta, mut db) = read_only_in_memory_scenario("ws/worktree-behind-target")?;
+    let (repo, mut meta) = read_only_in_memory_scenario("ws/worktree-behind-target")?;
     add_workspace(&mut meta);
     let ws = Graph::from_head(
         &repo,
-        &*meta,
         target_meta(&repo),
-        &mut db,
+        &mut meta.connection_mut(),
         standard_options(),
     )?
     .validated()?
@@ -57,13 +55,12 @@ fn target_commit_without_stacks() -> anyhow::Result<()> {
 
 #[test]
 fn none_without_target() -> anyhow::Result<()> {
-    let (repo, mut meta, mut db) = read_only_in_memory_scenario("ws/no-target-without-ws-commit")?;
+    let (repo, mut meta) = read_only_in_memory_scenario("ws/no-target-without-ws-commit")?;
     add_workspace(&mut meta);
     let ws = Graph::from_head(
         &repo,
-        &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
-        &mut db,
+        &mut meta.connection_mut(),
         standard_options(),
     )?
     .validated()?

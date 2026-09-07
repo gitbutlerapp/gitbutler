@@ -1,13 +1,9 @@
 use anyhow::{Context as _, Result, anyhow};
 use bstr::BString;
-use but_core::{
-    RefMetadata, RepositoryExt,
-    ref_metadata::{
-        ProjectMeta, StackId, WorkspaceCommitRelation, WorkspaceStack, WorkspaceStackBranch,
-    },
+use but_core::ref_metadata::{
+    ProjectMeta, StackId, WorkspaceCommitRelation, WorkspaceStack, WorkspaceStackBranch,
 };
 use but_ctx::Context;
-use but_meta::VirtualBranchesTomlMetadata;
 use but_testsupport::{gix_testtools, open_repo, visualize_commit_graph};
 use gitbutler_edit_mode::commands::{
     abort_and_return_to_workspace, enter_edit_mode, save_and_return_to_workspace,
@@ -25,7 +21,7 @@ fn command_ctx(folder: &str) -> Result<(Context, TempDir)> {
         "edit_mode.sh",
         None::<String>,
         gix_testtools::Creation::Execute,
-        2,
+        3,
         move |fixture| {
             if fixture.is_uninitialized() {
                 let repo = open_repo(&fixture.path().join(&folder_for_post))?;
@@ -41,9 +37,8 @@ fn command_ctx(folder: &str) -> Result<(Context, TempDir)> {
 }
 
 fn seed_metadata(repo: &gix::Repository) -> Result<()> {
-    let mut meta = VirtualBranchesTomlMetadata::from_path(
-        repo.gitbutler_storage_path()?.join("virtual_branches.toml"),
-    )?;
+    let mut db = but_testsupport::project_db(repo)?;
+    let meta = db.meta()?;
     let mut ws = meta.workspace("refs/heads/gitbutler/workspace".try_into()?)?;
     ws.stacks.clear();
     ws.stacks.push(WorkspaceStack {
@@ -54,9 +49,7 @@ fn seed_metadata(repo: &gix::Repository) -> Result<()> {
         }],
         workspacecommit_relation: WorkspaceCommitRelation::Merged,
     });
-    meta.set_workspace(&ws)?;
-    meta.set_changed_to_necessitate_write();
-    meta.write_unreconciled()?;
+    db.meta_mut()?.set_workspace(&ws)?;
     ProjectMeta {
         target_ref: Some("refs/remotes/origin/main".try_into()?),
         target_commit_id: Some(repo.rev_parse_single("refs/remotes/origin/main")?.detach()),

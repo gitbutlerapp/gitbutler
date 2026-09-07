@@ -393,16 +393,6 @@ impl ProjectMeta {
         Self::try_from_config(&config)
     }
 
-    /// Return whether legacy project metadata has already been ported to repository-local Git
-    /// configuration.
-    pub fn is_ported_repo(repo: &gix::Repository) -> anyhow::Result<bool> {
-        let config = git_config::open_repo_local_config_for_reading(repo)?;
-        Ok(matches!(
-            config.boolean(PROJECT_PORTED_META),
-            Ok(Some(true))
-        ))
-    }
-
     /// Read project metadata from the given repository-local Git configuration.
     ///
     /// Malformed values are tolerated: a target ref that doesn't parse as a full ref name or
@@ -462,28 +452,7 @@ impl ProjectMeta {
         let changed = git_config::edit_repo_config(repo, gix::config::Source::Local, |config| {
             project_meta.write_to_config(config)
         })?;
-        notify_legacy_storage(repo, changed);
-        Ok(())
-    }
-
-    /// Port project metadata, loading the legacy fallback only if Git config has no metadata.
-    pub fn port_if_needed(
-        repo: &gix::Repository,
-        legacy_fallback: impl FnOnce() -> anyhow::Result<Self>,
-    ) -> anyhow::Result<()> {
-        let changed = git_config::edit_repo_config(repo, gix::config::Source::Local, |config| {
-            if matches!(config.boolean(PROJECT_PORTED_META), Ok(Some(true))) {
-                return Ok(());
-            }
-            let configured = Self::try_from_config(config)?;
-            let project_meta = if configured == Self::default() {
-                legacy_fallback()?
-            } else {
-                configured
-            };
-            repair_target_metadata_for_migration(&project_meta, repo).write_to_config(config)
-        })?;
-        notify_legacy_storage(repo, changed);
+        notify_metadata(repo, changed);
         Ok(())
     }
 
@@ -505,9 +474,9 @@ impl ProjectMeta {
     }
 }
 
-fn notify_legacy_storage(repo: &gix::Repository, changed: bool) {
+fn notify_metadata(repo: &gix::Repository, changed: bool) {
     if changed && let Ok(storage_path) = but_project_handle::gitbutler_storage_path(repo) {
-        but_project_handle::write_refresh_sentinel(&storage_path.join("virtual_branches.toml"));
+        but_project_handle::write_refresh_sentinel(&storage_path.join("but.sqlite"));
     }
 }
 
@@ -928,10 +897,4 @@ impl std::fmt::Debug for Review {
             MaybeDebug(&self.review_id)
         )
     }
-}
-
-/// Additional information about the RefMetadata value itself.
-pub trait ValueInfo {
-    /// Return `true` if the value didn't exist for a given `ref_name` and thus was defaulted.
-    fn is_default(&self) -> bool;
 }

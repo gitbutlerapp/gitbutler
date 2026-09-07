@@ -24,7 +24,6 @@ pub fn split(
     args: Platform,
 ) -> CliResult<(r#move::MoveOutcome, WorkspaceState)> {
     let mut guard = ctx.exclusive_worktree_access();
-    let mut meta = ctx.meta()?;
     let id_map = IdMap::new_from_context(ctx, guard.read_permission())?;
 
     let allow_merged = args.allow_merged;
@@ -34,12 +33,7 @@ pub fn split(
         &MergedUpstream::from_ctx(ctx, allow_merged)?,
     )?;
 
-    Ok(r#move::run(
-        ctx,
-        &mut meta,
-        guard.write_permission(),
-        move_op,
-    )?)
+    Ok(r#move::run(ctx, guard.write_permission(), move_op)?)
 }
 
 fn resolve(args: Platform, ctx: &Context, id_map: &IdMap) -> CliResult<MoveOperation> {

@@ -6,7 +6,7 @@ use but_api::{
     json::{ChangeIdString, HexHash},
 };
 use but_core::{
-    DiffSpec, DryRun, RefMetadata,
+    DiffSpec, DryRun,
     ref_metadata::StackId,
     sync::{RepoExclusive, RepoExclusiveGuard},
 };
@@ -131,7 +131,6 @@ pub fn commit(
     args: Platform,
 ) -> CliResult<(CommitOutcome, WorkspaceState)> {
     let guard = ctx.exclusive_worktree_access();
-    let mut meta = ctx.meta()?;
     let id_map = IdMap::new_from_context(ctx, guard.read_permission())?;
     let operating_mode =
         but_api::legacy::modes::operating_mode_with_perm(ctx, guard.read_permission())?
@@ -143,7 +142,6 @@ pub fn commit(
     };
     Ok(run(
         ctx,
-        &mut meta,
         guard.write_permission(),
         commit_op,
         should_stack_on_head(&operating_mode),
@@ -290,7 +288,6 @@ fn unresolved_change_error(change: &CliIdArg, repo: &gix::Repository, id_map: &I
 
 pub fn run(
     ctx: &mut Context,
-    meta: &mut impl RefMetadata,
     perm: &mut RepoExclusive,
     commit_op: CommitOperation,
     stack_on_head: bool,
@@ -330,7 +327,6 @@ pub fn run(
     let snapshot_details = SnapshotDetails::new(OperationKind::CreateCommit);
     let ((new_commit, branch_name), ws) = but_transaction::with_transaction_with_perm(
         ctx,
-        meta,
         perm,
         snapshot_details,
         DryRun::No,
@@ -699,7 +695,7 @@ impl CommitOperation {
 
     fn execute(
         self,
-        tx: &mut Transaction<'_, '_, impl RefMetadata>,
+        tx: &mut Transaction<'_, '_, '_>,
         changes: Vec<DiffSpec>,
         stack_on_head: bool,
         source: ChangeSource<'_>,
@@ -721,7 +717,7 @@ pub struct CommitToNewBranchOperation {
 impl CommitToNewBranchOperation {
     fn execute(
         self,
-        tx: &mut Transaction<'_, '_, impl RefMetadata>,
+        tx: &mut Transaction<'_, '_, '_>,
         changes: Vec<DiffSpec>,
         stack_on_head: bool,
         source: ChangeSource<'_>,
@@ -744,7 +740,7 @@ impl CommitToNewBranchOperation {
 
     pub(crate) fn create_reference(
         self,
-        tx: &mut Transaction<'_, '_, impl RefMetadata>,
+        tx: &mut Transaction<'_, '_, '_>,
         stack_on_head: bool,
     ) -> anyhow::Result<FullName> {
         let Self { branch_name } = self;
@@ -789,7 +785,7 @@ pub struct CommitAtOperation {
 impl CommitAtOperation {
     fn execute(
         self,
-        tx: &mut Transaction<'_, '_, impl RefMetadata>,
+        tx: &mut Transaction<'_, '_, '_>,
         changes: Vec<DiffSpec>,
         source: ChangeSource<'_>,
     ) -> anyhow::Result<(IntermediateCommitCreateResult, Option<BranchNameTarget>)> {
@@ -803,7 +799,7 @@ impl CommitAtOperation {
 
     pub fn create_target(
         &self,
-        tx: &mut Transaction<'_, '_, impl RefMetadata>,
+        tx: &mut Transaction<'_, '_, '_>,
     ) -> anyhow::Result<(RelativeTo, InsertSide, Option<BranchNameTarget>)> {
         Ok(match &self.target {
             CommitRelativeToTarget::Commit { commit, side } => {

@@ -6,7 +6,7 @@ use std::{
 };
 
 use anyhow::{Context as _, bail};
-use but_core::{RefMetadata, is_workspace_ref_name, ref_metadata};
+use but_core::{is_workspace_ref_name, ref_metadata};
 use gix::{reference::Category, traverse::commit::Either};
 use petgraph::{Direction, prelude::EdgeRef};
 
@@ -30,14 +30,10 @@ pub(crate) type RefsById = gix::hashtable::HashMap<gix::ObjectId, Vec<gix::refs:
 /// and that otherwise the workspace segment won't own commits.
 /// Note that these workspaces are identified by having metadata attached, it doesn't say anything about
 /// the reference name.
-pub fn prioritize_initial_tips_and_assure_ws_commit_ownership<T: RefMetadata>(
+pub fn prioritize_initial_tips_and_assure_ws_commit_ownership(
     graph: &mut Graph,
     next: &mut Queue,
-    (ws_tips, repo, meta): (
-        Vec<gix::ObjectId>,
-        &OverlayRepo<'_>,
-        &OverlayMetadata<'_, T>,
-    ),
+    (ws_tips, repo, meta): (Vec<gix::ObjectId>, &OverlayRepo<'_>, &OverlayMetadata<'_>),
     worktree_by_branch: &WorktreeByBranch,
 ) -> anyhow::Result<Vec<SegmentIndex>> {
     next.inner
@@ -347,12 +343,12 @@ fn local_branches_by_id(
 ///
 /// * …there is exactly one eligible branch to name it.
 /// * …it is a merge commit.
-pub fn try_split_non_empty_segment_at_branch<T: RefMetadata>(
+pub fn try_split_non_empty_segment_at_branch(
     graph: &mut Graph,
     src_sidx: SegmentIndex,
     info: &TraverseInfo,
     refs_by_id: &RefsById,
-    meta: &OverlayMetadata<'_, T>,
+    meta: &OverlayMetadata<'_>,
     worktree_by_branch: &WorktreeByBranch,
 ) -> anyhow::Result<Option<SegmentIndex>> {
     let src_segment = &graph[src_sidx];
@@ -453,9 +449,9 @@ pub fn queue_parents(
 /// references on that object.
 /// Note that `ref_name` should only be set if you are sure that it is unambiguous, and otherwise won't interfere with
 /// the post-processing or the workspace projection later.
-pub fn branch_segment_from_name_and_meta<T: RefMetadata>(
+pub fn branch_segment_from_name_and_meta(
     ref_name: Option<(gix::refs::FullName, Option<SegmentMetadata>)>,
-    meta: &OverlayMetadata<'_, T>,
+    meta: &OverlayMetadata<'_>,
     refs_by_id_lookup: Option<(&RefsById, gix::ObjectId)>,
     worktree_by_branch: &WorktreeByBranch,
 ) -> anyhow::Result<Segment> {
@@ -470,10 +466,10 @@ pub fn branch_segment_from_name_and_meta<T: RefMetadata>(
 
 /// Like `branch_segment_from_name_and_meta`, but allows to set `sibling_sidx` as well to link
 /// a new remote tracking segment to a local tracking segment.
-pub fn branch_segment_from_name_and_meta_sibling<T: RefMetadata>(
+pub fn branch_segment_from_name_and_meta_sibling(
     ref_name: Option<(gix::refs::FullName, Option<SegmentMetadata>)>,
     sibling_sidx: Option<SegmentIndex>,
-    meta: &OverlayMetadata<'_, T>,
+    meta: &OverlayMetadata<'_>,
     refs_by_id_lookup: Option<(&RefsById, gix::ObjectId)>,
     worktree_by_branch: &WorktreeByBranch,
 ) -> anyhow::Result<Segment> {
@@ -488,9 +484,9 @@ pub fn branch_segment_from_name_and_meta_sibling<T: RefMetadata>(
     })
 }
 
-fn unambiguous_local_branch_and_segment_data<T: RefMetadata>(
+fn unambiguous_local_branch_and_segment_data(
     ref_name: Option<(gix::refs::FullName, Option<SegmentMetadata>)>,
-    meta: &OverlayMetadata<'_, T>,
+    meta: &OverlayMetadata<'_>,
     refs_by_id_lookup: Option<(&RefsById, gix::ObjectId)>,
 ) -> anyhow::Result<(Option<gix::refs::FullName>, Option<SegmentMetadata>)> {
     Ok(match ref_name {
@@ -512,18 +508,18 @@ fn unambiguous_local_branch_and_segment_data<T: RefMetadata>(
     })
 }
 
-fn disambiguate_refs_by_branch_metadata_with_lookup<T: RefMetadata>(
+fn disambiguate_refs_by_branch_metadata_with_lookup(
     refs_by_id_lookup: (&RefsById, gix::ObjectId),
-    meta: &OverlayMetadata<'_, T>,
+    meta: &OverlayMetadata<'_>,
 ) -> Option<(gix::refs::FullName, Option<SegmentMetadata>)> {
     let (refs_by_id, id) = refs_by_id_lookup;
     let branches = local_branches_by_id(refs_by_id, id)?;
     disambiguate_refs_by_branch_metadata(branches, meta)
 }
 
-pub fn disambiguate_refs_by_branch_metadata<'a, T: RefMetadata>(
+pub fn disambiguate_refs_by_branch_metadata<'a>(
     branches: impl Iterator<Item = &'a gix::refs::FullName>,
-    meta: &OverlayMetadata<'_, T>,
+    meta: &OverlayMetadata<'_>,
 ) -> Option<(gix::refs::FullName, Option<SegmentMetadata>)> {
     let branches = branches
         .map(|rn| {
@@ -551,9 +547,9 @@ pub fn disambiguate_refs_by_branch_metadata<'a, T: RefMetadata>(
         .map(|(rn, md)| (rn.clone(), md.cloned()))
 }
 
-fn extract_local_branch_metadata<T: RefMetadata>(
+fn extract_local_branch_metadata(
     ref_name: &gix::refs::FullNameRef,
-    meta: &OverlayMetadata<'_, T>,
+    meta: &OverlayMetadata<'_>,
 ) -> anyhow::Result<Option<SegmentMetadata>> {
     if ref_name.category() != Some(Category::LocalBranch) {
         return Ok(None);
@@ -749,10 +745,10 @@ pub fn find(
 /// That way we can discover the workspace containing any starting point, but only if needed.
 /// This means we process all workspaces if we aren't currently and clearly looking at a workspace.
 /// Also prune all non-standard workspaces early, or those that don't have a tip.
-pub fn obtain_workspace_infos<T: RefMetadata>(
+pub fn obtain_workspace_infos(
     repo: &OverlayRepo<'_>,
     maybe_ref_name: Option<&gix::refs::FullNameRef>,
-    meta: &OverlayMetadata<'_, T>,
+    meta: &OverlayMetadata<'_>,
 ) -> anyhow::Result<Vec<(gix::ObjectId, gix::refs::FullName, ref_metadata::Workspace)>> {
     let workspaces = if let Some((ref_name, ws_data)) = maybe_ref_name
         .and_then(|ref_name| {
@@ -896,14 +892,14 @@ pub(crate) struct RemoteQueueOutcome {
 /// Note that remotes fully obey the limit.
 /// If the created remote segment belongs to the segment of `local_tracking_sidx`, return its Segment index along with its name.
 #[expect(clippy::too_many_arguments)]
-pub fn try_queue_remote_tracking_branches<T: RefMetadata>(
+pub fn try_queue_remote_tracking_branches(
     repo: &OverlayRepo<'_>,
     refs: &[gix::refs::FullName],
     graph: &mut Graph,
     target_symbolic_remote_names: &[String],
     configured_remote_tracking_branches: &BTreeSet<gix::refs::FullName>,
     target_refs: &[gix::refs::FullName],
-    meta: &OverlayMetadata<'_, T>,
+    meta: &OverlayMetadata<'_>,
     id: gix::ObjectId,
     limit: Limit,
     goals: &mut Goals,

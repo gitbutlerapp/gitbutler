@@ -383,10 +383,8 @@ pub(in crate::command::legacy::status::tui) fn run_discard(
     operation: DiscardOperation,
 ) -> anyhow::Result<DiscardOutcome> {
     let mut guard = ctx.exclusive_worktree_access();
-    let mut meta = ctx.meta()?;
     let (outcome, _ws) = discard::run(
         ctx,
-        &mut meta,
         guard.write_permission(),
         operation,
         gitbutler_oplog::entry::OperationKind::Discard,

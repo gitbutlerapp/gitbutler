@@ -589,9 +589,8 @@ experimental single-branch feature is enabled, normal CLI use does not require t
 repository is registered and its target is inferred lazily without checking out
 `gitbutler/workspace` or installing setup hooks.
 
-Rerunning `but setup` on an already-configured project also repairs a missing default target — for
-example if `virtual_branches.toml` was reset while the target survived in Git config — so it is the
-recovery path when target configuration looks broken.
+Rerunning `but setup` on an already-configured project repairs missing default-target configuration.
+Project targets live in Git config; virtual-branch metadata lives in the project database.
 
 ### `but teardown`
 

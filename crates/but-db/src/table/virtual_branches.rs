@@ -70,9 +70,9 @@ pub struct VbState {
 
     /// `true` once VB storage has been bootstrapped and synchronized at least once.
     pub initialized: bool,
-    /// Last observed mtime (ns since unix epoch) for `virtual_branches.toml`.
+    /// Obsolete TOML sync mtime, retained for schema compatibility.
     pub toml_last_seen_mtime_ns: Option<i64>,
-    /// Last observed SHA-256 for `virtual_branches.toml`.
+    /// Obsolete TOML sync hash, retained for schema compatibility.
     pub toml_last_seen_sha256: Option<String>,
 }
 
@@ -177,7 +177,7 @@ impl<'conn> Transaction<'conn> {
 ///
 /// Created from [`DbHandle::virtual_branches`] or [`Transaction::virtual_branches`].
 pub struct VirtualBranchesHandle<'conn> {
-    conn: &'conn rusqlite::Connection,
+    pub(crate) conn: &'conn rusqlite::Connection,
 }
 
 /// Mutating accessor for virtual-branches tables, scoped to a savepoint.
@@ -185,7 +185,7 @@ pub struct VirtualBranchesHandle<'conn> {
 /// Created from [`DbHandle::virtual_branches_mut`] or [`Transaction::virtual_branches_mut`].
 /// Methods on this type consume the handle and commit on success.
 pub struct VirtualBranchesHandleMut<'conn> {
-    sp: rusqlite::Savepoint<'conn>,
+    pub(crate) sp: rusqlite::Savepoint<'conn>,
 }
 
 impl VirtualBranchesHandle<'_> {

@@ -7,6 +7,8 @@ impl<'conn> From<rusqlite::Transaction<'conn>> for Transaction<'conn> {
         Transaction {
             inner: Some(trans),
             reset_to_blocking_on_drop: false,
+            project_db_path: None,
+            metadata_changed: false,
         }
     }
 }
@@ -43,10 +45,13 @@ impl DbHandle {
     /// Don't forget to call [commit()](Transaction::commit()) to actually persist the result.
     /// On drop, no changes will be persisted and the transaction is implicitly rolled back.
     pub fn transaction(&mut self) -> rusqlite::Result<Transaction<'_>> {
-        Ok(self
-            .conn
-            .transaction_with_behavior(TransactionBehavior::Deferred)?
-            .into())
+        let mut tx = Transaction::from(
+            self.conn
+                .transaction_with_behavior(TransactionBehavior::Deferred)?,
+        );
+        tx.project_db_path =
+            (self.path != std::path::Path::new(":memory:")).then_some(self.path.as_path());
+        Ok(tx)
     }
 
     /// Create a new *immediate* transaction which can be used to create new table-handles on,
@@ -62,10 +67,13 @@ impl DbHandle {
     /// Don't forget to call [commit()](Transaction::commit()) to actually persist the result.
     /// On drop, no changes will be persisted and the transaction is implicitly rolled back.
     pub fn immediate_transaction(&mut self) -> rusqlite::Result<Transaction<'_>> {
-        Ok(self
-            .conn
-            .transaction_with_behavior(TransactionBehavior::Immediate)?
-            .into())
+        let mut tx = Transaction::from(
+            self.conn
+                .transaction_with_behavior(TransactionBehavior::Immediate)?,
+        );
+        tx.project_db_path =
+            (self.path != std::path::Path::new(":memory:")).then_some(self.path.as_path());
+        Ok(tx)
     }
 
     /// Create a new *immediate* transaction which can be used to create new table-handles on,
@@ -81,7 +89,12 @@ impl DbHandle {
     pub fn immediate_transaction_nonblocking(
         &mut self,
     ) -> rusqlite::Result<Option<Transaction<'_>>> {
-        immediate_optional_transaction(&mut self.conn)
+        let mut tx = immediate_optional_transaction(&mut self.conn)?;
+        if let Some(tx) = tx.as_mut() {
+            tx.project_db_path =
+                (self.path != std::path::Path::new(":memory:")).then_some(self.path.as_path());
+        }
+        Ok(tx)
     }
 }
 
@@ -217,11 +230,14 @@ impl Transaction<'_> {
     /// Consume the transaction and commit it, without recovery.
     pub fn commit(mut self) -> Result<(), rusqlite::Error> {
         let res = self.reset_connection_to_blocking_if_needed();
-        self.inner
-            .take()
-            .expect("BUG: always set")
-            .commit()
-            .and(res)
+        let commit = self.inner.take().expect("BUG: always set").commit();
+        if commit.is_ok()
+            && self.metadata_changed
+            && let Some(path) = self.project_db_path
+        {
+            but_project_handle::write_refresh_sentinel(path);
+        }
+        commit.and(res)
     }
 
     /// Roll all changes so far back, making this instance unusable.

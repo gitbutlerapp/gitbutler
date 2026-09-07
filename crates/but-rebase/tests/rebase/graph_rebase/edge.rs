@@ -10,18 +10,17 @@ use crate::utils::{fixture, fixture_writable, standard_options};
 
 #[test]
 fn adding_a_step_returns_a_selector_that_can_be_connected_into_the_graph() -> Result<()> {
-    let (repo, _tmpdir, mut meta, mut db) = fixture_writable("four-commits")?;
+    let (repo, _tmpdir, mut meta) = fixture_writable("four-commits")?;
 
     let graph = Graph::from_head(
         &repo,
-        &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
-        &mut db,
+        &mut meta.connection_mut(),
         standard_options(),
     )?
     .validated()?;
     let mut ws = graph.into_workspace()?;
-    let mut editor = Editor::create(&mut ws, &mut *meta, &repo, &mut db)?;
+    let mut editor = Editor::create(&mut ws, &repo, meta.connection_mut())?;
 
     let c = repo.rev_parse_single("HEAD")?.detach();
     let a = repo.rev_parse_single("HEAD~2")?.detach();
@@ -60,18 +59,17 @@ fn adding_a_step_returns_a_selector_that_can_be_connected_into_the_graph() -> Re
 
 #[test]
 fn adding_an_existing_edge_causes_an_error() -> Result<()> {
-    let (repo, mut meta, mut db) = fixture("four-commits")?;
+    let (repo, mut meta) = fixture("four-commits")?;
 
     let graph = Graph::from_head(
         &repo,
-        &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
-        &mut db,
+        &mut meta.connection_mut(),
         standard_options(),
     )?
     .validated()?;
     let mut ws = graph.into_workspace()?;
-    let mut editor = Editor::create(&mut ws, &mut *meta, &repo, &mut db)?;
+    let mut editor = Editor::create(&mut ws, &repo, meta.connection_mut())?;
 
     let b = repo.rev_parse_single("HEAD~")?.detach();
     let a = repo.rev_parse_single("HEAD~2")?.detach();
@@ -92,18 +90,17 @@ fn adding_an_existing_edge_causes_an_error() -> Result<()> {
 
 #[test]
 fn adding_an_edge_that_introduces_a_cycle_causes_an_error() -> Result<()> {
-    let (repo, mut meta, mut db) = fixture("four-commits")?;
+    let (repo, mut meta) = fixture("four-commits")?;
 
     let graph = Graph::from_head(
         &repo,
-        &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
-        &mut db,
+        &mut meta.connection_mut(),
         standard_options(),
     )?
     .validated()?;
     let mut ws = graph.into_workspace()?;
-    let mut editor = Editor::create(&mut ws, &mut *meta, &repo, &mut db)?;
+    let mut editor = Editor::create(&mut ws, &repo, meta.connection_mut())?;
 
     let c = repo.rev_parse_single("HEAD")?.detach();
     let a = repo.rev_parse_single("HEAD~2")?.detach();
@@ -121,18 +118,17 @@ fn adding_an_edge_that_introduces_a_cycle_causes_an_error() -> Result<()> {
 
 #[test]
 fn adding_a_valid_edge_is_successful() -> Result<()> {
-    let (repo, mut meta, mut db) = fixture("merge-in-the-middle")?;
+    let (repo, mut meta) = fixture("merge-in-the-middle")?;
 
     let graph = Graph::from_head(
         &repo,
-        &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
-        &mut db,
+        &mut meta.connection_mut(),
         standard_options(),
     )?
     .validated()?;
     let mut ws = graph.into_workspace()?;
-    let mut editor = Editor::create(&mut ws, &mut *meta, &repo, &mut db)?;
+    let mut editor = Editor::create(&mut ws, &repo, meta.connection_mut())?;
 
     let a = repo.rev_parse_single("A")?.detach();
     let b = repo.rev_parse_single("B")?.detach();
@@ -166,18 +162,17 @@ fn adding_a_valid_edge_is_successful() -> Result<()> {
 
 #[test]
 fn remove_edge_returns_no_orders_when_no_edges_found() -> Result<()> {
-    let (repo, mut meta, mut db) = fixture("four-commits")?;
+    let (repo, mut meta) = fixture("four-commits")?;
 
     let graph = Graph::from_head(
         &repo,
-        &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
-        &mut db,
+        &mut meta.connection_mut(),
         standard_options(),
     )?
     .validated()?;
     let mut ws = graph.into_workspace()?;
-    let mut editor = Editor::create(&mut ws, &mut *meta, &repo, &mut db)?;
+    let mut editor = Editor::create(&mut ws, &repo, meta.connection_mut())?;
 
     let c = repo.rev_parse_single("HEAD")?.detach();
     let a = repo.rev_parse_single("HEAD~2")?.detach();
@@ -191,18 +186,17 @@ fn remove_edge_returns_no_orders_when_no_edges_found() -> Result<()> {
 
 #[test]
 fn removing_an_existing_edge_returns_its_order_and_allows_readding_it() -> Result<()> {
-    let (repo, mut meta, mut db) = fixture("four-commits")?;
+    let (repo, mut meta) = fixture("four-commits")?;
 
     let graph = Graph::from_head(
         &repo,
-        &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
-        &mut db,
+        &mut meta.connection_mut(),
         standard_options(),
     )?
     .validated()?;
     let mut ws = graph.into_workspace()?;
-    let mut editor = Editor::create(&mut ws, &mut *meta, &repo, &mut db)?;
+    let mut editor = Editor::create(&mut ws, &repo, meta.connection_mut())?;
 
     let b = repo.rev_parse_single("HEAD~")?.detach();
     let a = repo.rev_parse_single("HEAD~2")?.detach();

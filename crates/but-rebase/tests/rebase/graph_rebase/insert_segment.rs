@@ -28,7 +28,7 @@ fn parent_subjects(repo: &gix::Repository, rev: &str) -> Result<Vec<String>> {
 }
 #[test]
 fn insert_single_node_segment_above() -> Result<()> {
-    let (repo, _tmp, mut meta, mut db) = fixture_writable("three-branches-merged")?;
+    let (repo, _tmp, mut meta) = fixture_writable("three-branches-merged")?;
     snapbox::assert_data_eq!(
         visualize_commit_graph(&repo, "@")?,
         snapbox::str![[r#"
@@ -51,14 +51,13 @@ fn insert_single_node_segment_above() -> Result<()> {
 
     let graph = Graph::from_head(
         &repo,
-        &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
-        &mut db,
+        &mut meta.connection_mut(),
         standard_options(),
     )?
     .validated()?;
     let mut ws = graph.into_workspace()?;
-    let mut editor = Editor::create(&mut ws, &mut *meta, &repo, &mut db)?;
+    let mut editor = Editor::create(&mut ws, &repo, meta.connection_mut())?;
 
     let a = repo.rev_parse_single("A")?.detach();
     let a_selector = editor
@@ -127,7 +126,7 @@ fn insert_single_node_segment_above() -> Result<()> {
 }
 #[test]
 fn insert_single_node_segment_below() -> Result<()> {
-    let (repo, _tmp, mut meta, mut db) = fixture_writable("three-branches-merged")?;
+    let (repo, _tmp, mut meta) = fixture_writable("three-branches-merged")?;
     snapbox::assert_data_eq!(
         visualize_commit_graph(&repo, "@")?,
         snapbox::str![[r#"
@@ -150,14 +149,13 @@ fn insert_single_node_segment_below() -> Result<()> {
 
     let graph = Graph::from_head(
         &repo,
-        &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
-        &mut db,
+        &mut meta.connection_mut(),
         standard_options(),
     )?
     .validated()?;
     let mut ws = graph.into_workspace()?;
-    let mut editor = Editor::create(&mut ws, &mut *meta, &repo, &mut db)?;
+    let mut editor = Editor::create(&mut ws, &repo, meta.connection_mut())?;
 
     let a = repo.rev_parse_single("A")?.detach();
     let a_selector = editor
@@ -229,7 +227,7 @@ fn insert_single_node_segment_below() -> Result<()> {
 }
 #[test]
 fn insert_multi_node_segment_above() -> Result<()> {
-    let (repo, _tmp, mut meta, mut db) = fixture_writable("three-branches-merged")?;
+    let (repo, _tmp, mut meta) = fixture_writable("three-branches-merged")?;
     snapbox::assert_data_eq!(
         visualize_commit_graph(&repo, "@")?,
         snapbox::str![[r#"
@@ -252,14 +250,13 @@ fn insert_multi_node_segment_above() -> Result<()> {
 
     let graph = Graph::from_head(
         &repo,
-        &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
-        &mut db,
+        &mut meta.connection_mut(),
         standard_options(),
     )?
     .validated()?;
     let mut ws = graph.into_workspace()?;
-    let mut editor = Editor::create(&mut ws, &mut *meta, &repo, &mut db)?;
+    let mut editor = Editor::create(&mut ws, &repo, meta.connection_mut())?;
 
     let a = repo.rev_parse_single("A")?.detach();
     let a_selector = editor
@@ -334,7 +331,7 @@ fn insert_multi_node_segment_above() -> Result<()> {
 
 #[test]
 fn insert_multi_node_segment_below() -> Result<()> {
-    let (repo, _tmp, mut meta, mut db) = fixture_writable("three-branches-merged")?;
+    let (repo, _tmp, mut meta) = fixture_writable("three-branches-merged")?;
     snapbox::assert_data_eq!(
         visualize_commit_graph(&repo, "@")?,
         snapbox::str![[r#"
@@ -357,14 +354,13 @@ fn insert_multi_node_segment_below() -> Result<()> {
 
     let graph = Graph::from_head(
         &repo,
-        &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
-        &mut db,
+        &mut meta.connection_mut(),
         standard_options(),
     )?
     .validated()?;
     let mut ws = graph.into_workspace()?;
-    let mut editor = Editor::create(&mut ws, &mut *meta, &repo, &mut db)?;
+    let mut editor = Editor::create(&mut ws, &repo, meta.connection_mut())?;
 
     let a = repo.rev_parse_single("A")?.detach();
     let a_selector = editor
@@ -438,7 +434,7 @@ fn insert_multi_node_segment_below() -> Result<()> {
 
 #[test]
 fn insert_single_node_segment_above_with_explicit_children() -> Result<()> {
-    let (repo, _tmp, mut meta, mut db) = fixture_writable("three-branches-merged")?;
+    let (repo, _tmp, mut meta) = fixture_writable("three-branches-merged")?;
     snapbox::assert_data_eq!(
         visualize_commit_graph(&repo, "@")?,
         snapbox::str![[r#"
@@ -461,14 +457,13 @@ fn insert_single_node_segment_above_with_explicit_children() -> Result<()> {
 
     let graph = Graph::from_head(
         &repo,
-        &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
-        &mut db,
+        &mut meta.connection_mut(),
         standard_options(),
     )?
     .validated()?;
     let mut ws = graph.into_workspace()?;
-    let mut editor = Editor::create(&mut ws, &mut *meta, &repo, &mut db)?;
+    let mut editor = Editor::create(&mut ws, &repo, meta.connection_mut())?;
 
     let a = repo.rev_parse_single("A")?.detach();
     let a_selector = editor
@@ -557,7 +552,7 @@ fn insert_single_node_segment_above_with_explicit_children() -> Result<()> {
 
 #[test]
 fn insert_single_node_segment_below_with_explicit_parents() -> Result<()> {
-    let (repo, _tmp, mut meta, mut db) = fixture_writable("three-branches-merged")?;
+    let (repo, _tmp, mut meta) = fixture_writable("three-branches-merged")?;
     snapbox::assert_data_eq!(
         visualize_commit_graph(&repo, "@")?,
         snapbox::str![[r#"
@@ -580,14 +575,13 @@ fn insert_single_node_segment_below_with_explicit_parents() -> Result<()> {
 
     let graph = Graph::from_head(
         &repo,
-        &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
-        &mut db,
+        &mut meta.connection_mut(),
         standard_options(),
     )?
     .validated()?;
     let mut ws = graph.into_workspace()?;
-    let mut editor = Editor::create(&mut ws, &mut *meta, &repo, &mut db)?;
+    let mut editor = Editor::create(&mut ws, &repo, meta.connection_mut())?;
 
     let a = repo.rev_parse_single("A")?.detach();
     let a_selector = editor
@@ -682,17 +676,16 @@ fn insert_single_node_segment_below_with_explicit_parents() -> Result<()> {
 
 #[test]
 fn insert_single_node_segment_below_can_append_reparented_parent() -> Result<()> {
-    let (repo, _tmp, mut meta, mut db) = fixture_writable("three-branches-merged")?;
+    let (repo, _tmp, mut meta) = fixture_writable("three-branches-merged")?;
     let graph = Graph::from_head(
         &repo,
-        &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
-        &mut db,
+        &mut meta.connection_mut(),
         standard_options(),
     )?
     .validated()?;
     let mut ws = graph.into_workspace()?;
-    let mut editor = Editor::create(&mut ws, &mut *meta, &repo, &mut db)?;
+    let mut editor = Editor::create(&mut ws, &repo, meta.connection_mut())?;
 
     let a = repo.rev_parse_single("A")?.detach();
     let a_selector = editor

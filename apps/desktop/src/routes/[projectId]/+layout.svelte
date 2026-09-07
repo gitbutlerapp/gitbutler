@@ -220,7 +220,7 @@
 			}),
 			// Activity that requires re-reading workspace state — emitted on
 			// remote-ref updates (push, external fetch) and on external
-			// writes to `virtual_branches.toml` (e.g. by the `but` CLI).
+			// database metadata commits (e.g. by the `but` CLI).
 			backend.listen(`project://${projectId}/workspace-activity`, () => {
 				clientState.dispatch(
 					clientState.backendApi.util.invalidateTags([

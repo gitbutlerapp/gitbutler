@@ -59,7 +59,11 @@ use but_utils::OnDemand;
 use rusqlite::ErrorCode;
 use std::path::PathBuf;
 
+mod connection;
 mod handle;
+mod metadata;
+pub use connection::{Connection, ConnectionMut};
+pub use metadata::{Metadata, MetadataHandle, MetadataMut};
 mod table;
 mod transaction;
 
@@ -223,4 +227,8 @@ pub struct Transaction<'conn> {
     /// If `true`, on drop we will reset the busy timeout to the default value, as previously the connection
     /// was changed to non-blocking.
     reset_to_blocking_on_drop: bool,
+    /// Project database path for commit-time refresh notifications; absent for caches and memory.
+    project_db_path: Option<&'conn std::path::Path>,
+    /// Successful metadata writes awaiting the outer commit.
+    metadata_changed: bool,
 }

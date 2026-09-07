@@ -2,7 +2,7 @@ use std::collections::{BTreeMap, BTreeSet};
 
 use anyhow::{Context as _, bail};
 use but_core::{
-    RefMetadata, ref_metadata,
+    ref_metadata,
     ref_metadata::StackKind::{Applied, AppliedAndUnapplied},
 };
 use gix::{ObjectId, prelude::ObjectIdExt, reference::Category};
@@ -40,9 +40,9 @@ impl Graph {
     /// Now that the graph is complete, perform additional structural improvements with
     /// the requirement of them to be computationally cheap.
     #[instrument(level = "trace", skip_all, fields(tip), err(Debug))]
-    pub(super) fn post_processed<T: RefMetadata>(
+    pub(super) fn post_processed(
         mut self,
-        meta: &OverlayMetadata<'_, T>,
+        meta: &OverlayMetadata<'_>,
         tip: gix::ObjectId,
         Context {
             repo,
@@ -188,10 +188,7 @@ impl Graph {
     /// *This is the brute-force way of doing it, instead of ensuring that the
     /// workspace upgrade functions that create independent and dependent
     /// branches keep everything up-to-date at all times.
-    fn set_entrypoint_to_ref_name<T: RefMetadata>(
-        &mut self,
-        meta: &OverlayMetadata<'_, T>,
-    ) -> anyhow::Result<()> {
+    fn set_entrypoint_to_ref_name(&mut self, meta: &OverlayMetadata<'_>) -> anyhow::Result<()> {
         let Some(((ep_sidx, ep_commit), desired_ref_name)) =
             self.entrypoint.zip(self.entrypoint_ref.clone())
         else {
@@ -312,9 +309,9 @@ impl Graph {
     /// by checking incoming connections, instead they are expected to be either
     /// inline, i.e. virutal branch segments in a workspace, or they are
     /// named segments.
-    fn fixup_remote_tracking_refs_and_maybe_split_segments<T: RefMetadata>(
+    fn fixup_remote_tracking_refs_and_maybe_split_segments(
         &mut self,
-        meta: &OverlayMetadata<'_, T>,
+        meta: &OverlayMetadata<'_>,
         worktree_by_branch: &WorktreeByBranch,
     ) -> anyhow::Result<()> {
         struct SplitInfo {
@@ -406,11 +403,11 @@ impl Graph {
 
     /// Ensure that workspace segments with managed commits only have that commit, and move all others
     /// into a new segment.
-    fn fixup_workspace_segments<T: RefMetadata>(
+    fn fixup_workspace_segments(
         &mut self,
         repo: &OverlayRepo<'_>,
         refs_by_id: &RefsById,
-        meta: &OverlayMetadata<'_, T>,
+        meta: &OverlayMetadata<'_>,
         worktree_by_branch: &WorktreeByBranch,
     ) -> anyhow::Result<()> {
         let workspace_segments_with_multiple_commits: Vec<_> = self
@@ -436,13 +433,13 @@ impl Graph {
         Ok(())
     }
 
-    fn split_segment<T: RefMetadata>(
+    fn split_segment(
         &mut self,
         sidx: NodeIndex,
         cidx_for_new_segment: CommitIndex,
         segment_name: Option<gix::refs::FullName>,
         refs_by_id: Option<&RefsById>,
-        meta: &OverlayMetadata<'_, T>,
+        meta: &OverlayMetadata<'_>,
         worktree_by_branch: &WorktreeByBranch,
     ) -> anyhow::Result<SegmentIndex> {
         let s = &mut self[sidx];
@@ -519,9 +516,9 @@ impl Graph {
     /// * segments have a name, but the same name is still visible in the refs of the first commit.
     ///
     /// Only perform disambiguation on proxy segments (i.e. those inserted segments to prevent commit-ownership).
-    fn fixup_segment_names<T: RefMetadata>(
+    fn fixup_segment_names(
         &mut self,
-        meta: &OverlayMetadata<'_, T>,
+        meta: &OverlayMetadata<'_>,
         inserted_proxy_segments: &[SegmentIndex],
         worktree_by_branch: &WorktreeByBranch,
     ) {
@@ -698,9 +695,9 @@ impl Graph {
     /// * insert empty segments as defined by the workspace that affects its downstream.
     /// * put workspace connection into the order defined in the workspace metadata.
     /// * set sibling segment IDs for unnamed segments that are descendants of an out-of-workspace but known segment.
-    fn workspace_upgrades<T: RefMetadata>(
+    fn workspace_upgrades(
         &mut self,
-        meta: &OverlayMetadata<'_, T>,
+        meta: &OverlayMetadata<'_>,
         repo: &OverlayRepo<'_>,
         worktree_by_branch: &WorktreeByBranch,
     ) -> anyhow::Result<()> {
@@ -1132,7 +1129,7 @@ impl Graph {
     fn improve_remote_segments(
         &mut self,
         repo: &OverlayRepo<'_>,
-        meta: &OverlayMetadata<'_, impl RefMetadata>,
+        meta: &OverlayMetadata<'_>,
         symbolic_remote_names: &[String],
         configured_remote_tracking_branches: &BTreeSet<gix::refs::FullName>,
         worktree_by_branch: &WorktreeByBranch,
@@ -1351,10 +1348,10 @@ impl Graph {
     /// the first commit of the segment that owns it. The last case keeps this
     /// synthetic empty segment from pointing into the middle of an existing
     /// segment.
-    fn ensure_local_tracking_segment_for_remote<T: RefMetadata>(
+    fn ensure_local_tracking_segment_for_remote(
         &mut self,
         repo: &OverlayRepo<'_>,
-        meta: &OverlayMetadata<'_, T>,
+        meta: &OverlayMetadata<'_>,
         remote_ref_name: gix::refs::FullName,
         remote_sidx: SegmentIndex,
         worktree_by_branch: &WorktreeByBranch,
@@ -1470,10 +1467,10 @@ impl Graph {
 
     /// In ad-hoc/single-branch mode, use persisted GitButler-created branch
     /// ordering to split multiple same-tip refs into empty stack segments.
-    fn ad_hoc_branch_stack_upgrades<T: RefMetadata>(
+    fn ad_hoc_branch_stack_upgrades(
         &mut self,
         repo: &OverlayRepo<'_>,
-        meta: &OverlayMetadata<'_, T>,
+        meta: &OverlayMetadata<'_>,
         worktree_by_branch: &WorktreeByBranch,
         symbolic_remote_names: &[String],
         configured_remote_tracking_branches: &BTreeSet<gix::refs::FullName>,
@@ -1640,9 +1637,9 @@ impl Graph {
     /// `Workspace::metadata_from_projection()`). Exempt is only the subject
     /// of this graph's view: the branch checked out by the repository that
     /// built the graph, and the entrypoint ref.
-    fn fork_out_worktree_checkout_refs<T: RefMetadata>(
+    fn fork_out_worktree_checkout_refs(
         &mut self,
-        meta: &OverlayMetadata<'_, T>,
+        meta: &OverlayMetadata<'_>,
         worktree_by_branch: &WorktreeByBranch,
     ) -> anyhow::Result<()> {
         let mut seen = BTreeSet::new();
@@ -1693,10 +1690,10 @@ impl Graph {
     /// Returns the fork segment now carrying `ref_name` along with the lane
     /// segment its identity vacated, if any, or `None` if the ref could not be
     /// placed.
-    fn fork_out_worktree_checkout_ref<T: RefMetadata>(
+    fn fork_out_worktree_checkout_ref(
         &mut self,
         ref_name: gix::refs::FullName,
-        meta: &OverlayMetadata<'_, T>,
+        meta: &OverlayMetadata<'_>,
         worktree_by_branch: &WorktreeByBranch,
     ) -> anyhow::Result<Option<(SegmentIndex, Option<SegmentIndex>)>> {
         enum Location {
@@ -1943,12 +1940,12 @@ fn ad_hoc_order_bottom_segment_id(
 /// owns that commit. Branches above it become explicit empty segments, allowing
 /// single-branch mode to represent "top is empty above bottom" without managed
 /// workspace metadata.
-fn rebuild_same_tip_segment_chain_by_branch_order<T: RefMetadata>(
+fn rebuild_same_tip_segment_chain_by_branch_order(
     graph: &mut Graph,
     bottom_segment_id: SegmentIndex,
     matching_refs: Vec<gix::refs::FullName>,
     entrypoint_ref: &gix::refs::FullNameRef,
-    meta: &OverlayMetadata<'_, T>,
+    meta: &OverlayMetadata<'_>,
     worktree_by_branch: &WorktreeByBranch,
 ) -> anyhow::Result<()> {
     let Some((bottom_ref, empty_refs)) = matching_refs.split_last() else {
@@ -2237,12 +2234,12 @@ fn delete_anon_if_empty_and_reconnect(graph: &mut Graph, sidx: SegmentIndex) {
 
 /// Create as many new segments as refs in `matching_refs`, connect them to each other in order, and finally connect them
 /// with `above_idx` and `below_idx` to integrate them into the workspace that is bounded by these segments.
-fn create_independent_segments<T: RefMetadata>(
+fn create_independent_segments(
     graph: &mut Graph,
     above_idx: SegmentIndex,
     below_idx: SegmentIndex,
     matching_refs: Vec<gix::refs::FullName>,
-    meta: &OverlayMetadata<'_, T>,
+    meta: &OverlayMetadata<'_>,
     worktree_by_branch: &WorktreeByBranch,
 ) -> anyhow::Result<()> {
     assert!(!matching_refs.is_empty());
@@ -2311,13 +2308,13 @@ fn create_independent_segments<T: RefMetadata>(
 /// Note that the Segment at `bottom_segment_index` will own `commit`.
 /// Also note that we reconnect commit-by-commit, so the outer processing has to do that.
 /// Note that it may avoid creating a new segment.
-fn maybe_create_multiple_segments<T: RefMetadata>(
+fn maybe_create_multiple_segments(
     graph: &mut Graph,
     mut above_idx: SegmentIndex,
     commit_parent_below: SegmentIndex,
     commit_idx: Option<CommitIndex>,
     matching_refs: Vec<gix::refs::FullName>,
-    meta: &OverlayMetadata<'_, T>,
+    meta: &OverlayMetadata<'_>,
     worktree_by_branch: &WorktreeByBranch,
 ) -> anyhow::Result<SegmentIndex> {
     assert!(

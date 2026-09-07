@@ -67,6 +67,12 @@ fn restore_snapshot_replaces_branch_order() -> anyhow::Result<()> {
 #[test]
 fn restore_snapshot_restores_explicitly_empty_branch_order() -> anyhow::Result<()> {
     let Test { ctx, .. } = &mut Test::from_scenario("one-stack-two-commits", &["A"]);
+    ctx.db
+        .get_cache_mut()?
+        .meta_mut()?
+        .replace_branch_order(&but_db::BranchOrderSnapshot {
+            entries: Vec::new(),
+        })?;
     let mut guard = ctx.exclusive_worktree_access();
     let snapshot_id = ctx.create_snapshot(
         SnapshotDetails::new(OperationKind::OnDemandSnapshot),
@@ -366,6 +372,247 @@ fn snapshot_creation_works_with_unmerged_index() -> anyhow::Result<()> {
 }
 
 #[test]
+fn snapshot_and_restore_use_database_metadata_without_live_toml() -> anyhow::Result<()> {
+    let Test { repo, ctx, .. } = &mut Test::default();
+    configure_default_target(ctx)?;
+    let expected_head = ctx.project_meta()?.target_commit_id.unwrap();
+    let path = ctx.project_data_dir().join("virtual_branches.toml");
+    let _ = fs::remove_file(&path);
+    let mut metadata = ctx
+        .db
+        .get_cache()?
+        .virtual_branches()
+        .get_snapshot()?
+        .unwrap_or_default();
+    metadata.state.last_pushed_base_sha = Some(expected_head.to_string());
+    ctx.db
+        .get_cache_mut()?
+        .meta_mut()?
+        .replace_snapshot(&metadata)?;
+
+    let mut guard = ctx.exclusive_worktree_access();
+    let snapshot_id = ctx.create_snapshot(
+        SnapshotDetails::new(OperationKind::OnDemandSnapshot),
+        guard.write_permission(),
+    )?;
+    assert!(
+        !path.exists(),
+        "snapshot creation never creates the obsolete live file"
+    );
+    let archived: but_meta::virtual_branches_legacy_types::VirtualBranches = toml::from_str(
+        &snapshot_blob(&repo.open_repo(), snapshot_id, "virtual_branches.toml")?,
+    )?;
+    assert_eq!(
+        archived.last_pushed_base,
+        Some(expected_head),
+        "snapshot metadata comes from the database"
+    );
+
+    metadata.state.last_pushed_base_sha = None;
+    ctx.db
+        .get_cache_mut()?
+        .meta_mut()?
+        .replace_snapshot(&metadata)?;
+    fs::write(&path, "invalid live metadata")?;
+    ctx.restore_snapshot(
+        snapshot_id,
+        RestoreKind::RestoreFromSnapshotViaUndo,
+        guard.write_permission(),
+    )?;
+    assert_eq!(
+        ctx.db
+            .get_cache()?
+            .virtual_branches()
+            .get_snapshot()?
+            .unwrap()
+            .state
+            .last_pushed_base_sha,
+        Some(expected_head.to_string()),
+        "undo restores the database directly"
+    );
+    assert_eq!(
+        fs::read_to_string(path)?,
+        "invalid live metadata",
+        "undo leaves obsolete files untouched"
+    );
+    Ok(())
+}
+
+#[test]
+fn snapshot_resolves_heads_and_preserves_shared_segments_without_mutating_metadata()
+-> anyhow::Result<()> {
+    use but_meta::virtual_branches_legacy_types::{Stack, StackBranch, VirtualBranches};
+
+    let Test { repo, ctx } = &mut Test::from_scenario("multi-lane-with-shared-segment", &[]);
+    let mut metadata = VirtualBranches::default();
+    let expected_names = [
+        vec!["shared", "A"],
+        vec!["shared", "B"],
+        vec!["shared", "C", "D"],
+    ];
+    let mut stack_ids = Vec::new();
+    for (position, names) in expected_names.iter().enumerate() {
+        let heads = names
+            .iter()
+            .map(|name| {
+                StackBranch::new_with_zero_head((*name).into(), Some(position + 10), None, false)
+            })
+            .collect::<Vec<_>>();
+        let stack = Stack::new_with_just_heads(heads, position, true);
+        stack_ids.push(stack.id);
+        metadata.branches.insert(stack.id, stack);
+    }
+    let stale = Stack::new_with_just_heads(
+        vec![StackBranch {
+            head: ctx.project_meta()?.target_commit_id.unwrap(),
+            name: "shared".into(),
+            pr_number: Some(42),
+            review_id: Some("stale review".into()),
+            archived: true,
+        }],
+        3,
+        false,
+    );
+    metadata.branches.insert(stale.id, stale.clone());
+    let expected_database = but_meta::legacy_storage::legacy_to_snapshot(&metadata)?;
+    ctx.db
+        .get_cache_mut()?
+        .meta_mut()?
+        .replace_snapshot(&expected_database)?;
+    let expected_database = ctx.db.get_cache()?.virtual_branches().get_snapshot()?;
+    let mut guard = ctx.exclusive_worktree_access();
+    let snapshot_id = ctx.create_snapshot(
+        SnapshotDetails::new(OperationKind::OnDemandSnapshot),
+        guard.write_permission(),
+    )?;
+    let repo = repo.open_repo();
+    let archived: VirtualBranches =
+        toml::from_str(&snapshot_blob(&repo, snapshot_id, "virtual_branches.toml")?)?;
+    for (id, expected) in stack_ids.iter().zip(expected_names) {
+        let stack = &archived.branches[id];
+        assert_eq!(
+            stack
+                .heads
+                .iter()
+                .map(|head| head.name.as_str())
+                .collect::<Vec<_>>(),
+            expected,
+            "snapshot projection preserves shared segments in each stack"
+        );
+        for head in &stack.heads {
+            assert_eq!(
+                head.pr_number,
+                Some(stack.order + 10),
+                "each shared segment keeps its own stack's review metadata"
+            );
+            assert_eq!(
+                head.head,
+                repo.rev_parse_single(format!("refs/heads/{}", head.name).as_bytes())?
+                    .detach(),
+                "snapshot heads resolve null stored hashes using their refs"
+            );
+        }
+    }
+    assert_eq!(
+        archived.branches[&stale.id], stale,
+        "snapshot export preserves unapplied metadata"
+    );
+    assert_eq!(
+        ctx.db.get_cache()?.virtual_branches().get_snapshot()?,
+        expected_database,
+        "snapshot preparation normalizes its exported copy without changing live metadata"
+    );
+    Ok(())
+}
+
+#[test]
+fn snapshot_keeps_heads_checked_out_in_linked_worktrees() -> anyhow::Result<()> {
+    let Test { repo, ctx } = &mut Test::from_scenario("one-stack-two-commits", &["A"]);
+    let tmp = tempfile::tempdir()?;
+    let worktree = tmp.path().join("linked");
+    repo.invoke_git(&format!("worktree add '{}' A", worktree.display()));
+    ctx.settings.feature_flags.worktree_manipulation = true;
+    ctx.db.get_cache_mut()?.worktree_meta_mut().mark_adopted()?;
+    let guard = ctx.shared_worktree_access();
+    let ws = ctx.workspace_from_head_uncached(guard.read_permission())?;
+    assert!(
+        !ws.graph.worktree_tips.is_empty(),
+        "the fixture includes the active linked worktree"
+    );
+    assert!(
+        ws.stacks
+            .iter()
+            .all(|stack| stack.segments.iter().all(|segment| {
+                segment
+                    .ref_name()
+                    .is_none_or(|name| name.as_bstr() != b"refs/heads/A")
+            })),
+        "the linked branch is omitted from the main-worktree projection"
+    );
+    drop(guard);
+    let mut guard = ctx.exclusive_worktree_access();
+    let snapshot_id = ctx.create_snapshot(
+        SnapshotDetails::new(OperationKind::OnDemandSnapshot),
+        guard.write_permission(),
+    )?;
+    let archived: but_meta::virtual_branches_legacy_types::VirtualBranches = toml::from_str(
+        &snapshot_blob(&repo.open_repo(), snapshot_id, "virtual_branches.toml")?,
+    )?;
+    let stack = archived.branches.values().next().unwrap();
+    assert!(
+        stack.in_workspace,
+        "a linked checkout does not unapply its recorded stack"
+    );
+    assert_eq!(
+        stack.heads[0].name, "A",
+        "the archive retains the linked branch"
+    );
+    Ok(())
+}
+
+#[test]
+fn snapshot_normalizes_duplicate_heads_within_one_stack() -> anyhow::Result<()> {
+    let Test { repo, ctx } = &mut Test::from_scenario("one-stack-two-commits", &["A"]);
+    let mut metadata = ctx
+        .db
+        .get_cache()?
+        .virtual_branches()
+        .get_snapshot()?
+        .unwrap();
+    let mut duplicate = metadata.heads[0].clone();
+    duplicate.position += 1;
+    metadata.heads.push(duplicate);
+    ctx.db
+        .get_cache_mut()?
+        .meta_mut()?
+        .replace_snapshot(&metadata)?;
+    let mut guard = ctx.exclusive_worktree_access();
+    let snapshot_id = ctx.create_snapshot(
+        SnapshotDetails::new(OperationKind::OnDemandSnapshot),
+        guard.write_permission(),
+    )?;
+    let archived: but_meta::virtual_branches_legacy_types::VirtualBranches = toml::from_str(
+        &snapshot_blob(&repo.open_repo(), snapshot_id, "virtual_branches.toml")?,
+    )?;
+    let heads = &archived.branches.values().next().unwrap().heads;
+    assert_eq!(
+        heads.len(),
+        1,
+        "snapshot projection normalizes repeated heads within one stack"
+    );
+    assert_eq!(
+        heads[0].name, "A",
+        "normalization keeps the branch identity"
+    );
+    assert_eq!(
+        ctx.db.get_cache()?.virtual_branches().get_snapshot()?,
+        Some(metadata),
+        "snapshot preparation leaves live metadata untouched"
+    );
+    Ok(())
+}
+
+#[test]
 fn snapshot_has_authoritative_meta_and_omits_legacy_target() -> anyhow::Result<()> {
     let Test { repo, ctx, .. } = &mut Test::default();
     configure_default_target(ctx)?;
@@ -524,8 +771,7 @@ fn malformed_project_meta_fails_before_restore_mutates_state() -> anyhow::Result
     )?;
     let before_meta = ctx.project_meta()?;
     let before_oplog_head = ctx.oplog_head()?;
-    let live_path = ctx.project_data_dir().join("virtual_branches.toml");
-    let before_toml = fs::read(&live_path)?;
+    let before_metadata = ctx.db.get_cache()?.virtual_branches().get_snapshot()?;
 
     let error = ctx
         .restore_snapshot(
@@ -549,9 +795,9 @@ fn malformed_project_meta_fails_before_restore_mutates_state() -> anyhow::Result
         "a failed restore does not advance the oplog head"
     );
     assert_eq!(
-        fs::read(live_path)?,
-        before_toml,
-        "a failed restore does not rewrite virtual_branches.toml"
+        ctx.db.get_cache()?.virtual_branches().get_snapshot()?,
+        before_metadata,
+        "a failed restore does not rewrite database metadata"
     );
     Ok(())
 }

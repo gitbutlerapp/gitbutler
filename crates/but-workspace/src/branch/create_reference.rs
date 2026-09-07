@@ -134,7 +134,7 @@ pub(super) mod function {
     use anyhow::{Context as _, bail};
     use bstr::ByteSlice;
     use but_core::{
-        RefMetadata, ref_metadata,
+        ref_metadata,
         ref_metadata::{
             StackId, StackKind::AppliedAndUnapplied, WorkspaceCommitRelation::Merged,
             WorkspaceStack, WorkspaceStackBranch,
@@ -202,7 +202,7 @@ pub(super) mod function {
     ///
     /// With [`Anchor::AtReference`] and no managed workspace, the new branch is positioned relative
     /// to a *local* branch by writing the tip-to-base order to `branch_stack_order`. This requires a
-    /// backend where [`RefMetadata::can_persist_branch_stack_order`] is `true`.
+    /// database that persists branch stack order.
     ///
     /// When the new branch is placed [`Position::Above`] the *currently checked-out* branch it
     /// becomes the new tip, and the returned workspace is projected **as if it were already checked
@@ -212,15 +212,16 @@ pub(super) mod function {
     /// entrypoint untouched.
     ///
     /// Return a regenerated Graph that contains the new reference, and from which a new workspace can be derived.
-    pub fn create_reference<'ws, 'name, T: RefMetadata>(
+    pub fn create_reference<'ws, 'name>(
         ref_name: impl Borrow<gix::refs::FullNameRef>,
         anchor: impl Into<Option<Anchor<'name>>>,
         repo: &gix::Repository,
         workspace: &'ws but_graph::Workspace,
-        meta: &mut T,
+        db: &mut but_db::ConnectionMut<'_, '_>,
         new_stack_id: impl FnOnce(&gix::refs::FullNameRef) -> StackId,
         order: impl Into<Option<usize>>,
     ) -> anyhow::Result<Cow<'ws, but_graph::Workspace>> {
+        let meta = db.meta()?;
         let anchor = anchor.into();
         let order = order.into();
 
@@ -346,13 +347,6 @@ pub(super) mod function {
                 // The lower bound owns no commits, so an ad-hoc workspace needs explicit ref
                 // ordering to project the new empty segment at that boundary.
                 let branch_stack_order = if !workspace.has_metadata() && points_to_workspace_base {
-                    if !meta.can_persist_branch_stack_order() {
-                        bail_precondition!(
-                            "Cannot position '{new}' relative to local reference '{anchor}' at the workspace base without branch order metadata",
-                            new = ref_name.shorten(),
-                            anchor = anchor_ref.shorten()
-                        );
-                    }
                     let existing_order = meta
                         .branch_stack_order(anchor_ref.as_ref())?
                         .unwrap_or_default();
@@ -414,7 +408,7 @@ pub(super) mod function {
                         position,
                         repo,
                         workspace,
-                        meta,
+                        &meta,
                     )?
                 } else {
                     bail_precondition!(
@@ -467,7 +461,7 @@ pub(super) mod function {
 
             workspace
                 .graph
-                .redo_traversal_with_overlay(repo, meta, overlay)?
+                .redo_traversal_with_overlay(repo, &meta, overlay)?
         };
 
         let updated_workspace = graph_with_new_ref.into_workspace()?;
@@ -529,10 +523,12 @@ pub(super) mod function {
         })?;
         // Important to first update the workspace so we have the correct stack setup.
         if let Some(ws_meta) = updated_ws_meta {
-            meta.set_workspace(&ws_meta)?;
+            db.meta_mut()?.set_workspace(&ws_meta)?;
         }
         if let Some(branch_stack_order) = branch_stack_order
-            && let Err(err) = meta.set_branch_stack_order(&branch_stack_order)
+            && let Err(err) = db
+                .meta_mut()
+                .and_then(|meta| meta.set_branch_stack_order(&branch_stack_order))
         {
             // Keep the operation atomic from the caller's perspective: if we just created the ref
             // but can't persist its ordering, roll the ref back (best-effort) so we don't leave an
@@ -545,12 +541,10 @@ pub(super) mod function {
             return Err(err);
         }
 
-        // Always re-obtain the branch as `set_workspace` has created another version of it, possibly.
-        // To avoid duplication, fetch the 'real' one and do the update again.
-        // TODO: remove this in favor of keeping the previous handle once we have a sane `meta` impl
-        let mut branch_md = meta.branch(ref_name)?;
+        // Setting the workspace may have moved this branch into another stack.
+        let mut branch_md = db.meta()?.branch(ref_name)?;
         update_branch_metadata(ref_name, repo, &mut branch_md)?;
-        meta.set_branch(&branch_md)?;
+        db.meta_mut()?.set_branch(&branch_md)?;
 
         Ok(Cow::Owned(updated_workspace))
     }
@@ -560,23 +554,16 @@ pub(super) mod function {
     ///
     /// The new reference points at the same commit as `anchor_ref`. See [`create_reference`] for
     /// the `new_tip` / checkout contract.
-    fn resolve_ad_hoc_at_reference<'a, T: RefMetadata>(
+    fn resolve_ad_hoc_at_reference<'a>(
         new_ref: &gix::refs::FullNameRef,
         anchor_ref: &gix::refs::FullNameRef,
         position: Position,
         repo: &gix::Repository,
         workspace: &but_graph::Workspace,
-        meta: &T,
+        meta: &but_db::Metadata,
     ) -> anyhow::Result<AnchorResolution<'a>> {
         // Callers (the `AtReference` arm) guarantee `new_ref != anchor_ref`, which keeps the
         // `insert_into_branch_stack_order` invariant (the anchor survives `retain`) sound.
-        if !meta.can_persist_branch_stack_order() {
-            bail_precondition!(
-                "Cannot position '{new}' relative to local reference '{anchor}' without branch order metadata",
-                new = new_ref.shorten(),
-                anchor = anchor_ref.shorten()
-            );
-        }
         let Some(mut anchor_reference) = repo.try_find_reference(anchor_ref)? else {
             bail_precondition!(
                 "Cannot position '{new}' relative to '{anchor}': the anchor reference does not exist",

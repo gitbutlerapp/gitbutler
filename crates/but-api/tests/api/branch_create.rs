@@ -1,4 +1,3 @@
-use but_core::RefMetadata;
 use but_rebase::graph_rebase::mutate::InsertSide;
 
 use crate::support::{assert_workspace_ref, repo_with_feature_branch};
@@ -60,6 +59,8 @@ fn branch_create_above_checked_out_ref_checks_out_new_ref_in_ad_hoc_workspace() 
     assert_workspace_ref(&result.workspace, "refs/heads/top");
 
     let order = ctx
+        .db
+        .get_cache()?
         .meta()?
         .branch_stack_order(anchor_ref.as_ref())?
         .expect("ad-hoc branch creation above a local ref persists branch order");
@@ -94,6 +95,8 @@ fn branch_create_below_checked_out_ref_keeps_head_in_ad_hoc_workspace() -> anyho
     assert!(repo.try_find_reference(new_ref.as_ref())?.is_some());
 
     let order = ctx
+        .db
+        .get_cache()?
         .meta()?
         .branch_stack_order(anchor_ref.as_ref())?
         .expect("ad-hoc branch creation below a local ref persists branch order");

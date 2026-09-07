@@ -15,7 +15,7 @@ const FIXTURE: &str = "sha256-merge-in-the-middle";
 
 #[test]
 fn inserting_a_step_rewrites_sha256_commits() -> Result<()> {
-    let (repo, _tmpdir, mut meta, mut db) = fixture_writable(FIXTURE)?;
+    let (repo, _tmpdir, mut meta) = fixture_writable(FIXTURE)?;
     snapbox::assert_data_eq!(
         repo.object_hash().to_debug(),
         snapbox::str![[r#"
@@ -40,14 +40,13 @@ Sha256
 
     let graph = Graph::from_head(
         &repo,
-        &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
-        &mut db,
+        &mut meta.connection_mut(),
         standard_options(),
     )?
     .validated()?;
     let mut ws = graph.into_workspace()?;
-    let mut editor = Editor::create(&mut ws, &mut *meta, &repo, &mut db)?;
+    let mut editor = Editor::create(&mut ws, &repo, meta.connection_mut())?;
 
     let merge_id = editor.repo().rev_parse_single("HEAD~")?.detach();
     let (selector, mut merge_obj) = editor.find_selectable_commit(merge_id)?;
@@ -114,7 +113,7 @@ Sha256
 
 #[test]
 fn replacing_a_step_rewrites_sha256_descendants() -> Result<()> {
-    let (repo, _tmpdir, mut meta, mut db) = fixture_writable(FIXTURE)?;
+    let (repo, _tmpdir, mut meta) = fixture_writable(FIXTURE)?;
     snapbox::assert_data_eq!(
         repo.object_hash().to_debug(),
         snapbox::str![[r#"
@@ -139,14 +138,13 @@ Sha256
 
     let graph = Graph::from_head(
         &repo,
-        &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
-        &mut db,
+        &mut meta.connection_mut(),
         standard_options(),
     )?
     .validated()?;
     let mut ws = graph.into_workspace()?;
-    let mut editor = Editor::create(&mut ws, &mut *meta, &repo, &mut db)?;
+    let mut editor = Editor::create(&mut ws, &repo, meta.connection_mut())?;
 
     let a = editor.repo().rev_parse_single("A")?.detach();
     let (a_selector, mut a_obj) = editor
@@ -212,7 +210,7 @@ Sha256
 
 #[test]
 fn changing_edges_rewrites_sha256_parentage() -> Result<()> {
-    let (repo, _tmpdir, mut meta, mut db) = fixture_writable(FIXTURE)?;
+    let (repo, _tmpdir, mut meta) = fixture_writable(FIXTURE)?;
     snapbox::assert_data_eq!(
         repo.object_hash().to_debug(),
         snapbox::str![[r#"
@@ -237,14 +235,13 @@ Sha256
 
     let graph = Graph::from_head(
         &repo,
-        &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
-        &mut db,
+        &mut meta.connection_mut(),
         standard_options(),
     )?
     .validated()?;
     let mut ws = graph.into_workspace()?;
-    let mut editor = Editor::create(&mut ws, &mut *meta, &repo, &mut db)?;
+    let mut editor = Editor::create(&mut ws, &repo, meta.connection_mut())?;
 
     let inner_merge = editor.repo().rev_parse_single("HEAD~")?.detach();
     let a = editor.repo().rev_parse_single("A")?.detach();

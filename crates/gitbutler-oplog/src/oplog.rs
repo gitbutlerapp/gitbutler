@@ -6,8 +6,7 @@ use std::{
 
 use anyhow::{Context as _, Result, anyhow, bail};
 use but_core::{
-    RefMetadata, RepositoryExt, TreeChange, WORKSPACE_REF_NAME, diff::tree_changes,
-    ref_metadata::ProjectMeta,
+    RepositoryExt, TreeChange, WORKSPACE_REF_NAME, diff::tree_changes, ref_metadata::ProjectMeta,
 };
 use but_ctx::{
     Context,
@@ -676,28 +675,10 @@ fn snapshot_metadata(
 }
 
 mod legacy_virtual_branches {
-    use std::path::PathBuf;
+    use std::collections::BTreeSet;
 
     use anyhow::{Result, bail};
-    use but_ctx::Context;
-    use but_meta::{
-        legacy_storage,
-        virtual_branches_legacy_types::{Stack, StackBranch, VirtualBranches},
-    };
-
-    pub(super) fn restore_legacy_metadata_from_toml(
-        ctx: &Context,
-        contents: &[u8],
-    ) -> Result<but_meta::VirtualBranchesTomlMetadata> {
-        let path = toml_path(ctx);
-        but_utils::write(&path, contents)?;
-        legacy_storage::import_toml_into_db(&path)?;
-        ctx.legacy_meta()
-    }
-
-    fn toml_path(ctx: &Context) -> PathBuf {
-        ctx.project_data_dir().join("virtual_branches.toml")
-    }
+    use but_meta::virtual_branches_legacy_types::{Stack, StackBranch, VirtualBranches};
 
     pub(super) fn in_workspace_stacks(
         virtual_branches: &VirtualBranches,
@@ -729,12 +710,17 @@ mod legacy_virtual_branches {
         }
     }
 
-    pub(super) fn sync_stack_heads_from_refs(stack: &mut Stack, repo: &gix::Repository) -> bool {
-        let mut changed = false;
-        for head in &mut stack.heads {
-            changed |= sync_branch_head_from_ref(head, repo).unwrap_or(false);
-        }
-        changed
+    pub(super) fn normalize_stack_heads(stack: &mut Stack, repo: &gix::Repository) {
+        let mut names = BTreeSet::new();
+        stack.heads.retain_mut(|head| {
+            if !names.insert(head.name.clone()) {
+                return false;
+            }
+            if stack.in_workspace || head.head.is_null() {
+                let _ = sync_branch_head_from_ref(head, repo);
+            }
+            true
+        });
     }
 
     fn branch_head_oid(branch: &StackBranch, repo: &gix::Repository) -> Result<gix::ObjectId> {
@@ -858,32 +844,104 @@ fn prepare_snapshot_with_target_and_ref(
     }
 
     let vb_content = {
+        use but_meta::virtual_branches_legacy_types::{Stack, StackBranch};
+
         // TODO(perf): use the cached version on `ctx`, why is the cache stale?
         let ws = if workspace_ref_exists {
             ctx.workspace_from_ref_uncached(workspace_ref, shared_access)?
         } else {
             ctx.workspace_from_head_uncached(shared_access)?
         };
-        // Open this read-only so there is no write-back, there should be no side-effects when
-        // preparing a snapshot.
-        let mut legacy_meta = but_meta::VirtualBranchesTomlMetadata::from_path_read_only(
-            ctx.project_data_dir().join("virtual_branches.toml"),
+        // Archive a copy of the database metadata, preserving legacy fields and stale
+        // unapplied stacks. Projected shared segments may belong to several stacks.
+        let mut legacy_meta = but_meta::legacy_storage::snapshot_to_legacy(
+            &ctx.db
+                .get_cache()?
+                .virtual_branches()
+                .get_snapshot()?
+                .unwrap_or_default(),
         )?;
-        // Overlay *projected* workspace metadata onto the legacy snapshot format.
-        // We want the metadata to represent what's actually there.
-        if let Some(workspace_meta) = ws.metadata_from_projection()? {
-            let workspace_ref = ws
-                .ref_name()
-                .context("workspace metadata requires a workspace reference")?;
-            let mut handle = legacy_meta.workspace(workspace_ref)?;
-            *handle = workspace_meta;
-            legacy_meta.set_workspace(&handle)?;
-        } else {
-            for stack in legacy_virtual_branches::in_workspace_stacks_mut(legacy_meta.data_mut()) {
-                stack.in_workspace = false;
+        let worktree_refs = ws
+            .graph
+            .worktree_tips
+            .iter()
+            .filter_map(|tip| tip.ref_name.as_ref())
+            .map(|name| name.shorten().to_str().map(ToOwned::to_owned))
+            .collect::<std::result::Result<BTreeSet<_>, _>>()?;
+        for stack in legacy_meta.branches.values_mut() {
+            stack.in_workspace &= ws.has_metadata()
+                && stack
+                    .heads
+                    .iter()
+                    .any(|head| worktree_refs.contains(&head.name));
+        }
+        if ws.has_metadata() {
+            for projected in &ws.stacks {
+                let names = projected
+                    .segments
+                    .iter()
+                    .filter_map(|segment| segment.ref_name())
+                    .map(|name| name.shorten().to_str().map(ToOwned::to_owned))
+                    .collect::<std::result::Result<Vec<_>, _>>()?;
+                if names.is_empty() {
+                    continue;
+                }
+                let id = projected
+                    .id
+                    .or_else(|| {
+                        legacy_meta
+                            .branches
+                            .values()
+                            .filter(|stack| stack.heads.iter().any(|head| head.name == names[0]))
+                            .min_by_key(|stack| (stack.order, stack.id))
+                            .map(|stack| stack.id)
+                    })
+                    .unwrap_or_else(but_core::ref_metadata::StackId::generate);
+                let existing = legacy_meta.branches.get(&id);
+                // Linked-worktree heads are intentionally absent from the projection.
+                let mut heads = existing
+                    .into_iter()
+                    .flat_map(|stack| &stack.heads)
+                    .filter(|head| worktree_refs.contains(&head.name))
+                    .cloned()
+                    .collect::<Vec<_>>();
+                for name in names.into_iter().rev() {
+                    let head = existing
+                        .and_then(|stack| stack.heads.iter().find(|head| head.name == name))
+                        .or_else(|| {
+                            legacy_meta
+                                .branches
+                                .values()
+                                .filter_map(|stack| {
+                                    stack
+                                        .heads
+                                        .iter()
+                                        .find(|head| head.name == name)
+                                        .map(|head| (stack.order, stack.id, head))
+                                })
+                                .min_by_key(|(order, id, _)| (*order, *id))
+                                .map(|(_, _, head)| head)
+                        })
+                        .cloned()
+                        .unwrap_or_else(|| {
+                            StackBranch::new_with_zero_head(name, None, None, false)
+                        });
+                    heads.push(head);
+                }
+                let next_order = legacy_meta.branches.len();
+                let stack = legacy_meta.branches.entry(id).or_insert_with(|| {
+                    let mut stack = Stack::new_with_just_heads(Vec::new(), next_order, true);
+                    stack.id = id;
+                    stack
+                });
+                stack.heads = heads;
+                stack.in_workspace = true;
             }
         }
-        for stack in legacy_virtual_branches::in_workspace_stacks_mut(legacy_meta.data_mut()) {
+        for stack in legacy_meta.branches.values_mut() {
+            legacy_virtual_branches::normalize_stack_heads(stack, &repo);
+        }
+        for stack in legacy_virtual_branches::in_workspace_stacks_mut(&mut legacy_meta) {
             let stack_head =
                 legacy_virtual_branches::stack_head_oid(stack, default_target_commit_id, &repo)?;
             let stack_tree = repo.find_commit(stack_head)?.tree_id()?.detach();
@@ -894,9 +952,6 @@ fn prepare_snapshot_with_target_and_ref(
             // commits in virtual branches (tree and commit data)
             // calculate all the commits between branch.head and the target and codify them
             stack_tree_cursor.upsert("tree", EntryKind::Tree, stack_tree)?;
-
-            // Keep the snapshot-local legacy metadata in sync with the references.
-            let _ = legacy_virtual_branches::sync_stack_heads_from_refs(stack, &repo);
 
             for commit_id in commit_ids_excluding_reachable_from_with_graph(
                 &repo,
@@ -921,7 +976,7 @@ fn prepare_snapshot_with_target_and_ref(
             }
         }
 
-        toml::to_string(legacy_meta.data())?
+        toml::to_string(&legacy_meta)?
     };
 
     let vb_blob_id = repo.write_blob(vb_content.as_bytes())?;
@@ -1046,7 +1101,8 @@ fn restore_snapshot(
     let restored_checkout = snapshot_checkout(&snapshot_tree, &repo)?;
     let restored_reference = snapshot_reference(&snapshot_tree, &repo)?;
     let restored_target = restored_project_meta.target_commit_id_or_err()?;
-    let restored_vb_toml = toml::to_string(&restored_virtual_branches)?;
+    let restored_vb_snapshot =
+        but_meta::legacy_storage::legacy_to_snapshot(&restored_virtual_branches)?;
 
     if let Some(reference) = restored_reference.as_ref()
         && let Some(current_reference) = repo.try_find_reference(reference.ref_name.as_ref())?
@@ -1202,20 +1258,19 @@ fn restore_snapshot(
         None => {}
     }
 
-    // Update virtual_branches.toml with the state from the snapshot
-    let vb_state = legacy_virtual_branches::restore_legacy_metadata_from_toml(
-        ctx,
-        restored_vb_toml.as_bytes(),
-    )?;
-    if let Some(branch_order) = restored_branch_order {
-        ctx.db
-            .get_cache_mut()?
-            .branch_order_mut()?
-            .replace_snapshot(&branch_order)?;
+    // Restore both metadata tables in one transaction before publishing the restored state.
+    {
+        let mut db = ctx.db.get_cache_mut()?;
+        let mut tx = db.immediate_transaction()?;
+        tx.meta_mut()?.replace_snapshot(&restored_vb_snapshot)?;
+        if let Some(branch_order) = restored_branch_order {
+            tx.meta_mut()?.replace_branch_order(&branch_order)?;
+        }
+        tx.commit()?;
     }
 
     // Now that legacy metadata has been restored, update references to reflect the restored heads.
-    for stack in legacy_virtual_branches::in_workspace_stacks(vb_state.data()) {
+    for stack in legacy_virtual_branches::in_workspace_stacks(&restored_virtual_branches) {
         for branch in &stack.heads {
             legacy_virtual_branches::set_reference_to_stored_head(branch, &gix_repo).ok();
         }

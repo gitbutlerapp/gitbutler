@@ -318,7 +318,7 @@ fn merged_reviews_by_integration_sha(
     };
 
     let mut reviews_by_sha = HashMap::new();
-    for review in but_forge::list_cached_forge_reviews(db)? {
+    for review in but_forge::list_cached_forge_reviews(db.connection())? {
         if !review.is_merged() || review.target_branch != target_branch_name {
             continue;
         }

@@ -1,4 +1,3 @@
-use but_core::RefMetadata;
 use but_graph::Graph;
 use but_testsupport::visualize_commit_graph_all;
 
@@ -8,15 +7,14 @@ use crate::support::graph_dag;
 
 #[test]
 fn with_target_ref_extracts_remote_name() -> anyhow::Result<()> {
-    let (repo, mut meta, mut db) = read_only_in_memory_scenario("ws/local-target-and-stack")?;
+    let (repo, mut meta) = read_only_in_memory_scenario("ws/local-target-and-stack")?;
 
     add_workspace(&mut meta);
 
     let ws = Graph::from_head(
         &repo,
-        &*meta,
         target_meta(&repo),
-        &mut db,
+        &mut meta.connection_mut(),
         standard_options(),
     )?
     .validated()?
@@ -34,15 +32,14 @@ fn with_target_ref_extracts_remote_name() -> anyhow::Result<()> {
 
 #[test]
 fn returns_none_when_no_target_and_no_push_remote() -> anyhow::Result<()> {
-    let (repo, mut meta, mut db) = read_only_in_memory_scenario("ws/no-target-without-ws-commit")?;
+    let (repo, mut meta) = read_only_in_memory_scenario("ws/no-target-without-ws-commit")?;
 
     add_workspace(&mut meta);
 
     let ws = Graph::from_head(
         &repo,
-        &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
-        &mut db,
+        &mut meta.connection_mut(),
         standard_options(),
     )?
     .validated()?
@@ -60,8 +57,7 @@ fn returns_none_when_no_target_and_no_push_remote() -> anyhow::Result<()> {
 #[test]
 fn target_local_tracking_ref_exists_when_other_branch_metadata_names_the_same_tip()
 -> anyhow::Result<()> {
-    let (repo, mut meta, mut db) =
-        read_only_in_memory_scenario("ws/no-ws-ref-no-ws-commit-two-branches")?;
+    let (repo, mut meta) = read_only_in_memory_scenario("ws/no-ws-ref-no-ws-commit-two-branches")?;
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
         snapbox::str![[r#"
@@ -76,15 +72,14 @@ fn target_local_tracking_ref_exists_when_other_branch_metadata_names_the_same_ti
     // is no longer applied, but its branch metadata still disambiguates the
     // same commit that `main` and `origin/main` also point to.
     let branch_name = "refs/heads/A";
-    let mut branch = meta.branch(branch_name.try_into()?)?;
+    let mut branch = meta.meta().unwrap().branch(branch_name.try_into()?)?;
     branch.update_times(false);
-    meta.set_branch(&branch)?;
+    meta.meta_mut().unwrap().set_branch(&branch)?;
 
     let ws = Graph::from_head(
         &repo,
-        &*meta,
         target_meta(&repo),
-        &mut db,
+        &mut meta.connection_mut(),
         standard_options(),
     )?
     .validated()?
