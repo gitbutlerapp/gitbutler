@@ -191,6 +191,25 @@ pub fn apply_worktree_changes<'repo>(
     let base_tree = actual_base_tree.attach(repo).object()?.peel_to_tree()?;
     let mut base_tree_editor = base_tree.edit()?;
     let (mut pipeline, index) = repo.filter_pipeline(None)?;
+    let trust_executable_bit = repo.filesystem_options()?.executable_bit;
+    let entry_kind = |path: &bstr::BStr, disk_kind: EntryKind| {
+        if !trust_executable_bit && matches!(disk_kind, EntryKind::Blob | EntryKind::BlobExecutable)
+        {
+            // On filesystems without executable bits, Git keeps the index mode,
+            // as it can be manipulated in a platform independent way.
+            index
+                .entry_by_path(path)
+                // If ours is absent, prefer the base over theirs, like Git.
+                .or_else(|| index.entry_by_path_and_stage(path, gix::index::entry::Stage::Base))
+                .or_else(|| index.entry_by_path_and_stage(path, gix::index::entry::Stage::Theirs))
+                .and_then(|entry| entry.mode.to_tree_entry_mode())
+                .map(|mode| mode.kind())
+                .filter(|kind| matches!(kind, EntryKind::Blob | EntryKind::BlobExecutable))
+                .unwrap_or(EntryKind::Blob)
+        } else {
+            disk_kind
+        }
+    };
     let has_changes_with_hunks = changes
         .iter()
         .filter_map(|c| c.as_ref().ok())
@@ -228,7 +247,7 @@ pub fn apply_worktree_changes<'repo>(
             let rela_path = change_request.path.as_bstr();
             match pipeline.worktree_file_to_object(rela_path, &index)? {
                 Some((id, kind, _fs_metadata)) => {
-                    base_tree_editor.upsert(rela_path, kind, id)?;
+                    base_tree_editor.upsert(rela_path, entry_kind(rela_path, kind), id)?;
                 }
                 None => into_err_spec(
                     possible_change,
@@ -342,7 +361,7 @@ pub fn apply_worktree_changes<'repo>(
             let blob_with_selected_patches = repo.write_blob(base_with_patches.as_slice())?;
             base_tree_editor.upsert(
                 change_request.path.as_bstr(),
-                current_entry_kind,
+                entry_kind(change_request.path.as_bstr(), current_entry_kind),
                 blob_with_selected_patches,
             )?;
         } else {
