@@ -254,4 +254,16 @@ impl WorkspaceState {
 
         Self::from_materialized(rebase.materialize(Default::default())?, repo)
     }
+    /// Materialize under the surrounding transaction's Git recovery receipts.
+    pub(crate) fn from_successful_rebase_with_recovery(
+        rebase: SuccessfulRebase<'_, '_, '_>,
+        repo: &gix::Repository,
+        dry_run: DryRun,
+        recovery: &mut but_rebase::graph_rebase::recovery::GitRecovery,
+    ) -> anyhow::Result<WorkspaceState> {
+        if dry_run.into() {
+            return Self::from_successful_rebase(rebase, repo, dry_run);
+        }
+        Self::from_materialized(recovery.materialize(rebase, Default::default())?, repo)
+    }
 }

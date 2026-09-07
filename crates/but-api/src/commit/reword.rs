@@ -45,13 +45,14 @@ pub fn commit_reword_only_with_perm(
     dry_run: DryRun,
     perm: &mut RepoExclusive,
 ) -> anyhow::Result<CommitRewordResult> {
-    crate::workspace::with_workspace_transaction(ctx, perm, dry_run, |repo, ws, db| {
+    crate::workspace::with_workspace_transaction(ctx, perm, dry_run, |repo, ws, db, recovery| {
         let editor = Editor::create(ws, repo, db.connection_mut())?;
 
         let (rebase, edited_commit_selector) =
             but_workspace::commit::reword(editor, commit_id, message.as_bstr())?;
         let new_commit = rebase.lookup_pick(edited_commit_selector)?;
-        let workspace = WorkspaceState::from_successful_rebase(rebase, repo, dry_run)?;
+        let workspace =
+            WorkspaceState::from_successful_rebase_with_recovery(rebase, repo, dry_run, recovery)?;
 
         Ok(CommitRewordResult {
             new_commit,
