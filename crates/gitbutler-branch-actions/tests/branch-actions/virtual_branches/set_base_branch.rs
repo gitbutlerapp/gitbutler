@@ -274,15 +274,14 @@ fn switching_the_target_outside_the_workspace_does_not_partially_update_the_proj
 
     let project_meta_before = ctx.project_meta().unwrap();
     let workspace_ref: gix::refs::FullName = but_core::WORKSPACE_REF_NAME.try_into().unwrap();
-    let workspace_meta_before = (*ctx
+    let workspace_meta_before = ctx
         .db
         .get_cache()
         .unwrap()
         .meta()
         .unwrap()
         .workspace(workspace_ref.as_ref())
-        .unwrap())
-    .clone();
+        .cloned();
     let workspace_ref_before = gix_repo
         .find_reference(&workspace_ref)
         .unwrap()
@@ -314,13 +313,13 @@ fn switching_the_target_outside_the_workspace_does_not_partially_update_the_proj
         "rejecting the target switch must preserve the configured project target"
     );
     assert_eq!(
-        *ctx.db
+        ctx.db
             .get_cache()
             .unwrap()
             .meta()
             .unwrap()
             .workspace(workspace_ref.as_ref())
-            .unwrap(),
+            .cloned(),
         workspace_meta_before,
         "rejecting the target switch must preserve stack metadata"
     );
