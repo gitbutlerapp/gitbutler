@@ -89,10 +89,10 @@ pub fn remove_branch_only(
         .to_full_name(branch_name)
         .map_err(anyhow::Error::from)?;
     let mut meta = ctx.meta()?;
-    let (repo, mut ws, _) = ctx.workspace_mut_and_db_with_perm(perm)?;
+    let (mut repo, mut ws, _) = ctx.workspace_mut_and_db_with_perm(perm)?;
     let new_ws = but_workspace::branch::remove_reference(
         ref_name.as_ref(),
-        &repo,
+        &mut repo,
         &ws,
         &mut meta,
         but_workspace::branch::remove_reference::Options {

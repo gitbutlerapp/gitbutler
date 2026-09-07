@@ -6,6 +6,10 @@ mod local {
     fn writes_back_local_config_when_requested() -> anyhow::Result<()> {
         let (mut repo, _tmp) = writable_scenario("git-config-empty");
 
+        assert!(
+            !edit_repo_config(&repo, gix::config::Source::Local, |_| Ok(()))?,
+            "an unchanged edit is reported as a no-op"
+        );
         assert!(edit_repo_config(
             &repo,
             gix::config::Source::Local,

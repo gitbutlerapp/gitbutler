@@ -101,7 +101,7 @@ fn has_secret(handle: &str, namespace: secret::Namespace) -> Result<bool> {
 }
 
 fn get_configuration() -> Result<AiConfiguration> {
-    let config = gix::config::File::from_globals()?;
+    let config = gix::config(None, &gix::open::Options::default())?;
     let configuration = DomainConfiguration::from_git_config(&config)?;
 
     let openai_has_api_key = has_secret(AI_OPENAI_SECRET_HANDLE, secret::Namespace::Global)?;
@@ -237,7 +237,7 @@ pub fn update_ai_configuration(update: AiConfigurationUpdate) -> Result<AiConfig
         )?;
     }
 
-    let config = gix::config::File::from_globals()?;
+    let config = gix::config(None, &gix::open::Options::default())?;
     let configuration =
         domain_configuration(&update, DomainConfiguration::from_git_config(&config)?)?;
     edit_config(None, gix::config::Source::User, |config| {

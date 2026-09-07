@@ -4,10 +4,7 @@ use std::{collections::HashMap, fmt::Write as _};
 
 use anyhow::{Context, Result, bail};
 use but_core::RefMetadata;
-use gix::refs::{
-    Target,
-    transaction::{Change, LogChange, PreviousValue, RefEdit},
-};
+use gix::refs::transaction::{PreviousValue, RefEdit};
 use petgraph::{algo::toposort, visit::EdgeRef};
 
 use crate::graph_rebase::{
@@ -134,17 +131,12 @@ impl<'ws, 'graph, M: RefMetadata> Editor<'ws, 'graph, M> {
                                     if id == to_reference {
                                         unchanged_references.push(refname.clone());
                                     } else {
-                                        ref_edits.push(RefEdit {
-                                            name: refname.clone(),
-                                            change: Change::Update {
-                                                log: LogChange::default(),
-                                                expected: PreviousValue::MustExistAndMatch(
-                                                    target.into(),
-                                                ),
-                                                new: Target::Object(to_reference),
-                                            },
-                                            deref: false,
-                                        });
+                                        ref_edits.push(RefEdit::update(
+                                            refname.clone(),
+                                            to_reference,
+                                            PreviousValue::MustExistAndMatch(target.into()),
+                                            "",
+                                        ));
                                     }
                                 }
                                 gix::refs::TargetRef::Symbolic(name) => {
@@ -152,15 +144,12 @@ impl<'ws, 'graph, M: RefMetadata> Editor<'ws, 'graph, M> {
                                 }
                             }
                         } else {
-                            ref_edits.push(RefEdit {
-                                name: refname.clone(),
-                                change: Change::Update {
-                                    log: LogChange::default(),
-                                    expected: PreviousValue::MustNotExist,
-                                    new: Target::Object(to_reference),
-                                },
-                                deref: false,
-                            });
+                            ref_edits.push(RefEdit::update(
+                                refname.clone(),
+                                to_reference,
+                                PreviousValue::MustNotExist,
+                                "",
+                            ));
                         }
                     }
 
@@ -193,14 +182,7 @@ impl<'ws, 'graph, M: RefMetadata> Editor<'ws, 'graph, M> {
             if !ref_edits.iter().any(|e| e.name == *reference)
                 && !unchanged_references.iter().any(|e| e == reference)
             {
-                ref_edits.push(RefEdit {
-                    name: reference.clone(),
-                    change: Change::Delete {
-                        log: gix::refs::transaction::RefLog::AndReference,
-                        expected: PreviousValue::MustExist,
-                    },
-                    deref: false,
-                });
+                ref_edits.push(RefEdit::delete(reference.clone(), PreviousValue::MustExist));
             }
         }
 

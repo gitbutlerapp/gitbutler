@@ -3,7 +3,6 @@ use std::{path::Path, sync::Mutex};
 use anyhow::{Result, bail};
 use base64::engine::Engine as _;
 use bstr::ByteSlice as _;
-use but_core::commit::sign_buffer;
 use but_core::git_config::{edit_repo_config, ensure_config_value};
 use but_ctx::Context;
 use fuzzy_matcher::{FuzzyMatcher, skim::SkimMatcherV2};
@@ -217,9 +216,20 @@ pub trait RepoCommands {
 impl RepoCommands for Context {
     fn check_signing_settings(&self) -> Result<bool> {
         let repo = self.repo.get()?;
-        match sign_buffer(&repo, b"test") {
+        let opts = repo.commit_signing_options()?;
+        let null = repo.object_hash().null();
+        let res = gix::objs::Tag {
+            target: null,
+            target_kind: gix::objs::Kind::Commit,
+            name: "test".into(),
+            tagger: None,
+            message: "test message".into(),
+            signature: None,
+        }
+        .sign(opts);
+        match res {
             Ok(_) => Ok(true),
-            Err(e) => Err(e),
+            Err(e) => Err(e.into()),
         }
     }
 

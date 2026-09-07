@@ -1150,13 +1150,13 @@ pub fn branch_remove_with_perm(
     }
 
     let mut meta = ctx.meta()?;
-    let (repo, mut ws, _) = ctx.workspace_mut_and_db_with_perm(perm)?;
+    let (mut repo, mut ws, _) = ctx.workspace_mut_and_db_with_perm(perm)?;
     let new_ws = if moved_head {
         None
     } else {
         but_workspace::branch::remove_reference(
             ref_name.as_ref(),
-            &repo,
+            &mut repo,
             &ws,
             &mut meta,
             but_workspace::branch::remove_reference::Options {
@@ -1171,18 +1171,10 @@ pub fn branch_remove_with_perm(
     } else {
         // Standalone branches are intentionally absent from the workspace
         // projection, as is a checked-out tip after moving HEAD below it.
-        let deleted_ref = if let Some(reference) = repo.try_find_reference(ref_name.as_ref())? {
-            let safe_delete = but_core::branch::SafeDelete::new(&repo)?;
-            let out = safe_delete.delete_reference(&reference)?;
-            if let Some(paths) = out.checked_out_in_worktree_dirs {
-                bail_precondition!(
-                    "Refusing to delete a branch that is checked out. Worktrees are: {paths:?}"
-                );
-            }
-            true
-        } else {
-            false
-        };
+        let deleted_ref = but_workspace::branch::remove_reference::delete_local_branch(
+            &mut repo,
+            ref_name.as_ref(),
+        )?;
         let deleted_meta = meta.remove(ref_name.as_ref())?;
         if deleted_ref || deleted_meta {
             let new_ws = ws

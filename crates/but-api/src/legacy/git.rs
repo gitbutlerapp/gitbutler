@@ -2,9 +2,7 @@
 use anyhow::{Context as _, Result, bail};
 use bstr::ByteSlice;
 use but_api_macros::but_api;
-use but_core::git_config::{
-    edit_config, open_global_config_for_reading, remove_config_value, set_config_value,
-};
+use but_core::git_config::{edit_config, remove_config_value, set_config_value};
 use gitbutler_git::GitContextExt as _;
 use gitbutler_reference::RemoteRefname;
 use tracing::instrument;
@@ -102,7 +100,7 @@ pub fn git_remove_global_config(key: String) -> Result<()> {
 #[but_api]
 #[instrument(err(Debug))]
 pub fn git_get_global_config(key: String) -> Result<Option<String>> {
-    let config = open_global_config_for_reading()?;
+    let config = gix::config(None, &gix::open::Options::default())?;
     Ok(get_config_string(&config, &key))
 }
 

@@ -156,25 +156,18 @@ pub fn set_target_ref_and_init_project(
 
     // Reject targets whose remote isn't configured - reads like the base-branch data
     // would fail on them later.
-    let remote_names = repo.remote_names();
-    let (remote_name, _short_name) =
-        but_core::extract_remote_name_and_short_name(target_ref, &remote_names).with_context(
-            || {
-                format!(
-                    "failed to determine remote for branch '{}'",
-                    target_ref.as_bstr()
-                )
-            },
-        )?;
-    repo.find_remote(remote_name.as_str())
+    let (_upstream_ref, remote) = repo
+        .upstream_branch_and_remote_for_tracking_branch(target_ref)?
         .with_context(|| {
             format!(
-                "failed to find remote for branch '{}'",
+                "failed to determine remote for branch '{}'",
                 target_ref.as_bstr()
             )
-        })?
+        })?;
+    let remote_name = remote.name().expect("a configured remote is named");
+    remote
         .url(gix::remote::Direction::Fetch)
-        .with_context(|| format!("failed to get remote url for '{remote_name}'"))?;
+        .with_context(|| format!("failed to get remote url for '{}'", remote_name.as_bstr()))?;
 
     let head = repo.head_id().context("Failed to resolve HEAD")?.detach();
     let sha = resolve_target_commit(repo, head, target_head, repaired.target_commit_id)?;

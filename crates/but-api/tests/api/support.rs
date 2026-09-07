@@ -23,7 +23,7 @@ pub fn repo_with_feature_branch() -> anyhow::Result<(gix::Repository, tempfile::
     git_at_dir(tmp.path()).args(["commit", "-m", "one"]).run();
     git_at_dir(tmp.path()).args(["branch", "feature"]).run();
     git_at_dir(tmp.path())
-        .args(["config", "remote.origin.url", "../origin"])
+        .args(["remote", "add", "origin", "../origin"])
         .run();
     git_at_dir(tmp.path())
         .args(["update-ref", "refs/remotes/origin/main", "HEAD"])

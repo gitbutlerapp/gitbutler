@@ -28,10 +28,11 @@ fn set_storage_path_config(
 ) -> anyhow::Result<gix::Repository> {
     let mut repo = but_testsupport::open_repo(repo_path)?;
     let key = but_project_handle::storage_path_config_key();
-    repo.config_snapshot_mut()
-        .set_raw_value(key, gix::path::os_str_into_bstr(value.as_ref())?)?;
-    let (_config, lock) = repo.local_common_config_for_editing()?;
-    repo.write_locked_config(&repo.config_snapshot(), lock)?;
+    but_core::git_config::edit_repo_config(&repo, gix::config::Source::Local, |config| {
+        config.set_raw_value(key, gix::path::os_str_into_bstr(value.as_ref())?)?;
+        Ok(())
+    })?;
+    repo.reload()?;
     Ok(repo)
 }
 

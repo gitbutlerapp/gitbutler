@@ -54,7 +54,7 @@ pub fn show(
 
     // Generate AI summary if requested
     let ai_summary = if generate_ai_summary {
-        let git_config = gix::config::File::from_globals()?;
+        let git_config = gix::config(None, &gix::open::Options::default())?;
         Some(generate_branch_summary(branch_name, &commits, &git_config)?)
     } else {
         None

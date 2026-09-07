@@ -47,19 +47,12 @@ fn create_remote_branch(repo: &gix::Repository, name: &str) -> anyhow::Result<()
 }
 
 fn set_remote_head(repo: &gix::Repository, target: &str) -> anyhow::Result<()> {
-    repo.edit_reference(gix::refs::transaction::RefEdit {
-        change: gix::refs::transaction::Change::Update {
-            log: gix::refs::transaction::LogChange {
-                mode: gix::refs::transaction::RefLog::AndReference,
-                force_create_reflog: false,
-                message: "test remote HEAD".into(),
-            },
-            expected: PreviousValue::Any,
-            new: gix::refs::Target::Symbolic(target.try_into()?),
-        },
-        name: "refs/remotes/origin/HEAD".try_into()?,
-        deref: false,
-    })?;
+    repo.edit_reference(gix::refs::transaction::RefEdit::update(
+        "refs/remotes/origin/HEAD".try_into()?,
+        gix::refs::FullName::try_from(target)?,
+        PreviousValue::Any,
+        "test remote HEAD",
+    ))?;
     Ok(())
 }
 

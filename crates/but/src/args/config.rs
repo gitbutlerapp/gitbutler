@@ -333,7 +333,7 @@ impl From<AiKeyOption> for but_llm::CredentialsKeyOption {
 }
 
 /// Subcommands for `but config user`
-#[derive(Debug, clap::Subcommand)]
+#[derive(Debug, Clone, clap::Subcommand)]
 pub enum UserSubcommand {
     /// Set a user configuration value.
     ///

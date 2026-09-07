@@ -73,6 +73,40 @@ fn new_from_project_handle_keeps_repo_cached() -> anyhow::Result<()> {
 }
 
 #[test]
+fn writable_workspace_accessors_return_mutable_repositories() -> anyhow::Result<()> {
+    let (repo, _tmp) = but_testsupport::writable_scenario("unborn-empty");
+    let mut ctx = Context::from_repo_for_testing(repo)?;
+
+    for mutable_db in [false, true] {
+        ctx.invalidate_workspace_cache()?;
+        // The first call constructs the workspace; the second reuses its cache.
+        for value in ["uncached", "cached"] {
+            {
+                let (_guard, mut repo, _ws) = if mutable_db {
+                    let (guard, repo, ws, _db) = ctx.workspace_mut_and_db_mut()?;
+                    (guard, repo, ws)
+                } else {
+                    let (guard, repo, ws, _db) = ctx.workspace_mut_and_db()?;
+                    (guard, repo, ws)
+                };
+                repo.config_snapshot_mut()
+                    .set_raw_value("but.contextTest", value)?;
+            }
+            let (_guard, repo, _ws, _db) = ctx.workspace_and_db()?;
+            assert_eq!(
+                repo.config_snapshot()
+                    .string("but.contextTest")
+                    .expect("the writable accessor updated the cached repository")
+                    .to_string(),
+                value,
+                "read access sees the repository update from either writable accessor"
+            );
+        }
+    }
+    Ok(())
+}
+
+#[test]
 fn project_data_dir_comes_from_git_config() -> anyhow::Result<()> {
     let repo_dir = TempDir::new()?;
     let repo = gix::init(repo_dir.path())?;
@@ -598,40 +632,48 @@ fn worktree_adoption_with_zero_worktrees_is_persisted() -> anyhow::Result<()> {
 }
 
 #[test]
-fn pruned_worktrees_are_adopted_but_not_returned() -> anyhow::Result<()> {
+fn pruned_or_inaccessible_worktrees_are_adopted_but_not_returned() -> anyhow::Result<()> {
     let root = TempDir::new()?;
     gix::init(root.path().join("main"))?;
     let repo = open_repo(&root.path().join("main"))?;
     but_testsupport::invoke_bash(
         "git commit --allow-empty -m M
-         git worktree add -b feat ../wt-gone",
+         git worktree add -b feat-gone ../wt-gone
+         git worktree add -b feat-broken ../wt-broken",
         &repo,
     );
     std::fs::remove_dir_all(root.path().join("wt-gone"))?;
+    std::fs::write(
+        repo.common_dir().join("worktrees/wt-gone/locked"),
+        "temporarily unavailable",
+    )?;
+    std::fs::remove_file(root.path().join("wt-broken/.git"))?;
 
     let mut ctx = Context::from_repo_for_testing(repo)?;
     ctx.settings.feature_flags.worktree_manipulation = true;
     assert_eq!(
         active_names(&ctx)?,
         Vec::<String>::new(),
-        "a deleted checkout directory makes the worktree prunable, not active"
+        "prunable and locked-but-inaccessible worktrees aren't active"
     );
     {
         let mut db = ctx.db.get_cache_mut()?;
-        assert_eq!(
-            db.worktree_meta().get(b"wt-gone")?.map(|row| row.archived),
-            Some(true),
-            "the unusable worktree was still archived at adoption"
-        );
-        db.worktree_meta_mut().upsert(but_db::WorktreeMeta {
-            name: b"wt-gone".to_vec(),
-            archived: false,
-        })?;
+        for name in [b"wt-gone".as_slice(), b"wt-broken".as_slice()] {
+            assert_eq!(
+                db.worktree_meta().get(name)?.map(|row| row.archived),
+                Some(true),
+                "the unusable worktree was still archived at adoption"
+            );
+            db.worktree_meta_mut().upsert(but_db::WorktreeMeta {
+                name: name.to_vec(),
+                archived: false,
+            })?;
+        }
     }
     assert_eq!(
         active_names(&ctx)?,
         Vec::<String>::new(),
-        "even unarchived, a pruned checkout is excluded - it is unusable, not merely hidden"
+        "even unarchived, prunable or locked-but-inaccessible worktrees are excluded"
     );
     Ok(())
 }

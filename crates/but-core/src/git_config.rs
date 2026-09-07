@@ -7,45 +7,11 @@ use bstr::ByteSlice as _;
 use gix::config::AsKey as _;
 
 fn config_path(repo: Option<&gix::Repository>, source: gix::config::Source) -> Result<PathBuf> {
-    let path = source
-        .storage_location(&mut |name| std::env::var_os(name))
-        .with_context(|| format!("failed to determine {source:?} git config location"))?;
-    let path = if path.is_relative() {
-        let repo = repo.with_context(|| {
-            format!("determining the {source:?} git config location requires a repository")
-        })?;
-        if source == gix::config::Source::Local {
-            repo.common_dir().join(&path)
-        } else {
-            repo.git_dir().join(&path)
-        }
-    } else {
-        path
-    };
-    Ok(path)
-}
-
-/// Open the Git config for `source` for editing, creating it first if needed.
-/// `repo` is used to resolve repo-local paths, depending on `source`.
-/// Return `(config, lock)`.
-/// Write it back with [`write_locked_config()`].
-pub fn open_config_for_editing(
-    repo: Option<&gix::Repository>,
-    source: gix::config::Source,
-) -> Result<(gix::config::File, gix::lock::File)> {
-    let path = config_path(repo, source)?;
-    std::fs::create_dir_all(path.parent().context("git config path has no parent")?)?;
-    let lock = gix::lock::File::acquire_to_update_resource(
-        &path,
-        gix::lock::acquire::Fail::AfterDurationWithBackoff(std::time::Duration::from_secs(1)),
-        None,
-    )?;
-    if !path.exists() {
-        std::fs::File::create(&path)?;
+    match repo {
+        Some(repo) => repo.config_path(source),
+        None => gix::config_path(source, &gix::open::Options::default()),
     }
-    let config = gix::config::File::from_path_no_includes(path.clone(), source)
-        .with_context(|| format!("failed to open {source:?} git config at {}", path.display()))?;
-    Ok((config, lock))
+    .with_context(|| format!("failed to determine {source:?} git config location"))
 }
 
 /// Open the repository-local Git config of `repo` for reading without acquiring a write lock,
@@ -65,54 +31,39 @@ pub fn open_repo_local_config_for_reading(repo: &gix::Repository) -> Result<gix:
         .with_context(|| format!("failed to open {source:?} git config at {}", path.display()))
 }
 
-/// Open the user-global Git config for reading without acquiring a write lock.
-///
-/// If the config file doesn't exist yet, an empty in-memory config is returned.
-pub fn open_global_config_for_reading() -> Result<gix::config::File> {
-    let path = config_path(None, gix::config::Source::User)?;
-    if !path.exists() {
-        return Ok(gix::config::File::new(gix::config::file::Metadata::from(
-            gix::config::Source::User,
-        )));
-    }
-    gix::config::File::from_path_no_includes(path.clone(), gix::config::Source::User)
-        .with_context(|| format!("failed to open User git config at {}", path.display()))
-}
-
-/// Serialize a Git `config` file back to disk at `lock`.
-pub fn write_locked_config(config: &gix::config::File, mut lock: gix::lock::File) -> Result<()> {
-    let path = lock.resource_path();
-    config
-        .write_to(&mut lock)
-        .with_context(|| format!("failed to serialize git config at {}", path.display()))?;
-    std::io::Write::flush(&mut lock)
-        .with_context(|| format!("failed to flush git config at {}", path.display()))?;
-    lock.commit()
-        .map_err(|err| err.error)
-        .with_context(|| format!("failed to commit git config at {}", path.display()))?;
-    Ok(())
-}
-
 /// Open the Git config for `source` using `repo` when needed, let `edit` mutate it, and
 /// write it back if the edited configuration differs from its original state.
 /// Return `true` if the file changed and was written, `false` otherwise.
+///
+/// With `repo`, paths are resolved by [`gix::Repository::config_path()`], honoring its open options
+/// and the current directory captured when it was opened. Otherwise [`gix::config_path()`] resolves
+/// non-repository sources against the current directory. Local and worktree config require `repo`.
+/// Editing does not refresh `repo`'s cached configuration.
 pub fn edit_config(
     repo: Option<&gix::Repository>,
     source: gix::config::Source,
     edit: impl FnOnce(&mut gix::config::File) -> Result<()>,
 ) -> Result<bool> {
-    let (mut config, lock) = open_config_for_editing(repo, source)?;
+    let path = config_path(repo, source)?;
+    std::fs::create_dir_all(path.parent().context("git config path has no parent")?)?;
+    let mut config = match repo {
+        Some(repo) => repo.config_file_mut(&path),
+        None => gix::config_mut(source, &gix::open::Options::default()),
+    }
+    .with_context(|| format!("failed to open {source:?} git config at {}", path.display()))?;
     let previous_contents = config.to_bstring();
     edit(&mut config)?;
     let changed = config.to_bstring() != previous_contents;
     if changed {
-        write_locked_config(&config, lock)?;
+        config
+            .commit()
+            .with_context(|| format!("failed to commit git config at {}", path.display()))?;
     }
     Ok(changed)
 }
 
-/// Open the Git config for `source` relative to `repo`, let `edit` mutate it, and write it back
-/// if the edited configuration differs from its original state.
+/// Edit the Git config for `source` using `repo`, resolving its path as described in [`edit_config()`].
+/// Write it back if the edited configuration differs from its original state.
 pub fn edit_repo_config(
     repo: &gix::Repository,
     source: gix::config::Source,

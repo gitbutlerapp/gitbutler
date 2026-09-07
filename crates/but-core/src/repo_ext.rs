@@ -6,7 +6,7 @@ use gix::{
     prelude::ObjectIdExt,
     refs::{
         Target,
-        transaction::{Change, LogChange, PreviousValue, RefEdit, RefLog},
+        transaction::{PreviousValue, RefEdit},
     },
 };
 use std::path::PathBuf;
@@ -31,21 +31,17 @@ pub fn update_head_reference(
     message: &BStr,
     num_parents: usize,
 ) -> anyhow::Result<Vec<RefEdit>> {
-    Ok(repo.edit_reference(RefEdit {
-        change: Change::Update {
-            log: LogChange {
-                mode: RefLog::AndReference,
-                force_create_reflog: false,
-                message: gix::reference::log::message(operation, message, num_parents),
-            },
+    Ok(repo.edit_reference(
+        RefEdit::update(
+            "HEAD".try_into().expect("root refs are always valid"),
+            new_target,
             // We use this helper only under higher-level repository coordination, so we intentionally
             // keep the expected value loose here and rely on ref locking for the actual write.
-            expected: PreviousValue::Any,
-            new: new_target,
-        },
-        name: "HEAD".try_into().expect("root refs are always valid"),
-        deref,
-    })?)
+            PreviousValue::Any,
+            gix::reference::log::message(operation, message, num_parents),
+        )
+        .with_deref(deref),
+    )?)
 }
 
 /// Easy access of settings relevant to GitButler for retrieval and storage in Git settings.
@@ -74,20 +70,6 @@ pub trait RepositoryExt: Sized {
     /// Return all signatures that would be needed to perform a commit as configured in Git: `(author, committer)`.
     fn commit_signatures(&self) -> anyhow::Result<(gix::actor::Signature, gix::actor::Signature)>;
 
-    /// Return the configuration freshly loaded from `.git/config` together with an acquired lock
-    /// for that file so it can be changed in memory and safely written back without another writer
-    /// racing the read-modify-write cycle.
-    fn local_common_config_for_editing(
-        &self,
-    ) -> anyhow::Result<(gix::config::File, gix::lock::File)>;
-    /// Write the given `local_config` to the file at `lock` of the while consuming
-    /// the lock previously acquired with [`Self::local_common_config_for_editing()`].
-    /// Note that only local configuraiton is written, so it's safe to use it with `repo.config_snapshot_mut()`.
-    fn write_locked_config(
-        &self,
-        local_config: &gix::config::File,
-        lock: gix::lock::File,
-    ) -> anyhow::Result<()>;
     /// Cherry-pick the changes in the tree of `to_rebase_commit_id` onto `new_base_commit_id`.
     /// This method deals with the presence of conflicting commits to select the correct trees
     /// for the cheery-pick merge.
@@ -190,30 +172,6 @@ impl RepositoryExt for gix::Repository {
         };
 
         Ok((author.into(), committer))
-    }
-
-    fn local_common_config_for_editing(
-        &self,
-    ) -> anyhow::Result<(gix::config::File, gix::lock::File)> {
-        let local_config_path = self.common_dir().join("config");
-        let lock = gix::lock::File::acquire_to_update_resource(
-            &local_config_path,
-            gix::lock::acquire::Fail::Immediately,
-            None,
-        )?;
-        let config = gix::config::File::from_path_no_includes(
-            local_config_path.clone(),
-            gix::config::Source::Local,
-        )?;
-        Ok((config, lock))
-    }
-
-    fn write_locked_config(
-        &self,
-        local_config: &gix::config::File,
-        lock: gix::lock::File,
-    ) -> anyhow::Result<()> {
-        crate::git_config::write_locked_config(local_config, lock)
     }
 
     fn cherry_pick_commits_to_tree(

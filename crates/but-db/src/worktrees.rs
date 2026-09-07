@@ -116,10 +116,7 @@ pub fn worktrees_with_state(
     repo: &gix::Repository,
     db: &mut DbHandle,
 ) -> Result<Vec<WorktreeEntry>> {
-    // The `commondir` redirect only exists in linked-worktree git dirs; unlike
-    // `Kind::LinkedWorkTree`, which is a path heuristic requiring a literal
-    // `.git` component, this also catches worktrees of bare repositories.
-    if repo.git_dir() != repo.common_dir() {
+    if repo.kind() == gix::repository::Kind::LinkedWorkTree {
         anyhow::bail!(
             "worktree state must be read from the main worktree - \
              a linked-worktree context has its own database, letting adoption \
@@ -152,12 +149,11 @@ fn enumerate_worktrees(repo: &gix::Repository) -> Result<(Vec<BString>, Vec<Work
     for proxy in repo.worktrees()? {
         let name: BString = proxy.id().to_owned();
         all_names.push(name.clone());
+        if proxy.is_prunable() {
+            continue;
+        }
         let path = match proxy.base() {
             Ok(path) => path,
-            Err(err) if err.kind() == std::io::ErrorKind::NotFound => {
-                // Missing administrative data - the worktree is prunable.
-                continue;
-            }
             Err(err) => {
                 tracing::warn!(%name, ?err, "Skipping linked worktree whose checkout location cannot be read");
                 continue;
@@ -166,11 +162,11 @@ fn enumerate_worktrees(repo: &gix::Repository) -> Result<(Vec<BString>, Vec<Work
         match std::fs::metadata(&path) {
             Ok(meta) if meta.is_dir() => {}
             Ok(_) => {
-                // The `gitdir` file points at something that is not a directory - prunable.
+                // The `gitdir` file points at something that is not a directory.
                 continue;
             }
             Err(err) if err.kind() == std::io::ErrorKind::NotFound => {
-                // The checkout was deleted without `git worktree remove` - prunable.
+                // A locked worktree may be unavailable without being prunable.
                 continue;
             }
             Err(err) => {

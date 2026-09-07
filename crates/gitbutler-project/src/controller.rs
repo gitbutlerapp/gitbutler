@@ -65,7 +65,7 @@ fn resolve_project_repo_exact(
 fn resolve_project_repo_by_discovery(
     path: &Path,
 ) -> std::result::Result<ResolvedProjectRepo, AddProjectOutcome> {
-    let repo = match gix::discover(path) {
+    let repo = match gix::discover_opts(path, Default::default(), gix::open::Options::isolated()) {
         Ok(repo) => repo,
         Err(err) => return Err(AddProjectOutcome::NotAGitRepository(err.to_string())),
     };

@@ -17,6 +17,51 @@ use but_core::RefMetadata;
 use but_error::bail_precondition;
 use gix::refs::transaction::PreviousValue;
 
+/// Delete `ref_name` and its local branch configuration, returning whether the ref existed.
+///
+/// Use this for local branch removal when the corresponding `branch.<name>` configuration
+/// should also be removed. Missing refs are accepted and still have their configuration cleaned
+/// up; the return value reflects whether the ref existed when locked for deletion,
+/// not whether configuration changed.
+/// A branch checked out in any worktree causes a precondition error. Configuration-cleanup
+/// failures after ref deletion are logged and treated as success; use
+/// [`gix::Repository::delete_local_branches()`] directly to handle those failures explicitly.
+///
+/// Use [`but_core::branch::SafeDelete`] for ref-only deletion, including non-branch refs,
+/// or for a checkout preflight. It leaves branch configuration intact and reports a checked-out
+/// ref through its outcome rather than an error. Its worktree information is captured at
+/// construction, whereas this function checks worktrees on each call.
+///
+/// Unlike `SafeDelete`, which requires the ref's target to match the supplied reference,
+/// this function deletes by name even if the target has changed since the caller inspected it.
+/// Use [`remove_reference()`] when workspace eligibility, metadata cleanup, and rebuilding the
+/// workspace are also required.
+pub fn delete_local_branch(
+    repo: &mut gix::Repository,
+    ref_name: &gix::refs::FullNameRef,
+) -> anyhow::Result<bool> {
+    let deleted = match repo.delete_local_branches([ref_name.to_owned()]) {
+        Ok(deleted) => deleted,
+        Err(gix::repository::branch::delete::Error::Cleanup {
+            deleted, source, ..
+        }) => {
+            tracing::warn!(
+                ?source,
+                ?ref_name,
+                "branch was deleted but its local configuration remains"
+            );
+            deleted
+        }
+        Err(gix::repository::branch::delete::Error::CheckedOut { worktree_dirs, .. }) => {
+            bail_precondition!(
+                "Refusing to delete a branch that is checked out. Worktrees are: {worktree_dirs:?}"
+            )
+        }
+        Err(err) => return Err(err.into()),
+    };
+    Ok(!deleted.is_empty())
+}
+
 /// Remove the workspace reference `ref_name` (if it still exists),
 /// possibly along with its `meta`-data.
 /// The `workspace` is used to assure the `ref_name` is eligible for deletion in the first place.
@@ -26,7 +71,7 @@ use gix::refs::transaction::PreviousValue;
 /// Return the updated graph that reflects this change, or `None` if nothing changed.
 pub fn remove_reference(
     ref_name: &gix::refs::FullNameRef,
-    repo: &gix::Repository,
+    repo: &mut gix::Repository,
     workspace: &but_graph::Workspace,
     meta: &mut impl RefMetadata,
     Options {
@@ -59,18 +104,7 @@ pub fn remove_reference(
         );
     }
 
-    let deleted_ref = if let Some(r) = repo.try_find_reference(ref_name)? {
-        let safe = but_core::branch::SafeDelete::new(repo)?;
-        let out = safe.delete_reference(&r)?;
-        if let Some(paths) = out.checked_out_in_worktree_dirs {
-            bail_precondition!(
-                "Refusing to delete a branch that is checked out. Worktrees are: {paths:?}"
-            );
-        }
-        true
-    } else {
-        false
-    };
+    let deleted_ref = delete_local_branch(repo, ref_name)?;
 
     let deleted_meta = if keep_metadata {
         false

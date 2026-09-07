@@ -152,14 +152,9 @@ pub mod git_credentials {
     pub(super) struct Store(gix::config::File);
 
     impl Store {
-        /// Create an instance by resolving the global environment just well enough.
-        ///
-        /// # Limitation
-        ///
-        /// This does not fully resolve includes, so it's not truly production ready but should be
-        /// fine for developer setups.
+        /// Create an instance from the effective global Git configuration.
         fn from_globals() -> Result<Self> {
-            Ok(Store(gix::config::File::from_globals()?))
+            Ok(Store(gix::config(None, &gix::open::Options::default())?))
         }
 
         /// Provide credentials preconfigured for the given secrets `handle`.

@@ -43,13 +43,16 @@ pub fn expand_alias(potential_alias: &str) -> Result<Vec<OsString>> {
         )
     }
 
-    // Try to read from git config: but.alias.<name>
-    // And try to discover a git repository from the current directory, way before we have a context.
-    let repo = gix::discover(".").ok();
-    let alias_value = match repo
-        .as_ref()
-        .and_then(|repo| read_git_config_alias(repo, potential_alias))
-    {
+    // Try to discover a git repository from the current directory, way before we have a context.
+    // Outside a repository, aliases can still come from global configuration.
+    let alias_value = match gix::discover(".") {
+        Ok(repo) => read_git_config_alias(&repo.config_snapshot(), potential_alias),
+        Err(_) => read_git_config_alias(
+            &gix::config(None, &gix::open::Options::default())?,
+            potential_alias,
+        ),
+    };
+    let alias_value = match alias_value {
         Some(value) => value,
         None => {
             // Check for default aliases that can be overridden
@@ -112,7 +115,7 @@ pub fn get_default_alias(alias_name: &str) -> Option<String> {
         .map(|(_, value)| value.to_string())
 }
 
-/// Reads a git config alias value from `repo`.
+/// Reads a git config alias value from `config`.
 ///
 /// Looks for the config key `but.alias.<name>` in the git configuration.
 ///
@@ -123,10 +126,8 @@ pub fn get_default_alias(alias_name: &str) -> Option<String> {
 /// # Returns
 ///
 /// The alias value if found, or `None` if not found or on error
-fn read_git_config_alias(repo: &gix::Repository, alias_name: &str) -> Option<String> {
-    // Get the config snapshot and look for but.alias.<name>
+fn read_git_config_alias(config: &gix::config::File, alias_name: &str) -> Option<String> {
     let config_key = format!("but.alias.{alias_name}");
-    let config = repo.config_snapshot();
 
     // Try to read the string value from config
     config.string(&config_key).map(|v| v.to_string())

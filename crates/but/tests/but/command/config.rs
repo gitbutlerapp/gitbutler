@@ -192,6 +192,85 @@ fn feature_config_json_output_uses_stable_key() {
 }
 
 #[test]
+fn global_user_configuration_works_outside_a_repository() {
+    let env = Sandbox::empty();
+    let global_config = env.projects_root().join("global.gitconfig");
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt as _;
+        let target = env.projects_root().join("actual.gitconfig");
+        std::fs::write(&target, "").unwrap();
+        std::fs::set_permissions(&target, std::fs::Permissions::from_mode(0o600)).unwrap();
+        std::os::unix::fs::symlink(&target, &global_config).unwrap();
+    }
+
+    env.but("config user set --global name 'Ada Lovelace'")
+        .env("GIT_CONFIG_GLOBAL", &global_config)
+        .assert()
+        .success();
+    assert_eq!(
+        env.invoke_git("config --file global.gitconfig --get user.name"),
+        "Ada Lovelace"
+    );
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt as _;
+        assert!(
+            std::fs::symlink_metadata(&global_config)
+                .unwrap()
+                .file_type()
+                .is_symlink(),
+            "editing global config preserves its symlink"
+        );
+        assert_eq!(
+            std::fs::metadata(env.projects_root().join("actual.gitconfig"))
+                .unwrap()
+                .permissions()
+                .mode()
+                & 0o777,
+            0o600,
+            "editing global config preserves its target's permissions"
+        );
+    }
+
+    env.but("config user")
+        .env("GIT_CONFIG_GLOBAL", &global_config)
+        .assert()
+        .success();
+
+    env.but("config user unset --global name")
+        .env("GIT_CONFIG_GLOBAL", &global_config)
+        .assert()
+        .success();
+    env.invoke_git_fails(
+        "config --file global.gitconfig --get user.name",
+        "global user name should be removed from the configured global file",
+    );
+    env.but("config user set name Byron")
+        .assert()
+        .failure()
+        .stderr_eq(str![[r#"
+Error: Local Git configuration requires a git repository
+
+"#]]);
+}
+
+#[test]
+fn global_user_configuration_creates_parent_for_relative_path() {
+    let env = Sandbox::empty();
+
+    env.but("config user set --global name 'Ada Lovelace'")
+        .env("GIT_CONFIG_GLOBAL", "nested/global.gitconfig")
+        .assert()
+        .success();
+    assert_eq!(
+        env.invoke_git("config --file nested/global.gitconfig --get user.name"),
+        "Ada Lovelace",
+        "relative global config paths are resolved against the command's working directory"
+    );
+}
+
+#[test]
 fn ai_openai_defaults_to_global_config() {
     let env = Sandbox::empty();
     env.invoke_bash("git init repo");

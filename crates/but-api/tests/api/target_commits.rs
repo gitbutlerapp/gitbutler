@@ -180,7 +180,7 @@ fn merge_integrated_stack_bounds_the_walk_at_its_base() -> anyhow::Result<()> {
         .args(["merge", "--no-ff", "feature", "-m", "merge feature"])
         .run();
     git_at_dir(tmp.path())
-        .args(["config", "remote.origin.url", "../origin"])
+        .args(["remote", "add", "origin", "../origin"])
         .run();
     git_at_dir(tmp.path())
         .args(["update-ref", "refs/remotes/origin/main", "HEAD"])
