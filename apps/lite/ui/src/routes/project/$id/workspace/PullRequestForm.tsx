@@ -167,6 +167,12 @@ export const PullRequestForm: FC<{
 
 	const isNew = reviewId === null;
 	const isAnyPending = isPushPending || isPublishReviewPending || isUpdateReviewPending;
+	// A forge refuses a PR whose head adds nothing to its base, so an empty
+	// branch cannot open one — and pushing it first would only leave an empty
+	// branch on the remote. The form stays live for drafting ahead of the
+	// commits; only the button waits. Unknown while the details load: not
+	// loaded is not the same as empty.
+	const noCommits = isNew && branchDetails !== undefined && branchDetails.commits.length === 0;
 	const hasChanges =
 		localDocument.title !== remoteOrEmptyDocument.title ||
 		localDocument.body !== remoteOrEmptyDocument.body ||
@@ -267,7 +273,7 @@ export const PullRequestForm: FC<{
 
 	const handleSubmit = async (evt: SubmitEvent<HTMLFormElement>): Promise<void> => {
 		evt.preventDefault();
-		if (!canSubmit || isAnyPending || localDocument.title.trim() === "") return;
+		if (!canSubmit || noCommits || isAnyPending || localDocument.title.trim() === "") return;
 
 		if (reviewId === null) {
 			// A forge only opens a review on a branch it has, so the branch and
@@ -446,14 +452,19 @@ export const PullRequestForm: FC<{
 
 								<button
 									className={getButtonClassName({ variant: "gray" })}
-									disabled={!canSubmit || isAnyPending || !hasChanges}
+									disabled={!canSubmit || noCommits || isAnyPending || !hasChanges}
 									type="submit"
 								>
-									{isNew
-										? pushFirst !== null
-											? "Push and create a PR"
-											: "Create a PR"
-										: "Save changes"}
+									{/* The reason rides in the label, not a tooltip: it is the
+									    form's whole story, so it has to be readable without hover
+									    (DESIGN.md → Empty states). */}
+									{!isNew
+										? "Save changes"
+										: noCommits
+											? "No commits yet"
+											: pushFirst !== null
+												? "Push and create a PR"
+												: "Create a PR"}
 									{/* Creating opens a PR; saving only confirms an edit. */}
 									<Icon name={isAnyPending ? "spinner" : isNew ? "pr" : "tick"} />
 								</button>
