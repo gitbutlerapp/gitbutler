@@ -134,18 +134,12 @@ macro_rules! write_single_table {
     };
 }
 
-read_table!(virtual_branches, virtual_branches, VirtualBranchesHandle);
 read_table!(branch_order, branch_order, BranchOrderHandle);
 read_table!(hunk_assignments, hunk_assignments, HunkAssignmentsHandle);
 read_table!(worktree_meta, worktree_meta, WorktreeMetaHandle);
 read_table!(gerrit_metadata, gerrit_metadata, GerritMetadataHandle);
 read_table!(forge_reviews, forge_reviews, ForgeReviewsHandle);
 read_table!(ci_checks, ci_checks, CiChecksHandle);
-write_table!(
-    virtual_branches_mut,
-    virtual_branches,
-    VirtualBranchesHandleMut
-);
 write_table!(branch_order_mut, branch_order, BranchOrderHandleMut);
 write_table!(
     hunk_assignments_mut,

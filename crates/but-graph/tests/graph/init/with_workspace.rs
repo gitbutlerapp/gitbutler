@@ -19,6 +19,104 @@ use crate::init::{
 use crate::support::graph_dag;
 
 #[test]
+fn named_workspaces_keep_independent_metadata() -> anyhow::Result<()> {
+    use but_core::ref_metadata::{Branch, RefInfo, Review, Workspace};
+    use gix::prelude::ObjectIdExt as _;
+
+    let (_tmp, repo) = super::empty_repo()?;
+    let base = super::commit(&repo, "base")?;
+    let mut meta = but_testsupport::in_memory_db();
+    let mut expected = Vec::new();
+    for (number, branch_name, workspace_name) in [
+        (1, "refs/heads/one", "refs/heads/gitbutler/workspaces/one"),
+        (2, "refs/heads/two", "refs/heads/gitbutler/workspaces/two"),
+    ] {
+        super::create_branches(&repo, base, [branch_name])?;
+        let branch_tip = repo
+            .commit(
+                branch_name,
+                branch_name,
+                repo.object_hash().empty_tree(),
+                [base],
+            )?
+            .detach();
+        super::create_branches(&repo, branch_tip, [workspace_name])?;
+        let workspace_tip = repo
+            .commit(
+                workspace_name,
+                "GitButler Workspace Commit",
+                repo.object_hash().empty_tree(),
+                [branch_tip],
+            )?
+            .detach();
+        let branch_name = super::ref_name(branch_name);
+        let workspace_name = super::ref_name(workspace_name);
+        let workspace_metadata = Workspace {
+            ref_info: RefInfo {
+                created_at: Some(gix::date::Time {
+                    seconds: 1675176957 + number,
+                    offset: 0,
+                }),
+                ..Default::default()
+            },
+            stacks: vec![WorkspaceStack {
+                id: StackId::from_number_for_testing(number as u128),
+                branches: vec![WorkspaceStackBranch {
+                    ref_name: branch_name.clone(),
+                    archived: false,
+                }],
+                workspacecommit_relation: WorkspaceCommitRelation::Merged,
+            }],
+        };
+        let branch_metadata = Branch {
+            review: Review {
+                pull_request: Some(number as usize),
+                ..Default::default()
+            },
+            ..Default::default()
+        };
+        meta.meta_mut()?
+            .set_workspace(workspace_name.as_ref(), &workspace_metadata)?;
+        meta.meta_mut()?
+            .set_branch(branch_name.as_ref(), &branch_metadata)?;
+        expected.push((
+            workspace_name,
+            workspace_tip,
+            workspace_metadata,
+            branch_name,
+            branch_tip,
+            branch_metadata,
+        ));
+    }
+
+    for (name, tip, workspace_metadata, branch_name, branch_tip, branch_metadata) in expected {
+        let workspace = Graph::from_commit_traversal(
+            tip.attach(&repo),
+            Some(name.clone()),
+            ProjectMeta {
+                target_commit_id: Some(base),
+                ..Default::default()
+            },
+            &mut meta.connection_mut(),
+            standard_options(),
+        )?
+        .validated()?
+        .into_workspace()?;
+        assert_eq!(workspace.ref_name(), Some(name.as_ref()));
+        assert!(workspace.kind.has_managed_commit());
+        assert_eq!(workspace.metadata.as_ref(), Some(&workspace_metadata));
+        assert_eq!(workspace.stacks.len(), 1);
+        let stack = &workspace.stacks[0];
+        assert_eq!(stack.id, Some(workspace_metadata.stacks[0].id));
+        assert_eq!(stack.ref_name(), Some(branch_name.as_ref()));
+        assert_eq!(stack.tip(), Some(branch_tip));
+        assert_eq!(stack.segments.len(), 1);
+        assert_eq!(stack.segments[0].metadata.as_ref(), Some(&branch_metadata));
+    }
+    Ok(())
+}
+
+#[test]
 fn workspace_with_stack_and_local_target() -> anyhow::Result<()> {
     let (repo, mut meta) = read_only_in_memory_scenario("ws/local-target-and-stack")?;
     snapbox::assert_data_eq!(
@@ -1045,9 +1143,7 @@ fn single_stack_ws_insertions() -> anyhow::Result<()> {
     snapbox::assert_data_eq!(
         graph_dag(&graph),
         snapbox::str![[r#"
-◎  A
-│ ◎  A-empty-02
-├─╯
+◎  A-empty-02
 │ ◎  A-empty-03
 ├─╯
 │ ◎  ambiguous-01
@@ -1067,7 +1163,8 @@ fn single_stack_ws_insertions() -> anyhow::Result<()> {
 │ ├─╯ │ │ │
 │ ●   │ │ │  ·2a31450 (⌂|🏘)
 │ ├─────╯ │
-│ ◎   │   │  👉A-empty-01
+│ ◎   │   │  📙A
+│ ◎   │   │  👉📙A-empty-01
 ├─╯   │   │
 ●     │   │  ·70bde6b (⌂|🏘)
 ├─────────╯
@@ -1080,9 +1177,9 @@ fn single_stack_ws_insertions() -> anyhow::Result<()> {
         graph_workspace(&graph.into_workspace()?).to_string(),
         snapbox::str![[r#"
 ⌂:A-empty-01 <> ✓refs/remotes/origin/main on fafd9d0
-└── ≡:A-empty-01 on fafd9d0 {1}
-    └── :A-empty-01
-        └── ·70bde6b (🏘️) ►A, ►A-empty-02, ►A-empty-03
+└── ≡📙:A-empty-01 on fafd9d0 {1}
+    └── 📙:A-empty-01
+        └── ·70bde6b (🏘️) ►A-empty-02, ►A-empty-03
 
 "#]]
     );
@@ -2679,7 +2776,7 @@ fn two_stacks_many_refs() -> anyhow::Result<()> {
         standard_options(),
     )?
     .validated()?;
-    // This should look the same as before, despite the starting position.
+    // A plain branch retains its stored order without pulling in other workspace stacks.
     snapbox::assert_data_eq!(
         graph_dag(&graph),
         snapbox::str![[r#"
@@ -2691,13 +2788,11 @@ fn two_stacks_many_refs() -> anyhow::Result<()> {
 │ ◎  D
 │ │ ◎  E
 │ ├─╯
-│ │ ◎  F
-│ │ │ ◎  G
-│ │ ├─╯
-│ │ │ ◎  📕gitbutler/workspace[🌳]
-│ │ │ ●  ·298d938 (⌂|🏘)
-│ │ │ ◎  👉S1
-│ │ ├─╯
+│ │ ◎  📕gitbutler/workspace[🌳]
+│ │ ●  ·298d938 (⌂|🏘)
+│ │ ◎  👉📙S1
+│ │ ◎  📙G
+│ │ ◎  📙F
 │ │ ●  ·16f132b (⌂|🏘)
 │ ├─╯
 │ ●  ·917b9da (⌂|🏘)
@@ -2712,9 +2807,11 @@ fn two_stacks_many_refs() -> anyhow::Result<()> {
         graph_workspace(&graph.into_workspace()?).to_string(),
         snapbox::str![[r#"
 ⌂:S1 <> ✓refs/remotes/origin/main on fafd9d0
-└── ≡:S1 on fafd9d0 {1}
-    └── :S1
-        ├── ·16f132b (🏘️) ►F, ►G
+└── ≡📙:S1 on fafd9d0 {1}
+    ├── 📙:S1
+    ├── 📙:G
+    └── 📙:F
+        ├── ·16f132b (🏘️)
         └── ·917b9da (🏘️) ►D, ►E
 
 "#]]
@@ -2789,38 +2886,36 @@ fn just_init_with_branches_complex() -> anyhow::Result<()> {
         standard_options(),
     )?
     .validated()?;
-    // The entrypoint shouldn't affect the outcome (even though it changes the initial segmentation).
-    // However, as the segment it's on is integrated, it's not considered to be part of the workspace.
+    // Starting at C gives an ad-hoc view, preserving its order above B at the target commit.
     snapbox::assert_data_eq!(
         graph_dag(&graph),
         snapbox::str![[r#"
 ◎  A
-│ ◎  B
+│ ◎  D
 ├─╯
-│ ◎  👉C
-│ │ ◎  D
-├───╯
-│ │ ◎  E
-├───╯
-│ │ ◎  F
-├───╯
-│ │ ◎  📕gitbutler/workspace
-│ ├─╯
-│ │ ◎  origin/main
-│ ├─╯
+│ ◎  E
+├─╯
+│ ◎  F
+├─╯
+│ ◎  📕gitbutler/workspace
+│ ◎  👉📙C
+│ ◎  📙B
+├─╯
+│ ◎  origin/main
 │ ◎  main[🌳] <> origin/main
 ├─╯
 ●  🏁·fafd9d0 (⌂|🏘|✓)
 "#]]
     );
 
-    // We should see the same stacks as we did before, just with a different entrypoint.
+    // Only C's ordered branch chain belongs to this view.
     snapbox::assert_data_eq!(
         graph_workspace(&graph.into_workspace()?).to_string(),
         snapbox::str![[r#"
 ⌂:C <> ✓refs/remotes/origin/main on fafd9d0
-└── ≡:C on fafd9d0 {1}
-    └── :C
+└── ≡📙:C on fafd9d0 {1}
+    ├── 📙:C
+    └── 📙:B
 
 "#]]
     );
@@ -3694,8 +3789,8 @@ fn integrated_tips_stop_early_if_remote_is_not_configured() -> anyhow::Result<()
 "#]]
     );
 
-    meta.meta_mut()?
-        .remove(but_core::WORKSPACE_REF_NAME.try_into()?)?;
+    // Clear branch metadata too: it now survives removal of its workspace.
+    meta.meta_mut()?.replace_snapshot(&Default::default())?;
     add_workspace(&mut meta);
     // When looking from an integrated branch within the workspace, but without limit,
     // the (lack of) limit is respected.
@@ -5631,9 +5726,10 @@ fn dependent_branch_insertion() -> anyhow::Result<()> {
         graph_workspace(&graph.into_workspace()?).to_string(),
         snapbox::str![[r#"
 ⌂:advanced-lane <> ✓refs/remotes/origin/main on fafd9d0
-└── ≡:advanced-lane <> origin/advanced-lane on fafd9d0 {1}
-    └── :advanced-lane <> origin/advanced-lane
-        └── ❄️cbc6713 (🏘️) ►dependent
+└── ≡📙:advanced-lane <> origin/advanced-lane on fafd9d0 {1}
+    ├── 📙:advanced-lane <> origin/advanced-lane
+    └── 📙:dependent
+        └── ❄cbc6713 (🏘️)
 
 "#]]
     );
@@ -5651,9 +5747,9 @@ fn dependent_branch_insertion() -> anyhow::Result<()> {
         graph_workspace(&graph.into_workspace()?).to_string(),
         snapbox::str![[r#"
 ⌂:dependent <> ✓refs/remotes/origin/main on fafd9d0
-└── ≡:dependent on fafd9d0 {1}
-    └── :dependent
-        └── ·cbc6713 (🏘️) ►advanced-lane
+└── ≡📙:dependent on fafd9d0 {1}
+    └── 📙:dependent
+        └── ·cbc6713 (🏘️)
 
 "#]]
     );
@@ -6529,8 +6625,8 @@ fn without_target_ref_or_managed_commit_ambiguous() -> anyhow::Result<()> {
         graph_workspace(&graph.into_workspace()?).to_string(),
         snapbox::str![[r#"
 ⌂:A <> ✓refs/remotes/origin/A⇣1 on a62b0de
-└── ≡:A <> origin/A⇣1 on a62b0de {1}
-    └── :A <> origin/A⇣1
+└── ≡📙:A <> origin/A⇣1 on a62b0de {1}
+    └── 📙:A <> origin/A⇣1
         └── 🟣4fe5a6f
 
 "#]]
@@ -6550,8 +6646,8 @@ fn without_target_ref_or_managed_commit_ambiguous() -> anyhow::Result<()> {
         graph_workspace(&graph.into_workspace()?).to_string(),
         snapbox::str![[r#"
 ⌂:A <> ✓refs/remotes/origin/A⇣1 on a62b0de
-└── ≡:A <> origin/A⇣1 on a62b0de {1}
-    └── :A <> origin/A⇣1
+└── ≡📙:A <> origin/A⇣1 on a62b0de {1}
+    └── 📙:A <> origin/A⇣1
         └── 🟣4fe5a6f
 
 "#]]
@@ -6627,10 +6723,9 @@ fn without_target_ref_or_managed_commit_ambiguous_ahead() -> anyhow::Result<()> 
     snapbox::assert_data_eq!(
         graph_dag(&graph),
         snapbox::str![[r#"
-◎  B
-│ ◎  📕gitbutler/workspace[🌳]
-│ ◎  👉A <> origin/A
-├─╯
+◎  📕gitbutler/workspace[🌳]
+◎  👉📙A <> origin/A
+◎  📙B
 ●  ·a62b0de (⌂|🏘)
 ●  ·120a217 (⌂|🏘)
 ◎  origin/A
@@ -6643,9 +6738,10 @@ fn without_target_ref_or_managed_commit_ambiguous_ahead() -> anyhow::Result<()> 
         graph_workspace(&graph.into_workspace()?).to_string(),
         snapbox::str![[r#"
 ⌂:A <> ✓refs/remotes/origin/A on fafd9d0
-└── ≡:A <> origin/A⇡2 on fafd9d0 {1}
-    └── :A <> origin/A⇡2
-        ├── ·a62b0de (🏘️) ►B
+└── ≡📙:A <> origin/A on fafd9d0 {1}
+    ├── 📙:A <> origin/A
+    └── 📙:B
+        ├── ·a62b0de (🏘️)
         └── ·120a217 (🏘️)
 
 "#]]

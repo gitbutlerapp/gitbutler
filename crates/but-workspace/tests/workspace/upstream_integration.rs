@@ -3934,7 +3934,7 @@ fn leaves_checked_out_local_target_branch_unchanged() -> Result<()> {
 fn worktree_workspace() -> Result<(tempfile::TempDir, gix::Repository, but_db::DbHandle)> {
     // Linked worktrees record absolute paths, so the fixture is executed rather than copied.
     let (repo, tmp) = crate::utils::writable_scenario_slow("worktree-workspace");
-    let mut meta = but_testsupport::fixture_metadata(repo.path().join("virtual-branches.toml"))?;
+    let mut meta = but_testsupport::in_memory_db();
     crate::ref_info::with_workspace_commit::utils::add_workspace(&mut meta);
     add_stack(&mut meta, 1, "A", StackState::InWorkspace);
     add_stack(&mut meta, 2, "B", StackState::InWorkspace);
