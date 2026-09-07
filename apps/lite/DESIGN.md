@@ -54,6 +54,16 @@ thing; dark mode is handled by the tokens. Note that selected rows reach these
 styles through CSS in `Row.module.css` rather than by passing the variant, so
 selection can restyle without a re-render.
 
+## Cursors
+
+**No pointer cursors.** Lite is a desktop app, and desktop apps keep the arrow
+over buttons, menus and rows; the hand is a web convention for links out to a
+page. Don't set `cursor: pointer` on a control, and don't reintroduce it by
+resetting a `<button>` — the browser default for buttons is already the arrow.
+Interactivity is shown by the hover state, not the cursor. The cursors that do
+change are the ones that describe a gesture: `text` over editable text, `grab`
+and `grabbing` while dragging, and the resize cursors on a splitter.
+
 ## Icons
 
 **Source.** Icons come from the ⚛️ Lite Core Figma library. Don't draw new
