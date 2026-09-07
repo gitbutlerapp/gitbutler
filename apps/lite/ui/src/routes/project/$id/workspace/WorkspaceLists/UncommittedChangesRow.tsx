@@ -23,13 +23,15 @@ import type { TreeChange } from "@gitbutler/but-sdk";
 import type { FC } from "react";
 import { getRowButtonClassName } from "../Row-utils.ts";
 import { ChangeStats } from "../ChangeStats.tsx";
-import { RowToolbar, SectionHeaderRow } from "../Row.tsx";
+import { Row, RowFoldToggle, RowLabel, RowLabelContainer, RowToolbar } from "../Row.tsx";
 import { useFileDisplayModeMenuItems } from "../useFileDisplayModeMenuItems.ts";
-import { PanelFoldToggle } from "./PanelFoldToggle.tsx";
+import { GraphSegment } from "#ui/components/GraphSegment.tsx";
+import { classes } from "#ui/components/classes.ts";
 import { useQuery } from "@tanstack/react-query";
 import styles from "./UncommittedChangesRow.module.css";
 import { treeChangesDiffsQueryOptions } from "#ui/api/queries.ts";
 
+/** The uncommitted files card's header: the trunk's head, as a top branch row is a card's. Not a value. */
 export const UncommittedChangesRow: FC<{
 	changes: Array<TreeChange>;
 	/**
@@ -38,10 +40,19 @@ export const UncommittedChangesRow: FC<{
 	 * like — the header must not flash the clean wording on the way in.
 	 */
 	isClean: boolean;
-	headingId: string;
 	projectId: string;
-	onOpenFilter: () => void;
-}> = ({ changes, isClean, headingId, projectId, onOpenFilter }) => {
+	/** In the card, with its fold; or docked at the scroller's head while the card is out of view, a click scrolling to it. */
+	mode:
+		| {
+				kind: "card";
+				headingId: string;
+				folded: boolean;
+				onToggleFolded: () => void;
+				onOpenFilter: () => void;
+		  }
+		| { kind: "docked"; onSelect: () => void };
+	className?: string;
+}> = ({ changes, isClean, projectId, mode, className }) => {
 	const { data: lineStats = getLineStats([]) } = useQuery({
 		...treeChangesDiffsQueryOptions({ projectId, changes }),
 		select: getLineStats,
@@ -126,61 +137,84 @@ export const UncommittedChangesRow: FC<{
 		}),
 	];
 
+	const stats =
+		changes.length > 0 ? (
+			<ChangeStats fileCount={changes.length} lineStats={lineStats} />
+		) : (
+			isClean && <span className={classes("text-12", styles.caption)}>no changes</span>
+		);
+	if (mode.kind === "docked") {
+		// oxlint-disable jsx-a11y/prefer-tag-over-role -- A row that scrolls, styled as the rows around it.
+		return (
+			<Row
+				role="button"
+				tabIndex={0}
+				onSelect={mode.onSelect}
+				onKeyDown={(event) => {
+					if (event.key !== "Enter" && event.key !== " ") return;
+					event.preventDefault();
+					mode.onSelect();
+				}}
+				className={className}
+			>
+				<GraphSegment glyph="forkRight" status="LocalOnly" />
+				<RowLabelContainer>
+					<RowLabel heading singleLine>
+						Uncommitted files
+					</RowLabel>
+					{stats}
+				</RowLabelContainer>
+			</Row>
+		);
+		// oxlint-enable jsx-a11y/prefer-tag-over-role
+	}
+
 	return (
-		<SectionHeaderRow
-			id={headingId}
-			// With nothing to show, the header is the only line left, so it says the
-			// state instead of naming a section whose contents would repeat it. The
-			// name stays in the accessible text: this row labels the file tree and
-			// is how the section is reached by heading, and neither should rename
-			// itself every time the worktree empties.
-			label={
-				isClean ? (
-					<>
-						<span className={styles.headingName}>Uncommitted. </span>
-						Nothing to commit
-					</>
-				) : (
-					"Uncommitted"
-				)
-			}
-			leading={<PanelFoldToggle projectId={projectId} panel="uncommitted" />}
+		<Row
+			interactive
+			onSelect={mode.onToggleFolded}
+			className={className}
 			onContextMenu={(event) => {
 				void showNativeContextMenu(event, menuItems);
 			}}
-			actions={
-				noOperationPending && (
-					<Toolbar.Root
-						aria-label="Uncommitted changes actions"
-						render={<RowToolbar forceVisible />}
-					>
-						{changes.length > 0 && (
-							<Toolbar.Button
-								aria-label="Filter files"
-								onClick={onOpenFilter}
-								className={getRowButtonClassName({ size: "regular", iconOnly: true })}
-							>
-								<Icon name="search" />
-							</Toolbar.Button>
-						)}
+		>
+			<RowFoldToggle
+				folded={mode.folded}
+				glyph={<GraphSegment glyph="forkRight" status="LocalOnly" />}
+				aria-label={`${mode.folded ? "Unfold" : "Fold"} uncommitted files`}
+				onClick={mode.onToggleFolded}
+			/>
+			<RowLabelContainer>
+				<RowLabel id={mode.headingId} heading singleLine>
+					Uncommitted files
+				</RowLabel>
+				{/* A zero is not worth a badge: the caption says the resting state instead. */}
+				{stats}
+			</RowLabelContainer>
 
+			{noOperationPending && (
+				<Toolbar.Root aria-label="Uncommitted changes actions" render={<RowToolbar forceVisible />}>
+					{changes.length > 0 && !mode.folded && (
 						<Toolbar.Button
-							aria-label="Uncommitted changes menu"
-							onClick={(event) => {
-								void showNativeMenuFromTrigger(event.currentTarget, menuItems);
-							}}
+							aria-label="Filter files"
+							onClick={mode.onOpenFilter}
 							className={getRowButtonClassName({ size: "regular", iconOnly: true })}
 						>
-							<Icon name="kebab" />
+							<Icon name="search" />
 						</Toolbar.Button>
-					</Toolbar.Root>
-				)
-			}
-		>
-			{/* A zero is not worth a badge: the title already says there is nothing
-			    here, and a count that only ever reads "0" reads as a problem rather
-			    than as the resting state. */}
-			{changes.length > 0 && <ChangeStats fileCount={changes.length} lineStats={lineStats} />}
-		</SectionHeaderRow>
+					)}
+
+					<Toolbar.Button
+						aria-label="Uncommitted changes menu"
+						onClick={(event) => {
+							void showNativeMenuFromTrigger(event.currentTarget, menuItems);
+						}}
+						className={getRowButtonClassName({ size: "regular", iconOnly: true })}
+					>
+						<Icon name="kebab" />
+					</Toolbar.Button>
+				</Toolbar.Root>
+			)}
+		</Row>
 	);
 };

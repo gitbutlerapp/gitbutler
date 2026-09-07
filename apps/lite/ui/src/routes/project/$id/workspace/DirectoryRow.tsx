@@ -6,7 +6,7 @@ import { projectSlice } from "#ui/projects/state.ts";
 import type { FocusScope } from "#ui/focus-scopes.ts";
 import { useAppSelector } from "#ui/store.ts";
 import { Tooltip } from "@base-ui/react";
-import type { ComponentProps, FC } from "react";
+import type { ComponentProps, FC, ReactNode } from "react";
 import styles from "./FilesTree.module.css";
 import rowStyles from "./Row.module.css";
 import { Row, RowCheckbox, RowLabel, RowLabelContainer } from "./Row.tsx";
@@ -29,6 +29,8 @@ export const DirectoryRow: FC<
 		checkedState: DirectoryCheckedState;
 		checkDirectory: (evt: { path: string; checked: boolean }) => void;
 		focusScope: FocusScope;
+		/** See {@link FilesTree}'s prop of the same name. */
+		rail?: ReactNode;
 	} & ComponentProps<typeof Row>
 > = ({
 	projectId,
@@ -42,6 +44,7 @@ export const DirectoryRow: FC<
 	checkedState,
 	checkDirectory,
 	focusScope,
+	rail,
 	...restProps
 }) => {
 	const noOperationPending = useAppSelector(
@@ -54,6 +57,7 @@ export const DirectoryRow: FC<
 			isChecked={checkedState === "checked"}
 			className={classes(restProps.className, styles.row)}
 		>
+			{rail}
 			<TreeSteps depth={depth}>
 				<Tooltip.Root disableHoverablePopup>
 					<Tooltip.Trigger

@@ -25,6 +25,8 @@ import { type Range, useVirtualizer } from "@tanstack/react-virtual";
 import {
 	type ComponentProps,
 	type FC,
+	type ReactNode,
+	type RefObject,
 	useCallback,
 	useDeferredValue,
 	useLayoutEffect,
@@ -395,6 +397,7 @@ type RowShared = {
 	onRowSelection: (selection: string) => void;
 	onToggleDirectoryCollapsed: (path: string) => void;
 	branchNameByCommitId: (commitId: string) => string | undefined;
+	rail: ReactNode | undefined;
 };
 
 /**
@@ -449,6 +452,7 @@ const FilesTreeRow: FC<{
 		onRowSelection,
 		onToggleDirectoryCollapsed,
 		branchNameByCommitId,
+		rail,
 	} = shared;
 	const virtStyle: CSSProperties = { position: "absolute", top: 0, left: 0, width: "100%", height };
 
@@ -475,6 +479,7 @@ const FilesTreeRow: FC<{
 				checkedState={checkedState}
 				checkDirectory={checkDirectory}
 				focusScope={focusScope}
+				rail={rail}
 				inert={inert}
 				onSelect={() => onRowSelection(row.path)}
 			/>
@@ -549,6 +554,7 @@ const FilesTreeRow: FC<{
 								focusScope={focusScope}
 								tooltipHandle={tooltipHandle}
 								ageBadgeNow={ageBadgeNow}
+								rail={rail}
 								branchNameByCommitId={branchNameByCommitId}
 							/>
 						}
@@ -571,6 +577,7 @@ const FilesTreeRow: FC<{
 						focusScope={focusScope}
 						tooltipHandle={tooltipHandle}
 						ageBadgeNow={ageBadgeNow}
+						rail={rail}
 						branchNameByCommitId={() => undefined}
 						anyOperationPending={anyOperationPending}
 						menuItems={[]}
@@ -599,6 +606,10 @@ const FilesTreeVirtualList: FC<{
 	isFileChecked: (path: string) => boolean;
 	directoryCheckedState: (filePaths: Array<string>) => DirectoryCheckedState;
 	shared: RowShared;
+	scrollElementRef: RefObject<HTMLElement | null> | undefined;
+	scrollMargin: number;
+	scrollPaddingStart: number;
+	scrollPaddingEnd: number;
 }> = ({
 	rows,
 	addressSpace,
@@ -609,6 +620,10 @@ const FilesTreeVirtualList: FC<{
 	isFileChecked,
 	directoryCheckedState,
 	shared,
+	scrollElementRef,
+	scrollMargin,
+	scrollPaddingStart,
+	scrollPaddingEnd,
 }) => {
 	const selectedRowIndex =
 		selection !== null ? (addressSpace.indexByKey.get(selection) ?? null) : null;
@@ -628,14 +643,15 @@ const FilesTreeVirtualList: FC<{
 		directDomUpdates: true,
 		directDomUpdatesMode: "transform",
 		count: rows.length,
-		getScrollElement: () => groupRef.current?.parentElement?.parentElement ?? null,
+		getScrollElement: () =>
+			scrollElementRef?.current ?? groupRef.current?.parentElement?.parentElement ?? null,
 		// Keep in sync with --single-line-row-height.
 		estimateSize: () => 28,
 		getItemKey: (index) => rows[index]?.path ?? index,
 		rangeExtractor: rangeExtractorWithSelected,
-		// Matches --scroll-gradient-height.
-		scrollPaddingStart: 14,
-		scrollPaddingEnd: 14,
+		scrollMargin,
+		scrollPaddingStart,
+		scrollPaddingEnd,
 	});
 	const deferredIsScrolling = useDeferredValue(rowVirtualizer.isScrolling, true);
 	// Keep OperationSourceC mounted while an operation refers to its rows, especially while a
@@ -724,6 +740,14 @@ export const FilesTree: FC<
 		 * The caller owns the ticking.
 		 */
 		ageBadgeNow?: number | null;
+		/** On the graph, every row's rail, drawn before its steps. */
+		rail?: ReactNode;
+		/** The scroller the list scrolls in when it is not the tree's own parent, and the list's offset in it. */
+		scrollElementRef?: RefObject<HTMLElement | null>;
+		scrollMargin?: number;
+		/** Room a row scrolled into view keeps clear at the scroller's head and foot; by default, its gradients. */
+		scrollPaddingStart?: number;
+		scrollPaddingEnd?: number;
 	} & ComponentProps<"div">
 > = ({
 	rows,
@@ -741,6 +765,11 @@ export const FilesTree: FC<
 	reviewedPaths = EMPTY_REVIEWED_PATHS,
 	emptyLabel = "No changes.",
 	ageBadgeNow = null,
+	rail,
+	scrollElementRef,
+	scrollMargin = 0,
+	scrollPaddingStart = 14,
+	scrollPaddingEnd = 14,
 	ref: refProp,
 	...props
 }) => {
@@ -987,6 +1016,7 @@ export const FilesTree: FC<
 		onToggleDirectoryCollapsed,
 		branchNameByCommitId: (commitId) =>
 			headInfoIndex?.commitContextByCommitId(commitId)?.segment.refName?.displayName,
+		rail,
 	};
 
 	return (
@@ -1017,6 +1047,10 @@ export const FilesTree: FC<
 					isFileChecked={isFileChecked}
 					directoryCheckedState={directoryCheckedState}
 					shared={shared}
+					scrollElementRef={scrollElementRef}
+					scrollMargin={scrollMargin}
+					scrollPaddingStart={scrollPaddingStart}
+					scrollPaddingEnd={scrollPaddingEnd}
 				/>
 			)}
 		</div>

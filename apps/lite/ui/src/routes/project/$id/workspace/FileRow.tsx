@@ -11,7 +11,7 @@ import { Icon } from "#ui/components/Icon.tsx";
 import { classes } from "#ui/components/classes.ts";
 import { changesFileHotkeys } from "#ui/hotkeys.ts";
 import { Toolbar, Tooltip } from "@base-ui/react";
-import type { ComponentProps, CSSProperties, FC } from "react";
+import type { ComponentProps, CSSProperties, FC, ReactNode } from "react";
 import styles from "./FileRow.module.css";
 import treeStyles from "./FilesTree.module.css";
 import { Row, RowCheckbox, RowLabel, RowLabelContainer, RowToolbar } from "./Row.tsx";
@@ -53,6 +53,8 @@ type FileRowProps = {
 	tooltipHandle: Tooltip.Handle<FileRowTooltipPayload>;
 	/** See {@link FilesTree}'s prop of the same name. */
 	ageBadgeNow?: number | null;
+	/** See {@link FilesTree}'s prop of the same name. */
+	rail?: ReactNode;
 } & Omit<ComponentProps<typeof Row>, "projectId">;
 
 type FileRowPresentationalProps = Omit<FileRowProps, "canUncommit" | "uncommit"> & {
@@ -115,6 +117,7 @@ export const FileRowPresentational: FC<FileRowPresentationalProps> = ({
 	presentationalOnly = false,
 	tooltipHandle,
 	ageBadgeNow = null,
+	rail,
 	...restProps
 }) => {
 	const relativePath = item._tag === "Change" ? item.change.path : item.path;
@@ -165,6 +168,7 @@ export const FileRowPresentational: FC<FileRowPresentationalProps> = ({
 						}
 			}
 		>
+			{rail}
 			<TreeSteps depth={depth} />
 
 			<div className={treeStyles.leading}>

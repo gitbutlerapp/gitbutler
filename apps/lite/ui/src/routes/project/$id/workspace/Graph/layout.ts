@@ -6,10 +6,11 @@ import type { RefInfo, Stack, TargetCommit, TargetCommitPage } from "@gitbutler/
 /*
  * The stacks section as a graph: card order and which section rows show. Pure.
  *
- * One main line runs up the left into the top card. Every other card, and a
- * moved-on target's, sits a column to its right and bends onto the line in
- * the gap under it. Rows draw their own gutters, a column each for the lines
- * behind them and the glyph (GraphSegment); a card draws the gap under it.
+ * One main line, the trunk, runs up the left from the merge base to the
+ * uncommitted files. Every stack card, and a moved-on target's, sits a column
+ * to its right and bends onto it in the gap under it. Rows draw their own
+ * gutters, a column each for the lines behind them and the glyph
+ * (GraphSegment); a card draws the gap under it.
  */
 
 /** The rows' inset in the graph: the first column's line, 8px in, at x = 18. */
