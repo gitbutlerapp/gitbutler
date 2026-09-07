@@ -13,7 +13,6 @@ doctest = false
 export-schema = ["dep:schemars", "dep:but-schemars"]
 
 [dependencies]
-but-meta = { workspace = true, features = ["legacy"] }
 but-serde = { workspace = true, features = ["legacy"]}
 but-core.workspace = true
 but-utils.workspace = true
@@ -25,6 +24,7 @@ gitbutler-repo.workspace = true
 
 anyhow.workspace = true
 serde.workspace = true
+serde_json.workspace = true
 itertools.workspace = true
 strum = { version = "0.27", features = ["derive"] }
 tracing.workspace = true

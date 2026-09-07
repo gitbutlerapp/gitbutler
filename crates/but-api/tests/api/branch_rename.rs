@@ -1,3 +1,4 @@
+use gitbutler_oplog::OplogExt as _;
 use gix::bstr::ByteSlice;
 
 use crate::support::{
@@ -102,13 +103,31 @@ fn undoing_a_rename_into_the_old_name_as_a_directory_keeps_a_name() -> anyhow::R
     create_empty_branch_above(&mut ctx, &foo, &feature)?;
 
     but_api::branch::branch_rename(&mut ctx, foo.clone(), "foo/bar".into())?;
-    undo(&mut ctx)?;
+    let rename_snapshot = ctx.oplog_head()?.expect("rename records an undo point");
+    let mut guard = ctx.exclusive_worktree_access();
+    let redo_snapshot = ctx.restore_snapshot(
+        rename_snapshot,
+        gitbutler_oplog::RestoreKind::RestoreFromSnapshotViaUndo,
+        guard.write_permission(),
+    )?;
 
     let repo = ctx.repo.get()?;
     assert!(
         repo.try_find_reference(foo.as_ref())?.is_some()
-            || repo.try_find_reference(foo_bar.as_ref())?.is_some(),
-        "git can't hold both names, but undo must leave the branch one of them"
+            && repo.try_find_reference(foo_bar.as_ref())?.is_none(),
+        "undo removes the nested name before restoring the original"
+    );
+    drop(repo);
+    ctx.restore_snapshot(
+        redo_snapshot,
+        gitbutler_oplog::RestoreKind::RestoreFromSnapshotViaRedo,
+        guard.write_permission(),
+    )?;
+    let repo = ctx.repo.get()?;
+    assert!(
+        repo.try_find_reference(foo.as_ref())?.is_none()
+            && repo.try_find_reference(foo_bar.as_ref())?.is_some(),
+        "redo restores the nested name after removing the original"
     );
     Ok(())
 }

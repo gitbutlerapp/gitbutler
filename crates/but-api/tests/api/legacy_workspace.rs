@@ -81,8 +81,8 @@ fn create_virtual_branch_returns_the_stack_that_switching_back_created() -> anyh
         crate::support::workspace_graph(&ctx)?,
         snapbox::str![[r#"
 📕🏘️:gitbutler/workspace[🌳] <> ✓refs/heads/main on 33fbd87
-└── ≡📙:amo-branch-1 on 33fbd87 {[..]}
-    └── 📙:amo-branch-1
+└── ≡:amo-branch-1 on 33fbd87 {[..]}
+    └── :amo-branch-1
         └── ·b12810b (🏘️)
 
 "#]]
@@ -145,11 +145,11 @@ fn create_virtual_branch_beside_another_branch_switches_to_the_workspace() -> an
         crate::support::workspace_graph(&ctx)?,
         snapbox::str![[r#"
 📕🏘️:gitbutler/workspace[🌳] <> ✓refs/heads/main on b12810b
-├── ≡📙:other on b12810b {[..]}
-│   └── 📙:other
+├── ≡:other on b12810b {[..]}
+│   └── :other
 │       └── ·8dfb293 (🏘️)
-└── ≡📙:new-branch on b12810b {[..]}
-    └── 📙:new-branch
+└── ≡:new-branch on b12810b {[..]}
+    └── :new-branch
 
 "#]]
     );

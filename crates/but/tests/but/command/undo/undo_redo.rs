@@ -96,7 +96,7 @@ fn undo_and_redo_have_structured_json_output() {
 {
   "action": "undo",
   "changed": true,
-  "snapshotId": "cc69fe723b88345a93eaa39c5abff92eeeaf1756"
+  "snapshotId": "585d5188113bce05cab2f164587818351f8645c7"
 }
 
 "#]]);
@@ -109,7 +109,7 @@ fn undo_and_redo_have_structured_json_output() {
 {
   "action": "redo",
   "changed": true,
-  "snapshotId": "cc69fe723b88345a93eaa39c5abff92eeeaf1756"
+  "snapshotId": "585d5188113bce05cab2f164587818351f8645c7"
 }
 
 "#]]);
@@ -144,17 +144,17 @@ fn can_undo_repeatedly() {
         .stdout_eq(snapbox::str![[r#"
 Operations History
 ──────────────────────────────────────────────────
-ff56b1c 2000-01-02 00:00:00 [REWORD] Updated commit message
-c611d4d 2000-01-02 00:00:00 [REWORD] Updated commit message
-37054a8 2000-01-02 00:00:00 [REWORD] Updated commit message
-cc69fe7 2000-01-02 00:00:00 [REWORD] Updated commit message
+c18c62c 2000-01-02 00:00:00 [REWORD] Updated commit message
+3d9a7b2 2000-01-02 00:00:00 [REWORD] Updated commit message
+4e699e0 2000-01-02 00:00:00 [REWORD] Updated commit message
+585d518 2000-01-02 00:00:00 [REWORD] Updated commit message
 
 "#]]);
 
     undo(
         &env,
         OperationKind::UpdateCommitMessage,
-        "ff56b1c",
+        "c18c62c",
         &status_three,
     );
 
@@ -165,18 +165,18 @@ cc69fe7 2000-01-02 00:00:00 [REWORD] Updated commit message
         .stdout_eq(snapbox::str![[r#"
 Operations History
 ──────────────────────────────────────────────────
-99d82bb 2000-01-02 00:00:00 [UNDO] Restored from snapshot: Updated commit message (ff56b1c)
-ff56b1c 2000-01-02 00:00:00 [REWORD] Updated commit message
-c611d4d 2000-01-02 00:00:00 [REWORD] Updated commit message
-37054a8 2000-01-02 00:00:00 [REWORD] Updated commit message
-cc69fe7 2000-01-02 00:00:00 [REWORD] Updated commit message
+c447d01 2000-01-02 00:00:00 [UNDO] Restored from snapshot: Updated commit message (c18c62c)
+c18c62c 2000-01-02 00:00:00 [REWORD] Updated commit message
+3d9a7b2 2000-01-02 00:00:00 [REWORD] Updated commit message
+4e699e0 2000-01-02 00:00:00 [REWORD] Updated commit message
+585d518 2000-01-02 00:00:00 [REWORD] Updated commit message
 
 "#]]);
 
     undo(
         &env,
         OperationKind::UpdateCommitMessage,
-        "c611d4d",
+        "3d9a7b2",
         &status_two,
     );
 
@@ -187,19 +187,19 @@ cc69fe7 2000-01-02 00:00:00 [REWORD] Updated commit message
         .stdout_eq(snapbox::str![[r#"
 Operations History
 ──────────────────────────────────────────────────
-d6d7810 2000-01-02 00:00:00 [UNDO] Restored from snapshot: Updated commit message (c611d4d)
-99d82bb 2000-01-02 00:00:00 [UNDO] Restored from snapshot: Updated commit message (ff56b1c)
-ff56b1c 2000-01-02 00:00:00 [REWORD] Updated commit message
-c611d4d 2000-01-02 00:00:00 [REWORD] Updated commit message
-37054a8 2000-01-02 00:00:00 [REWORD] Updated commit message
-cc69fe7 2000-01-02 00:00:00 [REWORD] Updated commit message
+cca3ac8 2000-01-02 00:00:00 [UNDO] Restored from snapshot: Updated commit message (3d9a7b2)
+c447d01 2000-01-02 00:00:00 [UNDO] Restored from snapshot: Updated commit message (c18c62c)
+c18c62c 2000-01-02 00:00:00 [REWORD] Updated commit message
+3d9a7b2 2000-01-02 00:00:00 [REWORD] Updated commit message
+4e699e0 2000-01-02 00:00:00 [REWORD] Updated commit message
+585d518 2000-01-02 00:00:00 [REWORD] Updated commit message
 
 "#]]);
 
     undo(
         &env,
         OperationKind::UpdateCommitMessage,
-        "37054a8",
+        "4e699e0",
         &status_one,
     );
 
@@ -210,13 +210,13 @@ cc69fe7 2000-01-02 00:00:00 [REWORD] Updated commit message
         .stdout_eq(snapbox::str![[r#"
 Operations History
 ──────────────────────────────────────────────────
-cad44b6 2000-01-02 00:00:00 [UNDO] Restored from snapshot: Updated commit message (37054a8)
-d6d7810 2000-01-02 00:00:00 [UNDO] Restored from snapshot: Updated commit message (c611d4d)
-99d82bb 2000-01-02 00:00:00 [UNDO] Restored from snapshot: Updated commit message (ff56b1c)
-ff56b1c 2000-01-02 00:00:00 [REWORD] Updated commit message
-c611d4d 2000-01-02 00:00:00 [REWORD] Updated commit message
-37054a8 2000-01-02 00:00:00 [REWORD] Updated commit message
-cc69fe7 2000-01-02 00:00:00 [REWORD] Updated commit message
+367cc16 2000-01-02 00:00:00 [UNDO] Restored from snapshot: Updated commit message (4e699e0)
+cca3ac8 2000-01-02 00:00:00 [UNDO] Restored from snapshot: Updated commit message (3d9a7b2)
+c447d01 2000-01-02 00:00:00 [UNDO] Restored from snapshot: Updated commit message (c18c62c)
+c18c62c 2000-01-02 00:00:00 [REWORD] Updated commit message
+3d9a7b2 2000-01-02 00:00:00 [REWORD] Updated commit message
+4e699e0 2000-01-02 00:00:00 [REWORD] Updated commit message
+585d518 2000-01-02 00:00:00 [REWORD] Updated commit message
 
 "#]]);
 }
@@ -238,14 +238,14 @@ fn can_undo_explicit_restore() {
         .stdout_eq(snapbox::str![[r#"
 Operations History
 ──────────────────────────────────────────────────
-ff56b1c 2000-01-02 00:00:00 [REWORD] Updated commit message
-c611d4d 2000-01-02 00:00:00 [REWORD] Updated commit message
-37054a8 2000-01-02 00:00:00 [REWORD] Updated commit message
-cc69fe7 2000-01-02 00:00:00 [REWORD] Updated commit message
+c18c62c 2000-01-02 00:00:00 [REWORD] Updated commit message
+3d9a7b2 2000-01-02 00:00:00 [REWORD] Updated commit message
+4e699e0 2000-01-02 00:00:00 [REWORD] Updated commit message
+585d518 2000-01-02 00:00:00 [REWORD] Updated commit message
 
 "#]]);
 
-    restore(&env, "c611d4d", &status_two);
+    restore(&env, "3d9a7b2", &status_two);
 
     env.but("oplog")
         .args(["list"])
@@ -254,18 +254,18 @@ cc69fe7 2000-01-02 00:00:00 [REWORD] Updated commit message
         .stdout_eq(snapbox::str![[r#"
 Operations History
 ──────────────────────────────────────────────────
-8f3151f 2000-01-02 00:00:00 [RESTORE] Restored from snapshot: Updated commit message (c611d4d)
-ff56b1c 2000-01-02 00:00:00 [REWORD] Updated commit message
-c611d4d 2000-01-02 00:00:00 [REWORD] Updated commit message
-37054a8 2000-01-02 00:00:00 [REWORD] Updated commit message
-cc69fe7 2000-01-02 00:00:00 [REWORD] Updated commit message
+5c50eb3 2000-01-02 00:00:00 [RESTORE] Restored from snapshot: Updated commit message (3d9a7b2)
+c18c62c 2000-01-02 00:00:00 [REWORD] Updated commit message
+3d9a7b2 2000-01-02 00:00:00 [REWORD] Updated commit message
+4e699e0 2000-01-02 00:00:00 [REWORD] Updated commit message
+585d518 2000-01-02 00:00:00 [REWORD] Updated commit message
 
 "#]]);
 
     undo(
         &env,
         OperationKind::UpdateCommitMessage,
-        "c611d4d",
+        "3d9a7b2",
         &status_four,
     );
 
@@ -276,12 +276,12 @@ cc69fe7 2000-01-02 00:00:00 [REWORD] Updated commit message
         .stdout_eq(snapbox::str![[r#"
 Operations History
 ──────────────────────────────────────────────────
-d9d816b 2000-01-02 00:00:00 [UNDO] Restored from snapshot: Updated commit message (c611d4d)
-8f3151f 2000-01-02 00:00:00 [RESTORE] Restored from snapshot: Updated commit message (c611d4d)
-ff56b1c 2000-01-02 00:00:00 [REWORD] Updated commit message
-c611d4d 2000-01-02 00:00:00 [REWORD] Updated commit message
-37054a8 2000-01-02 00:00:00 [REWORD] Updated commit message
-cc69fe7 2000-01-02 00:00:00 [REWORD] Updated commit message
+fd4271e 2000-01-02 00:00:00 [UNDO] Restored from snapshot: Updated commit message (3d9a7b2)
+5c50eb3 2000-01-02 00:00:00 [RESTORE] Restored from snapshot: Updated commit message (3d9a7b2)
+c18c62c 2000-01-02 00:00:00 [REWORD] Updated commit message
+3d9a7b2 2000-01-02 00:00:00 [REWORD] Updated commit message
+4e699e0 2000-01-02 00:00:00 [REWORD] Updated commit message
+585d518 2000-01-02 00:00:00 [REWORD] Updated commit message
 
 "#]]);
 }
@@ -303,17 +303,17 @@ fn can_undo_perform_operation_then_undo_again() {
         .stdout_eq(snapbox::str![[r#"
 Operations History
 ──────────────────────────────────────────────────
-ff56b1c 2000-01-02 00:00:00 [REWORD] Updated commit message
-c611d4d 2000-01-02 00:00:00 [REWORD] Updated commit message
-37054a8 2000-01-02 00:00:00 [REWORD] Updated commit message
-cc69fe7 2000-01-02 00:00:00 [REWORD] Updated commit message
+c18c62c 2000-01-02 00:00:00 [REWORD] Updated commit message
+3d9a7b2 2000-01-02 00:00:00 [REWORD] Updated commit message
+4e699e0 2000-01-02 00:00:00 [REWORD] Updated commit message
+585d518 2000-01-02 00:00:00 [REWORD] Updated commit message
 
 "#]]);
 
     undo(
         &env,
         OperationKind::UpdateCommitMessage,
-        "ff56b1c",
+        "c18c62c",
         &status_three,
     );
 
@@ -326,19 +326,19 @@ cc69fe7 2000-01-02 00:00:00 [REWORD] Updated commit message
         .stdout_eq(snapbox::str![[r#"
 Operations History
 ──────────────────────────────────────────────────
-0bf5e2d 2000-01-02 00:00:00 [REWORD] Updated commit message
-99d82bb 2000-01-02 00:00:00 [UNDO] Restored from snapshot: Updated commit message (ff56b1c)
-ff56b1c 2000-01-02 00:00:00 [REWORD] Updated commit message
-c611d4d 2000-01-02 00:00:00 [REWORD] Updated commit message
-37054a8 2000-01-02 00:00:00 [REWORD] Updated commit message
-cc69fe7 2000-01-02 00:00:00 [REWORD] Updated commit message
+a3b7f2b 2000-01-02 00:00:00 [REWORD] Updated commit message
+c447d01 2000-01-02 00:00:00 [UNDO] Restored from snapshot: Updated commit message (c18c62c)
+c18c62c 2000-01-02 00:00:00 [REWORD] Updated commit message
+3d9a7b2 2000-01-02 00:00:00 [REWORD] Updated commit message
+4e699e0 2000-01-02 00:00:00 [REWORD] Updated commit message
+585d518 2000-01-02 00:00:00 [REWORD] Updated commit message
 
 "#]]);
 
     undo(
         &env,
         OperationKind::UpdateCommitMessage,
-        "0bf5e2d",
+        "a3b7f2b",
         &status_three,
     );
 
@@ -349,20 +349,20 @@ cc69fe7 2000-01-02 00:00:00 [REWORD] Updated commit message
         .stdout_eq(snapbox::str![[r#"
 Operations History
 ──────────────────────────────────────────────────
-d0bd584 2000-01-02 00:00:00 [UNDO] Restored from snapshot: Updated commit message (0bf5e2d)
-0bf5e2d 2000-01-02 00:00:00 [REWORD] Updated commit message
-99d82bb 2000-01-02 00:00:00 [UNDO] Restored from snapshot: Updated commit message (ff56b1c)
-ff56b1c 2000-01-02 00:00:00 [REWORD] Updated commit message
-c611d4d 2000-01-02 00:00:00 [REWORD] Updated commit message
-37054a8 2000-01-02 00:00:00 [REWORD] Updated commit message
-cc69fe7 2000-01-02 00:00:00 [REWORD] Updated commit message
+cb2790b 2000-01-02 00:00:00 [UNDO] Restored from snapshot: Updated commit message (a3b7f2b)
+a3b7f2b 2000-01-02 00:00:00 [REWORD] Updated commit message
+c447d01 2000-01-02 00:00:00 [UNDO] Restored from snapshot: Updated commit message (c18c62c)
+c18c62c 2000-01-02 00:00:00 [REWORD] Updated commit message
+3d9a7b2 2000-01-02 00:00:00 [REWORD] Updated commit message
+4e699e0 2000-01-02 00:00:00 [REWORD] Updated commit message
+585d518 2000-01-02 00:00:00 [REWORD] Updated commit message
 
 "#]]);
 
     undo(
         &env,
         OperationKind::UpdateCommitMessage,
-        "c611d4d",
+        "3d9a7b2",
         &status_two,
     );
 }
@@ -383,15 +383,15 @@ fn undoing_past_end_of_oplog() {
         .stdout_eq(snapbox::str![[r#"
 Operations History
 ──────────────────────────────────────────────────
-37054a8 2000-01-02 00:00:00 [REWORD] Updated commit message
-cc69fe7 2000-01-02 00:00:00 [REWORD] Updated commit message
+4e699e0 2000-01-02 00:00:00 [REWORD] Updated commit message
+585d518 2000-01-02 00:00:00 [REWORD] Updated commit message
 
 "#]]);
 
     undo(
         &env,
         OperationKind::UpdateCommitMessage,
-        "37054a8",
+        "4e699e0",
         &status_one,
     );
 
@@ -402,16 +402,16 @@ cc69fe7 2000-01-02 00:00:00 [REWORD] Updated commit message
         .stdout_eq(snapbox::str![[r#"
 Operations History
 ──────────────────────────────────────────────────
-62c94f8 2000-01-02 00:00:00 [UNDO] Restored from snapshot: Updated commit message (37054a8)
-37054a8 2000-01-02 00:00:00 [REWORD] Updated commit message
-cc69fe7 2000-01-02 00:00:00 [REWORD] Updated commit message
+63b1af4 2000-01-02 00:00:00 [UNDO] Restored from snapshot: Updated commit message (4e699e0)
+4e699e0 2000-01-02 00:00:00 [REWORD] Updated commit message
+585d518 2000-01-02 00:00:00 [REWORD] Updated commit message
 
 "#]]);
 
     undo(
         &env,
         OperationKind::UpdateCommitMessage,
-        "cc69fe7",
+        "585d518",
         &status_zero,
     );
 
@@ -422,10 +422,10 @@ cc69fe7 2000-01-02 00:00:00 [REWORD] Updated commit message
         .stdout_eq(snapbox::str![[r#"
 Operations History
 ──────────────────────────────────────────────────
-83a9d3a 2000-01-02 00:00:00 [UNDO] Restored from snapshot: Updated commit message (cc69fe7)
-62c94f8 2000-01-02 00:00:00 [UNDO] Restored from snapshot: Updated commit message (37054a8)
-37054a8 2000-01-02 00:00:00 [REWORD] Updated commit message
-cc69fe7 2000-01-02 00:00:00 [REWORD] Updated commit message
+6d62c5b 2000-01-02 00:00:00 [UNDO] Restored from snapshot: Updated commit message (585d518)
+63b1af4 2000-01-02 00:00:00 [UNDO] Restored from snapshot: Updated commit message (4e699e0)
+4e699e0 2000-01-02 00:00:00 [REWORD] Updated commit message
+585d518 2000-01-02 00:00:00 [REWORD] Updated commit message
 
 "#]]);
 
@@ -452,17 +452,17 @@ fn can_redo() {
         .stdout_eq(snapbox::str![[r#"
 Operations History
 ──────────────────────────────────────────────────
-ff56b1c 2000-01-02 00:00:00 [REWORD] Updated commit message
-c611d4d 2000-01-02 00:00:00 [REWORD] Updated commit message
-37054a8 2000-01-02 00:00:00 [REWORD] Updated commit message
-cc69fe7 2000-01-02 00:00:00 [REWORD] Updated commit message
+c18c62c 2000-01-02 00:00:00 [REWORD] Updated commit message
+3d9a7b2 2000-01-02 00:00:00 [REWORD] Updated commit message
+4e699e0 2000-01-02 00:00:00 [REWORD] Updated commit message
+585d518 2000-01-02 00:00:00 [REWORD] Updated commit message
 
 "#]]);
 
     undo(
         &env,
         OperationKind::UpdateCommitMessage,
-        "ff56b1c",
+        "c18c62c",
         &status_three,
     );
 
@@ -473,18 +473,18 @@ cc69fe7 2000-01-02 00:00:00 [REWORD] Updated commit message
         .stdout_eq(snapbox::str![[r#"
 Operations History
 ──────────────────────────────────────────────────
-99d82bb 2000-01-02 00:00:00 [UNDO] Restored from snapshot: Updated commit message (ff56b1c)
-ff56b1c 2000-01-02 00:00:00 [REWORD] Updated commit message
-c611d4d 2000-01-02 00:00:00 [REWORD] Updated commit message
-37054a8 2000-01-02 00:00:00 [REWORD] Updated commit message
-cc69fe7 2000-01-02 00:00:00 [REWORD] Updated commit message
+c447d01 2000-01-02 00:00:00 [UNDO] Restored from snapshot: Updated commit message (c18c62c)
+c18c62c 2000-01-02 00:00:00 [REWORD] Updated commit message
+3d9a7b2 2000-01-02 00:00:00 [REWORD] Updated commit message
+4e699e0 2000-01-02 00:00:00 [REWORD] Updated commit message
+585d518 2000-01-02 00:00:00 [REWORD] Updated commit message
 
 "#]]);
 
     redo(
         &env,
         OperationKind::UpdateCommitMessage,
-        "ff56b1c",
+        "c18c62c",
         &status_four,
     );
 
@@ -495,12 +495,12 @@ cc69fe7 2000-01-02 00:00:00 [REWORD] Updated commit message
         .stdout_eq(snapbox::str![[r#"
 Operations History
 ──────────────────────────────────────────────────
-3044865 2000-01-02 00:00:00 [REDO] Restored from snapshot: Updated commit message (ff56b1c)
-99d82bb 2000-01-02 00:00:00 [UNDO] Restored from snapshot: Updated commit message (ff56b1c)
-ff56b1c 2000-01-02 00:00:00 [REWORD] Updated commit message
-c611d4d 2000-01-02 00:00:00 [REWORD] Updated commit message
-37054a8 2000-01-02 00:00:00 [REWORD] Updated commit message
-cc69fe7 2000-01-02 00:00:00 [REWORD] Updated commit message
+cff3f01 2000-01-02 00:00:00 [REDO] Restored from snapshot: Updated commit message (c18c62c)
+c447d01 2000-01-02 00:00:00 [UNDO] Restored from snapshot: Updated commit message (c18c62c)
+c18c62c 2000-01-02 00:00:00 [REWORD] Updated commit message
+3d9a7b2 2000-01-02 00:00:00 [REWORD] Updated commit message
+4e699e0 2000-01-02 00:00:00 [REWORD] Updated commit message
+585d518 2000-01-02 00:00:00 [REWORD] Updated commit message
 
 "#]]);
 
@@ -527,23 +527,23 @@ fn can_mix_undo_and_redo() {
         .stdout_eq(snapbox::str![[r#"
 Operations History
 ──────────────────────────────────────────────────
-ff56b1c 2000-01-02 00:00:00 [REWORD] Updated commit message
-c611d4d 2000-01-02 00:00:00 [REWORD] Updated commit message
-37054a8 2000-01-02 00:00:00 [REWORD] Updated commit message
-cc69fe7 2000-01-02 00:00:00 [REWORD] Updated commit message
+c18c62c 2000-01-02 00:00:00 [REWORD] Updated commit message
+3d9a7b2 2000-01-02 00:00:00 [REWORD] Updated commit message
+4e699e0 2000-01-02 00:00:00 [REWORD] Updated commit message
+585d518 2000-01-02 00:00:00 [REWORD] Updated commit message
 
 "#]]);
 
     undo(
         &env,
         OperationKind::UpdateCommitMessage,
-        "ff56b1c",
+        "c18c62c",
         &status_three,
     );
     undo(
         &env,
         OperationKind::UpdateCommitMessage,
-        "c611d4d",
+        "3d9a7b2",
         &status_two,
     );
 
@@ -554,19 +554,19 @@ cc69fe7 2000-01-02 00:00:00 [REWORD] Updated commit message
         .stdout_eq(snapbox::str![[r#"
 Operations History
 ──────────────────────────────────────────────────
-d6d7810 2000-01-02 00:00:00 [UNDO] Restored from snapshot: Updated commit message (c611d4d)
-99d82bb 2000-01-02 00:00:00 [UNDO] Restored from snapshot: Updated commit message (ff56b1c)
-ff56b1c 2000-01-02 00:00:00 [REWORD] Updated commit message
-c611d4d 2000-01-02 00:00:00 [REWORD] Updated commit message
-37054a8 2000-01-02 00:00:00 [REWORD] Updated commit message
-cc69fe7 2000-01-02 00:00:00 [REWORD] Updated commit message
+cca3ac8 2000-01-02 00:00:00 [UNDO] Restored from snapshot: Updated commit message (3d9a7b2)
+c447d01 2000-01-02 00:00:00 [UNDO] Restored from snapshot: Updated commit message (c18c62c)
+c18c62c 2000-01-02 00:00:00 [REWORD] Updated commit message
+3d9a7b2 2000-01-02 00:00:00 [REWORD] Updated commit message
+4e699e0 2000-01-02 00:00:00 [REWORD] Updated commit message
+585d518 2000-01-02 00:00:00 [REWORD] Updated commit message
 
 "#]]);
 
     redo(
         &env,
         OperationKind::UpdateCommitMessage,
-        "c611d4d",
+        "3d9a7b2",
         &status_three,
     );
 
@@ -577,20 +577,20 @@ cc69fe7 2000-01-02 00:00:00 [REWORD] Updated commit message
         .stdout_eq(snapbox::str![[r#"
 Operations History
 ──────────────────────────────────────────────────
-a9bbf72 2000-01-02 00:00:00 [REDO] Restored from snapshot: Updated commit message (c611d4d)
-d6d7810 2000-01-02 00:00:00 [UNDO] Restored from snapshot: Updated commit message (c611d4d)
-99d82bb 2000-01-02 00:00:00 [UNDO] Restored from snapshot: Updated commit message (ff56b1c)
-ff56b1c 2000-01-02 00:00:00 [REWORD] Updated commit message
-c611d4d 2000-01-02 00:00:00 [REWORD] Updated commit message
-37054a8 2000-01-02 00:00:00 [REWORD] Updated commit message
-cc69fe7 2000-01-02 00:00:00 [REWORD] Updated commit message
+9b187f2 2000-01-02 00:00:00 [REDO] Restored from snapshot: Updated commit message (3d9a7b2)
+cca3ac8 2000-01-02 00:00:00 [UNDO] Restored from snapshot: Updated commit message (3d9a7b2)
+c447d01 2000-01-02 00:00:00 [UNDO] Restored from snapshot: Updated commit message (c18c62c)
+c18c62c 2000-01-02 00:00:00 [REWORD] Updated commit message
+3d9a7b2 2000-01-02 00:00:00 [REWORD] Updated commit message
+4e699e0 2000-01-02 00:00:00 [REWORD] Updated commit message
+585d518 2000-01-02 00:00:00 [REWORD] Updated commit message
 
 "#]]);
 
     undo(
         &env,
         OperationKind::UpdateCommitMessage,
-        "c611d4d",
+        "3d9a7b2",
         &status_two,
     );
 
@@ -601,21 +601,21 @@ cc69fe7 2000-01-02 00:00:00 [REWORD] Updated commit message
         .stdout_eq(snapbox::str![[r#"
 Operations History
 ──────────────────────────────────────────────────
-8a6a1ea 2000-01-02 00:00:00 [UNDO] Restored from snapshot: Updated commit message (c611d4d)
-a9bbf72 2000-01-02 00:00:00 [REDO] Restored from snapshot: Updated commit message (c611d4d)
-d6d7810 2000-01-02 00:00:00 [UNDO] Restored from snapshot: Updated commit message (c611d4d)
-99d82bb 2000-01-02 00:00:00 [UNDO] Restored from snapshot: Updated commit message (ff56b1c)
-ff56b1c 2000-01-02 00:00:00 [REWORD] Updated commit message
-c611d4d 2000-01-02 00:00:00 [REWORD] Updated commit message
-37054a8 2000-01-02 00:00:00 [REWORD] Updated commit message
-cc69fe7 2000-01-02 00:00:00 [REWORD] Updated commit message
+2955ea9 2000-01-02 00:00:00 [UNDO] Restored from snapshot: Updated commit message (3d9a7b2)
+9b187f2 2000-01-02 00:00:00 [REDO] Restored from snapshot: Updated commit message (3d9a7b2)
+cca3ac8 2000-01-02 00:00:00 [UNDO] Restored from snapshot: Updated commit message (3d9a7b2)
+c447d01 2000-01-02 00:00:00 [UNDO] Restored from snapshot: Updated commit message (c18c62c)
+c18c62c 2000-01-02 00:00:00 [REWORD] Updated commit message
+3d9a7b2 2000-01-02 00:00:00 [REWORD] Updated commit message
+4e699e0 2000-01-02 00:00:00 [REWORD] Updated commit message
+585d518 2000-01-02 00:00:00 [REWORD] Updated commit message
 
 "#]]);
 
     undo(
         &env,
         OperationKind::UpdateCommitMessage,
-        "37054a8",
+        "4e699e0",
         &status_one,
     );
 
@@ -626,22 +626,22 @@ cc69fe7 2000-01-02 00:00:00 [REWORD] Updated commit message
         .stdout_eq(snapbox::str![[r#"
 Operations History
 ──────────────────────────────────────────────────
-bfe5186 2000-01-02 00:00:00 [UNDO] Restored from snapshot: Updated commit message (37054a8)
-8a6a1ea 2000-01-02 00:00:00 [UNDO] Restored from snapshot: Updated commit message (c611d4d)
-a9bbf72 2000-01-02 00:00:00 [REDO] Restored from snapshot: Updated commit message (c611d4d)
-d6d7810 2000-01-02 00:00:00 [UNDO] Restored from snapshot: Updated commit message (c611d4d)
-99d82bb 2000-01-02 00:00:00 [UNDO] Restored from snapshot: Updated commit message (ff56b1c)
-ff56b1c 2000-01-02 00:00:00 [REWORD] Updated commit message
-c611d4d 2000-01-02 00:00:00 [REWORD] Updated commit message
-37054a8 2000-01-02 00:00:00 [REWORD] Updated commit message
-cc69fe7 2000-01-02 00:00:00 [REWORD] Updated commit message
+b4423f9 2000-01-02 00:00:00 [UNDO] Restored from snapshot: Updated commit message (4e699e0)
+2955ea9 2000-01-02 00:00:00 [UNDO] Restored from snapshot: Updated commit message (3d9a7b2)
+9b187f2 2000-01-02 00:00:00 [REDO] Restored from snapshot: Updated commit message (3d9a7b2)
+cca3ac8 2000-01-02 00:00:00 [UNDO] Restored from snapshot: Updated commit message (3d9a7b2)
+c447d01 2000-01-02 00:00:00 [UNDO] Restored from snapshot: Updated commit message (c18c62c)
+c18c62c 2000-01-02 00:00:00 [REWORD] Updated commit message
+3d9a7b2 2000-01-02 00:00:00 [REWORD] Updated commit message
+4e699e0 2000-01-02 00:00:00 [REWORD] Updated commit message
+585d518 2000-01-02 00:00:00 [REWORD] Updated commit message
 
 "#]]);
 
     redo(
         &env,
         OperationKind::UpdateCommitMessage,
-        "37054a8",
+        "4e699e0",
         &status_two,
     );
 
@@ -652,23 +652,23 @@ cc69fe7 2000-01-02 00:00:00 [REWORD] Updated commit message
         .stdout_eq(snapbox::str![[r#"
 Operations History
 ──────────────────────────────────────────────────
-1bd0e97 2000-01-02 00:00:00 [REDO] Restored from snapshot: Updated commit message (37054a8)
-bfe5186 2000-01-02 00:00:00 [UNDO] Restored from snapshot: Updated commit message (37054a8)
-8a6a1ea 2000-01-02 00:00:00 [UNDO] Restored from snapshot: Updated commit message (c611d4d)
-a9bbf72 2000-01-02 00:00:00 [REDO] Restored from snapshot: Updated commit message (c611d4d)
-d6d7810 2000-01-02 00:00:00 [UNDO] Restored from snapshot: Updated commit message (c611d4d)
-99d82bb 2000-01-02 00:00:00 [UNDO] Restored from snapshot: Updated commit message (ff56b1c)
-ff56b1c 2000-01-02 00:00:00 [REWORD] Updated commit message
-c611d4d 2000-01-02 00:00:00 [REWORD] Updated commit message
-37054a8 2000-01-02 00:00:00 [REWORD] Updated commit message
-cc69fe7 2000-01-02 00:00:00 [REWORD] Updated commit message
+7649130 2000-01-02 00:00:00 [REDO] Restored from snapshot: Updated commit message (4e699e0)
+b4423f9 2000-01-02 00:00:00 [UNDO] Restored from snapshot: Updated commit message (4e699e0)
+2955ea9 2000-01-02 00:00:00 [UNDO] Restored from snapshot: Updated commit message (3d9a7b2)
+9b187f2 2000-01-02 00:00:00 [REDO] Restored from snapshot: Updated commit message (3d9a7b2)
+cca3ac8 2000-01-02 00:00:00 [UNDO] Restored from snapshot: Updated commit message (3d9a7b2)
+c447d01 2000-01-02 00:00:00 [UNDO] Restored from snapshot: Updated commit message (c18c62c)
+c18c62c 2000-01-02 00:00:00 [REWORD] Updated commit message
+3d9a7b2 2000-01-02 00:00:00 [REWORD] Updated commit message
+4e699e0 2000-01-02 00:00:00 [REWORD] Updated commit message
+585d518 2000-01-02 00:00:00 [REWORD] Updated commit message
 
 "#]]);
 
     redo(
         &env,
         OperationKind::UpdateCommitMessage,
-        "c611d4d",
+        "3d9a7b2",
         &status_three,
     );
 
@@ -679,24 +679,24 @@ cc69fe7 2000-01-02 00:00:00 [REWORD] Updated commit message
         .stdout_eq(snapbox::str![[r#"
 Operations History
 ──────────────────────────────────────────────────
-167843f 2000-01-02 00:00:00 [REDO] Restored from snapshot: Updated commit message (c611d4d)
-1bd0e97 2000-01-02 00:00:00 [REDO] Restored from snapshot: Updated commit message (37054a8)
-bfe5186 2000-01-02 00:00:00 [UNDO] Restored from snapshot: Updated commit message (37054a8)
-8a6a1ea 2000-01-02 00:00:00 [UNDO] Restored from snapshot: Updated commit message (c611d4d)
-a9bbf72 2000-01-02 00:00:00 [REDO] Restored from snapshot: Updated commit message (c611d4d)
-d6d7810 2000-01-02 00:00:00 [UNDO] Restored from snapshot: Updated commit message (c611d4d)
-99d82bb 2000-01-02 00:00:00 [UNDO] Restored from snapshot: Updated commit message (ff56b1c)
-ff56b1c 2000-01-02 00:00:00 [REWORD] Updated commit message
-c611d4d 2000-01-02 00:00:00 [REWORD] Updated commit message
-37054a8 2000-01-02 00:00:00 [REWORD] Updated commit message
-cc69fe7 2000-01-02 00:00:00 [REWORD] Updated commit message
+e1c038d 2000-01-02 00:00:00 [REDO] Restored from snapshot: Updated commit message (3d9a7b2)
+7649130 2000-01-02 00:00:00 [REDO] Restored from snapshot: Updated commit message (4e699e0)
+b4423f9 2000-01-02 00:00:00 [UNDO] Restored from snapshot: Updated commit message (4e699e0)
+2955ea9 2000-01-02 00:00:00 [UNDO] Restored from snapshot: Updated commit message (3d9a7b2)
+9b187f2 2000-01-02 00:00:00 [REDO] Restored from snapshot: Updated commit message (3d9a7b2)
+cca3ac8 2000-01-02 00:00:00 [UNDO] Restored from snapshot: Updated commit message (3d9a7b2)
+c447d01 2000-01-02 00:00:00 [UNDO] Restored from snapshot: Updated commit message (c18c62c)
+c18c62c 2000-01-02 00:00:00 [REWORD] Updated commit message
+3d9a7b2 2000-01-02 00:00:00 [REWORD] Updated commit message
+4e699e0 2000-01-02 00:00:00 [REWORD] Updated commit message
+585d518 2000-01-02 00:00:00 [REWORD] Updated commit message
 
 "#]]);
 
     redo(
         &env,
         OperationKind::UpdateCommitMessage,
-        "ff56b1c",
+        "c18c62c",
         &status_four,
     );
 
@@ -707,18 +707,18 @@ cc69fe7 2000-01-02 00:00:00 [REWORD] Updated commit message
         .stdout_eq(snapbox::str![[r#"
 Operations History
 ──────────────────────────────────────────────────
-9959d4f 2000-01-02 00:00:00 [REDO] Restored from snapshot: Updated commit message (ff56b1c)
-167843f 2000-01-02 00:00:00 [REDO] Restored from snapshot: Updated commit message (c611d4d)
-1bd0e97 2000-01-02 00:00:00 [REDO] Restored from snapshot: Updated commit message (37054a8)
-bfe5186 2000-01-02 00:00:00 [UNDO] Restored from snapshot: Updated commit message (37054a8)
-8a6a1ea 2000-01-02 00:00:00 [UNDO] Restored from snapshot: Updated commit message (c611d4d)
-a9bbf72 2000-01-02 00:00:00 [REDO] Restored from snapshot: Updated commit message (c611d4d)
-d6d7810 2000-01-02 00:00:00 [UNDO] Restored from snapshot: Updated commit message (c611d4d)
-99d82bb 2000-01-02 00:00:00 [UNDO] Restored from snapshot: Updated commit message (ff56b1c)
-ff56b1c 2000-01-02 00:00:00 [REWORD] Updated commit message
-c611d4d 2000-01-02 00:00:00 [REWORD] Updated commit message
-37054a8 2000-01-02 00:00:00 [REWORD] Updated commit message
-cc69fe7 2000-01-02 00:00:00 [REWORD] Updated commit message
+5e52b12 2000-01-02 00:00:00 [REDO] Restored from snapshot: Updated commit message (c18c62c)
+e1c038d 2000-01-02 00:00:00 [REDO] Restored from snapshot: Updated commit message (3d9a7b2)
+7649130 2000-01-02 00:00:00 [REDO] Restored from snapshot: Updated commit message (4e699e0)
+b4423f9 2000-01-02 00:00:00 [UNDO] Restored from snapshot: Updated commit message (4e699e0)
+2955ea9 2000-01-02 00:00:00 [UNDO] Restored from snapshot: Updated commit message (3d9a7b2)
+9b187f2 2000-01-02 00:00:00 [REDO] Restored from snapshot: Updated commit message (3d9a7b2)
+cca3ac8 2000-01-02 00:00:00 [UNDO] Restored from snapshot: Updated commit message (3d9a7b2)
+c447d01 2000-01-02 00:00:00 [UNDO] Restored from snapshot: Updated commit message (c18c62c)
+c18c62c 2000-01-02 00:00:00 [REWORD] Updated commit message
+3d9a7b2 2000-01-02 00:00:00 [REWORD] Updated commit message
+4e699e0 2000-01-02 00:00:00 [REWORD] Updated commit message
+585d518 2000-01-02 00:00:00 [REWORD] Updated commit message
 
 "#]]);
 }

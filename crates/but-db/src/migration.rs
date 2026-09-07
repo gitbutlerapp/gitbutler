@@ -176,8 +176,8 @@ impl<'a> M<'a> {
     /// a documented forward-compatibility `schema_version`, and the `up_sql` which is Sqlite
     /// compatible SQL to create or update tables.
     ///
-    /// Prefer [`SchemaVersion::Zero`]: a higher version locks older binaries out of the
-    /// database. Leave stale columns or tables in place rather than bumping for cleanup.
+    /// Keep the current [`SchemaVersion`] for compatible changes. A higher version locks older
+    /// binaries out of the database and is reserved for planned incompatible migrations.
     pub const fn up(
         created_at_for_sorting: u64,
         schema_version: SchemaVersion,

@@ -173,8 +173,8 @@ fn apply_and_unapply_compose_in_one_editor() -> anyhow::Result<()> {
 │   └── 📙:A
 │       ├── ·dcc139a (🏘️)
 │       └── ·a33af50 (🏘️)
-└── ≡📙:C on 0dc3733 {2}
-    └── 📙:C
+└── ≡:C on 0dc3733 {2}
+    └── :C
         └── ·9cbf901 (🏘️)
 
 "#]]
@@ -232,8 +232,8 @@ fn apply_adds_a_branch_as_the_last_lane() -> anyhow::Result<()> {
 ├── ≡📙:B on 0dc3733 {2}
 │   └── 📙:B
 │       └── ·e16577c (🏘️)
-└── ≡📙:C on 0dc3733 {3}
-    └── 📙:C
+└── ≡:C on 0dc3733 {3}
+    └── :C
         └── ·9cbf901 (🏘️)
 
 "#]]
@@ -510,8 +510,8 @@ fn apply_switches_into_the_workspace_from_a_branch() -> anyhow::Result<()> {
         graph_workspace_determinisitcally(&out.workspace).to_string(),
         snapbox::str![[r#"
 📕🏘️:gitbutler/workspace[🌳] <> ✓refs/heads/main on 0dc3733
-├── ≡📙:C on 0dc3733 {1}
-│   └── 📙:C
+├── ≡:C on 0dc3733 {1}
+│   └── :C
 │       └── ·9cbf901 (🏘️)
 └── ≡📙:B on 0dc3733 {2}
     └── 📙:B
@@ -564,8 +564,8 @@ fn apply_of_the_branch_head_is_on_switches_into_a_workspace_with_just_that_branc
         graph_workspace_determinisitcally(&out.workspace).to_string(),
         snapbox::str![[r#"
 📕🏘️:gitbutler/workspace[🌳] <> ✓refs/heads/main on 0dc3733
-└── ≡📙:C on 0dc3733 {1}
-    └── 📙:C
+└── ≡:C on 0dc3733 {1}
+    └── :C
         └── ·9cbf901 (🏘️)
 
 "#]]
@@ -607,8 +607,8 @@ fn apply_switches_into_the_workspace_from_the_target() -> anyhow::Result<()> {
         graph_workspace_determinisitcally(&out.workspace).to_string(),
         snapbox::str![[r#"
 📕🏘️:gitbutler/workspace[🌳] <> ✓refs/heads/main on 0dc3733
-└── ≡📙:C on 0dc3733 {1}
-    └── 📙:C
+└── ≡:C on 0dc3733 {1}
+    └── :C
         └── ·9cbf901 (🏘️)
 
 "#]]

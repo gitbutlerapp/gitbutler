@@ -159,8 +159,8 @@ Single commit, target, no ws commit, but ws-reference
             graph_workspace(&ws).to_string(),
             snapbox::str![[r#"
 📕🏘️:gitbutler/workspace[🌳] <> ✓refs/heads/main on 3183e43
-└── ≡📙:A on 3183e43 {[..]}
-    └── 📙:A
+└── ≡:A on 3183e43 {[..]}
+    └── :A
 
 "#]]
         );
@@ -180,10 +180,10 @@ Single commit, target, no ws commit, but ws-reference
             graph_workspace(&ws).to_string(),
             snapbox::str![[r#"
 📕🏘️:gitbutler/workspace[🌳] <> ✓refs/heads/main on 3183e43
-├── ≡📙:A on 3183e43 {[..]}
-│   └── 📙:A
-└── ≡📙:B on 3183e43 {[..]}
-    └── 📙:B
+├── ≡:A on 3183e43 {[..]}
+│   └── :A
+└── ≡:B on 3183e43 {[..]}
+    └── :B
 
 "#]]
         );
@@ -208,11 +208,11 @@ Single commit, target, no ws commit, but ws-reference
             graph_workspace(&ws).to_string(),
             snapbox::str![[r#"
 📕🏘️:gitbutler/workspace[🌳] <> ✓refs/heads/main on 3183e43
-├── ≡📙:above-A on 3183e43 {[..]}
-│   ├── 📙:above-A
-│   └── 📙:A
-└── ≡📙:B on 3183e43 {[..]}
-    └── 📙:B
+├── ≡:above-A on 3183e43 {[..]}
+│   ├── :above-A
+│   └── :A
+└── ≡:B on 3183e43 {[..]}
+    └── :B
 
 "#]]
         );
@@ -233,12 +233,12 @@ Single commit, target, no ws commit, but ws-reference
             graph_workspace(&ws).to_string(),
             snapbox::str![[r#"
 📕🏘️:gitbutler/workspace[🌳] <> ✓refs/heads/main on 3183e43
-├── ≡📙:above-A on 3183e43 {[..]}
-│   ├── 📙:above-A
-│   └── 📙:A
-└── ≡📙:B on 3183e43 {[..]}
-    ├── 📙:B
-    └── 📙:below-B
+├── ≡:above-A on 3183e43 {[..]}
+│   ├── :above-A
+│   └── :A
+└── ≡:B on 3183e43 {[..]}
+    ├── :B
+    └── :below-B
 
 "#]]
         );
@@ -257,12 +257,12 @@ Single commit, target, no ws commit, but ws-reference
             graph_workspace(&ws).to_string(),
             snapbox::str![[r#"
 📕🏘️:gitbutler/workspace[🌳] <> ✓refs/heads/main on 3183e43
-├── ≡📙:above-A on 3183e43 {[..]}
-│   ├── 📙:above-A
-│   └── 📙:A
-└── ≡📙:B on 3183e43 {[..]}
-    ├── 📙:B
-    └── 📙:below-B
+├── ≡:above-A on 3183e43 {[..]}
+│   ├── :above-A
+│   └── :A
+└── ≡:B on 3183e43 {[..]}
+    ├── :B
+    └── :below-B
 
 "#]]
         );
@@ -334,10 +334,10 @@ Single commit, target, no ws commit, but ws-reference
             graph_workspace(&ws).to_string(),
             snapbox::str![[r#"
 📕🏘️:gitbutler/workspace[🌳] <> ✓refs/heads/main on bce0c5e
-└── ≡📙:A on bce0c5e {[..]}
-    ├── 📙:A
+└── ≡:A on bce0c5e {[..]}
+    ├── :A
     │   └── ·43f9472 (🏘️)
-    └── 📙:above-bottom
+    └── :above-bottom
         └── ·6fdab32 (🏘️)
 
 "#]]
@@ -360,12 +360,12 @@ Single commit, target, no ws commit, but ws-reference
             graph_workspace(&ws).to_string(),
             snapbox::str![[r#"
 📕🏘️:gitbutler/workspace[🌳] <> ✓refs/heads/main on bce0c5e
-└── ≡📙:A on bce0c5e {[..]}
-    ├── 📙:A
+└── ≡:A on bce0c5e {[..]}
+    ├── :A
     │   └── ·43f9472 (🏘️)
-    ├── 📙:above-bottom
+    ├── :above-bottom
     │   └── ·6fdab32 (🏘️)
-    └── 📙:bottom
+    └── :bottom
 
 "#]]
         );
@@ -389,13 +389,13 @@ Single commit, target, no ws commit, but ws-reference
             graph_workspace(&ws).to_string(),
             snapbox::str![[r#"
 📕🏘️:gitbutler/workspace[🌳] <> ✓refs/heads/main on bce0c5e
-└── ≡📙:A on bce0c5e {[..]}
-    ├── 📙:A
-    ├── 📙:above-A-commit
+└── ≡:A on bce0c5e {[..]}
+    ├── :A
+    ├── :above-A-commit
     │   └── ·43f9472 (🏘️)
-    ├── 📙:above-bottom
+    ├── :above-bottom
     │   └── ·6fdab32 (🏘️)
-    └── 📙:bottom
+    └── :bottom
 
 "#]]
         );
@@ -419,14 +419,14 @@ Single commit, target, no ws commit, but ws-reference
             graph_workspace(&ws).to_string(),
             snapbox::str![[r#"
 📕🏘️:gitbutler/workspace[🌳] <> ✓refs/heads/main on bce0c5e
-└── ≡📙:above-A on bce0c5e {[..]}
-    ├── 📙:above-A
-    ├── 📙:A
-    ├── 📙:above-A-commit
+└── ≡:above-A on bce0c5e {[..]}
+    ├── :above-A
+    ├── :A
+    ├── :above-A-commit
     │   └── ·43f9472 (🏘️)
-    ├── 📙:above-bottom
+    ├── :above-bottom
     │   └── ·6fdab32 (🏘️)
-    └── 📙:bottom
+    └── :bottom
 
 "#]]
         );
@@ -448,15 +448,15 @@ Single commit, target, no ws commit, but ws-reference
             graph_workspace(&ws).to_string(),
             snapbox::str![[r#"
 📕🏘️:gitbutler/workspace[🌳] <> ✓refs/heads/main on bce0c5e
-└── ≡📙:above-A on bce0c5e {[..]}
-    ├── 📙:above-A
-    ├── 📙:A
-    ├── 📙:above-A-commit
+└── ≡:above-A on bce0c5e {[..]}
+    ├── :above-A
+    ├── :A
+    ├── :above-A-commit
     │   └── ·43f9472 (🏘️)
-    ├── 📙:below-A-commit
-    ├── 📙:above-bottom
+    ├── :below-A-commit
+    ├── :above-bottom
     │   └── ·6fdab32 (🏘️)
-    └── 📙:bottom
+    └── :bottom
 
 "#]]
         );
@@ -477,16 +477,16 @@ Single commit, target, no ws commit, but ws-reference
             graph_workspace(&ws).to_string(),
             snapbox::str![[r#"
 📕🏘️:gitbutler/workspace[🌳] <> ✓refs/heads/main on bce0c5e
-└── ≡📙:above-A on bce0c5e {[..]}
-    ├── 📙:above-A
-    ├── 📙:A
-    ├── 📙:above-A-commit
+└── ≡:above-A on bce0c5e {[..]}
+    ├── :above-A
+    ├── :A
+    ├── :above-A-commit
     │   └── ·43f9472 (🏘️)
-    ├── 📙:below-A
-    ├── 📙:below-A-commit
-    ├── 📙:above-bottom
+    ├── :below-A
+    ├── :below-A-commit
+    ├── :above-bottom
     │   └── ·6fdab32 (🏘️)
-    └── 📙:bottom
+    └── :bottom
 
 "#]]
         );
@@ -498,18 +498,18 @@ Single commit, target, no ws commit, but ws-reference
             graph_workspace(&ws).to_string(),
             snapbox::str![[r#"
 📕🏘️:gitbutler/workspace[🌳] <> ✓refs/heads/main on bce0c5e
-├── ≡📙:above-A on bce0c5e {[..]}
-│   ├── 📙:above-A
-│   ├── 📙:A
-│   ├── 📙:above-A-commit
+├── ≡:above-A on bce0c5e {[..]}
+│   ├── :above-A
+│   ├── :A
+│   ├── :above-A-commit
 │   │   └── ·43f9472 (🏘️)
-│   ├── 📙:below-A
-│   ├── 📙:below-A-commit
-│   ├── 📙:above-bottom
+│   ├── :below-A
+│   ├── :below-A-commit
+│   ├── :above-bottom
 │   │   └── ·6fdab32 (🏘️)
-│   └── 📙:bottom
-└── ≡📙:B on bce0c5e {[..]}
-    └── 📙:B
+│   └── :bottom
+└── ≡:B on bce0c5e {[..]}
+    └── :B
 
 "#]]
         );
@@ -531,19 +531,19 @@ Single commit, target, no ws commit, but ws-reference
             graph_workspace(&ws).to_string(),
             snapbox::str![[r#"
 📕🏘️:gitbutler/workspace[🌳] <> ✓refs/heads/main on bce0c5e
-├── ≡📙:above-A on bce0c5e {[..]}
-│   ├── 📙:above-A
-│   ├── 📙:A
-│   ├── 📙:above-A-commit
+├── ≡:above-A on bce0c5e {[..]}
+│   ├── :above-A
+│   ├── :A
+│   ├── :above-A-commit
 │   │   └── ·43f9472 (🏘️)
-│   ├── 📙:below-A
-│   ├── 📙:below-A-commit
-│   ├── 📙:above-bottom
+│   ├── :below-A
+│   ├── :below-A-commit
+│   ├── :above-bottom
 │   │   └── ·6fdab32 (🏘️)
-│   └── 📙:bottom
-└── ≡📙:above-B on bce0c5e {[..]}
-    ├── 📙:above-B
-    └── 📙:B
+│   └── :bottom
+└── ≡:above-B on bce0c5e {[..]}
+    ├── :above-B
+    └── :B
 
 "#]]
         );
@@ -567,20 +567,20 @@ Single commit, target, no ws commit, but ws-reference
             graph_workspace(&ws).to_string(),
             snapbox::str![[r#"
 📕🏘️:gitbutler/workspace[🌳] <> ✓refs/heads/main on bce0c5e
-├── ≡📙:above-A on bce0c5e {[..]}
-│   ├── 📙:above-A
-│   ├── 📙:A
-│   ├── 📙:above-A-commit
+├── ≡:above-A on bce0c5e {[..]}
+│   ├── :above-A
+│   ├── :A
+│   ├── :above-A-commit
 │   │   └── ·43f9472 (🏘️)
-│   ├── 📙:below-A
-│   ├── 📙:below-A-commit
-│   ├── 📙:above-bottom
+│   ├── :below-A
+│   ├── :below-A-commit
+│   ├── :above-bottom
 │   │   └── ·6fdab32 (🏘️)
-│   └── 📙:bottom
-└── ≡📙:above-B on bce0c5e {[..]}
-    ├── 📙:above-B
-    ├── 📙:B
-    └── 📙:below-B
+│   └── :bottom
+└── ≡:above-B on bce0c5e {[..]}
+    ├── :above-B
+    ├── :B
+    └── :below-B
 
 "#]]
         );
@@ -599,20 +599,20 @@ Single commit, target, no ws commit, but ws-reference
             graph_workspace(&ws).to_string(),
             snapbox::str![[r#"
 📕🏘️:gitbutler/workspace[🌳] <> ✓refs/heads/main on bce0c5e
-├── ≡📙:above-A on bce0c5e {[..]}
-│   ├── 📙:above-A
-│   ├── 📙:A
-│   ├── 📙:above-A-commit
+├── ≡:above-A on bce0c5e {[..]}
+│   ├── :above-A
+│   ├── :A
+│   ├── :above-A-commit
 │   │   └── ·43f9472 (🏘️)
-│   ├── 📙:below-A
-│   ├── 📙:below-A-commit
-│   ├── 📙:above-bottom
+│   ├── :below-A
+│   ├── :below-A-commit
+│   ├── :above-bottom
 │   │   └── ·6fdab32 (🏘️)
-│   └── 📙:bottom
-└── ≡📙:above-B on bce0c5e {[..]}
-    ├── 📙:above-B
-    ├── 📙:B
-    └── 📙:below-B
+│   └── :bottom
+└── ≡:above-B on bce0c5e {[..]}
+    ├── :above-B
+    ├── :B
+    └── :below-B
 
 "#]]
         );
@@ -689,7 +689,7 @@ Single commit, target, no ws commit, but ws-reference
 └── ≡📙:A on 3183e43 {0}
     ├── 📙:A
     │   └── ·c2878fb (🏘️)
-    └── 📙:above-bottom
+    └── :above-bottom
         └── ·49d4b34 (🏘️)
 
 "#]]
@@ -717,9 +717,9 @@ Single commit, target, no ws commit, but ws-reference
 └── ≡📙:A on 3183e43 {0}
     ├── 📙:A
     │   └── ·c2878fb (🏘️)
-    ├── 📙:above-bottom
+    ├── :above-bottom
     │   └── ·49d4b34 (🏘️)
-    └── 📙:bottom
+    └── :bottom
 
 "#]]
         );
@@ -745,11 +745,11 @@ Single commit, target, no ws commit, but ws-reference
 📕🏘️⚠️:gitbutler/workspace[🌳] <> ✓refs/heads/main on 3183e43
 └── ≡📙:A on 3183e43 {0}
     ├── 📙:A
-    ├── 📙:above-A-commit
+    ├── :above-A-commit
     │   └── ·c2878fb (🏘️)
-    ├── 📙:above-bottom
+    ├── :above-bottom
     │   └── ·49d4b34 (🏘️)
-    └── 📙:bottom
+    └── :bottom
 
 "#]]
         );
@@ -773,14 +773,14 @@ Single commit, target, no ws commit, but ws-reference
             graph_workspace(&ws).to_string(),
             snapbox::str![[r#"
 📕🏘️⚠️:gitbutler/workspace[🌳] <> ✓refs/heads/main on 3183e43
-└── ≡📙:above-A on 3183e43 {0}
-    ├── 📙:above-A
+└── ≡:above-A on 3183e43 {0}
+    ├── :above-A
     ├── 📙:A
-    ├── 📙:above-A-commit
+    ├── :above-A-commit
     │   └── ·c2878fb (🏘️)
-    ├── 📙:above-bottom
+    ├── :above-bottom
     │   └── ·49d4b34 (🏘️)
-    └── 📙:bottom
+    └── :bottom
 
 "#]]
         );
@@ -816,15 +816,15 @@ Single commit, target, no ws commit, but ws-reference
             graph_workspace(&ws).to_string(),
             snapbox::str![[r#"
 📕🏘️⚠️:gitbutler/workspace[🌳] <> ✓refs/heads/main on 3183e43
-└── ≡📙:above-A on 3183e43 {0}
-    ├── 📙:above-A
+└── ≡:above-A on 3183e43 {0}
+    ├── :above-A
     ├── 📙:A
-    ├── 📙:above-A-commit
+    ├── :above-A-commit
     │   └── ·c2878fb (🏘️)
-    ├── 📙:below-A-commit
-    ├── 📙:above-bottom
+    ├── :below-A-commit
+    ├── :above-bottom
     │   └── ·49d4b34 (🏘️)
-    └── 📙:bottom
+    └── :bottom
 
 "#]]
         );
@@ -845,16 +845,16 @@ Single commit, target, no ws commit, but ws-reference
             graph_workspace(&ws).to_string(),
             snapbox::str![[r#"
 📕🏘️⚠️:gitbutler/workspace[🌳] <> ✓refs/heads/main on 3183e43
-└── ≡📙:above-A on 3183e43 {0}
-    ├── 📙:above-A
+└── ≡:above-A on 3183e43 {0}
+    ├── :above-A
     ├── 📙:A
-    ├── 📙:above-A-commit
+    ├── :above-A-commit
     │   └── ·c2878fb (🏘️)
-    ├── 📙:below-A
-    ├── 📙:below-A-commit
-    ├── 📙:above-bottom
+    ├── :below-A
+    ├── :below-A-commit
+    ├── :above-bottom
     │   └── ·49d4b34 (🏘️)
-    └── 📙:bottom
+    └── :bottom
 
 "#]]
         );
@@ -866,18 +866,18 @@ Single commit, target, no ws commit, but ws-reference
             graph_workspace(&ws).to_string(),
             snapbox::str![[r#"
 📕🏘️:gitbutler/workspace[🌳] <> ✓refs/heads/main on 3183e43
-├── ≡📙:above-A on 3183e43 {0}
-│   ├── 📙:above-A
+├── ≡:above-A on 3183e43 {0}
+│   ├── :above-A
 │   ├── 📙:A
-│   ├── 📙:above-A-commit
+│   ├── :above-A-commit
 │   │   └── ·c2878fb (🏘️)
-│   ├── 📙:below-A
-│   ├── 📙:below-A-commit
-│   ├── 📙:above-bottom
+│   ├── :below-A
+│   ├── :below-A-commit
+│   ├── :above-bottom
 │   │   └── ·49d4b34 (🏘️)
-│   └── 📙:bottom
-└── ≡📙:B on 3183e43 {[..]}
-    └── 📙:B
+│   └── :bottom
+└── ≡:B on 3183e43 {[..]}
+    └── :B
 
 "#]]
         );
@@ -899,19 +899,19 @@ Single commit, target, no ws commit, but ws-reference
             graph_workspace(&ws).to_string(),
             snapbox::str![[r#"
 📕🏘️:gitbutler/workspace[🌳] <> ✓refs/heads/main on 3183e43
-├── ≡📙:above-A on 3183e43 {0}
-│   ├── 📙:above-A
+├── ≡:above-A on 3183e43 {0}
+│   ├── :above-A
 │   ├── 📙:A
-│   ├── 📙:above-A-commit
+│   ├── :above-A-commit
 │   │   └── ·c2878fb (🏘️)
-│   ├── 📙:below-A
-│   ├── 📙:below-A-commit
-│   ├── 📙:above-bottom
+│   ├── :below-A
+│   ├── :below-A-commit
+│   ├── :above-bottom
 │   │   └── ·49d4b34 (🏘️)
-│   └── 📙:bottom
-└── ≡📙:above-B on 3183e43 {[..]}
-    ├── 📙:above-B
-    └── 📙:B
+│   └── :bottom
+└── ≡:above-B on 3183e43 {[..]}
+    ├── :above-B
+    └── :B
 
 "#]]
         );
@@ -935,20 +935,20 @@ Single commit, target, no ws commit, but ws-reference
             graph_workspace(&ws).to_string(),
             snapbox::str![[r#"
 📕🏘️:gitbutler/workspace[🌳] <> ✓refs/heads/main on 3183e43
-├── ≡📙:above-A on 3183e43 {0}
-│   ├── 📙:above-A
+├── ≡:above-A on 3183e43 {0}
+│   ├── :above-A
 │   ├── 📙:A
-│   ├── 📙:above-A-commit
+│   ├── :above-A-commit
 │   │   └── ·c2878fb (🏘️)
-│   ├── 📙:below-A
-│   ├── 📙:below-A-commit
-│   ├── 📙:above-bottom
+│   ├── :below-A
+│   ├── :below-A-commit
+│   ├── :above-bottom
 │   │   └── ·49d4b34 (🏘️)
-│   └── 📙:bottom
-└── ≡📙:above-B on 3183e43 {[..]}
-    ├── 📙:above-B
-    ├── 📙:B
-    └── 📙:below-B
+│   └── :bottom
+└── ≡:above-B on 3183e43 {[..]}
+    ├── :above-B
+    ├── :B
+    └── :below-B
 
 "#]]
         );
@@ -967,20 +967,20 @@ Single commit, target, no ws commit, but ws-reference
             graph_workspace(&ws).to_string(),
             snapbox::str![[r#"
 📕🏘️:gitbutler/workspace[🌳] <> ✓refs/heads/main on 3183e43
-├── ≡📙:above-A on 3183e43 {0}
-│   ├── 📙:above-A
+├── ≡:above-A on 3183e43 {0}
+│   ├── :above-A
 │   ├── 📙:A
-│   ├── 📙:above-A-commit
+│   ├── :above-A-commit
 │   │   └── ·c2878fb (🏘️)
-│   ├── 📙:below-A
-│   ├── 📙:below-A-commit
-│   ├── 📙:above-bottom
+│   ├── :below-A
+│   ├── :below-A-commit
+│   ├── :above-bottom
 │   │   └── ·49d4b34 (🏘️)
-│   └── 📙:bottom
-└── ≡📙:above-B on 3183e43 {[..]}
-    ├── 📙:above-B
-    ├── 📙:B
-    └── 📙:below-B
+│   └── :bottom
+└── ≡:above-B on 3183e43 {[..]}
+    ├── :above-B
+    ├── :B
+    └── :below-B
 
 "#]]
         );
@@ -1058,7 +1058,7 @@ Single commit, target, no ws commit, but ws-reference
     ├── 📙:A
     │   ├── ·c2878fb (🏘️)
     │   └── ·49d4b34 (🏘️)
-    └── 📙:bottom
+    └── :bottom
 
 "#]]
         );
@@ -1127,7 +1127,7 @@ Single commit, target, no ws commit, but ws-reference
 ├── ≡📙:A on 3183e43 {0}
 │   ├── 📙:A
 │   │   └── ·49d4b34 (🏘️)
-│   └── 📙:a-bottom
+│   └── :a-bottom
 └── ≡📙:B on 3183e43 {1}
     └── 📙:B
         └── ·f57c528 (🏘️)
@@ -1156,11 +1156,11 @@ Single commit, target, no ws commit, but ws-reference
 ├── ≡📙:A on 3183e43 {0}
 │   ├── 📙:A
 │   │   └── ·49d4b34 (🏘️)
-│   └── 📙:a-bottom
+│   └── :a-bottom
 └── ≡📙:B on 3183e43 {1}
     ├── 📙:B
     │   └── ·f57c528 (🏘️)
-    └── 📙:b-bottom
+    └── :b-bottom
 
 "#]]
         );
@@ -1224,7 +1224,7 @@ Single commit, target, no ws commit, but ws-reference
 └── ≡📙:A on bce0c5e {0}
     ├── 📙:A
     │   └── ·43f9472 (🏘️)
-    └── 📙:foo
+    └── :foo
         └── ·6fdab32 (🏘️)
 
 "#]]
@@ -1251,9 +1251,9 @@ Single commit, target, no ws commit, but ws-reference
 📕🏘️:gitbutler/workspace[🌳] <> ✓refs/heads/main on bce0c5e
 └── ≡📙:A on bce0c5e {0}
     ├── 📙:A
-    ├── 📙:new
+    ├── :new
     │   └── ·43f9472 (🏘️)
-    └── 📙:foo
+    └── :foo
         └── ·6fdab32 (🏘️)
 
 "#]]
@@ -1276,12 +1276,12 @@ Single commit, target, no ws commit, but ws-reference
             graph_workspace(&ws).to_string(),
             snapbox::str![[r#"
 📕🏘️:gitbutler/workspace[🌳] <> ✓refs/heads/main on bce0c5e
-└── ≡📙:above-A on bce0c5e {0}
-    ├── 📙:above-A
+└── ≡:above-A on bce0c5e {0}
+    ├── :above-A
     ├── 📙:A
-    ├── 📙:new
+    ├── :new
     │   └── ·43f9472 (🏘️)
-    └── 📙:foo
+    └── :foo
         └── ·6fdab32 (🏘️)
 
 "#]]
@@ -1304,13 +1304,13 @@ Single commit, target, no ws commit, but ws-reference
             graph_workspace(&ws).to_string(),
             snapbox::str![[r#"
 📕🏘️:gitbutler/workspace[🌳] <> ✓refs/heads/main on bce0c5e
-└── ≡📙:above-A on bce0c5e {0}
-    ├── 📙:above-A
+└── ≡:above-A on bce0c5e {0}
+    ├── :above-A
     ├── 📙:A
-    ├── 📙:below-empty-A
-    ├── 📙:new
+    ├── :below-empty-A
+    ├── :new
     │   └── ·43f9472 (🏘️)
-    └── 📙:foo
+    └── :foo
         └── ·6fdab32 (🏘️)
 
 "#]]
@@ -1344,13 +1344,13 @@ Single commit, target, no ws commit, but ws-reference
             graph_workspace(&ws).to_string(),
             snapbox::str![[r#"
 📕🏘️:gitbutler/workspace[🌳] <> ✓refs/heads/main on bce0c5e
-└── ≡📙:above-A on bce0c5e {0}
-    ├── 📙:above-A
+└── ≡:above-A on bce0c5e {0}
+    ├── :above-A
     ├── 📙:A
-    ├── 📙:below-empty-A
-    ├── 📙:new
+    ├── :below-empty-A
+    ├── :new
     │   └── ·43f9472 (🏘️)
-    └── 📙:foo
+    └── :foo
         └── ·6fdab32 (🏘️)
 
 "#]]
@@ -1431,8 +1431,8 @@ Single commit, target, no ws commit, but ws-reference
             graph_workspace(&ws).to_string(),
             snapbox::str![[r#"
 📕🏘️:gitbutler/workspace[🌳] <> ✓refs/heads/main on 3183e43
-└── ≡📙:A on 3183e43 {[..]}
-    └── 📙:A
+└── ≡:A on 3183e43 {[..]}
+    └── :A
 
 "#]]
         );
@@ -1454,9 +1454,9 @@ Single commit, target, no ws commit, but ws-reference
             graph_workspace(&ws).to_string(),
             snapbox::str![[r#"
 📕🏘️:gitbutler/workspace[🌳] <> ✓refs/heads/main on 3183e43
-└── ≡📙:A on 3183e43 {[..]}
-    ├── 📙:A
-    └── 📙:below-A
+└── ≡:A on 3183e43 {[..]}
+    ├── :A
+    └── :below-A
 
 "#]]
         );
@@ -1477,10 +1477,10 @@ Single commit, target, no ws commit, but ws-reference
             graph_workspace(&ws).to_string(),
             snapbox::str![[r#"
 📕🏘️:gitbutler/workspace[🌳] <> ✓refs/heads/main on 3183e43
-└── ≡📙:above-A on 3183e43 {[..]}
-    ├── 📙:above-A
-    ├── 📙:A
-    └── 📙:below-A
+└── ≡:above-A on 3183e43 {[..]}
+    ├── :above-A
+    ├── :A
+    └── :below-A
 
 "#]]
         );
@@ -1566,7 +1566,7 @@ Single commit, target, no ws commit, but ws-reference
 📕🏘️⚠️:gitbutler/workspace[🌳] <> ✓!
 └── ≡📙:main {0}
     ├── 📙:main
-    └── 📙:new
+    └── :new
         └── ·3183e43 (🏘️)
 
 "#]]
@@ -1624,7 +1624,7 @@ Single commit, target, no ws commit, but ws-reference
 │       └── ·49d4b34 (🏘️)
 └── ≡📙:B on 3183e43 {1}
     ├── 📙:B
-    └── 📙:new
+    └── :new
         └── ·f57c528 (🏘️)
 
 "#]]
@@ -1985,8 +1985,8 @@ Single commit, target, no ws commit, but ws-reference
 ├── ≡📙:A on 3183e43 {0}
 │   └── 📙:A
 │       └── ·49d4b34 (🏘️)
-└── ≡📙:new-branch on 3183e43 {[..]}
-    └── 📙:new-branch
+└── ≡:new-branch on 3183e43 {[..]}
+    └── :new-branch
 
 "#]]
         );
