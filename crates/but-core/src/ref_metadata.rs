@@ -94,7 +94,7 @@ impl<'a> TryFrom<&'a LocalRefName> for &'a gix::refs::PartialNameRef {
 /// We would have to detect this case by validating parents, and the refs pointing to it, before
 /// using the metadata, or at least have a way to communicate possible states when trying to use
 /// this information.
-#[derive(Default, Debug, Clone, PartialEq, Eq)]
+#[derive(Default, Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct Workspace {
     /// Standard data we want to know about any ref.
     pub ref_info: RefInfo,
@@ -781,7 +781,7 @@ impl Workspace {
 }
 
 /// Metadata about branches, associated with any Git branch.
-#[derive(serde::Serialize, Clone, Eq, PartialEq, Default)]
+#[derive(serde::Serialize, serde::Deserialize, Clone, Eq, PartialEq, Default)]
 #[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
 #[serde(rename_all = "camelCase")]
 pub struct Branch {
@@ -845,7 +845,7 @@ impl<T: std::fmt::Debug> std::fmt::Debug for MaybeDebug<'_, T> {
 ///
 /// It allows keeping track of when it changed, but also if we created it initially, a useful
 /// bit of information.
-#[derive(serde::Serialize, Default, Clone, Eq, PartialEq)]
+#[derive(serde::Serialize, serde::Deserialize, Default, Clone, Eq, PartialEq)]
 #[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
 #[serde(rename_all = "camelCase")]
 #[cfg_attr(feature = "export-schema", schemars(rename = "MetadataRefInfo"))]
@@ -919,7 +919,7 @@ impl StackId {
 
 /// A stack that was, at some point in time, applied to the workspace, i.e. a parent of the *workspace commit*.
 /// Note that if `in_workspace` is `false`, it's not considered unapplied.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct WorkspaceStack {
     /// A unique and stable identifier for the stack itself.
     pub id: StackId,
@@ -935,7 +935,7 @@ pub struct WorkspaceStack {
 }
 
 /// The relationship that a [WorkspaceStack] *supposedly* has with a workspace commit.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub enum WorkspaceCommitRelation {
     /// The stack is considered to be merged into the workspace commit, with its tree being observable
     /// in the worktree associated with the workspace reference.
@@ -975,7 +975,7 @@ impl WorkspaceCommitRelation {
 
 /// A branch within a [`WorkspaceStack`], holding per-branch metadata that is
 /// stored alongside a stack that is available in a workspace.
-#[derive(Clone, PartialEq, Eq)]
+#[derive(Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct WorkspaceStackBranch {
     /// The name of the branch.
     pub ref_name: gix::refs::FullName,
@@ -1016,7 +1016,7 @@ impl WorkspaceStack {
 }
 
 /// Metadata about branches, associated with any Git branch.
-#[derive(serde::Serialize, Clone, Eq, PartialEq, Default)]
+#[derive(serde::Serialize, serde::Deserialize, Clone, Eq, PartialEq, Default)]
 #[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
 #[serde(rename_all = "camelCase")]
 pub struct Review {

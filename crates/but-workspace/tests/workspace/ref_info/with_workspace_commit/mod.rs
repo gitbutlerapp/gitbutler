@@ -1589,8 +1589,7 @@ fn single_commit_but_two_branches_one_in_ws_commit_with_virtual_segments() -> an
         &["lane-2-segment-01", "lane-2-segment-02"],
     );
 
-    // The stacks should come out just like defined above, "lane" and then "lane2" with all the right segments.
-    // The lane-segment01|02 bits are brought up as dependent branch as well.
+    // The requested lane keeps its dependent segments in the workspace's recorded order.
     let info = ref_info(
         repo.find_reference("lane")?,
         &mut meta.connection_mut(),
@@ -1624,6 +1623,26 @@ RefInfo {
                     push_status: CompletelyUnpushed,
                     base: "fafd9d0",
                 },
+                ref_info::ui::Segment {
+                    id: NodeIndex(4),
+                    ref_name: "►lane-segment-01",
+                    remote_tracking_ref_name: "None",
+                    commits: [],
+                    commits_on_remote: [],
+                    metadata: Branch,
+                    push_status: CompletelyUnpushed,
+                    base: "fafd9d0",
+                },
+                ref_info::ui::Segment {
+                    id: NodeIndex(3),
+                    ref_name: "►lane-segment-02",
+                    remote_tracking_ref_name: "None",
+                    commits: [],
+                    commits_on_remote: [],
+                    metadata: Branch,
+                    push_status: CompletelyUnpushed,
+                    base: "fafd9d0",
+                },
             ],
         },
     ],
@@ -1632,14 +1651,14 @@ RefInfo {
             ref_name: FullName(
                 "refs/heads/main",
             ),
-            segment_index: NodeIndex(3),
+            segment_index: NodeIndex(6),
             commits_ahead: 0,
         },
     ),
     target_commit: Some(
         TargetCommit {
             commit_id: Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
-            segment_index: NodeIndex(3),
+            segment_index: NodeIndex(5),
         },
     ),
     target_upstream: Some(
@@ -1655,7 +1674,7 @@ RefInfo {
     ),
     can_fast_forward_local_target: false,
     lower_bound: Some(
-        NodeIndex(3),
+        NodeIndex(5),
     ),
     ancestor_workspace_commit: None,
 }
@@ -1664,7 +1683,7 @@ RefInfo {
         .raw()
     );
 
-    // Natural order here is `lane` first, but we say we want `lane-2` first
+    // Moving lane-2 first in the workspace doesn't change lane's own segment order.
     meta.meta_mut()?
         .remove(but_core::WORKSPACE_REF_NAME.try_into()?)?;
     add_stack_with_segments(
@@ -1714,6 +1733,26 @@ RefInfo {
                     push_status: CompletelyUnpushed,
                     base: "fafd9d0",
                 },
+                ref_info::ui::Segment {
+                    id: NodeIndex(4),
+                    ref_name: "►lane-segment-01",
+                    remote_tracking_ref_name: "None",
+                    commits: [],
+                    commits_on_remote: [],
+                    metadata: Branch,
+                    push_status: CompletelyUnpushed,
+                    base: "fafd9d0",
+                },
+                ref_info::ui::Segment {
+                    id: NodeIndex(3),
+                    ref_name: "►lane-segment-02",
+                    remote_tracking_ref_name: "None",
+                    commits: [],
+                    commits_on_remote: [],
+                    metadata: Branch,
+                    push_status: CompletelyUnpushed,
+                    base: "fafd9d0",
+                },
             ],
         },
     ],
@@ -1722,14 +1761,14 @@ RefInfo {
             ref_name: FullName(
                 "refs/heads/main",
             ),
-            segment_index: NodeIndex(3),
+            segment_index: NodeIndex(6),
             commits_ahead: 0,
         },
     ),
     target_commit: Some(
         TargetCommit {
             commit_id: Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
-            segment_index: NodeIndex(3),
+            segment_index: NodeIndex(5),
         },
     ),
     target_upstream: Some(
@@ -1745,7 +1784,7 @@ RefInfo {
     ),
     can_fast_forward_local_target: false,
     lower_bound: Some(
-        NodeIndex(3),
+        NodeIndex(5),
     ),
     ancestor_workspace_commit: None,
 }

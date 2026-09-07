@@ -68,8 +68,8 @@ fn switch_from_branch_replaces_existing_workspace_reference() -> anyhow::Result<
         graph_workspace(&ws).to_string(),
         snapbox::str![[r#"
 📕🏘️:gitbutler/workspace[🌳] <> ✓refs/heads/main on 85efbe4
-└── ≡📙:A on 85efbe4 {[..]}
-    └── 📙:A
+└── ≡:A on 85efbe4 {[..]}
+    └── :A
         └── ·09d8e52 (🏘️)
 
 "#]]

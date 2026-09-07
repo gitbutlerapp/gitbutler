@@ -4680,12 +4680,12 @@ Hint: run `but help` for all commands
         .stdout_eq(snapbox::str![[r#"
 ╭┄ @ [uncommitted] (no changes)
 ┊
-┊╭┄ on [one]
-┊●   l#0 on one (no changes)
+┊╭┄ tw [two]
+┊●   l#0 on two (no changes)
 ├╯
 ┊
-┊╭┄ tw [two]
-┊●   l#1 on two (no changes)
+┊╭┄ on [one]
+┊●   l#1 on one (no changes)
 ├╯
 ┊
 ┴ b1540e5 (common base, main, origin/main) 2000-01-02 M
@@ -4697,10 +4697,10 @@ Hint: run `but help` for all commands
     snapbox::assert_data_eq!(
         env.git_log(),
         snapbox::str![[r#"
-*   db45286 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+*   df3d65b (HEAD -> gitbutler/workspace) GitButler Workspace Commit
 |/  
-| * 5ec2cd8 (two) on two
-* | 26559e2 (one) on one
+| * 26559e2 (one) on one
+* | 5ec2cd8 (two) on two
 |/  
 * b1540e5 (origin/main, origin/HEAD, main, gitbutler/target) M
 * e31e6ca add init
@@ -4732,10 +4732,10 @@ Hint: run `but help` for all commands
     snapbox::assert_data_eq!(
         env.git_log(),
         snapbox::str![[r#"
-*   db45286 (gitbutler/workspace) GitButler Workspace Commit
+*   df3d65b (gitbutler/workspace) GitButler Workspace Commit
 |/  
-| * 5ec2cd8 (two) on two
-* | 26559e2 (one) on one
+| * 26559e2 (one) on one
+* | 5ec2cd8 (two) on two
 |/  
 | * 6e48c63 (HEAD -> three) on three
 |/  
@@ -4754,12 +4754,12 @@ Hint: run `but help` for all commands
         .stdout_eq(snapbox::str![[r#"
 ╭┄ @ [uncommitted] (no changes)
 ┊
-┊╭┄ on [one]
-┊●   l#0 on one (no changes)
+┊╭┄ tw [two]
+┊●   l#0 on two (no changes)
 ├╯
 ┊
-┊╭┄ tw [two]
-┊●   l#1 on two (no changes)
+┊╭┄ on [one]
+┊●   l#1 on one (no changes)
 ├╯
 ┊
 ┊╭┄ th [three]
@@ -4775,12 +4775,12 @@ Hint: run `but help` for all commands
     snapbox::assert_data_eq!(
         env.git_log(),
         snapbox::str![[r#"
-*-.   c1ed93d (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+*-.   2edbb7f (HEAD -> gitbutler/workspace) GitButler Workspace Commit
 |/ /  
 | | * 6e48c63 (three) on three
-| * | 5ec2cd8 (two) on two
+| * | 26559e2 (one) on one
 | |/  
-* / 26559e2 (one) on one
+* / 5ec2cd8 (two) on two
 |/  
 * b1540e5 (origin/main, origin/HEAD, main, gitbutler/target) M
 * e31e6ca add init
@@ -4813,13 +4813,13 @@ Hint: run `but help` for all commands
     snapbox::assert_data_eq!(
         env.git_log(),
         snapbox::str![[r#"
-*-.   45db92d (gitbutler/workspace) GitButler Workspace Commit
+*-.   f559b18 (gitbutler/workspace) GitButler Workspace Commit
 |/ /  
 | | * 6e48c63 (three) on three
-| * | 5ec2cd8 (two) on two
+| * | 9791c42 (HEAD -> one) new commit on one
+| * | 26559e2 on one
 | |/  
-* | 9791c42 (HEAD -> one) new commit on one
-* | 26559e2 on one
+* / 5ec2cd8 (two) on two
 |/  
 * b1540e5 (origin/main, origin/HEAD, main, gitbutler/target) M
 * e31e6ca add init

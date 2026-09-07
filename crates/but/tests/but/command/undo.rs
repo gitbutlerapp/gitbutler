@@ -508,10 +508,10 @@ fn can_undo_but_squash_with_two_commits() {
         .stdout_eq(snapbox::str![[r#"
 Operations History
 ──────────────────────────────────────────────────
-ca464a6 2000-01-02 00:00:00 [UNDO] Restored from snapshot: Squashed commit (ea90d80)
-ea90d80 2000-01-02 00:00:00 [SQUASH] Squashed commit
-9d65c2a 2000-01-02 00:00:00 [COMMIT] Created commit
-f849257 2000-01-02 00:00:00 [COMMIT] Created commit
+a6b7f90 2000-01-02 00:00:00 [UNDO] Restored from snapshot: Squashed commit (c6464b9)
+c6464b9 2000-01-02 00:00:00 [SQUASH] Squashed commit
+3d39b2b 2000-01-02 00:00:00 [COMMIT] Created commit
+a6262c3 2000-01-02 00:00:00 [COMMIT] Created commit
 
 "#]]);
 }
@@ -541,11 +541,11 @@ fn can_undo_but_squash_with_three_commits() {
         .stdout_eq(snapbox::str![[r#"
 Operations History
 ──────────────────────────────────────────────────
-877e4f7 2000-01-02 00:00:00 [UNDO] Restored from snapshot: Squashed commit (0c463b9)
-0c463b9 2000-01-02 00:00:00 [SQUASH] Squashed commit
-9b43bb6 2000-01-02 00:00:00 [COMMIT] Created commit
-9d65c2a 2000-01-02 00:00:00 [COMMIT] Created commit
-f849257 2000-01-02 00:00:00 [COMMIT] Created commit
+fdc71fb 2000-01-02 00:00:00 [UNDO] Restored from snapshot: Squashed commit (1aea4d5)
+1aea4d5 2000-01-02 00:00:00 [SQUASH] Squashed commit
+99a20f4 2000-01-02 00:00:00 [COMMIT] Created commit
+3d39b2b 2000-01-02 00:00:00 [COMMIT] Created commit
+a6262c3 2000-01-02 00:00:00 [COMMIT] Created commit
 
 "#]]);
 }
@@ -574,10 +574,10 @@ fn can_undo_but_squash_with_two_commits_with_message() {
         .stdout_eq(snapbox::str![[r#"
 Operations History
 ──────────────────────────────────────────────────
-69234c0 2000-01-02 00:00:00 [UNDO] Restored from snapshot: Squashed commit (ea90d80)
-ea90d80 2000-01-02 00:00:00 [SQUASH] Squashed commit
-9d65c2a 2000-01-02 00:00:00 [COMMIT] Created commit
-f849257 2000-01-02 00:00:00 [COMMIT] Created commit
+9f15a19 2000-01-02 00:00:00 [UNDO] Restored from snapshot: Squashed commit (c6464b9)
+c6464b9 2000-01-02 00:00:00 [SQUASH] Squashed commit
+3d39b2b 2000-01-02 00:00:00 [COMMIT] Created commit
+a6262c3 2000-01-02 00:00:00 [COMMIT] Created commit
 
 "#]]);
 }
@@ -602,10 +602,10 @@ fn can_undo_but_squash_with_branch() {
         .stdout_eq(snapbox::str![[r#"
 Operations History
 ──────────────────────────────────────────────────
-f6f6f7b 2000-01-02 00:00:00 [UNDO] Restored from snapshot: Squashed commit (ea90d80)
-ea90d80 2000-01-02 00:00:00 [SQUASH] Squashed commit
-9d65c2a 2000-01-02 00:00:00 [COMMIT] Created commit
-f849257 2000-01-02 00:00:00 [COMMIT] Created commit
+297e2c4 2000-01-02 00:00:00 [UNDO] Restored from snapshot: Squashed commit (c6464b9)
+c6464b9 2000-01-02 00:00:00 [SQUASH] Squashed commit
+3d39b2b 2000-01-02 00:00:00 [COMMIT] Created commit
+a6262c3 2000-01-02 00:00:00 [COMMIT] Created commit
 
 "#]]);
 }
@@ -630,10 +630,10 @@ fn can_undo_but_squash_with_branch_and_drop_message() {
         .stdout_eq(snapbox::str![[r#"
 Operations History
 ──────────────────────────────────────────────────
-c4f775d 2000-01-02 00:00:00 [UNDO] Restored from snapshot: Squashed commit (ea90d80)
-ea90d80 2000-01-02 00:00:00 [SQUASH] Squashed commit
-9d65c2a 2000-01-02 00:00:00 [COMMIT] Created commit
-f849257 2000-01-02 00:00:00 [COMMIT] Created commit
+3efc72f 2000-01-02 00:00:00 [UNDO] Restored from snapshot: Squashed commit (c6464b9)
+c6464b9 2000-01-02 00:00:00 [SQUASH] Squashed commit
+3d39b2b 2000-01-02 00:00:00 [COMMIT] Created commit
+a6262c3 2000-01-02 00:00:00 [COMMIT] Created commit
 
 "#]]);
 }

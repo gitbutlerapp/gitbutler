@@ -230,16 +230,14 @@ mod from_worktree {
 
     use crate::utils::writable_scenario_slow;
 
-    /// The metadata is wrapped so its backing file is never written on drop.
+    /// Keep each test's metadata in a private in-memory database.
     fn scenario() -> (
         gix::Repository,
         but_testsupport::gix_testtools::tempfile::TempDir,
         but_db::DbHandle,
     ) {
         let (repo, tmp) = writable_scenario_slow("worktree-amend");
-        let meta =
-            but_testsupport::fixture_metadata(repo.path().join("should-never-be-written.toml"))
-                .expect("in-memory metadata handle always opens");
+        let meta = but_testsupport::in_memory_db();
 
         (repo, tmp, meta)
     }

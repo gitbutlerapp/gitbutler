@@ -1832,7 +1832,8 @@ fn append_project_target_tips(
     {
         let remote_tip = remote_info.as_ref().map(|(_, remote_tip)| *remote_tip);
         if let Some((remote_ref_name, remote_tip)) = remote_info {
-            tips.push(
+            push_tip_once(
+                tips,
                 Tip::new(remote_tip)
                     .with_ref_name(Some(remote_ref_name))
                     .with_role(TipRole::TargetRemote),
@@ -1843,7 +1844,8 @@ fn append_project_target_tips(
         } else {
             // Without an upstream, the local target itself supplies integrated history.
             // Keep its name even when another branch already queued the same commit.
-            tips.push(
+            push_tip_once(
+                tips,
                 Tip::new(local_tip)
                     .with_ref_name(Some(local_ref_name))
                     .with_role(TipRole::TargetRemote),

@@ -300,7 +300,7 @@ fn diamond_partially_content_integrated_rebase() -> Result<()> {
 └── ≡📙:E on 162b064 {1}
     ├── 📙:E
     │   └── ·cb866ec (🏘️)
-    └── 📙:C
+    └── :C
         └── ·c7b32b8 (🏘️)
 
 "#]]
@@ -2263,8 +2263,8 @@ fn workspace_target_parent_updates_while_stack_parent_remains_anonymous_segment_
 ├── ≡:anon: on fe9ae6e
 │   └── :anon:
 │       └── ·0d97cc1 (🏘️)
-├── ≡📙:target-sha on fe9ae6e {[..]}
-│   └── 📙:target-sha
+├── ≡:target-sha on fe9ae6e {[..]}
+│   └── :target-sha
 └── ≡📙:A on 20a5ffc {1}
     └── 📙:A
         └── ·c529875 (🏘️)
@@ -2681,6 +2681,76 @@ fn fully_integrated_two_stacks_checkout_local_target_at_target_tip() -> Result<(
         repo.head_name()?,
         Some(local_target_ref),
         "HEAD should be attached to the local target"
+    );
+
+    Ok(())
+}
+
+#[test]
+fn fully_integrated_two_stacks_checkout_local_target_without_review_hints() -> Result<()> {
+    let (_tmp, repo, mut meta, _description) =
+        named_writable_scenario_with_description("fully-integrated-two-stacks")?;
+    let target_sha = repo.rev_parse_single("main~2")?.detach();
+
+    let project_meta = target_project_meta("refs/heads/main", target_sha)?;
+    add_stack(&mut meta, 1, "A", StackState::InWorkspace);
+    add_stack(&mut meta, 2, "B", StackState::InWorkspace);
+    let graph = but_graph::Graph::from_head(
+        &repo,
+        project_meta.clone(),
+        &mut meta.connection_mut(),
+        Options::limited(),
+    )?;
+    let mut workspace = graph.into_workspace()?;
+
+    let project_meta = integrate_and_materialize(
+        &mut workspace,
+        &mut meta,
+        &repo,
+        vec![
+            BottomUpdate {
+                kind: BottomUpdateKind::Rebase,
+                selector: RelativeTo::Commit(repo.rev_parse_single("A")?.detach()),
+            },
+            BottomUpdate {
+                kind: BottomUpdateKind::Rebase,
+                selector: RelativeTo::Commit(repo.rev_parse_single("B")?.detach()),
+            },
+        ],
+    )?;
+
+    ensure_managed_workspace_metadata(&mut meta)?;
+    let graph = but_graph::Graph::from_head(
+        &repo,
+        project_meta.clone(),
+        &mut meta.connection_mut(),
+        Options::limited(),
+    )?;
+    let workspace = graph.into_workspace()?;
+    // Integrating both stacks checks out the local target and removes the empty workspace.
+    snapbox::assert_data_eq!(
+        graph_workspace(&workspace).to_string(),
+        snapbox::str![[r#"
+⌂:main[🌳] <> ✓refs/heads/main on 5f7d45e
+
+"#]]
+    );
+    snapbox::assert_data_eq!(
+        visualize_commit_graph_all(&repo)?,
+        snapbox::str![[r#"
+*   5f7d45e (HEAD -> main, origin/main) Merging B into base
+|\  
+| * b38b04b add B1
+* |   1f7670a Merging A into base
+|\ \  
+| |/  
+|/|   
+| * 905d6e5 add A1
+|/  
+* 3183e43 M1
+
+"#]]
+        .raw()
     );
 
     Ok(())
@@ -4110,7 +4180,7 @@ fn leaves_checked_out_local_target_branch_unchanged() -> Result<()> {
 fn worktree_workspace() -> Result<(tempfile::TempDir, gix::Repository, but_db::DbHandle)> {
     // Linked worktrees record absolute paths, so the fixture is executed rather than copied.
     let (repo, tmp) = crate::utils::writable_scenario_slow("worktree-workspace");
-    let mut meta = but_testsupport::fixture_metadata(repo.path().join("virtual-branches.toml"))?;
+    let mut meta = but_testsupport::in_memory_db();
     crate::ref_info::with_workspace_commit::utils::add_workspace(&mut meta);
     add_stack(&mut meta, 1, "A", StackState::InWorkspace);
     add_stack(&mut meta, 2, "B", StackState::InWorkspace);

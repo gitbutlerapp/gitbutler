@@ -1368,16 +1368,8 @@ pub fn branch_rename_with_perm(
         return Ok(BranchRenameResult { workspace, new_ref });
     }
 
-    // The snapshot lists `new_ref` so that undo deletes it again, and `ref_name` so that undo
-    // brings it back even when no applied stack holds it, as with the target branch. Not when a
-    // linked worktree has the branch checked out: it follows the rename, and undo won't delete a
-    // ref it has. Nor when one name is the other's directory, as `foo` and `foo/bar`: undo
-    // recreates the old name before it deletes the new one, which git can't hold at once, and
-    // would lose both.
-    let nested = |inner: &gix::refs::FullName, outer: &gix::refs::FullName| {
-        let inner = inner.as_bstr();
-        inner.starts_with(outer.as_bstr()) && inner.get(outer.as_bstr().len()) == Some(&b'/')
-    };
+    // Record both names so undo can remove the new name before restoring the old one,
+    // unless a linked worktree follows the rename and undo cannot restore its checkout.
     let in_linked_worktree = {
         let repo = ctx.repo.get()?;
         let worktrees = but_core::branch::SafeDelete::new(&repo)?;
@@ -1386,11 +1378,7 @@ pub fn branch_rename_with_perm(
             .is_some_and(|dirs| dirs.iter().any(|dir| Some(dir.as_path()) != repo.workdir()))
     };
     let names = [ref_name.as_ref(), new_ref.as_ref()];
-    let listed: &[&gix::refs::FullNameRef] =
-        match !in_linked_worktree && !nested(&new_ref, &ref_name) && !nested(&ref_name, &new_ref) {
-            true => &names,
-            false => &[],
-        };
+    let listed: &[&gix::refs::FullNameRef] = if in_linked_worktree { &[] } else { &names };
     let maybe_oplog_entry = but_oplog::UnmaterializedOplogSnapshot::from_details_with_refs_and_perm(
         ctx,
         SnapshotDetails::new(OperationKind::UpdateBranchName).with_trailers([

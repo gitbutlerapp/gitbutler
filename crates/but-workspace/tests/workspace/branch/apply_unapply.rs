@@ -63,7 +63,7 @@ fn failed_unapply_rolls_back_metadata_in_transaction() -> anyhow::Result<()> {
     )?
     .into_workspace()?;
     let observer = but_testsupport::project_db(&repo)?;
-    let before = observer.virtual_branches().get_snapshot()?;
+    let before = observer.meta()?;
     let order_before = observer.branch_order().get_snapshot()?;
     let sentinel = repo.gitbutler_storage_path()?.join("REFRESH");
     std::fs::remove_file(&sentinel)?;
@@ -88,14 +88,14 @@ fn failed_unapply_rolls_back_metadata_in_transaction() -> anyhow::Result<()> {
             "unapply removed branch metadata inside the failed transaction"
         );
         assert_eq!(
-            observer.virtual_branches().get_snapshot()?,
+            observer.meta()?,
             before,
             "other connections never observe the intermediate metadata removal"
         );
     }
 
     assert_eq!(
-        db.virtual_branches().get_snapshot()?,
+        db.meta()?,
         before,
         "dropping the failed operation's transaction restores its metadata"
     );
@@ -1865,13 +1865,14 @@ fn unapply_natural_stack_branch_without_workspace_metadata() -> anyhow::Result<(
         unapply_options(),
     )?;
 
-    // C was unapplied, and the workspace commit removed
+    // C was unapplied, and the workspace commit removed. Reconciliation records A's workspace
+    // membership without synthesizing independent branch metadata.
     snapbox::assert_data_eq!(
         graph_workspace_determinisitcally(&out.workspace).to_string(),
         snapbox::str![[r#"
 📕🏘️⚠️:gitbutler/workspace[🌳] <> ✓refs/heads/main on 893d602
-└── ≡📙:A on 893d602 {1}
-    └── 📙:A
+└── ≡:A on 893d602 {1}
+    └── :A
         └── ·26e45af (🏘️)
 
 "#]]
@@ -1895,7 +1896,7 @@ fn unapply_natural_stack_branch_without_workspace_metadata() -> anyhow::Result<(
         sanitize_uuids_and_timestamps(format!("{ws_md:#?}")),
         snapbox::str![[r#"
 Workspace {
-    ref_info: RefInfo { created_at: "2023-01-31 14:55:57 +0000", updated_at: None },
+    ref_info: RefInfo { created_at: None, updated_at: None },
     stacks: [
         WorkspaceStack {
             id: 1,
@@ -2952,8 +2953,8 @@ mod unapply_checked_out {
             graph_workspace(&ws).to_string(),
             snapbox::str![[r#"
 ⌂:A[🌳] <> ✓! on e5d0542
-└── ≡:A[🌳] on e5d0542 {1}
-    └── :A[🌳]
+└── ≡📙:A[🌳] on e5d0542 {1}
+    └── 📙:A[🌳]
 
 "#]]
         );
@@ -2965,7 +2966,7 @@ mod unapply_checked_out {
             &mut meta.connection_mut(),
             unapply_options(),
         )?;
-        // the workspace is checked out as the current branch's stack was unapplied
+        // B is above the checked-out entrypoint, so unapplying it does nothing.
         snapbox::assert_data_eq!(
             out.to_debug(),
             snapbox::str![[r#"
@@ -2976,17 +2977,17 @@ Outcome {
 
 "#]]
         );
-        // the returned workspace is projected from the managed workspace ref
+        // The returned workspace remains projected from A, retaining its branch metadata.
         snapbox::assert_data_eq!(
             graph_workspace(&out.workspace).to_string(),
             snapbox::str![[r#"
 ⌂:A[🌳] <> ✓! on e5d0542
-└── ≡:A[🌳] on e5d0542 {1}
-    └── :A[🌳]
+└── ≡📙:A[🌳] on e5d0542 {1}
+    └── 📙:A[🌳]
 
 "#]]
         );
-        // HEAD switches back to the managed workspace when the checked-out stack is unapplied
+        // HEAD remains on A.
         snapbox::assert_data_eq!(
             visualize_commit_graph_all(&repo)?,
             snapbox::str![[r#"
@@ -3677,7 +3678,7 @@ Outcome {
         snapbox::str![[r#"
 Some(
     Workspace {
-        ref_info: RefInfo { created_at: "2023-01-31 14:55:57 +0000", updated_at: None },
+        ref_info: RefInfo { created_at: None, updated_at: None },
         stacks: [
             WorkspaceStack {
                 id: 00000000-0000-0000-0000-0000000003c4,
@@ -4494,7 +4495,7 @@ Outcome {
         legacy_unapply_options(),
     )
     .expect("unapply actually works");
-    // unapplying D after E is already gone is a no-op
+    // Unapplying D removes its workspace membership; E's independent metadata remains.
     snapbox::assert_data_eq!(
         out.to_debug(),
         snapbox::str![[r#"
@@ -4507,7 +4508,7 @@ Outcome {
     );
 
     let ws = out.workspace.into_owned();
-    // the B/C/A stack stays applied after the D no-op
+    // The B/C/A stack stays applied, with E as its natural lower segment.
     snapbox::assert_data_eq!(
         graph_workspace(&ws).to_string(),
         snapbox::str![[r#"
@@ -4517,12 +4518,12 @@ Outcome {
     ├── 📙:C
     ├── 📙:A
     │   └── ·f084d61 (🏘️)
-    └── :E
+    └── 📙:E
         └── ·7076dee (🏘️)
 
 "#]]
     );
-    // the Git graph is unchanged after the D no-op
+    // Removing D's workspace membership leaves the Git graph unchanged.
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
         snapbox::str![[r#"

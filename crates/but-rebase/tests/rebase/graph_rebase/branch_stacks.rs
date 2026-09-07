@@ -635,6 +635,42 @@ fn materializing_rebuilds_the_workspace_stacks() -> Result<()> {
 }
 
 #[test]
+fn materializing_preserves_workspace_order_in_a_linked_worktree() -> Result<()> {
+    let (repo, _tmp, mut meta) = fixture_writable("workspace-two-stacks")?;
+    for (idx, stack) in ["stack-a", "stack-b"].into_iter().enumerate() {
+        add_stack_with_segments(&mut meta, idx, stack, StackState::InWorkspace, &[]);
+    }
+    invoke_bash("git worktree add linked stack-b", &repo);
+    meta.worktree_meta_mut().mark_adopted()?;
+    let graph = Graph::from_head(
+        &repo,
+        target_meta(&repo),
+        &mut meta.connection_mut(),
+        but_graph::init::Options {
+            worktrees: true,
+            ..standard_options()
+        },
+    )?
+    .validated()?;
+    let mut ws = graph.into_workspace()?;
+    let rebase = Editor::create(&mut ws, &repo, meta.connection_mut())?.rebase()?;
+    let stacks = rebase.branch_stacks()?;
+    assert_eq!(
+        render_stacks(&stacks.ad_hoc),
+        "  stack-b\n",
+        "the linked worktree owns stack-b instead of the workspace"
+    );
+    let outcome = rebase.materialize(Default::default())?;
+    let metadata = outcome.db.meta()?;
+    assert_eq!(
+        metadata.branch_stack_order("refs/heads/stack-b".try_into()?),
+        Some(stacks.ad_hoc[0].as_slice()),
+        "ordering must survive removal of the old workspace membership"
+    );
+    Ok(())
+}
+
+#[test]
 fn materializing_persists_an_order_that_moves_no_reference() -> Result<()> {
     let (repo, _tmp, mut meta) = fixture_writable("many-references")?;
     let graph = Graph::from_head(
