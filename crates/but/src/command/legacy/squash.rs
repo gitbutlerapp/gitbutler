@@ -6,7 +6,7 @@ use but_api::{
     WorkspaceState,
     json::{ChangeIdString, HexHash},
 };
-use but_core::{DiffSpec, DryRun, RefMetadata, sync::RepoExclusive};
+use but_core::{DiffSpec, DryRun, sync::RepoExclusive};
 use but_ctx::Context;
 use but_graph::Workspace;
 use but_transaction::{IntermediateCommitCreateResult, Transaction};
@@ -164,7 +164,6 @@ pub fn squash(
     current_dir: &Path,
 ) -> CliResult<(SquashOutcome, Option<WorkspaceState>)> {
     let mut guard = ctx.exclusive_worktree_access();
-    let mut meta = ctx.meta()?;
     let id_map = IdMap::new_from_context(ctx, guard.read_permission())?;
     let head_info = but_api::legacy::workspace::head_info(ctx)?;
     let merged = MergedUpstream::new(&*ctx.repo.get()?, &head_info, args.allow_merged);
@@ -186,7 +185,7 @@ pub fn squash(
     drop(repo);
     drop(ws);
 
-    Ok(run(ctx, &mut meta, guard.write_permission(), squash_op)?)
+    Ok(run(ctx, guard.write_permission(), squash_op)?)
 }
 
 fn resolve_args(
@@ -1122,7 +1121,7 @@ impl HowToRewordTarget {
     fn execute(
         self,
         commit: CommitId,
-        tx: &mut Transaction<'_, '_, impl RefMetadata>,
+        tx: &mut Transaction<'_, '_, '_>,
     ) -> anyhow::Result<CommitId> {
         match self {
             Self::UseTargetMessage | Self::UseSourceMessage => Ok(commit),
@@ -1173,7 +1172,7 @@ impl HowToRewordTargetNoSource {
     fn execute(
         self,
         commit: CommitId,
-        tx: &mut Transaction<'_, '_, impl RefMetadata>,
+        tx: &mut Transaction<'_, '_, '_>,
     ) -> anyhow::Result<CommitId> {
         match self {
             Self::UseTargetMessage => Ok(commit),
@@ -1287,7 +1286,6 @@ impl<'a> ClassifiedSquashables<'a> {
 
 pub fn run(
     ctx: &mut Context,
-    meta: &mut impl RefMetadata,
     perm: &mut RepoExclusive,
     squash_op: SquashOperation,
 ) -> anyhow::Result<(SquashOutcome, Option<WorkspaceState>)> {
@@ -1510,7 +1508,6 @@ pub fn run(
             let snapshot_details = SnapshotDetails::new(OperationKind::SquashCommit);
             let (new_commit, ws) = but_transaction::with_transaction_with_perm(
                 ctx,
-                meta,
                 perm,
                 snapshot_details,
                 DryRun::No,
@@ -1596,7 +1593,6 @@ pub fn run(
             let snapshot_details = SnapshotDetails::new(OperationKind::UndoCommit);
             let ws = but_transaction::with_transaction_with_perm(
                 ctx,
-                meta,
                 perm,
                 snapshot_details,
                 DryRun::No,
@@ -1782,7 +1778,7 @@ pub struct SquashCommitsOperation {
 }
 
 impl SquashCommitsOperation {
-    fn execute(self, tx: &mut Transaction<'_, '_, impl RefMetadata>) -> anyhow::Result<CommitId> {
+    fn execute(self, tx: &mut Transaction<'_, '_, '_>) -> anyhow::Result<CommitId> {
         let Self {
             sources,
             target,
@@ -1807,7 +1803,7 @@ pub struct SquashBranchOperation {
 }
 
 impl SquashBranchOperation {
-    fn execute(self, tx: &mut Transaction<'_, '_, impl RefMetadata>) -> anyhow::Result<CommitId> {
+    fn execute(self, tx: &mut Transaction<'_, '_, '_>) -> anyhow::Result<CommitId> {
         let Self {
             sources,
             target,
@@ -1839,7 +1835,7 @@ struct AmendUncommittedDiffSpecsOperation {
 impl AmendUncommittedDiffSpecsOperation {
     fn execute(
         self,
-        tx: &mut Transaction<'_, '_, impl RefMetadata>,
+        tx: &mut Transaction<'_, '_, '_>,
         source: ChangeSource<'_>,
     ) -> anyhow::Result<CommitId> {
         let Self {
@@ -1873,7 +1869,7 @@ struct MoveCommittedFilesOperation {
 }
 
 impl MoveCommittedFilesOperation {
-    fn execute(self, tx: &mut Transaction<'_, '_, impl RefMetadata>) -> anyhow::Result<CommitId> {
+    fn execute(self, tx: &mut Transaction<'_, '_, '_>) -> anyhow::Result<CommitId> {
         let Self {
             target,
             source,

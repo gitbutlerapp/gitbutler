@@ -2,7 +2,6 @@ use std::collections::HashMap;
 
 use anyhow::Result;
 use bstr::{BStr, ByteSlice};
-use but_core::RefMetadata as _;
 use but_graph::Graph;
 use but_workspace::branch::create_reference::{Anchor, Position::*};
 use but_workspace::ref_info::LocalCommitRelation;
@@ -16,7 +15,7 @@ use crate::utils::writable_scenario_slow;
 /// does when the `worktreeManipulation` flag is on, and project the result.
 fn ref_info_with_worktree_tips(
     repo: &gix::Repository,
-    meta: &impl but_core::RefMetadata,
+    meta: &mut but_db::DbHandle,
 ) -> Result<but_workspace::RefInfo> {
     but_workspace::graph_to_ref_info(
         &workspace_with_worktree_tips(repo, meta)?,
@@ -30,21 +29,20 @@ fn ref_info_with_worktree_tips(
 
 fn workspace_with_worktree_tips(
     repo: &gix::Repository,
-    meta: &impl but_core::RefMetadata,
+    meta: &mut but_db::DbHandle,
 ) -> Result<but_graph::Workspace> {
     let project_meta = but_core::ref_metadata::ProjectMeta {
         target_ref: Some("refs/remotes/origin/main".try_into()?),
         target_commit_id: Some(repo.rev_parse_single("main")?.detach()),
         push_remote: None,
     };
-    let mut db = but_testsupport::in_memory_db();
+
     // Adoption already ran, so the fixture worktrees count as active.
-    db.worktree_meta_mut().mark_adopted()?;
+    meta.worktree_meta_mut().mark_adopted()?;
     let graph = Graph::from_head(
         repo,
-        meta,
         project_meta,
-        &mut db,
+        &mut meta.connection_mut(),
         but_graph::init::Options {
             worktrees: true,
             ..but_graph::init::Options::limited()
@@ -57,14 +55,13 @@ fn workspace_with_worktree_tips(
 #[test]
 fn worktrees_are_projected_onto_the_workspace() -> Result<()> {
     let (repo, _tmp) = writable_scenario_slow("worktree-workspace");
-    let mut meta = but_meta::VirtualBranchesTomlMetadata::from_path(
-        repo.path().join("should-never-be-written.toml"),
-    )?;
+    let mut meta =
+        but_testsupport::fixture_metadata(repo.path().join("should-never-be-written.toml"))?;
     add_workspace(&mut meta);
     add_stack(&mut meta, 1, "A", StackState::InWorkspace);
     add_stack(&mut meta, 2, "B", StackState::InWorkspace);
 
-    let mut info = ref_info_with_worktree_tips(&repo, &meta)?;
+    let mut info = ref_info_with_worktree_tips(&repo, &mut meta)?;
     let summary: Vec<_> = info
         .worktrees
         .iter()
@@ -244,13 +241,12 @@ fn worktrees_are_projected_onto_the_workspace() -> Result<()> {
 #[test]
 fn lane_chains_follow_what_worktrees_rest_on() -> Result<()> {
     let (repo, _tmp) = writable_scenario_slow("worktree-workspace");
-    let mut meta = but_meta::VirtualBranchesTomlMetadata::from_path(
-        repo.path().join("should-never-be-written.toml"),
-    )?;
+    let mut meta =
+        but_testsupport::fixture_metadata(repo.path().join("should-never-be-written.toml"))?;
     add_workspace(&mut meta);
     add_stack(&mut meta, 1, "A", StackState::InWorkspace);
     add_stack(&mut meta, 2, "B", StackState::InWorkspace);
-    let info = ref_info_with_worktree_tips(&repo, &meta)?;
+    let info = ref_info_with_worktree_tips(&repo, &mut meta)?;
 
     let chain = |branch: &str| -> Vec<Vec<String>> {
         let branch = gix::refs::Category::LocalBranch
@@ -312,16 +308,13 @@ fn lane_chains_follow_what_worktrees_rest_on() -> Result<()> {
 
 #[test]
 fn worktrees_are_empty_without_seeded_tips() -> Result<()> {
-    let mut db = but_testsupport::in_memory_db();
     let (repo, _tmp) = writable_scenario_slow("worktree-workspace");
-    let meta = but_meta::VirtualBranchesTomlMetadata::from_path(
-        repo.path().join("should-never-be-written.toml"),
-    )?;
+    let mut meta =
+        but_testsupport::fixture_metadata(repo.path().join("should-never-be-written.toml"))?;
     let graph = Graph::from_head(
         &repo,
-        &meta,
         Default::default(),
-        &mut db,
+        &mut meta.connection_mut(),
         but_graph::init::Options::limited(),
     )?;
     let info =
@@ -336,13 +329,12 @@ fn worktrees_are_empty_without_seeded_tips() -> Result<()> {
 #[test]
 fn deep_disjoint_history_is_never_mistaken_for_being_below_the_target() -> Result<()> {
     let (repo, _tmp) = writable_scenario_slow("worktree-disjoint-deep");
-    let mut meta = but_meta::VirtualBranchesTomlMetadata::from_path(
-        repo.path().join("should-never-be-written.toml"),
-    )?;
+    let mut meta =
+        but_testsupport::fixture_metadata(repo.path().join("should-never-be-written.toml"))?;
     add_workspace(&mut meta);
     add_stack(&mut meta, 1, "A", StackState::InWorkspace);
 
-    let info = ref_info_with_worktree_tips(&repo, &meta)?;
+    let info = ref_info_with_worktree_tips(&repo, &mut meta)?;
     let wt = &info.worktrees[0];
     assert_eq!(wt.name.to_string(), "wt-deep");
     assert_eq!(
@@ -916,13 +908,11 @@ fn add_worktreeinclude_copies_only_destination_ignored_files_untracked_in_both_i
 #[test]
 fn references_can_be_created_at_commits_of_worktree_lanes() -> Result<()> {
     let (repo, _tmp) = writable_scenario_slow("worktree-workspace");
-    let mut meta = but_meta::VirtualBranchesTomlMetadata::from_path(
-        repo.path().join("virtual-branches.toml"),
-    )?;
+    let mut meta = but_testsupport::in_memory_db();
     add_workspace(&mut meta);
     add_stack(&mut meta, 1, "A", StackState::InWorkspace);
     add_stack(&mut meta, 2, "B", StackState::InWorkspace);
-    let ws = workspace_with_worktree_tips(&repo, &meta)?;
+    let ws = workspace_with_worktree_tips(&repo, &mut meta)?;
     snapbox::assert_data_eq!(
         but_testsupport::graph_workspace(&ws).to_string(),
         snapbox::str![[r#"
@@ -975,7 +965,6 @@ fn references_can_be_created_at_commits_of_worktree_lanes() -> Result<()> {
         &repo,
         &mut ws,
         &mut meta,
-        &mut db,
         crate::utils::r("refs/heads/below-pushed"),
         Anchor::AtCommit {
             commit_id: p1,
@@ -1029,7 +1018,9 @@ fn references_can_be_created_at_commits_of_worktree_lanes() -> Result<()> {
     );
     assert!(
         !meta
-            .workspace(ws.ref_name().expect("managed"))?
+            .meta()?
+            .workspace(ws.ref_name().expect("managed"))
+            .expect("managed workspace metadata exists")
             .contains_ref(
                 crate::utils::r("refs/heads/below-pushed"),
                 but_core::ref_metadata::StackKind::Applied
@@ -1059,7 +1050,6 @@ fn references_can_be_created_at_commits_of_worktree_lanes() -> Result<()> {
             &repo,
             &mut ws,
             &mut meta,
-            &mut db,
             crate::utils::r("refs/heads/refused"),
             anchor,
             None,

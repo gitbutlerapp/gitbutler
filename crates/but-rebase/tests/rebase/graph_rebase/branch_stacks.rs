@@ -1,7 +1,6 @@
 use anyhow::Result;
-use but_core::{RefMetadata as _, RepositoryExt as _, ref_metadata::ProjectMeta};
+use but_core::ref_metadata::ProjectMeta;
 use but_graph::Graph;
-use but_meta::{BranchOrderMetadata, VirtualBranchesTomlMetadata};
 use but_rebase::graph_rebase::{Editor, Step, mutate::InsertSide, testing::Testing as _};
 use but_testsupport::{StackState, graph_tree, invoke_bash};
 
@@ -25,21 +24,21 @@ fn render_stacks(stacks: &[Vec<gix::refs::FullName>]) -> String {
 
 fn branch_stacks(
     repo: &gix::Repository,
-    meta: &mut VirtualBranchesTomlMetadata,
-    db: &mut but_db::DbHandle,
+    meta: &mut but_db::DbHandle,
     project_meta: ProjectMeta,
     worktrees: bool,
 ) -> Result<String> {
     if worktrees {
-        db.worktree_meta_mut().mark_adopted()?;
+        meta.worktree_meta_mut().mark_adopted()?;
     }
     let options = but_graph::init::Options {
         worktrees,
         ..standard_options()
     };
-    let graph = Graph::from_head(repo, &*meta, project_meta, db, options)?.validated()?;
+    let graph =
+        Graph::from_head(repo, project_meta, &mut meta.connection_mut(), options)?.validated()?;
     let mut ws = graph.into_workspace()?;
-    let rebase = Editor::create(&mut ws, meta, repo, db)?.rebase()?;
+    let rebase = Editor::create(&mut ws, repo, meta.connection_mut())?.rebase()?;
     let stacks = rebase.branch_stacks()?;
     let workspace = match &stacks.workspace {
         Some(stacks) => format!("workspace\n{}", render_stacks(stacks)),
@@ -54,14 +53,14 @@ fn branch_stacks(
 
 #[test]
 fn each_workspace_commit_parent_is_a_stack() -> Result<()> {
-    let (repo, _tmp, mut meta, mut db) = fixture_writable("workspace-two-stacks")?;
+    let (repo, _tmp, mut meta) = fixture_writable("workspace-two-stacks")?;
     for (idx, stack) in ["stack-a", "stack-b"].into_iter().enumerate() {
         add_stack_with_segments(&mut meta, idx, stack, StackState::InWorkspace, &[]);
     }
 
     // `main` rests on the target commit and tracks the target, so no stack owns it.
     snapbox::assert_data_eq!(
-        branch_stacks(&repo, &mut meta, &mut db, target_meta(&repo), false)?,
+        branch_stacks(&repo, &mut meta, target_meta(&repo), false)?,
         snapbox::str![[r#"
 ◎  refs/heads/gitbutler/workspace
 ●    1162583 GitButler Workspace Commit
@@ -89,7 +88,7 @@ ad hoc
 
 #[test]
 fn a_branch_on_the_target_commit_joins_the_first_stack_unless_it_tracks_the_target() -> Result<()> {
-    let (repo, _tmp, mut meta, mut db) = fixture_writable("workspace-two-stacks")?;
+    let (repo, _tmp, mut meta) = fixture_writable("workspace-two-stacks")?;
     for (idx, stack) in ["stack-a", "stack-b"].into_iter().enumerate() {
         add_stack_with_segments(&mut meta, idx, stack, StackState::InWorkspace, &[]);
     }
@@ -100,7 +99,7 @@ fn a_branch_on_the_target_commit_joins_the_first_stack_unless_it_tracks_the_targ
 
     // Without a target ref nothing tracks the target, and `stack-a` reaches `main` first.
     snapbox::assert_data_eq!(
-        branch_stacks(&repo, &mut meta, &mut db, project_meta, false)?,
+        branch_stacks(&repo, &mut meta, project_meta, false)?,
         snapbox::str![[r#"
 ◎  refs/heads/gitbutler/workspace
 ●    1162583 GitButler Workspace Commit
@@ -128,14 +127,14 @@ ad hoc
 
 #[test]
 fn empty_stacks_stay_apart() -> Result<()> {
-    let (repo, _tmp, mut meta, mut db) = fixture_writable("workspace-with-three-empty-stacks")?;
+    let (repo, _tmp, mut meta) = fixture_writable("workspace-with-three-empty-stacks")?;
     for (idx, stack) in ["stack-1", "stack-2", "stack-3"].into_iter().enumerate() {
         add_stack_with_segments(&mut meta, idx, stack, StackState::InWorkspace, &[]);
     }
 
     // All three rest on the same commit, each beneath its own workspace commit parent.
     snapbox::assert_data_eq!(
-        branch_stacks(&repo, &mut meta, &mut db, target_meta(&repo), false)?,
+        branch_stacks(&repo, &mut meta, target_meta(&repo), false)?,
         snapbox::str![[r#"
 ◎  refs/heads/gitbutler/workspace
 ●      2bdc06b GitButler Workspace Commit
@@ -163,11 +162,11 @@ ad hoc
 
 #[test]
 fn a_workspace_reference_without_a_workspace_commit_is_one_ad_hoc_stack() -> Result<()> {
-    let (repo, _tmp, mut meta, mut db) = fixture_writable("workspace-without-managed-commit")?;
+    let (repo, _tmp, mut meta) = fixture_writable("workspace-without-managed-commit")?;
 
     // GitButler's own references never stack, which leaves `main` below `HEAD`.
     snapbox::assert_data_eq!(
-        branch_stacks(&repo, &mut meta, &mut db, ProjectMeta::default(), false)?,
+        branch_stacks(&repo, &mut meta, ProjectMeta::default(), false)?,
         snapbox::str![[r#"
 ◎  refs/heads/gitbutler/workspace
 ●  1b78c63 just a normal commit
@@ -186,11 +185,11 @@ ad hoc
 
 #[test]
 fn an_ad_hoc_stack_follows_first_parents() -> Result<()> {
-    let (repo, _tmp, mut meta, mut db) = fixture_writable("merge-in-the-middle")?;
+    let (repo, _tmp, mut meta) = fixture_writable("merge-in-the-middle")?;
 
     // `B` is merged in as a second parent, so it is not part of what `HEAD` stacks on.
     snapbox::assert_data_eq!(
-        branch_stacks(&repo, &mut meta, &mut db, ProjectMeta::default(), false)?,
+        branch_stacks(&repo, &mut meta, ProjectMeta::default(), false)?,
         snapbox::str![[r#"
 ◎  refs/heads/with-inner-merge
 ●  e8ee978 on top of inner merge
@@ -214,12 +213,12 @@ ad hoc
 
 #[test]
 fn a_detached_head_is_an_ad_hoc_stack() -> Result<()> {
-    let (repo, _tmp, mut meta, mut db) = fixture_writable("merge-in-the-middle")?;
+    let (repo, _tmp, mut meta) = fixture_writable("merge-in-the-middle")?;
     invoke_bash("git checkout --detach A", &repo);
 
     // The stack starts at the commit `HEAD` is detached at, beneath the references resting on it.
     snapbox::assert_data_eq!(
-        branch_stacks(&repo, &mut meta, &mut db, ProjectMeta::default(), false)?,
+        branch_stacks(&repo, &mut meta, ProjectMeta::default(), false)?,
         snapbox::str![[r#"
 ◎  refs/heads/A
 ●  add59d2 A: 10 lines on top
@@ -236,11 +235,11 @@ ad hoc
 
 #[test]
 fn a_worktree_owns_the_branch_it_has_checked_out() -> Result<()> {
-    let (repo, _tmp, mut meta, mut db) = fixture_writable("worktree-checkout-heads")?;
+    let (repo, _tmp, mut meta) = fixture_writable("worktree-checkout-heads")?;
 
     // `middle` is in `main`'s history, and still stacks with the worktree that has it checked out.
     snapbox::assert_data_eq!(
-        branch_stacks(&repo, &mut meta, &mut db, ProjectMeta::default(), true)?,
+        branch_stacks(&repo, &mut meta, ProjectMeta::default(), true)?,
         snapbox::str![[r#"
 ◎  refs/heads/main
 ●  a96434e b
@@ -259,26 +258,26 @@ ad hoc
 
 #[test]
 fn materializing_rebuilds_the_workspace_stacks() -> Result<()> {
-    let (repo, _tmp, mut meta, mut db) = fixture_writable("workspace-two-stacks")?;
+    let (repo, _tmp, mut meta) = fixture_writable("workspace-two-stacks")?;
     add_stack_with_segments(&mut meta, 0, "stack-b", StackState::InWorkspace, &[]);
     add_stack_with_segments(&mut meta, 1, "unapplied", StackState::Inactive, &["below"]);
     let graph = Graph::from_head(
         &repo,
-        &*meta,
         target_meta(&repo),
-        &mut db,
+        &mut meta.connection_mut(),
         standard_options(),
     )?
     .validated()?;
     let mut ws = graph.into_workspace()?;
 
-    let outcome = Editor::create(&mut ws, &mut *meta, &repo, &mut db)?
+    let outcome = Editor::create(&mut ws, &repo, meta.connection_mut())?
         .rebase()?
         .materialize(Default::default())?;
 
-    let workspace = outcome
-        .meta
-        .workspace("refs/heads/gitbutler/workspace".try_into()?)?;
+    let metadata = outcome.db.meta()?;
+    let workspace = metadata
+        .workspace("refs/heads/gitbutler/workspace".try_into()?)
+        .expect("materialization records workspace stacks");
     // `stack-b` keeps its id, `stack-a` is new to the metadata and precedes it as the first parent
     // of the workspace commit, and what isn't a parent of the workspace commit is gone.
     snapbox::assert_data_eq!(
@@ -313,21 +312,16 @@ fn materializing_rebuilds_the_workspace_stacks() -> Result<()> {
 
 #[test]
 fn materializing_persists_an_order_that_moves_no_reference() -> Result<()> {
-    let (repo, _tmp, _meta, mut db) = fixture_writable("many-references")?;
-    let mut meta = BranchOrderMetadata::from_paths(
-        repo.path().join("virtual_branches.toml"),
-        repo.gitbutler_storage_path()?,
-    )?;
+    let (repo, _tmp, mut meta) = fixture_writable("many-references")?;
     let graph = Graph::from_head(
         &repo,
-        &meta,
         ProjectMeta::default(),
-        &mut db,
+        &mut meta.connection_mut(),
         standard_options(),
     )?
     .validated()?;
     let mut ws = graph.into_workspace()?;
-    let mut editor = Editor::create(&mut ws, &mut meta, &repo, &mut db)?;
+    let mut editor = Editor::create(&mut ws, &repo, meta.connection_mut())?;
 
     let x = editor.select_reference("refs/heads/X".try_into()?)?;
     editor.replace_with_none(x)?;

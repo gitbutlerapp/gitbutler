@@ -539,8 +539,8 @@ struct StackScan {
 /// Locate `branch` in the graph workspace, or `None` when no lane (an applied stack or a linked
 /// worktree) has a segment by that name.
 fn scan_stack(ctx: &mut Context, branch: &str) -> anyhow::Result<Option<StackScan>> {
-    let guard = ctx.exclusive_worktree_access();
-    let (repo, ws, _db) = ctx.workspace_and_db_with_perm(guard.read_permission())?;
+    let mut guard = ctx.exclusive_worktree_access();
+    let (repo, ws, _db) = ctx.workspace_mut_and_db_mut_with_perm(guard.write_permission())?;
     let head_info = but_workspace::graph_to_ref_info(
         &ws,
         &repo,
@@ -600,16 +600,14 @@ fn segment_short_name(segment: &but_workspace::ref_info::Segment) -> Option<Stri
 /// than the pre-fetch graph.
 fn current_workspace_state(ctx: &mut Context) -> anyhow::Result<WorkspaceState> {
     ctx.invalidate_workspace_cache()?;
-    let mut meta = ctx.meta()?;
-    let guard = ctx.exclusive_worktree_access();
-    let (repo, ws, mut db) = ctx.workspace_and_db_mut_with_perm(guard.read_permission())?;
+    let mut guard = ctx.exclusive_worktree_access();
+    let (repo, ws, mut db) = ctx.workspace_mut_and_db_mut_with_perm(guard.write_permission())?;
     WorkspaceState::from_workspace_with_db(
         &ws,
-        &mut meta,
         &repo,
         std::collections::BTreeMap::new(),
         Vec::new(),
-        &mut db,
+        db.connection_mut(),
     )
 }
 

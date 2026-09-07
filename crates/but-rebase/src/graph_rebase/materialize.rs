@@ -1,7 +1,7 @@
 //! Functions for materializing a rebase
 use anyhow::{Context, Result, bail};
 use but_core::{
-    ObjectStorageExt as _, RefMetadata,
+    ObjectStorageExt as _,
     worktree::{checkout::Options, safe_checkout_from_head},
 };
 use gix::{
@@ -158,8 +158,9 @@ pub struct MaterializeOptions {
     pub without_checkout: bool,
 }
 
-impl<'ws, 'graph, M: RefMetadata> SuccessfulRebase<'ws, 'graph, M> {
-    /// The linked worktrees this edit has to move, with where the rewrite put each one.
+impl<'ws, 'db, 'conn> SuccessfulRebase<'ws, 'db, 'conn> {
+    /// The linked worktrees this edit has to move, with where the rewrite put each
+    /// one, validated against the shape recorded at editor creation.
     pub(super) fn linked_checkout_specs(&self) -> Result<Vec<LinkedCheckoutSpec>> {
         let mut specs = Vec::new();
         for checkout in &self.checkouts {
@@ -214,25 +215,24 @@ impl<'ws, 'graph, M: RefMetadata> SuccessfulRebase<'ws, 'graph, M> {
     fn refresh_workspace(&mut self, repo: &gix::Repository) -> Result<()> {
         let project_meta = self.workspace.graph.project_meta.clone();
         self.workspace
-            .refresh_from_head(repo, &*self.meta, project_meta, &mut *self.db)
+            .refresh_from_head(repo, project_meta, &mut self.db)
     }
 
     /// Materializes a history rewrite, and records how its branches stack in the metadata.
     pub fn materialize(
         mut self,
         materialize_options: MaterializeOptions,
-    ) -> Result<MaterializeOutcome<'ws, 'graph, M>> {
+    ) -> Result<MaterializeOutcome<'ws, 'db, 'conn>> {
         let branch_stacks = self.branch_stacks()?;
         let repo = self.repo.clone();
         if !self.references_updated()? {
-            if branch_stacks.persist(self.meta)? {
+            if branch_stacks.persist(&mut self.db)? {
                 self.refresh_workspace(&repo)?;
             }
             return Ok(MaterializeOutcome {
                 graph: self.graph,
                 history: self.history,
                 workspace: self.workspace,
-                meta: self.meta,
                 db: self.db,
                 checkout_conflict_occurred: false,
             });
@@ -305,14 +305,13 @@ impl<'ws, 'graph, M: RefMetadata> SuccessfulRebase<'ws, 'graph, M> {
         }
 
         edit_references_deleting_directory_conflicts_first(&repo, ref_edits)?;
-        branch_stacks.persist(self.meta)?;
+        branch_stacks.persist(&mut self.db)?;
         self.refresh_workspace(&repo)?;
 
         Ok(MaterializeOutcome {
             graph: self.graph,
             history: self.history,
             workspace: self.workspace,
-            meta: self.meta,
             db: self.db,
             checkout_conflict_occurred,
         })
@@ -320,7 +319,7 @@ impl<'ws, 'graph, M: RefMetadata> SuccessfulRebase<'ws, 'graph, M> {
 
     /// Convenience for [Self::materialize] with
     /// [MaterializeOptions::without_checkout] set.
-    pub fn materialize_without_checkout(self) -> Result<MaterializeOutcome<'ws, 'graph, M>> {
+    pub fn materialize_without_checkout(self) -> Result<MaterializeOutcome<'ws, 'db, 'conn>> {
         self.materialize(MaterializeOptions {
             without_checkout: true,
         })

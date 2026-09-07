@@ -21,7 +21,14 @@ pub struct ReflogCommits {
 impl ReflogCommits {
     /// Collect the current state of all relevant commits that we want to protect in the reflog to prevent them from being GC'd.
     pub fn new(ctx: &Context, target: gix::ObjectId) -> Result<Self> {
-        let last_pushed_base = ctx.legacy_meta()?.data().last_pushed_base;
+        let last_pushed_base = ctx
+            .db
+            .get_cache()?
+            .virtual_branches()
+            .get_snapshot()?
+            .and_then(|snapshot| snapshot.state.last_pushed_base_sha)
+            .map(|id| id.parse())
+            .transpose()?;
         let project_data_dir = ctx.project_data_dir();
         let oplog_state = OplogHandle::new(&project_data_dir);
         let oplog = oplog_state.oplog_head()?;

@@ -55,7 +55,11 @@ fn test_db() -> (tempfile::TempDir, but_db::DbHandle) {
 #[test]
 fn empty_cache_resolves_to_none() {
     let (_tmp, db) = test_db();
-    assert!(review_for_head_ref(&db, "feature").unwrap().is_none());
+    assert!(
+        review_for_head_ref(db.connection(), "feature")
+            .unwrap()
+            .is_none()
+    );
 }
 
 #[test]
@@ -63,11 +67,13 @@ fn resolves_from_the_cache() {
     let (_tmp, mut db) = test_db();
     cache_review(&mut db, &review(7, "feature")).unwrap();
 
-    let resolved = review_for_head_ref(&db, "feature").unwrap();
+    let resolved = review_for_head_ref(db.connection(), "feature").unwrap();
     assert_eq!(resolved.map(|r| r.number), Some(7));
 
     assert!(
-        review_for_head_ref(&db, "missing").unwrap().is_none(),
+        review_for_head_ref(db.connection(), "missing")
+            .unwrap()
+            .is_none(),
         "an unpublished branch resolves to no review"
     );
 }
@@ -78,7 +84,7 @@ fn reviews_by_head_dedups_preferring_open() {
     cache_review(&mut db, &merged(review(1, "feature"))).unwrap();
     cache_review(&mut db, &review(2, "feature")).unwrap();
 
-    let map = reviews_by_head(&db).unwrap();
+    let map = reviews_by_head(db.connection()).unwrap();
     assert_eq!(map.get("feature").map(|r| r.number), Some(2));
 }
 
@@ -88,7 +94,7 @@ fn reviews_by_head_dedups_preferring_highest_number() {
     cache_review(&mut db, &review(2, "feature")).unwrap();
     cache_review(&mut db, &review(1, "feature")).unwrap();
 
-    let map = reviews_by_head(&db).unwrap();
+    let map = reviews_by_head(db.connection()).unwrap();
     assert_eq!(map.get("feature").map(|r| r.number), Some(2));
 }
 
@@ -101,7 +107,9 @@ fn review_associations_include_settled_state() {
     cache_review(&mut db, &settled).unwrap();
 
     assert_eq!(
-        review_associations_by_head(&db).unwrap().get("feature"),
+        review_associations_by_head(db.connection())
+            .unwrap()
+            .get("feature"),
         // The fixture's sha is empty, so no merged head is exposed.
         Some(&(1, false, None))
     );

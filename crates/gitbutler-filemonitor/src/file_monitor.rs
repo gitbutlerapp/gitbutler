@@ -29,8 +29,7 @@ use crate::{
 const DEBOUNCE_TIMEOUT: Duration = Duration::from_secs(60);
 
 // The internal rate at which the debouncer will update its state.
-// Keeping a higher timeout on Windows because of file-system issues related
-// to `virtual_branches.toml`.
+// Keeping the higher Windows timeout originally needed for metadata file writes.
 const TICK_RATE: Duration = if cfg!(windows) {
     Duration::from_millis(250)
 } else {

@@ -53,24 +53,24 @@ pub fn commit_squash_only_with_perm(
     if subject_commit_ids.is_empty() {
         anyhow::bail!("No commits were provided to squash")
     }
-    let mut meta = ctx.meta()?;
-    let (repo, mut ws, mut db) = ctx.workspace_mut_and_db_mut_with_perm(perm)?;
-    let editor = Editor::create(&mut ws, &mut meta, &repo, &mut db)?;
-    let SquashCommitsOutcome {
-        rebase,
-        commit_selector,
-    } = but_workspace::commit::squash_commits(
-        editor,
-        subject_commit_ids,
-        target_commit_id,
-        how_to_combine_messages,
-    )?;
-    let new_commit = rebase.lookup_pick(commit_selector)?;
-    let workspace = WorkspaceState::from_successful_rebase(rebase, &repo, dry_run)?;
+    crate::workspace::with_workspace_transaction(ctx, perm, dry_run, |repo, ws, db| {
+        let editor = Editor::create(ws, repo, db.connection_mut())?;
+        let SquashCommitsOutcome {
+            rebase,
+            commit_selector,
+        } = but_workspace::commit::squash_commits(
+            editor,
+            subject_commit_ids,
+            target_commit_id,
+            how_to_combine_messages,
+        )?;
+        let new_commit = rebase.lookup_pick(commit_selector)?;
+        let workspace = WorkspaceState::from_successful_rebase(rebase, repo, dry_run)?;
 
-    Ok(CommitSquashResult {
-        new_commit,
-        workspace,
+        Ok(CommitSquashResult {
+            new_commit,
+            workspace,
+        })
     })
 }
 
