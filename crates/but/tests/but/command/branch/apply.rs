@@ -31,8 +31,6 @@ fn applying_empty_branch_from_single_branch_mode_preserves_current_stack() {
 ┊╭┄ g0 [C] (no commits)
 ┊│
 ┊├┄ h0 [B] (no commits)
-┊│
-┊├┄ i0 [A] (no commits)
 ├╯
 ┊
 ┴ 0dc3733 (common base) 2000-01-02 add M

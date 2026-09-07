@@ -61,7 +61,6 @@ Ok(
                         remote_tracking_ref_name: "None",
                         commits: [],
                         commits_on_remote: [],
-                        commits_outside: None,
                         metadata: "None",
                         push_status: CompletelyUnpushed,
                         base: "None",
@@ -76,7 +75,6 @@ Ok(
         is_managed_ref: false,
         is_managed_commit: false,
         ancestor_workspace_commit: None,
-        is_entrypoint: true,
     },
 )
 
@@ -141,7 +139,6 @@ Ok(
                         remote_tracking_ref_name: "None",
                         commits: [],
                         commits_on_remote: [],
-                        commits_outside: None,
                         metadata: "None",
                         push_status: CompletelyUnpushed,
                         base: "fafd9d0",
@@ -163,7 +160,6 @@ Ok(
         is_managed_ref: false,
         is_managed_commit: false,
         ancestor_workspace_commit: None,
-        is_entrypoint: true,
     },
 )
 
@@ -232,7 +228,6 @@ Ok(
                         remote_tracking_ref_name: "refs/remotes/origin/main",
                         commits: [],
                         commits_on_remote: [],
-                        commits_outside: None,
                         metadata: "None",
                         push_status: NothingToPush,
                         base: "fafd9d0",
@@ -262,7 +257,6 @@ Ok(
         is_managed_ref: false,
         is_managed_commit: false,
         ancestor_workspace_commit: None,
-        is_entrypoint: true,
     },
 )
 
@@ -315,7 +309,6 @@ Ok(
                         remote_tracking_ref_name: "refs/remotes/origin/main",
                         commits: [],
                         commits_on_remote: [],
-                        commits_outside: None,
                         metadata: "None",
                         push_status: NothingToPush,
                         base: "fafd9d0",
@@ -345,7 +338,6 @@ Ok(
         is_managed_ref: false,
         is_managed_commit: false,
         ancestor_workspace_commit: None,
-        is_entrypoint: true,
     },
 )
 
@@ -423,7 +415,6 @@ Ok(
         is_managed_ref: true,
         is_managed_commit: true,
         ancestor_workspace_commit: None,
-        is_entrypoint: true,
     },
 )
 
@@ -494,7 +485,6 @@ Ok(
                         remote_tracking_ref_name: "None",
                         commits: [],
                         commits_on_remote: [],
-                        commits_outside: None,
                         metadata: Branch,
                         push_status: CompletelyUnpushed,
                         base: "fafd9d0",
@@ -524,7 +514,6 @@ Ok(
         is_managed_ref: true,
         is_managed_commit: true,
         ancestor_workspace_commit: None,
-        is_entrypoint: true,
     },
 )
 
@@ -594,7 +583,6 @@ Ok(
                             LocalCommit(ba16348, "one\n", local),
                         ],
                         commits_on_remote: [],
-                        commits_outside: None,
                         metadata: "None",
                         push_status: CompletelyUnpushed,
                         base: "fafd9d0",
@@ -624,7 +612,6 @@ Ok(
         is_managed_ref: true,
         is_managed_commit: true,
         ancestor_workspace_commit: None,
-        is_entrypoint: true,
     },
 )
 
@@ -675,7 +662,6 @@ Ok(
                             LocalCommit(ba16348, "one\n", local),
                         ],
                         commits_on_remote: [],
-                        commits_outside: None,
                         metadata: Branch,
                         push_status: CompletelyUnpushed,
                         base: "fafd9d0",
@@ -705,7 +691,6 @@ Ok(
         is_managed_ref: true,
         is_managed_commit: true,
         ancestor_workspace_commit: None,
-        is_entrypoint: true,
     },
 )
 
@@ -778,7 +763,6 @@ Ok(
                             LocalCommit(ba16348, "one\n", local/remote(identity)),
                         ],
                         commits_on_remote: [],
-                        commits_outside: None,
                         metadata: Branch,
                         push_status: NothingToPush,
                         base: "fafd9d0",
@@ -808,7 +792,6 @@ Ok(
         is_managed_ref: true,
         is_managed_commit: true,
         ancestor_workspace_commit: None,
-        is_entrypoint: true,
     },
 )
 
@@ -886,7 +869,6 @@ Ok(
                             LocalCommit(ba16348, "one\n", local/remote(identity)),
                         ],
                         commits_on_remote: [],
-                        commits_outside: None,
                         metadata: Branch,
                         push_status: UnpushedCommits,
                         base: "fafd9d0",
@@ -916,7 +898,6 @@ Ok(
         is_managed_ref: true,
         is_managed_commit: true,
         ancestor_workspace_commit: None,
-        is_entrypoint: true,
     },
 )
 
@@ -993,7 +974,6 @@ Ok(
                             LocalCommit(3234835, "one\n", local/remote(identity)),
                         ],
                         commits_on_remote: [],
-                        commits_outside: None,
                         metadata: Branch,
                         push_status: UnpushedCommitsRequiringForce,
                         base: "fafd9d0",
@@ -1023,7 +1003,6 @@ Ok(
         is_managed_ref: true,
         is_managed_commit: true,
         ancestor_workspace_commit: None,
-        is_entrypoint: true,
     },
 )
 
@@ -1105,7 +1084,6 @@ Ok(
                             LocalCommit(3234835, "one\n", integrated(d110262)),
                         ],
                         commits_on_remote: [],
-                        commits_outside: None,
                         metadata: Branch,
                         push_status: Integrated,
                         base: "fafd9d0",
@@ -1135,7 +1113,6 @@ Ok(
         is_managed_ref: true,
         is_managed_commit: true,
         ancestor_workspace_commit: None,
-        is_entrypoint: true,
     },
 )
 
@@ -1230,7 +1207,6 @@ Ok(
                             Commit(16d0628, "add other remote file\n"),
                             Commit(66fe1d7, "add remote file\n"),
                         ],
-                        commits_outside: None,
                         metadata: Branch,
                         push_status: Integrated,
                         base: "fafd9d0",
@@ -1260,7 +1236,6 @@ Ok(
         is_managed_ref: true,
         is_managed_commit: true,
         ancestor_workspace_commit: None,
-        is_entrypoint: true,
     },
 )
 
@@ -1361,7 +1336,6 @@ Ok(
                             Commit(16d0628, "add other remote file\n"),
                             Commit(66fe1d7, "add remote file\n"),
                         ],
-                        commits_outside: None,
                         metadata: Branch,
                         push_status: Integrated,
                         base: "fafd9d0",
@@ -1382,7 +1356,6 @@ Ok(
                             LocalCommit(1af5d57, "new local file\n", integrated(2eb07c5)),
                         ],
                         commits_on_remote: [],
-                        commits_outside: None,
                         metadata: "None",
                         push_status: CompletelyUnpushed,
                         base: "de02b20",
@@ -1395,7 +1368,6 @@ Ok(
                             LocalCommit(de02b20, "new local-bottom file\n", integrated(2eb07c5)),
                         ],
                         commits_on_remote: [],
-                        commits_outside: None,
                         metadata: "None",
                         push_status: CompletelyUnpushed,
                         base: "fafd9d0",
@@ -1425,7 +1397,6 @@ Ok(
         is_managed_ref: true,
         is_managed_commit: true,
         ancestor_workspace_commit: None,
-        is_entrypoint: true,
     },
 )
 

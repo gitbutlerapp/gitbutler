@@ -186,7 +186,6 @@ RefInfo {
                         LocalCommit(edd8381, "feature\n", local),
                     ],
                     commits_on_remote: [],
-                    commits_outside: None,
                     metadata: "None",
                     push_status: CompletelyUnpushed,
                     base: "5374caf",
@@ -213,7 +212,6 @@ RefInfo {
     is_managed_ref: false,
     is_managed_commit: false,
     ancestor_workspace_commit: None,
-    is_entrypoint: true,
 }
 "#]]
             .raw()
@@ -322,7 +320,6 @@ RefInfo {
                     remote_tracking_ref_name: "None",
                     commits: [],
                     commits_on_remote: [],
-                    commits_outside: None,
                     metadata: "None",
                     push_status: CompletelyUnpushed,
                     base: "5374caf",
@@ -352,7 +349,6 @@ RefInfo {
     is_managed_ref: false,
     is_managed_commit: false,
     ancestor_workspace_commit: None,
-    is_entrypoint: true,
 }
 "#]]
             .raw()

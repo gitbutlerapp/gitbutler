@@ -19,7 +19,6 @@ function segment(name?: string): Segment {
 		remoteTrackingRefName: null,
 		commits: [],
 		commitsOnRemote: [],
-		commitsOutside: null,
 		metadata: null,
 		isEntrypoint: false,
 		pushStatus: "unpushedCommits",

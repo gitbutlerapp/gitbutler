@@ -6,11 +6,7 @@ use but_core::{
 };
 use gix::refs::Category;
 
-use crate::{
-    ref_info::{LocalCommit, LocalCommitRelation},
-    ui,
-    ui::UpstreamCommit,
-};
+use crate::{ui, ui::UpstreamCommit};
 
 /// A reference in `refs/heads`.
 #[derive(serde::Serialize, Debug, Clone)]
@@ -281,7 +277,6 @@ impl inner::RefInfo {
             is_managed_ref,
             is_managed_commit,
             ancestor_workspace_commit: _,
-            is_entrypoint,
             worktrees,
         }: crate::RefInfo,
     ) -> anyhow::Result<Self> {
@@ -297,7 +292,9 @@ impl inner::RefInfo {
                 .transpose()?,
             is_managed_ref,
             is_managed_commit,
-            is_entrypoint,
+            // ponytail: the projection is always seen from HEAD now; drop this and the
+            // segment flag from the SDK types once the frontends stop reading them.
+            is_entrypoint: true,
             worktrees: worktrees.into_iter().map(Worktree::for_ui).collect(),
         })
     }
@@ -381,10 +378,6 @@ pub struct Segment {
     /// with the local tracking branch. If these diverge, we can represent this in data, but currently there is
     /// no derived value to make this visible explicitly.
     pub commits_on_remote: Vec<UpstreamCommit>,
-    /// All commits *that are not workspace commits* reachable by (and including commits in) this segment.
-    /// The list was created by walking all parents, not only the first parent.
-    /// This means the segment needs fixing.
-    pub commits_outside: Option<Vec<ui::Commit>>,
     /// Read-only metadata with additional information about the branch naming the segment,
     /// or `None` if nothing was present.
     pub metadata: Option<ref_metadata::Branch>,
@@ -421,9 +414,7 @@ impl Segment {
             remote_tracking_branch_segment_id: _,
             commits,
             commits_on_remote,
-            commits_outside,
             metadata,
-            is_entrypoint,
             push_status,
             base,
         }: crate::ref_info::Segment,
@@ -436,20 +427,8 @@ impl Segment {
                 .transpose()?,
             commits: commits.iter().map(Into::into).collect(),
             commits_on_remote: commits_on_remote.iter().map(Into::into).collect(),
-            commits_outside: commits_outside.map(|commits| {
-                commits
-                    .into_iter()
-                    .map(|c| {
-                        (&LocalCommit {
-                            inner: c,
-                            relation: LocalCommitRelation::LocalOnly,
-                        })
-                            .into()
-                    })
-                    .collect()
-            }),
             metadata,
-            is_entrypoint,
+            is_entrypoint: false,
             push_status,
             base,
         })

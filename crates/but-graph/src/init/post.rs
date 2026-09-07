@@ -80,7 +80,7 @@ impl Graph {
         // We perform view-related updates here for convenience, but also because the graph
         // traversal should have nothing to do with workspace details. It's just about laying
         // the foundation for figuring out our workspaces more easily.
-        self.workspace_upgrades(meta, repo, &refs_by_id, &worktree_by_branch)?;
+        self.workspace_upgrades(meta, repo, &worktree_by_branch)?;
         self.ad_hoc_branch_stack_upgrades(repo, meta, &worktree_by_branch)?;
 
         // Point entrypoint to the right spot after all the virtual branches were added.
@@ -696,14 +696,12 @@ impl Graph {
         &mut self,
         meta: &OverlayMetadata<'_, T>,
         repo: &OverlayRepo<'_>,
-        refs_by_id: &RefsById,
         worktree_by_branch: &WorktreeByBranch,
     ) -> anyhow::Result<()> {
         let Some(workspace) = self.workspace_reconciliation_input()? else {
             return Ok(());
         };
         let ws_sidx = workspace.id;
-        let ws_low_bound_in_ws_sidx = workspace.lower_bound_segment_id_in_workspace();
         let ws_stacks = workspace.stacks;
         let ws_data = workspace.metadata;
         let ws_target_ref = workspace.target_ref;
@@ -1105,22 +1103,6 @@ impl Graph {
             }
         }
 
-        // The named-segment check is needed as we don't want to double-split unnamed segments.
-        // What this really does is to pass ownership of the base commit from a named segment to an unnamed one,
-        // as all algorithms kind of rely on it.
-        // So if this ever becomes a problem, we can also try to adjust said algorithms downstream.
-        if let Some(low_bound_segment_id) = ws_low_bound_in_ws_sidx
-            && self[low_bound_segment_id].ref_info.is_some()
-        {
-            self.split_segment(
-                low_bound_segment_id,
-                0,
-                None,
-                Some(refs_by_id),
-                meta,
-                worktree_by_branch,
-            )?;
-        }
         Ok(())
     }
 

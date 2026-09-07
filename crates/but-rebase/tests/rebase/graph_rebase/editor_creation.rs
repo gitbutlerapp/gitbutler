@@ -398,8 +398,14 @@ fn workspace_with_empty_stack() -> Result<()> {
         .raw()
     );
 
-    let graph =
-        Graph::from_head(&repo, &*meta, target_meta(), &mut db, standard_options())?.validated()?;
+    let graph = Graph::from_head(
+        &repo,
+        &*meta,
+        target_meta(&repo),
+        &mut db,
+        standard_options(),
+    )?
+    .validated()?;
 
     snapbox::assert_data_eq!(
         graph_tree(&graph).to_string(),
@@ -470,8 +476,14 @@ fn workspace_with_three_empty_stacks() -> Result<()> {
 "#]]
     );
 
-    let graph =
-        Graph::from_head(&repo, &*meta, target_meta(), &mut db, standard_options())?.validated()?;
+    let graph = Graph::from_head(
+        &repo,
+        &*meta,
+        target_meta(&repo),
+        &mut db,
+        standard_options(),
+    )?
+    .validated()?;
 
     snapbox::assert_data_eq!(
         graph_tree(&graph).to_string(),
@@ -584,8 +596,14 @@ fn includes_extra_refs_in_editor_creation() -> Result<()> {
     let main_ref = gix::refs::FullName::try_from("refs/heads/main")?;
 
     {
-        let graph = Graph::from_head(&repo, &*meta, target_meta(), &mut db, standard_options())?
-            .validated()?;
+        let graph = Graph::from_head(
+            &repo,
+            &*meta,
+            target_meta(&repo),
+            &mut db,
+            standard_options(),
+        )?
+        .validated()?;
         let mut ws = graph.into_workspace()?;
         let editor = Editor::create(&mut ws, &mut *meta, &repo, &mut db)?;
 
@@ -612,8 +630,14 @@ fn includes_extra_refs_in_editor_creation() -> Result<()> {
     }
 
     {
-        let graph = Graph::from_head(&repo, &*meta, target_meta(), &mut db, standard_options())?
-            .validated()?;
+        let graph = Graph::from_head(
+            &repo,
+            &*meta,
+            target_meta(&repo),
+            &mut db,
+            standard_options(),
+        )?
+        .validated()?;
         let mut ws = graph.into_workspace()?;
         let editor = Editor::create_with_opts(
             &mut ws,

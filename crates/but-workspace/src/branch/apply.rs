@@ -276,8 +276,9 @@ pub fn apply(
     };
     let branch_has_applied_metadata =
         branch_has_applied_workspace_metadata(branch.as_ref(), &ws, meta)?;
-    let branch_already_applied =
-        ws.is_reachable_from_entrypoint(branch.as_ref()) && branch_has_applied_metadata;
+    let branch_already_applied = (ws.ref_name() == Some(branch.as_ref())
+        || ws.refname_is_segment(branch.as_ref()))
+        && branch_has_applied_metadata;
     if branch_already_applied
         && (!allow_applying_already_applied_branch_when_outside_workspace
             || head_on_managed_workspace_ref)
@@ -853,8 +854,7 @@ fn branch_has_applied_workspace_metadata(
     let Some(ws_md) = meta.workspace_opt(ws_ref_name)? else {
         return Ok(true);
     };
-    Ok(ws_md.find_branch(branch, StackKind::Applied).is_some()
-        || (ws.is_entrypoint() && ws_ref_name == branch))
+    Ok(ws_md.find_branch(branch, StackKind::Applied).is_some() || ws_ref_name == branch)
 }
 
 fn filter_superseded_metadata_stacks<'a>(

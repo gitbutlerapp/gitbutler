@@ -76,17 +76,29 @@ pub fn add_workspace_with_target(
     );
     ProjectMeta {
         target_commit_id: Some(target_commit.into()),
-        ..default_project_meta()
+        target_ref: Some(target_ref_name()),
+        ..Default::default()
     }
 }
 
-pub fn default_project_meta() -> ProjectMeta {
+fn target_ref_name() -> gix::refs::FullName {
+    "refs/remotes/origin/main"
+        .try_into()
+        .expect("statically known to be valid")
+}
+
+/// The target is `origin/main`, with its current tip as the stored target commit, like a
+/// project set up by GitButler.
+pub fn default_project_meta(repo: &gix::Repository) -> ProjectMeta {
+    let target_ref = target_ref_name();
     ProjectMeta {
-        target_ref: Some(
-            "refs/remotes/origin/main"
-                .try_into()
-                .expect("statically known to be valid"),
-        ),
+        target_commit_id: repo
+            .try_find_reference(target_ref.as_ref())
+            .ok()
+            .flatten()
+            .and_then(|mut r| r.peel_to_id().ok())
+            .map(|id| id.detach()),
+        target_ref: Some(target_ref),
         ..Default::default()
     }
 }

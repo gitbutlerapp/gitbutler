@@ -307,7 +307,6 @@ TreeChanges {
               "changeId": null
             }
           ],
-          "commitsOutside": null,
           "metadata": null,
           "isEntrypoint": false,
           "pushStatus": "unpushedCommitsRequiringForce",
@@ -496,7 +495,6 @@ TreeChanges {
               "changeId": null
             }
           ],
-          "commitsOutside": null,
           "metadata": null,
           "isEntrypoint": true,
           "pushStatus": "unpushedCommitsRequiringForce",

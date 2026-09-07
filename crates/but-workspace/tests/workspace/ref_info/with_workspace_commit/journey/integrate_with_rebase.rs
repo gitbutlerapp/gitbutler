@@ -80,7 +80,6 @@ Ok(
                             LocalCommit(e1f216e, "A1\n", integrated(818dbb2)),
                         ],
                         commits_on_remote: [],
-                        commits_outside: None,
                         metadata: "None",
                         push_status: Integrated,
                         base: "fafd9d0",
@@ -110,7 +109,6 @@ Ok(
         is_managed_ref: true,
         is_managed_commit: true,
         ancestor_workspace_commit: None,
-        is_entrypoint: true,
     },
 )
 
@@ -191,7 +189,6 @@ Ok(
                             LocalCommit(e1f216e, "A1\n", integrated(d72fd2d)),
                         ],
                         commits_on_remote: [],
-                        commits_outside: None,
                         metadata: "None",
                         push_status: NothingToPush,
                         base: "fafd9d0",
@@ -221,7 +218,6 @@ Ok(
         is_managed_ref: true,
         is_managed_commit: true,
         ancestor_workspace_commit: None,
-        is_entrypoint: true,
     },
 )
 
@@ -300,7 +296,6 @@ Ok(
                             LocalCommit(550b6ac, "A1\n", local/remote(e1f216e)),
                         ],
                         commits_on_remote: [],
-                        commits_outside: None,
                         metadata: "None",
                         push_status: UnpushedCommitsRequiringForce,
                         base: "fafd9d0",
@@ -330,7 +325,6 @@ Ok(
         is_managed_ref: true,
         is_managed_commit: true,
         ancestor_workspace_commit: None,
-        is_entrypoint: true,
     },
 )
 
@@ -411,7 +405,6 @@ Ok(
                             LocalCommit(e1f216e, "A1\n", integrated(444639d)),
                         ],
                         commits_on_remote: [],
-                        commits_outside: None,
                         metadata: "None",
                         push_status: Integrated,
                         base: "fafd9d0",
@@ -441,7 +434,6 @@ Ok(
         is_managed_ref: true,
         is_managed_commit: true,
         ancestor_workspace_commit: None,
-        is_entrypoint: true,
     },
 )
 

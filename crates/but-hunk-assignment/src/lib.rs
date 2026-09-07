@@ -993,13 +993,11 @@ mod tests {
             remote_tracking_branch_segment_id: None,
             id: SegmentIndex::new(id),
             commits: vec![],
-            commits_outside: None,
             base: None,
             base_segment_id: None,
             commits_by_segment: vec![],
             commits_on_remote: vec![],
             metadata: None,
-            is_entrypoint: false,
         }
     }
 

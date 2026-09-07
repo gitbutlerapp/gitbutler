@@ -136,8 +136,6 @@ pub struct RefInfo {
     ///
     /// **Warning**: If `Some()`, only fixing this issue should be allowed.
     pub ancestor_workspace_commit: Option<AncestorWorkspaceCommit>,
-    /// The workspace represents what `HEAD` is pointing to.
-    pub is_entrypoint: bool,
     /// The active linked worktrees along with the commits they own, or empty if the traversal
     /// wasn't seeded with worktree tips (i.e. the `worktreeManipulation` flag is off).
     pub worktrees: Vec<worktrees::WorktreeInfo>,
@@ -158,7 +156,6 @@ impl std::fmt::Debug for RefInfo {
             is_managed_ref,
             is_managed_commit,
             ancestor_workspace_commit,
-            is_entrypoint,
             worktrees,
         } = self;
         let mut s = f.debug_struct("RefInfo");
@@ -171,31 +168,11 @@ impl std::fmt::Debug for RefInfo {
             .field("lower_bound", lower_bound)
             .field("is_managed_ref", is_managed_ref)
             .field("is_managed_commit", is_managed_commit)
-            .field("ancestor_workspace_commit", ancestor_workspace_commit)
-            .field("is_entrypoint", is_entrypoint);
+            .field("ancestor_workspace_commit", ancestor_workspace_commit);
         if !worktrees.is_empty() {
             s.field("worktrees", worktrees);
         }
         s.finish()
-    }
-}
-
-impl RefInfo {
-    /// Keep only the stack and segment that contains the entrypoint.
-    pub fn pruned_to_entrypoint(mut self) -> Self {
-        if self.is_entrypoint {
-            return self;
-        }
-        self.stacks
-            .retain(|s| s.segments.iter().any(|s| s.is_entrypoint));
-        if let Some(only_stack) = self.stacks.first_mut() {
-            let mut found_entrypoint = false;
-            only_stack.segments.retain(|s| {
-                found_entrypoint |= s.is_entrypoint;
-                found_entrypoint
-            })
-        }
-        self
     }
 }
 

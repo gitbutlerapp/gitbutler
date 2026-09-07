@@ -1,12 +1,10 @@
-use anyhow::Context as _;
 use but_core::ref_metadata;
 
 use super::Stack;
 use crate::{Graph, SegmentIndex};
 
 pub(super) mod api;
-mod init;
-pub(crate) use init::Downgrade;
+pub(crate) mod init;
 
 /// A workspace reference is a list of [Stacks](Stack), with a reference to the underlying [`Graph`].
 #[derive(Clone)]
@@ -117,26 +115,6 @@ pub(crate) struct WorkspaceReconciliationInput {
     pub metadata: ref_metadata::Workspace,
 }
 
-impl WorkspaceReconciliationInput {
-    /// Return the lower-bound segment only if it is currently part of one of
-    /// [`Self::stacks`].
-    ///
-    /// This is narrower than [`Self::lower_bound_segment_id`]. Reconciliation
-    /// uses it for the "split lower bound out of a named stack segment" fixup,
-    /// which is only valid when that lower-bound segment is inside the current
-    /// workspace stack paths. If the lower bound comes from the target side or
-    /// another integrated context outside the workspace paths, this returns
-    /// `None` to avoid mutating unrelated graph structure.
-    pub fn lower_bound_segment_id_in_workspace(&self) -> Option<SegmentIndex> {
-        self.lower_bound_segment_id.filter(|lb_sidx| {
-            self.stacks
-                .iter()
-                .flat_map(|s| s.segments.iter().map(|s| s.id))
-                .any(|sid| sid == *lb_sidx)
-        })
-    }
-}
-
 impl Workspace {
     fn from_state(
         graph: Graph,
@@ -213,15 +191,6 @@ impl WorkspaceKind {
     }
 }
 
-impl WorkspaceKind {
-    fn managed(ref_info: &Option<crate::RefInfo>) -> anyhow::Result<Self> {
-        let ref_info = ref_info
-            .clone()
-            .context("BUG: managed workspaces must always be on a named segment")?;
-        Ok(WorkspaceKind::Managed { ref_info })
-    }
-}
-
 /// Information about the target reference, which marks a portion in the commit-graph
 /// that the workspace wants to integrate with.
 #[derive(Debug, Clone)]
@@ -275,7 +244,7 @@ impl TargetCommit {
 impl TargetRef {
     /// Return `None` if `ref_name` wasn't found as segment in `graph`.
     /// This can happen if a reference is configured, but not actually present as reference.
-    /// Note that `commits_ahead` isn't set yet, see [`Self::compute_and_set_commits_ahead()`].
+    /// Note that `commits_ahead` isn't set yet, see [`Self::commits_ahead()`].
     fn from_ref_name_without_commits_ahead(
         ref_name: &gix::refs::FullName,
         graph: &Graph,
@@ -287,16 +256,19 @@ impl TargetRef {
         })
     }
 
-    fn compute_and_set_commits_ahead(
-        &mut self,
+    /// Count the commits of the target at `target_segment` that aren't in the workspace, stopping
+    /// at `lower_bound_segment`.
+    pub(crate) fn commits_ahead(
         graph: &Graph,
+        target_segment: SegmentIndex,
         lower_bound_segment: Option<SegmentIndex>,
-    ) {
+    ) -> usize {
         let lower_bound = lower_bound_segment.map(|sidx| (sidx, graph[sidx].generation));
-        self.commits_ahead = 0;
-        Self::visit_upstream_commits(graph, self.segment_index, lower_bound, |s| {
-            self.commits_ahead += s.commits.len();
-        })
+        let mut commits_ahead = 0;
+        Self::visit_upstream_commits(graph, target_segment, lower_bound, |s| {
+            commits_ahead += s.commits.len();
+        });
+        commits_ahead
     }
 }
 

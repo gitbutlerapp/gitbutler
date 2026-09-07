@@ -50,7 +50,6 @@ function segment({
 		remoteTrackingRefName: null,
 		commits,
 		commitsOnRemote: [],
-		commitsOutside: null,
 		metadata: null,
 		isEntrypoint: false,
 		pushStatus: "unpushedCommits",

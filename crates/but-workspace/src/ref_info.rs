@@ -311,19 +311,9 @@ pub struct Segment {
     /// with the local tracking branch. If these diverge, we can represent this in data, but currently there is
     /// no derived value to make this visible explicitly.
     pub commits_on_remote: Vec<Commit>,
-    /// All commits *that are not workspace commits* reachable by (and including commits in) this segment.
-    /// The list was created by walking all parents, not only the first parent.
-    /// This means the segment needs fixing.
-    pub commits_outside: Option<Vec<Commit>>,
     /// Read-only metadata with additional information about the branch naming the segment,
     /// or `None` if nothing was present.
     pub metadata: Option<ref_metadata::Branch>,
-    /// This is `true` a segment in a workspace if the entrypoint of [the traversal](but_graph::Graph::from_commit_traversal())
-    /// is this segment, and the surrounding workspace is provided for context.
-    ///
-    /// This means one will see the entire workspace, while knowing the focus is on one specific segment.
-    /// *Note* that this segment can be listed in *multiple stacks* as it's reachable from multiple 'ahead' segments.
-    pub is_entrypoint: bool,
     /// A derived value to help the UI decide which functions to make available.
     pub push_status: crate::ui::PushStatus,
     /// This is always the `first()` commit in `commits` of the next stacksegment, or the first commit of
@@ -350,52 +340,46 @@ impl std::fmt::Debug for Segment {
             id,
             commits,
             commits_on_remote,
-            commits_outside,
             remote_tracking_ref_name,
             remote_tracking_branch_segment_id: _,
             metadata,
-            is_entrypoint,
             push_status,
             base,
         } = self;
-        f.debug_struct(&format!(
-            "{ep}ref_info::ui::Segment",
-            ep = if *is_entrypoint { "👉" } else { "" }
-        ))
-        .field("id", &id)
-        .field(
-            "ref_name",
-            &match ref_info.as_ref() {
-                None => "None".to_string(),
-                Some(ri) => ri.debug_string(),
-            },
-        )
-        .field(
-            "remote_tracking_ref_name",
-            &match remote_tracking_ref_name.as_ref() {
-                None => "None".to_string(),
-                Some(name) => name.to_string(),
-            },
-        )
-        .field("commits", &commits)
-        .field("commits_on_remote", &commits_on_remote)
-        .field("commits_outside", &commits_outside)
-        .field(
-            "metadata",
-            match metadata {
-                None => &"None",
-                Some(m) => m,
-            },
-        )
-        .field("push_status", push_status)
-        .field(
-            "base",
-            &match base {
-                None => Cow::Borrowed("None"),
-                Some(id) => Cow::Owned(id.to_hex_with_len(7).to_string()),
-            },
-        )
-        .finish()
+        f.debug_struct("ref_info::ui::Segment")
+            .field("id", &id)
+            .field(
+                "ref_name",
+                &match ref_info.as_ref() {
+                    None => "None".to_string(),
+                    Some(ri) => ri.debug_string(),
+                },
+            )
+            .field(
+                "remote_tracking_ref_name",
+                &match remote_tracking_ref_name.as_ref() {
+                    None => "None".to_string(),
+                    Some(name) => name.to_string(),
+                },
+            )
+            .field("commits", &commits)
+            .field("commits_on_remote", &commits_on_remote)
+            .field(
+                "metadata",
+                match metadata {
+                    None => &"None",
+                    Some(m) => m,
+                },
+            )
+            .field("push_status", push_status)
+            .field(
+                "base",
+                &match base {
+                    None => Cow::Borrowed("None"),
+                    Some(id) => Cow::Owned(id.to_hex_with_len(7).to_string()),
+                },
+            )
+            .finish()
     }
 }
 
@@ -562,7 +546,6 @@ pub fn graph_to_ref_info(
         }
         WorkspaceKind::AdHoc => (graph[*id].ref_info.as_ref(), false, None),
     };
-    let is_entrypoint = graph.entrypoint()?.segment.id == *id;
     // Ask the repo where the ref points and compare the stored id itself: the graph
     // may drop `target_commit` and may leave the ref's own segment without commits.
     let is_target_current = match (target_ref, graph.project_meta.target_commit_id) {
@@ -585,7 +568,6 @@ pub fn graph_to_ref_info(
         is_managed_ref: metadata.is_some(),
         is_managed_commit,
         ancestor_workspace_commit,
-        is_entrypoint,
         worktrees: crate::worktrees::worktree_infos(workspace, repo),
     };
 
@@ -841,12 +823,9 @@ impl crate::ref_info::Segment {
             remote_tracking_branch_segment_id,
             id,
             commits,
-            // TODO: make it visible in this this data structure.
-            commits_outside,
             commits_on_remote,
             commits_by_segment: _,
             metadata,
-            is_entrypoint,
         }: &but_graph::workspace::StackSegment,
         repo: &gix::Repository,
     ) -> anyhow::Result<Self> {
@@ -860,17 +839,6 @@ impl crate::ref_info::Segment {
                 but_core::Commit::from_id(c.id.attach(repo)).map(crate::ref_info::Commit::from)
             })
             .collect::<Result<_, _>>()?;
-        let commits_outside = commits_outside
-            .as_ref()
-            .map(|v| {
-                v.iter()
-                    .map(|c| {
-                        but_core::Commit::from_id(c.id.attach(repo))
-                            .map(crate::ref_info::Commit::from)
-                    })
-                    .collect::<Result<Vec<_>, _>>()
-            })
-            .transpose()?;
         Ok(Self {
             ref_info: ref_info.clone(),
             id: *id,
@@ -878,9 +846,7 @@ impl crate::ref_info::Segment {
             remote_tracking_branch_segment_id: *remote_tracking_branch_segment_id,
             commits,
             commits_on_remote,
-            commits_outside,
             metadata: metadata.clone(),
-            is_entrypoint: *is_entrypoint,
             base: *base,
             // To be set later.
             push_status: PushStatus::NothingToPush,
