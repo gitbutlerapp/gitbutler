@@ -1,0 +1,376 @@
+# Parallel Linux trial of .github/workflows/push.yaml; GitHub remains authoritative.
+# Windows, macOS, compatibility smoke tests, installer jobs, and GHCR jobs stay on GitHub.
+# No configured secrets required; external test analytics uploads are omitted.
+# See .depot/README.md for setup, limitations, and cutover requirements.
+name: "Test (Depot trial)"
+on:
+  push:
+    branches:
+      - master
+  pull_request:
+
+env:
+  RUST_BACKTRACE: full
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  pull-requests: read
+
+jobs:
+  changes:
+    runs-on: depot-ubuntu-24.04
+    outputs:
+      node: ${{ steps.filter.outputs.node }}
+      rust: ${{ steps.filter.outputs.rust }}
+      but_sdk: ${{ steps.filter.outputs.but_sdk }}
+      docs: ${{ steps.filter.outputs.docs }}
+      lite_e2e: ${{ steps.filter.outputs.lite_e2e }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: dorny/paths-filter@ceb8a2b8f2d89434be7ff52d3de7ec3738c5cc9d # v4.0.3
+        id: filter
+        with:
+          filters: |
+            workflows: &workflows
+              - '.github/workflows/**'
+              - '.github/actions/**'
+              - '.depot/**'
+            docs:
+              - '**/*.md'
+            node:
+              - *workflows
+              - 'apps/**'
+              - 'packages/**'
+              - 'e2e/**'
+              - 'package.json'
+              - 'pnpm-lock.yaml'
+            but_sdk:
+              - 'crates/**'
+              - *workflows
+              - 'Cargo.lock'
+              - 'Cargo.toml'
+              - 'package.json'
+              - 'pnpm-lock.yaml'
+              - 'packages/but-sdk/**'
+            common-rust: &rust
+              - *workflows
+              - 'Cargo.lock'
+              - 'Cargo.toml'
+            rust: &any-rust
+              - *rust
+              - 'crates/**'
+            lite_e2e:
+              - *workflows
+              - 'apps/lite/**'
+              - 'crates/**'
+              - 'e2e/playwright/fixtures/**'
+              - 'e2e/playwright/scripts/**'
+              - 'packages/but-sdk/**'
+              - 'scripts/install-minimal-debian-dependencies.sh'
+              - '.nvmrc'
+              - 'Cargo.lock'
+              - 'Cargo.toml'
+              - 'package.json'
+              - 'pnpm-lock.yaml'
+              - 'pnpm-workspace.yaml'
+              - 'rust-toolchain.toml'
+
+  prettier:
+    needs: changes
+    if: ${{ needs.changes.outputs.node == 'true' || needs.changes.outputs.docs == 'true' }}
+    runs-on: depot-ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: ./.depot/actions/init-env-node
+      - run: pnpm prettier
+
+  lint-node:
+    needs: changes
+    if: ${{ needs.changes.outputs.node == 'true' }}
+    runs-on: depot-ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: ./.depot/actions/init-env-node
+      - run: pnpm lint
+
+  check-node:
+    needs: changes
+    if: ${{ needs.changes.outputs.node == 'true' }}
+    runs-on: depot-ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: ./.depot/actions/init-env-node
+      - run: pnpm check
+
+  unittest-node:
+    needs: changes
+    if: ${{ needs.changes.outputs.node == 'true' }}
+    runs-on: depot-ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: ./.depot/actions/init-env-node
+      - id: get_playwright_version
+        uses: eviden-actions/get-playwright-version@b0cd9674901dfcdabb64e3cff99a4e582719f0f6 # v1
+      - name: Cache playwright binaries
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v5
+        id: playwright-cache
+        with:
+          path: |
+            ~/.cache/ms-playwright
+          key: ${{ runner.os }}-playwright-${{ steps.get_playwright_version.outputs.playwright-version }}
+      - run: pnpm ui:playwright:install:unit
+        if: ${{ steps.playwright-cache.outputs.cache-hit != 'true' }}
+      - run: pnpm test
+
+  but-sdk-build-check:
+    needs: changes
+    if: ${{ needs.changes.outputs.but_sdk == 'true' }}
+    runs-on: depot-ubuntu-24.04
+    env:
+      CARGO_TERM_COLOR: always
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Cache apt archives
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v5
+        with:
+          path: .apt-cache
+          key: ${{ runner.os }}-apt-but-sdk-${{ hashFiles('scripts/install-minimal-debian-dependencies.sh') }}
+      - name: Install dependencies for but-sdk
+        run: |
+          sudo ./scripts/install-minimal-debian-dependencies.sh "$PWD/.apt-cache"
+          sudo chown -R "$(id -u)":"$(id -g)" "$PWD/.apt-cache"
+      - uses: ./.depot/actions/init-env-node
+      - name: Rust Cache
+        uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+        with:
+          shared-key: but-sdk-build-check
+          save-if: ${{ github.ref == 'refs/heads/master' }}
+      - name: Build but-sdk
+        run: pnpm --filter @gitbutler/but-sdk build
+      - name: Verify generated types are up-to-date
+        run: ./scripts/generate-sdk-types.sh
+      - name: Check but-sdk
+        run: pnpm --filter @gitbutler/but-sdk check
+
+  # Find unused cargo dependencies
+  cargo-machete:
+    needs: changes
+    if: ${{ needs.changes.outputs.rust == 'true' }}
+    runs-on: depot-ubuntu-24.04
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Install cargo-machete
+        run: cargo install --locked cargo-machete --version 0.9.1
+      - name: Run cargo-machete on workspace
+        run: cargo machete
+
+  cargo-deny:
+    needs: changes
+    if: ${{ needs.changes.outputs.rust == 'true' }}
+    runs-on: depot-ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: EmbarkStudios/cargo-deny-action@3c6349835b2b7b196a839186cb8b78e02f7b5f25 # v2.1.1
+        with:
+          command: check bans licenses sources
+
+  cargo-doc:
+    needs: changes
+    if: ${{ needs.changes.outputs.rust == 'true' }}
+    runs-on: depot-ubuntu-24.04
+    env:
+      CARGO_TERM_COLOR: always
+      RUSTDOCFLAGS: -D warnings
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Rust Cache
+        uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+        with:
+          shared-key: cargo-doc
+          save-if: ${{ github.ref == 'refs/heads/master' }}
+      - name: Dependencies for 'keyring'
+        run: sudo ./scripts/install-minimal-debian-dependencies.sh
+      - name: Check documentation
+        run: cargo doc --workspace --no-deps --exclude gitbutler-tauri --exclude but-api-macros-tests
+
+  rust-test:
+    needs: changes
+    if: ${{ needs.changes.outputs.rust == 'true' }}
+    runs-on: depot-ubuntu-24.04
+    env:
+      CARGO_TERM_COLOR: always
+      GITBUTLER_TESTS_NO_CLEANUP: "1"
+      # Redirect the app-data dir so any test that loads user-level settings writes here.
+      # The final step asserts nothing did - see 'Assert test hermeticity'.
+      # (a literal path - the `runner` context is not available in job-level `env`)
+      E2E_TEST_APP_DATA_DIR: /tmp/hermeticity-guard
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Rust Cache
+        uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+        with:
+          shared-key: cargo-test-no-tauri
+          save-if: ${{ github.ref == 'refs/heads/master' }}
+      - name: Dependencies for 'keyring'
+        run: sudo ./scripts/install-minimal-debian-dependencies.sh
+      - name: Install cargo-nextest
+        run: |
+
+          # To update the version of cargo-nextest, replace the version specifier in the `curl` command and update the
+          # checksum.
+          #
+          # Checksums are available as artifacts on GitHub Release (https://github.com/nextest-rs/nextest/releases),
+          # should be called "cargo-nextest-<VERSION>-x86_64-unknown-linux-gnu.sha256"
+          curl -LsSf https://get.nexte.st/0.9.133/linux -o cargo-nextest.tar.gz
+          echo "a9f992321e8759818400d93abb9477b4b11422d18d216e8d208505bd73454103 cargo-nextest.tar.gz" | sha256sum -c -
+          tar -xzf cargo-nextest.tar.gz -C ${CARGO_HOME:-~/.cargo}/bin
+          rm cargo-nextest.tar.gz
+      - name: Run workspace tests
+        run: cargo nextest run --workspace --exclude gitbutler-tauri --exclude but-api-macros-tests --profile ci
+      - name: Run doctests
+        run: cargo test --doc --workspace --exclude gitbutler-tauri --exclude but-api-macros-tests
+      # It's intentional to use 'name equals run-script' so it's easy to re-run locally on failure.
+      - run: make test-modern-but
+      - name: test vendored
+        run: |
+          set -x
+          (cd crates/gitbutler-filemonitor/vendor/debouncer && cargo test)
+      - name: Assert test hermeticity
+        run: |
+          if [ -e "$E2E_TEST_APP_DATA_DIR" ]; then
+            echo "::error::Tests wrote to the user-level app-data dir. Use Context::from_repo_for_testing or but_testsupport::isolated_app_data_dir instead of settings-loading constructors:"
+            find "$E2E_TEST_APP_DATA_DIR"
+            exit 1
+          fi
+
+  check-rust:
+    # Linux-only trial summary, NOT a replacement for GitHub's required check-rust.
+    # Skip the aggregator when the run itself is cancelled: a concurrency-
+    # cancelled twin run has `cancelled` needs, which alls-green scores as
+    # failure — a phantom red required check on the same commit as the live
+    # (green) run.
+    if: ${{ !cancelled() }}
+    needs:
+      - changes
+      - rust-test
+      - cargo-machete
+      - cargo-doc
+      - but-sdk-build-check
+    runs-on: depot-ubuntu-24.04
+    env:
+      CARGO_TERM_COLOR: always
+    steps:
+      - name: Decide whether the needed jobs succeeded or failed
+        uses: re-actors/alls-green@05ac9388f0aebcb5727afa17fcccfecd6f8ec5fe # release/v1
+        with:
+          allowed-skips: ${{ toJSON(needs) }}
+          jobs: ${{ toJSON(needs) }}
+
+  # Check that all `actions/checkout` in CI jobs have `persist-credentials: false`.
+  check-no-persist-credentials:
+    runs-on: depot-ubuntu-24.04
+
+    env:
+      GLOB: .github/workflows/*.@(yaml|yml) .depot/workflows/*.@(yaml|yml)
+
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          sparse-checkout: |
+            .github/workflows
+            .depot/workflows
+      - name: Generate workflows list to scan
+        run: |
+          shopt -s extglob
+          printf '%s\n' ${{ env.GLOB }} | grep -v .github/workflows/publish.yaml >workflows.list
+          cat workflows.list
+          echo "Note that publish.yaml is excluded until it's ensured to not need this feature"
+      - name: Scan workflows
+        run: |
+          shopt -s extglob
+          yq '.jobs.*.steps[]
+            | select(.uses == "actions/checkout@*" and .with.["persist-credentials"]? != false)
+            | {"file": filename, "line": line, "name": (.name // .uses)}
+            | .file + ":" + (.line | tostring) + ": " + .name
+          ' -- $(cat workflows.list) >query-output.txt
+          cat query-output.txt
+          test -z "$(<query-output.txt)"  # Report failure if we found anything
+
+  lite-e2e:
+    needs: changes
+    if: ${{ needs.changes.outputs.lite_e2e == 'true' }}
+    runs-on: depot-ubuntu-24.04
+    timeout-minutes: 30
+    permissions:
+      contents: read
+    env:
+      BUT: ${{ github.workspace }}/target/x86_64-unknown-linux-gnu/debug/but
+      CARGO_BUILD_TARGET: x86_64-unknown-linux-gnu
+      CARGO_TERM_COLOR: always
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Install system dependencies
+        run: sudo ./scripts/install-minimal-debian-dependencies.sh
+      - uses: ./.depot/actions/init-env-node
+      - name: Rust Cache
+        uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+        with:
+          shared-key: lite-e2e-rust-binaries
+          save-if: ${{ github.ref == 'refs/heads/master' }}
+      - name: Build dependencies
+        run: |
+          pnpm --filter @gitbutler/but-sdk build:napi
+          cargo build -p but
+      # Ubuntu restricts the user namespaces used by unpackaged Chromium builds. Configure
+      # Electron's bundled SUID helper so the tests can keep Chromium's sandbox enabled.
+      # https://chromium.googlesource.com/chromium/src/+/main/docs/security/apparmor-userns-restrictions.md
+      # https://chromium.googlesource.com/chromium/src/+/main/docs/linux/suid_sandbox_development.md
+      - name: Configure Electron sandbox
+        run: |
+          pnpm --filter @gitbutler/lite exec install-electron
+          electron_path="$(pnpm --filter @gitbutler/lite exec node -p 'require("electron")')"
+          electron_sandbox="$(dirname "$electron_path")/chrome-sandbox"
+          sudo chown root:root "$electron_sandbox"
+          sudo chmod 4755 "$electron_sandbox"
+      - name: Run Lite E2E tests
+        # Concurrent Electron launches can fail during renderer bootstrap on GitHub's Linux runners.
+        run: xvfb-run --auto-servernum pnpm --filter @gitbutler/lite test:e2e --forbid-only --workers=1
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        if: failure()
+        with:
+          name: lite-e2e-output
+          path: apps/lite/test-results/
+          if-no-files-found: ignore
+          retention-days: 30
