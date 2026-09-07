@@ -20,11 +20,11 @@ import { useAppSelector } from "#ui/store.ts";
 import { Button } from "@base-ui/react";
 import type { BottomUpdate } from "@gitbutler/but-sdk";
 import { useQuery } from "@tanstack/react-query";
-import { type FC, type ReactNode, type Ref, type RefObject, useRef } from "react";
+import type { FC, ReactNode } from "react";
 import { createPortal } from "react-dom";
 import styles from "./Section.module.css";
 import { TargetCommitRow } from "./TargetCommitRow.tsx";
-import { LEG_GAP, type Plan, type Run, targetCommitAddress } from "./layout.ts";
+import { HISTORY_GAP, LEG_GAP, type Plan, type Run, targetCommitAddress } from "./layout.ts";
 
 /*
  * The upstream section under the stacks: the target's row or card, folding
@@ -126,13 +126,12 @@ const Elided: FC<{
 	</Row>
 );
 
-const Fold: FC<{
-	open: boolean;
-	className?: string;
-	ref?: Ref<HTMLDivElement>;
-	children: ReactNode;
-}> = ({ open, className, ref, children }) => (
-	<div ref={ref} className={classes(styles.fold, className)} data-open={open}>
+const Fold: FC<{ open: boolean; className?: string; children: ReactNode }> = ({
+	open,
+	className,
+	children,
+}) => (
+	<div className={classes(styles.fold, className)} data-open={open}>
 		<div className={styles.foldInner}>{children}</div>
 	</div>
 );
@@ -158,7 +157,7 @@ const runRows = (
 };
 
 /** Rebases every stack onto the target's fetched tip; this does not fetch. */
-const Update: FC<{ projectId: string }> = ({ projectId }) => {
+const Update: FC<{ projectId: string; incoming?: number }> = ({ projectId, incoming }) => {
 	const { data: headInfo } = useQuery(headInfoQueryOptions(projectId));
 	const noOperationPending = useAppSelector(
 		(state) => projectSlice.selectors.selectPendingOperation(state, projectId)._tag === "None",
@@ -180,7 +179,7 @@ const Update: FC<{ projectId: string }> = ({ projectId }) => {
 			disabled={!enabled}
 			onClick={rebase}
 		>
-			{isPending ? "Updating…" : "Update"}
+			{isPending ? "Updating…" : incoming === undefined ? "Update" : `Update (${incoming} new)`}
 		</Button>
 	);
 };
@@ -221,9 +220,7 @@ export const Section: FC<{
 	onShowMoreRun: (runId: string) => void;
 	onFoldRun: (runId: string) => void;
 	onShowMore: () => void;
-	/** The scroller, for the docked merge base row's toggle to scroll to its place. */
-	scrollElementRef: RefObject<HTMLDivElement | null>;
-	/** The scroller's foot, where a stand-in for the merge base row docks while the row is out of view. */
+	/** The scroller's foot, where a stand-in for the base row docks while the row is out of view. */
 	footDock: HTMLDivElement | null;
 }> = ({
 	projectId,
@@ -235,153 +232,135 @@ export const Section: FC<{
 	onShowMoreRun,
 	onFoldRun,
 	onShowMore,
-	scrollElementRef,
 	footDock,
 }) => {
 	const branched = plan.header.incoming > 0;
 	const addressSpace = useAddressSpace();
-	// Opening from docked: scroll to the bottom and hold it while the fold grows.
-	const baseFold = useRef<HTMLDivElement>(null);
-	const baseRows = useRef<HTMLDivElement>(null);
-	const toggleBase = () => {
-		const scroller = scrollElementRef.current;
-		const fold = baseFold.current;
-		const rows = baseRows.current;
-		if (!plan.baseExpanded && scroller !== null && fold !== null && rows !== null) {
-			scroller.scrollTop = scroller.scrollHeight;
-			let height = 0;
-			const hold = new ResizeObserver(() => {
-				scroller.scrollTop = scroller.scrollHeight;
-				// Lets go once the fold has grown to its rows, or shrinks: folded again midway.
-				if (fold.offsetHeight >= rows.offsetHeight || fold.offsetHeight < height) hold.disconnect();
-				height = fold.offsetHeight;
-			});
-			hold.observe(fold);
-		}
-		onToggleBase();
-	};
 	// The line ends on the last row shown: the "show more" row, else the
 	// last commit once the history is shown to its start.
 	const endsOnBase = historyEnds && moreBelow === "hidden" && plan.older.length === 0;
-	/** The ref's tip on the base: one row for both. Moved on: the row says how far. */
-	const baseHeader = (className?: string) => (
+	/** The base's row. Docked, Update names the count. */
+	const baseRow = (className?: string, incoming?: number) => (
 		<Header
-			label={plan.refOnBase ? plan.header.label : "Merge base"}
-			caption={
-				plan.refOnBase ? (
-					<span className={classes("text-12", styles.caption)}>merge base</span>
-				) : branched ? (
-					<span className={classes("text-12", styles.incoming)}>{plan.header.incoming} new</span>
-				) : undefined
-			}
-			heading={plan.refOnBase}
-			fold={{
-				open: plan.baseExpanded,
-				onToggle: toggleBase,
-				name: "the merge base's history",
-			}}
-			rail={<GraphSegment glyph="control" status="LocalOnly" railEnds={!plan.baseExpanded} />}
+			label="Workspace base"
+			rail={<GraphSegment glyph="commit" status="Integrated" />}
 			className={className}
 		>
-			{branched && <Update projectId={projectId} />}
+			<Update projectId={projectId} incoming={incoming} />
 		</Header>
+	);
+	const history = (
+		<Fold open={plan.baseExpanded} className={styles.history}>
+			<div className={styles.rows}>
+				{plan.belowBase.map((item, index) =>
+					item.kind === "fork"
+						? commitRow(
+								item.commit,
+								"Integrated",
+								addressSpace,
+								0,
+								endsOnBase && index === plan.belowBase.length - 1,
+							)
+						: runRows(
+								item,
+								"Integrated",
+								addressSpace,
+								0,
+								() => onShowMoreRun(item.id),
+								() => onFoldRun(item.id),
+							),
+				)}
+				{plan.older.map((commit, index) =>
+					commitRow(
+						commit,
+						"Integrated",
+						addressSpace,
+						0,
+						historyEnds && index === plan.older.length - 1,
+					),
+				)}
+				{moreBelow !== "hidden" && <ShowMore state={moreBelow} onSelect={onShowMore} />}
+			</div>
+		</Fold>
 	);
 	return (
 		<>
-			{plan.base !== null &&
-				!plan.refOnBase &&
-				(branched ? (
-					// The target has moved on: a card like a forked stack's, the main
-					// line behind its rows and its incoming commits on a leg that
-					// starts under the chevron and bends onto the line in the gap below.
-					<>
-						<div className={styles.card}>
-							<Row interactive={false} className={styles.air}>
-								<GraphSegment glyph="space" status="LocalOnly" behind={1} />
-							</Row>
-							<Header
-								label={plan.header.label}
-								heading
-								fold={{
-									open: plan.incomingExpanded,
-									onToggle: onToggleIncoming,
-									name: "incoming commits",
-								}}
-								rail={<GraphSegment glyph="controlHead" status="Upstream" behind={1} />}
-							/>
-							<Fold open={plan.incomingExpanded}>
-								<div className={styles.rows}>
-									{plan.incoming.map((run) =>
-										runRows(
-											run,
-											"Upstream",
-											addressSpace,
-											1,
-											() => onShowMoreRun(run.id),
-											() => onFoldRun(run.id),
-										),
-									)}
-								</div>
-							</Fold>
-							<Row interactive={false} className={styles.stub}>
-								<GraphSegment glyph="parent" status="Upstream" behind={1} />
-							</Row>
-						</div>
-						<GraphGap height={LEG_GAP} bend="Upstream" />
-					</>
-				) : (
-					// The target sits above the base with nothing incoming: a row on
-					// the main line, marked the way a branch is marked on its rail.
-					<>
+			{plan.base !== null && branched && (
+				// The target has moved on: a card like a forked stack's, the main
+				// line behind its rows and its incoming commits on a leg that
+				// starts under the chevron and bends onto the line in the gap below.
+				// Up to date, the target is the base and needs no row of its own.
+				<>
+					<div className={styles.card}>
+						<Row interactive={false} className={styles.air}>
+							<GraphSegment glyph="space" status="LocalOnly" behind={1} />
+						</Row>
 						<Header
 							label={plan.header.label}
+							caption={
+								<span className={classes("text-12", styles.incoming)}>
+									{plan.header.incoming} new
+								</span>
+							}
 							heading
-							rail={<GraphSegment glyph="joinRight" status="LocalOnly" />}
+							fold={{
+								open: plan.incomingExpanded,
+								onToggle: onToggleIncoming,
+								name: "incoming commits",
+							}}
+							rail={<GraphSegment glyph="controlHead" status="Upstream" behind={1} />}
 						/>
-						<GraphGap height={LEG_GAP} />
-					</>
-				))}
+						<Fold open={plan.incomingExpanded}>
+							<div className={styles.rows}>
+								{plan.incoming.map((run) =>
+									runRows(
+										run,
+										"Upstream",
+										addressSpace,
+										1,
+										() => onShowMoreRun(run.id),
+										() => onFoldRun(run.id),
+									),
+								)}
+							</div>
+						</Fold>
+						<Row interactive={false} className={styles.stub}>
+							<GraphSegment glyph="parent" status="Upstream" behind={1} />
+						</Row>
+					</div>
+					<GraphGap height={LEG_GAP} bend="Upstream" />
+				</>
+			)}
 			{plan.base !== null && (
+				// The base's history folds inside a card like a stack's.
 				<>
-					{baseHeader()}
-					{/* Folded, the row's stand-in docks at the scroller's foot while the row is out
-					    of view below. A portal: the foot is outside the tree, and only there can it
-					    stick over the uncommitted files card, which is outside the tree as well. */}
-					{!plan.baseExpanded &&
-						footDock !== null &&
-						createPortal(baseHeader(styles.docked), footDock)}
-					<Fold open={plan.baseExpanded} className={styles.history} ref={baseFold}>
-						<div ref={baseRows} className={styles.rows}>
-							{plan.belowBase.map((item, index) =>
-								item.kind === "fork"
-									? commitRow(
-											item.commit,
-											"Integrated",
-											addressSpace,
-											0,
-											endsOnBase && index === plan.belowBase.length - 1,
-										)
-									: runRows(
-											item,
-											"Integrated",
-											addressSpace,
-											0,
-											() => onShowMoreRun(item.id),
-											() => onFoldRun(item.id),
-										),
-							)}
-							{plan.older.map((commit, index) =>
-								commitRow(
-									commit,
-									"Integrated",
-									addressSpace,
-									0,
-									historyEnds && index === plan.older.length - 1,
-								),
-							)}
-							{moreBelow !== "hidden" && <ShowMore state={moreBelow} onSelect={onShowMore} />}
-						</div>
-					</Fold>
+					{/* Moved on, the base gets a row; folded, its stand-in docks at the scroller's
+					    foot while the row is out of view below. A portal: the foot is outside the
+					    tree, and only there can it stick over the uncommitted files card, which is
+					    outside the tree as well. Up to date, the history card alone marks the base. */}
+					{branched && (
+						<>
+							{baseRow()}
+							{!plan.baseExpanded &&
+								footDock !== null &&
+								createPortal(baseRow(styles.docked, plan.header.incoming), footDock)}
+							<GraphGap height={HISTORY_GAP} />
+						</>
+					)}
+					<div className={styles.historyCard}>
+						<Header
+							label="History"
+							fold={{
+								open: plan.baseExpanded,
+								onToggle: onToggleBase,
+								name: "the workspace base's history",
+							}}
+							rail={
+								<GraphSegment glyph="control" status="Integrated" railEnds={!plan.baseExpanded} />
+							}
+						/>
+						{history}
+					</div>
 				</>
 			)}
 		</>

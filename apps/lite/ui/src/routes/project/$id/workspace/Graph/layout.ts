@@ -19,6 +19,8 @@ export const ROW_INSET = 10;
 export const CARD_GAP = 20;
 /** The gap under the target's card and the ref row, which the leg bends through. */
 export const LEG_GAP = 12;
+/** The gap between the workspace base row and its history card. */
+export const HISTORY_GAP = 4;
 /** The stuck merge base row's height, hairline and air included, which a row scrolled into view clears. Keep in sync with Section.module.css. */
 export const DOCKED_HEIGHT = 1 + 4 + 28 + 4;
 /** A long list, a run or the older history, shows this much at first, and this much more with each ask. */
@@ -62,8 +64,6 @@ export type Plan = {
 	order: Array<number>;
 	/** The target's row: its label and how many commits are incoming. Not a value: nothing selects it. */
 	header: { label: string; incoming: number };
-	/** The target's tip is the base itself: one row stands for both. */
-	refOnBase: boolean;
 	incomingExpanded: boolean;
 	baseExpanded: boolean;
 	/** The commit the stacks nearest the tip sit on; the base header names it. Null while unknown. */
@@ -166,10 +166,6 @@ export const layout = (
 			label: target ? remoteTrackingLabel(target.remoteTrackingRef) : "target",
 			incoming: commits.filter((entry) => !entry.inWorkspace).length,
 		},
-		refOnBase:
-			base !== null &&
-			commits[0]?.commit.id === base.commit.id &&
-			commits.every((entry) => entry.inWorkspace),
 		incomingExpanded: folds.incomingExpanded,
 		baseExpanded: folds.baseExpanded,
 		base,

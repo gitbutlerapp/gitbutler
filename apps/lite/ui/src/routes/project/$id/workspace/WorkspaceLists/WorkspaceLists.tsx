@@ -1434,7 +1434,6 @@ const Stacks: FC<{
 						onShowMoreRun={showMoreRun}
 						onFoldRun={foldRun}
 						onShowMore={showMore}
-						scrollElementRef={scrollElementRef}
 						footDock={footDock}
 					/>
 				</div>
@@ -1605,9 +1604,11 @@ export const WorkspaceLists: FC<
 		focusScope("uncommitted-files");
 	};
 	const scrollElementRef = useRef<HTMLDivElement>(null);
-	// A row scrolled into view clears the docked merge base row, else the foot's gradient.
+	// A row scrolled into view clears the docked base row, else the foot's gradient.
 	const scrollPaddingEnd =
-		graph.plan.base !== null && !graph.plan.baseExpanded ? DOCKED_HEIGHT : 14;
+		graph.plan.base !== null && graph.plan.header.incoming > 0 && !graph.plan.baseExpanded
+			? DOCKED_HEIGHT
+			: 14;
 	const uncommitted = (
 		<OperationSourceC
 			projectId={projectId}
