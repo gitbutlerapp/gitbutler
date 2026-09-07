@@ -7,51 +7,11 @@ use bstr::ByteSlice as _;
 use gix::config::AsKey as _;
 
 fn config_path(repo: Option<&gix::Repository>, source: gix::config::Source) -> Result<PathBuf> {
-    let path = source
-        .storage_location(&mut |name| std::env::var_os(name))
-        .with_context(|| format!("failed to determine {source:?} git config location"))?;
-    let path = if path.is_relative() {
-        let repo = repo.with_context(|| {
-            format!("determining the {source:?} git config location requires a repository")
-        })?;
-        if source == gix::config::Source::Local {
-            repo.common_dir().join(&path)
-        } else {
-            repo.git_dir().join(&path)
-        }
-    } else {
-        path
-    };
-    Ok(path)
-}
-
-fn open_config_for_editing(
-    repo: Option<&gix::Repository>,
-    source: gix::config::Source,
-) -> Result<(gix::config::File, gix::lock::File)> {
-    let path = config_path(repo, source)?;
-    std::fs::create_dir_all(path.parent().context("git config path has no parent")?)?;
-    let mut lock = gix::lock::File::acquire_to_update_resource_following_symlinks(
-        &path,
-        gix::lock::acquire::Fail::AfterDurationWithBackoff(std::time::Duration::from_secs(1)),
-        None,
-    )?;
-    // TODO(ST): replace this entire function with `gix::config::FileTransaction` once it can be
-    //           created without repository.
-    let path = lock.resource_path().to_owned();
-    let config = match std::fs::metadata(&path) {
-        Ok(meta) => {
-            lock.with_mut(|file| file.set_permissions(meta.permissions()))?;
-            gix::config::File::from_path_no_includes(path.clone(), source).with_context(|| {
-                format!("failed to open {source:?} git config at {}", path.display())
-            })?
-        }
-        Err(err) if err.kind() == std::io::ErrorKind::NotFound => {
-            gix::config::File::new(gix::config::file::Metadata::from(source).at(path))
-        }
-        Err(err) => return Err(err.into()),
-    };
-    Ok((config, lock))
+    match repo {
+        Some(repo) => repo.config_path(source),
+        None => gix::config_path(source, &gix::open::Options::default()),
+    }
+    .with_context(|| format!("failed to determine {source:?} git config location"))
 }
 
 /// Open the repository-local Git config of `repo` for reading without acquiring a write lock,
@@ -71,45 +31,39 @@ pub fn open_repo_local_config_for_reading(repo: &gix::Repository) -> Result<gix:
         .with_context(|| format!("failed to open {source:?} git config at {}", path.display()))
 }
 
-fn commit_standalone_config(config: &gix::config::File, mut lock: gix::lock::File) -> Result<()> {
-    let path = lock.resource_path();
-    config
-        .write_to(&mut lock)
-        .with_context(|| format!("failed to serialize git config at {}", path.display()))?;
-    std::io::Write::flush(&mut lock)
-        .with_context(|| format!("failed to flush git config at {}", path.display()))?;
-    lock.commit()
-        .map_err(|err| err.error)
-        .with_context(|| format!("failed to commit git config at {}", path.display()))?;
-    Ok(())
-}
-
 /// Open the Git config for `source` using `repo` when needed, let `edit` mutate it, and
 /// write it back if the edited configuration differs from its original state.
 /// Return `true` if the file changed and was written, `false` otherwise.
 ///
-/// `repo` supplies the base directory when `source` resolves to a relative path, including
-/// relative paths from environment overrides. Local config is resolved against `repo.common_dir()`;
-/// worktree config and other relative paths are resolved against `repo.git_dir()`.
-/// Pass `None` when the configuration path is absolute, as is usual for user-global config.
-/// A relative path with `repo: None` is an error. Editing does not refresh `repo`'s cached configuration.
+/// With `repo`, paths are resolved by [`gix::Repository::config_path()`], honoring its open options
+/// and the current directory captured when it was opened. Otherwise [`gix::config_path()`] resolves
+/// non-repository sources against the current directory. Local and worktree config require `repo`.
+/// Editing does not refresh `repo`'s cached configuration.
 pub fn edit_config(
     repo: Option<&gix::Repository>,
     source: gix::config::Source,
     edit: impl FnOnce(&mut gix::config::File) -> Result<()>,
 ) -> Result<bool> {
-    let (mut config, lock) = open_config_for_editing(repo, source)?;
+    let path = config_path(repo, source)?;
+    std::fs::create_dir_all(path.parent().context("git config path has no parent")?)?;
+    let mut config = match repo {
+        Some(repo) => repo.config_file_mut(&path),
+        None => gix::config_mut(source, &gix::open::Options::default()),
+    }
+    .with_context(|| format!("failed to open {source:?} git config at {}", path.display()))?;
     let previous_contents = config.to_bstring();
     edit(&mut config)?;
     let changed = config.to_bstring() != previous_contents;
     if changed {
-        commit_standalone_config(&config, lock)?;
+        config
+            .commit()
+            .with_context(|| format!("failed to commit git config at {}", path.display()))?;
     }
     Ok(changed)
 }
 
-/// Open the Git config for `source` relative to `repo`, let `edit` mutate it, and write it back
-/// if the edited configuration differs from its original state.
+/// Edit the Git config for `source` using `repo`, resolving its path as described in [`edit_config()`].
+/// Write it back if the edited configuration differs from its original state.
 pub fn edit_repo_config(
     repo: &gix::Repository,
     source: gix::config::Source,

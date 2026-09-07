@@ -21,7 +21,8 @@ use gix::refs::transaction::PreviousValue;
 ///
 /// Use this for local branch removal when the corresponding `branch.<name>` configuration
 /// should also be removed. Missing refs are accepted and still have their configuration cleaned
-/// up; the return value reflects the initial ref lookup, not whether configuration changed.
+/// up; the return value reflects whether the ref existed when locked for deletion,
+/// not whether configuration changed.
 /// A branch checked out in any worktree causes a precondition error. Configuration-cleanup
 /// failures after ref deletion are logged and treated as success; use
 /// [`gix::Repository::delete_local_branches()`] directly to handle those failures explicitly.
@@ -39,15 +40,17 @@ pub fn delete_local_branch(
     repo: &mut gix::Repository,
     ref_name: &gix::refs::FullNameRef,
 ) -> anyhow::Result<bool> {
-    let existed = repo.try_find_reference(ref_name)?.is_some();
-    // TODO(gix): use the rval of `delete_local_branches` to figure out `existed` when available.
-    match repo.delete_local_branches([ref_name.to_owned()]) {
-        Ok(()) => {}
-        Err(err @ gix::repository::branch::delete::Error::Cleanup { .. }) => {
+    let deleted = match repo.delete_local_branches([ref_name.to_owned()]) {
+        Ok(deleted) => deleted,
+        Err(gix::repository::branch::delete::Error::Cleanup {
+            deleted, source, ..
+        }) => {
             tracing::warn!(
-                ?err,
+                ?source,
+                ?ref_name,
                 "branch was deleted but its local configuration remains"
             );
+            deleted
         }
         Err(gix::repository::branch::delete::Error::CheckedOut { worktree_dirs, .. }) => {
             bail_precondition!(
@@ -55,8 +58,8 @@ pub fn delete_local_branch(
             )
         }
         Err(err) => return Err(err.into()),
-    }
-    Ok(existed)
+    };
+    Ok(!deleted.is_empty())
 }
 
 /// Remove the workspace reference `ref_name` (if it still exists),

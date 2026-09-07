@@ -13,6 +13,38 @@ use crate::{
 };
 
 #[test]
+fn deletion_result_distinguishes_missing_refs_from_configuration_cleanup() -> anyhow::Result<()> {
+    let (_tmp, _, mut repo, _, _, _) = named_writable_scenario_with_args_and_description_and_graph(
+        "single-branch-no-ws-commit-no-target",
+        ["A"],
+        |_| {},
+    )?;
+    let ref_name = r("refs/heads/A");
+
+    for existed in [true, false] {
+        but_core::git_config::edit_repo_config(&repo, gix::config::Source::Local, |config| {
+            but_core::git_config::set_config_value(config, "branch.A.remote", "origin")
+        })?;
+        assert_eq!(
+            remove_reference::delete_local_branch(&mut repo, ref_name)?,
+            existed,
+            "configuration cleanup alone must not report a deleted reference"
+        );
+        assert!(
+            repo.try_find_reference(ref_name)?.is_none(),
+            "the requested branch is absent after either call"
+        );
+        assert!(
+            but_core::git_config::open_repo_local_config_for_reading(&repo)?
+                .string("branch.A.remote")
+                .is_none(),
+            "branch configuration is removed even when the reference was already missing"
+        );
+    }
+    Ok(())
+}
+
+#[test]
 fn no_errors_due_to_idempotency_in_empty_workspace() -> anyhow::Result<()> {
     let (_tmp, graph, mut repo, mut meta, desc, _db) =
         named_writable_scenario_with_args_and_description_and_graph(
