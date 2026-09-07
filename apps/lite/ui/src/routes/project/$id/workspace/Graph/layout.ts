@@ -21,6 +21,8 @@ export const CARD_GAP = 20;
 export const LEG_GAP = 12;
 /** The stuck merge base row's height, hairline and air included, which a row scrolled into view clears. Keep in sync with Section.module.css. */
 export const DOCKED_HEIGHT = 1 + 4 + 28 + 4;
+/** The stuck uncommitted files row's height: the card's head room, a row and a hairline. Keep in sync with WorkspaceLists.module.css. */
+export const HEAD_DOCKED_HEIGHT = 6 + 28 + 1;
 /** A long list, a run or the older history, shows this much at first, and this much more with each ask. */
 export const FIRST = 10;
 export const MORE = 20;

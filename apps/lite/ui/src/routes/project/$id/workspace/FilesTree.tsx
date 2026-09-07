@@ -660,11 +660,12 @@ const FilesTreeVirtualList: FC<{
 	const renderInteractiveRows =
 		hasPendingOperationSources || (!rowVirtualizer.isScrolling && !deferredIsScrolling);
 
-	// Virtualisation-friendly equivalent to Row's own scrollIntoView.
+	// Virtualisation-friendly equivalent to Row's own scrollIntoView. Again as
+	// the head and foot to clear are measured or grow; auto is a no-op once clear.
 	useLayoutEffect(() => {
 		if (selectedRowIndex !== null)
 			rowVirtualizer.scrollToIndex(selectedRowIndex, { align: "auto" });
-	}, [rowVirtualizer, selectedRowIndex]);
+	}, [rowVirtualizer, selectedRowIndex, scrollPaddingStart, scrollPaddingEnd]);
 
 	return (
 		<div
