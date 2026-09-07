@@ -106,6 +106,18 @@ export const Appearance: FC = () => {
 						onCheckedChange={(pathFirst) => saveGUISettings({ pathFirst })}
 					/>
 				</Row>
+
+				<Row
+					label="File list right of the diff"
+					labelId="files-panel-right"
+					hint="Keeps the details pane's file list away from the sidebar's, so two lists don't sit side by side."
+				>
+					<Switch
+						aria-labelledby="files-panel-right"
+						checked={settings.filesPanelRight ?? defaultSettings.filesPanelRight}
+						onCheckedChange={(filesPanelRight) => saveGUISettings({ filesPanelRight })}
+					/>
+				</Row>
 			</Section>
 
 			<Section heading="Diff">

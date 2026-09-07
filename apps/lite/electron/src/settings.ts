@@ -26,6 +26,7 @@ const guiSettingsV1 = type({
 	"dryRunOperations?": "boolean",
 	"editorId?": "string",
 	"fileDisplayMode?": "'list' | 'tree'",
+	"filesPanelRight?": "boolean",
 	"lineDiffType?": "'word-alt' | 'word' | 'char' | 'none'",
 	"minimap?": "boolean",
 	"pathFirst?": "boolean",

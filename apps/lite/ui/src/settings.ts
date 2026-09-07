@@ -18,6 +18,7 @@ export const defaultSettings = {
 	dryRunOperations: false,
 	// Show the folder tree until the user chooses a display mode.
 	fileDisplayMode: "tree",
+	filesPanelRight: false,
 	// Pierre's own default, named here so the setting has somewhere to fall back to.
 	lineDiffType: "word-alt",
 	// Experimental; opt in from the Experimental settings.

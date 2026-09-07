@@ -2562,6 +2562,7 @@ const Diff: FC<{
 			diffOverflow: cfg.diffOverflow,
 			diffStyle: cfg.diffStyle,
 			diffTabSize: cfg.diffTabSize,
+			filesPanelRight: cfg.filesPanelRight,
 			minimap: cfg.minimap,
 		}),
 	});
@@ -2712,7 +2713,7 @@ const Diff: FC<{
 		);
 	}
 
-	const filesOnRight = fileParent._tag !== "UncommittedChanges";
+	const filesOnRight = diffSettings?.filesPanelRight ?? defaultSettings.filesPanelRight;
 	const filesPanel = filesVisible ? (
 		<Panel
 			id={"files-panel" satisfies PanelId}
