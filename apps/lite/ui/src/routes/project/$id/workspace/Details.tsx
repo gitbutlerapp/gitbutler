@@ -1524,7 +1524,7 @@ const DiffContents: FC<{
 	const handleHunkPostRender = useDiffHunkDrag<Annotation>({
 		projectId,
 		fileParent,
-		getHunkAddress: getHunkAddressAtLine,
+		getHunkAddress: getContiguousHunkAddressAtLine,
 		getLineAddress: getLineAddressAtLine,
 		getSelectedAddresses: () => addressesForSelectedLines(selectedLines, "compact"),
 	});
