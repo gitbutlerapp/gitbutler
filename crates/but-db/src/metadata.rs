@@ -82,6 +82,30 @@ SELECT ref_name, pr_number, review_id FROM (
            ROW_NUMBER() OVER (PARTITION BY h.name ORDER BY s.position, h.position) AS occurrence
     FROM vb_stack_heads h JOIN workspace_stacks s ON s.id = h.stack_id
 ) WHERE occurrence = 1;
+-- Old workspace saves also populated branch_order. Exact whole-chain matches
+-- should now follow workspace edits; preserve independent ad-hoc chains.
+WITH workspace_order AS (
+    SELECT workspace_ref, stack_id, position, CAST(ref_name AS TEXT) AS branch_ref_name,
+           LEAD(CAST(ref_name AS TEXT)) OVER (
+               PARTITION BY workspace_ref, stack_id ORDER BY position
+           ) AS parent_ref_name
+    FROM workspace_stack_branches
+), inherited_stacks AS (
+    SELECT w.workspace_ref, w.stack_id
+    FROM workspace_order w LEFT JOIN branch_order b ON b.branch_ref_name = w.branch_ref_name
+    GROUP BY w.workspace_ref, w.stack_id
+    HAVING COUNT(b.branch_ref_name) = COUNT(*)
+       AND SUM(b.parent_ref_name IS NOT w.parent_ref_name) = 0
+       AND NOT EXISTS (
+           SELECT 1 FROM workspace_order tip
+           JOIN branch_order child ON child.parent_ref_name = tip.branch_ref_name
+           WHERE tip.workspace_ref = w.workspace_ref AND tip.stack_id = w.stack_id AND tip.position = 0
+       )
+)
+DELETE FROM branch_order WHERE branch_ref_name IN (
+    SELECT w.branch_ref_name FROM workspace_order w JOIN inherited_stacks s
+      ON s.workspace_ref = w.workspace_ref AND s.stack_id = w.stack_id
+);
 DROP TABLE vb_branch_targets;
 DROP TABLE vb_stack_heads;
 DROP TABLE vb_stacks;

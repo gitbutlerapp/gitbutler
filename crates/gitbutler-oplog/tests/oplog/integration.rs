@@ -129,6 +129,145 @@ fn restore_legacy_snapshot_preserves_current_branch_order() -> anyhow::Result<()
 }
 
 #[test]
+fn restore_removes_only_historically_inherited_branch_order() -> anyhow::Result<()> {
+    use but_core::ref_metadata::WorkspaceStackBranch;
+    for (case, order) in [
+        ("inherited", &["A", "B"][..]),
+        ("extended above", &["external", "A", "B"][..]),
+        ("extended below", &["A", "B", "external"][..]),
+        ("reversed", &["B", "A"][..]),
+        ("unrelated", &["external", "other"][..]),
+        ("without file", &["A", "B"][..]),
+        ("modern", &["A", "B"][..]),
+    ] {
+        let Test { repo, ctx } = &mut Test::from_scenario("one-stack-two-commits", &["A"]);
+        let git_repo = repo.open_repo();
+        let tip = git_repo.rev_parse_single("A")?.detach();
+        let base = git_repo.rev_parse_single("A~1")?.detach();
+        git_repo.reference(
+            "refs/heads/B",
+            base,
+            gix::refs::transaction::PreviousValue::Any,
+            "test",
+        )?;
+        let workspace_ref: &gix::refs::FullNameRef = but_core::WORKSPACE_REF_NAME.try_into()?;
+        let mut workspace = ctx
+            .db
+            .get_cache()?
+            .meta()?
+            .workspace(workspace_ref)
+            .unwrap()
+            .clone();
+        workspace.stacks[0].branches.push(WorkspaceStackBranch {
+            ref_name: "refs/heads/B".try_into()?,
+            archived: false,
+        });
+        ctx.db
+            .get_cache_mut()?
+            .meta_mut()?
+            .set_workspace(workspace_ref, &workspace)?;
+        let mut guard = ctx.exclusive_worktree_access();
+        let mut snapshot_id = ctx.create_snapshot(
+            SnapshotDetails::new(OperationKind::OnDemandSnapshot),
+            guard.write_permission(),
+        )?;
+        let names = order
+            .iter()
+            .map(|name| format!("refs/heads/{name}"))
+            .collect::<Vec<_>>();
+        ctx.db
+            .get_cache_mut()?
+            .branch_order_mut()?
+            .set_order(&names)?;
+        let archived_order = ctx.db.get_cache()?.branch_order().get_snapshot()?;
+        if case == "modern" {
+            snapshot_id = ctx.create_snapshot(
+                SnapshotDetails::new(OperationKind::OnDemandSnapshot),
+                guard.write_permission(),
+            )?;
+        } else {
+            let snapshot = git_repo.find_commit(snapshot_id)?;
+            let mut tree = snapshot.tree()?.edit()?;
+            tree.remove("ref_metadata.json")?;
+            let id = workspace.stacks[0].id;
+            let historical = format!(
+                r#"
+[branches.{id}]
+order = 0
+[[branches.{id}.heads]]
+name = "B"
+head = {{ CommitId = "{base}" }}
+[[branches.{id}.heads]]
+name = "A"
+head = {{ CommitId = "{tip}" }}
+"#
+            );
+            tree.upsert(
+                "virtual_branches.toml",
+                gix::object::tree::EntryKind::Blob,
+                git_repo.write_blob(historical.as_bytes())?,
+            )?;
+            if case != "without file" {
+                tree.upsert(
+                    "branch_order.toml",
+                    gix::object::tree::EntryKind::Blob,
+                    git_repo.write_blob(toml::to_string(&archived_order)?)?,
+                )?;
+            }
+            snapshot_id = git_repo
+                .write_object(gix::objs::Commit {
+                    tree: tree.write()?.detach(),
+                    ..snapshot.decode()?.to_owned()?
+                })?
+                .detach();
+        }
+        if case != "without file" {
+            set_branch_order(ctx, &["refs/heads/current"])?;
+        }
+        ctx.restore_snapshot(
+            snapshot_id,
+            RestoreKind::RestoreFromSnapshotViaUndo,
+            guard.write_permission(),
+        )?;
+        let expected_order = if case == "inherited" {
+            but_db::BranchOrderSnapshot {
+                entries: Vec::new(),
+            }
+        } else {
+            archived_order
+        };
+        assert_eq!(
+            ctx.db.get_cache()?.branch_order().get_snapshot()?,
+            expected_order,
+            "only complete historical workspace-derived chains are discarded: {case}"
+        );
+
+        workspace.stacks[0].branches.reverse();
+        ctx.db
+            .get_cache_mut()?
+            .meta_mut()?
+            .set_workspace(workspace_ref, &workspace)?;
+        let metadata = ctx.db.get_cache()?.meta()?;
+        let actual = metadata
+            .branch_stack_order("refs/heads/A".try_into()?)
+            .unwrap()
+            .iter()
+            .map(|name| name.shorten().to_str().map(ToOwned::to_owned))
+            .collect::<Result<Vec<_>, _>>()?;
+        let expected = if case == "inherited" || !order.contains(&"A") {
+            &["B", "A"][..]
+        } else {
+            order
+        };
+        assert_eq!(
+            actual, expected,
+            "workspace edits use derived order unless an explicit override remains: {case}"
+        );
+    }
+    Ok(())
+}
+
+#[test]
 fn malformed_branch_order_fails_before_restore_mutates_state() -> anyhow::Result<()> {
     let Test { repo, ctx } = &mut Test::from_scenario("one-stack-two-commits", &["A"]);
     set_branch_order(ctx, &["refs/heads/A", "refs/heads/B"])?;

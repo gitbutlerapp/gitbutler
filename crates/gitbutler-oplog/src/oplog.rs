@@ -1049,7 +1049,13 @@ fn restore_snapshot(
         .is_none()
     {
         Some(match restored_branch_order {
-            Some(order) => order,
+            Some(mut order) => {
+                historical_metadata::remove_inherited_branch_order(
+                    &restored_ref_metadata.metadata,
+                    &mut order,
+                );
+                order
+            }
             None => ctx.db.get_cache()?.branch_order().get_snapshot()?,
         })
     } else {
