@@ -205,6 +205,25 @@ With \`seahorse\` or equivalent, create a \`Login\` password store, right click 
 Your GitHub token appears expired. Please log out and back in to refresh it. (Settings -> Integrations -> Forget)
 	`,
 	},
+	/**
+	 * GitLab rejected a stored token (401) or refused the account behind it
+	 * (403). Both are terminal until the user stores a different token; a 403
+	 * needs scopes or permissions, not the same token typed again.
+	 */
+	GitLabUnauthorized: {
+		severity: "error",
+		terminal: true,
+		title: "GitLab Token Rejected",
+		userMessage:
+			"GitLab did not accept your stored token; it may have expired or been revoked. Store a new personal access token under Settings → Integrations.",
+	},
+	GitLabForbidden: {
+		severity: "error",
+		terminal: true,
+		title: "GitLab Access Refused",
+		userMessage:
+			"GitLab refused access for your stored token. Check the token scopes and your account permissions, then store a new token under Settings → Integrations.",
+	},
 	...GITHUB_DEVICE_OAUTH_CLASSIFICATIONS,
 	GitHubOrgOAuthRestricted: GH_ORG_AUTH_CLASSIFICATION,
 	GitHubOrgSamlRestricted: {

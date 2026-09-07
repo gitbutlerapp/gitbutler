@@ -1,12 +1,109 @@
 import {
 	gitLabEnterprisePatError,
 	gitlabAccountIdentifierToString,
+	injectBackendEndpoints,
 	stringToGitLabAccountIdentifier,
 } from "$lib/forge/gitlab/gitlabUserService.svelte";
-import { describe, expect, test } from "vitest";
+import { ReduxTag } from "$lib/state/tags";
+import { configureStore } from "@reduxjs/toolkit";
+import { createApi, QueryStatus } from "@reduxjs/toolkit/query";
+import { describe, expect, test, vi } from "vitest";
+import type { BackendApi } from "$lib/state/backendApi";
 import type { GitlabAccountIdentifier } from "@gitbutler/but-sdk";
 
 const UNIT_SEP = "\u001F";
+
+describe("storing a replacement PAT", () => {
+	const account: GitlabAccountIdentifier = {
+		type: "selfHosted",
+		info: { host: "gitlab.example.com", username: "alice" },
+	};
+	const user = { accessToken: "new", username: "alice", avatarUrl: null, name: null, email: null };
+
+	const rejected = { error: { code: "GitLabUnauthorized", message: "rejected" } };
+
+	/**
+	 * The service's real endpoint definitions on a plain RTK store. The user
+	 * lookup is rejected once, the way a revoked token is, and answered after;
+	 * every other command answers with `storeOutcome`.
+	 */
+	function setup(storeOutcome: { data: unknown } | { error: unknown }) {
+		const lookups = vi.fn().mockResolvedValueOnce(rejected).mockResolvedValue({ data: user });
+		const api = createApi({
+			reducerPath: "backend",
+			tagTypes: Object.values(ReduxTag),
+			invalidationBehavior: "immediately",
+			baseQuery: async (_args: unknown, _api: unknown, extraOptions?: { command?: string }) =>
+				extraOptions?.command === "get_gl_user" ? lookups() : storeOutcome,
+			endpoints: () => ({}),
+		});
+		const { endpoints } = injectBackendEndpoints(api as unknown as BackendApi);
+		const store = configureStore({
+			reducer: { [api.reducerPath]: api.reducer },
+			middleware: (getDefault) => getDefault().concat(api.middleware),
+		});
+		function userQuery() {
+			return endpoints.getGitLabUser.select({ account })(store.getState());
+		}
+		return { endpoints, store, userQuery, lookups };
+	}
+	type Harness = ReturnType<typeof setup>;
+
+	/** Subscribes the user query, as a mounted settings card does, and lets it reject. */
+	async function mountRejectedUserQuery({ store, endpoints, userQuery }: Harness) {
+		await store.dispatch(endpoints.getGitLabUser.initiate({ account }));
+		expect(userQuery().status).toBe(QueryStatus.rejected);
+	}
+
+	const mutations: [string, (harness: Harness) => Promise<void>][] = [
+		[
+			"storeGitLabPat",
+			async ({ store, endpoints }) => {
+				await store.dispatch(endpoints.storeGitLabPat.initiate({ accessToken: "new" }));
+			},
+		],
+		[
+			"storeGitLabEnterprisePat",
+			async ({ store, endpoints }) => {
+				await store.dispatch(
+					endpoints.storeGitLabEnterprisePat.initiate({
+						host: "gitlab.example.com",
+						accessToken: "new",
+					}),
+				);
+			},
+		],
+	];
+
+	test.each(mutations)(
+		"%s refetches a still-mounted rejected getGitLabUser query",
+		async (_, storePat) => {
+			const harness = setup({ data: {} });
+			await mountRejectedUserQuery(harness);
+
+			await storePat(harness);
+
+			await vi.waitFor(() => expect(harness.userQuery().status).toBe(QueryStatus.fulfilled));
+			expect(harness.userQuery().data).toEqual(user);
+			expect(harness.lookups).toHaveBeenCalledTimes(2);
+		},
+	);
+
+	test.each(mutations)(
+		"%s leaves the rejected query alone when the token was not stored",
+		async (_, storePat) => {
+			const harness = setup(rejected);
+			await mountRejectedUserQuery(harness);
+
+			await storePat(harness);
+
+			// An invalidation refetch would already have started by now.
+			await new Promise((resolve) => setTimeout(resolve, 20));
+			expect(harness.lookups).toHaveBeenCalledTimes(1);
+			expect(harness.userQuery().status).toBe(QueryStatus.rejected);
+		},
+	);
+});
 
 describe("GitLab Enterprise PAT errors", () => {
 	test.each([

@@ -196,7 +196,8 @@ pub async fn get_gl_user(
                 {
                     tracing::warn!("Failed to clear cached GitLab profile: {err}");
                 }
-                Err(client_err.context("Failed to get authenticated user"))
+                Err(classify_pat_validation_error(client_err)
+                    .context("Failed to get authenticated user"))
             }
         }
     } else {
