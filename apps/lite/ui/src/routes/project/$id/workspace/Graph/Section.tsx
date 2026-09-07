@@ -8,7 +8,6 @@ import {
 	RowLabel,
 	RowLabelContainer,
 } from "#ui/routes/project/$id/workspace/Row.tsx";
-import { TargetCommitRow } from "#ui/routes/project/$id/workspace/UpstreamList.tsx";
 import { useAddressSpace } from "#ui/routes/project/$id/workspace/WorkspaceLists/context.tsx";
 import { addressIdentityKey, type Address } from "#ui/addresses.ts";
 import type { AddressSpace } from "#ui/workspace/address-space.ts";
@@ -30,6 +29,7 @@ import {
 	useRef,
 } from "react";
 import styles from "./Section.module.css";
+import { TargetCommitRow } from "./TargetCommitRow.tsx";
 import {
 	CARD_X,
 	LEG_BEND,
@@ -59,8 +59,7 @@ const commitRow = (
 	return (
 		<TargetCommitRow
 			key={commit.commit.id}
-			item={{ ...commit, type: "commit" }}
-			list="applied"
+			commit={commit}
 			positionInSet={(index ?? -1) + 1}
 			setSize={addressSpace.items.length}
 			status={status}

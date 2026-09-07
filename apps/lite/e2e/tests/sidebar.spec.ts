@@ -1,5 +1,5 @@
 import type { LiteElectronApi } from "../../electron/src/ipc.ts";
-import type { ForgeInfo, ForgeReview, TargetCommitPage } from "@gitbutler/but-sdk";
+import type { ForgeInfo, ForgeReview } from "@gitbutler/but-sdk";
 import { expect, test } from "../test.ts";
 
 test.use({ scenario: "project-in-single-branch-three-branch-stack.sh" });
@@ -60,28 +60,6 @@ test("keeps unread PR activity off the Workspace tab", async ({ appWindow, elect
 			);
 			ipcMain.removeHandler("listReviews");
 			ipcMain.handle("listReviews", () => [review]);
-			ipcMain.removeHandler("workspaceTargetCommits");
-			ipcMain.handle(
-				"workspaceTargetCommits",
-				() =>
-					({
-						commits: [
-							{
-								commit: {
-									id: "0000000000000000000000000000000000000002",
-									message: "Incoming commit",
-									author: { name: "Test", email: "test@example.com", gravatarUrl: "" },
-									authoredAt: 0,
-									committedAt: 0,
-									changeId: null,
-								},
-								review: null,
-								inWorkspace: false,
-							},
-						],
-						hasMore: false,
-					}) satisfies TargetCommitPage,
-			);
 		},
 		{ settings, review },
 	);
@@ -121,9 +99,6 @@ test("keeps unread PR activity off the Workspace tab", async ({ appWindow, elect
 			.getByTitle("New activity on this pull request"),
 	).toBeVisible();
 	const pages = appWindow.getByRole("group", { name: "Pages" });
-	await expect(pages.getByRole("button", { name: "Upstream", exact: true })).toHaveText(
-		/^Upstream\s*1$/,
-	);
 	await expect(pages.getByRole("button", { name: "Workspace", exact: true })).toHaveText(
 		"Workspace",
 	);

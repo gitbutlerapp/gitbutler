@@ -74,7 +74,6 @@ import { OperationControls } from "#ui/routes/project/$id/workspace/OperationCon
 import { ErrorBoundary } from "#ui/components/ErrorBoundary.tsx";
 import { Settings } from "./Settings/Settings.tsx";
 import { useBranchesList } from "./useBranchesList.ts";
-import { upstreamCommitReview, useUpstreamList } from "./useUpstreamList.ts";
 import { useStateReconciler as useReconcileState } from "#ui/reconcile.ts";
 import { useReviewActivityInbox } from "#ui/review-notifications.ts";
 import { useStampReviewsSeen } from "#ui/review-seen.ts";
@@ -208,15 +207,6 @@ const useWorkspaceHotkeys = (projectId: string) => {
 				},
 			]),
 			Match.when("branches", () => [
-				{
-					hotkey: "1",
-					callback: () => focusScope("sidebar"),
-					options: {
-						enabled: !detailsFullWindow,
-					},
-				},
-			]),
-			Match.when("upstream", () => [
 				{
 					hotkey: "1",
 					callback: () => focusScope("sidebar"),
@@ -430,11 +420,9 @@ const PageBody: FC<{ projectId: string }> = ({ projectId }) => {
 		isPending: branchesPending,
 		isError: branchesError,
 	} = useBranchesList(projectId);
-	const upstreamList = useUpstreamList(projectId);
 
 	const appliedSelection = useSelection("applied", appliedAddressSpace);
 	const branchesSelection = useSelection("unapplied", branches?.addressSpace);
-	const upstreamSelection = useSelection("upstream", upstreamList.addressSpace);
 
 	const { data: worktreeChanges } = useQuery(changesInWorktreeQueryOptions(projectId));
 	const uncommittedFilesFilter = useAppSelector((state) =>
@@ -473,10 +461,6 @@ const PageBody: FC<{ projectId: string }> = ({ projectId }) => {
 	// because `useDeferredValue` compares by identity, so a freshly built element
 	// every render would defer every render. Looked up outside the memo so the
 	// details only rebuild when the review itself changes, not on every list rerun.
-	const upstreamReview =
-		upstreamSelection?._tag === "Commit"
-			? upstreamCommitReview(upstreamList, upstreamSelection.commitId)
-			: null;
 	// A target commit selected in the stacks graph carries the review it landed.
 	const appliedReview =
 		appliedSelection?._tag === "Commit"
@@ -517,16 +501,6 @@ const PageBody: FC<{ projectId: string }> = ({ projectId }) => {
 						/>
 					),
 			),
-			Match.when("upstream", () =>
-				upstreamSelection === null ? (
-					<DetailsPlaceholder
-						title="Upstream commits appear here"
-						description="Whatever lands on your target branch before you bring it in"
-					/>
-				) : (
-					<Details selection={upstreamSelection} review={upstreamReview} {...viewProps} />
-				),
-			),
 			Match.when("branches", () =>
 				branchesSelection === null ? (
 					<DetailsPlaceholder
@@ -547,8 +521,6 @@ const PageBody: FC<{ projectId: string }> = ({ projectId }) => {
 		appliedReview,
 		page,
 		uncommittedFilesSelection,
-		upstreamReview,
-		upstreamSelection,
 		activeList,
 	]);
 
@@ -644,7 +616,6 @@ const PageBody: FC<{ projectId: string }> = ({ projectId }) => {
 								branches={branches}
 								branchesPending={branchesPending}
 								branchesError={branchesError}
-								upstreamList={upstreamList}
 								graph={graph}
 								addressSpace={appliedAddressSpace}
 								uncommittedAddressSpace={uncommittedAddressSpace}

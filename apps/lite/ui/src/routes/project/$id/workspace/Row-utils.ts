@@ -15,10 +15,8 @@ export const treeItemId = (address: Address): string =>
  * stored cursor aligned with the resolved selection via
  * `useCursorWriteBack`.
  */
-export const useIsSelected = (
-	address: Address,
-	name: "applied" | "unapplied" | "upstream",
-): boolean => useCursorMatches(name, address);
+export const useIsSelected = (address: Address, name: "applied" | "unapplied"): boolean =>
+	useCursorMatches(name, address);
 
 export const getRowButtonClassName = ({
 	variant = "ghost",

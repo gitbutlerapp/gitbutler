@@ -19,7 +19,7 @@ export type DiffLineSelection = {
 };
 
 /**
- * The app's named lists, each with one cursor. The five URL-backed cursors store
+ * The app's named lists, each with one cursor. The four URL-backed cursors store
  * item identity and resolve it against what their list currently shows. `diff`
  * is the exception: it stores a file identity plus an optional visual line
  * range in Redux because that range does not belong in the URL.
@@ -32,7 +32,6 @@ export type CursorItem = {
 	applied: Address;
 	uncommitted: string;
 	unapplied: Address;
-	upstream: Address;
 	files: string;
 	diff: DiffLineSelection;
 };
@@ -45,7 +44,7 @@ export type CursorName = keyof CursorItem;
  * back verbatim, no resolution needed.
  */
 export type WorkspaceCursorSnapshot = {
-	page?: "upstream" | "branches";
+	page?: "branches";
 	active?: Exclude<ActiveList, "applied">;
 	applied?: string;
 	uncommitted?: string;
@@ -59,7 +58,6 @@ const pathKey = (path: string): string => path;
 export const cursorKey: { [L in CursorName]: (item: CursorItem[L]) => string } = {
 	applied: addressIdentityKey,
 	unapplied: addressIdentityKey,
-	upstream: addressIdentityKey,
 	uncommitted: pathKey,
 	files: pathKey,
 	diff: ({ file, range }) => {

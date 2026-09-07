@@ -1,0 +1,20 @@
+.label {
+	display: flex;
+	flex-grow: 1;
+	flex-direction: column;
+	min-width: 0;
+}
+
+.labelMeta {
+	display: flex;
+	align-items: center;
+	/* Keeps an empty footer holding its line, so rows stay equal height. */
+	min-height: 20px;
+	gap: 8px;
+}
+
+.labelMetaItem {
+	display: flex;
+	align-items: center;
+	gap: 4px;
+}

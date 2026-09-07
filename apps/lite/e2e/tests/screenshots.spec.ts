@@ -103,12 +103,6 @@ test.describe("screenshots", () => {
 			await shoot(appWindow, "branches-tab", "#sidebar-panel");
 		});
 
-		test("upstream tab", async ({ appWindow }) => {
-			await openProject(appWindow);
-			await goToTab(appWindow, "upstream");
-			await shoot(appWindow, "upstream-tab", "#sidebar-panel");
-		});
-
 		test("project picker", async ({ appWindow }) => {
 			await openProject(appWindow);
 			await appWindow.getByRole("combobox", { name: /select project/i }).click();
