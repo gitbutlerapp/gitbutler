@@ -780,11 +780,12 @@ pub fn fetch_from_remotes(ctx: &Context, action: Option<String>) -> Result<BaseB
         }
     };
     let project_meta = ctx.project_meta()?;
-    but_meta::garbage_collect(
-        &*ctx.repo.get()?,
-        &project_meta,
-        &mut ctx.db.get_cache_mut()?.connection_mut(),
-    )?;
+    {
+        let mut db = ctx.db.get_cache_mut()?;
+        let mut tx = db.immediate_transaction()?;
+        but_meta::garbage_collect(&*ctx.repo.get()?, &project_meta, &mut tx)?;
+        tx.commit()?;
+    }
 
     // Fetch is our out-of-band pruning point for ad-hoc branch-order metadata: reads are
     // best-effort and never prune, so we reconcile the DB against the

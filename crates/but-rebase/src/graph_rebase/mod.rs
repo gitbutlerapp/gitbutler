@@ -467,24 +467,11 @@ impl<'ws, 'db, 'conn> SuccessfulRebase<'ws, 'db, 'conn> {
         let branch_stacks = self.branch_stacks()?;
         let meta = self.db.meta()?;
         let workspace_metadata = branch_stacks.workspace_metadata(&meta)?;
-        let branch_metadata = workspace_metadata
-            .iter()
-            .flat_map(|workspace| &workspace.stacks)
-            .flat_map(|stack| &stack.branches)
-            .map(|branch| {
-                let metadata = meta
-                    .branch(branch.ref_name.as_ref())
-                    .cloned()
-                    .unwrap_or_default();
-                (branch.ref_name.clone(), metadata)
-            })
-            .collect::<Vec<_>>();
         let workspace_ref: gix::refs::FullName = but_core::WORKSPACE_REF_NAME.try_into()?;
         let mut overlay = Overlay::default()
             .with_references(updated_refs)
             .with_dropped_references(dropped_refs)
             .with_entrypoint(entrypoint_id, entrypoint_refname)
-            .with_branch_metadata_override(branch_metadata)
             .with_workspace_metadata_override(
                 workspace_metadata.map(|workspace| (workspace_ref, workspace)),
             );

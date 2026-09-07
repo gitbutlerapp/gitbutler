@@ -830,11 +830,7 @@ pub mod utils {
     /// Returns a fixture that may not be written to, objects will never touch disk either.
     pub fn fixture(fixture_name: &str) -> anyhow::Result<(gix::Repository, but_db::DbHandle)> {
         let repo = but_testsupport::read_only_in_memory_scenario(fixture_name)?;
-        let meta = but_testsupport::fixture_metadata(
-            repo.path()
-                .join(".git")
-                .join("should-never-be-written.toml"),
-        )?;
+        let meta = but_testsupport::in_memory_db();
         // The fixture is shared and read-only, so its database cannot live on disk.
 
         Ok((repo, meta))

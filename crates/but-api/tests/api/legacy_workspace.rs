@@ -37,8 +37,8 @@ fn create_virtual_branch_returns_the_stack_that_switching_back_created() -> anyh
         crate::support::workspace_graph(&ctx)?,
         snapbox::str![[r#"
 📕🏘️:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 33fbd87
-└── ≡📙:amo-branch-1 on 33fbd87 {[..]}
-    └── 📙:amo-branch-1
+└── ≡:amo-branch-1 on 33fbd87 {[..]}
+    └── :amo-branch-1
         └── ·b12810b (🏘️)
 
 "#]]

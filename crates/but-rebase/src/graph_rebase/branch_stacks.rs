@@ -93,6 +93,8 @@ impl BranchStacks {
                 changed = true;
             }
         }
+        // Workspace writes may remove the inherited order of linked-worktree branches.
+        let meta = db.meta()?;
         for stack in &self.ad_hoc {
             let Some(tip) = stack.first() else { continue };
             if meta.branch_stack_order(tip.as_ref()) != Some(stack.as_slice()) {

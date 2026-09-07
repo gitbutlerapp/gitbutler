@@ -1062,7 +1062,7 @@ fn from_head_tolerates_refs_moving_during_traversal() -> anyhow::Result<()> {
     let m1 = commit(&repo, "M1")?;
     let m2 = commit_with_parent(&repo, "M2", m1)?;
     create_branches(&repo, m1, ["refs/heads/main", "refs/remotes/origin/main"])?;
-    let mut meta = in_memory_meta(tmp.path())?;
+    let mut meta = in_memory_db();
     let project_meta = add_workspace_with_target(&mut meta, m1);
 
     // The mover keeps flipping the target ref until every traversal below has run,
@@ -1908,9 +1908,9 @@ fn worktree_tips_as_extra_traversal_heads() -> anyhow::Result<()> {
 /// build would adopt afresh and archive every worktree created since.
 #[test]
 fn worktree_created_after_adoption_is_active() -> anyhow::Result<()> {
-    let (tmp, repo) = empty_repo()?;
+    let (_tmp, repo) = empty_repo()?;
     let base = commit(&repo, "M")?;
-    let mut meta = in_memory_meta(tmp.as_ref())?;
+    let mut meta = in_memory_db();
     let options = but_graph::init::Options {
         worktrees: true,
         ..standard_options()
@@ -1968,7 +1968,7 @@ fn worktree_created_after_adoption_is_active() -> anyhow::Result<()> {
 
 #[test]
 fn commit_with_two_parents() -> anyhow::Result<()> {
-    let (tmp, repo) = rust_fixture_writable("empty", 2, Creation::Execute, |fixture| {
+    let (_tmp, repo) = rust_fixture_writable("empty", 2, Creation::Execute, |fixture| {
         let open_opts = but_testsupport::open_repo_config()?;
         Ok(match fixture {
             FixtureState::Uninitialized(path) => gix::ThreadSafeRepository::init_opts(
@@ -2008,7 +2008,7 @@ fn commit_with_two_parents() -> anyhow::Result<()> {
         .raw()
     );
 
-    let mut meta = in_memory_meta(tmp.as_ref())?;
+    let mut meta = in_memory_db();
     let graph = Graph::from_head(
         &repo,
         but_core::ref_metadata::ProjectMeta::default(),
@@ -2030,10 +2030,10 @@ fn commit_with_two_parents() -> anyhow::Result<()> {
 
 #[test]
 fn ad_hoc_same_tip_order_creates_empty_branch_segments() -> anyhow::Result<()> {
-    let (tmp, repo) = empty_repo()?;
+    let (_tmp, repo) = empty_repo()?;
     let tip = commit(&repo, "same tip")?;
     create_branches(&repo, tip, ["refs/heads/top", "refs/heads/bottom"])?;
-    let mut meta = in_memory_meta(tmp.as_ref())?;
+    let mut meta = in_memory_db();
 
     let graph = graph_with_branch_order(
         &repo,
@@ -2074,10 +2074,10 @@ fn ad_hoc_same_tip_order_creates_empty_branch_segments() -> anyhow::Result<()> {
 
 #[test]
 fn ad_hoc_order_projects_from_entrypoint_when_top_is_above_it() -> anyhow::Result<()> {
-    let (tmp, repo) = empty_repo()?;
+    let (_tmp, repo) = empty_repo()?;
     let tip = commit(&repo, "same tip")?;
     create_branches(&repo, tip, ["refs/heads/top", "refs/heads/bottom"])?;
-    let mut meta = in_memory_meta(tmp.as_ref())?;
+    let mut meta = in_memory_db();
 
     let graph = graph_with_branch_order(
         &repo,
@@ -2112,14 +2112,14 @@ fn ad_hoc_order_projects_from_entrypoint_when_top_is_above_it() -> anyhow::Resul
 
 #[test]
 fn ad_hoc_three_branch_order_preserves_middle_empty_segment() -> anyhow::Result<()> {
-    let (tmp, repo) = empty_repo()?;
+    let (_tmp, repo) = empty_repo()?;
     let tip = commit(&repo, "same tip")?;
     create_branches(
         &repo,
         tip,
         ["refs/heads/top", "refs/heads/middle", "refs/heads/bottom"],
     )?;
-    let mut meta = in_memory_meta(tmp.as_ref())?;
+    let mut meta = in_memory_db();
 
     let graph = graph_with_branch_order(
         &repo,
@@ -2157,10 +2157,10 @@ fn ad_hoc_three_branch_order_preserves_middle_empty_segment() -> anyhow::Result<
 
 #[test]
 fn ad_hoc_order_ignores_missing_metadata_refs_without_phantoms() -> anyhow::Result<()> {
-    let (tmp, repo) = empty_repo()?;
+    let (_tmp, repo) = empty_repo()?;
     let tip = commit(&repo, "same tip")?;
     create_branches(&repo, tip, ["refs/heads/top", "refs/heads/bottom"])?;
-    let mut meta = in_memory_meta(tmp.as_ref())?;
+    let mut meta = in_memory_db();
 
     let graph = graph_with_branch_order(
         &repo,
@@ -2196,12 +2196,12 @@ fn ad_hoc_order_ignores_missing_metadata_refs_without_phantoms() -> anyhow::Resu
 
 #[test]
 fn ad_hoc_order_does_not_force_diverged_refs_into_empty_stack() -> anyhow::Result<()> {
-    let (tmp, repo) = empty_repo()?;
+    let (_tmp, repo) = empty_repo()?;
     let bottom_tip = commit(&repo, "bottom")?;
     let top_tip = commit_with_parent(&repo, "top", bottom_tip)?;
     create_branches(&repo, bottom_tip, ["refs/heads/bottom", "refs/heads/main"])?;
     create_branches(&repo, top_tip, ["refs/heads/top"])?;
-    let mut meta = in_memory_meta(tmp.as_ref())?;
+    let mut meta = in_memory_db();
 
     let graph = graph_with_branch_order(
         &repo,
@@ -2239,7 +2239,7 @@ fn ad_hoc_order_does_not_force_diverged_refs_into_empty_stack() -> anyhow::Resul
 
 #[test]
 fn ad_hoc_order_preserves_empty_top_above_commit_owning_branch() -> anyhow::Result<()> {
-    let (tmp, repo) = empty_repo()?;
+    let (_tmp, repo) = empty_repo()?;
     let target_tip = commit(&repo, "target")?;
     let bottom_tip = commit_with_parent(&repo, "bottom", target_tip)?;
     let commit_branch_tip = commit_with_parent(&repo, "top", bottom_tip)?;
@@ -2250,7 +2250,7 @@ fn ad_hoc_order_preserves_empty_top_above_commit_owning_branch() -> anyhow::Resu
     )?;
     create_branches(&repo, bottom_tip, ["refs/heads/bottom"])?;
     create_branches(&repo, target_tip, ["refs/heads/main"])?;
-    let mut meta = in_memory_meta(tmp.as_ref())?;
+    let mut meta = in_memory_db();
 
     let graph = graph_with_branch_order(
         &repo,
@@ -2284,7 +2284,7 @@ fn ad_hoc_order_preserves_empty_top_above_commit_owning_branch() -> anyhow::Resu
 
 #[test]
 fn ad_hoc_order_keeps_lower_empty_branches_after_non_empty_move() -> anyhow::Result<()> {
-    let (tmp, repo) = empty_repo()?;
+    let (_tmp, repo) = empty_repo()?;
     let target_tip = commit(&repo, "target")?;
     let base_tip = commit_with_parent(&repo, "base", target_tip)?;
     let commit_branch_tip = commit_with_parent(&repo, "commit branch", base_tip)?;
@@ -2299,7 +2299,7 @@ fn ad_hoc_order_keeps_lower_empty_branches_after_non_empty_move() -> anyhow::Res
         ],
     )?;
     create_branches(&repo, target_tip, ["refs/heads/main"])?;
-    let mut meta = in_memory_meta(tmp.as_ref())?;
+    let mut meta = in_memory_db();
 
     let graph = graph_with_branch_order(
         &repo,
@@ -2335,7 +2335,7 @@ fn ad_hoc_order_keeps_lower_empty_branches_after_non_empty_move() -> anyhow::Res
 
 #[test]
 fn ad_hoc_order_scopes_empty_segments_to_active_chain() -> anyhow::Result<()> {
-    let (tmp, repo) = empty_repo()?;
+    let (_tmp, repo) = empty_repo()?;
     let tip = commit(&repo, "same tip")?;
     create_branches(
         &repo,
@@ -2347,7 +2347,7 @@ fn ad_hoc_order_scopes_empty_segments_to_active_chain() -> anyhow::Result<()> {
             "refs/heads/other-bottom",
         ],
     )?;
-    let mut meta = in_memory_meta(tmp.as_ref())?;
+    let mut meta = in_memory_db();
 
     let graph = graph_with_branch_orders(
         &repo,
@@ -2390,7 +2390,7 @@ fn ad_hoc_order_scopes_empty_segments_to_active_chain() -> anyhow::Result<()> {
 
 #[test]
 fn ad_hoc_order_keeps_bottom_branch_sitting_on_target() -> anyhow::Result<()> {
-    let (tmp, repo) = empty_repo()?;
+    let (_tmp, repo) = empty_repo()?;
     let tip = commit(&repo, "same tip")?;
     create_branches(
         &repo,
@@ -2402,7 +2402,7 @@ fn ad_hoc_order_keeps_bottom_branch_sitting_on_target() -> anyhow::Result<()> {
             "refs/remotes/origin/main",
         ],
     )?;
-    let mut meta = in_memory_meta(tmp.as_ref())?;
+    let mut meta = in_memory_db();
     let order = ["refs/heads/top", "refs/heads/middle", "refs/heads/bottom"];
     let overlay = Overlay::default().with_branch_stack_order_override(order.map(ref_name));
     let graph = Graph::from_commit_traversal(
@@ -2433,10 +2433,10 @@ fn ad_hoc_order_keeps_bottom_branch_sitting_on_target() -> anyhow::Result<()> {
 
 #[test]
 fn ad_hoc_order_hides_target_branch_at_base() -> anyhow::Result<()> {
-    let (tmp, repo) = empty_repo()?;
+    let (_tmp, repo) = empty_repo()?;
     let tip = commit(&repo, "same tip")?;
     create_branches(&repo, tip, ["refs/heads/top", "refs/remotes/origin/main"])?;
-    let mut meta = in_memory_meta(tmp.as_ref())?;
+    let mut meta = in_memory_db();
     let order = ["refs/heads/top", "refs/heads/main"];
     let overlay = Overlay::default().with_branch_stack_order_override(order.map(ref_name));
     let graph = Graph::from_commit_traversal(
@@ -2494,7 +2494,7 @@ fn ad_hoc_branch_at_target_tip() -> anyhow::Result<()> {
     // The checked-out branch and the target both point at F1, while the target's local
     // tracking branch `main` stayed behind at M1.
     create_branches(&repo, f1, ["refs/remotes/origin/main"])?;
-    let mut meta = in_memory_meta(tmp.path())?;
+    let mut meta = in_memory_db();
     let project_meta = but_core::ref_metadata::ProjectMeta {
         target_ref: Some(ref_name("refs/remotes/origin/main")),
         ..Default::default()
@@ -2532,7 +2532,7 @@ pub use utils::{
     read_only_in_memory_scenario, standard_options,
 };
 
-use crate::init::utils::{add_workspace_with_target, default_project_meta, in_memory_meta};
+use crate::init::utils::{add_workspace_with_target, default_project_meta, in_memory_db};
 
 fn ref_name(name: &str) -> gix::refs::FullName {
     name.try_into().expect("valid full ref name")
