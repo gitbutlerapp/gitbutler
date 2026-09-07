@@ -7,6 +7,8 @@ let updaterWindow: BrowserWindow | null = null;
 let updaterRegistered = false;
 let updateDialogShown = false;
 
+const updateCheckIntervalMs = 60 * 60 * 1000;
+
 const getAutoUpdater = (): AppUpdater => {
 	const { autoUpdater } = electronUpdater;
 	return autoUpdater;
@@ -41,6 +43,8 @@ export const registerUpdater = (mainWindow: BrowserWindow): void => {
 	updaterWindow = mainWindow;
 	if (updaterRegistered) return;
 	updaterRegistered = true;
+
+	setInterval(checkForUpdates, updateCheckIntervalMs).unref();
 
 	const autoUpdater = getAutoUpdater();
 	autoUpdater.autoDownload = autoUpdateEnabled;
