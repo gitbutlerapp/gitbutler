@@ -141,7 +141,7 @@ pub(super) mod function {
         },
     };
     use but_error::bail_precondition;
-    use gix::refs::transaction::PreviousValue;
+    use gix::refs::transaction::{PreviousValue, RefEdit};
 
     use crate::branch::create_reference::{Anchor, Position};
 
@@ -220,6 +220,34 @@ pub(super) mod function {
         db: &mut but_db::ConnectionMut<'_, '_>,
         new_stack_id: impl FnOnce(&gix::refs::FullNameRef) -> StackId,
         order: impl Into<Option<usize>>,
+    ) -> anyhow::Result<Cow<'ws, but_graph::Workspace>> {
+        create_reference_with_ref_edits(
+            ref_name,
+            anchor,
+            repo,
+            workspace,
+            db,
+            new_stack_id,
+            order,
+            &mut Vec::new(),
+        )
+    }
+
+    /// Like [`create_reference`], recording each committed reference edit before
+    /// proceeding to metadata writes that may fail.
+    #[expect(
+        clippy::too_many_arguments,
+        reason = "extends the existing creation API with its reference receipt sink"
+    )]
+    pub fn create_reference_with_ref_edits<'ws, 'name>(
+        ref_name: impl Borrow<gix::refs::FullNameRef>,
+        anchor: impl Into<Option<Anchor<'name>>>,
+        repo: &gix::Repository,
+        workspace: &'ws but_graph::Workspace,
+        db: &mut but_db::ConnectionMut<'_, '_>,
+        new_stack_id: impl FnOnce(&gix::refs::FullNameRef) -> StackId,
+        order: impl Into<Option<usize>>,
+        committed_ref_edits: &mut Vec<RefEdit>,
     ) -> anyhow::Result<Cow<'ws, but_graph::Workspace>> {
         let meta = db.meta()?;
         let anchor = anchor.into();
@@ -491,37 +519,44 @@ pub(super) mod function {
         }
 
         // Actually apply the changes
-        repo.reference(
-            ref_name,
-            ref_target_id,
-            PreviousValue::ExistingMustMatch(gix::refs::Target::Object(ref_target_id)),
-            "Dependent branch by GitButler",
-        )
-        .map_err(|err| {
-            if is_not_a_directory_ref_edit_error(&err)
-                && let Ok(Some(colliding_ref)) = find_colliding_ref_ancestor(repo, ref_name)
-            {
-                return anyhow::anyhow!(
-                    "Branch name '{}' collides with existing branch '{}'",
-                    ref_name.shorten(),
-                    colliding_ref.shorten()
-                );
-            }
-            let code = match err {
-                gix::reference::edit::Error::FileTransactionCommit(
-                    gix::refs::file::transaction::commit::Error::CreateOrUpdateRefLog(
-                        gix::refs::file::log::create_or_update::Error::MissingCommitter,
-                    ),
-                ) => Some(but_error::Code::AuthorMissing),
-                _ => None,
-            };
-            let err = anyhow::Error::from(err);
-            if let Some(code) = code {
-                err.context(code)
-            } else {
-                err
-            }
-        })?;
+        let edits = repo
+            .edit_reference(RefEdit::update(
+                ref_name.to_owned(),
+                ref_target_id,
+                PreviousValue::ExistingMustMatch(gix::refs::Target::Object(ref_target_id)),
+                "Dependent branch by GitButler",
+            ))
+            .map_err(|err| {
+                if is_not_a_directory_ref_edit_error(&err)
+                    && let Ok(Some(colliding_ref)) = find_colliding_ref_ancestor(repo, ref_name)
+                {
+                    return anyhow::anyhow!(
+                        "Branch name '{}' collides with existing branch '{}'",
+                        ref_name.shorten(),
+                        colliding_ref.shorten()
+                    );
+                }
+                let code = match err {
+                    gix::reference::edit::Error::FileTransactionCommit(
+                        gix::refs::file::transaction::commit::Error::CreateOrUpdateRefLog(
+                            gix::refs::file::log::create_or_update::Error::MissingCommitter,
+                        ),
+                    ) => Some(but_error::Code::AuthorMissing),
+                    _ => None,
+                };
+                let err = anyhow::Error::from(err);
+                if let Some(code) = code {
+                    err.context(code)
+                } else {
+                    err
+                }
+            })?;
+        let created_here = edits.iter().any(|edit| {
+            edit.name.as_ref() == ref_name
+                && matches!(&edit.change, gix::refs::transaction::Change::Update { expected, .. }
+                    if !matches!(expected, PreviousValue::MustExistAndMatch(_)))
+        });
+        committed_ref_edits.extend(edits);
         // Important to first update the workspace so we have the correct stack setup.
         if let Some(ws_meta) = updated_ws_meta {
             db.meta_mut()?.set_workspace(
@@ -537,10 +572,13 @@ pub(super) mod function {
             // Keep the operation atomic from the caller's perspective: if we just created the ref
             // but can't persist its ordering, roll the ref back (best-effort) so we don't leave an
             // unordered same-commit branch that can't be projected consistently.
-            if existing_ref_target_id.is_none()
-                && let Ok(Some(reference)) = repo.try_find_reference(ref_name)
+            if created_here
+                && let Ok(edits) = repo.edit_reference(RefEdit::delete(
+                    ref_name.to_owned(),
+                    PreviousValue::MustExistAndMatch(gix::refs::Target::Object(ref_target_id)),
+                ))
             {
-                reference.delete().ok();
+                committed_ref_edits.extend(edits);
             }
             return Err(err);
         }
