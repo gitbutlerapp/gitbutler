@@ -481,6 +481,103 @@ fn per_ref_migration_preserves_values_and_removes_singleton_tables() -> anyhow::
 }
 
 #[test]
+fn migration_discards_workspace_derived_branch_order_and_preserves_ad_hoc_chains()
+-> anyhow::Result<()> {
+    let dir = tempfile::tempdir()?;
+    let path = dir.path().join("branch-order-migration.sqlite");
+    let mut conn = rusqlite::Connection::open(&path)?;
+    but_db::migration::run(
+        &mut conn,
+        but_db::MIGRATIONS[..but_db::MIGRATIONS.len() - 1]
+            .iter()
+            .flat_map(|group| group.iter())
+            .copied(),
+    )?;
+    conn.execute_batch(
+        "INSERT INTO vb_state (id, initialized) VALUES (1, 1);
+        INSERT INTO vb_stacks (id, sort_order, in_workspace) VALUES
+            ('00000000-0000-0000-0000-000000000001', 0, 1),
+            ('00000000-0000-0000-0000-000000000002', 1, 0);
+        INSERT INTO vb_stack_heads (stack_id, position, name, head_sha) VALUES
+            ('00000000-0000-0000-0000-000000000001', 0, 'bottom', ''),
+            ('00000000-0000-0000-0000-000000000001', 1, 'middle', ''),
+            ('00000000-0000-0000-0000-000000000001', 2, 'top', ''),
+            ('00000000-0000-0000-0000-000000000002', 0, 'extended-base', ''),
+            ('00000000-0000-0000-0000-000000000002', 1, 'extended-tip', '');
+        INSERT INTO branch_order (branch_ref_name, parent_ref_name) VALUES
+            ('refs/heads/top', 'refs/heads/middle'),
+            ('refs/heads/middle', 'refs/heads/bottom'),
+            ('refs/heads/bottom', NULL),
+            ('refs/heads/independent-tip', 'refs/heads/independent-base'),
+            ('refs/heads/independent-base', NULL),
+            ('refs/heads/extra', 'refs/heads/extended-tip'),
+            ('refs/heads/extended-tip', 'refs/heads/extended-base'),
+            ('refs/heads/extended-base', NULL);",
+    )?;
+
+    let mut db = DbHandle::new_at_path(&path)?;
+    let workspace_ref = WORKSPACE_REF_NAME.try_into()?;
+    let top: FullName = "refs/heads/top".try_into()?;
+    let middle: FullName = "refs/heads/middle".try_into()?;
+    let bottom: FullName = "refs/heads/bottom".try_into()?;
+    let mut workspace = db
+        .meta()?
+        .workspace(workspace_ref)
+        .expect("the legacy workspace was migrated")
+        .clone();
+
+    // The old workspace writer duplicated this chain into branch_order. After migration,
+    // its order must follow workspace edits instead of acting as an explicit override.
+    workspace.stacks[0].branches.reverse();
+    db.meta_mut()?.set_workspace(workspace_ref, &workspace)?;
+    assert_eq!(
+        db.meta()?.branch_stack_order(top.as_ref()),
+        Some([bottom.clone(), middle.clone(), top.clone()].as_slice()),
+        "migrated workspace order must follow a later reorder"
+    );
+
+    let split_branches = workspace.stacks[0].branches.split_off(2);
+    workspace.stacks.push(WorkspaceStack {
+        id: StackId::from_number_for_testing(3),
+        branches: split_branches,
+        workspacecommit_relation: WorkspaceCommitRelation::Merged,
+    });
+    db.meta_mut()?.set_workspace(workspace_ref, &workspace)?;
+    let metadata = db.meta()?;
+    assert_eq!(
+        metadata.branch_stack_order(top.as_ref()),
+        Some(std::slice::from_ref(&top)),
+        "splitting a workspace stack must not restore its old chain"
+    );
+    assert_eq!(
+        metadata.branch_stack_order(bottom.as_ref()),
+        Some([bottom, middle].as_slice()),
+        "the remaining workspace stack retains its new order"
+    );
+
+    let remaining_orders = metadata.branch_orders().collect::<Vec<_>>();
+    assert_eq!(
+        remaining_orders.len(),
+        2,
+        "only the independent and extended ad-hoc chains remain explicit"
+    );
+    for names in [
+        &["independent-tip", "independent-base"][..],
+        &["extra", "extended-tip", "extended-base"][..],
+    ] {
+        let expected = names
+            .iter()
+            .map(|name| format!("refs/heads/{name}").try_into())
+            .collect::<Result<Vec<FullName>, _>>()?;
+        assert!(
+            remaining_orders.contains(&expected.as_slice()),
+            "migration preserves independent ad-hoc orders, including a chain extending a workspace stack"
+        );
+    }
+    Ok(())
+}
+
+#[test]
 fn workspace_saves_touch_only_changed_rows_and_roll_back_sql_failures() -> anyhow::Result<()> {
     let dir = tempfile::tempdir()?;
     let path = dir.path().join("metadata.sqlite");

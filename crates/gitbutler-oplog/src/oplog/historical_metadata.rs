@@ -10,6 +10,48 @@ use but_core::ref_metadata::{
 
 use super::{SnapshotRefMetadata, SnapshotReference, SnapshotTarget};
 
+pub(super) fn remove_inherited_branch_order(
+    metadata: &but_db::Metadata,
+    order: &mut but_db::BranchOrderSnapshot,
+) {
+    // Older workspace writes also saved their order as ad-hoc rows. Drop only complete
+    // matching chains so later workspace edits derive their order from workspace metadata.
+    for stack in metadata
+        .workspaces()
+        .flat_map(|(_, workspace)| &workspace.stacks)
+    {
+        let Some(tip) = stack.branches.first() else {
+            continue;
+        };
+        let complete_match = stack.branches.iter().enumerate().all(|(index, branch)| {
+            order.entries.iter().any(|entry| {
+                branch.ref_name.as_bstr() == entry.branch_ref_name.as_str()
+                    && match stack.branches.get(index + 1) {
+                        Some(parent) => entry
+                            .parent_ref_name
+                            .as_ref()
+                            .is_some_and(|name| parent.ref_name.as_bstr() == name.as_str()),
+                        None => entry.parent_ref_name.is_none(),
+                    }
+            })
+        });
+        let extends_above = order.entries.iter().any(|entry| {
+            entry
+                .parent_ref_name
+                .as_ref()
+                .is_some_and(|name| tip.ref_name.as_bstr() == name.as_str())
+        });
+        if complete_match && !extends_above {
+            order.entries.retain(|entry| {
+                !stack
+                    .branches
+                    .iter()
+                    .any(|branch| branch.ref_name.as_bstr() == entry.branch_ref_name.as_str())
+            });
+        }
+    }
+}
+
 pub(super) fn read(
     tree: &gix::Tree<'_>,
     repo: &gix::Repository,
