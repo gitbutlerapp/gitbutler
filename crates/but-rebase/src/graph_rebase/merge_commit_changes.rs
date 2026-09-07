@@ -3,7 +3,7 @@
 use std::collections::{HashMap, HashSet};
 
 use anyhow::{Context, Result, bail};
-use but_core::{RefMetadata, commit::tree_expression::TreeExpression};
+use but_core::commit::tree_expression::TreeExpression;
 use gix::prelude::ObjectIdExt;
 use petgraph::Direction;
 
@@ -47,7 +47,7 @@ pub struct MergeCommitChangesConflict {
     pub conflict_entries: but_core::commit::ConflictEntries,
 }
 
-impl<M: RefMetadata> Editor<'_, '_, M> {
+impl Editor<'_, '_, '_> {
     /// Return the tree produced by preserving the target commit's full tree
     /// and then merging only the surviving selected commits' own change
     /// ranges into it.
@@ -234,8 +234,8 @@ enum TraversalMode {
 /// structure. Parent/tree semantics are still read from the in-memory
 /// repository commits, so callers must only use this planner when the editor
 /// graph and the in-memory repository represent the same commit topology.
-fn traverse_graph_for_planning<M: RefMetadata>(
-    editor: &Editor<'_, '_, M>,
+fn traverse_graph_for_planning(
+    editor: &Editor<'_, '_, '_>,
     target_commit_id: gix::ObjectId,
     selected_commit_ids: &HashSet<gix::ObjectId>,
 ) -> Result<SelectedCommitPlanningTraversal> {
@@ -321,8 +321,8 @@ fn traverse_graph_for_planning<M: RefMetadata>(
 /// commit DAG that owns the trees and SHAs being merged, so callers are
 /// expected to keep the editor step graph aligned with that in-memory
 /// repository topology.
-fn get_first_parent_metadata<M: RefMetadata>(
-    editor: &Editor<'_, '_, M>,
+fn get_first_parent_metadata(
+    editor: &Editor<'_, '_, '_>,
     commit_id: gix::ObjectId,
     selected_commit_ids: &HashSet<gix::ObjectId>,
 ) -> Result<Option<FirstParentMetadata>> {
@@ -349,8 +349,8 @@ fn get_first_parent_metadata<M: RefMetadata>(
 ///
 /// If the first parent link cannot be followed due to a commit not having any
 /// parents, the empty tree is returned.
-fn base_tree_id_for_emitted_tip<M: RefMetadata>(
-    editor: &Editor<'_, '_, M>,
+fn base_tree_id_for_emitted_tip(
+    editor: &Editor<'_, '_, '_>,
     tip_commit_id: gix::ObjectId,
     selected_metadata_by_commit: &HashMap<gix::ObjectId, FirstParentMetadata>,
     target_ancestor_commit_ids: &HashSet<gix::ObjectId>,
@@ -383,8 +383,8 @@ fn base_tree_id_for_emitted_tip<M: RefMetadata>(
     }
 }
 
-fn tree_id_for_commit<M: RefMetadata>(
-    editor: &Editor<'_, '_, M>,
+fn tree_id_for_commit(
+    editor: &Editor<'_, '_, '_>,
     commit_id: gix::ObjectId,
 ) -> Result<gix::ObjectId> {
     Ok(but_core::Commit::from_id(commit_id.attach(&editor.repo))?

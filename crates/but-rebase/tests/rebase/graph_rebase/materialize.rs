@@ -13,37 +13,31 @@ use crate::{
     utils::{fixture_writable, standard_options, target_meta},
 };
 
-fn worktree_fixture(
-    name: &str,
-) -> Result<(
-    gix::Repository,
-    tempfile::TempDir,
-    std::mem::ManuallyDrop<but_meta::VirtualBranchesTomlMetadata>,
-    but_db::DbHandle,
-)> {
+fn worktree_fixture(name: &str) -> Result<(gix::Repository, tempfile::TempDir, but_db::DbHandle)> {
     let (repo, tmp) = but_testsupport::writable_scenario_slow(name);
-    let meta = but_meta::VirtualBranchesTomlMetadata::from_path(
+    let mut meta = but_testsupport::fixture_metadata(
         repo.path()
             .join(".git")
             .join("should-never-be-written.toml"),
     )?;
     // Adoption already ran, so the fixture's worktrees count as active.
-    let mut db = but_testsupport::project_db(&repo)?;
-    db.worktree_meta_mut().mark_adopted()?;
-    Ok((repo, tmp, std::mem::ManuallyDrop::new(meta), db))
+
+    meta.worktree_meta_mut().mark_adopted()?;
+    Ok((repo, tmp, meta))
 }
 
-/// Build the graph with all of the fixture's worktrees discovered from `db`.
-fn graph_with_worktrees(
-    repo: &gix::Repository,
-    meta: &impl but_core::RefMetadata,
-    db: &mut but_db::DbHandle,
-) -> Result<Graph> {
+/// Build the graph with all of the fixture's worktrees discovered from `meta`.
+fn graph_with_worktrees(repo: &gix::Repository, meta: &mut but_db::DbHandle) -> Result<Graph> {
     let options = but_graph::init::Options {
         worktrees: true,
         ..standard_options()
     };
-    Graph::from_head(repo, meta, Default::default(), db, options)
+    Graph::from_head(
+        repo,
+        Default::default(),
+        &mut meta.connection_mut(),
+        options,
+    )
 }
 
 fn linked_repo(repo: &gix::Repository, name: &str) -> Result<gix::Repository> {
@@ -57,7 +51,7 @@ fn linked_repo(repo: &gix::Repository, name: &str) -> Result<gix::Repository> {
 
 #[test]
 fn materialize_removes_dropped_commit_changes_from_worktree() -> Result<()> {
-    let (repo, _tmpdir, mut meta, mut db) = fixture_writable("four-commits")?;
+    let (repo, _tmpdir, mut meta) = fixture_writable("four-commits")?;
     let worktree = repo.workdir().unwrap();
 
     snapbox::assert_data_eq!(
@@ -86,14 +80,13 @@ fn materialize_removes_dropped_commit_changes_from_worktree() -> Result<()> {
 
     let graph = Graph::from_head(
         &repo,
-        &*meta,
         Default::default(),
-        &mut db,
+        &mut meta.connection_mut(),
         standard_options(),
     )?
     .validated()?;
     let mut ws = graph.into_workspace()?;
-    let mut editor = Editor::create(&mut ws, &mut *meta, &repo, &mut db)?;
+    let mut editor = Editor::create(&mut ws, &repo, meta.connection_mut())?;
 
     // Drop the 'c' commit (HEAD)
     let c = repo.rev_parse_single("HEAD")?;
@@ -144,7 +137,7 @@ fn materialize_removes_dropped_commit_changes_from_worktree() -> Result<()> {
 
 #[test]
 fn materialize_without_checkout_preserves_dropped_commit_changes_in_worktree() -> Result<()> {
-    let (repo, _tmpdir, mut meta, mut db) = fixture_writable("four-commits")?;
+    let (repo, _tmpdir, mut meta) = fixture_writable("four-commits")?;
     let worktree = repo.workdir().unwrap();
 
     snapbox::assert_data_eq!(
@@ -173,14 +166,13 @@ fn materialize_without_checkout_preserves_dropped_commit_changes_in_worktree() -
 
     let graph = Graph::from_head(
         &repo,
-        &*meta,
         Default::default(),
-        &mut db,
+        &mut meta.connection_mut(),
         standard_options(),
     )?
     .validated()?;
     let mut ws = graph.into_workspace()?;
-    let mut editor = Editor::create(&mut ws, &mut *meta, &repo, &mut db)?;
+    let mut editor = Editor::create(&mut ws, &repo, meta.connection_mut())?;
 
     // Drop the 'c' commit (HEAD)
     let c = repo.rev_parse_single("HEAD")?;
@@ -235,18 +227,17 @@ fn materialize_without_checkout_preserves_dropped_commit_changes_in_worktree() -
 fn both_methods_update_references_identically() -> Result<()> {
     // Test with materialize
     let (ref_after_materialize, overlayed_materialize) = {
-        let (repo, _tmpdir, mut meta, mut db) = fixture_writable("four-commits")?;
+        let (repo, _tmpdir, mut meta) = fixture_writable("four-commits")?;
 
         let graph = Graph::from_head(
             &repo,
-            &*meta,
             Default::default(),
-            &mut db,
+            &mut meta.connection_mut(),
             standard_options(),
         )?
         .validated()?;
         let mut ws = graph.into_workspace()?;
-        let mut editor = Editor::create(&mut ws, &mut *meta, &repo, &mut db)?;
+        let mut editor = Editor::create(&mut ws, &repo, meta.connection_mut())?;
 
         let c = repo.rev_parse_single("HEAD")?;
         let c_sel = editor.select_commit(c.detach())?;
@@ -262,18 +253,17 @@ fn both_methods_update_references_identically() -> Result<()> {
 
     // Test with materialize_without_checkout
     let (ref_after_materialize_without_checkout, overlayed_without_checkout) = {
-        let (repo, _tmpdir, mut meta, mut db) = fixture_writable("four-commits")?;
+        let (repo, _tmpdir, mut meta) = fixture_writable("four-commits")?;
 
         let graph = Graph::from_head(
             &repo,
-            &*meta,
             Default::default(),
-            &mut db,
+            &mut meta.connection_mut(),
             standard_options(),
         )?
         .validated()?;
         let mut ws = graph.into_workspace()?;
-        let mut editor = Editor::create(&mut ws, &mut *meta, &repo, &mut db)?;
+        let mut editor = Editor::create(&mut ws, &repo, meta.connection_mut())?;
 
         let c = repo.rev_parse_single("HEAD")?;
         let c_sel = editor.select_commit(c.detach())?;
@@ -316,20 +306,19 @@ fn both_methods_update_references_identically() -> Result<()> {
 
 #[test]
 fn materialize_repoints_head_when_checkout_reference_is_replaced() -> Result<()> {
-    let (repo, _tmpdir, mut meta, mut db) = fixture_writable("four-commits")?;
+    let (repo, _tmpdir, mut meta) = fixture_writable("four-commits")?;
     let replacement_ref = gix::refs::FullName::try_from("refs/heads/replacement")?;
     let head_before = repo.rev_parse_single("HEAD")?.detach();
 
     let graph = Graph::from_head(
         &repo,
-        &*meta,
         Default::default(),
-        &mut db,
+        &mut meta.connection_mut(),
         standard_options(),
     )?
     .validated()?;
     let mut ws = graph.into_workspace()?;
-    let mut editor = Editor::create(&mut ws, &mut *meta, &repo, &mut db)?;
+    let mut editor = Editor::create(&mut ws, &repo, meta.connection_mut())?;
 
     let main_selector = editor.select_reference("refs/heads/main".try_into()?)?;
     editor.replace(main_selector, Step::new_reference(replacement_ref.clone()))?;
@@ -377,19 +366,18 @@ fn materialize_repoints_head_when_checkout_reference_is_replaced() -> Result<()>
 #[test]
 fn materialize_without_checkout_does_not_repoint_head_when_checkout_reference_is_replaced()
 -> Result<()> {
-    let (repo, _tmpdir, mut meta, mut db) = fixture_writable("four-commits")?;
+    let (repo, _tmpdir, mut meta) = fixture_writable("four-commits")?;
     let replacement_ref = gix::refs::FullName::try_from("refs/heads/replacement")?;
 
     let graph = Graph::from_head(
         &repo,
-        &*meta,
         Default::default(),
-        &mut db,
+        &mut meta.connection_mut(),
         standard_options(),
     )?
     .validated()?;
     let mut ws = graph.into_workspace()?;
-    let mut editor = Editor::create(&mut ws, &mut *meta, &repo, &mut db)?;
+    let mut editor = Editor::create(&mut ws, &repo, meta.connection_mut())?;
 
     let main_selector = editor.select_reference("refs/heads/main".try_into()?)?;
     editor.replace(main_selector, Step::new_reference(replacement_ref.clone()))?;
@@ -416,7 +404,7 @@ fn materialize_without_checkout_does_not_repoint_head_when_checkout_reference_is
 
 #[test]
 fn materialize_keeps_immutable_refs_unchanged_while_updating_local_refs() -> Result<()> {
-    let (repo, _tmpdir, mut meta, mut db) = fixture_writable("workspace-with-empty-stack")?;
+    let (repo, _tmpdir, mut meta) = fixture_writable("workspace-with-empty-stack")?;
     add_stack_with_segments(&mut meta, 1, "stack-1", StackState::InWorkspace, &[]);
     add_stack_with_segments(&mut meta, 2, "stack-2", StackState::InWorkspace, &[]);
     let main_before = repo.rev_parse_single("main")?.detach();
@@ -441,14 +429,13 @@ fn materialize_keeps_immutable_refs_unchanged_while_updating_local_refs() -> Res
 
     let graph = Graph::from_head(
         &repo,
-        &*meta,
         Default::default(),
-        &mut db,
+        &mut meta.connection_mut(),
         standard_options(),
     )?
     .validated()?;
     let mut ws = graph.into_workspace()?;
-    let mut editor = Editor::create(&mut ws, &mut *meta, &repo, &mut db)?;
+    let mut editor = Editor::create(&mut ws, &repo, meta.connection_mut())?;
 
     let stack_tip = repo.rev_parse_single("stack-2")?.detach();
     let stack_tip_sel = editor.select_commit(stack_tip)?;
@@ -482,7 +469,7 @@ fn materialize_keeps_immutable_refs_unchanged_while_updating_local_refs() -> Res
 
 #[test]
 fn materialize_does_not_delete_immutable_refs_removed_from_graph() -> Result<()> {
-    let (repo, _tmpdir, mut meta, mut db) = fixture_writable("workspace-with-empty-stack")?;
+    let (repo, _tmpdir, mut meta) = fixture_writable("workspace-with-empty-stack")?;
     add_stack_with_segments(&mut meta, 1, "stack-1", StackState::InWorkspace, &[]);
     add_stack_with_segments(&mut meta, 2, "stack-2", StackState::InWorkspace, &[]);
     let main_ref = gix::refs::FullName::try_from("refs/heads/main")?;
@@ -490,14 +477,13 @@ fn materialize_does_not_delete_immutable_refs_removed_from_graph() -> Result<()>
 
     let graph = Graph::from_head(
         &repo,
-        &*meta,
         target_meta(&repo),
-        &mut db,
+        &mut meta.connection_mut(),
         standard_options(),
     )?
     .validated()?;
     let mut ws = graph.into_workspace()?;
-    let mut editor = Editor::create(&mut ws, &mut *meta, &repo, &mut db)?;
+    let mut editor = Editor::create(&mut ws, &repo, meta.connection_mut())?;
 
     let main_sel = editor.select_reference(main_ref.as_ref())?;
     editor.replace(main_sel, Step::None)?;
@@ -530,13 +516,13 @@ fn materialize_does_not_delete_immutable_refs_removed_from_graph() -> Result<()>
 
 #[test]
 fn visible_attached_and_detached_worktrees_follow_a_rewritten_commit() -> Result<()> {
-    let (repo, _tmpdir, mut meta, mut db) = worktree_fixture("worktree-checkout-heads")?;
+    let (repo, _tmpdir, mut meta) = worktree_fixture("worktree-checkout-heads")?;
     let old_middle = repo.rev_parse_single("middle")?.detach();
     let attached_dir = repo.workdir().unwrap().join("wt");
     let detached_dir = repo.workdir().unwrap().join("wt-detached");
-    let graph = graph_with_worktrees(&repo, &*meta, &mut db)?.validated()?;
+    let graph = graph_with_worktrees(&repo, &mut meta)?.validated()?;
     let mut ws = graph.into_workspace()?;
-    let mut editor = Editor::create(&mut ws, &mut *meta, &repo, &mut db)?;
+    let mut editor = Editor::create(&mut ws, &repo, meta.connection_mut())?;
 
     let mut replacement = but_core::Commit::from_id(repo.rev_parse_single("middle")?)?;
     let a = repo.rev_parse_single("middle:a")?.detach();
@@ -603,7 +589,7 @@ fn visible_attached_and_detached_worktrees_follow_a_rewritten_commit() -> Result
 
 #[test]
 fn references_checked_out_in_linked_worktrees_are_not_deleted() -> Result<()> {
-    let (repo, _tmpdir, mut meta, mut db) = worktree_fixture("worktree-checkout-heads")?;
+    let (repo, _tmpdir, mut meta) = worktree_fixture("worktree-checkout-heads")?;
     let middle = repo.rev_parse_single("middle")?.detach();
     repo.reference(
         "refs/heads/doomed",
@@ -614,14 +600,13 @@ fn references_checked_out_in_linked_worktrees_are_not_deleted() -> Result<()> {
 
     let graph = Graph::from_head(
         &repo,
-        &*meta,
         Default::default(),
-        &mut db,
+        &mut meta.connection_mut(),
         standard_options(),
     )?
     .validated()?;
     let mut ws = graph.into_workspace()?;
-    let mut editor = Editor::create(&mut ws, &mut *meta, &repo, &mut db)?;
+    let mut editor = Editor::create(&mut ws, &repo, meta.connection_mut())?;
     for refname in ["refs/heads/middle", "refs/heads/doomed"] {
         let selector = editor.select_reference(refname.try_into()?)?;
         editor.replace(selector, Step::None)?;
@@ -641,7 +626,7 @@ fn references_checked_out_in_linked_worktrees_are_not_deleted() -> Result<()> {
 
 #[test]
 fn changes_consumed_from_a_linked_worktree_cancel_during_its_checkout() -> Result<()> {
-    let (repo, _tmpdir, mut meta, mut db) = worktree_fixture("worktree-partial-amend")?;
+    let (repo, _tmpdir, mut meta) = worktree_fixture("worktree-partial-amend")?;
     let worktree_dir = repo.workdir().unwrap().join("wt");
     let middle = repo.rev_parse_single("middle")?.detach();
 
@@ -657,9 +642,9 @@ fn changes_consumed_from_a_linked_worktree_cancel_during_its_checkout() -> Resul
     amended.tree = consumed_tree;
     amended.message = "base, with line 1.1".into();
     let amended = repo.write_object(amended.inner)?.detach();
-    let graph = graph_with_worktrees(&repo, &*meta, &mut db)?.validated()?;
+    let graph = graph_with_worktrees(&repo, &mut meta)?.validated()?;
     let mut ws = graph.into_workspace()?;
-    let mut editor = Editor::create(&mut ws, &mut *meta, &repo, &mut db)?;
+    let mut editor = Editor::create(&mut ws, &repo, meta.connection_mut())?;
     let middle_selector = editor.select_commit(middle)?;
     editor.replace(middle_selector, Step::new_pick(amended))?;
     editor.set_worktree_merge_base_override(gix::bstr::BStr::new("wt"), consumed_tree)?;
@@ -684,10 +669,10 @@ fn changes_consumed_from_a_linked_worktree_cancel_during_its_checkout() -> Resul
 
 #[test]
 fn a_merge_base_override_for_an_unknown_worktree_is_rejected() -> Result<()> {
-    let (repo, _tmpdir, mut meta, mut db) = worktree_fixture("worktree-partial-amend")?;
-    let graph = graph_with_worktrees(&repo, &*meta, &mut db)?.validated()?;
+    let (repo, _tmpdir, mut meta) = worktree_fixture("worktree-partial-amend")?;
+    let graph = graph_with_worktrees(&repo, &mut meta)?.validated()?;
     let mut ws = graph.into_workspace()?;
-    let mut editor = Editor::create(&mut ws, &mut *meta, &repo, &mut db)?;
+    let mut editor = Editor::create(&mut ws, &repo, meta.connection_mut())?;
     let tree = repo.rev_parse_single("middle^{tree}")?.detach();
 
     let err = editor
@@ -702,13 +687,13 @@ fn a_merge_base_override_for_an_unknown_worktree_is_rejected() -> Result<()> {
 
 #[test]
 fn materialize_without_checkout_moves_detached_worktree_heads_only() -> Result<()> {
-    let (repo, _tmpdir, mut meta, mut db) = worktree_fixture("worktree-checkout-heads")?;
+    let (repo, _tmpdir, mut meta) = worktree_fixture("worktree-checkout-heads")?;
     let detached_dir = repo.workdir().unwrap().join("wt-detached");
     let old_middle = repo.rev_parse_single("middle")?.detach();
     let files_before = visualize_disk_tree_skip_dot_git(&detached_dir)?.to_string();
-    let graph = graph_with_worktrees(&repo, &*meta, &mut db)?.validated()?;
+    let graph = graph_with_worktrees(&repo, &mut meta)?.validated()?;
     let mut ws = graph.into_workspace()?;
-    let mut editor = Editor::create(&mut ws, &mut *meta, &repo, &mut db)?;
+    let mut editor = Editor::create(&mut ws, &repo, meta.connection_mut())?;
 
     let mut replacement = but_core::Commit::from_id(repo.rev_parse_single("middle")?)?;
     replacement.message = "a rewritten".into();
@@ -737,11 +722,11 @@ fn materialize_without_checkout_moves_detached_worktree_heads_only() -> Result<(
 
 #[test]
 fn a_detached_worktree_that_moved_since_editor_creation_is_rejected() -> Result<()> {
-    let (repo, _tmpdir, mut meta, mut db) = worktree_fixture("worktree-checkout-heads")?;
+    let (repo, _tmpdir, mut meta) = worktree_fixture("worktree-checkout-heads")?;
     let old_middle = repo.rev_parse_single("middle")?.detach();
-    let graph = graph_with_worktrees(&repo, &*meta, &mut db)?.validated()?;
+    let graph = graph_with_worktrees(&repo, &mut meta)?.validated()?;
     let mut ws = graph.into_workspace()?;
-    let mut editor = Editor::create(&mut ws, &mut *meta, &repo, &mut db)?;
+    let mut editor = Editor::create(&mut ws, &repo, meta.connection_mut())?;
 
     let mut replacement = but_core::Commit::from_id(repo.rev_parse_single("middle")?)?;
     replacement.message = "a rewritten".into();
@@ -778,7 +763,7 @@ fn a_detached_worktree_that_moved_since_editor_creation_is_rejected() -> Result<
 fn insert_below_worktree_ref_moves_only_that_ref() -> Result<()> {
     use but_rebase::graph_rebase::mutate::{InsertSide, RelativeTo};
 
-    let (repo, _tmpdir, mut meta, mut db) = worktree_fixture("worktree-checkout-heads")?;
+    let (repo, _tmpdir, mut meta) = worktree_fixture("worktree-checkout-heads")?;
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
         snapbox::str![[r#"
@@ -791,9 +776,9 @@ fn insert_below_worktree_ref_moves_only_that_ref() -> Result<()> {
     let old_main = repo.rev_parse_single("main")?.detach();
     let old_middle = repo.rev_parse_single("middle")?.detach();
 
-    let graph = graph_with_worktrees(&repo, &*meta, &mut db)?.validated()?;
+    let graph = graph_with_worktrees(&repo, &mut meta)?.validated()?;
     let mut ws = graph.into_workspace()?;
-    let mut editor = Editor::create(&mut ws, &mut *meta, &repo, &mut db)?;
+    let mut editor = Editor::create(&mut ws, &repo, meta.connection_mut())?;
 
     // A commit to insert, with the same tree the worktree already has.
     let mut template = but_core::Commit::from_id(repo.rev_parse_single("middle")?)?;

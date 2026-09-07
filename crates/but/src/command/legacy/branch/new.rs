@@ -2,7 +2,7 @@ use std::borrow::Cow;
 
 use anyhow::{Context as _, bail};
 use but_core::{
-    DryRun, RefMetadata,
+    DryRun,
     ref_metadata::{ProjectMeta, StackId},
     sync::{RepoExclusive, RepoShared},
 };
@@ -44,8 +44,7 @@ pub fn new(
         resolve(ctx, guard.read_permission(), args, &head_info, &id_map)?
     };
 
-    let mut meta = ctx.meta()?;
-    Ok(run(ctx, &mut meta, guard.write_permission(), operation)?)
+    Ok(run(ctx, guard.write_permission(), operation)?)
 }
 
 fn resolve(
@@ -178,36 +177,29 @@ pub enum NewStackedBranchTarget {
 
 pub fn run(
     ctx: &mut Context,
-    meta: &mut impl RefMetadata,
     perm: &mut RepoExclusive,
     operation: NewOperation,
 ) -> anyhow::Result<NewOutcome> {
     match operation {
-        NewOperation::NewUnstackedBranch(op) => op.execute(ctx, meta, perm),
-        NewOperation::NewStackedBranch(op) => op.execute(ctx, meta, perm),
+        NewOperation::NewUnstackedBranch(op) => op.execute(ctx, perm),
+        NewOperation::NewStackedBranch(op) => op.execute(ctx, perm),
     }
 }
 
 impl NewUnstackedBranchOperation {
-    fn execute(
-        self,
-        ctx: &mut Context,
-        meta: &mut impl RefMetadata,
-        perm: &mut RepoExclusive,
-    ) -> anyhow::Result<NewOutcome> {
+    fn execute(self, ctx: &mut Context, perm: &mut RepoExclusive) -> anyhow::Result<NewOutcome> {
         let in_single_branch_mode = in_single_branch_mode_with_perm(ctx, perm.read_permission())?;
 
         if in_single_branch_mode {
-            self.execute_single_branch_mode(ctx, meta, perm)
+            self.execute_single_branch_mode(ctx, perm)
         } else {
-            self.execute_workspace_mode(ctx, meta, perm)
+            self.execute_workspace_mode(ctx, perm)
         }
     }
 
     fn execute_workspace_mode(
         self,
         ctx: &mut Context,
-        meta: &mut impl RefMetadata,
         perm: &mut RepoExclusive,
     ) -> anyhow::Result<NewOutcome> {
         let Self { name, switch } = self;
@@ -216,7 +208,6 @@ impl NewUnstackedBranchOperation {
 
         let (new_ref, _ws) = but_transaction::with_transaction_with_perm(
             ctx,
-            meta,
             perm,
             snapshot_details,
             DryRun::No,
@@ -246,7 +237,6 @@ impl NewUnstackedBranchOperation {
     fn execute_single_branch_mode(
         self,
         ctx: &mut Context,
-        meta: &mut impl RefMetadata,
         perm: &mut RepoExclusive,
     ) -> anyhow::Result<NewOutcome> {
         let Self { name, switch } = self;
@@ -280,7 +270,6 @@ impl NewUnstackedBranchOperation {
 
             but_transaction::with_transaction_with_perm(
                 ctx,
-                meta,
                 perm,
                 snapshot_details,
                 DryRun::No,
@@ -309,7 +298,6 @@ impl NewUnstackedBranchOperation {
 
             but_transaction::with_transaction_with_perm(
                 ctx,
-                meta,
                 perm,
                 snapshot_details,
                 DryRun::No,
@@ -352,19 +340,21 @@ impl NewUnstackedBranchOperation {
             // if the branch had no commits `set_base_branch` doesn't apply it
             //
             // this also has the effect of entering the workspace with one branch applied
-            {
-                let (repo, mut ws, _db) = ctx.workspace_mut_and_db_with_perm(perm)?;
+            let apply_result: anyhow::Result<()> = (|| {
+                let (repo, mut ws, mut db) = ctx.workspace_mut_and_db_mut_with_perm(perm)?;
+                let mut transaction = db.immediate_transaction()?;
                 let outcome = but_workspace::branch::apply(
                     head_name.as_ref(),
                     ws.clone(),
                     &repo,
-                    meta,
+                    &mut transaction.connection_mut(),
                     but_workspace::branch::apply::Options {
                         allow_applying_already_applied_branch_when_outside_workspace: true,
                         ..Default::default()
                     },
                 )?;
                 if outcome.status.persisted_mutation() {
+                    transaction.commit()?;
                     *ws = outcome.workspace.clone();
                 } else {
                     bail!(
@@ -372,11 +362,15 @@ impl NewUnstackedBranchOperation {
                         outcome.status
                     )
                 }
-            };
+                Ok(())
+            })();
+            if apply_result.is_err() {
+                ctx.invalidate_workspace_cache()?;
+            }
+            apply_result?;
 
             let (did_rollback, _) = but_transaction::with_transaction_with_perm_only(
                 ctx,
-                meta,
                 perm,
                 DryRun::No,
                 |mut tx| {
@@ -399,12 +393,7 @@ impl NewUnstackedBranchOperation {
 }
 
 impl NewStackedBranchOperation {
-    fn execute(
-        self,
-        ctx: &mut Context,
-        meta: &mut impl RefMetadata,
-        perm: &mut RepoExclusive,
-    ) -> anyhow::Result<NewOutcome> {
+    fn execute(self, ctx: &mut Context, perm: &mut RepoExclusive) -> anyhow::Result<NewOutcome> {
         let Self {
             name,
             target,
@@ -418,7 +407,6 @@ impl NewStackedBranchOperation {
 
         let (new_ref, _ws) = but_transaction::with_transaction_with_perm(
             ctx,
-            meta,
             perm,
             snapshot_details,
             DryRun::No,

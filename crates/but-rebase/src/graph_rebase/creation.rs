@@ -1,7 +1,7 @@
 use std::collections::{BTreeMap, HashMap, HashSet};
 
 use anyhow::{Context, Result, bail};
-use but_core::{RefMetadata, commit::SignCommit};
+use but_core::commit::SignCommit;
 use but_graph::{Commit, SegmentIndex};
 use petgraph::{Direction, visit::EdgeRef as _};
 
@@ -34,23 +34,21 @@ impl Default for GraphEditorOptions {
 }
 
 /// Creates an editor out of the workspace graph.
-impl<'ws, 'meta, M: RefMetadata> Editor<'ws, 'meta, M> {
+impl<'ws, 'db, 'conn> Editor<'ws, 'db, 'conn> {
     /// Creates an editor out of the workspace graph with the default options.
     pub fn create(
         workspace: &'ws mut but_graph::Workspace,
-        meta: &'meta mut M,
         repo: &gix::Repository,
-        db: &'meta mut but_db::DbHandle,
+        db: but_db::ConnectionMut<'db, 'conn>,
     ) -> Result<Self> {
-        Self::create_with_opts(workspace, meta, repo, db, &GraphEditorOptions::default())
+        Self::create_with_opts(workspace, repo, db, &GraphEditorOptions::default())
     }
 
     /// Creates an editor out of the workspace graph with the specified options.
     pub fn create_with_opts(
         workspace: &'ws mut but_graph::Workspace,
-        meta: &'meta mut M,
         repo: &gix::Repository,
-        db: &'meta mut but_db::DbHandle,
+        db: but_db::ConnectionMut<'db, 'conn>,
         options: &GraphEditorOptions,
     ) -> Result<Self> {
         // This first creates runs of nodes and associates them with the
@@ -370,19 +368,18 @@ impl<'ws, 'meta, M: RefMetadata> Editor<'ws, 'meta, M> {
             repo: repo.clone().with_object_memory(),
             history: RevisionHistory::new(),
             workspace,
-            meta,
             db,
         })
     }
 }
 
-impl<'ws, 'meta, M: RefMetadata> SuccessfulRebase<'ws, 'meta, M> {
+impl<'ws, 'db, 'conn> SuccessfulRebase<'ws, 'db, 'conn> {
     /// Converts a SuccessfulRebase back into another editor for multi-step operations.
     ///
     /// This is the normalization path for callers that want to chain
     /// additional editor-based operations and need the editor graph plus
     /// in-memory repository to agree on ancestry.
-    pub fn into_editor(self) -> Editor<'ws, 'meta, M> {
+    pub fn into_editor(self) -> Editor<'ws, 'db, 'conn> {
         Editor {
             graph: self.graph,
             initial_references: self.initial_references,
@@ -390,7 +387,6 @@ impl<'ws, 'meta, M: RefMetadata> SuccessfulRebase<'ws, 'meta, M> {
             repo: self.repo,
             history: self.history,
             workspace: self.workspace,
-            meta: self.meta,
             db: self.db,
         }
     }

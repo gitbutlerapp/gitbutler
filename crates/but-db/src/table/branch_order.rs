@@ -20,12 +20,12 @@ CREATE INDEX IF NOT EXISTS `idx_branch_order_parent_ref_name` ON `branch_order`(
 
 /// Read-only accessor for ad-hoc branch ordering metadata.
 pub struct BranchOrderHandle<'conn> {
-    conn: &'conn rusqlite::Connection,
+    pub(crate) conn: &'conn rusqlite::Connection,
 }
 
 /// Mutating accessor for ad-hoc branch ordering metadata.
 pub struct BranchOrderHandleMut<'conn> {
-    sp: rusqlite::Savepoint<'conn>,
+    pub(crate) sp: rusqlite::Savepoint<'conn>,
 }
 
 /// Complete persisted branch-order state, suitable for snapshots and restoration.

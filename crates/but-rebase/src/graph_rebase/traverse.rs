@@ -3,7 +3,6 @@
 use std::collections::HashSet;
 
 use anyhow::Result;
-use but_core::RefMetadata;
 use petgraph::{Direction, visit::EdgeRef as _};
 
 use crate::graph_rebase::{Editor, Selector, Step, StepGraph, StepGraphIndex, ToSelector};
@@ -24,16 +23,16 @@ fn count_picks(graph: &StepGraph, steps: impl Iterator<Item = StepGraphIndex>) -
         .count()
 }
 
-struct Traversal<'graph> {
-    graph: &'graph StepGraph,
+struct Traversal<'db> {
+    graph: &'db StepGraph,
     excluded: HashSet<StepGraphIndex>,
     seen: HashSet<StepGraphIndex>,
     tips: Vec<StepGraphIndex>,
 }
 
-impl<'graph> Traversal<'graph> {
+impl<'db> Traversal<'db> {
     fn new(
-        graph: &'graph StepGraph,
+        graph: &'db StepGraph,
         start: StepGraphIndex,
         excluded: HashSet<StepGraphIndex>,
     ) -> Self {
@@ -97,7 +96,7 @@ pub(crate) fn all_until_optional_limit(
     Traversal::new(graph, start, excluded)
 }
 
-impl<M: RefMetadata> Editor<'_, '_, M> {
+impl Editor<'_, '_, '_> {
     /// Every selector reachable from `start` following parent edges.
     pub fn reachable_from(
         &self,
