@@ -114,10 +114,13 @@ impl From<User> for UserProfile {
 }
 
 /// The signed-in account, or `None`. Credentials stay in this process.
+///
+/// Only the stored profile is read: the keychain, which may prompt on macOS, is left to the
+/// first call that needs the token.
 #[but_api(napi)]
 #[instrument(err(Debug))]
 pub fn get_user_profile_local() -> Result<Option<UserProfile>> {
-    Ok(get_user()?.map(Into::into))
+    Ok(gitbutler_user::get_user()?.map(Into::into))
 }
 
 /// Change the profile on gitbutler.com and keep the stored account in step.

@@ -614,7 +614,7 @@ export declare function deleteProject(projectId: ProjectHandleOrLegacyProjectId)
 export declare function deleteReviewComment(projectId: string, commentId: number): Promise<void>
 
 /**
- * {@link ../../../../../crates/but-api/src/legacy/users.rs:226}
+ * {@link ../../../../../crates/but-api/src/legacy/users.rs:229}
  */
 export declare function deleteUser(): Promise<void>
 
@@ -822,7 +822,7 @@ export declare function getGlUser(account: GitlabAccountIdentifier): Promise<Git
 export declare function getInitialBranchIntegration(projectId: string, branch: string, strategy: BranchIntegrationStrategy | null): Promise<InitialBranchIntegration>
 
 /**
- * {@link ../../../../../crates/but-api/src/legacy/users.rs:232}
+ * {@link ../../../../../crates/but-api/src/legacy/users.rs:235}
  */
 export declare function getLoginToken(): Promise<LoginToken>
 
@@ -882,7 +882,10 @@ export declare function getUndoTargetSnapshot(projectId: string): Promise<Snapsh
 /**
  * The signed-in account, or `None`. Credentials stay in this process.
  *
- * {@link ../../../../../crates/but-api/src/legacy/users.rs:117}
+ * Only the stored profile is read: the keychain, which may prompt on macOS, is left to the
+ * first call that needs the token.
+ *
+ * {@link ../../../../../crates/but-api/src/legacy/users.rs:120}
  */
 export declare function getUserProfileLocal(): Promise<UserProfile | null>
 
@@ -1112,7 +1115,7 @@ export declare function listSnapshots(projectId: string, limit: number, sha: str
 /**
  * Complete a login and persist the account, so the token never leaves this process.
  *
- * {@link ../../../../../crates/but-api/src/legacy/users.rs:192}
+ * {@link ../../../../../crates/but-api/src/legacy/users.rs:195}
  */
 export declare function loginAndPersist(token: string): Promise<UserProfile>
 
@@ -1515,7 +1518,7 @@ export declare function updateAiConfiguration(update: AiConfigurationUpdate): Pr
  * The API call alone would leave the local copy stale, so the name shown next to the
  * picture would still be the old one until the next sign-in.
  *
- * {@link ../../../../../crates/but-api/src/legacy/users.rs:127}
+ * {@link ../../../../../crates/but-api/src/legacy/users.rs:130}
  */
 export declare function updateProfileAndPersist(params: UpdateUserParams): Promise<UserProfile>
 
@@ -1555,7 +1558,7 @@ export declare function updateReviewFooters(projectId: string, reviews: Array<Fo
  * here rather than in the frontend because the account token never leaves this
  * process, so a renderer cannot make the authenticated call itself.
  *
- * {@link ../../../../../crates/but-api/src/legacy/users.rs:183}
+ * {@link ../../../../../crates/but-api/src/legacy/users.rs:186}
  */
 export declare function uploadFile(params: UploadFileParams): Promise<Upload>
 
