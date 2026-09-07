@@ -297,7 +297,7 @@ pub(crate) fn apply(
     dry_run: DryRun,
     perm: &mut RepoExclusive,
 ) -> anyhow::Result<AppliedResolution> {
-    crate::workspace::with_workspace_transaction(ctx, perm, dry_run, |repo, ws, db| {
+    crate::workspace::with_workspace_transaction(ctx, perm, dry_run, |repo, ws, db, recovery| {
         // Narrow the sides: every resolved hunk's content goes into both side
         // trees, which the re-merge below sees as an identical change against the
         // untouched base and resolves cleanly to the picked content. The base
@@ -412,7 +412,8 @@ pub(crate) fn apply(
 
         let rebase = editor.rebase()?;
         let new_commit = rebase.lookup_pick(target_selector)?;
-        let workspace = WorkspaceState::from_successful_rebase(rebase, repo, dry_run)?;
+        let workspace =
+            WorkspaceState::from_successful_rebase_with_recovery(rebase, repo, dry_run, recovery)?;
 
         Ok(AppliedResolution {
             new_commit,

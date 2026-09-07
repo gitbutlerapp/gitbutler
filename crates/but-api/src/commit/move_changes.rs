@@ -52,7 +52,7 @@ pub fn commit_move_changes_between_only_with_perm(
     perm: &mut RepoExclusive,
 ) -> anyhow::Result<MoveChangesResult> {
     let context_lines = ctx.settings.context_lines;
-    crate::workspace::with_workspace_transaction(ctx, perm, dry_run, |repo, ws, db| {
+    crate::workspace::with_workspace_transaction(ctx, perm, dry_run, |repo, ws, db, recovery| {
         let editor = Editor::create(ws, repo, db.connection_mut())?;
 
         let outcome = but_workspace::commit::move_changes_between_commits(
@@ -62,7 +62,12 @@ pub fn commit_move_changes_between_only_with_perm(
             changes,
             context_lines,
         )?;
-        let workspace = WorkspaceState::from_successful_rebase(outcome.rebase, repo, dry_run)?;
+        let workspace = WorkspaceState::from_successful_rebase_with_recovery(
+            outcome.rebase,
+            repo,
+            dry_run,
+            recovery,
+        )?;
 
         Ok(MoveChangesResult { workspace })
     })

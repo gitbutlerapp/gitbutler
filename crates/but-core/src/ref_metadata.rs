@@ -597,50 +597,6 @@ impl ProjectMeta {
         Ok(())
     }
 
-    /// Port project metadata, loading the legacy fallback only if Git config has no metadata.
-    ///
-    /// If the legacy fallback fails with [`UnresolvedLegacyTargetRefError`], its remote target is
-    /// ported as is, along with its cutoff and push remote, so reading project metadata keeps
-    /// failing with that error until a target is chosen.
-    pub fn port_if_needed(
-        repo: &gix::Repository,
-        legacy_fallback: impl FnOnce() -> anyhow::Result<Self>,
-    ) -> anyhow::Result<()> {
-        let changed = git_config::edit_repo_config(repo, gix::config::Source::Local, |config| {
-            if matches!(config.boolean(PROJECT_PORTED_META), Ok(Some(true))) {
-                return Ok(());
-            }
-            let configured = Self::try_from_config(config, repo)?;
-            let project_meta = if configured == Self::default() {
-                match legacy_fallback() {
-                    Ok(project_meta) => project_meta,
-                    Err(err) => {
-                        let Some(unresolved) = err.downcast_ref::<UnresolvedLegacyTargetRefError>()
-                        else {
-                            return Err(err);
-                        };
-                        ProjectMeta {
-                            target_ref: None,
-                            target_commit_id: unresolved.target_commit_id,
-                            push_remote: unresolved.push_remote.clone(),
-                        }
-                        .write_to_config(config)?;
-                        return git_config::set_config_value(
-                            config,
-                            PROJECT_TARGET_REF,
-                            &unresolved.target_ref.to_string(),
-                        );
-                    }
-                }
-            } else {
-                configured
-            };
-            repair_target_metadata_for_migration(&project_meta, repo).write_to_config(config)
-        })?;
-        notify_metadata(repo, changed);
-        Ok(())
-    }
-
     fn write_to_config(&self, config: &mut gix::config::File) -> anyhow::Result<()> {
         set_or_remove(
             config,
