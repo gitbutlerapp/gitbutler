@@ -405,14 +405,43 @@ const lineSelectionsEqual = (a: CodeViewLineSelection, b: CodeViewLineSelection)
 	(a.range.endSide ?? a.range.side ?? "additions") ===
 		(b.range.endSide ?? b.range.side ?? "additions");
 
-const DadJokeFooter: FC = () => {
+const DiffFooter: FC = () => {
+	const dispatch = useAppDispatch();
+	const view = useAppSelector(interfaceSlice.selectors.selectDiffFooterView);
 	const [{ setup, punchline }] = useState(getRandomDadJoke);
 
 	return (
-		<p className={styles.dadJoke}>
-			<span>{setup}</span>
-			<span>{punchline}</span>
-		</p>
+		<div className={styles.diffFooter}>
+			{view === "dadJokes" ? (
+				<>
+					<span>{setup}</span>
+					<span>{punchline}</span>
+				</>
+			) : (
+				<>
+					<span>Thanks for testing GitButler Nightly! ❤️</span>
+					<span>
+						We’d love to hear what you think.{" "}
+						<a
+							href="https://discord.gg/MmFkmaJ42D"
+							onClick={(event) => {
+								event.preventDefault();
+								void window.lite.openInWebBrowser(event.currentTarget.href);
+							}}
+						>
+							Share feedback on Discord
+						</a>
+					</span>
+				</>
+			)}
+			<button
+				type="button"
+				className={styles.diffFooterToggle}
+				onClick={() => dispatch(interfaceSlice.actions.toggleDiffFooterView())}
+			>
+				{view === "dadJokes" ? "Give feedback" : "Less feedback, more dad jokes"}
+			</button>
+		</div>
 	);
 };
 
@@ -1690,7 +1719,7 @@ const DiffContents: FC<{
 		<>
 			<CodeView
 				ref={viewerRef}
-				renderCodeViewFooter={() => <DadJokeFooter key={diffContextKey} />}
+				renderCodeViewFooter={() => <DiffFooter key={diffContextKey} />}
 				renderCustomHeader={(item) => {
 					const file = fileByItemId.get(item.id);
 					// CodeView may briefly hold onto stale snapshots of our data.

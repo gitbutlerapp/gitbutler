@@ -200,7 +200,7 @@
 	}
 }
 
-.dadJoke {
+.diffFooter {
 	display: flex;
 	flex-direction: column;
 	max-width: 80ch;
@@ -211,6 +211,25 @@
 	color: var(--text-2);
 	font-size: 12px;
 	text-align: center;
+
+	a {
+		text-decoration: underline;
+		text-underline-offset: 2px;
+	}
+}
+
+.diffFooterToggle {
+	margin-block-start: 8px;
+	color: var(--text-3);
+	font-size: 11px;
+	text-align: center;
+	text-decoration: underline;
+	text-underline-offset: 2px;
+	user-select: none;
+
+	&:hover {
+		color: var(--text-2);
+	}
 }
 
 .avatar {

@@ -11,11 +11,13 @@ type Dialog =
 
 type InterfaceState = {
 	detailsFullWindow: boolean;
+	diffFooterView: "feedback" | "dadJokes";
 	dialog: Dialog;
 };
 
 const initialState: InterfaceState = {
 	detailsFullWindow: false,
+	diffFooterView: "feedback",
 	dialog: { _tag: "None" },
 };
 
@@ -23,6 +25,9 @@ export const interfaceSlice = createSlice({
 	name: "interface",
 	initialState,
 	reducers: {
+		toggleDiffFooterView: (state) => {
+			state.diffFooterView = state.diffFooterView === "dadJokes" ? "feedback" : "dadJokes";
+		},
 		setDetailsFullWindow: (
 			state,
 			{ payload: { fullWindow } }: PayloadAction<{ fullWindow: boolean }>,
@@ -40,6 +45,7 @@ export const interfaceSlice = createSlice({
 		},
 	},
 	selectors: {
+		selectDiffFooterView: (state) => state.diffFooterView,
 		selectDetailsFullWindow: (state) => state.detailsFullWindow,
 		selectDialogState: (state) => state.dialog,
 	},
