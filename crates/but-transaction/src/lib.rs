@@ -1,7 +1,7 @@
 use std::collections::BTreeMap;
 
 use anyhow::Context as _;
-use bstr::{BStr, BString, ByteVec};
+use bstr::{BStr, BString, ByteSlice as _, ByteVec};
 use but_api::WorkspaceState;
 use but_core::{
     DiffSpec, DryRun,
@@ -24,6 +24,7 @@ use but_workspace::commit::{
 };
 use gix::{
     ObjectId,
+    prelude::ObjectIdExt as _,
     refs::{
         FullName, FullNameRef, Target,
         transaction::{PreviousValue, RefEdit},
@@ -38,7 +39,10 @@ mod tests;
 /// This allows chaining multiple operations and having them all succeed or fail together.
 ///
 /// Database changes share one SQLite transaction and become visible only on commit.
-/// Git references and worktree changes retain the existing best-effort rollback behavior.
+/// Completed Git reference and checkout changes are restored on late failures, including a
+/// rejected database commit. Recovery refuses to overwrite detected independent ref/index
+/// edits and reports failures to safely restore files. Native partial I/O failures remain
+/// best-effort; this is not a cross-resource or crash-atomic transaction.
 ///
 /// # Committing
 ///
@@ -130,6 +134,12 @@ where
         let context_lines = ctx.settings.context_lines;
         let (repo, mut ws, mut db) = ctx.workspace_mut_and_db_mut_with_perm(perm)?;
         let mut sql_transaction = db.immediate_transaction()?;
+        let worktree_names = ws
+            .graph
+            .worktree_tips
+            .iter()
+            .map(|tip| tip.name.clone())
+            .collect::<Vec<_>>();
         let editor = Editor::create(&mut ws, &repo, sql_transaction.connection_mut())?;
         let rebase = editor.rebase()?;
 
@@ -145,8 +155,7 @@ where
         let callback_outcome = match f(Transaction { inner: &mut inner }) {
             Ok(outcome) => outcome,
             Err(err) => {
-                inner.pending_ref_changes.rollback(&repo)?;
-                return Err(err);
+                return Err(inner.pending_ref_changes.rollback_error(&repo, err));
             }
         };
         let Inner {
@@ -164,39 +173,60 @@ where
             drop(rebase);
             Ok(None)
         } else {
-            workspace_state_from_rebase(
-                rebase,
-                &repo,
-                pending_created_independent_refs,
-                FinalizeOptions {
-                    checkout: pending_checkout,
-                    dry_run,
-                    materialize_without_checkout: matches!(
-                        materialize_without_checkout,
-                        MaterializeWithoutCheckout::Yes
-                    ),
-                },
-            )
-            .map(Some)
+            (|| {
+                if matches!(dry_run, DryRun::No) {
+                    pending_ref_changes.capture_checkouts(&repo, &worktree_names)?;
+                }
+                let workspace = workspace_state_from_rebase(
+                    rebase,
+                    &repo,
+                    pending_created_independent_refs,
+                    FinalizeOptions {
+                        checkout: pending_checkout,
+                        dry_run,
+                        materialize_without_checkout: matches!(
+                            materialize_without_checkout,
+                            MaterializeWithoutCheckout::Yes
+                        ),
+                    },
+                    &mut pending_ref_changes.committed,
+                    &mut pending_ref_changes.checkouts,
+                )
+                .map(Some);
+                let heads = pending_ref_changes.record_materialized_heads();
+                match (workspace, heads) {
+                    (Err(err), Err(head_error)) => Err(err.context(format!(
+                        "Could not record materialized HEAD: {head_error:#}"
+                    ))),
+                    (Err(err), _) | (_, Err(err)) => Err(err),
+                    (Ok(workspace), Ok(())) => Ok(workspace),
+                }
+            })()
         };
         let workspace = match workspace {
             Ok(workspace) => workspace,
             Err(err) => {
-                pending_ref_changes.rollback(&repo)?;
-                return Err(err);
+                return Err(pending_ref_changes.rollback_error(&repo, err));
             }
         };
         if should_rollback || dry_run.into() {
             pending_ref_changes.rollback(&repo)?;
             sql_transaction.rollback()?;
-        } else {
-            sql_transaction.commit()?;
+        } else if let Err(err) = sql_transaction.commit() {
+            return Err(pending_ref_changes.rollback_error(&repo, err.into()));
         }
         Ok((should_rollback, callback_outcome.into_outcome(workspace)))
     })();
     // Release the editor/database borrows before discarding a projection of rolled-back state.
-    if result.is_err() || dry_run.into() || matches!(&result, Ok((true, _))) {
-        ctx.invalidate_workspace_cache()?;
+    if (result.is_err() || dry_run.into() || matches!(&result, Ok((true, _))))
+        && let Err(cache_error) = ctx.invalidate_workspace_cache()
+    {
+        return match result {
+            Err(err) => Err(err.context(format!(
+                "Could not invalidate workspace cache: {cache_error:#}"
+            ))),
+            Ok(_) => Err(cache_error),
+        };
     }
     result
 }
@@ -539,10 +569,6 @@ impl<'rebase, 'conn> Transaction<'_, 'rebase, 'conn> {
         let anchor = anchor.into();
         let order = order.into();
         let creates_independent_branch = anchor.is_none();
-        let previous = self
-            .repo()
-            .try_find_reference(ref_name)?
-            .map(|reference| reference.target().into());
 
         let graph = self
             .inner
@@ -615,7 +641,7 @@ impl<'rebase, 'conn> Transaction<'_, 'rebase, 'conn> {
                 &workspace_meta,
             )?;
         }
-        but_workspace::branch::create_reference(
+        but_workspace::branch::create_reference_with_ref_edits(
             ref_name,
             anchor.clone(),
             &repo,
@@ -623,6 +649,7 @@ impl<'rebase, 'conn> Transaction<'_, 'rebase, 'conn> {
             db,
             new_stack_id,
             order,
+            &mut self.inner.pending_ref_changes.committed,
         )?;
         if creates_independent_branch {
             self.inner
@@ -632,9 +659,6 @@ impl<'rebase, 'conn> Transaction<'_, 'rebase, 'conn> {
                     order,
                 });
         }
-        self.inner
-            .pending_ref_changes
-            .record_eager_create(ref_name, previous);
 
         self.rebase(|mut editor, _| {
             if editor.try_select_reference(ref_name).is_some() {
@@ -1004,58 +1028,257 @@ struct FinalizeOptions {
 
 #[derive(Debug, Default)]
 struct PendingRefChanges {
-    eagerly_created_refs: Vec<EagerlyCreatedRef>,
+    committed: Vec<RefEdit>,
+    checkouts: Vec<CheckoutSnapshot>,
 }
 
 impl PendingRefChanges {
-    fn record_eager_create(&mut self, ref_name: &FullNameRef, previous: Option<gix::refs::Target>) {
-        self.eagerly_created_refs.push(EagerlyCreatedRef {
-            name: ref_name.to_owned(),
-            previous,
-        });
-    }
-
     fn remove_eagerly_created_ref(
         &mut self,
         repo: &gix::Repository,
         ref_name: &FullNameRef,
     ) -> anyhow::Result<()> {
-        if let Some(created_ref_index) = self.eagerly_created_refs.iter().position(|created_ref| {
-            created_ref.name.as_ref() == ref_name && created_ref.previous.is_none()
-        }) {
-            let created_ref = self.eagerly_created_refs.remove(created_ref_index);
-            Self::restore_one(repo, created_ref)?;
+        let Some((None, Some(target))) = self.ref_changes().remove(ref_name) else {
+            return Ok(());
+        };
+        self.committed.extend(repo.edit_reference(RefEdit::delete(
+            ref_name.to_owned(),
+            PreviousValue::MustExistAndMatch(target),
+        ))?);
+        Ok(())
+    }
+
+    fn ref_changes(&self) -> BTreeMap<FullName, (Option<Target>, Option<Target>)> {
+        use gix::refs::transaction::{Change, RefLog};
+        let mut changes = BTreeMap::new();
+        for edit in &self.committed {
+            let expected = match &edit.change {
+                Change::Update { log, .. } if log.mode == RefLog::Only => continue,
+                Change::Delete {
+                    log: RefLog::Only, ..
+                } => continue,
+                Change::Update { expected, .. } | Change::Delete { expected, .. } => expected,
+            };
+            // Native transactions replace this constraint only if the ref actually existed.
+            // ExistingMustMatch can remain on a successful creation of an absent reference.
+            let previous = match expected {
+                PreviousValue::MustExistAndMatch(target) => Some(target.clone()),
+                _ => None,
+            };
+            let new = edit.change.new_value().map(Into::into);
+            changes
+                .entry(edit.name.clone())
+                .and_modify(|(original, current)| {
+                    // An independently changed ref breaks our chain. Only undo the newest
+                    // continuous suffix, retaining the intervening writer's value.
+                    if *current != previous {
+                        *original = previous.clone();
+                    }
+                    *current = new.clone();
+                })
+                .or_insert((previous, new));
+        }
+        changes
+    }
+
+    fn capture_checkouts(
+        &mut self,
+        repo: &gix::Repository,
+        worktree_names: &[BString],
+    ) -> anyhow::Result<()> {
+        self.checkouts
+            .push(CheckoutSnapshot::capture(repo.clone())?);
+        if !worktree_names.is_empty() {
+            let proxies = repo.worktrees()?;
+            for name in worktree_names {
+                let proxy = proxies
+                    .iter()
+                    .find(|proxy| proxy.id() == name.as_bstr())
+                    .with_context(|| format!("Visible worktree {name} no longer exists"))?;
+                self.checkouts
+                    .push(CheckoutSnapshot::capture(proxy.clone().into_repo()?)?);
+            }
+        }
+        Ok(())
+    }
+
+    fn record_materialized_heads(&mut self) -> anyhow::Result<()> {
+        for checkout in &mut self.checkouts {
+            if checkout.target.is_some() {
+                checkout.materialized_head = Some((
+                    checkout.repo.head_name()?,
+                    checkout.repo.head()?.id().map(|id| id.detach()),
+                ));
+            }
         }
         Ok(())
     }
 
     fn rollback(&mut self, repo: &gix::Repository) -> anyhow::Result<()> {
-        for created_ref in self.eagerly_created_refs.drain(..).rev() {
-            Self::restore_one(repo, created_ref)?;
+        let mut errors = Vec::new();
+        // Each completed checkout recorded its target before refs could fail. Use that
+        // known base to retain independently added worktree changes during restoration.
+        for checkout in self.checkouts.drain(..).rev() {
+            if let Err(err) = checkout.restore() {
+                errors.push(format!("{err:#}"));
+            }
         }
+        for (name, (previous, current)) in self.ref_changes() {
+            if previous == current {
+                continue;
+            }
+            let expected = match current {
+                Some(target) => PreviousValue::MustExistAndMatch(target),
+                None => PreviousValue::MustNotExist,
+            };
+            let edit = match previous {
+                Some(target) => {
+                    RefEdit::update(name.clone(), target, expected, "rollback transaction")
+                }
+                None => RefEdit::delete(name.clone(), expected),
+            };
+            if let Err(err) = repo.edit_reference(edit) {
+                errors.push(format!("Could not restore {name}: {err}"));
+            }
+        }
+        self.committed.clear();
+        anyhow::ensure!(errors.is_empty(), "{}", errors.join("; "));
         Ok(())
     }
 
-    fn restore_one(repo: &gix::Repository, created_ref: EagerlyCreatedRef) -> anyhow::Result<()> {
-        let EagerlyCreatedRef { name, previous } = created_ref;
-        match previous {
-            Some(target) => {
-                repo.edit_references([RefEdit::update(name, target, PreviousValue::Any, "")])?;
-            }
-            None => {
-                if repo.try_find_reference(name.as_ref())?.is_some() {
-                    repo.edit_references([RefEdit::delete(name, PreviousValue::MustExist)])?;
-                }
-            }
+    fn rollback_error(&mut self, repo: &gix::Repository, err: anyhow::Error) -> anyhow::Error {
+        match self.rollback(repo) {
+            Ok(()) => err,
+            Err(recovery) => err.context(format!("Git transaction recovery failed: {recovery:#}")),
+        }
+    }
+}
+
+#[derive(Debug)]
+struct CheckoutSnapshot {
+    repo: gix::Repository,
+    worktree: ObjectId,
+    index: Option<Vec<u8>>,
+    target: Option<ObjectId>,
+    materialized_index: Option<Option<Vec<u8>>>,
+    materialized_head: Option<(Option<FullName>, Option<ObjectId>)>,
+}
+
+impl CheckoutSnapshot {
+    fn capture(repo: gix::Repository) -> anyhow::Result<Self> {
+        let index = read_index_bytes(&repo)?;
+        let head_tree = repo.head_tree_id_or_empty()?.detach();
+        let changes = but_core::diff::worktree_changes_no_renames(&repo)?;
+        let mut selection = changes
+            .changes
+            .iter()
+            .map(|change| change.path.clone())
+            .collect::<std::collections::BTreeSet<_>>();
+        selection.extend(
+            changes
+                .index_changes
+                .iter()
+                .map(|change| change.location().to_owned()),
+        );
+        selection.extend(changes.index_conflicts.iter().map(|(path, _)| path.clone()));
+        let snapshot = but_core::snapshot::create_tree(
+            head_tree.attach(&repo),
+            but_core::snapshot::create_tree::State {
+                changes,
+                selection,
+                head: false,
+            },
+        )?;
+        Ok(Self {
+            repo,
+            worktree: snapshot.worktree.unwrap_or(head_tree),
+            index,
+            target: None,
+            materialized_index: None,
+            materialized_head: None,
+        })
+    }
+
+    fn record_checkout(&mut self, target: ObjectId) -> anyhow::Result<()> {
+        self.target = Some(target);
+        self.materialized_index = None;
+        self.materialized_index = Some(read_index_bytes(&self.repo)?);
+        Ok(())
+    }
+
+    fn restore(self) -> anyhow::Result<()> {
+        use std::io::Write;
+        let Some(target) = self.target else {
+            return Ok(());
+        };
+        let materialized_index = self
+            .materialized_index
+            .context("Could not capture the completed checkout index for safe recovery")?;
+        let materialized_head = self
+            .materialized_head
+            .context("Could not capture HEAD after materialization for safe recovery")?;
+        anyhow::ensure!(
+            (
+                self.repo.head_name()?,
+                self.repo.head()?.id().map(|id| id.detach())
+            ) == materialized_head,
+            "HEAD changed independently in {}; leaving its worktree intact",
+            self.repo.git_dir().display()
+        );
+        let acquire_index = || {
+            gix::lock::File::acquire_to_update_resource(
+                self.repo.index_path(),
+                gix::lock::acquire::Fail::Immediately,
+                None,
+            )
+        };
+        let index_lock = acquire_index()?;
+        anyhow::ensure!(
+            read_index_bytes(&self.repo)? == materialized_index,
+            "Index changed independently in {}; leaving its staging intact",
+            self.repo.git_dir().display()
+        );
+        drop(index_lock);
+        safe_checkout_from_head(
+            self.worktree,
+            &self.repo,
+            checkout::Options {
+                skip_head_update: true,
+                merge_base_override: Some(target),
+                ..Default::default()
+            },
+        )
+        .with_context(|| {
+            format!(
+                "Could not restore worktree {}",
+                self.repo.git_dir().display()
+            )
+        })?;
+        // Checkout has its own index locking. Compare its output again under the lock used
+        // for restoring the original bytes, including staging, stat data, and extensions.
+        let checked_out_index = read_index_bytes(&self.repo)?;
+        let mut index_lock = acquire_index()?;
+        anyhow::ensure!(
+            read_index_bytes(&self.repo)? == checked_out_index,
+            "Index changed independently during recovery in {}",
+            self.repo.git_dir().display()
+        );
+        if let Some(index) = self.index {
+            index_lock.write_all(&index)?;
+            index_lock.commit()?;
+        } else if checked_out_index.is_some() {
+            std::fs::remove_file(self.repo.index_path())?;
         }
         Ok(())
     }
 }
 
-#[derive(Debug)]
-struct EagerlyCreatedRef {
-    name: FullName,
-    previous: Option<gix::refs::Target>,
+fn read_index_bytes(repo: &gix::Repository) -> anyhow::Result<Option<Vec<u8>>> {
+    match std::fs::read(repo.index_path()) {
+        Ok(bytes) => Ok(Some(bytes)),
+        Err(err) if err.kind() == std::io::ErrorKind::NotFound => Ok(None),
+        Err(err) => Err(err.into()),
+    }
 }
 
 #[derive(Debug)]
@@ -1176,6 +1399,8 @@ fn workspace_state_from_rebase(
     repo: &gix::Repository,
     pending_created_independent_refs: Vec<PendingCreatedIndependentRef>,
     options: FinalizeOptions,
+    committed_ref_edits: &mut Vec<RefEdit>,
+    checkouts: &mut [CheckoutSnapshot],
 ) -> anyhow::Result<WorkspaceState> {
     let FinalizeOptions {
         checkout: pending_checkout,
@@ -1203,11 +1428,20 @@ fn workspace_state_from_rebase(
         );
     }
 
-    let mut materialized = if materialize_without_checkout {
-        rebase.materialize_without_checkout()?
-    } else {
-        rebase.materialize(Default::default())?
+    let mut on_checkout = |repo: &gix::Repository, target| {
+        checkouts
+            .iter_mut()
+            .find(|checkout| checkout.repo.index_path() == repo.index_path())
+            .context("BUG: each materialized worktree has a recovery snapshot")?
+            .record_checkout(target)
     };
+    let mut materialized = rebase.materialize_with_changes(
+        but_rebase::graph_rebase::materialize::MaterializeOptions {
+            without_checkout: materialize_without_checkout,
+        },
+        committed_ref_edits,
+        &mut on_checkout,
+    )?;
     for branch in pending_created_independent_refs {
         if materialized
             .workspace
@@ -1216,7 +1450,7 @@ fn workspace_state_from_rebase(
         {
             continue;
         }
-        let outcome = but_workspace::branch::apply(
+        let outcome = but_workspace::branch::apply_with_changes(
             branch.name.as_ref(),
             materialized.workspace.clone(),
             repo,
@@ -1225,11 +1459,13 @@ fn workspace_state_from_rebase(
                 order: branch.order,
                 ..Default::default()
             },
+            committed_ref_edits,
+            &mut on_checkout,
         )?;
         *materialized.workspace = outcome.workspace;
     }
     if let Some(branch) = pending_checkout {
-        checkout_reference(repo, branch.as_ref())?;
+        checkout_reference(repo, branch.as_ref(), committed_ref_edits, &mut on_checkout)?;
         let project_meta = materialized.workspace.graph.project_meta.clone();
         materialized
             .workspace
@@ -1259,7 +1495,12 @@ fn resolve_checkout_target(
     Ok(target)
 }
 
-fn checkout_reference(repo: &gix::Repository, reference_name: &FullNameRef) -> anyhow::Result<()> {
+fn checkout_reference(
+    repo: &gix::Repository,
+    reference_name: &FullNameRef,
+    committed_ref_edits: &mut Vec<RefEdit>,
+    on_checkout: &mut impl FnMut(&gix::Repository, ObjectId) -> anyhow::Result<()>,
+) -> anyhow::Result<()> {
     let current_head = repo
         .head_id()
         .context("Cannot check out a branch while HEAD is unborn")?
@@ -1281,15 +1522,18 @@ fn checkout_reference(repo: &gix::Repository, reference_name: &FullNameRef) -> a
             reference_name.as_bstr()
         )
     })?;
-    update_head_reference(
-        repo,
-        Target::Symbolic(reference_name.to_owned()),
-        false,
-        "checkout",
-        reference_name.as_bstr(),
-        target_commit.parent_ids().count(),
-    )
-    .with_context(|| format!("Could not update HEAD to '{}'", reference_name.as_bstr()))?;
+    on_checkout(repo, target)?;
+    committed_ref_edits.extend(
+        update_head_reference(
+            repo,
+            Target::Symbolic(reference_name.to_owned()),
+            false,
+            "checkout",
+            reference_name.as_bstr(),
+            target_commit.parent_ids().count(),
+        )
+        .with_context(|| format!("Could not update HEAD to '{}'", reference_name.as_bstr()))?,
+    );
     Ok(())
 }
 

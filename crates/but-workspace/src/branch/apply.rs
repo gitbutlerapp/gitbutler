@@ -227,8 +227,31 @@ pub struct Options {
 ///
 /// Note that options have no effect if `branch` is already in the workspace, so `apply` is *not* a way
 /// to alter certain aspects of the workspace by applying the same branch again.
-#[instrument(skip(workspace, repo, db), err(Debug))]
 pub fn apply(
+    branch: &FullNameRef,
+    workspace: but_graph::Workspace,
+    repo: &gix::Repository,
+    db: &mut but_db::ConnectionMut<'_, '_>,
+    options: Options,
+) -> anyhow::Result<Outcome> {
+    apply_with_changes(
+        branch,
+        workspace,
+        repo,
+        db,
+        options,
+        &mut Vec::new(),
+        &mut |_, _| Ok(()),
+    )
+}
+
+/// Like [`apply`], recording committed reference edits and immediately reporting each
+/// completed checkout to `on_checkout`, before later reference or metadata writes can fail.
+#[instrument(
+    skip(workspace, repo, db, committed_ref_edits, on_checkout),
+    err(Debug)
+)]
+pub fn apply_with_changes(
     branch: &FullNameRef,
     workspace: but_graph::Workspace,
     repo: &gix::Repository,
@@ -241,6 +264,8 @@ pub fn apply(
         new_stack_id,
         allow_applying_already_applied_branch_when_outside_workspace,
     }: Options,
+    committed_ref_edits: &mut Vec<RefEdit>,
+    on_checkout: &mut impl FnMut(&gix::Repository, gix::ObjectId) -> anyhow::Result<()>,
 ) -> anyhow::Result<Outcome> {
     let meta = db.meta()?;
     let ws = workspace;
@@ -311,6 +336,7 @@ pub fn apply(
                 ..Default::default()
             },
         )?;
+        on_checkout(repo, commit_to_checkout)?;
         let applied_branches = vec![branch.to_owned()];
         if !branch_has_applied_metadata {
             let ws_ref_name = ws_ref_name
@@ -327,6 +353,7 @@ pub fn apply(
                 ws_ref_name.as_ref(),
                 &ws_md,
                 None,
+                committed_ref_edits,
             )?;
         }
         let ws = ws
@@ -341,6 +368,7 @@ pub fn apply(
             repo,
             commit_to_checkout,
             ws_ref_name.as_ref().map(|rn| rn.as_ref()),
+            committed_ref_edits,
         )?;
 
         // When exiting early, don't try to adjust the ws commit.
@@ -553,6 +581,7 @@ pub fn apply(
             workspace_ref_name_to_update.as_ref(),
             &ws_md,
             local_tracking_config_and_ref_info,
+            committed_ref_edits,
         )?;
         let ws_commit_with_new_message = WorkspaceCommit::from_graph_workspace_and_tree(
             &ws,
@@ -583,6 +612,7 @@ pub fn apply(
             // Point HEAD at the workspace ref whenever it isn't already there (covers creating the
             // ref and switching off a directly-checked-out branch).
             (!head_on_workspace_ref).then_some(workspace_ref_name_to_update.as_ref()),
+            committed_ref_edits,
         )?;
         return Ok(Outcome {
             workspace: graph.into_workspace()?,
@@ -794,6 +824,7 @@ pub fn apply(
             ..Default::default()
         },
     )?;
+    on_checkout(repo, new_head_id)?;
     ws.reconcile_metadata(&mut ws_md)?;
     persist_metadata_and_gitconfig(
         db,
@@ -801,6 +832,7 @@ pub fn apply(
         workspace_ref_name_to_update.as_ref(),
         &ws_md,
         local_tracking_config_and_ref_info,
+        committed_ref_edits,
     )?;
 
     set_head_to_reference(
@@ -809,6 +841,7 @@ pub fn apply(
         // Point HEAD at the workspace ref whenever it isn't already there (covers creating the ref
         // and switching off a directly-checked-out branch).
         (!head_on_workspace_ref).then_some(workspace_ref_name_to_update.as_ref()),
+        committed_ref_edits,
     )?;
     Ok(Outcome {
         workspace: ws,
@@ -1028,6 +1061,7 @@ fn persist_metadata_and_gitconfig(
         gix::config::FileTransaction,
         (gix::refs::FullName, &gix::refs::FullNameRef, gix::Id),
     )>,
+    committed_ref_edits: &mut Vec<RefEdit>,
 ) -> anyhow::Result<()> {
     db.meta_mut()?.set_workspace(ws_ref_name, ws_md)?;
     let meta = db.meta()?;
@@ -1042,12 +1076,12 @@ fn persist_metadata_and_gitconfig(
     if let Some((config, (ref_to_create, remote_tracking_ref, ref_target_id))) = config_and_ref {
         let repo = ref_target_id.repo;
         // The reference first, as git does: should it fail, the config transaction drops unwritten.
-        repo.reference(
+        committed_ref_edits.extend(repo.edit_reference(RefEdit::update(
             ref_to_create,
-            ref_target_id,
+            ref_target_id.detach(),
             PreviousValue::MustNotExist,
             format!("GitButler creates local tracking for {remote_tracking_ref}"),
-        )?;
+        ))?);
         config.commit()?;
     }
     Ok(())
@@ -1058,6 +1092,7 @@ fn set_head_to_reference(
     repo: &gix::Repository,
     new_ref_target: gix::ObjectId,
     new_ref: Option<&gix::refs::FullNameRef>,
+    committed_ref_edits: &mut Vec<RefEdit>,
 ) -> anyhow::Result<()> {
     let edits = match new_ref {
         None => vec![
@@ -1087,7 +1122,7 @@ fn set_head_to_reference(
             ]
         }
     };
-    repo.edit_references(edits)?;
+    committed_ref_edits.extend(repo.edit_references(edits)?);
     Ok(())
 }
 
