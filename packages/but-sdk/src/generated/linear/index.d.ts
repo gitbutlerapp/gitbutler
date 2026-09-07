@@ -1765,8 +1765,9 @@ export declare function initTracing(identifier: string, alsoToStderr: boolean): 
  * Return the interactive login shell environment for GUI launches.
  *
  * Returns an empty map when launched from a terminal or on Windows, where shell startup may block.
+ * Async so the shell can start while Electron boots instead of before it.
  */
-export declare function interactiveLoginShellEnvironment(): Record<string, string>
+export declare function interactiveLoginShellEnvironment(): Promise<Record<string, string>>
 
 /** Any left fork link line. */
 export const LEFT_FORK: number

@@ -49,7 +49,9 @@ import { type GUISettings, readSettings, writeSettings } from "./settings.js";
 import { initMetrics, metricsOnLogin, shutdownMetrics, withApiCommandCapture } from "./metrics.js";
 import { apiParamNames } from "@gitbutler/but-sdk/api-param-names";
 
-Object.assign(process.env, interactiveLoginShellEnvironment());
+// Started now so the shell's startup overlaps with Electron's; applied once ready, before
+// anything that could spawn a process.
+const shellEnvironment = interactiveLoginShellEnvironment();
 
 const isHeadless = process.env.GITBUTLER_LITE_HEADLESS === "true";
 if (isHeadless && process.platform === "darwin") app.setActivationPolicy("accessory");
@@ -590,6 +592,7 @@ if (!app.requestSingleInstanceLock()) {
 
 void app.whenReady().then(async () => {
 	initLogging();
+	Object.assign(process.env, await shellEnvironment);
 	applyGUISettings(await readSettings());
 	await initApplicationNamespace(null);
 	configureAskpass();

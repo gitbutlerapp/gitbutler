@@ -223,17 +223,23 @@ impl From<but_askpass::PromptEvent<but_askpass::Context>> for AskpassPromptEvent
 /// Return the interactive login shell environment for GUI launches.
 ///
 /// Returns an empty map when launched from a terminal or on Windows, where shell startup may block.
+/// Async so the shell can start while Electron boots instead of before it.
 #[napi]
-pub fn interactive_login_shell_environment() -> HashMap<String, String> {
+pub async fn interactive_login_shell_environment() -> napi::Result<HashMap<String, String>> {
     if cfg!(windows) || std::env::var_os("TERM").is_some() {
-        return HashMap::new();
+        return Ok(HashMap::new());
     }
 
-    but_core::cmd::extract_interactive_login_shell_environment()
-        .unwrap_or_default()
-        .into_iter()
-        .filter_map(|(key, value)| Some((key.into_string().ok()?, value.into_string().ok()?)))
-        .collect()
+    let vars: HashMap<String, String> = tokio::task::spawn_blocking(|| {
+        but_core::cmd::extract_interactive_login_shell_environment()
+            .unwrap_or_default()
+            .into_iter()
+            .filter_map(|(key, value)| Some((key.into_string().ok()?, value.into_string().ok()?)))
+            .collect()
+    })
+    .await
+    .map_err(|err| napi::Error::from_reason(err.to_string()))?;
+    Ok(vars)
 }
 
 /// Initialize the process-global askpass broker and forward prompt events to JavaScript.
