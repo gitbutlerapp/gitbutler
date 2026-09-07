@@ -1,4 +1,5 @@
 import {
+	type PushBeforePublish,
 	useAddReviewReaction,
 	useGeneratePrDescription,
 	useMergeReview,
@@ -7,6 +8,7 @@ import {
 	useSetReviewAutoMerge,
 	useSetReviewDraftiness,
 	useUpdateReview,
+	useWorkspaceBranchAndAncestorsPush,
 } from "#ui/api/mutations.ts";
 import {
 	aiConfigurationQueryOptions,
@@ -58,7 +60,7 @@ import type {
 } from "@gitbutler/but-sdk";
 import { useQuery, useSuspenseQuery } from "@tanstack/react-query";
 import { useHotkey } from "@tanstack/react-hotkeys";
-import { type FC, type SubmitEventHandler, Suspense, useEffect, useRef, useState } from "react";
+import { type FC, type SubmitEvent, Suspense, useEffect, useRef, useState } from "react";
 import styles from "./PullRequestForm.module.css";
 
 /**
@@ -92,6 +94,11 @@ export const PullRequestForm: FC<{
 	title: string | null;
 	body: string | null;
 	canSubmit: boolean;
+	/**
+	 * For a new PR, the push it has to wait for, or null when the branch is
+	 * already on the remote. Never read when editing an existing PR.
+	 */
+	pushFirst?: PushBeforePublish | null;
 	onAfterSubmit?: () => void;
 	/** Adds a Cancel button that discards edits and calls this. */
 	onCancel?: () => void;
@@ -108,10 +115,13 @@ export const PullRequestForm: FC<{
 	title,
 	body,
 	canSubmit,
+	pushFirst = null,
 	onAfterSubmit,
 	onCancel,
 	afterPublish,
 }) => {
+	const { isPending: isPushPending, mutateAsync: pushBranchAndAncestors } =
+		useWorkspaceBranchAndAncestorsPush(projectId);
 	const { isPending: isPublishReviewPending, mutate: publishReview } = usePublishReview(projectId);
 	const { isPending: isUpdateReviewPending, mutate: updateReview } = useUpdateReview(projectId);
 	const formRef = useRef<HTMLFormElement | null>(null);
@@ -156,7 +166,13 @@ export const PullRequestForm: FC<{
 	const { mutate: deleteDraftPR } = useDeleteDraftPR();
 
 	const isNew = reviewId === null;
-	const isAnyPending = isPublishReviewPending || isUpdateReviewPending;
+	const isAnyPending = isPushPending || isPublishReviewPending || isUpdateReviewPending;
+	// A forge refuses a PR whose head adds nothing to its base, so an empty
+	// branch cannot open one — and pushing it first would only leave an empty
+	// branch on the remote. The form stays live for drafting ahead of the
+	// commits; only the button waits. Unknown while the details load: not
+	// loaded is not the same as empty.
+	const noCommits = isNew && branchDetails !== undefined && branchDetails.commits.length === 0;
 	const hasChanges =
 		localDocument.title !== remoteOrEmptyDocument.title ||
 		localDocument.body !== remoteOrEmptyDocument.body ||
@@ -255,11 +271,31 @@ export const PullRequestForm: FC<{
 		);
 	};
 
-	const handleSubmit: SubmitEventHandler<HTMLFormElement> = (evt) => {
+	const handleSubmit = async (evt: SubmitEvent<HTMLFormElement>): Promise<void> => {
 		evt.preventDefault();
-		if (!canSubmit || isAnyPending || localDocument.title.trim() === "") return;
+		if (!canSubmit || noCommits || isAnyPending || localDocument.title.trim() === "") return;
 
 		if (reviewId === null) {
+			// A forge only opens a review on a branch it has, so the branch and
+			// its ancestors go up first when any still has something to push.
+			// The PR's source is then the name the branch landed under on the
+			// remote, which differs from the local one when the branch tracks
+			// another remote.
+			let remoteSourceBranch = sourceBranch;
+			if (pushFirst !== null) {
+				// The push hook already toasts its own failure.
+				const pushed = await pushBranchAndAncestors({
+					projectId,
+					branch: pushFirst.branch,
+					withForce: pushFirst.withForce,
+					skipForcePushProtection: false,
+					runHooks: true,
+					pushOpts: [],
+				}).catch(() => null);
+				if (pushed === null) return;
+				remoteSourceBranch =
+					pushed.branchToRemote.find(([branch]) => branch === sourceBranch)?.[2] ?? sourceBranch;
+			}
 			publishReview(
 				{
 					projectId,
@@ -268,7 +304,7 @@ export const PullRequestForm: FC<{
 						body: localDocument.body,
 						draft: localDocument.isDraft,
 						localBranch: sourceBranch,
-						sourceBranch,
+						sourceBranch: remoteSourceBranch,
 					},
 				},
 				{
@@ -306,7 +342,12 @@ export const PullRequestForm: FC<{
 
 	return (
 		// oxlint-disable-next-line jsx-a11y/no-noninteractive-element-interactions -- Used for persistence, not UI per se.
-		<form ref={formRef} className={styles.prForm} onBlur={handleBlur} onSubmit={handleSubmit}>
+		<form
+			ref={formRef}
+			className={styles.prForm}
+			onBlur={handleBlur}
+			onSubmit={(evt) => void handleSubmit(evt)}
+		>
 			{/* Both fields name themselves in the placeholder, as designed, so
 			    they carry an aria-label instead of a visible one. */}
 			<Field.Root render={<FieldRootStyles />}>
@@ -411,10 +452,19 @@ export const PullRequestForm: FC<{
 
 								<button
 									className={getButtonClassName({ variant: "gray" })}
-									disabled={!canSubmit || isAnyPending || !hasChanges}
+									disabled={!canSubmit || noCommits || isAnyPending || !hasChanges}
 									type="submit"
 								>
-									{isNew ? "Create a PR" : "Save changes"}
+									{/* The reason rides in the label, not a tooltip: it is the
+									    form's whole story, so it has to be readable without hover
+									    (DESIGN.md → Empty states). */}
+									{!isNew
+										? "Save changes"
+										: noCommits
+											? "No commits yet"
+											: pushFirst !== null
+												? "Push and create a PR"
+												: "Create a PR"}
 									{/* Creating opens a PR; saving only confirms an edit. */}
 									<Icon name={isAnyPending ? "spinner" : isNew ? "pr" : "tick"} />
 								</button>

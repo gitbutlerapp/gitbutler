@@ -3,6 +3,7 @@ import { startAbsorb, setCursor, useCanShowFiles, useSelection } from "#ui/use-c
 import uiStyles from "#ui/components/ui.module.css";
 import { SuspenseQuery } from "@suspensive/react-query";
 import {
+	type PushBeforePublish,
 	useAddReviewLabels,
 	useCommitUncommitChanges,
 	useOpenInProgram,
@@ -10,6 +11,7 @@ import {
 	useResolveCommitConflictHunks,
 	useSaveGUISettings,
 } from "#ui/api/mutations.ts";
+import { downstackPushStatusFromSegments } from "#ui/segment.ts";
 import {
 	type DraftPRExtras,
 	draftPRQueryOptions,
@@ -3107,8 +3109,8 @@ const BranchTitleRow: FC<{ branchName: string }> = ({ branchName }) => {
  * The Diff / Pull Request toggle. A branch with no review keeps the toggle —
  * the tab goes disabled and says so, where dropping the toggle would instead
  * read as the control having gone missing. The reason rides in the label
- * because a disabled button takes no pointer events, so a tooltip on it would
- * never open.
+ * rather than a tooltip: it is the whole story of this tab, so it has to be
+ * readable without hover (DESIGN.md → Empty states).
  */
 const BranchTabToggle: FC<{
 	branchTab: BranchTab;
@@ -3251,7 +3253,8 @@ const NewPullRequestView: FC<{
 	branchName: string;
 	targetBranch: string | undefined;
 	canSubmit: boolean;
-}> = ({ projectId, branchName, targetBranch, canSubmit }) => {
+	pushFirst: PushBeforePublish | null;
+}> = ({ projectId, branchName, targetBranch, canSubmit, pushFirst }) => {
 	// Same record the form persists its title and body to, read here for the
 	// fields the panel owns. Both writers merge, so neither wipes the other.
 	const { data: draft } = useSuspenseQuery(draftPRQueryOptions({ projectId, branchName }));
@@ -3291,6 +3294,7 @@ const NewPullRequestView: FC<{
 					sourceBranch={branchName}
 					title={null}
 					canSubmit={canSubmit}
+					pushFirst={pushFirst}
 					afterPublish={applyExtras}
 				/>
 			</div>
@@ -3482,9 +3486,17 @@ const AppliedBranchDetails: FC<BranchDetailsProps> = ({
 	const targetBranch =
 		!parentSegment || parentSegment.pushStatus === "integrated"
 			? headInfo?.target?.remoteTrackingRef.displayName
-			: parentSegment.pushStatus === "completelyUnpushed"
-				? undefined
-				: parentSegment.refName?.displayName;
+			: parentSegment.refName?.displayName;
+	// A forge only opens a review on a branch it has, so a new PR pushes the
+	// branch and its ancestors first when any of them still has something to
+	// push. Conflicted commits cannot be pushed, and so cannot be reviewed yet.
+	const downstack = branchCtx
+		? downstackPushStatusFromSegments(branchCtx.stack.segments.slice(branchCtx.segmentIndex))
+		: null;
+	const pushFirst: PushBeforePublish | null = downstack?.anyRequiresPush
+		? { branch: branchRef, withForce: downstack.anyPushRequiresForce }
+		: null;
+	const canSubmit = pushFirst === null || !downstack?.anyHasConflicts;
 
 	// The open listing already carries everything an open review needs, so the
 	// verification fetch is spent only when the listing has nothing for this
@@ -3564,6 +3576,7 @@ const AppliedBranchDetails: FC<BranchDetailsProps> = ({
 									branchName={branchName}
 									targetBranch={targetBranch}
 									canSubmit={false}
+									pushFirst={null}
 								/>
 							) : (
 								<SuspenseQuery
@@ -3574,19 +3587,17 @@ const AppliedBranchDetails: FC<BranchDetailsProps> = ({
 								>
 									{({ data }) => {
 										const review = data.reviewsBySourceBranch.get(branchName);
-										const canSubmit =
-											targetBranch !== undefined &&
-											branchCtx?.segment.pushStatus !== "completelyUnpushed";
 
 										if (!review && landedReviewId !== null)
 											return <LandedReviewView projectId={projectId} reviewId={landedReviewId} />;
 
-										return !review || !canSubmit ? (
+										return !review ? (
 											<NewPullRequestView
 												projectId={projectId}
 												branchName={branchName}
 												targetBranch={targetBranch}
 												canSubmit={canSubmit}
+												pushFirst={pushFirst}
 											/>
 										) : (
 											<ReviewView

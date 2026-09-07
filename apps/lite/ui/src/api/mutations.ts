@@ -215,6 +215,9 @@ export const useBranchCheckoutNew = () => {
 	});
 };
 
+/** The push a new pull request has to wait for: the branch, and whether it needs force. */
+export type PushBeforePublish = { branch: string; withForce: boolean };
+
 export const usePublishReview = (projectId: string) =>
 	useMutation({
 		mutationKey: [projectId, "publishReview"],
