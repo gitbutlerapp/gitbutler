@@ -174,8 +174,26 @@ where
             Ok(None)
         } else {
             (|| {
+                let materialize_without_checkout = matches!(
+                    materialize_without_checkout,
+                    MaterializeWithoutCheckout::Yes
+                );
                 if matches!(dry_run, DryRun::No) {
-                    pending_ref_changes.capture_checkouts(&repo, &worktree_names)?;
+                    let rebase_checks_out =
+                        !materialize_without_checkout && rebase.references_updated()?;
+                    if rebase_checks_out
+                        || pending_checkout.is_some()
+                        || !pending_created_independent_refs.is_empty()
+                    {
+                        pending_ref_changes.capture_checkouts(
+                            &repo,
+                            if rebase_checks_out {
+                                &worktree_names
+                            } else {
+                                &[]
+                            },
+                        )?;
+                    }
                 }
                 let workspace = workspace_state_from_rebase(
                     rebase,
@@ -184,10 +202,7 @@ where
                     FinalizeOptions {
                         checkout: pending_checkout,
                         dry_run,
-                        materialize_without_checkout: matches!(
-                            materialize_without_checkout,
-                            MaterializeWithoutCheckout::Yes
-                        ),
+                        materialize_without_checkout,
                     },
                     &mut pending_ref_changes.committed,
                     &mut pending_ref_changes.checkouts,
@@ -1225,25 +1240,23 @@ impl CheckoutSnapshot {
             "HEAD changed independently in {}; leaving its worktree intact",
             self.repo.git_dir().display()
         );
-        let acquire_index = || {
-            gix::lock::File::acquire_to_update_resource(
-                self.repo.index_path(),
-                gix::lock::acquire::Fail::Immediately,
-                None,
-            )
-        };
-        let index_lock = acquire_index()?;
+        let mut index_lock = gix::lock::File::acquire_to_update_resource(
+            self.repo.index_path(),
+            gix::lock::acquire::Fail::Immediately,
+            None,
+        )?;
         anyhow::ensure!(
             read_index_bytes(&self.repo)? == materialized_index,
             "Index changed independently in {}; leaving its staging intact",
             self.repo.git_dir().display()
         );
-        drop(index_lock);
+        // Keep ownership of the index until both files and staging are restored.
         safe_checkout_from_head(
             self.worktree,
             &self.repo,
             checkout::Options {
                 skip_head_update: true,
+                skip_index_update: true,
                 merge_base_override: Some(target),
                 ..Default::default()
             },
@@ -1254,19 +1267,10 @@ impl CheckoutSnapshot {
                 self.repo.git_dir().display()
             )
         })?;
-        // Checkout has its own index locking. Compare its output again under the lock used
-        // for restoring the original bytes, including staging, stat data, and extensions.
-        let checked_out_index = read_index_bytes(&self.repo)?;
-        let mut index_lock = acquire_index()?;
-        anyhow::ensure!(
-            read_index_bytes(&self.repo)? == checked_out_index,
-            "Index changed independently during recovery in {}",
-            self.repo.git_dir().display()
-        );
         if let Some(index) = self.index {
             index_lock.write_all(&index)?;
             index_lock.commit()?;
-        } else if checked_out_index.is_some() {
+        } else if materialized_index.is_some() {
             std::fs::remove_file(self.repo.index_path())?;
         }
         Ok(())

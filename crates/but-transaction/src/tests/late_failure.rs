@@ -2,6 +2,52 @@ use super::*;
 use but_testsupport::CommandExt;
 
 #[test]
+fn ref_only_transactions_do_not_store_untracked_contents() -> anyhow::Result<()> {
+    use gix::objs::Exists as _;
+
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["branch"]);
+    let contents = "untracked content that a ref-only transaction must leave alone\n";
+    env.file("untracked", contents);
+    let repo = but_testsupport::open_repo(env.projects_root())?;
+    let blob = gix::objs::compute_hash(
+        repo.object_hash(),
+        gix::object::Kind::Blob,
+        contents.as_bytes(),
+    )?;
+    let branch = repo.rev_parse_single("branch")?.detach();
+    let index = std::fs::read(repo.index_path())?;
+    assert!(
+        !repo.objects.exists(&blob),
+        "the untracked blob is not stored before the operation"
+    );
+    let mut ctx = Context::from_repo_for_testing(repo)?.with_memory_app_cache();
+    let mut guard = ctx.exclusive_worktree_access();
+    crate::with_transaction_with_perm_only(
+        &mut ctx,
+        guard.write_permission(),
+        DryRun::No,
+        |mut tx| tx.uncommit_commits([branch]),
+    )?;
+    let repo = env.open_repo();
+    assert!(
+        !repo.objects.exists(&blob),
+        "a ref-only operation does not store unrelated worktree contents"
+    );
+    assert_eq!(
+        std::fs::read(repo.index_path())?,
+        index,
+        "uncommitting preserves the exact index"
+    );
+    assert_eq!(
+        env.read_file("untracked")?,
+        contents,
+        "unrelated contents remain untouched"
+    );
+    Ok(())
+}
+
+#[test]
 fn failed_sql_commit_restores_git_and_preserves_dirty_index_and_worktree() -> anyhow::Result<()> {
     let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
     env.setup_metadata(&["branch"]);

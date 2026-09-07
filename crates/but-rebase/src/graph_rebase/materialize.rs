@@ -231,6 +231,7 @@ impl<'ws, 'db, 'conn> SuccessfulRebase<'ws, 'db, 'conn> {
                     &linked_repo.repo,
                     Options {
                         skip_head_update: true,
+                        skip_index_update: false,
                         merge_base_override: linked_repo.merge_base_override,
                         allow_conflicted_commit_checkout: false,
                         // Don't allow for linked worktrees.
@@ -247,6 +248,7 @@ impl<'ws, 'db, 'conn> SuccessfulRebase<'ws, 'db, 'conn> {
                     &repo,
                     Options {
                         skip_head_update: true,
+                        skip_index_update: false,
                         merge_base_override: head.merge_base_override,
                         allow_conflicted_commit_checkout: true,
                         // Allow for our worktree.
