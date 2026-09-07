@@ -2,7 +2,7 @@ import { classes } from "#ui/components/classes.ts";
 import { FieldControlWithIcon, FieldRootStyles } from "#ui/components/Field.tsx";
 import { Icon } from "#ui/components/Icon.tsx";
 import { Field } from "@base-ui/react";
-import type { FC } from "react";
+import type { FC, ReactNode } from "react";
 import rowStyles from "./Row.module.css";
 import { Row } from "./Row.tsx";
 import { getRowButtonClassName } from "./Row-utils.ts";
@@ -23,10 +23,12 @@ export const ListFilterRow: FC<{
 	onClose: () => void;
 	/** Moves focus down into the filtered list, so a match can be previewed without the mouse. */
 	onEnterList: () => void;
-}> = ({ filter, inputId, subject, onFilterChange, onClose, onEnterList }) => (
+	/** On the graph, the row's rail; with one, the row sits among the rows rather than as a header. */
+	rail?: ReactNode;
+}> = ({ filter, inputId, subject, onFilterChange, onClose, onEnterList, rail }) => (
 	<Row
 		interactive={false}
-		className={classes(rowStyles.sectionHeader, styles.filterRow)}
+		className={classes(rail === undefined && rowStyles.sectionHeader, styles.filterRow)}
 		onKeyDown={(event) => {
 			// Escape closes the filter rather than reaching the sidebar's cancel
 			// shortcut, which has nothing to cancel while the input holds focus.
@@ -47,6 +49,7 @@ export const ListFilterRow: FC<{
 			}
 		}}
 	>
+		{rail}
 		<Field.Root render={<FieldRootStyles />} className={styles.filterField}>
 			<FieldControlWithIcon
 				id={inputId}

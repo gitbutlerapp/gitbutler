@@ -66,7 +66,9 @@ const findFocusTarget = (parent: ParentNode, scope: FocusScope): HTMLElement | n
 };
 
 export const focusScope = (scope: FocusScope) => {
-	findFocusTarget(document, scope)?.focus({ focusVisible: false });
+	// A scope is a whole list, taller than its scroller: the browser would
+	// scroll to its top, out from under the row the list then scrolls to.
+	findFocusTarget(document, scope)?.focus({ preventScroll: true, focusVisible: false });
 };
 
 /**

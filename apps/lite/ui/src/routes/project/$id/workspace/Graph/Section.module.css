@@ -70,36 +70,31 @@
 	overflow: hidden;
 }
 
-/* Folded, the merge base row docks at the scroller's foot, keeping the
-   count and Update in view; its toggle scrolls to its place before opening.
-   Stuck, it gets air, a hairline, and no line into its chevron, which would
-   claim a line above that is not there. Keep in sync with layout.ts's
-   DOCKED_HEIGHT. */
+/* Folded, the merge base row's stand-in docks at the scroller's foot while
+   the row is out of view below, keeping the count and Update in view; its
+   toggle scrolls to the row's place before opening. It shows only while its
+   mark (WorkspaceLists' footDock) is stuck: air, a hairline, and no line into
+   its chevron, which would claim a line above that is not there. The glyph
+   sets its own visibility, so the row hiding is not enough. Keep in sync with
+   layout.ts's DOCKED_HEIGHT. */
 .docked {
 	--air: 4px;
-	container-type: scroll-state;
+	--graph-segment-rail-visibility: hidden;
 
-	z-index: 2;
-	position: sticky;
-	bottom: var(--air);
+	visibility: hidden;
+	position: absolute;
+	inset-inline: 0;
+	bottom: 0;
+	padding-block: var(--air);
+	border-block-start: 1px solid var(--border-section);
+	background-color: var(--bg-2);
 
-	&::after {
-		z-index: -1;
-		position: absolute;
-		inset: 0;
-		background-color: var(--bg-2);
-		content: "";
+	.control {
+		--graph-segment-glyph-visibility: hidden;
 	}
 
 	@container scroll-state(stuck: bottom) {
-		.control {
-			--graph-segment-glyph-visibility: hidden;
-		}
-
-		&::after {
-			inset: calc(-1 * var(--air) - 1px) 0 calc(-1 * var(--air));
-			border-block-start: 1px solid var(--border-section);
-		}
+		visibility: visible;
 	}
 }
 

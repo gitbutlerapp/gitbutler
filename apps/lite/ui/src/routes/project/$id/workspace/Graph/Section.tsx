@@ -21,6 +21,7 @@ import { Button } from "@base-ui/react";
 import type { BottomUpdate } from "@gitbutler/but-sdk";
 import { useQuery } from "@tanstack/react-query";
 import { type FC, type ReactNode, type Ref, type RefObject, useRef } from "react";
+import { createPortal } from "react-dom";
 import styles from "./Section.module.css";
 import { TargetCommitRow } from "./TargetCommitRow.tsx";
 import { LEG_GAP, type Plan, type Run, targetCommitAddress } from "./layout.ts";
@@ -85,6 +86,7 @@ const Header: FC<{
 				}
 				aria-label={`${fold.open ? "Fold" : "Unfold"} ${fold.name}`}
 				onClick={fold.onToggle}
+				hoverChevron={false}
 			/>
 		)}
 		<RowLabelContainer>
@@ -221,6 +223,8 @@ export const Section: FC<{
 	onShowMore: () => void;
 	/** The scroller, for the docked merge base row's toggle to scroll to its place. */
 	scrollElementRef: RefObject<HTMLDivElement | null>;
+	/** The scroller's foot, where a stand-in for the merge base row docks while the row is out of view. */
+	footDock: HTMLDivElement | null;
 }> = ({
 	projectId,
 	plan,
@@ -232,6 +236,7 @@ export const Section: FC<{
 	onFoldRun,
 	onShowMore,
 	scrollElementRef,
+	footDock,
 }) => {
 	const branched = plan.header.incoming > 0;
 	const addressSpace = useAddressSpace();
@@ -258,6 +263,29 @@ export const Section: FC<{
 	// The line ends on the last row shown: the "show more" row, else the
 	// last commit once the history is shown to its start.
 	const endsOnBase = historyEnds && moreBelow === "hidden" && plan.older.length === 0;
+	/** The ref's tip on the base: one row for both. Moved on: the row says how far. */
+	const baseHeader = (className?: string) => (
+		<Header
+			label={plan.refOnBase ? plan.header.label : "Merge base"}
+			caption={
+				plan.refOnBase ? (
+					<span className={classes("text-12", styles.caption)}>merge base</span>
+				) : branched ? (
+					<span className={classes("text-12", styles.incoming)}>{plan.header.incoming} new</span>
+				) : undefined
+			}
+			heading={plan.refOnBase}
+			fold={{
+				open: plan.baseExpanded,
+				onToggle: toggleBase,
+				name: "the merge base's history",
+			}}
+			rail={<GraphSegment glyph="control" status="LocalOnly" railEnds={!plan.baseExpanded} />}
+			className={className}
+		>
+			{branched && <Update projectId={projectId} />}
+		</Header>
+	);
 	return (
 		<>
 			{plan.base !== null &&
@@ -315,29 +343,13 @@ export const Section: FC<{
 				))}
 			{plan.base !== null && (
 				<>
-					{/* The ref's tip on the base: one row for both. Moved on: the row says how far. */}
-					<Header
-						label={plan.refOnBase ? plan.header.label : "Merge base"}
-						caption={
-							plan.refOnBase ? (
-								<span className={classes("text-12", styles.caption)}>merge base</span>
-							) : branched ? (
-								<span className={classes("text-12", styles.incoming)}>
-									{plan.header.incoming} new
-								</span>
-							) : undefined
-						}
-						heading={plan.refOnBase}
-						fold={{
-							open: plan.baseExpanded,
-							onToggle: toggleBase,
-							name: "the merge base's history",
-						}}
-						rail={<GraphSegment glyph="control" status="LocalOnly" railEnds={!plan.baseExpanded} />}
-						className={plan.baseExpanded ? undefined : styles.docked}
-					>
-						{branched && <Update projectId={projectId} />}
-					</Header>
+					{baseHeader()}
+					{/* Folded, the row's stand-in docks at the scroller's foot while the row is out
+					    of view below. A portal: the foot is outside the tree, and only there can it
+					    stick over the uncommitted files card, which is outside the tree as well. */}
+					{!plan.baseExpanded &&
+						footDock !== null &&
+						createPortal(baseHeader(styles.docked), footDock)}
 					<Fold open={plan.baseExpanded} className={styles.history} ref={baseFold}>
 						<div ref={baseRows} className={styles.rows}>
 							{plan.belowBase.map((item, index) =>
