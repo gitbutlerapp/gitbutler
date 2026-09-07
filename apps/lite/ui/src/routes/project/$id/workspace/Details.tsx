@@ -67,7 +67,7 @@ import {
 	weakFileParentIdentityKey,
 } from "#ui/addresses.ts";
 import type { DiffLineSelection } from "#ui/cursors.ts";
-import { checkedRange, addressSpaceRange } from "#ui/checking.ts";
+import { checkedRange, addressSpaceRange, selectionAfterChecking } from "#ui/checking.ts";
 import type { BranchTab, CheckableAddress } from "#ui/projects/project.ts";
 import { projectSlice } from "#ui/projects/state.ts";
 import { interfaceSlice } from "#ui/interface/state.ts";
@@ -715,6 +715,16 @@ const DiffContents: FC<{
 		directionalNavigation: false,
 	});
 
+	const selectAndRevealLines = (selection: CodeViewLineSelection): void => {
+		applySelectedLines(selection);
+		viewerRef.current?.scrollTo({
+			type: "range",
+			id: selection.id,
+			range: selection.range,
+			align: "nearest",
+		});
+	};
+
 	const moveSelectedLines = (offset: -1 | 1, extend: boolean): void => {
 		if (!selectedLines) return;
 		const file = fileByItemId.get(selectedLines.id);
@@ -729,28 +739,79 @@ const DiffContents: FC<{
 		});
 		if (!range) return;
 
-		const selection = { id: selectedLines.id, range };
-		applySelectedLines(selection);
-		viewerRef.current?.scrollTo({
-			type: "range",
-			id: selection.id,
-			range,
-			align: "nearest",
-		});
+		selectAndRevealLines({ id: selectedLines.id, range });
 	};
 
-	function toggleSelectedLinesChecked(event: KeyboardEvent): void {
-		if (event.composedPath().some(isInteractiveElement)) return;
-		const addresses = addressesForSelectedLines(selectedLines, "line");
-		if (addresses.length === 0) return;
+	// Repeats must follow the pending cursor before React renders it. Null ends the held-key run
+	// so it cannot reverse and undo the checks; a fresh keypress starts from the selected lines.
+	const nextCheckedLine = useRef<CodeViewLineSelection>(null);
 
+	function toggleSelectedLinesChecked(event: KeyboardEvent): void {
+		if (event.composedPath().some(isInteractiveElement) || !selectedLines) return;
 		event.preventDefault();
 		event.stopPropagation();
+		if (event.shiftKey) {
+			nextCheckedLine.current = null;
+			checkSelectedLines(selectedLines, true);
+			return;
+		}
+		const item = event.repeat ? nextCheckedLine.current : selectedLines;
+		if (item !== null) nextCheckedLine.current = checkSelectedLines(item, false);
+	}
+
+	function checkSelectedLines(
+		selection: CodeViewLineSelection,
+		shiftKey: boolean,
+	): CodeViewLineSelection | null {
+		const addresses = addressesForSelectedLines(selection, "line");
+		if (addresses.length === 0) return null;
 		const state = store.getState();
 		const checked = !addresses.every((address) =>
 			projectSlice.selectors.selectAddressChecked(state, projectId, address),
 		);
 		dispatch(projectSlice.actions.checkAddresses({ projectId, addresses, checked }));
+
+		if (shiftKey) return null;
+		const { range, id } = selection;
+		if (
+			range.start !== range.end ||
+			(range.endSide ?? range.side ?? "additions") !== (range.side ?? "additions")
+		)
+			return null;
+		const currentAddress = addresses[0];
+		const file = fileByItemId.get(id);
+		if (!currentAddress || file?.patch?.type !== "Patch") return null;
+		const nextState = store.getState();
+		const next = selectionAfterChecking({
+			selection,
+			getAdjacent: (offset) => {
+				const nextRange = moveSelectedLineRange({
+					hunks: file.item.fileDiff.hunks,
+					range,
+					diffStyle: effectiveDiffStyle,
+					offset,
+					extend: false,
+				});
+				return nextRange ? { id, range: nextRange } : null;
+			},
+			getChecked: (selection) => {
+				const addresses = addressesForSelectedLines(selection, "line");
+				if (
+					addresses.length === 0 ||
+					addresses.some(
+						(address) =>
+							address.hunkHeader.oldStart !== currentAddress.hunkHeader.oldStart ||
+							address.hunkHeader.newStart !== currentAddress.hunkHeader.newStart,
+					)
+				)
+					return null;
+				return addresses.every((address) =>
+					projectSlice.selectors.selectAddressChecked(nextState, projectId, address),
+				);
+			},
+		});
+		if (next) selectAndRevealLines(next);
+		return next;
 	}
 
 	const handleCreateComment = (
@@ -925,7 +986,6 @@ const DiffContents: FC<{
 					itemId: diffSelectionHunk.file.item.id,
 					lineNumber: firstLine.start,
 					side: firstLine.side,
-					lineType: "change",
 				});
 				if (!hunk) return;
 
@@ -973,6 +1033,41 @@ const DiffContents: FC<{
 				conflictBehavior: "allow",
 				target: focusScopeRef,
 				meta: diffHotkeys.addComment.meta,
+			},
+		},
+		{
+			hotkey: diffHotkeys.checkAll.hotkey,
+			callback: () => {
+				if (!selectedLines) return;
+
+				const address = getContiguousHunkAddressAtLine({
+					itemId: selectedLines.id,
+					lineNumber: selectedLines.range.end,
+					side: selectedLines.range.endSide ?? selectedLines.range.side ?? "additions",
+				});
+				if (!address) return;
+
+				dispatch(
+					projectSlice.actions.checkAddresses({
+						projectId,
+						addresses: address.lineGroups.flatMap((group) =>
+							Array.from({ length: group.lines }, (_, index) =>
+								hunkAddress({
+									...address,
+									lineGroups: [{ side: group.side, start: group.start + index, lines: 1 }],
+								}),
+							),
+						),
+						checked: true,
+					}),
+				);
+			},
+			options: {
+				conflictBehavior: "allow",
+				enabled: selectedLinesHunk !== null && canCheckHunks && noOperationPending,
+				ignoreInputs: true,
+				target: focusScopeRef,
+				meta: diffHotkeys.checkAll.meta,
 			},
 		},
 		{
@@ -1158,7 +1253,7 @@ const DiffContents: FC<{
 		itemId,
 		lineNumber,
 		side,
-	}: DiffLineTarget): HunkAddress | null => {
+	}: Pick<DiffLineTarget, "itemId" | "lineNumber" | "side">): HunkAddress | null => {
 		const file = fileByItemId.get(itemId);
 		if (file?.patch?.type !== "Patch") return null;
 
@@ -1191,7 +1286,7 @@ const DiffContents: FC<{
 		itemId,
 		lineNumber,
 		side,
-	}: DiffLineTarget): HunkAddress | null => {
+	}: Pick<DiffLineTarget, "itemId" | "lineNumber" | "side">): HunkAddress | null => {
 		const file = fileByItemId.get(itemId);
 		if (file?.patch?.type !== "Patch") return null;
 
@@ -1431,7 +1526,7 @@ const DiffContents: FC<{
 	const handleHunkPostRender = useDiffHunkDrag<Annotation>({
 		projectId,
 		fileParent,
-		getHunkAddress: getHunkAddressAtLine,
+		getHunkAddress: getContiguousHunkAddressAtLine,
 		getLineAddress: getLineAddressAtLine,
 		getSelectedAddresses: () => addressesForSelectedLines(selectedLines, "compact"),
 	});

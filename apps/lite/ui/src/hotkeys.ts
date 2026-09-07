@@ -165,6 +165,10 @@ export const branchesHotkeys = {
 } satisfies Record<string, HotkeyWithMeta>;
 
 export const sidebarHotkeys = {
+	checkAll: {
+		hotkey: "Mod+A",
+		meta: { group: "Commit", name: "Check all commits in branch" },
+	},
 	copy: {
 		hotkey: "Mod+C",
 		meta: { group: "Sidebar", name: "Copy" },
@@ -275,6 +279,10 @@ export const revealInFolderLabel =
 			: "Show in File Manager";
 
 export const changesFileHotkeys = {
+	checkAll: {
+		hotkey: "Mod+A",
+		meta: { group: "File", name: "Check all files in directory" },
+	},
 	absorb: {
 		hotkey: "A",
 		meta: { group: "File", name: "Absorb" },
@@ -357,6 +365,10 @@ export const operationHotkeys = {
 } satisfies Record<string, HotkeyWithMeta>;
 
 export const diffHotkeys = {
+	checkAll: {
+		hotkey: "Mod+A",
+		meta: { group: "Diff", name: "Check all lines in hunk" },
+	},
 	absorb: {
 		hotkey: "A",
 		meta: { group: "Diff", name: "Absorb hunk" },

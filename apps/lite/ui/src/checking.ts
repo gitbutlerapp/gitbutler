@@ -1,8 +1,30 @@
 /**
- * @file Generalised logic for consistent shift+clicking across groups of checkboxes.
+ * @file Shared range checking and cursor movement across groups of checkboxes.
  */
 
 import type { AddressSpace } from "./workspace/address-space.ts";
+
+/**
+ * Read states after toggling. A neighbour whose checked state is null blocks movement in that
+ * direction; unlike getAdjacent's predicate, it does not skip ahead past a group boundary.
+ */
+export const selectionAfterChecking = <T>({
+	selection,
+	getAdjacent,
+	getChecked,
+}: {
+	selection: T;
+	getAdjacent: (offset: -1 | 1) => T | null;
+	getChecked: (item: T) => boolean | null;
+}): T | null => {
+	const checked = getChecked(selection);
+	if (checked === null) return null;
+	for (const offset of [1, -1] as const) {
+		const adjacent = getAdjacent(offset);
+		if (adjacent !== null && getChecked(adjacent) === !checked) return adjacent;
+	}
+	return null;
+};
 
 type RangeResolver<T> = (range: { anchor: T; target: T }) => Set<T> | null;
 

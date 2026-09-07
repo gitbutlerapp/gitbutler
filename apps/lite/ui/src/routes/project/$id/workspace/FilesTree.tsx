@@ -35,7 +35,11 @@ import styles from "./FilesTree.module.css";
 import { Row, RowLabel, RowLabelContainer } from "./Row.tsx";
 import { OperationSourceC } from "#ui/routes/project/$id/workspace/OperationSourceC.tsx";
 import { focusScope, useAddressSpaceHotkeys, type FocusScope } from "#ui/focus-scopes.ts";
-import { addressSpaceIncludes, type AddressSpace } from "#ui/workspace/address-space.ts";
+import {
+	addressSpaceIncludes,
+	getAdjacent,
+	type AddressSpace,
+} from "#ui/workspace/address-space.ts";
 import { changesFileHotkeys } from "#ui/hotkeys.ts";
 import { useRevealInFolder } from "./useRevealInFolder.ts";
 import { useHotkeys } from "@tanstack/react-hotkeys";
@@ -45,7 +49,7 @@ import { DirectoryRow, type DirectoryCheckedState } from "./DirectoryRow.tsx";
 import type { FileRowItem } from "./file-row.ts";
 import { parentDirectoryRow, type FileTreeRow } from "./file-tree.ts";
 import { useFileDisplayMode } from "./useFileDisplayMode.ts";
-import { checkedRange, addressSpaceRange } from "#ui/checking.ts";
+import { checkedRange, addressSpaceRange, selectionAfterChecking } from "#ui/checking.ts";
 import { useDiscardFileChanges, useOpenInProgram } from "#ui/api/mutations.ts";
 import type { TreeChange } from "@gitbutler/but-sdk";
 import type { CSSProperties } from "react";
@@ -55,6 +59,7 @@ import { FileRowTooltipRoot, type FileRowTooltipPayload } from "./FileRowTooltip
 const EMPTY_REVIEWED_PATHS: ReadonlySet<string> = new Set();
 
 const useFilesTreeHotkeys = ({
+	checkAll,
 	checkRow,
 	addressSpace,
 	onRowSelection,
@@ -70,7 +75,8 @@ const useFilesTreeHotkeys = ({
 	selectedChange,
 	toggleDirectoryCollapsed,
 }: {
-	checkRow: (evt: { path: string; shiftKey: boolean }) => void;
+	checkAll: () => void;
+	checkRow: (evt: { path: string; shiftKey: boolean }) => string | null;
 	addressSpace: AddressSpace<string>;
 	onRowSelection: (selection: string) => void;
 	onEdgeSpill?: (offset: -1 | 1) => void;
@@ -141,6 +147,9 @@ const useFilesTreeHotkeys = ({
 		focusScope("sidebar");
 	};
 
+	// Repeats must follow the pending cursor before React renders it. Null ends the held-key run
+	// so it cannot reverse and undo the checks; a fresh keypress starts from the selected row.
+	const nextCheckedRow = useRef<string>(null);
 	const toggleSelectedRowChecked = (event: KeyboardEvent) => {
 		if (selection === null) return;
 		// Leave activation of a directly focused checkbox to the checkbox itself.
@@ -148,7 +157,13 @@ const useFilesTreeHotkeys = ({
 
 		event.preventDefault();
 		event.stopPropagation();
-		checkRow({ path: selection, shiftKey: event.shiftKey });
+		if (event.shiftKey) {
+			nextCheckedRow.current = null;
+			checkRow({ path: selection, shiftKey: true });
+			return;
+		}
+		const item = event.repeat ? nextCheckedRow.current : selection;
+		if (item !== null) nextCheckedRow.current = checkRow({ path: item, shiftKey: false });
 	};
 
 	const discardSelectedFile = () => {
@@ -193,6 +208,17 @@ const useFilesTreeHotkeys = ({
 	);
 
 	useHotkeys([
+		{
+			hotkey: changesFileHotkeys.checkAll.hotkey,
+			callback: checkAll,
+			options: {
+				conflictBehavior: "allow",
+				enabled: selectedRow !== undefined && noOperationPending && canCheckTheseFiles,
+				ignoreInputs: true,
+				target: ref,
+				meta: changesFileHotkeys.checkAll.meta,
+			},
+		},
 		{
 			hotkey: changesFileHotkeys.absorb.hotkey,
 			callback: absorbSelectedFile,
@@ -867,18 +893,67 @@ export const FilesTree: FC<
 		});
 	};
 
-	/** Space and the row checkboxes both land here, whichever kind of row it is. */
-	const checkRow = ({ path, shiftKey }: { path: string; shiftKey: boolean }): void => {
+	/** Keyboard checking for either kind of row. */
+	const checkRow = ({ path, shiftKey }: { path: string; shiftKey: boolean }): string | null => {
 		const row = rowByPath.get(path);
 		if (row?._tag === "Directory") {
-			checkDirectory({ path, checked: directoryCheckedState(row.filePaths) !== "checked" });
-			return;
+			const checked = checkedFilePaths();
+			checkDirectory({
+				path,
+				checked: !row.filePaths.filter(checkable).every((path) => checked.has(path)),
+			});
+		} else {
+			if (!row || !checkable(path)) return null;
+			checkFile({ path, shiftKey });
 		}
 
-		checkFile({ path, shiftKey });
+		if (shiftKey) return null;
+		const checked = checkedFilePaths();
+		const next = selectionAfterChecking({
+			selection: path,
+			getAdjacent: (offset) =>
+				getAdjacent({ addressSpace, selection: path, offset, getKey: (path) => path }),
+			getChecked: (path) => {
+				const row = rowByPath.get(path);
+				if (!row || !checkable(path)) return null;
+				if (row._tag === "File") return checked.has(path);
+				const paths = row.filePaths.filter(checkable);
+				return paths.length > 0 ? paths.every((path) => checked.has(path)) : null;
+			},
+		});
+		if (next !== null) onRowSelection(next);
+		return next;
 	};
 
 	useFilesTreeHotkeys({
+		checkAll: () => {
+			if (!selectedRow) return;
+
+			const lastSepIdx = selectedRow.path.lastIndexOf("/");
+			const directoryPath =
+				selectedRow._tag === "Directory"
+					? selectedRow.path
+					: lastSepIdx === -1
+						? ""
+						: selectedRow.path.slice(0, lastSepIdx);
+			const dir = rowByPath.get(directoryPath);
+			if (dir?._tag === "Directory") return checkDirectory({ path: dir.path, checked: true });
+
+			const prefix = directoryPath === "" ? "" : `${directoryPath}/`;
+			const paths = rows
+				.values()
+				.filter((row) => row.depth === 0)
+				.flatMap((row) => (row._tag === "Directory" ? row.filePaths : row.path));
+
+			const previous = checkedFilePaths();
+			fileCheckRangeAnchor.current = null;
+			fileCheckRangeEnd.current = null;
+
+			applyCheckedFiles({
+				previous,
+				next: previous.union(new Set(paths.filter((path) => path.startsWith(prefix)))),
+			});
+		},
 		checkRow,
 		addressSpace,
 		onRowSelection,
