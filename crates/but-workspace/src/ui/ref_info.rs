@@ -228,7 +228,6 @@ pub(crate) mod inner {
     }
     #[cfg(feature = "export-schema")]
     but_schemars::register_sdk_type!(RefInfo);
-
 }
 
 impl inner::RefInfo {

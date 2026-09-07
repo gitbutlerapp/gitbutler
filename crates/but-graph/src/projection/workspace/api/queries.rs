@@ -136,7 +136,7 @@ impl Workspace {
 impl Workspace {
     /// Return all target-reference commits that are ahead of the workspace base,
     /// which is the commits counted with
-    /// [workspace::TargetRef::commits_ahead](crate::workspace::TargetRef::commits_ahead)
+    /// [`field@crate::workspace::TargetRef::commits_ahead`]
     ///
     /// The traversal starts at the resolved target reference and stops at the
     /// workspace lower bound or at commits already marked as belonging to the
