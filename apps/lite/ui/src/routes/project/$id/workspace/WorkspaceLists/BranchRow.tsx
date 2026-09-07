@@ -354,6 +354,12 @@ export const BranchRow: FC<
 	const toggleIncoming = () =>
 		dispatch(projectSlice.actions.toggleIncomingExpanded({ projectId, branchRef }));
 	const remoteLabel = remote === null ? null : `${remote.remoteName}/${remote.displayName}`;
+	// The chip names the remote's branch only where it is not this branch's own
+	// name, which the row already shows.
+	const incomingLabel =
+		remote !== null && remote.displayName !== refName.displayName
+			? remoteLabel
+			: remote?.remoteName;
 	// Why a force push is needed, on hover, since the word alone says little.
 	const forcePushReason = (label: string): string =>
 		incoming > 0
@@ -552,11 +558,14 @@ export const BranchRow: FC<
 									className={classes(
 										getRowButtonClassName({ variant: "ghost" }),
 										rowStyles.metaItem,
+										rowStyles.metaItemShrinkable,
 									)}
 									onClick={toggleIncoming}
 								>
 									<Icon size={12} name={incomingExpanded ? "chevron-down" : "chevron-right"} />
-									{remote.remoteName} +{incoming}
+									<span className={rowStyles.metaItemText}>{incomingLabel}</span>
+									{/* Its own flex item: the chip's gap, not a space, parts it from the label. */}
+									<span>+{incoming}</span>
 								</button>
 								<RowMetaSeparator />
 							</>

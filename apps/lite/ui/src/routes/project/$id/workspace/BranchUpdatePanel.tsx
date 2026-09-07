@@ -308,9 +308,15 @@ const BranchUpdatePanel: FC<{
 			: [],
 	);
 	const restore = (commitId: string) =>
-		setEdits(edits.filter((edit) => edit.commitId !== commitId));
+		setEdits((current) => current.filter((edit) => edit.commitId !== commitId));
+	// Once each: a drop landing twice would count twice in Reset.
 	const dropRow = (row: PreviewRow) =>
-		setEdits([...edits, ...row.tracedIds.map((commitId) => ({ commitId }))]);
+		setEdits((current) => [
+			...current,
+			...row.tracedIds
+				.filter((commitId) => !current.some((edit) => edit.commitId === commitId))
+				.map((commitId) => ({ commitId })),
+		]);
 	const upstreamIds = new Set(plan.divergence.upstreamOnly.map((commit) => commit.id));
 	const leftOutIncoming = dropped.filter((entry) => upstreamIds.has(entry.commitId)).length;
 
