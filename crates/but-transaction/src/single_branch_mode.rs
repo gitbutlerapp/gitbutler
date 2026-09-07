@@ -8,7 +8,7 @@
 use std::borrow::Cow;
 
 use but_core::{
-    DryRun, RefMetadata,
+    DryRun,
     ref_metadata::{LocalRefName, ProjectMeta},
     sync::{RepoExclusive, RepoShared},
 };
@@ -102,7 +102,7 @@ impl SingleBranchMode {
     }
 
     /// Run `callback` in a transaction recorded in the oplog as `snapshot_details`, naming
-    /// `snapshot_refs` so undo deletes those it creates, using `ctx`, `meta` and exclusive
+    /// `snapshot_refs` so undo deletes those it creates, using `ctx` and exclusive
     /// `perm`ission.
     ///
     /// When it `will_create_independent_branch` in single-branch mode, GitButler's workspace
@@ -110,14 +110,9 @@ impl SingleBranchMode {
     /// a failure partway restores the checkpoint taken before it began. Without a target,
     /// which the workspace is set up on and a checkpoint records against, or a branch checked
     /// out to set it up with, it does neither.
-    #[expect(
-        clippy::too_many_arguments,
-        reason = "a transaction's own arguments, and what single-branch mode adds"
-    )]
-    pub fn transaction_with_workspace_setup<Meta, F, T>(
+    pub fn transaction_with_workspace_setup<F, T>(
         &self,
         ctx: &mut Context,
-        meta: &mut Meta,
         snapshot_details: SnapshotDetails,
         snapshot_refs: &[&FullNameRef],
         perm: &mut RepoExclusive,
@@ -125,14 +120,12 @@ impl SingleBranchMode {
         callback: F,
     ) -> anyhow::Result<T::Outcome>
     where
-        Meta: RefMetadata,
-        F: FnOnce(Transaction<'_, '_, Meta>) -> anyhow::Result<T>,
+        F: FnOnce(Transaction<'_, '_, '_>) -> anyhow::Result<T>,
         T: TransactionOutcome,
     {
         let (Some(target), Some(head)) = (&self.target, &self.head_reference) else {
             return crate::with_transaction_with_perm(
                 ctx,
-                meta,
                 perm,
                 snapshot_details,
                 snapshot_refs,
@@ -150,7 +143,6 @@ impl SingleBranchMode {
         if !needs_workspace_setup && !may_checkout {
             return crate::with_transaction_with_perm(
                 ctx,
-                meta,
                 perm,
                 snapshot_details,
                 snapshot_refs,
@@ -161,7 +153,6 @@ impl SingleBranchMode {
 
         // Switching can fail after materialization has consumed worktree changes,
         // even when no workspace setup was needed. Cover the whole operation.
-        let original_metadata = meta.workspace(but_core::WORKSPACE_REF_NAME.try_into()?)?;
         let checkpoint = but_oplog::UnmaterializedOplogSnapshot::prepare_checkpoint(
             ctx,
             snapshot_details,
@@ -170,13 +161,12 @@ impl SingleBranchMode {
         )?;
 
         let setup = if needs_workspace_setup {
-            Self::setup_workspace(ctx, meta, perm, &target.ref_name, head)
+            Self::setup_workspace(ctx, perm, &target.ref_name, head)
         } else {
             Ok(())
         };
-        let outcome = setup.and_then(|()| {
-            crate::with_transaction_with_perm_only(ctx, meta, perm, DryRun::No, callback)
-        });
+        let outcome = setup
+            .and_then(|()| crate::with_transaction_with_perm_only(ctx, perm, DryRun::No, callback));
         if let Ok((false, value)) = outcome {
             let snapshot_result = checkpoint.commit(ctx, perm);
             // Workspace setup already used best-effort recording; switching must
@@ -187,11 +177,7 @@ impl SingleBranchMode {
             return Ok(value);
         }
 
-        // Restore the caller's metadata too: legacy handles write on drop and
-        // must not re-persist the failed operation after the checkpoint is restored.
-        let metadata_result = meta.set_workspace(&original_metadata);
         let rollback_result = checkpoint.rollback(ctx, perm);
-        let rollback_result = metadata_result.and(rollback_result);
         match outcome {
             Ok((_, value)) => {
                 rollback_result?;
@@ -208,11 +194,10 @@ impl SingleBranchMode {
         }
     }
 
-    /// Set up GitButler's workspace on `target_ref` using `ctx`, `meta` and exclusive
+    /// Set up GitButler's workspace on `target_ref` using `ctx` and exclusive
     /// `perm`ission, with `head`, the branch checked out on its own, applied.
     fn setup_workspace(
         ctx: &mut Context,
-        meta: &mut impl RefMetadata,
         perm: &mut RepoExclusive,
         target_ref: &LocalRefName,
         head: &FullName,
@@ -225,24 +210,28 @@ impl SingleBranchMode {
         if needs_workspace {
             let target_ref = target_ref.to_string().parse()?;
             gitbutler_branch_actions::set_base_branch_only(ctx, &target_ref, perm)?;
-            // Base setup writes metadata through its own handle. Keep the caller's handle in
-            // sync so creating the destination doesn't overwrite the newly applied source stack.
-            let workspace_ref = but_core::WORKSPACE_REF_NAME.try_into()?;
-            let updated = ctx.meta()?.workspace(workspace_ref)?;
-            let mut workspace = meta.workspace(workspace_ref)?;
-            *workspace = (*updated).clone();
-            meta.set_workspace(&workspace)?;
         }
 
         let (repo, mut ws, mut db) = ctx.workspace_mut_and_db_mut_with_perm(perm)?;
+        let mut transaction = db.immediate_transaction()?;
+        let workspace_ref = but_core::WORKSPACE_REF_NAME.try_into()?;
+        let original_workspace = transaction.meta()?.workspace(workspace_ref).cloned();
         // Also apply an empty branch, which set_base_branch doesn't apply itself.
         // Non-empty branches may already have been applied by set_base_branch.
-        let editor = but_rebase::graph_rebase::Editor::create(&mut ws, meta, &repo, &mut db)?;
+        let editor =
+            but_rebase::graph_rebase::Editor::create(&mut ws, &repo, transaction.connection_mut())?;
         let outcome = but_workspace::branch::apply_stack(editor, head.as_ref())?;
         outcome.rebase.materialize(Default::default())?;
         if let Some(tracking) = outcome.tracking {
             tracking.write(&repo)?;
         }
+        // Keep the saved grouping until the following edit rebuilds it from HEAD.
+        if let Some(original_workspace) = original_workspace {
+            transaction
+                .meta_mut()?
+                .set_workspace(workspace_ref, &original_workspace)?;
+        }
+        transaction.commit()?;
         Ok(())
     }
 
@@ -252,9 +241,9 @@ impl SingleBranchMode {
     /// and at the target's commit when that's where `HEAD` is, as the target isn't a stack
     /// member. When the operation switches to it, it starts at the target's commit. With
     /// `HEAD` detached and no switch, it's independent, which only the workspace takes.
-    pub fn create_unstacked_reference<M: RefMetadata>(
+    pub fn create_unstacked_reference(
         &self,
-        tx: &mut Transaction<'_, '_, M>,
+        tx: &mut Transaction<'_, '_, '_>,
         new_ref: &FullNameRef,
         order: Option<usize>,
     ) -> anyhow::Result<()> {
@@ -284,9 +273,9 @@ impl SingleBranchMode {
 
     /// Create `new_ref` in `tx` at `position` of the branch `relative_to`, in its stack. Above
     /// the branch checked out on its own, it's checked out.
-    pub fn create_stacked_reference<M: RefMetadata>(
+    pub fn create_stacked_reference(
         &self,
-        tx: &mut Transaction<'_, '_, M>,
+        tx: &mut Transaction<'_, '_, '_>,
         new_ref: &FullNameRef,
         relative_to: &FullNameRef,
         position: Position,

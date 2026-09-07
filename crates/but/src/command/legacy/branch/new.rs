@@ -1,8 +1,5 @@
 use anyhow::Context as _;
-use but_core::{
-    RefMetadata,
-    sync::{RepoExclusive, RepoShared},
-};
+use but_core::sync::{RepoExclusive, RepoShared};
 use but_ctx::Context;
 use but_transaction::single_branch_mode::SingleBranchMode;
 use but_workspace::{RefInfo, branch::create_reference::Anchor};
@@ -46,8 +43,7 @@ pub fn new(
         )?
     };
 
-    let mut meta = ctx.meta()?;
-    Ok(run(ctx, &mut meta, guard.write_permission(), operation)?)
+    Ok(run(ctx, guard.write_permission(), operation)?)
 }
 
 fn resolve(
@@ -172,23 +168,17 @@ pub enum NewStackedBranchTarget {
 
 pub fn run(
     ctx: &mut Context,
-    meta: &mut impl RefMetadata,
     perm: &mut RepoExclusive,
     operation: NewOperation,
 ) -> anyhow::Result<NewOutcome> {
     match operation {
-        NewOperation::NewUnstackedBranch(op) => op.execute(ctx, meta, perm),
-        NewOperation::NewStackedBranch(op) => op.execute(ctx, meta, perm),
+        NewOperation::NewUnstackedBranch(op) => op.execute(ctx, perm),
+        NewOperation::NewStackedBranch(op) => op.execute(ctx, perm),
     }
 }
 
 impl NewUnstackedBranchOperation {
-    fn execute(
-        self,
-        ctx: &mut Context,
-        meta: &mut impl RefMetadata,
-        perm: &mut RepoExclusive,
-    ) -> anyhow::Result<NewOutcome> {
+    fn execute(self, ctx: &mut Context, perm: &mut RepoExclusive) -> anyhow::Result<NewOutcome> {
         let NewUnstackedBranchOperation { mut name, switch } = self;
         let sbm = SingleBranchMode::new(ctx, perm.read_permission(), switch)?;
         let snapshot_details = SnapshotDetails::new(OperationKind::CreateBranch);
@@ -197,7 +187,6 @@ impl NewUnstackedBranchOperation {
         // Named so undo deletes it again.
         sbm.transaction_with_workspace_setup(
             ctx,
-            meta,
             snapshot_details,
             &[new_ref.as_ref()],
             perm,
@@ -213,12 +202,7 @@ impl NewUnstackedBranchOperation {
 }
 
 impl NewStackedBranchOperation {
-    fn execute(
-        self,
-        ctx: &mut Context,
-        meta: &mut impl RefMetadata,
-        perm: &mut RepoExclusive,
-    ) -> anyhow::Result<NewOutcome> {
+    fn execute(self, ctx: &mut Context, perm: &mut RepoExclusive) -> anyhow::Result<NewOutcome> {
         let NewStackedBranchOperation {
             mut name,
             target,
@@ -233,7 +217,6 @@ impl NewStackedBranchOperation {
         // Named so undo deletes it again.
         sbm.transaction_with_workspace_setup(
             ctx,
-            meta,
             snapshot_details,
             &[new_ref.as_ref()],
             perm,

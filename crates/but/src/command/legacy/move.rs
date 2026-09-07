@@ -5,7 +5,7 @@ use but_api::{
     WorkspaceState,
     json::{ChangeIdString, HexHash},
 };
-use but_core::{DiffSpec, DryRun, RefMetadata, sync::RepoExclusive};
+use but_core::{DiffSpec, DryRun, sync::RepoExclusive};
 use but_ctx::Context;
 use but_rebase::graph_rebase::mutate::RelativeTo;
 use but_transaction::{Transaction, single_branch_mode::SingleBranchMode};
@@ -236,7 +236,6 @@ pub fn r#move(
     current_dir: &Path,
 ) -> CliResult<(MoveOutcome, WorkspaceState)> {
     let mut guard = ctx.exclusive_worktree_access();
-    let mut meta = ctx.meta()?;
     let id_map = IdMap::new_from_context(ctx, guard.read_permission(), None)?;
 
     let allow_merged = args.allow_merged;
@@ -251,13 +250,7 @@ pub fn r#move(
     )?;
     ensure_not_touching_merged_upstream(&move_op, &MergedUpstream::from_ctx(ctx, allow_merged)?)?;
 
-    Ok(run(
-        ctx,
-        &mut meta,
-        guard.write_permission(),
-        move_op,
-        switch,
-    )?)
+    Ok(run(ctx, guard.write_permission(), move_op, switch)?)
 }
 
 /// Reject moves whose committed sources or targets have already landed in the
@@ -366,7 +359,7 @@ pub struct MoveCommitsRelativeToOperation {
 impl MoveCommitsRelativeToOperation {
     fn execute(
         self,
-        tx: &mut Transaction<'_, '_, impl RefMetadata>,
+        tx: &mut Transaction<'_, '_, '_>,
         sbm: Option<&SingleBranchMode>,
     ) -> anyhow::Result<Option<FullName>> {
         let (relative_to, side, new_branch_name) = self.target.create_target(tx, sbm)?;
@@ -386,7 +379,7 @@ pub struct MoveCommitsToNewBranchOperation {
 impl MoveCommitsToNewBranchOperation {
     fn execute(
         self,
-        tx: &mut Transaction<'_, '_, impl RefMetadata>,
+        tx: &mut Transaction<'_, '_, '_>,
         sbm: Option<&SingleBranchMode>,
     ) -> anyhow::Result<FullName> {
         let new_branch_name = CommitToNewBranchOperation {
@@ -414,7 +407,7 @@ pub struct MoveChangesRelativeToOperation {
 impl MoveChangesRelativeToOperation {
     fn execute(
         self,
-        tx: &mut Transaction<'_, '_, impl RefMetadata>,
+        tx: &mut Transaction<'_, '_, '_>,
         sbm: Option<&SingleBranchMode>,
     ) -> anyhow::Result<(CommitId, Option<FullName>)> {
         let Self {
@@ -450,7 +443,7 @@ pub struct MoveChangesToNewBranchOperation {
 impl MoveChangesToNewBranchOperation {
     fn execute(
         self,
-        tx: &mut Transaction<'_, '_, impl RefMetadata>,
+        tx: &mut Transaction<'_, '_, '_>,
         sbm: Option<&SingleBranchMode>,
     ) -> anyhow::Result<(CommitId, FullName)> {
         let Self {
@@ -489,7 +482,7 @@ pub struct StackBranchOnOperation {
 }
 
 impl StackBranchOnOperation {
-    fn execute(self, tx: &mut Transaction<'_, '_, impl RefMetadata>) -> anyhow::Result<()> {
+    fn execute(self, tx: &mut Transaction<'_, '_, '_>) -> anyhow::Result<()> {
         tx.move_branch(
             self.source_branch.as_ref(),
             RelativeTo::Reference(self.target_branch),
@@ -504,7 +497,7 @@ pub struct UnstackBranchOperation {
 }
 
 impl UnstackBranchOperation {
-    fn execute(self, tx: &mut Transaction<'_, '_, impl RefMetadata>) -> anyhow::Result<()> {
+    fn execute(self, tx: &mut Transaction<'_, '_, '_>) -> anyhow::Result<()> {
         tx.tear_off_branch(self.source_branch.as_ref(), None)
     }
 }
@@ -529,7 +522,7 @@ pub enum MoveTarget {
 impl MoveTarget {
     fn create_target(
         self,
-        tx: &mut Transaction<'_, '_, impl RefMetadata>,
+        tx: &mut Transaction<'_, '_, '_>,
         sbm: Option<&SingleBranchMode>,
     ) -> anyhow::Result<(
         RelativeTo,
@@ -1082,7 +1075,6 @@ fn resolve_sources(
 
 pub fn run(
     ctx: &mut Context,
-    meta: &mut impl RefMetadata,
     perm: &mut RepoExclusive,
     mut move_op: MoveOperation,
     switch: bool,
@@ -1124,7 +1116,6 @@ pub fn run(
     if let Some(sbm) = sbm {
         sbm.transaction_with_workspace_setup(
             ctx,
-            meta,
             snapshot_details,
             &snapshot_refs,
             perm,
@@ -1134,7 +1125,6 @@ pub fn run(
     } else {
         but_transaction::with_transaction_with_perm(
             ctx,
-            meta,
             perm,
             snapshot_details,
             &snapshot_refs,
@@ -1145,7 +1135,7 @@ pub fn run(
 }
 
 fn move_with_transaction(
-    mut tx: Transaction<'_, '_, impl RefMetadata>,
+    mut tx: Transaction<'_, '_, '_>,
     move_op: MoveOperation,
     switch: bool,
     sbm: Option<&SingleBranchMode>,

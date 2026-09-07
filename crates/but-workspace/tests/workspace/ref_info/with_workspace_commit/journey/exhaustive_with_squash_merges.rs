@@ -1,5 +1,5 @@
 //! A collection of tests that build on top of each other, like a progression of steps a user could take.
-use but_meta::VirtualBranchesTomlMetadata;
+
 use but_testsupport::visualize_commit_graph_all;
 use snapbox::prelude::*;
 
@@ -16,7 +16,7 @@ use crate::ref_info::{
 
 #[test]
 fn j01_unborn() -> anyhow::Result<()> {
-    let (repo, meta, description, mut db) = step("01-unborn")?;
+    let (repo, mut meta, description) = step("01-unborn")?;
     snapbox::assert_data_eq!(
         description,
         snapbox::str![[r#"
@@ -27,7 +27,7 @@ a newly initialized repository
     snapbox::assert_data_eq!(visualize_commit_graph_all(&repo)?, snapbox::str![""]);
 
     // Before initialization there is no configured target or cutoff.
-    let info = but_workspace::head_info(&repo, &*meta, &mut db, standard_options());
+    let info = but_workspace::head_info(&repo, &mut meta.connection_mut(), standard_options());
     snapbox::assert_data_eq!(
         info.to_debug(),
         snapbox::str![[r#"
@@ -70,7 +70,7 @@ Ok(
 
 #[test]
 fn j02_first_commit() -> anyhow::Result<()> {
-    let (repo, meta, description, mut db) = step("02-first-commit")?;
+    let (repo, mut meta, description) = step("02-first-commit")?;
     snapbox::assert_data_eq!(
         description,
         snapbox::str![[r#"
@@ -89,7 +89,7 @@ the root commit is now present locally
     // Keep the recorded base without implicitly selecting the checked-out branch as target.
     let mut opts = standard_options();
     opts.project_meta.target_commit_id = Some(repo.head_id()?.detach());
-    let info = but_workspace::head_info(&repo, &*meta, &mut db, opts);
+    let info = but_workspace::head_info(&repo, &mut meta.connection_mut(), opts);
     snapbox::assert_data_eq!(
         info.to_debug(),
         snapbox::str![[r#"
@@ -141,7 +141,7 @@ Ok(
 
 #[test]
 fn j03_main_pushed() -> anyhow::Result<()> {
-    let (repo, meta, description, mut db) = step("03-main-pushed")?;
+    let (repo, mut meta, description) = step("03-main-pushed")?;
     snapbox::assert_data_eq!(
         description,
         snapbox::str![[r#"
@@ -159,7 +159,7 @@ However, without an official workspace it still won't be acting as a target.
 "#]]
     );
 
-    let info = head_info(&repo, &meta, &mut db, standard_options());
+    let info = head_info(&repo, &mut meta.connection_mut(), standard_options());
     snapbox::assert_data_eq!(
         info.to_debug(),
         snapbox::str![[r#"
@@ -206,7 +206,7 @@ Ok(
 "#]]
     );
 
-    let info = head_info(&repo, &meta, &mut db, standard_options());
+    let info = head_info(&repo, &mut meta.connection_mut(), standard_options());
     // As we see this as base, there is no upstream commits to consider, nor is there local commits.
     snapbox::assert_data_eq!(
         info.to_debug(),
@@ -258,7 +258,7 @@ Ok(
 
 #[test]
 fn j04_create_workspace() -> anyhow::Result<()> {
-    let (repo, meta, description, mut db) = step("04-create-workspace")?;
+    let (repo, mut meta, description) = step("04-create-workspace")?;
     snapbox::assert_data_eq!(
         description,
         snapbox::str![[r#"
@@ -277,7 +277,7 @@ An official workspace was created, with nothing in it
 
     // Adding an empty workspace doesn't change the outcome, this is fully graph based
     // (despite the target being set by the test-suite).
-    let info = head_info(&repo, &meta, &mut db, standard_options());
+    let info = head_info(&repo, &mut meta.connection_mut(), standard_options());
     snapbox::assert_data_eq!(
         info.to_debug(),
         snapbox::str![[r#"
@@ -328,7 +328,7 @@ Ok(
 
 #[test]
 fn j05_empty_stack() -> anyhow::Result<()> {
-    let (repo, mut meta, description, mut db) = step("05-empty-stack")?;
+    let (repo, mut meta, description) = step("05-empty-stack")?;
     snapbox::assert_data_eq!(
         description,
         snapbox::str![[r#"
@@ -348,7 +348,7 @@ an empty stack with nothing in it
     // We need to advertise empty stacks (i.e. independent branches) as they are not discoverable otherwise.
     // This would be configured by the function that creates the empty stack,
     add_stack_with_segments(&mut meta, 0, "S1", StackState::InWorkspace, &[]);
-    let info = head_info(&repo, &meta, &mut db, standard_options());
+    let info = head_info(&repo, &mut meta.connection_mut(), standard_options());
     snapbox::assert_data_eq!(
         info.to_debug(),
         snapbox::str![[r#"
@@ -420,7 +420,7 @@ Ok(
 
 #[test]
 fn j06_create_commit_in_stack() -> anyhow::Result<()> {
-    let (repo, mut meta, description, mut db) = step("06-create-commit-in-stack")?;
+    let (repo, mut meta, description) = step("06-create-commit-in-stack")?;
     snapbox::assert_data_eq!(
         description,
         snapbox::str![[r#"
@@ -439,7 +439,7 @@ Create a new commit in the newly added stack S1
     );
 
     // Now that there is a commit, the stack is picked up automatically, but without additional data.
-    let info = head_info(&repo, &meta, &mut db, standard_options());
+    let info = head_info(&repo, &mut meta.connection_mut(), standard_options());
     snapbox::assert_data_eq!(
         info.to_debug(),
         snapbox::str![[r#"
@@ -509,7 +509,7 @@ Ok(
     );
 
     add_stack_with_segments(&mut meta, 0, "S1", StackState::InWorkspace, &[]);
-    let info = head_info(&repo, &meta, &mut db, standard_options());
+    let info = head_info(&repo, &mut meta.connection_mut(), standard_options());
     snapbox::assert_data_eq!(
         info.to_debug(),
         snapbox::str![[r#"
@@ -584,7 +584,7 @@ Ok(
 
 #[test]
 fn j07_push_commit() -> anyhow::Result<()> {
-    let (repo, mut meta, description, mut db) = step("07-push-commit")?;
+    let (repo, mut meta, description) = step("07-push-commit")?;
     snapbox::assert_data_eq!(
         description,
         snapbox::str![[r#"
@@ -603,7 +603,7 @@ push S1 to the remote which is then up-to-date
     );
 
     add_stack_with_segments(&mut meta, 0, "S1", StackState::InWorkspace, &[]);
-    let info = head_info(&repo, &meta, &mut db, standard_options());
+    let info = head_info(&repo, &mut meta.connection_mut(), standard_options());
     snapbox::assert_data_eq!(
         info.to_debug(),
         snapbox::str![[r#"
@@ -678,7 +678,7 @@ Ok(
 
 #[test]
 fn j08_next_local_commit() -> anyhow::Result<()> {
-    let (repo, mut meta, description, mut db) = step("08-new-local-commit")?;
+    let (repo, mut meta, description) = step("08-new-local-commit")?;
     snapbox::assert_data_eq!(
         description,
         snapbox::str![[r#"
@@ -701,7 +701,7 @@ Create a new local commit right after the previous pushed one
     );
 
     add_stack_with_segments(&mut meta, 0, "S1", StackState::InWorkspace, &[]);
-    let info = head_info(&repo, &meta, &mut db, standard_options());
+    let info = head_info(&repo, &mut meta.connection_mut(), standard_options());
     snapbox::assert_data_eq!(
         info.to_debug(),
         snapbox::str![[r#"
@@ -777,7 +777,7 @@ Ok(
 
 #[test]
 fn j09_rewritten_remote_and_local_commit() -> anyhow::Result<()> {
-    let (repo, mut meta, description, mut db) = step("09-rewritten-local-commit")?;
+    let (repo, mut meta, description) = step("09-rewritten-local-commit")?;
     snapbox::assert_data_eq!(
         description,
         snapbox::str![[r#"
@@ -799,7 +799,7 @@ The new local commit was rewritten after pushing it to the remote
     );
 
     add_stack_with_segments(&mut meta, 0, "S1", StackState::InWorkspace, &[]);
-    let info = head_info(&repo, &meta, &mut db, standard_options());
+    let info = head_info(&repo, &mut meta.connection_mut(), standard_options());
     snapbox::assert_data_eq!(
         info.to_debug(),
         snapbox::str![[r#"
@@ -875,7 +875,7 @@ Ok(
 
 #[test]
 fn j10_squash_merge_stack() -> anyhow::Result<()> {
-    let (repo, mut meta, description, mut db) = step("10-squash-merge-stack")?;
+    let (repo, mut meta, description) = step("10-squash-merge-stack")?;
     snapbox::assert_data_eq!(
         description,
         snapbox::str![[r#"
@@ -904,8 +904,7 @@ The remote squash-merges S1 *and* changes the 'file' so it looks entirely differ
     add_stack_with_segments(&mut meta, 0, "S1", StackState::InWorkspace, &[]);
     let (info, workspace) = crate::ref_info::with_workspace_commit::head_info_and_workspace(
         &repo,
-        &meta,
-        &mut db,
+        &mut meta.connection_mut(),
         standard_options(),
     )?;
     assert_eq!(
@@ -1010,7 +1009,7 @@ Ok(
 
 #[test]
 fn j11_squash_merge_remote_only() -> anyhow::Result<()> {
-    let (repo, mut meta, description, mut db) = step("11-remote-only")?;
+    let (repo, mut meta, description) = step("11-remote-only")?;
     snapbox::assert_data_eq!(
         description,
         snapbox::str![[r#"
@@ -1047,8 +1046,7 @@ The remote was reused and merged once more with more changes.
     add_stack_with_segments(&mut meta, 0, "S1", StackState::InWorkspace, &[]);
     let (info, workspace) = crate::ref_info::with_workspace_commit::head_info_and_workspace(
         &repo,
-        &meta,
-        &mut db,
+        &mut meta.connection_mut(),
         standard_options(),
     )?;
     assert_eq!(
@@ -1162,7 +1160,7 @@ Ok(
 
 #[test]
 fn j12_local_only_multi_segment_squash_merge() -> anyhow::Result<()> {
-    let (repo, mut meta, description, mut db) = step("12-local-only-multi-segment-squash-merge")?;
+    let (repo, mut meta, description) = step("12-local-only-multi-segment-squash-merge")?;
     snapbox::assert_data_eq!(
         description,
         snapbox::str![[r#"
@@ -1207,8 +1205,7 @@ A new multi-segment stack is created without remote and squash merged locally.
     add_stack_with_segments(&mut meta, 0, "S1", StackState::InWorkspace, &[]);
     let (info, workspace) = crate::ref_info::with_workspace_commit::head_info_and_workspace(
         &repo,
-        &meta,
-        &mut db,
+        &mut meta.connection_mut(),
         standard_options(),
     )?;
     assert_eq!(
@@ -1352,13 +1349,6 @@ Ok(
     Ok(())
 }
 
-pub fn step(
-    name: &str,
-) -> anyhow::Result<(
-    gix::Repository,
-    std::mem::ManuallyDrop<VirtualBranchesTomlMetadata>,
-    String,
-    but_db::DbHandle,
-)> {
+pub fn step(name: &str) -> anyhow::Result<(gix::Repository, but_db::DbHandle, String)> {
     named_read_only_in_memory_scenario_with_description("journey01", name)
 }

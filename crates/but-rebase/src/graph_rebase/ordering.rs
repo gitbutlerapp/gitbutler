@@ -3,7 +3,6 @@
 use std::collections::{HashMap, HashSet};
 
 use anyhow::{Result, bail};
-use but_core::RefMetadata;
 use petgraph::Direction;
 
 use crate::graph_rebase::{
@@ -11,7 +10,7 @@ use crate::graph_rebase::{
     util::{self, OrderedParentKind},
 };
 
-impl<M: RefMetadata> Editor<'_, '_, M> {
+impl Editor<'_, '_, '_> {
     /// Order commit selectors by parentage, with parents first and children last.
     ///
     /// Duplicate selectors are deduplicated by commit-id with first occurrence winning.
@@ -84,8 +83,8 @@ struct SelectedCommit {
     input_order: usize,
 }
 
-fn step_graph_parent_to_child_rank<M: RefMetadata>(
-    editor: &Editor<'_, '_, M>,
+fn step_graph_parent_to_child_rank(
+    editor: &Editor<'_, '_, '_>,
     selected_ids: &HashSet<gix::ObjectId>,
 ) -> Result<HashMap<gix::ObjectId, usize>> {
     let mut rank_by_id = HashMap::<gix::ObjectId, usize>::new();

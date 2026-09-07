@@ -46,7 +46,7 @@ fn current_version_corruption_is_an_error() {
         .unwrap();
 
     assert!(
-        list_cached_forge_reviews(&db).is_err(),
+        list_cached_forge_reviews(db.connection()).is_err(),
         "current-version corruption must not be treated as a cache miss"
     );
 }

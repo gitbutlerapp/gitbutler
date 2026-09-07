@@ -14,7 +14,7 @@ fn fixture(
 ) -> anyhow::Result<(
     but_testsupport::gix_testtools::tempfile::TempDir,
     gix::Repository,
-    but_meta::VirtualBranchesTomlMetadata,
+    but_db::DbHandle,
 )> {
     ASKPASS.call_once(but_askpass::disable);
     let (repo, tmp) = writable_scenario_slow(name);
@@ -28,9 +28,7 @@ fn fixture(
         status.success(),
         "fixture remote URL should be normalized to an absolute path"
     );
-    let meta = but_meta::VirtualBranchesTomlMetadata::from_path(
-        repo.path().join("virtual-branches.toml"),
-    )?;
+    let meta = but_testsupport::fixture_metadata(repo.path().join("virtual-branches.toml"))?;
     Ok((tmp, repo, meta))
 }
 
@@ -46,15 +44,13 @@ fn project_meta(repo: &gix::Repository) -> anyhow::Result<ProjectMeta> {
 
 fn head_info(
     repo: &gix::Repository,
-    meta: &but_meta::VirtualBranchesTomlMetadata,
+    meta: &mut but_db::DbHandle,
 ) -> anyhow::Result<(RefInfo, but_graph::Workspace)> {
-    let mut db = but_testsupport::project_db(repo)?;
     // Adoption already ran, so the fixture worktrees count as active.
-    db.worktree_meta_mut().mark_adopted()?;
+    meta.worktree_meta_mut().mark_adopted()?;
     but_workspace::head_info_and_workspace(
         repo,
-        meta,
-        &mut db,
+        &mut meta.connection_mut(),
         Options {
             project_meta: project_meta(repo)?,
             traversal: but_graph::init::Options {
@@ -69,19 +65,18 @@ fn head_info(
 
 fn push(
     repo: &gix::Repository,
-    meta: &but_meta::VirtualBranchesTomlMetadata,
+    meta: &mut but_db::DbHandle,
     branch: &gix::refs::FullNameRef,
     with_force: bool,
     skip_force_push_protection: bool,
     force_push_protection: bool,
 ) -> anyhow::Result<gitbutler_git::PushResult> {
     let (info, workspace) = head_info(repo, meta)?;
-    let mut db = but_db::DbHandle::new_at_path(":memory:")?;
     but_workspace::legacy::workspace_branch_and_ancestors_push(
         repo,
         &workspace,
         &info,
-        &mut db,
+        meta,
         false,
         with_force,
         skip_force_push_protection,
@@ -143,8 +138,8 @@ fn logical_scope(info: &RefInfo, branch: &str) -> Vec<String> {
 
 #[test]
 fn logical_push_scope_is_selected_branch_plus_ancestors() -> anyhow::Result<()> {
-    let (_tmp, repo, meta) = fixture("push")?;
-    let (info, _) = head_info(&repo, &meta)?;
+    let (_tmp, repo, mut meta) = fixture("push")?;
+    let (info, _) = head_info(&repo, &mut meta)?;
 
     assert_eq!(logical_scope(&info, "bottom"), ["bottom"]);
     assert_eq!(logical_scope(&info, "middle"), ["middle", "bottom"]);
@@ -168,8 +163,8 @@ fn pushed_branches(result: &gitbutler_git::PushResult) -> Vec<&str> {
 
 #[test]
 fn logical_push_scope_crosses_into_the_lane_a_worktree_rests_on() -> anyhow::Result<()> {
-    let (_tmp, repo, meta) = fixture("push-worktree")?;
-    let (info, _) = head_info(&repo, &meta)?;
+    let (_tmp, repo, mut meta) = fixture("push-worktree")?;
+    let (info, _) = head_info(&repo, &mut meta)?;
 
     assert_eq!(
         logical_scope(&info, "wt-on-middle"),
@@ -191,11 +186,11 @@ fn logical_push_scope_crosses_into_the_lane_a_worktree_rests_on() -> anyhow::Res
 
 #[test]
 fn pushing_a_worktree_branch_pushes_the_stack_branches_beneath_it() -> anyhow::Result<()> {
-    let (_tmp, repo, meta) = fixture("push-worktree")?;
+    let (_tmp, repo, mut meta) = fixture("push-worktree")?;
 
     let result = push(
         &repo,
-        &meta,
+        &mut meta,
         r("refs/heads/wt-on-middle"),
         false,
         false,
@@ -208,7 +203,7 @@ fn pushing_a_worktree_branch_pushes_the_stack_branches_beneath_it() -> anyhow::R
     );
 
     apply_remote_tracking_updates(&repo, &result)?;
-    let (info, _) = head_info(&repo, &meta)?;
+    let (info, _) = head_info(&repo, &mut meta)?;
     assert_eq!(status(&info, "bottom"), NothingToPush);
     assert_eq!(status(&info, "middle"), NothingToPush);
     assert_eq!(status(&info, "wt-on-middle"), NothingToPush);
@@ -223,7 +218,14 @@ fn pushing_a_worktree_branch_pushes_the_stack_branches_beneath_it() -> anyhow::R
         "an unrelated worktree is untouched"
     );
 
-    let result = push(&repo, &meta, r("refs/heads/wt-top"), false, false, false)?;
+    let result = push(
+        &repo,
+        &mut meta,
+        r("refs/heads/wt-top"),
+        false,
+        false,
+        false,
+    )?;
     assert_eq!(
         pushed_branches(&result),
         ["wt-bottom", "wt-top"],
@@ -234,7 +236,7 @@ fn pushing_a_worktree_branch_pushes_the_stack_branches_beneath_it() -> anyhow::R
 
 fn assert_refused_and_remote_untouched(
     repo: &gix::Repository,
-    meta: &but_meta::VirtualBranchesTomlMetadata,
+    meta: &mut but_db::DbHandle,
     branch: &str,
 ) -> anyhow::Result<()> {
     let err = push(repo, meta, r(branch), false, false, false)
@@ -261,10 +263,10 @@ fn assert_refused_and_remote_untouched(
 
 #[test]
 fn a_worktree_resting_on_the_workspace_commit_is_not_pushed() -> anyhow::Result<()> {
-    let (_tmp, repo, meta) = fixture("push-on-workspace-commit")?;
+    let (_tmp, repo, mut meta) = fixture("push-on-workspace-commit")?;
 
-    assert_refused_and_remote_untouched(&repo, &meta, "refs/heads/wt-on-workspace")?;
-    assert_refused_and_remote_untouched(&repo, &meta, "refs/heads/wt-on-it")?;
+    assert_refused_and_remote_untouched(&repo, &mut meta, "refs/heads/wt-on-workspace")?;
+    assert_refused_and_remote_untouched(&repo, &mut meta, "refs/heads/wt-on-it")?;
     Ok(())
 }
 
@@ -272,7 +274,7 @@ fn a_worktree_resting_on_the_workspace_commit_is_not_pushed() -> anyhow::Result<
 fn a_branch_holding_the_workspace_commit_is_not_pushed() -> anyhow::Result<()> {
     use but_testsupport::CommandExt as _;
 
-    let (_tmp, repo, meta) = fixture("push-on-workspace-commit")?;
+    let (_tmp, repo, mut meta) = fixture("push-on-workspace-commit")?;
     // As an agent's `git checkout -b` on the workspace makes one.
     but_testsupport::git(&repo)
         .args(["checkout", "-q", "-b", "hotfix"])
@@ -281,13 +283,13 @@ fn a_branch_holding_the_workspace_commit_is_not_pushed() -> anyhow::Result<()> {
         .args(["commit", "-q", "--allow-empty", "-m", "hotfix"])
         .run();
 
-    assert_refused_and_remote_untouched(&repo, &meta, "refs/heads/hotfix")?;
+    assert_refused_and_remote_untouched(&repo, &mut meta, "refs/heads/hotfix")?;
     Ok(())
 }
 
 #[test]
 fn pushed_branch_reports_its_name_on_the_remote_it_landed_on() -> anyhow::Result<()> {
-    let (tmp, repo, meta) = fixture("push")?;
+    let (tmp, repo, mut meta) = fixture("push")?;
     // Track `bottom` on a second remote so its own remote differs from the push default,
     // which is derived from the target ref and stays `origin`.
     let fork = tmp.path().join("remote.git");
@@ -310,7 +312,14 @@ fn pushed_branch_reports_its_name_on_the_remote_it_landed_on() -> anyhow::Result
     // Reopen so the configuration written above is visible.
     let repo = gix::open(repo.path())?;
 
-    let result = push(&repo, &meta, r("refs/heads/bottom"), false, false, false)?;
+    let result = push(
+        &repo,
+        &mut meta,
+        r("refs/heads/bottom"),
+        false,
+        false,
+        false,
+    )?;
 
     assert_eq!(
         result.remote, "origin",
@@ -332,9 +341,16 @@ fn pushed_branch_reports_its_name_on_the_remote_it_landed_on() -> anyhow::Result
 
 #[test]
 fn pushing_bottom_of_stack_reports_only_bottom_as_pushed() -> anyhow::Result<()> {
-    let (_tmp, repo, meta) = fixture("push")?;
+    let (_tmp, repo, mut meta) = fixture("push")?;
 
-    let result = push(&repo, &meta, r("refs/heads/bottom"), false, false, false)?;
+    let result = push(
+        &repo,
+        &mut meta,
+        r("refs/heads/bottom"),
+        false,
+        false,
+        false,
+    )?;
     assert_eq!(
         result
             .branch_to_remote
@@ -346,7 +362,7 @@ fn pushing_bottom_of_stack_reports_only_bottom_as_pushed() -> anyhow::Result<()>
     );
 
     apply_remote_tracking_updates(&repo, &result)?;
-    let (info, _) = head_info(&repo, &meta)?;
+    let (info, _) = head_info(&repo, &mut meta)?;
     assert_eq!(status(&info, "bottom"), NothingToPush);
     assert_eq!(status(&info, "top"), CompletelyUnpushed);
 
@@ -355,14 +371,28 @@ fn pushing_bottom_of_stack_reports_only_bottom_as_pushed() -> anyhow::Result<()>
 
 #[test]
 fn pushing_top_of_stack_reports_top_as_pushed_after_bottom_is_current() -> anyhow::Result<()> {
-    let (_tmp, repo, meta) = fixture("push")?;
+    let (_tmp, repo, mut meta) = fixture("push")?;
 
-    let bottom_result = push(&repo, &meta, r("refs/heads/bottom"), false, false, false)?;
+    let bottom_result = push(
+        &repo,
+        &mut meta,
+        r("refs/heads/bottom"),
+        false,
+        false,
+        false,
+    )?;
     apply_remote_tracking_updates(&repo, &bottom_result)?;
-    let middle_result = push(&repo, &meta, r("refs/heads/middle"), false, false, false)?;
+    let middle_result = push(
+        &repo,
+        &mut meta,
+        r("refs/heads/middle"),
+        false,
+        false,
+        false,
+    )?;
     apply_remote_tracking_updates(&repo, &middle_result)?;
 
-    let result = push(&repo, &meta, r("refs/heads/top"), false, false, false)?;
+    let result = push(&repo, &mut meta, r("refs/heads/top"), false, false, false)?;
     assert_eq!(
         result
             .branch_to_remote
@@ -374,7 +404,7 @@ fn pushing_top_of_stack_reports_top_as_pushed_after_bottom_is_current() -> anyho
     );
 
     apply_remote_tracking_updates(&repo, &result)?;
-    let (info, _) = head_info(&repo, &meta)?;
+    let (info, _) = head_info(&repo, &mut meta)?;
     assert_eq!(
         logical_scope(&info, "top"),
         ["top", "middle", "bottom"],
@@ -389,11 +419,11 @@ fn pushing_top_of_stack_reports_top_as_pushed_after_bottom_is_current() -> anyho
 
 #[test]
 fn force_push_protection_is_observed_when_pushing_bottom_branch() -> anyhow::Result<()> {
-    let (_tmp, repo, meta) = fixture("push-requiring-force")?;
-    let (info, _) = head_info(&repo, &meta)?;
+    let (_tmp, repo, mut meta) = fixture("push-requiring-force")?;
+    let (info, _) = head_info(&repo, &mut meta)?;
     assert_eq!(status(&info, "bottom"), UnpushedCommitsRequiringForce);
 
-    let err = push(&repo, &meta, r("refs/heads/bottom"), true, false, true)
+    let err = push(&repo, &mut meta, r("refs/heads/bottom"), true, false, true)
         .expect_err("force-with-lease should reject the stale remote branch");
     let err = format!("{err:#}");
     assert!(
@@ -403,7 +433,7 @@ fn force_push_protection_is_observed_when_pushing_bottom_branch() -> anyhow::Res
         "error should come from force push protection: {err:#}"
     );
 
-    let result = push(&repo, &meta, r("refs/heads/bottom"), true, true, true)?;
+    let result = push(&repo, &mut meta, r("refs/heads/bottom"), true, true, true)?;
     assert_eq!(
         result
             .branch_to_remote
@@ -419,9 +449,9 @@ fn force_push_protection_is_observed_when_pushing_bottom_branch() -> anyhow::Res
 
 #[test]
 fn force_push_protection_is_observed_when_pushing_top_branch() -> anyhow::Result<()> {
-    let (_tmp, repo, meta) = fixture("push-requiring-force")?;
+    let (_tmp, repo, mut meta) = fixture("push-requiring-force")?;
 
-    let err = push(&repo, &meta, r("refs/heads/top"), true, false, true)
+    let err = push(&repo, &mut meta, r("refs/heads/top"), true, false, true)
         .expect_err("pushing the top branch should observe bottom branch force protection first");
     let err = format!("{err:#}");
     assert!(
@@ -431,7 +461,7 @@ fn force_push_protection_is_observed_when_pushing_top_branch() -> anyhow::Result
         "error should come from force push protection: {err:#}"
     );
 
-    let result = push(&repo, &meta, r("refs/heads/top"), true, true, true)?;
+    let result = push(&repo, &mut meta, r("refs/heads/top"), true, true, true)?;
     assert_eq!(
         result
             .branch_to_remote
@@ -447,13 +477,13 @@ fn force_push_protection_is_observed_when_pushing_top_branch() -> anyhow::Result
 
 #[test]
 fn pushing_with_an_ordinary_branch_checked_out_pushes_it_and_its_ancestors() -> anyhow::Result<()> {
-    let (_tmp, repo, meta) = fixture("push-single-branch")?;
+    let (_tmp, repo, mut meta) = fixture("push-single-branch")?;
     assert!(
         repo.find_reference("refs/heads/gitbutler/workspace")
             .is_err(),
         "the fixture has no workspace branch"
     );
-    let (info, _) = head_info(&repo, &meta)?;
+    let (info, _) = head_info(&repo, &mut meta)?;
     assert_eq!(
         logical_scope(&info, "top"),
         ["top", "bottom"],
@@ -470,7 +500,7 @@ fn pushing_with_an_ordinary_branch_checked_out_pushes_it_and_its_ancestors() -> 
         "nothing has been pushed yet"
     );
 
-    let result = push(&repo, &meta, r("refs/heads/top"), false, false, false)?;
+    let result = push(&repo, &mut meta, r("refs/heads/top"), false, false, false)?;
     assert_eq!(
         result
             .branch_to_remote
@@ -482,7 +512,7 @@ fn pushing_with_an_ordinary_branch_checked_out_pushes_it_and_its_ancestors() -> 
     );
 
     apply_remote_tracking_updates(&repo, &result)?;
-    let (info, _) = head_info(&repo, &meta)?;
+    let (info, _) = head_info(&repo, &mut meta)?;
     assert_eq!(
         status(&info, "bottom"),
         NothingToPush,

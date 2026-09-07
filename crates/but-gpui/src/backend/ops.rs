@@ -14,7 +14,7 @@ use bstr::{BStr, ByteSlice as _};
 use but_api::commit::json::ChangesSource;
 use but_core::commit::CommitIdentifiers;
 use but_core::tree::create_tree::RejectionReason;
-use but_core::{DiffSpec, DryRun, RefMetadata};
+use but_core::{DiffSpec, DryRun};
 use but_oplog::legacy::{OperationKind, SnapshotDetails, Trailer};
 use but_rebase::graph_rebase::mutate::{InsertSide, RelativeTo};
 use but_transaction::single_branch_mode::SingleBranchMode;
@@ -469,7 +469,6 @@ impl Intent for CommitChanges {
                 .chain(worktree_branch.as_ref().map(|name| name.as_ref()))
                 .collect();
             let details = SnapshotDetails::new(OperationKind::CreateCommit);
-            let mut meta = ctx.meta()?;
             let at = (&branch, below);
             let outcome = match new_at {
                 // A branch made for it runs as `but commit` makes one.
@@ -478,7 +477,6 @@ impl Intent for CommitChanges {
                     let independent = beside.is_none();
                     sbm.transaction_with_workspace_setup(
                         ctx,
-                        &mut meta,
                         details,
                         &refs,
                         perm,
@@ -505,7 +503,6 @@ impl Intent for CommitChanges {
                 }
                 None => but_transaction::with_transaction_with_perm(
                     ctx,
-                    &mut meta,
                     perm,
                     details,
                     &refs,
@@ -537,8 +534,8 @@ impl Intent for CommitChanges {
 
 /// Commit `specs` in `tx` on top of `branch`, or right below its commit `below`. One that takes
 /// none of them rolls back, leaving no branch made for it behind.
-fn commit_in<M: RefMetadata>(
-    tx: &mut Transaction<'_, '_, M>,
+fn commit_in(
+    tx: &mut Transaction<'_, '_, '_>,
     (branch, below): (&FullName, Option<CommitId>),
     specs: Vec<DiffSpec>,
     message: String,
@@ -612,10 +609,8 @@ impl Intent for CreateBranch {
             let details = SnapshotDetails::new(OperationKind::CreateBranch)
                 .with_trailers([Trailer::Name(new_ref.to_string())]);
             let sbm = SingleBranchMode::new(ctx, perm.read_permission(), false)?;
-            let mut meta = ctx.meta()?;
             sbm.transaction_with_workspace_setup(
                 ctx,
-                &mut meta,
                 details,
                 &[new_ref.as_ref()],
                 perm,
@@ -643,10 +638,8 @@ impl Intent for CreateDependentBranch {
             let details = SnapshotDetails::new(OperationKind::CreateBranch)
                 .with_trailers([Trailer::Name(new_ref.to_string())]);
             let sbm = SingleBranchMode::new(ctx, perm.read_permission(), false)?;
-            let mut meta = ctx.meta()?;
             sbm.transaction_with_workspace_setup(
                 ctx,
-                &mut meta,
                 details,
                 &[new_ref.as_ref()],
                 perm,
@@ -687,10 +680,8 @@ impl Intent for CreateBranchAtCommit {
             let details = SnapshotDetails::new(OperationKind::CreateBranch)
                 .with_trailers([Trailer::Name(new_ref.to_string())]);
             let sbm = SingleBranchMode::new(ctx, perm.read_permission(), false)?;
-            let mut meta = ctx.meta()?;
             sbm.transaction_with_workspace_setup(
                 ctx,
-                &mut meta,
                 details,
                 &[new_ref.as_ref()],
                 perm,
@@ -778,10 +769,8 @@ fn move_branch(
     run.locked(|ctx, perm| {
         let before = but_api::legacy::workspace::head_info(ctx)?;
         let sbm = SingleBranchMode::new(ctx, perm.read_permission(), false)?;
-        let mut meta = ctx.meta()?;
         let moved = sbm.transaction_with_workspace_setup(
             ctx,
-            &mut meta,
             SnapshotDetails::new(kind),
             &[],
             perm,
@@ -840,10 +829,8 @@ impl Intent for InsertEmptyCommit {
     fn apply(self, run: &mut Run) -> Result<CommitId> {
         let (relative_to, side) = self.at.relative_to();
         let (made, _workspace) = run.locked(|ctx, perm| {
-            let mut meta = ctx.meta()?;
             but_transaction::with_transaction_with_perm(
                 ctx,
-                &mut meta,
                 perm,
                 SnapshotDetails::new(OperationKind::InsertBlankCommit),
                 &[],
@@ -872,10 +859,8 @@ impl Intent for CherryPick {
         let Self { commits, to } = self;
         let (relative_to, side) = to.relative_to();
         let workspace = run.locked(|ctx, perm| {
-            let mut meta = ctx.meta()?;
             but_transaction::with_transaction_with_perm(
                 ctx,
-                &mut meta,
                 perm,
                 SnapshotDetails::new(OperationKind::CherryPick).with_count(commits.len()),
                 &[],
@@ -990,10 +975,8 @@ impl Intent for DeleteBranchAndCommits {
                     short_ref(&branch)
                 );
             }
-            let mut meta = ctx.meta()?;
             but_transaction::with_transaction_with_perm(
                 ctx,
-                &mut meta,
                 perm,
                 SnapshotDetails::new(OperationKind::DeleteBranch)
                     .with_trailers([Trailer::Name(branch.to_string())]),
@@ -1007,7 +990,7 @@ impl Intent for DeleteBranchAndCommits {
                     Ok(())
                 },
             )?;
-            let (mut repo, ws, _) = ctx.workspace_mut_and_db_mut_with_perm(perm)?;
+            let (mut repo, ws, db) = ctx.workspace_mut_and_db_mut_with_perm(perm)?;
             // The transaction leaves Git's `branch.<name>` section, as its upstream and
             // description, which a branch made later under its name would take on.
             but_workspace::branch::remove_reference::delete_local_branch(
@@ -1017,7 +1000,7 @@ impl Intent for DeleteBranchAndCommits {
             but_workspace::branch::dissolve_unnecessary_workspace(
                 &ws,
                 &repo,
-                &meta,
+                &db.meta()?,
                 Default::default(),
             )?;
             Ok(())
@@ -1077,10 +1060,8 @@ impl Intent for Amend {
                 Some(name) => ctx.worktree_head(name)?.and_then(|head| head.ref_name),
                 None => None,
             };
-            let mut meta = ctx.meta()?;
             but_transaction::with_transaction_with_perm(
                 ctx,
-                &mut meta,
                 perm,
                 SnapshotDetails::new(OperationKind::AmendCommit),
                 worktree_branch
@@ -1128,10 +1109,8 @@ impl Intent for MoveCommits {
         let Self { commits, to } = self;
         let (relative_to, side) = to.relative_to();
         let workspace = run.locked(|ctx, perm| {
-            let mut meta = ctx.meta()?;
             but_transaction::with_transaction_with_perm(
                 ctx,
-                &mut meta,
                 perm,
                 SnapshotDetails::new(OperationKind::MoveCommit).with_count(commits.len()),
                 &[],
@@ -1179,10 +1158,8 @@ impl Intent for Squash {
             Messages::Target => MessageCombinationStrategy::KeepTarget,
         };
         let (made, workspace) = run.locked(|ctx, perm| {
-            let mut meta = ctx.meta()?;
             but_transaction::with_transaction_with_perm(
                 ctx,
-                &mut meta,
                 perm,
                 SnapshotDetails::new(OperationKind::SquashCommit),
                 // Named so undo brings the branch back.
@@ -1219,10 +1196,8 @@ impl Intent for Uncommit {
         let Self { commits, emptied } = self;
         run.locked(|ctx, perm| {
             refuse_buried_merges(&*ctx.repo.get()?, &commits)?;
-            let mut meta = ctx.meta()?;
             but_transaction::with_transaction_with_perm(
                 ctx,
-                &mut meta,
                 perm,
                 SnapshotDetails::new(OperationKind::UndoCommit)
                     .with_count(commits.len())
@@ -1333,10 +1308,8 @@ impl Intent for MoveFiles {
         let Self { from, to, files } = self;
         let changes = taken_specs(&files)?;
         let workspace = run.locked(|ctx, perm| {
-            let mut meta = ctx.meta()?;
             but_transaction::with_transaction_with_perm(
                 ctx,
-                &mut meta,
                 perm,
                 SnapshotDetails::new(OperationKind::MoveCommitFile),
                 &[],
@@ -1364,10 +1337,8 @@ impl Intent for DiscardFromCommit {
         let Self { commit, files } = self;
         let changes = taken_specs(&files)?;
         let workspace = run.locked(|ctx, perm| {
-            let mut meta = ctx.meta()?;
             but_transaction::with_transaction_with_perm(
                 ctx,
-                &mut meta,
                 perm,
                 SnapshotDetails::new(OperationKind::DiscardChanges)
                     .with_trailers([Trailer::Sha(commit.0)]),
@@ -1397,10 +1368,8 @@ impl Intent for SplitOff {
         let Self { commit, files } = self;
         let changes = taken_specs(&files)?;
         let (new, workspace) = run.locked(|ctx, perm| {
-            let mut meta = ctx.meta()?;
             but_transaction::with_transaction_with_perm(
                 ctx,
-                &mut meta,
                 perm,
                 // There's no kind for a split; it makes a commit, rather than moving a file.
                 SnapshotDetails::new(OperationKind::CreateCommit),
@@ -1440,10 +1409,8 @@ impl Intent for MoveToNewBranch {
         run.locked(|ctx, perm| {
             let name = but_core::branch::unique_canned_refname(&*ctx.repo.get()?)?;
             let sbm = SingleBranchMode::new(ctx, perm.read_permission(), false)?;
-            let mut meta = ctx.meta()?;
             let workspace = sbm.transaction_with_workspace_setup(
                 ctx,
-                &mut meta,
                 SnapshotDetails::new(OperationKind::MoveCommit),
                 &[name.as_ref()],
                 perm,
@@ -1487,10 +1454,8 @@ impl Intent for Reword {
     fn apply(self, run: &mut Run) -> Result<Rewritten> {
         let Self { commit, message } = self;
         let (made, workspace) = run.locked(|ctx, perm| {
-            let mut meta = ctx.meta()?;
             but_transaction::with_transaction_with_perm(
                 ctx,
-                &mut meta,
                 perm,
                 SnapshotDetails::new(OperationKind::UpdateCommitMessage),
                 &[],
@@ -1519,10 +1484,8 @@ impl Intent for DiscardCommits {
         let Self { commits } = self;
         run.locked(|ctx, perm| {
             refuse_buried_merges(&*ctx.repo.get()?, &commits)?;
-            let mut meta = ctx.meta()?;
             but_transaction::with_transaction_with_perm(
                 ctx,
-                &mut meta,
                 perm,
                 SnapshotDetails::new(OperationKind::DiscardCommit)
                     .with_count(commits.len())

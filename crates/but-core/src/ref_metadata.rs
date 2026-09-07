@@ -508,16 +508,6 @@ impl ProjectMeta {
         Self::try_from_config(&config, repo)
     }
 
-    /// Return whether legacy project metadata has already been ported to repository-local Git
-    /// configuration.
-    pub fn is_ported_repo(repo: &gix::Repository) -> anyhow::Result<bool> {
-        let config = git_config::open_repo_local_config_for_reading(repo)?;
-        Ok(matches!(
-            config.boolean(PROJECT_PORTED_META),
-            Ok(Some(true))
-        ))
-    }
-
     /// Read project metadata from the given repository-local Git configuration.
     ///
     /// Malformed target ref names, refs that aren't local or remote-tracking branches, the
@@ -611,7 +601,7 @@ impl ProjectMeta {
         let changed = git_config::edit_repo_config(repo, gix::config::Source::Local, |config| {
             project_meta.write_to_config(config)
         })?;
-        notify_legacy_storage(repo, changed);
+        notify_metadata(repo, changed);
         Ok(())
     }
 
@@ -629,9 +619,7 @@ impl ProjectMeta {
         repo: &gix::Repository,
         legacy_fallback: impl FnOnce() -> anyhow::Result<Self>,
     ) -> anyhow::Result<bool> {
-        if !Self::is_ported_repo(repo)? {
-            Self::port_to_git_config(repo, legacy_fallback)?;
-        }
+        Self::port_to_git_config(repo, legacy_fallback)?;
         // What this can't repair goes on failing to read, with an error that says what to do.
         match Self::replace_untracked_legacy_target(repo) {
             Ok(replaced) => Ok(replaced),
@@ -677,7 +665,7 @@ impl ProjectMeta {
             };
             repair_target_metadata_for_migration(&project_meta, repo).write_to_config(config)
         })?;
-        notify_legacy_storage(repo, changed);
+        notify_metadata(repo, changed);
         Ok(())
     }
 
@@ -692,7 +680,7 @@ impl ProjectMeta {
     /// so the target stays for the user to choose.
     ///
     /// Returns whether the repository configuration changed.
-    fn replace_untracked_legacy_target(repo: &gix::Repository) -> anyhow::Result<bool> {
+    pub fn replace_untracked_legacy_target(repo: &gix::Repository) -> anyhow::Result<bool> {
         let config = git_config::open_repo_local_config_for_reading(repo)?;
         let Some(target_ref) = config
             .string(PROJECT_TARGET_REF)
@@ -758,7 +746,7 @@ impl ProjectMeta {
             }
             git_config::set_config_value(config, PROJECT_TARGET_REF, local.as_bstr())
         })?;
-        notify_legacy_storage(repo, changed);
+        notify_metadata(repo, changed);
         Ok(changed)
     }
 
@@ -780,7 +768,7 @@ impl ProjectMeta {
     }
 }
 
-fn notify_legacy_storage(repo: &gix::Repository, changed: bool) {
+fn notify_metadata(repo: &gix::Repository, changed: bool) {
     if changed && let Ok(storage_path) = but_project_handle::gitbutler_storage_path(repo) {
         but_project_handle::write_refresh_sentinel(&storage_path);
     }
@@ -1204,13 +1192,6 @@ impl std::fmt::Debug for Review {
         )
     }
 }
-
-/// Additional information about the RefMetadata value itself.
-pub trait ValueInfo {
-    /// Return `true` if the value didn't exist for a given `ref_name` and thus was defaulted.
-    fn is_default(&self) -> bool;
-}
-
 /// Return a local target name directly, or resolve a remote target to its local tracking branch as
 /// [`find_local_tracking_branch`] picks it. Local names need not exist. Remote resolution fails with
 /// [`UnresolvedLegacyTargetRefError`] if no branch or multiple branches match, and fails if upstream
@@ -1366,7 +1347,7 @@ pub fn find_local_tracking_branch(
 /// As part of that transition we have to migrate users from origin/main to main. Doing that
 /// requires finding the local branch thats tracking origin/main and making that the target.
 /// `but_core::ref_metadata::find_local_tracking_branch` does that. However if several local
-/// branches track origin/main, or none does and [`ProjectMeta::port_if_needed`] can't make
+/// branches track origin/main, or none does and [`ProjectMeta::replace_untracked_legacy_target`] can't make
 /// one, then we need the user to pick.
 ///
 /// This error identifies that situation.

@@ -9,7 +9,6 @@ use gix::{odb::store::RefreshMode, reference::Category, revision::plumbing::Spec
 
 use crate::{
     args::{Args, LogArgs, MergeBaseArgs, RevisionArgs, RevisionGraphArgs, RevisionSubcommands},
-    metadata::EmptyRefMetadata,
     setup,
 };
 
@@ -21,22 +20,14 @@ pub(crate) fn run(
 ) -> Result<()> {
     let mut repo = setup::repo_from_args(args)?;
     repo.objects.refresh = RefreshMode::Never;
-    let meta = EmptyRefMetadata;
 
     match &revision_args.cmd {
-        RevisionSubcommands::Log(log_args) => log(&repo, &meta, log_args, out),
-        RevisionSubcommands::MergeBase(merge_base_args) => {
-            merge_base(&repo, &meta, merge_base_args, out)
-        }
+        RevisionSubcommands::Log(log_args) => log(&repo, log_args, out),
+        RevisionSubcommands::MergeBase(merge_base_args) => merge_base(&repo, merge_base_args, out),
     }
 }
 
-fn log(
-    repo: &gix::Repository,
-    meta: &EmptyRefMetadata,
-    log_args: &LogArgs,
-    out: &mut dyn io::Write,
-) -> Result<()> {
+fn log(repo: &gix::Repository, log_args: &LogArgs, out: &mut dyn io::Write) -> Result<()> {
     let parsed = repo
         .rev_parse(log_args.rev_spec.as_str())
         .with_context(|| format!("Failed to parse rev-spec '{}'", log_args.rev_spec))?
@@ -54,7 +45,7 @@ fn log(
     let graph = {
         let _span =
             tracing::info_span!("build graph", commit_count = graph_commits.len()).entered();
-        graph_for_revisions(repo, meta, &graph_commits, graph_tips)?
+        graph_for_revisions(repo, &graph_commits, graph_tips)?
     };
 
     let _span = tracing::info_span!("traverse graph").entered();
@@ -78,7 +69,6 @@ fn log(
 
 fn merge_base(
     repo: &gix::Repository,
-    meta: &EmptyRefMetadata,
     merge_base_args: &MergeBaseArgs,
     out: &mut dyn io::Write,
 ) -> Result<()> {
@@ -102,7 +92,7 @@ fn merge_base(
     let graph_tips = args_to_tips(repo, &merge_base_args.graph)?;
     let graph = {
         let _span = tracing::info_span!("build graph", commit_count = commits.len()).entered();
-        graph_for_revisions(repo, meta, &commits, graph_tips)?
+        graph_for_revisions(repo, &commits, graph_tips)?
     };
 
     let segments = {
@@ -174,7 +164,6 @@ fn args_to_tips(repo: &gix::Repository, graph_args: &RevisionGraphArgs) -> Resul
 
 fn graph_for_revisions(
     repo: &gix::Repository,
-    meta: &EmptyRefMetadata,
     commits: &[gix::ObjectId],
     graph_tips: Vec<Tip>,
 ) -> Result<but_graph::Graph> {
@@ -199,9 +188,8 @@ fn graph_for_revisions(
     but_graph::Graph::from_commit_traversal_tips(
         repo,
         tips,
-        meta,
         but_core::ref_metadata::ProjectMeta::default(),
-        &mut setup::debug_db()?,
+        &mut setup::debug_db()?.connection_mut(),
         options,
     )
 }
