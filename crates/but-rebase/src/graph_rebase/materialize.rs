@@ -88,6 +88,7 @@ fn names_nest(a: &gix::refs::FullNameRef, b: &gix::refs::FullNameRef) -> bool {
 fn edit_references_deleting_directory_conflicts_first(
     repo: &gix::Repository,
     edits: Vec<RefEdit>,
+    committed_ref_edits: &mut Vec<RefEdit>,
 ) -> Result<()> {
     let updated: Vec<_> = edits
         .iter()
@@ -100,8 +101,8 @@ fn edit_references_deleting_directory_conflicts_first(
                 .iter()
                 .any(|name| names_nest(name.as_ref(), edit.name.as_ref()))
     });
-    repo.edit_references(directory_conflicts)?;
-    repo.edit_references(edits)?;
+    committed_ref_edits.extend(repo.edit_references(directory_conflicts)?);
+    committed_ref_edits.extend(repo.edit_references(edits)?);
     Ok(())
 }
 
@@ -215,8 +216,21 @@ impl<'ws, 'db, 'conn> SuccessfulRebase<'ws, 'db, 'conn> {
 
     /// Materializes a history rewrite.
     pub fn materialize(
+        self,
+        materialize_options: MaterializeOptions,
+    ) -> Result<MaterializeOutcome<'ws, 'db, 'conn>> {
+        self.materialize_with_changes(materialize_options, &mut Vec::new(), &mut |_, _| Ok(()))
+    }
+
+    /// Materialize while recording committed reference edits and reporting each completed
+    /// checkout immediately. This preserves recovery information if a later operation fails.
+    /// Reference receipts contain the values observed under ref locks; `on_checkout` receives
+    /// the checked-out repository and target, before subsequent reference or metadata writes.
+    pub fn materialize_with_changes(
         mut self,
         materialize_options: MaterializeOptions,
+        committed_ref_edits: &mut Vec<RefEdit>,
+        on_checkout: &mut impl FnMut(&gix::Repository, gix::ObjectId) -> Result<()>,
     ) -> Result<MaterializeOutcome<'ws, 'db, 'conn>> {
         if !self.references_updated()? {
             return Ok(MaterializeOutcome {
@@ -244,12 +258,14 @@ impl<'ws, 'db, 'conn> SuccessfulRebase<'ws, 'db, 'conn> {
                     &linked_repo.repo,
                     Options {
                         skip_head_update: true,
+                        skip_index_update: false,
                         merge_base_override: linked_repo.merge_base_override,
                         allow_conflicted_commit_checkout: false,
                         // Don't allow for linked worktrees.
                         allow_uncommitted_changes_to_conflict_with_new_head: false,
                     },
                 )?;
+                on_checkout(&linked_repo.repo, linked_repo.target)?;
             }
 
             let head = self.head_checkout()?;
@@ -259,12 +275,14 @@ impl<'ws, 'db, 'conn> SuccessfulRebase<'ws, 'db, 'conn> {
                     &repo,
                     Options {
                         skip_head_update: true,
+                        skip_index_update: false,
                         merge_base_override: head.merge_base_override,
                         allow_conflicted_commit_checkout: false,
                         // Allow for our worktree.
                         allow_uncommitted_changes_to_conflict_with_new_head: true,
                     },
                 )?;
+                on_checkout(&repo, head.target)?;
                 outcome.conflict_occurred
             } else {
                 false
@@ -295,7 +313,7 @@ impl<'ws, 'db, 'conn> SuccessfulRebase<'ws, 'db, 'conn> {
             }
         }
 
-        edit_references_deleting_directory_conflicts_first(&repo, ref_edits)?;
+        edit_references_deleting_directory_conflicts_first(&repo, ref_edits, committed_ref_edits)?;
 
         let project_meta = self.workspace.graph.project_meta.clone();
         self.workspace
