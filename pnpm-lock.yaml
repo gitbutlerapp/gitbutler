@@ -615,6 +615,9 @@ importers:
       svelte-exmarkdown:
         specifier: ^5.0.2
         version: 5.0.2(svelte@5.54.0)
+      yaml:
+        specifier: ^2.8.2
+        version: 2.8.2
     devDependencies:
       '@csstools/postcss-global-data':
         specifier: ^3.0.0

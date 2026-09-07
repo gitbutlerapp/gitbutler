@@ -55,6 +55,7 @@
 		"highlight.js": "^11.10.0",
 		"marked": "catalog:",
 		"posthog-js": "1.417.1",
-		"svelte-exmarkdown": "^5.0.2"
+		"svelte-exmarkdown": "^5.0.2",
+		"yaml": "^2.8.2"
 	}
 }

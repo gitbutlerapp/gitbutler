@@ -6,18 +6,29 @@
 	import { untrack } from "svelte";
 	import type { Release } from "$lib/types/releases";
 	import type { LatestReleaseBuilds } from "$lib/utils/releaseUtils";
+	import type { PageData } from "./$types";
 
 	interface Props {
 		data: {
 			otherNightlies: Release[];
 			latestNightly: Release | null;
 			latestNightlyBuilds: LatestReleaseBuilds;
+			nextNightly: PageData["nextNightly"];
 		};
 	}
 
 	const { data }: Props = $props();
 
 	const { latestNightly, latestNightlyBuilds, otherNightlies } = untrack(() => data);
+	let nextLinuxArch = $state<"x86-64" | "ARM64">("x86-64");
+	const nextPlatforms = $derived([
+		{ name: "macOS", arch: "Apple Silicon", build: data.nextNightly.mac },
+		{
+			name: "Linux",
+			arch: nextLinuxArch,
+			build: nextLinuxArch === "ARM64" ? data.nextNightly.linuxArm64 : data.nextNightly.linux,
+		},
+	]);
 
 	let linuxArch = $state<"x86-64" | "ARM64">("x86-64");
 	let expandedRelease: string | null = $state(null);
@@ -203,6 +214,60 @@
 	{/if}
 </section>
 
+<section class="next-nightly" aria-labelledby="next-nightly-title">
+	<div class="next-nightly__heading">
+		<div>
+			<span class="next-nightly__eyebrow">A look ahead</span>
+			<h2 id="next-nightly-title">GitButler <i>Next</i> Nightly</h2>
+		</div>
+		<span class="next-nightly__badge">Early preview</span>
+	</div>
+	<p class="next-nightly__description">
+		Try the next generation of GitButler. Fresh builds every night, with features still taking
+		shape. Expect rough edges.
+	</p>
+	<div class="next-nightly__downloads">
+		{#each nextPlatforms as platform (platform.name)}
+			<div class="next-nightly__platform">
+				<div class="next-nightly__platform-heading">
+					<h3>{platform.name}</h3>
+					{#if platform.name === "Linux"}
+						<select
+							class="next-nightly__arch-select"
+							aria-label="GitButler Next Linux architecture"
+							bind:value={nextLinuxArch}
+						>
+							<option value="x86-64">x86-64</option>
+							<option value="ARM64">ARM64</option>
+						</select>
+					{:else}
+						<span>{platform.arch}</span>
+					{/if}
+				</div>
+				{#if platform.build}
+					<div class="next-nightly__links">
+						{#each platform.build.downloads as download (download.url)}
+							<a
+								href={download.url}
+								aria-label={`Download GitButler Next for ${platform.name} ${platform.arch} (${download.label})`}
+							>
+								{download.label} <span aria-hidden="true">↗</span>
+							</a>
+						{/each}
+					</div>
+					<span class="next-nightly__version">v{platform.build.version}</span>
+				{:else}
+					<p class="next-nightly__status">Downloads temporarily unavailable</p>
+				{/if}
+			</div>
+		{/each}
+		<div class="next-nightly__platform next-nightly__platform--soon">
+			<div class="next-nightly__platform-heading"><h3>Windows</h3></div>
+			<span class="next-nightly__version">Coming soon</span>
+		</div>
+	</div>
+</section>
+
 {#if otherNightlies.length > 0}
 	<section class="releases">
 		<h2>
@@ -265,6 +330,159 @@
 <Footer showDownloadLinks={false} />
 
 <style>
+	.next-nightly {
+		grid-column: narrow-start / narrow-end;
+		padding: 28px;
+		border: 1px solid #479fe8;
+		border-radius: var(--radius-xl);
+		background:
+			radial-gradient(ellipse at top right, #1988ff66, transparent 65%),
+			linear-gradient(120deg, #064a86, #007acf);
+		color: #f0f8ff;
+	}
+
+	.next-nightly__heading,
+	.next-nightly__platform-heading {
+		display: flex;
+		flex-wrap: wrap;
+		align-items: center;
+		justify-content: space-between;
+		gap: 12px;
+	}
+
+	.next-nightly__eyebrow,
+	.next-nightly__badge,
+	.next-nightly__version,
+	.next-nightly__platform-heading span {
+		color: #c5e3fa;
+		font-size: 12px;
+		font-family: var(--font-mono);
+	}
+
+	.next-nightly__eyebrow {
+		letter-spacing: 0.08em;
+		text-transform: uppercase;
+	}
+
+	.next-nightly__arch-select {
+		padding: 3px 6px;
+		border: 1px solid #8ac4f066;
+		border-radius: 8px;
+		background-color: #007acf;
+		color: #c5e3fa;
+		font-size: 12px;
+		font-family: var(--font-mono);
+		cursor: pointer;
+
+		&:focus-visible {
+			outline: 2px solid #c0e4ff;
+			outline-offset: 3px;
+		}
+	}
+
+	.next-nightly__heading {
+		align-items: baseline;
+	}
+
+	.next-nightly__version {
+		margin-top: auto;
+	}
+
+	.next-nightly h2 {
+		margin: 6px 0 0;
+		font-size: 36px;
+		line-height: 1.15;
+		font-family: var(--font-accent);
+	}
+
+	.next-nightly h2 i {
+		color: #c0e4ff;
+	}
+
+	.next-nightly__badge {
+		padding: 6px 10px;
+		border: 1px solid #8ac4f066;
+		border-radius: 100px;
+	}
+
+	.next-nightly__description {
+		max-width: 620px;
+		margin: 14px 0 22px;
+		color: #d3e9fa;
+		font-size: 14px;
+		line-height: 1.5;
+	}
+
+	.next-nightly__downloads {
+		display: grid;
+		grid-template-columns: repeat(3, minmax(0, 1fr));
+		gap: 12px;
+	}
+
+	.next-nightly__platform {
+		display: flex;
+		flex-direction: column;
+		padding: 18px;
+		gap: 14px;
+		border: 1px solid #9acff54d;
+		border-radius: 12px;
+		background: #ffffff08;
+	}
+
+	.next-nightly__platform h3 {
+		margin: 0;
+		font-weight: 600;
+		font-size: 16px;
+	}
+
+	.next-nightly__links {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 10px 18px;
+	}
+
+	.next-nightly__links a {
+		color: #f0f8ff;
+		font-weight: 600;
+		font-size: 14px;
+		text-decoration: underline;
+		text-underline-offset: 4px;
+
+		&:hover {
+			color: #c0e4ff;
+		}
+
+		&:focus-visible {
+			border-radius: 2px;
+			outline: 2px solid #c0e4ff;
+			outline-offset: 5px;
+		}
+	}
+
+	.next-nightly__platform--soon {
+		border-style: dashed;
+		background: transparent;
+	}
+
+	.next-nightly__status {
+		color: #c5e3fa;
+		font-size: 14px;
+	}
+
+	@media (max-width: 700px) {
+		.next-nightly {
+			padding: 20px;
+		}
+
+		.next-nightly h2 {
+			font-size: 30px;
+		}
+
+		.next-nightly__downloads {
+			grid-template-columns: 1fr;
+		}
+	}
+
 	.latest-nightly-wrapper {
 		display: grid;
 		grid-template-columns: subgrid;
