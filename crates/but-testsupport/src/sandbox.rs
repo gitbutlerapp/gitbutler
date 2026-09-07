@@ -442,7 +442,13 @@ impl Sandbox {
             .unwrap()
             .workspace(r(WORKSPACE_REF_NAME))
             .cloned()
-            .unwrap_or_default();
+            .unwrap_or_else(|| but_core::ref_metadata::Workspace {
+                ref_info: but_core::ref_metadata::RefInfo {
+                    created_at: Some(gix::date::Time::new(1675176957, 0)),
+                    ..Default::default()
+                },
+                ..Default::default()
+            });
         let ws_data: &mut but_core::ref_metadata::Workspace = &mut ws;
         for (stable_id, branch_name) in (0_u128..).zip(branch_names.iter()) {
             ws_data.add_or_insert_new_stack_if_not_present(
@@ -457,6 +463,15 @@ impl Sandbox {
             .unwrap()
             .set_workspace(r(WORKSPACE_REF_NAME), &ws)
             .unwrap();
+        let metadata = db.meta().unwrap();
+        for branch in ws.stacks.iter().flat_map(|stack| &stack.branches) {
+            if metadata.branch(branch.ref_name.as_ref()).is_none() {
+                db.meta_mut()
+                    .unwrap()
+                    .set_branch(branch.ref_name.as_ref(), &Default::default())
+                    .unwrap();
+            }
+        }
 
         out
     }

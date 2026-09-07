@@ -31,8 +31,6 @@ but-graph.workspace = true
 but-core.workspace = true
 but-db.workspace = true
 but-settings = { workspace = true, optional = true }
-but-meta = { workspace = true, features = ["legacy"] }
-toml.workspace = true
 but-ctx = { workspace = true, optional = true }
 
 shell-words = {  workspace = true, optional = true }

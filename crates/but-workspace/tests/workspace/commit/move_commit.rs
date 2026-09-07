@@ -679,7 +679,7 @@ fn move_commit_to_empty_branch() -> anyhow::Result<()> {
     let (_tmp, graph, repo, mut meta, _description) =
         named_writable_scenario_with_description_and_graph("ws-with-empty-stack", |meta| {
             add_stack_with_segments(meta, 1, "A", StackState::InWorkspace, &[]);
-            add_stack_with_segments(meta, 2, "B", StackState::InWorkspace, &["B"]);
+            add_stack_with_segments(meta, 2, "B", StackState::InWorkspace, &[]);
         })?;
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
@@ -1112,8 +1112,7 @@ fn move_mixed_main_and_worktree_commits_to_another_worktree() -> anyhow::Result<
     use but_testsupport::git_status_at_dir;
 
     let (repo, _tmp) = crate::utils::writable_scenario_slow("worktree-move-mixed");
-    let mut meta =
-        but_testsupport::fixture_metadata(repo.path().join("should-never-be-written.toml"))?;
+    let mut meta = but_testsupport::in_memory_db();
     // Adoption already ran, so both linked worktrees are discovered as active tips.
 
     meta.worktree_meta_mut().mark_adopted()?;

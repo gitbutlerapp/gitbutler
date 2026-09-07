@@ -460,18 +460,17 @@ pub(super) mod function {
             workspace.try_find_owner_indexes_by_commit_id(ref_target_id)?;
         }
 
+        // Prepare metadata before creating the ref, and persist the same value shown in the preview.
+        let mut branch_md = meta.branch(ref_name).cloned().unwrap_or_default();
+        branch_md.update_times(existing_ref_target_id.is_none());
         let graph_with_new_ref = {
-            // Always update the metadata, this may help disambiguating.
-            let mut branch_md = meta.branch(ref_name).cloned().unwrap_or_default();
-            update_branch_metadata(ref_name, repo, &mut branch_md)?;
-
             let mut overlay = but_graph::init::Overlay::default()
                 .with_references_if_new(Some(gix::refs::Reference {
                     name: ref_name.into(),
                     target: gix::refs::Target::Object(ref_target_id),
                     peeled: None,
                 }))
-                .with_branch_metadata_override(Some((ref_name.to_owned(), branch_md)))
+                .with_branch_metadata_override(Some((ref_name.to_owned(), branch_md.clone())))
                 .with_workspace_metadata_override(updated_ws_meta.as_ref().map(|ws| {
                     (
                         workspace
@@ -583,9 +582,6 @@ pub(super) mod function {
             return Err(err);
         }
 
-        // Setting the workspace may have moved this branch into another stack.
-        let mut branch_md = db.meta()?.branch(ref_name).cloned().unwrap_or_default();
-        update_branch_metadata(ref_name, repo, &mut branch_md)?;
         db.meta_mut()?.set_branch(ref_name, &branch_md)?;
 
         Ok(Cow::Owned(updated_workspace))
@@ -694,16 +690,6 @@ pub(super) mod function {
             }
         }
         Ok(None)
-    }
-
-    fn update_branch_metadata(
-        ref_name: &gix::refs::FullNameRef,
-        repo: &gix::Repository,
-        md: &mut ref_metadata::Branch,
-    ) -> anyhow::Result<()> {
-        let is_new_ref = repo.try_find_reference(ref_name)?.is_none();
-        md.update_times(is_new_ref);
-        Ok(())
     }
 
     fn update_workspace_metadata(

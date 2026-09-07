@@ -36,7 +36,6 @@ git-meta-lib.workspace = true
 
 [dev-dependencies]
 but-testsupport.workspace = true
-but-meta = { workspace = true, features = ["legacy"] }
 snapbox.workspace = true
 
 tempfile.workspace = true

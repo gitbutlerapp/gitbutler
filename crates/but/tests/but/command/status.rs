@@ -852,6 +852,10 @@ fn unmerged_empty_branch_above_merged_one_is_not_treated_as_merged() {
             "refs/heads/bottom".try_into().unwrap(),
         );
         db.meta_mut().unwrap().set_workspace(ws_ref, &ws).unwrap();
+        db.meta_mut()
+            .unwrap()
+            .set_branch("refs/heads/top".try_into().unwrap(), &Default::default())
+            .unwrap();
     }
 
     // `bottom` merged upstream; `top` rests on it and must not be labelled merged.

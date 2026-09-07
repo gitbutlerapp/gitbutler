@@ -84,7 +84,6 @@ pub use table::{
     gerrit_metadata::{GerritMeta, GerritMetadataHandle},
     forge_reviews::ForgeReview,
     ci_checks::CiCheck,
-    virtual_branches::{VbStack, VbStackHead, VbState, VirtualBranchesSnapshot, VirtualBranchesHandle, VirtualBranchesHandleMut},
     worktree_meta::{WorktreeMeta, WorktreeMetaHandle, WorktreeMetaHandleMut},
 };
 
@@ -143,8 +142,8 @@ pub const MIGRATIONS: &[&[M<'static>]] = &[
     table::gerrit_metadata::M,
     table::forge_reviews::M,
     table::ci_checks::M,
-    table::virtual_branches::M,
     table::worktree_meta::M,
+    metadata::M,
 ];
 
 /// A migration and all the necessary data associated with it to perform it once.
@@ -172,7 +171,7 @@ pub struct M<'a> {
 /// harmless and always preferred over a bump for routine cleanup.
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
 pub enum SchemaVersion {
-    /// The current forward-compatible schema line.
+    /// The original forward-compatible schema line.
     ///
     /// Keep using `Zero` for migrations that older binaries can still tolerate after the
     /// migration runs, such as adding tables or columns that they don't require.
@@ -180,11 +179,12 @@ pub enum SchemaVersion {
     /// Switch to `One` only once a migration makes the database unsafe for binaries that only
     /// understand `Zero`, such as removing or reinterpreting persisted data they still use.
     Zero = 0,
-    /// The first forward-incompatible schema line.
+    /// The current schema line, storing metadata per reference.
     ///
     /// Use `One` once a migration requires older `Zero`-only binaries to reject the
     /// database, and keep using it until the next forward-incompatible boundary is introduced.
-    /// Document here WHY the schema is breaking application forward compatibility.
+    /// The per-reference metadata migration removes the four `vb_*` tables. Older binaries
+    /// must reject this database instead of recreating or writing the obsolete singleton state.
     One = 1,
 }
 

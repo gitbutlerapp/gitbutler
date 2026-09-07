@@ -80,14 +80,16 @@ impl Graph {
         // We perform view-related updates here for convenience, but also because the graph
         // traversal should have nothing to do with workspace details. It's just about laying
         // the foundation for figuring out our workspaces more easily.
-        self.workspace_upgrades(meta, repo, &worktree_by_branch)?;
-        self.ad_hoc_branch_stack_upgrades(
-            repo,
-            meta,
-            &worktree_by_branch,
-            symbolic_remote_names,
-            configured_remote_tracking_branches,
-        )?;
+        // Applied workspace metadata already determines branch grouping and order.
+        if !self.workspace_upgrades(meta, repo, &worktree_by_branch)? {
+            self.ad_hoc_branch_stack_upgrades(
+                repo,
+                meta,
+                &worktree_by_branch,
+                symbolic_remote_names,
+                configured_remote_tracking_branches,
+            )?;
+        }
 
         // Point entrypoint to the right spot after all the virtual branches were added.
         self.set_entrypoint_to_ref_name(meta)?;
@@ -694,15 +696,17 @@ impl Graph {
     /// * insert empty segments as defined by the workspace that affects its downstream.
     /// * put workspace connection into the order defined in the workspace metadata.
     /// * set sibling segment IDs for unnamed segments that are descendants of an out-of-workspace but known segment.
+    ///
+    /// Return whether applied workspace metadata governs branch grouping.
     fn workspace_upgrades(
         &mut self,
         meta: &OverlayMetadata<'_>,
         repo: &OverlayRepo<'_>,
         worktree_by_branch: &WorktreeByBranch,
-    ) -> anyhow::Result<()> {
+    ) -> anyhow::Result<bool> {
         let workspace = self.to_workspace_state()?;
         let Some(ws_data) = workspace.metadata else {
-            return Ok(());
+            return Ok(false);
         };
         let ws_sidx = workspace.id;
         let ws_stacks = workspace.stacks;
@@ -1105,7 +1109,7 @@ impl Graph {
             }
         }
 
-        Ok(())
+        Ok(ws_data.stacks.iter().any(|stack| stack.is_in_workspace()))
     }
 
     /// Name ambiguous segments if they are reachable by a remote-tracking branch

@@ -12,7 +12,6 @@ use but_ctx::{
     Context,
     access::{RepoExclusive, RepoShared},
 };
-use but_meta::virtual_branches_legacy_types::VirtualBranches;
 use gitbutler_repo::{
     SignaturePurpose, commit_ids_excluding_reachable_from_with_graph, commit_without_signature_gix,
     signature_gix,
@@ -39,6 +38,15 @@ const AUTO_TRACK_LIMIT_BYTES: u64 = 0;
 
 const PROJECT_META_FILE: &str = "project_meta.toml";
 const BRANCH_ORDER_FILE: &str = "branch_order.toml";
+const REF_METADATA_FILE: &str = "ref_metadata.json";
+
+#[derive(serde::Serialize, serde::Deserialize)]
+struct SnapshotRefMetadata {
+    metadata: but_db::Metadata,
+    references: Vec<SnapshotReference>,
+}
+
+mod historical_metadata;
 
 #[derive(serde::Serialize, serde::Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -48,14 +56,6 @@ struct SnapshotProjectMeta {
     target_commit_id: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     push_remote: Option<String>,
-}
-
-#[derive(serde::Deserialize)]
-struct SnapshotVirtualBranches {
-    #[serde(default)]
-    default_target: Option<SnapshotTarget>,
-    #[serde(flatten)]
-    virtual_branches: VirtualBranches,
 }
 
 #[derive(serde::Deserialize)]
@@ -126,15 +126,12 @@ impl TryFrom<SnapshotProjectMeta> for ProjectMeta {
 /// ├── index-conflicts/…
 /// ├── target_tree/…
 /// ├── project_meta.toml
-/// ├── branch_order.toml
 /// ├── virtual_branches
-/// │   └── [branch-id]
-/// │       ├── commit-message.txt
-/// │       └── tree (subtree)
-/// │   └── [branch-id]
-/// │       ├── commit-message.txt
-/// │       └── tree (subtree)
-/// ├── virtual_branches.toml
+/// │   ├── references/commits/[commit-id]/{commit, tree}
+/// │   └── workspace/ (managed workspace only)
+/// │       ├── tree
+/// │       └── commits/[commit-id]/{commit, tree}
+/// ├── ref_metadata.json
 /// └── worktree/…
 /// ```
 pub trait OplogExt {
@@ -203,7 +200,7 @@ pub trait OplogExt {
     ///
     /// This will restore the following:
     ///  - The state of the working directory is checked out from the subtree `workdir` in the snapshot.
-    ///  - The state of virtual branches is restored from the blob `virtual_branches.toml` in the snapshot.
+    ///  - Reference metadata and branch targets are restored from `ref_metadata.json`, with a reader for historical snapshots.
     ///  - The state of conflicts (.git/base_merge_parent and .git/conflicts) is restored from the subtree `conflicts` in the snapshot (if not present, existing files are deleted).
     ///
     /// If there are files that are untracked and larger than `SNAPSHOT_FILE_LIMIT_BYTES`, they are excluded from snapshot creation and restoring.
@@ -538,8 +535,10 @@ struct SnapshotCheckout {
     commit_id: gix::ObjectId,
 }
 
+#[derive(serde::Serialize, serde::Deserialize)]
 struct SnapshotReference {
     ref_name: gix::refs::FullName,
+    #[serde(with = "but_serde::object_id_opt")]
     target: Option<gix::ObjectId>,
 }
 
@@ -606,28 +605,36 @@ fn snapshot_metadata(
     repo: &gix::Repository,
 ) -> Result<(
     ProjectMeta,
-    VirtualBranches,
+    SnapshotRefMetadata,
     Option<but_db::BranchOrderSnapshot>,
 )> {
-    let vb_toml_entry = snapshot_tree
-        .lookup_entry_by_path("virtual_branches.toml")?
-        .context("failed to get virtual_branches.toml blob")?;
-    let vb_toml_blob = repo
-        .find_blob(vb_toml_entry.id())
-        .context("failed to convert virtual_branches.toml tree entry to blob")?;
-    let SnapshotVirtualBranches {
-        default_target,
-        virtual_branches,
-    } = toml::from_str(
-        from_utf8(&vb_toml_blob.data).context("virtual_branches.toml is not UTF-8")?,
-    )
-    .context("failed to parse virtual_branches.toml")?;
-
+    let (metadata, default_target) = match snapshot_tree.lookup_entry_by_path(REF_METADATA_FILE)? {
+        Some(entry) => {
+            let blob = repo.find_blob(entry.id())?;
+            let metadata: SnapshotRefMetadata =
+                serde_json::from_slice(&blob.data).context("failed to parse ref_metadata.json")?;
+            metadata
+                .metadata
+                .validate()
+                .context("invalid ref_metadata.json")?;
+            let mut names = BTreeSet::new();
+            for reference in &metadata.references {
+                let name = gix::refs::FullName::try_from(reference.ref_name.as_bstr())
+                    .context("invalid reference name in ref_metadata.json")?;
+                if name.category() != Some(gix::refs::Category::LocalBranch)
+                    || reference.target.is_some_and(|id| id.is_null())
+                    || !names.insert(name)
+                {
+                    bail!("invalid reference in ref_metadata.json");
+                }
+            }
+            (metadata, None)
+        }
+        None => historical_metadata::read(snapshot_tree, repo)?,
+    };
     let project_meta = match snapshot_tree.lookup_entry_by_path(PROJECT_META_FILE)? {
         Some(entry) => {
-            let blob = repo
-                .find_blob(entry.id())
-                .context("failed to convert project_meta.toml tree entry to blob")?;
+            let blob = repo.find_blob(entry.id())?;
             let stored: SnapshotProjectMeta =
                 toml::from_str(from_utf8(&blob.data).context("project_meta.toml is not UTF-8")?)
                     .context("failed to parse project_meta.toml")?;
@@ -635,22 +642,17 @@ fn snapshot_metadata(
         }
         None => {
             let target = default_target
-                .as_ref()
                 .context("snapshot has neither project_meta.toml nor a legacy default target")?;
             ProjectMeta {
                 target_ref: Some(
-                    format!(
-                        "refs/remotes/{remote}/{branch}",
-                        remote = target.remote_name,
-                        branch = target.branch_name
-                    )
-                    .try_into()?,
+                    format!("refs/remotes/{}/{}", target.remote_name, target.branch_name)
+                        .try_into()?,
                 ),
                 target_commit_id: Some(
                     gix::ObjectId::from_str(&target.sha)
                         .context("invalid legacy default target sha")?,
                 ),
-                push_remote: target.push_remote_name.clone(),
+                push_remote: target.push_remote_name,
             }
         }
     };
@@ -658,104 +660,18 @@ fn snapshot_metadata(
     let branch_order = snapshot_tree
         .lookup_entry_by_path(BRANCH_ORDER_FILE)?
         .map(|entry| -> Result<_> {
-            let blob = repo
-                .find_blob(entry.id())
-                .context("failed to convert branch_order.toml tree entry to blob")?;
-            let snapshot: but_db::BranchOrderSnapshot =
+            let blob = repo.find_blob(entry.id())?;
+            let order: but_db::BranchOrderSnapshot =
                 toml::from_str(from_utf8(&blob.data).context("branch_order.toml is not UTF-8")?)
                     .context("failed to parse branch_order.toml")?;
-            snapshot
+            order
                 .validate()
                 .map_err(anyhow::Error::msg)
                 .context("invalid branch_order.toml")?;
-            Ok(snapshot)
+            Ok(order)
         })
         .transpose()?;
-    Ok((project_meta, virtual_branches, branch_order))
-}
-
-mod legacy_virtual_branches {
-    use std::collections::BTreeSet;
-
-    use anyhow::{Result, bail};
-    use but_meta::virtual_branches_legacy_types::{Stack, StackBranch, VirtualBranches};
-
-    pub(super) fn in_workspace_stacks(
-        virtual_branches: &VirtualBranches,
-    ) -> impl Iterator<Item = &Stack> {
-        virtual_branches
-            .branches
-            .values()
-            .filter(|stack| stack.in_workspace)
-    }
-
-    pub(super) fn in_workspace_stacks_mut(
-        virtual_branches: &mut VirtualBranches,
-    ) -> impl Iterator<Item = &mut Stack> {
-        virtual_branches
-            .branches
-            .values_mut()
-            .filter(|stack| stack.in_workspace)
-    }
-
-    pub(super) fn stack_head_oid(
-        stack: &Stack,
-        default_target_oid: gix::ObjectId,
-        repo: &gix::Repository,
-    ) -> Result<gix::ObjectId> {
-        if let Some(branch) = stack.heads.last() {
-            branch_head_oid(branch, repo)
-        } else {
-            Ok(default_target_oid)
-        }
-    }
-
-    pub(super) fn normalize_stack_heads(stack: &mut Stack, repo: &gix::Repository) {
-        let mut names = BTreeSet::new();
-        stack.heads.retain_mut(|head| {
-            if !names.insert(head.name.clone()) {
-                return false;
-            }
-            if stack.in_workspace || head.head.is_null() {
-                let _ = sync_branch_head_from_ref(head, repo);
-            }
-            true
-        });
-    }
-
-    fn branch_head_oid(branch: &StackBranch, repo: &gix::Repository) -> Result<gix::ObjectId> {
-        let Some(mut reference) = repo.try_find_reference(&branch.name)? else {
-            bail!("branch '{}' no longer exists", branch.name);
-        };
-        Ok(reference.peel_to_commit()?.id)
-    }
-
-    pub(super) fn set_reference_to_stored_head(
-        branch: &StackBranch,
-        repo: &gix::Repository,
-    ) -> Result<()> {
-        repo.reference(
-            qualified_reference_name(&branch.name),
-            branch.head,
-            gix::refs::transaction::PreviousValue::Any,
-            "GitButler reference",
-        )?;
-        Ok(())
-    }
-
-    fn sync_branch_head_from_ref(branch: &mut StackBranch, repo: &gix::Repository) -> Result<bool> {
-        let oid_from_ref = branch_head_oid(branch, repo)?;
-        if oid_from_ref != branch.head {
-            branch.head = oid_from_ref;
-            Ok(true)
-        } else {
-            Ok(false)
-        }
-    }
-
-    fn qualified_reference_name(name: &str) -> String {
-        format!("refs/heads/{}", name.trim_matches('/'))
-    }
+    Ok((project_meta, metadata, branch_order))
 }
 
 fn prepare_snapshot_with_target(
@@ -805,9 +721,6 @@ fn prepare_snapshot_with_target_and_ref(
         &project_meta,
     )?)?)?;
     snapshot_tree.upsert(PROJECT_META_FILE, EntryKind::Blob, project_meta_blob)?;
-    let branch_order = ctx.db.get_cache()?.branch_order().get_snapshot()?;
-    let branch_order_blob = repo.write_blob(toml::to_string(&branch_order)?.as_bytes())?;
-    snapshot_tree.upsert(BRANCH_ORDER_FILE, EntryKind::Blob, branch_order_blob)?;
 
     if let Some(ref_name) = additional_ref {
         snapshot_tree.upsert(
@@ -843,37 +756,43 @@ fn prepare_snapshot_with_target_and_ref(
         )?;
     }
 
-    let vb_content = {
-        use but_meta::virtual_branches_legacy_types::{Stack, StackBranch};
-
-        // TODO(perf): use the cached version on `ctx`, why is the cache stale?
-        let ws = if workspace_ref_exists {
-            ctx.workspace_from_ref_uncached(workspace_ref, shared_access)?
-        } else {
-            ctx.workspace_from_head_uncached(shared_access)?
+    let ws = if workspace_ref_exists {
+        ctx.workspace_from_ref_uncached(workspace_ref, shared_access)?
+    } else {
+        ctx.workspace_from_head_uncached(shared_access)?
+    };
+    let metadata = ctx.db.get_cache()?.meta()?;
+    let mut workspaces = metadata
+        .workspaces()
+        .map(|(name, workspace)| (name.to_owned(), workspace.clone()))
+        .collect::<Vec<_>>();
+    let branches = metadata
+        .branches()
+        .map(|(name, branch)| (name.to_owned(), branch.clone()))
+        .collect();
+    let orders = metadata.branch_orders().map(<[_]>::to_vec).collect();
+    let worktree_refs = ws
+        .graph
+        .worktree_tips
+        .iter()
+        .filter_map(|tip| tip.ref_name.as_ref())
+        .collect::<BTreeSet<_>>();
+    if let Some((_, workspace)) = workspaces
+        .iter_mut()
+        .find(|(name, _)| name.as_ref() == workspace_ref)
+    {
+        use but_core::ref_metadata::{
+            WorkspaceCommitRelation, WorkspaceStack, WorkspaceStackBranch,
         };
-        // Archive a copy of the database metadata, preserving legacy fields and stale
-        // unapplied stacks. Projected shared segments may belong to several stacks.
-        let mut legacy_meta = but_meta::legacy_storage::snapshot_to_legacy(
-            &ctx.db
-                .get_cache()?
-                .virtual_branches()
-                .get_snapshot()?
-                .unwrap_or_default(),
-        )?;
-        let worktree_refs = ws
-            .graph
-            .worktree_tips
-            .iter()
-            .filter_map(|tip| tip.ref_name.as_ref())
-            .map(|name| name.shorten().to_str().map(ToOwned::to_owned))
-            .collect::<std::result::Result<BTreeSet<_>, _>>()?;
-        for stack in legacy_meta.branches.values_mut() {
-            stack.in_workspace &= ws.has_metadata()
-                && stack
-                    .heads
+        for stack in &mut workspace.stacks {
+            if !ws.has_metadata()
+                || !stack
+                    .branches
                     .iter()
-                    .any(|head| worktree_refs.contains(&head.name));
+                    .any(|branch| worktree_refs.contains(&branch.ref_name))
+            {
+                stack.workspacecommit_relation = WorkspaceCommitRelation::Outside;
+            }
         }
         if ws.has_metadata() {
             for projected in &ws.stacks {
@@ -881,106 +800,130 @@ fn prepare_snapshot_with_target_and_ref(
                     .segments
                     .iter()
                     .filter_map(|segment| segment.ref_name())
-                    .map(|name| name.shorten().to_str().map(ToOwned::to_owned))
-                    .collect::<std::result::Result<Vec<_>, _>>()?;
-                if names.is_empty() {
-                    continue;
-                }
+                    .collect::<Vec<_>>();
+                let Some(first) = names.first() else { continue };
                 let id = projected
                     .id
                     .or_else(|| {
-                        legacy_meta
-                            .branches
-                            .values()
-                            .filter(|stack| stack.heads.iter().any(|head| head.name == names[0]))
-                            .min_by_key(|stack| (stack.order, stack.id))
+                        workspace
+                            .stacks
+                            .iter()
+                            .find(|stack| {
+                                stack
+                                    .branches
+                                    .iter()
+                                    .any(|branch| branch.ref_name == *first)
+                            })
                             .map(|stack| stack.id)
                     })
                     .unwrap_or_else(but_core::ref_metadata::StackId::generate);
-                let existing = legacy_meta.branches.get(&id);
-                // Linked-worktree heads are intentionally absent from the projection.
-                let mut heads = existing
+                let mut projected_branches = workspace
+                    .stacks
+                    .iter()
+                    .find(|stack| stack.id == id)
                     .into_iter()
-                    .flat_map(|stack| &stack.heads)
-                    .filter(|head| worktree_refs.contains(&head.name))
+                    .flat_map(|stack| &stack.branches)
+                    .filter(|branch| worktree_refs.contains(&branch.ref_name))
                     .cloned()
                     .collect::<Vec<_>>();
-                for name in names.into_iter().rev() {
-                    let head = existing
-                        .and_then(|stack| stack.heads.iter().find(|head| head.name == name))
-                        .or_else(|| {
-                            legacy_meta
-                                .branches
-                                .values()
-                                .filter_map(|stack| {
-                                    stack
-                                        .heads
-                                        .iter()
-                                        .find(|head| head.name == name)
-                                        .map(|head| (stack.order, stack.id, head))
-                                })
-                                .min_by_key(|(order, id, _)| (*order, *id))
-                                .map(|(_, _, head)| head)
-                        })
+                projected_branches.extend(names.into_iter().map(|name| {
+                    workspace
+                        .stacks
+                        .iter()
+                        .flat_map(|stack| &stack.branches)
+                        .find(|branch| branch.ref_name == name)
                         .cloned()
-                        .unwrap_or_else(|| {
-                            StackBranch::new_with_zero_head(name, None, None, false)
-                        });
-                    heads.push(head);
+                        .unwrap_or_else(|| WorkspaceStackBranch {
+                            ref_name: name.to_owned(),
+                            archived: false,
+                        })
+                }));
+                let mut seen = BTreeSet::new();
+                projected_branches.retain(|branch| seen.insert(branch.ref_name.clone()));
+                let replacement = WorkspaceStack {
+                    id,
+                    branches: projected_branches,
+                    workspacecommit_relation: metadata
+                        .workspace(workspace_ref)
+                        .and_then(|workspace| workspace.stacks.iter().find(|stack| stack.id == id))
+                        .filter(|stack| stack.is_in_workspace())
+                        .map_or(WorkspaceCommitRelation::Merged, |stack| {
+                            stack.workspacecommit_relation
+                        }),
+                };
+                if let Some(stack) = workspace.stacks.iter_mut().find(|stack| stack.id == id) {
+                    *stack = replacement;
+                } else {
+                    workspace.stacks.push(replacement);
                 }
-                let next_order = legacy_meta.branches.len();
-                let stack = legacy_meta.branches.entry(id).or_insert_with(|| {
-                    let mut stack = Stack::new_with_just_heads(Vec::new(), next_order, true);
-                    stack.id = id;
-                    stack
-                });
-                stack.heads = heads;
-                stack.in_workspace = true;
             }
         }
-        for stack in legacy_meta.branches.values_mut() {
-            legacy_virtual_branches::normalize_stack_heads(stack, &repo);
+    }
+    let metadata = but_db::Metadata::from_parts(workspaces, branches, orders);
+    let mut references = Vec::new();
+    let mut seen = BTreeSet::new();
+    for (name, workspace) in metadata.workspaces() {
+        let stack_branches = workspace
+            .stacks
+            .iter()
+            .filter(|stack| stack.is_in_workspace())
+            .flat_map(|stack| &stack.branches)
+            .map(|branch| branch.ref_name.as_ref());
+        // The default workspace has a separate archive entry used to restore checkout identity.
+        for name in std::iter::once(name)
+            .filter(|name| *name != workspace_ref)
+            .chain(stack_branches)
+        {
+            if seen.insert(name.to_owned()) {
+                let target = repo
+                    .try_find_reference(name)?
+                    .map(|mut reference| reference.peel_to_commit().map(|commit| commit.id))
+                    .transpose()?;
+                references.push(SnapshotReference {
+                    ref_name: name.to_owned(),
+                    target,
+                });
+            }
         }
-        for stack in legacy_virtual_branches::in_workspace_stacks_mut(&mut legacy_meta) {
-            let stack_head =
-                legacy_virtual_branches::stack_head_oid(stack, default_target_commit_id, &repo)?;
-            let stack_tree = repo.find_commit(stack_head)?.tree_id()?.detach();
-            let stack_id = stack.id.to_string();
-            let mut stack_tree_cursor =
-                snapshot_tree.cursor_at(format!("virtual_branches/{stack_id}"))?;
-
-            // commits in virtual branches (tree and commit data)
-            // calculate all the commits between branch.head and the target and codify them
-            stack_tree_cursor.upsert("tree", EntryKind::Tree, stack_tree)?;
-
+    }
+    {
+        let mut archived_commits = BTreeSet::new();
+        for target in references.iter().filter_map(|reference| reference.target) {
+            if archived_commits.contains(&target) {
+                continue;
+            }
             for commit_id in commit_ids_excluding_reachable_from_with_graph(
                 &repo,
-                stack_head,
+                target,
                 default_target_commit_id,
                 &mut graph,
             )? {
+                if !archived_commits.insert(commit_id) {
+                    continue;
+                }
                 let commit = repo.find_commit(commit_id)?;
-                let commit_tree_id = commit.tree_id()?.detach();
-                let commit_data_blob_id = repo.write_blob(&commit.data)?;
-
-                stack_tree_cursor.upsert(
-                    format!("commits/{commit_id}/commit"),
+                snapshot_tree.upsert(
+                    format!("virtual_branches/references/commits/{commit_id}/commit"),
                     EntryKind::Blob,
-                    commit_data_blob_id,
+                    repo.write_blob(&commit.data)?,
                 )?;
-                stack_tree_cursor.upsert(
-                    format!("commits/{commit_id}/tree"),
+                snapshot_tree.upsert(
+                    format!("virtual_branches/references/commits/{commit_id}/tree"),
                     EntryKind::Tree,
-                    commit_tree_id,
+                    commit.tree_id()?.detach(),
                 )?;
             }
         }
-
-        toml::to_string(&legacy_meta)?
+    }
+    let metadata = SnapshotRefMetadata {
+        metadata,
+        references,
     };
-
-    let vb_blob_id = repo.write_blob(vb_content.as_bytes())?;
-    snapshot_tree.upsert("virtual_branches.toml", EntryKind::Blob, vb_blob_id)?;
+    snapshot_tree.upsert(
+        REF_METADATA_FILE,
+        EntryKind::Blob,
+        repo.write_blob(serde_json::to_vec(&metadata)?)?,
+    )?;
     // Add the worktree tree
     #[expect(deprecated)]
     let worktree = repo.create_wd_tree(AUTO_TRACK_LIMIT_BYTES)?;
@@ -1095,14 +1038,23 @@ fn restore_snapshot(
     let snapshot_commit = repo.find_commit(snapshot_commit_id)?;
     let snapshot_tree = snapshot_commit.tree()?;
     // Validate all metadata formats before creating the before-restore snapshot or mutating the
-    // worktree, refs, config, TOML, or database.
-    let (restored_project_meta, restored_virtual_branches, restored_branch_order) =
+    // worktree, refs, config, or database.
+    let (restored_project_meta, restored_ref_metadata, restored_branch_order) =
         snapshot_metadata(&snapshot_tree, &repo)?;
     let restored_checkout = snapshot_checkout(&snapshot_tree, &repo)?;
     let restored_reference = snapshot_reference(&snapshot_tree, &repo)?;
     let restored_target = restored_project_meta.target_commit_id_or_err()?;
-    let restored_vb_snapshot =
-        but_meta::legacy_storage::legacy_to_snapshot(&restored_virtual_branches)?;
+    let restored_branch_order = if snapshot_tree
+        .lookup_entry_by_path(REF_METADATA_FILE)?
+        .is_none()
+    {
+        Some(match restored_branch_order {
+            Some(order) => order,
+            None => ctx.db.get_cache()?.branch_order().get_snapshot()?,
+        })
+    } else {
+        None
+    };
 
     if let Some(reference) = restored_reference.as_ref()
         && let Some(current_reference) = repo.try_find_reference(reference.ref_name.as_ref())?
@@ -1258,21 +1210,28 @@ fn restore_snapshot(
         None => {}
     }
 
-    // Restore both metadata tables in one transaction before publishing the restored state.
+    // Restore all reference metadata in one transaction before publishing the restored state.
     {
         let mut db = ctx.db.get_cache_mut()?;
         let mut tx = db.immediate_transaction()?;
-        tx.meta_mut()?.replace_snapshot(&restored_vb_snapshot)?;
+        tx.meta_mut()?
+            .replace_snapshot(&restored_ref_metadata.metadata)?;
         if let Some(branch_order) = restored_branch_order {
             tx.meta_mut()?.replace_branch_order(&branch_order)?;
         }
         tx.commit()?;
     }
 
-    // Now that legacy metadata has been restored, update references to reflect the restored heads.
-    for stack in legacy_virtual_branches::in_workspace_stacks(&restored_virtual_branches) {
-        for branch in &stack.heads {
-            legacy_virtual_branches::set_reference_to_stored_head(branch, &gix_repo).ok();
+    for reference in restored_ref_metadata.references {
+        if let Some(target) = reference.target {
+            repo.reference(
+                reference.ref_name,
+                target,
+                gix::refs::transaction::PreviousValue::Any,
+                "restore snapshot branch",
+            )?;
+        } else if let Some(reference) = repo.try_find_reference(reference.ref_name.as_ref())? {
+            reference.delete()?;
         }
     }
     if let Some(reference) = restored_reference {
@@ -1463,13 +1422,20 @@ fn tree_from_applied_vbranches(
         .context("no entry at 'target_entry'")?;
     let target_tree_id = target_tree_entry.id().detach();
 
-    let (project_meta, vbs_from_toml, _) = snapshot_metadata(&snapshot_tree, repo)?;
-    let default_target_oid = project_meta.target_commit_id_or_err()?;
-    let applied_branch_trees: Vec<_> = legacy_virtual_branches::in_workspace_stacks(&vbs_from_toml)
-        .map(|stack| {
-            let head_oid =
-                legacy_virtual_branches::stack_head_oid(stack, default_target_oid, repo)?;
-            but_core::Commit::try_from(repo.find_commit(head_oid)?)?
+    let (_, stored, _) = snapshot_metadata(&snapshot_tree, repo)?;
+    let targets = stored
+        .references
+        .iter()
+        .filter_map(|reference| reference.target.map(|target| (&reference.ref_name, target)))
+        .collect::<HashMap<_, _>>();
+    let applied_branch_trees = stored
+        .metadata
+        .workspaces()
+        .flat_map(|(_, workspace)| &workspace.stacks)
+        .filter(|stack| stack.is_in_workspace())
+        .filter_map(|stack| stack.ref_name().and_then(|name| targets.get(name)).copied())
+        .map(|head| {
+            but_core::Commit::try_from(repo.find_commit(head)?)?
                 .tree_id_or_auto_resolution()
                 .map(|id| id.detach())
         })
@@ -1563,11 +1529,20 @@ impl Iterator for SnapshotIter {
                 Ok(tree) => tree,
                 Err(err) => return Some(Err(err.into())),
             };
-            let has_legacy_metadata = match tree.lookup_entry_by_path("virtual_branches.toml") {
-                Ok(entry) => entry.is_some(),
-                Err(err) => return Some(Err(err.into())),
-            };
-            if !has_legacy_metadata {
+            let has_metadata =
+                match tree
+                    .lookup_entry_by_path(REF_METADATA_FILE)
+                    .and_then(|entry| {
+                        if entry.is_some() {
+                            Ok(entry)
+                        } else {
+                            tree.lookup_entry_by_path("virtual_branches.toml")
+                        }
+                    }) {
+                    Ok(entry) => entry.is_some(),
+                    Err(err) => return Some(Err(err.into())),
+                };
+            if !has_metadata {
                 // We reached a tree that is not a snapshot
                 tracing::warn!("Commit {commit_id} didn't seem to be an oplog commit - skipping");
                 continue;

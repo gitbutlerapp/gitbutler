@@ -9,7 +9,10 @@ use but_core::{
 use but_ctx::Context;
 use but_workspace::{
     RefInfo,
-    branch::create_reference::{Anchor, Position},
+    branch::{
+        apply::OutcomeStatus,
+        create_reference::{Anchor, Position},
+    },
 };
 use gitbutler_oplog::entry::{OperationKind, SnapshotDetails};
 use gix::refs::FullName;
@@ -353,14 +356,17 @@ impl NewUnstackedBranchOperation {
                         ..Default::default()
                     },
                 )?;
-                if outcome.status.persisted_mutation() {
-                    transaction.commit()?;
-                    *ws = outcome.workspace.clone();
-                } else {
-                    bail!(
+                match outcome.status {
+                    OutcomeStatus::Applied => {
+                        transaction.commit()?;
+                        *ws = outcome.workspace;
+                    }
+                    // Initializing the workspace may already have applied the current branch.
+                    OutcomeStatus::AlreadyApplied => {}
+                    OutcomeStatus::ConflictAborted => bail!(
                         "BUG: failed to apply head ref ({head_name}). Failed with {:?}",
                         outcome.status
-                    )
+                    ),
                 }
                 Ok(())
             })();

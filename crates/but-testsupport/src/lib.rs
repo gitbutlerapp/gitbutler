@@ -121,17 +121,9 @@ pub fn in_memory_db() -> but_db::DbHandle {
     but_db::DbHandle::new_at_path(":memory:").expect("in-memory database always opens")
 }
 
-/// Load legacy fixture metadata into a private in-memory database.
-/// Missing fixture files represent empty metadata; existing files are never changed.
-pub fn fixture_metadata(path: impl AsRef<Path>) -> anyhow::Result<but_db::DbHandle> {
-    let mut db = in_memory_db();
-    import_fixture_metadata(&mut db, path.as_ref())?;
-    Ok(db)
-}
-
 /// Add a fixture stack whose tip is `stack_name`, with `segments` ordered from tip to base.
 /// The numeric ID also determines the stack's position among other fixture stacks.
-/// This seeds rows directly so tests can represent overlapping or stale stack metadata.
+/// Tests can represent overlapping or stale stacks by storing their workspace value directly.
 pub fn add_stack_with_segments(
     db: &mut but_db::DbHandle,
     stack_id: u128,
@@ -139,69 +131,57 @@ pub fn add_stack_with_segments(
     state: StackState,
     segments: &[&str],
 ) -> but_core::ref_metadata::StackId {
-    let order = i64::try_from(stack_id).expect("fixture stack order fits in the database");
+    use but_core::ref_metadata::{
+        Workspace, WorkspaceCommitRelation, WorkspaceStack, WorkspaceStackBranch,
+    };
+
     let stack_id = but_core::ref_metadata::StackId::from_number_for_testing(stack_id);
-    let stored_id = stack_id.to_string();
-    let mut snapshot = db
-        .virtual_branches()
-        .get_snapshot()
-        .expect("fixture metadata can be read")
-        .unwrap_or_default();
-    snapshot.stacks.retain(|stack| stack.id != stored_id);
-    snapshot.heads.retain(|head| head.stack_id != stored_id);
-    let null_id = gix::hash::Kind::Sha1.null().to_string();
-    snapshot.stacks.push(but_db::VbStack {
-        id: stored_id.clone(),
-        source_refname: None,
-        upstream_remote_name: None,
-        upstream_branch_name: None,
-        sort_order: order,
-        in_workspace: matches!(state, StackState::InWorkspace),
-        legacy_name: String::new(),
-        legacy_notes: String::new(),
-        legacy_ownership: String::new(),
-        legacy_allow_rebasing: true,
-        legacy_post_commits: false,
-        legacy_tree_sha: null_id.clone(),
-        legacy_head_sha: null_id.clone(),
-        legacy_created_timestamp_ms: "0".into(),
-        legacy_updated_timestamp_ms: "0".into(),
+    let metadata = db.meta().expect("fixture metadata can be read");
+    let workspace_ref = but_core::WORKSPACE_REF_NAME
+        .try_into()
+        .expect("valid workspace ref");
+    let mut workspace = metadata
+        .workspace(workspace_ref)
+        .cloned()
+        .unwrap_or_else(|| Workspace {
+            ref_info: but_core::ref_metadata::RefInfo {
+                created_at: Some(gix::date::Time::new(1675176957, 0)),
+                ..Default::default()
+            },
+            ..Default::default()
+        });
+    let branches = std::iter::once(stack_name)
+        .chain(segments.iter().copied())
+        .map(|name| WorkspaceStackBranch {
+            ref_name: format!("refs/heads/{name}")
+                .try_into()
+                .expect("valid fixture branch"),
+            archived: false,
+        })
+        .collect::<Vec<_>>();
+    for branch in &branches {
+        if metadata.branch(branch.ref_name.as_ref()).is_none() {
+            db.meta_mut()
+                .expect("fixture metadata can be written")
+                .set_branch(branch.ref_name.as_ref(), &Default::default())
+                .expect("fixture branch can be saved");
+        }
+    }
+    workspace.stacks.retain(|stack| stack.id != stack_id);
+    workspace.stacks.push(WorkspaceStack {
+        id: stack_id,
+        branches,
+        workspacecommit_relation: match state {
+            StackState::InWorkspace => WorkspaceCommitRelation::Merged,
+            StackState::Inactive => WorkspaceCommitRelation::Outside,
+        },
     });
-    snapshot.heads.extend(
-        segments
-            .iter()
-            .rev()
-            .copied()
-            .chain(std::iter::once(stack_name))
-            .enumerate()
-            .map(|(position, name)| but_db::VbStackHead {
-                stack_id: stored_id.clone(),
-                position: position as i64,
-                name: name.into(),
-                head_sha: null_id.clone(),
-                pr_number: None,
-                archived: false,
-                review_id: None,
-            }),
-    );
-    snapshot.state.initialized = true;
+    workspace.stacks.sort_by_key(|stack| stack.id);
     db.meta_mut()
         .expect("fixture metadata can be written")
-        .replace_snapshot(&snapshot)
+        .set_workspace(workspace_ref, &workspace)
         .expect("fixture workspace can be saved");
     stack_id
-}
-
-fn import_fixture_metadata(db: &mut but_db::DbHandle, path: &Path) -> anyhow::Result<()> {
-    let content = match std::fs::read_to_string(path) {
-        Ok(content) => content,
-        Err(err) if err.kind() == std::io::ErrorKind::NotFound => return Ok(()),
-        Err(err) => return Err(err.into()),
-    };
-    let legacy = toml::from_str(&content)?;
-    let snapshot = but_meta::legacy_storage::legacy_to_snapshot(&legacy)?;
-    db.virtual_branches_mut()?.replace_snapshot(&snapshot)?;
-    Ok(())
 }
 
 /// The project database of `repo`, at the same location GitButler itself stores it.
@@ -210,12 +190,7 @@ fn import_fixture_metadata(db: &mut but_db::DbHandle, path: &Path) -> anyhow::Re
 /// temporary directory; shared read-only fixtures use [`in_memory_db()`].
 pub fn project_db(repo: &gix::Repository) -> anyhow::Result<but_db::DbHandle> {
     use but_core::RepositoryExt as _;
-    let dir = repo.gitbutler_storage_path()?;
-    let mut db = but_db::DbHandle::new_in_directory(&dir)?;
-    if db.virtual_branches().get_snapshot()?.is_none() {
-        import_fixture_metadata(&mut db, &dir.join("virtual_branches.toml"))?;
-    }
-    Ok(db)
+    but_db::DbHandle::new_in_directory(&repo.gitbutler_storage_path()?)
 }
 
 /// Return isolated configuration with a basic setup to run read-only and read-write tests.

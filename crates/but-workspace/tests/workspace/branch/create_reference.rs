@@ -2466,11 +2466,22 @@ fn journey_with_commits() -> anyhow::Result<()> {
     );
     let metadata = meta.meta().unwrap();
     let md = metadata.branch(new_name).expect("metadata is present");
-    assert!(md.ref_info.updated_at.is_none());
     assert!(
-        md.ref_info.created_at.is_none(),
-        "It marks the creation date as well.\
-            HOWEVER: this backend can't currently store such a field - needs sqlite backend"
+        md.ref_info.updated_at.is_some(),
+        "the branch's update timestamp survives database persistence"
+    );
+    assert!(
+        md.ref_info.created_at.is_some(),
+        "new references retain the creation timestamp computed before the ref was written"
+    );
+    assert_eq!(
+        ws.find_segment_and_stack_by_refname(new_name)
+            .expect("the created branch is projected")
+            .1
+            .metadata
+            .as_ref(),
+        Some(md),
+        "the returned projection and persisted branch have identical metadata"
     );
     assert!(
         repo.find_reference(new_name).is_ok(),
@@ -2487,6 +2498,15 @@ fn journey_with_commits() -> anyhow::Result<()> {
         stack_id_for_name,
         None,
     )?;
+    assert_eq!(
+        meta.meta()?
+            .branch(new_name)
+            .expect("the existing branch retains metadata")
+            .ref_info
+            .created_at,
+        md.ref_info.created_at,
+        "repeating creation preserves the original creation time"
+    );
     snapbox::assert_data_eq!(
         graph_workspace(&ws).to_string(),
         snapbox::str![[r#"

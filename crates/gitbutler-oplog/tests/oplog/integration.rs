@@ -26,8 +26,10 @@ fn snapshot_with_additional_ref_includes_branch_order() -> anyhow::Result<()> {
     )?;
 
     assert!(
-        snapshot_blob(&repo.open_repo(), snapshot_id, "branch_order.toml")?
-            .contains("refs/heads/A"),
+        snapshot_metadata(&repo.open_repo(), snapshot_id)?
+            .metadata
+            .branch_stack_order(gix::refs::FullName::try_from("refs/heads/A")?.as_ref())
+            .is_some(),
         "the additional-ref snapshot path should include branch-order metadata"
     );
     Ok(())
@@ -44,8 +46,10 @@ fn restore_snapshot_replaces_branch_order() -> anyhow::Result<()> {
         guard.write_permission(),
     )?;
     assert!(
-        snapshot_blob(&repo.open_repo(), snapshot_id, "branch_order.toml")?
-            .contains("refs/heads/A"),
+        snapshot_metadata(&repo.open_repo(), snapshot_id)?
+            .metadata
+            .branch_stack_order(gix::refs::FullName::try_from("refs/heads/A")?.as_ref())
+            .is_some(),
         "the oplog snapshot should contain branch-order metadata"
     );
 
@@ -371,156 +375,479 @@ fn snapshot_creation_works_with_unmerged_index() -> anyhow::Result<()> {
     Ok(())
 }
 
+#[derive(serde::Deserialize)]
+struct ArchivedMetadata {
+    metadata: but_db::Metadata,
+    references: Vec<ArchivedReference>,
+}
+
+#[derive(serde::Deserialize)]
+struct ArchivedReference {
+    ref_name: gix::refs::FullName,
+    #[serde(with = "but_serde::object_id_opt")]
+    target: Option<gix::ObjectId>,
+}
+
+fn snapshot_metadata(
+    repo: &gix::Repository,
+    snapshot: gix::ObjectId,
+) -> anyhow::Result<ArchivedMetadata> {
+    Ok(serde_json::from_str(&snapshot_blob(
+        repo,
+        snapshot,
+        "ref_metadata.json",
+    )?)?)
+}
+
 #[test]
-fn snapshot_and_restore_use_database_metadata_without_live_toml() -> anyhow::Result<()> {
+fn snapshot_and_restore_preserve_per_ref_metadata() -> anyhow::Result<()> {
+    use but_core::ref_metadata::{Branch, Workspace};
     let Test { repo, ctx, .. } = &mut Test::default();
     configure_default_target(ctx)?;
-    let expected_head = ctx.project_meta()?.target_commit_id.unwrap();
-    let path = ctx.project_data_dir().join("virtual_branches.toml");
-    let _ = fs::remove_file(&path);
-    let mut metadata = ctx
-        .db
-        .get_cache()?
-        .virtual_branches()
-        .get_snapshot()?
-        .unwrap_or_default();
-    metadata.state.last_pushed_base_sha = Some(expected_head.to_string());
+    let branch: gix::refs::FullName = "refs/heads/main".try_into()?;
+    let secondary: gix::refs::FullName = "refs/heads/gitbutler/workspaces/secondary".try_into()?;
+    let git_repo = repo.open_repo();
+    let head = git_repo.head_id()?.detach();
+    let mut secondary_commit = git_repo.find_commit(head)?.decode()?.to_owned()?;
+    secondary_commit.message = "secondary workspace".into();
+    let secondary_commit = git_repo.write_object(secondary_commit)?.detach();
+    git_repo.reference(
+        secondary.as_ref(),
+        secondary_commit,
+        gix::refs::transaction::PreviousValue::Any,
+        "test",
+    )?;
+    let mut metadata = Branch::default();
+    metadata.review.review_id = Some("saved review".into());
     ctx.db
         .get_cache_mut()?
         .meta_mut()?
-        .replace_snapshot(&metadata)?;
-
+        .set_branch(branch.as_ref(), &metadata)?;
+    ctx.db
+        .get_cache_mut()?
+        .meta_mut()?
+        .set_workspace(secondary.as_ref(), &Workspace::default())?;
+    let before = ctx.db.get_cache()?.meta()?;
     let mut guard = ctx.exclusive_worktree_access();
     let snapshot_id = ctx.create_snapshot(
         SnapshotDetails::new(OperationKind::OnDemandSnapshot),
         guard.write_permission(),
     )?;
-    assert!(
-        !path.exists(),
-        "snapshot creation never creates the obsolete live file"
-    );
-    let archived: but_meta::virtual_branches_legacy_types::VirtualBranches = toml::from_str(
-        &snapshot_blob(&repo.open_repo(), snapshot_id, "virtual_branches.toml")?,
-    )?;
     assert_eq!(
-        archived.last_pushed_base,
-        Some(expected_head),
-        "snapshot metadata comes from the database"
+        snapshot_metadata(&repo.open_repo(), snapshot_id)?.metadata,
+        before,
+        "snapshots retain per-ref metadata, including empty workspaces and branches outside stacks"
     );
-
-    metadata.state.last_pushed_base_sha = None;
+    metadata.review.review_id = None;
     ctx.db
         .get_cache_mut()?
         .meta_mut()?
-        .replace_snapshot(&metadata)?;
-    fs::write(&path, "invalid live metadata")?;
+        .set_branch(branch.as_ref(), &metadata)?;
+    ctx.db
+        .get_cache_mut()?
+        .meta_mut()?
+        .remove(secondary.as_ref())?;
+    git_repo.reference(
+        secondary.as_ref(),
+        head,
+        gix::refs::transaction::PreviousValue::Any,
+        "test",
+    )?;
+    let hex = secondary_commit.to_string();
+    let loose_object = git_repo
+        .git_dir()
+        .join("objects")
+        .join(&hex[..2])
+        .join(&hex[2..]);
+    assert!(
+        loose_object.is_file(),
+        "the secondary workspace commit is loose"
+    );
+    fs::remove_file(loose_object)?;
     ctx.restore_snapshot(
         snapshot_id,
         RestoreKind::RestoreFromSnapshotViaUndo,
         guard.write_permission(),
     )?;
     assert_eq!(
-        ctx.db
-            .get_cache()?
-            .virtual_branches()
-            .get_snapshot()?
-            .unwrap()
-            .state
-            .last_pushed_base_sha,
-        Some(expected_head.to_string()),
-        "undo restores the database directly"
+        ctx.db.get_cache()?.meta()?,
+        before,
+        "undo restores the complete per-ref metadata snapshot"
     );
     assert_eq!(
-        fs::read_to_string(path)?,
-        "invalid live metadata",
-        "undo leaves obsolete files untouched"
+        git_repo.rev_parse_single(secondary.as_ref())?.detach(),
+        secondary_commit,
+        "undo restores additional workspace references"
+    );
+    assert!(
+        git_repo.find_commit(secondary_commit).is_ok(),
+        "undo reconstructs additional workspace commits"
     );
     Ok(())
 }
 
 #[test]
-fn snapshot_resolves_heads_and_preserves_shared_segments_without_mutating_metadata()
--> anyhow::Result<()> {
-    use but_meta::virtual_branches_legacy_types::{Stack, StackBranch, VirtualBranches};
-
-    let Test { repo, ctx } = &mut Test::from_scenario("multi-lane-with-shared-segment", &[]);
-    let mut metadata = VirtualBranches::default();
-    let expected_names = [
-        vec!["shared", "A"],
-        vec!["shared", "B"],
-        vec!["shared", "C", "D"],
-    ];
-    let mut stack_ids = Vec::new();
-    for (position, names) in expected_names.iter().enumerate() {
-        let heads = names
-            .iter()
-            .map(|name| {
-                StackBranch::new_with_zero_head((*name).into(), Some(position + 10), None, false)
-            })
-            .collect::<Vec<_>>();
-        let stack = Stack::new_with_just_heads(heads, position, true);
-        stack_ids.push(stack.id);
-        metadata.branches.insert(stack.id, stack);
-    }
-    let stale = Stack::new_with_just_heads(
-        vec![StackBranch {
-            head: ctx.project_meta()?.target_commit_id.unwrap(),
-            name: "shared".into(),
-            pr_number: Some(42),
-            review_id: Some("stale review".into()),
-            archived: true,
-        }],
-        3,
-        false,
+#[cfg(unix)]
+fn snapshot_roundtrips_non_utf8_ref_metadata() -> anyhow::Result<()> {
+    use but_core::ref_metadata::{Branch, Workspace};
+    let Test { repo, ctx, .. } = &mut Test::default();
+    configure_default_target(ctx)?;
+    let branch = gix::refs::FullName::try_from(b"refs/heads/branch-\xff".as_bstr())?;
+    let workspace = gix::refs::FullName::try_from(b"refs/heads/workspace-\xfe".as_bstr())?;
+    let mut branch_value = Branch::default();
+    branch_value.review.review_id = Some("byte-preserving review".into());
+    let mut workspace_value = Workspace::default();
+    workspace_value.ref_info.created_at = Some(gix::date::Time::new(123, 3600));
+    let metadata = but_db::Metadata::from_parts(
+        vec![
+            (workspace, workspace_value),
+            ("refs/heads/secondary".try_into()?, Workspace::default()),
+        ],
+        vec![(branch, branch_value)],
+        Vec::new(),
     );
-    metadata.branches.insert(stale.id, stale.clone());
-    let expected_database = but_meta::legacy_storage::legacy_to_snapshot(&metadata)?;
     ctx.db
         .get_cache_mut()?
         .meta_mut()?
-        .replace_snapshot(&expected_database)?;
-    let expected_database = ctx.db.get_cache()?.virtual_branches().get_snapshot()?;
+        .replace_snapshot(&metadata)?;
+    let expected = ctx.db.get_cache()?.meta()?;
+    let mut guard = ctx.exclusive_worktree_access();
+    let snapshot_id = ctx.create_snapshot(
+        SnapshotDetails::new(OperationKind::OnDemandSnapshot),
+        guard.write_permission(),
+    )?;
+    assert_eq!(
+        snapshot_metadata(&repo.open_repo(), snapshot_id)?.metadata,
+        expected,
+        "JSON preserves arbitrary reference bytes across multiple workspace rows"
+    );
+    ctx.db
+        .get_cache_mut()?
+        .meta_mut()?
+        .replace_snapshot(&but_db::Metadata::default())?;
+    ctx.restore_snapshot(
+        snapshot_id,
+        RestoreKind::RestoreFromSnapshotViaUndo,
+        guard.write_permission(),
+    )?;
+    assert_eq!(
+        ctx.db.get_cache()?.meta()?,
+        expected,
+        "restore retains names, timestamps and reviews without UTF-8 conversion"
+    );
+    Ok(())
+}
+
+#[test]
+fn historical_snapshot_restores_workspace_and_branch_metadata() -> anyhow::Result<()> {
+    use but_core::ref_metadata::{StackId, WorkspaceCommitRelation};
+    let Test { repo, ctx } = &mut Test::from_scenario("one-stack-two-commits", &["A"]);
+    let repo = repo.open_repo();
+    let tip = repo.rev_parse_single("A")?.detach();
+    let base = repo.rev_parse_single("A~1")?.detach();
+    let applied = StackId::from_number_for_testing(7);
+    let outside = StackId::from_number_for_testing(9);
+    repo.reference(
+        "refs/heads/C",
+        tip,
+        gix::refs::transaction::PreviousValue::Any,
+        "test",
+    )?;
+    let mut guard = ctx.exclusive_worktree_access();
+    let snapshot_id = ctx.create_snapshot(
+        SnapshotDetails::new(OperationKind::OnDemandSnapshot),
+        guard.write_permission(),
+    )?;
+    let snapshot = repo.find_commit(snapshot_id)?;
+    let mut tree = snapshot.tree()?.edit()?;
+    tree.remove("ref_metadata.json")?;
+    let archived = format!(
+        r#"
+[branches.{applied}]
+order = 0
+
+[[branches.{applied}.heads]]
+name = "C"
+head = {{ ChangeId = "legacy-change" }}
+
+[[branches.{applied}.heads]]
+name = "B"
+target = {{ CommitId = "{base}" }}
+archived = true
+pr_number = 17
+review_id = "historical review"
+
+[[branches.{applied}.heads]]
+name = "A"
+head = {{ CommitId = "{tip}" }}
+
+[branches.{outside}]
+order = 1
+in_workspace = false
+
+[[branches.{outside}.heads]]
+name = "D"
+head = {{ CommitId = "{tip}" }}
+"#
+    );
+    tree.upsert(
+        "virtual_branches.toml",
+        gix::object::tree::EntryKind::Blob,
+        repo.write_blob(archived.as_bytes())?,
+    )?;
+    let historical_id = repo
+        .write_object(gix::objs::Commit {
+            tree: tree.write()?.detach(),
+            ..snapshot.decode()?.to_owned()?
+        })?
+        .detach();
+    repo.reference(
+        "refs/heads/A",
+        base,
+        gix::refs::transaction::PreviousValue::Any,
+        "test",
+    )?;
+    ctx.restore_snapshot(
+        historical_id,
+        RestoreKind::RestoreFromSnapshotViaUndo,
+        guard.write_permission(),
+    )?;
+
+    let metadata = ctx.db.get_cache()?.meta()?;
+    let workspace = metadata
+        .workspace(but_core::WORKSPACE_REF_NAME.try_into()?)
+        .unwrap();
+    assert_eq!(
+        workspace.ref_info.created_at,
+        Some(gix::date::Time::new(1675176957, 0)),
+        "old snapshots retain the deterministic managed-workspace marker"
+    );
+    assert_eq!(
+        workspace
+            .stacks
+            .iter()
+            .map(|stack| stack.id)
+            .collect::<Vec<_>>(),
+        vec![applied, outside],
+        "historical stack order and identities survive restoration"
+    );
+    assert_eq!(
+        workspace.stacks[0]
+            .branches
+            .iter()
+            .map(|branch| branch.ref_name.as_bstr())
+            .collect::<Vec<_>>(),
+        vec![
+            b"refs/heads/A".as_bstr(),
+            b"refs/heads/B".as_bstr(),
+            b"refs/heads/C".as_bstr()
+        ],
+        "historical base-to-tip heads become tip-to-base branches"
+    );
+    assert!(
+        workspace.stacks[0].branches[1].archived,
+        "archived branch flags are preserved"
+    );
+    assert_eq!(
+        workspace.stacks[1].workspacecommit_relation,
+        WorkspaceCommitRelation::Outside,
+        "unapplied stacks remain outside the workspace"
+    );
+    let branch = metadata.branch("refs/heads/B".try_into()?).unwrap();
+    assert_eq!(
+        branch.review.pull_request,
+        Some(17),
+        "historical PR numbers become per-ref reviews"
+    );
+    assert_eq!(
+        branch.review.review_id.as_deref(),
+        Some("historical review"),
+        "historical review IDs are retained"
+    );
+    assert_eq!(
+        repo.rev_parse_single("A")?.detach(),
+        tip,
+        "the head field restores the saved target"
+    );
+    assert_eq!(
+        repo.rev_parse_single("B")?.detach(),
+        base,
+        "the historical target alias restores the saved target"
+    );
+    assert_eq!(
+        repo.rev_parse_single("C")?.detach(),
+        tip,
+        "unknown historical ChangeIds do not delete refs"
+    );
+    Ok(())
+}
+
+#[test]
+fn invalid_ref_metadata_fails_before_restore_mutates_state() -> anyhow::Result<()> {
+    let Test { repo, ctx } = &mut Test::from_scenario("one-stack-two-commits", &["A"]);
+    let mut guard = ctx.exclusive_worktree_access();
+    let snapshot_id = ctx.create_snapshot(
+        SnapshotDetails::new(OperationKind::OnDemandSnapshot),
+        guard.write_permission(),
+    )?;
+    let git_repo = repo.open_repo();
+    let snapshot = git_repo.find_commit(snapshot_id)?;
+    let archived: serde_json::Value =
+        serde_json::from_str(&snapshot_blob(&git_repo, snapshot_id, "ref_metadata.json")?)?;
+    let mut duplicate_branch = archived.clone();
+    let branch = archived["metadata"]["workspaces"][0][1]["stacks"][0]["branches"][0].clone();
+    duplicate_branch["metadata"]["workspaces"][0][1]["stacks"][0]["branches"]
+        .as_array_mut()
+        .unwrap()
+        .push(branch);
+    let mut duplicate_reference = archived.clone();
+    duplicate_reference["references"]
+        .as_array_mut()
+        .unwrap()
+        .push(archived["references"][0].clone());
+    let mut invalid_reference = archived;
+    invalid_reference["references"][0]["ref_name"] = serde_json::json!("refs/heads/invalid..name");
+    let changed_path = repo.projects_root().join("first");
+    fs::write(&changed_path, "changed after snapshot")?;
+    let metadata = ctx.db.get_cache()?.meta()?;
+    let head = git_repo.head_id()?.detach();
+    let oplog_head = ctx.oplog_head()?;
+    for archived in [duplicate_branch, duplicate_reference, invalid_reference] {
+        let mut tree = snapshot.tree()?.edit()?;
+        tree.upsert(
+            "ref_metadata.json",
+            gix::object::tree::EntryKind::Blob,
+            git_repo.write_blob(serde_json::to_vec(&archived)?)?,
+        )?;
+        let invalid_id = git_repo
+            .write_object(gix::objs::Commit {
+                tree: tree.write()?.detach(),
+                ..snapshot.decode()?.to_owned()?
+            })?
+            .detach();
+        let error = ctx
+            .restore_snapshot(
+                invalid_id,
+                RestoreKind::RestoreFromSnapshotViaUndo,
+                guard.write_permission(),
+            )
+            .expect_err("invalid metadata names and duplicate references must fail validation");
+        assert!(
+            error.to_string().contains("ref_metadata.json"),
+            "restore identifies invalid metadata: {error:#}"
+        );
+        assert_eq!(
+            fs::read_to_string(&changed_path)?,
+            "changed after snapshot",
+            "validation precedes worktree changes"
+        );
+        assert_eq!(
+            ctx.db.get_cache()?.meta()?,
+            metadata,
+            "validation precedes database changes"
+        );
+        assert_eq!(
+            git_repo.head_id()?.detach(),
+            head,
+            "validation precedes ref changes"
+        );
+        assert_eq!(
+            ctx.oplog_head()?,
+            oplog_head,
+            "validation precedes oplog changes"
+        );
+    }
+    Ok(())
+}
+
+#[test]
+fn snapshot_resolves_refs_and_preserves_shared_segments_without_mutating_metadata()
+-> anyhow::Result<()> {
+    use but_core::ref_metadata::{
+        Branch, StackId, Workspace, WorkspaceCommitRelation, WorkspaceStack, WorkspaceStackBranch,
+    };
+    let Test { repo, ctx } = &mut Test::from_scenario("multi-lane-with-shared-segment", &[]);
+    let names = [
+        vec!["A", "shared"],
+        vec!["B", "shared"],
+        vec!["D", "C", "shared"],
+    ];
+    let mut workspace = Workspace::default();
+    for (position, names) in names.iter().enumerate() {
+        workspace.stacks.push(WorkspaceStack {
+            id: StackId::from_number_for_testing(position as u128 + 10),
+            branches: names
+                .iter()
+                .map(|name| {
+                    Ok(WorkspaceStackBranch {
+                        ref_name: format!("refs/heads/{name}").try_into()?,
+                        archived: false,
+                    })
+                })
+                .collect::<anyhow::Result<_>>()?,
+            workspacecommit_relation: WorkspaceCommitRelation::Merged,
+        });
+    }
+    workspace.stacks[0].workspacecommit_relation =
+        WorkspaceCommitRelation::MergeFrom { commit_id: None };
+    workspace.stacks[1].workspacecommit_relation = WorkspaceCommitRelation::MergeFrom {
+        commit_id: Some(repo.open_repo().rev_parse_single("shared")?.detach()),
+    };
+    let stale = WorkspaceStack {
+        id: StackId::from_number_for_testing(42),
+        branches: vec![WorkspaceStackBranch {
+            ref_name: "refs/heads/shared".try_into()?,
+            archived: true,
+        }],
+        workspacecommit_relation: WorkspaceCommitRelation::Outside,
+    };
+    workspace.stacks.push(stale.clone());
+    let workspace_ref: gix::refs::FullName = but_core::WORKSPACE_REF_NAME.try_into()?;
+    ctx.db
+        .get_cache_mut()?
+        .meta_mut()?
+        .set_workspace(workspace_ref.as_ref(), &workspace)?;
+    let mut shared = Branch::default();
+    shared.review.pull_request = Some(42);
+    ctx.db
+        .get_cache_mut()?
+        .meta_mut()?
+        .set_branch("refs/heads/shared".try_into()?, &shared)?;
+    let before = ctx.db.get_cache()?.meta()?;
     let mut guard = ctx.exclusive_worktree_access();
     let snapshot_id = ctx.create_snapshot(
         SnapshotDetails::new(OperationKind::OnDemandSnapshot),
         guard.write_permission(),
     )?;
     let repo = repo.open_repo();
-    let archived: VirtualBranches =
-        toml::from_str(&snapshot_blob(&repo, snapshot_id, "virtual_branches.toml")?)?;
-    for (id, expected) in stack_ids.iter().zip(expected_names) {
-        let stack = &archived.branches[id];
+    let archived = snapshot_metadata(&repo, snapshot_id)?;
+    let archived_workspace = archived.metadata.workspace(workspace_ref.as_ref()).unwrap();
+    for expected in &workspace.stacks {
         assert_eq!(
-            stack
-                .heads
+            archived_workspace
+                .stacks
                 .iter()
-                .map(|head| head.name.as_str())
-                .collect::<Vec<_>>(),
-            expected,
-            "snapshot projection preserves shared segments in each stack"
+                .find(|stack| stack.id == expected.id),
+            Some(expected),
+            "shared segments and unapplied stacks retain their workspace metadata"
         );
-        for head in &stack.heads {
-            assert_eq!(
-                head.pr_number,
-                Some(stack.order + 10),
-                "each shared segment keeps its own stack's review metadata"
-            );
-            assert_eq!(
-                head.head,
-                repo.rev_parse_single(format!("refs/heads/{}", head.name).as_bytes())?
-                    .detach(),
-                "snapshot heads resolve null stored hashes using their refs"
-            );
-        }
     }
     assert_eq!(
-        archived.branches[&stale.id], stale,
-        "snapshot export preserves unapplied metadata"
+        archived.metadata.branch("refs/heads/shared".try_into()?),
+        Some(&shared),
+        "shared segments have one authoritative per-ref review record"
     );
+    for reference in archived.references {
+        assert_eq!(
+            reference.target,
+            Some(repo.rev_parse_single(reference.ref_name.as_ref())?.detach()),
+            "snapshot ref targets come from Git"
+        );
+    }
     assert_eq!(
-        ctx.db.get_cache()?.virtual_branches().get_snapshot()?,
-        expected_database,
-        "snapshot preparation normalizes its exported copy without changing live metadata"
+        ctx.db.get_cache()?.meta()?,
+        before,
+        "snapshot preparation does not change live metadata"
     );
     Ok(())
 }
@@ -542,11 +869,9 @@ fn snapshot_keeps_heads_checked_out_in_linked_worktrees() -> anyhow::Result<()> 
     assert!(
         ws.stacks
             .iter()
-            .all(|stack| stack.segments.iter().all(|segment| {
-                segment
-                    .ref_name()
-                    .is_none_or(|name| name.as_bstr() != b"refs/heads/A")
-            })),
+            .all(|stack| stack.segments.iter().all(|segment| segment
+                .ref_name()
+                .is_none_or(|name| name.as_bstr() != b"refs/heads/A"))),
         "the linked branch is omitted from the main-worktree projection"
     );
     drop(guard);
@@ -555,59 +880,20 @@ fn snapshot_keeps_heads_checked_out_in_linked_worktrees() -> anyhow::Result<()> 
         SnapshotDetails::new(OperationKind::OnDemandSnapshot),
         guard.write_permission(),
     )?;
-    let archived: but_meta::virtual_branches_legacy_types::VirtualBranches = toml::from_str(
-        &snapshot_blob(&repo.open_repo(), snapshot_id, "virtual_branches.toml")?,
-    )?;
-    let stack = archived.branches.values().next().unwrap();
+    let archived = snapshot_metadata(&repo.open_repo(), snapshot_id)?;
+    let stack = &archived
+        .metadata
+        .workspace(but_core::WORKSPACE_REF_NAME.try_into()?)
+        .unwrap()
+        .stacks[0];
     assert!(
-        stack.in_workspace,
+        stack.is_in_workspace(),
         "a linked checkout does not unapply its recorded stack"
     );
     assert_eq!(
-        stack.heads[0].name, "A",
+        stack.branches[0].ref_name.as_bstr(),
+        b"refs/heads/A",
         "the archive retains the linked branch"
-    );
-    Ok(())
-}
-
-#[test]
-fn snapshot_normalizes_duplicate_heads_within_one_stack() -> anyhow::Result<()> {
-    let Test { repo, ctx } = &mut Test::from_scenario("one-stack-two-commits", &["A"]);
-    let mut metadata = ctx
-        .db
-        .get_cache()?
-        .virtual_branches()
-        .get_snapshot()?
-        .unwrap();
-    let mut duplicate = metadata.heads[0].clone();
-    duplicate.position += 1;
-    metadata.heads.push(duplicate);
-    ctx.db
-        .get_cache_mut()?
-        .meta_mut()?
-        .replace_snapshot(&metadata)?;
-    let mut guard = ctx.exclusive_worktree_access();
-    let snapshot_id = ctx.create_snapshot(
-        SnapshotDetails::new(OperationKind::OnDemandSnapshot),
-        guard.write_permission(),
-    )?;
-    let archived: but_meta::virtual_branches_legacy_types::VirtualBranches = toml::from_str(
-        &snapshot_blob(&repo.open_repo(), snapshot_id, "virtual_branches.toml")?,
-    )?;
-    let heads = &archived.branches.values().next().unwrap().heads;
-    assert_eq!(
-        heads.len(),
-        1,
-        "snapshot projection normalizes repeated heads within one stack"
-    );
-    assert_eq!(
-        heads[0].name, "A",
-        "normalization keeps the branch identity"
-    );
-    assert_eq!(
-        ctx.db.get_cache()?.virtual_branches().get_snapshot()?,
-        Some(metadata),
-        "snapshot preparation leaves live metadata untouched"
     );
     Ok(())
 }
@@ -628,7 +914,7 @@ fn snapshot_has_authoritative_meta_and_omits_legacy_target() -> anyhow::Result<(
 
     let repo = repo.open_repo();
     let project_meta = snapshot_blob(&repo, snapshot_id, "project_meta.toml")?;
-    let virtual_branches = snapshot_blob(&repo, snapshot_id, "virtual_branches.toml")?;
+    let metadata = snapshot_metadata(&repo, snapshot_id)?;
 
     assert!(
         project_meta.contains(&format!(
@@ -649,8 +935,8 @@ fn snapshot_has_authoritative_meta_and_omits_legacy_target() -> anyhow::Result<(
         "the authoritative snapshot metadata stores the push remote"
     );
     assert!(
-        !virtual_branches.contains("[default_target]"),
-        "the snapshot TOML omits the legacy target"
+        metadata.metadata.workspaces().count() == 0,
+        "a target-only project has no synthetic workspace metadata"
     );
     Ok(())
 }
@@ -771,7 +1057,7 @@ fn malformed_project_meta_fails_before_restore_mutates_state() -> anyhow::Result
     )?;
     let before_meta = ctx.project_meta()?;
     let before_oplog_head = ctx.oplog_head()?;
-    let before_metadata = ctx.db.get_cache()?.virtual_branches().get_snapshot()?;
+    let before_metadata = ctx.db.get_cache()?.meta()?;
 
     let error = ctx
         .restore_snapshot(
@@ -795,7 +1081,7 @@ fn malformed_project_meta_fails_before_restore_mutates_state() -> anyhow::Result
         "a failed restore does not advance the oplog head"
     );
     assert_eq!(
-        ctx.db.get_cache()?.virtual_branches().get_snapshot()?,
+        ctx.db.get_cache()?.meta()?,
         before_metadata,
         "a failed restore does not rewrite database metadata"
     );
@@ -1227,6 +1513,12 @@ fn snapshot_without_branch_order(
     let snapshot = repo.find_commit(snapshot_id)?;
     let mut tree = snapshot.tree()?.edit()?;
     tree.remove("branch_order.toml")?;
+    tree.remove("ref_metadata.json")?;
+    tree.upsert(
+        "virtual_branches.toml",
+        gix::object::tree::EntryKind::Blob,
+        repo.write_blob(b"[branches]\n")?,
+    )?;
     Ok(repo
         .write_object(gix::objs::Commit {
             tree: tree.write()?.detach(),
@@ -1242,6 +1534,12 @@ fn snapshot_with_branch_order(
 ) -> anyhow::Result<gix::ObjectId> {
     let snapshot = repo.find_commit(snapshot_id)?;
     let mut tree = snapshot.tree()?.edit()?;
+    tree.remove("ref_metadata.json")?;
+    tree.upsert(
+        "virtual_branches.toml",
+        gix::object::tree::EntryKind::Blob,
+        repo.write_blob(b"[branches]\n")?,
+    )?;
     tree.upsert(
         "branch_order.toml",
         gix::object::tree::EntryKind::Blob,
@@ -1263,10 +1561,10 @@ fn snapshot_as_legacy(
     let snapshot = repo.find_commit(snapshot_id)?;
     let mut tree = snapshot.tree()?.edit()?;
     tree.remove("project_meta.toml")?;
-    let mut virtual_branches = snapshot_blob(repo, snapshot_id, "virtual_branches.toml")?;
-    virtual_branches.push_str(&format!(
-        "\n[default_target]\nbranchName = \"main\"\nremoteName = \"origin\"\nremoteUrl = \"\"\nsha = \"{target_id}\"\npushRemoteName = \"origin\"\n"
-    ));
+    tree.remove("ref_metadata.json")?;
+    let virtual_branches = format!(
+        "[branches]\n\n[default_target]\nbranchName = \"main\"\nremoteName = \"origin\"\nremoteUrl = \"\"\nsha = \"{target_id}\"\npushRemoteName = \"origin\"\n"
+    );
     tree.upsert(
         "virtual_branches.toml",
         gix::object::tree::EntryKind::Blob,

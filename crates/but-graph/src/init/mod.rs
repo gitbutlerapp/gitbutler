@@ -1817,7 +1817,8 @@ fn append_project_target_tips(
         let local_info =
             local_info.filter(|(_local_ref_name, local_tip)| !queued_ids.contains(local_tip));
         let local_tip = local_info.as_ref().map(|(_, local_tip)| *local_tip);
-        tips.push(
+        push_tip_once(
+            tips,
             Tip::new(target_ref_id)
                 .with_ref_name(Some(target_ref))
                 .with_role(TipRole::TargetRemote),
