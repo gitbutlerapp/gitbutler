@@ -1872,45 +1872,6 @@ async fn target_config(
             }
         }
         Some(new_branch) => {
-            // refuse to run if there are any applied branches. if so, ask user to unapply first.
-            let (guard, _, ws, _) = ctx.workspace_and_db()?;
-            if !ws.stacks.is_empty() {
-                // list the applied branches
-                if let Some(out) = out.for_human() {
-                    writeln!(
-                        out,
-                        "{}",
-                        t.important
-                            .paint("\nThe following branches are currently applied:\n")
-                    )?;
-                    ws.stacks.iter().for_each(|stack| {
-                        {
-                            writeln!(
-                                out,
-                                "{} Applied branch: {}",
-                                t.hint.paint("•"),
-                                t.config_value.paint(stack.ref_name().map_or_else(
-                                    || "ANONYMOUS".to_string(),
-                                    |rn| rn.shorten().to_string()
-                                ))
-                            )
-                            .ok();
-                        };
-                    });
-                    writeln!(
-                        out,
-                        "\n{}\n",
-                        t.attention.paint(
-                            "Please unapply all branches before changing the target branch."
-                        )
-                    )
-                    .ok();
-                }
-                anyhow::bail!(
-                    "Cannot change target branch while there are applied branches. Please unapply all branches first."
-                );
-            }
-
             if let Some(out) = out.for_human() {
                 writeln!(
                     out,
@@ -1930,7 +1891,6 @@ async fn target_config(
             let target_ref: gix::refs::FullName = format!("refs/remotes/{new_branch}")
                 .try_into()
                 .context("Invalid target branch name")?;
-            drop((guard, ws));
             but_api::workspace::set_target_ref_and_init_project(
                 ctx,
                 target_ref.as_ref(),
