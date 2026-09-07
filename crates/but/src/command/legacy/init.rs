@@ -47,10 +47,8 @@ pub fn run(args: Platform, path: &Path, out: &mut OutputChannel) -> CliResult<In
                 )?;
 
                 let mut guard = ctx.exclusive_worktree_access();
-                let mut meta = ctx.meta()?;
                 let (outcome, _ws) = crate::command::legacy::commit::run_in_unborn_repo(
                     &mut ctx,
-                    &mut meta,
                     guard.write_permission(),
                     crate::command::legacy::commit::CommitOperation::CommitToNewBranch(
                         crate::command::legacy::commit::CommitToNewBranchOperation {

@@ -62,7 +62,7 @@ pub(super) fn cached_reviews(ctx: &Context) -> HashMap<u64, but_forge::ForgeRevi
     ctx.db
         .get_cache()
         .ok()
-        .and_then(|db| but_forge::list_cached_forge_reviews(&db).ok())
+        .and_then(|db| but_forge::list_cached_forge_reviews(db.connection()).ok())
         .unwrap_or_default()
         .into_iter()
         .map(|review| (review.number as u64, review))

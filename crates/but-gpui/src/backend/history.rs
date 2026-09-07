@@ -653,16 +653,16 @@ pub fn undo_snapshot(
 /// aren't restored, and neither is the stash, which every worktree shares. A branch renamed
 /// outside isn't noticed, as its old name's log goes with it.
 fn moved_since(ctx: &but_ctx::Context, after: i64, spans: &[(i64, i64)]) -> Result<Option<String>> {
-    use but_core::RefMetadata as _;
     let repo = ctx.repo.get()?;
     let workspace: gix::refs::FullName = WORKSPACE_REF_NAME.try_into()?;
     // As the workspace's metadata has them: one moved off the workspace no longer shows in it.
-    let applied: Vec<gix::refs::FullName> =
-        (ctx.meta()?.workspace(workspace.as_ref())?.stacks.iter())
-            .filter(|stack| stack.is_in_workspace())
-            .flat_map(|stack| &stack.branches)
-            .map(|branch| branch.ref_name.clone())
-            .collect();
+    let meta = ctx.db.get_cache()?.meta()?;
+    let applied: Vec<gix::refs::FullName> = (meta.workspace(workspace.as_ref()).iter())
+        .flat_map(|workspace| &workspace.stacks)
+        .filter(|stack| stack.is_in_workspace())
+        .flat_map(|stack| &stack.branches)
+        .map(|branch| branch.ref_name.clone())
+        .collect();
     let checked_out = repo.head_name()?;
     let head: gix::refs::FullName = "HEAD".try_into()?;
     let names = [head.clone(), workspace]

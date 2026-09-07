@@ -54,11 +54,11 @@ impl<'conn> Transaction<'conn> {
 }
 
 pub struct WorktreeMetaHandle<'conn> {
-    conn: &'conn rusqlite::Connection,
+    pub(crate) conn: &'conn rusqlite::Connection,
 }
 
 pub struct WorktreeMetaHandleMut<'conn> {
-    conn: &'conn rusqlite::Connection,
+    pub(crate) conn: &'conn rusqlite::Connection,
 }
 
 impl WorktreeMetaHandle<'_> {

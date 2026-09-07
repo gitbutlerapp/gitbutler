@@ -20,7 +20,7 @@ use crate::ForgeReview;
 /// When several cached reviews share a `source_branch`, `preference` decides
 /// the winner.
 pub fn review_for_head_ref(
-    db: &but_db::DbHandle,
+    db: but_db::Connection<'_>,
     head_ref_short: &str,
 ) -> anyhow::Result<Option<ForgeReview>> {
     let reviews = crate::list_cached_forge_reviews(db)?;
@@ -46,7 +46,7 @@ pub type ReviewAssociation = (usize, bool, Option<String>);
 /// review merged, letting the projection recognize a branch whose tip landed
 /// exactly while integration detection still lags a fetch.
 pub fn review_associations_by_head(
-    db: &but_db::DbHandle,
+    db: but_db::Connection<'_>,
     repo: &gix::Repository,
 ) -> anyhow::Result<HashMap<String, ReviewAssociation>> {
     let reviews = crate::list_cached_forge_reviews(db)?;
@@ -155,7 +155,7 @@ fn same_owner_and_name(a: &crate::ForgeRepoInfo, b: &crate::ForgeRepoInfo) -> bo
 ///
 /// When several cached reviews share a `source_branch`, `preference` decides
 /// which one the key maps to.
-pub fn reviews_by_head(db: &but_db::DbHandle) -> anyhow::Result<HashMap<String, ForgeReview>> {
+pub fn reviews_by_head(db: but_db::Connection<'_>) -> anyhow::Result<HashMap<String, ForgeReview>> {
     let reviews = crate::list_cached_forge_reviews(db)?;
     let mut map: HashMap<String, ForgeReview> = HashMap::new();
     for review in reviews {

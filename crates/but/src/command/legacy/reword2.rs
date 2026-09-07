@@ -6,7 +6,7 @@ use but_api::{
     diff::ComputeLineStats,
     json::{ChangeIdString, HexHash},
 };
-use but_core::{DryRun, RefMetadata, diff::CommitDetails, sync::RepoExclusive};
+use but_core::{DryRun, diff::CommitDetails, sync::RepoExclusive};
 use but_ctx::Context;
 use but_error::Code;
 use but_transaction::Transaction;
@@ -151,12 +151,11 @@ pub fn reword(
     args: Platform,
 ) -> CliResult<(RewordOutcome, Option<WorkspaceState>)> {
     let mut guard = ctx.exclusive_worktree_access();
-    let mut meta = ctx.meta()?;
     let id_map = IdMap::new_from_context(ctx, guard.read_permission(), None)?;
     let merged = MergedUpstream::from_ctx(ctx, args.allow_merged)?;
     let operation = resolve(ctx, &mut out, &id_map, args, &merged)?;
 
-    run(ctx, &mut meta, guard.write_permission(), operation)
+    run(ctx, guard.write_permission(), operation)
 }
 
 fn resolve(
@@ -243,7 +242,6 @@ pub(crate) fn get_branch_name_from_editor(current_name: &str) -> anyhow::Result<
 
 pub fn run(
     ctx: &mut Context,
-    meta: &mut impl RefMetadata,
     perm: &mut RepoExclusive,
     operation: RewordOperation,
 ) -> CliResult<(RewordOutcome, Option<WorkspaceState>)> {
@@ -277,8 +275,7 @@ pub fn run(
                     )?
                 }
             };
-            let (outcome, ws) =
-                reword_commit(ctx, meta, perm, target, &current_message, new_message)?;
+            let (outcome, ws) = reword_commit(ctx, perm, target, &current_message, new_message)?;
             Ok((outcome, ws))
         }
         RewordOperation::FormatCommit { target } => {
@@ -293,8 +290,7 @@ pub fn run(
             let new_message = Some(but_action::commit_format::format_commit_message(
                 &current_message,
             ));
-            let (outcome, ws) =
-                reword_commit(ctx, meta, perm, target, &current_message, new_message)?;
+            let (outcome, ws) = reword_commit(ctx, perm, target, &current_message, new_message)?;
             Ok((outcome, ws))
         }
         RewordOperation::Branch {
@@ -439,7 +435,7 @@ impl CommitMessageSource {
     pub fn execute(
         self,
         new_commit: CommitId,
-        tx: &mut Transaction<'_, '_, impl RefMetadata>,
+        tx: &mut Transaction<'_, '_, '_>,
     ) -> anyhow::Result<CommitId> {
         let message = match self {
             CommitMessageSource::Empty => Some(String::new()),
@@ -477,7 +473,6 @@ impl CommitMessageSource {
 
 fn reword_commit(
     ctx: &mut Context,
-    meta: &mut impl RefMetadata,
     perm: &mut RepoExclusive,
     target: CommitId,
     current_message: &str,
@@ -492,7 +487,6 @@ fn reword_commit(
     let snapshot_details = SnapshotDetails::new(OperationKind::UpdateCommitMessage);
     let (new_commit, ws) = but_transaction::with_transaction_with_perm(
         ctx,
-        meta,
         perm,
         snapshot_details,
         DryRun::No,

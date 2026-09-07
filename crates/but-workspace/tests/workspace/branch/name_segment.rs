@@ -1,5 +1,4 @@
 use bstr::BString;
-use but_core::RefMetadata;
 use but_graph::{WorktreeKind, init::Options};
 use but_rebase::graph_rebase::Editor;
 use but_testsupport::{CommandExt as _, git, git_at_dir, visualize_commit_graph_all};
@@ -11,7 +10,6 @@ use crate::{
 
 fn name_segment(
     repo: &gix::Repository,
-    meta: &mut impl RefMetadata,
     db: &mut but_db::DbHandle,
     checkout: WorktreeKind,
     top: &str,
@@ -22,9 +20,10 @@ fn name_segment(
         worktrees: true,
         ..Options::limited()
     };
-    let graph = but_graph::Graph::from_head(repo, &*meta, project_meta(repo)?, db, options)?;
+    let graph =
+        but_graph::Graph::from_head(repo, project_meta(repo)?, &mut db.connection_mut(), options)?;
     let mut ws = graph.into_workspace()?;
-    let editor = Editor::create(&mut ws, meta, repo, db)?;
+    let editor = Editor::create(&mut ws, repo, db.connection_mut())?;
     let top = repo.rev_parse_single(top)?.detach();
     but_workspace::branch::name_segment(editor, &checkout, top, r(ref_name))?
         .materialize(Default::default())?;
@@ -45,14 +44,13 @@ fn worktree_head(repo: &gix::Repository, name: &str) -> anyhow::Result<String> {
 
 #[test]
 fn workspace_reference_without_workspace_commit() -> anyhow::Result<()> {
-    let (_tmp, repo, mut meta, mut db) = named_writable_scenario("single-branch-no-ws-commit")?;
+    let (_tmp, repo, mut db) = named_writable_scenario("single-branch-no-ws-commit")?;
     git(&repo)
         .args(["commit", "--allow-empty", "-m", "X"])
         .run();
 
     name_segment(
         &repo,
-        &mut meta,
         &mut db,
         WorktreeKind::Main,
         "HEAD",
@@ -72,18 +70,11 @@ fn workspace_reference_without_workspace_commit() -> anyhow::Result<()> {
 
 #[test]
 fn stack_tip_beneath_workspace_commit() -> anyhow::Result<()> {
-    let (_tmp, repo, mut meta, mut db) = named_writable_scenario("ws-ref-ws-commit-one-stack")?;
+    let (_tmp, repo, mut db) = named_writable_scenario("ws-ref-ws-commit-one-stack")?;
     let top = repo.rev_parse_single("B")?.detach().to_string();
     git(&repo).args(["branch", "-D", "B"]).run();
 
-    name_segment(
-        &repo,
-        &mut meta,
-        &mut db,
-        WorktreeKind::Main,
-        &top,
-        "refs/heads/named",
-    )?;
+    name_segment(&repo, &mut db, WorktreeKind::Main, &top, "refs/heads/named")?;
 
     // `named` took the place of `B` beneath the workspace commit, which `HEAD` stays on.
     snapbox::assert_data_eq!(
@@ -101,7 +92,7 @@ fn stack_tip_beneath_workspace_commit() -> anyhow::Result<()> {
 
 #[test]
 fn detached_head() -> anyhow::Result<()> {
-    let (_tmp, repo, mut meta, mut db) = named_writable_scenario("ws-ref-ws-commit-one-stack")?;
+    let (_tmp, repo, mut db) = named_writable_scenario("ws-ref-ws-commit-one-stack")?;
     git(&repo).args(["checkout", "--detach", "B"]).run();
     git(&repo)
         .args(["commit", "--allow-empty", "-m", "D"])
@@ -109,7 +100,6 @@ fn detached_head() -> anyhow::Result<()> {
 
     name_segment(
         &repo,
-        &mut meta,
         &mut db,
         WorktreeKind::Main,
         "HEAD",
@@ -134,7 +124,7 @@ fn detached_head() -> anyhow::Result<()> {
 
 #[test]
 fn detached_linked_worktree() -> anyhow::Result<()> {
-    let (_tmp, repo, mut meta, mut db) = named_writable_scenario("ws-ref-ws-commit-one-stack")?;
+    let (_tmp, repo, mut db) = named_writable_scenario("ws-ref-ws-commit-one-stack")?;
     git(&repo)
         .args(["worktree", "add", "--detach", "wt", "B"])
         .run();
@@ -145,14 +135,7 @@ fn detached_linked_worktree() -> anyhow::Result<()> {
         .head_id()?
         .to_string();
 
-    name_segment(
-        &repo,
-        &mut meta,
-        &mut db,
-        linked("wt"),
-        &top,
-        "refs/heads/named",
-    )?;
+    name_segment(&repo, &mut db, linked("wt"), &top, "refs/heads/named")?;
 
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
@@ -176,7 +159,7 @@ fn detached_linked_worktree() -> anyhow::Result<()> {
 
 #[test]
 fn only_the_given_checkout_is_attached() -> anyhow::Result<()> {
-    let (_tmp, repo, mut meta, mut db) = named_writable_scenario("ws-ref-ws-commit-one-stack")?;
+    let (_tmp, repo, mut db) = named_writable_scenario("ws-ref-ws-commit-one-stack")?;
     git(&repo).args(["checkout", "--detach", "B"]).run();
     git(&repo)
         .args(["commit", "--allow-empty", "-m", "D"])
@@ -185,14 +168,7 @@ fn only_the_given_checkout_is_attached() -> anyhow::Result<()> {
         .args(["worktree", "add", "--detach", "wt", "HEAD"])
         .run();
 
-    name_segment(
-        &repo,
-        &mut meta,
-        &mut db,
-        linked("wt"),
-        "HEAD",
-        "refs/heads/named",
-    )?;
+    name_segment(&repo, &mut db, linked("wt"), "HEAD", "refs/heads/named")?;
 
     // `HEAD` stays detached at `D`, as git can't check out `named` in two worktrees at once.
     snapbox::assert_data_eq!(
@@ -217,21 +193,13 @@ fn only_the_given_checkout_is_attached() -> anyhow::Result<()> {
 
 #[test]
 fn taken_name_is_rejected() -> anyhow::Result<()> {
-    let (_tmp, repo, mut meta, mut db) = named_writable_scenario("ws-ref-ws-commit-one-stack")?;
+    let (_tmp, repo, mut db) = named_writable_scenario("ws-ref-ws-commit-one-stack")?;
     git(&repo).args(["checkout", "--detach", "B"]).run();
     git(&repo)
         .args(["commit", "--allow-empty", "-m", "D"])
         .run();
 
-    let err = name_segment(
-        &repo,
-        &mut meta,
-        &mut db,
-        WorktreeKind::Main,
-        "HEAD",
-        "refs/heads/A",
-    )
-    .unwrap_err();
+    let err = name_segment(&repo, &mut db, WorktreeKind::Main, "HEAD", "refs/heads/A").unwrap_err();
 
     assert_eq!(err.to_string(), "Reference 'A' already exists");
     Ok(())

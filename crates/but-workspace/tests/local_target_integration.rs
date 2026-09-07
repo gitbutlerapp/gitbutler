@@ -1,7 +1,6 @@
 //! Integration must apply the same upstream that supplies the incoming-commit counts.
 use anyhow::Result;
 use but_core::ref_metadata::{LocalRefName, ProjectMeta};
-use but_testsupport::InMemoryRefMetadata;
 
 #[test]
 fn cutoff_matches_upstream_despite_lagging_local_target() -> Result<()> {
@@ -178,16 +177,15 @@ fn target_state(
         target_commit_id: cutoff,
         ..Default::default()
     };
-    let meta = InMemoryRefMetadata {
-        workspaces: Vec::from([(but_core::WORKSPACE_REF_NAME.try_into()?, Default::default())]),
-        ..Default::default()
-    };
     let mut db = but_testsupport::project_db(repo)?;
+    db.meta_mut()?.set_workspace(
+        but_core::WORKSPACE_REF_NAME.try_into()?,
+        &Default::default(),
+    )?;
     let workspace = but_graph::Graph::from_head(
         repo,
-        &meta,
         project_meta,
-        &mut db,
+        &mut db.connection_mut(),
         but_graph::init::Options::limited(),
     )?
     .into_workspace()?;
@@ -224,25 +222,23 @@ fn integration_applies_a_local_target_without_an_upstream() -> Result<()> {
         target_commit_id: Some(cutoff),
         ..Default::default()
     };
-    let mut meta = InMemoryRefMetadata {
-        workspaces: Vec::from([(but_core::WORKSPACE_REF_NAME.try_into()?, Default::default())]),
-        ..Default::default()
-    };
     let mut db = but_testsupport::project_db(&repo)?;
+    db.meta_mut()?.set_workspace(
+        but_core::WORKSPACE_REF_NAME.try_into()?,
+        &Default::default(),
+    )?;
     let mut workspace = but_graph::Graph::from_head(
         &repo,
-        &meta,
         project_meta.clone(),
-        &mut db,
+        &mut db.connection_mut(),
         but_graph::init::Options::limited(),
     )?
     .into_workspace()?;
     let outcome = but_workspace::integrate_upstream_with_hints(
         &mut workspace,
-        &mut meta,
         project_meta,
         &repo,
-        &mut db,
+        db.connection_mut(),
         Vec::new(),
         &[],
         but_core::commit::SignCommit::IfSignCommitsEnabled,
@@ -277,16 +273,15 @@ fn integration_applies_upstream_when_local_target_lags() -> Result<()> {
         target_commit_id: Some(local),
         ..Default::default()
     };
-    let mut meta = InMemoryRefMetadata {
-        workspaces: Vec::from([(but_core::WORKSPACE_REF_NAME.try_into()?, Default::default())]),
-        ..Default::default()
-    };
     let mut db = but_testsupport::project_db(&repo)?;
+    db.meta_mut()?.set_workspace(
+        but_core::WORKSPACE_REF_NAME.try_into()?,
+        &Default::default(),
+    )?;
     let mut workspace = but_graph::Graph::from_head(
         &repo,
-        &meta,
         project_meta.clone(),
-        &mut db,
+        &mut db.connection_mut(),
         but_graph::init::Options::limited(),
     )?
     .into_workspace()?;
@@ -300,10 +295,9 @@ fn integration_applies_upstream_when_local_target_lags() -> Result<()> {
     );
     let outcome = but_workspace::integrate_upstream_with_hints(
         &mut workspace,
-        &mut meta,
         project_meta,
         &repo,
-        &mut db,
+        db.connection_mut(),
         Vec::new(),
         &[],
         but_core::commit::SignCommit::IfSignCommitsEnabled,

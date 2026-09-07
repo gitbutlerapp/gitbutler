@@ -66,7 +66,7 @@ fn missing_credentials_do_not_turn_a_stale_cache_into_an_empty_listing() {
         vec![1],
         "a failed credential lookup must serve the last known open reviews"
     );
-    let persisted: Vec<i64> = list_cached_forge_reviews(&db)
+    let persisted: Vec<i64> = list_cached_forge_reviews(db.connection())
         .unwrap()
         .iter()
         .map(|review| review.number)

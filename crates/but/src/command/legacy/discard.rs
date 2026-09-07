@@ -8,7 +8,7 @@ use but_api::{
     WorkspaceState,
     json::{ChangeIdString, HexHash},
 };
-use but_core::{DiffSpec, DryRun, RefMetadata, sync::RepoExclusive};
+use but_core::{DiffSpec, DryRun, sync::RepoExclusive};
 use but_ctx::Context;
 use but_transaction::Commit;
 use gitbutler_oplog::entry::{OperationKind, SnapshotDetails};
@@ -306,7 +306,6 @@ pub fn discard(
     invoked_from: &InvokedFrom,
 ) -> CliResult<(DiscardOutcome, Option<WorkspaceState>)> {
     let mut guard = ctx.exclusive_worktree_access();
-    let mut meta = ctx.meta()?;
     let id_map = IdMap::new_from_context(ctx, guard.read_permission(), Some(invoked_from))?;
     let operation = {
         let repo = ctx.repo.get()?;
@@ -319,7 +318,6 @@ pub fn discard(
 
     let (outcome, ws) = run(
         ctx,
-        &mut meta,
         guard.write_permission(),
         operation,
         gitbutler_oplog::entry::OperationKind::Discard,
@@ -493,7 +491,6 @@ fn resolve(
 
 pub fn run(
     ctx: &mut Context,
-    meta: &mut impl RefMetadata,
     perm: &mut RepoExclusive,
     operation: DiscardOperation,
     oplog_operation_kind: OperationKind,
@@ -618,7 +615,7 @@ pub fn run(
 
     // The oplog can't restore a linked worktree, so discarding there isn't snapshotted.
     let snapshot = source.worktree_name().is_none();
-    let transaction = |mut tx: but_transaction::Transaction<'_, '_, _>| {
+    let transaction = |mut tx: but_transaction::Transaction<'_, '_, '_>| {
         let outcome = match executable {
             ExecutableDiscardOperation::Branches { branches, commits } => {
                 if !commits.is_empty() {
@@ -670,15 +667,13 @@ pub fn run(
     let (mut outcome, mut ws) = if snapshot {
         but_transaction::with_transaction_with_perm(
             ctx,
-            meta,
             perm,
             SnapshotDetails::new(oplog_operation_kind),
             DryRun::No,
             transaction,
         )?
     } else {
-        but_transaction::with_transaction_with_perm_only(ctx, meta, perm, DryRun::No, transaction)?
-            .1
+        but_transaction::with_transaction_with_perm_only(ctx, perm, DryRun::No, transaction)?.1
     };
 
     if let DiscardOutcome::Commits {
@@ -688,7 +683,7 @@ pub fn run(
         *replaced_commits = std::mem::take(&mut ws.replaced_commits);
     }
     if matches!(outcome, DiscardOutcome::Branches(_)) {
-        dissolve_unnecessary_workspace(ctx, meta, perm, &mut ws)?;
+        dissolve_unnecessary_workspace(ctx, perm, &mut ws)?;
     }
 
     Ok((outcome, ws))
@@ -698,13 +693,17 @@ pub fn run(
 /// result in `state` while keeping the commits the operation replaced.
 fn dissolve_unnecessary_workspace(
     ctx: &mut Context,
-    meta: &mut impl RefMetadata,
     perm: &mut RepoExclusive,
     state: &mut WorkspaceState,
 ) -> anyhow::Result<()> {
     let dissolved = {
-        let (repo, ws, _db) = ctx.workspace_and_db_with_perm(perm.read_permission())?;
-        but_workspace::branch::dissolve_unnecessary_workspace(&ws, &repo, meta, Default::default())?
+        let (repo, ws, db) = ctx.workspace_and_db_with_perm(perm.read_permission())?;
+        but_workspace::branch::dissolve_unnecessary_workspace(
+            &ws,
+            &repo,
+            &db.meta()?,
+            Default::default(),
+        )?
     };
     let Some((new_ws, _)) = dissolved else {
         return Ok(());
@@ -715,11 +714,10 @@ fn dissolve_unnecessary_workspace(
         checkout_conflict_occurred: state.checkout_conflict_occurred,
         ..WorkspaceState::from_workspace_with_db(
             &ws,
-            meta,
             &repo,
             std::mem::take(&mut state.replaced_commits),
             std::mem::take(&mut state.conflicted_commits),
-            &mut db,
+            db.connection_mut(),
         )?
     };
     Ok(())

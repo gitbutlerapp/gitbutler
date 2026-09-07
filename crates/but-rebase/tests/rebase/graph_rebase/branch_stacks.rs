@@ -1,7 +1,6 @@
 use anyhow::Result;
-use but_core::{RefMetadata as _, RepositoryExt as _, ref_metadata::ProjectMeta};
+use but_core::ref_metadata::ProjectMeta;
 use but_graph::Graph;
-use but_meta::{BranchOrderMetadata, VirtualBranchesTomlMetadata};
 use but_rebase::graph_rebase::{Editor, Step, mutate::InsertSide, testing::Testing as _};
 use but_testsupport::{StackState, graph_tree, invoke_bash};
 use gix::prelude::ObjectIdExt as _;
@@ -26,21 +25,21 @@ fn render_stacks(stacks: &[Vec<gix::refs::FullName>]) -> String {
 
 fn branch_stacks(
     repo: &gix::Repository,
-    meta: &mut VirtualBranchesTomlMetadata,
-    db: &mut but_db::DbHandle,
+    meta: &mut but_db::DbHandle,
     project_meta: ProjectMeta,
     worktrees: bool,
 ) -> Result<String> {
     if worktrees {
-        db.worktree_meta_mut().mark_adopted()?;
+        meta.worktree_meta_mut().mark_adopted()?;
     }
     let options = but_graph::init::Options {
         worktrees,
         ..standard_options()
     };
-    let graph = Graph::from_head(repo, &*meta, project_meta, db, options)?.validated()?;
+    let graph =
+        Graph::from_head(repo, project_meta, &mut meta.connection_mut(), options)?.validated()?;
     let mut ws = graph.into_workspace()?;
-    let rebase = Editor::create(&mut ws, meta, repo, db)?.rebase()?;
+    let rebase = Editor::create(&mut ws, repo, meta.connection_mut())?.rebase()?;
     let stacks = rebase.branch_stacks()?;
     let workspace = match &stacks.workspace {
         Some(stacks) => format!("workspace\n{}", render_stacks(stacks)),
@@ -55,14 +54,14 @@ fn branch_stacks(
 
 #[test]
 fn each_workspace_commit_parent_is_a_stack() -> Result<()> {
-    let (repo, _tmp, mut meta, mut db) = fixture_writable("workspace-two-stacks")?;
+    let (repo, _tmp, mut meta) = fixture_writable("workspace-two-stacks")?;
     for (idx, stack) in ["stack-a", "stack-b"].into_iter().enumerate() {
         add_stack_with_segments(&mut meta, idx, stack, StackState::InWorkspace, &[]);
     }
 
     // `main` is the configured local target at the cutoff, so no stack owns it.
     snapbox::assert_data_eq!(
-        branch_stacks(&repo, &mut meta, &mut db, target_meta(&repo), false)?,
+        branch_stacks(&repo, &mut meta, target_meta(&repo), false)?,
         snapbox::str![[r#"
 ◎  refs/heads/gitbutler/workspace
 ●    1162583 GitButler Workspace Commit
@@ -90,7 +89,7 @@ ad hoc
 
 #[test]
 fn a_branch_on_the_target_commit_joins_the_first_stack_without_a_configured_target() -> Result<()> {
-    let (repo, _tmp, mut meta, mut db) = fixture_writable("workspace-two-stacks")?;
+    let (repo, _tmp, mut meta) = fixture_writable("workspace-two-stacks")?;
     for (idx, stack) in ["stack-a", "stack-b"].into_iter().enumerate() {
         add_stack_with_segments(&mut meta, idx, stack, StackState::InWorkspace, &[]);
     }
@@ -101,7 +100,7 @@ fn a_branch_on_the_target_commit_joins_the_first_stack_without_a_configured_targ
 
     // Without a configured target, `main` is an ordinary branch and `stack-a` reaches it first.
     snapbox::assert_data_eq!(
-        branch_stacks(&repo, &mut meta, &mut db, project_meta, false)?,
+        branch_stacks(&repo, &mut meta, project_meta, false)?,
         snapbox::str![[r#"
 ◎  refs/heads/gitbutler/workspace
 ●    1162583 GitButler Workspace Commit
@@ -129,14 +128,14 @@ ad hoc
 
 #[test]
 fn empty_stacks_stay_apart() -> Result<()> {
-    let (repo, _tmp, mut meta, mut db) = fixture_writable("workspace-with-three-empty-stacks")?;
+    let (repo, _tmp, mut meta) = fixture_writable("workspace-with-three-empty-stacks")?;
     for (idx, stack) in ["stack-1", "stack-2", "stack-3"].into_iter().enumerate() {
         add_stack_with_segments(&mut meta, idx, stack, StackState::InWorkspace, &[]);
     }
 
     // All three rest on the same commit, each beneath its own workspace commit parent.
     snapbox::assert_data_eq!(
-        branch_stacks(&repo, &mut meta, &mut db, target_meta(&repo), false)?,
+        branch_stacks(&repo, &mut meta, target_meta(&repo), false)?,
         snapbox::str![[r#"
 ◎  refs/heads/gitbutler/workspace
 ●      2bdc06b GitButler Workspace Commit
@@ -164,11 +163,11 @@ ad hoc
 
 #[test]
 fn a_workspace_reference_without_a_workspace_commit_is_one_workspace_stack() -> Result<()> {
-    let (repo, _tmp, mut meta, mut db) = fixture_writable("workspace-without-managed-commit")?;
+    let (repo, _tmp, mut meta) = fixture_writable("workspace-without-managed-commit")?;
 
     // GitButler's own references never stack, which leaves `main` below `HEAD`.
     snapbox::assert_data_eq!(
-        branch_stacks(&repo, &mut meta, &mut db, ProjectMeta::default(), false)?,
+        branch_stacks(&repo, &mut meta, ProjectMeta::default(), false)?,
         snapbox::str![[r#"
 ◎  refs/heads/gitbutler/workspace
 ●  1b78c63 just a normal commit
@@ -188,11 +187,11 @@ ad hoc
 
 #[test]
 fn an_ad_hoc_stack_follows_first_parents() -> Result<()> {
-    let (repo, _tmp, mut meta, mut db) = fixture_writable("merge-in-the-middle")?;
+    let (repo, _tmp, mut meta) = fixture_writable("merge-in-the-middle")?;
 
     // `B` is merged in as a second parent, so it is not part of what `HEAD` stacks on.
     snapbox::assert_data_eq!(
-        branch_stacks(&repo, &mut meta, &mut db, ProjectMeta::default(), false)?,
+        branch_stacks(&repo, &mut meta, ProjectMeta::default(), false)?,
         snapbox::str![[r#"
 ◎  refs/heads/with-inner-merge
 ●  e8ee978 on top of inner merge
@@ -216,12 +215,12 @@ ad hoc
 
 #[test]
 fn a_detached_head_is_an_ad_hoc_stack() -> Result<()> {
-    let (repo, _tmp, mut meta, mut db) = fixture_writable("merge-in-the-middle")?;
+    let (repo, _tmp, mut meta) = fixture_writable("merge-in-the-middle")?;
     invoke_bash("git checkout --detach A", &repo);
 
     // The stack starts at the commit `HEAD` is detached at, beneath the references resting on it.
     snapbox::assert_data_eq!(
-        branch_stacks(&repo, &mut meta, &mut db, ProjectMeta::default(), false)?,
+        branch_stacks(&repo, &mut meta, ProjectMeta::default(), false)?,
         snapbox::str![[r#"
 ◎  refs/heads/A
 ●  add59d2 A: 10 lines on top
@@ -238,11 +237,11 @@ ad hoc
 
 #[test]
 fn a_worktree_owns_the_branch_it_has_checked_out() -> Result<()> {
-    let (repo, _tmp, mut meta, mut db) = fixture_writable("worktree-checkout-heads")?;
+    let (repo, _tmp, mut meta) = fixture_writable("worktree-checkout-heads")?;
 
     // `middle` is in `main`'s history, and still stacks with the worktree that has it checked out.
     snapbox::assert_data_eq!(
-        branch_stacks(&repo, &mut meta, &mut db, ProjectMeta::default(), true)?,
+        branch_stacks(&repo, &mut meta, ProjectMeta::default(), true)?,
         snapbox::str![[r#"
 ◎  refs/heads/main
 ●  a96434e b
@@ -261,23 +260,27 @@ ad hoc
 
 fn local_target_workspace(
     repo: &gix::Repository,
-    meta: &VirtualBranchesTomlMetadata,
-    db: &mut but_db::DbHandle,
+    meta: &mut but_db::DbHandle,
     project_meta: ProjectMeta,
 ) -> Result<but_graph::Workspace> {
-    Graph::from_head(repo, meta, project_meta, db, standard_options())?
-        .validated()?
-        .into_workspace()
+    Graph::from_head(
+        repo,
+        project_meta,
+        &mut meta.connection_mut(),
+        standard_options(),
+    )?
+    .validated()?
+    .into_workspace()
 }
 
 #[test]
 fn upstream_cutoff_keeps_local_target_work_visible() -> Result<()> {
-    let (repo, _tmp, mut meta, mut db) = fixture_writable("workspace-without-managed-commit")?;
+    let (repo, _tmp, mut meta) = fixture_writable("workspace-without-managed-commit")?;
     invoke_bash("git branch -f main HEAD", &repo);
     let mut project_meta = target_meta(&repo);
     project_meta.target_commit_id = None;
-    let mut ws = local_target_workspace(&repo, &meta, &mut db, project_meta)?;
-    let rebase = Editor::create(&mut ws, &mut *meta, &repo, &mut db)?.rebase()?;
+    let mut ws = local_target_workspace(&repo, &mut meta, project_meta)?;
+    let rebase = Editor::create(&mut ws, &repo, meta.connection_mut())?.rebase()?;
     // Main is ahead of its upstream and must remain a visible local branch.
     snapbox::assert_data_eq!(
         render_stacks(
@@ -294,7 +297,7 @@ fn upstream_cutoff_keeps_local_target_work_visible() -> Result<()> {
 
 #[test]
 fn upstream_cutoff_preserves_divergent_local_target_work() -> Result<()> {
-    let (repo, _tmp, mut meta, mut db) = fixture_writable("diverged-local-target")?;
+    let (repo, _tmp, mut meta) = fixture_writable("diverged-local-target")?;
     let local_tip = repo.rev_parse_single("main")?.detach();
     let upstream_tip = repo.rev_parse_single("origin/main")?.detach();
     let merge_base = repo
@@ -305,13 +308,13 @@ fn upstream_cutoff_preserves_divergent_local_target_work() -> Result<()> {
     assert_ne!(merge_base, upstream_tip, "upstream has unique work");
     let mut project_meta = target_meta(&repo);
     project_meta.target_commit_id = None;
-    let mut ws = local_target_workspace(&repo, &meta, &mut db, project_meta)?;
+    let mut ws = local_target_workspace(&repo, &mut meta, project_meta)?;
     assert_eq!(
         ws.target_commit.as_ref().map(|target| target.commit_id),
         Some(upstream_tip),
         "without a stored cutoff the workspace uses the upstream tip, not local main"
     );
-    let rebase = Editor::create(&mut ws, &mut *meta, &repo, &mut db)?.rebase()?;
+    let rebase = Editor::create(&mut ws, &repo, meta.connection_mut())?.rebase()?;
     let stacks = rebase.branch_stacks()?;
     // Main stays visible because its divergent work is not the upstream boundary.
     snapbox::assert_data_eq!(
@@ -328,7 +331,7 @@ fn upstream_cutoff_preserves_divergent_local_target_work() -> Result<()> {
 
 #[test]
 fn local_target_is_the_cutoff_without_an_upstream() -> Result<()> {
-    let (mut repo, _tmp, mut meta, mut db) = fixture_writable("workspace-without-managed-commit")?;
+    let (mut repo, _tmp, mut meta) = fixture_writable("workspace-without-managed-commit")?;
     invoke_bash("git branch -f main HEAD", &repo);
     {
         let mut config = repo.config_snapshot_mut();
@@ -340,8 +343,8 @@ fn local_target_is_the_cutoff_without_an_upstream() -> Result<()> {
         project_meta.remote_target_ref(&repo)?.is_none(),
         "the fixture has no resolvable upstream"
     );
-    let mut ws = local_target_workspace(&repo, &meta, &mut db, project_meta)?;
-    let rebase = Editor::create(&mut ws, &mut *meta, &repo, &mut db)?.rebase()?;
+    let mut ws = local_target_workspace(&repo, &mut meta, project_meta)?;
+    let rebase = Editor::create(&mut ws, &repo, meta.connection_mut())?.rebase()?;
     // Main itself is the boundary, so it is not a stack branch.
     snapbox::assert_data_eq!(
         render_stacks(
@@ -358,13 +361,13 @@ fn local_target_is_the_cutoff_without_an_upstream() -> Result<()> {
 
 #[test]
 fn upstream_cutoff_survives_a_missing_reference_step() -> Result<()> {
-    let (repo, _tmp, mut meta, mut db) = fixture_writable("workspace-without-managed-commit")?;
+    let (repo, _tmp, mut meta) = fixture_writable("workspace-without-managed-commit")?;
     invoke_bash("git branch feature HEAD; git branch older main~1", &repo);
     let mut project_meta = target_meta(&repo);
     project_meta.target_commit_id = None;
     let cutoff = repo.rev_parse_single("origin/main")?.detach();
-    let mut ws = local_target_workspace(&repo, &meta, &mut db, project_meta)?;
-    let mut editor = Editor::create(&mut ws, &mut *meta, &repo, &mut db)?;
+    let mut ws = local_target_workspace(&repo, &mut meta, project_meta)?;
+    let mut editor = Editor::create(&mut ws, &repo, meta.connection_mut())?;
     let upstream = editor.select_reference("refs/remotes/origin/main".try_into()?)?;
     editor.replace_with_none(upstream)?;
     assert!(
@@ -388,13 +391,13 @@ fn upstream_cutoff_survives_a_missing_reference_step() -> Result<()> {
 
 #[test]
 fn missing_upstream_reference_uses_the_rewritten_tip() -> Result<()> {
-    let (repo, _tmp, mut meta, mut db) = fixture_writable("workspace-without-managed-commit")?;
+    let (repo, _tmp, mut meta) = fixture_writable("workspace-without-managed-commit")?;
     invoke_bash("git branch feature HEAD; git branch older main~1", &repo);
     let mut project_meta = target_meta(&repo);
     project_meta.target_commit_id = None;
     let cutoff = repo.rev_parse_single("origin/main")?.detach();
-    let mut ws = local_target_workspace(&repo, &meta, &mut db, project_meta)?;
-    let mut editor = Editor::create(&mut ws, &mut *meta, &repo, &mut db)?;
+    let mut ws = local_target_workspace(&repo, &mut meta, project_meta)?;
+    let mut editor = Editor::create(&mut ws, &repo, meta.connection_mut())?;
     let upstream = editor.select_reference("refs/remotes/origin/main".try_into()?)?;
     editor.replace_with_none(upstream)?;
     let mut replacement = but_core::Commit::from_id(cutoff.attach(&repo))?;
@@ -422,7 +425,7 @@ fn missing_upstream_reference_uses_the_rewritten_tip() -> Result<()> {
 
 #[test]
 fn local_only_cutoff_follows_a_ref_only_move_in_the_editor() -> Result<()> {
-    let (mut repo, _tmp, mut meta, mut db) = fixture_writable("workspace-without-managed-commit")?;
+    let (mut repo, _tmp, mut meta) = fixture_writable("workspace-without-managed-commit")?;
     invoke_bash("git branch feature HEAD", &repo);
     {
         let mut config = repo.config_snapshot_mut();
@@ -430,8 +433,8 @@ fn local_only_cutoff_follows_a_ref_only_move_in_the_editor() -> Result<()> {
     }
     let mut project_meta = target_meta(&repo);
     project_meta.target_commit_id = None;
-    let mut ws = local_target_workspace(&repo, &meta, &mut db, project_meta)?;
-    let mut editor = Editor::create(&mut ws, &mut *meta, &repo, &mut db)?;
+    let mut ws = local_target_workspace(&repo, &mut meta, project_meta)?;
+    let mut editor = Editor::create(&mut ws, &repo, meta.connection_mut())?;
     let main = editor.select_reference("refs/heads/main".try_into()?)?;
     editor.replace_with_none(main)?;
     let tip = editor.select_commit(repo.head_id()?.detach())?;
@@ -461,7 +464,7 @@ fn local_only_cutoff_follows_a_ref_only_move_in_the_editor() -> Result<()> {
 
 #[test]
 fn another_local_branch_sharing_the_target_upstream_remains_visible() -> Result<()> {
-    let (mut repo, _tmp, mut meta, mut db) = fixture_writable("workspace-without-managed-commit")?;
+    let (mut repo, _tmp, mut meta) = fixture_writable("workspace-without-managed-commit")?;
     invoke_bash("git branch other main", &repo);
     {
         let mut config = repo.config_snapshot_mut();
@@ -471,8 +474,8 @@ fn another_local_branch_sharing_the_target_upstream_remains_visible() -> Result<
     let mut project_meta = target_meta(&repo);
     // Keep other above the cutoff: branches resting on it have no stack lane.
     project_meta.target_commit_id = Some(repo.rev_parse_single("main~1")?.detach());
-    let mut ws = local_target_workspace(&repo, &meta, &mut db, project_meta)?;
-    let rebase = Editor::create(&mut ws, &mut *meta, &repo, &mut db)?.rebase()?;
+    let mut ws = local_target_workspace(&repo, &mut meta, project_meta)?;
+    let rebase = Editor::create(&mut ws, &repo, meta.connection_mut())?.rebase()?;
     // Only the configured local main is excluded as upstream, not other.
     snapbox::assert_data_eq!(
         render_stacks(
@@ -489,7 +492,7 @@ fn another_local_branch_sharing_the_target_upstream_remains_visible() -> Result<
 
 #[test]
 fn rewritten_stored_cutoff_uses_its_commit_mapping() -> Result<()> {
-    let (repo, _tmp, mut meta, mut db) = fixture_writable("workspace-without-managed-commit")?;
+    let (repo, _tmp, mut meta) = fixture_writable("workspace-without-managed-commit")?;
     invoke_bash(
         "git branch boundary main; git branch older main~1; git branch -f main HEAD",
         &repo,
@@ -498,8 +501,8 @@ fn rewritten_stored_cutoff_uses_its_commit_mapping() -> Result<()> {
     let cutoff = project_meta
         .target_commit_id
         .expect("fixture has a stored cutoff");
-    let mut ws = local_target_workspace(&repo, &meta, &mut db, project_meta)?;
-    let mut editor = Editor::create(&mut ws, &mut *meta, &repo, &mut db)?;
+    let mut ws = local_target_workspace(&repo, &mut meta, project_meta)?;
+    let mut editor = Editor::create(&mut ws, &repo, meta.connection_mut())?;
     let mut replacement = but_core::Commit::from_id(cutoff.attach(&repo))?;
     replacement.message = "rewritten boundary".into();
     let replacement = repo.write_object(replacement.inner)?.detach();
@@ -540,12 +543,12 @@ fn rewritten_stored_cutoff_uses_its_commit_mapping() -> Result<()> {
 
 #[test]
 fn excluded_stored_cutoff_does_not_fall_back_to_a_target_tip() -> Result<()> {
-    let (repo, _tmp, mut meta, mut db) = fixture_writable("workspace-without-managed-commit")?;
+    let (repo, _tmp, mut meta) = fixture_writable("workspace-without-managed-commit")?;
     invoke_bash(
         "git branch boundary main; git branch older main~1; git branch -f main HEAD",
         &repo,
     );
-    let mut ws = local_target_workspace(&repo, &meta, &mut db, ProjectMeta::default())?;
+    let mut ws = local_target_workspace(&repo, &mut meta, ProjectMeta::default())?;
     let mut excluded = but_core::Commit::from_id(repo.head_id()?)?;
     excluded.parents.clear();
     excluded.message = "excluded boundary".into();
@@ -553,7 +556,7 @@ fn excluded_stored_cutoff_does_not_fall_back_to_a_target_tip() -> Result<()> {
     // Supply a boundary outside this graph without invoking projection's own fallback policy.
     ws.graph.project_meta = target_meta(&repo);
     ws.graph.project_meta.target_commit_id = Some(cutoff);
-    let editor = Editor::create(&mut ws, &mut *meta, &repo, &mut db)?;
+    let editor = Editor::create(&mut ws, &repo, meta.connection_mut())?;
     assert!(
         editor.try_select_commit(cutoff).is_none(),
         "the excluded cutoff has no editor step"
@@ -579,26 +582,26 @@ fn excluded_stored_cutoff_does_not_fall_back_to_a_target_tip() -> Result<()> {
 
 #[test]
 fn materializing_rebuilds_the_workspace_stacks() -> Result<()> {
-    let (repo, _tmp, mut meta, mut db) = fixture_writable("workspace-two-stacks")?;
+    let (repo, _tmp, mut meta) = fixture_writable("workspace-two-stacks")?;
     add_stack_with_segments(&mut meta, 0, "stack-b", StackState::InWorkspace, &[]);
     add_stack_with_segments(&mut meta, 1, "unapplied", StackState::Inactive, &["below"]);
     let graph = Graph::from_head(
         &repo,
-        &*meta,
         target_meta(&repo),
-        &mut db,
+        &mut meta.connection_mut(),
         standard_options(),
     )?
     .validated()?;
     let mut ws = graph.into_workspace()?;
 
-    let outcome = Editor::create(&mut ws, &mut *meta, &repo, &mut db)?
+    let outcome = Editor::create(&mut ws, &repo, meta.connection_mut())?
         .rebase()?
         .materialize(Default::default())?;
 
-    let workspace = outcome
-        .meta
-        .workspace("refs/heads/gitbutler/workspace".try_into()?)?;
+    let metadata = outcome.db.meta()?;
+    let workspace = metadata
+        .workspace("refs/heads/gitbutler/workspace".try_into()?)
+        .expect("materialization records workspace stacks");
     // `stack-b` keeps its id, `stack-a` is new to the metadata and precedes it as the first parent
     // of the workspace commit, and what isn't a parent of the workspace commit is gone.
     snapbox::assert_data_eq!(
@@ -633,21 +636,16 @@ fn materializing_rebuilds_the_workspace_stacks() -> Result<()> {
 
 #[test]
 fn materializing_persists_an_order_that_moves_no_reference() -> Result<()> {
-    let (repo, _tmp, _meta, mut db) = fixture_writable("many-references")?;
-    let mut meta = BranchOrderMetadata::from_paths(
-        repo.path().join("virtual_branches.toml"),
-        repo.gitbutler_storage_path()?,
-    )?;
+    let (repo, _tmp, mut meta) = fixture_writable("many-references")?;
     let graph = Graph::from_head(
         &repo,
-        &meta,
         ProjectMeta::default(),
-        &mut db,
+        &mut meta.connection_mut(),
         standard_options(),
     )?
     .validated()?;
     let mut ws = graph.into_workspace()?;
-    let mut editor = Editor::create(&mut ws, &mut meta, &repo, &mut db)?;
+    let mut editor = Editor::create(&mut ws, &repo, meta.connection_mut())?;
 
     let x = editor.select_reference("refs/heads/X".try_into()?)?;
     editor.replace_with_none(x)?;
