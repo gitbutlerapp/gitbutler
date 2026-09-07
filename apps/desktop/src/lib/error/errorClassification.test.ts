@@ -160,6 +160,18 @@ describe("classify", () => {
 			expect(result.userMessage).toContain("permission");
 		});
 
+		test("GitHubRateLimited is a terminal warning so pollers stop and telemetry dedups", () => {
+			const error = new IpcError(
+				{ message: "GitHub's API rate limit was exceeded.", code: "GitHubRateLimited" },
+				"get_review",
+			);
+			const result = classify(error);
+			expect(result.severity).toBe("warning");
+			expect(result.terminal).toBe(true);
+			expect(result.title).toBe("GitHub Rate Limit Exceeded");
+			expect(result.userMessage).toContain("rate limit");
+		});
+
 		test("GitHubOrgSamlRestricted is terminal with credential-neutral SSO guidance", () => {
 			const error = new IpcError(
 				{

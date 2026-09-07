@@ -188,6 +188,10 @@ pub enum Code {
     /// Terminal until the user grants the permission or reconnects with
     /// other credentials.
     GitHubInsufficientPermissions,
+    /// GitHub refused the request because the API rate limit (primary or
+    /// secondary) was exceeded. Retrying before the limit resets only
+    /// deepens the block, so pollers stop until a later probe succeeds.
+    GitHubRateLimited,
     /// No credentials are stored for the forge integration — the user never
     /// authenticated or logged out. Cached forge data stays valid; retrying
     /// without re-authenticating won't help.

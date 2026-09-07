@@ -246,6 +246,19 @@ GitHub could not access this repository or part of it (for example CI checks). C
 		`,
 	},
 	/**
+	 * GitHub's API quota is exhausted. Polling through it only deepens the
+	 * block, so it's terminal: pollers stop until refetch-on-focus or a
+	 * manual retry succeeds, and telemetry captures it once per session
+	 * instead of once per polled card.
+	 */
+	GitHubRateLimited: {
+		severity: "warning",
+		terminal: true,
+		title: "GitHub Rate Limit Exceeded",
+		userMessage:
+			"GitHub's API rate limit was exceeded. Automatic refreshes are paused and resume when you return to the app; the limit usually resets within an hour.",
+	},
+	/**
 	 * No forge credentials are stored — the user never authenticated or
 	 * logged out. Cached review reads fall back to the last known data;
 	 * this surfaces on explicit forge actions (sync, PR mutations), so

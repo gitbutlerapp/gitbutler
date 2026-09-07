@@ -2,6 +2,7 @@ use anyhow::{Context as _, Result};
 
 use crate::client::{GitHubClient, HttpStatusError};
 
+const GITHUB_RATE_LIMIT_MESSAGE: &str = "GitHub's API rate limit was exceeded. Automatic refreshes are paused; the limit usually resets within an hour.";
 const GITHUB_ORG_SAML_RESTRICTION_MESSAGE: &str = "This GitHub organization requires SAML SSO. Authorize the GitButler OAuth app on the organization's SSO page, or authorize your personal access token in GitHub's token SSO settings, then try again.";
 pub async fn list(
     preferred_account: Option<&crate::GithubAccountIdentifier>,
@@ -90,10 +91,19 @@ pub(crate) fn classify_forge_error(err: anyhow::Error) -> anyhow::Error {
                 "GitHub authentication failed.",
             ));
         }
+        // `ensure_success` keeps GitHub's response body in the chain.
+        let contains = |needle: &str| err.chain().any(|cause| cause.to_string().contains(needle));
+        // Primary limits answer 403 "API rate limit exceeded for …"; secondary
+        // limits answer 403 or 429 "You have exceeded a secondary rate limit".
+        if http_err.status == reqwest::StatusCode::TOO_MANY_REQUESTS
+            || (http_err.status == reqwest::StatusCode::FORBIDDEN && contains("rate limit"))
+        {
+            return err.context(but_error::Context::new_static(
+                but_error::Code::GitHubRateLimited,
+                GITHUB_RATE_LIMIT_MESSAGE,
+            ));
+        }
         if http_err.status == reqwest::StatusCode::FORBIDDEN {
-            // `ensure_success` keeps GitHub's response body in the chain.
-            let contains =
-                |needle: &str| err.chain().any(|cause| cause.to_string().contains(needle));
             let context = if contains("OAuth App access restrictions") {
                 Some(but_error::Context::new_static(
                     but_error::Code::GitHubOrgOAuthRestricted,
@@ -618,12 +628,43 @@ mod tests {
     }
 
     #[test]
+    fn rate_limit_responses_get_dedicated_code_and_static_message() {
+        let cases = [
+            (
+                reqwest::StatusCode::FORBIDDEN,
+                r#"403 Forbidden: {"message":"API rate limit exceeded for user ID 1. If you reach out to GitHub Support for help, please include the request ID ABCD:1234."}"#,
+            ),
+            (
+                reqwest::StatusCode::FORBIDDEN,
+                r#"403 Forbidden: {"message":"You have exceeded a secondary rate limit. Please wait a few minutes before you try again."}"#,
+            ),
+            (
+                reqwest::StatusCode::TOO_MANY_REQUESTS,
+                r#"429 Too Many Requests: {"message":"You have exceeded a secondary rate limit."}"#,
+            ),
+        ];
+        for (status, body) in cases {
+            let err = classify_forge_error(http_error(status, body));
+            let ctx = err.downcast_ref::<but_error::Context>().unwrap_or_else(|| {
+                panic!("a rate-limit response needs a frontend context: {body}")
+            });
+            assert_eq!(
+                (ctx.code, ctx.message.as_deref()),
+                (
+                    but_error::Code::GitHubRateLimited,
+                    Some(GITHUB_RATE_LIMIT_MESSAGE)
+                ),
+                "rate limits need a dedicated code and guidance without user or request ids"
+            );
+        }
+    }
+
+    #[test]
     fn other_403s_stay_unclassified() {
         // Only production-observed wordings are classified; the rest keep
         // their raw message and stay visible in telemetry as `Unknown`.
         for body in [
             r#"403 Forbidden: {"message":"Resource not accessible by integration"}"#,
-            r#"403 Forbidden: {"message":"API rate limit exceeded for user ID 1."}"#,
             r#"403 Forbidden: {"message":"See the SAML setup guide","documentation_url":"https://example.invalid/docs/saml-enforcement"}"#,
             r#"403 Forbidden: {"message":"Repository access blocked"}"#,
         ] {
