@@ -26,11 +26,9 @@ fn branch_rename_middle_branch_keeps_head_and_order() -> anyhow::Result<()> {
     assert!(repo.try_find_reference(middle.as_ref())?.is_none());
     assert!(repo.try_find_reference(renamed.as_ref())?.is_some());
     // The order keeps the branch in place under the new name.
-    let order = ctx
-        .db
-        .get_cache()?
-        .meta()?
-        .branch_stack_order(tip.as_ref())?
+    let order_metadata = ctx.db.get_cache()?.meta()?;
+    let order = order_metadata
+        .branch_stack_order(tip.as_ref())
         .expect("branch order still persisted");
     assert_eq!(order, vec![tip, renamed, main]);
 
@@ -57,11 +55,9 @@ fn branch_rename_checked_out_branch_moves_head_to_new_name() -> anyhow::Result<(
     assert_eq!(result.new_ref, renamed);
     assert_workspace_ref(&result.workspace, "refs/heads/renamed-tip");
 
-    let order = ctx
-        .db
-        .get_cache()?
-        .meta()?
-        .branch_stack_order(renamed.as_ref())?
+    let order_metadata = ctx.db.get_cache()?.meta()?;
+    let order = order_metadata
+        .branch_stack_order(renamed.as_ref())
         .expect("branch order still persisted");
     assert_eq!(order, vec![renamed, main]);
 
@@ -165,16 +161,12 @@ fn branch_rename_rejects_a_destination_that_exists_only_in_metadata() -> anyhow:
         "the git ref must be gone"
     );
     assert!(
-        ctx.db
-            .get_cache()?
-            .meta()?
-            .branch_opt(other.as_ref())?
-            .is_some()
+        ctx.db.get_cache()?.meta()?.branch(other.as_ref()).is_some()
             || ctx
                 .db
                 .get_cache()?
                 .meta()?
-                .branch_stack_order(other.as_ref())?
+                .branch_stack_order(other.as_ref())
                 .is_some(),
         "the name must still be occupied in metadata"
     );
@@ -276,9 +268,15 @@ fn branch_rename_then_new_pr_updates_metadata_under_the_new_name() -> anyhow::Re
     but_api::branch::apply_only(&mut ctx, feature.as_ref())?;
     {
         let meta = ctx.db.get_cache()?.meta()?;
-        let mut branch = meta.branch(feature.as_ref())?;
+        let mut branch = meta
+            .branch(feature.as_ref())
+            .cloned()
+            .expect("branch metadata was saved");
         branch.review.pull_request = Some(42);
-        ctx.db.get_cache_mut()?.meta_mut()?.set_branch(&branch)?;
+        ctx.db
+            .get_cache_mut()?
+            .meta_mut()?
+            .set_branch(feature.as_ref(), &branch)?;
     }
 
     // Rename the published branch. The PR association follows the rename in place (it's stored on the
@@ -288,7 +286,8 @@ fn branch_rename_then_new_pr_updates_metadata_under_the_new_name() -> anyhow::Re
         ctx.db
             .get_cache()?
             .meta()?
-            .branch(renamed.as_ref())?
+            .branch(renamed.as_ref())
+            .expect("renamed metadata exists")
             .review
             .pull_request,
         Some(42),
@@ -300,19 +299,28 @@ fn branch_rename_then_new_pr_updates_metadata_under_the_new_name() -> anyhow::Re
     // it.
     {
         let meta = ctx.db.get_cache()?.meta()?;
-        let mut branch = meta.branch(renamed.as_ref())?;
+        let mut branch = meta
+            .branch(renamed.as_ref())
+            .cloned()
+            .expect("branch metadata was saved");
         branch.review.pull_request = Some(99);
-        ctx.db.get_cache_mut()?.meta_mut()?.set_branch(&branch)?;
+        ctx.db
+            .get_cache_mut()?
+            .meta_mut()?
+            .set_branch(renamed.as_ref(), &branch)?;
     }
 
     let meta = ctx.db.get_cache()?.meta()?;
     assert_eq!(
-        meta.branch(renamed.as_ref())?.review.pull_request,
+        meta.branch(renamed.as_ref())
+            .expect("renamed metadata exists")
+            .review
+            .pull_request,
         Some(99),
         "creating a new PR after the rename must update the metadata under the new name"
     );
     assert!(
-        meta.branch_opt(feature.as_ref())?.is_none(),
+        meta.branch(feature.as_ref()).is_none(),
         "no branch metadata should linger under the old name"
     );
 

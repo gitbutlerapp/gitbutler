@@ -91,9 +91,10 @@ pub fn workspace_recreate_with_perm(
 
         let previously_applied_stack_heads: Vec<gix::refs::FullName> = {
             let workspace_ref: gix::refs::FullName = but_core::WORKSPACE_REF_NAME.try_into()?;
-            let workspace_meta = db.meta()?.workspace(workspace_ref.as_ref())?;
-            workspace_meta
-                .stack_names(but_core::ref_metadata::StackKind::Applied)
+            db.meta()?
+                .workspace(workspace_ref.as_ref())
+                .into_iter()
+                .flat_map(|meta| meta.stack_names(but_core::ref_metadata::StackKind::Applied))
                 .map(|name| name.to_owned())
                 .collect()
         };
@@ -928,9 +929,10 @@ pub fn workspace_integrate_upstream_only_with_perm(
             && let Some(ws_meta) = ws_meta
             && is_workspace_ref_name(ref_name)
         {
-            let mut md = materialized.db.meta()?.workspace(ref_name)?;
-            *md = ws_meta;
-            materialized.db.meta_mut()?.set_workspace(&md)?;
+            materialized
+                .db
+                .meta_mut()?
+                .set_workspace(ref_name, &ws_meta)?;
         }
 
         let workspace_state = WorkspaceState::from_materialized(materialized, repo)?;
@@ -1154,7 +1156,7 @@ mod tests {
             ctx.db
                 .get_cache()?
                 .meta()?
-                .branch_stack_order(main.as_ref())?
+                .branch_stack_order(main.as_ref())
                 .is_none(),
             "failed fetch should still prune missing branch-order references"
         );

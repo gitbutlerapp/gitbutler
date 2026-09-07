@@ -230,8 +230,7 @@ pub(super) mod function {
         let existing_ws_meta = workspace
             .ref_name()
             .filter(|_| workspace.has_metadata())
-            .map(|ws_ref| meta.workspace(ws_ref))
-            .transpose()?;
+            .map(|ws_ref| meta.workspace(ws_ref).cloned().unwrap_or_default());
         let ref_name = ref_name.borrow();
         let existing_ref_target_id = repo
             .try_find_reference(ref_name)?
@@ -348,8 +347,9 @@ pub(super) mod function {
                 // ordering to project the new empty segment at that boundary.
                 let branch_stack_order = if !workspace.has_metadata() && points_to_workspace_base {
                     let existing_order = meta
-                        .branch_stack_order(anchor_ref.as_ref())?
-                        .unwrap_or_default();
+                        .branch_stack_order(anchor_ref.as_ref())
+                        .unwrap_or_default()
+                        .to_vec();
                     Some(insert_into_branch_stack_order(
                         existing_order,
                         anchor_ref.as_ref(),
@@ -434,7 +434,7 @@ pub(super) mod function {
 
         let graph_with_new_ref = {
             // Always update the metadata, this may help disambiguating.
-            let mut branch_md = meta.branch(ref_name)?;
+            let mut branch_md = meta.branch(ref_name).cloned().unwrap_or_default();
             update_branch_metadata(ref_name, repo, &mut branch_md)?;
 
             let mut overlay = but_graph::init::Overlay::default()
@@ -443,15 +443,16 @@ pub(super) mod function {
                     target: gix::refs::Target::Object(ref_target_id),
                     peeled: None,
                 }))
-                .with_branch_metadata_override(Some((
-                    branch_md.as_ref().to_owned(),
-                    (*branch_md).clone(),
-                )))
-                .with_workspace_metadata_override(
-                    updated_ws_meta
-                        .as_ref()
-                        .map(|ws| (ws.as_ref().to_owned(), (*ws).clone())),
-                );
+                .with_branch_metadata_override(Some((ref_name.to_owned(), branch_md)))
+                .with_workspace_metadata_override(updated_ws_meta.as_ref().map(|ws| {
+                    (
+                        workspace
+                            .ref_name()
+                            .expect("metadata has a workspace ref")
+                            .to_owned(),
+                        ws.clone(),
+                    )
+                }));
             if let Some(branch_stack_order) = branch_stack_order.clone() {
                 overlay = overlay.with_branch_stack_order_override(branch_stack_order);
             }
@@ -523,7 +524,10 @@ pub(super) mod function {
         })?;
         // Important to first update the workspace so we have the correct stack setup.
         if let Some(ws_meta) = updated_ws_meta {
-            db.meta_mut()?.set_workspace(&ws_meta)?;
+            db.meta_mut()?.set_workspace(
+                workspace.ref_name().expect("metadata has a workspace ref"),
+                &ws_meta,
+            )?;
         }
         if let Some(branch_stack_order) = branch_stack_order
             && let Err(err) = db
@@ -542,9 +546,9 @@ pub(super) mod function {
         }
 
         // Setting the workspace may have moved this branch into another stack.
-        let mut branch_md = db.meta()?.branch(ref_name)?;
+        let mut branch_md = db.meta()?.branch(ref_name).cloned().unwrap_or_default();
         update_branch_metadata(ref_name, repo, &mut branch_md)?;
-        db.meta_mut()?.set_branch(&branch_md)?;
+        db.meta_mut()?.set_branch(ref_name, &branch_md)?;
 
         Ok(Cow::Owned(updated_workspace))
     }
@@ -572,7 +576,10 @@ pub(super) mod function {
             );
         };
         let target_id = anchor_reference.peel_to_id()?.detach();
-        let existing_order = meta.branch_stack_order(anchor_ref)?.unwrap_or_default();
+        let existing_order = meta
+            .branch_stack_order(anchor_ref)
+            .unwrap_or_default()
+            .to_vec();
         let branch_stack_order =
             insert_into_branch_stack_order(existing_order, anchor_ref, new_ref, position);
 

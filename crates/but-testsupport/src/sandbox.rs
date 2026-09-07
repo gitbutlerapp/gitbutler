@@ -1,4 +1,4 @@
-use std::{io::Write, ops::DerefMut, path::Path};
+use std::{io::Write, path::Path};
 
 use but_core::{
     RepositoryExt, WORKSPACE_REF_NAME,
@@ -437,8 +437,13 @@ impl Sandbox {
     /// Create stack metadata for `branch_names` and return its StackIds, one per item in the input slice, in order.
     pub fn setup_metadata(&self, branch_names: &[&str]) -> Vec<StackId> {
         let mut db = self.db();
-        let mut ws = db.meta().unwrap().workspace(r(WORKSPACE_REF_NAME)).unwrap();
-        let ws_data: &mut but_core::ref_metadata::Workspace = ws.deref_mut();
+        let mut ws = db
+            .meta()
+            .unwrap()
+            .workspace(r(WORKSPACE_REF_NAME))
+            .cloned()
+            .unwrap_or_default();
+        let ws_data: &mut but_core::ref_metadata::Workspace = &mut ws;
         for (stable_id, branch_name) in (0_u128..).zip(branch_names.iter()) {
             ws_data.add_or_insert_new_stack_if_not_present(
                 r(&format!("refs/heads/{branch_name}")),
@@ -448,7 +453,10 @@ impl Sandbox {
             );
         }
         let out = ws_data.stacks.iter().map(|s| s.id).collect();
-        db.meta_mut().unwrap().set_workspace(&ws).unwrap();
+        db.meta_mut()
+            .unwrap()
+            .set_workspace(r(WORKSPACE_REF_NAME), &ws)
+            .unwrap();
 
         out
     }

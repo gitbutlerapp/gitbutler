@@ -1275,7 +1275,9 @@ fn single_merge_into_main_base_archived() -> anyhow::Result<()> {
     // But even if everything is marked as archived, only the ones that matter are hidden.
     let mut workspace = meta
         .meta()?
-        .workspace(but_core::WORKSPACE_REF_NAME.try_into()?)?;
+        .workspace(but_core::WORKSPACE_REF_NAME.try_into()?)
+        .cloned()
+        .unwrap_or_default();
     let stack = workspace
         .stacks
         .iter_mut()
@@ -1284,7 +1286,8 @@ fn single_merge_into_main_base_archived() -> anyhow::Result<()> {
     for branch in &mut stack.branches {
         branch.archived = true;
     }
-    meta.meta_mut()?.set_workspace(&workspace)?;
+    meta.meta_mut()?
+        .set_workspace(but_core::WORKSPACE_REF_NAME.try_into()?, &workspace)?;
 
     let graph = ws
         .graph
@@ -2138,7 +2141,12 @@ fn tips_equivalent_to_workspace_metadata_are_order_independent() -> anyhow::Resu
 
     let (id, ws_ref_name) = id_at(&repo, "gitbutler/workspace");
     let commit_id = id.detach();
-    let workspace_metadata = (*meta.meta().unwrap().workspace(ws_ref_name.as_ref())?).clone();
+    let workspace_metadata = meta
+        .meta()
+        .unwrap()
+        .workspace(ws_ref_name.as_ref())
+        .expect("workspace metadata is present")
+        .clone();
     let main_ref = super::ref_name("refs/heads/main");
     let origin_main_ref = super::ref_name("refs/remotes/origin/main");
     let stack_ref = |name: &str| super::ref_name(&format!("refs/heads/{name}"));
@@ -2414,14 +2422,17 @@ fn just_init_with_archived_branches() -> anyhow::Result<()> {
 
     let mut workspace = meta
         .meta()?
-        .workspace(but_core::WORKSPACE_REF_NAME.try_into()?)?;
+        .workspace(but_core::WORKSPACE_REF_NAME.try_into()?)
+        .cloned()
+        .unwrap_or_default();
     let stack = workspace
         .stacks
         .iter_mut()
         .find(|stack| stack.id == stack_id)
         .expect("just added");
     stack.branches[1].archived = true;
-    meta.meta_mut()?.set_workspace(&workspace)?;
+    meta.meta_mut()?
+        .set_workspace(but_core::WORKSPACE_REF_NAME.try_into()?, &workspace)?;
 
     // The first archived segment causes everything else to be hidden.
     let graph = ws
@@ -2446,7 +2457,8 @@ fn just_init_with_archived_branches() -> anyhow::Result<()> {
         .expect("just added");
     stack.branches[2].archived = true;
     stack.branches[1].archived = false;
-    meta.meta_mut()?.set_workspace(&workspace)?;
+    meta.meta_mut()?
+        .set_workspace(but_core::WORKSPACE_REF_NAME.try_into()?, &workspace)?;
 
     // Now only the first one is archived.
     let graph = ws
@@ -2472,7 +2484,8 @@ fn just_init_with_archived_branches() -> anyhow::Result<()> {
     for branch in &mut stack.branches {
         branch.archived = true;
     }
-    meta.meta_mut()?.set_workspace(&workspace)?;
+    meta.meta_mut()?
+        .set_workspace(but_core::WORKSPACE_REF_NAME.try_into()?, &workspace)?;
 
     // Archiving everything removes the stack entirely.
     let graph = ws

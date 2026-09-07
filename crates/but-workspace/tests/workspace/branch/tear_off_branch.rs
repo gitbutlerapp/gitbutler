@@ -598,9 +598,7 @@ fn set_workspace_metadata(
     ws_meta: Option<but_core::ref_metadata::Workspace>,
 ) -> anyhow::Result<()> {
     if let Some((ws_meta, ref_name)) = ws_meta.zip(ws.ref_name()) {
-        let mut md = meta.meta().unwrap().workspace(ref_name)?;
-        *md = ws_meta;
-        meta.meta_mut().unwrap().set_workspace(&md)?;
+        meta.meta_mut().unwrap().set_workspace(ref_name, &ws_meta)?;
     }
     Ok(())
 }

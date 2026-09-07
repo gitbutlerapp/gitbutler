@@ -45,11 +45,8 @@ fn single_branch_gets_pr_without_stored_metadata() -> anyhow::Result<()> {
     );
 
     let branch_name: gix::refs::FullName = format!("refs/heads/{BRANCH}").try_into()?;
-    let stored = ctx
-        .db
-        .get_cache()?
-        .meta()?
-        .branch_opt(branch_name.as_ref())?;
+    let metadata = ctx.db.get_cache()?.meta()?;
+    let stored = metadata.branch(branch_name.as_ref());
     assert!(
         stored.is_none(),
         "projection enrichment must not persist metadata for an ad-hoc branch"
@@ -64,9 +61,15 @@ fn empty_cache_preserves_the_stored_pr_of_an_integrated_branch() -> anyhow::Resu
     but_api::branch::apply_only(&mut ctx, branch_name.as_ref())?;
 
     let meta = ctx.db.get_cache()?.meta()?;
-    let mut branch = meta.branch(branch_name.as_ref())?;
+    let mut branch = meta
+        .branch(branch_name.as_ref())
+        .cloned()
+        .expect("branch metadata was saved");
     branch.review.pull_request = Some(99);
-    ctx.db.get_cache_mut()?.meta_mut()?.set_branch(&branch)?;
+    ctx.db
+        .get_cache_mut()?
+        .meta_mut()?
+        .set_branch(branch_name.as_ref(), &branch)?;
     drop(meta);
     integrate_feature(&ctx, branch_name.as_ref())?;
 

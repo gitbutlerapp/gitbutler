@@ -257,14 +257,19 @@ pub(crate) fn set_base_branch(
             };
 
             let mut db = ctx.db.get_cache_mut()?;
-            let mut workspace = db.meta()?.workspace(WORKSPACE_REF_NAME.try_into()?)?;
+            let mut workspace = db
+                .meta()?
+                .workspace(WORKSPACE_REF_NAME.try_into()?)
+                .cloned()
+                .unwrap_or_default();
             workspace.add_or_insert_new_stack_if_not_present(
                 stack_ref_name.as_ref(),
                 None,
                 WorkspaceCommitRelation::Merged,
                 |_| StackId::generate(),
             );
-            db.meta_mut()?.set_workspace(&workspace)?;
+            db.meta_mut()?
+                .set_workspace(WORKSPACE_REF_NAME.try_into()?, &workspace)?;
             drop((workspace, db));
             if !branch_matches_target {
                 repo.reference(

@@ -158,7 +158,7 @@ pub fn list(
             }
         },
     };
-    let applied_ref_names = applied_branch_ref_names(&db.meta()?)?;
+    let applied_ref_names = applied_branch_ref_names(&db.meta()?);
     let local_identities: BTreeSet<&BString> = refs_by_identity
         .values()
         .flatten()
@@ -650,16 +650,14 @@ fn enumerate_branch_refs(
 }
 
 /// The refs of all branches that are applied to the workspace, according to metadata.
-fn applied_branch_ref_names(meta: &but_db::Metadata) -> anyhow::Result<BTreeSet<FullName>> {
-    let ws_ref: FullName = WORKSPACE_REF_NAME.try_into()?;
-    let ws_md = meta.workspace(ws_ref.as_ref())?;
-    Ok(ws_md
-        .stacks
-        .iter()
+fn applied_branch_ref_names(meta: &but_db::Metadata) -> BTreeSet<FullName> {
+    meta.workspace(WORKSPACE_REF_NAME.try_into().expect("valid workspace ref"))
+        .into_iter()
+        .flat_map(|ws| &ws.stacks)
         .filter(|stack| stack.is_in_workspace())
         .flat_map(|stack| stack.branches.iter())
         .map(|branch| branch.ref_name.clone())
-        .collect())
+        .collect()
 }
 
 /// Read the author and the committer time of the branch tip; `None` if the commit

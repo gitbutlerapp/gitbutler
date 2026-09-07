@@ -2077,7 +2077,8 @@ fn queue_initial_tips(
                     &ctx.worktree_by_branch,
                 ));
                 segment.metadata = meta
-                    .branch_opt(desired_ref_name.as_ref())?
+                    .branch(desired_ref_name.as_ref())
+                    .cloned()
                     .map(SegmentMetadata::Branch);
             }
         }

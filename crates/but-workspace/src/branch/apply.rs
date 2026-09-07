@@ -278,7 +278,7 @@ pub fn apply(
         WorkspaceKind::AdHoc => false,
     };
     let branch_has_applied_metadata =
-        branch_has_applied_workspace_metadata(branch.as_ref(), &ws, &meta)?;
+        branch_has_applied_workspace_metadata(branch.as_ref(), &ws, &meta);
     let branch_already_applied = (ws.ref_name() == Some(branch.as_ref())
         || ws.refname_is_segment(branch.as_ref()))
         && branch_has_applied_metadata;
@@ -316,9 +316,18 @@ pub fn apply(
             let ws_ref_name = ws_ref_name
                 .as_ref()
                 .context("Workspace metadata must be available to repair stale applied state")?;
-            let mut ws_md = meta.workspace(ws_ref_name.as_ref())?;
+            let mut ws_md = meta
+                .workspace(ws_ref_name.as_ref())
+                .cloned()
+                .unwrap_or_default();
             add_branch_as_stack_forcefully(&mut ws_md, branch.as_ref(), order, new_stack_id);
-            persist_metadata_and_gitconfig(db, &applied_branches, &ws_md, None)?;
+            persist_metadata_and_gitconfig(
+                db,
+                &applied_branches,
+                ws_ref_name.as_ref(),
+                &ws_md,
+                None,
+            )?;
         }
         let ws = ws
             .graph
@@ -359,7 +368,7 @@ pub fn apply(
         bail!("Refusing to work on workspace whose workspace commit isn't at the top");
     }
 
-    if meta.workspace_opt(branch.as_ref())?.is_some() {
+    if meta.workspace(branch.as_ref()).is_some() {
         bail!(
             "Refusing to apply a reference that already is a workspace: '{}'",
             branch.shorten()
@@ -438,7 +447,10 @@ pub fn apply(
         },
     };
 
-    let mut ws_md = meta.workspace(workspace_ref_name_to_update.as_ref())?;
+    let mut ws_md = meta
+        .workspace(workspace_ref_name_to_update.as_ref())
+        .cloned()
+        .unwrap_or_default();
     // When HEAD is on a branch that's already in the workspace, applying another branch re-roots
     // the workspace around just that branch plus the ones we apply.
     let head_branch_in_workspace = head_ref_name.as_ref().is_some_and(|head| {
@@ -487,14 +499,16 @@ pub fn apply(
         } else {
             (None, None)
         };
-    let ws_md_override = Some((workspace_ref_name_to_update.clone(), (*ws_md).clone()));
+    let ws_md_override = Some((workspace_ref_name_to_update.clone(), ws_md.clone()));
     let branch_mds = branches_to_apply
         .iter()
         .map(|rn| {
-            meta.branch(rn.as_ref())
-                .map(|md| (rn.to_owned(), (*md).clone()))
+            (
+                rn.to_owned(),
+                meta.branch(rn.as_ref()).cloned().unwrap_or_default(),
+            )
         })
-        .collect::<Result<Vec<_>, _>>()?;
+        .collect::<Vec<_>>();
 
     let overlay = Overlay::default()
         .with_entrypoint(ws_ref_id, Some(workspace_ref_name_to_update.clone()))
@@ -536,6 +550,7 @@ pub fn apply(
         persist_metadata_and_gitconfig(
             db,
             &branches_to_apply,
+            workspace_ref_name_to_update.as_ref(),
             &ws_md,
             local_tracking_config_and_ref_info,
         )?;
@@ -626,7 +641,7 @@ pub fn apply(
     let mut conflicting_stacks =
         correlate_conflicting_stacks(&ws_md, &merge_result.conflicting_stacks);
     remove_conflicting_stacks_from_workspace(&mut ws_md, &conflicting_stacks);
-    let ws_md_override = Some((workspace_ref_name_to_update.clone(), (*ws_md).clone()));
+    let ws_md_override = Some((workspace_ref_name_to_update.clone(), ws_md.clone()));
     let overlay = overlay
         .with_entrypoint(new_head_id, Some(workspace_ref_name_to_update.clone()))
         .with_workspace_metadata_override(ws_md_override);
@@ -738,7 +753,7 @@ pub fn apply(
         new_head_id = merge_result.workspace_commit_id;
         conflicting_stacks = correlate_conflicting_stacks(&ws_md, &merge_result.conflicting_stacks);
         remove_conflicting_stacks_from_workspace(&mut ws_md, &conflicting_stacks);
-        let ws_md_override = Some((workspace_ref_name_to_update.clone(), (*ws_md).clone()));
+        let ws_md_override = Some((workspace_ref_name_to_update.clone(), ws_md.clone()));
         ws = ws
             .graph
             .redo_traversal_with_overlay(
@@ -783,6 +798,7 @@ pub fn apply(
     persist_metadata_and_gitconfig(
         db,
         &branches_to_apply,
+        workspace_ref_name_to_update.as_ref(),
         &ws_md,
         local_tracking_config_and_ref_info,
     )?;
@@ -859,14 +875,14 @@ fn branch_has_applied_workspace_metadata(
     branch: &FullNameRef,
     ws: &but_graph::Workspace,
     meta: &but_db::Metadata,
-) -> anyhow::Result<bool> {
+) -> bool {
     let Some(ws_ref_name) = ws.ref_name() else {
-        return Ok(true);
+        return true;
     };
-    let Some(ws_md) = meta.workspace_opt(ws_ref_name)? else {
-        return Ok(true);
+    let Some(ws_md) = meta.workspace(ws_ref_name) else {
+        return true;
     };
-    Ok(ws_md.find_branch(branch, StackKind::Applied).is_some() || ws_ref_name == branch)
+    ws_md.find_branch(branch, StackKind::Applied).is_some() || ws_ref_name == branch
 }
 
 fn filter_superseded_metadata_stacks<'a>(
@@ -1006,20 +1022,21 @@ fn add_branch_as_stack_forcefully(
 fn persist_metadata_and_gitconfig(
     db: &mut but_db::ConnectionMut<'_, '_>,
     branches_to_apply: &[gix::refs::FullName],
-    ws_md: &but_db::MetadataHandle<Workspace>,
+    ws_ref_name: &FullNameRef,
+    ws_md: &Workspace,
     config_and_ref: Option<(
         gix::config::FileTransaction,
         (gix::refs::FullName, &gix::refs::FullNameRef, gix::Id),
     )>,
 ) -> anyhow::Result<()> {
-    db.meta_mut()?.set_workspace(ws_md)?;
+    db.meta_mut()?.set_workspace(ws_ref_name, ws_md)?;
     let meta = db.meta()?;
     // Always re-obtain the branch information after it was set
     // because setting the workspace may move branches between stacks.
     for rn in branches_to_apply {
-        let mut md = meta.branch(rn.as_ref())?;
+        let mut md = meta.branch(rn.as_ref()).cloned().unwrap_or_default();
         md.update_times(false /* is new ref */);
-        db.meta_mut()?.set_branch(&md)?;
+        db.meta_mut()?.set_branch(rn.as_ref(), &md)?;
     }
 
     if let Some((config, (ref_to_create, remote_tracking_ref, ref_target_id))) = config_and_ref {

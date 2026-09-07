@@ -100,11 +100,9 @@ fn move_non_empty_branch_dry_run_previews_new_tip_without_mutating_repository() 
             repo.rev_parse_single(target.as_ref())?.detach(),
         )
     };
-    let order_before = ctx
-        .db
-        .get_cache()?
-        .meta()?
-        .branch_stack_order(target.as_ref())?
+    let order_before_metadata = ctx.db.get_cache()?.meta()?;
+    let order_before = order_before_metadata
+        .branch_stack_order(target.as_ref())
         .expect("branch order is configured");
 
     let result =
@@ -123,7 +121,7 @@ fn move_non_empty_branch_dry_run_previews_new_tip_without_mutating_repository() 
         ctx.db
             .get_cache()?
             .meta()?
-            .branch_stack_order(target.as_ref())?,
+            .branch_stack_order(target.as_ref()),
         Some(order_before)
     );
 
@@ -156,8 +154,8 @@ fn move_checked_out_top_branch_down_checks_out_new_top() -> anyhow::Result<()> {
         ctx.db
             .get_cache()?
             .meta()?
-            .branch_stack_order(new_tip.as_ref())?,
-        Some(vec![new_tip, subject, target]),
+            .branch_stack_order(new_tip.as_ref()),
+        Some([new_tip, subject, target].as_slice()),
         "the persisted branch order should match the graph rewrite"
     );
 
@@ -169,11 +167,9 @@ fn move_checked_out_top_branch_down_dry_run_does_not_persist_order() -> anyhow::
     let (mut ctx, _tmp) = context_with_three_branch_stack()?;
     let subject: gix::refs::FullName = "refs/heads/C".try_into()?;
     let target: gix::refs::FullName = "refs/heads/A".try_into()?;
-    let order_before = ctx
-        .db
-        .get_cache()?
-        .meta()?
-        .branch_stack_order(subject.as_ref())?
+    let order_before_metadata = ctx.db.get_cache()?.meta()?;
+    let order_before = order_before_metadata
+        .branch_stack_order(subject.as_ref())
         .expect("branch order is configured");
 
     let result =
@@ -195,7 +191,7 @@ fn move_checked_out_top_branch_down_dry_run_does_not_persist_order() -> anyhow::
         ctx.db
             .get_cache()?
             .meta()?
-            .branch_stack_order(subject.as_ref())?,
+            .branch_stack_order(subject.as_ref()),
         Some(order_before),
         "dry-run should not persist the proposed order"
     );
@@ -226,11 +222,8 @@ fn successful_branch_move_returns_and_persists_reordered_stack() -> anyhow::Resu
         "a lower-branch reorder should leave HEAD on the stack tip"
     );
     assert_eq!(
-        ctx.db
-            .get_cache()?
-            .meta()?
-            .branch_stack_order(tip.as_ref())?,
-        Some(vec![tip, subject, target]),
+        ctx.db.get_cache()?.meta()?.branch_stack_order(tip.as_ref()),
+        Some([tip, subject, target].as_slice()),
         "the successful materialization should persist the new order"
     );
 
@@ -280,8 +273,8 @@ fn move_empty_top_branch_below_middle_preserves_commit_ownership() -> anyhow::Re
         ctx.db
             .get_cache()?
             .meta()?
-            .branch_stack_order(middle.as_ref())?,
-        Some(vec![middle, empty_top, bottom]),
+            .branch_stack_order(middle.as_ref()),
+        Some([middle, empty_top, bottom].as_slice()),
         "the persisted order matches the ownership-preserving ref move"
     );
 
@@ -297,11 +290,9 @@ fn move_empty_branch_dry_run_previews_new_order_without_persisting_it() -> anyho
     let tip: gix::refs::FullName = "refs/heads/tip".try_into()?;
     create_empty_branch_above(&mut ctx, &middle, &main)?;
     create_empty_branch_above(&mut ctx, &tip, &middle)?;
-    let order_before = ctx
-        .db
-        .get_cache()?
-        .meta()?
-        .branch_stack_order(tip.as_ref())?
+    let order_before_metadata = ctx.db.get_cache()?.meta()?;
+    let order_before = order_before_metadata
+        .branch_stack_order(tip.as_ref())
         .expect("branch order is configured");
     let oplog_head_before = ctx.oplog_head()?;
 
@@ -320,10 +311,7 @@ fn move_empty_branch_dry_run_previews_new_order_without_persisting_it() -> anyho
         "dry-run leaves HEAD on the original tip"
     );
     assert_eq!(
-        ctx.db
-            .get_cache()?
-            .meta()?
-            .branch_stack_order(tip.as_ref())?,
+        ctx.db.get_cache()?.meta()?.branch_stack_order(tip.as_ref()),
         Some(order_before),
         "dry-run leaves the persisted order unchanged"
     );
@@ -346,19 +334,15 @@ fn metadata_only_branch_move_can_be_undone_and_redone() -> anyhow::Result<()> {
     let tip: gix::refs::FullName = "refs/heads/tip".try_into()?;
     create_empty_branch_above(&mut ctx, &middle, &main)?;
     create_empty_branch_above(&mut ctx, &tip, &middle)?;
-    let order_before = ctx
-        .db
-        .get_cache()?
-        .meta()?
-        .branch_stack_order(tip.as_ref())?
+    let order_before_metadata = ctx.db.get_cache()?.meta()?;
+    let order_before = order_before_metadata
+        .branch_stack_order(tip.as_ref())
         .expect("branch order is configured");
 
     but_api::branch::move_branch(&mut ctx, middle.as_ref(), tip.as_ref(), DryRun::No)?;
-    let order_after = ctx
-        .db
-        .get_cache()?
-        .meta()?
-        .branch_stack_order(middle.as_ref())?
+    let order_after_metadata = ctx.db.get_cache()?.meta()?;
+    let order_after = order_after_metadata
+        .branch_stack_order(middle.as_ref())
         .expect("the move persists a reordered chain");
     assert_ne!(
         order_after, order_before,
@@ -373,10 +357,7 @@ fn metadata_only_branch_move_can_be_undone_and_redone() -> anyhow::Result<()> {
         guard.write_permission(),
     )?;
     assert_eq!(
-        ctx.db
-            .get_cache()?
-            .meta()?
-            .branch_stack_order(tip.as_ref())?,
+        ctx.db.get_cache()?.meta()?.branch_stack_order(tip.as_ref()),
         Some(order_before),
         "undo should restore the original branch order"
     );
@@ -390,7 +371,7 @@ fn metadata_only_branch_move_can_be_undone_and_redone() -> anyhow::Result<()> {
         ctx.db
             .get_cache()?
             .meta()?
-            .branch_stack_order(middle.as_ref())?,
+            .branch_stack_order(middle.as_ref()),
         Some(order_after),
         "redo should restore the moved branch order"
     );

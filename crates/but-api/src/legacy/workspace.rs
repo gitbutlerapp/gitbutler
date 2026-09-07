@@ -174,7 +174,11 @@ pub fn branch_details(
         but_workspace::branch_details(
             &repo,
             ref_name.as_ref(),
-            &*ctx.db.get_cache()?.meta()?.branch(ref_name.as_ref())?,
+            ctx.db
+                .get_cache()?
+                .meta()?
+                .branch(ref_name.as_ref())
+                .unwrap_or(&Default::default()),
             &project_meta,
         )
     }?;

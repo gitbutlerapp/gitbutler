@@ -144,11 +144,12 @@ fn applied_stacks_with_options(
     ctx: &Context,
     expensive_commit_info: bool,
 ) -> anyhow::Result<Vec<HeadInfoStack>> {
-    let metadata = workspace_metadata(&ctx.db.get_cache()?.meta()?)?;
+    let metadata = ctx.db.get_cache()?.meta()?;
+    let workspace_metadata = metadata.workspace(WORKSPACE_REF_NAME.try_into()?);
     let (info, object_hash) = head_info(ctx, expensive_commit_info)?;
     Ok(head_info_stacks(
         &info,
-        metadata.as_ref(),
+        workspace_metadata,
         object_hash.null(),
         ctx.settings.feature_flags.single_branch,
     ))
@@ -159,12 +160,13 @@ fn applied_stacks_with_options(
 pub fn applied_lanes_with_expensive_commit_info(
     ctx: &Context,
 ) -> anyhow::Result<Vec<HeadInfoStack>> {
-    let metadata = workspace_metadata(&ctx.db.get_cache()?.meta()?)?;
+    let metadata = ctx.db.get_cache()?.meta()?;
+    let workspace_metadata = metadata.workspace(WORKSPACE_REF_NAME.try_into()?);
     let (info, object_hash) = head_info(ctx, true)?;
     let null_id = object_hash.null();
     let mut lanes = head_info_stacks(
         &info,
-        metadata.as_ref(),
+        workspace_metadata,
         null_id,
         ctx.settings.feature_flags.single_branch,
     );
@@ -221,13 +223,6 @@ fn applied_stack_from_stacks(
             .next()
             .context("Expected at least one stack in workspace"),
     }
-}
-
-fn workspace_metadata(meta: &but_db::Metadata) -> anyhow::Result<Option<Workspace>> {
-    let workspace_ref: gix::refs::FullName = WORKSPACE_REF_NAME.try_into()?;
-    Ok(meta
-        .workspace_opt(workspace_ref.as_ref())?
-        .map(|workspace| (*workspace).clone()))
 }
 
 fn head_info_stacks(

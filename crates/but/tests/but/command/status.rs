@@ -839,16 +839,19 @@ fn unmerged_empty_branch_above_merged_one_is_not_treated_as_merged() {
     env.setup_metadata(&["bottom"]);
     // Stack `top` directly above `bottom` so they form a single two-branch stack.
     {
-        use std::ops::DerefMut as _;
         let mut db = env.db();
         let ws_ref: &gix::refs::FullNameRef = but_core::WORKSPACE_REF_NAME.try_into().unwrap();
-        let mut ws = db.meta().unwrap().workspace(ws_ref).unwrap();
-        ws.deref_mut()
-            .insert_new_segment_above_anchor_if_not_present(
-                "refs/heads/top".try_into().unwrap(),
-                "refs/heads/bottom".try_into().unwrap(),
-            );
-        db.meta_mut().unwrap().set_workspace(&ws).unwrap();
+        let mut ws = db
+            .meta()
+            .unwrap()
+            .workspace(ws_ref)
+            .cloned()
+            .unwrap_or_default();
+        ws.insert_new_segment_above_anchor_if_not_present(
+            "refs/heads/top".try_into().unwrap(),
+            "refs/heads/bottom".try_into().unwrap(),
+        );
+        db.meta_mut().unwrap().set_workspace(ws_ref, &ws).unwrap();
     }
 
     // `bottom` merged upstream; `top` rests on it and must not be labelled merged.
@@ -904,16 +907,19 @@ fn no_change_commit_above_squash_merged_branch_is_not_treated_as_merged() {
     env.setup_metadata(&["bottom"]);
     // Stack `top` directly above `bottom` so they form a single two-branch stack.
     {
-        use std::ops::DerefMut as _;
         let mut db = env.db();
         let ws_ref: &gix::refs::FullNameRef = but_core::WORKSPACE_REF_NAME.try_into().unwrap();
-        let mut ws = db.meta().unwrap().workspace(ws_ref).unwrap();
-        ws.deref_mut()
-            .insert_new_segment_above_anchor_if_not_present(
-                "refs/heads/top".try_into().unwrap(),
-                "refs/heads/bottom".try_into().unwrap(),
-            );
-        db.meta_mut().unwrap().set_workspace(&ws).unwrap();
+        let mut ws = db
+            .meta()
+            .unwrap()
+            .workspace(ws_ref)
+            .cloned()
+            .unwrap_or_default();
+        ws.insert_new_segment_above_anchor_if_not_present(
+            "refs/heads/top".try_into().unwrap(),
+            "refs/heads/bottom".try_into().unwrap(),
+        );
+        db.meta_mut().unwrap().set_workspace(ws_ref, &ws).unwrap();
     }
 
     // `bottom` was squash-merged upstream and must be labelled `(merged upstream)`.
@@ -1162,16 +1168,19 @@ fn status_upstream_advanced_target_does_not_leak_branches() {
     // Add old-integrated to A's stack in metadata, simulating auto-discovery
     // before the branch was integrated upstream.
     {
-        use std::ops::DerefMut;
         let mut db = env.db();
         let ws_ref: &gix::refs::FullNameRef = but_core::WORKSPACE_REF_NAME.try_into().unwrap();
-        let mut ws = db.meta().unwrap().workspace(ws_ref).unwrap();
-        ws.deref_mut()
-            .insert_new_segment_above_anchor_if_not_present(
-                "refs/heads/old-integrated".try_into().unwrap(),
-                "refs/heads/A".try_into().unwrap(),
-            );
-        db.meta_mut().unwrap().set_workspace(&ws).unwrap();
+        let mut ws = db
+            .meta()
+            .unwrap()
+            .workspace(ws_ref)
+            .cloned()
+            .unwrap_or_default();
+        ws.insert_new_segment_above_anchor_if_not_present(
+            "refs/heads/old-integrated".try_into().unwrap(),
+            "refs/heads/A".try_into().unwrap(),
+        );
+        db.meta_mut().unwrap().set_workspace(ws_ref, &ws).unwrap();
     }
 
     let output = env

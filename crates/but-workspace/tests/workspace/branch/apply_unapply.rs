@@ -54,9 +54,9 @@ fn failed_unapply_rolls_back_metadata_in_transaction() -> anyhow::Result<()> {
 
     let (_tmp, repo, mut db) = named_writable_scenario("single-stack-two-segments")?;
     let main = r("refs/heads/main");
-    let mut branch = db.meta()?.branch(main)?;
+    let mut branch = db.meta()?.branch(main).cloned().unwrap_or_default();
     branch.review.pull_request = Some(42);
-    db.meta_mut()?.set_branch(&branch)?;
+    db.meta_mut()?.set_branch(main, &branch)?;
     db.meta_mut()?.set_branch_stack_order(&[main.to_owned()])?;
     let workspace = Graph::from_commit_traversal(
         repo.rev_parse_single("A2")?,
@@ -88,7 +88,7 @@ fn failed_unapply_rolls_back_metadata_in_transaction() -> anyhow::Result<()> {
             "the failure occurs after removing metadata and retraversing the graph"
         );
         assert!(
-            tx.meta()?.branch_opt(main)?.is_none(),
+            tx.meta()?.branch(main).is_none(),
             "unapply removed branch metadata inside the failed transaction"
         );
         assert_eq!(
@@ -1840,14 +1840,19 @@ Outcome {
     );
 
     // Reset the workspace to 'unapply', but keep the per-branch metadata.
+    let workspace_ref = ws.ref_name().expect("proper gb workspace");
     let mut ws_md = meta
         .meta()
         .unwrap()
-        .workspace(ws.ref_name().expect("proper gb workspace"))?;
+        .workspace(workspace_ref)
+        .cloned()
+        .unwrap_or_default();
     for stack in &mut ws_md.stacks {
         stack.workspacecommit_relation = Outside;
     }
-    meta.meta_mut().unwrap().set_workspace(&ws_md)?;
+    meta.meta_mut()
+        .unwrap()
+        .set_workspace(workspace_ref, &ws_md)?;
 
     let ws = ws
         .graph
@@ -2166,10 +2171,10 @@ fn apply_after_switching_out_of_workspace_drops_stale_stacks() -> anyhow::Result
     )?;
     assert_eq!(out.status, OutcomeStatus::Applied);
 
-    let ws_md = meta
-        .meta()
-        .unwrap()
-        .workspace(WORKSPACE_REF_NAME.try_into().unwrap())?;
+    let metadata = meta.meta().unwrap();
+    let ws_md = metadata
+        .workspace(WORKSPACE_REF_NAME.try_into().unwrap())
+        .expect("metadata is present");
     let in_workspace = |name: &str| {
         ws_md
             .stacks
@@ -2264,7 +2269,10 @@ fn apply_in_managed_workspace_drops_stack_whose_ref_disappeared() -> anyhow::Res
 "#]]
     );
 
-    let ws_md = meta.meta().unwrap().workspace(r(WORKSPACE_REF_NAME))?;
+    let metadata = meta.meta().unwrap();
+    let ws_md = metadata
+        .workspace(r(WORKSPACE_REF_NAME))
+        .expect("metadata is present");
     assert!(
         ws_md
             .find_branch(r("refs/heads/A"), StackKind::AppliedAndUnapplied)
@@ -2435,10 +2443,10 @@ fn apply_from_enclosed_adhoc_workspace_rebuilds_around_current_and_applied() -> 
         "applying from an ad-hoc checkout should switch back to the managed workspace"
     );
 
-    let ws_md = meta
-        .meta()
-        .unwrap()
-        .workspace(WORKSPACE_REF_NAME.try_into().unwrap())?;
+    let metadata = meta.meta().unwrap();
+    let ws_md = metadata
+        .workspace(WORKSPACE_REF_NAME.try_into().unwrap())
+        .expect("metadata is present");
     let in_workspace = |name: &str| {
         ws_md
             .stacks
@@ -2605,10 +2613,10 @@ fn apply_from_adhoc_checkout_rebuilds_around_current_and_applied() -> anyhow::Re
         "applying from an ad-hoc checkout should switch back to the managed workspace"
     );
 
-    let ws_md = meta
-        .meta()
-        .unwrap()
-        .workspace(WORKSPACE_REF_NAME.try_into().unwrap())?;
+    let metadata = meta.meta().unwrap();
+    let ws_md = metadata
+        .workspace(WORKSPACE_REF_NAME.try_into().unwrap())
+        .expect("metadata is present");
     let in_workspace = |name: &str| {
         ws_md
             .stacks
@@ -2680,10 +2688,10 @@ fn apply_already_applied_branch_from_adhoc_checkout_excludes_other_applied_stack
     );
     assert_worktree_files(&repo, &["A", "C"], &["B"]);
 
-    let ws_md = meta
-        .meta()
-        .unwrap()
-        .workspace(WORKSPACE_REF_NAME.try_into().unwrap())?;
+    let metadata = meta.meta().unwrap();
+    let ws_md = metadata
+        .workspace(WORKSPACE_REF_NAME.try_into().unwrap())
+        .expect("metadata is present");
     let in_workspace = |name: &str| {
         ws_md
             .stacks
@@ -3505,11 +3513,18 @@ fn apply_repairs_stale_outside_metadata_for_reachable_branch() -> anyhow::Result
         "fixture must start with B visible in the cached workspace graph"
     );
 
-    let mut ws_md = meta.meta().unwrap().workspace(r(WORKSPACE_REF_NAME))?;
+    let mut ws_md = meta
+        .meta()
+        .unwrap()
+        .workspace(r(WORKSPACE_REF_NAME))
+        .cloned()
+        .unwrap_or_default();
     for stack in &mut ws_md.stacks {
         stack.workspacecommit_relation = Outside;
     }
-    meta.meta_mut().unwrap().set_workspace(&ws_md)?;
+    meta.meta_mut()
+        .unwrap()
+        .set_workspace(r(WORKSPACE_REF_NAME), &ws_md)?;
 
     let out = but_workspace::branch::apply(
         r("refs/heads/B"),
@@ -3525,7 +3540,10 @@ fn apply_repairs_stale_outside_metadata_for_reachable_branch() -> anyhow::Result
     );
     assert_eq!(out.applied_branches, [r("refs/heads/B").to_owned()]);
 
-    let ws_md = meta.meta().unwrap().workspace(r(WORKSPACE_REF_NAME))?;
+    let metadata = meta.meta().unwrap();
+    let ws_md = metadata
+        .workspace(r(WORKSPACE_REF_NAME))
+        .expect("metadata is present");
     assert!(
         ws_md
             .find_branch(r("refs/heads/B"), StackKind::Applied)
@@ -5795,12 +5813,19 @@ Outcome {
     );
 
     // Simulate stale metadata: the cached graph still contains A, but metadata says it is outside.
-    let mut ws_md = meta.meta().unwrap().workspace(r(WORKSPACE_REF_NAME))?;
+    let mut ws_md = meta
+        .meta()
+        .unwrap()
+        .workspace(r(WORKSPACE_REF_NAME))
+        .cloned()
+        .unwrap_or_default();
     let (stack_idx, _) = ws_md
         .find_owner_indexes_by_name(r("refs/heads/A"), StackKind::AppliedAndUnapplied)
         .expect("A is in metadata");
     ws_md.stacks[stack_idx].workspacecommit_relation = Outside;
-    meta.meta_mut().unwrap().set_workspace(&ws_md)?;
+    meta.meta_mut()
+        .unwrap()
+        .set_workspace(r(WORKSPACE_REF_NAME), &ws_md)?;
 
     // To apply A, we checkout the surrounding workspace and repair the stale metadata.
     let out = but_workspace::branch::apply(
@@ -5826,7 +5851,10 @@ Outcome {
 
 "#]]
     );
-    let ws_md = meta.meta().unwrap().workspace(r(WORKSPACE_REF_NAME))?;
+    let metadata = meta.meta().unwrap();
+    let ws_md = metadata
+        .workspace(r(WORKSPACE_REF_NAME))
+        .expect("metadata is present");
     assert!(
         ws_md
             .find_branch(r("refs/heads/A"), StackKind::Applied)

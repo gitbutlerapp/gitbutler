@@ -499,10 +499,8 @@ fn unambiguous_local_branch_and_segment_data(
                 .unwrap_or_default()
         }
         Some((ref_name, maybe_metadata)) => {
-            let metadata = maybe_metadata
-                .map(Ok)
-                .or_else(|| extract_local_branch_metadata(ref_name.as_ref(), meta).transpose())
-                .transpose()?;
+            let metadata =
+                maybe_metadata.or_else(|| extract_local_branch_metadata(ref_name.as_ref(), meta));
             (Some(ref_name), metadata)
         }
     })
@@ -522,14 +520,7 @@ pub fn disambiguate_refs_by_branch_metadata<'a>(
     meta: &OverlayMetadata<'_>,
 ) -> Option<(gix::refs::FullName, Option<SegmentMetadata>)> {
     let branches = branches
-        .map(|rn| {
-            (
-                rn,
-                extract_local_branch_metadata(rn.as_ref(), meta)
-                    .ok()
-                    .flatten(),
-            )
-        })
+        .map(|rn| (rn, extract_local_branch_metadata(rn.as_ref(), meta)))
         .collect::<Vec<_>>();
     let mut branches_with_metadata = branches
         .iter()
@@ -550,22 +541,21 @@ pub fn disambiguate_refs_by_branch_metadata<'a>(
 fn extract_local_branch_metadata(
     ref_name: &gix::refs::FullNameRef,
     meta: &OverlayMetadata<'_>,
-) -> anyhow::Result<Option<SegmentMetadata>> {
+) -> Option<SegmentMetadata> {
     if ref_name.category() != Some(Category::LocalBranch) {
-        return Ok(None);
+        return None;
     }
-    meta.branch_opt(ref_name)
-        .map(|res| res.map(SegmentMetadata::Branch))
-        .transpose()
+    meta.branch(ref_name)
+        .cloned()
+        .map(SegmentMetadata::Branch)
         // Also check for workspace data so we always correctly classify segments.
         // This could happen if we run over another workspace commit which is reachable
         // through the current tip.
         .or_else(|| {
-            meta.workspace_opt(ref_name)
-                .map(|res| res.map(|md| SegmentMetadata::Workspace(md.clone())))
-                .transpose()
+            meta.workspace(ref_name)
+                .cloned()
+                .map(SegmentMetadata::Workspace)
         })
-        .transpose()
 }
 
 // Like the plumbing type, but will keep information that was already accessible for us.
@@ -751,14 +741,9 @@ pub fn obtain_workspace_infos(
     meta: &OverlayMetadata<'_>,
 ) -> anyhow::Result<Vec<(gix::ObjectId, gix::refs::FullName, ref_metadata::Workspace)>> {
     let workspaces = if let Some((ref_name, ws_data)) = maybe_ref_name
-        .and_then(|ref_name| {
-            meta.workspace_opt(ref_name)
-                .transpose()
-                .map(|res| res.map(|ws_data| (ref_name, ws_data)))
-        })
-        .transpose()?
+        .and_then(|ref_name| meta.workspace(ref_name).map(|ws_data| (ref_name, ws_data)))
     {
-        vec![(ref_name.to_owned(), ws_data)]
+        vec![(ref_name, ws_data)]
     } else {
         meta.iter_workspaces().collect()
     };
@@ -771,14 +756,14 @@ pub fn obtain_workspace_infos(
             );
             continue;
         }
-        let Some(ws_tip) = try_refname_to_id(repo, rn.as_ref())? else {
+        let Some(ws_tip) = try_refname_to_id(repo, rn)? else {
             tracing::warn!(
                 "Ignoring stale workspace ref '{rn}', which didn't exist in Git but still had workspace data",
             );
             continue;
         };
 
-        out.push((ws_tip, rn, data))
+        out.push((ws_tip, rn.to_owned(), data.clone()))
     }
 
     Ok(out)

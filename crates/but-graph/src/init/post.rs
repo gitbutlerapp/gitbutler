@@ -550,10 +550,9 @@ impl Graph {
                         {
                             s.ref_info = first_commit.refs.pop();
                             s.metadata = meta
-                                .branch_opt(s.ref_name().expect("just set"))
-                                .ok()
-                                .flatten()
-                                .map(|md| SegmentMetadata::Branch(md.clone()));
+                                .branch(s.ref_name().expect("just set"))
+                                .cloned()
+                                .map(SegmentMetadata::Branch);
                         }
                     }
                     _ => {
@@ -1384,7 +1383,8 @@ impl Graph {
 
         let local_segment = crate::Segment {
             metadata: meta
-                .branch_opt(local_ref_name.as_ref())?
+                .branch(local_ref_name.as_ref())
+                .cloned()
                 .map(SegmentMetadata::Branch),
             ref_info: Some(crate::RefInfo::from_ref(
                 local_ref_name.clone(),
@@ -1484,7 +1484,7 @@ impl Graph {
         let Some((_entrypoint_sidx, _entrypoint)) = self.entrypoint else {
             return Ok(());
         };
-        let Some(branch_order) = meta.branch_stack_order(entrypoint_ref.as_ref())? else {
+        let Some(branch_order) = meta.branch_stack_order(entrypoint_ref.as_ref()) else {
             return Ok(());
         };
         let mut existing_ordered_refs = Vec::new();
@@ -1511,7 +1511,7 @@ impl Graph {
                     )
                 })?
                 .detach();
-            existing_ordered_refs.push((branch, commit_id));
+            existing_ordered_refs.push((branch.clone(), commit_id));
         }
         if existing_ordered_refs.len() < 2 {
             return Ok(());
