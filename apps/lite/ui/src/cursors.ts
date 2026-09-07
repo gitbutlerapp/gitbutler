@@ -14,13 +14,14 @@ import type { SelectedLineRange } from "@pierre/diffs";
 
 export type DiffLineSelection = {
 	file: FileAddress;
-	range: SelectedLineRange;
+	/** Null selects the file's first changed block in the destination viewer's layout. */
+	range: SelectedLineRange | null;
 };
 
 /**
  * The app's named lists, each with one cursor. The five URL-backed cursors store
  * item identity and resolve it against what their list currently shows. `diff`
- * is the exception: it stores a file identity plus Pierre's exact visual line
+ * is the exception: it stores a file identity plus an optional visual line
  * range in Redux because that range does not belong in the URL.
  *
  * `uncommitted` and `files` stay path-keyed on purpose: a bare path survives
@@ -61,8 +62,12 @@ export const cursorKey: { [L in CursorName]: (item: CursorItem[L]) => string } =
 	upstream: addressIdentityKey,
 	uncommitted: pathKey,
 	files: pathKey,
-	diff: ({ file, range }) =>
-		`${weakFileIdentityKey(file)}\u0000${range.start}\u0000${range.side ?? "additions"}\u0000${range.end}\u0000${range.endSide ?? range.side ?? "additions"}`,
+	diff: ({ file, range }) => {
+		const fileKey = weakFileIdentityKey(file);
+		return range === null
+			? `${fileKey}\u0000first-block`
+			: `${fileKey}\u0000${range.start}\u0000${range.side ?? "additions"}\u0000${range.end}\u0000${range.endSide ?? range.side ?? "additions"}`;
+	},
 };
 
 /* The diff cursor is store-held, so history rewrites remap it in the store;
