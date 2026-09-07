@@ -21,6 +21,41 @@ fn workspace(db: &DbHandle) -> anyhow::Result<MetadataHandle<Workspace>> {
 }
 
 #[test]
+fn standalone_metadata_mutation_reserves_writer_before_reading() -> anyhow::Result<()> {
+    let dir = tempfile::tempdir()?;
+    let mut db = DbHandle::new_in_directory(dir.path())?;
+    let mut observer = DbHandle::new_in_directory(dir.path())?;
+    let workspace = workspace(&db)?;
+
+    for commit in [false, true] {
+        let mutation = db.meta_mut()?;
+        assert!(
+            observer.immediate_transaction_nonblocking()?.is_none(),
+            "another writer must not invalidate the metadata snapshot before its writes"
+        );
+        assert!(
+            observer.meta()?.workspaces().next().is_none(),
+            "readers remain able to inspect committed metadata"
+        );
+        if commit {
+            mutation.set_workspace(&workspace)?;
+        } else {
+            drop(mutation);
+        }
+        assert!(
+            observer.immediate_transaction_nonblocking()?.is_some(),
+            "committing or dropping the metadata mutation releases the writer lock"
+        );
+        assert_eq!(
+            dir.path().join("REFRESH").exists(),
+            commit,
+            "only a committed metadata mutation notifies observers"
+        );
+    }
+    Ok(())
+}
+
+#[test]
 fn metadata_is_isolated_and_notifies_only_after_commit() -> anyhow::Result<()> {
     let dir = tempfile::tempdir()?;
     let mut db = DbHandle::new_in_directory(dir.path())?;
