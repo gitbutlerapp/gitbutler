@@ -64,9 +64,9 @@
 
 	flex-grow: 1;
 
-	/* Gradient ramp that fades out the scrolling items, shown only once the
-	   list has been scrolled away from the top and there is still more content
-	   below. An untouched list shows no ramp. */
+	/* Gradient ramp that fades out the scrolling items, shown whenever there
+	   is more content below the fold, scrolled or not. It goes once the list
+	   reaches its end, when there is nothing left to hint at. */
 	&::after {
 		display: block;
 		z-index: 1;
@@ -82,7 +82,7 @@
 		pointer-events: none;
 		transition: opacity 120ms ease;
 
-		@container scroll-state((scrollable: top) and (scrollable: bottom)) {
+		@container scroll-state(scrollable: bottom) {
 			opacity: 1;
 		}
 	}
