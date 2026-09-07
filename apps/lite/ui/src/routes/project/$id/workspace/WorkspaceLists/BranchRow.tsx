@@ -28,6 +28,7 @@ import type {
 	InsertSide,
 	PushStatus,
 	RelativeTo,
+	RemoteTrackingReference,
 	Stack,
 } from "@gitbutler/but-sdk";
 import { useQuery } from "@tanstack/react-query";
@@ -46,6 +47,7 @@ import {
 	type NativeMenuItem,
 } from "#ui/native-menu.ts";
 import { branchAddress, addressEquals, type BranchAddress } from "#ui/addresses.ts";
+import { openUpdateFromRemote } from "./update-from-remote.ts";
 import { projectSlice } from "#ui/projects/state.ts";
 import { focusScope } from "#ui/focus-scopes.ts";
 import { getHeadInfoIndex } from "#ui/api/ref-info.ts";
@@ -129,6 +131,10 @@ export const BranchRow: FC<
 		downstackPushStatus: DownstackPushStatus;
 		pushActivity: PushActivity;
 		pushStatus: PushStatus;
+		canUpdateFromRemote: boolean;
+		remote: RemoteTrackingReference | null;
+		/** How many commits the remote has that the branch does not. */
+		incoming: number;
 		/** The segment's projection-recorded review number, if any. */
 		recordedPullRequest: number | null;
 		graphStatus: GraphSegmentStatus;
@@ -148,6 +154,9 @@ export const BranchRow: FC<
 	downstackPushStatus,
 	pushActivity,
 	pushStatus,
+	canUpdateFromRemote,
+	remote,
+	incoming,
 	recordedPullRequest,
 	graphStatus,
 	bottomRelativeTo,
@@ -336,6 +345,22 @@ export const BranchRow: FC<
 			: "Push Branch";
 
 	const foldLabel = isFolded ? "Unfold commits" : "Fold commits";
+	const incomingExpanded = useAppSelector((state) =>
+		projectSlice.selectors.selectIncomingExpanded(state, projectId, branchRef),
+	);
+	const toggleIncoming = () =>
+		dispatch(projectSlice.actions.toggleIncomingExpanded({ projectId, branchRef }));
+	const remoteLabel = remote === null ? null : `${remote.remoteName}/${remote.displayName}`;
+	// Why a force push is needed, on hover, since the word alone says little.
+	const forcePushReason = (label: string): string =>
+		incoming > 0
+			? `${label} has ${incoming === 1 ? "a commit" : `${String(incoming)} commits`} this branch does not. Integrate brings them in; Push would force over them.`
+			: `The branch's history differs from ${label}, which has nothing new. Push force-updates it.`;
+	const pushStatusTooltip =
+		pushStatus === "unpushedCommitsRequiringForce" && remoteLabel !== null
+			? forcePushReason(remoteLabel)
+			: undefined;
+
 	const toggleFolded = () => {
 		// Hand the selection over only when folding would hide it — the selected
 		// commit sits in this segment. Unrelated selections (and the details pane
@@ -374,6 +399,11 @@ export const BranchRow: FC<
 			enabled: !workspaceBranchAndAncestorsPushDisabled,
 			accelerator: toElectronAccelerator(sidebarHotkeys.workspaceBranchAndAncestorsPush.hotkey),
 			onSelect: pushBranch,
+		}),
+		nativeMenuItem({
+			label: "Update From Remote",
+			enabled: canUpdateFromRemote,
+			onSelect: () => openUpdateFromRemote(dispatch, refName.fullNameBytes),
 		}),
 		nativeMenuSeparator,
 		nativeMenuItem({
@@ -507,6 +537,26 @@ export const BranchRow: FC<
 					</RowLabelContainer>
 
 					<RowMeta>
+						{/* The remote's news in the row itself; the chip opens the commits. */}
+						{remote !== null && incoming > 0 && (
+							<>
+								<button
+									type="button"
+									aria-expanded={incomingExpanded}
+									aria-label={`${incomingExpanded ? "Hide" : "Show"} ${String(incoming)} incoming ${incoming === 1 ? "commit" : "commits"} from ${remote.remoteName}/${remote.displayName}`}
+									className={classes(
+										getRowButtonClassName({ variant: "ghost" }),
+										rowStyles.metaItem,
+									)}
+									onClick={toggleIncoming}
+								>
+									<Icon size={12} name={incomingExpanded ? "chevron-down" : "chevron-right"} />
+									{remote.remoteName} +{incoming}
+								</button>
+								<RowMetaSeparator />
+							</>
+						)}
+
 						{/* Only while folded: the count stands in for the commits it hides,
 						    so showing it alongside them would just be noise. */}
 						{isFolded && commitCount > 0 && (
@@ -526,12 +576,15 @@ export const BranchRow: FC<
 								rowStyles.metaItemShrinkable,
 							)}
 						>
-							<span className={rowStyles.metaItemText}>
+							<span className={rowStyles.metaItemText} title={pushStatusTooltip}>
 								{Match.value(pushStatus).pipe(
 									Match.when("nothingToPush", () => "Nothing to push"),
 									Match.when("unpushedCommits", () => "Some unpushed"),
 									Match.when("completelyUnpushed", () => "Unpushed branch"),
-									Match.when("unpushedCommitsRequiringForce", () => "Some unpushed"),
+									// Both need a force push; the one with nothing to bring in is named for its cause.
+									Match.when("unpushedCommitsRequiringForce", () =>
+										incoming > 0 ? "Diverged" : "Rewritten",
+									),
 									Match.when("integrated", () => "Integrated"),
 									Match.exhaustive,
 								)}
@@ -634,6 +687,23 @@ export const BranchRow: FC<
 									</Tooltip.Root>
 								);
 							})()}
+
+						{/* Beside Push rather than in its place: a plain push cannot land
+						    while the remote is ahead, and forcing would drop theirs. */}
+						{remoteLabel !== null && incoming > 0 && (
+							<Button
+								aria-label={`Integrate ${remoteLabel} into ${refName.displayName}`}
+								title={`Bring ${remoteLabel}'s commits into ${refName.displayName}`}
+								className={classes(
+									getRowButtonClassName({ variant: "outline" }),
+									rowStyles.metaButton,
+								)}
+								onClick={() => openUpdateFromRemote(dispatch, refName.fullNameBytes)}
+							>
+								Integrate
+								<Icon size={12} name="arrow-down" />
+							</Button>
+						)}
 					</RowMeta>
 				</RowLabelGroup>
 			)}
