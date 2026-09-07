@@ -3,6 +3,7 @@ import {
 	useRemoveReviewLabel,
 	useRequestReview,
 	useSetReviewDraftiness,
+	useUpdateReview,
 	useWithdrawReviewRequest,
 } from "#ui/api/mutations.ts";
 import {
@@ -47,6 +48,16 @@ const reviewStatus = (review: ForgeReview): ReviewStatus =>
 			: review.draft
 				? "draft"
 				: "open";
+
+const statusBits = (status: ReviewStatus): [string, BadgeVariant, IconName] =>
+	Match.value(status).pipe(
+		Match.withReturnType<[string, BadgeVariant, IconName]>(),
+		Match.when("open", () => ["Open", "safe", "pr"]),
+		Match.when("draft", () => ["Draft", "lightGray", "pr-draft"]),
+		Match.when("merged", () => ["Merged", "purple", "branch-merge"]),
+		Match.when("closed", () => ["Closed", "danger", "pr-close"]),
+		Match.exhaustive,
+	);
 
 const Section: FC<{
 	heading: string;
@@ -508,9 +519,53 @@ export const PullRequestPanel: FC<{
 	const { mutate: withdrawReviewRequest } = useWithdrawReviewRequest(projectId);
 	const { isPending: isDraftinessPending, mutate: setReviewDraftiness } =
 		useSetReviewDraftiness(projectId);
+	const { isPending: isUpdateReviewPending, mutate: updateReview } = useUpdateReview(projectId);
 
-	// Neither a merged nor a closed review can change draftiness.
-	const canToggleDraft = review.mergedAt === null && review.closedAt === null;
+	const status = reviewStatus(review);
+	// A merged review is final; anything else can move between open, draft and
+	// closed from the status badge.
+	const canSwitchStatus = status !== "merged";
+	const isStatusPending = isDraftinessPending || isUpdateReviewPending;
+
+	const setDraft = (draft: boolean) =>
+		setReviewDraftiness({ projectId, reviewId: review.number, draft });
+	const setState = (state: "open" | "closed", onSuccess?: () => void) =>
+		updateReview(
+			{ projectId, reviewId: review.number, state, title: null, body: null, targetBase: null },
+			{ onSuccess },
+		);
+
+	// Reopening restores the draftiness the review was closed with, so landing
+	// on the other of open/draft takes a second step once it is open again.
+	const switchStatus = (target: Exclude<ReviewStatus, "merged">) =>
+		Match.value(target).pipe(
+			Match.when("closed", () => setState("closed")),
+			Match.when("open", () =>
+				status === "closed"
+					? setState("open", () => review.draft && setDraft(false))
+					: setDraft(false),
+			),
+			Match.when("draft", () =>
+				status === "closed"
+					? setState("open", () => !review.draft && setDraft(true))
+					: setDraft(true),
+			),
+			Match.exhaustive,
+		);
+
+	const openStatusMenu = (evt: MouseEvent<HTMLButtonElement>) =>
+		void showNativeMenuFromTrigger(
+			evt.currentTarget,
+			(["open", "draft", "closed"] as const).map((target) =>
+				nativeMenuItem({
+					label: statusBits(target)[0],
+					checked: status === target,
+					onSelect: () => {
+						if (status !== target) switchStatus(target);
+					},
+				}),
+			),
+		);
 
 	// The queries stop fetching when canManage flips off, but cached data
 	// still reads — gate the pickers on manageability, not cache presence.
@@ -564,13 +619,13 @@ export const PullRequestPanel: FC<{
 		);
 	};
 
-	const [statusLabel, statusVariant, statusIcon] = Match.value(reviewStatus(review)).pipe(
-		Match.withReturnType<[string, BadgeVariant, IconName]>(),
-		Match.when("open", () => ["Open", "safe", "pr"]),
-		Match.when("draft", () => ["Draft", "lightGray", "pr-draft"]),
-		Match.when("merged", () => ["Merged", "purple", "branch-merge"]),
-		Match.when("closed", () => ["Closed", "danger", "pr-close"]),
-		Match.exhaustive,
+	const [statusLabel, statusVariant, statusIcon] = statusBits(status);
+	const statusBadge = (
+		<Badge variant={statusVariant} size="large">
+			<Icon name={statusIcon} size={12} />
+			{statusLabel}
+			{canSwitchStatus && <Icon name="chevron-down" size={12} />}
+		</Badge>
 	);
 
 	const createdAtMs = review.createdAt === null ? null : Date.parse(review.createdAt);
@@ -590,39 +645,33 @@ export const PullRequestPanel: FC<{
 			<Section
 				heading="Status"
 				action={
-					<a
-						href={review.htmlUrl}
-						onClick={handleOpen}
-						className={classes("text-12", styles.link, styles.prLink)}
-					>
-						{review.unitSymbol}
-						{review.number}
-						<Icon name="arrow-up-right" size={12} />
-					</a>
+					<div className={styles.statusActions}>
+						{canSwitchStatus ? (
+							<button
+								aria-label="Change status"
+								className={styles.statusTrigger}
+								disabled={isStatusPending}
+								onClick={openStatusMenu}
+								type="button"
+							>
+								{statusBadge}
+							</button>
+						) : (
+							statusBadge
+						)}
+						<a
+							href={review.htmlUrl}
+							onClick={handleOpen}
+							className={classes("text-12", styles.link, styles.prLink)}
+						>
+							{review.unitSymbol}
+							{review.number}
+							<Icon name="arrow-up-right" size={12} />
+						</a>
+					</div>
 				}
 			>
-				<div className={styles.statusRow}>
-					<Badge variant={statusVariant} size="large">
-						<Icon name={statusIcon} size={12} />
-						{statusLabel}
-					</Badge>
-					{canToggleDraft && (
-						<button
-							className={getButtonClassName({ variant: "outline", size: "small" })}
-							disabled={isDraftinessPending}
-							onClick={() =>
-								setReviewDraftiness({
-									projectId,
-									reviewId: review.number,
-									draft: !review.draft,
-								})
-							}
-							type="button"
-						>
-							{review.draft ? "Mark as ready" : "Convert to draft"}
-						</button>
-					)}
-				</div>
+				{null}
 			</Section>
 
 			<Section

@@ -48,11 +48,34 @@
 	color: var(--text-3);
 }
 
-.statusRow {
+/* The Status section is its header alone: the badge and the PR link sit
+   opposite the heading. */
+.statusActions {
 	display: flex;
-	flex-wrap: wrap;
 	align-items: center;
-	gap: 8px;
+	gap: 12px;
+}
+
+/* The badge is the menu trigger, so the button is invisible around it; the
+   hover deepens the badge's own tint rather than adding a ground of its own. */
+.statusTrigger {
+	display: flex;
+	padding: 0;
+	border: none;
+	border-radius: 30px;
+	background: none;
+
+	& > span {
+		transition: var(--transition-button);
+	}
+
+	&:hover:not(:disabled) > span {
+		--badge-bg-opacity: 28%;
+	}
+
+	&:disabled {
+		opacity: 0.6;
+	}
 }
 
 .link {
@@ -67,6 +90,11 @@
 	text-decoration: underline;
 	text-decoration-color: color-mix(in srgb, currentcolor 40%, transparent);
 	text-underline-position: from-font;
+
+	&:hover {
+		color: var(--text-1);
+		text-decoration-color: currentcolor;
+	}
 }
 
 .user {

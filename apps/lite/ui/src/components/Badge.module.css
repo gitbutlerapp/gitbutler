@@ -43,8 +43,14 @@
 	color: var(--fill-gray-fg);
 }
 
+/* Tracks the shared opacity so a hover or inverted ground lifts it like the
+   colored variants, just from a lighter resting tint. */
 .lightGray {
-	background-color: color-mix(in srgb, var(--fill-gray-bg) 16%, transparent);
+	background-color: color-mix(
+		in srgb,
+		var(--fill-gray-bg) calc(var(--badge-bg-opacity) * 0.8),
+		transparent
+	);
 	color: var(--text-1);
 }
 
