@@ -109,7 +109,7 @@ fn failed_branch_creation_rolls_back_earlier_metadata_writes() -> anyhow::Result
     let anchor_ref: gix::refs::FullName = "refs/heads/main".try_into()?;
     crate::support::workspace_graph(&ctx)?;
     let observer = but_db::DbHandle::new_in_directory(&ctx.project_data_dir)?;
-    let metadata_before = observer.virtual_branches().get_snapshot()?;
+    let metadata_before = observer.meta()?;
     let order_before = observer.branch_order().get_snapshot()?;
     let refresh = ctx.project_data_dir.join("REFRESH");
     if refresh.exists() {
@@ -117,8 +117,8 @@ fn failed_branch_creation_rolls_back_earlier_metadata_writes() -> anyhow::Result
     }
     let sql = rusqlite::Connection::open(but_db::DbHandle::db_file_path(&ctx.project_data_dir))?;
     sql.execute_batch(
-        "CREATE TRIGGER reject_new_branch BEFORE INSERT ON vb_stack_heads
-         WHEN NEW.name = 'bottom'
+        "CREATE TRIGGER reject_new_branch BEFORE INSERT ON branch_metadata
+         WHEN NEW.ref_name = CAST('refs/heads/bottom' AS BLOB)
          BEGIN SELECT RAISE(ABORT, 'reject branch metadata after saving order'); END;",
     )?;
 
@@ -142,7 +142,7 @@ fn failed_branch_creation_rolls_back_earlier_metadata_writes() -> anyhow::Result
         "an earlier successful metadata write rolls back with the failed operation"
     );
     assert_eq!(
-        observer.virtual_branches().get_snapshot()?,
+        observer.meta()?,
         metadata_before,
         "failed creation leaves all reference metadata unchanged"
     );

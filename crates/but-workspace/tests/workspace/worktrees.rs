@@ -47,8 +47,7 @@ fn ref_info_with_worktree_tips(
 #[test]
 fn worktrees_are_projected_onto_the_workspace() -> Result<()> {
     let (repo, _tmp) = writable_scenario_slow("worktree-workspace");
-    let mut meta =
-        but_testsupport::fixture_metadata(repo.path().join("should-never-be-written.toml"))?;
+    let mut meta = but_testsupport::in_memory_db();
     add_workspace(&mut meta);
     add_stack(&mut meta, 1, "A", StackState::InWorkspace);
     add_stack(&mut meta, 2, "B", StackState::InWorkspace);
@@ -301,8 +300,7 @@ fn lane_chains_follow_what_worktrees_rest_on() -> Result<()> {
 #[test]
 fn worktrees_are_empty_without_seeded_tips() -> Result<()> {
     let (repo, _tmp) = writable_scenario_slow("worktree-workspace");
-    let mut meta =
-        but_testsupport::fixture_metadata(repo.path().join("should-never-be-written.toml"))?;
+    let mut meta = but_testsupport::in_memory_db();
     let graph = Graph::from_head(
         &repo,
         Default::default(),
@@ -321,8 +319,7 @@ fn worktrees_are_empty_without_seeded_tips() -> Result<()> {
 #[test]
 fn deep_disjoint_history_is_never_mistaken_for_being_below_the_target() -> Result<()> {
     let (repo, _tmp) = writable_scenario_slow("worktree-disjoint-deep");
-    let mut meta =
-        but_testsupport::fixture_metadata(repo.path().join("should-never-be-written.toml"))?;
+    let mut meta = but_testsupport::in_memory_db();
     add_workspace(&mut meta);
     add_stack(&mut meta, 1, "A", StackState::InWorkspace);
 

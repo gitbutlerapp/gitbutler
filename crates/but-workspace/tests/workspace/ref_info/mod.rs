@@ -428,11 +428,7 @@ mod utils {
         name: &str,
     ) -> anyhow::Result<(gix::Repository, but_db::DbHandle)> {
         let repo = crate::utils::read_only_in_memory_scenario_named(script, name)?;
-        let meta = but_testsupport::fixture_metadata(
-            repo.path()
-                .join(".git")
-                .join("should-never-be-written.toml"),
-        )?;
+        let meta = but_testsupport::in_memory_db();
         // The fixture is shared and read-only, so its database cannot live on disk.
 
         Ok((repo, meta))

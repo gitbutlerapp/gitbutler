@@ -63,7 +63,7 @@ fn failed_sql_commit_restores_git_and_preserves_dirty_index_and_worktree() -> an
         let (_guard, _repo, _workspace, _db) = ctx.workspace_and_db()?;
     }
     let observer = env.db();
-    let metadata_before = observer.virtual_branches().get_snapshot()?;
+    let metadata_before = observer.meta()?;
     let order_before = observer.branch_order().get_snapshot()?;
     let repo = but_testsupport::open_repo(env.projects_root())?;
     let head_before = repo.head_name()?.expect("fixture HEAD is symbolic");
@@ -89,8 +89,8 @@ fn failed_sql_commit_restores_git_and_preserves_dirty_index_and_worktree() -> an
         "CREATE TABLE late_failure_parent(id INTEGER PRIMARY KEY);
          CREATE TABLE late_failure_child(parent INTEGER REFERENCES late_failure_parent(id)
              DEFERRABLE INITIALLY DEFERRED);
-         CREATE TRIGGER fail_at_commit AFTER INSERT ON vb_stack_heads
-         WHEN NEW.name = 'transaction-only'
+         CREATE TRIGGER fail_at_commit AFTER INSERT ON branch_metadata
+         WHEN NEW.ref_name = CAST('refs/heads/transaction-only' AS BLOB)
          BEGIN INSERT INTO late_failure_child VALUES (1); END;",
     )?;
     let error = with_transaction(
@@ -158,11 +158,7 @@ fn failed_sql_commit_restores_git_and_preserves_dirty_index_and_worktree() -> an
         branch_before,
         "recovery leaves independent reference changes intact"
     );
-    assert_eq!(
-        observer.virtual_branches().get_snapshot()?,
-        metadata_before,
-        "metadata rolls back"
-    );
+    assert_eq!(observer.meta()?, metadata_before, "metadata rolls back");
     assert_eq!(
         observer.branch_order().get_snapshot()?,
         order_before,
@@ -208,7 +204,13 @@ fn failed_metadata_refresh_restores_materialized_refs_and_worktree() -> anyhow::
     let file_three = env.read_file("file-three")?;
     let original_index = std::fs::read(repo.index_path())?;
     let mut ctx = Context::from_repo_for_testing(repo)?.with_memory_app_cache();
-    let metadata_before = env.db().virtual_branches().get_snapshot()?;
+    let metadata_before = env.db().meta()?;
+    let sql = rusqlite::Connection::open(ctx.project_data_dir.join("but.sqlite"))?;
+    sql.execute_batch(
+        "CREATE TRIGGER corrupt_metadata AFTER INSERT ON branch_metadata
+         WHEN NEW.ref_name = CAST('refs/heads/corrupt-metadata' AS BLOB)
+         BEGIN UPDATE workspace_stacks SET relation = 'merge-from', merge_commit = X'00'; END;",
+    )?;
     let error = with_transaction(
         &mut ctx,
         SnapshotDetails::new(OperationKind::DiscardChanges),
@@ -224,25 +226,17 @@ fn failed_metadata_refresh_restores_materialized_refs_and_worktree() -> anyhow::
                 .as_mut()
                 .expect("rebase exists")
                 .repo_and_db_mut();
-            let mut metadata = db
-                .virtual_branches()
-                .get_snapshot()?
-                .expect("fixture metadata exists");
-            let stack = metadata.stacks.first_mut().expect("fixture has a stack");
-            let old_id = std::mem::replace(&mut stack.id, "invalid-stack-id".into());
-            for head in &mut metadata.heads {
-                if head.stack_id == old_id {
-                    head.stack_id = stack.id.clone();
-                }
-            }
-            // Raw storage accepts text; the metadata read during refresh will reject the ID.
-            db.virtual_branches_mut()?.replace_snapshot(&metadata)?;
+            // The trigger stores an invalid object ID, rejected by the refresh after checkout.
+            db.meta_mut()?.set_branch(
+                "refs/heads/corrupt-metadata".try_into()?,
+                &Default::default(),
+            )?;
             Ok(())
         },
     )
     .expect_err("workspace refresh rejects malformed metadata after materialization");
     assert!(
-        format!("{error:#}").contains("Invalid metadata stack id"),
+        format!("{error:#}").contains("Invalid workspace merge commit"),
         "the metadata error is preserved: {error:#}"
     );
     let repo = but_testsupport::open_repo(env.projects_root())?;
@@ -267,7 +261,7 @@ fn failed_metadata_refresh_restores_materialized_refs_and_worktree() -> anyhow::
         "rollback restores staging after a refresh error"
     );
     assert_eq!(
-        env.db().virtual_branches().get_snapshot()?,
+        env.db().meta()?,
         metadata_before,
         "malformed uncommitted metadata is rolled back"
     );
@@ -495,7 +489,7 @@ fn failed_metadata_write_removes_the_ref_created_before_the_error() -> anyhow::R
     let mut ctx = Context::from_repo_for_testing(but_testsupport::open_repo(env.projects_root())?)?
         .with_memory_app_cache();
     let sql = rusqlite::Connection::open(ctx.project_data_dir.join("but.sqlite"))?;
-    sql.execute_batch("CREATE TRIGGER fail_creation BEFORE INSERT ON vb_stack_heads WHEN NEW.name = 'transaction-only'
+    sql.execute_batch("CREATE TRIGGER fail_creation BEFORE INSERT ON branch_metadata WHEN NEW.ref_name = CAST('refs/heads/transaction-only' AS BLOB)
         BEGIN SELECT RAISE(ABORT, 'metadata creation failed'); END;")?;
     let reference: FullName = "refs/heads/transaction-only".try_into()?;
     let error = with_transaction(
