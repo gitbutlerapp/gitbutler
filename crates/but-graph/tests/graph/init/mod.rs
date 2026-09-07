@@ -2382,6 +2382,92 @@ fn ad_hoc_order_scopes_empty_segments_to_active_chain() -> anyhow::Result<()> {
 }
 
 #[test]
+fn ad_hoc_order_keeps_bottom_branch_sitting_on_target() -> anyhow::Result<()> {
+    let (tmp, repo) = empty_repo()?;
+    let tip = commit(&repo, "same tip")?;
+    create_branches(
+        &repo,
+        tip,
+        [
+            "refs/heads/top",
+            "refs/heads/middle",
+            "refs/heads/bottom",
+            "refs/remotes/origin/main",
+        ],
+    )?;
+    let meta = in_memory_meta(tmp.as_ref())?;
+    let order = ["refs/heads/top", "refs/heads/middle", "refs/heads/bottom"];
+    let overlay = Overlay::default().with_branch_stack_order_override(order.map(ref_name));
+    let graph = Graph::from_commit_traversal(
+        tip.attach(&repo),
+        Some(ref_name("refs/heads/top")),
+        &*meta,
+        default_project_meta(&repo),
+        &mut but_testsupport::in_memory_db(),
+        standard_options(),
+    )?
+    .redo_traversal_with_overlay(&repo, &*meta, overlay)?
+    .validated()?;
+
+    // All ordered branches sit on the target commit: the walk is empty, and
+    // the bottom branch owning the target commit's segment is still a segment.
+    snapbox::assert_data_eq!(
+        graph_workspace(&graph.into_workspace()?).to_string(),
+        snapbox::str![[r#"
+⌂:top <> ✓refs/remotes/origin/main on 960152d
+└── ≡:top on 960152d {1}
+    ├── :top
+    ├── :middle
+    └── :bottom
+
+"#]]
+    );
+    Ok(())
+}
+
+#[test]
+fn ad_hoc_order_hides_target_branch_at_base() -> anyhow::Result<()> {
+    let (tmp, repo) = empty_repo()?;
+    let tip = commit(&repo, "same tip")?;
+    create_branches(&repo, tip, ["refs/heads/top", "refs/remotes/origin/main"])?;
+    let meta = in_memory_meta(tmp.as_ref())?;
+    let order = ["refs/heads/top", "refs/heads/main"];
+    let overlay = Overlay::default().with_branch_stack_order_override(order.map(ref_name));
+    let graph = Graph::from_commit_traversal(
+        tip.attach(&repo),
+        Some(ref_name("refs/heads/top")),
+        &*meta,
+        default_project_meta(&repo),
+        &mut but_testsupport::in_memory_db(),
+        standard_options(),
+    )?
+    .redo_traversal_with_overlay(&repo, &*meta, overlay)?
+    .validated()?;
+
+    snapbox::assert_data_eq!(
+        graph_dag(&graph),
+        snapbox::str![[r#"
+◎  👉top
+│ ◎  origin/main
+├─╯
+◎  main[🌳] <> origin/main
+●  🏁·960152d (⌂|✓)
+"#]]
+    );
+    // `top` was created on `main`, the target's local branch: that is the base, not a segment.
+    snapbox::assert_data_eq!(
+        graph_workspace(&graph.into_workspace()?).to_string(),
+        snapbox::str![[r#"
+⌂:top <> ✓refs/remotes/origin/main on 960152d
+└── ≡:top on 960152d {1}
+    └── :top
+
+"#]]
+    );
+    Ok(())
+}
+
+#[test]
 fn ad_hoc_branch_at_target_tip() -> anyhow::Result<()> {
     let tmp = but_testsupport::gix_testtools::tempfile::TempDir::new()?;
     let repo = gix::ThreadSafeRepository::init_opts(
@@ -2444,7 +2530,9 @@ pub use utils::{
     read_only_in_memory_scenario, standard_options,
 };
 
-use crate::init::utils::{in_memory_meta, standard_options_with_extra_target};
+use crate::init::utils::{
+    default_project_meta, in_memory_meta, standard_options_with_extra_target,
+};
 
 fn ref_name(name: &str) -> gix::refs::FullName {
     name.try_into().expect("valid full ref name")

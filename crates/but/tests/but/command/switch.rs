@@ -222,6 +222,8 @@ Switched to branch 'A'
 ╭┄ @ [uncommitted] (no changes)
 ┊
 ┊╭┄ g0 [A] (no commits)
+┊│
+┊├┄ h0 [D] (no commits)
 ├╯
 ┊
 ┴ 0dc3733 (common base) 2000-01-02 add M

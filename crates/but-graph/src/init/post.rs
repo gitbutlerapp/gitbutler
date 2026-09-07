@@ -81,7 +81,13 @@ impl Graph {
         // traversal should have nothing to do with workspace details. It's just about laying
         // the foundation for figuring out our workspaces more easily.
         self.workspace_upgrades(meta, repo, &worktree_by_branch)?;
-        self.ad_hoc_branch_stack_upgrades(repo, meta, &worktree_by_branch)?;
+        self.ad_hoc_branch_stack_upgrades(
+            repo,
+            meta,
+            &worktree_by_branch,
+            symbolic_remote_names,
+            configured_remote_tracking_branches,
+        )?;
 
         // Point entrypoint to the right spot after all the virtual branches were added.
         self.set_entrypoint_to_ref_name(meta)?;
@@ -1469,6 +1475,8 @@ impl Graph {
         repo: &OverlayRepo<'_>,
         meta: &OverlayMetadata<'_, T>,
         worktree_by_branch: &WorktreeByBranch,
+        symbolic_remote_names: &[String],
+        configured_remote_tracking_branches: &BTreeSet<gix::refs::FullName>,
     ) -> anyhow::Result<()> {
         let Some(entrypoint_ref) = self.entrypoint_ref.clone() else {
             return Ok(());
@@ -1573,6 +1581,35 @@ impl Graph {
                 meta,
                 worktree_by_branch,
             )?;
+        }
+
+        // The target commit is the base below every segment, so an ordered branch owning it
+        // is an empty segment sitting on that base, unless the branch tracks the target itself.
+        let Some(target_commit_id) = self.project_meta.target_commit_id else {
+            return Ok(());
+        };
+        let ordered_refs = self
+            .ad_hoc_branch_stack_orders
+            .last()
+            .cloned()
+            .unwrap_or_default();
+        let owner = self.node_weights().find_map(|segment| {
+            let ref_name = segment.ref_name()?;
+            (segment.commits.first()?.id == target_commit_id
+                && ordered_refs.iter().any(|o| o.as_ref() == ref_name))
+            .then_some((segment.id, ref_name))
+        });
+        let Some((sidx, ref_name)) = owner else {
+            return Ok(());
+        };
+        let tracks_target = remotes::lookup_remote_tracking_branch_or_deduce_it(
+            repo,
+            ref_name,
+            symbolic_remote_names,
+            configured_remote_tracking_branches,
+        )? == self.project_meta.target_ref;
+        if !tracks_target {
+            self.split_segment(sidx, 0, None, None, meta, worktree_by_branch)?;
         }
         Ok(())
     }
