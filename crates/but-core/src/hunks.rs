@@ -166,10 +166,34 @@ pub fn hunks_from_changes(
     changes: impl IntoIterator<Item = impl Into<TreeChange>>,
     context_lines: u32,
 ) -> Vec<SingleHunk> {
+    // Object-backed changes use index attributes; worktree-backed changes also read
+    // worktree attributes. Keep their pipelines separate to preserve that distinction.
+    let mut object_filter = None;
+    let mut worktree_filter = None;
     let mut hunks = Vec::new();
     for change in changes {
         let change = change.into();
-        let patch = change.unified_patch(repo, context_lines).ok().flatten();
+        let state = change.status.state();
+        let filter = if state.is_some_and(|state| state.id.is_null()) {
+            &mut worktree_filter
+        } else {
+            &mut object_filter
+        };
+        let patch = match filter.get_or_insert_with(|| {
+            crate::unified_diff::filter_from_state(repo, state, UnifiedPatch::CONVERSION_MODE)
+        }) {
+            Ok(filter) => {
+                let patch = change
+                    .unified_patch_with_filter(repo, context_lines, filter)
+                    .ok()
+                    .flatten();
+                // Retain long-running filters (e.g. Git LFS), not every file's contents.
+                filter.clear_resource_cache_keep_allocation();
+                patch
+            }
+            // As before, failed diffs fall back to whole-file hunks.
+            Err(_) => None,
+        };
         hunks.extend(SingleHunk::from_tree_change(&change, patch));
     }
     hunks
