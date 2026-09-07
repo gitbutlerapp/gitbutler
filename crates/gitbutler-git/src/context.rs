@@ -196,29 +196,26 @@ fn map_needs_authorization(err: GitError) -> anyhow::Error {
     else {
         return err.into();
     };
-    let context = but_error::Context::new(needs_authorization_message(prompt, &err))
-        .with_code(Code::ProjectGitAuth);
+    let context =
+        but_error::Context::new_static(Code::ProjectGitAuth, needs_authorization_message(prompt));
     anyhow::Error::from(err).context(context)
 }
 
-/// Turn the raw askpass prompt of a `NeedsAuthorization` failure into a message that tells the
-/// user what to do about it. Without this, the user sees the prompt Git wanted answered
+/// Pick the message the app shows for a `NeedsAuthorization` failure based on the raw askpass
+/// prompt. Without this, the user sees the prompt Git wanted answered
 /// (e.g. `Username for 'https://github.com': `) with no hint at the actual problem: nothing could
-/// answer the prompt, most commonly because no credential helper is configured. The original error is appended since only this
-/// message reaches the app, while the error chain stays behind in the logs.
-fn needs_authorization_message(prompt: &str, original_error: impl std::fmt::Display) -> String {
-    let prompt = prompt.trim();
-    let credential_url = prompt
-        .strip_prefix("Username for ")
-        .or_else(|| prompt.strip_prefix("Password for "))
-        .map(|url| url.trim_end_matches(':').trim().trim_matches('\''));
-    let advice = match credential_url {
-        Some(url) => format!(
-            "Git couldn't obtain credentials for {url}. Configure a git credential helper (for example Git Credential Manager), or switch the remote to SSH."
-        ),
-        None => format!("Git asked for input and none was provided: {prompt}"),
-    };
-    format!("{advice}\n\nOriginal error: {original_error}")
+/// answer the prompt, most commonly because no credential helper is configured.
+///
+/// The message is static on purpose so it reads the same for every remote and prompt. The prompt
+/// itself stays in the error chain for local diagnosis.
+fn needs_authorization_message(prompt: &str) -> &'static str {
+    if prompt.starts_with("Username for ") || prompt.starts_with("Password for ") {
+        "Git couldn't obtain credentials for the remote. Configure a git credential helper (for example Git Credential Manager), or switch the remote to SSH."
+    } else if prompt.starts_with("Enter passphrase") {
+        "Git asked for an SSH key passphrase and none could be provided. Add the key to your ssh-agent and try again."
+    } else {
+        "Git asked for input that GitButler couldn't provide."
+    }
 }
 
 /// Push the given commit to the provided remote branch.
@@ -369,9 +366,10 @@ async fn handle_git_prompt_fetch(prompt: String, askpass: Option<String>) -> Opt
 mod tests {
     use std::path::PathBuf;
 
+    use but_error::{AnyhowContextExt, Code};
     use but_testsupport::{gix_testtools, open_repo};
 
-    use super::{needs_authorization_message, remote_tracking_branch_parts};
+    use super::{map_needs_authorization, remote_tracking_branch_parts};
 
     fn repo_with_registered_remotes() -> anyhow::Result<gix::Repository> {
         let fixture_path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
@@ -382,27 +380,52 @@ mod tests {
     }
 
     #[test]
-    fn needs_authorization_message_extracts_credential_url() {
-        for prompt in [
-            "Username for 'https://github.com': ",
-            "Password for 'https://github.com': ",
+    fn needs_authorization_message_is_static() {
+        // Prompts vary by remote, account, and key; the message must not.
+        for (prompt, expected_start) in [
+            (
+                "Username for 'https://github.com': ",
+                "Git couldn't obtain credentials for the remote.",
+            ),
+            (
+                "Password for 'https://octocat@github.com/acme/private': ",
+                "Git couldn't obtain credentials for the remote.",
+            ),
+            (
+                "Enter passphrase for key '/home/octocat/.ssh/id_ed25519': ",
+                "Git asked for an SSH key passphrase",
+            ),
+            (
+                "Token for octocat at git.acme.internal: ",
+                "Git asked for input that GitButler couldn't provide.",
+            ),
         ] {
+            let err = map_needs_authorization(crate::Error::Backend(
+                crate::repository::RepositoryError::NeedsAuthorization(prompt.to_owned()),
+            ));
+            let context = err.custom_context().expect("code and message are attached");
+            let message = context.message.expect("a message is always set");
+
             assert_eq!(
-                needs_authorization_message(prompt, "backend error: original"),
-                "Git couldn't obtain credentials for https://github.com. Configure a git credential helper (for example Git Credential Manager), or switch the remote to SSH.\n\nOriginal error: backend error: original"
+                context.code,
+                Code::ProjectGitAuth,
+                "every prompt kind keeps the code the app's error handling is keyed on"
+            );
+            assert!(
+                message.starts_with(expected_start),
+                "{prompt:?} should produce {expected_start:?}, got {message:?}"
+            );
+            for detail in ["octocat", "github.com", "acme", "id_ed25519"] {
+                assert!(
+                    !message.contains(detail),
+                    "{detail:?} from {prompt:?} ended up in the message: {message:?}"
+                );
+            }
+            assert!(
+                format!("{err:#}").contains(prompt.trim()),
+                "the raw prompt stays in the error chain"
             );
         }
-    }
-
-    #[test]
-    fn needs_authorization_message_keeps_unrecognized_prompts() {
-        assert_eq!(
-            needs_authorization_message(
-                "Enter passphrase for key '/home/user/.ssh/id_ed25519': ",
-                "backend error: original"
-            ),
-            "Git asked for input and none was provided: Enter passphrase for key '/home/user/.ssh/id_ed25519':\n\nOriginal error: backend error: original"
-        );
     }
 
     #[test]
