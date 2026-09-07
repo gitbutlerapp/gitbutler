@@ -362,7 +362,7 @@ impl MetadataMut<'_> {
         VirtualBranchesHandleMut {
             sp: self.transaction.savepoint()?,
         }
-        .replace_snapshot(snapshot)?;
+        .update_snapshot(snapshot)?;
         Ok(())
     }
 
@@ -378,7 +378,10 @@ impl MetadataMut<'_> {
 
     /// Restore a complete VB payload without reading or writing a legacy file.
     pub fn replace_snapshot(mut self, snapshot: &VirtualBranchesSnapshot) -> Result<()> {
-        self.store_snapshot(snapshot)?;
+        VirtualBranchesHandleMut {
+            sp: self.transaction.savepoint()?,
+        }
+        .replace_snapshot(snapshot)?;
         self.finish()
     }
 

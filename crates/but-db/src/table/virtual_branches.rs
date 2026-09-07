@@ -1,3 +1,5 @@
+use std::collections::{BTreeMap, BTreeSet};
+
 use crate::{DbHandle, M, SchemaVersion, Transaction};
 
 pub(crate) const M: &[M<'static>] = &[M::up(
@@ -349,12 +351,53 @@ impl VirtualBranchesHandleMut<'_> {
     /// Replace all VB tables with the provided normalized snapshot.
     ///
     /// Existing stacks are cleared first (dependent rows are removed via FK cascade), followed by inserts.
-    pub fn replace_snapshot(mut self, snapshot: &VirtualBranchesSnapshot) -> rusqlite::Result<()> {
-        self.set_state_in_place(&snapshot.state)?;
-
+    pub fn replace_snapshot(self, snapshot: &VirtualBranchesSnapshot) -> rusqlite::Result<()> {
         self.sp.execute("DELETE FROM vb_stacks", [])?;
+        self.update_snapshot(snapshot)
+    }
+
+    /// Save an edited snapshot without rewriting unchanged rows or cascading their dependents.
+    pub(crate) fn update_snapshot(
+        mut self,
+        snapshot: &VirtualBranchesSnapshot,
+    ) -> rusqlite::Result<()> {
+        let previous = self.to_ref().get_snapshot()?;
+        if previous.as_ref().map(|previous| &previous.state) != Some(&snapshot.state) {
+            self.set_state_in_place(&snapshot.state)?;
+        }
+        let previous = previous.unwrap_or_default();
+        let stack_ids: BTreeSet<_> = snapshot.stacks.iter().map(|stack| &stack.id).collect();
+        let head_ids: BTreeSet<_> = snapshot
+            .heads
+            .iter()
+            .map(|head| (&head.stack_id, head.position))
+            .collect();
+        {
+            let mut delete_stack = self.sp.prepare("DELETE FROM vb_stacks WHERE id = ?1")?;
+            for stack in &previous.stacks {
+                if !stack_ids.contains(&stack.id) {
+                    delete_stack.execute([&stack.id])?;
+                }
+            }
+            let mut delete_head = self
+                .sp
+                .prepare("DELETE FROM vb_stack_heads WHERE stack_id = ?1 AND position = ?2")?;
+            for head in &previous.heads {
+                // Heads of removed stacks have already been deleted by the foreign-key cascade.
+                if stack_ids.contains(&head.stack_id)
+                    && !head_ids.contains(&(&head.stack_id, head.position))
+                {
+                    delete_head.execute(rusqlite::params![head.stack_id, head.position])?;
+                }
+            }
+        }
 
         {
+            let previous: BTreeMap<_, _> = previous
+                .stacks
+                .iter()
+                .map(|stack| (&stack.id, stack))
+                .collect();
             let mut insert_stack = self.sp.prepare(
                 "INSERT INTO vb_stacks (
                     id,
@@ -374,8 +417,31 @@ impl VirtualBranchesHandleMut<'_> {
                     legacy_updated_timestamp_ms
                  ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15)",
             )?;
+            let mut update_stack = self.sp.prepare(
+                "UPDATE vb_stacks SET
+                    source_refname = ?2,
+                    upstream_remote_name = ?3,
+                    upstream_branch_name = ?4,
+                    sort_order = ?5,
+                    in_workspace = ?6,
+                    legacy_name = ?7,
+                    legacy_notes = ?8,
+                    legacy_ownership = ?9,
+                    legacy_allow_rebasing = ?10,
+                    legacy_post_commits = ?11,
+                    legacy_tree_sha = ?12,
+                    legacy_head_sha = ?13,
+                    legacy_created_timestamp_ms = ?14,
+                    legacy_updated_timestamp_ms = ?15
+                 WHERE id = ?1",
+            )?;
             for stack in &snapshot.stacks {
-                insert_stack.execute(rusqlite::params![
+                let statement = match previous.get(&stack.id) {
+                    Some(previous) if *previous == stack => continue,
+                    Some(_) => &mut update_stack,
+                    None => &mut insert_stack,
+                };
+                statement.execute(rusqlite::params![
                     stack.id,
                     stack.source_refname,
                     stack.upstream_remote_name,
@@ -396,6 +462,11 @@ impl VirtualBranchesHandleMut<'_> {
         }
 
         {
+            let previous: BTreeMap<_, _> = previous
+                .heads
+                .iter()
+                .map(|head| ((&head.stack_id, head.position), head))
+                .collect();
             let mut insert_head = self.sp.prepare(
                 "INSERT INTO vb_stack_heads (
                     stack_id,
@@ -407,8 +478,22 @@ impl VirtualBranchesHandleMut<'_> {
                     review_id
                  ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
             )?;
+            let mut update_head = self.sp.prepare(
+                "UPDATE vb_stack_heads SET
+                    name = ?3,
+                    head_sha = ?4,
+                    pr_number = ?5,
+                    archived = ?6,
+                    review_id = ?7
+                 WHERE stack_id = ?1 AND position = ?2",
+            )?;
             for head in &snapshot.heads {
-                insert_head.execute(rusqlite::params![
+                let statement = match previous.get(&(&head.stack_id, head.position)) {
+                    Some(previous) if *previous == head => continue,
+                    Some(_) => &mut update_head,
+                    None => &mut insert_head,
+                };
+                statement.execute(rusqlite::params![
                     head.stack_id,
                     head.position,
                     head.name,
