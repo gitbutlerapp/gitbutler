@@ -48,11 +48,34 @@
 	color: var(--text-3);
 }
 
-.statusRow {
+/* The Status section is its header alone: the badge and the PR link sit
+   opposite the heading. */
+.statusActions {
 	display: flex;
-	flex-wrap: wrap;
 	align-items: center;
-	gap: 8px;
+	gap: 12px;
+}
+
+/* The badge is the menu trigger, so the button is invisible around it; the
+   hover deepens the badge's own tint rather than adding a ground of its own. */
+.statusTrigger {
+	display: flex;
+	padding: 0;
+	border: none;
+	border-radius: 30px;
+	background: none;
+
+	& > span {
+		transition: var(--transition-button);
+	}
+
+	&:hover:not(:disabled) > span {
+		--badge-bg-opacity: 28%;
+	}
+
+	&:disabled {
+		opacity: 0.6;
+	}
 }
 
 .link {
@@ -67,6 +90,11 @@
 	text-decoration: underline;
 	text-decoration-color: color-mix(in srgb, currentcolor 40%, transparent);
 	text-underline-position: from-font;
+
+	&:hover {
+		color: var(--text-1);
+		text-decoration-color: currentcolor;
+	}
 }
 
 .user {
@@ -118,57 +146,6 @@
 .labels .label {
 	background-color: color-mix(in srgb, var(--label-color) 20%, transparent);
 	color: color-mix(in oklab, var(--label-color) 60%, var(--text-1));
-}
-
-/* Empty Reviewers and Labels keep their shape with muted stand-ins, so a
-   freshly opened pull request doesn't read as a broken panel. */
-.placeholderShape {
-	border-radius: 30px;
-	background-color: color-mix(in srgb, var(--fill-gray-bg) 6%, transparent);
-}
-
-.placeholderPeople {
-	display: flex;
-	position: relative;
-	flex-direction: column;
-	gap: 6px;
-}
-
-/* Fades the last stand-in row out, hinting the list is a suggestion of
-   content rather than content. */
-.placeholderPeople::after {
-	position: absolute;
-	right: 0;
-	bottom: 0;
-	left: 0;
-	height: 20px;
-	background: linear-gradient(to bottom, transparent, var(--bg-1));
-	content: "";
-}
-
-.placeholderRow {
-	display: flex;
-	align-items: center;
-	gap: 6px;
-}
-
-.placeholderAvatar {
-	width: 16px;
-	height: 16px;
-}
-
-.placeholderBar {
-	height: 16px;
-}
-
-.placeholderLabels {
-	display: flex;
-	flex-wrap: wrap;
-	gap: 4px;
-}
-
-.placeholderLabel {
-	height: 16px;
 }
 
 .checks {
@@ -289,17 +266,22 @@
 	color: var(--text-3);
 }
 
+/* Long branch names truncate instead of shattering mid-word; the arrow and
+   target wrap under the source as one unit when the panel is too narrow to
+   hold both. The copy tooltip and the target's title carry the full names. */
 .branches {
 	display: flex;
+	flex-wrap: wrap;
 	align-items: center;
-	gap: 4px;
-	word-break: break-all;
+	gap: 6px;
 }
 
 /* Dotted underline is the app's copy-a-reference affordance, as on the commit
    SHA in the details header. */
 .sourceBranch {
+	max-width: 100%;
 	padding: 0;
+	overflow: hidden;
 	border: none;
 	background: none;
 	color: var(--text-1);
@@ -308,18 +290,32 @@
 	text-decoration: underline;
 	text-decoration-style: dotted;
 	text-underline-position: from-font;
+	text-overflow: ellipsis;
+	white-space: nowrap;
 
 	&:hover {
 		color: var(--text-2);
 	}
 }
 
+.branchTarget {
+	display: flex;
+	align-items: center;
+	min-width: 0;
+	max-width: 100%;
+	gap: 6px;
+}
+
 .branchArrow {
+	flex-shrink: 0;
 	color: var(--text-3);
 }
 
 .targetBranch {
+	overflow: hidden;
 	color: var(--text-2);
+	text-overflow: ellipsis;
+	white-space: nowrap;
 }
 
 .created {

@@ -16,9 +16,7 @@
 	white-space: nowrap;
 
 	&:not(.disableTransition) {
-		transition:
-			background-color var(--transition-fast),
-			color var(--transition-fast);
+		transition: var(--transition-button);
 	}
 
 	&[data-pressed] {

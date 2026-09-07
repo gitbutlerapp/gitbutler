@@ -3,6 +3,7 @@ import {
 	useRemoveReviewLabel,
 	useRequestReview,
 	useSetReviewDraftiness,
+	useUpdateReview,
 	useWithdrawReviewRequest,
 } from "#ui/api/mutations.ts";
 import {
@@ -48,6 +49,16 @@ const reviewStatus = (review: ForgeReview): ReviewStatus =>
 				? "draft"
 				: "open";
 
+const statusBits = (status: ReviewStatus): [string, BadgeVariant, IconName] =>
+	Match.value(status).pipe(
+		Match.withReturnType<[string, BadgeVariant, IconName]>(),
+		Match.when("open", () => ["Open", "safe", "pr"]),
+		Match.when("draft", () => ["Draft", "lightGray", "pr-draft"]),
+		Match.when("merged", () => ["Merged", "purple", "branch-merge"]),
+		Match.when("closed", () => ["Closed", "danger", "pr-close"]),
+		Match.exhaustive,
+	);
+
 const Section: FC<{
 	heading: string;
 	action?: ReactNode;
@@ -72,43 +83,36 @@ const Section: FC<{
 const orEmptyNotice = (items: Array<NativeMenuItem>, notice: string): Array<NativeMenuItem> =>
 	items.length > 0 ? items : [nativeMenuItem({ label: notice, enabled: false })];
 
-const pickerButton = (label: string, onClick: (evt: MouseEvent<HTMLButtonElement>) => void) => (
-	<button
-		aria-label={label}
-		className={getButtonClassName({ variant: "ghost", size: "small", iconOnly: true })}
-		onClick={onClick}
-		type="button"
-	>
-		<Icon name="plus" />
-	</button>
-);
-
-/** Muted stand-ins shown while a section has nothing in it yet. */
-const PeoplePlaceholder: FC = () => (
-	<div className={styles.placeholderPeople}>
-		{[100, 160].map((width) => (
-			<div key={width} className={styles.placeholderRow}>
-				<span className={classes(styles.placeholderShape, styles.placeholderAvatar)} />
-				<span
-					className={classes(styles.placeholderShape, styles.placeholderBar)}
-					style={{ width }}
-				/>
-			</div>
-		))}
-	</div>
-);
-
-const LabelsPlaceholder: FC = () => (
-	<div className={styles.placeholderLabels}>
-		{[70, 50, 90].map((width) => (
-			<span
-				key={width}
-				className={classes(styles.placeholderShape, styles.placeholderLabel)}
-				style={{ width }}
-			/>
-		))}
-	</div>
-);
+/**
+ * The header control for a pickable section. While the section is empty it
+ * spells out what the picker adds so the section doesn't read as a bare
+ * heading; once something is picked, a plus is enough.
+ */
+const pickerButton = (p: {
+	label: string;
+	icon: IconName;
+	empty: boolean;
+	onClick: (evt: MouseEvent<HTMLButtonElement>) => void;
+}) =>
+	p.empty ? (
+		<button
+			className={getButtonClassName({ variant: "outline", size: "small" })}
+			onClick={p.onClick}
+			type="button"
+		>
+			{p.label}
+			<Icon name={p.icon} />
+		</button>
+	) : (
+		<button
+			aria-label={p.label}
+			className={getButtonClassName({ variant: "ghost", size: "small", iconOnly: true })}
+			onClick={p.onClick}
+			type="button"
+		>
+			<Icon name="plus" />
+		</button>
+	);
 
 const ReviewUser: FC<{ user: ForgeReviewUser }> = ({ user }) => (
 	<div className={classes("text-13", styles.user)} title={user.name ?? user.login}>
@@ -158,6 +162,16 @@ const CopyableBranch: FC<{ name: string }> = ({ name }) => {
 		</Tooltip.Root>
 	);
 };
+
+/** The arrow and the target branch travel together when the row wraps. */
+const TargetBranch: FC<{ name: string }> = ({ name }) => (
+	<span className={styles.branchTarget}>
+		<span className={styles.branchArrow}>→</span>
+		<span className={styles.targetBranch} title={name}>
+			{name}
+		</span>
+	</span>
+);
 
 /**
  * The side panel while a PR is still being drafted: what the PR would be made
@@ -248,30 +262,40 @@ export const NewPullRequestPanel: FC<{
 		<aside className={styles.panel}>
 			<Section
 				heading="Reviewers"
-				action={canPickReviewers && pickerButton("Request a review", openReviewerMenu)}
+				action={
+					canPickReviewers &&
+					pickerButton({
+						label: "Add reviewers",
+						icon: "user",
+						empty: pickedReviewers.length === 0,
+						onClick: openReviewerMenu,
+					})
+				}
 			>
-				{pickedReviewers.length === 0 ? (
-					<PeoplePlaceholder />
-				) : (
-					pickedReviewers.map(({ login, user }) =>
-						user === undefined ? (
-							<span key={login} className="text-13">
-								{login}
-							</span>
-						) : (
-							<ReviewUser key={login} user={user} />
-						),
-					)
+				{pickedReviewers.map(({ login, user }) =>
+					user === undefined ? (
+						<span key={login} className="text-13">
+							{login}
+						</span>
+					) : (
+						<ReviewUser key={login} user={user} />
+					),
 				)}
 			</Section>
 
 			<Section
 				heading="Labels"
-				action={canPickLabels && pickerButton("Edit labels", openLabelMenu)}
+				action={
+					canPickLabels &&
+					pickerButton({
+						label: "Add labels",
+						icon: "tag",
+						empty: pickedLabels.length === 0,
+						onClick: openLabelMenu,
+					})
+				}
 			>
-				{pickedLabels.length === 0 ? (
-					<LabelsPlaceholder />
-				) : (
+				{pickedLabels.length > 0 && (
 					<div className={styles.labels}>
 						{pickedLabels.map((label) => (
 							<Label key={label.name} label={label} />
@@ -283,12 +307,7 @@ export const NewPullRequestPanel: FC<{
 			<Section heading="Branches">
 				<div className={classes("text-13", styles.branches)}>
 					<CopyableBranch name={sourceBranch} />
-					{targetBranch !== undefined && (
-						<>
-							<span className={styles.branchArrow}>→</span>
-							<span className={styles.targetBranch}>{targetBranch}</span>
-						</>
-					)}
+					{targetBranch !== undefined && <TargetBranch name={targetBranch} />}
 				</div>
 			</Section>
 		</aside>
@@ -500,9 +519,53 @@ export const PullRequestPanel: FC<{
 	const { mutate: withdrawReviewRequest } = useWithdrawReviewRequest(projectId);
 	const { isPending: isDraftinessPending, mutate: setReviewDraftiness } =
 		useSetReviewDraftiness(projectId);
+	const { isPending: isUpdateReviewPending, mutate: updateReview } = useUpdateReview(projectId);
 
-	// Neither a merged nor a closed review can change draftiness.
-	const canToggleDraft = review.mergedAt === null && review.closedAt === null;
+	const status = reviewStatus(review);
+	// A merged review is final; anything else can move between open, draft and
+	// closed from the status badge.
+	const canSwitchStatus = status !== "merged";
+	const isStatusPending = isDraftinessPending || isUpdateReviewPending;
+
+	const setDraft = (draft: boolean) =>
+		setReviewDraftiness({ projectId, reviewId: review.number, draft });
+	const setState = (state: "open" | "closed", onSuccess?: () => void) =>
+		updateReview(
+			{ projectId, reviewId: review.number, state, title: null, body: null, targetBase: null },
+			{ onSuccess },
+		);
+
+	// Reopening restores the draftiness the review was closed with, so landing
+	// on the other of open/draft takes a second step once it is open again.
+	const switchStatus = (target: Exclude<ReviewStatus, "merged">) =>
+		Match.value(target).pipe(
+			Match.when("closed", () => setState("closed")),
+			Match.when("open", () =>
+				status === "closed"
+					? setState("open", () => review.draft && setDraft(false))
+					: setDraft(false),
+			),
+			Match.when("draft", () =>
+				status === "closed"
+					? setState("open", () => !review.draft && setDraft(true))
+					: setDraft(true),
+			),
+			Match.exhaustive,
+		);
+
+	const openStatusMenu = (evt: MouseEvent<HTMLButtonElement>) =>
+		void showNativeMenuFromTrigger(
+			evt.currentTarget,
+			(["open", "draft", "closed"] as const).map((target) =>
+				nativeMenuItem({
+					label: statusBits(target)[0],
+					checked: status === target,
+					onSelect: () => {
+						if (status !== target) switchStatus(target);
+					},
+				}),
+			),
+		);
 
 	// The queries stop fetching when canManage flips off, but cached data
 	// still reads — gate the pickers on manageability, not cache presence.
@@ -556,13 +619,13 @@ export const PullRequestPanel: FC<{
 		);
 	};
 
-	const [statusLabel, statusVariant, statusIcon] = Match.value(reviewStatus(review)).pipe(
-		Match.withReturnType<[string, BadgeVariant, IconName]>(),
-		Match.when("open", () => ["Open", "safe", "pr"]),
-		Match.when("draft", () => ["Draft", "lightGray", "pr-draft"]),
-		Match.when("merged", () => ["Merged", "purple", "branch-merge"]),
-		Match.when("closed", () => ["Closed", "danger", "pr-close"]),
-		Match.exhaustive,
+	const [statusLabel, statusVariant, statusIcon] = statusBits(status);
+	const statusBadge = (
+		<Badge variant={statusVariant} size="large">
+			<Icon name={statusIcon} size={12} />
+			{statusLabel}
+			{canSwitchStatus && <Icon name="chevron-down" size={12} />}
+		</Badge>
 	);
 
 	const createdAtMs = review.createdAt === null ? null : Date.parse(review.createdAt);
@@ -582,67 +645,71 @@ export const PullRequestPanel: FC<{
 			<Section
 				heading="Status"
 				action={
-					<a
-						href={review.htmlUrl}
-						onClick={handleOpen}
-						className={classes("text-12", styles.link, styles.prLink)}
-					>
-						{review.unitSymbol}
-						{review.number}
-						<Icon name="arrow-up-right" size={12} />
-					</a>
+					<div className={styles.statusActions}>
+						{canSwitchStatus ? (
+							<button
+								aria-label="Change status"
+								className={styles.statusTrigger}
+								disabled={isStatusPending}
+								onClick={openStatusMenu}
+								type="button"
+							>
+								{statusBadge}
+							</button>
+						) : (
+							statusBadge
+						)}
+						<a
+							href={review.htmlUrl}
+							onClick={handleOpen}
+							className={classes("text-12", styles.link, styles.prLink)}
+						>
+							{review.unitSymbol}
+							{review.number}
+							<Icon name="arrow-up-right" size={12} />
+						</a>
+					</div>
 				}
 			>
-				<div className={styles.statusRow}>
-					<Badge variant={statusVariant} size="large">
-						<Icon name={statusIcon} size={12} />
-						{statusLabel}
-					</Badge>
-					{canToggleDraft && (
-						<button
-							className={getButtonClassName({ variant: "outline", size: "small" })}
-							disabled={isDraftinessPending}
-							onClick={() =>
-								setReviewDraftiness({
-									projectId,
-									reviewId: review.number,
-									draft: !review.draft,
-								})
-							}
-							type="button"
-						>
-							{review.draft ? "Mark as ready" : "Convert to draft"}
-						</button>
-					)}
-				</div>
+				{null}
 			</Section>
 
 			<Section
 				heading="Reviewers"
-				action={canPickReviewers && pickerButton("Request a review", openReviewerMenu)}
-			>
-				{reviewerList.length === 0 ? (
-					<PeoplePlaceholder />
-				) : (
-					reviewerList.map(({ user, verdict }) => {
-						const [icon, color, label] = verdictBits(verdict);
-						return (
-							<div key={user.id} className={styles.reviewerRow} title={label}>
-								<ReviewUser user={user} />
-								<Icon name={icon} style={{ color }} size={15} />
-							</div>
-						);
+				action={
+					canPickReviewers &&
+					pickerButton({
+						label: "Add reviewers",
+						icon: "user",
+						empty: reviewerList.length === 0,
+						onClick: openReviewerMenu,
 					})
-				)}
+				}
+			>
+				{reviewerList.map(({ user, verdict }) => {
+					const [icon, color, label] = verdictBits(verdict);
+					return (
+						<div key={user.id} className={styles.reviewerRow} title={label}>
+							<ReviewUser user={user} />
+							<Icon name={icon} style={{ color }} size={15} />
+						</div>
+					);
+				})}
 			</Section>
 
 			<Section
 				heading="Labels"
-				action={canPickLabels && pickerButton("Edit labels", openLabelMenu)}
+				action={
+					canPickLabels &&
+					pickerButton({
+						label: "Add labels",
+						icon: "tag",
+						empty: review.labels.length === 0,
+						onClick: openLabelMenu,
+					})
+				}
 			>
-				{review.labels.length === 0 ? (
-					<LabelsPlaceholder />
-				) : (
+				{review.labels.length > 0 && (
 					<div className={styles.labels}>
 						{review.labels.map((label) => (
 							<Label key={label.name} label={label} />
@@ -658,8 +725,7 @@ export const PullRequestPanel: FC<{
 			<Section heading="Branches">
 				<div className={classes("text-13", styles.branches)}>
 					<CopyableBranch name={review.sourceBranch} />
-					<span className={styles.branchArrow}>→</span>
-					<span className={styles.targetBranch}>{review.targetBranch}</span>
+					<TargetBranch name={review.targetBranch} />
 				</div>
 			</Section>
 
