@@ -128,6 +128,8 @@ protocol.registerSchemesAsPrivileged([
 			standard: true,
 			secure: true,
 			supportFetchAPI: true,
+			// Lets Chromium keep the renderer bundle's compiled bytecode between launches.
+			codeCache: true,
 		},
 	},
 ]);
@@ -530,6 +532,8 @@ const createMainWindow = async (initialUrl?: string): Promise<void> => {
 			contextIsolation: true,
 			nodeIntegration: false,
 			preload: path.join(currentDirPath, "preload.cjs"),
+			// Cache every script's bytecode, not only what Chromium's heuristics deem hot.
+			v8CacheOptions: "bypassHeatCheck",
 		},
 	});
 	registerEditingContextMenu(mainWindow);
