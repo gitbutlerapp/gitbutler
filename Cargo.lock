@@ -1394,6 +1394,7 @@ dependencies = [
  "but-hunk-dependency",
  "but-schemars",
  "but-serde",
+ "but-testsupport",
  "gix",
  "itertools",
  "schemars 1.2.1",

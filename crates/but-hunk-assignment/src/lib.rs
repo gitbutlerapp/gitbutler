@@ -79,25 +79,27 @@ impl HunkAssignment {
     pub fn from_tree_change(change: &TreeChange, patch: Option<UnifiedPatch>) -> Vec<Self> {
         but_core::SingleHunk::from_tree_change(change, patch)
             .into_iter()
-            .map(|hunk| {
-                let (line_nums_added, line_nums_removed) = match hunk.line_nums() {
-                    Some((added, removed)) => (Some(added), Some(removed)),
-                    None => (None, None),
-                };
-                let path = hunk.path.to_str_lossy().into_owned();
-                HunkAssignment {
-                    id: Some(Uuid::new_v4()),
-                    hunk_header: hunk.hunk_header,
-                    path,
-                    path_bytes: hunk.path,
-                    stack_id: None,
-                    branch_ref_bytes: None,
-                    line_nums_added,
-                    line_nums_removed,
-                    diff: hunk.diff,
-                }
-            })
+            .map(HunkAssignment::from_hunk)
             .collect()
+    }
+
+    fn from_hunk(hunk: but_core::SingleHunk) -> HunkAssignment {
+        let (line_nums_added, line_nums_removed) = match hunk.line_nums() {
+            Some((added, removed)) => (Some(added), Some(removed)),
+            None => (None, None),
+        };
+        let path = hunk.path.to_str_lossy().into_owned();
+        HunkAssignment {
+            id: Some(Uuid::new_v4()),
+            hunk_header: hunk.hunk_header,
+            path,
+            path_bytes: hunk.path,
+            stack_id: None,
+            branch_ref_bytes: None,
+            line_nums_added,
+            line_nums_removed,
+            diff: hunk.diff,
+        }
     }
 }
 
@@ -426,16 +428,12 @@ pub fn assign(
 ) -> Result<()> {
     let branches_by_stack = workspace_branches_by_stack(workspace);
 
-    let worktree_changes: Vec<but_core::TreeChange> =
-        but_core::diff::worktree_changes(repo)?.changes;
-    let mut worktree_assignments = vec![];
-    for change in &worktree_changes {
-        let diff = change.unified_patch(repo, context_lines);
-        worktree_assignments.extend(HunkAssignment::from_tree_change(
-            change,
-            diff.ok().flatten(),
-        ));
-    }
+    let worktree_changes = but_core::diff::worktree_changes(repo)?.changes;
+    let worktree_assignments: Vec<_> =
+        but_core::hunks_from_changes(repo, worktree_changes, context_lines)
+            .into_iter()
+            .map(HunkAssignment::from_hunk)
+            .collect();
 
     // Reconcile worktree with the persisted assignments
     let mut persisted_assignments = state::assignments(db.to_ref())?;
@@ -509,14 +507,11 @@ fn reconcile_worktree_changes_with_worktree(
     if worktree_changes.is_empty() {
         return Ok(vec![]);
     }
-    let mut worktree_assignments = vec![];
-    for change in &worktree_changes {
-        let diff = change.unified_patch(repo, context_lines);
-        worktree_assignments.extend(HunkAssignment::from_tree_change(
-            change,
-            diff.ok().flatten(),
-        ));
-    }
+    let worktree_assignments: Vec<_> =
+        but_core::hunks_from_changes(repo, worktree_changes, context_lines)
+            .into_iter()
+            .map(HunkAssignment::from_hunk)
+            .collect();
     let mut reconciled = reconcile_with_worktree(db.to_ref(), workspace, &worktree_assignments)?;
 
     derive_stack_ids(&mut reconciled, workspace);
@@ -849,6 +844,138 @@ mod tests {
             target_commit: None,
             metadata: None,
         }
+    }
+
+    #[test]
+    fn reconciliation_reuses_filter_process() -> anyhow::Result<()> {
+        let (repo, _tmp) = but_testsupport::writable_scenario("process-filter");
+        let mut db = but_testsupport::project_db(&repo)?;
+        let mut changes = but_core::diff::worktree_changes(&repo)?.changes;
+        // Also exercise an index-backed addition between worktree-backed changes.
+        changes.retain(|change| change.path != "staged.txt");
+        let after_first_filtered = changes
+            .iter()
+            .position(|change| change.path == "a.filtered")
+            .unwrap()
+            + 1;
+        changes.insert(
+            after_first_filtered,
+            but_core::TreeChange {
+                path: "staged.txt".into(),
+                status: but_core::TreeStatus::Addition {
+                    state: but_core::ChangeState {
+                        id: repo.rev_parse_single(":staged.txt")?.detach(),
+                        kind: gix::object::tree::EntryKind::Blob,
+                    },
+                    is_untracked: false,
+                },
+            },
+        );
+        let mut expected = Vec::new();
+        for change in &changes {
+            expected.extend(HunkAssignment::from_tree_change(
+                change,
+                change.unified_patch(&repo, 3)?,
+            ));
+        }
+        std::fs::write(repo.path().join("filter-starts"), "")?;
+
+        let (actual, error) = assignments_with_fallback(
+            db.hunk_assignments_mut()?,
+            &repo,
+            &empty_workspace(),
+            Some(changes),
+            3,
+        )?;
+        assert!(error.is_none(), "filter reuse must not degrade assignments");
+        assert_eq!(actual, expected, "paths and hunk headers must be unchanged");
+        for (actual, expected) in actual.iter().zip(&expected) {
+            assert_eq!(
+                actual.diff, expected.diff,
+                "patch contents must be unchanged"
+            );
+            if actual.path.ends_with(".filtered") {
+                assert!(
+                    actual
+                        .diff
+                        .as_ref()
+                        .is_some_and(|diff| diff.to_string().contains("+cleaned ")),
+                    "the clean filter must still run for every filtered file"
+                );
+            }
+        }
+        assert_eq!(
+            std::fs::read_to_string(repo.path().join("filter-starts"))?,
+            "start\n",
+            "all worktree diffs must share one long-running filter process"
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn core_hunks_reuse_filter_process() -> anyhow::Result<()> {
+        let (repo, _tmp) = but_testsupport::writable_scenario("process-filter");
+        let changes = but_core::diff::worktree_changes(&repo)?.changes;
+        std::fs::write(repo.path().join("filter-starts"), "")?;
+        let hunks = but_core::hunks_from_changes(&repo, changes, 3);
+        assert_eq!(hunks.len(), 6, "each changed file has one hunk");
+        assert_eq!(
+            std::fs::read_to_string(repo.path().join("filter-starts"))?,
+            "start\n",
+            "CLI hunk collection must reuse the long-running filter process"
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn reused_filter_recovers_after_file_failure() -> anyhow::Result<()> {
+        let (repo, _tmp) = but_testsupport::writable_scenario("process-filter");
+        let changes = but_core::diff::worktree_changes(&repo)?.changes;
+        std::fs::write(repo.workdir().unwrap().join("a.filtered"), "fail\n")?;
+        std::fs::write(repo.path().join("filter-starts"), "")?;
+
+        let hunks = but_core::hunks_from_changes(&repo, changes, 3);
+        let failed = hunks.iter().find(|hunk| hunk.path == "a.filtered").unwrap();
+        assert!(
+            failed.hunk_header.is_none() && failed.diff.is_none(),
+            "filter errors must retain the whole-file fallback"
+        );
+        let next = hunks.iter().find(|hunk| hunk.path == "b.filtered").unwrap();
+        assert_eq!(
+            next.diff.as_ref().map(|diff| diff.to_string()),
+            Some("@@ -1,0 +1,1 @@\n+cleaned second\n".to_owned()),
+            "a failed file must not poison the next diff"
+        );
+        assert_eq!(
+            std::fs::read_to_string(repo.path().join("filter-starts"))?,
+            "start\n",
+            "per-file filter errors must not restart a healthy process"
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn assign_reuses_filter_process() -> anyhow::Result<()> {
+        let (repo, _tmp) = but_testsupport::writable_scenario("process-filter");
+        let mut db = but_testsupport::project_db(&repo)?;
+        // Rename detection has its own filter pipeline; count it separately.
+        but_core::diff::worktree_changes(&repo)?;
+        let starts_path = repo.path().join("filter-starts");
+        let status_starts = std::fs::read_to_string(&starts_path)?.lines().count();
+        std::fs::write(&starts_path, "")?;
+        assign(
+            db.hunk_assignments_mut()?,
+            &repo,
+            &empty_workspace(),
+            Vec::new(),
+            3,
+        )?;
+        assert_eq!(
+            std::fs::read_to_string(starts_path)?.lines().count(),
+            status_starts + 1,
+            "explicit assignment must also reuse the long-running filter process"
+        );
+        Ok(())
     }
 
     fn branch_ref(name: &str) -> gix::refs::FullName {
