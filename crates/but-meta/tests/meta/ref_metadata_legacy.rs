@@ -1487,6 +1487,77 @@ fn garbage_collect_removes_outside_workspace_stack_with_broken_ref() -> anyhow::
     Ok(())
 }
 
+#[test]
+fn garbage_collection_preserves_retained_database_rows() -> anyhow::Result<()> {
+    let repo = but_testsupport::read_only_in_memory_scenario("dlib-standin")?;
+    let target = repo.head_id()?.detach();
+    let mut store = but_testsupport::in_memory_db();
+    let kept_id = StackId::from_number_for_testing(1).to_string();
+    let removed_id = StackId::from_number_for_testing(2).to_string();
+    let kept = but_db::VbStack {
+        id: kept_id.clone(),
+        source_refname: Some("opaque historical reference".into()),
+        upstream_remote_name: Some("origin".into()),
+        upstream_branch_name: Some("kept".into()),
+        sort_order: 37,
+        in_workspace: true,
+        legacy_name: "kept".into(),
+        legacy_notes: "historical notes".into(),
+        legacy_ownership: "opaque historical ownership".into(),
+        legacy_allow_rebasing: false,
+        legacy_post_commits: true,
+        legacy_tree_sha: "opaque historical tree".into(),
+        legacy_head_sha: "opaque historical head".into(),
+        legacy_created_timestamp_ms: "opaque historical timestamp".into(),
+        legacy_updated_timestamp_ms: "another historical timestamp".into(),
+    };
+    let kept_head = but_db::VbStackHead {
+        stack_id: kept_id.clone(),
+        position: 7,
+        name: "kept".into(),
+        head_sha: target.to_string(),
+        pr_number: Some(42),
+        archived: true,
+        review_id: Some("review".into()),
+    };
+    let mut snapshot = but_db::VirtualBranchesSnapshot {
+        state: but_db::VbState {
+            initialized: true,
+            last_pushed_base_sha: Some(target.to_string()),
+            toml_last_seen_mtime_ns: Some(123),
+            toml_last_seen_sha256: Some("historical sync hash".into()),
+        },
+        stacks: vec![
+            kept.clone(),
+            but_db::VbStack {
+                id: removed_id.clone(),
+                in_workspace: false,
+                ..kept
+            },
+        ],
+        heads: vec![
+            kept_head.clone(),
+            but_db::VbStackHead {
+                stack_id: removed_id,
+                name: "collected".into(),
+                ..kept_head
+            },
+        ],
+    };
+    store.meta_mut()?.replace_snapshot(&snapshot)?;
+
+    but_meta::garbage_collect(&repo, &project_meta(target), &mut store.connection_mut())?;
+
+    snapshot.stacks.retain(|stack| stack.id == kept_id);
+    snapshot.heads.retain(|head| head.stack_id == kept_id);
+    assert_eq!(
+        store.virtual_branches().get_snapshot()?,
+        Some(snapshot),
+        "collection removes only the obsolete stack and its heads without decoding or normalizing retained fields"
+    );
+    Ok(())
+}
+
 /// A stale unapplied stack may still list a branch that meanwhile lives in an applied
 /// stack - `reconcile_projected_stacks` tolerates such duplicates as stale hints.
 /// Writing the workspace back must not move the applied stack's copy into the stale

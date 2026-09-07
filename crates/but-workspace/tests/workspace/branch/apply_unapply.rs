@@ -5859,7 +5859,8 @@ Outcome {
     );
 
     // make "A" an applied dependent branch that is included in B so apply will do nothing.
-    but_testsupport::edit_legacy_metadata(&mut meta, |data| data.branches.clear())?;
+    meta.meta_mut()?
+        .remove(but_core::WORKSPACE_REF_NAME.try_into()?)?;
     add_stack_with_segments(&mut meta, 2, "B", StackState::InWorkspace, &["A"]);
 
     let (b_id, b_ref) = id_at(&repo, "B");
@@ -5905,7 +5906,8 @@ Outcome {
     );
 
     // There is no known branch, and adding it will just add metadata.
-    but_testsupport::edit_legacy_metadata(&mut meta, |data| data.branches.clear())?;
+    meta.meta_mut()?
+        .remove(but_core::WORKSPACE_REF_NAME.try_into()?)?;
     let ws = but_graph::Graph::from_head(
         &repo,
         project_meta(&repo)?,

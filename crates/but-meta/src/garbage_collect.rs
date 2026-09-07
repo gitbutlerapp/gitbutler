@@ -2,12 +2,7 @@
 
 use anyhow::Context as _;
 use but_core::ref_metadata::ProjectMeta;
-use but_db::ConnectionMut;
-
-use crate::{
-    legacy_storage::{legacy_to_snapshot, snapshot_to_legacy},
-    virtual_branches_legacy_types::Stack,
-};
+use but_db::{ConnectionMut, VbStackHead};
 
 /// Remove unapplied stacks that contain no commits relative to the target, or whose head is missing.
 pub fn garbage_collect(
@@ -18,43 +13,49 @@ pub fn garbage_collect(
     let Some(target_sha) = project_meta.target_commit_id else {
         return Ok(());
     };
-    let snapshot = db.virtual_branches().get_snapshot()?.unwrap_or_default();
-    let mut data = snapshot_to_legacy(&snapshot)?;
+    let mut snapshot = db.virtual_branches().get_snapshot()?.unwrap_or_default();
     let cache = repo.commit_graph_if_enabled()?;
     let mut graph = repo.revision_graph(cache.as_ref());
     let mut to_remove = Vec::new();
-    for stack in data.branches.values().filter(|stack| !stack.in_workspace) {
-        if let Ok(stack_head) = stack_head_oid(repo, stack, target_sha)
+    for stack in snapshot.stacks.iter().filter(|stack| !stack.in_workspace) {
+        let head = snapshot
+            .heads
+            .iter()
+            .rev()
+            .find(|head| head.stack_id == stack.id);
+        if let Ok(stack_head) = stack_head_oid(repo, head, target_sha)
             && (repo.find_commit(stack_head).is_err()
                 || stack_head
                     == repo
                         .merge_base_with_graph(stack_head, target_sha, &mut graph)?
                         .detach())
         {
-            to_remove.push(stack.id);
+            to_remove.push(stack.id.clone());
         }
     }
     if !to_remove.is_empty() {
-        for stack_id in to_remove {
-            data.branches.remove(&stack_id);
-        }
-        db.meta_mut()?
-            .replace_snapshot(&legacy_to_snapshot(&data)?)?;
+        snapshot
+            .stacks
+            .retain(|stack| !to_remove.contains(&stack.id));
+        snapshot
+            .heads
+            .retain(|head| !to_remove.contains(&head.stack_id));
+        db.meta_mut()?.replace_snapshot(&snapshot)?;
     }
     Ok(())
 }
 
 fn stack_head_oid(
     repo: &gix::Repository,
-    stack: &Stack,
+    head: Option<&VbStackHead>,
     default_target: gix::ObjectId,
 ) -> anyhow::Result<gix::ObjectId> {
-    let Some(head) = stack.heads.last() else {
+    let Some(head) = head else {
         return Ok(default_target);
     };
     let full_name = gix::refs::Category::LocalBranch.to_full_name(head.name.as_str())?;
     let Some(reference) = repo.try_find_reference(full_name.as_ref())? else {
-        return Ok(head.head);
+        return head.head_sha.parse().context("Invalid stored stack head");
     };
     reference
         .try_id()

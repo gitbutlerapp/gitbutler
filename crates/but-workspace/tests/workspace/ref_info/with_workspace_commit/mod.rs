@@ -1392,7 +1392,8 @@ RefInfo {
     );
 
     // Natural order here is `lane` first, but we say we want `lane-2` first
-    but_testsupport::edit_legacy_metadata(&mut meta, |data| data.branches.clear())?;
+    meta.meta_mut()?
+        .remove(but_core::WORKSPACE_REF_NAME.try_into()?)?;
     add_stack_with_segments(
         &mut meta,
         0,
@@ -1925,7 +1926,8 @@ RefInfo {
         .raw()
     );
 
-    but_testsupport::edit_legacy_metadata(&mut meta, |data| data.branches.clear())?;
+    meta.meta_mut()?
+        .remove(but_core::WORKSPACE_REF_NAME.try_into()?)?;
     add_stack_with_segments(
         &mut meta,
         0,
@@ -2631,7 +2633,8 @@ RefInfo {
         .raw()
     );
 
-    but_testsupport::edit_legacy_metadata(&mut meta, |data| data.branches.clear())?;
+    meta.meta_mut()?
+        .remove(but_core::WORKSPACE_REF_NAME.try_into()?)?;
     // Invert the order to invert stack order.
     for (idx, name) in ["advanced-lane", "lane"].into_iter().enumerate() {
         add_stack(&mut meta, idx as u128, name, StackState::InWorkspace);
@@ -3457,7 +3460,6 @@ mod journey;
 pub(crate) mod utils {
     use but_core::ref_metadata::{ProjectMeta, StackId};
     use but_graph::init::Options;
-    use but_meta::virtual_branches_legacy_types::{Stack, StackBranch};
     use but_testsupport::gix_testtools::tempfile::TempDir;
 
     pub fn read_only_in_memory_scenario(
@@ -3582,10 +3584,7 @@ pub(crate) mod utils {
         Ok((repo, meta, desc))
     }
 
-    pub enum StackState {
-        InWorkspace,
-        Inactive,
-    }
+    pub use but_testsupport::{StackState, add_stack_with_segments};
 
     pub fn add_workspace(meta: &mut but_db::DbHandle) {
         add_stack(
@@ -3603,45 +3602,6 @@ pub(crate) mod utils {
         state: StackState,
     ) -> StackId {
         add_stack_with_segments(meta, stack_id, stack_name, state, &[])
-    }
-
-    // Add parameters as needed.
-    pub fn add_stack_with_segments(
-        meta: &mut but_db::DbHandle,
-        stack_id: u128,
-        stack_name: &str,
-        state: StackState,
-        segments: &[&str],
-    ) -> StackId {
-        let mut stack = Stack::new_with_just_heads(
-            segments
-                .iter()
-                .rev()
-                .map(|stack_name| {
-                    StackBranch::new_with_zero_head((*stack_name).into(), None, None, false)
-                })
-                .chain(std::iter::once(StackBranch::new_with_zero_head(
-                    stack_name.into(),
-                    None,
-                    None,
-                    false,
-                )))
-                .collect(),
-            but_testsupport::legacy_metadata(meta)
-                .unwrap()
-                .branches
-                .len(),
-            match state {
-                StackState::InWorkspace => true,
-                StackState::Inactive => false,
-            },
-        );
-        stack.order = stack_id as usize;
-        let stack_id = StackId::from_number_for_testing(stack_id);
-        stack.id = stack_id;
-        but_testsupport::edit_legacy_metadata(meta, |data| data.branches.insert(stack_id, stack))
-            .unwrap();
-        stack_id
     }
 }
 pub use utils::read_only_in_memory_scenario;

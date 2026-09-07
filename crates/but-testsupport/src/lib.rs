@@ -129,25 +129,67 @@ pub fn fixture_metadata(path: impl AsRef<Path>) -> anyhow::Result<but_db::DbHand
     Ok(db)
 }
 
-/// Decode database state into the legacy fixture payload for structural assertions.
-pub fn legacy_metadata(
-    db: &but_db::DbHandle,
-) -> anyhow::Result<but_meta::virtual_branches_legacy_types::VirtualBranches> {
-    but_meta::legacy_storage::snapshot_to_legacy(
-        &db.virtual_branches().get_snapshot()?.unwrap_or_default(),
-    )
-}
-
-/// Edit a legacy fixture payload and explicitly save the result to its database.
-pub fn edit_legacy_metadata<T>(
+/// Add a fixture stack whose tip is `stack_name`, with `segments` ordered from tip to base.
+/// The numeric ID also determines the stack's position among other fixture stacks.
+/// This seeds rows directly so tests can represent overlapping or stale stack metadata.
+pub fn add_stack_with_segments(
     db: &mut but_db::DbHandle,
-    edit: impl FnOnce(&mut but_meta::virtual_branches_legacy_types::VirtualBranches) -> T,
-) -> anyhow::Result<T> {
-    let mut legacy = legacy_metadata(db)?;
-    let outcome = edit(&mut legacy);
-    let snapshot = but_meta::legacy_storage::legacy_to_snapshot(&legacy)?;
-    db.virtual_branches_mut()?.replace_snapshot(&snapshot)?;
-    Ok(outcome)
+    stack_id: u128,
+    stack_name: &str,
+    state: StackState,
+    segments: &[&str],
+) -> but_core::ref_metadata::StackId {
+    let order = i64::try_from(stack_id).expect("fixture stack order fits in the database");
+    let stack_id = but_core::ref_metadata::StackId::from_number_for_testing(stack_id);
+    let stored_id = stack_id.to_string();
+    let mut snapshot = db
+        .virtual_branches()
+        .get_snapshot()
+        .expect("fixture metadata can be read")
+        .unwrap_or_default();
+    snapshot.stacks.retain(|stack| stack.id != stored_id);
+    snapshot.heads.retain(|head| head.stack_id != stored_id);
+    let null_id = gix::hash::Kind::Sha1.null().to_string();
+    snapshot.stacks.push(but_db::VbStack {
+        id: stored_id.clone(),
+        source_refname: None,
+        upstream_remote_name: None,
+        upstream_branch_name: None,
+        sort_order: order,
+        in_workspace: matches!(state, StackState::InWorkspace),
+        legacy_name: String::new(),
+        legacy_notes: String::new(),
+        legacy_ownership: String::new(),
+        legacy_allow_rebasing: true,
+        legacy_post_commits: false,
+        legacy_tree_sha: null_id.clone(),
+        legacy_head_sha: null_id.clone(),
+        legacy_created_timestamp_ms: "0".into(),
+        legacy_updated_timestamp_ms: "0".into(),
+    });
+    snapshot.heads.extend(
+        segments
+            .iter()
+            .rev()
+            .copied()
+            .chain(std::iter::once(stack_name))
+            .enumerate()
+            .map(|(position, name)| but_db::VbStackHead {
+                stack_id: stored_id.clone(),
+                position: position as i64,
+                name: name.into(),
+                head_sha: null_id.clone(),
+                pr_number: None,
+                archived: false,
+                review_id: None,
+            }),
+    );
+    snapshot.state.initialized = true;
+    db.meta_mut()
+        .expect("fixture metadata can be written")
+        .replace_snapshot(&snapshot)
+        .expect("fixture workspace can be saved");
+    stack_id
 }
 
 fn import_fixture_metadata(db: &mut but_db::DbHandle, path: &Path) -> anyhow::Result<()> {
