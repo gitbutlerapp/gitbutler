@@ -116,19 +116,23 @@ const uncommittedChangesHeadingId = "uncommitted-changes-heading";
 const DryRunWorkspaceContext = createContext<WorkspaceState | null>(null);
 DryRunWorkspaceContext.displayName = "DryRunWorkspaceContext";
 
-/** An element's height, kept current as it resizes. */
-const useHeight = (ref: RefObject<HTMLElement | null>): number => {
+/**
+ * An element's height, kept current as it resizes: give the element the ref.
+ * Keyed on the element, not a ref object, so a replaced node (a hot reload
+ * swaps them) is measured afresh rather than watched after it is gone.
+ */
+const useHeight = (): [ref: (element: HTMLElement | null) => void, height: number] => {
+	const [element, setElement] = useState<HTMLElement | null>(null);
 	const [height, setHeight] = useState(0);
 	useLayoutEffect(() => {
-		const element = ref.current;
 		if (element === null) return;
 		const measure = () => setHeight(element.offsetHeight);
 		measure();
 		const observer = new ResizeObserver(measure);
 		observer.observe(element);
 		return () => observer.disconnect();
-	}, [ref]);
-	return height;
+	}, [element]);
+	return [setElement, height];
 };
 
 const TreeItem: FC<
@@ -290,9 +294,10 @@ const UncommittedChanges: FC<
 		selectActiveFile: (selection: string) => void;
 		spillEdge: (offset: -1 | 1) => void;
 		worktreeChanges: WorktreeChanges | undefined;
-		/** The graph's scroller, which the card heads, and the room a row scrolled into view keeps clear at its foot. */
+		/** The graph's scroller, which the card heads. */
 		scrollElementRef: RefObject<HTMLDivElement | null>;
-		scrollPaddingEnd: number;
+		/** The docked merge base row's height at the scroller's foot, or 0: the commit form sticks above it. */
+		footDock: number;
 	} & Omit<ComponentProps<"div">, "children">
 > = ({
 	addressSpace,
@@ -306,7 +311,7 @@ const UncommittedChanges: FC<
 	spillEdge,
 	worktreeChanges,
 	scrollElementRef,
-	scrollPaddingEnd,
+	footDock,
 	...props
 }) => {
 	const dispatch = useAppDispatch();
@@ -348,9 +353,10 @@ const UncommittedChanges: FC<
 
 	const cardRef = useRef<HTMLDivElement>(null);
 	const fileListRef = useRef<HTMLDivElement>(null);
-	// The head sticks at the scroller's top, so a row scrolled into view clears it.
-	const headRef = useRef<HTMLDivElement>(null);
-	const headHeight = useHeight(headRef);
+	// The head sticks at the scroller's top and the commit form at its foot, so a row
+	// scrolled into view clears both.
+	const [headRef, headHeight] = useHeight();
+	const [formRef, formHeight] = useHeight();
 	// The list's start in the scroller, which the card heads: the rows above the
 	// list come and go with the filter and the worktree, so the card's size says
 	// when to measure again.
@@ -471,27 +477,29 @@ const UncommittedChanges: FC<
 						scrollElementRef={scrollElementRef}
 						scrollMargin={listOffset}
 						scrollPaddingStart={headHeight}
-						scrollPaddingEnd={scrollPaddingEnd}
+						scrollPaddingEnd={footDock + formHeight}
 						// The rows sit on the trunk, at the graph's inset rather than the tree's own.
 						style={{ "--row-padding-inline-start": `${ROW_INSET}px` }}
 					/>
 				</Activity>
 
-				<Row interactive={false}>
-					{trunk}
-					<CommitForm
-						projectId={projectId}
-						commitTarget={commitTarget}
-						targetComboboxItems={targetComboboxItems}
-						hasNoBranches={hasNoBranches}
-						startCommitButtonId={startCommitButtonId}
-						commitMessageInputId={commitMessageInputId}
-						className={styles.commitForm}
-						onAmendCommit={amendCommit}
-						canAmendCommit={canAmendCommit}
-						worktreeChanges={worktreeChanges}
-					/>
-				</Row>
+				<div ref={formRef} className={styles.commitFoot} style={{ bottom: footDock }}>
+					<Row interactive={false} className={styles.commitFootRow}>
+						{trunk}
+						<CommitForm
+							projectId={projectId}
+							commitTarget={commitTarget}
+							targetComboboxItems={targetComboboxItems}
+							hasNoBranches={hasNoBranches}
+							startCommitButtonId={startCommitButtonId}
+							commitMessageInputId={commitMessageInputId}
+							className={styles.commitForm}
+							onAmendCommit={amendCommit}
+							canAmendCommit={canAmendCommit}
+							worktreeChanges={worktreeChanges}
+						/>
+					</Row>
+				</div>
 			</Activity>
 
 			<Row interactive={false} className={styles.stub}>
@@ -1222,8 +1230,8 @@ const Stacks: FC<{
 		[scrollElementRef],
 	);
 	// The cards start under the uncommitted files card and the gap below it.
-	const headRef = useRef<HTMLDivElement>(null);
-	const scrollMargin = useHeight(headRef) + CARD_GAP;
+	const [headRef, headHeight] = useHeight();
+	const scrollMargin = headHeight + CARD_GAP;
 	// The scroller's foot, for the merge base row's stand-in. State, not a ref: it is portalled into.
 	const [footDock, setFootDock] = useState<HTMLDivElement | null>(null);
 	const getStackKey = useCallback((index: number) => stacks[index]?.id ?? index, [stacks]);
@@ -1605,9 +1613,10 @@ export const WorkspaceLists: FC<
 		focusScope("uncommitted-files");
 	};
 	const scrollElementRef = useRef<HTMLDivElement>(null);
-	// A row scrolled into view clears the docked merge base row, else the foot's gradient.
-	const scrollPaddingEnd =
-		graph.plan.base !== null && !graph.plan.baseExpanded ? DOCKED_HEIGHT : 14;
+	// The docked merge base row's height, which the card's commit form sticks above; a row
+	// scrolled into view clears it, else the foot's gradient.
+	const footDock = graph.plan.base !== null && !graph.plan.baseExpanded ? DOCKED_HEIGHT : 0;
+	const scrollPaddingEnd = Math.max(footDock, 14);
 	const uncommitted = (
 		<OperationSourceC
 			projectId={projectId}
@@ -1633,7 +1642,7 @@ export const WorkspaceLists: FC<
 							spillEdge={spillIntoStacks}
 							worktreeChanges={worktreeChanges}
 							scrollElementRef={scrollElementRef}
-							scrollPaddingEnd={scrollPaddingEnd}
+							footDock={footDock}
 						/>
 					}
 				/>

@@ -90,11 +90,12 @@
 }
 
 /* The card's head, header and filter, stays at the scroller's top while the
-   rows scroll under it, so the filter stays in reach. */
+   rows scroll under it, so the filter stays in reach. Over the commit form,
+   which passes under it as the card's foot leaves. */
 .cardHead {
 	container-type: scroll-state;
 
-	z-index: 1;
+	z-index: 2;
 	position: sticky;
 	top: 0;
 	background-color: var(--bg-1);
@@ -118,6 +119,24 @@
 	flex: 1;
 	min-width: 0;
 	margin-block: 8px;
+}
+
+/* The commit form keeps to the scroller's foot while the card's own foot is
+   below it, over the docked merge base row when there is one (its `bottom`),
+   so a long list still commits. A hairline while stuck says the rows pass
+   beneath; a shadow, so the form's height does not change as it sticks. */
+.commitFoot {
+	container-type: scroll-state;
+
+	z-index: 1;
+	position: sticky;
+	background-color: var(--bg-1);
+}
+
+.commitFootRow {
+	@container scroll-state(stuck: bottom) {
+		box-shadow: 0 -1px 0 var(--border-section);
+	}
 }
 
 /* With no stacks, the one block is centred in the room under the uncommitted
