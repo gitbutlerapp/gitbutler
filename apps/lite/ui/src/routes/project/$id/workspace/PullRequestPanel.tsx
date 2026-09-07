@@ -72,43 +72,36 @@ const Section: FC<{
 const orEmptyNotice = (items: Array<NativeMenuItem>, notice: string): Array<NativeMenuItem> =>
 	items.length > 0 ? items : [nativeMenuItem({ label: notice, enabled: false })];
 
-const pickerButton = (label: string, onClick: (evt: MouseEvent<HTMLButtonElement>) => void) => (
-	<button
-		aria-label={label}
-		className={getButtonClassName({ variant: "ghost", size: "small", iconOnly: true })}
-		onClick={onClick}
-		type="button"
-	>
-		<Icon name="plus" />
-	</button>
-);
-
-/** Muted stand-ins shown while a section has nothing in it yet. */
-const PeoplePlaceholder: FC = () => (
-	<div className={styles.placeholderPeople}>
-		{[100, 160].map((width) => (
-			<div key={width} className={styles.placeholderRow}>
-				<span className={classes(styles.placeholderShape, styles.placeholderAvatar)} />
-				<span
-					className={classes(styles.placeholderShape, styles.placeholderBar)}
-					style={{ width }}
-				/>
-			</div>
-		))}
-	</div>
-);
-
-const LabelsPlaceholder: FC = () => (
-	<div className={styles.placeholderLabels}>
-		{[70, 50, 90].map((width) => (
-			<span
-				key={width}
-				className={classes(styles.placeholderShape, styles.placeholderLabel)}
-				style={{ width }}
-			/>
-		))}
-	</div>
-);
+/**
+ * The header control for a pickable section. While the section is empty it
+ * spells out what the picker adds so the section doesn't read as a bare
+ * heading; once something is picked, a plus is enough.
+ */
+const pickerButton = (p: {
+	label: string;
+	icon: IconName;
+	empty: boolean;
+	onClick: (evt: MouseEvent<HTMLButtonElement>) => void;
+}) =>
+	p.empty ? (
+		<button
+			className={getButtonClassName({ variant: "outline", size: "small" })}
+			onClick={p.onClick}
+			type="button"
+		>
+			{p.label}
+			<Icon name={p.icon} />
+		</button>
+	) : (
+		<button
+			aria-label={p.label}
+			className={getButtonClassName({ variant: "ghost", size: "small", iconOnly: true })}
+			onClick={p.onClick}
+			type="button"
+		>
+			<Icon name="plus" />
+		</button>
+	);
 
 const ReviewUser: FC<{ user: ForgeReviewUser }> = ({ user }) => (
 	<div className={classes("text-13", styles.user)} title={user.name ?? user.login}>
@@ -248,30 +241,40 @@ export const NewPullRequestPanel: FC<{
 		<aside className={styles.panel}>
 			<Section
 				heading="Reviewers"
-				action={canPickReviewers && pickerButton("Request a review", openReviewerMenu)}
+				action={
+					canPickReviewers &&
+					pickerButton({
+						label: "Add reviewers",
+						icon: "user",
+						empty: pickedReviewers.length === 0,
+						onClick: openReviewerMenu,
+					})
+				}
 			>
-				{pickedReviewers.length === 0 ? (
-					<PeoplePlaceholder />
-				) : (
-					pickedReviewers.map(({ login, user }) =>
-						user === undefined ? (
-							<span key={login} className="text-13">
-								{login}
-							</span>
-						) : (
-							<ReviewUser key={login} user={user} />
-						),
-					)
+				{pickedReviewers.map(({ login, user }) =>
+					user === undefined ? (
+						<span key={login} className="text-13">
+							{login}
+						</span>
+					) : (
+						<ReviewUser key={login} user={user} />
+					),
 				)}
 			</Section>
 
 			<Section
 				heading="Labels"
-				action={canPickLabels && pickerButton("Edit labels", openLabelMenu)}
+				action={
+					canPickLabels &&
+					pickerButton({
+						label: "Add labels",
+						icon: "tag",
+						empty: pickedLabels.length === 0,
+						onClick: openLabelMenu,
+					})
+				}
 			>
-				{pickedLabels.length === 0 ? (
-					<LabelsPlaceholder />
-				) : (
+				{pickedLabels.length > 0 && (
 					<div className={styles.labels}>
 						{pickedLabels.map((label) => (
 							<Label key={label.name} label={label} />
@@ -619,30 +622,40 @@ export const PullRequestPanel: FC<{
 
 			<Section
 				heading="Reviewers"
-				action={canPickReviewers && pickerButton("Request a review", openReviewerMenu)}
-			>
-				{reviewerList.length === 0 ? (
-					<PeoplePlaceholder />
-				) : (
-					reviewerList.map(({ user, verdict }) => {
-						const [icon, color, label] = verdictBits(verdict);
-						return (
-							<div key={user.id} className={styles.reviewerRow} title={label}>
-								<ReviewUser user={user} />
-								<Icon name={icon} style={{ color }} size={15} />
-							</div>
-						);
+				action={
+					canPickReviewers &&
+					pickerButton({
+						label: "Add reviewers",
+						icon: "user",
+						empty: reviewerList.length === 0,
+						onClick: openReviewerMenu,
 					})
-				)}
+				}
+			>
+				{reviewerList.map(({ user, verdict }) => {
+					const [icon, color, label] = verdictBits(verdict);
+					return (
+						<div key={user.id} className={styles.reviewerRow} title={label}>
+							<ReviewUser user={user} />
+							<Icon name={icon} style={{ color }} size={15} />
+						</div>
+					);
+				})}
 			</Section>
 
 			<Section
 				heading="Labels"
-				action={canPickLabels && pickerButton("Edit labels", openLabelMenu)}
+				action={
+					canPickLabels &&
+					pickerButton({
+						label: "Add labels",
+						icon: "tag",
+						empty: review.labels.length === 0,
+						onClick: openLabelMenu,
+					})
+				}
 			>
-				{review.labels.length === 0 ? (
-					<LabelsPlaceholder />
-				) : (
+				{review.labels.length > 0 && (
 					<div className={styles.labels}>
 						{review.labels.map((label) => (
 							<Label key={label.name} label={label} />

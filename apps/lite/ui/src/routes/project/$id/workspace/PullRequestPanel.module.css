@@ -120,57 +120,6 @@
 	color: color-mix(in oklab, var(--label-color) 60%, var(--text-1));
 }
 
-/* Empty Reviewers and Labels keep their shape with muted stand-ins, so a
-   freshly opened pull request doesn't read as a broken panel. */
-.placeholderShape {
-	border-radius: 30px;
-	background-color: color-mix(in srgb, var(--fill-gray-bg) 6%, transparent);
-}
-
-.placeholderPeople {
-	display: flex;
-	position: relative;
-	flex-direction: column;
-	gap: 6px;
-}
-
-/* Fades the last stand-in row out, hinting the list is a suggestion of
-   content rather than content. */
-.placeholderPeople::after {
-	position: absolute;
-	right: 0;
-	bottom: 0;
-	left: 0;
-	height: 20px;
-	background: linear-gradient(to bottom, transparent, var(--bg-1));
-	content: "";
-}
-
-.placeholderRow {
-	display: flex;
-	align-items: center;
-	gap: 6px;
-}
-
-.placeholderAvatar {
-	width: 16px;
-	height: 16px;
-}
-
-.placeholderBar {
-	height: 16px;
-}
-
-.placeholderLabels {
-	display: flex;
-	flex-wrap: wrap;
-	gap: 4px;
-}
-
-.placeholderLabel {
-	height: 16px;
-}
-
 .checks {
 	display: flex;
 	flex-direction: column;
