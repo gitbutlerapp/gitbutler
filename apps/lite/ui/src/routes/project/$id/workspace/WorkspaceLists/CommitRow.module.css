@@ -7,9 +7,11 @@
 }
 
 /* Appears when the pointer is over the glyph cell, not the whole row, so the
-   row stays quiet while browsing. */
+   row stays quiet while browsing. Centred on the glyph's own column, the last
+   16px of the segment: the main line may run in columns left of it. */
 .checkbox {
-	justify-self: center;
+	justify-self: end;
+	margin-inline-end: 1px;
 	opacity: 0;
 
 	&[data-checked],

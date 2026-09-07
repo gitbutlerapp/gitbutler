@@ -141,27 +141,21 @@
 	position: relative;
 }
 
-/* The box the rails SVG covers: the cards and the section. The room below
-   is constant across fold states, so a fold does not shift the scroll. */
+/* The room below is constant across fold states, so a fold does not shift
+   the scroll. */
 .content {
 	position: relative;
 	padding-block-end: 12px;
 }
 
-.virtualStack:not([data-index="0"]) {
+/* A stack: its card and the gap under it, measured as one. */
+.stack:not([data-index="0"]) > .virtualStack {
 	border-block-start: 1px solid var(--border-section);
 }
 
-/* The main line behind a forked card, between its borders, above the rows.
-   Translucent, unlike the other rails: it crosses row fills, and a mid grey
-   stays visible on a selected row's light fill and a focused row's dark one. */
-.virtualStack[data-forked="true"]::after {
-	z-index: 1;
-	position: absolute;
-	inset-block: 0;
-	left: calc(var(--main-line-x) - 0.75px);
-	width: 1.5px;
-	background-color: color-mix(in srgb, var(--commit-local) 16%, transparent);
-	content: "";
-	pointer-events: none;
+/* The head room over the card's rows, as a row of gutter. */
+.pad {
+	height: 6px;
+	min-height: auto;
+	overflow: hidden;
 }

@@ -1,6 +1,5 @@
 .container {
 	display: flex;
-	flex-direction: column;
 
 	color: var(--commit-status-color);
 
@@ -46,9 +45,35 @@
 
 /* The glyph colour faded into the card. Blended, not translucent, so it is
    one colour wherever it runs; the inversion above flips the card colour
-   too. Keep in sync with Rails.module.css and Section.module.css. */
+   too. */
 .line {
 	stroke: color-mix(in srgb, currentColor 40%, var(--bg-1));
+}
+
+/* Columns sit at a 12px pitch with their line 8px in; the glyph's own column
+   is the 16px canvas, so the label after it stays where it is. */
+
+/* A column the main line runs through behind the row. Translucent, unlike
+   the other rails: it crosses row fills, and a mid grey stays visible on a
+   selected row's light fill and a focused row's dark one. */
+.pass {
+	position: relative;
+	flex-shrink: 0;
+	width: 12px;
+
+	&::after {
+		position: absolute;
+		inset-block: 0;
+		left: calc(8px - 0.75px);
+		width: 1.5px;
+		background-color: color-mix(in srgb, var(--commit-local) 16%, transparent);
+		content: "";
+	}
+}
+
+.glyph {
+	display: flex;
+	flex-direction: column;
 }
 
 .mainSegment {
@@ -75,4 +100,11 @@
 	visibility: var(--graph-segment-rail-visibility, visible);
 	flex-grow: 1;
 	flex-basis: 0;
+}
+
+/* The gap under a card, inset like the rows so its columns line up with theirs. */
+.gap {
+	display: flex;
+	flex-shrink: 0;
+	padding-inline-start: var(--row-padding-inline-start, 12px);
 }

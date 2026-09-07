@@ -62,6 +62,8 @@ export const AllGlyphs = meta.story({
 					"joinBoth",
 					"commit",
 					"group",
+					"control",
+					"controlHead",
 					"space",
 				] satisfies Array<GraphSegmentGlyph>
 			).map((glyph) => (

@@ -20,7 +20,9 @@ export const IncomingRows: FC<{
 	projectId: string;
 	segment: Segment;
 	refName: BranchReference;
-}> = ({ projectId, segment, refName }) => {
+	/** Columns of the main line running behind the rows, left of the branch's rail. */
+	behind: number;
+}> = ({ projectId, segment, refName, behind }) => {
 	const addressSpace = useAddressSpace();
 	const branchRef = decodeBytes(refName.fullNameBytes);
 	const expanded = useAppSelector((state) =>
@@ -41,7 +43,7 @@ export const IncomingRows: FC<{
 			inert={inert}
 			title={authorTooltip(commit.author, commit.committedAt)}
 		>
-			<GraphSegment glyph="commit" status="Upstream" />
+			<GraphSegment glyph="commit" status="Upstream" behind={behind} />
 			<RowLabelContainer>
 				<RowLabel singleLine className={rowStyles.fadedText}>
 					{commitTitle(commit.message) ?? "(no message)"}

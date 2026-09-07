@@ -1,4 +1,4 @@
-import { GraphSegment } from "#ui/components/GraphSegment.tsx";
+import { GraphGap, GraphSegment } from "#ui/components/GraphSegment.tsx";
 import { Icon } from "#ui/components/Icon.tsx";
 import { classes } from "#ui/components/classes.ts";
 import { getRowButtonClassName } from "#ui/routes/project/$id/workspace/Row-utils.ts";
@@ -20,26 +20,10 @@ import { useAppSelector } from "#ui/store.ts";
 import { Button } from "@base-ui/react";
 import type { BottomUpdate } from "@gitbutler/but-sdk";
 import { useQuery } from "@tanstack/react-query";
-import {
-	type CSSProperties,
-	type FC,
-	type ReactNode,
-	type Ref,
-	type RefObject,
-	useRef,
-} from "react";
+import { type FC, type ReactNode, type Ref, type RefObject, useRef } from "react";
 import styles from "./Section.module.css";
 import { TargetCommitRow } from "./TargetCommitRow.tsx";
-import {
-	CARD_X,
-	LEG_BEND,
-	LEG_GAP,
-	MAIN_X,
-	type Plan,
-	rowInsetFor,
-	type Run,
-	targetCommitAddress,
-} from "./layout.ts";
+import { LEG_GAP, type Plan, type Run, targetCommitAddress } from "./layout.ts";
 
 /*
  * The upstream section under the stacks: the target's row or card, folding
@@ -53,6 +37,7 @@ const commitRow = (
 	commit: TargetCommit,
 	status: "Integrated" | "Upstream",
 	addressSpace: AddressSpace<Address>,
+	behind: number,
 	railEnds = false,
 ) => {
 	const index = addressSpace.indexByKey.get(addressIdentityKey(targetCommitAddress(commit)));
@@ -64,6 +49,7 @@ const commitRow = (
 			setSize={addressSpace.items.length}
 			status={status}
 			railEnds={railEnds}
+			behind={behind}
 			inert={index === undefined}
 		/>
 	);
@@ -78,24 +64,25 @@ const Header: FC<{
 	heading?: boolean;
 	/** The fold the header opens; none for a plain row. */
 	fold?: { open: boolean; onToggle: () => void; name: string };
-	/** After the label, in its line: a control of the row's own. */
-	glyph: ReactNode;
+	/** The row's gutter; with a fold, its chevron sits on the glyph. */
+	rail: ReactNode;
 	className?: string;
-	style?: CSSProperties;
 	children?: ReactNode;
-}> = ({ label, caption, heading = false, fold, glyph, className, style, children }) => (
-	<Row
-		interactive={fold !== undefined}
-		onSelect={fold?.onToggle}
-		className={className}
-		style={style}
-	>
+}> = ({ label, caption, heading = false, fold, rail, className, children }) => (
+	<Row interactive={fold !== undefined} onSelect={fold?.onToggle} className={className}>
 		{fold === undefined ? (
-			glyph
+			rail
 		) : (
 			<RowFoldToggle
 				folded={!fold.open}
-				glyph={glyph}
+				glyph={
+					<span className={styles.control}>
+						{rail}
+						<span className={styles.chevron}>
+							<Icon name={fold.open ? "chevron-down" : "chevron-right"} />
+						</span>
+					</span>
+				}
 				aria-label={`${fold.open ? "Fold" : "Unfold"} ${fold.name}`}
 				onClick={fold.onToggle}
 			/>
@@ -113,12 +100,18 @@ const Header: FC<{
 const Elided: FC<{
 	run: Run;
 	status: "Integrated" | "Upstream";
+	behind: number;
 	onMore: () => void;
 	onFold: () => void;
-}> = ({ run, status, onMore, onFold }) => (
+}> = ({ run, status, behind, onMore, onFold }) => (
 	// oxlint-disable-next-line jsx-a11y/prefer-tag-over-role -- A row that reveals or folds, styled as the rows around it.
 	<Row role="button" onSelect={run.hidden > 0 ? onMore : onFold} aria-expanded={run.expanded}>
-		<GraphSegment glyph={run.hidden > 0 ? "group" : "parent"} status={status} centered />
+		<GraphSegment
+			glyph={run.hidden > 0 ? "group" : "parent"}
+			status={status}
+			centered
+			behind={behind}
+		/>
 		<RowLabelContainer>
 			<RowLabel singleLine className={styles.elided}>
 				{run.hidden === 0
@@ -146,6 +139,7 @@ const runRows = (
 	run: Run,
 	status: "Integrated" | "Upstream",
 	addressSpace: AddressSpace<Address>,
+	behind: number,
 	onMore: () => void,
 	onFold: () => void,
 ) => {
@@ -153,8 +147,10 @@ const runRows = (
 	const elided = run.hidden > 0 || run.expanded;
 	return (
 		<div key={run.id}>
-			{run.shown.map((commit) => commitRow(commit, status, addressSpace))}
-			{elided && <Elided run={run} status={status} onMore={onMore} onFold={onFold} />}
+			{run.shown.map((commit) => commitRow(commit, status, addressSpace, behind))}
+			{elided && (
+				<Elided run={run} status={status} behind={behind} onMore={onMore} onFold={onFold} />
+			)}
 		</div>
 	);
 };
@@ -262,57 +258,60 @@ export const Section: FC<{
 	// The line ends on the last row shown: the "show more" row, else the
 	// last commit once the history is shown to its start.
 	const endsOnBase = historyEnds && moreBelow === "hidden" && plan.older.length === 0;
-	const chevron = (open: boolean) => (
-		<Icon className={styles.chevron} name={open ? "chevron-down" : "chevron-right"} />
-	);
 	return (
 		<>
 			{plan.base !== null &&
 				!plan.refOnBase &&
 				(branched ? (
-					// The target has moved on: a card like a forked stack's, its
-					// incoming commits on a leg.
-					<div
-						className={styles.card}
-						style={{ "--row-padding-inline-start": `${rowInsetFor(CARD_X)}px` }}
-					>
-						<Header
-							label={plan.header.label}
-							heading
-							fold={{
-								open: plan.incomingExpanded,
-								onToggle: onToggleIncoming,
-								name: "incoming commits",
-							}}
-							glyph={chevron(plan.incomingExpanded)}
-						/>
-						<Fold open={plan.incomingExpanded}>
-							<div className={styles.rows}>
-								{plan.incoming.map((run) =>
-									runRows(
-										run,
-										"Upstream",
-										addressSpace,
-										() => onShowMoreRun(run.id),
-										() => onFoldRun(run.id),
-									),
-								)}
-							</div>
-						</Fold>
-						<svg className={styles.gap} aria-hidden>
-							<path className={styles.main} d={`M ${MAIN_X} 0 V ${LEG_GAP}`} />
-							<path className={styles.leg} d={LEG_BEND} />
-						</svg>
-					</div>
+					// The target has moved on: a card like a forked stack's, the main
+					// line behind its rows and its incoming commits on a leg that
+					// starts under the chevron and bends onto the line in the gap below.
+					<>
+						<div className={styles.card}>
+							<Row interactive={false} className={styles.air}>
+								<GraphSegment glyph="space" status="LocalOnly" behind={1} />
+							</Row>
+							<Header
+								label={plan.header.label}
+								heading
+								fold={{
+									open: plan.incomingExpanded,
+									onToggle: onToggleIncoming,
+									name: "incoming commits",
+								}}
+								rail={<GraphSegment glyph="controlHead" status="Upstream" behind={1} />}
+							/>
+							<Fold open={plan.incomingExpanded}>
+								<div className={styles.rows}>
+									{plan.incoming.map((run) =>
+										runRows(
+											run,
+											"Upstream",
+											addressSpace,
+											1,
+											() => onShowMoreRun(run.id),
+											() => onFoldRun(run.id),
+										),
+									)}
+								</div>
+							</Fold>
+							<Row interactive={false} className={styles.stub}>
+								<GraphSegment glyph="parent" status="Upstream" behind={1} />
+							</Row>
+						</div>
+						<GraphGap height={LEG_GAP} bend="Upstream" />
+					</>
 				) : (
 					// The target sits above the base with nothing incoming: a row on
 					// the main line, marked the way a branch is marked on its rail.
-					<Header
-						label={plan.header.label}
-						heading
-						glyph={<GraphSegment glyph="joinRight" status="LocalOnly" />}
-						className={styles.ref}
-					/>
+					<>
+						<Header
+							label={plan.header.label}
+							heading
+							rail={<GraphSegment glyph="joinRight" status="LocalOnly" />}
+						/>
+						<GraphGap height={LEG_GAP} />
+					</>
 				))}
 			{plan.base !== null && (
 				<>
@@ -334,8 +333,8 @@ export const Section: FC<{
 							onToggle: toggleBase,
 							name: "the merge base's history",
 						}}
-						glyph={chevron(plan.baseExpanded)}
-						className={classes(styles.base, !plan.baseExpanded && styles.docked)}
+						rail={<GraphSegment glyph="control" status="LocalOnly" railEnds={!plan.baseExpanded} />}
+						className={plan.baseExpanded ? undefined : styles.docked}
 					>
 						{branched && <Update projectId={projectId} />}
 					</Header>
@@ -347,12 +346,14 @@ export const Section: FC<{
 											item.commit,
 											"Integrated",
 											addressSpace,
+											0,
 											endsOnBase && index === plan.belowBase.length - 1,
 										)
 									: runRows(
 											item,
 											"Integrated",
 											addressSpace,
+											0,
 											() => onShowMoreRun(item.id),
 											() => onFoldRun(item.id),
 										),
@@ -362,6 +363,7 @@ export const Section: FC<{
 									commit,
 									"Integrated",
 									addressSpace,
+									0,
 									historyEnds && index === plan.older.length - 1,
 								),
 							)}

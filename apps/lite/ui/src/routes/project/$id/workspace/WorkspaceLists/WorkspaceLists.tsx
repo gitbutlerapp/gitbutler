@@ -64,17 +64,8 @@ import {
 import { Group, Panel, useDefaultLayout } from "react-resizable-panels";
 import styles from "./WorkspaceLists.module.css";
 import { Row, RowLabel, RowLabelContainer, SectionHeaderRow } from "../Row.tsx";
-import { Rails } from "../Graph/Rails.tsx";
 import { type MoreBelow, Section } from "../Graph/Section.tsx";
-import {
-	CARD_GAP,
-	CARD_X,
-	DOCKED_HEIGHT,
-	MAIN_X,
-	foldAddresses,
-	foldAt,
-	rowInsetFor,
-} from "../Graph/layout.ts";
+import { CARD_GAP, DOCKED_HEIGHT, ROW_INSET, foldAddresses, foldAt } from "../Graph/layout.ts";
 import type { Graph } from "../Graph/usePlan.ts";
 import { StackCard } from "../StackCard.tsx";
 import stackCardStyles from "../StackCard.module.css";
@@ -86,7 +77,7 @@ import {
 } from "./context.tsx";
 import { getOperation, type Placement, useDryRunOperation } from "#ui/operations/operation.ts";
 import { createDiffSpec } from "#ui/operations/diff-specs.ts";
-import { GraphSegment, type GraphSegmentStatus } from "#ui/components/GraphSegment.tsx";
+import { GraphGap, GraphSegment, type GraphSegmentStatus } from "#ui/components/GraphSegment.tsx";
 import { useNow } from "#ui/components/useNow.ts";
 import { segmentBottomRelativeTo } from "#ui/api/stack.ts";
 import { assert } from "#ui/assert.ts";
@@ -479,6 +470,7 @@ const BranchSegment: FC<{
 	downstackPushStatus: DownstackPushStatus;
 	pushActivity: PushActivity;
 	isTopSegment: boolean;
+	behind: number;
 	checkCommit: (evt: { commitId: string; shiftKey: boolean }) => void;
 	onAmendCommit: (commitId: string) => void;
 	canAmendCommit: boolean;
@@ -500,6 +492,7 @@ const BranchSegment: FC<{
 	downstackPushStatus,
 	pushActivity,
 	isTopSegment,
+	behind,
 	checkCommit,
 	onAmendCommit,
 	canAmendCommit,
@@ -551,6 +544,7 @@ const BranchSegment: FC<{
 				isTopSegment={isTopSegment}
 				commitCount={segment.commits.length}
 				railBelow={railBelow}
+				behind={behind}
 				stack={stack}
 			/>
 
@@ -558,7 +552,7 @@ const BranchSegment: FC<{
 			<div role="group">
 				{/* Gated here so the common case pays no mount; folding hides them with the commits. */}
 				{!isFolded && segment.commitsOnRemote.length > 0 && (
-					<IncomingRows projectId={projectId} segment={segment} refName={refName} />
+					<IncomingRows projectId={projectId} segment={segment} refName={refName} behind={behind} />
 				)}
 				<SegmentContent
 					ariaLevel={2}
@@ -568,6 +562,7 @@ const BranchSegment: FC<{
 					projectId={projectId}
 					segment={segment}
 					stackId={stack.id}
+					behind={behind}
 					checkCommit={checkCommit}
 					onAmendCommit={onAmendCommit}
 					canAmendCommit={canAmendCommit}
@@ -585,7 +580,8 @@ const BranchSegment: FC<{
 
 const EmptySegmentContent: FC<{
 	segment: Segment;
-}> = ({ segment }) => {
+	behind: number;
+}> = ({ segment, behind }) => {
 	const addressSpace = useAddressSpace();
 
 	const refName = assert(segment.refName);
@@ -601,6 +597,7 @@ const EmptySegmentContent: FC<{
 				<GraphSegment
 					glyph="parent"
 					status={segmentPushStatusToGraphSegmentStatus(segment.pushStatus)}
+					behind={behind}
 				/>
 				<RowLabelContainer>
 					<RowLabel className={rowStyles.fadedText}>No commits.</RowLabel>
@@ -627,6 +624,7 @@ const SegmentContent: FC<{
 	isFolded: boolean;
 	positionOffset: number;
 	setSize: number;
+	behind: number;
 }> = ({
 	projectId,
 	segment,
@@ -644,6 +642,7 @@ const SegmentContent: FC<{
 	isFolded,
 	positionOffset,
 	setSize,
+	behind,
 }) => {
 	const getCommitKey = useCallback(
 		(index: number) => segment.commits[index]?.id ?? index,
@@ -708,7 +707,8 @@ const SegmentContent: FC<{
 		lastRevealedCommitIndexRef.current = selectedCommitIndex;
 	}, [rowVirtualizer, selectedCommitIndex]);
 
-	if (segment.commits.length === 0) return <EmptySegmentContent segment={segment} />;
+	if (segment.commits.length === 0)
+		return <EmptySegmentContent segment={segment} behind={behind} />;
 	// The branch row stands in for a folded segment: it takes the group glyph
 	// and shows the count of the commits hidden here.
 	if (isFolded) return null;
@@ -736,6 +736,7 @@ const SegmentContent: FC<{
 						measureElement={rowVirtualizer.measureElement}
 						commit={commit}
 						below={next === undefined ? "LocalOnly" : commitGraphStatus(next)}
+						behind={behind}
 						projectId={projectId}
 						stackId={stackId}
 						checkCommit={checkCommit}
@@ -764,6 +765,7 @@ const CommitItem: FC<{
 	measureElement: (element: HTMLDivElement | null) => void;
 	commit: Commit;
 	below: GraphSegmentStatus;
+	behind: number;
 	projectId: string;
 	stackId: string | null;
 	checkCommit: (evt: { commitId: string; shiftKey: boolean }) => void;
@@ -778,6 +780,7 @@ const CommitItem: FC<{
 	measureElement,
 	commit,
 	below,
+	behind,
 	projectId,
 	stackId,
 	checkCommit,
@@ -817,6 +820,7 @@ const CommitItem: FC<{
 							<CommitRow
 								commit={commit}
 								below={below}
+								behind={behind}
 								stackId={stackId}
 								checkCommit={checkCommit}
 								amendCommit={() => onAmendCommit(commit.id)}
@@ -848,7 +852,8 @@ const CommitItem: FC<{
 const SegmentRailConnector: FC<{
 	projectId: string;
 	segment: Segment;
-}> = ({ projectId, segment }) => {
+	behind: number;
+}> = ({ projectId, segment, behind }) => {
 	const addressSpace = useAddressSpace();
 
 	// A plain boolean, so this re-renders only when this segment's own fold
@@ -876,7 +881,7 @@ const SegmentRailConnector: FC<{
 			inert={!addressSpaceIncludes(addressSpace, standsFor, addressIdentityKey)}
 		>
 			{/* Plain: a branch's colour runs from its tick down to its commits, not past them. */}
-			<GraphSegment glyph="parent" status="LocalOnly" />
+			<GraphSegment glyph="parent" status="LocalOnly" behind={behind} />
 		</Row>
 	);
 };
@@ -893,7 +898,7 @@ const StackC: FC<
 		scrollPaddingEnd: number;
 		stackScrollStart: number;
 		stackSize: number;
-		/** Sits a gap right of the main line, which runs on behind it, rather than on it. */
+		/** Sits a column right of the main line, which runs on behind it, rather than on it. */
 		forked: boolean;
 		selectedSegmentIndex: number | undefined;
 		selectedCommitIndex: number | undefined;
@@ -929,8 +934,8 @@ const StackC: FC<
 		left: 0,
 		width: "100%",
 		transform: `translateY(${stackScrollStart}px)`,
-		"--row-padding-inline-start": `${rowInsetFor(forked ? CARD_X : MAIN_X)}px`,
 	};
+	const behind = forked ? 1 : 0;
 	const topmostPendingPushIndex = stack.segments.findIndex(
 		(segment) =>
 			segment.refName && pendingPushBranches.has(decodeBytes(segment.refName.fullNameBytes)),
@@ -945,94 +950,98 @@ const StackC: FC<
 	}
 
 	return (
-		<StackCard
-			{...props}
-			style={style}
-			className={classes(props.className, styles.virtualStack)}
-			// In the graph the card draws its rails to its edges: see StackCard.module.css
-			// and WorkspaceLists.module.css.
-			data-graph
-			data-forked={forked}
-			// oxlint-disable-next-line jsx-a11y/prefer-tag-over-role -- This is a group of treeitems.
-			role="group"
-			aria-label="Stack"
-		>
-			{stack.segments.map((segment, index) => {
-				// oxlint-disable-next-line typescript/no-non-null-assertion -- Equivalent iteration above.
-				const segmentPositionOffset = rootPositionOffsets[index]!;
+		<div {...props} style={style} className={classes(props.className, styles.stack)}>
+			<StackCard
+				className={styles.virtualStack}
+				// In the graph the card draws its rails to its edges: see StackCard.module.css.
+				data-graph
+				// oxlint-disable-next-line jsx-a11y/prefer-tag-over-role -- This is a group of treeitems.
+				role="group"
+				aria-label="Stack"
+			>
+				<Row interactive={false} className={styles.pad}>
+					{forked && <GraphSegment glyph="space" status="LocalOnly" behind={1} />}
+				</Row>
+				{stack.segments.map((segment, index) => {
+					// oxlint-disable-next-line typescript/no-non-null-assertion -- Equivalent iteration above.
+					const segmentPositionOffset = rootPositionOffsets[index]!;
 
-				const key = segment.refName
-					? JSON.stringify(segment.refName.fullNameBytes)
-					: segment.commits[0]?.id;
+					const key = segment.refName
+						? JSON.stringify(segment.refName.fullNameBytes)
+						: segment.commits[0]?.id;
 
-				// A segment is supposed to always either have a branch reference or at least one commit,
-				// however with the current API this may not be the case e.g. detached HEAD.
-				if (key === undefined) return null;
+					// A segment is supposed to always either have a branch reference or at least one commit,
+					// however with the current API this may not be the case e.g. detached HEAD.
+					if (key === undefined) return null;
 
-				const downstackPushStatus = assert(downstackPushStatuses[index]);
-				const pushActivity: PushActivity =
-					topmostPendingPushIndex !== -1
-						? index >= topmostPendingPushIndex
-							? "pushing"
-							: "blocked"
-						: "idle";
+					const downstackPushStatus = assert(downstackPushStatuses[index]);
+					const pushActivity: PushActivity =
+						topmostPendingPushIndex !== -1
+							? index >= topmostPendingPushIndex
+								? "pushing"
+								: "blocked"
+							: "idle";
 
-				return (
-					<Fragment key={key}>
-						<div>
-							{segment.refName ? (
-								<BranchSegment
-									projectId={projectId}
-									segment={segment}
-									stack={stack}
-									refName={segment.refName}
-									canTearOffBranch={canTearOffBranch}
-									canRemoveBranch={canRemoveBranchReference(stack, index)}
-									downstackPushStatus={downstackPushStatus}
-									pushActivity={pushActivity}
-									isTopSegment={index === 0}
-									checkCommit={checkCommit}
-									onAmendCommit={onAmendCommit}
-									canAmendCommit={canAmendCommit}
-									scrollElementRef={scrollElementRef}
-									scrollPaddingEnd={scrollPaddingEnd}
-									stackScrollStart={stackScrollStart}
-									stackSize={stackSize}
-									segmentIndex={index}
-									positionInSet={segmentPositionOffset + 1}
-									setSize={rootSetSize}
-									selectedCommitIndex={
-										selectedSegmentIndex === index ? selectedCommitIndex : undefined
-									}
-								/>
-							) : (
-								<SegmentContent
-									ariaLevel={1}
-									isFolded={false}
-									positionOffset={segmentPositionOffset}
-									setSize={rootSetSize}
-									projectId={projectId}
-									segment={segment}
-									stackId={stack.id}
-									checkCommit={checkCommit}
-									onAmendCommit={onAmendCommit}
-									canAmendCommit={canAmendCommit}
-									scrollElementRef={scrollElementRef}
-									scrollPaddingEnd={scrollPaddingEnd}
-									stackScrollStart={stackScrollStart}
-									stackSize={stackSize}
-									segmentIndex={index}
-									selectedCommitIndex={
-										selectedSegmentIndex === index ? selectedCommitIndex : undefined
-									}
-								/>
-							)}
-						</div>
-						<SegmentRailConnector projectId={projectId} segment={segment} />
-					</Fragment>
-				);
-			})}
-		</StackCard>
+					return (
+						<Fragment key={key}>
+							<div>
+								{segment.refName ? (
+									<BranchSegment
+										projectId={projectId}
+										segment={segment}
+										stack={stack}
+										refName={segment.refName}
+										canTearOffBranch={canTearOffBranch}
+										canRemoveBranch={canRemoveBranchReference(stack, index)}
+										downstackPushStatus={downstackPushStatus}
+										pushActivity={pushActivity}
+										isTopSegment={index === 0}
+										behind={behind}
+										checkCommit={checkCommit}
+										onAmendCommit={onAmendCommit}
+										canAmendCommit={canAmendCommit}
+										scrollElementRef={scrollElementRef}
+										scrollPaddingEnd={scrollPaddingEnd}
+										stackScrollStart={stackScrollStart}
+										stackSize={stackSize}
+										segmentIndex={index}
+										positionInSet={segmentPositionOffset + 1}
+										setSize={rootSetSize}
+										selectedCommitIndex={
+											selectedSegmentIndex === index ? selectedCommitIndex : undefined
+										}
+									/>
+								) : (
+									<SegmentContent
+										ariaLevel={1}
+										isFolded={false}
+										positionOffset={segmentPositionOffset}
+										setSize={rootSetSize}
+										behind={behind}
+										projectId={projectId}
+										segment={segment}
+										stackId={stack.id}
+										checkCommit={checkCommit}
+										onAmendCommit={onAmendCommit}
+										canAmendCommit={canAmendCommit}
+										scrollElementRef={scrollElementRef}
+										scrollPaddingEnd={scrollPaddingEnd}
+										stackScrollStart={stackScrollStart}
+										stackSize={stackSize}
+										segmentIndex={index}
+										selectedCommitIndex={
+											selectedSegmentIndex === index ? selectedCommitIndex : undefined
+										}
+									/>
+								)}
+							</div>
+							<SegmentRailConnector projectId={projectId} segment={segment} behind={behind} />
+						</Fragment>
+					);
+				})}
+			</StackCard>
+			<GraphGap height={CARD_GAP} bend={forked ? "LocalOnly" : undefined} />
+		</div>
 	);
 };
 
@@ -1090,7 +1099,7 @@ const Stacks: FC<{
 		operation: dryRunOperation,
 	});
 	const dryRunWorkspace = dryRunOperationResult?.workspace ?? null;
-	// Cards in the graph's order, the section below, the rails between them in one SVG.
+	// Cards in the graph's order, the section below.
 	const { plan, stacks, olderQuery, olderFrom, forgetOlder } = graph;
 	const olderPagesData = olderQuery.data;
 	// Shown to its start: everything loaded is shown, and a page came back
@@ -1175,7 +1184,7 @@ const Stacks: FC<{
 			// estimate once a stack is mounted; its main job is to make far-away stacks reachable.
 			const singleLineRowHeight = 28;
 			const branchRowHeight = 54;
-			const stackBodyPaddingStart = 6;
+			const stackPadHeight = 6;
 			const stackBorderHeight = 1;
 			const stackSeparatorHeight = index === 0 ? 0 : 1;
 			const finalConnectorHeight = 8;
@@ -1194,17 +1203,17 @@ const Stacks: FC<{
 			}
 
 			return (
-				stackBodyPaddingStart +
+				stackPadHeight +
 				stackBorderHeight +
 				stackSeparatorHeight +
 				contentHeight +
 				finalConnectorHeight +
-				Math.max(0, stack.segments.length - 1) * betweenSegmentConnectorHeight
+				Math.max(0, stack.segments.length - 1) * betweenSegmentConnectorHeight +
+				CARD_GAP
 			);
 		},
 		getItemKey: getStackKey,
 		rangeExtractor: rangeExtractorWithSelected,
-		gap: CARD_GAP,
 		// Matches --scroll-gradient-height; the foot also clears the docked merge base row.
 		scrollPaddingStart: 14,
 		scrollPaddingEnd,
@@ -1273,9 +1282,6 @@ const Stacks: FC<{
 					},
 	});
 
-	// The total first: it refreshes the measurements the rails then read.
-	const cardsEnd = plan.base === null ? null : rowVirtualizer.getTotalSize();
-
 	return (
 		<DryRunWorkspaceContext value={dryRunWorkspace}>
 			<div
@@ -1290,12 +1296,7 @@ const Stacks: FC<{
 					role="tree"
 					aria-activedescendant={selection ? treeItemId(selection) : undefined}
 					className={classes(styles.tree, styles.content)}
-					// Section rows sit on the main line; the cards set their own inset.
-					// A row is indented only where the line runs behind it.
-					style={{
-						"--row-padding-inline-start": `${rowInsetFor(MAIN_X)}px`,
-						"--main-line-x": `${MAIN_X}px`,
-					}}
+					style={{ "--row-padding-inline-start": `${ROW_INSET}px` }}
 					data-focus-scope={"sidebar" satisfies FocusScope}
 					data-preview-source={activeList === "applied"}
 					ref={useMergedRefs<HTMLDivElement>(
@@ -1303,7 +1304,6 @@ const Stacks: FC<{
 						useAutofocusScope(activeList === "applied"),
 					)}
 				>
-					<Rails cards={rowVirtualizer.measurementsCache} cardsEnd={cardsEnd} />
 					<div
 						className={classes(styles.stacks, styles.virtualContainer)}
 						ref={rowVirtualizer.containerRef}

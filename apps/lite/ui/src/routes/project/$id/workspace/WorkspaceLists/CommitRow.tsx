@@ -60,6 +60,8 @@ export const CommitRow: FC<
 		scrollSelectedIntoView?: boolean;
 		/** The rail below the commit's circle: the next icon's colour, or plain under a card's last. */
 		below?: GraphSegmentStatus;
+		/** Columns of the main line running behind the row, left of its rail. */
+		behind?: number;
 	} & ComponentProps<"div">
 > = ({
 	commit,
@@ -70,6 +72,7 @@ export const CommitRow: FC<
 	amendCommit,
 	canAmendCommit,
 	below,
+	behind,
 	...restProps
 }) => {
 	const { data: forgeInfo } = useQuery(forgeInfoOptions(projectId));
@@ -391,6 +394,7 @@ export const CommitRow: FC<
 					glyph="commit"
 					status={commitIsDiverged(commit) ? "Diverged" : commit.state.type}
 					below={below}
+					behind={behind}
 				/>
 				<Tooltip.Root
 					// This gets in the way when the user tries to move their hover to a

@@ -1,16 +1,7 @@
 import type { Stack, TargetCommit, TargetCommitPage } from "@gitbutler/but-sdk";
 import { describe, expect, it } from "vitest";
 import type { Address } from "#ui/addresses.ts";
-import {
-	foldAt,
-	layout,
-	FIRST,
-	LEG_BEND,
-	MORE,
-	rails,
-	sectionAddresses,
-	targetCommitAddress,
-} from "./layout.ts";
+import { foldAt, layout, FIRST, MORE, sectionAddresses, targetCommitAddress } from "./layout.ts";
 
 type Folds = Parameters<typeof layout>[3];
 
@@ -169,46 +160,6 @@ describe("layout", () => {
 			"h2",
 			"h3",
 		]);
-	});
-});
-
-describe("rails", () => {
-	// Three cards, then the upstream section a card gap below them, drawing
-	// its own rails from its first row on.
-	const cards = [
-		{ topY: 0, bottomY: 100 },
-		{ topY: 120, bottomY: 200 },
-		{ topY: 220, bottomY: 300 },
-	];
-	// A card's fork: from its floor, the S-bend through the gap below onto
-	// the main line, one card gap down.
-	const fork = (bottomY: number) => {
-		const y = (offset: number) => Math.round((bottomY + offset) * 100) / 100;
-		return `M 30 ${bottomY} L 30 ${y(6)} C 30 ${y(8.21)} 28.21 ${y(10)} 26 ${y(10)} L 22 ${y(10)} C 19.79 ${y(10)} 18 ${y(11.79)} 18 ${y(14)} L 18 ${y(20)}`;
-	};
-
-	it("runs the main line on from the top card and forks every other card off it below its floor", () => {
-		const paths = rails(cards, 300);
-		expect(paths.some((d) => d.startsWith("M 30 100"))).toBe(false);
-		expect(paths).toContain(fork(200));
-		expect(paths).toContain(fork(300));
-		// The main line through each gap only, from the top card's floor to
-		// the section's first row: the cards draw it across themselves.
-		expect(paths.filter((d) => d.startsWith("M 18"))).toEqual([
-			"M 18 100 L 18 120",
-			"M 18 200 L 18 220",
-			"M 18 300 L 18 320",
-		]);
-	});
-
-	it("runs a lone card's rail straight on as the main line", () => {
-		expect(rails([{ topY: 0, bottomY: 100 }], 100)).toEqual(["M 18 100 L 18 120"]);
-	});
-
-	it("bends the target's leg off its card's floor onto the main line through the gap under it", () => {
-		expect(LEG_BEND).toBe(
-			"M 30 0 L 30 2 C 30 4.21 28.21 6 26 6 L 22 6 C 19.79 6 18 7.79 18 10 L 18 12",
-		);
 	});
 
 	it("knows when the target's tip is the base itself", () => {
