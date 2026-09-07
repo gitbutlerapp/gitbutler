@@ -52,9 +52,7 @@ import type {
 	TreeChange,
 } from "@gitbutler/but-sdk";
 import { type QueryClient, useMutation, useQueryClient } from "@tanstack/react-query";
-import type { PayloadFor } from "#electron/ipc.ts";
 import type { GUISettings } from "#electron/settings.ts";
-import { invalidateDeclared } from "#ui/api/tags.ts";
 import { moveDraftPR } from "#ui/pr.ts";
 import { presentableOperation } from "#ui/snapshot.ts";
 
@@ -220,67 +218,12 @@ export const useBranchCheckoutNew = () => {
 /** The push a new pull request has to wait for: the branch, and whether it needs force. */
 export type PushBeforePublish = { branch: string; withForce: boolean };
 
-/** Tells a failed push apart from a failed creation, so the toast can say which. */
-class PushBeforePublishError extends Error {
-	constructor(cause: unknown) {
-		super(errorMessageForToast(cause), { cause });
-	}
-}
-
-/**
- * Creates a pull request, pushing the branch and its ancestors first when
- * `push` says any of them still has something to push — a forge can only
- * open a review on a branch it has. The PR's source is then the name the
- * branch landed under on the remote, which differs from the local one when
- * the branch tracks another remote.
- */
-export const usePublishReview = (projectId: string) => {
-	const toastManager = Toast.useToastManager();
-	return useMutation({
+export const usePublishReview = (projectId: string) =>
+	useMutation({
 		mutationKey: [projectId, "publishReview"],
-		mutationFn: async ({
-			push,
-			...input
-		}: PayloadFor<"publishReview"> & { push: PushBeforePublish | null }) => {
-			if (push === null) return window.lite.publishReview(input);
-
-			const pushed = await window.lite
-				.workspaceBranchAndAncestorsPush({
-					projectId: input.projectId,
-					branch: push.branch,
-					withForce: push.withForce,
-					skipForcePushProtection: false,
-					runHooks: true,
-					pushOpts: [],
-				})
-				.catch((error: unknown) => {
-					throw new PushBeforePublishError(error);
-				});
-			const sourceBranch =
-				pushed.branchToRemote.find(([branch]) => branch === input.params.sourceBranch)?.[2] ??
-				input.params.sourceBranch;
-			return window.lite.publishReview({ ...input, params: { ...input.params, sourceBranch } });
-		},
-		// The push moved more than the review list, so its own endpoint's
-		// caches go stale too. Returned so success waits for them, as the
-		// cache-level invalidation does.
-		onSuccess: (_outcome, input, _context, mutation) =>
-			input.push === null
-				? undefined
-				: invalidateDeclared(mutation.client, [input.projectId, "workspaceBranchAndAncestorsPush"]),
-		onError: (error) => {
-			toastManager.add({
-				type: "error",
-				title:
-					error instanceof PushBeforePublishError
-						? "Failed to push"
-						: "Failed to create pull request",
-				description: errorMessageForToast(error),
-				priority: "high",
-			});
-		},
+		mutationFn: window.lite.publishReview,
+		meta: { failureTitle: "Failed to create pull request" },
 	});
-};
 
 type GeneratePrDescriptionInput = {
 	projectId: string;
