@@ -2562,6 +2562,7 @@ const Diff: FC<{
 			diffOverflow: cfg.diffOverflow,
 			diffStyle: cfg.diffStyle,
 			diffTabSize: cfg.diffTabSize,
+			filesPanelRight: cfg.filesPanelRight,
 			minimap: cfg.minimap,
 		}),
 	});
@@ -2712,6 +2713,55 @@ const Diff: FC<{
 		);
 	}
 
+	const filesOnRight = diffSettings?.filesPanelRight ?? defaultSettings.filesPanelRight;
+	const filesPanel = filesVisible ? (
+		<Panel
+			id={"files-panel" satisfies PanelId}
+			className={styles.panel}
+			defaultSize={320}
+			minSize={220}
+			groupResizeBehavior="preserve-pixel-size"
+		>
+			<div className={styles.filesPanelContent} ref={filesPanelRef}>
+				{fileFilter.rowProps === null ? (
+					<ChangesHeaderRow
+						projectId={projectId}
+						fileParent={fileParent}
+						changes={changes}
+						lineStats={lineStats}
+						onOpenFilter={fileFilter.open}
+					/>
+				) : (
+					<ListFilterRow {...fileFilter.rowProps} />
+				)}
+				<div
+					className={classes(uiStyles.scroller, uiStyles.scrollerWithSeparator, styles.diffFiles)}
+				>
+					<FilesTree
+						focusScope="files"
+						onRowSelection={activateRow}
+						projectId={projectId}
+						rows={filesRows}
+						collapsedDirectories={filesCollapsedDirectories}
+						onToggleDirectoryCollapsed={(path) =>
+							dispatch(projectSlice.actions.toggleFilesDirectoryCollapsed({ projectId, path }))
+						}
+						selection={filesSelection}
+						addressSpace={filesAddressSpace}
+						fileParent={fileParent}
+						reviewedPaths={reviewedFilePaths}
+						canUncommit={!isCommitUncommitChangesPending}
+						uncommit={uncommit}
+						emptyLabel={
+							filesFilter !== null && filesItems.length > 0 ? "No matching files." : undefined
+						}
+						ref={filesTreeRef}
+					/>
+				</div>
+			</div>
+		</Panel>
+	) : null;
+
 	return (
 		<div className={styles.diffTab}>
 			<Group
@@ -2719,61 +2769,9 @@ const Diff: FC<{
 				defaultLayout={diffLayout.defaultLayout}
 				onLayoutChanged={diffLayout.onLayoutChanged}
 			>
-				{filesVisible && (
+				{filesPanel !== null && !filesOnRight && (
 					<>
-						<Panel
-							id={"files-panel" satisfies PanelId}
-							className={styles.panel}
-							defaultSize={320}
-							minSize={220}
-							groupResizeBehavior="preserve-pixel-size"
-						>
-							<div className={styles.filesPanelContent} ref={filesPanelRef}>
-								{fileFilter.rowProps === null ? (
-									<ChangesHeaderRow
-										projectId={projectId}
-										fileParent={fileParent}
-										changes={changes}
-										lineStats={lineStats}
-										onOpenFilter={fileFilter.open}
-									/>
-								) : (
-									<ListFilterRow {...fileFilter.rowProps} />
-								)}
-								<div
-									className={classes(
-										uiStyles.scroller,
-										uiStyles.scrollerWithSeparator,
-										styles.diffFiles,
-									)}
-								>
-									<FilesTree
-										focusScope="files"
-										onRowSelection={activateRow}
-										projectId={projectId}
-										rows={filesRows}
-										collapsedDirectories={filesCollapsedDirectories}
-										onToggleDirectoryCollapsed={(path) =>
-											dispatch(
-												projectSlice.actions.toggleFilesDirectoryCollapsed({ projectId, path }),
-											)
-										}
-										selection={filesSelection}
-										addressSpace={filesAddressSpace}
-										fileParent={fileParent}
-										reviewedPaths={reviewedFilePaths}
-										canUncommit={!isCommitUncommitChangesPending}
-										uncommit={uncommit}
-										emptyLabel={
-											filesFilter !== null && filesItems.length > 0
-												? "No matching files."
-												: undefined
-										}
-										ref={filesTreeRef}
-									/>
-								</div>
-							</div>
-						</Panel>
+						{filesPanel}
 						<ResizeHandle />
 					</>
 				)}
@@ -2885,6 +2883,13 @@ const Diff: FC<{
 						</div>
 					</div>
 				</Panel>
+
+				{filesPanel !== null && filesOnRight && (
+					<>
+						<ResizeHandle />
+						{filesPanel}
+					</>
+				)}
 			</Group>
 		</div>
 	);
