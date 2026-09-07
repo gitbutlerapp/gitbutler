@@ -32,10 +32,10 @@ export class ListingService {
 		this.backendApi = injectBackendEndpoints(backendApi);
 	}
 
-	list(projectId: string, pollingInterval?: number) {
+	list(projectId: string) {
 		return this.backendApi.endpoints.listPrs.useQuery(projectId, {
 			transform: (result) => prSelectors.selectAll(result),
-			subscriptionOptions: { ...catchUpOnReturn, pollingInterval },
+			subscriptionOptions: catchUpOnReturn,
 		});
 	}
 

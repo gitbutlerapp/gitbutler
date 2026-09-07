@@ -106,9 +106,11 @@
 	const reviewListPollingInterval = $derived(
 		reviewListBackoff.pollingInterval === 0 ? 0 : POLL_INTERVAL,
 	);
-	const forgeReviews = $derived(
-		canListReviews ? listingService.list(projectId, reviewListPollingInterval) : undefined,
-	);
+	const forgeReviews = $derived(canListReviews ? listingService.list(projectId) : undefined);
+	// In place rather than by re-creating the query: see `SubscribedQuery`.
+	$effect(() => {
+		forgeReviews?.updateSubscriptionOptions({ pollingInterval: reviewListPollingInterval });
+	});
 
 	// Migrate stored GitLab access token from the legacy location to the
 	// per-account secrets entry on app load. Safe no-op when already done.

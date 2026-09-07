@@ -90,12 +90,11 @@
 	});
 	const prPollingInterval = $derived(poll ? prBackoff.pollingInterval : undefined);
 
-	const prQuery = $derived(
-		prService.get(projectId, prNumber, {
-			forceRefetch: true,
-			subscriptionOptions: { pollingInterval: prPollingInterval },
-		}),
-	);
+	const prQuery = $derived(prService.get(projectId, prNumber, { forceRefetch: true }));
+	// In place rather than by re-creating the query: see `SubscribedQuery`.
+	$effect(() => {
+		prQuery.updateSubscriptionOptions({ pollingInterval: prPollingInterval });
+	});
 	const pr = $derived(prQuery.response);
 	// The merge-status endpoint hits the forge fresh on every call and can fail
 	// while the PR query is fine, so it needs its own error backoff — sharing the
@@ -110,11 +109,10 @@
 	);
 	// GitHub computes `mergeable_state` lazily: the first read after a push says
 	// `unknown`, so it needs re-reading or Merge stays disabled.
-	const mergeStatusQuery = $derived(
-		prService.getMergeStatus(projectId, prNumber, {
-			subscriptionOptions: { pollingInterval: mergeStatusPollingInterval },
-		}),
-	);
+	const mergeStatusQuery = $derived(prService.getMergeStatus(projectId, prNumber));
+	$effect(() => {
+		mergeStatusQuery.updateSubscriptionOptions({ pollingInterval: mergeStatusPollingInterval });
+	});
 	const prMergeStatus = $derived(mergeStatusQuery.response);
 
 	$effect(() => {

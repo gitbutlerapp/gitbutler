@@ -173,9 +173,8 @@ test("a failing checks poll backs off instead of hammering the endpoint", async 
 	await expect(badge).toContainText("Error");
 
 	const afterFirstError = checkRequests;
-	// Longer than the fast 5s interval, shorter than the 30s back-off: a
-	// hammering poller would fire ~2 more times in this window, a backed-off
-	// one ~0.
+	// Longer than the fast 5s interval, shorter than the 30s back-off. A backed-
+	// off poller fires exactly once more (see the merge-status test below).
 	await page.waitForTimeout(13_000);
 	expect(checkRequests - afterFirstError).toBeLessThanOrEqual(1);
 });
@@ -366,9 +365,9 @@ test("a failing merge-status poll backs off instead of hammering the endpoint", 
 	await expect.poll(() => statusRequests).toBeGreaterThan(0);
 
 	const afterFirstError = statusRequests;
-	// Longer than the fast 5s interval, shorter than the 30s back-off: a
-	// hammering poller would fire ~2 more times in this window, a backed-off
-	// one ~0.
+	// Longer than the fast 5s interval, shorter than the 30s back-off. A backed-
+	// off poller fires exactly once more: RTKQ never reschedules an armed timer
+	// to fire later, so the 5s poll armed before the error still runs.
 	await page.waitForTimeout(13_000);
 	expect(statusRequests - afterFirstError).toBeLessThanOrEqual(1);
 });
