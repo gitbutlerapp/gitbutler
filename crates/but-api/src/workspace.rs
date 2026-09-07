@@ -87,12 +87,11 @@ pub fn workspace_recreate_with_perm(
     let conflicting_stacks = if already_on_workspace {
         Vec::new()
     } else {
-        let mut meta = ctx.meta()?;
-        let (repo, mut ws, db) = ctx.workspace_mut_and_db_with_perm(perm)?;
+        let (repo, mut ws, mut db) = ctx.workspace_mut_and_db_mut_with_perm(perm)?;
 
         let previously_applied_stack_heads: Vec<gix::refs::FullName> = {
             let workspace_ref: gix::refs::FullName = but_core::WORKSPACE_REF_NAME.try_into()?;
-            let workspace_meta = meta.workspace(workspace_ref.as_ref())?;
+            let workspace_meta = db.meta()?.workspace(workspace_ref.as_ref())?;
             workspace_meta
                 .stack_names(but_core::ref_metadata::StackKind::Applied)
                 .map(|name| name.to_owned())
@@ -112,7 +111,7 @@ pub fn workspace_recreate_with_perm(
                 head_name.as_ref(),
                 ws.clone(),
                 &repo,
-                &mut meta,
+                &mut db.connection_mut(),
                 but_workspace::branch::apply::Options {
                     allow_applying_already_applied_branch_when_outside_workspace: true,
                     ..Default::default()
@@ -141,7 +140,7 @@ pub fn workspace_recreate_with_perm(
                     stack_ref.as_ref(),
                     ws.clone(),
                     &repo,
-                    &mut meta,
+                    &mut db.connection_mut(),
                     but_workspace::branch::apply::Options::default(),
                 )?;
 
@@ -165,10 +164,13 @@ pub fn workspace_recreate_with_perm(
     if !already_on_workspace {
         ctx.reload_repo_and_invalidate_workspace(perm)?;
     }
-    let mut meta = ctx.meta()?;
     let (repo, ws, mut db) = ctx.workspace_mut_and_db_mut_with_perm(perm)?;
-    let workspace =
-        WorkspaceState::from_workspace_with_db(&ws, &mut meta, &repo, Default::default(), &mut db)?;
+    let workspace = WorkspaceState::from_workspace_with_db(
+        &ws,
+        &repo,
+        Default::default(),
+        db.connection_mut(),
+    )?;
     Ok(WorkspaceRecreateResult {
         workspace,
         conflicting_stacks,
