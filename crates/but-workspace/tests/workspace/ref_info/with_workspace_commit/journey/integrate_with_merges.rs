@@ -42,22 +42,6 @@ We change the name of the first commit and also need the similarity to be detect
         snapbox::str![[r#"
 Ok(
     RefInfo {
-        workspace_ref_info: Some(
-            RefInfo {
-                ref_name: FullName(
-                    "refs/heads/gitbutler/workspace",
-                ),
-                commit_id: Some(
-                    Sha1(946cdb70e5c527a30bf8154b445c188908d25806),
-                ),
-                worktree: Some(
-                    Worktree {
-                        kind: Main,
-                        owned_by_repo: true,
-                    },
-                ),
-            },
-        ),
         symbolic_remote_names: {
             "origin",
         },
@@ -103,8 +87,6 @@ Ok(
         lower_bound: Some(
             NodeIndex(2),
         ),
-        is_managed_ref: true,
-        is_managed_commit: true,
         ancestor_workspace_commit: None,
     },
 )
@@ -147,22 +129,6 @@ On the remote, a rewritten/rebased commit we have locally is merged back into ta
         snapbox::str![[r#"
 Ok(
     RefInfo {
-        workspace_ref_info: Some(
-            RefInfo {
-                ref_name: FullName(
-                    "refs/heads/gitbutler/workspace",
-                ),
-                commit_id: Some(
-                    Sha1(946cdb70e5c527a30bf8154b445c188908d25806),
-                ),
-                worktree: Some(
-                    Worktree {
-                        kind: Main,
-                        owned_by_repo: true,
-                    },
-                ),
-            },
-        ),
         symbolic_remote_names: {
             "origin",
         },
@@ -208,8 +174,6 @@ Ok(
         lower_bound: Some(
             NodeIndex(2),
         ),
-        is_managed_ref: true,
-        is_managed_commit: true,
         ancestor_workspace_commit: None,
     },
 )
@@ -251,22 +215,6 @@ The tip of the local branch isn't in the ancestry of the remote anymore.
         snapbox::str![[r#"
 Ok(
     RefInfo {
-        workspace_ref_info: Some(
-            RefInfo {
-                ref_name: FullName(
-                    "refs/heads/gitbutler/workspace",
-                ),
-                commit_id: Some(
-                    Sha1(3ea274233577e8e949de8b2c0385ecd36b6df904),
-                ),
-                worktree: Some(
-                    Worktree {
-                        kind: Main,
-                        owned_by_repo: true,
-                    },
-                ),
-            },
-        ),
         symbolic_remote_names: {
             "origin",
         },
@@ -314,8 +262,6 @@ Ok(
         lower_bound: Some(
             NodeIndex(2),
         ),
-        is_managed_ref: true,
-        is_managed_commit: true,
         ancestor_workspace_commit: None,
     },
 )
@@ -367,22 +313,6 @@ We'd not want to see the remote unique commit anymore as it's also considered in
         snapbox::str![[r#"
 Ok(
     RefInfo {
-        workspace_ref_info: Some(
-            RefInfo {
-                ref_name: FullName(
-                    "refs/heads/gitbutler/workspace",
-                ),
-                commit_id: Some(
-                    Sha1(3ea274233577e8e949de8b2c0385ecd36b6df904),
-                ),
-                worktree: Some(
-                    Worktree {
-                        kind: Main,
-                        owned_by_repo: true,
-                    },
-                ),
-            },
-        ),
         symbolic_remote_names: {
             "origin",
         },
@@ -427,8 +357,6 @@ Ok(
         lower_bound: Some(
             NodeIndex(7),
         ),
-        is_managed_ref: true,
-        is_managed_commit: true,
         ancestor_workspace_commit: None,
     },
 )
@@ -466,22 +394,6 @@ A can be pushed as it has local, unpushed commits
         snapbox::str![[r#"
 Ok(
     RefInfo {
-        workspace_ref_info: Some(
-            RefInfo {
-                ref_name: FullName(
-                    "refs/heads/gitbutler/workspace",
-                ),
-                commit_id: Some(
-                    Sha1(3ea274233577e8e949de8b2c0385ecd36b6df904),
-                ),
-                worktree: Some(
-                    Worktree {
-                        kind: Main,
-                        owned_by_repo: true,
-                    },
-                ),
-            },
-        ),
         symbolic_remote_names: {
             "origin",
         },
@@ -527,8 +439,6 @@ Ok(
         lower_bound: Some(
             NodeIndex(2),
         ),
-        is_managed_ref: true,
-        is_managed_commit: true,
         ancestor_workspace_commit: None,
     },
 )
@@ -577,22 +487,6 @@ Remote origin/A is merged back (with forceful merge commit) while there are stil
         snapbox::str![[r#"
 Ok(
     RefInfo {
-        workspace_ref_info: Some(
-            RefInfo {
-                ref_name: FullName(
-                    "refs/heads/gitbutler/workspace",
-                ),
-                commit_id: Some(
-                    Sha1(3ea274233577e8e949de8b2c0385ecd36b6df904),
-                ),
-                worktree: Some(
-                    Worktree {
-                        kind: Main,
-                        owned_by_repo: true,
-                    },
-                ),
-            },
-        ),
         symbolic_remote_names: {
             "origin",
         },
@@ -637,8 +531,6 @@ Ok(
         lower_bound: Some(
             NodeIndex(4),
         ),
-        is_managed_ref: true,
-        is_managed_commit: true,
         ancestor_workspace_commit: None,
     },
 )
@@ -677,22 +569,6 @@ There are no unpushed local commits, the remote is one ahead (FF)
         snapbox::str![[r#"
 Ok(
     RefInfo {
-        workspace_ref_info: Some(
-            RefInfo {
-                ref_name: FullName(
-                    "refs/heads/gitbutler/workspace",
-                ),
-                commit_id: Some(
-                    Sha1(8ee08de8bed7f60305c9b7fb5eefa64280c1c1cf),
-                ),
-                worktree: Some(
-                    Worktree {
-                        kind: Main,
-                        owned_by_repo: true,
-                    },
-                ),
-            },
-        ),
         symbolic_remote_names: {
             "origin",
         },
@@ -739,8 +615,6 @@ Ok(
         lower_bound: Some(
             NodeIndex(2),
         ),
-        is_managed_ref: true,
-        is_managed_commit: true,
         ancestor_workspace_commit: None,
     },
 )
@@ -784,22 +658,6 @@ Remote origin/A is merged back (fast-forward), bringing all into the target bran
         snapbox::str![[r#"
 Ok(
     RefInfo {
-        workspace_ref_info: Some(
-            RefInfo {
-                ref_name: FullName(
-                    "refs/heads/gitbutler/workspace",
-                ),
-                commit_id: Some(
-                    Sha1(8ee08de8bed7f60305c9b7fb5eefa64280c1c1cf),
-                ),
-                worktree: Some(
-                    Worktree {
-                        kind: Main,
-                        owned_by_repo: true,
-                    },
-                ),
-            },
-        ),
         symbolic_remote_names: {
             "origin",
         },
@@ -823,8 +681,6 @@ Ok(
         lower_bound: Some(
             NodeIndex(4),
         ),
-        is_managed_ref: true,
-        is_managed_commit: true,
         ancestor_workspace_commit: None,
     },
 )

@@ -48,7 +48,6 @@ export const fixtureSegment = ({
 	commits,
 	commitsOnRemote: [],
 	metadata: null,
-	isEntrypoint: false,
 	pushStatus: "completelyUnpushed",
 	base: "0".repeat(40),
 });
@@ -61,15 +60,8 @@ const fixtureStack = (segments: Array<Segment>, index: number): Stack => ({
 });
 
 export const fixtureHeadInfo = (stacks: Array<Array<Segment>>): RefInfo => ({
-	workspaceRef: {
-		fullNameBytes: encode("refs/heads/gitbutler/workspace"),
-		displayName: "gitbutler/workspace",
-	},
 	stacks: stacks.map(fixtureStack),
 	target: null,
-	isManagedRef: true,
-	isManagedCommit: true,
-	isEntrypoint: true,
 	worktrees: [],
 });
 

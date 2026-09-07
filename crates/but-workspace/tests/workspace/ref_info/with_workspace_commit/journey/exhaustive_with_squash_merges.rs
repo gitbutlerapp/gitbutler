@@ -33,20 +33,6 @@ a newly initialized repository
         snapbox::str![[r#"
 Ok(
     RefInfo {
-        workspace_ref_info: Some(
-            RefInfo {
-                ref_name: FullName(
-                    "refs/heads/main",
-                ),
-                commit_id: None,
-                worktree: Some(
-                    Worktree {
-                        kind: Main,
-                        owned_by_repo: true,
-                    },
-                ),
-            },
-        ),
         symbolic_remote_names: {},
         stacks: [
             Stack {
@@ -72,8 +58,6 @@ Ok(
         target_commit: None,
         is_target_current: false,
         lower_bound: None,
-        is_managed_ref: false,
-        is_managed_commit: false,
         ancestor_workspace_commit: None,
     },
 )
@@ -107,22 +91,6 @@ the root commit is now present locally
         snapbox::str![[r#"
 Ok(
     RefInfo {
-        workspace_ref_info: Some(
-            RefInfo {
-                ref_name: FullName(
-                    "refs/heads/main",
-                ),
-                commit_id: Some(
-                    Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
-                ),
-                worktree: Some(
-                    Worktree {
-                        kind: Main,
-                        owned_by_repo: true,
-                    },
-                ),
-            },
-        ),
         symbolic_remote_names: {},
         stacks: [
             Stack {
@@ -157,8 +125,6 @@ Ok(
         lower_bound: Some(
             NodeIndex(0),
         ),
-        is_managed_ref: false,
-        is_managed_commit: false,
         ancestor_workspace_commit: None,
     },
 )
@@ -194,22 +160,6 @@ However, without an official workspace it still won't be acting as a target.
         snapbox::str![[r#"
 Ok(
     RefInfo {
-        workspace_ref_info: Some(
-            RefInfo {
-                ref_name: FullName(
-                    "refs/heads/main",
-                ),
-                commit_id: Some(
-                    Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
-                ),
-                worktree: Some(
-                    Worktree {
-                        kind: Main,
-                        owned_by_repo: true,
-                    },
-                ),
-            },
-        ),
         symbolic_remote_names: {
             "origin",
         },
@@ -254,8 +204,6 @@ Ok(
         lower_bound: Some(
             NodeIndex(0),
         ),
-        is_managed_ref: false,
-        is_managed_commit: false,
         ancestor_workspace_commit: None,
     },
 )
@@ -275,22 +223,6 @@ Ok(
         snapbox::str![[r#"
 Ok(
     RefInfo {
-        workspace_ref_info: Some(
-            RefInfo {
-                ref_name: FullName(
-                    "refs/heads/main",
-                ),
-                commit_id: Some(
-                    Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
-                ),
-                worktree: Some(
-                    Worktree {
-                        kind: Main,
-                        owned_by_repo: true,
-                    },
-                ),
-            },
-        ),
         symbolic_remote_names: {
             "origin",
         },
@@ -335,8 +267,6 @@ Ok(
         lower_bound: Some(
             NodeIndex(0),
         ),
-        is_managed_ref: false,
-        is_managed_commit: false,
         ancestor_workspace_commit: None,
     },
 )
@@ -373,22 +303,6 @@ An official workspace was created, with nothing in it
         snapbox::str![[r#"
 Ok(
     RefInfo {
-        workspace_ref_info: Some(
-            RefInfo {
-                ref_name: FullName(
-                    "refs/heads/gitbutler/workspace",
-                ),
-                commit_id: Some(
-                    Sha1(a26ae77fda20033f23c2b7790481e0b81d8cd9b9),
-                ),
-                worktree: Some(
-                    Worktree {
-                        kind: Main,
-                        owned_by_repo: true,
-                    },
-                ),
-            },
-        ),
         symbolic_remote_names: {
             "origin",
         },
@@ -412,8 +326,6 @@ Ok(
         lower_bound: Some(
             NodeIndex(2),
         ),
-        is_managed_ref: true,
-        is_managed_commit: true,
         ancestor_workspace_commit: None,
     },
 )
@@ -451,22 +363,6 @@ an empty stack with nothing in it
         snapbox::str![[r#"
 Ok(
     RefInfo {
-        workspace_ref_info: Some(
-            RefInfo {
-                ref_name: FullName(
-                    "refs/heads/gitbutler/workspace",
-                ),
-                commit_id: Some(
-                    Sha1(a26ae77fda20033f23c2b7790481e0b81d8cd9b9),
-                ),
-                worktree: Some(
-                    Worktree {
-                        kind: Main,
-                        owned_by_repo: true,
-                    },
-                ),
-            },
-        ),
         symbolic_remote_names: {
             "origin",
         },
@@ -511,8 +407,6 @@ Ok(
         lower_bound: Some(
             NodeIndex(2),
         ),
-        is_managed_ref: true,
-        is_managed_commit: true,
         ancestor_workspace_commit: None,
     },
 )
@@ -549,22 +443,6 @@ Create a new commit in the newly added stack S1
         snapbox::str![[r#"
 Ok(
     RefInfo {
-        workspace_ref_info: Some(
-            RefInfo {
-                ref_name: FullName(
-                    "refs/heads/gitbutler/workspace",
-                ),
-                commit_id: Some(
-                    Sha1(9a8283b423afb4f9c3feb18471ff2c543018c522),
-                ),
-                worktree: Some(
-                    Worktree {
-                        kind: Main,
-                        owned_by_repo: true,
-                    },
-                ),
-            },
-        ),
         symbolic_remote_names: {
             "origin",
         },
@@ -609,8 +487,6 @@ Ok(
         lower_bound: Some(
             NodeIndex(2),
         ),
-        is_managed_ref: true,
-        is_managed_commit: true,
         ancestor_workspace_commit: None,
     },
 )
@@ -626,22 +502,6 @@ Ok(
         snapbox::str![[r#"
 Ok(
     RefInfo {
-        workspace_ref_info: Some(
-            RefInfo {
-                ref_name: FullName(
-                    "refs/heads/gitbutler/workspace",
-                ),
-                commit_id: Some(
-                    Sha1(9a8283b423afb4f9c3feb18471ff2c543018c522),
-                ),
-                worktree: Some(
-                    Worktree {
-                        kind: Main,
-                        owned_by_repo: true,
-                    },
-                ),
-            },
-        ),
         symbolic_remote_names: {
             "origin",
         },
@@ -688,8 +548,6 @@ Ok(
         lower_bound: Some(
             NodeIndex(2),
         ),
-        is_managed_ref: true,
-        is_managed_commit: true,
         ancestor_workspace_commit: None,
     },
 )
@@ -727,22 +585,6 @@ push S1 to the remote which is then up-to-date
         snapbox::str![[r#"
 Ok(
     RefInfo {
-        workspace_ref_info: Some(
-            RefInfo {
-                ref_name: FullName(
-                    "refs/heads/gitbutler/workspace",
-                ),
-                commit_id: Some(
-                    Sha1(9a8283b423afb4f9c3feb18471ff2c543018c522),
-                ),
-                worktree: Some(
-                    Worktree {
-                        kind: Main,
-                        owned_by_repo: true,
-                    },
-                ),
-            },
-        ),
         symbolic_remote_names: {
             "origin",
         },
@@ -789,8 +631,6 @@ Ok(
         lower_bound: Some(
             NodeIndex(2),
         ),
-        is_managed_ref: true,
-        is_managed_commit: true,
         ancestor_workspace_commit: None,
     },
 )
@@ -832,22 +672,6 @@ Create a new local commit right after the previous pushed one
         snapbox::str![[r#"
 Ok(
     RefInfo {
-        workspace_ref_info: Some(
-            RefInfo {
-                ref_name: FullName(
-                    "refs/heads/gitbutler/workspace",
-                ),
-                commit_id: Some(
-                    Sha1(9e1f2642e9591266fb00001789164f7960e508f5),
-                ),
-                worktree: Some(
-                    Worktree {
-                        kind: Main,
-                        owned_by_repo: true,
-                    },
-                ),
-            },
-        ),
         symbolic_remote_names: {
             "origin",
         },
@@ -895,8 +719,6 @@ Ok(
         lower_bound: Some(
             NodeIndex(2),
         ),
-        is_managed_ref: true,
-        is_managed_commit: true,
         ancestor_workspace_commit: None,
     },
 )
@@ -937,22 +759,6 @@ The new local commit was rewritten after pushing it to the remote
         snapbox::str![[r#"
 Ok(
     RefInfo {
-        workspace_ref_info: Some(
-            RefInfo {
-                ref_name: FullName(
-                    "refs/heads/gitbutler/workspace",
-                ),
-                commit_id: Some(
-                    Sha1(4d230909d7fba6bf00af30c9db74695a315fc93f),
-                ),
-                worktree: Some(
-                    Worktree {
-                        kind: Main,
-                        owned_by_repo: true,
-                    },
-                ),
-            },
-        ),
         symbolic_remote_names: {
             "origin",
         },
@@ -1000,8 +806,6 @@ Ok(
         lower_bound: Some(
             NodeIndex(2),
         ),
-        is_managed_ref: true,
-        is_managed_commit: true,
         ancestor_workspace_commit: None,
     },
 )
@@ -1047,22 +851,6 @@ The remote squash-merges S1 *and* changes the 'file' so it looks entirely differ
         snapbox::str![[r#"
 Ok(
     RefInfo {
-        workspace_ref_info: Some(
-            RefInfo {
-                ref_name: FullName(
-                    "refs/heads/gitbutler/workspace",
-                ),
-                commit_id: Some(
-                    Sha1(4d230909d7fba6bf00af30c9db74695a315fc93f),
-                ),
-                worktree: Some(
-                    Worktree {
-                        kind: Main,
-                        owned_by_repo: true,
-                    },
-                ),
-            },
-        ),
         symbolic_remote_names: {
             "origin",
         },
@@ -1110,8 +898,6 @@ Ok(
         lower_bound: Some(
             NodeIndex(2),
         ),
-        is_managed_ref: true,
-        is_managed_commit: true,
         ancestor_workspace_commit: None,
     },
 )
@@ -1167,22 +953,6 @@ The remote was reused and merged once more with more changes.
         snapbox::str![[r#"
 Ok(
     RefInfo {
-        workspace_ref_info: Some(
-            RefInfo {
-                ref_name: FullName(
-                    "refs/heads/gitbutler/workspace",
-                ),
-                commit_id: Some(
-                    Sha1(4d230909d7fba6bf00af30c9db74695a315fc93f),
-                ),
-                worktree: Some(
-                    Worktree {
-                        kind: Main,
-                        owned_by_repo: true,
-                    },
-                ),
-            },
-        ),
         symbolic_remote_names: {
             "origin",
         },
@@ -1233,8 +1003,6 @@ Ok(
         lower_bound: Some(
             NodeIndex(5),
         ),
-        is_managed_ref: true,
-        is_managed_commit: true,
         ancestor_workspace_commit: None,
     },
 )
@@ -1296,22 +1064,6 @@ A new multi-segment stack is created without remote and squash merged locally.
         snapbox::str![[r#"
 Ok(
     RefInfo {
-        workspace_ref_info: Some(
-            RefInfo {
-                ref_name: FullName(
-                    "refs/heads/gitbutler/workspace",
-                ),
-                commit_id: Some(
-                    Sha1(4da5b24e0457fb452972018e03505e0296ae0455),
-                ),
-                worktree: Some(
-                    Worktree {
-                        kind: Main,
-                        owned_by_repo: true,
-                    },
-                ),
-            },
-        ),
         symbolic_remote_names: {
             "origin",
         },
@@ -1394,8 +1146,6 @@ Ok(
         lower_bound: Some(
             NodeIndex(8),
         ),
-        is_managed_ref: true,
-        is_managed_commit: true,
         ancestor_workspace_commit: None,
     },
 )

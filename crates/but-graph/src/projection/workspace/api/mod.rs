@@ -66,11 +66,6 @@ impl Workspace {
         self.graph[self.id].ref_name()
     }
 
-    /// Like [Self::ref_name()], but returns reference and worktree information instead.
-    pub fn ref_info(&self) -> Option<&crate::RefInfo> {
-        self.graph[self.id].ref_info.as_ref()
-    }
-
     /// Like [`Self::ref_name()`], but return a generic `<anonymous>` name for unnamed workspaces.
     pub fn ref_name_display(&self) -> &BStr {
         self.ref_name()

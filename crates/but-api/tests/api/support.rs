@@ -99,9 +99,11 @@ pub fn create_empty_branch_above(
 pub fn assert_workspace_ref(workspace: &but_api::WorkspaceState, expected: &str) {
     let workspace_ref = workspace
         .head_info
-        .workspace_ref_info
-        .as_ref()
-        .expect("checked out branch is the workspace ref");
+        .stacks
+        .first()
+        .and_then(|stack| stack.segments.first())
+        .and_then(|segment| segment.ref_info.as_ref())
+        .expect("checked out branch is the first segment of the first stack");
     assert_eq!(workspace_ref.ref_name, expected);
 }
 

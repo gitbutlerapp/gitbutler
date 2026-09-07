@@ -116,20 +116,6 @@ fn unborn_untracked() -> anyhow::Result<()> {
         info.to_debug(),
         snapbox::str![[r#"
 RefInfo {
-    workspace_ref_info: Some(
-        RefInfo {
-            ref_name: FullName(
-                "refs/heads/main",
-            ),
-            commit_id: None,
-            worktree: Some(
-                Worktree {
-                    kind: Main,
-                    owned_by_repo: true,
-                },
-            ),
-        },
-    ),
     symbolic_remote_names: {},
     stacks: [
         Stack {
@@ -155,8 +141,6 @@ RefInfo {
     target_commit: None,
     is_target_current: false,
     lower_bound: None,
-    is_managed_ref: false,
-    is_managed_commit: false,
     ancestor_workspace_commit: None,
 }
 
@@ -176,7 +160,6 @@ fn detached() -> anyhow::Result<()> {
         info.to_debug(),
         snapbox::str![[r#"
 RefInfo {
-    workspace_ref_info: None,
     symbolic_remote_names: {},
     stacks: [
         Stack {
@@ -204,8 +187,6 @@ RefInfo {
     target_commit: None,
     is_target_current: false,
     lower_bound: None,
-    is_managed_ref: false,
-    is_managed_commit: false,
     ancestor_workspace_commit: None,
 }
 
@@ -225,22 +206,6 @@ fn conflicted_in_local_branch() -> anyhow::Result<()> {
         info.to_debug(),
         snapbox::str![[r#"
 RefInfo {
-    workspace_ref_info: Some(
-        RefInfo {
-            ref_name: FullName(
-                "refs/heads/main",
-            ),
-            commit_id: Some(
-                Sha1(84503317a1e1464381fcff65ece14bc1f4315b7c),
-            ),
-            worktree: Some(
-                Worktree {
-                    kind: Main,
-                    owned_by_repo: true,
-                },
-            ),
-        },
-    ),
     symbolic_remote_names: {},
     stacks: [
         Stack {
@@ -269,8 +234,6 @@ RefInfo {
     target_commit: None,
     is_target_current: false,
     lower_bound: None,
-    is_managed_ref: false,
-    is_managed_commit: false,
     ancestor_workspace_commit: None,
 }
 
@@ -295,22 +258,6 @@ fn single_branch() -> anyhow::Result<()> {
         info.to_debug(),
         snapbox::str![[r#"
 RefInfo {
-    workspace_ref_info: Some(
-        RefInfo {
-            ref_name: FullName(
-                "refs/heads/main",
-            ),
-            commit_id: Some(
-                Sha1(b5743a3aa79957bcb7f654d7d4ad11d995ad5303),
-            ),
-            worktree: Some(
-                Worktree {
-                    kind: Main,
-                    owned_by_repo: true,
-                },
-            ),
-        },
-    ),
     symbolic_remote_names: {},
     stacks: [
         Stack {
@@ -347,8 +294,6 @@ RefInfo {
     target_commit: None,
     is_target_current: false,
     lower_bound: None,
-    is_managed_ref: false,
-    is_managed_commit: false,
     ancestor_workspace_commit: None,
 }
 
@@ -369,22 +314,6 @@ fn single_branch_multiple_segments() -> anyhow::Result<()> {
         info.to_debug(),
         snapbox::str![[r#"
 RefInfo {
-    workspace_ref_info: Some(
-        RefInfo {
-            ref_name: FullName(
-                "refs/heads/main",
-            ),
-            commit_id: Some(
-                Sha1(b5743a3aa79957bcb7f654d7d4ad11d995ad5303),
-            ),
-            worktree: Some(
-                Worktree {
-                    kind: Main,
-                    owned_by_repo: true,
-                },
-            ),
-        },
-    ),
     symbolic_remote_names: {},
     stacks: [
         Stack {
@@ -465,8 +394,6 @@ RefInfo {
     target_commit: None,
     is_target_current: false,
     lower_bound: None,
-    is_managed_ref: false,
-    is_managed_commit: false,
     ancestor_workspace_commit: None,
 }
 

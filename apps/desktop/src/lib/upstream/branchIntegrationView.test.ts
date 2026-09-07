@@ -178,7 +178,6 @@ describe("branchIntegrationView", () => {
 		const workspace: WorkspaceState = {
 			replacedCommits: {},
 			headInfo: {
-				workspaceRef: null,
 				stacks: [
 					{
 						id: "stack-1",
@@ -210,7 +209,6 @@ describe("branchIntegrationView", () => {
 								],
 								commitsOnRemote: [],
 								metadata: null,
-								isEntrypoint: true,
 								pushStatus: "nothingToPush",
 								base: "6666666666666666666666666666666666666666",
 							},
@@ -237,7 +235,6 @@ describe("branchIntegrationView", () => {
 								],
 								commitsOnRemote: [],
 								metadata: null,
-								isEntrypoint: false,
 								pushStatus: "integrated",
 								base: null,
 							},
@@ -245,9 +242,6 @@ describe("branchIntegrationView", () => {
 					},
 				],
 				target: null,
-				isManagedRef: true,
-				isManagedCommit: true,
-				isEntrypoint: true,
 				worktrees: [],
 			},
 			checkoutConflictOccurred: false,

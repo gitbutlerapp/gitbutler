@@ -48,7 +48,6 @@ function makeDetails(
 			commits: (b.commits ?? []) as any,
 			commitsOnRemote: (b.upstreamCommits ?? []) as any,
 			metadata: null,
-			isEntrypoint: false,
 			pushStatus: "nothingToPush",
 			base: null,
 		})),

@@ -51,7 +51,6 @@ function segment({
 		commits,
 		commitsOnRemote: [],
 		metadata: null,
-		isEntrypoint: false,
 		pushStatus: "unpushedCommits",
 		base: null,
 	};
@@ -67,12 +66,8 @@ function stack(segments: Segment[], id = "stack-1"): Stack {
 
 function refInfo(stacks: Stack[]): RefInfo {
 	return {
-		workspaceRef: null,
 		stacks,
 		target: null,
-		isManagedRef: true,
-		isManagedCommit: true,
-		isEntrypoint: true,
 		worktrees: [],
 	};
 }

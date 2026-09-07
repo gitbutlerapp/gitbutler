@@ -532,19 +532,16 @@ pub fn graph_to_ref_info(
         stacks,
         target_ref,
         target_commit,
-        metadata,
+        metadata: _,
         lower_bound: _,
         lower_bound_segment_id,
     } = workspace;
 
-    let (workspace_ref_info, is_managed_commit, ancestor_workspace_commit) = match kind {
-        WorkspaceKind::Managed { ref_info } => (Some(ref_info), true, None),
-        WorkspaceKind::ManagedMissingWorkspaceCommit { ref_info: ref_name } => {
-            let maybe_ancestor_workspace_commit =
-                find_ancestor_workspace_commit(graph, repo, *id, *lower_bound_segment_id);
-            (Some(ref_name), false, maybe_ancestor_workspace_commit)
+    let ancestor_workspace_commit = match kind {
+        WorkspaceKind::ManagedMissingWorkspaceCommit { .. } => {
+            find_ancestor_workspace_commit(graph, repo, *id, *lower_bound_segment_id)
         }
-        WorkspaceKind::AdHoc => (graph[*id].ref_info.as_ref(), false, None),
+        WorkspaceKind::Managed { .. } | WorkspaceKind::AdHoc => None,
     };
     // Ask the repo where the ref points and compare the stored id itself: the graph
     // may drop `target_commit` and may leave the ref's own segment without commits.
@@ -555,7 +552,6 @@ pub fn graph_to_ref_info(
         _ => false,
     };
     let mut info = RefInfo {
-        workspace_ref_info: workspace_ref_info.cloned(),
         symbolic_remote_names: repo.remote_names().into_iter().collect(),
         lower_bound: *lower_bound_segment_id,
         stacks: stacks
@@ -565,8 +561,6 @@ pub fn graph_to_ref_info(
         target_ref: target_ref.clone(),
         target_commit: target_commit.clone(),
         is_target_current,
-        is_managed_ref: metadata.is_some(),
-        is_managed_commit,
         ancestor_workspace_commit,
         worktrees: crate::worktrees::worktree_infos(workspace, repo),
     };
