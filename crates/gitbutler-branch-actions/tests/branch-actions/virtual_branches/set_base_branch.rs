@@ -1,5 +1,4 @@
 use super::*;
-use but_core::RefMetadata as _;
 use gitbutler_oplog::OplogExt as _;
 use gix::bstr::ByteSlice as _;
 
@@ -44,6 +43,9 @@ fn uses_configured_committer_for_reflog() {
 
     let workspace_ref: gix::refs::FullName = but_core::WORKSPACE_REF_NAME.try_into().unwrap();
     let stack_ref_name = ctx
+        .db
+        .get_cache()
+        .unwrap()
         .meta()
         .unwrap()
         .workspace(workspace_ref.as_ref())
@@ -149,7 +151,10 @@ fn works_without_git_identity() {
 
         let workspace_ref: gix::refs::FullName = but_core::WORKSPACE_REF_NAME.try_into().unwrap();
         let created_ref = if branch_matches_target {
-            ctx.meta()
+            ctx.db
+                .get_cache()
+                .unwrap()
+                .meta()
                 .unwrap()
                 .workspace(workspace_ref.as_ref())
                 .unwrap()
@@ -269,12 +274,14 @@ fn switching_the_target_outside_the_workspace_does_not_partially_update_the_proj
 
     let project_meta_before = ctx.project_meta().unwrap();
     let workspace_ref: gix::refs::FullName = but_core::WORKSPACE_REF_NAME.try_into().unwrap();
-    let workspace_meta_before = (*ctx
+    let workspace_meta_before = ctx
+        .db
+        .get_cache()
+        .unwrap()
         .meta()
         .unwrap()
         .workspace(workspace_ref.as_ref())
-        .unwrap())
-    .clone();
+        .cloned();
     let workspace_ref_before = gix_repo
         .find_reference(&workspace_ref)
         .unwrap()
@@ -306,10 +313,13 @@ fn switching_the_target_outside_the_workspace_does_not_partially_update_the_proj
         "rejecting the target switch must preserve the configured project target"
     );
     assert_eq!(
-        *ctx.meta()
+        ctx.db
+            .get_cache()
+            .unwrap()
+            .meta()
             .unwrap()
             .workspace(workspace_ref.as_ref())
-            .unwrap(),
+            .cloned(),
         workspace_meta_before,
         "rejecting the target switch must preserve stack metadata"
     );
@@ -704,15 +714,14 @@ mod behind_count {
 
         // Apply C (forks from M2, 1 behind).
         let mut guard = ctx.exclusive_worktree_access();
-        let mut meta = ctx.meta().unwrap();
-        let (repo, mut workspace, _) = ctx
-            .workspace_mut_and_db_with_perm(guard.write_permission())
+        let (repo, mut workspace, mut db) = ctx
+            .workspace_mut_and_db_mut_with_perm(guard.write_permission())
             .unwrap();
         let outcome = but_workspace::branch::apply(
             "refs/heads/C".try_into().unwrap(),
             workspace.clone(),
             &repo,
-            &mut meta,
+            &mut db.connection_mut(),
             but_workspace::branch::apply::Options::default(),
         )
         .unwrap();
@@ -721,7 +730,7 @@ mod behind_count {
             "branch C must be applied for the multi-stack behind-count scenario"
         );
         *workspace = outcome.workspace;
-        drop((repo, workspace));
+        drop((repo, workspace, db));
         drop(guard);
 
         // Stack A is farthest behind (3 commits behind origin/master).

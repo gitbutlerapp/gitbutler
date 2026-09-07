@@ -1,10 +1,7 @@
 #![allow(warnings)]
 
 use but_api::WorkspaceState;
-use but_core::{
-    RefMetadata,
-    sync::{RepoExclusive, RepoExclusiveGuard},
-};
+use but_core::sync::{RepoExclusive, RepoExclusiveGuard};
 use but_ctx::Context;
 use but_graph::Workspace;
 
@@ -28,7 +25,6 @@ pub fn uncommit(
     args: Platform,
 ) -> CliResult<(squash::SquashOutcome, Option<WorkspaceState>)> {
     let mut guard = ctx.exclusive_worktree_access();
-    let mut meta = ctx.meta()?;
     let id_map = IdMap::new_from_context(ctx, guard.read_permission())?;
 
     let merged = MergedUpstream::from_ctx(ctx, args.allow_merged)?;
@@ -38,7 +34,7 @@ pub fn uncommit(
     drop(repo);
     drop(ws);
 
-    Ok(squash::run(ctx, &mut meta, guard.write_permission(), op)?)
+    Ok(squash::run(ctx, guard.write_permission(), op)?)
 }
 
 fn resolve(

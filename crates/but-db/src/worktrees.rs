@@ -10,15 +10,11 @@ use std::{collections::BTreeSet, path::PathBuf};
 use anyhow::Result;
 use gix::bstr::{BStr, BString};
 
-use crate::DbHandle;
-
-/// Whether `ref_name` is a workspace ref, kept in sync with
-/// `but_core::is_workspace_ref_name()` by hand: depending on but-core here would
-/// pull libgit2 into every crate that reaches but-db, for two string comparisons.
-fn is_workspace_ref(ref_name: &gix::refs::FullName) -> bool {
-    let name = ref_name.as_bstr();
-    name == "refs/heads/gitbutler/workspace" || name == "refs/heads/gitbutler/integration"
-}
+use crate::{
+    ConnectionMut,
+    connection::ConnectionMutInner,
+    table::worktree_meta::{WorktreeMetaHandle, WorktreeMetaHandleMut},
+};
 
 /// A linked worktree whose checkout exists on disk, with its archived state.
 ///
@@ -72,7 +68,10 @@ pub fn worktree_head(repo: &gix::Repository, name: &BStr) -> Result<Option<Workt
         }
     };
     let ref_name = head.referent_name().map(ToOwned::to_owned);
-    if ref_name.as_ref().is_some_and(is_workspace_ref) {
+    if ref_name
+        .as_ref()
+        .is_some_and(|name| but_core::is_workspace_ref_name(name.as_ref()))
+    {
         return Ok(None);
     }
     match head.peel_to_commit() {
@@ -114,7 +113,7 @@ pub fn worktree_head(repo: &gix::Repository, name: &BStr) -> Result<Option<Workt
 /// would silently diverge from the main worktree's database.
 pub fn worktrees_with_state(
     repo: &gix::Repository,
-    db: &mut DbHandle,
+    db: &mut ConnectionMut<'_, '_>,
 ) -> Result<Vec<WorktreeEntry>> {
     if repo.kind() == gix::repository::Kind::LinkedWorkTree {
         anyhow::bail!(
@@ -191,39 +190,63 @@ fn enumerate_worktrees(repo: &gix::Repository) -> Result<(Vec<BString>, Vec<Work
 /// The marker is explicit so nothing is inferred from the table content: in
 /// particular a project's first worktree, created after adoption already ran with
 /// zero worktrees on disk, starts out active.
-fn reconcile_archived(db: &mut DbHandle, names: &[BString]) -> Result<BTreeSet<BString>> {
-    if !db.worktree_meta().adoption_ran()? {
-        // An immediate transaction avoids the un-retried `SQLITE_BUSY_SNAPSHOT` a
-        // deferred read-then-write would fail with when racing another writer, and
-        // the marker is re-checked under the write lock as several processes may
-        // adopt concurrently right after the feature flag is enabled.
-        let mut trans = db.immediate_transaction()?;
-        if !trans.worktree_meta().adoption_ran()? {
-            trans.worktree_meta_mut().mark_adopted()?;
-            for name in names {
-                trans.worktree_meta_mut().upsert(crate::WorktreeMeta {
-                    name: name.to_vec(),
-                    archived: true,
-                })?;
-            }
-        }
-        trans.commit()?;
+fn reconcile_archived(
+    db: &mut ConnectionMut<'_, '_>,
+    names: &[BString],
+) -> Result<BTreeSet<BString>> {
+    let rows = db.worktree_meta().list()?;
+    let needs_update = !db.worktree_meta().adoption_ran()?
+        || rows
+            .iter()
+            .any(|row| !names.iter().any(|name| name == &row.name));
+    if !needs_update {
+        return Ok(rows
+            .into_iter()
+            .filter(|row| row.archived)
+            .map(|row| row.name.into())
+            .collect());
     }
-    let (known, forgotten): (Vec<_>, Vec<_>) = db
-        .worktree_meta()
-        .list()?
-        .into_iter()
-        .partition(|row| names.iter().any(|name| name == &row.name));
-    if !forgotten.is_empty() {
-        let mut trans = db.immediate_transaction()?;
-        for row in forgotten {
-            trans.worktree_meta_mut().delete(&row.name)?;
+
+    match &mut db.inner {
+        ConnectionMutInner::Database(db) => {
+            // Lock before rechecking adoption, avoiding a deferred read-to-write upgrade race.
+            let tx = db.immediate_transaction()?;
+            let archived = reconcile_archived_in_connection(tx.inner(), names)?;
+            tx.commit()?;
+            Ok(archived)
         }
-        trans.commit()?;
+        ConnectionMutInner::Transaction(tx) => {
+            // Graph refresh during a mutation must use its existing transaction, never BEGIN again.
+            let sp = tx.inner_mut().savepoint()?;
+            let archived = reconcile_archived_in_connection(&sp, names)?;
+            sp.commit()?;
+            Ok(archived)
+        }
     }
-    Ok(known
-        .into_iter()
-        .filter(|row| row.archived)
-        .map(|row| BString::from(row.name))
-        .collect())
+}
+
+fn reconcile_archived_in_connection(
+    conn: &rusqlite::Connection,
+    names: &[BString],
+) -> Result<BTreeSet<BString>> {
+    let read = WorktreeMetaHandle { conn };
+    let mut write = WorktreeMetaHandleMut { conn };
+    if !read.adoption_ran()? {
+        write.mark_adopted()?;
+        for name in names {
+            write.upsert(crate::WorktreeMeta {
+                name: name.to_vec(),
+                archived: true,
+            })?;
+        }
+    }
+    let mut archived = BTreeSet::new();
+    for row in read.list()? {
+        if !names.iter().any(|name| name == &row.name) {
+            write.delete(&row.name)?;
+        } else if row.archived {
+            archived.insert(row.name.into());
+        }
+    }
+    Ok(archived)
 }

@@ -23,7 +23,6 @@ pub fn delete(
     branch_args: Vec<CliIdArg>,
 ) -> CliResult<(DiscardOutcome, WorkspaceState)> {
     let mut guard = ctx.exclusive_worktree_access();
-    let mut meta = ctx.meta()?;
     let id_map = IdMap::new_from_context(ctx, guard.read_permission())?;
 
     let branches = {
@@ -42,7 +41,6 @@ pub fn delete(
 
     Ok(discard::run(
         ctx,
-        &mut meta,
         guard.write_permission(),
         discard::DiscardOperation::Branches(branches),
         gitbutler_oplog::entry::OperationKind::Discard,

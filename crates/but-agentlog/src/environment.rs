@@ -1,17 +1,10 @@
-use std::{
-    any::Any,
-    collections::HashMap,
-    ops::{Deref, DerefMut},
-    path::Path,
-};
+use std::{collections::HashMap, path::Path};
 
 use bstr::{BStr, ByteSlice};
 use but_core::{
-    RefMetadata, RepositoryExt, TreeChange, TreeStatus, is_workspace_ref_name,
-    open_repo_for_merging,
-    ref_metadata::{Branch, ValueInfo, Workspace},
+    RepositoryExt, TreeChange, TreeStatus, is_workspace_ref_name, open_repo_for_merging,
+    ref_metadata::Branch,
 };
-use but_meta::VirtualBranchesTomlMetadata;
 use gix::prelude::ObjectIdExt as _;
 use serde::Serialize;
 use sha2::{Digest, Sha256};
@@ -332,33 +325,26 @@ fn worktree_paths(repo: &gix::Repository) -> anyhow::Result<PathList> {
 }
 
 fn workspace_snapshot(repo: &gix::Repository) -> anyhow::Result<WorkspaceObservation> {
-    let metadata_path = repo.gitbutler_storage_path()?.join("virtual_branches.toml");
-    let legacy_metadata_exists = legacy_metadata_exists(&metadata_path);
-    if legacy_metadata_exists
-        && let Ok(meta) = VirtualBranchesTomlMetadata::from_path_read_only(&metadata_path)
-    {
-        return workspace_snapshot_with_current_branch_fallback(repo, &meta);
-    }
-
-    let mut observation = workspace_snapshot_with_current_branch_fallback(repo, &EmptyRefMetadata)?;
-    if legacy_metadata_exists && observation.error_kind.is_none() {
+    let storage_path = repo.gitbutler_storage_path()?;
+    let (mut db, metadata_unavailable) =
+        match but_db::DbHandle::open_existing_read_only_in_directory(&storage_path) {
+            Ok(Some(db)) => (db, false),
+            Ok(None) => (but_db::DbHandle::new_at_path(":memory:")?, false),
+            Err(_) => (but_db::DbHandle::new_at_path(":memory:")?, true),
+        };
+    let mut observation =
+        workspace_snapshot_with_current_branch_fallback(repo, &mut db.connection_mut())?;
+    if metadata_unavailable && observation.error_kind.is_none() {
         observation.error_kind = Some(SnapshotErrorKind::Workspace);
     }
     Ok(observation)
 }
 
-fn legacy_metadata_exists(metadata_path: &Path) -> bool {
-    metadata_path.is_file()
-        || metadata_path
-            .parent()
-            .is_some_and(|storage_path| storage_path.join("but.sqlite").is_file())
-}
-
 fn workspace_snapshot_with_current_branch_fallback(
     repo: &gix::Repository,
-    meta: &impl RefMetadata,
+    db: &mut but_db::ConnectionMut<'_, '_>,
 ) -> anyhow::Result<WorkspaceObservation> {
-    match workspace_snapshot_with_meta(repo, meta) {
+    match workspace_snapshot_with_meta(repo, db) {
         Ok(mut observation) => {
             if observation.observed_targets.is_empty()
                 && let Ok(fallback) = current_branch_targets(repo)
@@ -417,14 +403,12 @@ fn current_branch_targets(repo: &gix::Repository) -> anyhow::Result<ObservedTarg
 
 fn workspace_snapshot_with_meta(
     repo: &gix::Repository,
-    meta: &impl RefMetadata,
+    db: &mut but_db::ConnectionMut<'_, '_>,
 ) -> anyhow::Result<WorkspaceObservation> {
     let mut info = but_workspace::head_info(
         repo,
-        meta,
-        // A throwaway handle: observations are read-only and must not create or
-        // migrate the project database, and worktree discovery stays off.
-        &mut but_db::DbHandle::new_at_path(":memory:")?,
+        // The existing database is read-only; worktree discovery stays off.
+        db,
         but_workspace::ref_info::Options {
             expensive_commit_info: false,
             project_meta: but_core::ref_metadata::ProjectMeta::resolve(repo)?,
@@ -527,7 +511,7 @@ fn forge_prs_by_head(repo: &gix::Repository) -> HashMap<String, but_forge::Revie
         return HashMap::new();
     };
     match but_db::DbHandle::open_existing_read_only_in_directory(&storage_dir) {
-        Ok(Some(db)) => but_forge::review_associations_by_head(&db).unwrap_or_default(),
+        Ok(Some(db)) => but_forge::review_associations_by_head(db.connection()).unwrap_or_default(),
         _ => HashMap::new(),
     }
 }
@@ -714,85 +698,6 @@ impl ObservedTargets {
                 })
                 .collect(),
         }
-    }
-}
-
-#[derive(Debug)]
-struct EmptyRefMetadata;
-
-struct EmptyRefMetadataHandle<T> {
-    ref_name: gix::refs::FullName,
-    value: T,
-}
-
-impl<T> AsRef<gix::refs::FullNameRef> for EmptyRefMetadataHandle<T> {
-    fn as_ref(&self) -> &gix::refs::FullNameRef {
-        self.ref_name.as_ref()
-    }
-}
-
-impl<T> Deref for EmptyRefMetadataHandle<T> {
-    type Target = T;
-
-    fn deref(&self) -> &Self::Target {
-        &self.value
-    }
-}
-
-impl<T> DerefMut for EmptyRefMetadataHandle<T> {
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.value
-    }
-}
-
-impl<T> ValueInfo for EmptyRefMetadataHandle<T> {
-    fn is_default(&self) -> bool {
-        true
-    }
-}
-
-impl RefMetadata for EmptyRefMetadata {
-    type Handle<T> = EmptyRefMetadataHandle<T>;
-
-    fn iter(&self) -> impl Iterator<Item = anyhow::Result<(gix::refs::FullName, Box<dyn Any>)>> {
-        std::iter::empty()
-    }
-
-    fn workspace(
-        &self,
-        ref_name: &gix::refs::FullNameRef,
-    ) -> anyhow::Result<Self::Handle<Workspace>> {
-        Ok(EmptyRefMetadataHandle {
-            ref_name: ref_name.to_owned(),
-            value: Workspace::default(),
-        })
-    }
-
-    fn branch(&self, ref_name: &gix::refs::FullNameRef) -> anyhow::Result<Self::Handle<Branch>> {
-        Ok(EmptyRefMetadataHandle {
-            ref_name: ref_name.to_owned(),
-            value: Branch::default(),
-        })
-    }
-
-    fn set_workspace(&mut self, _value: &Self::Handle<Workspace>) -> anyhow::Result<()> {
-        Ok(())
-    }
-
-    fn set_branch(&mut self, _value: &Self::Handle<Branch>) -> anyhow::Result<()> {
-        Ok(())
-    }
-
-    fn remove(&mut self, _ref_name: &gix::refs::FullNameRef) -> anyhow::Result<bool> {
-        Ok(false)
-    }
-
-    fn rename(
-        &mut self,
-        _old_ref_name: &gix::refs::FullNameRef,
-        _new_ref_name: &gix::refs::FullNameRef,
-    ) -> anyhow::Result<()> {
-        Ok(())
     }
 }
 

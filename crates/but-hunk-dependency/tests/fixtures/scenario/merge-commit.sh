@@ -16,7 +16,7 @@ git init
 9
 " > file
 git add file && commit "init"
-setup-remote-and-vbtoml
+setup-remote-and-target
 
 git checkout -b my_stack
 echo "this is a" > a

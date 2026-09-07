@@ -12,14 +12,14 @@ pub(crate) mod with_workspace_commit;
 
 pub fn head_info(
     repo: &gix::Repository,
-    meta: &but_meta::VirtualBranchesTomlMetadata,
-    db: &mut but_db::DbHandle,
+    meta: &mut but_db::ConnectionMut<'_, '_>,
+
     mut opts: but_workspace::ref_info::Options,
 ) -> anyhow::Result<but_workspace::RefInfo> {
     if opts.project_meta == Default::default() {
         opts.project_meta = project_meta(repo)?;
     }
-    but_workspace::head_info(repo, meta, db, opts)
+    but_workspace::head_info(repo, meta, opts)
 }
 
 fn project_meta(repo: &gix::Repository) -> anyhow::Result<but_core::ref_metadata::ProjectMeta> {
@@ -38,7 +38,7 @@ fn first_commit(info: &but_workspace::RefInfo) -> &but_workspace::ref_info::Loca
 
 #[test]
 fn commit_change_id_derives_fallback_for_headerless_commit() -> anyhow::Result<()> {
-    let (repo, _meta, _db) = read_only_in_memory_scenario("single-branch-10-commits")?;
+    let (repo, _meta) = read_only_in_memory_scenario("single-branch-10-commits")?;
     let commit = but_core::Commit::from_id(repo.head_commit()?.id())?;
     let commit = but_workspace::ref_info::Commit::from(commit);
 
@@ -58,7 +58,7 @@ fn commit_change_id_derives_fallback_for_headerless_commit() -> anyhow::Result<(
 
 #[test]
 fn commit_header_change_id_is_preferred_to_synthetic_fallback() -> anyhow::Result<()> {
-    let (repo, meta, mut db) =
+    let (repo, mut meta) =
         crate::ref_info::with_workspace_commit::utils::named_read_only_in_memory_scenario(
             "journey03",
             "01-with-local-amended-after-integration",
@@ -70,8 +70,7 @@ fn commit_header_change_id_is_preferred_to_synthetic_fallback() -> anyhow::Resul
         .expect("fixture commit has change id in header");
     let info = but_workspace::ref_info(
         repo.find_reference("A")?,
-        &*meta,
-        &mut db,
+        &mut meta.connection_mut(),
         standard_options(),
     )?;
     let commit = first_commit(&info);
@@ -84,7 +83,7 @@ fn commit_header_change_id_is_preferred_to_synthetic_fallback() -> anyhow::Resul
 
 #[test]
 fn commit_change_id_prefers_stored_header_value() -> anyhow::Result<()> {
-    let (repo, _meta, _db) =
+    let (repo, _meta) =
         crate::ref_info::with_workspace_commit::utils::named_read_only_in_memory_scenario(
             "journey03",
             "01-with-local-amended-after-integration",
@@ -108,8 +107,8 @@ fn commit_change_id_prefers_stored_header_value() -> anyhow::Result<()> {
 
 #[test]
 fn unborn_untracked() -> anyhow::Result<()> {
-    let (repo, meta, mut db) = read_only_in_memory_scenario("unborn-untracked")?;
-    let info = head_info(&repo, &meta, &mut db, standard_options())?;
+    let (repo, mut meta) = read_only_in_memory_scenario("unborn-untracked")?;
+    let info = head_info(&repo, &mut meta.connection_mut(), standard_options())?;
     // It's clear that this branch is unborn as there is not a single commit,
     // in absence of a target ref.
     snapbox::assert_data_eq!(
@@ -152,8 +151,12 @@ RefInfo {
 
 #[test]
 fn detached() -> anyhow::Result<()> {
-    let (repo, meta, mut db) = read_only_in_memory_scenario("one-commit-detached")?;
-    let info = head_info(&repo, &meta, &mut db, ref_info::Options::default())?;
+    let (repo, mut meta) = read_only_in_memory_scenario("one-commit-detached")?;
+    let info = head_info(
+        &repo,
+        &mut meta.connection_mut(),
+        ref_info::Options::default(),
+    )?;
     // As the workspace name is derived from the first segment, it's empty as well.
     // We do know that `main` is pointing at the local commit though, despite the unnamed segment owning it.
     snapbox::assert_data_eq!(
@@ -199,8 +202,12 @@ RefInfo {
 
 #[test]
 fn conflicted_in_local_branch() -> anyhow::Result<()> {
-    let (repo, meta, mut db) = read_only_in_memory_scenario("with-conflict")?;
-    let info = head_info(&repo, &meta, &mut db, ref_info::Options::default())?;
+    let (repo, mut meta) = read_only_in_memory_scenario("with-conflict")?;
+    let info = head_info(
+        &repo,
+        &mut meta.connection_mut(),
+        ref_info::Options::default(),
+    )?;
     // The conflict is detected in the local commit.
     snapbox::assert_data_eq!(
         info.to_debug(),
@@ -246,8 +253,8 @@ RefInfo {
 
 #[test]
 fn single_branch() -> anyhow::Result<()> {
-    let (repo, meta, mut db) = read_only_in_memory_scenario("single-branch-10-commits")?;
-    let info = head_info(&repo, &meta, &mut db, standard_options())?;
+    let (repo, mut meta) = read_only_in_memory_scenario("single-branch-10-commits")?;
+    let info = head_info(&repo, &mut meta.connection_mut(), standard_options())?;
 
     assert_eq!(
         info.stacks[0].segments.len(),
@@ -306,9 +313,8 @@ RefInfo {
 
 #[test]
 fn single_branch_multiple_segments() -> anyhow::Result<()> {
-    let (repo, meta, mut db) =
-        read_only_in_memory_scenario("single-branch-10-commits-multi-segment")?;
-    let info = head_info(&repo, &meta, &mut db, standard_options())?;
+    let (repo, mut meta) = read_only_in_memory_scenario("single-branch-10-commits-multi-segment")?;
+    let info = head_info(&repo, &mut meta.connection_mut(), standard_options())?;
 
     snapbox::assert_data_eq!(
         info.to_debug(),
@@ -407,53 +413,39 @@ RefInfo {
 }
 
 mod utils {
-    use but_meta::VirtualBranchesTomlMetadata;
+
     use but_testsupport::gix_testtools::tempfile;
     use but_workspace::ref_info;
 
     pub fn read_only_in_memory_scenario(
         name: &str,
-    ) -> anyhow::Result<(
-        gix::Repository,
-        std::mem::ManuallyDrop<VirtualBranchesTomlMetadata>,
-        but_db::DbHandle,
-    )> {
+    ) -> anyhow::Result<(gix::Repository, but_db::DbHandle)> {
         named_read_only_in_memory_scenario(name, "")
     }
 
     pub fn named_read_only_in_memory_scenario(
         script: &str,
         name: &str,
-    ) -> anyhow::Result<(
-        gix::Repository,
-        std::mem::ManuallyDrop<VirtualBranchesTomlMetadata>,
-        but_db::DbHandle,
-    )> {
+    ) -> anyhow::Result<(gix::Repository, but_db::DbHandle)> {
         let repo = crate::utils::read_only_in_memory_scenario_named(script, name)?;
-        let meta = VirtualBranchesTomlMetadata::from_path(
+        let meta = but_testsupport::fixture_metadata(
             repo.path()
                 .join(".git")
                 .join("should-never-be-written.toml"),
         )?;
         // The fixture is shared and read-only, so its database cannot live on disk.
-        let db = but_testsupport::in_memory_db();
-        Ok((repo, std::mem::ManuallyDrop::new(meta), db))
+
+        Ok((repo, meta))
     }
 
     pub fn named_writable_scenario_with_args(
         name: &str,
         args: impl IntoIterator<Item = impl Into<String>>,
-    ) -> anyhow::Result<(
-        tempfile::TempDir,
-        gix::Repository,
-        VirtualBranchesTomlMetadata,
-        but_db::DbHandle,
-    )> {
+    ) -> anyhow::Result<(tempfile::TempDir, gix::Repository, but_db::DbHandle)> {
         let (repo, tmp) = crate::utils::writable_scenario_with_args(name, args);
-        let meta =
-            VirtualBranchesTomlMetadata::from_path(repo.path().join("virtual-branches.toml"))?;
-        let db = but_testsupport::project_db(&repo)?;
-        Ok((tmp, repo, meta, db))
+        let meta = but_testsupport::project_db(&repo)?;
+
+        Ok((tmp, repo, meta))
     }
 
     pub fn standard_options() -> but_workspace::ref_info::Options<'static> {

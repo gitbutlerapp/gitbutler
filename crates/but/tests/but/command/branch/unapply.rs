@@ -685,8 +685,6 @@ fn unapply_last_branch_with_existing_workspace_can_be_undone() {
 
 #[test]
 fn unapply_last_branch_checkout_failure_preserves_existing_workspace() {
-    use but_core::RefMetadata as _;
-
     let env = Sandbox::open_with_default_settings("single-branch-mode");
     env.file("one.txt", "work on one\n");
     env.but("commit -b one -m one").assert().success();
@@ -697,7 +695,9 @@ fn unapply_last_branch_checkout_failure_preserves_existing_workspace() {
     let before = env.git_log();
     let metadata_before = format!(
         "{:?}",
-        env.meta()
+        env.db()
+            .meta()
+            .unwrap()
             .workspace(but_core::WORKSPACE_REF_NAME.try_into().unwrap())
             .unwrap()
             .stacks
@@ -716,7 +716,9 @@ Error: Uncommitted files would be overwritten by checkout: "collision"
     snapbox::assert_data_eq!(
         format!(
             "{:?}",
-            env.meta()
+            env.db()
+                .meta()
+                .unwrap()
                 .workspace(but_core::WORKSPACE_REF_NAME.try_into().unwrap())
                 .unwrap()
                 .stacks

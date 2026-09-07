@@ -97,6 +97,7 @@ but-settings.workspace = true
 but-secret.workspace = true
 but-rebase.workspace = true
 but-db.workspace = true
+but-meta = { workspace = true, features = ["legacy"] }
 but-forge.workspace = true
 but-forge-storage.workspace = true
 but-comments.workspace = true
@@ -164,6 +165,7 @@ but-api = { path = ".", features = ["legacy"] }
 but-testsupport.workspace = true
 chrono.workspace = true
 gitbutler-oplog.workspace = true
+rusqlite.workspace = true
 snapbox.workspace = true
 tempfile.workspace = true
 tokio = { workspace = true, features = ["full"] }
