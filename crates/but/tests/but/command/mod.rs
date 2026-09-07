@@ -30,7 +30,7 @@ mod format;
 mod gui;
 mod help;
 #[cfg(feature = "legacy")]
-mod land;
+mod merge;
 #[cfg(feature = "legacy")]
 mod r#move;
 mod onboarding;

@@ -195,7 +195,8 @@ impl Subcommands {
             #[cfg(feature = "legacy")]
             Subcommands::Split(..) => Split,
             #[cfg(feature = "legacy")]
-            Subcommands::Land { .. } => Land,
+            // Preserve the original event name for metrics continuity, including the `land` alias.
+            Subcommands::Merge { .. } => Land,
             #[cfg(feature = "legacy")]
             Subcommands::Pick(..) => Pick,
             Subcommands::Skill(skill::Platform { cmd }) => match cmd {

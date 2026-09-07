@@ -147,7 +147,7 @@ fn print_grouped_with_truncation(
                 #[cfg(feature = "legacy")]
                 SubcommandDiscriminant::Pull => Group::ServerInteractions,
                 #[cfg(feature = "legacy")]
-                SubcommandDiscriminant::Land => Group::ServerInteractions,
+                SubcommandDiscriminant::Merge => Group::ServerInteractions,
                 #[cfg(feature = "legacy")]
                 SubcommandDiscriminant::Pr => Group::ServerInteractions,
 
@@ -403,7 +403,7 @@ Operation History:
   redo         Redo the last undo
 
 Server Interactions:
-  land         Land a branch directly onto the target branch
+  merge        Merge a branch directly onto the target branch
   push         Push changes in a branch to remote
   pull         Updates all applied branches to be up to date with the target b…
   pr           Commands for creating and managing reviews on a forge, e.g. Git…

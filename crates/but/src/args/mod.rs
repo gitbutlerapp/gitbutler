@@ -320,48 +320,49 @@ pub enum Subcommands {
 
     Worktree(worktree::Platform),
 
-    /// Land a branch directly onto the target branch.
+    /// Merge a branch directly onto the target branch.
     ///
-    /// Lands the branch onto the configured target (for example `origin/master`) without going
+    /// Merges the branch onto the configured target (for example `origin/master`) without going
     /// through a pull request — the "just push to the target" workflow. By default the target is
     /// fast-forwarded to the branch tip when possible (no merge commit); otherwise a merge commit
     /// is created. For a local (`gb-local`) target the refs are moved locally; otherwise the result
-    /// is pushed to the remote. After landing, the remaining applied branches are reconciled onto
+    /// is pushed to the remote. After merging, the remaining applied branches are reconciled onto
     /// the moved target, just like `but pull`.
     ///
     /// Requires an active GitButler workspace. Updating the target is direct and not easily
     /// reversible, so a confirmation is required (use `--yes` to skip it in scripts).
     ///
-    /// When NOT to use this: if your project lands changes through pull requests / code review,
-    /// use `but push` and open a PR (`but pr new`) instead — `but land` deliberately bypasses that
-    /// process. On a real remote, a branch protected against direct pushes will reject the land.
+    /// When NOT to use this: if your project merges changes through pull requests / code review,
+    /// use `but push` and open a PR (`but pr new`) instead — `but merge` deliberately bypasses that
+    /// process. On a real remote, a branch protected against direct pushes will reject the merge.
     ///
-    /// Landing a segment with other segments below it is refused unless `--whole-stack` is
-    /// passed with the stack's top segment, which lands the entire stack.
+    /// Merging a segment with other segments below it is refused unless `--whole-stack` is
+    /// passed with the stack's top segment, which merges the entire stack.
     ///
     /// ## Examples
     ///
-    /// Land a branch by its CLI ID:
+    /// Merge a branch by its CLI ID:
     ///
     /// ```text
-    /// but land bu
+    /// but merge bu
     /// ```
     ///
-    /// Land a branch by name, forcing a merge commit:
+    /// Merge a branch by name, forcing a merge commit:
     ///
     /// ```text
-    /// but land my-feature-branch --no-ff
+    /// but merge my-feature-branch --no-ff
     /// ```
     ///
-    /// Land an entire stack by naming its top segment:
+    /// Merge an entire stack by naming its top segment:
     ///
     /// ```text
-    /// but land top-branch --whole-stack
+    /// but merge top-branch --whole-stack
     /// ```
     #[cfg(feature = "legacy")]
     #[cfg_attr(feature = "raw-clap-docs", clap(verbatim_doc_comment))]
-    Land {
-        /// Branch ID or name to land onto the target branch.
+    #[clap(alias = "land")]
+    Merge {
+        /// Branch ID or name to merge onto the target branch.
         branch: String,
         /// Skip the confirmation prompt.
         #[clap(long)]
@@ -369,7 +370,7 @@ pub enum Subcommands {
         /// Always create a merge commit, even when the branch can be fast-forwarded.
         #[clap(long)]
         no_ff: bool,
-        /// Land the entire stack: BRANCH must be the top segment, and the segments below it are
+        /// Merge the entire stack: BRANCH must be the top segment, and the segments below it are
         /// published to the target along with it.
         #[clap(long)]
         whole_stack: bool,

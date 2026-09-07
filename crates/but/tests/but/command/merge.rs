@@ -3,7 +3,7 @@ use snapbox::str;
 use crate::utils::{CommandExt, Sandbox};
 
 #[test]
-fn land_rejects_single_branch_mode() {
+fn merge_rejects_single_branch_mode() {
     let env = Sandbox::open_with_default_settings("one-fork");
     env.but("config feature single-branch enable")
         .assert()
@@ -28,12 +28,12 @@ Hint: run `but help` for all commands
 
 "#]]);
 
-    env.but("land main --yes")
+    env.but("merge main --yes")
         .assert()
         .failure()
         .stdout_eq(str![])
         .stderr_eq(str![[r#"
-Failed to land branch. `but land` requires an active GitButler workspace (`gitbutler/workspace`). Switch into the workspace and try again.
+Failed to merge branch. `but merge` requires an active GitButler workspace (`gitbutler/workspace`). Switch into the workspace and try again.
 
 "#]]);
 
@@ -73,7 +73,7 @@ Hint: run `but help` for all commands
 /// remote target (no merge commit), leaves the local `main` untouched, and rebases the sibling
 /// branch onto the moved target.
 #[test]
-fn land_first_branch_into_origin() {
+fn merge_first_branch_into_origin() {
     let env = Sandbox::open_with_default_settings("repo-with-remote-and-head");
 
     let remote = env.projects_root().with_extension("origin.git");
@@ -108,7 +108,7 @@ fn land_first_branch_into_origin() {
     let main_before = env.invoke_git("rev-parse main");
 
     let output = env
-        .but("land first-branch --yes")
+        .but("merge first-branch --yes")
         .assert()
         .success()
         .get_output()
@@ -160,7 +160,7 @@ fn land_first_branch_into_origin() {
 /// both `refs/heads/main` and the `gb-local/main` tracking ref, advances `behind` to 0, and removes
 /// the integrated branch.
 #[test]
-fn land_fast_forwards_self_remote() {
+fn merge_fast_forwards_self_remote() {
     let env = Sandbox::open_with_default_settings("merge-gb-local-two-branches");
 
     env.but("setup").assert().success();
@@ -175,7 +175,7 @@ fn land_fast_forwards_self_remote() {
     assert_eq!(main_before, env.invoke_git("rev-parse gb-local/main"));
 
     let output = env
-        .but("land first-branch --yes")
+        .but("merge first-branch --yes")
         .assert()
         .success()
         .get_output()
@@ -231,7 +231,7 @@ fn land_fast_forwards_self_remote() {
 /// the merge commit is signed and carries a GitButler change-id header. This is the regression
 /// guard for the silent-unsigned-commit and missing-change-id bugs.
 #[test]
-fn land_no_ff_creates_signed_merge_commit() {
+fn merge_no_ff_creates_signed_merge_commit() {
     let env = Sandbox::open_with_default_settings("merge-gb-local-two-branches");
 
     env.but("setup").assert().success();
@@ -272,7 +272,7 @@ fn land_no_ff_creates_signed_merge_commit() {
     let target_before = env.invoke_git("rev-parse main");
     let feature_tip = env.invoke_git("rev-parse first-branch");
 
-    env.but("land first-branch --no-ff --yes")
+    env.but("merge first-branch --no-ff --yes")
         .assert()
         .success();
 
@@ -309,10 +309,10 @@ fn land_no_ff_creates_signed_merge_commit() {
     );
 }
 
-/// An unreachable remote that is not the target's must not block landing: `but land` fetches only
+/// An unreachable remote that is not the target's must not block landing: `but merge` fetches only
 /// the target's fetch remote, so a dead unrelated remote (old fork, deleted mirror) is ignored.
 #[test]
-fn land_ignores_unreachable_unrelated_remote() {
+fn merge_ignores_unreachable_unrelated_remote() {
     let env = Sandbox::open_with_default_settings("merge-gb-local-two-branches");
     env.but("setup").assert().success();
     env.invoke_git("remote add broken /nonexistent/path/broken.git");
@@ -324,7 +324,7 @@ fn land_ignores_unreachable_unrelated_remote() {
         .success();
     let branch_tip = env.invoke_git("rev-parse first-branch");
 
-    env.but("land first-branch --yes").assert().success();
+    env.but("merge first-branch --yes").assert().success();
 
     assert_eq!(
         env.invoke_git("rev-parse gb-local/main"),
@@ -336,7 +336,7 @@ fn land_ignores_unreachable_unrelated_remote() {
 /// Landing a non-bottom segment of a stack would silently publish the lower segments' commits, so
 /// it must be refused before anything is mutated, naming the lower segment.
 #[test]
-fn land_refuses_non_bottom_stack_segment() {
+fn merge_refuses_non_bottom_stack_segment() {
     let env = Sandbox::open_with_default_settings("merge-gb-local-two-branches");
     env.but("setup").assert().success();
 
@@ -357,7 +357,7 @@ fn land_refuses_non_bottom_stack_segment() {
     let target_before = env.invoke_git("rev-parse gb-local/main");
 
     let output = env
-        .but("land top-seg --yes")
+        .but("merge top-seg --yes")
         .assert()
         .failure()
         .get_output()
@@ -386,7 +386,7 @@ fn land_refuses_non_bottom_stack_segment() {
 /// `--whole-stack` is the explicit opt-in: naming the top segment lands the entire stack, and the
 /// pre-flight warning names the lower segments being published so `--yes` runs stay honest.
 #[test]
-fn land_whole_stack_lands_top_segment() {
+fn merge_whole_stack_lands_top_segment() {
     let env = Sandbox::open_with_default_settings("merge-gb-local-two-branches");
     env.but("setup").assert().success();
 
@@ -405,7 +405,7 @@ fn land_whole_stack_lands_top_segment() {
     let top_tip = env.invoke_git("rev-parse top-seg");
 
     let output = env
-        .but("land top-seg --whole-stack --yes")
+        .but("merge top-seg --whole-stack --yes")
         .assert()
         .success()
         .get_output()
@@ -441,7 +441,7 @@ fn land_whole_stack_lands_top_segment() {
 /// The conflicted-commit guard must cover every segment a whole-stack land would publish: a
 /// conflicted commit in a LOWER segment refuses `--whole-stack` on a clean top segment.
 #[test]
-fn land_whole_stack_refuses_conflicted_lower_segment() {
+fn merge_whole_stack_refuses_conflicted_lower_segment() {
     let env = super::util::sandbox_with_conflicted_commit();
 
     // Stack a clean segment on top of branch A, which carries the conflicted commit.
@@ -452,7 +452,7 @@ fn land_whole_stack_refuses_conflicted_lower_segment() {
         .success();
 
     let output = env
-        .but("land top-seg --whole-stack --yes")
+        .but("merge top-seg --whole-stack --yes")
         .assert()
         .failure()
         .get_output()
@@ -472,7 +472,7 @@ fn land_whole_stack_refuses_conflicted_lower_segment() {
 /// `--whole-stack` always means "the entire stack lands": naming anything but the top segment is
 /// refused, pointing at the actual top, so a partial land can't strand the segments above.
 #[test]
-fn land_whole_stack_refuses_non_top_segment() {
+fn merge_whole_stack_refuses_non_top_segment() {
     let env = Sandbox::open_with_default_settings("merge-gb-local-two-branches");
     env.but("setup").assert().success();
 
@@ -492,7 +492,7 @@ fn land_whole_stack_refuses_non_top_segment() {
     let target_before = env.invoke_git("rev-parse gb-local/main");
 
     let output = env
-        .but("land bottom-seg --whole-stack --yes")
+        .but("merge bottom-seg --whole-stack --yes")
         .assert()
         .failure()
         .get_output()
@@ -519,7 +519,7 @@ fn land_whole_stack_refuses_non_top_segment() {
 /// rename/rename scenario: conflicts with rename tracking on (the shipped fix), but would merge
 /// cleanly — silently — with it off, so this test fails if the fix is ever reverted.
 #[test]
-fn land_rename_no_silent_mismerge() {
+fn merge_rename_no_silent_mismerge() {
     let env = Sandbox::open_with_default_settings("merge-gb-local-two-branches");
     env.but("setup").assert().success();
 
@@ -528,7 +528,7 @@ fn land_rename_no_silent_mismerge() {
     env.but("branch new seed").assert().success();
     env.file("foo.txt", base);
     env.but("commit -b seed -m 'add foo'").assert().success();
-    env.but("land seed --yes").assert().success();
+    env.but("merge seed --yes").assert().success();
 
     // Branch renames foo.txt -> bar.txt (keeping it similar so the rename is detectable) and edits line 5.
     env.but("branch new rename-branch").assert().success();
@@ -566,7 +566,7 @@ fn land_rename_no_silent_mismerge() {
 
     // The conflicting rename must be detected and the land must bail before mutating the target.
     let output = env
-        .but("land rename-branch --yes")
+        .but("merge rename-branch --yes")
         .assert()
         .failure()
         .get_output()
@@ -584,10 +584,10 @@ fn land_rename_no_silent_mismerge() {
     );
 }
 
-/// The load-bearing safety gate: without `--yes`, a non-interactive `but land` (a script or agent)
+/// The load-bearing safety gate: without `--yes`, a non-interactive `but merge` (a script or agent)
 /// must refuse before mutating anything, rather than silently publishing to the target.
 #[test]
-fn land_without_yes_refuses_non_interactively() {
+fn merge_without_yes_refuses_non_interactively() {
     let env = Sandbox::open_with_default_settings("merge-gb-local-two-branches");
     env.but("setup").assert().success();
     env.but("branch new first-branch").assert().success();
@@ -599,7 +599,7 @@ fn land_without_yes_refuses_non_interactively() {
     let target_before = env.invoke_git("rev-parse gb-local/main");
 
     let output = env
-        .but("land first-branch")
+        .but("merge first-branch")
         .assert()
         .failure()
         .get_output()
@@ -626,7 +626,7 @@ fn land_without_yes_refuses_non_interactively() {
 /// the direct-push counterpart of the forge's "delete branch after merge". Leaving it behind makes
 /// a later branch with the same name show up as merged upstream and refuse commits.
 #[test]
-fn land_deletes_remote_copy_of_landed_branch() {
+fn merge_deletes_remote_copy_of_landed_branch() {
     let (env, remote) = sandbox_with_bare_origin();
 
     env.file("file1.txt", "content1");
@@ -641,7 +641,7 @@ fn land_deletes_remote_copy_of_landed_branch() {
     );
 
     let output = env
-        .but("land first-branch --yes")
+        .but("merge first-branch --yes")
         .assert()
         .success()
         .get_output()
@@ -668,7 +668,7 @@ fn land_deletes_remote_copy_of_landed_branch() {
 /// A remote copy holding commits that did not land must be left alone: the containment guard only
 /// deletes remote branches whose tip is reachable from the landed target.
 #[test]
-fn land_keeps_remote_branch_with_unlanded_commits() {
+fn merge_keeps_remote_branch_with_unlanded_commits() {
     let (env, remote) = sandbox_with_bare_origin();
 
     env.file("file1.txt", "content1");
@@ -686,7 +686,7 @@ fn land_keeps_remote_branch_with_unlanded_commits() {
     env.invoke_git("fetch origin");
 
     let output = env
-        .but("land first-branch --yes")
+        .but("merge first-branch --yes")
         .assert()
         .success()
         .get_output()
@@ -713,7 +713,7 @@ fn land_keeps_remote_branch_with_unlanded_commits() {
 /// origin/main` shape — must never have that upstream deleted as its "remote copy": the upstream
 /// is a fork point, not a copy, and deleting it would delete the target branch on the remote.
 #[test]
-fn land_never_deletes_a_differently_named_upstream() {
+fn merge_never_deletes_a_differently_named_upstream() {
     let (env, remote) = sandbox_with_bare_origin();
 
     env.file("file1.txt", "content1");
@@ -723,7 +723,7 @@ fn land_never_deletes_a_differently_named_upstream() {
     env.invoke_git("branch --set-upstream-to=origin/main topic");
 
     let output = env
-        .but("land topic --yes")
+        .but("merge topic --yes")
         .assert()
         .success()
         .get_output()

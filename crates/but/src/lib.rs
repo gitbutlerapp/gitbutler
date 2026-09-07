@@ -846,7 +846,7 @@ async fn dispatch_subcommand(
         | Subcommands::Undo(..)
         | Subcommands::Redo(..)
         | Subcommands::RefreshRemoteData { .. }
-        | Subcommands::Land { .. } => setup::init_ctx(&args, InitCtxOptions::default(), out),
+        | Subcommands::Merge { .. } => setup::init_ctx(&args, InitCtxOptions::default(), out),
         #[cfg(feature = "legacy")]
         Subcommands::Clean { .. }
         | Subcommands::Status { .. }
@@ -1621,7 +1621,7 @@ async fn dispatch_subcommand(
             ws
         }
         #[cfg(feature = "legacy")]
-        Subcommands::Land {
+        Subcommands::Merge {
             branch,
             yes,
             no_ff,
@@ -1629,8 +1629,8 @@ async fn dispatch_subcommand(
         } => {
             let conflicts_before = command::legacy::conflict_notice::snapshot(&ctx);
             let result =
-                command::legacy::land::handle(&mut ctx, out, &branch, yes, no_ff, whole_stack)
-                    .context("Failed to land branch.");
+                command::legacy::merge::handle(&mut ctx, out, &branch, yes, no_ff, whole_stack)
+                    .context("Failed to merge branch.");
             if result.is_ok() {
                 command::legacy::conflict_notice::report_newly_conflicted(
                     &ctx,

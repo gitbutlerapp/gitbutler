@@ -268,7 +268,7 @@ fn default_policy_omits_land_section_until_selected() {
     };
     let policy = render_managed_policy_block(&answers);
     assert!(policy.contains("### Skip pull requests and land onto the target"));
-    assert!(policy.contains("`but land <branch>`"));
+    assert!(policy.contains("`but merge <branch>`"));
     assert!(policy.contains("takes precedence"));
     assert!(policy.contains("must pass `--yes` to confirm"));
 }
@@ -281,7 +281,7 @@ fn publish_phrase_opens_pull_request_without_push_to_target() {
     };
     let policy = render_managed_policy_block(&answers);
     assert!(policy.contains("open or update its pull request"));
-    assert!(!policy.contains("but land"));
+    assert!(!policy.contains("but merge"));
 }
 
 #[test]
@@ -295,7 +295,7 @@ fn push_to_target_supersedes_publish_phrase_pull_requests() {
     // The publish phrase lands onto the target instead of opening a PR, and the
     // skip-the-PR section declares it supersedes the other PR-based rules.
     assert!(policy.contains("When the user says `ship it`"));
-    assert!(policy.contains("land that branch onto the target with `but land <branch> --yes`"));
+    assert!(policy.contains("land that branch onto the target with `but merge <branch> --yes`"));
     assert!(!policy.contains("open or update its pull request"));
     assert!(policy.contains("takes precedence"));
 }
@@ -340,12 +340,12 @@ fn generated_policy_expands_selected_tuning_recipes() {
     assert!(policy.contains("create it as a draft with GitButler"));
     assert!(
         policy
-            .contains("land the session branch directly onto the target with `but land <branch>`")
+            .contains("land the session branch directly onto the target with `but merge <branch>`")
     );
     assert!(policy.contains("When the user says `release this`"));
     // With push-to-target also selected, the publish phrase lands instead of
     // opening a pull request.
-    assert!(policy.contains("land that branch onto the target with `but land <branch> --yes`"));
+    assert!(policy.contains("land that branch onto the target with `but merge <branch> --yes`"));
     assert!(policy.contains("When creating a GitButler branch for an agent session"));
     assert!(policy.contains("commit-message convention"));
     assert!(policy.contains("### Commit checkpoints after each turn"));

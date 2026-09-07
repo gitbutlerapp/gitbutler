@@ -183,7 +183,7 @@ pub fn branch_land(
             let (_repo, ws, _db) = ctx.workspace_and_db_with_perm(guard.read_permission())?;
             if !ws.kind.has_managed_ref() {
                 bail!(
-                    "`but land` requires an active GitButler workspace (`gitbutler/workspace`). \
+                    "`but merge` requires an active GitButler workspace (`gitbutler/workspace`). \
                      Switch into the workspace and try again."
                 );
             }
@@ -211,8 +211,8 @@ pub fn branch_land(
     // advance it and the reconcile would silently no-op. Refuse before mutating anything.
     if push_remote_name != fetch_remote_name {
         bail!(
-            "`but land` does not yet support triangular remotes (fetch `{fetch_remote_name}`, \
-             push `{push_remote_name}`). Land via a pull request instead, or configure a single \
+            "`but merge` does not yet support triangular remotes (fetch `{fetch_remote_name}`, \
+             push `{push_remote_name}`). Merge via a pull request instead, or configure a single \
              remote for the target branch."
         );
     }

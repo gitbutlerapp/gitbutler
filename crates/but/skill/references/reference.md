@@ -9,7 +9,7 @@ Agent-focused reference for useful `but` commands.
 - [Committing](#committing) - `commit`
 - [Editing History](#editing-history) - `squash`, `amend`, `move`, `uncommit`, `reword`, `discard`
 - [Conflict Resolution](#conflict-resolution) - `resolve`
-- [Remote Operations](#remote-operations) - `push`, `pull`, `pr`, `land`
+- [Remote Operations](#remote-operations) - `push`, `pull`, `pr`, `merge`
 - [Workspace Maintenance](#workspace-maintenance) - `clean`, `worktree`
 - [History & Undo](#history--undo) - `undo`, `oplog`
 - [Setup & Configuration](#setup--configuration) - `setup`, `teardown`, `config`, `update`, `skill`
@@ -472,18 +472,18 @@ requests API when the repository is enrolled in GitHub's private preview; otherw
 description footers. `but config forge github-stacks disable` opts out. The setting is
 project-local and shared with Desktop.
 
-### `but land <branch>`
+### `but merge <branch>`
 
-Land a branch directly onto the target (e.g. `origin/master`), skipping a pull request. Fast-forwards
+Merge a branch directly onto the target (e.g. `origin/master`), skipping a pull request. Fast-forwards
 when possible, otherwise makes a signed merge commit; for a `gb-local` target it moves the refs
 locally. Then reconciles the remaining branches like `but pull`, and deletes each landed branch's
 copy on the push remote (only when fully contained in the landed target), reported as
 `Deleted <remote>/<branch> (landed)`.
 
 ```bash
-but land <branch-selector> --yes                  # Land onto the target (--yes required non-interactively)
-but land <branch-selector> --no-ff --yes          # Force a merge commit instead of fast-forwarding
-but land <top-branch> --whole-stack --yes   # Land an entire stack by naming its top segment
+but merge <branch-selector> --yes                  # Merge onto the target (--yes required non-interactively)
+but merge <branch-selector> --no-ff --yes          # Force a merge commit instead of fast-forwarding
+but merge <top-branch> --whole-stack --yes   # Merge an entire stack by naming its top segment
 ```
 
 Direct target updates are hard to reverse, so confirmation is required (agents must pass `--yes`).

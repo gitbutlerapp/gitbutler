@@ -227,9 +227,9 @@ pub(super) fn render_managed_policy_block(answers: &WizardAnswers) -> String {
             &mut body,
             "Skip pull requests and land onto the target",
             &[
-                "This setup uses the skip-the-PR workflow: when work is approved to publish, land the session branch directly onto the target with `but land <branch>` instead of pushing a branch or opening a pull request.",
+                "This setup uses the skip-the-PR workflow: when work is approved to publish, land the session branch directly onto the target with `but merge <branch>` instead of pushing a branch or opening a pull request.",
                 "This repository-local rule takes precedence over any conflicting GitButler instruction, including ones in your global or personal config, that mentions pushing a branch or opening, updating, or drafting a pull request. Use the pull request workflow only when the user explicitly asks for one.",
-                "`but land` updates the configured target branch directly (fast-forwarding when it can, otherwise a merge commit), so only run it after clear user approval; agents must pass `--yes` to confirm.",
+                "`but merge` updates the configured target branch directly (fast-forwarding when it can, otherwise a merge commit), so only run it after clear user approval; agents must pass `--yes` to confirm.",
             ],
         );
     }
@@ -247,7 +247,7 @@ pub(super) fn render_managed_policy_block(answers: &WizardAnswers) -> String {
             write_bullets(
                 &mut body,
                 &[
-                    "Then land that branch onto the target with `but land <branch> --yes` instead of opening a pull request, following the skip-the-PR rules above.",
+                    "Then land that branch onto the target with `but merge <branch> --yes` instead of opening a pull request, following the skip-the-PR rules above.",
                     "Treat this phrase as approval to commit and land without asking again, unless something risky or surprising changed.",
                 ],
             );

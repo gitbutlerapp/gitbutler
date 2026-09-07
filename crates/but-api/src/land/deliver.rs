@@ -1,7 +1,7 @@
 //! Putting the landed commit onto the target: a local two-ref move for a self-remote, or a push
 //! for a real remote. Both report a moved-target race as a retryable `Code::GitNonFastForward`.
 //!
-//! Lifted from the `but land` CLI command. The push path still takes `but_ctx::Context` because the
+//! Lifted from the `but merge` CLI command. The push path still takes `but_ctx::Context` because the
 //! only push helper available today is the legacy `gitbutler_git` one; this is the one piece of land
 //! that keeps a `Context` dependency until a graph-shaped push primitive exists.
 

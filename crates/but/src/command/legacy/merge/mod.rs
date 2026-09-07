@@ -1,4 +1,4 @@
-//! `but land <branch>`: land a branch directly onto the target ref (the "avoid pull requests"
+//! `but merge <branch>`: land a branch directly onto the target ref (the "avoid pull requests"
 //! workflow).
 //!
 //! The landing itself — fetch, fast-forward or signed merge, push or local ref move, retry on a
@@ -33,7 +33,7 @@ pub fn handle(
             let (_repo, ws, _db) = ctx.workspace_and_db_with_perm(guard.read_permission())?;
             if !ws.kind.has_managed_ref() {
                 bail!(
-                    "`but land` requires an active GitButler workspace (`gitbutler/workspace`). \
+                    "`but merge` requires an active GitButler workspace (`gitbutler/workspace`). \
                      Switch into the workspace and try again."
                 );
             }
