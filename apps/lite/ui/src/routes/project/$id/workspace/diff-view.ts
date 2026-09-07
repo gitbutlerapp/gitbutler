@@ -2,8 +2,9 @@ import { assert } from "#ui/assert.ts";
 import { hash } from "#ui/hash.ts";
 import {
 	contiguousSelectionsFromHunk,
-	rangeFromLineGroups,
+	type ContiguousHunkSelection,
 	synthesizeFilePatch,
+	type DiffStyle,
 } from "#ui/hunk.ts";
 import { isRasterImageFile, isSvgFile } from "#ui/file.ts";
 import {
@@ -75,8 +76,8 @@ export type DiffViewFile = {
 };
 
 type DiffViewHunk = {
+	ranges: ContiguousHunkSelection["ranges"];
 	address: HunkAddress;
-	selectedLines: CodeViewLineSelection;
 	file: DiffViewFile;
 };
 
@@ -90,6 +91,24 @@ export type DiffView = {
 
 export const hunkAddressIdentityKey = (address: HunkAddress): string =>
 	addressIdentityKey(hunkAddress(address));
+
+export const resolveDiffSelection = ({
+	selection,
+	fileByItemId,
+	diffStyle,
+}: {
+	selection: DiffLineSelection | null;
+	fileByItemId: DiffView["fileByItemId"];
+	diffStyle: DiffStyle;
+}): CodeViewLineSelection | null => {
+	if (!selection) return null;
+
+	const file = fileByItemId.get(weakFileIdentityKey(selection.file));
+	if (!file) return null;
+
+	const range = selection.range ?? file.hunks[0]?.ranges[diffStyle];
+	return range ? { id: file.item.id, range } : null;
+};
 
 const parseFileDiff = (
 	patch: string,
@@ -135,47 +154,6 @@ export const prepareDiffFiles = ({
 export const parsePreparedDiffFile = (
 	file: PreparedDiffFile,
 ): CodeViewDiffItem<Annotation>["fileDiff"] => parseFileDiff(file.patch, String(file.version));
-
-type DiffFileNavigation = {
-	itemId: string;
-	firstSelection: DiffLineSelection | null;
-};
-
-export const getDiffFileNavigation = ({
-	fileParent,
-	change,
-	treeChangeDiff,
-}: {
-	fileParent: FileParent;
-	change: TreeChange;
-	treeChangeDiff: UnifiedPatch | null;
-}): DiffFileNavigation => {
-	const file: FileAddress = {
-		parent: fileParent,
-		path: change.path,
-	};
-	const itemId = weakFileIdentityKey(file);
-
-	if (treeChangeDiff?.type === "Patch") {
-		const fstDiffHunk = treeChangeDiff.subject.hunks[0];
-		if (fstDiffHunk) {
-			const fstHunk = parseFileDiff(synthesizeFilePatch(change, [fstDiffHunk]), itemId).hunks[0];
-			if (fstHunk) {
-				const fstSelection = contiguousSelectionsFromHunk(fstHunk).next().value;
-				if (fstSelection) {
-					const range = rangeFromLineGroups(fstSelection.lineGroups);
-					if (!range) return { itemId, firstSelection: null };
-					return {
-						itemId,
-						firstSelection: { file, range },
-					};
-				}
-			}
-		}
-	}
-
-	return { itemId, firstSelection: null };
-};
 
 /** Build relationships between our SDK data and Pierre's view. */
 export const getDiffView = (files: Array<PreparedDiffFile>): DiffView => {
@@ -237,10 +215,7 @@ export const getDiffView = (files: Array<PreparedDiffFile>): DiffView => {
 
 		if (mdiff?.type === "Patch") {
 			for (const hunk of item.fileDiff.hunks) {
-				for (const selection of contiguousSelectionsFromHunk(hunk)) {
-					const range = rangeFromLineGroups(selection.lineGroups);
-					if (!range) continue;
-
+				for (const { ranges, ...selection } of contiguousSelectionsFromHunk(hunk)) {
 					const hunkAddress: HunkAddress = {
 						parent: file,
 						...selection,
@@ -252,11 +227,8 @@ export const getDiffView = (files: Array<PreparedDiffFile>): DiffView => {
 					addressSpace.indexByKey.set(hunkKey, len - 1);
 
 					const diffViewHunk: DiffViewHunk = {
+						ranges,
 						address: hunkAddress,
-						selectedLines: {
-							id: item.id,
-							range,
-						},
 						file: diffViewFile,
 					};
 					diffViewFile.hunks.push(diffViewHunk);

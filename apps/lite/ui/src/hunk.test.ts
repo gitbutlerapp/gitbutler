@@ -4,7 +4,6 @@ import {
 	hunkSelectionForLineNavigation,
 	lineSelectionsForRange,
 	moveSelectedLineRange,
-	rangeFromLineGroups,
 	selectedLineRangeContainsPoint,
 	singleLineSelectionByLine,
 	wholeHunkSelectionByLine,
@@ -95,6 +94,10 @@ describe("contiguousSelectionsFromHunk", () => {
 		expect(contiguousSelectionsFromHunk(realignedHunk).toArray()).toEqual([
 			{
 				hunkHeader: { oldStart: 1, oldLines: 5, newStart: 1, newLines: 4 },
+				ranges: {
+					unified: { start: 2, side: "deletions", end: 2, endSide: "additions" },
+					split: { start: 2, side: "deletions", end: 2, endSide: "additions" },
+				},
 				lineGroups: [
 					{ side: "deletions", start: 2, lines: 2 },
 					{ side: "additions", start: 2, lines: 1 },
@@ -115,7 +118,7 @@ describe("contiguousSelectionsFromHunk", () => {
 			{ side: "deletions", start: 20, lines: 1 },
 			{ side: "additions", start: 29, lines: 1 },
 		]);
-		expect(selection && rangeFromLineGroups(selection.lineGroups)).toEqual({
+		expect(selection?.ranges.unified).toEqual({
 			start: 28,
 			side: "additions",
 			end: 29,
@@ -408,4 +411,77 @@ describe("hunkSelectionForLineNavigation", () => {
 			).toEqual(selections[index]);
 		},
 	);
+});
+
+const unequalHunks = (() => {
+	const parsed = processFile(
+		[
+			"diff --git a/file.ts b/file.ts",
+			"--- a/file.ts",
+			"+++ b/file.ts",
+			"@@ -1,8 +1,6 @@",
+			"-a",
+			"-b",
+			"-c",
+			"+d",
+			" one",
+			" two",
+			" three",
+			"-e",
+			"+f",
+			" four",
+			"",
+		].join("\n"),
+		{ cacheKey: "unequal-contiguous-blocks" },
+	);
+	if (!parsed) throw new Error("Missing patch");
+	return parsed.hunks;
+})();
+
+describe("layout-aware block ranges", () => {
+	it.each(["unified", "split"] as const)(
+		"round-trips every changed line in %s mode",
+		(diffStyle) => {
+			for (const parsedHunks of [hunks, unequalHunks, [realignedHunk], [forwardRealignedHunk]]) {
+				for (const hunk of parsedHunks) {
+					for (const selection of contiguousSelectionsFromHunk(hunk)) {
+						const range = selection.ranges[diffStyle];
+						const expected = selection.lineGroups.flatMap((group) =>
+							Array.from(
+								{ length: group.lines },
+								(_, index) => `${group.side}:${group.start + index}`,
+							),
+						);
+						const actual = lineSelectionsForRange({
+							hunks: parsedHunks,
+							range,
+							diffStyle,
+							granularity: "line",
+						}).flatMap((selection) =>
+							selection.lineGroups.map((group) => `${group.side}:${group.start}`),
+						);
+						expect(actual.toSorted()).toEqual(expected.toSorted());
+					}
+				}
+			}
+		},
+	);
+
+	it("uses the full visual extent of a block for split navigation", () => {
+		const selections = unequalHunks.flatMap((hunk) => [...contiguousSelectionsFromHunk(hunk)]);
+		for (const [line, expectedIndex] of [
+			[1, 0],
+			[3, 1],
+		] as const) {
+			expect(
+				hunkSelectionForLineNavigation({
+					hunks: unequalHunks,
+					selections,
+					diffStyle: "split",
+					range: { start: line, end: line, side: "deletions" },
+					offset: 1,
+				}),
+			).toEqual(selections[expectedIndex]);
+		}
+	});
 });

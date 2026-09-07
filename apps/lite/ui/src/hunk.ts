@@ -95,32 +95,21 @@ const lineGroupsFromChangeContent = (
 		: []),
 ];
 
-export const rangeFromLineGroups = (
-	lineGroups: Array<HunkLineSelectionGroup>,
-): SelectedLineRange | null => {
-	const first = lineGroups[0];
-	const last = lineGroups.at(-1);
-	if (!first || !last) return null;
-
-	const range: SelectedLineRange = {
-		start: first.start,
-		side: first.side,
-		end: last.start + last.lines - 1,
-	};
-
-	if (last.side !== first.side) range.endSide = last.side;
-
-	return range;
+export type ContiguousHunkSelection = HunkLineSelection & {
+	ranges: Record<DiffStyle, SelectedLineRange>;
 };
 
 const contiguousSelectionFromContents = (
 	hunk: Hunk,
 	contents: Array<ChangeContent>,
-): HunkLineSelection | null => {
+): ContiguousHunkSelection | null => {
 	const lineGroups: Array<HunkLineSelectionGroup> = [];
+	let splitEnd: HunkLineSelectionGroup | undefined;
 
 	for (const content of contents) {
+		splitEnd = undefined;
 		for (const group of lineGroupsFromChangeContent(hunk, content)) {
+			if (!splitEnd || group.lines >= splitEnd.lines) splitEnd = group;
 			const previous = lineGroups.at(-1);
 			if (previous?.side === group.side && previous.start + previous.lines === group.start)
 				previous.lines += group.lines;
@@ -128,15 +117,25 @@ const contiguousSelectionFromContents = (
 		}
 	}
 
-	if (lineGroups.length === 0) return null;
-
+	const first = lineGroups[0];
+	const last = lineGroups.at(-1);
+	if (!first || !last || !splitEnd) return null;
+	const rangeEndingAt = (end: HunkLineSelectionGroup): SelectedLineRange => ({
+		start: first.start,
+		side: first.side,
+		end: end.start + end.lines - 1,
+		...(end.side !== first.side ? { endSide: end.side } : {}),
+	});
 	return {
 		hunkHeader: hunkHeaderFromHunk(hunk),
 		lineGroups,
+		ranges: { unified: rangeEndingAt(last), split: rangeEndingAt(splitEnd) },
 	};
 };
 
-export function* contiguousSelectionsFromHunk(hunk: Hunk): Generator<HunkLineSelection, void> {
+export function* contiguousSelectionsFromHunk(
+	hunk: Hunk,
+): Generator<ContiguousHunkSelection, void> {
 	let contents: Array<ChangeContent> = [];
 
 	for (const content of hunk.hunkContent) {
@@ -176,13 +175,12 @@ export const contiguousSelectionByLine = (query: LineQuery): HunkLineSelection |
 	if (!hunk) return null;
 
 	const { line, side } = query;
-	return (
-		contiguousSelectionsFromHunk(hunk).find((sel) =>
-			sel.lineGroups.some(
-				(group) => group.side === side && line >= group.start && line < group.start + group.lines,
-			),
-		) ?? null
+	const selection = contiguousSelectionsFromHunk(hunk).find((sel) =>
+		sel.lineGroups.some(
+			(group) => group.side === side && line >= group.start && line < group.start + group.lines,
+		),
 	);
+	return selection ? { hunkHeader: selection.hunkHeader, lineGroups: selection.lineGroups } : null;
 };
 
 /**
@@ -215,7 +213,7 @@ export const singleLineSelectionByLine = (query: LineQuery): HunkLineSelection |
 	};
 };
 
-type DiffStyle = "split" | "unified";
+export type DiffStyle = "split" | "unified";
 
 type DiffLinePoint = {
 	line: number;
@@ -429,7 +427,9 @@ export const lineSelectionsForRange = ({
 };
 
 /** The changed run under the selection edge in the requested direction, or the nearest one beyond it. */
-export const hunkSelectionForLineNavigation = <T extends HunkLineSelection>({
+export const hunkSelectionForLineNavigation = <
+	T extends { ranges: Record<DiffStyle, SelectedLineRange> },
+>({
 	hunks,
 	selections,
 	range,
@@ -451,9 +451,7 @@ export const hunkSelectionForLineNavigation = <T extends HunkLineSelection>({
 	const positioned = selections
 		.values()
 		.map((selection) => {
-			const selectionRange = rangeFromLineGroups(selection.lineGroups);
-			if (!selectionRange) return null;
-
+			const selectionRange = selection.ranges[diffStyle];
 			const start = indexOfPoint(lineIndex, selectionRange.start, selectionRange.side);
 			const end = indexOfPoint(
 				lineIndex,

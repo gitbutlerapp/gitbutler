@@ -12,7 +12,6 @@ import {
 	guiSettingsQueryOptions,
 	listProjectsQueryOptions,
 	operatingModeQueryOptions,
-	treeChangesDiffsQueryOptions,
 } from "#ui/api/queries.ts";
 import { EditModePage } from "./EditModePage.tsx";
 import { useRestoreSnapshot } from "#ui/api/mutations.ts";
@@ -50,13 +49,17 @@ import {
 	type ReactNode,
 } from "react";
 import { Group, Panel, useDefaultLayout } from "react-resizable-panels";
-import { branchAddress, type BranchAddress, uncommittedChangesFileParent } from "#ui/addresses.ts";
-import type { DiffLineSelection } from "#ui/cursors.ts";
+import {
+	branchAddress,
+	type BranchAddress,
+	type FileAddress,
+	uncommittedChangesFileParent,
+	weakFileIdentityKey,
+} from "#ui/addresses.ts";
 import { Details, type DiffViewerHandle, UncommittedFilesDetails } from "./Details.tsx";
 import { buildAppliedAddressSpace } from "./applied-address-space.ts";
 import { planCommitReview } from "./Graph/layout.ts";
 import { usePlan } from "./Graph/usePlan.ts";
-import { getDiffFileNavigation } from "./diff-view.ts";
 import { buildUncommittedFileRows } from "./file-row.ts";
 import { fileTreeAddressSpace, selectedFilePath } from "./file-tree.ts";
 import { useFileDisplayMode } from "./useFileDisplayMode.ts";
@@ -294,10 +297,11 @@ const PageBody: FC<{ projectId: string }> = ({ projectId }) => {
 	// useCallback, not compiler memoisation: the deferred details element below
 	// keys on this identity, so it must be stable by construction.
 	const onActiveFileSelection = useCallback(
-		(itemId: string, firstSelection: DiffLineSelection | null) => {
-			setCursor("diff", firstSelection);
+		(file: FileAddress) => {
+			setCursor("diff", { file, range: null });
 
 			if (renderAllFiles) {
+				const itemId = weakFileIdentityKey(file);
 				didScrollToViaFileRef.current = true;
 				const viewer = viewerRef.current?.getInstance();
 				// Details selection is deferred, so the ref may still point at a viewer without this file.
@@ -453,34 +457,12 @@ const PageBody: FC<{ projectId: string }> = ({ projectId }) => {
 	// Directories take the cursor as files do, so the index follows the layout the
 	// list renders — and a collapsed directory takes its files out of it too.
 	const uncommittedAddressSpace = fileTreeAddressSpace(uncommittedFileRows);
-	const { data: uncommittedTreeChangeDiffs } = useQuery({
-		...treeChangesDiffsQueryOptions({
-			projectId,
-			changes: worktreeChanges?.changes ?? [],
-		}),
-		enabled: worktreeChanges !== undefined,
-	});
-
 	const onActiveUncommittedFileSelection = (selection: string) => {
 		// A directory row stands for the first file below it, so activating a
 		// folder still gives the details pane somewhere to go.
 		const path = selectedFilePath(uncommittedFileRows, selection);
-		// Indexed against the worktree changes rather than the address space,
-		// which the file filter can narrow out from under them.
-		const index = worktreeChanges?.changes.findIndex((change) => change.path === path) ?? -1;
-		const change = index === -1 ? undefined : worktreeChanges?.changes[index];
-		const treeChangeDiff = index === -1 ? undefined : uncommittedTreeChangeDiffs?.[index];
-		const navigation =
-			change && treeChangeDiff !== undefined
-				? getDiffFileNavigation({
-						fileParent: uncommittedChangesFileParent,
-						change,
-						treeChangeDiff,
-					})
-				: null;
-
 		setCursor("uncommitted", selection);
-		if (navigation) onActiveFileSelection(navigation.itemId, navigation.firstSelection);
+		if (path !== null) onActiveFileSelection({ parent: uncommittedChangesFileParent, path });
 	};
 
 	const uncommittedFilesSelection = useSelection("uncommitted", uncommittedAddressSpace);
