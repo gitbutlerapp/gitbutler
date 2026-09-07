@@ -91,13 +91,42 @@ impl<T> DerefMut for MetadataHandle<T> {
     }
 }
 
-/// A metadata mutation isolated by a savepoint. Each operation commits on success.
+/// An atomic metadata mutation. Each operation commits on success.
 ///
-/// On error or drop its writes roll back. When created from a transaction, the outer transaction
-/// still controls persistence and notification.
+/// Standalone mutations acquire a write lock before reading. Inside an existing transaction,
+/// a nested savepoint isolates the mutation and the outer transaction controls persistence and
+/// notification. On error or drop the mutation's writes roll back.
 pub struct MetadataMut<'db> {
-    sp: rusqlite::Savepoint<'db>,
+    transaction: MetadataTransaction<'db>,
     refresh: Refresh<'db>,
+}
+
+enum MetadataTransaction<'db> {
+    Transaction(rusqlite::Transaction<'db>),
+    Savepoint(rusqlite::Savepoint<'db>),
+}
+
+impl MetadataTransaction<'_> {
+    fn connection(&self) -> &rusqlite::Connection {
+        match self {
+            Self::Transaction(tx) => tx,
+            Self::Savepoint(sp) => sp,
+        }
+    }
+
+    fn savepoint(&mut self) -> rusqlite::Result<rusqlite::Savepoint<'_>> {
+        match self {
+            Self::Transaction(tx) => tx.savepoint(),
+            Self::Savepoint(sp) => sp.savepoint(),
+        }
+    }
+
+    fn commit(self) -> rusqlite::Result<()> {
+        match self {
+            Self::Transaction(tx) => tx.commit(),
+            Self::Savepoint(sp) => sp.commit(),
+        }
+    }
 }
 
 enum Refresh<'db> {
@@ -114,7 +143,10 @@ impl DbHandle {
     /// Start an atomic reference metadata update.
     pub fn meta_mut(&mut self) -> Result<MetadataMut<'_>> {
         Ok(MetadataMut {
-            sp: self.conn.savepoint()?,
+            transaction: MetadataTransaction::Transaction(
+                self.conn
+                    .transaction_with_behavior(rusqlite::TransactionBehavior::Immediate)?,
+            ),
             refresh: Refresh::Database(
                 (self.path != Path::new(":memory:")).then_some(self.path.as_path()),
             ),
@@ -131,11 +163,12 @@ impl Transaction<'_> {
     /// Start a metadata update inside this transaction.
     pub fn meta_mut(&mut self) -> Result<MetadataMut<'_>> {
         Ok(MetadataMut {
-            sp: self
-                .inner
-                .as_mut()
-                .expect("transaction is alive")
-                .savepoint()?,
+            transaction: MetadataTransaction::Savepoint(
+                self.inner
+                    .as_mut()
+                    .expect("transaction is alive")
+                    .savepoint()?,
+            ),
             refresh: Refresh::Transaction(&mut self.metadata_changed),
         })
     }
@@ -318,21 +351,23 @@ impl Metadata {
 
 impl MetadataMut<'_> {
     fn snapshot(&self) -> Result<VirtualBranchesSnapshot> {
-        Ok(VirtualBranchesHandle { conn: &self.sp }
-            .get_snapshot()?
-            .unwrap_or_default())
+        Ok(VirtualBranchesHandle {
+            conn: self.transaction.connection(),
+        }
+        .get_snapshot()?
+        .unwrap_or_default())
     }
 
     fn store_snapshot(&mut self, snapshot: &VirtualBranchesSnapshot) -> Result<()> {
         VirtualBranchesHandleMut {
-            sp: self.sp.savepoint()?,
+            sp: self.transaction.savepoint()?,
         }
         .replace_snapshot(snapshot)?;
         Ok(())
     }
 
     fn finish(self) -> Result<()> {
-        self.sp.commit()?;
+        self.transaction.commit()?;
         match self.refresh {
             Refresh::Database(Some(path)) => but_project_handle::write_refresh_sentinel(path),
             Refresh::Database(None) => {}
@@ -347,11 +382,11 @@ impl MetadataMut<'_> {
         self.finish()
     }
 
-    /// Restore branch ordering within this mutation's savepoint.
+    /// Restore branch ordering atomically.
     pub fn replace_branch_order(mut self, snapshot: &BranchOrderSnapshot) -> Result<()> {
         snapshot.validate().map_err(anyhow::Error::msg)?;
         BranchOrderHandleMut {
-            sp: self.sp.savepoint()?,
+            sp: self.transaction.savepoint()?,
         }
         .replace_snapshot(snapshot)?;
         self.finish()
@@ -435,7 +470,7 @@ impl MetadataMut<'_> {
                 .map(|branch| branch.ref_name.as_bstr().to_str().map(ToOwned::to_owned))
                 .collect::<std::result::Result<Vec<_>, _>>()?;
             BranchOrderHandleMut {
-                sp: self.sp.savepoint()?,
+                sp: self.transaction.savepoint()?,
             }
             .set_order(&names)?;
         }
@@ -475,11 +510,13 @@ impl MetadataMut<'_> {
     /// Delete a reference's metadata and its branch-order entry atomically.
     pub fn remove(mut self, ref_name: &FullNameRef) -> Result<bool> {
         let mut snapshot = self.snapshot()?;
-        let had_order = BranchOrderHandle { conn: &self.sp }
-            .order_for_reference(ref_name.as_bstr().to_str()?)?
-            .is_some();
+        let had_order = BranchOrderHandle {
+            conn: self.transaction.connection(),
+        }
+        .order_for_reference(ref_name.as_bstr().to_str()?)?
+        .is_some();
         BranchOrderHandleMut {
-            sp: self.sp.savepoint()?,
+            sp: self.transaction.savepoint()?,
         }
         .remove_reference(ref_name.as_bstr().to_str()?)?;
         let removed = if is_workspace_ref_name(ref_name) {
@@ -504,7 +541,7 @@ impl MetadataMut<'_> {
         Ok(removed || had_order)
     }
 
-    /// Rename branch data in place and update its branch-order chain in the same savepoint.
+    /// Rename branch data in place and update its branch-order chain atomically.
     pub fn rename(mut self, old: &FullNameRef, new: &FullNameRef) -> Result<()> {
         if old == new {
             return Ok(());
@@ -513,9 +550,11 @@ impl MetadataMut<'_> {
         let mut stored = stored_stacks(&snapshot);
         ensure!(
             find_branch(&stored, new).is_none()
-                && BranchOrderHandle { conn: &self.sp }
-                    .order_for_reference(new.as_bstr().to_str()?)?
-                    .is_none(),
+                && BranchOrderHandle {
+                    conn: self.transaction.connection(),
+                }
+                .order_for_reference(new.as_bstr().to_str()?)?
+                .is_none(),
             "Cannot rename to '{}': a branch with that name already exists",
             new.shorten()
         );
@@ -525,7 +564,7 @@ impl MetadataMut<'_> {
             self.store_snapshot(&snapshot)?;
         }
         BranchOrderHandleMut {
-            sp: self.sp.savepoint()?,
+            sp: self.transaction.savepoint()?,
         }
         .rename_reference(old.as_bstr().to_str()?, new.as_bstr().to_str()?)?;
         self.finish()
@@ -538,7 +577,7 @@ impl MetadataMut<'_> {
             .map(|name| name.as_bstr().to_str().map(ToOwned::to_owned))
             .collect::<std::result::Result<Vec<_>, _>>()?;
         BranchOrderHandleMut {
-            sp: self.sp.savepoint()?,
+            sp: self.transaction.savepoint()?,
         }
         .set_order(&names)?;
         self.finish()
@@ -551,7 +590,7 @@ impl MetadataMut<'_> {
         new: &FullNameRef,
     ) -> Result<()> {
         BranchOrderHandleMut {
-            sp: self.sp.savepoint()?,
+            sp: self.transaction.savepoint()?,
         }
         .rename_reference(old.as_bstr().to_str()?, new.as_bstr().to_str()?)?;
         self.finish()
@@ -567,7 +606,7 @@ impl MetadataMut<'_> {
             .map(|name| name.as_bstr().to_str().map(ToOwned::to_owned))
             .collect::<std::result::Result<Vec<_>, _>>()?;
         BranchOrderHandleMut {
-            sp: self.sp.savepoint()?,
+            sp: self.transaction.savepoint()?,
         }
         .remove_missing_references(&names)?;
         self.finish()

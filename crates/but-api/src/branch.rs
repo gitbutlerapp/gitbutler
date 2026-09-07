@@ -1492,7 +1492,10 @@ pub fn branch_rename_with_perm(
         }
 
         // Move all metadata (per-branch blob + branch-order entry) to the new name.
-        if let Err(err) = db.meta_mut()?.rename(ref_name.as_ref(), new_ref.as_ref()) {
+        if let Err(err) = db
+            .meta_mut()
+            .and_then(|meta| meta.rename(ref_name.as_ref(), new_ref.as_ref()))
+        {
             if let Some(backup) = backup_reference.as_ref() {
                 return Err(err).context(format!(
                     "Could not rename branch metadata. Recovery ref '{}' was retained",
