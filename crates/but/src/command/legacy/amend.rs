@@ -22,7 +22,6 @@ pub fn amend(
     args: Platform,
 ) -> CliResult<(squash::SquashOutcome, Option<WorkspaceState>)> {
     let mut guard = ctx.exclusive_worktree_access();
-    let mut meta = ctx.meta()?;
     let id_map = IdMap::new_from_context(ctx, guard.read_permission())?;
 
     let head_info = but_api::legacy::workspace::head_info(ctx)?;
@@ -33,12 +32,7 @@ pub fn amend(
     drop(repo);
     drop(ws);
 
-    Ok(squash::run(
-        ctx,
-        &mut meta,
-        guard.write_permission(),
-        operation,
-    )?)
+    Ok(squash::run(ctx, guard.write_permission(), operation)?)
 }
 
 fn resolve(

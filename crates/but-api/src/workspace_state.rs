@@ -1,7 +1,7 @@
 use super::WorkspaceState;
 use std::collections::{BTreeMap, HashMap};
 
-use but_core::{DryRun, RefMetadata};
+use but_core::DryRun;
 use but_rebase::graph_rebase::{MaterializeOutcome, SuccessfulRebase};
 
 impl WorkspaceState {
@@ -80,24 +80,21 @@ impl WorkspaceState {
     /// materialized rebase, or another graph-producing workflow. The caller is
     /// responsible for supplying the matching `replaced_commits` map for that graph.
     ///
-    /// `meta` is the ref-metadata matching `workspace`; the `graph-workspace`
-    /// flavor needs it to compute the graph projection, the legacy flavor
-    /// ignores it.
+    /// The database view supplies metadata and forge cache entries from the same transaction.
     ///
     /// This is the most direct constructor in this module and is the right choice when
     /// there is no need to inspect or materialize a [`SuccessfulRebase`].
-    fn from_workspace_with_prs<M: RefMetadata>(
+    fn from_workspace_with_prs(
         workspace: &but_graph::Workspace,
-        meta: &mut M,
         repo: &gix::Repository,
         replaced_commits: BTreeMap<gix::ObjectId, gix::ObjectId>,
         prs_by_head: &HashMap<String, but_forge::ReviewAssociation>,
-        db: &mut but_db::DbHandle,
+        mut db: but_db::ConnectionMut<'_, '_>,
         checkout_conflict_occurred: bool,
     ) -> anyhow::Result<WorkspaceState> {
         #[cfg(not(feature = "graph-workspace"))]
         {
-            let _ = (meta, db);
+            let _ = &mut db;
             let mut head_info = but_workspace::graph_to_ref_info(
                 workspace,
                 repo,
@@ -127,8 +124,11 @@ impl WorkspaceState {
             // that is out of scope here.
             let _ = prs_by_head;
             let mut workspace = workspace.clone();
-            let graph_workspace =
-                but_workspace::workspace::detailed_graph_workspace(&mut workspace, meta, repo, db)?;
+            let graph_workspace = but_workspace::workspace::detailed_graph_workspace(
+                &mut workspace,
+                repo,
+                db.reborrow(),
+            )?;
 
             Ok(WorkspaceState {
                 replaced_commits,
@@ -146,21 +146,19 @@ impl WorkspaceState {
     ///
     /// It reports `checkout_conflict_occurred: false`, which is only true of a workspace that
     /// was never checked out. Use [`Self::from_materialized`] after a materialize with checkout.
-    pub fn from_workspace_with_db<M: RefMetadata>(
+    pub fn from_workspace_with_db(
         workspace: &but_graph::Workspace,
-        meta: &mut M,
         repo: &gix::Repository,
         replaced_commits: BTreeMap<gix::ObjectId, gix::ObjectId>,
-        db: &mut but_db::DbHandle,
+        mut db: but_db::ConnectionMut<'_, '_>,
     ) -> anyhow::Result<WorkspaceState> {
-        let prs_by_head = but_forge::review_associations_by_head(db)?;
+        let prs_by_head = but_forge::review_associations_by_head(db.as_ref())?;
         Self::from_workspace_with_prs(
             workspace,
-            meta,
             repo,
             replaced_commits,
             &prs_by_head,
-            db,
+            db.reborrow(),
             false,
         )
     }
@@ -173,20 +171,19 @@ impl WorkspaceState {
     ///
     /// The `replaced_commits` map should describe the commit rewrites visible in the
     /// preview graph, which typically comes from `rebase.history.commit_mappings()`.
-    fn from_rebase_preview_with_prs<M: RefMetadata>(
-        rebase: &mut SuccessfulRebase<'_, '_, M>,
+    fn from_rebase_preview_with_prs(
+        rebase: &mut SuccessfulRebase<'_, '_, '_>,
         replaced_commits: BTreeMap<gix::ObjectId, gix::ObjectId>,
         prs_by_head: &HashMap<String, but_forge::ReviewAssociation>,
     ) -> anyhow::Result<WorkspaceState> {
         let workspace = rebase.overlayed_graph()?.into_workspace()?;
-        let (repo, meta, db) = rebase.repo_meta_and_db_mut();
+        let (repo, db) = rebase.repo_and_db_mut();
         Self::from_workspace_with_prs(
             &workspace,
-            meta,
             repo,
             replaced_commits,
             prs_by_head,
-            db,
+            db.reborrow(),
             false,
         )
     }
@@ -196,11 +193,11 @@ impl WorkspaceState {
     /// This is the API-facing preview constructor: it reads PR associations from
     /// the forge review cache through the database handle the rebase carries,
     /// before projecting the preview state.
-    pub(crate) fn from_rebase_preview<M: RefMetadata>(
-        rebase: &mut SuccessfulRebase<'_, '_, M>,
+    pub(crate) fn from_rebase_preview(
+        rebase: &mut SuccessfulRebase<'_, '_, '_>,
         replaced_commits: BTreeMap<gix::ObjectId, gix::ObjectId>,
     ) -> anyhow::Result<WorkspaceState> {
-        let prs_by_head = but_forge::review_associations_by_head(rebase.db())?;
+        let prs_by_head = but_forge::review_associations_by_head(rebase.db().as_ref())?;
         Self::from_rebase_preview_with_prs(rebase, replaced_commits, &prs_by_head)
     }
 
@@ -210,14 +207,13 @@ impl WorkspaceState {
     /// projection reports — the workspace, the commit mappings, the PR associations, and whether
     /// the checkout conflicted — is read from one place. A caller cannot forget to pass one on,
     /// which is the failure mode [`Self::from_workspace_with_db`] invites for materialized work.
-    pub fn from_materialized<M: RefMetadata>(
-        materialized: MaterializeOutcome<'_, '_, M>,
+    pub fn from_materialized(
+        materialized: MaterializeOutcome<'_, '_, '_>,
         repo: &gix::Repository,
     ) -> anyhow::Result<WorkspaceState> {
-        let prs_by_head = but_forge::review_associations_by_head(materialized.db)?;
+        let prs_by_head = but_forge::review_associations_by_head(materialized.db.as_ref())?;
         Self::from_workspace_with_prs(
             materialized.workspace,
-            materialized.meta,
             repo,
             materialized.history.commit_mappings(),
             &prs_by_head,
@@ -236,14 +232,14 @@ impl WorkspaceState {
     ///
     /// PR associations come from the forge review cache, read through the database handle the
     /// rebase carries.
-    pub fn from_successful_rebase<M: RefMetadata>(
-        rebase: SuccessfulRebase<'_, '_, M>,
+    pub fn from_successful_rebase(
+        rebase: SuccessfulRebase<'_, '_, '_>,
         repo: &gix::Repository,
         dry_run: DryRun,
     ) -> anyhow::Result<WorkspaceState> {
         if dry_run.into() {
             let mut rebase = rebase;
-            let prs_by_head = but_forge::review_associations_by_head(rebase.db())?;
+            let prs_by_head = but_forge::review_associations_by_head(rebase.db().as_ref())?;
             let replaced_commits = rebase.history.commit_mappings();
             return Self::from_rebase_preview_with_prs(&mut rebase, replaced_commits, &prs_by_head);
         }

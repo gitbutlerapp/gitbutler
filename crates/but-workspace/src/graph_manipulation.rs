@@ -1,7 +1,6 @@
 //! Shared graph editor traversal and edge-manipulation helpers.
 
 use anyhow::{Context, Result, bail};
-use but_core::RefMetadata;
 use but_graph::workspace::{Stack, StackSegment};
 use but_rebase::graph_rebase::{
     Editor, LookupStep, Selector, Step, ToSelector,
@@ -23,8 +22,8 @@ pub struct DisconnectParameters {
 ///
 /// This function determines which are the right parents and children to disconnect,
 /// as well as the right segment delimiter to move.
-pub fn get_disconnect_parameters<'ws, 'meta, M: RefMetadata>(
-    editor: &Editor<'ws, 'meta, M>,
+pub fn get_disconnect_parameters<'ws, 'db, 'conn>(
+    editor: &Editor<'ws, 'db, 'conn>,
     source_stack: &Stack,
     subject_segment: &StackSegment,
     workspace_head: Option<gix::ObjectId>,
@@ -137,8 +136,8 @@ pub fn get_disconnect_parameters<'ws, 'meta, M: RefMetadata>(
 /// - If no commit parent edge is found, fall back to a `Reference` parent.
 ///
 /// If no explicit parent candidate exists, return `SelectorSet::All` as a safe fallback.
-pub fn determine_parent_selector<'ws, 'meta, M: RefMetadata>(
-    editor: &Editor<'ws, 'meta, M>,
+pub fn determine_parent_selector<'ws, 'db, 'conn>(
+    editor: &Editor<'ws, 'db, 'conn>,
     subject_commit_selector: Selector,
 ) -> anyhow::Result<SelectorSet> {
     let mut parents = editor.direct_parents(subject_commit_selector)?;
@@ -180,8 +179,8 @@ pub(crate) enum EdgeSelection {
 ///
 /// Returns `Ok(())` after all direct parent edges of `selector` have been
 /// removed from the editor graph.
-pub(crate) fn disconnect_selector_from_all_parents<M: RefMetadata>(
-    editor: &mut Editor<'_, '_, M>,
+pub(crate) fn disconnect_selector_from_all_parents(
+    editor: &mut Editor<'_, '_, '_>,
     selector: Selector,
 ) -> Result<()> {
     editor.disconnect_segment_from(
@@ -211,8 +210,8 @@ pub(crate) fn disconnect_selector_from_all_parents<M: RefMetadata>(
 ///
 /// Returns the selected neighboring selectors paired with their existing edge
 /// order values.
-pub(crate) fn selected_edges_from_set<M: RefMetadata>(
-    editor: &Editor<'_, '_, M>,
+pub(crate) fn selected_edges_from_set(
+    editor: &Editor<'_, '_, '_>,
     target: Selector,
     selectors: &SelectorSet,
     edge_selection: EdgeSelection,
@@ -263,8 +262,8 @@ pub(crate) fn selected_edges_from_set<M: RefMetadata>(
 ///
 /// Returns `Ok(())` after the captured child and parent edges have been
 /// reattached to the rebuilt segment.
-pub(crate) fn connect_segment_to_edges<M: RefMetadata>(
-    editor: &mut Editor<'_, '_, M>,
+pub(crate) fn connect_segment_to_edges(
+    editor: &mut Editor<'_, '_, '_>,
     delimiter: SegmentDelimiter<Selector, Selector>,
     children: &[(Selector, usize)],
     parents: &[(Selector, usize)],
@@ -342,8 +341,8 @@ fn next_available_order(
 ///
 /// Returns the matching direct parent selector when `step` already corresponds
 /// to an attached pick parent, or `None` otherwise.
-pub(crate) fn already_connected_parent_for_step<M: RefMetadata>(
-    editor: &Editor<'_, '_, M>,
+pub(crate) fn already_connected_parent_for_step(
+    editor: &Editor<'_, '_, '_>,
     child: Selector,
     step: &Step,
 ) -> Result<Option<Selector>> {
@@ -375,8 +374,8 @@ pub(crate) fn already_connected_parent_for_step<M: RefMetadata>(
 /// existing pick/reference selector or by inserting a new pick step first.
 ///
 /// Returns the selector of the connected parent node.
-pub(crate) fn connect_parent_step<M: RefMetadata>(
-    editor: &mut Editor<'_, '_, M>,
+pub(crate) fn connect_parent_step(
+    editor: &mut Editor<'_, '_, '_>,
     child: Selector,
     parent_step: Step,
 ) -> Result<Selector> {
@@ -414,8 +413,8 @@ pub(crate) fn connect_parent_step<M: RefMetadata>(
 ///
 /// Returns the set containing `tip` and every selector reachable from it by
 /// repeatedly following direct parent edges.
-pub(crate) fn traverse_nodes<M: RefMetadata>(
-    editor: &Editor<'_, '_, M>,
+pub(crate) fn traverse_nodes(
+    editor: &Editor<'_, '_, '_>,
     tip: Selector,
 ) -> Result<HashSet<Selector>> {
     let mut seen = HashSet::from([tip]);

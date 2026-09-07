@@ -116,7 +116,7 @@ impl Sandbox {
     /// (topmost first), then pin the workspace target to `target_spec`.
     pub fn setup_single_stack_metadata_at_target(&self, branch_names: &[&str], target_spec: &str) {
         use but_core::{
-            RefMetadata, WORKSPACE_REF_NAME,
+            WORKSPACE_REF_NAME,
             ref_metadata::{
                 ProjectMeta, StackId, WorkspaceCommitRelation, WorkspaceStack, WorkspaceStackBranch,
             },
@@ -126,10 +126,15 @@ impl Sandbox {
             name.try_into().expect("statically known valid ref-name")
         }
 
-        let mut meta = self.meta();
-        let mut ws = meta.workspace(r(WORKSPACE_REF_NAME)).unwrap();
+        let mut db = self.db();
+        let mut ws = db
+            .meta()
+            .unwrap()
+            .workspace(r(WORKSPACE_REF_NAME))
+            .cloned()
+            .unwrap_or_default();
         let repo = self.open_repo();
-        let ws_data = ws.deref_mut();
+        let ws_data = &mut ws;
         ws_data.stacks = vec![WorkspaceStack {
             id: StackId::from_number_for_testing(0),
             branches: branch_names
@@ -143,7 +148,10 @@ impl Sandbox {
         }];
         let mut project_meta = ProjectMeta::resolve(&repo).unwrap();
         project_meta.target_commit_id = Some(repo.rev_parse_single(target_spec).unwrap().detach());
-        meta.set_workspace(&ws).unwrap();
+        db.meta_mut()
+            .unwrap()
+            .set_workspace(r(WORKSPACE_REF_NAME), &ws)
+            .unwrap();
         project_meta.persist(&repo).unwrap();
     }
 }

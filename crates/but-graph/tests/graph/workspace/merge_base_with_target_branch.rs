@@ -7,7 +7,7 @@ use crate::init::utils::{add_workspace, read_only_in_memory_scenario, standard_o
 
 #[test]
 fn with_target_ref() -> anyhow::Result<()> {
-    let (repo, mut meta, mut db) = read_only_in_memory_scenario("ws/local-target-and-stack")?;
+    let (repo, mut meta) = read_only_in_memory_scenario("ws/local-target-and-stack")?;
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
         snapbox::str![[r#"
@@ -31,9 +31,8 @@ fn with_target_ref() -> anyhow::Result<()> {
 
     let ws = Graph::from_head(
         &repo,
-        &*meta,
         target_meta(&repo),
-        &mut db,
+        &mut meta.connection_mut(),
         standard_options(),
     )?
     .validated()?
@@ -51,21 +50,15 @@ fn with_target_ref() -> anyhow::Result<()> {
     Ok(())
 }
 
-/// This is important for when in single-branch mode, *without* a workspace,
-/// we want to still show a branch integrates with something.
-/// This would be set based on the remote configuration of a branch, where we read
-/// `refs/remotes/<remote>/HEAD` to get the branch to integrate with.
-/// Alternatively, the app might have a setting for it.
 #[test]
 fn returns_none_when_no_target_is_set() -> anyhow::Result<()> {
-    let (repo, mut meta, mut db) = read_only_in_memory_scenario("ws/no-target-without-ws-commit")?;
+    let (repo, mut meta) = read_only_in_memory_scenario("ws/no-target-without-ws-commit")?;
 
     add_workspace(&mut meta);
     let graph = Graph::from_head(
         &repo,
-        &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
-        &mut db,
+        &mut meta.connection_mut(),
         standard_options(),
     )?
     .validated()?;
@@ -86,14 +79,13 @@ fn returns_none_when_no_target_is_set() -> anyhow::Result<()> {
 
 #[test]
 fn returns_none_when_commit_not_in_graph() -> anyhow::Result<()> {
-    let (repo, mut meta, mut db) = read_only_in_memory_scenario("ws/local-target-and-stack")?;
+    let (repo, mut meta) = read_only_in_memory_scenario("ws/local-target-and-stack")?;
 
     add_workspace(&mut meta);
     let ws = Graph::from_head(
         &repo,
-        &*meta,
         target_meta(&repo),
-        &mut db,
+        &mut meta.connection_mut(),
         standard_options(),
     )?
     .validated()?

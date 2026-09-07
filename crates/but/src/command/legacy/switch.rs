@@ -103,10 +103,8 @@ pub fn run(
             Ok(SwitchOutcome::Branch { branch })
         }
         SwitchOperation::NewBranch { name } => {
-            let mut meta = ctx.meta()?;
             let outcome = branch::new::run(
                 ctx,
-                &mut meta,
                 perm,
                 NewOperation::NewUnstackedBranch(NewUnstackedBranchOperation {
                     name,

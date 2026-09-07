@@ -1,10 +1,7 @@
 use bstr::ByteSlice;
-use but_core::{
-    RefMetadata,
-    ref_metadata::{StackId, ValueInfo},
-};
+use but_core::ref_metadata::StackId;
 use but_graph::init::Options;
-use but_meta::BranchOrderMetadata;
+
 use but_testsupport::{graph_workspace, id_at, id_by_rev, visualize_commit_graph_all};
 use but_workspace::branch::create_reference::{Anchor, Position::*};
 use gix::refs::transaction::PreviousValue;
@@ -17,17 +14,16 @@ use crate::{
     utils::{r, rc},
 };
 
-fn branch_order_meta(repo: &gix::Repository) -> anyhow::Result<BranchOrderMetadata> {
-    BranchOrderMetadata::from_paths(repo.path().join("virtual-branches.toml"), repo.path())
+fn branch_order_meta(repo: &gix::Repository) -> anyhow::Result<but_db::DbHandle> {
+    but_testsupport::project_db(repo)
 }
 
 mod with_workspace {
     use snapbox::IntoData;
     use std::borrow::Cow;
 
-    use but_core::{RefMetadata, ref_metadata::ValueInfo};
     use but_graph::init::Options;
-    use but_meta::VirtualBranchesTomlMetadata;
+
     use but_testsupport::{graph_workspace, id_at, id_by_rev, visualize_commit_graph_all};
     use but_workspace::branch::create_reference::{Anchor, Position::*};
 
@@ -42,7 +38,7 @@ mod with_workspace {
 
     #[test]
     fn journey_no_ws_commit_no_target() -> anyhow::Result<()> {
-        let (_tmp, repo, mut meta, desc, mut db) =
+        let (_tmp, repo, mut meta, desc) =
             named_writable_scenario_with_description("single-branch-no-ws-commit-no-target")?;
         snapbox::assert_data_eq!(
             desc,
@@ -62,9 +58,8 @@ Single commit, no main remote/target, no ws commit, but ws-reference
 
         let graph = but_graph::Graph::from_head(
             &repo,
-            &meta,
             project_meta(&repo)?,
-            &mut db,
+            &mut meta.connection_mut(),
             Options::limited(),
         )?;
         let ws = graph.into_workspace()?;
@@ -82,8 +77,12 @@ Single commit, no main remote/target, no ws commit, but ws-reference
         // …we chose to work with an open-ended workspace just to struggle more.
         let mut project_meta = project_meta(&repo)?;
         project_meta.target_commit_id = None;
-        let graph =
-            but_graph::Graph::from_head(&repo, &meta, project_meta, &mut db, Options::limited())?;
+        let graph = but_graph::Graph::from_head(
+            &repo,
+            project_meta,
+            &mut meta.connection_mut(),
+            Options::limited(),
+        )?;
         let ws = graph.into_workspace()?;
         snapbox::assert_data_eq!(
             graph_workspace(&ws).to_string(),
@@ -102,7 +101,7 @@ Single commit, no main remote/target, no ws commit, but ws-reference
             None, /* anchor */
             &repo,
             &ws,
-            &mut meta,
+            &mut meta.connection_mut(),
             stack_id_for_name,
             None,
         )
@@ -118,7 +117,7 @@ Single commit, no main remote/target, no ws commit, but ws-reference
 
     #[test]
     fn journey_no_ws_commit() -> anyhow::Result<()> {
-        let (_tmp, repo, mut meta, desc, mut db) =
+        let (_tmp, repo, mut meta, desc) =
             named_writable_scenario_with_description("single-branch-no-ws-commit")?;
         snapbox::assert_data_eq!(
             desc,
@@ -138,9 +137,8 @@ Single commit, target, no ws commit, but ws-reference
 
         let graph = but_graph::Graph::from_head(
             &repo,
-            &meta,
             project_meta(&repo)?,
-            &mut db,
+            &mut meta.connection_mut(),
             Options::limited(),
         )?;
         let ws = graph.into_workspace()?;
@@ -159,7 +157,7 @@ Single commit, target, no ws commit, but ws-reference
             None, /* anchor */
             &repo,
             &ws,
-            &mut meta,
+            &mut meta.connection_mut(),
             stack_id_for_name,
             None,
         )
@@ -186,7 +184,7 @@ Single commit, target, no ws commit, but ws-reference
             None, /* anchor */
             &repo,
             &ws,
-            &mut meta,
+            &mut meta.connection_mut(),
             stack_id_for_name,
             None,
         )?;
@@ -208,7 +206,7 @@ Single commit, target, no ws commit, but ws-reference
             None, /* anchor */
             &repo,
             &ws,
-            &mut meta,
+            &mut meta.connection_mut(),
             stack_id_for_name,
             None,
         )?;
@@ -233,7 +231,7 @@ Single commit, target, no ws commit, but ws-reference
             },
             &repo,
             &ws,
-            &mut meta,
+            &mut meta.connection_mut(),
             stack_id_for_name,
             None,
         )?;
@@ -259,7 +257,7 @@ Single commit, target, no ws commit, but ws-reference
             },
             &repo,
             &ws,
-            &mut meta,
+            &mut meta.connection_mut(),
             stack_id_for_name,
             None,
         )?;
@@ -278,14 +276,12 @@ Single commit, target, no ws commit, but ws-reference
         );
 
         // Finally, assure the data looks correct. Can't afford bugs in the translation.
-        let path = meta.path().to_owned();
         drop(meta);
-        let meta = VirtualBranchesTomlMetadata::from_path(path)?;
+        let mut meta = but_testsupport::project_db(&repo)?;
         let graph = but_graph::Graph::from_head(
             &repo,
-            &meta,
             project_meta(&repo)?,
-            &mut db,
+            &mut meta.connection_mut(),
             Options::limited(),
         )?;
         let ws = graph.into_workspace()?;
@@ -316,7 +312,7 @@ Single commit, target, no ws commit, but ws-reference
 
     #[test]
     fn journey_single_branch_segment_anchor() -> anyhow::Result<()> {
-        let (_tmp, repo, mut meta, mut db) = named_writable_scenario("single-branch-4-commits")?;
+        let (_tmp, repo, mut meta) = named_writable_scenario("single-branch-4-commits")?;
         snapbox::assert_data_eq!(
             visualize_commit_graph_all(&repo)?,
             snapbox::str![[r#"
@@ -331,9 +327,8 @@ Single commit, target, no ws commit, but ws-reference
 
         let graph = but_graph::Graph::from_head(
             &repo,
-            &meta,
             project_meta(&repo)?,
-            &mut db,
+            &mut meta.connection_mut(),
             Options::limited(),
         )?;
         let ws = graph.into_workspace()?;
@@ -360,7 +355,7 @@ Single commit, target, no ws commit, but ws-reference
             },
             &repo,
             &ws,
-            &mut meta,
+            &mut meta.connection_mut(),
             stack_id_for_name,
             None,
         )?;
@@ -388,7 +383,7 @@ Single commit, target, no ws commit, but ws-reference
             },
             &repo,
             &ws,
-            &mut meta,
+            &mut meta.connection_mut(),
             stack_id_for_name,
             None,
         )?;
@@ -417,7 +412,7 @@ Single commit, target, no ws commit, but ws-reference
             },
             &repo,
             &ws,
-            &mut meta,
+            &mut meta.connection_mut(),
             stack_id_for_name,
             None,
         )?;
@@ -449,7 +444,7 @@ Single commit, target, no ws commit, but ws-reference
             },
             &repo,
             &ws,
-            &mut meta,
+            &mut meta.connection_mut(),
             stack_id_for_name,
             None,
         )?;
@@ -480,7 +475,7 @@ Single commit, target, no ws commit, but ws-reference
             },
             &repo,
             &ws,
-            &mut meta,
+            &mut meta.connection_mut(),
             stack_id_for_name,
             None,
         )?;
@@ -511,7 +506,7 @@ Single commit, target, no ws commit, but ws-reference
             },
             &repo,
             &ws,
-            &mut meta,
+            &mut meta.connection_mut(),
             stack_id_for_name,
             None,
         )?;
@@ -542,7 +537,7 @@ Single commit, target, no ws commit, but ws-reference
             },
             &repo,
             &ws,
-            &mut meta,
+            &mut meta.connection_mut(),
             stack_id_for_name,
             None,
         )?;
@@ -571,7 +566,7 @@ Single commit, target, no ws commit, but ws-reference
             None,
             &repo,
             &ws,
-            &mut meta,
+            &mut meta.connection_mut(),
             stack_id_for_name,
             None,
         )?;
@@ -605,7 +600,7 @@ Single commit, target, no ws commit, but ws-reference
             },
             &repo,
             &ws,
-            &mut meta,
+            &mut meta.connection_mut(),
             stack_id_for_name,
             None,
         )?;
@@ -642,7 +637,7 @@ Single commit, target, no ws commit, but ws-reference
             },
             &repo,
             &ws,
-            &mut meta,
+            &mut meta.connection_mut(),
             stack_id_for_name,
             None,
         )?;
@@ -669,14 +664,12 @@ Single commit, target, no ws commit, but ws-reference
         );
 
         // Finally, assure the data looks correct. Can't afford bugs in the translation.
-        let path = meta.path().to_owned();
         drop(meta);
-        let meta = VirtualBranchesTomlMetadata::from_path(path)?;
+        let mut meta = but_testsupport::project_db(&repo)?;
         let graph = but_graph::Graph::from_head(
             &repo,
-            &meta,
             project_meta(&repo)?,
-            &mut db,
+            &mut meta.connection_mut(),
             Options::limited(),
         )?;
         let ws = graph.into_workspace()?;
@@ -718,7 +711,7 @@ Single commit, target, no ws commit, but ws-reference
 
     #[test]
     fn journey_single_branch_no_ws_commit_segment_anchor() -> anyhow::Result<()> {
-        let (_tmp, repo, mut meta, mut db) =
+        let (_tmp, repo, mut meta) =
             named_writable_scenario("single-branch-3-commits-no-ws-commit")?;
         snapbox::assert_data_eq!(
             visualize_commit_graph_all(&repo)?,
@@ -734,9 +727,8 @@ Single commit, target, no ws commit, but ws-reference
 
         let graph = but_graph::Graph::from_head(
             &repo,
-            &meta,
             project_meta(&repo)?,
-            &mut db,
+            &mut meta.connection_mut(),
             Options::limited(),
         )?;
         let ws = graph.into_workspace()?;
@@ -763,7 +755,7 @@ Single commit, target, no ws commit, but ws-reference
             },
             &repo,
             &ws,
-            &mut meta,
+            &mut meta.connection_mut(),
             stack_id_for_name,
             None,
         )?;
@@ -789,7 +781,7 @@ Single commit, target, no ws commit, but ws-reference
             },
             &repo,
             &ws,
-            &mut meta,
+            &mut meta.connection_mut(),
             stack_id_for_name,
             None,
         )?;
@@ -820,7 +812,7 @@ Single commit, target, no ws commit, but ws-reference
             },
             &repo,
             &ws,
-            &mut meta,
+            &mut meta.connection_mut(),
             stack_id_for_name,
             None,
         )?;
@@ -851,7 +843,7 @@ Single commit, target, no ws commit, but ws-reference
             },
             &repo,
             &ws,
-            &mut meta,
+            &mut meta.connection_mut(),
             stack_id_for_name,
             None,
         )?;
@@ -884,7 +876,7 @@ Single commit, target, no ws commit, but ws-reference
             },
             &repo,
             &ws,
-            &mut meta,
+            &mut meta.connection_mut(),
             stack_id_for_name,
             None,
         )?;
@@ -914,7 +906,7 @@ Single commit, target, no ws commit, but ws-reference
             },
             &repo,
             &ws,
-            &mut meta,
+            &mut meta.connection_mut(),
             stack_id_for_name,
             None,
         )?;
@@ -945,7 +937,7 @@ Single commit, target, no ws commit, but ws-reference
             },
             &repo,
             &ws,
-            &mut meta,
+            &mut meta.connection_mut(),
             stack_id_for_name,
             None,
         )?;
@@ -974,7 +966,7 @@ Single commit, target, no ws commit, but ws-reference
             None,
             &repo,
             &ws,
-            &mut meta,
+            &mut meta.connection_mut(),
             stack_id_for_name,
             None,
         )?;
@@ -1008,7 +1000,7 @@ Single commit, target, no ws commit, but ws-reference
             },
             &repo,
             &ws,
-            &mut meta,
+            &mut meta.connection_mut(),
             stack_id_for_name,
             None,
         )?;
@@ -1045,7 +1037,7 @@ Single commit, target, no ws commit, but ws-reference
             },
             &repo,
             &ws,
-            &mut meta,
+            &mut meta.connection_mut(),
             stack_id_for_name,
             None,
         )?;
@@ -1072,14 +1064,12 @@ Single commit, target, no ws commit, but ws-reference
         );
 
         // Finally, assure the data looks correct. Can't afford bugs in the translation.
-        let path = meta.path().to_owned();
         drop(meta);
-        let meta = VirtualBranchesTomlMetadata::from_path(path)?;
+        let mut meta = but_testsupport::project_db(&repo)?;
         let graph = but_graph::Graph::from_head(
             &repo,
-            &meta,
             project_meta(&repo)?,
-            &mut db,
+            &mut meta.connection_mut(),
             Options::limited(),
         )?;
         let ws = graph.into_workspace()?;
@@ -1119,7 +1109,7 @@ Single commit, target, no ws commit, but ws-reference
 
     #[test]
     fn journey_single_branch_no_ws_commit_commit_anchor() -> anyhow::Result<()> {
-        let (_tmp, repo, mut meta, mut db) =
+        let (_tmp, repo, mut meta) =
             named_writable_scenario("single-branch-3-commits-no-ws-commit")?;
         snapbox::assert_data_eq!(
             visualize_commit_graph_all(&repo)?,
@@ -1135,9 +1125,8 @@ Single commit, target, no ws commit, but ws-reference
 
         let graph = but_graph::Graph::from_head(
             &repo,
-            &meta,
             project_meta(&repo)?,
-            &mut db,
+            &mut meta.connection_mut(),
             Options::limited(),
         )?;
         let ws = graph.into_workspace()?;
@@ -1164,7 +1153,7 @@ Single commit, target, no ws commit, but ws-reference
             },
             &repo,
             &ws,
-            &mut meta,
+            &mut meta.connection_mut(),
             stack_id_for_name,
             None,
         )?;
@@ -1186,8 +1175,7 @@ Single commit, target, no ws commit, but ws-reference
 
     #[test]
     fn journey_multi_branch_commit_anchor() -> anyhow::Result<()> {
-        let (_tmp, repo, mut meta, mut db) =
-            named_writable_scenario("multi-branch-with-ws-commit")?;
+        let (_tmp, repo, mut meta) = named_writable_scenario("multi-branch-with-ws-commit")?;
         snapbox::assert_data_eq!(
             visualize_commit_graph_all(&repo)?,
             snapbox::str![[r#"
@@ -1207,9 +1195,8 @@ Single commit, target, no ws commit, but ws-reference
 
         let graph = but_graph::Graph::from_head(
             &repo,
-            &meta,
             project_meta(&repo)?,
-            &mut db,
+            &mut meta.connection_mut(),
             Options::limited(),
         )?;
         let ws = graph.into_workspace()?;
@@ -1238,7 +1225,7 @@ Single commit, target, no ws commit, but ws-reference
             },
             &repo,
             &ws,
-            &mut meta,
+            &mut meta.connection_mut(),
             stack_id_for_name,
             None,
         )?;
@@ -1267,7 +1254,7 @@ Single commit, target, no ws commit, but ws-reference
             },
             &repo,
             &ws,
-            &mut meta,
+            &mut meta.connection_mut(),
             stack_id_for_name,
             None,
         )?;
@@ -1292,7 +1279,7 @@ Single commit, target, no ws commit, but ws-reference
 
     #[test]
     fn journey_at_reference() -> anyhow::Result<()> {
-        let (_tmp, repo, mut meta, mut db) = named_writable_scenario("single-branch-4-commits")?;
+        let (_tmp, repo, mut meta) = named_writable_scenario("single-branch-4-commits")?;
         snapbox::assert_data_eq!(
             visualize_commit_graph_all(&repo)?,
             snapbox::str![[r#"
@@ -1309,9 +1296,8 @@ Single commit, target, no ws commit, but ws-reference
 
         let graph = but_graph::Graph::from_head(
             &repo,
-            &meta,
             project_meta(&repo)?,
-            &mut db,
+            &mut meta.connection_mut(),
             Options::limited(),
         )?;
         let ws = graph.into_workspace()?;
@@ -1338,7 +1324,7 @@ Single commit, target, no ws commit, but ws-reference
             },
             &repo,
             &ws,
-            &mut meta,
+            &mut meta.connection_mut(),
             stack_id_for_name,
             None,
         )?;
@@ -1367,7 +1353,7 @@ Single commit, target, no ws commit, but ws-reference
             },
             &repo,
             &ws,
-            &mut meta,
+            &mut meta.connection_mut(),
             stack_id_for_name,
             None,
         )?;
@@ -1395,7 +1381,7 @@ Single commit, target, no ws commit, but ws-reference
             },
             &repo,
             &ws,
-            &mut meta,
+            &mut meta.connection_mut(),
             stack_id_for_name,
             None,
         )?;
@@ -1424,7 +1410,7 @@ Single commit, target, no ws commit, but ws-reference
             },
             &repo,
             &ws,
-            &mut meta,
+            &mut meta.connection_mut(),
             stack_id_for_name,
             None,
         )?;
@@ -1453,7 +1439,7 @@ Single commit, target, no ws commit, but ws-reference
             },
             &repo,
             &ws,
-            &mut meta,
+            &mut meta.connection_mut(),
             stack_id_for_name,
             None,
         )?;
@@ -1474,14 +1460,12 @@ Single commit, target, no ws commit, but ws-reference
         );
 
         // Assure the persisted data reproduces the same workspace.
-        let path = meta.path().to_owned();
         drop(meta);
-        let meta = VirtualBranchesTomlMetadata::from_path(path)?;
+        let mut meta = but_testsupport::project_db(&repo)?;
         let graph = but_graph::Graph::from_head(
             &repo,
-            &meta,
             project_meta(&repo)?,
-            &mut db,
+            &mut meta.connection_mut(),
             Options::limited(),
         )?;
         let ws = graph.into_workspace()?;
@@ -1518,13 +1502,11 @@ Single commit, target, no ws commit, but ws-reference
     #[test]
     fn at_commit_on_ws_base() -> anyhow::Result<()> {
         for position in [Above, Below] {
-            let (_tmp, repo, mut meta, mut db) =
-                named_writable_scenario("single-branch-no-ws-commit")?;
+            let (_tmp, repo, mut meta) = named_writable_scenario("single-branch-no-ws-commit")?;
             let ws = but_graph::Graph::from_head(
                 &repo,
-                &meta,
                 project_meta(&repo)?,
-                &mut db,
+                &mut meta.connection_mut(),
                 Options::limited(),
             )?
             .into_workspace()?;
@@ -1538,7 +1520,7 @@ Single commit, target, no ws commit, but ws-reference
                 },
                 &repo,
                 &ws,
-                &mut meta,
+                &mut meta.connection_mut(),
                 stack_id_for_name,
                 None,
             )?;
@@ -1553,7 +1535,7 @@ Single commit, target, no ws commit, but ws-reference
 
     #[test]
     fn at_reference_on_ws_base() -> anyhow::Result<()> {
-        let (_tmp, repo, mut meta, mut db) = named_writable_scenario("single-branch-no-ws-commit")?;
+        let (_tmp, repo, mut meta) = named_writable_scenario("single-branch-no-ws-commit")?;
         snapbox::assert_data_eq!(
             visualize_commit_graph_all(&repo)?,
             snapbox::str![[r#"
@@ -1564,9 +1546,8 @@ Single commit, target, no ws commit, but ws-reference
 
         let graph = but_graph::Graph::from_head(
             &repo,
-            &meta,
             project_meta(&repo)?,
-            &mut db,
+            &mut meta.connection_mut(),
             Options::limited(),
         )?;
         let ws = graph.into_workspace()?;
@@ -1577,7 +1558,7 @@ Single commit, target, no ws commit, but ws-reference
             None, /* anchor */
             &repo,
             &ws,
-            &mut meta,
+            &mut meta.connection_mut(),
             stack_id_for_name,
             None,
         )?;
@@ -1601,7 +1582,7 @@ Single commit, target, no ws commit, but ws-reference
             },
             &repo,
             &ws,
-            &mut meta,
+            &mut meta.connection_mut(),
             stack_id_for_name,
             None,
         )?;
@@ -1625,7 +1606,7 @@ Single commit, target, no ws commit, but ws-reference
             },
             &repo,
             &ws,
-            &mut meta,
+            &mut meta.connection_mut(),
             stack_id_for_name,
             None,
         )?;
@@ -1653,15 +1634,19 @@ Single commit, target, no ws commit, but ws-reference
 
     #[test]
     fn at_reference_below_first_commit_in_history() -> anyhow::Result<()> {
-        let (_tmp, repo, mut meta, mut db) =
+        let (_tmp, repo, mut meta) =
             named_writable_scenario("single-branch-no-ws-commit-no-target")?;
         // Make the workspace open-ended so 'main' with the first commit in history is part of it.
         add_stack_with_segments(&mut meta, 0, "main", StackState::InWorkspace, &[]);
 
         let mut project_meta = project_meta(&repo)?;
         project_meta.target_commit_id = None;
-        let graph =
-            but_graph::Graph::from_head(&repo, &meta, project_meta, &mut db, Options::limited())?;
+        let graph = but_graph::Graph::from_head(
+            &repo,
+            project_meta,
+            &mut meta.connection_mut(),
+            Options::limited(),
+        )?;
         let ws = graph.into_workspace()?;
         snapbox::assert_data_eq!(
             graph_workspace(&ws).to_string(),
@@ -1685,7 +1670,7 @@ Single commit, target, no ws commit, but ws-reference
             },
             &repo,
             &ws,
-            &mut meta,
+            &mut meta.connection_mut(),
             stack_id_for_name,
             None,
         )
@@ -1706,7 +1691,7 @@ Single commit, target, no ws commit, but ws-reference
             },
             &repo,
             &ws,
-            &mut meta,
+            &mut meta.connection_mut(),
             stack_id_for_name,
             None,
         )?;
@@ -1726,16 +1711,14 @@ Single commit, target, no ws commit, but ws-reference
 
     #[test]
     fn at_reference_multi_stack() -> anyhow::Result<()> {
-        let (_tmp, repo, mut meta, mut db) =
-            named_writable_scenario("multi-branch-with-ws-commit")?;
+        let (_tmp, repo, mut meta) = named_writable_scenario("multi-branch-with-ws-commit")?;
         add_stack_with_segments(&mut meta, 0, "A", StackState::InWorkspace, &[]);
         add_stack_with_segments(&mut meta, 1, "B", StackState::InWorkspace, &[]);
 
         let graph = but_graph::Graph::from_head(
             &repo,
-            &meta,
             project_meta(&repo)?,
-            &mut db,
+            &mut meta.connection_mut(),
             Options::limited(),
         )?;
         let ws = graph.into_workspace()?;
@@ -1764,7 +1747,7 @@ Single commit, target, no ws commit, but ws-reference
             },
             &repo,
             &ws,
-            &mut meta,
+            &mut meta.connection_mut(),
             stack_id_for_name,
             None,
         )?;
@@ -1787,12 +1770,11 @@ Single commit, target, no ws commit, but ws-reference
 
     #[test]
     fn at_reference_errors() -> anyhow::Result<()> {
-        let (_tmp, repo, mut meta, mut db) = named_writable_scenario("single-branch-4-commits")?;
+        let (_tmp, repo, mut meta) = named_writable_scenario("single-branch-4-commits")?;
         let graph = but_graph::Graph::from_head(
             &repo,
-            &meta,
             project_meta(&repo)?,
-            &mut db,
+            &mut meta.connection_mut(),
             Options::limited(),
         )?;
         let ws = graph.into_workspace()?;
@@ -1807,7 +1789,7 @@ Single commit, target, no ws commit, but ws-reference
             },
             &repo,
             &ws,
-            &mut meta,
+            &mut meta.connection_mut(),
             stack_id_for_name,
             None,
         )
@@ -1832,7 +1814,7 @@ Single commit, target, no ws commit, but ws-reference
             },
             &repo,
             &ws,
-            &mut meta,
+            &mut meta.connection_mut(),
             stack_id_for_name,
             None,
         )
@@ -1855,7 +1837,7 @@ Single commit, target, no ws commit, but ws-reference
             },
             &repo,
             &ws,
-            &mut meta,
+            &mut meta.connection_mut(),
             stack_id_for_name,
             None,
         )
@@ -1869,7 +1851,7 @@ Single commit, target, no ws commit, but ws-reference
 
     #[test]
     fn error1() -> anyhow::Result<()> {
-        let (repo, mut meta, mut db) = named_read_only_in_memory_scenario(
+        let (repo, mut meta) = named_read_only_in_memory_scenario(
             "with-remotes-and-workspace",
             "single-branch-no-ws-commit",
         )?;
@@ -1884,9 +1866,8 @@ Single commit, target, no ws commit, but ws-reference
 
         let graph = but_graph::Graph::from_head(
             &repo,
-            &*meta,
             project_meta(&repo)?,
-            &mut db,
+            &mut meta.connection_mut(),
             Options::limited(),
         )?;
         let ws = graph.into_workspace()?;
@@ -1910,7 +1891,7 @@ Single commit, target, no ws commit, but ws-reference
                 anchor.clone(),
                 &repo,
                 &ws,
-                &mut *meta,
+                &mut meta.connection_mut(),
                 stack_id_for_name,
                 None,
             )
@@ -1932,7 +1913,7 @@ Single commit, target, no ws commit, but ws-reference
                 "the reference wasn't changed to the desired location"
             );
             assert!(
-                meta.branch(ws_ref_name.as_ref())?.is_default(),
+                meta.meta().unwrap().branch(ws_ref_name.as_ref()).is_none(),
                 "no data was stored"
             );
         }
@@ -1941,7 +1922,7 @@ Single commit, target, no ws commit, but ws-reference
 
     #[test]
     fn error2() -> anyhow::Result<()> {
-        let (repo, mut meta, mut db) = named_read_only_in_memory_scenario(
+        let (repo, mut meta) = named_read_only_in_memory_scenario(
             "with-remotes-and-workspace",
             "single-branch-two-commits-no-ws-commit",
         )?;
@@ -1960,9 +1941,8 @@ Single commit, target, no ws commit, but ws-reference
 
         let graph = but_graph::Graph::from_head(
             &repo,
-            &*meta,
             project_meta(&repo)?,
-            &mut db,
+            &mut meta.connection_mut(),
             Options::limited(),
         )?;
         let ws = graph.into_workspace()?;
@@ -1991,7 +1971,7 @@ Single commit, target, no ws commit, but ws-reference
                 anchor.clone(),
                 &repo,
                 &ws,
-                &mut *meta,
+                &mut meta.connection_mut(),
                 stack_id_for_name,
                 None,
             )
@@ -2008,7 +1988,7 @@ Single commit, target, no ws commit, but ws-reference
                 "the reference wasn't changed to the desired location"
             );
             assert!(
-                meta.branch(ws_ref_name.as_ref())?.is_default(),
+                meta.meta().unwrap().branch(ws_ref_name.as_ref()).is_none(),
                 "no data was stored"
             );
         }
@@ -2024,7 +2004,7 @@ Single commit, target, no ws commit, but ws-reference
                 anchor.clone(),
                 &repo,
                 &ws,
-                &mut *meta,
+                &mut meta.connection_mut(),
                 stack_id_for_name,
                 None,
             )
@@ -2041,7 +2021,7 @@ Single commit, target, no ws commit, but ws-reference
                 "the reference wasn't changed to the desired location"
             );
             assert!(
-                meta.branch(ws_ref_name.as_ref())?.is_default(),
+                meta.meta().unwrap().branch(ws_ref_name.as_ref()).is_none(),
                 "no data was stored"
             );
         }
@@ -2053,7 +2033,7 @@ Single commit, target, no ws commit, but ws-reference
             None,
             &repo,
             &ws,
-            &mut *meta,
+            &mut meta.connection_mut(),
             stack_id_for_name,
             None,
         )
@@ -2064,7 +2044,7 @@ Single commit, target, no ws commit, but ws-reference
             "Existing refs outside the workspace should fail explicitly instead of surfacing the generic segment error"
         );
         assert!(
-            meta.branch(outside_ref.as_ref())?.is_default(),
+            meta.meta().unwrap().branch(outside_ref.as_ref()).is_none(),
             "no data was stored"
         );
         assert_eq!(
@@ -2082,7 +2062,7 @@ Single commit, target, no ws commit, but ws-reference
             },
             &repo,
             &ws,
-            &mut *meta,
+            &mut meta.connection_mut(),
             stack_id_for_name,
             None,
         )
@@ -2104,8 +2084,7 @@ Single commit, target, no ws commit, but ws-reference
     /// workspace, so the branch emerges cleanly as its own stack.
     #[test]
     fn no_anchor_branch_with_target_tip_outside_workspace() -> anyhow::Result<()> {
-        let (_tmp, repo, mut meta, mut db) =
-            named_writable_scenario("stack-below-advanced-target")?;
+        let (_tmp, repo, mut meta) = named_writable_scenario("stack-below-advanced-target")?;
         snapbox::assert_data_eq!(
             visualize_commit_graph_all(&repo)?,
             snapbox::str![[r#"
@@ -2123,9 +2102,8 @@ Single commit, target, no ws commit, but ws-reference
 
         let graph = but_graph::Graph::from_head(
             &repo,
-            &meta,
             project_meta(&repo)?,
-            &mut db,
+            &mut meta.connection_mut(),
             Options::limited(),
         )?;
         let ws = graph.into_workspace()?;
@@ -2160,7 +2138,7 @@ Single commit, target, no ws commit, but ws-reference
             None,
             &repo,
             &ws,
-            &mut meta,
+            &mut meta.connection_mut(),
             stack_id_for_name,
             None,
         )?;
@@ -2193,12 +2171,11 @@ Single commit, target, no ws commit, but ws-reference
 
 #[test]
 fn errors() -> anyhow::Result<()> {
-    let (repo, mut meta, mut db) = named_read_only_in_memory_scenario("unborn-empty", "")?;
+    let (repo, mut meta) = named_read_only_in_memory_scenario("unborn-empty", "")?;
     let graph = but_graph::Graph::from_head(
         &repo,
-        &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
-        &mut db,
+        &mut meta.connection_mut(),
         Options::limited(),
     )?;
     let ws = graph.into_workspace()?;
@@ -2222,14 +2199,14 @@ fn errors() -> anyhow::Result<()> {
         },
         &repo,
         &ws,
-        &mut *meta,
+        &mut meta.connection_mut(),
         stack_id_for_name,
         None,
     )
     .unwrap_err();
     assert_eq!(err.to_string(), "Cannot create reference on unborn branch");
 
-    let (repo, mut meta, mut db) =
+    let (repo, mut meta) =
         named_read_only_in_memory_scenario("with-remotes-no-workspace", "remote")?;
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
@@ -2243,9 +2220,8 @@ fn errors() -> anyhow::Result<()> {
 
     let graph = but_graph::Graph::from_head(
         &repo,
-        &*meta,
         project_meta(&repo)?,
-        &mut db,
+        &mut meta.connection_mut(),
         Options::limited(),
     )?;
     let ws = graph.into_workspace()?;
@@ -2271,7 +2247,7 @@ fn errors() -> anyhow::Result<()> {
             anchor,
             &repo,
             &ws,
-            &mut *meta,
+            &mut meta.connection_mut(),
             stack_id_for_name,
             None,
         )
@@ -2290,7 +2266,7 @@ fn errors() -> anyhow::Result<()> {
             "the reference isn't physically available"
         );
         assert!(
-            meta.branch(ref_name.as_ref())?.is_default(),
+            meta.meta().unwrap().branch(ref_name.as_ref()).is_none(),
             "no data was stored"
         );
     }
@@ -2303,7 +2279,7 @@ fn errors() -> anyhow::Result<()> {
             anchor,
             &repo,
             &ws,
-            &mut *meta,
+            &mut meta.connection_mut(),
             stack_id_for_name,
             None,
         )
@@ -2319,7 +2295,7 @@ fn errors() -> anyhow::Result<()> {
             "the reference isn't physically available"
         );
         assert!(
-            meta.branch(ref_name.as_ref())?.is_default(),
+            meta.meta().unwrap().branch(ref_name.as_ref()).is_none(),
             "no data was stored"
         );
     }
@@ -2335,7 +2311,7 @@ fn errors() -> anyhow::Result<()> {
             anchor,
             &repo,
             &ws,
-            &mut *meta,
+            &mut meta.connection_mut(),
             stack_id_for_name,
             None,
         )
@@ -2350,7 +2326,7 @@ fn errors() -> anyhow::Result<()> {
             "the reference isn't physically available"
         );
         assert!(
-            meta.branch(a_ref.as_ref())?.is_default(),
+            meta.meta().unwrap().branch(a_ref.as_ref()).is_none(),
             "no data was stored"
         );
     }
@@ -2358,9 +2334,8 @@ fn errors() -> anyhow::Result<()> {
     let graph = but_graph::Graph::from_commit_traversal(
         a_id,
         a_ref,
-        &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
-        &mut db,
+        &mut meta.connection_mut(),
         Options::limited(),
     )?;
     let ws = graph.into_workspace()?;
@@ -2390,7 +2365,7 @@ fn errors() -> anyhow::Result<()> {
             anchor,
             &repo,
             &ws,
-            &mut *meta,
+            &mut meta.connection_mut(),
             stack_id_for_name,
             None,
         )
@@ -2401,7 +2376,10 @@ fn errors() -> anyhow::Result<()> {
             "it won't reset existing refs as the constraint is setup correctly.\
                 It does try though."
         );
-        assert!(meta.branch(a_ref)?.is_default(), "no data was stored");
+        assert!(
+            meta.meta().unwrap().branch(a_ref).is_none(),
+            "no data was stored"
+        );
         assert_ne!(
             repo.find_reference(a_ref)?.id(),
             main_id,
@@ -2412,12 +2390,11 @@ fn errors() -> anyhow::Result<()> {
     let graph = but_graph::Graph::from_commit_traversal(
         a_id,
         a_ref.to_owned(),
-        &*meta,
         but_core::ref_metadata::ProjectMeta {
             target_commit_id: Some(main_id.detach()),
             ..Default::default()
         },
-        &mut db,
+        &mut meta.connection_mut(),
         Options {
             commits_limit_hint: 0.into(),
             ..Options::limited()
@@ -2441,7 +2418,7 @@ fn errors() -> anyhow::Result<()> {
         Anchor::at_segment(a_ref, Below),
         &repo,
         &ws,
-        &mut *meta,
+        &mut meta.connection_mut(),
         stack_id_for_name,
         None,
     )
@@ -2450,7 +2427,10 @@ fn errors() -> anyhow::Result<()> {
         err.to_string(),
         "Commit d79bba960b112dbd25d45921c47eeda22288022b isn't part of the workspace",
     );
-    assert!(meta.branch(a_ref)?.is_default(), "no data was stored");
+    assert!(
+        meta.meta().unwrap().branch(a_ref).is_none(),
+        "no data was stored"
+    );
     assert_ne!(
         repo.find_reference(a_ref)?.id(),
         main_id,
@@ -2461,7 +2441,7 @@ fn errors() -> anyhow::Result<()> {
 
 #[test]
 fn journey_with_commits() -> anyhow::Result<()> {
-    let (_tmp, repo, mut meta, mut db) = named_writable_scenario("single-branch-with-3-commits")?;
+    let (_tmp, repo, mut meta) = named_writable_scenario("single-branch-with-3-commits")?;
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
         snapbox::str![[r#"
@@ -2474,9 +2454,8 @@ fn journey_with_commits() -> anyhow::Result<()> {
 
     let graph = but_graph::Graph::from_head(
         &repo,
-        &meta,
         but_core::ref_metadata::ProjectMeta::default(),
-        &mut db,
+        &mut meta.connection_mut(),
         but_graph::init::Options::default(),
     )?;
     let ws = graph.into_workspace()?;
@@ -2501,7 +2480,7 @@ fn journey_with_commits() -> anyhow::Result<()> {
         Anchor::at_segment(main_ref.as_ref(), Below),
         &repo,
         &ws,
-        &mut meta,
+        &mut meta.connection_mut(),
         stack_id_for_name,
         None,
     )
@@ -2521,8 +2500,8 @@ fn journey_with_commits() -> anyhow::Result<()> {
 
 "#]]
     );
-    let md = meta.branch(new_name)?;
-    assert!(!md.is_default(), "It should have set the date at least");
+    let metadata = meta.meta().unwrap();
+    let md = metadata.branch(new_name).expect("metadata is present");
     assert!(md.ref_info.updated_at.is_none());
     assert!(
         md.ref_info.created_at.is_none(),
@@ -2540,7 +2519,7 @@ fn journey_with_commits() -> anyhow::Result<()> {
         Anchor::at_id(main_id, Below),
         &repo,
         &ws,
-        &mut meta,
+        &mut meta.connection_mut(),
         stack_id_for_name,
         None,
     )?;
@@ -2564,7 +2543,7 @@ fn journey_with_commits() -> anyhow::Result<()> {
         Anchor::at_segment(r("refs/heads/below-main"), Below),
         &repo,
         &ws,
-        &mut meta,
+        &mut meta.connection_mut(),
         stack_id_for_name,
         None,
     )?;
@@ -2590,7 +2569,7 @@ fn journey_with_commits() -> anyhow::Result<()> {
         Anchor::at_segment(main_ref.as_ref(), Below),
         &repo,
         &ws,
-        &mut meta,
+        &mut meta.connection_mut(),
         stack_id_for_name,
         None,
     )
@@ -2607,13 +2586,13 @@ fn journey_with_commits() -> anyhow::Result<()> {
         None,
         &repo,
         &ws,
-        &mut meta,
+        &mut meta.connection_mut(),
         stack_id_for_name,
         None,
     )?;
 
     assert!(
-        meta.branch(main_ref)?.is_default(),
+        meta.meta().unwrap().branch(main_ref).is_none(),
         "no data was stored, it wasn't stored before either, for independent branches\
             There should be no benefit doing that."
     );
@@ -2641,13 +2620,13 @@ fn journey_with_commits() -> anyhow::Result<()> {
         },
         &repo,
         &ws,
-        &mut meta,
+        &mut meta.connection_mut(),
         stack_id_for_name,
         None,
     )?;
 
     assert!(
-        !meta.branch(main_ref)?.is_default(),
+        meta.meta().unwrap().branch(main_ref).is_some(),
         "Data is created/updated for dependent branches though,
             which is a way to make segments appear if there were not visible before due to ambiguity."
     );
@@ -2671,12 +2650,11 @@ fn journey_with_commits() -> anyhow::Result<()> {
 
 #[test]
 fn existing_git_ref_inside_workspace_is_adopted() -> anyhow::Result<()> {
-    let (_tmp, repo, mut meta, mut db) = named_writable_scenario("single-branch-4-commits")?;
+    let (_tmp, repo, mut meta) = named_writable_scenario("single-branch-4-commits")?;
     let graph = but_graph::Graph::from_head(
         &repo,
-        &meta,
         project_meta(&repo)?,
-        &mut db,
+        &mut meta.connection_mut(),
         Options::limited(),
     )?;
     let ws = graph.into_workspace()?;
@@ -2706,7 +2684,7 @@ fn existing_git_ref_inside_workspace_is_adopted() -> anyhow::Result<()> {
         None,
         &repo,
         &ws,
-        &mut meta,
+        &mut meta.connection_mut(),
         stack_id_for_name,
         None,
     )?;
@@ -2729,7 +2707,7 @@ fn existing_git_ref_inside_workspace_is_adopted() -> anyhow::Result<()> {
 
 #[test]
 fn journey_anon_workspace() -> anyhow::Result<()> {
-    let (_tmp, repo, mut meta, mut db) = named_writable_scenario("single-branch-with-3-commits")?;
+    let (_tmp, repo, mut meta) = named_writable_scenario("single-branch-with-3-commits")?;
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
         snapbox::str![[r#"
@@ -2744,9 +2722,8 @@ fn journey_anon_workspace() -> anyhow::Result<()> {
     let graph = but_graph::Graph::from_commit_traversal(
         id,
         None,
-        &meta,
         but_core::ref_metadata::ProjectMeta::default(),
-        &mut db,
+        &mut meta.connection_mut(),
         but_graph::init::Options::default(),
     )?;
     let ws = graph.into_workspace()?;
@@ -2773,7 +2750,7 @@ fn journey_anon_workspace() -> anyhow::Result<()> {
         },
         &repo,
         &ws,
-        &mut meta,
+        &mut meta.connection_mut(),
         stack_id_for_name,
         None,
     )?;
@@ -2796,7 +2773,7 @@ fn journey_anon_workspace() -> anyhow::Result<()> {
         None,
         &repo,
         &ws,
-        &mut meta,
+        &mut meta.connection_mut(),
         stack_id_for_name,
         None,
     )
@@ -2818,7 +2795,7 @@ fn journey_anon_workspace() -> anyhow::Result<()> {
         },
         &repo,
         &ws,
-        &mut meta,
+        &mut meta.connection_mut(),
         stack_id_for_name,
         None,
     )?;
@@ -2840,7 +2817,7 @@ fn journey_anon_workspace() -> anyhow::Result<()> {
         None,
         &repo,
         &ws,
-        &mut meta,
+        &mut meta.connection_mut(),
         stack_id_for_name,
         None,
     )
@@ -2871,34 +2848,31 @@ mod ad_hoc_at_reference {
     fn ad_hoc_workspace() -> anyhow::Result<(
         tempfile::TempDir,
         gix::Repository,
-        BranchOrderMetadata,
+        but_db::DbHandle,
         but_core::ref_metadata::ProjectMeta,
         but_graph::Workspace,
-        but_db::DbHandle,
     )> {
-        let (tmp, repo, _legacy_meta, mut db) =
-            named_writable_scenario("single-branch-with-3-commits")?;
+        let (tmp, repo, _legacy_meta) = named_writable_scenario("single-branch-with-3-commits")?;
         let project_meta =
             crate::ref_info::with_workspace_commit::utils::project_meta_with_target_at(
                 &repo, "main~2",
             )?;
-        let meta = branch_order_meta(&repo)?;
+        let mut meta = branch_order_meta(&repo)?;
         let ws = but_graph::Graph::from_head(
             &repo,
-            &meta,
             project_meta.clone(),
-            &mut db,
+            &mut meta.connection_mut(),
             Options::limited(),
         )?
         .into_workspace()?;
-        Ok((tmp, repo, meta, project_meta, ws, db))
+        Ok((tmp, repo, meta, project_meta, ws))
     }
 
     /// Create `new_ref` positioned relative to `anchor_ref` and return the resulting workspace.
     fn create(
         repo: &gix::Repository,
         ws: &but_graph::Workspace,
-        meta: &mut BranchOrderMetadata,
+        meta: &mut but_db::DbHandle,
         new_ref: &gix::refs::FullNameRef,
         anchor_ref: &gix::refs::FullNameRef,
         position: Position,
@@ -2908,7 +2882,7 @@ mod ad_hoc_at_reference {
             Anchor::at_reference(anchor_ref, position),
             repo,
             ws,
-            meta,
+            &mut meta.connection_mut(),
             stack_id_for_name,
             None,
         )?
@@ -2917,21 +2891,21 @@ mod ad_hoc_at_reference {
 
     /// Assert the durable tip-to-base order recorded for the chain containing `anchor`.
     fn assert_order(
-        meta: &BranchOrderMetadata,
+        meta: &mut but_db::DbHandle,
         anchor: &gix::refs::FullNameRef,
         expected: &[&str],
     ) {
         let expected: Vec<gix::refs::FullName> =
             expected.iter().copied().map(|s| r(s).to_owned()).collect();
         assert_eq!(
-            meta.branch_stack_order(anchor).expect("order is readable"),
-            Some(expected),
+            meta.meta().unwrap().branch_stack_order(anchor),
+            Some(expected.as_slice()),
         );
     }
 
     #[test]
     fn orders_local_branches_only() -> anyhow::Result<()> {
-        let (_tmp, repo, mut meta, _project_meta, ws, _db) = ad_hoc_workspace()?;
+        let (_tmp, repo, mut meta, _project_meta, ws) = ad_hoc_workspace()?;
         snapbox::assert_data_eq!(
             graph_workspace(&ws).to_string(),
             snapbox::str![[r#"
@@ -2949,7 +2923,7 @@ mod ad_hoc_at_reference {
         let below_ref = r("refs/heads/new-below");
         create(&repo, &ws, &mut meta, below_ref, main_ref, Below)?;
         assert_order(
-            &meta,
+            &mut meta,
             main_ref,
             &["refs/heads/main", "refs/heads/new-below"],
         );
@@ -2980,52 +2954,20 @@ mod ad_hoc_at_reference {
     }
 
     #[test]
-    fn requires_branch_order_metadata() -> anyhow::Result<()> {
-        // A TOML-only backend can't persist order, so ad-hoc `AtReference` is refused up front.
-        let (_tmp, repo, mut meta, mut db) =
-            named_writable_scenario("single-branch-with-3-commits")?;
-        let ws = but_graph::Graph::from_head(
-            &repo,
-            &meta,
-            project_meta(&repo)?,
-            &mut db,
-            Options::limited(),
-        )?
-        .into_workspace()?;
-
-        let new_ref = r("refs/heads/new");
-        let err = but_workspace::branch::create_reference(
-            new_ref,
-            Anchor::at_reference(r("refs/heads/main"), Above),
-            &repo,
-            &ws,
-            &mut meta,
-            stack_id_for_name,
-            None,
-        )
-        .unwrap_err();
-        assert_eq!(
-            err.to_string(),
-            "Cannot position 'new' relative to local reference 'main' without branch order metadata"
-        );
-        assert!(
-            repo.try_find_reference(new_ref)?.is_none(),
-            "unsupported metadata must fail before creating the ref"
-        );
-        Ok(())
-    }
-
-    #[test]
     fn below_checked_out_branch_is_projected() -> anyhow::Result<()> {
-        let (_tmp, repo, mut meta, project_meta, ws, mut db) = ad_hoc_workspace()?;
+        let (_tmp, repo, mut meta, project_meta, ws) = ad_hoc_workspace()?;
 
         let bottom_ref = r("refs/heads/empty-bottom");
         let main_ref = r("refs/heads/main");
         create(&repo, &ws, &mut meta, bottom_ref, main_ref, Below)?;
 
-        let ws =
-            but_graph::Graph::from_head(&repo, &meta, project_meta, &mut db, Options::limited())?
-                .into_workspace()?;
+        let ws = but_graph::Graph::from_head(
+            &repo,
+            project_meta,
+            &mut meta.connection_mut(),
+            Options::limited(),
+        )?
+        .into_workspace()?;
         snapbox::assert_data_eq!(
             graph_workspace(&ws).to_string(),
             snapbox::str![[r#"
@@ -3040,7 +2982,7 @@ mod ad_hoc_at_reference {
         );
         assert!(repo.try_find_reference(bottom_ref)?.is_some());
         assert_order(
-            &meta,
+            &mut meta,
             main_ref,
             &["refs/heads/main", "refs/heads/empty-bottom"],
         );
@@ -3049,7 +2991,7 @@ mod ad_hoc_at_reference {
 
     #[test]
     fn below_empty_branch_between_empty_branches() -> anyhow::Result<()> {
-        let (_tmp, repo, mut meta, project_meta, ws, mut db) = ad_hoc_workspace()?;
+        let (_tmp, repo, mut meta, project_meta, ws) = ad_hoc_workspace()?;
 
         let middle_ref = r("refs/heads/empty-middle");
         let inserted_ref = r("refs/heads/inserted-below-middle");
@@ -3066,7 +3008,7 @@ mod ad_hoc_at_reference {
         }
 
         assert_order(
-            &meta,
+            &mut meta,
             main_ref,
             &[
                 "refs/heads/main",
@@ -3076,9 +3018,13 @@ mod ad_hoc_at_reference {
             ],
         );
 
-        let ws =
-            but_graph::Graph::from_head(&repo, &meta, project_meta, &mut db, Options::limited())?
-                .into_workspace()?;
+        let ws = but_graph::Graph::from_head(
+            &repo,
+            project_meta,
+            &mut meta.connection_mut(),
+            Options::limited(),
+        )?
+        .into_workspace()?;
         snapbox::assert_data_eq!(
             graph_workspace(&ws).to_string(),
             snapbox::str![[r#"
@@ -3098,7 +3044,7 @@ mod ad_hoc_at_reference {
 
     #[test]
     fn above_checked_out_branch_is_projected_as_new_tip() -> anyhow::Result<()> {
-        let (_tmp, repo, mut meta, _project_meta, ws, _db) = ad_hoc_workspace()?;
+        let (_tmp, repo, mut meta, _project_meta, ws) = ad_hoc_workspace()?;
 
         let top_ref = r("refs/heads/empty-top");
         let main_ref = r("refs/heads/main");
@@ -3125,7 +3071,7 @@ mod ad_hoc_at_reference {
         );
         assert!(repo.try_find_reference(top_ref)?.is_some());
         assert_order(
-            &meta,
+            &mut meta,
             main_ref,
             &["refs/heads/empty-top", "refs/heads/main"],
         );
@@ -3134,7 +3080,7 @@ mod ad_hoc_at_reference {
 
     #[test]
     fn above_a_branch_over_the_entrypoint_is_rejected_without_a_checkout() -> anyhow::Result<()> {
-        let (_tmp, repo, mut meta, project_meta, ws, mut db) = ad_hoc_workspace()?;
+        let (_tmp, repo, mut meta, project_meta, ws) = ad_hoc_workspace()?;
         let top_ref = r("refs/heads/empty-top");
         let main_ref = r("refs/heads/main");
 
@@ -3145,9 +3091,13 @@ mod ad_hoc_at_reference {
         // is not part of the projection. Anchoring a further branch above `empty-top` would also
         // land above the entrypoint, so it can't be projected and is rejected. In practice the API
         // checks the tip out first, which is what makes stacking above it work.
-        let ws =
-            but_graph::Graph::from_head(&repo, &meta, project_meta, &mut db, Options::limited())?
-                .into_workspace()?;
+        let ws = but_graph::Graph::from_head(
+            &repo,
+            project_meta,
+            &mut meta.connection_mut(),
+            Options::limited(),
+        )?
+        .into_workspace()?;
         assert_eq!(ws.ref_name(), Some(main_ref));
         let err = create(
             &repo,
@@ -3167,7 +3117,7 @@ mod ad_hoc_at_reference {
 
     #[test]
     fn order_survives_a_metadata_reload() -> anyhow::Result<()> {
-        let (_tmp, repo, mut meta, project_meta, ws, mut db) = ad_hoc_workspace()?;
+        let (_tmp, repo, mut meta, project_meta, ws) = ad_hoc_workspace()?;
         let main_ref = r("refs/heads/main");
         let middle_ref = r("refs/heads/empty-middle");
         let bottom_ref = r("refs/heads/empty-bottom");
@@ -3179,17 +3129,21 @@ mod ad_hoc_at_reference {
             "refs/heads/empty-middle",
             "refs/heads/empty-bottom",
         ];
-        assert_order(&meta, main_ref, &expected);
+        assert_order(&mut meta, main_ref, &expected);
 
         // Reopen the branch-order backend from disk: the durable order must survive a fresh handle.
         drop(meta);
-        let meta = branch_order_meta(&repo)?;
-        assert_order(&meta, main_ref, &expected);
+        let mut meta = branch_order_meta(&repo)?;
+        assert_order(&mut meta, main_ref, &expected);
 
         // ...and the workspace re-projects identically from the reloaded metadata.
-        let ws =
-            but_graph::Graph::from_head(&repo, &meta, project_meta, &mut db, Options::limited())?
-                .into_workspace()?;
+        let ws = but_graph::Graph::from_head(
+            &repo,
+            project_meta,
+            &mut meta.connection_mut(),
+            Options::limited(),
+        )?
+        .into_workspace()?;
         snapbox::assert_data_eq!(
             graph_workspace(&ws).to_string(),
             snapbox::str![[r#"
@@ -3208,7 +3162,7 @@ mod ad_hoc_at_reference {
 
     #[test]
     fn rejects_a_missing_anchor() -> anyhow::Result<()> {
-        let (_tmp, repo, mut meta, _project_meta, ws, _db) = ad_hoc_workspace()?;
+        let (_tmp, repo, mut meta, _project_meta, ws) = ad_hoc_workspace()?;
         let new_ref = r("refs/heads/new");
         let missing_anchor = r("refs/heads/does-not-exist");
 
@@ -3222,13 +3176,16 @@ mod ad_hoc_at_reference {
             repo.try_find_reference(new_ref)?.is_none(),
             "no ref should be created for a missing anchor"
         );
-        assert_eq!(meta.branch_stack_order(missing_anchor)?, None);
+        assert_eq!(
+            meta.meta().unwrap().branch_stack_order(missing_anchor),
+            None
+        );
         Ok(())
     }
 
     #[test]
     fn rejects_positioning_a_reference_relative_to_itself() -> anyhow::Result<()> {
-        let (_tmp, repo, mut meta, _project_meta, ws, _db) = ad_hoc_workspace()?;
+        let (_tmp, repo, mut meta, _project_meta, ws) = ad_hoc_workspace()?;
         let main_ref = r("refs/heads/main");
 
         // Positioning a ref relative to itself must be a clean validation error, not a panic.
@@ -3237,14 +3194,14 @@ mod ad_hoc_at_reference {
             err.to_string().contains("relative to itself"),
             "self-referential placement must be rejected: {err}"
         );
-        assert_eq!(meta.branch_stack_order(main_ref)?, None);
+        assert_eq!(meta.meta().unwrap().branch_stack_order(main_ref), None);
         Ok(())
     }
 
     #[test]
     fn reusing_an_existing_ref_for_a_different_commit_fails_without_mutation() -> anyhow::Result<()>
     {
-        let (_tmp, repo, mut meta, _project_meta, ws, _db) = ad_hoc_workspace()?;
+        let (_tmp, repo, mut meta, _project_meta, ws) = ad_hoc_workspace()?;
         let main_ref = r("refs/heads/main");
 
         // `existing` already points at an older commit than `main`'s tip.
@@ -3258,13 +3215,13 @@ mod ad_hoc_at_reference {
         );
         // The failure must be atomic: the ref is untouched and no order was persisted.
         assert_eq!(repo.find_reference(existing_ref)?.id(), older);
-        assert_eq!(meta.branch_stack_order(main_ref)?, None);
+        assert_eq!(meta.meta().unwrap().branch_stack_order(main_ref), None);
         Ok(())
     }
 
     #[test]
     fn rejects_a_name_colliding_with_an_existing_branch() -> anyhow::Result<()> {
-        let (_tmp, repo, mut meta, _project_meta, ws, _db) = ad_hoc_workspace()?;
+        let (_tmp, repo, mut meta, _project_meta, ws) = ad_hoc_workspace()?;
         let main_ref = r("refs/heads/main");
 
         // `refs/heads/main` exists as a file, so `refs/heads/main/child` cannot be created.
@@ -3274,13 +3231,13 @@ mod ad_hoc_at_reference {
             err.to_string().contains("collides with existing branch"),
             "a name colliding with an existing branch should be reported clearly: {err}"
         );
-        assert_eq!(meta.branch_stack_order(main_ref)?, None);
+        assert_eq!(meta.meta().unwrap().branch_stack_order(main_ref), None);
         Ok(())
     }
 
     #[test]
     fn interleaved_insertions_keep_a_consistent_order() -> anyhow::Result<()> {
-        let (_tmp, repo, mut meta, project_meta, ws, mut db) = ad_hoc_workspace()?;
+        let (_tmp, repo, mut meta, project_meta, ws) = ad_hoc_workspace()?;
         let main_ref = r("refs/heads/main");
         let upper = r("refs/heads/upper");
         let middle = r("refs/heads/middle");
@@ -3300,7 +3257,7 @@ mod ad_hoc_at_reference {
             ws = create(&repo, &ws, &mut meta, new_ref, anchor_ref, Below)?;
         }
         assert_order(
-            &meta,
+            &mut meta,
             main_ref,
             &[
                 "refs/heads/main",
@@ -3312,12 +3269,16 @@ mod ad_hoc_at_reference {
         );
 
         // Mix in an `Above` insertion: a new tip over the (still checked-out) `main`.
-        let ws =
-            but_graph::Graph::from_head(&repo, &meta, project_meta, &mut db, Options::limited())?
-                .into_workspace()?;
+        let ws = but_graph::Graph::from_head(
+            &repo,
+            project_meta,
+            &mut meta.connection_mut(),
+            Options::limited(),
+        )?
+        .into_workspace()?;
         create(&repo, &ws, &mut meta, crown, main_ref, Above)?;
         assert_order(
-            &meta,
+            &mut meta,
             main_ref,
             &[
                 "refs/heads/crown",

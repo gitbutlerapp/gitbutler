@@ -2,7 +2,7 @@ use std::borrow::Cow;
 
 use anyhow::Context as _;
 use but_core::{
-    DryRun, RefMetadata,
+    DryRun,
     ref_metadata::ProjectMeta,
     sync::{RepoExclusive, RepoShared},
 };
@@ -56,18 +56,16 @@ impl SingleBranchMode {
         })
     }
 
-    pub fn transaction_with_workspace_setup<Meta, F, T>(
+    pub fn transaction_with_workspace_setup<F, T>(
         &self,
         ctx: &mut Context,
-        meta: &mut Meta,
         snapshot_details: SnapshotDetails,
         perm: &mut RepoExclusive,
         will_create_independent_branch: bool,
         callback: F,
     ) -> anyhow::Result<T::Outcome>
     where
-        Meta: RefMetadata,
-        F: FnOnce(Transaction<'_, '_, Meta>) -> anyhow::Result<T>,
+        F: FnOnce(Transaction<'_, '_, '_>) -> anyhow::Result<T>,
         T: but_transaction::TransactionOutcome,
     {
         let needs_workspace_setup = self.in_single_branch_mode
@@ -80,7 +78,6 @@ impl SingleBranchMode {
         if !needs_workspace_setup && !may_checkout {
             return but_transaction::with_transaction_with_perm(
                 ctx,
-                meta,
                 perm,
                 snapshot_details,
                 DryRun::No,
@@ -90,7 +87,6 @@ impl SingleBranchMode {
 
         // Switching can fail after materialization has consumed worktree changes,
         // even when no workspace setup was needed. Cover the whole operation.
-        let original_metadata = meta.workspace(but_core::WORKSPACE_REF_NAME.try_into()?)?;
         let checkpoint = but_oplog::UnmaterializedOplogSnapshot::prepare_checkpoint(
             ctx,
             snapshot_details,
@@ -98,12 +94,12 @@ impl SingleBranchMode {
         )?;
 
         let setup = if needs_workspace_setup {
-            self.setup_workspace(ctx, meta, perm)
+            self.setup_workspace(ctx, perm)
         } else {
             Ok(())
         };
         let outcome = setup.and_then(|()| {
-            but_transaction::with_transaction_with_perm_only(ctx, meta, perm, DryRun::No, callback)
+            but_transaction::with_transaction_with_perm_only(ctx, perm, DryRun::No, callback)
         });
         if let Ok((false, value)) = outcome {
             let snapshot_result = checkpoint.commit(ctx, perm);
@@ -115,11 +111,7 @@ impl SingleBranchMode {
             return Ok(value);
         }
 
-        // Restore the caller's metadata too: legacy handles write on drop and
-        // must not re-persist the failed operation after the checkpoint is restored.
-        let metadata_result = meta.set_workspace(&original_metadata);
         let rollback_result = checkpoint.rollback(ctx, perm);
-        let rollback_result = metadata_result.and(rollback_result);
         match outcome {
             Ok((_, value)) => {
                 rollback_result?;
@@ -136,12 +128,7 @@ impl SingleBranchMode {
         }
     }
 
-    fn setup_workspace(
-        &self,
-        ctx: &mut Context,
-        meta: &mut impl RefMetadata,
-        perm: &mut RepoExclusive,
-    ) -> anyhow::Result<()> {
+    fn setup_workspace(&self, ctx: &mut Context, perm: &mut RepoExclusive) -> anyhow::Result<()> {
         let needs_workspace = ctx
             .repo
             .get()?
@@ -150,23 +137,17 @@ impl SingleBranchMode {
         if needs_workspace {
             let target_ref = self.target_ref.to_string().parse()?;
             gitbutler_branch_actions::set_base_branch_only(ctx, &target_ref, perm)?;
-            // Base setup writes metadata through its own handle. Keep the caller's handle in
-            // sync so creating the destination doesn't overwrite the newly applied source stack.
-            let workspace_ref = but_core::WORKSPACE_REF_NAME.try_into()?;
-            let updated = ctx.meta()?.workspace(workspace_ref)?;
-            let mut workspace = meta.workspace(workspace_ref)?;
-            *workspace = (*updated).clone();
-            meta.set_workspace(&workspace)?;
         }
 
-        let (repo, mut ws, _db) = ctx.workspace_mut_and_db_with_perm(perm)?;
+        let (repo, mut ws, mut db) = ctx.workspace_mut_and_db_mut_with_perm(perm)?;
+        let mut transaction = db.immediate_transaction()?;
         // Also apply an empty branch, which set_base_branch doesn't apply itself.
         // Non-empty branches may already have been applied by set_base_branch.
         let outcome = but_workspace::branch::apply(
             self.head_reference.as_ref(),
             ws.clone(),
             &repo,
-            meta,
+            &mut transaction.connection_mut(),
             but_workspace::branch::apply::Options {
                 allow_applying_already_applied_branch_when_outside_workspace: true,
                 ..Default::default()
@@ -178,6 +159,7 @@ impl SingleBranchMode {
                 but_workspace::branch::apply::OutcomeStatus::AlreadyApplied
             )
         {
+            transaction.commit()?;
             *ws = outcome.workspace;
         } else {
             anyhow::bail!(
