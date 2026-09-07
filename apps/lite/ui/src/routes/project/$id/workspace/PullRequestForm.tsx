@@ -1,4 +1,5 @@
 import {
+	type PushBeforePublish,
 	useAddReviewReaction,
 	useGeneratePrDescription,
 	useMergeReview,
@@ -92,6 +93,11 @@ export const PullRequestForm: FC<{
 	title: string | null;
 	body: string | null;
 	canSubmit: boolean;
+	/**
+	 * For a new PR, the push it has to wait for, or null when the branch is
+	 * already on the remote. Never read when editing an existing PR.
+	 */
+	pushFirst?: PushBeforePublish | null;
 	onAfterSubmit?: () => void;
 	/** Adds a Cancel button that discards edits and calls this. */
 	onCancel?: () => void;
@@ -108,6 +114,7 @@ export const PullRequestForm: FC<{
 	title,
 	body,
 	canSubmit,
+	pushFirst = null,
 	onAfterSubmit,
 	onCancel,
 	afterPublish,
@@ -263,6 +270,7 @@ export const PullRequestForm: FC<{
 			publishReview(
 				{
 					projectId,
+					push: pushFirst,
 					params: {
 						title: localDocument.title,
 						body: localDocument.body,
@@ -414,7 +422,11 @@ export const PullRequestForm: FC<{
 									disabled={!canSubmit || isAnyPending || !hasChanges}
 									type="submit"
 								>
-									{isNew ? "Create a PR" : "Save changes"}
+									{isNew
+										? pushFirst !== null
+											? "Push and create a PR"
+											: "Create a PR"
+										: "Save changes"}
 									{/* Creating opens a PR; saving only confirms an edit. */}
 									<Icon name={isAnyPending ? "spinner" : isNew ? "pr" : "tick"} />
 								</button>
