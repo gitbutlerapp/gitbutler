@@ -1,6 +1,7 @@
 /** @vitest-environment jsdom */
 
 import type { LiteElectronApi } from "#electron/ipc.ts";
+import { listProjectsQueryOptions } from "#ui/api/queries.ts";
 import type { ProjectForFrontend } from "@gitbutler/but-sdk";
 import { QueryClient } from "@tanstack/react-query";
 import { createMemoryHistory } from "@tanstack/react-router";
@@ -47,7 +48,7 @@ const lite = {
 } satisfies Partial<LiteElectronApi>;
 Object.assign(window, { lite });
 
-const openProject = async (id: string) => {
+const openProject = async (id: string, queryClient = new QueryClient()) => {
 	// The route objects, and the subscription kept beside them, are module
 	// singletons: fresh modules keep one test's subscription out of the next.
 	const [{ createAppRouter }, { createRouteTree }] = await Promise.all([
@@ -55,7 +56,7 @@ const openProject = async (id: string) => {
 		import("#ui/routes.tsx"),
 	]);
 	const router = createAppRouter(
-		new QueryClient(),
+		queryClient,
 		createRouteTree({ workspace: () => null }),
 		createMemoryHistory({ initialEntries: [`/project/${id}/workspace`] }),
 	);
@@ -87,6 +88,18 @@ describe("project watcher subscription", { timeout: 15_000 }, () => {
 		}
 	});
 
+	it("opens a newly added project after the cached project list is invalidated", async () => {
+		const queryClient = new QueryClient({
+			defaultOptions: { queries: { staleTime: Infinity } },
+		});
+		queryClient.setQueryData(listProjectsQueryOptions.queryKey, []);
+		await queryClient.invalidateQueries({ queryKey: listProjectsQueryOptions.queryKey });
+
+		const router = await openProject("a", queryClient);
+		expect(router.state.location.pathname).toBe("/project/a/workspace");
+		expect(watching()).toEqual(["a"]);
+	});
+
 	it("keeps one subscription when the current project is opened again", async () => {
 		const router = await openProject("a");
 		await router.navigate({ to: "/project/$id/workspace", params: { id: "a" } });
@@ -111,11 +124,13 @@ describe("project watcher subscription", { timeout: 15_000 }, () => {
 	});
 
 	it("drops the subscription on leaving the project", async () => {
-		const router = await openProject("a");
+		const queryClient = new QueryClient();
+		const router = await openProject("a", queryClient);
 		expect(watching()).toEqual(["a"]);
 
 		// With no projects the index page stays put instead of redirecting back.
 		projects = [];
+		queryClient.setQueryData(listProjectsQueryOptions.queryKey, projects);
 		await router.navigate({ to: "/" });
 		await vi.waitFor(() => expect(watching()).toEqual([]));
 	});
