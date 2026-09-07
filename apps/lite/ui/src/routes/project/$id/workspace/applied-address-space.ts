@@ -20,11 +20,9 @@ const hasAnyOperation = (sources: Array<Address>, target: Address, kind: Transfe
 };
 
 /**
- * The applied list's address space: everything the stacks column shows, top
- * to bottom, as values. Cards in the graph's order, then the upstream
- * section's rows as its folds show them. While an operation waits for its
- * target only the workspace's own rows stay: what the target holds can be
- * looked at, not acted on.
+ * The applied list's address space: the cards' rows, then the section's rows
+ * as its folds show them. While an operation waits for its target only the
+ * workspace's own rows stay.
  */
 export const buildAppliedAddressSpace = ({
 	stacks,

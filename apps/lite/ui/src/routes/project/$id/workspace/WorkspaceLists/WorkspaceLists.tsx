@@ -666,7 +666,7 @@ const SegmentContent: FC<{
 		getItemKey: getCommitKey,
 		rangeExtractor: rangeExtractorWithSelected,
 		scrollMargin,
-		// Matches --scroll-gradient-height; the foot also clears the target's docked card.
+		// Matches --scroll-gradient-height; the foot also clears the docked merge base row.
 		scrollPaddingStart: 14,
 		scrollPaddingEnd,
 	});
@@ -1081,9 +1081,7 @@ const Stacks: FC<{
 		operation: dryRunOperation,
 	});
 	const dryRunWorkspace = dryRunOperationResult?.workspace ?? null;
-	// Cards in the graph's order, the upstream section below, and the rails
-	// between them drawn in one SVG over both. The host computed the plan once
-	// and built the address space from it.
+	// Cards in the graph's order, the section below, the rails between them in one SVG.
 	const { plan, stacks, olderQuery, olderFrom, forgetOlder } = graph;
 	const olderPagesData = olderQuery.data;
 	// Shown to its start: everything loaded is shown, and a page came back
@@ -1104,10 +1102,8 @@ const Stacks: FC<{
 	// Undefined `headInfo` is still loading, which is not the same as "empty" —
 	// treating it as empty would flash the empty state on every open.
 	const isEmpty = headInfo !== undefined && stacks.length === 0;
-	// Docked, the target's folded card lies over what scrolls past under it:
-	// a row scrolled into view clears it, as it clears the gradient at the
-	// foot otherwise.
-	const scrollPaddingEnd = plan.header.incoming > 0 && !plan.incomingExpanded ? DOCKED_HEIGHT : 14;
+	// A row scrolled into view clears the docked merge base row, else the foot's gradient.
+	const scrollPaddingEnd = plan.base !== null && !plan.baseExpanded ? DOCKED_HEIGHT : 14;
 	const foldedSegments = useAppSelector((state) =>
 		projectSlice.selectors.selectFoldedSegments(state, projectId),
 	);
@@ -1148,9 +1144,8 @@ const Stacks: FC<{
 			: undefined;
 
 	// Pin the containing stack too, otherwise the nested selected row can still be unmounted.
-	// In index order: a pinned index that sits appended while off-range and in place once the
-	// range reaches it would move every card's node on each flip, and the scroller re-anchors on
-	// every move, snapping the scroll back at that boundary.
+	// In index order: a pinned index flipping between appended and in place would move every
+	// card's node, and the scroller re-anchors on each move.
 	const rangeExtractorWithSelected = useCallback(
 		(range: Range) =>
 			getRangeExtractorWithIndices(
@@ -1201,7 +1196,7 @@ const Stacks: FC<{
 		getItemKey: getStackKey,
 		rangeExtractor: rangeExtractorWithSelected,
 		gap: CARD_GAP,
-		// Matches --scroll-gradient-height; the foot also clears the target's docked card.
+		// Matches --scroll-gradient-height; the foot also clears the docked merge base row.
 		scrollPaddingStart: 14,
 		scrollPaddingEnd,
 	});
@@ -1286,10 +1281,8 @@ const Stacks: FC<{
 					role="tree"
 					aria-activedescendant={selection ? treeItemId(selection) : undefined}
 					className={classes(styles.tree, styles.content)}
-					// The merge base and its history sit on the main line; the stack
-					// cards and a moved-on target's set their own inset, and those a
-					// gap right of the line draw it behind themselves. A row is
-					// indented only where the line runs behind it.
+					// Section rows sit on the main line; the cards set their own inset.
+					// A row is indented only where the line runs behind it.
 					style={{
 						"--row-padding-inline-start": `${rowInsetFor(MAIN_X)}px`,
 						"--main-line-x": `${MAIN_X}px`,

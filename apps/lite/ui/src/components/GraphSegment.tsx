@@ -26,11 +26,7 @@ const glyphPaths = {
 	joinBoth: "M16 14L8 14M0 14H8M8 0V14M8 28V14",
 };
 
-/**
- * A stretch of the rail in another status's colour, or the glyph's own when
- * none is given: the line past an icon, where it belongs to the icon at its
- * other end.
- */
+/** A stretch of the rail in another status's colour, or the glyph's own when none is given. */
 const Tone: FC<{ status: GraphSegmentStatus | undefined; d: string }> = ({ status, d }) => (
 	<g className={styles.tone} data-status={status}>
 		<path className={styles.line} d={d} strokeWidth="1.5" />
@@ -154,22 +150,11 @@ export type GraphSegmentStatus = "Diverged" | "Upstream" | CommitState["type"];
 interface GraphSegmentProps extends ComponentProps<"div"> {
 	glyph: GraphSegmentGlyph;
 	status: GraphSegmentStatus;
-	/**
-	 * The rail ends on this row: the commit glyph and the centred group glyph
-	 * lose their tail below, and nothing stretches on under a taller row.
-	 */
+	/** The rail ends on this row: no tail below the icon, nothing stretched under a taller row. */
 	railEnds?: boolean;
-	/**
-	 * The group's rings sit on the row's centre line, for a single-line row
-	 * of their own; otherwise they head a folded indicator from a row's
-	 * second line down, on a shorter canvas.
-	 */
+	/** The rings sit on the row's centre line, for a single-line row of their own. */
 	centered?: boolean;
-	/**
-	 * The rail above or below the glyph's icon in another status's colour.
-	 * A stretch between two icons is the lower icon's; above a branch's tick,
-	 * and below a card's last icon, the rail is plain.
-	 */
+	/** The rail above or below the icon in another status's colour; a stretch between two icons is the lower one's. */
 	above?: GraphSegmentStatus;
 	below?: GraphSegmentStatus;
 }

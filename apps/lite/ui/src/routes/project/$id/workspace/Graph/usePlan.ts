@@ -14,11 +14,9 @@ import { FIRST, layout, MORE, type Plan } from "./layout.ts";
 export type Graph = ReturnType<typeof usePlan>;
 
 /**
- * The stacks graph's plan from the workspace's data and the fold state, with
- * the cards in the order the plan draws them. Called once per host, the page
- * and the harness panel, which build the applied address space from it and
- * hand it to the stacks to render: a second call would page the older
- * history twice.
+ * The stacks graph's plan and the cards in its order. Called once per host,
+ * which hands it to the stacks: a second call would page the older history
+ * twice.
  */
 export const usePlan = (projectId: string) => {
 	const { data: headInfo } = useQuery(headInfoQueryOptions(projectId));
@@ -26,17 +24,14 @@ export const usePlan = (projectId: string) => {
 	const folds = useAppSelector((state) =>
 		projectSlice.selectors.selectGraphFolds(state, projectId),
 	);
-	// Older history below the deepest fork point: the listing's own tail first,
-	// then pages shared with the Upstream tab, the first of them fetched as
-	// the base opens and the rest on demand.
+	// Older history: pages shared with the Upstream tab, fetched as the base opens and on demand.
 	const olderFrom = listing?.commits.at(-1)?.commit.id ?? "";
 	const olderOptions = olderTargetCommitsInfiniteQueryOptions(projectId, olderFrom);
 	const olderQuery = useInfiniteQuery({
 		...olderOptions,
 		enabled: folds.baseExpanded && olderFrom !== "",
 	});
-	// Folding the base forgets the pages it loaded, so it opens from scratch
-	// next time rather than as long as it was left.
+	// Folding the base forgets its pages, so it reopens from scratch.
 	const queryClient = useQueryClient();
 	const forgetOlder = () => queryClient.removeQueries({ queryKey: olderOptions.queryKey });
 	const olderPagesData = olderQuery.data;
@@ -46,14 +41,12 @@ export const usePlan = (projectId: string) => {
 	);
 	const listOrder = useMemo(() => (headInfo?.stacks ?? []).toReversed(), [headInfo]);
 	const target = headInfo?.target ?? null;
-	// Explicit: the compiler does not memoise calls to imported functions, and
-	// the rails re-measure whenever the plan's identity changes.
+	// Explicit: the compiler does not memoise imported calls, and the rails re-measure on every new plan.
 	const plan: Plan = useMemo(
 		() => layout(listOrder, target, listing, folds, olderPages),
 		[listOrder, target, listing, folds, olderPages],
 	);
-	// Pages come as the rows shown ask for them: the first as the base opens,
-	// and another whenever an ask outruns what is loaded.
+	// Fetch a page whenever an ask outruns what is loaded.
 	const { fetchNextPage, hasNextPage, isFetching } = olderQuery;
 	const loaded = plan.older.length + plan.olderHidden;
 	const wanted = folds.baseExpanded ? FIRST + folds.moreOlder * MORE : 0;

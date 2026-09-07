@@ -141,10 +141,8 @@
 	position: relative;
 }
 
-/* The positioned box the rails SVG covers: the cards and the upstream section
-   below them, with the room under the column: the base header's gap again,
-   constant across fold states, so opening a fold does not shift the scroll,
-   and there while the section has nothing to show. */
+/* The box the rails SVG covers: the cards and the section. The room below
+   is constant across fold states, so a fold does not shift the scroll. */
 .content {
 	position: relative;
 	padding-block-end: 12px;
@@ -154,14 +152,9 @@
 	border-block-start: 1px solid var(--border-section);
 }
 
-/* A forked card sits a gap right of the main line, which runs on behind it.
-   The card carries it across itself, quieter, between its borders, which
-   stay whole over it: the line passes under the card's edge, and the rails
-   between the cards only ever draw in the gaps. Above the rows, whose fills
-   it crosses in their inset, and translucent where the other rails are
-   blended into the card: a mid grey darkens a selected row's light fill and
-   lightens a focused row's dark one, where a fixed light grey vanished on
-   the one and glared on the other. */
+/* The main line behind a forked card, between its borders, above the rows.
+   Translucent, unlike the other rails: it crosses row fills, and a mid grey
+   stays visible on a selected row's light fill and a focused row's dark one. */
 .virtualStack[data-forked="true"]::after {
 	z-index: 1;
 	position: absolute;
