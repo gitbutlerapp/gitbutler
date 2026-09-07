@@ -23,6 +23,102 @@ fn replace_and_get_snapshot() -> anyhow::Result<()> {
 }
 
 #[test]
+fn metadata_edits_write_only_changed_rows() -> anyhow::Result<()> {
+    let dir = tempfile::tempdir()?;
+    let path = dir.path().join("metadata.sqlite");
+    let mut db = but_db::DbHandle::new_at_path(&path)?;
+    let mut snapshot = sample_snapshot();
+    snapshot.stacks[0].id = but_core::ref_metadata::StackId::generate().to_string();
+    snapshot.stacks[0].sort_order = 0;
+    snapshot.heads[0].stack_id = snapshot.stacks[0].id.clone();
+    let mut other_stack = snapshot.stacks[0].clone();
+    other_stack.id = but_core::ref_metadata::StackId::generate().to_string();
+    other_stack.sort_order = 1;
+    let mut other_head = snapshot.heads[0].clone();
+    other_head.stack_id = other_stack.id.clone();
+    other_head.name = "unrelated".into();
+    snapshot.stacks.push(other_stack);
+    snapshot.heads.push(other_head);
+    db.meta_mut()?.replace_snapshot(&snapshot)?;
+
+    let observer = rusqlite::Connection::open(path)?;
+    observer.execute(
+        "INSERT INTO vb_branch_targets (stack_id, remote_name, branch_name, remote_url, sha)
+         VALUES (?1, 'origin', 'main', 'legacy-url', ?2)",
+        rusqlite::params![snapshot.stacks[1].id, snapshot.heads[1].head_sha],
+    )?;
+    observer.execute_batch("CREATE TABLE writes (table_name TEXT, action TEXT);")?;
+    for table in ["vb_state", "vb_stacks", "vb_stack_heads"] {
+        for action in ["INSERT", "UPDATE", "DELETE"] {
+            observer.execute_batch(&format!(
+                "CREATE TRIGGER log_{table}_{action} AFTER {action} ON {table}
+                 BEGIN INSERT INTO writes VALUES ('{table}', '{action}'); END;"
+            ))?;
+        }
+    }
+    let writes = || -> rusqlite::Result<Vec<(String, String)>> {
+        observer
+            .prepare("SELECT table_name, action FROM writes ORDER BY rowid")?
+            .query_map([], |row| Ok((row.get(0)?, row.get(1)?)))?
+            .collect()
+    };
+
+    let name: gix::refs::FullName = "refs/heads/series-a".try_into()?;
+    let mut branch = db.meta()?.branch(name.as_ref())?;
+    branch.review.pull_request = Some(42);
+    db.meta_mut()?.set_branch(&branch)?;
+    assert_eq!(
+        writes()?,
+        vec![("vb_stack_heads".into(), "UPDATE".into())],
+        "editing one review must leave all other rows untouched"
+    );
+    observer.execute("DELETE FROM writes", [])?;
+    db.meta_mut()?.set_branch(&branch)?;
+    assert!(
+        writes()?.is_empty(),
+        "saving unchanged metadata writes no rows"
+    );
+
+    let renamed: gix::refs::FullName = "refs/heads/renamed".try_into()?;
+    db.meta_mut()?.rename(name.as_ref(), renamed.as_ref())?;
+    assert_eq!(
+        writes()?,
+        vec![("vb_stack_heads".into(), "UPDATE".into())],
+        "renaming a branch updates its existing head row"
+    );
+    observer.execute("DELETE FROM writes", [])?;
+    db.meta_mut()?.remove(renamed.as_ref())?;
+    let mut removed = writes()?;
+    removed.sort();
+    assert_eq!(
+        removed,
+        vec![
+            ("vb_stack_heads".into(), "DELETE".into()),
+            ("vb_stacks".into(), "DELETE".into()),
+        ],
+        "removing a stack deletes its rows while preserving the unrelated stack"
+    );
+    let remaining = db.virtual_branches().get_snapshot()?.expect("state exists");
+    assert_eq!(
+        remaining.stacks,
+        snapshot.stacks[1..],
+        "unrelated stack data is unchanged"
+    );
+    assert_eq!(
+        remaining.heads,
+        snapshot.heads[1..],
+        "unrelated review data is unchanged"
+    );
+    assert_eq!(
+        observer.query_row("SELECT COUNT(*) FROM vb_branch_targets", [], |row| row
+            .get::<_, i64>(0))?,
+        1,
+        "ordinary metadata edits preserve obsolete dependent rows of retained stacks"
+    );
+    Ok(())
+}
+
+#[test]
 fn replace_snapshot_replaces_existing_data() -> anyhow::Result<()> {
     let mut db = in_memory_db();
 
