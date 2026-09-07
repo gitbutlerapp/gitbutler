@@ -132,6 +132,9 @@
 }
 
 .diffFiles {
+	/* Keep the virtualizer's viewport height stable when directories fold; measuring the
+	   collapsed content height can leave only a few rows rendered after unfolding. */
+	flex: 1;
 	padding-block-end: var(--panel-padding-block);
 }
 
