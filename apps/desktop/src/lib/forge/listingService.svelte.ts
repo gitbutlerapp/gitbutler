@@ -98,18 +98,24 @@ function injectBackendEndpoints(api: BackendApi) {
 					const prs = response.map((pr) => mapForgeReviewToPullRequest(pr));
 					return prAdapter.addMany(prAdapter.getInitialState(), prs);
 				},
-				async onQueryStarted(_projectId, { dispatch, queryFulfilled }) {
+				async onQueryStarted(projectId, { dispatch, getState, queryFulfilled }) {
 					try {
 						// `list_reviews` updates the backend forge cache. Workspace PR
 						// associations are projected from that cache, so rebuild the
 						// workspace view only after the cache-writing request succeeds.
 						await queryFulfilled;
-						dispatch(
-							api.util.invalidateTags([
-								invalidatesList(ReduxTag.Stacks),
-								invalidatesList(ReduxTag.StackDetails),
-							]),
-						);
+						const workspaceTags = [
+							invalidatesList(ReduxTag.Stacks),
+							invalidatesList(ReduxTag.StackDetails),
+						];
+						dispatch(api.util.invalidateTags(workspaceTags));
+						// RTKQ registers providesTags only on fulfilment, so a cold workspace
+						// query still in flight matches nothing. Wait for it and invalidate
+						// again, or the badges stay absent until the 15-minute re-poll.
+						if (api.util.selectInvalidatedBy(getState(), workspaceTags).length === 0) {
+							await dispatch(api.util.getRunningQueryThunk("workspaceDetails", { projectId }));
+							dispatch(api.util.invalidateTags(workspaceTags));
+						}
 					} catch {
 						// Keep the last cache-derived workspace view when the forge is
 						// unavailable. The query exposes the listing error separately.
