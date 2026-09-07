@@ -105,9 +105,9 @@ export const initMetrics = async (version: string): Promise<void> => {
 		const profile = await getUserProfileLocal();
 		if (profile !== null) await metricsOnLogin(profile);
 		else if (distinctId !== telemetry.appDistinctId) await updateTelemetryDistinctId(distinctId);
-		// Bound the remote lookup so IPC capture starts with one stable policy
-		// without making app startup depend on PostHog being reachable.
-		await configureFailureLimit(client);
+		// Keep the remote lookup off the startup critical path: IPC capture can
+		// start with the built-in policy while the configuration loads.
+		void configureFailureLimit(client);
 	} catch (error) {
 		// oxlint-disable-next-line no-console
 		console.error("Failed to initialize metrics", error);
