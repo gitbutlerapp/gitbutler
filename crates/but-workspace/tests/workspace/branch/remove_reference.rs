@@ -520,10 +520,24 @@ Single commit, no main remote/target, no ws commit, but ws-reference
 "#]]
     );
 
+    let metadata = meta.meta()?;
     assert_eq!(
-        meta.meta()?.workspaces().count() + meta.meta()?.branches().count(),
+        metadata.branches().count(),
         0,
-        "nothing is left in the metadata either"
+        "all branch metadata was removed"
+    );
+    assert_eq!(
+        metadata.workspaces().count(),
+        1,
+        "the explicit workspace record survives removal of its last branch"
+    );
+    assert!(
+        metadata
+            .workspace(r(but_core::WORKSPACE_REF_NAME))
+            .expect("workspace remains persisted")
+            .stacks
+            .is_empty(),
+        "the remaining workspace has no stack memberships"
     );
 
     Ok(())

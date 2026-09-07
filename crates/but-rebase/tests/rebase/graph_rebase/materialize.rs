@@ -15,11 +15,7 @@ use crate::{
 
 fn worktree_fixture(name: &str) -> Result<(gix::Repository, tempfile::TempDir, but_db::DbHandle)> {
     let (repo, tmp) = but_testsupport::writable_scenario_slow(name);
-    let mut meta = but_testsupport::fixture_metadata(
-        repo.path()
-            .join(".git")
-            .join("should-never-be-written.toml"),
-    )?;
+    let mut meta = but_testsupport::in_memory_db();
     // Adoption already ran, so the fixture's worktrees count as active.
 
     meta.worktree_meta_mut().mark_adopted()?;

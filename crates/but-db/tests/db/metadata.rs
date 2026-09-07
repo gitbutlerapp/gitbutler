@@ -1,12 +1,98 @@
 use but_core::{
     WORKSPACE_REF_NAME,
     ref_metadata::{
-        StackId, StackKind, Workspace, WorkspaceCommitRelation, WorkspaceStack,
-        WorkspaceStackBranch,
+        StackId, Workspace, WorkspaceCommitRelation, WorkspaceStack, WorkspaceStackBranch,
     },
 };
 use but_db::DbHandle;
 use gix::refs::FullName;
+
+#[test]
+fn workspaces_are_independent_and_roundtrip_complete_values() -> anyhow::Result<()> {
+    let mut db = DbHandle::new_at_path(":memory:")?;
+    let first: FullName = "refs/heads/gitbutler/workspaces/first".try_into()?;
+    let second: FullName = "refs/heads/gitbutler/workspaces/second".try_into()?;
+    let mut first_value = workspace(&db)?;
+    first_value.ref_info.created_at = Some(gix::date::Time::new(123, 3600));
+    first_value.ref_info.updated_at = Some(gix::date::Time::new(456, -1800));
+    first_value.stacks[0].workspacecommit_relation = WorkspaceCommitRelation::MergeFrom {
+        commit_id: Some(gix::ObjectId::from_hex(
+            b"1111111111111111111111111111111111111111",
+        )?),
+    };
+    let mut second_value = first_value.clone();
+    second_value.stacks[0].workspacecommit_relation =
+        WorkspaceCommitRelation::MergeFrom { commit_id: None };
+    second_value.stacks[0].branches[0].archived = true;
+    db.meta_mut()?.set_workspace(first.as_ref(), &first_value)?;
+    db.meta_mut()?
+        .set_workspace(second.as_ref(), &second_value)?;
+    let metadata = db.meta()?;
+    assert_eq!(
+        metadata.workspace(first.as_ref()),
+        Some(&first_value),
+        "saving another workspace preserves the first workspace's full value"
+    );
+    assert_eq!(
+        metadata.workspace(second.as_ref()),
+        Some(&second_value),
+        "workspaces may share stack IDs and branch refs without sharing their state"
+    );
+    assert_eq!(
+        metadata.workspaces().count(),
+        2,
+        "both workspace refs are stored"
+    );
+    db.meta_mut()?.remove(first.as_ref())?;
+    let metadata = db.meta()?;
+    assert!(
+        metadata.workspace(first.as_ref()).is_none(),
+        "removal applies only to the named workspace"
+    );
+    assert_eq!(
+        metadata.workspace(second.as_ref()),
+        Some(&second_value),
+        "removing another workspace preserves this workspace"
+    );
+    db.meta_mut()?
+        .set_workspace(second.as_ref(), &Workspace::default())?;
+    assert_eq!(
+        db.meta()?.workspace(second.as_ref()),
+        Some(&Workspace::default()),
+        "an explicitly saved empty workspace remains present"
+    );
+    Ok(())
+}
+
+#[test]
+fn ref_metadata_preserves_full_names_and_non_utf8_bytes() -> anyhow::Result<()> {
+    use but_core::ref_metadata::{Branch, RefInfo, Review};
+    use gix::bstr::ByteSlice as _;
+    let mut db = DbHandle::new_at_path(":memory:")?;
+    let name: FullName = b"refs/remotes/origin/feature-\xff".as_bstr().try_into()?;
+    let value = Branch {
+        ref_info: RefInfo {
+            created_at: Some(gix::date::Time::new(17, -3600)),
+            updated_at: Some(gix::date::Time::new(19, 1800)),
+        },
+        review: Review {
+            pull_request: Some(42),
+            review_id: Some("review".into()),
+        },
+    };
+    db.meta_mut()?.set_branch(name.as_ref(), &value)?;
+    assert_eq!(
+        db.meta()?.branch(name.as_ref()),
+        Some(&value),
+        "branch metadata preserves ref namespaces, bytes, timestamps, and reviews"
+    );
+    assert_eq!(
+        db.meta()?.workspaces().count(),
+        0,
+        "saving branch metadata does not invent a workspace or stack"
+    );
+    Ok(())
+}
 
 fn workspace(db: &DbHandle) -> anyhow::Result<Workspace> {
     let mut workspace = db
@@ -68,7 +154,7 @@ fn metadata_is_isolated_and_notifies_only_after_commit() -> anyhow::Result<()> {
     let empty = db.meta()?;
     let workspace = workspace(&db)?;
     let name: FullName = "refs/heads/feature".try_into()?;
-    // This value predates the workspace write: saving it must resolve the current stack.
+    // This value predates the workspace write and can be saved independently of it.
     let mut branch = empty.branch(name.as_ref()).cloned().unwrap_or_default();
     branch.review.pull_request = Some(42);
     let sentinel = dir.path().join("REFRESH");
@@ -142,13 +228,87 @@ fn metadata_is_isolated_and_notifies_only_after_commit() -> anyhow::Result<()> {
 }
 
 #[test]
-fn workspace_failure_rolls_back_branch_order_savepoints() -> anyhow::Result<()> {
+fn metadata_noops_do_not_notify_or_forget_prior_changes() -> anyhow::Result<()> {
+    let dir = tempfile::tempdir()?;
+    let mut db = DbHandle::new_in_directory(dir.path())?;
+    let name: FullName = WORKSPACE_REF_NAME.try_into()?;
+    let value = workspace(&db)?;
+    let branch_name = &value.stacks[0].branches[0].ref_name;
+    let branch = but_core::ref_metadata::Branch::default();
+    db.meta_mut()?.set_workspace(name.as_ref(), &value)?;
+    db.meta_mut()?.set_branch(branch_name.as_ref(), &branch)?;
+    let sentinel = dir.path().join("REFRESH");
+    std::fs::remove_file(&sentinel)?;
+
+    db.meta_mut()?.set_workspace(name.as_ref(), &value)?;
+    db.meta_mut()?.set_branch(branch_name.as_ref(), &branch)?;
+    assert!(
+        !sentinel.exists(),
+        "unchanged standalone workspace and branch saves must not notify"
+    );
+    let mut tx = db.immediate_transaction()?;
+    tx.meta_mut()?.set_workspace(name.as_ref(), &value)?;
+    tx.meta_mut()?.set_branch(branch_name.as_ref(), &branch)?;
+    tx.commit()?;
+    assert!(
+        !sentinel.exists(),
+        "committing only unchanged metadata must not notify"
+    );
+
+    let sql = rusqlite::Connection::open(DbHandle::db_file_path(dir.path()))?;
+    sql.execute_batch(
+        "CREATE TRIGGER reject_bad_branch BEFORE INSERT ON workspace_stack_branches
+         WHEN NEW.ref_name = CAST('refs/heads/reject' AS BLOB)
+         BEGIN SELECT RAISE(ABORT, 'rejected branch'); END;",
+    )?;
+    let mut changed = value.clone();
+    changed.ref_info.updated_at = Some(gix::date::Time::new(123, 0));
+    let mut rejected = changed.clone();
+    rejected.stacks[0].branches[0].ref_name = "refs/heads/reject".try_into()?;
+    let mut tx = db.immediate_transaction()?;
+    let error = tx
+        .meta_mut()?
+        .set_workspace(name.as_ref(), &rejected)
+        .expect_err("the branch trigger must reject the mutation after its timestamp write");
+    assert!(
+        error.to_string().contains("rejected branch"),
+        "the SQL trigger must be the cause of the failed mutation"
+    );
+    assert_eq!(
+        tx.meta()?.workspace(name.as_ref()),
+        Some(&value),
+        "the caught failure must roll back the earlier workspace timestamp write"
+    );
+    tx.meta_mut()?.set_workspace(name.as_ref(), &value)?;
+    tx.commit()?;
+    assert!(
+        !sentinel.exists(),
+        "rolled-back savepoint writes followed by a no-op must not notify on commit"
+    );
+
+    let mut tx = db.immediate_transaction()?;
+    tx.meta_mut()?.set_workspace(name.as_ref(), &changed)?;
+    tx.meta_mut()?.set_workspace(name.as_ref(), &changed)?;
+    assert!(
+        !sentinel.exists(),
+        "a real metadata change must remain private until the outer commit"
+    );
+    tx.commit()?;
+    assert!(
+        sentinel.exists(),
+        "a later no-op must not suppress notification for an earlier real change"
+    );
+    Ok(())
+}
+
+#[test]
+fn invalid_workspace_preserves_metadata_and_order() -> anyhow::Result<()> {
     let dir = tempfile::tempdir()?;
     let mut db = DbHandle::new_in_directory(dir.path())?;
     let mut workspace = workspace(&db)?;
     db.meta_mut()?
         .set_workspace(WORKSPACE_REF_NAME.try_into()?, &workspace)?;
-    let before = db.virtual_branches().get_snapshot()?;
+    let before = db.meta()?;
     let order_before = db.branch_order().get_snapshot()?;
     std::fs::remove_file(dir.path().join("REFRESH"))?;
     workspace.stacks[0].branches.insert(
@@ -158,7 +318,7 @@ fn workspace_failure_rolls_back_branch_order_savepoints() -> anyhow::Result<()> 
             archived: false,
         },
     );
-    // The first stack's order is already written when the second stack is rejected.
+    // Validation rejects the whole value before any writes become observable.
     workspace.stacks.push(WorkspaceStack {
         id: StackId::generate(),
         branches: Vec::new(),
@@ -171,93 +331,18 @@ fn workspace_failure_rolls_back_branch_order_savepoints() -> anyhow::Result<()> 
         "an empty incoming stack is invalid"
     );
     assert_eq!(
-        db.virtual_branches().get_snapshot()?,
+        db.meta()?,
         before,
-        "failed workspace updates preserve all VB rows"
+        "failed workspace updates preserve all metadata"
     );
     assert_eq!(
         db.branch_order().get_snapshot()?,
         order_before,
-        "nested order savepoints roll back with the metadata mutation"
+        "rejected workspace values preserve explicit ordering"
     );
     assert!(
         !dir.path().join("REFRESH").exists(),
         "failed writes must not notify observers"
-    );
-    Ok(())
-}
-
-#[test]
-fn metadata_updates_preserve_raw_fields_and_rename_atomically() -> anyhow::Result<()> {
-    let mut db = DbHandle::new_at_path(":memory:")?;
-    let workspace = workspace(&db)?;
-    db.meta_mut()?
-        .set_workspace(WORKSPACE_REF_NAME.try_into()?, &workspace)?;
-    let mut snapshot = db
-        .virtual_branches()
-        .get_snapshot()?
-        .expect("workspace was saved");
-    snapshot.state.last_pushed_base_sha = Some("1111111111111111111111111111111111111111".into());
-    snapshot.stacks[0].legacy_notes = "keep notes".into();
-    snapshot.stacks[0].legacy_head_sha = "2222222222222222222222222222222222222222".into();
-    snapshot.stacks[0].source_refname = Some("refs/heads/source".into());
-    snapshot.stacks[0].upstream_remote_name = Some("origin".into());
-    snapshot.stacks[0].upstream_branch_name = Some("feature".into());
-    snapshot.heads[0].head_sha = "3333333333333333333333333333333333333333".into();
-    db.meta_mut()?.replace_snapshot(&snapshot)?;
-
-    let old: FullName = "refs/heads/feature".try_into()?;
-    let renamed: FullName = "refs/heads/renamed".try_into()?;
-    let mut branch = db.meta()?.branch(old.as_ref()).cloned().unwrap_or_default();
-    branch.review.pull_request = Some(17);
-    db.meta_mut()?.set_branch(old.as_ref(), &branch)?;
-    snapshot.heads[0].pr_number = Some(17);
-    assert_eq!(
-        db.virtual_branches().get_snapshot()?,
-        Some(snapshot.clone()),
-        "branch writes only change the requested review fields"
-    );
-    db.meta_mut()?
-        .set_workspace(WORKSPACE_REF_NAME.try_into()?, &workspace)?;
-    assert_eq!(
-        db.virtual_branches().get_snapshot()?,
-        Some(snapshot.clone()),
-        "workspace writes retain opaque legacy fields and head ids"
-    );
-
-    db.meta_mut()?
-        .set_branch_stack_order(std::slice::from_ref(&renamed))?;
-    let order = db.branch_order().get_snapshot()?;
-    assert!(
-        db.meta_mut()?
-            .rename(old.as_ref(), renamed.as_ref())
-            .is_err(),
-        "a destination in branch order also prevents rename"
-    );
-    assert_eq!(
-        db.virtual_branches().get_snapshot()?,
-        Some(snapshot.clone()),
-        "rename rejection cannot partially rename managed data"
-    );
-    assert_eq!(
-        db.branch_order().get_snapshot()?,
-        order,
-        "rename rejection preserves ordering"
-    );
-    db.meta_mut()?.remove(renamed.as_ref())?;
-    db.meta_mut()?.rename(old.as_ref(), renamed.as_ref())?;
-    snapshot.heads[0].name = "renamed".into();
-    assert_eq!(
-        db.virtual_branches().get_snapshot()?,
-        Some(snapshot),
-        "rename preserves stack identity and all unrelated fields"
-    );
-    assert_eq!(
-        db.meta()?
-            .branch_stack_order(renamed.as_ref())
-            .map(<[_]>::to_vec),
-        Some(vec![renamed]),
-        "rename moves branch ordering with branch metadata"
     );
     Ok(())
 }
@@ -293,54 +378,371 @@ fn worktree_adoption_composes_with_a_transaction() -> anyhow::Result<()> {
 }
 
 #[test]
-fn workspace_reuses_stack_identity_without_reordering_it_under_a_new_id() -> anyhow::Result<()> {
+fn rename_preserves_workspace_and_branch_values_and_rejects_collisions() -> anyhow::Result<()> {
     let mut db = DbHandle::new_at_path(":memory:")?;
-    let mut workspace = db
-        .meta()?
-        .workspace(WORKSPACE_REF_NAME.try_into()?)
-        .cloned()
-        .unwrap_or_default();
-    for (index, name) in ["A", "B", "C"].into_iter().enumerate() {
-        workspace.stacks.push(WorkspaceStack {
-            id: StackId::from_number_for_testing(index as u128),
-            workspacecommit_relation: WorkspaceCommitRelation::Merged,
-            branches: vec![WorkspaceStackBranch {
-                ref_name: format!("refs/heads/{name}").try_into()?,
-                archived: false,
-            }],
-        });
-    }
+    let old: FullName = "refs/heads/feature".try_into()?;
+    let new: FullName = "refs/heads/renamed".try_into()?;
+    let workspace_name: FullName = "refs/heads/custom-workspace".try_into()?;
+    let mut value = workspace(&db)?;
+    let branch = but_core::ref_metadata::Branch::default();
     db.meta_mut()?
-        .set_workspace(WORKSPACE_REF_NAME.try_into()?, &workspace)?;
-
-    // A graph operation can give an existing branch a fresh projected stack identity.
-    // Reuse its stored identity and order; the remaining C stack takes the vacated position.
-    let mut torn = workspace.stacks.remove(1);
-    let original_id = torn.id;
-    torn.id = StackId::from_number_for_testing(3);
-    workspace.stacks.push(torn);
+        .set_workspace(workspace_name.as_ref(), &value)?;
+    db.meta_mut()?.set_branch(old.as_ref(), &branch)?;
     db.meta_mut()?
-        .set_workspace(WORKSPACE_REF_NAME.try_into()?, &workspace)?;
-
-    let metadata = db.meta()?;
-    let workspace = metadata
-        .workspace(WORKSPACE_REF_NAME.try_into()?)
-        .expect("workspace metadata was saved");
-    assert_eq!(
-        workspace
-            .find_stack_with_branch("refs/heads/B".try_into()?, StackKind::AppliedAndUnapplied)
-            .map(|stack| stack.id),
-        Some(original_id),
-        "the existing branch retains its stored stack identity"
+        .set_branch_stack_order(std::slice::from_ref(&new))?;
+    let before = db.meta()?;
+    assert!(
+        db.meta_mut()?.rename(old.as_ref(), new.as_ref()).is_err(),
+        "renaming cannot overwrite an ordered ref"
     );
+    assert_eq!(
+        db.meta()?,
+        before,
+        "failed renames leave all metadata intact"
+    );
+    db.meta_mut()?.remove(new.as_ref())?;
+    db.meta_mut()?.rename(old.as_ref(), new.as_ref())?;
+    value.stacks[0].branches[0].ref_name = new.clone();
+    assert_eq!(
+        db.meta()?.workspace(workspace_name.as_ref()),
+        Some(&value),
+        "renaming updates full workspace memberships"
+    );
+    assert_eq!(
+        db.meta()?.branch(new.as_ref()),
+        Some(&branch),
+        "renaming preserves all branch fields"
+    );
+    let new_workspace: FullName = "refs/heads/new-workspace".try_into()?;
+    db.meta_mut()?
+        .rename(workspace_name.as_ref(), new_workspace.as_ref())?;
+    assert_eq!(
+        db.meta()?.workspace(new_workspace.as_ref()),
+        Some(&value),
+        "workspace renaming cascades through every stack and branch"
+    );
+    Ok(())
+}
+
+#[test]
+fn snapshot_restoration_is_atomic_and_preserves_all_refs() -> anyhow::Result<()> {
+    let mut db = DbHandle::new_at_path(":memory:")?;
+    let name: FullName = "refs/heads/custom-workspace".try_into()?;
+    let value = workspace(&db)?;
+    db.meta_mut()?.set_workspace(name.as_ref(), &value)?;
+    let snapshot = db.meta()?;
+    // Duplicate reference names are invalid even if the payload arrived through deserialization.
+    let invalid = but_db::Metadata::from_parts(
+        vec![(name.clone(), value.clone()), (name.clone(), value)],
+        vec![],
+        vec![],
+    );
+    assert!(
+        db.meta_mut()?.replace_snapshot(&invalid).is_err(),
+        "invalid snapshots fail before replacement starts"
+    );
+    assert_eq!(
+        db.meta()?,
+        snapshot,
+        "failed restores preserve the complete prior snapshot"
+    );
+    db.meta_mut()?
+        .replace_snapshot(&but_db::Metadata::default())?;
+    assert!(
+        db.meta()?.workspaces().next().is_none(),
+        "explicit empty snapshots clear metadata"
+    );
+    db.meta_mut()?.replace_snapshot(&snapshot)?;
+    assert_eq!(
+        db.meta()?,
+        snapshot,
+        "snapshots roundtrip every ref and all workspace details"
+    );
+    Ok(())
+}
+
+#[test]
+fn per_ref_migration_preserves_values_and_removes_singleton_tables() -> anyhow::Result<()> {
+    let dir = tempfile::tempdir()?;
+    let path = dir.path().join("migration.sqlite");
+    let mut conn = rusqlite::Connection::open(&path)?;
+    // The final migration group replaces the singleton schema. Seed the previous schema directly
+    // so the test exercises real upgrades without keeping its obsolete Rust structures alive.
+    but_db::migration::run(
+        &mut conn,
+        but_db::MIGRATIONS[..but_db::MIGRATIONS.len() - 1]
+            .iter()
+            .flat_map(|group| group.iter())
+            .copied(),
+    )?;
+    conn.execute_batch("INSERT INTO vb_state (id, initialized) VALUES (1, 1);
+        INSERT INTO vb_stacks (id, sort_order, in_workspace) VALUES ('00000000-0000-0000-0000-000000000001', 7, 1), ('00000000-0000-0000-0000-000000000002', 3, 0);
+        INSERT INTO vb_stack_heads (stack_id, position, name, head_sha, pr_number, archived, review_id) VALUES
+        ('00000000-0000-0000-0000-000000000001', 0, 'base', '', 42, 1, 'review'),
+        ('00000000-0000-0000-0000-000000000001', 1, 'tip', '', NULL, 0, NULL),
+        ('00000000-0000-0000-0000-000000000002', 0, 'outside', '', NULL, 0, NULL);")?;
+    let db = DbHandle::new_at_path(&path)?;
+    let snapshot = db.meta()?;
+    let workspace = snapshot
+        .workspace(WORKSPACE_REF_NAME.try_into()?)
+        .expect("existing singleton workspace was migrated");
     assert_eq!(
         workspace
             .stacks
             .iter()
-            .map(|stack| stack.branches[0].ref_name.shorten().to_string())
+            .map(|stack| stack.id)
             .collect::<Vec<_>>(),
-        ["A", "B", "C"],
-        "the reused B stack keeps its order and sorts before C at the same position"
+        [
+            StackId::from_number_for_testing(2),
+            StackId::from_number_for_testing(1)
+        ],
+        "migration preserves display order and stack identity"
+    );
+    assert_eq!(
+        workspace.stacks[0].workspacecommit_relation,
+        WorkspaceCommitRelation::Outside,
+        "unapplied stacks remain outside"
+    );
+    assert_eq!(
+        workspace.stacks[1]
+            .branches
+            .iter()
+            .map(|branch| branch.ref_name.shorten().to_string())
+            .collect::<Vec<_>>(),
+        ["tip", "base"],
+        "old base-to-tip heads are migrated into tip-to-base order"
+    );
+    assert!(
+        workspace.stacks[1].branches[1].archived,
+        "archived membership survives migration"
+    );
+    assert_eq!(
+        workspace.ref_info.created_at,
+        Some(gix::date::Time::new(1675176957, 0)),
+        "migration preserves the previous managed-workspace marker"
+    );
+    assert_eq!(
+        snapshot
+            .branch("refs/heads/base".try_into()?)
+            .map(|branch| &branch.review),
+        Some(&but_core::ref_metadata::Review {
+            pull_request: Some(42),
+            review_id: Some("review".into())
+        }),
+        "branch review data is independent from stack membership"
+    );
+    let tables: i64 = conn.query_row(
+        "SELECT count(*) FROM sqlite_master WHERE type = 'table' AND name LIKE 'vb_%'",
+        [],
+        |row| row.get(0),
+    )?;
+    assert_eq!(
+        tables, 0,
+        "the old singleton tables must be removed entirely"
+    );
+    assert!(
+        but_db::migration::run(
+            &mut conn,
+            but_db::MIGRATIONS[..but_db::MIGRATIONS.len() - 1]
+                .iter()
+                .flat_map(|group| group.iter())
+                .copied()
+        )
+        .is_err(),
+        "older binaries reject the incompatible database"
+    );
+    Ok(())
+}
+
+#[test]
+fn migration_discards_workspace_derived_branch_order_and_preserves_ad_hoc_chains()
+-> anyhow::Result<()> {
+    let dir = tempfile::tempdir()?;
+    let path = dir.path().join("branch-order-migration.sqlite");
+    let mut conn = rusqlite::Connection::open(&path)?;
+    but_db::migration::run(
+        &mut conn,
+        but_db::MIGRATIONS[..but_db::MIGRATIONS.len() - 1]
+            .iter()
+            .flat_map(|group| group.iter())
+            .copied(),
+    )?;
+    conn.execute_batch(
+        "INSERT INTO vb_state (id, initialized) VALUES (1, 1);
+        INSERT INTO vb_stacks (id, sort_order, in_workspace) VALUES
+            ('00000000-0000-0000-0000-000000000001', 0, 1),
+            ('00000000-0000-0000-0000-000000000002', 1, 0);
+        INSERT INTO vb_stack_heads (stack_id, position, name, head_sha) VALUES
+            ('00000000-0000-0000-0000-000000000001', 0, 'bottom', ''),
+            ('00000000-0000-0000-0000-000000000001', 1, 'middle', ''),
+            ('00000000-0000-0000-0000-000000000001', 2, 'top', ''),
+            ('00000000-0000-0000-0000-000000000002', 0, 'extended-base', ''),
+            ('00000000-0000-0000-0000-000000000002', 1, 'extended-tip', '');
+        INSERT INTO branch_order (branch_ref_name, parent_ref_name) VALUES
+            ('refs/heads/top', 'refs/heads/middle'),
+            ('refs/heads/middle', 'refs/heads/bottom'),
+            ('refs/heads/bottom', NULL),
+            ('refs/heads/independent-tip', 'refs/heads/independent-base'),
+            ('refs/heads/independent-base', NULL),
+            ('refs/heads/extra', 'refs/heads/extended-tip'),
+            ('refs/heads/extended-tip', 'refs/heads/extended-base'),
+            ('refs/heads/extended-base', NULL);",
+    )?;
+
+    let mut db = DbHandle::new_at_path(&path)?;
+    let workspace_ref = WORKSPACE_REF_NAME.try_into()?;
+    let top: FullName = "refs/heads/top".try_into()?;
+    let middle: FullName = "refs/heads/middle".try_into()?;
+    let bottom: FullName = "refs/heads/bottom".try_into()?;
+    let mut workspace = db
+        .meta()?
+        .workspace(workspace_ref)
+        .expect("the legacy workspace was migrated")
+        .clone();
+
+    // The old workspace writer duplicated this chain into branch_order. After migration,
+    // its order must follow workspace edits instead of acting as an explicit override.
+    workspace.stacks[0].branches.reverse();
+    db.meta_mut()?.set_workspace(workspace_ref, &workspace)?;
+    assert_eq!(
+        db.meta()?.branch_stack_order(top.as_ref()),
+        Some([bottom.clone(), middle.clone(), top.clone()].as_slice()),
+        "migrated workspace order must follow a later reorder"
+    );
+
+    let split_branches = workspace.stacks[0].branches.split_off(2);
+    workspace.stacks.push(WorkspaceStack {
+        id: StackId::from_number_for_testing(3),
+        branches: split_branches,
+        workspacecommit_relation: WorkspaceCommitRelation::Merged,
+    });
+    db.meta_mut()?.set_workspace(workspace_ref, &workspace)?;
+    let metadata = db.meta()?;
+    assert_eq!(
+        metadata.branch_stack_order(top.as_ref()),
+        Some(std::slice::from_ref(&top)),
+        "splitting a workspace stack must not restore its old chain"
+    );
+    assert_eq!(
+        metadata.branch_stack_order(bottom.as_ref()),
+        Some([bottom, middle].as_slice()),
+        "the remaining workspace stack retains its new order"
+    );
+
+    let remaining_orders = metadata.branch_orders().collect::<Vec<_>>();
+    assert_eq!(
+        remaining_orders.len(),
+        2,
+        "only the independent and extended ad-hoc chains remain explicit"
+    );
+    for names in [
+        &["independent-tip", "independent-base"][..],
+        &["extra", "extended-tip", "extended-base"][..],
+    ] {
+        let expected = names
+            .iter()
+            .map(|name| format!("refs/heads/{name}").try_into())
+            .collect::<Result<Vec<FullName>, _>>()?;
+        assert!(
+            remaining_orders.contains(&expected.as_slice()),
+            "migration preserves independent ad-hoc orders, including a chain extending a workspace stack"
+        );
+    }
+    Ok(())
+}
+
+#[test]
+fn workspace_saves_touch_only_changed_rows_and_roll_back_sql_failures() -> anyhow::Result<()> {
+    let dir = tempfile::tempdir()?;
+    let path = dir.path().join("metadata.sqlite");
+    let mut db = DbHandle::new_at_path(&path)?;
+    let mut value = workspace(&db)?;
+    let name: FullName = WORKSPACE_REF_NAME.try_into()?;
+    value.stacks[0].branches.push(WorkspaceStackBranch {
+        ref_name: "refs/heads/base".try_into()?,
+        archived: false,
+    });
+    db.meta_mut()?.set_workspace(name.as_ref(), &value)?;
+    let sql = rusqlite::Connection::open(&path)?;
+    sql.execute_batch("CREATE TABLE observed_writes (name TEXT NOT NULL);
+        CREATE TRIGGER observe_workspace AFTER UPDATE ON workspace_metadata BEGIN INSERT INTO observed_writes VALUES ('workspace'); END;
+        CREATE TRIGGER observe_stack AFTER UPDATE ON workspace_stacks BEGIN INSERT INTO observed_writes VALUES ('stack'); END;
+        CREATE TRIGGER observe_branch AFTER UPDATE ON workspace_stack_branches BEGIN INSERT INTO observed_writes VALUES ('branch'); END;
+        CREATE TRIGGER reject_bad_branch BEFORE INSERT ON workspace_stack_branches WHEN NEW.ref_name = CAST('refs/heads/reject' AS BLOB) BEGIN SELECT RAISE(ABORT, 'rejected branch'); END;")?;
+    db.meta_mut()?.set_workspace(name.as_ref(), &value)?;
+    let writes = || -> rusqlite::Result<i64> {
+        sql.query_row("SELECT count(*) FROM observed_writes", [], |row| row.get(0))
+    };
+    assert_eq!(
+        writes()?,
+        0,
+        "saving an unchanged Rust value does not update any rows"
+    );
+    value.stacks[0].branches[1].archived = true;
+    db.meta_mut()?.set_workspace(name.as_ref(), &value)?;
+    assert_eq!(
+        writes()?,
+        1,
+        "one archived flag changes only its branch membership row"
+    );
+    let before = db.meta()?;
+    value.stacks[0].branches[0].archived = true;
+    value.stacks[0].branches[1].ref_name = "refs/heads/reject".try_into()?;
+    assert!(
+        db.meta_mut()?.set_workspace(name.as_ref(), &value).is_err(),
+        "an SQL failure rejects the entire workspace value"
+    );
+    assert_eq!(
+        db.meta()?,
+        before,
+        "earlier successful statements roll back with the rejected row"
+    );
+    assert_eq!(
+        writes()?,
+        1,
+        "the write observer rolls back with failed writes"
+    );
+    Ok(())
+}
+
+#[test]
+fn ad_hoc_order_is_unambiguous_and_does_not_mutate_workspace_order() -> anyhow::Result<()> {
+    let mut db = DbHandle::new_at_path(":memory:")?;
+    let first: FullName = "refs/heads/gitbutler/workspaces/first".try_into()?;
+    let second: FullName = "refs/heads/gitbutler/workspaces/second".try_into()?;
+    let mut value = workspace(&db)?;
+    let tip = value.stacks[0].branches[0].ref_name.clone();
+    let base: FullName = "refs/heads/base".try_into()?;
+    value.stacks[0].branches.push(WorkspaceStackBranch {
+        ref_name: base.clone(),
+        archived: false,
+    });
+    db.meta_mut()?.set_workspace(first.as_ref(), &value)?;
+    let mut reversed = value.clone();
+    reversed.stacks[0].branches.reverse();
+    db.meta_mut()?.set_workspace(second.as_ref(), &reversed)?;
+    assert!(
+        db.meta()?.branch_stack_order(tip.as_ref()).is_none(),
+        "ad-hoc checkout must not pick between conflicting workspace orders"
+    );
+    db.meta_mut()?
+        .set_branch_stack_order(&[tip.clone(), base.clone()])?;
+    let metadata = db.meta()?;
+    assert_eq!(
+        metadata.branch_stack_order(tip.as_ref()),
+        Some([tip.clone(), base].as_slice()),
+        "explicit ad-hoc order resolves the ambiguity"
+    );
+    assert_eq!(
+        metadata.workspace(second.as_ref()),
+        Some(&reversed),
+        "ad-hoc ordering does not overwrite a workspace's own order"
+    );
+    db.meta_mut()?.remove(first.as_ref())?;
+    assert_eq!(
+        db.meta()?.workspace(second.as_ref()),
+        Some(&reversed),
+        "deleting one workspace preserves the other's order"
     );
     Ok(())
 }

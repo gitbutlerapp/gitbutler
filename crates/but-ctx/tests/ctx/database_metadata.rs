@@ -30,7 +30,7 @@ fn uninitialized_database_does_not_import_live_toml() -> anyhow::Result<()> {
     let ctx = Context::from_repo_for_testing(gix::init(tmp.path())?)?;
     std::fs::create_dir_all(ctx.project_data_dir())?;
     let path = ctx.project_data_dir().join("virtual_branches.toml");
-    let original = include_str!("../../../but-meta/tests/fixtures/legacy/virtual-branches-01.toml");
+    let original = "legacy metadata must never be parsed [";
     std::fs::write(&path, original)?;
 
     let meta = ctx.db.get_cache()?.meta()?;
@@ -49,21 +49,15 @@ fn uninitialized_database_does_not_import_live_toml() -> anyhow::Result<()> {
 fn database_metadata_ignores_changed_live_toml() -> anyhow::Result<()> {
     let tmp = TempDir::new()?;
     let ctx = Context::from_repo_for_testing(gix::init(tmp.path())?)?;
-    let expected = but_db::VirtualBranchesSnapshot {
-        state: but_db::VbState {
-            initialized: true,
-            ..Default::default()
-        },
-        ..Default::default()
-    };
     ctx.db
         .get_cache_mut()?
-        .virtual_branches_mut()?
-        .replace_snapshot(&expected)?;
+        .meta_mut()?
+        .set_branch("refs/heads/main".try_into()?, &Default::default())?;
+    let expected = ctx.db.get_cache()?.meta()?;
     let path = ctx.project_data_dir().join("virtual_branches.toml");
     for original in [
         "this is not valid TOML [",
-        include_str!("../../../but-meta/tests/fixtures/legacy/virtual-branches-01.toml"),
+        "[metadata]\nvalue = 'live TOML is ignored'\n",
     ] {
         std::fs::write(&path, original)?;
         drop(ctx.db.get_cache()?.meta()?);
@@ -73,8 +67,8 @@ fn database_metadata_ignores_changed_live_toml() -> anyhow::Result<()> {
             "metadata reads do not repair TOML"
         );
         assert_eq!(
-            ctx.db.get_cache()?.virtual_branches().get_snapshot()?,
-            Some(expected.clone()),
+            ctx.db.get_cache()?.meta()?,
+            expected,
             "TOML cannot change database state"
         );
     }
