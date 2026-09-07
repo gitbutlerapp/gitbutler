@@ -17,6 +17,7 @@ use but_oplog::legacy::SnapshotDetails;
 use but_rebase::graph_rebase::{
     Editor, LookupStep as _, Step, SuccessfulRebase,
     mutate::{InsertSide, RelativeTo},
+    recovery::{CheckoutSnapshot, GitRecovery},
 };
 use but_workspace::branch::create_reference::Anchor;
 use but_workspace::commit::{
@@ -43,7 +44,10 @@ pub mod single_branch_mode;
 /// This allows chaining multiple operations and having them all succeed or fail together.
 ///
 /// Database changes share one SQLite transaction and become visible only on commit.
-/// Git references and worktree changes retain the existing best-effort rollback behavior.
+/// Completed Git reference and checkout changes are restored on late failures, including a
+/// rejected database commit. Recovery refuses to overwrite detected independent ref/index
+/// edits and reports failures to safely restore files. Native partial I/O failures remain
+/// best-effort; this is not a cross-resource or crash-atomic transaction.
 ///
 /// # Committing
 ///
@@ -145,21 +149,26 @@ where
         let context_lines = ctx.settings.context_lines;
         let (repo, mut ws, mut db) = ctx.workspace_mut_and_db_mut_with_perm(perm)?;
         let mut sql_transaction = db.immediate_transaction()?;
+        let worktree_names = ws
+            .graph
+            .worktree_tips
+            .iter()
+            .map(|tip| tip.name.clone())
+            .collect::<Vec<_>>();
         let editor = Editor::create(&mut ws, &repo, sql_transaction.connection_mut())?;
         let rebase = editor.rebase()?;
 
         let mut inner = Inner {
             rebase: Some(rebase),
             commit_mappings: CommitMappings::default(),
-            pending_ref_changes: PendingRefChanges::default(),
+            pending_ref_changes: GitRecovery::default(),
             pending_checkout: None,
             context_lines,
         };
         let callback_outcome = match f(Transaction { inner: &mut inner }) {
             Ok(outcome) => outcome,
             Err(err) => {
-                inner.pending_ref_changes.rollback(&repo)?;
-                return Err(err);
+                return Err(inner.pending_ref_changes.rollback_error(&repo, err));
             }
         };
         let Inner {
@@ -175,34 +184,65 @@ where
             drop(rebase);
             Ok(None)
         } else {
-            workspace_state_from_rebase(
-                rebase,
-                &repo,
-                FinalizeOptions {
-                    checkout: pending_checkout,
-                    dry_run,
-                },
-            )
-            .map(Some)
+            (|| {
+                if matches!(dry_run, DryRun::No) {
+                    let rebase_checks_out = rebase.references_updated()?;
+                    if rebase_checks_out || pending_checkout.is_some() {
+                        pending_ref_changes.capture_checkouts(
+                            &repo,
+                            if rebase_checks_out {
+                                &worktree_names
+                            } else {
+                                &[]
+                            },
+                        )?;
+                    }
+                }
+                let workspace = workspace_state_from_rebase(
+                    rebase,
+                    &repo,
+                    FinalizeOptions {
+                        checkout: pending_checkout,
+                        dry_run,
+                    },
+                    &mut pending_ref_changes.committed,
+                    &mut pending_ref_changes.checkouts,
+                )
+                .map(Some);
+                let heads = pending_ref_changes.record_materialized_heads();
+                match (workspace, heads) {
+                    (Err(err), Err(head_error)) => Err(err.context(format!(
+                        "Could not record materialized HEAD: {head_error:#}"
+                    ))),
+                    (Err(err), _) | (_, Err(err)) => Err(err),
+                    (Ok(workspace), Ok(())) => Ok(workspace),
+                }
+            })()
         };
         let workspace = match workspace {
             Ok(workspace) => workspace,
             Err(err) => {
-                pending_ref_changes.rollback(&repo)?;
-                return Err(err);
+                return Err(pending_ref_changes.rollback_error(&repo, err));
             }
         };
         if should_rollback || dry_run.into() {
             pending_ref_changes.rollback(&repo)?;
             sql_transaction.rollback()?;
-        } else {
-            sql_transaction.commit()?;
+        } else if let Err(err) = sql_transaction.commit() {
+            return Err(pending_ref_changes.rollback_error(&repo, err.into()));
         }
         Ok((should_rollback, callback_outcome.into_outcome(workspace)))
     })();
     // Release the editor/database borrows before discarding a projection of rolled-back state.
-    if result.is_err() || dry_run.into() || matches!(&result, Ok((true, _))) {
-        ctx.invalidate_workspace_cache()?;
+    if (result.is_err() || dry_run.into() || matches!(&result, Ok((true, _))))
+        && let Err(cache_error) = ctx.invalidate_workspace_cache()
+    {
+        return match result {
+            Err(err) => Err(err.context(format!(
+                "Could not invalidate workspace cache: {cache_error:#}"
+            ))),
+            Ok(_) => Err(cache_error),
+        };
     }
     result
 }
@@ -222,7 +262,7 @@ struct Inner<'rebase, 'conn> {
     // an Option so we can "take" the rebase, convert it into an editor, perform another rebase,
     // and put the result back.
     rebase: Option<SuccessfulRebase<'rebase, 'rebase, 'conn>>,
-    pending_ref_changes: PendingRefChanges,
+    pending_ref_changes: GitRecovery,
     // A checkout cannot happen until the in-memory rebase and its references are materialized.
     pending_checkout: Option<FullName>,
     // Commits given to `squash_commits`, `reword_commit`, etc are allowed to be the original
@@ -516,15 +556,13 @@ impl<'rebase, 'conn> Transaction<'_, 'rebase, 'conn> {
         }
         but_core::branch::refuse_colliding_refname(self.repo(), ref_name, None)?;
         let commit_id = self.inner.commit_mappings.map(commit_id);
-        self.repo().reference(
-            ref_name,
+        let edits = self.repo().edit_reference(RefEdit::update(
+            ref_name.to_owned(),
             commit_id,
-            gix::refs::transaction::PreviousValue::MustNotExist,
+            PreviousValue::MustNotExist,
             format!("create {ref_name}"),
-        )?;
-        self.inner
-            .pending_ref_changes
-            .record_eager_create(ref_name, None);
+        ))?;
+        self.inner.pending_ref_changes.committed.extend(edits);
         // Preserve GitButler-created branch identity, including when it later becomes empty,
         // without recording a stack relationship with the branch owning the base commit.
         let mut branch = ref_metadata::Branch::default();
@@ -847,62 +885,6 @@ struct FinalizeOptions {
 }
 
 #[derive(Debug, Default)]
-struct PendingRefChanges {
-    eagerly_created_refs: Vec<EagerlyCreatedRef>,
-}
-
-impl PendingRefChanges {
-    fn record_eager_create(&mut self, ref_name: &FullNameRef, previous: Option<gix::refs::Target>) {
-        self.eagerly_created_refs.push(EagerlyCreatedRef {
-            name: ref_name.to_owned(),
-            previous,
-        });
-    }
-
-    fn remove_eagerly_created_ref(
-        &mut self,
-        repo: &gix::Repository,
-        ref_name: &FullNameRef,
-    ) -> anyhow::Result<()> {
-        if let Some(created_ref_index) = self.eagerly_created_refs.iter().position(|created_ref| {
-            created_ref.name.as_ref() == ref_name && created_ref.previous.is_none()
-        }) {
-            let created_ref = self.eagerly_created_refs.remove(created_ref_index);
-            Self::restore_one(repo, created_ref)?;
-        }
-        Ok(())
-    }
-
-    fn rollback(&mut self, repo: &gix::Repository) -> anyhow::Result<()> {
-        for created_ref in self.eagerly_created_refs.drain(..).rev() {
-            Self::restore_one(repo, created_ref)?;
-        }
-        Ok(())
-    }
-
-    fn restore_one(repo: &gix::Repository, created_ref: EagerlyCreatedRef) -> anyhow::Result<()> {
-        let EagerlyCreatedRef { name, previous } = created_ref;
-        match previous {
-            Some(target) => {
-                repo.edit_references([RefEdit::update(name, target, PreviousValue::Any, "")])?;
-            }
-            None => {
-                if repo.try_find_reference(name.as_ref())?.is_some() {
-                    repo.edit_references([RefEdit::delete(name, PreviousValue::MustExist)])?;
-                }
-            }
-        }
-        Ok(())
-    }
-}
-
-#[derive(Debug)]
-struct EagerlyCreatedRef {
-    name: FullName,
-    previous: Option<gix::refs::Target>,
-}
-
-#[derive(Debug, Default)]
 struct CommitMappings(BTreeMap<gix::ObjectId, gix::ObjectId>);
 
 impl CommitMappings {
@@ -1013,6 +995,8 @@ fn workspace_state_from_rebase(
     rebase: SuccessfulRebase<'_, '_, '_>,
     repo: &gix::Repository,
     options: FinalizeOptions,
+    committed_ref_edits: &mut Vec<RefEdit>,
+    checkouts: &mut [CheckoutSnapshot],
 ) -> anyhow::Result<WorkspaceState> {
     let FinalizeOptions {
         checkout: pending_checkout,
@@ -1041,9 +1025,20 @@ fn workspace_state_from_rebase(
         );
     }
 
-    let mut materialized = rebase.materialize(Default::default())?;
+    let mut on_checkout = |repo: &gix::Repository, target| {
+        checkouts
+            .iter_mut()
+            .find(|checkout| checkout.repo.index_path() == repo.index_path())
+            .context("BUG: each materialized worktree has a recovery snapshot")?
+            .record_checkout(target)
+    };
+    let mut materialized = rebase.materialize_with_changes(
+        Default::default(),
+        committed_ref_edits,
+        &mut on_checkout,
+    )?;
     if let Some(branch) = pending_checkout {
-        checkout_reference(repo, branch.as_ref())?;
+        checkout_reference(repo, branch.as_ref(), committed_ref_edits, &mut on_checkout)?;
         let project_meta = materialized.workspace.graph.project_meta.clone();
         materialized
             .workspace
@@ -1073,7 +1068,12 @@ fn resolve_checkout_target(
     Ok(target)
 }
 
-fn checkout_reference(repo: &gix::Repository, reference_name: &FullNameRef) -> anyhow::Result<()> {
+fn checkout_reference(
+    repo: &gix::Repository,
+    reference_name: &FullNameRef,
+    committed_ref_edits: &mut Vec<RefEdit>,
+    on_checkout: &mut impl FnMut(&gix::Repository, ObjectId) -> anyhow::Result<()>,
+) -> anyhow::Result<()> {
     let current_head = repo
         .head_id()
         .context("Cannot check out a branch while HEAD is unborn")?
@@ -1095,15 +1095,18 @@ fn checkout_reference(repo: &gix::Repository, reference_name: &FullNameRef) -> a
             reference_name.as_bstr()
         )
     })?;
-    update_head_reference(
-        repo,
-        Target::Symbolic(reference_name.to_owned()),
-        false,
-        "checkout",
-        reference_name.as_bstr(),
-        target_commit.parent_ids().count(),
-    )
-    .with_context(|| format!("Could not update HEAD to '{}'", reference_name.as_bstr()))?;
+    on_checkout(repo, target)?;
+    committed_ref_edits.extend(
+        update_head_reference(
+            repo,
+            Target::Symbolic(reference_name.to_owned()),
+            false,
+            "checkout",
+            reference_name.as_bstr(),
+            target_commit.parent_ids().count(),
+        )
+        .with_context(|| format!("Could not update HEAD to '{}'", reference_name.as_bstr()))?,
+    );
     Ok(())
 }
 

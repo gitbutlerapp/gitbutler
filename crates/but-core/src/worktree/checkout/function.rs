@@ -17,7 +17,7 @@ use super::{Options, Outcome, consumed};
 /// `new_head_id^{tree}`.
 ///
 /// If `new_head_id` is a *commit*, we will also set `HEAD` (or the ref it points to if symbolic) to the `new_head_id`.
-/// We will also update the `.git/index` to match the `new_head_id^{tree}`.
+/// Unless [`Options::skip_index_update`] is set, we also update `.git/index` to match the checkout.
 /// GitButler-conflicted commits are rejected by default before any worktree, index, or ref update.
 ///
 /// We will always handle changes in the worktree safely to avoid loss of uncommitted information. This also means that deletions
@@ -34,6 +34,7 @@ pub fn safe_checkout_from_head(
     repo: &gix::Repository,
     Options {
         skip_head_update,
+        skip_index_update,
         merge_base_override,
         allow_conflicted_commit_checkout,
         allow_uncommitted_changes_to_conflict_with_new_head,
@@ -56,14 +57,16 @@ pub fn safe_checkout_from_head(
     let old_tree = match merge_base_override {
         Some(id) => {
             let tree = repo.find_object(id)?.peel_to_tree()?.id;
-            let mut index = repo
-                .index_or_empty()
-                .context("reading the index")?
-                .into_owned_or_cloned();
-            if consumed::carry_into_index(repo, &mut index, [head_tree_id, tree])? {
-                index
-                    .write(Default::default())
-                    .context("writing the index moved forward by the consumed changes")?;
+            if !skip_index_update {
+                let mut index = repo
+                    .index_or_empty()
+                    .context("reading the index")?
+                    .into_owned_or_cloned();
+                if consumed::carry_into_index(repo, &mut index, [head_tree_id, tree])? {
+                    index
+                        .write(Default::default())
+                        .context("writing the index moved forward by the consumed changes")?;
+                }
             }
             git2_repo.find_tree(tree.to_git2())?
         }
@@ -164,7 +167,9 @@ pub fn safe_checkout_from_head(
         }
 
         let mut checkout_opts = git2::build::CheckoutBuilder::new();
-        checkout_opts.baseline(&wd_tree);
+        checkout_opts
+            .baseline(&wd_tree)
+            .update_index(!skip_index_update);
         git2_repo.checkout_index(Some(&mut checkout_target), Some(&mut checkout_opts))?;
     }
 
@@ -189,7 +194,7 @@ pub fn safe_checkout_from_head(
         }
     }
 
-    if old_tree.id() != new_tree.id() {
+    if !skip_index_update && old_tree.id() != new_tree.id() {
         remove_index_entries_deleted_on_both_sides(
             repo,
             old_tree.id().to_gix(),

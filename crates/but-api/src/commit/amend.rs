@@ -46,7 +46,7 @@ pub(crate) fn commit_amend_only_impl(
     perm: &mut RepoExclusive,
 ) -> anyhow::Result<CommitCreateResult> {
     let worktree = crate::worktrees::open_changes_source(ctx, changes_source)?;
-    crate::workspace::with_workspace_transaction(ctx, perm, dry_run, |repo, ws, db| {
+    crate::workspace::with_workspace_transaction(ctx, perm, dry_run, |repo, ws, db, recovery| {
         let editor = Editor::create(ws, repo, db.connection_mut())?;
 
         let but_workspace::commit::CommitAmendOutcome {
@@ -69,7 +69,8 @@ pub(crate) fn commit_amend_only_impl(
         let new_commit = commit_selector
             .map(|commit_selector| rebase.lookup_pick(commit_selector))
             .transpose()?;
-        let workspace = WorkspaceState::from_successful_rebase(rebase, repo, dry_run)?;
+        let workspace =
+            WorkspaceState::from_successful_rebase_with_recovery(rebase, repo, dry_run, recovery)?;
 
         Ok(CommitCreateResult {
             new_commit,

@@ -52,13 +52,14 @@ pub fn commit_discard_only_with_perm(
     perm: &mut RepoExclusive,
 ) -> anyhow::Result<CommitDiscardResult> {
     let subject_commit_ids = unique_subject_commit_ids(subject_commit_ids)?;
-    crate::workspace::with_workspace_transaction(ctx, perm, dry_run, |repo, ws, db| {
+    crate::workspace::with_workspace_transaction(ctx, perm, dry_run, |repo, ws, db, recovery| {
         let editor = Editor::create(ws, repo, db.connection_mut())?;
 
         let rebase =
             but_workspace::commit::discard_commits(editor, subject_commit_ids.iter().copied())?;
 
-        let workspace = WorkspaceState::from_successful_rebase(rebase, repo, dry_run)?;
+        let workspace =
+            WorkspaceState::from_successful_rebase_with_recovery(rebase, repo, dry_run, recovery)?;
 
         Ok(CommitDiscardResult {
             discarded_commits: subject_commit_ids,
@@ -158,12 +159,17 @@ pub fn commit_discard_changes_only_with_perm(
     perm: &mut RepoExclusive,
 ) -> anyhow::Result<MoveChangesResult> {
     let context_lines = ctx.settings.context_lines;
-    crate::workspace::with_workspace_transaction(ctx, perm, dry_run, |repo, ws, db| {
+    crate::workspace::with_workspace_transaction(ctx, perm, dry_run, |repo, ws, db, recovery| {
         let editor = Editor::create(ws, repo, db.connection_mut())?;
 
         let outcome =
             but_workspace::commit::uncommit_changes(editor, commit_id, changes, context_lines)?;
-        let workspace = WorkspaceState::from_successful_rebase(outcome.rebase, repo, dry_run)?;
+        let workspace = WorkspaceState::from_successful_rebase_with_recovery(
+            outcome.rebase,
+            repo,
+            dry_run,
+            recovery,
+        )?;
 
         Ok(MoveChangesResult { workspace })
     })

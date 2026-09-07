@@ -1232,3 +1232,6 @@ fn remove_references() {
 
     assert_num_snapshots(&ctx, 1);
 }
+
+mod late_failure;
+mod linked_late_failure;

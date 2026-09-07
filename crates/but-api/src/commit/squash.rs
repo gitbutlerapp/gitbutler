@@ -53,7 +53,7 @@ pub fn commit_squash_only_with_perm(
     if subject_commit_ids.is_empty() {
         anyhow::bail!("No commits were provided to squash")
     }
-    crate::workspace::with_workspace_transaction(ctx, perm, dry_run, |repo, ws, db| {
+    crate::workspace::with_workspace_transaction(ctx, perm, dry_run, |repo, ws, db, recovery| {
         let editor = Editor::create(ws, repo, db.connection_mut())?;
         let SquashCommitsOutcome {
             rebase,
@@ -65,7 +65,8 @@ pub fn commit_squash_only_with_perm(
             how_to_combine_messages,
         )?;
         let new_commit = rebase.lookup_pick(commit_selector)?;
-        let workspace = WorkspaceState::from_successful_rebase(rebase, repo, dry_run)?;
+        let workspace =
+            WorkspaceState::from_successful_rebase_with_recovery(rebase, repo, dry_run, recovery)?;
 
         Ok(CommitSquashResult {
             new_commit,

@@ -2086,6 +2086,7 @@ dependencies = [
  "but-workspace",
  "gitbutler-branch-actions",
  "gix",
+ "rusqlite",
  "snapbox",
  "tracing",
 ]
