@@ -266,19 +266,19 @@ export const Section: FC<{
 	/** The ref's tip on the base: one row for both. Moved on: the row says how far. */
 	const baseHeader = (className?: string) => (
 		<Header
-			label={plan.refOnBase ? plan.header.label : "Merge base"}
+			label={plan.refOnBase ? plan.header.label : "Base"}
 			caption={
 				plan.refOnBase ? (
-					<span className={classes("text-12", styles.caption)}>merge base</span>
+					<span className={classes("text-12", styles.caption)}>base</span>
 				) : branched ? (
-					<span className={classes("text-12", styles.incoming)}>{plan.header.incoming} new</span>
+					<span className={classes("text-12", styles.incoming)}>{plan.header.incoming} behind</span>
 				) : undefined
 			}
 			heading={plan.refOnBase}
 			fold={{
 				open: plan.baseExpanded,
 				onToggle: toggleBase,
-				name: "the merge base's history",
+				name: "the base's history",
 			}}
 			rail={<GraphSegment glyph="control" status="LocalOnly" railEnds={!plan.baseExpanded} />}
 			className={className}
