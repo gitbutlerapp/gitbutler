@@ -63,7 +63,14 @@ import {
 import styles from "./WorkspaceLists.module.css";
 import { Row, RowLabel, RowLabelContainer, SectionHeaderRow } from "../Row.tsx";
 import { type MoreBelow, Section } from "../Graph/Section.tsx";
-import { CARD_GAP, DOCKED_HEIGHT, ROW_INSET, foldAddresses, foldAt } from "../Graph/layout.ts";
+import {
+	CARD_GAP,
+	DOCKED_HEIGHT,
+	HEAD_DOCKED_HEIGHT,
+	ROW_INSET,
+	foldAddresses,
+	foldAt,
+} from "../Graph/layout.ts";
 import type { Graph } from "../Graph/usePlan.ts";
 import { StackCard } from "../StackCard.tsx";
 import stackCardStyles from "../StackCard.module.css";
@@ -298,6 +305,9 @@ const UncommittedChanges: FC<
 		scrollElementRef: RefObject<HTMLDivElement | null>;
 		/** The docked merge base row's height at the scroller's foot, or 0: the commit form sticks above it. */
 		footDock: number;
+		/** The card's head, measured by the parent, which docks a stand-in as soon as the head is pushed. */
+		headRef: (element: HTMLElement | null) => void;
+		headHeight: number;
 	} & Omit<ComponentProps<"div">, "children">
 > = ({
 	addressSpace,
@@ -312,6 +322,8 @@ const UncommittedChanges: FC<
 	worktreeChanges,
 	scrollElementRef,
 	footDock,
+	headRef,
+	headHeight,
 	...props
 }) => {
 	const dispatch = useAppDispatch();
@@ -355,7 +367,6 @@ const UncommittedChanges: FC<
 	const fileListRef = useRef<HTMLDivElement>(null);
 	// The head sticks at the scroller's top and the commit form at its foot, so a row
 	// scrolled into view clears both.
-	const [headRef, headHeight] = useHeight();
 	const [formRef, formHeight] = useHeight();
 	// The list's start in the scroller, which the card heads: the rows above the
 	// list come and go with the filter and the worktree, so the card's size says
@@ -1136,6 +1147,8 @@ const Stacks: FC<{
 	head: ReactNode;
 	/** Stands in for the card at the scroller's head while the card is scrolled out above. */
 	dock: ReactNode;
+	/** How far down the dock's mark sticks: the card's head height, so the stand-in takes over as the head is pushed. */
+	dockOffset: number;
 	scrollElementRef: RefObject<HTMLDivElement | null>;
 	scrollPaddingEnd: number;
 }> = ({
@@ -1148,6 +1161,7 @@ const Stacks: FC<{
 	onEdgeSpill,
 	head,
 	dock,
+	dockOffset,
 	scrollElementRef,
 	scrollPaddingEnd,
 }) => {
@@ -1305,7 +1319,7 @@ const Stacks: FC<{
 		rangeExtractor: rangeExtractorWithSelected,
 		scrollMargin,
 		// The head clears the docked uncommitted files row, the foot the docked merge base row.
-		scrollPaddingStart: DOCKED_HEIGHT,
+		scrollPaddingStart: HEAD_DOCKED_HEIGHT,
 		scrollPaddingEnd,
 	});
 
@@ -1382,7 +1396,9 @@ const Stacks: FC<{
 				{/* Its own tree: the files walk with their own cursor, and the arrow
 				    keys spill into the cards' tree at its edge. */}
 				<div ref={headRef}>{head}</div>
-				<div className={styles.dock}>{dock}</div>
+				<div className={styles.dock} style={{ "--dock-offset": `${dockOffset}px` }}>
+					{dock}
+				</div>
 				<GraphGap height={CARD_GAP} />
 				{/* One tree: the cards and the upstream section below them share the
 				    applied list's cursor, and arrow keys walk them in reading order. */}
@@ -1617,6 +1633,8 @@ export const WorkspaceLists: FC<
 	// scrolled into view clears it, else the foot's gradient.
 	const footDock = graph.plan.base !== null && !graph.plan.baseExpanded ? DOCKED_HEIGHT : 0;
 	const scrollPaddingEnd = Math.max(footDock, 14);
+	// The card's head, whose height says when its docked stand-in takes over.
+	const [cardHeadRef, cardHeadHeight] = useHeight();
 	const uncommitted = (
 		<OperationSourceC
 			projectId={projectId}
@@ -1643,6 +1661,8 @@ export const WorkspaceLists: FC<
 							worktreeChanges={worktreeChanges}
 							scrollElementRef={scrollElementRef}
 							footDock={footDock}
+							headRef={cardHeadRef}
+							headHeight={cardHeadHeight}
 						/>
 					}
 				/>
@@ -1670,6 +1690,7 @@ export const WorkspaceLists: FC<
 					canAmendCommit={canAmendCommit}
 					onEdgeSpill={spillIntoUncommittedChanges}
 					head={uncommitted}
+					dockOffset={cardHeadHeight}
 					dock={
 						<UncommittedChangesRow
 							changes={worktreeChanges?.changes ?? []}

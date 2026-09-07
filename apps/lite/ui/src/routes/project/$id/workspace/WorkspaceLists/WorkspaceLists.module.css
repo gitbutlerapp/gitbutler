@@ -28,14 +28,17 @@
 
 /* Stands in for the uncommitted files card once it has scrolled out above: a
    sticky mark of no height at the card's foot, whose row shows only while the
-   mark is stuck. It takes over as the card's own stuck head is pushed out.
-   Keep in sync with layout.ts's DOCKED_HEIGHT. */
+   mark is stuck. The mark sticks a head's height down and the row sits that
+   much back up, so it takes over the moment the card's own stuck head starts
+   to be pushed out, never showing it half gone. Keep in sync with layout.ts's
+   HEAD_DOCKED_HEIGHT. */
 .dock {
+	--dock-offset: 0px;
 	container-type: scroll-state;
 
 	z-index: 2;
 	position: sticky;
-	top: 0;
+	top: var(--dock-offset);
 	height: 0;
 }
 
@@ -59,7 +62,6 @@
 }
 
 .dockRow {
-	--air: 4px;
 	/* The glyph sets its own visibility (GraphSegment.module.css), so hiding
 	   the row alone leaves it showing through. */
 	--graph-segment-glyph-visibility: hidden;
@@ -68,8 +70,10 @@
 	visibility: hidden;
 	position: absolute;
 	inset-inline: 0;
-	top: 0;
-	padding-block: var(--air);
+	top: calc(-1 * var(--dock-offset));
+	/* The card's head room and no air below, so the label and the curve's tail
+	   stay put as the row takes over. */
+	padding-block-start: 6px;
 	border-block-end: 1px solid var(--border-section);
 	background-color: var(--bg-2);
 
