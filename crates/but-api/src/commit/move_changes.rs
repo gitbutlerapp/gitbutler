@@ -52,19 +52,20 @@ pub fn commit_move_changes_between_only_with_perm(
     perm: &mut RepoExclusive,
 ) -> anyhow::Result<MoveChangesResult> {
     let context_lines = ctx.settings.context_lines;
-    let (repo, mut ws, mut db) = ctx.workspace_mut_and_db_mut_with_perm(perm)?;
-    let editor = Editor::create(&mut ws, &repo, db.connection_mut())?;
+    crate::workspace::with_workspace_transaction(ctx, perm, dry_run, |repo, ws, db| {
+        let editor = Editor::create(ws, repo, db.connection_mut())?;
 
-    let outcome = but_workspace::commit::move_changes_between_commits(
-        editor,
-        source_commit_id,
-        destination_commit_id,
-        changes,
-        context_lines,
-    )?;
-    let workspace = WorkspaceState::from_successful_rebase(outcome.rebase, &repo, dry_run)?;
+        let outcome = but_workspace::commit::move_changes_between_commits(
+            editor,
+            source_commit_id,
+            destination_commit_id,
+            changes,
+            context_lines,
+        )?;
+        let workspace = WorkspaceState::from_successful_rebase(outcome.rebase, repo, dry_run)?;
 
-    Ok(MoveChangesResult { workspace })
+        Ok(MoveChangesResult { workspace })
+    })
 }
 
 /// Moves `changes` from `source_commit_id` to `destination_commit_id` and

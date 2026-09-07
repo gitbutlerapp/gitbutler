@@ -178,6 +178,43 @@ pub fn workspace_recreate_with_perm(
     })
 }
 
+/// Keep an operation's database writes private until it succeeds, including metadata written
+/// while materializing or constructing the response. Git changes remain best-effort on failure.
+pub(crate) fn with_workspace_transaction<T>(
+    ctx: &mut but_ctx::Context,
+    perm: &mut RepoExclusive,
+    dry_run: DryRun,
+    operation: impl FnOnce(
+        &mut gix::Repository,
+        &mut but_graph::Workspace,
+        &mut but_db::Transaction<'_>,
+    ) -> anyhow::Result<T>,
+) -> anyhow::Result<T> {
+    let result: anyhow::Result<T> = (|| {
+        let (mut repo, mut workspace, mut db) = ctx.workspace_mut_and_db_mut_with_perm(perm)?;
+        let mut transaction = db.immediate_transaction()?;
+        let result = operation(&mut repo, &mut workspace, &mut transaction)?;
+        if dry_run.into() {
+            transaction.rollback()?;
+        } else {
+            transaction.commit()?;
+        }
+        Ok(result)
+    })();
+    // The editor and transaction must release their borrows before the cached view is discarded.
+    if (result.is_err() || dry_run.into())
+        && let Err(err) = ctx.invalidate_workspace_cache()
+    {
+        return match result {
+            Err(operation_error) => Err(operation_error.context(format!(
+                "Discarding the workspace cache after the failed operation also failed: {err:#}"
+            ))),
+            Ok(_) => Err(err),
+        };
+    }
+    result
+}
+
 /// The persisted status of fetches performed through [`workspace_fetch_from_remotes()`].
 #[derive(Debug, Clone, Default, serde::Serialize)]
 #[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
@@ -689,7 +726,7 @@ fn review_integration_hints_from_reviews(
 fn forge_review_integration_hints(
     workspace: &but_graph::Workspace,
     project_meta: &but_core::ref_metadata::ProjectMeta,
-    db: &but_db::DbHandle,
+    db: but_db::Connection<'_>,
 ) -> anyhow::Result<Vec<ReviewIntegrationHint>> {
     let Some(target_branch_name) =
         target_branch_name(&workspace.graph.symbolic_remote_names, project_meta)
@@ -706,7 +743,7 @@ fn forge_review_integration_hints(
         return Ok(vec![]);
     }
 
-    let associated_reviews = but_forge::list_cached_forge_reviews(db.connection())?;
+    let associated_reviews = but_forge::list_cached_forge_reviews(db)?;
 
     Ok(review_integration_hints_from_reviews(
         &target_branch_name,
@@ -834,10 +871,10 @@ pub fn workspace_integrate_upstream_only_with_perm(
     perm: &mut RepoExclusive,
 ) -> anyhow::Result<WorkspaceIntegrateUpstreamOutcome> {
     let single_branch_mode = ctx.settings.feature_flags.single_branch;
-    let (workspace_state, worktree_conflicts) = {
-        let project_meta = ctx.project_meta()?;
-        let (repo, mut ws, mut db) = ctx.workspace_mut_and_db_mut_with_perm(perm)?;
-        let review_hints = match forge_review_integration_hints(&ws, &project_meta, &db) {
+    let project_meta = ctx.project_meta()?;
+    let outcome = with_workspace_transaction(ctx, perm, dry_run, |repo, ws, db| {
+        let review_hints = match forge_review_integration_hints(ws, &project_meta, db.connection())
+        {
             Ok(review_hints) => review_hints,
             Err(err) => {
                 warn!(
@@ -853,9 +890,9 @@ pub fn workspace_integrate_upstream_only_with_perm(
             ws_meta,
             project_meta,
         } = but_workspace::integrate_upstream_with_hints(
-            &mut ws,
+            ws,
             project_meta,
-            &repo,
+            repo,
             db.connection_mut(),
             updates,
             &review_hints,
@@ -878,9 +915,9 @@ pub fn workspace_integrate_upstream_only_with_perm(
         }
 
         let mut materialized = rebase.materialize(Default::default())?;
-        project_meta.persist(&repo)?;
+        project_meta.persist(repo)?;
         if let Err(err) = but_workspace::fast_forward_local_tracking_branch(
-            &repo,
+            repo,
             project_meta.target_ref_or_err()?.as_ref(),
             project_meta.target_commit_id_or_err()?,
         ) {
@@ -896,13 +933,20 @@ pub fn workspace_integrate_upstream_only_with_perm(
             materialized.db.meta_mut()?.set_workspace(&md)?;
         }
 
-        let workspace_state = WorkspaceState::from_materialized(materialized, &repo)?;
-        (workspace_state, worktree_conflicts)
-    };
+        let workspace_state = WorkspaceState::from_materialized(materialized, repo)?;
+        Ok(WorkspaceIntegrateUpstreamOutcome {
+            workspace_state,
+            target_commits: None,
+            worktree_conflicts,
+        })
+    })?;
     ctx.invalidate_workspace_cache()?;
 
+    if dry_run.into() {
+        return Ok(outcome);
+    }
+
     Ok(WorkspaceIntegrateUpstreamOutcome {
-        workspace_state,
         target_commits: crate::target_commits::workspace_target_commits_with_perm(
             ctx,
             None,
@@ -916,7 +960,7 @@ pub fn workspace_integrate_upstream_only_with_perm(
             )
         })
         .ok(),
-        worktree_conflicts,
+        ..outcome
     })
 }
 

@@ -49,18 +49,23 @@ pub fn commit_cherry_pick_only_with_perm(
     dry_run: DryRun,
     perm: &mut RepoExclusive,
 ) -> anyhow::Result<CommitCherryPickResult> {
-    let (repo, mut ws, mut db) = ctx.workspace_mut_and_db_mut_with_perm(perm)?;
-    let editor = but_rebase::graph_rebase::Editor::create(&mut ws, &repo, db.connection_mut())?;
-    let (rebase, inserted_selectors) =
-        but_workspace::commit::cherry_pick_commits(editor, source_commit_ids, relative_to, side)?;
-    let new_commits = inserted_selectors
-        .into_iter()
-        .map(|selector| rebase.lookup_pick(selector))
-        .collect::<anyhow::Result<Vec<_>>>()?;
+    crate::workspace::with_workspace_transaction(ctx, perm, dry_run, |repo, ws, db| {
+        let editor = but_rebase::graph_rebase::Editor::create(ws, repo, db.connection_mut())?;
+        let (rebase, inserted_selectors) = but_workspace::commit::cherry_pick_commits(
+            editor,
+            source_commit_ids,
+            relative_to,
+            side,
+        )?;
+        let new_commits = inserted_selectors
+            .into_iter()
+            .map(|selector| rebase.lookup_pick(selector))
+            .collect::<anyhow::Result<Vec<_>>>()?;
 
-    Ok(CommitCherryPickResult {
-        new_commits,
-        workspace: WorkspaceState::from_successful_rebase(rebase, &repo, dry_run)?,
+        Ok(CommitCherryPickResult {
+            new_commits,
+            workspace: WorkspaceState::from_successful_rebase(rebase, repo, dry_run)?,
+        })
     })
 }
 

@@ -297,129 +297,129 @@ pub(crate) fn apply(
     dry_run: DryRun,
     perm: &mut RepoExclusive,
 ) -> anyhow::Result<AppliedResolution> {
-    let (repo, mut ws, mut db) = ctx.workspace_mut_and_db_mut_with_perm(perm)?;
-
-    // Narrow the sides: every resolved hunk's content goes into both side
-    // trees, which the re-merge below sees as an identical change against the
-    // untouched base and resolves cleanly to the picked content. The base
-    // must stay untouched: with base==theirs a resolved region would read as
-    // "this commit does not change it", so a later re-pick of a
-    // still-conflicted commit onto changed parents would silently drop the
-    // resolution in favor of the new base instead of replaying it.
-    let mut ours_edit = repo.edit_tree(request.ours_tree_id)?;
-    let mut theirs_edit = repo.edit_tree(request.theirs_tree_id)?;
-    for (file, picks) in request.files.iter().zip(picks_per_file) {
-        if picks.is_empty() {
-            continue;
+    crate::workspace::with_workspace_transaction(ctx, perm, dry_run, |repo, ws, db| {
+        // Narrow the sides: every resolved hunk's content goes into both side
+        // trees, which the re-merge below sees as an identical change against the
+        // untouched base and resolves cleanly to the picked content. The base
+        // must stay untouched: with base==theirs a resolved region would read as
+        // "this commit does not change it", so a later re-pick of a
+        // still-conflicted commit onto changed parents would silently drop the
+        // resolution in favor of the new base instead of replaying it.
+        let mut ours_edit = repo.edit_tree(request.ours_tree_id)?;
+        let mut theirs_edit = repo.edit_tree(request.theirs_tree_id)?;
+        for (file, picks) in request.files.iter().zip(picks_per_file) {
+            if picks.is_empty() {
+                continue;
+            }
+            for (tree, side) in [
+                (&mut ours_edit, SideKind::Ours),
+                (&mut theirs_edit, SideKind::Theirs),
+            ] {
+                let content = synthesize_side(file, picks, side)?;
+                let blob_id = repo.write_blob(content.as_bytes())?;
+                tree.upsert(file.rela_path.as_bstr(), file.entry_kind, blob_id)?;
+            }
         }
-        for (tree, side) in [
-            (&mut ours_edit, SideKind::Ours),
-            (&mut theirs_edit, SideKind::Theirs),
-        ] {
-            let content = synthesize_side(file, picks, side)?;
-            let blob_id = repo.write_blob(content.as_bytes())?;
-            tree.upsert(file.rela_path.as_bstr(), file.entry_kind, blob_id)?;
-        }
-    }
-    let base_tree_id = request.base_tree_id;
-    let ours_tree_id = ours_edit.write()?.detach();
-    let theirs_tree_id = theirs_edit.write()?.detach();
+        let base_tree_id = request.base_tree_id;
+        let ours_tree_id = ours_edit.write()?.detach();
+        let theirs_tree_id = theirs_edit.write()?.detach();
 
-    // Auto-resolve like the rebase engine does when it writes conflicted
-    // commits: favor *ours* so the merged tree is clean content, never marker
-    // text, and detect the forcefully-resolved conflicts as unresolved.
-    use but_core::RepositoryExt as _;
-    let mut outcome = repo.merge_trees(
-        base_tree_id,
-        ours_tree_id,
-        theirs_tree_id,
-        repo.default_merge_labels(),
-        repo.merge_options_force_ours()?,
-    )?;
-    let merged_tree_id = outcome.tree.write()?.detach();
-    let treat_as_unresolved = gix::merge::tree::TreatAsUnresolved::forced_resolution();
-    let unresolved = outcome.has_unresolved_conflicts(treat_as_unresolved);
+        // Auto-resolve like the rebase engine does when it writes conflicted
+        // commits: favor *ours* so the merged tree is clean content, never marker
+        // text, and detect the forcefully-resolved conflicts as unresolved.
+        use but_core::RepositoryExt as _;
+        let mut outcome = repo.merge_trees(
+            base_tree_id,
+            ours_tree_id,
+            theirs_tree_id,
+            repo.default_merge_labels(),
+            repo.merge_options_force_ours()?,
+        )?;
+        let merged_tree_id = outcome.tree.write()?.detach();
+        let treat_as_unresolved = gix::merge::tree::TreatAsUnresolved::forced_resolution();
+        let unresolved = outcome.has_unresolved_conflicts(treat_as_unresolved);
 
-    let remaining: Vec<RemainingConflicts> = request
-        .files
-        .iter()
-        .zip(picks_per_file)
-        .filter_map(|(file, picks)| {
-            let remaining = file.hunks.len() - picks.len();
-            (remaining > 0).then(|| RemainingConflicts {
-                path: file.path.clone(),
-                hunks: remaining,
+        let remaining: Vec<RemainingConflicts> = request
+            .files
+            .iter()
+            .zip(picks_per_file)
+            .filter_map(|(file, picks)| {
+                let remaining = file.hunks.len() - picks.len();
+                (remaining > 0).then(|| RemainingConflicts {
+                    path: file.path.clone(),
+                    hunks: remaining,
+                })
             })
-        })
-        .collect();
-    // Only holds when every conflict was hunk-addressable: a file in `manual`
-    // is never narrowed, so it keeps conflicting however many hunks were resolved.
-    if unresolved && remaining.is_empty() && request.manual.is_empty() {
-        bail!(
-            "BUG: all conflicts of commit {} were resolved, yet re-merging the narrowed trees still conflicts",
-            request.commit_id
-        );
-    }
-
-    let mut editor = Editor::create(&mut ws, &repo, db.connection_mut())?;
-    let (target_selector, mut commit) = editor.find_selectable_commit(request.commit_id)?;
-    // Fully resolving in favor of the base can leave the commit with no
-    // changes of its own — legitimate, but worth telling the user about.
-    // The parent's content is its auto-resolution when the parent is itself
-    // still conflicted, never its raw (wrapper) tree.
-    use gix::prelude::ObjectIdExt as _;
-    let commit_emptied = !unresolved
-        && match *commit.parents.as_slice() {
-            [parent] => but_core::Commit::from_id(parent.attach(&repo))
-                .and_then(|parent| parent.tree_id_or_auto_resolution())
-                .is_ok_and(|parent_tree| parent_tree == merged_tree_id),
-            _ => false,
-        };
-    if unresolved {
-        // Still conflicted: same commit shape the rebase engine writes, with
-        // the narrowed trees. Adding message markers is idempotent, and covers
-        // commits that were only marked by the legacy header — the header is
-        // cleared below, so the message must carry the state.
-        commit.message = but_core::commit::add_conflict_markers(commit.message.as_ref());
-        let conflict_entries = but_core::commit::conflict_entries_from_merge_outcome(
-            &repo,
-            merged_tree_id,
-            &outcome,
-            treat_as_unresolved,
-        )?;
-        let tree_expression = TreeExpression {
-            base_tree_ids: vec![base_tree_id],
-            side_tree_ids: [ours_tree_id, theirs_tree_id].into_iter().collect(),
-        };
-        commit.tree = but_core::commit::write_conflicted_tree(
-            &repo,
-            merged_tree_id,
-            &tree_expression,
-            &conflict_entries,
-        )?;
-    } else {
-        commit.tree = merged_tree_id;
-        commit.message = but_core::commit::strip_conflict_markers(commit.message.as_ref());
-    }
-    if let Some(headers) = Headers::try_from_commit(&commit) {
-        Headers {
-            conflicted: None,
-            ..headers
+            .collect();
+        // Only holds when every conflict was hunk-addressable: a file in `manual`
+        // is never narrowed, so it keeps conflicting however many hunks were resolved.
+        if unresolved && remaining.is_empty() && request.manual.is_empty() {
+            bail!(
+                "BUG: all conflicts of commit {} were resolved, yet re-merging the narrowed trees still conflicts",
+                request.commit_id
+            );
         }
-        .set_in_commit(&mut commit);
-    }
-    let new_id = editor.new_commit(commit, DateMode::CommitterUpdateAuthorKeep)?;
-    editor.replace(target_selector, Step::new_pick(new_id))?;
 
-    let rebase = editor.rebase()?;
-    let new_commit = rebase.lookup_pick(target_selector)?;
-    let workspace = WorkspaceState::from_successful_rebase(rebase, &repo, dry_run)?;
+        let mut editor = Editor::create(ws, repo, db.connection_mut())?;
+        let (target_selector, mut commit) = editor.find_selectable_commit(request.commit_id)?;
+        // Fully resolving in favor of the base can leave the commit with no
+        // changes of its own — legitimate, but worth telling the user about.
+        // The parent's content is its auto-resolution when the parent is itself
+        // still conflicted, never its raw (wrapper) tree.
+        use gix::prelude::ObjectIdExt as _;
+        let commit_emptied = !unresolved
+            && match *commit.parents.as_slice() {
+                [parent] => but_core::Commit::from_id(parent.attach(repo))
+                    .and_then(|parent| parent.tree_id_or_auto_resolution())
+                    .is_ok_and(|parent_tree| parent_tree == merged_tree_id),
+                _ => false,
+            };
+        if unresolved {
+            // Still conflicted: same commit shape the rebase engine writes, with
+            // the narrowed trees. Adding message markers is idempotent, and covers
+            // commits that were only marked by the legacy header — the header is
+            // cleared below, so the message must carry the state.
+            commit.message = but_core::commit::add_conflict_markers(commit.message.as_ref());
+            let conflict_entries = but_core::commit::conflict_entries_from_merge_outcome(
+                repo,
+                merged_tree_id,
+                &outcome,
+                treat_as_unresolved,
+            )?;
+            let tree_expression = TreeExpression {
+                base_tree_ids: vec![base_tree_id],
+                side_tree_ids: [ours_tree_id, theirs_tree_id].into_iter().collect(),
+            };
+            commit.tree = but_core::commit::write_conflicted_tree(
+                repo,
+                merged_tree_id,
+                &tree_expression,
+                &conflict_entries,
+            )?;
+        } else {
+            commit.tree = merged_tree_id;
+            commit.message = but_core::commit::strip_conflict_markers(commit.message.as_ref());
+        }
+        if let Some(headers) = Headers::try_from_commit(&commit) {
+            Headers {
+                conflicted: None,
+                ..headers
+            }
+            .set_in_commit(&mut commit);
+        }
+        let new_id = editor.new_commit(commit, DateMode::CommitterUpdateAuthorKeep)?;
+        editor.replace(target_selector, Step::new_pick(new_id))?;
 
-    Ok(AppliedResolution {
-        new_commit,
-        commit_emptied,
-        remaining,
-        workspace,
+        let rebase = editor.rebase()?;
+        let new_commit = rebase.lookup_pick(target_selector)?;
+        let workspace = WorkspaceState::from_successful_rebase(rebase, repo, dry_run)?;
+
+        Ok(AppliedResolution {
+            new_commit,
+            commit_emptied,
+            remaining,
+            workspace,
+        })
     })
 }
 

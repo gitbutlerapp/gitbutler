@@ -104,3 +104,55 @@ fn branch_create_below_checked_out_ref_keeps_head_in_ad_hoc_workspace() -> anyho
 
     Ok(())
 }
+
+#[test]
+fn failed_branch_creation_rolls_back_earlier_metadata_writes() -> anyhow::Result<()> {
+    let (repo, _tmp) = repo_with_feature_branch()?;
+    let mut ctx = but_ctx::Context::from_repo_for_testing(repo)?.with_memory_app_cache();
+    let new_ref: gix::refs::FullName = "refs/heads/bottom".try_into()?;
+    let anchor_ref: gix::refs::FullName = "refs/heads/main".try_into()?;
+    crate::support::workspace_graph(&ctx)?;
+    let observer = but_db::DbHandle::new_in_directory(&ctx.project_data_dir)?;
+    let metadata_before = observer.virtual_branches().get_snapshot()?;
+    let order_before = observer.branch_order().get_snapshot()?;
+    let refresh = ctx.project_data_dir.join("REFRESH");
+    if refresh.exists() {
+        std::fs::remove_file(&refresh)?;
+    }
+    let sql = rusqlite::Connection::open(but_db::DbHandle::db_file_path(&ctx.project_data_dir))?;
+    sql.execute_batch(
+        "CREATE TRIGGER reject_new_branch BEFORE INSERT ON vb_stack_heads
+         WHEN NEW.name = 'bottom'
+         BEGIN SELECT RAISE(ABORT, 'reject branch metadata after saving order'); END;",
+    )?;
+
+    let error = but_api::branch::branch_create(
+        &mut ctx,
+        Some(new_ref),
+        but_api::branch::json::BranchCreatePlacement::Dependent {
+            relative_to: but_api::commit::json::RelativeTo::Reference(anchor_ref),
+            side: InsertSide::Below,
+        },
+    )
+    .err()
+    .expect("the final metadata write is rejected after branch order was saved");
+    assert!(
+        format!("{error:#}").contains("reject branch metadata after saving order"),
+        "the regression reaches the late metadata write"
+    );
+    assert_eq!(
+        observer.branch_order().get_snapshot()?,
+        order_before,
+        "an earlier successful metadata write rolls back with the failed operation"
+    );
+    assert_eq!(
+        observer.virtual_branches().get_snapshot()?,
+        metadata_before,
+        "failed creation leaves all reference metadata unchanged"
+    );
+    assert!(
+        !refresh.exists(),
+        "rolled-back metadata does not notify observers"
+    );
+    Ok(())
+}
