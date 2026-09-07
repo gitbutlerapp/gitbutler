@@ -200,7 +200,8 @@ fn reproduce_11483() -> anyhow::Result<()> {
 "#]]
     );
 
-    but_testsupport::edit_legacy_metadata(&mut meta, |data| data.branches.clear())?;
+    meta.meta_mut()?
+        .remove(but_core::WORKSPACE_REF_NAME.try_into()?)?;
     add_stack_with_segments(&mut meta, 1, "A", StackState::InWorkspace, &["below"]);
     add_stack_with_segments(&mut meta, 2, "B", StackState::InWorkspace, &[]);
 
@@ -962,7 +963,8 @@ fn single_stack_ws_insertions() -> anyhow::Result<()> {
     // Now something similar but with two stacks.
     // As the actual topology is different, we can't really comply with that's desired.
     // Instead, we reuse as many of the named segments as possible, even if they are from multiple branches.
-    but_testsupport::edit_legacy_metadata(&mut meta, |data| data.branches.clear())?;
+    meta.meta_mut()?
+        .remove(but_core::WORKSPACE_REF_NAME.try_into()?)?;
     add_stack_with_segments(&mut meta, 0, "B-empty", StackState::InWorkspace, &["B"]);
     add_stack_with_segments(
         &mut meta,
@@ -1027,7 +1029,8 @@ fn single_stack_ws_insertions() -> anyhow::Result<()> {
 
     // Define only some of the branches, it should figure that out.
     // It respects the order of the mention in the stack, `A` before `A-empty-01`.
-    but_testsupport::edit_legacy_metadata(&mut meta, |data| data.branches.clear())?;
+    meta.meta_mut()?
+        .remove(but_core::WORKSPACE_REF_NAME.try_into()?)?;
     add_stack_with_segments(&mut meta, 0, "A", StackState::InWorkspace, &["A-empty-01"]);
     add_stack_with_segments(&mut meta, 1, "B-empty", StackState::InWorkspace, &["B"]);
 
@@ -1169,7 +1172,8 @@ fn single_stack() -> anyhow::Result<()> {
 "#]]
     );
 
-    but_testsupport::edit_legacy_metadata(&mut meta, |data| data.branches.clear())?;
+    meta.meta_mut()?
+        .remove(but_core::WORKSPACE_REF_NAME.try_into()?)?;
     // Just repeat the existing segment verbatim, but also add a new unborn stack
     add_stack_with_segments(&mut meta, 0, "B", StackState::InWorkspace, &["B-sub", "A"]);
     add_stack_with_segments(
@@ -1269,11 +1273,18 @@ fn single_merge_into_main_base_archived() -> anyhow::Result<()> {
     );
 
     // But even if everything is marked as archived, only the ones that matter are hidden.
-    but_testsupport::edit_legacy_metadata(&mut meta, |data| {
-        for head in &mut data.branches.get_mut(&stack_id).expect("just added").heads {
-            head.archived = true;
-        }
-    })?;
+    let mut workspace = meta
+        .meta()?
+        .workspace(but_core::WORKSPACE_REF_NAME.try_into()?)?;
+    let stack = workspace
+        .stacks
+        .iter_mut()
+        .find(|stack| stack.id == stack_id)
+        .expect("just added");
+    for branch in &mut stack.branches {
+        branch.archived = true;
+    }
+    meta.meta_mut()?.set_workspace(&workspace)?;
 
     let graph = ws
         .graph
@@ -2401,9 +2412,16 @@ fn just_init_with_archived_branches() -> anyhow::Result<()> {
 "#]]
     );
 
-    but_testsupport::edit_legacy_metadata(&mut meta, |data| {
-        data.branches.get_mut(&stack_id).expect("just added").heads[1].archived = true;
-    })?;
+    let mut workspace = meta
+        .meta()?
+        .workspace(but_core::WORKSPACE_REF_NAME.try_into()?)?;
+    let stack = workspace
+        .stacks
+        .iter_mut()
+        .find(|stack| stack.id == stack_id)
+        .expect("just added");
+    stack.branches[1].archived = true;
+    meta.meta_mut()?.set_workspace(&workspace)?;
 
     // The first archived segment causes everything else to be hidden.
     let graph = ws
@@ -2421,11 +2439,14 @@ fn just_init_with_archived_branches() -> anyhow::Result<()> {
 "#]]
     );
 
-    but_testsupport::edit_legacy_metadata(&mut meta, |data| {
-        let heads = &mut data.branches.get_mut(&stack_id).unwrap().heads;
-        heads[0].archived = true;
-        heads[1].archived = false;
-    })?;
+    let stack = workspace
+        .stacks
+        .iter_mut()
+        .find(|stack| stack.id == stack_id)
+        .expect("just added");
+    stack.branches[2].archived = true;
+    stack.branches[1].archived = false;
+    meta.meta_mut()?.set_workspace(&workspace)?;
 
     // Now only the first one is archived.
     let graph = ws
@@ -2443,12 +2464,15 @@ fn just_init_with_archived_branches() -> anyhow::Result<()> {
 "#]]
     );
 
-    but_testsupport::edit_legacy_metadata(&mut meta, |data| {
-        let heads = &mut data.branches.get_mut(&stack_id).unwrap().heads;
-        heads[0].archived = true;
-        heads[1].archived = true;
-        heads[2].archived = true;
-    })?;
+    let stack = workspace
+        .stacks
+        .iter_mut()
+        .find(|stack| stack.id == stack_id)
+        .expect("just added");
+    for branch in &mut stack.branches {
+        branch.archived = true;
+    }
+    meta.meta_mut()?.set_workspace(&workspace)?;
 
     // Archiving everything removes the stack entirely.
     let graph = ws
@@ -3653,7 +3677,8 @@ fn integrated_tips_stop_early_if_remote_is_not_configured() -> anyhow::Result<()
 "#]]
     );
 
-    but_testsupport::edit_legacy_metadata(&mut meta, |data| data.branches.clear())?;
+    meta.meta_mut()?
+        .remove(but_core::WORKSPACE_REF_NAME.try_into()?)?;
     add_workspace(&mut meta);
     // When looking from an integrated branch within the workspace, but without limit,
     // the (lack of) limit is respected.
@@ -4211,7 +4236,8 @@ fn workspace_obeys_limit_when_target_branch_is_missing() -> anyhow::Result<()> {
 "#]]
     );
 
-    but_testsupport::edit_legacy_metadata(&mut meta, |data| data.branches.clear())?;
+    meta.meta_mut()?
+        .remove(but_core::WORKSPACE_REF_NAME.try_into()?)?;
     add_workspace(&mut meta);
     // It's notable that there is no way to bypass the early abort when everything is integrated.
     // and there is no deductible remote relationship between origin/main and main (no remote not configured).
@@ -5116,7 +5142,8 @@ fn partitions_with_long_and_short_connections_to_each_other_part_2() -> anyhow::
     );
 
     // We can also add stacked virtual branches to that new base.
-    but_testsupport::edit_legacy_metadata(&mut meta, |data| data.branches.clear())?;
+    meta.meta_mut()?
+        .remove(but_core::WORKSPACE_REF_NAME.try_into()?)?;
     add_workspace(&mut meta);
     add_stack_with_segments(&mut meta, 3, "A", StackState::InWorkspace, &["B"]);
     let ws = ws
@@ -6945,7 +6972,8 @@ fn no_workspace_commit() -> anyhow::Result<()> {
     );
 
     // Natural order here is `lane` first, but we say we want `lane-2` first
-    but_testsupport::edit_legacy_metadata(&mut meta, |data| data.branches.clear())?;
+    meta.meta_mut()?
+        .remove(but_core::WORKSPACE_REF_NAME.try_into()?)?;
     add_stack_with_segments(
         &mut meta,
         0,
@@ -9014,7 +9042,8 @@ fn duplicate_parent_connection_from_ws_commit_to_ambiguous_branch_no_advanced_ta
     );
 
     // Now pretend it's stacked.
-    but_testsupport::edit_legacy_metadata(&mut meta, |data| data.branches.clear())?;
+    meta.meta_mut()?
+        .remove(but_core::WORKSPACE_REF_NAME.try_into()?)?;
     add_stack_with_segments(&mut meta, 1, "A", StackState::InWorkspace, &["B"]);
     let ws = ws
         .graph
@@ -9108,7 +9137,8 @@ fn duplicate_parent_connection_from_ws_commit_to_ambiguous_branch() -> anyhow::R
     );
 
     // Now pretend it's stacked.
-    but_testsupport::edit_legacy_metadata(&mut meta, |data| data.branches.clear())?;
+    meta.meta_mut()?
+        .remove(but_core::WORKSPACE_REF_NAME.try_into()?)?;
     add_stack_with_segments(&mut meta, 1, "A", StackState::InWorkspace, &["B"]);
     let ws = ws
         .graph
@@ -9125,7 +9155,8 @@ fn duplicate_parent_connection_from_ws_commit_to_ambiguous_branch() -> anyhow::R
 "#]]
     );
 
-    but_testsupport::edit_legacy_metadata(&mut meta, |data| data.branches.clear())?;
+    meta.meta_mut()?
+        .remove(but_core::WORKSPACE_REF_NAME.try_into()?)?;
     add_stack(&mut meta, 1, "A", StackState::InWorkspace);
     add_stack(&mut meta, 2, "B", StackState::InWorkspace);
     let graph = Graph::from_head(
@@ -9146,7 +9177,8 @@ fn duplicate_parent_connection_from_ws_commit_to_ambiguous_branch() -> anyhow::R
 "#]]
     );
 
-    but_testsupport::edit_legacy_metadata(&mut meta, |data| data.branches.clear())?;
+    meta.meta_mut()?
+        .remove(but_core::WORKSPACE_REF_NAME.try_into()?)?;
     add_stack_with_segments(&mut meta, 1, "A", StackState::InWorkspace, &["B"]);
     let graph = Graph::from_head(
         &repo,
