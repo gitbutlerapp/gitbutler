@@ -1,10 +1,9 @@
 use std::{io::Write, ops::DerefMut, path::Path};
 
 use but_core::{
-    RefMetadata, RepositoryExt, WORKSPACE_REF_NAME,
+    RepositoryExt, WORKSPACE_REF_NAME,
     ref_metadata::{ProjectMeta, StackId, WorkspaceCommitRelation},
 };
-use but_meta::VirtualBranchesTomlMetadata;
 #[cfg(feature = "sandbox-but-api")]
 use but_settings::AppSettings;
 use gix::bstr::ByteVec;
@@ -141,7 +140,7 @@ impl Sandbox {
             && let Ok(commit_id) = repo.rev_parse_single("origin/main")
         {
             let storage_path = repo.gitbutler_storage_path().unwrap();
-            sandbox.file(storage_path.join("virtual_branches.toml"), "[branches]\n");
+            crate::project_db(&repo).expect("sandbox project database always opens");
             ProjectMeta {
                 target_ref: Some("refs/remotes/origin/main".try_into().unwrap()),
                 target_commit_id: Some(commit_id.detach()),
@@ -226,15 +225,9 @@ impl Sandbox {
         gix::open_opts(self.projects_root(), gix::open::Options::isolated()).unwrap()
     }
 
-    /// Create a metadata instance on the project.
-    pub fn meta(&self) -> impl but_core::RefMetadata {
-        VirtualBranchesTomlMetadata::from_path(
-            self.open_repo()
-                .gitbutler_storage_path()
-                .unwrap()
-                .join("virtual_branches.toml"),
-        )
-        .unwrap()
+    /// Open this fixture's project database.
+    pub fn db(&self) -> but_db::DbHandle {
+        crate::project_db(&self.open_repo()).expect("sandbox project database always opens")
     }
 
     /// Read project-scoped metadata.
@@ -254,25 +247,18 @@ impl Sandbox {
             .unwrap()
     }
 
-    /// Return the graph at `HEAD`, along with the `(graph, repo, meta)` repository and metadata used to create it.
-    pub fn graph_at_head(
-        &self,
-    ) -> (
-        but_graph::Graph,
-        gix::Repository,
-        impl but_core::RefMetadata,
-    ) {
+    /// Return the graph at `HEAD`, along with the `(graph, repo, db)` repository and metadata used to create it.
+    pub fn graph_at_head(&self) -> (but_graph::Graph, gix::Repository, but_db::DbHandle) {
         let repo = self.open_repo();
-        let meta = self.meta();
+        let mut db = self.db();
         let graph = but_graph::Graph::from_head(
             &repo,
-            &meta,
             self.project_meta(),
-            &mut crate::project_db(&repo).expect("sandbox project database always opens"),
+            &mut db.connection_mut(),
             but_graph::init::Options::default(),
         )
         .unwrap();
-        (graph, repo, meta)
+        (graph, repo, db)
     }
 
     /// Return a worktree visualisation, freshly read from [Self::graph_at_head()].
@@ -450,8 +436,8 @@ impl Sandbox {
     //       Review each usage, try without.
     /// Create stack metadata for `branch_names` and return its StackIds, one per item in the input slice, in order.
     pub fn setup_metadata(&self, branch_names: &[&str]) -> Vec<StackId> {
-        let mut meta = self.meta();
-        let mut ws = meta.workspace(r(WORKSPACE_REF_NAME)).unwrap();
+        let mut db = self.db();
+        let mut ws = db.meta().unwrap().workspace(r(WORKSPACE_REF_NAME)).unwrap();
         let ws_data: &mut but_core::ref_metadata::Workspace = ws.deref_mut();
         for (stable_id, branch_name) in (0_u128..).zip(branch_names.iter()) {
             ws_data.add_or_insert_new_stack_if_not_present(
@@ -462,7 +448,7 @@ impl Sandbox {
             );
         }
         let out = ws_data.stacks.iter().map(|s| s.id).collect();
-        meta.set_workspace(&ws).unwrap();
+        db.meta_mut().unwrap().set_workspace(&ws).unwrap();
 
         out
     }

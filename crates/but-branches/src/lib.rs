@@ -11,7 +11,7 @@ mod walk;
 use std::collections::{BTreeMap, BTreeSet};
 
 use bstr::{BStr, BString, ByteSlice};
-use but_core::{RefMetadata, WORKSPACE_REF_NAME};
+use but_core::WORKSPACE_REF_NAME;
 use but_graph::{Graph, SegmentIndex, Workspace};
 use gix::{
     prelude::ObjectIdExt,
@@ -133,8 +133,7 @@ pub struct ListedBranch {
 /// [`ListedBranch`]. GitButler-internal refs are excluded.
 pub fn list(
     repo: &gix::Repository,
-    meta: &impl RefMetadata,
-    db: &mut but_db::DbHandle,
+    db: &mut but_db::ConnectionMut<'_, '_>,
     options: Options,
 ) -> anyhow::Result<BranchListing> {
     let remote_names = repo.remote_names();
@@ -159,7 +158,7 @@ pub fn list(
             }
         },
     };
-    let applied_ref_names = applied_branch_ref_names(meta)?;
+    let applied_ref_names = applied_branch_ref_names(&db.meta()?)?;
     let local_identities: BTreeSet<&BString> = refs_by_identity
         .values()
         .flatten()
@@ -182,7 +181,6 @@ pub fn list(
         head_id,
         head_ref,
         extra_tips,
-        meta,
         options.project_meta.clone(),
         db,
         but_graph::init::Options {
@@ -652,7 +650,7 @@ fn enumerate_branch_refs(
 }
 
 /// The refs of all branches that are applied to the workspace, according to metadata.
-fn applied_branch_ref_names(meta: &impl RefMetadata) -> anyhow::Result<BTreeSet<FullName>> {
+fn applied_branch_ref_names(meta: &but_db::Metadata) -> anyhow::Result<BTreeSet<FullName>> {
     let ws_ref: FullName = WORKSPACE_REF_NAME.try_into()?;
     let ws_md = meta.workspace(ws_ref.as_ref())?;
     Ok(ws_md

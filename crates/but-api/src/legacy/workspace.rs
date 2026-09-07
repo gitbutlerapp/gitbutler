@@ -24,16 +24,14 @@ use tracing::instrument;
 #[instrument(err(Debug))]
 pub fn head_info(ctx: &but_ctx::Context) -> Result<but_workspace::RefInfo> {
     let repo = ctx.clone_repo_for_merging_non_persisting()?;
-    let meta = ctx.meta()?;
     // The worktree-discovering database borrow must end before the gerrit handle
     // borrows the database again below.
     let ws = {
         let mut db = ctx.db.get_cache_mut()?;
         but_graph::Graph::from_head(
             &repo,
-            &meta,
             ctx.project_meta()?,
-            &mut db,
+            &mut db.connection_mut(),
             but_graph::init::Options {
                 worktrees: ctx.settings.feature_flags.worktree_manipulation,
                 ..but_graph::init::Options::limited()
@@ -65,7 +63,7 @@ pub fn head_info(ctx: &but_ctx::Context) -> Result<but_workspace::RefInfo> {
     let forge_db = ctx.db.get_cache()?;
     info.apply_forge_review_associations(
         &repo,
-        &but_forge::review_associations_by_head(&forge_db)?,
+        &but_forge::review_associations_by_head(forge_db.connection())?,
     );
 
     Ok(info)
@@ -79,9 +77,13 @@ pub fn show_graph_svg(ctx: &Context) -> Result<()> {
     options.collect_tags = true;
     options.worktrees = ctx.settings.feature_flags.worktree_manipulation;
     let repo = ctx.open_isolated_repo()?;
-    let meta = ctx.meta()?;
     let mut db = ctx.db.get_cache_mut()?;
-    let graph = but_graph::Graph::from_head(&repo, &meta, ctx.project_meta()?, &mut db, options)?;
+    let graph = but_graph::Graph::from_head(
+        &repo,
+        ctx.project_meta()?,
+        &mut db.connection_mut(),
+        options,
+    )?;
     graph.open_as_svg();
     Ok(())
 }
@@ -158,7 +160,6 @@ pub fn branch_details(
 ) -> Result<but_workspace::ui::BranchDetails> {
     let mut details = {
         let repo = ctx.clone_repo_for_merging_non_persisting()?;
-        let meta = ctx.meta()?;
         let ref_name: gix::refs::FullName = match remote.as_deref() {
             None => {
                 format!("refs/heads/{branch_name}")
@@ -170,7 +171,12 @@ pub fn branch_details(
         .try_into()
         .map_err(anyhow::Error::from)?;
         let project_meta = ctx.project_meta()?;
-        but_workspace::branch_details(&repo, ref_name.as_ref(), &meta, &project_meta)
+        but_workspace::branch_details(
+            &repo,
+            ref_name.as_ref(),
+            &*ctx.db.get_cache()?.meta()?.branch(ref_name.as_ref())?,
+            &project_meta,
+        )
     }?;
     let repo = ctx.repo.get()?;
     let db = ctx.db.get_cache()?;
@@ -191,7 +197,7 @@ pub fn branch_details(
                     .map(|(_, short)| short.to_string())
             });
         match pushed_short_name {
-            Some(short) => but_forge::review_for_head_ref(&db, &short)?
+            Some(short) => but_forge::review_for_head_ref(db.connection(), &short)?
                 .filter(but_forge::ForgeReview::is_open)
                 .and_then(|review| usize::try_from(review.number).ok()),
             None => None,
@@ -264,7 +270,7 @@ pub fn stash_into_branch(
         perm,
     )?;
     let stack_id = {
-        let (_, ws, _) = ctx.workspace_mut_and_db_with_perm(perm)?;
+        let (_, ws, _db) = ctx.workspace_mut_and_db_with_perm(perm)?;
         ws.find_segment_and_stack_by_refname(full_ref_name.as_ref())
             .and_then(|(stack, _)| stack.id)
             .context("created stash branch is missing its stack id")?
@@ -274,9 +280,8 @@ pub fn stash_into_branch(
 
     let outcome = {
         let context_lines = ctx.settings.context_lines;
-        let mut meta = ctx.meta()?;
         let (repo, mut ws, mut db) = ctx.workspace_mut_and_db_mut_with_perm(perm)?;
-        let editor = Editor::create(&mut ws, &mut meta, &repo, &mut db)?;
+        let editor = Editor::create(&mut ws, &repo, db.connection_mut())?;
         let but_workspace::commit::CommitCreateOutcome {
             rebase,
             commit_selector,
@@ -433,13 +438,11 @@ pub fn workspace_branch_and_ancestors_push_only(
     push_opts: Vec<but_gerrit::PushFlag>,
 ) -> Result<gitbutler_git::PushResult> {
     let repo = ctx.clone_repo_for_merging_non_persisting()?;
-    let meta = ctx.meta()?;
     let mut db = ctx.db.get_cache_mut()?;
     let ws = but_graph::Graph::from_head(
         &repo,
-        &meta,
         ctx.project_meta()?,
-        &mut db,
+        &mut db.connection_mut(),
         but_graph::init::Options {
             worktrees: ctx.settings.feature_flags.worktree_manipulation,
             ..but_graph::init::Options::limited()

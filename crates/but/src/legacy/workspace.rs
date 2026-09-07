@@ -54,7 +54,6 @@ fn head_info(
 ) -> anyhow::Result<(RefInfo, gix::hash::Kind)> {
     let repo = ctx.clone_repo_for_merging_non_persisting()?;
     let object_hash = repo.object_hash();
-    let meta = ctx.meta()?;
     let edit_mode_workspace_ref = edit_mode_workspace_ref(&repo)?;
     // The worktree-discovering database borrow must end before the gerrit handle
     // borrows the database again below. Only seed worktree tips when querying from
@@ -71,15 +70,17 @@ fn head_info(
                 but_graph::Graph::from_commit_traversal(
                     id,
                     reference.name().to_owned(),
-                    &meta,
                     ctx.project_meta()?,
-                    &mut db,
+                    &mut db.connection_mut(),
                     options,
                 )?
             }
-            None => {
-                but_graph::Graph::from_head(&repo, &meta, ctx.project_meta()?, &mut db, options)?
-            }
+            None => but_graph::Graph::from_head(
+                &repo,
+                ctx.project_meta()?,
+                &mut db.connection_mut(),
+                options,
+            )?,
         };
         graph.into_workspace()?
     };
@@ -102,7 +103,7 @@ fn head_info(
     // Enrich active associations from the forge cache while keeping durable
     // stored identity for integrated branches, mirroring desktop `head_info`.
     let review_cache = ctx.db.get_cache()?;
-    let prs_by_head = but_forge::review_associations_by_head(&review_cache)?;
+    let prs_by_head = but_forge::review_associations_by_head(review_cache.connection())?;
     info.apply_forge_review_associations(&repo, &prs_by_head);
 
     Ok((info, object_hash))
@@ -143,7 +144,7 @@ fn applied_stacks_with_options(
     ctx: &Context,
     expensive_commit_info: bool,
 ) -> anyhow::Result<Vec<HeadInfoStack>> {
-    let metadata = workspace_metadata(&ctx.meta()?)?;
+    let metadata = workspace_metadata(&ctx.db.get_cache()?.meta()?)?;
     let (info, object_hash) = head_info(ctx, expensive_commit_info)?;
     Ok(head_info_stacks(
         &info,
@@ -158,7 +159,7 @@ fn applied_stacks_with_options(
 pub fn applied_lanes_with_expensive_commit_info(
     ctx: &Context,
 ) -> anyhow::Result<Vec<HeadInfoStack>> {
-    let metadata = workspace_metadata(&ctx.meta()?)?;
+    let metadata = workspace_metadata(&ctx.db.get_cache()?.meta()?)?;
     let (info, object_hash) = head_info(ctx, true)?;
     let null_id = object_hash.null();
     let mut lanes = head_info_stacks(
@@ -222,7 +223,7 @@ fn applied_stack_from_stacks(
     }
 }
 
-fn workspace_metadata(meta: &impl but_core::RefMetadata) -> anyhow::Result<Option<Workspace>> {
+fn workspace_metadata(meta: &but_db::Metadata) -> anyhow::Result<Option<Workspace>> {
     let workspace_ref: gix::refs::FullName = WORKSPACE_REF_NAME.try_into()?;
     Ok(meta
         .workspace_opt(workspace_ref.as_ref())?

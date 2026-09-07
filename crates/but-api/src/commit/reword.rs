@@ -45,9 +45,8 @@ pub fn commit_reword_only_with_perm(
     dry_run: DryRun,
     perm: &mut RepoExclusive,
 ) -> anyhow::Result<CommitRewordResult> {
-    let mut meta = ctx.meta()?;
     let (repo, mut ws, mut db) = ctx.workspace_mut_and_db_mut_with_perm(perm)?;
-    let editor = Editor::create(&mut ws, &mut meta, &repo, &mut db)?;
+    let editor = Editor::create(&mut ws, &repo, db.connection_mut())?;
 
     let (rebase, edited_commit_selector) =
         but_workspace::commit::reword(editor, commit_id, message.as_bstr())?;

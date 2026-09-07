@@ -594,7 +594,6 @@ impl App {
         let head_info = but_api::legacy::workspace::head_info(ctx)?;
         let merged = MergedUpstream::new(&*ctx.repo.get()?, &head_info, AllowMergedArg::default());
         let (repo, ws, _) = ctx.workspace_and_db_with_perm(guard.read_permission())?;
-        let mut meta = ctx.meta()?;
 
         let Some(squash_op) = resolve_squash_operation(
             source,
@@ -618,7 +617,7 @@ impl App {
             .then(|| terminal_guard.suspend())
             .transpose()?;
 
-        let (outcome, _ws) = squash::run(ctx, &mut meta, guard.write_permission(), squash_op)?;
+        let (outcome, _ws) = squash::run(ctx, guard.write_permission(), squash_op)?;
 
         let what_to_select = match outcome {
             SquashOutcome::Branch { new_commit, .. }

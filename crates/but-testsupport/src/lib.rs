@@ -10,8 +10,13 @@ use gix::{
 pub use gix_testtools;
 use gix_testtools::{Creation, FixtureState, PostResult, tempfile};
 
-mod in_memory_meta;
-pub use in_memory_meta::{InMemoryRefMetadata, InMemoryRefMetadataHandle, StackState};
+/// Whether a fixture stack is applied to its workspace.
+pub enum StackState {
+    /// The stack is applied.
+    InWorkspace,
+    /// The stack is unapplied.
+    Inactive,
+}
 
 #[cfg(feature = "sandbox")]
 mod sandbox;
@@ -116,13 +121,59 @@ pub fn in_memory_db() -> but_db::DbHandle {
     but_db::DbHandle::new_at_path(":memory:").expect("in-memory database always opens")
 }
 
+/// Load legacy fixture metadata into a private in-memory database.
+/// Missing fixture files represent empty metadata; existing files are never changed.
+pub fn fixture_metadata(path: impl AsRef<Path>) -> anyhow::Result<but_db::DbHandle> {
+    let mut db = in_memory_db();
+    import_fixture_metadata(&mut db, path.as_ref())?;
+    Ok(db)
+}
+
+/// Decode database state into the legacy fixture payload for structural assertions.
+pub fn legacy_metadata(
+    db: &but_db::DbHandle,
+) -> anyhow::Result<but_meta::virtual_branches_legacy_types::VirtualBranches> {
+    but_meta::legacy_storage::snapshot_to_legacy(
+        &db.virtual_branches().get_snapshot()?.unwrap_or_default(),
+    )
+}
+
+/// Edit a legacy fixture payload and explicitly save the result to its database.
+pub fn edit_legacy_metadata<T>(
+    db: &mut but_db::DbHandle,
+    edit: impl FnOnce(&mut but_meta::virtual_branches_legacy_types::VirtualBranches) -> T,
+) -> anyhow::Result<T> {
+    let mut legacy = legacy_metadata(db)?;
+    let outcome = edit(&mut legacy);
+    let snapshot = but_meta::legacy_storage::legacy_to_snapshot(&legacy)?;
+    db.virtual_branches_mut()?.replace_snapshot(&snapshot)?;
+    Ok(outcome)
+}
+
+fn import_fixture_metadata(db: &mut but_db::DbHandle, path: &Path) -> anyhow::Result<()> {
+    let content = match std::fs::read_to_string(path) {
+        Ok(content) => content,
+        Err(err) if err.kind() == std::io::ErrorKind::NotFound => return Ok(()),
+        Err(err) => return Err(err.into()),
+    };
+    let legacy = toml::from_str(&content)?;
+    let snapshot = but_meta::legacy_storage::legacy_to_snapshot(&legacy)?;
+    db.virtual_branches_mut()?.replace_snapshot(&snapshot)?;
+    Ok(())
+}
+
 /// The project database of `repo`, at the same location GitButler itself stores it.
 ///
 /// Only for writable fixtures, whose storage lives and dies with the fixture's
 /// temporary directory; shared read-only fixtures use [`in_memory_db()`].
 pub fn project_db(repo: &gix::Repository) -> anyhow::Result<but_db::DbHandle> {
     use but_core::RepositoryExt as _;
-    but_db::DbHandle::new_in_directory(repo.gitbutler_storage_path()?)
+    let dir = repo.gitbutler_storage_path()?;
+    let mut db = but_db::DbHandle::new_in_directory(&dir)?;
+    if db.virtual_branches().get_snapshot()?.is_none() {
+        import_fixture_metadata(&mut db, &dir.join("virtual_branches.toml"))?;
+    }
+    Ok(db)
 }
 
 /// Return isolated configuration with a basic setup to run read-only and read-write tests.

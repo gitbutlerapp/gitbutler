@@ -1,4 +1,3 @@
-use but_core::RefMetadata;
 use gix::bstr::ByteSlice;
 
 use crate::support::{
@@ -28,6 +27,8 @@ fn branch_rename_middle_branch_keeps_head_and_order() -> anyhow::Result<()> {
     assert!(repo.try_find_reference(renamed.as_ref())?.is_some());
     // The order keeps the branch in place under the new name.
     let order = ctx
+        .db
+        .get_cache()?
         .meta()?
         .branch_stack_order(tip.as_ref())?
         .expect("branch order still persisted");
@@ -57,6 +58,8 @@ fn branch_rename_checked_out_branch_moves_head_to_new_name() -> anyhow::Result<(
     assert_workspace_ref(&result.workspace, "refs/heads/renamed-tip");
 
     let order = ctx
+        .db
+        .get_cache()?
         .meta()?
         .branch_stack_order(renamed.as_ref())?
         .expect("branch order still persisted");
@@ -162,8 +165,17 @@ fn branch_rename_rejects_a_destination_that_exists_only_in_metadata() -> anyhow:
         "the git ref must be gone"
     );
     assert!(
-        ctx.meta()?.branch_opt(other.as_ref())?.is_some()
-            || ctx.meta()?.branch_stack_order(other.as_ref())?.is_some(),
+        ctx.db
+            .get_cache()?
+            .meta()?
+            .branch_opt(other.as_ref())?
+            .is_some()
+            || ctx
+                .db
+                .get_cache()?
+                .meta()?
+                .branch_stack_order(other.as_ref())?
+                .is_some(),
         "the name must still be occupied in metadata"
     );
 
@@ -263,17 +275,22 @@ fn branch_rename_then_new_pr_updates_metadata_under_the_new_name() -> anyhow::Re
     // Apply `feature` and associate it with PR #42, as if it had been published.
     but_api::branch::apply_only(&mut ctx, feature.as_ref())?;
     {
-        let mut meta = ctx.meta()?;
+        let meta = ctx.db.get_cache()?.meta()?;
         let mut branch = meta.branch(feature.as_ref())?;
         branch.review.pull_request = Some(42);
-        meta.set_branch(&branch)?;
+        ctx.db.get_cache_mut()?.meta_mut()?.set_branch(&branch)?;
     }
 
     // Rename the published branch. The PR association follows the rename in place (it's stored on the
     // head, keyed by position, not derived from the name), without any push.
     but_api::branch::branch_rename(&mut ctx, feature.clone(), "renamed-feature".into())?;
     assert_eq!(
-        ctx.meta()?.branch(renamed.as_ref())?.review.pull_request,
+        ctx.db
+            .get_cache()?
+            .meta()?
+            .branch(renamed.as_ref())?
+            .review
+            .pull_request,
         Some(42),
         "the existing PR number must travel with the rename"
     );
@@ -282,13 +299,13 @@ fn branch_rename_then_new_pr_updates_metadata_under_the_new_name() -> anyhow::Re
     // finds the renamed head and overwrites the carried-over number instead of losing or duplicating
     // it.
     {
-        let mut meta = ctx.meta()?;
+        let meta = ctx.db.get_cache()?.meta()?;
         let mut branch = meta.branch(renamed.as_ref())?;
         branch.review.pull_request = Some(99);
-        meta.set_branch(&branch)?;
+        ctx.db.get_cache_mut()?.meta_mut()?.set_branch(&branch)?;
     }
 
-    let meta = ctx.meta()?;
+    let meta = ctx.db.get_cache()?.meta()?;
     assert_eq!(
         meta.branch(renamed.as_ref())?.review.pull_request,
         Some(99),

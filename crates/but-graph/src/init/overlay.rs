@@ -4,7 +4,7 @@ use std::{
 };
 
 use anyhow::bail;
-use but_core::{RefMetadata, ref_metadata};
+use but_core::ref_metadata;
 use gix::{prelude::ReferenceExt, refs::Target};
 
 use crate::{
@@ -104,14 +104,11 @@ impl Overlay {
 }
 
 impl Overlay {
-    pub(crate) fn into_parts<'repo, 'meta, T>(
+    pub(crate) fn into_parts<'repo, 'meta>(
         self,
         repo: &'repo gix::Repository,
-        meta: &'meta T,
-    ) -> (OverlayRepo<'repo>, OverlayMetadata<'meta, T>, Entrypoint)
-    where
-        T: RefMetadata,
-    {
+        meta: &'meta but_db::Metadata,
+    ) -> (OverlayRepo<'repo>, OverlayMetadata<'meta>, Entrypoint) {
         let Overlay {
             nonoverriding_references,
             overriding_references,
@@ -454,39 +451,28 @@ impl<'repo> OverlayRepo<'repo> {
     }
 }
 
-pub(crate) struct OverlayMetadata<'meta, T> {
-    inner: &'meta T,
+pub(crate) struct OverlayMetadata<'meta> {
+    inner: &'meta but_db::Metadata,
     meta_branches: Vec<(gix::refs::FullName, ref_metadata::Branch)>,
     branch_stack_orders: Vec<Vec<gix::refs::FullName>>,
     workspace: Option<(gix::refs::FullName, ref_metadata::Workspace)>,
 }
 
-impl<T> OverlayMetadata<'_, T>
-where
-    T: RefMetadata,
-{
+impl OverlayMetadata<'_> {
     pub fn iter_workspaces(
         &self,
     ) -> impl Iterator<Item = (gix::refs::FullName, ref_metadata::Workspace)> {
-        self.inner
-            .iter()
-            .filter_map(Result::ok)
-            .filter_map(|(ref_name, item)| {
-                item.downcast::<ref_metadata::Workspace>()
-                    .ok()
-                    .map(|ws| (ref_name, ws))
-            })
-            .map(|(ref_name, ws)| {
-                if let Some((_ws_ref, ws_override)) = self
-                    .workspace
-                    .as_ref()
-                    .filter(|(ws_ref, _ws_data)| *ws_ref == ref_name)
-                {
-                    (ref_name, ws_override.clone())
-                } else {
-                    (ref_name, (*ws).clone())
-                }
-            })
+        self.inner.workspaces().map(|(ref_name, ws)| {
+            if let Some((_ws_ref, ws_override)) = self
+                .workspace
+                .as_ref()
+                .filter(|(ws_ref, _ws_data)| *ws_ref == ref_name)
+            {
+                (ref_name, ws_override.clone())
+            } else {
+                (ref_name, ws)
+            }
+        })
     }
 
     pub fn workspace_opt(

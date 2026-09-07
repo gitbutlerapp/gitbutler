@@ -843,7 +843,6 @@ dependencies = [
  "but-hunk-dependency",
  "but-installer",
  "but-llm",
- "but-meta",
  "but-oplog",
  "but-path",
  "but-project-handle",
@@ -952,7 +951,6 @@ dependencies = [
  "but-core",
  "but-db",
  "but-forge",
- "but-meta",
  "but-testsupport",
  "but-workspace",
  "chrono",
@@ -993,6 +991,7 @@ dependencies = [
  "but-hunk-assignment",
  "but-hunk-dependency",
  "but-llm",
+ "but-meta",
  "but-oplog",
  "but-path",
  "but-project-handle",
@@ -1183,7 +1182,6 @@ dependencies = [
  "but-ctx",
  "but-db",
  "but-graph",
- "but-meta",
  "but-path",
  "but-project-handle",
  "but-settings",
@@ -1203,6 +1201,8 @@ version = "0.0.0"
 dependencies = [
  "anyhow",
  "backoff",
+ "but-core",
+ "but-project-handle",
  "but-utils",
  "chrono",
  "gix",
@@ -1471,25 +1471,18 @@ name = "but-meta"
 version = "0.0.0"
 dependencies = [
  "anyhow",
- "bstr",
  "but-core",
  "but-db",
- "but-graph",
  "but-meta",
- "but-project-handle",
  "but-serde",
  "but-testsupport",
- "but-utils",
  "gitbutler-reference",
  "gix",
  "hex",
- "itertools",
  "md5",
  "serde",
- "sha2 0.10.9",
  "snapbox",
  "toml 0.9.12+spec-1.1.0",
- "tracing",
 ]
 
 [[package]]
@@ -1685,6 +1678,7 @@ dependencies = [
  "snapbox",
  "temp-env",
  "termtree",
+ "toml 0.9.12+spec-1.1.0",
 ]
 
 [[package]]
@@ -3849,7 +3843,6 @@ dependencies = [
  "but-error",
  "but-forge",
  "but-graph",
- "but-meta",
  "but-oxidize",
  "but-project-handle",
  "but-rebase",

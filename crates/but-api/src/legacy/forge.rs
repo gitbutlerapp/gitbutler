@@ -3,7 +3,7 @@ use anyhow::{Context as _, Result};
 use bstr::ByteSlice;
 use but_api_macros::but_api;
 use but_core::{
-    RefMetadata as _, RepositoryExt,
+    RepositoryExt,
     git_config::{edit_repo_config, ensure_config_value},
     ref_metadata::ProjectMeta,
 };
@@ -587,7 +587,9 @@ mod tests {
         persist_review_association(&ctx, branch_name.as_ref(), 42)?;
 
         assert_eq!(
-            ctx.meta()?
+            ctx.db
+                .get_cache()?
+                .meta()?
                 .branch(branch_name.as_ref())?
                 .review
                 .pull_request,
@@ -1530,10 +1532,10 @@ fn persist_review_association(
     branch_name: &gix::refs::FullNameRef,
     review_number: usize,
 ) -> Result<()> {
-    let mut meta = ctx.meta()?;
-    let mut branch = meta.branch(branch_name)?;
+    let mut db = ctx.db.get_cache_mut()?;
+    let mut branch = db.meta()?.branch(branch_name)?;
     branch.review.pull_request = Some(review_number);
-    meta.set_branch(&branch)
+    db.meta_mut()?.set_branch(&branch)
 }
 
 /// Merge a review on the forge.
@@ -1715,7 +1717,7 @@ fn cache_review_target_updates(
 
     let cached_reviews = {
         let db = ctx.db.get_cache()?;
-        but_forge::list_cached_forge_reviews(&db)?
+        but_forge::list_cached_forge_reviews(db.connection())?
     };
     let mut db = ctx.db.get_cache_mut()?;
     for mut review in cached_reviews {
@@ -2127,7 +2129,7 @@ pub(crate) fn review_target_updates_for_branch(
         return Ok(Vec::new());
     }
     let db = ctx.db.get_cache()?;
-    let cached_targets = but_forge::list_cached_forge_reviews(&db)?
+    let cached_targets = but_forge::list_cached_forge_reviews(db.connection())?
         .into_iter()
         .map(|review| (review.number, review.target_branch))
         .collect::<std::collections::HashMap<_, _>>();

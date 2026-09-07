@@ -1,4 +1,4 @@
-//! Legacy types that won't be needed anymore once the toml is removed.
+//! Legacy payload types retained for archived oplog snapshots and test fixtures.
 //!
 //! The types here are the only ones to implement `serde`.
 #![allow(missing_docs)]
@@ -7,7 +7,7 @@ use std::collections::HashMap;
 use but_core::ref_metadata::StackId;
 use serde::{Deserialize, Serialize};
 
-/// The state of virtual branches data, as persisted in a TOML file.
+/// Virtual-branch data serialized in archived oplog snapshots.
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
 pub struct VirtualBranches {
     /// The current state of the virtual branches

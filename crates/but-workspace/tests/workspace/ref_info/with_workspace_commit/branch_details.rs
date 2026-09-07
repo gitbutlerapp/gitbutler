@@ -9,7 +9,7 @@ use crate::ref_info::with_workspace_commit::{
 
 #[test]
 fn disjoint() -> anyhow::Result<()> {
-    let (repo, mut meta, _db) = read_only_in_memory_scenario("disjoint")?;
+    let (repo, mut meta) = read_only_in_memory_scenario("disjoint")?;
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
         snapbox::str![[r#"
@@ -24,7 +24,7 @@ fn disjoint() -> anyhow::Result<()> {
     let actual = branch_details(
         &repo,
         "refs/heads/disjoint".try_into()?,
-        &*meta,
+        &*meta.meta()?.branch("refs/heads/disjoint".try_into()?)?,
         &project_meta,
     )?;
     snapbox::assert_data_eq!(
@@ -57,7 +57,12 @@ BranchDetails {
 "#]]
     );
 
-    let actual = branch_details(&repo, "refs/heads/main".try_into()?, &*meta, &project_meta)?;
+    let actual = branch_details(
+        &repo,
+        "refs/heads/main".try_into()?,
+        &*meta.meta()?.branch("refs/heads/main".try_into()?)?,
+        &project_meta,
+    )?;
     snapbox::assert_data_eq!(
         actual.to_debug(),
         snapbox::str![[r#"

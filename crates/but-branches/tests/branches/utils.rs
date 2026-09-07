@@ -1,28 +1,16 @@
 //! Scenario and metadata helpers, mirroring the ones used by `but-workspace` tests.
 use but_core::ref_metadata::{ProjectMeta, StackId};
-use but_meta::{
-    VirtualBranchesTomlMetadata,
-    virtual_branches_legacy_types::{Stack, StackBranch},
-};
+use but_meta::virtual_branches_legacy_types::{Stack, StackBranch};
 
 /// Open the read-only fixture `name` with an in-memory metadata store.
 pub fn named_read_only_in_memory_scenario(
     name: &str,
     dirname: &str,
-) -> anyhow::Result<(
-    gix::Repository,
-    std::mem::ManuallyDrop<VirtualBranchesTomlMetadata>,
-    but_db::DbHandle,
-)> {
+) -> anyhow::Result<(gix::Repository, but_db::DbHandle)> {
     let repo = but_testsupport::read_only_in_memory_scenario_named(name, dirname)?;
-    let meta = VirtualBranchesTomlMetadata::from_path(
-        repo.path()
-            .join(".git")
-            .join("should-never-be-written.toml"),
-    )?;
     // The fixture is shared and read-only, so its database cannot live on disk.
     let db = but_testsupport::in_memory_db();
-    Ok((repo, std::mem::ManuallyDrop::new(meta), db))
+    Ok((repo, db))
 }
 
 /// Project metadata whose target is `refs/remotes/origin/main`, pinned to the
@@ -49,7 +37,7 @@ pub enum StackState {
 
 /// Add a stack whose tip is `stack_name` with `segments` below it, in the given `state`.
 pub fn add_stack_with_segments(
-    meta: &mut VirtualBranchesTomlMetadata,
+    db: &mut but_db::DbHandle,
     stack_id: u128,
     stack_name: &str,
     state: StackState,
@@ -69,7 +57,10 @@ pub fn add_stack_with_segments(
                 false,
             )))
             .collect(),
-        meta.data().branches.len(),
+        db.virtual_branches()
+            .get_snapshot()
+            .unwrap()
+            .map_or(0, |snapshot| snapshot.stacks.len()),
         match state {
             StackState::InWorkspace => true,
             StackState::Inactive => false,
@@ -78,6 +69,7 @@ pub fn add_stack_with_segments(
     stack.order = stack_id as usize;
     let stack_id = StackId::from_number_for_testing(stack_id);
     stack.id = stack_id;
-    meta.data_mut().branches.insert(stack_id, stack);
+    but_testsupport::edit_legacy_metadata(db, |data| data.branches.insert(stack_id, stack))
+        .expect("fixture metadata can be saved");
     stack_id
 }

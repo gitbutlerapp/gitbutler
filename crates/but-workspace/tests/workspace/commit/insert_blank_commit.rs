@@ -10,7 +10,7 @@ use crate::ref_info::with_workspace_commit::utils::named_writable_scenario_with_
 
 #[test]
 fn insert_below_commit() -> Result<()> {
-    let (_tmp, graph, repo, mut _meta, _description, mut db) =
+    let (_tmp, graph, repo, mut _meta, _description) =
         writable_scenario("reword-three-commits", |_| {})?;
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
@@ -26,7 +26,7 @@ fn insert_below_commit() -> Result<()> {
     let id = repo.rev_parse_single("two")?;
 
     let mut ws = graph.into_workspace()?;
-    let editor = Editor::create(&mut ws, &mut _meta, &repo, &mut db)?;
+    let editor = Editor::create(&mut ws, &repo, _meta.connection_mut())?;
     insert_blank_commit(
         editor,
         InsertSide::Below,
@@ -55,7 +55,7 @@ fn insert_below_commit() -> Result<()> {
 
 #[test]
 fn insert_above_commit() -> Result<()> {
-    let (_tmp, graph, repo, mut _meta, _description, mut db) =
+    let (_tmp, graph, repo, mut _meta, _description) =
         writable_scenario("reword-three-commits", |_| {})?;
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
@@ -71,7 +71,7 @@ fn insert_above_commit() -> Result<()> {
     let id = repo.rev_parse_single("two")?;
 
     let mut ws = graph.into_workspace()?;
-    let editor = Editor::create(&mut ws, &mut _meta, &repo, &mut db)?;
+    let editor = Editor::create(&mut ws, &repo, _meta.connection_mut())?;
     insert_blank_commit(
         editor,
         InsertSide::Above,
@@ -98,7 +98,7 @@ fn insert_above_commit() -> Result<()> {
 
 #[test]
 fn insert_below_reference() -> Result<()> {
-    let (_tmp, graph, repo, mut _meta, _description, mut db) =
+    let (_tmp, graph, repo, mut _meta, _description) =
         writable_scenario("reword-three-commits", |_| {})?;
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
@@ -114,7 +114,7 @@ fn insert_below_reference() -> Result<()> {
     let reference = repo.find_reference("two")?;
 
     let mut ws = graph.into_workspace()?;
-    let editor = Editor::create(&mut ws, &mut _meta, &repo, &mut db)?;
+    let editor = Editor::create(&mut ws, &repo, _meta.connection_mut())?;
     insert_blank_commit(
         editor,
         InsertSide::Below,
@@ -141,7 +141,7 @@ fn insert_below_reference() -> Result<()> {
 
 #[test]
 fn insert_above_reference() -> Result<()> {
-    let (_tmp, graph, repo, mut _meta, _description, mut db) =
+    let (_tmp, graph, repo, mut _meta, _description) =
         writable_scenario("reword-three-commits", |_| {})?;
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
@@ -157,7 +157,7 @@ fn insert_above_reference() -> Result<()> {
     let reference = repo.find_reference("two")?;
 
     let mut ws = graph.into_workspace()?;
-    let editor = Editor::create(&mut ws, &mut _meta, &repo, &mut db)?;
+    let editor = Editor::create(&mut ws, &repo, _meta.connection_mut())?;
     insert_blank_commit(
         editor,
         InsertSide::Above,

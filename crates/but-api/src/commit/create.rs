@@ -63,9 +63,8 @@ pub(crate) fn commit_create_only_impl(
     perm: &mut RepoExclusive,
 ) -> anyhow::Result<CommitCreateResult> {
     let worktree = crate::worktrees::open_changes_source(ctx, changes_source)?;
-    let mut meta = ctx.meta()?;
     let (repo, mut ws, mut db) = ctx.workspace_mut_and_db_mut_with_perm(perm)?;
-    let editor = Editor::create(&mut ws, &mut meta, &repo, &mut db)?;
+    let editor = Editor::create(&mut ws, &repo, db.connection_mut())?;
 
     let but_workspace::commit::CommitCreateOutcome {
         rebase,
