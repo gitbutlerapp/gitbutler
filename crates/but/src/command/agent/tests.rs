@@ -34,22 +34,43 @@ fn deepseek_harness_uses_shared_agent_skills_target() {
 fn generated_default_policy_includes_baseline_and_default_preferences() {
     let policy = render_managed_policy_block(&WizardAnswers::default());
 
+    assert!(
+        policy.lines().count() <= 18,
+        "default policy should be at most 18 lines, got {}",
+        policy.lines().count()
+    );
+    assert!(
+        policy.len() <= 1_800,
+        "default policy should be at most 1,800 bytes, got {}",
+        policy.len()
+    );
     assert!(policy.contains("## Version control"));
-    assert!(
-        policy
-            .contains("Use GitButler (`but`) for version-control inspection and write operations")
-    );
     assert!(policy.contains("otherwise modify another agent's work"));
-    assert!(policy.contains("For commit just/only/specific changes on a new branch"));
-    assert!(policy.contains("For that fast path, after the commit succeeds, stop and summarize"));
-    assert!(policy.contains("Use the installed GitButler skill for command recipes and syntax"));
+    assert!(policy.contains("Use the installed GitButler skill"));
+    assert!(policy.contains("If it is unavailable, use `but --help` rather than guessing"));
+    assert!(policy.contains(
+        "If `but` reports `Setup required`, use plain Git equivalents and do not run `but setup` unless the user asks"
+    ));
+    assert!(policy.contains("Use a dedicated branch for each agent session"));
+    assert!(!policy.contains("dedicated GitButler branch"));
     assert!(
-        policy.contains("Mutation commands report their result without appending workspace status")
+        policy.contains("Fold small follow-up fixes into the unpublished commit they belong to")
     );
-    assert!(policy.contains("Add `--status-after` only when the next step needs"));
-    assert!(policy.contains("amend an unpublished local commit"));
-    assert!(policy.contains("Use GitButler to move the relevant changes"));
-    assert!(policy.contains("If one file contains unrelated changes"));
+    assert!(policy.contains("ask before rewriting pushed, reviewed, shared, or ambiguous history"));
+    assert!(policy.contains("Suggest splitting unrelated changes into separate commits."));
+    for old_recipe in [
+        "For commit just/only/specific changes on a new branch",
+        "For that fast path, after the commit succeeds",
+        "Mutation commands report their result without appending workspace status",
+        "Add `--status-after` only when the next step needs",
+        "amend an unpublished local commit",
+        "If one file contains unrelated changes, split them by hunk",
+    ] {
+        assert!(
+            !policy.contains(old_recipe),
+            "default policy should omit old recipe: {old_recipe}"
+        );
+    }
     assert!(!policy.contains("ship it"));
 }
 
@@ -331,8 +352,10 @@ fn generated_policy_expands_selected_tuning_recipes() {
 
     let policy = render_managed_policy_block(&answers);
 
-    assert!(policy.contains("Do not create tiny fixup commits"));
-    assert!(policy.contains("Keep tests with the behavior they verify"));
+    assert!(
+        policy.contains("Fold small follow-up fixes into the unpublished commit they belong to")
+    );
+    assert!(policy.contains("Suggest splitting unrelated changes into separate commits"));
     assert!(policy.contains("Use `but move` for branch stacking and restacking"));
     assert!(policy.contains("create pull requests with `but pr`, not `gh`"));
     assert!(policy.contains("update with `but pull` directly"));
@@ -346,7 +369,7 @@ fn generated_policy_expands_selected_tuning_recipes() {
     // With push-to-target also selected, the publish phrase lands instead of
     // opening a pull request.
     assert!(policy.contains("land that branch onto the target with `but land <branch> --yes`"));
-    assert!(policy.contains("When creating a GitButler branch for an agent session"));
+    assert!(policy.contains("When creating a branch for an agent session"));
     assert!(policy.contains("commit-message convention"));
     assert!(policy.contains("### Commit checkpoints after each turn"));
     assert!(policy.contains("checkpoint commits as local savepoints"));
