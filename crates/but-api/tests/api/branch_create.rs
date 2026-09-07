@@ -235,6 +235,32 @@ fn create_below_bottom_commit(
 }
 
 #[test]
+fn branch_create_above_managed_reference_keeps_new_branch_first() -> anyhow::Result<()> {
+    let (mut ctx, _tmp) = context_with_managed_two_commit_segments()?;
+    let mut expected = cached_segments(&ctx)?;
+    let mut anchor: gix::refs::FullName = "refs/heads/C".try_into()?;
+    for name in ["empty-lower", "empty-upper"] {
+        let new_ref: gix::refs::FullName = format!("refs/heads/{name}").try_into()?;
+        but_api::branch::branch_create(
+            &mut ctx,
+            Some(new_ref.clone()),
+            but_api::branch::json::BranchCreatePlacement::Dependent {
+                relative_to: but_api::commit::json::RelativeTo::Reference(anchor),
+                side: InsertSide::Above,
+            },
+        )?;
+        expected.insert(0, (name.into(), vec![]));
+        assert_eq!(
+            cached_segments(&ctx)?,
+            expected,
+            "each new empty branch stays above its anchor and preserves commit ownership"
+        );
+        anchor = new_ref;
+    }
+    Ok(())
+}
+
+#[test]
 fn branch_create_below_bottom_commit_of_bottom_segment_keeps_its_commits() -> anyhow::Result<()> {
     let (mut ctx, _tmp) = context_with_managed_two_commit_segments()?;
     let before = cached_segments(&ctx)?;
@@ -284,7 +310,7 @@ fn failed_branch_creation_rolls_back_earlier_metadata_writes() -> anyhow::Result
     let anchor_ref: gix::refs::FullName = "refs/heads/main".try_into()?;
     crate::support::workspace_graph(&ctx)?;
     let observer = but_db::DbHandle::new_in_directory(&ctx.project_data_dir)?;
-    let metadata_before = observer.virtual_branches().get_snapshot()?;
+    let metadata_before = observer.meta()?;
     let order_before = observer.branch_order().get_snapshot()?;
     let refresh = ctx.project_data_dir.join("REFRESH");
     if refresh.exists() {
@@ -320,7 +346,7 @@ fn failed_branch_creation_rolls_back_earlier_metadata_writes() -> anyhow::Result
         "an earlier successful metadata write rolls back with the failed operation"
     );
     assert_eq!(
-        observer.virtual_branches().get_snapshot()?,
+        observer.meta()?,
         metadata_before,
         "failed creation leaves all reference metadata unchanged"
     );

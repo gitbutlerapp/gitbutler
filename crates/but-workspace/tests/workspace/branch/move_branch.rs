@@ -1978,7 +1978,7 @@ git worktree add -q -b wt wt-dir A
     ├── :wt[📁wt-dir]
     │   ├── ·e91ff9e
     │   └── ·fe69d87
-    └── :C
+    └── 📙:C
         └── ·f2cc60d
 
 "#]]
@@ -2027,7 +2027,7 @@ git worktree add -q -b wt wt-dir A
 ├── ≡📙:C on 85efbe4 {2}
 │   ├── 📙:C
 │   │   └── ·b9b1c60 (🏘️)
-│   ├── 📙:wt-lower
+│   ├── :wt-lower
 │   │   └── ·3dcf20b (🏘️)
 │   └── 📙:B
 │       └── ·c813d8d (🏘️)
@@ -2074,7 +2074,7 @@ git worktree add -q -b wt wt-dir A
 │   └── 📙:B
 │       └── ·c813d8d (🏘️)
 └── 📁wt-dir on 09d8e52 (🏘️)
-    └── :C[📁wt-dir]
+    └── 📙:C[📁wt-dir]
         ├── ·ede5c37
         ├── ·7f04017
         └── ·e9b62b2
@@ -2151,7 +2151,7 @@ git worktree add -q -b wt wt-dir A
 └── 📁wt-dir on 09d8e52 (🏘️)
     ├── :wt[📁wt-dir]
     │   └── ·7f04017
-    ├── :empty
+    ├── 📙:empty
     └── :wt-lower
         └── ·e9b62b2
 

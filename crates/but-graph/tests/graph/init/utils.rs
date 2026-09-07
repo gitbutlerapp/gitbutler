@@ -12,14 +12,10 @@ pub fn named_read_only_in_memory_scenario(
     name: &str,
 ) -> anyhow::Result<(gix::Repository, but_db::DbHandle)> {
     let repo = read_only_in_memory_scenario_named(script, name)?;
-    let meta = in_memory_meta(repo.path().join(".git"))?;
+    let meta = in_memory_db();
     // The fixture is shared and read-only, so its database cannot live on disk.
 
     Ok((repo, meta))
-}
-
-pub fn in_memory_meta(dir: impl AsRef<std::path::Path>) -> anyhow::Result<but_db::DbHandle> {
-    but_testsupport::fixture_metadata(dir.as_ref().join("should-never-be-written.toml"))
 }
 
 /// Provide a scenario but assure the returned repository will write objects to memory, in a subdirectory `dirname`.
@@ -34,7 +30,7 @@ pub fn read_only_in_memory_scenario_named(
     Ok(repo)
 }
 
-pub use but_testsupport::StackState;
+pub use but_testsupport::{StackState, in_memory_db};
 
 pub fn add_workspace(meta: &mut but_db::DbHandle) {
     add_stack(
