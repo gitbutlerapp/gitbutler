@@ -1,6 +1,8 @@
 #[cfg(not(feature = "graph-workspace"))]
 use snapbox::IntoData;
 
+use but_testsupport::{CommandExt, git_at_dir};
+
 use crate::support::{
     assert_workspace_ref, repo_with_feature_branch, set_project_target_to_feature,
 };
@@ -21,16 +23,75 @@ fn checkout_branch_switches_head_and_returns_workspace() -> anyhow::Result<()> {
 }
 
 #[test]
-fn checkout_branch_rejects_remote_refs() -> anyhow::Result<()> {
+fn checkout_remote_ref_creates_local_tracking_branch() -> anyhow::Result<()> {
+    let (repo, tmp) = repo_with_feature_branch()?;
+    git_at_dir(tmp.path())
+        .args([
+            "update-ref",
+            "refs/remotes/origin/topic",
+            "refs/heads/feature",
+        ])
+        .run();
+    let topic_commit_id = repo.rev_parse_single("refs/heads/feature")?.detach();
+    let mut ctx = but_ctx::Context::from_repo_for_testing(repo)?.with_memory_app_cache();
+    let branch = gix::refs::FullName::try_from("refs/remotes/origin/topic")?;
+    let result = but_api::branch::branch_checkout(&mut ctx, branch)?;
+
+    let repo = ctx.repo.get()?;
+    let head_name = repo.head_name()?.expect("HEAD is symbolic after checkout");
+    assert_eq!(head_name, "refs/heads/topic");
+    let mut created = repo.find_reference("refs/heads/topic")?;
+    assert_eq!(created.peel_to_id()?, topic_commit_id);
+    let config = repo.config_snapshot();
+    let config_value = |key: &str| config.string(key).map(|value| value.to_string());
+    assert_eq!(
+        config_value("branch.topic.remote").as_deref(),
+        Some("origin")
+    );
+    assert_eq!(
+        config_value("branch.topic.merge").as_deref(),
+        Some("refs/heads/topic")
+    );
+    assert_workspace_ref(&result.workspace, "refs/heads/topic");
+
+    Ok(())
+}
+
+#[test]
+fn checkout_remote_ref_switches_to_existing_local_tracking_branch() -> anyhow::Result<()> {
+    let (repo, _tmp) = repo_with_feature_branch()?;
+    let main_commit_id = repo.rev_parse_single("refs/heads/main")?.detach();
+    let mut ctx = but_ctx::Context::from_repo_for_testing(repo)?.with_memory_app_cache();
+    but_api::branch::branch_checkout(
+        &mut ctx,
+        gix::refs::FullName::try_from("refs/heads/feature")?,
+    )?;
+
+    let branch = gix::refs::FullName::try_from("refs/remotes/origin/main")?;
+    let result = but_api::branch::branch_checkout(&mut ctx, branch)?;
+
+    let repo = ctx.repo.get()?;
+    let head_name = repo.head_name()?.expect("HEAD is symbolic after checkout");
+    assert_eq!(head_name, "refs/heads/main");
+    // `main` is ahead of `origin/main` and must stay where it was.
+    let mut main = repo.find_reference("refs/heads/main")?;
+    assert_eq!(main.peel_to_id()?, main_commit_id);
+    assert_workspace_ref(&result.workspace, "refs/heads/main");
+
+    Ok(())
+}
+
+#[test]
+fn checkout_rejects_refs_that_are_not_branches() -> anyhow::Result<()> {
     let (repo, _tmp) = repo_with_feature_branch()?;
     let mut ctx = but_ctx::Context::from_repo_for_testing(repo)?.with_memory_app_cache();
-    let branch = gix::refs::FullName::try_from("refs/remotes/origin/main")?;
+    let branch = gix::refs::FullName::try_from("refs/tags/v1")?;
 
     let err = but_api::branch::branch_checkout(&mut ctx, branch)
-        .expect_err("only local branch refs can be checked out");
+        .expect_err("only branch refs can be checked out");
     assert_eq!(
         err.to_string(),
-        "Can only check out local branches under refs/heads, got 'refs/remotes/origin/main'"
+        "Can only check out local branches under refs/heads or remote-tracking branches under refs/remotes, got 'refs/tags/v1'"
     );
 
     Ok(())
