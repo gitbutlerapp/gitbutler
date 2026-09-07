@@ -278,19 +278,6 @@ export const useReviewUnread = (
 	);
 };
 
-/** How many of `reviews` have unread activity — again a primitive. */
-export const useUnreadReviewCount = (
-	projectId: string,
-	reviews: Array<{ number: number; modifiedAt: string | null }>,
-	enabled: boolean,
-): number =>
-	useSyncExternalStore(enabled ? subscribeMarks : subscribeNothing, () => {
-		if (!enabled) return 0;
-		const marks = readMarks(projectId);
-		return reviews.filter((review) => isUnread(projectId, review.number, review.modifiedAt, marks))
-			.length;
-	});
-
 /**
  * Stamp reviews seen when first listed and prune marks for delisted ones.
  * An absent mark reads as seen, so the stamp is what makes only activity
