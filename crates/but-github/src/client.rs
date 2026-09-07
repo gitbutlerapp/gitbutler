@@ -1194,8 +1194,20 @@ impl GitHubClient {
 
         let response = self.client.put(&url).json(&body).send().await?;
 
-        if !response.status().is_success() {
-            bail!("Failed to merge pull request: {}", response.status());
+        let status = response.status();
+        if !status.is_success() {
+            // The body carries GitHub's reason. Only its `message` reads well in
+            // a toast; the raw envelope drags a documentation URL along.
+            let body = response.text().await.unwrap_or_default();
+            let reason = serde_json::from_str::<serde_json::Value>(&body)
+                .ok()
+                .and_then(|value| {
+                    value
+                        .get("message")
+                        .and_then(|m| m.as_str().map(String::from))
+                })
+                .unwrap_or(body);
+            bail!("GitHub refused the merge ({status}): {reason}");
         }
 
         Ok(())

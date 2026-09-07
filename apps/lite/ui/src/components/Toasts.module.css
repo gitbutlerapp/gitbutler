@@ -27,6 +27,9 @@
 	display: flex;
 	flex-direction: column;
 	gap: 12px;
+	/* Error messages carry URLs and identifiers longer than any word the
+	   250px card can hold; break them rather than overflow the card. */
+	overflow-wrap: anywhere;
 }
 
 .actions {

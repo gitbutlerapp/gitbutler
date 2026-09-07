@@ -483,7 +483,6 @@ pub async fn merge(
     GitHubClient::from_storage(storage, preferred_account)?
         .merge_pull_request(&params)
         .await
-        .context("Failed to merge PR")
 }
 
 pub async fn set_draft_state(

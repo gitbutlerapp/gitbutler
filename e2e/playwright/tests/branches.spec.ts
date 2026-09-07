@@ -426,6 +426,9 @@ test("should be able to apply a remote branch and integrate the remote changes -
 	await fillByTestId(page, "commit-drawer-title-input", newCommitMessage);
 	await textEditorFillByTestId(page, "commit-drawer-description-input", "CCCCCCC");
 	await clickByTestId(page, "commit-drawer-action-button");
+	// The commit must land before integrate races it. Lost in rebases twice
+	// before (42b0b4c86b): keep it.
+	await expect(commitRow(page)).toHaveCount(3);
 
 	// Integrate upstream commits on top
 	await clickByTestId(page, "upstream-commits-integrate-button");
