@@ -126,6 +126,7 @@ protocol.registerSchemesAsPrivileged([
 			standard: true,
 			secure: true,
 			supportFetchAPI: true,
+			codeCache: true,
 		},
 	},
 ]);
@@ -526,6 +527,7 @@ const createMainWindow = async (initialUrl?: string): Promise<void> => {
 		trafficLightPosition: process.platform === "darwin" ? { x: 16, y: 19 } : undefined,
 		webPreferences: {
 			contextIsolation: true,
+			v8CacheOptions: "bypassHeatCheck",
 			nodeIntegration: false,
 			preload: path.join(currentDirPath, "preload.cjs"),
 		},
