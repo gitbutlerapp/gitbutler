@@ -958,10 +958,28 @@ Outcome {
 #[test]
 fn partial_commit_with_adjacent_lines_conflicts_on_checkout() -> anyhow::Result<()> {
     let (repo, _tmp) = writable_scenario("adjacent-line-additions");
+    snapbox::assert_data_eq!(
+        git_status(&repo)?,
+        snapbox::str![[r#"
+ M file
+ M file2
+ M separated
+
+"#]]
+    );
     // Worktree has two added lines (added-a, added-b) between line1 and line2.
     let file_path = repo.workdir_path("file").unwrap();
-    let worktree_content = std::fs::read_to_string(&file_path)?;
-    assert_eq!(worktree_content, "line1\nadded-a\nadded-b\nline2\nline3\n");
+    snapbox::assert_data_eq!(
+        std::fs::read_to_string(&file_path)?,
+        snapbox::str![[r#"
+line1
+added-a
+added-b
+line2
+line3
+
+"#]]
+    );
 
     // Simulate a partial commit: the new tree has only one of the two added lines.
     let new_commit = build_commit(
@@ -979,23 +997,57 @@ fn partial_commit_with_adjacent_lines_conflicts_on_checkout() -> anyhow::Result<
     // override that includes the consumed changes, the 3-way merge treats this
     // as a conflict.
     let err = safe_checkout_from_head(new_commit.id, &repo, Default::default()).unwrap_err();
-    assert!(
-        err.to_string()
-            .contains("Uncommitted files would be overwritten"),
-        "checkout must abort on partial-commit conflict: {err}"
+    snapbox::assert_data_eq!(
+        format!("{err:#}"),
+        snapbox::str![[r#"Uncommitted files would be overwritten by checkout: "file""#]]
     );
 
+    // The aborted checkout leaves the worktree as it was.
+    snapbox::assert_data_eq!(
+        std::fs::read_to_string(&file_path)?,
+        snapbox::str![[r#"
+line1
+added-a
+added-b
+line2
+line3
+
+"#]]
+    );
+    snapbox::assert_data_eq!(
+        git_status(&repo)?,
+        snapbox::str![[r#"
+ M file
+ M file2
+ M separated
+
+"#]]
+    );
     Ok(())
 }
 
 #[test]
 fn partial_commit_with_deletion_plus_insertion_conflicts_on_checkout() -> anyhow::Result<()> {
     let (repo, _tmp) = writable_scenario("adjacent-line-additions");
+    snapbox::assert_data_eq!(
+        git_status(&repo)?,
+        snapbox::str![[r#"
+ M file
+ M file2
+ M separated
+
+"#]]
+    );
     // Worktree replaced old-line with new-line.
     let file_path = repo.workdir_path("file2").unwrap();
-    assert_eq!(
+    snapbox::assert_data_eq!(
         std::fs::read_to_string(&file_path)?,
-        "line1\nnew-line\nline3\n"
+        snapbox::str![[r#"
+line1
+new-line
+line3
+
+"#]]
     );
 
     // Commit only the deletion of old-line, not the insertion of new-line.
@@ -1013,12 +1065,30 @@ fn partial_commit_with_deletion_plus_insertion_conflicts_on_checkout() -> anyhow
     // with new-line — both modify the same region. Same class of bug as the
     // adjacent-line case: commit_create avoids this by skipping checkout entirely.
     let err = safe_checkout_from_head(new_commit.id, &repo, Default::default()).unwrap_err();
-    assert!(
-        err.to_string()
-            .contains("Uncommitted files would be overwritten"),
-        "checkout must abort on partial-commit conflict: {err}"
+    snapbox::assert_data_eq!(
+        format!("{err:#}"),
+        snapbox::str![[r#"Uncommitted files would be overwritten by checkout: "file2""#]]
     );
 
+    // The aborted checkout leaves the worktree as it was.
+    snapbox::assert_data_eq!(
+        std::fs::read_to_string(&file_path)?,
+        snapbox::str![[r#"
+line1
+new-line
+line3
+
+"#]]
+    );
+    snapbox::assert_data_eq!(
+        git_status(&repo)?,
+        snapbox::str![[r#"
+ M file
+ M file2
+ M separated
+
+"#]]
+    );
     Ok(())
 }
 
@@ -1027,9 +1097,26 @@ fn consumed_changes_cancel_even_when_the_tree_does_not_change() -> anyhow::Resul
     let (repo, _tmp) = writable_scenario("adjacent-line-additions");
     let file_path = repo.workdir_path("separated").unwrap();
     let file2_path = repo.workdir_path("file2").unwrap();
-    assert_eq!(
+    snapbox::assert_data_eq!(
+        git_status(&repo)?,
+        snapbox::str![[r#"
+ M file
+ M file2
+ M separated
+
+"#]]
+    );
+    snapbox::assert_data_eq!(
         std::fs::read_to_string(&file_path)?,
-        "line1\nadded-a\nunchanged\nadded-b\nline2\nline3\n"
+        snapbox::str![[r#"
+line1
+added-a
+unchanged
+added-b
+line2
+line3
+
+"#]]
     );
 
     // Amending `added-a` into a commit outside this checkout's history leaves its
@@ -1047,7 +1134,7 @@ fn consumed_changes_cancel_even_when_the_tree_does_not_change() -> anyhow::Resul
     .tree_id()?
     .detach();
 
-    safe_checkout_from_head(
+    let out = safe_checkout_from_head(
         head,
         &repo,
         checkout::Options {
@@ -1055,17 +1142,49 @@ fn consumed_changes_cancel_even_when_the_tree_does_not_change() -> anyhow::Resul
             ..Default::default()
         },
     )?;
+    snapbox::assert_data_eq!(
+        out.to_debug(),
+        snapbox::str![[r#"
+Outcome {
+    head_update: "None",
+}
 
-    assert_eq!(
-        std::fs::read_to_string(&file_path)?,
-        "line1\nunchanged\nadded-b\nline2\nline3\n",
-        "the consumed line is gone - it lives in the commit now - and the one that \
-         wasn't consumed stays behind"
+"#]]
     );
-    assert_eq!(
+
+    // The consumed line is gone - it lives in the commit now - while the one that
+    // wasn't consumed stays behind.
+    snapbox::assert_data_eq!(
+        std::fs::read_to_string(&file_path)?,
+        snapbox::str![[r#"
+line1
+unchanged
+added-b
+line2
+line3
+
+"#]]
+    );
+    // Dirt in files the override doesn't mention is untouched.
+    snapbox::assert_data_eq!(
         std::fs::read_to_string(&file2_path)?,
-        "line1\nnew-line\nline3\n",
-        "dirt in files the override doesn't mention is untouched"
+        snapbox::str![[r#"
+line1
+new-line
+line3
+
+"#]]
+    );
+    // Re-applying the snapshot also updates the index entry of `separated`, like
+    // every checkout in this file does for the files it touches.
+    snapbox::assert_data_eq!(
+        git_status(&repo)?,
+        snapbox::str![[r#"
+ M file
+ M file2
+M  separated
+
+"#]]
     );
     Ok(())
 }
@@ -1073,8 +1192,17 @@ fn consumed_changes_cancel_even_when_the_tree_does_not_change() -> anyhow::Resul
 #[test]
 fn cancelling_a_consumed_addition_removes_it_and_leaves_other_dirt_alone() -> anyhow::Result<()> {
     let (repo, _tmp) = writable_scenario("adjacent-line-additions");
-    let added_path = repo.workdir_path("added.txt").unwrap();
-    std::fs::write(&added_path, "added\n")?;
+    std::fs::write(repo.workdir_path("added.txt").unwrap(), "added\n")?;
+    snapbox::assert_data_eq!(
+        git_status(&repo)?,
+        snapbox::str![[r#"
+ M file
+ M file2
+ M separated
+?? added.txt
+
+"#]]
+    );
 
     let head = repo.head_commit()?.id;
     let consumed = build_commit(
@@ -1098,18 +1226,47 @@ fn cancelling_a_consumed_addition_removes_it_and_leaves_other_dirt_alone() -> an
         },
     )?;
 
-    assert!(
-        !added_path.exists(),
-        "the file lives in a commit now, so it must not linger here as an untracked duplicate"
+    // The file lives in a commit now, so it must not linger here as an untracked duplicate.
+    snapbox::assert_data_eq!(
+        visualize_disk_tree_skip_dot_git(repo.workdir().unwrap())?.to_string(),
+        snapbox::str![[r#"
+.
+├── .git:40755
+├── file:100644
+├── file2:100644
+└── separated:100644
+
+"#]]
     );
-    assert_eq!(
+    snapbox::assert_data_eq!(
+        git_status(&repo)?,
+        snapbox::str![[r#"
+ M file
+ M file2
+ M separated
+
+"#]]
+    );
+    // Removing the consumed addition must not let the checkout loose on unrelated dirt.
+    snapbox::assert_data_eq!(
         std::fs::read_to_string(repo.workdir_path("file").unwrap())?,
-        "line1\nadded-a\nadded-b\nline2\nline3\n",
-        "removing the consumed addition must not let the checkout loose on unrelated dirt"
+        snapbox::str![[r#"
+line1
+added-a
+added-b
+line2
+line3
+
+"#]]
     );
-    assert_eq!(
+    snapbox::assert_data_eq!(
         std::fs::read_to_string(repo.workdir_path("file2").unwrap())?,
-        "line1\nnew-line\nline3\n"
+        snapbox::str![[r#"
+line1
+new-line
+line3
+
+"#]]
     );
     Ok(())
 }
@@ -1146,10 +1303,29 @@ fn cancelling_consumed_changes_keeps_a_concurrent_edit() -> anyhow::Result<()> {
         },
     )?;
 
-    assert_eq!(
+    // The snapshot is taken live, so the concurrent edit survives the cancellation.
+    snapbox::assert_data_eq!(
         std::fs::read_to_string(&file_path)?,
-        "line1\nunchanged\nadded-b\nline2\nline3\nappended\n",
-        "the snapshot is taken live, so the concurrent edit survives the cancellation"
+        snapbox::str![[r#"
+line1
+unchanged
+added-b
+line2
+line3
+appended
+
+"#]]
+    );
+    // Re-applying the snapshot also updates the index entry of `separated`, like
+    // every checkout in this file does for the files it touches.
+    snapbox::assert_data_eq!(
+        git_status(&repo)?,
+        snapbox::str![[r#"
+ M file
+ M file2
+M  separated
+
+"#]]
     );
     Ok(())
 }

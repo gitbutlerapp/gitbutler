@@ -1,8 +1,10 @@
 use anyhow::Result;
 use but_core::DiffSpec;
 use but_rebase::graph_rebase::{Editor, LookupStep as _};
-use but_testsupport::git_status;
+use but_testsupport::{git_status, visualize_commit_graph_all, visualize_tree};
 use but_workspace::commit::{ChangeSource, commit_amend};
+use gix::prelude::ObjectIdExt;
+use snapbox::{IntoData, str};
 
 use crate::ref_info::with_workspace_commit::utils::{
     StackState, add_stack_with_segments,
@@ -40,16 +42,32 @@ fn worktree_changes_as_specs_with_hunks(
 
 #[test]
 fn amend_commit_smoke_test() -> Result<()> {
-    let (_tmp, graph, repo, mut _meta, _description, mut db) =
+    let (_tmp, graph, repo, mut meta, _description, mut db) =
         writable_scenario("reword-three-commits", |_| {})?;
-    let two_id = repo.rev_parse_single("two")?.detach();
     std::fs::write(
         repo.workdir_path("amended.txt").expect("non-bare"),
         "amended\n",
     )?;
+    snapbox::assert_data_eq!(
+        git_status(&repo)?,
+        str![[r#"
+?? amended.txt
 
+"#]]
+    );
+    snapbox::assert_data_eq!(
+        visualize_commit_graph_all(&repo)?,
+        str![[r#"
+* c9f444c (HEAD -> three) commit three
+* 16fd221 (origin/two, two) commit two
+* 8b426d0 (one) commit one
+
+"#]]
+    );
+
+    let two_id = repo.rev_parse_single("two")?.detach();
     let mut ws = graph.into_workspace()?;
-    let editor = Editor::create(&mut ws, &mut _meta, &repo, &mut db)?;
+    let editor = Editor::create(&mut ws, &mut meta, &repo, &mut db)?;
     let outcome = commit_amend(
         editor,
         two_id,
@@ -57,18 +75,40 @@ fn amend_commit_smoke_test() -> Result<()> {
         0,
         ChangeSource::Head,
     )?;
-
-    assert!(outcome.rejected_specs.is_empty());
+    assert!(
+        outcome.rejected_specs.is_empty(),
+        "{:?}",
+        outcome.rejected_specs
+    );
     let selector = outcome.commit_selector.expect("selector exists");
     let materialized = outcome.rebase.materialize(Default::default())?;
     let rewritten_id = materialized.lookup_pick(selector)?;
 
-    let rewritten_commit = repo.find_commit(rewritten_id)?;
-    assert_eq!(rewritten_commit.message_raw()?, "commit two\n");
-    let spec = format!("{rewritten_id}:amended.txt");
-    let object_with_path = repo.rev_parse_single(spec.as_str())?;
-    assert_eq!(object_with_path.object()?.kind, gix::objs::Kind::Blob);
+    snapbox::assert_data_eq!(git_status(&repo)?, str![[r#""#]]);
+    // `two` keeps its message but is rewritten, and `three` is rebased onto it.
+    snapbox::assert_data_eq!(
+        visualize_commit_graph_all(&repo)?,
+        str![[r#"
+* 4b615e9 (HEAD -> three) commit three
+* 6eb1f62 (two) commit two
+| * 16fd221 (origin/two) commit two
+|/  
+* 8b426d0 (one) commit one
 
+"#]]
+    );
+    snapbox::assert_data_eq!(
+        visualize_tree(rewritten_id.attach(&repo)).to_string(),
+        str![[r#"
+0f87971
+├── .gitignore:100644:f4ec724 "/remote/\n"
+├── amended.txt:100644:296cc37 "amended\n"
+├── one.txt:100644:257cc56 "foo\n"
+└── two.txt:100644:257cc56 "foo\n"
+
+"#]]
+        .raw()
+    );
     Ok(())
 }
 
@@ -86,23 +126,24 @@ fn amend_commit_smoke_test() -> Result<()> {
 fn amend_into_earlier_commit_leaves_no_uncommitted_changes() -> Result<()> {
     let (_tmp, graph, repo, mut meta, _description, mut db) =
         writable_scenario("amend-with-partial-commit", |_| {})?;
+    snapbox::assert_data_eq!(
+        git_status(&repo)?,
+        str![[r#"
+ M test.txt
 
-    // Find the "save 1" commit (first commit on the stack, parent of "partial 1")
-    let partial_1_id = repo.rev_parse_single("stack-1")?.detach();
-    let partial_1_commit = repo.find_commit(partial_1_id)?;
-    let save_1_id = partial_1_commit
-        .parent_ids()
-        .next()
-        .expect("has parent")
-        .detach();
+"#]]
+    );
+    snapbox::assert_data_eq!(
+        visualize_commit_graph_all(&repo)?,
+        str![[r#"
+* 946fc34 (HEAD -> stack-1) partial 1
+* 641df85 save 1
+* 84731fe (origin/main, main) base
 
-    // Verify initial state: there should be uncommitted changes (line 1.2)
-    let status_before = git_status(&repo)?;
-    assert!(
-        status_before.contains("test.txt"),
-        "should have uncommitted changes to test.txt before amend, got: {status_before}"
+"#]]
     );
 
+    let save_1_id = repo.rev_parse_single("stack-1~1")?.detach();
     let context_lines = 0;
     let mut ws = graph.into_workspace()?;
     let editor = Editor::create(&mut ws, &mut meta, &repo, &mut db)?;
@@ -113,19 +154,24 @@ fn amend_into_earlier_commit_leaves_no_uncommitted_changes() -> Result<()> {
         context_lines,
         ChangeSource::Head,
     )?;
-
-    assert!(outcome.rejected_specs.is_empty());
-    let _selector = outcome.commit_selector.expect("amend selector exists");
-    let _materialized = outcome.rebase.materialize(Default::default())?;
-
-    // No uncommitted changes should remain: the change was amended into
-    // "save 1", so it must not persist as an uncommitted worktree change.
-    let status_after = git_status(&repo)?;
-    assert_eq!(
-        status_after, "",
-        "expected no uncommitted changes after amending, but got:\n{status_after}"
+    assert!(
+        outcome.rejected_specs.is_empty(),
+        "{:?}",
+        outcome.rejected_specs
     );
+    outcome.rebase.materialize(Default::default())?;
 
+    // The change was amended into "save 1", so nothing is left in the worktree.
+    snapbox::assert_data_eq!(git_status(&repo)?, str![[r#""#]]);
+    snapbox::assert_data_eq!(
+        visualize_commit_graph_all(&repo)?,
+        str![[r#"
+* 2ab5372 (HEAD -> stack-1) partial 1
+* af7d04e save 1
+* 84731fe (origin/main, main) base
+
+"#]]
+    );
     Ok(())
 }
 
@@ -146,65 +192,64 @@ fn amend_with_two_stacks_preserves_uncommitted_deletions() -> Result<()> {
             add_stack_with_segments(meta, 1, "A", StackState::InWorkspace, &[]);
             add_stack_with_segments(meta, 2, "B", StackState::InWorkspace, &[]);
         })?;
+    snapbox::assert_data_eq!(
+        git_status(&repo)?,
+        str![[r#"
+ M a-file.txt
+ D b-file.txt
 
-    let workdir = repo.workdir().expect("non-bare repo");
+"#]]
+    );
+    snapbox::assert_data_eq!(
+        visualize_commit_graph_all(&repo)?,
+        str![[r#"
+*   fbc3f1c (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+|/  
+| * a57aa7a (A) add a-file
+* | 0bc0f67 (B) add b-file
+|/  
+* 85efbe4 (origin/main, main) M
 
-    // Verify initial state: a-file.txt modified, b-file.txt deleted
-    let status_before = git_status(&repo)?;
-    assert!(
-        status_before.contains("a-file.txt"),
-        "should have uncommitted changes to a-file.txt before amend, got: {status_before}"
-    );
-    assert!(
-        status_before.contains("b-file.txt"),
-        "should have uncommitted deletion of b-file.txt before amend, got: {status_before}"
-    );
-    assert!(
-        !workdir.join("b-file.txt").exists(),
-        "b-file.txt should be deleted on disk"
+"#]]
     );
 
-    // Build DiffSpecs for only a-file.txt (the file we want to amend)
-    let all_changes = but_core::diff::worktree_changes(&repo)?;
-    let a_file_specs: Vec<DiffSpec> = all_changes
+    let a_file_specs: Vec<DiffSpec> = but_core::diff::worktree_changes(&repo)?
         .changes
         .iter()
-        .filter(|c| c.path == "a-file.txt")
+        .filter(|change| change.path == "a-file.txt")
         .map(DiffSpec::from)
         .collect();
-    assert_eq!(
-        a_file_specs.len(),
-        1,
-        "should have exactly one spec for a-file.txt"
-    );
-
-    // Find the commit on branch A
     let a_commit_id = repo.rev_parse_single("A")?.detach();
-
     let mut ws = graph.into_workspace()?;
     let editor = Editor::create(&mut ws, &mut meta, &repo, &mut db)?;
     let outcome = commit_amend(editor, a_commit_id, a_file_specs, 0, ChangeSource::Head)?;
-
-    assert!(outcome.rejected_specs.is_empty());
-    let _materialized = outcome.rebase.materialize(Default::default())?;
-
-    // After amend: a-file.txt should no longer be modified (it was amended)
-    // but b-file.txt should STILL be deleted (uncommitted deletion preserved)
     assert!(
-        !workdir.join("b-file.txt").exists(),
-        "b-file.txt should still be deleted on disk after amend"
+        outcome.rejected_specs.is_empty(),
+        "{:?}",
+        outcome.rejected_specs
     );
+    outcome.rebase.materialize(Default::default())?;
 
-    let status_after = git_status(&repo)?;
-    assert!(
-        !status_after.contains("a-file.txt"),
-        "a-file.txt should no longer appear as modified after amend, got:\n{status_after}"
-    );
-    assert!(
-        status_after.contains("b-file.txt"),
-        "b-file.txt should still appear as a deleted file after amend, got:\n{status_after}"
-    );
+    // Only the amended modification is gone, the deletion on the other stack survives.
+    snapbox::assert_data_eq!(
+        git_status(&repo)?,
+        str![[r#"
+ D b-file.txt
 
+"#]]
+    );
+    snapbox::assert_data_eq!(
+        visualize_commit_graph_all(&repo)?,
+        str![[r#"
+*   eacbec3 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+|/  
+| * 83b5708 (A) add a-file
+* | 0bc0f67 (B) add b-file
+|/  
+* 85efbe4 (origin/main, main) M
+
+"#]]
+    );
     Ok(())
 }
 
@@ -220,13 +265,13 @@ mod from_worktree {
     use but_core::DiffSpec;
     use but_graph::Graph;
     use but_meta::VirtualBranchesTomlMetadata;
-    use but_rebase::graph_rebase::{Editor, LookupStep as _, mutate::InsertSide};
-    use but_testsupport::{git_status_at_dir, visualize_commit_graph_all};
+    use but_rebase::graph_rebase::{Editor, mutate::InsertSide};
+    use but_testsupport::{git_status_at_dir, visualize_commit_graph_all, visualize_tree};
     use but_workspace::{
         commit::{ChangeSource, commit_amend, commit_create},
         worktrees::open_worktree_repo,
     };
-    use snapbox::str;
+    use snapbox::{IntoData, str};
 
     use crate::utils::writable_scenario_slow;
 
@@ -281,10 +326,8 @@ mod from_worktree {
         }]
     }
 
-    fn blob(repo: &gix::Repository, spec: &str) -> Result<String> {
-        Ok(String::from_utf8(
-            repo.rev_parse_single(spec)?.object()?.data.clone(),
-        )?)
+    fn tree_at(repo: &gix::Repository, spec: &str) -> Result<String> {
+        Ok(visualize_tree(repo.rev_parse_single(spec)?).to_string())
     }
 
     #[test]
@@ -294,6 +337,45 @@ mod from_worktree {
         let graph = graph_with_worktree_tips(&repo, &*meta, &mut db)?;
         let mut ws = graph.into_workspace()?;
         let editor = Editor::create(&mut ws, &mut *meta, &repo, &mut db)?;
+
+        snapbox::assert_data_eq!(
+            git_status_at_dir(repo.workdir().unwrap())?,
+            str![[r#"
+?? wt-detached/
+?? wt/
+
+"#]]
+        );
+        snapbox::assert_data_eq!(
+            git_status_at_dir(&wt_dir)?,
+            str![[r#"
+ M a-file
+?? new-file
+
+"#]]
+        );
+        snapbox::assert_data_eq!(
+            visualize_commit_graph_all(&repo)?,
+            str![[r#"
+* 924b3a9 (feat) F1
+| * 8f5cb92 (HEAD -> main) M1
+|/  
+| * 4bc8fd2 D1
+|/  
+* 35b8235 base
+
+"#]]
+        );
+        snapbox::assert_data_eq!(
+            tree_at(&repo, "feat")?,
+            str![[r#"
+e96e9b7
+├── a-file:100644:4cb29ea "one\ntwo\nthree\n"
+└── base:100644:df967b9 "base\n"
+
+"#]]
+            .raw()
+        );
 
         let wt_repo = open_worktree_repo(&repo, "wt".into())?;
         let f1_id = repo.rev_parse_single("feat")?.detach();
@@ -314,29 +396,46 @@ mod from_worktree {
             "{:?}",
             outcome.rejected_specs
         );
-        let selector = outcome.commit_selector.expect("a commit was amended");
-        let materialized = outcome.rebase.materialize(Default::default())?;
-        let new_id = materialized.lookup_pick(selector)?;
+        outcome.rebase.materialize(Default::default())?;
 
-        assert_eq!(
-            repo.rev_parse_single("feat")?,
-            new_id,
-            "the worktree's branch moved to the amended commit"
-        );
-        assert_eq!(
-            blob(&repo, &format!("{new_id}:a-file"))?,
-            "one\ntwo\nthree\nfour\n",
-            "the amended commit contains the worktree's uncommitted content"
-        );
+        snapbox::assert_data_eq!(
+            git_status_at_dir(repo.workdir().unwrap())?,
+            str![[r#"
+?? wt-detached/
+?? wt/
 
-        let status = git_status_at_dir(&wt_dir)?;
-        assert!(
-            !status.contains("a-file"),
-            "the merge-base override cancelled the consumed change during the worktree checkout: {status}"
+"#]]
         );
-        assert!(
-            status.contains("new-file"),
-            "the dirty file that wasn't amended survives in the worktree: {status}"
+        // The merge-base override cancelled the consumed change during the worktree
+        // checkout, while the file that wasn't amended stays dirty.
+        snapbox::assert_data_eq!(
+            git_status_at_dir(&wt_dir)?,
+            str![[r#"
+?? new-file
+
+"#]]
+        );
+        snapbox::assert_data_eq!(
+            visualize_commit_graph_all(&repo)?,
+            str![[r#"
+* 22894d8 (feat) F1
+| * 8f5cb92 (HEAD -> main) M1
+|/  
+| * 4bc8fd2 D1
+|/  
+* 35b8235 base
+
+"#]]
+        );
+        snapbox::assert_data_eq!(
+            tree_at(&repo, "feat")?,
+            str![[r#"
+45b12c2
+├── a-file:100644:f384549 "one\ntwo\nthree\nfour\n"
+└── base:100644:df967b9 "base\n"
+
+"#]]
+            .raw()
         );
         Ok(())
     }
@@ -368,6 +467,27 @@ mod from_worktree {
             ..Default::default()
         };
 
+        snapbox::assert_data_eq!(
+            git_status_at_dir(&wt_dir)?,
+            str![[r#"
+ M a-file
+?? new-file
+
+"#]]
+        );
+        snapbox::assert_data_eq!(
+            visualize_commit_graph_all(&repo)?,
+            str![[r#"
+* 924b3a9 (feat) F1
+| * 8f5cb92 (HEAD -> main) M1
+|/  
+| * 4bc8fd2 D1
+|/  
+* 35b8235 base
+
+"#]]
+        );
+
         let outcome = commit_amend(
             editor,
             repo.rev_parse_single("feat")?,
@@ -378,19 +498,54 @@ mod from_worktree {
                 name: "wt".into(),
             },
         )?;
-        let selector = outcome.commit_selector.expect("a commit was amended");
-        let materialized = outcome.rebase.materialize(Default::default())?;
-        let new_id = materialized.lookup_pick(selector)?;
-
-        assert_eq!(
-            blob(&repo, &format!("{new_id}:a-file"))?,
-            "ONE\ntwo\nthree\n",
-            "only the selected hunk enters the commit"
+        assert!(
+            outcome.rejected_specs.is_empty(),
+            "{:?}",
+            outcome.rejected_specs
         );
-        assert_eq!(
+        outcome.rebase.materialize(Default::default())?;
+
+        // Only the selected hunk enters the commit.
+        snapbox::assert_data_eq!(
+            visualize_commit_graph_all(&repo)?,
+            str![[r#"
+* 503639f (feat) F1
+| * 8f5cb92 (HEAD -> main) M1
+|/  
+| * 4bc8fd2 D1
+|/  
+* 35b8235 base
+
+"#]]
+        );
+        snapbox::assert_data_eq!(
+            tree_at(&repo, "feat")?,
+            str![[r#"
+321f1dc
+├── a-file:100644:59cb04e "ONE\ntwo\nthree\n"
+└── base:100644:df967b9 "base\n"
+
+"#]]
+            .raw()
+        );
+        // The unselected hunk remains in the checkout.
+        snapbox::assert_data_eq!(
+            git_status_at_dir(&wt_dir)?,
+            str![[r#"
+ M a-file
+?? new-file
+
+"#]]
+        );
+        snapbox::assert_data_eq!(
             std::fs::read_to_string(wt_dir.join("a-file"))?,
-            "ONE\ntwo\nthree\nfour\n",
-            "the unselected hunk remains in the checkout"
+            str![[r#"
+ONE
+two
+three
+four
+
+"#]]
         );
         Ok(())
     }
@@ -492,14 +647,25 @@ mod from_worktree {
         let mut ws = graph.into_workspace()?;
         let editor = Editor::create(&mut ws, &mut *meta, &repo, &mut db)?;
         let wt_repo = open_worktree_repo(&repo, "wt".into())?;
+        snapbox::assert_data_eq!(
+            visualize_commit_graph_all(&repo)?,
+            str![[r#"
+* 924b3a9 (feat) F1
+| * 8f5cb92 (HEAD -> main) M1
+|/  
+| * 4bc8fd2 D1
+|/  
+* 35b8235 base
+
+"#]]
+        );
 
         // The detached worktree's commit is in the graph, but no branch points at
         // it, so it is never forced mutable. Amending into it used to write the
         // amended commit and report success while no ref ever adopted it.
-        let d1_id = detached_tip(&repo)?;
         let err = commit_amend(
             editor,
-            d1_id,
+            detached_tip(&repo)?,
             whole_file_spec("a-file"),
             0,
             ChangeSource::Worktree {
@@ -508,8 +674,26 @@ mod from_worktree {
             },
         )
         .unwrap_err();
-        assert!(err.to_string().contains("the commit is immutable"), "{err}");
-        assert_eq!(detached_tip(&repo)?, d1_id, "nothing moved");
+        snapbox::assert_data_eq!(
+            format!("{err:#}"),
+            str![
+                "cannot amend into 4bc8fd2eab2b190aa72cd5eca71b5f4c742d3621: the commit is immutable (not part of a mutable branch)"
+            ]
+        );
+
+        // Nothing moved.
+        snapbox::assert_data_eq!(
+            visualize_commit_graph_all(&repo)?,
+            str![[r#"
+* 924b3a9 (feat) F1
+| * 8f5cb92 (HEAD -> main) M1
+|/  
+| * 4bc8fd2 D1
+|/  
+* 35b8235 base
+
+"#]]
+        );
         Ok(())
     }
 
@@ -519,14 +703,23 @@ mod from_worktree {
         let graph = graph_with_worktree_tips(&repo, &*meta, &mut db)?;
         let mut ws = graph.into_workspace()?;
         let editor = Editor::create(&mut ws, &mut *meta, &repo, &mut db)?;
-
         let wt_repo = open_worktree_repo(&repo, "wt".into())?;
-        let f1_id = repo.rev_parse_single("feat")?.detach();
-        let m1_id = repo.head_id()?.detach();
+        snapbox::assert_data_eq!(
+            visualize_commit_graph_all(&repo)?,
+            str![[r#"
+* 924b3a9 (feat) F1
+| * 8f5cb92 (HEAD -> main) M1
+|/  
+| * 4bc8fd2 D1
+|/  
+* 35b8235 base
+
+"#]]
+        );
 
         let err = commit_amend(
             editor,
-            f1_id,
+            repo.rev_parse_single("feat")?.detach(),
             whole_file_spec("a-file"),
             0,
             ChangeSource::Worktree {
@@ -535,10 +728,24 @@ mod from_worktree {
             },
         )
         .unwrap_err();
-        assert!(err.to_string().contains("no checkout recorded"), "{err}");
+        snapbox::assert_data_eq!(
+            format!("{err:#}"),
+            str!["Worktree not-a-worktree has no checkout recorded in the editor"]
+        );
 
-        assert_eq!(repo.rev_parse_single("feat")?, f1_id, "nothing moved");
-        assert_eq!(repo.head_id()?, m1_id, "nothing moved");
+        // Nothing moved.
+        snapbox::assert_data_eq!(
+            visualize_commit_graph_all(&repo)?,
+            str![[r#"
+* 924b3a9 (feat) F1
+| * 8f5cb92 (HEAD -> main) M1
+|/  
+| * 4bc8fd2 D1
+|/  
+* 35b8235 base
+
+"#]]
+        );
         Ok(())
     }
 
@@ -550,7 +757,27 @@ mod from_worktree {
         let mut ws = graph.into_workspace()?;
         let editor = Editor::create(&mut ws, &mut *meta, &repo, &mut db)?;
         let wt_repo = open_worktree_repo(&repo, "wt".into())?;
-        let f1_id = repo.rev_parse_single("feat")?.detach();
+
+        snapbox::assert_data_eq!(
+            git_status_at_dir(&wt_dir)?,
+            str![[r#"
+ M a-file
+?? new-file
+
+"#]]
+        );
+        snapbox::assert_data_eq!(
+            visualize_commit_graph_all(&repo)?,
+            str![[r#"
+* 924b3a9 (feat) F1
+| * 8f5cb92 (HEAD -> main) M1
+|/  
+| * 4bc8fd2 D1
+|/  
+* 35b8235 base
+
+"#]]
+        );
 
         let outcome = commit_create(
             editor,
@@ -569,32 +796,39 @@ mod from_worktree {
             "{:?}",
             outcome.rejected_specs
         );
-        let selector = outcome.commit_selector.expect("a commit was created");
-        let materialized = outcome.rebase.materialize(Default::default())?;
-        let new_id = materialized.lookup_pick(selector)?;
+        outcome.rebase.materialize(Default::default())?;
 
-        assert_eq!(
-            repo.rev_parse_single("feat")?,
-            new_id,
-            "the worktree's branch moved to the new commit"
+        // The new commit sits on top of the worktree's previous tip, and its branch moved there.
+        snapbox::assert_data_eq!(
+            visualize_commit_graph_all(&repo)?,
+            str![[r#"
+* 6599517 (feat) F2
+* 924b3a9 F1
+| * 8f5cb92 (HEAD -> main) M1
+|/  
+| * 4bc8fd2 D1
+|/  
+* 35b8235 base
+
+"#]]
         );
-        assert_eq!(
-            repo.find_commit(new_id)?.parent_ids().next().unwrap(),
-            f1_id,
-            "the new commit sits on top of the worktree's previous tip"
+        snapbox::assert_data_eq!(
+            tree_at(&repo, "feat")?,
+            str![[r#"
+45b12c2
+├── a-file:100644:f384549 "one\ntwo\nthree\nfour\n"
+└── base:100644:df967b9 "base\n"
+
+"#]]
+            .raw()
         );
-        assert_eq!(
-            blob(&repo, &format!("{new_id}:a-file"))?,
-            "one\ntwo\nthree\nfour\n"
-        );
-        let status = git_status_at_dir(&wt_dir)?;
-        assert!(
-            !status.contains("a-file"),
-            "the committed change was cancelled from the worktree: {status}"
-        );
-        assert!(
-            status.contains("new-file"),
-            "the untracked file that wasn't committed survives: {status}"
+        // The committed change was cancelled from the worktree, the untracked file survives.
+        snapbox::assert_data_eq!(
+            git_status_at_dir(&wt_dir)?,
+            str![[r#"
+?? new-file
+
+"#]]
         );
         Ok(())
     }

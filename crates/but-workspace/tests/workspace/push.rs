@@ -1,11 +1,12 @@
+use std::fmt::Write as _;
+
 use crate::utils::{r, writable_scenario_slow};
 use bstr::ByteSlice;
 use but_core::ref_metadata::ProjectMeta;
-use but_workspace::{
-    RefInfo,
-    ref_info::Options,
-    ui::PushStatus::{CompletelyUnpushed, NothingToPush, UnpushedCommitsRequiringForce},
-};
+use but_testsupport::{CommandExt, git, visualize_commit_graph_all};
+use but_workspace::{RefInfo, ref_info::Options};
+use gitbutler_git::PushResult;
+use snapbox::str;
 
 static ASKPASS: std::sync::Once = std::sync::Once::new();
 
@@ -18,16 +19,11 @@ fn fixture(
 )> {
     ASKPASS.call_once(but_askpass::disable);
     let (repo, tmp) = writable_scenario_slow(name);
-    let remote = tmp.path().join("remote.git");
-    let status = std::process::Command::new("git")
-        .current_dir(repo.workdir().expect("fixtures have workdirs"))
+    // The fixture's relative remote URL is normalized to an absolute path.
+    git(&repo)
         .args(["remote", "set-url", "origin"])
-        .arg(remote)
-        .status()?;
-    assert!(
-        status.success(),
-        "fixture remote URL should be normalized to an absolute path"
-    );
+        .arg(tmp.path().join("remote.git"))
+        .run();
     let meta = but_meta::VirtualBranchesTomlMetadata::from_path(
         repo.path().join("virtual-branches.toml"),
     )?;
@@ -65,7 +61,7 @@ fn push(
     with_force: bool,
     skip_force_push_protection: bool,
     force_push_protection: bool,
-) -> anyhow::Result<gitbutler_git::PushResult> {
+) -> anyhow::Result<PushResult> {
     let (info, workspace) = head_info(repo, meta)?;
     let mut db = but_db::DbHandle::new_at_path(":memory:")?;
     but_workspace::legacy::workspace_branch_and_ancestors_push(
@@ -85,42 +81,55 @@ fn push(
     )
 }
 
-fn apply_remote_tracking_updates(
-    repo: &gix::Repository,
-    result: &gitbutler_git::PushResult,
-) -> anyhow::Result<()> {
+fn apply_remote_tracking_updates(repo: &gix::Repository, result: &PushResult) {
     for ((_branch, remote_refname, _remote_branch_name), (_, _, after_sha)) in result
         .branch_to_remote
         .iter()
         .zip(result.branch_sha_updates.iter())
     {
-        let status = std::process::Command::new("git")
-            .current_dir(repo.workdir().expect("fixtures have workdirs"))
-            .args(["update-ref", remote_refname.as_bstr().to_str()?, after_sha])
-            .status()?;
-        assert!(
-            status.success(),
-            "git update-ref should update pushed remote-tracking refs"
-        );
+        git(repo)
+            .arg("update-ref")
+            .arg(remote_refname.as_bstr().to_os_str_lossy())
+            .arg(after_sha)
+            .run();
     }
-    Ok(())
 }
 
-fn status(info: &RefInfo, branch: &str) -> but_workspace::ui::PushStatus {
-    info.stacks
-        .iter()
-        .flat_map(|stack| &stack.segments)
-        .find(|segment| {
-            segment
-                .ref_info
-                .as_ref()
-                .is_some_and(|ref_info| ref_info.ref_name.shorten() == branch.as_bytes())
-        })
-        .unwrap_or_else(|| panic!("fixture should contain branch `{branch}`"))
-        .push_status
+/// The remote the push defaulted to, then one line per pushed branch with the remote
+/// tracking ref it updated and its name on that remote.
+fn render_push_result(result: &PushResult) -> String {
+    let mut out = format!("remote: {}\n", result.remote);
+    for (branch, remote_refname, remote_branch_name) in &result.branch_to_remote {
+        writeln!(out, "{branch} -> {remote_refname} ({remote_branch_name})")
+            .expect("in-memory write succeeds");
+    }
+    out
 }
 
-fn logical_scope(info: &RefInfo, branch: &str) -> Vec<String> {
+/// One line per branch with its push status as projected by `info`.
+fn render_statuses(info: &RefInfo, branches: &[&str]) -> String {
+    let mut out = String::new();
+    for branch in branches {
+        let push_status = info
+            .stacks
+            .iter()
+            .flat_map(|stack| &stack.segments)
+            .find(|segment| {
+                segment
+                    .ref_info
+                    .as_ref()
+                    .is_some_and(|ref_info| ref_info.ref_name.shorten() == branch.as_bytes())
+            })
+            .unwrap_or_else(|| panic!("fixture should contain branch `{branch}`"))
+            .push_status;
+        writeln!(out, "{branch}: {push_status:?}").expect("in-memory write succeeds");
+    }
+    out
+}
+
+/// The branches that pushing `branch` synchronizes, from the branch itself down to its
+/// lowest ancestor.
+fn logical_scope(info: &RefInfo, branch: &str) -> String {
     let branch = gix::refs::Category::LocalBranch
         .to_full_name(branch)
         .expect("valid fixture branch name");
@@ -132,7 +141,8 @@ fn logical_scope(info: &RefInfo, branch: &str) -> Vec<String> {
                 .as_ref()
                 .map(|ref_info| ref_info.ref_name.shorten().to_string())
         })
-        .collect()
+        .collect::<Vec<_>>()
+        .join(", ")
 }
 
 #[test]
@@ -140,15 +150,11 @@ fn logical_push_scope_is_selected_branch_plus_ancestors() -> anyhow::Result<()> 
     let (_tmp, repo, meta) = fixture("push")?;
     let (info, _) = head_info(&repo, &meta)?;
 
-    assert_eq!(logical_scope(&info, "bottom"), ["bottom"]);
-    assert_eq!(logical_scope(&info, "middle"), ["middle", "bottom"]);
-    assert_eq!(logical_scope(&info, "top"), ["top", "middle", "bottom"]);
-    assert_eq!(
-        logical_scope(&info, "solo"),
-        ["solo"],
-        "an unrelated stack must not enter the selected scope"
-    );
-
+    snapbox::assert_data_eq!(logical_scope(&info, "bottom"), str!["bottom"]);
+    snapbox::assert_data_eq!(logical_scope(&info, "middle"), str!["middle, bottom"]);
+    snapbox::assert_data_eq!(logical_scope(&info, "top"), str!["top, middle, bottom"]);
+    // An unrelated stack must not enter the selected scope.
+    snapbox::assert_data_eq!(logical_scope(&info, "solo"), str!["solo"]);
     Ok(())
 }
 
@@ -158,7 +164,6 @@ fn pushed_branch_reports_its_name_on_the_remote_it_landed_on() -> anyhow::Result
     // Track `bottom` on a second remote so its own remote differs from the push default,
     // which is derived from the target ref and stays `origin`.
     let fork = tmp.path().join("remote.git");
-    let workdir = repo.workdir().expect("fixtures have workdirs");
     // The tracking ref has to exist for the branch to be seen as tracking `fork`, and it
     // points at the base so `bottom` still has commits left to push.
     let base = repo.rev_parse_single("main")?.to_string();
@@ -168,32 +173,23 @@ fn pushed_branch_reports_its_name_on_the_remote_it_landed_on() -> anyhow::Result
         vec!["config", "branch.bottom.merge", "refs/heads/bottom"],
         vec!["update-ref", "refs/remotes/fork/bottom", base.as_str()],
     ] {
-        let status = std::process::Command::new("git")
-            .current_dir(workdir)
-            .args(args)
-            .status()?;
-        assert!(status.success(), "fixture setup should succeed");
+        git(&repo).args(args).run();
     }
     // Reopen so the configuration written above is visible.
     let repo = gix::open(repo.path())?;
 
     let result = push(&repo, &meta, r("refs/heads/bottom"), false, false, false)?;
 
-    assert_eq!(
-        result.remote, "origin",
-        "the push default still comes from the target ref"
-    );
-    let (branch, remote_refname, remote_branch_name) = result
-        .branch_to_remote
-        .first()
-        .expect("bottom should have been pushed");
-    assert_eq!(branch, "bottom");
-    assert_eq!(remote_refname, "refs/remotes/fork/bottom");
-    assert_eq!(
-        remote_branch_name, "bottom",
-        "the branch name on the remote must be stripped of the remote the branch actually landed on, not the push default"
-    );
+    // The push default still comes from the target ref, while the branch name on the remote
+    // is stripped of the remote the branch actually landed on.
+    snapbox::assert_data_eq!(
+        render_push_result(&result),
+        str![[r#"
+remote: origin
+bottom -> refs/remotes/fork/bottom (bottom)
 
+"#]]
+    );
     Ok(())
 }
 
@@ -202,21 +198,26 @@ fn pushing_bottom_of_stack_reports_only_bottom_as_pushed() -> anyhow::Result<()>
     let (_tmp, repo, meta) = fixture("push")?;
 
     let result = push(&repo, &meta, r("refs/heads/bottom"), false, false, false)?;
-    assert_eq!(
-        result
-            .branch_to_remote
-            .iter()
-            .map(|(branch, _, _)| branch.as_str())
-            .collect::<Vec<_>>(),
-        ["bottom"],
-        "pushing the bottom branch should not push the top branch"
+    // Pushing the bottom branch does not push the top branch.
+    snapbox::assert_data_eq!(
+        render_push_result(&result),
+        str![[r#"
+remote: origin
+bottom -> refs/remotes/origin/bottom (bottom)
+
+"#]]
     );
 
-    apply_remote_tracking_updates(&repo, &result)?;
+    apply_remote_tracking_updates(&repo, &result);
     let (info, _) = head_info(&repo, &meta)?;
-    assert_eq!(status(&info, "bottom"), NothingToPush);
-    assert_eq!(status(&info, "top"), CompletelyUnpushed);
+    snapbox::assert_data_eq!(
+        render_statuses(&info, &["bottom", "top"]),
+        str![[r#"
+bottom: NothingToPush
+top: CompletelyUnpushed
 
+"#]]
+    );
     Ok(())
 }
 
@@ -225,32 +226,34 @@ fn pushing_top_of_stack_reports_top_as_pushed_after_bottom_is_current() -> anyho
     let (_tmp, repo, meta) = fixture("push")?;
 
     let bottom_result = push(&repo, &meta, r("refs/heads/bottom"), false, false, false)?;
-    apply_remote_tracking_updates(&repo, &bottom_result)?;
+    apply_remote_tracking_updates(&repo, &bottom_result);
     let middle_result = push(&repo, &meta, r("refs/heads/middle"), false, false, false)?;
-    apply_remote_tracking_updates(&repo, &middle_result)?;
+    apply_remote_tracking_updates(&repo, &middle_result);
 
     let result = push(&repo, &meta, r("refs/heads/top"), false, false, false)?;
-    assert_eq!(
-        result
-            .branch_to_remote
-            .iter()
-            .map(|(branch, _, _)| branch.as_str())
-            .collect::<Vec<_>>(),
-        ["top"],
-        "once the ancestors are current, pushing the top branch should report only the top"
+    // Once the ancestors are current, pushing the top branch reports only the top.
+    snapbox::assert_data_eq!(
+        render_push_result(&result),
+        str![[r#"
+remote: origin
+top -> refs/remotes/origin/top (top)
+
+"#]]
     );
 
-    apply_remote_tracking_updates(&repo, &result)?;
+    apply_remote_tracking_updates(&repo, &result);
     let (info, _) = head_info(&repo, &meta)?;
-    assert_eq!(
-        logical_scope(&info, "top"),
-        ["top", "middle", "bottom"],
-        "already-current ancestors remain in the logical synchronization scope"
-    );
-    assert_eq!(status(&info, "bottom"), NothingToPush);
-    assert_eq!(status(&info, "middle"), NothingToPush);
-    assert_eq!(status(&info, "top"), NothingToPush);
+    // Already-current ancestors remain in the logical synchronization scope.
+    snapbox::assert_data_eq!(logical_scope(&info, "top"), str!["top, middle, bottom"]);
+    snapbox::assert_data_eq!(
+        render_statuses(&info, &["bottom", "middle", "top"]),
+        str![[r#"
+bottom: NothingToPush
+middle: NothingToPush
+top: NothingToPush
 
+"#]]
+    );
     Ok(())
 }
 
@@ -258,29 +261,50 @@ fn pushing_top_of_stack_reports_top_as_pushed_after_bottom_is_current() -> anyho
 fn force_push_protection_is_observed_when_pushing_bottom_branch() -> anyhow::Result<()> {
     let (_tmp, repo, meta) = fixture("push-requiring-force")?;
     let (info, _) = head_info(&repo, &meta)?;
-    assert_eq!(status(&info, "bottom"), UnpushedCommitsRequiringForce);
+    snapbox::assert_data_eq!(
+        render_statuses(&info, &["bottom"]),
+        str![[r#"
+bottom: UnpushedCommitsRequiringForce
+
+"#]]
+    );
 
     let err = push(&repo, &meta, r("refs/heads/bottom"), true, false, true)
         .expect_err("force-with-lease should reject the stale remote branch");
-    let err = format!("{err:#}");
-    assert!(
-        err.contains("force push was blocked")
-            && err.contains("--force-with-lease")
-            && err.contains("--force-if-includes"),
-        "error should come from force push protection: {err:#}"
+    snapbox::assert_data_eq!(
+        format!("{err:#}"),
+        str![[r#"
+GitForcePushProtection: The force push was blocked because the remote branch contains commits that would be overwritten.
+
+git command exited with non-zero exit code 1:
+
+ARGS:
+["push", "--quiet", "--no-verify", "origin", "48f3b49bdfba19331a42e373aaefbd772b17857f:refs/heads/bottom", "--force-with-lease", "--force-if-includes"]
+
+STDOUT:
+
+
+STDERR:
+To [..]/remote.git
+ ! [rejected]        48f3b49bdfba19331a42e373aaefbd772b17857f -> bottom (remote ref updated since checkout)
+error: failed to push some refs to '[..]/remote.git'
+hint: Updates were rejected because the tip of the remote-tracking branch has
+hint: been updated since the last checkout. If you want to integrate the
+hint: remote changes, use 'git pull' before pushing again.
+hint: See the 'Note about fast-forwards' in 'git push --help' for details.
+"#]]
     );
 
+    // Skipping force push protection allows pushing the rewritten bottom branch.
     let result = push(&repo, &meta, r("refs/heads/bottom"), true, true, true)?;
-    assert_eq!(
-        result
-            .branch_to_remote
-            .iter()
-            .map(|(branch, _, _)| branch.as_str())
-            .collect::<Vec<_>>(),
-        ["bottom"],
-        "skipping force push protection should allow pushing the rewritten bottom branch"
-    );
+    snapbox::assert_data_eq!(
+        render_push_result(&result),
+        str![[r#"
+remote: origin
+bottom -> refs/remotes/origin/bottom (bottom)
 
+"#]]
+    );
     Ok(())
 }
 
@@ -288,82 +312,103 @@ fn force_push_protection_is_observed_when_pushing_bottom_branch() -> anyhow::Res
 fn force_push_protection_is_observed_when_pushing_top_branch() -> anyhow::Result<()> {
     let (_tmp, repo, meta) = fixture("push-requiring-force")?;
 
+    // Pushing the top branch observes the bottom branch's force protection first.
     let err = push(&repo, &meta, r("refs/heads/top"), true, false, true)
         .expect_err("pushing the top branch should observe bottom branch force protection first");
-    let err = format!("{err:#}");
-    assert!(
-        err.contains("force push was blocked")
-            && err.contains("--force-with-lease")
-            && err.contains("--force-if-includes"),
-        "error should come from force push protection: {err:#}"
+    snapbox::assert_data_eq!(
+        format!("{err:#}"),
+        str![[r#"
+GitForcePushProtection: The force push was blocked because the remote branch contains commits that would be overwritten.
+
+git command exited with non-zero exit code 1:
+
+ARGS:
+["push", "--quiet", "--no-verify", "origin", "48f3b49bdfba19331a42e373aaefbd772b17857f:refs/heads/bottom", "--force-with-lease", "--force-if-includes"]
+
+STDOUT:
+
+
+STDERR:
+To [..]/remote.git
+ ! [rejected]        48f3b49bdfba19331a42e373aaefbd772b17857f -> bottom (remote ref updated since checkout)
+error: failed to push some refs to '[..]/remote.git'
+hint: Updates were rejected because the tip of the remote-tracking branch has
+hint: been updated since the last checkout. If you want to integrate the
+hint: remote changes, use 'git pull' before pushing again.
+hint: See the 'Note about fast-forwards' in 'git push --help' for details.
+"#]]
     );
 
+    // Skipping force push protection allows pushing the bottom ancestor and the top branch.
     let result = push(&repo, &meta, r("refs/heads/top"), true, true, true)?;
-    assert_eq!(
-        result
-            .branch_to_remote
-            .iter()
-            .map(|(branch, _, _)| branch.as_str())
-            .collect::<Vec<_>>(),
-        ["bottom", "top"],
-        "skipping force push protection should allow pushing the bottom ancestor and top branch"
-    );
+    snapbox::assert_data_eq!(
+        render_push_result(&result),
+        str![[r#"
+remote: origin
+bottom -> refs/remotes/origin/bottom (bottom)
+top -> refs/remotes/origin/top (top)
 
+"#]]
+    );
     Ok(())
 }
 
 #[test]
 fn pushing_with_an_ordinary_branch_checked_out_pushes_it_and_its_ancestors() -> anyhow::Result<()> {
     let (_tmp, repo, meta) = fixture("push-single-branch")?;
-    assert!(
-        repo.find_reference("refs/heads/gitbutler/workspace")
-            .is_err(),
-        "the fixture has no workspace branch"
+    // The fixture has no workspace branch.
+    snapbox::assert_data_eq!(
+        visualize_commit_graph_all(&repo)?,
+        str![[r#"
+* 18af0f8 (HEAD -> top) top
+* 9cfa5ba (bottom) bottom
+* 85efbe4 (origin/main, main) M
+
+"#]]
     );
     let (info, _) = head_info(&repo, &meta)?;
-    assert_eq!(
-        logical_scope(&info, "top"),
-        ["top", "bottom"],
-        "the checked-out branch and its ancestor form the push scope"
-    );
-    assert_eq!(
-        status(&info, "bottom"),
-        CompletelyUnpushed,
-        "nothing has been pushed yet"
-    );
-    assert_eq!(
-        status(&info, "top"),
-        CompletelyUnpushed,
-        "nothing has been pushed yet"
+    // The checked-out branch and its ancestor form the push scope, and nothing was pushed yet.
+    snapbox::assert_data_eq!(logical_scope(&info, "top"), str!["top, bottom"]);
+    snapbox::assert_data_eq!(
+        render_statuses(&info, &["bottom", "top"]),
+        str![[r#"
+bottom: CompletelyUnpushed
+top: CompletelyUnpushed
+
+"#]]
     );
 
     let result = push(&repo, &meta, r("refs/heads/top"), false, false, false)?;
-    assert_eq!(
-        result
-            .branch_to_remote
-            .iter()
-            .map(|(branch, _, _)| branch.as_str())
-            .collect::<Vec<_>>(),
-        ["bottom", "top"],
-        "the checked-out branch and its unpushed ancestor are pushed"
+    // The checked-out branch and its unpushed ancestor are pushed.
+    snapbox::assert_data_eq!(
+        render_push_result(&result),
+        str![[r#"
+remote: origin
+bottom -> refs/remotes/origin/bottom (bottom)
+top -> refs/remotes/origin/top (top)
+
+"#]]
     );
 
-    apply_remote_tracking_updates(&repo, &result)?;
+    apply_remote_tracking_updates(&repo, &result);
     let (info, _) = head_info(&repo, &meta)?;
-    assert_eq!(
-        status(&info, "bottom"),
-        NothingToPush,
-        "the ancestor is current after the push"
+    snapbox::assert_data_eq!(
+        render_statuses(&info, &["bottom", "top"]),
+        str![[r#"
+bottom: NothingToPush
+top: NothingToPush
+
+"#]]
     );
-    assert_eq!(
-        status(&info, "top"),
-        NothingToPush,
-        "the checked-out branch is current after the push"
-    );
-    assert_eq!(
-        repo.head_name()?.map(|name| name.as_bstr().to_string()),
-        Some("refs/heads/top".into()),
-        "pushing leaves the checkout untouched"
+    // Pushing leaves the checkout untouched.
+    snapbox::assert_data_eq!(
+        visualize_commit_graph_all(&repo)?,
+        str![[r#"
+* 18af0f8 (HEAD -> top, origin/top) top
+* 9cfa5ba (origin/bottom, bottom) bottom
+* 85efbe4 (origin/main, main) M
+
+"#]]
     );
     Ok(())
 }

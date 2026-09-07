@@ -1,5 +1,9 @@
 use anyhow::Result;
 use but_api::commit::json::ChangesSource;
+use but_api::diff::changes_in_worktree_with_perm;
+use but_hunk_assignment::WorktreeChanges;
+use gix::bstr::ByteSlice;
+use snapbox::ToDebug;
 
 use crate::support::{checkout_branch_in_linked_worktree, repo_with_feature_branch, write_file};
 
@@ -16,6 +20,15 @@ fn ctx_with_active_worktree() -> Result<(but_ctx::Context, tempfile::TempDir, te
     Ok((ctx, tmp, linked))
 }
 
+fn paths(changes: &WorktreeChanges) -> Vec<std::borrow::Cow<'_, str>> {
+    changes
+        .worktree_changes
+        .changes
+        .iter()
+        .map(|change| change.path.to_str_lossy())
+        .collect()
+}
+
 #[test]
 fn worktree_source_reads_the_linked_checkout() -> Result<()> {
     let (ctx, tmp, linked) = ctx_with_active_worktree()?;
@@ -23,30 +36,45 @@ fn worktree_source_reads_the_linked_checkout() -> Result<()> {
     write_file(&linked.path().join("wt"), "file.txt", "linked change\n")?;
 
     let guard = ctx.shared_worktree_access();
-    let changes = but_api::diff::changes_in_worktree_with_perm(
+    let changes = changes_in_worktree_with_perm(
         &ctx,
         ChangesSource::Worktree("wt".into()),
         false,
         guard.read_permission(),
     )?;
 
-    // Both checkouts modified `file.txt`, so only the source distinguishes them - a
-    // source that read the main worktree would produce an identical path list.
-    let paths: Vec<_> = changes
-        .worktree_changes
-        .changes
-        .iter()
-        .map(|change| change.path.clone())
-        .collect();
-    assert_eq!(paths, ["file.txt"]);
+    // Both checkouts modified `file.txt`, so only the patch tells the sources apart.
+    snapbox::assert_data_eq!(
+        paths(&changes).to_debug(),
+        snapbox::str![[r#"
+[
+    "file.txt",
+]
 
+"#]]
+    );
     let repo = ctx.repo.get()?;
     let wt_repo = but_workspace::worktrees::open_worktree_repo(&repo, "wt".into())?;
     let change = but_core::TreeChange::from(changes.worktree_changes.changes[0].clone());
-    let patch = change.unified_patch(&wt_repo, 3)?;
-    assert!(
-        format!("{patch:?}").contains("linked change"),
-        "the diff must come from the linked checkout, not the main one: {patch:?}"
+    // `feature`, the linked checkout's branch, still has the first commit's content.
+    snapbox::assert_data_eq!(
+        change.unified_patch(&wt_repo, 3)?.to_debug(),
+        snapbox::str![[r#"
+Some(
+    Patch {
+        hunks: [
+            DiffHunk("@@ -1,1 +1,1 @@
+            -one
+            +linked change
+            "),
+        ],
+        is_result_of_binary_to_text_conversion: false,
+        lines_added: 1,
+        lines_removed: 1,
+    },
+)
+
+"#]]
     );
     Ok(())
 }
@@ -57,20 +85,37 @@ fn worktree_source_ignores_the_computation_flag() -> Result<()> {
     write_file(&linked.path().join("wt"), "file.txt", "linked change\n")?;
 
     let guard = ctx.shared_worktree_access();
-    let changes = but_api::diff::changes_in_worktree_with_perm(
+    let changes = changes_in_worktree_with_perm(
         &ctx,
         ChangesSource::Worktree("wt".into()),
         true,
         guard.read_permission(),
     )?;
 
-    assert_eq!(changes.worktree_changes.changes.len(), 1);
     // Assignment and dependencies are workspace concepts; a linked worktree is not in
     // the workspace, so asking for them yields nothing and persists nothing.
-    assert!(changes.assignments.is_empty());
-    assert!(changes.assignments_error.is_none());
-    assert!(changes.dependencies.is_none());
-    assert!(changes.dependencies_error.is_none());
+    snapbox::assert_data_eq!(
+        (
+            paths(&changes),
+            &changes.assignments,
+            &changes.assignments_error,
+            &changes.dependencies,
+            &changes.dependencies_error,
+        )
+            .to_debug(),
+        snapbox::str![[r#"
+(
+    [
+        "file.txt",
+    ],
+    [],
+    None,
+    None,
+    None,
+)
+
+"#]]
+    );
     Ok(())
 }
 
@@ -80,17 +125,16 @@ fn worktree_source_requires_the_feature_flag() -> Result<()> {
     ctx.settings.feature_flags.worktree_manipulation = false;
 
     let guard = ctx.shared_worktree_access();
-    let err = but_api::diff::changes_in_worktree_with_perm(
+    let err = changes_in_worktree_with_perm(
         &ctx,
         ChangesSource::Worktree("wt".into()),
         false,
         guard.read_permission(),
     )
     .unwrap_err();
-    assert!(
-        err.to_string()
-            .contains("worktree manipulation is not enabled"),
-        "{err}"
+    snapbox::assert_data_eq!(
+        err.to_string(),
+        snapbox::str!["worktree manipulation is not enabled (featureFlags.worktreeManipulation)"]
     );
     Ok(())
 }
@@ -102,30 +146,33 @@ fn head_source_reads_the_main_worktree() -> Result<()> {
     write_file(&linked.path().join("wt"), "linked-only.txt", "linked\n")?;
 
     let guard = ctx.shared_worktree_access();
-    let changes = but_api::diff::changes_in_worktree_with_perm(
-        &ctx,
-        ChangesSource::Head,
-        false,
-        guard.read_permission(),
-    )?;
+    let changes =
+        changes_in_worktree_with_perm(&ctx, ChangesSource::Head, false, guard.read_permission())?;
 
-    let paths: Vec<_> = changes
-        .worktree_changes
-        .changes
-        .iter()
-        .map(|change| change.path.clone())
-        .collect();
-    assert_eq!(
-        paths,
-        ["main-only.txt"],
-        "an active linked worktree must not leak into the main worktree's changes"
+    // An active linked worktree must not leak into the main worktree's changes.
+    snapbox::assert_data_eq!(
+        paths(&changes).to_debug(),
+        snapbox::str![[r#"
+[
+    "main-only.txt",
+]
+
+"#]]
     );
-    assert!(
+    // A changed file that exists on disk gets a modification time.
+    snapbox::assert_data_eq!(
         changes
             .worktree_changes
             .modification_times
-            .contains_key("main-only.txt"),
-        "a changed file that exists on disk gets a modification time"
+            .keys()
+            .collect::<Vec<_>>()
+            .to_debug(),
+        snapbox::str![[r#"
+[
+    "main-only.txt",
+]
+
+"#]]
     );
     Ok(())
 }

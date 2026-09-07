@@ -7,6 +7,12 @@ pub fn writable_scenario(name: &str) -> (gix::Repository, TempDir) {
     but_testsupport::writable_scenario(name)
 }
 
+/// Like [`writable_scenario()`], but re-executes the script so linked worktrees, which record
+/// absolute paths, come out valid.
+pub fn writable_scenario_slow(name: &str) -> (gix::Repository, TempDir) {
+    but_testsupport::writable_scenario_slow(name)
+}
+
 /// Build a minimal ad-hoc repository: `main` with two commits, a `feature` branch at the first
 /// commit, and a `refs/remotes/origin/main` remote-tracking ref, with `HEAD` on `main`.
 pub fn repo_with_feature_branch() -> anyhow::Result<(gix::Repository, tempfile::TempDir)> {

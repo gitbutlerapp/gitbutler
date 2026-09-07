@@ -714,7 +714,7 @@ mod tests {
         review_integration_hints_from_reviews, target_branch_name, workspace_fetch_from_remotes,
     };
     use but_core::RefMetadata;
-    use but_testsupport::{CommandExt, git_at_dir, open_repo};
+    use but_testsupport::{CommandExt, git_at_dir, open_repo, visualize_commit_graph_all};
     use std::collections::HashSet;
     use std::path::Path;
 
@@ -746,6 +746,29 @@ mod tests {
     fn write_file(root: &Path, relative_path: &str, content: &str) -> anyhow::Result<()> {
         std::fs::write(root.join(relative_path), content)?;
         Ok(())
+    }
+
+    /// The persisted project metadata, naming the target commit by the first of `known` it
+    /// equals so the snapshot reads as a fact about the graph rather than an id.
+    fn project_meta_summary(
+        ctx: &but_ctx::Context,
+        known: &[(&str, gix::ObjectId)],
+    ) -> anyhow::Result<String> {
+        let meta = ctx.project_meta()?;
+        let target_commit = match meta.target_commit_id {
+            None => "none".to_string(),
+            Some(id) => known
+                .iter()
+                .find(|(_, known_id)| *known_id == id)
+                .map_or_else(|| id.to_string(), |(name, _)| name.to_string()),
+        };
+        Ok(format!(
+            "target_ref: {}\ntarget_commit: {target_commit}\npush_remote: {}\n",
+            meta.target_ref
+                .as_ref()
+                .map_or("none".to_string(), ToString::to_string),
+            meta.push_remote.as_deref().unwrap_or("none"),
+        ))
     }
 
     /// [`but_askpass::disable()`] must be called at most once per process, but several tests
@@ -903,6 +926,10 @@ mod tests {
     #[test]
     fn set_target_ref_accepts_remote_tracking_ref_and_persists_metadata() -> anyhow::Result<()> {
         let (repo, _tmp) = repo_with_feature_branch()?;
+        let origin_main = (
+            "origin/main",
+            repo.rev_parse_single("refs/remotes/origin/main")?.detach(),
+        );
         let mut ctx = but_ctx::Context::from_repo_for_testing(repo)?.with_memory_app_cache();
         let target_ref = gix::refs::FullName::try_from("refs/remotes/origin/main")?;
 
@@ -912,11 +939,15 @@ mod tests {
             Some("origin".into()),
         )?;
 
-        let stored_meta = ctx.project_meta()?;
-        assert_eq!(stored_meta.target_ref.as_ref(), Some(&target_ref));
-        assert!(stored_meta.target_commit_id.is_some());
-        assert_eq!(stored_meta.push_remote.as_deref(), Some("origin"));
+        snapbox::assert_data_eq!(
+            project_meta_summary(&ctx, &[origin_main])?,
+            snapbox::str![[r#"
+target_ref: refs/remotes/origin/main
+target_commit: origin/main
+push_remote: origin
 
+"#]]
+        );
         Ok(())
     }
 
@@ -928,17 +959,35 @@ mod tests {
             .args(["config", "remote.fork.url", "../fork"])
             .run();
         let repo = open_repo(tmp.path())?;
+        let origin_main = (
+            "origin/main",
+            repo.rev_parse_single("refs/remotes/origin/main")?.detach(),
+        );
         let mut ctx = but_ctx::Context::from_repo_for_testing(repo)?.with_memory_app_cache();
         let target_ref = gix::refs::FullName::try_from("refs/remotes/origin/main")?;
         super::set_target_ref_and_init_project(&mut ctx, target_ref.as_ref(), None)?;
-        let before = ctx.project_meta()?;
+        snapbox::assert_data_eq!(
+            project_meta_summary(&ctx, &[origin_main])?,
+            snapbox::str![[r#"
+target_ref: refs/remotes/origin/main
+target_commit: origin/main
+push_remote: none
+
+"#]]
+        );
 
         super::set_push_remote(&mut ctx, "fork".into())?;
 
-        let after = ctx.project_meta()?;
-        assert_eq!(after.target_ref, before.target_ref);
-        assert_eq!(after.target_commit_id, before.target_commit_id);
-        assert_eq!(after.push_remote.as_deref(), Some("fork"));
+        // Only the push remote changed.
+        snapbox::assert_data_eq!(
+            project_meta_summary(&ctx, &[origin_main])?,
+            snapbox::str![[r#"
+target_ref: refs/remotes/origin/main
+target_commit: origin/main
+push_remote: fork
+
+"#]]
+        );
         Ok(())
     }
 
@@ -950,11 +999,21 @@ mod tests {
 
         let err = super::set_target_ref_and_init_project(&mut ctx, target_ref.as_ref(), None)
             .expect_err("local branches are not valid default targets");
-        assert_eq!(
-            err.to_string(),
-            "target ref 'refs/heads/feature' must be a remote tracking branch"
-        );
 
+        snapbox::assert_data_eq!(
+            err.to_string(),
+            snapbox::str!["target ref 'refs/heads/feature' must be a remote tracking branch"]
+        );
+        // Nothing was persisted.
+        snapbox::assert_data_eq!(
+            project_meta_summary(&ctx, &[])?,
+            snapbox::str![[r#"
+target_ref: none
+target_commit: none
+push_remote: none
+
+"#]]
+        );
         Ok(())
     }
 
@@ -973,22 +1032,42 @@ mod tests {
         git_at_dir(tmp.path()).args(["checkout", "main"]).run();
 
         let repo = open_repo(tmp.path())?;
+        // `origin/feature` diverged from `main`, so its tip is not the merge base.
+        snapbox::assert_data_eq!(
+            visualize_commit_graph_all(&repo)?,
+            snapbox::str![[r#"
+* 63a4717 (origin/feature, feature) feature
+| * b12810b (HEAD -> main) two
+|/  
+* 33fbd87 (origin/main) one
+
+"#]]
+        );
         let target_ref = gix::refs::FullName::try_from("refs/remotes/origin/feature")?;
         let target_tip = repo
             .find_reference(target_ref.as_ref())?
             .peel_to_id()?
             .detach();
-        let current_head = repo.head_id()?.detach();
-        let expected_merge_base = repo.merge_base(current_head, target_tip)?.detach();
-        assert_ne!(expected_merge_base, target_tip);
+        let merge_base = repo
+            .merge_base(repo.head_id()?.detach(), target_tip)?
+            .detach();
+        let known = [
+            ("origin/feature tip", target_tip),
+            ("merge base of HEAD and origin/feature", merge_base),
+        ];
 
         let mut ctx = but_ctx::Context::from_repo_for_testing(repo)?.with_memory_app_cache();
         super::set_target_ref_and_init_project(&mut ctx, target_ref.as_ref(), None)?;
 
-        let project_meta = ctx.project_meta()?;
-        assert_eq!(project_meta.target_commit_id, Some(expected_merge_base));
-        assert_eq!(project_meta.push_remote, None);
+        snapbox::assert_data_eq!(
+            project_meta_summary(&ctx, &known)?,
+            snapbox::str![[r#"
+target_ref: refs/remotes/origin/feature
+target_commit: merge base of HEAD and origin/feature
+push_remote: none
 
+"#]]
+        );
         Ok(())
     }
 

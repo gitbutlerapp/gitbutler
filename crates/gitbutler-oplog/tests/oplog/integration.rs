@@ -1,15 +1,13 @@
-use std::{fs, path::Path};
-
-#[cfg(unix)]
-use std::os::unix::ffi::OsStrExt as _;
+use std::fs;
 
 use anyhow::Context as _;
 use but_core::{GitConfigSettings, RepositoryExt as _};
 use but_ctx::Context;
-use but_testsupport::Sandbox;
+use but_testsupport::{Sandbox, visualize_commit_graph_all, visualize_index};
 use gitbutler_oplog::entry::{OperationKind, SnapshotDetails};
 use gitbutler_oplog::{OplogExt, RestoreKind};
 use gix::bstr::ByteSlice as _;
+use snapbox::IntoData as _;
 
 #[test]
 fn snapshot_with_additional_ref_includes_branch_order() -> anyhow::Result<()> {
@@ -25,10 +23,18 @@ fn snapshot_with_additional_ref_includes_branch_order() -> anyhow::Result<()> {
         guard.write_permission(),
     )?;
 
-    assert!(
-        snapshot_blob(&repo.open_repo(), snapshot_id, "branch_order.toml")?
-            .contains("refs/heads/A"),
-        "the additional-ref snapshot path should include branch-order metadata"
+    // The additional-ref snapshot path writes branch-order metadata like a plain snapshot does.
+    snapbox::assert_data_eq!(
+        snapshot_blob(&repo.open_repo(), snapshot_id, "branch_order.toml")?,
+        snapbox::str![[r#"
+[[entries]]
+branch_ref_name = "refs/heads/A"
+parent_ref_name = "refs/heads/B"
+
+[[entries]]
+branch_ref_name = "refs/heads/B"
+
+"#]]
     );
     Ok(())
 }
@@ -37,29 +43,53 @@ fn snapshot_with_additional_ref_includes_branch_order() -> anyhow::Result<()> {
 fn restore_snapshot_replaces_branch_order() -> anyhow::Result<()> {
     let Test { repo, ctx } = &mut Test::from_scenario("one-stack-two-commits", &["A"]);
     set_branch_order(ctx, &["refs/heads/A", "refs/heads/B"])?;
-    let expected = ctx.db.get_cache()?.branch_order().get_snapshot()?;
     let mut guard = ctx.exclusive_worktree_access();
     let snapshot_id = ctx.create_snapshot(
         SnapshotDetails::new(OperationKind::OnDemandSnapshot),
         guard.write_permission(),
     )?;
-    assert!(
-        snapshot_blob(&repo.open_repo(), snapshot_id, "branch_order.toml")?
-            .contains("refs/heads/A"),
-        "the oplog snapshot should contain branch-order metadata"
+    snapbox::assert_data_eq!(
+        snapshot_blob(&repo.open_repo(), snapshot_id, "branch_order.toml")?,
+        snapbox::str![[r#"
+[[entries]]
+branch_ref_name = "refs/heads/A"
+parent_ref_name = "refs/heads/B"
+
+[[entries]]
+branch_ref_name = "refs/heads/B"
+
+"#]]
     );
 
     set_branch_order(ctx, &["refs/heads/C", "refs/heads/D"])?;
+    // `set_order` only replaces the chains it touches, so C/D are added next to A/B.
+    snapbox::assert_data_eq!(
+        branch_order(ctx)?,
+        snapbox::str![[r#"
+[
+    "refs/heads/A -> refs/heads/B",
+    "refs/heads/B",
+    "refs/heads/C -> refs/heads/D",
+    "refs/heads/D",
+]
+"#]]
+    );
+
     ctx.restore_snapshot(
         snapshot_id,
         RestoreKind::RestoreFromSnapshotViaUndo,
         guard.write_permission(),
     )?;
 
-    assert_eq!(
-        ctx.db.get_cache()?.branch_order().get_snapshot()?,
-        expected,
-        "restoring should replace the complete branch-order table"
+    // Restoring replaces the complete table, so the C/D rows added after the snapshot are gone.
+    snapbox::assert_data_eq!(
+        branch_order(ctx)?,
+        snapbox::str![[r#"
+[
+    "refs/heads/A -> refs/heads/B",
+    "refs/heads/B",
+]
+"#]]
     );
     Ok(())
 }
@@ -73,6 +103,15 @@ fn restore_snapshot_restores_explicitly_empty_branch_order() -> anyhow::Result<(
         guard.write_permission(),
     )?;
     set_branch_order(ctx, &["refs/heads/A", "refs/heads/B"])?;
+    snapbox::assert_data_eq!(
+        branch_order(ctx)?,
+        snapbox::str![[r#"
+[
+    "refs/heads/A -> refs/heads/B",
+    "refs/heads/B",
+]
+"#]]
+    );
 
     ctx.restore_snapshot(
         snapshot_id,
@@ -80,15 +119,8 @@ fn restore_snapshot_restores_explicitly_empty_branch_order() -> anyhow::Result<(
         guard.write_permission(),
     )?;
 
-    assert!(
-        ctx.db
-            .get_cache()?
-            .branch_order()
-            .get_snapshot()?
-            .entries
-            .is_empty(),
-        "an explicitly empty snapshot should clear branch order"
-    );
+    // The snapshot was taken while the table was empty, so restoring it clears the order.
+    snapbox::assert_data_eq!(branch_order(ctx)?, snapbox::str!["[]"]);
     Ok(())
 }
 
@@ -102,7 +134,6 @@ fn restore_legacy_snapshot_preserves_current_branch_order() -> anyhow::Result<()
     )?;
     let legacy_snapshot_id = snapshot_without_branch_order(&repo.open_repo(), snapshot_id)?;
     set_branch_order(ctx, &["refs/heads/A", "refs/heads/B"])?;
-    let expected = ctx.db.get_cache()?.branch_order().get_snapshot()?;
 
     ctx.restore_snapshot(
         legacy_snapshot_id,
@@ -110,10 +141,15 @@ fn restore_legacy_snapshot_preserves_current_branch_order() -> anyhow::Result<()
         guard.write_permission(),
     )?;
 
-    assert_eq!(
-        ctx.db.get_cache()?.branch_order().get_snapshot()?,
-        expected,
-        "a snapshot without branch-order data should preserve current metadata"
+    // A snapshot without branch-order data leaves the current table alone.
+    snapbox::assert_data_eq!(
+        branch_order(ctx)?,
+        snapbox::str![[r#"
+[
+    "refs/heads/A -> refs/heads/B",
+    "refs/heads/B",
+]
+"#]]
     );
     Ok(())
 }
@@ -122,7 +158,6 @@ fn restore_legacy_snapshot_preserves_current_branch_order() -> anyhow::Result<()
 fn malformed_branch_order_fails_before_restore_mutates_state() -> anyhow::Result<()> {
     let Test { repo, ctx } = &mut Test::from_scenario("one-stack-two-commits", &["A"]);
     set_branch_order(ctx, &["refs/heads/A", "refs/heads/B"])?;
-    let expected = ctx.db.get_cache()?.branch_order().get_snapshot()?;
     let mut guard = ctx.exclusive_worktree_access();
     let snapshot_id = ctx.create_snapshot(
         SnapshotDetails::new(OperationKind::OnDemandSnapshot),
@@ -140,16 +175,26 @@ fn malformed_branch_order_fails_before_restore_mutates_state() -> anyhow::Result
         )
         .expect_err("malformed branch-order metadata must fail restore");
 
-    assert!(
-        error
-            .to_string()
-            .contains("failed to parse branch_order.toml"),
-        "restore should identify malformed branch-order data: {error:#}"
+    snapbox::assert_data_eq!(
+        format!("{error:#}"),
+        snapbox::str![[r#"
+failed to parse branch_order.toml: TOML parse error at line 1, column 5
+  |
+1 | not valid = [
+  |     ^
+key with no value, expected `=`
+
+"#]]
     );
-    assert_eq!(
-        ctx.db.get_cache()?.branch_order().get_snapshot()?,
-        expected,
-        "failed validation should leave branch order unchanged"
+    // Validation fails before anything is written, so the order set before the snapshot survives.
+    snapbox::assert_data_eq!(
+        branch_order(ctx)?,
+        snapbox::str![[r#"
+[
+    "refs/heads/A -> refs/heads/B",
+    "refs/heads/B",
+]
+"#]]
     );
     assert_eq!(
         ctx.oplog_head()?,
@@ -180,8 +225,14 @@ branch_ref_name = "refs/heads/C"
 parent_ref_name = "refs/heads/B"
 "#,
     )?;
-    let changed_path = repo.projects_root().join("first");
-    fs::write(&changed_path, "changed after snapshot")?;
+    fs::write(repo.projects_root().join("first"), "changed after snapshot")?;
+    snapbox::assert_data_eq!(
+        repo.git_status(),
+        snapbox::str![[r#"
+ M first
+
+"#]]
+    );
 
     let error = ctx
         .restore_snapshot(
@@ -191,14 +242,17 @@ parent_ref_name = "refs/heads/B"
         )
         .expect_err("invalid branch-order metadata must fail restore");
 
-    assert!(
-        error.to_string().contains("invalid branch_order.toml"),
-        "restore should identify invalid branch-order data: {error:#}"
+    snapbox::assert_data_eq!(
+        format!("{error:#}"),
+        snapbox::str!["invalid branch_order.toml: duplicate parent reference 'refs/heads/B'"]
     );
-    assert_eq!(
-        fs::read_to_string(changed_path)?,
-        "changed after snapshot",
-        "validation should happen before the worktree is restored"
+    // Validation happens before the worktree is restored, so the modification is still there.
+    snapbox::assert_data_eq!(
+        repo.git_status(),
+        snapbox::str![[r#"
+ M first
+
+"#]]
     );
     Ok(())
 }
@@ -229,10 +283,14 @@ fn restore_snapshot_reverts_the_target() -> anyhow::Result<()> {
     let mut changed = ctx.project_meta()?;
     changed.target_ref = Some("refs/remotes/origin/other".try_into()?);
     ctx.set_project_meta(changed)?;
-    assert_eq!(
-        ctx.project_meta()?.target_ref.map(|name| name.to_string()),
-        Some("refs/remotes/origin/other".to_string()),
-        "the target change is visible before restoring the snapshot"
+    snapbox::assert_data_eq!(
+        project_meta_summary(ctx)?,
+        snapbox::str![[r#"
+target_ref: refs/remotes/origin/other
+target_commit_id: 0dc3733
+push_remote: origin
+
+"#]]
     );
 
     ctx.restore_snapshot(
@@ -240,10 +298,15 @@ fn restore_snapshot_reverts_the_target() -> anyhow::Result<()> {
         RestoreKind::RestoreFromSnapshotViaUndo,
         guard.write_permission(),
     )?;
-    assert_eq!(
-        ctx.project_meta()?.target_ref.map(|name| name.to_string()),
-        Some("refs/remotes/origin/main".to_string()),
-        "undoing a base-branch switch reverts the target everywhere, not just in the TOML"
+    // Undoing a base-branch switch reverts the target everywhere, not just in the TOML.
+    snapbox::assert_data_eq!(
+        project_meta_summary(ctx)?,
+        snapbox::str![[r#"
+target_ref: refs/remotes/origin/main
+target_commit_id: 0dc3733
+push_remote: origin
+
+"#]]
     );
     Ok(())
 }
@@ -280,7 +343,7 @@ fn snapshot_creation_works_with_unmerged_index() -> anyhow::Result<()> {
     // Simulate what a workspace update leaves behind when an uncommitted file
     // conflicts: conflict markers in the worktree and unmerged entries in the index.
     // `deleted.txt` has no 'ours' stage, as when the local side deleted the file.
-    let (base_blob, ours_blob, theirs_blob) = {
+    {
         let git2_repo = ctx.git2_repo.get()?;
         let ours_blob = git2_repo.blob(b"ours\n")?;
         let base_blob = git2_repo.blob(b"base\n")?;
@@ -302,12 +365,46 @@ fn snapshot_creation_works_with_unmerged_index() -> anyhow::Result<()> {
             index.add(&conflict_index_entry(b"invalid-\xff.txt", stage, blob))?;
         }
         index.write()?;
-        (base_blob, ours_blob, theirs_blob)
-    };
+    }
     fs::write(
         repo.projects_root().join("conflicted.txt"),
         "<<<<<<< ours\nours\n||||||| base\nbase\n=======\ntheirs\n>>>>>>> theirs\n",
     )?;
+    let gix_repo = repo.open_repo();
+    let unmerged_index = index_entries(&gix_repo)?;
+    #[cfg(unix)]
+    snapbox::assert_data_eq!(
+        unmerged_index.as_str(),
+        snapbox::str![[r#"
+100644:ab77689 M
+100644:df967b9 conflicted.txt:1
+100644:b19a1e9 conflicted.txt:2
+100644:950b81b conflicted.txt:3
+100644:df967b9 deleted.txt:1
+100644:950b81b deleted.txt:3
+100644:b19a1e9 df:2
+100644:950b81b df/child:3
+100644:df967b9 invalid-�.txt:1
+100644:b19a1e9 invalid-�.txt:2
+100644:950b81b invalid-�.txt:3
+
+"#]]
+    );
+    #[cfg(not(unix))]
+    snapbox::assert_data_eq!(
+        unmerged_index.as_str(),
+        snapbox::str![[r#"
+100644:ab77689 M
+100644:df967b9 conflicted.txt:1
+100644:b19a1e9 conflicted.txt:2
+100644:950b81b conflicted.txt:3
+100644:df967b9 deleted.txt:1
+100644:950b81b deleted.txt:3
+100644:b19a1e9 df:2
+100644:950b81b df/child:3
+
+"#]]
+    );
 
     let mut guard = ctx.exclusive_worktree_access();
     let snapshot_id = ctx.create_snapshot(
@@ -320,48 +417,20 @@ fn snapshot_creation_works_with_unmerged_index() -> anyhow::Result<()> {
         let mut index = git2_repo.index()?;
         index.clear()?;
         index.write()?;
-        assert!(
-            !index.has_conflicts(),
-            "the conflict is cleared before restore"
-        );
     }
+    // The conflict is gone before the restore, so it can only come back from the snapshot.
+    snapbox::assert_data_eq!(index_entries(&gix_repo)?, snapbox::str![""]);
     ctx.restore_snapshot(
         snapshot_id,
         RestoreKind::RestoreFromSnapshotViaUndo,
         guard.write_permission(),
     )?;
 
-    let index = ctx.git2_repo.get()?.index()?;
-    for (path, stage, expected) in [
-        ("conflicted.txt", 1, base_blob),
-        ("conflicted.txt", 2, ours_blob),
-        ("conflicted.txt", 3, theirs_blob),
-        ("deleted.txt", 1, base_blob),
-        ("deleted.txt", 3, theirs_blob),
-        ("df", 2, ours_blob),
-        ("df/child", 3, theirs_blob),
-    ] {
-        assert_eq!(
-            index.get_path(Path::new(path), stage).map(|entry| entry.id),
-            Some(expected),
-            "restore preserves stage {stage} for {path}"
-        );
-    }
-    assert!(
-        index.get_path(Path::new("deleted.txt"), 2).is_none(),
-        "restore preserves the missing ours stage for a local deletion"
+    assert_eq!(
+        index_entries(&gix_repo)?,
+        unmerged_index,
+        "restore round-trips every conflict stage, the missing ours stage of the local deletion included"
     );
-    #[cfg(unix)]
-    {
-        let path = Path::new(std::ffi::OsStr::from_bytes(b"invalid-\xff.txt"));
-        for (stage, expected) in [(1, base_blob), (2, ours_blob), (3, theirs_blob)] {
-            assert_eq!(
-                index.get_path(path, stage).map(|entry| entry.id),
-                Some(expected),
-                "restore preserves non-UTF-8 conflict paths at stage {stage}"
-            );
-        }
-    }
     Ok(())
 }
 
@@ -369,9 +438,9 @@ fn snapshot_creation_works_with_unmerged_index() -> anyhow::Result<()> {
 fn snapshot_has_authoritative_meta_and_omits_legacy_target() -> anyhow::Result<()> {
     let Test { repo, ctx, .. } = &mut Test::default();
     configure_default_target(ctx)?;
-    let mut expected = ctx.project_meta()?;
-    expected.push_remote = Some("origin".to_owned());
-    ctx.set_project_meta(expected.clone())?;
+    let mut with_push_remote = ctx.project_meta()?;
+    with_push_remote.push_remote = Some("origin".to_owned());
+    ctx.set_project_meta(with_push_remote)?;
 
     let mut guard = ctx.exclusive_worktree_access();
     let snapshot_id = ctx.create_snapshot(
@@ -380,30 +449,23 @@ fn snapshot_has_authoritative_meta_and_omits_legacy_target() -> anyhow::Result<(
     )?;
 
     let repo = repo.open_repo();
-    let project_meta = snapshot_blob(&repo, snapshot_id, "project_meta.toml")?;
-    let virtual_branches = snapshot_blob(&repo, snapshot_id, "virtual_branches.toml")?;
+    // The authoritative metadata stores the target ref, the target commit and the push remote.
+    snapbox::assert_data_eq!(
+        snapshot_blob(&repo, snapshot_id, "project_meta.toml")?,
+        snapbox::str![[r#"
+targetRef = "refs/remotes/origin/main"
+targetCommitId = "0dc37334a458df421bf67ea806103bf5004845dd"
+pushRemote = "origin"
 
-    assert!(
-        project_meta.contains(&format!(
-            "targetRef = \"{}\"",
-            expected.target_ref.as_ref().unwrap()
-        )),
-        "the authoritative snapshot metadata stores the target ref"
+"#]]
     );
-    assert!(
-        project_meta.contains(&format!(
-            "targetCommitId = \"{}\"",
-            expected.target_commit_id.unwrap()
-        )),
-        "the authoritative snapshot metadata stores the target commit"
-    );
-    assert!(
-        project_meta.contains("pushRemote = \"origin\""),
-        "the authoritative snapshot metadata stores the push remote"
-    );
-    assert!(
-        !virtual_branches.contains("[default_target]"),
-        "the snapshot TOML omits the legacy target"
+    // The legacy TOML has no `[default_target]` table anymore.
+    snapbox::assert_data_eq!(
+        snapshot_blob(&repo, snapshot_id, "virtual_branches.toml")?,
+        snapbox::str![[r#"
+[branches]
+
+"#]]
     );
     Ok(())
 }
@@ -414,7 +476,6 @@ fn snapshot_with_only_a_target_commit_omits_target_ref() -> anyhow::Result<()> {
     configure_default_target(ctx)?;
     let mut target_commit_only = ctx.project_meta()?;
     target_commit_only.target_ref = None;
-    let target_commit_id = target_commit_only.target_commit_id.unwrap();
     ctx.set_project_meta(target_commit_only)?;
 
     let mut guard = ctx.exclusive_worktree_access();
@@ -422,16 +483,15 @@ fn snapshot_with_only_a_target_commit_omits_target_ref() -> anyhow::Result<()> {
         SnapshotDetails::new(OperationKind::OnDemandSnapshot),
         guard.write_permission(),
     )?;
-    let repo = repo.open_repo();
-    let project_meta = snapshot_blob(&repo, snapshot_id, "project_meta.toml")?;
 
-    assert!(
-        !project_meta.contains("targetRef"),
-        "an absent target ref remains absent in the authoritative metadata"
-    );
-    assert!(
-        project_meta.contains(&format!("targetCommitId = \"{target_commit_id}\"")),
-        "the target commit remains in the authoritative metadata"
+    // An absent target ref stays absent, while the target commit is kept.
+    snapbox::assert_data_eq!(
+        snapshot_blob(&repo.open_repo(), snapshot_id, "project_meta.toml")?,
+        snapbox::str![[r#"
+targetCommitId = "0dc37334a458df421bf67ea806103bf5004845dd"
+pushRemote = "origin"
+
+"#]]
     );
     Ok(())
 }
@@ -441,6 +501,15 @@ fn restore_falls_back_to_the_legacy_target_in_old_snapshots() -> anyhow::Result<
     let Test { repo, ctx, .. } = &mut Test::default();
     configure_default_target(ctx)?;
     let original = ctx.project_meta()?;
+    snapbox::assert_data_eq!(
+        project_meta_summary(ctx)?,
+        snapbox::str![[r#"
+target_ref: refs/remotes/origin/main
+target_commit_id: 0dc3733
+push_remote: origin
+
+"#]]
+    );
 
     let mut guard = ctx.exclusive_worktree_access();
     let snapshot_id = ctx.create_snapshot(
@@ -453,19 +522,34 @@ fn restore_falls_back_to_the_legacy_target_in_old_snapshots() -> anyhow::Result<
         original.target_commit_id.unwrap(),
     )?;
 
-    let mut changed = original.clone();
+    let mut changed = original;
     changed.target_ref = None;
     ctx.set_project_meta(changed)?;
+    snapbox::assert_data_eq!(
+        project_meta_summary(ctx)?,
+        snapbox::str![[r#"
+target_ref: None
+target_commit_id: 0dc3733
+push_remote: origin
+
+"#]]
+    );
+
     ctx.restore_snapshot(
         old_snapshot_id,
         RestoreKind::RestoreFromSnapshotViaUndo,
         guard.write_permission(),
     )?;
 
-    assert_eq!(
-        ctx.project_meta()?,
-        original,
-        "legacy snapshot metadata restores the original target"
+    // The legacy `[default_target]` table restores the original target.
+    snapbox::assert_data_eq!(
+        project_meta_summary(ctx)?,
+        snapbox::str![[r#"
+target_ref: refs/remotes/origin/main
+target_commit_id: 0dc3733
+push_remote: origin
+
+"#]]
     );
     Ok(())
 }
@@ -475,6 +559,15 @@ fn restore_reverts_a_target_commit_only_change() -> anyhow::Result<()> {
     let Test { repo, ctx, .. } = &mut Test::default();
     configure_default_target(ctx)?;
     let original = ctx.project_meta()?;
+    snapbox::assert_data_eq!(
+        project_meta_summary(ctx)?,
+        snapbox::str![[r#"
+target_ref: refs/remotes/origin/main
+target_commit_id: 0dc3733
+push_remote: origin
+
+"#]]
+    );
 
     let mut guard = ctx.exclusive_worktree_access();
     let snapshot_id = ctx.create_snapshot(
@@ -490,19 +583,33 @@ fn restore_reverts_a_target_commit_only_change() -> anyhow::Result<()> {
             ..original_commit.decode()?.to_owned()?
         })?
         .detach();
-    let mut changed = original.clone();
+    let mut changed = original;
     changed.target_commit_id = Some(alternate_target);
     ctx.set_project_meta(changed)?;
+    snapbox::assert_data_eq!(
+        project_meta_summary(ctx)?,
+        snapbox::str![[r#"
+target_ref: refs/remotes/origin/main
+target_commit_id: 1485ac2
+push_remote: origin
+
+"#]]
+    );
 
     ctx.restore_snapshot(
         snapshot_id,
         RestoreKind::RestoreFromSnapshotViaUndo,
         guard.write_permission(),
     )?;
-    assert_eq!(
-        ctx.project_meta()?,
-        original,
-        "restoring the snapshot reverts a target-commit-only change"
+    // Only the target commit changed, and the restore reverts exactly that.
+    snapbox::assert_data_eq!(
+        project_meta_summary(ctx)?,
+        snapbox::str![[r#"
+target_ref: refs/remotes/origin/main
+target_commit_id: 0dc3733
+push_remote: origin
+
+"#]]
     );
     Ok(())
 }
@@ -522,7 +629,15 @@ fn malformed_project_meta_fails_before_restore_mutates_state() -> anyhow::Result
         snapshot_id,
         b"targetCommitId = 'not-an-object-id'\n",
     )?;
-    let before_meta = ctx.project_meta()?;
+    snapbox::assert_data_eq!(
+        project_meta_summary(ctx)?,
+        snapbox::str![[r#"
+target_ref: refs/remotes/origin/main
+target_commit_id: 0dc3733
+push_remote: origin
+
+"#]]
+    );
     let before_oplog_head = ctx.oplog_head()?;
     let live_path = ctx.project_data_dir().join("virtual_branches.toml");
     let before_toml = fs::read(&live_path)?;
@@ -534,14 +649,21 @@ fn malformed_project_meta_fails_before_restore_mutates_state() -> anyhow::Result
             guard.write_permission(),
         )
         .expect_err("malformed authoritative metadata must fail restore");
-    assert!(
-        error.to_string().contains("invalid targetCommitId"),
-        "restore reports the malformed authoritative field: {error:#}"
+    snapbox::assert_data_eq!(
+        format!("{error:#}"),
+        snapbox::str![
+            "invalid targetCommitId in project_meta.toml: A hash sized 16 hexadecimal characters is invalid"
+        ]
     );
-    assert_eq!(
-        ctx.project_meta()?,
-        before_meta,
-        "malformed snapshot metadata does not change project metadata"
+    // Validation fails before anything is written, so the metadata is untouched.
+    snapbox::assert_data_eq!(
+        project_meta_summary(ctx)?,
+        snapbox::str![[r#"
+target_ref: refs/remotes/origin/main
+target_commit_id: 0dc3733
+push_remote: origin
+
+"#]]
     );
     assert_eq!(
         ctx.oplog_head()?,
@@ -584,12 +706,10 @@ fn head_corrupt_is_recreated_automatically() -> anyhow::Result<()> {
         SnapshotDetails::new(OperationKind::OnDemandSnapshot),
         guard.write_permission(),
     )?;
-
-    let snapshots = ctx
-        .snapshots_iter(None, Vec::new(), None)?
-        .take(10)
-        .collect::<anyhow::Result<Vec<_>>>()?;
-    assert_eq!(snapshots.len(), 1, "the baseline creates one snapshot");
+    snapbox::assert_data_eq!(
+        oplog_operations(ctx, None)?,
+        snapbox::str!["[OnDemandSnapshot]"]
+    );
 
     // overwrite oplog head with a non-commit sha
     let oplog_path = ctx.project_data_dir().join("operations-log.toml");
@@ -604,17 +724,14 @@ fn head_corrupt_is_recreated_automatically() -> anyhow::Result<()> {
         guard.write_permission(),
     )?;
 
-    let snapshots = ctx
-        .snapshots_iter(None, Vec::new(), None)?
-        .take(10)
-        .collect::<anyhow::Result<Vec<_>>>()?;
-    assert_eq!(
-        snapshots.len(),
-        1,
-        "it should have just reset the oplog head, so only 1, not 2"
+    // The corrupt head is dropped rather than chained to, so there is still only one snapshot.
+    snapbox::assert_data_eq!(
+        oplog_operations(ctx, None)?,
+        snapbox::str!["[OnDemandSnapshot]"]
     );
     assert_eq!(
-        snapshots[0].commit_id, replacement,
+        ctx.oplog_head()?,
+        Some(replacement),
         "the recreated oplog starts at the replacement snapshot"
     );
     Ok(())
@@ -635,10 +752,10 @@ fn restore_snapshot_with_empty_branch_in_workspace() -> anyhow::Result<()> {
         guard.write_permission(),
     )?;
 
-    assert_eq!(
-        ctx.snapshots_iter(None, Vec::new(), None)?.count(),
-        2,
-        "restoring a snapshot containing an empty branch records the restore"
+    // Restoring a snapshot that contains an empty branch succeeds and records the restore.
+    snapbox::assert_data_eq!(
+        oplog_operations(ctx, None)?,
+        snapbox::str!["[RestoreFromSnapshotViaUndo, OnDemandSnapshot]"]
     );
     Ok(())
 }
@@ -668,6 +785,21 @@ fn restore_reconstitutes_missing_commit() -> anyhow::Result<()> {
         gix::refs::transaction::PreviousValue::Any,
         "rewind test workspace",
     )?;
+    // `A` and the workspace are rewound; only the tag still reaches the `second` commit.
+    snapbox::assert_data_eq!(
+        visualize_commit_graph_all(&gix_repo)?,
+        snapbox::str![[r#"
+*   fc03769 (tag: test-workspace-two) GitButler Workspace Commit
+|\  
+| * 4bed59b add second
+* | 21d3ffd (HEAD -> gitbutler/workspace, tag: test-workspace-one) GitButler Workspace Commit
+|/  
+* e9b402f (A) add first
+* 0dc3733 (origin/main, origin/HEAD, main, gitbutler/target) add M
+
+"#]]
+        .raw()
+    );
 
     let hex = second.to_string();
     let loose_object = gix_repo
@@ -688,14 +820,20 @@ fn restore_reconstitutes_missing_commit() -> anyhow::Result<()> {
         guard.write_permission(),
     )?;
 
-    assert!(
-        gix_repo.has_object(second),
-        "restore recreates the missing commit"
-    );
-    assert_eq!(
-        gix_repo.find_reference("refs/heads/A")?.peel_to_id()?,
-        second,
-        "restore moves the branch back to the recreated commit"
+    // The missing commit is recreated from the snapshot and `A` moves back to it.
+    snapbox::assert_data_eq!(
+        visualize_commit_graph_all(&gix_repo)?,
+        snapbox::str![[r#"
+*   fc03769 (HEAD -> gitbutler/workspace, tag: test-workspace-two) GitButler Workspace Commit
+|\  
+| * 4bed59b (A) add second
+* | 21d3ffd (tag: test-workspace-one) GitButler Workspace Commit
+|/  
+* e9b402f add first
+* 0dc3733 (origin/main, origin/HEAD, main, gitbutler/target) add M
+
+"#]]
+        .raw()
     );
     Ok(())
 }
@@ -738,7 +876,6 @@ fn restore_restores_conflict_sidecars() -> anyhow::Result<()> {
 fn restore_repoints_workspace_and_worktree() -> anyhow::Result<()> {
     let Test { repo, ctx } = &mut Test::from_scenario("one-stack-two-commits", &["A"]);
     let gix_repo = repo.open_repo();
-    let original_workspace = gix_repo.rev_parse_single("test-workspace-two")?.detach();
     let workspace_one = gix_repo.rev_parse_single("test-workspace-one")?.detach();
     let mut guard = ctx.exclusive_worktree_access();
     let snapshot = ctx.create_snapshot(
@@ -753,6 +890,28 @@ fn restore_repoints_workspace_and_worktree() -> anyhow::Result<()> {
         "move workspace before restore",
     )?;
     fs::remove_file(repo.projects_root().join("second"))?;
+    // The workspace ref was moved back one commit, so `second` is staged relative to HEAD but gone from the worktree.
+    snapbox::assert_data_eq!(
+        visualize_commit_graph_all(&gix_repo)?,
+        snapbox::str![[r#"
+*   fc03769 (tag: test-workspace-two) GitButler Workspace Commit
+|\  
+| * 4bed59b (A) add second
+* | 21d3ffd (HEAD -> gitbutler/workspace, tag: test-workspace-one) GitButler Workspace Commit
+|/  
+* e9b402f add first
+* 0dc3733 (origin/main, origin/HEAD, main, gitbutler/target) add M
+
+"#]]
+        .raw()
+    );
+    snapbox::assert_data_eq!(
+        repo.git_status(),
+        snapbox::str![[r#"
+AD second
+
+"#]]
+    );
 
     ctx.restore_snapshot(
         snapshot,
@@ -760,22 +919,25 @@ fn restore_repoints_workspace_and_worktree() -> anyhow::Result<()> {
         guard.write_permission(),
     )?;
 
-    assert_eq!(
-        gix_repo
-            .find_reference(but_core::WORKSPACE_REF_NAME)?
-            .peel_to_id()?,
-        original_workspace,
-        "restore repoints the workspace ref to the snapshotted commit"
+    // The workspace ref is back at the snapshotted commit and the worktree matches it again.
+    snapbox::assert_data_eq!(
+        visualize_commit_graph_all(&gix_repo)?,
+        snapbox::str![[r#"
+*   fc03769 (HEAD -> gitbutler/workspace, tag: test-workspace-two) GitButler Workspace Commit
+|\  
+| * 4bed59b (A) add second
+* | 21d3ffd (tag: test-workspace-one) GitButler Workspace Commit
+|/  
+* e9b402f add first
+* 0dc3733 (origin/main, origin/HEAD, main, gitbutler/target) add M
+
+"#]]
+        .raw()
     );
-    assert_eq!(
-        fs::read_to_string(repo.projects_root().join("second"))?,
-        "second\n",
-        "restore checks out the snapshotted worktree content"
-    );
-    assert_eq!(
-        ctx.snapshots_iter(None, Vec::new(), None)?.count(),
-        2,
-        "restoring the snapshot records a second oplog entry"
+    snapbox::assert_data_eq!(repo.git_status(), snapbox::str![[""]]);
+    snapbox::assert_data_eq!(
+        oplog_operations(ctx, None)?,
+        snapbox::str!["[RestoreFromSnapshotViaUndo, OnDemandSnapshot]"]
     );
     Ok(())
 }
@@ -785,9 +947,16 @@ fn restore_round_trips_workspace_and_ad_hoc_checkouts() -> anyhow::Result<()> {
     let Test { repo, ctx } = &mut Test::default();
     let repo = repo.open_repo();
     let workspace_ref: &gix::refs::FullNameRef = but_core::WORKSPACE_REF_NAME.try_into()?;
-    let original_workspace = repo.find_reference(workspace_ref)?.peel_to_id()?.detach();
     let ad_hoc_ref = gix::refs::FullName::try_from("refs/heads/ad-hoc")?;
     let ad_hoc_commit = ctx.project_meta()?.target_commit_id_or_err()?;
+    snapbox::assert_data_eq!(
+        visualize_commit_graph_all(&repo)?,
+        snapbox::str![[r#"
+* ff4136d (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+* 0dc3733 (origin/main, origin/HEAD, main) add M
+
+"#]]
+    );
 
     let mut guard = ctx.exclusive_worktree_access();
     let workspace_snapshot = ctx.create_snapshot(
@@ -818,23 +987,28 @@ fn restore_round_trips_workspace_and_ad_hoc_checkouts() -> anyhow::Result<()> {
         0,
     )?;
     repo.find_reference(workspace_ref)?.delete()?;
+    // Leaving the workspace: HEAD is on the ad-hoc branch and the workspace ref is gone.
+    snapbox::assert_data_eq!(
+        visualize_commit_graph_all(&repo)?,
+        snapbox::str![[r#"
+* 0dc3733 (HEAD -> ad-hoc, origin/main, origin/HEAD, main, gitbutler/target) add M
+
+"#]]
+    );
 
     let ad_hoc_snapshot = ctx.restore_snapshot(
         workspace_snapshot,
         RestoreKind::RestoreFromSnapshotViaUndo,
         guard.write_permission(),
     )?;
-    assert_eq!(
-        repo.head_name()?
-            .expect("restored workspace HEAD is symbolic")
-            .as_bstr(),
-        workspace_ref.as_bstr(),
-        "undoing a transition to ad-hoc mode must check out the managed workspace"
-    );
-    assert_eq!(
-        repo.find_reference(workspace_ref)?.peel_to_id()?,
-        original_workspace,
-        "undoing a transition to ad-hoc mode must recreate the original workspace ref"
+    // Undoing the transition checks out the managed workspace and recreates its ref.
+    snapbox::assert_data_eq!(
+        visualize_commit_graph_all(&repo)?,
+        snapbox::str![[r#"
+* ff4136d (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+* 0dc3733 (origin/main, origin/HEAD, main, gitbutler/target, ad-hoc) add M
+
+"#]]
     );
 
     ctx.restore_snapshot(
@@ -842,19 +1016,13 @@ fn restore_round_trips_workspace_and_ad_hoc_checkouts() -> anyhow::Result<()> {
         RestoreKind::RestoreFromSnapshotViaRedo,
         guard.write_permission(),
     )?;
-    assert_eq!(
-        repo.head_name()?.expect("restored ad-hoc HEAD is symbolic"),
-        ad_hoc_ref,
-        "redoing the transition must return to the ad-hoc branch"
-    );
-    assert_eq!(
-        repo.head_id()?,
-        ad_hoc_commit,
-        "redoing the transition must restore the ad-hoc commit"
-    );
-    assert!(
-        repo.try_find_reference(workspace_ref)?.is_none(),
-        "redoing a transition that removed the managed workspace must remove that ref again"
+    // Redoing the transition returns to the ad-hoc branch and removes the workspace ref again.
+    snapbox::assert_data_eq!(
+        visualize_commit_graph_all(&repo)?,
+        snapbox::str![[r#"
+* 0dc3733 (HEAD -> ad-hoc, origin/main, origin/HEAD, main, gitbutler/target) add M
+
+"#]]
     );
     Ok(())
 }
@@ -863,7 +1031,7 @@ fn restore_round_trips_workspace_and_ad_hoc_checkouts() -> anyhow::Result<()> {
 fn snapshot_history_orders_and_paginates() -> anyhow::Result<()> {
     let Test { repo, ctx } = &mut Test::default();
     let mut guard = ctx.exclusive_worktree_access();
-    let first = ctx.create_snapshot(
+    ctx.create_snapshot(
         SnapshotDetails::new(OperationKind::CreateBranch),
         guard.write_permission(),
     )?;
@@ -873,32 +1041,20 @@ fn snapshot_history_orders_and_paginates() -> anyhow::Result<()> {
         guard.write_permission(),
     )?;
     fs::write(repo.projects_root().join("two"), "two")?;
-    let third = ctx.create_snapshot(
+    ctx.create_snapshot(
         SnapshotDetails::new(OperationKind::GenericBranchUpdate),
         guard.write_permission(),
     )?;
 
-    let snapshots = ctx
-        .snapshots_iter(None, Vec::new(), None)?
-        .collect::<anyhow::Result<Vec<_>>>()?;
-    assert_eq!(
-        snapshots
-            .iter()
-            .map(|snapshot| snapshot.commit_id)
-            .collect::<Vec<_>>(),
-        [third, second, first],
-        "snapshot history is returned newest first"
+    // Newest first.
+    snapbox::assert_data_eq!(
+        oplog_operations(ctx, None)?,
+        snapbox::str!["[GenericBranchUpdate, CreateCommit, CreateBranch]"]
     );
-    let after_second = ctx
-        .snapshots_iter(Some(second), Vec::new(), None)?
-        .collect::<anyhow::Result<Vec<_>>>()?;
-    assert_eq!(
-        after_second
-            .iter()
-            .map(|snapshot| snapshot.commit_id)
-            .collect::<Vec<_>>(),
-        [first],
-        "pagination after the second snapshot returns only older entries"
+    // Paginating after the second snapshot returns only the older entries.
+    snapbox::assert_data_eq!(
+        oplog_operations(ctx, Some(second))?,
+        snapbox::str!["[CreateBranch]"]
     );
     Ok(())
 }
@@ -950,6 +1106,52 @@ fn configure_default_target(ctx: &Context) -> anyhow::Result<()> {
         "the fixture initializes target metadata"
     );
     Ok(())
+}
+
+fn project_meta_summary(ctx: &Context) -> anyhow::Result<String> {
+    let meta = ctx.project_meta()?;
+    Ok(format!(
+        "target_ref: {}\ntarget_commit_id: {}\npush_remote: {}\n",
+        meta.target_ref
+            .as_ref()
+            .map_or_else(|| "None".to_owned(), ToString::to_string),
+        meta.target_commit_id
+            .map_or_else(|| "None".to_owned(), |id| id.to_hex_with_len(7).to_string()),
+        meta.push_remote.as_deref().unwrap_or("None"),
+    ))
+}
+
+fn index_entries(repo: &gix::Repository) -> anyhow::Result<String> {
+    let index = repo.open_index()?;
+    Ok(visualize_index(&index))
+}
+
+fn branch_order(ctx: &Context) -> anyhow::Result<String> {
+    let entries = ctx
+        .db
+        .get_cache()?
+        .branch_order()
+        .get_snapshot()?
+        .entries
+        .into_iter()
+        .map(|entry| match entry.parent_ref_name {
+            Some(parent) => format!("{} -> {parent}", entry.branch_ref_name),
+            None => entry.branch_ref_name,
+        })
+        .collect::<Vec<_>>();
+    Ok(format!("{entries:#?}"))
+}
+
+fn oplog_operations(ctx: &Context, after: Option<gix::ObjectId>) -> anyhow::Result<String> {
+    let operations = ctx
+        .snapshots_iter(after, Vec::new(), None)?
+        .map(|snapshot| {
+            Ok(snapshot?
+                .details
+                .map_or(OperationKind::Unknown, |details| details.operation))
+        })
+        .collect::<anyhow::Result<Vec<_>>>()?;
+    Ok(format!("{operations:?}"))
 }
 
 fn snapshot_blob(
