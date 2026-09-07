@@ -23,7 +23,9 @@ export const TargetCommitRow: FC<{
 	railEnds?: boolean;
 	/** Out of its list for now, as a pending operation leaves it: not a value to move to. */
 	inert?: boolean;
-}> = ({ commit: targetCommit, positionInSet, setSize, status, railEnds, inert }) => {
+	/** Columns of the main line running behind the row, left of its rail. */
+	behind?: number;
+}> = ({ commit: targetCommit, positionInSet, setSize, status, railEnds, inert, behind }) => {
 	const { commit, review } = targetCommit;
 	const address = targetCommitAddress(targetCommit);
 	const isSelected = useIsSelected(address, "applied");
@@ -48,7 +50,7 @@ export const TargetCommitRow: FC<{
 			scrollSelectedIntoView
 			onSelect={() => setCursor("applied", address)}
 		>
-			<GraphSegment glyph="commit" status={status} railEnds={railEnds} />
+			<GraphSegment glyph="commit" status={status} railEnds={railEnds} behind={behind} />
 			<div className={styles.label}>
 				<RowLabelContainer>
 					<RowLabel singleLine>

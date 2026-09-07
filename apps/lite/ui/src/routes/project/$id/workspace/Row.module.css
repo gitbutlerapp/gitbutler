@@ -149,10 +149,12 @@
 		position: absolute;
 		align-items: center;
 		justify-content: center;
-		/* Occupies exactly the glyph segment it stands in for. */
+		/* Occupies exactly the glyph segment it stands in for: the glyph's own
+		   column, the last one, since the main line may run in columns left of it. */
+		width: 16px;
 		height: var(--single-line-row-height);
 		inset-block-start: 0;
-		inset-inline: 0;
+		inset-inline-end: 0;
 		color: var(--text-3);
 	}
 
@@ -186,8 +188,10 @@
 
 	display: flex;
 	position: absolute;
+	/* The glyph's own column, as the chevron above. */
+	width: 16px;
 	inset-block: var(--single-line-row-height) 0;
-	inset-inline: 0;
+	inset-inline-end: 0;
 	pointer-events: none;
 }
 

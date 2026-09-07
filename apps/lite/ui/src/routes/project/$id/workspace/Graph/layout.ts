@@ -4,31 +4,20 @@ import { remoteTrackingLabel } from "#ui/branch.ts";
 import type { RefInfo, Stack, TargetCommit, TargetCommitPage } from "@gitbutler/but-sdk";
 
 /*
- * The stacks section as a graph: card order, which section rows show, and
- * the rail paths between the cards. Pure: measured pixels in, SVG paths out.
+ * The stacks section as a graph: card order and which section rows show. Pure.
  *
  * One main line runs up the left into the top card. Every other card, and a
- * moved-on target's, sits a gap to its right and bends onto the line in the
- * gap under it. The SVG draws only the gaps between stack cards; cards and
- * the section draw their own rails (Section.module.css).
+ * moved-on target's, sits a column to its right and bends onto the line in
+ * the gap under it. Rows draw their own gutters, a column each for the lines
+ * behind them and the glyph (GraphSegment); a card draws the gap under it.
  */
 
-/** How far right of the main line the forked cards' rail sits. */
-const COLUMN_GAP = 12;
-/** The main line's x. */
-export const MAIN_X = 18;
-/** The forked cards' rail, and a moved-on target's. */
-export const CARD_X = MAIN_X + COLUMN_GAP;
-/** A rail's x inside a row: the row inset plus half the glyph. Keep in sync with Row.module.css. */
-const GLYPH_X = 20;
-/** The rows' own inset, Row.module.css's default. */
-const ROW_INSET = 12;
-/** The row inset that puts a row's glyph on the line at `x`. */
-export const rowInsetFor = (x: number): number => x - (GLYPH_X - ROW_INSET);
-/** Every turn is a quarter circle of this radius. */
-const CORNER_R = 4;
-/** The gap between cards, tall enough for a rail to bend through. Keep in sync with Section.module.css. */
+/** The rows' inset in the graph: the first column's line, 8px in, at x = 18. */
+export const ROW_INSET = 10;
+/** The gap under a card, tall enough for a line to bend through. */
 export const CARD_GAP = 20;
+/** The gap under the target's card and the ref row, which the leg bends through. */
+export const LEG_GAP = 12;
 /** The stuck merge base row's height, hairline and air included, which a row scrolled into view clears. Keep in sync with Section.module.css. */
 export const DOCKED_HEIGHT = 1 + 4 + 28 + 4;
 /** A long list, a run or the older history, shows this much at first, and this much more with each ask. */
@@ -223,58 +212,4 @@ export const foldAt = (plan: Plan, address: Address): "incoming" | "base" | null
 	const inFold = (fold: "incoming" | "base") =>
 		foldAddresses(plan, fold).some((other) => addressEquals(address, other));
 	return inFold("incoming") ? "incoming" : inFold("base") ? "base" : null;
-};
-
-/* ------------------------------------------------------------------ rails */
-
-/** A card's edges from the virtualiser, in the scroller's content pixels. */
-export type Card = { topY: number; bottomY: number };
-
-const ARC_K = 0.5523;
-const n = (value: number): string => String(Math.round(value * 100) / 100);
-
-/** An S-bend from one line to another: two quarter-turns joined by a straight. */
-const sBend = (x0: number, y0: number, x1: number, y1: number): string => {
-	const dir = x1 > x0 ? 1 : -1;
-	const r = CORNER_R;
-	const my = (y0 + y1) / 2;
-	const k = ARC_K * r;
-	return [
-		`L ${n(x0)} ${n(my - r)}`,
-		`C ${n(x0)} ${n(my - r + k)} ${n(x0 + dir * (r - k))} ${n(my)} ${n(x0 + dir * r)} ${n(my)}`,
-		`L ${n(x1 - dir * r)} ${n(my)}`,
-		`C ${n(x1 - dir * (r - k))} ${n(my)} ${n(x1)} ${n(my + r - k)} ${n(x1)} ${n(my + r)}`,
-		`L ${n(x1)} ${n(y1)}`,
-	].join(" ");
-};
-
-/** The gap under the target's card, which its leg bends through. Keep in sync with Section.module.css. */
-export const LEG_GAP = 12;
-/** The leg's bend under the target's card: off the card's floor, onto the main line at the merge base header's top. */
-export const LEG_BEND = `M ${n(CARD_X)} 0 ${sBend(CARD_X, 0, MAIN_X, LEG_GAP)}`;
-
-/** A line straight down from `from` to `to`. */
-const runDown = (rails: Array<string>, x: number, from: number, to: number): void => {
-	if (to > from) rails.push(`M ${n(x)} ${n(from)} L ${n(x)} ${n(to)}`);
-};
-
-/**
- * The rails through the gaps between the cards: the main line from the top
- * card's floor down to the section, and each other card's bend onto it.
- */
-export const rails = (cards: ReadonlyArray<Card>, cardsEnd: number): Array<string> => {
-	const paths: Array<string> = [];
-	const [top, ...rest] = cards;
-	if (top === undefined) return paths;
-
-	let y = top.bottomY;
-	for (const card of rest) {
-		paths.push(
-			`M ${n(CARD_X)} ${n(card.bottomY)} ${sBend(CARD_X, card.bottomY, MAIN_X, card.bottomY + CARD_GAP)}`,
-		);
-		runDown(paths, MAIN_X, y, card.topY);
-		y = card.bottomY;
-	}
-	runDown(paths, MAIN_X, y, cardsEnd + CARD_GAP);
-	return paths;
 };

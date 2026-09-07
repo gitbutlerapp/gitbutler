@@ -143,6 +143,8 @@ export const BranchRow: FC<
 		commitCount: number;
 		/** The rail below the branch's tick: its first commit's colour, or plain without one. */
 		railBelow: GraphSegmentStatus;
+		/** Columns of the main line running behind the row, left of its rail. */
+		behind: number;
 		/** The stack this branch sits in, for the stack-wide menu items. */
 		stack: Stack;
 	} & ComponentProps<"div">
@@ -163,6 +165,7 @@ export const BranchRow: FC<
 	isTopSegment,
 	commitCount,
 	railBelow,
+	behind,
 	stack,
 	...restProps
 }) => {
@@ -489,6 +492,7 @@ export const BranchRow: FC<
 										status={graphStatus}
 										above="LocalOnly"
 										below={railBelow}
+										behind={behind}
 									/>
 								}
 								foldedIndicator={<GraphSegment glyph="group" status={graphStatus} />}
@@ -513,6 +517,7 @@ export const BranchRow: FC<
 					status={graphStatus}
 					above="LocalOnly"
 					below={railBelow}
+					behind={behind}
 				/>
 			)}
 

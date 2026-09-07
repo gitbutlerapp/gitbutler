@@ -33,8 +33,13 @@
 }
 
 /* In the graph the stub runs over the border to the card's edge, where the
-   rail below picks it up. */
+   gap below picks it up, and a row of gutter supplies the head room instead
+   of padding, so the main line can run through it. */
 .card[data-graph] .railConnector:last-child {
 	height: 9px;
 	margin-block-end: -1px;
+}
+
+.card[data-graph] > .body {
+	padding-block-start: 0;
 }
