@@ -178,6 +178,25 @@ describe("classify", () => {
 			expect(result.userMessage).toContain("personal access token");
 			expect(result.userMessage).toContain("then try again");
 		});
+
+		test.each<[Code, RegExp]>([
+			["GitLabUnauthorized", /new personal access token/],
+			["GitLabForbidden", /token scopes.*account permissions/],
+		])("%s is terminal with static reauthentication guidance", (code, guidance) => {
+			// `get_gl_user` tags a stored-token 401/403; the raw message carries
+			// no useful detail, so the static copy must say what to change.
+			const error = new IpcError(
+				{ message: "Failed to get authenticated user", code },
+				"get_gl_user",
+			);
+			const result = classify(error);
+			expect(result.code).toBe(code);
+			expect(result.severity).toBe("error");
+			// Terminal: telemetry captures it once per session (see the
+			// terminal-code dedup test in error.test.ts).
+			expect(result.terminal).toBe(true);
+			expect(result.userMessage).toMatch(guidance);
+		});
 	});
 
 	describe("GitHub device-flow codes", () => {

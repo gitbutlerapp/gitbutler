@@ -2,8 +2,74 @@ use std::io::{Read as _, Write as _};
 use std::net::TcpListener;
 
 use but_error::AnyhowContextExt as _;
-use but_gitlab::{list_known_gitlab_accounts, store_selfhosted_pat};
+use but_gitlab::{
+    GitlabAccountIdentifier, get_gl_user, list_known_gitlab_accounts, store_selfhosted_pat,
+};
 use but_secret::Sensitive;
+
+/// A process-wide in-memory keyring, so a token persisted by one call can be
+/// read back by the next. `keyring::mock` keeps data per entry, which cannot.
+mod memory_keyring {
+    use std::any::Any;
+    use std::collections::BTreeMap;
+    use std::sync::{LazyLock, Mutex, Once};
+
+    use keyring::credential::{CredentialApi, CredentialBuilderApi};
+
+    static STORE: LazyLock<Mutex<BTreeMap<String, Vec<u8>>>> = LazyLock::new(Default::default);
+
+    struct Entry(String);
+
+    impl CredentialApi for Entry {
+        fn set_secret(&self, secret: &[u8]) -> keyring::Result<()> {
+            STORE
+                .lock()
+                .unwrap()
+                .insert(self.0.clone(), secret.to_vec());
+            Ok(())
+        }
+
+        fn get_secret(&self) -> keyring::Result<Vec<u8>> {
+            STORE
+                .lock()
+                .unwrap()
+                .get(&self.0)
+                .cloned()
+                .ok_or(keyring::Error::NoEntry)
+        }
+
+        fn delete_credential(&self) -> keyring::Result<()> {
+            STORE.lock().unwrap().remove(&self.0);
+            Ok(())
+        }
+
+        fn as_any(&self) -> &dyn Any {
+            self
+        }
+    }
+
+    struct Builder;
+
+    impl CredentialBuilderApi for Builder {
+        fn build(
+            &self,
+            _target: Option<&str>,
+            service: &str,
+            user: &str,
+        ) -> keyring::Result<Box<keyring::Credential>> {
+            Ok(Box::new(Entry(format!("{service}\0{user}"))))
+        }
+
+        fn as_any(&self) -> &dyn Any {
+            self
+        }
+    }
+
+    pub fn install() {
+        static ONCE: Once = Once::new();
+        ONCE.call_once(|| keyring::set_default_credential_builder(Box::new(Builder)));
+    }
+}
 
 struct MockServer(std::thread::JoinHandle<()>);
 
@@ -13,34 +79,40 @@ impl MockServer {
     }
 }
 
-fn mock_gitlab(status: u16, body: &'static str) -> (String, MockServer) {
+/// Serve `responses` in order, one per connection, to `GET /api/v4/user`.
+fn mock_gitlab(responses: Vec<(u16, &'static str)>) -> (String, MockServer) {
     let listener = TcpListener::bind("127.0.0.1:0").expect("mock server should bind");
     let address = listener
         .local_addr()
         .expect("mock server should have an address");
     let handle = std::thread::spawn(move || {
-        let (mut stream, _) = listener.accept().expect("mock server should accept");
-        let mut request = Vec::new();
-        let mut chunk = [0; 1024];
-        while !request.windows(4).any(|window| window == b"\r\n\r\n") {
-            let read = stream.read(&mut chunk).expect("request should be readable");
-            assert_ne!(read, 0, "request should include complete HTTP headers");
-            request.extend_from_slice(&chunk[..read]);
+        for (status, body) in responses {
+            let (mut stream, _) = listener.accept().expect("mock server should accept");
+            let mut request = Vec::new();
+            let mut chunk = [0; 1024];
+            while !request.windows(4).any(|window| window == b"\r\n\r\n") {
+                let read = stream.read(&mut chunk).expect("request should be readable");
+                assert_ne!(read, 0, "request should include complete HTTP headers");
+                request.extend_from_slice(&chunk[..read]);
+            }
+            let request = String::from_utf8(request).expect("request should be valid UTF-8");
+            assert!(
+                request.starts_with("GET /api/v4/user "),
+                "PAT validation should request the authenticated user"
+            );
+            write!(
+                stream,
+                "HTTP/1.1 {status} Mock\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{body}",
+                body.len()
+            )
+            .expect("mock response should be writable");
         }
-        let request = String::from_utf8(request).expect("request should be valid UTF-8");
-        assert!(
-            request.starts_with("GET /api/v4/user "),
-            "PAT validation should request the authenticated user"
-        );
-        write!(
-            stream,
-            "HTTP/1.1 {status} Mock\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{body}",
-            body.len()
-        )
-        .expect("mock response should be writable");
     });
     (format!("http://{address}"), MockServer(handle))
 }
+
+const ALICE: &str = r#"{"username":"alice","name":"Alice","email":null,"avatar_url":null}"#;
+const REJECTED: &str = r#"{"message":"rejected"}"#;
 
 fn mock_tls_failure() -> (String, MockServer) {
     let listener = TcpListener::bind("127.0.0.1:0").expect("mock server should bind");
@@ -83,11 +155,11 @@ fn assert_no_credentials(storage: &but_forge_storage::Controller) {
 
 #[test]
 fn self_hosted_pat_validation_distinguishes_auth_transport_and_success() {
-    keyring::set_default_credential_builder(keyring::mock::default_credential_builder());
+    memory_keyring::install();
 
     run(async {
         for (status, expected_code) in [(401, "GitLabUnauthorized"), (403, "GitLabForbidden")] {
-            let (host, server) = mock_gitlab(status, r#"{"message":"rejected"}"#);
+            let (host, server) = mock_gitlab(vec![(status, REJECTED)]);
             let dir = tempfile::tempdir().expect("temporary storage should be created");
             let storage = but_forge_storage::Controller::from_path(dir.path());
             let error = store_selfhosted_pat(&host, &Sensitive("bad-token".into()), &storage)
@@ -117,8 +189,7 @@ fn self_hosted_pat_validation_distinguishes_auth_transport_and_success() {
         );
         assert_no_credentials(&storage);
 
-        let body = r#"{"username":"alice","name":"Alice","email":null,"avatar_url":null}"#;
-        let (host, server) = mock_gitlab(200, body);
+        let (host, server) = mock_gitlab(vec![(200, ALICE)]);
         let dir = tempfile::tempdir().expect("temporary storage should be created");
         let storage = but_forge_storage::Controller::from_path(dir.path());
         let response = store_selfhosted_pat(&host, &Sensitive("good-token".into()), &storage)
@@ -136,5 +207,45 @@ fn self_hosted_pat_validation_distinguishes_auth_transport_and_success() {
             1,
             "successful validation should store credentials"
         );
+    });
+}
+
+#[test]
+fn stored_account_refresh_classifies_auth_rejection_and_clears_cache() {
+    memory_keyring::install();
+
+    run(async {
+        for (status, expected_code) in [(401, "GitLabUnauthorized"), (403, "GitLabForbidden")] {
+            let (host, server) = mock_gitlab(vec![(200, ALICE), (status, REJECTED)]);
+            let dir = tempfile::tempdir().expect("temporary storage should be created");
+            let storage = but_forge_storage::Controller::from_path(dir.path());
+            store_selfhosted_pat(&host, &Sensitive("token".into()), &storage)
+                .await
+                .expect("valid PAT should be stored");
+            let account = GitlabAccountIdentifier::selfhosted("alice", &host);
+            let cached_profile = || {
+                storage
+                    .cached_profile(&account.cache_key())
+                    .expect("cached profile should be readable")
+            };
+            assert!(
+                cached_profile().is_some(),
+                "successful validation should cache the profile"
+            );
+
+            let error = get_gl_user(&account, &storage)
+                .await
+                .expect_err("rejected stored token should fail the refresh");
+            server.finish();
+            assert_eq!(
+                error.custom_context_or_error_chain().code.to_string(),
+                expected_code,
+                "a stored-token rejection should carry the same code as PAT validation"
+            );
+            assert!(
+                cached_profile().is_none(),
+                "auth rejection should clear the cached profile"
+            );
+        }
     });
 }
