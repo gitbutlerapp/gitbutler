@@ -39,7 +39,7 @@ fn failed_sql_commit_restores_attached_and_detached_linked_worktrees() -> anyhow
         let (_guard, _repo, _workspace, _db) = ctx.workspace_and_db()?;
     }
     let observer = env.db();
-    let metadata_before = observer.virtual_branches().get_snapshot()?;
+    let metadata_before = observer.meta()?;
     let order_before = observer.branch_order().get_snapshot()?;
     let branch_before = open_repo(env.projects_root())?
         .rev_parse_single("branch")?
@@ -50,8 +50,8 @@ fn failed_sql_commit_restores_attached_and_detached_linked_worktrees() -> anyhow
         "CREATE TABLE late_failure_parent(id INTEGER PRIMARY KEY);
          CREATE TABLE late_failure_child(parent INTEGER REFERENCES late_failure_parent(id)
              DEFERRABLE INITIALLY DEFERRED);
-         CREATE TRIGGER fail_at_commit AFTER INSERT ON vb_stack_heads
-         WHEN NEW.name = 'transaction-only'
+         CREATE TRIGGER fail_at_commit AFTER INSERT ON branch_metadata
+         WHEN NEW.ref_name = CAST('refs/heads/transaction-only' AS BLOB)
          BEGIN INSERT INTO late_failure_child VALUES (1); END;",
     )?;
     let error = with_transaction(
@@ -109,7 +109,7 @@ fn failed_sql_commit_restores_attached_and_detached_linked_worktrees() -> anyhow
         );
     }
     assert_eq!(
-        observer.virtual_branches().get_snapshot()?,
+        observer.meta()?,
         metadata_before,
         "metadata rolls back with linked worktrees"
     );

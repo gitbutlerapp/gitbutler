@@ -352,7 +352,7 @@ fn tear_off_from_single_stack_in_ws_top() -> anyhow::Result<()> {
 ├── ≡📙:A on 85efbe4 {1}
 │   └── 📙:A
 │       └── ·09d8e52 (🏘️)
-└── ≡📙:B on 85efbe4 {2}
+└── ≡📙:B on 85efbe4 {3}
     └── 📙:B
         └── ·1273ba9 (🏘️)
 
@@ -430,7 +430,7 @@ fn tear_off_from_single_stack_in_ws_bottom() -> anyhow::Result<()> {
 ├── ≡📙:B on 85efbe4 {2}
 │   └── 📙:B
 │       └── ·1273ba9 (🏘️)
-└── ≡📙:A on 85efbe4 {1}
+└── ≡📙:A on 85efbe4 {3}
     └── 📙:A
         └── ·09d8e52 (🏘️)
 
