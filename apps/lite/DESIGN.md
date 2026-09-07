@@ -106,7 +106,10 @@ turns back on only when the button collapses to an icon.
 - **Saying why something is disabled.** A disabled control can't explain
   itself, so its tooltip does: "No changes to commit", "Set up AI in Settings →
   Application → AI". Swap the hint in for the normal tooltip while the reason
-  applies.
+  applies. This needs the control to stay hoverable while disabled
+  (`focusableWhenDisabled`), and it is for a reason that is one detail of the
+  surface; when the reason is the surface's whole story, it goes in the label
+  instead — see Empty states.
 
 **Shortcuts go in the `kbd` slot, not the text.** Don't write "Fetch (⌘R)" —
 pass the hotkey and let `TooltipPopup` render the keycaps. Pass `kbdScope`
@@ -176,6 +179,40 @@ same place stay in the panel header's controls rather than crowding the block.
 committing with no branches creates one — the button is a shortcut and should
 read as one, and a body line promising the automatic path shouldn't sit under a
 highlighted button arguing the opposite.
+
+**An empty state is not the answer to a missing step.** Before designing a
+state for "can't do this yet", ask whether the app should take the step itself.
+The PR form used to disable its button on a branch that had never been pushed,
+when desktop and the CLI simply push and then create; removing the condition
+beat designing a state for it. Design the state only when the step is
+genuinely the user's — committing, say.
+
+**Blocked is not empty.** The block is for a surface with nothing in it. A
+surface that has content but cannot act yet keeps its content, because the
+block would throw away work the surface still supports: the PR form on a
+branch with no commits still takes a title, a description and a draft toggle,
+and Lite keeps that draft per branch, so the form stays and only its action
+waits. Three cases, three treatments — nothing here gets the block, not yet
+gets a held control that says why, not loaded gets neither.
+
+**A held control says why, and where depends on what else is on the surface.**
+When the reason is the whole story of the surface it goes in the label, visible
+without hover, in place of the action it replaces: the branch tabs' "No pull
+request", the form's "No commits yet" — "No X" or "No X yet", and short. When
+the surface already shows the situation and the reason is one detail of it, a
+tooltip is enough (see Tooltips): the merge button blocked by checks, with the
+checks listed right above it. A tooltip only works on a control that stays
+hoverable while disabled — `Button`'s `focusableWhenDisabled`, which
+`DropdownButton` relies on — which is the other reason a plain disabled button
+says it in the label.
+
+**Whether the reason will pass decides the entry point.** Keep a surface
+reachable when its block clears with the user's next ordinary action: an empty
+branch is one commit from a PR, so its tab stays live and the form explains
+itself. Disable the entry point only when the reason is permanent for that
+view — an unapplied branch cannot open a PR at all, so its tab segment is the
+thing that says so. Otherwise a fresh branch would have both tabs dead, its
+diff being empty too.
 
 ## Toasts and snackbars
 

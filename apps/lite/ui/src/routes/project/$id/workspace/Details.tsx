@@ -3109,8 +3109,8 @@ const BranchTitleRow: FC<{ branchName: string }> = ({ branchName }) => {
  * The Diff / Pull Request toggle. A branch with no review keeps the toggle —
  * the tab goes disabled and says so, where dropping the toggle would instead
  * read as the control having gone missing. The reason rides in the label
- * because a disabled button takes no pointer events, so a tooltip on it would
- * never open.
+ * rather than a tooltip: it is the whole story of this tab, so it has to be
+ * readable without hover (DESIGN.md → Empty states).
  */
 const BranchTabToggle: FC<{
 	branchTab: BranchTab;
