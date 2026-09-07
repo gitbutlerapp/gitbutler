@@ -984,7 +984,6 @@ const DiffContents: FC<{
 					itemId: diffSelectionHunk.file.item.id,
 					lineNumber: firstLine.start,
 					side: firstLine.side,
-					lineType: "change",
 				});
 				if (!hunk) return;
 
@@ -1032,6 +1031,41 @@ const DiffContents: FC<{
 				conflictBehavior: "allow",
 				target: focusScopeRef,
 				meta: diffHotkeys.addComment.meta,
+			},
+		},
+		{
+			hotkey: diffHotkeys.checkAll.hotkey,
+			callback: () => {
+				if (!selectedLines) return;
+
+				const address = getContiguousHunkAddressAtLine({
+					itemId: selectedLines.id,
+					lineNumber: selectedLines.range.end,
+					side: selectedLines.range.endSide ?? selectedLines.range.side ?? "additions",
+				});
+				if (!address) return;
+
+				dispatch(
+					projectSlice.actions.checkAddresses({
+						projectId,
+						addresses: address.lineGroups.flatMap((group) =>
+							Array.from({ length: group.lines }, (_, index) =>
+								hunkAddress({
+									...address,
+									lineGroups: [{ side: group.side, start: group.start + index, lines: 1 }],
+								}),
+							),
+						),
+						checked: true,
+					}),
+				);
+			},
+			options: {
+				conflictBehavior: "allow",
+				enabled: selectedLinesHunk !== null && canCheckHunks && noOperationPending,
+				ignoreInputs: true,
+				target: focusScopeRef,
+				meta: diffHotkeys.checkAll.meta,
 			},
 		},
 		{
@@ -1217,7 +1251,7 @@ const DiffContents: FC<{
 		itemId,
 		lineNumber,
 		side,
-	}: DiffLineTarget): HunkAddress | null => {
+	}: Pick<DiffLineTarget, "itemId" | "lineNumber" | "side">): HunkAddress | null => {
 		const file = fileByItemId.get(itemId);
 		if (file?.patch?.type !== "Patch") return null;
 
@@ -1250,7 +1284,7 @@ const DiffContents: FC<{
 		itemId,
 		lineNumber,
 		side,
-	}: DiffLineTarget): HunkAddress | null => {
+	}: Pick<DiffLineTarget, "itemId" | "lineNumber" | "side">): HunkAddress | null => {
 		const file = fileByItemId.get(itemId);
 		if (file?.patch?.type !== "Patch") return null;
 

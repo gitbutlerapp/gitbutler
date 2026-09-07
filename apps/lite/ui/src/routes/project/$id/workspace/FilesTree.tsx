@@ -59,6 +59,7 @@ import { FileRowTooltipRoot, type FileRowTooltipPayload } from "./FileRowTooltip
 const EMPTY_REVIEWED_PATHS: ReadonlySet<string> = new Set();
 
 const useFilesTreeHotkeys = ({
+	checkAll,
 	checkRow,
 	addressSpace,
 	onRowSelection,
@@ -74,6 +75,7 @@ const useFilesTreeHotkeys = ({
 	selectedChange,
 	toggleDirectoryCollapsed,
 }: {
+	checkAll: () => void;
 	checkRow: (evt: { path: string; shiftKey: boolean }) => string | null;
 	addressSpace: AddressSpace<string>;
 	onRowSelection: (selection: string) => void;
@@ -206,6 +208,17 @@ const useFilesTreeHotkeys = ({
 	);
 
 	useHotkeys([
+		{
+			hotkey: changesFileHotkeys.checkAll.hotkey,
+			callback: checkAll,
+			options: {
+				conflictBehavior: "allow",
+				enabled: selectedRow !== undefined && noOperationPending && canCheckTheseFiles,
+				ignoreInputs: true,
+				target: ref,
+				meta: changesFileHotkeys.checkAll.meta,
+			},
+		},
 		{
 			hotkey: changesFileHotkeys.absorb.hotkey,
 			callback: absorbSelectedFile,
@@ -913,6 +926,34 @@ export const FilesTree: FC<
 	};
 
 	useFilesTreeHotkeys({
+		checkAll: () => {
+			if (!selectedRow) return;
+
+			const lastSepIdx = selectedRow.path.lastIndexOf("/");
+			const directoryPath =
+				selectedRow._tag === "Directory"
+					? selectedRow.path
+					: lastSepIdx === -1
+						? ""
+						: selectedRow.path.slice(0, lastSepIdx);
+			const dir = rowByPath.get(directoryPath);
+			if (dir?._tag === "Directory") return checkDirectory({ path: dir.path, checked: true });
+
+			const prefix = directoryPath === "" ? "" : `${directoryPath}/`;
+			const paths = rows
+				.values()
+				.filter((row) => row.depth === 0)
+				.flatMap((row) => (row._tag === "Directory" ? row.filePaths : row.path));
+
+			const previous = checkedFilePaths();
+			fileCheckRangeAnchor.current = null;
+			fileCheckRangeEnd.current = null;
+
+			applyCheckedFiles({
+				previous,
+				next: previous.union(new Set(paths.filter((path) => path.startsWith(prefix)))),
+			});
+		},
 		checkRow,
 		addressSpace,
 		onRowSelection,

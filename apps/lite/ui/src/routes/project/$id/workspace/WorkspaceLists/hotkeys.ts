@@ -501,6 +501,30 @@ export const useActiveListsHotkeys = ({
 
 	useHotkeys([
 		{
+			hotkey: sidebarHotkeys.checkAll.hotkey,
+			callback: () => {
+				const commits = selectionContext?.segment.commits;
+				if (!commits || commits.length === 0) return;
+
+				dispatch(
+					projectSlice.actions.checkAddresses({
+						projectId,
+						addresses: commits.map((commit) =>
+							commitAddress({ commitId: commit.id, changeId: commit.changeId }),
+						),
+						checked: true,
+					}),
+				);
+			},
+			options: {
+				conflictBehavior: "allow",
+				enabled: defaultSidebarHotkeysEnabled && selectionContext !== undefined && canCheckCommits,
+				ignoreInputs: true,
+				target: ref,
+				meta: sidebarHotkeys.checkAll.meta,
+			},
+		},
+		{
 			hotkey: sidebarHotkeys.selectBranch.hotkey,
 			callback: openBranchPicker,
 			options: {
