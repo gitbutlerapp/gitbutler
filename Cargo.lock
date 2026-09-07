@@ -1725,6 +1725,7 @@ dependencies = [
  "but-testsupport",
  "but-workspace",
  "gix",
+ "rusqlite",
  "snapbox",
 ]
 
