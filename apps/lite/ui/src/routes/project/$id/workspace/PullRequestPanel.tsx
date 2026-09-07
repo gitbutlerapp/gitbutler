@@ -152,6 +152,16 @@ const CopyableBranch: FC<{ name: string }> = ({ name }) => {
 	);
 };
 
+/** The arrow and the target branch travel together when the row wraps. */
+const TargetBranch: FC<{ name: string }> = ({ name }) => (
+	<span className={styles.branchTarget}>
+		<span className={styles.branchArrow}>→</span>
+		<span className={styles.targetBranch} title={name}>
+			{name}
+		</span>
+	</span>
+);
+
 /**
  * The side panel while a PR is still being drafted: what the PR would be made
  * of, so the summary the form asks for can be written against something.
@@ -286,12 +296,7 @@ export const NewPullRequestPanel: FC<{
 			<Section heading="Branches">
 				<div className={classes("text-13", styles.branches)}>
 					<CopyableBranch name={sourceBranch} />
-					{targetBranch !== undefined && (
-						<>
-							<span className={styles.branchArrow}>→</span>
-							<span className={styles.targetBranch}>{targetBranch}</span>
-						</>
-					)}
+					{targetBranch !== undefined && <TargetBranch name={targetBranch} />}
 				</div>
 			</Section>
 		</aside>
@@ -671,8 +676,7 @@ export const PullRequestPanel: FC<{
 			<Section heading="Branches">
 				<div className={classes("text-13", styles.branches)}>
 					<CopyableBranch name={review.sourceBranch} />
-					<span className={styles.branchArrow}>→</span>
-					<span className={styles.targetBranch}>{review.targetBranch}</span>
+					<TargetBranch name={review.targetBranch} />
 				</div>
 			</Section>
 
