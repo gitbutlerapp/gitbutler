@@ -163,6 +163,7 @@ but-api = { path = ".", features = ["legacy"] }
 but-testsupport.workspace = true
 chrono.workspace = true
 gitbutler-oplog.workspace = true
+rusqlite.workspace = true
 snapbox.workspace = true
 tempfile.workspace = true
 tokio = { workspace = true, features = ["full"] }

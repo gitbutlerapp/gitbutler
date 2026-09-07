@@ -50,13 +50,14 @@ pub fn commit_move_only_with_perm(
     dry_run: DryRun,
     perm: &mut RepoExclusive,
 ) -> anyhow::Result<CommitMoveResult> {
-    let (repo, mut ws, mut db) = ctx.workspace_mut_and_db_mut_with_perm(perm)?;
-    let editor = but_rebase::graph_rebase::Editor::create(&mut ws, &repo, db.connection_mut())?;
-    let rebase =
-        but_workspace::commit::move_commits(editor, subject_commit_ids, relative_to, side)?;
+    crate::workspace::with_workspace_transaction(ctx, perm, dry_run, |repo, ws, db| {
+        let editor = but_rebase::graph_rebase::Editor::create(ws, repo, db.connection_mut())?;
+        let rebase =
+            but_workspace::commit::move_commits(editor, subject_commit_ids, relative_to, side)?;
 
-    Ok(CommitMoveResult {
-        workspace: WorkspaceState::from_successful_rebase(rebase, &repo, dry_run)?,
+        Ok(CommitMoveResult {
+            workspace: WorkspaceState::from_successful_rebase(rebase, repo, dry_run)?,
+        })
     })
 }
 
