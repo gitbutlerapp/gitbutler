@@ -66,6 +66,8 @@ export type Plan = {
 	header: { label: string; incoming: number };
 	/** The target's tip is the base itself: one row stands for both. */
 	refOnBase: boolean;
+	/** No target: the sole stack is the main line, so it runs on the trunk instead of a column off it. */
+	stackOnTrunk: boolean;
 	incomingExpanded: boolean;
 	baseExpanded: boolean;
 	/** The commit the stacks nearest the tip sit on; the base header names it. Null while unknown. */
@@ -172,6 +174,7 @@ export const layout = (
 			base !== null &&
 			commits[0]?.commit.id === base.commit.id &&
 			commits.every((entry) => entry.inWorkspace),
+		stackOnTrunk: target === null && stacks.length === 1,
 		incomingExpanded: folds.incomingExpanded,
 		baseExpanded: folds.baseExpanded,
 		base,
