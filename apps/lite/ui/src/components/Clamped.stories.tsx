@@ -52,6 +52,25 @@ export const BarelyOverflowing = meta.story({
 	),
 });
 
+/**
+ * The card variant, as the PR description uses it: four lines on a quiet
+ * card with a chevron, folding only past six so a click always reveals
+ * more than a line or two.
+ */
+export const Card = meta.story({
+	args: { maxHeight: "4lh", foldOver: "6lh", variant: "card" },
+	render: (args) => (
+		<div style={{ maxWidth: 480, display: "flex", flexDirection: "column", rowGap: 12 }}>
+			<Clamped {...args}>
+				<div className="text-13 text-body">{paragraphs(3)}</div>
+			</Clamped>
+			<Clamped {...args}>
+				<div className="text-13 text-body">{paragraphs(1)}</div>
+			</Clamped>
+		</div>
+	),
+});
+
 const LateGrowth = ({ maxHeight }: { maxHeight: string }) => {
 	const [grown, setGrown] = useState(false);
 	useEffect(() => {

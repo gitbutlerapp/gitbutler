@@ -608,8 +608,11 @@ export const PullRequestDescription: FC<{
 			{meta}
 
 			{body !== null && body.trim() !== "" ? (
-				// Taller ceiling than comments: only truly huge descriptions fold.
-				<Clamped maxHeight="80vh" skipWhenViewportFits>
+				// A long description opens as a four-line card so the conversation
+				// below is in reach: four rather than three because a body that opens
+				// with a heading spends a line and a half on it. The slack means a
+				// fold always hides at least a few lines, never just one.
+				<Clamped maxHeight="4lh" foldOver="6lh" variant="card">
 					<Markdown>{body}</Markdown>
 				</Clamped>
 			) : (
