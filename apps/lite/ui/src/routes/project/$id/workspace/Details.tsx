@@ -3313,7 +3313,7 @@ const ReviewLayout: FC<{
 	projectId: string;
 	sourceBranch: string;
 	review: ForgeReview;
-	editing?: { active: boolean; onDone: () => void };
+	editing?: { active: boolean; onStart: () => void; onDone: () => void };
 }> = ({ projectId, sourceBranch, review, editing }) => {
 	const { data: forgeInfo } = useQuery(forgeInfoOptions(projectId));
 	// The level is read unconditionally: behind `&&` the hook would be skipped
@@ -3339,6 +3339,7 @@ const ReviewLayout: FC<{
 					canSubmit={editing !== undefined}
 					editing={editing?.active ?? false}
 					onDoneEditing={() => editing?.onDone()}
+					onStartEditing={editing?.onStart}
 				/>
 
 				{hasConversation && <PullRequestComments projectId={projectId} review={review} />}
@@ -3729,7 +3730,11 @@ const AppliedBranchDetails: FC<BranchDetailsProps> = ({
 												projectId={projectId}
 												sourceBranch={branchName}
 												review={review}
-												editing={{ active: prEditing, onDone: () => setPrEditing(false) }}
+												editing={{
+													active: prEditing,
+													onStart: startPrEdit,
+													onDone: () => setPrEditing(false),
+												}}
 											/>
 										);
 									}}

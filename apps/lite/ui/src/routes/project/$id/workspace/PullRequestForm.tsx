@@ -53,6 +53,7 @@ import { Field, Tooltip } from "@base-ui/react";
 import type { ForgeReview, ReviewMergeMethod, ReviewMergeStatus } from "@gitbutler/but-sdk";
 import { useQuery, useSuspenseQuery } from "@tanstack/react-query";
 import { useHotkey } from "@tanstack/react-hotkeys";
+import { useMergedRefs } from "@base-ui/utils/useMergedRefs";
 import { type FC, type SubmitEvent, Suspense, useEffect, useRef, useState } from "react";
 import styles from "./PullRequestForm.module.css";
 
@@ -101,6 +102,11 @@ export const PullRequestForm: FC<{
 	 * auto-merge). Never called when editing an existing PR.
 	 */
 	afterPublish?: (reviewId: number) => void;
+	/**
+	 * Which field takes focus when the form mounts: the title by default, the
+	 * description when the user came here to add one.
+	 */
+	autofocus?: "title" | "body";
 }> = ({
 	projectId,
 	sourceBranch,
@@ -112,6 +118,7 @@ export const PullRequestForm: FC<{
 	onAfterSubmit,
 	onCancel,
 	afterPublish,
+	autofocus = "title",
 }) => {
 	const { isPending: isPushPending, mutateAsync: pushBranchAndAncestors } =
 		useWorkspaceBranchAndAncestorsPush(projectId);
@@ -348,7 +355,7 @@ export const PullRequestForm: FC<{
 					render={<FieldControlStyles />}
 					aria-label="Pull request title"
 					data-focus-scope={"pr" satisfies FocusScope}
-					ref={useAutofocusScope()}
+					ref={useAutofocusScope(autofocus === "title")}
 					name="title"
 					onChange={(evt) => setLocalDocument({ ...localDocument, title: evt.currentTarget.value })}
 					placeholder="PR title"
@@ -373,7 +380,7 @@ export const PullRequestForm: FC<{
 					// Only the flip re-renders: React bails out of an unchanged state.
 					onScroll={(evt) => setBodyScrolled(evt.currentTarget.scrollTop > 0)}
 					placeholder="PR description"
-					ref={bodyRef}
+					ref={useMergedRefs(bodyRef, useAutofocusScope(autofocus === "body"))}
 					value={localDocument.body}
 				/>
 
@@ -481,7 +488,19 @@ export const PullRequestDescription: FC<{
 	canSubmit: boolean;
 	editing: boolean;
 	onDoneEditing: () => void;
-}> = ({ projectId, sourceBranch, reviewId, title, body, canSubmit, editing, onDoneEditing }) => {
+	/** Absent where the review is read-only, so the empty body offers no edit. */
+	onStartEditing?: () => void;
+}> = ({
+	projectId,
+	sourceBranch,
+	reviewId,
+	title,
+	body,
+	canSubmit,
+	editing,
+	onDoneEditing,
+	onStartEditing,
+}) => {
 	const { data: reviewReactions } = useQuery({
 		...listReviewReactionsQueryOptions({ projectId, reviewId }),
 		select: tallyReactions,
@@ -492,6 +511,13 @@ export const PullRequestDescription: FC<{
 	const toggleReaction = (kind: string, myReactionId: number | null) => {
 		if (myReactionId === null) addReviewReaction({ projectId, reviewId, kind });
 		else removeReviewReaction({ projectId, reviewId, reactionId: myReactionId });
+	};
+	// "Add one" and the header's Edit button share one edit mode, but the
+	// former was clicked to write a description, so the form opens on it.
+	const [autofocus, setAutofocus] = useState<"title" | "body">("title");
+	const doneEditing = () => {
+		setAutofocus("title");
+		onDoneEditing();
 	};
 
 	if (editing) {
@@ -506,8 +532,9 @@ export const PullRequestDescription: FC<{
 					sourceBranch={sourceBranch}
 					title={title}
 					canSubmit={canSubmit}
-					onAfterSubmit={onDoneEditing}
-					onCancel={onDoneEditing}
+					autofocus={autofocus}
+					onAfterSubmit={doneEditing}
+					onCancel={doneEditing}
 				/>
 			</Suspense>
 		);
@@ -523,7 +550,24 @@ export const PullRequestDescription: FC<{
 					<Markdown>{body}</Markdown>
 				</Clamped>
 			) : (
-				<p className={classes("text-13", styles.prViewEmptyBody)}>No description provided.</p>
+				<p className={classes("text-14", "text-body", styles.prViewEmptyBody)}>
+					No description
+					{onStartEditing !== undefined && (
+						<>
+							{" — "}
+							<button
+								className={styles.prViewAddDescription}
+								type="button"
+								onClick={() => {
+									setAutofocus("body");
+									onStartEditing();
+								}}
+							>
+								Add one
+							</button>
+						</>
+					)}
+				</p>
 			)}
 
 			{reviewReactions !== undefined && (

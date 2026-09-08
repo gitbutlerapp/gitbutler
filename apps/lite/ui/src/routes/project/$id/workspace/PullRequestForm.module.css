@@ -130,3 +130,19 @@
 .prViewEmptyBody {
 	color: var(--text-3);
 }
+
+.prViewAddDescription {
+	padding: 0;
+	border: none;
+	background: none;
+	color: var(--text-2);
+	font: inherit;
+	/* The designed link treatment: dotted, on the font's own underline. */
+	text-decoration: underline dotted;
+	text-underline-position: from-font;
+	cursor: pointer;
+
+	&:hover {
+		color: var(--text-1);
+	}
+}
