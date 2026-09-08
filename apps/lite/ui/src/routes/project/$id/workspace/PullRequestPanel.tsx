@@ -133,6 +133,7 @@ const Label: FC<{ label: ForgeReviewLabel }> = ({ label }) => {
 	return (
 		<Badge
 			variant="lightGray"
+			size="large"
 			className={color === null ? undefined : styles.label}
 			style={color === null ? undefined : { "--label-color": color }}
 			title={label.description ?? undefined}

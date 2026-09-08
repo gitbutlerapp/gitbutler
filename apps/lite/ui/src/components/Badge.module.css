@@ -28,7 +28,7 @@
 
 .large {
 	height: var(--size-tag);
-	padding-inline: 6px;
+	padding-inline: 7px;
 	gap: 3px;
 }
 
