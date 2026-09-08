@@ -1,4 +1,6 @@
 import type { HeadInfoIndex } from "#ui/api/ref-info.ts";
+import { decodeBytes } from "#ui/api/bytes.ts";
+import { branchDetailsParams } from "#ui/branch.ts";
 import { commitTitle, shortCommitId } from "#ui/commit.ts";
 import { Match } from "effect";
 import type { Address } from "#ui/addresses.ts";
@@ -48,8 +50,12 @@ export const addressLabel = ({
 	Match.value(address).pipe(
 		Match.tagsExhaustive({
 			Branch: ({ branchRef }) => {
+				// A branch outside the workspace, such as one checked out in a linked
+				// worktree, has no segment; its name is read off the ref itself.
 				const segment = headInfoIndex.branchContextByRefBytes(branchRef)?.segment;
-				return assert(segment?.refName).displayName;
+				return (
+					segment?.refName?.displayName ?? branchDetailsParams(decodeBytes(branchRef)).branchName
+				);
 			},
 			File: ({ path }) => path,
 			UncommittedChanges: () => "Uncommitted changes",

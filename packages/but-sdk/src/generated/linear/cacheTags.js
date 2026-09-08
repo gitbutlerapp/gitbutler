@@ -36,6 +36,7 @@ export const apiProvides = {
 	listSnapshots: ["Workspace"],
 	operatingMode: ["OperatingMode"],
 	treeChangeDiffs: ["Diffs"],
+	treeChangeDiffsFromSource: ["Diffs"],
 	workspaceFetchFromRemotes: [],
 	workspaceFetchStatus: ["FetchStatus"],
 	workspaceTargetCommits: ["TargetCommits"],

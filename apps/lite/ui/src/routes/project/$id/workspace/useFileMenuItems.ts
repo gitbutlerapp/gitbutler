@@ -33,7 +33,11 @@ export const useFileMenuItems = ({
 }): Array<NativeMenuItem> => {
 	const store = useAppStore();
 	const queryClient = useQueryClient();
-	const pathMenuItems = usePathMenuItems({ projectId, path });
+	// A linked worktree's file: opened where it lives; it commits and amends into
+	// the workspace like any uncommitted file, but has no absorb or discard yet.
+	const worktree =
+		address.parent._tag === "UncommittedChanges" ? address.parent.worktree : undefined;
+	const pathMenuItems = usePathMenuItems({ projectId, path, worktree });
 
 	const { canDiscard, discard } = useDiscardFileChanges({
 		projectId,
@@ -90,7 +94,7 @@ export const useFileMenuItems = ({
 					] satisfies Array<NativeMenuItem>,
 				]
 			: []),
-		...(change
+		...(change && worktree === undefined
 			? Match.value(address).pipe(
 					Match.withReturnType<Array<Array<NativeMenuItem>>>(),
 					Match.when({ parent: { _tag: "Commit" } }, () => [

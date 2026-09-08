@@ -1,7 +1,15 @@
-import type { Stack, TargetCommit, TargetCommitPage } from "@gitbutler/but-sdk";
+import type { Commit, Stack, TargetCommit, TargetCommitPage, Worktree } from "@gitbutler/but-sdk";
 import { describe, expect, it } from "vitest";
 import type { Address } from "#ui/addresses.ts";
-import { foldAt, layout, FIRST, MORE, sectionAddresses, targetCommitAddress } from "./layout.ts";
+import {
+	foldAt,
+	layout,
+	FIRST,
+	MORE,
+	sectionAddresses,
+	targetCommitAddress,
+	worktreesOnTip,
+} from "./layout.ts";
 
 type Folds = Parameters<typeof layout>[3];
 
@@ -19,6 +27,44 @@ const commit = (id: string, inWorkspace: boolean): TargetCommit => ({
 });
 
 const stack = (base: string | null): Stack => ({ id: null, base, segments: [] });
+
+const ownCommit = (id: string): Commit => ({
+	id,
+	parentIds: [],
+	message: id,
+	hasConflicts: false,
+	state: { type: "LocalOnly" },
+	authoredAt: 0,
+	committedAt: 0,
+	author: { name: "", email: "", gravatarUrl: "" },
+	changeId: id,
+	gerritReviewUrl: null,
+});
+
+/** A stack of one segment holding `commits`, named `branch` if given. */
+const stackWith = (base: string, commits: Array<string>, branch?: string): Stack => ({
+	id: null,
+	base,
+	segments: [
+		{
+			refName: branch === undefined ? null : { fullNameBytes: [], displayName: branch },
+			remoteTrackingRefName: null,
+			commits: commits.map(ownCommit),
+			commitsOnRemote: [],
+			metadata: null,
+			pushStatus: "nothingToPush",
+			base,
+		},
+	],
+});
+
+const worktree = (name: string, base: Worktree["base"], commits: Array<string>): Worktree => ({
+	name,
+	refName: null,
+	head: commits[0] ?? "",
+	base,
+	commits: commits.map(ownCommit),
+});
 
 const folded: Folds = {
 	incomingExpanded: false,
@@ -176,5 +222,48 @@ describe("layout", () => {
 	it("knows when the target's tip is the base itself", () => {
 		const current: TargetCommitPage = { commits: [commit("shallow", true)], hasMore: false };
 		expect(layout([stack("shallow")], null, current, folded).refOnBase).toBe(true);
+	});
+
+	it("nests a worktree above the shown commit it rests on, and stands the rest alone", () => {
+		const inside = worktree("inside", { type: "InWorkspace", subject: "a1" }, ["w1"]);
+		const onWorktree = worktree("stacked", { type: "InWorkspace", subject: "w1" }, ["w2"]);
+		const below = worktree("below", { type: "Outside", subject: "deep" }, ["o1"]);
+		const unknown = worktree("unknown", null, []);
+		const { worktrees } = layout(
+			[stackWith("shallow", ["a1", "a2"])],
+			null,
+			listing,
+			folded,
+			[],
+			[inside, onWorktree, below, unknown],
+		);
+		expect(worktrees.on.get("a1")).toEqual([inside]);
+		// A worktree's own commits count as shown, so one resting on them nests inside its lane.
+		expect(worktrees.on.get("w1")).toEqual([onWorktree]);
+		expect(worktrees.standalone).toEqual([below, unknown]);
+	});
+
+	it("lifts a worktree on the top branch's tip above that branch, and no other", () => {
+		const onTip = worktree("tip", { type: "InWorkspace", subject: "a1" }, ["w1"]);
+		const below = worktree("below", { type: "InWorkspace", subject: "a2" }, ["w2"]);
+		const named = stackWith("shallow", ["a1", "a2"], "A");
+		const { worktrees } = layout([named], null, listing, folded, [], [onTip, below]);
+		expect(worktreesOnTip(worktrees, named)).toEqual([onTip]);
+		// An unnamed top segment has no branch row to sit above.
+		expect(worktreesOnTip(worktrees, stackWith("shallow", ["a1", "a2"]))).toEqual([]);
+	});
+
+	it("keeps worktrees resting on one commit in the order given", () => {
+		const first = worktree("first", { type: "InWorkspace", subject: "a1" }, []);
+		const second = worktree("second", { type: "InWorkspace", subject: "a1" }, []);
+		const { worktrees } = layout(
+			[stackWith("shallow", ["a1"])],
+			null,
+			listing,
+			folded,
+			[],
+			[first, second],
+		);
+		expect(worktrees.on.get("a1")).toEqual([first, second]);
 	});
 });

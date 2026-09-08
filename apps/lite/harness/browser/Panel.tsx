@@ -52,6 +52,7 @@ export const Panel: FC = () => {
 	const appliedAddressSpace = buildAppliedAddressSpace({
 		stacks: graph.stacks,
 		plan: graph.plan,
+		worktreeFiles: new Map(),
 		pendingOperation,
 		absorptionTargetCommitIds,
 		foldedSegments,

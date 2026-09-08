@@ -38,6 +38,7 @@ export declare const apiProvides: {
 	readonly listSnapshots: readonly ["Workspace"];
 	readonly operatingMode: readonly ["OperatingMode"];
 	readonly treeChangeDiffs: readonly ["Diffs"];
+	readonly treeChangeDiffsFromSource: readonly ["Diffs"];
 	readonly workspaceFetchFromRemotes: readonly [];
 	readonly workspaceFetchStatus: readonly ["FetchStatus"];
 	readonly workspaceTargetCommits: readonly ["TargetCommits"];

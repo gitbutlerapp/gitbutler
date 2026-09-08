@@ -3,10 +3,10 @@ import {
 	guiSettingsQueryOptions,
 	listEditorsQueryOptions,
 	listProjectsQueryOptions,
+	worktreesListQueryOptions,
 } from "#ui/api/queries.ts";
 import { changesFileHotkeys, revealInFolderLabel, toElectronAccelerator } from "#ui/hotkeys.ts";
 import { type NativeMenuItem, nativeMenuItem } from "#ui/native-menu.ts";
-import { useRevealInFolder } from "./useRevealInFolder.ts";
 import { useQuery, useSuspenseQuery } from "@tanstack/react-query";
 
 /**
@@ -19,9 +19,12 @@ import { useQuery, useSuspenseQuery } from "@tanstack/react-query";
 export const usePathMenuItems = ({
 	projectId,
 	path,
+	worktree,
 }: {
 	projectId: string;
 	path: string;
+	/** The linked worktree the file lives in; the project's own checkout when unset. */
+	worktree?: string;
 }): Array<NativeMenuItem> => {
 	const { data: projects } = useSuspenseQuery(listProjectsQueryOptions);
 	const { data: editors } = useQuery(listEditorsQueryOptions);
@@ -29,26 +32,35 @@ export const usePathMenuItems = ({
 		...guiSettingsQueryOptions,
 		select: (cfg) => editors?.find((editor) => editor.id === cfg.editorId),
 	});
+	const { data: worktreePath } = useQuery({
+		...worktreesListQueryOptions(projectId),
+		enabled: worktree !== undefined,
+		select: (listing) =>
+			[...listing.active, ...listing.archived].find((entry) => entry.name === worktree)?.path,
+	});
 
 	const selectedProject = projects.find((project) => project.id === projectId);
 	if (!selectedProject) throw new Error("Could not find selected project");
+	// The checkout the path is relative to; unknown until the worktree listing answers.
+	const basePath = worktree === undefined ? selectedProject.path : worktreePath;
+	const absolutePath = () => window.lite.pathJoin(basePath ?? "", path);
 
 	const { isPending: isOpenInProgramPending, mutate: openInProgram } = useOpenInProgram();
-	const revealInFolder = useRevealInFolder(projectId);
+	// The backend resolves the path against the project's checkout, so a linked
+	// worktree's file is handed over absolute, which joining leaves untouched.
+	const openPath = async (programId: string) => {
+		const target = worktree === undefined ? path : await absolutePath();
+		openInProgram({ projectId, programId, path: target, lineNr: null });
+	};
+	const canOpen = !isOpenInProgramPending && basePath !== undefined;
 
 	return [
 		preferredEditor
 			? nativeMenuItem({
 					label: `Open in ${preferredEditor.name}`,
-					enabled: !isOpenInProgramPending,
+					enabled: canOpen,
 					accelerator: toElectronAccelerator(changesFileHotkeys.openInEditor.hotkey),
-					onSelect: () =>
-						openInProgram({
-							projectId,
-							programId: preferredEditor.id,
-							path,
-							lineNr: null,
-						}),
+					onSelect: () => void openPath(preferredEditor.id),
 				})
 			: nativeMenuItem({
 					label: "Open In Editor",
@@ -56,31 +68,24 @@ export const usePathMenuItems = ({
 						editors?.map((editor) =>
 							nativeMenuItem({
 								label: editor.name,
-								enabled: !isOpenInProgramPending,
-								onSelect: () =>
-									openInProgram({
-										projectId,
-										programId: editor.id,
-										path,
-										lineNr: null,
-									}),
+								enabled: canOpen,
+								onSelect: () => void openPath(editor.id),
 							}),
 						) ?? [],
 				}),
 		nativeMenuItem({
 			label: revealInFolderLabel,
+			enabled: basePath !== undefined,
 			accelerator: toElectronAccelerator(changesFileHotkeys.revealInFolder.hotkey),
-			onSelect: () => revealInFolder(path),
+			onSelect: async () => window.lite.showItemInFolder(await absolutePath()),
 		}),
 		nativeMenuItem({
 			label: "Copy Path",
 			submenu: [
 				nativeMenuItem({
 					label: "Absolute Path",
-					onSelect: async () => {
-						const absolutePath = await window.lite.pathJoin(selectedProject.path, path);
-						await window.lite.clipboardWriteText(absolutePath);
-					},
+					enabled: basePath !== undefined,
+					onSelect: async () => window.lite.clipboardWriteText(await absolutePath()),
 				}),
 				nativeMenuItem({
 					label: "Relative Path",

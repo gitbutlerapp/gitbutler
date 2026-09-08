@@ -31,6 +31,7 @@ export const settingsPages = [
 	{ key: "project:project", label: "Project", icon: "workbench" },
 	{ key: "project:ai", label: "AI", icon: "ai" },
 	{ key: "project:git", label: "Git", icon: "branch" },
+	{ key: "project:worktrees", label: "Worktrees", icon: "folder-tree" },
 	{ key: "project:experimental", label: "Experimental", icon: "danger" },
 ] as const satisfies ReadonlyArray<SettingsPage>;
 

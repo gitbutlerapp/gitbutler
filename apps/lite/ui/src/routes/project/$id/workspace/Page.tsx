@@ -12,7 +12,10 @@ import {
 	guiSettingsQueryOptions,
 	listProjectsQueryOptions,
 	operatingModeQueryOptions,
+	worktreeChangesQueryOptions,
 } from "#ui/api/queries.ts";
+import { compareFilePaths } from "#ui/file-order.ts";
+import type { WorktreeChanges } from "@gitbutler/but-sdk";
 import { EditModePage } from "./EditModePage.tsx";
 import { useRestoreSnapshot } from "#ui/api/mutations.ts";
 import {
@@ -96,6 +99,10 @@ import { parseDragData } from "./DragData.ts";
 // This must be unique as to not collide with other IDs, and stable because it's
 // stored in local storage.
 type PanelId = "sidebar-panel" | "details-panel";
+
+/** A worktree's changed paths as its lane lists them; a stable function, so the query memoises the selection. */
+const changedPaths = (changes: WorktreeChanges): Array<string> =>
+	changes.changes.map((change) => change.path).sort(compareFilePaths);
 
 const useWorkspaceHotkeys = (projectId: string) => {
 	const queryClient = useQueryClient();
@@ -400,6 +407,17 @@ const PageBody: FC<{ projectId: string }> = ({ projectId }) => {
 	const foldedSegments = useAppSelector((state) =>
 		projectSlice.selectors.selectFoldedSegments(state, projectId),
 	);
+	// Captured by name: the graph object is new every render, its worktrees are
+	// not, so the compiler keeps the `combine` callback below stable on them.
+	const graphWorktrees = graph.worktrees;
+	const worktreeFiles = useQueries({
+		queries: graphWorktrees.map((worktree) => ({
+			...worktreeChangesQueryOptions(projectId, worktree.name),
+			select: changedPaths,
+		})),
+		combine: (results) =>
+			new Map(graphWorktrees.map((worktree, index) => [worktree.name, results[index]?.data ?? []])),
+	});
 	const absorptionPlanTarget = Match.value(pendingOperation).pipe(
 		Match.tags({ Absorb: ({ sourceTarget }) => sourceTarget }),
 		Match.orElse(() => null),
@@ -416,6 +434,7 @@ const PageBody: FC<{ projectId: string }> = ({ projectId }) => {
 	const appliedAddressSpace = buildAppliedAddressSpace({
 		stacks: graph.stacks,
 		plan: graph.plan,
+		worktreeFiles,
 		pendingOperation,
 		absorptionTargetCommitIds,
 		foldedSegments,

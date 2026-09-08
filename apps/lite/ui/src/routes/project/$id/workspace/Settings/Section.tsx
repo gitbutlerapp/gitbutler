@@ -28,7 +28,7 @@ type RowProps = {
 	labelId?: string;
 	/** Sits under the label: a unit, an inferred value, a caveat. */
 	hint?: ReactNode;
-	children: ReactNode;
+	children?: ReactNode;
 };
 
 /**

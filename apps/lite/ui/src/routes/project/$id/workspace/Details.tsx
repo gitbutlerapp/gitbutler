@@ -35,6 +35,7 @@ import {
 	listReviewThreadsQueryOptions,
 	treeChangesDiffsQueryOptions,
 	workspaceFileQueryOptions,
+	worktreeChangesQueryOptions,
 } from "#ui/api/queries.ts";
 import {
 	SeenOnArrivalContext,
@@ -65,6 +66,7 @@ import {
 	weakCommitIdentityKey,
 	weakFileIdentityKey,
 	weakFileParentIdentityKey,
+	worktreeChangesFileParent,
 } from "#ui/addresses.ts";
 import { checkedRange, addressSpaceRange, selectionAfterChecking } from "#ui/checking.ts";
 import type { BranchTab, CheckableAddress } from "#ui/projects/project.ts";
@@ -99,6 +101,7 @@ import type {
 	ConflictedFile,
 	ManualConflict,
 	TreeChange,
+	WorktreeChanges,
 } from "@gitbutler/but-sdk";
 import {
 	type CodeViewItem,
@@ -2434,7 +2437,11 @@ const Diff: FC<{
 		data: { treeChangeDiffs, lineStats },
 	} = useSuspenseQuery({
 		// Don't sort the changes input here as that could produce a distinct query key.
-		...treeChangesDiffsQueryOptions({ projectId, changes: unsortedChanges }),
+		...treeChangesDiffsQueryOptions({
+			projectId,
+			changes: unsortedChanges,
+			worktree: fileParent._tag === "UncommittedChanges" ? fileParent.worktree : undefined,
+		}),
 		select: withLineStats,
 	});
 
@@ -3518,6 +3525,17 @@ const UnappliedBranchDetails: FC<BranchDetailsProps> = ({
 	useBranchTabHotkeys({ branchTab, setBranchTab, target: ref, enabled: reviewTab !== null });
 
 	const { isPending: isApplyPending, apply } = useApplyToWorkspace(projectId);
+	// A branch checked out in a linked worktree cannot be applied while it is; its
+	// commits show up in the worktree's lane instead.
+	const { data: worktreeName } = useQuery({
+		...headInfoQueryOptions(projectId),
+		select: (headInfo) =>
+			headInfo.worktrees.find(
+				(worktree) =>
+					worktree.refName !== null &&
+					decodeBytes(worktree.refName.fullNameBytes) === decodeBytes(branch.branchRef),
+			)?.name,
+	});
 
 	return (
 		<div className={styles.container} ref={ref}>
@@ -3533,15 +3551,21 @@ const UnappliedBranchDetails: FC<BranchDetailsProps> = ({
 					/>
 
 					<div className={styles.tabsRowRight}>
-						<button
-							type="button"
-							className={getButtonClassName({ variant: "gray" })}
-							disabled={isApplyPending}
-							onClick={() => apply(decodeBytes(branch.branchRef))}
-						>
-							{isApplyPending && <Icon name="spinner" />}
-							Apply to workspace
-						</button>
+						{worktreeName === undefined ? (
+							<button
+								type="button"
+								className={getButtonClassName({ variant: "gray" })}
+								disabled={isApplyPending}
+								onClick={() => apply(decodeBytes(branch.branchRef))}
+							>
+								{isApplyPending && <Icon name="spinner" />}
+								Apply to workspace
+							</button>
+						) : (
+							<span className={classes("text-12", rowStyles.fadedText)}>
+								Checked out in worktree {worktreeName}
+							</span>
+						)}
 					</div>
 				</div>
 			</div>
@@ -3774,11 +3798,22 @@ const FileDetailsSkeleton: FC = () => {
 
 const FileDetails: FC<{
 	path: string;
+	/** The main worktree's uncommitted changes, or a linked worktree's. */
+	parent: Extract<FileParent, { _tag: "UncommittedChanges" }>;
+	worktreeChanges: WorktreeChanges;
 	projectId: string;
 	onActiveFileSelection: (file: FileAddress) => void;
 	viewerRef: RefObject<DiffViewerHandle | null>;
 	didScrollToViaFileRef: RefObject<boolean>;
-}> = ({ path, projectId, onActiveFileSelection, viewerRef, didScrollToViaFileRef }) => {
+}> = ({
+	path,
+	parent,
+	worktreeChanges,
+	projectId,
+	onActiveFileSelection,
+	viewerRef,
+	didScrollToViaFileRef,
+}) => {
 	const detailsFullWindow = useAppSelector(interfaceSlice.selectors.selectDetailsFullWindow);
 	// This view is the uncommitted scope, and the sidebar's own "Uncommitted"
 	// list is already its files panel — a second one here would only repeat it,
@@ -3790,7 +3825,6 @@ const FileDetails: FC<{
 	// proxy then answers for the wrong scope.
 	const canShowFiles = false;
 	const filesVisible = false;
-	const { data: worktreeChanges } = useSuspenseQuery(changesInWorktreeQueryOptions(projectId));
 	const filesItems = getChangesFileRowItems(worktreeChanges).toArray();
 	const changes = filesItems
 		.values()
@@ -3798,8 +3832,11 @@ const FileDetails: FC<{
 		.filter((x) => x != null)
 		.toArray();
 
+	// The main worktree's files walk their own path-keyed list; a linked
+	// worktree's are rows of the applied list.
 	const selectFile = (selection: string) => {
-		setCursor("uncommitted", selection);
+		if (parent.worktree === undefined) setCursor("uncommitted", selection);
+		else setCursor("applied", fileAddress({ parent, path: selection }));
 	};
 
 	const title = (
@@ -3808,7 +3845,9 @@ const FileDetails: FC<{
 
 			<div className={styles.title}>
 				<Icon name="file-diff" />
-				<h3 className={classes("text-15", "text-semibold")}>Uncommitted</h3>
+				<h3 className={classes("text-15", "text-semibold")}>
+					{parent.worktree === undefined ? "Uncommitted" : `Uncommitted in ${parent.worktree}`}
+				</h3>
 			</div>
 		</>
 	);
@@ -3822,7 +3861,7 @@ const FileDetails: FC<{
 					canShowFiles={canShowFiles}
 					filesItems={filesItems}
 					onPassiveFileSelection={selectFile}
-					selection={fileAddress({ parent: uncommittedChangesFileParent, path })}
+					selection={fileAddress({ parent, path })}
 					projectId={projectId}
 					onActiveFileSelection={onActiveFileSelection}
 					viewerRef={viewerRef}
@@ -3835,6 +3874,39 @@ const FileDetails: FC<{
 				</div>
 			)}
 		</div>
+	);
+};
+
+/** A linked worktree's uncommitted file, read through the worktree source. */
+const WorktreeFileDetails: FC<{ path: string; worktree: string } & DetailsViewProps> = ({
+	path,
+	worktree,
+	...viewProps
+}) => {
+	const { data: worktreeChanges } = useSuspenseQuery(
+		worktreeChangesQueryOptions(viewProps.projectId, worktree),
+	);
+	return (
+		<FileDetails
+			path={path}
+			parent={worktreeChangesFileParent(worktree)}
+			worktreeChanges={worktreeChanges}
+			{...viewProps}
+		/>
+	);
+};
+
+const MainFileDetails: FC<{ path: string } & DetailsViewProps> = ({ path, ...viewProps }) => {
+	const { data: worktreeChanges } = useSuspenseQuery(
+		changesInWorktreeQueryOptions(viewProps.projectId),
+	);
+	return (
+		<FileDetails
+			path={path}
+			parent={uncommittedChangesFileParent}
+			worktreeChanges={worktreeChanges}
+			{...viewProps}
+		/>
 	);
 };
 
@@ -3884,6 +3956,18 @@ export const Details: FC<
 					<UnappliedBranchDetails key={branchIdentityKey(branch)} branch={branch} {...viewProps} />
 				),
 			Commit: (commit) => commitDetails(commit, viewProps, landedReview),
+			// A linked worktree's uncommitted file: the one file address the applied list holds.
+			File: (file) =>
+				file.parent._tag === "UncommittedChanges" && file.parent.worktree !== undefined ? (
+					<Suspense fallback={<FileDetailsSkeleton />}>
+						<WorktreeFileDetails
+							key={weakFileParentIdentityKey(file.parent)}
+							path={file.path}
+							worktree={file.parent.worktree}
+							{...viewProps}
+						/>
+					</Suspense>
+				) : null,
 		}),
 		Match.orElse(() => null),
 	);
@@ -3892,6 +3976,6 @@ export const Details: FC<
 /** The details pane for the uncommitted-files scope. */
 export const UncommittedFilesDetails: FC<{ path: string } & DetailsViewProps> = (p) => (
 	<Suspense fallback={<FileDetailsSkeleton />}>
-		<FileDetails {...p} />
+		<MainFileDetails {...p} />
 	</Suspense>
 );

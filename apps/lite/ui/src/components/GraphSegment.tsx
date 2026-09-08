@@ -238,10 +238,18 @@ const bendPath = (height: number): string => {
 
 /**
  * The gutter of the gap under a card: the main line runs through it, and the
- * card's own line, a column to the right, may bend onto it.
+ * card's own line, a column to the right, may bend onto it. With columns
+ * `behind`, the gap sits that far right, the lines behind it passing through.
  */
-export const GraphGap: FC<{ height: number; bend?: GraphSegmentStatus }> = ({ height, bend }) => (
+export const GraphGap: FC<{ height: number; bend?: GraphSegmentStatus; behind?: number }> = ({
+	height,
+	bend,
+	behind = 0,
+}) => (
 	<div className={styles.gap} style={{ height }} aria-hidden>
+		{Array.from({ length: behind }, (_, column) => (
+			<span key={column} className={styles.pass} />
+		))}
 		<svg
 			viewBox={`0 0 28 ${height}`}
 			width="28"

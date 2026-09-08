@@ -1,7 +1,7 @@
 import { addressEquals, commitAddress, type Address } from "#ui/addresses.ts";
 import { assert } from "#ui/assert.ts";
 import { remoteTrackingLabel } from "#ui/branch.ts";
-import type { RefInfo, Stack, TargetCommit, TargetCommitPage } from "@gitbutler/but-sdk";
+import type { RefInfo, Stack, TargetCommit, TargetCommitPage, Worktree } from "@gitbutler/but-sdk";
 
 /*
  * The stacks section as a graph: card order and which section rows show. Pure.
@@ -19,6 +19,8 @@ export const ROW_INSET = 10;
 export const CARD_GAP = 20;
 /** The gap under the target's card and the ref row, which the leg bends through. */
 export const LEG_GAP = 12;
+/** The connector between a worktree on a branch's tip and the branch row under it. */
+export const TIP_GAP = 8;
 /** The stuck merge base row's height, hairline and air included, which a row scrolled into view clears. Keep in sync with Section.module.css. */
 export const DOCKED_HEIGHT = 1 + 4 + 28 + 4;
 /** The stuck uncommitted files row's height: the card's head room, a row and a hairline. Keep in sync with WorkspaceLists.module.css. */
@@ -59,6 +61,18 @@ export type Run = {
 
 export type Item = { kind: "fork"; commit: TargetCommit } | Run;
 
+/**
+ * Where the linked worktrees go, the way `but status` places them: a lane
+ * nested above the commit it rests on when a card or another worktree shows
+ * that commit, otherwise a lane of its own under the cards.
+ */
+export type WorktreePlacement = {
+	/** The worktrees resting on each shown commit, by its id, in the order given. */
+	on: ReadonlyMap<string, ReadonlyArray<Worktree>>;
+	/** Resting below the workspace, on a commit nothing shows, or on unknown history. */
+	standalone: ReadonlyArray<Worktree>;
+};
+
 export type Plan = {
 	/** Card order as indices into the stacks given: by base depth, deepest first, then as given. */
 	order: Array<number>;
@@ -80,6 +94,7 @@ export type Plan = {
 	older: Array<TargetCommit>;
 	/** Older history loaded but not shown yet: what the next ask reveals before any page is fetched. */
 	olderHidden: number;
+	worktrees: WorktreePlacement;
 };
 
 /** A stretch of the target line: a stack's base, or the run between such forks. */
@@ -127,6 +142,44 @@ const foldRuns = (line: ReadonlyArray<TargetItem>, folds: Folds): Array<Item> =>
 		};
 	});
 
+const placeWorktrees = (
+	stacks: ReadonlyArray<Stack>,
+	worktrees: ReadonlyArray<Worktree>,
+): WorktreePlacement => {
+	// A worktree's own commits count as shown, so a worktree resting on another
+	// nests inside its lane. Bases are assigned in tip order, so this cannot cycle.
+	const shown = new Set<string>([
+		...stacks.flatMap((stack) =>
+			stack.segments.flatMap((segment) => segment.commits.map((commit) => commit.id)),
+		),
+		...worktrees.flatMap((worktree) => worktree.commits.map((commit) => commit.id)),
+	]);
+	const on = new Map<string, Array<Worktree>>();
+	const standalone: Array<Worktree> = [];
+	for (const worktree of worktrees) {
+		const base = worktree.base?.subject;
+		if (base === undefined || !shown.has(base)) standalone.push(worktree);
+		else on.set(base, [...(on.get(base) ?? []), worktree]);
+	}
+	return { on, standalone };
+};
+
+/**
+ * The worktrees resting on the tip of `stack`'s top branch. They are drawn
+ * above that branch row, continuing the stack's line the way a branch stacked
+ * on top would, rather than forking off the commit: their commits descend from
+ * it and nothing else in the card does. Lower down, a fork is the truth.
+ */
+export const worktreesOnTip = (
+	worktrees: WorktreePlacement,
+	stack: Stack,
+): ReadonlyArray<Worktree> => {
+	const top = stack.segments[0];
+	const tip = top?.commits[0];
+	if (top === undefined || top.refName === null || tip === undefined) return [];
+	return worktrees.on.get(tip.id) ?? [];
+};
+
 export const layout = (
 	stacks: ReadonlyArray<Stack>,
 	target: RefInfo["target"],
@@ -134,6 +187,7 @@ export const layout = (
 	folds: Folds,
 	/** Pages of history below the listing, in order, as loaded. */
 	olderPages: ReadonlyArray<TargetCommit> = [],
+	worktrees: ReadonlyArray<Worktree> = [],
 ): Plan => {
 	const commits = listing?.commits ?? [];
 	const line = segmentAtForks(commits, stacks);
@@ -184,6 +238,7 @@ export const layout = (
 		belowBase: folds.baseExpanded ? belowBase : [],
 		older: older.slice(0, olderShown),
 		olderHidden: Math.max(0, older.length - olderShown),
+		worktrees: placeWorktrees(stacks, worktrees),
 	};
 };
 

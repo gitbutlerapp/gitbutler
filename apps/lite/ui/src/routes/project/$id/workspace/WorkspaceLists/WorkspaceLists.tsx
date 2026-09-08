@@ -1,5 +1,5 @@
 import rowStyles from "../Row.module.css";
-import { setCursor, useActiveList, useIsCursorAt, useSelection } from "#ui/use-cursor.ts";
+import { setCursor, useActiveList, useSelection } from "#ui/use-cursor.ts";
 import { useCommitAmend } from "#ui/api/mutations.ts";
 import { changesInWorktreeQueryOptions, headInfoQueryOptions } from "#ui/api/queries.ts";
 import { getHeadInfoIndex, recordedPullRequest } from "#ui/api/ref-info.ts";
@@ -12,22 +12,17 @@ import {
 	commitAddress,
 	addressIdentityKey,
 	type Address,
-	addressEquals,
 	commitIdentityKey,
 } from "#ui/addresses.ts";
 import { useReviewedPaths } from "#ui/routes/project/$id/workspace/reviewed-paths.ts";
 import { projectSlice } from "#ui/projects/state.ts";
 import { getTransferKind, getTransferTarget } from "#ui/operations/pending-operation.ts";
 import { OperationSourceC } from "#ui/routes/project/$id/workspace/OperationSourceC.tsx";
-import {
-	OperationTarget as OperationTarget_,
-	type OperationTargetOutline,
-} from "#ui/routes/project/$id/workspace/OperationTarget.tsx";
-import { useOperationDropTarget } from "#ui/routes/project/$id/workspace/useOperationDropTarget.ts";
+import { AddressC, OperationTarget, TreeItem } from "./TreeItem.tsx";
+import { WorktreeCard, WorktreeLane, WorktreeOnTip } from "./WorktreeLane.tsx";
 import { useAppDispatch, useAppSelector, useAppStore } from "#ui/store.ts";
 import { classes } from "#ui/components/classes.ts";
 import { addressSpaceIncludes, type AddressSpace } from "#ui/workspace/address-space.ts";
-import { mergeProps, Tooltip, useRender } from "@base-ui/react";
 import { useMergedRefs } from "@base-ui/utils/useMergedRefs";
 import uiStyles from "#ui/components/ui.module.css";
 import type {
@@ -38,6 +33,7 @@ import type {
 	PushStatus,
 	WorktreeChanges,
 	WorkspaceState,
+	Worktree,
 } from "@gitbutler/but-sdk";
 
 import { useMutationState, useQuery } from "@tanstack/react-query";
@@ -70,17 +66,15 @@ import {
 	ROW_INSET,
 	foldAddresses,
 	foldAt,
+	type WorktreePlacement,
+	worktreesOnTip,
 } from "../Graph/layout.ts";
 import type { Graph } from "../Graph/usePlan.ts";
 import { StackCard } from "../StackCard.tsx";
 import stackCardStyles from "../StackCard.module.css";
 import { treeItemId } from "../Row-utils.ts";
-import {
-	useAbsorptionTargetCommitIds,
-	useAddressSpace,
-	WorkspaceListsProvider,
-} from "./context.tsx";
-import { getOperation, type Placement, useDryRunOperation } from "#ui/operations/operation.ts";
+import { useAddressSpace, WorkspaceListsProvider } from "./context.tsx";
+import { getOperation, useDryRunOperation } from "#ui/operations/operation.ts";
 import { createDiffSpec } from "#ui/operations/diff-specs.ts";
 import { GraphGap, GraphSegment, type GraphSegmentStatus } from "#ui/components/GraphSegment.tsx";
 import { useNow } from "#ui/components/useNow.ts";
@@ -105,7 +99,6 @@ import {
 	type DownstackPushStatus,
 } from "#ui/segment.ts";
 import { checkedRange, addressSpaceRange } from "#ui/checking.ts";
-import { TooltipPopup } from "#ui/components/Tooltip.tsx";
 import { focusScope, useAutofocusScope, type FocusScope } from "#ui/focus-scopes.ts";
 import { getRangeExtractorWithIndices } from "#ui/virtual.ts";
 import { FilesTree } from "#ui/routes/project/$id/workspace/FilesTree.tsx";
@@ -128,6 +121,8 @@ DryRunWorkspaceContext.displayName = "DryRunWorkspaceContext";
  * Keyed on the element, not a ref object, so a replaced node (a hot reload
  * swaps them) is measured afresh rather than watched after it is gone.
  */
+const noLanes: ReadonlyArray<Worktree> = [];
+
 const useHeight = (): [ref: (element: HTMLElement | null) => void, height: number] => {
 	const [element, setElement] = useState<HTMLElement | null>(null);
 	const [height, setHeight] = useState(0);
@@ -140,146 +135,6 @@ const useHeight = (): [ref: (element: HTMLElement | null) => void, height: numbe
 		return () => observer.disconnect();
 	}, [element]);
 	return [setElement, height];
-};
-
-const TreeItem: FC<
-	{
-		address: Address;
-	} & useRender.ComponentProps<"div">
-> = ({ address, render, ...props }) => {
-	const addressSpace = useAddressSpace();
-	const isSelected = useIsCursorAt("applied", addressSpace, address);
-
-	return useRender({
-		render,
-		defaultTagName: "div",
-		props: mergeProps<"div">(props, {
-			id: treeItemId(address),
-			role: "treeitem",
-			"aria-selected": isSelected,
-		}),
-	});
-};
-
-const OperationTarget: FC<
-	{
-		enabled: boolean;
-		address: Address;
-		projectId: string;
-		outline: OperationTargetOutline;
-	} & useRender.ComponentProps<"button">
-> = ({ enabled, address, projectId, outline, render, ...props }) => {
-	const dropRef = useOperationDropTarget({ enabled, target: address, projectId });
-
-	const absorptionTargetCommitIds = useAbsorptionTargetCommitIds();
-	const addressSpace = useAddressSpace();
-
-	type ActiveOperation = { placement: Placement; tooltip?: string | undefined };
-	// The cursor only picks the target of a keyboard transfer, so follow it only
-	// then: a target that tracks the cursor at all times re-renders, along with
-	// the whole row it wraps, on every cursor move.
-	const keyboardTransferPending = useAppSelector((state) => {
-		const pendingOperation = projectSlice.selectors.selectPendingOperation(state, projectId);
-		return pendingOperation._tag === "Transfer" && pendingOperation.value._tag === "Keyboard";
-	});
-	const selection = useSelection("applied", keyboardTransferPending ? addressSpace : null);
-	const activeList = useActiveList();
-	const activeOperation = useAppSelector((state) => {
-		const pendingOperation = projectSlice.selectors.selectPendingOperation(state, projectId);
-
-		return Match.value(pendingOperation).pipe(
-			Match.tags({
-				Absorb: (): ActiveOperation | null => {
-					const isActive =
-						address._tag === "Commit" && absorptionTargetCommitIds.has(address.commitId);
-					if (!isActive) return null;
-
-					return { placement: "into", tooltip: "Absorb target" };
-				},
-				Transfer: ({ value: mode }): ActiveOperation | null => {
-					if (mode.placement === null) return null;
-
-					const target = getTransferTarget(mode, selection, activeList);
-					const isActive = target !== null && addressEquals(target, address);
-					if (!isActive) return null;
-
-					return {
-						placement: mode.placement,
-						tooltip: getOperation({
-							sources: mode.sources,
-							target: address,
-							placement: mode.placement,
-							kind: getTransferKind(mode),
-						})?.label,
-					};
-				},
-			}),
-			Match.orElse(() => null),
-		);
-	});
-
-	return (
-		<Tooltip.Root
-			open={activeOperation?.tooltip !== undefined}
-			disableHoverablePopup
-			onOpenChange={(_, eventDetails) => {
-				// Allow escape to bubble up from tree so it triggers the cancel
-				// operation shortcut.
-				if (eventDetails.reason === "escape-key") eventDetails.allowPropagation();
-			}}
-		>
-			<Tooltip.Trigger
-				{...props}
-				render={
-					<OperationTarget_
-						ref={(el) => {
-							dropRef.current = el;
-						}}
-						placement={activeOperation?.placement}
-						outline={outline}
-						render={render}
-					/>
-				}
-			/>
-			<Tooltip.Portal>
-				<Tooltip.Positioner sideOffset={8} side="right">
-					<Tooltip.Popup render={<TooltipPopup />}>{activeOperation?.tooltip}</Tooltip.Popup>
-				</Tooltip.Positioner>
-			</Tooltip.Portal>
-		</Tooltip.Root>
-	);
-};
-
-const AddressC: FC<
-	{
-		projectId: string;
-		address: Address;
-		outline: OperationTargetOutline;
-	} & useRender.ComponentProps<"div">
-> = ({ projectId, address, outline, render, ...props }) => {
-	const addressSpace = useAddressSpace();
-
-	return useRender({
-		render: (
-			<OperationSourceC
-				projectId={projectId}
-				sources={[address]}
-				respectChecked={address._tag === "Commit" || address._tag === "File"}
-				outline={outline}
-				render={
-					<OperationTarget
-						enabled={addressSpaceIncludes(addressSpace, address, addressIdentityKey)}
-						projectId={projectId}
-						address={address}
-						outline={outline}
-						render={render}
-					/>
-				}
-			/>
-		),
-		defaultTagName: "div",
-		props,
-	});
 };
 
 const UncommittedChanges: FC<
@@ -551,6 +406,7 @@ const BranchSegment: FC<{
 	behind: number;
 	/** The rail ends on this segment's last commit. */
 	railEnds: boolean;
+	worktrees: WorktreePlacement;
 	checkCommit: (evt: { commitId: string; shiftKey: boolean }) => void;
 	onAmendCommit: (commitId: string) => void;
 	canAmendCommit: boolean;
@@ -574,6 +430,7 @@ const BranchSegment: FC<{
 	startsRail,
 	behind,
 	railEnds,
+	worktrees,
 	checkCommit,
 	onAmendCommit,
 	canAmendCommit,
@@ -645,6 +502,7 @@ const BranchSegment: FC<{
 					stackId={stack.id}
 					behind={behind}
 					railEnds={railEnds}
+					worktrees={worktrees}
 					checkCommit={checkCommit}
 					onAmendCommit={onAmendCommit}
 					canAmendCommit={canAmendCommit}
@@ -709,6 +567,7 @@ const SegmentContent: FC<{
 	behind: number;
 	/** The rail ends on the segment's last commit. */
 	railEnds: boolean;
+	worktrees: WorktreePlacement;
 }> = ({
 	projectId,
 	segment,
@@ -728,6 +587,7 @@ const SegmentContent: FC<{
 	setSize,
 	behind,
 	railEnds,
+	worktrees,
 }) => {
 	const getCommitKey = useCallback(
 		(index: number) => segment.commits[index]?.id ?? index,
@@ -794,9 +654,29 @@ const SegmentContent: FC<{
 
 	if (segment.commits.length === 0)
 		return <EmptySegmentContent segment={segment} behind={behind} />;
+	// The lanes drawn above a commit row. The worktrees on the top branch's tip
+	// are drawn above that branch by the card instead, see `worktreesOnTip`.
+	const lanesOn = (commit: Commit, index: number): ReadonlyArray<Worktree> =>
+		segmentIndex === 0 && index === 0 && segment.refName !== null
+			? noLanes
+			: (worktrees.on.get(commit.id) ?? noLanes);
+
 	// The branch row stands in for a folded segment: it takes the group glyph
-	// and shows the count of the commits hidden here.
-	if (isFolded) return null;
+	// and shows the count of the commits hidden here. The worktrees resting on
+	// those commits stay, or folding a branch would make a worktree vanish.
+	if (isFolded) {
+		return segment.commits
+			.flatMap((commit, index) => lanesOn(commit, index))
+			.map((worktree) => (
+				<WorktreeLane
+					key={worktree.name}
+					projectId={projectId}
+					worktree={worktree}
+					worktrees={worktrees}
+					behind={behind + 1}
+				/>
+			));
+	}
 
 	const dryRunWorkspace = use(DryRunWorkspaceContext);
 	const dryRunHeadInfoIndex = dryRunWorkspace ? getHeadInfoIndex(dryRunWorkspace.headInfo) : null;
@@ -823,6 +703,8 @@ const SegmentContent: FC<{
 						below={next === undefined ? "LocalOnly" : commitGraphStatus(next)}
 						behind={behind}
 						railEnds={railEnds && next === undefined}
+						lanes={lanesOn(commit, virtualRow.index)}
+						worktrees={worktrees}
 						projectId={projectId}
 						stackId={stackId}
 						checkCommit={checkCommit}
@@ -853,6 +735,9 @@ const CommitItem: FC<{
 	below: GraphSegmentStatus;
 	behind: number;
 	railEnds: boolean;
+	/** The worktree lanes drawn above this commit, resting on it. */
+	lanes: ReadonlyArray<Worktree>;
+	worktrees: WorktreePlacement;
 	projectId: string;
 	stackId: string | null;
 	checkCommit: (evt: { commitId: string; shiftKey: boolean }) => void;
@@ -869,6 +754,8 @@ const CommitItem: FC<{
 	below,
 	behind,
 	railEnds,
+	lanes,
+	worktrees,
 	projectId,
 	stackId,
 	checkCommit,
@@ -893,6 +780,16 @@ const CommitItem: FC<{
 				width: "100%",
 			}}
 		>
+			{/* Inside the measured element: the virtualizer sizes the commit's item, lanes included. */}
+			{lanes.map((worktree) => (
+				<WorktreeLane
+					key={worktree.name}
+					projectId={projectId}
+					worktree={worktree}
+					worktrees={worktrees}
+					behind={behind + 1}
+				/>
+			))}
 			<TreeItem
 				address={address}
 				aria-label={commitTitle(commit.message) ?? "(no message)"}
@@ -993,6 +890,7 @@ const StackC: FC<
 		scrollMargin: number;
 		/** The stack is the main line itself, with no target to fork from: see the layout's plan. */
 		onTrunk: boolean;
+		worktrees: WorktreePlacement;
 		selectedSegmentIndex: number | undefined;
 		selectedCommitIndex: number | undefined;
 	} & ComponentProps<"div">
@@ -1009,6 +907,7 @@ const StackC: FC<
 	stackSize,
 	scrollMargin,
 	onTrunk,
+	worktrees,
 	selectedSegmentIndex,
 	selectedCommitIndex,
 	...props
@@ -1039,6 +938,9 @@ const StackC: FC<
 		(segment) =>
 			segment.refName && pendingPushBranches.has(decodeBytes(segment.refName.fullNameBytes)),
 	);
+	// Worktrees on the top branch's tip continue the card's line above it, so the
+	// branch row joins a rail that starts at the worktree rather than starting one.
+	const onTip = worktreesOnTip(worktrees, stack);
 	// Each stack group is a root sibling set. A branch is one root item whose commits are children;
 	// an unbranched segment contributes its commits directly to the root set.
 	const rootPositionOffsets: Array<number> = [];
@@ -1061,6 +963,16 @@ const StackC: FC<
 				<Row interactive={false} className={styles.pad}>
 					<GraphSegment glyph={onTrunk ? "parent" : "space"} status="LocalOnly" behind={behind} />
 				</Row>
+				{onTip.map((worktree) => (
+					<WorktreeOnTip
+						key={worktree.name}
+						projectId={projectId}
+						worktree={worktree}
+						worktrees={worktrees}
+						behind={behind}
+						onTrunk={onTrunk}
+					/>
+				))}
 				{stack.segments.map((segment, index) => {
 					// oxlint-disable-next-line typescript/no-non-null-assertion -- Equivalent iteration above.
 					const segmentPositionOffset = rootPositionOffsets[index]!;
@@ -1094,9 +1006,10 @@ const StackC: FC<
 										canRemoveBranch={canRemoveBranchReference(stack, index)}
 										downstackPushStatus={downstackPushStatus}
 										pushActivity={pushActivity}
-										startsRail={index === 0 && !onTrunk}
+										startsRail={index === 0 && !onTrunk && onTip.length === 0}
 										behind={behind}
 										railEnds={railEnds && index === stack.segments.length - 1}
+										worktrees={worktrees}
 										checkCommit={checkCommit}
 										onAmendCommit={onAmendCommit}
 										canAmendCommit={canAmendCommit}
@@ -1119,6 +1032,7 @@ const StackC: FC<
 										setSize={rootSetSize}
 										behind={behind}
 										railEnds={railEnds && index === stack.segments.length - 1}
+										worktrees={worktrees}
 										projectId={projectId}
 										segment={segment}
 										stackId={stack.id}
@@ -1470,6 +1384,7 @@ const Stacks: FC<{
 									stackSize={virtualRow.size}
 									scrollMargin={scrollMargin}
 									onTrunk={plan.stackOnTrunk}
+									worktrees={plan.worktrees}
 									selectedSegmentIndex={
 										selectedStackIndex === virtualRow.index ? selectedSegmentIndex : undefined
 									}
@@ -1480,6 +1395,14 @@ const Stacks: FC<{
 							);
 						})}
 					</div>
+					{plan.worktrees.standalone.map((worktree) => (
+						<WorktreeCard
+							key={worktree.name}
+							projectId={projectId}
+							worktree={worktree}
+							worktrees={plan.worktrees}
+						/>
+					))}
 					<Section
 						projectId={projectId}
 						plan={plan}

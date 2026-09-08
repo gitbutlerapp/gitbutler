@@ -1,9 +1,10 @@
 import {
 	changesInWorktreeQueryOptions,
 	commitDetailsWithLineStatsQueryOptions,
+	worktreeChangesQueryOptions,
 } from "#ui/api/queries.ts";
 import { addressEquals, type FileParent, type Address, addressFileParent } from "#ui/addresses.ts";
-import { type QueryClient, useQueries, useQuery } from "@tanstack/react-query";
+import { type QueryClient, useQueries } from "@tanstack/react-query";
 import type {
 	CommitDetails,
 	DiffSpec,
@@ -105,6 +106,22 @@ const commitIdFromParent = (parent: FileParent) =>
 		}),
 	);
 
+/** The linked worktree a parent's files are read from, if not the main worktree. */
+const worktreeOf = (fileParent: FileParent | null): string | undefined =>
+	fileParent?._tag === "UncommittedChanges" ? fileParent.worktree : undefined;
+
+/** The uncommitted changes a parent's files are read from: the main worktree's, or a linked worktree's. */
+const fetchUncommittedChanges = (
+	queryClient: QueryClient,
+	projectId: string,
+	fileParent: FileParent | null,
+): Promise<WorktreeChanges> => {
+	const worktree = worktreeOf(fileParent);
+	return worktree === undefined
+		? queryClient.fetchQuery(changesInWorktreeQueryOptions(projectId))
+		: queryClient.fetchQuery(worktreeChangesQueryOptions(projectId, worktree));
+};
+
 /**
  * Gets the file parent from an array of sibling sources, if any. Disparate file parents are not
  * currently supported.
@@ -184,7 +201,7 @@ export const resolveDiffSpecs = async ({
 
 	const commitId = commitIdFromParent(fileParent);
 	const [worktreeChanges, commitDetails] = await Promise.all([
-		queryClient.fetchQuery(changesInWorktreeQueryOptions(projectId)),
+		fetchUncommittedChanges(queryClient, projectId, fileParent),
 		commitId !== null
 			? queryClient.fetchQuery(commitDetailsWithLineStatsQueryOptions({ projectId, commitId }))
 			: undefined,
@@ -207,9 +224,17 @@ export const useResolveDiffSpecs = ({
 	projectId: string;
 	hunkAction?: HunkAction;
 }) => {
-	const { data: worktreeChanges } = useQuery(changesInWorktreeQueryOptions(projectId));
-
 	const fileParent = fileParentFromSources(sources ?? []);
+	const worktree = worktreeOf(fileParent);
+	// The two options differ in key type, which one `useQuery` cannot take; a list can.
+	const worktreeChanges = useQueries({
+		queries: [
+			worktree === undefined
+				? changesInWorktreeQueryOptions(projectId)
+				: worktreeChangesQueryOptions(projectId, worktree),
+		],
+		combine: ([result]) => result.data,
+	});
 	const commitId = fileParent ? commitIdFromParent(fileParent) : null;
 	const commitDetails = useQueries({
 		queries: (commitId !== null ? [commitId] : []).map((commitId) =>
