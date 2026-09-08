@@ -10,7 +10,7 @@
 		"apps/lite": {
 			"entry": [
 				"electron/src/ipc.ts!",
-				"electron/src/main.ts!",
+				"electron/src/bootstrap.ts!",
 				"electron/src/preload.cts!",
 				"harness/browser/index.tsx!",
 				"harness/node/index.ts!",
