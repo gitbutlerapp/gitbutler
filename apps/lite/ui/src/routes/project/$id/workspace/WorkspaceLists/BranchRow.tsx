@@ -139,7 +139,8 @@ export const BranchRow: FC<
 		recordedPullRequest: number | null;
 		graphStatus: GraphSegmentStatus;
 		bottomRelativeTo: RelativeTo | null;
-		isTopSegment: boolean;
+		/** The tick starts the rail, with nothing above it: a lower branch's, or the trunk's, runs on up. */
+		startsRail: boolean;
 		commitCount: number;
 		/** The rail below the branch's tick: its first commit's colour, or plain without one. */
 		railBelow: GraphSegmentStatus;
@@ -162,7 +163,7 @@ export const BranchRow: FC<
 	recordedPullRequest,
 	graphStatus,
 	bottomRelativeTo,
-	isTopSegment,
+	startsRail,
 	commitCount,
 	railBelow,
 	behind,
@@ -494,7 +495,7 @@ export const BranchRow: FC<
 									// The glyph describes where the branch sits in the stack, so it
 									// does not change with fold state.
 									<GraphSegment
-										glyph={isTopSegment ? "forkRight" : "joinRight"}
+										glyph={startsRail ? "forkRight" : "joinRight"}
 										status={graphStatus}
 										above="LocalOnly"
 										below={railBelow}
@@ -519,7 +520,7 @@ export const BranchRow: FC<
 				</Tooltip.Root>
 			) : (
 				<GraphSegment
-					glyph={isTopSegment ? "forkRight" : "joinRight"}
+					glyph={startsRail ? "forkRight" : "joinRight"}
 					status={graphStatus}
 					above="LocalOnly"
 					below={railBelow}

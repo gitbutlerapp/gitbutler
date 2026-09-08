@@ -547,8 +547,10 @@ const BranchSegment: FC<{
 	canRemoveBranch: boolean;
 	downstackPushStatus: DownstackPushStatus;
 	pushActivity: PushActivity;
-	isTopSegment: boolean;
+	startsRail: boolean;
 	behind: number;
+	/** The rail ends on this segment's last commit. */
+	railEnds: boolean;
 	checkCommit: (evt: { commitId: string; shiftKey: boolean }) => void;
 	onAmendCommit: (commitId: string) => void;
 	canAmendCommit: boolean;
@@ -569,8 +571,9 @@ const BranchSegment: FC<{
 	canRemoveBranch,
 	downstackPushStatus,
 	pushActivity,
-	isTopSegment,
+	startsRail,
 	behind,
+	railEnds,
 	checkCommit,
 	onAmendCommit,
 	canAmendCommit,
@@ -619,7 +622,7 @@ const BranchSegment: FC<{
 				recordedPullRequest={recordedPullRequest(segment)}
 				graphStatus={segmentPushStatusToGraphSegmentStatus(segment.pushStatus)}
 				bottomRelativeTo={segmentBottomRelativeTo(segment)}
-				isTopSegment={isTopSegment}
+				startsRail={startsRail}
 				commitCount={segment.commits.length}
 				railBelow={railBelow}
 				behind={behind}
@@ -641,6 +644,7 @@ const BranchSegment: FC<{
 					segment={segment}
 					stackId={stack.id}
 					behind={behind}
+					railEnds={railEnds}
 					checkCommit={checkCommit}
 					onAmendCommit={onAmendCommit}
 					canAmendCommit={canAmendCommit}
@@ -703,6 +707,8 @@ const SegmentContent: FC<{
 	positionOffset: number;
 	setSize: number;
 	behind: number;
+	/** The rail ends on the segment's last commit. */
+	railEnds: boolean;
 }> = ({
 	projectId,
 	segment,
@@ -721,6 +727,7 @@ const SegmentContent: FC<{
 	positionOffset,
 	setSize,
 	behind,
+	railEnds,
 }) => {
 	const getCommitKey = useCallback(
 		(index: number) => segment.commits[index]?.id ?? index,
@@ -815,6 +822,7 @@ const SegmentContent: FC<{
 						commit={commit}
 						below={next === undefined ? "LocalOnly" : commitGraphStatus(next)}
 						behind={behind}
+						railEnds={railEnds && next === undefined}
 						projectId={projectId}
 						stackId={stackId}
 						checkCommit={checkCommit}
@@ -844,6 +852,7 @@ const CommitItem: FC<{
 	commit: Commit;
 	below: GraphSegmentStatus;
 	behind: number;
+	railEnds: boolean;
 	projectId: string;
 	stackId: string | null;
 	checkCommit: (evt: { commitId: string; shiftKey: boolean }) => void;
@@ -859,6 +868,7 @@ const CommitItem: FC<{
 	commit,
 	below,
 	behind,
+	railEnds,
 	projectId,
 	stackId,
 	checkCommit,
@@ -899,6 +909,7 @@ const CommitItem: FC<{
 								commit={commit}
 								below={below}
 								behind={behind}
+								railEnds={railEnds}
 								stackId={stackId}
 								checkCommit={checkCommit}
 								amendCommit={() => onAmendCommit(commit.id)}
@@ -931,7 +942,9 @@ const SegmentRailConnector: FC<{
 	projectId: string;
 	segment: Segment;
 	behind: number;
-}> = ({ projectId, segment, behind }) => {
+	/** The rail ended on the segment's last commit: the connector is only the card's floor. */
+	railEnds: boolean;
+}> = ({ projectId, segment, behind, railEnds }) => {
 	const addressSpace = useAddressSpace();
 
 	// A plain boolean, so this re-renders only when this segment's own fold
@@ -959,7 +972,7 @@ const SegmentRailConnector: FC<{
 			inert={!addressSpaceIncludes(addressSpace, standsFor, addressIdentityKey)}
 		>
 			{/* Plain: a branch's colour runs from its tick down to its commits, not past them. */}
-			<GraphSegment glyph="parent" status="LocalOnly" behind={behind} />
+			<GraphSegment glyph={railEnds ? "space" : "parent"} status="LocalOnly" behind={behind} />
 		</Row>
 	);
 };
@@ -978,6 +991,8 @@ const StackC: FC<
 		stackSize: number;
 		/** The list's start in the scroller, which the card's own position is from. */
 		scrollMargin: number;
+		/** The stack is the main line itself, with no target to fork from: see the layout's plan. */
+		onTrunk: boolean;
 		selectedSegmentIndex: number | undefined;
 		selectedCommitIndex: number | undefined;
 	} & ComponentProps<"div">
@@ -993,6 +1008,7 @@ const StackC: FC<
 	stackScrollStart,
 	stackSize,
 	scrollMargin,
+	onTrunk,
 	selectedSegmentIndex,
 	selectedCommitIndex,
 	...props
@@ -1013,8 +1029,12 @@ const StackC: FC<
 		width: "100%",
 		transform: `translateY(${stackScrollStart - scrollMargin}px)`,
 	};
-	// Every card is a lane off the trunk, which runs behind it.
-	const behind = 1;
+	// A card is a lane off the trunk, which runs behind it, unless it is the trunk.
+	const behind = onTrunk ? 0 : 1;
+	// The trunk's rail ends where the history does. A traversal cut short leaves a
+	// commit with parents, and the line runs on past it as it does under any card.
+	const lastCommit = stack.segments.at(-1)?.commits.at(-1);
+	const railEnds = onTrunk && lastCommit !== undefined && lastCommit.parentIds.length === 0;
 	const topmostPendingPushIndex = stack.segments.findIndex(
 		(segment) =>
 			segment.refName && pendingPushBranches.has(decodeBytes(segment.refName.fullNameBytes)),
@@ -1039,7 +1059,7 @@ const StackC: FC<
 				aria-label="Stack"
 			>
 				<Row interactive={false} className={styles.pad}>
-					<GraphSegment glyph="space" status="LocalOnly" behind={behind} />
+					<GraphSegment glyph={onTrunk ? "parent" : "space"} status="LocalOnly" behind={behind} />
 				</Row>
 				{stack.segments.map((segment, index) => {
 					// oxlint-disable-next-line typescript/no-non-null-assertion -- Equivalent iteration above.
@@ -1074,8 +1094,9 @@ const StackC: FC<
 										canRemoveBranch={canRemoveBranchReference(stack, index)}
 										downstackPushStatus={downstackPushStatus}
 										pushActivity={pushActivity}
-										isTopSegment={index === 0}
+										startsRail={index === 0 && !onTrunk}
 										behind={behind}
+										railEnds={railEnds && index === stack.segments.length - 1}
 										checkCommit={checkCommit}
 										onAmendCommit={onAmendCommit}
 										canAmendCommit={canAmendCommit}
@@ -1097,6 +1118,7 @@ const StackC: FC<
 										positionOffset={segmentPositionOffset}
 										setSize={rootSetSize}
 										behind={behind}
+										railEnds={railEnds && index === stack.segments.length - 1}
 										projectId={projectId}
 										segment={segment}
 										stackId={stack.id}
@@ -1114,12 +1136,21 @@ const StackC: FC<
 									/>
 								)}
 							</div>
-							<SegmentRailConnector projectId={projectId} segment={segment} behind={behind} />
+							<SegmentRailConnector
+								projectId={projectId}
+								segment={segment}
+								behind={behind}
+								railEnds={railEnds && index === stack.segments.length - 1}
+							/>
 						</Fragment>
 					);
 				})}
 			</StackCard>
-			<GraphGap height={CARD_GAP} bend="LocalOnly" />
+			{railEnds ? (
+				<div style={{ height: CARD_GAP }} aria-hidden />
+			) : (
+				<GraphGap height={CARD_GAP} bend={onTrunk ? undefined : "LocalOnly"} />
+			)}
 		</div>
 	);
 };
@@ -1438,6 +1469,7 @@ const Stacks: FC<{
 									stackScrollStart={virtualRow.start}
 									stackSize={virtualRow.size}
 									scrollMargin={scrollMargin}
+									onTrunk={plan.stackOnTrunk}
 									selectedSegmentIndex={
 										selectedStackIndex === virtualRow.index ? selectedSegmentIndex : undefined
 									}

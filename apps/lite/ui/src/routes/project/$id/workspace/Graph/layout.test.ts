@@ -162,6 +162,17 @@ describe("layout", () => {
 		]);
 	});
 
+	it("puts the sole stack on the trunk when there is no target", () => {
+		const target = {
+			remoteTrackingRef: { fullNameBytes: [], displayName: "origin/main", remoteName: "origin" },
+			commitsAhead: 0,
+			isCurrent: true,
+		};
+		expect(layout([stack(null)], null, undefined, folded).stackOnTrunk).toBe(true);
+		expect(layout([stack(null), stack(null)], null, undefined, folded).stackOnTrunk).toBe(false);
+		expect(layout([stack(null)], target, undefined, folded).stackOnTrunk).toBe(false);
+	});
+
 	it("knows when the target's tip is the base itself", () => {
 		const current: TargetCommitPage = { commits: [commit("shallow", true)], hasMore: false };
 		expect(layout([stack("shallow")], null, current, folded).refOnBase).toBe(true);
