@@ -144,6 +144,8 @@ pub struct Metadata {
 /// a nested savepoint isolates the mutation and the outer transaction controls persistence and
 /// notification. On error or drop the mutation's writes roll back.
 pub struct MetadataMut<'db> {
+    // Per mutation: total_changes includes writes rolled back by earlier savepoints.
+    initial_total_changes: u64,
     transaction: MetadataTransaction<'db>,
     refresh: Refresh<'db>,
 }
@@ -190,6 +192,7 @@ impl DbHandle {
     /// Start an atomic reference metadata update.
     pub fn meta_mut(&mut self) -> Result<MetadataMut<'_>> {
         Ok(MetadataMut {
+            initial_total_changes: self.conn.total_changes(),
             transaction: MetadataTransaction::Transaction(
                 self.conn
                     .transaction_with_behavior(rusqlite::TransactionBehavior::Immediate)?,
@@ -210,6 +213,7 @@ impl Transaction<'_> {
     /// Start a metadata update inside this transaction.
     pub fn meta_mut(&mut self) -> Result<MetadataMut<'_>> {
         Ok(MetadataMut {
+            initial_total_changes: self.inner().total_changes(),
             transaction: MetadataTransaction::Savepoint(
                 self.inner
                     .as_mut()
@@ -408,7 +412,11 @@ impl Eq for Metadata {}
 
 impl MetadataMut<'_> {
     fn finish(self) -> Result<()> {
+        let changed = self.transaction.connection().total_changes() != self.initial_total_changes;
         self.transaction.commit()?;
+        if !changed {
+            return Ok(());
+        }
         match self.refresh {
             Refresh::Database(Some(path)) => but_project_handle::write_refresh_sentinel(path),
             Refresh::Database(None) => {}
