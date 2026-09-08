@@ -107,6 +107,17 @@ impl GitLabClient {
         } else {
             format!("{host}/api/v4")
         };
+        // reqwest rejects a URL without a scheme and host at request time with a
+        // generic builder error; check the same rule up front so the user is told
+        // what is wrong with the host they entered.
+        if !reqwest::Url::parse(&base_url).is_ok_and(|url| url.has_host()) {
+            return Err(anyhow::anyhow!(
+                but_error::Context::new(format!(
+                    "'{host}' is not an absolute URL. Use the full URL of your GitLab instance, for example https://gitlab.example.com"
+                ))
+                .with_code(but_error::Code::GitLabInvalidHost)
+            ));
+        }
 
         Ok(Self { client, base_url })
     }
