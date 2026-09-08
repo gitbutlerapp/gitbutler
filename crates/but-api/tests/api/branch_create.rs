@@ -290,10 +290,10 @@ fn failed_branch_creation_rolls_back_earlier_metadata_writes() -> anyhow::Result
     let sql = rusqlite::Connection::open(but_db::DbHandle::db_file_path(&ctx.project_data_dir))?;
     sql.execute_batch(
         "CREATE TRIGGER reject_new_branch BEFORE INSERT ON branch_order
-         WHEN NEW.branch_ref_name = 'refs/heads/bottom'
+         WHEN NEW.branch_ref_name = CAST('refs/heads/bottom' AS BLOB)
           AND EXISTS (SELECT 1 FROM branch_order
-                      WHERE branch_ref_name = 'refs/heads/main'
-                        AND parent_ref_name = 'refs/heads/bottom')
+                      WHERE branch_ref_name = CAST('refs/heads/main' AS BLOB)
+                        AND parent_ref_name = CAST('refs/heads/bottom' AS BLOB))
          BEGIN SELECT RAISE(ABORT, 'reject order after saving earlier branch'); END;",
     )?;
 

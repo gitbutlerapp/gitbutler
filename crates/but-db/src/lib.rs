@@ -179,13 +179,18 @@ pub enum SchemaVersion {
     /// Switch to `One` only once a migration makes the database unsafe for binaries that only
     /// understand `Zero`, such as removing or reinterpreting persisted data they still use.
     Zero = 0,
-    /// The current schema line, storing metadata per reference.
+    /// Per-reference workspace and branch metadata.
     ///
     /// Use `One` once a migration requires older `Zero`-only binaries to reject the
     /// database, and keep using it until the next forward-incompatible boundary is introduced.
     /// The per-reference metadata migration removes the four `vb_*` tables. Older binaries
     /// must reject this database instead of recreating or writing the obsolete singleton state.
     One = 1,
+    /// Byte-preserving ad-hoc branch ordering.
+    ///
+    /// Branch-order names are BLOBs. Earlier binaries read them as UTF-8 strings and must
+    /// reject the database rather than fail while loading or changing reference metadata.
+    Two = 2,
 }
 
 /// A structure to receive an application-wide cache.
