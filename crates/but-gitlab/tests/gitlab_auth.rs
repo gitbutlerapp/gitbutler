@@ -211,6 +211,36 @@ fn self_hosted_pat_validation_distinguishes_auth_transport_and_success() {
 }
 
 #[test]
+fn self_hosted_pat_validation_rejects_host_without_scheme_before_any_request() {
+    memory_keyring::install();
+
+    run(async {
+        for host in [
+            "gitlab.example.com",
+            "gitlab.example.com/api/v4",
+            "localhost:8080",
+        ] {
+            let dir = tempfile::tempdir().expect("temporary storage should be created");
+            let storage = but_forge_storage::Controller::from_path(dir.path());
+            let error = store_selfhosted_pat(host, &Sensitive("token".into()), &storage)
+                .await
+                .expect_err("host without a scheme should fail validation");
+            let context = error.custom_context_or_error_chain();
+            assert_eq!(
+                context.code.to_string(),
+                "GitLabInvalidHost",
+                "a host without a scheme should be classified for the host field"
+            );
+            assert!(
+                context.to_string().contains(host),
+                "error should name the host, got: {context}"
+            );
+            assert_no_credentials(&storage);
+        }
+    });
+}
+
+#[test]
 fn stored_account_refresh_classifies_auth_rejection_and_clears_cache() {
     memory_keyring::install();
 

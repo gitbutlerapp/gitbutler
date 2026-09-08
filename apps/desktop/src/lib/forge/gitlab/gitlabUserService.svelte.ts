@@ -23,6 +23,12 @@ export function gitLabEnterprisePatError(error: unknown): string {
 	}
 }
 
+/** The message for the host field, when the backend rejected the host rather than the token. */
+export function gitLabHostError(error: unknown): string | undefined {
+	if (getUserErrorCode(error) !== "GitLabInvalidHost") return undefined;
+	return "Enter the full URL of your GitLab instance, for example https://gitlab.example.com";
+}
+
 export function isSameGitLabAccountIdentifier(
 	a: GitlabAccountIdentifier,
 	b: GitlabAccountIdentifier,

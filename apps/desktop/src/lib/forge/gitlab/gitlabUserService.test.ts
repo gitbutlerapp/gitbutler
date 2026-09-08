@@ -1,5 +1,6 @@
 import {
 	gitLabEnterprisePatError,
+	gitLabHostError,
 	gitlabAccountIdentifierToString,
 	injectBackendEndpoints,
 	stringToGitLabAccountIdentifier,
@@ -120,6 +121,21 @@ describe("GitLab Enterprise PAT errors", () => {
 	])("maps %s to cautious guidance", (code, expected) => {
 		expect(gitLabEnterprisePatError({ code, message: "backend detail" })).toBe(expected);
 	});
+});
+
+describe("GitLab self-hosted host errors", () => {
+	test("maps GitLabInvalidHost to guidance for the host field", () => {
+		expect(gitLabHostError({ code: "GitLabInvalidHost", message: "backend detail" })).toBe(
+			"Enter the full URL of your GitLab instance, for example https://gitlab.example.com",
+		);
+	});
+
+	test.each(["GitLabUnauthorized", "NetworkError", "Unknown"])(
+		"leaves %s to the token field",
+		(code) => {
+			expect(gitLabHostError({ code, message: "backend detail" })).toBeUndefined();
+		},
+	);
 });
 
 describe("gitlab account identifier serialization", () => {

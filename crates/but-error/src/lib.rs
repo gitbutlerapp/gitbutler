@@ -175,6 +175,8 @@ pub enum Code {
     GitLabUnauthorized,
     /// GitLab returned HTTP 403 while validating a personal access token.
     GitLabForbidden,
+    /// The self-hosted GitLab host is not an absolute URL, so no request could be built.
+    GitLabInvalidHost,
     /// A GitHub organization has enabled OAuth App access restrictions and
     /// blocked the GitButler OAuth app. Terminal until the org approves the
     /// app or the user switches credentials — retrying won't help.

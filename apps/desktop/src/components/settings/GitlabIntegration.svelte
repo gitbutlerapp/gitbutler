@@ -4,6 +4,7 @@
 	import gitlabLogoSvg from "$lib/assets/unsized-logos/gitlab.svg?raw";
 	import {
 		gitLabEnterprisePatError,
+		gitLabHostError,
 		GITLAB_USER_SERVICE,
 	} from "$lib/forge/gitlab/gitlabUserService.svelte";
 	import { OnboardingEvent, POSTHOG_WRAPPER } from "$lib/telemetry/posthog";
@@ -83,7 +84,8 @@
 			cleanupSelfHostedFlow();
 		} catch (err: unknown) {
 			console.error("Failed to store self-hosted GitLab PAT:", err);
-			selfHostedPatError = gitLabEnterprisePatError(err);
+			selfHostedHostError = gitLabHostError(err);
+			selfHostedPatError = selfHostedHostError ? undefined : gitLabEnterprisePatError(err);
 			posthog.captureOnboarding(OnboardingEvent.GitLabStoreSelfHostedPatFailed);
 		}
 	}
