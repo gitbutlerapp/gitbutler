@@ -279,3 +279,27 @@ fn stored_account_refresh_classifies_auth_rejection_and_clears_cache() {
         }
     });
 }
+
+/// Forgetting must not depend on the token: a different build kind may have stored it,
+/// or the keychain may refuse the read, and the account still has to go.
+#[test]
+fn forget_removes_an_account_whose_token_is_missing() {
+    memory_keyring::install();
+    let dir = tempfile::tempdir().unwrap();
+    let storage = but_forge_storage::Controller::from_path(dir.path());
+    storage
+        .add_gitlab_account(&but_forge_storage::settings::GitLabAccount::Pat {
+            username: "alice".into(),
+            access_token_key: "gitlab_pat_alice".into(),
+        })
+        .unwrap();
+    let account = GitlabAccountIdentifier::pat("alice");
+    assert_eq!(
+        list_known_gitlab_accounts(&storage).unwrap(),
+        std::slice::from_ref(&account)
+    );
+
+    but_gitlab::forget_gl_access_token(&account, &storage).unwrap();
+
+    assert_eq!(list_known_gitlab_accounts(&storage).unwrap(), []);
+}
