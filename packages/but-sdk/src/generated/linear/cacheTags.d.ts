@@ -50,6 +50,7 @@ export declare const apiInvalidates: {
 	readonly addProject: readonly ["Projects"];
 	readonly addReviewLabels: readonly ["Reviews"];
 	readonly addReviewReaction: readonly ["ReviewReactions"];
+	readonly addSubmissionReaction: readonly ["ReviewSubmissions"];
 	readonly branchRemove: readonly ["Branches", "Workspace"];
 	readonly branchRename: readonly ["Branches", "Workspace"];
 	readonly createReviewComment: readonly ["ReviewComments"];
@@ -66,6 +67,7 @@ export declare const apiInvalidates: {
 	readonly removeCommentReaction: readonly ["CommentReactions", "ReviewComments"];
 	readonly removeReviewLabel: readonly ["Reviews"];
 	readonly removeReviewReaction: readonly ["ReviewReactions"];
+	readonly removeSubmissionReaction: readonly ["ReviewSubmissions"];
 	readonly requestReview: readonly ["Reviews", "ReviewTimeline"];
 	readonly resetAiConfiguration: readonly ["AiConfiguration"];
 	readonly saveEditAndReturnToWorkspace: readonly ["OperatingMode"];

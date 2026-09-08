@@ -8,6 +8,7 @@ export declare const apiParamNames: {
 	readonly addProject: readonly ["path"];
 	readonly addReviewLabels: readonly ["projectId", "reviewId", "labels"];
 	readonly addReviewReaction: readonly ["projectId", "reviewId", "kind"];
+	readonly addSubmissionReaction: readonly ["projectId", "reviewId", "submissionId", "kind"];
 	readonly apply: readonly ["projectId", "existingBranch"];
 	readonly applyBranchIntegration: readonly ["projectId", "branch", "integration", "dryRun"];
 	readonly assignHunk: readonly ["projectId", "assignments"];
@@ -116,6 +117,7 @@ export declare const apiParamNames: {
 	readonly removeCommentReaction: readonly ["projectId", "commentId", "reactionId"];
 	readonly removeReviewLabel: readonly ["projectId", "reviewId", "label"];
 	readonly removeReviewReaction: readonly ["projectId", "reviewId", "reactionId"];
+	readonly removeSubmissionReaction: readonly ["projectId", "reviewId", "submissionId", "kind"];
 	readonly requestReview: readonly ["projectId", "reviewId", "logins"];
 	readonly resetAiConfiguration: readonly [];
 	readonly resolveCommitConflictHunks: readonly ["projectId", "commitId", "specs"];

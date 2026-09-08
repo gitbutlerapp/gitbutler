@@ -262,6 +262,40 @@ pub async fn remove_review_reaction(
         .context("Failed to remove pull request reaction")
 }
 
+pub async fn add_pr_review_reaction(
+    preferred_account: Option<&crate::GithubAccountIdentifier>,
+    owner: &str,
+    repo: &str,
+    pr_number: usize,
+    review_id: i64,
+    content: &str,
+    storage: &but_forge_storage::Controller,
+) -> Result<crate::client::Reaction> {
+    let pr_number = pr_number.try_into().context("PR number is too large")?;
+    GitHubClient::from_storage(storage, preferred_account)?
+        .add_pull_request_review_reaction(owner, repo, pr_number, review_id, content)
+        .await
+        .map_err(classify_forge_error)
+        .context("Failed to add review reaction")
+}
+
+pub async fn remove_pr_review_reaction(
+    preferred_account: Option<&crate::GithubAccountIdentifier>,
+    owner: &str,
+    repo: &str,
+    pr_number: usize,
+    review_id: i64,
+    content: &str,
+    storage: &but_forge_storage::Controller,
+) -> Result<()> {
+    let pr_number = pr_number.try_into().context("PR number is too large")?;
+    GitHubClient::from_storage(storage, preferred_account)?
+        .remove_pull_request_review_reaction(owner, repo, pr_number, review_id, content)
+        .await
+        .map_err(classify_forge_error)
+        .context("Failed to remove review reaction")
+}
+
 pub async fn add_comment_reaction(
     preferred_account: Option<&crate::GithubAccountIdentifier>,
     owner: &str,

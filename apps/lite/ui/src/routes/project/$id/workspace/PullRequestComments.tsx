@@ -1,8 +1,10 @@
 import {
 	useAddCommentReaction,
+	useAddSubmissionReaction,
 	useCreateReviewComment,
 	useDeleteReviewComment,
 	useRemoveCommentReaction,
+	useRemoveSubmissionReaction,
 	useOpenInProgram,
 	useUpdateReviewComment,
 } from "#ui/api/mutations.ts";
@@ -47,6 +49,7 @@ import { RelativeTime } from "#ui/components/RelativeTime.tsx";
 import {
 	groupReactors,
 	Reactions,
+	tallyReactions,
 } from "#ui/routes/project/$id/workspace/PullRequestReactions.tsx";
 import type {
 	ForgeReview,
@@ -83,6 +86,9 @@ import styles from "./PullRequestComments.module.css";
 
 /** Where a notification scrolls to when its toast named this comment. */
 const commentAnchorId = (commentId: number): string => `review-comment-${commentId}`;
+
+/** What a reply picks up from the card it answers. */
+type Quotable = { body: string | null; author: ForgeReviewUser | null };
 
 /**
  * Whether the author is an agent of any kind — Copilot, CI, a review bot.
@@ -220,7 +226,7 @@ const Comment: FC<{
 	/** The signed-in forge login, for ownership checks and reaction toggling. */
 	currentLogin: string | null | undefined;
 	/** Quote this comment into the composer. */
-	onReply: (comment: ForgeReviewComment) => void;
+	onReply: (comment: Quotable) => void;
 }> = ({ projectId, reviewId, comment, currentLogin, onReply }) => {
 	const createdAtMs = comment.createdAt === null ? null : Date.parse(comment.createdAt);
 	const isOwn = currentLogin != null && comment.author?.login === currentLogin;
@@ -720,9 +726,27 @@ const Submission: FC<{
 	submission: ForgeReviewSubmission;
 	threads: Array<ForgeReviewThread>;
 	branchApplied: boolean;
-}> = ({ projectId, reviewId, submission, threads, branchApplied }) => {
+	/** The signed-in forge login, for reaction toggling. */
+	currentLogin: string | null | undefined;
+	/** Quote this submission into the composer. */
+	onReply: (submission: Quotable) => void;
+}> = ({ projectId, reviewId, submission, threads, branchApplied, currentLogin, onReply }) => {
 	const submittedAtMs = submission.submittedAt === null ? null : Date.parse(submission.submittedAt);
 	const body = submission.body?.trim() === "" ? null : submission.body;
+
+	// The listing carries every reaction with who left it, so unlike a
+	// comment there is no second request before the chips can toggle.
+	const { counts, reactors } = useMemo(
+		() => tallyReactions(submission.reactions),
+		[submission.reactions],
+	);
+	const { mutate: addSubmissionReaction } = useAddSubmissionReaction(projectId);
+	const { mutate: removeSubmissionReaction } = useRemoveSubmissionReaction(projectId);
+	const toggleReaction = (kind: string, myReactionId: number | null) => {
+		const input = { projectId, reviewId, submissionId: submission.id, kind };
+		if (myReactionId === null) addSubmissionReaction(input);
+		else removeSubmissionReaction(input);
+	};
 
 	return (
 		<Card
@@ -731,6 +755,23 @@ const Submission: FC<{
 			timestamp={submittedAtMs}
 			freshKey={`s:${submission.id}`}
 			id={submission.id > 0 ? commentAnchorId(submission.id) : undefined}
+			footer={
+				<>
+					<Reactions
+						reactions={counts}
+						reactors={reactors}
+						myLogin={currentLogin}
+						onToggle={toggleReaction}
+					/>
+					<button
+						className={getButtonClassName({ variant: "ghost" })}
+						onClick={() => onReply(submission)}
+						type="button"
+					>
+						Reply
+					</button>
+				</>
+			}
 		>
 			{/* A review that only left diff comments has no body of its own;
 			    without its threads the card would say nothing at all. */}
@@ -1246,14 +1287,19 @@ export const PullRequestComments: FC<{ projectId: string; review: ForgeReview }>
 		);
 	};
 
-	const handleReply = (comment: ForgeReviewComment) => {
-		const quote = comment.body
-			.split("\n")
-			.map((line) => `> ${line}`)
-			.join("\n");
-		setDraft((current) =>
-			current.trim() === "" ? `${quote}\n\n` : `${current.trimEnd()}\n\n${quote}\n\n`,
-		);
+	const handleReply = ({ body, author }: Quotable) => {
+		// A verdict without a summary has nothing to quote, so the reply
+		// addresses its author instead.
+		const opener =
+			body === null || body.trim() === ""
+				? author === null
+					? ""
+					: `@${author.login} `
+				: `${body
+						.split("\n")
+						.map((line) => `> ${line}`)
+						.join("\n")}\n\n`;
+		setDraft((current) => (current.trim() === "" ? opener : `${current.trimEnd()}\n\n${opener}`));
 		composerRef.current?.focus();
 	};
 
@@ -1347,6 +1393,8 @@ export const PullRequestComments: FC<{ projectId: string; review: ForgeReview }>
 								submission={item.submission}
 								threads={filed.get(item.submission.id) ?? []}
 								branchApplied={sourceBranchApplied === true}
+								currentLogin={currentLogin}
+								onReply={handleReply}
 							/>
 						) : item.kind === "thread" ? (
 							<div className={styles.card} key={`thread-${item.thread.id}`}>

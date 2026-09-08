@@ -207,3 +207,90 @@ pub const GQL_ADD_REVIEW_THREAD_REPLY: &str = r#"
       }
     }
     "#;
+
+/// Submitted reviews with their reactions. GraphQL rather than REST: a
+/// review is only reactable through GraphQL, and `/pulls/{n}/reviews`
+/// reports neither the reactions nor the node id the reaction mutations
+/// address.
+pub const GQL_LIST_PR_REVIEWS: &str = r#"
+    query PullRequestReviews($owner: String!, $repo: String!, $number: Int!, $cursor: String) {
+      repository(owner: $owner, name: $repo) {
+        pullRequest(number: $number) {
+          reviews(first: 100, after: $cursor) {
+            pageInfo {
+              hasNextPage
+              endCursor
+            }
+            nodes {
+              id
+              databaseId
+              state
+              body
+              submittedAt
+              url
+              author {
+                __typename
+                login
+                avatarUrl
+                ... on User {
+                  databaseId
+                  name
+                }
+                ... on Bot {
+                  databaseId
+                }
+              }
+              reactions(first: 100) {
+                pageInfo {
+                  hasNextPage
+                }
+                nodes {
+                  databaseId
+                  content
+                  user {
+                    __typename
+                    login
+                    avatarUrl
+                    databaseId
+                    name
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+    "#;
+
+/// The reaction selection must stay in step with `GQL_LIST_PR_REVIEWS`,
+/// since both decode into the same type.
+pub const GQL_ADD_REACTION: &str = r#"
+    mutation AddReaction($subjectId: ID!, $content: ReactionContent!) {
+      addReaction(input: { subjectId: $subjectId, content: $content }) {
+        reaction {
+          databaseId
+          content
+          user {
+            __typename
+            login
+            avatarUrl
+            databaseId
+            name
+          }
+        }
+      }
+    }
+    "#;
+
+/// GraphQL removes by kind rather than by reaction id: a viewer can only
+/// hold one reaction of each kind on a subject, so the pair is enough.
+pub const GQL_REMOVE_REACTION: &str = r#"
+    mutation RemoveReaction($subjectId: ID!, $content: ReactionContent!) {
+      removeReaction(input: { subjectId: $subjectId, content: $content }) {
+        reaction {
+          databaseId
+        }
+      }
+    }
+    "#;

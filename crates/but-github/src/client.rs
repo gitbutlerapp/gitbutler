@@ -4,9 +4,9 @@ use reqwest::header::{ACCEPT, AUTHORIZATION, HeaderMap, HeaderValue, USER_AGENT}
 use serde::{Deserialize, Serialize};
 
 use crate::graphql::{
-    GQL_ADD_REVIEW_THREAD_REPLY, GQL_DISABLE_PR_AUTO_MERGE, GQL_ENABLE_PR_AUTO_MERGE,
-    GQL_GET_PR_NODE_ID, GQL_LIST_PR_REVIEW_THREADS, GQL_LIST_PR_TIMELINE, GQL_SET_PR_DRAFT,
-    GQL_SET_PR_READY_FOR_REVIEW,
+    GQL_ADD_REACTION, GQL_ADD_REVIEW_THREAD_REPLY, GQL_DISABLE_PR_AUTO_MERGE,
+    GQL_ENABLE_PR_AUTO_MERGE, GQL_GET_PR_NODE_ID, GQL_LIST_PR_REVIEW_THREADS, GQL_LIST_PR_REVIEWS,
+    GQL_LIST_PR_TIMELINE, GQL_REMOVE_REACTION, GQL_SET_PR_DRAFT, GQL_SET_PR_READY_FOR_REVIEW,
 };
 
 const GITHUB_API_BASE_URL: &str = "https://api.github.com";
@@ -931,24 +931,214 @@ impl GitHubClient {
     }
 
     /// List the submitted reviews on a pull request (approvals, change
-    /// requests, review comments), oldest first. Paginated.
+    /// requests, review comments), oldest first, each with its reactions.
+    ///
+    /// GraphQL rather than REST: a review is only reactable through
+    /// GraphQL, and `/pulls/{n}/reviews` reports neither its reactions nor
+    /// the node id the reaction mutations address.
     pub async fn list_pull_request_reviews(
         &self,
         owner: &str,
         repo: &str,
         pr_number: i64,
     ) -> Result<Vec<PullRequestReview>> {
-        let url = format!(
-            "{}/repos/{}/{}/pulls/{}/reviews",
-            self.base_url, owner, repo, pr_number
-        );
-
         Ok(self
-            .get_all_pages::<GitHubPullRequestReviewApi>(&url, 50)
+            .list_pull_request_review_nodes(owner, repo, pr_number)
             .await?
             .into_iter()
-            .map(PullRequestReview::from)
+            .filter_map(GraphQlReview::into_review)
             .collect())
+    }
+
+    async fn list_pull_request_review_nodes(
+        &self,
+        owner: &str,
+        repo: &str,
+        pr_number: i64,
+    ) -> Result<Vec<GraphQlReview>> {
+        #[derive(Serialize)]
+        struct Variables<'a> {
+            owner: &'a str,
+            repo: &'a str,
+            number: i64,
+            cursor: Option<&'a str>,
+        }
+
+        #[derive(Deserialize)]
+        struct QueryData {
+            repository: Option<Repository>,
+        }
+
+        #[derive(Deserialize)]
+        #[serde(rename_all = "camelCase")]
+        struct Repository {
+            pull_request: Option<GraphQlPullRequest>,
+        }
+
+        #[derive(Deserialize)]
+        struct GraphQlPullRequest {
+            reviews: GraphQlReviews,
+        }
+
+        #[derive(Deserialize)]
+        #[serde(rename_all = "camelCase")]
+        struct GraphQlReviews {
+            page_info: GraphQlPageInfo,
+            nodes: Vec<GraphQlReview>,
+        }
+
+        #[derive(Deserialize)]
+        #[serde(rename_all = "camelCase")]
+        struct GraphQlPageInfo {
+            has_next_page: bool,
+            end_cursor: Option<String>,
+        }
+
+        let mut reviews = Vec::new();
+        let mut cursor: Option<String> = None;
+        // As many pages as the REST listing fetched; the cap only stops a stuck cursor.
+        const PAGE_CAP: usize = 50;
+        for _ in 0..PAGE_CAP {
+            let data: QueryData = self
+                .graphql_query(
+                    GQL_LIST_PR_REVIEWS,
+                    &Variables {
+                        owner,
+                        repo,
+                        number: pr_number,
+                        cursor: cursor.as_deref(),
+                    },
+                )
+                .await?;
+
+            let Some(page) = data
+                .repository
+                .and_then(|repository| repository.pull_request)
+                .map(|pull_request| pull_request.reviews)
+            else {
+                bail!("GitHub GraphQL pull request {owner}/{repo}#{pr_number} not found");
+            };
+
+            reviews.extend(page.nodes);
+            match page.page_info.end_cursor {
+                Some(next) if page.page_info.has_next_page => cursor = Some(next),
+                _ => {
+                    cursor = None;
+                    break;
+                }
+            }
+        }
+        if cursor.is_some() {
+            tracing::warn!(
+                "{owner}/{repo}#{pr_number} has more than {} reviews; further pages were not fetched",
+                PAGE_CAP * 100
+            );
+        }
+
+        Ok(reviews)
+    }
+
+    /// The node id of one submitted review, which is what the reaction
+    /// mutations address; REST ids are all a caller holds. One REST call: the
+    /// single-review endpoint reports it, where listing would page through all.
+    async fn get_pull_request_review_node_id(
+        &self,
+        owner: &str,
+        repo: &str,
+        pr_number: i64,
+        review_id: i64,
+    ) -> Result<String> {
+        #[derive(Deserialize)]
+        struct ReviewNodeId {
+            node_id: String,
+        }
+
+        let url = format!(
+            "{}/repos/{}/{}/pulls/{}/reviews/{}",
+            self.base_url, owner, repo, pr_number, review_id
+        );
+        let response = self.client.get(&url).send().await?;
+        let response = ensure_success(response).await?;
+        let review: ReviewNodeId = response.json().await?;
+        Ok(review.node_id)
+    }
+
+    /// Add a reaction to one submitted review. Idempotent per kind on
+    /// GitHub's side.
+    pub async fn add_pull_request_review_reaction(
+        &self,
+        owner: &str,
+        repo: &str,
+        pr_number: i64,
+        review_id: i64,
+        content: &str,
+    ) -> Result<Reaction> {
+        #[derive(Deserialize)]
+        #[serde(rename_all = "camelCase")]
+        struct QueryData {
+            add_reaction: Option<ReactionPayload>,
+        }
+
+        #[derive(Deserialize)]
+        struct ReactionPayload {
+            reaction: Option<GraphQlReaction>,
+        }
+
+        let subject_id = self
+            .get_pull_request_review_node_id(owner, repo, pr_number, review_id)
+            .await?;
+        let data: QueryData = self
+            .graphql_query(
+                GQL_ADD_REACTION,
+                &ReactionVariables {
+                    subject_id: &subject_id,
+                    content: graphql_reaction_content(content)?,
+                },
+            )
+            .await?;
+
+        let Some(reaction) = data
+            .add_reaction
+            .and_then(|payload| payload.reaction)
+            .and_then(GraphQlReaction::into_reaction)
+        else {
+            bail!("GitHub GraphQL addReaction returned no reaction");
+        };
+        Ok(reaction)
+    }
+
+    /// Remove the caller's reaction of one kind from one submitted review.
+    pub async fn remove_pull_request_review_reaction(
+        &self,
+        owner: &str,
+        repo: &str,
+        pr_number: i64,
+        review_id: i64,
+        content: &str,
+    ) -> Result<()> {
+        #[derive(Deserialize)]
+        #[serde(rename_all = "camelCase")]
+        struct QueryData {
+            remove_reaction: Option<serde::de::IgnoredAny>,
+        }
+
+        let subject_id = self
+            .get_pull_request_review_node_id(owner, repo, pr_number, review_id)
+            .await?;
+        let data: QueryData = self
+            .graphql_query(
+                GQL_REMOVE_REACTION,
+                &ReactionVariables {
+                    subject_id: &subject_id,
+                    content: graphql_reaction_content(content)?,
+                },
+            )
+            .await?;
+
+        if data.remove_reaction.is_none() {
+            bail!("GitHub GraphQL removeReaction returned nothing");
+        }
+        Ok(())
     }
 
     /// Reply into an existing review thread, returning the comment it made.
@@ -2005,7 +2195,7 @@ fn label_removal_url(
     Ok(url)
 }
 
-/// A submitted review on a pull request, from `GET /pulls/{n}/reviews`.
+/// A submitted review on a pull request, with the reactions left on it.
 #[derive(Debug, Serialize)]
 pub struct PullRequestReview {
     pub id: i64,
@@ -2016,28 +2206,120 @@ pub struct PullRequestReview {
     pub body: Option<String>,
     pub submitted_at: Option<String>,
     pub html_url: String,
+    pub reactions: Vec<Reaction>,
 }
 
 #[derive(Debug, Deserialize)]
-struct GitHubPullRequestReviewApi {
-    id: i64,
-    user: Option<GitHubApiUser>,
+#[serde(rename_all = "camelCase")]
+struct GraphQlReview {
+    id: String,
+    database_id: Option<i64>,
+    author: Option<GraphQlActor>,
     state: String,
-    body: Option<String>,
+    body: String,
     submitted_at: Option<String>,
-    html_url: String,
+    url: String,
+    reactions: GraphQlReactions,
 }
 
-impl From<GitHubPullRequestReviewApi> for PullRequestReview {
-    fn from(review: GitHubPullRequestReviewApi) -> Self {
-        PullRequestReview {
-            id: review.id,
-            author: review.user.map(Into::into),
-            state: review.state,
-            body: review.body,
-            submitted_at: review.submitted_at,
-            html_url: review.html_url,
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct GraphQlReactions {
+    page_info: GraphQlReactionsPageInfo,
+    nodes: Vec<GraphQlReaction>,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct GraphQlReactionsPageInfo {
+    has_next_page: bool,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct GraphQlReaction {
+    database_id: Option<i64>,
+    content: String,
+    user: Option<GraphQlActor>,
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+struct ReactionVariables<'a> {
+    subject_id: &'a str,
+    content: &'static str,
+}
+
+/// GraphQL's `ReactionContent` enum against the REST kind strings the rest
+/// of the crate speaks, so both APIs report one vocabulary.
+const REACTION_CONTENTS: [(&str, &str); 8] = [
+    ("THUMBS_UP", "+1"),
+    ("THUMBS_DOWN", "-1"),
+    ("LAUGH", "laugh"),
+    ("HOORAY", "hooray"),
+    ("CONFUSED", "confused"),
+    ("HEART", "heart"),
+    ("ROCKET", "rocket"),
+    ("EYES", "eyes"),
+];
+
+fn graphql_reaction_content(kind: &str) -> Result<&'static str> {
+    REACTION_CONTENTS
+        .iter()
+        .find(|(_, rest)| *rest == kind)
+        .map(|(graphql, _)| *graphql)
+        .ok_or_else(|| anyhow::anyhow!("Unknown reaction kind: {kind}"))
+}
+
+fn rest_reaction_kind(content: String) -> String {
+    REACTION_CONTENTS
+        .iter()
+        .find(|(graphql, _)| *graphql == content)
+        .map_or(content, |(_, rest)| (*rest).to_owned())
+}
+
+impl GraphQlReaction {
+    /// `None` without a database id, which is what callers hold; a made-up 0 would collide.
+    fn into_reaction(self) -> Option<Reaction> {
+        let Some(id) = self.database_id else {
+            tracing::warn!("a reaction without a database id was skipped");
+            return None;
+        };
+        Some(Reaction {
+            id,
+            content: rest_reaction_kind(self.content),
+            user: self.user.map(Into::into),
+        })
+    }
+}
+
+impl GraphQlReview {
+    /// `None` without a database id, which is what callers hold; a made-up 0 would collide.
+    fn into_review(self) -> Option<PullRequestReview> {
+        let Some(id) = self.database_id else {
+            tracing::warn!("review {} has no database id; skipped", self.id);
+            return None;
+        };
+        if self.reactions.page_info.has_next_page {
+            tracing::warn!(
+                "review {} has more than 100 reactions; later ones were not fetched",
+                self.id
+            );
         }
+        Some(PullRequestReview {
+            id,
+            author: self.author.map(Into::into),
+            state: self.state,
+            body: Some(self.body),
+            submitted_at: self.submitted_at,
+            html_url: self.url,
+            reactions: self
+                .reactions
+                .nodes
+                .into_iter()
+                .filter_map(GraphQlReaction::into_reaction)
+                .collect(),
+        })
     }
 }
 
