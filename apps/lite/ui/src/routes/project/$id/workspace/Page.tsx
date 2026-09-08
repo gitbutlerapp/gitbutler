@@ -33,6 +33,7 @@ import {
 	QueryErrorResetBoundary,
 	useQueries,
 	useQuery,
+	useQueryClient,
 	useSuspenseQuery,
 } from "@tanstack/react-query";
 import { monitorForElements } from "@atlaskit/pragmatic-drag-and-drop/element/adapter";
@@ -97,6 +98,7 @@ import { parseDragData } from "./DragData.ts";
 type PanelId = "sidebar-panel" | "details-panel";
 
 const useWorkspaceHotkeys = (projectId: string) => {
+	const queryClient = useQueryClient();
 	const dispatch = useAppDispatch();
 	const store = useAppStore();
 	const detailsFullWindow = useAppSelector(interfaceSlice.selectors.selectDetailsFullWindow);
@@ -117,7 +119,12 @@ const useWorkspaceHotkeys = (projectId: string) => {
 	// Shared by the arrow keys and their h/l aliases so the pairs cannot diverge.
 	const focusPane = (offset: -1 | 1) => {
 		focusHorizontalScope({
-			filesVisible: getFilesVisible(),
+			filesPanelSide: !getFilesVisible()
+				? null
+				: (queryClient.getQueryData(guiSettingsQueryOptions.queryKey)?.filesPanelRight ??
+					  defaultSettings.filesPanelRight)
+					? "right"
+					: "left",
 			offset,
 			sidebarFocusScope,
 			detailsFullWindow,

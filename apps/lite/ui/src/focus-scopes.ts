@@ -133,12 +133,12 @@ export const useCommittedSelectionFocus = (onFocusScope: (scope: FocusScope) => 
 };
 
 export const focusHorizontalScope = ({
-	filesVisible,
+	filesPanelSide,
 	offset,
 	sidebarFocusScope,
 	detailsFullWindow,
 }: {
-	filesVisible: boolean;
+	filesPanelSide: "left" | "right" | null;
 	offset: -1 | 1;
 	sidebarFocusScope: Extract<FocusScope, "uncommitted-files" | "sidebar"> | null;
 	detailsFullWindow: boolean;
@@ -151,12 +151,12 @@ export const focusHorizontalScope = ({
 			? currentFocusScope
 			: sidebarFocusScope;
 
-	// "details" resolves to whichever of its child scopes is mounted (diff or
-	// pr tab), so the rightmost slot works on both tabs.
+	// "details" resolves to whichever of its child scopes is mounted (diff or PR tab).
 	const orderedFocusScopes: Array<FocusScope> = [
 		...(detailsFullWindow ? [] : [currentSidebarFocusScope ?? "sidebar"]),
-		...(filesVisible ? (["files"] satisfies Array<FocusScope>) : []),
+		...(filesPanelSide === "left" ? (["files"] as const) : []),
 		"details",
+		...(filesPanelSide === "right" ? (["files"] as const) : []),
 	];
 	const positionScope =
 		currentFocusScope === "diff" || currentFocusScope === "pr" ? "details" : currentFocusScope;
