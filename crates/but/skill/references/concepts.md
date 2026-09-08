@@ -44,18 +44,18 @@ workspace (gitbutler/workspace)
 Every object gets a short, human-readable CLI ID shown in `but status` or `but diff`. IDs are generated per-session and are unique across all entity types (no two objects share an ID) — always read them from current command output.
 
 ```
-Commits:          1, kyn, mpq#0  (short change-ID prefix when the commit has one, sha prefix otherwise;
+Commits:          1, ton, mpq#0       (short change-ID prefix when the commit has one, sha prefix otherwise;
                                    a #N suffix disambiguates commits sharing a change ID)
-Branches:         fe, bu, ui     (unique 2–3 char substring of the branch name, e.g. "fe" from "feature-x";
+Branches:         fe, bu, ui          (unique 2–3 char substring of the branch name, e.g. "fe" from "feature-x";
                                    falls back to auto-generated ID if no unique substring exists)
-Files:            g, qs, uo      (derived from the file path, long enough to be unique)
-Hunks:            g:5, uo:d      (<file-id>:<hunk-id>; uncommitted hunks shown by bare `but diff`)
-Committed files:  kyn:n          (<commit-id>:<file-id>, shown under each commit in `but status -fv`)
-Committed hunks:  kyn:n:5        (<commit-id>:<file-id>:<hunk-id>, shown by `but diff <commit-id>`)
-Stacks:           m0, n0         (auto-generated, 2–3 chars)
+Files:            uvw, qyo            (derived from the file path, long enough to be unique)
+Hunks:            uvw:2e4, uvw:e2c    (<file-id>:<hunk-id>; uncommitted hunks shown by bare `but diff`)
+Committed files:  mzm:uvw             (<commit-id>:<file-id>, shown under each commit in `but status -fv`)
+Committed hunks:  mzm:uvw:2e4         (<commit-id>:<file-id>:<hunk-id>, shown by `but diff <commit-id>`)
+Stacks:           m0, n0              (auto-generated, 2–3 chars)
 ```
 
-**Why?** Git commit SHAs are long (40 chars). CLI IDs are short, variable-length, and unique within your current workspace context. Commits, files, and hunks may use a single character when that is unambiguous.
+**ID lengths:** When an agent is detected, shortened change-ID, file, and hunk prefixes have a three-character minimum; SHA prefixes and branch/worktree IDs can be shorter.
 
 **Reading status output:** the first token on each line is that line's ID. Verbose commit lines append an informational `(sha …)` after the timestamp — it changes on every amend; do not pass it to commands.
 
@@ -78,12 +78,11 @@ active worktree gets its own ID and is drawn in `but status` as a lane — a bra
 `{<branch>}` heading (the worktree name when its `HEAD` is detached) nested above the commit the
 worktree rests on — another worktree's commit included, lanes nest recursively — or standing on
 its own below the stacks when it rests outside the workspace.
-The lane lists that worktree's uncommitted files and the commits the worktree owns; in `--json`
-they appear in a top-level `worktrees` array. The worktree ID on the heading names its whole
-uncommitted area the way `@` names the main worktree's, and `<worktree-name>:<path>` scopes a
-filename to that worktree — `@:<path>` keeps meaning the main worktree. A filename dirty in
-several worktrees at once is ambiguous; the error suggests the scoped forms. A worktree file or
-heading ID — like `@` for the main worktree — works as a `but commit` change and a `but amend`
+The lane lists that worktree's uncommitted files and commits. The heading ID names the worktree;
+`<worktree>:@` (ID or name) names its uncommitted area. `<worktree>:<path>` scopes a
+filename to it — `@:<path>` keeps meaning the main worktree. A filename dirty in several
+worktrees at once is ambiguous; the error suggests the scoped forms. A worktree file ID or
+`<worktree>:@` works as a `but commit` change and a `but amend`
 source: the change lands on the target and leaves that worktree's uncommitted area. Without a
 target flag, worktree changes commit to the tip of the worktree's own branch; an explicit target
 commit or branch does not have to be the worktree's own. One operation reads from one worktree

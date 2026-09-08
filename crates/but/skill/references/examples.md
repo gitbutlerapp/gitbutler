@@ -2,7 +2,7 @@
 
 Real-world examples of common workflows.
 
-**Note on CLI IDs:** Examples below use full branch names for branch-targeting mutations. Illustrative IDs like `nn` and `a1` keep other commands readable; in practice, **always read actual IDs from `but status -fv`** because they are generated for the current workspace snapshot. Commit IDs are short change-ID prefixes that stay stable across history edits (e.g., `kyn`; commits without a change ID fall back to a sha prefix), and file/hunk/stack IDs are auto-generated (e.g., `r`, `r:c`, `h0`). All IDs are unique across entity types within one snapshot.
+**Note on CLI IDs:** Examples use illustrative IDs such as `nn` and `a1`; copy actual IDs from current `but status` or `but diff` output. Real output may use longer IDs (e.g., `mzm:uvw:2e4`). Use full branch names for mutations. Commit change-ID prefixes survive history edits; SHA prefixes can go stale.
 
 ## Example 1: Starting Independent Parallel Work
 

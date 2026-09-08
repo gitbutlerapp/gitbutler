@@ -7,7 +7,7 @@ Agent-focused reference for useful `but` commands.
 - [Inspection](#inspection-understanding-state) - `status`, `show`, `diff`, `open`
 - [Branching](#branching) - `branch new`, `apply`, `unapply`, `branch delete`, `pick`
 - [Committing](#committing) - `commit`
-- [Editing History](#editing-history) - `squash`, `amend`, `move`, `uncommit`, `reword`, `discard`
+- [Editing History](#editing-history) - `squash`, `amend`, `move`, `split`, `uncommit`, `reword`, `discard`
 - [Conflict Resolution](#conflict-resolution) - `resolve`
 - [Remote Operations](#remote-operations) - `push`, `pull`, `pr`, `merge`
 - [Workspace Maintenance](#workspace-maintenance) - `clean`, `worktree`
@@ -61,7 +61,7 @@ but diff <commit-id>    # Diff for specific commit
 inspect committed files or other entities one target at a time. Unlike `commit`,
 `amend`, and `discard`, it does not accept several positional IDs.
 
-**Hunk IDs:** For uncommitted changes, bare `but diff` shows each hunk with an ID (e.g., `qs:5`, `uo:d`). Pass these IDs to `but commit` for fine-grained, hunk-level commits.
+**Hunk IDs:** For uncommitted changes, bare `but diff` shows each hunk with an ID (e.g., `uvw:2e4`, `uvw:e2c`). Pass these IDs to `but commit` for fine-grained, hunk-level commits.
 
 `but diff <commit-id>` also shows committed hunk IDs in the form `<commit-id>:<file-id>:<hunk-id>`. A committed file ID uses the shorter `<commit-id>:<file-id>` form. When passing several committed changes to an operation, select them from the same commit.
 
@@ -299,6 +299,18 @@ with no value is equivalent to `--unstack`. With the experimental worktree flag 
 accepts a worktree or the branch checked out in it, moving commit or committed-change
 sources onto that branch's tip (nothing is created); a branch source is refused there.
 
+### `but split <SOURCES>...`
+
+Move selected committed files/hunks into a new commit immediately above their source.
+Files and hunks may be mixed, but must come from one commit. The new commit has no message;
+unselected changes stay in the source.
+
+```bash
+but diff <commit-id>                              # Read committed file/hunk IDs
+but split <commit-id>:<file-id>                    # Split a file
+but split <commit-id>:<file-id>:<hunk-id>           # Split a hunk
+```
+
 ### `but uncommit <SOURCES>...`
 
 Move commits, branches, or committed changes back to the uncommitted area.
@@ -324,8 +336,11 @@ Reword commit message or rename branch.
 ```bash
 but reword <id> -m "new"          # Always pass -m; without it an editor opens and blocks
 but reword <branch> -m "new-name" # Rename a branch (applied branches only)
+but reword <anonymous-id> -m "new-name" # Name an anonymous branch
 but reword <id> --fix-formatting  # Format to 72-char wrapping
 ```
+
+Retry other operations using the new name; the short ID may change.
 
 ### `but discard <CHANGES>...`
 
@@ -337,6 +352,7 @@ but discard <hunk-id>              # Discard a single hunk
 but discard @                      # Discard all uncommitted changes
 but discard <commit-id>            # Drop a commit
 but discard <commit-id>:<file-id>  # Drop one file's changes from its commit
+but discard <commit-id>:<file-id>:<hunk-id> # Drop one hunk from its commit
 but discard <branch>               # Drop a branch and its commits
 ```
 
