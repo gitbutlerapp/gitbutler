@@ -18,11 +18,70 @@ export type BranchesState = {
 	unfolded: Record<string, true>;
 };
 
+/**
+ * Nothing narrows the list until the user opts in: hiding remote-only
+ * branches by default helped only the few repositories with hundreds of them,
+ * and made everyone else's remote branches look missing.
+ */
+const defaultFilters = (): BranchFilters => ({
+	showEmpty: false,
+	onlyLocal: false,
+	onlyStacks: false,
+});
+
 const initialState = (): BranchesState => ({
-	filters: { showEmpty: false, onlyLocal: true, onlyStacks: false },
+	filters: defaultFilters(),
 	search: null,
 	unfolded: {},
 });
+
+const filtersStorageKeyPrefix = "branch_filters:v1:";
+
+const isBranchFilters = (value: unknown): value is BranchFilters =>
+	typeof value === "object" &&
+	value !== null &&
+	(["showEmpty", "onlyLocal", "onlyStacks"] as const).every(
+		(key) => typeof (value as Record<string, unknown>)[key] === "boolean",
+	);
+
+/**
+ * The filters each project was last left with, by project id, so a reload
+ * keeps the list narrowed the way the user set it. Storage can throw or hold
+ * junk; either reads as a project at its defaults.
+ */
+export const readStoredBranchFilters = (): Record<string, BranchFilters> => {
+	const filtersByProject: Record<string, BranchFilters> = {};
+	try {
+		for (let index = 0; index < window.localStorage.length; index++) {
+			const key = window.localStorage.key(index);
+			if (key === null || !key.startsWith(filtersStorageKeyPrefix)) continue;
+			try {
+				const stored: unknown = JSON.parse(window.localStorage.getItem(key) ?? "null");
+				if (isBranchFilters(stored)) {
+					const { showEmpty, onlyLocal, onlyStacks } = stored;
+					filtersByProject[key.slice(filtersStorageKeyPrefix.length)] = {
+						showEmpty,
+						onlyLocal,
+						onlyStacks,
+					};
+				}
+			} catch {
+				// One unparseable entry should not cost the other projects theirs.
+			}
+		}
+	} catch {
+		// Storage disabled or partitioned: every project starts at its defaults.
+	}
+	return filtersByProject;
+};
+
+export const writeStoredBranchFilters = (projectId: string, filters: BranchFilters): void => {
+	try {
+		window.localStorage.setItem(filtersStorageKeyPrefix + projectId, JSON.stringify(filters));
+	} catch {
+		// The in-memory copy still serves this session.
+	}
+};
 
 const branchesSlice = createSlice({
 	name: "branches",
@@ -65,7 +124,9 @@ const branchesSlice = createSlice({
 	},
 });
 
-export const createInitialBranchesState = (): BranchesState => branchesSlice.getInitialState();
+export const createInitialBranchesState = (
+	filters: BranchFilters = defaultFilters(),
+): BranchesState => ({ ...branchesSlice.getInitialState(), filters });
 
 export const branchesReducers = {
 	toggleUnfolded: (state: BranchesState, payload: { branchRef: string }) => {

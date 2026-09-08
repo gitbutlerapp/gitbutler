@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
+	activeBranchFilterCount,
 	branchDetailsParams,
 	branchIsEmpty,
 	branchOwnCommits,
@@ -37,6 +38,14 @@ const names = (stacks: Array<ListedStack>): Array<Array<string>> =>
 	stacks.map((s) => s.branches.map((b) => b.displayName));
 
 const allFilters = { showEmpty: false, onlyLocal: false, onlyStacks: false };
+
+describe("activeBranchFilterCount", () => {
+	it("counts the options switched on", () => {
+		expect(activeBranchFilterCount(allFilters)).toBe(0);
+		expect(activeBranchFilterCount({ ...allFilters, onlyLocal: true })).toBe(1);
+		expect(activeBranchFilterCount({ showEmpty: true, onlyLocal: true, onlyStacks: true })).toBe(3);
+	});
+});
 
 describe("branchIsEmpty", () => {
 	it("is empty only at exactly zero commits", () => {
