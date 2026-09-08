@@ -312,18 +312,8 @@ fn workspace_for_stack(
     meta: &but_meta::VirtualBranchesTomlMetadata,
     db: &mut but_db::DbHandle,
 ) -> Result<but_graph::Workspace> {
-    let target_sha = repo.rev_parse_single("main")?.detach();
-    let ws = but_graph::Graph::from_head(
-        repo,
-        meta,
-        project_meta(repo)?,
-        db,
-        Options {
-            extra_target_commit_id: Some(target_sha),
-            ..Options::limited()
-        },
-    )?
-    .into_workspace()?;
+    let ws = but_graph::Graph::from_head(repo, meta, project_meta(repo)?, db, Options::limited())?
+        .into_workspace()?;
     Ok(ws)
 }
 

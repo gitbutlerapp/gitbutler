@@ -2972,7 +2972,7 @@ pick local-commit-2
 #[test]
 fn initial_steps_example_1_keep_integrated_target_history_out_of_divergence() -> Result<()> {
     let (_tmp, mut repo) = build_branch_integration_example_repo(
-        ExampleScenario::ExtraTargetHistoryExcludedFromDivergence,
+        ExampleScenario::TargetHistoryExcludedFromDivergence,
     )?;
     configure_tracking_for_branch_a(&mut repo)?;
 
@@ -3421,7 +3421,7 @@ fn add_local_ref_at_ref(repo: &gix::Repository, new_branch: &str, target: &str) 
 
 #[derive(Clone, Copy)]
 enum ExampleScenario {
-    ExtraTargetHistoryExcludedFromDivergence,
+    TargetHistoryExcludedFromDivergence,
     LocalCommitHistoricallyIntegratedOnTarget,
     UpstreamCommitHistoricallyIntegratedOnTarget,
     LocalMergeContainsUpstreamCommit { target_contains_merge: bool },
@@ -3444,7 +3444,7 @@ fn build_branch_integration_example_repo(
     let a = git_rev_parse(&repo_dir, "HEAD")?;
 
     match scenario {
-        ExampleScenario::ExtraTargetHistoryExcludedFromDivergence => {
+        ExampleScenario::TargetHistoryExcludedFromDivergence => {
             append_and_commit(&repo_dir, "story.txt", "B\n", "B")?;
             let b = git_rev_parse(&repo_dir, "HEAD")?;
 

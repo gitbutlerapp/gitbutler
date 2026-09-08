@@ -63,7 +63,6 @@ Graph {
         commits_limit_hint: None,
         commits_limit_recharge_location: [],
         hard_limit: None,
-        extra_target_commit_id: None,
         dangerously_skip_postprocessing_for_debugging: false,
         worktrees: false,
     },
@@ -211,7 +210,6 @@ Graph {
         commits_limit_hint: None,
         commits_limit_recharge_location: [],
         hard_limit: None,
-        extra_target_commit_id: None,
         dangerously_skip_postprocessing_for_debugging: false,
         worktrees: false,
     },
@@ -1540,64 +1538,6 @@ Statistics {
 "#]]
     );
 
-    // We can specify any target, despite not having a workspace setup.
-    let graph = Graph::from_head(
-        &repo,
-        &*meta,
-        but_core::ref_metadata::ProjectMeta::default(),
-        &mut db,
-        standard_options_with_extra_target(&repo, "main"),
-    )?
-    .validated()?;
-
-    // This limits the reach of the stack naturally.
-    snapbox::assert_data_eq!(
-        graph_dag(&graph),
-        snapbox::str![[r#"
-◎  👉C[🌳]
-●      ·2a95729 (⌂)
-├─┬─╮
-● │ │  ·6861158 (⌂)
-● │ │  ·4f1f248 (⌂)
-● │ │  ·487ffce (⌂)
-│ ◎ │  A
-│ ● │  ·20a823c (⌂)
-│ ● │  ·442a12f (⌂)
-│ ● │  ·686706b (⌂)
-├─╯ │
-│   ◎  B
-│   ●  ·9908c99 (⌂)
-│   ●  ·60d9a56 (⌂)
-│   ●  ·9d171ff (⌂)
-├───╯
-◎  main
-●  ·edc4dee (⌂|✓)
-●  ·01d0e1e (⌂|✓)
-●  ·4b3e5a8 (⌂|✓)
-●  ·34d0715 (⌂|✓)
-●  🏁·eb5f731 (⌂|✓)
-"#]]
-    );
-
-    snapbox::assert_data_eq!(
-        graph_workspace(&graph.into_workspace()?).to_string(),
-        snapbox::str![[r#"
-⌂:C[🌳] <> ✓!
-└── ≡:C[🌳] {1}
-    ├── :C[🌳]
-    │   ├── ·2a95729
-    │   ├── ·6861158
-    │   ├── ·4f1f248
-    │   └── ·487ffce
-    └── :main
-        ├── ·edc4dee (✓)
-        ├── ·01d0e1e (✓)
-        ├── ·4b3e5a8 (✓)
-        ├── ·34d0715 (✓)
-        └── ·eb5f731 (✓)
-
-"#]]
-    );
     Ok(())
 }
 
@@ -2530,9 +2470,7 @@ pub use utils::{
     read_only_in_memory_scenario, standard_options,
 };
 
-use crate::init::utils::{
-    default_project_meta, in_memory_meta, standard_options_with_extra_target,
-};
+use crate::init::utils::{default_project_meta, in_memory_meta};
 
 fn ref_name(name: &str) -> gix::refs::FullName {
     name.try_into().expect("valid full ref name")

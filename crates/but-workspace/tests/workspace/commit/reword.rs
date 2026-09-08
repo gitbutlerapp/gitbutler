@@ -3,7 +3,10 @@ use but_rebase::graph_rebase::Editor;
 use but_testsupport::{cat_commit, visualize_commit_graph_all};
 use but_workspace::commit::reword;
 
-use crate::ref_info::with_workspace_commit::utils::named_writable_scenario_with_description_and_graph as writable_scenario;
+use crate::ref_info::with_workspace_commit::utils::{
+    named_writable_scenario_with_description,
+    named_writable_scenario_with_description_and_graph as writable_scenario,
+};
 
 #[test]
 fn reword_head_commit() -> Result<()> {
@@ -83,8 +86,8 @@ fn reword_middle_commit() -> Result<()> {
 
 #[test]
 fn reword_conflicted_commit_keeps_conflict_markers() -> Result<()> {
-    let (_tmp, graph, repo, mut meta, _description, mut db) =
-        writable_scenario("with-conflict-marked-message", |_| {})?;
+    let (_tmp, repo, mut meta, _description, mut db) =
+        named_writable_scenario_with_description("with-conflict-marked-message")?;
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
         snapbox::str![[r#"
@@ -94,6 +97,14 @@ fn reword_conflicted_commit_keeps_conflict_markers() -> Result<()> {
 "#]]
     );
 
+    // A plain single-branch repository without a target.
+    let graph = but_graph::Graph::from_head(
+        &repo,
+        &meta,
+        but_core::ref_metadata::ProjectMeta::default(),
+        &mut db,
+        but_graph::init::Options::limited(),
+    )?;
     let id = repo.rev_parse_single("conflicted")?;
     let mut ws = graph.into_workspace()?;
     let editor = Editor::create(&mut ws, &mut meta, &repo, &mut db)?;

@@ -159,23 +159,10 @@ fn args_to_tips(repo: &gix::Repository, graph_args: &RevisionGraphArgs) -> Resul
             let name = reference.name().to_owned();
             ensure!(
                 name.category() == Some(Category::RemoteBranch),
-                "Target ref '{name}' resolved from '{target_ref}' is not a remote-tracking branch; use --extra-target for arbitrary revisions"
+                "Target ref '{name}' resolved from '{target_ref}' is not a remote-tracking branch"
             );
             let id = reference.peel_to_id()?.detach();
             Ok(Tip::integrated(id, Some(name)))
-        })
-        .transpose()?
-    {
-        tips.push(tip);
-    }
-
-    if let Some(tip) = graph_args
-        .extra_target
-        .as_deref()
-        .map(|rev| {
-            repo.rev_parse_single(rev)
-                .map(|id| Tip::integrated(id.detach(), None))
-                .with_context(|| format!("Failed to resolve extra target '{rev}'"))
         })
         .transpose()?
     {

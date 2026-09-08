@@ -44,14 +44,7 @@ pub(crate) fn run(
     repo.objects.refresh = RefreshMode::Never;
     let meta = EmptyRefMetadata;
 
-    let extra_target = graph_args
-        .extra_target
-        .as_deref()
-        .map(|rev_spec| repo.rev_parse_single(rev_spec))
-        .transpose()?
-        .map(|id| id.detach());
     let opts = but_graph::init::Options {
-        extra_target_commit_id: extra_target,
         collect_tags: true,
         hard_limit: graph_args.hard_limit,
         commits_limit_hint: graph_args.limit.flatten(),
@@ -158,8 +151,7 @@ fn emit_workspace(
 /// is still needed when any debug traversal knob is set, because those options
 /// must be passed directly into `but_graph::Graph::from_*`.
 fn uses_context_discovery(graph_args: &GraphArgs) -> bool {
-    graph_args.extra_target.is_none()
-        && !graph_args.no_post
+    !graph_args.no_post
         && graph_args.hard_limit.is_none()
         && graph_args.limit == Some(Some(300))
         && graph_args.limit_extension.is_empty()

@@ -7,7 +7,6 @@ use crate::ref_info::{
     utils::standard_options,
     with_workspace_commit::{
         head_info,
-        journey::utils::standard_options_with_extra_target,
         utils::{
             StackState, add_stack_with_segments,
             named_read_only_in_memory_scenario_with_description,
@@ -102,7 +101,7 @@ Ok(
                 ),
                 segments: [
                     ref_info::ui::Segment {
-                        id: NodeIndex(0),
+                        id: NodeIndex(1),
                         ref_name: "►main[🌳]",
                         remote_tracking_ref_name: "None",
                         commits: [],
@@ -211,12 +210,7 @@ Ok(
 "#]]
     );
 
-    let info = head_info(
-        &repo,
-        &meta,
-        &mut db,
-        standard_options_with_extra_target(&repo, "origin/main"),
-    );
+    let info = head_info(&repo, &meta, &mut db, standard_options());
     // As we see this as base, there is no upstream commits to consider, nor is there local commits.
     snapbox::assert_data_eq!(
         info.to_debug(),

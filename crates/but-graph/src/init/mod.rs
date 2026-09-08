@@ -199,8 +199,7 @@ impl Tip {
     /// Named target remotes can represent refs that need their own segment and
     /// target/local sibling relationship. Anonymous target remotes have no ref
     /// to preserve in the projection; they represent commit-only target
-    /// context such as `extra_target_commit_id` or a persisted workspace target
-    /// commit.
+    /// context such as a persisted workspace target commit.
     fn is_anonymous_integrated_target_context(&self) -> bool {
         matches!(self.role, TipRole::TargetRemote) && self.ref_name.is_none()
     }
@@ -208,21 +207,15 @@ impl Tip {
     /// Return whether this anonymous integrated target tip is auxiliary
     /// traversal context.
     ///
-    /// Anonymous target remotes can be provided explicitly by callers and
-    /// usually remain normal traversal seeds. The `auxiliary_integrated_tip_ids`
-    /// set records the anonymous integrated targets that normalization derived
-    /// from metadata or options such as `extra_target_commit_id`; those tips act
-    /// as mergeable limits/context and should be ordered or deduplicated as
-    /// auxiliary work rather than as user-visible roots.
+    /// In workspace-related traversals, anonymous integrated targets act as
+    /// mergeable limits/context and are ordered or deduplicated as auxiliary
+    /// work rather than as user-visible roots. In plain commit traversals they
+    /// remain normal traversal seeds.
     ///
     /// If an anonymous target points to the same commit as a named target ref,
     /// normalization collapses it into the named tip.
-    fn is_auxiliary_integrated_tip(
-        &self,
-        auxiliary_integrated_tip_ids: &BTreeSet<gix::ObjectId>,
-    ) -> bool {
-        self.is_anonymous_integrated_target_context()
-            && auxiliary_integrated_tip_ids.contains(&self.id)
+    fn is_auxiliary_integrated_tip(&self, has_workspace_related_tips: bool) -> bool {
+        has_workspace_related_tips && self.is_anonymous_integrated_target_context()
     }
 
     /// Return whether this anonymous integrated target should reuse the named
@@ -384,9 +377,6 @@ struct InitialTips {
     /// keeps target ownership, ahead/behind, and remote-reachability queries
     /// anchored to the intended target/local pair.
     target_local_links: TargetLocalLinks,
-    /// Anonymous target-remote tips that are auxiliary traversal context rather
-    /// than primary target refs.
-    auxiliary_integrated_tip_ids: BTreeSet<gix::ObjectId>,
 }
 
 /// Bidirectional lookup between target remote refs and their local tracking refs.
@@ -473,12 +463,6 @@ pub struct Options {
     /// Due to multiple paths being taken, more commits may be queued (which is what's counted here) than actually
     /// end up in the graph, so usually one will see many less.
     pub hard_limit: Option<usize>,
-    /// Provide the commit that should act like the tip of an additional target reference,
-    /// just as if it was set by one of the workspaces.
-    /// Everything it touches will be considered integrated, and it can be used
-    /// to extend the border of the workspace. Typically, it's a past position
-    /// of an existing target, or a target chosen by the user.
-    pub extra_target_commit_id: Option<gix::ObjectId>,
     /// Enabling this will prevent the postprocessing step to run which is what makes the graph useful through clean-up
     /// and to make it more amenable to a workspace project.
     ///
@@ -548,22 +532,6 @@ impl Options {
         commits: impl IntoIterator<Item = gix::ObjectId>,
     ) -> Self {
         self.commits_limit_recharge_location.extend(commits);
-        self
-    }
-
-    /// Set an additional integrated traversal tip.
-    /// It's most useful for tests which want to affect the target of the workspace
-    /// without the respective setup.
-    /// Application code may use it to set global targets, to reduce the amount of
-    /// commits in the workspace even if the entrypoint otherwise is the target branch.
-    ///
-    /// The commit is queued like an integrated target so traversal can connect
-    /// the workspace to history that may otherwise be outside the ordinary
-    /// target ref or workspace metadata. The tip is also kept as a tip of
-    /// interest and re-resolved after post-processing so workspace projection
-    /// can use it as a past target/base candidate.
-    pub fn with_extra_target_commit_id(mut self, id: impl Into<gix::ObjectId>) -> Self {
-        self.extra_target_commit_id = Some(id.into());
         self
     }
 }
@@ -685,7 +653,6 @@ impl Graph {
     /// * support the notion of a branch to integrate with, the *target*
     ///     - *target* branches consist of a local and remote tracking branch, and one can be ahead of the other.
     ///     - workspaces are relative to the local tracking branch of the target.
-    ///     - options contain an [`extra_target_commit_id`](Options::extra_target_commit_id) for an additional target location.
     /// * remote tracking branches are seen in relation to their branches.
     /// * the graph of segments assigns each reachable commit to exactly one segment
     /// * one can use [`petgraph::algo`] and [`petgraph::visit`]
@@ -816,7 +783,6 @@ impl Graph {
             tip,
             ref_name.as_ref(),
             &project_meta,
-            options.extra_target_commit_id,
         )?;
         // The entrypoint tip is intentionally unnamed and receives `ref_name` as
         // an override, so that name is claimed as well. Workspace stack branch and
@@ -936,7 +902,6 @@ impl Graph {
         };
         let Options {
             collect_tags,
-            extra_target_commit_id,
             commits_limit_hint: limit,
             commits_limit_recharge_location: mut max_commits_recharge_location,
             hard_limit,
@@ -959,13 +924,7 @@ impl Graph {
 
         let configured_remote_tracking_branches =
             remotes::configured_remote_tracking_branches(repo)?;
-        let initial_tips = initial_tips_from_tips(
-            repo,
-            tips,
-            &graph.project_meta,
-            extra_target_commit_id,
-            worktree_tips,
-        )?;
+        let initial_tips = initial_tips_from_tips(repo, tips, &graph.project_meta, worktree_tips)?;
         graph.traversal_tips = initial_tips.tips.clone();
         let refs_by_id = repo.collect_ref_mapping_by_prefix(
             [
@@ -1266,7 +1225,6 @@ impl Graph {
             tip,
             ref_name.as_ref(),
             &self.project_meta,
-            self.options.extra_target_commit_id,
         )?;
         Graph::traverse_tips_with_overlay(
             &repo,
@@ -1394,11 +1352,10 @@ type TraversalSeed = (gix::ObjectId, u8, Option<gix::refs::FullName>, bool, bool
 /// remotes with the same commit can have different responsibilities. A named
 /// target remote represents a ref that may need its own segment,
 /// metadata-derived target identity, and target/local sibling link. An
-/// anonymous target remote represents commit-only target context, such as
-/// `extra_target_commit_id` or a persisted target commit. Validation accepts
-/// those two forms so callers can pass metadata-equivalent tips directly;
-/// normalization later collapses the anonymous form into the named tip if they
-/// point to the same commit.
+/// anonymous target remote represents commit-only target context, such as a
+/// persisted target commit. Validation accepts those two forms so callers can
+/// pass metadata-equivalent tips directly; normalization later collapses the
+/// anonymous form into the named tip if they point to the same commit.
 fn tip_traversal_seed(tip: &Tip) -> TraversalSeed {
     let (role, role_ref_name, is_named_target) = match &tip.role {
         TipRole::Reachable => (0, None, false),
@@ -1429,27 +1386,11 @@ fn initial_tips_from_tips(
     repo: &OverlayRepo<'_>,
     mut tips: Vec<Tip>,
     project_meta: &ProjectMeta,
-    extra_target_commit_id: Option<gix::ObjectId>,
     worktree_tips: Vec<WorktreeTip>,
 ) -> anyhow::Result<InitialTips> {
-    let mut auxiliary_integrated_tip_ids = BTreeSet::new();
-    if let Some(extra_target) = extra_target_commit_id {
-        auxiliary_integrated_tip_ids.insert(extra_target);
-        push_integrated_tip_once(&mut tips, extra_target);
-    }
     let frontload_workspace_related_tips = has_workspace_related_tips(&tips, project_meta);
-    if frontload_workspace_related_tips {
-        auxiliary_integrated_tip_ids.extend(tips.iter().filter_map(|tip| {
-            tip.is_anonymous_integrated_target_context()
-                .then_some(tip.id)
-        }));
-    }
     collapse_anonymous_integrated_tips_into_named_targets(&mut tips);
-    let tips = tips_in_queue_order(
-        tips,
-        frontload_workspace_related_tips,
-        &auxiliary_integrated_tip_ids,
-    );
+    let tips = tips_in_queue_order(tips, frontload_workspace_related_tips);
     let workspace_tips = tips
         .iter()
         .filter(|tip| matches!(tip.role, TipRole::Workspace))
@@ -1477,7 +1418,6 @@ fn initial_tips_from_tips(
         symbolic_remote_names,
         frontload_workspace_related_tips,
         target_local_links,
-        auxiliary_integrated_tip_ids,
     })
 }
 
@@ -1540,20 +1480,12 @@ fn collapse_anonymous_integrated_tips_into_named_targets(tips: &mut Vec<Tip>) {
 /// available, and stable tie-breakers make equivalent inputs independent of
 /// caller order. For non-workspace traversals, equal-priority tips keep caller
 /// order so existing explicit traversal behavior stays predictable.
-fn tips_in_queue_order(
-    tips: Vec<Tip>,
-    has_workspace_related_tips: bool,
-    auxiliary_integrated_tip_ids: &BTreeSet<gix::ObjectId>,
-) -> Vec<Tip> {
+fn tips_in_queue_order(tips: Vec<Tip>, has_workspace_related_tips: bool) -> Vec<Tip> {
     let workspace_branch_order = workspace_branch_order_from_tips(&tips);
     let mut tips: Vec<_> = tips.into_iter().enumerate().collect();
     tips.sort_by(|(a_idx, a), (b_idx, b)| {
-        tip_queue_priority(a, has_workspace_related_tips, auxiliary_integrated_tip_ids)
-            .cmp(&tip_queue_priority(
-                b,
-                has_workspace_related_tips,
-                auxiliary_integrated_tip_ids,
-            ))
+        tip_queue_priority(a, has_workspace_related_tips)
+            .cmp(&tip_queue_priority(b, has_workspace_related_tips))
             .then_with(|| {
                 tip_workspace_branch_order(a, &workspace_branch_order)
                     .cmp(&tip_workspace_branch_order(b, &workspace_branch_order))
@@ -1609,44 +1541,28 @@ fn has_workspace_related_tips(tips: &[Tip], project_meta: &ProjectMeta) -> bool 
 /// 2. The workspace ref so it can become the traversal anchor.
 /// 3. The integrated target ref, then its local tracking branch, so they can
 ///    be linked as siblings and agree on target ownership.
-/// 4. Synthetic integrated targets, like extra target commits.
+/// 4. Anonymous integrated targets, like persisted target commits.
 /// 5. Workspace stack branches, whose order is refined later from workspace
 ///    metadata.
 /// 6. Other reachable roots.
 ///
 /// For non-workspace traversals there is no metadata order to recover, so
 /// integrated context still comes first, non-entry reachable roots follow, and
-/// the entrypoint anchors the graph last. Synthetic integrated tips remain
-/// last because they are auxiliary limits, not primary user roots.
-fn tip_queue_priority(
-    tip: &Tip,
-    has_workspace_related_tips: bool,
-    auxiliary_integrated_tip_ids: &BTreeSet<gix::ObjectId>,
-) -> usize {
+/// the entrypoint anchors the graph last.
+fn tip_queue_priority(tip: &Tip, has_workspace_related_tips: bool) -> usize {
     if has_workspace_related_tips {
         match &tip.role {
             TipRole::Reachable if tip.is_entrypoint => 0,
             TipRole::Workspace => 1,
             TipRole::TargetRemote if tip.ref_name.is_some() => 2,
             TipRole::TargetLocal { .. } => 3,
-            TipRole::TargetRemote
-                if tip.is_auxiliary_integrated_tip(auxiliary_integrated_tip_ids) =>
-            {
-                4
-            }
-            TipRole::TargetRemote => 2,
+            TipRole::TargetRemote => 4,
             TipRole::WorkspaceStackBranch { .. } => 5,
             TipRole::Reachable => 6,
         }
     } else {
         match &tip.role {
-            TipRole::TargetRemote
-                if tip.is_auxiliary_integrated_tip(auxiliary_integrated_tip_ids) =>
-            {
-                3
-            }
-            TipRole::TargetRemote => 0,
-            TipRole::TargetLocal { .. } => 0,
+            TipRole::TargetRemote | TipRole::TargetLocal { .. } => 0,
             TipRole::Reachable | TipRole::Workspace | TipRole::WorkspaceStackBranch { .. } => {
                 if tip.is_entrypoint { 2 } else { 1 }
             }
@@ -1758,7 +1674,6 @@ fn initial_tips_from_workspace_metadata<T: RefMetadata>(
     entrypoint: gix::ObjectId,
     entrypoint_ref: Option<&gix::refs::FullName>,
     project_meta: &ProjectMeta,
-    extra_target_commit_id: Option<gix::ObjectId>,
 ) -> anyhow::Result<Vec<Tip>> {
     let mut workspaces = obtain_workspace_infos(repo, entrypoint_ref.map(|rn| rn.as_ref()), meta)?;
     let has_project_meta = project_meta != &ProjectMeta::default();
@@ -1833,10 +1748,6 @@ fn initial_tips_from_workspace_metadata<T: RefMetadata>(
             &mut tips,
             &mut additional_target_commits,
         )?;
-    }
-
-    if let Some(extra_target) = extra_target_commit_id {
-        push_integrated_tip_once(&mut tips, extra_target);
     }
 
     for target_commit_id in additional_target_commits {
@@ -2133,7 +2044,8 @@ fn queue_initial_tips<T: RefMetadata>(
                 continue;
             }
             TipRole::TargetRemote
-                if tip.is_auxiliary_integrated_tip(&initial_tips.auxiliary_integrated_tip_ids)
+                if tip
+                    .is_auxiliary_integrated_tip(initial_tips.frontload_workspace_related_tips)
                     && next.iter().any(|(info, _, _, _)| info.id == tip.id) =>
             {
                 continue;
@@ -2172,7 +2084,6 @@ fn queue_initial_tips<T: RefMetadata>(
                 queue_front: queue_should_frontload_tip(
                     tip,
                     initial_tips.frontload_workspace_related_tips,
-                    &initial_tips.auxiliary_integrated_tip_ids,
                 ),
             };
             if let Some(target_ref) = tip
@@ -2316,11 +2227,7 @@ fn queue_initial_tips<T: RefMetadata>(
                 buf,
             )?;
         }
-        if queue_should_frontload_tip(
-            tip,
-            initial_tips.frontload_workspace_related_tips,
-            &initial_tips.auxiliary_integrated_tip_ids,
-        ) {
+        if queue_should_frontload_tip(tip, initial_tips.frontload_workspace_related_tips) {
             _ = next.push_front_exhausted(item);
         } else {
             _ = next.push_back_exhausted(item);
@@ -2396,25 +2303,19 @@ fn queue_pending_integrated_tip(
 /// front-loaded so their commits are visited before ordinary reachable or stack
 /// branch work that may point at the same commits so they can own them.
 ///
-/// Synthetic integrated tips are always front-loaded because they represent
-/// additional target/limit commits rather than user-visible branch roots. For
-/// workspace-related traversals, workspace, integrated target, and target-local
-/// tips are also front-loaded so target ownership and target/local sibling
-/// links are established before stack-branch traversal can claim shared commits.
+/// For workspace-related traversals, workspace, integrated target, and
+/// target-local tips are front-loaded so target ownership and target/local
+/// sibling links are established before stack-branch traversal can claim
+/// shared commits.
 /// Workspace stack branches are deliberately not front-loaded: their segment
 /// creation order is recovered from metadata, but their traversal work should
 /// follow the workspace/target context.
-fn queue_should_frontload_tip(
-    tip: &Tip,
-    frontload_workspace_related_tips: bool,
-    auxiliary_integrated_tip_ids: &BTreeSet<gix::ObjectId>,
-) -> bool {
-    tip.is_auxiliary_integrated_tip(auxiliary_integrated_tip_ids)
-        || (frontload_workspace_related_tips
-            && matches!(
-                tip.role,
-                TipRole::Workspace | TipRole::TargetRemote | TipRole::TargetLocal { .. }
-            ))
+fn queue_should_frontload_tip(tip: &Tip, frontload_workspace_related_tips: bool) -> bool {
+    frontload_workspace_related_tips
+        && matches!(
+            tip.role,
+            TipRole::Workspace | TipRole::TargetRemote | TipRole::TargetLocal { .. }
+        )
 }
 
 /// Return the flags and limit used by a reachable tip seeking the entrypoint.

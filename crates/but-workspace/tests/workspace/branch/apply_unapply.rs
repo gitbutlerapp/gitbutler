@@ -1010,7 +1010,7 @@ fn main_with_advanced_remote_tracking_branch() -> anyhow::Result<()> {
         Options::limited(),
     )?;
     let ws = graph.into_workspace()?;
-    // note how the remote isn't interesting as we have no target configured, nor an extra target.
+    // note how the remote isn't interesting as we have no target configured.
     snapbox::assert_data_eq!(
         graph_workspace(&ws).to_string(),
         snapbox::str![[r#"
@@ -2951,7 +2951,6 @@ fn apply_multiple_without_target_or_metadata_or_base() -> anyhow::Result<()> {
     );
 
     graph.project_meta = Default::default();
-    graph.options.extra_target_commit_id = None;
     let graph = graph.redo_traversal_with_overlay(&repo, &meta, Overlay::default())?;
     let ws = graph.into_workspace()?;
     snapbox::assert_data_eq!(
@@ -3181,7 +3180,6 @@ fn unapply_dirty_worktree_abort_keeps_refs_and_metadata() -> anyhow::Result<()> 
 "#]]
     );
     graph.project_meta = Default::default();
-    graph.options.extra_target_commit_id = None;
     let graph = graph.redo_traversal_with_overlay(&repo, &meta, Overlay::default())?;
     let ws = graph.into_workspace()?;
     snapbox::assert_data_eq!(
@@ -4904,10 +4902,7 @@ fn apply_with_conflicts_shows_exact_conflict_info() -> anyhow::Result<()> {
         &meta,
         project_meta(&repo)?,
         &mut db,
-        Options {
-            extra_target_commit_id: repo.rev_parse_single("main").ok().map(|id| id.detach()),
-            ..Options::limited()
-        },
+        Options::limited(),
     )?
     .into_workspace()?;
 
@@ -5483,7 +5478,7 @@ Outcome {
         &meta,
         but_core::ref_metadata::ProjectMeta::default(),
         &mut db,
-        standard_traversal_options_with_extra_target(&repo),
+        standard_traversal_options(),
     )?
     .into_workspace()?;
     snapbox::assert_data_eq!(
@@ -5588,7 +5583,7 @@ Outcome {
         &meta,
         but_core::ref_metadata::ProjectMeta::default(),
         &mut db,
-        standard_traversal_options_with_extra_target(&repo),
+        standard_traversal_options(),
     )?
     .into_workspace()?;
     // V-branch B is checked out
@@ -5625,7 +5620,7 @@ Outcome {
         &meta,
         project_meta(&repo)?,
         &mut db,
-        standard_traversal_options_with_extra_target(&repo),
+        standard_traversal_options(),
     )?
     .into_workspace()?;
     // There is nothing yet.
@@ -5702,7 +5697,7 @@ Outcome {
         &meta,
         but_core::ref_metadata::ProjectMeta::default(),
         &mut db,
-        standard_traversal_options_with_extra_target(&repo),
+        standard_traversal_options(),
     )?
     .into_workspace()?;
     // the same result when checked out directly
@@ -6171,19 +6166,9 @@ mod utils {
             commits_limit_hint: None,
             commits_limit_recharge_location: vec![],
             hard_limit: None,
-            extra_target_commit_id: None,
             dangerously_skip_postprocessing_for_debugging: false,
             worktrees: false,
         }
     }
-
-    pub fn standard_traversal_options_with_extra_target(
-        repo: &gix::Repository,
-    ) -> but_graph::init::Options {
-        but_graph::init::Options {
-            extra_target_commit_id: Some(repo.rev_parse_single("main").expect("present").detach()),
-            ..standard_traversal_options()
-        }
-    }
 }
-use utils::{standard_traversal_options, standard_traversal_options_with_extra_target};
+use utils::standard_traversal_options;

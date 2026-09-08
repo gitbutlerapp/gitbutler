@@ -65,15 +65,12 @@ Single commit, no main remote/target, no ws commit, but ws-reference
             &meta,
             project_meta(&repo)?,
             &mut db,
-            Options {
-                extra_target_commit_id: id_by_rev(&repo, "main").detach().into(),
-                ..Options::limited()
-            },
+            Options::limited(),
         )?;
         let ws = graph.into_workspace()?;
 
-        // And even though setting an extra-target works like it should, i.e a simulated target
-        // which we can store in absence of a selected target branch…
+        // And even though a stored target commit works like it should, i.e a simulated target
+        // in absence of a selected target branch…
         snapbox::assert_data_eq!(
             graph_workspace(&ws).to_string(),
             snapbox::str![[r#"
@@ -2382,7 +2379,6 @@ fn errors() -> anyhow::Result<()> {
         },
         &mut db,
         Options {
-            extra_target_commit_id: main_id.detach().into(),
             commits_limit_hint: 0.into(),
             ..Options::limited()
         },
@@ -2816,33 +2812,6 @@ fn journey_anon_workspace() -> anyhow::Result<()> {
         "We need more setup for independent branches"
     );
     assert!(repo.try_find_reference(new)?.is_none());
-
-    // Give the graph a base
-    let graph = but_graph::Graph::from_commit_traversal(
-        id,
-        None,
-        &meta,
-        but_core::ref_metadata::ProjectMeta::default(),
-        &mut db,
-        Options {
-            extra_target_commit_id: Some(first_id.detach()),
-            ..Default::default()
-        },
-    )?;
-    let ws = graph.into_workspace()?;
-    // And the extra-target serves as base also in single-branch mode.
-    snapbox::assert_data_eq!(
-        graph_workspace(&ws).to_string(),
-        snapbox::str![[r#"
-⌂:second <> ✓!
-└── ≡📙:second {1}
-    ├── 📙:second
-    │   └── ·12995d7
-    └── 📙:first
-        └── ·3d57fc1 (✓)
-
-"#]]
-    );
 
     Ok(())
 }

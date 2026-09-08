@@ -648,19 +648,8 @@ fn move_empty_branch_on_top_of_empty_branch_in_same_stack() -> anyhow::Result<()
     add_stack_with_segments(&mut meta, 1, "B", StackState::InWorkspace, &["A"]);
 
     let project_meta = project_meta(&repo)?;
-    let graph = but_graph::Graph::from_head(
-        &repo,
-        &meta,
-        project_meta,
-        &mut db,
-        Options {
-            extra_target_commit_id: repo
-                .rev_parse_single("gitbutler/target")
-                .ok()
-                .map(|id| id.detach()),
-            ..Options::limited()
-        },
-    )?;
+    let graph =
+        but_graph::Graph::from_head(&repo, &meta, project_meta, &mut db, Options::limited())?;
 
     let mut ws = graph.into_workspace()?;
     snapbox::assert_data_eq!(
@@ -713,19 +702,8 @@ fn move_empty_branch_on_top_of_empty_branch_across_stacks() -> anyhow::Result<()
     add_stack_with_segments(&mut meta, 2, "B", StackState::InWorkspace, &[]);
 
     let project_meta = project_meta(&repo)?;
-    let graph = but_graph::Graph::from_head(
-        &repo,
-        &meta,
-        project_meta,
-        &mut db,
-        Options {
-            extra_target_commit_id: repo
-                .rev_parse_single("gitbutler/target")
-                .ok()
-                .map(|id| id.detach()),
-            ..Options::limited()
-        },
-    )?;
+    let graph =
+        but_graph::Graph::from_head(&repo, &meta, project_meta, &mut db, Options::limited())?;
 
     let mut ws = graph.into_workspace()?;
     snapbox::assert_data_eq!(
