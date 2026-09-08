@@ -1,8 +1,12 @@
 #![allow(missing_docs)]
 
-use std::collections::BTreeSet;
+use std::collections::{BTreeMap, BTreeSet};
 
-use rusqlite::OptionalExtension;
+use anyhow::{Context as _, Result, ensure};
+use gix::{
+    bstr::ByteSlice as _,
+    refs::{FullName, FullNameRef},
+};
 
 use crate::{DbHandle, M, SchemaVersion, Transaction};
 
@@ -39,36 +43,67 @@ pub struct BranchOrderSnapshot {
 #[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct BranchOrderEntry {
     /// The ordered branch reference.
-    pub branch_ref_name: String,
+    pub branch_ref_name: FullName,
     /// The branch immediately below this one, or `None` for the base.
-    pub parent_ref_name: Option<String>,
+    pub parent_ref_name: Option<FullName>,
 }
 
 impl BranchOrderSnapshot {
-    /// Validate the constraints enforced by the branch-order table before restoration starts.
-    pub fn validate(&self) -> Result<(), String> {
-        let mut branches = BTreeSet::new();
+    /// Validate reference names and disjoint, acyclic branch chains before restoration starts.
+    pub fn validate(&self) -> Result<()> {
+        self.clone().into_chains().map(|_| ())
+    }
+
+    /// Validate and collect chains in tip-to-base order, sorted by their tips.
+    /// A parent without its own row is retained as the terminal branch.
+    pub fn into_chains(self) -> Result<Vec<Vec<FullName>>> {
+        let mut branches = BTreeMap::new();
         let mut parents = BTreeSet::new();
-        for entry in &self.entries {
-            if !branches.insert(&entry.branch_ref_name) {
-                return Err(format!(
-                    "duplicate branch reference '{}'",
-                    entry.branch_ref_name
-                ));
+        for BranchOrderEntry {
+            branch_ref_name,
+            parent_ref_name,
+        } in self.entries
+        {
+            // FullName's serde implementation does not enforce its validity invariant.
+            <&FullNameRef>::try_from(branch_ref_name.as_bstr())
+                .context("invalid branch reference in branch order")?;
+            if let Some(parent) = &parent_ref_name {
+                <&FullNameRef>::try_from(parent.as_bstr())
+                    .context("invalid parent reference in branch order")?;
+                ensure!(
+                    parent != &branch_ref_name,
+                    "branch '{branch_ref_name}' cannot be its own parent"
+                );
+                ensure!(
+                    parents.insert(parent.clone()),
+                    "duplicate parent reference '{parent}'"
+                );
             }
-            if let Some(parent) = &entry.parent_ref_name {
-                if parent == &entry.branch_ref_name {
-                    return Err(format!(
-                        "branch '{}' cannot be its own parent",
-                        entry.branch_ref_name
-                    ));
-                }
-                if !parents.insert(parent) {
-                    return Err(format!("duplicate parent reference '{parent}'"));
-                }
-            }
+            ensure!(
+                branches
+                    .insert(branch_ref_name.clone(), parent_ref_name)
+                    .is_none(),
+                "duplicate branch reference '{branch_ref_name}'"
+            );
         }
-        Ok(())
+
+        let tips = branches
+            .keys()
+            .filter(|name| !parents.contains(*name))
+            .cloned()
+            .collect::<Vec<_>>();
+        let mut chains = Vec::new();
+        for tip in tips {
+            let mut next = Some(tip);
+            let mut chain = Vec::new();
+            while let Some(name) = next {
+                next = branches.remove(&name).flatten();
+                chain.push(name);
+            }
+            chains.push(chain);
+        }
+        ensure!(branches.is_empty(), "cycle in branch-order metadata");
+        Ok(chains)
     }
 }
 
@@ -102,105 +137,43 @@ impl<'conn> Transaction<'conn> {
 
 impl BranchOrderHandle<'_> {
     /// Read the complete branch-order table in deterministic order.
-    pub fn get_snapshot(&self) -> rusqlite::Result<BranchOrderSnapshot> {
-        let entries = self
-            .conn
-            .prepare(
-                "SELECT branch_ref_name, parent_ref_name
-                 FROM branch_order
-                 ORDER BY branch_ref_name",
-            )?
-            .query_map([], |row| {
-                Ok(BranchOrderEntry {
-                    branch_ref_name: row.get(0)?,
-                    parent_ref_name: row.get(1)?,
-                })
-            })?
-            .collect::<Result<Vec<_>, _>>()?;
+    pub fn get_snapshot(&self) -> Result<BranchOrderSnapshot> {
+        let mut statement = self.conn.prepare(
+            "SELECT branch_ref_name, parent_ref_name FROM branch_order ORDER BY branch_ref_name",
+        )?;
+        let mut rows = statement.query([])?;
+        let mut entries = Vec::new();
+        while let Some(row) = rows.next()? {
+            entries.push(BranchOrderEntry {
+                branch_ref_name: row.get_ref(0)?.as_bytes()?.as_bstr().try_into()?,
+                parent_ref_name: row
+                    .get_ref(1)?
+                    .as_bytes_or_null()?
+                    .map(|name| name.as_bstr().try_into())
+                    .transpose()?,
+            });
+        }
         Ok(BranchOrderSnapshot { entries })
     }
 
     /// Return the ordered chain containing `ref_name`, from tip to base.
-    pub fn order_for_reference(&self, ref_name: &str) -> rusqlite::Result<Option<Vec<String>>> {
-        let has_row = match self.has_reference(ref_name) {
-            Ok(has_row) => has_row,
-            Err(err) if is_missing_branch_order_table(&err) => return Ok(None),
+    pub fn order_for_reference(&self, ref_name: &FullNameRef) -> Result<Option<Vec<FullName>>> {
+        let snapshot = match self.get_snapshot() {
+            Ok(snapshot) => snapshot,
+            Err(err)
+                if matches!(err.downcast_ref::<rusqlite::Error>(),
+                Some(rusqlite::Error::SqliteFailure(_, Some(message)))
+                    if message.contains("no such table: branch_order")) =>
+            {
+                return Ok(None);
+            }
             Err(err) => return Err(err),
         };
-        let has_child = self.child_of(ref_name)?.is_some();
-        if !has_row && !has_child {
-            return Ok(None);
-        }
-
-        let mut seen = BTreeSet::from([ref_name.to_owned()]);
-        let mut above = Vec::new();
-        let mut cursor = ref_name.to_owned();
-        while let Some(child) = self.child_of(&cursor)? {
-            if !seen.insert(child.clone()) {
-                return Ok(None);
-            }
-            above.push(child.clone());
-            cursor = child;
-        }
-
-        let mut below = vec![ref_name.to_owned()];
-        let mut cursor = ref_name.to_owned();
-        while let Some(parent) = self.parent_of(&cursor)? {
-            if !seen.insert(parent.clone()) {
-                return Ok(None);
-            }
-            below.push(parent.clone());
-            cursor = parent;
-        }
-
-        above.reverse();
-        above.extend(below);
-        Ok(Some(above))
+        Ok(snapshot
+            .into_chains()?
+            .into_iter()
+            .find(|chain| chain.iter().any(|name| name.as_ref() == ref_name)))
     }
-
-    fn has_reference(&self, ref_name: &str) -> rusqlite::Result<bool> {
-        self.conn.query_row(
-            "SELECT EXISTS(SELECT 1 FROM branch_order WHERE branch_ref_name = ?1)",
-            [ref_name],
-            |row| row.get(0),
-        )
-    }
-
-    fn parent_of(&self, ref_name: &str) -> rusqlite::Result<Option<String>> {
-        self.conn
-            .query_row(
-                "SELECT parent_ref_name FROM branch_order WHERE branch_ref_name = ?1",
-                [ref_name],
-                |row| row.get(0),
-            )
-            .optional()
-            .map(Option::flatten)
-    }
-
-    fn child_of(&self, ref_name: &str) -> rusqlite::Result<Option<String>> {
-        self.conn
-            .query_row(
-                "SELECT branch_ref_name FROM branch_order WHERE parent_ref_name = ?1",
-                [ref_name],
-                |row| row.get(0),
-            )
-            .optional()
-    }
-
-    fn all_references(&self) -> rusqlite::Result<Vec<String>> {
-        self.conn
-            .prepare("SELECT branch_ref_name FROM branch_order")?
-            .query_map([], |row| row.get(0))?
-            .collect()
-    }
-}
-
-fn is_missing_branch_order_table(err: &rusqlite::Error) -> bool {
-    matches!(
-        err,
-        rusqlite::Error::SqliteFailure(_, Some(message))
-            if message.contains("no such table: branch_order")
-    )
 }
 
 impl BranchOrderHandleMut<'_> {
@@ -210,7 +183,8 @@ impl BranchOrderHandleMut<'_> {
     }
 
     /// Replace the complete branch-order table with `snapshot` atomically.
-    pub fn replace_snapshot(self, snapshot: &BranchOrderSnapshot) -> rusqlite::Result<()> {
+    pub fn replace_snapshot(self, snapshot: &BranchOrderSnapshot) -> Result<()> {
+        snapshot.validate()?;
         let sp = self.sp;
         sp.execute("DELETE FROM branch_order", [])?;
         let mut insert = sp.prepare(
@@ -218,141 +192,130 @@ impl BranchOrderHandleMut<'_> {
         )?;
         for entry in &snapshot.entries {
             insert.execute(rusqlite::params![
-                entry.branch_ref_name,
-                entry.parent_ref_name
+                entry.branch_ref_name.as_bstr().as_bytes(),
+                entry
+                    .parent_ref_name
+                    .as_ref()
+                    .map(|name| name.as_bstr().as_bytes()),
             ])?;
         }
         drop(insert);
-        sp.commit()
+        Ok(sp.commit()?)
     }
 
     /// Replace the persisted chain containing `branches` with `branches` in tip-to-base order.
-    pub fn set_order(self, branches: &[String]) -> rusqlite::Result<()> {
-        let sp = self.sp;
-        if branches.is_empty() {
-            sp.commit()?;
-            return Ok(());
-        }
-
+    pub fn set_order(self, branches: &[FullName]) -> Result<()> {
         let mut seen = BTreeSet::new();
         for branch in branches {
-            if !seen.insert(branch.as_str()) {
-                return Err(rusqlite::Error::InvalidQuery);
-            }
+            <&FullNameRef>::try_from(branch.as_bstr())
+                .context("invalid branch reference in branch order")?;
+            ensure!(
+                seen.insert(branch.as_ref()),
+                "duplicate branch reference '{branch}'"
+            );
         }
-
-        let order = BranchOrderHandle { conn: &sp };
-        let mut refs_to_replace = BTreeSet::new();
-        for branch in branches {
-            refs_to_replace.insert(branch.as_str().to_owned());
-            if let Some(order) = order.order_for_reference(branch)? {
-                refs_to_replace.extend(order);
-            }
-        }
-
-        for branch in refs_to_replace {
-            sp.execute(
-                "DELETE FROM branch_order WHERE branch_ref_name = ?1",
-                [branch],
-            )?;
-        }
-
-        let mut insert = sp.prepare(
-            "INSERT INTO branch_order (branch_ref_name, parent_ref_name) VALUES (?1, ?2)",
-        )?;
-        for (idx, branch) in branches.iter().enumerate() {
-            let parent = branches.get(idx + 1);
-            insert.execute(rusqlite::params![branch, parent])?;
-        }
-        drop(insert);
-
-        sp.commit()
+        let existing = self.to_ref().get_snapshot()?.into_chains()?;
+        let refs_to_replace = existing
+            .into_iter()
+            .filter(|chain| chain.iter().any(|name| seen.contains(name.as_ref())))
+            .flatten()
+            .collect::<Vec<_>>();
+        replace_order(&self.sp, &refs_to_replace, branches)?;
+        Ok(self.sp.commit()?)
     }
 
     /// Remove `ref_name` from its chain, connecting its child directly to its parent if needed.
-    pub fn remove_reference(self, ref_name: &str) -> rusqlite::Result<()> {
-        let sp = self.sp;
-        remove_reference_in_savepoint(&sp, ref_name)?;
-        sp.commit()
+    pub fn remove_reference(self, ref_name: &FullNameRef) -> Result<()> {
+        self.retain_references(|name| name != ref_name)
     }
 
     /// Rename `old_ref_name` to `new_ref_name` everywhere it appears in branch-order metadata.
-    pub fn rename_reference(self, old_ref_name: &str, new_ref_name: &str) -> rusqlite::Result<()> {
-        let sp = self.sp;
+    pub fn rename_reference(
+        self,
+        old_ref_name: &FullNameRef,
+        new_ref_name: &FullNameRef,
+    ) -> Result<()> {
+        <&FullNameRef>::try_from(new_ref_name.as_bstr()).context("invalid new branch reference")?;
         if old_ref_name == new_ref_name {
-            sp.commit()?;
-            return Ok(());
+            return Ok(self.sp.commit()?);
         }
-
-        let order = BranchOrderHandle { conn: &sp };
-        let has_old = order.has_reference(old_ref_name)? || order.child_of(old_ref_name)?.is_some();
-        if !has_old {
-            sp.commit()?;
-            return Ok(());
+        let chains = self.to_ref().get_snapshot()?.into_chains()?;
+        let names = chains
+            .iter()
+            .flatten()
+            .map(|name| name.as_ref())
+            .collect::<BTreeSet<_>>();
+        if !names.contains(old_ref_name) {
+            return Ok(self.sp.commit()?);
         }
-        if order.has_reference(new_ref_name)? || order.child_of(new_ref_name)?.is_some() {
-            return Err(rusqlite::Error::InvalidQuery);
-        }
-
-        sp.execute(
+        ensure!(
+            !names.contains(new_ref_name),
+            "branch '{new_ref_name}' already has order metadata"
+        );
+        let names = [
+            new_ref_name.as_bstr().as_bytes(),
+            old_ref_name.as_bstr().as_bytes(),
+        ];
+        self.sp.execute(
             "UPDATE branch_order SET parent_ref_name = ?1 WHERE parent_ref_name = ?2",
-            [new_ref_name, old_ref_name],
+            names,
         )?;
-        sp.execute(
+        self.sp.execute(
             "UPDATE branch_order SET branch_ref_name = ?1 WHERE branch_ref_name = ?2",
-            [new_ref_name, old_ref_name],
+            names,
         )?;
-
-        sp.commit()
+        Ok(self.sp.commit()?)
     }
 
     /// Remove branch-order rows for references not present in `existing_ref_names`.
-    pub fn remove_missing_references(self, existing_ref_names: &[String]) -> rusqlite::Result<()> {
-        let sp = self.sp;
+    pub fn remove_missing_references(self, existing_ref_names: &[FullName]) -> Result<()> {
         let existing = existing_ref_names
             .iter()
-            .map(String::as_str)
+            .map(|name| name.as_ref())
             .collect::<BTreeSet<_>>();
-        let refs = BranchOrderHandle { conn: &sp }.all_references()?;
-        for ref_name in refs {
-            if !existing.contains(ref_name.as_str()) {
-                remove_reference_in_savepoint(&sp, &ref_name)?;
+        self.retain_references(|name| existing.contains(name))
+    }
+
+    fn retain_references(self, keep: impl Fn(&FullNameRef) -> bool) -> Result<()> {
+        for chain in self.to_ref().get_snapshot()?.into_chains()? {
+            let mut remaining = chain
+                .iter()
+                .filter(|name| keep(name.as_ref()))
+                .cloned()
+                .collect::<Vec<_>>();
+            if remaining.len() == chain.len() {
+                continue;
             }
+            // Removing a branch leaves no ordering to remember for a singleton.
+            if remaining.len() == 1 {
+                remaining.clear();
+            }
+            replace_order(&self.sp, &chain, &remaining)?;
         }
-        sp.commit()
+        Ok(self.sp.commit()?)
     }
 }
 
-fn remove_reference_in_savepoint(
+fn replace_order(
     sp: &rusqlite::Savepoint<'_>,
-    ref_name: &str,
-) -> rusqlite::Result<()> {
-    let parent = BranchOrderHandle { conn: sp }.parent_of(ref_name)?;
-    let child = BranchOrderHandle { conn: sp }.child_of(ref_name)?;
-
-    sp.execute(
-        "DELETE FROM branch_order WHERE branch_ref_name = ?1",
-        [ref_name],
-    )?;
-    if let Some(child) = child.as_ref() {
+    old_refs: &[FullName],
+    branches: &[FullName],
+) -> Result<()> {
+    for name in old_refs {
         sp.execute(
-            "UPDATE branch_order SET parent_ref_name = ?1 WHERE branch_ref_name = ?2",
-            rusqlite::params![parent, child],
+            "DELETE FROM branch_order WHERE branch_ref_name = ?1",
+            [name.as_bstr().as_bytes()],
         )?;
     }
-    let singleton = match (parent.as_deref(), child.as_deref()) {
-        (Some(parent), None) => Some(parent),
-        (None, Some(child)) => Some(child),
-        _ => None,
-    };
-    if let Some(singleton) = singleton {
-        let order = BranchOrderHandle { conn: sp };
-        if order.parent_of(singleton)?.is_none() && order.child_of(singleton)?.is_none() {
-            sp.execute(
-                "DELETE FROM branch_order WHERE branch_ref_name = ?1",
-                [singleton],
-            )?;
-        }
+    let mut insert =
+        sp.prepare("INSERT INTO branch_order (branch_ref_name, parent_ref_name) VALUES (?1, ?2)")?;
+    for (index, branch) in branches.iter().enumerate() {
+        insert.execute(rusqlite::params![
+            branch.as_bstr().as_bytes(),
+            branches
+                .get(index + 1)
+                .map(|name| name.as_bstr().as_bytes()),
+        ])?;
     }
     Ok(())
 }

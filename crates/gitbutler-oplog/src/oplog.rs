@@ -664,10 +664,7 @@ fn snapshot_metadata(
             let order: but_db::BranchOrderSnapshot =
                 toml::from_str(from_utf8(&blob.data).context("branch_order.toml is not UTF-8")?)
                     .context("failed to parse branch_order.toml")?;
-            order
-                .validate()
-                .map_err(anyhow::Error::msg)
-                .context("invalid branch_order.toml")?;
+            order.validate().context("invalid branch_order.toml")?;
             Ok(order)
         })
         .transpose()?;

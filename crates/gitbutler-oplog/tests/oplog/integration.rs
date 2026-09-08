@@ -173,8 +173,8 @@ fn restore_removes_only_historically_inherited_branch_order() -> anyhow::Result<
         )?;
         let names = order
             .iter()
-            .map(|name| format!("refs/heads/{name}"))
-            .collect::<Vec<_>>();
+            .map(|name| gix::refs::FullName::try_from(format!("refs/heads/{name}")))
+            .collect::<Result<Vec<_>, _>>()?;
         ctx.db
             .get_cache_mut()?
             .branch_order_mut()?
@@ -348,6 +348,120 @@ parent_ref_name = "refs/heads/B"
         fs::read_to_string(changed_path)?,
         "changed after snapshot",
         "validation should happen before the worktree is restored"
+    );
+    Ok(())
+}
+
+#[test]
+fn restore_historical_branch_order_from_string_entries() -> anyhow::Result<()> {
+    let Test { repo, ctx } = &mut Test::from_scenario("one-stack-two-commits", &["A"]);
+    let mut guard = ctx.exclusive_worktree_access();
+    let snapshot_id = ctx.create_snapshot(
+        SnapshotDetails::new(OperationKind::OnDemandSnapshot),
+        guard.write_permission(),
+    )?;
+    let historical_id = snapshot_with_branch_order(
+        &repo.open_repo(),
+        snapshot_id,
+        br#"
+[[entries]]
+branch_ref_name = "refs/heads/A"
+parent_ref_name = "refs/heads/B"
+[[entries]]
+branch_ref_name = "refs/heads/B"
+"#,
+    )?;
+    ctx.restore_snapshot(
+        historical_id,
+        RestoreKind::RestoreFromSnapshotViaUndo,
+        guard.write_permission(),
+    )?;
+    let metadata = ctx.db.get_cache()?.meta()?;
+    let expected: [gix::refs::FullName; 2] =
+        ["refs/heads/A".try_into()?, "refs/heads/B".try_into()?];
+    assert_eq!(
+        metadata.branch_stack_order(expected[0].as_ref()),
+        Some(expected.as_slice()),
+        "historical TOML string entries restore as typed reference ordering"
+    );
+    Ok(())
+}
+
+#[test]
+fn invalid_historical_branch_order_names_fail_before_restore_mutates_state() -> anyhow::Result<()> {
+    for contents in [
+        "[[entries]]\nbranch_ref_name = \"refs/heads/invalid..name\"\n",
+        "[[entries]]\nbranch_ref_name = \"refs/heads/A\"\nparent_ref_name = \"refs/heads/invalid..parent\"\n",
+    ] {
+        assert_invalid_historical_branch_order(contents)?;
+    }
+    Ok(())
+}
+
+#[test]
+fn cyclic_historical_branch_order_fails_before_restore_mutates_state() -> anyhow::Result<()> {
+    assert_invalid_historical_branch_order(
+        r#"
+[[entries]]
+branch_ref_name = "refs/heads/A"
+parent_ref_name = "refs/heads/B"
+[[entries]]
+branch_ref_name = "refs/heads/B"
+parent_ref_name = "refs/heads/A"
+"#,
+    )
+}
+
+fn assert_invalid_historical_branch_order(contents: &str) -> anyhow::Result<()> {
+    let Test { repo, ctx } = &mut Test::from_scenario("one-stack-two-commits", &["A"]);
+    let mut guard = ctx.exclusive_worktree_access();
+    let snapshot_id = ctx.create_snapshot(
+        SnapshotDetails::new(OperationKind::OnDemandSnapshot),
+        guard.write_permission(),
+    )?;
+    let git_repo = repo.open_repo();
+    let invalid_id = snapshot_with_branch_order(&git_repo, snapshot_id, contents.as_bytes())?;
+    let changed_path = repo.projects_root().join("first");
+    fs::write(&changed_path, "changed after snapshot")?;
+    let metadata = ctx.db.get_cache()?.meta()?;
+    let workspace_head = git_repo.head_id()?.detach();
+    let branch_head = git_repo.rev_parse_single("A")?.detach();
+    let oplog_head = ctx.oplog_head()?;
+    let error = ctx
+        .restore_snapshot(
+            invalid_id,
+            RestoreKind::RestoreFromSnapshotViaUndo,
+            guard.write_permission(),
+        )
+        .expect_err("invalid historical branch orders must fail validation");
+    assert!(
+        error.to_string().contains("branch_order.toml"),
+        "restore identifies the invalid historical ordering payload: {error:#}"
+    );
+    assert_eq!(
+        fs::read_to_string(changed_path)?,
+        "changed after snapshot",
+        "ordering validation precedes worktree changes"
+    );
+    assert_eq!(
+        ctx.db.get_cache()?.meta()?,
+        metadata,
+        "ordering validation precedes database changes"
+    );
+    assert_eq!(
+        git_repo.head_id()?.detach(),
+        workspace_head,
+        "ordering validation precedes workspace ref changes"
+    );
+    assert_eq!(
+        git_repo.rev_parse_single("A")?.detach(),
+        branch_head,
+        "ordering validation precedes branch ref changes"
+    );
+    assert_eq!(
+        ctx.oplog_head()?,
+        oplog_head,
+        "ordering validation precedes oplog changes"
     );
     Ok(())
 }
@@ -637,19 +751,25 @@ fn snapshot_roundtrips_non_utf8_ref_metadata() -> anyhow::Result<()> {
     branch_value.review.review_id = Some("byte-preserving review".into());
     let mut workspace_value = Workspace::default();
     workspace_value.ref_info.created_at = Some(gix::date::Time::new(123, 3600));
+    let branch_order = vec![branch.clone(), "refs/heads/base".try_into()?];
     let metadata = but_db::Metadata::from_parts(
         vec![
             (workspace, workspace_value),
             ("refs/heads/secondary".try_into()?, Workspace::default()),
         ],
         vec![(branch, branch_value)],
-        Vec::new(),
+        vec![branch_order.clone()],
     );
     ctx.db
         .get_cache_mut()?
         .meta_mut()?
         .replace_snapshot(&metadata)?;
     let expected = ctx.db.get_cache()?.meta()?;
+    assert_eq!(
+        expected.branch_orders().collect::<Vec<_>>(),
+        vec![branch_order.as_slice()],
+        "ad-hoc ordering persists arbitrary reference bytes"
+    );
     let mut guard = ctx.exclusive_worktree_access();
     let snapshot_id = ctx.create_snapshot(
         SnapshotDetails::new(OperationKind::OnDemandSnapshot),
@@ -1639,8 +1759,8 @@ fn set_branch_order(ctx: &Context, refs: &[&str]) -> anyhow::Result<()> {
     ctx.db.get_cache_mut()?.branch_order_mut()?.set_order(
         &refs
             .iter()
-            .map(|name| (*name).to_owned())
-            .collect::<Vec<_>>(),
+            .map(|name| gix::refs::FullName::try_from(*name))
+            .collect::<Result<Vec<_>, _>>()?,
     )?;
     Ok(())
 }

@@ -110,6 +110,18 @@ DROP TABLE vb_branch_targets;
 DROP TABLE vb_stack_heads;
 DROP TABLE vb_stacks;
 DROP TABLE vb_state;",
+), crate::M::up(
+    20260908120000,
+    crate::SchemaVersion::Two,
+    "CREATE TABLE branch_order_bytes (
+    branch_ref_name BLOB NOT NULL PRIMARY KEY,
+    parent_ref_name BLOB UNIQUE,
+    CHECK (parent_ref_name IS NULL OR branch_ref_name != parent_ref_name)
+);
+INSERT INTO branch_order_bytes (branch_ref_name, parent_ref_name)
+SELECT CAST(branch_ref_name AS BLOB), CAST(parent_ref_name AS BLOB) FROM branch_order;
+DROP TABLE branch_order;
+ALTER TABLE branch_order_bytes RENAME TO branch_order;",
 )];
 
 /// An owned, consistent snapshot of reference metadata from the project database.
@@ -269,7 +281,6 @@ impl Metadata {
             );
             for name in chain {
                 FullName::try_from(name.as_bstr())?;
-                name.as_bstr().to_str()?;
                 ensure!(names.insert(name), "Duplicate ordered reference '{name}'");
             }
         }
@@ -312,25 +323,7 @@ impl Metadata {
                 },
             ));
         }
-        let mut branch_orders: Vec<Vec<FullName>> = Vec::new();
-        let order = BranchOrderHandle { conn };
-        for entry in order.get_snapshot()?.entries {
-            if branch_orders.iter().any(|chain| {
-                chain
-                    .iter()
-                    .any(|name| name.as_bstr() == entry.branch_ref_name.as_str())
-            }) {
-                continue;
-            }
-            if let Some(chain) = order.order_for_reference(&entry.branch_ref_name)? {
-                branch_orders.push(
-                    chain
-                        .into_iter()
-                        .map(FullName::try_from)
-                        .collect::<std::result::Result<_, _>>()?,
-                );
-            }
-        }
+        let branch_orders = BranchOrderHandle { conn }.get_snapshot()?.into_chains()?;
         if let Some(tx) = read_tx {
             tx.commit()?;
         }
@@ -435,21 +428,17 @@ impl MetadataMut<'_> {
             write_branch(self.transaction.connection(), name.as_ref(), value)?;
         }
         for chain in &snapshot.branch_orders {
-            let names = chain
-                .iter()
-                .map(|name| name.as_bstr().to_str().map(ToOwned::to_owned))
-                .collect::<std::result::Result<Vec<_>, _>>()?;
             BranchOrderHandleMut {
                 sp: self.transaction.savepoint()?,
             }
-            .set_order(&names)?;
+            .set_order(chain)?;
         }
         self.finish()
     }
 
     /// Restore explicit branch ordering atomically.
     pub fn replace_branch_order(mut self, snapshot: &BranchOrderSnapshot) -> Result<()> {
-        snapshot.validate().map_err(anyhow::Error::msg)?;
+        snapshot.validate()?;
         BranchOrderHandleMut {
             sp: self.transaction.savepoint()?,
         }
@@ -475,12 +464,10 @@ impl MetadataMut<'_> {
     pub fn remove(mut self, ref_name: &FullNameRef) -> Result<bool> {
         let before = Metadata::read(self.transaction.connection())?;
         let had_order = before.branch_stack_order(ref_name).is_some();
-        if let Ok(name) = ref_name.as_bstr().to_str() {
-            BranchOrderHandleMut {
-                sp: self.transaction.savepoint()?,
-            }
-            .remove_reference(name)?;
+        BranchOrderHandleMut {
+            sp: self.transaction.savepoint()?,
         }
+        .remove_reference(ref_name)?;
         let conn = self.transaction.connection();
         let key = ref_name.as_bstr().as_bytes();
         let mut removed =
@@ -534,35 +521,18 @@ impl MetadataMut<'_> {
                 params![new.as_bstr().as_bytes(), old.as_bstr().as_bytes()],
             )?;
         }
-        if let Ok(old) = old.as_bstr().to_str() {
-            if let Ok(new) = new.as_bstr().to_str() {
-                BranchOrderHandleMut {
-                    sp: self.transaction.savepoint()?,
-                }
-                .rename_reference(old, new)?;
-            } else {
-                ensure!(
-                    !before
-                        .branch_orders
-                        .iter()
-                        .flatten()
-                        .any(|name| name.as_bstr() == old),
-                    "Cannot store a non-UTF-8 reference in legacy ad-hoc branch ordering"
-                );
-            }
+        BranchOrderHandleMut {
+            sp: self.transaction.savepoint()?,
         }
+        .rename_reference(old, new)?;
         self.finish()
     }
     /// Replace the branch-order chains containing these references with this tip-to-base chain.
     pub fn set_branch_stack_order(mut self, branches: &[FullName]) -> Result<()> {
-        let names = branches
-            .iter()
-            .map(|name| name.as_bstr().to_str().map(ToOwned::to_owned))
-            .collect::<std::result::Result<Vec<_>, _>>()?;
         BranchOrderHandleMut {
             sp: self.transaction.savepoint()?,
         }
-        .set_order(&names)?;
+        .set_order(branches)?;
         self.finish()
     }
 
@@ -575,7 +545,7 @@ impl MetadataMut<'_> {
         BranchOrderHandleMut {
             sp: self.transaction.savepoint()?,
         }
-        .rename_reference(old.as_bstr().to_str()?, new.as_bstr().to_str()?)?;
+        .rename_reference(old, new)?;
         self.finish()
     }
 
@@ -584,14 +554,10 @@ impl MetadataMut<'_> {
         mut self,
         names: &[FullName],
     ) -> Result<()> {
-        let names = names
-            .iter()
-            .map(|name| name.as_bstr().to_str().map(ToOwned::to_owned))
-            .collect::<std::result::Result<Vec<_>, _>>()?;
         BranchOrderHandleMut {
             sp: self.transaction.savepoint()?,
         }
-        .remove_missing_references(&names)?;
+        .remove_missing_references(names)?;
         self.finish()
     }
 }
