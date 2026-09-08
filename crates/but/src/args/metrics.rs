@@ -76,6 +76,7 @@ pub enum CommandName {
     Onboarding,
     AgentLog,
     Actions,
+    Skill,
     SkillInstall,
     SkillCheck,
     AgentSetup,

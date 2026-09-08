@@ -204,7 +204,7 @@ Running `but commit` from inside a worktree acts on the main workspace, exactly 
 
 **Placing commits:** Use `--above <target>` or `--below <target>` when the new commit should be inserted at a specific position in existing history. Change-ID refs of existing commits remain valid after an insertion; sha and `#N`-suffixed refs may go stale — add `--status-after` when subsequent history edits need fresh refs.
 
-**Several commits from one diff:** Chain `but commit` calls with `&&` to split a broad uncommitted change into several semantic commits: `but commit -b <branch> -m "msg1" a1 b2 && but commit -b <branch> -m "msg2" c3 d4`. Mutation output is concise by default. Add `--status-after` only when the next step needs workspace IDs or details that the mutation result does not provide. The commits stack in the order you write them — the first `but commit` is the oldest of the new commits and each later one goes on top (newest). File/hunk IDs copied from the original output generally remain usable across commits; if an ID stops resolving, re-read the diff and continue. History edits (`amend`, `squash`, `move`, `uncommit`, `reword`) may run in sequence off one status read when every commit ref involved is a change-ID ref; run them one at a time with `--status-after` when a ref is sha-based or `#N`-suffixed, or when the next command needs freshly issued IDs. Bare `but diff` needs no ID from the preceding command, so `but uncommit <id> && but diff` is safe. If commits from that branch must stay *above* the new ones, see "Split an existing commit" in SKILL.md: commit the replacements, then move the preserved block together with `but move <preserved-id> [<preserved-id>...] -b <branch>` so its internal order stays intact.
+**Several commits from one diff:** Chain `but commit` calls with `&&` to split a broad uncommitted change into several semantic commits: `but commit -b <branch> -m "msg1" a1 b2 && but commit -b <branch> -m "msg2" c3 d4`. Mutation output is concise by default. Add `--status-after` only when the next step needs workspace IDs or details that the mutation result does not provide. The commits stack in the order you write them — the first `but commit` is the oldest of the new commits and each later one goes on top (newest). File/hunk IDs copied from the original output generally remain usable across commits; if an ID stops resolving, re-read the diff and continue. History edits (`amend`, `squash`, `move`, `uncommit`, `reword`) may run in sequence off one status read when every commit ref involved is a change-ID ref; run them one at a time with `--status-after` when a ref is sha-based or `#N`-suffixed, or when the next command needs freshly issued IDs. Bare `but diff` needs no ID from the preceding command, so `but uncommit <id> && but diff` is safe. If commits from that branch must stay *above* the new ones, see "Split an existing commit" in `but skill`: commit the replacements, then move the preserved block together with `but move <preserved-id> [<preserved-id>...] -b <branch>` so its internal order stays intact.
 
 Example: `but commit -b my-branch -m "Fix bug" ab cd` commits files/hunks `ab` and `cd`.
 
@@ -627,9 +627,14 @@ but update install [nightly|release|0.18.7]
 
 ### `but skill`
 
-Manage installed GitButler skill files.
+Print this skill from the CLI, or manage installed skill files.
 
 ```bash
+but skill                     # Core guide (this skill's SKILL.md body)
+but skill --full              # Core guide plus every reference
+but skill reference           # Command syntax and flags
+but skill concepts            # Workspace model
+but skill examples            # Workflow examples
 but skill check
 but skill check --update
 but skill install --detect

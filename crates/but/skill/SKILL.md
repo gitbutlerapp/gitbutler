@@ -57,7 +57,7 @@ The first token on each `but diff` / `but status` line is that line's ID. When a
 2. Mutation commands print their result without appending workspace status. Add `--status-after` only when the next step needs resulting workspace IDs or details; otherwise trust the mutation result and do not run a verification status/diff.
 3. Branches marked `(merged upstream)` have landed; run `but pull` to remove them, or start new work on another branch. `push` and mutations (`commit`, `amend`, `squash`, `uncommit`, `reword`, `move`) refuse landed branches and commits, `absorb` skips them with a notice, and `commit` skips them when picking a default target.
 4. In non-interactive CLI workflows, do not narrate progress between routine commands. Execute the needed `but` commands and give a concise final summary.
-5. Prefer this skill and `references/reference.md` over exploratory help calls. Use `<command> --help` when required syntax is missing or a command fails; use top-level help only when you genuinely need to discover an undocumented command.
+5. Prefer this skill and `but skill reference` over exploratory help calls. Use `<command> --help` when required syntax is missing or a command fails; use top-level help only when you genuinely need to discover an undocumented command.
 
 ## Command Patterns
 
@@ -158,7 +158,7 @@ To make one existing branch depend on another: `but move <child-branch-name> --a
 
 `but pr new <branch-name>` pushes the selected branch and its ancestors, then creates the PR in one step — no prior `but push`. Provide `-F pr_message.txt`, `-t`, or `-m` with real newlines (zsh/bash: `-m $'Title\n\nBody'`) so no editor opens. If forge auth is missing, run `but config forge auth`.
 
-If you do create a PR for a stacked branch, use `but pr` — not `gh pr create` (only `but pr` sets PR bases and stack metadata; `gh pr create` breaks that). To publish a whole stack: `but pr new <top-branch-name> -t`. Manage with `but pr auto-merge|set-draft|set-ready <selector>`; selectors can be a branch name, current branch/stack CLI ID, or numeric review ID. See `references/reference.md` for details.
+If you do create a PR for a stacked branch, use `but pr` — not `gh pr create` (only `but pr` sets PR bases and stack metadata; `gh pr create` breaks that). To publish a whole stack: `but pr new <top-branch-name> -t`. Manage with `but pr auto-merge|set-draft|set-ready <selector>`; selectors can be a branch name, current branch/stack CLI ID, or numeric review ID. See `but skill reference` for details.
 
 ### Dependency conflict with another branch
 
@@ -215,6 +215,6 @@ A wrong resolution is reverted with `but undo`.
 
 - Read-only git inspection (`git log`, `git blame`, `git show --stat`) is allowed.
 - If `but` prints an `AGENT ACTION REQUIRED` skill warning, run the suggested command once, then reload/use the GitButler skill. If it repeats, report it instead of retrying.
-- For command syntax and flags: `references/reference.md`
-- For workspace model: `references/concepts.md`
-- For workflow examples: `references/examples.md`
+- For command syntax and flags: `but skill reference`
+- For workspace model: `but skill concepts`
+- For workflow examples: `but skill examples`

@@ -5,8 +5,9 @@
 use std::path::PathBuf;
 
 use super::{
-    check_skill_status, find_format_installations, home_dir, is_current_skill_installation,
-    skill_format_for_agent, skill_format_for_name, write_skill_files,
+    SkillLayout, check_skill_status, find_format_installations, home_dir,
+    is_current_skill_installation, skill_format_for_agent, skill_format_for_name,
+    write_skill_files,
 };
 use crate::{
     theme,
@@ -79,7 +80,7 @@ fn agent_skill_freshness_check() -> Option<AgentSkillNotice> {
     }
     let mut update_error = None;
     for path in outdated {
-        if let Err(err) = write_skill_files(&path) {
+        if let Err(err) = write_skill_files(&path, SkillLayout::Full) {
             tracing::debug!(?err, ?path, "failed to update the agent skill");
             if update_error.is_none() {
                 update_error = Some(err);
@@ -261,7 +262,7 @@ mod tests {
         let local = skill_format_for_agent(Agent::Codex, false)
             .unwrap()
             .get_install_path(dir.path());
-        write_skill_files(&local).unwrap();
+        write_skill_files(&local, SkillLayout::Full).unwrap();
 
         assert!(
             !agent_skill_installations(Agent::Codex, None)

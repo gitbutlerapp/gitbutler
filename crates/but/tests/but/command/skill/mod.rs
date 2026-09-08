@@ -1,8 +1,10 @@
 use snapbox::str;
 
+mod serve;
+
 use crate::utils::{CommandExt, Sandbox};
 
-fn relative_agent_skill_path(agent_dir: &str) -> std::path::PathBuf {
+pub(super) fn relative_agent_skill_path(agent_dir: &str) -> std::path::PathBuf {
     std::path::PathBuf::from(agent_dir)
         .join("skills")
         .join("gitbutler")
@@ -17,6 +19,16 @@ fn disable_agent_skill_notices(env: &Sandbox) {
     .expect("settings are valid JSON");
     settings["agentSkillNotices"] = false.into();
     std::fs::write(settings_path, settings.to_string()).expect("settings are writable");
+}
+
+/// Turn the sandbox root into a repository whose config cannot be parsed, so
+/// discovery fails outright instead of reporting "not a repository".
+pub(super) fn corrupt_repository(env: &Sandbox) {
+    let git_dir = env.projects_root().join(".git");
+    std::fs::create_dir_all(git_dir.join("refs")).unwrap();
+    std::fs::create_dir_all(git_dir.join("objects")).unwrap();
+    std::fs::write(git_dir.join("HEAD"), "ref: refs/heads/main\n").unwrap();
+    std::fs::write(git_dir.join("config"), "[core\n").unwrap();
 }
 
 fn path_ends_with_gitbutler_agents_dir(path: &str) -> bool {
@@ -916,4 +928,31 @@ fn skill_install_surfaces_non_repo_discovery_errors() {
         !stderr.contains("In non-interactive mode, you must specify --path"),
         "Unexpected fallback to non-interactive path prompt: {stderr}"
     );
+}
+
+#[test]
+fn skill_global_install_and_check_work_inside_an_unreadable_repository() {
+    let env = Sandbox::empty();
+    corrupt_repository(&env);
+
+    env.but("skill install --global --path .agents/skills/gitbutler")
+        .assert()
+        .success();
+    env.but("skill check --global")
+        .assert()
+        .success()
+        .stdout_eq(str![[r#"
+...
+✓ All skills are up to date!
+
+"#]]);
+
+    // Local scope still needs the repository, and the real failure is reported.
+    env.but("skill check --local")
+        .assert()
+        .failure()
+        .stderr_eq(str![[r#"
+Error: Failed to load the git configuration
+...
+"#]]);
 }
