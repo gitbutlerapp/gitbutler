@@ -42,8 +42,6 @@ struct Lane {
 
 /// Consecutive segments of a [`Lane`] that form one stack segment.
 struct Group {
-    /// The segment whose name and remote the group is shown with.
-    identity: SegmentIndex,
     /// The segments contributing commits, starting with `head`.
     /// Empty if `head` is at or below the target.
     members: Vec<SegmentIndex>,
@@ -296,7 +294,6 @@ impl Graph {
     /// Split a walk at each local branch.
     fn groups(&self, tip: SegmentIndex, walked: &[SegmentIndex]) -> Vec<Group> {
         let group = |sidx: SegmentIndex, members: Vec<SegmentIndex>| Group {
-            identity: self.identity_of(sidx),
             members,
             head: sidx,
         };
@@ -306,30 +303,17 @@ impl Graph {
         walked
             .iter()
             .fold(Vec::<Group>::new(), |mut groups, &sidx| {
-                let name = self[self.identity_of(sidx)].ref_name();
+                let name = self[sidx].ref_name();
                 let starts_group = is_local_branch(name)
                     && groups
                         .last()
-                        .is_some_and(|last| self[last.identity].ref_name() != name);
+                        .is_some_and(|last| self[last.head].ref_name() != name);
                 match groups.last_mut().filter(|_| !starts_group) {
                     Some(last) => last.members.push(sidx),
                     None => groups.push(group(sidx, vec![sidx])),
                 }
                 groups
             })
-    }
-
-    /// An anonymous segment below a branch that was advanced outside the workspace is shown
-    /// as that branch.
-    fn identity_of(&self, sidx: SegmentIndex) -> SegmentIndex {
-        let segment = &self[sidx];
-        if segment.ref_info.is_some() {
-            return sidx;
-        }
-        segment
-            .sibling_segment_id
-            .filter(|&sibling| self[sibling].ref_info.is_some())
-            .unwrap_or(sidx)
     }
 
     fn has_commits(&self, group: &Group) -> bool {
@@ -362,7 +346,7 @@ impl Graph {
                 let segment_names = lane
                     .groups
                     .iter()
-                    .filter_map(|g| self[g.identity].ref_name())
+                    .filter_map(|g| self[g.head].ref_name())
                     .filter(|name| is_local_branch(Some(name)))
                     .collect_vec();
                 let commit_refs = lane
@@ -393,11 +377,10 @@ impl Graph {
         RemoteReach(
             groups
                 .filter_map(|g| {
-                    let identity = &self[g.identity];
-                    identity
-                        .remote_tracking_ref_name
+                    let head = &self[g.head];
+                    head.remote_tracking_ref_name
                         .clone()
-                        .zip(identity.remote_tracking_branch_segment_id)
+                        .zip(head.remote_tracking_branch_segment_id)
                 })
                 .unique()
                 .map(|(remote, remote_sidx)| {
@@ -486,9 +469,7 @@ impl Graph {
             .filter(|(idx, group)| {
                 self.has_commits(group)
                     || (*idx == 0 && !frame.kind.has_managed_ref())
-                    || self[group.identity]
-                        .ref_name()
-                        .is_some_and(wanted_by_metadata)
+                    || self[group.head].ref_name().is_some_and(wanted_by_metadata)
             })
             .map(|(_, group)| group)
             .collect()
@@ -503,8 +484,8 @@ impl Graph {
         remotes: &RemoteReach,
         above: &HashSet<ObjectId>,
     ) -> StackSegment {
-        let identity = &self[group.identity];
-        let remote = identity.remote_tracking_ref_name.as_ref();
+        let head = &self[group.head];
+        let remote = head.remote_tracking_ref_name.as_ref();
         let keep_any_name = !frame.kind.has_managed_ref();
         let num_commits: usize = group
             .members
@@ -528,12 +509,12 @@ impl Graph {
             })
             .collect();
         StackSegment {
-            ref_info: identity
+            ref_info: head
                 .ref_info
                 .clone()
                 .filter(|ri| keep_any_name || is_local_branch(Some(ri.ref_name.as_ref()))),
             remote_tracking_ref_name: remote.cloned(),
-            remote_tracking_branch_segment_id: identity.remote_tracking_branch_segment_id,
+            remote_tracking_branch_segment_id: head.remote_tracking_branch_segment_id,
             id: group.head,
             commits,
             base,
@@ -547,11 +528,11 @@ impl Graph {
                     Some(entry)
                 })
                 .collect(),
-            commits_on_remote: identity
+            commits_on_remote: head
                 .remote_tracking_branch_segment_id
                 .map(|remote_sidx| self.commits_on_remote(remote_sidx, above))
                 .unwrap_or_default(),
-            metadata: match &identity.metadata {
+            metadata: match &head.metadata {
                 Some(SegmentMetadata::Branch(md)) => Some(md.clone()),
                 Some(SegmentMetadata::Workspace(_)) | None => None,
             },

@@ -288,8 +288,8 @@ fn workspace_projection_with_advanced_stack_tip() -> anyhow::Result<()> {
         graph_workspace(ws).to_string(),
         snapbox::str![[r#"
 📕🏘️:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 85efbe4
-└── ≡📙:B on 85efbe4 {1}
-    ├── 📙:B
+└── ≡:anon: on 85efbe4 {1}
+    ├── :anon:
     │   └── ·d69fe94 (🏘️)
     └── 📙:A
         └── ·09d8e52 (🏘️)
@@ -353,13 +353,13 @@ fn workspace_projection_with_stack_tip_advanced_by_two() -> anyhow::Result<()> {
 "#]]
     );
     let ws = &graph.into_workspace()?;
-    // The advanced commits show on `B` as outside the workspace, the fork commit stays managed.
+    // The advanced `B` is ignored: the fork commit stays managed, but anonymous.
     snapbox::assert_data_eq!(
         graph_workspace(ws).to_string(),
         snapbox::str![[r#"
 📕🏘️:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 85efbe4
-└── ≡📙:B on 85efbe4 {1}
-    ├── 📙:B
+└── ≡:anon: on 85efbe4 {1}
+    ├── :anon:
     │   └── ·d69fe94 (🏘️)
     └── 📙:A
         └── ·09d8e52 (🏘️)
@@ -7607,13 +7607,8 @@ fn branch_ahead_of_workspace() -> anyhow::Result<()> {
 "#]]
     );
 
-    // The workspace itself contains information about the outside tips.
-    // We collect it no matter the location of the tip, e.g.
-    // - anon segment directly below the workspace commit
-    // - middle anon segment leading to the named branch over intermediate branches
-    // - middle anon segment leading to the named branch over two outgoing connections
-    // - except: if the segment with a known named segment in its future has a (new) name,
-    //   we leave it and don't attempt to reconstruct the original (out-of-workspace) reference
+    // Branches advanced outside the workspace (`A`, `C-bottom`, `D`) are ignored: only the
+    // parents of the workspace commit are walked, and what they reach is shown as-is.
     snapbox::assert_data_eq!(
         graph_workspace(&graph.into_workspace()?).to_string(),
         snapbox::str![[r#"
@@ -7622,9 +7617,8 @@ fn branch_ahead_of_workspace() -> anyhow::Result<()> {
 │   └── 📙:B
 │       └── ·2f8f06d (🏘️)
 ├── ≡📙:C on fafd9d0 {2}
-│   ├── 📙:C
-│   │   └── ·3f7c4e6 (🏘️)
-│   └── 📙:C-bottom
+│   └── 📙:C
+│       ├── ·3f7c4e6 (🏘️)
 │       └── ·b6895d7 (🏘️)
 └── ≡:new-name-for-D on fafd9d0
     └── :new-name-for-D

@@ -197,14 +197,6 @@ impl StackSegment {
                     .flat_map(|c| c.refs.iter().map(|ri| ri.ref_name.as_ref())),
             )
     }
-
-    /// Return `true` if this segment *would* be anonymous if it wasn't for the out-of-workspace segment to be projected onto this one.
-    ///
-    /// This is signaled by its underlying graph segment being unnamed, with a sibling set.
-    pub fn is_projected_from_outside(&self, graph: &Graph) -> bool {
-        let segment = &graph[self.id];
-        segment.ref_info.is_none() && segment.sibling_segment_id.is_some()
-    }
 }
 
 impl std::fmt::Debug for StackSegment {

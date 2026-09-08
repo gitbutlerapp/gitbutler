@@ -499,10 +499,9 @@ pub fn apply(
         .redo_traversal_with_overlay(repo, meta, overlay.clone())?
         .into_workspace()?;
 
-    let all_applied_branches_are_already_visible = branches_to_apply.iter().all(|rn| {
-        ws.find_segment_and_stack_by_refname(rn.as_ref())
-            .is_some_and(|(_stack, segment)| !segment.is_projected_from_outside(&ws.graph))
-    });
+    let all_applied_branches_are_already_visible = branches_to_apply
+        .iter()
+        .all(|rn| ws.find_segment_and_stack_by_refname(rn.as_ref()).is_some());
     let needs_ws_ref_creation = !ws_ref_exists;
     let local_tracking_config_and_ref_info =
         local_tracking_config_and_ref_info.zip(commit_to_create_branch_at.map({
