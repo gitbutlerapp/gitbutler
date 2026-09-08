@@ -49,3 +49,7 @@ minimumReleaseAge: 2880
 minimumReleaseAgeExclude:
   - "@gitbutler/design-core"
   - "@modelcontextprotocol/sdk"
+  - electron-builder
+  - electron-builder-squirrel-windows
+  - app-builder-lib
+  - dmg-builder
