@@ -16,4 +16,5 @@
 .errorMessage {
 	font-size: 13px;
 	word-break: break-word;
+	user-select: text;
 }
