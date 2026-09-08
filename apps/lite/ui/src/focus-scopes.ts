@@ -158,17 +158,20 @@ export const focusHorizontalScope = ({
 		"details",
 		...(filesPanelSide === "right" ? (["files"] as const) : []),
 	];
+	const visibleFocusScopes = orderedFocusScopes.filter(
+		(scope) => findFocusTarget(document, scope) !== null,
+	);
 	const positionScope =
 		currentFocusScope === "diff" || currentFocusScope === "pr" ? "details" : currentFocusScope;
 
-	if (positionScope === null || !orderedFocusScopes.includes(positionScope)) {
+	if (positionScope === null || !visibleFocusScopes.includes(positionScope)) {
 		const nextFocusScope: FocusScope | undefined =
-			offset === 1 ? orderedFocusScopes.at(0) : orderedFocusScopes.at(-1);
+			offset === 1 ? visibleFocusScopes.at(0) : visibleFocusScopes.at(-1);
 
 		if (nextFocusScope !== undefined) focusScope(nextFocusScope);
 	} else {
-		const nextIndex = orderedFocusScopes.indexOf(positionScope) + offset;
-		const nextFocusScope = nextIndex < 0 ? undefined : orderedFocusScopes.at(nextIndex);
+		const nextIndex = visibleFocusScopes.indexOf(positionScope) + offset;
+		const nextFocusScope = nextIndex < 0 ? undefined : visibleFocusScopes.at(nextIndex);
 		if (nextFocusScope !== undefined) focusScope(nextFocusScope);
 	}
 };
