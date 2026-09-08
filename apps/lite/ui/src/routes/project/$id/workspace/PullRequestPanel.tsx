@@ -62,12 +62,10 @@ const statusBits = (status: ReviewStatus): [string, BadgeVariant, IconName] =>
 const Section: FC<{
 	heading: string;
 	action?: ReactNode;
-	/** Reads as one block with the section above it: no divider, no gap. */
-	joined?: boolean;
 	className?: string;
 	children: ReactNode;
 }> = (p) => (
-	<div className={classes(styles.section, p.joined === true && styles.sectionJoined, p.className)}>
+	<div className={classes(styles.section, p.className)}>
 		<div className={styles.sectionHeader}>
 			<h4 className={classes("text-12", styles.heading)}>{p.heading}</h4>
 			{p.action}
@@ -114,7 +112,7 @@ const pickerButton = (p: {
 		</button>
 	);
 
-const ReviewUser: FC<{ user: ForgeReviewUser }> = ({ user }) => (
+export const ReviewUser: FC<{ user: ForgeReviewUser }> = ({ user }) => (
 	<div className={classes("text-13", styles.user)} title={user.name ?? user.login}>
 		{user.avatarUrl !== null ? (
 			<img src={user.avatarUrl} className={styles.avatar} alt="" />
@@ -133,6 +131,7 @@ const Label: FC<{ label: ForgeReviewLabel }> = ({ label }) => {
 	return (
 		<Badge
 			variant="lightGray"
+			size="large"
 			className={color === null ? undefined : styles.label}
 			style={color === null ? undefined : { "--label-color": color }}
 			title={label.description ?? undefined}
@@ -355,7 +354,7 @@ const ProblemCheckRow: FC<{ problem: ProblemCheck }> = ({ problem: { check, tone
 				{duration !== null && (
 					<>
 						{duration}
-						<span>•</span>
+						<span>·</span>
 					</>
 				)}
 				<Icon name="arrow-up-right" size={14} />
@@ -629,11 +628,6 @@ export const PullRequestPanel: FC<{
 	);
 
 	const createdAtMs = review.createdAt === null ? null : Date.parse(review.createdAt);
-	const modifiedAtMs = review.modifiedAt === null ? null : Date.parse(review.modifiedAt);
-	// The forge stamps modified_at on any activity, so creation itself can
-	// leave the two a moment apart; only a real gap is worth a row.
-	const showUpdated =
-		modifiedAtMs !== null && (createdAtMs === null || modifiedAtMs - createdAtMs > 60_000);
 
 	const handleOpen = (evt: MouseEvent<HTMLAnchorElement>): void => {
 		evt.preventDefault();
@@ -729,24 +723,10 @@ export const PullRequestPanel: FC<{
 				</div>
 			</Section>
 
-			{review.author !== null && (
-				<Section heading="Author">
-					<ReviewUser user={review.author} />
-				</Section>
-			)}
-
 			{createdAtMs !== null && (
 				<Section heading="Created">
 					<span className={classes("text-13", styles.created)}>
 						{formatRelativeTime(createdAtMs)}, {formatAbsoluteTime(createdAtMs)}
-					</span>
-				</Section>
-			)}
-
-			{showUpdated && (
-				<Section heading="Updated" joined>
-					<span className={classes("text-13", styles.created)}>
-						{formatRelativeTime(modifiedAtMs)}, {formatAbsoluteTime(modifiedAtMs)}
 					</span>
 				</Section>
 			)}

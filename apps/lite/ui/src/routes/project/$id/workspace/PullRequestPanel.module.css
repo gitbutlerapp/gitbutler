@@ -4,7 +4,7 @@
 	   own padding is what `top` matches, so it neither jumps nor drifts as it
 	   pins. */
 	position: sticky;
-	top: 12px;
+	top: 16px;
 	/* Width is set by the details container so the header can align with
 	   the panel column (see --pr-panel-width in Details.module.css). */
 	flex: 0 0 var(--pr-panel-width, 315px);
@@ -28,24 +28,17 @@
 	}
 }
 
-/* Sections that read as one block with the section above it — no divider,
-   no gap between the two (Created and Updated). */
-.section + .sectionJoined {
-	padding-top: 0;
-	border-top: none;
-}
-
 .sectionHeader {
 	display: flex;
 	align-items: center;
 	justify-content: space-between;
-	/* Keep row height stable whether or not a picker button renders. */
-	min-height: 20px;
+	/* Keep row height stable whether or not a (small, tag-sized) picker button renders. */
+	min-height: var(--size-tag);
 	gap: 8px;
 }
 
 .heading {
-	color: var(--text-3);
+	color: var(--text-2);
 }
 
 /* The Status section is its header alone: the badge and the PR link sit

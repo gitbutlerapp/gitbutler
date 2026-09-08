@@ -13,10 +13,14 @@ import remarkGfm from "remark-gfm";
 import { codeToTokens, type BundledLanguage } from "shiki";
 import styles from "./Markdown.module.css";
 
+/** The links that leave the app — the only ones that open at all. */
+const isExternalUrl = (url: string | undefined): url is string =>
+	url !== undefined && (url.startsWith("http://") || url.startsWith("https://"));
+
 const openExternally = (evt: MouseEvent<HTMLAnchorElement>): void => {
 	evt.preventDefault();
 	const url = evt.currentTarget.href;
-	if (url.startsWith("http://") || url.startsWith("https://")) {
+	if (isExternalUrl(url)) {
 		window.lite.openInWebBrowser(url).catch((error: unknown) => {
 			// oxlint-disable-next-line no-console
 			console.error(error);
@@ -156,8 +160,15 @@ export const Markdown: FC<{ children: string }> = ({ children }) => (
 			remarkPlugins={[remarkGfm, remarkGemoji]}
 			rehypePlugins={[rehypeRaw, [rehypeSanitize, sanitizeSchema]]}
 			components={{
-				// oxlint-disable-next-line jsx-a11y/anchor-has-content, jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions -- href and children arrive via the spread; it stays a real anchor.
-				a: ({ node: _node, ...props }) => <a {...props} onClick={openExternally} />,
+				a: ({ node: _node, children, ...props }) => (
+					// oxlint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions -- href arrives via the spread; it stays a real anchor.
+					<a {...props} onClick={openExternally}>
+						{children}
+						{isExternalUrl(props.href) && (
+							<Icon name="arrow-up-right" size={12} className={styles.externalIcon} />
+						)}
+					</a>
+				),
 				code: ({ node: _node, className, children, ...props }) => {
 					const language = fencedLanguage(className);
 					return language !== undefined && typeof children === "string" ? (

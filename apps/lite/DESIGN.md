@@ -337,3 +337,50 @@ thought across the two.
 and interrupts. Toasts get theirs from the toast viewport. Neither is the only
 way to know something: a state the user must act on belongs in the UI itself,
 not in a surface that leaves.
+
+## Markdown
+
+**One kit, in ⚛️ Lite Core: the `Markdown/` components.** A component per
+block — Heading with its three levels, Paragraph, List and List item, Link,
+Inline code, and Block, which wraps a code block, blockquote, table, image or
+rule chosen by its swap — and "Markdown / slot", whose default content is a
+sample description built from them. `Markdown.stories.tsx` renders the same
+document, so compare the two when either side changes. Each component's
+description in Figma names the CSS selector it stands for; change one and
+change the other.
+
+**The rhythm is 12, 16, 4.** 12px between text blocks. 16px around anything
+with an edge — a table, a code block, a quote bar, an image, a rule — because
+text carries its own leading and a box doesn't. 4px between the items of a
+list, and a nested list keeps the item rhythm rather than the block one. A
+heading takes twice the text gap above it, 24px, and a little less for h3 and
+below, 20px, so a section reads as a section rather than as one more
+paragraph; 8px below, which collapses into the next block's own margin. In
+Figma the same numbers are the slot's 12px gap plus each block's own padding:
+4 on Block, 12 on H2, 8 on H3. Margins collapse in CSS, so a box next to a
+paragraph gets 16, not 28.
+
+**Type.** Body/13 on a 160% line. H1 is 18, H2 16, H3 14, all semibold.
+Levels four to six stay at the body size and only go semibold; Figma has no
+component for them, and a description that needs a fourth level needs fewer
+levels.
+
+**Every link leaves the app, and the arrow says so.** Links open in the
+browser, never in Lite, and each carries `arrow-up-right` at 12px after its
+text, hung off the anchor without a space so the underline stops at the word.
+Figma writes ↗.
+
+**A box gets an edge.** Code blocks and inline code sit on `--bg-2`, at
+`--radius-card` and `--radius-button` respectively, in mono 12. A blockquote
+is a 3px `--border-2` bar with `--text-2` text. An image takes a 1px
+`--card-border` ring inset inside `--radius-card` corners, so a white
+screenshot has an edge on a white panel, and opens externally on click. A
+table's cells are bordered in `--border-3` under a `--bg-2` header row.
+
+**Inline pieces Figma can't run.** Inline code, keycaps and folds sit inside a
+text line in the app. Figma has no way to flow a chip through text, so the
+kit's sample puts the chip between two text nodes in a row. That is a limit of
+the mockup, not a layout: don't design around where the chip breaks.
+
+**The measure is 480.** A description is set at the details pane's width, the
+story sets the same, and every block component in the kit is 480 wide.

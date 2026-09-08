@@ -244,8 +244,8 @@
 	display: flex;
 	flex-shrink: 0;
 	align-items: center;
-	/* Match small button height to prevent layout shift when buttons appear/disappear. */
-	height: 20px;
+	/* Small buttons are tag-sized; matching them prevents layout shift when they appear/disappear. */
+	height: var(--size-tag);
 	gap: 4px;
 }
 

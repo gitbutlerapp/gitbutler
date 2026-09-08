@@ -1,10 +1,7 @@
 .container {
-	/* The PR layout's columns. They live up here because .prLayout caps itself
-	   at their sum, and because the panel — a separate module, so no literal to
-	   share — reads --pr-panel-width for its own flex-basis. */
-	--pr-main-max: 900px;
+	/* The PR panel's column. It lives up here because the panel — a separate
+	   module, so no literal to share — reads it for its own flex-basis. */
 	--pr-panel-width: 315px;
-	--pr-layout-gap: 16px;
 
 	display: grid;
 	grid-template-rows: auto minmax(0, 1fr);
@@ -276,17 +273,28 @@
    content overflows all the way up to the page pane, which carries the
    details header out of view with it. */
 .prTabScroll {
+	/* The tab's inset and column gap scale with this width (see .prTab). */
+	container-type: inline-size;
 	overflow-y: auto;
 }
 
 .prTab {
+	/* Both breathe with the pane: the panel padding while it is narrow enough
+	   that every pixel goes to the columns, growing to a generous margin as
+	   the window is stretched wide. */
+	--pr-tab-inset: clamp(var(--panel-padding-inline), 4cqi - 16px, 40px);
+	--pr-layout-gap: clamp(16px, 2.5cqi - 4px, 32px);
+
 	width: 100%;
-	max-width: 1000px;
+	/* Caps the columns, not the inset: with border-box sizing a fixed cap
+	   would hand the wider inset its width out of the content. */
+	max-width: calc(1000px + 2 * var(--pr-tab-inset));
 	margin: 0 auto;
-	padding-inline: var(--panel-padding-inline);
-	/* Deeper than the panel's own block padding: the tab ends on the comment
-	   composer, which needs room under it rather than the viewport edge. */
-	padding-block: 12px 24px;
+	padding-inline: var(--pr-tab-inset);
+	/* Fixed above — the panel's sticky `top` matches it — and deeper below:
+	   the tab ends on the comment composer, which needs room under it rather
+	   than the viewport edge. */
+	padding-block: 16px 24px;
 }
 
 .prLayout {

@@ -14,8 +14,10 @@ import {
 	aiConfigurationQueryOptions,
 	branchDetailsQueryOptions,
 	currentForgeLoginQueryOptions,
+	forgeInfoOptions,
 	getReviewMergeStatusQueryOptions,
 	listReviewReactionsQueryOptions,
+	listReviewTimelineEventsQueryOptions,
 } from "#ui/api/queries.ts";
 import {
 	Reactions,
@@ -28,6 +30,8 @@ import { DropdownButton } from "#ui/components/DropdownButton.tsx";
 import { FieldControlStyles, FieldRootStyles } from "#ui/components/Field.tsx";
 import { Icon } from "#ui/components/Icon.tsx";
 import { Markdown } from "#ui/components/Markdown.tsx";
+import { ReviewUser } from "#ui/routes/project/$id/workspace/PullRequestPanel.tsx";
+import { formatAbsoluteTime, formatRelativeTime } from "#ui/time.ts";
 import { branchDetailsParams } from "#ui/branch.ts";
 import { MarkdownAttachments } from "#ui/components/MarkdownAttachments.tsx";
 import { MarkdownToolbar } from "#ui/components/MarkdownToolbar.tsx";
@@ -53,7 +57,16 @@ import { Field, Tooltip } from "@base-ui/react";
 import type { ForgeReview, ReviewMergeMethod, ReviewMergeStatus } from "@gitbutler/but-sdk";
 import { useQuery, useSuspenseQuery } from "@tanstack/react-query";
 import { useHotkey } from "@tanstack/react-hotkeys";
-import { type FC, type SubmitEvent, Suspense, useEffect, useRef, useState } from "react";
+import { useMergedRefs } from "@base-ui/utils/useMergedRefs";
+import {
+	type FC,
+	type ReactNode,
+	type SubmitEvent,
+	Suspense,
+	useEffect,
+	useRef,
+	useState,
+} from "react";
 import styles from "./PullRequestForm.module.css";
 
 /**
@@ -101,6 +114,11 @@ export const PullRequestForm: FC<{
 	 * auto-merge). Never called when editing an existing PR.
 	 */
 	afterPublish?: (reviewId: number) => void;
+	/**
+	 * Which field takes focus when the form mounts: the title by default, the
+	 * description when the user came here to add one.
+	 */
+	autofocus?: "title" | "body";
 }> = ({
 	projectId,
 	sourceBranch,
@@ -112,6 +130,7 @@ export const PullRequestForm: FC<{
 	onAfterSubmit,
 	onCancel,
 	afterPublish,
+	autofocus = "title",
 }) => {
 	const { isPending: isPushPending, mutateAsync: pushBranchAndAncestors } =
 		useWorkspaceBranchAndAncestorsPush(projectId);
@@ -348,7 +367,7 @@ export const PullRequestForm: FC<{
 					render={<FieldControlStyles />}
 					aria-label="Pull request title"
 					data-focus-scope={"pr" satisfies FocusScope}
-					ref={useAutofocusScope()}
+					ref={useAutofocusScope(autofocus === "title")}
 					name="title"
 					onChange={(evt) => setLocalDocument({ ...localDocument, title: evt.currentTarget.value })}
 					placeholder="PR title"
@@ -373,7 +392,7 @@ export const PullRequestForm: FC<{
 					// Only the flip re-renders: React bails out of an unchanged state.
 					onScroll={(evt) => setBodyScrolled(evt.currentTarget.scrollTop > 0)}
 					placeholder="PR description"
-					ref={bodyRef}
+					ref={useMergedRefs(bodyRef, useAutofocusScope(autofocus === "body"))}
 					value={localDocument.body}
 				/>
 
@@ -471,6 +490,52 @@ export const PullRequestForm: FC<{
 };
 
 /** A designed action whose backing feature does not exist yet. */
+/**
+ * The line under the title: who opened the review, how many commits it
+ * carries and, once it has moved on from opening, when it last did. The side
+ * panel keeps the opening time.
+ */
+export const PullRequestMeta: FC<{ projectId: string; review: ForgeReview }> = ({
+	projectId,
+	review,
+}) => {
+	const { data: forgeInfo } = useQuery(forgeInfoOptions(projectId));
+	// The review itself does not say how many commits it holds; the forge's
+	// timeline, one event per commit currently on the review, does. It is the
+	// same query the side panel's Activity section reads, so the count costs
+	// nothing extra — and, like that section, only forges with a conversation
+	// serve it.
+	const { data: commitCount } = useQuery({
+		...listReviewTimelineEventsQueryOptions({ projectId, reviewId: review.number }),
+		enabled: forgeInfo?.capabilities.reviewComments !== false,
+		select: (events) => events.filter((event) => event.kind === "committed").length,
+	});
+	const createdAtMs = review.createdAt === null ? null : Date.parse(review.createdAt);
+	const modifiedAtMs = review.modifiedAt === null ? null : Date.parse(review.modifiedAt);
+	// The forge stamps modified_at on any activity, so creation itself can
+	// leave the two a moment apart; only a real gap is worth mentioning.
+	const updated =
+		modifiedAtMs !== null && (createdAtMs === null || modifiedAtMs - createdAtMs > 60_000)
+			? modifiedAtMs
+			: null;
+	const commits = commitCount !== undefined && commitCount > 0 ? commitCount : null;
+	if (review.author === null && commits === null && updated === null) return null;
+
+	return (
+		<div className={classes("text-13", styles.prViewMeta)}>
+			{review.author !== null && <ReviewUser user={review.author} />}
+			{commits !== null && (
+				<span>
+					{commits} commit{commits === 1 ? "" : "s"}
+				</span>
+			)}
+			{updated !== null && (
+				<span title={formatAbsoluteTime(updated)}>updated {formatRelativeTime(updated)}</span>
+			)}
+		</div>
+	);
+};
+
 /** Rendered PR title and body; the header's Edit button flips to the form. */
 export const PullRequestDescription: FC<{
 	projectId: string;
@@ -478,10 +543,25 @@ export const PullRequestDescription: FC<{
 	reviewId: number;
 	title: string;
 	body: string | null;
+	/** Sits between the title and the body while not editing. */
+	meta?: ReactNode;
 	canSubmit: boolean;
 	editing: boolean;
 	onDoneEditing: () => void;
-}> = ({ projectId, sourceBranch, reviewId, title, body, canSubmit, editing, onDoneEditing }) => {
+	/** Absent where the review is read-only, so the empty body offers no edit. */
+	onStartEditing?: () => void;
+}> = ({
+	projectId,
+	sourceBranch,
+	reviewId,
+	title,
+	body,
+	meta,
+	canSubmit,
+	editing,
+	onDoneEditing,
+	onStartEditing,
+}) => {
 	const { data: reviewReactions } = useQuery({
 		...listReviewReactionsQueryOptions({ projectId, reviewId }),
 		select: tallyReactions,
@@ -492,6 +572,13 @@ export const PullRequestDescription: FC<{
 	const toggleReaction = (kind: string, myReactionId: number | null) => {
 		if (myReactionId === null) addReviewReaction({ projectId, reviewId, kind });
 		else removeReviewReaction({ projectId, reviewId, reactionId: myReactionId });
+	};
+	// "Add one" and the header's Edit button share one edit mode, but the
+	// former was clicked to write a description, so the form opens on it.
+	const [autofocus, setAutofocus] = useState<"title" | "body">("title");
+	const doneEditing = () => {
+		setAutofocus("title");
+		onDoneEditing();
 	};
 
 	if (editing) {
@@ -506,8 +593,9 @@ export const PullRequestDescription: FC<{
 					sourceBranch={sourceBranch}
 					title={title}
 					canSubmit={canSubmit}
-					onAfterSubmit={onDoneEditing}
-					onCancel={onDoneEditing}
+					autofocus={autofocus}
+					onAfterSubmit={doneEditing}
+					onCancel={doneEditing}
 				/>
 			</Suspense>
 		);
@@ -515,15 +603,37 @@ export const PullRequestDescription: FC<{
 
 	return (
 		<div className={styles.prView}>
-			<h3 className={classes("text-15", "text-semibold")}>{title}</h3>
+			<h3 className={styles.prViewTitle}>{title}</h3>
+
+			{meta}
 
 			{body !== null && body.trim() !== "" ? (
-				// Taller ceiling than comments: only truly huge descriptions fold.
-				<Clamped maxHeight="80vh" skipWhenViewportFits>
+				// A long description opens as a four-line card so the conversation
+				// below is in reach: four rather than three because a body that opens
+				// with a heading spends a line and a half on it. The slack means a
+				// fold always hides at least a few lines, never just one.
+				<Clamped maxHeight="4lh" foldOver="6lh" variant="card">
 					<Markdown>{body}</Markdown>
 				</Clamped>
 			) : (
-				<p className={classes("text-13", styles.prViewEmptyBody)}>No description provided.</p>
+				<p className={classes("text-14", "text-body", styles.prViewEmptyBody)}>
+					No description
+					{onStartEditing !== undefined && (
+						<>
+							{" — "}
+							<button
+								className={styles.prViewAddDescription}
+								type="button"
+								onClick={() => {
+									setAutofocus("body");
+									onStartEditing();
+								}}
+							>
+								Add one
+							</button>
+						</>
+					)}
+				</p>
 			)}
 
 			{reviewReactions !== undefined && (
@@ -532,6 +642,7 @@ export const PullRequestDescription: FC<{
 					reactors={reviewReactions.reactors}
 					myLogin={currentLogin}
 					onToggle={toggleReaction}
+					suggest
 				/>
 			)}
 		</div>

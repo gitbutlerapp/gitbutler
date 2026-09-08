@@ -58,7 +58,7 @@
 
 :where(.small) {
 	--button-gap: 4px;
-	--button-height: 20px;
+	--button-height: var(--size-tag);
 	--button-padding-inline: 6px;
 	--icon-size: 14px;
 

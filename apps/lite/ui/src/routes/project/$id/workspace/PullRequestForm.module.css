@@ -127,6 +127,49 @@
 	flex-direction: column;
 }
 
+/* The markdown H1's face, weight and size (see Markdown.module.css), stated
+   in full rather than layered over a text utility, so the title reads as the
+   top of the description rather than as a heading in another scale. Tighter
+   leading than the body's: a title that wraps should still read as one line
+   of type, not as two paragraphs. */
+.prViewTitle {
+	font-weight: 600;
+	font-size: 18px;
+	line-height: var(--text-lineheight-default);
+	font-family: var(--fontfamily-base);
+}
+
+/* Reads as one line of facts: a dot between each, the same grey as the
+   comment timestamps. The user row inside keeps its own darker login. */
+.prViewMeta {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: 6px;
+	color: var(--text-2);
+
+	& > * + *::before {
+		margin-inline-end: 6px;
+		content: "·";
+	}
+}
+
 .prViewEmptyBody {
 	color: var(--text-3);
+}
+
+.prViewAddDescription {
+	padding: 0;
+	border: none;
+	background: none;
+	color: var(--text-2);
+	font: inherit;
+	/* The designed link treatment: dotted, on the font's own underline. */
+	text-decoration: underline dotted;
+	text-underline-position: from-font;
+	cursor: pointer;
+
+	&:hover {
+		color: var(--text-1);
+	}
 }

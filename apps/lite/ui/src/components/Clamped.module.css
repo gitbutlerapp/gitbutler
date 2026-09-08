@@ -52,3 +52,63 @@
 .toggleInline {
 	margin-block-start: 8px;
 }
+
+/* The card variant: folded, a quiet ground with the chevron seated at the
+   bottom corner beside the faded last line; unfolded, no ground at all, with
+   the chevron up at the first line so it stays where it was clicked. The
+   chevron keeps its own column in both states so the text wraps at the same
+   width folded and unfolded. */
+.card {
+	display: flex;
+	column-gap: 8px;
+	align-items: flex-start;
+}
+
+/* Folded or unfolded, the content keeps the card's inset, so the text does
+   not shift when the ground comes and goes: pulled out by its own inset so
+   the text stays on the column's left edge with the title and everything
+   under it; the card is a wash just wider than the text, not a box the text
+   moved into. */
+.cardFramed {
+	margin-inline: -8px;
+	padding: 6px 8px;
+}
+
+.cardFolded {
+	/* Halfway from the page to the first gray step, the way the button hover
+	   ground sits between its two steps: a whole step reads as a panel, and
+	   this is a passage of the description, not a panel. */
+	--card-bg: color-mix(in srgb, var(--bg-2) 50%, var(--bg-1));
+	align-items: flex-end;
+	border-radius: var(--radius-card);
+	background-color: var(--card-bg);
+	/* The whole folded card opens, not only its chevron. */
+	cursor: pointer;
+	transition: background-color var(--transition-fast);
+
+	/* The fade clears to the card's ground, not the page's, and with no label
+	   to seat it can be a plain ramp over the last line and a half. Painted as
+	   the ground color under a mask rather than as a gradient to it, so it
+	   transitions with the card on hover instead of jumping ahead of it. */
+	& .overflowing::after {
+		height: 30px;
+		background: var(--card-bg);
+		mask-image: linear-gradient(to bottom, transparent, black);
+		transition: background-color var(--transition-fast);
+	}
+
+	&:hover {
+		--card-bg: var(--bg-2);
+	}
+}
+
+.cardContent {
+	flex: 1;
+	/* Without this a long code span holds the column at its widest content
+	   and pushes the chevron out of the card. */
+	min-width: 0;
+}
+
+.cardToggle {
+	flex: none;
+}
