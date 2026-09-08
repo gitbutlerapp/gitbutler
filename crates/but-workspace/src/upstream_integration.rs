@@ -196,6 +196,11 @@ pub fn integrate_upstream_with_hints<'ws, 'meta, M: RefMetadata>(
         .clone()
         .context("Cannot update a workspace with no target ref")?;
     let target_ref_commit = repo.find_reference(&target_ref.ref_name)?.id();
+    // Materializing re-projects the workspace from the graph's own project meta, and the
+    // dry-run overlay reads its target from there too. Move it to the target's tip now, or
+    // the outcome is projected against the old base, with the target's commits folded into
+    // the stacks as integrated.
+    workspace.graph.project_meta.target_commit_id = Some(target_ref_commit.detach());
 
     let entrypoint = workspace.graph.entrypoint()?;
     let head_commit = entrypoint
