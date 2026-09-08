@@ -252,7 +252,11 @@ fn diamond_partially_content_integrated_rebase() -> Result<()> {
 "#]]
     );
     let project_meta = workspace.graph.project_meta.clone();
-    let but_workspace::IntegrateUpstreamOutcome { rebase, .. } = integrate_upstream(
+    let but_workspace::IntegrateUpstreamOutcome {
+        rebase,
+        project_meta,
+        ..
+    } = integrate_upstream(
         &mut workspace,
         &mut meta,
         project_meta,
@@ -264,7 +268,7 @@ fn diamond_partially_content_integrated_rebase() -> Result<()> {
         }],
     )?;
 
-    rebase.materialize(Default::default())?;
+    let materialized = rebase.materialize(Default::default())?;
 
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
@@ -285,6 +289,27 @@ fn diamond_partially_content_integrated_rebase() -> Result<()> {
         .raw()
     );
 
+    // The workspace handed back is what callers render right after the
+    // integration: it must sit on the target's new tip, not the old base with
+    // the just-integrated target commits folded into the stack.
+    let o4_id = repo.rev_parse_single("origin/master")?.detach();
+    assert_eq!(project_meta.target_commit_id, Some(o4_id));
+    assert_eq!(
+        materialized.workspace.graph.project_meta.target_commit_id,
+        Some(o4_id)
+    );
+    snapbox::assert_data_eq!(
+        graph_workspace(materialized.workspace).to_string(),
+        snapbox::str![[r#"
+📕🏘️:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/master on 162b064
+└── ≡📙:E on 162b064 {1}
+    ├── 📙:E
+    │   └── ·cb866ec (🏘️)
+    └── :C
+        └── ·c7b32b8 (🏘️)
+
+"#]]
+    );
     Ok(())
 }
 

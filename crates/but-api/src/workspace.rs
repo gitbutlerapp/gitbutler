@@ -652,6 +652,7 @@ pub fn workspace_integrate_upstream_only_with_perm(
                 Vec::new()
             }
         };
+        let cached_target = ws.graph.project_meta.target_commit_id;
         let IntegrateUpstreamOutcome {
             mut rebase,
             ws_meta,
@@ -672,6 +673,9 @@ pub fn workspace_integrate_upstream_only_with_perm(
             let replaced_commits = rebase.history.commit_mappings();
             let workspace_state =
                 WorkspaceState::from_rebase_preview(&mut rebase, replaced_commits)?;
+            // The preview was projected against the new target; the cached workspace,
+            // which the next caller of this context reuses, has not moved.
+            rebase.project_meta_mut().target_commit_id = cached_target;
             return Ok(WorkspaceIntegrateUpstreamOutcome {
                 workspace_state,
                 worktree_conflicts,

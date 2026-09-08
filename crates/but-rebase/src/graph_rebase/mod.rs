@@ -346,6 +346,13 @@ impl<'ws, 'meta, M: RefMetadata> SuccessfulRebase<'ws, 'meta, M> {
         (&self.repo, self.meta, self.db)
     }
 
+    /// The project metadata the workspace is projected from, both by
+    /// [`Self::overlayed_graph`] and when materializing. A rewrite that moved the
+    /// target records the new tip here so the projection sits on it.
+    pub fn project_meta_mut(&mut self) -> &mut but_core::ref_metadata::ProjectMeta {
+        &mut self.workspace.graph.project_meta
+    }
+
     fn checkout_target(
         &self,
         selector: Selector,
