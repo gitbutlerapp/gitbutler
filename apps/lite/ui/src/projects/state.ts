@@ -1,3 +1,4 @@
+import { createInitialBranchesState, readStoredBranchFilters } from "#ui/projects/branches.ts";
 import {
 	createInitialProjectState,
 	projectReducers,
@@ -10,8 +11,16 @@ type ProjectSliceState = {
 	byProjectId: Record<string, ProjectState>;
 };
 
+// Branch filters are the one piece of project state that outlives the session,
+// so projects with stored filters start out holding them; every other project
+// materializes at the defaults on its first action.
 const initialState: ProjectSliceState = {
-	byProjectId: {},
+	byProjectId: Object.fromEntries(
+		Object.entries(readStoredBranchFilters()).map(([projectId, filters]) => [
+			projectId,
+			{ ...createInitialProjectState(), branches: createInitialBranchesState(filters) },
+		]),
+	),
 };
 
 const ensureProjectState = (state: ProjectSliceState, projectId: string): ProjectState => {

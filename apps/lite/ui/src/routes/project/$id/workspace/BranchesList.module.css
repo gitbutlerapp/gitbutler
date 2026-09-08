@@ -20,6 +20,13 @@
 	align-items: center;
 }
 
+/* With the badge beside the icon the button is no longer icon-only, so it
+   takes the regular button's padding; this pulls it back in to the icon-only
+   rhythm the search button beside it keeps. */
+.filterButtonActive {
+	--button-padding-inline: 6px;
+}
+
 .headerSeparator {
 	align-self: center;
 	width: 1px;

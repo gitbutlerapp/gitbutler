@@ -3,8 +3,9 @@ import uiStyles from "#ui/components/ui.module.css";
 import { useBranchRemove } from "#ui/api/mutations.ts";
 import { decodeBytes, encodeBytes } from "#ui/api/bytes.ts";
 import { assert } from "#ui/assert.ts";
-import { branchIsEmpty, type BranchFilters } from "#ui/branch.ts";
+import { activeBranchFilterCount, branchIsEmpty, type BranchFilters } from "#ui/branch.ts";
 import { commitIsDiverged, commitTitle } from "#ui/commit.ts";
+import { Badge } from "#ui/components/Badge.tsx";
 import { classes } from "#ui/components/classes.ts";
 import { EmptyState } from "#ui/components/EmptyState.tsx";
 import {
@@ -493,11 +494,11 @@ export const BranchesList: FC<
 		(state) => projectSlice.selectors.selectPendingOperation(state, projectId)._tag === "None",
 	);
 
-	// `onlyStacks` is the one filter that hides branches the resting list would
-	// show — the other two default to narrowing and only ever widen from there —
-	// so it, and a search, are what make an empty list a no-match rather than a
-	// state at rest.
-	const isNarrowed = (search ?? "").trim() !== "" || filters.onlyStacks;
+	// `onlyLocal` and `onlyStacks` hide branches the resting list would show —
+	// `showEmpty` only ever widens it — so they, and a search, are what make an
+	// empty list a no-match rather than a state at rest.
+	const isNarrowed = (search ?? "").trim() !== "" || filters.onlyLocal || filters.onlyStacks;
+	const activeFilterCount = activeBranchFilterCount(filters);
 	const isEmptyAtRest = stacks.length === 0 && !isPending && !isError && !isNarrowed;
 
 	const selection = useSelection("unapplied", addressSpace);
@@ -680,12 +681,26 @@ export const BranchesList: FC<
 					actions={
 						<Toolbar.Root aria-label="Branch list actions" render={<RowToolbar forceVisible />}>
 							<Toolbar.Group className={styles.headerGroup}>
+								{/* The menu is native, so the button is the only place the list
+								    can say it is being narrowed: a count of the options switched
+								    on, and nothing at all while none are. */}
 								<Toolbar.Button
-									aria-label="Branch filters"
-									className={getRowButtonClassName({ size: "regular", iconOnly: true })}
+									aria-label={
+										activeFilterCount === 0
+											? "Branch filters"
+											: `Branch filters, ${activeFilterCount} active`
+									}
+									className={classes(
+										getRowButtonClassName({
+											size: "regular",
+											iconOnly: activeFilterCount === 0,
+										}),
+										activeFilterCount > 0 && styles.filterButtonActive,
+									)}
 									onClick={(evt) => showFilterMenu(evt.currentTarget)}
 								>
 									<Icon name="filter" />
+									{activeFilterCount > 0 && <Badge variant="lightGray">{activeFilterCount}</Badge>}
 								</Toolbar.Button>
 
 								<Toolbar.Button

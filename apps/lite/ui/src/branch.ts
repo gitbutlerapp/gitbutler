@@ -39,6 +39,13 @@ export type BranchFilters = {
 };
 
 /**
+ * How many filter options are switched on. Every option is off at rest, so
+ * this is what the header's badge shows and what "any filter active" means.
+ */
+export const activeBranchFilterCount = (filters: BranchFilters): number =>
+	Object.values(filters).filter(Boolean).length;
+
+/**
  * The stacks from the branch listing that are not applied to the workspace,
  * keeping the listing's most-recent-first order. `showEmpty`/`onlyLocal` prune
  * branches within each stack; `onlyStacks` then keeps just the multi-branch
