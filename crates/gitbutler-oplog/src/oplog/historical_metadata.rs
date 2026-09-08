@@ -25,28 +25,21 @@ pub(super) fn remove_inherited_branch_order(
         };
         let complete_match = stack.branches.iter().enumerate().all(|(index, branch)| {
             order.entries.iter().any(|entry| {
-                branch.ref_name.as_bstr() == entry.branch_ref_name.as_str()
-                    && match stack.branches.get(index + 1) {
-                        Some(parent) => entry
-                            .parent_ref_name
-                            .as_ref()
-                            .is_some_and(|name| parent.ref_name.as_bstr() == name.as_str()),
-                        None => entry.parent_ref_name.is_none(),
-                    }
+                branch.ref_name == entry.branch_ref_name
+                    && entry.parent_ref_name.as_ref()
+                        == stack.branches.get(index + 1).map(|parent| &parent.ref_name)
             })
         });
-        let extends_above = order.entries.iter().any(|entry| {
-            entry
-                .parent_ref_name
-                .as_ref()
-                .is_some_and(|name| tip.ref_name.as_bstr() == name.as_str())
-        });
+        let extends_above = order
+            .entries
+            .iter()
+            .any(|entry| entry.parent_ref_name.as_ref() == Some(&tip.ref_name));
         if complete_match && !extends_above {
             order.entries.retain(|entry| {
                 !stack
                     .branches
                     .iter()
-                    .any(|branch| branch.ref_name.as_bstr() == entry.branch_ref_name.as_str())
+                    .any(|branch| branch.ref_name == entry.branch_ref_name)
             });
         }
     }

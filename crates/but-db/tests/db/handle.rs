@@ -51,15 +51,16 @@ fn read_only_observes_existing_database() -> anyhow::Result<()> {
     {
         let mut db = DbHandle::new_in_directory(tmp.path())?;
         db.branch_order_mut()?
-            .set_order(&["refs/heads/A".to_owned(), "refs/heads/B".to_owned()])?;
+            .set_order(&["refs/heads/A".try_into()?, "refs/heads/B".try_into()?])?;
     }
 
     let db = DbHandle::open_existing_read_only_in_directory(tmp.path())?
         .expect("database was created before read-only open");
 
     assert_eq!(
-        db.branch_order().order_for_reference("refs/heads/B")?,
-        Some(vec!["refs/heads/A".to_owned(), "refs/heads/B".to_owned()]),
+        db.branch_order()
+            .order_for_reference("refs/heads/B".try_into()?)?,
+        Some(vec!["refs/heads/A".try_into()?, "refs/heads/B".try_into()?]),
         "read-only handles should see existing branch order"
     );
     Ok(())
