@@ -352,6 +352,7 @@ but discard <hunk-id>              # Discard a single hunk
 but discard @                      # Discard all uncommitted changes
 but discard <commit-id>            # Drop a commit
 but discard <commit-id>:<file-id>  # Drop one file's changes from its commit
+but discard <commit-id>:<file-id>:<hunk-id> # Drop one hunk from its commit
 but discard <branch>               # Drop a branch and its commits
 ```
 
