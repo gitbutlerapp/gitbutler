@@ -154,7 +154,11 @@ pub mod git_credentials {
     impl Store {
         /// Create an instance from the effective global Git configuration.
         fn from_globals() -> Result<Self> {
-            Ok(Store(gix::config(None, &gix::open::Options::default())?))
+            let mut options = gix::open::Options::default();
+            // The helper is often configured in the git installation's own config
+            // (Homebrew's `/opt/homebrew/etc/gitconfig`), which is skipped by default.
+            options.permissions.config.git_binary = true;
+            Ok(Store(gix::config(None, &options)?))
         }
 
         /// Provide credentials preconfigured for the given secrets `handle`.
