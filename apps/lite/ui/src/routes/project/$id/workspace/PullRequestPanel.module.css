@@ -28,13 +28,6 @@
 	}
 }
 
-/* Sections that read as one block with the section above it — no divider,
-   no gap between the two (Created and Updated). */
-.section + .sectionJoined {
-	padding-top: 0;
-	border-top: none;
-}
-
 .sectionHeader {
 	display: flex;
 	align-items: center;

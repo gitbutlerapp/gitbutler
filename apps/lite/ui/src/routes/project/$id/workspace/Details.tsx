@@ -87,6 +87,7 @@ import {
 } from "#ui/routes/project/$id/workspace/PullRequestPanel.tsx";
 import {
 	PullRequestDescription,
+	PullRequestMeta,
 	PullRequestForm,
 	PullRequestPrimaryAction,
 } from "#ui/routes/project/$id/workspace/PullRequestForm.tsx";
@@ -3336,6 +3337,7 @@ const ReviewLayout: FC<{
 					reviewId={review.number}
 					sourceBranch={sourceBranch}
 					title={review.title}
+					meta={<PullRequestMeta projectId={projectId} review={review} />}
 					canSubmit={editing !== undefined}
 					editing={editing?.active ?? false}
 					onDoneEditing={() => editing?.onDone()}

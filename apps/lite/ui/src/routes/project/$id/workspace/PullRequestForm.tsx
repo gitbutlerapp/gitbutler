@@ -14,8 +14,10 @@ import {
 	aiConfigurationQueryOptions,
 	branchDetailsQueryOptions,
 	currentForgeLoginQueryOptions,
+	forgeInfoOptions,
 	getReviewMergeStatusQueryOptions,
 	listReviewReactionsQueryOptions,
+	listReviewTimelineEventsQueryOptions,
 } from "#ui/api/queries.ts";
 import {
 	Reactions,
@@ -28,6 +30,8 @@ import { DropdownButton } from "#ui/components/DropdownButton.tsx";
 import { FieldControlStyles, FieldRootStyles } from "#ui/components/Field.tsx";
 import { Icon } from "#ui/components/Icon.tsx";
 import { Markdown } from "#ui/components/Markdown.tsx";
+import { ReviewUser } from "#ui/routes/project/$id/workspace/PullRequestPanel.tsx";
+import { formatAbsoluteTime, formatRelativeTime } from "#ui/time.ts";
 import { branchDetailsParams } from "#ui/branch.ts";
 import { MarkdownAttachments } from "#ui/components/MarkdownAttachments.tsx";
 import { MarkdownToolbar } from "#ui/components/MarkdownToolbar.tsx";
@@ -54,7 +58,15 @@ import type { ForgeReview, ReviewMergeMethod, ReviewMergeStatus } from "@gitbutl
 import { useQuery, useSuspenseQuery } from "@tanstack/react-query";
 import { useHotkey } from "@tanstack/react-hotkeys";
 import { useMergedRefs } from "@base-ui/utils/useMergedRefs";
-import { type FC, type SubmitEvent, Suspense, useEffect, useRef, useState } from "react";
+import {
+	type FC,
+	type ReactNode,
+	type SubmitEvent,
+	Suspense,
+	useEffect,
+	useRef,
+	useState,
+} from "react";
 import styles from "./PullRequestForm.module.css";
 
 /**
@@ -478,6 +490,52 @@ export const PullRequestForm: FC<{
 };
 
 /** A designed action whose backing feature does not exist yet. */
+/**
+ * The line under the title: who opened the review, how many commits it
+ * carries and, once it has moved on from opening, when it last did. The side
+ * panel keeps the opening time.
+ */
+export const PullRequestMeta: FC<{ projectId: string; review: ForgeReview }> = ({
+	projectId,
+	review,
+}) => {
+	const { data: forgeInfo } = useQuery(forgeInfoOptions(projectId));
+	// The review itself does not say how many commits it holds; the forge's
+	// timeline, one event per commit currently on the review, does. It is the
+	// same query the side panel's Activity section reads, so the count costs
+	// nothing extra — and, like that section, only forges with a conversation
+	// serve it.
+	const { data: commitCount } = useQuery({
+		...listReviewTimelineEventsQueryOptions({ projectId, reviewId: review.number }),
+		enabled: forgeInfo?.capabilities.reviewComments !== false,
+		select: (events) => events.filter((event) => event.kind === "committed").length,
+	});
+	const createdAtMs = review.createdAt === null ? null : Date.parse(review.createdAt);
+	const modifiedAtMs = review.modifiedAt === null ? null : Date.parse(review.modifiedAt);
+	// The forge stamps modified_at on any activity, so creation itself can
+	// leave the two a moment apart; only a real gap is worth mentioning.
+	const updated =
+		modifiedAtMs !== null && (createdAtMs === null || modifiedAtMs - createdAtMs > 60_000)
+			? modifiedAtMs
+			: null;
+	const commits = commitCount !== undefined && commitCount > 0 ? commitCount : null;
+	if (review.author === null && commits === null && updated === null) return null;
+
+	return (
+		<div className={classes("text-13", styles.prViewMeta)}>
+			{review.author !== null && <ReviewUser user={review.author} />}
+			{commits !== null && (
+				<span>
+					{commits} commit{commits === 1 ? "" : "s"}
+				</span>
+			)}
+			{updated !== null && (
+				<span title={formatAbsoluteTime(updated)}>updated {formatRelativeTime(updated)}</span>
+			)}
+		</div>
+	);
+};
+
 /** Rendered PR title and body; the header's Edit button flips to the form. */
 export const PullRequestDescription: FC<{
 	projectId: string;
@@ -485,6 +543,8 @@ export const PullRequestDescription: FC<{
 	reviewId: number;
 	title: string;
 	body: string | null;
+	/** Sits between the title and the body while not editing. */
+	meta?: ReactNode;
 	canSubmit: boolean;
 	editing: boolean;
 	onDoneEditing: () => void;
@@ -496,6 +556,7 @@ export const PullRequestDescription: FC<{
 	reviewId,
 	title,
 	body,
+	meta,
 	canSubmit,
 	editing,
 	onDoneEditing,
@@ -542,7 +603,9 @@ export const PullRequestDescription: FC<{
 
 	return (
 		<div className={styles.prView}>
-			<h3 className={classes("text-15", "text-semibold")}>{title}</h3>
+			<h3 className={styles.prViewTitle}>{title}</h3>
+
+			{meta}
 
 			{body !== null && body.trim() !== "" ? (
 				// Taller ceiling than comments: only truly huge descriptions fold.
