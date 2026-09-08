@@ -316,6 +316,80 @@ fn metadata_is_isolated_and_notifies_only_after_commit() -> anyhow::Result<()> {
 }
 
 #[test]
+fn metadata_noops_do_not_notify_or_forget_prior_changes() -> anyhow::Result<()> {
+    let dir = tempfile::tempdir()?;
+    let mut db = DbHandle::new_in_directory(dir.path())?;
+    let name: FullName = WORKSPACE_REF_NAME.try_into()?;
+    let value = workspace(&db)?;
+    let branch_name = &value.stacks[0].branches[0].ref_name;
+    let branch = but_core::ref_metadata::Branch::default();
+    db.meta_mut()?.set_workspace(name.as_ref(), &value)?;
+    db.meta_mut()?.set_branch(branch_name.as_ref(), &branch)?;
+    let sentinel = dir.path().join("REFRESH");
+    std::fs::remove_file(&sentinel)?;
+
+    db.meta_mut()?.set_workspace(name.as_ref(), &value)?;
+    db.meta_mut()?.set_branch(branch_name.as_ref(), &branch)?;
+    assert!(
+        !sentinel.exists(),
+        "unchanged standalone workspace and branch saves must not notify"
+    );
+    let mut tx = db.immediate_transaction()?;
+    tx.meta_mut()?.set_workspace(name.as_ref(), &value)?;
+    tx.meta_mut()?.set_branch(branch_name.as_ref(), &branch)?;
+    tx.commit()?;
+    assert!(
+        !sentinel.exists(),
+        "committing only unchanged metadata must not notify"
+    );
+
+    let sql = rusqlite::Connection::open(DbHandle::db_file_path(dir.path()))?;
+    sql.execute_batch(
+        "CREATE TRIGGER reject_bad_branch BEFORE INSERT ON workspace_stack_branches
+         WHEN NEW.ref_name = CAST('refs/heads/reject' AS BLOB)
+         BEGIN SELECT RAISE(ABORT, 'rejected branch'); END;",
+    )?;
+    let mut changed = value.clone();
+    changed.ref_info.updated_at = Some(gix::date::Time::new(123, 0));
+    let mut rejected = changed.clone();
+    rejected.stacks[0].branches[0].ref_name = "refs/heads/reject".try_into()?;
+    let mut tx = db.immediate_transaction()?;
+    let error = tx
+        .meta_mut()?
+        .set_workspace(name.as_ref(), &rejected)
+        .expect_err("the branch trigger must reject the mutation after its timestamp write");
+    assert!(
+        error.to_string().contains("rejected branch"),
+        "the SQL trigger must be the cause of the failed mutation"
+    );
+    assert_eq!(
+        tx.meta()?.workspace(name.as_ref()),
+        Some(&value),
+        "the caught failure must roll back the earlier workspace timestamp write"
+    );
+    tx.meta_mut()?.set_workspace(name.as_ref(), &value)?;
+    tx.commit()?;
+    assert!(
+        !sentinel.exists(),
+        "rolled-back savepoint writes followed by a no-op must not notify on commit"
+    );
+
+    let mut tx = db.immediate_transaction()?;
+    tx.meta_mut()?.set_workspace(name.as_ref(), &changed)?;
+    tx.meta_mut()?.set_workspace(name.as_ref(), &changed)?;
+    assert!(
+        !sentinel.exists(),
+        "a real metadata change must remain private until the outer commit"
+    );
+    tx.commit()?;
+    assert!(
+        sentinel.exists(),
+        "a later no-op must not suppress notification for an earlier real change"
+    );
+    Ok(())
+}
+
+#[test]
 fn invalid_workspace_preserves_metadata_and_order() -> anyhow::Result<()> {
     let dir = tempfile::tempdir()?;
     let mut db = DbHandle::new_in_directory(dir.path())?;
