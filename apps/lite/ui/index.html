@@ -4,9 +4,13 @@
 		<meta charset="UTF-8" />
 		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
 		<title>GitButler Lite</title>
-	</head>
-	<body>
 		<style>
+			:root {
+				/* Visible once the renderer loads but before React is ready. Keep in sync with --bg-1. */
+				background: light-dark(#ffffff, #292929);
+				color-scheme: light dark;
+			}
+
 			#root {
 				height: 100dvh;
 				overflow: hidden;
@@ -14,6 +18,9 @@
 				isolation: isolate;
 			}
 		</style>
+	</head>
+
+	<body>
 		<div id="root"></div>
 		<script type="module" src="/src/main.tsx"></script>
 	</body>
