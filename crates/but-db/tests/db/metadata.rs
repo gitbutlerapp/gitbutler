@@ -94,6 +94,115 @@ fn ref_metadata_preserves_full_names_and_non_utf8_bytes() -> anyhow::Result<()> 
     Ok(())
 }
 
+#[test]
+fn branch_order_preserves_non_utf8_refs_through_metadata_operations() -> anyhow::Result<()> {
+    use gix::bstr::ByteSlice as _;
+    let mut db = DbHandle::new_at_path(":memory:")?;
+    let top: FullName = b"refs/heads/top-\xff".as_bstr().try_into()?;
+    let middle: FullName = b"refs/heads/middle-\xfc".as_bstr().try_into()?;
+    let bottom: FullName = b"refs/heads/bottom-\xfe".as_bstr().try_into()?;
+    let renamed: FullName = b"refs/heads/renamed-\xfd".as_bstr().try_into()?;
+    let order = vec![top.clone(), middle.clone(), bottom.clone()];
+    db.meta_mut()?.set_branch_stack_order(&order)?;
+    let snapshot = db.meta()?;
+    let rows = db.branch_order().get_snapshot()?;
+    snapshot.validate()?;
+    assert_eq!(
+        snapshot.branch_stack_order(top.as_ref()),
+        Some(order.as_slice()),
+        "ad-hoc order accepts the same ref bytes as workspace and branch metadata"
+    );
+    db.meta_mut()?.rename(top.as_ref(), renamed.as_ref())?;
+    assert_eq!(
+        db.meta()?.branch_stack_order(bottom.as_ref()),
+        Some([renamed.clone(), middle.clone(), bottom.clone()].as_slice()),
+        "renaming a byte-valued tip preserves its chain"
+    );
+    db.meta_mut()?.remove(middle.as_ref())?;
+    assert_eq!(
+        db.meta()?.branch_stack_order(bottom.as_ref()),
+        Some([renamed.clone(), bottom].as_slice()),
+        "removing a byte-valued middle reference connects the surviving neighbors"
+    );
+    db.meta_mut()?
+        .remove_missing_branch_stack_order_references(std::slice::from_ref(&renamed))?;
+    assert!(
+        db.meta()?.branch_stack_order(renamed.as_ref()).is_none(),
+        "pruning to one byte-valued reference removes durable singleton ordering"
+    );
+    db.meta_mut()?.replace_branch_order(&rows)?;
+    assert_eq!(
+        db.branch_order().get_snapshot()?,
+        rows,
+        "historical row restoration preserves exact non-UTF-8 reference bytes"
+    );
+    assert_eq!(
+        db.meta()?,
+        snapshot,
+        "restored historical rows reconstruct the original ordering"
+    );
+    db.meta_mut()?.remove(top.as_ref())?;
+    db.meta_mut()?.replace_snapshot(&snapshot)?;
+    assert_eq!(
+        db.meta()?,
+        snapshot,
+        "full metadata restoration also preserves non-UTF-8 ad-hoc ordering"
+    );
+    Ok(())
+}
+
+#[test]
+fn branch_order_migration_preserves_existing_text_rows_as_blobs() -> anyhow::Result<()> {
+    let dir = tempfile::tempdir()?;
+    let path = dir.path().join("branch-order.sqlite");
+    let mut conn = rusqlite::Connection::open(&path)?;
+    let (metadata_migrations, table_migrations) = but_db::MIGRATIONS
+        .split_last()
+        .expect("metadata migrations follow table creation");
+    let old_migrations = table_migrations
+        .iter()
+        .flat_map(|group| group.iter())
+        .chain(metadata_migrations.iter().take(1))
+        .copied()
+        .collect::<Vec<_>>();
+    but_db::migration::run(&mut conn, old_migrations.iter().copied())?;
+    conn.execute_batch(
+        "INSERT INTO branch_order (branch_ref_name, parent_ref_name) VALUES
+         ('refs/heads/top', 'refs/heads/base'), ('refs/heads/base', NULL);",
+    )?;
+    let db = DbHandle::new_at_path(&path)?;
+    assert!(
+        but_db::migration::run(&mut conn, old_migrations).is_err(),
+        "old binaries must reject BLOB refs instead of trying to decode them as strings"
+    );
+    let mut stmt = conn.prepare("SELECT type FROM pragma_table_info('branch_order')")?;
+    let column_types = stmt
+        .query_map([], |row| row.get::<_, String>(0))?
+        .collect::<Result<Vec<_>, _>>()?;
+    assert_eq!(
+        column_types,
+        ["BLOB", "BLOB"],
+        "the forward migration replaces UTF-8 text storage with Git ref bytes"
+    );
+    let blob_rows: i64 = conn.query_row(
+        "SELECT COUNT(*) FROM branch_order WHERE typeof(branch_ref_name) = 'blob'
+         AND (parent_ref_name IS NULL OR typeof(parent_ref_name) = 'blob')",
+        [],
+        |row| row.get(0),
+    )?;
+    assert_eq!(
+        blob_rows, 2,
+        "existing text values are converted without dropping rows"
+    );
+    let expected = vec!["refs/heads/top".try_into()?, "refs/heads/base".try_into()?];
+    assert_eq!(
+        db.meta()?.branch_stack_order("refs/heads/base".try_into()?),
+        Some(expected.as_slice()),
+        "migration preserves the existing chain"
+    );
+    Ok(())
+}
+
 fn workspace(db: &DbHandle) -> anyhow::Result<Workspace> {
     let mut workspace = db
         .meta()?
@@ -388,21 +497,34 @@ fn rename_preserves_workspace_and_branch_values_and_rejects_collisions() -> anyh
     db.meta_mut()?
         .set_workspace(workspace_name.as_ref(), &value)?;
     db.meta_mut()?.set_branch(old.as_ref(), &branch)?;
+    let tip: FullName = "refs/heads/tip".try_into()?;
+    let base: FullName = "refs/heads/base".try_into()?;
+    db.meta_mut()?
+        .set_branch_stack_order(&[tip.clone(), old.clone(), base.clone()])?;
     db.meta_mut()?
         .set_branch_stack_order(std::slice::from_ref(&new))?;
     let before = db.meta()?;
-    assert!(
-        db.meta_mut()?.rename(old.as_ref(), new.as_ref()).is_err(),
-        "renaming cannot overwrite an ordered ref"
-    );
-    assert_eq!(
-        db.meta()?,
-        before,
-        "failed renames leave all metadata intact"
-    );
+    for destination in [&base, &new] {
+        assert!(
+            db.meta_mut()?
+                .rename(old.as_ref(), destination.as_ref())
+                .is_err(),
+            "renaming cannot overwrite an ordered ref in the same or another chain"
+        );
+        assert_eq!(
+            db.meta()?,
+            before,
+            "failed renames leave workspace, branch, and ordering metadata intact"
+        );
+    }
     db.meta_mut()?.remove(new.as_ref())?;
     db.meta_mut()?.rename(old.as_ref(), new.as_ref())?;
     value.stacks[0].branches[0].ref_name = new.clone();
+    assert_eq!(
+        db.meta()?.branch_stack_order(new.as_ref()),
+        Some([tip, new.clone(), base].as_slice()),
+        "renaming updates the ordered chain along with the managed metadata"
+    );
     assert_eq!(
         db.meta()?.workspace(workspace_name.as_ref()),
         Some(&value),
