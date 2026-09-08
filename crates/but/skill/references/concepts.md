@@ -78,12 +78,11 @@ active worktree gets its own ID and is drawn in `but status` as a lane — a bra
 `{<branch>}` heading (the worktree name when its `HEAD` is detached) nested above the commit the
 worktree rests on — another worktree's commit included, lanes nest recursively — or standing on
 its own below the stacks when it rests outside the workspace.
-The lane lists that worktree's uncommitted files and the commits the worktree owns; in `--json`
-they appear in a top-level `worktrees` array. The worktree ID on the heading names its whole
-uncommitted area the way `@` names the main worktree's, and `<worktree-name>:<path>` scopes a
-filename to that worktree — `@:<path>` keeps meaning the main worktree. A filename dirty in
-several worktrees at once is ambiguous; the error suggests the scoped forms. A worktree file or
-heading ID — like `@` for the main worktree — works as a `but commit` change and a `but amend`
+The lane lists that worktree's uncommitted files and commits. The heading ID names the worktree;
+`<worktree>:@` (ID or name) names its uncommitted area. `<worktree>:<path>` scopes a
+filename to it — `@:<path>` keeps meaning the main worktree. A filename dirty in several
+worktrees at once is ambiguous; the error suggests the scoped forms. A worktree file ID or
+`<worktree>:@` works as a `but commit` change and a `but amend`
 source: the change lands on the target and leaves that worktree's uncommitted area. Without a
 target flag, worktree changes commit to the tip of the worktree's own branch; an explicit target
 commit or branch does not have to be the worktree's own. One operation reads from one worktree
