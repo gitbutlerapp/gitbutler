@@ -45,3 +45,13 @@ $ pnpm dev:lite
 ```
 
 The development and bundle scripts build and copy the Git askpass helper automatically.
+
+## A note on S3 publishing
+
+As our bucket contains dots, publishing to the subdomain variant of the bucket (i.e. `https://<bucket>.s3.<region>.amazonaws.com/<key>`) doesn't work as dots in `<bucket>` makes it a nested subdomain which the S3 wildcard TLS cert does not cover.
+
+I.e. `releases.gitbutler.com.s3.us-east-1.amazonaws.com` is _not_ a domain covered by the `*.s3.us-east-1.amazonaws.com` wildcard in the TLS cert.
+
+For the moment, we can fix this by using path-style bucket DNS (`"forcePathStyle": true` in the publish config), which has been deprecated for the better part of a decade but is still around.
+
+More info here: https://docs.aws.amazon.com/AmazonS3/latest/userguide/VirtualHosting.html#path-style-access
