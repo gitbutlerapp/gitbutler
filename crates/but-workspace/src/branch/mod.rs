@@ -557,28 +557,29 @@ pub(crate) fn setup_local_tracking_configuration(
         .find_reference(remote_tracking_ref)?
         .peel_to_commit()?
         .id();
+    let Some((upstream_branch, remote)) =
+        repo.upstream_branch_and_remote_for_tracking_branch(remote_tracking_ref)?
+    else {
+        anyhow::bail!(
+            "No remote refspec maps {} to a local branch",
+            remote_tracking_ref.as_bstr()
+        );
+    };
+    let remote_name = remote
+        .name()
+        .expect("a remote loaded by name is never anonymous");
 
     let mut config = repo.config_file_mut(repo.common_dir().join("config"))?;
     let mut section =
         config.section_mut_or_create_new("branch", Some(local_tracking_ref.shorten()))?;
-    // Leave tracking the user already configured alone; other keys in the section are no reason to.
-    if section.value("remote").is_none()
-        && section.value("merge").is_none()
-        && let Some((upstream_branch, remote)) =
-            repo.upstream_branch_and_remote_for_tracking_branch(remote_tracking_ref)?
-    {
-        let remote_name = remote
-            .name()
-            .expect("a remote loaded by name is never anonymous");
-        section
-            .push(
-                gix::config::tree::Branch::REMOTE.name,
-                Some(remote_name.as_bstr()),
-            )?
-            .push(
-                gix::config::tree::Branch::MERGE.name,
-                Some(upstream_branch.as_bstr()),
-            )?;
+    // Each key only where the user has not set it: neither one nor other keys are a reason to skip.
+    let remote_key = gix::config::tree::Branch::REMOTE.name;
+    if section.value(remote_key).is_none() {
+        section.push(remote_key, Some(remote_name.as_bstr()))?;
+    }
+    let merge_key = gix::config::tree::Branch::MERGE.name;
+    if section.value(merge_key).is_none() {
+        section.push(merge_key, Some(upstream_branch.as_bstr()))?;
     }
     Ok((config, remote_tracking_commit_id.into()))
 }
@@ -591,6 +592,13 @@ pub fn local_tracking_branch(
     repo: &gix::Repository,
     remote_tracking_ref: &gix::refs::FullNameRef,
 ) -> anyhow::Result<gix::refs::FullName> {
+    // Symbolic ones, `origin/HEAD` say, would make a local branch of the name they point through.
+    if try_find_validated_ref(repo, remote_tracking_ref, "check out")?.is_none() {
+        anyhow::bail!(
+            "Remote-tracking branch {} does not exist",
+            remote_tracking_ref.as_bstr()
+        );
+    }
     let Some((local_tracking_ref, _remote)) =
         repo.upstream_branch_and_remote_for_tracking_branch(remote_tracking_ref)?
     else {

@@ -82,6 +82,74 @@ fn checkout_remote_ref_switches_to_existing_local_tracking_branch() -> anyhow::R
 }
 
 #[test]
+fn checkout_rejects_symbolic_remote_head() -> anyhow::Result<()> {
+    let (repo, tmp) = repo_with_feature_branch()?;
+    git_at_dir(tmp.path())
+        .args([
+            "symbolic-ref",
+            "refs/remotes/origin/HEAD",
+            "refs/remotes/origin/main",
+        ])
+        .run();
+    let mut ctx = but_ctx::Context::from_repo_for_testing(repo)?.with_memory_app_cache();
+    let branch = gix::refs::FullName::try_from("refs/remotes/origin/HEAD")?;
+
+    let err = but_api::branch::branch_checkout(&mut ctx, branch)
+        .expect_err("a symbolic remote ref is not a branch to check out");
+    assert_eq!(
+        err.to_string(),
+        "Refusing to check out symbolic ref 'origin/HEAD' due to potential ambiguity"
+    );
+    let repo = ctx.repo.get()?;
+    assert!(
+        repo.try_find_reference("refs/heads/HEAD")?.is_none(),
+        "no local branch is made of the name the symbolic ref points through"
+    );
+
+    Ok(())
+}
+
+#[test]
+fn checkout_remote_ref_completes_partial_tracking_config() -> anyhow::Result<()> {
+    let (repo, tmp) = repo_with_feature_branch()?;
+    git_at_dir(tmp.path())
+        .args([
+            "update-ref",
+            "refs/remotes/origin/topic",
+            "refs/heads/feature",
+        ])
+        .run();
+    // The user's own keys, one of them tracking: both kept, the missing one filled in.
+    git_at_dir(tmp.path())
+        .args(["config", "branch.topic.description", "mine"])
+        .run();
+    git_at_dir(tmp.path())
+        .args(["config", "branch.topic.merge", "refs/heads/other"])
+        .run();
+    let mut ctx = but_ctx::Context::from_repo_for_testing(repo)?.with_memory_app_cache();
+    let branch = gix::refs::FullName::try_from("refs/remotes/origin/topic")?;
+    but_api::branch::branch_checkout(&mut ctx, branch)?;
+
+    let repo = ctx.repo.get()?;
+    let config = repo.config_snapshot();
+    let config_value = |key: &str| config.string(key).map(|value| value.to_string());
+    assert_eq!(
+        config_value("branch.topic.remote").as_deref(),
+        Some("origin")
+    );
+    assert_eq!(
+        config_value("branch.topic.merge").as_deref(),
+        Some("refs/heads/other")
+    );
+    assert_eq!(
+        config_value("branch.topic.description").as_deref(),
+        Some("mine")
+    );
+
+    Ok(())
+}
+
+#[test]
 fn checkout_rejects_refs_that_are_not_branches() -> anyhow::Result<()> {
     let (repo, _tmp) = repo_with_feature_branch()?;
     let mut ctx = but_ctx::Context::from_repo_for_testing(repo)?.with_memory_app_cache();
