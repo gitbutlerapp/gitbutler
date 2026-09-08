@@ -29,6 +29,7 @@ import {
 	Menu,
 	nativeTheme,
 	net,
+	Notification,
 	protocol,
 	session,
 	shell,
@@ -320,6 +321,24 @@ const electronHandlerOverrides = {
 		// Unlike shell.openExternal, this only selects the item in the file
 		// manager; it never launches it, so a path is all it takes.
 		shell.showItemInFolder(itemPath);
+	},
+	showNotification: ({ id, title, body }) => {
+		const [window] = BrowserWindow.getAllWindows();
+		// Decided here, not in the renderer: a freshly loaded document reports
+		// `document.hasFocus()` true while the window sits behind another app.
+		if (!Notification.isSupported() || window === undefined || window.isFocused()) return;
+		const notification = new Notification({ title, body });
+		notification.on("click", () => {
+			showAndFocusWindow(window);
+			window.webContents.send("notificationClick", id);
+		});
+		// macOS refuses silently when the app is not allowed to notify
+		// (UNErrorDomain error 1); the log is the only place that says so.
+		notification.on("failed", (_event, error) => {
+			// oxlint-disable-next-line no-console
+			console.error(`Desktop notification failed: ${error}`);
+		});
+		notification.show();
 	},
 	pickDirectory: async () => {
 		const { canceled, filePaths } = await dialog.showOpenDialog({ properties: ["openDirectory"] });

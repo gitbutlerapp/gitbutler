@@ -57,6 +57,8 @@ const hostOverrides = {
 	clipboardWriteText: () => undefined,
 	// No file manager to reveal into from the harness.
 	showItemInFolder: () => undefined,
+	// Nor a desktop to notify; the bell still fills.
+	showNotification: () => undefined,
 	getAiConfiguration: () => defaultAiConfiguration(),
 	updateAiConfiguration: () => defaultAiConfiguration(),
 	resetAiConfiguration: () => defaultAiConfiguration(),

@@ -1,5 +1,12 @@
 /** @vitest-environment jsdom */
-import { addInboxEntries, markInboxSeen, type InboxEntry } from "./review-inbox.ts";
+import {
+	addInboxEntries,
+	desktopNotices,
+	entryHeadline,
+	markInboxSeen,
+	summaryNoticeId,
+	type InboxEntry,
+} from "./review-inbox.ts";
 import { describe, expect, it } from "vitest";
 
 /**
@@ -53,6 +60,14 @@ describe("addInboxEntries", () => {
 		expect(stored(projectId).map((e) => [e.id, e.seen])).toEqual([
 			["b", false],
 			["a", true],
+		]);
+	});
+
+	it("returns only the entries that were new", () => {
+		const projectId = freshProject();
+		expect(addInboxEntries(projectId, [entry("a", 10)]).map((e) => e.id)).toEqual(["a"]);
+		expect(addInboxEntries(projectId, [entry("a", 10), entry("b", 20)]).map((e) => e.id)).toEqual([
+			"b",
 		]);
 	});
 
@@ -158,5 +173,52 @@ describe("markInboxSeen with ids", () => {
 		]);
 		expect(marksOf(projectId)).toEqual({ 7: at(0) });
 		expect(unseenOf(projectId)).toEqual({ 7: [["c:1", at(3)]] });
+	});
+});
+
+describe("entryHeadline", () => {
+	it("leads with what happened, then by whom", () => {
+		expect(entryHeadline(entry("a", 0, { kind: "changesRequested" }))).toBe(
+			"Changes requested by alice",
+		);
+		expect(entryHeadline(entry("a", 0, { kind: "comment", count: 3 }))).toBe(
+			"3 comments from alice",
+		);
+		expect(entryHeadline(entry("a", 0, { kind: "mention" }))).toBe("Mentioned by alice");
+		expect(entryHeadline(entry("a", 0, { kind: "committed", count: 2 }))).toBe(
+			"2 commits pushed by alice",
+		);
+	});
+
+	it("stands alone when the actor is unknown", () => {
+		expect(entryHeadline(entry("a", 0, { kind: "merged", author: null }))).toBe("Merged");
+		expect(entryHeadline(entry("a", 0, { kind: "comment", author: null }))).toBe("Comment");
+	});
+});
+
+describe("desktopNotices", () => {
+	it("announces loud entries one by one, with the branch and snippet as the body", () => {
+		const notices = desktopNotices([
+			entry("a", 0, { kind: "approved" }),
+			entry("b", 0, { kind: "comment", snippet: "Looks off to me" }),
+			entry("c", 0, { kind: "committed" }),
+		]);
+		expect(notices).toEqual([
+			{ id: "a", title: "Approved by alice", body: "feature-one #7" },
+			{ id: "b", title: "Comment from alice", body: "feature-one #7\nLooks off to me" },
+		]);
+	});
+
+	it("collapses a catch-up into one summary", () => {
+		const notices = desktopNotices(
+			["a", "b", "c", "d"].map((id, i) => entry(id, i, { review: i % 2 === 0 ? 7 : 8 })),
+		);
+		expect(notices).toEqual([
+			{ id: summaryNoticeId, title: "4 new notifications", body: "feature-one #7, feature-one #8" },
+		]);
+	});
+
+	it("says nothing for quiet news", () => {
+		expect(desktopNotices([entry("a", 0, { kind: "merged" })])).toEqual([]);
 	});
 });

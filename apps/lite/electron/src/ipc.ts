@@ -31,6 +31,8 @@ export type LiteElectronApi = SDK & {
 	getVersion: () => Promise<string>;
 	isFullScreen: () => Promise<boolean>;
 	onFullScreenChange: (callback: (fullScreen: boolean) => void) => () => void;
+	/** A click on a desktop notification, by the id it was shown with. */
+	onNotificationClick: (callback: (id: string) => void) => () => void;
 	openInWebBrowser: (url: string) => Promise<void>;
 	pathJoin: (...paths: Array<string>) => Promise<string>;
 	pickDirectory: () => Promise<string | null>;
@@ -38,6 +40,11 @@ export type LiteElectronApi = SDK & {
 	/** Reveal a file in the OS file manager, selected in its containing folder. */
 	showItemInFolder: (path: string) => Promise<void>;
 	showNativeMenu: (params: ShowNativeMenuParams) => Promise<string | null>;
+	/**
+	 * Show a desktop notification, unless the window is focused — the bell is
+	 * in view then. A no-op where the OS offers none.
+	 */
+	showNotification: (params: ShowNotificationParams) => Promise<void>;
 	streamAiResponse: (
 		systemMessage: string,
 		prompt: string,
@@ -69,12 +76,14 @@ export const localEndpoints = [
 	"fullScreenChange",
 	"getVersion",
 	"isFullScreen",
+	"notificationClick",
 	"openInWebBrowser",
 	"pathJoin",
 	"pickDirectory",
 	"readGUISettings",
 	"showItemInFolder",
 	"showNativeMenu",
+	"showNotification",
 	"streamAiResponse",
 	"watcherStopAll",
 	"watcherSubscribe",
@@ -145,6 +154,13 @@ export interface StreamAiResponseParams {
 export interface StreamAiResponseToken {
 	requestId: string;
 	token: string;
+}
+
+export interface ShowNotificationParams {
+	/** Handed back on click, so the renderer can land on what was announced. */
+	id: string;
+	title: string;
+	body: string;
 }
 
 export interface NativeMenuPosition {

@@ -10,7 +10,12 @@ import { exposedEndpoints, type Endpoint, type LiteElectronApi, type PayloadFor 
  */
 
 /** Members the renderer implements itself; they have no host-side handler. */
-type RendererOnlyKey = "onAskpassPrompt" | "onDeepLink" | "onFullScreenChange" | "platform";
+type RendererOnlyKey =
+	| "onAskpassPrompt"
+	| "onDeepLink"
+	| "onFullScreenChange"
+	| "onNotificationClick"
+	| "platform";
 
 /** Handlers needing the transport event itself, or taking variadic arguments. */
 type ImperativeKey =

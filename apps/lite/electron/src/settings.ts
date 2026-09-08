@@ -16,6 +16,7 @@ const guiSettingsV1 = type({
 	"autoFetchFrequency?": "string",
 	"autoUpdate?": "boolean",
 	"commentAnnotations?": "boolean",
+	"desktopNotifications?": "boolean",
 	"diffBackground?": "boolean",
 	"diffFontFamily?": "string",
 	"diffFontSize?": "number",
