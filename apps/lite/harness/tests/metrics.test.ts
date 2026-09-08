@@ -46,6 +46,9 @@ const initMetrics = async (failureLimit?: {
 	mocks.client.getFeatureFlagPayload.mockResolvedValue(failureLimit);
 	const metrics = await import("../../electron/src/metrics.ts");
 	await metrics.initMetrics("1.2.3");
+	// The failure limit lands a few microtasks after init returns; a tick drains
+	// them, and unlike a timer it still fires under fake timers.
+	await new Promise((resolve) => process.nextTick(resolve));
 	return metrics;
 };
 
