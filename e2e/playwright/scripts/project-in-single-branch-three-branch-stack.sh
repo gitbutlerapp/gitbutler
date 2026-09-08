@@ -50,22 +50,18 @@ import sqlite3
 import sys
 
 with sqlite3.connect(sys.argv[1]) as database:
-    database.executescript(
-        """
-        CREATE TABLE IF NOT EXISTS branch_order(
-          branch_ref_name TEXT NOT NULL PRIMARY KEY,
-          parent_ref_name TEXT UNIQUE,
-          CHECK (parent_ref_name IS NULL OR branch_ref_name != parent_ref_name)
-        );
-        CREATE INDEX IF NOT EXISTS idx_branch_order_parent_ref_name
-          ON branch_order(parent_ref_name);
-        DELETE FROM branch_order
-          WHERE branch_ref_name IN ('refs/heads/C', 'refs/heads/B', 'refs/heads/A');
-        INSERT INTO branch_order (branch_ref_name, parent_ref_name) VALUES
-          ('refs/heads/C', 'refs/heads/B'),
-          ('refs/heads/B', 'refs/heads/A'),
-          ('refs/heads/A', NULL);
-        """
+    # `but setup` created the schema; bind refs as bytes for its BLOB columns.
+    database.execute(
+        "DELETE FROM branch_order WHERE branch_ref_name IN (?, ?, ?)",
+        (b"refs/heads/C", b"refs/heads/B", b"refs/heads/A"),
+    )
+    database.executemany(
+        "INSERT INTO branch_order (branch_ref_name, parent_ref_name) VALUES (?, ?)",
+        [
+            (b"refs/heads/C", b"refs/heads/B"),
+            (b"refs/heads/B", b"refs/heads/A"),
+            (b"refs/heads/A", None),
+        ],
     )
 PYTHON
 
