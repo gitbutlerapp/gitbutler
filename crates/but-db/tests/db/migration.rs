@@ -374,15 +374,16 @@ first | two
 
         let index_exists: bool = db.query_row(
             "SELECT EXISTS(
-                SELECT 1 FROM sqlite_master
-                WHERE type = 'index' AND name = 'idx_branch_order_parent_ref_name'
+                SELECT 1 FROM pragma_index_list('branch_order') AS idx
+                JOIN pragma_index_info(idx.name) AS column
+                WHERE idx.\"unique\" = 1 AND column.name = 'parent_ref_name'
             )",
             [],
             |row| row.get(0),
         )?;
         assert!(
             index_exists,
-            "existing branch_order table should still receive the branch-order index"
+            "the migrated table still indexes and enforces unique parent references"
         );
         Ok(())
     }
@@ -417,10 +418,10 @@ CREATE TABLE branch_metadata (
 );
 
 -- table branch_order
-CREATE TABLE `branch_order`(
-    `branch_ref_name` TEXT NOT NULL PRIMARY KEY,
-    `parent_ref_name` TEXT UNIQUE,
-    CHECK (`parent_ref_name` IS NULL OR `branch_ref_name` != `parent_ref_name`)
+CREATE TABLE "branch_order" (
+    branch_ref_name BLOB NOT NULL PRIMARY KEY,
+    parent_ref_name BLOB UNIQUE,
+    CHECK (parent_ref_name IS NULL OR branch_ref_name != parent_ref_name)
 );
 
 -- table butler_actions
@@ -598,9 +599,6 @@ CREATE TABLE `worktree_meta`(
 	`archived` BOOL NOT NULL DEFAULT FALSE
 );
 
--- index idx_branch_order_parent_ref_name
-CREATE INDEX `idx_branch_order_parent_ref_name` ON `branch_order`(`parent_ref_name`);
-
 -- index idx_butler_actions_created_at
 CREATE INDEX `idx_butler_actions_created_at` ON `butler_actions`(`created_at`);
 
@@ -662,6 +660,7 @@ Text("20260715161258")
 Text("20260716175500")
 Text("20260805120000")
 Text("20260907120000")
+Text("20260908120000")
 
 Table: hunk_assignments
 hunk_header | path | path_bytes | stack_id | id | branch_ref
@@ -693,9 +692,6 @@ html_url | number | title | body | author | labels | draft | source_branch | tar
 Table: ci_checks
 id | name | output_summary | output_text | output_title | started_at | status_type | status_conclusion | status_completed_at | head_sha | url | html_url | details_url | pull_requests | reference | last_sync_at | struct_version
 
-Table: branch_order
-branch_ref_name | parent_ref_name
-
 Table: fetch_status
 singleton | last_attempted_ms | last_successful_ms | last_error
 
@@ -716,6 +712,9 @@ workspace_ref | stack_id | position | ref_name | archived
 
 Table: branch_metadata
 ref_name | created_at | created_at_offset | updated_at | updated_at_offset | pull_request | review_id
+
+Table: branch_order
+branch_ref_name | parent_ref_name
 
 
 "#]]
