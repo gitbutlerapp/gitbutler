@@ -8,8 +8,8 @@
 .labelMeta {
 	display: flex;
 	align-items: center;
-	/* Keeps an empty footer holding its line, so rows stay equal height. */
-	min-height: 20px;
+	/* Keeps an empty footer holding its line at the tag-sized meta height, so rows stay equal. */
+	min-height: var(--size-tag);
 	gap: 8px;
 }
 

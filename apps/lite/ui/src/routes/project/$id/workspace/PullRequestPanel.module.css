@@ -39,8 +39,8 @@
 	display: flex;
 	align-items: center;
 	justify-content: space-between;
-	/* Keep row height stable whether or not a picker button renders. */
-	min-height: 20px;
+	/* Keep row height stable whether or not a (small, tag-sized) picker button renders. */
+	min-height: var(--size-tag);
 	gap: 8px;
 }
 
