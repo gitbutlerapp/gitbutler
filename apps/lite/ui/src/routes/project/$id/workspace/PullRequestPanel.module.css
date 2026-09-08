@@ -45,7 +45,7 @@
 }
 
 .heading {
-	color: var(--text-3);
+	color: var(--text-2);
 }
 
 /* The Status section is its header alone: the badge and the PR link sit
