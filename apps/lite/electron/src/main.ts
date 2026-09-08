@@ -523,6 +523,8 @@ const createMainWindow = async (initialUrl?: string): Promise<void> => {
 		width: 1024,
 		height: 768,
 		show: !isHeadless,
+		// Visible before the renderer loads. Keep in sync with --bg-1.
+		backgroundColor: nativeTheme.shouldUseDarkColors ? "#292929" : "#ffffff",
 		minWidth: 545,
 		minHeight: 400,
 		icon,

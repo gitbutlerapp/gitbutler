@@ -1,3 +1,4 @@
+import { listProjectsQueryOptions } from "#ui/api/queries.ts";
 import type { UrlQueryParams } from "#ui/cursor-url.ts";
 import { activeLists } from "#ui/projects/project.ts";
 import { handleProjectEvent } from "#ui/project-events.ts";
@@ -49,8 +50,8 @@ const parseLastSearch = (search: string): Record<string, string> =>
 const indexRoute = createRoute({
 	getParentRoute: () => rootRoute,
 	path: "/",
-	loader: async () => {
-		const projects = await window.lite.listProjectsStateless();
+	loader: async ({ context }) => {
+		const projects = await context.queryClient.fetchQuery(listProjectsQueryOptions);
 		const persistedId = readLastOpenedProject();
 		const projectId = projects.some((project) => project.id === persistedId)
 			? persistedId
@@ -120,13 +121,13 @@ const projectRoute = createRoute({
 	remountDeps: ({ params }) => params.id,
 	// Needed for `remountDeps` to work.
 	component: () => <Outlet />,
-	beforeLoad: async ({ matches, routeId, params }) => {
+	beforeLoad: async ({ matches, routeId, params, context }) => {
 		// We don't want an index route.
 		if (matches.at(-1)?.routeId === routeId) throw notFound();
 
 		// The id decodes to a path, and URLs arrive from outside the app, so open
 		// only projects it already knows about.
-		const projects = await window.lite.listProjectsStateless();
+		const projects = await context.queryClient.fetchQuery(listProjectsQueryOptions);
 		if (!projects.some((project) => project.id === params.id)) throw redirect({ to: "/" });
 	},
 	// Armed in the loader so the watcher is live before the page's queries
