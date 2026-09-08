@@ -1,7 +1,7 @@
 import type { PayloadFor } from "#electron/ipc.ts";
-import { aggregateCIChecks } from "#ui/ci.ts";
+import { type AggregateCIChecks, aggregateCIChecks } from "#ui/ci.ts";
 import { clampAutoFetch, defaultSettings } from "#ui/settings.ts";
-import type { ForgeReview, TreeChange, UnifiedPatch } from "@gitbutler/but-sdk";
+import type { CiCheck, ForgeReview, TreeChange, UnifiedPatch } from "@gitbutler/but-sdk";
 import {
 	experimental_streamedQuery,
 	hashKey,
@@ -463,6 +463,8 @@ export const listEditorsQueryOptions = queryOptions({
 	queryFn: () => window.lite.listEditors(),
 });
 
+type CIChecksQueryData = { data: Array<CiCheck>; aggregate: AggregateCIChecks | null };
+
 /** This query should be gated by checks capability. */
 // There is no watcher event that could invalidate this query.
 export const listCIChecksQueryOptions = ({
@@ -474,10 +476,11 @@ export const listCIChecksQueryOptions = ({
 }) =>
 	queryOptions({
 		queryKey: [projectId, "listCiChecks", reference],
-		queryFn: async () => {
+		queryFn: async ({ client, queryKey }): Promise<CIChecksQueryData> => {
 			// Aggregated data is needed in queryFn to adjust refetching behaviour. Aggregating here, for
 			// use as mentioned and also at call sites, is more efficient.
-			//
+			const previousStatus = client.getQueryData<CIChecksQueryData>(queryKey)?.aggregate?.status;
+			let checks: CIChecksQueryData;
 			// listCiChecks will reject with a message citing HTTP 422 once the branch is merged.
 			try {
 				const data = await window.lite.listCiChecks({
@@ -485,10 +488,16 @@ export const listCIChecksQueryOptions = ({
 					reference,
 					cacheConfig: "noCache",
 				});
-				return { data, aggregate: aggregateCIChecks(data) };
+				checks = { data, aggregate: aggregateCIChecks(data) };
 			} catch {
-				return { data: [], aggregate: null };
+				checks = { data: [], aggregate: null };
 			}
+			// The verdict is what flips the forge's mergeability, and this poll
+			// notices it long before the merge-status poll would; refetch now so
+			// the Merge button doesn't stay disabled for up to a minute.
+			if (previousStatus === "in_progress" && checks.aggregate?.status !== "in_progress")
+				void client.invalidateQueries({ queryKey: [projectId, "getReviewMergeStatus"] });
+			return checks;
 		},
 		// Refetch periodically, being mindful of rate limiting. Similarly tweak stale time for
 		// prioritised queries so that fresh data is likely fetched when the user would see/expect it
