@@ -610,3 +610,8 @@ export const guiSettingsQueryOptions = queryOptions({
 	queryKey: ["guiSettings"],
 	queryFn: () => window.lite.readGUISettings(),
 });
+
+export const appSettingsQueryOptions = queryOptions({
+	queryKey: ["appSettings"],
+	queryFn: () => window.lite.getAppSettings(),
+});

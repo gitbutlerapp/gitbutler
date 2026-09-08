@@ -6,6 +6,7 @@ import {
 	currentForgeLoginQueryOptions,
 	getReviewQueryOptions,
 	headInfoQueryOptions,
+	appSettingsQueryOptions,
 	guiSettingsQueryOptions,
 	listCommentReactionsQueryOptions,
 	listReviewCommentsQueryOptions,
@@ -51,6 +52,7 @@ import type {
 	ForgeReviewReaction,
 	ForgeReviewUser,
 	Snapshot,
+	TelemetryUpdate,
 	TreeChange,
 } from "@gitbutler/but-sdk";
 import { type QueryClient, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -1419,6 +1421,26 @@ export const useBranchRename = (projectId: string) => {
 /**
  * Save GUI settings mutation with partial keys. Settings are spread (shallow).
  */
+export const useUpdateTelemetry = () =>
+	useMutation({
+		scope: { id: "appSettings" },
+		mutationFn: async (update: TelemetryUpdate, ctx) => {
+			await window.lite.updateTelemetry(update);
+			await ctx.client.invalidateQueries({ queryKey: appSettingsQueryOptions.queryKey });
+		},
+		meta: { failureTitle: "Failed to save the telemetry setting" },
+	});
+
+export const useUpdateOnboardingComplete = () =>
+	useMutation({
+		scope: { id: "appSettings" },
+		mutationFn: async (complete: boolean, ctx) => {
+			await window.lite.updateOnboardingComplete(complete);
+			await ctx.client.invalidateQueries({ queryKey: appSettingsQueryOptions.queryKey });
+		},
+		meta: { failureTitle: "Failed to record the onboarding step" },
+	});
+
 export const useSaveGUISettings = () =>
 	useMutation({
 		scope: { id: "guiSettings" },

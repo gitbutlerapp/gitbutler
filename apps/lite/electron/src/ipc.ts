@@ -1,6 +1,8 @@
 import type {
 	AiConfiguration,
 	AiConfigurationUpdate,
+	AppSettings,
+	TelemetryUpdate,
 	WatcherEvent,
 	AskpassPromptEvent,
 } from "@gitbutler/but-sdk";
@@ -28,6 +30,8 @@ export type LiteElectronApi = SDK & {
 	/** A `but://app/...` link the app was asked to open, as an in-app path. */
 	onDeepLink: (callback: (path: string) => void) => () => void;
 	getAiConfiguration: () => Promise<AiConfiguration>;
+	/** The settings shared with the other surfaces through the settings file. */
+	getAppSettings: () => Promise<AppSettings>;
 	getVersion: () => Promise<string>;
 	isFullScreen: () => Promise<boolean>;
 	onFullScreenChange: (callback: (fullScreen: boolean) => void) => () => void;
@@ -51,6 +55,9 @@ export type LiteElectronApi = SDK & {
 		onToken: (token: string) => void,
 	) => Promise<string>;
 	updateAiConfiguration: (update: AiConfigurationUpdate) => Promise<AiConfiguration>;
+	updateOnboardingComplete: (complete: boolean) => Promise<void>;
+	/** Persists the choice and starts or stops metrics to match, so it holds without a relaunch. */
+	updateTelemetry: (update: TelemetryUpdate) => Promise<void>;
 	watcherSubscribe: (projectId: string, callback: (event: WatcherEvent) => void) => Promise<string>;
 	watcherUnsubscribe: (subscriptionId: string) => Promise<boolean>;
 	watcherStopAll: () => Promise<number>;
@@ -74,6 +81,7 @@ export const localEndpoints = [
 	"clipboardWriteText",
 	"deepLink",
 	"fullScreenChange",
+	"getAppSettings",
 	"getVersion",
 	"isFullScreen",
 	"notificationClick",
@@ -85,6 +93,8 @@ export const localEndpoints = [
 	"showNativeMenu",
 	"showNotification",
 	"streamAiResponse",
+	"updateOnboardingComplete",
+	"updateTelemetry",
 	"watcherStopAll",
 	"watcherSubscribe",
 	"watcherUnsubscribe",
