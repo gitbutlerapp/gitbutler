@@ -2,6 +2,142 @@ use but_core::DiffSpec;
 use but_testsupport::writable_scenario;
 use gix::object::tree::EntryKind;
 
+#[test]
+fn filemode_disabled_preserves_conflict_stage_modes() -> anyhow::Result<()> {
+    let (repo, _tmp) = writable_scenario("filemode-disabled");
+    let base = repo.head_tree_id()?.detach();
+    for (path, expected_kind, reason) in [
+        (
+            "modify-delete.sh",
+            EntryKind::BlobExecutable,
+            "ours is absent, so the executable mode from the remaining stages must be preserved",
+        ),
+        (
+            "base-preferred.sh",
+            EntryKind::Blob,
+            "ours is absent, so the non-executable base must take precedence over executable theirs",
+        ),
+        (
+            "ours-preferred.sh",
+            EntryKind::Blob,
+            "non-executable ours must take precedence over executable base and theirs",
+        ),
+        (
+            "theirs-only.sh",
+            EntryKind::BlobExecutable,
+            "only theirs is available, so its executable mode must be preserved",
+        ),
+        (
+            "untracked.sh",
+            EntryKind::Blob,
+            "no index entry exists, so the mode must default to non-executable despite the worktree executable bit",
+        ),
+    ] {
+        let mut changes = vec![Ok(spec(None, path))];
+        let (tree, _) = but_core::tree::apply_worktree_changes(base, &repo, &mut changes, 0)?;
+        assert!(
+            changes.iter().all(Result::is_ok),
+            "the edit must be accepted"
+        );
+        let tree = tree.object()?.into_tree();
+        let entry = tree.lookup_entry_by_path(path)?.expect("script exists");
+        assert_eq!(entry.mode().kind(), expected_kind, "{path}: {reason}");
+        assert_eq!(
+            entry.object()?.into_blob().data,
+            b"after\n",
+            "the worktree content must be preserved"
+        );
+    }
+    Ok(())
+}
+
+#[test]
+fn filemode_disabled_preserves_executable() -> anyhow::Result<()> {
+    filemode_disabled_preserves_executable_inner(false)
+}
+
+#[test]
+fn filemode_disabled_preserves_executable_with_hunks() -> anyhow::Result<()> {
+    filemode_disabled_preserves_executable_inner(true)
+}
+
+fn filemode_disabled_preserves_executable_inner(with_hunks: bool) -> anyhow::Result<()> {
+    let (repo, _tmp) = writable_scenario("filemode-disabled");
+    let base = repo.head_tree_id()?.detach();
+    for (path, expected_kind) in [
+        ("script.sh", EntryKind::BlobExecutable),
+        ("added.sh", EntryKind::BlobExecutable),
+        ("removed.sh", EntryKind::Blob),
+    ] {
+        let mut changes = vec![Ok(spec(None, path))];
+        if with_hunks {
+            changes[0]
+                .as_mut()
+                .expect("valid spec")
+                .hunk_headers
+                .push(but_core::HunkHeader {
+                    old_start: 1,
+                    old_lines: 1,
+                    new_start: 1,
+                    new_lines: 1,
+                });
+        }
+        let (tree, _) = but_core::tree::apply_worktree_changes(base, &repo, &mut changes, 0)?;
+        assert!(
+            changes.iter().all(Result::is_ok),
+            "the edit must be accepted"
+        );
+        let tree = tree.object()?.into_tree();
+        let entry = tree.lookup_entry_by_path(path)?.expect("script exists");
+        assert_eq!(
+            entry.mode().kind(),
+            expected_kind,
+            "core.fileMode=false must preserve the indexed executable bit for {path}"
+        );
+        assert_eq!(
+            entry.object()?.into_blob().data,
+            b"after\n",
+            "the edited content must be committed"
+        );
+    }
+    Ok(())
+}
+
+#[test]
+fn filemode_disabled_commits_index_only_mode_change() -> anyhow::Result<()> {
+    let (repo, _tmp) = writable_scenario("filemode-disabled");
+    let base = repo.head_tree_id()?.detach();
+    let status = but_core::diff::worktree_changes(&repo)?;
+    assert!(
+        status
+            .changes
+            .iter()
+            .any(|change| change.path == "mode-only.sh"),
+        "the staged mode-only change must be visible"
+    );
+    let mut changes = vec![Ok(spec(None, "mode-only.sh"))];
+    let (tree, _) = but_core::tree::apply_worktree_changes(base, &repo, &mut changes, 0)?;
+    assert!(
+        changes.iter().all(Result::is_ok),
+        "the mode change must be accepted"
+    );
+    let tree = tree.object()?.into_tree();
+    let entry = tree
+        .lookup_entry_by_path("mode-only.sh")?
+        .expect("script exists");
+    assert_eq!(
+        entry.mode().kind(),
+        EntryKind::BlobExecutable,
+        "the index-only executable bit must be committed"
+    );
+    assert_eq!(
+        entry.object()?.into_blob().data,
+        b"before\n",
+        "a mode-only change must preserve content"
+    );
+    Ok(())
+}
+
 /// Regression test for data loss when a file is renamed and a *new directory* is committed at the
 /// file's old path in the same commit.
 ///
