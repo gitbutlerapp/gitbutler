@@ -6,8 +6,7 @@ use snapbox::prelude::*;
 use crate::ref_info::{
     utils::standard_options,
     with_workspace_commit::{
-        head_info, journey::utils::standard_options_with_extra_target,
-        utils::named_read_only_in_memory_scenario_with_description,
+        head_info, utils::named_read_only_in_memory_scenario_with_description,
     },
 };
 
@@ -302,12 +301,7 @@ We'd not want to see the remote unique commit anymore as it's also considered in
         .raw()
     );
 
-    let info = head_info(
-        &repo,
-        &meta,
-        &mut db,
-        standard_options_with_extra_target(&repo, "fafd9d0"),
-    );
+    let info = head_info(&repo, &meta, &mut db, standard_options());
     snapbox::assert_data_eq!(
         info.to_debug(),
         snapbox::str![[r#"
@@ -476,12 +470,7 @@ Remote origin/A is merged back (with forceful merge commit) while there are stil
         .raw()
     );
 
-    let info = head_info(
-        &repo,
-        &meta,
-        &mut db,
-        standard_options_with_extra_target(&repo, "fafd9d0"),
-    );
+    let info = head_info(&repo, &meta, &mut db, standard_options());
     snapbox::assert_data_eq!(
         info.to_debug(),
         snapbox::str![[r#"
@@ -647,12 +636,7 @@ Remote origin/A is merged back (fast-forward), bringing all into the target bran
 "#]]
     );
 
-    let info = head_info(
-        &repo,
-        &meta,
-        &mut db,
-        standard_options_with_extra_target(&repo, "fafd9d0"),
-    );
+    let info = head_info(&repo, &meta, &mut db, standard_options());
     snapbox::assert_data_eq!(
         info.to_debug(),
         snapbox::str![[r#"
@@ -679,7 +663,7 @@ Ok(
         ),
         is_target_current: true,
         lower_bound: Some(
-            NodeIndex(4),
+            NodeIndex(3),
         ),
         ancestor_workspace_commit: None,
     },

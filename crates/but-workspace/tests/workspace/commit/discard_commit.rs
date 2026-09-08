@@ -5,7 +5,8 @@ use but_workspace::commit::discard_commits;
 use snapbox::IntoData;
 
 use crate::ref_info::with_workspace_commit::utils::{
-    StackState, add_stack_with_segments, named_writable_scenario_with_description_and_graph,
+    StackState, add_stack_with_segments, named_writable_scenario_with_description,
+    named_writable_scenario_with_description_and_graph,
 };
 
 #[test]
@@ -254,8 +255,8 @@ fn discard_bottom_commit_in_workspace_stack() -> Result<()> {
 
 #[test]
 fn can_discard_conflicted_commit() -> Result<()> {
-    let (_tmp, graph, repo, mut meta, _description, mut db) =
-        named_writable_scenario_with_description_and_graph("with-conflict", |_| {})?;
+    let (_tmp, repo, mut meta, _description, mut db) =
+        named_writable_scenario_with_description("with-conflict")?;
 
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
@@ -266,6 +267,14 @@ fn can_discard_conflicted_commit() -> Result<()> {
 "#]]
     );
 
+    // A plain single-branch repository without a target.
+    let graph = but_graph::Graph::from_head(
+        &repo,
+        &meta,
+        but_core::ref_metadata::ProjectMeta::default(),
+        &mut db,
+        but_graph::init::Options::limited(),
+    )?;
     let conflicted = repo.rev_parse_single("conflicted")?;
 
     let mut ws = graph.into_workspace()?;

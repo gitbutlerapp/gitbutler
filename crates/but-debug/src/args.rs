@@ -157,9 +157,6 @@ pub struct GraphArgs {
     /// Print graph statistics first to get a grasp of huge graphs.
     #[arg(long, short = 's')]
     pub stats: bool,
-    /// The rev-spec of the extra target to provide for traversal.
-    #[arg(long)]
-    pub extra_target: Option<String>,
     /// Disable post-processing of the graph, useful if that's failing.
     #[arg(long)]
     pub no_post: bool,
@@ -292,9 +289,6 @@ pub struct RevisionGraphArgs {
     /// The named reference to use as the workspace target during graph traversal.
     #[arg(long)]
     pub target_ref: Option<String>,
-    /// The rev-spec of the extra target to provide for graph traversal.
-    #[arg(long)]
-    pub extra_target: Option<String>,
 }
 
 /// Arguments for the `revision log` debugging subcommand.

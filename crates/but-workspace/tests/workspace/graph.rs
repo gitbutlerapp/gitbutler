@@ -74,16 +74,7 @@ fn detailed_writable(
         target_commit_id: Some(target_sha),
         push_remote: None,
     };
-    let graph = Graph::from_head(
-        &repo,
-        &meta,
-        project_meta,
-        &mut db,
-        Options {
-            extra_target_commit_id: Some(target_sha),
-            ..Options::limited()
-        },
-    )?;
+    let graph = Graph::from_head(&repo, &meta, project_meta, &mut db, Options::limited())?;
     let mut ws = graph.into_workspace()?;
     let detailed = detailed_graph_workspace(&mut ws, &mut meta, &repo, &mut db)?;
     Ok((tmp, detailed))
@@ -1144,24 +1135,15 @@ fn commit_state_uses_similarity_for_local_and_remote() -> Result<()> {
     use crate::ref_info::with_workspace_commit::utils::{
         StackState, add_stack, project_meta, read_only_in_memory_scenario,
     };
-    use anyhow::Context as _;
-
     let (repo, mut meta, mut db) = read_only_in_memory_scenario("target-ahead-remote-rewritten")?;
     add_stack(&mut meta, 1, "A", StackState::InWorkspace);
 
-    let project_meta = project_meta(&repo)?;
-    let target_sha = project_meta
-        .target_commit_id
-        .context("scenario should configure a target")?;
     let graph = Graph::from_head(
         &repo,
         &*meta,
-        project_meta,
+        project_meta(&repo)?,
         &mut db,
-        Options {
-            extra_target_commit_id: Some(target_sha),
-            ..Options::limited()
-        },
+        Options::limited(),
     )?;
     let mut ws = graph.into_workspace()?;
     let detailed = detailed_graph_workspace(&mut ws, &mut *meta, &repo, &mut db)?;

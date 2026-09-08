@@ -18,7 +18,7 @@ use crate::init::{
     read_only_in_memory_scenario, standard_options,
     utils::{
         add_stack, add_workspace_with_target, default_project_meta,
-        named_read_only_in_memory_scenario, standard_options_with_extra_target,
+        named_read_only_in_memory_scenario,
     },
 };
 use crate::support::graph_dag;
@@ -1773,13 +1773,13 @@ fn stack_configuration_is_respected_if_one_of_them_is_an_entrypoint() -> anyhow:
     add_stack_with_segments(&mut meta, 1, "A", StackState::InWorkspace, &[]);
     add_stack_with_segments(&mut meta, 2, "B", StackState::InWorkspace, &[]);
 
-    let extra_target_options = standard_options_with_extra_target(&repo, "main");
+    let main_id = Some(id_by_rev(&repo, "main").detach());
     let graph = Graph::from_head(
         &repo,
         &*meta,
         default_project_meta(&repo),
         &mut db,
-        extra_target_options.clone(),
+        standard_options(),
     )?
     .validated()?;
     snapbox::assert_data_eq!(
@@ -1797,7 +1797,7 @@ fn stack_configuration_is_respected_if_one_of_them_is_an_entrypoint() -> anyhow:
     );
     assert_eq!(
         graph.entrypoint()?.commit().map(|c| c.id),
-        extra_target_options.extra_target_commit_id,
+        main_id,
         "entrypoint points to a virtual workspace tip segment \
         which can't unambiguously find the commit"
     );
@@ -1810,7 +1810,7 @@ fn stack_configuration_is_respected_if_one_of_them_is_an_entrypoint() -> anyhow:
     let ws = graph.into_workspace()?;
     assert_eq!(
         ws.tip_commit_by_segment_id(ws.id).map(|commit| commit.id),
-        extra_target_options.extra_target_commit_id,
+        main_id,
         "workspace query falls back to the ref-info commit for ambiguous empty segments"
     );
     snapbox::assert_data_eq!(
@@ -1834,7 +1834,7 @@ fn stack_configuration_is_respected_if_one_of_them_is_an_entrypoint() -> anyhow:
         &*meta,
         default_project_meta(&repo),
         &mut db,
-        extra_target_options.clone(),
+        standard_options(),
     )?
     .validated()?;
     snapbox::assert_data_eq!(
@@ -1867,7 +1867,7 @@ fn stack_configuration_is_respected_if_one_of_them_is_an_entrypoint() -> anyhow:
         &*meta,
         default_project_meta(&repo),
         &mut db,
-        extra_target_options,
+        standard_options(),
     )?
     .validated()?;
     snapbox::assert_data_eq!(
@@ -2335,48 +2335,6 @@ fn tips_equivalent_to_workspace_metadata_are_order_independent() -> anyhow::Resu
         explicit_workspace.to_string(),
         workspace_baseline_workspace,
         "unordered explicit tips should create the same workspace projection as workspace metadata traversal"
-    );
-
-    Ok(())
-}
-
-#[test]
-fn workspace_target_commit_and_extra_target_commit_can_overlap() -> anyhow::Result<()> {
-    let (repo, mut meta, mut db) = read_only_in_memory_scenario("ws/just-init-with-two-branches")?;
-    let target_id = id_by_rev(&repo, "main").detach();
-    let project_meta = add_workspace_with_target(&mut meta, target_id);
-    add_stack_with_segments(&mut meta, 1, "A", StackState::InWorkspace, &[]);
-    add_stack_with_segments(&mut meta, 2, "B", StackState::InWorkspace, &[]);
-
-    let baseline = Graph::from_head(
-        &repo,
-        &*meta,
-        project_meta.clone(),
-        &mut db,
-        standard_options(),
-    )?
-    .validated()?;
-    let baseline_tree = graph_dag(&baseline);
-    let baseline_workspace = graph_workspace(&baseline.into_workspace()?).to_string();
-
-    let graph = Graph::from_head(
-        &repo,
-        &*meta,
-        project_meta,
-        &mut db,
-        standard_options().with_extra_target_commit_id(target_id),
-    )?
-    .validated()?;
-
-    assert_eq!(
-        graph_dag(&graph),
-        baseline_tree,
-        "duplicated synthetic integrated tips should not change graph traversal"
-    );
-    assert_eq!(
-        graph_workspace(&graph.into_workspace()?).to_string(),
-        baseline_workspace,
-        "duplicated synthetic integrated tips should not change workspace projection"
     );
 
     Ok(())
@@ -3880,7 +3838,7 @@ fn integrated_tips_stop_early_if_remote_is_not_configured() -> anyhow::Result<()
 "#]]
     );
 
-    // See what happens with an out-of-workspace HEAD and an arbitrary extra target.
+    // See what happens with an out-of-workspace HEAD.
     let (id, _ref_name) = id_at(&repo, "origin/main");
     let graph = Graph::from_commit_traversal(
         id,
@@ -3888,11 +3846,10 @@ fn integrated_tips_stop_early_if_remote_is_not_configured() -> anyhow::Result<()
         &*meta,
         default_project_meta(&repo),
         &mut db,
-        standard_options_with_extra_target(&repo, "gitbutler/workspace"),
+        standard_options(),
     )?
     .validated()?;
-    // It keeps the tip-settings of the workspace it setup by itself, and doesn't override this
-    // with the extra-target settings.
+    // It keeps the tip-settings of the workspace it setup by itself.
     snapbox::assert_data_eq!(
         graph_dag(&graph),
         snapbox::str![[r#"
@@ -3901,63 +3858,6 @@ fn integrated_tips_stop_early_if_remote_is_not_configured() -> anyhow::Result<()
 ◎  B
 ●  ·6b1a13b (⌂|🏘)
 ●  ·03ad472 (⌂|🏘)
-│ ◎  origin/main
-│ ●  👉·d0df794 (⌂|✓)
-│ ●  ·09c6e08 (⌂|✓)
-│ ●  ·7b9f260 (⌂|✓)
-╭─┤
-◎ │  A
-● │  ·79bbb29 (⌂|🏘|✓)
-● │  ·fc98174 (⌂|🏘|✓)
-● │  ·a381df5 (⌂|🏘|✓)
-● │  ·777b552 (⌂|🏘|✓)
-● │    ·ce4a760 (⌂|🏘|✓)
-├───╮
-│ │ ◎  A-feat
-│ │ ●  ·fea59b5 (⌂|🏘|✓)
-│ │ ●  ·4deea74 (⌂|🏘|✓)
-├───╯
-● │  ·01d0e1e (⌂|🏘|✓)
-├─╯
-◎  main <> origin/main
-●  ·4b3e5a8 (⌂|🏘|✓)
-●  ·34d0715 (⌂|🏘|✓)
-●  🏁·eb5f731 (⌂|🏘|✓)
-"#]]
-    );
-
-    snapbox::assert_data_eq!(
-        graph_workspace(&graph.into_workspace()?).to_string(),
-        snapbox::str![[r#"
-⌂:DETACHED <> ✓refs/remotes/origin/main on d0df794
-└── ≡:anon: on d0df794 {1}
-    └── :anon:
-
-"#]]
-    );
-
-    // However, when choosing an initially unknown branch, it will get the extra target tip settings.
-    let graph = Graph::from_commit_traversal(
-        id,
-        None,
-        &*meta,
-        default_project_meta(&repo),
-        &mut db,
-        standard_options_with_extra_target(&repo, "B"),
-    )?
-    .validated()?;
-    // For now we don't do anything to limit the each in single-branch mode using extra-targets.
-    // Thanks to the limit-transplant we get to discover more of the workspace.
-    // TODO(extra-target): make it work so they limit single branches even, but it's a special case
-    //                     as we can't have remotes here.
-    snapbox::assert_data_eq!(
-        graph_dag(&graph),
-        snapbox::str![[r#"
-◎  📕gitbutler/workspace[🌳]
-●  ·4077353 (⌂|🏘)
-◎  B
-●  ·6b1a13b (⌂|🏘|✓)
-●  ·03ad472 (⌂|🏘|✓)
 │ ◎  origin/main
 │ ●  👉·d0df794 (⌂|✓)
 │ ●  ·09c6e08 (⌂|✓)
@@ -4091,7 +3991,7 @@ fn integrated_tips_do_not_stop_early() -> anyhow::Result<()> {
         &*meta,
         default_project_meta(&repo),
         &mut db,
-        standard_options_with_extra_target(&repo, "main"),
+        standard_options(),
     )?
     .validated()?;
     snapbox::assert_data_eq!(
@@ -4172,7 +4072,7 @@ fn integrated_tips_do_not_stop_early() -> anyhow::Result<()> {
         &*meta,
         default_project_meta(&repo),
         &mut db,
-        standard_options_with_extra_target(&repo, "main"),
+        standard_options(),
     )?
     .validated()?;
     snapbox::assert_data_eq!(
@@ -4679,7 +4579,7 @@ fn on_top_of_target_with_history() -> anyhow::Result<()> {
         &*meta,
         default_project_meta(&repo),
         &mut db,
-        standard_options_with_extra_target(&repo, "main"),
+        standard_options(),
     )?
     .validated()?;
     snapbox::assert_data_eq!(
@@ -5378,7 +5278,7 @@ fn multi_lane_with_shared_segment_one_integrated() -> anyhow::Result<()> {
         &*meta,
         default_project_meta(&repo),
         &mut db,
-        standard_options_with_extra_target(&repo, "main"),
+        standard_options(),
     )?
     .validated()?;
     snapbox::assert_data_eq!(
@@ -6067,7 +5967,7 @@ fn two_dependent_branches_with_embedded_remote() -> anyhow::Result<()> {
         &*meta,
         default_project_meta(&repo),
         &mut db,
-        standard_options_with_extra_target(&repo, "main"),
+        standard_options(),
     )?
     .validated()?;
     snapbox::assert_data_eq!(
@@ -6158,7 +6058,7 @@ fn two_dependent_branches_rebased_with_remotes_merge_local() -> anyhow::Result<(
         &*meta,
         default_project_meta(&repo),
         &mut db,
-        standard_options_with_extra_target(&repo, "main"),
+        standard_options(),
     )?
     .validated()?;
     snapbox::assert_data_eq!(
@@ -6203,7 +6103,7 @@ fn two_dependent_branches_rebased_with_remotes_merge_local() -> anyhow::Result<(
         &*meta,
         default_project_meta(&repo),
         &mut db,
-        standard_options_with_extra_target(&repo, "A"),
+        standard_options(),
     )?
     .validated()?;
     // Pretending we are rebased onto A still shows the same remote commits.
@@ -7378,15 +7278,8 @@ fn special_branch_do_not_allow_overly_long_segments() -> anyhow::Result<()> {
     let mut project_meta = default_project_meta(&repo);
     project_meta.target_ref = Some("refs/remotes/origin/gitbutler/target".try_into()?);
 
-    let graph = Graph::from_head(
-        &repo,
-        &*meta,
-        project_meta,
-        // standard_options_with_extra_target(&repo, "gitbutler/target"),
-        &mut db,
-        standard_options(),
-    )?
-    .validated()?;
+    let graph =
+        Graph::from_head(&repo, &*meta, project_meta, &mut db, standard_options())?.validated()?;
     // Standard handling after traversal and post-processing.
     // Segment length capping is the property under test, so this keeps
     // the segment-structure rendering.
@@ -7486,7 +7379,7 @@ fn branch_ahead_of_workspace() -> anyhow::Result<()> {
         &*meta,
         default_project_meta(&repo),
         &mut db,
-        standard_options_with_extra_target(&repo, "main"),
+        standard_options(),
     )?
     .validated()?;
     snapbox::assert_data_eq!(
@@ -7551,7 +7444,7 @@ fn branch_ahead_of_workspace() -> anyhow::Result<()> {
         &*meta,
         default_project_meta(&repo),
         &mut db,
-        standard_options_with_extra_target(&repo, ":/init"),
+        standard_options(),
     )?
     .validated()?;
     snapbox::assert_data_eq!(
@@ -7659,7 +7552,7 @@ fn two_branches_one_advanced_two_parent_ws_commit_diverged_ttb() -> anyhow::Resu
         &*meta,
         default_project_meta(&repo),
         &mut db,
-        standard_options_with_extra_target(&repo, "main"),
+        standard_options(),
     )?
     .validated()?;
     snapbox::assert_data_eq!(
@@ -7686,48 +7579,6 @@ fn two_branches_one_advanced_two_parent_ws_commit_diverged_ttb() -> anyhow::Resu
 └── ≡📙:lane {1}
     └── 📙:lane
         └── ·fafd9d0 (🏘️) ►main
-
-"#]]
-    );
-
-    let graph = Graph::from_head(
-        &repo,
-        &*meta,
-        default_project_meta(&repo),
-        &mut db,
-        standard_options_with_extra_target(&repo, "main"),
-    )?
-    .validated()?;
-    snapbox::assert_data_eq!(
-        graph_dag(&graph),
-        snapbox::str![[r#"
-◎  👉📕gitbutler/workspace[🌳]
-●    ·873d056 (⌂|🏘)
-├─╮
-◎ │  📙advanced-lane
-● │  ·cbc6713 (⌂|🏘)
-├─╯
-◎  📙lane
-│ ◎  main
-├─╯
-●  🏁·fafd9d0 (⌂|🏘|✓)
-◎  origin/main
-●  🏁🟣da83717 (✓)
-"#]]
-    );
-
-    snapbox::assert_data_eq!(
-        graph_workspace(&graph.into_workspace()?).to_string(),
-        snapbox::str![[r#"
-📕🏘️:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main⇣1
-├── ≡📙:lane {0}
-│   └── 📙:lane
-│       └── ·fafd9d0 (🏘️|✓) ►main
-└── ≡📙:advanced-lane {1}
-    ├── 📙:advanced-lane
-    │   └── ·cbc6713 (🏘️)
-    └── 📙:lane
-        └── ·fafd9d0 (🏘️|✓) ►main
 
 "#]]
     );
@@ -7861,60 +7712,6 @@ fn advanced_workspace_ref() -> anyhow::Result<()> {
 "#]]
     );
 
-    let graph = Graph::from_head(
-        &repo,
-        &*meta,
-        default_project_meta(&repo),
-        &mut db,
-        standard_options_with_extra_target(&repo, "main"),
-    )?
-    .validated()?;
-    // The extra-target as would happen in the typical case would change nothing though.
-    snapbox::assert_data_eq!(
-        graph_dag(&graph),
-        snapbox::str![[r#"
-◎  👉📕gitbutler/workspace[🌳]
-●  ·a7131b1 (⌂|🏘)
-◎  intermediate-ref
-●  ·4d3831e (⌂|🏘)
-●    ·468357f (⌂|🏘)
-├─╮
-│ ◎  branch-on-top
-│ ●  ·d3166f7 (⌂|🏘)
-├─╯
-●  ·118ddbb (⌂|🏘)
-●    ·619d548 (⌂|🏘)
-├─╮
-◎ │  📙B
-● │  ·8a352d5 (⌂|🏘)
-│ ◎  📙A
-│ ●  ·6fdab32 (⌂|🏘)
-├─╯
-│ ◎  origin/main
-├─╯
-◎  main <> origin/main
-●  ·bce0c5e (⌂|🏘|✓)
-●  🏁·3183e43 (⌂|🏘|✓)
-"#]]
-    );
-
-    snapbox::assert_data_eq!(
-        graph_workspace(&graph.into_workspace()?).to_string(),
-        snapbox::str![[r#"
-📕🏘️⚠️:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on bce0c5e
-└── ≡:anon: on bce0c5e {1}
-    ├── :anon:
-    │   └── ·a7131b1 (🏘️)
-    ├── :intermediate-ref
-    │   ├── ·4d3831e (🏘️)
-    │   ├── ·468357f (🏘️)
-    │   ├── ·118ddbb (🏘️)
-    │   └── ·619d548 (🏘️)
-    └── 📙:B
-        └── ·8a352d5 (🏘️)
-
-"#]]
-    );
     Ok(())
 }
 
@@ -8209,53 +8006,6 @@ fn applied_stack_below_explicit_lower_bound() -> anyhow::Result<()> {
 "#]]
     );
 
-    // Finally, if the extra-target, indicating an old stored base that isn't valid anymore.
-    let graph = Graph::from_head(
-        &repo,
-        &*meta,
-        default_project_meta(&repo),
-        &mut db,
-        standard_options_with_extra_target(&repo, ":/M3"),
-    )?
-    .validated()?;
-    snapbox::assert_data_eq!(
-        graph_dag(&graph),
-        snapbox::str![[r#"
-◎  👉📕gitbutler/workspace[🌳]
-●    ·e82dfab (⌂|🏘)
-├─╮
-◎ │  📙B
-● │  ·78b1b59 (⌂|🏘)
-│ ◎  📙A
-│ ●  ·6fdab32 (⌂|🏘)
-│ │ ◎  origin/main
-│ │ ◎  main <> origin/main
-│ │ ●  ·938e6f2 (⌂|✓)
-├───╯
-● │  ·f52fcec (⌂|🏘|✓)
-├─╯
-●  ·bce0c5e (⌂|🏘|✓)
-●  🏁·3183e43 (⌂|🏘|✓)
-"#]]
-    );
-
-    // The base is still adjusted so it matches the actual stacks. With the extra-target
-    // resolved as the target commit, the integrated `f52fcec` is at the target and is
-    // pruned - consistent with the no-extra-target case above.
-    snapbox::assert_data_eq!(
-        graph_workspace(&graph.into_workspace()?).to_string(),
-        snapbox::str![[r#"
-📕🏘️:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main⇣1 on bce0c5e
-├── ≡📙:A on bce0c5e {0}
-│   └── 📙:A
-│       └── ·6fdab32 (🏘️)
-└── ≡📙:B on f52fcec {1}
-    └── 📙:B
-        └── ·78b1b59 (🏘️)
-
-"#]]
-    );
-
     Ok(())
 }
 
@@ -8523,7 +8273,7 @@ fn remote_and_integrated_tracking_branch_on_merge() -> anyhow::Result<()> {
         &*meta,
         default_project_meta(&repo),
         &mut db,
-        standard_options().with_extra_target_commit_id(repo.rev_parse_single("origin/main")?),
+        standard_options(),
     )?
     .validated()?;
     snapbox::assert_data_eq!(
@@ -8564,7 +8314,7 @@ fn remote_and_integrated_tracking_branch_on_linear_segment() -> anyhow::Result<(
         &*meta,
         default_project_meta(&repo),
         &mut db,
-        standard_options().with_extra_target_commit_id(repo.rev_parse_single("origin/main")?),
+        standard_options(),
     )?
     .validated()?;
     snapbox::assert_data_eq!(
@@ -8582,7 +8332,7 @@ fn remote_and_integrated_tracking_branch_on_linear_segment() -> anyhow::Result<(
 }
 
 #[test]
-fn remote_and_integrated_tracking_branch_on_merge_extra_target() -> anyhow::Result<()> {
+fn remote_and_integrated_tracking_branch_on_merge_extra_commit() -> anyhow::Result<()> {
     let (repo, mut meta, mut db) =
         read_only_in_memory_scenario("ws/remote-and-integrated-tracking-extra-commit")?;
     snapbox::assert_data_eq!(
@@ -8611,7 +8361,7 @@ fn remote_and_integrated_tracking_branch_on_merge_extra_target() -> anyhow::Resu
         &*meta,
         default_project_meta(&repo),
         &mut db,
-        standard_options().with_extra_target_commit_id(repo.rev_parse_single("origin/main")?),
+        standard_options(),
     )?
     .validated()?;
     snapbox::assert_data_eq!(
@@ -9507,7 +9257,6 @@ fn duplicate_parent_connection_from_ws_commit_to_ambiguous_branch() -> anyhow::R
 "#]]
     );
 
-    // With extra-target these cases work as well
     meta.data_mut().branches.clear();
     add_stack(&mut meta, 1, "A", StackState::InWorkspace);
     add_stack(&mut meta, 2, "B", StackState::InWorkspace);
@@ -9516,7 +9265,7 @@ fn duplicate_parent_connection_from_ws_commit_to_ambiguous_branch() -> anyhow::R
         &*meta,
         default_project_meta(&repo),
         &mut db,
-        standard_options_with_extra_target(&repo, "main"),
+        standard_options(),
     )?;
     snapbox::assert_data_eq!(
         graph_workspace(&graph.into_workspace()?).to_string(),
@@ -9537,7 +9286,7 @@ fn duplicate_parent_connection_from_ws_commit_to_ambiguous_branch() -> anyhow::R
         &*meta,
         default_project_meta(&repo),
         &mut db,
-        standard_options_with_extra_target(&repo, "main"),
+        standard_options(),
     )?;
     snapbox::assert_data_eq!(
         graph_workspace(&graph.into_workspace()?).to_string(),

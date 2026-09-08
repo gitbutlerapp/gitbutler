@@ -199,8 +199,7 @@ impl Tip {
     /// Named target remotes can represent refs that need their own segment and
     /// target/local sibling relationship. Anonymous target remotes have no ref
     /// to preserve in the projection; they represent commit-only target
-    /// context such as `extra_target_commit_id` or a persisted workspace target
-    /// commit.
+    /// context such as a persisted workspace target commit.
     fn is_anonymous_integrated_target_context(&self) -> bool {
         matches!(self.role, TipRole::TargetRemote) && self.ref_name.is_none()
     }
@@ -211,9 +210,8 @@ impl Tip {
     /// Anonymous target remotes can be provided explicitly by callers and
     /// usually remain normal traversal seeds. The `auxiliary_integrated_tip_ids`
     /// set records the anonymous integrated targets that normalization derived
-    /// from metadata or options such as `extra_target_commit_id`; those tips act
-    /// as mergeable limits/context and should be ordered or deduplicated as
-    /// auxiliary work rather than as user-visible roots.
+    /// from metadata; those tips act as mergeable limits/context and should be
+    /// ordered or deduplicated as auxiliary work rather than as user-visible roots.
     ///
     /// If an anonymous target points to the same commit as a named target ref,
     /// normalization collapses it into the named tip.
@@ -473,12 +471,6 @@ pub struct Options {
     /// Due to multiple paths being taken, more commits may be queued (which is what's counted here) than actually
     /// end up in the graph, so usually one will see many less.
     pub hard_limit: Option<usize>,
-    /// Provide the commit that should act like the tip of an additional target reference,
-    /// just as if it was set by one of the workspaces.
-    /// Everything it touches will be considered integrated, and it can be used
-    /// to extend the border of the workspace. Typically, it's a past position
-    /// of an existing target, or a target chosen by the user.
-    pub extra_target_commit_id: Option<gix::ObjectId>,
     /// Enabling this will prevent the postprocessing step to run which is what makes the graph useful through clean-up
     /// and to make it more amenable to a workspace project.
     ///
@@ -548,22 +540,6 @@ impl Options {
         commits: impl IntoIterator<Item = gix::ObjectId>,
     ) -> Self {
         self.commits_limit_recharge_location.extend(commits);
-        self
-    }
-
-    /// Set an additional integrated traversal tip.
-    /// It's most useful for tests which want to affect the target of the workspace
-    /// without the respective setup.
-    /// Application code may use it to set global targets, to reduce the amount of
-    /// commits in the workspace even if the entrypoint otherwise is the target branch.
-    ///
-    /// The commit is queued like an integrated target so traversal can connect
-    /// the workspace to history that may otherwise be outside the ordinary
-    /// target ref or workspace metadata. The tip is also kept as a tip of
-    /// interest and re-resolved after post-processing so workspace projection
-    /// can use it as a past target/base candidate.
-    pub fn with_extra_target_commit_id(mut self, id: impl Into<gix::ObjectId>) -> Self {
-        self.extra_target_commit_id = Some(id.into());
         self
     }
 }
@@ -685,7 +661,6 @@ impl Graph {
     /// * support the notion of a branch to integrate with, the *target*
     ///     - *target* branches consist of a local and remote tracking branch, and one can be ahead of the other.
     ///     - workspaces are relative to the local tracking branch of the target.
-    ///     - options contain an [`extra_target_commit_id`](Options::extra_target_commit_id) for an additional target location.
     /// * remote tracking branches are seen in relation to their branches.
     /// * the graph of segments assigns each reachable commit to exactly one segment
     /// * one can use [`petgraph::algo`] and [`petgraph::visit`]
@@ -816,7 +791,6 @@ impl Graph {
             tip,
             ref_name.as_ref(),
             &project_meta,
-            options.extra_target_commit_id,
         )?;
         // The entrypoint tip is intentionally unnamed and receives `ref_name` as
         // an override, so that name is claimed as well. Workspace stack branch and
@@ -936,7 +910,6 @@ impl Graph {
         };
         let Options {
             collect_tags,
-            extra_target_commit_id,
             commits_limit_hint: limit,
             commits_limit_recharge_location: mut max_commits_recharge_location,
             hard_limit,
@@ -959,13 +932,7 @@ impl Graph {
 
         let configured_remote_tracking_branches =
             remotes::configured_remote_tracking_branches(repo)?;
-        let initial_tips = initial_tips_from_tips(
-            repo,
-            tips,
-            &graph.project_meta,
-            extra_target_commit_id,
-            worktree_tips,
-        )?;
+        let initial_tips = initial_tips_from_tips(repo, tips, &graph.project_meta, worktree_tips)?;
         graph.traversal_tips = initial_tips.tips.clone();
         let refs_by_id = repo.collect_ref_mapping_by_prefix(
             [
@@ -1266,7 +1233,6 @@ impl Graph {
             tip,
             ref_name.as_ref(),
             &self.project_meta,
-            self.options.extra_target_commit_id,
         )?;
         Graph::traverse_tips_with_overlay(
             &repo,
@@ -1394,11 +1360,10 @@ type TraversalSeed = (gix::ObjectId, u8, Option<gix::refs::FullName>, bool, bool
 /// remotes with the same commit can have different responsibilities. A named
 /// target remote represents a ref that may need its own segment,
 /// metadata-derived target identity, and target/local sibling link. An
-/// anonymous target remote represents commit-only target context, such as
-/// `extra_target_commit_id` or a persisted target commit. Validation accepts
-/// those two forms so callers can pass metadata-equivalent tips directly;
-/// normalization later collapses the anonymous form into the named tip if they
-/// point to the same commit.
+/// anonymous target remote represents commit-only target context, such as a
+/// persisted target commit. Validation accepts those two forms so callers can
+/// pass metadata-equivalent tips directly; normalization later collapses the
+/// anonymous form into the named tip if they point to the same commit.
 fn tip_traversal_seed(tip: &Tip) -> TraversalSeed {
     let (role, role_ref_name, is_named_target) = match &tip.role {
         TipRole::Reachable => (0, None, false),
@@ -1429,14 +1394,9 @@ fn initial_tips_from_tips(
     repo: &OverlayRepo<'_>,
     mut tips: Vec<Tip>,
     project_meta: &ProjectMeta,
-    extra_target_commit_id: Option<gix::ObjectId>,
     worktree_tips: Vec<WorktreeTip>,
 ) -> anyhow::Result<InitialTips> {
     let mut auxiliary_integrated_tip_ids = BTreeSet::new();
-    if let Some(extra_target) = extra_target_commit_id {
-        auxiliary_integrated_tip_ids.insert(extra_target);
-        push_integrated_tip_once(&mut tips, extra_target);
-    }
     let frontload_workspace_related_tips = has_workspace_related_tips(&tips, project_meta);
     if frontload_workspace_related_tips {
         auxiliary_integrated_tip_ids.extend(tips.iter().filter_map(|tip| {
@@ -1609,7 +1569,7 @@ fn has_workspace_related_tips(tips: &[Tip], project_meta: &ProjectMeta) -> bool 
 /// 2. The workspace ref so it can become the traversal anchor.
 /// 3. The integrated target ref, then its local tracking branch, so they can
 ///    be linked as siblings and agree on target ownership.
-/// 4. Synthetic integrated targets, like extra target commits.
+/// 4. Synthetic integrated targets, like persisted target commits.
 /// 5. Workspace stack branches, whose order is refined later from workspace
 ///    metadata.
 /// 6. Other reachable roots.
@@ -1758,7 +1718,6 @@ fn initial_tips_from_workspace_metadata<T: RefMetadata>(
     entrypoint: gix::ObjectId,
     entrypoint_ref: Option<&gix::refs::FullName>,
     project_meta: &ProjectMeta,
-    extra_target_commit_id: Option<gix::ObjectId>,
 ) -> anyhow::Result<Vec<Tip>> {
     let mut workspaces = obtain_workspace_infos(repo, entrypoint_ref.map(|rn| rn.as_ref()), meta)?;
     let has_project_meta = project_meta != &ProjectMeta::default();
@@ -1833,10 +1792,6 @@ fn initial_tips_from_workspace_metadata<T: RefMetadata>(
             &mut tips,
             &mut additional_target_commits,
         )?;
-    }
-
-    if let Some(extra_target) = extra_target_commit_id {
-        push_integrated_tip_once(&mut tips, extra_target);
     }
 
     for target_commit_id in additional_target_commits {

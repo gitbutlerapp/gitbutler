@@ -40,10 +40,7 @@ fn diamond_partially_historically_integrated_rebase() -> Result<()> {
         &meta,
         project_meta.clone(),
         &mut db,
-        Options {
-            extra_target_commit_id: Some(o1_id),
-            ..Options::limited()
-        },
+        Options::limited(),
     )?;
 
     snapbox::assert_data_eq!(
@@ -127,10 +124,7 @@ fn diamond_partially_historically_integrated_merge() -> Result<()> {
         &meta,
         project_meta.clone(),
         &mut db,
-        Options {
-            extra_target_commit_id: Some(o1_id),
-            ..Options::limited()
-        },
+        Options::limited(),
     )?;
 
     snapbox::assert_data_eq!(
@@ -215,10 +209,7 @@ fn diamond_partially_content_integrated_rebase() -> Result<()> {
         &meta,
         project_meta.clone(),
         &mut db,
-        Options {
-            extra_target_commit_id: Some(o1_id),
-            ..Options::limited()
-        },
+        Options::limited(),
     )?;
 
     snapbox::assert_data_eq!(
@@ -310,10 +301,7 @@ fn diamond_partially_content_integrated_merge() -> Result<()> {
         &meta,
         project_meta.clone(),
         &mut db,
-        Options {
-            extra_target_commit_id: Some(o1_id),
-            ..Options::limited()
-        },
+        Options::limited(),
     )?;
 
     snapbox::assert_data_eq!(
@@ -402,10 +390,7 @@ fn integrated_bottom_branch_no_workspace_rebase() -> Result<()> {
         &meta,
         project_meta.clone(),
         &mut db,
-        Options {
-            extra_target_commit_id: Some(target_sha),
-            ..Options::limited()
-        },
+        Options::limited(),
     )?;
 
     snapbox::assert_data_eq!(
@@ -495,10 +480,7 @@ fn integrated_bottom_branch_does_not_delete_local_main_or_master() -> Result<()>
         &meta,
         project_meta.clone(),
         &mut db,
-        Options {
-            extra_target_commit_id: Some(target_sha),
-            ..Options::limited()
-        },
+        Options::limited(),
     )?;
     let mut workspace = graph.into_workspace()?;
     let project_meta = workspace.graph.project_meta.clone();
@@ -554,10 +536,7 @@ fn integrated_bottom_branch_no_workspace_merge() -> Result<()> {
         &meta,
         project_meta.clone(),
         &mut db,
-        Options {
-            extra_target_commit_id: Some(target_sha),
-            ..Options::limited()
-        },
+        Options::limited(),
     )?;
 
     snapbox::assert_data_eq!(
@@ -649,10 +628,7 @@ fn merge_upstream_with_conflicting_target_materializes_conflicted_merge_commit()
         &meta,
         project_meta.clone(),
         &mut db,
-        Options {
-            extra_target_commit_id: Some(target_sha),
-            ..Options::limited()
-        },
+        Options::limited(),
     )?;
 
     snapbox::assert_data_eq!(
@@ -751,10 +727,7 @@ fn fully_historically_integrated_branch_leaves_workspace_shape() -> Result<()> {
         &meta,
         project_meta.clone(),
         &mut db,
-        Options {
-            extra_target_commit_id: Some(target_sha),
-            ..Options::limited()
-        },
+        Options::limited(),
     )?;
 
     snapbox::assert_data_eq!(
@@ -848,10 +821,7 @@ fn fully_integrated_single_branch_leaves_workspace_shape() -> Result<()> {
         &meta,
         project_meta.clone(),
         &mut db,
-        Options {
-            extra_target_commit_id: Some(target_sha),
-            ..Options::limited()
-        },
+        Options::limited(),
     )?;
 
     snapbox::assert_data_eq!(
@@ -929,10 +899,7 @@ fn fully_integrated_single_branch_reparents_workspace_commit_to_advanced_target(
         &meta,
         project_meta.clone(),
         &mut db,
-        Options {
-            extra_target_commit_id: Some(target_sha),
-            ..Options::limited()
-        },
+        Options::limited(),
     )?;
 
     snapbox::assert_data_eq!(
@@ -1016,10 +983,7 @@ fn squash_merged_multi_commit_branch_is_pruned() -> Result<()> {
         &meta,
         project_meta.clone(),
         &mut db,
-        Options {
-            extra_target_commit_id: Some(target_sha),
-            ..Options::limited()
-        },
+        Options::limited(),
     )?;
 
     // Branch A holds two commits whose squashed sum is the target's new base commit.
@@ -1108,10 +1072,7 @@ fn squash_merged_branch_below_stacked_work_is_pruned() -> Result<()> {
         &meta,
         project_meta.clone(),
         &mut db,
-        Options {
-            extra_target_commit_id: Some(target_sha),
-            ..Options::limited()
-        },
+        Options::limited(),
     )?;
 
     // Branch B with unmerged work sits on branch A, whose commits were squash-merged.
@@ -1208,10 +1169,7 @@ fn canceling_segments_above_squash_merged_bottom_are_not_swept_up() -> Result<()
         &meta,
         project_meta.clone(),
         &mut db,
-        Options {
-            extra_target_commit_id: Some(target_sha),
-            ..Options::limited()
-        },
+        Options::limited(),
     )?;
 
     // C's tip tree equals A's tip tree (B adds Y, C deletes it), and only A's changes
@@ -1317,10 +1275,7 @@ fn fully_integrated_single_branch_with_stale_target_parent_reparents_workspace_c
         &meta,
         project_meta.clone(),
         &mut db,
-        Options {
-            extra_target_commit_id: Some(target_sha),
-            ..Options::limited()
-        },
+        Options::limited(),
     )?;
     let mut workspace = graph.into_workspace()?;
 
@@ -1363,10 +1318,7 @@ fn fully_integrated_branch_with_selected_empty_sibling_keeps_following_it() -> R
         &meta,
         project_meta.clone(),
         &mut db,
-        Options {
-            extra_target_commit_id: Some(target_sha),
-            ..Options::limited()
-        },
+        Options::limited(),
     )?;
     let mut workspace = graph.into_workspace()?;
 
@@ -1418,10 +1370,7 @@ fn non_bottom_update_selector_does_not_prune_fully_integrated_stack() -> Result<
         &meta,
         project_meta.clone(),
         &mut db,
-        Options {
-            extra_target_commit_id: Some(target_sha),
-            ..Options::limited()
-        },
+        Options::limited(),
     )?;
 
     let mut workspace = graph.into_workspace()?;
@@ -1484,10 +1433,7 @@ fn fully_integrated_single_branch_reparents_workspace_commit_to_advanced_merge_t
         &meta,
         project_meta.clone(),
         &mut db,
-        Options {
-            extra_target_commit_id: Some(target_sha),
-            ..Options::limited()
-        },
+        Options::limited(),
     )?;
 
     snapbox::assert_data_eq!(
@@ -1591,10 +1537,7 @@ fn fully_integrated_direct_checkout_creates_unique_canned_branch_at_target_tip()
         &meta,
         project_meta.clone(),
         &mut db,
-        Options {
-            extra_target_commit_id: Some(target_sha),
-            ..Options::limited()
-        },
+        Options::limited(),
     )?;
     let mut workspace = graph.into_workspace()?;
     let project_meta = workspace.graph.project_meta.clone();
@@ -1674,10 +1617,7 @@ fn empty_integrated_direct_checkout_is_replaced() -> Result<()> {
         &meta,
         project_meta.clone(),
         &mut db,
-        Options {
-            extra_target_commit_id: Some(target_sha),
-            ..Options::limited()
-        },
+        Options::limited(),
     )?;
     let mut workspace = graph.into_workspace()?;
     assert!(
@@ -1735,10 +1675,7 @@ fn local_only_empty_direct_checkout_is_preserved() -> Result<()> {
         &meta,
         project_meta.clone(),
         &mut db,
-        Options {
-            extra_target_commit_id: Some(target_sha),
-            ..Options::limited()
-        },
+        Options::limited(),
     )?;
     let mut workspace = graph.into_workspace()?;
     let project_meta = workspace.graph.project_meta.clone();
@@ -1795,10 +1732,7 @@ fn empty_direct_checkout_with_merged_review_for_pushed_branch_is_replaced() -> R
         &meta,
         project_meta.clone(),
         &mut db,
-        Options {
-            extra_target_commit_id: Some(target_sha),
-            ..Options::limited()
-        },
+        Options::limited(),
     )?;
     let mut workspace = graph.into_workspace()?;
     let project_meta = workspace.graph.project_meta.clone();
@@ -1857,10 +1791,7 @@ fn empty_direct_checkout_ignores_same_named_review_for_different_head() -> Resul
         &meta,
         project_meta.clone(),
         &mut db,
-        Options {
-            extra_target_commit_id: Some(target_sha),
-            ..Options::limited()
-        },
+        Options::limited(),
     )?;
     let mut workspace = graph.into_workspace()?;
     let project_meta = workspace.graph.project_meta.clone();
@@ -1933,10 +1864,7 @@ fn fully_integrated_direct_checkout_creates_canned_branch_at_merge_target_tip() 
         &meta,
         project_meta.clone(),
         &mut db,
-        Options {
-            extra_target_commit_id: Some(target_sha),
-            ..Options::limited()
-        },
+        Options::limited(),
     )?;
     let mut workspace = graph.into_workspace()?;
     let project_meta = workspace.graph.project_meta.clone();
@@ -2003,10 +1931,7 @@ fn empty_workspace_reparents_workspace_commit_to_advanced_target() -> Result<()>
         &meta,
         project_meta.clone(),
         &mut db,
-        Options {
-            extra_target_commit_id: Some(target_sha),
-            ..Options::limited()
-        },
+        Options::limited(),
     )?;
     let mut workspace = graph.into_workspace()?;
     integrate_and_materialize(&mut workspace, &mut meta, &repo, &mut db, vec![])?;
@@ -2043,10 +1968,7 @@ fn empty_workspace_reparents_workspace_commit_to_merge_advanced_target() -> Resu
         &meta,
         project_meta.clone(),
         &mut db,
-        Options {
-            extra_target_commit_id: Some(target_sha),
-            ..Options::limited()
-        },
+        Options::limited(),
     )?;
     let mut workspace = graph.into_workspace()?;
     integrate_and_materialize(&mut workspace, &mut meta, &repo, &mut db, vec![])?;
@@ -2076,10 +1998,7 @@ fn workspace_target_parent_updates_while_stack_parent_remains_anonymous_segment_
         &meta,
         project_meta.clone(),
         &mut db,
-        Options {
-            extra_target_commit_id: Some(target_sha),
-            ..Options::limited()
-        },
+        Options::limited(),
     )?;
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
@@ -2179,10 +2098,7 @@ fn dry_run_reports_dirty_worktree_conflicts_against_resulting_workspace_head() -
         &meta,
         project_meta.clone(),
         &mut db,
-        Options {
-            extra_target_commit_id: Some(target_sha),
-            ..Options::limited()
-        },
+        Options::limited(),
     )?;
     let mut workspace = graph.into_workspace()?;
 
@@ -2229,10 +2145,7 @@ fn dry_run_reports_index_only_conflicts_against_resulting_workspace_head() -> Re
         &meta,
         project_meta.clone(),
         &mut db,
-        Options {
-            extra_target_commit_id: Some(target_sha),
-            ..Options::limited()
-        },
+        Options::limited(),
     )?;
     let mut workspace = graph.into_workspace()?;
 
@@ -2275,10 +2188,7 @@ fn partially_integrated_branch_leaves_multi_branch_stack() -> Result<()> {
         &meta,
         project_meta.clone(),
         &mut db,
-        Options {
-            extra_target_commit_id: Some(target_sha),
-            ..Options::limited()
-        },
+        Options::limited(),
     )?;
 
     snapbox::assert_data_eq!(
@@ -2383,10 +2293,7 @@ fn fully_integrated_multi_branch_stack_leaves_workspace_shape() -> Result<()> {
         &meta,
         project_meta.clone(),
         &mut db,
-        Options {
-            extra_target_commit_id: Some(target_sha),
-            ..Options::limited()
-        },
+        Options::limited(),
     )?;
 
     snapbox::assert_data_eq!(
@@ -2488,10 +2395,7 @@ fn fully_integrated_two_stacks_checkout_canned_branch_at_target_tip() -> Result<
         &meta,
         project_meta.clone(),
         &mut db,
-        Options {
-            extra_target_commit_id: Some(target_sha),
-            ..Options::limited()
-        },
+        Options::limited(),
     )?;
 
     snapbox::assert_data_eq!(
@@ -2592,10 +2496,7 @@ fn fully_integrated_two_stacks_keep_managed_workspace_outside_single_branch_mode
         &meta,
         project_meta.clone(),
         &mut db,
-        Options {
-            extra_target_commit_id: Some(target_sha),
-            ..Options::limited()
-        },
+        Options::limited(),
     )?;
     let mut workspace = graph.into_workspace()?;
 
@@ -2669,10 +2570,7 @@ fn orphan_reparent_content_integrated_stack_to_target_tip() -> Result<()> {
         &meta,
         project_meta.clone(),
         &mut db,
-        Options {
-            extra_target_commit_id: Some(target_sha),
-            ..Options::limited()
-        },
+        Options::limited(),
     )?;
     let mut workspace = graph.into_workspace()?;
 
@@ -2711,10 +2609,7 @@ fn content_integrated_stack_does_not_reparent_while_stack_parent_remains() -> Re
         &meta,
         project_meta.clone(),
         &mut db,
-        Options {
-            extra_target_commit_id: Some(target_sha),
-            ..Options::limited()
-        },
+        Options::limited(),
     )?;
     let mut workspace = graph.into_workspace()?;
 
@@ -2752,10 +2647,7 @@ fn orphan_reparent_does_not_run_when_parent_remains() -> Result<()> {
         &meta,
         project_meta.clone(),
         &mut db,
-        Options {
-            extra_target_commit_id: Some(target_sha),
-            ..Options::limited()
-        },
+        Options::limited(),
     )?;
     let mut workspace = graph.into_workspace()?;
 
@@ -2797,10 +2689,7 @@ fn orphan_reparent_empty_stack_to_target_tip() -> Result<()> {
         &meta,
         project_meta.clone(),
         &mut db,
-        Options {
-            extra_target_commit_id: Some(target_sha),
-            ..Options::limited()
-        },
+        Options::limited(),
     )?;
     let mut workspace = graph.into_workspace()?;
 
@@ -2837,10 +2726,7 @@ fn empty_branch_with_integrated_remote_tip_is_removed() -> Result<()> {
         &meta,
         project_meta.clone(),
         &mut db,
-        Options {
-            extra_target_commit_id: Some(target_sha),
-            ..Options::limited()
-        },
+        Options::limited(),
     )?;
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
@@ -2934,10 +2820,7 @@ fn non_empty_branch_with_integrated_remote_tip_keeps_local_work() -> Result<()> 
         &meta,
         project_meta.clone(),
         &mut db,
-        Options {
-            extra_target_commit_id: Some(target_sha),
-            ..Options::limited()
-        },
+        Options::limited(),
     )?;
 
     snapbox::assert_data_eq!(
@@ -3038,10 +2921,7 @@ fn empty_branch_above_integrated_branch_is_preserved() -> Result<()> {
         &meta,
         project_meta.clone(),
         &mut db,
-        Options {
-            extra_target_commit_id: Some(target_sha),
-            ..Options::limited()
-        },
+        Options::limited(),
     )?;
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
@@ -3152,10 +3032,7 @@ fn integrated_bottom_under_empty_direct_checkout_is_removed_and_top_is_preserved
         &meta,
         project_meta.clone(),
         &mut db,
-        Options {
-            extra_target_commit_id: Some(target_tip),
-            ..Options::limited()
-        },
+        Options::limited(),
     )?;
     let mut workspace = graph.into_workspace()?;
     let out = integrate_upstream(
@@ -3202,10 +3079,7 @@ fn orphan_reparent_same_target_tip_keeps_single_parent() -> Result<()> {
         &meta,
         project_meta.clone(),
         &mut db,
-        Options {
-            extra_target_commit_id: Some(target_sha),
-            ..Options::limited()
-        },
+        Options::limited(),
     )?;
     let mut workspace = graph.into_workspace()?;
 
@@ -3253,10 +3127,7 @@ fn fully_integrated_two_stacks_checkout_canned_branch_at_merge_target() -> Resul
         &meta,
         project_meta.clone(),
         &mut db,
-        Options {
-            extra_target_commit_id: Some(target_sha),
-            ..Options::limited()
-        },
+        Options::limited(),
     )?;
     let mut workspace = graph.into_workspace()?;
 
@@ -3312,10 +3183,7 @@ fn review_hint_fully_integrates_direct_checkout_branch() -> Result<()> {
         &meta,
         project_meta.clone(),
         &mut db,
-        Options {
-            extra_target_commit_id: Some(target_sha),
-            ..Options::limited()
-        },
+        Options::limited(),
     )?;
     let mut workspace = graph.into_workspace()?;
     let project_meta = workspace.graph.project_meta.clone();
@@ -3366,10 +3234,7 @@ fn review_hint_integrates_squashed_two_commit_stack_in_managed_workspace() -> Re
         &meta,
         project_meta.clone(),
         &mut db,
-        Options {
-            extra_target_commit_id: Some(target_sha),
-            ..Options::limited()
-        },
+        Options::limited(),
     )?;
 
     snapbox::assert_data_eq!(
@@ -3486,10 +3351,7 @@ fn review_hint_integrates_squashed_two_commit_direct_checkout_branch() -> Result
         &meta,
         project_meta.clone(),
         &mut db,
-        Options {
-            extra_target_commit_id: Some(target_sha),
-            ..Options::limited()
-        },
+        Options::limited(),
     )?;
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
@@ -3585,10 +3447,7 @@ fn review_hint_integrates_squashed_prefix_and_keeps_extra_commit_in_managed_work
         &meta,
         project_meta.clone(),
         &mut db,
-        Options {
-            extra_target_commit_id: Some(target_sha),
-            ..Options::limited()
-        },
+        Options::limited(),
     )?;
 
     snapbox::assert_data_eq!(
@@ -3688,10 +3547,7 @@ fn review_hint_integrates_squashed_prefix_and_keeps_extra_commit_in_direct_check
         &meta,
         project_meta.clone(),
         &mut db,
-        Options {
-            extra_target_commit_id: Some(target_sha),
-            ..Options::limited()
-        },
+        Options::limited(),
     )?;
 
     snapbox::assert_data_eq!(
@@ -3813,10 +3669,7 @@ fn review_hint_integrates_prefix_but_keeps_extra_local_commit() -> Result<()> {
         &meta,
         project_meta.clone(),
         &mut db,
-        Options {
-            extra_target_commit_id: Some(target_sha),
-            ..Options::limited()
-        },
+        Options::limited(),
     )?;
     let mut workspace = graph.into_workspace()?;
     let project_meta = workspace.graph.project_meta.clone();

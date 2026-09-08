@@ -12,9 +12,6 @@ pub fn head_info(
     if opts.project_meta == Default::default() {
         opts.project_meta = utils::project_meta(repo)?;
     }
-    if opts.traversal.extra_target_commit_id.is_none() {
-        opts.traversal.extra_target_commit_id = opts.project_meta.target_commit_id;
-    }
     crate::ref_info::head_info(repo, meta, db, opts)
 }
 
@@ -26,9 +23,6 @@ pub fn ref_info(
 ) -> anyhow::Result<RefInfo> {
     if opts.project_meta == Default::default() {
         opts.project_meta = utils::project_meta(existing_ref.repo)?;
-    }
-    if opts.traversal.extra_target_commit_id.is_none() {
-        opts.traversal.extra_target_commit_id = opts.project_meta.target_commit_id;
     }
     but_workspace::ref_info(existing_ref, meta, db, opts)
 }
@@ -852,12 +846,11 @@ RefInfo {
         .raw()
     );
 
-    // If we set a reasonably old extra target, then the A segment, despite integrated, is shown.
+    // If we set a reasonably old target commit, then the A segment, despite integrated, is shown.
     let old_target = repo.rev_parse_single("fafd9d0")?.detach();
     let mut options = standard_options();
     options.project_meta = utils::project_meta(&repo)?;
     options.project_meta.target_commit_id = Some(old_target);
-    options.traversal.extra_target_commit_id = Some(old_target);
     let info = head_info(&repo, &meta, &mut db, options)?;
     snapbox::assert_data_eq!(
         info.to_debug(),
@@ -3623,16 +3616,8 @@ pub(crate) mod utils {
 
         init_meta(&mut meta);
         let project_meta = project_meta(&repo)?;
-        let graph = but_graph::Graph::from_head(
-            &repo,
-            &meta,
-            project_meta,
-            &mut db,
-            Options {
-                extra_target_commit_id: repo.rev_parse_single("main").ok().map(|id| id.detach()),
-                ..Options::limited()
-            },
-        )?;
+        let graph =
+            but_graph::Graph::from_head(&repo, &meta, project_meta, &mut db, Options::limited())?;
         Ok((tmp, graph, repo, meta, desc, db))
     }
 
