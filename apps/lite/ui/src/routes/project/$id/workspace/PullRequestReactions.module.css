@@ -8,7 +8,8 @@
 .reactionChip {
 	display: inline-flex;
 	align-items: center;
-	padding: 4px 8px;
+	height: 24px;
+	padding: 0 8px;
 	gap: 4px;
 	border: none;
 	border-radius: 14px;
@@ -22,6 +23,35 @@
 	}
 }
 
+/* A suggestion nobody has taken yet: the same pill drawn as an empty slot, so
+   it reads as an offer rather than a tally. The ring is an SVG mask rather
+   than `border-style: dashed` because the browser's dashes are ~3px and get
+   stretched to fit each edge; the kit's stroke is a steady 2px on, 2px off
+   around the whole pill. The rect insets by half the stroke so the 1px line
+   sits fully inside the box, matching an inside-aligned stroke. */
+.reactionChipGhost {
+	position: relative;
+	background-color: transparent;
+
+	&::before {
+		position: absolute;
+		inset: 0;
+		border-radius: inherit;
+		background-color: var(--border-2);
+		content: "";
+		mask-image: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg'><rect x='.5' y='.5' rx='11.5' style='width:calc(100%25 - 1px);height:calc(100%25 - 1px)' fill='none' stroke='%23000' stroke-dasharray='2 2'/></svg>");
+		pointer-events: none;
+	}
+
+	&:hover:not(:disabled) {
+		background-color: var(--bg-2);
+
+		&::before {
+			display: none;
+		}
+	}
+}
+
 /* The caller's own reaction inverts, so their tallies stand out from the rest
    of the row at a glance. */
 .reactionChipMine {
@@ -31,6 +61,17 @@
 	&.reactionChipButton:hover:not(:disabled) {
 		background-color: color-mix(in srgb, var(--fill-gray-bg) 85%, var(--scale-gray-0));
 	}
+}
+
+/* The picker trigger sits in the chip row, so it takes the chips' 24px and
+   rounds off to a circle instead of the button ladder's 20/28 and corner
+   radius. Nested for specificity over the button's own radius. */
+.reactions .reactionPickerTrigger {
+	--button-height: 24px;
+	--button-width: 24px;
+	--button-padding-inline: 4px;
+
+	border-radius: 50%;
 }
 
 /* A horizontal row rather than the popup's usual stack of rows. */
