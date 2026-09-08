@@ -8,7 +8,10 @@ use nonempty::NonEmpty;
 
 use crate::{
     args::agent,
-    command::{CommandOutcome, skill},
+    command::{
+        CommandOutcome,
+        skill::{self, SkillLayout},
+    },
     theme::{self, Paint},
     utils::{InputOutputChannel, OutputChannel, PromptLine, detect_agent},
 };
@@ -48,12 +51,24 @@ pub fn handle(
 ) -> Result<CommandOutcome> {
     match cmd {
         // Bare `but agent` runs the setup wizard, same as `but agent setup`.
-        None => setup(current_dir, out, false),
-        Some(agent::Subcommands::Setup { print }) => setup(current_dir, out, print),
+        None => setup(current_dir, out, false, SkillLayout::Full),
+        Some(agent::Subcommands::Setup { print, stub }) => {
+            let layout = if stub {
+                SkillLayout::Stub
+            } else {
+                SkillLayout::Full
+            };
+            setup(current_dir, out, print, layout)
+        }
     }
 }
 
-fn setup(current_dir: &Path, out: &mut OutputChannel, print_only: bool) -> Result<CommandOutcome> {
+fn setup(
+    current_dir: &Path,
+    out: &mut OutputChannel,
+    print_only: bool,
+    skill_layout: SkillLayout,
+) -> Result<CommandOutcome> {
     if print_only {
         let default_policy = render_managed_policy_block(&WizardAnswers::default());
         print_policy(out, &default_policy)?;
@@ -76,7 +91,7 @@ fn setup(current_dir: &Path, out: &mut OutputChannel, print_only: bool) -> Resul
     drop(input);
 
     match plan {
-        Some(plan) => apply_plan(out, current_dir, &plan),
+        Some(plan) => apply_plan(out, current_dir, &plan, skill_layout),
         None => {
             print_cancelled(out)?;
             Ok(CommandOutcome::AgentSetupCancelled)
@@ -713,7 +728,12 @@ fn write_policy_preview(writer: &mut impl fmt::Write, policy: &str) -> fmt::Resu
     Ok(())
 }
 
-fn apply_plan(out: &mut OutputChannel, current_dir: &Path, plan: &Plan) -> Result<CommandOutcome> {
+fn apply_plan(
+    out: &mut OutputChannel,
+    current_dir: &Path,
+    plan: &Plan,
+    skill_layout: SkillLayout,
+) -> Result<CommandOutcome> {
     // Run `but setup` first: it is the step most likely to fail (it needs a
     // discoverable repo + project registration) and aborts before any file is
     // written, keeping the intro's "nothing is written until you confirm"
@@ -724,7 +744,7 @@ fn apply_plan(out: &mut OutputChannel, current_dir: &Path, plan: &Plan) -> Resul
     }
 
     for install in &plan.skill_installs {
-        skill::write_skill_files(&install.path)
+        skill::write_skill_files(&install.path, skill_layout)
             .with_context(|| format!("Failed to install skill at {}", install.path.display()))?;
     }
 

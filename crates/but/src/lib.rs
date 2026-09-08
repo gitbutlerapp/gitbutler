@@ -771,12 +771,10 @@ async fn dispatch_subcommand(
             .map(|()| DispatchOutcome::Return)
             .map_err(CliError::from);
         }
-        Subcommands::Skill(args::skill::Platform { cmd }) => {
-            // Skill commands use repository context when available, but can run
-            // without one. Subcommand handlers produce tailored guidance when a
-            // local repository is actually required.
-            let mut ctx = discover_optional_context(&args.current_dir)?;
-            return command::skill::handle(ctx.as_mut(), out, cmd)
+        Subcommands::Skill(platform) => {
+            // The handler discovers a repository only for the modes that need
+            // one, so reads and global installs work inside an unreadable repo.
+            return command::skill::handle(&args.current_dir, out, platform)
                 .map(|()| DispatchOutcome::Return)
                 .map_err(CliError::from);
         }
@@ -1764,7 +1762,7 @@ fn run_agentlog_command(
     Ok(())
 }
 
-fn is_not_in_git_repository_error(err: &anyhow::Error) -> bool {
+pub(crate) fn is_not_in_git_repository_error(err: &anyhow::Error) -> bool {
     matches!(
         err.downcast_ref::<gix::discover::Error>(),
         Some(gix::discover::Error::Discover(

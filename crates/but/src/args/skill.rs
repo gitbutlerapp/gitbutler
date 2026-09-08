@@ -1,12 +1,36 @@
 /// Arguments for skill management commands
 #[derive(Debug, clap::Parser)]
+#[clap(args_conflicts_with_subcommands = true)]
 pub struct Platform {
+    /// Running `but skill` with no subcommand prints the core skill guide.
     #[clap(subcommand)]
-    pub cmd: Subcommands,
+    pub cmd: Option<Subcommands>,
+    /// Also print every reference document after the core guide.
+    #[clap(long)]
+    pub full: bool,
+}
+
+impl Platform {
+    /// The embedded document a read-only invocation prints, if this is one.
+    pub fn doc(&self) -> Option<&'static str> {
+        match self.cmd {
+            None => Some("core"),
+            Some(Subcommands::Reference) => Some("reference"),
+            Some(Subcommands::Concepts) => Some("concepts"),
+            Some(Subcommands::Examples) => Some("examples"),
+            Some(Subcommands::Install { .. } | Subcommands::Check { .. }) => None,
+        }
+    }
 }
 
 #[derive(Debug, clap::Subcommand)]
 pub enum Subcommands {
+    /// Print the command reference: syntax and flags for every `but` command
+    Reference,
+    /// Print the concepts guide: the workspace model behind `but`
+    Concepts,
+    /// Print the workflow examples
+    Examples,
     /// Install the GitButler CLI skill files for Coding agents
     ///
     /// By default, the command prompts you to choose installation scope first
@@ -63,6 +87,10 @@ pub enum Subcommands {
         /// found in the current scope (local before global)
         #[clap(long, short = 'd')]
         detect: bool,
+        /// Install a discovery stub that points agents at `but skill` instead of
+        /// the full skill files. Team-internal while the approach is evaluated.
+        #[clap(long, hide = true)]
+        stub: bool,
     },
     /// Check if installed GitButler skills are up to date with the CLI version
     ///
