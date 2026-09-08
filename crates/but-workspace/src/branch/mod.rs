@@ -561,8 +561,9 @@ pub(crate) fn setup_local_tracking_configuration(
     let mut config = repo.config_file_mut(repo.common_dir().join("config"))?;
     let mut section =
         config.section_mut_or_create_new("branch", Some(local_tracking_ref.shorten()))?;
-    // Only edit the configuration if truly empty, let's not overwrite user data.
-    if section.num_values() == 0
+    // Leave tracking the user already configured alone; other keys in the section are no reason to.
+    if section.value("remote").is_none()
+        && section.value("merge").is_none()
         && let Some((upstream_branch, remote)) =
             repo.upstream_branch_and_remote_for_tracking_branch(remote_tracking_ref)?
     {
@@ -607,7 +608,7 @@ pub fn local_tracking_branch(
 
     let (config, commit_id) =
         setup_local_tracking_configuration(repo, local_tracking_ref.as_ref(), remote_tracking_ref)?;
-    config.commit()?;
+    // The reference first, as git does: should it fail, the config transaction drops unwritten.
     repo.reference(
         local_tracking_ref.as_ref(),
         commit_id,
@@ -617,6 +618,7 @@ pub fn local_tracking_branch(
             remote_tracking_ref.as_bstr()
         ),
     )?;
+    config.commit()?;
     Ok(local_tracking_ref)
 }
 

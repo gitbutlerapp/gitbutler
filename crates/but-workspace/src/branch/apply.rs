@@ -1014,14 +1014,14 @@ fn persist_metadata_and_gitconfig<T: RefMetadata>(
 
     if let Some((config, (ref_to_create, remote_tracking_ref, ref_target_id))) = config_and_ref {
         let repo = ref_target_id.repo;
-        config.commit()?;
-
+        // The reference first, as git does: should it fail, the config transaction drops unwritten.
         repo.reference(
             ref_to_create,
             ref_target_id,
             PreviousValue::MustNotExist,
             format!("GitButler creates local tracking for {remote_tracking_ref}"),
         )?;
+        config.commit()?;
     }
     Ok(())
 }
