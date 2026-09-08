@@ -15,3 +15,29 @@
 		background-color: var(--border-1);
 	}
 }
+
+/* The grab area after the hairline only: a 10px box laid over the next
+   panel's edge, since what lies before the hairline is the previous panel's
+   scrollbar, which takes a press before the page sees it. Pair with a group
+   whose resizeTargetMinimumSize is 1, or the library widens the area both ways. */
+.resizeHandle.grabAfter[aria-orientation="vertical"] {
+	z-index: 2;
+	position: relative;
+	width: 10px;
+	margin-inline-end: -9px;
+	background-color: transparent;
+
+	&::before {
+		position: absolute;
+		width: 1px;
+		inset-block: 0;
+		inset-inline-start: 0;
+		background-color: var(--border-section);
+		content: "";
+	}
+
+	&[data-separator="hover"]::before,
+	&[data-separator="active"]::before {
+		background-color: var(--border-1);
+	}
+}
