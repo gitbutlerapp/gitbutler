@@ -116,20 +116,6 @@ fn unborn_untracked() -> anyhow::Result<()> {
         info.to_debug(),
         snapbox::str![[r#"
 RefInfo {
-    workspace_ref_info: Some(
-        RefInfo {
-            ref_name: FullName(
-                "refs/heads/main",
-            ),
-            commit_id: None,
-            worktree: Some(
-                Worktree {
-                    kind: Main,
-                    owned_by_repo: true,
-                },
-            ),
-        },
-    ),
     symbolic_remote_names: {},
     stacks: [
         Stack {
@@ -144,7 +130,6 @@ RefInfo {
                     remote_tracking_ref_name: "None",
                     commits: [],
                     commits_on_remote: [],
-                    commits_outside: None,
                     metadata: "None",
                     push_status: CompletelyUnpushed,
                     base: "None",
@@ -156,10 +141,7 @@ RefInfo {
     target_commit: None,
     is_target_current: false,
     lower_bound: None,
-    is_managed_ref: false,
-    is_managed_commit: false,
     ancestor_workspace_commit: None,
-    is_entrypoint: true,
 }
 
 "#]]
@@ -178,7 +160,6 @@ fn detached() -> anyhow::Result<()> {
         info.to_debug(),
         snapbox::str![[r#"
 RefInfo {
-    workspace_ref_info: None,
     symbolic_remote_names: {},
     stacks: [
         Stack {
@@ -195,7 +176,6 @@ RefInfo {
                         LocalCommit(15bcd1b, "init\n", local, ►main),
                     ],
                     commits_on_remote: [],
-                    commits_outside: None,
                     metadata: "None",
                     push_status: CompletelyUnpushed,
                     base: "None",
@@ -207,10 +187,7 @@ RefInfo {
     target_commit: None,
     is_target_current: false,
     lower_bound: None,
-    is_managed_ref: false,
-    is_managed_commit: false,
     ancestor_workspace_commit: None,
-    is_entrypoint: true,
 }
 
 "#]]
@@ -229,22 +206,6 @@ fn conflicted_in_local_branch() -> anyhow::Result<()> {
         info.to_debug(),
         snapbox::str![[r#"
 RefInfo {
-    workspace_ref_info: Some(
-        RefInfo {
-            ref_name: FullName(
-                "refs/heads/main",
-            ),
-            commit_id: Some(
-                Sha1(84503317a1e1464381fcff65ece14bc1f4315b7c),
-            ),
-            worktree: Some(
-                Worktree {
-                    kind: Main,
-                    owned_by_repo: true,
-                },
-            ),
-        },
-    ),
     symbolic_remote_names: {},
     stacks: [
         Stack {
@@ -262,7 +223,6 @@ RefInfo {
                         LocalCommit(a047f81, "init\n", local),
                     ],
                     commits_on_remote: [],
-                    commits_outside: None,
                     metadata: "None",
                     push_status: CompletelyUnpushed,
                     base: "None",
@@ -274,10 +234,7 @@ RefInfo {
     target_commit: None,
     is_target_current: false,
     lower_bound: None,
-    is_managed_ref: false,
-    is_managed_commit: false,
     ancestor_workspace_commit: None,
-    is_entrypoint: true,
 }
 
 "#]]
@@ -301,22 +258,6 @@ fn single_branch() -> anyhow::Result<()> {
         info.to_debug(),
         snapbox::str![[r#"
 RefInfo {
-    workspace_ref_info: Some(
-        RefInfo {
-            ref_name: FullName(
-                "refs/heads/main",
-            ),
-            commit_id: Some(
-                Sha1(b5743a3aa79957bcb7f654d7d4ad11d995ad5303),
-            ),
-            worktree: Some(
-                Worktree {
-                    kind: Main,
-                    owned_by_repo: true,
-                },
-            ),
-        },
-    ),
     symbolic_remote_names: {},
     stacks: [
         Stack {
@@ -342,7 +283,6 @@ RefInfo {
                         LocalCommit(3d57fc1, "1\n", local),
                     ],
                     commits_on_remote: [],
-                    commits_outside: None,
                     metadata: "None",
                     push_status: CompletelyUnpushed,
                     base: "None",
@@ -354,10 +294,7 @@ RefInfo {
     target_commit: None,
     is_target_current: false,
     lower_bound: None,
-    is_managed_ref: false,
-    is_managed_commit: false,
     ancestor_workspace_commit: None,
-    is_entrypoint: true,
 }
 
 "#]]
@@ -377,22 +314,6 @@ fn single_branch_multiple_segments() -> anyhow::Result<()> {
         info.to_debug(),
         snapbox::str![[r#"
 RefInfo {
-    workspace_ref_info: Some(
-        RefInfo {
-            ref_name: FullName(
-                "refs/heads/main",
-            ),
-            commit_id: Some(
-                Sha1(b5743a3aa79957bcb7f654d7d4ad11d995ad5303),
-            ),
-            worktree: Some(
-                Worktree {
-                    kind: Main,
-                    owned_by_repo: true,
-                },
-            ),
-        },
-    ),
     symbolic_remote_names: {},
     stacks: [
         Stack {
@@ -409,7 +330,6 @@ RefInfo {
                         LocalCommit(b5743a3, "10\n", local, ►above-10),
                     ],
                     commits_on_remote: [],
-                    commits_outside: None,
                     metadata: "None",
                     push_status: CompletelyUnpushed,
                     base: "344e320",
@@ -424,7 +344,6 @@ RefInfo {
                         LocalCommit(05f069b, "7\n", local),
                     ],
                     commits_on_remote: [],
-                    commits_outside: None,
                     metadata: "None",
                     push_status: CompletelyUnpushed,
                     base: "c4f2a35",
@@ -439,7 +358,6 @@ RefInfo {
                         LocalCommit(c584dbe, "4\n", local),
                     ],
                     commits_on_remote: [],
-                    commits_outside: None,
                     metadata: "None",
                     push_status: CompletelyUnpushed,
                     base: "281da94",
@@ -453,7 +371,6 @@ RefInfo {
                         LocalCommit(12995d7, "2\n", local),
                     ],
                     commits_on_remote: [],
-                    commits_outside: None,
                     metadata: "None",
                     push_status: CompletelyUnpushed,
                     base: "3d57fc1",
@@ -466,7 +383,6 @@ RefInfo {
                         LocalCommit(3d57fc1, "1\n", local),
                     ],
                     commits_on_remote: [],
-                    commits_outside: None,
                     metadata: "None",
                     push_status: CompletelyUnpushed,
                     base: "None",
@@ -478,10 +394,7 @@ RefInfo {
     target_commit: None,
     is_target_current: false,
     lower_bound: None,
-    is_managed_ref: false,
-    is_managed_commit: false,
     ancestor_workspace_commit: None,
-    is_entrypoint: true,
 }
 
 "#]]

@@ -278,8 +278,9 @@ pub fn apply(
     };
     let branch_has_applied_metadata =
         branch_has_applied_workspace_metadata(branch.as_ref(), &ws, meta)?;
-    let branch_already_applied =
-        ws.is_reachable_from_entrypoint(branch.as_ref()) && branch_has_applied_metadata;
+    let branch_already_applied = (ws.ref_name() == Some(branch.as_ref())
+        || ws.refname_is_segment(branch.as_ref()))
+        && branch_has_applied_metadata;
     if branch_already_applied
         && (!allow_applying_already_applied_branch_when_outside_workspace
             || head_on_managed_workspace_ref)
@@ -500,10 +501,9 @@ pub fn apply(
         .redo_traversal_with_overlay(repo, meta, overlay.clone())?
         .into_workspace()?;
 
-    let all_applied_branches_are_already_visible = branches_to_apply.iter().all(|rn| {
-        ws.find_segment_and_stack_by_refname(rn.as_ref())
-            .is_some_and(|(_stack, segment)| !segment.is_projected_from_outside(&ws.graph))
-    });
+    let all_applied_branches_are_already_visible = branches_to_apply
+        .iter()
+        .all(|rn| ws.find_segment_and_stack_by_refname(rn.as_ref()).is_some());
     let needs_ws_ref_creation = !ws_ref_exists;
     let local_tracking_config_and_ref_info =
         local_tracking_config_and_ref_info.zip(commit_to_create_branch_at.map({
@@ -855,8 +855,7 @@ fn branch_has_applied_workspace_metadata(
     let Some(ws_md) = meta.workspace_opt(ws_ref_name)? else {
         return Ok(true);
     };
-    Ok(ws_md.find_branch(branch, StackKind::Applied).is_some()
-        || (ws.is_entrypoint() && ws_ref_name == branch))
+    Ok(ws_md.find_branch(branch, StackKind::Applied).is_some() || ws_ref_name == branch)
 }
 
 fn filter_superseded_metadata_stacks<'a>(

@@ -60,7 +60,6 @@ pub fn stack_details(ctx: &Context) -> Vec<(StackId, Stack)> {
         },
     )
     .unwrap()
-    .pruned_to_entrypoint()
     .stacks
     .into_iter()
     .filter_map(|stack| Some((stack.id?, stack)))

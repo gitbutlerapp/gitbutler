@@ -206,7 +206,7 @@ export declare function branchCheckoutNew(projectId: string, name: string | null
 export declare function branchCreate(projectId: string, newRef: MaybeLossyFullNameRef, placement: BranchCreatePlacement): Promise<BranchCreateResult>
 
 /**
- * {@link ../../../../../crates/but-api/src/legacy/workspace.rs:153}
+ * {@link ../../../../../crates/but-api/src/legacy/workspace.rs:152}
  */
 export declare function branchDetails(projectId: string, branchName: string, remote: string | null): Promise<BranchDetails>
 
@@ -627,7 +627,7 @@ export declare function deleteUser(): Promise<void>
  *
  * Returns the `worktree_changes` that couldn't be applied,
  *
- * {@link ../../../../../crates/but-api/src/legacy/workspace.rs:220}
+ * {@link ../../../../../crates/but-api/src/legacy/workspace.rs:219}
  */
 export declare function discardWorktreeChanges(projectId: string, worktreeChanges: Array<DiffSpec>): Promise<Array<DiffSpec>>
 
@@ -1585,7 +1585,7 @@ export declare function withdrawReviewRequest(projectId: string, reviewId: numbe
 /**
  * Push a branch and any parent references that lie within the current workspace projection.
  *
- * {@link ../../../../../crates/but-api/src/legacy/workspace.rs:336}
+ * {@link ../../../../../crates/but-api/src/legacy/workspace.rs:335}
  */
 export declare function workspaceBranchAndAncestorsPush(projectId: string, withForce: boolean, skipForcePushProtection: boolean, branch: string, runHooks: boolean, pushOpts: Array<PushFlag>): Promise<PushResult>
 
@@ -2142,14 +2142,7 @@ export type BranchDetails = {
   authors: Array<Author>;
   /** Whether the branch is conflicted. */
   isConflicted: boolean;
-  /**
-   * The commits contained in the branch, excluding the upstream commits.
-   *
-   * Note that legacy stack details currently do not expose
-   * [`crate::ref_info::Segment::commits_outside`], so commits that only appear there are
-   * omitted from this list rather than represented separately.
-   * It's also unclear how to recover from there.
-   */
+  /** The commits contained in the branch, excluding the upstream commits. */
   commits: Array<Commit>;
   /** The commits that are only at the remote. */
   upstreamCommits: Array<UpstreamCommit>;
@@ -3949,11 +3942,6 @@ export type PushStatus = "nothingToPush" | "unpushedCommits" | "unpushedCommitsR
  */
 export type RefInfo = {
   /**
-   * The name of the ref that points to a workspace commit,
-   * *or* the name of the first stack segment.
-   */
-  workspaceRef: BranchReference | null;
-  /**
    * The stacks visible in the current workspace.
    *
    * This is an empty array if the `HEAD` is unborn.
@@ -3967,22 +3955,6 @@ export type RefInfo = {
    * This happens when there is a local branch checked out without a remote tracking branch.
    */
   target: Target | null;
-  /**
-   * The `workspace_ref_name` is `Some(_)` and belongs to GitButler, because it had metadata attached.
-   * This will be `false` when in single-branch mode.
-   */
-  isManagedRef: boolean;
-  /**
-   * The `workspace_ref_name` points to a commit that was specifically created by us.
-   * If the user advanced the workspace head by hand, this would be `false`.
-   * See if `ancestor_workspace_commit` is `Some()` to understand if anything could be fixed here.
-   * If there is no managed commits, we have to be extra careful as to what we allow, but setting
-   * up stacks and dependent branches is usually fine, and limited commit creation. Play it safe though,
-   * this is mainly for graceful handling of special cases.
-   */
-  isManagedCommit: boolean;
-  /** The workspace represents what `HEAD` is pointing to. */
-  isEntrypoint: boolean;
   /**
    * The active linked worktrees along with the commits they own, or empty if the
    * traversal wasn't seeded with worktree tips (the `worktreeManipulation` flag is off).
@@ -4206,24 +4178,10 @@ export type Segment = {
    */
   commitsOnRemote: Array<UpstreamCommit>;
   /**
-   * All commits *that are not workspace commits* reachable by (and including commits in) this segment.
-   * The list was created by walking all parents, not only the first parent.
-   * This means the segment needs fixing.
-   */
-  commitsOutside: Array<Commit> | null;
-  /**
    * Read-only metadata with additional information about the branch naming the segment,
    * or `None` if nothing was present.
    */
   metadata: Branch | null;
-  /**
-   * This is `true` a segment in a workspace if the entrypoint of [the traversal](but_graph::Graph::from_commit_traversal)
-   * is this segment, and the surrounding workspace is provided for context.
-   *
-   * This means one will see the entire workspace, while knowing the focus is on one specific segment.
-   * *Note* that this segment can be listed in *multiple stacks* as it's reachable from multiple 'ahead' segments.
-   */
-  isEntrypoint: boolean;
   /** A derived value to help the UI decide which functions to make available. */
   pushStatus: PushStatus;
   /**

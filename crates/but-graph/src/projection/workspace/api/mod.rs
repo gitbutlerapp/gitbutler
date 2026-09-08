@@ -66,11 +66,6 @@ impl Workspace {
         self.graph[self.id].ref_name()
     }
 
-    /// Like [Self::ref_name()], but returns reference and worktree information instead.
-    pub fn ref_info(&self) -> Option<&crate::RefInfo> {
-        self.graph[self.id].ref_info.as_ref()
-    }
-
     /// Like [`Self::ref_name()`], but return a generic `<anonymous>` name for unnamed workspaces.
     pub fn ref_name_display(&self) -> &BStr {
         self.ref_name()
@@ -86,15 +81,34 @@ impl Workspace {
         &self,
         metadata: &mut but_core::ref_metadata::Workspace,
     ) -> anyhow::Result<()> {
+        // Lanes share the history they converge on, so a branch can show in several stacks.
+        // It belongs to the stack it heads, or else to the first stack showing it.
+        let mut owner = std::collections::HashMap::new();
+        for (idx, stack) in self.stacks.iter().enumerate() {
+            for (pos, segment) in stack.segments.iter().enumerate() {
+                let Some(name) = segment.ref_name() else {
+                    continue;
+                };
+                let entry = owner.entry(name).or_insert((pos != 0, idx));
+                if entry.0 && pos == 0 {
+                    *entry = (false, idx);
+                }
+            }
+        }
         metadata.reconcile_projected_stacks(
-            self.stacks.iter().map(|stack| ProjectedWorkspaceStack {
-                id: stack.id,
-                branches: stack
-                    .segments
-                    .iter()
-                    .filter_map(|segment| segment.ref_name().map(ToOwned::to_owned))
-                    .collect(),
-            }),
+            self.stacks
+                .iter()
+                .enumerate()
+                .map(|(idx, stack)| ProjectedWorkspaceStack {
+                    id: stack.id,
+                    branches: stack
+                        .segments
+                        .iter()
+                        .filter_map(|segment| segment.ref_name())
+                        .filter(|name| owner[name].1 == idx)
+                        .map(ToOwned::to_owned)
+                        .collect(),
+                }),
             |_| StackId::generate(),
         )
     }
@@ -232,14 +246,6 @@ impl Workspace {
             )
     }
 
-    /// Return `true` if the workspace itself is where `HEAD` is pointing to.
-    /// If `false`, one of the stack-segments is checked out instead.
-    pub fn is_entrypoint(&self) -> bool {
-        self.stacks
-            .iter()
-            .all(|s| s.segments.iter().all(|s| !s.is_entrypoint))
-    }
-
     /// Return an iterator over all commits in the workspace,
     /// i.e. all commits in all segments in all stacks.
     ///
@@ -345,37 +351,6 @@ impl Workspace {
     /// Return `true` if `name` is contained in the workspace as segment.
     pub fn refname_is_segment(&self, name: &gix::refs::FullNameRef) -> bool {
         self.find_segment_and_stack_by_refname(name).is_some()
-    }
-
-    /// Return `true` if `name` is in the ancestry of the workspace entrypoint, and is IN the workspace as well.
-    pub fn is_reachable_from_entrypoint(&self, name: &gix::refs::FullNameRef) -> bool {
-        if self.ref_name().filter(|_| self.is_entrypoint()) == Some(name) {
-            return true;
-        }
-        if self.is_entrypoint() {
-            self.refname_is_segment(name)
-        } else {
-            let Some((entrypoint_stack, entrypoint_segment_idx)) =
-                self.stacks.iter().find_map(|stack| {
-                    stack
-                        .segments
-                        .iter()
-                        .enumerate()
-                        .find_map(|(idx, segment)| segment.is_entrypoint.then_some((stack, idx)))
-                })
-            else {
-                return false;
-            };
-            entrypoint_stack
-                .segments
-                .get(entrypoint_segment_idx..)
-                .into_iter()
-                .any(|segments| {
-                    segments
-                        .iter()
-                        .any(|s| s.ref_name().is_some_and(|rn| rn == name))
-                })
-        }
     }
 
     /// Try to find `name` in any named [`StackSegment`] and return it along with the stack containing it.

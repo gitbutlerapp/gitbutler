@@ -45,22 +45,6 @@ The branch should then be considered integrated
         snapbox::str![[r#"
 Ok(
     RefInfo {
-        workspace_ref_info: Some(
-            RefInfo {
-                ref_name: FullName(
-                    "refs/heads/gitbutler/workspace",
-                ),
-                commit_id: Some(
-                    Sha1(946cdb70e5c527a30bf8154b445c188908d25806),
-                ),
-                worktree: Some(
-                    Worktree {
-                        kind: Main,
-                        owned_by_repo: true,
-                    },
-                ),
-            },
-        ),
         symbolic_remote_names: {
             "origin",
         },
@@ -80,7 +64,6 @@ Ok(
                             LocalCommit(e1f216e, "A1\n", integrated(818dbb2)),
                         ],
                         commits_on_remote: [],
-                        commits_outside: None,
                         metadata: "None",
                         push_status: Integrated,
                         base: "fafd9d0",
@@ -107,10 +90,7 @@ Ok(
         lower_bound: Some(
             NodeIndex(5),
         ),
-        is_managed_ref: true,
-        is_managed_commit: true,
         ancestor_workspace_commit: None,
-        is_entrypoint: true,
     },
 )
 
@@ -156,22 +136,6 @@ The branch should then *not* be considered integrated anymore as A2 has changed
         snapbox::str![[r#"
 Ok(
     RefInfo {
-        workspace_ref_info: Some(
-            RefInfo {
-                ref_name: FullName(
-                    "refs/heads/gitbutler/workspace",
-                ),
-                commit_id: Some(
-                    Sha1(4c3a992a5090077f9a5d35df22e065360c35729d),
-                ),
-                worktree: Some(
-                    Worktree {
-                        kind: Main,
-                        owned_by_repo: true,
-                    },
-                ),
-            },
-        ),
         symbolic_remote_names: {
             "origin",
         },
@@ -191,7 +155,6 @@ Ok(
                             LocalCommit(e1f216e, "A1\n", integrated(d72fd2d)),
                         ],
                         commits_on_remote: [],
-                        commits_outside: None,
                         metadata: "None",
                         push_status: NothingToPush,
                         base: "fafd9d0",
@@ -218,10 +181,7 @@ Ok(
         lower_bound: Some(
             NodeIndex(5),
         ),
-        is_managed_ref: true,
-        is_managed_commit: true,
         ancestor_workspace_commit: None,
-        is_entrypoint: true,
     },
 )
 
@@ -265,22 +225,6 @@ as the content is too different.
         snapbox::str![[r#"
 Ok(
     RefInfo {
-        workspace_ref_info: Some(
-            RefInfo {
-                ref_name: FullName(
-                    "refs/heads/gitbutler/workspace",
-                ),
-                commit_id: Some(
-                    Sha1(0b1ed50b03e220f38d6d0930980512dc10bc9ab9),
-                ),
-                worktree: Some(
-                    Worktree {
-                        kind: Main,
-                        owned_by_repo: true,
-                    },
-                ),
-            },
-        ),
         symbolic_remote_names: {
             "origin",
         },
@@ -300,7 +244,6 @@ Ok(
                             LocalCommit(550b6ac, "A1\n", local/remote(e1f216e)),
                         ],
                         commits_on_remote: [],
-                        commits_outside: None,
                         metadata: "None",
                         push_status: UnpushedCommitsRequiringForce,
                         base: "fafd9d0",
@@ -327,10 +270,7 @@ Ok(
         lower_bound: Some(
             NodeIndex(2),
         ),
-        is_managed_ref: true,
-        is_managed_commit: true,
         ancestor_workspace_commit: None,
-        is_entrypoint: true,
     },
 )
 
@@ -376,22 +316,6 @@ This prevents quick-checks to work.
         snapbox::str![[r#"
 Ok(
     RefInfo {
-        workspace_ref_info: Some(
-            RefInfo {
-                ref_name: FullName(
-                    "refs/heads/gitbutler/workspace",
-                ),
-                commit_id: Some(
-                    Sha1(f1caa513c52daf127b94c157060d1ad7f911b1b1),
-                ),
-                worktree: Some(
-                    Worktree {
-                        kind: Main,
-                        owned_by_repo: true,
-                    },
-                ),
-            },
-        ),
         symbolic_remote_names: {
             "origin",
         },
@@ -411,7 +335,6 @@ Ok(
                             LocalCommit(e1f216e, "A1\n", integrated(444639d)),
                         ],
                         commits_on_remote: [],
-                        commits_outside: None,
                         metadata: "None",
                         push_status: Integrated,
                         base: "fafd9d0",
@@ -438,10 +361,7 @@ Ok(
         lower_bound: Some(
             NodeIndex(5),
         ),
-        is_managed_ref: true,
-        is_managed_commit: true,
         ancestor_workspace_commit: None,
-        is_entrypoint: true,
     },
 )
 

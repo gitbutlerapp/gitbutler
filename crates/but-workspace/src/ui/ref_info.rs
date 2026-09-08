@@ -6,11 +6,7 @@ use but_core::{
 };
 use gix::refs::Category;
 
-use crate::{
-    ref_info::{LocalCommit, LocalCommitRelation},
-    ui,
-    ui::UpstreamCommit,
-};
+use crate::{ui, ui::UpstreamCommit};
 
 /// A reference in `refs/heads`.
 #[derive(serde::Serialize, Debug, Clone)]
@@ -208,7 +204,7 @@ impl Worktree {
 }
 
 pub(crate) mod inner {
-    use crate::ui::ref_info::{BranchReference, Stack, Target, Worktree};
+    use crate::ui::ref_info::{Stack, Target, Worktree};
 
     /// The UI-clone of [`crate::RefInfo`].
     /// TODO: should also include base-branch data, see `get_base_branch_data()`.
@@ -216,9 +212,6 @@ pub(crate) mod inner {
     #[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
     #[serde(rename_all = "camelCase")]
     pub struct RefInfo {
-        /// The name of the ref that points to a workspace commit,
-        /// *or* the name of the first stack segment.
-        pub workspace_ref: Option<BranchReference>,
         /// The stacks visible in the current workspace.
         ///
         /// This is an empty array if the `HEAD` is unborn.
@@ -229,59 +222,24 @@ pub(crate) mod inner {
         /// If `None`, this is a local workspace that doesn't know when possibly pushed branches are considered integrated.
         /// This happens when there is a local branch checked out without a remote tracking branch.
         pub target: Option<Target>,
-        /// The `workspace_ref_name` is `Some(_)` and belongs to GitButler, because it had metadata attached.
-        /// This will be `false` when in single-branch mode.
-        pub is_managed_ref: bool,
-        /// The `workspace_ref_name` points to a commit that was specifically created by us.
-        /// If the user advanced the workspace head by hand, this would be `false`.
-        /// See if `ancestor_workspace_commit` is `Some()` to understand if anything could be fixed here.
-        /// If there is no managed commits, we have to be extra careful as to what we allow, but setting
-        /// up stacks and dependent branches is usually fine, and limited commit creation. Play it safe though,
-        /// this is mainly for graceful handling of special cases.
-        pub is_managed_commit: bool,
-        /// The workspace represents what `HEAD` is pointing to.
-        pub is_entrypoint: bool,
         /// The active linked worktrees along with the commits they own, or empty if the
         /// traversal wasn't seeded with worktree tips (the `worktreeManipulation` flag is off).
         pub worktrees: Vec<Worktree>,
     }
     #[cfg(feature = "export-schema")]
     but_schemars::register_sdk_type!(RefInfo);
-
-    impl RefInfo {
-        /// Make sure only the stack and segment that is the entrypoint remains.
-        pub fn pruned_to_entrypoint(mut self) -> Self {
-            if self.is_entrypoint {
-                return self;
-            }
-            self.stacks
-                .retain(|s| s.segments.iter().any(|s| s.is_entrypoint));
-            if let Some(only_stack) = self.stacks.first_mut() {
-                let mut found_entrypoint = false;
-                only_stack.segments.retain(|s| {
-                    found_entrypoint |= s.is_entrypoint;
-                    found_entrypoint
-                })
-            }
-            self
-        }
-    }
 }
 
 impl inner::RefInfo {
     fn try_from_ref_info(
         crate::RefInfo {
-            workspace_ref_info,
             symbolic_remote_names,
             stacks,
             target_ref,
             target_commit: _,
             is_target_current,
             lower_bound: _,
-            is_managed_ref,
-            is_managed_commit,
             ancestor_workspace_commit: _,
-            is_entrypoint,
             worktrees,
         }: crate::RefInfo,
     ) -> anyhow::Result<Self> {
@@ -290,14 +248,10 @@ impl inner::RefInfo {
             .map(|stack| Stack::for_ui(stack, &symbolic_remote_names))
             .collect::<Result<_, _>>()?;
         Ok(inner::RefInfo {
-            workspace_ref: workspace_ref_info.map(|ri| ri.ref_name.into()),
             stacks,
             target: target_ref
                 .map(|t| Target::for_ui(t, &symbolic_remote_names, is_target_current))
                 .transpose()?,
-            is_managed_ref,
-            is_managed_commit,
-            is_entrypoint,
             worktrees: worktrees.into_iter().map(Worktree::for_ui).collect(),
         })
     }
@@ -381,19 +335,9 @@ pub struct Segment {
     /// with the local tracking branch. If these diverge, we can represent this in data, but currently there is
     /// no derived value to make this visible explicitly.
     pub commits_on_remote: Vec<UpstreamCommit>,
-    /// All commits *that are not workspace commits* reachable by (and including commits in) this segment.
-    /// The list was created by walking all parents, not only the first parent.
-    /// This means the segment needs fixing.
-    pub commits_outside: Option<Vec<ui::Commit>>,
     /// Read-only metadata with additional information about the branch naming the segment,
     /// or `None` if nothing was present.
     pub metadata: Option<ref_metadata::Branch>,
-    /// This is `true` a segment in a workspace if the entrypoint of [the traversal](but_graph::Graph::from_commit_traversal)
-    /// is this segment, and the surrounding workspace is provided for context.
-    ///
-    /// This means one will see the entire workspace, while knowing the focus is on one specific segment.
-    /// *Note* that this segment can be listed in *multiple stacks* as it's reachable from multiple 'ahead' segments.
-    pub is_entrypoint: bool,
     /// A derived value to help the UI decide which functions to make available.
     pub push_status: ui::PushStatus,
     /// This is always the `first()` commit in `commits` of the next stacksegment, or the first commit of
@@ -421,9 +365,7 @@ impl Segment {
             remote_tracking_branch_segment_id: _,
             commits,
             commits_on_remote,
-            commits_outside,
             metadata,
-            is_entrypoint,
             push_status,
             base,
         }: crate::ref_info::Segment,
@@ -436,20 +378,7 @@ impl Segment {
                 .transpose()?,
             commits: commits.iter().map(Into::into).collect(),
             commits_on_remote: commits_on_remote.iter().map(Into::into).collect(),
-            commits_outside: commits_outside.map(|commits| {
-                commits
-                    .into_iter()
-                    .map(|c| {
-                        (&LocalCommit {
-                            inner: c,
-                            relation: LocalCommitRelation::LocalOnly,
-                        })
-                            .into()
-                    })
-                    .collect()
-            }),
             metadata,
-            is_entrypoint,
             push_status,
             base,
         })

@@ -49,7 +49,6 @@ function segment(overrides: Partial<Segment> = {}): Segment {
 		},
 		commits: [localCommit],
 		commitsOnRemote: [upstreamCommit],
-		commitsOutside: null,
 		metadata: {
 			refInfo: {
 				createdAt: null,
@@ -60,7 +59,6 @@ function segment(overrides: Partial<Segment> = {}): Segment {
 				reviewId: "review-7",
 			},
 		},
-		isEntrypoint: true,
 		pushStatus: "unpushedCommits",
 		base: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
 		...overrides,
@@ -69,12 +67,8 @@ function segment(overrides: Partial<Segment> = {}): Segment {
 
 function refInfo(stacks: RefInfo["stacks"]): RefInfo {
 	return {
-		workspaceRef: null,
 		stacks,
 		target: null,
-		isManagedRef: true,
-		isManagedCommit: true,
-		isEntrypoint: true,
 		worktrees: [],
 	};
 }

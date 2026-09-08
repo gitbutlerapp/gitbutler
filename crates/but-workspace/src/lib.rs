@@ -82,9 +82,6 @@ pub mod workspace;
 /// even though it's possible to look at refs that are outside a workspace as well.
 #[derive(Clone)]
 pub struct RefInfo {
-    /// The name of the ref that points to a workspace commit,
-    /// *or* the name of the first stack segment, along with worktree information.
-    pub workspace_ref_info: Option<but_graph::RefInfo>,
     /// Symbolic remote names known when the ref info was created, based on all known remotes.
     /// The order is shortest to longest.
     ///
@@ -123,21 +120,10 @@ pub struct RefInfo {
     ///
     /// It is `None` there is only a single stack and no target, so nothing was integrated.
     pub lower_bound: Option<SegmentIndex>,
-    /// The `workspace_ref_name` is `Some(_)` and belongs to GitButler, because it had metadata attached.
-    pub is_managed_ref: bool,
-    /// The `workspace_ref_name` points to a commit that was specifically created by us.
-    /// If the user advanced the workspace head by hand, this would be `false`.
-    /// See if `ancestor_workspace_commit` is `Some()` to understand if anything could be fixed here.
-    /// If there is no managed commits, we have to be extra careful as to what we allow, but setting
-    /// up stacks and dependent branches is usually fine, and limited commit creation. Play it safe though,
-    /// this is mainly for graceful handling of special cases.
-    pub is_managed_commit: bool,
     /// The workspace commit as it exists in the past of `workspace_ref_name`.
     ///
     /// **Warning**: If `Some()`, only fixing this issue should be allowed.
     pub ancestor_workspace_commit: Option<AncestorWorkspaceCommit>,
-    /// The workspace represents what `HEAD` is pointing to.
-    pub is_entrypoint: bool,
     /// The active linked worktrees along with the commits they own, or empty if the traversal
     /// wasn't seeded with worktree tips (i.e. the `worktreeManipulation` flag is off).
     pub worktrees: Vec<worktrees::WorktreeInfo>,
@@ -148,54 +134,27 @@ pub struct RefInfo {
 impl std::fmt::Debug for RefInfo {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let RefInfo {
-            workspace_ref_info,
             symbolic_remote_names,
             stacks,
             target_ref,
             target_commit,
             is_target_current,
             lower_bound,
-            is_managed_ref,
-            is_managed_commit,
             ancestor_workspace_commit,
-            is_entrypoint,
             worktrees,
         } = self;
         let mut s = f.debug_struct("RefInfo");
-        s.field("workspace_ref_info", workspace_ref_info)
-            .field("symbolic_remote_names", symbolic_remote_names)
+        s.field("symbolic_remote_names", symbolic_remote_names)
             .field("stacks", stacks)
             .field("target_ref", target_ref)
             .field("target_commit", target_commit)
             .field("is_target_current", is_target_current)
             .field("lower_bound", lower_bound)
-            .field("is_managed_ref", is_managed_ref)
-            .field("is_managed_commit", is_managed_commit)
-            .field("ancestor_workspace_commit", ancestor_workspace_commit)
-            .field("is_entrypoint", is_entrypoint);
+            .field("ancestor_workspace_commit", ancestor_workspace_commit);
         if !worktrees.is_empty() {
             s.field("worktrees", worktrees);
         }
         s.finish()
-    }
-}
-
-impl RefInfo {
-    /// Keep only the stack and segment that contains the entrypoint.
-    pub fn pruned_to_entrypoint(mut self) -> Self {
-        if self.is_entrypoint {
-            return self;
-        }
-        self.stacks
-            .retain(|s| s.segments.iter().any(|s| s.is_entrypoint));
-        if let Some(only_stack) = self.stacks.first_mut() {
-            let mut found_entrypoint = false;
-            only_stack.segments.retain(|s| {
-                found_entrypoint |= s.is_entrypoint;
-                found_entrypoint
-            })
-        }
-        self
     }
 }
 

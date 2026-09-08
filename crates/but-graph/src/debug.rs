@@ -496,7 +496,7 @@ impl Graph {
     // WARNING: should only be run on a fresh clone as it probably leaves the graph unusable.
     fn prune_for_dot_graph(&mut self) {
         let lower_bound_segment_id = self
-            .to_workspace_state(crate::workspace::workspace::Downgrade::Allow)
+            .to_workspace_state()
             .ok()
             .and_then(|state| state.lower_bound_segment_id);
         if let Some(lower_bound_segment_id) = lower_bound_segment_id {

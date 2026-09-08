@@ -42,22 +42,6 @@ We change the name of the first commit and also need the similarity to be detect
         snapbox::str![[r#"
 Ok(
     RefInfo {
-        workspace_ref_info: Some(
-            RefInfo {
-                ref_name: FullName(
-                    "refs/heads/gitbutler/workspace",
-                ),
-                commit_id: Some(
-                    Sha1(946cdb70e5c527a30bf8154b445c188908d25806),
-                ),
-                worktree: Some(
-                    Worktree {
-                        kind: Main,
-                        owned_by_repo: true,
-                    },
-                ),
-            },
-        ),
         symbolic_remote_names: {
             "origin",
         },
@@ -77,7 +61,6 @@ Ok(
                             LocalCommit(e1f216e, "A1\n", local/remote(3fcd07a)),
                         ],
                         commits_on_remote: [],
-                        commits_outside: None,
                         metadata: "None",
                         push_status: UnpushedCommitsRequiringForce,
                         base: "fafd9d0",
@@ -104,10 +87,7 @@ Ok(
         lower_bound: Some(
             NodeIndex(2),
         ),
-        is_managed_ref: true,
-        is_managed_commit: true,
         ancestor_workspace_commit: None,
-        is_entrypoint: true,
     },
 )
 
@@ -149,22 +129,6 @@ On the remote, a rewritten/rebased commit we have locally is merged back into ta
         snapbox::str![[r#"
 Ok(
     RefInfo {
-        workspace_ref_info: Some(
-            RefInfo {
-                ref_name: FullName(
-                    "refs/heads/gitbutler/workspace",
-                ),
-                commit_id: Some(
-                    Sha1(946cdb70e5c527a30bf8154b445c188908d25806),
-                ),
-                worktree: Some(
-                    Worktree {
-                        kind: Main,
-                        owned_by_repo: true,
-                    },
-                ),
-            },
-        ),
         symbolic_remote_names: {
             "origin",
         },
@@ -184,7 +148,6 @@ Ok(
                             LocalCommit(e1f216e, "A1\n", integrated(c635f08)),
                         ],
                         commits_on_remote: [],
-                        commits_outside: None,
                         metadata: "None",
                         push_status: UnpushedCommitsRequiringForce,
                         base: "fafd9d0",
@@ -211,10 +174,7 @@ Ok(
         lower_bound: Some(
             NodeIndex(2),
         ),
-        is_managed_ref: true,
-        is_managed_commit: true,
         ancestor_workspace_commit: None,
-        is_entrypoint: true,
     },
 )
 
@@ -255,22 +215,6 @@ The tip of the local branch isn't in the ancestry of the remote anymore.
         snapbox::str![[r#"
 Ok(
     RefInfo {
-        workspace_ref_info: Some(
-            RefInfo {
-                ref_name: FullName(
-                    "refs/heads/gitbutler/workspace",
-                ),
-                commit_id: Some(
-                    Sha1(3ea274233577e8e949de8b2c0385ecd36b6df904),
-                ),
-                worktree: Some(
-                    Worktree {
-                        kind: Main,
-                        owned_by_repo: true,
-                    },
-                ),
-            },
-        ),
         symbolic_remote_names: {
             "origin",
         },
@@ -292,7 +236,6 @@ Ok(
                         commits_on_remote: [
                             Commit(0c06863, "A3\n"),
                         ],
-                        commits_outside: None,
                         metadata: "None",
                         push_status: UnpushedCommitsRequiringForce,
                         base: "fafd9d0",
@@ -319,10 +262,7 @@ Ok(
         lower_bound: Some(
             NodeIndex(2),
         ),
-        is_managed_ref: true,
-        is_managed_commit: true,
         ancestor_workspace_commit: None,
-        is_entrypoint: true,
     },
 )
 
@@ -373,22 +313,6 @@ We'd not want to see the remote unique commit anymore as it's also considered in
         snapbox::str![[r#"
 Ok(
     RefInfo {
-        workspace_ref_info: Some(
-            RefInfo {
-                ref_name: FullName(
-                    "refs/heads/gitbutler/workspace",
-                ),
-                commit_id: Some(
-                    Sha1(3ea274233577e8e949de8b2c0385ecd36b6df904),
-                ),
-                worktree: Some(
-                    Worktree {
-                        kind: Main,
-                        owned_by_repo: true,
-                    },
-                ),
-            },
-        ),
         symbolic_remote_names: {
             "origin",
         },
@@ -396,7 +320,7 @@ Ok(
             Stack {
                 id: None,
                 base: Some(
-                    Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
+                    Sha1(120a217567f573c3bb3902e2eadeff9d9c5dc5e6),
                 ),
                 segments: [
                     ref_info::ui::Segment {
@@ -405,13 +329,11 @@ Ok(
                         remote_tracking_ref_name: "refs/remotes/origin/A",
                         commits: [
                             LocalCommit(a62b0de, "A2\n", local),
-                            LocalCommit(120a217, "A1\n", integrated(120a217)),
                         ],
                         commits_on_remote: [],
-                        commits_outside: None,
                         metadata: "None",
                         push_status: UnpushedCommitsRequiringForce,
-                        base: "fafd9d0",
+                        base: "120a217",
                     },
                 ],
             },
@@ -433,12 +355,9 @@ Ok(
         ),
         is_target_current: true,
         lower_bound: Some(
-            NodeIndex(3),
+            NodeIndex(7),
         ),
-        is_managed_ref: true,
-        is_managed_commit: true,
         ancestor_workspace_commit: None,
-        is_entrypoint: true,
     },
 )
 
@@ -475,22 +394,6 @@ A can be pushed as it has local, unpushed commits
         snapbox::str![[r#"
 Ok(
     RefInfo {
-        workspace_ref_info: Some(
-            RefInfo {
-                ref_name: FullName(
-                    "refs/heads/gitbutler/workspace",
-                ),
-                commit_id: Some(
-                    Sha1(3ea274233577e8e949de8b2c0385ecd36b6df904),
-                ),
-                worktree: Some(
-                    Worktree {
-                        kind: Main,
-                        owned_by_repo: true,
-                    },
-                ),
-            },
-        ),
         symbolic_remote_names: {
             "origin",
         },
@@ -510,7 +413,6 @@ Ok(
                             LocalCommit(120a217, "A1\n", local/remote(identity)),
                         ],
                         commits_on_remote: [],
-                        commits_outside: None,
                         metadata: "None",
                         push_status: UnpushedCommits,
                         base: "fafd9d0",
@@ -537,10 +439,7 @@ Ok(
         lower_bound: Some(
             NodeIndex(2),
         ),
-        is_managed_ref: true,
-        is_managed_commit: true,
         ancestor_workspace_commit: None,
-        is_entrypoint: true,
     },
 )
 
@@ -588,22 +487,6 @@ Remote origin/A is merged back (with forceful merge commit) while there are stil
         snapbox::str![[r#"
 Ok(
     RefInfo {
-        workspace_ref_info: Some(
-            RefInfo {
-                ref_name: FullName(
-                    "refs/heads/gitbutler/workspace",
-                ),
-                commit_id: Some(
-                    Sha1(3ea274233577e8e949de8b2c0385ecd36b6df904),
-                ),
-                worktree: Some(
-                    Worktree {
-                        kind: Main,
-                        owned_by_repo: true,
-                    },
-                ),
-            },
-        ),
         symbolic_remote_names: {
             "origin",
         },
@@ -611,7 +494,7 @@ Ok(
             Stack {
                 id: None,
                 base: Some(
-                    Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
+                    Sha1(120a217567f573c3bb3902e2eadeff9d9c5dc5e6),
                 ),
                 segments: [
                     ref_info::ui::Segment {
@@ -620,13 +503,11 @@ Ok(
                         remote_tracking_ref_name: "refs/remotes/origin/A",
                         commits: [
                             LocalCommit(a62b0de, "A2\n", local),
-                            LocalCommit(120a217, "A1\n", integrated(120a217)),
                         ],
                         commits_on_remote: [],
-                        commits_outside: None,
                         metadata: "None",
-                        push_status: UnpushedCommitsRequiringForce,
-                        base: "fafd9d0",
+                        push_status: UnpushedCommits,
+                        base: "120a217",
                     },
                 ],
             },
@@ -648,12 +529,9 @@ Ok(
         ),
         is_target_current: true,
         lower_bound: Some(
-            NodeIndex(3),
+            NodeIndex(4),
         ),
-        is_managed_ref: true,
-        is_managed_commit: true,
         ancestor_workspace_commit: None,
-        is_entrypoint: true,
     },
 )
 
@@ -691,22 +569,6 @@ There are no unpushed local commits, the remote is one ahead (FF)
         snapbox::str![[r#"
 Ok(
     RefInfo {
-        workspace_ref_info: Some(
-            RefInfo {
-                ref_name: FullName(
-                    "refs/heads/gitbutler/workspace",
-                ),
-                commit_id: Some(
-                    Sha1(8ee08de8bed7f60305c9b7fb5eefa64280c1c1cf),
-                ),
-                worktree: Some(
-                    Worktree {
-                        kind: Main,
-                        owned_by_repo: true,
-                    },
-                ),
-            },
-        ),
         symbolic_remote_names: {
             "origin",
         },
@@ -727,7 +589,6 @@ Ok(
                         commits_on_remote: [
                             Commit(a62b0de, "A2\n"),
                         ],
-                        commits_outside: None,
                         metadata: "None",
                         push_status: UnpushedCommitsRequiringForce,
                         base: "fafd9d0",
@@ -754,10 +615,7 @@ Ok(
         lower_bound: Some(
             NodeIndex(2),
         ),
-        is_managed_ref: true,
-        is_managed_commit: true,
         ancestor_workspace_commit: None,
-        is_entrypoint: true,
     },
 )
 
@@ -800,48 +658,10 @@ Remote origin/A is merged back (fast-forward), bringing all into the target bran
         snapbox::str![[r#"
 Ok(
     RefInfo {
-        workspace_ref_info: Some(
-            RefInfo {
-                ref_name: FullName(
-                    "refs/heads/gitbutler/workspace",
-                ),
-                commit_id: Some(
-                    Sha1(8ee08de8bed7f60305c9b7fb5eefa64280c1c1cf),
-                ),
-                worktree: Some(
-                    Worktree {
-                        kind: Main,
-                        owned_by_repo: true,
-                    },
-                ),
-            },
-        ),
         symbolic_remote_names: {
             "origin",
         },
-        stacks: [
-            Stack {
-                id: None,
-                base: Some(
-                    Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
-                ),
-                segments: [
-                    ref_info::ui::Segment {
-                        id: NodeIndex(4),
-                        ref_name: "►A",
-                        remote_tracking_ref_name: "refs/remotes/origin/A",
-                        commits: [
-                            LocalCommit(120a217, "A1\n", integrated(120a217)),
-                        ],
-                        commits_on_remote: [],
-                        commits_outside: None,
-                        metadata: "None",
-                        push_status: Integrated,
-                        base: "fafd9d0",
-                    },
-                ],
-            },
-        ],
+        stacks: [],
         target_ref: Some(
             TargetRef {
                 ref_name: FullName(
@@ -859,12 +679,9 @@ Ok(
         ),
         is_target_current: true,
         lower_bound: Some(
-            NodeIndex(3),
+            NodeIndex(4),
         ),
-        is_managed_ref: true,
-        is_managed_commit: true,
         ancestor_workspace_commit: None,
-        is_entrypoint: true,
     },
 )
 

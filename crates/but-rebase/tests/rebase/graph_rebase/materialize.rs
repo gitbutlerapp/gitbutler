@@ -488,8 +488,14 @@ fn materialize_does_not_delete_immutable_refs_removed_from_graph() -> Result<()>
     let main_ref = gix::refs::FullName::try_from("refs/heads/main")?;
     let main_before = repo.rev_parse_single("main")?.detach();
 
-    let graph =
-        Graph::from_head(&repo, &*meta, target_meta(), &mut db, standard_options())?.validated()?;
+    let graph = Graph::from_head(
+        &repo,
+        &*meta,
+        target_meta(&repo),
+        &mut db,
+        standard_options(),
+    )?
+    .validated()?;
     let mut ws = graph.into_workspace()?;
     let mut editor = Editor::create(&mut ws, &mut *meta, &repo, &mut db)?;
 

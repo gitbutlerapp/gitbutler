@@ -62,11 +62,6 @@ fn tree_for_stack_segment(
     commit_flags: StackCommitDebugFlags,
 ) -> StringTree {
     let mut root = Tree::new(segment.debug_string_with_graph_context(graph));
-    if let Some(outside) = &segment.commits_outside {
-        for commit in outside {
-            root.push(format!("{}*", commit.debug_string(commit_flags)));
-        }
-    }
     for commit in &segment.commits_on_remote {
         root.push(commit.debug_string(commit_flags | StackCommitDebugFlags::RemoteOnly));
     }

@@ -1421,8 +1421,9 @@ mod single_branch_mode {
         }
     }
 
-    /// Build a single-branch (ad-hoc) workspace on `main` (3 commits) with two empty dependent
-    /// branches `empty-top` and `empty-bottom` stacked above the commit-owning base branch.
+    /// Build a single-branch (ad-hoc) workspace on `main` (2 commits above the target) with two
+    /// empty dependent branches `empty-top` and `empty-bottom` stacked above the commit-owning
+    /// base branch.
     ///
     /// The tip-to-base branch order ends up as `[main, empty-top, empty-bottom, base]`, so both
     /// `empty-top` and `empty-bottom` are empty segments that can be reordered by metadata alone.
@@ -1435,7 +1436,10 @@ mod single_branch_mode {
     )> {
         let (tmp, repo, _legacy_meta, mut db) =
             named_writable_scenario("single-branch-with-3-commits")?;
-        let project_meta = crate::ref_info::with_workspace_commit::utils::project_meta(&repo)?;
+        let project_meta =
+            crate::ref_info::with_workspace_commit::utils::project_meta_with_target_at(
+                &repo, "main~2",
+            )?;
         let mut meta = branch_order_meta(&repo)?;
 
         let main_ref = r("refs/heads/main");
@@ -1566,15 +1570,14 @@ mod single_branch_mode {
         snapbox::assert_data_eq!(
             graph_workspace(&ws).to_string(),
             snapbox::str![[r#"
-⌂:main[🌳] <> ✓! on 281da94
-└── ≡:main[🌳] {1}
+⌂:main[🌳] <> ✓! on 3d57fc1
+└── ≡:main[🌳] on 3d57fc1 {1}
     ├── :main[🌳]
     ├── 📙:empty-top
     ├── 📙:empty-bottom
     └── 📙:base
-        ├── ·281da94 (✓)
-        ├── ·12995d7 (✓)
-        └── ·3d57fc1 (✓)
+        ├── ·281da94
+        └── ·12995d7
 
 "#]]
         );
@@ -1626,15 +1629,14 @@ mod single_branch_mode {
         snapbox::assert_data_eq!(
             graph_workspace(&ws).to_string(),
             snapbox::str![[r#"
-⌂:main[🌳] <> ✓! on 281da94
-└── ≡:main[🌳] {1}
+⌂:main[🌳] <> ✓! on 3d57fc1
+└── ≡:main[🌳] on 3d57fc1 {1}
     ├── :main[🌳]
     ├── 📙:empty-bottom
     ├── 📙:empty-top
     └── 📙:base
-        ├── ·281da94 (✓)
-        ├── ·12995d7 (✓)
-        └── ·3d57fc1 (✓)
+        ├── ·281da94
+        └── ·12995d7
 
 "#]]
         );
@@ -1931,15 +1933,14 @@ mod single_branch_mode {
         snapbox::assert_data_eq!(
             graph_workspace(&ws).to_string(),
             snapbox::str![[r#"
-⌂:main[🌳] <> ✓! on 281da94
-└── ≡:main[🌳] {1}
+⌂:main[🌳] <> ✓! on 3d57fc1
+└── ≡:main[🌳] on 3d57fc1 {1}
     ├── :main[🌳]
     ├── 📙:empty-top
     ├── 📙:empty-bottom
     └── 📙:base
-        ├── ·281da94 (✓) ►x, ►y
-        ├── ·12995d7 (✓)
-        └── ·3d57fc1 (✓)
+        ├── ·281da94 ►x, ►y
+        └── ·12995d7
 
 "#]]
         );

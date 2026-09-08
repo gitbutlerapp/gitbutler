@@ -340,9 +340,11 @@ fn shallow_clone_stops_at_shallow_boundary() -> anyhow::Result<()> {
     snapbox::assert_data_eq!(
         graph_workspace(&ws).to_string(),
         snapbox::str![[r#"
-⌂:main[🌳] <> ✓refs/remotes/origin/main on 71a64f3
-└── ≡:main[🌳] <> origin/main on 71a64f3 {1}
+⌂:main[🌳] <> ✓refs/remotes/origin/main⇣2
+└── ≡:main[🌳] <> origin/main {1}
     └── :main[🌳] <> origin/main
+        ├── ❄️71a64f3
+        └── ❄️62d65ed (⛰)
 
 "#]]
     );
@@ -458,11 +460,13 @@ fn main_advanced_remote_advanced() -> anyhow::Result<()> {
     snapbox::assert_data_eq!(
         graph_workspace(&graph.into_workspace()?).to_string(),
         snapbox::str![[r#"
-⌂:main[🌳] <> ✓refs/remotes/origin/main⇣1 on ce09734
-└── ≡:main[🌳] <> origin/main⇡1⇣1 on ce09734 {1}
+⌂:main[🌳] <> ✓refs/remotes/origin/main⇣3
+└── ≡:main[🌳] <> origin/main⇡1⇣1 {1}
     └── :main[🌳] <> origin/main⇡1⇣1
         ├── 🟣5d29d62
-        └── ·971953d
+        ├── ·971953d
+        ├── ❄️ce09734
+        └── ❄️fafd9d0
 
 "#]]
     );
@@ -512,10 +516,13 @@ fn only_remote_advanced() -> anyhow::Result<()> {
     snapbox::assert_data_eq!(
         graph_workspace(&graph.into_workspace()?).to_string(),
         snapbox::str![[r#"
-⌂:main[🌳] <> ✓refs/remotes/origin/main⇣2 on 971953d
-└── ≡:main[🌳] <> origin/main⇣1 on 971953d {1}
+⌂:main[🌳] <> ✓refs/remotes/origin/main⇣5
+└── ≡:main[🌳] <> origin/main⇣1 {1}
     └── :main[🌳] <> origin/main⇣1
-        └── 🟣085535d
+        ├── 🟣085535d
+        ├── ❄️971953d
+        ├── ❄️ce09734
+        └── ❄️fafd9d0
 
 "#]]
     );
@@ -567,10 +574,13 @@ fn only_remote_advanced_with_special_branch_name() -> anyhow::Result<()> {
     snapbox::assert_data_eq!(
         graph_workspace(&graph.into_workspace()?).to_string(),
         snapbox::str![[r#"
-⌂:main[🌳] <> ✓refs/remotes/origin/main⇣2 on 971953d
-└── ≡:main[🌳] <> origin/main⇣1 on 971953d {1}
+⌂:main[🌳] <> ✓refs/remotes/origin/main⇣5
+└── ≡:main[🌳] <> origin/main⇣1 {1}
     └── :main[🌳] <> origin/main⇣1
-        └── 🟣085535d
+        ├── 🟣085535d
+        ├── ❄️971953d
+        ├── ❄️ce09734
+        └── ❄️fafd9d0
 
 "#]]
     );
@@ -1001,110 +1011,6 @@ fn traversal_entrypoint_ref_override_must_point_to_entrypoint() -> anyhow::Resul
 }
 
 #[test]
-fn explicit_traversal_tips_use_integrated_tip_as_workspace_target_commit() -> anyhow::Result<()> {
-    let (repo, meta, mut db) = read_only_in_memory_scenario("four-diamond")?;
-    snapbox::assert_data_eq!(
-        visualize_commit_graph_all(&repo)?,
-        snapbox::str![[r#"
-*   8a6c109 (HEAD -> merged) Merge branch 'C' into merged
-|\  
-| *   7ed512a (C) Merge branch 'D' into C
-| |\  
-| | * ecb1877 (D) D
-| * | 35ee481 C
-| |/  
-* |   62b409a (A) Merge branch 'B' into A
-|\ \  
-| * | f16dddf (B) B
-| |/  
-* / 592abec A
-|/  
-* 965998b (main) base
-
-"#]]
-        .raw()
-    );
-
-    let merged_id = id_by_rev(&repo, "merged").detach();
-    let target_ref_name = ref_name("refs/heads/A");
-    let target_ref_id = id_by_rev(&repo, "A").detach();
-    let target_commit_id = id_by_rev(&repo, "main").detach();
-    let graph = Graph::from_commit_traversal_tips(
-        &repo,
-        [
-            Tip::entrypoint(merged_id, Some(ref_name("refs/heads/merged"))),
-            Tip::integrated(target_ref_id, Some(target_ref_name.clone())),
-            Tip::integrated(target_commit_id, None),
-        ],
-        &*meta,
-        but_core::ref_metadata::ProjectMeta::default(),
-        &mut db,
-        standard_options(),
-    )?
-    .validated()?;
-    snapbox::assert_data_eq!(
-        graph_dag(&graph),
-        snapbox::str![[r#"
-◎  👉merged[🌳]
-●    ·8a6c109 (⌂)
-├─╮
-◎ │  A
-● │    ·62b409a (⌂|✓)
-├───╮
-● │ │  ·592abec (⌂|✓)
-│ │ ◎  B
-│ │ ●  ·f16dddf (⌂|✓)
-├───╯
-│ ◎  C
-│ ●    ·7ed512a (⌂)
-│ ├─╮
-│ ● │  ·35ee481 (⌂)
-├─╯ │
-│   ◎  D
-│   ●  ·ecb1877 (⌂)
-├───╯
-◎  main
-●  🏁·965998b (⌂|✓)
-"#]]
-    );
-
-    let target_segment = graph.segment_by_commit_id(target_commit_id)?;
-    assert_eq!(
-        target_segment.commits.first().map(|commit| commit.id),
-        Some(target_commit_id),
-        "integrated tip is also split into its own segment"
-    );
-
-    let ws = graph.into_workspace()?;
-    snapbox::assert_data_eq!(
-        graph_workspace(&ws).to_string(),
-        snapbox::str![[r#"
-⌂:merged[🌳] <> ✓refs/heads/A⇣3 on 965998b
-└── ≡:merged[🌳] on 965998b {1}
-    ├── :merged[🌳]
-    │   └── ·8a6c109
-    └── :A
-        ├── ·62b409a (✓)
-        └── ·592abec (✓)
-
-"#]]
-    );
-    assert_eq!(
-        ws.target_ref
-            .as_ref()
-            .map(|target| target.ref_name.as_ref()),
-        Some(target_ref_name.as_ref()),
-        "workspace projection uses named integrated tips as target refs if no metadata is available"
-    );
-    assert_eq!(
-        ws.target_commit.as_ref().map(|target| target.commit_id),
-        Some(target_commit_id),
-        "workspace projection falls back to using integrated refs"
-    );
-    Ok(())
-}
-
-#[test]
 fn stacked_rebased_remotes() -> anyhow::Result<()> {
     let (repo, meta, mut db) = read_only_in_memory_scenario("remote-includes-another-remote")?;
     snapbox::assert_data_eq!(
@@ -1150,14 +1056,16 @@ fn stacked_rebased_remotes() -> anyhow::Result<()> {
     snapbox::assert_data_eq!(
         graph_workspace(&graph.into_workspace()?).to_string(),
         snapbox::str![[r#"
-⌂:B[🌳] <> ✓refs/remotes/origin/B⇣2 on fafd9d0
-└── ≡:B[🌳] <> origin/B⇡1⇣1 on fafd9d0 {1}
+⌂:B[🌳] <> ✓refs/remotes/origin/B⇣3
+└── ≡:B[🌳] <> origin/B⇡1⇣1 {1}
     ├── :B[🌳] <> origin/B⇡1⇣1
     │   ├── 🟣682be32
     │   └── ·312f819
-    └── :A <> origin/A⇡1⇣1
-        ├── 🟣e29c23d
-        └── ·e255adc
+    ├── :A <> origin/A⇡1⇣1
+    │   ├── 🟣e29c23d
+    │   └── ·e255adc
+    └── :main
+        └── ❄fafd9d0
 
 "#]]
     );
@@ -1195,10 +1103,15 @@ fn stacked_rebased_remotes() -> anyhow::Result<()> {
     snapbox::assert_data_eq!(
         graph_workspace(&graph.into_workspace()?).to_string(),
         snapbox::str![[r#"
-⌂:B[🌳] <> ✓refs/remotes/origin/B⇣1 on 312f819
-└── ≡:B[🌳] <> origin/B⇣1 on 312f819 {1}
-    └── :B[🌳] <> origin/B⇣1
-        └── 🟣682be32
+⌂:B[🌳] <> ✓refs/remotes/origin/B⇣3
+└── ≡:B[🌳] <> origin/B⇡1⇣1 {1}
+    ├── :B[🌳] <> origin/B⇡1⇣1
+    │   ├── 🟣682be32
+    │   └── ·312f819
+    └── :A <> origin/A⇡1⇣2
+        ├── 🟣e29c23d
+        ├── 🟣fafd9d0
+        └── ❌·e255adc
 
 "#]]
     );
@@ -1255,11 +1168,13 @@ fn stacked_rebased_remotes() -> anyhow::Result<()> {
     snapbox::assert_data_eq!(
         graph_workspace(&graph.into_workspace()?).to_string(),
         snapbox::str![[r#"
-⌂:A <> ✓refs/remotes/origin/A⇣1 on fafd9d0
-└── ≡:A <> origin/A⇡1⇣1 on fafd9d0 {1}
-    └── :A <> origin/A⇡1⇣1
-        ├── 🟣e29c23d
-        └── ·e255adc
+⌂:A <> ✓refs/remotes/origin/A⇣2
+└── ≡:A <> origin/A⇡1⇣1 {1}
+    ├── :A <> origin/A⇡1⇣1
+    │   ├── 🟣e29c23d
+    │   └── ·e255adc
+    └── :main
+        └── ❄fafd9d0
 
 "#]]
     );
@@ -1667,13 +1582,19 @@ Statistics {
     snapbox::assert_data_eq!(
         graph_workspace(&graph.into_workspace()?).to_string(),
         snapbox::str![[r#"
-⌂:C[🌳] <> ✓! on edc4dee
-└── ≡:C[🌳] on edc4dee {1}
-    └── :C[🌳]
-        ├── ·2a95729
-        ├── ·6861158
-        ├── ·4f1f248
-        └── ·487ffce
+⌂:C[🌳] <> ✓!
+└── ≡:C[🌳] {1}
+    ├── :C[🌳]
+    │   ├── ·2a95729
+    │   ├── ·6861158
+    │   ├── ·4f1f248
+    │   └── ·487ffce
+    └── :main
+        ├── ·edc4dee (✓)
+        ├── ·01d0e1e (✓)
+        ├── ·4b3e5a8 (✓)
+        ├── ·34d0715 (✓)
+        └── ·eb5f731 (✓)
 
 "#]]
     );
@@ -2461,7 +2382,93 @@ fn ad_hoc_order_scopes_empty_segments_to_active_chain() -> anyhow::Result<()> {
 }
 
 #[test]
-fn ad_hoc_branch_at_target_tip_rests_on_the_target_tip() -> anyhow::Result<()> {
+fn ad_hoc_order_keeps_bottom_branch_sitting_on_target() -> anyhow::Result<()> {
+    let (tmp, repo) = empty_repo()?;
+    let tip = commit(&repo, "same tip")?;
+    create_branches(
+        &repo,
+        tip,
+        [
+            "refs/heads/top",
+            "refs/heads/middle",
+            "refs/heads/bottom",
+            "refs/remotes/origin/main",
+        ],
+    )?;
+    let meta = in_memory_meta(tmp.as_ref())?;
+    let order = ["refs/heads/top", "refs/heads/middle", "refs/heads/bottom"];
+    let overlay = Overlay::default().with_branch_stack_order_override(order.map(ref_name));
+    let graph = Graph::from_commit_traversal(
+        tip.attach(&repo),
+        Some(ref_name("refs/heads/top")),
+        &*meta,
+        default_project_meta(&repo),
+        &mut but_testsupport::in_memory_db(),
+        standard_options(),
+    )?
+    .redo_traversal_with_overlay(&repo, &*meta, overlay)?
+    .validated()?;
+
+    // All ordered branches sit on the target commit: the walk is empty, and
+    // the bottom branch owning the target commit's segment is still a segment.
+    snapbox::assert_data_eq!(
+        graph_workspace(&graph.into_workspace()?).to_string(),
+        snapbox::str![[r#"
+⌂:top <> ✓refs/remotes/origin/main on 960152d
+└── ≡:top on 960152d {1}
+    ├── :top
+    ├── :middle
+    └── :bottom
+
+"#]]
+    );
+    Ok(())
+}
+
+#[test]
+fn ad_hoc_order_hides_target_branch_at_base() -> anyhow::Result<()> {
+    let (tmp, repo) = empty_repo()?;
+    let tip = commit(&repo, "same tip")?;
+    create_branches(&repo, tip, ["refs/heads/top", "refs/remotes/origin/main"])?;
+    let meta = in_memory_meta(tmp.as_ref())?;
+    let order = ["refs/heads/top", "refs/heads/main"];
+    let overlay = Overlay::default().with_branch_stack_order_override(order.map(ref_name));
+    let graph = Graph::from_commit_traversal(
+        tip.attach(&repo),
+        Some(ref_name("refs/heads/top")),
+        &*meta,
+        default_project_meta(&repo),
+        &mut but_testsupport::in_memory_db(),
+        standard_options(),
+    )?
+    .redo_traversal_with_overlay(&repo, &*meta, overlay)?
+    .validated()?;
+
+    snapbox::assert_data_eq!(
+        graph_dag(&graph),
+        snapbox::str![[r#"
+◎  👉top
+│ ◎  origin/main
+├─╯
+◎  main[🌳] <> origin/main
+●  🏁·960152d (⌂|✓)
+"#]]
+    );
+    // `top` was created on `main`, the target's local branch: that is the base, not a segment.
+    snapbox::assert_data_eq!(
+        graph_workspace(&graph.into_workspace()?).to_string(),
+        snapbox::str![[r#"
+⌂:top <> ✓refs/remotes/origin/main on 960152d
+└── ≡:top on 960152d {1}
+    └── :top
+
+"#]]
+    );
+    Ok(())
+}
+
+#[test]
+fn ad_hoc_branch_at_target_tip() -> anyhow::Result<()> {
     let tmp = but_testsupport::gix_testtools::tempfile::TempDir::new()?;
     let repo = gix::ThreadSafeRepository::init_opts(
         tmp.path(),
@@ -2497,21 +2504,18 @@ fn ad_hoc_branch_at_target_tip_rests_on_the_target_tip() -> anyhow::Result<()> {
     .validated()?
     .into_workspace()?;
 
-    // The branch is inline with the target, so it has no commits of its own and rests
-    // on the target tip — not on the stale local `main` further down.
+    // Without a stored target commit the walk isn't cut off by the target ref.
     snapbox::assert_data_eq!(
         graph_workspace(&ws).to_string(),
         snapbox::str![[r#"
-⌂:feature[🌳] <> ✓refs/remotes/origin/main on d1b2aed
-└── ≡:feature[🌳] on d1b2aed {1}
-    └── :feature[🌳]
+⌂:feature[🌳] <> ✓refs/remotes/origin/main⇣2
+└── ≡:feature[🌳] {1}
+    ├── :feature[🌳]
+    │   └── ❄d1b2aed (✓)
+    └── :main <> origin/main
+        └── ❄️0cc01ab (✓)
 
 "#]]
-    );
-    assert_eq!(
-        ws.stacks[0].base(),
-        Some(f1),
-        "an empty branch at the target tip rests on the commit it points to"
     );
     Ok(())
 }
@@ -2526,7 +2530,9 @@ pub use utils::{
     read_only_in_memory_scenario, standard_options,
 };
 
-use crate::init::utils::{in_memory_meta, standard_options_with_extra_target};
+use crate::init::utils::{
+    default_project_meta, in_memory_meta, standard_options_with_extra_target,
+};
 
 fn ref_name(name: &str) -> gix::refs::FullName {
     name.try_into().expect("valid full ref name")

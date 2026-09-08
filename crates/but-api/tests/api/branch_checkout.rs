@@ -280,22 +280,6 @@ fn checkout_returns_head_info_matching_fresh_head_info() -> anyhow::Result<()> {
             without_segment_indices(&returned_head_info),
             snapbox::str![[r#"
 RefInfo {
-    workspace_ref_info: Some(
-        RefInfo {
-            ref_name: FullName(
-                "refs/heads/feature",
-            ),
-            commit_id: Some(
-                Sha1(edd838127f5665b9675a440e81f51bc5f170140f),
-            ),
-            worktree: Some(
-                Worktree {
-                    kind: Main,
-                    owned_by_repo: true,
-                },
-            ),
-        },
-    ),
     symbolic_remote_names: {
         "origin",
     },
@@ -315,7 +299,6 @@ RefInfo {
                         LocalCommit(edd8381, "feature\n", local),
                     ],
                     commits_on_remote: [],
-                    commits_outside: None,
                     metadata: "None",
                     push_status: CompletelyUnpushed,
                     base: "5374caf",
@@ -339,10 +322,7 @@ RefInfo {
     is_target_current: true,
     lower_bound: Some(
     ),
-    is_managed_ref: false,
-    is_managed_commit: false,
     ancestor_workspace_commit: None,
-    is_entrypoint: true,
 }
 "#]]
             .raw()
@@ -417,22 +397,6 @@ fn checkout_new_returns_head_info_matching_fresh_head_info() -> anyhow::Result<(
             returned_head_info,
             snapbox::str![[r#"
 RefInfo {
-    workspace_ref_info: Some(
-        RefInfo {
-            ref_name: FullName(
-                "refs/heads/new-branch",
-            ),
-            commit_id: Some(
-                Sha1(5374caf21933aee76b72bad8d6e30949c7a30e04),
-            ),
-            worktree: Some(
-                Worktree {
-                    kind: Main,
-                    owned_by_repo: true,
-                },
-            ),
-        },
-    ),
     symbolic_remote_names: {
         "origin",
     },
@@ -451,7 +415,6 @@ RefInfo {
                     remote_tracking_ref_name: "None",
                     commits: [],
                     commits_on_remote: [],
-                    commits_outside: None,
                     metadata: "None",
                     push_status: CompletelyUnpushed,
                     base: "5374caf",
@@ -478,10 +441,7 @@ RefInfo {
     lower_bound: Some(
         NodeIndex(0),
     ),
-    is_managed_ref: false,
-    is_managed_commit: false,
     ancestor_workspace_commit: None,
-    is_entrypoint: true,
 }
 "#]]
             .raw()

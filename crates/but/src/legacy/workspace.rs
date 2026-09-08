@@ -97,7 +97,7 @@ fn head_info(
         expensive_commit_info,
         gerrit_mode,
     };
-    let mut info = ref_info::graph_to_ref_info(&ws, &repo, options)?.pruned_to_entrypoint();
+    let mut info = ref_info::graph_to_ref_info(&ws, &repo, options)?;
 
     // Enrich active associations from the forge cache while keeping durable
     // stored identity for integrated branches, mirroring desktop `head_info`.
@@ -244,7 +244,6 @@ fn head_info_branch(segment: &Segment, null_id: gix::ObjectId) -> anyhow::Result
         ref_info,
         commits: local_commits,
         commits_on_remote,
-        commits_outside,
         metadata,
         push_status,
         base,
@@ -253,17 +252,6 @@ fn head_info_branch(segment: &Segment, null_id: gix::ObjectId) -> anyhow::Result
     let ref_info = ref_info
         .clone()
         .context("Can't handle a stack yet whose tip isn't pointed to by a ref")?;
-    if let Some(commits_outside) = commits_outside
-        .as_ref()
-        .filter(|commits| !commits.is_empty())
-    {
-        tracing::warn!(
-            ignored_outside_commits = commits_outside.len(),
-            stack_segment_ref = %ref_info.ref_name,
-            "CLI head_info branch drops commits_outside for this stack segment"
-        );
-    }
-
     let base_commit = base.unwrap_or(null_id);
     let tip = ref_info
         .commit_id

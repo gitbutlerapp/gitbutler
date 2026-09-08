@@ -1,12 +1,10 @@
 use std::fmt::Formatter;
 
-use anyhow::{Context as _, bail};
 use bitflags::bitflags;
 use but_core::{ref_metadata, ref_metadata::StackId};
 use gix::prelude::ObjectIdExt;
-use petgraph::Direction;
 
-use crate::{CommitFlags, Graph, SegmentIndex, SegmentMetadata, init::PetGraph};
+use crate::{CommitFlags, Graph, SegmentIndex};
 
 /// A list of segments that together represent a list of dependent branches, stacked on top of each other.
 #[derive(Clone)]
@@ -51,65 +49,6 @@ impl Stack {
     /// The [base_segment_id](StackSegment::base_segment_id) of the last of our segments.
     pub fn base_segment_id(&self) -> Option<SegmentIndex> {
         self.segments.last().and_then(|s| s.base_segment_id)
-    }
-}
-
-impl Stack {
-    pub(crate) fn from_base_and_segments(
-        graph: &PetGraph,
-        mut segments: Vec<StackSegment>,
-        id: Option<StackId>,
-    ) -> Self {
-        let mut iter = segments.iter_mut();
-        let mut cur = iter.next();
-        while let Some((a, b)) = cur.zip(iter.next()) {
-            a.base = b.commits.first().map(|c| c.id);
-            a.base_segment_id = b.id.into();
-            cur = Some(b);
-        }
-        let mut stack = Stack { id, segments };
-        stack.recompute_last_segment_base(graph);
-        stack
-    }
-
-    /// Recompute the last segment's base from its bottom commit's first-parent neighbour, or,
-    /// once pruning emptied the segment, from the commit its tip points to.
-    ///
-    /// Needed after the stack's bottom is truncated (e.g. by integrated-trunk pruning),
-    /// which leaves the collection-time base pointing at a segment no longer in the stack.
-    pub(crate) fn recompute_last_segment_base(&mut self, graph: &PetGraph) {
-        let Some(last_segment) = self.segments.last_mut() else {
-            return;
-        };
-        let last_aggregated_sidx = match last_segment.commits_by_segment.last() {
-            Some((sidx, _)) => *sidx,
-            None => {
-                // The projection holds no commits for this segment. If its graph segment still
-                // does, those were pruned as integrated and the branch now rests on the commit
-                // it points to. A truly empty ref keeps its collection-time base.
-                if let Some(first) = graph[last_segment.id].commits.first() {
-                    last_segment.base = Some(first.id);
-                    last_segment.base_segment_id = Some(last_segment.id);
-                }
-                return;
-            }
-        };
-        let first_parent_sidx = graph
-            .neighbors_directed(last_aggregated_sidx, Direction::Outgoing)
-            .next();
-        last_segment.base = first_parent_sidx.and_then(|sidx| {
-            graph[sidx].commits.first().and_then(|c| {
-                if c.parent_ids.is_empty() || graph[sidx].commits.get(1).is_some() {
-                    return c.id.into();
-                }
-                graph
-                    .neighbors_directed(sidx, Direction::Outgoing)
-                    .next()
-                    .is_some()
-                    .then_some(c.id)
-            })
-        });
-        last_segment.base_segment_id = first_parent_sidx.filter(|_| last_segment.base.is_some());
     }
 }
 
@@ -175,12 +114,6 @@ impl std::fmt::Debug for Stack {
 /// A typically named set of linearized commits, obtained by first-parent-only traversal.
 ///
 /// Note that this maybe an aggregation of multiple [graph segments](crate::Segment).
-///
-/// ### WARNING
-///
-/// As it stands, we may 'doctor' the `ref_name`, `remote_tracking_ref_name` and `metadata` *if* `commits_outside` is not
-/// `None`. This is to help with visualisation, but makes this data much less usable in algorithms, at least if
-/// these fields are significant.
 #[derive(Clone)]
 pub struct StackSegment {
     /// The unambiguous or disambiguated name of the branch at the tip of the segment, i.e. at the first commit,
@@ -193,7 +126,6 @@ pub struct StackSegment {
     /// named segment.
     pub ref_info: Option<crate::RefInfo>,
     /// The name of the remote tracking branch of this segment, if present, i.e. `refs/remotes/origin/main`.
-    /// Its presence means [`commits_outside`](Self::commits_outside) are possibly available.
     pub remote_tracking_ref_name: Option<gix::refs::FullName>,
     /// If `remote_tracking_ref_name` is set, this field is also set to make accessing the respective segment easy,
     /// avoiding a search through the entire graph.
@@ -214,13 +146,6 @@ pub struct StackSegment {
     ///
     /// The list could be empty for when this is a dedicated empty segment as insertion position of commits.
     pub commits: Vec<StackCommit>,
-    /// All commits *that are not workspace commits* reachable by (and including commits in) this segment.
-    /// The list was created by walking all parents, not only the first parent.
-    /// Note that the tips of these commits is the `sibling_segment_id` which in this case is `Some`
-    /// if this field is `Some`.
-    /// When set, we will also have copied the `ref_name`, `metadata` and `remote_tracking_ref_name` from
-    /// `sibling_segment_id` over to this segment to provide more meaningful information.
-    pub commits_outside: Option<Vec<StackCommit>>,
     /// This is always the `first()` commit in `commits` of the next stacksegment, or the first commit of
     /// the first ancestor segment.
     /// It can be imagined as the base upon which the segment is resting, or the connection point to the rest
@@ -245,10 +170,6 @@ pub struct StackSegment {
     pub commits_on_remote: Vec<StackCommit>,
     /// Read-only branch metadata with additional information, or `None` if nothing was present.
     pub metadata: Option<ref_metadata::Branch>,
-    /// This is `true` for exactly one segment in a workspace if the entrypoint of [the traversal](Graph::from_commit_traversal())
-    /// is this segment, and the surrounding workspace is provided for context.
-    /// This means one will see the entire workspace, while knowing the focus is on one specific segment.
-    pub is_entrypoint: bool,
 }
 
 /// Access
@@ -276,14 +197,6 @@ impl StackSegment {
                     .flat_map(|c| c.refs.iter().map(|ri| ri.ref_name.as_ref())),
             )
     }
-
-    /// Return `true` if this segment *would* be anonymous if it wasn't for the out-of-workspace segment to be projected onto this one.
-    ///
-    /// This is signaled by its underlying graph segment being unnamed, with a sibling set.
-    pub fn is_projected_from_outside(&self, graph: &Graph) -> bool {
-        let segment = &graph[self.id];
-        segment.ref_info.is_none() && segment.sibling_segment_id.is_some()
-    }
 }
 
 impl std::fmt::Debug for StackSegment {
@@ -291,130 +204,11 @@ impl std::fmt::Debug for StackSegment {
         f.debug_struct(&format!("StackSegment({})", self.debug_string()))
             .field("commits", &self.commits)
             .field("commits_on_remote", &self.commits_on_remote)
-            .field("commits_outside", &self.commits_outside)
             .finish()
     }
 }
 
 impl StackSegment {
-    /// Given a list of *graph* `segments` to aggregate, produce a stack segment that is like the combination
-    /// of a remote segment and a local ones, along with more detailed commits and (if possible) without
-    /// anonymous portions.
-    ///
-    /// It's like reconstructing a first-parent traversal from the segmented graph, which splits each time there
-    /// is an unambiguous ref pointing to a commit, or when it splits a segment by incoming connection.
-    ///
-    /// `graph` is used to look up the remote segment and find its commits.
-    pub(crate) fn from_graph_segments(
-        segments: &[&crate::Segment],
-        graph: &Graph,
-    ) -> anyhow::Result<Self> {
-        let mut segments_iter = segments.iter();
-        let &&crate::Segment {
-            id,
-            generation: _,
-            ref_info: ref ref_name,
-            ref remote_tracking_ref_name,
-            sibling_segment_id: _,
-            remote_tracking_branch_segment_id,
-            commits: _,
-            ref metadata,
-        } = segments_iter
-            .next()
-            .context("BUG: need one or more segments")?;
-
-        let mut commits_by_segment = Vec::new();
-        let mut is_first = true;
-        let (mut ref_name, mut metadata, mut remote_tracking_ref_name) =
-            (ref_name, metadata, remote_tracking_ref_name);
-        let mut commits_outside = None::<Vec<_>>;
-        for s in segments {
-            let mut stack_commits = Vec::new();
-            if let Some(sibling_sidx) = s
-                .sibling_segment_id
-                .filter(|_| is_first && ref_name.is_none())
-            {
-                let sibling = &graph[sibling_sidx];
-                ref_name = &sibling.ref_info;
-                metadata = &sibling.metadata;
-                remote_tracking_ref_name = &sibling.remote_tracking_ref_name;
-                graph.visit_all_segments_including_start_until(
-                    sibling_sidx,
-                    Direction::Outgoing,
-                    |s| {
-                        let prune = true;
-                        if s.commits
-                            .iter()
-                            .any(|c| c.flags.contains(CommitFlags::InWorkspace))
-                        {
-                            return prune;
-                        }
-                        commits_outside
-                            .get_or_insert_default()
-                            .extend(s.commits.iter().map(StackCommit::from_graph_commit));
-                        !prune
-                    },
-                );
-            }
-            for commit in &s.commits {
-                stack_commits.push(StackCommit::from_graph_commit(commit));
-            }
-            commits_by_segment.push((s.id, stack_commits));
-            is_first = false;
-        }
-        // The last (actual) segment could be partial.
-        if let Some(commits) = commits_by_segment.last_mut().and_then(|(sidx, commits)| {
-            graph
-                .stop_condition(*sidx)
-                .is_some_and(|condition| condition.at_limit())
-                .then_some(commits)
-        }) && let Some(commit) = commits.last_mut()
-        {
-            commit.flags |= StackCommitFlags::EarlyEnd;
-        }
-
-        Ok(StackSegment {
-            ref_info: ref_name.clone(),
-            id,
-            remote_tracking_ref_name: remote_tracking_ref_name.clone(),
-            remote_tracking_branch_segment_id,
-            // `base` is set later in the context of the entire stack.
-            base: None,
-            base_segment_id: None,
-            commits_by_segment: {
-                let mut ofs = 0;
-                commits_by_segment
-                    .iter()
-                    .map(|(sidx, commits)| {
-                        let res = (*sidx, ofs);
-                        ofs += commits.len();
-                        res
-                    })
-                    .collect()
-            },
-            commits: commits_by_segment
-                .into_iter()
-                .flat_map(|(_sid, commits)| commits)
-                .collect(),
-            commits_outside,
-            // Will be set later once all stacks are known.
-            commits_on_remote: Vec::new(),
-            metadata: metadata
-                .as_ref()
-                .map(|md| match md {
-                    SegmentMetadata::Branch(md) => Ok(md.clone()),
-                    SegmentMetadata::Workspace(_) => {
-                        bail!(
-                            "BUG: Should always stop stacks at workspaces, \
-                        but got a stack that thinks it's a workspace"
-                        )
-                    }
-                })
-                .transpose()?,
-            is_entrypoint: false, /* to be set later */
-        })
-    }
-
     /// Digest as much as possible into a single line.
     pub fn debug_string(&self) -> String {
         self.debug_string_with_ref_name_remote(Graph::ref_and_remote_debug_string(
@@ -447,8 +241,7 @@ impl StackSegment {
             0
         };
         format!(
-            "{ep}{meta}:{ref_name_remote}{local_commits}{remote_commits}",
-            ep = if self.is_entrypoint { "👉" } else { "" },
+            "{meta}:{ref_name_remote}{local_commits}{remote_commits}",
             meta = if self.metadata.is_some() { "📙" } else { "" },
             local_commits = if num_local_commits == 0 {
                 "".into()

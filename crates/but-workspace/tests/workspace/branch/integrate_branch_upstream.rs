@@ -219,7 +219,11 @@ fn integration_graph_for_branch(
                 but_graph::init::Tip::integrated(target_id, Some(target_ref_name.to_owned())),
             ],
             meta,
-            Default::default(),
+            but_core::ref_metadata::ProjectMeta {
+                target_ref: Some(target_ref_name.to_owned()),
+                target_commit_id: Some(target_id),
+                ..Default::default()
+            },
             &mut db,
             Options::limited(),
         )
@@ -2798,8 +2802,7 @@ fn integrate_upstream_commits_into_local_with_merge_remote_into_local_conflicts_
             expensive_commit_info: true,
             ..Default::default()
         },
-    )?
-    .pruned_to_entrypoint();
+    )?;
 
     assert!(
         !ref_info.stacks.is_empty(),

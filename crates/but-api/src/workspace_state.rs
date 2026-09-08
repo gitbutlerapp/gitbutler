@@ -107,8 +107,7 @@ impl WorkspaceState {
                     expensive_commit_info: true,
                     ..Default::default()
                 },
-            )?
-            .pruned_to_entrypoint();
+            )?;
 
             // Same pass the `head_info` read command runs, so mutation
             // responses (which Lite renders directly) carry the same

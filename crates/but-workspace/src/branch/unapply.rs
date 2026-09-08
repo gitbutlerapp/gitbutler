@@ -243,10 +243,6 @@ pub(crate) mod function {
             // The branch exists in Git, but does not in the workspace: Nothing to do.
             return Ok(Outcome::new(Cow::Borrowed(workspace)));
         }
-        let branch_stack_was_entrypoint = branch_in_ws
-            .is_some_and(|(stack, _)| stack.segments.iter().any(|segment| segment.is_entrypoint));
-        let workspace_tip_was_entrypoint = ws.is_entrypoint();
-
         let Some(workspace_ref_name) = workspace_ref_name else {
             // This is an ad-hoc workspace by merit of being unnamed.
             bail!("Cannot unapply a branch from an ad-hoc detached workspace");
@@ -295,10 +291,7 @@ pub(crate) mod function {
         // - re-merge or collapse the workspace commit
         // - point workspace to it
         // - update metadata and workspace
-        let WorkspaceRefUpdateAfterUnapply {
-            entrypoint_id,
-            workspace_merge,
-        } = update_workspace_ref_after_unapply(
+        let workspace_merge = update_workspace_ref_after_unapply(
             &ws,
             repo,
             workspace_ref_name.as_ref(),
@@ -311,28 +304,10 @@ pub(crate) mod function {
         let overlay = Overlay::default()
             .with_dropped_references([branch.to_owned()])
             .with_workspace_metadata_override(Some((workspace_ref_name.to_owned(), ws_md.clone())));
-        let mut ws = ws
+        let ws = ws
             .graph
             .redo_traversal_with_overlay(repo, meta, overlay)?
             .into_workspace()?;
-        let checked_out = if !workspace_tip_was_entrypoint
-            && (ws.is_entrypoint() || branch_stack_was_entrypoint)
-        {
-            // The workspace tip never was the entrypoint, meaning something inside
-            // was the entrypoint, and now it's not visible anymore as that stack was unapplied.
-            // Now we checkout the enclosing workspace instead.
-            switch_head_to_workspace_ref(repo, workspace_ref_name.as_ref(), entrypoint_id)?;
-            let overlay = Overlay::default()
-                .with_dropped_references([branch.to_owned()])
-                .with_entrypoint(entrypoint_id, Some(workspace_ref_name.to_owned()));
-            ws = ws
-                .graph
-                .redo_traversal_with_overlay(repo, meta, overlay)?
-                .into_workspace()?;
-            Some(workspace_ref_name.to_owned())
-        } else {
-            None
-        };
         if ws_md.stacks.iter().any(|stack| {
             stack.workspacecommit_relation.is_in_workspace()
                 && stack
@@ -387,47 +362,10 @@ pub(crate) mod function {
             }
             None => Ok(Outcome {
                 workspace: Cow::Owned(ws),
-                checked_out,
+                checked_out: None,
                 workspace_merge,
             }),
         }
-    }
-
-    /// Point `HEAD` back to the managed workspace reference after unapplying the
-    /// branch that was previously checked out directly.
-    /// It is assumed that the worktree and index already match what `HEAD` will
-    /// point to next.
-    ///
-    /// `repo` is the repository whose `HEAD` will become symbolic again.
-    ///
-    /// `workspace_ref_name` is the managed workspace reference to attach `HEAD` to.
-    /// It must already point to the commit checked out into the index and worktree.
-    ///
-    /// `expected_workspace_ref_id` is that checked-out commit. The helper verifies
-    /// the workspace ref points to this id before changing `HEAD`, so the symbolic
-    /// switch cannot silently attach `HEAD` to a different commit than the one the
-    /// index/worktree were updated to.
-    fn switch_head_to_workspace_ref(
-        repo: &gix::Repository,
-        workspace_ref_name: &FullNameRef,
-        expected_workspace_ref_id: gix::ObjectId,
-    ) -> anyhow::Result<()> {
-        let actual_workspace_ref_id = repo
-            .find_reference(workspace_ref_name)?
-            .peel_to_id()?
-            .detach();
-        ensure!(
-            actual_workspace_ref_id == expected_workspace_ref_id,
-            "BUG: workspace ref '{}' points to {actual_workspace_ref_id}, expected {expected_workspace_ref_id}",
-            workspace_ref_name.shorten()
-        );
-        repo.edit_reference(RefEdit::update(
-            "HEAD".try_into().expect("well-formed root ref"),
-            workspace_ref_name.to_owned(),
-            PreviousValue::Any,
-            "GitButler switch to workspace during unapply-branch",
-        ))?;
-        Ok(())
     }
 
     /// Update the managed workspace reference after metadata has removed the branch.
@@ -449,7 +387,7 @@ pub(crate) mod function {
         ws_md: &but_core::ref_metadata::Workspace,
         disposition: WorkspaceDisposition,
         excluded_anonymous_tip_id: Option<gix::ObjectId>,
-    ) -> anyhow::Result<WorkspaceRefUpdateAfterUnapply> {
+    ) -> anyhow::Result<Option<crate::commit::merge::Outcome>> {
         let future_workspace_tips = future_workspace_tips(ws_md, ws, excluded_anonymous_tip_id)?;
         let remaining_tip_count = future_workspace_tips.len();
         let keep_workspace_commit = match disposition {
@@ -467,10 +405,7 @@ pub(crate) mod function {
             let new_head_id =
                 commit_to_point_workspace_ref_to_after_unapply(ws, &future_workspace_tips)?;
             checkout_and_update_workspace_ref(repo, new_head_id, workspace_ref_name)?;
-            return Ok(WorkspaceRefUpdateAfterUnapply {
-                entrypoint_id: new_head_id,
-                workspace_merge: None,
-            });
+            return Ok(None);
         }
 
         let mut in_memory_repo = repo.clone().for_tree_diffing()?.with_object_memory();
@@ -483,18 +418,7 @@ pub(crate) mod function {
             drop(in_memory_repo);
         }
         checkout_and_update_workspace_ref(repo, new_head_id, workspace_ref_name)?;
-        Ok(WorkspaceRefUpdateAfterUnapply {
-            entrypoint_id: new_head_id,
-            workspace_merge: merge.workspace_merge,
-        })
-    }
-
-    /// Result of updating a managed workspace ref while keeping the workspace metadata around.
-    struct WorkspaceRefUpdateAfterUnapply {
-        /// Commit to use as the entrypoint when rebuilding the workspace projection.
-        entrypoint_id: gix::ObjectId,
-        /// Merge attempt, present when rebuilding or trying to rebuild the workspace commit.
-        workspace_merge: Option<crate::commit::merge::Outcome>,
+        Ok(merge.workspace_merge)
     }
 
     struct WorkspaceMergeAfterUnapply {

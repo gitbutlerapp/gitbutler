@@ -58,8 +58,7 @@ pub fn head_info(ctx: &but_ctx::Context) -> Result<but_workspace::RefInfo> {
             expensive_commit_info: true,
             gerrit_mode,
         },
-    )?
-    .pruned_to_entrypoint();
+    )?;
 
     // Enrich active associations from the forge cache while keeping durable
     // stored identity for integrated branches.
@@ -459,8 +458,6 @@ pub fn workspace_branch_and_ancestors_push_only(
             gerrit_mode,
         },
     )?;
-    let head_info = head_info.pruned_to_entrypoint();
-
     let result = but_workspace::legacy::push::workspace_branch_and_ancestors_push(
         &repo,
         &ws,

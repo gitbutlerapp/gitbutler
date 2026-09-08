@@ -3806,13 +3806,11 @@ mod util {
             remote_tracking_branch_segment_id: None,
             id: Default::default(),
             commits,
-            commits_outside: None,
             base,
             base_segment_id: None,
             commits_by_segment: Vec::new(),
             commits_on_remote,
             metadata: None,
-            is_entrypoint: false,
         }
     }
 
