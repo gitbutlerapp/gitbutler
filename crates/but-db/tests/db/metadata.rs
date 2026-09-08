@@ -94,6 +94,94 @@ fn ref_metadata_preserves_full_names_and_non_utf8_bytes() -> anyhow::Result<()> 
     Ok(())
 }
 
+#[test]
+fn branch_order_preserves_non_utf8_refs_through_metadata_operations() -> anyhow::Result<()> {
+    use gix::bstr::ByteSlice as _;
+    let mut db = DbHandle::new_at_path(":memory:")?;
+    let top: FullName = b"refs/heads/top-\xff".as_bstr().try_into()?;
+    let middle: FullName = "refs/heads/middle".try_into()?;
+    let bottom: FullName = b"refs/heads/bottom-\xfe".as_bstr().try_into()?;
+    let renamed: FullName = b"refs/heads/renamed-\xfd".as_bstr().try_into()?;
+    let order = vec![top.clone(), middle.clone(), bottom.clone()];
+    db.meta_mut()?.set_branch_stack_order(&order)?;
+    let snapshot = db.meta()?;
+    snapshot.validate()?;
+    assert_eq!(
+        snapshot.branch_stack_order(top.as_ref()),
+        Some(order.as_slice()),
+        "ad-hoc order accepts the same ref bytes as workspace and branch metadata"
+    );
+    db.meta_mut()?.rename(middle.as_ref(), renamed.as_ref())?;
+    db.meta_mut()?.remove(bottom.as_ref())?;
+    let remaining = vec![top.clone(), renamed.clone()];
+    db.meta_mut()?
+        .remove_missing_branch_stack_order_references(&remaining)?;
+    assert_eq!(
+        db.meta()?.branch_stack_order(top.as_ref()),
+        Some(remaining.as_slice()),
+        "rename, removal, and pruning preserve byte-valued names and chain order"
+    );
+    db.meta_mut()?.replace_snapshot(&snapshot)?;
+    assert_eq!(
+        db.meta()?,
+        snapshot,
+        "full metadata restoration also preserves non-UTF-8 ad-hoc ordering"
+    );
+    Ok(())
+}
+
+#[test]
+fn branch_order_migration_preserves_existing_text_rows_as_blobs() -> anyhow::Result<()> {
+    let dir = tempfile::tempdir()?;
+    let path = dir.path().join("branch-order.sqlite");
+    let mut conn = rusqlite::Connection::open(&path)?;
+    let (metadata_migrations, table_migrations) = but_db::MIGRATIONS
+        .split_last()
+        .expect("metadata migrations follow table creation");
+    let old_migrations = table_migrations
+        .iter()
+        .flat_map(|group| group.iter())
+        .chain(metadata_migrations.iter().take(1))
+        .copied()
+        .collect::<Vec<_>>();
+    but_db::migration::run(&mut conn, old_migrations.iter().copied())?;
+    conn.execute_batch(
+        "INSERT INTO branch_order (branch_ref_name, parent_ref_name) VALUES
+         ('refs/heads/top', 'refs/heads/base'), ('refs/heads/base', NULL);",
+    )?;
+    let db = DbHandle::new_at_path(&path)?;
+    assert!(
+        but_db::migration::run(&mut conn, old_migrations).is_err(),
+        "old binaries must reject BLOB refs instead of trying to decode them as strings"
+    );
+    let mut stmt = conn.prepare("SELECT type FROM pragma_table_info('branch_order')")?;
+    let column_types = stmt
+        .query_map([], |row| row.get::<_, String>(0))?
+        .collect::<Result<Vec<_>, _>>()?;
+    assert_eq!(
+        column_types,
+        ["BLOB", "BLOB"],
+        "the forward migration replaces UTF-8 text storage with Git ref bytes"
+    );
+    let blob_rows: i64 = conn.query_row(
+        "SELECT COUNT(*) FROM branch_order WHERE typeof(branch_ref_name) = 'blob'
+         AND (parent_ref_name IS NULL OR typeof(parent_ref_name) = 'blob')",
+        [],
+        |row| row.get(0),
+    )?;
+    assert_eq!(
+        blob_rows, 2,
+        "existing text values are converted without dropping rows"
+    );
+    let expected = vec!["refs/heads/top".try_into()?, "refs/heads/base".try_into()?];
+    assert_eq!(
+        db.meta()?.branch_stack_order("refs/heads/base".try_into()?),
+        Some(expected.as_slice()),
+        "migration preserves the existing chain"
+    );
+    Ok(())
+}
+
 fn workspace(db: &DbHandle) -> anyhow::Result<Workspace> {
     let mut workspace = db
         .meta()?
