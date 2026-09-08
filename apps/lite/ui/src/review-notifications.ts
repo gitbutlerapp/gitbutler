@@ -2,9 +2,9 @@
  * @file Turning review activity into inbox entries.
  *
  * The decisions are pure and live in `review-activity.ts`; the hook here
- * feeds them the listing the app polls anyway. The unread dots stay the
- * record — the bell is the cross-review view of the same facts, and the
- * desktop hears the loud ones while the window is elsewhere.
+ * feeds them the listing the app polls anyway. The per-review seen marks
+ * stay the record — the bell is the cross-review view of the same facts, and
+ * the desktop hears the loud ones while the window is elsewhere.
  */
 
 import {

@@ -93,11 +93,6 @@ test("keeps unread PR activity off the Workspace tab", async ({ appWindow, elect
 	await appWindow.reload();
 
 	await expect(appWindow.getByRole("button", { name: "Notifications, 1 unread" })).toBeVisible();
-	await expect(
-		appWindow
-			.getByRole("treeitem", { name: "C", exact: true })
-			.getByTitle("New activity on this pull request"),
-	).toBeVisible();
 	const pages = appWindow.getByRole("group", { name: "Pages" });
 	await expect(pages.getByRole("button", { name: "Workspace", exact: true })).toHaveText(
 		"Workspace",

@@ -19,7 +19,7 @@ import { createContext, useEffect, useEffectEvent, useState, useSyncExternalStor
 
 /**
  * The PR-notifications dial: loud files activity into the bell, quiet
- * keeps only the unread dots, off hides the tracking UI entirely.
+ * tracks what was seen without showing it, off hides the tracking UI entirely.
  */
 export const usePrNotificationsLevel = (): "loud" | "quiet" | "off" => {
 	const { data: level } = useQuery({
@@ -276,7 +276,7 @@ const isUnread = (
  * Whether one review has unread activity — a boolean, so a watermark moving
  * on another review leaves this subscriber alone.
  */
-export const useReviewUnread = (
+const useReviewUnread = (
 	projectId: string,
 	review: { number: number; modifiedAt: string | null },
 	enabled: boolean,

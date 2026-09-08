@@ -98,7 +98,7 @@ export const General: FC = () => {
 				<Row
 					label="Pull request activity"
 					htmlFor="pr-notifications"
-					hint="Loud collects notifications in the bell; quiet keeps just the unread dots."
+					hint="Loud collects notifications in the bell; quiet and off keep it hidden."
 				>
 					<select
 						id="pr-notifications"
