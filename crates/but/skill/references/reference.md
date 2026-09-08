@@ -324,8 +324,11 @@ Reword commit message or rename branch.
 ```bash
 but reword <id> -m "new"          # Always pass -m; without it an editor opens and blocks
 but reword <branch> -m "new-name" # Rename a branch (applied branches only)
+but reword <anonymous-id> -m "new-name" # Name an anonymous branch
 but reword <id> --fix-formatting  # Format to 72-char wrapping
 ```
+
+Retry other operations using the new name; the short ID may change.
 
 ### `but discard <CHANGES>...`
 
