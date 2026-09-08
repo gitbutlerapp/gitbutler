@@ -45,6 +45,7 @@ import type { IconName } from "#ui/components/iconNames.ts";
 import { Markdown } from "#ui/components/Markdown.tsx";
 import { MarkdownAttachments } from "#ui/components/MarkdownAttachments.tsx";
 import { MarkdownToolbar } from "#ui/components/MarkdownToolbar.tsx";
+import { useMentionSuggestions } from "#ui/components/MentionSuggestions.tsx";
 import { RelativeTime } from "#ui/components/RelativeTime.tsx";
 import {
 	groupReactors,
@@ -186,6 +187,7 @@ const Card: FC<{
  * row, so the surrounding card chrome stays put while editing.
  */
 const BodyEditor: FC<{
+	projectId: string;
 	value: string;
 	onChange: (value: string) => void;
 	onCancel: () => void;
@@ -193,31 +195,49 @@ const BodyEditor: FC<{
 	saving: boolean;
 	label: string;
 	saveLabel: string;
-}> = ({ value, onChange, onCancel, onSave, saving, label, saveLabel }) => (
-	<div className={styles.editor}>
-		<textarea
-			aria-label={label}
-			className={classes("text-13", "text-body", styles.editorInput)}
-			disabled={saving}
-			onChange={(evt) => onChange(evt.currentTarget.value)}
-			value={value}
-		/>
-		<div className={styles.editorActions}>
-			<button className={getButtonClassName({})} disabled={saving} onClick={onCancel} type="button">
-				Cancel
-			</button>
-			<button
-				className={getButtonClassName({ variant: "gray" })}
-				disabled={saving || value.trim() === ""}
-				onClick={onSave}
-				type="button"
-			>
-				{saveLabel}
-				<Icon name={saving ? "spinner" : "tick"} />
-			</button>
+}> = ({ projectId, value, onChange, onCancel, onSave, saving, label, saveLabel }) => {
+	const textareaRef = useRef<HTMLTextAreaElement | null>(null);
+	const mentions = useMentionSuggestions({
+		projectId,
+		targetRef: textareaRef,
+		value,
+		onInput: onChange,
+	});
+
+	return (
+		<div className={styles.editor}>
+			<textarea
+				{...mentions.textareaProps}
+				aria-label={label}
+				className={classes("text-13", "text-body", styles.editorInput)}
+				disabled={saving}
+				onKeyDown={mentions.onKeyDown}
+				ref={textareaRef}
+				value={value}
+			/>
+			{mentions.popup}
+			<div className={styles.editorActions}>
+				<button
+					className={getButtonClassName({})}
+					disabled={saving}
+					onClick={onCancel}
+					type="button"
+				>
+					Cancel
+				</button>
+				<button
+					className={getButtonClassName({ variant: "gray" })}
+					disabled={saving || value.trim() === ""}
+					onClick={onSave}
+					type="button"
+				>
+					{saveLabel}
+					<Icon name={saving ? "spinner" : "tick"} />
+				</button>
+			</div>
 		</div>
-	</div>
-);
+	);
+};
 
 const Comment: FC<{
 	projectId: string;
@@ -336,6 +356,7 @@ const Comment: FC<{
 			{editing ? (
 				<BodyEditor
 					label="Edit comment"
+					projectId={projectId}
 					onCancel={() => setEditing(false)}
 					onChange={setEditBody}
 					onSave={handleSave}
@@ -938,6 +959,35 @@ const ownForgeAvatar = (
 const orEmptyNotice = (items: Array<NativeMenuItem>, notice: string): Array<NativeMenuItem> =>
 	items.length > 0 ? items : [nativeMenuItem({ label: notice, enabled: false })];
 
+/** An icon button that opens a native menu of things to insert. */
+const InsertButton: FC<{
+	label: string;
+	icon: IconName;
+	/** Built on click, so the menu lists whatever has loaded by then. */
+	items: () => Array<NativeMenuItem>;
+	notice: string;
+}> = ({ label, icon, items, notice }) => (
+	<Tooltip.Root>
+		<Tooltip.Trigger
+			className={getButtonClassName({ variant: "ghost", iconOnly: true })}
+			render={<button aria-label={label} type="button" />}
+			// Keeps the caret in the textarea: a plain click would blur it
+			// first, so the insert would have no position to act on.
+			onMouseDown={(evt) => evt.preventDefault()}
+			onClick={(evt) =>
+				void showNativeMenuFromTrigger(evt.currentTarget, orEmptyNotice(items(), notice))
+			}
+		>
+			<Icon name={icon} />
+		</Tooltip.Trigger>
+		<Tooltip.Portal>
+			<Tooltip.Positioner sideOffset={4}>
+				<Tooltip.Popup render={<TooltipPopup />}>{label}</Tooltip.Popup>
+			</Tooltip.Positioner>
+		</Tooltip.Portal>
+	</Tooltip.Root>
+);
+
 /**
  * Insert an `@mention` or a `#reference` at the caret. Candidates come from
  * the forge — collaborators and open reviews — and are picked from a native
@@ -961,59 +1011,34 @@ const ForgeInserts: FC<{
 		if (target !== null) onInput(applyToTextarea(target, md.insert(snippet)));
 	};
 
-	const button = (
-		label: string,
-		icon: IconName,
-		items: () => Array<NativeMenuItem>,
-		notice: string,
-	) => (
-		<Tooltip.Root>
-			<Tooltip.Trigger
-				className={getButtonClassName({ variant: "ghost", iconOnly: true })}
-				render={<button aria-label={label} type="button" />}
-				// Keeps the caret in the textarea: a plain click would blur it
-				// first, so the insert would have no position to act on.
-				onMouseDown={(evt) => evt.preventDefault()}
-				onClick={(evt) =>
-					void showNativeMenuFromTrigger(evt.currentTarget, orEmptyNotice(items(), notice))
-				}
-			>
-				<Icon name={icon} />
-			</Tooltip.Trigger>
-			<Tooltip.Portal>
-				<Tooltip.Positioner sideOffset={4}>
-					<Tooltip.Popup render={<TooltipPopup />}>{label}</Tooltip.Popup>
-				</Tooltip.Positioner>
-			</Tooltip.Portal>
-		</Tooltip.Root>
-	);
-
 	return (
 		<>
-			{button(
-				"Mention someone",
-				"user",
-				() =>
+			<InsertButton
+				label="Mention someone"
+				icon="user"
+				items={() =>
 					(candidates ?? []).map((candidate) =>
 						nativeMenuItem({
 							label: candidate.login,
 							onSelect: () => insert(`@${candidate.login} `),
 						}),
-					),
-				"No one to mention",
-			)}
-			{button(
-				"Reference a pull request",
-				"hash",
-				() =>
+					)
+				}
+				notice="No one to mention"
+			/>
+			<InsertButton
+				label="Reference a pull request"
+				icon="hash"
+				items={() =>
 					(reviews?.reviews ?? []).map((review) =>
 						nativeMenuItem({
 							label: `#${review.number} ${review.title}`,
 							onSelect: () => insert(`#${review.number} `),
 						}),
-					),
-				"No pull requests to reference",
-			)}
+					)
+				}
+				notice="No pull requests to reference"
+			/>
 		</>
 	);
 };
@@ -1043,6 +1068,13 @@ const Composer: FC<{
 		},
 		[textareaRef],
 	);
+
+	const mentions = useMentionSuggestions({
+		projectId,
+		targetRef: textareaRef,
+		value: draft,
+		onInput: setDraft,
+	});
 
 	const submit = () => {
 		onSubmit();
@@ -1098,10 +1130,11 @@ const Composer: FC<{
 			<div className={styles.composerBody}>
 				<Avatar src={avatarUrl} />
 				<textarea
+					{...mentions.textareaProps}
 					aria-label="Write a comment"
 					className={classes("text-13", "text-body", styles.composerInput)}
-					onChange={(evt) => setDraft(evt.currentTarget.value)}
 					onKeyDown={(evt) => {
+						if (mentions.onKeyDown(evt)) return;
 						if (evt.key === "Escape" && empty) {
 							evt.preventDefault();
 							setEngaged(false);
@@ -1113,6 +1146,7 @@ const Composer: FC<{
 					ref={attachInput}
 					value={draft}
 				/>
+				{mentions.popup}
 			</div>
 
 			<div className={styles.composerFooter}>
@@ -1248,31 +1282,28 @@ export const PullRequestComments: FC<{ projectId: string; review: ForgeReview }>
 	const composerRef = useRef<HTMLTextAreaElement | null>(null);
 
 	// What the dwell may record as skipped: the conversation's own unread-
-	// eligible items. Memoized: this component re-renders per draft
-	// keystroke, and the derivation walks every listing.
-	const freshItems = useMemo(() => {
-		const own = (login: string | null | undefined) =>
-			currentLogin != null && login != null && login.toLowerCase() === currentLogin.toLowerCase();
-		return [
-			...(comments ?? [])
-				.filter(
-					(comment) => comment.id > 0 && comment.createdAt !== null && !own(comment.author?.login),
-				)
-				.map((comment) => ({ key: `c:${comment.id}`, atMs: Date.parse(comment.createdAt ?? "") })),
-			...(submissions ?? [])
-				.filter((submission) => submission.submittedAt !== null && !own(submission.author?.login))
-				.map((submission) => ({
-					key: `s:${submission.id}`,
-					atMs: Date.parse(submission.submittedAt ?? ""),
-				})),
-			...(threads ?? [])
-				.flatMap((thread) => thread.comments)
-				.filter(
-					(comment) => comment.id > 0 && comment.createdAt !== null && !own(comment.author?.login),
-				)
-				.map((comment) => ({ key: `tc:${comment.id}`, atMs: Date.parse(comment.createdAt ?? "") })),
-		];
-	}, [comments, submissions, threads, currentLogin]);
+	// eligible items.
+	const own = (login: string | null | undefined) =>
+		currentLogin != null && login != null && login.toLowerCase() === currentLogin.toLowerCase();
+	const freshItems = [
+		...(comments ?? [])
+			.filter(
+				(comment) => comment.id > 0 && comment.createdAt !== null && !own(comment.author?.login),
+			)
+			.map((comment) => ({ key: `c:${comment.id}`, atMs: Date.parse(comment.createdAt ?? "") })),
+		...(submissions ?? [])
+			.filter((submission) => submission.submittedAt !== null && !own(submission.author?.login))
+			.map((submission) => ({
+				key: `s:${submission.id}`,
+				atMs: Date.parse(submission.submittedAt ?? ""),
+			})),
+		...(threads ?? [])
+			.flatMap((thread) => thread.comments)
+			.filter(
+				(comment) => comment.id > 0 && comment.createdAt !== null && !own(comment.author?.login),
+			)
+			.map((comment) => ({ key: `tc:${comment.id}`, atMs: Date.parse(comment.createdAt ?? "") })),
+	];
 
 	const handleSubmit = () => {
 		const body = draft.trim();
@@ -1303,8 +1334,9 @@ export const PullRequestComments: FC<{ projectId: string; review: ForgeReview }>
 		composerRef.current?.focus();
 	};
 
-	// Memoized like `freshItems`: this component re-renders per composer
-	// keystroke, and a fresh grouping would re-render every card below.
+	// By hand: the compiler cannot tell these two calls are pure, and this
+	// component re-renders per composer keystroke, so a fresh grouping would
+	// re-render every card below.
 	const { filed, loose } = useMemo(
 		() => fileThreadsUnderSubmissions(submissions, threads),
 		[submissions, threads],
@@ -1334,7 +1366,7 @@ export const PullRequestComments: FC<{ projectId: string; review: ForgeReview }>
 		let target: HTMLElement | null = null;
 		let lastTop = Number.NaN;
 		const aim = () => {
-			target ??= document.getElementById(commentAnchorId(requestedComment));
+			if (target === null) target = document.getElementById(commentAnchorId(requestedComment));
 			if (target === null) return;
 			const top = target.getBoundingClientRect().top;
 			if (top !== lastTop) target.scrollIntoView({ block: "center" });

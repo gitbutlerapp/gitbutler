@@ -1,0 +1,37 @@
+.popup {
+	min-width: 220px;
+	max-width: 320px;
+}
+
+.list {
+	display: flex;
+	flex-direction: column;
+	padding: 4px;
+}
+
+.row {
+	display: flex;
+	align-items: center;
+	min-width: 0;
+	gap: 8px;
+}
+
+.avatar {
+	flex: none;
+	width: 16px;
+	height: 16px;
+	object-fit: cover;
+	border-radius: 50%;
+	background-color: var(--bg-2);
+}
+
+.login {
+	flex: none;
+}
+
+.name {
+	min-width: 0;
+	overflow: hidden;
+	color: var(--text-3);
+	text-overflow: ellipsis;
+}

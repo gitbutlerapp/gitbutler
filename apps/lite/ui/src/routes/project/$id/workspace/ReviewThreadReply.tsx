@@ -2,6 +2,7 @@ import { useCreateReviewThreadReply } from "#ui/api/mutations.ts";
 import { getButtonClassName } from "#ui/components/Button.tsx";
 import { classes } from "#ui/components/classes.ts";
 import { FieldTextareaStyles } from "#ui/components/Field.tsx";
+import { useMentionSuggestions } from "#ui/components/MentionSuggestions.tsx";
 import { type FC, type KeyboardEvent, useRef, useState } from "react";
 import styles from "./ReviewThreadReply.module.css";
 
@@ -22,7 +23,14 @@ export const ReviewThreadReply: FC<Props> = ({ projectId, reviewId, threadId }) 
 	const [body, setBody] = useState("");
 	/** One-shot: the box takes focus when unfolded, not on every re-render. */
 	const wantsFocusRef = useRef(false);
+	const textareaRef = useRef<HTMLTextAreaElement | null>(null);
 	const { mutate: reply } = useCreateReviewThreadReply(projectId, reviewId);
+	const mentions = useMentionSuggestions({
+		projectId,
+		targetRef: textareaRef,
+		value: body,
+		onInput: setBody,
+	});
 
 	const submit = () => {
 		const text = body.trim();
@@ -43,6 +51,7 @@ export const ReviewThreadReply: FC<Props> = ({ projectId, reviewId, threadId }) 
 	};
 
 	const onKeyDown = (event: KeyboardEvent<HTMLTextAreaElement>) => {
+		if (mentions.onKeyDown(event)) return;
 		if (event.key === "Enter" && (event.metaKey || event.ctrlKey)) {
 			event.preventDefault();
 			submit();
@@ -72,12 +81,13 @@ export const ReviewThreadReply: FC<Props> = ({ projectId, reviewId, threadId }) 
 	return (
 		<div className={styles.composer}>
 			<FieldTextareaStyles
+				{...mentions.textareaProps}
 				aria-label="Reply to this thread"
 				className={styles.input}
-				onChange={(event) => setBody(event.currentTarget.value)}
 				onKeyDown={onKeyDown}
 				placeholder="Write a reply…"
 				ref={(textarea) => {
+					textareaRef.current = textarea;
 					if (textarea && wantsFocusRef.current) {
 						wantsFocusRef.current = false;
 						textarea.focus();
@@ -86,6 +96,7 @@ export const ReviewThreadReply: FC<Props> = ({ projectId, reviewId, threadId }) 
 				rows={3}
 				value={body}
 			/>
+			{mentions.popup}
 			<div className={styles.actions}>
 				<button
 					className={getButtonClassName({ variant: "ghost" })}
