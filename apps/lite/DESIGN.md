@@ -64,6 +64,50 @@ Interactivity is shown by the hover state, not the cursor. The cursors that do
 change are the ones that describe a gesture: `text` over editable text, `grab`
 and `grabbing` while dragging, and the resize cursors on a splitter.
 
+## Motion
+
+**Two speeds, both tokens.** Every transition takes its duration from
+design-core. `--transition-fast` (80ms) is for a state change on a control that
+stays where it is: hover and press on a button, the outline of a focused field,
+a small opacity fade. `--transition-medium` (150ms) is for something that moves
+or changes shape: a switch thumb, a chevron turning, a section folding, the
+minimap fading in. A move on the fast tier reads as a jump with a flicker on
+it; a hover on the medium tier feels laggy. Don't write a duration by hand. If
+neither tier fits, the answer is a new tier in Figma, not a literal here.
+
+**Popups are the medium tier with a curve.** `--transition-popup` is an alias
+of medium, and `--easing-popup` is the one curve in the app that is a decision
+rather than a keyword: a hard ease-out that lands quickly and settles without
+overshoot, so a modal, a dropdown or the toolbox arrives rather than drifts in.
+The two always go together — `transform var(--transition-popup)
+var(--easing-popup)` — and the backdrop behind a modal takes the same pair,
+since it is rendered as a sibling and can't inherit it. Popups close the way
+they open; the exit is not tuned separately.
+
+**Easings are keywords.** Outside popups nothing names a curve. The fast and
+medium tiers ride on the browser's default `ease`, and the one place that wants
+a different shape says `ease-out` after the duration. Don't tokenise `ease`:
+the token would export as a cubic-bezier that is longer and says less. Figma
+has no preset for it, so a prototype that wants parity uses a custom bezier of
+0.25, 0.1, 0.25, 1; its Ease in, Ease out and Ease in and out are the CSS
+keywords of the same name.
+
+**Feel comes from the curve before the tier.** A medium transition that seems
+slow wants `ease-out`, which spends the motion early, before it wants to be
+fast.
+
+**Loops and holds are not transitions.** The spinner and the fresh-change pulse
+are keyframe animations with their own timing, and the pause before a "Copied"
+label reverts is a delay in code. Neither takes a token: a token says how a
+change feels, not how long something waits.
+
+**Anything that moves respects reduced motion.** A fold that changes height
+turns its transition off under `prefers-reduced-motion: reduce`, as the graph
+section does. A hover color needs no such rule.
+
+**The rules live in two places.** The token descriptions in ⚛️ Lite Core carry
+the same tiers and pairings as this section; change one and change the other.
+
 ## Icons
 
 **Source.** Icons come from the ⚛️ Lite Core Figma library. Don't draw new

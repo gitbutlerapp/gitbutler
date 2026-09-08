@@ -32,7 +32,7 @@
 
 	& [data-icon] {
 		opacity: var(--button-icon-opacity, 0.7);
-		transition: opacity 0.08s ease;
+		transition: opacity var(--transition-fast);
 	}
 
 	&:not(:disabled, [data-disabled]):hover {

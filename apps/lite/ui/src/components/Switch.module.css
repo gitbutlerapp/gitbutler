@@ -12,7 +12,7 @@
 	border: none;
 	border-radius: 100px;
 	background-color: var(--border-2);
-	transition: background-color 120ms ease;
+	transition: background-color var(--transition-medium);
 
 	&[data-checked] {
 		background-color: var(--fill-pop-bg);
@@ -32,7 +32,7 @@
 	height: calc(var(--switch-height) - 4px);
 	border-radius: 50%;
 	background-color: var(--bg-1);
-	transition: left 120ms ease;
+	transition: left var(--transition-medium);
 
 	/* Mirror of the 2px resting inset: width − thumb − 2, and the thumb is
 	   itself height − 4. Spelled out so a resize carries the travel with it. */

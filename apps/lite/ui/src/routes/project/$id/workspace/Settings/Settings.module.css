@@ -61,7 +61,7 @@
 		border-radius: 0 var(--radius-button) var(--radius-button) 0;
 		background-color: var(--fill-pop-bg);
 		content: "";
-		transition: transform 0.15s ease;
+		transition: transform var(--transition-medium);
 	}
 
 	&:hover {
