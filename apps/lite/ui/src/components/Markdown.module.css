@@ -10,13 +10,20 @@
 		margin-block-end: 0;
 	}
 
+	/* The rhythm, in step with the Markdown kit in ⚛️ Lite Core:
+	   12px between text blocks, 16px around anything with an edge (a table,
+	   a code block, a quote bar, an image) because text carries its own
+	   leading and a box doesn't, 4px within a list, and a heading takes
+	   twice the text gap above it (a little less for h3 and below) so a
+	   section reads as a section rather than as one more paragraph.
+	   Adjacent margins collapse, so a box next to a paragraph gets 16. */
 	h1,
 	h2,
 	h3,
 	h4,
 	h5,
 	h6 {
-		margin-block: 16px 8px;
+		margin-block: 24px 8px;
 		font-weight: 600;
 	}
 
@@ -26,6 +33,13 @@
 
 	h2 {
 		font-size: 16px;
+	}
+
+	h3,
+	h4,
+	h5,
+	h6 {
+		margin-block-start: 20px;
 	}
 
 	h3 {
@@ -40,10 +54,15 @@
 
 	p,
 	ul,
-	ol,
+	ol {
+		margin-block: 12px;
+	}
+
 	table,
-	blockquote {
-		margin-block: 8px;
+	blockquote,
+	pre,
+	p:has(> a:only-child > .image) {
+		margin-block: 16px;
 	}
 
 	/* The design-core reset drops `list-style` app-wide, which suits the
@@ -79,17 +98,17 @@
 	}
 
 	li + li {
-		margin-block-start: 2px;
+		margin-block-start: 4px;
 	}
 
 	/* A nested list belongs to its parent item, so it keeps the item-to-item
-	   rhythm instead of the 8px that separates top-level blocks. */
+	   rhythm instead of the 12px that separates top-level blocks. */
 	li > ul,
 	li > ol {
-		margin-block: 2px;
+		margin-block: 4px;
 	}
 
-	/* A loose list wraps every item in a paragraph; those inherit the 8px
+	/* A loose list wraps every item in a paragraph; those inherit the 12px
 	   block margin and blow the list open. Interior paragraphs keep it, so a
 	   genuinely multi-paragraph item still reads as one. */
 	li > p:first-child {
@@ -124,7 +143,6 @@
 	}
 
 	pre {
-		margin-block: 8px;
 		padding: 10px 12px;
 		overflow-x: auto;
 		border-radius: var(--radius-card);
@@ -155,15 +173,30 @@
 		text-decoration: underline;
 	}
 
+	/* Every link leaves the app, and the arrow says so. It hangs off the
+	   anchor without a space so the underline stops at the text. */
+	.externalIcon {
+		margin-inline-start: 3px;
+		vertical-align: middle;
+	}
+
 	.imageLink {
 		display: inline-flex;
 		align-items: center;
 		gap: 4px;
 	}
 
+	/* The ring is what gives a white screenshot an edge on a white panel;
+	   an outline rather than a border so it follows the radius without
+	   changing the image's box. */
 	.image {
 		max-width: 100%;
 		border-radius: var(--radius-card);
+		outline: 1px solid var(--card-border);
+		outline-offset: -1px;
+		/* Inline by default, which leaves a descender gap under a screenshot
+		   that sits alone on its line. */
+		vertical-align: middle;
 	}
 
 	table {
@@ -187,7 +220,7 @@
 	}
 
 	hr {
-		margin-block: 12px;
+		margin-block: 16px;
 		border: none;
 		border-top: 1px solid var(--border-3);
 	}
