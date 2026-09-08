@@ -293,7 +293,11 @@ jobs:
   rust-test:
     needs: changes
     if: ${{ needs.changes.outputs.rust == 'true' }}
-    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        platform: [ubuntu-latest, macos-15]
+    runs-on: ${{ matrix.platform }}
     env:
       CARGO_TERM_COLOR: always
       GITBUTLER_TESTS_NO_CLEANUP: "1"
@@ -314,8 +318,10 @@ jobs:
           shared-key: cargo-test-no-tauri
           save-if: ${{ github.ref == 'refs/heads/master' }}
       - name: Dependencies for 'keyring'
+        if: runner.os == 'Linux'
         run: sudo ./scripts/install-minimal-debian-dependencies.sh
-      - name: Install cargo-nextest
+      - name: Install cargo-nextest (Linux)
+        if: runner.os == 'Linux'
         run: |
 
           # To update the version of cargo-nextest, replace the version specifier in the `curl` command and update the
@@ -323,8 +329,17 @@ jobs:
           #
           # Checksums are available as artifacts on GitHub Release (https://github.com/nextest-rs/nextest/releases),
           # should be called "cargo-nextest-<VERSION>-x86_64-unknown-linux-gnu.sha256"
-          curl -LsSf https://get.nexte.st/0.9.133/linux -o cargo-nextest.tar.gz
-          echo "a9f992321e8759818400d93abb9477b4b11422d18d216e8d208505bd73454103 cargo-nextest.tar.gz" | sha256sum -c -
+          curl -LsSf https://get.nexte.st/0.9.143/linux -o cargo-nextest.tar.gz
+          echo "66786b9abe23920d022a182d1416b1bbc8130dd4872a9553d76985a1708dcd1e  cargo-nextest.tar.gz" | sha256sum -c -
+          tar -xzf cargo-nextest.tar.gz -C ${CARGO_HOME:-~/.cargo}/bin
+          rm cargo-nextest.tar.gz
+      - name: Install cargo-nextest (macOS)
+        if: runner.os == 'macOS'
+        run: |
+          # Keep the version in sync with Linux above. Checksum from the release's
+          # cargo-nextest-<VERSION>-universal-apple-darwin.sha256 artifact.
+          curl -LsSf https://get.nexte.st/0.9.143/mac -o cargo-nextest.tar.gz
+          echo "4830d430411148d17602a75cc880bfb4dc8dac153dea59a48a2ef4cc93577f07  cargo-nextest.tar.gz" | shasum -a 256 -c -
           tar -xzf cargo-nextest.tar.gz -C ${CARGO_HOME:-~/.cargo}/bin
           rm cargo-nextest.tar.gz
       - name: Run workspace tests
