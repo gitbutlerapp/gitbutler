@@ -884,6 +884,48 @@ pub async fn remove_review_reaction(
     .await
 }
 
+/// Add the caller's reaction to one submitted review.
+#[but_api(napi, invalidates = [ReviewSubmissions])]
+#[instrument(err(Debug))]
+pub async fn add_submission_reaction(
+    ctx: ThreadSafeContext,
+    review_id: usize,
+    submission_id: i64,
+    kind: String,
+) -> Result<but_forge::ForgeReviewReaction> {
+    let (storage, forge_repo_info, preferred_forge_user) = forge_endpoint_context(ctx)?;
+    but_forge::add_submission_reaction(
+        &preferred_forge_user,
+        &forge_repo_info,
+        review_id,
+        submission_id,
+        &kind,
+        &storage,
+    )
+    .await
+}
+
+/// Remove the caller's reaction of one kind from one submitted review.
+#[but_api(napi, invalidates = [ReviewSubmissions])]
+#[instrument(err(Debug))]
+pub async fn remove_submission_reaction(
+    ctx: ThreadSafeContext,
+    review_id: usize,
+    submission_id: i64,
+    kind: String,
+) -> Result<()> {
+    let (storage, forge_repo_info, preferred_forge_user) = forge_endpoint_context(ctx)?;
+    but_forge::remove_submission_reaction(
+        &preferred_forge_user,
+        &forge_repo_info,
+        review_id,
+        submission_id,
+        &kind,
+        &storage,
+    )
+    .await
+}
+
 /// Add the caller's reaction to one comment.
 #[but_api(napi, invalidates = [CommentReactions, ReviewComments])]
 #[instrument(err(Debug))]

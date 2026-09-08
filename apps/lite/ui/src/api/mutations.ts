@@ -9,6 +9,7 @@ import {
 	guiSettingsQueryOptions,
 	listCommentReactionsQueryOptions,
 	listReviewCommentsQueryOptions,
+	listReviewSubmissionsQueryOptions,
 	listReviewThreadsQueryOptions,
 	listReviewReactionsQueryOptions,
 	treeChangeDiffsQueryOptions,
@@ -45,6 +46,7 @@ import type {
 	DiffSpec,
 	ForgeReview,
 	ForgeReviewComment,
+	ForgeReviewSubmission,
 	ForgeReviewThreadComment,
 	ForgeReviewReaction,
 	ForgeReviewUser,
@@ -539,6 +541,91 @@ export const useRemoveCommentReaction = ({
 			if (prev?.prevComments) ctx.client.setQueryData(commentsKey, prev.prevComments);
 			void ctx.client.invalidateQueries({ queryKey: reactionsKey });
 			void ctx.client.invalidateQueries({ queryKey: commentsKey });
+		},
+	});
+
+/** Rewrite one submission's reactions in the listing. */
+const withSubmissionReactions = (
+	submissions: Array<ForgeReviewSubmission> | undefined,
+	submissionId: number,
+	update: (reactions: Array<ForgeReviewReaction>) => Array<ForgeReviewReaction>,
+): Array<ForgeReviewSubmission> | undefined =>
+	submissions?.map((submission) =>
+		submission.id === submissionId
+			? { ...submission, reactions: update(submission.reactions) }
+			: submission,
+	);
+
+/**
+ * A submission's reactions ride on the submissions listing, so that is the
+ * one cache the optimistic write and its rollback patch.
+ */
+export const useAddSubmissionReaction = (projectId: string) =>
+	useMutation({
+		mutationKey: [projectId, "addSubmissionReaction"],
+		mutationFn: window.lite.addSubmissionReaction,
+		meta: { failureTitle: "Failed to add reaction" },
+		onMutate: async (input, ctx) => {
+			const key = listReviewSubmissionsQueryOptions(input).queryKey;
+			await ctx.client.cancelQueries({ queryKey: key });
+
+			const prev = ctx.client.getQueryData(key);
+			const login = ctx.client.getQueryData(
+				currentForgeLoginQueryOptions(input.projectId).queryKey,
+			);
+			if (login != null) {
+				ctx.client.setQueryData(key, (submissions) =>
+					withSubmissionReactions(submissions, input.submissionId, (reactions) =>
+						reactions.concat(ghostReaction(input.kind, login)),
+					),
+				);
+			}
+
+			return prev;
+		},
+		onError: (error, input, prev, ctx) => {
+			// Roll the optimistic write back, then refetch: the rollback snapshot
+			// may itself be stale by now.
+			const key = listReviewSubmissionsQueryOptions(input).queryKey;
+			if (prev) ctx.client.setQueryData(key, prev);
+			void ctx.client.invalidateQueries({ queryKey: key });
+		},
+	});
+
+export const useRemoveSubmissionReaction = (projectId: string) =>
+	useMutation({
+		mutationKey: [projectId, "removeSubmissionReaction"],
+		mutationFn: window.lite.removeSubmissionReaction,
+		meta: { failureTitle: "Failed to remove reaction" },
+		onMutate: async (input, ctx) => {
+			const key = listReviewSubmissionsQueryOptions(input).queryKey;
+			await ctx.client.cancelQueries({ queryKey: key });
+
+			const prev = ctx.client.getQueryData(key);
+			const login = ctx.client.getQueryData(
+				currentForgeLoginQueryOptions(input.projectId).queryKey,
+			);
+			// The forge removes by kind; the caller's own entry of it goes. Only with the
+			// login known: without it, entries with no user would match, and the rewrite
+			// would re-render the list for nothing.
+			if (login != null) {
+				ctx.client.setQueryData(key, (submissions) =>
+					withSubmissionReactions(submissions, input.submissionId, (reactions) =>
+						reactions.filter(
+							(reaction) => !(reaction.kind === input.kind && reaction.user?.login === login),
+						),
+					),
+				);
+			}
+
+			return prev;
+		},
+		onError: (error, input, prev, ctx) => {
+			// Roll the optimistic write back, then refetch: the rollback snapshot
+			// may itself be stale by now.
+			const key = listReviewSubmissionsQueryOptions(input).queryKey;
+			if (prev) ctx.client.setQueryData(key, prev);
+			void ctx.client.invalidateQueries({ queryKey: key });
 		},
 	});
 

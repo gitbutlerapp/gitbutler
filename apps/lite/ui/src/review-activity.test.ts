@@ -240,6 +240,7 @@ describe("activityItems", () => {
 				body: null,
 				submittedAt: "2026-08-28T11:00:00Z",
 				htmlUrl: "",
+				reactions: [],
 			},
 		];
 		const events: Array<ForgeReviewTimelineEvent> = [

@@ -18,9 +18,8 @@ import {
 	listReviewReactionsQueryOptions,
 } from "#ui/api/queries.ts";
 import {
-	groupReactors,
 	Reactions,
-	type ReactorsByKind,
+	tallyReactions,
 } from "#ui/routes/project/$id/workspace/PullRequestReactions.tsx";
 import { getButtonClassName } from "#ui/components/Button.tsx";
 import { Clamped } from "#ui/components/Clamped.tsx";
@@ -51,13 +50,7 @@ import {
 } from "#ui/pr.ts";
 import { type FocusScope, useAutofocusScope } from "#ui/focus-scopes.ts";
 import { Field, Tooltip } from "@base-ui/react";
-import type {
-	ForgeReview,
-	ForgeReviewReaction,
-	ForgeReviewReactionCount,
-	ReviewMergeMethod,
-	ReviewMergeStatus,
-} from "@gitbutler/but-sdk";
+import type { ForgeReview, ReviewMergeMethod, ReviewMergeStatus } from "@gitbutler/but-sdk";
 import { useQuery, useSuspenseQuery } from "@tanstack/react-query";
 import { useHotkey } from "@tanstack/react-hotkeys";
 import { type FC, type SubmitEvent, Suspense, useEffect, useRef, useState } from "react";
@@ -478,18 +471,6 @@ export const PullRequestForm: FC<{
 };
 
 /** A designed action whose backing feature does not exist yet. */
-/** Fold the raw reaction list into chip tallies plus who-reacted names. */
-const reviewReactionsSelect = (
-	reactions: Array<ForgeReviewReaction>,
-): { counts: Array<ForgeReviewReactionCount>; reactors: ReactorsByKind } => {
-	const tally = new Map<string, number>();
-	for (const reaction of reactions) tally.set(reaction.kind, (tally.get(reaction.kind) ?? 0) + 1);
-	return {
-		counts: [...tally].map(([kind, count]) => ({ kind, count })),
-		reactors: groupReactors(reactions),
-	};
-};
-
 /** Rendered PR title and body; the header's Edit button flips to the form. */
 export const PullRequestDescription: FC<{
 	projectId: string;
@@ -503,7 +484,7 @@ export const PullRequestDescription: FC<{
 }> = ({ projectId, sourceBranch, reviewId, title, body, canSubmit, editing, onDoneEditing }) => {
 	const { data: reviewReactions } = useQuery({
 		...listReviewReactionsQueryOptions({ projectId, reviewId }),
-		select: reviewReactionsSelect,
+		select: tallyReactions,
 	});
 	const { data: currentLogin } = useQuery(currentForgeLoginQueryOptions(projectId));
 	const { mutate: addReviewReaction } = useAddReviewReaction(projectId);

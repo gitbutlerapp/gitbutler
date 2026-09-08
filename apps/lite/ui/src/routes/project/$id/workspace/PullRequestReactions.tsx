@@ -41,10 +41,10 @@ const reactionNames: Record<string, string> = {
 const reactionName = (kind: string): string => reactionNames[kind] ?? kind;
 
 /** One listed reaction: who left it, and the id that addresses removal. */
-export type ReactionEntry = { id: number; login: string };
+type ReactionEntry = { id: number; login: string };
 
 /** Reactions per kind, for the who-reacted tooltips and own-reaction toggling. */
-export type ReactorsByKind = Partial<Record<string, Array<ReactionEntry>>>;
+type ReactorsByKind = Partial<Record<string, Array<ReactionEntry>>>;
 
 // oxlint-disable-next-line react/only-export-components -- Chip data and its component belong together.
 export const groupReactors = (reactions: Array<ForgeReviewReaction>): ReactorsByKind => {
@@ -54,6 +54,19 @@ export const groupReactors = (reactions: Array<ForgeReviewReaction>): ReactorsBy
 		(grouped[reaction.kind] ??= []).push({ id: reaction.id, login: reaction.user.login });
 	}
 	return grouped;
+};
+
+/** Fold a raw reaction list into chip tallies plus who-reacted names. */
+// oxlint-disable-next-line react/only-export-components -- Chip data and its component belong together.
+export const tallyReactions = (
+	reactions: Array<ForgeReviewReaction>,
+): { counts: Array<ForgeReviewReactionCount>; reactors: ReactorsByKind } => {
+	const tally = new Map<string, number>();
+	for (const reaction of reactions) tally.set(reaction.kind, (tally.get(reaction.kind) ?? 0) + 1);
+	return {
+		counts: [...tally].map(([kind, count]) => ({ kind, count })),
+		reactors: groupReactors(reactions),
+	};
 };
 
 export const Reactions: FC<{

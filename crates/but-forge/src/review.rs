@@ -1494,6 +1494,8 @@ pub struct ForgeReviewSubmission {
     pub submitted_at: Option<String>,
     /// The URL to view this submission in a web browser.
     pub html_url: String,
+    /// The reactions left on the submission, with who left each.
+    pub reactions: Vec<ForgeReviewReaction>,
 }
 
 #[cfg(feature = "export-schema")]
@@ -1599,6 +1601,7 @@ pub async fn list_review_submissions(
                         body: review.body.filter(|body| !body.trim().is_empty()),
                         submitted_at: review.submitted_at,
                         html_url: review.html_url,
+                        reactions: github_reactions(review.reactions),
                     })
                 })
                 .collect())
@@ -1942,6 +1945,72 @@ pub async fn remove_review_reaction(
                 repo,
                 review_number,
                 reaction_id,
+                storage,
+            )
+            .await
+        }
+        _ => Err(anyhow::anyhow!(
+            "Reactions for forge {forge:?} are not implemented yet."
+        )),
+    }
+}
+
+/// Add the caller's reaction to one submitted review. Idempotent per kind.
+pub async fn add_submission_reaction(
+    preferred_forge_user: &Option<crate::ForgeUser>,
+    forge_repo_info: &crate::forge::ForgeRepoInfo,
+    review_number: usize,
+    submission_id: i64,
+    kind: &str,
+    storage: &but_forge_storage::Controller,
+) -> Result<ForgeReviewReaction> {
+    let crate::forge::ForgeRepoInfo {
+        forge, owner, repo, ..
+    } = forge_repo_info;
+    match forge {
+        ForgeName::GitHub => {
+            let preferred_account = preferred_forge_user.as_ref().and_then(|user| user.github());
+            let reaction = but_github::pr::add_pr_review_reaction(
+                preferred_account,
+                owner,
+                repo,
+                review_number,
+                submission_id,
+                kind,
+                storage,
+            )
+            .await?;
+            Ok(github_reaction(reaction))
+        }
+        _ => Err(anyhow::anyhow!(
+            "Reactions for forge {forge:?} are not implemented yet."
+        )),
+    }
+}
+
+/// Remove the caller's reaction of one kind from one submitted review.
+/// By kind rather than by reaction id: that is how the forge addresses it.
+pub async fn remove_submission_reaction(
+    preferred_forge_user: &Option<crate::ForgeUser>,
+    forge_repo_info: &crate::forge::ForgeRepoInfo,
+    review_number: usize,
+    submission_id: i64,
+    kind: &str,
+    storage: &but_forge_storage::Controller,
+) -> Result<()> {
+    let crate::forge::ForgeRepoInfo {
+        forge, owner, repo, ..
+    } = forge_repo_info;
+    match forge {
+        ForgeName::GitHub => {
+            let preferred_account = preferred_forge_user.as_ref().and_then(|user| user.github());
+            but_github::pr::remove_pr_review_reaction(
+                preferred_account,
+                owner,
+                repo,
+                review_number,
+                submission_id,
+                kind,
                 storage,
             )
             .await
