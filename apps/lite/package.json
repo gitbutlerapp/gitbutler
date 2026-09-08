@@ -53,7 +53,8 @@
 			"region": "us-east-1",
 			"bucket": "releases.gitbutler.com",
 			"path": "lite/${os}/${arch}",
-			"channel": "${env.CHANNEL}"
+			"channel": "${env.CHANNEL}",
+			"forcePathStyle": true
 		},
 		"extraResources": [
 			{
