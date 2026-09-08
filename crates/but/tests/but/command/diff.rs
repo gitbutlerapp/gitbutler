@@ -386,7 +386,6 @@ const PNG_BINARY_CONTENT: &[u8] = &[
 ];
 
 #[test]
-#[cfg(unix)] // od is not available on Windows
 fn textconv_output_is_rendered_in_diff() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("zero-stacks");
     env.setup_metadata(&[]);
@@ -401,7 +400,7 @@ Created commit xnw on new branch 'a-branch-1'
 
 "#]]);
 
-    env.invoke_git("config --local diff.png.textconv od");
+    env.invoke_git("config --local diff.png.textconv 'git hash-object --no-filters'");
 
     env.but("diff xnw")
         .assert()
@@ -420,14 +419,9 @@ Created commit xnw on new branch 'a-branch-1'
 ──────────────╯
 
 (diff generated from binary-to-text conversion)
-@@ -1,0 +1,6 @@
+@@ -1,0 +1,1 @@
 ───────────────
-  ┊ 1 │ +0000000 050211 043516 005015 005032 000000 006400 044111 051104
-  ┊ 2 │ +0000020 000000 000400 000000 000400 002010 000000 132400 006034
-  ┊ 3 │ +0000040 000002 000000 044413 040504 074124 061732 174144 000017
-  ┊ 4 │ +0000060 002401 000401 014047 063343 000000 000000 042511 042116
-  ┊ 5 │ +0000100 041256 101140
-  ┊ 6 │ +0000104
+  ┊ 1 │ +26a8c68efad2a094e8fe6d850426b651d353c568
 
 "#]]);
 }
