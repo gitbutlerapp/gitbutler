@@ -2,7 +2,6 @@ import { useSuspenseQueries } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
 import { useState, type FC } from "react";
 import {
-	appSettingsQueryOptions,
 	guiSettingsQueryOptions,
 	listEditorsQueryOptions,
 	listProjectsQueryOptions,
@@ -16,7 +15,6 @@ import { Switch } from "#ui/components/Switch.tsx";
 import { defaultSettings } from "#ui/settings.ts";
 import styles from "./General.module.css";
 import { Row, Section } from "./Section.tsx";
-import { UsageMetricsRow } from "./Telemetry.tsx";
 
 export const General: FC = () => {
 	const [
@@ -25,7 +23,6 @@ export const General: FC = () => {
 		{ data: settings },
 		{ data: projects },
 		{ data: profile },
-		{ data: appSettings },
 	] = useSuspenseQueries({
 		queries: [
 			listEditorsQueryOptions,
@@ -33,7 +30,6 @@ export const General: FC = () => {
 			guiSettingsQueryOptions,
 			listProjectsQueryOptions,
 			userProfileQueryOptions,
-			appSettingsQueryOptions,
 		],
 	});
 	const { mutate: saveGUISettings } = useSaveGUISettings();
@@ -131,10 +127,6 @@ export const General: FC = () => {
 						onCheckedChange={(desktopNotifications) => saveGUISettings({ desktopNotifications })}
 					/>
 				</Row>
-			</Section>
-
-			<Section heading="Telemetry">
-				<UsageMetricsRow settings={appSettings} />
 			</Section>
 
 			<Section heading="Danger zone">

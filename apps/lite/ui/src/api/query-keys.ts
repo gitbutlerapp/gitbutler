@@ -13,7 +13,6 @@ export const projectQueryKeys = Object.keys(apiProvides) as ReadonlyArray<Projec
 /** Keyed without a project id, so no project event can invalidate them. */
 export type GlobalQueryKey =
 	| "aiConfiguration"
-	| "appSettings"
 	| "editors"
 	| "terminals"
 	| "forgeAccounts"

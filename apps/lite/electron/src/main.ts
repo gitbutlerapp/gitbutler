@@ -46,13 +46,7 @@ import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { initLogging } from "./logging.js";
 import { type GUISettings, readSettings, writeSettings } from "./settings.js";
-import {
-	initMetrics,
-	metricsOnLogin,
-	shutdownMetrics,
-	syncMetrics,
-	withApiCommandCapture,
-} from "./metrics.js";
+import { initMetrics, metricsOnLogin, shutdownMetrics, withApiCommandCapture } from "./metrics.js";
 import { apiParamNames } from "@gitbutler/but-sdk/api-param-names";
 
 const isHeadless = process.env.GITBUTLER_LITE_HEADLESS === "true";
@@ -306,7 +300,6 @@ const newUrlOrNull = (url: string): URL | null => {
 const electronHandlerOverrides = {
 	askpassSubmitPromptResponse: ({ id, response }) => askpassSubmitPromptResponse(id, response),
 	clipboardWriteText: (text) => clipboard.writeText(text),
-	getAppSettings: () => sdk.getAppSettings(),
 	getVersion: () => app.getVersion(),
 	openInWebBrowser: (url) => {
 		// shell.openExternal() is powerful and dangerous. For example, on macOS you can launch a
@@ -353,11 +346,6 @@ const electronHandlerOverrides = {
 	},
 	watcherStopAll: () => WatcherManager.getInstance().stopAllWatchersForShutdown(),
 	readGUISettings: () => readSettings(),
-	updateOnboardingComplete: (complete) => sdk.updateOnboardingComplete(complete),
-	updateTelemetry: async (update) => {
-		await sdk.updateTelemetry(update);
-		await syncMetrics(app.getVersion());
-	},
 	writeGUISettings: async (settings) => {
 		applyGUISettings(settings);
 		await writeSettings(settings);
