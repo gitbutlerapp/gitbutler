@@ -114,6 +114,17 @@ export const initMetrics = async (version: string): Promise<void> => {
 	}
 };
 
+/**
+ * Brings the client in step with the settings after they change: started when
+ * metrics were just enabled, flushed and dropped when they were just disabled.
+ */
+export const syncMetrics = async (version: string): Promise<void> => {
+	if (shutdownPromise !== null) await shutdownPromise;
+	const { appMetricsEnabled } = (await getAppSettings()).telemetry;
+	if (!appMetricsEnabled) await shutdownMetrics();
+	else if (client === null) await initMetrics(version);
+};
+
 const capture = (event: string, properties: Record<string, unknown>): void => {
 	client?.capture({
 		distinctId,

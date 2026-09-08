@@ -1,4 +1,5 @@
 import path from "node:path";
+import type { LiteElectronApi } from "../../electron/src/ipc.ts";
 import { LiteTestId } from "../../ui/src/testIds.ts";
 import { expect, test } from "../test.ts";
 import { assertHeadBranch } from "../utils.ts";
@@ -19,9 +20,19 @@ test("adds a local repository without changing its branch", async ({
 	}, repositoryPath);
 
 	await expect(appWindow.getByTestId(LiteTestId.OnboardingPage)).toBeVisible();
+	// The consent sits on the welcome page, and adding a repository confirms it.
+	await expect(appWindow.getByRole("switch", { name: "Usage metrics" })).toBeVisible();
 	await appWindow.getByRole("button", { name: "Add local repository" }).click();
 
 	await expect(appWindow.getByTestId(/project=.*:workspace/)).toBeVisible();
+	await expect
+		.poll(async () => {
+			const settings = await appWindow.evaluate(() =>
+				(window as unknown as { lite: LiteElectronApi }).lite.getAppSettings(),
+			);
+			return settings.onboardingComplete;
+		})
+		.toBe(true);
 	const projectPicker = appWindow.getByRole("combobox", { name: /Select project/ });
 	await expect(projectPicker).toBeVisible();
 

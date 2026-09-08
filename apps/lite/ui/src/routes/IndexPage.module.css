@@ -17,3 +17,17 @@
 		color: var(--text-2);
 	}
 }
+
+/* A filled card holding one settings row: the row's grid, without a settings card's border. */
+.consent {
+	display: grid;
+	grid-template-columns: auto 1fr;
+	width: 100%;
+	max-width: 360px;
+	margin-block: 0.75rem;
+	padding: 10px 12px;
+	gap: 10px 12px;
+	border-radius: var(--radius-card);
+	background-color: var(--bg-2);
+	text-align: start;
+}
