@@ -18,7 +18,6 @@ import {
 	askpassInit,
 	askpassSubmitPromptResponse,
 	initApplicationNamespace,
-	interactiveLoginShellEnvironment,
 } from "@gitbutler/but-sdk";
 import {
 	app,
@@ -48,10 +47,6 @@ import { initLogging } from "./logging.js";
 import { type GUISettings, readSettings, writeSettings } from "./settings.js";
 import { initMetrics, metricsOnLogin, shutdownMetrics, withApiCommandCapture } from "./metrics.js";
 import { apiParamNames } from "@gitbutler/but-sdk/api-param-names";
-
-// Started now so the shell's startup overlaps with Electron's; applied once ready, before
-// anything that could spawn a process.
-const shellEnvironment = interactiveLoginShellEnvironment();
 
 const isHeadless = process.env.GITBUTLER_LITE_HEADLESS === "true";
 if (isHeadless && process.platform === "darwin") app.setActivationPolicy("accessory");
@@ -596,7 +591,8 @@ if (!app.requestSingleInstanceLock()) {
 	});
 }
 
-void app.whenReady().then(async () => {
+export const start = async (shellEnvironment: Promise<Record<string, string>>): Promise<void> => {
+	await app.whenReady();
 	initLogging();
 	Object.assign(process.env, await shellEnvironment);
 	applyGUISettings(await readSettings());
@@ -715,7 +711,7 @@ void app.whenReady().then(async () => {
 		if (existing) showAndFocusWindow(existing);
 		else void createMainWindow();
 	});
-});
+};
 
 app.on("before-quit", (event) => {
 	WatcherManager.destroyInstance();
