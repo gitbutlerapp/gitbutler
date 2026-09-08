@@ -21,12 +21,20 @@ pub fn delete_gl_access_token(
     account_id: &GitlabAccountIdentifier,
     storage: &but_forge_storage::Controller,
 ) -> Result<()> {
-    let account = find_gitlab_account(account_id, storage)?;
-    if let Some(account) = account {
-        delete_gitlab_account(&account, storage)
-    } else {
-        Ok(())
-    }
+    // The token itself may be unreadable here (stored by another build kind, or a keychain
+    // that refuses the read); the account entry has to go regardless.
+    let Some(account) = storage
+        .gitlab_accounts()?
+        .into_iter()
+        .find(|account| GitlabAccountIdentifier::from(account) == *account_id)
+    else {
+        return Ok(());
+    };
+    storage.remove_gitlab_account(&account)?;
+
+    static FAIR_QUEUE: Mutex<()> = Mutex::new(());
+    let _one_at_a_time_to_prevent_races = FAIR_QUEUE.lock().unwrap();
+    secret::delete(account.access_token_key(), secret::Namespace::BuildKind)
 }
 
 /// Retrieve a GitLab account access token for a given username.
@@ -233,18 +241,6 @@ fn persist_gitlab_account(
         &account.secret_value()?,
         secret::Namespace::BuildKind,
     )
-}
-
-fn delete_gitlab_account(
-    account: &GitLabAccount,
-    storage: &but_forge_storage::Controller,
-) -> Result<()> {
-    let secret_key = account.secret_key();
-    storage.remove_gitlab_account(&account.into())?;
-
-    static FAIR_QUEUE: Mutex<()> = Mutex::new(());
-    let _one_at_a_time_to_prevent_races = FAIR_QUEUE.lock().unwrap();
-    secret::delete(&secret_key, secret::Namespace::BuildKind)
 }
 
 fn delete_all_gitlab_accounts(storage: &but_forge_storage::Controller) -> Result<()> {
