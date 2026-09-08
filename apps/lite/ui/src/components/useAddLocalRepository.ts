@@ -30,14 +30,13 @@ const failureMessage = (failure: AddProjectFailure): string => {
 
 // Must be called from a component that outlives the button: the flow spans a
 // native dialog and a mutation, and the picker-dialog footer hosting the
-// button unmounts as soon as the dialog closes. Resolves to whether a project
-// was opened: a cancelled picker or a failed add resolves false.
+// button unmounts as soon as the dialog closes.
 export const useAddLocalRepository = () => {
 	const navigate = useNavigate();
 	const toastManager = Toast.useToastManager();
 	const { isPending, mutateAsync } = useAddProject();
 
-	const addLocalRepository = async (): Promise<boolean> => {
+	const addLocalRepository = async () => {
 		let path: string | null;
 		try {
 			path = await window.lite.pickDirectory();
@@ -47,16 +46,16 @@ export const useAddLocalRepository = () => {
 				title: "Failed to open repository picker",
 				description: errorMessageForToast(error),
 			});
-			return false;
+			return;
 		}
 
-		if (path === null) return false;
+		if (path === null) return;
 
 		let outcome: AddProjectOutcome;
 		try {
 			outcome = await mutateAsync(path);
 		} catch {
-			return false;
+			return;
 		}
 
 		if (outcome.type === "added" || outcome.type === "alreadyExists") {
@@ -65,7 +64,7 @@ export const useAddLocalRepository = () => {
 				to: "/project/$id/workspace",
 				params: { id: outcome.subject.id },
 			});
-			return true;
+			return;
 		}
 
 		toastManager.add({
@@ -73,7 +72,6 @@ export const useAddLocalRepository = () => {
 			title: "Could not add project",
 			description: failureMessage(outcome),
 		});
-		return false;
 	};
 
 	return { addLocalRepository, isPending };
