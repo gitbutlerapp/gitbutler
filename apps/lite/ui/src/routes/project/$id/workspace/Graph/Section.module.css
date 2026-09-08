@@ -33,7 +33,7 @@
 .fold {
 	display: grid;
 	grid-template-rows: 0fr;
-	transition: grid-template-rows 180ms ease-out;
+	transition: grid-template-rows var(--transition-medium) ease-out;
 }
 
 .fold[data-open="true"] {
