@@ -545,6 +545,91 @@ pub(crate) fn try_find_validated_ref<'repo>(
     Ok(branch_ref)
 }
 
+/// Setup `local_tracking_ref` to track `remote_tracking_ref`, and prepare a locked configuration
+/// transaction with the branch configuration added.
+/// We also return the commit at which `local_tracking_ref` should be placed, which is assumed to not exist.
+pub(crate) fn setup_local_tracking_configuration(
+    repo: &gix::Repository,
+    local_tracking_ref: &gix::refs::FullNameRef,
+    remote_tracking_ref: &gix::refs::FullNameRef,
+) -> anyhow::Result<(gix::config::FileTransaction, gix::ObjectId)> {
+    let remote_tracking_commit_id = repo
+        .find_reference(remote_tracking_ref)?
+        .peel_to_commit()?
+        .id();
+    let Some((upstream_branch, remote)) =
+        repo.upstream_branch_and_remote_for_tracking_branch(remote_tracking_ref)?
+    else {
+        anyhow::bail!(
+            "No remote refspec maps {} to a local branch",
+            remote_tracking_ref.as_bstr()
+        );
+    };
+    let remote_name = remote
+        .name()
+        .expect("a remote loaded by name is never anonymous");
+
+    let mut config = repo.config_file_mut(repo.common_dir().join("config"))?;
+    let mut section =
+        config.section_mut_or_create_new("branch", Some(local_tracking_ref.shorten()))?;
+    // Each key only where the user has not set it: neither one nor other keys are a reason to skip.
+    let remote_key = gix::config::tree::Branch::REMOTE.name;
+    if section.value(remote_key).is_none() {
+        section.push(remote_key, Some(remote_name.as_bstr()))?;
+    }
+    let merge_key = gix::config::tree::Branch::MERGE.name;
+    if section.value(merge_key).is_none() {
+        section.push(merge_key, Some(upstream_branch.as_bstr()))?;
+    }
+    Ok((config, remote_tracking_commit_id.into()))
+}
+
+/// Return the local tracking branch of `remote_tracking_ref`, creating it at the remote-tracking
+/// commit with tracking configuration if it doesn't exist yet, like `git checkout <name>` does.
+///
+/// An existing local tracking branch is returned as is, even if it diverged from the remote.
+pub fn local_tracking_branch(
+    repo: &gix::Repository,
+    remote_tracking_ref: &gix::refs::FullNameRef,
+) -> anyhow::Result<gix::refs::FullName> {
+    // Symbolic ones, `origin/HEAD` say, would make a local branch of the name they point through.
+    if try_find_validated_ref(repo, remote_tracking_ref, "check out")?.is_none() {
+        anyhow::bail!(
+            "Remote-tracking branch {} does not exist",
+            remote_tracking_ref.as_bstr()
+        );
+    }
+    let Some((local_tracking_ref, _remote)) =
+        repo.upstream_branch_and_remote_for_tracking_branch(remote_tracking_ref)?
+    else {
+        anyhow::bail!(
+            "Couldn't find remote refspecs that would match {}",
+            remote_tracking_ref.as_bstr()
+        );
+    };
+    if repo
+        .try_find_reference(local_tracking_ref.as_ref())?
+        .is_some()
+    {
+        return Ok(local_tracking_ref);
+    }
+
+    let (config, commit_id) =
+        setup_local_tracking_configuration(repo, local_tracking_ref.as_ref(), remote_tracking_ref)?;
+    // The reference first, as git does: should it fail, the config transaction drops unwritten.
+    repo.reference(
+        local_tracking_ref.as_ref(),
+        commit_id,
+        gix::refs::transaction::PreviousValue::MustNotExist,
+        format!(
+            "GitButler creates local tracking for {}",
+            remote_tracking_ref.as_bstr()
+        ),
+    )?;
+    config.commit()?;
+    Ok(local_tracking_ref)
+}
+
 /// Functions and types related to adding a branch to the workspace.
 pub mod apply;
 pub use apply::apply;

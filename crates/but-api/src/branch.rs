@@ -1506,12 +1506,14 @@ fn refs_are_prefix_related(a: &gix::refs::FullNameRef, b: &gix::refs::FullNameRe
     is_dir_prefix(a, b) || is_dir_prefix(b, a)
 }
 
-/// Checks out an existing local branch and returns the resulting workspace state.
+/// Checks out a branch and returns the resulting workspace state.
 ///
 /// This acquires exclusive worktree access from `ctx`, updates the worktree and
 /// index through [`but_core::worktree::safe_checkout_from_head()`], then points `HEAD`
-/// symbolically at `branch`. The branch must be an existing full local branch
-/// name under `refs/heads/`.
+/// symbolically at `branch`. The branch is either an existing full local branch
+/// name under `refs/heads/`, or a remote-tracking branch under `refs/remotes/`,
+/// in which case its local tracking branch is checked out, created at the
+/// remote-tracking commit first if it doesn't exist yet.
 #[but_api(napi, try_from = json::BranchCheckoutResult)]
 #[instrument(err(Debug))]
 pub fn branch_checkout(
@@ -1612,8 +1614,9 @@ pub fn workspace_checkout_with_perm_only(
     branch_checkout_with_perm_only(ctx, workspace_ref, perm)
 }
 
-/// Checks out an existing local branch under caller-held exclusive repository
-/// access.
+/// Checks out a branch under caller-held exclusive repository access.
+///
+/// See [`branch_checkout()`] for the accepted branch names.
 pub fn branch_checkout_with_perm(
     ctx: &mut but_ctx::Context,
     branch: gix::refs::FullName,
@@ -1636,22 +1639,27 @@ pub fn branch_checkout_with_perm(
     Ok(result)
 }
 
-/// Checks out an existing local branch under caller-held exclusive repository
-/// access without creating an oplog entry.
+/// Checks out a branch under caller-held exclusive repository access without
+/// creating an oplog entry.
+///
+/// See [`branch_checkout()`] for the accepted branch names.
 pub fn branch_checkout_with_perm_only(
     ctx: &mut but_ctx::Context,
     reference_name: gix::refs::FullName,
     perm: &mut RepoExclusive,
 ) -> anyhow::Result<BranchCheckoutResult> {
-    if !reference_name.as_bstr().starts_with_str("refs/heads/") {
-        bail!(
-            "Can only check out local branches under refs/heads, got '{}'",
-            reference_name.as_bstr()
-        );
-    }
-
     {
         let repo = ctx.repo.get()?;
+        let reference_name = match reference_name.category() {
+            Some(gix::refs::Category::LocalBranch) => reference_name,
+            Some(gix::refs::Category::RemoteBranch) => {
+                but_workspace::branch::local_tracking_branch(&repo, reference_name.as_ref())?
+            }
+            _ => bail!(
+                "Can only check out local branches under refs/heads or remote-tracking branches under refs/remotes, got '{}'",
+                reference_name.as_bstr()
+            ),
+        };
         let current_head = repo
             .head_id()
             .context("Cannot check out a branch while HEAD is unborn")?

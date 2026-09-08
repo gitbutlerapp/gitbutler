@@ -21,7 +21,9 @@ use gix::{
 };
 use tracing::instrument;
 
-use crate::branch::{OnWorkspaceMergeConflict, try_find_validated_ref};
+use crate::branch::{
+    OnWorkspaceMergeConflict, setup_local_tracking_configuration, try_find_validated_ref,
+};
 use crate::{
     WorkspaceCommit,
     branch::{anon_stacks, ensure_no_missing_stacks},
@@ -467,9 +469,9 @@ pub fn apply(
 
     let (local_tracking_config_and_ref_info, commit_to_create_branch_at) =
         if incoming_branch_is_remote_tracking_without_local_tracking {
-            setup_local_tracking_configuration(repo, branch.as_ref(), branch_orig)?
-                .map(|(config, commit)| (Some(config), Some(commit)))
-                .unwrap_or_default()
+            let (config, commit) =
+                setup_local_tracking_configuration(repo, branch.as_ref(), branch_orig)?;
+            (Some(config), Some(commit))
         } else {
             (None, None)
         };
@@ -965,43 +967,6 @@ fn find_superseded_stacks(
     superseded
 }
 
-/// Setup `local_tracking_ref` to track `remote_tracking_ref`, and prepare a locked configuration
-/// transaction with the branch configuration added.
-/// We also return the commit at which `local_tracking_ref` should be placed, which is assumed to not exist.
-fn setup_local_tracking_configuration(
-    repo: &gix::Repository,
-    local_tracking_ref: &FullNameRef,
-    remote_tracking_ref: &FullNameRef,
-) -> anyhow::Result<Option<(gix::config::FileTransaction, gix::ObjectId)>> {
-    let remote_tracking_commit_id = repo
-        .find_reference(remote_tracking_ref)?
-        .peel_to_commit()?
-        .id();
-
-    let mut config = repo.config_file_mut(repo.common_dir().join("config"))?;
-    let mut section =
-        config.section_mut_or_create_new("branch", Some(local_tracking_ref.shorten()))?;
-    // Only edit the configuration if truly empty, let's not overwrite user data.
-    if section.num_values() == 0
-        && let Some((upstream_branch, remote)) =
-            repo.upstream_branch_and_remote_for_tracking_branch(remote_tracking_ref)?
-    {
-        let remote_name = remote
-            .name()
-            .expect("a remote loaded by name is never anonymous");
-        section
-            .push(
-                gix::config::tree::Branch::REMOTE.name,
-                Some(remote_name.as_bstr()),
-            )?
-            .push(
-                gix::config::tree::Branch::MERGE.name,
-                Some(upstream_branch.as_bstr()),
-            )?;
-    }
-    Ok(Some((config, remote_tracking_commit_id.into())))
-}
-
 #[expect(clippy::indexing_slicing)]
 fn add_branch_as_stack_forcefully(
     ws_md: &mut Workspace,
@@ -1049,14 +1014,14 @@ fn persist_metadata_and_gitconfig<T: RefMetadata>(
 
     if let Some((config, (ref_to_create, remote_tracking_ref, ref_target_id))) = config_and_ref {
         let repo = ref_target_id.repo;
-        config.commit()?;
-
+        // The reference first, as git does: should it fail, the config transaction drops unwritten.
         repo.reference(
             ref_to_create,
             ref_target_id,
             PreviousValue::MustNotExist,
             format!("GitButler creates local tracking for {remote_tracking_ref}"),
         )?;
+        config.commit()?;
     }
     Ok(())
 }
