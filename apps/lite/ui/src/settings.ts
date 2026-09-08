@@ -6,6 +6,9 @@ export const defaultSettings = {
 	autoFetchFrequency: "15 min",
 	autoUpdate: true,
 	commentAnnotations: false,
+	// Loud activity arriving while the window is unfocused also reaches the
+	// desktop; the bell alone cannot be seen from another app.
+	desktopNotifications: true,
 	diffBackground: true,
 	diffFontFamily: "Geist Mono, Menlo, monospace",
 	diffFontSize: 12,

@@ -29,6 +29,15 @@ export const usePrNotificationsLevel = (): "loud" | "quiet" | "off" => {
 	return level ?? defaultSettings.prNotifications;
 };
 
+/** Whether loud activity also reaches the desktop while the window is unfocused. */
+export const useDesktopNotifications = (): boolean => {
+	const { data: enabled } = useQuery({
+		...guiSettingsQueryOptions,
+		select: (settings) => settings.desktopNotifications ?? defaultSettings.desktopNotifications,
+	});
+	return enabled ?? defaultSettings.desktopNotifications;
+};
+
 /** Watermark by review number, as the ISO stamps the forge reports. */
 type SeenMarks = Record<number, string>;
 

@@ -20,6 +20,7 @@ type SpecialKey =
 	| "onAskpassPrompt"
 	| "onDeepLink"
 	| "onFullScreenChange"
+	| "onNotificationClick"
 	| "platform"
 	| "streamAiResponse"
 	| "watcherSubscribe"
@@ -31,6 +32,7 @@ const specialNames = [
 	"askpassPrompt",
 	"deepLink",
 	"fullScreenChange",
+	"notificationClick",
 	"streamAiResponse",
 	"watcherSubscribe",
 	"watcherUnsubscribe",
@@ -87,6 +89,10 @@ export const createLiteApi = ({
 		onFullScreenChange: (callback) =>
 			subscribe("fullScreenChange", (payload) => {
 				callback(payload as boolean);
+			}),
+		onNotificationClick: (callback) =>
+			subscribe("notificationClick", (payload) => {
+				callback(payload as string);
 			}),
 		streamAiResponse: async (systemMessage, prompt, onToken) => {
 			const requestId = crypto.randomUUID();

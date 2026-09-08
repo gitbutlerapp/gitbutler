@@ -176,4 +176,6 @@ export const globalHandlers = (projectId: string): FakeHandlers => ({
 	// "No patch": good enough until a test renders a diff.
 	treeChangeDiffs: () => null,
 	branchCannedName: () => "canned-branch-name",
+	// The host decides focus; here nothing is ever shown.
+	showNotification: () => undefined,
 });

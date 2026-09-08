@@ -83,8 +83,16 @@
 	color: var(--text-3);
 }
 
-.entryIconLoud {
+.entryIconPop {
 	color: var(--fill-pop-bg);
+}
+
+.entryIconSafe {
+	color: var(--text-safe);
+}
+
+.entryIconWarn {
+	color: var(--text-warn);
 }
 
 .entryBody {
@@ -95,15 +103,24 @@
 	gap: 2px;
 }
 
-/* Leads the row, one step above the murmur: the title is what you scan
-   for, and it wraps rather than truncates. */
-.entryTitle {
+/* Leads the row, one step above the murmur: what happened is what you
+   scan for. */
+.entryHeadline {
 	color: var(--text-1);
+}
+
+/* News rather than a request: quiet kinds sit in the murmur. */
+.entryHeadlineQuiet {
+	color: var(--text-2);
+}
+
+.entryTarget {
+	color: var(--text-3);
 	overflow-wrap: anywhere;
 }
 
-.entryAction {
-	color: var(--text-3);
+.entryBranch {
+	color: var(--text-2);
 }
 
 .entrySnippet {

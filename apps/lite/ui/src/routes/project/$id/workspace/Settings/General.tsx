@@ -114,6 +114,19 @@ export const General: FC = () => {
 						<option value="off">Off</option>
 					</select>
 				</Row>
+
+				<Row
+					label="Desktop notifications"
+					labelId="desktop-notifications"
+					hint="Loud activity that arrives while Lite is in the background is also shown by the system."
+				>
+					<Switch
+						aria-labelledby="desktop-notifications"
+						checked={settings.desktopNotifications ?? defaultSettings.desktopNotifications}
+						disabled={(settings.prNotifications ?? defaultSettings.prNotifications) !== "loud"}
+						onCheckedChange={(desktopNotifications) => saveGUISettings({ desktopNotifications })}
+					/>
+				</Row>
 			</Section>
 
 			<Section heading="Danger zone">
