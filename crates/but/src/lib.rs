@@ -771,12 +771,12 @@ async fn dispatch_subcommand(
             .map(|()| DispatchOutcome::Return)
             .map_err(CliError::from);
         }
-        Subcommands::Skill(args::skill::Platform { cmd }) => {
+        Subcommands::Skill(platform) => {
             // Skill commands use repository context when available, but can run
             // without one. Subcommand handlers produce tailored guidance when a
             // local repository is actually required.
             let mut ctx = discover_optional_context(&args.current_dir)?;
-            return command::skill::handle(ctx.as_mut(), out, cmd)
+            return command::skill::handle(ctx.as_mut(), out, platform)
                 .map(|()| DispatchOutcome::Return)
                 .map_err(CliError::from);
         }

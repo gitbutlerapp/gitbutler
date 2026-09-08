@@ -1,8 +1,10 @@
 use snapbox::str;
 
+mod serve;
+
 use crate::utils::{CommandExt, Sandbox};
 
-fn relative_agent_skill_path(agent_dir: &str) -> std::path::PathBuf {
+pub(super) fn relative_agent_skill_path(agent_dir: &str) -> std::path::PathBuf {
     std::path::PathBuf::from(agent_dir)
         .join("skills")
         .join("gitbutler")

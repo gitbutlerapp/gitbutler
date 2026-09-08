@@ -32,5 +32,9 @@ pub enum Subcommands {
         /// Print the default generated steering text without prompting or modifying files.
         #[clap(long)]
         print: bool,
+        /// Install discovery stubs that point agents at `but skill` instead of
+        /// the full skill files. Team-internal while the approach is evaluated.
+        #[clap(long, hide = true)]
+        stub: bool,
     },
 }

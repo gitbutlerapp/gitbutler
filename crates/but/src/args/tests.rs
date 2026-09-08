@@ -170,7 +170,7 @@ mod agent_setup {
 
         match cmd {
             Subcommands::Agent(AgentPlatform {
-                cmd: Some(AgentCmd::Setup { print }),
+                cmd: Some(AgentCmd::Setup { print, .. }),
             }) => assert!(!print),
             _ => panic!("unexpected command shape"),
         }
@@ -183,7 +183,7 @@ mod agent_setup {
 
         match cmd {
             Subcommands::Agent(AgentPlatform {
-                cmd: Some(AgentCmd::Setup { print }),
+                cmd: Some(AgentCmd::Setup { print, .. }),
             }) => assert!(print),
             _ => panic!("unexpected command shape"),
         }

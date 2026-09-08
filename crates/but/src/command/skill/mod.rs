@@ -34,6 +34,8 @@ const SKILL_MD: &[u8] = include_bytes!("../../../skill/SKILL.md");
 const CONCEPTS_MD: &[u8] = include_bytes!("../../../skill/references/concepts.md");
 const EXAMPLES_MD: &[u8] = include_bytes!("../../../skill/references/examples.md");
 const REFERENCE_MD: &[u8] = include_bytes!("../../../skill/references/reference.md");
+/// Body of a stub SKILL.md: the full skill's frontmatter followed by this.
+const STUB_MD: &str = include_str!("../../../skill/stub.md");
 
 /// Metadata for a skill file to be installed
 struct SkillFile {
@@ -41,8 +43,8 @@ struct SkillFile {
     path_components: &'static [&'static str],
     /// Embedded content
     content: &'static [u8],
-    /// Display name for output
-    display_name: &'static str,
+    /// Name of the document as `but skill <name>` prints it.
+    name: &'static str,
 }
 
 impl SkillFile {
@@ -62,34 +64,48 @@ impl SkillFile {
     }
 }
 
-/// All skill files to be installed
+/// All skill files to be installed, in the order `but skill --full` prints them.
 const SKILL_FILES: &[SkillFile] = &[
     SkillFile {
         path_components: &["SKILL.md"],
         content: SKILL_MD,
-        display_name: "SKILL.md",
-    },
-    SkillFile {
-        path_components: &["references", "concepts.md"],
-        content: CONCEPTS_MD,
-        display_name: "concepts.md",
-    },
-    SkillFile {
-        path_components: &["references", "examples.md"],
-        content: EXAMPLES_MD,
-        display_name: "examples.md",
+        name: "core",
     },
     SkillFile {
         path_components: &["references", "reference.md"],
         content: REFERENCE_MD,
-        display_name: "reference.md",
+        name: "reference",
+    },
+    SkillFile {
+        path_components: &["references", "concepts.md"],
+        content: CONCEPTS_MD,
+        name: "concepts",
+    },
+    SkillFile {
+        path_components: &["references", "examples.md"],
+        content: EXAMPLES_MD,
+        name: "examples",
     },
 ];
 
-fn skill_files_in_write_order() -> impl Iterator<Item = &'static SkillFile> {
+/// Which files an installation carries.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum SkillLayout {
+    /// SKILL.md plus every reference file.
+    Full,
+    /// A single SKILL.md whose body tells the agent to run `but skill`. Carries
+    /// the same frontmatter as the full skill plus `stub: true` and a
+    /// pre-approval for the `but skill` read so the redirect never waits on
+    /// a permission prompt.
+    Stub,
+}
+
+/// The files a layout consists of, SKILL.md last so a partial write never
+/// looks like a complete installation.
+fn skill_files_in_write_order(layout: SkillLayout) -> impl Iterator<Item = &'static SkillFile> {
     SKILL_FILES
         .iter()
-        .filter(|file| !file.is_main_skill_file())
+        .filter(move |file| layout == SkillLayout::Full && !file.is_main_skill_file())
         .chain(SKILL_FILES.iter().filter(|file| file.is_main_skill_file()))
 }
 
@@ -372,27 +388,90 @@ pub struct SkillCheckResult {
     pub outdated_count: usize,
 }
 
-/// Handle skill subcommands
+/// Handle skill subcommands. Bare `but skill` prints the core guide.
 pub fn handle(
     ctx: Option<&mut Context>,
     out: &mut OutputChannel,
-    cmd: skill::Subcommands,
+    platform: skill::Platform,
 ) -> Result<()> {
-    match cmd {
-        skill::Subcommands::Install {
+    if let Some(doc) = platform.doc() {
+        return print_doc(out, doc, platform.full);
+    }
+    match platform.cmd {
+        Some(skill::Subcommands::Install {
             global,
             path,
             detect,
-        } => match install_skill(ctx, out, global, path, detect) {
-            Err(error) if error.downcast_ref::<UserCancelled>().is_some() => Ok(()),
-            result => result,
-        },
-        skill::Subcommands::Check {
+            stub,
+        }) => {
+            let layout = if stub {
+                SkillLayout::Stub
+            } else {
+                SkillLayout::Full
+            };
+            match install_skill(ctx, out, global, path, detect, layout) {
+                Err(error) if error.downcast_ref::<UserCancelled>().is_some() => Ok(()),
+                result => result,
+            }
+        }
+        Some(skill::Subcommands::Check {
             global,
             local,
             update,
-        } => check_skills(ctx, out, global, local, update),
+        }) => check_skills(ctx, out, global, local, update),
+        None
+        | Some(
+            skill::Subcommands::Reference
+            | skill::Subcommands::Concepts
+            | skill::Subcommands::Examples,
+        ) => unreachable!("read-only invocations are handled by Platform::doc"),
     }
+}
+
+/// Print one embedded skill document, with every reference appended when
+/// `full` is set. Content goes straight to the output channel with no pager so
+/// an agent can read it in one call.
+fn print_doc(out: &mut OutputChannel, name: &str, full: bool) -> Result<()> {
+    let file = SKILL_FILES
+        .iter()
+        .find(|file| file.name == name)
+        .expect("every doc subcommand names an embedded skill file");
+    let content = std::str::from_utf8(file.content)
+        .with_context(|| format!("{} is not valid UTF-8", file.display_path()))?;
+    // The frontmatter is trigger text for the harness, not guidance. Only
+    // SKILL.md carries one; a `---` rule inside a reference must stay.
+    let body = match frontmatter_close(content) {
+        Some(close) if file.is_main_skill_file() => &content[close.end..],
+        _ => content,
+    };
+    let references: Vec<&SkillFile> = if full {
+        SKILL_FILES
+            .iter()
+            .filter(|file| !file.is_main_skill_file())
+            .collect()
+    } else {
+        Vec::new()
+    };
+    if let Some(writer) = out.for_human() {
+        write!(writer, "{body}")?;
+        for reference in &references {
+            writeln!(writer, "\n--- {} ---\n", reference.display_path())?;
+            write!(writer, "{}", String::from_utf8_lossy(reference.content))?;
+        }
+    }
+    if let Some(out) = out.for_json() {
+        let files: Vec<serde_json::Value> = references
+            .iter()
+            .map(|reference| {
+                serde_json::json!({
+                    "path": reference.display_path(),
+                    "content": String::from_utf8_lossy(reference.content),
+                })
+            })
+            .collect();
+        out.write_value(serde_json::json!({ "name": name, "content": body, "files": files }))?;
+    }
+    Ok(())
 }
 
 /// Expand tilde in path to home directory
@@ -427,23 +506,29 @@ fn get_base_dir(ctx: Option<&mut Context>, global: bool) -> Result<PathBuf> {
     }
 }
 
+/// Byte range of the frontmatter's closing `---` line plus the blank line
+/// after it, for any line ending (Unix, Windows, or old Mac).
+fn frontmatter_close(content: &str) -> Option<std::ops::Range<usize>> {
+    ["---\n\n", "---\r\n\r\n", "---\r\r"]
+        .into_iter()
+        .find_map(|delimiter| {
+            content
+                .find(delimiter)
+                .map(|start| start..start + delimiter.len())
+        })
+}
+
 /// Replace version in SKILL.md content
 fn inject_version(content: &str, version: &str) -> String {
-    // Handle different line endings (Unix \n, Windows \r\n, or old Mac \r)
-    let frontmatter_end = content
-        .find("---\n\n")
-        .or_else(|| content.find("---\r\n\r\n"))
-        .or_else(|| content.find("---\r\r"));
-
-    if let Some(end_pos) = frontmatter_end {
-        let frontmatter = &content[..end_pos];
-        let rest = &content[end_pos..];
-        let updated_frontmatter =
-            frontmatter.replace("version: 0.0.0", &format!("version: {version}"));
-        format!("{updated_frontmatter}{rest}")
-    } else {
+    let replace = |text: &str| text.replace("version: 0.0.0", &format!("version: {version}"));
+    match frontmatter_close(content) {
+        Some(close) => format!(
+            "{}{}",
+            replace(&content[..close.start]),
+            &content[close.start..]
+        ),
         // Fallback if frontmatter format is unexpected
-        content.replace("version: 0.0.0", &format!("version: {version}"))
+        None => replace(content),
     }
 }
 
@@ -477,6 +562,22 @@ fn is_gitbutler_skill(skill_md_path: &std::path::Path) -> bool {
         .and_then(|content| frontmatter_value(&content, "name:"))
         .as_deref()
         == Some("but")
+}
+
+/// The layout of the SKILL.md at `skill_md_path`: a stub written by `--stub`
+/// carries `stub: true` in its frontmatter; anything else, including no file
+/// at all, counts as the full layout.
+fn installed_layout(skill_md_path: &std::path::Path) -> SkillLayout {
+    let is_stub = std::fs::read_to_string(skill_md_path)
+        .ok()
+        .and_then(|content| frontmatter_value(&content, "stub:"))
+        .as_deref()
+        == Some("true");
+    if is_stub {
+        SkillLayout::Stub
+    } else {
+        SkillLayout::Full
+    }
 }
 
 /// Extract the version from an installed SKILL.md file's YAML frontmatter.
@@ -560,9 +661,9 @@ fn find_format_installations(format: &SkillFormat, base_dir: &std::path::Path) -
 }
 
 fn is_complete_skill_installation(path: &std::path::Path) -> bool {
-    is_gitbutler_skill(&path.join("SKILL.md"))
-        && SKILL_FILES
-            .iter()
+    let skill_md = path.join("SKILL.md");
+    is_gitbutler_skill(&skill_md)
+        && skill_files_in_write_order(installed_layout(&skill_md))
             .all(|file| file.get_install_path(path).is_file())
 }
 
@@ -711,7 +812,14 @@ fn check_skills(
 
         for path_str in &outdated_paths {
             // Pass None for ctx since the paths are already absolute and don't require repo context
-            install_skill(None, out, false, Some(path_str.clone()), false)?;
+            install_skill(
+                None,
+                out,
+                false,
+                Some(path_str.clone()),
+                false,
+                SkillLayout::Full,
+            )?;
         }
     }
 
@@ -981,9 +1089,13 @@ fn prepare_skill_content(version: &str) -> Result<String> {
 }
 
 /// Write the bundled skill files into `install_path`, creating the directory
-/// structure as needed and injecting the CLI version into SKILL.md. Returns the
-/// version that was written.
-pub(crate) fn write_skill_files(install_path: &std::path::Path) -> Result<&'static str> {
+/// structure as needed and injecting the CLI version into SKILL.md. An existing
+/// stub stays a stub on every rewrite, so refreshes never upgrade a layout by
+/// accident. Returns the version that was written.
+pub(crate) fn write_skill_files(
+    install_path: &std::path::Path,
+    layout: SkillLayout,
+) -> Result<&'static str> {
     if SKILL_FILES.iter().any(|f| f.content.is_empty()) {
         anyhow::bail!(
             "Skill files were not properly embedded at build time. Please report this as a bug."
@@ -992,17 +1104,32 @@ pub(crate) fn write_skill_files(install_path: &std::path::Path) -> Result<&'stat
 
     // Prepare all content before writing (validate UTF-8 and inject version)
     let version = option_env!("VERSION").unwrap_or("dev");
-    let skill_md_content = prepare_skill_content(version)?;
-
-    let references_dir = install_path.join("references");
-    std::fs::create_dir_all(&references_dir).with_context(|| {
+    let full_skill_md = prepare_skill_content(version)?;
+    let layout = match installed_layout(&install_path.join("SKILL.md")) {
+        SkillLayout::Stub => SkillLayout::Stub,
+        SkillLayout::Full => layout,
+    };
+    let (skill_md_content, content_dir) = match layout {
+        SkillLayout::Full => (full_skill_md, install_path.join("references")),
+        SkillLayout::Stub => {
+            let close = frontmatter_close(&full_skill_md)
+                .context("SKILL.md has no frontmatter to build a stub from")?;
+            let stub = format!(
+                "{}stub: true\nallowed-tools: Bash(but skill:*)\n{}{STUB_MD}",
+                &full_skill_md[..close.start],
+                &full_skill_md[close]
+            );
+            (stub, install_path.to_path_buf())
+        }
+    };
+    std::fs::create_dir_all(&content_dir).with_context(|| {
         format!(
             "Failed to create skill directory at {}. Check that you have write permissions for this location.",
             install_path.display()
         )
     })?;
 
-    for file in skill_files_in_write_order() {
+    for file in skill_files_in_write_order(layout) {
         let file_path = file.get_install_path(install_path);
         let content = if file.is_main_skill_file() {
             // Use the version-injected content for SKILL.md
@@ -1010,20 +1137,17 @@ pub(crate) fn write_skill_files(install_path: &std::path::Path) -> Result<&'stat
         } else {
             file.content
         };
-        write_skill_file(&file_path, content, file.display_name)?;
+        write_skill_file(&file_path, content)?;
     }
     Ok(version)
 }
 
 /// Write a skill file with proper error context
-fn write_skill_file(path: &std::path::Path, content: &[u8], name: &str) -> Result<()> {
+fn write_skill_file(path: &std::path::Path, content: &[u8]) -> Result<()> {
     std::fs::write(path, content).with_context(|| {
         format!(
-            "Failed to write {} to {}. Check write permissions.",
-            name,
-            path.parent()
-                .map(|p| p.display().to_string())
-                .unwrap_or_else(|| path.display().to_string())
+            "Failed to write {}. Check write permissions.",
+            path.display()
         )
     })
 }
@@ -1035,6 +1159,7 @@ fn install_skill(
     global: bool,
     custom_path: Option<String>,
     detect: bool,
+    layout: SkillLayout,
 ) -> Result<()> {
     let t = theme::get();
     let driving_agent = (!out.can_prompt())
@@ -1136,8 +1261,13 @@ fn install_skill(
             writeln!(writer)?;
         }
 
-        version = write_skill_files(install_path)?;
+        version = write_skill_files(install_path, layout)?;
     }
+    // An existing stub is kept as a stub, so list what was actually written.
+    let layout = install_paths
+        .last()
+        .map(|path| installed_layout(&path.join("SKILL.md")))
+        .unwrap_or(layout);
 
     if let Some(writer) = out.for_human() {
         writeln!(writer)?;
@@ -1165,7 +1295,7 @@ fn install_skill(
         }
         writeln!(writer)?;
         writeln!(writer, "  Files installed:")?;
-        for file in SKILL_FILES {
+        for file in skill_files_in_write_order(layout) {
             writeln!(writer, "    • {}", file.display_path())?;
         }
         writeln!(writer)?;
@@ -1184,7 +1314,9 @@ fn install_skill(
     }
 
     if let Some(out) = out.for_json() {
-        let file_paths: Vec<String> = SKILL_FILES.iter().map(|f| f.display_path()).collect();
+        let file_paths: Vec<String> = skill_files_in_write_order(layout)
+            .map(|f| f.display_path())
+            .collect();
         let paths: Vec<String> = install_paths
             .iter()
             .map(|p| p.display().to_string())
@@ -1420,7 +1552,7 @@ mod tests {
     #[test]
     fn skill_file_display_path_is_derived_from_components() {
         assert_eq!(SKILL_FILES[0].display_path(), "SKILL.md");
-        assert_eq!(SKILL_FILES[1].display_path(), "references/concepts.md");
+        assert_eq!(SKILL_FILES[1].display_path(), "references/reference.md");
     }
 
     #[test]
@@ -1591,7 +1723,8 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         let install_path = dir.path().join(".claude").join("skills").join("gitbutler");
 
-        let version = write_skill_files(&install_path).expect("a writable path accepts the bundle");
+        let version = write_skill_files(&install_path, SkillLayout::Full)
+            .expect("a writable path accepts the bundle");
 
         let skill_md = std::fs::read_to_string(install_path.join("SKILL.md")).unwrap();
         assert!(
@@ -1610,7 +1743,7 @@ mod tests {
     #[test]
     fn skill_entrypoint_is_written_last() {
         assert!(
-            skill_files_in_write_order()
+            skill_files_in_write_order(SkillLayout::Full)
                 .last()
                 .is_some_and(SkillFile::is_main_skill_file),
             "a partial bundle must not look installed"
@@ -1731,7 +1864,7 @@ mod tests {
     #[test]
     fn skill_installation_requires_every_embedded_file() {
         let temp_dir = tempfile::tempdir().unwrap();
-        write_skill_files(temp_dir.path()).unwrap();
+        write_skill_files(temp_dir.path(), SkillLayout::Full).unwrap();
         std::fs::remove_file(temp_dir.path().join("references/concepts.md")).unwrap();
 
         assert!(!is_complete_skill_installation(temp_dir.path()));

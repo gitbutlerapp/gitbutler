@@ -39,7 +39,10 @@ fn metrics_use_invoked_command_names() {
     );
     assert_command(
         Subcommands::Agent(agent::Platform {
-            cmd: Some(agent::Subcommands::Setup { print: false }),
+            cmd: Some(agent::Subcommands::Setup {
+                print: false,
+                stub: false,
+            }),
         }),
         "agentSetup",
     );
