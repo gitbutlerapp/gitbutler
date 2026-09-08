@@ -35,10 +35,11 @@ export const InlineEditor: FC<{
 		target: textFieldRef,
 	});
 
+	// Not scoped to the text field: the other rows are inert while an edit is pending, but a
+	// click on one still moves focus into the tree, and Escape has to keep working from there.
 	useHotkey("Escape", onExit, {
 		conflictBehavior: "allow",
 		ignoreInputs: false,
-		target: textFieldRef,
 	});
 
 	const allTextFieldRefs = useMergedRefs(textFieldRef, (el) => {
