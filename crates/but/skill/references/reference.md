@@ -7,7 +7,7 @@ Agent-focused reference for useful `but` commands.
 - [Inspection](#inspection-understanding-state) - `status`, `show`, `diff`, `open`
 - [Branching](#branching) - `branch new`, `apply`, `unapply`, `branch delete`, `pick`
 - [Committing](#committing) - `commit`
-- [Editing History](#editing-history) - `squash`, `amend`, `move`, `uncommit`, `reword`, `discard`
+- [Editing History](#editing-history) - `squash`, `amend`, `move`, `split`, `uncommit`, `reword`, `discard`
 - [Conflict Resolution](#conflict-resolution) - `resolve`
 - [Remote Operations](#remote-operations) - `push`, `pull`, `pr`, `merge`
 - [Workspace Maintenance](#workspace-maintenance) - `clean`, `worktree`
@@ -298,6 +298,18 @@ branch may be moved at a time. Source order does not matter. For a branch source
 with no value is equivalent to `--unstack`. With the experimental worktree flag on, `-b` also
 accepts a worktree or the branch checked out in it, moving commit or committed-change
 sources onto that branch's tip (nothing is created); a branch source is refused there.
+
+### `but split <SOURCES>...`
+
+Move selected committed files/hunks into a new commit immediately above their source.
+Files and hunks may be mixed, but must come from one commit. The new commit has no message;
+unselected changes stay in the source.
+
+```bash
+but diff <commit-id>                              # Read committed file/hunk IDs
+but split <commit-id>:<file-id>                    # Split a file
+but split <commit-id>:<file-id>:<hunk-id>           # Split a hunk
+```
 
 ### `but uncommit <SOURCES>...`
 
