@@ -594,6 +594,8 @@ const PageBody: FC<{ projectId: string }> = ({ projectId }) => {
 				{...selectionFocus}
 				id={layoutId}
 				className={styles.page}
+				// The handle's own box is the grab area; see ResizeHandle's grab="after".
+				resizeTargetMinimumSize={{ coarse: 1, fine: 1 }}
 				defaultLayout={workspaceLayout.defaultLayout}
 				onLayoutChanged={workspaceLayout.onLayoutChanged}
 				data-selection-focus-styles={
@@ -625,7 +627,7 @@ const PageBody: FC<{ projectId: string }> = ({ projectId }) => {
 							/>
 						</ErrorBoundary>
 					</Panel>
-					<ResizeHandle />
+					<ResizeHandle grab="after" />
 				</Activity>
 
 				<Panel
