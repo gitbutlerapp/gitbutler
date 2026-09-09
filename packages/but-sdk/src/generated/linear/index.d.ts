@@ -1088,7 +1088,7 @@ export declare function listReviewReactions(projectId: string, reviewId: number)
 export declare function listReviews(projectId: string, cacheConfig: CacheConfig | null): Promise<Array<ForgeReview>>
 
 /**
- * {@link ../../../../../crates/but-api/src/legacy/forge.rs:2207}
+ * {@link ../../../../../crates/but-api/src/legacy/forge.rs:2209}
  */
 export declare function listReviewsForBranch(projectId: string, branch: string, filter: ForgeReviewFilter | null): Promise<Array<ForgeReview>>
 
@@ -1142,7 +1142,7 @@ export declare function loginAndPersist(token: string): Promise<UserProfile>
 /**
  * Merge a review on the forge.
  *
- * {@link ../../../../../crates/but-api/src/legacy/forge.rs:1381}
+ * {@link ../../../../../crates/but-api/src/legacy/forge.rs:1383}
  */
 export declare function mergeReview(projectId: string, reviewId: number, mergeMethod: ReviewMergeMethod | null): Promise<void>
 
@@ -1405,14 +1405,14 @@ export declare function setPushRemote(projectId: string, pushRemote: string): Pr
 /**
  * Enable or disable a review's auto-merge.
  *
- * {@link ../../../../../crates/but-api/src/legacy/forge.rs:1401}
+ * {@link ../../../../../crates/but-api/src/legacy/forge.rs:1403}
  */
 export declare function setReviewAutoMerge(projectId: string, reviewId: number, enable: boolean): Promise<void>
 
 /**
  * Set a review to draft or ready-for-review
  *
- * {@link ../../../../../crates/but-api/src/legacy/forge.rs:1421}
+ * {@link ../../../../../crates/but-api/src/legacy/forge.rs:1423}
  */
 export declare function setReviewDraftiness(projectId: string, reviewId: number, draft: boolean): Promise<void>
 
@@ -1571,7 +1571,7 @@ export declare function updateProjectSettings(projectId: ProjectHandleOrLegacyPr
  * Update arbitrary fields of a single review (title, body, state, target base).
  * Each `None` leaves that field unchanged on the forge.
  *
- * {@link ../../../../../crates/but-api/src/legacy/forge.rs:1453}
+ * {@link ../../../../../crates/but-api/src/legacy/forge.rs:1455}
  */
 export declare function updateReview(projectId: string, reviewId: number, title: string | null, body: string | null, state: ReviewState | null, targetBase: string | null): Promise<void>
 
@@ -1585,7 +1585,7 @@ export declare function updateReviewComment(projectId: string, commentId: number
 /**
  * Update stacked reviews: description footers and, optionally, target branches.
  *
- * {@link ../../../../../crates/but-api/src/legacy/forge.rs:1477}
+ * {@link ../../../../../crates/but-api/src/legacy/forge.rs:1479}
  */
 export declare function updateReviewFooters(projectId: string, reviews: Array<ForgeReviewUpdate>): Promise<void>
 
@@ -1607,7 +1607,7 @@ export declare function uploadFile(params: UploadFileParams): Promise<Upload>
  * Additionally, it cleans up stale CI check entries for references that are no longer
  * part of any applied stack.
  *
- * {@link ../../../../../crates/but-api/src/legacy/forge.rs:2241}
+ * {@link ../../../../../crates/but-api/src/legacy/forge.rs:2243}
  */
 export declare function warmCiChecksCache(projectId: string): Promise<void>
 
@@ -4669,6 +4669,12 @@ export type Verification = {
   device_code: string;
 };
 
+/** Cache tags another process declared stale, spelled as `cache-tags` exports them. */
+export type WatcherExternalInvalidationPayload = {
+  /** A client drops every cache providing one of these. */
+  tags: Array<string>;
+};
+
 /** Git files activity. Supplies the head sha */
 export type WatcherGitActivityPayload = {
   /** The SHA of the repository's HEAD. */
@@ -4702,6 +4708,9 @@ export type WatcherPayload = {
 } | {
   type: "workspaceActivity";
   subject: WatcherWorkspaceActivityPayload;
+} | {
+  type: "externalInvalidation";
+  subject: WatcherExternalInvalidationPayload;
 };
 
 /** Workspace activity that requires the UI to re-read branch/stack state. */

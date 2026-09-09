@@ -33,6 +33,10 @@ use syn::{FnArg, ItemFn, Pat, parse_macro_input};
 ///     - Only for state the repository watcher cannot observe: forge, app, and config writes. A
 ///       mutation that writes to the repository declares nothing — the watcher reports the change
 ///       and the event carries the invalidation.
+///     - A successful call also records the tags in the project's invalidation sentinel, so the
+///       watcher of another process — the desktop app, after a `but` command — drops the same
+///       caches. `<FN_NAME>_INVALIDATES` names the list for a primitive that stands in for the
+///       endpoint out of process.
 ///
 /// An endpoint either provides or invalidates, never both. Naming a tag that does not exist in
 /// `crate::tags::CacheTag` is a compile error. The SDK exports both maps (`apiProvides`,
@@ -115,6 +119,26 @@ pub fn but_api(attr: TokenStream, item: TokenStream) -> TokenStream {
             Ok(opts) => opts,
             Err(err) => return err.into_compile_error().into(),
         }
+    };
+
+    let sanitized_input_fn = match &opts.invalidates {
+        Some(tags) if !tags.is_empty() => signal_invalidation_on_success(sanitized_input_fn, tags),
+        _ => sanitized_input_fn,
+    };
+    let invalidates_const = match &opts.invalidates {
+        Some(tags) if !tags.is_empty() => {
+            let ident = format_ident!("{}_INVALIDATES", fn_name.to_string().to_uppercase());
+            let names: Vec<String> = tags.iter().map(|tag| tag.to_string()).collect();
+            let doc = format!(
+                "The tags `{fn_name}` declares stale, for a primitive that stands in for it out of process."
+            );
+            quote! {
+                #[doc = #doc]
+                #[allow(dead_code)]
+                #vis const #ident: &[&str] = &[#(#names),*];
+            }
+        }
+        _ => quote! {},
     };
 
     let wrapper_params = match build_wrapper_params(input.iter()) {
@@ -419,6 +443,8 @@ pub fn but_api(attr: TokenStream, item: TokenStream) -> TokenStream {
         // Original function stays
         #sanitized_input_fn
 
+        #invalidates_const
+
         const _: () = {
             #[expect(dead_code)]
             fn keep_json(_json: #json_ty) {}
@@ -461,6 +487,50 @@ pub fn but_api(attr: TokenStream, item: TokenStream) -> TokenStream {
     };
 
     expanded.into()
+}
+
+/// Wrap the body so a successful call records its declared tags in the
+/// project's invalidation sentinel, for the watchers of other processes. The
+/// storage directory comes from the context parameter; an endpoint without
+/// one is left alone.
+fn signal_invalidation_on_success(mut input_fn: ItemFn, tags: &[syn::Ident]) -> ItemFn {
+    let Some(ctx_ident) = input_fn.sig.inputs.iter().find_map(|arg| {
+        let FnArg::Typed(pat_ty) = arg else {
+            return None;
+        };
+        context_param_kind(&pat_ty.ty)?;
+        match &*pat_ty.pat {
+            Pat::Ident(pat) => Some(pat.ident.clone()),
+            _ => None,
+        }
+    }) else {
+        return input_fn;
+    };
+    let syn::ReturnType::Type(_, output_ty) = &input_fn.sig.output else {
+        return input_fn;
+    };
+    let names: Vec<String> = tags.iter().map(|tag| tag.to_string()).collect();
+    let body = &input_fn.block;
+    // A closure or async block keeps `?` and `return` inside the body meaning
+    // what they did, with the fn's own return type.
+    let run_body = if input_fn.sig.asyncness.is_some() {
+        quote! { let __but_api_result: #output_ty = async move #body.await; }
+    } else {
+        quote! {
+            #[allow(clippy::redundant_closure_call)]
+            let __but_api_result = (move || -> #output_ty #body)();
+        }
+    };
+    let block: syn::Block = syn::parse_quote! {{
+        let __but_api_project_data_dir = #ctx_ident.project_data_dir.clone();
+        #run_body
+        if __but_api_result.is_ok() {
+            crate::tags::signal_invalidation(&__but_api_project_data_dir, &[#(#names),*]);
+        }
+        __but_api_result
+    }};
+    input_fn.block = Box::new(block);
+    input_fn
 }
 
 struct WrapperParamsInfo {

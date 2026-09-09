@@ -4,13 +4,14 @@
  * Each event says what happened in the repository, never what the UI should do
  * about it. What it should do is derived: the event declares the tags it makes
  * stale, each query declares the tags it provides, and where they meet, the
- * query is refreshed. The two cases where invalidating is not the best move
- * are handled separately below.
+ * query is refreshed. Handled separately below: two cases where invalidating
+ * is not the best move, and the event whose tags arrive in its payload.
  */
 
 import { projectQueryKeys, type ProjectQueryKey } from "#ui/api/query-keys.ts";
 import { getReviewQueryOptions } from "#ui/api/queries.ts";
 import { recordedPullRequest } from "#ui/api/ref-info.ts";
+import { invalidateTags, providedTag } from "#ui/api/tags.ts";
 import type { ForgeReview, WatcherEvent } from "@gitbutler/but-sdk";
 import { apiProvides, watcherInvalidates, type CacheTag } from "@gitbutler/but-sdk/cache-tags";
 import type { QueryClient } from "@tanstack/react-query";
@@ -125,6 +126,11 @@ export const handleProjectEvent = (
 
 	for (const query of invalidateOn.get(payload.type) ?? [])
 		void client.invalidateQueries({ queryKey: [projectId, query] });
+
+	// Another process's mutation, with the tags it declared: the event table
+	// has nothing to add.
+	if (payload.type === "externalInvalidation")
+		void invalidateTags(client, payload.subject.tags.filter(providedTag), projectId);
 
 	// The annotations read the backend's review cache, so integrated reviews have
 	// to land before the listing is re-read. A failed refresh degrades to

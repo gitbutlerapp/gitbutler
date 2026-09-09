@@ -26,6 +26,12 @@ pub enum Change {
     WorkspaceActivity {
         project_id: ProjectHandleOrLegacyProjectId,
     },
+    /// Emitted when another process writes the invalidation sentinel: a mutation of its made
+    /// cache tags stale. Carries the tag names as the SDK spells them.
+    ExternalInvalidation {
+        project_id: ProjectHandleOrLegacyProjectId,
+        tags: Vec<String>,
+    },
     /// Emitted after worktree files or the index change. Carries freshly computed file diffs
     /// together with hunk assignment and dependency information.
     WorktreeChanges {

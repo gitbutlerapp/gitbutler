@@ -23,6 +23,9 @@ pub enum WatcherPayload {
     /// External activity requiring the UI to re-read workspace state (stacks,
     /// branches, PR numbers) — remote-ref updates or external metadata writes.
     WorkspaceActivity(WatcherWorkspaceActivityPayload),
+    /// Another process's mutation declared cache tags stale — see
+    /// [`crate::tags::signal_invalidation`].
+    ExternalInvalidation(WatcherExternalInvalidationPayload),
 }
 
 #[cfg(feature = "export-schema")]
@@ -44,6 +47,8 @@ pub enum WatcherEventKind {
     WorktreeChanges,
     /// See [`WatcherPayload::WorkspaceActivity`].
     WorkspaceActivity,
+    /// See [`WatcherPayload::ExternalInvalidation`].
+    ExternalInvalidation,
 }
 
 impl WatcherEventKind {
@@ -54,6 +59,7 @@ impl WatcherEventKind {
         WatcherEventKind::GitActivity,
         WatcherEventKind::WorktreeChanges,
         WatcherEventKind::WorkspaceActivity,
+        WatcherEventKind::ExternalInvalidation,
     ];
 
     /// The event's name as clients see it, matching the payload's serde tag.
@@ -64,6 +70,7 @@ impl WatcherEventKind {
             WatcherEventKind::GitActivity => "gitActivity",
             WatcherEventKind::WorktreeChanges => "worktreeChanges",
             WatcherEventKind::WorkspaceActivity => "workspaceActivity",
+            WatcherEventKind::ExternalInvalidation => "externalInvalidation",
         }
     }
 
@@ -94,6 +101,8 @@ impl WatcherEventKind {
             WatcherEventKind::WorktreeChanges => {
                 &[T::Diffs, T::WorktreeChanges, T::AbsorptionPlan, T::Comments]
             }
+            // The tags ride in the payload; the table cannot know them.
+            WatcherEventKind::ExternalInvalidation => &[],
         }
     }
 }
@@ -137,6 +146,17 @@ pub struct WatcherWorkspaceActivityPayload;
 
 #[cfg(feature = "export-schema")]
 but_schemars::register_sdk_type!(WatcherWorkspaceActivityPayload);
+
+/// Cache tags another process declared stale, spelled as `cache-tags` exports them.
+#[derive(Debug, Clone, Serialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct WatcherExternalInvalidationPayload {
+    /// A client drops every cache providing one of these.
+    pub tags: Vec<String>,
+}
+
+#[cfg(feature = "export-schema")]
+but_schemars::register_sdk_type!(WatcherExternalInvalidationPayload);
 
 /// Worktree files changes.
 #[derive(Debug, Clone, Serialize, JsonSchema)]

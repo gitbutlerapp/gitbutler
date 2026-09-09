@@ -6,7 +6,10 @@ use but_ctx::{Context, ProjectHandleOrLegacyProjectId};
 use but_db::HunkAssignmentsHandleMut;
 use but_hunk_assignment::HunkAssignment;
 use but_hunk_dependency::ui::hunk_dependencies_for_workspace_changes_by_worktree_dir;
-use but_project_handle::{REFRESH_SENTINEL_PATH, process_sentinel_token};
+use but_project_handle::{
+    INVALIDATION_SENTINEL_PATH, REFRESH_SENTINEL_PATH, invalidation_by_others,
+    process_sentinel_token,
+};
 use but_settings::{AppSettings, AppSettingsWithDiskSync};
 use gitbutler_filemonitor::{
     FETCH_HEAD, HEAD, HEAD_ACTIVITY, INDEX, InternalEvent, LOCAL_REFS_DIR, REMOTE_REFS_DIR,
@@ -181,6 +184,17 @@ impl Handler {
                         .unwrap_or(false);
                     if !wrote_by_us {
                         saw_workspace_activity = true;
+                    }
+                }
+                INVALIDATION_SENTINEL_PATH => {
+                    let sentinel = ctx.repo.get()?.path().join(file_name);
+                    let content = std::fs::read_to_string(sentinel).unwrap_or_default();
+                    let tags = invalidation_by_others(&content, &process_sentinel_token());
+                    if !tags.is_empty() {
+                        self.emit_app_event(Change::ExternalInvalidation {
+                            project_id: project_id.clone(),
+                            tags,
+                        })?;
                     }
                 }
                 HEAD_ACTIVITY => {

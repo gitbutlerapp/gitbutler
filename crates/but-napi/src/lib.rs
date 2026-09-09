@@ -25,8 +25,9 @@ use napi_derive::napi;
 use but_api::{
     self as _,
     watcher::{
-        WatcherGitActivityPayload, WatcherGitFetchPayload, WatcherGitHeadPayload, WatcherPayload,
-        WatcherWorkspaceActivityPayload, WatcherWorktreeChangesPayload,
+        WatcherExternalInvalidationPayload, WatcherGitActivityPayload, WatcherGitFetchPayload,
+        WatcherGitHeadPayload, WatcherPayload, WatcherWorkspaceActivityPayload,
+        WatcherWorktreeChangesPayload,
     },
 };
 
@@ -320,6 +321,18 @@ fn event_from_change(change: gitbutler_watcher::Change) -> WatcherEvent {
             name: format!("project://{project_id}/workspace-activity"),
             payload: serde_json::json!(WatcherPayload::WorkspaceActivity(
                 WatcherWorkspaceActivityPayload
+            )),
+        },
+        gitbutler_watcher::Change::ExternalInvalidation { project_id, tags } => WatcherEvent {
+            name: format!("project://{project_id}/external-invalidation"),
+            payload: serde_json::json!(WatcherPayload::ExternalInvalidation(
+                WatcherExternalInvalidationPayload {
+                    // The sentinel is a file anyone can write; only names a tag has get through.
+                    tags: tags
+                        .into_iter()
+                        .filter(|tag| but_api::tags::CacheTag::from_name(tag).is_some())
+                        .collect(),
+                }
             )),
         },
         gitbutler_watcher::Change::WorktreeChanges {

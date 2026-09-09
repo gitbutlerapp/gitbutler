@@ -5,7 +5,9 @@ use std::{
 };
 
 use anyhow::{Context as _, Result, anyhow};
-use but_project_handle::{ProjectHandleOrLegacyProjectId, REFRESH_SENTINEL_PATH};
+use but_project_handle::{
+    INVALIDATION_SENTINEL_PATH, ProjectHandleOrLegacyProjectId, REFRESH_SENTINEL_PATH,
+};
 use gitbutler_notify_debouncer::{Debouncer, NoCache, new_debouncer};
 use gix::bstr::BStr;
 use notify::{RecommendedWatcher, Watcher};
@@ -618,6 +620,7 @@ fn classify_file(git_dir: &Path, file_path: &Path) -> FileKind {
             || check_file_path == Path::new(GB_FLUSH)
             || check_file_path == Path::new(INDEX)
             || check_file_path == Path::new(REFRESH_SENTINEL_PATH)
+            || check_file_path == Path::new(INVALIDATION_SENTINEL_PATH)
             || check_file_path.starts_with(LOCAL_REFS_DIR)
             || check_file_path.starts_with(REMOTE_REFS_DIR)
         {
@@ -694,6 +697,14 @@ mod tests {
     fn classify_refresh_sentinel() {
         assert_eq!(
             classify_file(git_dir(), Path::new("/repo/.git/gitbutler/REFRESH")),
+            FileKind::Git
+        );
+    }
+
+    #[test]
+    fn classify_invalidation_sentinel() {
+        assert_eq!(
+            classify_file(git_dir(), Path::new("/repo/.git/gitbutler/INVALIDATE")),
             FileKind::Git
         );
     }

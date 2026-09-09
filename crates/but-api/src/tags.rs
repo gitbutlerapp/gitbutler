@@ -30,6 +30,14 @@ macro_rules! cache_tags {
                     $(CacheTag::$name => stringify!($name),)+
                 }
             }
+
+            /// The tag a client-facing name spells, or `None` for a name no tag has.
+            pub fn from_name(name: &str) -> Option<Self> {
+                match name {
+                    $(stringify!($name) => Some(CacheTag::$name),)+
+                    _ => None,
+                }
+            }
         }
     };
 }
@@ -96,4 +104,56 @@ cache_tags! {
     /// Which mode the repository is in (open workspace, edit mode, ...) and
     /// the edit session's own state.
     OperatingMode,
+}
+
+/// Record that a successful mutation made `tags` stale, for the watchers of
+/// other processes: a `but` command reaches the desktop app this way. The
+/// `#[but_api]` expansion calls this for every endpoint declaring
+/// `invalidates` and taking a context; a primitive the CLI runs in place of
+/// an endpoint passes the endpoint's `*_INVALIDATES` constant by hand.
+pub fn signal_invalidation(project_data_dir: &std::path::Path, tags: &[&str]) {
+    but_project_handle::write_invalidation_sentinel(project_data_dir, tags);
+}
+
+#[cfg(test)]
+mod tests {
+    use but_api_macros::but_api;
+    use but_testsupport::{CommandExt, git_at_dir, open_repo};
+
+    #[but_api(napi, invalidates = [Reviews, Checks])]
+    pub fn probe(_ctx: &but_ctx::Context, succeed: bool) -> anyhow::Result<()> {
+        if succeed {
+            Ok(())
+        } else {
+            Err(anyhow::anyhow!("the mutation failed"))
+        }
+    }
+
+    #[test]
+    fn a_declared_mutation_records_its_tags_only_on_success() -> anyhow::Result<()> {
+        let tmp = tempfile::tempdir()?;
+        git_at_dir(tmp.path()).args(["init"]).run();
+        let ctx = but_ctx::Context::from_repo_for_testing(open_repo(tmp.path())?)?;
+        let sentinel = ctx.project_data_dir.join("INVALIDATE");
+
+        probe(&ctx, false).unwrap_err();
+        assert!(!sentinel.exists(), "a failed mutation made nothing stale");
+
+        probe(&ctx, true)?;
+        let content = std::fs::read_to_string(&sentinel)?;
+        assert_eq!(
+            but_project_handle::invalidation_by_others(&content, ""),
+            ["Reviews", "Checks"]
+        );
+        assert!(
+            but_project_handle::invalidation_by_others(
+                &content,
+                &but_project_handle::process_sentinel_token()
+            )
+            .is_empty(),
+            "the writer signs the sentinel so its own watcher can skip it"
+        );
+        assert_eq!(PROBE_INVALIDATES, &["Reviews", "Checks"]);
+        Ok(())
+    }
 }

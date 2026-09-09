@@ -19,7 +19,8 @@ pub use legacy_project_id::LegacyProjectId;
 
 pub use project_handle::{ProjectHandle, ProjectHandleOrLegacyProjectId};
 pub use storage_path::{
-    DEFAULT_STORAGE_DIR_NAME, REFRESH_SENTINEL_PATH, gitbutler_storage_path,
-    gitbutler_storage_path_for_channel, process_sentinel_token, storage_path_config_key,
-    storage_path_config_key_for_app_channel, write_refresh_sentinel,
+    DEFAULT_STORAGE_DIR_NAME, INVALIDATION_SENTINEL_PATH, REFRESH_SENTINEL_PATH,
+    gitbutler_storage_path, gitbutler_storage_path_for_channel, invalidation_by_others,
+    process_sentinel_token, storage_path_config_key, storage_path_config_key_for_app_channel,
+    write_invalidation_sentinel, write_refresh_sentinel,
 };

@@ -144,10 +144,98 @@ pub fn write_refresh_sentinel(metadata_file: &Path) {
     }
 }
 
+/// Git-dir-relative path of the invalidation sentinel, `gitbutler/INVALIDATE`.
+///
+/// Where a successful mutation records the cache tags it declared stale, for
+/// the watchers of other processes. Kept apart from [`REFRESH_SENTINEL_PATH`],
+/// which every metadata flush overwrites.
+pub const INVALIDATION_SENTINEL_PATH: &str = "gitbutler/INVALIDATE";
+
+/// Best-effort write of `tags` to the invalidation sentinel in
+/// `project_data_dir`, signed with this process's [`process_sentinel_token`]
+/// and replacing whatever was there. A write the watcher did not get to read
+/// before the next one is lost, and the clients' polls cover that; a log to
+/// replay is not worth its bookkeeping. Errors are logged and swallowed,
+/// never failing the mutation.
+pub fn write_invalidation_sentinel(project_data_dir: &Path, tags: &[&str]) {
+    if tags.is_empty() {
+        return;
+    }
+    let Some(filename) = Path::new(INVALIDATION_SENTINEL_PATH).file_name() else {
+        return;
+    };
+    let sentinel = project_data_dir.join(filename);
+    let content = format!("{} {}", process_sentinel_token(), tags.join(","));
+    let written =
+        std::fs::create_dir_all(project_data_dir).and_then(|()| std::fs::write(&sentinel, content));
+    if let Err(err) = written {
+        tracing::warn!(?sentinel, %err, "failed to write the invalidation sentinel");
+    }
+}
+
+/// The tags the sentinel `content` names, unless `own_token` wrote them.
+pub fn invalidation_by_others(content: &str, own_token: &str) -> Vec<String> {
+    let mut fields = content.split_whitespace();
+    let Some(token) = fields.next() else {
+        return Vec::new();
+    };
+    if token == own_token {
+        return Vec::new();
+    }
+    fields
+        .next()
+        .map(|tags| {
+            tags.split(',')
+                .filter(|tag| !tag.is_empty())
+                .map(str::to_owned)
+                .collect()
+        })
+        .unwrap_or_default()
+}
+
 fn storage_path_config_key_for_channel(channel: &AppChannel) -> &'static str {
     match channel {
         AppChannel::Release => "gitbutler.storagePath",
         AppChannel::Nightly => "gitbutler.nightly.storagePath",
         AppChannel::Dev => "gitbutler.dev.storagePath",
+    }
+}
+
+#[cfg(test)]
+mod invalidation_tests {
+    use super::*;
+
+    fn tempdir() -> but_testsupport::gix_testtools::tempfile::TempDir {
+        but_testsupport::gix_testtools::tempfile::TempDir::new().unwrap()
+    }
+
+    #[test]
+    fn tags_by_others_are_read_and_own_writes_are_not() {
+        assert_eq!(
+            invalidation_by_others("1 Reviews,Checks", "2"),
+            ["Reviews", "Checks"]
+        );
+        assert!(invalidation_by_others("1 Reviews", "1").is_empty());
+        assert!(invalidation_by_others("", "1").is_empty());
+        assert!(invalidation_by_others("1", "2").is_empty());
+    }
+
+    #[test]
+    fn each_write_replaces_the_last() {
+        let dir = tempdir();
+        write_invalidation_sentinel(dir.path(), &["Reviews"]);
+        write_invalidation_sentinel(dir.path(), &["Checks", "MergeStatus"]);
+        let content = std::fs::read_to_string(dir.path().join("INVALIDATE")).unwrap();
+        assert_eq!(
+            content,
+            format!("{} Checks,MergeStatus", process_sentinel_token())
+        );
+    }
+
+    #[test]
+    fn nothing_to_declare_writes_nothing() {
+        let dir = tempdir();
+        write_invalidation_sentinel(dir.path(), &[]);
+        assert!(!dir.path().join("INVALIDATE").exists());
     }
 }

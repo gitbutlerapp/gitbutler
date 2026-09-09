@@ -21,7 +21,12 @@ const react = (event: string) => {
 		fetchQuery: () => Promise.reject(new Error("offline")),
 	} as unknown as QueryClient;
 
-	const subject = event === "worktreeChanges" ? { changes: {} } : null;
+	const subject =
+		event === "worktreeChanges"
+			? { changes: {} }
+			: event === "externalInvalidation"
+				? { tags: ["Reviews", "NotATag"] }
+				: null;
 	handleProjectEvent(
 		{ name: event, payload: { type: event, subject } } as WatcherEvent,
 		"p1",
@@ -56,6 +61,13 @@ describe("tags declared in Rust", () => {
 });
 
 describe("handled separately", () => {
+	it("drops the caches an external invalidation names, and only those", async () => {
+		const { invalidated } = react("externalInvalidation");
+		await new Promise((resolve) => setTimeout(resolve, 0));
+		expect(invalidated).toContain("listReviews");
+		expect(invalidated).not.toContain("headInfo");
+	});
+
 	it("pushes worktree changes rather than invalidating them", () => {
 		const { invalidated, pushed } = react("worktreeChanges");
 		expect(pushed).toEqual(["changesInWorktree"]);

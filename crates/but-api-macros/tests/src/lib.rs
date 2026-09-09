@@ -20,6 +20,10 @@ pub mod tags {
         Reviews,
         Checks,
     }
+
+    /// Stand-in for `but_api::tags::signal_invalidation`, which the
+    /// `invalidates` expansion calls after a successful mutation.
+    pub fn signal_invalidation(_project_data_dir: &std::path::Path, _tags: &[&str]) {}
 }
 
 pub mod panic_capture {
