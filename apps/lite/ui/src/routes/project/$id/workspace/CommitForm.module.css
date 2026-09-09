@@ -97,10 +97,22 @@
 	column-gap: 4px;
 }
 
-/* When the panel is too narrow to fit the commit button label, hide it. */
+/* The cross stands in for the label when the form is too narrow for it;
+   doubled to outrank the icon's own display. */
+.cancelIcon.cancelIcon {
+	display: none;
+}
+
+/* Too narrow for the buttons' labels: the commit button keeps its key,
+   and Cancel its cross. */
 @container (max-width: 280px) {
-	.commitButtonLabel {
+	.commitButtonLabel,
+	.cancelLabel {
 		display: none;
+	}
+
+	.cancelIcon.cancelIcon {
+		display: inline-grid;
 	}
 }
 

@@ -8,6 +8,12 @@
 	.activitySpinner {
 		display: none;
 	}
+
+	/* On macOS the window controls leave the folder mark no room at the
+	   narrowest sidebar unless the gaps pull in too. */
+	.workspaceControls {
+		column-gap: 8px;
+	}
 }
 
 .workspaceControls {

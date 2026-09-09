@@ -15,3 +15,10 @@
 	flex-shrink: 0;
 	width: 64px;
 }
+
+/* The header's folder mark needs the divider's room at the narrowest sidebar. */
+@container (max-width: 275px) {
+	.container::after {
+		display: none;
+	}
+}

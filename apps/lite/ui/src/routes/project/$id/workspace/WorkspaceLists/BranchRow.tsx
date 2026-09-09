@@ -659,7 +659,7 @@ export const BranchRow: FC<
 												/>
 											}
 										>
-											Push
+											<span className={rowStyles.metaButtonLabel}>Push</span>
 											{pushActivity === "pushing" ? (
 												<Icon name="spinner" />
 											) : pushesMultipleBranches ? (
@@ -698,7 +698,7 @@ export const BranchRow: FC<
 								)}
 								onClick={() => openUpdateFromRemote(dispatch, refName.fullNameBytes)}
 							>
-								Integrate
+								<span className={rowStyles.metaButtonLabel}>Integrate</span>
 								<Icon size={12} name="arrow-down" />
 							</Button>
 						)}
