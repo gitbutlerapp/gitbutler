@@ -330,6 +330,23 @@ async function handleRequest(
 		return json(response, state.listed ? state.listReviews() : []);
 	}
 
+	// The single-review fetch asks GraphQL; answer it from the same record.
+	if (request.method === "POST" && url.pathname === "/api/graphql") {
+		const { query, variables } = JSON.parse(await readBody(request)) as {
+			query: string;
+			variables?: { number?: number };
+		};
+		if (!query.includes("query PullRequest(") || variables?.number === undefined) {
+			return json(response, {
+				errors: [{ message: `No fake GitHub GraphQL for ${query.slice(0, 40)}` }],
+			});
+		}
+		const review = state.getReview(variables.number);
+		return json(response, {
+			data: { repository: { pullRequest: review ? graphqlPullRequest(review) : null } },
+		});
+	}
+
 	const reviewNumber = reviewNumberFromPath(url.pathname, pullPath);
 	if (request.method === "GET" && reviewNumber !== undefined) {
 		const review = state.getReview(reviewNumber);
@@ -489,6 +506,35 @@ function pullRequestPayload(
 		merged_at: null,
 		closed_at: null,
 		requested_reviewers: [],
+	};
+}
+
+/** The REST record in the shape `GQL_GET_PR` selects. Paths stay paths. */
+function graphqlPullRequest(review: FakeGitHubReview) {
+	return {
+		url: review.html_url,
+		number: review.number,
+		title: review.title,
+		body: review.body ?? "",
+		isDraft: review.draft,
+		headRefName: review.head.ref,
+		baseRefName: review.base.ref,
+		headRefOid: review.head.sha,
+		createdAt: review.created_at,
+		updatedAt: review.updated_at,
+		mergedAt: review.merged_at,
+		closedAt: review.closed_at,
+		mergeCommit: null,
+		author: null,
+		labels: { nodes: [] },
+		headRepository: {
+			sshUrl: review.head.repo.ssh_url,
+			url: review.head.repo.clone_url,
+			isFork: review.head.repo.fork,
+			owner: { login: review.head.repo.owner.login },
+		},
+		reviewRequests: { nodes: [] },
+		autoMergeRequest: null,
 	};
 }
 
