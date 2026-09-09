@@ -252,7 +252,8 @@ export const NewPullRequestPanel: FC<{
 					// already is listed above with a way off.
 					.filter(
 						(candidate) =>
-							candidate.login !== currentLogin && !extras.reviewers.includes(candidate.login),
+							!(currentLogin != null && sameLogin(candidate.login, currentLogin)) &&
+							!extras.reviewers.some((login) => sameLogin(login, candidate.login)),
 					)
 					.map((candidate) =>
 						nativeMenuItem({
@@ -268,7 +269,7 @@ export const NewPullRequestPanel: FC<{
 
 	const pickedReviewers = extras.reviewers.map((login) => ({
 		login,
-		user: reviewerCandidates?.find((candidate) => candidate.login === login),
+		user: reviewerCandidates?.find((candidate) => sameLogin(candidate.login, login)),
 	}));
 	const pickedLabels = extras.labels.map(
 		(name) =>
@@ -626,7 +627,7 @@ export const PullRequestPanel: FC<{
 					// already has been asked.
 					.filter(
 						(candidate) =>
-							candidate.login !== review.author?.login &&
+							!(review.author !== null && sameLogin(candidate.login, review.author.login)) &&
 							!reviewerList.some(({ user }) => sameLogin(user.login, candidate.login)),
 					)
 					.map((candidate) =>
