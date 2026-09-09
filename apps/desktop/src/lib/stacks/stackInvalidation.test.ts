@@ -33,6 +33,7 @@ const headInfo = {
 const integrationResult = {
 	workspaceState: { headInfo, replacedCommits: {}, checkoutConflictOccurred: false },
 	worktreeConflicts: [],
+	commitConflicts: {},
 	targetCommits: null,
 } satisfies WorkspaceIntegrateUpstreamOutcome;
 

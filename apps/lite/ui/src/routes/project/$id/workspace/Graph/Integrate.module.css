@@ -1,0 +1,110 @@
+.warning {
+	--button-fg: var(--text-warn);
+	--button-hover-fg: var(--text-warn);
+	--button-icon-opacity: 1;
+	--button-hover-icon-opacity: 1;
+}
+
+.popup {
+	width: 380px;
+	max-width: calc(100vw - 24px);
+}
+.header {
+	display: flex;
+	align-items: flex-start;
+	justify-content: space-between;
+	padding: 12px;
+	gap: 12px;
+	border-bottom: 1px solid var(--border-3);
+}
+.heading {
+	margin: 0;
+	font-weight: 600;
+	font-size: 13px;
+}
+.description {
+	margin: 4px 0 0;
+	color: var(--text-3);
+	font-size: 12px;
+	overflow-wrap: anywhere;
+}
+.target {
+	color: var(--text-2);
+}
+.details {
+	max-height: min(360px, 60vh);
+	overflow-y: auto;
+}
+.group {
+	padding: 8px 6px;
+}
+.group + .group {
+	border-top: 1px solid var(--border-3);
+}
+.branch {
+	display: flex;
+	align-items: center;
+	margin: 0;
+	padding: 4px 6px;
+	gap: 6px;
+	font-weight: 600;
+	font-size: 12px;
+}
+.branchName {
+	flex: 1;
+	min-width: 0;
+	overflow-wrap: anywhere;
+}
+.count {
+	color: var(--text-3);
+	font-weight: 400;
+}
+.list {
+	margin: 0;
+	padding: 0;
+	list-style: none;
+}
+.commit,
+.file {
+	display: flex;
+	align-items: center;
+	width: 100%;
+	padding: 7px 6px;
+	gap: 8px;
+	color: var(--text-1);
+	font-size: 12px;
+	text-align: left;
+	overflow-wrap: anywhere;
+	& [data-icon] {
+		flex-shrink: 0;
+		color: var(--text-3);
+	}
+	& code {
+		flex-shrink: 0;
+		color: var(--text-3);
+		font-size: 11px;
+	}
+}
+.commitTitle {
+	flex: 1;
+	min-width: 0;
+}
+.close:focus-visible {
+	outline: none;
+	background-color: var(--list-item-hover-bg);
+}
+.fileDescription {
+	margin: 0 6px 4px;
+	color: var(--text-3);
+	font-size: 12px;
+}
+.commitFiles {
+	margin: 0 0 6px 22px;
+}
+.file {
+	padding-block: 4px;
+	color: var(--text-2);
+	& i {
+		flex-shrink: 0;
+	}
+}

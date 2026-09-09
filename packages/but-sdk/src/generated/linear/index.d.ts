@@ -1681,7 +1681,7 @@ export declare function workspaceFetchStatus(projectId: string): Promise<Workspa
  * workspace previews the integration and no oplog entry is persisted. See
  * [`workspace_integrate_upstream_with_perm()`] for lower-level details.
  *
- * {@link ../../../../../crates/but-api/src/workspace.rs:748}
+ * {@link ../../../../../crates/but-api/src/workspace.rs:762}
  */
 export declare function workspaceIntegrateUpstream(projectId: string, updates: Array<BottomUpdate>, dryRun: boolean): Promise<WorkspaceIntegrateUpstreamOutcome>
 
@@ -4772,6 +4772,8 @@ export type WorkspaceIntegrateUpstreamOutcome = {
   targetCommits: TargetCommitPage | null;
   /** Dirty worktree paths that would conflict when applied onto the resulting workspace head. */
   worktreeConflicts: Array<string>;
+  /** Conflicted paths by resulting commit ID, for both previews and applied updates. */
+  commitConflicts: Record<string, Array<string>>;
 };
 
 /** JSON transport type returned by workspace recreation. */
