@@ -133,6 +133,7 @@ import {
 } from "react";
 import { Group, Panel, useDefaultLayout } from "react-resizable-panels";
 import styles from "./Details.module.css";
+import rowStyles from "./Row.module.css";
 import { diffHotkeys, workspaceHotkeys } from "#ui/hotkeys.ts";
 import { useHotkeys } from "@tanstack/react-hotkeys";
 import {
