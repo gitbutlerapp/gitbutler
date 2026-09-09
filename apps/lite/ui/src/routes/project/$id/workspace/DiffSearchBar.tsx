@@ -170,7 +170,7 @@ export const DiffSearchBar: FC<Props> = ({
 				type="button"
 				aria-label="Previous match"
 				disabled={matches.length === 0}
-				className={getButtonClassName({ size: "small", variant: "ghost", iconOnly: true })}
+				className={getButtonClassName({ variant: "ghost", iconOnly: true })}
 				onClick={() => step(-1)}
 			>
 				<Icon name="chevron-up" />
@@ -179,7 +179,7 @@ export const DiffSearchBar: FC<Props> = ({
 				type="button"
 				aria-label="Next match"
 				disabled={matches.length === 0}
-				className={getButtonClassName({ size: "small", variant: "ghost", iconOnly: true })}
+				className={getButtonClassName({ variant: "ghost", iconOnly: true })}
 				onClick={() => step(1)}
 			>
 				<Icon name="chevron-down" />
@@ -187,7 +187,7 @@ export const DiffSearchBar: FC<Props> = ({
 			<button
 				type="button"
 				aria-label="Close search"
-				className={getButtonClassName({ size: "small", variant: "ghost", iconOnly: true })}
+				className={getButtonClassName({ variant: "ghost", iconOnly: true })}
 				onClick={close}
 			>
 				<Icon name="cross" />
