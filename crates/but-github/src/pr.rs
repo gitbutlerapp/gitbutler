@@ -373,11 +373,18 @@ pub async fn list_reviewer_candidates(
     repo: &str,
     storage: &but_forge_storage::Controller,
 ) -> Result<Vec<crate::client::GitHubUser>> {
-    GitHubClient::from_storage(storage, preferred_account)?
+    let client = GitHubClient::from_storage(storage, preferred_account)?;
+    let mut users = client
         .list_assignable_users(owner, repo)
         .await
         .map_err(classify_forge_error)
-        .context("Failed to list reviewer candidates")
+        .context("Failed to list reviewer candidates")?;
+    // Best effort: a failed profile lookup must not take the collaborators with it.
+    match client.get_copilot_reviewer().await {
+        Ok(copilot) => users.extend(copilot),
+        Err(err) => tracing::warn!("Skipping Copilot as a reviewer candidate: {err:#}"),
+    }
+    Ok(users)
 }
 
 pub async fn request_reviewers(

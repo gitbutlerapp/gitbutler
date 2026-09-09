@@ -65,6 +65,7 @@ import { ReviewThreadReply } from "#ui/routes/project/$id/workspace/ReviewThread
 import { encodeBytes } from "#ui/api/bytes.ts";
 import { getHeadInfoIndex } from "#ui/api/ref-info.ts";
 import { forgeHunkPatch, threadStillAnchoredInFile } from "#ui/review-threads.ts";
+import { isAgent } from "#ui/review-users.ts";
 import { defaultSettings } from "#ui/settings.ts";
 import { pullRequestHotkeys } from "#ui/hotkeys.ts";
 import { FreshBadge, RegisterFreshItems } from "#ui/review-arrival.tsx";
@@ -90,13 +91,6 @@ const commentAnchorId = (commentId: number): string => `review-comment-${comment
 
 /** What a reply picks up from the card it answers. */
 type Quotable = { body: string | null; author: ForgeReviewUser | null };
-
-/**
- * Whether the author is an agent of any kind — Copilot, CI, a review bot.
- * The forge's own flag when it survives the trip, else the `[bot]` login
- * suffix every GitHub App carries.
- */
-const isAgent = (user: ForgeReviewUser): boolean => user.isBot || user.login.endsWith("[bot]");
 
 /**
  * The card header's identity: round avatar plus the login, as designed. An
@@ -1017,12 +1011,14 @@ const ForgeInserts: FC<{
 				label="Mention someone"
 				icon="user"
 				items={() =>
-					(candidates ?? []).map((candidate) =>
-						nativeMenuItem({
-							label: candidate.login,
-							onSelect: () => insert(`@${candidate.login} `),
-						}),
-					)
+					(candidates ?? [])
+						.filter((candidate) => !isAgent(candidate))
+						.map((candidate) =>
+							nativeMenuItem({
+								label: candidate.login,
+								onSelect: () => insert(`@${candidate.login} `),
+							}),
+						)
 				}
 				notice="No one to mention"
 			/>

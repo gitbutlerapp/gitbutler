@@ -812,6 +812,33 @@ impl GitHubClient {
             .collect())
     }
 
+    /// Copilot's reviewer account, or `None` where the forge has none. It can
+    /// be asked to review like a collaborator, but being an app it is never
+    /// among the assignees.
+    pub async fn get_copilot_reviewer(&self) -> Result<Option<GitHubUser>> {
+        let url = format!(
+            "{}/users/copilot-pull-request-reviewer%5Bbot%5D",
+            self.base_url
+        );
+
+        let response = self.client.get(&url).send().await?;
+        if response.status() == reqwest::StatusCode::NOT_FOUND {
+            return Ok(None);
+        }
+        let profile: GitHubApiUser = ensure_success(response).await?.json().await?;
+
+        // The profile spells the login `Copilot`, but a review request only
+        // resolves the bot login, so the login moves to the display name
+        // unless the profile already carries one.
+        let mut copilot = GitHubUser::from(profile);
+        if copilot.name.is_none() {
+            copilot.name = Some(copilot.login.clone());
+        }
+        copilot.login = "copilot-pull-request-reviewer[bot]".to_string();
+        copilot.is_bot = true;
+        Ok(Some(copilot))
+    }
+
     pub async fn request_reviewers(
         &self,
         owner: &str,
