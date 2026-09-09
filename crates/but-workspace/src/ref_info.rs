@@ -343,7 +343,7 @@ impl Segment {
 ///
 /// Stacks rest on the target, as do worktrees based outside the workspace or on unrelated history,
 /// so only a worktree based inside the workspace has `rests_on` set.
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Lane<'a> {
     /// The segments from tip to base, never empty.
     pub segments: &'a [Segment],
@@ -712,15 +712,28 @@ impl RefInfo {
     /// The commit rested on may sit in the middle of that segment. The chain is empty if `branch`
     /// names no segment of any lane.
     pub fn lane_chain(&self, branch: &gix::refs::FullNameRef) -> Vec<(Lane<'_>, usize)> {
-        let mut chain = Vec::new();
-        let mut next = self.lane_and_segment(|segment| segment.ref_name() == Some(branch));
-        while let Some((lane, index)) = next {
-            chain.push((lane, index));
-            next = lane.rests_on.and_then(|id| {
-                self.lane_and_segment(|segment| segment.commits.iter().any(|c| c.id == id))
-            });
-        }
+        let Some((lane, index)) =
+            self.lane_and_segment(|segment| segment.ref_name() == Some(branch))
+        else {
+            return Vec::new();
+        };
+        let mut chain = vec![(lane, index)];
+        chain.extend(self.lanes_beneath(lane));
         chain
+    }
+
+    /// The lanes `lane` rests on, nearest first, each along with the index of the segment owning
+    /// the commit rested on.
+    pub fn lanes_beneath(&self, lane: Lane<'_>) -> Vec<(Lane<'_>, usize)> {
+        let mut beneath = Vec::new();
+        let mut rests_on = lane.rests_on;
+        while let Some((lane, index)) = rests_on.and_then(|id| {
+            self.lane_and_segment(|segment| segment.commits.iter().any(|c| c.id == id))
+        }) {
+            beneath.push((lane, index));
+            rests_on = lane.rests_on;
+        }
+        beneath
     }
 
     fn lane_and_segment(&self, matches: impl Fn(&Segment) -> bool) -> Option<(Lane<'_>, usize)> {
