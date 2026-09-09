@@ -15,6 +15,7 @@ import {
 	listReviewReactionsQueryOptions,
 	treeChangeDiffsQueryOptions,
 	workspaceFetchQueryOptions,
+	workspaceTargetCommitsQueryOptions,
 } from "#ui/api/queries.ts";
 import { shortCommitId } from "#ui/commit.ts";
 import {
@@ -1275,11 +1276,16 @@ export const useWorkspaceIntegrateUpstream = () => {
 	return useMutation({
 		mutationFn: window.lite.workspaceIntegrateUpstream,
 		onSuccess: (response, input, _context, mutation) => {
+			if (input.dryRun) return;
 			syncCoreCaches(mutation.client, dispatch, input.projectId, response);
-			// The base moved with the stacks: re-read the target line now rather
-			// than showing the old incoming commits until the watcher delivers.
+			const queryKey = workspaceTargetCommitsQueryOptions(input.projectId).queryKey;
+			if (response.targetCommits != null)
+				mutation.client.setQueryData(queryKey, response.targetCommits);
+
 			void mutation.client.invalidateQueries({
-				queryKey: [input.projectId, "workspaceTargetCommits"],
+				queryKey,
+				predicate: (query) =>
+					response.targetCommits == null || query.queryKey.length > queryKey.length,
 			});
 		},
 		onError: (error, input) => {

@@ -33,6 +33,7 @@ const headInfo = {
 const integrationResult = {
 	workspaceState: { headInfo, replacedCommits: {}, checkoutConflictOccurred: false },
 	worktreeConflicts: [],
+	targetCommits: null,
 } satisfies WorkspaceIntegrateUpstreamOutcome;
 
 type TestBaseQuery = BaseQueryFn<unknown, unknown, string, { command?: string }>;

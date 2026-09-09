@@ -337,6 +337,8 @@ pub fn resolve_worktree_conflicts(
 pub struct WorkspaceIntegrateUpstreamOutcome {
     /// The post-operation or preview workspace state.
     pub workspace_state: WorkspaceState,
+    /// The updated default target-commit page, or `None` for a dry run or a failed page read.
+    pub target_commits: Option<crate::target_commits::TargetCommitPage>,
     /// Dirty worktree paths that would conflict when applied onto the resulting workspace head.
     pub worktree_conflicts: Vec<BStringForFrontend>,
 }
@@ -400,6 +402,8 @@ pub mod json {
     pub struct WorkspaceIntegrateUpstreamOutcome {
         /// The post-operation or preview workspace state.
         pub workspace_state: crate::json::WorkspaceState,
+        /// The updated default target-commit page, or `None` for a dry run or a failed page read.
+        pub target_commits: Option<crate::target_commits::TargetCommitPage>,
         /// Dirty worktree paths that would conflict when applied onto the resulting workspace head.
         #[cfg_attr(feature = "export-schema", schemars(with = "Vec<String>"))]
         pub worktree_conflicts: Vec<BStringForFrontend>,
@@ -414,6 +418,7 @@ pub mod json {
         fn try_from(value: super::WorkspaceIntegrateUpstreamOutcome) -> Result<Self, Self::Error> {
             Ok(Self {
                 workspace_state: value.workspace_state.try_into()?,
+                target_commits: value.target_commits,
                 worktree_conflicts: value.worktree_conflicts,
             })
         }
@@ -678,6 +683,7 @@ pub fn workspace_integrate_upstream_only_with_perm(
             rebase.project_meta_mut().target_commit_id = cached_target;
             return Ok(WorkspaceIntegrateUpstreamOutcome {
                 workspace_state,
+                target_commits: None,
                 worktree_conflicts,
             });
         }
@@ -708,6 +714,19 @@ pub fn workspace_integrate_upstream_only_with_perm(
 
     Ok(WorkspaceIntegrateUpstreamOutcome {
         workspace_state,
+        target_commits: crate::target_commits::workspace_target_commits_with_perm(
+            ctx,
+            None,
+            None,
+            perm.read_permission(),
+        )
+        .inspect_err(|err| {
+            warn!(
+                ?err,
+                "failed to read target commits after upstream integration"
+            )
+        })
+        .ok(),
         worktree_conflicts,
     })
 }
