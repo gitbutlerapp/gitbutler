@@ -535,7 +535,7 @@ pub fn graph_to_ref_info(
         metadata: _,
         lower_bound: _,
         lower_bound_segment_id,
-        worktrees: _,
+        worktrees,
     } = workspace;
 
     let ancestor_workspace_commit = match kind {
@@ -563,7 +563,10 @@ pub fn graph_to_ref_info(
         target_commit: target_commit.clone(),
         is_target_current,
         ancestor_workspace_commit,
-        worktrees: crate::worktrees::worktree_infos(workspace, repo),
+        worktrees: worktrees
+            .iter()
+            .map(|worktree| crate::worktrees::WorktreeInfo::try_from_graph_worktree(worktree, repo))
+            .collect::<anyhow::Result<_>>()?,
     };
 
     if let Some(info) = &info.ancestor_workspace_commit {
@@ -849,12 +852,33 @@ impl crate::ref_info::Segment {
     }
 }
 
-impl LocalCommit {
-    // Note that commit-relationships here don't see remotes.
-    pub(crate) fn try_from_stack_commit(
-        c: &StackCommit,
+impl crate::worktrees::WorktreeInfo {
+    fn try_from_graph_worktree(
+        but_graph::workspace::WorktreeStack {
+            name,
+            ref_name,
+            head,
+            base,
+            segments,
+        }: &but_graph::workspace::WorktreeStack,
         repo: &gix::Repository,
     ) -> anyhow::Result<Self> {
+        Ok(Self {
+            name: name.clone(),
+            ref_name: ref_name.clone(),
+            head: *head,
+            base: *base,
+            segments: segments
+                .iter()
+                .map(|s| crate::ref_info::Segment::try_from_graph_segment(s, repo))
+                .collect::<anyhow::Result<_>>()?,
+        })
+    }
+}
+
+impl LocalCommit {
+    // Note that commit-relationships here don't see remotes.
+    fn try_from_stack_commit(c: &StackCommit, repo: &gix::Repository) -> anyhow::Result<Self> {
         let StackCommit {
             id,
             parent_ids: _,

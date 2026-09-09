@@ -59,9 +59,23 @@ fn worktrees_are_projected_onto_the_workspace() -> Result<()> {
         .map(|wt| {
             (
                 wt.name.to_string(),
-                wt.commits
+                wt.segments
                     .iter()
-                    .map(|c| c.message.trim().as_bstr().to_string())
+                    .map(|segment| {
+                        (
+                            segment
+                                .ref_info
+                                .as_ref()
+                                .map_or("<anon>".to_string(), |ri| {
+                                    ri.ref_name.shorten().to_string()
+                                }),
+                            segment
+                                .commits
+                                .iter()
+                                .map(|c| c.message.trim().as_bstr().to_string())
+                                .collect::<Vec<_>>(),
+                        )
+                    })
                     .collect::<Vec<_>>(),
                 wt.base,
             )
@@ -71,53 +85,73 @@ fn worktrees_are_projected_onto_the_workspace() -> Result<()> {
     let a1 = repo.rev_parse_single("A~1")?.detach();
     let a2 = repo.rev_parse_single("A")?.detach();
     let w1 = repo.rev_parse_single("wt-inside")?.detach();
+    let mid1 = repo.rev_parse_single("mid~1")?.detach();
     let m0 = repo.rev_parse_single("main~1")?.detach();
     let m1 = repo.rev_parse_single("main")?.detach();
+    let segment = |name: &str, commits: &[&str]| {
+        (
+            name.to_string(),
+            commits.iter().map(|c| c.to_string()).collect::<Vec<_>>(),
+        )
+    };
     assert_eq!(
         summary,
         [
             (
                 "wt-at".to_string(),
-                Vec::new(),
+                // Detached, so anonymous even though it sits right on `A`.
+                vec![segment("<anon>", &[])],
                 // Its `HEAD` *is* a workspace commit, so it owns nothing and rests right there.
                 Some(WorktreeBase::InWorkspace(a2))
             ),
             (
                 "wt-below".to_string(),
-                vec!["U1".to_string()],
+                vec![segment("wt-below", &["U1"])],
                 // Branches off below the target without sitting on the target commit itself -
                 // only its base being reachable from the target reveals it is outside.
                 Some(WorktreeBase::Outside(m0))
             ),
             (
                 "wt-disjoint".to_string(),
-                vec!["D1".to_string()],
+                vec![segment("disjoint", &["D1"])],
                 // Unrelated history - the walk runs out of graph without finding a base.
                 None
             ),
             (
                 "wt-inside".to_string(),
-                vec!["W1".to_string()],
+                vec![segment("wt-inside", &["W1"])],
                 // Its commit branches off a commit that stack A owns.
                 Some(WorktreeBase::InWorkspace(a1))
             ),
             (
+                "wt-mid".to_string(),
+                // Detached in the middle of `mid`: owns the commit below, not the branch.
+                vec![segment("<anon>", &["MID1"])],
+                Some(WorktreeBase::InWorkspace(a1))
+            ),
+            (
                 "wt-outside".to_string(),
-                vec!["O1".to_string()],
+                vec![segment("wt-outside", &["O1"])],
                 // The target commit stops the walk before it can reach the workspace.
                 Some(WorktreeBase::Outside(m1))
             ),
             (
                 "wt-stacked".to_string(),
-                vec!["S1".to_string()],
+                vec![segment("wt-stacked", &["S1"])],
                 // Stacked on wt-inside, which is listed first and thus owns W1 exclusively.
                 Some(WorktreeBase::InWorkspace(w1))
+            ),
+            (
+                "wt-top".to_string(),
+                // A stack: `mid` is a branch of its own below `top`, cut short by `wt-mid`.
+                vec![segment("top", &["TOP1"]), segment("mid", &["MID2"])],
+                Some(WorktreeBase::InWorkspace(mid1))
             ),
         ]
     );
 
     for wt in &info.worktrees {
-        for commit in &wt.commits {
+        for commit in wt.commits() {
             assert_eq!(
                 commit.relation,
                 LocalCommitRelation::LocalOnly,
@@ -164,8 +198,7 @@ fn deep_disjoint_history_is_never_mistaken_for_being_below_the_target() -> Resul
     let wt = &info.worktrees[0];
     assert_eq!(wt.name.to_string(), "wt-deep");
     assert_eq!(
-        wt.commits
-            .iter()
+        wt.commits()
             .map(|c| c.message.trim().as_bstr().to_string())
             .collect::<Vec<_>>(),
         ["D5", "D4", "D3", "D2", "D1"],

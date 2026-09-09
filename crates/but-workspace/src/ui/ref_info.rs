@@ -181,15 +181,15 @@ pub struct Worktree {
 but_schemars::register_sdk_type!(Worktree);
 
 impl Worktree {
-    fn for_ui(
-        crate::worktrees::WorktreeInfo {
+    fn for_ui(worktree: crate::worktrees::WorktreeInfo) -> Self {
+        let commits = worktree.commits().map(Into::into).collect();
+        let crate::worktrees::WorktreeInfo {
             name,
             ref_name,
             head,
             base,
-            commits,
-        }: crate::worktrees::WorktreeInfo,
-    ) -> Self {
+            segments: _,
+        } = worktree;
         Worktree {
             name,
             ref_name: ref_name.map(Into::into),
@@ -198,7 +198,7 @@ impl Worktree {
                 crate::worktrees::WorktreeBase::InWorkspace(id) => WorktreeBase::InWorkspace(id),
                 crate::worktrees::WorktreeBase::Outside(id) => WorktreeBase::Outside(id),
             }),
-            commits: commits.iter().map(Into::into).collect(),
+            commits,
         }
     }
 }

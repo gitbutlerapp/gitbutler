@@ -75,7 +75,7 @@ impl MergedUpstream {
         // already has it from the pass above, so a worktree sitting exactly on
         // one is exactly the merged-upstream case.
         for worktree in &head_info.worktrees {
-            if worktree.commits.is_empty()
+            if worktree.commits().next().is_none()
                 && let Some(ref_name) = &worktree.ref_name
                 && this.integrated_commits.contains(&worktree.head)
             {

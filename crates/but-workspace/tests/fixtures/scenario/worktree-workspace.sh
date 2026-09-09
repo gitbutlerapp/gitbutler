@@ -45,6 +45,18 @@ git worktree add -b wt-below wt-below main~1
   commit U1
 )
 
+# A stack inside a worktree: `top` is checked out on `mid`, which no worktree has.
+git checkout -b mid A~1
+  commit MID1
+  commit MID2
+git worktree add -b top wt-top mid
+(cd wt-top
+  commit TOP1
+)
+
+# Detached in the middle of `mid`, so it owns MID1 and `wt-top` rests on it.
+git worktree add --detach wt-mid mid~1
+
 # Unrelated history - the walk can never reach the workspace or the target.
 git checkout --orphan disjoint
 commit D1
