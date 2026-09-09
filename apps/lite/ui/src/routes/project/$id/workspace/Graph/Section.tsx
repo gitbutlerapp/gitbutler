@@ -17,7 +17,8 @@ import { headInfoQueryOptions } from "#ui/api/queries.ts";
 import { stackBottomRelativeTo } from "#ui/api/stack.ts";
 import { projectSlice } from "#ui/projects/state.ts";
 import { useAppSelector } from "#ui/store.ts";
-import { Button } from "@base-ui/react";
+import { TooltipPopup } from "#ui/components/Tooltip.tsx";
+import { Button, Tooltip } from "@base-ui/react";
 import type { BottomUpdate } from "@gitbutler/but-sdk";
 import { useQuery } from "@tanstack/react-query";
 import { type FC, type ReactNode, type Ref, type RefObject, useRef } from "react";
@@ -154,7 +155,7 @@ const runRows = (
 };
 
 /** Rebases every stack onto the target's fetched tip; this does not fetch. */
-const Update: FC<{ projectId: string }> = ({ projectId }) => {
+const Integrate: FC<{ projectId: string; target: string }> = ({ projectId, target }) => {
 	const { data: headInfo } = useQuery(headInfoQueryOptions(projectId));
 	const noOperationPending = useAppSelector(
 		(state) => projectSlice.selectors.selectPendingOperation(state, projectId)._tag === "None",
@@ -171,13 +172,23 @@ const Update: FC<{ projectId: string }> = ({ projectId }) => {
 	};
 	const enabled = noOperationPending && headInfo?.target?.isCurrent === false && !isPending;
 	return (
-		<Button
-			className={getRowButtonClassName({ variant: "outline" })}
-			disabled={!enabled}
-			onClick={rebase}
-		>
-			{isPending ? "Updating…" : "Update"}
-		</Button>
+		<Tooltip.Root>
+			<Tooltip.Trigger
+				className={getRowButtonClassName({ variant: "outline" })}
+				onClick={rebase}
+				// `disabled` goes on the button so the tooltip still opens over it.
+				render={<Button focusableWhenDisabled disabled={!enabled} />}
+			>
+				{isPending ? "Integrating…" : "Integrate"}
+			</Tooltip.Trigger>
+			<Tooltip.Portal>
+				<Tooltip.Positioner sideOffset={4}>
+					<Tooltip.Popup render={<TooltipPopup />}>
+						Integrate the latest from {target} into the base
+					</Tooltip.Popup>
+				</Tooltip.Positioner>
+			</Tooltip.Portal>
+		</Tooltip.Root>
 	);
 };
 
@@ -260,9 +271,8 @@ export const Section: FC<{
 	// last commit once the history is shown to its start.
 	const endsOnBase = historyEnds && moreBelow === "hidden" && plan.older.length === 0;
 	/**
-	 * The ref's tip on the base: one row for both. Moved on: the row says how
-	 * far. The docked stand-in, with no line to show, wears the chevron instead
-	 * of a glyph.
+	 * The ref's tip on the base: one row for both. The docked stand-in, with
+	 * no line to show, wears the chevron instead of a glyph.
 	 */
 	const baseHeader = (docked = false) => (
 		<Header
@@ -270,8 +280,6 @@ export const Section: FC<{
 			caption={
 				plan.refOnBase ? (
 					<span className={classes("text-12", styles.caption)}>base</span>
-				) : branched ? (
-					<span className={classes("text-12", styles.incoming)}>{plan.header.incoming} behind</span>
 				) : undefined
 			}
 			heading={plan.refOnBase}
@@ -301,9 +309,7 @@ export const Section: FC<{
 				)
 			}
 			className={docked ? styles.docked : undefined}
-		>
-			{branched && <Update projectId={projectId} />}
-		</Header>
+		/>
 	);
 	return (
 		<>
@@ -312,7 +318,8 @@ export const Section: FC<{
 				(branched ? (
 					// The target has moved on: a card like a forked stack's, the trunk
 					// behind its rows at the edge and its incoming commits on a leg that
-					// starts at its row and runs straight down into the base's.
+					// starts at its row and runs straight down into the base's. Its row
+					// says how many are new and integrates them: seeing and acting sit together.
 					<>
 						<div className={styles.card}>
 							<Row interactive={false} className={styles.air}>
@@ -320,6 +327,11 @@ export const Section: FC<{
 							</Row>
 							<Header
 								label={plan.header.label}
+								caption={
+									<span className={classes("text-12", styles.incoming)}>
+										{plan.header.incoming} new
+									</span>
+								}
 								heading
 								fold={{
 									open: plan.incomingExpanded,
@@ -327,7 +339,9 @@ export const Section: FC<{
 									name: "incoming commits",
 								}}
 								rail={<GraphSegment glyph="forkRight" status="Upstream" behind={1} />}
-							/>
+							>
+								<Integrate projectId={projectId} target={plan.header.label} />
+							</Header>
 							<Fold open={plan.incomingExpanded}>
 								<div className={styles.rows}>
 									{plan.incoming.map((run) =>

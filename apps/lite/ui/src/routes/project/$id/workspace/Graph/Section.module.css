@@ -67,7 +67,7 @@
 }
 
 /* Folded, the merge base row's stand-in docks at the scroller's foot while
-   the row is out of view below, keeping the count and Update in view; its
+   the row is out of view below, keeping the base's fold reachable; its
    toggle scrolls to the row's place before opening. It shows only while its
    mark (WorkspaceLists' footDock) is stuck: air, a hairline, and a chevron in
    place of the glyph, whose lines would claim a line above that is not there.
