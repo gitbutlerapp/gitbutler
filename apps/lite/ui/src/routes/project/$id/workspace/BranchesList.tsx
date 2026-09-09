@@ -756,7 +756,9 @@ export const BranchesList: FC<
 						<p className={classes("text-13", styles.msg)}>Unable to load branches.</p>
 					) : isNarrowed ? (
 						<EmptyState
-							illustration="cactus"
+							// The binoculars are for a search that came up empty; filters that
+							// hide everything get the same cactus as a list with nothing in it.
+							illustration={query === "" ? "cactus" : "looking"}
 							title="No branches match"
 							description={
 								query === ""
