@@ -616,7 +616,7 @@ mod tests {
         ];
 
         assert!(
-            review_target_flattening_plan(&reviews).is_none(),
+            review_target_flattening_plan(&reviews, "main").is_none(),
             "an ordinary push should not contact the forge before pushing"
         );
     }
@@ -640,9 +640,8 @@ mod tests {
             ),
         ];
 
-        let (trunk, reviews_to_flatten) =
-            review_target_flattening_plan(&reviews).expect("the reviewed stack was reordered");
-        assert_eq!(trunk, "main");
+        let reviews_to_flatten = review_target_flattening_plan(&reviews, "main")
+            .expect("the reviewed stack was reordered");
         assert_eq!(
             reviews_to_flatten,
             std::collections::HashSet::from([1]),
@@ -670,7 +669,7 @@ mod tests {
         ];
 
         assert!(
-            review_target_flattening_plan(&reviews).is_none(),
+            review_target_flattening_plan(&reviews, "main").is_none(),
             "missing cache data must not cause remote mutations before a push"
         );
     }
@@ -1650,9 +1649,10 @@ pub(crate) struct ReviewTargetFlattening {
 /// desired stacked targets.
 pub(crate) async fn flatten_review_targets_before_push(
     ctx: ThreadSafeContext,
+    trunk: String,
     reviews: &[(but_forge::ForgeReviewTargetUpdate, Option<String>)],
 ) -> Result<Option<ReviewTargetFlattening>> {
-    let Some((trunk, reviews_to_flatten)) = review_target_flattening_plan(reviews) else {
+    let Some(reviews_to_flatten) = review_target_flattening_plan(reviews, &trunk) else {
         return Ok(None);
     };
 
@@ -1771,7 +1771,8 @@ pub(crate) async fn restore_review_targets(
 
 fn review_target_flattening_plan(
     reviews: &[(but_forge::ForgeReviewTargetUpdate, Option<String>)],
-) -> Option<(String, std::collections::HashSet<i64>)> {
+    trunk: &str,
+) -> Option<std::collections::HashSet<i64>> {
     if reviews.iter().any(|(_, current)| current.is_none()) {
         return None;
     }
@@ -1781,14 +1782,13 @@ fn review_target_flattening_plan(
     if !targets_changed {
         return None;
     }
-
-    let trunk = reviews.first()?.0.target_branch.clone();
-    let reviews_to_flatten = reviews
-        .iter()
-        .filter(|(_, current)| current.as_deref() != Some(trunk.as_str()))
-        .map(|(review, _)| review.number)
-        .collect();
-    Some((trunk, reviews_to_flatten))
+    Some(
+        reviews
+            .iter()
+            .filter(|(_, current)| current.as_deref() != Some(trunk))
+            .map(|(review, _)| review.number)
+            .collect(),
+    )
 }
 
 /// Synchronize every review in the workspace stack containing `branch`.
