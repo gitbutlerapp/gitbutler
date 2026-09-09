@@ -31,9 +31,10 @@ PERF_CHANNEL=nightly PERF_SHOW_OUTPUT=1 PERF_WARMUP=0 PERF_RUNS=1 \
 PERF_CHANNEL=nightly PERF_RESULTS_DIR="$PWD/target/performance-results" \
 ./crates/but/tests/performance/run.sh
 
-# Full nightly suite with database upload (password in ~/.pgpass)
+# Full nightly suite with HTTP upload (supply suite token securely)
 PERF_CHANNEL=nightly \
-PERF_UPLOAD_DB='postgresql://benchmark_writer@host:5432/benchmarks?sslmode=verify-full' \
+PERF_UPLOAD_URL=https://tests.but.dev \
+PERF_UPLOAD_TOKEN="$TOKEN" \
 ./crates/but/tests/performance/run.sh
 ```
 
@@ -50,7 +51,7 @@ Requires POSIX shell, Git, and [Hyperfine](https://github.com/sharkdp/hyperfine)
 
 - Rust/Cargo for local builds (not needed with `BUT_BIN` or `PERF_CHANNEL`).
 - `curl` and `jq` for release downloads.
-- `psql` and `jq` for database uploads.
+- `curl` and `jq` for HTTP uploads (not needed for local-only supplied/local builds).
 
 Defaults: three warmups and at least twenty measured runs. Set `PERF_WARMUP`,
 `PERF_MIN_RUNS`, or `PERF_RUNS` to adjust. Name one scenario while developing.
@@ -61,14 +62,34 @@ profile. `PERF_VERSION` selects release's `version` (not `build_version`); omit 
 latest. It only affects downloads.
 
 `PERF_RESULTS_DIR` saves Hyperfine statistics and samples as `<scenario>.json`,
-overwriting same-named files. For database uploads, set `PERF_UPLOAD_DB` to full
-connection string; passwords can come from `~/.pgpass`. Provision empty database once
-with [setup-database.sql](setup-database.sql) using administrator connection.
+overwriting same-named files. Upload mode defaults results directory to
+`target/performance-results`; local-only runs save nothing unless this variable is set.
 
-Uploads happen after all scenarios succeed and append new rows. Failed uploads exit
-nonzero and preserve JSON; upload mode defaults results directory to
-`target/performance-results`. Schema and insertion details live in
-[setup-database.sql](setup-database.sql) and [upload.sql](upload.sql).
+## HTTP uploads and replay
+
+Set `PERF_UPLOAD_URL` and `PERF_UPLOAD_TOKEN` to upload results; leave both unset
+for local-only runs.
+
+```sh
+PERF_CHANNEL=nightly \
+PERF_UPLOAD_URL=https://tests.but.dev PERF_UPLOAD_TOKEN="$TOKEN" \
+./crates/but/tests/performance/run.sh
+```
+
+With `BUT_BIN`, also set `PERF_BINARY_COMMIT` to its full commit SHA. Optionally set
+`PERF_MACHINE` and `PERF_CPU` to override hostname and CPU description.
+
+Failed uploads print the saved payload path. Retry without rerunning benchmarks:
+
+```sh
+PERF_UPLOAD_URL=https://tests.but.dev PERF_UPLOAD_TOKEN="$TOKEN" \
+./crates/but/tests/performance/upload.sh \
+/path/to/results/uploads/<upload-id>/payload.json
+```
+
+Use the saved payload unchanged; replaying an accepted upload won't duplicate results.
+For local testing, use a separate suite token and a loopback URL such as
+`http://127.0.0.1:6979`; other URLs require HTTPS.
 
 ## Included scenarios
 
@@ -239,6 +260,10 @@ shellcheck crates/but/tests/performance/*.sh \
 PERF_WARMUP=0 PERF_RUNS=1 \
 ./crates/but/tests/performance/run.sh <scenario-name>
 ```
+
+For receiver integration, smoke-test a single scenario with
+`PERF_WARMUP=0 PERF_RUNS=1`, a local receiver URL and benchmark-suite token, then replay
+the retained payload and confirm duplicate acceptance. Smoke timings aren't regressions.
 
 If ShellCheck is unavailable, report that explicitly. Check executable bits and update
 [Included scenarios](#included-scenarios).
