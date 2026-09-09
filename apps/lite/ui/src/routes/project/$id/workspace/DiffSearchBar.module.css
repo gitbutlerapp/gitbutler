@@ -21,7 +21,11 @@
 	width: 200px;
 }
 
+/* Room of its own on both sides: the row's 4px gap alone left the count pressed against the
+   field's border and the arrow buttons. More on the field side, since the ghost buttons already
+   hold their glyphs off their edge. */
 .matchCount {
+	padding-inline: 8px 4px;
 	color: var(--text-2);
 	white-space: nowrap;
 }
