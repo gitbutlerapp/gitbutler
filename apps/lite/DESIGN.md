@@ -193,10 +193,16 @@ same wording as the menu item or button elsewhere that does the same thing.
 title, a body line, and an actions slot. Its description in Figma carries the
 same rules as this section; change one and change the other.
 
-**It is for a surface that is genuinely empty, at rest.** Not a loading state —
-"not loaded" is not the same as "nothing to report", and a panel that claims an
-emptiness it hasn't checked yet will flash the wrong words on every open. Not a
-filter that matched nothing either: that belongs in a line where the list would
+**It is for a surface that is empty, once the app knows it is.** Not a loading
+state — "not loaded" is not the same as "nothing to report", and a panel that
+claims an emptiness it hasn't checked yet will flash the wrong words on every
+open.
+
+**A filter that matched nothing is empty too, and says so.** In a panel with
+room for it — the branches tab — it takes the block, with the title naming the
+miss and the body quoting what missed: the search, the filters, or both. The
+one action shows everything again, because the filters live in a native menu
+the block cannot point at. A short strip keeps the line where its rows would
 be, next to the filter that caused it.
 
 **Never a stand-in that looks like content.** Gray avatar circles and text

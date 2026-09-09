@@ -6,6 +6,7 @@ import { assert } from "#ui/assert.ts";
 import { activeBranchFilterCount, branchIsEmpty, type BranchFilters } from "#ui/branch.ts";
 import { commitIsDiverged, commitTitle } from "#ui/commit.ts";
 import { Badge } from "#ui/components/Badge.tsx";
+import { getButtonClassName } from "#ui/components/Button.tsx";
 import { classes } from "#ui/components/classes.ts";
 import { EmptyState } from "#ui/components/EmptyState.tsx";
 import {
@@ -497,9 +498,19 @@ export const BranchesList: FC<
 	// `onlyLocal` and `onlyStacks` hide branches the resting list would show —
 	// `showEmpty` only ever widens it — so they, and a search, are what make an
 	// empty list a no-match rather than a state at rest.
-	const isNarrowed = (search ?? "").trim() !== "" || filters.onlyLocal || filters.onlyStacks;
+	const query = (search ?? "").trim();
+	const isFiltered = filters.onlyLocal || filters.onlyStacks;
+	const isNarrowed = query !== "" || isFiltered;
 	const activeFilterCount = activeBranchFilterCount(filters);
-	const isEmptyAtRest = stacks.length === 0 && !isPending && !isError && !isNarrowed;
+	const isEmpty = stacks.length === 0 && !isPending && !isError;
+
+	// Undoes every narrowing at once: a closed search is a cleared one, and the
+	// filters live in a native menu the block cannot point at.
+	const showAllBranches = () => {
+		dispatch(projectSlice.actions.setBranchSearch({ projectId, search: null }));
+		for (const filter of ["onlyLocal", "onlyStacks"] as const)
+			if (filters[filter]) dispatch(projectSlice.actions.toggleBranchFilter({ projectId, filter }));
+	};
 
 	const selection = useSelection("unapplied", addressSpace);
 	useCursorWriteBack("unapplied", addressSpace);
@@ -732,19 +743,37 @@ export const BranchesList: FC<
 			<div
 				ref={retainScrollElement}
 				className={classes(uiStyles.scroller, styles.list)}
-				data-empty={isEmptyAtRest}
+				data-empty={isEmpty}
 			>
-				{/* Loading, failing and narrowed-to-nothing all stay one line where the
-				    rows would be: none of them is a surface at rest, and an answer about
-				    a filter belongs next to the filter that caused it. Only a list that
-				    is empty with nothing narrowing it gets the block. */}
+				{/* Loading and failing stay one line where the rows would be: neither
+				    is a surface at rest. An empty list gets the block, and says which
+				    kind of empty it is — nothing to list, or nothing left once the
+				    search and filters have had their say. */}
 				{stacks.length === 0 &&
 					(isPending ? (
 						<p className={classes("text-13", styles.msg)}>Loading branches…</p>
 					) : isError ? (
 						<p className={classes("text-13", styles.msg)}>Unable to load branches.</p>
 					) : isNarrowed ? (
-						<p className={classes("text-13", styles.msg)}>No matching branches.</p>
+						<EmptyState
+							illustration="cactus"
+							title="No branches match"
+							description={
+								query === ""
+									? "The filters you have on hide every branch"
+									: isFiltered
+										? `Nothing with “${query}” in its name gets past the filters you have on`
+										: `None of your branches has “${query}” in its name`
+							}
+						>
+							<button
+								type="button"
+								className={getButtonClassName({ variant: "outline" })}
+								onClick={showAllBranches}
+							>
+								Show all branches
+							</button>
+						</EmptyState>
 					) : (
 						<EmptyState
 							illustration="cactus"
