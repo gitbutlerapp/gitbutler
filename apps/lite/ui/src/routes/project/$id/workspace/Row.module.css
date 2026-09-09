@@ -235,6 +235,7 @@
 
 /* A row's second line: small, muted facts about the row's subject. */
 .meta {
+	container-type: inline-size;
 	display: flex;
 	align-items: center;
 	gap: 6px;
@@ -259,6 +260,13 @@
    follows, since no separator dot divides them. */
 .metaButton {
 	margin-left: 4px;
+}
+
+/* Push beside Integrate outgrows a narrow row; their arrows say it alone. */
+@container (max-width: 330px) {
+	.meta:has(> .metaButton ~ .metaButton) .metaButtonLabel {
+		display: none;
+	}
 }
 
 /* Item that yields space to its siblings by truncating its text. */
