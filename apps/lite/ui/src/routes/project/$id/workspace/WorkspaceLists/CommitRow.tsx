@@ -62,8 +62,6 @@ export const CommitRow: FC<
 		below?: GraphSegmentStatus;
 		/** Columns of the main line running behind the row, left of its rail. */
 		behind?: number;
-		/** The rail ends on this commit: a root, with nothing below to run on to. */
-		railEnds?: boolean;
 		/**
 		 * The linked worktree whose lane the commit is drawn in. Such a commit is
 		 * outside the workspace, so the actions that rewrite it stay off.
@@ -81,7 +79,6 @@ export const CommitRow: FC<
 	worktree,
 	below,
 	behind,
-	railEnds,
 	...restProps
 }) => {
 	const { data: forgeInfo } = useQuery(forgeInfoOptions(projectId));
@@ -410,7 +407,6 @@ export const CommitRow: FC<
 					status={commitIsDiverged(commit) ? "Diverged" : commit.state.type}
 					below={below}
 					behind={behind}
-					railEnds={railEnds}
 				/>
 				<Tooltip.Root
 					// This gets in the way when the user tries to move their hover to a

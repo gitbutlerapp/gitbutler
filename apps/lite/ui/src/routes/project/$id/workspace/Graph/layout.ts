@@ -6,18 +6,27 @@ import type { RefInfo, Stack, TargetCommit, TargetCommitPage, Worktree } from "@
 /*
  * The stacks section as a graph: card order and which section rows show. Pure.
  *
- * One main line, the trunk, runs up the left from the merge base to the
- * uncommitted files. Every stack card, and a moved-on target's, sits a column
- * to its right and bends onto it in the gap under it. Rows draw their own
- * gutters, a column each for the lines behind them and the glyph
- * (GraphSegment); a card draws the gap under it.
+ * One main line, the trunk, runs up the panel's edge from the merge base to
+ * the uncommitted files. Every stack card, and a moved-on target's, sits in
+ * the column beside it and bends onto it in the gap under it; the base's own
+ * rows sit in that column too, hooking the trunk off the edge into them, since
+ * no glyph fits on the edge. Rows draw their own gutters, a column each for
+ * the lines behind them and the glyph (GraphSegment); a card draws the gap
+ * under it.
  */
 
-/** The rows' inset in the graph: the first column's line, 8px in, at x = 18. */
-export const ROW_INSET = 10;
+/**
+ * The rows' inset in the graph. The trunk's column sits one 12px column left
+ * of it, so its line, 8px in, is centred at x = 1 on the panel's edge, and the
+ * first glyph column starts here. Whole pixels throughout: SVGs snap to them
+ * where CSS boxes do not, and a fractional inset puts the two out of step. The
+ * uncommitted files card carries no inset: the edge column is its whole
+ * gutter (GraphEdge).
+ */
+export const ROW_INSET = 12 - 8 + 1;
 /** The gap under a card, tall enough for a line to bend through. */
 export const CARD_GAP = 20;
-/** The gap under the target's card and the ref row, which the leg bends through. */
+/** The gap under a worktree lane, which its line bends through. */
 export const LEG_GAP = 12;
 /** The connector between a worktree on a branch's tip and the branch row under it. */
 export const TIP_GAP = 8;
@@ -80,8 +89,6 @@ export type Plan = {
 	header: { label: string; incoming: number };
 	/** The target's tip is the base itself: one row stands for both. */
 	refOnBase: boolean;
-	/** No target: the sole stack is the main line, so it runs on the trunk instead of a column off it. */
-	stackOnTrunk: boolean;
 	incomingExpanded: boolean;
 	baseExpanded: boolean;
 	/** The commit the stacks nearest the tip sit on; the base header names it. Null while unknown. */
@@ -228,7 +235,6 @@ export const layout = (
 			base !== null &&
 			commits[0]?.commit.id === base.commit.id &&
 			commits.every((entry) => entry.inWorkspace),
-		stackOnTrunk: target === null && stacks.length === 1,
 		incomingExpanded: folds.incomingExpanded,
 		baseExpanded: folds.baseExpanded,
 		base,

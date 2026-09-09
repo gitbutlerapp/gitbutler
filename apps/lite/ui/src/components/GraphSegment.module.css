@@ -71,9 +71,32 @@
 	}
 }
 
+/* The first column is the trunk's. It sits one column left of the row's inset,
+   which layout.ts's ROW_INSET sizes to land its line on the panel's edge. No
+   glyph ever sits in it: a row the trunk enters hooks it into the glyph column
+   beside it, drawing left of the canvas. */
+.edgePass,
+.gap > svg:first-child {
+	margin-inline-start: -12px;
+}
+
+/* The trunk itself rather than a line behind a lane, so it keeps the weight
+   the gaps draw it at; translucent like the other passes, as it crosses row
+   fills. */
+.edgePass {
+	flex-shrink: 0;
+	width: 12px;
+	stroke: color-mix(in srgb, var(--commit-local) 40%, transparent);
+}
+
 .glyph {
 	display: flex;
 	flex-direction: column;
+}
+
+/* The trunk's own column, GraphEdge's, drawn on an 8px canvas. */
+.edge {
+	width: 8px;
 }
 
 .mainSegment {
@@ -84,6 +107,8 @@
 	visibility: var(--graph-segment-glyph-visibility, visible);
 	flex-shrink: 0;
 	height: 28px;
+	/* The hooks off the edge draw left of the canvas. */
+	overflow: visible;
 }
 
 /* The group glyph is drawn on a shorter canvas so its bottom tail ends sooner;

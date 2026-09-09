@@ -19,27 +19,58 @@ const glyphPaths = {
 	joinLeft: "M8 14H0M8 14V0M8 14V28",
 	joinRight: "M16 14H8M8 14V0M8 14V28",
 	joinBoth: "M16 14L8 14M0 14H8M8 0V14M8 28V14",
-	// The rail around a disclosure control on the row: into it, and out of it.
-	control: "M8 0V4M8 24V28",
-	/** Out of the control only, for a row that starts a rail under it. */
-	controlHead: "M8 24V28",
 };
 
 /** A stretch of the rail in another status's colour, or the glyph's own when none is given. */
-const Tone: FC<{ status: GraphSegmentStatus | undefined; d: string }> = ({ status, d }) => (
+const Tone: FC<{ status: GraphSegmentStatus | undefined; d: string; dashed?: boolean }> = ({
+	status,
+	d,
+	dashed = false,
+}) => (
 	<g className={styles.tone} data-status={status}>
-		<path className={styles.line} d={d} strokeWidth="1.5" />
+		<path
+			className={styles.line}
+			d={d}
+			strokeWidth="1.5"
+			strokeDasharray={dashed ? "1.5 2.5" : undefined}
+		/>
 	</g>
 );
+
+/**
+ * The columns the main line runs through behind a row or gap. The first is
+ * the trunk's on the panel's edge, drawn the way the gaps draw it so the two
+ * land on the same pixels: an SVG antialiases where a CSS box snaps.
+ */
+const passes = (behind: number) =>
+	Array.from({ length: behind }, (_, column) =>
+		column === 0 ? (
+			<svg
+				key={column}
+				className={styles.edgePass}
+				viewBox="0 0 12 28"
+				preserveAspectRatio="none"
+				fill="none"
+				xmlns="http://www.w3.org/2000/svg"
+				aria-hidden="true"
+				focusable="false"
+			>
+				<path d="M8 0V28" strokeWidth="1.5" />
+			</svg>
+		) : (
+			<span key={column} className={styles.pass} aria-hidden />
+		),
+	);
+
+const ringPath =
+	"M11.5 14C11.5 15.933 9.933 17.5 8 17.5C6.067 17.5 4.5 15.933 4.5 14C4.5 12.067 6.067 10.5 8 10.5C9.933 10.5 11.5 12.067 11.5 14Z";
+
+const ring = <path d={ringPath} stroke="currentColor" strokeWidth="1.5" />;
 
 const commitGlyph = (below: GraphSegmentStatus | undefined) => (
 	<>
 		<path className={styles.line} d="M8 0V11" strokeWidth="1.5" />
-		<path
-			d="M11.5 14C11.5 15.933 9.933 17.5 8 17.5C6.067 17.5 4.5 15.933 4.5 14C4.5 12.067 6.067 10.5 8 10.5C9.933 10.5 11.5 12.067 11.5 14Z"
-			stroke="currentColor"
-			strokeWidth="1.5"
-		/>
+		{ring}
 		<Tone status={below} d="M8 17V28" />
 	</>
 );
@@ -58,16 +89,9 @@ const groupGlyph = (
 const commitFootGlyph = (
 	<>
 		<path className={styles.line} d="M8 0V11" strokeWidth="1.5" />
-		<path
-			d="M11.5 14C11.5 15.933 9.933 17.5 8 17.5C6.067 17.5 4.5 15.933 4.5 14C4.5 12.067 6.067 10.5 8 10.5C9.933 10.5 11.5 12.067 11.5 14Z"
-			stroke="currentColor"
-			strokeWidth="1.5"
-		/>
+		{ring}
 	</>
 );
-
-/** The rail into the control, for the row a rail ends on. */
-const controlFootGlyph = <path className={styles.line} d="M8 0V4" strokeWidth="1.5" />;
 
 /** A branch's tick on a rail that continues above: the stretch above and below it in others' colours. */
 const joinRightGlyph = (
@@ -78,6 +102,36 @@ const joinRightGlyph = (
 		<Tone status={above} d="M8 14V0" />
 		<path className={styles.line} d="M16 14H8" strokeWidth="1.5" />
 		<Tone status={below} d="M8 14V28" />
+	</>
+);
+
+/**
+ * The trunk hooking off the panel's edge, 4px left of the canvas, into the
+ * column: two quarter turns of radius 4 through the row's centre line, as a
+ * card's line bends in a gap. A line in another's colour may come down the
+ * column to the join, and on down below it.
+ */
+const hookGlyph = (
+	above: GraphSegmentStatus | undefined,
+	below: GraphSegmentStatus | undefined,
+	folded: boolean,
+) => (
+	<>
+		{above !== undefined && <Tone status={above} d="M8 0V18" />}
+		<path
+			className={styles.line}
+			d="M-4 0V10C-4 12.2091 -2.2091 14 0 14H4C6.2091 14 8 15.7909 8 18"
+			strokeWidth="1.5"
+		/>
+		<Tone status={below} d="M8 18V28" dashed={folded} />
+	</>
+);
+
+/** A plain rail through the row, the stretch below its centre in another's colour. */
+const parentGlyph = (below: GraphSegmentStatus | undefined, folded: boolean) => (
+	<>
+		<path className={styles.line} d="M8 0V14" strokeWidth="1.5" />
+		<Tone status={below} d="M8 14V28" dashed={folded} />
 	</>
 );
 
@@ -110,7 +164,7 @@ const groupCenteredFootGlyph = (
 );
 
 /** @public */
-export type GraphSegmentGlyph = keyof typeof glyphPaths | "commit" | "group";
+export type GraphSegmentGlyph = keyof typeof glyphPaths | "commit" | "group" | "hook";
 
 /** Glyphs whose rail carries on past the drawing, so a taller row goes on drawing it. */
 const stretchableGlyphs = new Set<GraphSegmentGlyph>([
@@ -123,7 +177,7 @@ const stretchableGlyphs = new Set<GraphSegmentGlyph>([
 	"joinLeft",
 	"joinRight",
 	"joinBoth",
-	"control",
+	"hook",
 ]);
 
 /**
@@ -138,6 +192,8 @@ interface GraphSegmentProps extends ComponentProps<"span"> {
 	status: GraphSegmentStatus;
 	/** The rail ends on this row: no tail below the icon, nothing stretched under a taller row. */
 	railEnds?: boolean;
+	/** The rail below the row is folded away: its tail is dashed, a hint of what the fold holds. */
+	folded?: boolean;
 	/** The rings sit on the row's centre line, for a single-line row of their own. */
 	centered?: boolean;
 	/** The rail above or below the icon in another status's colour; a stretch between two icons is the lower one's. */
@@ -152,6 +208,7 @@ export const GraphSegment: FC<GraphSegmentProps> = ({
 	className,
 	status,
 	railEnds = false,
+	folded = false,
 	centered = false,
 	above,
 	below,
@@ -160,9 +217,7 @@ export const GraphSegment: FC<GraphSegmentProps> = ({
 }) => (
 	// Spans throughout: the segment sits in buttons and spans, which take phrasing content only.
 	<span {...props} className={classes(className, styles.container)} data-status={status}>
-		{Array.from({ length: behind }, (_, column) => (
-			<span key={column} className={styles.pass} aria-hidden />
-		))}
+		{passes(behind)}
 		<span className={styles.glyph}>
 			<svg
 				className={classes(
@@ -179,12 +234,14 @@ export const GraphSegment: FC<GraphSegmentProps> = ({
 					commitFootGlyph
 				) : railEnds && glyph === "group" && centered ? (
 					groupCenteredFootGlyph
-				) : railEnds && glyph === "control" ? (
-					controlFootGlyph
 				) : glyph === "commit" ? (
 					commitGlyph(below)
 				) : glyph === "joinRight" ? (
 					joinRightGlyph(above, below)
+				) : glyph === "hook" ? (
+					hookGlyph(above, below, folded)
+				) : glyph === "parent" ? (
+					parentGlyph(below, folded)
 				) : glyph === "forkRight" ? (
 					forkRightGlyph(below)
 				) : glyph === "group" ? (
@@ -236,10 +293,50 @@ const bendPath = (height: number): string => {
 	].join(" ");
 };
 
+const edgePaths = {
+	parent: "M1 0V28",
+	/** The trunk's head: the row's tick bending down onto the line. */
+	forkRight: "M8 14C4.134 14 1 17.134 1 21V28",
+};
+
+/**
+ * The trunk's own column at the panel's edge, for the rows it runs down as
+ * their rail: 8px wide, its line hugging the border, with room for a straight
+ * run or the bend at its head and no glyph. Rows on it carry no inset.
+ */
+export const GraphEdge: FC<{ glyph: keyof typeof edgePaths }> = ({ glyph }) => (
+	<span className={styles.container} data-status="LocalOnly">
+		<span className={classes(styles.glyph, styles.edge)}>
+			<svg
+				className={styles.mainSegment}
+				viewBox="0 0 8 28"
+				fill="none"
+				xmlns="http://www.w3.org/2000/svg"
+				aria-hidden="true"
+				focusable="false"
+			>
+				<path className={styles.line} d={edgePaths[glyph]} strokeWidth="1.5" />
+			</svg>
+			<svg
+				viewBox="0 0 8 28"
+				preserveAspectRatio="none"
+				fill="none"
+				xmlns="http://www.w3.org/2000/svg"
+				className={styles.stretchSegment}
+				aria-hidden="true"
+				focusable="false"
+			>
+				<path className={styles.line} d={edgePaths.parent} strokeWidth="1.5" />
+			</svg>
+		</span>
+	</span>
+);
+
 /**
  * The gutter of the gap under a card: the main line runs through it, and the
  * card's own line, a column to the right, may bend onto it. With columns
- * `behind`, the gap sits that far right, the lines behind it passing through.
+ * `behind`, the gap sits that far right, the lines behind it passing through;
+ * with none, the main line is the trunk on the panel's edge.
  */
 export const GraphGap: FC<{ height: number; bend?: GraphSegmentStatus; behind?: number }> = ({
 	height,
@@ -247,9 +344,7 @@ export const GraphGap: FC<{ height: number; bend?: GraphSegmentStatus; behind?: 
 	behind = 0,
 }) => (
 	<div className={styles.gap} style={{ height }} aria-hidden>
-		{Array.from({ length: behind }, (_, column) => (
-			<span key={column} className={styles.pass} />
-		))}
+		{passes(behind)}
 		<svg
 			viewBox={`0 0 28 ${height}`}
 			width="28"

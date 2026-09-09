@@ -1,4 +1,4 @@
-import { GraphGap, GraphSegment } from "#ui/components/GraphSegment.tsx";
+import { GraphSegment } from "#ui/components/GraphSegment.tsx";
 import { Icon } from "#ui/components/Icon.tsx";
 import { classes } from "#ui/components/classes.ts";
 import { getRowButtonClassName } from "#ui/routes/project/$id/workspace/Row-utils.ts";
@@ -24,12 +24,15 @@ import { type FC, type ReactNode, type Ref, type RefObject, useRef } from "react
 import { createPortal } from "react-dom";
 import styles from "./Section.module.css";
 import { TargetCommitRow } from "./TargetCommitRow.tsx";
-import { LEG_GAP, type Plan, type Run, targetCommitAddress } from "./layout.ts";
+import { type Plan, type Run, targetCommitAddress } from "./layout.ts";
 
 /*
  * The upstream section under the stacks: the target's row or card, folding
  * the incoming commits, then the merge base header, folding the history
  * below it. Commit rows are values on the applied cursor; headers are not.
+ *
+ * The trunk runs down the panel's edge and hooks into the first row here
+ * that draws a glyph, the ref's or the base's, since no glyph fits on the edge.
  */
 
 // Base rows take the integrated colour, incoming rows the upstream's. Rows a
@@ -63,9 +66,9 @@ const Header: FC<{
 	caption?: ReactNode;
 	/** The ref's row reads as a heading; the base's a step under it, being the ref's history. */
 	heading?: boolean;
-	/** The fold the header opens; none for a plain row. */
-	fold?: { open: boolean; onToggle: () => void; name: string };
-	/** The row's gutter; with a fold, its chevron sits on the glyph. */
+	/** The fold the header opens; none for a plain row. Its chevron swaps in for the glyph on hover, unless the glyph is one. */
+	fold?: { open: boolean; onToggle: () => void; name: string; hoverChevron?: boolean };
+	/** The row's gutter. */
 	rail: ReactNode;
 	className?: string;
 	children?: ReactNode;
@@ -76,17 +79,10 @@ const Header: FC<{
 		) : (
 			<RowFoldToggle
 				folded={!fold.open}
-				glyph={
-					<span className={styles.control}>
-						{rail}
-						<span className={styles.chevron}>
-							<Icon name={fold.open ? "chevron-down" : "chevron-right"} />
-						</span>
-					</span>
-				}
+				glyph={rail}
 				aria-label={`${fold.open ? "Fold" : "Unfold"} ${fold.name}`}
 				onClick={fold.onToggle}
-				hoverChevron={false}
+				hoverChevron={fold.hoverChevron}
 			/>
 		)}
 		<RowLabelContainer>
@@ -263,8 +259,12 @@ export const Section: FC<{
 	// The line ends on the last row shown: the "show more" row, else the
 	// last commit once the history is shown to its start.
 	const endsOnBase = historyEnds && moreBelow === "hidden" && plan.older.length === 0;
-	/** The ref's tip on the base: one row for both. Moved on: the row says how far. */
-	const baseHeader = (className?: string) => (
+	/**
+	 * The ref's tip on the base: one row for both. Moved on: the row says how
+	 * far. The docked stand-in, with no line to show, wears the chevron instead
+	 * of a glyph.
+	 */
+	const baseHeader = (docked = false) => (
 		<Header
 			label={plan.refOnBase ? plan.header.label : "Base"}
 			caption={
@@ -279,9 +279,28 @@ export const Section: FC<{
 				open: plan.baseExpanded,
 				onToggle: toggleBase,
 				name: "the base's history",
+				hoverChevron: !docked,
 			}}
-			rail={<GraphSegment glyph="control" status="LocalOnly" railEnds={!plan.baseExpanded} />}
-			className={className}
+			rail={
+				docked ? (
+					<span className={styles.chevron}>
+						<Icon name={plan.baseExpanded ? "chevron-down" : "chevron-right"} />
+					</span>
+				) : (
+					<GraphSegment
+						// The trunk hooks in from the edge, meeting the target's leg coming down
+						// the column, unless the ref's row above brought it into the column. No
+						// mark of its own: the row is a label on the line, not a commit.
+						glyph={plan.refOnBase || branched ? "hook" : "parent"}
+						above={branched ? "Upstream" : undefined}
+						// Folded, the hint of the history below stays in the trunk's own grey.
+						below={plan.baseExpanded ? "Integrated" : undefined}
+						status="LocalOnly"
+						folded={!plan.baseExpanded}
+					/>
+				)
+			}
+			className={docked ? styles.docked : undefined}
 		>
 			{branched && <Update projectId={projectId} />}
 		</Header>
@@ -291,9 +310,9 @@ export const Section: FC<{
 			{plan.base !== null &&
 				!plan.refOnBase &&
 				(branched ? (
-					// The target has moved on: a card like a forked stack's, the main
-					// line behind its rows and its incoming commits on a leg that
-					// starts under the chevron and bends onto the line in the gap below.
+					// The target has moved on: a card like a forked stack's, the trunk
+					// behind its rows at the edge and its incoming commits on a leg that
+					// starts at its row and runs straight down into the base's.
 					<>
 						<div className={styles.card}>
 							<Row interactive={false} className={styles.air}>
@@ -307,7 +326,7 @@ export const Section: FC<{
 									onToggle: onToggleIncoming,
 									name: "incoming commits",
 								}}
-								rail={<GraphSegment glyph="controlHead" status="Upstream" behind={1} />}
+								rail={<GraphSegment glyph="forkRight" status="Upstream" behind={1} />}
 							/>
 							<Fold open={plan.incomingExpanded}>
 								<div className={styles.rows}>
@@ -327,18 +346,23 @@ export const Section: FC<{
 								<GraphSegment glyph="parent" status="Upstream" behind={1} />
 							</Row>
 						</div>
-						<GraphGap height={LEG_GAP} bend="Upstream" />
+						<Row interactive={false} className={styles.leg}>
+							<GraphSegment glyph="parent" status="Upstream" behind={1} />
+						</Row>
 					</>
 				) : (
-					// The target sits above the base with nothing incoming: a row on
-					// the main line, marked the way a branch is marked on its rail.
+					// The target sits above the base with nothing incoming: the trunk
+					// hooks in from the edge onto its row and runs on down the column
+					// to the base.
 					<>
 						<Header
 							label={plan.header.label}
 							heading
-							rail={<GraphSegment glyph="joinRight" status="LocalOnly" />}
+							rail={<GraphSegment glyph="hook" status="LocalOnly" />}
 						/>
-						<GraphGap height={LEG_GAP} />
+						<Row interactive={false} className={styles.leg}>
+							<GraphSegment glyph="parent" status="LocalOnly" />
+						</Row>
 					</>
 				))}
 			{plan.base !== null && (
@@ -347,9 +371,7 @@ export const Section: FC<{
 					{/* Folded, the row's stand-in docks at the scroller's foot while the row is out
 					    of view below. A portal: the foot is outside the tree, and only there can it
 					    stick over the uncommitted files card, which is outside the tree as well. */}
-					{!plan.baseExpanded &&
-						footDock !== null &&
-						createPortal(baseHeader(styles.docked), footDock)}
+					{!plan.baseExpanded && footDock !== null && createPortal(baseHeader(true), footDock)}
 					<Fold open={plan.baseExpanded} className={styles.history} ref={baseFold}>
 						<div ref={baseRows} className={styles.rows}>
 							{plan.belowBase.map((item, index) =>
