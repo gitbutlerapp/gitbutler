@@ -9,9 +9,10 @@ export const isAgent = (user: ForgeReviewUser): boolean =>
 	user.isBot || user.login.endsWith("[bot]");
 
 /**
- * Whether two logins name the same account. GitHub spells a bot's login with
- * the `[bot]` suffix in REST and without it in GraphQL, and both reach the app.
+ * Whether two logins name the same account. GitHub logins are
+ * case-insensitive, and a bot's carries the `[bot]` suffix in REST but not
+ * in GraphQL; both spellings reach the app.
  */
 export const sameLogin = (a: string, b: string): boolean => bare(a) === bare(b);
 
-const bare = (login: string): string => login.replace(/\[bot\]$/, "");
+const bare = (login: string): string => login.toLowerCase().replace(/\[bot\]$/, "");
