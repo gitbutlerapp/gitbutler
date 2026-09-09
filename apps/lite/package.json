@@ -1,7 +1,7 @@
 {
 	"name": "@gitbutler/lite",
-	"description": "A Git-compatible version control client - now with fewer calories.",
-	"productName": "GitButler Lite",
+	"description": "A Git-compatible version control client - the next generation.",
+	"productName": "GitButler Next Nightly",
 	"author": "GitButler Inc. <gitbutler@gitbutler.com> (https://gitbutler.com)",
 	"license": "FSL-1.1-MIT",
 	"homepage": "https://gitbutler.com",
@@ -103,12 +103,12 @@
 			],
 			"desktop": {
 				"entry": {
-					"Name": "GitButler Lite",
+					"Name": "GitButler Next Nightly",
 					"Type": "Application",
 					"GenericName": "Version Control System"
 				}
 			},
-			"executableName": "gitbutler-lite"
+			"executableName": "gitbutler-next-nightly"
 		},
 		"win": {
 			"icon": "resources/icons/windows/icon.ico",
@@ -118,7 +118,7 @@
 			"publish": []
 		},
 		"deb": {
-			"packageName": "gitbutler-lite",
+			"packageName": "gitbutler-next-nightly",
 			"artifactName": "${productName}-${version}-${arch}.${ext}",
 			"depends": [
 				"libnotify4",

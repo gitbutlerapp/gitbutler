@@ -425,7 +425,7 @@ const DiffFooter: FC = () => {
 				</>
 			) : (
 				<>
-					<span>Thanks for testing GitButler Nightly! ❤️</span>
+					<span>Thanks for testing GitButler Next Nightly! ❤️</span>
 					<span>
 						We’d love to hear what you think.{" "}
 						<a
