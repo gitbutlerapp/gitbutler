@@ -88,7 +88,11 @@ jobs:
           APPLE_TEAM_ID: ${{ runner.os == 'macOS' && secrets.APPLE_PROVIDER_SHORT_NAME || '' }}
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-        run: pnpm exec electron-builder --publish always
+          RELEASE_SHA: ${{ github.sha }}
+        shell: bash
+        # The commit lands in the updater manifest under `vendor.sha`, where the
+        # website's nightly page reads it back to link each build to its commit.
+        run: pnpm exec electron-builder --publish always --config.releaseInfo.vendor.sha="$RELEASE_SHA"
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         name: Upload artifacts
         with:
