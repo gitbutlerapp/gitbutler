@@ -36,8 +36,8 @@ pub use review::{
     list_review_timeline_events, list_reviewer_candidates, merge_review,
     prepare_review_target_updates, remove_comment_reaction, remove_review_label,
     remove_review_reaction, remove_submission_reaction, request_review, restore_native_stacks,
-    set_review_auto_merge_state, set_review_draftiness, sync_reviews, update_review,
-    update_review_comment, withdraw_review_request,
+    set_review_auto_merge_state, set_review_draftiness, set_review_thread_resolved, sync_reviews,
+    update_review, update_review_comment, withdraw_review_request,
 };
 
 fn determine_forge_from_host(host: &str) -> Option<ForgeName> {

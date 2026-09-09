@@ -47,6 +47,12 @@ describe("invalidateTags", () => {
 });
 
 describe("declared mutations", () => {
+	it("refreshes review threads after resolving or reopening a conversation", async () => {
+		const { client, invalidated } = recording();
+		await invalidateDeclared(client, ["p1", "setReviewThreadResolved"]);
+		expect(invalidated).toContainEqual(["p1", "listReviewThreads"]);
+	});
+
 	// A tag no query provides invalidates nothing: the declaration is dead
 	// and the mutation author believes otherwise.
 	it.each(Object.entries(declared))(

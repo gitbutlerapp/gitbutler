@@ -1,4 +1,4 @@
-use anyhow::{Result, bail};
+use anyhow::{Context, Result, bail};
 use but_secret::Sensitive;
 use reqwest::header::{ACCEPT, AUTHORIZATION, HeaderMap, HeaderValue, USER_AGENT};
 use serde::{Deserialize, Serialize};
@@ -1189,6 +1189,47 @@ impl GitHubClient {
         if data.remove_reaction.is_none() {
             bail!("GitHub GraphQL removeReaction returned nothing");
         }
+        Ok(())
+    }
+
+    /// Set the resolution state of a review conversation on GitHub.
+    pub async fn set_review_thread_resolved(&self, thread_id: &str, resolved: bool) -> Result<()> {
+        #[derive(Serialize)]
+        #[serde(rename_all = "camelCase")]
+        struct Variables<'a> {
+            thread_id: &'a str,
+        }
+
+        #[derive(Deserialize)]
+        struct QueryData {
+            result: Option<Payload>,
+        }
+
+        #[derive(Deserialize)]
+        struct Payload {
+            thread: Option<Thread>,
+        }
+
+        #[derive(Deserialize)]
+        #[serde(rename_all = "camelCase")]
+        struct Thread {
+            is_resolved: bool,
+        }
+
+        let query = if resolved {
+            "mutation($threadId: ID!) { result: resolveReviewThread(input: {threadId: $threadId}) { thread { isResolved } } }"
+        } else {
+            "mutation($threadId: ID!) { result: unresolveReviewThread(input: {threadId: $threadId}) { thread { isResolved } } }"
+        };
+        let data: QueryData = self.graphql_query(query, &Variables { thread_id }).await?;
+        let thread = data
+            .result
+            .and_then(|payload| payload.thread)
+            .context("GitHub returned no review thread after changing its resolution")?;
+        anyhow::ensure!(
+            thread.is_resolved == resolved,
+            "GitHub did not change the review thread resolution"
+        );
         Ok(())
     }
 
@@ -2996,6 +3037,93 @@ mod tests {
     #[derive(Debug, Deserialize)]
     struct PullRequestRef {
         id: String,
+    }
+
+    #[tokio::test]
+    async fn review_thread_resolution_calls_github_and_checks_the_result() {
+        use std::io::{Read, Write};
+        for (resolved, response, succeeds) in [
+            (
+                true,
+                r#"{"data":{"result":{"thread":{"isResolved":true}}}}"#,
+                true,
+            ),
+            (
+                false,
+                r#"{"data":{"result":{"thread":{"isResolved":false}}}}"#,
+                true,
+            ),
+            (true, r#"{"data":{"result":null}}"#, false),
+            (
+                true,
+                r#"{"data":{"result":{"thread":{"isResolved":false}}}}"#,
+                false,
+            ),
+            (
+                true,
+                r#"{"errors":[{"message":"Forbidden"}],"data":null}"#,
+                false,
+            ),
+        ] {
+            let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+            let address = listener.local_addr().unwrap();
+            let server = std::thread::spawn(move || {
+                let (mut stream, _) = listener.accept().unwrap();
+                stream
+                    .set_read_timeout(Some(std::time::Duration::from_secs(5)))
+                    .unwrap();
+                let mut request = Vec::new();
+                let mut buffer = [0; 4096];
+                loop {
+                    let n = stream.read(&mut buffer).unwrap();
+                    assert!(n > 0, "the client must send a complete GraphQL request");
+                    request.extend_from_slice(&buffer[..n]);
+                    if let Some(end) = request.windows(4).position(|bytes| bytes == b"\r\n\r\n") {
+                        let headers = String::from_utf8_lossy(&request[..end]);
+                        let length: usize = headers
+                            .lines()
+                            .find_map(|line| {
+                                let (name, value) = line.split_once(':')?;
+                                name.eq_ignore_ascii_case("content-length")
+                                    .then(|| value.trim().parse().unwrap())
+                            })
+                            .unwrap();
+                        if request.len() >= end + 4 + length {
+                            let body: serde_json::Value =
+                                serde_json::from_slice(&request[end + 4..]).unwrap();
+                            assert_eq!(
+                                body["variables"]["threadId"], "thread-1",
+                                "the selected thread is addressed by its forge id"
+                            );
+                            let operation = if resolved {
+                                "resolveReviewThread("
+                            } else {
+                                "unresolveReviewThread("
+                            };
+                            assert!(
+                                body["query"].as_str().unwrap().contains(operation),
+                                "the requested state chooses the mutation"
+                            );
+                            break;
+                        }
+                    }
+                }
+                write!(stream, "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{}", response.len(), response).unwrap();
+            });
+            let client = GitHubClient {
+                client: reqwest::Client::new(),
+                base_url: format!("http://{address}"),
+            };
+            let result = client
+                .set_review_thread_resolved("thread-1", resolved)
+                .await;
+            server.join().unwrap();
+            assert_eq!(
+                result.is_ok(),
+                succeeds,
+                "missing, refused, or unchanged resolution must fail"
+            );
+        }
     }
 
     #[test]

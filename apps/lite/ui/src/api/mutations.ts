@@ -1548,3 +1548,10 @@ export const useSaveGUISettings = () =>
 		},
 		meta: { failureTitle: "Failed to save settings" },
 	});
+
+export const useSetReviewThreadResolved = (projectId: string) =>
+	useMutation({
+		mutationKey: [projectId, "setReviewThreadResolved"],
+		mutationFn: window.lite.setReviewThreadResolved,
+		meta: { failureTitle: "Failed to change conversation resolution" },
+	});

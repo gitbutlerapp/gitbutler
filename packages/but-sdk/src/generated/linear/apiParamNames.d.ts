@@ -132,6 +132,7 @@ export declare const apiParamNames: {
 	readonly setReviewAutoMerge: readonly ["projectId", "reviewId", "enable"];
 	readonly setReviewDraftiness: readonly ["projectId", "reviewId", "draft"];
 	readonly setReviewTemplate: readonly ["projectId", "templatePath"];
+	readonly setReviewThreadResolved: readonly ["projectId", "threadId", "resolved"];
 	readonly setTargetRefAndInitProject: readonly ["projectId", "targetRef", "pushRemote"];
 	readonly storeBitbucketApiToken: readonly ["email", "accessToken"];
 	readonly storeGithubPat: readonly ["accessToken"];

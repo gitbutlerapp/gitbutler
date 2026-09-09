@@ -132,6 +132,7 @@ export const apiParamNames = {
 	setReviewAutoMerge: ["projectId", "reviewId", "enable"],
 	setReviewDraftiness: ["projectId", "reviewId", "draft"],
 	setReviewTemplate: ["projectId", "templatePath"],
+	setReviewThreadResolved: ["projectId", "threadId", "resolved"],
 	setTargetRefAndInitProject: ["projectId", "targetRef", "pushRemote"],
 	storeBitbucketApiToken: ["email", "accessToken"],
 	storeGithubPat: ["accessToken"],

@@ -76,6 +76,7 @@ export declare const apiInvalidates: {
 	readonly setGbConfig: readonly ["GbConfig", "SigningSettings"];
 	readonly setReviewAutoMerge: readonly ["Reviews"];
 	readonly setReviewDraftiness: readonly ["Reviews", "MergeStatus"];
+	readonly setReviewThreadResolved: readonly ["ReviewThreads"];
 	readonly storeBitbucketApiToken: readonly ["ForgeAccounts", "ForgeLogin"];
 	readonly storeGithubPat: readonly ["ForgeAccounts", "ForgeLogin"];
 	readonly storeGitlabPat: readonly ["ForgeAccounts", "ForgeLogin"];
