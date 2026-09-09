@@ -344,7 +344,7 @@ pub async fn workspace_branch_and_ancestors_push(
 ) -> Result<WorkspaceBranchAndAncestorsPushOutcome> {
     let branch: gix::refs::FullName = branch.try_into()?;
     let sync_ctx = ctx.clone();
-    let (trunk, review_target_updates) = {
+    let (trunk, review_targets) = {
         let ctx = ctx.clone().into_thread_local();
         let trunk =
             crate::legacy::forge::target_short_name(&ctx.project_meta()?, &*ctx.repo.get()?)?;
@@ -353,10 +353,6 @@ pub async fn workspace_branch_and_ancestors_push(
             crate::legacy::forge::review_target_updates_for_branch(&ctx, branch.as_ref())?,
         )
     };
-    let review_targets = review_target_updates
-        .iter()
-        .map(|(_, desired, current)| (desired.clone(), current.clone()))
-        .collect::<Vec<_>>();
     let flattened_review_targets = crate::legacy::forge::flatten_review_targets_before_push(
         sync_ctx.clone(),
         trunk,
