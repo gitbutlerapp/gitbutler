@@ -7,7 +7,7 @@ use crate::tui::text::{terminal_width, truncate_text};
 use crate::utils::{OutputChannel, envs};
 
 #[derive(Debug, Copy, Clone, Hash, Eq, PartialEq, strum::EnumIter)]
-enum Group {
+pub(crate) enum Group {
     Inspection,
     BranchingAndCommitting,
     EditingCommits,
@@ -71,20 +71,8 @@ fn print_topic(out: &mut OutputChannel, topic: HelpTopic) -> std::fmt::Result {
     }
 }
 
-fn print_grouped_with_truncation(
-    out: &mut dyn std::fmt::Write,
-    allow_truncation: bool,
-) -> std::fmt::Result {
-    use clap::CommandFactory;
-
-    // Without truncation, an effectively infinite width makes truncate_text a no-op.
-    let terminal_width = if allow_truncation {
-        terminal_width()
-    } else {
-        usize::MAX
-    };
-
-    let cmd = Args::command();
+/// The visible top-level commands in the groups and order `but --help` shows.
+pub(crate) fn grouped_subcommands(cmd: &clap::Command) -> IndexMap<Group, Vec<&clap::Command>> {
     let clap_subcommands: Vec<_> = cmd.get_subcommands().collect();
 
     let mut groups = Group::iter()
@@ -213,6 +201,26 @@ fn print_grouped_with_truncation(
             panic!("no clap subcommand found for {subcommand_variant:?}");
         }
     }
+
+    groups
+}
+
+fn print_grouped_with_truncation(
+    out: &mut dyn std::fmt::Write,
+    allow_truncation: bool,
+) -> std::fmt::Result {
+    use clap::CommandFactory;
+
+    // Without truncation, an effectively infinite width makes truncate_text a no-op.
+    let terminal_width = if allow_truncation {
+        terminal_width()
+    } else {
+        usize::MAX
+    };
+
+    let cmd = Args::command();
+    let clap_subcommands: Vec<_> = cmd.get_subcommands().collect();
+    let groups = grouped_subcommands(&cmd);
 
     // Define command groupings and their order (excluding MISC)
     let t = theme::get();

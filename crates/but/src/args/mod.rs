@@ -555,10 +555,10 @@ pub enum Subcommands {
         ///
         /// By default the diff will be shown unless it's large. The diff will always be shown if
         /// `--diff` is passed, regardless of the size of the diff.
-        #[clap(long = "diff", default_value_t, conflicts_with_all = &["no_diff", "fix_formatting"])]
+        #[clap(long = "diff", default_value_t, conflicts_with_all = &["no_diff", "fix_formatting"], help_heading = "Interactive")]
         diff: bool,
         /// Never show the diff inside the editor.
-        #[clap(long = "no-diff", default_value_t, conflicts_with_all = &["diff", "fix_formatting"])]
+        #[clap(long = "no-diff", default_value_t, conflicts_with_all = &["diff", "fix_formatting"], help_heading = "Interactive")]
         no_diff: bool,
         #[clap(flatten)]
         allow_merged: atoms::AllowMergedArg,

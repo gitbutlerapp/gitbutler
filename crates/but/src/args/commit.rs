@@ -87,7 +87,7 @@ pub struct Platform {
     pub empty: bool,
 
     /// Open the TUI to interactively select what to commit.
-    #[clap(short, long, group = "changes_to_commit")]
+    #[clap(short, long, group = "changes_to_commit", help_heading = "Interactive")]
     pub interactive: bool,
 
     /// The files or hunks to commit, by CLI ID from `but diff`.

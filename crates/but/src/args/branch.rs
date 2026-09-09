@@ -143,7 +143,7 @@ pub enum Subcommands {
         #[clap(long, short = 'v')]
         verbose: bool,
         /// Open the generated integration script in an editor
-        #[clap(long, short = 'i')]
+        #[clap(long, short = 'i', help_heading = "Interactive")]
         interactive: bool,
     },
 }

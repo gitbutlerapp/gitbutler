@@ -30,15 +30,18 @@ pub enum Subcommands {
     /// Linux: Installs and updates only the CLI itself.
     ///
     /// Note: For other platforms and install forms, see <https://gitbutler.com/downloads>
+    ///
+    /// ## Examples
+    ///
+    /// ```text
+    /// but update install           # Auto-detect channel and install latest
+    /// but update install nightly   # Install latest nightly build
+    /// but update install release   # Install latest stable release
+    /// but update install 0.18.7    # Install specific version
+    /// ```
     #[cfg(all(unix, not(feature = "packaged-but-distribution")))]
     Install {
         /// What to install: "nightly", "release", or a version like "0.18.7"
-        ///
-        /// Examples:
-        ///   but update install           Auto-detect channel and install latest
-        ///   but update install nightly   Install latest nightly build
-        ///   but update install release   Install latest stable release
-        ///   but update install 0.18.7    Install specific version
         target: Option<String>,
     },
 }
