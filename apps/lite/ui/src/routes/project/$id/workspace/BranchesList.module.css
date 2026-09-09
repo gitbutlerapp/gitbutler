@@ -5,13 +5,6 @@
 	background-color: var(--bg-2);
 }
 
-/* Heads the panel, and gives way to the filter row while that is open — so
-   narrowing the list costs no vertical space, as in the file lists. */
-.header {
-	flex-shrink: 0;
-	border-block-end: 1px solid var(--border-section);
-}
-
 /* The two ways of narrowing the list sit together; starting a branch is a
    different kind of act, so the rule holds it apart. */
 .headerGroup {
@@ -35,11 +28,14 @@
 	background-color: var(--border-3);
 }
 
-/* The cards run the full width of the panel, so nothing insets them. */
+/* The cards run the full width of the panel, so nothing insets them. The
+   line dividing the list from whatever heads it lives here rather than on the
+   header, so it holds while the filter row stands in for that header. */
 .list {
 	display: flex;
 	flex-grow: 1;
 	flex-direction: column;
+	border-block-start: 1px solid var(--border-section);
 }
 
 /* The tree holds only stack groups, so the heading and empty-state message

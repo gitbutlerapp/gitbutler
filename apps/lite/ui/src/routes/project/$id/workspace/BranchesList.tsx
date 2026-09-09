@@ -676,7 +676,6 @@ export const BranchesList: FC<
 		<div {...restProps} className={classes(restProps.className, styles.container)} ref={panelRef}>
 			{branchFilter.rowProps === null ? (
 				<SectionHeaderRow
-					className={styles.header}
 					label="Recent branches"
 					actions={
 						<Toolbar.Root aria-label="Branch list actions" render={<RowToolbar forceVisible />}>
