@@ -1,24 +1,19 @@
 import { execFileSync } from "node:child_process";
 import { appendFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
-import { paths, processEnvironment, type LiteTestEnvironment } from "./setup.ts";
+import { fixtureEnvironment, paths, type LiteTestEnvironment } from "./setup.ts";
 
 /**
  * branch1 applied and diverged: one commit only here, two only on the remote,
  * both sides editing `a_file` so a rebase conflicts. Reload the app afterwards.
  */
 export const divergeBranch1 = (environment: LiteTestEnvironment): void => {
-	const but = process.env.BUT ?? path.join(paths.repoRoot, "target/debug/but");
-	const env = processEnvironment({
-		BUT: but,
-		E2E_TEST_APP_DATA_DIR: environment.appDataDir,
-		GIT_CONFIG_GLOBAL: environment.gitConfig,
-	});
+	const env = fixtureEnvironment(environment);
 	const clone = path.join(environment.workdir, "local-clone");
 	const remote = path.join(environment.workdir, "remote-project");
 	const git = (cwd: string, ...args: Array<string>) => execFileSync("git", args, { cwd, env });
 
-	execFileSync(but, ["apply", "branch1"], { cwd: clone, env });
+	execFileSync(paths.but, ["apply", "branch1"], { cwd: clone, env });
 
 	// branch1 is not checked out in the remote, so it can be rewritten in place.
 	git(remote, "checkout", "branch1");
@@ -38,19 +33,14 @@ export const divergeBranch1 = (environment: LiteTestEnvironment): void => {
  * the remote's twin, so only the push status shows it.
  */
 export const rewriteBranch1Tip = (environment: LiteTestEnvironment): void => {
-	const but = process.env.BUT ?? path.join(paths.repoRoot, "target/debug/but");
-	const env = processEnvironment({
-		BUT: but,
-		E2E_TEST_APP_DATA_DIR: environment.appDataDir,
-		GIT_CONFIG_GLOBAL: environment.gitConfig,
-	});
+	const env = fixtureEnvironment(environment);
 	const clone = path.join(environment.workdir, "local-clone");
 
-	execFileSync(but, ["apply", "branch1"], { cwd: clone, env });
+	execFileSync(paths.but, ["apply", "branch1"], { cwd: clone, env });
 	const tip = execFileSync("git", ["-C", clone, "rev-parse", "refs/heads/branch1"], {
 		encoding: "utf8",
 	}).trim();
-	execFileSync(but, ["reword", tip, "-m", "Reworded locally"], { cwd: clone, env });
+	execFileSync(paths.but, ["reword", tip, "-m", "Reworded locally"], { cwd: clone, env });
 };
 
 /**
@@ -60,10 +50,7 @@ export const rewriteBranch1Tip = (environment: LiteTestEnvironment): void => {
 export const divergeBoth = (environment: LiteTestEnvironment): void => {
 	rewriteBranch1Tip(environment);
 
-	const env = processEnvironment({
-		E2E_TEST_APP_DATA_DIR: environment.appDataDir,
-		GIT_CONFIG_GLOBAL: environment.gitConfig,
-	});
+	const env = fixtureEnvironment(environment);
 	const clone = path.join(environment.workdir, "local-clone");
 	const remote = path.join(environment.workdir, "remote-project");
 	const git = (cwd: string, ...args: Array<string>) => execFileSync("git", args, { cwd, env });

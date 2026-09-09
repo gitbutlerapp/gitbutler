@@ -6,6 +6,7 @@ import path from "node:path";
 const repoRoot = path.resolve(import.meta.dirname, "../../..");
 const fixtureScriptsDir = path.join(repoRoot, "e2e/playwright/scripts");
 const fixtureGitConfig = path.join(repoRoot, "e2e/playwright/fixtures/.gitconfig");
+const but = process.env.BUT ?? path.join(repoRoot, "target/debug/but");
 
 export type LiteTestEnvironment = {
 	appDataDir: string;
@@ -21,6 +22,19 @@ export const processEnvironment = (overrides: Record<string, string>): Record<st
 			(entry): entry is [string, string] => entry[1] !== undefined,
 		),
 	);
+
+/**
+ * Environment for the `but` and git commands a fixture runs. No ambient background
+ * sync: the detached fetch `but` spawns would race the fixture's own fetch for the
+ * remote-tracking refs, and keeps writing while the test's directories are torn down.
+ */
+export const fixtureEnvironment = (environment: LiteTestEnvironment): Record<string, string> =>
+	processEnvironment({
+		BUT: but,
+		E2E_TEST_APP_DATA_DIR: environment.appDataDir,
+		GIT_CONFIG_GLOBAL: environment.gitConfig,
+		NO_BG_TASKS: "1",
+	});
 
 export const createLiteTestEnvironment = (): LiteTestEnvironment => {
 	const rootDir = mkdtempSync(path.join(os.tmpdir(), "gitbutler-lite-e2e-"));
@@ -57,7 +71,6 @@ export const seedScenario = async (
 	const scriptPath = path.join(fixtureScriptsDir, scenario);
 	if (!existsSync(scriptPath)) throw new Error(`Fixture script does not exist: ${scriptPath}`);
 
-	const but = process.env.BUT ?? path.join(repoRoot, "target/debug/but");
 	if (!existsSync(but)) {
 		throw new Error(
 			`GitButler CLI does not exist at ${but}; build it with \`cargo build -p but\`.`,
@@ -68,11 +81,7 @@ export const seedScenario = async (
 	const child = spawn("bash", [scriptPath], {
 		cwd: environment.workdir,
 		stdio: "inherit",
-		env: processEnvironment({
-			BUT: but,
-			E2E_TEST_APP_DATA_DIR: environment.appDataDir,
-			GIT_CONFIG_GLOBAL: environment.gitConfig,
-		}),
+		env: fixtureEnvironment(environment),
 	});
 
 	child.on("error", reject);
@@ -85,6 +94,7 @@ export const seedScenario = async (
 };
 
 export const paths = {
+	but,
 	electronMain: path.join(repoRoot, "apps/lite/dist/electron/main.js"),
 	repoRoot,
 };
