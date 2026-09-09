@@ -38,6 +38,20 @@ fn repo_with_worktree_on_unpushed_branch() -> Sandbox {
 }
 
 #[test]
+fn pushing_a_worktree_branch_pushes_what_it_rests_on_first() {
+    let env = repo_with_worktree_on_unpushed_branch();
+
+    env.but("push wt").assert().success().stdout_eq(str![[r#"
+
+✓ Push completed successfully
+
+  branchB -> origin/branchB ((new branch) -> 7566fe0)
+  wt -> origin/wt ((new branch) -> 9da8421)
+
+"#]]);
+}
+
+#[test]
 fn bare_push_includes_worktree_lanes() {
     let env = repo_with_worktree_on_unpushed_branch();
 

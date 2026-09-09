@@ -1132,6 +1132,11 @@ fn resolve_branch_name(
 
     match &cli_ids[0] {
         CliId::Branch(branch) => Ok(branch.name.clone()),
+        CliId::Worktree { name, .. } => {
+            let repo = ctx.repo.get()?;
+            let branch = crate::utils::worktrees::worktree_branch(&repo, name.as_ref())?;
+            Ok(branch.shorten().to_string())
+        }
         _ => Err(anyhow::anyhow!(
             "Expected branch identifier, got {}. Please use a branch name or branch CLI ID.",
             cli_ids[0].kind_for_humans()
