@@ -13,6 +13,7 @@ export const isAgent = (user: ForgeReviewUser): boolean =>
  * case-insensitive, and a bot's carries the `[bot]` suffix in REST but not
  * in GraphQL; both spellings reach the app.
  */
-export const sameLogin = (a: string, b: string): boolean => bare(a) === bare(b);
+export const sameLogin = (a: string, b: string): boolean => loginKey(a) === loginKey(b);
 
-const bare = (login: string): string => login.toLowerCase().replace(/\[bot\]$/, "");
+/** The form of a login to key by, so both spellings of a bot land together. */
+export const loginKey = (login: string): string => login.toLowerCase().replace(/\[bot\]$/, "");

@@ -25,7 +25,7 @@ import { openLinkExternally } from "#ui/external-link.ts";
 import type { DraftPRExtras } from "#ui/pr.ts";
 import { formatAbsoluteTime, formatCompactDuration, formatRelativeTime } from "#ui/time.ts";
 import { useCopied } from "#ui/routes/project/$id/workspace/useCopied.ts";
-import { sameLogin } from "#ui/review-users.ts";
+import { loginKey, sameLogin } from "#ui/review-users.ts";
 import type {
 	CiCheck,
 	ForgeReview,
@@ -484,7 +484,7 @@ const reviewerRows = (
 	const byLogin = new Map<string, ReviewerRow>();
 	for (const submission of submissions) {
 		if (submission.author === null) continue;
-		const existing = byLogin.get(submission.author.login);
+		const existing = byLogin.get(loginKey(submission.author.login));
 		const verdict = Match.value(submission.state).pipe(
 			Match.withReturnType<ReviewerVerdict>(),
 			Match.when("approved", () => "approved"),
@@ -493,10 +493,12 @@ const reviewerRows = (
 			Match.when("dismissed", () => "commented"),
 			Match.exhaustive,
 		);
-		byLogin.set(submission.author.login, { user: submission.author, verdict });
+		byLogin.set(loginKey(submission.author.login), { user: submission.author, verdict });
 	}
-	for (const user of requested)
-		if (!byLogin.has(user.login)) byLogin.set(user.login, { user, verdict: "awaiting" });
+	for (const user of requested) {
+		const key = loginKey(user.login);
+		if (!byLogin.has(key)) byLogin.set(key, { user, verdict: "awaiting" });
+	}
 	return [...byLogin.values()];
 };
 
@@ -623,12 +625,15 @@ export const PullRequestPanel: FC<{
 			evt.currentTarget,
 			orEmptyNotice(
 				reviewerCandidates
-					// The author can't review their own PR, and whoever is listed
-					// already has been asked.
+					// The author can't review their own PR, and whoever is awaiting
+					// has been asked already; a reviewer who answered can be asked again.
 					.filter(
 						(candidate) =>
 							!(review.author !== null && sameLogin(candidate.login, review.author.login)) &&
-							!reviewerList.some(({ user }) => sameLogin(user.login, candidate.login)),
+							!reviewerList.some(
+								({ user, verdict }) =>
+									verdict === "awaiting" && sameLogin(user.login, candidate.login),
+							),
 					)
 					.map((candidate) =>
 						nativeMenuItem({

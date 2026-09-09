@@ -5,8 +5,9 @@ use serde::{Deserialize, Serialize};
 
 use crate::graphql::{
     GQL_ADD_REACTION, GQL_ADD_REVIEW_THREAD_REPLY, GQL_DISABLE_PR_AUTO_MERGE,
-    GQL_ENABLE_PR_AUTO_MERGE, GQL_GET_PR_NODE_ID, GQL_LIST_PR_REVIEW_THREADS, GQL_LIST_PR_REVIEWS,
-    GQL_LIST_PR_TIMELINE, GQL_REMOVE_REACTION, GQL_SET_PR_DRAFT, GQL_SET_PR_READY_FOR_REVIEW,
+    GQL_ENABLE_PR_AUTO_MERGE, GQL_GET_PR, GQL_GET_PR_NODE_ID, GQL_LIST_PR_REVIEW_THREADS,
+    GQL_LIST_PR_REVIEWS, GQL_LIST_PR_TIMELINE, GQL_REMOVE_REACTION, GQL_SET_PR_DRAFT,
+    GQL_SET_PR_READY_FOR_REVIEW,
 };
 
 const GITHUB_API_BASE_URL: &str = "https://api.github.com";
@@ -485,16 +486,39 @@ impl GitHubClient {
         repo: &str,
         pr_number: i64,
     ) -> Result<PullRequest> {
-        let url = format!(
-            "{}/repos/{}/{}/pulls/{}",
-            self.base_url, owner, repo, pr_number
-        );
+        #[derive(Serialize)]
+        struct Variables<'a> {
+            owner: &'a str,
+            repo: &'a str,
+            number: i64,
+        }
+        #[derive(Deserialize)]
+        #[serde(rename_all = "camelCase")]
+        struct Data {
+            repository: Option<Repository>,
+        }
+        #[derive(Deserialize)]
+        #[serde(rename_all = "camelCase")]
+        struct Repository {
+            pull_request: Option<GraphQlPullRequest>,
+        }
 
-        let response = self.client.get(&url).send().await?;
-
-        let response = ensure_success(response).await?;
-
-        let pr: GitHubPullRequest = response.json().await?;
+        let data: Data = self
+            .graphql_query(
+                GQL_GET_PR,
+                &Variables {
+                    owner,
+                    repo,
+                    number: pr_number,
+                },
+            )
+            .await?;
+        let Some(pr) = data
+            .repository
+            .and_then(|repository| repository.pull_request)
+        else {
+            bail!("GitHub GraphQL pull request {owner}/{repo}#{pr_number} not found");
+        };
         Ok(pr.into())
     }
 
@@ -2602,6 +2626,20 @@ struct GraphQlRequestedReviewer {
     name: Option<String>,
 }
 
+impl GraphQlRequestedReviewer {
+    /// The reviewer as a user; a team has no login and is dropped.
+    fn into_user(self) -> Option<GitHubUser> {
+        Some(GitHubUser {
+            id: self.database_id.unwrap_or_default(),
+            login: self.login?,
+            name: self.name,
+            email: None,
+            avatar_url: self.avatar_url,
+            is_bot: self.typename.as_deref() == Some("Bot"),
+        })
+    }
+}
+
 impl GraphQlTimelineItem {
     fn into_event(self) -> Option<PullRequestTimelineEvent> {
         match self.typename.as_str() {
@@ -2624,16 +2662,9 @@ impl GraphQlTimelineItem {
             "ReviewRequestedEvent" => Some(PullRequestTimelineEvent {
                 kind: PullRequestTimelineEventKind::ReviewRequested,
                 actor: self.actor.map(Into::into),
-                requested_reviewer: self.requested_reviewer.and_then(|reviewer| {
-                    Some(GitHubUser {
-                        id: reviewer.database_id.unwrap_or_default(),
-                        login: reviewer.login?,
-                        name: reviewer.name,
-                        email: None,
-                        avatar_url: reviewer.avatar_url,
-                        is_bot: reviewer.typename.as_deref() == Some("Bot"),
-                    })
-                }),
+                requested_reviewer: self
+                    .requested_reviewer
+                    .and_then(GraphQlRequestedReviewer::into_user),
                 commit_sha: None,
                 commit_summary: None,
                 commit_author_name: None,
@@ -2742,6 +2773,134 @@ impl From<GitHubPullRequest> for PullRequest {
             requested_reviewers,
             auto_merge_enabled: pr.auto_merge.is_some(),
         }
+    }
+}
+
+/// The single-review fetch's shape; see `GQL_GET_PR`.
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct GraphQlPullRequest {
+    url: String,
+    number: i64,
+    title: String,
+    body: String,
+    is_draft: bool,
+    head_ref_name: String,
+    base_ref_name: String,
+    head_ref_oid: String,
+    created_at: Option<String>,
+    updated_at: Option<String>,
+    merged_at: Option<String>,
+    closed_at: Option<String>,
+    merge_commit: Option<GraphQlCommitRef>,
+    author: Option<GraphQlActor>,
+    labels: GraphQlNodes<GraphQlLabel>,
+    head_repository: Option<GraphQlRepository>,
+    review_requests: GraphQlNodes<GraphQlReviewRequest>,
+    auto_merge_request: Option<serde_json::Value>,
+}
+
+#[derive(Debug, Deserialize)]
+struct GraphQlNodes<T> {
+    nodes: Vec<T>,
+}
+
+#[derive(Debug, Deserialize)]
+struct GraphQlCommitRef {
+    oid: String,
+}
+
+#[derive(Debug, Deserialize)]
+struct GraphQlLabel {
+    name: String,
+    color: Option<String>,
+    description: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct GraphQlRepository {
+    ssh_url: Option<String>,
+    url: Option<String>,
+    is_fork: bool,
+    owner: Option<GraphQlRepositoryOwner>,
+}
+
+#[derive(Debug, Deserialize)]
+struct GraphQlRepositoryOwner {
+    login: String,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct GraphQlReviewRequest {
+    requested_reviewer: Option<GraphQlRequestedReviewer>,
+}
+
+impl From<GraphQlPullRequest> for PullRequest {
+    fn from(pr: GraphQlPullRequest) -> Self {
+        let repo = pr.head_repository.as_ref();
+        PullRequest {
+            html_url: pr.url,
+            number: pr.number,
+            title: pr.title,
+            // REST reports a missing description as null; GraphQL as "".
+            body: Some(pr.body).filter(|body| !body.is_empty()),
+            author: pr.author.map(Into::into),
+            labels: pr
+                .labels
+                .nodes
+                .into_iter()
+                .map(|label| GitHubPrLabel {
+                    // GraphQL labels carry no numeric id, and nothing reads it.
+                    id: 0,
+                    name: label.name,
+                    description: label.description,
+                    color: label.color,
+                })
+                .collect(),
+            draft: pr.is_draft,
+            source_branch: pr.head_ref_name,
+            target_branch: pr.base_ref_name,
+            sha: pr.head_ref_oid,
+            // Only a merged pull request's merge commit counts, never the
+            // test merge GitHub keeps for an open one.
+            integration_commit_shas: if pr.merged_at.is_some() {
+                pr.merge_commit
+                    .into_iter()
+                    .map(|commit| commit.oid)
+                    .collect()
+            } else {
+                vec![]
+            },
+            created_at: pr.created_at,
+            modified_at: pr.updated_at,
+            merged_at: pr.merged_at,
+            closed_at: pr.closed_at,
+            repository_ssh_url: repo.and_then(|repo| repo.ssh_url.clone()),
+            repository_https_url: repo.and_then(|repo| repo.url.as_deref().map(clone_url)),
+            repo_owner: repo.and_then(|repo| repo.owner.as_ref().map(|owner| owner.login.clone())),
+            head_repo_is_fork: repo.is_some_and(|repo| repo.is_fork),
+            requested_reviewers: pr
+                .review_requests
+                .nodes
+                .into_iter()
+                .filter_map(|request| request.requested_reviewer)
+                .filter_map(GraphQlRequestedReviewer::into_user)
+                .collect(),
+            auto_merge_enabled: pr.auto_merge_request.is_some(),
+        }
+    }
+}
+
+/// REST's clone URL is the web URL with `.git` on the end; a forge that
+/// hands out anything but a web URL, as the e2e fake does with paths, is
+/// left alone.
+fn clone_url(url: &str) -> String {
+    if url.starts_with("https://") || url.starts_with("http://") {
+        format!("{url}.git")
+    } else {
+        url.to_string()
     }
 }
 
@@ -3108,6 +3267,92 @@ mod tests {
             pull.merged_at.as_deref(),
             Some("2026-06-24T12:00:00Z"),
             "associated-commit lookup must preserve merge state for filtering"
+        );
+    }
+
+    #[test]
+    fn graphql_pull_request_decodes_into_the_review_shape() {
+        let pr: PullRequest = serde_json::from_value::<GraphQlPullRequest>(json!({
+            "url": "https://github.com/upstream/widgets/pull/42",
+            "number": 42,
+            "title": "Integrate fork feature",
+            "body": "",
+            "isDraft": false,
+            "headRefName": "feature",
+            "baseRefName": "main",
+            "headRefOid": "1234567890abcdef1234567890abcdef12345678",
+            "createdAt": "2026-09-09T10:00:00Z",
+            "updatedAt": "2026-09-09T11:00:00Z",
+            "mergedAt": "2026-09-09T12:00:00Z",
+            "closedAt": "2026-09-09T12:00:00Z",
+            "mergeCommit": { "oid": "abcdef1234567890abcdef1234567890abcdef12" },
+            "author": {
+                "__typename": "Bot",
+                "login": "release-please[bot]",
+                "avatarUrl": null,
+                "databaseId": 7
+            },
+            "labels": { "nodes": [{ "name": "rust", "color": "b60205", "description": null }] },
+            "headRepository": {
+                "sshUrl": "git@github.com:alice/widgets.git",
+                "url": "https://github.com/alice/widgets",
+                "isFork": true,
+                "owner": { "login": "alice" }
+            },
+            "reviewRequests": { "nodes": [
+                { "requestedReviewer": {
+                    "__typename": "Bot",
+                    "databaseId": 175728472,
+                    "login": "copilot-pull-request-reviewer",
+                    "avatarUrl": "https://avatars.githubusercontent.com/in/946600?v=4"
+                } },
+                { "requestedReviewer": { "__typename": "Team" } },
+                { "requestedReviewer": null }
+            ] },
+            "autoMergeRequest": { "enabledAt": "2026-09-09T11:30:00Z" }
+        }))
+        .expect("fixture matches the query")
+        .into();
+
+        assert_eq!(pr.body, None, "an empty GraphQL body is a missing one");
+        let author = pr.author.expect("author");
+        assert!(author.is_bot);
+        assert_eq!(author.id, 7);
+        assert_eq!(pr.labels.len(), 1);
+        assert_eq!(pr.labels[0].name, "rust");
+        assert_eq!(pr.sha, "1234567890abcdef1234567890abcdef12345678");
+        assert_eq!(
+            pr.integration_commit_shas,
+            vec!["abcdef1234567890abcdef1234567890abcdef12"]
+        );
+        assert_eq!(
+            pr.repository_ssh_url.as_deref(),
+            Some("git@github.com:alice/widgets.git")
+        );
+        assert_eq!(
+            pr.repository_https_url.as_deref(),
+            Some("https://github.com/alice/widgets.git")
+        );
+        assert_eq!(pr.repo_owner.as_deref(), Some("alice"));
+        assert!(pr.head_repo_is_fork);
+        assert_eq!(pr.requested_reviewers.len(), 1, "a team has no login");
+        assert_eq!(
+            pr.requested_reviewers[0].login,
+            "copilot-pull-request-reviewer"
+        );
+        assert!(pr.requested_reviewers[0].is_bot);
+        assert!(pr.auto_merge_enabled);
+    }
+
+    #[test]
+    fn clone_url_suffixes_web_urls_only() {
+        assert_eq!(
+            clone_url("https://github.com/o/r"),
+            "https://github.com/o/r.git"
+        );
+        assert_eq!(
+            clone_url("/tmp/fixtures/fork-project-bare"),
+            "/tmp/fixtures/fork-project-bare"
         );
     }
 

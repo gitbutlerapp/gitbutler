@@ -63,6 +63,7 @@ import type { GUISettings } from "#electron/settings.ts";
 import { moveDraftPR } from "#ui/pr.ts";
 import { invalidateTags } from "#ui/api/tags.ts";
 import { presentableOperation } from "#ui/snapshot.ts";
+import { sameLogin } from "#ui/review-users.ts";
 
 declare module "@tanstack/react-query" {
 	interface Register {
@@ -655,10 +656,11 @@ export const useRequestReview = (projectId: string) =>
 			ctx.client.setQueryData(key, (review) => {
 				if (review === undefined) return undefined;
 				const added = [...new Set(input.logins)]
-					.filter((login) => !review.reviewers.some((reviewer) => reviewer.login === login))
+					.filter((login) => !review.reviewers.some((reviewer) => sameLogin(reviewer.login, login)))
 					.map(
 						(login) =>
-							candidates.find((candidate) => candidate.login === login) ?? ghostForgeUser(login),
+							candidates.find((candidate) => sameLogin(candidate.login, login)) ??
+							ghostForgeUser(login),
 					);
 				return { ...review, reviewers: review.reviewers.concat(added) };
 			});
