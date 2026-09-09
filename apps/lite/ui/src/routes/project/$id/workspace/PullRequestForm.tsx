@@ -642,7 +642,6 @@ export const PullRequestDescription: FC<{
 					reactors={reviewReactions.reactors}
 					myLogin={currentLogin}
 					onToggle={toggleReaction}
-					suggest
 				/>
 			)}
 		</div>
