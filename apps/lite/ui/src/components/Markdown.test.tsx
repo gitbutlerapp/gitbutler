@@ -11,6 +11,35 @@ const render = (markdown: string): string =>
 	);
 
 describe("Markdown safety", () => {
+	it("preserves HTML-looking inline code in review prose", () => {
+		expect(render("its wrapper `<div>` is currently exposed")).toContain(
+			"<p>its wrapper <code>&lt;div&gt;</code> is currently exposed</p>",
+		);
+	});
+
+	it("preserves lone HTML tags mentioned in prose", () => {
+		expect(render("its wrapper <div> is currently exposed")).toContain(
+			"<p>its wrapper <code>&lt;div&gt;</code> is currently exposed</p>",
+		);
+	});
+
+	it("keeps paired inline HTML as markup", () => {
+		expect(render("Press <kbd>Enter</kbd> to continue")).toContain(
+			"<p>Press <kbd>Enter</kbd> to continue</p>",
+		);
+	});
+
+	it("keeps inline HTML attributes and void elements", () => {
+		const html = render('Press <span title="key">Enter</span><br>to continue');
+		expect(html).toContain('<span title="key">Enter</span><br/>to continue');
+	});
+
+	it("preserves lone closing tags and tags inside emphasis", () => {
+		expect(render("close with </div> and use *a <span> wrapper*")).toContain(
+			"<p>close with <code>&lt;/div&gt;</code> and use <em>a <code>&lt;span&gt;</code> wrapper</em></p>",
+		);
+	});
+
 	it("renders GitHub's safe HTML subset", () => {
 		const html = render("<details><summary>More</summary>\n\nhidden *body*\n\n</details>");
 		expect(html).toContain("<details>");

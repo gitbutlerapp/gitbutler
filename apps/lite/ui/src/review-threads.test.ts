@@ -6,6 +6,7 @@ import {
 } from "./review-threads.ts";
 import { branchFileParent, commitFileParent } from "#ui/addresses.ts";
 import type { ForgeReviewThread } from "@gitbutler/but-sdk";
+import { DiffHunksRenderer, parsePatchFiles } from "@pierre/diffs";
 import { describe, expect, it } from "vitest";
 
 const thread = (overrides: Partial<ForgeReviewThread> = {}): ForgeReviewThread => ({
@@ -22,6 +23,61 @@ const thread = (overrides: Partial<ForgeReviewThread> = {}): ForgeReviewThread =
 });
 
 const branch = branchFileParent({ branchRef: [] });
+
+describe("inline thread row order", () => {
+	it.each(["unified", "split"] as const)(
+		"keeps %s code rows in sequence around a thread",
+		async (diffStyle) => {
+			const [patch] = parsePatchFiles(
+				[
+					"diff --git a/view.tsx b/view.tsx",
+					"--- a/view.tsx",
+					"+++ b/view.tsx",
+					"@@ -150,4 +241,5 @@",
+					" context",
+					"-old one",
+					"-old two",
+					"+new one",
+					"+new two",
+					"+<div className={styles.gap}>",
+					" end",
+					"",
+				].join("\n"),
+			);
+			const diff = patch?.files[0];
+			if (diff === undefined) throw new Error("Missing fixture diff");
+			const renderer = new DiffHunksRenderer({ diffStyle });
+			try {
+				const before = await renderer.asyncRender(diff);
+				renderer.setLineAnnotations([{ side: "additions", lineNumber: 244, metadata: undefined }]);
+				const after = await renderer.asyncRender(diff);
+				for (const key of [
+					"unifiedGutterAST",
+					"deletionsGutterAST",
+					"additionsGutterAST",
+				] as const) {
+					const codeRows = (result: typeof after) =>
+						result[key]?.filter(
+							(node) =>
+								node.type === "element" && node.properties["data-column-number"] !== undefined,
+						);
+					expect(codeRows(after)).toEqual(codeRows(before));
+				}
+				const gutter = diffStyle === "unified" ? after.unifiedGutterAST : after.additionsGutterAST;
+				if (gutter === undefined) throw new Error("Missing rendered gutter");
+				const anchor = gutter.findIndex(
+					(node) => node.type === "element" && node.properties["data-column-number"] === 244,
+				);
+				expect(gutter[anchor + 1]).toMatchObject({
+					properties: { "data-gutter-buffer": "annotation" },
+				});
+				expect(gutter[anchor + 2]).toMatchObject({ properties: { "data-column-number": 245 } });
+			} finally {
+				renderer.cleanUp();
+			}
+		},
+	);
+});
 
 describe("threadsByPathForScope", () => {
 	it("anchors an open thread on the side the forge left it", () => {

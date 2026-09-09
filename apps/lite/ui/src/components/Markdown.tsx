@@ -141,6 +141,41 @@ const CodeBlock: FC<{ language: string; code: string }> = ({ language, code }) =
 const fencedLanguage = (className: string | undefined): string | undefined =>
 	/language-([\w+#-]+)/.exec(className ?? "")?.[1];
 
+type MarkdownNode = {
+	type: string;
+	value?: string;
+	children?: Array<MarkdownNode>;
+};
+
+// Review prose sometimes mentions a tag without backticks. Preserve a lone
+// tag inside a paragraph before the HTML parser can split the sentence around it.
+const remarkLiteralTags = () => {
+	const visit = (node: MarkdownNode): void => {
+		if (["paragraph", "emphasis", "strong", "delete", "link"].includes(node.type)) {
+			const html = node.children?.filter((child) => child.type === "html") ?? [];
+			const markup = html.map((child) => child.value).join("");
+			for (const child of html) {
+				const match = /^<(\/?)([a-z][a-z0-9-]*)>$/i.exec(child.value ?? "");
+				if (!match) continue;
+				const [, closing, tag] = match;
+				if (
+					tag === undefined ||
+					/^(area|base|br|col|embed|hr|img|input|link|meta|param|source|track|wbr)$/i.test(tag)
+				)
+					continue;
+
+				const counterpart = new RegExp(
+					closing === "/" ? `<${tag}(?:\\s[^>]*|)>` : `</${tag}\\s*>`,
+					"i",
+				);
+				if (!counterpart.test(markup)) child.type = "inlineCode";
+			}
+		}
+		for (const child of node.children ?? []) visit(child);
+	};
+	return visit;
+};
+
 /**
  * Renders forge-flavored markdown with GitHub-parity restrictions:
  *
@@ -157,7 +192,7 @@ const fencedLanguage = (className: string | undefined): string | undefined =>
 export const Markdown: FC<{ children: string }> = ({ children }) => (
 	<div className={classes("text-13", "text-body", styles.markdown)}>
 		<ReactMarkdown
-			remarkPlugins={[remarkGfm, remarkGemoji]}
+			remarkPlugins={[remarkGfm, remarkGemoji, remarkLiteralTags]}
 			rehypePlugins={[rehypeRaw, [rehypeSanitize, sanitizeSchema]]}
 			components={{
 				a: ({ node: _node, children, ...props }) => (

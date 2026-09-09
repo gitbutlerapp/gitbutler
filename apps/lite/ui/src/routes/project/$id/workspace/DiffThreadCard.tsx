@@ -23,7 +23,11 @@ export const DiffThreadCard: FC<Props> = ({ projectId, reviewId, thread }) => (
 	<div className={styles.card}>
 		<div className={styles.comments}>
 			{thread.comments.map((comment) => (
-				<ThreadComment comment={comment} key={comment.id !== 0 ? comment.id : comment.htmlUrl} />
+				<ThreadComment
+					compact
+					comment={comment}
+					key={comment.id !== 0 ? comment.id : comment.htmlUrl}
+				/>
 			))}
 		</div>
 
