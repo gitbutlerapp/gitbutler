@@ -74,6 +74,7 @@ nonzero and preserve JSON; upload mode defaults results directory to
 
 - `diff-many-uncommitted-changes`: time `but diff` after uncommitting real GitButler commit `c9d8e3a7ff59f2ddabed16a6fa1d66ea054f0215`, which formatted the codebase and changes 1,167 files, with 21,636 insertions and 21,620 deletions.
 - `squash-10-committed-hunks`: squash ten committed hunks from one file into previous commit.
+- `status-large-uncommitted-file`: time `but status` with one untracked 400 MiB random binary file.
 - `status-many-uncommitted-changes`: time `but status` after directly modifying 240 tracked Rust files with `core.autocrlf=input`.
 - `status-many-uncommitted-changes-fragmented-odb`: same status workload with 200 additional small local packs. Reproduces [the null-ID object database rescan fixed by GitButler PR #15746](https://github.com/gitbutlerapp/gitbutler/pull/15746): with automatic text conversion enabled, each changed worktree file could trigger a guaranteed-miss null-ID lookup and rescan every pack.
 
