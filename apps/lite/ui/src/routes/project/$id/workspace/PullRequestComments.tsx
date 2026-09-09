@@ -97,11 +97,11 @@ type Quotable = { body: string | null; author: ForgeReviewUser | null };
  * agent author carries a chip so automated feedback reads apart from human
  * conversation.
  */
-const Author: FC<{ user: ForgeReviewUser; compact?: boolean }> = ({ user, compact = false }) => (
+const Author: FC<{ user: ForgeReviewUser }> = ({ user }) => (
 	<>
 		<Avatar src={user.avatarUrl} />
 		<span className={classes("text-13", "text-semibold", styles.authorLogin)}>{user.login}</span>
-		{isAgent(user) && <Badge variant={compact ? "lightGray" : "purple"}>Agent</Badge>}
+		{isAgent(user) && <Badge variant="lightGray">Agent</Badge>}
 	</>
 );
 
@@ -145,14 +145,7 @@ const Card: FC<{
 	id,
 	children,
 }) => (
-	<div
-		id={id}
-		className={classes(
-			styles.card,
-			author !== null && isAgent(author) && styles.cardAgent,
-			className,
-		)}
-	>
+	<div id={id} className={classes(styles.card, className)}>
 		<div className={styles.cardBody}>
 			<div className={styles.cardHeader}>
 				<div className={styles.cardIdentity}>
@@ -407,7 +400,7 @@ export const ThreadComment: FC<{ comment: ForgeReviewThreadComment; compact?: bo
 			id={comment.id > 0 ? commentAnchorId(comment.id) : undefined}
 		>
 			<div className={styles.cardIdentity}>
-				{comment.author !== null && <Author user={comment.author} compact={compact} />}
+				{comment.author !== null && <Author user={comment.author} />}
 				{createdAtMs !== null && (
 					<RelativeTime timestamp={createdAtMs} className={classes("text-12", styles.cardTime)} />
 				)}

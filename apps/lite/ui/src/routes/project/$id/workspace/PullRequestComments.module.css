@@ -477,13 +477,6 @@
 	}
 }
 
-/* A card by an agent (any bot author): tinted so automated feedback reads
-   apart from human conversation at a glance. */
-.cardAgent {
-	border-color: color-mix(in srgb, var(--fill-purple-bg) 35%, var(--border-3));
-	background-color: color-mix(in srgb, var(--fill-purple-bg) 4%, var(--bg-1));
-}
-
 /* The Activity section's reveal, in the app's designed link treatment. */
 .timelineMore {
 	align-self: flex-start;
