@@ -41,7 +41,6 @@
 	color: var(--text-2);
 	text-decoration: underline dotted;
 	text-underline-position: from-font;
-	cursor: pointer;
 }
 
 .empty {
@@ -66,7 +65,6 @@
 	/* The list reads as a murmur; the red dots and kind icons carry it. */
 	color: var(--text-2);
 	text-align: start;
-	cursor: pointer;
 }
 
 .entry:last-child {

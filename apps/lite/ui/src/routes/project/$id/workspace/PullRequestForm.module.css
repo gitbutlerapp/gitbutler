@@ -167,7 +167,6 @@
 	/* The designed link treatment: dotted, on the font's own underline. */
 	text-decoration: underline dotted;
 	text-underline-position: from-font;
-	cursor: pointer;
 
 	&:hover {
 		color: var(--text-1);

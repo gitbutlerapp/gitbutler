@@ -58,7 +58,6 @@
 	border-radius: var(--radius-button);
 	background: none;
 	font-size: 14px;
-	cursor: pointer;
 
 	&:hover {
 		background-color: var(--fill-gray-bg);

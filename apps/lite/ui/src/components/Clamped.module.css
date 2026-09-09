@@ -83,7 +83,7 @@
 	border-radius: var(--radius-card);
 	background-color: var(--card-bg);
 	/* The whole folded card opens, not only its chevron. */
-	cursor: pointer;
+	cursor: var(--control-cursor);
 	transition: background-color var(--transition-fast);
 
 	/* The fade clears to the card's ground, not the page's, and with no label

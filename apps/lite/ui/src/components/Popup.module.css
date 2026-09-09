@@ -141,7 +141,6 @@
 	flex: none;
 	align-items: center;
 	color: var(--text-2);
-	cursor: default;
 
 	&:hover {
 		color: var(--text-1);
@@ -184,7 +183,7 @@
 	background: none;
 	color: var(--text-1);
 	text-align: start;
-	cursor: default;
+	cursor: var(--control-cursor);
 
 	/* `data-highlighted` is what Base UI's list primitives set as the keyboard walks them, so
 	   pointer and keyboard land on the same tint. */

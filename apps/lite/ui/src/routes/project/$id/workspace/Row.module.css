@@ -130,7 +130,6 @@
 	border: none;
 	background: none;
 	color: inherit;
-	cursor: pointer;
 
 	.container:hover &,
 	.container:focus-within &,

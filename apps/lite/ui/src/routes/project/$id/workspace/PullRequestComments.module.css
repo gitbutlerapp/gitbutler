@@ -479,5 +479,4 @@
 	color: var(--text-2);
 	text-decoration: underline dotted;
 	text-underline-position: from-font;
-	cursor: pointer;
 }

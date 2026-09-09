@@ -36,6 +36,20 @@ const SyntaxThemeSync: FC = () => {
 	return null;
 };
 
+// The stylesheet reads the choice off the root element (see control-cursor.css).
+const HandCursorSync: FC = () => {
+	const { data: handCursor } = useQuery({
+		...guiSettingsQueryOptions,
+		select: (cfg) => cfg.handCursor ?? defaultSettings.handCursor,
+	});
+
+	useEffect(() => {
+		document.documentElement.toggleAttribute("data-hand-cursor", handCursor === true);
+	}, [handCursor]);
+
+	return null;
+};
+
 export const App: FC<{
 	queryClient: QueryClient;
 	toastManager: ToastManager;
@@ -51,6 +65,7 @@ export const App: FC<{
 							highlighterOptions={{ preferredHighlighter: "shiki-wasm" }}
 						>
 							<SyntaxThemeSync />
+							<HandCursorSync />
 							<RouterProvider router={router} />
 							<AskpassPromptDialog />
 							<Toasts />
