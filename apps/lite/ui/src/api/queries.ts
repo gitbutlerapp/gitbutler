@@ -1,12 +1,14 @@
+import { forgeAuthFailure } from "#ui/forge.ts";
 import type { PayloadFor } from "#electron/ipc.ts";
 import { type AggregateCIChecks, aggregateCIChecks } from "#ui/ci.ts";
 import { clampAutoFetch, defaultSettings } from "#ui/settings.ts";
-import type { CiCheck, ForgeReview, TreeChange, UnifiedPatch } from "@gitbutler/but-sdk";
+import type { CiCheck, ForgeName, ForgeReview, TreeChange, UnifiedPatch } from "@gitbutler/but-sdk";
 import {
 	experimental_streamedQuery,
 	hashKey,
 	infiniteQueryOptions,
 	queryOptions,
+	skipToken,
 } from "@tanstack/react-query";
 import * as ms from "ms";
 import pMap from "p-map";
@@ -427,12 +429,7 @@ export const listReviewsQueryOptions = ({ projectId, ...params }: PayloadFor<"li
 			};
 		},
 		staleTime: 60_000,
-		// Review state changes on the forge side too (closed/reopened/merged
-		// on the website, labels, review requests). Poll while the app is
-		// focused; refetchIntervalInBackground defaults off, so an
-		// unfocused app goes quiet and the focusManager wiring in main.tsx
-		// refetches on return instead.
-		refetchInterval: 60_000,
+		refetchInterval: (query) => (forgeAuthFailure(query.state.error) === null ? 60_000 : false),
 	});
 
 /**
@@ -473,6 +470,31 @@ export const bitbucketAccountsQueryOptions = queryOptions({
 	queryKey: ["forgeAccounts", "bitbucket"],
 	queryFn: () => window.lite.listKnownBitbucketAccounts(),
 });
+
+// Conditional queries are very awkward, hence the duplication and oddities. This retains maximum
+// downstream flexibility e.g. with select.
+export const forgeAccountsQueryOptions = (provider: ForgeName | null | undefined) => {
+	let queryFn;
+	switch (provider) {
+		case "github":
+			queryFn = () => window.lite.listKnownGithubAccounts();
+			break;
+		case "gitlab":
+			queryFn = () => window.lite.listKnownGitlabAccounts();
+			break;
+		case "bitbucket":
+			queryFn = () => window.lite.listKnownBitbucketAccounts();
+			break;
+		default:
+			queryFn = skipToken;
+			break;
+	}
+
+	return queryOptions({
+		queryKey: ["forgeAccounts", queryFn === skipToken ? "unsupported" : provider],
+		queryFn: queryFn === skipToken ? skipToken : async () => queryFn(),
+	});
+};
 
 export const listProjectsQueryOptions = queryOptions({
 	queryKey: ["projects"],

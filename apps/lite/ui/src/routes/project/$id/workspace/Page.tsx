@@ -699,8 +699,9 @@ const PageBody: FC<{ projectId: string }> = ({ projectId }) => {
 					// The picker is an anchored dropdown living with the project name in the header, so
 					// this state only tells it to open — there is nothing for the switch to render.
 					ProjectPicker: () => null,
-					Settings: () => (
+					Settings: ({ page }) => (
 						<Settings
+							page={page}
 							open
 							projectId={projectId}
 							projectName={projectName}

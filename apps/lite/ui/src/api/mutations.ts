@@ -1,3 +1,4 @@
+import { forgeAuthTags } from "#ui/forge.ts";
 import { decodeBytes, encodeBytes } from "#ui/api/bytes.ts";
 import { remapSearchBranch, remapSearchCommits, setCursor } from "#ui/use-cursor.ts";
 import { getHeadInfoIndex } from "#ui/api/ref-info.ts";
@@ -863,6 +864,7 @@ export const useForgetGithubAccount = () =>
 		mutationKey: ["forgetGithubAccount"],
 		mutationFn: window.lite.forgetGithubAccount,
 		meta: { failureTitle: "Failed to forget account" },
+		onSuccess: (_data, _variables, _context, { client }) => invalidateTags(client, forgeAuthTags),
 	});
 
 export const useForgetGitlabAccount = () =>
@@ -870,6 +872,7 @@ export const useForgetGitlabAccount = () =>
 		mutationKey: ["forgetGitlabAccount"],
 		mutationFn: window.lite.forgetGitlabAccount,
 		meta: { failureTitle: "Failed to forget account" },
+		onSuccess: (_data, _variables, _context, { client }) => invalidateTags(client, forgeAuthTags),
 	});
 
 export const useForgetBitbucketAccount = () =>
@@ -877,6 +880,7 @@ export const useForgetBitbucketAccount = () =>
 		mutationKey: ["forgetBitbucketAccount"],
 		mutationFn: window.lite.forgetBitbucketAccount,
 		meta: { failureTitle: "Failed to forget account" },
+		onSuccess: (_data, _variables, _context, { client }) => invalidateTags(client, forgeAuthTags),
 	});
 
 export const useStoreGithubPat = () =>
@@ -884,6 +888,7 @@ export const useStoreGithubPat = () =>
 		mutationKey: ["storeGithubPat"],
 		mutationFn: window.lite.storeGithubPat,
 		meta: { failureTitle: "Failed to add GitHub account" },
+		onSuccess: (_data, _variables, _context, { client }) => invalidateTags(client, forgeAuthTags),
 	});
 
 export const useStoreGitlabPat = () =>
@@ -891,6 +896,7 @@ export const useStoreGitlabPat = () =>
 		mutationKey: ["storeGitlabPat"],
 		mutationFn: window.lite.storeGitlabPat,
 		meta: { failureTitle: "Failed to add GitLab account" },
+		onSuccess: (_data, _variables, _context, { client }) => invalidateTags(client, forgeAuthTags),
 	});
 
 export const useStoreBitbucketApiToken = () =>
@@ -898,6 +904,7 @@ export const useStoreBitbucketApiToken = () =>
 		mutationKey: ["storeBitbucketApiToken"],
 		mutationFn: window.lite.storeBitbucketApiToken,
 		meta: { failureTitle: "Failed to add Bitbucket account" },
+		onSuccess: (_data, _variables, _context, { client }) => invalidateTags(client, forgeAuthTags),
 	});
 
 export const useDeleteProject = (projectId: string) =>
