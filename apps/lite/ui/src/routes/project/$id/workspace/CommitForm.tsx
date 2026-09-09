@@ -335,7 +335,7 @@ export const CommitForm: FC<{
 		if (!worktreeChanges) return;
 
 		branchCreate(
-			{ projectId, newRef: null, placement: { type: "independent" } },
+			{ projectId, newRef: null, placement: { type: "independent", subject: { order: 0 } } },
 			{
 				onSuccess: (response) => {
 					// The new branch is the target from here on, also for the retry

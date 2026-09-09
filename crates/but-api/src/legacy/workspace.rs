@@ -260,7 +260,7 @@ pub fn stash_into_branch(
     crate::branch::branch_create_with_perm(
         ctx,
         Some(full_ref_name.clone()),
-        crate::branch::json::BranchCreatePlacement::Independent,
+        crate::branch::json::BranchCreatePlacement::Independent { order: None },
         perm,
     )?;
     let stack_id = {
