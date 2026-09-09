@@ -483,7 +483,7 @@ fn build_status_context<'a>(
         // different disambiguation length here than everywhere else.
         let worktrees = head_info.worktrees;
         for worktree in &worktrees {
-            for local_commit in &worktree.commits {
+            for local_commit in worktree.commits() {
                 commit_id_to_change_id
                     .insert(local_commit.id, local_commit.change_id().into_owned());
                 local_commits_by_id.insert(local_commit.id, local_commit.clone());
@@ -1223,7 +1223,7 @@ fn print_worktree_status(
                         .values()
                         .any(|candidate| candidate.name == wt.name)
                 })
-                .flat_map(|wt| wt.commits.iter().map(|c| c.id)),
+                .flat_map(|wt| wt.commits().map(|c| c.id)),
         )
         .collect();
     for worktree in status_ctx.worktrees.iter().filter(|wt| {

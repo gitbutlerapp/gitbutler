@@ -59,9 +59,21 @@ fn worktrees_are_projected_onto_the_workspace() -> Result<()> {
         .map(|wt| {
             (
                 wt.name.to_string(),
-                wt.commits
+                wt.segments
                     .iter()
-                    .map(|c| c.message.trim().as_bstr().to_string())
+                    .map(|segment| {
+                        (
+                            segment
+                                .ref_name
+                                .as_ref()
+                                .map(|name| name.shorten().to_string()),
+                            segment
+                                .commits
+                                .iter()
+                                .map(|c| c.message.trim().as_bstr().to_string())
+                                .collect::<Vec<_>>(),
+                        )
+                    })
                     .collect::<Vec<_>>(),
                 wt.base,
             )
@@ -78,46 +90,56 @@ fn worktrees_are_projected_onto_the_workspace() -> Result<()> {
         [
             (
                 "wt-at".to_string(),
-                Vec::new(),
                 // Its `HEAD` *is* a workspace commit, so it owns nothing and rests right there.
+                vec![(None, Vec::new())],
                 Some(WorktreeBase::InWorkspace(a2))
             ),
             (
                 "wt-below".to_string(),
-                vec!["U1".to_string()],
+                vec![(Some("wt-below".to_string()), vec!["U1".to_string()])],
                 // Branches off below the target without sitting on the target commit itself -
                 // only its base being reachable from the target reveals it is outside.
                 Some(WorktreeBase::Outside(m0))
             ),
             (
                 "wt-disjoint".to_string(),
-                vec!["D1".to_string()],
+                vec![(Some("disjoint".to_string()), vec!["D1".to_string()])],
                 // Unrelated history - the walk runs out of graph without finding a base.
                 None
             ),
             (
                 "wt-inside".to_string(),
-                vec!["W1".to_string()],
+                vec![(Some("wt-inside".to_string()), vec!["W1".to_string()])],
                 // Its commit branches off a commit that stack A owns.
                 Some(WorktreeBase::InWorkspace(a1))
             ),
             (
                 "wt-outside".to_string(),
-                vec!["O1".to_string()],
+                vec![(Some("wt-outside".to_string()), vec!["O1".to_string()])],
                 // The target commit stops the walk before it can reach the workspace.
                 Some(WorktreeBase::Outside(m1))
             ),
             (
                 "wt-stacked".to_string(),
-                vec!["S1".to_string()],
+                vec![(Some("wt-stacked".to_string()), vec!["S1".to_string()])],
                 // Stacked on wt-inside, which is listed first and thus owns W1 exclusively.
                 Some(WorktreeBase::InWorkspace(w1))
+            ),
+            (
+                "wt-two".to_string(),
+                // Two branches in one checkout: the branch met below the checked-out one
+                // heads its own commits.
+                vec![
+                    (Some("wt-upper".to_string()), vec!["T1".to_string()]),
+                    (Some("wt-lower".to_string()), vec!["L1".to_string()]),
+                ],
+                Some(WorktreeBase::Outside(m1))
             ),
         ]
     );
 
     for wt in &info.worktrees {
-        for commit in &wt.commits {
+        for commit in wt.commits() {
             assert_eq!(
                 commit.relation,
                 LocalCommitRelation::LocalOnly,
@@ -164,8 +186,7 @@ fn deep_disjoint_history_is_never_mistaken_for_being_below_the_target() -> Resul
     let wt = &info.worktrees[0];
     assert_eq!(wt.name.to_string(), "wt-deep");
     assert_eq!(
-        wt.commits
-            .iter()
+        wt.commits()
             .map(|c| c.message.trim().as_bstr().to_string())
             .collect::<Vec<_>>(),
         ["D5", "D4", "D3", "D2", "D1"],

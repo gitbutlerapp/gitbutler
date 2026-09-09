@@ -50,18 +50,20 @@ export const buildAppliedAddressSpace = ({
 	// worktree's branch; not the section's rows or a worktree's own commits.
 	const owned = (address: Address): Row => ({ address, owned: true });
 	const foreign = (address: Address): Row => ({ address, owned: false });
-	// A lane's rows in reading order: files, branch, then commits, each preceded
-	// by the lanes resting on it. Matches WorktreeLane.
+	// A lane's rows in reading order: files, then per branch its row and its
+	// commits, each preceded by the lanes resting on it. Matches WorktreeLane.
 	const laneRows = (worktree: Worktree): Array<Row> => [
 		...(worktreeFiles.get(worktree.name) ?? []).map((path) =>
 			owned(fileAddress({ parent: worktreeChangesFileParent(worktree.name), path })),
 		),
-		...(worktree.refName
-			? [owned(branchAddress({ branchRef: worktree.refName.fullNameBytes }))]
-			: []),
-		...worktree.commits.flatMap((commit) => [
-			...lanesOn(commit.id),
-			foreign(commitAddress({ commitId: commit.id, changeId: commit.changeId })),
+		...worktree.segments.flatMap((segment) => [
+			...(segment.refName
+				? [owned(branchAddress({ branchRef: segment.refName.fullNameBytes }))]
+				: []),
+			...segment.commits.flatMap((commit) => [
+				...lanesOn(commit.id),
+				foreign(commitAddress({ commitId: commit.id, changeId: commit.changeId })),
+			]),
 		]),
 	];
 	const lanesOn = (commitId: string): Array<Row> =>

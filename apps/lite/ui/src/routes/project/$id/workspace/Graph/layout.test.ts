@@ -63,7 +63,7 @@ const worktree = (name: string, base: Worktree["base"], commits: Array<string>):
 	refName: null,
 	head: commits[0] ?? "",
 	base,
-	commits: commits.map(ownCommit),
+	segments: [{ refName: null, commits: commits.map(ownCommit) }],
 });
 
 const folded: Folds = {

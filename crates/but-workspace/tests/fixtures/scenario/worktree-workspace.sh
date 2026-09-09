@@ -45,6 +45,14 @@ git worktree add -b wt-below wt-below main~1
   commit U1
 )
 
+# Two branches in one checkout: wt-upper is checked out on top of wt-lower.
+git worktree add -b wt-lower wt-two main
+(cd wt-two
+  commit L1
+  git checkout -b wt-upper
+  commit T1
+)
+
 # Unrelated history - the walk can never reach the workspace or the target.
 git checkout --orphan disjoint
 commit D1

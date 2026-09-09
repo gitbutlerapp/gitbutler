@@ -1193,7 +1193,7 @@ impl IdMap {
             .chain(
                 worktrees
                     .iter()
-                    .flat_map(|worktree| worktree.commits.iter())
+                    .flat_map(|worktree| worktree.commits())
                     .map(|c| c.id),
             );
 
@@ -1239,8 +1239,7 @@ pub(crate) fn worktree_commits_by_name(
         .iter()
         .map(|worktree| {
             let commits = worktree
-                .commits
-                .iter()
+                .commits()
                 .map(|commit| StackCommit {
                     id: commit.id,
                     parent_ids: commit.parent_ids.clone(),

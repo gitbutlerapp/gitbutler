@@ -170,15 +170,30 @@ pub struct Worktree {
         schemars(schema_with = "but_schemars::object_id")
     )]
     pub head: gix::ObjectId,
-    /// What [`Self::commits`] are resting on, or `None` if the traversal ran out of graph
+    /// What [`Self::segments`] are resting on, or `None` if the traversal ran out of graph
     /// before reaching the workspace or the target (unrelated history, or a limit was hit).
     pub base: Option<WorktreeBase>,
-    /// The commits owned by this worktree alone, from its `HEAD` down to (excluding) its base,
-    /// along the first parent.
-    pub commits: Vec<ui::Commit>,
+    /// The commits owned by this worktree alone, from its `HEAD` down to (excluding) its base
+    /// along the first parent, split at each local branch met on the way down: the first segment
+    /// is headed by the checked-out branch, each one below by a branch stacked underneath.
+    /// Never empty.
+    pub segments: Vec<WorktreeSegment>,
 }
 #[cfg(feature = "export-schema")]
 but_schemars::register_sdk_type!(Worktree);
+
+/// The UI-clone of [`crate::worktrees::WorktreeSegment`].
+#[derive(serde::Serialize, Debug, Clone)]
+#[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
+#[serde(rename_all = "camelCase")]
+pub struct WorktreeSegment {
+    /// The branch at the top of these commits, or `None` if the worktree `HEAD` is detached.
+    pub ref_name: Option<BranchReference>,
+    /// The commits, newest first.
+    pub commits: Vec<ui::Commit>,
+}
+#[cfg(feature = "export-schema")]
+but_schemars::register_sdk_type!(WorktreeSegment);
 
 impl Worktree {
     fn for_ui(
@@ -187,7 +202,7 @@ impl Worktree {
             ref_name,
             head,
             base,
-            commits,
+            segments,
         }: crate::worktrees::WorktreeInfo,
     ) -> Self {
         Worktree {
@@ -198,7 +213,13 @@ impl Worktree {
                 crate::worktrees::WorktreeBase::InWorkspace(id) => WorktreeBase::InWorkspace(id),
                 crate::worktrees::WorktreeBase::Outside(id) => WorktreeBase::Outside(id),
             }),
-            commits: commits.iter().map(Into::into).collect(),
+            segments: segments
+                .into_iter()
+                .map(|segment| WorktreeSegment {
+                    ref_name: segment.ref_name.map(Into::into),
+                    commits: segment.commits.iter().map(Into::into).collect(),
+                })
+                .collect(),
         }
     }
 }

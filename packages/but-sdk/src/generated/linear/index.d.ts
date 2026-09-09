@@ -4748,15 +4748,17 @@ export type Worktree = {
   /** The commit the worktree `HEAD` peels to. */
   head: string;
   /**
-   * What [`Self::commits`] are resting on, or `None` if the traversal ran out of graph
+   * What [`Self::segments`] are resting on, or `None` if the traversal ran out of graph
    * before reaching the workspace or the target (unrelated history, or a limit was hit).
    */
   base: WorktreeBase | null;
   /**
-   * The commits owned by this worktree alone, from its `HEAD` down to (excluding) its base,
-   * along the first parent.
+   * The commits owned by this worktree alone, from its `HEAD` down to (excluding) its base
+   * along the first parent, split at each local branch met on the way down: the first segment
+   * is headed by the checked-out branch, each one below by a branch stacked underneath.
+   * Never empty.
    */
-  commits: Array<Commit>;
+  segments: Array<WorktreeSegment>;
 };
 
 /** What a linked worktree's own commits are resting on. */
@@ -4795,5 +4797,13 @@ export type WorktreeListing = {
   active: Array<ListedWorktree>;
   /** Archived worktrees, hidden from the workspace but still on disk. */
   archived: Array<ListedWorktree>;
+};
+
+/** The UI-clone of [`crate::worktrees::WorktreeSegment`]. */
+export type WorktreeSegment = {
+  /** The branch at the top of these commits, or `None` if the worktree `HEAD` is detached. */
+  refName: BranchReference | null;
+  /** The commits, newest first. */
+  commits: Array<Commit>;
 };
 

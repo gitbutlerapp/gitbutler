@@ -8,7 +8,7 @@
 use std::path::Path;
 
 use anyhow::{Context as _, bail};
-use bstr::{BStr, BString};
+use bstr::{BStr, BString, ByteSlice as _};
 use but_core::{DiffSpec, RepositoryExt};
 
 /// What a linked worktree's own commits are resting on.
@@ -33,6 +33,15 @@ impl WorktreeBase {
     }
 }
 
+/// A run of the commits a linked worktree owns, headed by one branch.
+#[derive(Debug, Clone)]
+pub struct WorktreeSegment {
+    /// The branch at the top of these commits, or `None` if the worktree `HEAD` is detached.
+    pub ref_name: Option<gix::refs::FullName>,
+    /// The commits, newest first.
+    pub commits: Vec<crate::ref_info::LocalCommit>,
+}
+
 /// A non-archived linked worktree along with the commits it owns exclusively, i.e. the commits
 /// between its `HEAD` and the workspace (or the target).
 #[derive(Debug, Clone)]
@@ -43,16 +52,27 @@ pub struct WorktreeInfo {
     pub ref_name: Option<gix::refs::FullName>,
     /// The commit the worktree `HEAD` peels to, as re-resolved during traversal.
     pub head: gix::ObjectId,
-    /// What [`Self::commits`] are resting on.
+    /// What [`Self::segments`] are resting on.
     ///
     /// This is `None` only if the traversal ran out of graph before reaching the workspace or the
     /// target, which happens for worktrees on unrelated history or when a traversal limit was hit.
     pub base: Option<WorktreeBase>,
     /// The commits owned by this worktree alone, from its `HEAD` down to (excluding) its
-    /// [base](Self::base), along the first parent.
+    /// [base](Self::base) along the first parent, split at each local branch met on the way down.
     ///
-    /// Empty if the worktree `HEAD` is itself a workspace commit.
-    pub commits: Vec<crate::ref_info::LocalCommit>,
+    /// The first segment is headed by the checked-out branch, see [`Self::ref_name`], and each
+    /// segment below it by a branch stacked underneath. Never empty, but without any commits if
+    /// the worktree `HEAD` is itself a workspace commit.
+    pub segments: Vec<WorktreeSegment>,
+}
+
+impl WorktreeInfo {
+    /// All commits this worktree owns, newest first.
+    pub fn commits(&self) -> impl Iterator<Item = &crate::ref_info::LocalCommit> {
+        self.segments
+            .iter()
+            .flat_map(|segment| segment.commits.iter())
+    }
 }
 
 /// Project the linked worktrees that seeded `workspace`'s traversal into the commits they own.
@@ -98,13 +118,19 @@ pub fn worktree_infos(
             );
             continue;
         };
-        let (commits, base) = commits_and_base(graph, sidx, head, &off_limits, workspace);
-        let local_commits: Vec<_> = match commits
-            .iter()
-            .map(|commit| crate::ref_info::LocalCommit::try_from_stack_commit(commit, repo))
-            .collect()
+        let (segments, base) = commits_and_base(graph, sidx, tip, &off_limits, workspace);
+        let segments: Vec<WorktreeSegment> = match segments
+            .into_iter()
+            .map(|(ref_name, commits)| {
+                let commits = commits
+                    .iter()
+                    .map(|commit| crate::ref_info::LocalCommit::try_from_stack_commit(commit, repo))
+                    .collect::<anyhow::Result<_>>()?;
+                Ok(WorktreeSegment { ref_name, commits })
+            })
+            .collect::<anyhow::Result<_>>()
         {
-            Ok(local_commits) => local_commits,
+            Ok(segments) => segments,
             Err(err) => {
                 tracing::warn!(
                     worktree = %tip.name,
@@ -115,34 +141,51 @@ pub fn worktree_infos(
                 continue;
             }
         };
-        off_limits.extend(commits.iter().map(|commit| commit.id));
+        off_limits.extend(
+            segments
+                .iter()
+                .flat_map(|segment| segment.commits.iter().map(|commit| commit.id)),
+        );
         out.push(WorktreeInfo {
             name: tip.name.clone(),
             ref_name: tip.ref_name.clone(),
             head,
             base,
-            commits: local_commits,
+            segments,
         });
     }
     out
 }
 
-/// Walk down from `head` (owned by `sidx`) along the first parent, collecting commits until
-/// reaching a commit in `off_limits` or the target of `workspace`.
+/// The commits headed by one branch, as found in the graph.
+type BranchCommits = (
+    Option<gix::refs::FullName>,
+    Vec<but_graph::workspace::StackCommit>,
+);
+
+/// Walk down from the `HEAD` of `tip` (owned by `sidx`) along the first parent, collecting commits
+/// until reaching a commit in `off_limits` or the target of `workspace`. The commits are split at
+/// each local branch met on the way; the first run is headed by the branch `tip` has checked out.
 fn commits_and_base(
     graph: &but_graph::Graph,
     sidx: but_graph::SegmentIndex,
-    head: gix::ObjectId,
+    tip: &but_graph::init::WorktreeTip,
     off_limits: &gix::hashtable::HashSet<gix::ObjectId>,
     workspace: &but_graph::Workspace,
-) -> (Vec<but_graph::workspace::StackCommit>, Option<WorktreeBase>) {
+) -> (Vec<BranchCommits>, Option<WorktreeBase>) {
+    let head = tip.id;
     let target_commit_id = workspace.target_commit.as_ref().map(|t| t.commit_id);
 
-    let mut commits = Vec::new();
+    let mut segments = vec![(tip.ref_name.clone(), Vec::new())];
     let mut base = None;
     // `head` can sit in the middle of its segment when another tip owns the segment's first commit.
     let mut before_head = true;
+    // A branch heading a segment further down starts a new run with the first commit it owns.
+    let mut branch_below = None;
     graph.visit_segments_downward_along_first_parent_include_start(sidx, |segment| {
+        if !before_head {
+            branch_below = stacked_branch(segment);
+        }
         for commit in &segment.commits {
             if before_head {
                 if commit.id != head {
@@ -165,11 +208,27 @@ fn commits_and_base(
                 base = Some(WorktreeBase::Outside(commit.id));
                 return true;
             }
-            commits.push(but_graph::workspace::StackCommit::from_graph_commit(commit));
+            if let Some(ref_name) = branch_below.take() {
+                segments.push((Some(ref_name), Vec::new()));
+            }
+            segments
+                .last_mut()
+                .expect("starts with the checked-out branch")
+                .1
+                .push(but_graph::workspace::StackCommit::from_graph_commit(commit));
         }
         false
     });
-    (commits, base)
+    (segments, base)
+}
+
+/// The local branch heading `segment`, if any. Remote tracking branches and tags name segments
+/// too, but only a local branch is a branch of the worktree's stack.
+fn stacked_branch(segment: &but_graph::Segment) -> Option<gix::refs::FullName> {
+    let name = segment.ref_name()?;
+    (name.category() == Some(gix::refs::Category::LocalBranch)
+        && !name.as_bstr().starts_with_str("refs/heads/gitbutler/"))
+    .then(|| name.to_owned())
 }
 
 /// Open the linked worktree named `name` as a from-disk repository.
