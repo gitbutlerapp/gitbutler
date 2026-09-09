@@ -181,10 +181,10 @@ test("someone else's review activity files one coalesced inbox entry and the unr
 		listReviewTimelineEvents: () => [],
 	});
 
-	// The PR chip proves the baseline listing landed, and that nothing is
-	// unread yet — history must never replay as notifications.
+	// The PR chip proves the baseline listing landed; nothing is filed yet —
+	// history must never replay as notifications.
 	await vi.waitFor(() => expect(panel.container.textContent).toContain("PR"), settle);
-	expect(document.querySelector('[title="New activity on this pull request"]')).toBeNull();
+	expect(inboxEntries()).toHaveLength(0);
 
 	// Someone comments; the forge bumps the review and a fetch notices.
 	review = { ...review, modifiedAt: "2026-01-01T11:00:00Z" };
@@ -204,14 +204,9 @@ test("someone else's review activity files one coalesced inbox entry and the unr
 	const event: WatcherEvent = { name: "gitFetch", payload: { type: "gitFetch", subject: null } };
 	panel.push(eventChannel, event);
 
-	// One coalesced, attributed inbox entry — and the unread dot alongside it.
+	// One coalesced, attributed inbox entry.
 	await vi.waitFor(() => expect(inboxEntries()).toHaveLength(1), settle);
 	expect(inboxEntries()[0]).toMatchObject({ kind: "comment", review: 7, author: "alice" });
-	await vi.waitFor(
-		() =>
-			expect(document.querySelector('[title="New activity on this pull request"]')).not.toBeNull(),
-		settle,
-	);
 
 	panel.unmount();
 });

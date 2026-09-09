@@ -28,7 +28,7 @@ export const defaultSettings = {
 	minimap: false,
 	// Lite has always led with the file name; desktop leads with the path.
 	pathFirst: false,
-	// Loud = the notification bell and unread dots; quiet = dots only;
+	// Loud = the notification bell; quiet = tracked but nothing shown;
 	// off = no PR-activity tracking in the UI at all.
 	prNotifications: "loud",
 	terminalId: "",
