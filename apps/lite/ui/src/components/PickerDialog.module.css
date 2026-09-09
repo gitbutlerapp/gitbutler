@@ -31,39 +31,6 @@
 	position: relative;
 }
 
-/* The same heading a `PopupSection` gives its rows; the virtualizer renders it as a row of its
-   own, so it carries its own box rather than wrapping what it names. */
-.groupLabel {
-	display: flex;
-	align-items: center;
-	min-height: 23px;
-	padding: 8px 12px 0;
-	outline: 0;
-	color: var(--text-3);
-	font-size: 12px;
-	line-height: 1;
-	cursor: default;
-	user-select: none;
-}
-
-/* Sections divide from one another, so every section but the last is followed by a hairline — the
-   line a `PopupSection` draws with a border. Rows here are absolutely positioned, so the heading
-   below the line hosts it inside its own box rather than either section spacing itself off the
-   other. */
-.groupLabelDivided {
-	position: relative;
-	padding-top: 16px;
-	padding-bottom: 4px;
-
-	&:before {
-		position: absolute;
-		inset-inline: 0;
-		top: 4px;
-		border-top: 1px solid var(--border-3);
-		content: "";
-	}
-}
-
 /* A `PopupItem`'s metrics, laid out as a grid because the type sits at the far end of the row. */
 .item {
 	box-sizing: border-box;

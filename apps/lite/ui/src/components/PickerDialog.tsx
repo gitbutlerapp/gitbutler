@@ -3,7 +3,7 @@
  */
 
 import { Autocomplete, Dialog } from "@base-ui/react";
-import { Modal, PopupSearch } from "#ui/components/Popup.tsx";
+import { Modal, PopupSearch, PopupSectionLabel } from "#ui/components/Popup.tsx";
 import { getRangeExtractorWithIndices } from "#ui/virtual.ts";
 import { type Range, useVirtualizer } from "@tanstack/react-virtual";
 import {
@@ -114,7 +114,9 @@ const VirtualizedListArea = <T,>({
 		directDomUpdatesMode: "transform",
 		count: virtualRows.length,
 		getScrollElement: () => scrollElementRef.current,
-		estimateSize: () => 28,
+		// A heading is its 8px and 4px around one line of 12px type; a divided one adds the 5px
+		// of divider and inset above. Measured after the first paint, so close is enough.
+		estimateSize: (index) => (virtualRows[index]?._tag === "Group" ? (index > 0 ? 31 : 26) : 28),
 		getItemKey: getVirtualRowKey,
 		rangeExtractor: rangeExtractorWithHighlighted,
 		// The list opens on a section heading, which carries the 8px a section puts above its
@@ -206,31 +208,29 @@ const VirtualizedListArea = <T,>({
 								const row = virtualRows[virtualItem.index];
 								if (row === undefined) return null;
 
-								// Only what the virtualizer decides. A row spans the list, and how far it
-								// insets itself from the edge is the row's own styling.
+								// Only where the row sits. A row spans the list, insets itself as its own
+								// styling says, and is as tall as its content: the virtualizer measures the
+								// rendered box, so pinning a height here would only hand its own estimate
+								// back to it.
 								const style: CSSProperties = {
 									position: "absolute",
 									top: 0,
 									left: 0,
 									right: 0,
-									height: virtualItem.size,
 								};
 
 								if (row._tag === "Group") {
 									return (
-										<div
+										<PopupSectionLabel
 											key={virtualItem.key}
 											ref={virtualizer.measureElement}
 											data-index={virtualItem.index}
 											role="presentation"
-											className={classes(
-												styles.groupLabel,
-												virtualItem.index > 0 && styles.groupLabelDivided,
-											)}
+											divided={virtualItem.index > 0}
 											style={style}
 										>
 											{row.group.value}
-										</div>
+										</PopupSectionLabel>
 									);
 								}
 
