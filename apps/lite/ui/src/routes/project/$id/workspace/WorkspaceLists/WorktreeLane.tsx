@@ -15,7 +15,12 @@ import {
 	worktreeChangesFileParent,
 	type FileParent,
 } from "#ui/addresses.ts";
-import { useWorktreeRemove, useWorktreeSetArchived } from "#ui/api/mutations.ts";
+import {
+	useWorkspaceBranchAndAncestorsPush,
+	useWorktreeRemove,
+	useWorktreeSetArchived,
+} from "#ui/api/mutations.ts";
+import { assert } from "#ui/assert.ts";
 import { decodeBytes } from "#ui/api/bytes.ts";
 import {
 	forgeInfoOptions,
@@ -40,12 +45,19 @@ import {
 } from "#ui/native-menu.ts";
 import { prForgeUrl } from "#ui/pr.ts";
 import { defaultSettings } from "#ui/settings.ts";
+import {
+	downstackPushLabel,
+	downstackPushStatusDisabled,
+	downstackPushStatusesFromSegments,
+	emptyDownstackPushStatus,
+	type DownstackPushStatus,
+} from "#ui/segment.ts";
 import { setCursor, useIsCursorAt } from "#ui/use-cursor.ts";
 import { addressSpaceIncludes } from "#ui/workspace/address-space.ts";
 import type { BranchReference, TreeChange, Worktree } from "@gitbutler/but-sdk";
 import { Toolbar, Tooltip } from "@base-ui/react";
 import { useQuery } from "@tanstack/react-query";
-import { Fragment, useState, type ComponentProps, type FC } from "react";
+import { Fragment, useMemo, useState, type ComponentProps, type FC } from "react";
 import { CommitRow } from "./CommitRow.tsx";
 import { useAddressSpace } from "./context.tsx";
 import { ItemRow } from "./ItemRow.tsx";
@@ -286,10 +298,14 @@ const WorktreeBranchRow: FC<
 	{
 		projectId: string;
 		refName: BranchReference;
+		/** What a push from this branch covers: it, the branches below it, and what the lane rests on. */
+		downstackPushStatus: DownstackPushStatus;
 		behind: number;
 	} & ComponentProps<typeof Row>
-> = ({ projectId, refName, behind, ...props }) => {
+> = ({ projectId, refName, downstackPushStatus, behind, ...props }) => {
 	const address = branchAddress({ branchRef: refName.fullNameBytes });
+	const { mutate: workspaceBranchAndAncestorsPush, isPending: isPushing } =
+		useWorkspaceBranchAndAncestorsPush(projectId);
 	const { data: forgeInfo } = useQuery(forgeInfoOptions(projectId));
 	// Only this branch's number: the listing refetches on a timer, and a row
 	// should re-render only when its own pull request changes.
@@ -301,7 +317,24 @@ const WorktreeBranchRow: FC<
 	});
 	const forgeUrl = pullRequest !== null && forgeInfo ? prForgeUrl(pullRequest, forgeInfo) : null;
 
+	const pushBranch = () => {
+		workspaceBranchAndAncestorsPush({
+			projectId,
+			branch: decodeBytes(refName.fullNameBytes),
+			withForce: downstackPushStatus.anyPushRequiresForce,
+			skipForcePushProtection: false,
+			runHooks: true,
+			pushOpts: [],
+		});
+	};
+
 	const menuItems: Array<NativeMenuItem> = [
+		nativeMenuItem({
+			label: downstackPushLabel(downstackPushStatus),
+			enabled: !isPushing && !downstackPushStatusDisabled(downstackPushStatus),
+			onSelect: pushBranch,
+		}),
+		nativeMenuSeparator,
 		nativeMenuItem({
 			label: "Copy Branch Name",
 			onSelect: () => window.lite.clipboardWriteText(refName.displayName),
@@ -360,7 +393,15 @@ const WorktreeRows: FC<{
 	behind: number;
 	/** The lane's rail starts at its uncommitted files; on the trunk, the trunk runs on through. */
 	startsRail: boolean;
-}> = ({ projectId, worktree, worktrees, behind, startsRail }) => {
+	/** What the lane rests on, which a push of any of its branches also pushes. */
+	beneath: DownstackPushStatus;
+}> = ({ projectId, worktree, worktrees, behind, startsRail, beneath }) => {
+	// Manual memo: the compiler folds this into the props scope, where it is rebuilt
+	// on every render and hands each branch row a fresh status.
+	const downstackPushStatuses = useMemo(
+		() => downstackPushStatusesFromSegments(worktree.segments, beneath),
+		[worktree.segments, beneath],
+	);
 	// The rail under a commit takes the colour of the next commit, across segments.
 	const commits = worktree.segments.flatMap((segment) => segment.commits);
 	const below = new Map(
@@ -375,7 +416,8 @@ const WorktreeRows: FC<{
 				behind={behind}
 				startsRail={startsRail}
 			/>
-			{worktree.segments.map((segment) => {
+			{worktree.segments.map((segment, index) => {
+				const downstackPushStatus = assert(downstackPushStatuses[index]);
 				// A detached HEAD's first segment has no branch to show a row for.
 				const branch =
 					segment.refName === null
@@ -402,6 +444,7 @@ const WorktreeRows: FC<{
 											<WorktreeBranchRow
 												projectId={projectId}
 												refName={segment.refName}
+												downstackPushStatus={downstackPushStatus}
 												behind={behind}
 											/>
 										}
@@ -420,6 +463,7 @@ const WorktreeRows: FC<{
 											worktree={nested}
 											worktrees={worktrees}
 											behind={behind + 1}
+											beneath={downstackPushStatus}
 										/>
 									))}
 									<TreeItem
@@ -469,7 +513,9 @@ export const WorktreeLane: FC<{
 	worktrees: WorktreePlacement;
 	/** Columns behind the lane's rail: the rail it rests on is the last of them. */
 	behind: number;
-}> = ({ projectId, worktree, worktrees, behind }) => (
+	/** What the commit the lane rests on pushes with itself. */
+	beneath: DownstackPushStatus;
+}> = ({ projectId, worktree, worktrees, behind, beneath }) => (
 	<>
 		<WorktreeRows
 			projectId={projectId}
@@ -477,6 +523,7 @@ export const WorktreeLane: FC<{
 			worktrees={worktrees}
 			behind={behind}
 			startsRail
+			beneath={beneath}
 		/>
 		<GraphGap height={LEG_GAP} bend="LocalOnly" behind={behind - 1} />
 	</>
@@ -493,7 +540,9 @@ export const WorktreeOnTip: FC<{
 	worktree: Worktree;
 	worktrees: WorktreePlacement;
 	behind: number;
-}> = ({ projectId, worktree, worktrees, behind }) => (
+	/** What the top branch it sits on pushes with itself. */
+	beneath: DownstackPushStatus;
+}> = ({ projectId, worktree, worktrees, behind, beneath }) => (
 	<>
 		<WorktreeRows
 			projectId={projectId}
@@ -501,6 +550,7 @@ export const WorktreeOnTip: FC<{
 			worktrees={worktrees}
 			behind={behind}
 			startsRail
+			beneath={beneath}
 		/>
 		<GraphGap height={TIP_GAP} behind={behind} />
 	</>
@@ -526,6 +576,7 @@ export const WorktreeCard: FC<{
 				worktrees={worktrees}
 				behind={1}
 				startsRail
+				beneath={emptyDownstackPushStatus}
 			/>
 			<Row interactive={false} className={sectionStyles.stub}>
 				<GraphSegment glyph="parent" status="LocalOnly" behind={1} />
