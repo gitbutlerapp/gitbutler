@@ -44,7 +44,6 @@ import { Kbd } from "#ui/components/Kbd.tsx";
 import type { IconName } from "#ui/components/iconNames.ts";
 import { Markdown } from "#ui/components/Markdown.tsx";
 import { MarkdownAttachments } from "#ui/components/MarkdownAttachments.tsx";
-import { MarkdownToolbar } from "#ui/components/MarkdownToolbar.tsx";
 import { useMentionSuggestions } from "#ui/components/MentionSuggestions.tsx";
 import { RelativeTime } from "#ui/components/RelativeTime.tsx";
 import {
@@ -1043,7 +1042,7 @@ const ForgeInserts: FC<{
 	);
 };
 
-/** The bottom composer: toolbar, avatar + source, then the action footer. */
+/** The bottom composer: avatar + source, then the action footer. */
 const Composer: FC<{
 	draft: string;
 	setDraft: (update: string | ((current: string) => string)) => void;
@@ -1052,7 +1051,6 @@ const Composer: FC<{
 	avatarUrl: string | null | undefined;
 	projectId: string;
 }> = ({ draft, setDraft, onSubmit, textareaRef, avatarUrl, projectId }) => {
-	const [scrolled, setScrolled] = useState(false);
 	// Folded to one quiet row until engaged; a draft arriving from outside —
 	// a reply quote, a failed submit restoring its text — unfolds it too.
 	const [engaged, setEngaged] = useState(false);
@@ -1114,19 +1112,12 @@ const Composer: FC<{
 	return (
 		<div
 			className={styles.composer}
-			data-body-scrolled={scrolled || undefined}
 			// Leaving the whole composer with nothing written folds it back.
 			onBlur={(evt) => {
 				if (empty && !evt.currentTarget.contains(evt.relatedTarget)) setEngaged(false);
 			}}
 			ref={composerRef}
 		>
-			<MarkdownToolbar
-				className={styles.composerToolbar}
-				onInput={setDraft}
-				targetRef={textareaRef}
-			/>
-
 			<div className={styles.composerBody}>
 				<Avatar src={avatarUrl} />
 				<textarea
@@ -1140,8 +1131,6 @@ const Composer: FC<{
 							setEngaged(false);
 						}
 					}}
-					// Only the flip re-renders: React bails out of an unchanged state.
-					onScroll={(evt) => setScrolled(evt.currentTarget.scrollTop > 0)}
 					placeholder="Write a comment…"
 					ref={attachInput}
 					value={draft}
