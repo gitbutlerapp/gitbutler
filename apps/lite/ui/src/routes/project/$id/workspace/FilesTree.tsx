@@ -1033,6 +1033,7 @@ export const FilesTree: FC<
 			<FileRowTooltipRoot handle={tooltipHandle} />
 			{rows.length === 0 ? (
 				<Row interactive={false}>
+					{rail}
 					<RowLabelContainer>
 						<RowLabel className={rowStyles.fadedText}>{emptyLabel}</RowLabel>
 					</RowLabelContainer>
