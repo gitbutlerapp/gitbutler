@@ -40,9 +40,10 @@ const Tone: FC<{ status: GraphSegmentStatus | undefined; d: string; dashed?: boo
 /**
  * The columns the main line runs through behind a row or gap. The first is
  * the trunk's on the panel's edge, drawn the way the gaps draw it so the two
- * land on the same pixels: an SVG antialiases where a CSS box snaps.
+ * land on the same pixels: an SVG antialiases where a CSS box snaps. Folded
+ * below the row, the trunk's tail is dashed like a glyph's.
  */
-const passes = (behind: number) =>
+const passes = (behind: number, folded = false) =>
 	Array.from({ length: behind }, (_, column) =>
 		column === 0 ? (
 			<svg
@@ -55,7 +56,14 @@ const passes = (behind: number) =>
 				aria-hidden="true"
 				focusable="false"
 			>
-				<path d="M8 0V28" strokeWidth="1.5" />
+				{folded ? (
+					<>
+						<path d="M8 0V14" strokeWidth="1.5" />
+						<path d="M8 14V28" strokeWidth="1.5" strokeDasharray="1.5 2.5" />
+					</>
+				) : (
+					<path d="M8 0V28" strokeWidth="1.5" />
+				)}
 			</svg>
 		) : (
 			<span key={column} className={styles.pass} aria-hidden />
@@ -192,7 +200,7 @@ interface GraphSegmentProps extends ComponentProps<"span"> {
 	status: GraphSegmentStatus;
 	/** The rail ends on this row: no tail below the icon, nothing stretched under a taller row. */
 	railEnds?: boolean;
-	/** The rail below the row is folded away: its tail is dashed, a hint of what the fold holds. */
+	/** The rail below the row is folded away: its tail, or the trunk's behind it, is dashed, a hint of what the fold holds. */
 	folded?: boolean;
 	/** The rings sit on the row's centre line, for a single-line row of their own. */
 	centered?: boolean;
@@ -217,7 +225,7 @@ export const GraphSegment: FC<GraphSegmentProps> = ({
 }) => (
 	// Spans throughout: the segment sits in buttons and spans, which take phrasing content only.
 	<span {...props} className={classes(className, styles.container)} data-status={status}>
-		{passes(behind)}
+		{passes(behind, folded)}
 		<span className={styles.glyph}>
 			<svg
 				className={classes(

@@ -286,6 +286,11 @@ export const Section: FC<{
 					<span className={styles.chevron}>
 						<Icon name={plan.baseExpanded ? "chevron-down" : "chevron-right"} />
 					</span>
+				) : plan.refOnBase && !plan.baseExpanded ? (
+					// Nothing above the base and its history folded: nothing needs the
+					// column, so the trunk runs on past the row on the edge, its tail the
+					// hint of the fold.
+					<GraphSegment glyph="space" status="LocalOnly" behind={1} folded />
 				) : (
 					<GraphSegment
 						// The trunk hooks in from the edge, meeting the target's leg coming down
