@@ -3,8 +3,10 @@
 `SKILL.md` and `references/` are installed verbatim into users' agents — a wrong
 line here misdirects every agent in every user repo. Only the files in
 `SKILL_FILES` in `crates/but/src/command/skill/mod.rs` ship, so register any new
-reference file there. `stub.md` is the body of the single-file stub install and
-must only point at `but skill` commands; it carries no facts about `but`.
+reference file there. `stub.md` is the body of the single-file stub install. It
+points only at `but skill` commands and says what each prints and how to read
+it; command syntax and behavior stay in the served guide, where they cannot go
+stale.
 
 - **Never document anything that can block on a TTY.** An editor or interactive
   picker hangs an agent forever. Give the non-interactive form (`-m`,

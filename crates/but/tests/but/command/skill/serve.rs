@@ -160,7 +160,7 @@ fn skill_install_stub_writes_one_marked_file_that_check_accepts() {
         "the stub is marked and pre-approves the read it asks for, got: {skill_md}"
     );
     assert!(
-        skill_md.contains("run `but skill`") || skill_md.contains("but skill  "),
+        skill_md.contains("\n```bash\nbut skill\n```\n"),
         "the stub body points at the CLI, got: {skill_md}"
     );
     assert!(
