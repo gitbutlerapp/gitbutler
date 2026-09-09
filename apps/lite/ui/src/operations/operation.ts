@@ -11,9 +11,13 @@ import { Toast } from "@base-ui/react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Match } from "effect";
 import { rejectedChangesToastOptions } from "#ui/operations/toastOptions.tsx";
-import type { DiffSpec, InsertSide, RelativeTo } from "@gitbutler/but-sdk";
-import { type Address, addressEquals, addressFileParent } from "#ui/addresses.ts";
-import { resolveDiffSpecs, useResolveDiffSpecs } from "#ui/operations/diff-specs.ts";
+import type { ChangesSource, DiffSpec, InsertSide, RelativeTo } from "@gitbutler/but-sdk";
+import { type Address, addressEquals, addressFileParent, changesSourceOf } from "#ui/addresses.ts";
+import {
+	fileParentFromSources,
+	resolveDiffSpecs,
+	useResolveDiffSpecs,
+} from "#ui/operations/diff-specs.ts";
 import { decodeBytes } from "#ui/api/bytes.ts";
 import { guiSettingsQueryOptions } from "#ui/api/queries.ts";
 import { defaultSettings } from "#ui/settings.ts";
@@ -76,6 +80,12 @@ type Operation =
 
 type LabelledOperation = { operation: Operation; label: string };
 
+/** The checkout uncommitted sources are read from, and cancelled out of: their parent says which. */
+const changesSourceFor = (sources: Array<Address>): ChangesSource => {
+	const fileParent = fileParentFromSources(sources);
+	return fileParent?._tag === "UncommittedChanges" ? changesSourceOf(fileParent) : { type: "head" };
+};
+
 const executeOperation = async ({
 	projectId,
 	operation,
@@ -96,7 +106,7 @@ const executeOperation = async ({
 					projectId,
 					commitId: operation.commitId,
 					changes,
-					changesSource: { type: "head" },
+					changesSource: changesSourceFor(operation.sources),
 					dryRun,
 				});
 			},
@@ -153,7 +163,7 @@ const executeOperation = async ({
 					relativeTo: operation.relativeTo,
 					side: operation.side,
 					changes,
-					changesSource: { type: "head" },
+					changesSource: changesSourceFor(operation.sources),
 					message: operation.message,
 					dryRun,
 				});

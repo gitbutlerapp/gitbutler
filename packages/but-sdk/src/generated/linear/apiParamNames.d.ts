@@ -137,6 +137,7 @@ export declare const apiParamNames: {
 	readonly storeGitlabPat: readonly ["accessToken"];
 	readonly tearOffBranch: readonly ["projectId", "subjectBranch", "dryRun"];
 	readonly treeChangeDiffs: readonly ["projectId", "change"];
+	readonly treeChangeDiffsFromSource: readonly ["projectId", "changesSource", "change"];
 	readonly unapplyStack: readonly ["projectId", "stackId"];
 	readonly updateAiConfiguration: readonly ["update"];
 	readonly updateProfileAndPersist: readonly ["params"];

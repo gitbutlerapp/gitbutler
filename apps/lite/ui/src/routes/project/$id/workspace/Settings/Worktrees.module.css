@@ -1,0 +1,16 @@
+/* The checkout path, clipped from its start so the directory name stays in view;
+   the path itself is a left-to-right run, or bidi would move its leading slash to the end. */
+.path {
+	display: block;
+	overflow: hidden;
+	direction: rtl;
+	text-align: left;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.actions {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+}

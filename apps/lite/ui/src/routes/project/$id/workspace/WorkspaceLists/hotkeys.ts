@@ -293,10 +293,15 @@ export const useActiveListsHotkeys = ({
 
 		let nextItemIndex = selectionIdx;
 		let nextItem: Address | undefined;
+		// Past the commits being moved, and past a worktree lane's file rows, which
+		// are not places a commit can go.
 		do {
 			nextItemIndex += offset;
 			nextItem = addressSpace.items[nextItemIndex];
-		} while (nextItem?._tag === "Commit" && subjectCommitIds.has(nextItem.commitId));
+		} while (
+			nextItem?._tag === "File" ||
+			(nextItem?._tag === "Commit" && subjectCommitIds.has(nextItem.commitId))
+		);
 		if (!nextItem) return;
 
 		let relativeTo: RelativeTo;

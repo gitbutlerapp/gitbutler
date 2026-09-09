@@ -1,12 +1,13 @@
 import { Match } from "effect";
 import type { HunkLineSelection } from "#ui/hunk.ts";
+import type { ChangesSource } from "@gitbutler/but-sdk";
 
 export type Address =
-	| { _tag: "UncommittedChanges" }
+	| ({ _tag: "UncommittedChanges" } & UncommittedChangesAddress)
 	/**
-	 * Operations act only on branches applied to the workspace — `addressLabel`
-	 * asserts the ref resolves to a segment. Cursors are broader: the unapplied
-	 * list addresses branches outside the workspace with this same arm.
+	 * Operations act on branches applied to the workspace, and on a branch checked
+	 * out in a linked worktree as a target. Cursors are broader still: the
+	 * unapplied list addresses branches outside the workspace with this same arm.
 	 */
 	| ({ _tag: "Branch" } & BranchAddress)
 	| ({ _tag: "Commit" } & CommitAddress)
@@ -14,6 +15,12 @@ export type Address =
 	| ({ _tag: "Hunk" } & HunkAddress);
 
 export type FileParent = Extract<Address, { _tag: "UncommittedChanges" | "Branch" | "Commit" }>;
+
+/** The uncommitted changes of the main worktree, or of the linked worktree named. */
+export type UncommittedChangesAddress = {
+	/** The stable worktree name, i.e. the directory under `$GIT_COMMON_DIR/worktrees/`. */
+	worktree?: string;
+};
 
 export type BranchAddress = {
 	branchRef: Array<number>;
@@ -41,6 +48,10 @@ export type HunkAddress = HunkLineSelection & {
 export const uncommittedChangesAddress: Address = {
 	_tag: "UncommittedChanges",
 };
+
+/** The checkout an uncommitted-changes address reads from, as the API names it. */
+export const changesSourceOf = ({ worktree }: UncommittedChangesAddress): ChangesSource =>
+	worktree === undefined ? { type: "head" } : { type: "worktree", subject: worktree };
 
 export const branchAddress = ({
 	branchRef,
@@ -75,9 +86,16 @@ export const hunkAddress = ({
 	...lineSelection,
 });
 
-export const uncommittedChangesFileParent: FileParent = {
+export const uncommittedChangesFileParent: Extract<FileParent, { _tag: "UncommittedChanges" }> = {
 	_tag: "UncommittedChanges",
 };
+
+export const worktreeChangesFileParent = (
+	worktree: string,
+): Extract<FileParent, { _tag: "UncommittedChanges" }> => ({
+	_tag: "UncommittedChanges",
+	worktree,
+});
 
 export const branchFileParent = ({ branchRef }: BranchAddress): FileParent => ({
 	_tag: "Branch",
@@ -90,7 +108,8 @@ export const commitFileParent = ({ commitId, changeId }: CommitAddress): FilePar
 	changeId,
 });
 
-const uncommittedChangesIdentityKey = "uncommitted_changes";
+const uncommittedChangesIdentityKey = ({ worktree }: UncommittedChangesAddress) =>
+	worktree === undefined ? "uncommitted_changes" : `uncommitted_changes:${worktree}`;
 
 export const branchIdentityKey = (address: BranchAddress) =>
 	`branch:${address.branchRef.join(",")}`;
@@ -104,7 +123,7 @@ export const weakCommitIdentityKey = (address: Pick<CommitAddress, "changeId">) 
 const fileParentIdentityKey = (fp: FileParent): string => {
 	switch (fp._tag) {
 		case "UncommittedChanges":
-			return uncommittedChangesIdentityKey;
+			return uncommittedChangesIdentityKey(fp);
 		case "Branch":
 			return branchIdentityKey(fp);
 		case "Commit":
@@ -115,7 +134,7 @@ const fileParentIdentityKey = (fp: FileParent): string => {
 export const weakFileParentIdentityKey = (fp: FileParent): string => {
 	switch (fp._tag) {
 		case "UncommittedChanges":
-			return uncommittedChangesIdentityKey;
+			return uncommittedChangesIdentityKey(fp);
 		case "Branch":
 			return branchIdentityKey(fp);
 		case "Commit":
@@ -151,7 +170,7 @@ export const hunkAddressContainsLine = (source: HunkAddress, line: HunkAddress):
 export const addressIdentityKey = (address: Address): string => {
 	switch (address._tag) {
 		case "UncommittedChanges":
-			return uncommittedChangesIdentityKey;
+			return uncommittedChangesIdentityKey(address);
 		case "File":
 			return fileIdentityKey(address);
 		case "Branch":
@@ -171,7 +190,7 @@ export const addressFileParent = (address: Address): FileParent | null =>
 		Match.withReturnType<FileParent | null>(),
 		Match.tags({
 			File: ({ parent }) => parent,
-			UncommittedChanges: () => uncommittedChangesAddress,
+			UncommittedChanges: (address) => address,
 			Hunk: ({ parent }) => parent.parent,
 		}),
 		Match.orElse(() => null),

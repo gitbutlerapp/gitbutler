@@ -64,6 +64,11 @@ export const CommitRow: FC<
 		behind?: number;
 		/** The rail ends on this commit: a root, with nothing below to run on to. */
 		railEnds?: boolean;
+		/**
+		 * The linked worktree whose lane the commit is drawn in. Such a commit is
+		 * outside the workspace, so the actions that rewrite it stay off.
+		 */
+		worktree?: string;
 	} & ComponentProps<"div">
 > = ({
 	commit,
@@ -73,6 +78,7 @@ export const CommitRow: FC<
 	checkCommit,
 	amendCommit,
 	canAmendCommit,
+	worktree,
 	below,
 	behind,
 	railEnds,
@@ -86,9 +92,10 @@ export const CommitRow: FC<
 	};
 	const address = commitAddress(commitAddressV);
 
-	const canCheck = useAppSelector((state) =>
-		projectSlice.selectors.selectCanCheckCommits(state, projectId),
-	);
+	const inWorkspace = worktree === undefined;
+	const canCheck =
+		useAppSelector((state) => projectSlice.selectors.selectCanCheckCommits(state, projectId)) &&
+		inWorkspace;
 	const isDependency = useAppSelector((state) =>
 		projectSlice.selectors.selectDependencyCommitIds(state, projectId).has(commit.id),
 	);
@@ -283,7 +290,39 @@ export const CommitRow: FC<
 	const title = commitTitle(commitWithOptimisticMessage.message);
 	const body = commitBody(commitWithOptimisticMessage.message);
 
-	const menuItems: Array<NativeMenuItem> = [
+	// Items that only read the commit, the whole menu of a commit outside the workspace.
+	const readOnlyMenuItems: Array<NativeMenuItem> = [
+		nativeMenuItem({
+			label: "Copy",
+			submenu: [
+				nativeMenuItem({
+					label: "Change ID",
+					onSelect: () => window.lite.clipboardWriteText(commit.changeId),
+				}),
+				nativeMenuItem({
+					label: "Commit ID",
+					onSelect: () => window.lite.clipboardWriteText(commit.id),
+				}),
+				nativeMenuItem({
+					label: "Commit Title",
+					enabled: title !== undefined,
+					onSelect: () => window.lite.clipboardWriteText(title ?? ""),
+				}),
+				nativeMenuItem({
+					label: "Commit Body",
+					enabled: body !== undefined,
+					onSelect: () => window.lite.clipboardWriteText(body ?? ""),
+				}),
+			],
+		}),
+		nativeMenuItem({
+			label: mforgeUrl?.freshness === "stale" ? "Open In Browser (stale)" : "Open In Browser",
+			enabled: mforgeUrl != null,
+			accelerator: toElectronAccelerator(sidebarHotkeys.openCommitInBrowser.hotkey),
+			onSelect: openCommitInBrowser,
+		}),
+	];
+	const workspaceMenuItems: Array<NativeMenuItem> = [
 		nativeMenuItem({
 			label: "Reword Commit",
 			enabled: !isCommitMessagePending,
@@ -315,35 +354,7 @@ export const CommitRow: FC<
 			accelerator: toElectronAccelerator(selectionOperationHotkeys.cut.hotkey),
 		}),
 		nativeMenuSeparator,
-		nativeMenuItem({
-			label: "Copy",
-			submenu: [
-				nativeMenuItem({
-					label: "Change ID",
-					onSelect: () => window.lite.clipboardWriteText(commit.changeId),
-				}),
-				nativeMenuItem({
-					label: "Commit ID",
-					onSelect: () => window.lite.clipboardWriteText(commit.id),
-				}),
-				nativeMenuItem({
-					label: "Commit Title",
-					enabled: title !== undefined,
-					onSelect: () => window.lite.clipboardWriteText(title ?? ""),
-				}),
-				nativeMenuItem({
-					label: "Commit Body",
-					enabled: body !== undefined,
-					onSelect: () => window.lite.clipboardWriteText(body ?? ""),
-				}),
-			],
-		}),
-		nativeMenuItem({
-			label: mforgeUrl?.freshness === "stale" ? "Open In Browser (stale)" : "Open In Browser",
-			enabled: mforgeUrl != null,
-			accelerator: toElectronAccelerator(sidebarHotkeys.openCommitInBrowser.hotkey),
-			onSelect: openCommitInBrowser,
-		}),
+		...readOnlyMenuItems,
 		insertBlankCommitMenuItem(insertBlankCommit, "above"),
 		nativeMenuSeparator,
 		nativeMenuItem({
@@ -374,6 +385,7 @@ export const CommitRow: FC<
 			onSelect: uncommitCommit,
 		}),
 	];
+	const menuItems = inWorkspace ? workspaceMenuItems : readOnlyMenuItems;
 
 	return (
 		<ItemRow
@@ -381,7 +393,7 @@ export const CommitRow: FC<
 			address={address}
 			isChecked={isChecked}
 			isHighlighted={isDependency}
-			onDoubleClick={noOperationPending ? startEditing : undefined}
+			onDoubleClick={noOperationPending && inWorkspace ? startEditing : undefined}
 			onShiftSelect={
 				noOperationPending && canCheck
 					? () => checkCommit({ commitId: commit.id, shiftKey: true })

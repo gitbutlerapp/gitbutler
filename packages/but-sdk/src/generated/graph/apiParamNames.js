@@ -137,6 +137,7 @@ export const apiParamNames = {
 	storeGitlabPat: ["accessToken"],
 	tearOffBranch: ["projectId", "subjectBranch", "dryRun"],
 	treeChangeDiffs: ["projectId", "change"],
+	treeChangeDiffsFromSource: ["projectId", "changesSource", "change"],
 	unapplyStack: ["projectId", "stackId"],
 	updateAiConfiguration: ["update"],
 	updateProfileAndPersist: ["params"],

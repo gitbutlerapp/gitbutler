@@ -1,14 +1,17 @@
-import { useSuspenseQuery } from "@tanstack/react-query";
+import { useSuspenseQueries } from "@tanstack/react-query";
 import type { FC } from "react";
-import { guiSettingsQueryOptions } from "#ui/api/queries.ts";
-import { useSaveGUISettings } from "#ui/api/mutations.ts";
+import { appSettingsQueryOptions, guiSettingsQueryOptions } from "#ui/api/queries.ts";
+import { useSaveGUISettings, useUpdateFeatureFlags } from "#ui/api/mutations.ts";
 import { Switch } from "#ui/components/Switch.tsx";
 import { defaultSettings } from "#ui/settings.ts";
 import { Row, Section } from "./Section.tsx";
 
 export const Experimental: FC = () => {
-	const { data: settings } = useSuspenseQuery(guiSettingsQueryOptions);
+	const [{ data: settings }, { data: appSettings }] = useSuspenseQueries({
+		queries: [guiSettingsQueryOptions, appSettingsQueryOptions],
+	});
 	const { mutate: saveGUISettings } = useSaveGUISettings();
+	const { mutate: updateFeatureFlags } = useUpdateFeatureFlags();
 
 	return (
 		<Section>
@@ -45,6 +48,18 @@ export const Experimental: FC = () => {
 					aria-labelledby="minimap"
 					checked={settings.minimap ?? defaultSettings.minimap}
 					onCheckedChange={(minimap) => saveGUISettings({ minimap })}
+				/>
+			</Row>
+
+			<Row
+				label="Linked worktrees"
+				labelId="worktree-manipulation"
+				hint="Shows linked git worktrees in the workspace. Existing ones start out archived; see the project's Worktrees page."
+			>
+				<Switch
+					aria-labelledby="worktree-manipulation"
+					checked={appSettings.featureFlags.worktreeManipulation}
+					onCheckedChange={(worktreeManipulation) => updateFeatureFlags({ worktreeManipulation })}
 				/>
 			</Row>
 		</Section>

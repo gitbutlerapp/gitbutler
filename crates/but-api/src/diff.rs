@@ -105,6 +105,27 @@ pub fn tree_change_diffs(
     change.unified_patch(&repo, ctx.settings.context_lines)
 }
 
+/// Like [`tree_change_diffs()`], reading `change` from the checkout `changes_source`
+/// names, so a linked worktree's uncommitted changes diff against its own files.
+///
+/// A linked worktree requires the `worktreeManipulation` feature flag and an active
+/// worktree, see `worktrees::open_changes_source()`.
+#[but_api(napi, provides = [Diffs])]
+#[instrument(err(Debug))]
+pub fn tree_change_diffs_from_source(
+    ctx: &Context,
+    changes_source: ChangesSource,
+    change: TreeChange,
+) -> anyhow::Result<Option<but_core::UnifiedPatch>> {
+    let change: but_core::TreeChange = change.into();
+    let context_lines = ctx.settings.context_lines;
+    if let Some((_name, wt_repo)) = crate::worktrees::open_changes_source(ctx, &changes_source)? {
+        return change.unified_patch(&wt_repo, context_lines);
+    }
+    let repo = ctx.repo.get()?;
+    change.unified_patch(&repo, context_lines)
+}
+
 /// The UI's worktree changes, with the modification times the file lists show.
 ///
 /// Composed here rather than in `but_core::diff::ui::worktree_changes()`, which

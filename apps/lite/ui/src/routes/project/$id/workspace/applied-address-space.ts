@@ -4,15 +4,20 @@ import {
 	addressIdentityKey,
 	branchAddress,
 	commitAddress,
+	fileAddress,
+	worktreeChangesFileParent,
 	type Address,
 } from "#ui/addresses.ts";
 import { decodeBytes } from "#ui/api/bytes.ts";
 import { getOperations, type TransferKind } from "#ui/operations/operation.ts";
 import { getTransferKind, type PendingOperation } from "#ui/operations/pending-operation.ts";
 import { buildIndexByKey, type AddressSpace } from "#ui/workspace/address-space.ts";
-import type { Stack } from "@gitbutler/but-sdk";
+import type { Stack, Worktree } from "@gitbutler/but-sdk";
 import { Match } from "effect";
-import { sectionAddresses, type Plan } from "./Graph/layout.ts";
+import { sectionAddresses, worktreesOnTip, type Plan } from "./Graph/layout.ts";
+
+/** A row of the list, and whether operations may take it as a source or target. */
+type Row = { address: Address; owned: boolean };
 
 const hasAnyOperation = (sources: Array<Address>, target: Address, kind: TransferKind) => {
 	const operations = getOperations(sources, target, kind);
@@ -20,13 +25,14 @@ const hasAnyOperation = (sources: Array<Address>, target: Address, kind: Transfe
 };
 
 /**
- * The applied list's address space: the cards' rows, then the section's rows
- * as its folds show them. While an operation waits for its target only the
- * workspace's own rows stay.
+ * The applied list's address space: the cards' rows, the worktree lanes'
+ * rows where they are drawn, then the section's rows as its folds show them.
+ * While an operation waits for its target only the workspace's own rows stay.
  */
 export const buildAppliedAddressSpace = ({
 	stacks,
 	plan,
+	worktreeFiles,
 	pendingOperation,
 	absorptionTargetCommitIds,
 	foldedSegments,
@@ -34,38 +40,60 @@ export const buildAppliedAddressSpace = ({
 	/** The cards in the graph's order, as `usePlan` gives them. */
 	stacks: ReadonlyArray<Stack>;
 	plan: Plan;
+	/** Each linked worktree's uncommitted paths, by worktree name, in the order its lane lists them. */
+	worktreeFiles: ReadonlyMap<string, ReadonlyArray<string>>;
 	pendingOperation: PendingOperation;
 	absorptionTargetCommitIds: ReadonlySet<string>;
 	foldedSegments: Record<string, true>;
 }): AddressSpace<Address> => {
-	// Every row as a value, tagged with whether the workspace owns it: a card's
-	// branch and commit rows do, the section's do not.
-	const rows = (): Array<{ address: Address; owned: boolean }> => {
-		const owned = (address: Address) => ({ address, owned: true });
-		const foreign = (address: Address) => ({ address, owned: false });
-		return [
-			...stacks.flatMap((stack) =>
-				stack.segments.flatMap((segment) => {
-					// Matches what WorkspaceLists renders: a folded segment shows a stub
-					// in place of its commits, so they are not navigable.
-					const folded =
-						segment.refName !== null &&
-						foldedSegments[decodeBytes(segment.refName.fullNameBytes)] === true;
-					return [
-						...(segment.refName
-							? [owned(branchAddress({ branchRef: segment.refName.fullNameBytes }))]
-							: []),
+	// Operations take a card's rows, a worktree's uncommitted files, and a
+	// worktree's branch; not the section's rows or a worktree's own commits.
+	const owned = (address: Address): Row => ({ address, owned: true });
+	const foreign = (address: Address): Row => ({ address, owned: false });
+	// A lane's rows in reading order: files, branch, then commits, each preceded
+	// by the lanes resting on it. Matches WorktreeLane.
+	const laneRows = (worktree: Worktree): Array<Row> => [
+		...(worktreeFiles.get(worktree.name) ?? []).map((path) =>
+			owned(fileAddress({ parent: worktreeChangesFileParent(worktree.name), path })),
+		),
+		...(worktree.refName
+			? [owned(branchAddress({ branchRef: worktree.refName.fullNameBytes }))]
+			: []),
+		...worktree.commits.flatMap((commit) => [
+			...lanesOn(commit.id),
+			foreign(commitAddress({ commitId: commit.id, changeId: commit.changeId })),
+		]),
+	];
+	const lanesOn = (commitId: string): Array<Row> =>
+		(plan.worktrees.on.get(commitId) ?? []).flatMap(laneRows);
+	const rows = (): Array<Row> => [
+		...stacks.flatMap((stack) => [
+			// Matches what WorkspaceLists renders: worktrees on the tip come above the
+			// top branch; a folded segment hides its commits, so they are not
+			// navigable, but keeps the worktree lanes resting on them.
+			...worktreesOnTip(plan.worktrees, stack).flatMap(laneRows),
+			...stack.segments.flatMap((segment, segmentIndex) => {
+				const folded =
+					segment.refName !== null &&
+					foldedSegments[decodeBytes(segment.refName.fullNameBytes)] === true;
+				return [
+					...(segment.refName
+						? [owned(branchAddress({ branchRef: segment.refName.fullNameBytes }))]
+						: []),
+					...segment.commits.flatMap((commit, index) => [
+						...(segmentIndex === 0 && index === 0 && segment.refName !== null
+							? []
+							: lanesOn(commit.id)),
 						...(folded
 							? []
-							: segment.commits.map((commit) =>
-									owned(commitAddress({ commitId: commit.id, changeId: commit.changeId })),
-								)),
-					];
-				}),
-			),
-			...sectionAddresses(plan).map(foreign),
-		];
-	};
+							: [owned(commitAddress({ commitId: commit.id, changeId: commit.changeId }))]),
+					]),
+				];
+			}),
+		]),
+		...plan.worktrees.standalone.flatMap(laneRows),
+		...sectionAddresses(plan).map(foreign),
+	];
 	const allItems = (): Array<Address> => rows().map((row) => row.address);
 	const workspaceItems = (): Array<Address> =>
 		rows().flatMap((row) => (row.owned ? [row.address] : []));

@@ -2,6 +2,7 @@ import { decodeBytes, encodeBytes } from "#ui/api/bytes.ts";
 import { remapSearchBranch, remapSearchCommits, setCursor } from "#ui/use-cursor.ts";
 import { getHeadInfoIndex } from "#ui/api/ref-info.ts";
 import {
+	appSettingsQueryOptions,
 	branchDetailsQueryOptions,
 	currentForgeLoginQueryOptions,
 	getReviewQueryOptions,
@@ -50,12 +51,14 @@ import type {
 	ForgeReviewThreadComment,
 	ForgeReviewReaction,
 	ForgeReviewUser,
+	FeatureFlagsUpdate,
 	Snapshot,
 	TreeChange,
 } from "@gitbutler/but-sdk";
 import { type QueryClient, useMutation, useQueryClient } from "@tanstack/react-query";
 import type { GUISettings } from "#electron/settings.ts";
 import { moveDraftPR } from "#ui/pr.ts";
+import { invalidateTags } from "#ui/api/tags.ts";
 import { presentableOperation } from "#ui/snapshot.ts";
 
 declare module "@tanstack/react-query" {
@@ -1415,6 +1418,35 @@ export const useBranchRename = (projectId: string) => {
 		meta: { failureTitle: "Failed to rename branch" },
 	});
 };
+
+/**
+ * The worktree flag decides whether graph traversal seeds linked worktrees,
+ * so every project's workspace is stale once it flips.
+ */
+export const useUpdateFeatureFlags = () =>
+	useMutation({
+		scope: { id: "appSettings" },
+		mutationFn: async (update: FeatureFlagsUpdate, ctx) => {
+			await window.lite.updateFeatureFlags(update);
+			await ctx.client.invalidateQueries({ queryKey: appSettingsQueryOptions.queryKey });
+			await invalidateTags(ctx.client, ["Workspace", "Worktrees"]);
+		},
+		meta: { failureTitle: "Failed to save the feature flag" },
+	});
+
+export const useWorktreeSetArchived = (projectId: string) =>
+	useMutation({
+		mutationKey: [projectId, "worktreeSetArchived"],
+		mutationFn: window.lite.worktreeSetArchived,
+		meta: { failureTitle: "Failed to change the worktree's archived state" },
+	});
+
+export const useWorktreeRemove = (projectId: string) =>
+	useMutation({
+		mutationKey: [projectId, "worktreeRemove"],
+		mutationFn: window.lite.worktreeRemove,
+		meta: { failureTitle: "Failed to remove the worktree" },
+	});
 
 /**
  * Save GUI settings mutation with partial keys. Settings are spread (shallow).

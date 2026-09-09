@@ -19,6 +19,7 @@ import { Integrations } from "./Integrations.tsx";
 import { Project } from "./Project.tsx";
 import { ProjectAi } from "./ProjectAi.tsx";
 import { ProjectExperimental } from "./ProjectExperimental.tsx";
+import { Worktrees } from "./Worktrees.tsx";
 import { ProjectGit } from "./ProjectGit.tsx";
 
 /**
@@ -36,6 +37,7 @@ const pageContent: Record<SettingsPageKey, FC<{ projectId: string }>> = {
 	"project:project": Project,
 	"project:ai": ProjectAi,
 	"project:git": ProjectGit,
+	"project:worktrees": Worktrees,
 	"project:experimental": ProjectExperimental,
 };
 

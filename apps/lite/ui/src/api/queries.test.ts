@@ -1,5 +1,5 @@
-import { listCIChecksQueryOptions } from "#ui/api/queries.ts";
-import type { CiCheck } from "@gitbutler/but-sdk";
+import { listCIChecksQueryOptions, treeChangesDiffsQueryOptions } from "#ui/api/queries.ts";
+import type { CiCheck, TreeChange } from "@gitbutler/but-sdk";
 import { QueryClient } from "@tanstack/react-query";
 import { describe, expect, it, vi } from "vitest";
 
@@ -37,5 +37,18 @@ describe("listCIChecksQueryOptions", () => {
 		expect(await pollChecks([[running], [running]])).toEqual([]);
 		expect(await pollChecks([[passed], [passed]])).toEqual([]);
 		expect(await pollChecks([[passed], [running]])).toEqual([]);
+	});
+});
+
+describe("treeChangesDiffsQueryOptions", () => {
+	it("reuses a hash only within the scope it was computed for", () => {
+		// One array under two scopes, as the shared empty array of every clean worktree is.
+		const changes: Array<TreeChange> = [];
+		const main = treeChangesDiffsQueryOptions({ projectId: "p1", changes }).queryHash;
+		const worktree = treeChangesDiffsQueryOptions({ projectId: "p1", changes, worktree: "wt" });
+		const elsewhere = treeChangesDiffsQueryOptions({ projectId: "p2", changes });
+		expect(worktree.queryHash).not.toBe(main);
+		expect(elsewhere.queryHash).not.toBe(main);
+		expect(treeChangesDiffsQueryOptions({ projectId: "p1", changes }).queryHash).toBe(main);
 	});
 });

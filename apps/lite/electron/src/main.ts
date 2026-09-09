@@ -300,6 +300,7 @@ const newUrlOrNull = (url: string): URL | null => {
 const electronHandlerOverrides = {
 	askpassSubmitPromptResponse: ({ id, response }) => askpassSubmitPromptResponse(id, response),
 	clipboardWriteText: (text) => clipboard.writeText(text),
+	getAppSettings: () => sdk.getAppSettings(),
 	getVersion: () => app.getVersion(),
 	openInWebBrowser: (url) => {
 		// shell.openExternal() is powerful and dangerous. For example, on macOS you can launch a
@@ -346,6 +347,7 @@ const electronHandlerOverrides = {
 	},
 	watcherStopAll: () => WatcherManager.getInstance().stopAllWatchersForShutdown(),
 	readGUISettings: () => readSettings(),
+	updateFeatureFlags: (update) => sdk.updateFeatureFlags(update),
 	writeGUISettings: async (settings) => {
 		applyGUISettings(settings);
 		await writeSettings(settings);

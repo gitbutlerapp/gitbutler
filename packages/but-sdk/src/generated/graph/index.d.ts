@@ -155,7 +155,7 @@ export declare function applyBranchIntegration(projectId: string, branch: string
  *
  * See [`assign_hunk_with_perm()`] for details.
  *
- * {@link ../../../../../crates/but-api/src/diff.rs:267}
+ * {@link ../../../../../crates/but-api/src/diff.rs:288}
  */
 export declare function assignHunk(projectId: string, assignments: Array<HunkAssignmentRequest>): Promise<void>
 
@@ -297,7 +297,7 @@ export declare function branchRename(projectId: string, refName: FullNameBytes, 
 /**
  * See [`changes_in_worktree_with_perm()`].
  *
- * {@link ../../../../../crates/but-api/src/diff.rs:122}
+ * {@link ../../../../../crates/but-api/src/diff.rs:143}
  */
 export declare function changesInWorktree(projectId: string, changesSource: ChangesSource, computeDepsAndAssignments: boolean): Promise<WorktreeChanges>
 
@@ -327,7 +327,7 @@ export declare function changesInWorktree(projectId: string, changesSource: Chan
  * [`but_hunk_assignment::assignments_with_fallback()`], and
  * [`but_hunk_dependency::ui::hunk_dependencies_for_workspace_changes_by_worktree_dir()`].
  *
- * {@link ../../../../../crates/but-api/src/diff.rs:162}
+ * {@link ../../../../../crates/but-api/src/diff.rs:183}
  */
 export declare function changesInWorktreeWithPerm(projectId: string, changesSource: ChangesSource, computeDepsAndAssignments: boolean): Promise<WorktreeChanges>
 
@@ -1507,6 +1507,17 @@ export declare function tearOffBranch(projectId: string, subjectBranch: string, 
  * {@link ../../../../../crates/but-api/src/diff.rs:97}
  */
 export declare function treeChangeDiffs(projectId: string, change: TreeChange): Promise<UnifiedPatch | null>
+
+/**
+ * Like [`tree_change_diffs()`], reading `change` from the checkout `changes_source`
+ * names, so a linked worktree's uncommitted changes diff against its own files.
+ *
+ * A linked worktree requires the `worktreeManipulation` feature flag and an active
+ * worktree, see `worktrees::open_changes_source()`.
+ *
+ * {@link ../../../../../crates/but-api/src/diff.rs:113}
+ */
+export declare function treeChangeDiffsFromSource(projectId: string, changesSource: ChangesSource, change: TreeChange): Promise<UnifiedPatch | null>
 
 /**
  * Take the stack identified by `stack_id` out of the workspace.

@@ -71,6 +71,22 @@ export const changesInWorktreeQueryOptions = (projectId: string) =>
 			}),
 	});
 
+/**
+ * The uncommitted changes of a linked worktree, keyed under the main
+ * worktree's endpoint so the same tags refresh both. Nothing watches a
+ * linked checkout, so this is as fresh as the last workspace activity.
+ */
+export const worktreeChangesQueryOptions = (projectId: string, worktree: string) =>
+	queryOptions({
+		queryKey: [projectId, "changesInWorktree", { worktree }],
+		queryFn: () =>
+			window.lite.changesInWorktree({
+				projectId,
+				changesSource: { type: "worktree", subject: worktree },
+				computeDepsAndAssignments: false,
+			}),
+	});
+
 export const commentsQueryOptions = (projectId: string) =>
 	queryOptions({
 		queryKey: [projectId, "commentsList"],
@@ -167,6 +183,12 @@ export const getReviewQueryOptions = ({ projectId, reviewId }: PayloadFor<"getRe
 	queryOptions({
 		queryKey: [projectId, "getReview", reviewId],
 		queryFn: () => window.lite.getReview({ projectId, reviewId }),
+	});
+
+export const worktreesListQueryOptions = (projectId: string) =>
+	queryOptions({
+		queryKey: [projectId, "worktreesList"],
+		queryFn: () => window.lite.worktreesList(projectId),
 	});
 
 export const workspaceTargetCommitsQueryOptions = (projectId: string) =>
@@ -550,25 +572,30 @@ export const treeChangeDiffsQueryOptions = ({ projectId, change }: PayloadFor<"t
  * Its stable, value-based hasher requires traversing every change. Hashing a ~5k-file query key was
  * benchmarked at ~20ms. This cost is virtually eliminated by reusing a previously-cached hash.
  *
- * The payload has no stable aggregate identifier we could use instead.
+ * The payload has no stable aggregate identifier we could use instead. The hash is kept with the
+ * scope it was computed for, so an array reused under another project or worktree, as a shared
+ * empty one is, hashes again rather than colliding.
  */
-const treeChangeDiffHashes = new WeakMap<Array<TreeChange>, string>();
+const treeChangeDiffHashes = new WeakMap<Array<TreeChange>, { scope: string; hash: string }>();
 
 export const treeChangesDiffsQueryOptions = ({
 	projectId,
 	changes,
+	worktree,
 }: {
 	projectId: string;
 	changes: Array<TreeChange>;
+	/** The linked worktree the changes belong to, diffed against its own files; the main worktree when unset. */
+	worktree?: string;
 }) => {
-	const queryKey = [projectId, "treeChangeDiffs", changes] as const;
+	const queryKey = [projectId, "treeChangeDiffs", worktree, changes] as const;
 
-	// We don't expect to ever see the same changes reference across projects.
-	// This can use getOrInsertComputed once our version of Node.js has caught up.
-	let queryHash = treeChangeDiffHashes.get(changes);
+	const scope = `${projectId}:${worktree ?? ""}`;
+	const cached = treeChangeDiffHashes.get(changes);
+	let queryHash = cached?.scope === scope ? cached.hash : undefined;
 	if (queryHash === undefined) {
 		queryHash = hashKey(queryKey);
-		treeChangeDiffHashes.set(changes, queryHash);
+		treeChangeDiffHashes.set(changes, { scope, hash: queryHash });
 	}
 
 	return queryOptions({
@@ -591,7 +618,14 @@ export const treeChangesDiffsQueryOptions = ({
 				) {
 					yield await pMap(
 						changes.slice(batchStart, batchStart + batchSize),
-						(change) => window.lite.treeChangeDiffs({ projectId, change }),
+						(change) =>
+							worktree === undefined
+								? window.lite.treeChangeDiffs({ projectId, change })
+								: window.lite.treeChangeDiffsFromSource({
+										projectId,
+										changesSource: { type: "worktree", subject: worktree },
+										change,
+									}),
 						{ concurrency, signal },
 					);
 				}
@@ -609,4 +643,10 @@ export const absorptionPlanQueryOptions = ({ projectId, target }: PayloadFor<"ab
 export const guiSettingsQueryOptions = queryOptions({
 	queryKey: ["guiSettings"],
 	queryFn: () => window.lite.readGUISettings(),
+});
+
+/** The settings shared with the other surfaces through the settings file. */
+export const appSettingsQueryOptions = queryOptions({
+	queryKey: ["appSettings"],
+	queryFn: () => window.lite.getAppSettings(),
 });
