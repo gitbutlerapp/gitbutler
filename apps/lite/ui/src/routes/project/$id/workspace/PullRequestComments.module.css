@@ -462,6 +462,21 @@
 	color: var(--text-1);
 }
 
+.compactComment {
+	gap: 4px;
+
+	& .authorLogin {
+		color: var(--text-2);
+		font-weight: normal;
+		font-size: 12px;
+	}
+
+	& .avatar {
+		width: 14px;
+		height: 14px;
+	}
+}
+
 /* A card by an agent (any bot author): tinted so automated feedback reads
    apart from human conversation at a glance. */
 .cardAgent {
