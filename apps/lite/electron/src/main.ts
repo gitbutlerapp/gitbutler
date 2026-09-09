@@ -54,7 +54,7 @@ if (isHeadless && process.platform === "darwin") app.setActivationPolicy("access
 
 // Do this early before any APIs that depend upon it are called. Likewise take care in imported
 // modules.
-if (!app.isPackaged) app.setName("GitButler Lite Dev");
+if (!app.isPackaged) app.setName("GitButler Next Dev");
 
 const currentFilePath = fileURLToPath(import.meta.url);
 const currentDirPath = path.dirname(currentFilePath);

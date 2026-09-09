@@ -157,8 +157,7 @@ export const Ai: FC = () => {
 	return (
 		<>
 			<p className={classes("text-13", styles.intro)}>
-				Configure the Rust AI provider used by GitButler Lite. API keys stay in secure backend
-				storage.
+				Configure the Rust AI provider used by GitButler. API keys stay in secure backend storage.
 			</p>
 
 			<Section>
@@ -318,8 +317,8 @@ export const Ai: FC = () => {
 
 			{saved.provider === "openrouter" && (
 				<p className={classes("text-12", styles.warning)}>
-					OpenRouter is configured but is not supported in Lite. Save to switch providers, or reset
-					these settings.
+					OpenRouter is configured but is not supported in GitButler. Save to switch providers, or
+					reset these settings.
 				</p>
 			)}
 

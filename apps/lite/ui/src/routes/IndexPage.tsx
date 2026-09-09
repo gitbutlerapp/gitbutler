@@ -9,7 +9,7 @@ export const IndexPage: FC = () => {
 
 	return (
 		<section className={styles.page} data-testid={LiteTestId.OnboardingPage}>
-			<h1>Welcome to GitButler Lite</h1>
+			<h1>Welcome to GitButler Next Nightly</h1>
 			<p>Add a local Git repository to get started.</p>
 			<AddProjectButton isPending={isPending} onClick={() => void addLocalRepository()} />
 		</section>

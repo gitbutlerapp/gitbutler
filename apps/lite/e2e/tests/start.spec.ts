@@ -2,7 +2,7 @@ import { LiteTestId } from "../../ui/src/testIds.ts";
 import { expect, test } from "../test.ts";
 
 test("starts without configured projects", async ({ appWindow }) => {
-	await expect(appWindow).toHaveTitle("GitButler Lite");
+	await expect(appWindow).toHaveTitle("GitButler Next Nightly");
 	await expect(appWindow.getByTestId(LiteTestId.OnboardingPage)).toBeVisible();
 });
 
