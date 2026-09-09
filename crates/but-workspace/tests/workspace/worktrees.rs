@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use anyhow::Result;
 use bstr::{BStr, ByteSlice};
 use but_graph::Graph;
@@ -53,7 +55,7 @@ fn worktrees_are_projected_onto_the_workspace() -> Result<()> {
     add_stack(&mut meta, 1, "A", StackState::InWorkspace);
     add_stack(&mut meta, 2, "B", StackState::InWorkspace);
 
-    let info = ref_info_with_worktree_tips(&repo, &meta)?;
+    let mut info = ref_info_with_worktree_tips(&repo, &meta)?;
     let summary: Vec<_> = info
         .worktrees
         .iter()
@@ -208,6 +210,24 @@ fn worktrees_are_projected_onto_the_workspace() -> Result<()> {
             ("wt-top".to_string(), CompletelyUnpushed, vec![LocalOnly]),
             ("wt-top".to_string(), CompletelyUnpushed, vec![LocalOnly]),
         ]
+    );
+
+    info.apply_forge_review_associations(
+        &repo,
+        &HashMap::from([("wt-pushed".to_string(), (42, true, None))]),
+    );
+    let pushed = info
+        .worktrees
+        .iter()
+        .find(|wt| wt.name == "wt-pushed")
+        .expect("the pushed worktree is projected");
+    assert_eq!(
+        pushed.segments[0]
+            .metadata
+            .as_ref()
+            .and_then(|meta| meta.review.pull_request),
+        Some(42),
+        "a worktree branch associates with the review opened from it like a stack branch does"
     );
     Ok(())
 }

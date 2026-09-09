@@ -694,11 +694,7 @@ impl RefInfo {
         reviews_by_head: &std::collections::HashMap<String, (usize, bool, Option<String>)>,
     ) {
         let remote_names = repo.remote_names();
-        for segment in self
-            .stacks
-            .iter_mut()
-            .flat_map(|stack| stack.segments.iter_mut())
-        {
+        for segment in self.lane_segments_mut().flatten() {
             let cached = segment
                 .remote_tracking_ref_name
                 .as_ref()
@@ -743,11 +739,7 @@ impl RefInfo {
         &mut self,
         metadata: but_db::GerritMetadataHandle<'_>,
     ) -> anyhow::Result<()> {
-        for segment in self
-            .stacks
-            .iter_mut()
-            .flat_map(|stack| stack.segments.iter_mut())
-        {
+        for segment in self.lane_segments_mut().flatten() {
             for commit in &mut segment.commits {
                 let Some(meta) = metadata.get(&commit.change_id().to_string())? else {
                     continue;
