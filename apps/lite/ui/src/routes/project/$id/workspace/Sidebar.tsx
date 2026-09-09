@@ -1,14 +1,8 @@
 import { useWorkspaceIntegrateUpstream } from "#ui/api/mutations.ts";
 import { setPage, usePage } from "#ui/use-cursor.ts";
-import {
-	guiSettingsQueryOptions,
-	headInfoQueryOptions,
-	workspaceFetchQueryOptions,
-	workspaceFetchStatusQueryOptions,
-} from "#ui/api/queries.ts";
+import { headInfoQueryOptions } from "#ui/api/queries.ts";
 import { NotificationBell } from "#ui/review-inbox-bell.tsx";
 import { stackBottomRelativeTo } from "#ui/api/stack.ts";
-import { errorMessageForToast } from "#ui/errors.ts";
 import { Icon } from "#ui/components/Icon.tsx";
 import { TooltipPopup } from "#ui/components/Tooltip.tsx";
 import { workspaceHotkeys } from "#ui/hotkeys.ts";
@@ -17,7 +11,7 @@ import { projectSlice } from "#ui/projects/state.ts";
 import { interfaceSlice } from "#ui/interface/state.ts";
 import { useAppDispatch, useAppSelector } from "#ui/store.ts";
 import type { AddressSpace } from "#ui/workspace/address-space.ts";
-import { Button, Toast, Toggle, ToggleGroup, Tooltip } from "@base-ui/react";
+import { Button, Toggle, ToggleGroup, Tooltip } from "@base-ui/react";
 import type { BottomUpdate, ProjectForFrontend } from "@gitbutler/but-sdk";
 import { useQuery } from "@tanstack/react-query";
 import { useHotkeys } from "@tanstack/react-hotkeys";
@@ -27,6 +21,7 @@ import { WorkspaceLists } from "#ui/routes/project/$id/workspace/WorkspaceLists/
 import type { Graph } from "#ui/routes/project/$id/workspace/Graph/usePlan.ts";
 import { BranchesList } from "#ui/routes/project/$id/workspace/BranchesList.tsx";
 import type { BranchesListContent } from "#ui/routes/project/$id/workspace/useBranchesList.ts";
+import { useFetchFromRemotes } from "#ui/routes/project/$id/workspace/useFetchFromRemotes.ts";
 import { assert } from "#ui/assert.ts";
 import type { PageId } from "#ui/projects/project.ts";
 import styles from "./Sidebar.module.css";
@@ -68,7 +63,6 @@ export const Sidebar: FC<{
 	projectId,
 }) => {
 	const dispatch = useAppDispatch();
-	const toastManager = Toast.useToastManager();
 	const noOperationPending = useAppSelector(
 		(state) => projectSlice.selectors.selectPendingOperation(state, projectId)._tag === "None",
 	);
@@ -92,29 +86,9 @@ export const Sidebar: FC<{
 	const newBranch = useNewBranch(projectId);
 
 	const { data: headInfo } = useQuery(headInfoQueryOptions(projectId));
-	const { data: autoFetchFrequency } = useQuery({
-		...guiSettingsQueryOptions,
-		select: (cfg) => cfg.autoFetchFrequency,
-	});
-	const { data: workspaceFetchStatus } = useQuery(workspaceFetchStatusQueryOptions(projectId));
 	const { isPending: isWorkspaceIntegrateUpstreamPending, mutate: workspaceIntegrateUpstream } =
 		useWorkspaceIntegrateUpstream();
-	const { isFetching: isWorkspaceFetchFromRemotesPending, refetch: workspaceFetchFromRemotes } =
-		useQuery(workspaceFetchQueryOptions(projectId, autoFetchFrequency));
-	const fetchFromRemotes = () => {
-		void workspaceFetchFromRemotes().then(({ error }) => {
-			if (!error) return;
-
-			// oxlint-disable-next-line no-console
-			console.error(error);
-			toastManager.add({
-				type: "error",
-				title: "Failed to fetch",
-				description: errorMessageForToast(error),
-				priority: "high",
-			});
-		});
-	};
+	const fetchFromRemotes = useFetchFromRemotes(projectId);
 	const updateWorkspace = () => {
 		const rebaseUpdates = (headInfo?.stacks ?? [])
 			.values()
@@ -132,8 +106,6 @@ export const Sidebar: FC<{
 		noOperationPending &&
 		headInfo?.target?.isCurrent === false &&
 		!isWorkspaceIntegrateUpstreamPending;
-	const canFetchFromRemotes = noOperationPending && !isWorkspaceFetchFromRemotesPending;
-
 	const canCreateBranch = newBranch.enabled;
 
 	const ref = useRef<HTMLDivElement>(null);
@@ -173,9 +145,9 @@ export const Sidebar: FC<{
 		},
 		{
 			hotkey: workspaceHotkeys.fetchFromRemotes.hotkey,
-			callback: fetchFromRemotes,
+			callback: fetchFromRemotes.fetch,
 			options: {
-				enabled: canFetchFromRemotes,
+				enabled: fetchFromRemotes.enabled,
 				meta: workspaceHotkeys.fetchFromRemotes.meta,
 			},
 		},
@@ -216,10 +188,7 @@ export const Sidebar: FC<{
 				<SidebarHeader
 					bell={<NotificationBell projectId={projectId} />}
 					project={project}
-					canFetch={canFetchFromRemotes}
-					isFetchPending={isWorkspaceFetchFromRemotesPending}
-					lastSuccessfulFetchMs={workspaceFetchStatus?.lastSuccessfulMs}
-					onFetch={fetchFromRemotes}
+					isFetchPending={fetchFromRemotes.isPending}
 					canOpenSettings={noOperationPending}
 					onOpenSettings={openSettings}
 				/>

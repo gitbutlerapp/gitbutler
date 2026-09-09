@@ -12,6 +12,7 @@ const meta = preview.meta({
 				"space",
 				"forkLeft",
 				"forkRight",
+				"notch",
 				"forkBoth",
 				"mergeLeft",
 				"mergeRight",
@@ -53,6 +54,7 @@ export const AllGlyphs = meta.story({
 					"horizontal",
 					"forkLeft",
 					"forkRight",
+					"notch",
 					"forkBoth",
 					"mergeLeft",
 					"mergeRight",
@@ -62,7 +64,6 @@ export const AllGlyphs = meta.story({
 					"joinBoth",
 					"commit",
 					"group",
-					"hook",
 					"space",
 				] satisfies Array<GraphSegmentGlyph>
 			).map((glyph) => (

@@ -221,40 +221,6 @@ export const workspaceTargetCommitsQueryOptions = (projectId: string) =>
 		queryFn: () => window.lite.workspaceTargetCommits({ projectId, from: null, limit: null }),
 	});
 
-/**
- * What each "load older commits" adds. Asking is deliberate, so a page should
- * cover ground rather than need pressing repeatedly.
- */
-const olderTargetCommitsPageSize = 25;
-
-/**
- * Target history continuing below where the base listing stops, walked from a
- * commit-id cursor. `from` is exclusive: the backend starts at that commit's
- * first parent, so passing the base listing's last commit continues the line
- * without repeating it.
- *
- * Fetched only on demand: consumers keep it disabled and call `fetchNextPage`
- * when the user asks, so nothing below the workspace's fork points loads
- * unbidden.
- *
- * Keyed under the base listing's own root, so whatever invalidates the target
- * line — a fetch, a workspace update — reaches the pages hanging off it too.
- */
-export const olderTargetCommitsInfiniteQueryOptions = (projectId: string, from: string) =>
-	infiniteQueryOptions({
-		queryKey: [projectId, "workspaceTargetCommits", { olderThan: from }],
-		queryFn: ({ pageParam }) =>
-			window.lite.workspaceTargetCommits({
-				projectId,
-				from: pageParam,
-				limit: olderTargetCommitsPageSize,
-			}),
-		enabled: false,
-		initialPageParam: from,
-		getNextPageParam: (lastPage) =>
-			lastPage.hasMore ? lastPage.commits.at(-1)?.commit.id : undefined,
-	});
-
 export const workspaceFetchStatusQueryOptions = (projectId: string) =>
 	queryOptions({
 		queryKey: [projectId, "workspaceFetchStatus"],

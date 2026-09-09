@@ -1,13 +1,17 @@
-import { GraphSegment } from "#ui/components/GraphSegment.tsx";
-import { Icon } from "#ui/components/Icon.tsx";
+import { GraphGap, GraphSegment } from "#ui/components/GraphSegment.tsx";
 import { classes } from "#ui/components/classes.ts";
+import { Icon } from "#ui/components/Icon.tsx";
 import { getRowButtonClassName } from "#ui/routes/project/$id/workspace/Row-utils.ts";
 import {
 	Row,
 	RowFoldToggle,
 	RowLabel,
 	RowLabelContainer,
+	RowToolbar,
 } from "#ui/routes/project/$id/workspace/Row.tsx";
+import { useFetchFromRemotes } from "#ui/routes/project/$id/workspace/useFetchFromRemotes.ts";
+import { workspaceHotkeys } from "#ui/hotkeys.ts";
+import { formatRelativeTime } from "#ui/time.ts";
 import { useAddressSpace } from "#ui/routes/project/$id/workspace/WorkspaceLists/context.tsx";
 import { addressIdentityKey, type Address } from "#ui/addresses.ts";
 import type { AddressSpace } from "#ui/workspace/address-space.ts";
@@ -21,30 +25,27 @@ import { TooltipPopup } from "#ui/components/Tooltip.tsx";
 import { Button, Tooltip } from "@base-ui/react";
 import type { BottomUpdate } from "@gitbutler/but-sdk";
 import { useQuery } from "@tanstack/react-query";
-import { type FC, type ReactNode, type Ref, type RefObject, useRef } from "react";
-import { createPortal } from "react-dom";
+import { type FC, type ReactNode, type RefObject, useRef, useState } from "react";
 import styles from "./Section.module.css";
 import { TargetCommitRow } from "./TargetCommitRow.tsx";
-import { type Plan, type Run, targetCommitAddress } from "./layout.ts";
+import { LEG_GAP, type Plan, type Run, targetCommitAddress } from "./layout.ts";
 
 /*
- * The upstream section under the stacks: the target's row or card, folding
- * the incoming commits, then the merge base header, folding the history
- * below it. Commit rows are values on the applied cursor; headers are not.
+ * The upstream section under the stacks: the target's row, standing for the
+ * workspace's base, folding the incoming commits when the target has moved
+ * on. No card around it: the target is not in the workspace, and its rows
+ * sit on the panel itself to say so. Commit rows are values on the applied
+ * cursor; the header is not.
  *
- * The trunk runs down the panel's edge and hooks into the first row here
- * that draws a glyph, the ref's or the base's, since no glyph fits on the edge.
+ * The trunk runs down the panel's edge past the target's row, its tail
+ * fading below it, or to where the target's leg rejoins it. Scrolled out of
+ * view below, a stand-in for the row docks at the scroller's foot, so the
+ * target is always in reach: a sticky mark of no height right after the row,
+ * stuck exactly while the row is below the viewport.
  */
 
-// Base rows take the integrated colour, incoming rows the upstream's. Rows a
-// pending operation drops from the list are inert.
-const commitRow = (
-	commit: TargetCommit,
-	status: "Integrated" | "Upstream",
-	addressSpace: AddressSpace<Address>,
-	behind: number,
-	railEnds = false,
-) => {
+// The rows sit in the column beside the trunk. Rows a pending operation drops from the list are inert.
+const commitRow = (commit: TargetCommit, addressSpace: AddressSpace<Address>) => {
 	const index = addressSpace.indexByKey.get(addressIdentityKey(targetCommitAddress(commit)));
 	return (
 		<TargetCommitRow
@@ -52,29 +53,45 @@ const commitRow = (
 			commit={commit}
 			positionInSet={(index ?? -1) + 1}
 			setSize={addressSpace.items.length}
-			status={status}
-			railEnds={railEnds}
-			behind={behind}
+			behind={1}
 			inert={index === undefined}
 		/>
 	);
 };
 
-/** A header row: not a value. With a fold, the whole row toggles it; the rail toggle is the control assistive technology sees. */
+/** A note beside the header's label, explaining itself on hover. */
+const Caption: FC<{ className?: string; hint: ReactNode; children: ReactNode }> = ({
+	className,
+	hint,
+	children,
+}) => (
+	<Tooltip.Root>
+		<Tooltip.Trigger render={<span className={classes("text-12", className)} />}>
+			{children}
+		</Tooltip.Trigger>
+		<Tooltip.Portal>
+			<Tooltip.Positioner sideOffset={4}>
+				<Tooltip.Popup render={<TooltipPopup />}>{hint}</Tooltip.Popup>
+			</Tooltip.Positioner>
+		</Tooltip.Portal>
+	</Tooltip.Root>
+);
+
+/** A header row: not a value. With a fold, the rail's toggle opens it, as on the rows above. */
 const Header: FC<{
 	label: string;
-	/** Beside the label, in the label's own line: a count, an id. */
+	/** Beside the label, in the label's own line: a count, or a note. */
 	caption?: ReactNode;
-	/** The ref's row reads as a heading; the base's a step under it, being the ref's history. */
-	heading?: boolean;
 	/** The fold the header opens; none for a plain row. Its chevron swaps in for the glyph on hover, unless the glyph is one. */
 	fold?: { open: boolean; onToggle: () => void; name: string; hoverChevron?: boolean };
 	/** The row's gutter. */
 	rail: ReactNode;
+	/** At the row's end, past the label. */
+	toolbar?: ReactNode;
 	className?: string;
 	children?: ReactNode;
-}> = ({ label, caption, heading = false, fold, rail, className, children }) => (
-	<Row interactive={fold !== undefined} onSelect={fold?.onToggle} className={className}>
+}> = ({ label, caption, fold, rail, toolbar, className, children }) => (
+	<Row interactive={false} className={className}>
 		{fold === undefined ? (
 			rail
 		) : (
@@ -87,37 +104,32 @@ const Header: FC<{
 			/>
 		)}
 		<RowLabelContainer>
-			<RowLabel heading={heading} singleLine className={heading ? undefined : "text-bold"}>
+			<RowLabel heading singleLine>
 				{label}
 				{caption}
 			</RowLabel>
 			{children !== undefined && <span className={styles.action}>{children}</span>}
 		</RowLabelContainer>
+		{toolbar !== undefined && <RowToolbar forceVisible>{toolbar}</RowToolbar>}
 	</Row>
 );
 
-const Elided: FC<{
-	run: Run;
-	status: "Integrated" | "Upstream";
-	behind: number;
-	onMore: () => void;
-	onFold: () => void;
-}> = ({ run, status, behind, onMore, onFold }) => (
+const Elided: FC<{ run: Run; onMore: () => void; onFold: () => void }> = ({
+	run,
+	onMore,
+	onFold,
+}) => (
 	// oxlint-disable-next-line jsx-a11y/prefer-tag-over-role -- A row that reveals or folds, styled as the rows around it.
 	<Row role="button" onSelect={run.hidden > 0 ? onMore : onFold} aria-expanded={run.expanded}>
 		<GraphSegment
 			glyph={run.hidden > 0 ? "group" : "parent"}
-			status={status}
+			status="Upstream"
 			centered
-			behind={behind}
+			behind={1}
 		/>
 		<RowLabelContainer>
 			<RowLabel singleLine className={styles.elided}>
-				{run.hidden === 0
-					? "Show fewer"
-					: run.incoming
-						? `${run.hidden} more`
-						: `${run.hidden} ${run.hidden === 1 ? "commit" : "commits"} already in the workspace`}
+				{run.hidden === 0 ? "Show fewer" : `${run.hidden} more`}
 			</RowLabel>
 		</RowLabelContainer>
 	</Row>
@@ -125,20 +137,17 @@ const Elided: FC<{
 
 const Fold: FC<{
 	open: boolean;
-	className?: string;
-	ref?: Ref<HTMLDivElement>;
+	ref?: RefObject<HTMLDivElement | null>;
 	children: ReactNode;
-}> = ({ open, className, ref, children }) => (
-	<div ref={ref} className={classes(styles.fold, className)} data-open={open}>
+}> = ({ open, ref, children }) => (
+	<div ref={ref} className={styles.fold} data-open={open}>
 		<div className={styles.foldInner}>{children}</div>
 	</div>
 );
 
 const runRows = (
 	run: Run,
-	status: "Integrated" | "Upstream",
 	addressSpace: AddressSpace<Address>,
-	behind: number,
 	onMore: () => void,
 	onFold: () => void,
 ) => {
@@ -146,22 +155,87 @@ const runRows = (
 	const elided = run.hidden > 0 || run.expanded;
 	return (
 		<div key={run.id}>
-			{run.shown.map((commit) => commitRow(commit, status, addressSpace, behind))}
-			{elided && (
-				<Elided run={run} status={status} behind={behind} onMore={onMore} onFold={onFold} />
-			)}
+			{run.shown.map((commit) => commitRow(commit, addressSpace))}
+			{elided && <Elided run={run} onMore={onMore} onFold={onFold} />}
 		</div>
 	);
 };
 
+/** Fetches from the remotes: the target's row is what a fetch moves. */
+const Fetch: FC<{ projectId: string }> = ({ projectId }) => {
+	const { fetch, isPending, enabled, lastSuccessfulMs } = useFetchFromRemotes(projectId);
+	const [tooltipNow, setTooltipNow] = useState(() => Date.now());
+	return (
+		<Tooltip.Root
+			onOpenChange={(open) => {
+				if (open) setTooltipNow(Date.now());
+			}}
+		>
+			<Tooltip.Trigger
+				aria-label={workspaceHotkeys.fetchFromRemotes.meta.name}
+				className={getRowButtonClassName({ iconOnly: true })}
+				onClick={fetch}
+				// `disabled` goes on the button so the tooltip still opens over it.
+				render={<Button focusableWhenDisabled disabled={!enabled} />}
+			>
+				<Icon name={isPending ? "spinner" : "refresh"} />
+			</Tooltip.Trigger>
+			<Tooltip.Portal>
+				<Tooltip.Positioner sideOffset={4}>
+					<Tooltip.Popup render={<TooltipPopup kbd={workspaceHotkeys.fetchFromRemotes.hotkey} />}>
+						{workspaceHotkeys.fetchFromRemotes.meta.name}
+						{lastSuccessfulMs != null && ` (${formatRelativeTime(lastSuccessfulMs, tooltipNow)})`}
+					</Tooltip.Popup>
+				</Tooltip.Positioner>
+			</Tooltip.Portal>
+		</Tooltip.Root>
+	);
+};
+
 /** Rebases every stack onto the target's fetched tip; this does not fetch. */
-const Integrate: FC<{ projectId: string; target: string }> = ({ projectId, target }) => {
+const Pull: FC<{ target: string; enabled: boolean; isPending: boolean; onPull: () => void }> = ({
+	target,
+	enabled,
+	isPending,
+	onPull,
+}) => (
+	<Tooltip.Root>
+		<Tooltip.Trigger
+			className={getRowButtonClassName({ variant: "outline" })}
+			onClick={onPull}
+			// `disabled` goes on the button so the tooltip still opens over it.
+			render={<Button focusableWhenDisabled disabled={!enabled} />}
+		>
+			{isPending ? "Pulling…" : "Pull latest"}
+		</Tooltip.Trigger>
+		<Tooltip.Portal>
+			<Tooltip.Positioner sideOffset={4}>
+				<Tooltip.Popup render={<TooltipPopup />}>
+					Pull the latest from {target} into the workspace base
+				</Tooltip.Popup>
+			</Tooltip.Positioner>
+		</Tooltip.Portal>
+	</Tooltip.Root>
+);
+
+export const Section: FC<{
+	projectId: string;
+	plan: Plan;
+	onToggleIncoming: () => void;
+	onShowMoreRun: (runId: string) => void;
+	onFoldRun: (runId: string) => void;
+	/** The scroller, for the docked row's toggle to scroll to its place. */
+	scrollElementRef: RefObject<HTMLDivElement | null>;
+}> = ({ projectId, plan, onToggleIncoming, onShowMoreRun, onFoldRun, scrollElementRef }) => {
+	const addressSpace = useAddressSpace();
+	// One mutation for the row and its docked stand-in: each rendering its own
+	// would leave the other's button enabled while a pull runs.
 	const { data: headInfo } = useQuery(headInfoQueryOptions(projectId));
 	const noOperationPending = useAppSelector(
 		(state) => projectSlice.selectors.selectPendingOperation(state, projectId)._tag === "None",
 	);
-	const { isPending, mutate: integrate } = useWorkspaceIntegrateUpstream();
-	const rebase = () => {
+	const { isPending: isPulling, mutate: integrate } = useWorkspaceIntegrateUpstream();
+	const pull = () => {
 		const updates = (headInfo?.stacks ?? [])
 			.values()
 			.map(stackBottomRelativeTo)
@@ -170,91 +244,14 @@ const Integrate: FC<{ projectId: string; target: string }> = ({ projectId, targe
 			.toArray();
 		integrate({ projectId, updates, dryRun: false });
 	};
-	const enabled = noOperationPending && headInfo?.target?.isCurrent === false && !isPending;
-	return (
-		<Tooltip.Root>
-			<Tooltip.Trigger
-				className={getRowButtonClassName({ variant: "outline" })}
-				onClick={rebase}
-				// `disabled` goes on the button so the tooltip still opens over it.
-				render={<Button focusableWhenDisabled disabled={!enabled} />}
-			>
-				{isPending ? "Integrating…" : "Integrate"}
-			</Tooltip.Trigger>
-			<Tooltip.Portal>
-				<Tooltip.Positioner sideOffset={4}>
-					<Tooltip.Popup render={<TooltipPopup />}>
-						Integrate the latest from {target} into the base
-					</Tooltip.Popup>
-				</Tooltip.Positioner>
-			</Tooltip.Portal>
-		</Tooltip.Root>
-	);
-};
-
-/** The "show more" row's state: hidden when nothing older can be asked for. */
-export type MoreBelow = "hidden" | "idle" | "loading" | "failed";
-
-/** The foot of the section: one click lengthens the history below the base. */
-const ShowMore: FC<{ state: MoreBelow; onSelect: () => void }> = ({ state, onSelect }) => (
-	<Row
-		// oxlint-disable-next-line jsx-a11y/prefer-tag-over-role -- A row that acts, styled as the rows around it.
-		role="button"
-		// Not selectable while loading: a second select would restart the fetch.
-		onSelect={state === "loading" ? undefined : onSelect}
-		interactive={state !== "loading"}
-	>
-		<GraphSegment glyph="group" status="Integrated" railEnds centered />
-		<RowLabelContainer>
-			<RowLabel singleLine className={styles.elided}>
-				{state === "loading"
-					? "Loading…"
-					: state === "failed"
-						? "Could not load older commits; try again"
-						: "Show more"}
-			</RowLabel>
-		</RowLabelContainer>
-	</Row>
-);
-
-export const Section: FC<{
-	projectId: string;
-	plan: Plan;
-	moreBelow: MoreBelow;
-	/** The shown history reaches its start: the line ends on the last row. */
-	historyEnds: boolean;
-	onToggleIncoming: () => void;
-	onToggleBase: () => void;
-	onShowMoreRun: (runId: string) => void;
-	onFoldRun: (runId: string) => void;
-	onShowMore: () => void;
-	/** The scroller, for the docked merge base row's toggle to scroll to its place. */
-	scrollElementRef: RefObject<HTMLDivElement | null>;
-	/** The scroller's foot, where a stand-in for the merge base row docks while the row is out of view. */
-	footDock: HTMLDivElement | null;
-}> = ({
-	projectId,
-	plan,
-	moreBelow,
-	historyEnds,
-	onToggleIncoming,
-	onToggleBase,
-	onShowMoreRun,
-	onFoldRun,
-	onShowMore,
-	scrollElementRef,
-	footDock,
-}) => {
-	const branched = plan.header.incoming > 0;
-	const addressSpace = useAddressSpace();
 	// Opening from docked: scroll to the bottom and hold it while the fold grows.
-	const baseFold = useRef<HTMLDivElement>(null);
-	const baseRows = useRef<HTMLDivElement>(null);
-	const toggleBase = () => {
+	const incomingFold = useRef<HTMLDivElement>(null);
+	const incomingRows = useRef<HTMLDivElement>(null);
+	const toggleIncoming = () => {
 		const scroller = scrollElementRef.current;
-		const fold = baseFold.current;
-		const rows = baseRows.current;
-		if (!plan.baseExpanded && scroller !== null && fold !== null && rows !== null) {
+		const fold = incomingFold.current;
+		const rows = incomingRows.current;
+		if (!plan.incomingExpanded && scroller !== null && fold !== null && rows !== null) {
 			scroller.scrollTop = scroller.scrollHeight;
 			let height = 0;
 			const hold = new ResizeObserver(() => {
@@ -265,159 +262,93 @@ export const Section: FC<{
 			});
 			hold.observe(fold);
 		}
-		onToggleBase();
+		onToggleIncoming();
 	};
-	// The line ends on the last row shown: the "show more" row, else the
-	// last commit once the history is shown to its start.
-	const endsOnBase = historyEnds && moreBelow === "hidden" && plan.older.length === 0;
-	/**
-	 * The ref's tip on the base: one row for both. The docked stand-in, with
-	 * no line to show, wears the chevron instead of a glyph.
-	 */
-	const baseHeader = (docked = false) => (
+	const target = plan.header;
+	if (target === null) return null;
+	const branched = target.incoming > 0;
+	/** The target's row. The docked stand-in, with no line to show, wears a chevron instead of the rail. */
+	const header = (docked = false) => (
 		<Header
-			label={plan.refOnBase ? plan.header.label : "Base"}
+			label={target.label}
 			caption={
-				plan.refOnBase ? (
-					<span className={classes("text-12", styles.caption)}>base</span>
-				) : undefined
+				branched ? (
+					<Caption
+						className={styles.incoming}
+						hint={`${target.incoming === 1 ? "A commit" : "Commits"} on ${target.label} not yet in the workspace`}
+					>
+						{target.incoming} new
+					</Caption>
+				) : (
+					// Nothing incoming, yet the base may still trail the target: a lane can
+					// already hold the target's newest commits.
+					<Caption
+						className={styles.caption}
+						hint={target.current ? "Up to date" : `Behind ${target.label}`}
+					>
+						Workspace base
+					</Caption>
+				)
 			}
-			heading={plan.refOnBase}
-			fold={{
-				open: plan.baseExpanded,
-				onToggle: toggleBase,
-				name: "the base's history",
-				hoverChevron: !docked,
-			}}
+			fold={
+				branched
+					? {
+							open: plan.incomingExpanded,
+							onToggle: toggleIncoming,
+							name: "incoming commits",
+							hoverChevron: !docked,
+						}
+					: undefined
+			}
 			rail={
 				docked ? (
 					<span className={styles.chevron}>
-						<Icon name={plan.baseExpanded ? "chevron-down" : "chevron-right"} />
+						<Icon name={plan.incomingExpanded ? "chevron-down" : "chevron-right"} />
 					</span>
+				) : branched ? (
+					// The incoming commits' leg forks off the row, the trunk running on behind.
+					<GraphSegment glyph="forkRight" status="Upstream" behind={1} />
 				) : (
-					<GraphSegment
-						// The trunk hooks in from the edge, meeting the target's leg coming down
-						// the column, unless the ref's row above brought it into the column. No
-						// mark of its own: the row is a label on the line, not a commit.
-						glyph={plan.refOnBase || branched ? "hook" : "parent"}
-						above={branched ? "Upstream" : undefined}
-						// Folded, the hint of the history below stays in the trunk's own grey.
-						below={plan.baseExpanded ? "Integrated" : undefined}
-						status="LocalOnly"
-						folded={!plan.baseExpanded}
-					/>
+					// The trunk runs on past the row with a tick at it, its tail fading out:
+					// the history below is not shown, but this is not where it starts.
+					<GraphSegment glyph="notch" status="LocalOnly" behind={1} folded />
 				)
 			}
+			toolbar={<Fetch projectId={projectId} />}
 			className={docked ? styles.docked : undefined}
-		/>
+		>
+			{!target.current && (
+				<Pull
+					target={target.label}
+					enabled={noOperationPending && !isPulling}
+					isPending={isPulling}
+					onPull={pull}
+				/>
+			)}
+		</Header>
 	);
+	// With the target moved on, its incoming commits sit on a leg that starts
+	// at its row and bends onto the trunk in the gap below; its row says how
+	// many are new and pulls them, so seeing and acting sit together.
 	return (
 		<>
-			{plan.base !== null &&
-				!plan.refOnBase &&
-				(branched ? (
-					// The target has moved on: a card like a forked stack's, the trunk
-					// behind its rows at the edge and its incoming commits on a leg that
-					// starts at its row and runs straight down into the base's. Its row
-					// says how many are new and integrates them: seeing and acting sit together.
-					<>
-						<div className={styles.card}>
-							<Row interactive={false} className={styles.air}>
-								<GraphSegment glyph="space" status="LocalOnly" behind={1} />
-							</Row>
-							<Header
-								label={plan.header.label}
-								caption={
-									<span className={classes("text-12", styles.incoming)}>
-										{plan.header.incoming} new
-									</span>
-								}
-								heading
-								fold={{
-									open: plan.incomingExpanded,
-									onToggle: onToggleIncoming,
-									name: "incoming commits",
-								}}
-								rail={<GraphSegment glyph="forkRight" status="Upstream" behind={1} />}
-							>
-								<Integrate projectId={projectId} target={plan.header.label} />
-							</Header>
-							<Fold open={plan.incomingExpanded}>
-								<div className={styles.rows}>
-									{plan.incoming.map((run) =>
-										runRows(
-											run,
-											"Upstream",
-											addressSpace,
-											1,
-											() => onShowMoreRun(run.id),
-											() => onFoldRun(run.id),
-										),
-									)}
-								</div>
-							</Fold>
-							<Row interactive={false} className={styles.stub}>
-								<GraphSegment glyph="parent" status="Upstream" behind={1} />
-							</Row>
-						</div>
-						<Row interactive={false} className={styles.leg}>
-							<GraphSegment glyph="parent" status="Upstream" behind={1} />
-						</Row>
-					</>
-				) : (
-					// The target sits above the base with nothing incoming: the trunk
-					// hooks in from the edge onto its row and runs on down the column
-					// to the base.
-					<>
-						<Header
-							label={plan.header.label}
-							heading
-							rail={<GraphSegment glyph="hook" status="LocalOnly" />}
-						/>
-						<Row interactive={false} className={styles.leg}>
-							<GraphSegment glyph="parent" status="LocalOnly" />
-						</Row>
-					</>
-				))}
-			{plan.base !== null && (
+			{header()}
+			<div className={styles.dock}>{header(true)}</div>
+			{branched && (
 				<>
-					{baseHeader()}
-					{/* Folded, the row's stand-in docks at the scroller's foot while the row is out
-					    of view below. A portal: the foot is outside the tree, and only there can it
-					    stick over the uncommitted files card, which is outside the tree as well. */}
-					{!plan.baseExpanded && footDock !== null && createPortal(baseHeader(true), footDock)}
-					<Fold open={plan.baseExpanded} className={styles.history} ref={baseFold}>
-						<div ref={baseRows} className={styles.rows}>
-							{plan.belowBase.map((item, index) =>
-								item.kind === "fork"
-									? commitRow(
-											item.commit,
-											"Integrated",
-											addressSpace,
-											0,
-											endsOnBase && index === plan.belowBase.length - 1,
-										)
-									: runRows(
-											item,
-											"Integrated",
-											addressSpace,
-											0,
-											() => onShowMoreRun(item.id),
-											() => onFoldRun(item.id),
-										),
-							)}
-							{plan.older.map((commit, index) =>
-								commitRow(
-									commit,
-									"Integrated",
+					<Fold open={plan.incomingExpanded} ref={incomingFold}>
+						<div ref={incomingRows} className={styles.rows}>
+							{plan.incoming.map((run) =>
+								runRows(
+									run,
 									addressSpace,
-									0,
-									historyEnds && index === plan.older.length - 1,
+									() => onShowMoreRun(run.id),
+									() => onFoldRun(run.id),
 								),
 							)}
-							{moreBelow !== "hidden" && <ShowMore state={moreBelow} onSelect={onShowMore} />}
 						</div>
 					</Fold>
+					<GraphGap height={LEG_GAP} bend="Upstream" />
 				</>
 			)}
 		</>

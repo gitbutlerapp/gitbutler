@@ -34,8 +34,8 @@
 	overflow: hidden;
 }
 
-/* The target's card, drawn like a forked stack card. Keep in sync with
-   StackCard.module.css. */
+/* A card like a forked stack card's, for the worktree cards under the stacks
+   (WorktreeLane). Keep in sync with StackCard.module.css. */
 .card {
 	border-block: 1px solid var(--border-section);
 	background-color: var(--bg-1);
@@ -49,7 +49,7 @@
 }
 
 /* The air under its rows, run over the floor to the card's edge, where the
-   leg row below picks the leg up. */
+   gap below picks the line up. */
 .stub {
 	height: 5px;
 	min-height: auto;
@@ -57,29 +57,28 @@
 	overflow: hidden;
 }
 
-/* The air under the target's card or the ref's row, which the column's line
-   runs straight through to the base's. A row of gutter rather than a gap: the
-   line goes on down the column instead of bending onto the trunk. */
-.leg {
-	height: 12px;
-	min-height: auto;
-	overflow: hidden;
+/* The target row's stand-in docks at the scroller's foot while the row is out
+   of view below, keeping the target, its count and its fold in reach; the
+   fold's toggle scrolls to the row's place before opening. A sticky mark of
+   no height right after the row, whose row shows only while the mark is
+   stuck: air and a hairline around the row, and a chevron in place of the
+   rail, whose lines would claim a line above that is not there. Keep in sync
+   with layout.ts's DOCKED_HEIGHT. */
+.dock {
+	container-type: scroll-state;
+
+	z-index: 2;
+	position: sticky;
+	bottom: 0;
+	height: 0;
 }
 
-/* Folded, the merge base row's stand-in docks at the scroller's foot while
-   the row is out of view below, keeping the base's fold reachable; its
-   toggle scrolls to the row's place before opening. It shows only while its
-   mark (WorkspaceLists' footDock) is stuck: air, a hairline, and a chevron in
-   place of the glyph, whose lines would claim a line above that is not there.
-   Keep in sync with layout.ts's DOCKED_HEIGHT. */
 .docked {
-	--air: 4px;
-
 	visibility: hidden;
 	position: absolute;
 	inset-inline: 0;
 	bottom: 0;
-	padding-block: var(--air);
+	padding-block: 4px;
 	border-block-start: 1px solid var(--border-section);
 	background-color: var(--bg-2);
 

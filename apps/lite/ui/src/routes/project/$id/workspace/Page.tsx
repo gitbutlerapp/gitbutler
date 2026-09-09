@@ -62,7 +62,7 @@ import {
 } from "#ui/addresses.ts";
 import { Details, type DiffViewerHandle, UncommittedFilesDetails } from "./Details.tsx";
 import { buildAppliedAddressSpace } from "./applied-address-space.ts";
-import { planCommitReview } from "./Graph/layout.ts";
+import { targetCommitReview } from "./Graph/layout.ts";
 import { usePlan } from "./Graph/usePlan.ts";
 import { buildUncommittedFileRows } from "./file-row.ts";
 import { fileTreeAddressSpace, selectedFilePath } from "./file-tree.ts";
@@ -488,10 +488,10 @@ const PageBody: FC<{ projectId: string }> = ({ projectId }) => {
 	// because `useDeferredValue` compares by identity, so a freshly built element
 	// every render would defer every render. Looked up outside the memo so the
 	// details only rebuild when the review itself changes, not on every list rerun.
-	// A target commit selected in the stacks graph carries the review it landed.
+	// A commit on the target line, selected anywhere in the graph, carries the review it landed.
 	const appliedReview =
 		appliedSelection?._tag === "Commit"
-			? planCommitReview(graph.plan, appliedSelection.commitId)
+			? targetCommitReview(graph.listing, appliedSelection.commitId)
 			: null;
 	const details = useMemo(() => {
 		const viewProps = { projectId, onActiveFileSelection, viewerRef, didScrollToViaFileRef };
