@@ -16,7 +16,7 @@ use crate::{
     utils::SegmentTable,
     workspace::{
         Stack, StackCommit, StackCommitFlags, StackSegment, TargetCommit, TargetRef, WorkspaceKind,
-        workspace::{WorkspaceReconciliationInput, WorkspaceState},
+        workspace::WorkspaceState,
     },
 };
 
@@ -99,36 +99,31 @@ impl Graph {
         err(Debug)
     )]
     pub fn into_workspace(self) -> anyhow::Result<Workspace> {
-        let state = self.to_workspace_state()?;
-        Ok(Workspace::from_state(self, state))
-    }
-
-    pub(crate) fn to_workspace_state(&self) -> anyhow::Result<WorkspaceState> {
-        Ok(self.project(self.frame(self.entrypoint()?.segment.id)?))
-    }
-
-    /// The workspace as reconciliation needs it, if the entrypoint is a managed workspace.
-    pub(crate) fn workspace_reconciliation_input(
-        &self,
-    ) -> anyhow::Result<Option<WorkspaceReconciliationInput>> {
         let WorkspaceState {
             id,
-            kind: _,
+            kind,
             stacks,
-            lower_bound: _,
+            lower_bound,
             lower_bound_segment_id,
             target_ref,
             target_commit,
             metadata,
         } = self.to_workspace_state()?;
-        Ok(metadata.map(|metadata| WorkspaceReconciliationInput {
+        Ok(Workspace {
+            graph: self,
             id,
+            kind,
             stacks,
+            lower_bound,
             lower_bound_segment_id,
             target_ref,
             target_commit,
             metadata,
-        }))
+        })
+    }
+
+    pub(crate) fn to_workspace_state(&self) -> anyhow::Result<WorkspaceState> {
+        Ok(self.project(self.frame(self.entrypoint()?.segment.id)?))
     }
 
     fn frame(&self, ws: SegmentIndex) -> anyhow::Result<Frame<'_>> {
