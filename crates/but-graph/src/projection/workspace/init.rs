@@ -16,7 +16,7 @@ use crate::{
     utils::SegmentTable,
     workspace::{
         Stack, StackCommit, StackCommitFlags, StackSegment, TargetCommit, TargetRef, WorkspaceKind,
-        workspace::{WorkspaceReconciliationInput, WorkspaceState},
+        workspace::WorkspaceState,
     },
 };
 
@@ -99,36 +99,31 @@ impl Graph {
         err(Debug)
     )]
     pub fn into_workspace(self) -> anyhow::Result<Workspace> {
-        let state = self.to_workspace_state()?;
-        Ok(Workspace::from_state(self, state))
-    }
-
-    pub(crate) fn to_workspace_state(&self) -> anyhow::Result<WorkspaceState> {
-        Ok(self.project(self.frame(self.entrypoint()?.segment.id)?))
-    }
-
-    /// The workspace as reconciliation needs it, if the entrypoint is a managed workspace.
-    pub(crate) fn workspace_reconciliation_input(
-        &self,
-    ) -> anyhow::Result<Option<WorkspaceReconciliationInput>> {
         let WorkspaceState {
             id,
-            kind: _,
+            kind,
             stacks,
-            lower_bound: _,
+            lower_bound,
             lower_bound_segment_id,
             target_ref,
             target_commit,
             metadata,
         } = self.to_workspace_state()?;
-        Ok(metadata.map(|metadata| WorkspaceReconciliationInput {
+        Ok(Workspace {
+            graph: self,
             id,
+            kind,
             stacks,
+            lower_bound,
             lower_bound_segment_id,
             target_ref,
             target_commit,
             metadata,
-        }))
+        })
+    }
+
+    pub(crate) fn to_workspace_state(&self) -> anyhow::Result<WorkspaceState> {
+        Ok(self.project(self.frame(self.entrypoint()?.segment.id)?))
     }
 
     fn frame(&self, ws: SegmentIndex) -> anyhow::Result<Frame<'_>> {
@@ -316,20 +311,6 @@ impl Graph {
             })
     }
 
-    fn has_commits(&self, group: &Group) -> bool {
-        group
-            .members
-            .iter()
-            .any(|&sidx| !self[sidx].commits.is_empty())
-    }
-
-    fn commit_ids<'a>(&'a self, group: &'a Group) -> impl Iterator<Item = ObjectId> + 'a {
-        group
-            .members
-            .iter()
-            .flat_map(|&sidx| self[sidx].commits.iter().map(|c| c.id))
-    }
-
     /// The id of the first metadata stack naming one of the segments of each lane, preferring
     /// segment names over refs on commits and applied stacks over unapplied ones. Ids are handed
     /// out once, in lane order.
@@ -413,7 +394,8 @@ impl Graph {
             .map(|(idx, group)| {
                 let above = groups[..idx]
                     .iter()
-                    .flat_map(|g| self.commit_ids(g))
+                    .flat_map(|g| g.members.iter())
+                    .flat_map(|&sidx| self[sidx].commits.iter().map(|c| c.id))
                     .collect();
                 let base = match groups.get(idx + 1) {
                     Some(next) => (
@@ -467,7 +449,10 @@ impl Graph {
             .into_iter()
             .enumerate()
             .filter(|(idx, group)| {
-                self.has_commits(group)
+                group
+                    .members
+                    .iter()
+                    .any(|&sidx| !self[sidx].commits.is_empty())
                     || (*idx == 0 && !frame.kind.has_managed_ref())
                     || self[group.head].ref_name().is_some_and(wanted_by_metadata)
             })
@@ -487,27 +472,18 @@ impl Graph {
         let head = &self[group.head];
         let remote = head.remote_tracking_ref_name.as_ref();
         let keep_any_name = !frame.kind.has_managed_ref();
-        let num_commits: usize = group
-            .members
-            .iter()
-            .map(|&sidx| self[sidx].commits.len())
-            .sum();
-        let commits = group
+        let mut commits: Vec<_> = group
             .members
             .iter()
             .flat_map(|&sidx| self[sidx].commits.iter().map(move |c| (sidx, c)))
-            .enumerate()
-            .map(|(idx, (sidx, commit))| StackCommit {
-                flags: StackCommitFlags::from(commit.flags)
-                    | remotes.flags(sidx, remote)
-                    | if early_end && idx + 1 == num_commits {
-                        StackCommitFlags::EarlyEnd
-                    } else {
-                        StackCommitFlags::empty()
-                    },
+            .map(|(sidx, commit)| StackCommit {
+                flags: StackCommitFlags::from(commit.flags) | remotes.flags(sidx, remote),
                 ..StackCommit::from_graph_commit(commit)
             })
             .collect();
+        if let Some(last) = commits.last_mut().filter(|_| early_end) {
+            last.flags |= StackCommitFlags::EarlyEnd;
+        }
         StackSegment {
             ref_info: head
                 .ref_info

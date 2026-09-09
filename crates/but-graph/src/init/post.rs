@@ -704,12 +704,12 @@ impl Graph {
         repo: &OverlayRepo<'_>,
         worktree_by_branch: &WorktreeByBranch,
     ) -> anyhow::Result<()> {
-        let Some(workspace) = self.workspace_reconciliation_input()? else {
+        let workspace = self.to_workspace_state()?;
+        let Some(ws_data) = workspace.metadata else {
             return Ok(());
         };
         let ws_sidx = workspace.id;
         let ws_stacks = workspace.stacks;
-        let ws_data = workspace.metadata;
         let ws_target_ref = workspace.target_ref;
         let ws_target_commit = workspace.target_commit;
         let ws_low_bound = workspace.lower_bound_segment_id;
