@@ -2,6 +2,7 @@ import { reviewerCandidatesQueryOptions } from "#ui/api/queries.ts";
 import { Popup, PopupItem } from "#ui/components/Popup.tsx";
 import { applyToTextarea } from "#ui/markdown-textarea.ts";
 import { completeMention, matchMentions, mentionAtCaret } from "#ui/mentions.ts";
+import { isAgent } from "#ui/review-users.ts";
 import { Popover } from "@base-ui/react";
 import type { ForgeReviewUser } from "@gitbutler/but-sdk";
 import { useQuery } from "@tanstack/react-query";
@@ -97,7 +98,14 @@ export const useMentionSuggestions = ({ projectId, targetRef, value, onInput }: 
 	const query = mention?.query ?? null;
 	const { data: matches = [] } = useQuery({
 		...reviewerCandidatesQueryOptions(projectId),
-		select: (candidates) => (query === null ? [] : matchMentions(candidates, query)),
+		// Bots are offered as reviewers, not as people to address.
+		select: (candidates) =>
+			query === null
+				? []
+				: matchMentions(
+						candidates.filter((user) => !isAgent(user)),
+						query,
+					),
 	});
 	const open = at !== null && at !== dismissedAt && matches.length > 0;
 	const highlightedUser = matches[highlighted];
