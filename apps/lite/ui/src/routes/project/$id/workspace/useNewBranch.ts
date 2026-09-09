@@ -52,7 +52,7 @@ export const useNewBranch = (projectId: string): NewBranchActions => {
 
 	const createInWorkspace = () => {
 		branchCreate(
-			{ projectId, newRef: null, placement: { type: "independent" } },
+			{ projectId, newRef: null, placement: { type: "independent", subject: { order: 0 } } },
 			{
 				onSuccess: (response) => {
 					// The new branch is a workspace lane now, so the workspace tab is

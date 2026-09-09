@@ -158,7 +158,10 @@ pub mod json {
     #[serde(rename_all = "camelCase", tag = "type", content = "subject")]
     pub enum BranchCreatePlacement {
         /// Create the branch as a new independent stack at the workspace base.
-        Independent,
+        Independent {
+            /// Zero-based insertion index, clamped to the stack count. `None` appends.
+            order: Option<usize>,
+        },
         /// Create the branch relative to an existing commit or reference.
         ///
         /// When relative to a reference, the new branch points at the same commit
@@ -953,14 +956,14 @@ pub fn branch_create_with_perm(
 ) -> anyhow::Result<BranchCreateResult> {
     use but_workspace::branch::create_reference::{Anchor, Position};
 
-    let anchor = match placement {
-        json::BranchCreatePlacement::Independent => None,
+    let (anchor, order) = match placement {
+        json::BranchCreatePlacement::Independent { order } => (None, order),
         json::BranchCreatePlacement::Dependent { relative_to, side } => {
             let position = match side {
                 InsertSide::Above => Position::Above,
                 InsertSide::Below => Position::Below,
             };
-            Some(match relative_to {
+            let anchor = match relative_to {
                 crate::commit::json::RelativeTo::Commit(commit_id) => Anchor::AtCommit {
                     commit_id,
                     position,
@@ -972,7 +975,8 @@ pub fn branch_create_with_perm(
                         position,
                     }
                 }
-            })
+            };
+            (Some(anchor), None)
         }
     };
 
@@ -1016,7 +1020,7 @@ pub fn branch_create_with_perm(
         &ws,
         &mut meta,
         |_| StackId::generate(),
-        None,
+        order,
     )?;
     *ws = new_ws.into_owned();
     drop(ws);

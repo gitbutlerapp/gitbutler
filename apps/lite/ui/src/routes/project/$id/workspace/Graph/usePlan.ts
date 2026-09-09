@@ -41,7 +41,7 @@ export const usePlan = (projectId: string) => {
 		() => olderPagesData?.pages.flatMap((page) => page.commits) ?? [],
 		[olderPagesData],
 	);
-	const listOrder = useMemo(() => (headInfo?.stacks ?? []).toReversed(), [headInfo]);
+	const listOrder = useMemo(() => headInfo?.stacks ?? [], [headInfo]);
 	const target = headInfo?.target ?? null;
 	const worktrees = headInfo?.worktrees ?? noWorktrees;
 	// Explicit: the compiler does not memoise imported calls, and the rails re-measure on every new plan.
