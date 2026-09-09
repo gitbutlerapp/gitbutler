@@ -16,6 +16,7 @@ import {
 	type FileParent,
 } from "#ui/addresses.ts";
 import { useWorktreeRemove, useWorktreeSetArchived } from "#ui/api/mutations.ts";
+import { decodeBytes } from "#ui/api/bytes.ts";
 import {
 	guiSettingsQueryOptions,
 	treeChangesDiffsQueryOptions,
@@ -190,10 +191,10 @@ const WorktreeUncommitted: FC<{
 };
 
 /**
- * The branch a worktree has checked out, as a row of the applied tree: a
- * value that selects and takes commits, with the worktree's own actions on
- * its menu. It is outside the workspace, so the branch actions that rewrite
- * the workspace are not offered.
+ * A branch of a worktree's stack, the checked-out one or one stacked under
+ * it, as a row of the applied tree: a value that selects and takes commits,
+ * with the worktree's own actions on its menu. It is outside the workspace,
+ * so the branch actions that rewrite the workspace are not offered.
  */
 const WorktreeBranchRow: FC<
 	{
@@ -287,7 +288,7 @@ const WorktreeBranchRow: FC<
 /**
  * A linked worktree's rows, laid out like the sidebar itself: the worktree's
  * name labels the whole, then its uncommitted files head a rail that runs
- * down through its branch and the commits only it has, with any worktree
+ * down through its branches and the commits only it has, with any worktree
  * resting on one of them nested above it. The rows are the sidebar's own;
  * the address space decides which of them operations may take.
  */
@@ -300,9 +301,11 @@ const WorktreeRows: FC<{
 	/** The lane's rail starts at its uncommitted files; on the trunk, the trunk runs on through. */
 	startsRail: boolean;
 }> = ({ projectId, worktree, worktrees, behind, startsRail }) => {
-	const branch =
-		worktree.refName === null ? null : branchAddress({ branchRef: worktree.refName.fullNameBytes });
+	// The rail under a commit takes the colour of the next commit, across segments.
 	const commits = worktree.segments.flatMap((segment) => segment.commits);
+	const below = new Map(
+		commits.map((commit, index) => [commit.id, commits[index + 1]?.state.type ?? "LocalOnly"]),
+	);
 	return (
 		<>
 			<Row interactive={false}>
@@ -320,67 +323,83 @@ const WorktreeRows: FC<{
 				behind={behind}
 				startsRail={startsRail}
 			/>
-			{worktree.refName !== null && branch !== null && (
-				<TreeItem
-					address={branch}
-					aria-label={worktree.refName.displayName}
-					render={
-						<AddressC
-							projectId={projectId}
-							address={branch}
-							outline="outside"
-							render={
-								<WorktreeBranchRow
-									projectId={projectId}
-									worktree={worktree.name}
-									refName={worktree.refName}
-									behind={behind}
-								/>
-							}
-						/>
-					}
-				/>
-			)}
-			{commits.map((commit, index) => {
-				const address = commitAddress({ commitId: commit.id, changeId: commit.changeId });
-				const next = commits[index + 1];
+			{worktree.segments.map((segment) => {
+				// A detached HEAD's first segment has no branch to show a row for.
+				const branch =
+					segment.refName === null
+						? null
+						: branchAddress({ branchRef: segment.refName.fullNameBytes });
 				return (
-					<Fragment key={commit.id}>
-						{worktrees.on.get(commit.id)?.map((nested) => (
-							<WorktreeLane
-								key={nested.name}
-								projectId={projectId}
-								worktree={nested}
-								worktrees={worktrees}
-								behind={behind + 1}
+					<Fragment
+						key={
+							segment.refName
+								? decodeBytes(segment.refName.fullNameBytes)
+								: (segment.commits[0]?.id ?? "detached")
+						}
+					>
+						{segment.refName !== null && branch !== null && (
+							<TreeItem
+								address={branch}
+								aria-label={segment.refName.displayName}
+								render={
+									<AddressC
+										projectId={projectId}
+										address={branch}
+										outline="outside"
+										render={
+											<WorktreeBranchRow
+												projectId={projectId}
+												worktree={worktree.name}
+												refName={segment.refName}
+												behind={behind}
+											/>
+										}
+									/>
+								}
 							/>
-						))}
-						<TreeItem
-							address={address}
-							aria-label={commitTitle(commit.message) ?? "(no message)"}
-							render={
-								<AddressC
-									projectId={projectId}
-									address={address}
-									outline="outside"
-									render={
-										<CommitRow
-											commit={commit}
+						)}
+						{segment.commits.map((commit) => {
+							const address = commitAddress({ commitId: commit.id, changeId: commit.changeId });
+							return (
+								<Fragment key={commit.id}>
+									{worktrees.on.get(commit.id)?.map((nested) => (
+										<WorktreeLane
+											key={nested.name}
 											projectId={projectId}
-											stackId={null}
-											dryRunCommit={null}
-											checkCommit={noop}
-											amendCommit={noop}
-											canAmendCommit={false}
-											below={next === undefined ? "LocalOnly" : next.state.type}
-											behind={behind}
-											worktree={worktree.name}
-											scrollSelectedIntoView={false}
+											worktree={nested}
+											worktrees={worktrees}
+											behind={behind + 1}
 										/>
-									}
-								/>
-							}
-						/>
+									))}
+									<TreeItem
+										address={address}
+										aria-label={commitTitle(commit.message) ?? "(no message)"}
+										render={
+											<AddressC
+												projectId={projectId}
+												address={address}
+												outline="outside"
+												render={
+													<CommitRow
+														commit={commit}
+														projectId={projectId}
+														stackId={null}
+														dryRunCommit={null}
+														checkCommit={noop}
+														amendCommit={noop}
+														canAmendCommit={false}
+														below={below.get(commit.id) ?? "LocalOnly"}
+														behind={behind}
+														worktree={worktree.name}
+														scrollSelectedIntoView={false}
+													/>
+												}
+											/>
+										}
+									/>
+								</Fragment>
+							);
+						})}
 					</Fragment>
 				);
 			})}
