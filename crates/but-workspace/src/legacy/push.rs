@@ -144,7 +144,8 @@ pub fn workspace_branch_and_ancestors_push(
     Ok(result)
 }
 
-/// Return the selected local branch and its ancestors in top-to-base order.
+/// Return the selected local branch and its ancestors in top-to-base order, crossing into the
+/// lane a worktree rests on.
 ///
 /// This is the logical scope of a push operation. It includes ancestors that are already current
 /// on the remote, even though [`workspace_branch_and_ancestors_push()`] will skip transferring
@@ -153,28 +154,17 @@ pub fn branch_and_ancestor_segments<'a>(
     ref_info: &'a RefInfo,
     branch: &gix::refs::FullNameRef,
 ) -> IndexMap<but_graph::SegmentIndex, &'a Segment> {
-    let mut selected = IndexMap::new();
-    for stack in &ref_info.stacks {
-        let mut refname_found = false;
-        for segment in &stack.segments {
-            let Some(ref_name) = segment.ref_info.as_ref().map(|r| r.ref_name.as_ref()) else {
-                continue;
-            };
-
-            if ref_name.category() != Some(gix::refs::Category::LocalBranch) {
-                continue;
-            }
-
-            if ref_name == branch {
-                refname_found = true;
-            }
-
-            if refname_found {
-                selected.insert(segment.id, segment);
-            }
-        }
-    }
-    selected
+    ref_info
+        .lane_chain(branch)
+        .into_iter()
+        .flat_map(|(lane, index)| &lane.segments[index..])
+        .filter(|segment| {
+            segment
+                .ref_name()
+                .is_some_and(|name| name.category() == Some(Category::LocalBranch))
+        })
+        .map(|segment| (segment.id, segment))
+        .collect()
 }
 
 struct GerritPushArgs {
