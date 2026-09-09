@@ -422,16 +422,14 @@ export const WorktreeOnTip: FC<{
 	worktree: Worktree;
 	worktrees: WorktreePlacement;
 	behind: number;
-	/** The card is the main line itself, so the trunk runs into the lane from above. */
-	onTrunk: boolean;
-}> = ({ projectId, worktree, worktrees, behind, onTrunk }) => (
+}> = ({ projectId, worktree, worktrees, behind }) => (
 	<>
 		<WorktreeRows
 			projectId={projectId}
 			worktree={worktree}
 			worktrees={worktrees}
 			behind={behind}
-			startsRail={!onTrunk}
+			startsRail
 		/>
 		<GraphGap height={TIP_GAP} behind={behind} />
 	</>

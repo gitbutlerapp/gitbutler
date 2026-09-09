@@ -1,23 +1,10 @@
-/* A fold header's disclosure control: the chevron on the rail's glyph. The
-   glyph stays while the row is hovered, unlike a branch row's, since the rail
-   into the chevron is the line from above. */
-.control {
-	--graph-segment-glyph-visibility: visible;
-
-	display: flex;
-	position: relative;
-}
-
-/* On the glyph's own column, the last 16px, and the glyph's own line. */
+/* The docked stand-in's chevron, in the glyph's column on its line. */
 .chevron {
 	display: flex;
-	position: absolute;
 	align-items: center;
 	justify-content: center;
 	width: 16px;
 	height: var(--single-line-row-height);
-	inset-block-start: 0;
-	inset-inline-end: 0;
 	color: var(--text-2);
 }
 
@@ -62,7 +49,7 @@
 }
 
 /* The air under its rows, run over the floor to the card's edge, where the
-   gap below picks the leg up. */
+   leg row below picks the leg up. */
 .stub {
 	height: 5px;
 	min-height: auto;
@@ -70,16 +57,23 @@
 	overflow: hidden;
 }
 
+/* The air under the target's card or the ref's row, which the column's line
+   runs straight through to the base's. A row of gutter rather than a gap: the
+   line goes on down the column instead of bending onto the trunk. */
+.leg {
+	height: 12px;
+	min-height: auto;
+	overflow: hidden;
+}
+
 /* Folded, the merge base row's stand-in docks at the scroller's foot while
    the row is out of view below, keeping the count and Update in view; its
    toggle scrolls to the row's place before opening. It shows only while its
-   mark (WorkspaceLists' footDock) is stuck: air, a hairline, and no line into
-   its chevron, which would claim a line above that is not there. The glyph
-   sets its own visibility, so the row hiding is not enough. Keep in sync with
-   layout.ts's DOCKED_HEIGHT. */
+   mark (WorkspaceLists' footDock) is stuck: air, a hairline, and a chevron in
+   place of the glyph, whose lines would claim a line above that is not there.
+   Keep in sync with layout.ts's DOCKED_HEIGHT. */
 .docked {
 	--air: 4px;
-	--graph-segment-rail-visibility: hidden;
 
 	visibility: hidden;
 	position: absolute;
@@ -88,10 +82,6 @@
 	padding-block: var(--air);
 	border-block-start: 1px solid var(--border-section);
 	background-color: var(--bg-2);
-
-	.control {
-		--graph-segment-glyph-visibility: hidden;
-	}
 
 	@container scroll-state(stuck: bottom) {
 		visibility: visible;

@@ -150,11 +150,12 @@
 		align-items: center;
 		justify-content: center;
 		/* Occupies exactly the glyph segment it stands in for: the glyph's own
-		   column, the last one, since the main line may run in columns left of it. */
+		   column, the last one, since the main line may run in columns left of it.
+		   On the trunk's narrower edge column it overhangs to the right instead. */
 		width: 16px;
 		height: var(--single-line-row-height);
 		inset-block-start: 0;
-		inset-inline-end: 0;
+		inset-inline-start: max(0px, calc(100% - 16px));
 		color: var(--text-3);
 	}
 

@@ -88,6 +88,12 @@
 /* The uncommitted files card heads the trunk, which runs down it as its own
    line: the same head room as a stack card, and a stub over its floor where
    the gap below picks the trunk up. */
+.uncommittedCard,
+.dockRow {
+	/* The trunk's edge column is the rows' whole gutter: no inset. */
+	--row-padding-inline-start: 0px;
+}
+
 .uncommittedCard {
 	border-block-end: 1px solid var(--border-section);
 	background-color: var(--bg-1);

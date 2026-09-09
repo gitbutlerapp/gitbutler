@@ -76,7 +76,12 @@ import { treeItemId } from "../Row-utils.ts";
 import { useAddressSpace, WorkspaceListsProvider } from "./context.tsx";
 import { getOperation, useDryRunOperation } from "#ui/operations/operation.ts";
 import { createDiffSpec } from "#ui/operations/diff-specs.ts";
-import { GraphGap, GraphSegment, type GraphSegmentStatus } from "#ui/components/GraphSegment.tsx";
+import {
+	GraphEdge,
+	GraphGap,
+	GraphSegment,
+	type GraphSegmentStatus,
+} from "#ui/components/GraphSegment.tsx";
 import { useNow } from "#ui/components/useNow.ts";
 import { segmentBottomRelativeTo } from "#ui/api/stack.ts";
 import { assert } from "#ui/assert.ts";
@@ -259,7 +264,7 @@ const UncommittedChanges: FC<
 		enabled: !folded && (worktreeChanges?.changes.length ?? 0) > 0,
 	});
 	// The trunk runs down the card as its own line, the rows' rail.
-	const trunk = <GraphSegment glyph="parent" status="LocalOnly" />;
+	const trunk = <GraphEdge glyph="parent" />;
 
 	return (
 		<div
@@ -344,8 +349,8 @@ const UncommittedChanges: FC<
 						scrollMargin={listOffset}
 						scrollPaddingStart={headHeight}
 						scrollPaddingEnd={footDock + formHeight}
-						// The rows sit on the trunk, at the graph's inset rather than the tree's own.
-						style={{ "--row-padding-inline-start": `${ROW_INSET}px` }}
+						// The rows sit on the trunk, whose edge column is their whole gutter: no inset, the tree's own included.
+						style={{ "--row-padding-inline-start": "0px" }}
 					/>
 				</Activity>
 
@@ -404,8 +409,6 @@ const BranchSegment: FC<{
 	pushActivity: PushActivity;
 	startsRail: boolean;
 	behind: number;
-	/** The rail ends on this segment's last commit. */
-	railEnds: boolean;
 	worktrees: WorktreePlacement;
 	checkCommit: (evt: { commitId: string; shiftKey: boolean }) => void;
 	onAmendCommit: (commitId: string) => void;
@@ -429,7 +432,6 @@ const BranchSegment: FC<{
 	pushActivity,
 	startsRail,
 	behind,
-	railEnds,
 	worktrees,
 	checkCommit,
 	onAmendCommit,
@@ -501,7 +503,6 @@ const BranchSegment: FC<{
 					segment={segment}
 					stackId={stack.id}
 					behind={behind}
-					railEnds={railEnds}
 					worktrees={worktrees}
 					checkCommit={checkCommit}
 					onAmendCommit={onAmendCommit}
@@ -565,8 +566,6 @@ const SegmentContent: FC<{
 	positionOffset: number;
 	setSize: number;
 	behind: number;
-	/** The rail ends on the segment's last commit. */
-	railEnds: boolean;
 	worktrees: WorktreePlacement;
 }> = ({
 	projectId,
@@ -586,7 +585,6 @@ const SegmentContent: FC<{
 	positionOffset,
 	setSize,
 	behind,
-	railEnds,
 	worktrees,
 }) => {
 	const getCommitKey = useCallback(
@@ -702,7 +700,6 @@ const SegmentContent: FC<{
 						commit={commit}
 						below={next === undefined ? "LocalOnly" : commitGraphStatus(next)}
 						behind={behind}
-						railEnds={railEnds && next === undefined}
 						lanes={lanesOn(commit, virtualRow.index)}
 						worktrees={worktrees}
 						projectId={projectId}
@@ -734,7 +731,6 @@ const CommitItem: FC<{
 	commit: Commit;
 	below: GraphSegmentStatus;
 	behind: number;
-	railEnds: boolean;
 	/** The worktree lanes drawn above this commit, resting on it. */
 	lanes: ReadonlyArray<Worktree>;
 	worktrees: WorktreePlacement;
@@ -753,7 +749,6 @@ const CommitItem: FC<{
 	commit,
 	below,
 	behind,
-	railEnds,
 	lanes,
 	worktrees,
 	projectId,
@@ -806,7 +801,6 @@ const CommitItem: FC<{
 								commit={commit}
 								below={below}
 								behind={behind}
-								railEnds={railEnds}
 								stackId={stackId}
 								checkCommit={checkCommit}
 								amendCommit={() => onAmendCommit(commit.id)}
@@ -839,9 +833,7 @@ const SegmentRailConnector: FC<{
 	projectId: string;
 	segment: Segment;
 	behind: number;
-	/** The rail ended on the segment's last commit: the connector is only the card's floor. */
-	railEnds: boolean;
-}> = ({ projectId, segment, behind, railEnds }) => {
+}> = ({ projectId, segment, behind }) => {
 	const addressSpace = useAddressSpace();
 
 	// A plain boolean, so this re-renders only when this segment's own fold
@@ -869,7 +861,7 @@ const SegmentRailConnector: FC<{
 			inert={!addressSpaceIncludes(addressSpace, standsFor, addressIdentityKey)}
 		>
 			{/* Plain: a branch's colour runs from its tick down to its commits, not past them. */}
-			<GraphSegment glyph={railEnds ? "space" : "parent"} status="LocalOnly" behind={behind} />
+			<GraphSegment glyph="parent" status="LocalOnly" behind={behind} />
 		</Row>
 	);
 };
@@ -888,8 +880,6 @@ const StackC: FC<
 		stackSize: number;
 		/** The list's start in the scroller, which the card's own position is from. */
 		scrollMargin: number;
-		/** The stack is the main line itself, with no target to fork from: see the layout's plan. */
-		onTrunk: boolean;
 		worktrees: WorktreePlacement;
 		selectedSegmentIndex: number | undefined;
 		selectedCommitIndex: number | undefined;
@@ -906,7 +896,6 @@ const StackC: FC<
 	stackScrollStart,
 	stackSize,
 	scrollMargin,
-	onTrunk,
 	worktrees,
 	selectedSegmentIndex,
 	selectedCommitIndex,
@@ -928,12 +917,8 @@ const StackC: FC<
 		width: "100%",
 		transform: `translateY(${stackScrollStart - scrollMargin}px)`,
 	};
-	// A card is a lane off the trunk, which runs behind it, unless it is the trunk.
-	const behind = onTrunk ? 0 : 1;
-	// The trunk's rail ends where the history does. A traversal cut short leaves a
-	// commit with parents, and the line runs on past it as it does under any card.
-	const lastCommit = stack.segments.at(-1)?.commits.at(-1);
-	const railEnds = onTrunk && lastCommit !== undefined && lastCommit.parentIds.length === 0;
+	// A card is a lane off the trunk, which runs behind it at the edge.
+	const behind = 1;
 	const topmostPendingPushIndex = stack.segments.findIndex(
 		(segment) =>
 			segment.refName && pendingPushBranches.has(decodeBytes(segment.refName.fullNameBytes)),
@@ -961,7 +946,7 @@ const StackC: FC<
 				aria-label="Stack"
 			>
 				<Row interactive={false} className={styles.pad}>
-					<GraphSegment glyph={onTrunk ? "parent" : "space"} status="LocalOnly" behind={behind} />
+					<GraphSegment glyph="space" status="LocalOnly" behind={behind} />
 				</Row>
 				{onTip.map((worktree) => (
 					<WorktreeOnTip
@@ -970,7 +955,6 @@ const StackC: FC<
 						worktree={worktree}
 						worktrees={worktrees}
 						behind={behind}
-						onTrunk={onTrunk}
 					/>
 				))}
 				{stack.segments.map((segment, index) => {
@@ -1006,9 +990,8 @@ const StackC: FC<
 										canRemoveBranch={canRemoveBranchReference(stack, index)}
 										downstackPushStatus={downstackPushStatus}
 										pushActivity={pushActivity}
-										startsRail={index === 0 && !onTrunk && onTip.length === 0}
+										startsRail={index === 0 && onTip.length === 0}
 										behind={behind}
-										railEnds={railEnds && index === stack.segments.length - 1}
 										worktrees={worktrees}
 										checkCommit={checkCommit}
 										onAmendCommit={onAmendCommit}
@@ -1031,7 +1014,6 @@ const StackC: FC<
 										positionOffset={segmentPositionOffset}
 										setSize={rootSetSize}
 										behind={behind}
-										railEnds={railEnds && index === stack.segments.length - 1}
 										worktrees={worktrees}
 										projectId={projectId}
 										segment={segment}
@@ -1050,21 +1032,12 @@ const StackC: FC<
 									/>
 								)}
 							</div>
-							<SegmentRailConnector
-								projectId={projectId}
-								segment={segment}
-								behind={behind}
-								railEnds={railEnds && index === stack.segments.length - 1}
-							/>
+							<SegmentRailConnector projectId={projectId} segment={segment} behind={behind} />
 						</Fragment>
 					);
 				})}
 			</StackCard>
-			{railEnds ? (
-				<div style={{ height: CARD_GAP }} aria-hidden />
-			) : (
-				<GraphGap height={CARD_GAP} bend={onTrunk ? undefined : "LocalOnly"} />
-			)}
+			<GraphGap height={CARD_GAP} bend="LocalOnly" />
 		</div>
 	);
 };
@@ -1383,7 +1356,6 @@ const Stacks: FC<{
 									stackScrollStart={virtualRow.start}
 									stackSize={virtualRow.size}
 									scrollMargin={scrollMargin}
-									onTrunk={plan.stackOnTrunk}
 									worktrees={plan.worktrees}
 									selectedSegmentIndex={
 										selectedStackIndex === virtualRow.index ? selectedSegmentIndex : undefined

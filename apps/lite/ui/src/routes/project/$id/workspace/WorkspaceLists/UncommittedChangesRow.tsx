@@ -25,7 +25,7 @@ import { getRowButtonClassName } from "../Row-utils.ts";
 import { ChangeStats } from "../ChangeStats.tsx";
 import { Row, RowFoldToggle, RowLabel, RowLabelContainer, RowToolbar } from "../Row.tsx";
 import { useFileDisplayModeMenuItems } from "../useFileDisplayModeMenuItems.ts";
-import { GraphSegment } from "#ui/components/GraphSegment.tsx";
+import { GraphEdge } from "#ui/components/GraphSegment.tsx";
 import { classes } from "#ui/components/classes.ts";
 import { useQuery } from "@tanstack/react-query";
 import styles from "./UncommittedChangesRow.module.css";
@@ -157,7 +157,7 @@ export const UncommittedChangesRow: FC<{
 				}}
 				className={className}
 			>
-				<GraphSegment glyph="forkRight" status="LocalOnly" />
+				<GraphEdge glyph="forkRight" />
 				<RowLabelContainer>
 					<RowLabel heading singleLine>
 						Uncommitted files
@@ -180,7 +180,7 @@ export const UncommittedChangesRow: FC<{
 		>
 			<RowFoldToggle
 				folded={mode.folded}
-				glyph={<GraphSegment glyph="forkRight" status="LocalOnly" />}
+				glyph={<GraphEdge glyph="forkRight" />}
 				aria-label={`${mode.folded ? "Unfold" : "Fold"} uncommitted files`}
 				onClick={mode.onToggleFolded}
 			/>
