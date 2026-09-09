@@ -80,6 +80,7 @@ export const apiParamNames = {
 	getUserProfileLocal: [],
 	getWorkspace: ["projectId"],
 	getWorkspaceFile: ["projectId", "relativePath"],
+	getWorkspaceFileFromSource: ["projectId", "changesSource", "relativePath"],
 	gitTestFetch: ["projectId", "remoteName", "action"],
 	gitTestPush: ["projectId", "remoteName", "branchName"],
 	headInfo: ["projectId"],

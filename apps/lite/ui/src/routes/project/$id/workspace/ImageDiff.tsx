@@ -6,7 +6,7 @@ import type { FC } from "react";
 import styles from "./ImageDiff.module.css";
 
 type ImageSource =
-	| { type: "workspace"; path: string; version: number }
+	| { type: "workspace"; path: string; version: number; worktree: string | undefined }
 	| { type: "blob"; path: string; blobId: string };
 
 const imageSources = (
@@ -15,13 +15,19 @@ const imageSources = (
 	version: number,
 ): { before: ImageSource | null; after: ImageSource | null } => {
 	const isWorkspaceDiff = fileParent._tag === "UncommittedChanges";
+	const workspace = (path: string): ImageSource => ({
+		type: "workspace",
+		path,
+		version,
+		worktree: fileParent._tag === "UncommittedChanges" ? fileParent.worktree : undefined,
+	});
 
 	switch (change.status.type) {
 		case "Addition":
 			return {
 				before: null,
 				after: isWorkspaceDiff
-					? { type: "workspace", path: change.path, version }
+					? workspace(change.path)
 					: { type: "blob", path: change.path, blobId: change.status.subject.state.id },
 			};
 		case "Deletion":
@@ -41,7 +47,7 @@ const imageSources = (
 					blobId: change.status.subject.previousState.id,
 				},
 				after: isWorkspaceDiff
-					? { type: "workspace", path: change.path, version }
+					? workspace(change.path)
 					: { type: "blob", path: change.path, blobId: change.status.subject.state.id },
 			};
 		case "Rename":
@@ -52,7 +58,7 @@ const imageSources = (
 					blobId: change.status.subject.previousState.id,
 				},
 				after: isWorkspaceDiff
-					? { type: "workspace", path: change.path, version }
+					? workspace(change.path)
 					: { type: "blob", path: change.path, blobId: change.status.subject.state.id },
 			};
 	}
@@ -64,6 +70,7 @@ const useImageUrl = (projectId: string, source: ImageSource | null) => {
 			projectId,
 			relativePath: source?.path ?? "",
 			version: source?.type === "workspace" ? source.version : 0,
+			worktree: source?.type === "workspace" ? source.worktree : undefined,
 		}),
 		enabled: source?.type === "workspace",
 	});

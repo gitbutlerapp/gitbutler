@@ -5,9 +5,12 @@ use but_api_macros::but_api;
 use but_askpass as askpass;
 use but_core::DiffSpec;
 use but_ctx::Context;
+
+use crate::commit::json::ChangesSource;
 use gitbutler_repo::{
     FileInfo, RepoCommands,
     hooks::{self, HookResult, MessageHookResult},
+    read_worktree_file,
 };
 use tracing::instrument;
 
@@ -92,6 +95,24 @@ pub fn get_commit_file(
 #[but_api(napi, json::FileInfo, provides = [])]
 #[instrument(err(Debug))]
 pub fn get_workspace_file(ctx: &Context, relative_path: String) -> Result<FileInfo> {
+    ctx.read_file_from_workspace(relative_path.as_ref())
+}
+
+/// Like [`get_workspace_file()`], reading from the checkout `changes_source` names, so a
+/// linked worktree's file comes from its own directory rather than the project's.
+///
+/// A linked worktree requires the `worktreeManipulation` feature flag and an active
+/// worktree, see `worktrees::open_changes_source()`.
+#[but_api(napi, json::FileInfo, provides = [])]
+#[instrument(err(Debug))]
+pub fn get_workspace_file_from_source(
+    ctx: &Context,
+    changes_source: ChangesSource,
+    relative_path: String,
+) -> Result<FileInfo> {
+    if let Some((_name, wt_repo)) = crate::worktrees::open_changes_source(ctx, &changes_source)? {
+        return read_worktree_file(&wt_repo, relative_path.as_ref());
+    }
     ctx.read_file_from_workspace(relative_path.as_ref())
 }
 

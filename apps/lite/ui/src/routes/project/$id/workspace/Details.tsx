@@ -1685,16 +1685,18 @@ const DiffContents: FC<{
 			};
 
 			const loadWorkspaceFile = async (path: string): Promise<FileContents> => {
+				const worktree = fileParent._tag === "UncommittedChanges" ? fileParent.worktree : undefined;
 				const res = await queryClient.fetchQuery(
-					workspaceFileQueryOptions({ projectId, relativePath: path, version }),
+					workspaceFileQueryOptions({ projectId, relativePath: path, version, worktree }),
 				);
 				if (res.content === null || res.mimeType !== null)
 					throw new Error("Could not load file contents from workspace");
 
+				// The key names the checkout too: a path can be read from more than one.
 				return {
 					name: path,
 					contents: res.content,
-					cacheKey: `workspace:${path}:${version}`,
+					cacheKey: `workspace:${worktree ?? ""}:${path}:${version}`,
 				};
 			};
 

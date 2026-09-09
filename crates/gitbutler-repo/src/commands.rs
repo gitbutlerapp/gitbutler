@@ -1,6 +1,6 @@
 use std::{path::Path, sync::Mutex};
 
-use anyhow::{Result, bail};
+use anyhow::{Result, anyhow, bail};
 use base64::engine::Engine as _;
 use bstr::ByteSlice as _;
 use but_core::git_config::{edit_repo_config, ensure_config_value};
@@ -292,114 +292,13 @@ impl RepoCommands for Context {
         commit_id: gix::ObjectId,
         relative_path: &Path,
     ) -> Result<FileInfo> {
-        if !relative_path.is_relative() {
-            bail!(
-                "Refusing to read '{relative_path:?}' from commit {commit_id:?} as it's not relative to the worktree"
-            );
-        }
-
         let repo = self.repo.get()?;
-        let tree = repo.find_commit(commit_id)?.tree()?;
-
-        Ok(match tree.lookup_entry_by_path(relative_path)? {
-            Some(entry) => {
-                let blob = repo.find_blob(entry.id())?;
-                FileInfo::from_content(relative_path, &blob.data)
-            }
-            None => FileInfo::deleted(),
-        })
+        read_commit_file(&repo, commit_id, relative_path)
     }
 
-    /// Note that `path` can be relative or absolute, and we must validate that it's in the worktree.
     fn read_file_from_workspace(&self, path: &Path) -> Result<FileInfo> {
-        let workdir = self.workdir_or_fail()?;
-        let canonical_workdir = gix::path::realpath(&workdir)?;
-        let path = gix::path::realpath(canonical_workdir.join(path))?;
-        // Double-check that the path is still in the worktree - this might not be the case
-        // if it was aboslute to begin with, or leads through symlinks.
-        let relative_path = match path.strip_prefix(&canonical_workdir) {
-            Ok(relative_path) => relative_path.to_owned(),
-            Err(_) => {
-                bail!(
-                    "Path to read from at '{}' isn't in the worktree directory '{}'",
-                    path.display(),
-                    canonical_workdir.display()
-                );
-            }
-        };
-
-        // Refuse `.git` in every spelling an OS can map onto it (`.GIT`,
-        // `GIT~1`, `.git.`). Runs before the stat: `.git` can be a file
-        // (linked worktrees) and must be refused all the same.
-        if relative_path.components().any(|component| {
-            matches!(
-                gix::validate::path::component(
-                    component.as_os_str().as_encoded_bytes().as_bstr(),
-                    None,
-                    Default::default(),
-                ),
-                Err(gix::validate::path::component::Error::DotGitDir)
-            )
-        }) {
-            bail!(
-                "Refusing to read Git metadata path '{}'",
-                relative_path.display()
-            );
-        }
-
-        let out = match path.symlink_metadata() {
-            Ok(md) => {
-                // Directories are exempt: their `FileInfo` placeholder carries no
-                // content, and callers rely on getting it rather than an error.
-                if !md.is_dir() {
-                    let repo = self.repo.get()?;
-                    ensure_not_ignored(&repo, &relative_path)?;
-                }
-
-                if md.is_file() {
-                    let content = std::fs::read(&path)?;
-                    FileInfo::from_content(&relative_path, &content)
-                } else if md.is_symlink() {
-                    let content = std::fs::read_link(&path)?;
-                    FileInfo::utf8_text_or_binary(&relative_path, &gix::path::into_bstr(content))
-                } else if md.is_dir() {
-                    // Directories on disk (notably git submodules, which appear
-                    // as real directories in the worktree but are represented
-                    // as commit entries in the tree) have no readable file
-                    // content. Return a placeholder FileInfo so callers —
-                    // conflict checks, diff viewers — can handle the case
-                    // gracefully, rather than surfacing an opaque "is a
-                    // directory" toast. Note that the placeholder is shaped
-                    // identically to a real zero-byte text file.
-                    FileInfo::directory(&relative_path)
-                } else {
-                    warn!(
-                        ?relative_path,
-                        "Path can't be read as its type isn't supported, default to binary",
-                    );
-                    FileInfo::binary(&relative_path, md.len())
-                }
-            }
-            Err(err) if err.kind() == std::io::ErrorKind::NotFound => {
-                let repo = self.repo.get()?;
-                let relative_path_bstr = gix::path::to_unix_separators_on_windows(
-                    gix::path::into_bstr(relative_path.as_path()),
-                );
-                let index = repo.index_or_empty()?;
-                match index.entry_by_path(relative_path_bstr.as_ref()) {
-                    // Read file that has been deleted and not staged for commit.
-                    Some(entry) => {
-                        let blob = repo.find_blob(entry.id)?;
-                        FileInfo::from_content(&relative_path, blob.data.as_ref())
-                    }
-                    // Read file that has been deleted and staged for commit. Note that file not
-                    // found returns FileInfo::default() rather than an error.
-                    None => self.read_file_from_commit(repo.head_id()?.detach(), &relative_path)?,
-                }
-            }
-            Err(err) => return Err(err.into()),
-        };
-        Ok(out)
+        let repo = self.repo.get()?;
+        read_worktree_file(&repo, path)
     }
 
     fn find_files(&self, query: &str, limit: usize) -> Result<Vec<String>> {
@@ -430,6 +329,124 @@ impl RepoCommands for Context {
 
         Ok(scored_files)
     }
+}
+
+/// Read `relative_path` from the tree of `commit_id` in `repo`, see
+/// [`RepoCommands::read_file_from_commit()`].
+fn read_commit_file(
+    repo: &gix::Repository,
+    commit_id: gix::ObjectId,
+    relative_path: &Path,
+) -> Result<FileInfo> {
+    if !relative_path.is_relative() {
+        bail!(
+            "Refusing to read '{relative_path:?}' from commit {commit_id:?} as it's not relative to the worktree"
+        );
+    }
+
+    let tree = repo.find_commit(commit_id)?.tree()?;
+
+    Ok(match tree.lookup_entry_by_path(relative_path)? {
+        Some(entry) => {
+            let blob = repo.find_blob(entry.id())?;
+            FileInfo::from_content(relative_path, &blob.data)
+        }
+        None => FileInfo::deleted(),
+    })
+}
+
+/// Read `path` from the checkout of `repo`, see [`RepoCommands::read_file_from_workspace()`].
+/// `path` can be relative or absolute, and is validated to be inside the worktree.
+/// A linked worktree opened from disk reads the same way as the main worktree.
+pub fn read_worktree_file(repo: &gix::Repository, path: &Path) -> Result<FileInfo> {
+    let workdir = repo
+        .workdir()
+        .ok_or_else(|| anyhow!("Cannot currently work in repositories without a worktree"))?;
+    let canonical_workdir = gix::path::realpath(workdir)?;
+    let path = gix::path::realpath(canonical_workdir.join(path))?;
+    // Double-check that the path is still in the worktree - this might not be the case
+    // if it was absolute to begin with, or leads through symlinks.
+    let relative_path = match path.strip_prefix(&canonical_workdir) {
+        Ok(relative_path) => relative_path.to_owned(),
+        Err(_) => {
+            bail!(
+                "Path to read from at '{}' isn't in the worktree directory '{}'",
+                path.display(),
+                canonical_workdir.display()
+            );
+        }
+    };
+
+    // Refuse `.git` in every spelling an OS can map onto it (`.GIT`,
+    // `GIT~1`, `.git.`). Runs before the stat: `.git` can be a file
+    // (linked worktrees) and must be refused all the same.
+    if relative_path.components().any(|component| {
+        matches!(
+            gix::validate::path::component(
+                component.as_os_str().as_encoded_bytes().as_bstr(),
+                None,
+                Default::default(),
+            ),
+            Err(gix::validate::path::component::Error::DotGitDir)
+        )
+    }) {
+        bail!(
+            "Refusing to read Git metadata path '{}'",
+            relative_path.display()
+        );
+    }
+
+    let out = match path.symlink_metadata() {
+        Ok(md) => {
+            // Directories are exempt: their `FileInfo` placeholder carries no
+            // content, and callers rely on getting it rather than an error.
+            if !md.is_dir() {
+                ensure_not_ignored(repo, &relative_path)?;
+            }
+
+            if md.is_file() {
+                let content = std::fs::read(&path)?;
+                FileInfo::from_content(&relative_path, &content)
+            } else if md.is_symlink() {
+                let content = std::fs::read_link(&path)?;
+                FileInfo::utf8_text_or_binary(&relative_path, &gix::path::into_bstr(content))
+            } else if md.is_dir() {
+                // Directories on disk (notably git submodules, which appear
+                // as real directories in the worktree but are represented
+                // as commit entries in the tree) have no readable file
+                // content. Return a placeholder FileInfo so callers —
+                // conflict checks, diff viewers — can handle the case
+                // gracefully, rather than surfacing an opaque "is a
+                // directory" toast. Note that the placeholder is shaped
+                // identically to a real zero-byte text file.
+                FileInfo::directory(&relative_path)
+            } else {
+                warn!(
+                    ?relative_path,
+                    "Path can't be read as its type isn't supported, default to binary",
+                );
+                FileInfo::binary(&relative_path, md.len())
+            }
+        }
+        Err(err) if err.kind() == std::io::ErrorKind::NotFound => {
+            let relative_path_bstr = gix::path::to_unix_separators_on_windows(
+                gix::path::into_bstr(relative_path.as_path()),
+            );
+            let index = repo.index_or_empty()?;
+            match index.entry_by_path(relative_path_bstr.as_ref()) {
+                // Read file that has been deleted and not staged for commit.
+                Some(entry) => {
+                    let blob = repo.find_blob(entry.id)?;
+                    FileInfo::from_content(&relative_path, blob.data.as_ref())
+                }
+                // Read file that has been deleted and staged for commit. Note that file not
+                // found returns FileInfo::default() rather than an error.
+                None => read_commit_file(repo, repo.head_id()?.detach(), &relative_path)?,
+            }
+        }
+        Err(err) => return Err(err.into()),
+    };
+    Ok(out)
 }
 
 /// Refuse to read `relative_path` when Git ignores it. Tracked files stay

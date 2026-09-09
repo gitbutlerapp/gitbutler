@@ -5,7 +5,7 @@ pub use traversal::{
     commit_ids_excluding_reachable_from_with_graph, first_parent_commit_ids_until,
 };
 
-pub use commands::{FileInfo, RepoCommands};
+pub use commands::{FileInfo, RepoCommands, read_worktree_file};
 pub use remote::GitRemote;
 
 mod repository_ext;

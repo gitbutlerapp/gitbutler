@@ -95,12 +95,26 @@ export const commentsQueryOptions = (projectId: string) =>
 
 export const workspaceFileQueryOptions = ({
 	projectId,
+	relativePath,
 	version,
-	...params
-}: PayloadFor<"getWorkspaceFile"> & { version: number }) =>
+	worktree,
+}: {
+	projectId: string;
+	relativePath: string;
+	version: number;
+	/** The linked worktree the file lives in; the project's own checkout when unset. */
+	worktree?: string;
+}) =>
 	queryOptions({
-		queryKey: [projectId, "getWorkspaceFile", params, version],
-		queryFn: () => window.lite.getWorkspaceFile({ projectId, ...params }),
+		queryKey: [projectId, "getWorkspaceFile", { relativePath, worktree }, version],
+		queryFn: () =>
+			worktree === undefined
+				? window.lite.getWorkspaceFile({ projectId, relativePath })
+				: window.lite.getWorkspaceFileFromSource({
+						projectId,
+						changesSource: { type: "worktree", subject: worktree },
+						relativePath,
+					}),
 	});
 
 export const blobFileQueryOptions = ({ projectId, ...params }: PayloadFor<"getBlobFile">) =>
