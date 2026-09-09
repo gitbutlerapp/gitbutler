@@ -25,6 +25,7 @@ import { openLinkExternally } from "#ui/external-link.ts";
 import type { DraftPRExtras } from "#ui/pr.ts";
 import { formatAbsoluteTime, formatCompactDuration, formatRelativeTime } from "#ui/time.ts";
 import { useCopied } from "#ui/routes/project/$id/workspace/useCopied.ts";
+import { sameLogin } from "#ui/review-users.ts";
 import type {
 	CiCheck,
 	ForgeReview,
@@ -86,6 +87,21 @@ const orEmptyNotice = (items: Array<NativeMenuItem>, notice: string): Array<Nati
  * spells out what the picker adds so the section doesn't read as a bare
  * heading; once something is picked, a plus is enough.
  */
+/** Quiet until its row is hovered, like the comment kebab. */
+const RemoveButton: FC<{ label: string; onClick: () => void }> = ({ label, onClick }) => (
+	<button
+		aria-label={label}
+		className={classes(
+			getButtonClassName({ variant: "ghost", size: "small", iconOnly: true }),
+			styles.reviewerRemove,
+		)}
+		onClick={onClick}
+		type="button"
+	>
+		<Icon name="cross" />
+	</button>
+);
+
 const pickerButton = (p: {
 	label: string;
 	icon: IconName;
@@ -232,15 +248,17 @@ export const NewPullRequestPanel: FC<{
 			evt.currentTarget,
 			orEmptyNotice(
 				reviewerCandidates
-					// The author can't review their own PR, so a solo repository
-					// leaves nothing to pick.
-					.filter((candidate) => candidate.login !== currentLogin)
+					// The author can't review their own PR, and whoever is picked
+					// already is listed above with a way off.
+					.filter(
+						(candidate) =>
+							candidate.login !== currentLogin && !extras.reviewers.includes(candidate.login),
+					)
 					.map((candidate) =>
 						nativeMenuItem({
 							label: candidate.login,
-							checked: extras.reviewers.includes(candidate.login),
 							onSelect: () =>
-								onExtrasChange({ ...extras, reviewers: toggle(extras.reviewers, candidate.login) }),
+								onExtrasChange({ ...extras, reviewers: [...extras.reviewers, candidate.login] }),
 						}),
 					),
 				"No one else can be asked to review",
@@ -271,15 +289,24 @@ export const NewPullRequestPanel: FC<{
 					})
 				}
 			>
-				{pickedReviewers.map(({ login, user }) =>
-					user === undefined ? (
-						<span key={login} className="text-13">
-							{login}
-						</span>
-					) : (
-						<ReviewUser key={login} user={user} />
-					),
-				)}
+				{pickedReviewers.map(({ login, user }) => (
+					<div key={login} className={styles.reviewerRow}>
+						{user === undefined ? (
+							<span className={classes("text-13", styles.userLogin)}>{login}</span>
+						) : (
+							<ReviewUser user={user} />
+						)}
+						<RemoveButton
+							label={`Remove ${login}`}
+							onClick={() =>
+								onExtrasChange({
+									...extras,
+									reviewers: extras.reviewers.filter((entry) => entry !== login),
+								})
+							}
+						/>
+					</div>
+				))}
 			</Section>
 
 			<Section
@@ -593,28 +620,24 @@ export const PullRequestPanel: FC<{
 		if (!canPickReviewers) return;
 		void showNativeMenuFromTrigger(
 			evt.currentTarget,
-			reviewerCandidates
-				// The author can't review their own PR.
-				.filter((candidate) => candidate.login !== review.author?.login)
-				.map((candidate) => {
-					const requested = review.reviewers.some((reviewer) => reviewer.login === candidate.login);
-					return nativeMenuItem({
-						label: candidate.login,
-						checked: requested,
-						onSelect: () =>
-							requested
-								? withdrawReviewRequest({
-										projectId,
-										reviewId: review.number,
-										logins: [candidate.login],
-									})
-								: requestReview({
-										projectId,
-										reviewId: review.number,
-										logins: [candidate.login],
-									}),
-					});
-				}),
+			orEmptyNotice(
+				reviewerCandidates
+					// The author can't review their own PR, and whoever is listed
+					// already has been asked.
+					.filter(
+						(candidate) =>
+							candidate.login !== review.author?.login &&
+							!reviewerList.some(({ user }) => sameLogin(user.login, candidate.login)),
+					)
+					.map((candidate) =>
+						nativeMenuItem({
+							label: candidate.login,
+							onSelect: () =>
+								requestReview({ projectId, reviewId: review.number, logins: [candidate.login] }),
+						}),
+					),
+				"No one else to ask",
+			),
 		);
 	};
 
@@ -686,6 +709,18 @@ export const PullRequestPanel: FC<{
 						<div key={user.id} className={styles.reviewerRow} title={label}>
 							<ReviewUser user={user} />
 							<Icon name={icon} style={{ color }} size={15} />
+							{canManage && verdict === "awaiting" && (
+								<RemoveButton
+									label="Withdraw review request"
+									onClick={() =>
+										withdrawReviewRequest({
+											projectId,
+											reviewId: review.number,
+											logins: [user.login],
+										})
+									}
+								/>
+							)}
 						</div>
 					);
 				})}
