@@ -1,3 +1,4 @@
+import { forgeAuthTags } from "#ui/forge.ts";
 import { invalidateTags } from "#ui/api/tags.ts";
 import type { QueryClient } from "@tanstack/react-query";
 import { pollUntilSuccess } from "./poll.ts";
@@ -52,5 +53,5 @@ export const signInWithGithub = async ({
 		isRetryable: worthRetrying,
 	});
 
-	await invalidateTags(client, ["ForgeAccounts"]);
+	await invalidateTags(client, forgeAuthTags);
 };

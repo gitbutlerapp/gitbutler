@@ -1,3 +1,4 @@
+import type { SettingsPageKey } from "#ui/routes/project/$id/workspace/Settings/pages.ts";
 import { createSlice, type PayloadAction } from "@reduxjs/toolkit";
 
 type Dialog =
@@ -7,7 +8,7 @@ type Dialog =
 	| { _tag: "CommandPalette" }
 	| { _tag: "OperationsLogPicker" }
 	| { _tag: "ProjectPicker" }
-	| { _tag: "Settings" }
+	| { _tag: "Settings"; page?: SettingsPageKey }
 	/** The update-from-remote flow, for the applied branch named by full ref. */
 	| { _tag: "UpdateFromRemote"; branchRef: string };
 
