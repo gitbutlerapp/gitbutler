@@ -16,7 +16,7 @@ use crate::args::atoms::{AllowMergedArg, CliIdArg};
 #[derive(Debug, clap::Parser)]
 #[cfg_attr(feature = "raw-clap-docs", clap(verbatim_doc_comment))]
 pub struct Platform {
-    /// The commit or branch to amend into.
+    /// The commit to amend into; a branch means its newest commit.
     #[clap(short, long, value_name = "COMMIT_OR_BRANCH")]
     pub target: CliIdArg,
 

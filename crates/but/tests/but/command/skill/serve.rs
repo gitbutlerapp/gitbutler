@@ -45,13 +45,13 @@ fn skill_full_appends_every_reference_with_separators() {
         .stdout_eq(str![[r#"
 # GitButler CLI Skill
 ...
---- references/reference.md ---
+--- but skill reference ---
 
-# GitButler CLI Command Reference
+# but command reference
 ...
---- references/concepts.md ---
+--- but skill concepts ---
 ...
---- references/examples.md ---
+--- but skill examples ---
 ...
 "#]]);
 }
@@ -60,11 +60,11 @@ fn skill_full_appends_every_reference_with_separators() {
 fn skill_doc_subcommands_print_one_reference_each() {
     let env = Sandbox::empty();
 
-    env.but("skill reference")
+    env.but("skill concepts")
         .assert()
         .success()
         .stdout_eq(str![[r#"
-# GitButler CLI Command Reference
+# GitButler CLI Key Concepts
 ...
 "#]]);
     // `--full` only makes sense for the core guide.
@@ -79,6 +79,20 @@ Usage: but skill reference [OPTIONS]
 For more information, try '--help'.
 
 "#]]);
+}
+
+/// The reference is rendered from the clap tree, so a wording change to any
+/// command's help shows up here as a reviewable diff. The tree, and so the
+/// snapshot, is the legacy command set.
+#[test]
+#[cfg(feature = "legacy")]
+fn skill_reference_is_rendered_from_the_command_tree() {
+    let env = Sandbox::empty();
+
+    env.but("skill reference")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::file!["snapshots/reference.md"]);
 }
 
 #[test]
@@ -101,20 +115,13 @@ fn skill_json_carries_the_doc_and_full_references() {
             .is_some_and(|content| content.starts_with("# GitButler CLI Skill")),
         "content is the frontmatter-free body"
     );
-    let paths: Vec<&str> = json["files"]
+    let names: Vec<&str> = json["references"]
         .as_array()
-        .expect("--full lists the reference files")
+        .expect("--full lists the reference documents")
         .iter()
-        .map(|file| file["path"].as_str().unwrap())
+        .map(|doc| doc["name"].as_str().unwrap())
         .collect();
-    assert_eq!(
-        paths,
-        [
-            "references/reference.md",
-            "references/concepts.md",
-            "references/examples.md"
-        ]
-    );
+    assert_eq!(names, ["reference", "concepts", "examples"]);
 }
 
 #[test]

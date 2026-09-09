@@ -1,6 +1,9 @@
 #[derive(Debug, clap::Parser)]
 pub struct Command {
-    /// Branch name or CLI ID to push. If not specified, will list all branches and prompt for selection in interactive mode
+    /// Branch name or CLI ID to push; the branches below it in its stack are pushed with it.
+    /// If omitted, a terminal prompts for a selection and a non-interactive run pushes every
+    /// stack with unpushed commits.
+    #[clap(value_name = "BRANCH")]
     pub branch_id: Option<String>,
     /// Force push even if it's not fast-forward
     #[clap(long, short = 'f', default_value_t = true)]

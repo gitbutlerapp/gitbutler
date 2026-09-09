@@ -12,6 +12,12 @@ changes, also read `crates/WORKSPACE_MODEL.md`.
 - Some commands define `ERROR_EXAMPLES` in `crates/but/src/args/` that are
   shown on parse errors; keep them accurate when changing a command's
   arguments or behavior.
+- Doc comments are read by agents through `but skill reference`, which prints
+  each command's first paragraph and its flag help. Say what the command does
+  first; when omitting an argument behaves differently in a terminal and in a
+  non-interactive run, state both. Flags that only make sense in a terminal
+  (a TUI or an editor) take `help_heading = "Interactive"`, which the reference
+  omits.
 
 ## Worktree Guards And Deadlocks
 

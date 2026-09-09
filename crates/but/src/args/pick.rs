@@ -58,7 +58,8 @@ pub struct Platform {
     )]
     pub below: Option<CliIdArg>,
 
-    /// The sources to cherry-pick.
+    /// The commits to copy, as SHAs or as CLI IDs of commits on applied branches. IDs
+    /// shown for unapplied branches do not resolve; use the SHA.
     #[clap(group = "changes_to_commit", required = true)]
     pub sources: Vec<CliIdArg>,
 

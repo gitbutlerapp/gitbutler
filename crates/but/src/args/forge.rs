@@ -3,32 +3,33 @@ pub mod pr {
     pub struct Platform {
         #[clap(subcommand)]
         pub cmd: Option<Subcommands>,
-        /// Whether to create reviews as a draft.
+        /// Create the review as a draft.
         #[clap(long, short = 'd', default_value_t = false)]
         pub draft: bool,
     }
     #[derive(Debug, clap::Subcommand)]
     pub enum Subcommands {
-        /// Create a new review for a branch.
-        /// If no branch is specified, you will be prompted to select one.
-        /// If there is only one branch without a review, you will be asked to confirm.
+        /// Create a new review for a branch, force-pushing it first.
         ///
         /// If the branch is part of a stack, GitButler pushes that branch and its ancestors
         /// and creates missing reviews from the bottom upward. It also updates stack metadata
         /// using native GitHub stacks when enabled and supported, or review descriptions
         /// otherwise.
         New {
-            /// The branch to create a review for.
+            /// The branch to create a review for. Without it, a terminal prompts for one (or
+            /// confirms when only one branch lacks a review); a non-interactive run needs it.
             #[clap(value_name = "BRANCH")]
             branch: Option<String>,
-            /// review title and description. The first line is the title, the rest is the description.
+            /// Review title and description: the first line is the title, the rest is the
+            /// description. A non-interactive run needs `-m`, `-F`, or `-t`.
             #[clap(short = 'm', long = "message", conflicts_with_all = &["file", "default"])]
             message: Option<String>,
             /// Read review title and description from file. The first line is the title, the rest is the description.
             #[clap(short = 'F', long = "file", value_name = "FILE", conflicts_with_all = &["message", "default"])]
             file: Option<std::path::PathBuf>,
-            /// Force push even if it's not fast-forward (defaults to true).
-            #[clap(long, short = 'f', default_value_t = true)]
+            /// Force push even if it's not fast-forward. Always on; the flag is kept for
+            /// compatibility.
+            #[clap(long, short = 'f', default_value_t = true, hide = true)]
             with_force: bool,
             /// Skip force push protection checks
             #[clap(long, short = 's')]
@@ -40,56 +41,45 @@ pub mod pr {
             /// If the branch contains only a single commit, the commit message will be used.
             #[clap(long, short = 't', default_value_t = false)]
             default: bool,
-            /// Whether to create reviews as a draft.
+            /// Create the review as a draft.
             #[clap(long, short = 'd', default_value_t = false)]
             draft: bool,
         },
-        /// Enable or disable the automatic merging of a review or reviews.
-        /// If no reviews are specified, you will be prompted to select one or multiple of the
-        /// review associated with branches in your workspace.
+        /// Enable or disable the automatic merging of reviews.
         AutoMerge {
-            /// The target of this operation.
-            /// This can be one or multiple (comma-separated):
-            /// - Branch names,
-            /// - Branch IDs,
-            /// - Stack IDs (in which case, all the reviews associated with the stacked branches are selected),
-            /// - Associated review IDs (i.e. PR numeric IDs or MR numeric IDs, without the symbol).
+            /// One or more comma-separated branch names, branch IDs, stack IDs (every review on
+            /// the stack), or review numbers (the PR or MR number without the symbol). Without
+            /// it, a terminal prompts for reviews from the workspace's branches; a
+            /// non-interactive run needs it.
             #[clap(value_name = "SELECTOR")]
             selector: Option<String>,
-            /// Whether to disable the automatic merging of the review(s)
+            /// Disable automatic merging instead of enabling it
             #[clap(long, short = 'd', default_value_t = false)]
             off: bool,
         },
-        /// Set an existing review (or set of reviews) as draft.
-        /// If no reviews are specified, you will be prompted to select one or multiple of the
-        /// review associated with branches in your workspace.
+        /// Mark existing reviews as draft.
         SetDraft {
-            /// The target of this operation.
-            /// This can be one or multiple (comma-separated):
-            /// - Branch names,
-            /// - Branch IDs,
-            /// - Stack IDs (in which case, all the reviews associated with the stacked branches are selected),
-            /// - Associated review IDs (i.e. PR numeric IDs or MR numeric IDs, without the symbol).
+            /// One or more comma-separated branch names, branch IDs, stack IDs (every review on
+            /// the stack), or review numbers (the PR or MR number without the symbol). Without
+            /// it, a terminal prompts for reviews from the workspace's branches; a
+            /// non-interactive run needs it.
             #[clap(value_name = "SELECTOR")]
             selector: Option<String>,
         },
-        /// Set an existing review (or set of reviews) as ready-to-review.
-        /// If no reviews are specified, you will be prompted to select one or multiple of the
-        /// review associated with branches in your workspace.
+        /// Mark existing reviews as ready for review.
         SetReady {
-            /// The target of this operation.
-            /// This can be one or multiple (comma-separated):
-            /// - Branch names,
-            /// - Branch IDs,
-            /// - Stack IDs (in which case, all the reviews associated with the stacked branches are selected),
-            /// - Associated review IDs (i.e. PR numeric IDs or MR numeric IDs, without the symbol).
+            /// One or more comma-separated branch names, branch IDs, stack IDs (every review on
+            /// the stack), or review numbers (the PR or MR number without the symbol). Without
+            /// it, a terminal prompts for reviews from the workspace's branches; a
+            /// non-interactive run needs it.
             #[clap(value_name = "SELECTOR")]
             selector: Option<String>,
         },
         /// Configure the template to use for review descriptions.
-        /// This will list all available templates found in the repository and allow you to select one.
         Template {
-            /// Path to the review template file within the repository.
+            /// Path to the review template file within the repository. Without it, a terminal
+            /// lists the templates found in the repository to pick from; a non-interactive run
+            /// needs it.
             template_path: Option<String>,
         },
     }

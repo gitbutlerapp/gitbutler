@@ -26,13 +26,14 @@ pub struct Platform {
     /// The message to use for the new commit.
     ///
     /// Can be supplied any number of times, each value being appended to the preceding ones with a
-    /// blank line in between.
+    /// blank line in between. Without a message flag, squashing commits or branches opens the
+    /// editor in a terminal; a non-interactive run skips the editor.
     ///
     /// This cannot be used when `TARGET` is the uncommitted area (`@`).
     #[clap(short, long, group = "commit_message")]
     pub message: Option<Vec<String>>,
 
-    /// Creates the commit without a commit message.
+    /// Create the commit without a message.
     ///
     /// This cannot be used when `TARGET` is the uncommitted area (`@`).
     #[clap(long, group = "commit_message")]
@@ -66,31 +67,14 @@ pub struct Platform {
     #[clap(long, short)]
     pub target: Option<CliIdArg>,
 
-    /// The sources to squash.
+    /// The sources to squash, all of one kind.
     ///
-    /// If `--target` is provided and `<SOURCES>` is omitted, the uncommitted area (`@`) is used.
+    /// Commits: squashed into the target. Branches: every commit on them is squashed into the
+    /// target and the branches are removed; with no target and exactly one branch, that branch is
+    /// squashed into a single commit. Uncommitted files or hunks, or `@` for all of them: squashed
+    /// into the target. Committed files and hunks from one commit: moved into the target.
     ///
-    /// If `<SOURCES>` is one or more commits they will be squashed into the target.
-    ///
-    /// If `<SOURCES>` is one or more branches all the commits on the branches will be squashed
-    /// into the target and the branches will be removed. When the target is the uncommitted area
-    /// (`@`), all commits on the branches are uncommitted.
-    ///
-    /// If `TARGET` is omitted and `<SOURCES>` is exactly one branch all commits on the branch will
-    /// be squashed.
-    ///
-    /// If `<SOURCES>` is one or more uncommitted files or hunks they will be squashed into the
-    /// target.
-    ///
-    /// If `<SOURCES>` is the uncommitted area (`@`) all uncommitted changes will be squashed into
-    /// the target.
-    ///
-    /// If `<SOURCES>` is one or more committed files or hunks, those changes will be moved into the
-    /// target. Committed files and hunks may be mixed, but all must come from the same commit. It is
-    /// not possible to move changes from multiple source commits into a single target.
-    ///
-    /// It is not possible to mix sources of different types, i.e., all sources must either be
-    /// commits, branches, uncommitted changes, `@`, or committed changes.
+    /// A target of `@` uncommits the sources instead. With `--target` and no sources, `@` is used.
     #[clap(required_unless_present = "target")]
     pub sources: Vec<CliIdArg>,
 

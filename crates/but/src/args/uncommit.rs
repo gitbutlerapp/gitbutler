@@ -4,7 +4,7 @@
 
 use crate::args::atoms::{AllowMergedArg, CliIdArg};
 
-/// Uncommit commits, branches, or committed changes.
+/// Move commits, branches, or committed changes back into the uncommitted area.
 ///
 /// For more details about CLI IDs, see `but help cli-ids`.
 #[derive(Debug, clap::Parser)]

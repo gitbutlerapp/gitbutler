@@ -7,7 +7,7 @@ use crate::tui::text::{terminal_width, truncate_text};
 use crate::utils::{OutputChannel, envs};
 
 #[derive(Debug, Copy, Clone, Hash, Eq, PartialEq, strum::EnumIter)]
-enum Group {
+pub(crate) enum Group {
     Inspection,
     BranchingAndCommitting,
     EditingCommits,
@@ -71,20 +71,8 @@ fn print_topic(out: &mut OutputChannel, topic: HelpTopic) -> std::fmt::Result {
     }
 }
 
-fn print_grouped_with_truncation(
-    out: &mut dyn std::fmt::Write,
-    allow_truncation: bool,
-) -> std::fmt::Result {
-    use clap::CommandFactory;
-
-    // Without truncation, an effectively infinite width makes truncate_text a no-op.
-    let terminal_width = if allow_truncation {
-        terminal_width()
-    } else {
-        usize::MAX
-    };
-
-    let cmd = Args::command();
+/// The visible top-level commands in the groups and order `but --help` shows.
+pub(crate) fn grouped_subcommands(cmd: &clap::Command) -> IndexMap<Group, Vec<&clap::Command>> {
     let clap_subcommands: Vec<_> = cmd.get_subcommands().collect();
 
     let mut groups = Group::iter()
@@ -213,6 +201,26 @@ fn print_grouped_with_truncation(
             panic!("no clap subcommand found for {subcommand_variant:?}");
         }
     }
+
+    groups
+}
+
+fn print_grouped_with_truncation(
+    out: &mut dyn std::fmt::Write,
+    allow_truncation: bool,
+) -> std::fmt::Result {
+    use clap::CommandFactory;
+
+    // Without truncation, an effectively infinite width makes truncate_text a no-op.
+    let terminal_width = if allow_truncation {
+        terminal_width()
+    } else {
+        usize::MAX
+    };
+
+    let cmd = Args::command();
+    let clap_subcommands: Vec<_> = cmd.get_subcommands().collect();
+    let groups = grouped_subcommands(&cmd);
 
     // Define command groupings and their order (excluding MISC)
     let t = theme::get();
@@ -372,9 +380,9 @@ commands (blame, log, etc) can also be used, as GitButler is fully Git compatibl
 Checkout the full docs here: https://docs.gitbutler.com/cli-overview
 
 Inspection:
-  status       Overview of the project workspace state
-  diff         Displays the diff of changes in the repo
-  show         Shows detailed information about a commit or branch
+  status       Show an overview of the workspace state
+  diff         Show the diff of changes in the repo
+  show         Show details of a commit or branch
   open         Open the project in GitButler
 
 Branching and Committing:
@@ -383,7 +391,7 @@ Branching and Committing:
   worktree     Manage worktrees (experimental, requires the worktreeManipulati…
   discard      Discard branches, commits, or changes
   resolve      Resolve conflicts in a commit or in uncommitted files
-  unapply      Unapply a branch
+  unapply      Remove a branch from the workspace, keeping it to apply again l…
   apply        Apply a branch
   clean        Remove empty branches from the workspace
   pick         Cherry-pick commits into an applied branch
@@ -392,9 +400,9 @@ Editing Commits:
   squash       Squash commits, branches, or changes
   move         Move commits and changes around
   split        Split a commit in two
-  absorb       Amends changes into the appropriate commits where they belong
+  absorb       Amend uncommitted changes into the commits they belong to
   reword       Edit the commit message of the specified commit
-  uncommit     Uncommit commits, branches, or committed changes
+  uncommit     Move commits, branches, or committed changes back into the unco…
   amend        Amend uncommitted changes into a commit or branch
 
 Operation History:
@@ -403,13 +411,13 @@ Operation History:
   redo         Redo the last undo
 
 Server Interactions:
-  merge        Merge a branch directly onto the target branch
+  merge        Merge a branch directly onto the target branch, bypassing review
   push         Push changes in a branch to remote
-  pull         Updates all applied branches to be up to date with the target b…
+  pull         Update all applied branches onto the latest target branch
   pr           Commands for creating and managing reviews on a forge, e.g. Git…
 
 Other Commands:
-  setup        Sets up a GitButler project from a git repository in the curren…
+  setup        Set up a GitButler project from the git repository in the curre…
   teardown     Exit GitButler mode and return to normal Git workflow
   gui          Open the GitButler GUI for the current project
   tui          Open a live terminal workspace for branches, commits, changes, …
@@ -451,7 +459,9 @@ Environment variables:
         let output = strip_ansi_codes(&buf);
 
         assert!(
-            output.contains("Uncommit commits, branches, or committed changes"),
+            output.contains(
+                "Move commits, branches, or committed changes back into the uncommitted area"
+            ),
             "agent help should keep the full command description"
         );
         assert!(

@@ -14,6 +14,7 @@ use crate::{
 };
 
 mod freshness;
+mod reference;
 use freshness::agent_default_install_path;
 pub(crate) use freshness::{agent_skill_notice, agent_skill_update_notice};
 
@@ -45,6 +46,10 @@ struct SkillFile {
     content: &'static [u8],
     /// Name of the document as `but skill <name>` prints it.
     name: &'static str,
+    /// Renders the text `but skill <name>` prints when it is not the embedded
+    /// content: the command reference comes from the clap tree so it always
+    /// matches the binary, while the installed file stays hand-written.
+    served: Option<fn() -> String>,
 }
 
 impl SkillFile {
@@ -68,6 +73,14 @@ impl SkillFile {
         std::str::from_utf8(self.content)
             .with_context(|| format!("{} is not valid UTF-8", self.display_path()))
     }
+
+    /// The text `but skill <name>` prints.
+    fn served_text(&self) -> Result<String> {
+        match self.served {
+            Some(render) => Ok(render()),
+            None => self.text().map(str::to_owned),
+        }
+    }
 }
 
 /// All skill files to be installed, in the order `but skill --full` prints them.
@@ -76,21 +89,25 @@ const SKILL_FILES: &[SkillFile] = &[
         path_components: &["SKILL.md"],
         content: SKILL_MD,
         name: "core",
+        served: None,
     },
     SkillFile {
         path_components: &["references", "reference.md"],
         content: REFERENCE_MD,
         name: "reference",
+        served: Some(reference::render),
     },
     SkillFile {
         path_components: &["references", "concepts.md"],
         content: CONCEPTS_MD,
         name: "concepts",
+        served: None,
     },
     SkillFile {
         path_components: &["references", "examples.md"],
         content: EXAMPLES_MD,
         name: "examples",
+        served: None,
     },
 ];
 
@@ -442,20 +459,20 @@ fn print_doc(out: &mut OutputChannel, name: &str, full: bool) -> Result<()> {
         .iter()
         .find(|file| file.name == name)
         .expect("every doc subcommand names an embedded skill file");
-    let content = file.text()?;
+    let content = file.served_text()?;
     // The frontmatter is trigger text for the harness, not guidance. Only
     // SKILL.md carries one; a `---` rule inside a reference must stay.
-    let body = match frontmatter_close(content) {
+    let body = match frontmatter_close(&content) {
         Some(close) if file.is_main_skill_file() => &content[close.end..],
-        _ => content,
+        _ => content.as_str(),
     };
     // Validate every reference before printing anything, so a bad embed
     // fails loudly instead of producing a partial or altered document.
-    let references: Vec<(&SkillFile, &str)> = if full {
+    let references: Vec<(&SkillFile, String)> = if full {
         SKILL_FILES
             .iter()
             .filter(|file| !file.is_main_skill_file())
-            .map(|file| Ok((file, file.text()?)))
+            .map(|file| Ok((file, file.served_text()?)))
             .collect::<Result<_>>()?
     } else {
         Vec::new()
@@ -463,18 +480,16 @@ fn print_doc(out: &mut OutputChannel, name: &str, full: bool) -> Result<()> {
     if let Some(writer) = out.for_human() {
         write!(writer, "{body}")?;
         for (reference, text) in &references {
-            writeln!(writer, "\n--- {} ---\n", reference.display_path())?;
+            writeln!(writer, "\n--- but skill {} ---\n", reference.name)?;
             write!(writer, "{text}")?;
         }
     }
     if let Some(out) = out.for_json() {
-        let files: Vec<serde_json::Value> = references
+        let docs: Vec<serde_json::Value> = references
             .iter()
-            .map(|(reference, text)| {
-                serde_json::json!({ "path": reference.display_path(), "content": text })
-            })
+            .map(|(reference, text)| serde_json::json!({ "name": reference.name, "content": text }))
             .collect();
-        out.write_value(serde_json::json!({ "name": name, "content": body, "files": files }))?;
+        out.write_value(serde_json::json!({ "name": name, "content": body, "references": docs }))?;
     }
     Ok(())
 }

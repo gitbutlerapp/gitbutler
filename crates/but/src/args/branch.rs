@@ -28,7 +28,7 @@ pub enum Subcommands {
     #[cfg_attr(feature = "raw-clap-docs", clap(verbatim_doc_comment))]
     New(NewPlatform),
 
-    /// Delete branchs from the workspace
+    /// Delete branches and their commits from the workspace
     ///
     #[cfg(feature = "legacy")]
     #[clap(short_flag = 'd')]
@@ -124,7 +124,7 @@ pub enum Subcommands {
         _args: Vec<String>,
     },
 
-    /// Update your local branch with the content of its remote counterpart.
+    /// Integrate a branch's remote counterpart into the local branch.
     ///
     /// This allows you to resolve the divergence between your local branch and its
     /// tracked remote in different ways.
@@ -133,8 +133,7 @@ pub enum Subcommands {
     Update {
         /// Name of the local branch to integrate
         branch: String,
-        /// Strategy to use for the integration. If no strategy is specified, we default
-        /// to pull-rebase.
+        /// Strategy to use for the integration.
         #[clap(long, short = 's', value_enum, default_value_t)]
         strategy: IntegrationStrategy,
         /// Preview the resulting branch state without persisting changes
@@ -144,7 +143,7 @@ pub enum Subcommands {
         #[clap(long, short = 'v')]
         verbose: bool,
         /// Open the generated integration script in an editor
-        #[clap(long, short = 'i')]
+        #[clap(long, short = 'i', help_heading = "Interactive")]
         interactive: bool,
     },
 }

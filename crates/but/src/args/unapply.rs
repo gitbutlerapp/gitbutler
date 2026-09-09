@@ -4,7 +4,7 @@
 
 use crate::args::atoms::CliIdArg;
 
-/// Unapply a branch.
+/// Remove a branch from the workspace, keeping it to apply again later.
 ///
 /// If you want to unapply an applied branch from your workspace
 /// (effectively stashing it) so you can work on other branches,
