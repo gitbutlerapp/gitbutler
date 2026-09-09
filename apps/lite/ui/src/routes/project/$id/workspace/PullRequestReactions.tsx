@@ -27,14 +27,6 @@ const reactionGlyphs: Array<[string, string]> = [
 
 const glyphByKind = new Map(reactionGlyphs);
 
-/**
- * The kinds offered inline as dashed ghost chips, so the common reactions
- * are one click away instead of all hiding behind the picker. A kind drops
- * out of the suggestions once anyone has reacted with it: its tally chip
- * takes the slot.
- */
-const suggestedKinds = ["+1", "hooray", "eyes"];
-
 const reactionNames: Record<string, string> = {
 	"+1": "thumbs up",
 	"-1": "thumbs down",
@@ -88,12 +80,7 @@ export const Reactions: FC<{
 	 * or null to add one of `kind`. Chips are display-only without this.
 	 */
 	onToggle?: (kind: string, myReactionId: number | null) => void;
-	/**
-	 * Offer the common kinds inline as ghost chips. Only the pull request's
-	 * own row does this: repeating the offer under every comment is noise.
-	 */
-	suggest?: boolean;
-}> = ({ reactions, reactors, myLogin, onToggle, suggest = false }) => {
+}> = ({ reactions, reactors, myLogin, onToggle }) => {
 	const [pickerOpen, setPickerOpen] = useState(false);
 
 	const mineFor = (kind: string) =>
@@ -115,11 +102,6 @@ export const Reactions: FC<{
 		if (mine !== undefined && mine.id < 0) return;
 		onToggle?.(kind, mine?.id ?? null);
 	};
-
-	const suggestions =
-		suggest && onToggle !== undefined
-			? suggestedKinds.filter((kind) => !chips.some((chip) => chip.kind === kind))
-			: [];
 
 	return (
 		<div className={styles.reactions}>
@@ -170,23 +152,6 @@ export const Reactions: FC<{
 					</Tooltip.Root>
 				);
 			})}
-
-			{suggestions.map((kind) => (
-				<button
-					key={kind}
-					type="button"
-					aria-label={`React with ${reactionName(kind)}`}
-					className={classes(
-						"text-12",
-						styles.reactionChip,
-						styles.reactionChipButton,
-						styles.reactionChipGhost,
-					)}
-					onClick={() => toggle(kind, undefined)}
-				>
-					{glyphByKind.get(kind)}
-				</button>
-			))}
 
 			{onToggle !== undefined && (
 				<Dropdown
