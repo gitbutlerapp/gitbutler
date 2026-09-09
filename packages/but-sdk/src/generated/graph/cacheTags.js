@@ -88,6 +88,7 @@ export const apiInvalidates = {
 };
 
 export const watcherInvalidates = {
+	externalInvalidation: [],
 	gitActivity: ["Branches", "TargetCommits", "Workspace", "Commits", "Diffs", "WorktreeChanges", "Worktrees", "AbsorptionPlan", "Comments"],
 	gitFetch: ["Branches", "TargetCommits", "FetchStatus", "Reviews"],
 	gitHead: ["OperatingMode"],

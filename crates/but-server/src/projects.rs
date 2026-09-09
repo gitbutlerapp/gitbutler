@@ -77,6 +77,10 @@ impl ActiveProjects {
                         name: format!("project://{project_id}/workspace-activity"),
                         payload: serde_json::json!({}),
                     },
+                    Change::ExternalInvalidation { project_id, tags } => FrontendEvent {
+                        name: format!("project://{project_id}/external-invalidation"),
+                        payload: serde_json::json!({ "tags": tags }),
+                    },
                     Change::WorktreeChanges {
                         project_id,
                         ref changes,

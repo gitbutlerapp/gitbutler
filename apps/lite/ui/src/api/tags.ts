@@ -50,6 +50,12 @@ for (const query of projectQueryKeys)
 for (const [tag, query] of globalProviders) provide(tag, { query, projectScoped: false });
 
 /**
+ * Whether `name` is a tag some query provides. External invalidations arrive
+ * from a file any process can write, so their names are checked, not trusted.
+ */
+export const providedTag = (name: string): name is CacheTag => providers.has(name as CacheTag);
+
+/**
  * Drop every cache providing the given tags. Without a project id,
  * project-scoped queries are matched by endpoint across all projects.
  */

@@ -1238,6 +1238,9 @@ impl App {
                     ));
                 }
             }
+            gitbutler_watcher::Change::ExternalInvalidation { .. } => {
+                // The TUI keeps no forge caches; workspace changes reach it as activity.
+            }
             gitbutler_watcher::Change::WorkspaceActivity { .. } => {
                 // TODO: We currently dont have a good way of detecting changes made by external
                 // processes and only then reloading. Always reloading here would result in double

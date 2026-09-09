@@ -1358,6 +1358,8 @@ pub async fn publish_review_only(
             let _guard = ctx.exclusive_worktree_access();
             persist_review_association(&ctx, local_branch.as_ref(), review_number).ok();
         }
+        // Not an endpoint, so the batch path signals what `publish_review` declares.
+        crate::tags::signal_invalidation(&ctx.project_data_dir, PUBLISH_REVIEW_INVALIDATES);
     }
 
     Ok(review)
