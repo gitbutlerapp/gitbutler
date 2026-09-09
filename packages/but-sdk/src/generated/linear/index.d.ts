@@ -904,7 +904,7 @@ export declare function getUserProfileLocal(): Promise<UserProfile | null>
  * This is a read-only projection of the current workspace graph. It does not
  * mutate the cached [`WorkspaceState`] returned by mutation APIs.
  *
- * {@link ../../../../../crates/but-api/src/workspace.rs:252}
+ * {@link ../../../../../crates/but-api/src/workspace.rs:406}
  */
 export declare function getWorkspace(projectId: string): Promise<DetailedGraphWorkspace>
 
@@ -1349,7 +1349,7 @@ export declare function resolveCommitConflictHunks(projectId: string, commitId: 
  *
  * For lower-level details, see [`but_workspace::resolve_worktree_conflicts()`].
  *
- * {@link ../../../../../crates/but-api/src/workspace.rs:311}
+ * {@link ../../../../../crates/but-api/src/workspace.rs:465}
  */
 export declare function resolveWorktreeConflicts(projectId: string, paths: Array<string>): Promise<void>
 
@@ -1398,7 +1398,7 @@ export declare function setGbConfig(projectId: string, config: GitConfigSettings
  * This acquires exclusive repository access, updates project metadata through
  * [`but_workspace::init::set_push_remote()`], and invalidates the cached workspace projection.
  *
- * {@link ../../../../../crates/but-api/src/workspace.rs:294}
+ * {@link ../../../../../crates/but-api/src/workspace.rs:448}
  */
 export declare function setPushRemote(projectId: string, pushRemote: string): Promise<void>
 
@@ -1434,7 +1434,7 @@ export declare function setReviewTemplate(projectId: string, templatePath: strin
  * An omitted `push_remote` preserves its current value. It deliberately records no oplog snapshot
  * because only project metadata changes, not repository state.
  *
- * {@link ../../../../../crates/but-api/src/workspace.rs:273}
+ * {@link ../../../../../crates/but-api/src/workspace.rs:427}
  */
 export declare function setTargetRefAndInitProject(projectId: string, targetRef: string, pushRemote: string | null): Promise<void>
 
@@ -1648,7 +1648,7 @@ export declare function workspaceCheckout(projectId: string): Promise<BranchChec
  * repository serialize among themselves so concurrent `git fetch` runs cannot trip over Git's
  * per-ref locks; fetches from other processes are not affected.
  *
- * {@link ../../../../../crates/but-api/src/workspace.rs:72}
+ * {@link ../../../../../crates/but-api/src/workspace.rs:226}
  */
 export declare function workspaceFetchFromRemotes(projectId: string, action: string | null): Promise<void>
 
@@ -1659,7 +1659,7 @@ export declare function workspaceFetchFromRemotes(projectId: string, action: str
  * A project that hasn't used the workspace fetch API returns an empty status. Legacy fetch state
  * is intentionally not imported.
  *
- * {@link ../../../../../crates/but-api/src/workspace.rs:235}
+ * {@link ../../../../../crates/but-api/src/workspace.rs:389}
  */
 export declare function workspaceFetchStatus(projectId: string): Promise<WorkspaceFetchStatus>
 
@@ -1673,9 +1673,23 @@ export declare function workspaceFetchStatus(projectId: string): Promise<Workspa
  * workspace previews the integration and no oplog entry is persisted. See
  * [`workspace_integrate_upstream_with_perm()`] for lower-level details.
  *
- * {@link ../../../../../crates/but-api/src/workspace.rs:560}
+ * {@link ../../../../../crates/but-api/src/workspace.rs:748}
  */
 export declare function workspaceIntegrateUpstream(projectId: string, updates: Array<BottomUpdate>, dryRun: boolean): Promise<WorkspaceIntegrateUpstreamOutcome>
+
+/**
+ * Recreate an existing workspace by applying all previously applied branches.
+ *
+ * Unlike [`crate::branch::workspace_checkout()`], this incorporates changes made in
+ * single-branch mode. The current branch is included unless it is the target or its
+ * local tracking branch. Conflicting stacks remain unapplied and are returned as
+ * partial success. Already being on the workspace is a no-op.
+ *
+ * The workspace reference must already exist. This does not initialize a new workspace.
+ *
+ * {@link ../../../../../crates/but-api/src/workspace.rs:45}
+ */
+export declare function workspaceRecreate(projectId: string): Promise<WorkspaceRecreateResult>
 
 /**
  * List the target branch's first-parent commits from its tip down to the
@@ -4737,6 +4751,16 @@ export type WorkspaceIntegrateUpstreamOutcome = {
   targetCommits: TargetCommitPage | null;
   /** Dirty worktree paths that would conflict when applied onto the resulting workspace head. */
   worktreeConflicts: Array<string>;
+};
+
+/** JSON transport type returned by workspace recreation. */
+export type WorkspaceRecreateResult = {
+  /** Workspace state after recreation, or the unchanged state for a no-op. */
+  workspace: WorkspaceState;
+  /** Previously applied stack heads that could not be reapplied due to conflicts. */
+  conflictingStacks: Array<BranchReference>;
+  /** Whether the repository was already on a managed workspace and nothing was changed. */
+  alreadyOnWorkspace: boolean;
 };
 
 /** Shared JSON transport type for mutation workspace results. */

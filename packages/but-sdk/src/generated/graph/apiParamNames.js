@@ -154,6 +154,7 @@ export const apiParamNames = {
 	workspaceFetchFromRemotes: ["projectId", "action"],
 	workspaceFetchStatus: ["projectId"],
 	workspaceIntegrateUpstream: ["projectId", "updates", "dryRun"],
+	workspaceRecreate: ["projectId"],
 	workspaceTargetCommits: ["projectId", "from", "limit"],
 	worktreeRemove: ["projectId", "name", "force"],
 	worktreeSetArchived: ["projectId", "name", "archived"],
