@@ -51,7 +51,7 @@ const isEnabled = <T extends HotkeyOptions | SequenceOptions>(
 	(!opts.target ||
 		opts.target === document ||
 		opts.target === window ||
-		opts.target === activeElement);
+		(opts.target instanceof HTMLElement && opts.target.contains(activeElement)));
 
 const getCommandPaletteItems = (activeElement: Element | null) => {
 	const hotkeyItems: IteratorObject<CommandPaletteItem> = iteratorConcat(
