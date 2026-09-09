@@ -90,7 +90,7 @@ pub(crate) fn commit_owner(
     head_info
         .worktrees
         .iter()
-        .find(|worktree| worktree.commits.iter().any(|owned| owned.id == commit))
+        .find(|worktree| worktree.commits().any(|owned| owned.id == commit))
         .map_or(ChangeSourceId::Head, |worktree| {
             ChangeSourceId::Worktree(worktree.name.clone())
         })

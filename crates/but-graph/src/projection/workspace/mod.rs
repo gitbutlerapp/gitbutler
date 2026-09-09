@@ -1,6 +1,6 @@
 use but_core::ref_metadata;
 
-use super::Stack;
+use super::{Stack, WorktreeStack};
 use crate::{Graph, SegmentIndex};
 
 pub(super) mod api;
@@ -55,6 +55,9 @@ pub struct Workspace {
     /// have nothing to do with the actual workspace.
     /// To see that, look at [Self::stacks].
     pub metadata: Option<ref_metadata::Workspace>,
+    /// The linked worktrees the traversal was [seeded with](crate::init::Options::worktrees), in
+    /// [tip order](Graph::worktree_tips), each with the first-parent history it owns.
+    pub worktrees: Vec<WorktreeStack>,
 }
 
 /// A copy of all workspace state, to pass it around internally.
@@ -67,6 +70,7 @@ pub(crate) struct WorkspaceState {
     pub target_ref: Option<TargetRef>,
     pub target_commit: Option<TargetCommit>,
     pub metadata: Option<ref_metadata::Workspace>,
+    pub worktrees: Vec<WorktreeStack>,
 }
 
 /// A classifier for the workspace.

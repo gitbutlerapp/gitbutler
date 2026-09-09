@@ -302,6 +302,7 @@ const WorktreeRows: FC<{
 }> = ({ projectId, worktree, worktrees, behind, startsRail }) => {
 	const branch =
 		worktree.refName === null ? null : branchAddress({ branchRef: worktree.refName.fullNameBytes });
+	const commits = worktree.segments.flatMap((segment) => segment.commits);
 	return (
 		<>
 			<Row interactive={false}>
@@ -340,9 +341,9 @@ const WorktreeRows: FC<{
 					}
 				/>
 			)}
-			{worktree.commits.map((commit, index) => {
+			{commits.map((commit, index) => {
 				const address = commitAddress({ commitId: commit.id, changeId: commit.changeId });
-				const next = worktree.commits[index + 1];
+				const next = commits[index + 1];
 				return (
 					<Fragment key={commit.id}>
 						{worktrees.on.get(commit.id)?.map((nested) => (

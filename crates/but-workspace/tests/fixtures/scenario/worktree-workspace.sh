@@ -32,6 +32,16 @@ git worktree add -b wt-outside wt-outside main
   commit O1
 )
 
+# Pushed up to P1, with P2 still to push.
+git worktree add -b wt-pushed wt-pushed main
+(cd wt-pushed
+  commit P1
+)
+remote_tracking_caught_up wt-pushed
+(cd wt-pushed
+  commit P2
+)
+
 # Stacked on wt-inside's branch: owns only its own commit, resting on W1.
 git worktree add -b wt-stacked wt-stacked wt-inside
 (cd wt-stacked
@@ -44,6 +54,18 @@ git worktree add -b wt-below wt-below main~1
 (cd wt-below
   commit U1
 )
+
+# A stack inside a worktree: `top` is checked out on `mid`, which no worktree has.
+git checkout -b mid A~1
+  commit MID1
+  commit MID2
+git worktree add -b top wt-top mid
+(cd wt-top
+  commit TOP1
+)
+
+# Detached in the middle of `mid`, so it owns MID1 and `wt-top` rests on it.
+git worktree add --detach wt-mid mid~1
 
 # Unrelated history - the walk can never reach the workspace or the target.
 git checkout --orphan disjoint

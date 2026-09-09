@@ -59,10 +59,12 @@ export const buildAppliedAddressSpace = ({
 		...(worktree.refName
 			? [owned(branchAddress({ branchRef: worktree.refName.fullNameBytes }))]
 			: []),
-		...worktree.commits.flatMap((commit) => [
-			...lanesOn(commit.id),
-			foreign(commitAddress({ commitId: commit.id, changeId: commit.changeId })),
-		]),
+		...worktree.segments
+			.flatMap((segment) => segment.commits)
+			.flatMap((commit) => [
+				...lanesOn(commit.id),
+				foreign(commitAddress({ commitId: commit.id, changeId: commit.changeId })),
+			]),
 	];
 	const lanesOn = (commitId: string): Array<Row> =>
 		(plan.worktrees.on.get(commitId) ?? []).flatMap(laneRows);

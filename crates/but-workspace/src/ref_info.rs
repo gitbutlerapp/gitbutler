@@ -535,6 +535,7 @@ pub fn graph_to_ref_info(
         metadata: _,
         lower_bound: _,
         lower_bound_segment_id,
+        worktrees,
     } = workspace;
 
     let ancestor_workspace_commit = match kind {
@@ -562,7 +563,10 @@ pub fn graph_to_ref_info(
         target_commit: target_commit.clone(),
         is_target_current,
         ancestor_workspace_commit,
-        worktrees: crate::worktrees::worktree_infos(workspace, repo),
+        worktrees: worktrees
+            .iter()
+            .map(|worktree| crate::worktrees::WorktreeInfo::try_from_graph_worktree(worktree, repo))
+            .collect::<anyhow::Result<_>>()?,
     };
 
     if let Some(info) = &info.ancestor_workspace_commit {
@@ -658,6 +662,14 @@ fn forge_review_for_branch(
 }
 
 impl RefInfo {
+    /// The segments of every lane, i.e. of each stack and each worktree.
+    pub(crate) fn lane_segments_mut(&mut self) -> impl Iterator<Item = &mut Vec<Segment>> {
+        self.stacks
+            .iter_mut()
+            .map(|stack| &mut stack.segments)
+            .chain(self.worktrees.iter_mut().map(|wt| &mut wt.segments))
+    }
+
     /// Resolve each segment's forge review association from a cache-derived map,
     /// keyed by the segment's remote/pushed short name (what the forge records as
     /// a review's `source_branch`).
@@ -682,11 +694,7 @@ impl RefInfo {
         reviews_by_head: &std::collections::HashMap<String, (usize, bool, Option<String>)>,
     ) {
         let remote_names = repo.remote_names();
-        for segment in self
-            .stacks
-            .iter_mut()
-            .flat_map(|stack| stack.segments.iter_mut())
-        {
+        for segment in self.lane_segments_mut().flatten() {
             let cached = segment
                 .remote_tracking_ref_name
                 .as_ref()
@@ -731,11 +739,7 @@ impl RefInfo {
         &mut self,
         metadata: but_db::GerritMetadataHandle<'_>,
     ) -> anyhow::Result<()> {
-        for segment in self
-            .stacks
-            .iter_mut()
-            .flat_map(|stack| stack.segments.iter_mut())
-        {
+        for segment in self.lane_segments_mut().flatten() {
             for commit in &mut segment.commits {
                 let Some(meta) = metadata.get(&commit.change_id().to_string())? else {
                     continue;
@@ -848,12 +852,33 @@ impl crate::ref_info::Segment {
     }
 }
 
-impl LocalCommit {
-    // Note that commit-relationships here don't see remotes.
-    pub(crate) fn try_from_stack_commit(
-        c: &StackCommit,
+impl crate::worktrees::WorktreeInfo {
+    fn try_from_graph_worktree(
+        but_graph::workspace::WorktreeStack {
+            name,
+            ref_name,
+            head,
+            base,
+            segments,
+        }: &but_graph::workspace::WorktreeStack,
         repo: &gix::Repository,
     ) -> anyhow::Result<Self> {
+        Ok(Self {
+            name: name.clone(),
+            ref_name: ref_name.clone(),
+            head: *head,
+            base: *base,
+            segments: segments
+                .iter()
+                .map(|s| crate::ref_info::Segment::try_from_graph_segment(s, repo))
+                .collect::<anyhow::Result<_>>()?,
+        })
+    }
+}
+
+impl LocalCommit {
+    // Note that commit-relationships here don't see remotes.
+    fn try_from_stack_commit(c: &StackCommit, repo: &gix::Repository) -> anyhow::Result<Self> {
         let StackCommit {
             id,
             parent_ids: _,

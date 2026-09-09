@@ -1,6 +1,7 @@
 use std::fmt::Formatter;
 
 use bitflags::bitflags;
+use bstr::BString;
 use but_core::{ref_metadata, ref_metadata::StackId};
 use gix::prelude::ObjectIdExt;
 
@@ -108,6 +109,73 @@ impl std::fmt::Debug for Stack {
             s.field("id", &stack_id);
         }
         s.finish()
+    }
+}
+
+/// What a linked worktree's own commits are resting on.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum WorktreeBase {
+    /// The base commit is owned by a workspace stack, or by a worktree listed earlier in
+    /// [tip order](crate::Graph::worktree_tips) for worktrees stacked on each other, so the
+    /// worktree branches off the workspace and belongs *inside* it when presented.
+    InWorkspace(gix::ObjectId),
+    /// The base commit is the target commit or below it, so the worktree stands on its own.
+    Outside(gix::ObjectId),
+}
+
+impl WorktreeBase {
+    /// The commit the worktree's own commits are resting on.
+    pub fn commit_id(&self) -> gix::ObjectId {
+        match self {
+            WorktreeBase::InWorkspace(id) | WorktreeBase::Outside(id) => *id,
+        }
+    }
+}
+
+/// The first-parent history a linked worktree owns, from its `HEAD` down to the workspace,
+/// an earlier worktree, or the target, split into segments like a [`Stack`].
+#[derive(Clone)]
+pub struct WorktreeStack {
+    /// The stable worktree name, i.e. the directory name under `$GIT_COMMON_DIR/worktrees/`.
+    pub name: BString,
+    /// The branch the worktree has checked out, or `None` for a detached `HEAD`.
+    pub ref_name: Option<gix::refs::FullName>,
+    /// The commit the worktree `HEAD` peels to.
+    pub head: gix::ObjectId,
+    /// What the last of [`Self::segments`] is [based](StackSegment::base) on, or `None` if
+    /// history ran out before reaching the workspace or the target.
+    pub base: Option<WorktreeBase>,
+    /// The segments from `head` down, never empty. The first is named by `ref_name`, or is
+    /// anonymous for a detached `HEAD` with the name it sits on among its first commit's refs.
+    pub segments: Vec<StackSegment>,
+}
+
+/// Query
+impl WorktreeStack {
+    /// The commits this worktree owns, from `head` down.
+    pub fn commits(&self) -> impl Iterator<Item = &StackCommit> {
+        self.segments.iter().flat_map(|s| s.commits.iter())
+    }
+
+    /// A one-line string representing the worktree itself, without its contents.
+    pub fn debug_string(&self) -> String {
+        let mut dbg = format!("📁{}", self.name);
+        if let Some(base) = self.base {
+            dbg.push_str(" on ");
+            dbg.push_str(&base.commit_id().to_hex_with_len(7).to_string());
+            if matches!(base, WorktreeBase::InWorkspace(_)) {
+                dbg.push_str(" (🏘️)");
+            }
+        }
+        dbg
+    }
+}
+
+impl std::fmt::Debug for WorktreeStack {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct(&format!("WorktreeStack({})", self.debug_string()))
+            .field("segments", &self.segments)
+            .finish()
     }
 }
 

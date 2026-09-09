@@ -512,13 +512,16 @@ impl TargetRef {
 
 impl std::fmt::Debug for Workspace {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct(&format!("Workspace({})", self.debug_string()))
-            .field("id", &self.id.index())
+        let mut s = f.debug_struct(&format!("Workspace({})", self.debug_string()));
+        s.field("id", &self.id.index())
             .field("kind", &self.kind)
             .field("stacks", &self.stacks)
             .field("metadata", &self.metadata)
             .field("target_ref", &self.target_ref)
-            .field("target_commit", &self.target_commit)
-            .finish()
+            .field("target_commit", &self.target_commit);
+        if !self.worktrees.is_empty() {
+            s.field("worktrees", &self.worktrees);
+        }
+        s.finish()
     }
 }

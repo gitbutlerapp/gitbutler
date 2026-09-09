@@ -105,8 +105,8 @@ impl RefInfo {
         // Cheap checks to see which local commits belong to rebased remote or upstream commits.
         // We check by change-id and by author-signature + message combination.
         let mut time_used = std::time::Duration::default();
-        'next_stack: for stack in &mut self.stacks {
-            for segment in &mut stack.segments {
+        'next_lane: for segments in self.lane_segments_mut() {
+            for segment in segments.iter_mut() {
                 // At first, these are all commits that aren't also available by identity as local commits.
                 let remote_lut = create_similarity_lut(
                     repo,
@@ -159,15 +159,15 @@ impl RefInfo {
             }
 
             if !expensive {
-                continue 'next_stack;
+                continue 'next_lane;
             }
 
             // Another round from top to bottom where we take remote and local tips of non-integrated commits
             // and test-squash-merge them (cleanly), to see if that changeset ID is contained in upstream.
             // If so, the whole branch everything that follows is bluntly considered integrated, as it probably is
             // most of the time.
-            let base_commit_id = stack.segments.last().and_then(|s| s.base);
-            let mut segments = stack.segments.iter_mut();
+            let base_commit_id = segments.last().and_then(|s| s.base);
+            let mut segments = segments.iter_mut();
             while let Some(segment) = segments.next() {
                 // Find the topmost commit that isn't already integrated and carries changes of its
                 // own; that is the integration boundary for the squash-merge trial. Commits above it
@@ -213,11 +213,7 @@ impl RefInfo {
 
     /// Recalculate everything that depends on these values and the exact set of remote commits.
     fn compute_pushstatus(&mut self, graph: &but_graph::Graph) {
-        for segment in self
-            .stacks
-            .iter_mut()
-            .flat_map(|stack| stack.segments.iter_mut())
-        {
+        for segment in self.lane_segments_mut().flatten() {
             segment.push_status = derive_push_status_from_graph(graph, segment);
         }
     }

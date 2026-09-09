@@ -4783,7 +4783,7 @@ export type WorkspaceState = {
   checkoutConflictOccurred: boolean;
 };
 
-/** A non-archived linked worktree along with the commits it owns exclusively. */
+/** A non-archived linked worktree along with the segments it owns exclusively. */
 export type Worktree = {
   /** The stable worktree name, i.e. the directory name under `$GIT_COMMON_DIR/worktrees/`. */
   name: string;
@@ -4792,15 +4792,16 @@ export type Worktree = {
   /** The commit the worktree `HEAD` peels to. */
   head: string;
   /**
-   * What [`Self::commits`] are resting on, or `None` if the traversal ran out of graph
-   * before reaching the workspace or the target (unrelated history, or a limit was hit).
+   * What the last of [`Self::segments`] is resting on, or `None` if the traversal ran out of
+   * graph before reaching the workspace or the target (unrelated history, or a limit was hit).
    */
   base: WorktreeBase | null;
   /**
-   * The commits owned by this worktree alone, from its `HEAD` down to (excluding) its base,
-   * along the first parent.
+   * The segments owned by this worktree alone, from its `HEAD` down to (excluding) its base,
+   * along the first parent. Never empty; the first is named by `ref_name`, or is anonymous
+   * for a detached `HEAD`.
    */
-  commits: Array<Commit>;
+  segments: Array<Segment>;
 };
 
 /** What a linked worktree's own commits are resting on. */

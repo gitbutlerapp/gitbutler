@@ -843,6 +843,7 @@ mod tests {
             target_ref: None,
             target_commit: None,
             metadata: None,
+            worktrees: vec![],
         }
     }
 

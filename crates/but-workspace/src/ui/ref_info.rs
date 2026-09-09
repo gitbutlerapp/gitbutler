@@ -149,7 +149,7 @@ pub enum WorktreeBase {
 #[cfg(feature = "export-schema")]
 but_schemars::register_sdk_type!(WorktreeBase);
 
-/// A non-archived linked worktree along with the commits it owns exclusively.
+/// A non-archived linked worktree along with the segments it owns exclusively.
 #[derive(serde::Serialize, Debug, Clone)]
 #[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
 #[serde(rename_all = "camelCase")]
@@ -170,12 +170,13 @@ pub struct Worktree {
         schemars(schema_with = "but_schemars::object_id")
     )]
     pub head: gix::ObjectId,
-    /// What [`Self::commits`] are resting on, or `None` if the traversal ran out of graph
-    /// before reaching the workspace or the target (unrelated history, or a limit was hit).
+    /// What the last of [`Self::segments`] is resting on, or `None` if the traversal ran out of
+    /// graph before reaching the workspace or the target (unrelated history, or a limit was hit).
     pub base: Option<WorktreeBase>,
-    /// The commits owned by this worktree alone, from its `HEAD` down to (excluding) its base,
-    /// along the first parent.
-    pub commits: Vec<ui::Commit>,
+    /// The segments owned by this worktree alone, from its `HEAD` down to (excluding) its base,
+    /// along the first parent. Never empty; the first is named by `ref_name`, or is anonymous
+    /// for a detached `HEAD`.
+    pub segments: Vec<Segment>,
 }
 #[cfg(feature = "export-schema")]
 but_schemars::register_sdk_type!(Worktree);
@@ -187,10 +188,11 @@ impl Worktree {
             ref_name,
             head,
             base,
-            commits,
+            segments,
         }: crate::worktrees::WorktreeInfo,
-    ) -> Self {
-        Worktree {
+        names: &gix::remote::Names,
+    ) -> anyhow::Result<Self> {
+        Ok(Worktree {
             name,
             ref_name: ref_name.map(Into::into),
             head,
@@ -198,8 +200,11 @@ impl Worktree {
                 crate::worktrees::WorktreeBase::InWorkspace(id) => WorktreeBase::InWorkspace(id),
                 crate::worktrees::WorktreeBase::Outside(id) => WorktreeBase::Outside(id),
             }),
-            commits: commits.iter().map(Into::into).collect(),
-        }
+            segments: segments
+                .into_iter()
+                .map(|s| Segment::for_ui(s, names))
+                .collect::<Result<_, _>>()?,
+        })
     }
 }
 
@@ -252,7 +257,10 @@ impl inner::RefInfo {
             target: target_ref
                 .map(|t| Target::for_ui(t, &symbolic_remote_names, is_target_current))
                 .transpose()?,
-            worktrees: worktrees.into_iter().map(Worktree::for_ui).collect(),
+            worktrees: worktrees
+                .into_iter()
+                .map(|wt| Worktree::for_ui(wt, &symbolic_remote_names))
+                .collect::<Result<_, _>>()?,
         })
     }
 }
