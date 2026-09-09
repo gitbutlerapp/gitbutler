@@ -18,7 +18,7 @@ Show an overview of the workspace state
 
 ### but diff [TARGET]
 Show the diff of changes in the repo
-- `[TARGET]` A commit, branch, or committed file, by CLI ID. A commit lists its files and hunks with their IDs. If omitted shows the diff of all uncommitted changes, with file and hunk IDs. For more details about CLI IDs, see but help cli-ids.
+- `[TARGET]` What to diff, by CLI ID: a commit, branch, committed file or hunk, uncommitted file or hunk, path prefix, or a worktree's uncommitted area. A commit lists its files and hunks with their IDs. If omitted shows the diff of all uncommitted changes, with file and hunk IDs. For more details about CLI IDs, see but help cli-ids.
 
 ### but show <COMMIT_OR_BRANCH>
 Show details of a commit or branch
@@ -145,7 +145,7 @@ Split a commit in two
 
 ### but absorb [SOURCE]
 Amend uncommitted changes into the commits they belong to
-- `[SOURCE]` If the Source is an uncommitted change - the change will be absorbed. If not provided, everything that is uncommitted will be absorbed
+- `[SOURCE]` An uncommitted file or hunk to absorb; if omitted, everything uncommitted is absorbed
 - `--dry-run` Show the absorption plan without making any changes
 
 ### but reword <TARGET>
@@ -187,7 +187,7 @@ Redo the last undo
 ## Server Interactions
 
 ### but merge <BRANCH>
-Merge a branch directly onto the target branch
+Merge a branch directly onto the target branch, bypassing review
 - `<BRANCH>` Branch ID or name to merge onto the target branch
 - `--yes` Skip the confirmation prompt
 - `--no-ff` Always create a merge commit, even when the branch can be fast-forwarded
@@ -210,11 +210,10 @@ Commands for creating and managing reviews on a forge, e.g. GitHub PRs or GitLab
 - `-d, --draft` Create the review as a draft
 
 ### but pr new [BRANCH]
-Create a new review for a branch, pushing it first
-- `[BRANCH]` The branch to create a review for
-- `-m, --message <MESSAGE>` review title and description. The first line is the title, the rest is the description
+Create a new review for a branch, force-pushing it first
+- `[BRANCH]` The branch to create a review for. Without it, a terminal prompts for one (or confirms when only one branch lacks a review); a non-interactive run needs it
+- `-m, --message <MESSAGE>` Review title and description: the first line is the title, the rest is the description. A non-interactive run needs -m, -F, or -t
 - `-F, --file <FILE>` Read review title and description from file. The first line is the title, the rest is the description
-- `-f, --with-force` Force push even if it's not fast-forward (defaults to true)
 - `-s, --skip-force-push-protection` Skip force push protection checks
 - `--no-hooks` Bypass pre-push hooks
 - `-t, --default` Use the default content for the review title and description, skipping any prompts. If the branch contains only a single commit, the commit message will be used
@@ -222,33 +221,29 @@ Create a new review for a branch, pushing it first
 
 ### but pr auto-merge [SELECTOR]
 Enable or disable the automatic merging of reviews
-- `[SELECTOR]` One or more comma-separated branch names, branch IDs, stack IDs (every review on the stack), or review numbers (the PR or MR number without the symbol)
+- `[SELECTOR]` One or more comma-separated branch names, branch IDs, stack IDs (every review on the stack), or review numbers (the PR or MR number without the symbol). Without it, a terminal prompts for reviews from the workspace's branches; a non-interactive run needs it
 - `-d, --off` Disable automatic merging instead of enabling it
 
 ### but pr set-draft [SELECTOR]
 Mark existing reviews as draft
-- `[SELECTOR]` One or more comma-separated branch names, branch IDs, stack IDs (every review on the stack), or review numbers (the PR or MR number without the symbol)
+- `[SELECTOR]` One or more comma-separated branch names, branch IDs, stack IDs (every review on the stack), or review numbers (the PR or MR number without the symbol). Without it, a terminal prompts for reviews from the workspace's branches; a non-interactive run needs it
 
 ### but pr set-ready [SELECTOR]
 Mark existing reviews as ready for review
-- `[SELECTOR]` One or more comma-separated branch names, branch IDs, stack IDs (every review on the stack), or review numbers (the PR or MR number without the symbol)
+- `[SELECTOR]` One or more comma-separated branch names, branch IDs, stack IDs (every review on the stack), or review numbers (the PR or MR number without the symbol). Without it, a terminal prompts for reviews from the workspace's branches; a non-interactive run needs it
 
 ### but pr template [TEMPLATE_PATH]
 Configure the template to use for review descriptions
-- `[TEMPLATE_PATH]` Path to the review template file within the repository
+- `[TEMPLATE_PATH]` Path to the review template file within the repository. Without it, a terminal lists the templates found in the repository to pick from; a non-interactive run needs it
 
 ## Other Commands
 
 ### but setup
 Set up a GitButler project from the git repository in the current directory
-- `--init` Initialize a new git repository with an empty commit if one doesn't exist. This is useful when running in non-interactive environments (like CI/CD) where you want to ensure a git repository exists before setting up GitButler.
+- `--init` Initialize a new git repository with an empty commit if one doesn't exist. Useful in non-interactive environments such as CI, where a repository may not exist yet.
 
 ### but update check
 Check if a new version of the GitButler CLI is available
-
-### but update install [TARGET]
-Install or update the GitButler desktop application
-- `[TARGET]` What to install: "nightly", "release", or a version like "0.18.7"
 
 ### but config forge auth
 Authenticate with the forge (GitHub, GitLab, or Bitbucket)

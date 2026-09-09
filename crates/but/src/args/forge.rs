@@ -9,7 +9,7 @@ pub mod pr {
     }
     #[derive(Debug, clap::Subcommand)]
     pub enum Subcommands {
-        /// Create a new review for a branch, pushing it first.
+        /// Create a new review for a branch, force-pushing it first.
         ///
         /// If the branch is part of a stack, GitButler pushes that branch and its ancestors
         /// and creates missing reviews from the bottom upward. It also updates stack metadata
@@ -27,8 +27,9 @@ pub mod pr {
             /// Read review title and description from file. The first line is the title, the rest is the description.
             #[clap(short = 'F', long = "file", value_name = "FILE", conflicts_with_all = &["message", "default"])]
             file: Option<std::path::PathBuf>,
-            /// Force push even if it's not fast-forward (defaults to true).
-            #[clap(long, short = 'f', default_value_t = true)]
+            /// Force push even if it's not fast-forward. Always on; the flag is kept for
+            /// compatibility.
+            #[clap(long, short = 'f', default_value_t = true, hide = true)]
             with_force: bool,
             /// Skip force push protection checks
             #[clap(long, short = 's')]

@@ -321,7 +321,7 @@ pub enum Subcommands {
 
     Worktree(worktree::Platform),
 
-    /// Merge a branch directly onto the target branch.
+    /// Merge a branch directly onto the target branch, bypassing review.
     ///
     /// Merges the branch onto the configured target (for example `origin/master`) without going
     /// through a pull request — the "just push to the target" workflow. By default the target is
@@ -512,8 +512,7 @@ pub enum Subcommands {
     #[cfg(feature = "legacy")]
     #[cfg_attr(feature = "raw-clap-docs", clap(verbatim_doc_comment))]
     Absorb {
-        /// If the Source is an uncommitted change - the change will be absorbed.
-        /// If not provided, everything that is uncommitted will be absorbed.
+        /// An uncommitted file or hunk to absorb; if omitted, everything uncommitted is absorbed.
         source: Option<String>,
         /// Show the absorption plan without making any changes.
         #[clap(long = "dry-run")]
@@ -621,8 +620,7 @@ pub enum Subcommands {
     Setup {
         /// Initialize a new git repository with an empty commit if one doesn't exist.
         ///
-        /// This is useful when running in non-interactive environments (like CI/CD)
-        /// where you want to ensure a git repository exists before setting up GitButler.
+        /// Useful in non-interactive environments such as CI, where a repository may not exist yet.
         #[clap(long)]
         #[cfg_attr(feature = "raw-clap-docs", clap(verbatim_doc_comment))]
         init: bool,
