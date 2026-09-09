@@ -614,6 +614,8 @@ if (!app.requestSingleInstanceLock()) {
 
 export const start = async (shellEnvironment: Promise<Record<string, string>>): Promise<void> => {
 	await app.whenReady();
+	// Creating the default session lets Electron prewarm the first renderer while startup continues.
+	void session.defaultSession;
 	initLogging();
 	Object.assign(process.env, await shellEnvironment);
 	applyGUISettings(await readSettings());
