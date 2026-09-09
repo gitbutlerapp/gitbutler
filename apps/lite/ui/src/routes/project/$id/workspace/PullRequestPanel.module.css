@@ -92,6 +92,7 @@
 
 .user {
 	display: flex;
+	flex: 1;
 	align-items: center;
 	min-width: 0;
 	gap: 8px;
@@ -101,6 +102,7 @@
 /* A long login truncates rather than wrapping the row to two lines; the row's
    title carries the full name. */
 .userLogin {
+	min-width: 0;
 	overflow: hidden;
 	text-overflow: ellipsis;
 	white-space: nowrap;
@@ -109,12 +111,22 @@
 .reviewerRow {
 	display: flex;
 	align-items: center;
-	justify-content: space-between;
 	padding-inline-end: 3px;
 	gap: 8px;
 
 	& > svg {
 		flex-shrink: 0;
+	}
+}
+
+.reviewerRemove {
+	flex-shrink: 0;
+	opacity: 0;
+	transition: opacity var(--transition-fast);
+
+	.reviewerRow:hover &,
+	&:focus-visible {
+		opacity: 1;
 	}
 }
 

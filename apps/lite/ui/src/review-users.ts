@@ -7,3 +7,11 @@ import type { ForgeReviewUser } from "@gitbutler/but-sdk";
  */
 export const isAgent = (user: ForgeReviewUser): boolean =>
 	user.isBot || user.login.endsWith("[bot]");
+
+/**
+ * Whether two logins name the same account. GitHub spells a bot's login with
+ * the `[bot]` suffix in REST and without it in GraphQL, and both reach the app.
+ */
+export const sameLogin = (a: string, b: string): boolean => bare(a) === bare(b);
+
+const bare = (login: string): string => login.replace(/\[bot\]$/, "");
