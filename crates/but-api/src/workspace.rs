@@ -6,6 +6,7 @@ use std::{
 };
 
 use crate::WorkspaceState;
+use anyhow::Context as _;
 use bstr::{BString, ByteSlice};
 use but_api_macros::but_api;
 use but_core::{
@@ -21,6 +22,159 @@ use but_workspace::{
     BottomUpdate, BottomUpdateKind, IntegrateUpstreamOutcome, ReviewIntegrationHint,
 };
 use tracing::{instrument, warn};
+
+/// Result of restoring the previously applied branches into the workspace.
+#[derive(Debug, Clone)]
+pub struct WorkspaceRecreateResult {
+    /// Workspace state after recreation, or the unchanged state for a no-op.
+    pub workspace: WorkspaceState,
+    /// Previously applied stack heads that could not be reapplied due to conflicts.
+    pub conflicting_stacks: Vec<gix::refs::FullName>,
+    /// Whether the repository was already on a managed workspace and nothing was changed.
+    pub already_on_workspace: bool,
+}
+
+/// Recreate an existing workspace by applying all previously applied branches.
+///
+/// Unlike [`crate::branch::workspace_checkout()`], this incorporates changes made in
+/// single-branch mode. The current branch is included unless it is the target or its
+/// local tracking branch. Conflicting stacks remain unapplied and are returned as
+/// partial success. Already being on the workspace is a no-op.
+///
+/// The workspace reference must already exist. This does not initialize a new workspace.
+#[but_api(napi, try_from = json::WorkspaceRecreateResult)]
+#[instrument(err(Debug))]
+pub fn workspace_recreate(ctx: &mut but_ctx::Context) -> anyhow::Result<WorkspaceRecreateResult> {
+    let mut guard = ctx.exclusive_worktree_access();
+    workspace_recreate_with_perm(ctx, guard.write_permission())
+}
+
+/// Recreate the workspace under caller-held exclusive access, recording one undo snapshot.
+///
+/// See [`workspace_recreate()`] for behavior and preconditions. No snapshot is prepared
+/// when already on the workspace.
+pub fn workspace_recreate_with_perm(
+    ctx: &mut but_ctx::Context,
+    perm: &mut RepoExclusive,
+) -> anyhow::Result<WorkspaceRecreateResult> {
+    let already_on_workspace = {
+        let (repo, ws, _db) = ctx.workspace_and_db_with_perm(perm.read_permission())?;
+        match &ws.kind {
+            but_graph::workspace::WorkspaceKind::Managed { .. }
+            | but_graph::workspace::WorkspaceKind::ManagedMissingWorkspaceCommit { .. } => true,
+            but_graph::workspace::WorkspaceKind::AdHoc => {
+                anyhow::ensure!(
+                    repo.try_find_reference(but_core::WORKSPACE_REF_NAME)?
+                        .is_some(),
+                    "Cannot recreate a workspace without an existing workspace reference"
+                );
+                false
+            }
+        }
+    };
+
+    let maybe_oplog_entry = if already_on_workspace {
+        None
+    } else {
+        but_oplog::UnmaterializedOplogSnapshot::from_details_with_perm(
+            ctx,
+            SnapshotDetails::new(OperationKind::SwitchToWorkspace),
+            perm.read_permission(),
+            DryRun::No,
+        )
+    };
+
+    let conflicting_stacks = if already_on_workspace {
+        Vec::new()
+    } else {
+        let mut meta = ctx.meta()?;
+        let (repo, mut ws, db) = ctx.workspace_mut_and_db_with_perm(perm)?;
+
+        let previously_applied_stack_heads: Vec<gix::refs::FullName> = {
+            let workspace_ref: gix::refs::FullName = but_core::WORKSPACE_REF_NAME.try_into()?;
+            let workspace_meta = meta.workspace(workspace_ref.as_ref())?;
+            workspace_meta
+                .stack_names(but_core::ref_metadata::StackKind::Applied)
+                .map(|name| name.to_owned())
+                .collect()
+        };
+
+        let head_name = repo
+            .head()?
+            .referent_name()
+            .filter(|name| name.category() == Some(gix::refs::Category::LocalBranch))
+            .context("HEAD must refer to a local branch")?
+            .to_owned();
+
+        if !ws.is_branch_the_target_or_its_local_tracking_branch(head_name.as_ref()) {
+            // Applying the current branch enters the workspace with one branch applied.
+            let outcome = but_workspace::branch::apply(
+                head_name.as_ref(),
+                ws.clone(),
+                &repo,
+                &mut meta,
+                but_workspace::branch::apply::Options {
+                    allow_applying_already_applied_branch_when_outside_workspace: true,
+                    ..Default::default()
+                },
+            )?;
+            if outcome.status.persisted_mutation() {
+                *ws = outcome.workspace.clone();
+            } else {
+                anyhow::bail!(
+                    "BUG: failed to apply head ref ({head_name}). Failed with {:?}",
+                    outcome.status
+                )
+            }
+        }
+
+        if previously_applied_stack_heads.is_empty() {
+            drop((repo, ws, db));
+            crate::branch::workspace_checkout_with_perm_only(ctx, perm)?;
+            Vec::new()
+        } else {
+            let mut conflicting_stacks = Vec::new();
+
+            // Reapply the saved heads in metadata order, retaining partial successes.
+            for stack_ref in previously_applied_stack_heads {
+                let apply_outcome = but_workspace::branch::apply(
+                    stack_ref.as_ref(),
+                    ws.clone(),
+                    &repo,
+                    &mut meta,
+                    but_workspace::branch::apply::Options::default(),
+                )?;
+
+                if !apply_outcome.conflicting_stacks.is_empty() {
+                    conflicting_stacks.push(stack_ref);
+                }
+
+                if apply_outcome.status.persisted_mutation() {
+                    *ws = apply_outcome.workspace.clone();
+                }
+            }
+
+            conflicting_stacks
+        }
+    };
+
+    if let Some(snapshot) = maybe_oplog_entry {
+        _ = snapshot.commit(ctx, perm);
+    }
+
+    if !already_on_workspace {
+        ctx.reload_repo_and_invalidate_workspace(perm)?;
+    }
+    let mut meta = ctx.meta()?;
+    let (repo, ws, mut db) = ctx.workspace_mut_and_db_mut_with_perm(perm)?;
+    let workspace =
+        WorkspaceState::from_workspace_with_db(&ws, &mut meta, &repo, Default::default(), &mut db)?;
+    Ok(WorkspaceRecreateResult {
+        workspace,
+        conflicting_stacks,
+        already_on_workspace,
+    })
+}
 
 /// The persisted status of fetches performed through [`workspace_fetch_from_remotes()`].
 #[derive(Debug, Clone, Default, serde::Serialize)]
@@ -347,6 +501,40 @@ pub struct WorkspaceIntegrateUpstreamOutcome {
 pub mod json {
     use but_serde::BStringForFrontend;
     use serde::{Deserialize, Serialize};
+
+    /// JSON transport type returned by workspace recreation.
+    #[derive(Debug, Serialize)]
+    #[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
+    #[serde(rename_all = "camelCase")]
+    pub struct WorkspaceRecreateResult {
+        /// Workspace state after recreation, or the unchanged state for a no-op.
+        pub workspace: crate::json::WorkspaceState,
+        /// Previously applied stack heads that could not be reapplied due to conflicts.
+        pub conflicting_stacks: Vec<but_workspace::ui::ref_info::BranchReference>,
+        /// Whether the repository was already on a managed workspace and nothing was changed.
+        pub already_on_workspace: bool,
+    }
+
+    #[cfg(feature = "export-schema")]
+    but_schemars::register_sdk_type!(WorkspaceRecreateResult);
+
+    impl TryFrom<super::WorkspaceRecreateResult> for WorkspaceRecreateResult {
+        type Error = anyhow::Error;
+
+        fn try_from(
+            value: super::WorkspaceRecreateResult,
+        ) -> Result<WorkspaceRecreateResult, anyhow::Error> {
+            Ok(WorkspaceRecreateResult {
+                workspace: value.workspace.try_into()?,
+                conflicting_stacks: value
+                    .conflicting_stacks
+                    .into_iter()
+                    .map(Into::into)
+                    .collect(),
+                already_on_workspace: value.already_on_workspace,
+            })
+        }
+    }
 
     /// JSON transport type for how a stack bottom should be updated.
     #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
