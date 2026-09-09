@@ -2,6 +2,7 @@ use anyhow::Result;
 use bstr::{BStr, ByteSlice};
 use but_graph::Graph;
 use but_workspace::ref_info::LocalCommitRelation;
+use but_workspace::ui::PushStatus;
 use but_workspace::worktrees::WorktreeBase;
 
 use crate::ref_info::with_workspace_commit::utils::{StackState, add_stack, add_workspace};
@@ -136,6 +137,11 @@ fn worktrees_are_projected_onto_the_workspace() -> Result<()> {
                 Some(WorktreeBase::Outside(m1))
             ),
             (
+                "wt-pushed".to_string(),
+                vec![segment("wt-pushed", &["P2", "P1"])],
+                Some(WorktreeBase::Outside(m1))
+            ),
+            (
                 "wt-stacked".to_string(),
                 vec![segment("wt-stacked", &["S1"])],
                 // Stacked on wt-inside, which is listed first and thus owns W1 exclusively.
@@ -150,15 +156,59 @@ fn worktrees_are_projected_onto_the_workspace() -> Result<()> {
         ]
     );
 
-    for wt in &info.worktrees {
-        for commit in wt.commits() {
-            assert_eq!(
-                commit.relation,
-                LocalCommitRelation::LocalOnly,
-                "never-pushed worktree commits must not pretend to be on a remote"
-            );
-        }
-    }
+    let p1 = repo.rev_parse_single("wt-pushed~1")?.detach();
+    let statuses: Vec<_> = info
+        .worktrees
+        .iter()
+        .flat_map(|wt| {
+            wt.segments.iter().map(|segment| {
+                (
+                    wt.name.to_string(),
+                    segment.push_status,
+                    segment
+                        .commits
+                        .iter()
+                        .map(|c| c.relation)
+                        .collect::<Vec<_>>(),
+                )
+            })
+        })
+        .collect();
+    use LocalCommitRelation::*;
+    use PushStatus::*;
+    // Push status and remote relations are derived for worktree segments just like for stacks:
+    // never-pushed worktree commits must not pretend to be on a remote.
+    assert_eq!(
+        statuses,
+        [
+            ("wt-at".to_string(), CompletelyUnpushed, vec![]),
+            ("wt-below".to_string(), CompletelyUnpushed, vec![LocalOnly]),
+            (
+                "wt-disjoint".to_string(),
+                CompletelyUnpushed,
+                vec![LocalOnly]
+            ),
+            ("wt-inside".to_string(), CompletelyUnpushed, vec![LocalOnly]),
+            ("wt-mid".to_string(), CompletelyUnpushed, vec![LocalOnly]),
+            (
+                "wt-outside".to_string(),
+                CompletelyUnpushed,
+                vec![LocalOnly]
+            ),
+            (
+                "wt-pushed".to_string(),
+                UnpushedCommits,
+                vec![LocalOnly, LocalAndRemote(p1)]
+            ),
+            (
+                "wt-stacked".to_string(),
+                CompletelyUnpushed,
+                vec![LocalOnly]
+            ),
+            ("wt-top".to_string(), CompletelyUnpushed, vec![LocalOnly]),
+            ("wt-top".to_string(), CompletelyUnpushed, vec![LocalOnly]),
+        ]
+    );
     Ok(())
 }
 

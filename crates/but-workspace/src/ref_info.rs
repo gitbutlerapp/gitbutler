@@ -662,6 +662,14 @@ fn forge_review_for_branch(
 }
 
 impl RefInfo {
+    /// The segments of every lane, i.e. of each stack and each worktree.
+    pub(crate) fn lane_segments_mut(&mut self) -> impl Iterator<Item = &mut Vec<Segment>> {
+        self.stacks
+            .iter_mut()
+            .map(|stack| &mut stack.segments)
+            .chain(self.worktrees.iter_mut().map(|wt| &mut wt.segments))
+    }
+
     /// Resolve each segment's forge review association from a cache-derived map,
     /// keyed by the segment's remote/pushed short name (what the forge records as
     /// a review's `source_branch`).

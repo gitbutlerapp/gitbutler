@@ -32,6 +32,16 @@ git worktree add -b wt-outside wt-outside main
   commit O1
 )
 
+# Pushed up to P1, with P2 still to push.
+git worktree add -b wt-pushed wt-pushed main
+(cd wt-pushed
+  commit P1
+)
+remote_tracking_caught_up wt-pushed
+(cd wt-pushed
+  commit P2
+)
+
 # Stacked on wt-inside's branch: owns only its own commit, resting on W1.
 git worktree add -b wt-stacked wt-stacked wt-inside
 (cd wt-stacked
