@@ -240,10 +240,14 @@ export const PopupSearch: FC<{ onClear?: () => void } & useRender.ComponentProps
 };
 
 /**
- * What a popup's list shows once a search has matched nothing: the looking character cropped to
- * the binoculars, over the one line that says so. The "Empty state" block, sized for a list rather
- * than a panel — the line sits closer under the illustration and there is no counterweight, since
- * a line under a light drawing has no weight to lift.
+ * What a popup's list shows when it has no rows: one line under a drawing, the "Empty state" block
+ * sized for a list rather than a panel — the line sits closer under the illustration and there is
+ * no counterweight, since a line under a light drawing has no weight to lift.
+ *
+ * Which drawing follows the branches tab's rule. The binoculars are for a search that came up
+ * empty; a list with nothing in it before anything was typed gets the cactus, since nothing was
+ * searched for. Pass the `query` the list is filtered on — the deferred one, where the caller
+ * defers — so the drawing and the rows it stands in for agree.
  *
  * One short line, no full stop, like every other line of its length in Lite: "No hotkeys found".
  *
@@ -252,8 +256,12 @@ export const PopupSearch: FC<{ onClear?: () => void } & useRender.ComponentProps
  *
  * @public
  */
-export const PopupEmpty: FC<{ children: string }> = ({ children }) => (
-	<EmptyState illustration="searching" description={children} className={styles.empty} />
+export const PopupEmpty: FC<{ query: string; children: string }> = ({ query, children }) => (
+	<EmptyState
+		illustration={query === "" ? "cactus" : "searching"}
+		description={children}
+		className={styles.empty}
+	/>
 );
 
 /**

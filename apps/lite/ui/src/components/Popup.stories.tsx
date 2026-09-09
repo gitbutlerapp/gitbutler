@@ -96,7 +96,18 @@ export const NothingFound = meta.story({
 	render: (args) => (
 		<Popup {...args}>
 			<PopupSearch placeholder="Search hotkeys..." aria-label="Search hotkeys" />
-			<PopupEmpty>No hotkeys found</PopupEmpty>
+			<PopupEmpty query="undo">No hotkeys found</PopupEmpty>
+		</Popup>
+	),
+});
+
+/** A list with nothing in it before anything was typed: the cactus, since nothing was searched for. */
+export const NothingToList = meta.story({
+	args: { style: { width: 420 } },
+	render: (args) => (
+		<Popup {...args}>
+			<PopupSearch placeholder="Search for branches to apply..." aria-label="Search branches" />
+			<PopupEmpty query="">No available branches found</PopupEmpty>
 		</Popup>
 	),
 });

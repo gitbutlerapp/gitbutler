@@ -43,6 +43,8 @@ type VirtualizerHandle = {
 
 type VirtualizedListAreaProps<T> = {
 	emptyLabel: string;
+	/** What the rows are filtered on, so the empty state can say whether anything was searched for. */
+	query: string;
 	getItemKey: (item: T) => string;
 	getItemLabel: (item: T) => string;
 	getItemType: (item: T, group: PickerDialogGroup<T>) => ReactNode;
@@ -59,6 +61,7 @@ const VirtualizedListArea = <T,>({
 	getItemType,
 	highlightedItemIndex,
 	onSelectItem,
+	query,
 	statusLabel,
 	virtualizerRef,
 }: VirtualizedListAreaProps<T>) => {
@@ -194,7 +197,7 @@ const VirtualizedListArea = <T,>({
 					{statusLabel !== undefined ? <div className={styles.status}>{statusLabel}</div> : null}
 				</Autocomplete.Status>
 				<Autocomplete.Empty>
-					{statusLabel === undefined ? <PopupEmpty>{emptyLabel}</PopupEmpty> : null}
+					{statusLabel === undefined ? <PopupEmpty query={query}>{emptyLabel}</PopupEmpty> : null}
 				</Autocomplete.Empty>
 
 				<Autocomplete.List className={styles.list}>
@@ -400,6 +403,7 @@ export const PickerDialog = <T,>({
 					getItemType={getItemType}
 					highlightedItemIndex={highlightedItemIndex}
 					onSelectItem={onSelectItem}
+					query={deferredInputValue}
 					statusLabel={statusLabel}
 					virtualizerRef={virtualizerRef}
 				/>
