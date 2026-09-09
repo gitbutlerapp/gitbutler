@@ -13,6 +13,7 @@ import {
 	listReviewSubmissionsQueryOptions,
 	listReviewThreadsQueryOptions,
 	listReviewReactionsQueryOptions,
+	reviewerCandidatesQueryOptions,
 	treeChangeDiffsQueryOptions,
 	workspaceFetchQueryOptions,
 	workspaceTargetCommitsQueryOptions,
@@ -633,11 +634,43 @@ export const useRemoveSubmissionReaction = (projectId: string) =>
 		},
 	});
 
+/**
+ * The requested reviewer joins the single-review cache the panel renders
+ * from. The candidate listing the picker was built from supplies the full
+ * user, so the row carries the real id and avatar before the forge answers.
+ */
 export const useRequestReview = (projectId: string) =>
 	useMutation({
 		mutationKey: [projectId, "requestReview"],
 		mutationFn: window.lite.requestReview,
 		meta: { failureTitle: "Failed to request review" },
+		onMutate: async (input, ctx) => {
+			const key = getReviewQueryOptions(input).queryKey;
+			await ctx.client.cancelQueries({ queryKey: key });
+
+			const prev = ctx.client.getQueryData(key);
+			const candidates =
+				ctx.client.getQueryData(reviewerCandidatesQueryOptions(input.projectId).queryKey) ?? [];
+			ctx.client.setQueryData(key, (review) => {
+				if (review === undefined) return undefined;
+				const added = [...new Set(input.logins)]
+					.filter((login) => !review.reviewers.some((reviewer) => reviewer.login === login))
+					.map(
+						(login) =>
+							candidates.find((candidate) => candidate.login === login) ?? ghostForgeUser(login),
+					);
+				return { ...review, reviewers: review.reviewers.concat(added) };
+			});
+
+			return prev;
+		},
+		onError: (error, input, prev, ctx) => {
+			// Roll the optimistic write back, then refetch: the rollback snapshot
+			// may itself be stale by now.
+			const key = getReviewQueryOptions(input).queryKey;
+			if (prev) ctx.client.setQueryData(key, prev);
+			void ctx.client.invalidateQueries({ queryKey: key });
+		},
 	});
 
 export const useWithdrawReviewRequest = (projectId: string) =>
@@ -645,6 +678,31 @@ export const useWithdrawReviewRequest = (projectId: string) =>
 		mutationKey: [projectId, "withdrawReviewRequest"],
 		mutationFn: window.lite.withdrawReviewRequest,
 		meta: { failureTitle: "Failed to withdraw review request" },
+		onMutate: async (input, ctx) => {
+			const key = getReviewQueryOptions(input).queryKey;
+			await ctx.client.cancelQueries({ queryKey: key });
+
+			const prev = ctx.client.getQueryData(key);
+			ctx.client.setQueryData(key, (review) =>
+				review === undefined
+					? undefined
+					: {
+							...review,
+							reviewers: review.reviewers.filter(
+								(reviewer) => !input.logins.includes(reviewer.login),
+							),
+						},
+			);
+
+			return prev;
+		},
+		onError: (error, input, prev, ctx) => {
+			// Roll the optimistic write back, then refetch: the rollback snapshot
+			// may itself be stale by now.
+			const key = getReviewQueryOptions(input).queryKey;
+			if (prev) ctx.client.setQueryData(key, prev);
+			void ctx.client.invalidateQueries({ queryKey: key });
+		},
 	});
 
 export const useCreateReviewComment = (projectId: string) =>
