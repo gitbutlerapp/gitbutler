@@ -1276,6 +1276,11 @@ export const useWorkspaceIntegrateUpstream = () => {
 		mutationFn: window.lite.workspaceIntegrateUpstream,
 		onSuccess: (response, input, _context, mutation) => {
 			syncCoreCaches(mutation.client, dispatch, input.projectId, response);
+			// The base moved with the stacks: re-read the target line now rather
+			// than showing the old incoming commits until the watcher delivers.
+			void mutation.client.invalidateQueries({
+				queryKey: [input.projectId, "workspaceTargetCommits"],
+			});
 		},
 		onError: (error, input) => {
 			toastManager.add({
