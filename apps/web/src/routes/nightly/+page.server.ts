@@ -23,7 +23,8 @@ async function fetchNextBuild(fetch: typeof globalThis.fetch, path: string, mani
 			const url = new URL(file.url, base);
 			if (label && url.href.startsWith(base)) downloads.push({ url: url.href, label });
 		}
-		return downloads.length ? { version: data.version as string, downloads } : null;
+		const releasedAt = typeof data.releaseDate === "string" ? data.releaseDate : null;
+		return downloads.length ? { version: data.version as string, releasedAt, downloads } : null;
 	} catch (error) {
 		console.error(`Failed to fetch Next nightly for ${path}:`, error);
 		return null;

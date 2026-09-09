@@ -21,17 +21,31 @@
 
 	const { latestNightly, latestNightlyBuilds, otherNightlies } = untrack(() => data);
 	let nextLinuxArch = $state<"x86-64" | "ARM64">("x86-64");
-	const nextPlatforms = $derived([
-		{ name: "macOS", arch: "Apple Silicon", build: data.nextNightly.mac },
-		{
-			name: "Linux",
-			arch: nextLinuxArch,
-			build: nextLinuxArch === "ARM64" ? data.nextNightly.linuxArm64 : data.nextNightly.linux,
-		},
-	]);
+	const nextMac = $derived(data.nextNightly.mac);
+	const nextLinux = $derived(
+		nextLinuxArch === "ARM64" ? data.nextNightly.linuxArm64 : data.nextNightly.linux,
+	);
+	const nextMacDmg = $derived(
+		nextMac?.downloads.find((download) => download.label === "DMG") ?? nextMac?.downloads[0],
+	);
+	const nextVersion = $derived(nextMac?.version ?? nextLinux?.version);
+	const nextReleasedAt = $derived(nextMac?.releasedAt ?? nextLinux?.releasedAt);
 
 	let linuxArch = $state<"x86-64" | "ARM64">("x86-64");
 	let expandedRelease: string | null = $state(null);
+
+	function formatReleaseDate(date: string) {
+		const released = new Date(date);
+		return `${released.toLocaleDateString("en-GB", {
+			day: "numeric",
+			month: "long",
+			year: "numeric",
+		})} at ${released.toLocaleTimeString("en-GB", {
+			hour: "2-digit",
+			minute: "2-digit",
+			hour12: false,
+		})}`;
+	}
 
 	function toggleRelease(version: string) {
 		expandedRelease = expandedRelease === version ? null : version;
@@ -41,6 +55,53 @@
 <svelte:head>
 	<title>GitButler | Nightly Builds</title>
 </svelte:head>
+
+{#snippet appleIcon()}
+	<svg
+		width="27"
+		height="33"
+		viewBox="0 0 27 33"
+		class="download-card-logo"
+		xmlns="http://www.w3.org/2000/svg"
+		fill="currentColor"
+	>
+		<path
+			d="M19.8726 0C19.9497 0 20.0268 0 20.1082 0C20.2973 2.32723 19.4058 4.06613 18.3224 5.32539C17.2593 6.57595 15.8036 7.78883 13.4491 7.6048C13.292 5.31089 14.185 3.70096 15.2669 2.44461C16.2704 1.27375 18.11 0.231854 19.8726 0Z"
+		/>
+		<path
+			d="M27 24.2229C27 24.2461 27 24.2664 27 24.2881C26.3383 26.2849 25.3945 27.9963 24.2427 29.5845C23.1913 31.0263 21.9028 32.9667 19.6021 32.9667C17.6141 32.9667 16.2937 31.6929 14.2562 31.6581C12.101 31.6234 10.9158 32.7232 8.94522 33C8.71981 33 8.4944 33 8.27335 33C6.82635 32.7913 5.65857 31.6495 4.80782 30.6206C2.2992 27.5804 0.360659 23.6534 0 18.628C0 18.1353 0 17.6441 0 17.1514C0.152698 13.5547 1.90655 10.6305 4.23775 9.21328C5.46806 8.45975 7.15938 7.81781 9.04266 8.10473C9.84978 8.22935 10.6744 8.50468 11.3971 8.7771C12.0821 9.03939 12.9387 9.50454 13.7501 9.47991C14.2998 9.46397 14.8467 9.1785 15.4007 8.97708C17.0237 8.3931 18.6147 7.72362 20.7117 8.03807C23.232 8.41773 25.0207 9.53353 26.126 11.255C23.994 12.607 22.3085 14.6444 22.5965 18.1237C22.8524 21.2842 24.6964 23.1332 27 24.2229Z"
+		/>
+	</svg>
+{/snippet}
+
+{#snippet linuxIcon()}
+	<svg
+		width="28"
+		height="28"
+		viewBox="0 0 28 28"
+		fill="currentColor"
+		xmlns="http://www.w3.org/2000/svg"
+	>
+		<path
+			d="M18.4764 27.1234C18.7028 27.4671 18.4676 28.0009 18.0304 27.9998H9.97285C9.54678 28.0009 9.29537 27.4748 9.52693 27.1234C11.613 23.8928 16.3902 23.8928 18.4764 27.1234ZM26.8964 27.9998H21.6207C21.3989 27.9995 21.189 27.8458 21.1142 27.6288C18.7842 20.7832 9.11483 21.0894 6.88911 27.6288C6.81425 27.8458 6.60438 27.9995 6.38256 27.9998H1.09885C0.167312 28.016 -0.313736 26.8807 0.225868 26.1798C3.61303 22.0733 4.30114 15.0905 4.30114 10.0799C4.30114 4.75607 8.55683 0 14.001 0C19.4451 0 23.7008 4.75607 23.7008 10.0799C23.7008 15.3131 24.5113 21.8188 27.7774 26.1826C28.326 26.9 27.7954 28.0155 26.8964 27.9998ZM8.61218 11.7599C8.61218 12.7678 9.54103 13.615 10.5442 13.4076C11.1714 13.278 11.6896 12.7394 11.8144 12.0877C12.0038 11.0979 11.2537 10.0799 10.2288 10.0799C9.32146 10.0799 8.61218 10.8726 8.61218 11.7599ZM19.2766 16.2987C19.021 15.7675 18.3424 15.5321 17.8311 15.7975L14.001 17.7883L10.1722 15.7975C9.66058 15.532 8.98148 15.7677 8.72602 16.2994C8.47055 16.8311 8.69733 17.5368 9.20899 17.8023L13.52 20.0423C13.8191 20.1975 14.1842 20.1975 14.4833 20.0423L18.7943 17.8023C19.3281 17.5254 19.5325 16.8296 19.2766 16.2987ZM19.3898 11.7599C19.3898 10.7636 18.475 9.90195 17.4577 10.1122C16.8305 10.2419 16.3123 10.7804 16.1876 11.4322C16.0001 12.4117 16.7351 13.4399 17.7731 13.4399C18.6805 13.4399 19.3898 12.6472 19.3898 11.7599Z"
+		/>
+	</svg>
+{/snippet}
+
+{#snippet windowsIcon()}
+	<svg
+		width="28"
+		height="28"
+		viewBox="0 0 28 28"
+		class="download-card-logo"
+		xmlns="http://www.w3.org/2000/svg"
+		fill="currentColor"
+	>
+		<path
+			d="M9.81457 3.28266L0 5.05333V13.2454L9.81451 13.096L9.81457 3.28266ZM28 15.18L12.0603 14.9333V25.1213L28 28V15.18ZM9.81457 14.9027L6.84509e-05 14.752V22.9427L9.81457 24.7147V14.9027ZM28 0L12.0603 2.876V13.064L28 12.8187V0Z"
+		/>
+	</svg>
+{/snippet}
 
 <section class="latest-nightly-wrapper">
 	<Header />
@@ -55,17 +116,7 @@
 						<div class="nightly-hero__header-details">
 							<span>Latest release</span>
 							<span> • </span>
-							<span
-								>{new Date(latestNightly.released_at).toLocaleDateString("en-GB", {
-									day: "numeric",
-									month: "long",
-									year: "numeric",
-								})} at {new Date(latestNightly.released_at).toLocaleTimeString("en-GB", {
-									hour: "2-digit",
-									minute: "2-digit",
-									hour12: false,
-								})}
-							</span>
+							<span>{formatReleaseDate(latestNightly.released_at)}</span>
 							<span> • </span>
 							<a
 								href="https://github.com/gitbutlerapp/gitbutler/commit/{latestNightly.sha}"
@@ -86,21 +137,7 @@
 
 				<div class="download-links__wrapper">
 					<div class="download-card">
-						<svg
-							width="27"
-							height="33"
-							viewBox="0 0 27 33"
-							class="download-card-logo"
-							xmlns="http://www.w3.org/2000/svg"
-							fill="currentColor"
-						>
-							<path
-								d="M19.8726 0C19.9497 0 20.0268 0 20.1082 0C20.2973 2.32723 19.4058 4.06613 18.3224 5.32539C17.2593 6.57595 15.8036 7.78883 13.4491 7.6048C13.292 5.31089 14.185 3.70096 15.2669 2.44461C16.2704 1.27375 18.11 0.231854 19.8726 0Z"
-							/>
-							<path
-								d="M27 24.2229C27 24.2461 27 24.2664 27 24.2881C26.3383 26.2849 25.3945 27.9963 24.2427 29.5845C23.1913 31.0263 21.9028 32.9667 19.6021 32.9667C17.6141 32.9667 16.2937 31.6929 14.2562 31.6581C12.101 31.6234 10.9158 32.7232 8.94522 33C8.71981 33 8.4944 33 8.27335 33C6.82635 32.7913 5.65857 31.6495 4.80782 30.6206C2.2992 27.5804 0.360659 23.6534 0 18.628C0 18.1353 0 17.6441 0 17.1514C0.152698 13.5547 1.90655 10.6305 4.23775 9.21328C5.46806 8.45975 7.15938 7.81781 9.04266 8.10473C9.84978 8.22935 10.6744 8.50468 11.3971 8.7771C12.0821 9.03939 12.9387 9.50454 13.7501 9.47991C14.2998 9.46397 14.8467 9.1785 15.4007 8.97708C17.0237 8.3931 18.6147 7.72362 20.7117 8.03807C23.232 8.41773 25.0207 9.53353 26.126 11.255C23.994 12.607 22.3085 14.6444 22.5965 18.1237C22.8524 21.2842 24.6964 23.1332 27 24.2229Z"
-							/>
-						</svg>
+						{@render appleIcon()}
 
 						<div class="stack-v gap-6">
 							<a
@@ -118,17 +155,7 @@
 
 					<div class="download-card download-card__linux">
 						<div class="download-card__linux-top">
-							<svg
-								width="28"
-								height="28"
-								viewBox="0 0 28 28"
-								fill="currentColor"
-								xmlns="http://www.w3.org/2000/svg"
-							>
-								<path
-									d="M18.4764 27.1234C18.7028 27.4671 18.4676 28.0009 18.0304 27.9998H9.97285C9.54678 28.0009 9.29537 27.4748 9.52693 27.1234C11.613 23.8928 16.3902 23.8928 18.4764 27.1234ZM26.8964 27.9998H21.6207C21.3989 27.9995 21.189 27.8458 21.1142 27.6288C18.7842 20.7832 9.11483 21.0894 6.88911 27.6288C6.81425 27.8458 6.60438 27.9995 6.38256 27.9998H1.09885C0.167312 28.016 -0.313736 26.8807 0.225868 26.1798C3.61303 22.0733 4.30114 15.0905 4.30114 10.0799C4.30114 4.75607 8.55683 0 14.001 0C19.4451 0 23.7008 4.75607 23.7008 10.0799C23.7008 15.3131 24.5113 21.8188 27.7774 26.1826C28.326 26.9 27.7954 28.0155 26.8964 27.9998ZM8.61218 11.7599C8.61218 12.7678 9.54103 13.615 10.5442 13.4076C11.1714 13.278 11.6896 12.7394 11.8144 12.0877C12.0038 11.0979 11.2537 10.0799 10.2288 10.0799C9.32146 10.0799 8.61218 10.8726 8.61218 11.7599ZM19.2766 16.2987C19.021 15.7675 18.3424 15.5321 17.8311 15.7975L14.001 17.7883L10.1722 15.7975C9.66058 15.532 8.98148 15.7677 8.72602 16.2994C8.47055 16.8311 8.69733 17.5368 9.20899 17.8023L13.52 20.0423C13.8191 20.1975 14.1842 20.1975 14.4833 20.0423L18.7943 17.8023C19.3281 17.5254 19.5325 16.8296 19.2766 16.2987ZM19.3898 11.7599C19.3898 10.7636 18.475 9.90195 17.4577 10.1122C16.8305 10.2419 16.3123 10.7804 16.1876 11.4322C16.0001 12.4117 16.7351 13.4399 17.7731 13.4399C18.6805 13.4399 19.3898 12.6472 19.3898 11.7599Z"
-								/>
-							</svg>
+							{@render linuxIcon()}
 
 							<select class="linux-arch-select" bind:value={linuxArch}>
 								<option value="x86-64">x86-64</option>
@@ -185,18 +212,7 @@
 					</div>
 
 					<div class="download-card">
-						<svg
-							width="28"
-							height="28"
-							viewBox="0 0 28 28"
-							class="download-card-logo"
-							xmlns="http://www.w3.org/2000/svg"
-							fill="currentColor"
-						>
-							<path
-								d="M9.81457 3.28266L0 5.05333V13.2454L9.81451 13.096L9.81457 3.28266ZM28 15.18L12.0603 14.9333V25.1213L28 28V15.18ZM9.81457 14.9027L6.84509e-05 14.752V22.9427L9.81457 24.7147V14.9027ZM28 0L12.0603 2.876V13.064L28 12.8187V0Z"
-							/>
-						</svg>
+						{@render windowsIcon()}
 
 						<div class="stack-v gap-8">
 							<a
@@ -220,56 +236,82 @@
 			</div>
 		{/if}
 
-		<section class="next-nightly" aria-labelledby="next-nightly-title">
-			<div class="next-nightly__heading">
-				<div>
-					<span class="next-nightly__eyebrow">A look ahead</span>
-					<h2 id="next-nightly-title">GitButler <i>Next</i> Nightly</h2>
-				</div>
-				<span class="next-nightly__badge">Early preview</span>
-			</div>
-			<p class="next-nightly__description">
-				Try the next generation of GitButler. Fresh builds every night, with features still taking
-				shape. Expect rough edges.
-			</p>
-			<div class="next-nightly__downloads">
-				{#each nextPlatforms as platform (platform.name)}
-					<div class="next-nightly__platform">
-						<div class="next-nightly__platform-heading">
-							<h3>{platform.name}</h3>
-							{#if platform.name === "Linux"}
-								<select
-									class="next-nightly__arch-select"
-									aria-label="GitButler Next Linux architecture"
-									bind:value={nextLinuxArch}
-								>
-									<option value="x86-64">x86-64</option>
-									<option value="ARM64">ARM64</option>
-								</select>
-							{:else}
-								<span>{platform.arch}</span>
-							{/if}
-						</div>
-						{#if platform.build}
-							<div class="next-nightly__links">
-								{#each platform.build.downloads as download (download.url)}
-									<a
-										href={download.url}
-										aria-label={`Download GitButler Next for ${platform.name} ${platform.arch} (${download.label})`}
-									>
-										{download.label} <span aria-hidden="true">↗</span>
-									</a>
-								{/each}
-							</div>
-							<span class="next-nightly__version">v{platform.build.version}</span>
-						{:else}
-							<p class="next-nightly__status">Downloads temporarily unavailable</p>
+		<section class="nightly-hero nightly-hero--next" aria-labelledby="next-nightly-title">
+			<div class="nightly-hero__header">
+				<img class="nightly-hero__header-icon" src="/images/app-icon-next.svg" alt="" />
+				<div class="nightly-hero__header-labels">
+					<h2 id="next-nightly-title">GitButler <i>Next.</i> Nightly</h2>
+					<div class="nightly-hero__header-details">
+						<span>Early preview</span>
+						{#if nextVersion}
+							<span> • </span>
+							<span>{nextVersion}</span>
+						{/if}
+						{#if nextReleasedAt}
+							<span> • </span>
+							<span>{formatReleaseDate(nextReleasedAt)}</span>
 						{/if}
 					</div>
-				{/each}
-				<div class="next-nightly__platform next-nightly__platform--soon">
-					<div class="next-nightly__platform-heading"><h3>Windows</h3></div>
-					<span class="next-nightly__version">Coming soon</span>
+					<p class="nightly-hero__description">
+						Try the next generation of GitButler. Fresh builds every night, with features still
+						taking shape. Expect rough edges.
+					</p>
+				</div>
+			</div>
+
+			<div class="download-links__wrapper">
+				<div class="download-card">
+					{@render appleIcon()}
+
+					<div class="stack-v gap-6">
+						{#if nextMacDmg}
+							<a
+								class="download-card-title download-card-link"
+								href={nextMacDmg.url}
+								aria-label="Download GitButler Next for macOS (Apple Silicon)">Apple Silicon</a
+							>
+						{:else}
+							<span class="download-card-subtile">Downloads temporarily unavailable</span>
+						{/if}
+					</div>
+				</div>
+
+				<div class="download-card download-card__linux">
+					<div class="download-card__linux-top">
+						{@render linuxIcon()}
+
+						<select
+							class="linux-arch-select"
+							aria-label="GitButler Next Linux architecture"
+							bind:value={nextLinuxArch}
+						>
+							<option value="x86-64">x86-64</option>
+							<option value="ARM64">ARM64</option>
+						</select>
+					</div>
+
+					<div class="stack-v gap-6">
+						{#if nextLinux}
+							<div class="flex gap-16">
+								{#each nextLinux.downloads as download (download.url)}
+									<a
+										class="download-card-title download-card-link"
+										href={download.url}
+										aria-label={`Download GitButler Next for Linux ${nextLinuxArch} (${download.label})`}
+										>.{download.label.toUpperCase()}</a
+									>
+								{/each}
+							</div>
+						{:else}
+							<span class="download-card-subtile">Downloads temporarily unavailable</span>
+						{/if}
+					</div>
+				</div>
+
+				<div class="download-card download-card--soon">
+					{@render windowsIcon()}
+
+					<span class="download-card-title download-card-soon">Coming soon</span>
 				</div>
 			</div>
 		</section>
@@ -341,159 +383,6 @@
 <Footer showDownloadLinks={false} />
 
 <style>
-	.next-nightly {
-		grid-column: narrow-start / narrow-end;
-		padding: 28px;
-		border: 1px solid #479fe8;
-		border-radius: var(--radius-xl);
-		background:
-			radial-gradient(ellipse at top right, #1988ff66, transparent 65%),
-			linear-gradient(120deg, #064a86, #007acf);
-		color: #f0f8ff;
-	}
-
-	.next-nightly__heading,
-	.next-nightly__platform-heading {
-		display: flex;
-		flex-wrap: wrap;
-		align-items: center;
-		justify-content: space-between;
-		gap: 12px;
-	}
-
-	.next-nightly__eyebrow,
-	.next-nightly__badge,
-	.next-nightly__version,
-	.next-nightly__platform-heading span {
-		color: #c5e3fa;
-		font-size: 12px;
-		font-family: var(--font-mono);
-	}
-
-	.next-nightly__eyebrow {
-		letter-spacing: 0.08em;
-		text-transform: uppercase;
-	}
-
-	.next-nightly__arch-select {
-		padding: 3px 6px;
-		border: 1px solid #8ac4f066;
-		border-radius: 8px;
-		background-color: #007acf;
-		color: #c5e3fa;
-		font-size: 12px;
-		font-family: var(--font-mono);
-		cursor: pointer;
-
-		&:focus-visible {
-			outline: 2px solid #c0e4ff;
-			outline-offset: 3px;
-		}
-	}
-
-	.next-nightly__heading {
-		align-items: baseline;
-	}
-
-	.next-nightly__version {
-		margin-top: auto;
-	}
-
-	.next-nightly h2 {
-		margin: 6px 0 0;
-		font-size: 36px;
-		line-height: 1.15;
-		font-family: var(--font-accent);
-	}
-
-	.next-nightly h2 i {
-		color: #c0e4ff;
-	}
-
-	.next-nightly__badge {
-		padding: 6px 10px;
-		border: 1px solid #8ac4f066;
-		border-radius: 100px;
-	}
-
-	.next-nightly__description {
-		max-width: 620px;
-		margin: 14px 0 22px;
-		color: #d3e9fa;
-		font-size: 14px;
-		line-height: 1.5;
-	}
-
-	.next-nightly__downloads {
-		display: grid;
-		grid-template-columns: repeat(3, minmax(0, 1fr));
-		gap: 12px;
-	}
-
-	.next-nightly__platform {
-		display: flex;
-		flex-direction: column;
-		padding: 18px;
-		gap: 14px;
-		border: 1px solid #9acff54d;
-		border-radius: 12px;
-		background: #ffffff08;
-	}
-
-	.next-nightly__platform h3 {
-		margin: 0;
-		font-weight: 600;
-		font-size: 16px;
-	}
-
-	.next-nightly__links {
-		display: flex;
-		flex-wrap: wrap;
-		gap: 10px 18px;
-	}
-
-	.next-nightly__links a {
-		color: #f0f8ff;
-		font-weight: 600;
-		font-size: 14px;
-		text-decoration: underline;
-		text-underline-offset: 4px;
-
-		&:hover {
-			color: #c0e4ff;
-		}
-
-		&:focus-visible {
-			border-radius: 2px;
-			outline: 2px solid #c0e4ff;
-			outline-offset: 5px;
-		}
-	}
-
-	.next-nightly__platform--soon {
-		border-style: dashed;
-		background: transparent;
-	}
-
-	.next-nightly__status {
-		color: #c5e3fa;
-		font-size: 14px;
-	}
-
-	@media (max-width: 700px) {
-		.next-nightly {
-			padding: 20px;
-		}
-
-		.next-nightly h2 {
-			font-size: 30px;
-		}
-
-		.next-nightly__downloads {
-			grid-template-columns: 1fr;
-		}
-	}
-
 	.latest-nightly-wrapper {
 		display: grid;
 		grid-template-columns: subgrid;
@@ -515,7 +404,7 @@
 		flex-direction: column;
 		padding: 28px;
 		overflow: hidden;
-		gap: 32px;
+		gap: 30px;
 		border-radius: var(--radius-xl);
 		background-color: var(--fill-gray-bg);
 		color: var(--fill-gray-fg);
@@ -538,7 +427,8 @@
 		font-family: var(--font-mono);
 	}
 
-	.nightly-hero__header-labels h1 {
+	.nightly-hero__header-labels h1,
+	.nightly-hero__header-labels h2 {
 		margin: 0;
 		margin-bottom: 6px;
 		font-size: 48px;
@@ -551,7 +441,7 @@
 		flex-wrap: wrap;
 		align-items: center;
 		margin-bottom: 16px;
-		gap: 8px;
+		gap: 2px 8px;
 		font-size: 13px;
 		opacity: 0.6;
 	}
@@ -566,7 +456,7 @@
 	.download-links__wrapper {
 		display: flex;
 		position: relative;
-		padding: 10px 0 40px;
+		padding: 10px 0 30px;
 		gap: 10px;
 
 		&::after {
@@ -682,6 +572,53 @@
 				text-decoration-color: var(--fill-pop-bg);
 			}
 		}
+	}
+
+	/* NEXT NIGHTLY */
+	.nightly-hero--next {
+		background-image:
+			linear-gradient(to right, rgba(255, 255, 255, 0.04) 1px, transparent 1px),
+			linear-gradient(to bottom, rgba(255, 255, 255, 0.04) 1px, transparent 1px);
+		background-size: 16px 16px;
+		background-color: #0f69ca;
+		color: #fff;
+
+		& .download-links__wrapper {
+			padding-bottom: 0;
+
+			&::after {
+				display: none;
+			}
+		}
+
+		& .download-card {
+			border-color: #529be9;
+			color: #fff;
+		}
+
+		& .download-card-link:hover {
+			text-decoration-color: #c0e4ff;
+		}
+
+		& .linux-arch-select {
+			border-color: #529be9;
+			background-image: url("data:image/svg+xml,%3Csvg width='10' height='6' viewBox='0 0 10 6' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 1L5 5L9 1' stroke='%23fff' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+			color: #fff;
+
+			&:hover,
+			&:focus {
+				border-color: #c0e4ff;
+			}
+		}
+	}
+
+	.download-card--soon {
+		border-style: dashed;
+	}
+
+	.download-card-soon {
+		font-style: italic;
+		opacity: 0.4;
 	}
 
 	.nightly-warning {
@@ -818,7 +755,8 @@
 			gap: 16px;
 		}
 
-		.nightly-hero__header-labels h1 {
+		.nightly-hero__header-labels h1,
+		.nightly-hero__header-labels h2 {
 			font-size: 36px;
 		}
 
