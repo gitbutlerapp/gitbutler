@@ -18,7 +18,7 @@ permissions:
 
 jobs:
   changes:
-    runs-on: ubuntu-latest
+    runs-on: depot-ubuntu-24.04-4
     outputs:
       node: ${{ steps.filter.outputs.node }}
       rust: ${{ steps.filter.outputs.rust }}
@@ -96,11 +96,13 @@ jobs:
   # to the current push. This is just a signal for us that we should check it out.
   smoke-test-adjacent-release-compatibility:
     uses: ./.github/workflows/smoke-test-version-compatibility.yaml
+    with:
+      depot-runners: true
 
   prettier:
     needs: changes
     if: ${{ needs.changes.outputs.node == 'true' || needs.changes.outputs.docs == 'true' }}
-    runs-on: ubuntu-latest
+    runs-on: depot-ubuntu-24.04-4
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -111,7 +113,7 @@ jobs:
   lint-node:
     needs: changes
     if: ${{ needs.changes.outputs.node == 'true' }}
-    runs-on: ubuntu-latest
+    runs-on: depot-ubuntu-24.04-4
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -122,7 +124,7 @@ jobs:
   check-node:
     needs: changes
     if: ${{ needs.changes.outputs.node == 'true' }}
-    runs-on: ubuntu-latest
+    runs-on: depot-ubuntu-24.04-4
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -133,7 +135,7 @@ jobs:
   unittest-node:
     needs: changes
     if: ${{ needs.changes.outputs.node == 'true' }}
-    runs-on: ubuntu-latest
+    runs-on: depot-ubuntu-24.04-4
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -151,19 +153,11 @@ jobs:
       - run: pnpm ui:playwright:install:unit
         if: ${{ steps.playwright-cache.outputs.cache-hit != 'true' }}
       - run: pnpm test
-        env:
-          BUILDKITE_ANALYTICS_TOKEN: ${{ secrets.TEST_RESULTS_TOKEN_VITEST }}
-          BUILDKITE_ANALYTICS_BASE_URL: https://tests.but.dev/v1/uploads
-          # Normalized run identity, matching what the curl-based uploads send, so
-          # every suite reports the same key/branch/sha for one CI run.
-          BUILDKITE_ANALYTICS_KEY: ${{ github.run_id }}-${{ github.run_attempt }}
-          BUILDKITE_ANALYTICS_BRANCH: ${{ github.head_ref || github.ref_name }}
-          BUILDKITE_ANALYTICS_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
 
   but-sdk-build-check:
     needs: changes
     if: ${{ needs.changes.outputs.but_sdk == 'true' }}
-    runs-on: ubuntu-latest
+    runs-on: depot-ubuntu-24.04-4
     env:
       CARGO_TERM_COLOR: always
     steps:
@@ -244,7 +238,7 @@ jobs:
   cargo-machete:
     needs: changes
     if: ${{ needs.changes.outputs.rust == 'true' }}
-    runs-on: ubuntu-latest
+    runs-on: depot-ubuntu-24.04-4
     permissions:
       contents: read
       packages: read
@@ -260,7 +254,7 @@ jobs:
   cargo-deny:
     needs: changes
     if: ${{ needs.changes.outputs.rust == 'true' }}
-    runs-on: ubuntu-latest
+    runs-on: depot-ubuntu-24.04-4
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -272,7 +266,7 @@ jobs:
   cargo-doc:
     needs: changes
     if: ${{ needs.changes.outputs.rust == 'true' }}
-    runs-on: ubuntu-latest
+    runs-on: depot-ubuntu-24.04-4
     env:
       CARGO_TERM_COLOR: always
       RUSTDOCFLAGS: -D warnings
@@ -293,7 +287,7 @@ jobs:
   rust-test:
     needs: changes
     if: ${{ needs.changes.outputs.rust == 'true' }}
-    runs-on: ubuntu-latest
+    runs-on: depot-ubuntu-24.04-4
     env:
       CARGO_TERM_COLOR: always
       GITBUTLER_TESTS_NO_CLEANUP: "1"
@@ -331,31 +325,6 @@ jobs:
         run: cargo nextest run --workspace --exclude gitbutler-tauri --exclude but-api-macros-tests --profile ci
       - name: Run doctests
         run: cargo test --doc --workspace --exclude gitbutler-tauri --exclude but-api-macros-tests
-      - name: Upload results to tests.but.dev
-        if: ${{ always() && !cancelled() }}
-        continue-on-error: true
-        env:
-          BUILDKITE_ANALYTICS_TOKEN: ${{ secrets.TEST_RESULTS_TOKEN_CARGO }}
-          RUN_BRANCH: ${{ github.head_ref || github.ref_name }}
-          RUN_COMMIT_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
-          RUN_KEY: ${{ github.run_id }}-${{ github.run_attempt }}
-          RUN_NUMBER: ${{ github.run_number }}
-          RUN_URL: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
-        run: |
-          curl --fail-with-body -X POST \
-            -H "Authorization: Token $BUILDKITE_ANALYTICS_TOKEN" \
-            -F "data=@target/nextest/ci/junit.xml" \
-            -F "format=junit" \
-            -F "run_env[CI]=github_actions" \
-            -F "run_env[key]=$RUN_KEY" \
-            -F "run_env[number]=$RUN_NUMBER" \
-            -F "run_env[branch]=$RUN_BRANCH" \
-            -F "run_env[commit_sha]=$RUN_COMMIT_SHA" \
-            -F "run_env[url]=$RUN_URL" \
-            -F "tags[framework]=nextest" \
-            -F "tags[language]=rust" \
-            -F "tags[type]=unit" \
-            https://tests.but.dev/v1/uploads
       # It's intentional to use 'name equals run-script' so it's easy to re-run locally on failure.
       - run: make test-modern-but
       - name: test vendored
@@ -441,7 +410,7 @@ jobs:
 
   check-rust-windows:
     needs: changes
-    runs-on: windows-latest
+    runs-on: depot-windows-2025-4
     if: ${{ needs.changes.outputs.rust == 'true' }}
     env:
       CARGO_TERM_COLOR: always
@@ -466,16 +435,16 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - platform: macos-15 # [macOs, ARM64] - default target
+          - platform: depot-macos-15 # [macOs, ARM64] - default target
             artifact_id: macos-15-aarch64
             target: ""
-          - platform: macos-15 # [macOs, x64] - cross-compile
+          - platform: depot-macos-15 # [macOs, x64] - cross-compile
             artifact_id: macos-15-x86_64
             target: x86_64-apple-darwin
-          - platform: ubuntu-22.04 # [linux, x64]
+          - platform: depot-ubuntu-22.04-4 # [linux, x64]
             artifact_id: linux-x86_64
             target: ""
-          - platform: ubuntu-22.04-arm # [linux, ARM64]
+          - platform: depot-ubuntu-22.04-arm-4 # [linux, ARM64]
             artifact_id: linux-aarch64
             target: ""
 
@@ -515,7 +484,7 @@ jobs:
   fetch-published-versions:
     needs: changes
     if: ${{ needs.changes.outputs.install_script == 'true' || needs.changes.outputs.but_installer == 'true' }}
-    runs-on: ubuntu-22.04
+    runs-on: depot-ubuntu-22.04-4
     permissions: {}
     outputs:
       release_version: ${{ steps.fetch.outputs.release_version }}
@@ -541,9 +510,9 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - platform: macos-15 # [macOs, ARM64] - default target
-          - platform: ubuntu-22.04 # [linux, x64]
-          - platform: ubuntu-22.04-arm # [linux, ARM64]
+          - platform: depot-macos-15 # [macOs, ARM64] - default target
+          - platform: depot-ubuntu-22.04-4 # [linux, x64]
+          - platform: depot-ubuntu-22.04-arm-4 # [linux, ARM64]
     runs-on: ${{ matrix.platform }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -571,13 +540,13 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - platform: macos-15 # [macOs, ARM64] - default target
+          - platform: depot-macos-15 # [macOs, ARM64] - default target
             artifact_id: macos-15-aarch64
-          - platform: macos-15 # [macOs, x64] - cross-compile
+          - platform: depot-macos-15 # [macOs, x64] - cross-compile
             artifact_id: macos-15-x86_64
-          - platform: ubuntu-22.04 # [linux, x64]
+          - platform: depot-ubuntu-22.04-4 # [linux, x64]
             artifact_id: linux-x86_64
-          - platform: ubuntu-22.04-arm # [linux, ARM64]
+          - platform: depot-ubuntu-22.04-arm-4 # [linux, ARM64]
             artifact_id: linux-aarch64
     runs-on: ${{ matrix.platform }}
     steps:
@@ -596,56 +565,6 @@ jobs:
       - name: Validate nightly version
         run: but --version | grep "but $LATEST_NIGHTLY_VERSION"
 
-  publish-installer:
-    needs: build-installer
-    if: ${{ github.ref == 'refs/heads/master' }}
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
-      - name: Download macOS x86_64 installer
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
-        with:
-          name: "but-installer-macos-15-x86_64-${{ github.run_number }}"
-          path: s3-upload/macos/x86_64
-      - name: Download macOS aarch64 installer
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
-        with:
-          name: "but-installer-macos-15-aarch64-${{ github.run_number }}"
-          path: s3-upload/macos/aarch64
-      - name: Download Linux x86_64 installer
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
-        with:
-          name: "but-installer-linux-x86_64-${{ github.run_number }}"
-          path: s3-upload/linux/x86_64
-      - name: Download Linux aarch64 installer
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
-        with:
-          name: "but-installer-linux-aarch64-${{ github.run_number }}"
-          path: s3-upload/linux/aarch64
-      - name: Make binaries executable
-        run: |
-          find ./s3-upload -name 'but-installer' | xargs chmod +x
-      - name: Upload to S3
-        uses: shallwefootball/s3-upload-action@4350529f410221787ccf424e50133cbc1b52704e # master
-        with:
-          aws_key_id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws_secret_access_key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws_bucket: "releases.gitbutler.com"
-          source_dir: "s3-upload/"
-          destination_dir: "installers/${{ github.sha }}"
-      - name: Upload to S3 (latest)
-        uses: shallwefootball/s3-upload-action@4350529f410221787ccf424e50133cbc1b52704e # master
-        with:
-          aws_key_id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws_secret_access_key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws_bucket: "releases.gitbutler.com"
-          source_dir: "s3-upload/"
-          destination_dir: "installers/latest"
-
   check-rust:
     # Skip the aggregator when the run itself is cancelled: a concurrency-
     # cancelled twin run has `cancelled` needs, which alls-green scores as
@@ -663,7 +582,7 @@ jobs:
       - cargo-doc
       - build-installer
       - but-sdk-build-check
-    runs-on: ubuntu-latest
+    runs-on: depot-ubuntu-24.04-4
     env:
       CARGO_TERM_COLOR: always
     steps:
@@ -675,7 +594,7 @@ jobs:
 
   # Check that all `actions/checkout` in CI jobs have `persist-credentials: false`.
   check-no-persist-credentials:
-    runs-on: ubuntu-latest
+    runs-on: depot-ubuntu-24.04-4
 
     env:
       GLOB: .github/workflows/*.@(yaml|yml)
@@ -750,7 +669,7 @@ jobs:
   lite-e2e:
     needs: changes
     if: ${{ needs.changes.outputs.lite_e2e == 'true' }}
-    runs-on: ubuntu-latest
+    runs-on: depot-ubuntu-24.04-4
     timeout-minutes: 30
     permissions:
       contents: read
@@ -788,14 +707,6 @@ jobs:
       - name: Run Lite E2E tests
         # Concurrent Electron launches can fail during renderer bootstrap on GitHub's Linux runners.
         run: xvfb-run --auto-servernum pnpm --filter @gitbutler/lite test:e2e --forbid-only --workers=1
-        env:
-          BUILDKITE_ANALYTICS_TOKEN: ${{ secrets.TEST_RESULTS_TOKEN_LITE_E2E }}
-          BUILDKITE_ANALYTICS_BASE_URL: https://tests.but.dev/v1/uploads
-          # Normalized run identity, matching what the curl-based uploads send, so
-          # every suite reports the same key/branch/sha for one CI run.
-          BUILDKITE_ANALYTICS_KEY: ${{ github.run_id }}-${{ github.run_attempt }}
-          BUILDKITE_ANALYTICS_BRANCH: ${{ github.head_ref || github.ref_name }}
-          BUILDKITE_ANALYTICS_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         if: failure()
         with:

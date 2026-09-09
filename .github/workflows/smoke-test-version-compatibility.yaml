@@ -2,6 +2,10 @@ name: "Smoke test version compatibility"
 on:
   workflow_call:
     inputs:
+      depot-runners:
+        type: boolean
+        description: Run on Depot-hosted GitHub Actions runners instead of GitHub-hosted runners.
+        default: false
       channel:
         type: string
         description: If publishing a new release, the channel should go here
@@ -19,10 +23,13 @@ jobs:
       matrix:
         include:
           - platform: macos-15 # [macOs, ARM64] - no way to run macOS x86_64 on GH Actions
+            depot-platform: depot-macos-15
           - platform: ubuntu-22.04 # [linux, x64]
+            depot-platform: depot-ubuntu-22.04-4
           - platform: ubuntu-22.04-arm # [linux, ARM64]
+            depot-platform: depot-ubuntu-22.04-arm-4
 
-    runs-on: ${{ matrix.platform }}
+    runs-on: ${{ inputs.depot-runners && matrix.depot-platform || matrix.platform }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
