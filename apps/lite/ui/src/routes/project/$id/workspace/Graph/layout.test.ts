@@ -63,7 +63,17 @@ const worktree = (name: string, base: Worktree["base"], commits: Array<string>):
 	refName: null,
 	head: commits[0] ?? "",
 	base,
-	commits: commits.map(ownCommit),
+	segments: [
+		{
+			refName: null,
+			remoteTrackingRefName: null,
+			commits: commits.map(ownCommit),
+			commitsOnRemote: [],
+			metadata: null,
+			pushStatus: "completelyUnpushed",
+			base: base?.subject ?? null,
+		},
+	],
 });
 
 const folded: Folds = {

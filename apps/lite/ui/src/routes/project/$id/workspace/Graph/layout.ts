@@ -159,7 +159,9 @@ const placeWorktrees = (
 		...stacks.flatMap((stack) =>
 			stack.segments.flatMap((segment) => segment.commits.map((commit) => commit.id)),
 		),
-		...worktrees.flatMap((worktree) => worktree.commits.map((commit) => commit.id)),
+		...worktrees.flatMap((worktree) =>
+			worktree.segments.flatMap((segment) => segment.commits.map((commit) => commit.id)),
+		),
 	]);
 	const on = new Map<string, Array<Worktree>>();
 	const standalone: Array<Worktree> = [];
