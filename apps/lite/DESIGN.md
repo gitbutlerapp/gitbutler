@@ -207,10 +207,11 @@ be, next to the filter that caused it. A picker's list takes a smaller block,
 `PopupEmpty`: the looking character cropped to the binoculars over the one line
 that reports the miss, with no title above it, the line closer under the
 illustration, and no counterweight, because a line has no weight to lift. The
-same rule as the branches tab picks the drawing: a list with nothing in it
-before anything was typed gets the cactus, since nothing was searched for. A
-dropdown no wider than its trigger keeps the plain line: the commit target
-combobox is too narrow for the drawing.
+same rule as the branches tab picks the drawing and the line: a list with
+nothing in it before anything was typed gets the cactus and says what that
+means — "Nothing left to apply" — since nothing was searched for and "found"
+would be the wrong word. A dropdown no wider than its trigger keeps the plain
+line: the commit target combobox is too narrow for the drawing.
 
 **Never a stand-in that looks like content.** Gray avatar circles and text
 bars where the reviewers would go are what every app draws while it is still

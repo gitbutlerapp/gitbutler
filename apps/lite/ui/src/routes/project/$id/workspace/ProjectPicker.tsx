@@ -338,7 +338,11 @@ export const ProjectPicker: FC<{ project: ProjectForFrontend }> = (p) => {
 							render={<Combobox.Input value={query} />}
 						/>
 						<Combobox.Empty>
-							<PopupEmpty query={deferredQuery}>No projects found</PopupEmpty>
+							<PopupEmpty
+								query={deferredQuery}
+								nothingFound="No projects found"
+								nothingToList="No projects yet"
+							/>
 						</Combobox.Empty>
 
 						<VirtualizedProjectList
