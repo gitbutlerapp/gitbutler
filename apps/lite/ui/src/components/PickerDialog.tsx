@@ -3,7 +3,7 @@
  */
 
 import { Autocomplete, Dialog } from "@base-ui/react";
-import { Modal, PopupSearch } from "#ui/components/Popup.tsx";
+import { Modal, PopupSearch, PopupSectionLabel } from "#ui/components/Popup.tsx";
 import { getRangeExtractorWithIndices } from "#ui/virtual.ts";
 import { type Range, useVirtualizer } from "@tanstack/react-virtual";
 import {
@@ -218,19 +218,16 @@ const VirtualizedListArea = <T,>({
 
 								if (row._tag === "Group") {
 									return (
-										<div
+										<PopupSectionLabel
 											key={virtualItem.key}
 											ref={virtualizer.measureElement}
 											data-index={virtualItem.index}
 											role="presentation"
-											className={classes(
-												styles.groupLabel,
-												virtualItem.index > 0 && styles.groupLabelDivided,
-											)}
+											divided={virtualItem.index > 0}
 											style={style}
 										>
 											{row.group.value}
-										</div>
+										</PopupSectionLabel>
 									);
 								}
 

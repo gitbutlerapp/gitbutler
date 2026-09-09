@@ -269,6 +269,25 @@ export const PopupSection: FC<{ label?: ReactNode } & useRender.ComponentProps<"
 	});
 
 /**
+ * A section's heading on its own, for a list whose rows a virtualiser positions one by one and so
+ * cannot wrap in a {@link PopupSection}. The same heading a section draws; `divided` adds the
+ * hairline the section before it would otherwise have drawn.
+ *
+ * @public
+ */
+export const PopupSectionLabel: FC<{ divided?: boolean } & useRender.ComponentProps<"div">> = ({
+	divided = false,
+	render,
+	...props
+}) =>
+	useRender({
+		render: render ?? <div />,
+		props: mergeProps<"div">(props, {
+			className: classes("text-12", styles.sectionLabel, divided && styles.sectionLabelDivided),
+		}),
+	});
+
+/**
  * One row of a popup: an optional glyph, the label, and — at the far end — a shortcut and a
  * trailing glyph marking what the row is or where it leads.
  *

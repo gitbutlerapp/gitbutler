@@ -1,7 +1,13 @@
 import { getButtonClassName } from "#ui/components/Button.tsx";
 import { classes } from "#ui/components/classes.ts";
 import { FolderIcon } from "#ui/components/FolderIcon.tsx";
-import { Popup, PopupItem, PopupSearch, PopupSection } from "#ui/components/Popup.tsx";
+import {
+	Popup,
+	PopupItem,
+	PopupSearch,
+	PopupSection,
+	PopupSectionLabel,
+} from "#ui/components/Popup.tsx";
 import { TooltipPopup } from "#ui/components/Tooltip.tsx";
 import { useAddLocalRepository } from "#ui/components/useAddLocalRepository.ts";
 import { globalHotkeys } from "#ui/hotkeys.ts";
@@ -181,17 +187,13 @@ const VirtualizedProjectList: FC<{
 								className={styles.virtualProject}
 							>
 								{row.isFirstInGroup && (
-									<div
+									<PopupSectionLabel
 										id={`${groupDescriptionId}-${row.groupIndex}`}
 										aria-hidden="true"
-										className={classes(
-											"text-12",
-											styles.groupLabel,
-											row.groupIndex > 0 && styles.groupLabelDivided,
-										)}
+										divided={row.groupIndex > 0}
 									>
 										{group.value}
-									</div>
+									</PopupSectionLabel>
 								)}
 
 								<PopupItem

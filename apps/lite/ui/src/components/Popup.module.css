@@ -159,15 +159,38 @@
 	border-top: 1px solid var(--border-3);
 }
 
+/* The heading carries the 4px its rows open with, so it is the same box whether a section wraps
+   it or a virtualised list renders it as a row of its own. */
 .sectionLabel {
-	padding: 8px 10px 0;
+	padding: 8px 10px 4px;
 	color: var(--text-3);
+}
+
+/* A row of its own has no section to draw the divider on, so the heading below the line hosts it
+   inside its own box. The previous section's inset, the divider, then this heading's own inset:
+   4px + 1px + 8px. */
+.sectionLabelDivided {
+	position: relative;
+	padding-top: 13px;
+
+	&::before {
+		position: absolute;
+		inset-inline: 0;
+		top: 4px;
+		border-top: 1px solid var(--border-3);
+		content: "";
+	}
 }
 
 .sectionItems {
 	display: flex;
 	flex-direction: column;
 	padding: 4px;
+}
+
+/* A heading above already opens the rows by the 4px. */
+.sectionLabel + .sectionItems {
+	padding-top: 0;
 }
 
 .item {
