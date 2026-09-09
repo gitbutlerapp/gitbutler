@@ -203,7 +203,12 @@ room for it — the branches tab — it takes the block, with the title naming t
 miss and the body quoting what missed: the search, the filters, or both. The
 one action shows everything again, because the filters live in a native menu
 the block cannot point at. A short strip keeps the line where its rows would
-be, next to the filter that caused it.
+be, next to the filter that caused it. A picker's list takes a smaller block,
+`PopupEmpty`: the looking character cropped to the binoculars over the one line
+that reports the miss, with no title above it, the line closer under the
+illustration, and no counterweight, because a line has no weight to lift. A
+dropdown no wider than its trigger keeps the plain line: the commit target
+combobox is too narrow for the drawing.
 
 **Never a stand-in that looks like content.** Gray avatar circles and text
 bars where the reviewers would go are what every app draws while it is still

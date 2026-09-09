@@ -10,8 +10,11 @@ type Props = {
 	/**
 	 * One short line naming the state. Sentence case, no full stop. Wraps
 	 * balanced, so write it as a sentence and let the lines fall where they may.
+	 *
+	 * Omit where the body line says it all — a picker that found nothing
+	 * reports the miss in one line, and a heading over it would only repeat it.
 	 */
-	title: string;
+	title?: string;
 	/**
 	 * 1–2 short sentences, around 10–25 words. Say what happens next, or report
 	 * the live answer — a count, a name, a time — rather than restating the title.
@@ -36,7 +39,11 @@ export const EmptyState: FC<Props> = ({ illustration, title, description, childr
 
 		<div className={styles.body}>
 			<div className={styles.lines}>
-				<p className={classes("text-14", "text-semibold", "text-balance", styles.title)}>{title}</p>
+				{title !== undefined && (
+					<p className={classes("text-14", "text-semibold", "text-balance", styles.title)}>
+						{title}
+					</p>
+				)}
 				{description !== undefined && (
 					<p className={classes("text-13", "text-body", "text-balance", styles.description)}>
 						{description}

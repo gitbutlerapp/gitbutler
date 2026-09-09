@@ -1,5 +1,5 @@
 import preview from "#storybook/preview";
-import { Popup, PopupItem, PopupSearch, PopupSection } from "./Popup.tsx";
+import { Popup, PopupEmpty, PopupItem, PopupSearch, PopupSection } from "./Popup.tsx";
 
 const meta = preview.meta({
 	component: Popup,
@@ -80,6 +80,23 @@ export const ProjectSelector = meta.story({
 				<PopupItem trailing="plus">Add local repository</PopupItem>
 				<PopupItem trailing="copy">Clone repository</PopupItem>
 			</PopupSection>
+		</Popup>
+	),
+});
+
+/** A search that matched nothing: the block a picker's list shows in place of its rows. */
+export const NothingFound = meta.story({
+	parameters: {
+		design: {
+			type: "figma",
+			url: "https://www.figma.com/design/EBuHQGUcCaSw4Ln5uVpWkn/Lite?node-id=4956-44616",
+		},
+	},
+	args: { style: { width: 420 } },
+	render: (args) => (
+		<Popup {...args}>
+			<PopupSearch placeholder="Search hotkeys..." aria-label="Search hotkeys" />
+			<PopupEmpty>No hotkeys found.</PopupEmpty>
 		</Popup>
 	),
 });

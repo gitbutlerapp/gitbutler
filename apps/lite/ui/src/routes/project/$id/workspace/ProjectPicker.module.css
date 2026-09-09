@@ -36,12 +36,6 @@
 	margin-inline: 4px;
 }
 
-.empty {
-	padding-inline: 10px;
-	padding-block: 8px;
-	color: var(--text-2);
-}
-
 /* The action rows sit outside the list, so the divider one section draws against the next cannot
    reach them. */
 .actions {

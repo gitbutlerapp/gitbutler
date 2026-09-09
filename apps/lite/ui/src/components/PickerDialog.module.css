@@ -69,7 +69,9 @@
 	white-space: nowrap;
 }
 
-.empty {
+/* Loading and failing stay one line where the rows would be: neither is a surface at rest, and
+   neither gets the block a search that matched nothing does. */
+.status {
 	box-sizing: border-box;
 	display: flex;
 	align-items: center;

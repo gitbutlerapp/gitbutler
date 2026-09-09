@@ -3,7 +3,7 @@
  */
 
 import { Autocomplete, Dialog } from "@base-ui/react";
-import { Modal, PopupSearch, PopupSectionLabel } from "#ui/components/Popup.tsx";
+import { Modal, PopupEmpty, PopupSearch, PopupSectionLabel } from "#ui/components/Popup.tsx";
 import { getRangeExtractorWithIndices } from "#ui/virtual.ts";
 import { type Range, useVirtualizer } from "@tanstack/react-virtual";
 import {
@@ -191,10 +191,10 @@ const VirtualizedListArea = <T,>({
 		<div ref={scrollElementRef} className={classes(uiStyles.scroller, styles.listArea)}>
 			<div className={styles.listContent}>
 				<Autocomplete.Status>
-					{statusLabel !== undefined ? <div className={styles.empty}>{statusLabel}</div> : null}
+					{statusLabel !== undefined ? <div className={styles.status}>{statusLabel}</div> : null}
 				</Autocomplete.Status>
 				<Autocomplete.Empty>
-					{statusLabel === undefined ? <div className={styles.empty}>{emptyLabel}</div> : null}
+					{statusLabel === undefined ? <PopupEmpty>{emptyLabel}</PopupEmpty> : null}
 				</Autocomplete.Empty>
 
 				<Autocomplete.List className={styles.list}>

@@ -1,4 +1,5 @@
 import { classes } from "#ui/components/classes.ts";
+import { EmptyState } from "#ui/components/EmptyState.tsx";
 import { Icon } from "#ui/components/Icon.tsx";
 import type { IconName } from "#ui/components/iconNames.ts";
 import { Kbd } from "#ui/components/Kbd.tsx";
@@ -237,6 +238,23 @@ export const PopupSearch: FC<{ onClear?: () => void } & useRender.ComponentProps
 		</div>
 	);
 };
+
+/**
+ * What a popup's list shows once a search has matched nothing: the looking character cropped to
+ * the binoculars, over the one line that says so. The "Empty state" block, sized for a list rather
+ * than a panel — the line sits closer under the illustration and there is no counterweight, since
+ * a line under a light drawing has no weight to lift.
+ *
+ * The line keeps its full stop: it reports the miss, it does not name a state.
+ *
+ * For a popup as wide as a picker. A dropdown no wider than its trigger — the commit target
+ * combobox — keeps a plain line, since the illustration would fill it.
+ *
+ * @public
+ */
+export const PopupEmpty: FC<{ children: string }> = ({ children }) => (
+	<EmptyState illustration="searching" description={children} className={styles.empty} />
+);
 
 /**
  * A run of {@link PopupItem}s under an optional heading. Sections divide from one another, so a
