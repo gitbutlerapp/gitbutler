@@ -1202,7 +1202,7 @@ export const ReviewTimeline: FC<{ projectId: string; review: ForgeReview }> = ({
 		[review, events],
 	);
 
-	if (isPending) return <div className={classes("text-13", styles.commentsEmpty)}>Loading…</div>;
+	if (isPending) return <div className={classes("text-13", styles.commentsLoading)}>Loading…</div>;
 	const shown = expanded ? items : items.slice(0, collapsedTimelineCount);
 	const hidden = items.length - shown.length;
 
@@ -1389,7 +1389,7 @@ export const PullRequestComments: FC<{ projectId: string; review: ForgeReview }>
 				textareaRef={composerRef}
 			/>
 			{loading ? (
-				<div className={classes("text-13", styles.commentsEmpty)}>Loading…</div>
+				<div className={classes("text-13", styles.commentsLoading)}>Loading…</div>
 			) : (
 				<div className={styles.commentList}>
 					{items.map((item) =>
