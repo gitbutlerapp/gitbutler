@@ -157,7 +157,7 @@ pub fn branch_and_ancestor_segments<'a>(
     ref_info
         .lane_chain(branch)
         .into_iter()
-        .flat_map(|(lane, index)| &lane.segments[index..])
+        .flat_map(|(lane, index)| lane.segments_from(index))
         .filter(|segment| {
             segment
                 .ref_name()

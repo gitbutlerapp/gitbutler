@@ -351,7 +351,12 @@ pub struct Lane<'a> {
     pub rests_on: Option<gix::ObjectId>,
 }
 
-impl Lane<'_> {
+impl<'a> Lane<'a> {
+    /// The segments from `index` down to the base.
+    pub fn segments_from(self, index: usize) -> &'a [Segment] {
+        self.segments.get(index..).unwrap_or_default()
+    }
+
     fn segment_index(&self, matches: impl Fn(&Segment) -> bool) -> Option<usize> {
         self.segments.iter().position(matches)
     }

@@ -250,7 +250,7 @@ fn lane_chains_follow_what_worktrees_rest_on() -> Result<()> {
         info.lane_chain(branch.as_ref())
             .into_iter()
             .map(|(lane, index)| {
-                lane.segments[index..]
+                lane.segments_from(index)
                     .iter()
                     .map(|segment| {
                         segment
