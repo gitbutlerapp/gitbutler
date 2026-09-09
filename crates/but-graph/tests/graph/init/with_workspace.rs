@@ -8655,6 +8655,9 @@ fn worktree_tip_in_workspace_priority_mode() -> anyhow::Result<()> {
         graph_workspace(&graph.into_workspace()?).to_string(),
         snapbox::str![[r#"
 📕🏘️:gitbutler/workspace[🌳@repo] <> ✓refs/remotes/origin/main on fafd9d0
+└── 📁worktree-ahead-checkout-feature on fafd9d0
+    └── :wt-feature[📁worktree-ahead-checkout-feature]
+        └── ·26837d3
 
 "#]]
     );
@@ -10285,9 +10288,11 @@ fn worktree_ref_at_applied_branch_with_discovery() -> anyhow::Result<()> {
         graph_workspace(&graph.into_workspace()?).to_string(),
         snapbox::str![[r#"
 📕🏘️:gitbutler/workspace[🌳@repo] <> ✓refs/remotes/origin/main on fafd9d0
-└── ≡📙:foo on fafd9d0 {0}
-    └── 📙:foo
-        └── ·e255adc (🏘️)
+├── ≡📙:foo on fafd9d0 {0}
+│   └── 📙:foo
+│       └── ·e255adc (🏘️)
+└── 📁worktree-ref-at-applied-branch-wt on e255adc (🏘️)
+    └── :wsref[📁worktree-ref-at-applied-branch-wt]
 
 "#]]
     );
@@ -10325,9 +10330,11 @@ fn worktree_ref_at_applied_branch_with_discovery() -> anyhow::Result<()> {
         graph_workspace(&graph.into_workspace()?).to_string(),
         snapbox::str![[r#"
 📕🏘️:gitbutler/workspace[🌳@repo] <> ✓refs/remotes/origin/main on fafd9d0
-└── ≡📙:foo on fafd9d0 {0}
-    └── 📙:foo
-        └── ·e255adc (🏘️)
+├── ≡📙:foo on fafd9d0 {0}
+│   └── 📙:foo
+│       └── ·e255adc (🏘️)
+└── 📁worktree-ref-at-applied-branch-wt on e255adc (🏘️)
+    └── 📙:wsref[📁worktree-ref-at-applied-branch-wt]
 
 "#]]
     );
@@ -10385,10 +10392,12 @@ fn worktree_ref_mid_stack() -> anyhow::Result<()> {
         graph_workspace(&graph.into_workspace()?).to_string(),
         snapbox::str![[r#"
 📕🏘️:gitbutler/workspace[🌳@repo] <> ✓refs/remotes/origin/main on fafd9d0
-└── ≡📙:foo on fafd9d0 {0}
-    └── 📙:foo
-        ├── ·a62b0de (🏘️)
-        └── ·120a217 (🏘️)
+├── ≡📙:foo on fafd9d0 {0}
+│   └── 📙:foo
+│       ├── ·a62b0de (🏘️)
+│       └── ·120a217 (🏘️)
+└── 📁worktree-ref-mid-stack-wt on 120a217 (🏘️)
+    └── :wsref[📁worktree-ref-mid-stack-wt]
 
 "#]]
     );
@@ -10479,9 +10488,11 @@ fn worktree_ref_as_stack_top_is_spliced_into_fork() -> anyhow::Result<()> {
         graph_workspace(&graph.into_workspace()?).to_string(),
         snapbox::str![[r#"
 📕🏘️:gitbutler/workspace[🌳@repo] <> ✓refs/remotes/origin/main on fafd9d0
-└── ≡📙:foo on fafd9d0 {0}
-    └── 📙:foo
-        └── ·e255adc (🏘️)
+├── ≡📙:foo on fafd9d0 {0}
+│   └── 📙:foo
+│       └── ·e255adc (🏘️)
+└── 📁worktree-ref-at-applied-branch-wt on e255adc (🏘️)
+    └── 📙:wsref[📁worktree-ref-at-applied-branch-wt]
 
 "#]]
     );
@@ -10583,9 +10594,11 @@ fn worktree_ref_at_remote_tracked_branch() -> anyhow::Result<()> {
         graph_workspace(&graph.into_workspace()?).to_string(),
         snapbox::str![[r#"
 📕🏘️:gitbutler/workspace[🌳@repo] <> ✓refs/remotes/origin/main on fafd9d0
-└── ≡📙:foo <> origin/foo on fafd9d0 {0}
-    └── 📙:foo <> origin/foo
-        └── ❄️e255adc (🏘️)
+├── ≡📙:foo <> origin/foo on fafd9d0 {0}
+│   └── 📙:foo <> origin/foo
+│       └── ❄️e255adc (🏘️)
+└── 📁worktree-ref-at-remote-tracked-branch-wt on e255adc (🏘️)
+    └── :wsref[📁worktree-ref-at-remote-tracked-branch-wt]
 
 "#]]
     );
@@ -10632,9 +10645,11 @@ fn worktree_ref_at_remote_tracked_branch() -> anyhow::Result<()> {
         graph_workspace(&graph.into_workspace()?).to_string(),
         snapbox::str![[r#"
 📕🏘️:gitbutler/workspace[🌳@repo] <> ✓refs/remotes/origin/main on fafd9d0
-└── ≡:anon: on fafd9d0
-    └── :anon:
-        └── ·e255adc (🏘️) ►foo
+├── ≡:anon: on fafd9d0
+│   └── :anon:
+│       └── ❄e255adc (🏘️) ►foo
+└── 📁worktree-ref-at-remote-tracked-branch-wt on e255adc (🏘️)
+    └── 📙:wsref[📁worktree-ref-at-remote-tracked-branch-wt] <> origin/wsref
 
 "#]]
     );

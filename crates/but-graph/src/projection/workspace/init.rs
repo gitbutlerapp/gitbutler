@@ -13,10 +13,11 @@ use tracing::instrument;
 
 use crate::{
     CommitFlags, Graph, Segment, SegmentIndex, SegmentMetadata, Workspace,
+    init::WorktreeTip,
     utils::SegmentTable,
     workspace::{
         Stack, StackCommit, StackCommitFlags, StackSegment, TargetCommit, TargetRef, WorkspaceKind,
-        workspace::WorkspaceState,
+        WorktreeBase, WorktreeStack, workspace::WorkspaceState,
     },
 };
 
@@ -108,6 +109,7 @@ impl Graph {
             target_ref,
             target_commit,
             metadata,
+            worktrees,
         } = self.to_workspace_state()?;
         Ok(Workspace {
             graph: self,
@@ -119,6 +121,7 @@ impl Graph {
             target_ref,
             target_commit,
             metadata,
+            worktrees,
         })
     }
 
@@ -195,6 +198,7 @@ impl Graph {
         let tips = self.stack_tips(&frame);
         let stop = self.stop_set(&frame);
         let lanes = tips.iter().map(|&tip| self.lane(tip, &stop)).collect_vec();
+        let worktree_lanes = self.worktree_lanes(&frame, &lanes);
         let ids = self.stack_ids(&frame, &lanes);
         // The first commit below the target shared by all lanes.
         let (lower_bound, lower_bound_segment_id) = lanes
@@ -204,11 +208,20 @@ impl Graph {
             .and_then(|sidx| self.resolve_to_unambiguously_pointed_to_commit(sidx))
             .map(|(commit, sidx)| (commit.id, sidx))
             .unzip();
-        let remotes = self.remote_reachability(lanes.iter().flat_map(|lane| lane.groups.iter()));
+        let remotes = self.remote_reachability(
+            lanes
+                .iter()
+                .chain(worktree_lanes.iter().map(|(_, lane)| lane))
+                .flat_map(|lane| lane.groups.iter()),
+        );
         let stacks = lanes
             .into_iter()
             .zip(ids)
             .filter_map(|(lane, id)| self.stack(lane, id, &frame, &remotes))
+            .collect();
+        let worktrees = worktree_lanes
+            .into_iter()
+            .map(|(tip, lane)| self.worktree_stack(tip, lane, &stop, &frame, &remotes))
             .collect();
         let target_ref = frame.target_ref.map(|target| TargetRef {
             commits_ahead: TargetRef::commits_ahead(
@@ -227,6 +240,88 @@ impl Graph {
             target_ref,
             target_commit: frame.target_commit,
             metadata: frame.metadata.cloned(),
+            worktrees,
+        }
+    }
+
+    /// One lane per [worktree tip](Graph::worktree_tips), in tip order, each owning what
+    /// neither the workspace lanes, the target, nor an earlier worktree lane does.
+    fn worktree_lanes<'a>(
+        &'a self,
+        frame: &Frame<'_>,
+        stack_lanes: &[Lane],
+    ) -> Vec<(&'a WorktreeTip, Lane)> {
+        fn claim(stop: &mut SegmentTable<bool>, lane: &Lane) {
+            for &sidx in lane.groups.iter().flat_map(|group| group.members.iter()) {
+                stop.set(sidx, true);
+            }
+        }
+        let mut stop = self.stop_set(frame);
+        stop.set(frame.ws, true);
+        for lane in stack_lanes {
+            claim(&mut stop, lane);
+        }
+        let mut lanes = Vec::new();
+        for tip in &self.worktree_tips {
+            let Some(sidx) = self.worktree_tip_segment(tip) else {
+                tracing::warn!(
+                    worktree = %tip.name,
+                    head = %tip.id,
+                    "Worktree tip is not part of the graph, skipping it"
+                );
+                continue;
+            };
+            let lane = self.lane(sidx, &stop);
+            claim(&mut stop, &lane);
+            lanes.push((tip, lane));
+        }
+        lanes
+    }
+
+    /// The segment named by the checked-out branch, or the one owning a detached `HEAD`.
+    fn worktree_tip_segment(&self, tip: &WorktreeTip) -> Option<SegmentIndex> {
+        match &tip.ref_name {
+            Some(name) => self.segment_by_ref_name(name.as_ref()).map(|s| s.id),
+            None => self.segment_id_by_commit_id(tip.id).ok(),
+        }
+    }
+
+    /// A detached `HEAD` names no segment: the first segment is anonymous and the name it sits
+    /// on moves onto its first commit, as it does for a detached entrypoint.
+    fn worktree_stack(
+        &self,
+        tip: &WorktreeTip,
+        lane: Lane,
+        target_stop: &SegmentTable<bool>,
+        frame: &Frame<'_>,
+        remotes: &RemoteReach,
+    ) -> WorktreeStack {
+        let head = lane
+            .groups
+            .first()
+            .and_then(|group| self.tip_skip_empty(group.head))
+            .map_or(tip.id, |commit| commit.id);
+        let base = lane.base.map(|(id, sidx)| {
+            if target_stop.get(sidx) {
+                WorktreeBase::Outside(id)
+            } else {
+                WorktreeBase::InWorkspace(id)
+            }
+        });
+        let mut segments = self.lane_segments(lane, None, true, frame, remotes);
+        if tip.ref_name.is_none()
+            && let Some(first) = segments.first_mut()
+            && let Some(ref_info) = first.ref_info.take()
+            && let Some(commit) = first.commits.first_mut()
+        {
+            commit.refs.push(ref_info);
+        }
+        WorktreeStack {
+            name: tip.name.clone(),
+            ref_name: tip.ref_name.clone(),
+            head,
+            base,
+            segments,
         }
     }
 

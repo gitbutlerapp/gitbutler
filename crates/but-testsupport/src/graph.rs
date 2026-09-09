@@ -34,6 +34,17 @@ fn graph_workspace_inner(
             stack_id_map.as_mut(),
         ));
     }
+    for worktree in &workspace.worktrees {
+        let mut tree = Tree::new(worktree.debug_string());
+        for segment in &worktree.segments {
+            tree.push(tree_for_stack_segment(
+                &workspace.graph,
+                segment,
+                commit_flags,
+            ));
+        }
+        root.push(tree);
+    }
     root
 }
 

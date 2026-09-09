@@ -535,6 +535,7 @@ pub fn graph_to_ref_info(
         metadata: _,
         lower_bound: _,
         lower_bound_segment_id,
+        worktrees: _,
     } = workspace;
 
     let ancestor_workspace_commit = match kind {
