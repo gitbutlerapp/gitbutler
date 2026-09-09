@@ -1,3 +1,4 @@
+import { Badge } from "#ui/components/Badge.tsx";
 import { GraphSegment } from "#ui/components/GraphSegment.tsx";
 import { Icon } from "#ui/components/Icon.tsx";
 import { classes } from "#ui/components/classes.ts";
@@ -64,6 +65,8 @@ const Header: FC<{
 	label: string;
 	/** Beside the label, in the label's own line: a count, an id. */
 	caption?: ReactNode;
+	/** After the label, as the uncommitted header wears its file count. */
+	badge?: ReactNode;
 	/** The ref's row reads as a heading; the base's a step under it, being the ref's history. */
 	heading?: boolean;
 	/** The fold the header opens; none for a plain row. Its chevron swaps in for the glyph on hover, unless the glyph is one. */
@@ -72,7 +75,7 @@ const Header: FC<{
 	rail: ReactNode;
 	className?: string;
 	children?: ReactNode;
-}> = ({ label, caption, heading = false, fold, rail, className, children }) => (
+}> = ({ label, caption, badge, heading = false, fold, rail, className, children }) => (
 	<Row interactive={fold !== undefined} onSelect={fold?.onToggle} className={className}>
 		{fold === undefined ? (
 			rail
@@ -90,6 +93,7 @@ const Header: FC<{
 				{label}
 				{caption}
 			</RowLabel>
+			{badge}
 			{children !== undefined && <span className={styles.action}>{children}</span>}
 		</RowLabelContainer>
 	</Row>
@@ -321,6 +325,14 @@ export const Section: FC<{
 							<Header
 								label={plan.header.label}
 								heading
+								badge={
+									<Badge
+										variant="lightGray"
+										aria-label={`${plan.header.incoming} new ${plan.header.incoming === 1 ? "commit" : "commits"}`}
+									>
+										{plan.header.incoming}
+									</Badge>
+								}
 								fold={{
 									open: plan.incomingExpanded,
 									onToggle: onToggleIncoming,
