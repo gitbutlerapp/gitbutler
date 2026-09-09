@@ -146,11 +146,52 @@ fn applied_stacks_with_options(
     let metadata = workspace_metadata(&ctx.meta()?)?;
     let (info, object_hash) = head_info(ctx, expensive_commit_info)?;
     Ok(head_info_stacks(
-        info,
+        &info,
         metadata.as_ref(),
         object_hash.null(),
         ctx.settings.feature_flags.single_branch,
     ))
+}
+
+/// Every lane as the push command sees it: each stack, then each linked worktree in tip order
+/// without an id. Segments without a ref are left out, as nothing can push them.
+pub fn applied_lanes_with_expensive_commit_info(
+    ctx: &Context,
+) -> anyhow::Result<Vec<HeadInfoStack>> {
+    let metadata = workspace_metadata(&ctx.meta()?)?;
+    let (info, object_hash) = head_info(ctx, true)?;
+    let null_id = object_hash.null();
+    let mut lanes = head_info_stacks(
+        &info,
+        metadata.as_ref(),
+        null_id,
+        ctx.settings.feature_flags.single_branch,
+    );
+    for worktree in &info.worktrees {
+        lanes.push(HeadInfoStack {
+            id: None,
+            branches: worktree
+                .segments
+                .iter()
+                .filter(|segment| segment.ref_info.is_some())
+                .map(|segment| head_info_branch(segment, null_id))
+                .collect::<Result<_, _>>()?,
+        });
+    }
+    Ok(lanes)
+}
+
+/// The branch and everything the push of it covers, top-to-base, following the lane chain
+/// beneath a worktree.
+pub fn push_scope_with_expensive_commit_info(
+    ctx: &Context,
+    branch: &gix::refs::FullNameRef,
+) -> anyhow::Result<Vec<HeadInfoBranch>> {
+    let (info, object_hash) = head_info(ctx, true)?;
+    but_workspace::legacy::push::branch_and_ancestor_segments(&info, branch)
+        .values()
+        .map(|segment| head_info_branch(segment, object_hash.null()))
+        .collect()
 }
 
 pub fn applied_stack_with_expensive_commit_info(
@@ -185,7 +226,7 @@ fn workspace_metadata(meta: &impl but_core::RefMetadata) -> anyhow::Result<Optio
 }
 
 fn head_info_stacks(
-    info: RefInfo,
+    info: &RefInfo,
     metadata: Option<&Workspace>,
     null_id: gix::ObjectId,
     retain_single_branch_id: bool,
