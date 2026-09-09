@@ -2,7 +2,7 @@ import rowStyles from "../Row.module.css";
 import { setCursor } from "#ui/use-cursor.ts";
 import { commitTitle } from "#ui/commit.ts";
 import { classes } from "#ui/components/classes.ts";
-import { GraphSegment, type GraphSegmentStatus } from "#ui/components/GraphSegment.tsx";
+import { GraphSegment } from "#ui/components/GraphSegment.tsx";
 import { Icon } from "#ui/components/Icon.tsx";
 import { RelativeTime } from "#ui/components/RelativeTime.tsx";
 import type { TargetCommit } from "@gitbutler/but-sdk";
@@ -17,15 +17,11 @@ export const TargetCommitRow: FC<{
 	commit: TargetCommit;
 	positionInSet: number;
 	setSize: number;
-	/** Base rows take the integrated colour, incoming rows the upstream's. */
-	status: GraphSegmentStatus;
-	/** The rail ends on this row: the history has no commit below it. */
-	railEnds?: boolean;
 	/** Out of its list for now, as a pending operation leaves it: not a value to move to. */
 	inert?: boolean;
 	/** Columns of the main line running behind the row, left of its rail. */
 	behind?: number;
-}> = ({ commit: targetCommit, positionInSet, setSize, status, railEnds, inert, behind }) => {
+}> = ({ commit: targetCommit, positionInSet, setSize, inert, behind }) => {
 	const { commit, review } = targetCommit;
 	const address = targetCommitAddress(targetCommit);
 	const isSelected = useIsSelected(address, "applied");
@@ -50,7 +46,7 @@ export const TargetCommitRow: FC<{
 			scrollSelectedIntoView
 			onSelect={() => setCursor("applied", address)}
 		>
-			<GraphSegment glyph="commit" status={status} railEnds={railEnds} behind={behind} />
+			<GraphSegment glyph="commit" status="Upstream" behind={behind} />
 			<div className={styles.label}>
 				<RowLabelContainer>
 					<RowLabel singleLine>

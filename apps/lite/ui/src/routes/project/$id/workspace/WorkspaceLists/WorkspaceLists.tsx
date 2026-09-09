@@ -58,14 +58,14 @@ import {
 } from "react";
 import styles from "./WorkspaceLists.module.css";
 import { Row, RowLabel, RowLabelContainer, SectionHeaderRow } from "../Row.tsx";
-import { type MoreBelow, Section } from "../Graph/Section.tsx";
+import { Section } from "../Graph/Section.tsx";
 import {
 	CARD_GAP,
 	DOCKED_HEIGHT,
 	HEAD_DOCKED_HEIGHT,
 	ROW_INSET,
-	foldAddresses,
-	foldAt,
+	inSection,
+	sectionAddresses,
 	type WorktreePlacement,
 	worktreesOnTip,
 } from "../Graph/layout.ts";
@@ -163,7 +163,7 @@ const UncommittedChanges: FC<
 		worktreeChanges: WorktreeChanges | undefined;
 		/** The graph's scroller, which the card heads. */
 		scrollElementRef: RefObject<HTMLDivElement | null>;
-		/** The docked merge base row's height at the scroller's foot, or 0: the commit form sticks above it. */
+		/** The docked target row's height at the scroller's foot, or 0: the commit form sticks above it. */
 		footDock: number;
 		/** The card's head, measured by the parent, which docks a stand-in as soon as the head is pushed. */
 		headRef: (element: HTMLElement | null) => void;
@@ -617,7 +617,7 @@ const SegmentContent: FC<{
 		getItemKey: getCommitKey,
 		rangeExtractor: rangeExtractorWithSelected,
 		scrollMargin,
-		// Matches --scroll-gradient-height; the foot also clears the docked merge base row.
+		// Matches --scroll-gradient-height; the foot also clears the docked target row.
 		scrollPaddingStart: 14,
 		scrollPaddingEnd,
 	});
@@ -1118,23 +1118,7 @@ const Stacks: FC<{
 	});
 	const dryRunWorkspace = dryRunOperationResult?.workspace ?? null;
 	// Cards in the graph's order, the section below.
-	const { plan, stacks, olderQuery, olderFrom, forgetOlder } = graph;
-	const olderPagesData = olderQuery.data;
-	// Shown to its start: everything loaded is shown, and a page came back
-	// with nothing older behind it.
-	const historyEnds =
-		olderPagesData !== undefined && !olderQuery.hasNextPage && plan.olderHidden === 0;
-	const moreBelow: MoreBelow =
-		olderFrom === ""
-			? "hidden"
-			: olderQuery.isFetching
-				? "loading"
-				: olderQuery.isError
-					? "failed"
-					: historyEnds
-						? "hidden"
-						: "idle";
-	const showMore = () => dispatch(projectSlice.actions.showMoreGraphOlder({ projectId }));
+	const { plan, stacks } = graph;
 	// Undefined `headInfo` is still loading, which is not the same as "empty" —
 	// treating it as empty would flash the empty state on every open.
 	const isEmpty = headInfo !== undefined && stacks.length === 0;
@@ -1164,8 +1148,6 @@ const Stacks: FC<{
 	// The cards start under the uncommitted files card and the gap below it.
 	const [headRef, headHeight] = useHeight();
 	const scrollMargin = headHeight + CARD_GAP;
-	// The scroller's foot, for the merge base row's stand-in. State, not a ref: it is portalled into.
-	const [footDock, setFootDock] = useState<HTMLDivElement | null>(null);
 	const getStackKey = useCallback((index: number) => stacks[index]?.id ?? index, [stacks]);
 	const headInfoIndex = headInfo ? getHeadInfoIndex(headInfo) : undefined;
 	const selectedContext =
@@ -1236,16 +1218,16 @@ const Stacks: FC<{
 		getItemKey: getStackKey,
 		rangeExtractor: rangeExtractorWithSelected,
 		scrollMargin,
-		// The head clears the docked uncommitted files row, the foot the docked merge base row.
+		// The head clears the docked uncommitted files row, the foot the docked target row.
 		scrollPaddingStart: HEAD_DOCKED_HEIGHT,
 		scrollPaddingEnd,
 	});
 
 	const selectedAddressKey = selection === null ? undefined : addressIdentityKey(selection);
-	// The fold the selection sits in, looked up once per selection or plan:
-	// the hotkeys ask on every render.
-	const selectedFold = useMemo(
-		() => (selection === null ? null : foldAt(plan, selection)),
+	// Whether the selection sits in the section's fold, looked up once per
+	// selection or plan: the hotkeys ask on every render.
+	const selectedInSection = useMemo(
+		() => selection !== null && inSection(plan, selection),
 		[plan, selection],
 	);
 	const lastRevealedAddressKeyRef = useRef<string>(undefined);
@@ -1269,10 +1251,6 @@ const Stacks: FC<{
 	}, [rowVirtualizer, selectedAddressKey, selectedStackIndex]);
 
 	const toggleIncoming = () => dispatch(projectSlice.actions.toggleGraphIncoming({ projectId }));
-	const toggleBase = () => {
-		if (plan.baseExpanded) forgetOlder();
-		dispatch(projectSlice.actions.toggleGraphBase({ projectId }));
-	};
 	const showMoreRun = (runId: string) =>
 		dispatch(projectSlice.actions.showMoreGraphRun({ projectId, runId }));
 	const foldRun = (runId: string) =>
@@ -1286,22 +1264,20 @@ const Stacks: FC<{
 		focusCommitMessageInput,
 		onEdgeSpill,
 		pendingPushBranches,
-		// The fold key on a section row closes the fold it sits in and parks the
-		// cursor on the row above the fold, since the headers are not values.
-		sectionToggle:
-			selectedFold === null
-				? null
-				: () => {
-						const first = foldAddresses(plan, selectedFold)[0];
-						const index =
-							first === undefined
-								? undefined
-								: addressSpace.indexByKey.get(addressIdentityKey(first));
-						const above = index === undefined ? undefined : addressSpace.items[index - 1];
-						if (above !== undefined) setCursor("applied", above);
-						if (selectedFold === "incoming") toggleIncoming();
-						else toggleBase();
-					},
+		// The fold key on a section row closes the fold and parks the cursor on
+		// the row above it, since the header is not a value.
+		sectionToggle: selectedInSection
+			? () => {
+					const first = sectionAddresses(plan)[0];
+					const index =
+						first === undefined
+							? undefined
+							: addressSpace.indexByKey.get(addressIdentityKey(first));
+					const above = index === undefined ? undefined : addressSpace.items[index - 1];
+					if (above !== undefined) setCursor("applied", above);
+					toggleIncoming();
+				}
+			: null,
 	});
 
 	return (
@@ -1378,15 +1354,10 @@ const Stacks: FC<{
 					<Section
 						projectId={projectId}
 						plan={plan}
-						moreBelow={moreBelow}
-						historyEnds={historyEnds}
 						onToggleIncoming={toggleIncoming}
-						onToggleBase={toggleBase}
 						onShowMoreRun={showMoreRun}
 						onFoldRun={foldRun}
-						onShowMore={showMore}
 						scrollElementRef={scrollElementRef}
-						footDock={footDock}
 					/>
 				</div>
 
@@ -1395,7 +1366,6 @@ const Stacks: FC<{
 						<NoStacks projectId={projectId} newBranch={newBranch} />
 					</div>
 				)}
-				<div className={styles.footDock} ref={setFootDock} />
 				<div className={styles.foot} />
 			</div>
 		</DryRunWorkspaceContext>
@@ -1556,9 +1526,9 @@ export const WorkspaceLists: FC<
 		focusScope("uncommitted-files");
 	};
 	const scrollElementRef = useRef<HTMLDivElement>(null);
-	// The docked merge base row's height, which the card's commit form sticks above; a row
+	// The docked target row's height, which the card's commit form sticks above; a row
 	// scrolled into view clears it, else the foot's gradient.
-	const footDock = graph.plan.base !== null && !graph.plan.baseExpanded ? DOCKED_HEIGHT : 0;
+	const footDock = graph.plan.header !== null ? DOCKED_HEIGHT : 0;
 	const scrollPaddingEnd = Math.max(footDock, 14);
 	// The card's head, whose height says when its docked stand-in takes over.
 	const [cardHeadRef, cardHeadHeight] = useHeight();

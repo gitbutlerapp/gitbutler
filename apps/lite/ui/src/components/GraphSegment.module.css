@@ -89,6 +89,11 @@
 	stroke: color-mix(in srgb, var(--commit-local) 40%, transparent);
 }
 
+/* The trunk's tail below the row's centre line fades to nothing. */
+.edgePassFading {
+	mask-image: linear-gradient(to bottom, black 50%, transparent);
+}
+
 .glyph {
 	display: flex;
 	flex-direction: column;

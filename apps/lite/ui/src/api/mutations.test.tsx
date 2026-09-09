@@ -7,7 +7,6 @@ import {
 } from "#ui/api/mutations.ts";
 import {
 	getReviewQueryOptions,
-	olderTargetCommitsInfiniteQueryOptions,
 	reviewerCandidatesQueryOptions,
 	workspaceTargetCommitsQueryOptions,
 } from "#ui/api/queries.ts";
@@ -24,7 +23,6 @@ vi.mock("@base-ui/react", () => ({ Toast: { useToastManager: () => ({ add: vi.fn
 globalThis.IS_REACT_ACT_ENVIRONMENT = true;
 
 const baseKey = workspaceTargetCommitsQueryOptions("project").queryKey;
-const olderKey = olderTargetCommitsInfiniteQueryOptions("project", "cursor").queryKey;
 const otherKey = workspaceTargetCommitsQueryOptions("other-project").queryKey;
 const original = { commits: [], hasMore: true };
 const updated = { commits: [], hasMore: false };
@@ -39,7 +37,6 @@ describe("useWorkspaceIntegrateUpstream", () => {
 		vi.stubGlobal("lite", { workspaceIntegrateUpstream });
 		client = new QueryClient();
 		client.setQueryData(baseKey, original);
-		client.setQueryData(olderKey, { pages: [original], pageParams: ["cursor"] });
 		client.setQueryData(otherKey, original);
 		const container = document.createElement("div");
 		root = createRoot(container);
@@ -79,30 +76,24 @@ describe("useWorkspaceIntegrateUpstream", () => {
 		});
 	};
 
-	it("seeds the base listing and invalidates older pages without invalidating the base", async () => {
+	it("seeds the listing without invalidating it", async () => {
 		await run(updated);
 		expect(client.getQueryData(baseKey)).toEqual(updated);
 		expect(client.getQueryState(baseKey)?.isInvalidated).toBe(false);
-		expect(client.getQueryState(olderKey)?.isInvalidated).toBe(true);
 		expect(client.getQueryState(otherKey)?.isInvalidated).toBe(false);
 	});
 
-	it.each([null, undefined])(
-		"invalidates all target pages when the listing is %s",
-		async (listing) => {
-			await run(listing);
-			expect(client.getQueryData(baseKey)).toEqual(original);
-			expect(client.getQueryState(baseKey)?.isInvalidated).toBe(true);
-			expect(client.getQueryState(olderKey)?.isInvalidated).toBe(true);
-			expect(client.getQueryState(otherKey)?.isInvalidated).toBe(false);
-		},
-	);
+	it.each([null, undefined])("invalidates the listing when it is %s", async (listing) => {
+		await run(listing);
+		expect(client.getQueryData(baseKey)).toEqual(original);
+		expect(client.getQueryState(baseKey)?.isInvalidated).toBe(true);
+		expect(client.getQueryState(otherKey)?.isInvalidated).toBe(false);
+	});
 
 	it("leaves cached listings untouched for a dry run", async () => {
 		await run(updated, true);
 		expect(client.getQueryData(baseKey)).toEqual(original);
 		expect(client.getQueryState(baseKey)?.isInvalidated).toBe(false);
-		expect(client.getQueryState(olderKey)?.isInvalidated).toBe(false);
 	});
 });
 

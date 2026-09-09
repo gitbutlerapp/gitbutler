@@ -4,12 +4,11 @@ import { TooltipPopup } from "#ui/components/Tooltip.tsx";
 import { workspaceHotkeys } from "#ui/hotkeys.ts";
 import { ProjectPicker } from "#ui/routes/project/$id/workspace/ProjectPicker.tsx";
 import { TopLeftControls } from "#ui/routes/project/$id/workspace/TopLeftControls.tsx";
-import { formatRelativeTime } from "#ui/time.ts";
 import { Button, Tooltip } from "@base-ui/react";
 import type { ProjectForFrontend } from "@gitbutler/but-sdk";
 import { useIsFetching, useIsMutating } from "@tanstack/react-query";
 import { Match } from "effect";
-import { type FC, type ReactNode, useState } from "react";
+import type { FC, ReactNode } from "react";
 import styles from "./SidebarHeader.module.css";
 
 const ActivitySpinner: FC<{
@@ -37,55 +36,14 @@ const ActivitySpinner: FC<{
 	);
 };
 
-const FetchFromRemotesButton: FC<{
-	canFetch: boolean;
-	isPending: boolean;
-	lastSuccessfulMs?: number | null;
-	onFetch: () => void;
-}> = (p) => {
-	const [tooltipNow, setTooltipNow] = useState(() => Date.now());
-
-	return (
-		<Tooltip.Root
-			onOpenChange={(open) => {
-				if (open) setTooltipNow(Date.now());
-			}}
-		>
-			<Tooltip.Trigger
-				aria-label={workspaceHotkeys.fetchFromRemotes.meta.name}
-				className={getButtonClassName({ iconOnly: true, variant: "ghost" })}
-				onClick={p.onFetch}
-				// We pass `disabled` here because we want to disable the button, not
-				// the tooltip.
-				render={<Button focusableWhenDisabled disabled={!p.canFetch} />}
-			>
-				<Icon name={p.isPending ? "spinner" : "refresh"} />
-			</Tooltip.Trigger>
-			<Tooltip.Portal>
-				<Tooltip.Positioner sideOffset={4}>
-					<Tooltip.Popup render={<TooltipPopup kbd={workspaceHotkeys.fetchFromRemotes.hotkey} />}>
-						{workspaceHotkeys.fetchFromRemotes.meta.name}
-						{p.lastSuccessfulMs != null &&
-							` (${formatRelativeTime(p.lastSuccessfulMs, tooltipNow)})`}
-					</Tooltip.Popup>
-				</Tooltip.Positioner>
-			</Tooltip.Portal>
-		</Tooltip.Root>
-	);
-};
-
 /**
  * The app chrome at the top of the sidebar: window controls, the project
- * picker, activity, fetch and settings. Purely presentational — the
- * fetch/update wiring stays with the Sidebar, which also feeds it to the
- * upstream list and the hotkeys.
+ * picker, activity and settings. Purely presentational.
  */
 export const SidebarHeader: FC<{
 	project: ProjectForFrontend;
-	canFetch: boolean;
+	/** A fetch in flight shows its own spinner on the target's row, so the ambient one stands down. */
 	isFetchPending: boolean;
-	lastSuccessfulFetchMs?: number | null;
-	onFetch: () => void;
 	canOpenSettings: boolean;
 	onOpenSettings: () => void;
 	/** The notification bell, which decides its own visibility. */
@@ -100,13 +58,6 @@ export const SidebarHeader: FC<{
 		</div>
 
 		<div className={styles.workspaceControlsActions}>
-			<FetchFromRemotesButton
-				canFetch={p.canFetch}
-				isPending={p.isFetchPending}
-				lastSuccessfulMs={p.lastSuccessfulFetchMs}
-				onFetch={p.onFetch}
-			/>
-
 			<Tooltip.Root>
 				<Tooltip.Trigger
 					aria-label={workspaceHotkeys.settings.meta.name}

@@ -183,12 +183,6 @@ export const projectReducers = {
 	toggleGraphIncoming: (state: ProjectState) => {
 		graphReducers.toggleIncoming(state.graph);
 	},
-	toggleGraphBase: (state: ProjectState) => {
-		graphReducers.toggleBase(state.graph);
-	},
-	showMoreGraphOlder: (state: ProjectState) => {
-		graphReducers.showMoreOlder(state.graph);
-	},
 	showMoreGraphRun: (state: ProjectState, { runId }: { runId: string }) => {
 		graphReducers.showMoreRun(state.graph, { runId });
 	},

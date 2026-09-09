@@ -1348,12 +1348,7 @@ export const useWorkspaceIntegrateUpstream = () => {
 			const queryKey = workspaceTargetCommitsQueryOptions(input.projectId).queryKey;
 			if (response.targetCommits != null)
 				mutation.client.setQueryData(queryKey, response.targetCommits);
-
-			void mutation.client.invalidateQueries({
-				queryKey,
-				predicate: (query) =>
-					response.targetCommits == null || query.queryKey.length > queryKey.length,
-			});
+			else void mutation.client.invalidateQueries({ queryKey });
 		},
 		onError: (error, input) => {
 			toastManager.add({

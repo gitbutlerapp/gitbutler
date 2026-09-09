@@ -42,21 +42,10 @@
 	height: 0;
 }
 
-/* The merge base row's stand-in docks at the foot the same way: a mark after
-   everything, stuck while the row is out of view below. Its row is Section's. */
-.footDock {
-	container-type: scroll-state;
-
-	z-index: 2;
-	position: sticky;
-	bottom: 0;
-	height: 0;
-}
-
-/* The room below is constant across fold states, so a fold does not shift
-   the scroll. An element after the foot dock's mark rather than padding on
-   the scroller: the mark unsticks exactly as the merge base row comes into
-   view, and sticky insets stop at the scroller's padding. */
+/* The target row's stand-in docks at the foot the same way, with a mark of
+   Section's own right after its row. The room below is constant across fold
+   states, so a fold does not shift the scroll. An element rather than
+   padding on the scroller: sticky insets stop at the scroller's padding. */
 .foot {
 	height: 12px;
 }
@@ -132,7 +121,7 @@
 }
 
 /* The commit form keeps to the scroller's foot while the card's own foot is
-   below it, over the docked merge base row when there is one (its `bottom`),
+   below it, over the docked target row when there is one (its `bottom`),
    so a long list still commits. A hairline while stuck says the rows pass
    beneath; a shadow, so the form's height does not change as it sticks. */
 .commitFoot {
