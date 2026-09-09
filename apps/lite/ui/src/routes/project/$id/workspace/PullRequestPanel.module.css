@@ -92,11 +92,17 @@
 
 .user {
 	display: flex;
-	flex: 1;
 	align-items: center;
 	min-width: 0;
 	gap: 8px;
 	color: var(--text-1);
+}
+
+/* Only in a reviewer row does the user fill the line, so the verdict icon and
+   remove button sit at the end and the login truncates before them. The
+   description's meta line reuses this component and must flow inline. */
+.reviewerRow > .user {
+	flex: 1;
 }
 
 /* A long login truncates rather than wrapping the row to two lines; the row's
