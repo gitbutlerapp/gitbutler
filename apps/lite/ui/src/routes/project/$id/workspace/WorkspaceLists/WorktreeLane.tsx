@@ -18,7 +18,9 @@ import {
 import { useWorktreeRemove, useWorktreeSetArchived } from "#ui/api/mutations.ts";
 import { decodeBytes } from "#ui/api/bytes.ts";
 import {
+	forgeInfoOptions,
 	guiSettingsQueryOptions,
+	listReviewsQueryOptions,
 	treeChangesDiffsQueryOptions,
 	worktreeChangesQueryOptions,
 	worktreesListQueryOptions,
@@ -36,6 +38,7 @@ import {
 	showNativeMenuFromTrigger,
 	type NativeMenuItem,
 } from "#ui/native-menu.ts";
+import { prForgeUrl } from "#ui/pr.ts";
 import { defaultSettings } from "#ui/settings.ts";
 import { setCursor, useIsCursorAt } from "#ui/use-cursor.ts";
 import { addressSpaceIncludes } from "#ui/workspace/address-space.ts";
@@ -190,21 +193,8 @@ const WorktreeUncommitted: FC<{
 	);
 };
 
-/**
- * A branch of a worktree's stack, the checked-out one or one stacked under
- * it, as a row of the applied tree: a value that selects and takes commits,
- * with the worktree's own actions on its menu. It is outside the workspace,
- * so the branch actions that rewrite the workspace are not offered.
- */
-const WorktreeBranchRow: FC<
-	{
-		projectId: string;
-		worktree: string;
-		refName: BranchReference;
-		behind: number;
-	} & ComponentProps<typeof Row>
-> = ({ projectId, worktree, refName, behind, ...props }) => {
-	const address = branchAddress({ branchRef: refName.fullNameBytes });
+/** The worktree's own actions: where it is on disk, and its place in the workspace. */
+const useWorktreeMenuItems = (projectId: string, worktree: string): Array<NativeMenuItem> => {
 	const { data: worktreePath } = useQuery({
 		...worktreesListQueryOptions(projectId),
 		select: (listing) => listing.active.find((entry) => entry.name === worktree)?.path,
@@ -215,18 +205,12 @@ const WorktreeBranchRow: FC<
 	});
 	const { mutate: setArchived, isPending: isArchiving } = useWorktreeSetArchived(projectId);
 	const { mutate: remove, isPending: isRemoving } = useWorktreeRemove(projectId);
-
-	const menuItems: Array<NativeMenuItem> = [
-		nativeMenuItem({
-			label: "Copy Branch Name",
-			onSelect: () => window.lite.clipboardWriteText(refName.displayName),
-		}),
+	return [
 		nativeMenuItem({
 			label: "Copy Worktree Path",
 			enabled: worktreePath !== undefined,
 			onSelect: () => window.lite.clipboardWriteText(worktreePath ?? ""),
 		}),
-		nativeMenuSeparator,
 		nativeMenuItem({
 			label: "Open in Terminal",
 			enabled: worktreePath !== undefined && terminalId !== undefined,
@@ -252,6 +236,82 @@ const WorktreeBranchRow: FC<
 			label: "Remove Worktree",
 			enabled: !isRemoving,
 			onSelect: () => remove({ projectId, name: worktree, force: false }),
+		}),
+	];
+};
+
+/** The worktree's name over its lane, with the worktree's own actions on its menu. */
+const WorktreeHeaderRow: FC<{ projectId: string; worktree: string; behind: number }> = ({
+	projectId,
+	worktree,
+	behind,
+}) => {
+	const menuItems = useWorktreeMenuItems(projectId, worktree);
+	return (
+		<Row
+			interactive={false}
+			onContextMenu={(event) => {
+				void showNativeContextMenu(event, menuItems);
+			}}
+		>
+			<GraphSegment glyph="space" status="LocalOnly" behind={behind} />
+			<RowLabelContainer>
+				<RowLabel singleLine className={rowStyles.fadedText}>
+					{worktree}
+					<span className={sectionStyles.caption}>worktree</span>
+				</RowLabel>
+			</RowLabelContainer>
+			<Toolbar.Root aria-label="Worktree actions" render={<RowToolbar />}>
+				<Toolbar.Button
+					aria-label="Worktree menu"
+					onClick={(event) => {
+						void showNativeMenuFromTrigger(event.currentTarget, menuItems);
+					}}
+					className={getRowButtonClassName({ iconOnly: true })}
+				>
+					<Icon name="kebab" />
+				</Toolbar.Button>
+			</Toolbar.Root>
+		</Row>
+	);
+};
+
+/**
+ * A branch of a worktree's stack, the checked-out one or one stacked under
+ * it, as a row of the applied tree: a value that selects and takes commits.
+ * Its menu holds what applies to a branch outside the workspace; the
+ * worktree's own actions are on the lane's header.
+ */
+const WorktreeBranchRow: FC<
+	{
+		projectId: string;
+		refName: BranchReference;
+		behind: number;
+	} & ComponentProps<typeof Row>
+> = ({ projectId, refName, behind, ...props }) => {
+	const address = branchAddress({ branchRef: refName.fullNameBytes });
+	const { data: forgeInfo } = useQuery(forgeInfoOptions(projectId));
+	// Only this branch's number: the listing refetches on a timer, and a row
+	// should re-render only when its own pull request changes.
+	const { data: pullRequest = null } = useQuery({
+		...listReviewsQueryOptions({ projectId, cacheConfig: "noCache" }),
+		enabled: !!forgeInfo?.capabilities.prService,
+		select: (reviews) =>
+			reviews.find((review) => review.sourceBranch === refName.displayName)?.number ?? null,
+	});
+	const forgeUrl = pullRequest !== null && forgeInfo ? prForgeUrl(pullRequest, forgeInfo) : null;
+
+	const menuItems: Array<NativeMenuItem> = [
+		nativeMenuItem({
+			label: "Copy Branch Name",
+			onSelect: () => window.lite.clipboardWriteText(refName.displayName),
+		}),
+		nativeMenuItem({
+			label: "Open Pull Request In Browser",
+			enabled: forgeUrl != null,
+			onSelect: () => {
+				if (forgeUrl != null) void window.lite.openInWebBrowser(forgeUrl);
+			},
 		}),
 	];
 
@@ -308,15 +368,7 @@ const WorktreeRows: FC<{
 	);
 	return (
 		<>
-			<Row interactive={false}>
-				<GraphSegment glyph="space" status="LocalOnly" behind={behind} />
-				<RowLabelContainer>
-					<RowLabel singleLine className={rowStyles.fadedText}>
-						{worktree.name}
-						<span className={sectionStyles.caption}>worktree</span>
-					</RowLabel>
-				</RowLabelContainer>
-			</Row>
+			<WorktreeHeaderRow projectId={projectId} worktree={worktree.name} behind={behind} />
 			<WorktreeUncommitted
 				projectId={projectId}
 				worktree={worktree.name}
@@ -349,7 +401,6 @@ const WorktreeRows: FC<{
 										render={
 											<WorktreeBranchRow
 												projectId={projectId}
-												worktree={worktree.name}
 												refName={segment.refName}
 												behind={behind}
 											/>
