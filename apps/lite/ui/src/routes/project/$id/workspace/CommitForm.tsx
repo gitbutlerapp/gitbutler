@@ -84,7 +84,7 @@ const CommitTargetComboboxPopup: FC<{ current: CommitTargetPickerItem | null }> 
 		<Combobox.Empty>
 			{/* A line, not the block: this dropdown is as narrow as its trigger, and the illustration
 			    would fill it. */}
-			<div className={classes("text-13", styles.targetEmpty)}>No targets found.</div>
+			<div className={classes("text-13", styles.targetEmpty)}>No targets found</div>
 		</Combobox.Empty>
 		<Combobox.List className={styles.targetList}>
 			{(item: CommitTargetPickerItem) => (

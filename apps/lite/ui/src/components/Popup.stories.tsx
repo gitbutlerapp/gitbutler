@@ -96,7 +96,7 @@ export const NothingFound = meta.story({
 	render: (args) => (
 		<Popup {...args}>
 			<PopupSearch placeholder="Search hotkeys..." aria-label="Search hotkeys" />
-			<PopupEmpty>No hotkeys found.</PopupEmpty>
+			<PopupEmpty>No hotkeys found</PopupEmpty>
 		</Popup>
 	),
 });

@@ -245,7 +245,7 @@ export const PopupSearch: FC<{ onClear?: () => void } & useRender.ComponentProps
  * than a panel — the line sits closer under the illustration and there is no counterweight, since
  * a line under a light drawing has no weight to lift.
  *
- * The line keeps its full stop: it reports the miss, it does not name a state.
+ * One short line, no full stop, like every other line of its length in Lite: "No hotkeys found".
  *
  * For a popup as wide as a picker. A dropdown no wider than its trigger — the commit target
  * combobox — keeps a plain line, since the illustration would fill it.

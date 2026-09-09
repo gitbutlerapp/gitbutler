@@ -44,7 +44,7 @@ export const OperationsLogPicker: FC<Props> = ({ open, onOpenChange, projectId }
 		<PickerDialog
 			ariaLabel="Operations log"
 			closeLabel="Close operations log"
-			emptyLabel="No operations found."
+			emptyLabel="No operations found"
 			footerAction={
 				hasNextPage ? (
 					<button

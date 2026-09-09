@@ -50,7 +50,7 @@ export const BranchPicker: FC<Props> = ({ projectId, open, onOpenChange, onSelec
 		<PickerDialog
 			ariaLabel="Select branch"
 			closeLabel="Close branch picker"
-			emptyLabel="No results found."
+			emptyLabel="No results found"
 			getItemKey={(x) => x.id}
 			getItemLabel={(x) => x.label}
 			getItemType={() => "Branch"}
