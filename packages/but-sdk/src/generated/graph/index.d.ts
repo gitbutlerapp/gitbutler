@@ -353,7 +353,7 @@ export declare function changesInWorktreeWithPerm(projectId: string, changesSour
 export declare function checkGithubAuthStatus(deviceCode: string): Promise<GithubAuthStatusResponse>
 
 /**
- * {@link ../../../../../crates/but-api/src/legacy/repo.rs:48}
+ * {@link ../../../../../crates/but-api/src/legacy/repo.rs:51}
  */
 export declare function checkSigningSettings(projectId: string): Promise<boolean>
 
@@ -774,7 +774,7 @@ export declare function getBbUser(account: BitbucketAccountIdentifier): Promise<
  * # Arguments
  * * `blob_id` - Git blob object ID as a hexadecimal string
  *
- * {@link ../../../../../crates/but-api/src/legacy/repo.rs:106}
+ * {@link ../../../../../crates/but-api/src/legacy/repo.rs:127}
  */
 export declare function getBlobFile(projectId: string, relativePath: string, blobId: string): Promise<FileInfo>
 
@@ -909,9 +909,20 @@ export declare function getUserProfileLocal(): Promise<UserProfile | null>
 export declare function getWorkspace(projectId: string): Promise<DetailedGraphWorkspace>
 
 /**
- * {@link ../../../../../crates/but-api/src/legacy/repo.rs:92}
+ * {@link ../../../../../crates/but-api/src/legacy/repo.rs:95}
  */
 export declare function getWorkspaceFile(projectId: string, relativePath: string): Promise<FileInfo>
+
+/**
+ * Like [`get_workspace_file()`], reading from the checkout `changes_source` names, so a
+ * linked worktree's file comes from its own directory rather than the project's.
+ *
+ * A linked worktree requires the `worktreeManipulation` feature flag and an active
+ * worktree, see `worktrees::open_changes_source()`.
+ *
+ * {@link ../../../../../crates/but-api/src/legacy/repo.rs:106}
+ */
+export declare function getWorkspaceFileFromSource(projectId: string, changesSource: ChangesSource, relativePath: string): Promise<FileInfo>
 
 /**
  * {@link ../../../../../crates/but-api/src/legacy/git.rs:39}

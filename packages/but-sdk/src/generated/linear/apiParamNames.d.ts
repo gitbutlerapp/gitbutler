@@ -80,6 +80,7 @@ export declare const apiParamNames: {
 	readonly getUserProfileLocal: readonly [];
 	readonly getWorkspace: readonly ["projectId"];
 	readonly getWorkspaceFile: readonly ["projectId", "relativePath"];
+	readonly getWorkspaceFileFromSource: readonly ["projectId", "changesSource", "relativePath"];
 	readonly gitTestFetch: readonly ["projectId", "remoteName", "action"];
 	readonly gitTestPush: readonly ["projectId", "remoteName", "branchName"];
 	readonly headInfo: readonly ["projectId"];
