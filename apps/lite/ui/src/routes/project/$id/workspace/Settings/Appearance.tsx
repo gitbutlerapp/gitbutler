@@ -92,6 +92,18 @@ export const Appearance: FC = () => {
 						))}
 					</select>
 				</Row>
+
+				<Row
+					label="Hand cursor"
+					labelId="hand-cursor"
+					hint="Show the hand over buttons and links, as a web page does. Off keeps the arrow, as desktop apps do."
+				>
+					<Switch
+						aria-labelledby="hand-cursor"
+						checked={settings.handCursor ?? defaultSettings.handCursor}
+						onCheckedChange={(handCursor) => saveGUISettings({ handCursor })}
+					/>
+				</Row>
 			</Section>
 
 			<Section heading="Files">

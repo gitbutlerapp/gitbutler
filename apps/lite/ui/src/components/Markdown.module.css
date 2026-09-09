@@ -235,8 +235,4 @@
 		font-size: 12px;
 		font-family: var(--text-fontfamily-mono);
 	}
-
-	summary {
-		cursor: pointer;
-	}
 }

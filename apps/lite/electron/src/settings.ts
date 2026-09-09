@@ -28,6 +28,7 @@ const guiSettingsV1 = type({
 	"editorId?": "string",
 	"fileDisplayMode?": "'list' | 'tree'",
 	"filesPanelRight?": "boolean",
+	"handCursor?": "boolean",
 	"lineDiffType?": "'word-alt' | 'word' | 'char' | 'none'",
 	"minimap?": "boolean",
 	"pathFirst?": "boolean",

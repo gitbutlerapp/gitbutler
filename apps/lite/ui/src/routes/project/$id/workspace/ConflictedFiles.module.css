@@ -52,7 +52,6 @@
 	color: var(--diffs-fg-number);
 	font: inherit;
 	font-style: normal;
-	cursor: pointer;
 
 	&:hover:not(:disabled) {
 		color: var(--diffs-fg);

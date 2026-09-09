@@ -159,7 +159,7 @@
 	/* Clear the rule itself, so it runs unbroken behind the badge. */
 	margin-top: 1px;
 	background: var(--bg-1);
-	cursor: pointer;
+	cursor: var(--control-cursor);
 
 	& > svg {
 		width: 12px;

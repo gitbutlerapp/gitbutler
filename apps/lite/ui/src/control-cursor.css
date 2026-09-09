@@ -1,0 +1,13 @@
+/* The cursor over a control. Desktop apps keep the arrow there and web pages
+   the hand (DESIGN.md, Cursors), so each host sets --control-cursor on its
+   root: the app from the appearance setting, the harness panel to the hand of
+   the page it sits in. Imported right after design-core, whose reset gives
+   links the hand. */
+button,
+a,
+summary,
+[role="button"],
+[role="menuitem"],
+[role="option"] {
+	cursor: var(--control-cursor);
+}

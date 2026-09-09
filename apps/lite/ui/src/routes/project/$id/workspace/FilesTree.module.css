@@ -47,7 +47,6 @@
 	border: none;
 	background: none;
 	color: var(--text-3);
-	cursor: pointer;
 
 	&:hover,
 	&:focus-visible {

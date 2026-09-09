@@ -47,7 +47,6 @@
 	border-radius: var(--radius-button);
 	color: var(--text-2);
 	text-align: left;
-	cursor: default;
 	transition: background-color var(--transition-fast);
 
 	/* Slides in from the sidebar's inner edge, so the selection reads even at a glance. */

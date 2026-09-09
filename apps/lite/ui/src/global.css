@@ -1,4 +1,5 @@
 @import "@gitbutler/design-core/core";
+@import "./control-cursor.css";
 
 /*
     color-scheme isn't yet respected by prefers-color-scheme, so where we can't use light-dark() we
@@ -12,6 +13,9 @@
 
 :root {
 	color-scheme: light dark;
+
+	/* The arrow over controls until the appearance setting asks for the hand (control-cursor.css). */
+	--control-cursor: default;
 
 	--list-item-hover-bg: color-mix(var(--fill-gray-bg) var(--opacity-bg-hover), transparent);
 	--focus-ring: 1.5px solid color-mix(in srgb, var(--fill-gray-bg) 70%, transparent);
@@ -27,6 +31,10 @@
 	   that sit on another background (popups) restate these on themselves. */
 	--scrollbar-track-bg: var(--bg-2);
 	--scrollbar-track-border: var(--border-section);
+}
+
+:root[data-hand-cursor] {
+	--control-cursor: pointer;
 }
 
 body {
@@ -95,7 +103,6 @@ button {
 a {
 	color: unset;
 	text-decoration: unset;
-	cursor: default;
 
 	&:focus-visible {
 		outline: var(--focus-ring);
