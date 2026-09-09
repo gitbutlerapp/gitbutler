@@ -126,9 +126,19 @@ upload, and download settings are unsupported.
 **macOS:** prefer samply with locally built binary; full Xcode needed only for
 flamegraph.
 
-**Linux:** samply may need `perf_event_paranoid <= 1` and higher
-`perf_event_mlock_kb` (e.g. 2048) for buffer allocation. Harness never changes these
-machine-wide settings. See [samply](https://github.com/mstange/samply) and
+**Linux:** samply and perf may need `kernel.perf_event_paranoid=1` to allow
+recording and a larger perf buffer allowance (`kernel.perf_event_mlock_kb=2048`,
+in KiB). If recording fails due to permissions or buffer allocation, an administrator
+can apply these machine-wide settings:
+
+```sh
+sudo sysctl -w kernel.perf_event_paranoid=1
+sudo sysctl -w kernel.perf_event_mlock_kb=2048
+```
+
+These changes normally last until reboot and relax profiling restrictions for other
+users too. Harness never changes these settings automatically. See
+[samply](https://github.com/mstange/samply) and
 [flamegraph](https://github.com/flamegraph-rs/flamegraph) docs for permissions and
 symbolization troubleshooting (including lld/mold's `--no-rosegment` requirement).
 
