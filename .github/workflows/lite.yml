@@ -22,6 +22,7 @@ jobs:
         include:
           - platform: macos-26 # [macOs, ARM64]
           - platform: ubuntu-22.04 # [linux, x64]
+          - platform: ubuntu-22.04-arm # [linux, ARM64]
           - platform: windows-latest # [windows, x64]
     env:
       CARGO_TERM_COLOR: always
