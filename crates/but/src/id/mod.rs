@@ -10,9 +10,8 @@ use std::collections::{BTreeMap, HashMap};
 use std::str::{self, FromStr as _};
 
 use bstr::{BStr, BString, ByteSlice};
-use but_core::UnifiedPatch;
 use but_core::sync::RepoShared;
-use but_core::{ChangeId, ref_metadata::StackId};
+use but_core::{ChangeId, TreeStatusKind, UnifiedPatch, ref_metadata::StackId};
 use but_ctx::Context;
 use but_graph::workspace::{Stack, StackCommit, StackSegment};
 use gix::hash::hasher;
@@ -394,6 +393,7 @@ pub fn identify_hunks(
         .map(|(id, hunk)| IdAndHunk {
             id: format!("{}:{}", tree_change.short_id, id.short_id()),
             hunk,
+            tree_status: tree_change.inner.status.kind(),
         })
         .collect())
 }
@@ -841,9 +841,9 @@ impl IdMap {
             .filter_map(|source| source.source.worktree_name().map(ToOwned::to_owned))
             .collect();
         let UncommittedInfo {
-            partitioned_hunks,
+            partitioned_changes_and_hunks,
             uncommitted_short_filenames,
-        } = UncommittedInfo::from_sources(sources)?;
+        } = UncommittedInfo::from_sources(sources);
         let StacksInfo {
             mut stacks,
             mut id_usage,
@@ -856,8 +856,8 @@ impl IdMap {
         let mut fallback_id_usage = id_usage.clone();
 
         let mut uncommitted_files: BTreeMap<ChangeId, UncommittedFile> = BTreeMap::new();
-        for (source, hunks) in partitioned_hunks {
-            let but_core::SingleHunk { path, .. } = hunks.first();
+        for (source, change, hunks) in partitioned_changes_and_hunks {
+            let path = &change.path_bytes;
             let reverse_hex = create_reverse_hex_id(&source, path)?;
             // Ensure that uncommitted files do not collide with CLI IDs generated after
             if let Some(uint_id) = UintId::from_name(&reverse_hex[..2]) {
@@ -872,8 +872,20 @@ impl IdMap {
                 reverse_hex,
                 UncommittedFile {
                     source,
+                    tree_status: Into::<but_core::TreeChange>::into(change).status.kind(),
                     short_id: ShortId::default(),
-                    short_id_hunks: hunks.map(|hunk| (UnqualifiedHunkId::default(), hunk)),
+                    short_id_hunks: NonEmpty::collect(
+                        hunks
+                            .into_iter()
+                            .map(|hunk| (UnqualifiedHunkId::default(), hunk)),
+                    )
+                    // Note: This expect holds because but_core::SingleHunk::from_tree_change is
+                    // guaranteed to produce at least one hunk per change, and that's what's used in
+                    // but_core::changes_with_hunks. We could get rid of this expect by encoding
+                    // that in a NonEmpty return value from but_core::SingleHunk::from_tree_change
+                    // and propagate that up the stack, but that requires adding the nonempty crate
+                    // as a dependency in but_core. Decided "not worth it" for now.
+                    .expect("Each tree change produces at least one hunk"),
                 },
             );
             // Preserve generated IDs from before path-derived file IDs were introduced. If these
@@ -1028,6 +1040,7 @@ impl IdMap {
                     format!("{}:{}", uncommitted_file.short_id, hunk_id.short_id()),
                     UncommittedHunk {
                         source: uncommitted_file.source.clone(),
+                        tree_status: uncommitted_file.tree_status,
                         hunk: hunk.clone(),
                     },
                 );
@@ -1299,6 +1312,7 @@ impl IdMap {
                 hunks.push(IdAndHunk {
                     id: short_id.to_owned(),
                     hunk: hunk.to_owned(),
+                    tree_status: uncommitted_hunk.tree_status,
                 });
             }
         }
@@ -1883,11 +1897,17 @@ pub struct IdAndHunk {
     pub id: ShortId,
     /// The worktree hunk identified by `id`.
     pub hunk: but_core::SingleHunk,
+    /// The tree status of the related tree change.
+    pub tree_status: TreeStatusKind,
 }
 
 impl PartialEq for IdAndHunk {
     fn eq(&self, other: &Self) -> bool {
-        let Self { id: _, hunk } = self;
+        let Self {
+            id: _,
+            hunk,
+            tree_status: _,
+        } = self;
         hunk.identifies_same_hunk(&other.hunk)
     }
 }
@@ -2167,6 +2187,8 @@ pub struct UncommittedFile {
     pub short_id: ShortId,
     /// The checkout this file was read from.
     pub source: ChangeSourceId,
+    /// The associated tree change
+    tree_status: TreeStatusKind,
     /// Every element has the same [`but_core::SingleHunk::path`] so the first hunk can be used
     /// to obtain it.
     short_id_hunks: NonEmpty<(UnqualifiedHunkId, but_core::SingleHunk)>,
@@ -2184,6 +2206,7 @@ impl UncommittedFile {
             hunks: self.hunks().map(|(hunk_id, hunk)| IdAndHunk {
                 id: format!("{}:{hunk_id}", self.short_id),
                 hunk: hunk.to_owned(),
+                tree_status: self.tree_status,
             }),
             id: self.short_id.clone(),
             is_entire_file: true,
@@ -2214,6 +2237,7 @@ impl<'a> Node<'a> for &'a UncommittedFile {
                         id: id.clone(),
                         hunks: NonEmpty::new(IdAndHunk {
                             id,
+                            tree_status: self.tree_status,
                             hunk: hunk.to_owned(),
                         }),
                         is_entire_file: false,
@@ -2235,6 +2259,7 @@ impl<'a> Node<'a> for &'a UncommittedFile {
                             id: id.clone(),
                             hunks: NonEmpty::new(IdAndHunk {
                                 id: id.clone(),
+                                tree_status: self.tree_status,
                                 hunk: hunk.to_owned(),
                             }),
                             is_entire_file: false,
@@ -2264,6 +2289,8 @@ pub struct UncommittedHunk {
     pub hunk: but_core::SingleHunk,
     /// The checkout this hunk was read from.
     pub source: ChangeSourceId,
+    /// The status of the associated tree change.
+    pub tree_status: TreeStatusKind,
 }
 
 impl<'a> Node<'a> for &'a UncommittedHunk {
@@ -2285,6 +2312,7 @@ impl<'a> Node<'a> for &'a UncommittedHunk {
             id: short_id.to_owned(),
             hunks: NonEmpty::new(IdAndHunk {
                 id: short_id.to_owned(),
+                tree_status: self.tree_status,
                 hunk: self.hunk.clone(),
             }),
             is_entire_file: false,

@@ -166,12 +166,28 @@ pub fn hunks_from_changes(
     changes: impl IntoIterator<Item = impl Into<TreeChange>>,
     context_lines: u32,
 ) -> Vec<SingleHunk> {
+    changes_with_hunks(repo, changes, context_lines)
+        .flat_map(|(_, hunks)| hunks)
+        .collect()
+}
+
+/// Extracts hunks for the provided `changes`, retaining the association between each change and its
+/// constituent hunks.
+pub fn changes_with_hunks<'a, I>(
+    repo: &'a gix::Repository,
+    changes: I,
+    context_lines: u32,
+) -> impl Iterator<Item = (TreeChange, Vec<SingleHunk>)> + 'a
+where
+    I: IntoIterator,
+    I::Item: Into<TreeChange>,
+    I::IntoIter: 'a,
+{
     // Object-backed changes use index attributes; worktree-backed changes also read
     // worktree attributes. Keep their pipelines separate to preserve that distinction.
     let mut object_filter = None;
     let mut worktree_filter = None;
-    let mut hunks = Vec::new();
-    for change in changes {
+    changes.into_iter().map(move |change| {
         let change = change.into();
         let state = change.status.state();
         let filter = if state.is_some_and(|state| state.id.is_null()) {
@@ -194,9 +210,10 @@ pub fn hunks_from_changes(
             // As before, failed diffs fall back to whole-file hunks.
             Err(_) => None,
         };
-        hunks.extend(SingleHunk::from_tree_change(&change, patch));
-    }
-    hunks
+
+        let hunks = SingleHunk::from_tree_change(&change, patch);
+        (change, hunks)
+    })
 }
 
 /// Convert `hunk` into a diff spec, completing it with the rename, addition and deletion

@@ -42,6 +42,9 @@ pub(crate) mod worktrees;
 pub mod diff_rendering;
 pub mod string_interning;
 
+mod status;
+pub(crate) use status::{status_letter, status_letter_kind, status_letter_ui};
+
 pub trait ResultErrorExt {
     fn show_root_cause_error_then_exit_without_destructors(self, out: OutputChannel) -> !;
 }

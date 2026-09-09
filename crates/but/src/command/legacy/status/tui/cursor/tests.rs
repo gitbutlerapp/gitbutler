@@ -131,6 +131,7 @@ fn uncommitted_cli_id_with_old_start(path: &str, id: &str, old_start: u32) -> Ar
         id: id.to_owned(),
         hunks: NonEmpty::new(IdAndHunk {
             id: id.to_owned(),
+            tree_status: but_core::TreeStatusKind::Modification,
             hunk: hunk(path, old_start),
         }),
         is_entire_file: true,
@@ -225,10 +226,12 @@ fn select_resolved_target_selects_committed_file() {
 fn select_resolved_target_selects_parent_file_for_hunk() {
     let first_hunk = IdAndHunk {
         id: "fi:a".into(),
+        tree_status: but_core::TreeStatusKind::Modification,
         hunk: hunk("file.txt", 1),
     };
     let second_hunk = IdAndHunk {
         id: "fi:b".into(),
+        tree_status: but_core::TreeStatusKind::Modification,
         hunk: hunk("file.txt", 20),
     };
     let file = UncommittedHunkOrFile {

@@ -3755,7 +3755,7 @@ fn worktree_commits_share_the_commit_namespace() -> anyhow::Result<()> {
 }
 
 mod util {
-    use std::{cmp::Ordering, fmt::Formatter};
+    use std::{cmp::Ordering, collections::BTreeMap, fmt::Formatter};
 
     use super::TestChanges;
 
@@ -3821,16 +3821,24 @@ mod util {
         }
     }
 
-    /// A source whose `changes` are left empty: [`IdMap`] reads only `hunks`, as
-    /// tree statuses are a status-rendering concern.
+    /// Group hunks by path, supplying addition metadata for these ID-focused tests.
     pub fn source_changes(
         source: crate::ChangeSourceId,
         hunks: Vec<but_core::SingleHunk>,
     ) -> crate::utils::change_source::SourceChanges {
+        let mut hunks_by_path: BTreeMap<BString, Vec<but_core::SingleHunk>> = BTreeMap::new();
+        for hunk in hunks {
+            hunks_by_path
+                .entry(hunk.path.clone())
+                .or_default()
+                .push(hunk);
+        }
         crate::utils::change_source::SourceChanges {
             source,
-            changes: Vec::new(),
-            hunks,
+            changes_with_hunks: hunks_by_path
+                .into_iter()
+                .map(|(path, hunks)| (tree_change_addition(path), hunks))
+                .collect(),
         }
     }
 
@@ -3842,9 +3850,9 @@ mod util {
         }
     }
 
-    pub fn tree_change_addition(path: &str) -> but_core::TreeChange {
+    pub fn tree_change_addition(path: impl Into<BString>) -> but_core::TreeChange {
         but_core::TreeChange {
-            path: BString::from(path),
+            path: path.into(),
             status: but_core::TreeStatus::Addition {
                 state: but_core::ChangeState {
                     // `IdMap` only identifies a committed file by its commit ID

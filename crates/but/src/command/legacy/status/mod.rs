@@ -4,7 +4,7 @@ use anyhow::Context as _;
 use bstr::{BStr, BString, ByteSlice};
 use but_api::diff::ComputeLineStats;
 use but_core::{
-    ChangeId, IgnoredWorktreeTreeChangeStatus, RepositoryExt, TreeStatus,
+    ChangeId, IgnoredWorktreeTreeChangeStatus, RepositoryExt,
     ref_metadata::StackId,
     sync::{RepoExclusive, RepoExclusiveGuard},
     ui,
@@ -27,12 +27,14 @@ use crate::{
         self, OutputFormat,
         atoms::{CliIdArg, Purpose, ResolvedCliIdArg},
     },
-    command::legacy::status::uncommitted_file::UncommittedFileWithId,
     command::legacy::{
         forge::review,
-        status::output::{
-            BranchLineContent, CommitLineContent, FileLineContent, StatusOutput, StatusOutputLine,
-            UncommittedLineContent,
+        status::{
+            output::{
+                BranchLineContent, CommitLineContent, FileLineContent, StatusOutput,
+                StatusOutputLine, UncommittedLineContent,
+            },
+            uncommitted_file::UncommittedFileWithId,
         },
         upstream::{self, BranchStatus as UpstreamBranchStatus},
         workspace_target,
@@ -44,7 +46,7 @@ use crate::{
     tui::text::truncate_text,
     utils::{
         InputOutputChannel, OutputChannel, WriteWithUtils, shorten_hex_object_id,
-        shorten_object_id, time::format_relative_time_verbose,
+        shorten_object_id, status_letter, status_letter_ui, time::format_relative_time_verbose,
     },
 };
 
@@ -558,7 +560,16 @@ fn build_status_context<'a>(
     // Kept for the tree status letters; the hunks move into the ID map.
     let changes_by_source = sources
         .iter()
-        .map(|source| (source.source.clone(), source.changes.clone()))
+        .map(|source| {
+            (
+                source.source.clone(),
+                source
+                    .changes_with_hunks
+                    .iter()
+                    .map(|(change, _)| change.clone().into())
+                    .collect(),
+            )
+        })
         .collect();
     let id_map = IdMap::new(
         stacks,
@@ -1475,7 +1486,7 @@ fn print_files(
         let path = Span::raw(file.path.to_string());
         let status = state
             .as_ref()
-            .map(status_letter_ui)
+            .map(|status| status_letter_ui(status, t))
             .unwrap_or_else(|| Span::raw(char::default().to_string()));
 
         let cli_id = &file.short_id;
@@ -1870,26 +1881,6 @@ fn lookup_cli_id_for_short_id(
     }
 }
 
-fn status_letter(status: &TreeStatus) -> Span<'static> {
-    let t = crate::theme::get();
-    match status {
-        TreeStatus::Addition { .. } => Span::styled("A", t.addition),
-        TreeStatus::Deletion { .. } => Span::styled("D", t.deletion),
-        TreeStatus::Modification { .. } => Span::styled("M", t.modification),
-        TreeStatus::Rename { .. } => Span::styled("R", t.renaming),
-    }
-}
-
-fn status_letter_ui(status: &ui::TreeStatus) -> Span<'static> {
-    let t = crate::theme::get();
-    match status {
-        ui::TreeStatus::Addition { .. } => Span::styled("A", t.addition),
-        ui::TreeStatus::Deletion { .. } => Span::styled("D", t.deletion),
-        ui::TreeStatus::Modification { .. } => Span::styled("M", t.modification),
-        ui::TreeStatus::Rename { .. } => Span::styled("R", t.renaming),
-    }
-}
-
 fn status_from_changes(changes: &[ui::TreeChange], path: BString) -> Option<ui::TreeStatus> {
     changes.iter().find_map(|change| {
         if change.path_bytes == path {
@@ -2109,7 +2100,7 @@ fn displayed_file_id(padded_prefix: Option<&str>, short_id: &str) -> String {
 
 fn tree_change_display_cli(change: &but_core::TreeChange) -> (Span<'static>, Span<'static>) {
     let path = Span::raw(change.path.to_string());
-    let mut status = status_letter(&change.status);
+    let mut status = status_letter(&change.status, crate::theme::get());
     status.content.to_mut().push(' ');
     (status, path)
 }
