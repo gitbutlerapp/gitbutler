@@ -387,8 +387,21 @@ impl Graph {
         frame: &Frame<'_>,
         remotes: &RemoteReach,
     ) -> Option<Stack> {
-        let groups = self.retained_groups(lane.groups, frame, id);
-        let segments = groups
+        let keep_first = !frame.kind.has_managed_ref();
+        let segments = self.lane_segments(lane, id, keep_first, frame, remotes);
+        (!segments.is_empty()).then_some(Stack { id, segments })
+    }
+
+    fn lane_segments(
+        &self,
+        lane: Lane,
+        id: Option<StackId>,
+        keep_first: bool,
+        frame: &Frame<'_>,
+        remotes: &RemoteReach,
+    ) -> Vec<StackSegment> {
+        let groups = self.retained_groups(lane.groups, frame, id, keep_first);
+        groups
             .iter()
             .enumerate()
             .map(|(idx, group)| {
@@ -410,16 +423,16 @@ impl Graph {
                 let early_end = lane.early_end && idx + 1 == groups.len();
                 self.stack_segment(group, base, early_end, frame, remotes, &above)
             })
-            .collect_vec();
-        (!segments.is_empty()).then_some(Stack { id, segments })
+            .collect_vec()
     }
 
-    /// Empty segments are shown only if metadata asks for them, or in a plain branch's own view.
+    /// Empty segments are shown only if metadata asks for them, or as the first if `keep_first`.
     fn retained_groups(
         &self,
         groups: Vec<Group>,
         frame: &Frame<'_>,
         id: Option<StackId>,
+        keep_first: bool,
     ) -> Vec<Group> {
         let own_metadata = id.and_then(|id| {
             frame
@@ -453,7 +466,7 @@ impl Graph {
                     .members
                     .iter()
                     .any(|&sidx| !self[sidx].commits.is_empty())
-                    || (*idx == 0 && !frame.kind.has_managed_ref())
+                    || (*idx == 0 && keep_first)
                     || self[group.head].ref_name().is_some_and(wanted_by_metadata)
             })
             .map(|(_, group)| group)
