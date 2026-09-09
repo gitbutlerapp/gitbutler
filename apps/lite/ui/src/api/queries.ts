@@ -2,8 +2,16 @@ import { forgeAuthFailure } from "#ui/forge.ts";
 import type { PayloadFor } from "#electron/ipc.ts";
 import { type AggregateCIChecks, aggregateCIChecks } from "#ui/ci.ts";
 import { clampAutoFetch, defaultSettings } from "#ui/settings.ts";
-import type { CiCheck, ForgeName, ForgeReview, TreeChange, UnifiedPatch } from "@gitbutler/but-sdk";
+import type {
+	CiCheck,
+	ForgeName,
+	ForgeReview,
+	ReviewMergeStatus,
+	TreeChange,
+	UnifiedPatch,
+} from "@gitbutler/but-sdk";
 import {
+	type QueryClient,
 	experimental_streamedQuery,
 	hashKey,
 	infiniteQueryOptions,
@@ -400,6 +408,10 @@ export const listCommentReactionsQueryOptions = ({
 		staleTime: 60_000,
 	});
 
+/** The forge has not settled the merge state yet: GitHub's `unknown`, GitLab's `checking`, or nothing at all. */
+const stillComputing = (mergeableState: string | null): boolean =>
+	mergeableState === null || mergeableState === "unknown" || mergeableState === "checking";
+
 export const getReviewMergeStatusQueryOptions = ({
 	projectId,
 	reviewId,
@@ -409,10 +421,12 @@ export const getReviewMergeStatusQueryOptions = ({
 		queryFn: () => window.lite.getReviewMergeStatus({ projectId, reviewId }),
 		staleTime: ({ state: { data } }) => (data?.isMergeable ? 30_000 : 10_000),
 		// Mergeability flips from the forge side (checks finish, approvals
-		// land); poll while the tab is open. Pauses when the app is unfocused
+		// land); poll while the tab is open, and briskly while the forge says
+		// it is still working the answer out. Pauses when the app is unfocused
 		// (refetchIntervalInBackground defaults off), and the focusManager
 		// wiring in main.tsx catches up on refocus.
-		refetchInterval: 60_000,
+		refetchInterval: ({ state: { data } }) =>
+			data !== undefined && stillComputing(data.mergeableState) ? 10_000 : 60_000,
 	});
 
 /** This query should be gated by PR capability lest it fail. */
@@ -523,6 +537,34 @@ export const listEditorsQueryOptions = queryOptions({
 
 type CIChecksQueryData = { data: Array<CiCheck>; aggregate: AggregateCIChecks | null };
 
+/**
+ * Refetch the merge status until the forge reports it mergeable: at once,
+ * then after waits of 3, 8 and 20 seconds, half a minute in all. The forge
+ * recomputes mergeability some seconds after the last check lands, so the
+ * refetch a finished check triggers can still read the old answer. One
+ * burst per project at a time: every branch's checks poll can start one,
+ * and they would all ask after the same status on screen.
+ */
+const settling = new Map<string, Promise<void>>();
+const settleMergeStatus = (client: QueryClient, projectId: string): Promise<void> => {
+	let burst = settling.get(projectId);
+	if (burst === undefined) {
+		burst = settleMergeStatusOnce(client, projectId).finally(() => settling.delete(projectId));
+		settling.set(projectId, burst);
+	}
+	return burst;
+};
+
+const settleMergeStatusOnce = async (client: QueryClient, projectId: string): Promise<void> => {
+	const shown = { queryKey: [projectId, "getReviewMergeStatus"], type: "active" } as const;
+	for (const delay of [0, 3_000, 8_000, 20_000]) {
+		await new Promise((resolve) => setTimeout(resolve, delay));
+		await client.refetchQueries(shown);
+		const statuses = client.getQueriesData<ReviewMergeStatus>(shown);
+		if (statuses.every(([, status]) => status?.isMergeable === true)) return;
+	}
+};
+
 /** This query should be gated by checks capability. */
 // There is no watcher event that could invalidate this query.
 export const listCIChecksQueryOptions = ({
@@ -551,10 +593,13 @@ export const listCIChecksQueryOptions = ({
 				checks = { data: [], aggregate: null };
 			}
 			// The verdict is what flips the forge's mergeability, and this poll
-			// notices it long before the merge-status poll would; refetch now so
-			// the Merge button doesn't stay disabled for up to a minute.
-			if (previousStatus === "in_progress" && checks.aggregate?.status !== "in_progress")
-				void client.invalidateQueries({ queryKey: [projectId, "getReviewMergeStatus"] });
+			// notices it long before the merge-status poll would.
+			if (
+				previousStatus === "in_progress" &&
+				checks.aggregate !== null &&
+				checks.aggregate.status !== "in_progress"
+			)
+				void settleMergeStatus(client, projectId);
 			return checks;
 		},
 		// Refetch periodically, being mindful of rate limiting. Similarly tweak stale time for
