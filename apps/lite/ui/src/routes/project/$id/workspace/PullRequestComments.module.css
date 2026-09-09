@@ -495,3 +495,14 @@
 	text-decoration: underline dotted;
 	text-underline-position: from-font;
 }
+
+.threadActions {
+	display: flex;
+	align-items: flex-start;
+	gap: 6px;
+
+	> div {
+		flex: 1;
+		min-width: 0;
+	}
+}

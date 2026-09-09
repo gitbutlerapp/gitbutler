@@ -798,6 +798,26 @@ pub async fn list_review_threads(
         .await
 }
 
+/// Set a review conversation's resolution on the forge.
+/// This remote operation is outside the local repository snapshot timeline.
+#[but_api(napi, invalidates = [ReviewThreads])]
+#[instrument(err(Debug))]
+pub async fn set_review_thread_resolved(
+    ctx: ThreadSafeContext,
+    thread_id: String,
+    resolved: bool,
+) -> Result<()> {
+    let (storage, forge_repo_info, preferred_forge_user) = forge_endpoint_context(ctx)?;
+    but_forge::set_review_thread_resolved(
+        &preferred_forge_user,
+        &forge_repo_info,
+        &thread_id,
+        resolved,
+        &storage,
+    )
+    .await
+}
+
 /// Reply into one of a review's diff-anchored comment threads.
 #[but_api(napi, invalidates = [ReviewThreads])]
 #[instrument(err(Debug))]

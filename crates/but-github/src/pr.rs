@@ -459,6 +459,20 @@ pub async fn list_pr_reviews(
         .context("Failed to list pull request reviews")
 }
 
+/// Set the resolution state of a review conversation.
+pub async fn set_review_thread_resolved(
+    preferred_account: Option<&crate::GithubAccountIdentifier>,
+    thread_id: &str,
+    resolved: bool,
+    storage: &but_forge_storage::Controller,
+) -> Result<()> {
+    GitHubClient::from_storage(storage, preferred_account)?
+        .set_review_thread_resolved(thread_id, resolved)
+        .await
+        .map_err(classify_forge_error)
+        .context("Failed to change review thread resolution")
+}
+
 /// Reply into an existing review thread, returning the comment it made.
 pub async fn create_review_thread_reply(
     preferred_account: Option<&crate::GithubAccountIdentifier>,

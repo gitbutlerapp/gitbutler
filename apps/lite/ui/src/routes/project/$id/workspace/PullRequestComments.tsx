@@ -1,4 +1,5 @@
 import {
+	useSetReviewThreadResolved,
 	useAddCommentReaction,
 	useAddSubmissionReaction,
 	useCreateReviewComment,
@@ -546,6 +547,7 @@ const Thread: FC<{
 	branchApplied: boolean;
 }> = ({ projectId, reviewId, thread, branchApplied }) => {
 	const [expanded, setExpanded] = useState(!thread.isResolved);
+	const { mutate: setResolved, isPending: resolving } = useSetReviewThreadResolved(projectId);
 	// The thread hangs where its first comment was left; later replies carry
 	// the same hunk.
 	const firstComment = thread.comments[0];
@@ -629,7 +631,19 @@ const Thread: FC<{
 							key={comment.id !== 0 ? comment.id : comment.htmlUrl}
 						/>
 					))}
-					<ReviewThreadReply projectId={projectId} reviewId={reviewId} threadId={thread.id} />
+					<div className={styles.threadActions}>
+						<ReviewThreadReply projectId={projectId} reviewId={reviewId} threadId={thread.id} />
+						<button
+							className={getButtonClassName({ variant: "ghost" })}
+							type="button"
+							disabled={resolving}
+							onClick={() =>
+								setResolved({ projectId, threadId: thread.id, resolved: !thread.isResolved })
+							}
+						>
+							{resolving ? "Updating…" : thread.isResolved ? "Reopen conversation" : "Resolve"}
+						</button>
+					</div>
 				</div>
 			)}
 		</div>

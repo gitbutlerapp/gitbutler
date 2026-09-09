@@ -1749,6 +1749,31 @@ impl From<but_github::PullRequestReviewThreadComment> for ForgeReviewThreadComme
     }
 }
 
+/// Set a review conversation's resolution on the forge.
+pub async fn set_review_thread_resolved(
+    preferred_forge_user: &Option<crate::ForgeUser>,
+    forge_repo_info: &crate::forge::ForgeRepoInfo,
+    thread_id: &str,
+    resolved: bool,
+    storage: &but_forge_storage::Controller,
+) -> Result<()> {
+    match &forge_repo_info.forge {
+        ForgeName::GitHub => {
+            let preferred_account = preferred_forge_user.as_ref().and_then(|user| user.github());
+            but_github::pr::set_review_thread_resolved(
+                preferred_account,
+                thread_id,
+                resolved,
+                storage,
+            )
+            .await
+        }
+        forge => Err(anyhow::anyhow!(
+            "Review thread resolution for forge {forge:?} is not implemented yet."
+        )),
+    }
+}
+
 /// Reply into an existing review thread, returning the comment it made.
 ///
 /// Addressed by the thread's own forge id rather than the review number: a

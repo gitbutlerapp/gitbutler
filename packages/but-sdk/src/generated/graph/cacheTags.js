@@ -74,6 +74,7 @@ export const apiInvalidates = {
 	setGbConfig: ["GbConfig", "SigningSettings"],
 	setReviewAutoMerge: ["Reviews"],
 	setReviewDraftiness: ["Reviews", "MergeStatus"],
+	setReviewThreadResolved: ["ReviewThreads"],
 	storeBitbucketApiToken: ["ForgeAccounts", "ForgeLogin"],
 	storeGithubPat: ["ForgeAccounts", "ForgeLogin"],
 	storeGitlabPat: ["ForgeAccounts", "ForgeLogin"],
