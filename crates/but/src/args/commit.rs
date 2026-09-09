@@ -26,11 +26,12 @@ pub struct Platform {
     /// The message to use for the commit.
     ///
     /// Can be supplied any amount of times, each value being appended to the preceding ones with a
-    /// blank line in between.
+    /// blank line in between. Without `-m` or `--no-message`, a terminal opens the editor and a
+    /// non-interactive run commits with an empty message.
     #[clap(short, long, group = "commit_message")]
     pub message: Option<Vec<String>>,
 
-    /// Creates the commit without a commit message.
+    /// Create the commit without a message.
     #[clap(long, group = "commit_message")]
     pub no_message: bool,
 
@@ -81,7 +82,7 @@ pub struct Platform {
     )]
     pub below: Option<CliIdArg>,
 
-    /// Forces the commit to be empty regardless of repository state.
+    /// Create an empty commit even when there are changes.
     #[clap(long, group = "changes_to_commit")]
     pub empty: bool,
 
@@ -89,9 +90,9 @@ pub struct Platform {
     #[clap(short, long, group = "changes_to_commit")]
     pub interactive: bool,
 
-    /// One or more changes to commit.
+    /// The files or hunks to commit, by CLI ID from `but diff`.
     ///
-    /// A change can either be a file or a hunk.
+    /// If omitted, everything uncommitted is committed.
     #[clap(group = "changes_to_commit")]
     pub changes: Vec<CliIdArg>,
 

@@ -181,7 +181,7 @@ impl HelpTopic {
     name(SubcommandDiscriminant)
 )]
 pub enum Subcommands {
-    /// Overview of the project workspace state.
+    /// Show an overview of the workspace state.
     ///
     /// This shows uncommitted files, all applied branches (stacked or
     /// parallel), commits on each of those branches,
@@ -205,7 +205,7 @@ pub enum Subcommands {
     #[cfg(feature = "legacy")]
     #[cfg_attr(feature = "raw-clap-docs", clap(verbatim_doc_comment))]
     Status {
-        /// Determines whether the committed files should be shown as well.
+        /// Also list the files changed by each commit.
         #[clap(short = 'f', alias = "files", default_value_t = false)]
         show_files: bool,
         /// Show verbose output with commit author and timestamp.
@@ -230,7 +230,7 @@ pub enum Subcommands {
     #[cfg_attr(feature = "raw-clap-docs", clap(verbatim_doc_comment))]
     Diff(diff::Platform),
 
-    /// Shows detailed information about a commit or branch.
+    /// Show details of a commit or branch.
     ///
     /// When given a commit ID, displays the full commit message, author information,
     /// committer information (if different from author), and the list of files modified.
@@ -268,6 +268,7 @@ pub enum Subcommands {
     #[cfg_attr(feature = "raw-clap-docs", clap(verbatim_doc_comment))]
     Show {
         /// The commit ID (short or full SHA), branch name, or CLI ID to show details for
+        #[clap(value_name = "COMMIT_OR_BRANCH")]
         commit: String,
         /// Show full commit messages and files changed for each commit
         #[clap(short = 'v', long = "verbose")]
@@ -415,7 +416,8 @@ pub enum Subcommands {
         cmd: Option<resolve::Subcommands>,
         /// A commit to enter resolution mode for, or one or more conflicted uncommitted
         /// files (as listed by `but status`) to mark as resolved with their current
-        /// worktree content (when no subcommand is provided)
+        /// worktree content. Resolution mode checks the commit out until `finish` or
+        /// `cancel`; the `conflicts` and `apply` subcommands resolve a commit without it.
         targets: Vec<String>,
         /// Resolve the conflicts with the configured AI model and apply the result.
         ///
@@ -455,7 +457,7 @@ pub enum Subcommands {
     #[cfg_attr(feature = "raw-clap-docs", clap(verbatim_doc_comment))]
     Push(push::Command),
 
-    /// Updates all applied branches to be up to date with the target branch.
+    /// Update all applied branches onto the latest target branch.
     ///
     /// This fetches the latest changes from the remote and rebases all applied branches
     /// on top of the updated target branch.
@@ -466,10 +468,13 @@ pub enum Subcommands {
     /// You can run `but pull --check` first to see if your branches can be cleanly
     /// merged into the target branch before running the update.
     ///
+    /// Commits pushed to a branch's own remote counterpart are not integrated by pull;
+    /// use `but branch update <branch>` for those.
+    ///
     #[cfg(feature = "legacy")]
     #[cfg_attr(feature = "raw-clap-docs", clap(verbatim_doc_comment))]
     Pull {
-        /// Only check the status without updating (equivalent to the old `but base check`)
+        /// Only check whether the update would apply cleanly, without updating
         #[clap(long, short = 'c')]
         check: bool,
     },
@@ -487,7 +492,7 @@ pub enum Subcommands {
     #[clap(visible_alias = "mr")]
     Pr(forge::pr::Platform),
 
-    /// Amends changes into the appropriate commits where they belong.
+    /// Amend uncommitted changes into the commits they belong to.
     ///
     /// The semantic for finding "the appropriate commit" is as follows:
     ///
@@ -534,7 +539,8 @@ pub enum Subcommands {
     Reword {
         /// Commit ID to edit, branch ID to rename, or anonymous branch ID to name
         target: CliIdArg,
-        /// The new commit message or branch name. If not provided, opens an editor.
+        /// The new commit message or branch name. Without it, a terminal opens the editor
+        /// and a non-interactive run fails.
         #[clap(short = 'm', long = "message", conflicts_with = "fix_formatting")]
         message: Option<String>,
         /// Format the existing commit message to 72-char line wrapping without opening an editor
@@ -590,7 +596,7 @@ pub enum Subcommands {
     #[cfg_attr(feature = "raw-clap-docs", clap(verbatim_doc_comment))]
     Redo(redo::Platform),
 
-    /// Sets up a GitButler project from a git repository in the current directory.
+    /// Set up a GitButler project from the git repository in the current directory.
     ///
     /// This command will:
     /// - Add the repository to the global GitButler project registry

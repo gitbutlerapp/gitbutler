@@ -60,7 +60,7 @@ pub enum Subcommands {
     /// the workspace to its pre-resolution state.
     #[cfg_attr(feature = "raw-clap-docs", clap(verbatim_doc_comment))]
     Cancel {
-        /// Forcibly remove any changes made
+        /// Discard any changes made during resolution
         #[clap(short = 'f', long)]
         force: bool,
     },

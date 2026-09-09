@@ -442,7 +442,7 @@ impl UserConfigKey {
 /// Subcommands for `but config forge`
 #[derive(Debug, Clone, clap::Subcommand)]
 pub enum ForgeSubcommand {
-    /// Authenticate with your forge provider (GitHub, GitLab or Bitbucket).
+    /// Authenticate with the forge (GitHub, GitLab, or Bitbucket).
     ///
     /// This will guide you through the authentication process using either:
     /// GitHub

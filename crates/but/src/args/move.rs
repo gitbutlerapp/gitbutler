@@ -83,17 +83,8 @@ pub struct Platform {
     /// are equivalent.
     #[clap(long)]
     pub unstack: bool,
-    /// One or more sources to move.
-    ///
-    /// You may provide one of the following kinds of sources:
-    ///
-    /// * Commits
-    /// * Committed changes
-    ///     - Files and hunks may be mixed, but all changes must come from the same commit
-    /// * A branch
-    ///     - Branches can only be moved one at a time
-    ///
-    /// Mixing sources in a single command is not allowed.
+    /// One or more sources to move, all of one kind: commits; committed files and hunks from one
+    /// commit; or a single branch.
     ///
     /// The order of the sources does not matter.
     ///

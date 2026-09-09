@@ -26,13 +26,14 @@ pub struct Platform {
     /// The message to use for the new commit.
     ///
     /// Can be supplied any number of times, each value being appended to the preceding ones with a
-    /// blank line in between.
+    /// blank line in between. Without a message flag, squashing commits or branches opens the
+    /// editor in a terminal; a non-interactive run skips the editor.
     ///
     /// This cannot be used when `TARGET` is the uncommitted area (`@`).
     #[clap(short, long, group = "commit_message")]
     pub message: Option<Vec<String>>,
 
-    /// Creates the commit without a commit message.
+    /// Create the commit without a message.
     ///
     /// This cannot be used when `TARGET` is the uncommitted area (`@`).
     #[clap(long, group = "commit_message")]
