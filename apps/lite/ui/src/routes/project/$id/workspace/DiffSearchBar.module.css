@@ -3,8 +3,10 @@
 	z-index: 2;
 	position: absolute;
 	top: 8px;
-	/* Clear of the minimap, which owns the right edge. */
-	right: 68px;
+	/* The same inset as the top, over the minimap rather than beside it. The ruler owns the right
+	   edge but is invisible at rest, and a bar held 68px clear of it floated mid-header most of the
+	   time. Awake, the ruler loses its top few percent under the bar, which is the smaller cost. */
+	right: 8px;
 	align-items: center;
 	padding: 4px;
 	gap: 4px;
