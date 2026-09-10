@@ -26,6 +26,23 @@ export const Default = meta.story({
 	),
 });
 
+export const Small = meta.story({
+	render: () => (
+		<ToggleGroup
+			render={<ToggleGroupStyles />}
+			defaultValue={["humans"]}
+			aria-label="Notification type"
+		>
+			<Toggle render={<ToggleStyles size="small" />} value="humans">
+				Humans
+			</Toggle>
+			<Toggle render={<ToggleStyles size="small" />} value="agents">
+				Agents
+			</Toggle>
+		</ToggleGroup>
+	),
+});
+
 export const WithIcons = meta.story({
 	render: () => (
 		<ToggleGroup render={<ToggleGroupStyles />} defaultValue={["list"]} aria-label="View mode">

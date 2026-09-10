@@ -159,10 +159,16 @@ export const NotificationBell: FC<{ projectId: string }> = ({ projectId }) => {
 						if (next !== undefined) setTab(next);
 					}}
 				>
-					<Toggle render={<ToggleStyles />} value={"humans" satisfies NotificationType}>
+					<Toggle
+						render={<ToggleStyles size="small" />}
+						value={"humans" satisfies NotificationType}
+					>
 						Humans{humanUnseen > 0 && ` (${humanUnseen})`}
 					</Toggle>
-					<Toggle render={<ToggleStyles />} value={"agents" satisfies NotificationType}>
+					<Toggle
+						render={<ToggleStyles size="small" />}
+						value={"agents" satisfies NotificationType}
+					>
 						Agents{agentUnseen > 0 && ` (${agentUnseen})`}
 					</Toggle>
 				</ToggleGroup>
