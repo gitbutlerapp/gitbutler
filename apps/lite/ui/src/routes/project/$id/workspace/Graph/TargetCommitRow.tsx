@@ -2,15 +2,17 @@ import rowStyles from "../Row.module.css";
 import { setCursor } from "#ui/use-cursor.ts";
 import { commitTitle } from "#ui/commit.ts";
 import { classes } from "#ui/components/classes.ts";
-import { GraphSegment } from "#ui/components/GraphSegment.tsx";
-import { Icon } from "#ui/components/Icon.tsx";
+import { GraphSegment, type GraphSegmentStatus } from "#ui/components/GraphSegment.tsx";
+import { GRAPH_COMMIT_BEND_PADDING } from "#ui/components/graph-spacing.ts";
 import { RelativeTime } from "#ui/components/RelativeTime.tsx";
 import type { TargetCommit } from "@gitbutler/but-sdk";
 import { type FC, useState } from "react";
-import { Row, RowLabel, RowLabelContainer, RowLabelFooter } from "../Row.tsx";
+import { Row, RowLabel, RowLabelContainer, RowLabelFooter, RowLabelGroup } from "../Row.tsx";
 import { treeItemId, useIsSelected } from "../Row-utils.ts";
 import { targetCommitAddress } from "./layout.ts";
 import styles from "./TargetCommitRow.module.css";
+
+const commitBendLabelStyle = { paddingBlockStart: GRAPH_COMMIT_BEND_PADDING };
 
 /** A target commit in the stacks graph's upstream section: a value on the applied cursor. */
 export const TargetCommitRow: FC<{
@@ -21,7 +23,19 @@ export const TargetCommitRow: FC<{
 	inert?: boolean;
 	/** Columns of the main line running behind the row, left of its rail. */
 	behind?: number;
-}> = ({ commit: targetCommit, positionInSet, setSize, inert, behind }) => {
+	railEnds?: boolean;
+	above?: GraphSegmentStatus;
+	fromTrunk?: boolean;
+}> = ({
+	commit: targetCommit,
+	positionInSet,
+	setSize,
+	inert,
+	behind,
+	railEnds,
+	above,
+	fromTrunk,
+}) => {
 	const { commit, review } = targetCommit;
 	const address = targetCommitAddress(targetCommit);
 	const isSelected = useIsSelected(address, "applied");
@@ -46,8 +60,15 @@ export const TargetCommitRow: FC<{
 			scrollSelectedIntoView
 			onSelect={() => setCursor("applied", address)}
 		>
-			<GraphSegment glyph="commit" status="Upstream" behind={behind} />
-			<div className={styles.label}>
+			<GraphSegment
+				glyph="commit"
+				status={targetCommit.inWorkspace ? "Integrated" : "Upstream"}
+				above={above}
+				fromTrunk={fromTrunk}
+				behind={behind}
+				railEnds={railEnds}
+			/>
+			<RowLabelGroup style={fromTrunk ? commitBendLabelStyle : undefined}>
 				<RowLabelContainer>
 					<RowLabel singleLine>
 						{title === undefined ? (
@@ -65,19 +86,8 @@ export const TargetCommitRow: FC<{
 						{authorName !== "" && <>{authorName} </>}
 						<RelativeTime timestamp={commit.committedAt} now={now} />
 					</span>
-
-					{review !== null && (
-						<span
-							title={review.title}
-							className={classes(rowStyles.fadedText, styles.labelMetaItem)}
-						>
-							<Icon name="pr" />
-							{review.unitSymbol}
-							{review.number}
-						</span>
-					)}
 				</RowLabelFooter>
-			</div>
+			</RowLabelGroup>
 		</Row>
 	);
 };

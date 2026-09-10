@@ -64,12 +64,13 @@ import {
 	DOCKED_HEIGHT,
 	HEAD_DOCKED_HEIGHT,
 	ROW_INSET,
-	inSection,
-	sectionAddresses,
+	foldAt,
+	foldAddresses,
 	type WorktreePlacement,
 	worktreesOnTip,
 } from "../Graph/layout.ts";
 import type { Graph } from "../Graph/usePlan.ts";
+import { GRAPH_TRUNK_INSET } from "#ui/components/graph-spacing.ts";
 import { StackCard } from "../StackCard.tsx";
 import stackCardStyles from "../StackCard.module.css";
 import { treeItemId } from "../Row-utils.ts";
@@ -163,7 +164,7 @@ const UncommittedChanges: FC<
 		worktreeChanges: WorktreeChanges | undefined;
 		/** The graph's scroller, which the card heads. */
 		scrollElementRef: RefObject<HTMLDivElement | null>;
-		/** The docked target row's height at the scroller's foot, or 0: the commit form sticks above it. */
+		/** The docked target row's height that file navigation must clear, or 0. */
 		footDock: number;
 		/** The card's head, measured by the parent, which docks a stand-in as soon as the head is pushed. */
 		headRef: (element: HTMLElement | null) => void;
@@ -225,9 +226,6 @@ const UncommittedChanges: FC<
 
 	const cardRef = useRef<HTMLDivElement>(null);
 	const fileListRef = useRef<HTMLDivElement>(null);
-	// The head sticks at the scroller's top and the commit form at its foot, so a row
-	// scrolled into view clears both.
-	const [formRef, formHeight] = useHeight();
 	// The list's start in the scroller, which the card heads: the rows above the
 	// list come and go with the filter and the worktree, so the card's size says
 	// when to measure again.
@@ -316,6 +314,7 @@ const UncommittedChanges: FC<
 				    under a header still reading "Uncommitted". */}
 				<Activity mode={isClean || worktreeChanges === undefined ? "hidden" : "visible"}>
 					<FilesTree
+						className={styles.uncommittedFiles}
 						aria-labelledby={uncommittedChangesHeadingId}
 						canUncommit={false}
 						data-preview-source={activeList === "uncommitted"}
@@ -343,29 +342,27 @@ const UncommittedChanges: FC<
 						scrollElementRef={scrollElementRef}
 						scrollMargin={listOffset}
 						scrollPaddingStart={headHeight}
-						scrollPaddingEnd={footDock + formHeight}
-						// The rows sit on the trunk, whose edge column is their whole gutter: no inset, the tree's own included.
-						style={{ "--row-padding-inline-start": "0px" }}
+						scrollPaddingEnd={footDock}
+						// Override the tree's inset to keep the rows on the uncommitted card's trunk.
+						style={{ "--row-padding-inline-start": "var(--graph-trunk-inset)" }}
 					/>
 				</Activity>
 
-				<div ref={formRef} className={styles.commitFoot} style={{ bottom: footDock }}>
-					<Row interactive={false} className={styles.commitFootRow}>
-						{trunk}
-						<CommitForm
-							projectId={projectId}
-							commitTarget={commitTarget}
-							targetComboboxItems={targetComboboxItems}
-							hasNoBranches={hasNoBranches}
-							startCommitButtonId={startCommitButtonId}
-							commitMessageInputId={commitMessageInputId}
-							className={styles.commitForm}
-							onAmendCommit={amendCommit}
-							canAmendCommit={canAmendCommit}
-							worktreeChanges={worktreeChanges}
-						/>
-					</Row>
-				</div>
+				<Row interactive={false}>
+					{trunk}
+					<CommitForm
+						projectId={projectId}
+						commitTarget={commitTarget}
+						targetComboboxItems={targetComboboxItems}
+						hasNoBranches={hasNoBranches}
+						startCommitButtonId={startCommitButtonId}
+						commitMessageInputId={commitMessageInputId}
+						className={styles.commitForm}
+						onAmendCommit={amendCommit}
+						canAmendCommit={canAmendCommit}
+						worktreeChanges={worktreeChanges}
+					/>
+				</Row>
 			</Activity>
 
 			<Row interactive={false} className={styles.stub}>
@@ -1221,8 +1218,8 @@ const Stacks: FC<{
 	const selectedAddressKey = selection === null ? undefined : addressIdentityKey(selection);
 	// Whether the selection sits in the section's fold, looked up once per
 	// selection or plan: the hotkeys ask on every render.
-	const selectedInSection = useMemo(
-		() => selection !== null && inSection(plan, selection),
+	const selectedFold = useMemo(
+		() => (selection === null ? null : foldAt(plan, selection)),
 		[plan, selection],
 	);
 	const lastRevealedAddressKeyRef = useRef<string>(undefined);
@@ -1246,6 +1243,7 @@ const Stacks: FC<{
 	}, [rowVirtualizer, selectedAddressKey, selectedStackIndex]);
 
 	const toggleIncoming = () => dispatch(projectSlice.actions.toggleGraphIncoming({ projectId }));
+	const toggleHistory = () => dispatch(projectSlice.actions.toggleGraphHistory({ projectId }));
 	const showMoreRun = (runId: string) =>
 		dispatch(projectSlice.actions.showMoreGraphRun({ projectId, runId }));
 	const foldRun = (runId: string) =>
@@ -1261,18 +1259,20 @@ const Stacks: FC<{
 		pendingPushBranches,
 		// The fold key on a section row closes the fold and parks the cursor on
 		// the row above it, since the header is not a value.
-		sectionToggle: selectedInSection
-			? () => {
-					const first = sectionAddresses(plan)[0];
-					const index =
-						first === undefined
-							? undefined
-							: addressSpace.indexByKey.get(addressIdentityKey(first));
-					const above = index === undefined ? undefined : addressSpace.items[index - 1];
-					if (above !== undefined) setCursor("applied", above);
-					toggleIncoming();
-				}
-			: null,
+		sectionToggle:
+			selectedFold !== null
+				? () => {
+						const first = foldAddresses(plan, selectedFold)[0];
+						const index =
+							first === undefined
+								? undefined
+								: addressSpace.indexByKey.get(addressIdentityKey(first));
+						const above = index === undefined ? undefined : addressSpace.items[index - 1];
+						if (above !== undefined) setCursor("applied", above);
+						if (selectedFold === "incoming") toggleIncoming();
+						else toggleHistory();
+					}
+				: null,
 	});
 
 	return (
@@ -1280,7 +1280,10 @@ const Stacks: FC<{
 			<div
 				ref={retainScrollElement}
 				className={classes(uiStyles.scroller, styles.stacksScroller)}
-				style={{ "--row-padding-inline-start": `${ROW_INSET}px` }}
+				style={{
+					"--row-padding-inline-start": `${ROW_INSET}px`,
+					"--graph-trunk-inset": `${GRAPH_TRUNK_INSET}px`,
+				}}
 			>
 				{/* Its own tree: the files walk with their own cursor, and the arrow
 				    keys spill into the cards' tree at its edge. */}
@@ -1350,6 +1353,9 @@ const Stacks: FC<{
 						projectId={projectId}
 						plan={plan}
 						onToggleIncoming={toggleIncoming}
+						onToggleHistory={toggleHistory}
+						onShowMoreHistory={() => void graph.showMoreHistory()}
+						historyMore={graph.historyMore}
 						onShowMoreRun={showMoreRun}
 						onFoldRun={foldRun}
 						scrollElementRef={scrollElementRef}
@@ -1521,8 +1527,7 @@ export const WorkspaceLists: FC<
 		focusScope("uncommitted-files");
 	};
 	const scrollElementRef = useRef<HTMLDivElement>(null);
-	// The docked target row's height, which the card's commit form sticks above; a row
-	// scrolled into view clears it, else the foot's gradient.
+	// Rows scrolled into view clear the docked target row, or the foot's gradient.
 	const footDock = graph.plan.header !== null ? DOCKED_HEIGHT : 0;
 	const scrollPaddingEnd = Math.max(footDock, 14);
 	// The card's head, whose height says when its docked stand-in takes over.

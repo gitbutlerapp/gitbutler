@@ -131,14 +131,14 @@ export const RowCheckbox: FC<ComponentProps<typeof Checkbox>> = (props) => (
 
 /**
  * The fold control on a row's graph rail: `glyph` at rest, a chevron once the
- * row is hovered or focused. Both are rendered and the swap is CSS-only (see
- * `.foldToggle`), which blanks just the glyph's own segment so the rail below
- * it keeps drawing. The chevron direction reports the state the way a
+ * row is hovered or focused, or always for section headers. The swap is
+ * CSS-only: hover chevrons replace the glyph, while permanent ones mask only
+ * the line directly behind them. The chevron direction reports the state the way a
  * disclosure triangle does. A glyph that is a chevron itself, as a section
  * header's, turns the hover one off, or the two overlap.
  *
  * `foldedIndicator` marks the rail for as long as the row is folded. The
- * chevron only appears on hover, so it cannot carry that on its own, and
+ * default chevron only appears on hover, so it cannot carry that on its own, and
  * `glyph` is busy describing the row's position in the graph. It takes the
  * second line, leaving the first to the glyph and the chevron.
  */
@@ -147,13 +147,14 @@ export const RowFoldToggle: FC<
 		folded: boolean;
 		glyph: ReactNode;
 		foldedIndicator?: ReactNode;
-		hoverChevron?: boolean;
+		chevron?: "hover" | "always" | "none";
 	} & ComponentProps<"button">
-> = ({ folded, glyph, foldedIndicator, hoverChevron = true, ...props }) => (
+> = ({ folded, glyph, foldedIndicator, chevron = "hover", ...props }) => (
 	<button
 		type="button"
 		{...props}
 		aria-expanded={!folded}
+		data-chevron={chevron}
 		className={classes(props.className, styles.foldToggle)}
 	>
 		<span className={styles.foldGlyph}>{glyph}</span>
@@ -162,7 +163,7 @@ export const RowFoldToggle: FC<
 			<span className={styles.foldIndicator}>{foldedIndicator}</span>
 		)}
 
-		{hoverChevron && (
+		{chevron !== "none" && (
 			<span className={styles.foldChevron}>
 				<Icon size={14} name={folded ? "chevron-right" : "chevron-down"} />
 			</span>

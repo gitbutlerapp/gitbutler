@@ -491,7 +491,7 @@ const PageBody: FC<{ projectId: string }> = ({ projectId }) => {
 	// A commit on the target line, selected anywhere in the graph, carries the review it landed.
 	const appliedReview =
 		appliedSelection?._tag === "Commit"
-			? targetCommitReview(graph.listing, appliedSelection.commitId)
+			? targetCommitReview(graph.listing, appliedSelection.commitId, graph.plan.history)
 			: null;
 	const details = useMemo(() => {
 		const viewProps = { projectId, onActiveFileSelection, viewerRef, didScrollToViaFileRef };

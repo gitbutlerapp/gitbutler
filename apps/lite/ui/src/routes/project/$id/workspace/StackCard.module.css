@@ -1,6 +1,8 @@
 /* A card runs the full width of its panel, divided from the next by its own
    floor rather than held off it by rounding and a gap. */
 .card {
+	--graph-through-visibility: hidden;
+
 	display: flex;
 	flex-direction: column;
 	border-block-end: 1px solid var(--border-section);

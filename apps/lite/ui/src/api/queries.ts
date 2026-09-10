@@ -221,6 +221,16 @@ export const workspaceTargetCommitsQueryOptions = (projectId: string) =>
 		queryFn: () => window.lite.workspaceTargetCommits({ projectId, from: null, limit: null }),
 	});
 
+/** The cursor is exclusive. Sharing the listing's key prefix also shares its invalidation. */
+export const olderTargetCommitsInfiniteQueryOptions = (projectId: string, from: string) =>
+	infiniteQueryOptions({
+		queryKey: [projectId, "workspaceTargetCommits", { olderThan: from }],
+		queryFn: ({ pageParam }) =>
+			window.lite.workspaceTargetCommits({ projectId, from: pageParam, limit: 25 }),
+		initialPageParam: from,
+		getNextPageParam: (page) => (page.hasMore ? page.commits.at(-1)?.commit.id : undefined),
+	});
+
 export const workspaceFetchStatusQueryOptions = (projectId: string) =>
 	queryOptions({
 		queryKey: [projectId, "workspaceFetchStatus"],
