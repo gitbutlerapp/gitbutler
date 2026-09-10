@@ -32,4 +32,14 @@
 			for the organization, then try again.
 		{/snippet}
 	</InfoMessage>
+{:else if errorCode === "GitHubTokenLifetimeRestricted"}
+	<InfoMessage style="warning" filled outlined={false}>
+		{#snippet title()}
+			GitHub organization limits token lifetime
+		{/snippet}
+		{#snippet content()}
+			This repository's organization refuses personal access tokens that stay valid longer than its
+			policy allows. Create a token with a shorter expiration, then connect GitHub with it here.
+		{/snippet}
+	</InfoMessage>
 {/if}

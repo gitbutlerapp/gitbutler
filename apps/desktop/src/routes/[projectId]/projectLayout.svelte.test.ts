@@ -4,6 +4,7 @@ import { BASE_BRANCH_SERVICE } from "$lib/baseBranch/baseBranchService.svelte";
 import { buildBranchEndpoints } from "$lib/branches/branchEndpoints";
 import { BRANCH_SERVICE } from "$lib/branches/branchService.svelte";
 import { FORGE_INFO_SERVICE } from "$lib/forge/forgeInfo.svelte";
+import { GitHubUserService } from "$lib/forge/github/githubUserService.svelte";
 import { GITLAB_USER_SERVICE } from "$lib/forge/gitlab/gitlabUserService.svelte";
 import { LISTING_SERVICE, ListingService } from "$lib/forge/listingService.svelte";
 import { GIT_SERVICE } from "$lib/git/gitService";
@@ -83,6 +84,15 @@ const expiredTokenError = {
 		code: "GitHubTokenExpired" as const,
 	},
 };
+// What `list_reviews` returns when an organization refuses the token's lifetime.
+const lifetimeError = {
+	error: {
+		origin: "ipc" as const,
+		name: "API error: (list_reviews)",
+		message: "A GitHub organization limits how long personal access tokens may stay valid.",
+		code: "GitHubTokenLifetimeRestricted" as const,
+	},
+};
 const nonterminalError = {
 	error: {
 		origin: "ipc" as const,
@@ -125,6 +135,7 @@ type Response =
 	| typeof success
 	| typeof terminalError
 	| typeof expiredTokenError
+	| typeof lifetimeError
 	| typeof nonterminalError
 	| typeof unrecognizedForgeError;
 
@@ -278,6 +289,33 @@ describe("project review-list polling", () => {
 			harness.storeState.unsubscribe();
 		},
 	);
+
+	test("stops polling on a token-lifetime refusal until a replacement credential succeeds", async () => {
+		vi.useFakeTimers();
+		const harness = setup([success, lifetimeError, success, success]);
+		// The real credential mutations invalidate the review list.
+		new GitHubUserService(harness.api as never);
+		await settle();
+		expect(harness.calls).toBe(1);
+
+		await vi.advanceTimersByTimeAsync(POLL_INTERVAL);
+		const refused = (harness.api.endpoints as any).listPrs.select(PROJECT_ID)(
+			harness.store.getState(),
+		);
+		expect(refused.data.ids, "refusal dropped the cached reviews").toEqual(["topic"]);
+		expect(refused.error).toMatchObject({ code: "GitHubTokenLifetimeRestricted" });
+		await vi.advanceTimersByTimeAsync(POLL_INTERVAL);
+		expect(harness.calls, "lifetime refusal scheduled another interval request").toBe(2);
+
+		await (harness.api.endpoints as any).storeGitHubPat.mutate({ accessToken: "replacement" });
+		await settle();
+		expect(harness.calls, "storing a token did not refetch the reviews").toBe(3);
+		await vi.advanceTimersByTimeAsync(POLL_INTERVAL);
+		expect(harness.calls, "polling did not resume after the credential was replaced").toBe(4);
+
+		harness.rendered.unmount();
+		harness.storeState.unsubscribe();
+	});
 
 	test("keeps terminal polling stopped after a nonterminal failed retry", async () => {
 		vi.useFakeTimers();

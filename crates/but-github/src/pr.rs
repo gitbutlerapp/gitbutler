@@ -4,6 +4,11 @@ use crate::client::{GitHubClient, HttpStatusError};
 
 const GITHUB_RATE_LIMIT_MESSAGE: &str = "GitHub's API rate limit was exceeded. Automatic refreshes are paused; the limit usually resets within an hour.";
 const GITHUB_ORG_SAML_RESTRICTION_MESSAGE: &str = "This GitHub organization requires SAML SSO. Authorize the GitButler OAuth app on the organization's SSO page, or authorize your personal access token in GitHub's token SSO settings, then try again.";
+/// The wording shared by GitHub's classic and fine-grained token-lifetime
+/// refusals; the surrounding sentence names the organization and a token URL,
+/// which never reach the user.
+const GITHUB_TOKEN_LIFETIME_PHRASE: &str = "if the token's lifetime is greater than";
+const GITHUB_TOKEN_LIFETIME_RESTRICTION_MESSAGE: &str = "A GitHub organization limits how long personal access tokens may stay valid. Create a token with a shorter expiration that meets the organization's policy, then reconnect GitHub with it.";
 pub async fn list(
     preferred_account: Option<&crate::GithubAccountIdentifier>,
     owner: &str,
@@ -113,6 +118,11 @@ pub(crate) fn classify_forge_error(err: anyhow::Error) -> anyhow::Error {
                 Some(but_error::Context::new_static(
                     but_error::Code::GitHubOrgSamlRestricted,
                     GITHUB_ORG_SAML_RESTRICTION_MESSAGE,
+                ))
+            } else if contains(GITHUB_TOKEN_LIFETIME_PHRASE) {
+                Some(but_error::Context::new_static(
+                    but_error::Code::GitHubTokenLifetimeRestricted,
+                    GITHUB_TOKEN_LIFETIME_RESTRICTION_MESSAGE,
                 ))
             } else if contains("Resource not accessible by personal access token") {
                 Some(but_error::Context::new_static(
@@ -711,6 +721,75 @@ mod tests {
                 "rate limits need a dedicated code and guidance without user or request ids"
             );
         }
+    }
+
+    #[test]
+    fn token_lifetime_policy_403_gets_dedicated_code_and_static_message() {
+        let bodies = [
+            // Reported classic-PAT wording with the organization and token id replaced.
+            r#"403 Forbidden: {"message":"The 'example-org' organization forbids access via a personal access tokens (classic) if the token's lifetime is greater than 180 days. Please adjust your token's lifetime at the following URL: https://github.com/settings/tokens/123456"}"#,
+            // Synthetic fine-grained fixture sharing the same policy phrase; not observed in production.
+            r#"403 Forbidden: {"message":"The 'example-org' organization forbids access via a fine-grained personal access token if the token's lifetime is greater than 90 days. Please adjust your token's lifetime at the following URL: https://github.com/settings/personal-access-tokens/123456"}"#,
+        ];
+        for body in bodies {
+            let err = classify_forge_error(http_error(reqwest::StatusCode::FORBIDDEN, body));
+            let ctx = err
+                .downcast_ref::<but_error::Context>()
+                .expect("a token-lifetime 403 needs a frontend context");
+            assert_eq!(
+                (ctx.code, ctx.message.as_deref()),
+                (
+                    but_error::Code::GitHubTokenLifetimeRestricted,
+                    Some(GITHUB_TOKEN_LIFETIME_RESTRICTION_MESSAGE)
+                ),
+                "lifetime refusals need a dedicated code and static guidance"
+            );
+            let message = ctx
+                .message
+                .as_deref()
+                .expect("lifetime guidance is present");
+            assert!(
+                ![
+                    "example-org",
+                    "settings/tokens",
+                    "settings/personal-access-tokens"
+                ]
+                .iter()
+                .any(|detail| message.contains(detail)),
+                "the classifier must discard the organization name and token URL"
+            );
+        }
+    }
+
+    #[test]
+    fn token_lifetime_phrase_requires_403_and_yields_to_rate_limits() {
+        let code = |status, body: &str| {
+            classify_forge_error(http_error(status, body))
+                .downcast_ref::<but_error::Context>()
+                .map(|ctx| ctx.code)
+        };
+        let lifetime = r#"{"message":"The organization forbids access if the token's lifetime is greater than 30 days."}"#;
+        assert_eq!(
+            code(reqwest::StatusCode::UNAUTHORIZED, lifetime),
+            Some(but_error::Code::GitHubTokenExpired),
+            "401 retains its authentication classification"
+        );
+        assert_eq!(
+            code(
+                reqwest::StatusCode::FORBIDDEN,
+                r#"{"message":"API rate limit exceeded for user ID 1 if the token's lifetime is greater than 1 day."}"#
+            ),
+            Some(but_error::Code::GitHubRateLimited),
+            "rate limits keep precedence over the lifetime phrase"
+        );
+        assert_eq!(
+            code(
+                reqwest::StatusCode::FORBIDDEN,
+                r#"{"message":"This token's lifetime cannot be extended."}"#
+            ),
+            None,
+            "an unrelated lifetime phrase stays unclassified"
+        );
     }
 
     #[test]
