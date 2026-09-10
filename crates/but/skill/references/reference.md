@@ -243,8 +243,9 @@ committed changes). Committed files and hunks may be mixed, but must come from o
 must be exactly one branch, which squashes that branch's commits together.
 
 Message flags (mutually exclusive). Commit and branch sources compose a new message unless the
-target is `@`, so without a flag they open an editor and block — always pass one. Uncommitted and
-committed-change sources reuse the target's message and need no flag:
+target is `@` — always pass a flag. Without one an agent run keeps the joined source messages and a
+terminal opens an editor. Uncommitted and committed-change sources reuse the target's message and
+need no flag:
 
 ```bash
 -m "msg"                # New message; repeat -m to append paragraphs

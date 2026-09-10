@@ -614,6 +614,69 @@ Hint: run `but help` for all commands
 }
 
 #[test]
+fn agent_squash_without_message_keeps_combined_message_instead_of_editor() {
+    let env = one_branch_three_commits();
+
+    // Agents get no editor even if one is configured; a spawned editor would fail the test.
+    env.but("squash a-branch-1")
+        .env("AI_AGENT", "codex")
+        .env("GIT_EDITOR", "false")
+        .assert()
+        .success();
+
+    env.but("status -fv")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┊╭┄ br [a-branch-1]
+┊● unl author 2000-01-01 00:00:00 +0000 (sha 615f4cb)
+┊│     add one  add three  add two
+┊│     unl:k A one
+┊│     unl:o A three
+┊│     unl:t A two
+├╯
+┊
+┴ 0dc3733 (common base) 2000-01-02 add M
+
+Hint: run `but help` for all commands
+
+"#]]);
+}
+
+#[test]
+fn json_squash_without_message_keeps_combined_message_instead_of_editor() {
+    let env = one_branch_three_commits();
+
+    // JSON runs get no editor even if one is configured; a spawned editor would fail the test.
+    env.but("squash a-branch-1 --json")
+        .env("GIT_EDITOR", "false")
+        .assert()
+        .success();
+
+    env.but("status -fv")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┊╭┄ br [a-branch-1]
+┊● unl author 2000-01-01 00:00:00 +0000 (sha 615f4cb)
+┊│     add one  add three  add two
+┊│     unl:k A one
+┊│     unl:o A three
+┊│     unl:t A two
+├╯
+┊
+┴ 0dc3733 (common base) 2000-01-02 add M
+
+Hint: run `but help` for all commands
+
+"#]]);
+}
+
+#[test]
 fn cannot_squash_nothing() {
     let env = one_branch_three_commits();
 
