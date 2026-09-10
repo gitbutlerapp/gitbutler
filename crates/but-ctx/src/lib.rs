@@ -546,6 +546,11 @@ impl Context {
 
 /// Trampolines that create new uncached instances of major types.
 impl Context {
+    /// Invalidates the workspace cache, if it is present.
+    pub fn invalidate_workspace(&mut self, _perm: &mut RepoExclusive) {
+        self.workspace.take();
+    }
+
     /// Create a cached workspace as seen from the current HEAD for editing, and return it,
     /// along with `(guard, &mut repo, &mut ws, &mut db)`.
     /// The guard ensures exclusive process-wide access to the repository.
