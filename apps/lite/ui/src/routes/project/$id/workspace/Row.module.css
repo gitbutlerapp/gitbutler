@@ -31,6 +31,8 @@
 /* Square, and edge to edge in every list that has them: a row's fill is a band
    across the panel rather than a chip inside it. */
 .containerInteractive {
+	cursor: var(--control-cursor);
+
 	&:where(:hover) {
 		background-color: var(--list-item-hover-bg);
 	}

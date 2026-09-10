@@ -2,12 +2,44 @@
    the hand (DESIGN.md, Cursors), so each host sets --control-cursor on its
    root: the app from the appearance setting, the harness panel to the hand of
    the page it sits in. Imported right after design-core, whose reset gives
-   links the hand. */
-button,
-a,
-summary,
-[role="button"],
-[role="menuitem"],
-[role="option"] {
+   links the hand.
+
+   Every control is listed here, once: the native elements and the roles Base
+   UI renders when it draws a control as a span or a div (a switch, a checkbox,
+   a combobox option, a menu item). A component adds cursor rules only for a
+   clickable that is none of these — a folded card, a minimap badge, a list
+   row — and takes `var(--control-cursor)` there too, never `pointer`.
+
+   Zero specificity, so a gesture cursor a component sets (text, grab, the
+   resize cursors) wins without a fight. */
+:where(
+	button,
+	a,
+	summary,
+	select,
+	input:is([type="checkbox"], [type="radio"]),
+	label[for],
+	[role="button"],
+	[role="checkbox"],
+	[role="menuitem"],
+	[role="menuitemcheckbox"],
+	[role="menuitemradio"],
+	[role="option"],
+	[role="radio"],
+	[role="switch"],
+	[role="tab"]
+) {
 	cursor: var(--control-cursor);
+}
+
+/* A disabled control refuses, whichever cursor the host chose. `data-disabled`
+   and `aria-disabled` are what Base UI sets on a control that is disabled but
+   still focusable. A label wrapping a disabled control refuses with it. */
+:where(button, select, input, textarea, [role]):is(
+	:disabled,
+	[data-disabled],
+	[aria-disabled="true"]
+),
+label:has(:disabled, [data-disabled], [aria-disabled="true"]) {
+	cursor: not-allowed;
 }
