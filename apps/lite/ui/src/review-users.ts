@@ -3,10 +3,10 @@ import type { ForgeReviewUser } from "@gitbutler/but-sdk";
 /**
  * Whether the user is an agent of any kind — Copilot, CI, a review bot.
  * The forge's own flag when it survives the trip, else the `[bot]` login
- * suffix every GitHub App carries.
+ * suffix and Copilot logins used by older cached GraphQL responses.
  */
-export const isAgent = (user: ForgeReviewUser): boolean =>
-	user.isBot || user.login.endsWith("[bot]");
+export const isAgent = (user: Pick<ForgeReviewUser, "isBot" | "login">): boolean =>
+	user.isBot || /(?:\[bot\]$|^copilot$|^copilot-pull-request-reviewer$)/i.test(user.login);
 
 /**
  * Whether two logins name the same account. GitHub logins are

@@ -265,6 +265,15 @@ describe("activityItems", () => {
 		];
 		const items = activityItems([], submissions, [], events, 0);
 		expect(items.map((item) => item.kind)).toEqual(["verdict", "reviewRequested", "committed"]);
+		const automated = activityItems(
+			[],
+			submissions.map((item) => ({ ...item, author: { ...user("review-agent"), isBot: true } })),
+			[],
+			events.map((event) => ({ ...event, actor: user("ci[bot]") })),
+			0,
+		);
+		expect(automated.map((item) => item.authorIsBot)).toEqual([true, true, true]);
+		expect(items.map((item) => item.authorIsBot)).toEqual([false, false, false]);
 	});
 
 	it("reads diff-anchored comments as comments, mention and all", () => {
@@ -307,6 +316,21 @@ describe("activityItems", () => {
 		expect(items[0]).toMatchObject({ kind: "comment", author: "alice" });
 		// A mention left on a diff line waits for the user like any other.
 		expect(items.filter((item) => itemMentions(item, "me"))).toHaveLength(1);
+		const automated = activityItems(
+			[],
+			[],
+			threads.map((thread) => ({
+				...thread,
+				comments: thread.comments.map((comment) => ({
+					...comment,
+					author: { ...user("review-agent"), isBot: true },
+				})),
+			})),
+			[],
+			at("2026-08-28T10:00:00Z"),
+		);
+		expect(automated.map((item) => item.authorIsBot)).toEqual([true]);
+		expect(items[0]?.authorIsBot).toBe(false);
 	});
 });
 
@@ -357,4 +381,29 @@ describe("mentions", () => {
 	it("stays silent for a mention in the user's own text", () => {
 		expect(attentionOf(comment("me", 1, "note to @me"), "me")).toBe("silent");
 	});
+});
+
+it("preserves forge bot flags and bot suffixes when reducing comments", () => {
+	const comments = [
+		user("alice"),
+		{ ...user("copilot"), isBot: true },
+		user("renovate[bot]"),
+		null,
+	].map(
+		(author, id): ForgeReviewComment => ({
+			id,
+			author,
+			body: "Hello",
+			createdAt: "2026-08-28T11:00:00Z",
+			modifiedAt: null,
+			htmlUrl: "",
+			reactions: [],
+		}),
+	);
+	expect(activityItems(comments, [], [], [], 0).map((item) => item.authorIsBot)).toEqual([
+		false,
+		true,
+		true,
+		false,
+	]);
 });

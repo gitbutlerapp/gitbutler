@@ -7,6 +7,7 @@
  * in-memory snapshots.
  */
 
+import { isAgent } from "#ui/review-users.ts";
 import type { ShowNotificationParams } from "#electron/ipc.ts";
 import { markReviewsSeenUpTo } from "#ui/review-seen.ts";
 import { useSyncExternalStore } from "react";
@@ -23,6 +24,7 @@ export type InboxKind =
 
 export type InboxEntry = {
 	id: string;
+	legacyId?: string;
 	kind: InboxKind;
 	review: number;
 	reviewTitle: string;
@@ -30,6 +32,7 @@ export type InboxEntry = {
 	sourceBranch: string;
 	htmlUrl: string;
 	author: string | null;
+	authorIsBot?: boolean;
 	/** How many items this entry coalesces — "3 comments". */
 	count: number;
 	/** The comment a click should land on, when the entry is about comments. */
@@ -126,10 +129,21 @@ export const desktopNotices = (fresh: ReadonlyArray<InboxEntry>): Array<ShowNoti
 	];
 };
 
+export const isBotEntry = (entry: InboxEntry): boolean =>
+	isAgent({ login: entry.author ?? "", isBot: entry.authorIsBot === true });
+
 const storageKey = (projectId: string) => `pr_activity_inbox:v1:${projectId}`;
 
-/** Newest kept; the overflow was old news nobody opened. */
-const inboxCap = 100;
+/** Each tab keeps its own history so agent traffic cannot crowd out humans. */
+const inboxCapPerType = 100;
+
+const capEntries = (entries: Array<InboxEntry>): Array<InboxEntry> => {
+	let humans = 0;
+	let agents = 0;
+	return entries.filter((entry) =>
+		isBotEntry(entry) ? ++agents <= inboxCapPerType : ++humans <= inboxCapPerType,
+	);
+};
 
 const listeners = new Set<() => void>();
 let cached: { key: string; entries: Array<InboxEntry> } | null = null;
@@ -151,6 +165,34 @@ const storageSet = (key: string, value: string): void => {
 	}
 };
 
+const migrateEntries = (entries: Array<InboxEntry>): Array<InboxEntry> => {
+	const byId = new Map<string, InboxEntry>();
+	for (const stored of entries) {
+		const legacyAgent =
+			stored.authorIsBot === undefined &&
+			isBotEntry(stored) &&
+			stored.id === `${stored.review}:${stored.kind}:${stored.at}`;
+		const entry = legacyAgent ? { ...stored, id: `${stored.id}:bot`, legacyId: stored.id } : stored;
+		const previous = byId.get(entry.id);
+		byId.set(
+			entry.id,
+			previous
+				? {
+						...entry,
+						seen: previous.seen || entry.seen,
+						authorIsBot: entry.authorIsBot ?? previous.authorIsBot,
+						legacyId: entry.legacyId ?? previous.legacyId,
+					}
+				: entry,
+		);
+	}
+	return [...byId.values()].map((entry) =>
+		entry.legacyId !== undefined && byId.has(entry.legacyId)
+			? { ...entry, legacyId: undefined }
+			: entry,
+	);
+};
+
 const parseEntries = (raw: string | null): Array<InboxEntry> => {
 	if (raw === null) return [];
 	try {
@@ -158,30 +200,35 @@ const parseEntries = (raw: string | null): Array<InboxEntry> => {
 		if (!Array.isArray(stored)) return [];
 		// Ordered here, not just at write time: a list stored by an older
 		// build keeps whatever order it had until something new files.
-		return stored
-			.filter((entry): entry is InboxEntry => {
-				if (typeof entry !== "object" || entry === null) return false;
-				const e = entry as Record<string, unknown>;
-				return (
-					typeof e.id === "string" &&
-					typeof e.kind === "string" &&
-					inboxKinds.includes(e.kind) &&
-					typeof e.review === "number" &&
-					typeof e.reviewTitle === "string" &&
-					typeof e.unitSymbol === "string" &&
-					typeof e.sourceBranch === "string" &&
-					typeof e.htmlUrl === "string" &&
-					(e.author === null || typeof e.author === "string") &&
-					typeof e.count === "number" &&
-					(e.commentId === undefined || e.commentId === null || typeof e.commentId === "number") &&
-					(e.snippet === null || typeof e.snippet === "string") &&
-					typeof e.at === "string" &&
-					!Number.isNaN(Date.parse(e.at)) &&
-					typeof e.seen === "boolean"
-				);
-			})
-			.sort((a, b) => Date.parse(b.at) - Date.parse(a.at))
-			.slice(0, inboxCap);
+		return capEntries(
+			migrateEntries(
+				stored.filter((entry): entry is InboxEntry => {
+					if (typeof entry !== "object" || entry === null) return false;
+					const e = entry as Record<string, unknown>;
+					return (
+						typeof e.id === "string" &&
+						(e.legacyId === undefined || typeof e.legacyId === "string") &&
+						typeof e.kind === "string" &&
+						inboxKinds.includes(e.kind) &&
+						typeof e.review === "number" &&
+						typeof e.reviewTitle === "string" &&
+						typeof e.unitSymbol === "string" &&
+						typeof e.sourceBranch === "string" &&
+						typeof e.htmlUrl === "string" &&
+						(e.author === null || typeof e.author === "string") &&
+						(e.authorIsBot === undefined || typeof e.authorIsBot === "boolean") &&
+						typeof e.count === "number" &&
+						(e.commentId === undefined ||
+							e.commentId === null ||
+							typeof e.commentId === "number") &&
+						(e.snippet === null || typeof e.snippet === "string") &&
+						typeof e.at === "string" &&
+						!Number.isNaN(Date.parse(e.at)) &&
+						typeof e.seen === "boolean"
+					);
+				}),
+			).sort((a, b) => Date.parse(b.at) - Date.parse(a.at)),
+		);
 	} catch {
 		return [];
 	}
@@ -232,7 +279,8 @@ const subscribeNothing = (): (() => void) => () => {};
  * File the poll's entries, keeping the list ordered by each entry's own
  * time. An id already filed is left exactly where it is, seen state and
  * all — a review bumping again must not resurface an old entry as new.
- * Returns the entries that were actually new.
+ * Returns new entries that survive retention, so replaying evicted history
+ * cannot announce stale activity again.
  */
 export const addInboxEntries = (
 	projectId: string,
@@ -243,11 +291,20 @@ export const addInboxEntries = (
 	const known = new Set(existing.map((entry) => entry.id));
 	const fresh = entries.filter((entry) => !known.has(entry.id));
 	if (fresh.length === 0) return [];
-	const next = [...fresh, ...existing]
-		.sort((a, b) => Date.parse(b.at) - Date.parse(a.at))
-		.slice(0, inboxCap);
+	const claimedIds = new Set(fresh.map((entry) => entry.id));
+	const retainedExisting = existing.map((entry) =>
+		entry.legacyId !== undefined && claimedIds.has(entry.legacyId)
+			? { ...entry, legacyId: undefined }
+			: entry,
+	);
+	const next = capEntries(
+		[...fresh, ...retainedExisting].sort((a, b) => Date.parse(b.at) - Date.parse(a.at)),
+	);
+	const retained = new Set(next);
+	const filed = fresh.filter((entry) => retained.has(entry));
+	if (filed.length === 0) return [];
 	writeEntries(projectId, next);
-	return fresh;
+	return filed;
 };
 
 /**
@@ -275,8 +332,11 @@ export const markInboxSeen = (projectId: string, ids?: ReadonlyArray<string>): v
 };
 
 /** The entry a desktop notification was shown for, if it is still filed. */
-export const findInboxEntry = (projectId: string, id: string): InboxEntry | undefined =>
-	readEntries(projectId).find((entry) => entry.id === id);
+export const findInboxEntry = (projectId: string, id: string): InboxEntry | undefined => {
+	const entries = readEntries(projectId);
+	// Only migrated entries can answer to an old desktop notification ID.
+	return entries.find((entry) => entry.id === id) ?? entries.find((entry) => entry.legacyId === id);
+};
 
 /** The inbox, newest first — a stable array identity between writes. */
 export const useInboxEntries = (projectId: string, enabled: boolean): Array<InboxEntry> =>
@@ -285,9 +345,3 @@ export const useInboxEntries = (projectId: string, enabled: boolean): Array<Inbo
 	);
 
 const emptyInbox: Array<InboxEntry> = [];
-
-/** How many entries are unseen — the bell's dot. */
-export const useInboxUnseenCount = (projectId: string, enabled: boolean): number =>
-	useSyncExternalStore(enabled ? subscribeInbox : subscribeNothing, () =>
-		enabled ? readEntries(projectId).filter((entry) => !entry.seen).length : 0,
-	);
