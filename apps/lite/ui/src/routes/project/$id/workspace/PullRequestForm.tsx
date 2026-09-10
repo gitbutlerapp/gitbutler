@@ -53,7 +53,7 @@ import {
 	usePersistMergeMethod,
 } from "#ui/pr.ts";
 import { type FocusScope, useAutofocusScope } from "#ui/focus-scopes.ts";
-import { Field, Tooltip } from "@base-ui/react";
+import { Button, Field, Tooltip } from "@base-ui/react";
 import type { ForgeReview, ReviewMergeMethod, ReviewMergeStatus } from "@gitbutler/but-sdk";
 import { useQuery, useSuspenseQuery } from "@tanstack/react-query";
 import { useHotkey } from "@tanstack/react-hotkeys";
@@ -61,6 +61,7 @@ import { useMergedRefs } from "@base-ui/utils/useMergedRefs";
 import {
 	type FC,
 	type ReactNode,
+	type RefCallback,
 	type SubmitEvent,
 	Suspense,
 	useEffect,
@@ -140,6 +141,7 @@ export const PullRequestForm: FC<{
 	const bodyRef = useRef<HTMLTextAreaElement | null>(null);
 	/** Drives the rule under the toolbar, so text never slides under it bare. */
 	const [bodyScrolled, setBodyScrolled] = useState(false);
+	const [submitLabelHidden, setSubmitLabelHidden] = useState(false);
 
 	const remoteOrEmptyDocument = {
 		title: title ?? "",
@@ -283,6 +285,20 @@ export const PullRequestForm: FC<{
 		);
 	};
 
+	// Tracks whether the container query has collapsed the submit button to its
+	// icons, so the label can move into a tooltip. A ref callback rather than a
+	// mount effect: the label is a flex item, so `display: none` zeroes its box
+	// and observing it is enough to tell.
+	const observeSubmitLabel: RefCallback<HTMLSpanElement> = (label) => {
+		if (label === null) return;
+		setSubmitLabelHidden(label.offsetWidth === 0);
+		const observer = new ResizeObserver((entries) => {
+			for (const entry of entries) setSubmitLabelHidden(entry.contentRect.width === 0);
+		});
+		observer.observe(label);
+		return () => observer.disconnect();
+	};
+
 	const handleSubmit = async (evt: SubmitEvent<HTMLFormElement>): Promise<void> => {
 		evt.preventDefault();
 		if (!canSubmit || noCommits || isAnyPending || localDocument.title.trim() === "") return;
@@ -351,6 +367,14 @@ export const PullRequestForm: FC<{
 		enabled: !isAnyPending && hasChanges,
 		target: formRef,
 	});
+
+	const submitLabel = !isNew
+		? "Save changes"
+		: noCommits
+			? "No commits yet"
+			: pushFirst !== null
+				? "Push and create a PR"
+				: "Create a PR";
 
 	return (
 		// oxlint-disable-next-line jsx-a11y/no-noninteractive-element-interactions -- Used for persistence, not UI per se.
@@ -462,24 +486,41 @@ export const PullRequestForm: FC<{
 									</button>
 								)}
 
-								<button
-									className={getButtonClassName({ variant: "gray" })}
-									disabled={!canSubmit || noCommits || isAnyPending || !hasChanges}
-									type="submit"
-								>
-									{/* The reason rides in the label, not a tooltip: it is the
-									    form's whole story, so it has to be readable without hover
-									    (DESIGN.md → Empty states). */}
-									{!isNew
-										? "Save changes"
-										: noCommits
-											? "No commits yet"
-											: pushFirst !== null
-												? "Push and create a PR"
-												: "Create a PR"}
-									{/* Creating opens a PR; saving only confirms an edit. */}
-									<Icon name={isAnyPending ? "spinner" : isNew ? "pr" : "tick"} />
-								</button>
+								{/* The reason rides in the label, not a tooltip: it is the
+								    form's whole story, so it has to be readable without hover
+								    (DESIGN.md → Empty states). Only once the editor is too
+								    narrow for the label does the tooltip take it over. */}
+								<Tooltip.Root disabled={!submitLabelHidden || !isNew}>
+									<Tooltip.Trigger
+										aria-label={submitLabel}
+										className={getButtonClassName({ variant: "gray" })}
+										render={
+											<Button
+												disabled={!canSubmit || noCommits || isAnyPending || !hasChanges}
+												focusableWhenDisabled
+												type="submit"
+											/>
+										}
+									>
+										<span ref={observeSubmitLabel} className={styles.submitLabel}>
+											{submitLabel}
+										</span>
+										{/* An edit keeps a word when collapsed: "Save" beside Cancel
+										    reads on its own, where a bare tick would not. */}
+										{!isNew && <span className={styles.submitShortLabel}>Save</span>}
+										{/* Creating opens a PR; saving only confirms an edit. */}
+										<Icon name={isAnyPending ? "spinner" : isNew ? "pr" : "tick"} />
+										{/* Collapsed, the arrow stands in for the "push" half of the label. */}
+										{isNew && pushFirst !== null && !noCommits && (
+											<Icon name="arrow-up" className={styles.submitPushIcon} />
+										)}
+									</Tooltip.Trigger>
+									<Tooltip.Portal>
+										<Tooltip.Positioner sideOffset={4}>
+											<Tooltip.Popup render={<TooltipPopup />}>{submitLabel}</Tooltip.Popup>
+										</Tooltip.Positioner>
+									</Tooltip.Portal>
+								</Tooltip.Root>
 							</div>
 						</div>
 					</div>

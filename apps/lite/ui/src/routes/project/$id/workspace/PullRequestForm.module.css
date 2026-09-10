@@ -21,6 +21,7 @@
 /* The description composer: toolbar, source textarea, and action footer all
    share one card surface, so the focus ring belongs to the card. */
 .descriptionEditor {
+	container-type: inline-size;
 	display: flex;
 	flex-direction: column;
 	border-radius: var(--radius-card);
@@ -112,6 +113,32 @@
 	display: flex;
 	column-gap: 4px;
 	align-items: center;
+}
+
+.submitShortLabel {
+	display: none;
+}
+
+/* Doubled to outrank the icon's own display. */
+.submitPushIcon.submitPushIcon {
+	display: none;
+}
+
+/* Too narrow for the submit label: creating falls back to its icons, with the
+   push arrow joining the PR icon so "push and create" still reads; an edit
+   keeps a short "Save". */
+@container (max-width: 400px) {
+	.submitLabel {
+		display: none;
+	}
+
+	.submitShortLabel {
+		display: inline;
+	}
+
+	.submitPushIcon.submitPushIcon {
+		display: inline-grid;
+	}
 }
 
 .footerSeparator {

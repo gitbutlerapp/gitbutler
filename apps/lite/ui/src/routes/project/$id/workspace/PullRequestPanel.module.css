@@ -41,6 +41,52 @@
 	color: var(--text-2);
 }
 
+/* Only the stacked layout folds the card; beside the column it has the
+   height to show everything. */
+.panelFooter {
+	display: none;
+	padding-inline: 14px;
+	padding-block: 8px;
+	border-top: 1px solid var(--border-section);
+	border-radius: 0 0 var(--radius-card) var(--radius-card);
+	background-color: var(--bg-2);
+}
+
+.panelFooterToggle {
+	padding: 0;
+	border: none;
+	background: none;
+	color: var(--text-1);
+	/* The designed link treatment: dotted, on the font's own underline. */
+	text-decoration: underline dotted;
+	text-underline-position: from-font;
+	opacity: 0.7;
+
+	&:hover {
+		opacity: 1;
+	}
+}
+
+/* Stacked above the main column (the breakpoint is Details.module.css's),
+   the panel spans the pane instead of holding its column, and scrolls
+   with the form rather than pinning over it. */
+@container (max-width: 720px) {
+	.panel {
+		position: static;
+		flex-basis: auto;
+	}
+
+	/* Folded, the card hides its reference sections behind the footer, so
+	   the description stays in reach. */
+	.panel[data-collapsed] > .foldable {
+		display: none;
+	}
+
+	.panelFooter {
+		display: flex;
+	}
+}
+
 /* The Status section is its header alone: the badge and the PR link sit
    opposite the heading. */
 .statusActions {
@@ -117,12 +163,21 @@
 .reviewerRow {
 	display: flex;
 	align-items: center;
-	padding-inline-end: 3px;
 	gap: 8px;
 
 	& > svg {
 		flex-shrink: 0;
 	}
+}
+
+/* A verdict that is not a control still takes a small button's room, so the
+   icons line up with the withdraw button and with the plus in the header. */
+.verdictSlot {
+	display: grid;
+	flex-shrink: 0;
+	place-items: center;
+	width: 22px;
+	height: var(--size-tag);
 }
 
 .reviewerRemove {
