@@ -102,7 +102,8 @@ export const CommandPalette: FC<Props> = ({ open, onOpenChange }) => {
 		<PickerDialog
 			ariaLabel="Command palette"
 			closeLabel="Close command palette"
-			emptyLabel="No hotkeys found."
+			nothingFoundLabel="No hotkeys found"
+			nothingToListLabel="No hotkeys to show"
 			getItemKey={(x) => x.id}
 			getItemLabel={(x) => x.name}
 			getItemType={(x) => <Kbd hotkey={x.hotkey} />}

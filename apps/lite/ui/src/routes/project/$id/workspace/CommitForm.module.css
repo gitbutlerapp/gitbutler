@@ -161,6 +161,12 @@
 	width: max(var(--anchor-width), 200px);
 }
 
+.targetEmpty {
+	padding-inline: 10px;
+	padding-block: 8px;
+	color: var(--text-2);
+}
+
 /* The list is the scroller, so its inset sits inside the scrolled area and the scrollbar keeps
    the container's own edge. */
 .targetList {
@@ -172,10 +178,4 @@
 	&:not(:empty) {
 		padding: 4px;
 	}
-}
-
-.targetEmpty {
-	padding-inline: 10px;
-	padding-block: 8px;
-	color: var(--text-2);
 }

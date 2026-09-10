@@ -107,7 +107,8 @@ export const ApplyBranchPicker: FC<Props> = ({ open, onOpenChange, projectId }) 
 		<PickerDialog
 			ariaLabel="Apply branch"
 			closeLabel="Close apply branch picker"
-			emptyLabel="No available branches found."
+			nothingFoundLabel="No available branches found"
+			nothingToListLabel="Nothing left to apply"
 			getItemKey={(x) => x.branchRef}
 			getItemLabel={(x) => x.label}
 			getItemType={(x) => (x.updatedAt === null ? undefined : formatRelativeTime(x.updatedAt, now))}

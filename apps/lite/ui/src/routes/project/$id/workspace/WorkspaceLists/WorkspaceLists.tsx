@@ -312,7 +312,7 @@ const UncommittedChanges: FC<
 				{/* A clean worktree drops the list as well: the header says so now, and
 				    an empty row under it would only say it twice. An unloaded one drops
 				    it too — its rows are empty for want of an answer, not because there
-				    is none, and the empty row would otherwise flash "Nothing to commit"
+				    is none, and the empty row would otherwise flash "No matching files"
 				    under a header still reading "Uncommitted". */}
 				<Activity mode={isClean || worktreeChanges === undefined ? "hidden" : "visible"}>
 					<FilesTree
@@ -320,11 +320,6 @@ const UncommittedChanges: FC<
 						canUncommit={false}
 						data-preview-source={activeList === "uncommitted"}
 						focusScope="uncommitted-files"
-						emptyLabel={
-							filter !== null && (worktreeChanges?.changes.length ?? 0) > 0
-								? "No matching files."
-								: "Nothing to commit"
-						}
 						fileParent={uncommittedChangesFileParent}
 						reviewedPaths={reviewedUncommittedPaths}
 						rows={fileRows}

@@ -2764,9 +2764,6 @@ const Diff: FC<{
 						reviewedPaths={reviewedFilePaths}
 						canUncommit={!isCommitUncommitChangesPending}
 						uncommit={uncommit}
-						emptyLabel={
-							filesFilter !== null && filesItems.length > 0 ? "No matching files." : undefined
-						}
 						ref={filesTreeRef}
 					/>
 				</div>

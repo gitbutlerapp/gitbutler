@@ -193,11 +193,25 @@ same wording as the menu item or button elsewhere that does the same thing.
 title, a body line, and an actions slot. Its description in Figma carries the
 same rules as this section; change one and change the other.
 
-**It is for a surface that is genuinely empty, at rest.** Not a loading state —
-"not loaded" is not the same as "nothing to report", and a panel that claims an
-emptiness it hasn't checked yet will flash the wrong words on every open. Not a
-filter that matched nothing either: that belongs in a line where the list would
-be, next to the filter that caused it.
+**It is for a surface that is empty, once the app knows it is.** Not a loading
+state — "not loaded" is not the same as "nothing to report", and a panel that
+claims an emptiness it hasn't checked yet will flash the wrong words on every
+open.
+
+**A filter that matched nothing is empty too, and says so.** In a panel with
+room for it — the branches tab — it takes the block, with the title naming the
+miss and the body quoting what missed: the search, the filters, or both. The
+one action shows everything again, because the filters live in a native menu
+the block cannot point at. A short strip keeps the line where its rows would
+be, next to the filter that caused it. A picker's list takes a smaller block,
+`PopupEmpty`: the shrugging character over the one line that reports the miss,
+with no title above it, the line closer under the illustration, and no
+counterweight, because a line has no weight to lift. The same rule as the
+branches tab picks the drawing and the line: a list with nothing in it before
+anything was typed gets the cactus and says what that means — "Nothing left to
+apply" — since nothing was searched for and "found" would be the wrong word. A
+dropdown no wider than its trigger keeps the plain line: the commit target
+combobox is too narrow for the drawing.
 
 **Never a stand-in that looks like content.** Gray avatar circles and text
 bars where the reviewers would go are what every app draws while it is still

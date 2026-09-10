@@ -3,6 +3,7 @@ import { classes } from "#ui/components/classes.ts";
 import { FolderIcon } from "#ui/components/FolderIcon.tsx";
 import {
 	Popup,
+	PopupEmpty,
 	PopupItem,
 	PopupSearch,
 	PopupSection,
@@ -337,7 +338,11 @@ export const ProjectPicker: FC<{ project: ProjectForFrontend }> = (p) => {
 							render={<Combobox.Input value={query} />}
 						/>
 						<Combobox.Empty>
-							<div className={classes("text-13", styles.empty)}>No projects found.</div>
+							<PopupEmpty
+								query={deferredQuery}
+								nothingFound="No projects found"
+								nothingToList="No projects yet"
+							/>
 						</Combobox.Empty>
 
 						<VirtualizedProjectList

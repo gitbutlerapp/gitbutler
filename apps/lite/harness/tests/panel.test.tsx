@@ -139,10 +139,9 @@ test("a watcher event refreshes the uncommitted files", async () => {
 		changesInWorktree: () => worktree,
 	});
 
-	await vi.waitFor(
-		() => expect(panel.container.textContent).toContain("Nothing to commit"),
-		settle,
-	);
+	// The header carries the clean state; the empty file tree under it is
+	// hidden, so its own text is not what a user sees.
+	await vi.waitFor(() => expect(panel.container.textContent).toContain("no changes"), settle);
 
 	// The mount armed exactly one subscription with the host.
 	expect(panel.watcher.channels).toHaveLength(1);

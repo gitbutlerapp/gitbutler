@@ -8,7 +8,7 @@
 	border-block-start: 1px solid var(--border-section);
 }
 
-.commentsEmpty {
+.commentsLoading {
 	color: var(--text-3);
 }
 

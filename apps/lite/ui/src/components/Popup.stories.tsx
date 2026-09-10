@@ -1,5 +1,5 @@
 import preview from "#storybook/preview";
-import { Popup, PopupItem, PopupSearch, PopupSection } from "./Popup.tsx";
+import { Popup, PopupEmpty, PopupItem, PopupSearch, PopupSection } from "./Popup.tsx";
 
 const meta = preview.meta({
 	component: Popup,
@@ -80,6 +80,39 @@ export const ProjectSelector = meta.story({
 				<PopupItem trailing="plus">Add local repository</PopupItem>
 				<PopupItem trailing="copy">Clone repository</PopupItem>
 			</PopupSection>
+		</Popup>
+	),
+});
+
+/** A search that matched nothing: the block a picker's list shows in place of its rows. */
+export const NothingFound = meta.story({
+	parameters: {
+		design: {
+			type: "figma",
+			url: "https://www.figma.com/design/EBuHQGUcCaSw4Ln5uVpWkn/Lite?node-id=4970-54978",
+		},
+	},
+	args: { style: { width: 420 } },
+	render: (args) => (
+		<Popup {...args}>
+			<PopupSearch placeholder="Search hotkeys..." aria-label="Search hotkeys" />
+			<PopupEmpty query="undo" nothingFound="No hotkeys found" nothingToList="No hotkeys to show" />
+		</Popup>
+	),
+});
+
+/** A list with nothing in it before anything was typed: the cactus and the other line, since
+ * nothing was searched for. */
+export const NothingToList = meta.story({
+	args: { style: { width: 420 } },
+	render: (args) => (
+		<Popup {...args}>
+			<PopupSearch placeholder="Search for branches to apply..." aria-label="Search branches" />
+			<PopupEmpty
+				query=""
+				nothingFound="No available branches found"
+				nothingToList="Nothing left to apply"
+			/>
 		</Popup>
 	),
 });

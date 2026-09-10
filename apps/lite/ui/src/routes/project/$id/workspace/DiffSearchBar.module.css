@@ -1,27 +1,48 @@
+/* The "Popup" container from the Lite mockups, holding one field that spans it; the count and the
+   controls sit over the field's end. */
 .searchBar {
-	display: flex;
 	z-index: 2;
 	position: absolute;
 	top: 8px;
-	/* Clear of the minimap, which owns the right edge. */
-	right: 68px;
-	align-items: center;
-	padding: 4px;
-	gap: 4px;
-	border: 1px solid var(--border-section);
-	border-radius: 10px;
-	background-color: var(--bg-1);
-	box-shadow:
-		0 0.5px 1px rgb(0 0 0 / 0.12),
-		0 2px 4px -1px rgb(0 0 0 / 0.04),
-		0 12px 14px -4px rgb(0 0 0 / 0.04);
+	/* The top's 8px past the 10px scrollbar gutter, which the pane's edge includes. Over the minimap
+	   rather than beside it: the ruler owns the right edge but is invisible at rest, and a bar held
+	   68px clear of it floated mid-header most of the time. Awake, the ruler loses its top few
+	   percent under the bar, which is the smaller cost. */
+	right: 18px;
+	width: 290px;
+	padding: 6px;
 }
 
-.searchField {
-	width: 200px;
+/* Clear of the controls over its end: their width, plus their inset, plus a gap. */
+.searchInput {
+	padding-inline-end: 116px;
+}
+
+/* 3px inside the field's edge: the popup's 6px of padding, less the field's own inset. */
+.controls {
+	display: flex;
+	position: absolute;
+	top: 50%;
+	right: 9px;
+	align-items: center;
+	height: var(--size-tag);
+	gap: 8px;
+	translate: 0 -50%;
 }
 
 .matchCount {
-	color: var(--text-2);
+	color: var(--text-3);
 	white-space: nowrap;
+}
+
+.divider {
+	flex: none;
+	width: 1px;
+	height: 16px;
+	background-color: var(--border-3);
+}
+
+.buttons {
+	display: flex;
+	gap: 2px;
 }

@@ -24,7 +24,13 @@
    Centring itself belongs to the host, not here: only the host knows whether
    its surface scrolls, and a scrolling one needs `justify-content: safe center`
    so a short panel falls back to the top rather than putting the block's head
-   out of reach above the scroll origin. */
+   out of reach above the scroll origin.
+
+   The gap under the illustration and the counterweight are custom properties
+   because both are sized for the full block, and a host holding a lighter one
+   sets its own. A picker's list shows one line under a small illustration: the
+   Lite mockups close that gap to 18, and there is no counterweight, because a
+   line has no weight to lift. See `PopupEmpty`. */
 .empty {
 	display: flex;
 	flex-shrink: 0;
@@ -37,8 +43,8 @@
 	   show it once the block was narrower than the surface. */
 	margin-inline: auto;
 	padding-inline: var(--panel-padding-inline);
-	padding-block-end: min(80px, 14cqh);
-	gap: 24px;
+	padding-block-end: var(--empty-state-counterweight, min(80px, 14cqh));
+	gap: var(--empty-state-gap, 24px);
 	text-align: center;
 }
 
@@ -46,7 +52,7 @@
 	display: flex;
 	flex-direction: column;
 	align-items: center;
-	gap: 14px;
+	gap: 18px;
 }
 
 /* Both lines wrap balanced (`text-balance`, applied in the component). A

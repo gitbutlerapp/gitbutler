@@ -1,4 +1,6 @@
 import cactus from "./illustrations/cactus.svg?raw";
+import looking from "./illustrations/looking.svg?raw";
+import shrugging from "./illustrations/shrugging.svg?raw";
 import waving from "./illustrations/waving.svg?raw";
 
 /**
@@ -17,13 +19,17 @@ import waving from "./illustrations/waving.svg?raw";
  * - enclosed areas are `--bg-1`, the app's paper, so a shape occludes whatever
  *   it overlaps instead of staying white in the dark.
  * - shaded faces are `--bg-2`, the ground these illustrations sit on.
+ * - a darker face, where a drawing needs one more step between the ground
+ *   and its outline, is `--border-2` — the token ⚛️ Lite Core binds it to.
  *
  * A `--bg-2` face therefore paints in the ground's own colour and shows only
  * its outline — an open face, not a filled one, which is what the drawing
  * intends. It is a real dependency on the surface: put one of these on `--bg-1`
  * and every open face closes up into a tint. Both hosts today are `--bg-2` (the
  * sidebar's panels and the details pane's empty state), so an illustration for
- * anywhere else wants checking against its ground first.
+ * anywhere else wants checking against its ground first. `shrugging` is the
+ * one drawn for `--bg-1`: it has no shaded face, so it reads the same on a
+ * popup's paper.
  *
  * Each asset keeps the width and height Figma gave it and renders at that size;
  * `<Illustration width={n} />` overrides it where a surface needs another.
@@ -32,7 +38,7 @@ import waving from "./illustrations/waving.svg?raw";
  * from `Icon.tsx`: a module that exports anything but components loses fast
  * refresh for the component beside it.
  */
-export const illustrations = { cactus, waving } as const;
+export const illustrations = { cactus, looking, shrugging, waving } as const;
 
 /** @public */
 export type IllustrationName = keyof typeof illustrations;

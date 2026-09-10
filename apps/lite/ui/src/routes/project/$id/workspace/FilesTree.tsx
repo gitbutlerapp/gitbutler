@@ -735,7 +735,6 @@ export const FilesTree: FC<
 		 * apply, which hides the mark.
 		 */
 		reviewedPaths?: ReadonlySet<string>;
-		emptyLabel?: string;
 		/**
 		 * Timestamp the row age badges are measured against; `null` hides them.
 		 * The caller owns the ticking.
@@ -764,7 +763,6 @@ export const FilesTree: FC<
 	fileParent,
 	focusScope,
 	reviewedPaths = EMPTY_REVIEWED_PATHS,
-	emptyLabel = "No changes.",
 	ageBadgeNow = null,
 	rail,
 	scrollElementRef,
@@ -1033,8 +1031,12 @@ export const FilesTree: FC<
 			<FileRowTooltipRoot handle={tooltipHandle} />
 			{rows.length === 0 ? (
 				<Row interactive={false}>
+					{rail}
 					<RowLabelContainer>
-						<RowLabel className={rowStyles.fadedText}>{emptyLabel}</RowLabel>
+						{/* Both callers hide the tree outright when there is nothing to
+						    list, so an empty tree only ever means the filter matched
+						    nothing. */}
+						<RowLabel className={rowStyles.fadedText}>No matching files.</RowLabel>
 					</RowLabelContainer>
 				</Row>
 			) : (

@@ -10,8 +10,11 @@ type Props = {
 	/**
 	 * One short line naming the state. Sentence case, no full stop. Wraps
 	 * balanced, so write it as a sentence and let the lines fall where they may.
+	 *
+	 * Omit where the body line says it all — a picker that found nothing
+	 * reports the miss in one line, and a heading over it would only repeat it.
 	 */
-	title: string;
+	title?: string;
 	/**
 	 * 1–2 short sentences, around 10–25 words. Say what happens next, or report
 	 * the live answer — a count, a name, a time — rather than restating the title.
@@ -25,9 +28,9 @@ type Props = {
  * A surface at rest with nothing in it — the "Empty state" component in
  * ⚛️ Lite Core, whose description carries the rules for what to put in it.
  *
- * For a surface that is genuinely empty, not one still loading and not a filter
- * that matched nothing: those say so in a line where the list would be. A short
- * strip takes a single muted line rather than this; see "Empty states" in
+ * For a surface that is empty, not one still loading: that says so in a line
+ * where the list would be. A filter that matched nothing takes the block in a
+ * panel with room for it, and a line in a short strip; see "Empty states" in
  * `apps/lite/DESIGN.md`.
  */
 export const EmptyState: FC<Props> = ({ illustration, title, description, children, ...props }) => (
@@ -36,7 +39,11 @@ export const EmptyState: FC<Props> = ({ illustration, title, description, childr
 
 		<div className={styles.body}>
 			<div className={styles.lines}>
-				<p className={classes("text-14", "text-semibold", "text-balance", styles.title)}>{title}</p>
+				{title !== undefined && (
+					<p className={classes("text-14", "text-semibold", "text-balance", styles.title)}>
+						{title}
+					</p>
+				)}
 				{description !== undefined && (
 					<p className={classes("text-13", "text-body", "text-balance", styles.description)}>
 						{description}

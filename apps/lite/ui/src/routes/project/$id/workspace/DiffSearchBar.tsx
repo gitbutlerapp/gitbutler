@@ -1,8 +1,9 @@
 import { assert } from "#ui/assert.ts";
 import { getButtonClassName } from "#ui/components/Button.tsx";
 import { classes } from "#ui/components/classes.ts";
-import { FieldControlWithIcon, FieldRootStyles } from "#ui/components/Field.tsx";
+import { FieldControlStyles, FieldRootStyles } from "#ui/components/Field.tsx";
 import { Icon } from "#ui/components/Icon.tsx";
+import { Popup } from "#ui/components/Popup.tsx";
 import { focusScope } from "#ui/focus-scopes.ts";
 import { diffHotkeys } from "#ui/hotkeys.ts";
 import { Field } from "@base-ui/react";
@@ -141,12 +142,12 @@ export const DiffSearchBar: FC<Props> = ({
 	};
 
 	return (
-		<search className={styles.searchBar}>
-			<Field.Root render={<FieldRootStyles />} className={styles.searchField}>
-				<FieldControlWithIcon
+		<Popup className={styles.searchBar} render={<search />}>
+			<Field.Root render={<FieldRootStyles />}>
+				<Field.Control
 					ref={inputRef}
-					className="text-13"
-					icon={<Icon name="search" />}
+					render={<FieldControlStyles />}
+					className={styles.searchInput}
 					aria-label="Search diff"
 					placeholder="Search diff"
 					value={query}
@@ -160,38 +161,47 @@ export const DiffSearchBar: FC<Props> = ({
 				/>
 			</Field.Root>
 
-			{query !== "" && (
-				<span className={classes("text-12", styles.matchCount)} aria-live="polite">
-					{current === null ? "No results" : `${current + 1} of ${matches.length}`}
-				</span>
-			)}
-
-			<button
-				type="button"
-				aria-label="Previous match"
-				disabled={matches.length === 0}
-				className={getButtonClassName({ size: "small", variant: "ghost", iconOnly: true })}
-				onClick={() => step(-1)}
-			>
-				<Icon name="chevron-up" />
-			</button>
-			<button
-				type="button"
-				aria-label="Next match"
-				disabled={matches.length === 0}
-				className={getButtonClassName({ size: "small", variant: "ghost", iconOnly: true })}
-				onClick={() => step(1)}
-			>
-				<Icon name="chevron-down" />
-			</button>
-			<button
-				type="button"
-				aria-label="Close search"
-				className={getButtonClassName({ size: "small", variant: "ghost", iconOnly: true })}
-				onClick={close}
-			>
-				<Icon name="cross" />
-			</button>
-		</search>
+			{/* Over the field's end rather than beside it, so the bar is one width
+			    whether or not there is a query, and the field reads as the whole
+			    bar the way a browser's find bar does. */}
+			<div className={styles.controls}>
+				{query !== "" && (
+					<>
+						<span className={classes("text-13", styles.matchCount)} aria-live="polite">
+							{current === null ? 0 : current + 1}/{matches.length}
+						</span>
+						<span className={styles.divider} />
+					</>
+				)}
+				<div className={styles.buttons}>
+					<button
+						type="button"
+						aria-label="Previous match"
+						disabled={matches.length === 0}
+						className={getButtonClassName({ size: "small", variant: "ghost", iconOnly: true })}
+						onClick={() => step(-1)}
+					>
+						<Icon name="arrow-up" />
+					</button>
+					<button
+						type="button"
+						aria-label="Next match"
+						disabled={matches.length === 0}
+						className={getButtonClassName({ size: "small", variant: "ghost", iconOnly: true })}
+						onClick={() => step(1)}
+					>
+						<Icon name="arrow-down" />
+					</button>
+					<button
+						type="button"
+						aria-label="Close search"
+						className={getButtonClassName({ size: "small", variant: "ghost", iconOnly: true })}
+						onClick={close}
+					>
+						<Icon name="cross" />
+					</button>
+				</div>
+			</div>
+		</Popup>
 	);
 };
