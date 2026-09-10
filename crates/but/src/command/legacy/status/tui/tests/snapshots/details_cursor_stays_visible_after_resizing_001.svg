@@ -15,16 +15,16 @@
     <text x="642" y="24" style="fill:#555555;">█</text>
     <text x="10" y="42" style="fill:#CCCCCC;">┊</text>
     <text x="42 50" y="42" style="fill:#0000AA;font-weight:bold;">xz</text>
-    <text x="66" y="42" style="fill:#CCCCCC;">A</text>
-    <text x="82 90 98 106 114 122 130" y="42" style="fill:#00AA00;">alpha.t</text>
+    <text x="66" y="42" style="fill:#00AA00;">A</text>
+    <text x="82 90 98 106 114 122 130" y="42" style="fill:#CCCCCC;">alpha.t</text>
     <text x="138" y="42" style="fill:#FFA500;">▌</text>
     <text x="154 162 170 178" y="42" style="fill:#0000AA;">xz:9</text>
     <text x="194 202 210 218 226 234 242 250 258" y="42" style="fill:#CCCCCC;">alpha.txt</text>
     <text x="274" y="42" style="fill:#555555;">│</text>
     <text x="10" y="60" style="fill:#CCCCCC;">┊</text>
     <text x="42 50" y="60" style="fill:#0000AA;font-weight:bold;">vq</text>
-    <text x="66" y="60" style="fill:#CCCCCC;">A</text>
-    <text x="82 90 98 106 114 122 130" y="60" style="fill:#00AA00;">beta.tx</text>
+    <text x="66" y="60" style="fill:#00AA00;">A</text>
+    <text x="82 90 98 106 114 122 130" y="60" style="fill:#CCCCCC;">beta.tx</text>
     <text x="138" y="60" style="fill:#FFA500;">▌</text>
     <text x="146 154 162 170 178 186 194 202 210 218 226 234 242 250 258 266 274" y="60" style="fill:#555555;">────────────────╯</text>
     <text x="10" y="78" style="fill:#CCCCCC;">┊</text>

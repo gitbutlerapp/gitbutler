@@ -18,8 +18,8 @@
     <text x="570 578" y="24" style="fill:#AA0000;">-1</text>
     <text x="10" y="42" style="fill:#CCCCCC;">┊</text>
     <text x="42 50" y="42" style="fill:#0000AA;font-weight:bold;">tm</text>
-    <text x="66" y="42" style="fill:#CCCCCC;">M</text>
-    <text x="82" y="42" style="fill:#AA5500;">A</text>
+    <text x="66" y="42" style="fill:#AA5500;">M</text>
+    <text x="82" y="42" style="fill:#CCCCCC;">A</text>
     <text x="410" y="42" style="fill:#555555;">│</text>
     <text x="10" y="60" style="fill:#CCCCCC;">┊</text>
     <text x="410 418 426 434 442 450 458 466 474 482" y="60" style="fill:#555555;">│────────╮</text>

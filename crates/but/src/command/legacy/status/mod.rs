@@ -1472,12 +1472,11 @@ fn print_files(
 
     for file in files {
         let state = status_from_changes(changes, file.path.clone());
-        let path = match &state {
-            Some(state) => path_with_color_ui(state, file.path.to_string()),
-            None => Span::raw(file.path.to_string()),
-        };
-
-        let status = state.as_ref().map(status_letter_ui).unwrap_or_default();
+        let path = Span::raw(file.path.to_string());
+        let status = state
+            .as_ref()
+            .map(status_letter_ui)
+            .unwrap_or_else(|| Span::raw(char::default().to_string()));
 
         let cli_id = &file.short_id;
         let id_padding = " ".repeat(max_id_width.saturating_sub(cli_id.len()) + 1);
@@ -1495,7 +1494,7 @@ fn print_files(
                 Span::styled(cli_id.to_string(), t.cli_id),
                 Span::raw(id_padding),
             ]),
-            status: Vec::from([Span::raw(status.to_string()), Span::raw(" ")]),
+            status: Vec::from([status, Span::raw(" ")]),
             path: Vec::from([path]),
         };
 
@@ -1871,41 +1870,23 @@ fn lookup_cli_id_for_short_id(
     }
 }
 
-fn status_letter(status: &TreeStatus) -> char {
-    match status {
-        TreeStatus::Addition { .. } => 'A',
-        TreeStatus::Deletion { .. } => 'D',
-        TreeStatus::Modification { .. } => 'M',
-        TreeStatus::Rename { .. } => 'R',
-    }
-}
-
-pub fn status_letter_ui(status: &ui::TreeStatus) -> char {
-    match status {
-        ui::TreeStatus::Addition { .. } => 'A',
-        ui::TreeStatus::Deletion { .. } => 'D',
-        ui::TreeStatus::Modification { .. } => 'M',
-        ui::TreeStatus::Rename { .. } => 'R',
-    }
-}
-
-pub fn path_with_color_ui(status: &ui::TreeStatus, path: String) -> Span<'static> {
+fn status_letter(status: &TreeStatus) -> Span<'static> {
     let t = crate::theme::get();
     match status {
-        ui::TreeStatus::Addition { .. } => Span::styled(path, t.addition),
-        ui::TreeStatus::Deletion { .. } => Span::styled(path, t.deletion),
-        ui::TreeStatus::Modification { .. } => Span::styled(path, t.modification),
-        ui::TreeStatus::Rename { .. } => Span::styled(path, t.renaming),
+        TreeStatus::Addition { .. } => Span::styled("A", t.addition),
+        TreeStatus::Deletion { .. } => Span::styled("D", t.deletion),
+        TreeStatus::Modification { .. } => Span::styled("M", t.modification),
+        TreeStatus::Rename { .. } => Span::styled("R", t.renaming),
     }
 }
 
-fn path_with_color(status: &TreeStatus, path: String) -> Span<'static> {
+fn status_letter_ui(status: &ui::TreeStatus) -> Span<'static> {
     let t = crate::theme::get();
     match status {
-        TreeStatus::Addition { .. } => Span::styled(path, t.addition),
-        TreeStatus::Deletion { .. } => Span::styled(path, t.deletion),
-        TreeStatus::Modification { .. } => Span::styled(path, t.modification),
-        TreeStatus::Rename { .. } => Span::styled(path, t.renaming),
+        ui::TreeStatus::Addition { .. } => Span::styled("A", t.addition),
+        ui::TreeStatus::Deletion { .. } => Span::styled("D", t.deletion),
+        ui::TreeStatus::Modification { .. } => Span::styled("M", t.modification),
+        ui::TreeStatus::Rename { .. } => Span::styled("R", t.renaming),
     }
 }
 
@@ -2127,9 +2108,10 @@ fn displayed_file_id(padded_prefix: Option<&str>, short_id: &str) -> String {
 }
 
 fn tree_change_display_cli(change: &but_core::TreeChange) -> (Span<'static>, Span<'static>) {
-    let path = path_with_color(&change.status, change.path.to_string());
-    let status_letter = status_letter(&change.status);
-    (Span::raw(format!("{status_letter} ")), path)
+    let path = Span::raw(change.path.to_string());
+    let mut status = status_letter(&change.status);
+    status.content.to_mut().push(' ');
+    (status, path)
 }
 
 impl CliDisplay for but_core::TreeChange {

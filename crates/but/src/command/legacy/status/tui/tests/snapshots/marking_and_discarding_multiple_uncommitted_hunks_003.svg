@@ -17,8 +17,8 @@
     <text x="570 578" y="24" style="fill:#AA0000;">-0</text>
     <text x="10" y="42" style="fill:#CCCCCC;">┊</text>
     <text x="42 50 58 66" y="42" style="fill:#0000AA;font-weight:bold;">twop</text>
-    <text x="82" y="42" style="fill:#CCCCCC;">A</text>
-    <text x="98 106 114" y="42" style="fill:#00AA00;">two</text>
+    <text x="82" y="42" style="fill:#00AA00;">A</text>
+    <text x="98 106 114" y="42" style="fill:#CCCCCC;">two</text>
     <text x="410" y="42" style="fill:#555555;">│</text>
     <text x="10" y="60" style="fill:#CCCCCC;">┊</text>
     <text x="410" y="60" style="fill:#FFA500;">▌</text>

@@ -29,8 +29,8 @@
     <text x="170 178 186 194 202 210 218 226" y="78" style="fill:#CCCCCC;opacity:0.75;">message)</text>
     <text x="10 18" y="96" style="fill:#CCCCCC;">┊│</text>
     <text x="66 74 82" y="96" style="fill:#0000AA;font-weight:bold;opacity:0.75;">q:t</text>
-    <text x="98" y="96" style="fill:#CCCCCC;opacity:0.75;">A</text>
-    <text x="114 122 130" y="96" style="fill:#00AA00;opacity:0.75;">two</text>
+    <text x="98" y="96" style="fill:#00AA00;opacity:0.75;">A</text>
+    <text x="114 122 130" y="96" style="fill:#CCCCCC;opacity:0.75;">two</text>
     <text x="10 18" y="114" style="fill:#CCCCCC;">├╯</text>
     <text x="10" y="132" style="fill:#CCCCCC;">┊</text>
     <text x="10" y="150" style="fill:#CCCCCC;">┊</text>
@@ -47,8 +47,8 @@
     <text x="170 178 186 194 202 210 218 226" y="168" style="fill:#CCCCCC;opacity:0.75;">message)</text>
     <text x="10 18" y="186" style="fill:#CCCCCC;">┊│</text>
     <text x="66 74 82" y="186" style="fill:#0000AA;font-weight:bold;opacity:0.75;">y:o</text>
-    <text x="98" y="186" style="fill:#CCCCCC;opacity:0.75;">A</text>
-    <text x="114 122 130 138 146" y="186" style="fill:#00AA00;opacity:0.75;">three</text>
+    <text x="98" y="186" style="fill:#00AA00;opacity:0.75;">A</text>
+    <text x="114 122 130 138 146" y="186" style="fill:#CCCCCC;opacity:0.75;">three</text>
     <text x="10 18" y="204" style="fill:#CCCCCC;">├╯</text>
     <text x="10" y="222" style="fill:#CCCCCC;">┊</text>
     <text x="10" y="240" style="fill:#FFFFFF;font-weight:bold;">┊</text>
@@ -65,8 +65,8 @@
     <text x="170 178 186 194 202 210 218 226" y="258" style="fill:#CCCCCC;opacity:0.75;">message)</text>
     <text x="10 18" y="276" style="fill:#CCCCCC;">┊│</text>
     <text x="66 74 82" y="276" style="fill:#0000AA;font-weight:bold;opacity:0.75;">s:k</text>
-    <text x="98" y="276" style="fill:#CCCCCC;opacity:0.75;">A</text>
-    <text x="114 122 130" y="276" style="fill:#00AA00;opacity:0.75;">one</text>
+    <text x="98" y="276" style="fill:#00AA00;opacity:0.75;">A</text>
+    <text x="114 122 130" y="276" style="fill:#CCCCCC;opacity:0.75;">one</text>
     <text x="10 18" y="294" style="fill:#CCCCCC;">├╯</text>
     <text x="10" y="312" style="fill:#CCCCCC;">┊</text>
     <text x="10" y="330" style="fill:#CCCCCC;">┴</text>

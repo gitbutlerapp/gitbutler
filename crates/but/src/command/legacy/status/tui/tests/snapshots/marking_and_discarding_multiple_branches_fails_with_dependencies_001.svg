@@ -39,8 +39,8 @@
     <text x="170 178 186 194 202 210 218 226" y="150" style="fill:#CCCCCC;opacity:0.75;">message)</text>
     <text x="10 18" y="168" style="fill:#CCCCCC;">┊│</text>
     <text x="66 74 82" y="168" style="fill:#0000AA;font-weight:bold;">n:q</text>
-    <text x="98" y="168" style="fill:#CCCCCC;">M</text>
-    <text x="114 122 130 138" y="168" style="fill:#AA5500;">file</text>
+    <text x="98" y="168" style="fill:#AA5500;">M</text>
+    <text x="114 122 130 138" y="168" style="fill:#CCCCCC;">file</text>
     <text x="10 18" y="186" style="fill:#CCCCCC;">┊│</text>
     <text x="10 18 26" y="204" style="fill:#CCCCCC;">┊├┄</text>
     <text x="42 50" y="204" style="fill:#0000AA;font-weight:bold;">an</text>
@@ -55,8 +55,8 @@
     <text x="170 178 186 194 202 210 218 226" y="222" style="fill:#CCCCCC;opacity:0.75;">message)</text>
     <text x="10 18" y="240" style="fill:#CCCCCC;">┊│</text>
     <text x="66 74 82" y="240" style="fill:#0000AA;font-weight:bold;">x:q</text>
-    <text x="98" y="240" style="fill:#CCCCCC;">A</text>
-    <text x="114 122 130 138" y="240" style="fill:#00AA00;">file</text>
+    <text x="98" y="240" style="fill:#00AA00;">A</text>
+    <text x="114 122 130 138" y="240" style="fill:#CCCCCC;">file</text>
     <text x="10 18" y="258" style="fill:#CCCCCC;">├╯</text>
     <text x="10" y="276" style="fill:#CCCCCC;">┊</text>
     <text x="10" y="294" style="fill:#CCCCCC;">┴</text>

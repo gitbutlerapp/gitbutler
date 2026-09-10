@@ -30,14 +30,14 @@
     <text x="66 74 82 90 98 106" y="42" style="fill:#FFFFFF;font-weight:bold;">source</text>
     <text x="122 130" y="42" style="fill:#FFFFFF;font-weight:bold;">&gt;&gt;</text>
     <text x="146 154" y="42" style="fill:#0000AA;font-weight:bold;">qs</text>
-    <text x="170" y="42" style="fill:#FFFFFF;font-weight:bold;">M</text>
-    <text x="186 194 202 210" y="42" style="fill:#AA5500;font-weight:bold;">file</text>
+    <text x="170" y="42" style="fill:#AA5500;font-weight:bold;">M</text>
+    <text x="186 194 202 210" y="42" style="fill:#FFFFFF;font-weight:bold;">file</text>
     <text x="410" y="42" style="fill:#555555;">│</text>
     <text x="802" y="42" style="fill:#555555;">█</text>
     <text x="10" y="60" style="fill:#CCCCCC;">┊</text>
     <text x="42 50" y="60" style="fill:#0000AA;font-weight:bold;opacity:0.75;">tw</text>
-    <text x="66" y="60" style="fill:#CCCCCC;opacity:0.75;">A</text>
-    <text x="82 90 98 106 114 122 130 138" y="60" style="fill:#00AA00;opacity:0.75;">new-file</text>
+    <text x="66" y="60" style="fill:#00AA00;opacity:0.75;">A</text>
+    <text x="82 90 98 106 114 122 130 138" y="60" style="fill:#CCCCCC;opacity:0.75;">new-file</text>
     <text x="410 418 426 434 442 450 458 466 474 482 490 498 506 514 522 530" y="60" style="fill:#555555;">│──────────────╮</text>
     <text x="802" y="60" style="fill:#555555;">█</text>
     <text x="10" y="78" style="fill:#CCCCCC;">┊</text>

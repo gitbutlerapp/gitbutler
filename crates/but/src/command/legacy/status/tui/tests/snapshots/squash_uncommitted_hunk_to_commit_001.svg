@@ -15,8 +15,8 @@
     <text x="66 74 82 90 98 106" y="42" style="fill:#FFFFFF;font-weight:bold;">source</text>
     <text x="122 130" y="42" style="fill:#FFFFFF;font-weight:bold;">&gt;&gt;</text>
     <text x="146 154" y="42" style="fill:#0000AA;font-weight:bold;">qs</text>
-    <text x="170" y="42" style="fill:#FFFFFF;font-weight:bold;">A</text>
-    <text x="186 194 202 210" y="42" style="fill:#00AA00;font-weight:bold;">file</text>
+    <text x="170" y="42" style="fill:#00AA00;font-weight:bold;">A</text>
+    <text x="186 194 202 210" y="42" style="fill:#FFFFFF;font-weight:bold;">file</text>
     <text x="10" y="60" style="fill:#CCCCCC;">┊</text>
     <text x="10 18 26" y="78" style="fill:#CCCCCC;">┊╭┄</text>
     <text x="42 50" y="78" style="fill:#0000AA;font-weight:bold;">g0</text>
@@ -30,8 +30,8 @@
     <text x="114" y="96" style="fill:#CCCCCC;">A</text>
     <text x="10 18" y="114" style="fill:#CCCCCC;">┊│</text>
     <text x="66 74 82" y="114" style="fill:#0000AA;font-weight:bold;opacity:0.75;">t:t</text>
-    <text x="98" y="114" style="fill:#CCCCCC;opacity:0.75;">A</text>
-    <text x="114" y="114" style="fill:#00AA00;opacity:0.75;">A</text>
+    <text x="98" y="114" style="fill:#00AA00;opacity:0.75;">A</text>
+    <text x="114" y="114" style="fill:#CCCCCC;opacity:0.75;">A</text>
     <text x="10 18" y="132" style="fill:#CCCCCC;">├╯</text>
     <text x="10" y="150" style="fill:#CCCCCC;">┊</text>
     <text x="10" y="168" style="fill:#CCCCCC;">┴</text>

@@ -18,8 +18,8 @@
     <text x="802" y="24" style="fill:#555555;">█</text>
     <text x="10" y="42" style="fill:#CCCCCC;">┊</text>
     <text x="42 50" y="42" style="fill:#0000AA;font-weight:bold;">qs</text>
-    <text x="66" y="42" style="fill:#CCCCCC;">M</text>
-    <text x="82 90 98 106" y="42" style="fill:#AA5500;">file</text>
+    <text x="66" y="42" style="fill:#AA5500;">M</text>
+    <text x="82 90 98 106" y="42" style="fill:#CCCCCC;">file</text>
     <text x="410" y="42" style="fill:#555555;">│</text>
     <text x="802" y="42" style="fill:#555555;">█</text>
     <text x="10" y="60" style="fill:#CCCCCC;">┊</text>
