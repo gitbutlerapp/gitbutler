@@ -108,12 +108,12 @@ Create a new branch.
 ```bash
 but branch new                      # Generated branch name
 but branch new feature              # Independent branch (parallel work)
-but branch new feature -a <anchor>  # Stacked branch (dependent work)
+but branch new feature --above <parent>  # Stacked branch (dependent work)
 ```
 
 Use parallel branches for independent tasks. Use stacked branches when work depends on another branch.
 
-In single-branch mode (no managed workspace), `but branch new` stacks the new branch above the checked-out branch (or the `-a` anchor). When the new branch lands above the checked-out branch — always the case without an anchor — it is checked out and `HEAD` moves to it.
+In single-branch mode (no managed workspace), `but branch new` stacks the new branch above the checked-out branch (or the `--above` target). When the new branch lands above the checked-out branch — always the case without `--above` — it is checked out and `HEAD` moves to it.
 
 For "commit these selected changes on a new branch", prefer `but commit -b <branch> -m "message" <ids>` instead of a separate `but branch new` or preflight `but status -fv` — `-b` creates the branch when it does not exist.
 

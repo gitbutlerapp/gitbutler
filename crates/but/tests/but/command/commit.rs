@@ -921,7 +921,7 @@ Error: Cannot commit: 1 change could not be applied:
     line 1 depends on foo (xsz)
 
 Hint: to apply these changes, create bar stacked on top of foo and try again:
-  but branch new bar --anchor foo
+  but branch new bar --above foo
 
 "#]]);
 }

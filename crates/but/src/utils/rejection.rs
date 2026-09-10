@@ -293,7 +293,7 @@ fn write_report<W: std::fmt::Write + ?Sized>(
                 t.local_branch.paint(dependency),
             ),
             format!(
-                "but branch new {} --anchor {}",
+                "but branch new {} --above {}",
                 shell_quote(name),
                 shell_quote(dependency)
             ),
