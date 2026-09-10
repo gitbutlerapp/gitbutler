@@ -7,3 +7,5 @@ but skill
 ```
 
 The guide covers the loop, IDs, rules, and task recipes. When you need a flag it does not mention, `but skill reference` prints each command's syntax and flags.
+
+Follow the guide's applicable recipes and stopping rules.
