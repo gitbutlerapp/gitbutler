@@ -27,9 +27,6 @@
 }
 
 .panelHeader {
-	display: flex;
-	align-items: center;
-	justify-content: space-between;
 	padding: 10px 12px;
 	border-bottom: 1px solid var(--border-3);
 }
@@ -49,39 +46,13 @@
 	text-align: center;
 }
 
-.tabs {
-	display: flex;
-	flex-direction: column;
-	min-height: 0;
-}
-
-.tabList {
+.switcher {
 	display: flex;
 	flex-shrink: 0;
-	padding: 0 12px;
-	gap: 16px;
+	align-items: center;
+	justify-content: space-between;
+	padding: 8px 12px;
 	border-bottom: 1px solid var(--border-3);
-}
-
-.tab {
-	padding: 10px 0;
-	border: none;
-	border-bottom: 2px solid transparent;
-	background: none;
-	color: var(--text-3);
-
-	&[data-active] {
-		border-bottom-color: var(--text-1);
-		color: var(--text-1);
-	}
-
-	&:hover {
-		color: var(--text-1);
-	}
-
-	&:focus-visible {
-		outline: var(--focus-ring);
-	}
 }
 
 .list {

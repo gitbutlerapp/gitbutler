@@ -5,6 +5,32 @@ an on-brand choice without opening Figma. Rules here are about how the UI
 should look and read. The tooling that enforces them — scripts, generated
 files, commands — lives in `apps/lite/AGENTS.md`.
 
+## Components
+
+**Build from the library.** Every control users touch — a button, a switch, a
+segmented toggle, a popup — already has a component in `ui/src/components/`,
+with a spec in the ⚛️ Lite Core Figma library or a Storybook story. Reach for
+those first, even when hand-styling a primitive in the feature's own CSS module
+would be quicker. The point of a library is that the app reads as one thing;
+each control styled locally is one that will drift, and one more that has to
+be found and reconciled when the design moves.
+
+**If the library lacks it, think twice, then ask.** A missing component is a
+design question before it is an engineering one. Check whether an existing one
+fits with a variant or a prop — a small size, an icon-only mode — and if
+nothing does, ask the designer before building. The answer may be a new
+library component with a spec, or it may be that the surface should use
+something we already have.
+
+**A custom control needs a reason.** Sometimes a one-off is right. When it is,
+the code should say why: what the library could not do, and why that mattered
+here. A custom control with no motivation in the commit or a comment is a bug
+waiting for a redesign, not a decision.
+
+**New components are documented.** Anything that graduates into
+`ui/src/components/` gets a story and, once the designer has drawn it, a
+Figma spec. A component that lives only in code is half a component.
+
 ## Emphasis
 
 **Gray highlights, pop points.** Gray is the workhorse: when a control needs to

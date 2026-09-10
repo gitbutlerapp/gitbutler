@@ -8,8 +8,9 @@
  */
 
 import { forgeInfoOptions, headInfoQueryOptions } from "#ui/api/queries.ts";
-import { Tabs } from "@base-ui/react/tabs";
 import { Icon } from "#ui/components/Icon.tsx";
+import { ToggleGroupStyles, ToggleStyles } from "#ui/components/ToggleGroup.tsx";
+import { Toggle, ToggleGroup } from "@base-ui/react";
 import type { IconName } from "#ui/components/iconNames.ts";
 import { RelativeTime } from "#ui/components/RelativeTime.tsx";
 import { classes } from "#ui/components/classes.ts";
@@ -30,7 +31,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useState, type FC } from "react";
 import styles from "./review-inbox-bell.module.css";
 
-const notificationTypes = ["humans", "agents"] as const;
+type NotificationType = "humans" | "agents";
 
 const kindIcon: Record<InboxKind, IconName> = {
 	comment: "text-block",
@@ -108,7 +109,7 @@ const Entry: FC<{
  */
 export const NotificationBell: FC<{ projectId: string }> = ({ projectId }) => {
 	const [open, setOpen] = useState(false);
-	const [tab, setTab] = useState<"humans" | "agents">("humans");
+	const [tab, setTab] = useState<NotificationType>("humans");
 	const { data: forgeInfo } = useQuery(forgeInfoOptions(projectId));
 	// Unconditional: behind `&&` the hook count would change mid-mount.
 	const level = usePrNotificationsLevel();
@@ -148,6 +149,29 @@ export const NotificationBell: FC<{ projectId: string }> = ({ projectId }) => {
 		>
 			<div className={styles.panelHeader}>
 				<span className={classes("text-12", "text-semibold")}>Notifications</span>
+			</div>
+			<div className={styles.switcher}>
+				<ToggleGroup
+					render={<ToggleGroupStyles />}
+					aria-label="Notification type"
+					value={[tab]}
+					onValueChange={([next]) => {
+						if (next !== undefined) setTab(next);
+					}}
+				>
+					<Toggle
+						render={<ToggleStyles size="small" />}
+						value={"humans" satisfies NotificationType}
+					>
+						Humans{humanUnseen > 0 && ` (${humanUnseen})`}
+					</Toggle>
+					<Toggle
+						render={<ToggleStyles size="small" />}
+						value={"agents" satisfies NotificationType}
+					>
+						Agents{agentUnseen > 0 && ` (${agentUnseen})`}
+					</Toggle>
+				</ToggleGroup>
 				{tabUnseen > 0 && (
 					<button
 						className={classes("text-12", styles.markAll)}
@@ -163,38 +187,23 @@ export const NotificationBell: FC<{ projectId: string }> = ({ projectId }) => {
 					</button>
 				)}
 			</div>
-			<Tabs.Root value={tab} onValueChange={setTab} className={styles.tabs}>
-				<Tabs.List aria-label="Notification type" className={styles.tabList}>
-					<Tabs.Tab value="humans" className={classes("text-12", styles.tab)}>
-						Humans{humanUnseen > 0 && ` (${humanUnseen})`}
-					</Tabs.Tab>
-					<Tabs.Tab value="agents" className={classes("text-12", styles.tab)}>
-						Agents{agentUnseen > 0 && ` (${agentUnseen})`}
-					</Tabs.Tab>
-				</Tabs.List>
-				{notificationTypes.map((type) => {
-					const panelEntries = type === "humans" ? humanEntries : agentEntries;
-					return (
-						<Tabs.Panel key={type} value={type} className={styles.list}>
-							{panelEntries.length === 0 ? (
-								<div className={classes("text-12", styles.empty)}>
-									{type === "agents" ? "No agent notifications yet" : "No human notifications yet"}
-								</div>
-							) : (
-								panelEntries.map((entry) => (
-									<Entry
-										key={entry.id}
-										projectId={projectId}
-										entry={entry}
-										appliedRefs={appliedRefs}
-										onNavigate={() => setOpen(false)}
-									/>
-								))
-							)}
-						</Tabs.Panel>
-					);
-				})}
-			</Tabs.Root>
+			<div className={styles.list}>
+				{entries.length === 0 ? (
+					<div className={classes("text-12", styles.empty)}>
+						{tab === "agents" ? "No agent notifications yet" : "No human notifications yet"}
+					</div>
+				) : (
+					entries.map((entry) => (
+						<Entry
+							key={entry.id}
+							projectId={projectId}
+							entry={entry}
+							appliedRefs={appliedRefs}
+							onNavigate={() => setOpen(false)}
+						/>
+					))
+				)}
+			</div>
 		</Dropdown>
 	);
 };
