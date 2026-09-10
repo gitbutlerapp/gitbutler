@@ -162,7 +162,7 @@ export const DiffSearchBar: FC<Props> = ({
 
 			{query !== "" && (
 				<span className={classes("text-12", styles.matchCount)} aria-live="polite">
-					{current === null ? "No results" : `${current + 1} of ${matches.length}`}
+					{current === null ? "No matches" : `${current + 1} of ${matches.length}`}
 				</span>
 			)}
 
