@@ -2,19 +2,22 @@ import type { apiInvalidates } from "@gitbutler/but-sdk/cache-tags";
 
 type DeclaredMutationKey = keyof typeof apiInvalidates;
 
-type GlobalMutationKey = Extract<
-	DeclaredMutationKey,
-	| "addProject"
-	| "deleteAllData"
-	| "forgetBitbucketAccount"
-	| "forgetGithubAccount"
-	| "forgetGitlabAccount"
-	| "resetAiConfiguration"
-	| "storeBitbucketApiToken"
-	| "storeGithubPat"
-	| "storeGitlabPat"
-	| "updateAiConfiguration"
->;
+type GlobalMutationKey =
+	| "downloadAppUpdate"
+	| "installAppUpdate"
+	| Extract<
+			DeclaredMutationKey,
+			| "addProject"
+			| "deleteAllData"
+			| "forgetBitbucketAccount"
+			| "forgetGithubAccount"
+			| "forgetGitlabAccount"
+			| "resetAiConfiguration"
+			| "storeBitbucketApiToken"
+			| "storeGithubPat"
+			| "storeGitlabPat"
+			| "updateAiConfiguration"
+	  >;
 
 type ProjectMutationKey = Exclude<DeclaredMutationKey, GlobalMutationKey> | "commitAmend";
 

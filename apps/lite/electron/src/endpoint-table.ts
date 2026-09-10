@@ -11,6 +11,7 @@ import { exposedEndpoints, type Endpoint, type LiteElectronApi, type PayloadFor 
 
 /** Members the renderer implements itself; they have no host-side handler. */
 type RendererOnlyKey =
+	| "onUpdateStatusChange"
 	| "onAskpassPrompt"
 	| "onDeepLink"
 	| "onFullScreenChange"

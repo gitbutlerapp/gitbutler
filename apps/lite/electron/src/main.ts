@@ -1,5 +1,5 @@
 import { posthogHost } from "./telemetry.js";
-import { checkForUpdates, registerUpdater, setAutoUpdateEnabled } from "./updater.js";
+import { checkForUpdates, downloadUpdate, getUpdateStatus, installUpdate } from "./updater.js";
 import WatcherManager from "./watcher.js";
 import * as sdk from "@gitbutler/but-sdk";
 import {
@@ -69,7 +69,6 @@ const currentDirPath = path.dirname(currentFilePath);
 // [ref:lite_default_settings]
 const applyGUISettings = (settings: GUISettings): void => {
 	nativeTheme.themeSource = settings.theme ?? "system";
-	setAutoUpdateEnabled(settings.autoUpdate ?? true);
 };
 
 // Permissions in this array are allowed by default for trusted origins, without prompting the user for input.
@@ -358,6 +357,10 @@ const electronHandlerOverrides = {
 		applyGUISettings(settings);
 		await writeSettings(settings);
 	},
+	getUpdateStatus,
+	checkForUpdates,
+	downloadUpdate,
+	installUpdate,
 } satisfies HandlerOverrides & { [K in HostOnlyKey]: Handler<K> };
 
 const registerIpcHandlers = (): void => {
@@ -589,15 +592,8 @@ const createMainWindow = async (initialUrl?: string): Promise<void> => {
 	}
 
 	const devServerUrl = process.env.VITE_DEV_SERVER_URL;
-	if (devServerUrl !== undefined) {
-		await mainWindow.loadURL(initialUrl ?? devServerUrl);
-		return;
-	}
-
 	const rootUrl = `${liteProtocolScheme}://${liteProtocolHost}/`;
-	await mainWindow.loadURL(initialUrl ?? rootUrl);
-	registerUpdater(mainWindow);
-	checkForUpdates();
+	await mainWindow.loadURL(initialUrl ?? devServerUrl ?? rootUrl);
 };
 
 app.enableSandbox(); // forces sandboxing for all renderers, even if they try to launch without

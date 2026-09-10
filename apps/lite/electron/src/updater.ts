@@ -1,88 +1,115 @@
-import { app, type BrowserWindow, dialog } from "electron";
-import electronUpdater, { type AppUpdater, type UpdateDownloadedEvent } from "electron-updater";
-import { env } from "node:process";
-import { reportError, shutdownMetrics } from "./metrics.js";
+/** @file This module is stateful as a wrapper around the stateful electron-updater. */
 
-let updaterWindow: BrowserWindow | null = null;
-let updaterRegistered = false;
-let updateDialogShown = false;
+import { app, autoUpdater as nativeUpdater, BrowserWindow } from "electron";
+import { autoUpdater, type ProgressInfo } from "electron-updater";
+import { once } from "node:events";
+import { shutdownMetrics } from "./metrics.js";
+import {
+	canDownloadUpdate,
+	type AvailabilitySnapshot,
+	type InstallationStatus,
+} from "./updater-state.js";
 
-const updateCheckIntervalMs = 60 * 60 * 1000;
+autoUpdater.autoDownload = false;
 
-const getAutoUpdater = (): AppUpdater => {
-	const { autoUpdater } = electronUpdater;
-	return autoUpdater;
+let status: InstallationStatus = { _tag: "Idle" };
+
+// The library's downloadUpdate() accepts no version; it uses the last available check's target.
+// Mirror that version so we can reject stale download requests.
+let candidateVersion: string | undefined;
+
+export const getUpdateStatus = (): InstallationStatus => status;
+
+const setUpdateStatusAndNotify = (next: InstallationStatus): void => {
+	status = next;
+
+	for (const window of BrowserWindow.getAllWindows())
+		window.webContents.send("updateStatusChange", next);
 };
 
-const showUpdateDownloadedDialog = async (event: UpdateDownloadedEvent): Promise<void> => {
-	if (updateDialogShown) return;
-	if (!updaterWindow || updaterWindow.isDestroyed()) return;
+export const checkForUpdates = async (): Promise<AvailabilitySnapshot> => {
+	if (!app.isPackaged || autoUpdater.currentVersion.prerelease.includes("dev"))
+		return { _tag: "Unavailable" };
 
-	updateDialogShown = true;
+	const res = await autoUpdater.checkForUpdates();
+	if (!res) return { _tag: "Unavailable" };
 
-	const { response } = await dialog.showMessageBox(updaterWindow, {
-		type: "info",
-		// Escape resolves to `cancelId`, so without a second button dismissing the dialog
-		// would restart the app mid-work rather than close the notice.
-		buttons: ["Restart and install", "Later"],
-		defaultId: 0,
-		cancelId: 1,
-		message: `Update ${event.version} downloaded`,
-		detail: "Restart GitButler to install the update, or keep working and it installs on quit.",
-	});
+	const {
+		isUpdateAvailable,
+		updateInfo: { version },
+	} = res;
+	if (!isUpdateAvailable) return { _tag: "UpToDate" };
 
-	if (response === 0) {
-		// Flush metrics here; left to the quit handler it would preventDefault
-		// the updater's own quit and break the restart-into-new-version flow.
-		await shutdownMetrics();
-		getAutoUpdater().quitAndInstall(false);
+	candidateVersion = version;
+	return { _tag: "Available", version };
+};
+
+export const downloadUpdate = async (version: string): Promise<void> => {
+	if (!canDownloadUpdate(status)) throw new Error("An update is already in progress.");
+	if (candidateVersion !== version)
+		throw new Error("The available update changed. Check for updates and try again.");
+
+	setUpdateStatusAndNotify({ _tag: "Downloading", version });
+
+	const onProgress = (progress: ProgressInfo) =>
+		setUpdateStatusAndNotify({
+			_tag: "Downloading",
+			version,
+			progress,
+		});
+	autoUpdater.on("download-progress", onProgress);
+	const ac = new AbortController();
+	try {
+		// On macOS, native preparation continues after download completion.
+		//
+		// The library's readiness flag can still refer to an older version, so wait for the new version
+		// to be prepared before allowing a restart.
+		const prepared =
+			process.platform === "darwin"
+				? once(nativeUpdater, "update-downloaded", { signal: ac.signal })
+				: undefined;
+
+		await Promise.all([prepared, autoUpdater.downloadUpdate()]);
+
+		setUpdateStatusAndNotify({ _tag: "Ready", version });
+	} catch (error) {
+		setUpdateStatusAndNotify({ _tag: "Idle" });
+
+		throw error;
+	} finally {
+		autoUpdater.removeListener("download-progress", onProgress);
+		ac.abort();
 	}
 };
 
-export const registerUpdater = (mainWindow: BrowserWindow): void => {
-	updaterWindow = mainWindow;
-	if (updaterRegistered) return;
-	updaterRegistered = true;
+/** Success exits the app and will never resolve, however failure may still reject. */
+export const installUpdate = async (): Promise<never> => {
+	if (status._tag !== "Ready") throw new Error("No update is ready to install.");
 
-	setInterval(checkForUpdates, updateCheckIntervalMs).unref();
+	setUpdateStatusAndNotify({ _tag: "Installing", version: status.version });
 
-	const autoUpdater = getAutoUpdater();
-	autoUpdater.autoDownload = autoUpdateEnabled;
-	autoUpdater.autoInstallOnAppQuit = true;
-	autoUpdater.on("update-downloaded", (event) => {
-		void showUpdateDownloadedDialog(event).catch((error) => {
-			reportError(error, "Failed to show update dialog");
-		});
-	});
-	autoUpdater.on("error", (error) => {
-		reportError(error, "Update error");
-	});
-};
+	// Flush before quitting so the metrics handler doesn't interrupt the updater's restart.
+	await shutdownMetrics();
 
-/** Mirrors the `autoUpdate` setting, so a check can be refused without unregistering. */
-let autoUpdateEnabled = true;
+	const { promise, reject } = Promise.withResolvers<never>();
 
-export const setAutoUpdateEnabled = (enabled: boolean): void => {
-	autoUpdateEnabled = enabled;
-	if (!updaterRegistered) return;
-	// Only affects a download that has not started; one already downloaded still
-	// installs on quit, which is what electron-updater has already committed to.
-	getAutoUpdater().autoDownload = enabled;
-};
+	const onError = (error: unknown, context?: string) => {
+		// electron-updater emits all failures through the same error channel, ignore irrelevant ones.
+		if (context?.startsWith("Cannot check for updates:")) return;
 
-export const checkForUpdates = (): void => {
-	const updater = getAutoUpdater();
+		reject(error);
+	};
 
-	if (
-		!autoUpdateEnabled ||
-		!app.isPackaged ||
-		env.LITE_NO_AUTOUPDATE === "1" ||
-		process.platform === "win32" ||
-		updater.currentVersion.prerelease.includes("dev")
-	)
-		return;
+	try {
+		autoUpdater.on("error", onError);
+		autoUpdater.quitAndInstall();
 
-	void updater.checkForUpdates().catch((error) => {
-		reportError(error, "Failed to check for updates");
-	});
+		return await promise;
+	} catch (error) {
+		setUpdateStatusAndNotify({ _tag: "Idle" });
+
+		throw error;
+	} finally {
+		autoUpdater.removeListener("error", onError);
+	}
 };

@@ -13,6 +13,7 @@ import { AccountSection } from "./Account.tsx";
 import { getButtonClassName } from "#ui/components/Button.tsx";
 import { Switch } from "#ui/components/Switch.tsx";
 import { defaultSettings } from "#ui/settings.ts";
+import { CheckForUpdatesButton } from "#ui/CheckForUpdatesButton.tsx";
 import styles from "./General.module.css";
 import { Row, Section } from "./Section.tsx";
 
@@ -86,13 +87,17 @@ export const General: FC = () => {
 				<Row
 					label="Check for updates automatically"
 					labelId="auto-update"
-					hint="An update already downloaded still installs on quit."
+					hint="You'll be asked before downloading an update."
 				>
-					<Switch
-						aria-labelledby="auto-update"
-						checked={settings.autoUpdate ?? defaultSettings.autoUpdate}
-						onCheckedChange={(autoUpdate) => saveGUISettings({ autoUpdate })}
-					/>
+					<div className={styles.updates}>
+						<CheckForUpdatesButton />
+
+						<Switch
+							aria-labelledby="auto-update"
+							checked={settings.autoUpdate ?? defaultSettings.autoUpdate}
+							onCheckedChange={(autoUpdate) => saveGUISettings({ autoUpdate })}
+						/>
+					</div>
 				</Row>
 
 				<Row
