@@ -118,35 +118,24 @@ test("keeps unread PR activity off the Workspace tab", async ({ appWindow, elect
 	});
 	await appWindow.reload();
 	await appWindow.getByRole("button", { name: "Notifications, 2 unread" }).click();
-	const humanTab = appWindow.getByRole("tab", { name: "Humans (1)", exact: true });
-	const agentTab = appWindow.getByRole("tab", { name: "Agents (1)", exact: true });
-	const humanPanel = appWindow.getByRole("tabpanel", { name: "Humans (1)", exact: true });
-	const agentPanel = appWindow.getByRole("tabpanel", { name: "Agents (1)", exact: true });
-	await expect(humanTab).toHaveAttribute("aria-selected", "true");
-	await expect(humanPanel).toContainText("Please take a look");
-	await expect(humanPanel).not.toContainText("Bot review");
-	// Keep the outgoing panel mounted long enough to inspect a tab transition.
-	const transitionStyle = await appWindow.addStyleTag({
-		content: `
-		@keyframes hold-panel { from { opacity: 1; } to { opacity: 0.99; } }
-		[role="tabpanel"][data-ending-style] { animation: hold-panel 60s linear; }
-	`,
-	});
-	await humanTab.focus();
+	const switcher = appWindow.getByRole("group", { name: "Notification type" });
+	const humanToggle = switcher.getByRole("button", { name: "Humans (1)", exact: true });
+	const agentToggle = switcher.getByRole("button", { name: "Agents (1)", exact: true });
+	const panel = appWindow.getByRole("dialog").filter({ has: switcher });
+	await expect(humanToggle).toHaveAttribute("aria-pressed", "true");
+	await expect(panel).toContainText("Please take a look");
+	await expect(panel).not.toContainText("Bot review");
+	await humanToggle.focus();
 	await appWindow.keyboard.press("ArrowRight");
-	await expect(agentTab).toBeFocused();
-	await agentTab.click();
-	await expect(agentPanel).toContainText("Bot review");
-	await expect(agentPanel).not.toContainText("Please take a look");
-	await expect(humanPanel).toContainText("Please take a look");
-	await expect(humanPanel).not.toContainText("Bot review");
-	await transitionStyle.evaluate((element) => {
-		element.parentNode?.removeChild(element);
-	});
+	await expect(agentToggle).toBeFocused();
+	await agentToggle.click();
+	await expect(agentToggle).toHaveAttribute("aria-pressed", "true");
+	await expect(panel).toContainText("Bot review");
+	await expect(panel).not.toContainText("Please take a look");
 	await appWindow.getByRole("button", { name: "Mark all read", exact: true }).click();
-	await expect(appWindow.getByRole("tab", { name: "Agents", exact: true })).toBeVisible();
-	await expect(humanTab).toBeVisible();
+	await expect(switcher.getByRole("button", { name: "Agents", exact: true })).toBeVisible();
+	await expect(humanToggle).toBeVisible();
 	await expect(appWindow.getByRole("button", { name: "Notifications, 1 unread" })).toBeVisible();
-	await humanTab.click();
-	await expect(humanPanel).toContainText("Please take a look");
+	await humanToggle.click();
+	await expect(panel).toContainText("Please take a look");
 });
