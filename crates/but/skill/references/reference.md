@@ -537,6 +537,8 @@ but worktree remove [-f] <id|name> # Like `git worktree remove`; `-f` for uncomm
 
 Worktrees are listed most recently updated first, as `id name (refs/heads/branch) - path`, with the branch shown only when it differs from the worktree name. Archiving is a GitButler-only state; none of these take part in `but undo`.
 
+Archiving and unarchiving notify open apps to refresh the worktree listing and workspace.
+
 ## History & Undo
 
 ### `but undo` / `but redo`

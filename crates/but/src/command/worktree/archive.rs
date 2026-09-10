@@ -50,6 +50,10 @@ pub fn run(ctx: &Context, perm: &RepoShared, op: ArchivalOperation) -> Result<Ar
         op.archived,
         perm,
     )?;
+    but_api::tags::signal_invalidation(
+        &ctx.project_data_dir,
+        but_api::worktrees::WORKTREE_SET_ARCHIVED_INVALIDATES,
+    );
     Ok(ArchiveOutcome {
         name: op.worktree,
         archived: op.archived,
