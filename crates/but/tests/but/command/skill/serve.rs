@@ -15,11 +15,13 @@ fn skill_prints_the_core_guide_without_frontmatter() {
     env.but("skill").assert().success().stdout_eq(str![[r#"
 # GitButler CLI Skill
 
-Use GitButler CLI (`but`) as the default version-control interface.
+`but` is the version-control interface. GitButler keeps several branches applied in one working directory and assigns changes to them, so anything that moves refs, the index or the working tree (`add`, `commit`, `checkout`, `reset`, `restore`, `rebase`, `merge`, `stash`, `cherry-pick`, `fetch`, `pull`, `push`) goes through `but`; run raw they bypass its bookkeeping, and the workspace they leave behind is not the one `but` describes. Read-only git (`log`, `blame`, `show`) is fine. When the user names a git write command, run the `but` equivalent.
 ...
-- For command syntax and flags: `but skill reference`
-- For workspace model: `but skill concepts`
-- For workflow examples: `but skill examples`
+## More
+
+- `but skill reference`: every command with its arguments and flags.
+- `but skill concepts`: the workspace model, applied and unapplied branches, IDs in depth.
+- `but <cmd> --help`: examples for one command.
 
 "#]]);
 }
@@ -122,6 +124,47 @@ fn skill_json_carries_the_doc_and_full_references() {
         .map(|doc| doc["name"].as_str().unwrap())
         .collect();
     assert_eq!(names, ["reference", "concepts", "examples"]);
+}
+
+/// The guide `but skill` prints is a separate document from the SKILL.md that
+/// installation writes, so the served wording can change without altering
+/// what agents have on disk.
+#[test]
+fn skill_serves_a_different_guide_than_install_writes() {
+    let env = Sandbox::open_with_default_settings("repo-no-remote");
+    let install_path = relative_agent_skill_path(".agents");
+
+    env.but("")
+        .arg("skill")
+        .arg("install")
+        .arg("--path")
+        .arg(&install_path)
+        .assert()
+        .success();
+
+    let install_dir = env.projects_root().join(&install_path);
+    let installed = std::fs::read_to_string(install_dir.join("SKILL.md")).unwrap();
+    assert!(
+        installed.contains("Use GitButler CLI (`but`) as the default version-control interface."),
+        "install writes the embedded SKILL.md, got: {installed}"
+    );
+
+    let served = env
+        .but("skill")
+        .assert()
+        .success()
+        .get_output()
+        .stdout
+        .clone();
+    let served = String::from_utf8(served).unwrap();
+    assert!(
+        served.starts_with("# GitButler CLI Skill\n\n`but` is the version-control interface."),
+        "but skill prints the served guide, got: {served}"
+    );
+    assert!(
+        !installed.contains("`but` is the version-control interface."),
+        "the served guide is not what gets installed"
+    );
 }
 
 #[test]

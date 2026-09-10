@@ -1,6 +1,6 @@
 # GitButler CLI Skill
 
-This file is a discovery stub. The usage guide is printed by the CLI, so it always matches the installed version. Before your first `but` command, run it on its own and read all of it; it is about 200 lines, and other commands in the same call get buried under it:
+This file is a discovery stub. The usage guide is printed by the CLI, so it always matches the installed version. Before your first `but` command, run it on its own and read all of it; it is about 170 lines, and other commands in the same call get buried under it:
 
 ```bash
 but skill
