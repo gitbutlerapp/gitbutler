@@ -27,17 +27,17 @@
     <text x="10" y="96" style="fill:#CCCCCC;">┊</text>
     <text x="18" y="96" style="fill:#000000;">✔︎</text>
     <text x="66 74 82 90" y="96" style="fill:#0000AA;font-weight:bold;">zt:k</text>
-    <text x="106" y="96" style="fill:#CCCCCC;">A</text>
-    <text x="122 130 138" y="96" style="fill:#00AA00;">one</text>
+    <text x="106" y="96" style="fill:#00AA00;">A</text>
+    <text x="122 130 138" y="96" style="fill:#CCCCCC;">one</text>
     <text x="10" y="114" style="fill:#CCCCCC;">┊</text>
     <text x="18" y="114" style="fill:#000000;">✔︎</text>
     <text x="66 74 82 90" y="114" style="fill:#0000AA;font-weight:bold;">zt:o</text>
-    <text x="106" y="114" style="fill:#CCCCCC;">A</text>
-    <text x="122 130 138 146 154" y="114" style="fill:#00AA00;">three</text>
+    <text x="106" y="114" style="fill:#00AA00;">A</text>
+    <text x="122 130 138 146 154" y="114" style="fill:#CCCCCC;">three</text>
     <text x="10 18" y="132" style="fill:#FFFFFF;font-weight:bold;">┊│</text>
     <text x="66 74 82 90" y="132" style="fill:#0000AA;font-weight:bold;">zt:t</text>
-    <text x="106" y="132" style="fill:#FFFFFF;font-weight:bold;">A</text>
-    <text x="122 130 138" y="132" style="fill:#00AA00;font-weight:bold;">two</text>
+    <text x="106" y="132" style="fill:#00AA00;font-weight:bold;">A</text>
+    <text x="122 130 138" y="132" style="fill:#FFFFFF;font-weight:bold;">two</text>
     <text x="10 18" y="150" style="fill:#CCCCCC;">├╯</text>
     <text x="10" y="168" style="fill:#CCCCCC;">┊</text>
     <text x="10" y="186" style="fill:#CCCCCC;">┴</text>

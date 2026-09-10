@@ -49,8 +49,8 @@
     <text x="314 322 330 338 346 354 362 370 378 386 394 402 410 418 426 434 442 450 458 466 474 482 490 498" y="150" style="fill:#555555;">╭──────────────────────╮</text>
     <text x="10 18" y="168" style="fill:#CCCCCC;">┊│</text>
     <text x="66 74 82" y="168" style="fill:#0000AA;font-weight:bold;opacity:0.75;">n:q</text>
-    <text x="98" y="168" style="fill:#CCCCCC;opacity:0.75;">M</text>
-    <text x="114 122 130 138" y="168" style="fill:#AA5500;opacity:0.75;">file</text>
+    <text x="98" y="168" style="fill:#AA5500;opacity:0.75;">M</text>
+    <text x="114 122 130 138" y="168" style="fill:#CCCCCC;opacity:0.75;">file</text>
     <text x="314" y="168" style="fill:#555555;">│</text>
     <text x="498" y="168" style="fill:#555555;">│</text>
     <text x="10 18" y="186" style="fill:#CCCCCC;">┊│</text>
@@ -80,8 +80,8 @@
     <text x="498" y="222" style="fill:#555555;">│</text>
     <text x="10 18" y="240" style="fill:#CCCCCC;">┊│</text>
     <text x="66 74 82" y="240" style="fill:#0000AA;font-weight:bold;opacity:0.75;">x:q</text>
-    <text x="98" y="240" style="fill:#CCCCCC;opacity:0.75;">A</text>
-    <text x="114 122 130 138" y="240" style="fill:#00AA00;opacity:0.75;">file</text>
+    <text x="98" y="240" style="fill:#00AA00;opacity:0.75;">A</text>
+    <text x="114 122 130 138" y="240" style="fill:#CCCCCC;opacity:0.75;">file</text>
     <text x="314" y="240" style="fill:#555555;">│</text>
     <text x="498" y="240" style="fill:#555555;">│</text>
     <text x="10 18" y="258" style="fill:#CCCCCC;">├╯</text>

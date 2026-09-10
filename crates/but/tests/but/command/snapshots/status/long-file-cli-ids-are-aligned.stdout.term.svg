@@ -24,11 +24,11 @@
   <text xml:space="preserve" class="container fg">
     <tspan x="10px" y="28px"><tspan>╭┄ </tspan><tspan class="fg-blue bold">@</tspan><tspan> [</tspan><tspan class="fg-cyan">uncommitted</tspan><tspan>]</tspan>
 </tspan>
-    <tspan x="10px" y="46px"><tspan>┊   </tspan><tspan class="fg-blue bold">yr</tspan><tspan>  A </tspan><tspan class="fg-green">foo1</tspan>
+    <tspan x="10px" y="46px"><tspan>┊   </tspan><tspan class="fg-blue bold">yr</tspan><tspan>  </tspan><tspan class="fg-green">A</tspan><tspan> foo1</tspan>
 </tspan>
-    <tspan x="10px" y="64px"><tspan>┊   </tspan><tspan class="fg-blue bold">kpr</tspan><tspan> A </tspan><tspan class="fg-green">foo23</tspan>
+    <tspan x="10px" y="64px"><tspan>┊   </tspan><tspan class="fg-blue bold">kpr</tspan><tspan> </tspan><tspan class="fg-green">A</tspan><tspan> foo23</tspan>
 </tspan>
-    <tspan x="10px" y="82px"><tspan>┊   </tspan><tspan class="fg-blue bold">kpo</tspan><tspan> A </tspan><tspan class="fg-green">foo242</tspan>
+    <tspan x="10px" y="82px"><tspan>┊   </tspan><tspan class="fg-blue bold">kpo</tspan><tspan> </tspan><tspan class="fg-green">A</tspan><tspan> foo242</tspan>
 </tspan>
     <tspan x="10px" y="100px"><tspan>┊</tspan>
 </tspan>

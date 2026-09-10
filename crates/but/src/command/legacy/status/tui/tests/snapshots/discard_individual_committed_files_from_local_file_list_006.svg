@@ -25,8 +25,8 @@
     <text x="170 178 186 194 202 210 218 226" y="78" style="fill:#CCCCCC;opacity:0.75;">message)</text>
     <text x="10 18" y="96" style="fill:#FFFFFF;font-weight:bold;">┊│</text>
     <text x="66 74 82 90" y="96" style="fill:#0000AA;font-weight:bold;">zt:t</text>
-    <text x="106" y="96" style="fill:#FFFFFF;font-weight:bold;">A</text>
-    <text x="122 130 138" y="96" style="fill:#00AA00;font-weight:bold;">two</text>
+    <text x="106" y="96" style="fill:#00AA00;font-weight:bold;">A</text>
+    <text x="122 130 138" y="96" style="fill:#FFFFFF;font-weight:bold;">two</text>
     <text x="10 18" y="114" style="fill:#CCCCCC;">├╯</text>
     <text x="10" y="132" style="fill:#CCCCCC;">┊</text>
     <text x="10" y="150" style="fill:#CCCCCC;">┴</text>

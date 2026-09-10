@@ -32,8 +32,8 @@
     <text x="82 90 98 106 114 122" y="114" style="fill:#FFFFFF;">source</text>
     <text x="138 146" y="114" style="fill:#FFFFFF;">&gt;&gt;</text>
     <text x="162 170" y="114" style="fill:#0000AA;font-weight:bold;">ok</text>
-    <text x="186" y="114" style="fill:#CCCCCC;">A</text>
-    <text x="202 210 218 226 234 242 250 258 266 274 282" y="114" style="fill:#00AA00;">wt-file.txt</text>
+    <text x="186" y="114" style="fill:#00AA00;">A</text>
+    <text x="202 210 218 226 234 242 250 258 266 274 282" y="114" style="fill:#CCCCCC;">wt-file.txt</text>
     <text x="10 18 26 34" y="132" style="fill:#FFFFFF;font-weight:bold;">┊┊├┄</text>
     <text x="50 58" y="132" style="fill:#0000AA;font-weight:bold;">wt</text>
     <text x="74" y="132" style="fill:#FFFFFF;font-weight:bold;">{</text>

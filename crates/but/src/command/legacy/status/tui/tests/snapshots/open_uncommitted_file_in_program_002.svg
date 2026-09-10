@@ -13,8 +13,8 @@
     <text x="154 162 170 178 186 194 202 210 218 226 234 242 250 258 266 274 282 290 298 306 314 322 330 338 346 354 362 370 378 386 394 402 410 418 426 434 442 450 458 466 474 482 490 498 506 514 522 530 538 546 554 562 570 578 586 594 602 610 618 626 634 642 650 658 666" y="24" style="fill:#555555;">╭───────────────────────────────────────────────────────────────╮</text>
     <text x="10" y="42" style="fill:#FFFFFF;font-weight:bold;">┊</text>
     <text x="42 50" y="42" style="fill:#0000AA;font-weight:bold;">ps</text>
-    <text x="66" y="42" style="fill:#FFFFFF;font-weight:bold;">A</text>
-    <text x="82 90 98 106 114 122 130 138 146" y="42" style="fill:#00AA00;font-weight:bold;">open-me.t</text>
+    <text x="66" y="42" style="fill:#00AA00;font-weight:bold;">A</text>
+    <text x="82 90 98 106 114 122 130 138 146" y="42" style="fill:#FFFFFF;font-weight:bold;">open-me.t</text>
     <text x="154" y="42" style="fill:#555555;">│</text>
     <text x="162" y="42" style="fill:#CCCCCC;">&gt;</text>
     <text x="178 186 194 202 210" y="42" style="fill:#CCCCCC;">touch</text>

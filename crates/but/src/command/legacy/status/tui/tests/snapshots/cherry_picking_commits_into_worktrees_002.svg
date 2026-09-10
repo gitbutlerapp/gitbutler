@@ -39,8 +39,8 @@
     <text x="258" y="168" style="fill:#CCCCCC;">}</text>
     <text x="10 18 26" y="186" style="fill:#CCCCCC;">┊┊┊</text>
     <text x="58 66" y="186" style="fill:#0000AA;font-weight:bold;">ok</text>
-    <text x="82" y="186" style="fill:#CCCCCC;">A</text>
-    <text x="98 106 114 122 130 138 146 154 162 170 178" y="186" style="fill:#00AA00;">wt-file.txt</text>
+    <text x="82" y="186" style="fill:#00AA00;">A</text>
+    <text x="98 106 114 122 130 138 146 154 162 170 178" y="186" style="fill:#CCCCCC;">wt-file.txt</text>
     <text x="10 18 26 34" y="204" style="fill:#CCCCCC;">┊┊├┄</text>
     <text x="50 58" y="204" style="fill:#0000AA;font-weight:bold;">wt</text>
     <text x="74" y="204" style="fill:#CCCCCC;">{</text>
