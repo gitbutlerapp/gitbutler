@@ -217,7 +217,6 @@
 	background: none;
 	color: var(--text-1);
 	text-align: start;
-	cursor: var(--control-cursor);
 
 	/* `data-highlighted` is what Base UI's list primitives set as the keyboard walks them, so
 	   pointer and keyboard land on the same tint. */
@@ -228,7 +227,6 @@
 
 	&:disabled,
 	&[data-disabled] {
-		cursor: not-allowed;
 		opacity: var(--opacity-disabled);
 	}
 }

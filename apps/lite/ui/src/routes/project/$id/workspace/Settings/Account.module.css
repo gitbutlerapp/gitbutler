@@ -19,7 +19,6 @@
 	border: 1px solid var(--border-2);
 	border-radius: var(--radius-card);
 	background-color: var(--bg-2);
-	cursor: default;
 
 	& > * {
 		grid-area: 1 / 1;

@@ -46,8 +46,6 @@
 
 	&:disabled,
 	&[data-disabled] {
-		cursor: not-allowed;
-
 		&:not([data-checked], [data-indeterminate]) {
 			background-color: color-mix(
 				in srgb,

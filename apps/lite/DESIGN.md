@@ -61,15 +61,19 @@ over buttons, menus and rows; the hand is a web convention for links out to a
 page. Whoever wants the hand anyway turns it on in Appearance, and the harness
 panel takes it always, being part of a web page. Both go through one property:
 the host sets `--control-cursor` on its root, and `control-cursor.css` puts it
-on buttons, links, `summary` and the button, menu-item and option roles. Don't
-set `cursor: pointer` on a control, and don't pin `cursor: default` on one
-either — both defeat the setting. Don't reintroduce the hand by resetting a
-`<button>`: the browser default for buttons is already the arrow. A clickable
-that is none of those elements (a folded card, a minimap badge) takes
-`cursor: var(--control-cursor)` itself. Interactivity is shown by the hover
-state, not the cursor. The cursors that do change are the ones that describe a
-gesture: `text` over editable text, `grab` and `grabbing` while dragging, the
-resize cursors on a splitter, and `not-allowed` on a disabled control.
+on every control in one rule — buttons, links, `summary`, `select`, a `label`
+that owns a control, and the roles Base UI renders when it draws a control as a
+span or a div: button, checkbox, switch, radio, tab, option and the menu items.
+The same stylesheet gives a disabled control `not-allowed`, so no component
+does. Don't set `cursor: pointer` on a control, and don't pin `cursor: default`
+on one either — both defeat the setting. Don't reintroduce the hand by
+resetting a `<button>`: the browser default for buttons is already the arrow.
+A clickable that is none of those elements (a list row, a folded card, a
+minimap badge, a diff line number) takes `cursor: var(--control-cursor)`
+itself. Interactivity is shown by the hover state, not the cursor. The cursors
+that do change are the ones that describe a gesture: `text` over editable
+text, `grab` and `grabbing` while dragging, and the resize cursors on a
+splitter.
 
 ## Motion
 

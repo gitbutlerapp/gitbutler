@@ -1879,7 +1879,7 @@ const DiffContents: FC<{
             --mix-selection-light: 0%;
             --mix-selection-dark: 0%;
 
-            cursor: default;
+            cursor: var(--control-cursor);
           }
 
           [data-column-number][data-selected-line]:is(

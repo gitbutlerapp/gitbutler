@@ -20,11 +20,6 @@
 		outline: var(--focus-ring);
 	}
 
-	&[data-disabled],
-	&:disabled {
-		cursor: not-allowed;
-	}
-
 	&:first-child {
 		border-start-end-radius: 0;
 		border-end-end-radius: 0;
