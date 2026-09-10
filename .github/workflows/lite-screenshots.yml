@@ -1,8 +1,9 @@
 name: Lite UI Screenshots
 
 # Asks a pull request that touches Lite's UI for before/after screenshots:
-# applies `screenshots needed` and comments once, tagging the designer so a
-# visual change does not go by unseen. It renders nothing itself.
+# applies `screenshots needed` and comments once. It mentions nobody — the
+# label is the signal, and anyone who wants to see visual changes can watch
+# it. It renders nothing itself.
 #
 # Asking is a one-time event, deliberately. The label and the comment go up
 # together the first time, and neither comes back afterwards — so removing the
@@ -57,9 +58,14 @@ jobs:
     # again. The filter is what makes the job run on its own; the label term
     # covers a human applying it by hand to opt in a change the glob misses,
     # such as a layout change with no CSS in it.
+    #
+    # `screenshots` means they were already posted — typically by the
+    # `lite-screenshots` skill while the pull request was still a draft — so
+    # there is nothing to ask for.
     if: >-
       github.event.pull_request.head.repo.full_name == github.repository &&
       github.event.pull_request.draft == false &&
+      !contains(github.event.pull_request.labels.*.name, 'screenshots') &&
       (contains(github.event.pull_request.labels.*.name, 'screenshots needed') ||
        needs.changes.outputs.css == 'true')
     runs-on: ubuntu-latest
@@ -69,26 +75,26 @@ jobs:
       PR: ${{ github.event.pull_request.number }}
       REPO: ${{ github.repository }}
       GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      AUTHOR: ${{ github.event.pull_request.user.login }}
-      # Who to tag on Lite's visual changes. One name, in one place, to change.
-      # A mention, not a review request: it says a visual change landed here
-      # without putting the pull request in anyone's review queue.
-      DESIGNER: PavelLaptev
     steps:
       # One label and one comment, both put up once. Nothing here edits, re-posts
       # or re-labels on later pushes: a reminder that repeats is a reminder people
       # mute, and a label that comes back is one nobody can answer.
       #
       # The comment is the record of having asked, so it guards the label too.
+      # A screenshots comment (posted by the `lite-screenshots` skill) is the
+      # record of having answered, and guards it the same way in case the label
+      # swap was missed.
       - name: Ask for screenshots
         run: |
           marker="<!-- lite-screenshots-reminder -->"
-          existing="$(gh api "repos/${REPO}/issues/${PR}/comments" --paginate \
-            --jq "map(select(.body | startswith(\"${marker}\"))) | first | .id // empty")"
-          if [ -n "$existing" ]; then
-            echo "Already asked."
-            exit 0
-          fi
+          answered="<!-- lite-screenshots"
+          state="$(gh api "repos/${REPO}/issues/${PR}/comments" --paginate \
+            --jq "map(.body) | if any(startswith(\"${marker}\")) then \"asked\"
+                  elif any(startswith(\"${answered}\")) then \"answered\" else \"\" end")"
+          case "$state" in
+            asked) echo "Already asked."; exit 0 ;;
+            answered) echo "Screenshots already posted."; exit 0 ;;
+          esac
           # Additive and idempotent: a label already there is not an error, and a
           # human who applied it by hand to opt this change in keeps it.
           gh api -X POST "repos/${REPO}/issues/${PR}/labels" \
@@ -101,10 +107,6 @@ jobs:
 
           Swap the label for \`screenshots\` once they are posted, or remove it if this change is not visual. Either sticks — this is asked once per pull request, so later pushes will not put it back.
           EOF
-          # No point tagging them on their own pull request.
-          if [ "${AUTHOR}" != "${DESIGNER}" ]; then
-            printf '\ncc @%s — visual change.\n' "${DESIGNER}" >> /tmp/comment.md
-          fi
           gh api -X POST "repos/${REPO}/issues/${PR}/comments" \
             --input <(jq -Rs '{body: .}' /tmp/comment.md) --silent
           echo "Asked for screenshots on #${PR}."
