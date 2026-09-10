@@ -117,7 +117,7 @@ Example: Adding a new API endpoint and updating button styles are independent.
 
 **To stack an existing branch** on top of another: `but move <child-branch-name> --above <parent-branch-name>`.
 
-**To create a new stacked branch** from scratch: `but branch new <name> -a <anchor>` — only use this when the child branch doesn't exist yet.
+**To create a new stacked branch** from scratch: `but branch new <name> --above <parent-branch-name>` — only use this when the child branch doesn't exist yet.
 
 ```
 main ── authentication ── user-profile ── settings-page

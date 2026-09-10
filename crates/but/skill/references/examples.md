@@ -57,7 +57,7 @@ but status -fv
 but commit -b add-authentication -m "Add JWT authentication" <file-ids>
 
 # 4. Create stacked branch anchored on authentication
-but branch new user-profile -a add-authentication
+but branch new user-profile --above add-authentication
 
 # 5. Implement profile page (depends on auth)
 # (edit pages/profile.js)

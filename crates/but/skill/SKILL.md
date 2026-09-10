@@ -152,7 +152,7 @@ For more than two replacement commits or when every message must be chosen durin
 
 To make one existing branch depend on another: `but move <child-branch-name> --above <parent-branch-name>` (use full branch names; commit reordering uses commit IDs). To unstack: `but move <branch-name> --unstack`.
 
-**DO NOT** stack via `uncommit` + `branch delete` + `branch new -a` (git branch names persist after delete and it loses work), and do not use `but undo` to unstack.
+**DO NOT** stack via `uncommit` + `branch delete` + `branch new --above` (git branch names persist after delete and it loses work), and do not use `but undo` to unstack.
 
 ### Create or manage pull requests
 
@@ -164,7 +164,7 @@ If you do create a PR for a stacked branch, use `but pr` — not `gh pr create` 
 
 Changes that build on another branch's commits cannot land on an independent branch. `but commit` and `but amend` fail atomically ("Cannot commit: N changes could not be applied"), naming the branch and commit each rejected change depends on — nothing is committed and no `-b` branch is created.
 
-When there is a single dependency branch, the error's Hint gives the exact recovery command: `but move <your-branch> --above <dependency-branch>` to stack an existing branch on its dependency, or `but branch new <name> --anchor <dependency-branch>` when the target branch didn't exist yet. Run it, then retry the original command. When the error names dependencies without a Hint (several dependency branches, or the dependency is on the target branch itself), run `but status -fv` to see where the dependent commits live before choosing a placement.
+When there is a single dependency branch, the error's Hint gives the exact recovery command: `but move <your-branch> --above <dependency-branch>` to stack an existing branch on its dependency, or `but branch new <name> --above <dependency-branch>` when the target branch didn't exist yet. Run it, then retry the original command. When the error names dependencies without a Hint (several dependency branches, or the dependency is on the target branch itself), run `but status -fv` to see where the dependent commits live before choosing a placement.
 
 If that recovery command fails, do NOT try `uncommit`, `squash`, or `undo` as a workaround — re-run `but status -fv` to confirm both branches exist and are applied, then retry with exact branch names.
 
