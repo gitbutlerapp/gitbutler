@@ -24,7 +24,12 @@ perf_assert_full_oid() {
 
 # Outer entrypoints own this session; artifacts must live elsewhere.
 perf_create_session() {
-    PERF_SESSION_ROOT=$(mktemp -d "${TMPDIR:-/tmp}/but-performance.XXXXXX")
+    session_tmpdir=$(CDPATH='' cd "${TMPDIR:-/tmp}" && pwd -P) ||
+        perf_die 'TMPDIR must resolve to an existing directory'
+    case "$session_tmpdir" in
+        /|//) perf_die 'TMPDIR must not resolve to /' ;;
+    esac
+    PERF_SESSION_ROOT=$(mktemp -d "$session_tmpdir/but-performance.XXXXXX")
     PERF_SESSION_ROOT=$(CDPATH='' cd "$PERF_SESSION_ROOT" && pwd)
     trap 'perf_cleanup_session' EXIT
     trap 'exit 130' INT
