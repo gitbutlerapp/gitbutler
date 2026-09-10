@@ -668,9 +668,8 @@ impl Graph {
     /// * Traversal is seeded from [`Tip`]s. Workspace metadata traversal first
     ///   resolves metadata into tips, then follows the same path as callers
     ///   passing explicit tips.
-    /// * Explicit tips must contain exactly one entrypoint, must not contain
-    ///   duplicate traversal seeds, and any named tip must have a ref that
-    ///   resolves to its commit id. A traversal seed is the commit id, the
+    /// * Explicit tips must contain exactly one entrypoint and must not contain
+    ///   duplicate traversal seeds. A traversal seed is the commit id, the
     ///   traversal role, and whether that tip is the entrypoint; naming,
     ///   metadata, detached presentation, and queue position do not make it
     ///   useful to enqueue the same seed twice.
@@ -852,6 +851,7 @@ impl Graph {
         let tips: Vec<_> = tips.into_iter().collect();
         let worktree_tips = discover_worktree_tips(repo, db, options.worktrees)?;
         let (overlay_repo, overlay_meta, _entrypoint) = Overlay::default().into_parts(repo, meta);
+        validate_explicit_tip_refs(&overlay_repo, &tips)?;
         Graph::traverse_tips_with_overlay(
             &overlay_repo,
             tips,
@@ -878,7 +878,23 @@ impl Graph {
         worktree_tips: Vec<WorktreeTip>,
         entrypoint_ref_override: Option<gix::refs::FullName>,
     ) -> anyhow::Result<Self> {
-        let entrypoint = validate_explicit_tips(repo, &tips, entrypoint_ref_override.as_ref())?;
+        let entrypoint = validate_tips(&tips)?;
+        // A tip carrying the override name already fixes it to a captured commit.
+        // Otherwise the name is discovered from the live ref map during traversal,
+        // so it must still point at the entrypoint.
+        if let Some(ref_name) = entrypoint_ref_override.as_ref()
+            && !entrypoint.is_detached
+            && !tips
+                .iter()
+                .any(|tip| tip.ref_name.as_ref() == Some(ref_name))
+        {
+            validate_tip_ref(
+                repo,
+                ref_name,
+                entrypoint.id,
+                "explicit traversal entrypoint ref",
+            )?;
+        }
         let tip = entrypoint.id;
         let ref_name = if entrypoint.is_detached {
             None
@@ -1250,17 +1266,15 @@ impl Graph {
     }
 }
 
-/// Validate caller-provided traversal tips before they seed graph traversal.
+/// Validate the structure of traversal tips before they seed graph traversal.
 ///
-/// Explicit tips must name exactly one entrypoint, must not contain duplicate
-/// traversal seeds or repeated ref names, must keep detached entrypoints
-/// unnamed, and any supplied ref name must resolve to the same commit id as its
-/// tip.
-fn validate_explicit_tips<'a>(
-    repo: &OverlayRepo<'_>,
-    tips: &'a [Tip],
-    entrypoint_ref_override: Option<&gix::refs::FullName>,
-) -> anyhow::Result<&'a Tip> {
+/// Tips must name exactly one entrypoint, must not contain duplicate traversal
+/// seeds or repeated ref names, and must keep detached entrypoints unnamed.
+///
+/// Ref names are not resolved here: tips derived from workspace metadata were
+/// just read from the repository, and re-reading them would fail whenever a
+/// concurrent fetch or workspace update moves a ref in between.
+fn validate_tips(tips: &[Tip]) -> anyhow::Result<&Tip> {
     let mut entrypoints = tips.iter().filter(|tip| tip.is_entrypoint);
     let entrypoint = entrypoints
         .next()
@@ -1295,22 +1309,22 @@ fn validate_explicit_tips<'a>(
                 seen_names.insert(ref_name),
                 "explicit traversal tips contain duplicate ref name {ref_name}"
             );
+        }
+    }
+    Ok(entrypoint)
+}
+
+/// Require every named caller-provided tip to resolve to its own commit id.
+///
+/// Only [`Graph::from_commit_traversal_tips()`] receives tips the graph did not
+/// resolve itself, so only there can a ref name and id disagree by mistake.
+fn validate_explicit_tip_refs(repo: &OverlayRepo<'_>, tips: &[Tip]) -> anyhow::Result<()> {
+    for tip in tips {
+        if let Some(ref_name) = tip.ref_name.as_ref() {
             validate_tip_ref(repo, ref_name, tip.id, "explicit traversal tip ref")?;
         }
     }
-
-    if !entrypoint.is_detached
-        && let Some(ref_name) = entrypoint_ref_override
-    {
-        validate_tip_ref(
-            repo,
-            ref_name,
-            entrypoint.id,
-            "explicit traversal entrypoint ref",
-        )?;
-    }
-
-    Ok(entrypoint)
+    Ok(())
 }
 
 fn validate_tip_ref(
@@ -1688,40 +1702,33 @@ fn initial_tips_from_workspace_metadata<T: RefMetadata>(
             workspaces.push((workspace_tip, workspace_ref, Default::default()));
         }
     }
-    let tip_ref_matches_ws_ref = workspaces
-        .iter()
-        .find_map(|(ws_tip, ws_rn, _)| (Some(ws_rn) == entrypoint_ref).then_some(ws_tip));
-
     let mut tips = Vec::new();
     let mut workspace_metas = Vec::new();
     let mut additional_target_commits = Vec::new();
     let mut queued_ids = Vec::new();
 
-    match tip_ref_matches_ws_ref {
-        None => {
-            // We don't name the tip of the entrypoint as we want the segment
-            // naming to be handled by tips created from metadata.
-            tips.push(Tip::entrypoint(entrypoint, None));
-            queued_ids.push(entrypoint);
-        }
-        Some(ws_tip) => {
-            ensure!(
-                *ws_tip == entrypoint,
-                format!(
-                    "BUG:: {entrypoint_ref:?} points to {ws_tip}, but the caller claimed it points to {entrypoint}"
-                )
-            );
-        }
+    if !workspaces
+        .iter()
+        .any(|(_, ws_rn, _)| Some(ws_rn) == entrypoint_ref)
+    {
+        // We don't name the tip of the entrypoint as we want the segment
+        // naming to be handled by tips created from metadata.
+        tips.push(Tip::entrypoint(entrypoint, None));
+        queued_ids.push(entrypoint);
     }
 
     for (ws_tip, ws_ref, ws_meta) in workspaces {
+        let is_entrypoint = Some(&ws_ref) == entrypoint_ref;
+        // The caller resolved the entrypoint ref moments ago; use its id instead of
+        // the one re-read above so a ref moving in between can't split the two.
+        let ws_tip = if is_entrypoint { entrypoint } else { ws_tip };
         workspace_metas.push(ws_meta.clone());
         tips.push(
             Tip::new(ws_tip)
                 .with_ref_name(Some(ws_ref.clone()))
                 .with_role(TipRole::Workspace)
                 .with_metadata(SegmentMetadata::Workspace(ws_meta.clone()))
-                .with_is_entrypoint(Some(&ws_ref) == entrypoint_ref),
+                .with_is_entrypoint(is_entrypoint),
         );
 
         let target = append_project_target_tips(
