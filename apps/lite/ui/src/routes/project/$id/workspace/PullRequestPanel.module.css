@@ -117,12 +117,21 @@
 .reviewerRow {
 	display: flex;
 	align-items: center;
-	padding-inline-end: 3px;
 	gap: 8px;
 
 	& > svg {
 		flex-shrink: 0;
 	}
+}
+
+/* A verdict that is not a control still takes a small button's room, so the
+   icons line up with the withdraw button and with the plus in the header. */
+.verdictSlot {
+	display: grid;
+	flex-shrink: 0;
+	place-items: center;
+	width: 22px;
+	height: var(--size-tag);
 }
 
 .reviewerRemove {

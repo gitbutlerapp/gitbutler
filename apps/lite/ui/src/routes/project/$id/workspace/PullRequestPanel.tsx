@@ -20,7 +20,12 @@ import { classes } from "#ui/components/classes.ts";
 import { Icon } from "#ui/components/Icon.tsx";
 import type { IconName } from "#ui/components/iconNames.ts";
 import { TooltipPopup } from "#ui/components/Tooltip.tsx";
-import { type NativeMenuItem, nativeMenuItem, showNativeMenuFromTrigger } from "#ui/native-menu.ts";
+import {
+	type NativeMenuItem,
+	nativeMenuItem,
+	nativeMenuItemsFromGroups,
+	showNativeMenuFromTrigger,
+} from "#ui/native-menu.ts";
 import { openLinkExternally } from "#ui/external-link.ts";
 import type { DraftPRExtras } from "#ui/pr.ts";
 import { formatAbsoluteTime, formatCompactDuration, formatRelativeTime } from "#ui/time.ts";
@@ -36,7 +41,7 @@ import type {
 import { Tooltip } from "@base-ui/react";
 import { useQuery } from "@tanstack/react-query";
 import { Match } from "effect";
-import type { FC, MouseEvent, ReactNode } from "react";
+import { type FC, type MouseEvent, type ReactNode, useState } from "react";
 import styles from "./PullRequestPanel.module.css";
 
 type ReviewStatus = "open" | "draft" | "merged" | "closed";
@@ -101,6 +106,54 @@ const RemoveButton: FC<{ label: string; onClick: () => void }> = ({ label, onCli
 		<Icon name="cross" />
 	</button>
 );
+
+/**
+ * A reviewer and their verdict. Only a pending request can be withdrawn, so
+ * its clock is the control: pointed at, or focused, it shows a cross instead,
+ * in the same slot, so the row keeps its shape.
+ */
+const ReviewerRow: FC<{
+	user: ForgeReviewUser;
+	verdict: ReviewerVerdict;
+	onWithdraw: (() => void) | null;
+}> = ({ user, verdict, onWithdraw }) => {
+	const [icon, color, label] = verdictBits(verdict);
+	const [hovered, setHovered] = useState(false);
+	const [focused, setFocused] = useState(false);
+	return (
+		<div
+			className={styles.reviewerRow}
+			onPointerEnter={() => setHovered(true)}
+			onPointerLeave={() => setHovered(false)}
+			title={label}
+		>
+			<ReviewUser user={user} />
+			{onWithdraw === null ? (
+				<span className={styles.verdictSlot}>
+					<Icon name={icon} style={{ color }} size={15} />
+				</span>
+			) : (
+				<button
+					aria-label="Withdraw review request"
+					className={getButtonClassName({ variant: "ghost", size: "small", iconOnly: true })}
+					onBlur={() => setFocused(false)}
+					onClick={onWithdraw}
+					onFocus={() => setFocused(true)}
+					title="Withdraw review request"
+					type="button"
+				>
+					{/* The cross has no ring, so it sits a touch smaller than the
+					    verdicts to read as light. */}
+					{hovered || focused ? (
+						<Icon name="cross" size={13} />
+					) : (
+						<Icon name={icon} style={{ color }} size={15} />
+					)}
+				</button>
+			)}
+		</div>
+	);
+};
 
 const pickerButton = (p: {
 	label: string;
@@ -621,28 +674,41 @@ export const PullRequestPanel: FC<{
 
 	const openReviewerMenu = (evt: MouseEvent<HTMLButtonElement>) => {
 		if (!canPickReviewers) return;
+		const awaiting = reviewerList
+			.filter(({ verdict }) => verdict === "awaiting")
+			.map(({ user }) => user);
+		// The author can't review their own PR; a reviewer who answered can be
+		// asked again.
+		const askable = reviewerCandidates.filter(
+			(candidate) =>
+				!(review.author !== null && sameLogin(candidate.login, review.author.login)) &&
+				!awaiting.some((user) => sameLogin(user.login, candidate.login)),
+		);
 		void showNativeMenuFromTrigger(
 			evt.currentTarget,
-			orEmptyNotice(
-				reviewerCandidates
-					// The author can't review their own PR, and whoever is awaiting
-					// has been asked already; a reviewer who answered can be asked again.
-					.filter(
-						(candidate) =>
-							!(review.author !== null && sameLogin(candidate.login, review.author.login)) &&
-							!reviewerList.some(
-								({ user, verdict }) =>
-									verdict === "awaiting" && sameLogin(user.login, candidate.login),
-							),
-					)
-					.map((candidate) =>
+			nativeMenuItemsFromGroups(
+				[
+					// Pending requests lead, checked, so the menu is also where one
+					// is withdrawn — the way the label menu removes a label.
+					awaiting.map((user) =>
 						nativeMenuItem({
-							label: candidate.login,
+							label: user.login,
+							checked: true,
 							onSelect: () =>
-								requestReview({ projectId, reviewId: review.number, logins: [candidate.login] }),
+								withdrawReviewRequest({ projectId, reviewId: review.number, logins: [user.login] }),
 						}),
 					),
-				"No one else to ask",
+					orEmptyNotice(
+						askable.map((candidate) =>
+							nativeMenuItem({
+								label: candidate.login,
+								onSelect: () =>
+									requestReview({ projectId, reviewId: review.number, logins: [candidate.login] }),
+							}),
+						),
+						"No one else to ask",
+					),
+				].filter((group) => group.length > 0),
 			),
 		);
 	};
@@ -709,27 +775,23 @@ export const PullRequestPanel: FC<{
 					})
 				}
 			>
-				{reviewerList.map(({ user, verdict }) => {
-					const [icon, color, label] = verdictBits(verdict);
-					return (
-						<div key={user.id} className={styles.reviewerRow} title={label}>
-							<ReviewUser user={user} />
-							<Icon name={icon} style={{ color }} size={15} />
-							{canManage && verdict === "awaiting" && (
-								<RemoveButton
-									label="Withdraw review request"
-									onClick={() =>
+				{reviewerList.map(({ user, verdict }) => (
+					<ReviewerRow
+						key={user.id}
+						user={user}
+						verdict={verdict}
+						onWithdraw={
+							canManage && verdict === "awaiting"
+								? () =>
 										withdrawReviewRequest({
 											projectId,
 											reviewId: review.number,
 											logins: [user.login],
 										})
-									}
-								/>
-							)}
-						</div>
-					);
-				})}
+								: null
+						}
+					/>
+				))}
 			</Section>
 
 			<Section
