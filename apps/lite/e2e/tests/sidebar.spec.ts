@@ -97,4 +97,56 @@ test("keeps unread PR activity off the Workspace tab", async ({ appWindow, elect
 	await expect(pages.getByRole("button", { name: "Workspace", exact: true })).toHaveText(
 		"Workspace",
 	);
+	await appWindow.evaluate(() => {
+		const projectId = location.pathname.split("/")[2];
+		if (projectId === undefined) throw new Error("No project in the URL");
+		const key = `pr_activity_inbox:v1:${projectId}`;
+		const entries = JSON.parse(localStorage.getItem(key) ?? "[]") as Array<{
+			id: string;
+			author: string | null;
+			snippet: string | null;
+		}>;
+		const first = entries[0];
+		if (first === undefined) throw new Error("No seeded notification");
+		entries.push({
+			...first,
+			id: "bot-1",
+			author: "copilot-pull-request-reviewer",
+			snippet: "Bot review",
+		});
+		localStorage.setItem(key, JSON.stringify(entries));
+	});
+	await appWindow.reload();
+	await appWindow.getByRole("button", { name: "Notifications, 2 unread" }).click();
+	const humanTab = appWindow.getByRole("tab", { name: "Humans (1)", exact: true });
+	const agentTab = appWindow.getByRole("tab", { name: "Agents (1)", exact: true });
+	const humanPanel = appWindow.getByRole("tabpanel", { name: "Humans (1)", exact: true });
+	const agentPanel = appWindow.getByRole("tabpanel", { name: "Agents (1)", exact: true });
+	await expect(humanTab).toHaveAttribute("aria-selected", "true");
+	await expect(humanPanel).toContainText("Please take a look");
+	await expect(humanPanel).not.toContainText("Bot review");
+	// Keep the outgoing panel mounted long enough to inspect a tab transition.
+	const transitionStyle = await appWindow.addStyleTag({
+		content: `
+		@keyframes hold-panel { from { opacity: 1; } to { opacity: 0.99; } }
+		[role="tabpanel"][data-ending-style] { animation: hold-panel 60s linear; }
+	`,
+	});
+	await humanTab.focus();
+	await appWindow.keyboard.press("ArrowRight");
+	await expect(agentTab).toBeFocused();
+	await agentTab.click();
+	await expect(agentPanel).toContainText("Bot review");
+	await expect(agentPanel).not.toContainText("Please take a look");
+	await expect(humanPanel).toContainText("Please take a look");
+	await expect(humanPanel).not.toContainText("Bot review");
+	await transitionStyle.evaluate((element) => {
+		element.parentNode?.removeChild(element);
+	});
+	await appWindow.getByRole("button", { name: "Mark all read", exact: true }).click();
+	await expect(appWindow.getByRole("tab", { name: "Agents", exact: true })).toBeVisible();
+	await expect(humanTab).toBeVisible();
+	await expect(appWindow.getByRole("button", { name: "Notifications, 1 unread" })).toBeVisible();
+	await humanTab.click();
+	await expect(humanPanel).toContainText("Please take a look");
 });

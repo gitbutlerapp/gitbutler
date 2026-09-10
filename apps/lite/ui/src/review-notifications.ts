@@ -138,7 +138,7 @@ const entryOf = (
 			? (review.modifiedAt ?? new Date().toISOString())
 			: new Date(newest.atMs).toISOString();
 	return {
-		id: `${review.number}:${kind}:${at}`,
+		id: `${review.number}:${kind}:${at}${newest?.authorIsBot ? ":bot" : ""}`,
 		// Where a click should land, when the entry is about comments.
 		commentId: newestCommentId(bucket),
 		kind,
@@ -148,6 +148,7 @@ const entryOf = (
 		sourceBranch: review.sourceBranch,
 		htmlUrl: review.htmlUrl,
 		author: newest?.author ?? null,
+		authorIsBot: newest?.authorIsBot ?? false,
 		count: Math.max(bucket.length, 1),
 		snippet:
 			newest !== null && (newest.kind === "comment" || newest.kind === "verdict")
@@ -156,6 +157,26 @@ const entryOf = (
 		at,
 		seen: false,
 	};
+};
+
+/**
+ * Coalesce one poll by kind and actor type, retaining each type's own target.
+ * @public exported for the test suite.
+ */
+export const coalesceInboxEntries = (
+	review: ForgeReview,
+	items: Array<ReviewActivityItem>,
+	login: string | null,
+): Array<InboxEntry> => {
+	const buckets = new Map<string, { kind: InboxKind; items: Array<ReviewActivityItem> }>();
+	for (const item of items) {
+		const kind = inboxKindOf(item, login);
+		const key = `${kind}:${item.authorIsBot === true}`;
+		const bucket = buckets.get(key);
+		if (bucket) bucket.items.push(item);
+		else buckets.set(key, { kind, items: [item] });
+	}
+	return [...buckets.values()].map(({ kind, items }) => entryOf(review, kind, items));
 };
 
 /**
@@ -241,14 +262,7 @@ export const useReviewActivityInbox = (projectId: string): void => {
 				return true;
 			},
 		);
-		const buckets = new Map<InboxKind, Array<ReviewActivityItem>>();
-		for (const item of items) {
-			const kind = inboxKindOf(item, login);
-			const bucket = buckets.get(kind);
-			if (bucket) bucket.push(item);
-			else buckets.set(kind, [item]);
-		}
-		return [...buckets].map(([kind, bucket]) => entryOf(change.review, kind, bucket));
+		return coalesceInboxEntries(change.review, items, login);
 	});
 
 	const observe = useEffectEvent(async (listing: Array<ForgeReview>) => {

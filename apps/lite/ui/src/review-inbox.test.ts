@@ -3,6 +3,8 @@ import {
 	addInboxEntries,
 	desktopNotices,
 	entryHeadline,
+	findInboxEntry,
+	isBotEntry,
 	markInboxSeen,
 	summaryNoticeId,
 	type InboxEntry,
@@ -84,6 +86,48 @@ describe("addInboxEntries", () => {
 		expect(kept).toHaveLength(100);
 		expect(kept[0]?.id).toBe("e104");
 		expect(kept[99]?.id).toBe("e5");
+	});
+});
+
+describe("retention per notification type", () => {
+	const batch = (authorIsBot: boolean, offset: number) =>
+		Array.from({ length: 105 }, (_, i) =>
+			entry(`${authorIsBot ? "agent" : "human"}-${i}`, 0, {
+				authorIsBot,
+				at: new Date(1756500000000 + (offset + i) * 60000).toISOString(),
+			}),
+		);
+
+	it.each([false, true])(
+		"keeps older notifications when the other type floods the inbox (agents first: %s)",
+		(agentsFirst) => {
+			const projectId = freshProject();
+			addInboxEntries(projectId, batch(agentsFirst, 0));
+			addInboxEntries(projectId, batch(!agentsFirst, 200));
+			const kept = stored(projectId);
+			expect(kept).toHaveLength(200);
+			expect(kept.filter(isBotEntry)).toHaveLength(100);
+			expect(kept.filter((item) => !isBotEntry(item))).toHaveLength(100);
+			expect(kept.some((item) => item.id.endsWith("-0"))).toBe(false);
+			expect(kept.every((item, i) => i === 0 || item.at <= (kept[i - 1]?.at ?? item.at))).toBe(
+				true,
+			);
+		},
+	);
+
+	it("retains both types when reading persisted entries", () => {
+		const projectId = freshProject();
+		localStorage.setItem(
+			`pr_activity_inbox:v1:${projectId}`,
+			JSON.stringify([...batch(false, 0), ...batch(true, 200)]),
+		);
+		markInboxSeen(projectId);
+		const kept = stored(projectId);
+		expect(kept).toHaveLength(200);
+		expect(kept.filter(isBotEntry)).toHaveLength(100);
+		expect(kept.every((item) => item.seen)).toBe(true);
+		expect(kept[0]?.id).toBe("agent-104");
+		expect(kept[199]?.id).toBe("human-5");
 	});
 });
 
@@ -221,4 +265,139 @@ describe("desktopNotices", () => {
 	it("says nothing for quiet news", () => {
 		expect(desktopNotices([entry("a", 0, { kind: "merged" })])).toEqual([]);
 	});
+});
+
+describe("bot notifications", () => {
+	it("recognizes forge flags and legacy bot logins without hiding unknown authors", () => {
+		expect(isBotEntry(entry("flagged", 1, { author: "copilot", authorIsBot: true }))).toBe(true);
+		expect(isBotEntry(entry("legacy", 1, { author: "renovate[bot]" }))).toBe(true);
+		expect(isBotEntry(entry("reviewer", 1, { author: "copilot-pull-request-reviewer" }))).toBe(
+			true,
+		);
+		expect(isBotEntry(entry("copilot", 1, { author: "Copilot" }))).toBe(true);
+		expect(
+			isBotEntry(entry("copilot-unflagged", 1, { author: "copilot", authorIsBot: false })),
+		).toBe(true);
+		expect(isBotEntry(entry("unknown", 1, { author: null }))).toBe(false);
+		expect(isBotEntry(entry("human", 1))).toBe(false);
+	});
+
+	it("retains bot metadata in persisted entries", () => {
+		const projectId = freshProject();
+		addInboxEntries(projectId, [entry("bot", 1, { authorIsBot: true })]);
+		expect(stored(projectId)[0]?.authorIsBot).toBe(true);
+	});
+});
+
+describe("rediscovered activity", () => {
+	it.each([false, true])(
+		"deduplicates a legacy agent entry without changing its seen state (%s)",
+		(seen) => {
+			const projectId = freshProject();
+			const id = `7:comment:${at(1)}`;
+			localStorage.setItem(
+				`pr_activity_inbox:v1:${projectId}`,
+				JSON.stringify([entry(id, 1, { author: "copilot-pull-request-reviewer", seen })]),
+			);
+			expect(
+				addInboxEntries(projectId, [
+					entry(`${id}:bot`, 1, { author: "copilot-pull-request-reviewer", authorIsBot: true }),
+				]),
+			).toEqual([]);
+			addInboxEntries(projectId, [entry("unrelated", 2)]);
+			addInboxEntries(freshProject(), [entry("other", 1)]);
+			expect(findInboxEntry(projectId, id)?.seen).toBe(seen);
+		},
+	);
+
+	it("does not confuse a human entry with an agent entry at the same timestamp", () => {
+		const projectId = freshProject();
+		const id = `7:comment:${at(1)}`;
+		addInboxEntries(projectId, [entry(id, 1)]);
+		expect(addInboxEntries(projectId, [entry(`${id}:bot`, 1, { authorIsBot: true })])).toHaveLength(
+			1,
+		);
+		expect(stored(projectId)).toHaveLength(2);
+	});
+
+	it("does not announce replayed activity that falls outside the retained history", () => {
+		const projectId = freshProject();
+		const old = entry("old", 0);
+		addInboxEntries(projectId, [old]);
+		markInboxSeen(projectId, [old.id]);
+		addInboxEntries(
+			projectId,
+			Array.from({ length: 100 }, (_, i) =>
+				entry(`new-${i}`, 1, { at: new Date(Date.parse(at(1)) + i * 60000).toISOString() }),
+			),
+		);
+		// Reading another project evicts the in-memory cache, as a reload would.
+		addInboxEntries(freshProject(), [entry("other", 1)]);
+		expect(addInboxEntries(projectId, [old])).toEqual([]);
+		expect(stored(projectId).some((item) => item.id === old.id)).toBe(false);
+	});
+});
+
+it("keeps a human notification that shares a legacy agent timestamp", () => {
+	const projectId = freshProject();
+	const id = `7:comment:${at(1)}`;
+	localStorage.setItem(
+		`pr_activity_inbox:v1:${projectId}`,
+		JSON.stringify([entry(id, 1, { author: "copilot-pull-request-reviewer", seen: true })]),
+	);
+	expect(addInboxEntries(projectId, [entry(id, 1)])).toHaveLength(1);
+	expect(stored(projectId)).toHaveLength(2);
+	expect(findInboxEntry(projectId, id)?.author).toBe("alice");
+	expect(findInboxEntry(projectId, `${id}:bot`)?.seen).toBe(true);
+	addInboxEntries(freshProject(), [entry("other", 1)]);
+	expect(findInboxEntry(projectId, `${id}:bot`)?.seen).toBe(true);
+});
+
+it("merges already duplicated legacy agent entries without losing read state", () => {
+	const projectId = freshProject();
+	const id = `7:comment:${at(1)}`;
+	localStorage.setItem(
+		`pr_activity_inbox:v1:${projectId}`,
+		JSON.stringify([
+			entry(`${id}:bot`, 1, { author: "copilot-pull-request-reviewer", authorIsBot: true }),
+			entry(id, 1, { author: "copilot-pull-request-reviewer", seen: true }),
+		]),
+	);
+	addInboxEntries(projectId, [entry("another", 2)]);
+	expect(stored(projectId)).toHaveLength(2);
+	expect(findInboxEntry(projectId, id)?.seen).toBe(true);
+	expect(findInboxEntry(projectId, id)?.authorIsBot).toBe(true);
+});
+
+it("does not resolve an evicted human desktop notice to an agent", () => {
+	const projectId = freshProject();
+	const id = `7:comment:${at(0)}`;
+	addInboxEntries(projectId, [entry(id, 0), entry(`${id}:bot`, 0, { authorIsBot: true })]);
+	addInboxEntries(
+		projectId,
+		Array.from({ length: 100 }, (_, i) =>
+			entry(`human-${i}`, 1, { at: new Date(Date.parse(at(1)) + i * 60000).toISOString() }),
+		),
+	);
+	expect(findInboxEntry(projectId, id)).toBeUndefined();
+	expect(findInboxEntry(projectId, `${id}:bot`)).toBeDefined();
+});
+
+it("retires a migrated alias when a human entry claims its ID", () => {
+	const projectId = freshProject();
+	const id = `7:comment:${at(0)}`;
+	localStorage.setItem(
+		`pr_activity_inbox:v1:${projectId}`,
+		JSON.stringify([entry(id, 0, { author: "copilot-pull-request-reviewer" })]),
+	);
+	addInboxEntries(projectId, [entry(id, 0)]);
+	addInboxEntries(
+		projectId,
+		Array.from({ length: 100 }, (_, i) =>
+			entry(`human-${i}`, 1, { at: new Date(Date.parse(at(1)) + i * 60000).toISOString() }),
+		),
+	);
+	addInboxEntries(freshProject(), [entry("other", 1)]);
+	expect(findInboxEntry(projectId, id)).toBeUndefined();
+	expect(findInboxEntry(projectId, `${id}:bot`)).toBeDefined();
 });

@@ -6,6 +6,8 @@
  * it live listings and turns its verdicts into toasts.
  */
 
+import { isAgent } from "#ui/review-users.ts";
+
 import type {
 	ForgeReview,
 	ForgeReviewComment,
@@ -20,7 +22,7 @@ import type {
  *
  * @public exported for the fabricated events in the test suite.
  */
-export type ReviewActivityItem =
+export type ReviewActivityItem = { authorIsBot?: boolean } & (
 	| { kind: "comment"; id: number; author: string | null; body: string; atMs: number }
 	| {
 			kind: "verdict";
@@ -36,7 +38,8 @@ export type ReviewActivityItem =
 			requestedReviewer: string | null;
 			atMs: number;
 	  }
-	| { kind: "committed"; author: string | null; atMs: number };
+	| { kind: "committed"; author: string | null; atMs: number }
+);
 
 type Attention = "loud" | "quiet" | "silent";
 
@@ -187,6 +190,7 @@ export const activityItems = (
 				kind: "comment",
 				id: comment.id,
 				author: comment.author?.login ?? null,
+				authorIsBot: comment.author != null && isAgent(comment.author),
 				body: comment.body,
 				atMs,
 			});
@@ -202,6 +206,7 @@ export const activityItems = (
 					kind: "comment",
 					id: comment.id,
 					author: comment.author?.login ?? null,
+					authorIsBot: comment.author != null && isAgent(comment.author),
 					body: comment.body,
 					atMs,
 				});
@@ -215,6 +220,7 @@ export const activityItems = (
 				kind: "verdict",
 				id: submission.id,
 				author: submission.author?.login ?? null,
+				authorIsBot: submission.author != null && isAgent(submission.author),
 				state: submission.state,
 				body: submission.body,
 				atMs,
@@ -225,15 +231,17 @@ export const activityItems = (
 		const atMs = parseMs(event.createdAt);
 		if (atMs <= sinceMs) continue;
 		const author = event.actor?.login ?? null;
+		const authorIsBot = event.actor != null && isAgent(event.actor);
 		if (event.kind === "reviewRequested") {
 			items.push({
 				kind: "reviewRequested",
 				author,
+				authorIsBot,
 				requestedReviewer: event.requestedReviewer?.login ?? null,
 				atMs,
 			});
 		} else {
-			items.push({ kind: "committed", author, atMs });
+			items.push({ kind: "committed", author, authorIsBot, atMs });
 		}
 	}
 	return items;
