@@ -160,6 +160,22 @@ describe("classify", () => {
 			expect(result.userMessage).toContain("permission");
 		});
 
+		test("GitHubTokenLifetimeRestricted is terminal with token-expiration guidance", () => {
+			const error = new IpcError(
+				{
+					message: "A GitHub organization limits how long personal access tokens may stay valid.",
+					code: "GitHubTokenLifetimeRestricted",
+				},
+				"list_reviews",
+			);
+			const result = classify(error);
+			expect(result.severity).toBe("error");
+			expect(result.terminal).toBe(true);
+			expect(result.title).toBe("GitHub Token Lifetime Restricted");
+			expect(result.userMessage).toContain("shorter expiration");
+			expect(result.userMessage).not.toContain("permission");
+		});
+
 		test("GitHubRateLimited is a terminal warning so pollers stop and telemetry dedups", () => {
 			const error = new IpcError(
 				{ message: "GitHub's API rate limit was exceeded.", code: "GitHubRateLimited" },

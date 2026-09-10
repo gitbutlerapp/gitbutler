@@ -246,6 +246,19 @@ GitHub could not access this repository or part of it (for example CI checks). C
 		`,
 	},
 	/**
+	 * A GitHub organization refuses personal access tokens whose lifetime
+	 * exceeds its policy. Terminal until the user connects a token with a
+	 * shorter expiration: credential mutations invalidate the review list,
+	 * so pollers resume once that fetch succeeds.
+	 */
+	GitHubTokenLifetimeRestricted: {
+		severity: "error",
+		terminal: true,
+		title: "GitHub Token Lifetime Restricted",
+		userMessage:
+			"A GitHub organization limits how long personal access tokens may stay valid. Create a token with a shorter expiration that meets the organization's policy, then reconnect GitHub with it under Settings → Integrations.",
+	},
+	/**
 	 * GitHub's API quota is exhausted. Polling through it only deepens the
 	 * block, so it's terminal: pollers stop until refetch-on-focus or a
 	 * manual retry succeeds, and telemetry captures it once per session

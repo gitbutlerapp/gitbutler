@@ -31,6 +31,15 @@ describe("GitHubOrgRestrictionNotice", () => {
 		expect(screen.queryByText("Restricted by a GitHub organization")).toBeNull();
 	});
 
+	test("renders shorter-expiration guidance for the token lifetime code", () => {
+		renderNotice("GitHubTokenLifetimeRestricted");
+
+		expect(screen.getByText("GitHub organization limits token lifetime")).toBeTruthy();
+		expect(screen.getByText(/shorter expiration/)).toBeTruthy();
+		expect(screen.queryByText("Restricted by a GitHub organization")).toBeNull();
+		expect(screen.queryByText("GitHub organization requires SAML SSO")).toBeNull();
+	});
+
 	test("renders no organization notice for unrelated errors", () => {
 		const { container } = renderNotice("Unknown");
 
