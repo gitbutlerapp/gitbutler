@@ -75,12 +75,31 @@ const MIN_SEARCH_LENGTH = 2;
  */
 export const searchStacks = (stacks: Array<ListedStack>, query: string): Array<ListedStack> => {
 	const trimmed = query.trim();
+	const reviewNumber = /^([#!])(\d+)$/.exec(trimmed);
+	if (reviewNumber) {
+		const [, symbol, number] = reviewNumber;
+		return stacks.filter((stack) =>
+			stack.branches.some(
+				({ review }) =>
+					review !== null && String(review.number) === number && review.unitSymbol === symbol,
+			),
+		);
+	}
 	if (trimmed.length < MIN_SEARCH_LENGTH) return stacks;
 
 	const fuse = new Fuse(
 		stacks.flatMap((stack) => stack.branches),
 		{
-			keys: ["displayName", "lastAuthor.name", "lastAuthor.email", "review.title"],
+			keys: [
+				"displayName",
+				"lastAuthor.name",
+				"lastAuthor.email",
+				"review.title",
+				"review.number",
+				"review.labels.name",
+				"review.author.login",
+				"review.author.name",
+			],
 			// Desktop's branch-search calibration: forgiving of typos without
 			// returning half the list; ignoreLocation matches anywhere in the string.
 			threshold: 0.3,

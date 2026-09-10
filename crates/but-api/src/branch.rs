@@ -689,9 +689,28 @@ pub mod json {
         /// requests and `!` for GitLab merge requests. Precedes `number` when
         /// displayed.
         pub unit_symbol: String,
+        /// Labels used to categorize the review.
+        pub labels: Vec<but_forge::ForgeReviewLabel>,
+        /// The review author, which may differ from the latest commit author.
+        pub author: Option<ListedForgeReviewAuthor>,
+        /// ISO 8601 timestamp of when the review was opened.
+        pub created_at: Option<String>,
     }
     #[cfg(feature = "export-schema")]
     but_schemars::register_sdk_type!(ListedForgeReview);
+
+    /// Author identity used to display and search listed reviews.
+    #[derive(Debug, Serialize)]
+    #[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
+    #[serde(rename_all = "camelCase")]
+    pub struct ListedForgeReviewAuthor {
+        /// The author's username on the forge.
+        pub login: String,
+        /// The author's display name, if available.
+        pub name: Option<String>,
+    }
+    #[cfg(feature = "export-schema")]
+    but_schemars::register_sdk_type!(ListedForgeReviewAuthor);
 
     impl From<&but_forge::ForgeReview> for ListedForgeReview {
         fn from(value: &but_forge::ForgeReview) -> Self {
@@ -700,6 +719,12 @@ pub mod json {
                 title: value.title.clone(),
                 html_url: value.html_url.clone(),
                 unit_symbol: value.unit_symbol.clone(),
+                labels: value.labels.clone(),
+                author: value.author.as_ref().map(|author| ListedForgeReviewAuthor {
+                    login: author.login.clone(),
+                    name: author.name.clone(),
+                }),
+                created_at: value.created_at.clone(),
             }
         }
     }

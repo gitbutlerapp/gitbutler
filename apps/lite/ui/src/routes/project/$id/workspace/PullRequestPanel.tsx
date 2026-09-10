@@ -18,6 +18,7 @@ import { Badge, type BadgeVariant } from "#ui/components/Badge.tsx";
 import { getButtonClassName } from "#ui/components/Button.tsx";
 import { classes } from "#ui/components/classes.ts";
 import { Icon } from "#ui/components/Icon.tsx";
+import { ForgeLabel } from "#ui/components/ForgeLabel.tsx";
 import type { IconName } from "#ui/components/iconNames.ts";
 import { TooltipPopup } from "#ui/components/Tooltip.tsx";
 import { type NativeMenuItem, nativeMenuItem, showNativeMenuFromTrigger } from "#ui/native-menu.ts";
@@ -29,7 +30,6 @@ import { loginKey, sameLogin } from "#ui/review-users.ts";
 import type {
 	CiCheck,
 	ForgeReview,
-	ForgeReviewLabel,
 	ForgeReviewSubmission,
 	ForgeReviewUser,
 } from "@gitbutler/but-sdk";
@@ -138,24 +138,6 @@ export const ReviewUser: FC<{ user: ForgeReviewUser }> = ({ user }) => (
 		<span className={styles.userLogin}>{user.login}</span>
 	</div>
 );
-
-const Label: FC<{ label: ForgeReviewLabel }> = ({ label }) => {
-	// GitHub sends bare hex color codes, GitLab prefixes them with `#`.
-	const color =
-		label.color === null ? null : label.color.startsWith("#") ? label.color : `#${label.color}`;
-
-	return (
-		<Badge
-			variant="lightGray"
-			size="large"
-			className={color === null ? undefined : styles.label}
-			style={color === null ? undefined : { "--label-color": color }}
-			title={label.description ?? undefined}
-		>
-			{label.name}
-		</Badge>
-	);
-};
 
 const CopyableBranch: FC<{ name: string }> = ({ name }) => {
 	const { copied, copy } = useCopied(name);
@@ -325,7 +307,7 @@ export const NewPullRequestPanel: FC<{
 				{pickedLabels.length > 0 && (
 					<div className={styles.labels}>
 						{pickedLabels.map((label) => (
-							<Label key={label.name} label={label} />
+							<ForgeLabel key={label.name} label={label} />
 						))}
 					</div>
 				)}
@@ -747,7 +729,7 @@ export const PullRequestPanel: FC<{
 				{review.labels.length > 0 && (
 					<div className={styles.labels}>
 						{review.labels.map((label) => (
-							<Label key={label.name} label={label} />
+							<ForgeLabel key={label.name} label={label} />
 						))}
 					</div>
 				)}

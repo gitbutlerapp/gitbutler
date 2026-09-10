@@ -83,5 +83,56 @@
 	justify-content: safe center;
 }
 
-/* The label column and its meta line now live in Row.module.css, shared with
-   the workspace outline's branch rows. */
+.branchRow .headline {
+	display: block;
+	flex-grow: 0;
+	line-height: 22px;
+	overflow-wrap: anywhere;
+}
+
+.title {
+	display: inline;
+	line-height: inherit;
+}
+
+.branchRow .reviewMeta {
+	column-gap: 6px;
+	row-gap: 2px;
+	flex-wrap: wrap;
+	padding-block-end: 2px;
+	font-size: 12px;
+	line-height: 18px;
+}
+
+.reviewLink {
+	display: inline-flex;
+	flex-shrink: 0;
+	align-items: center;
+	padding: 0;
+	gap: 4px;
+	font-size: inherit;
+}
+
+.reviewAuthor {
+	min-width: 0;
+	overflow-wrap: anywhere;
+}
+
+.branchRow .branchMeta {
+	font-size: 12px;
+}
+
+/* Reserve the action column so hovering never reflows titles or labels. */
+.branchRow .branchToolbar {
+	display: flex;
+	visibility: hidden;
+	flex-shrink: 0;
+	align-items: center;
+	height: var(--single-line-row-height);
+}
+
+.branchRow:hover .branchToolbar,
+.branchRow:focus-within .branchToolbar,
+[aria-selected="true"] > .branchRow .branchToolbar {
+	visibility: visible;
+}
