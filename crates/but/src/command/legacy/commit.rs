@@ -261,7 +261,7 @@ fn resolve(
         })?
     };
 
-    let reword_op = CommitMessageSource::from_args(no_message, message)?;
+    let reword_op = CommitMessageSource::from_args(no_message, message, out.format())?;
 
     Ok((guard, commit_op, commit_selection, reword_op))
 }

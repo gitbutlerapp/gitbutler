@@ -538,6 +538,59 @@ Hint: run `but help` for all commands
 }
 
 #[test]
+fn agent_without_message_commits_with_empty_message_instead_of_editor() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["A"]);
+
+    env.file("file.txt", "Some text");
+
+    // Agents get no editor even if one is configured; a spawned editor would fail the test.
+    env.but("commit")
+        .env("AI_AGENT", "codex")
+        .env("GIT_EDITOR", "false")
+        .assert()
+        .success();
+
+    env.but("status")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┊╭┄ g0 [A]
+┊●   ssv (no commit message)
+┊●   tpm add A
+├╯
+┊
+┴ 0dc3733 (common base) 2000-01-02 add M
+
+Hint: run `but help` for all commands
+
+"#]]);
+}
+
+#[test]
+fn json_without_message_commits_with_empty_message_instead_of_editor() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["A"]);
+
+    env.file("file.txt", "Some text");
+
+    // Same commit as `--no-message --json`: JSON runs get no editor even if one is configured.
+    env.but("commit --json")
+        .env("GIT_EDITOR", "false")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+{
+  "commitId": "ad3beae727eb9f82f063c32ccff084d97ad0fd5e",
+  "changeId": "ssvtnomvyusxrxwspzwsqkssnkmsnylz"
+}
+
+"#]]);
+}
+
+#[test]
 fn single_head_with_message() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
     env.setup_metadata(&["A"]);

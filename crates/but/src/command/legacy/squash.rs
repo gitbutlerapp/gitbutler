@@ -26,6 +26,7 @@ use serde::Serialize;
 use crate::{
     CliError, CliResult, CliResultExt, IdMap,
     args::{
+        OutputFormat,
         atoms::{BranchArg, CliIdArg, Priority, Purpose, ResolvedCliIdArg, ResolvedCliIdArgRef},
         squash::Platform,
     },
@@ -157,7 +158,7 @@ impl CliOutput for SquashOutcome {
 
 pub fn squash(
     ctx: &mut Context,
-    _out: IntermediateChannel<'_>,
+    out: IntermediateChannel<'_>,
     args: Platform,
 ) -> CliResult<(SquashOutcome, Option<WorkspaceState>)> {
     let mut guard = ctx.exclusive_worktree_access();
@@ -167,7 +168,7 @@ pub fn squash(
     let merged = MergedUpstream::new(&*ctx.repo.get()?, &head_info, args.allow_merged);
 
     let (repo, ws, _) = ctx.workspace_and_db_with_perm(guard.read_permission())?;
-    let resolved_args = resolve_args(&repo, args, &id_map, &head_info)?;
+    let resolved_args = resolve_args(&repo, args, &id_map, &head_info, out.format())?;
     let resolved_args = resolved_args.as_ref();
 
     let squash_op = resolve(resolved_args, &ws, &repo, &merged)?;
@@ -183,6 +184,7 @@ fn resolve_args(
     args: Platform,
     id_map: &IdMap,
     head_info: &RefInfo,
+    format: OutputFormat,
 ) -> CliResult<ResolvedSquashArgs> {
     let Platform {
         target,
@@ -195,7 +197,13 @@ fn resolve_args(
         allow_merged: _,
     } = args;
 
-    let reword = resolve_reword(message, no_message, use_target_message, use_source_message)?;
+    let reword = resolve_reword(
+        message,
+        no_message,
+        use_target_message,
+        use_source_message,
+        format,
+    )?;
 
     if let Some(target) = target {
         let resolved_sources = if sources.is_empty() {
@@ -943,7 +951,7 @@ fn resolve_uncommit_target(
             CommitMessageSource::Provided(_) => {
                 return Err(ResolveTargetError::MessageUnavailable);
             }
-            CommitMessageSource::Editor { .. } => {}
+            CommitMessageSource::Editor { .. } | CommitMessageSource::Keep => {}
         },
     }
 
@@ -1050,6 +1058,7 @@ fn resolve_reword(
     no_message: bool,
     use_target_message: bool,
     use_source_message: bool,
+    format: OutputFormat,
 ) -> CliResult<HowToRewordTarget> {
     if use_target_message {
         Ok(HowToRewordTarget::UseTargetMessage)
@@ -1057,7 +1066,7 @@ fn resolve_reword(
         Ok(HowToRewordTarget::UseSourceMessage)
     } else {
         Ok(HowToRewordTarget::Reword(CommitMessageSource::from_args(
-            no_message, message,
+            no_message, message, format,
         )?))
     }
 }

@@ -165,9 +165,10 @@ is a flag. `@` is a special ID meaning "the uncommitted area".
 | Branch           | `@`           | Uncommit and remove the branch    | `but squash <branch-name> -t @`          |
 | Committed change | Commit        | Move the change to another commit | `but squash nn:a -t mm`       |
 
-**Message flags:** commits or branches compose a NEW message unless the target is `@`, so without
-`-m` they open an editor and block — always pass one. The remaining rows reuse the target's message
-and need no flag, and `-t @` rejects message flags outright.
+**Message flags:** commits or branches compose a NEW message unless the target is `@` — always pass
+`-m`. Without it an agent run keeps the composed message (the joined source messages) and a terminal
+opens an editor. The remaining rows reuse the target's message and need no flag, and `-t @` rejects
+message flags outright.
 
 The two amend rows overlap with `but amend` — prefer `but amend -t nn a1`, which does only that and
 takes the same IDs.

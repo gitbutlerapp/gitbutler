@@ -204,6 +204,11 @@ impl<'out> IntermediateChannel<'out> {
     pub fn prepare_for_terminal_input(&mut self) -> Option<InputOutputChannel<'_>> {
         self.out.prepare_for_terminal_input()
     }
+
+    /// Get the output format setting.
+    pub fn format(&self) -> OutputFormat {
+        self.out.format()
+    }
 }
 
 pub trait CliOutputHuman {

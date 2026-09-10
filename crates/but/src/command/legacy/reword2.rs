@@ -15,6 +15,7 @@ use serde::Serialize;
 use crate::{
     CliError, CliResult, IdMap,
     args::{
+        OutputFormat,
         atoms::{BranchOrCommit, Purpose},
         reword2::Platform,
     },
@@ -260,6 +261,7 @@ pub fn run(
                 CommitMessageSource::Provided(message) => {
                     Some(normalize_commit_message(&message).to_owned())
                 }
+                CommitMessageSource::Keep => None,
                 CommitMessageSource::Editor { initial: current } => {
                     let repo = ctx.repo.get()?;
                     edit_commit_message(
@@ -348,6 +350,8 @@ pub enum RewordOperation {
 pub enum CommitMessageSource {
     Empty,
     Provided(String),
+    /// Leave the message the operation produced untouched.
+    Keep,
     Editor {
         /// Override the initial text shown in the editor.
         ///
@@ -393,14 +397,24 @@ impl CommitMessageSource {
     pub fn will_open_editor(&self) -> bool {
         match self {
             CommitMessageSource::Editor { .. } => true,
-            CommitMessageSource::Empty | CommitMessageSource::Provided(_) => false,
+            CommitMessageSource::Empty
+            | CommitMessageSource::Provided(_)
+            | CommitMessageSource::Keep => false,
         }
     }
 
     /// Resolve mutually exclusive commit-message arguments into a message source.
-    pub fn from_args(no_message: bool, message: Option<Vec<String>>) -> CliResult<Self> {
+    ///
+    /// Without a message flag, formats that don't allow interactive UI (agent, JSON)
+    /// keep the operation's message instead of opening the editor.
+    pub fn from_args(
+        no_message: bool,
+        message: Option<Vec<String>>,
+        format: OutputFormat,
+    ) -> CliResult<Self> {
         match (no_message, message) {
             (true, None) => Ok(Self::Empty),
+            (false, None) if !format.allows_human_ui() => Ok(Self::Keep),
             (false, None) => Ok(Self::Editor { initial: None }),
             (false, Some(message)) => Ok(Self::Provided(message.join("\n\n"))),
             (true, Some(_)) => {
@@ -417,6 +431,7 @@ impl CommitMessageSource {
         let message = match self {
             CommitMessageSource::Empty => Some(String::new()),
             CommitMessageSource::Provided(message) => Some(message),
+            CommitMessageSource::Keep => None,
             CommitMessageSource::Editor { initial: current } => {
                 let repo = tx.repo();
                 let commit_details = CommitDetails::from_commit_id(
