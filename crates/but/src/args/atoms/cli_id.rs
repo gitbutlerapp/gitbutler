@@ -34,8 +34,12 @@ impl std::fmt::Display for CliIdArg {
 }
 
 impl CliIdArg {
-    #[expect(missing_docs)]
+    /// Hint for an argument that resolved to no branch or commit.
     pub const TARGET_MISSING_HINT: &str = "Run `but status` for applicable targets.";
+    /// Hint for an argument that resolved to no uncommitted file or hunk.
+    /// `but status` shows no hunk IDs, so point at the read that mints them.
+    pub const CHANGE_MISSING_HINT: &str =
+        "Run `but diff` for the current change IDs; a hunk ID is `<file>:<hunk>`.";
 
     /// Parse this argument into all matching CLI IDs in the workspace.
     pub fn parse(&self, repo: &gix::Repository, id_map: &IdMap) -> CliResult<Vec<CliId>> {
@@ -354,7 +358,7 @@ impl CliIdArg {
         } else {
             Err(
                 bad_input(format!("Could not find uncommitted change: '{self}'"))
-                    .hint(Self::TARGET_MISSING_HINT)
+                    .hint(Self::CHANGE_MISSING_HINT)
                     .into(),
             )
         }

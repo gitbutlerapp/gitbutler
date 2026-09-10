@@ -27,6 +27,26 @@ Hint: Name it with `but reword g0` first! Note that the short ID is likely to ch
 "#]]);
 }
 
+#[test]
+fn unknown_source_points_at_diff() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["A"]);
+    env.file("new.txt", "content\n");
+
+    // Sources resolve through the shared `resolve_uncommitted`, so the hint
+    // names the read that mints change IDs rather than the target hint.
+    env.but("amend -t A notexist")
+        .assert()
+        .failure()
+        .stdout_eq(str![])
+        .stderr_eq(str![[r#"
+Error: Could not find uncommitted change: 'notexist'
+
+Hint: Run `but diff` for the current change IDs; a hunk ID is `<file>:<hunk>`.
+
+"#]]);
+}
+
 fn uncommitted_contains_file(status: &serde_json::Value, file_path: &str) -> bool {
     status["uncommittedChanges"]
         .as_array()

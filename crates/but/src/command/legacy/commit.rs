@@ -269,7 +269,7 @@ fn resolve(
 /// The retired syntax put the target branch in positional position
 /// (`but commit <branch> -m "message"`), which the modern grammar reads as a
 /// change. When a change fails to resolve but names an applied branch,
-/// suggest `-b` targeting instead of the generic missing-target hint.
+/// suggest `-b` targeting instead of the generic missing-change hint.
 fn unresolved_change_error(change: &CliIdArg, repo: &gix::Repository, id_map: &IdMap) -> CliError {
     let names_branch = change
         .parse(repo, id_map)
@@ -284,7 +284,7 @@ fn unresolved_change_error(change: &CliIdArg, repo: &gix::Repository, id_map: &I
         ))
         .into()
     } else {
-        err.hint(CliIdArg::TARGET_MISSING_HINT).into()
+        err.hint(CliIdArg::CHANGE_MISSING_HINT).into()
     }
 }
 
