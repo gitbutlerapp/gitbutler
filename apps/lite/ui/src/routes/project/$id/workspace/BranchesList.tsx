@@ -5,8 +5,10 @@ import { decodeBytes, encodeBytes } from "#ui/api/bytes.ts";
 import { assert } from "#ui/assert.ts";
 import { activeBranchFilterCount, branchIsEmpty, type BranchFilters } from "#ui/branch.ts";
 import { commitIsDiverged, commitTitle } from "#ui/commit.ts";
-import { Badge } from "#ui/components/Badge.tsx";
+import { Badge, type BadgeVariant } from "#ui/components/Badge.tsx";
 import { getButtonClassName } from "#ui/components/Button.tsx";
+import { ForgeLabel } from "#ui/components/ForgeLabel.tsx";
+import type { IconName } from "#ui/components/iconNames.ts";
 import { classes } from "#ui/components/classes.ts";
 import { EmptyState } from "#ui/components/EmptyState.tsx";
 import {
@@ -29,7 +31,7 @@ import { useAutofocusScope, useAddressSpaceHotkeys, type FocusScope } from "#ui/
 import { useAppDispatch, useAppSelector } from "#ui/store.ts";
 import { RelativeTime } from "#ui/components/RelativeTime.tsx";
 import { getRangeExtractorWithIndices } from "#ui/virtual.ts";
-import type { Commit, ListedBranch } from "@gitbutler/but-sdk";
+import type { BranchReviewStatus, Commit, ListedBranch } from "@gitbutler/but-sdk";
 import { Toolbar } from "@base-ui/react";
 import { useMergedRefs } from "@base-ui/utils/useMergedRefs";
 import { useHotkey } from "@tanstack/react-hotkeys";
@@ -40,6 +42,7 @@ import {
 	Fragment,
 	type RefObject,
 	useCallback,
+	useId,
 	useLayoutEffect,
 	useRef,
 	useState,
@@ -81,6 +84,16 @@ const filterMenuLabels: Array<[keyof BranchFilters, string]> = [
 	["onlyLocal", "Show Only Local Branches"],
 	["onlyStacks", "Show Only Stacks"],
 ];
+
+const reviewStates: Record<
+	BranchReviewStatus,
+	{ label: string; variant: BadgeVariant; icon: IconName }
+> = {
+	open: { label: "Open", variant: "safe", icon: "pr" },
+	draft: { label: "Draft", variant: "lightGray", icon: "pr-draft" },
+	merged: { label: "Merged", variant: "purple", icon: "branch-merge" },
+	closed: { label: "Closed", variant: "danger", icon: "pr-close" },
+};
 
 /**
  * The graph has no remote-only state, so a branch that exists only on a remote
@@ -300,6 +313,7 @@ const BranchItem: FC<{
 		) && canUnfold;
 	const isSelected = useIsSelected(address);
 	const [now] = useState(() => Date.now());
+	const descriptionId = useId();
 
 	// Same topology as the applied list: nothing above the branch means the
 	// rail turns in from the right, otherwise it joins the branch above it. This
@@ -308,6 +322,8 @@ const BranchItem: FC<{
 	const railGlyph: GraphSegmentGlyph = isTopBranch ? "forkRight" : "joinRight";
 
 	const review = branch.review;
+	const reviewState = branch.reviewStatus === null ? null : reviewStates[branch.reviewStatus];
+	const createdAt = review?.createdAt != null ? Date.parse(review.createdAt) : Number.NaN;
 
 	const { isPending: isApplyPending, apply } = useApplyToWorkspace(projectId);
 	const { isPending: isBranchRemovePending, mutate: branchRemove } = useBranchRemove(projectId);
@@ -358,6 +374,7 @@ const BranchItem: FC<{
 			id={treeItemId(address)}
 			role="treeitem"
 			aria-label={branch.displayName}
+			aria-describedby={review === null ? undefined : descriptionId}
 			aria-level={1}
 			aria-posinset={positionInSet}
 			aria-setsize={setSize}
@@ -367,6 +384,7 @@ const BranchItem: FC<{
 			aria-expanded={canUnfold ? unfolded : undefined}
 		>
 			<Row
+				className={styles.branchRow}
 				isSelected={isSelected}
 				onSelect={() => setCursor("unapplied", address)}
 				onContextMenu={(event) => {
@@ -385,52 +403,96 @@ const BranchItem: FC<{
 					<GraphSegment glyph={railGlyph} status={branchGraphStatus(branch)} />
 				)}
 
-				<RowLabelGroup>
-					<RowLabelContainer>
-						<RowLabel heading singleLine title={branch.displayName}>
-							{branch.displayName}
+				<RowLabelGroup id={descriptionId}>
+					<RowLabelContainer className={styles.headline}>
+						<RowLabel heading className={styles.title} title={review?.title ?? branch.displayName}>
+							{review?.title ?? branch.displayName}
 						</RowLabel>
+						{review?.labels.map((label) => (
+							<Fragment key={label.name}>
+								{" "}
+								<ForgeLabel label={label} size="regular" />
+							</Fragment>
+						))}
 					</RowLabelContainer>
 
-					<RowMeta>
-						{showsAuthorMeta && (
+					{review !== null && (
+						<RowMeta className={styles.reviewMeta}>
+							<button
+								type="button"
+								className={classes(getRowButtonClassName({ variant: "ghost" }), styles.reviewLink)}
+								aria-label={`Open ${review.unitSymbol}${String(review.number)} in browser`}
+								onClick={() => void openReviewInBrowser()}
+							>
+								{reviewState !== null && (
+									<Badge variant={reviewState.variant}>
+										<Icon name={reviewState.icon} size={12} />
+										{reviewState.label}
+									</Badge>
+								)}
+								<span>
+									{review.unitSymbol}
+									{review.number}
+								</span>
+								<Icon name="arrow-up-right" size={12} />
+							</button>
+							<span className={classes(rowStyles.fadedText, styles.reviewAuthor)}>
+								{Number.isFinite(createdAt) && (
+									<>
+										opened <RelativeTime timestamp={createdAt} now={now} compact /> ago{" "}
+									</>
+								)}
+								{review.author && <>by {review.author.login}</>}
+							</span>
+						</RowMeta>
+					)}
+
+					<RowMeta className={styles.branchMeta}>
+						{review !== null ? (
 							<span
 								className={classes(
 									rowStyles.fadedText,
 									rowStyles.metaItem,
 									rowStyles.metaItemShrinkable,
 								)}
-								title={branch.lastAuthor?.email}
+								title={branch.displayName}
 							>
-								<span className={rowStyles.metaItemText}>
-									{lastAuthorName !== undefined && <>{lastAuthorName} </>}
-									{branch.updatedAtMs !== null && (
-										<RelativeTime timestamp={branch.updatedAtMs} now={now} />
-									)}
-								</span>
+								<Icon size={12} name="branch" />
+								<span className={rowStyles.metaItemText}>{branch.displayName}</span>
 							</span>
+						) : (
+							showsAuthorMeta && (
+								<span
+									className={classes(
+										rowStyles.fadedText,
+										rowStyles.metaItem,
+										rowStyles.metaItemShrinkable,
+									)}
+									title={branch.lastAuthor?.email}
+								>
+									<span className={rowStyles.metaItemText}>
+										{lastAuthorName !== undefined && (
+											<>
+												{lastAuthorName}
+												{branch.updatedAtMs !== null && " · "}
+											</>
+										)}
+										{branch.updatedAtMs !== null && (
+											<>
+												updated <RelativeTime timestamp={branch.updatedAtMs} now={now} compact />{" "}
+												ago
+											</>
+										)}
+									</span>
+								</span>
+							)
 						)}
 
 						{showsCommitCount && (
 							<>
-								{showsAuthorMeta && <RowMetaSeparator />}
+								{(review !== null || showsAuthorMeta) && <RowMetaSeparator />}
 								<span className={classes(rowStyles.fadedText, rowStyles.metaItem)}>
-									<Icon size={14} name="commit" />
-									{branch.commitCount}
-								</span>
-							</>
-						)}
-
-						{review !== null && (
-							<>
-								{(showsAuthorMeta || showsCommitCount) && <RowMetaSeparator />}
-								<span
-									title={review.title}
-									className={classes(rowStyles.fadedText, rowStyles.metaItem)}
-								>
-									<Icon size={14} name="pr" />
-									{review.unitSymbol}
-									{review.number}
+									{branch.commitCount} {branch.commitCount === 1 ? "commit" : "commits"}
 								</span>
 							</>
 						)}
@@ -439,7 +501,10 @@ const BranchItem: FC<{
 					</RowMeta>
 				</RowLabelGroup>
 
-				<Toolbar.Root aria-label="Branch actions" render={<RowToolbar />}>
+				<Toolbar.Root
+					aria-label="Branch actions"
+					render={<RowToolbar className={styles.branchToolbar} />}
+				>
 					<Toolbar.Button
 						aria-label="Branch menu"
 						onClick={(event) => {
@@ -554,8 +619,10 @@ export const BranchesList: FC<
 		count: stacks.length,
 		getScrollElement: () => scrollElementRef.current,
 		estimateSize: (index) => {
-			// Keep in sync with Row.module.css and StackCard.module.css.
+			// Estimate unwrapped titles; measured cards account for titles and labels that wrap.
 			const singleLineRowHeight = 28;
+			const branchTitleHeight = 34;
+			const reviewMetaHeight = 22;
 			const branchMetaLineHeight = 20;
 			const branchMetaPaddingEnd = 6;
 			const stackBodyPaddingStart = 6;
@@ -565,12 +632,14 @@ export const BranchesList: FC<
 
 			const branchCount = stacks[index]?.branches.length ?? 0;
 			const commitCount = stacks[index]?.commitCount ?? 0;
+			const reviewCount = stacks[index]?.reviewCount ?? 0;
 
 			return (
 				stackBodyPaddingStart +
 				stackBorderHeight +
 				stackFinalConnectorHeight +
-				branchCount * (singleLineRowHeight + branchMetaLineHeight + branchMetaPaddingEnd) +
+				branchCount * (branchTitleHeight + branchMetaLineHeight + branchMetaPaddingEnd) +
+				reviewCount * reviewMetaHeight +
 				commitCount * singleLineRowHeight +
 				Math.max(0, branchCount - 1) * stackBetweenBranchConnectorHeight
 			);
@@ -764,8 +833,8 @@ export const BranchesList: FC<
 								query === ""
 									? "The filters you have on hide every branch"
 									: isFiltered
-										? `Nothing with “${query}” in its name gets past the filters you have on`
-										: `None of your branches has “${query}” in its name`
+										? `No matches for “${query}” with the current filters`
+										: `No matches for “${query}” in branches or pull requests`
 							}
 						>
 							<button

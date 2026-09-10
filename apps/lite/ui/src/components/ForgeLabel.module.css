@@ -1,0 +1,17 @@
+.label.label {
+	display: inline-flex;
+	max-width: 100%;
+	vertical-align: middle;
+}
+
+.label[data-colored] {
+	background-color: color-mix(in srgb, var(--label-color) var(--badge-bg-opacity), transparent);
+	color: color-mix(in oklab, var(--label-color) 30%, var(--text-1));
+}
+
+.text {
+	overflow: hidden;
+	text-box: trim-both cap alphabetic;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}

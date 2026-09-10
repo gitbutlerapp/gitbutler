@@ -35,6 +35,63 @@ fn cached_review(source_branch: &str, number: i64) -> ForgeReview {
 }
 
 #[test]
+fn listing_serializes_only_the_review_metadata_it_needs() -> anyhow::Result<()> {
+    let mut review = cached_review("feature", 42);
+    review.body = Some("A long review description".into());
+    review.labels.push(but_forge::ForgeReviewLabel {
+        name: "rust".into(),
+        description: Some("Rust changes".into()),
+        color: Some("dea584".into()),
+    });
+    review.author = Some(but_forge::ForgeReviewUser {
+        id: 7,
+        login: "octocat".into(),
+        name: Some("The Octocat".into()),
+        email: Some("octocat@example.com".into()),
+        avatar_url: None,
+        is_bot: false,
+    });
+    review.created_at = Some("2026-09-01T12:00:00Z".into());
+
+    let json = serde_json::to_value(but_api::branch::json::ListedForgeReview::from(&review))?;
+    assert_eq!(
+        json["labels"][0]["name"], "rust",
+        "labels survive transport"
+    );
+    assert_eq!(
+        json["labels"][0]["color"], "dea584",
+        "label colors survive transport"
+    );
+    assert_eq!(
+        json["author"],
+        serde_json::json!({ "login": "octocat", "name": "The Octocat" }),
+        "listing authors include only the login and display name used by the UI and search"
+    );
+    assert_eq!(
+        json["createdAt"], "2026-09-01T12:00:00Z",
+        "opening time survives transport"
+    );
+    assert!(
+        json.get("body").is_none(),
+        "listing responses omit review bodies"
+    );
+
+    let json = serde_json::to_value(but_api::branch::json::ListedForgeReview::from(
+        &cached_review("feature", 43),
+    ))?;
+    assert_eq!(
+        json["labels"],
+        serde_json::json!([]),
+        "unlabeled reviews carry an empty list"
+    );
+    assert!(
+        json["author"].is_null() && json["createdAt"].is_null(),
+        "missing forge metadata stays absent"
+    );
+    Ok(())
+}
+
+#[test]
 fn groups_classifies_and_enriches_from_cache() -> anyhow::Result<()> {
     let (repo, _tmp) = repo_with_feature_branch()?;
     set_project_target_to_feature(&repo)?;

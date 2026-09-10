@@ -29,6 +29,7 @@ type BranchesListBranch = {
 type BranchesListStack = {
 	branches: Array<BranchesListBranch>;
 	commitCount: number;
+	reviewCount: number;
 };
 
 export type BranchesListContent = {
@@ -91,7 +92,9 @@ export const useBranchesList = (projectId: string): UseQueryResult<BranchesListC
 			const stackIndexByAddressIndex: Array<number> = [];
 			const stacks = unapplied.map((stack, stackIndex): BranchesListStack => {
 				let commitCount = 0;
+				let reviewCount = 0;
 				const branches = stack.branches.map((branch): BranchesListBranch => {
+					if (branch.review !== null) reviewCount += 1;
 					const addressIndex = items.length;
 					items.push(branchAddress({ branchRef: encodeBytes(branch.refName.full) }));
 					stackIndexByAddressIndex.push(stackIndex);
@@ -115,7 +118,7 @@ export const useBranchesList = (projectId: string): UseQueryResult<BranchesListC
 					return { branch, addressIndex, commits };
 				});
 
-				return { branches, commitCount };
+				return { branches, commitCount, reviewCount };
 			});
 
 			return {

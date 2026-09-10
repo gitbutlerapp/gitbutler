@@ -205,15 +205,6 @@
 	gap: 4px;
 }
 
-/* Badge owns the pill itself; forge label colors are arbitrary hex, so only the
-   tint is overridden here — descendant-scoped so it beats Badge's own variant
-   colors regardless of stylesheet order. Colorless labels keep the lightGray
-   variant untouched. */
-.labels .label {
-	background-color: color-mix(in srgb, var(--label-color) 20%, transparent);
-	color: color-mix(in oklab, var(--label-color) 60%, var(--text-1));
-}
-
 .checks {
 	display: flex;
 	flex-direction: column;
