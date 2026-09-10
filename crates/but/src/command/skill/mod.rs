@@ -37,6 +37,14 @@ const EXAMPLES_MD: &[u8] = include_bytes!("../../../skill/references/examples.md
 const REFERENCE_MD: &[u8] = include_bytes!("../../../skill/references/reference.md");
 /// Body of a stub SKILL.md: the full skill's frontmatter followed by this.
 const STUB_MD: &str = include_str!("../../../skill/stub.md");
+/// The guide `but skill` prints. Installation writes `SKILL.md`; the served
+/// guide is a separate document so its wording can move without touching
+/// what agents have on disk.
+const SERVED_MD: &str = include_str!("../../../skill/served.md");
+
+fn render_served_guide() -> String {
+    SERVED_MD.to_owned()
+}
 
 /// Metadata for a skill file to be installed
 struct SkillFile {
@@ -47,8 +55,9 @@ struct SkillFile {
     /// Name of the document as `but skill <name>` prints it.
     name: &'static str,
     /// Renders the text `but skill <name>` prints when it is not the embedded
-    /// content: the command reference comes from the clap tree so it always
-    /// matches the binary, while the installed file stays hand-written.
+    /// content: the core guide is its own document, and the command reference
+    /// comes from the clap tree so it always matches the binary, while the
+    /// installed files stay hand-written.
     served: Option<fn() -> String>,
 }
 
@@ -89,7 +98,7 @@ const SKILL_FILES: &[SkillFile] = &[
         path_components: &["SKILL.md"],
         content: SKILL_MD,
         name: "core",
-        served: None,
+        served: Some(render_served_guide),
     },
     SkillFile {
         path_components: &["references", "reference.md"],
