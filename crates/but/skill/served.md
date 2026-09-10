@@ -2,6 +2,8 @@
 
 `but` is the version-control interface. GitButler keeps several branches applied in one working directory and assigns changes to them, so anything that moves refs, the index or the working tree (`add`, `commit`, `checkout`, `reset`, `restore`, `rebase`, `merge`, `stash`, `cherry-pick`, `fetch`, `pull`, `push`) goes through `but`; run raw they bypass its bookkeeping, and the workspace they leave behind is not the one `but` describes. Read-only git (`log`, `blame`, `show`) is fine. When the user names a git write command, run the `but` equivalent.
 
+Applied branches share the current workspace. Being “on” one means keeping it applied; use `but teardown` only when the user asks to leave the workspace for a plain Git checkout.
+
 ## The loop
 
 One inspection read prints the IDs, mutations take those IDs, and each mutation prints its result. Pick the narrowest first read for the task:
