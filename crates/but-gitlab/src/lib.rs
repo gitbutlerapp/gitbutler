@@ -116,15 +116,19 @@ async fn fetch_and_persist_selfhosted_user_data(
     Ok(user)
 }
 
+/// GitLab answered 401: the token was rejected. Shared by token validation
+/// and the read classifier so the desktop sees one terminal code either way.
+pub(crate) const GITLAB_UNAUTHORIZED: but_error::Context = but_error::Context::new_static(
+    but_error::Code::GitLabUnauthorized,
+    "GitLab did not accept the token.",
+);
+
 fn classify_pat_validation_error(err: anyhow::Error) -> anyhow::Error {
     let Some(http_err) = err.downcast_ref::<client::HttpStatusError>() else {
         return err;
     };
     let context = match http_err.status {
-        reqwest::StatusCode::UNAUTHORIZED => but_error::Context::new_static(
-            but_error::Code::GitLabUnauthorized,
-            "GitLab did not accept the token.",
-        ),
+        reqwest::StatusCode::UNAUTHORIZED => GITLAB_UNAUTHORIZED,
         reqwest::StatusCode::FORBIDDEN => but_error::Context::new_static(
             but_error::Code::GitLabForbidden,
             "GitLab refused access for the token.",
