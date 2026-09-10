@@ -97,6 +97,10 @@ if [ "${PERF_ENV_ISOLATED:-}" != 1 ]; then
     PERF_PROFILER_BIN=$(command -v "$backend")
     # Make relative PATH entries safe across fixture/output directory changes.
     PERF_PROFILER_BIN=$(CDPATH='' cd "$(dirname "$PERF_PROFILER_BIN")" && pwd)/$(basename "$PERF_PROFILER_BIN")
+    # Outer fixture checks and metadata run before perf_run_isolated.
+    # Keep caller repository overrides from redirecting these Git commands.
+    unset GIT_DIR GIT_INDEX_FILE GIT_OBJECT_DIRECTORY
+    unset GIT_ALTERNATE_OBJECT_DIRECTORIES GIT_WORK_TREE GIT_COMMON_DIR
     "$GIT_BIN" -C "$REPO_ROOT" cat-file -e "$PERF_FIXTURE_COMMIT^{commit}" ||
         perf_die "fixture commit missing from source checkout: $PERF_FIXTURE_COMMIT"
     if [ "$backend" = flamegraph ]; then
