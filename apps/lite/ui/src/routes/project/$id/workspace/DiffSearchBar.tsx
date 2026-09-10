@@ -181,7 +181,7 @@ export const DiffSearchBar: FC<Props> = ({
 						className={getButtonClassName({ size: "small", variant: "ghost", iconOnly: true })}
 						onClick={() => step(-1)}
 					>
-						<Icon name="chevron-up" />
+						<Icon name="arrow-up" />
 					</button>
 					<button
 						type="button"
@@ -190,7 +190,7 @@ export const DiffSearchBar: FC<Props> = ({
 						className={getButtonClassName({ size: "small", variant: "ghost", iconOnly: true })}
 						onClick={() => step(1)}
 					>
-						<Icon name="chevron-down" />
+						<Icon name="arrow-down" />
 					</button>
 					<button
 						type="button"

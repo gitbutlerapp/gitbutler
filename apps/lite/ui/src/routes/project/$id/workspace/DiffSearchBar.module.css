@@ -37,8 +37,8 @@
 
 .divider {
 	flex: none;
-	align-self: stretch;
 	width: 1px;
+	height: 16px;
 	background-color: var(--border-3);
 }
 
