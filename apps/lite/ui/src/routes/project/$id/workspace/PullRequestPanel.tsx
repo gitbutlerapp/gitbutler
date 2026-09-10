@@ -597,6 +597,11 @@ export const PullRequestPanel: FC<{
 	const { mutate: removeReviewLabel } = useRemoveReviewLabel(projectId);
 	const { mutate: requestReview } = useRequestReview(projectId);
 	const { mutate: withdrawReviewRequest } = useWithdrawReviewRequest(projectId);
+	// Stacked above the description, the whole card would push it out of
+	// view, so there the sections marked foldable — the reference ones,
+	// Branches and Created — hide until asked. The footer that asks only
+	// renders in that layout (see the CSS).
+	const [showsAll, setShowsAll] = useState(false);
 	const { isPending: isDraftinessPending, mutate: setReviewDraftiness } =
 		useSetReviewDraftiness(projectId);
 	const { isPending: isUpdateReviewPending, mutate: updateReview } = useUpdateReview(projectId);
@@ -728,7 +733,7 @@ export const PullRequestPanel: FC<{
 	};
 
 	return (
-		<aside className={styles.panel}>
+		<aside className={styles.panel} data-collapsed={showsAll ? undefined : ""}>
 			<Section
 				heading="Status"
 				action={
@@ -817,7 +822,7 @@ export const PullRequestPanel: FC<{
 				<ChecksSection projectId={projectId} reference={review.sourceBranch} />
 			)}
 
-			<Section heading="Branches">
+			<Section heading="Branches" className={styles.foldable}>
 				<div className={classes("text-13", styles.branches)}>
 					<CopyableBranch name={review.sourceBranch} />
 					<TargetBranch name={review.targetBranch} />
@@ -825,12 +830,22 @@ export const PullRequestPanel: FC<{
 			</Section>
 
 			{createdAtMs !== null && (
-				<Section heading="Created">
+				<Section heading="Created" className={styles.foldable}>
 					<span className={classes("text-13", styles.created)}>
 						{formatRelativeTime(createdAtMs)}, {formatAbsoluteTime(createdAtMs)}
 					</span>
 				</Section>
 			)}
+
+			<div className={styles.panelFooter}>
+				<button
+					className={classes("text-13", styles.panelFooterToggle)}
+					onClick={() => setShowsAll((current) => !current)}
+					type="button"
+				>
+					{showsAll ? "Show less" : "Show all"}
+				</button>
+			</div>
 		</aside>
 	);
 };
