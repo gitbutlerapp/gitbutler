@@ -89,7 +89,7 @@ export const NothingFound = meta.story({
 	parameters: {
 		design: {
 			type: "figma",
-			url: "https://www.figma.com/design/EBuHQGUcCaSw4Ln5uVpWkn/Lite?node-id=4956-44616",
+			url: "https://www.figma.com/design/EBuHQGUcCaSw4Ln5uVpWkn/Lite?node-id=4970-54978",
 		},
 	},
 	args: { style: { width: 420 } },

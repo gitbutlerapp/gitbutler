@@ -1,6 +1,6 @@
 import cactus from "./illustrations/cactus.svg?raw";
 import looking from "./illustrations/looking.svg?raw";
-import searching from "./illustrations/searching.svg?raw";
+import shrugging from "./illustrations/shrugging.svg?raw";
 import waving from "./illustrations/waving.svg?raw";
 
 /**
@@ -27,9 +27,9 @@ import waving from "./illustrations/waving.svg?raw";
  * intends. It is a real dependency on the surface: put one of these on `--bg-1`
  * and every open face closes up into a tint. Both hosts today are `--bg-2` (the
  * sidebar's panels and the details pane's empty state), so an illustration for
- * anywhere else wants checking against its ground first. `searching` is the
- * one drawn for `--bg-1`: the looking character cropped to the binoculars, with
- * no shaded face, so it reads the same on a popup's paper.
+ * anywhere else wants checking against its ground first. `shrugging` is the
+ * one drawn for `--bg-1`: it has no shaded face, so it reads the same on a
+ * popup's paper.
  *
  * Each asset keeps the width and height Figma gave it and renders at that size;
  * `<Illustration width={n} />` overrides it where a surface needs another.
@@ -38,7 +38,7 @@ import waving from "./illustrations/waving.svg?raw";
  * from `Icon.tsx`: a module that exports anything but components loses fast
  * refresh for the component beside it.
  */
-export const illustrations = { cactus, looking, searching, waving } as const;
+export const illustrations = { cactus, looking, shrugging, waving } as const;
 
 /** @public */
 export type IllustrationName = keyof typeof illustrations;
