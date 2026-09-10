@@ -96,6 +96,7 @@ pub(crate) fn handle_changes(
         change_summary.to_string()
     };
 
+    let mut successful_rebase = Editor::create(ws, meta, repo, db)?.rebase()?;
     for (stack_id, diff_specs) in stack_assignments {
         if diff_specs.is_empty() {
             continue;
@@ -114,9 +115,8 @@ pub(crate) fn handle_changes(
         let full_ref_name: gix::refs::FullName =
             format!("refs/heads/{stack_branch_name}").try_into()?;
 
-        let editor = Editor::create(ws, meta, repo, db)?;
         let outcome = but_workspace::commit::commit_create(
-            editor,
+            successful_rebase.into_editor(),
             diff_specs,
             RelativeToRef::Reference(full_ref_name.as_ref()),
             InsertSide::Below,
@@ -137,14 +137,15 @@ pub(crate) fn handle_changes(
             .map(|selector| outcome.rebase.lookup_pick(selector))
             .transpose()?
         {
-            outcome.rebase.materialize(Default::default())?;
             updated_branches.push(crate::UpdatedBranch {
                 stack_id,
                 branch_name: stack_branch_name,
                 new_commits: vec![new_commit.to_string()],
             });
         }
+        successful_rebase = outcome.rebase;
     }
+    successful_rebase.materialize(Default::default())?;
 
     Ok(Outcome { updated_branches })
 }
