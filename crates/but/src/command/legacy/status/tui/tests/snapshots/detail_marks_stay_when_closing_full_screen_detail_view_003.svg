@@ -14,14 +14,15 @@
     <text x="178 186" y="24" style="fill:#AA0000;">-0</text>
     <text x="802" y="24" style="fill:#555555;">█</text>
     <text x="802" y="42" style="fill:#555555;">█</text>
-    <text x="18 26 34 42 50 58 66 74 82 90 98 106 114 122" y="60" style="fill:#555555;">─────────────╮</text>
+    <text x="18 26 34 42 50 58 66 74 82 90 98 106 114 122 130 138" y="60" style="fill:#555555;">───────────────╮</text>
     <text x="802" y="60" style="fill:#555555;">█</text>
     <text x="26" y="78" style="fill:#000000;">✔︎</text>
     <text x="50 58 66 74" y="78" style="fill:#0000AA;">kl:f</text>
-    <text x="90 98 106" y="78" style="fill:#CCCCCC;">one</text>
-    <text x="122" y="78" style="fill:#555555;">│</text>
+    <text x="90" y="78" style="fill:#00AA00;">A</text>
+    <text x="106 114 122" y="78" style="fill:#CCCCCC;">one</text>
+    <text x="138" y="78" style="fill:#555555;">│</text>
     <text x="802" y="78" style="fill:#555555;">█</text>
-    <text x="18 26 34 42 50 58 66 74 82 90 98 106 114 122" y="96" style="fill:#555555;">─────────────╯</text>
+    <text x="18 26 34 42 50 58 66 74 82 90 98 106 114 122 130 138" y="96" style="fill:#555555;">───────────────╯</text>
     <text x="802" y="96" style="fill:#555555;">█</text>
     <text x="802" y="114" style="fill:#555555;">█</text>
     <text x="18 26" y="132" style="fill:#CCCCCC;opacity:0.75;">@@</text>
@@ -40,14 +41,15 @@
     <text x="178 186 194" y="168" style="fill:#CDD6F4;">one</text>
     <text x="802" y="168" style="fill:#555555;">█</text>
     <text x="802" y="186" style="fill:#555555;">█</text>
-    <text x="18 26 34 42 50 58 66 74 82 90 98 106 114 122 130 138" y="204" style="fill:#555555;">───────────────╮</text>
+    <text x="18 26 34 42 50 58 66 74 82 90 98 106 114 122 130 138 146 154" y="204" style="fill:#555555;">─────────────────╮</text>
     <text x="802" y="204" style="fill:#555555;">█</text>
     <text x="26" y="222" style="fill:#000000;">✔︎</text>
     <text x="50 58 66 74" y="222" style="fill:#0000AA;">or:f</text>
-    <text x="90 98 106 114 122" y="222" style="fill:#CCCCCC;">three</text>
-    <text x="138" y="222" style="fill:#555555;">│</text>
+    <text x="90" y="222" style="fill:#00AA00;">A</text>
+    <text x="106 114 122 130 138" y="222" style="fill:#CCCCCC;">three</text>
+    <text x="154" y="222" style="fill:#555555;">│</text>
     <text x="802" y="222" style="fill:#555555;">█</text>
-    <text x="18 26 34 42 50 58 66 74 82 90 98 106 114 122 130 138" y="240" style="fill:#555555;">───────────────╯</text>
+    <text x="18 26 34 42 50 58 66 74 82 90 98 106 114 122 130 138 146 154" y="240" style="fill:#555555;">─────────────────╯</text>
     <text x="802" y="240" style="fill:#555555;">█</text>
     <text x="802" y="258" style="fill:#555555;">█</text>
     <text x="18 26" y="276" style="fill:#CCCCCC;opacity:0.75;">@@</text>
@@ -62,7 +64,7 @@
     <text x="90 98 106 114 122 130 138" y="312" style="fill:#CDD6F4;">content</text>
     <text x="154 162" y="312" style="fill:#CDD6F4;">of</text>
     <text x="178 186 194 202 210" y="312" style="fill:#CDD6F4;">three</text>
-    <text x="18 26 34 42 50 58 66 74 82 90 98 106 114" y="348" style="fill:#555555;">────────────╮</text>
+    <text x="18 26 34 42 50 58 66 74 82 90 98 106 114 122 130" y="348" style="fill:#555555;">──────────────╮</text>
     <text x="26 34 42 50 58 66 74" y="366" style="fill:#000000;">details</text>
     <text x="106 114 122" y="366" style="fill:#0000AA;">↓/j</text>
     <text x="138 146 154 162" y="366" style="fill:#CCCCCC;opacity:0.75;">next</text>

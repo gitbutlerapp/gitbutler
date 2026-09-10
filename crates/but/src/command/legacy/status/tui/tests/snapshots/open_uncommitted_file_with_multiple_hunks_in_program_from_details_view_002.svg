@@ -66,7 +66,8 @@
     <text x="802" y="186" style="fill:#555555;">█</text>
     <text x="10" y="204" style="fill:#FFA500;">▌</text>
     <text x="26 34 42 50" y="204" style="fill:#0000AA;">ps:4</text>
-    <text x="66 74 82 90 98 106 114 122 130 138 146" y="204" style="fill:#CCCCCC;">open-me.txt</text>
+    <text x="66" y="204" style="fill:#AA5500;">M</text>
+    <text x="82 90 98 106 114 122 130 138 146" y="204" style="fill:#CCCCCC;">open-me.t</text>
     <text x="154" y="204" style="fill:#555555;">│</text>
     <text x="666" y="204" style="fill:#555555;">│</text>
     <text x="802" y="204" style="fill:#555555;">█</text>

@@ -76,17 +76,17 @@ fn path_prefix() {
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
-────────────────╮
- up:2 a/b/c.txt │
-────────────────╯
+──────────────────╮
+ up:2 A a/b/c.txt │
+──────────────────╯
 
 @@ -1,0 +1,1 @@
 ───────────────
   ┊ 1 │ +content of c
 
-────────────────╮
- oz:8 a/b/d.txt │
-────────────────╯
+──────────────────╮
+ oz:8 A a/b/d.txt │
+──────────────────╯
 
 @@ -1,0 +1,1 @@
 ───────────────
@@ -140,31 +140,31 @@ Hint: run `but help` for all commands
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
-───────────────────╮
- nxx:213 added.txt │
-───────────────────╯
+─────────────────────╮
+ nxx:213 A added.txt │
+─────────────────────╯
 
 @@ -1,0 +1,1 @@
 ───────────────
   ┊ 1 │ +added
 
-─────────────────────╮
- szk:emp renamed.txt │
-─────────────────────╯
+───────────────────────╮
+ szk:emp R renamed.txt │
+───────────────────────╯
 
 No diff available - file is either empty, binary, or too large
 
-───────────────────────╮
- usv:0a5 to-delete.txt │
-───────────────────────╯
+─────────────────────────╮
+ usv:0a5 D to-delete.txt │
+─────────────────────────╯
 
 @@ -1,1 +1,0 @@
 ───────────────
 1 ┊   │ -deleted
 
-───────────────────────╮
- lou:b28 to-modify.txt │
-───────────────────────╯
+─────────────────────────╮
+ lou:b28 M to-modify.txt │
+─────────────────────────╯
 
 @@ -1,1 +1,1 @@
 ───────────────
@@ -188,31 +188,31 @@ Created commit vxw on branch 'a-branch-1'
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
-───────────────────────╮
- vxw:nxx:213 added.txt │
-───────────────────────╯
+─────────────────────────╮
+ vxw:nxx:213 A added.txt │
+─────────────────────────╯
 
 @@ -1,0 +1,1 @@
 ───────────────
   ┊ 1 │ +added
 
-─────────────────────────╮
- vxw:szk:emp renamed.txt │
-─────────────────────────╯
+───────────────────────────╮
+ vxw:szk:emp R renamed.txt │
+───────────────────────────╯
 
 No diff available - file is either empty, binary, or too large
 
-───────────────────────────╮
- vxw:usv:0a5 to-delete.txt │
-───────────────────────────╯
+─────────────────────────────╮
+ vxw:usv:0a5 D to-delete.txt │
+─────────────────────────────╯
 
 @@ -1,1 +1,0 @@
 ───────────────
 1 ┊   │ -deleted
 
-───────────────────────────╮
- vxw:lou:b28 to-modify.txt │
-───────────────────────────╯
+─────────────────────────────╮
+ vxw:lou:b28 M to-modify.txt │
+─────────────────────────────╯
 
 @@ -1,1 +1,1 @@
 ───────────────
@@ -236,9 +236,9 @@ fn worktree() {
         .success()
         .stderr_eq(snapbox::str![])
         .stdout_eq(snapbox::str![[r#"
-───────────────╮
-[..] note.txt │
-───────────────╯
+─────────────────╮
+ nl:a A note.txt │
+─────────────────╯
 [..]
 @@ -1,0 +1,1 @@
 ───────────────
@@ -331,9 +331,9 @@ fn remote_only_commit() {
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
-──────────────────────╮
- added only-on-remote │
-──────────────────────╯
+──────────────────╮
+ A only-on-remote │
+──────────────────╯
 
 @@ -1,0 +1,1 @@
 ───────────────
@@ -406,17 +406,17 @@ Created commit xnw on new branch 'a-branch-1'
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
-──────────────────────╮
- x:x:2 .gitattributes │
-──────────────────────╯
+────────────────────────╮
+ x:x:2 A .gitattributes │
+────────────────────────╯
 
 @@ -1,0 +1,1 @@
 ───────────────
   ┊ 1 │ +*.png diff=png
 
-──────────────╮
- x:t file.png │
-──────────────╯
+────────────────╮
+ x:t A file.png │
+────────────────╯
 
 (diff generated from binary-to-text conversion)
 @@ -1,0 +1,1 @@

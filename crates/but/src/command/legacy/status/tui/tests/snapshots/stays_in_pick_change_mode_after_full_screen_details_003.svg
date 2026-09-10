@@ -9,11 +9,12 @@
     <text x="74 82 90 98 106 114 122 130" y="24" style="fill:#CCCCCC;">changed,</text>
     <text x="146 154" y="24" style="fill:#00AA00;">+1</text>
     <text x="170 178" y="24" style="fill:#AA0000;">-0</text>
-    <text x="18 26 34 42 50 58 66 74 82 90 98 106 114" y="60" style="fill:#555555;">────────────╮</text>
+    <text x="18 26 34 42 50 58 66 74 82 90 98 106 114 122 130" y="60" style="fill:#555555;">──────────────╮</text>
     <text x="26 34 42 50 58 66" y="78" style="fill:#0000AA;">twop:b</text>
-    <text x="82 90 98" y="78" style="fill:#CCCCCC;">two</text>
-    <text x="114" y="78" style="fill:#555555;">│</text>
-    <text x="18 26 34 42 50 58 66 74 82 90 98 106 114" y="96" style="fill:#555555;">────────────╯</text>
+    <text x="82" y="78" style="fill:#00AA00;">A</text>
+    <text x="98 106 114" y="78" style="fill:#CCCCCC;">two</text>
+    <text x="130" y="78" style="fill:#555555;">│</text>
+    <text x="18 26 34 42 50 58 66 74 82 90 98 106 114 122 130" y="96" style="fill:#555555;">──────────────╯</text>
     <text x="18 26" y="132" style="fill:#CCCCCC;opacity:0.75;">@@</text>
     <text x="42 50 58 66" y="132" style="fill:#CCCCCC;opacity:0.75;">-1,0</text>
     <text x="82 90 98 106" y="132" style="fill:#CCCCCC;opacity:0.75;">+1,1</text>

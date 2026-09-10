@@ -39,18 +39,18 @@
     <text x="146 154 162 170" y="60" style="fill:#0000AA;font-weight:bold;">twop</text>
     <text x="186" y="60" style="fill:#00AA00;">A</text>
     <text x="202 210 218" y="60" style="fill:#CCCCCC;">two</text>
-    <text x="410 418 426 434 442 450 458 466 474 482 490" y="60" style="fill:#555555;">│─────────╮</text>
+    <text x="410 418 426 434 442 450 458" y="60" style="fill:#555555;">│─────╮</text>
     <text x="10" y="78" style="fill:#CCCCCC;">┊</text>
     <text x="410" y="78" style="fill:#555555;">│</text>
-    <text x="426 434 442 450 458" y="78" style="fill:#00AA00;">added</text>
-    <text x="474" y="78" style="fill:#CCCCCC;">A</text>
-    <text x="490" y="78" style="fill:#555555;">│</text>
+    <text x="426" y="78" style="fill:#00AA00;">A</text>
+    <text x="442" y="78" style="fill:#CCCCCC;">A</text>
+    <text x="458" y="78" style="fill:#555555;">│</text>
     <text x="10 18 26" y="96" style="fill:#FFFFFF;font-weight:bold;">┊╭┄</text>
     <text x="42 50" y="96" style="fill:#0000AA;font-weight:bold;">g0</text>
     <text x="66" y="96" style="fill:#FFFFFF;font-weight:bold;">[</text>
     <text x="74" y="96" style="fill:#00AA00;font-weight:bold;">A</text>
     <text x="82" y="96" style="fill:#FFFFFF;font-weight:bold;">]</text>
-    <text x="410 418 426 434 442 450 458 466 474 482 490" y="96" style="fill:#555555;">│─────────╯</text>
+    <text x="410 418 426 434 442 450 458" y="96" style="fill:#555555;">│─────╯</text>
     <text x="10 18" y="114" style="fill:#FFFFFF;font-weight:bold;">┊│</text>
     <text x="42 50" y="114" style="fill:#000000;font-weight:bold;">&lt;&lt;</text>
     <text x="66 74 82 90 98 106" y="114" style="fill:#000000;font-weight:bold;">commit</text>

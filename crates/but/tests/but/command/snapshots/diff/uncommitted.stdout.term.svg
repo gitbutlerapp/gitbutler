@@ -8,6 +8,7 @@
     .bg-rgb-0041F4 { stroke: #0041F4; fill: #0041F4; user-select: none;  }
     .fg-blue { fill: #0000AA }
     .fg-bright-black { fill: #555555 }
+    .fg-green { fill: #00AA00 }
     .container {
       padding: 0 10px;
       line-height: 18px;
@@ -23,11 +24,11 @@
   <rect width="100%" height="100%" y="0" rx="4.5" class="bg" />
 
   <text xml:space="preserve" class="container fg">
-    <tspan x="10px" y="28px"><tspan class="fg-bright-black">─</tspan><tspan class="fg-bright-black">─</tspan><tspan class="fg-bright-black">─</tspan><tspan class="fg-bright-black">─</tspan><tspan class="fg-bright-black">─</tspan><tspan class="fg-bright-black">─</tspan><tspan class="fg-bright-black">─</tspan><tspan class="fg-bright-black">─</tspan><tspan class="fg-bright-black">─</tspan><tspan class="fg-bright-black">─</tspan><tspan class="fg-bright-black">─</tspan><tspan class="fg-bright-black">╮</tspan>
+    <tspan x="10px" y="28px"><tspan class="fg-bright-black">─</tspan><tspan class="fg-bright-black">─</tspan><tspan class="fg-bright-black">─</tspan><tspan class="fg-bright-black">─</tspan><tspan class="fg-bright-black">─</tspan><tspan class="fg-bright-black">─</tspan><tspan class="fg-bright-black">─</tspan><tspan class="fg-bright-black">─</tspan><tspan class="fg-bright-black">─</tspan><tspan class="fg-bright-black">─</tspan><tspan class="fg-bright-black">─</tspan><tspan class="fg-bright-black">─</tspan><tspan class="fg-bright-black">─</tspan><tspan class="fg-bright-black">╮</tspan>
 </tspan>
-    <tspan x="10px" y="46px"><tspan> </tspan><tspan class="fg-blue">qs:d</tspan><tspan> file </tspan><tspan class="fg-bright-black">│</tspan>
+    <tspan x="10px" y="46px"><tspan> </tspan><tspan class="fg-blue">qs:d</tspan><tspan> </tspan><tspan class="fg-green">A</tspan><tspan> file </tspan><tspan class="fg-bright-black">│</tspan>
 </tspan>
-    <tspan x="10px" y="64px"><tspan class="fg-bright-black">─</tspan><tspan class="fg-bright-black">─</tspan><tspan class="fg-bright-black">─</tspan><tspan class="fg-bright-black">─</tspan><tspan class="fg-bright-black">─</tspan><tspan class="fg-bright-black">─</tspan><tspan class="fg-bright-black">─</tspan><tspan class="fg-bright-black">─</tspan><tspan class="fg-bright-black">─</tspan><tspan class="fg-bright-black">─</tspan><tspan class="fg-bright-black">─</tspan><tspan class="fg-bright-black">╯</tspan>
+    <tspan x="10px" y="64px"><tspan class="fg-bright-black">─</tspan><tspan class="fg-bright-black">─</tspan><tspan class="fg-bright-black">─</tspan><tspan class="fg-bright-black">─</tspan><tspan class="fg-bright-black">─</tspan><tspan class="fg-bright-black">─</tspan><tspan class="fg-bright-black">─</tspan><tspan class="fg-bright-black">─</tspan><tspan class="fg-bright-black">─</tspan><tspan class="fg-bright-black">─</tspan><tspan class="fg-bright-black">─</tspan><tspan class="fg-bright-black">─</tspan><tspan class="fg-bright-black">─</tspan><tspan class="fg-bright-black">╯</tspan>
 </tspan>
     <tspan x="10px" y="82px">
 </tspan>
