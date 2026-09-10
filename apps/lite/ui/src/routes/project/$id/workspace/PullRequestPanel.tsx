@@ -572,9 +572,7 @@ const verdictBits = (verdict: ReviewerVerdict): [IconName, string, string] =>
 export const PullRequestPanel: FC<{
 	projectId: string;
 	review: ForgeReview;
-	/** The review's activity feed, shown as the panel's bottom section. */
-	activity?: ReactNode;
-}> = ({ projectId, review, activity }) => {
+}> = ({ projectId, review }) => {
 	const { data: forgeInfo } = useQuery(forgeInfoOptions(projectId));
 	const { data: reviewers } = useQuery({
 		...listReviewSubmissionsQueryOptions({ projectId, reviewId: review.number }),
@@ -833,8 +831,6 @@ export const PullRequestPanel: FC<{
 					</span>
 				</Section>
 			)}
-
-			{activity !== undefined && <Section heading="Activity">{activity}</Section>}
 		</aside>
 	);
 };

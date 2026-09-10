@@ -35,7 +35,7 @@ import {
 import * as md from "#ui/markdown-editing.ts";
 import { applyToTextarea } from "#ui/markdown-textarea.ts";
 import { TooltipPopup } from "#ui/components/Tooltip.tsx";
-import { Tooltip } from "@base-ui/react";
+import { Toggle, ToggleGroup, Tooltip } from "@base-ui/react";
 import { Badge, type BadgeVariant } from "#ui/components/Badge.tsx";
 import { getButtonClassName } from "#ui/components/Button.tsx";
 import { Clamped } from "#ui/components/Clamped.tsx";
@@ -47,6 +47,7 @@ import { Markdown } from "#ui/components/Markdown.tsx";
 import { MarkdownAttachments } from "#ui/components/MarkdownAttachments.tsx";
 import { useMentionSuggestions } from "#ui/components/MentionSuggestions.tsx";
 import { RelativeTime } from "#ui/components/RelativeTime.tsx";
+import { ToggleGroupStyles, ToggleStyles } from "#ui/components/ToggleGroup.tsx";
 import {
 	groupReactors,
 	Reactions,
@@ -1164,103 +1165,46 @@ const Composer: FC<{
 };
 
 /**
- * How many happenings the Activity section shows before asking. Recent
- * pushes are the point of the section, so the rest stays folded away.
+ * Which of the activity the reader is looking at: what people wrote, what
+ * agents wrote, or the whole timeline — every comment and review plus the
+ * happenings around them (opened, commits, review requests).
  */
-const collapsedTimelineCount = 5;
+type ActivityFeed = "human" | "agents" | "timeline";
 
 /**
- * The compact happenings — opened, commits, review requests — for the side
- * panel's Activity section, newest first. The conversation itself stays in
- * the main column.
+ * The activity, newest first: the composer, then comment, review and thread
+ * cards, with the timeline's happenings woven in when the feed shows them.
  */
-export const ReviewTimeline: FC<{ projectId: string; review: ForgeReview }> = ({
-	projectId,
-	review,
-}) => {
-	const reviewId = review.number;
-	const { data: events, isPending } = useQuery(
-		listReviewTimelineEventsQueryOptions({ projectId, reviewId }),
-	);
-	const { data: currentLogin } = useQuery(currentForgeLoginQueryOptions(projectId));
-	const [expanded, setExpanded] = useState(false);
-
-	// Events render here, so this surface owns their skip registration —
-	// keyed the way `TimelineEvent` keys its markers. Memoized: the list's
-	// identity feeds `RegisterFreshItems`'s effect, so a fresh copy per
-	// render would re-register on every poll.
-	const freshEvents = useMemo(
-		() =>
-			(events ?? [])
-				.filter(
-					(event) =>
-						event.createdAt !== null &&
-						!(currentLogin != null && event.actor?.login === currentLogin),
-				)
-				.map((event) => ({
-					key: `e:${event.kind}:${event.createdAt ?? ""}`,
-					atMs: Date.parse(event.createdAt ?? ""),
-				})),
-		[events, currentLogin],
-	);
-
-	const items = useMemo(
-		() =>
-			timelineItems(review, undefined, undefined, [], events).filter(
-				(item) => item.kind === "opened" || item.kind === "event",
-			),
-		[review, events],
-	);
-
-	if (isPending) return <div className={classes("text-13", styles.commentsLoading)}>Loading…</div>;
-	const shown = expanded ? items : items.slice(0, collapsedTimelineCount);
-	const hidden = items.length - shown.length;
-
-	return (
-		<div className={styles.commentList}>
-			<RegisterFreshItems source="timeline" items={freshEvents} />
-			{shown.map((item) =>
-				item.kind === "opened" ? (
-					<FeedEvent key="opened" icon="pr" timestamp={item.at}>
-						{item.review.author !== null && <Ref>{item.review.author.login}</Ref>} opened this pull
-						request
-					</FeedEvent>
-				) : (
-					<TimelineEvent key={item.key} event={item.event} />
-				),
-			)}
-			{hidden > 0 && (
-				<button
-					className={classes("text-12", styles.timelineMore)}
-					onClick={() => setExpanded(true)}
-					type="button"
-				>
-					Show {hidden} more
-				</button>
-			)}
-		</div>
-	);
-};
-
-/** The conversation, oldest first: comment, review and thread cards, then the composer. */
 export const PullRequestComments: FC<{ projectId: string; review: ForgeReview }> = ({
 	projectId,
 	review,
 }) => {
 	const reviewId = review.number;
-	const { data: comments, isPending } = useQuery(
+	const [feed, setFeed] = useState<ActivityFeed>("timeline");
+	const { data: allComments, isPending } = useQuery(
 		listReviewCommentsQueryOptions({ projectId, reviewId }),
 	);
-	const { data: submissions, isPending: submissionsPending } = useQuery(
+	const { data: allSubmissions, isPending: submissionsPending } = useQuery(
 		listReviewSubmissionsQueryOptions({ projectId, reviewId }),
 	);
+	const { data: events } = useQuery(listReviewTimelineEventsQueryOptions({ projectId, reviewId }));
 	const { data: forgeInfo } = useQuery(forgeInfoOptions(projectId));
-	const { data: threads } = useQuery({
+	const { data: allThreads } = useQuery({
 		...listReviewThreadsQueryOptions({ projectId, reviewId }),
 		// The conversation mounts optimistically while `forgeInfo` loads;
 		// this endpoint's capability gate has to hold here instead.
 		enabled: forgeInfo?.capabilities.reviewComments === true,
 	});
+	// The people and agent feeds are split on the forge's own bot flag; a
+	// thread goes with whoever started it. Everything downstream — the fresh
+	// registration included — sees only what the feed shows, so a hidden
+	// comment is never counted as looked at.
+	const inFeed = (author: ForgeReviewUser | null) =>
+		feed === "timeline" || (author?.isBot ?? false) === (feed === "agents");
+	const comments = allComments?.filter((comment) => inFeed(comment.author));
+	const submissions = allSubmissions?.filter((submission) => inFeed(submission.author));
+	const threads = allThreads?.filter((thread) => inFeed(thread.comments[0]?.author ?? null));
+	const shownEvents = feed === "timeline" ? events : undefined;
 	const { data: currentLogin } = useQuery(currentForgeLoginQueryOptions(projectId));
 	// Whether the review's branch is in the workspace; its threads only check
 	// themselves against the working file when it is.
@@ -1298,6 +1242,13 @@ export const PullRequestComments: FC<{ projectId: string; review: ForgeReview }>
 				(comment) => comment.id > 0 && comment.createdAt !== null && !own(comment.author?.login),
 			)
 			.map((comment) => ({ key: `tc:${comment.id}`, atMs: Date.parse(comment.createdAt ?? "") })),
+		// Keyed the way `TimelineEvent` keys its markers.
+		...(shownEvents ?? [])
+			.filter((event) => event.createdAt !== null && !own(event.actor?.login))
+			.map((event) => ({
+				key: `e:${event.kind}:${event.createdAt ?? ""}`,
+				atMs: Date.parse(event.createdAt ?? ""),
+			})),
 	];
 
 	const handleSubmit = () => {
@@ -1336,10 +1287,13 @@ export const PullRequestComments: FC<{ projectId: string; review: ForgeReview }>
 		() => fileThreadsUnderSubmissions(submissions, threads),
 		[submissions, threads],
 	);
-	// Events render in the side panel's Activity section instead.
+	// Opening the review is a happening like the rest, so it only shows with them.
 	const items = useMemo(
-		() => timelineItems(review, comments, submissions, loose, []),
-		[review, comments, submissions, loose],
+		() =>
+			timelineItems(review, comments, submissions, loose, shownEvents).filter(
+				(item) => shownEvents !== undefined || item.kind !== "opened",
+			),
+		[review, comments, submissions, loose, shownEvents],
 	);
 
 	// A notification named a comment: scroll to it once it is on the page.
@@ -1390,6 +1344,28 @@ export const PullRequestComments: FC<{ projectId: string; review: ForgeReview }>
 	return (
 		<div className={styles.comments}>
 			<RegisterFreshItems source="conversation" items={freshItems} />
+			<div className={styles.activityHeader}>
+				<h3 className={classes("text-15", "text-semibold")}>Activity</h3>
+				<ToggleGroup
+					render={<ToggleGroupStyles />}
+					value={[feed]}
+					onValueChange={(value: Array<ActivityFeed>) => {
+						const head = value[0];
+						if (head !== undefined) setFeed(head);
+					}}
+					aria-label="Activity feed"
+				>
+					<Toggle render={<ToggleStyles />} value={"human" satisfies ActivityFeed}>
+						Humans
+					</Toggle>
+					<Toggle render={<ToggleStyles />} value={"agents" satisfies ActivityFeed}>
+						Agents
+					</Toggle>
+					<Toggle render={<ToggleStyles />} value={"timeline" satisfies ActivityFeed}>
+						Timeline
+					</Toggle>
+				</ToggleGroup>
+			</div>
 			<Composer
 				avatarUrl={ownForgeAvatar(items, currentLogin) ?? profile?.picture}
 				projectId={projectId}
@@ -1400,6 +1376,10 @@ export const PullRequestComments: FC<{ projectId: string; review: ForgeReview }>
 			/>
 			{loading ? (
 				<div className={classes("text-13", styles.commentsLoading)}>Loading…</div>
+			) : items.length === 0 ? (
+				<div className={classes("text-13", styles.commentsLoading)}>
+					{feed === "agents" ? "No comments from agents yet" : "No comments yet"}
+				</div>
 			) : (
 				<div className={styles.commentList}>
 					{items.map((item) =>
@@ -1434,7 +1414,14 @@ export const PullRequestComments: FC<{ projectId: string; review: ForgeReview }>
 									/>
 								</div>
 							</div>
-						) : null,
+						) : item.kind === "opened" ? (
+							<FeedEvent key="opened" icon="pr" timestamp={item.at}>
+								{item.review.author !== null && <Ref>{item.review.author.login}</Ref>} opened this
+								pull request
+							</FeedEvent>
+						) : (
+							<TimelineEvent key={item.key} event={item.event} />
+						),
 					)}
 				</div>
 			)}

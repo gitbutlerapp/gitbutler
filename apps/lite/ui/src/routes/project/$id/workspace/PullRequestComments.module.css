@@ -12,6 +12,14 @@
 	color: var(--text-3);
 }
 
+.activityHeader {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	margin-block-end: 16px;
+	gap: 12px;
+}
+
 /* Spacing is per-pair rather than one uniform gap: comments cluster tightly,
    events cluster tighter still, and a change of kind opens the list up. */
 .commentList {
@@ -475,18 +483,6 @@
 		width: 14px;
 		height: 14px;
 	}
-}
-
-/* The Activity section's reveal, in the app's designed link treatment. */
-.timelineMore {
-	align-self: flex-start;
-	margin-block-start: 4px;
-	padding: 0;
-	border: none;
-	background: none;
-	color: var(--text-2);
-	text-decoration: underline dotted;
-	text-underline-position: from-font;
 }
 
 .threadActions {
