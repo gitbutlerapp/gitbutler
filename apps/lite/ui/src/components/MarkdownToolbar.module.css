@@ -1,14 +1,52 @@
 .toolbar {
 	display: flex;
 	column-gap: 6px;
-	flex-wrap: wrap;
 	align-items: center;
+}
+
+.strip {
+	display: flex;
+	/* Makes each group's offsetLeft read from the strip's own edge. */
+	position: relative;
+	column-gap: 6px;
+	flex: 1 1 0;
+	align-items: center;
+	min-width: 0;
+	overflow-x: auto;
+	scroll-snap-type: x mandatory;
+	scrollbar-width: none;
+
+	&::-webkit-scrollbar {
+		display: none;
+	}
+
+	/* Fades the clipped edge so a half-hidden button or rule reads as more
+	   content, not as a stray line beside the chevrons. */
+	&[data-reach="start"] {
+		mask-image: linear-gradient(to right, #000 calc(100% - 20px), transparent);
+	}
+
+	&[data-reach="middle"] {
+		mask-image: linear-gradient(
+			to right,
+			transparent,
+			#000 20px,
+			#000 calc(100% - 20px),
+			transparent
+		);
+	}
+
+	&[data-reach="end"] {
+		mask-image: linear-gradient(to right, transparent, #000 20px);
+	}
 }
 
 .group {
 	display: flex;
 	column-gap: 6px;
+	flex-shrink: 0;
 	align-items: center;
+	scroll-snap-align: start;
 }
 
 .separator {
@@ -16,4 +54,11 @@
 	width: 1px;
 	height: 18px;
 	background-color: var(--border-3);
+}
+
+.nav {
+	display: flex;
+	column-gap: 6px;
+	flex-shrink: 0;
+	align-items: center;
 }
