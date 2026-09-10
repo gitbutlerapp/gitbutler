@@ -912,14 +912,13 @@ fn explicit_traversal_tips_reject_multiple_entrypoints() -> anyhow::Result<()> {
 fn explicit_traversal_tips_reject_duplicate_ref_names() -> anyhow::Result<()> {
     let (repo, meta, mut db) = read_only_in_memory_scenario("four-diamond")?;
     let a_id = id_by_rev(&repo, "A").detach();
-    let c_id = id_by_rev(&repo, "C").detach();
     let a_ref = ref_name("refs/heads/A");
 
     let err = Graph::from_commit_traversal_tips(
         &repo,
         [
             Tip::entrypoint(a_id, Some(a_ref.clone())),
-            Tip::reachable(c_id, Some(a_ref.clone())),
+            Tip::reachable(a_id, Some(a_ref.clone())),
         ],
         &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
@@ -986,6 +985,8 @@ fn explicit_traversal_tips_reject_ref_names_that_point_elsewhere() -> anyhow::Re
 
 #[test]
 fn traversal_entrypoint_ref_override_must_point_to_entrypoint() -> anyhow::Result<()> {
+    // Without a tip carrying the name, the entrypoint is named from the live ref map,
+    // so a stale override cannot be honored.
     let (repo, meta, mut db) = read_only_in_memory_scenario("four-diamond")?;
     let merged_id = id_by_rev(&repo, "merged").detach();
     let a_id = id_by_rev(&repo, "A").detach();
@@ -1006,6 +1007,110 @@ fn traversal_entrypoint_ref_override_must_point_to_entrypoint() -> anyhow::Resul
         format!("explicit traversal entrypoint ref {a_ref} points to {a_id}, not {merged_id}")
     );
     Ok(())
+}
+
+#[test]
+fn stale_workspace_entrypoint_id_is_used_as_captured() -> anyhow::Result<()> {
+    // The caller peeled the workspace ref, then the ref moved before traversal
+    // started. The workspace tip carries the name, so the graph is built from the
+    // captured id instead of re-reading the ref.
+    let (repo, meta, mut db) = read_only_in_memory_scenario("ws/local-target-and-stack")?;
+    let stale = id_by_rev(&repo, "A");
+    let ws_ref = ref_name("refs/heads/gitbutler/workspace");
+    let graph = Graph::from_commit_traversal(
+        stale,
+        Some(ws_ref.clone()),
+        &*meta,
+        default_project_meta(&repo),
+        &mut db,
+        standard_options(),
+    )?
+    .validated()?;
+    let entrypoint = graph.entrypoint()?;
+    assert_eq!(entrypoint.segment.ref_name(), Some(ws_ref.as_ref()));
+    assert_eq!(
+        entrypoint.commit().map(|c| c.id),
+        Some(stale.detach()),
+        "traversal started at the captured commit, not where the ref points now"
+    );
+    Ok(())
+}
+
+#[test]
+fn stale_extra_tip_id_is_used_as_captured() -> anyhow::Result<()> {
+    // Same for tips a caller read just before traversal: they are not re-resolved.
+    let (repo, meta, mut db) = read_only_in_memory_scenario("four-diamond")?;
+    let stale = id_by_rev(&repo, "B").detach();
+    let a_ref = ref_name("refs/heads/A");
+    let graph = Graph::from_commit_traversal_with_extra_tips(
+        id_by_rev(&repo, "merged"),
+        None,
+        [Tip::reachable(stale, Some(a_ref.clone()))],
+        &*meta,
+        but_core::ref_metadata::ProjectMeta::default(),
+        &mut db,
+        standard_options(),
+    )?
+    .validated()?;
+    let (_, commit) = graph
+        .segment_and_commit_by_ref_name(a_ref.as_ref())
+        .expect("the tip names a segment");
+    assert_eq!(
+        commit.id, stale,
+        "the named segment sits at the captured commit, not where the ref points now"
+    );
+    Ok(())
+}
+
+#[test]
+fn from_head_tolerates_refs_moving_during_traversal() -> anyhow::Result<()> {
+    // Workspace metadata traversal reads the target ref once and must not fail
+    // when a concurrent fetch moves it before traversal starts.
+    let tmp = but_testsupport::gix_testtools::tempfile::TempDir::new()?;
+    let repo = gix::ThreadSafeRepository::init_opts(
+        tmp.path(),
+        gix::create::Kind::WithWorktree,
+        gix::create::Options::default(),
+        but_testsupport::open_repo_config()?,
+    )?
+    .to_thread_local();
+    let m1 = commit(&repo, "M1")?;
+    let m2 = commit_with_parent(&repo, "M2", m1)?;
+    create_branches(&repo, m1, ["refs/heads/main", "refs/remotes/origin/main"])?;
+    let mut meta = in_memory_meta(tmp.path())?;
+    let project_meta = add_workspace_with_target(&mut meta, m1);
+    let mut db = but_testsupport::project_db(&repo)?;
+
+    // The mover keeps flipping the target ref until every traversal below has run,
+    // so each traversal races an update.
+    let done = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
+    let mover = std::thread::spawn({
+        let path = tmp.path().to_owned();
+        let done = done.clone();
+        move || -> anyhow::Result<()> {
+            let repo = gix::open_opts(path, but_testsupport::open_repo_config()?)?;
+            let mut target = m2;
+            while !done.load(std::sync::atomic::Ordering::Relaxed) {
+                create_branches(&repo, target, ["refs/remotes/origin/main"])?;
+                target = if target == m1 { m2 } else { m1 };
+            }
+            Ok(())
+        }
+    });
+    let traversals = (0..100).try_for_each(|_| {
+        Graph::from_head(
+            &repo,
+            &*meta,
+            project_meta.clone(),
+            &mut db,
+            standard_options(),
+        )?
+        .validated()
+        .map(drop)
+    });
+    done.store(true, std::sync::atomic::Ordering::Relaxed);
+    mover.join().expect("no panic")?;
+    traversals
 }
 
 #[test]
@@ -2470,7 +2575,7 @@ pub use utils::{
     read_only_in_memory_scenario, standard_options,
 };
 
-use crate::init::utils::{default_project_meta, in_memory_meta};
+use crate::init::utils::{add_workspace_with_target, default_project_meta, in_memory_meta};
 
 fn ref_name(name: &str) -> gix::refs::FullName {
     name.try_into().expect("valid full ref name")
