@@ -158,7 +158,7 @@ export const UncommittedChangesRow: FC<{
 				className={className}
 			>
 				<GraphEdge glyph="forkRight" />
-				<RowLabelContainer>
+				<RowLabelContainer className={styles.headerLabel}>
 					<RowLabel heading singleLine>
 						Uncommitted files
 					</RowLabel>
@@ -179,12 +179,13 @@ export const UncommittedChangesRow: FC<{
 			}}
 		>
 			<RowFoldToggle
+				className={styles.foldToggle}
 				folded={mode.folded}
 				glyph={<GraphEdge glyph="forkRight" />}
 				aria-label={`${mode.folded ? "Unfold" : "Fold"} uncommitted files`}
 				onClick={mode.onToggleFolded}
 			/>
-			<RowLabelContainer>
+			<RowLabelContainer className={styles.headerLabel}>
 				<RowLabel id={mode.headingId} heading singleLine>
 					Uncommitted files
 				</RowLabel>

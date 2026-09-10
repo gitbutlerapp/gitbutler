@@ -1,4 +1,4 @@
-import { GraphGap, GraphSegment } from "#ui/components/GraphSegment.tsx";
+import { GraphGap, GraphSegment, type GraphSegmentStatus } from "#ui/components/GraphSegment.tsx";
 import { classes } from "#ui/components/classes.ts";
 import { Icon } from "#ui/components/Icon.tsx";
 import { getRowButtonClassName } from "#ui/routes/project/$id/workspace/Row-utils.ts";
@@ -28,24 +28,36 @@ import { useQuery } from "@tanstack/react-query";
 import { type FC, type ReactNode, type RefObject, useRef, useState } from "react";
 import styles from "./Section.module.css";
 import { TargetCommitRow } from "./TargetCommitRow.tsx";
-import { LEG_GAP, type Plan, type Run, targetCommitAddress } from "./layout.ts";
+import {
+	CARD_GAP,
+	HEAD_DOCKED_HEIGHT,
+	LEG_GAP,
+	type Plan,
+	type Run,
+	targetCommitAddress,
+} from "./layout.ts";
+import type { Graph } from "./usePlan.ts";
 
 /*
  * The upstream section under the stacks: the target's row, standing for the
  * workspace's base, folding the incoming commits when the target has moved
- * on. No card around it: the target is not in the workspace, and its rows
- * sit on the panel itself to say so. Commit rows are values on the applied
- * cursor; the header is not.
+ * on. Expanded, the header and incoming commits form a card. Commit rows are
+ * values on the applied cursor; the header is not. History opens independently,
+ * continuing from the workspace's shared target commits into older pages.
  *
- * The trunk runs down the panel's edge past the target's row, its tail
- * fading below it, or to where the target's leg rejoins it. Scrolled out of
- * view below, a stand-in for the row docks at the scroller's foot, so the
- * target is always in reach: a sticky mark of no height right after the row,
- * stuck exactly while the row is below the viewport.
+ * When the target's row is below the viewport, a stand-in docks at the
+ * scroller's foot to keep it in reach. A sticky mark of no height right after
+ * the row determines when the stand-in appears.
  */
 
 // The rows sit in the column beside the trunk. Rows a pending operation drops from the list are inert.
-const commitRow = (commit: TargetCommit, addressSpace: AddressSpace<Address>) => {
+const commitRow = (
+	commit: TargetCommit,
+	addressSpace: AddressSpace<Address>,
+	railEnds = false,
+	above?: GraphSegmentStatus,
+	fromTrunk = false,
+) => {
 	const index = addressSpace.indexByKey.get(addressIdentityKey(targetCommitAddress(commit)));
 	return (
 		<TargetCommitRow
@@ -53,7 +65,10 @@ const commitRow = (commit: TargetCommit, addressSpace: AddressSpace<Address>) =>
 			commit={commit}
 			positionInSet={(index ?? -1) + 1}
 			setSize={addressSpace.items.length}
-			behind={1}
+			behind={commit.inWorkspace ? 0 : 1}
+			railEnds={railEnds}
+			above={above}
+			fromTrunk={fromTrunk}
 			inert={index === undefined}
 		/>
 	);
@@ -82,8 +97,8 @@ const Header: FC<{
 	label: string;
 	/** Beside the label, in the label's own line: a count, or a note. */
 	caption?: ReactNode;
-	/** The fold the header opens; none for a plain row. Its chevron swaps in for the glyph on hover, unless the glyph is one. */
-	fold?: { open: boolean; onToggle: () => void; name: string; hoverChevron?: boolean };
+	/** The fold the header opens; none for a plain row. */
+	fold?: { open: boolean; onToggle: () => void; name: string; chevron?: "always" | "none" };
 	/** The row's gutter. */
 	rail: ReactNode;
 	/** At the row's end, past the label. */
@@ -100,7 +115,7 @@ const Header: FC<{
 				glyph={rail}
 				aria-label={`${fold.open ? "Fold" : "Unfold"} ${fold.name}`}
 				onClick={fold.onToggle}
-				hoverChevron={fold.hoverChevron}
+				chevron={fold.chevron ?? "always"}
 			/>
 		)}
 		<RowLabelContainer>
@@ -119,8 +134,12 @@ const Elided: FC<{ run: Run; onMore: () => void; onFold: () => void }> = ({
 	onMore,
 	onFold,
 }) => (
-	// oxlint-disable-next-line jsx-a11y/prefer-tag-over-role -- A row that reveals or folds, styled as the rows around it.
-	<Row role="button" onSelect={run.hidden > 0 ? onMore : onFold} aria-expanded={run.expanded}>
+	<Button
+		render={<Row />}
+		nativeButton={false}
+		onClick={run.hidden > 0 ? onMore : onFold}
+		aria-expanded={run.expanded}
+	>
 		<GraphSegment
 			glyph={run.hidden > 0 ? "group" : "parent"}
 			status="Upstream"
@@ -132,7 +151,7 @@ const Elided: FC<{ run: Run; onMore: () => void; onFold: () => void }> = ({
 				{run.hidden === 0 ? "Show fewer" : `${run.hidden} more`}
 			</RowLabel>
 		</RowLabelContainer>
-	</Row>
+	</Button>
 );
 
 const Fold: FC<{
@@ -144,6 +163,28 @@ const Fold: FC<{
 		<div className={styles.foldInner}>{children}</div>
 	</div>
 );
+
+const MoreHistory: FC<{ state: Graph["historyMore"]; onMore: () => void }> = ({ state, onMore }) =>
+	state === "hidden" ? null : (
+		<Button
+			render={<Row />}
+			nativeButton={false}
+			onClick={onMore}
+			disabled={state === "loading"}
+			focusableWhenDisabled
+		>
+			<GraphSegment glyph="group" status="Integrated" centered railEnds />
+			<RowLabelContainer>
+				<RowLabel singleLine className={styles.elided}>
+					{state === "loading"
+						? "Loading…"
+						: state === "failed"
+							? "Could not load history — retry"
+							: "Show more"}
+				</RowLabel>
+			</RowLabelContainer>
+		</Button>
+	);
 
 const runRows = (
 	run: Run,
@@ -222,11 +263,24 @@ export const Section: FC<{
 	projectId: string;
 	plan: Plan;
 	onToggleIncoming: () => void;
+	onToggleHistory: () => void;
+	onShowMoreHistory: () => void;
+	historyMore: Graph["historyMore"];
 	onShowMoreRun: (runId: string) => void;
 	onFoldRun: (runId: string) => void;
 	/** The scroller, for the docked row's toggle to scroll to its place. */
 	scrollElementRef: RefObject<HTMLDivElement | null>;
-}> = ({ projectId, plan, onToggleIncoming, onShowMoreRun, onFoldRun, scrollElementRef }) => {
+}> = ({
+	projectId,
+	plan,
+	onToggleIncoming,
+	onToggleHistory,
+	onShowMoreHistory,
+	historyMore,
+	onShowMoreRun,
+	onFoldRun,
+	scrollElementRef,
+}) => {
 	const addressSpace = useAddressSpace();
 	// One mutation for the row and its docked stand-in: each rendering its own
 	// would leave the other's button enabled while a pull runs.
@@ -252,10 +306,17 @@ export const Section: FC<{
 		const fold = incomingFold.current;
 		const rows = incomingRows.current;
 		if (!plan.incomingExpanded && scroller !== null && fold !== null && rows !== null) {
-			scroller.scrollTop = scroller.scrollHeight;
+			const reveal = () => {
+				const height = Math.min(fold.offsetHeight, scroller.clientHeight - HEAD_DOCKED_HEIGHT - 28);
+				scroller.scrollTop += Math.max(
+					0,
+					fold.getBoundingClientRect().top + height - scroller.getBoundingClientRect().bottom,
+				);
+			};
+			reveal();
 			let height = 0;
 			const hold = new ResizeObserver(() => {
-				scroller.scrollTop = scroller.scrollHeight;
+				reveal();
 				// Lets go once the fold has grown to its rows, or shrinks: folded again midway.
 				if (fold.offsetHeight >= rows.offsetHeight || fold.offsetHeight < height) hold.disconnect();
 				height = fold.offsetHeight;
@@ -267,26 +328,19 @@ export const Section: FC<{
 	const target = plan.header;
 	if (target === null) return null;
 	const branched = target.incoming > 0;
+	const expanded = branched && plan.incomingExpanded;
+	const continuesToHistory = expanded && plan.historyAvailable;
 	/** The target's row. The docked stand-in, with no line to show, wears a chevron instead of the rail. */
 	const header = (docked = false) => (
 		<Header
 			label={target.label}
 			caption={
-				branched ? (
+				branched && (
 					<Caption
 						className={styles.incoming}
 						hint={`${target.incoming === 1 ? "A commit" : "Commits"} on ${target.label} not yet in the workspace`}
 					>
 						{target.incoming} new
-					</Caption>
-				) : (
-					// Nothing incoming, yet the base may still trail the target: a lane can
-					// already hold the target's newest commits.
-					<Caption
-						className={styles.caption}
-						hint={target.current ? "Up to date" : `Behind ${target.label}`}
-					>
-						Workspace base
 					</Caption>
 				)
 			}
@@ -296,26 +350,33 @@ export const Section: FC<{
 							open: plan.incomingExpanded,
 							onToggle: toggleIncoming,
 							name: "incoming commits",
-							hoverChevron: !docked,
+							chevron: docked ? "none" : "always",
 						}
 					: undefined
 			}
 			rail={
 				docked ? (
 					<span className={styles.chevron}>
-						<Icon name={plan.incomingExpanded ? "chevron-down" : "chevron-right"} />
+						{branched && <Icon name={plan.incomingExpanded ? "chevron-down" : "chevron-right"} />}
 					</span>
-				) : branched ? (
-					// The incoming commits' leg forks off the row, the trunk running on behind.
+				) : expanded ? (
 					<GraphSegment glyph="forkRight" status="Upstream" behind={1} />
 				) : (
-					// The trunk runs on past the row with a tick at it, its tail fading out:
-					// the history below is not shown, but this is not where it starts.
-					<GraphSegment glyph="notch" status="LocalOnly" behind={1} folded />
+					<GraphSegment
+						glyph={branched ? "notch" : "space"}
+						status={branched ? "Upstream" : "LocalOnly"}
+						behind={1}
+						folded={!plan.historyAvailable}
+					/>
 				)
 			}
 			toolbar={<Fetch projectId={projectId} />}
-			className={docked ? styles.docked : undefined}
+			className={classes(
+				styles.header,
+				!expanded && styles.trunkHeader,
+				docked && styles.docked,
+				!docked && expanded && styles.cardHead,
+			)}
 		>
 			{!target.current && (
 				<Pull
@@ -327,9 +388,7 @@ export const Section: FC<{
 			)}
 		</Header>
 	);
-	// With the target moved on, its incoming commits sit on a leg that starts
-	// at its row and bends onto the trunk in the gap below; its row says how
-	// many are new and pulls them, so seeing and acting sit together.
+	// The upstream leg rejoins the trunk below its card; History stays on the trunk.
 	return (
 		<>
 			{header()}
@@ -337,7 +396,7 @@ export const Section: FC<{
 			{branched && (
 				<>
 					<Fold open={plan.incomingExpanded} ref={incomingFold}>
-						<div ref={incomingRows} className={styles.rows}>
+						<div ref={incomingRows} className={classes(styles.rows, expanded && styles.cardBody)}>
 							{plan.incoming.map((run) =>
 								runRows(
 									run,
@@ -346,9 +405,46 @@ export const Section: FC<{
 									() => onFoldRun(run.id),
 								),
 							)}
+							{expanded && (
+								<Row interactive={false} className={styles.stub}>
+									<GraphSegment glyph="parent" status="Upstream" behind={1} />
+								</Row>
+							)}
 						</div>
 					</Fold>
-					<GraphGap height={LEG_GAP} bend="Upstream" />
+					<GraphGap
+						height={expanded ? CARD_GAP : LEG_GAP}
+						bend={continuesToHistory ? "LocalOnly" : expanded ? "Upstream" : undefined}
+					/>
+				</>
+			)}
+			{plan.historyAvailable && (
+				<>
+					<Header
+						label="History"
+						className={classes(styles.header, styles.trunkHeader)}
+						fold={{ open: plan.historyExpanded, onToggle: onToggleHistory, name: "history" }}
+						rail={
+							<GraphSegment
+								glyph={plan.historyExpanded ? "space" : "hook"}
+								behind={plan.historyExpanded ? 1 : 0}
+								status="LocalOnly"
+								railEnds={!plan.historyExpanded}
+							/>
+						}
+					/>
+					<Fold open={plan.historyExpanded}>
+						{plan.history.map((commit, index) =>
+							commitRow(
+								commit,
+								addressSpace,
+								historyMore === "hidden" && index === plan.history.length - 1,
+								index === 0 ? "LocalOnly" : undefined,
+								index === 0,
+							),
+						)}
+						{plan.historyExpanded && <MoreHistory state={historyMore} onMore={onShowMoreHistory} />}
+					</Fold>
 				</>
 			)}
 		</>

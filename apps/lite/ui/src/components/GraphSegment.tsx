@@ -1,7 +1,19 @@
 import styles from "./GraphSegment.module.css";
 import { classes } from "#ui/components/classes.ts";
+import { GRAPH_COMMIT_BEND_PADDING, GRAPH_LANE_WIDTH } from "./graph-spacing.ts";
 import type { ComponentProps, FC } from "react";
 import type { CommitState } from "@gitbutler/but-sdk";
+
+const ARC_K = 0.5523;
+const n = (value: number): string => String(Math.round(value * 100) / 100);
+const trunkX = 8 - GRAPH_LANE_WIDTH;
+const hookRadius = Math.min(4, GRAPH_LANE_WIDTH / 2);
+const hookK = ARC_K * hookRadius;
+const hookHeadPath = `M${trunkX} 0V${14 - hookRadius}C${trunkX} ${n(14 - hookRadius + hookK)} ${n(trunkX + hookRadius - hookK)} 14 ${trunkX + hookRadius} 14`;
+const laneStyle = { width: GRAPH_LANE_WIDTH };
+const gapInsetStyle = { marginInlineStart: -GRAPH_LANE_WIDTH };
+const trunkStyle = { ...laneStyle, ...gapInsetStyle };
+const commitBendStyle = { height: 28 + GRAPH_COMMIT_BEND_PADDING };
 
 const glyphPaths = {
 	parent: "M8 0V28",
@@ -10,8 +22,10 @@ const glyphPaths = {
 	// Forks
 	forkLeft: "M-5.96046e-08 14H2C5.31371 14 8 16.6863 8 20V28",
 	forkRight: "M16 14H14C10.6863 14 8 16.6863 8 20V28",
-	/** A tick off the trunk on the panel's edge, 4px left of the canvas, as a stacked branch's off its rail. */
-	notch: "M-4 14H4",
+	/** A tick off the trunk near the panel's edge. */
+	notch: `M${trunkX} 14H${trunkX + 5}`,
+	/** The trunk joins the history's column through two quarter turns. */
+	hook: `${hookHeadPath}H${8 - hookRadius}C${n(8 - hookRadius + hookK)} 14 8 ${n(14 + hookRadius - hookK)} 8 ${14 + hookRadius}V28`,
 	forkBoth: "M0 14H8M16 14H8M8 28L8 14",
 	// Merges
 	mergeLeft: "M-5.96046e-08 14H2C5.31371 14 8 11.3137 8 8V2.38419e-07",
@@ -42,7 +56,8 @@ const passes = (behind: number, folded = false) =>
 			<svg
 				key={column}
 				className={classes(styles.edgePass, folded && styles.edgePassFading)}
-				viewBox="0 0 12 28"
+				style={trunkStyle}
+				viewBox={`0 0 ${GRAPH_LANE_WIDTH} 28`}
 				preserveAspectRatio="none"
 				fill="none"
 				xmlns="http://www.w3.org/2000/svg"
@@ -52,7 +67,7 @@ const passes = (behind: number, folded = false) =>
 				<path d="M8 0V28" strokeWidth="1.5" />
 			</svg>
 		) : (
-			<span key={column} className={styles.pass} aria-hidden />
+			<span key={column} className={styles.pass} style={laneStyle} aria-hidden />
 		),
 	);
 
@@ -61,11 +76,22 @@ const ringPath =
 
 const ring = <path d={ringPath} stroke="currentColor" strokeWidth="1.5" />;
 
-const commitGlyph = (below: GraphSegmentStatus | undefined) => (
+const commitGlyph = (
+	above: GraphSegmentStatus | undefined,
+	below: GraphSegmentStatus | undefined,
+	railEnds: boolean,
+	fromTrunk: boolean,
+) => (
 	<>
-		<path className={styles.line} d="M8 0V11" strokeWidth="1.5" />
+		{fromTrunk ? (
+			<g transform={`translate(16 ${-GRAPH_COMMIT_BEND_PADDING}) scale(-1 1)`}>
+				<Tone status={above} d={bendPath(11 + GRAPH_COMMIT_BEND_PADDING)} />
+			</g>
+		) : (
+			<Tone status={above} d="M8 0V11" />
+		)}
 		{ring}
-		<Tone status={below} d="M8 17V28" />
+		{!railEnds && <Tone status={below} d="M8 17V28" />}
 	</>
 );
 
@@ -76,14 +102,6 @@ const groupGlyph = (
 	<>
 		<path className={styles.line} d="M8 0V2.78571M8 17.0038V26" strokeWidth="1.5" />
 		<path d={groupRingsPath} stroke="currentColor" strokeWidth="1.5" />
-	</>
-);
-
-/** The commit node without the tail below it, for the row a rail ends on. */
-const commitFootGlyph = (
-	<>
-		<path className={styles.line} d="M8 0V11" strokeWidth="1.5" />
-		{ring}
 	</>
 );
 
@@ -140,6 +158,7 @@ export type GraphSegmentGlyph = keyof typeof glyphPaths | "commit" | "group";
 
 /** Glyphs whose rail carries on past the drawing, so a taller row goes on drawing it. */
 const stretchableGlyphs = new Set<GraphSegmentGlyph>([
+	"hook",
 	"parent",
 	"commit",
 	"group",
@@ -170,6 +189,8 @@ interface GraphSegmentProps extends ComponentProps<"span"> {
 	/** The rail above or below the icon in another status's colour; a stretch between two icons is the lower one's. */
 	above?: GraphSegmentStatus;
 	below?: GraphSegmentStatus;
+	/** Bend from the trunk one column left into this commit's ring. */
+	fromTrunk?: boolean;
 	/** How many columns of the main line run behind the row, left of the glyph. */
 	behind?: number;
 }
@@ -183,6 +204,7 @@ export const GraphSegment: FC<GraphSegmentProps> = ({
 	centered = false,
 	above,
 	below,
+	fromTrunk = false,
 	behind = 0,
 	...props
 }) => (
@@ -195,18 +217,25 @@ export const GraphSegment: FC<GraphSegmentProps> = ({
 					styles.mainSegment,
 					glyph === "group" && !centered && styles.groupSegment,
 				)}
-				viewBox={glyph === "group" && !centered ? "0 0 16 26" : "0 0 16 28"}
+				viewBox={
+					fromTrunk
+						? `0 ${-GRAPH_COMMIT_BEND_PADDING} 16 ${28 + GRAPH_COMMIT_BEND_PADDING}`
+						: glyph === "group" && !centered
+							? "0 0 16 26"
+							: "0 0 16 28"
+				}
+				style={fromTrunk ? commitBendStyle : undefined}
 				fill="none"
 				xmlns="http://www.w3.org/2000/svg"
 				aria-hidden="true"
 				focusable="false"
 			>
-				{railEnds && glyph === "commit" ? (
-					commitFootGlyph
+				{glyph === "commit" ? (
+					commitGlyph(above, below, railEnds, fromTrunk)
 				) : railEnds && glyph === "group" && centered ? (
 					groupCenteredFootGlyph
-				) : glyph === "commit" ? (
-					commitGlyph(below)
+				) : railEnds && glyph === "hook" ? (
+					<path className={styles.line} d={`${hookHeadPath}H8`} strokeWidth="1.5" />
 				) : glyph === "joinRight" ? (
 					joinRightGlyph(above, below)
 				) : glyph === "parent" ? (
@@ -241,22 +270,20 @@ export const GraphSegment: FC<GraphSegmentProps> = ({
 	</span>
 );
 
-const ARC_K = 0.5523;
-const n = (value: number): string => String(Math.round(value * 100) / 100);
-
 /**
  * The bend from the column right of the main line onto it, through a gap of
- * this height: two quarter turns of radius 4 joined by a straight, meeting the
+ * this height: two quarter turns joined by a straight, meeting the
  * line at the gap's foot.
  */
 const bendPath = (height: number): string => {
-	const r = 4;
+	const r = Math.min(4, GRAPH_LANE_WIDTH / 2, height / 2);
 	const k = ARC_K * r;
 	const my = height / 2;
+	const from = 8 + GRAPH_LANE_WIDTH;
 	return [
-		`M20 0 V${n(my - r)}`,
-		`C20 ${n(my - r + k)} ${n(20 - (r - k))} ${n(my)} 16 ${n(my)}`,
-		`L12 ${n(my)}`,
+		`M${from} 0 V${n(my - r)}`,
+		`C${from} ${n(my - r + k)} ${n(from - (r - k))} ${n(my)} ${from - r} ${n(my)}`,
+		`L${8 + r} ${n(my)}`,
 		`C${n(8 + (r - k))} ${n(my)} 8 ${n(my + r - k)} 8 ${n(my + r)}`,
 		`V${n(height)}`,
 	].join(" ");
@@ -307,15 +334,16 @@ export const GraphEdge: FC<{ glyph: keyof typeof edgePaths }> = ({ glyph }) => (
  * `behind`, the gap sits that far right, the lines behind it passing through;
  * with none, the main line is the trunk on the panel's edge.
  */
-export const GraphGap: FC<{ height: number; bend?: GraphSegmentStatus; behind?: number }> = ({
-	height,
-	bend,
-	behind = 0,
-}) => (
+export const GraphGap: FC<{
+	height: number;
+	bend?: GraphSegmentStatus;
+	behind?: number;
+}> = ({ height, bend, behind = 0 }) => (
 	<div className={styles.gap} style={{ height }} aria-hidden>
 		{passes(behind)}
 		<svg
 			viewBox={`0 0 28 ${height}`}
+			style={behind === 0 ? gapInsetStyle : undefined}
 			width="28"
 			height={height}
 			fill="none"

@@ -1,28 +1,31 @@
 import preview from "#storybook/preview";
 import { type GraphSegmentGlyph, GraphSegment } from "./GraphSegment.tsx";
 
+const glyphs = [
+	"parent",
+	"horizontal",
+	"space",
+	"forkLeft",
+	"forkRight",
+	"notch",
+	"forkBoth",
+	"mergeLeft",
+	"mergeRight",
+	"mergeBoth",
+	"joinLeft",
+	"joinRight",
+	"joinBoth",
+	"hook",
+	"commit",
+	"group",
+] satisfies Array<GraphSegmentGlyph>;
+
 const meta = preview.meta({
 	component: GraphSegment,
 	argTypes: {
 		glyph: {
 			control: { type: "select" },
-			options: [
-				"parent",
-				"horizontal",
-				"space",
-				"forkLeft",
-				"forkRight",
-				"notch",
-				"forkBoth",
-				"mergeLeft",
-				"mergeRight",
-				"mergeBoth",
-				"joinLeft",
-				"joinRight",
-				"joinBoth",
-				"commit",
-				"group",
-			],
+			options: glyphs,
 		},
 	},
 });
@@ -48,25 +51,7 @@ export const Default = meta.story({
 export const AllGlyphs = meta.story({
 	render: () => (
 		<div style={{ display: "flex", gap: 16 }}>
-			{(
-				[
-					"parent",
-					"horizontal",
-					"forkLeft",
-					"forkRight",
-					"notch",
-					"forkBoth",
-					"mergeLeft",
-					"mergeRight",
-					"mergeBoth",
-					"joinLeft",
-					"joinRight",
-					"joinBoth",
-					"commit",
-					"group",
-					"space",
-				] satisfies Array<GraphSegmentGlyph>
-			).map((glyph) => (
+			{glyphs.map((glyph) => (
 				<div
 					key={glyph}
 					style={{

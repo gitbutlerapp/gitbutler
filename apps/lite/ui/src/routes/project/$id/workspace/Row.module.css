@@ -145,7 +145,8 @@
 
 	.container:hover &,
 	.container:focus-within &,
-	.containerSelected & {
+	.containerSelected &,
+	.foldToggle[data-chevron="always"] & {
 		display: flex;
 		position: absolute;
 		align-items: center;
@@ -156,7 +157,7 @@
 		width: 16px;
 		height: var(--single-line-row-height);
 		inset-block-start: 0;
-		inset-inline-start: max(0px, calc(100% - 16px));
+		inset-inline-start: calc(max(0px, calc(100% - 16px)) + var(--row-fold-chevron-offset, 0px));
 		color: var(--text-3);
 	}
 
@@ -170,6 +171,28 @@
 
 .foldGlyph {
 	display: flex;
+
+	/* Clear only the chevron's ink plus six pixels; the connector survives
+	   above and below it, including when the row is hovered. */
+	.foldToggle[data-chevron="always"] & {
+		--graph-segment-glyph-visibility: visible;
+		--chevron-clearance: 6px;
+		--chevron-ink-top: 10.5px;
+		--chevron-ink-bottom: 17px;
+
+		mask-image: linear-gradient(
+			to bottom,
+			black calc(var(--chevron-ink-top) - var(--chevron-clearance)),
+			transparent calc(var(--chevron-ink-top) - var(--chevron-clearance)),
+			transparent calc(var(--chevron-ink-bottom) + var(--chevron-clearance)),
+			black calc(var(--chevron-ink-bottom) + var(--chevron-clearance))
+		);
+	}
+
+	.foldToggle[data-chevron="always"][aria-expanded="false"] & {
+		--chevron-ink-top: 8.5px;
+		--chevron-ink-bottom: 19.5px;
+	}
 
 	/* The indicator takes over the rail from the second line down and draws its
 	   own line around the rings, so this one has to stop at the glyph rather
@@ -220,6 +243,7 @@
 	align-items: center;
 	min-width: 0;
 	margin-right: 2px;
+	margin-inline-start: var(--row-label-offset, 0px);
 	padding-block: var(--single-line-row-label-padding-block);
 }
 

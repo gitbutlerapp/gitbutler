@@ -1,5 +1,13 @@
+.headerLabel {
+	margin-inline-start: 1px;
+}
+
 /* A quiet note beside the label. */
 .caption {
 	flex-shrink: 0;
 	color: var(--text-3);
+}
+
+.foldToggle [data-icon] {
+	translate: -4px;
 }

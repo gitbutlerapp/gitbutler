@@ -183,6 +183,12 @@ export const projectReducers = {
 	toggleGraphIncoming: (state: ProjectState) => {
 		graphReducers.toggleIncoming(state.graph);
 	},
+	toggleGraphHistory: (state: ProjectState) => {
+		graphReducers.toggleHistory(state.graph);
+	},
+	showMoreGraphHistory: (state: ProjectState) => {
+		graphReducers.showMoreHistory(state.graph);
+	},
 	showMoreGraphRun: (state: ProjectState, { runId }: { runId: string }) => {
 		graphReducers.showMoreRun(state.graph, { runId });
 	},

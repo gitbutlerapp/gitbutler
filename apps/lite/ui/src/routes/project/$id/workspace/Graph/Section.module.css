@@ -5,6 +5,7 @@
 	justify-content: center;
 	width: 16px;
 	height: var(--single-line-row-height);
+	translate: var(--row-fold-chevron-offset, 0px);
 	color: var(--text-2);
 }
 
@@ -34,11 +35,28 @@
 	overflow: hidden;
 }
 
-/* A card like a forked stack card's, for the worktree cards under the stacks
-   (WorktreeLane). Keep in sync with StackCard.module.css. */
+/* Shared with the worktree cards below the stacks. Keep in sync with StackCard.module.css. */
+.card,
+.cardHead,
+.cardBody {
+	--graph-through-visibility: hidden;
+
+	background-color: var(--bg-1);
+}
+
 .card {
 	border-block: 1px solid var(--border-section);
-	background-color: var(--bg-1);
+}
+
+/* Split around the dock marker so the sticky stand-in keeps the full list
+   as its containing block. */
+.cardHead {
+	padding-block-start: 4px;
+	border-block-start: 1px solid var(--border-section);
+}
+
+.cardBody {
+	border-block-end: 1px solid var(--border-section);
 }
 
 /* The card's air over its header, as a row of gutter. */
@@ -87,11 +105,12 @@
 	}
 }
 
-/* A quiet note beside a header's label. */
-.caption {
-	margin-inline-start: 8px;
-	color: var(--text-3);
-	font-weight: 400;
+.trunkHeader {
+	--row-fold-chevron-offset: -6px;
+}
+
+.header {
+	--row-label-offset: calc(-3px + var(--row-fold-chevron-offset, 0px));
 }
 
 /* Centred on the label line, so the row keeps its height. */

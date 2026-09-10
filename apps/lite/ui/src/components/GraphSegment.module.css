@@ -24,22 +24,27 @@
 .tone {
 	&[data-status="LocalOnly"] {
 		--commit-status-color: var(--commit-local);
+		--graph-line-strength: 30%;
 	}
 
 	&[data-status="LocalAndRemote"] {
 		--commit-status-color: var(--commit-remote);
+		--graph-line-strength: 40%;
 	}
 
 	&[data-status="Integrated"] {
 		--commit-status-color: var(--commit-integrated);
+		--graph-line-strength: 40%;
 	}
 
 	&[data-status="Upstream"] {
 		--commit-status-color: var(--commit-upstream);
+		--graph-line-strength: 40%;
 	}
 
 	&[data-status="Diverged"] {
 		--commit-status-color: var(--commit-local);
+		--graph-line-strength: 30%;
 	}
 }
 
@@ -47,11 +52,11 @@
    one colour wherever it runs; the inversion above flips the card colour
    too. */
 .line {
-	stroke: color-mix(in srgb, currentColor 40%, var(--bg-1));
+	stroke: color-mix(in srgb, currentColor var(--graph-line-strength, 40%), var(--bg-1));
 }
 
-/* Columns sit at a 12px pitch with their line 8px in; the glyph's own column
-   is the 16px canvas, so the label after it stays where it is. */
+/* Column widths come from graph-spacing.ts; the glyph's own column stays
+   on its 16px canvas. */
 
 /* A column the main line runs through behind the row. Translucent, unlike
    the other rails: it crosses row fills, and a mid grey stays visible on a
@@ -59,7 +64,6 @@
 .pass {
 	position: relative;
 	flex-shrink: 0;
-	width: 12px;
 
 	&::after {
 		position: absolute;
@@ -71,22 +75,20 @@
 	}
 }
 
-/* The first column is the trunk's. It sits one column left of the row's inset,
-   which layout.ts's ROW_INSET sizes to land its line on the panel's edge. No
-   glyph ever sits in it: a row the trunk enters hooks it into the glyph column
-   beside it, drawing left of the canvas. */
-.edgePass,
-.gap > svg:first-child {
-	margin-inline-start: -12px;
-}
-
 /* The trunk itself rather than a line behind a lane, so it keeps the weight
    the gaps draw it at; translucent like the other passes, as it crosses row
    fills. */
 .edgePass {
 	flex-shrink: 0;
-	width: 12px;
-	stroke: color-mix(in srgb, var(--commit-local) 40%, transparent);
+	/* Narrow lanes can place the line beyond the column's layout box. */
+	overflow: visible;
+	stroke: color-mix(in srgb, var(--commit-local) 30%, transparent);
+}
+
+/* Cards hide the lines passing behind their rows. */
+.container > .edgePass,
+.container > .pass {
+	visibility: var(--graph-through-visibility, visible);
 }
 
 /* The trunk's tail below the row's centre line fades to nothing. */

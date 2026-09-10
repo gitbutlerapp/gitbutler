@@ -51,8 +51,7 @@
 }
 
 .dockRow {
-	/* The glyph sets its own visibility (GraphSegment.module.css), so hiding
-	   the row alone leaves it showing through. */
+	/* Keep the gutter spacing without drawing the graph in the docked header. */
 	--graph-segment-glyph-visibility: hidden;
 	--graph-segment-rail-visibility: hidden;
 
@@ -60,16 +59,12 @@
 	position: absolute;
 	inset-inline: 0;
 	top: calc(-1 * var(--dock-offset));
-	/* The card's head room and no air below, so the label and the curve's tail
-	   stay put as the row takes over. */
+	/* Match the card's head room so the label stays put as the row takes over. */
 	padding-block-start: 6px;
 	border-block-end: 1px solid var(--border-section);
 	background-color: var(--bg-2);
 
 	@container scroll-state(stuck: top) {
-		--graph-segment-glyph-visibility: visible;
-		--graph-segment-rail-visibility: visible;
-
 		visibility: visible;
 	}
 }
@@ -79,13 +74,21 @@
    the gap below picks the trunk up. */
 .uncommittedCard,
 .dockRow {
-	/* The trunk's edge column is the rows' whole gutter: no inset. */
-	--row-padding-inline-start: 0px;
+	/* Keep the trunk aligned with the stack rows and gaps: see layout.ts's ROW_INSET. */
+	--row-padding-inline-start: var(--graph-trunk-inset);
 }
 
 .uncommittedCard {
+	--graph-through-visibility: hidden;
+
 	border-block-end: 1px solid var(--border-section);
 	background-color: var(--bg-1);
+}
+
+/* The leading graph rail stays put; the first tree guide moves to the same
+   16px spacing as the guides at deeper directory levels. */
+.uncommittedFiles [role="treeitem"] > :first-child {
+	margin-inline-end: -5px;
 }
 
 /* The card's head, header and filter, stays at the scroller's top while the
@@ -118,24 +121,6 @@
 	flex: 1;
 	min-width: 0;
 	margin-block: 8px;
-}
-
-/* The commit form keeps to the scroller's foot while the card's own foot is
-   below it, over the docked target row when there is one (its `bottom`),
-   so a long list still commits. A hairline while stuck says the rows pass
-   beneath; a shadow, so the form's height does not change as it sticks. */
-.commitFoot {
-	container-type: scroll-state;
-
-	z-index: 1;
-	position: sticky;
-	background-color: var(--bg-1);
-}
-
-.commitFootRow {
-	@container scroll-state(stuck: bottom) {
-		box-shadow: 0 -1px 0 var(--border-section);
-	}
 }
 
 /* With no stacks, the one block is centred in the room under the uncommitted
