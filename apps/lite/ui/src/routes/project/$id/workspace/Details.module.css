@@ -311,6 +311,19 @@
 	min-width: 0;
 }
 
+/* Too narrow for two columns: the panel goes above the main column (see
+   the matching query in PullRequestPanel.module.css). */
+@container (max-width: 720px) {
+	.prLayout {
+		flex-direction: column;
+		align-items: stretch;
+	}
+
+	.prMain {
+		order: 1;
+	}
+}
+
 .fileHeader {
 	display: grid;
 	grid-template-columns: auto 1fr auto;
