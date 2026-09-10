@@ -1793,7 +1793,7 @@ Hint: 'A' is a branch. To commit onto it, run `but commit -b A -m "message" [<ch
         .stderr_eq(snapbox::str![[r#"
 Error: Could not find uncommitted change: 'notexist'
 
-Hint: Run `but status` for applicable targets.
+Hint: Run `but diff` for the current change IDs; a hunk ID is `<file>:<hunk>`.
 
 "#]]);
 }
