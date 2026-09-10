@@ -1223,20 +1223,19 @@ fn gerrit_review_ref(
 }
 
 /// Check if a push of this branch would include any conflicted commits.
-/// The push covers the branch and its stack ancestors, so those are checked
-/// too. Returns an error if conflicted commits are found.
+/// The push covers the branch and everything beneath it, named by a branch
+/// or not, so all of that is checked. Returns an error if conflicted commits
+/// are found.
 fn check_for_conflicted_commits(ctx: &Context, branch_name: &str) -> anyhow::Result<()> {
     let branch = gix::refs::Category::LocalBranch.to_full_name(branch_name)?;
-    let scope =
-        crate::legacy::workspace::push_scope_with_expensive_commit_info(ctx, branch.as_ref())?;
-    if scope.is_empty() {
-        // Branch not found - this shouldn't happen as we validate earlier
+    let Some(commits) =
+        crate::legacy::workspace::push_scope_with_expensive_commit_info(ctx, branch.as_ref())?
+    else {
         anyhow::bail!("Branch '{branch_name}' not found when checking for conflicts");
-    }
+    };
 
-    let conflicted: Vec<gix::ObjectId> = scope
+    let conflicted: Vec<gix::ObjectId> = commits
         .iter()
-        .flat_map(|branch| &branch.commits)
         .filter(|c| c.has_conflicts)
         .map(|c| c.id)
         .collect();

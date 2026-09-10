@@ -181,17 +181,21 @@ pub fn applied_lanes_with_expensive_commit_info(
     Ok(lanes)
 }
 
-/// The branch and everything the push of it covers, top-to-base, following the lane chain
-/// beneath a worktree.
+/// Every commit a push of `branch` transfers, top-to-base, following the lane chain beneath a
+/// worktree and including commits no branch names. `None` if `branch` is in no lane.
 pub fn push_scope_with_expensive_commit_info(
     ctx: &Context,
     branch: &gix::refs::FullNameRef,
-) -> anyhow::Result<Vec<HeadInfoBranch>> {
-    let (info, object_hash) = head_info(ctx, true)?;
-    but_workspace::legacy::push::branch_and_ancestor_segments(&info, branch)
-        .values()
-        .map(|segment| head_info_branch(segment, object_hash.null()))
-        .collect()
+) -> anyhow::Result<Option<Vec<ui::Commit>>> {
+    let (info, _) = head_info(ctx, true)?;
+    let segments = but_workspace::legacy::push::branch_and_ancestor_segments(&info, branch);
+    Ok((!segments.is_empty()).then(|| {
+        segments
+            .values()
+            .flat_map(|segment| &segment.commits)
+            .map(Into::into)
+            .collect()
+    }))
 }
 
 pub fn applied_stack_with_expensive_commit_info(

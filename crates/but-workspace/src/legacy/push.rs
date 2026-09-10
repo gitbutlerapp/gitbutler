@@ -58,8 +58,10 @@ pub fn workspace_branch_and_ancestors_push(
     };
 
     for (sidx, segment) in to_push.iter().rev() {
-        // this will always be set
-        let Some(ref_name) = segment.ref_info.as_ref().map(|r| r.ref_name.as_ref()) else {
+        let Some(ref_name) = segment
+            .ref_name()
+            .filter(|name| name.category() == Some(Category::LocalBranch))
+        else {
             continue;
         };
 
@@ -144,12 +146,13 @@ pub fn workspace_branch_and_ancestors_push(
     Ok(result)
 }
 
-/// Return the selected local branch and its ancestors in top-to-base order, crossing into the
-/// lane a worktree rests on.
+/// Return the segment of the selected local branch and every segment beneath it in top-to-base
+/// order, crossing into the lane a worktree rests on.
 ///
-/// This is the logical scope of a push operation. It includes ancestors that are already current
-/// on the remote, even though [`workspace_branch_and_ancestors_push()`] will skip transferring
-/// those refs.
+/// This is the logical scope of a push operation: every commit the push transfers sits in one of
+/// these segments, whether or not a branch names it. Only segments named by a local branch are
+/// pushed as refs, and [`workspace_branch_and_ancestors_push()`] skips those already current on
+/// the remote.
 pub fn branch_and_ancestor_segments<'a>(
     ref_info: &'a RefInfo,
     branch: &gix::refs::FullNameRef,
@@ -158,11 +161,6 @@ pub fn branch_and_ancestor_segments<'a>(
         .lane_chain(branch)
         .into_iter()
         .flat_map(|(lane, index)| lane.segments_from(index))
-        .filter(|segment| {
-            segment
-                .ref_name()
-                .is_some_and(|name| name.category() == Some(Category::LocalBranch))
-        })
         .map(|segment| (segment.id, segment))
         .collect()
 }

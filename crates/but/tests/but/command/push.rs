@@ -353,6 +353,22 @@ Please resolve conflicts before pushing using 'but resolve <commit>'.
 }
 
 #[test]
+fn push_refuses_conflicted_commits_in_anonymous_segments_beneath_a_worktree() {
+    let env = sandbox_with_conflicted_commit();
+    enable_worktree_manipulation(&env);
+    env.but("worktree list").assert().success();
+    add_worktree_with_commit(&env, "W", "A");
+    env.invoke_git("update-ref refs/heads/A A~1");
+
+    env.but("push W").assert().failure().stderr_eq(str![[r#"
+Error: Cannot push branch 'W': the push would include 1 conflicted commit.
+Conflicted commits: [..]
+Please resolve conflicts before pushing using 'but resolve <commit>'.
+
+"#]]);
+}
+
+#[test]
 fn push_rejects_merged_upstream_branch() {
     let env =
         Sandbox::init_scenario_with_target_and_default_settings("upstream-integrated-with-updates");

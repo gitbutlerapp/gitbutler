@@ -132,11 +132,10 @@ fn logical_scope(info: &RefInfo, branch: &str) -> Vec<String> {
         .expect("valid fixture branch name");
     but_workspace::legacy::push::branch_and_ancestor_segments(info, branch.as_ref())
         .values()
-        .filter_map(|segment| {
+        .map(|segment| {
             segment
-                .ref_info
-                .as_ref()
-                .map(|ref_info| ref_info.ref_name.shorten().to_string())
+                .ref_name()
+                .map_or("<anon>".to_string(), |name| name.shorten().to_string())
         })
         .collect()
 }
