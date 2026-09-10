@@ -32,6 +32,15 @@ perf_create_session() {
 }
 
 perf_cleanup_session() {
+    # EXIT traps must not touch unexpected paths if session state was changed.
+    case "${PERF_SESSION_ROOT:-}" in
+        /*/but-performance.[a-zA-Z0-9][a-zA-Z0-9][a-zA-Z0-9][a-zA-Z0-9][a-zA-Z0-9][a-zA-Z0-9]) ;;
+        *)
+            printf 'performance test error: refusing to clean up unexpected session root: %s\n' \
+                "${PERF_SESSION_ROOT:-<unset or empty>}" >&2
+            return 0
+            ;;
+    esac
     chmod -R u+w "$PERF_SESSION_ROOT" 2>/dev/null || true
     rm -rf "$PERF_SESSION_ROOT"
 }
