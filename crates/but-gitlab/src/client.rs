@@ -218,7 +218,10 @@ impl GitLabClient {
                 .send()
                 .await?;
             if !response.status().is_success() {
-                bail!("{error_message}: {}", response.status());
+                return Err(anyhow::Error::from(HttpStatusError {
+                    status: response.status(),
+                })
+                .context(error_message.to_owned()));
             }
 
             next_page = next_page_from_headers(response.headers());
@@ -274,10 +277,10 @@ impl GitLabClient {
             .send()
             .await?;
         if !response.status().is_success() {
-            bail!(
-                "Failed to list recently {state} merge requests: {}",
-                response.status()
-            );
+            return Err(anyhow::Error::from(HttpStatusError {
+                status: response.status(),
+            })
+            .context(format!("Failed to list recently {state} merge requests")));
         }
         Ok(response.json().await?)
     }
@@ -362,7 +365,10 @@ impl GitLabClient {
         let response = self.client.get(&url).send().await?;
 
         if !response.status().is_success() {
-            bail!("Failed to get merge request: {}", response.status());
+            return Err(anyhow::Error::from(HttpStatusError {
+                status: response.status(),
+            })
+            .context("Failed to get merge request"));
         }
 
         let mr: GitLabMergeRequest = response.json().await?;
@@ -403,7 +409,10 @@ impl GitLabClient {
         );
         let response = self.client.get(&url).send().await?;
         if !response.status().is_success() {
-            bail!("Failed to get MR merge status: {}", response.status());
+            return Err(anyhow::Error::from(HttpStatusError {
+                status: response.status(),
+            })
+            .context("Failed to get MR merge status"));
         }
         let body: MrMergeStatusResponse = response.json().await?;
         let is_mergeable = matches!(body.merge_status.as_deref(), Some("can_be_merged"));
@@ -707,7 +716,8 @@ impl GitLabClient {
             {
                 return Ok(Vec::new());
             }
-            bail!("Failed to get latest pipeline for ref: {status}");
+            return Err(anyhow::Error::from(HttpStatusError { status })
+                .context("Failed to get latest pipeline for ref"));
         }
 
         let pipeline: GitLabPipelineResponse = response
@@ -747,7 +757,10 @@ impl GitLabClient {
                 })?;
 
             if !response.status().is_success() {
-                bail!("Failed to list jobs for pipeline: {}", response.status());
+                return Err(anyhow::Error::from(HttpStatusError {
+                    status: response.status(),
+                })
+                .context("Failed to list jobs for pipeline"));
             }
 
             next_page = next_page_from_headers(response.headers());

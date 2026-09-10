@@ -54,8 +54,10 @@ pub async fn list_for_commit(
 
 /// Tag transport failures with `but_error::Code::NetworkError` so the desktop
 /// can present them appropriately (silent for offline) and cached readers can
-/// keep serving the last known data. Only applied to read paths — mutations
-/// should still surface failures.
+/// keep serving the last known data, and a rejected token (HTTP 401) with
+/// `GitLabUnauthorized` so pollers stop until a replacement token is stored.
+/// Other statuses stay unclassified: a 403 on a read may be per-project.
+/// Only applied to read paths — mutations should still surface failures.
 pub(crate) fn classify_forge_error(err: anyhow::Error) -> anyhow::Error {
     if err
         .downcast_ref::<reqwest::Error>()
@@ -65,6 +67,12 @@ pub(crate) fn classify_forge_error(err: anyhow::Error) -> anyhow::Error {
             but_error::Code::NetworkError,
             "Unable to connect to GitLab.",
         ));
+    }
+    if err
+        .downcast_ref::<crate::client::HttpStatusError>()
+        .is_some_and(|http_err| http_err.status == reqwest::StatusCode::UNAUTHORIZED)
+    {
+        return err.context(crate::GITLAB_UNAUTHORIZED);
     }
     err
 }
@@ -241,5 +249,36 @@ mod tests {
             err.downcast_ref::<but_error::Context>().is_none(),
             "a forge-side failure must not be presented as an offline network"
         );
+    }
+
+    fn http_error(status: reqwest::StatusCode) -> anyhow::Error {
+        anyhow::Error::from(crate::client::HttpStatusError { status })
+            .context("Failed to get merge request")
+    }
+
+    #[test]
+    fn rejected_token_responses_carry_the_unauthorized_code() {
+        let err = classify_forge_error(http_error(reqwest::StatusCode::UNAUTHORIZED));
+        assert_eq!(
+            err.downcast_ref::<but_error::Context>().map(|ctx| ctx.code),
+            Some(but_error::Code::GitLabUnauthorized),
+            "pollers stop on this code until a replacement token is stored"
+        );
+    }
+
+    #[test]
+    fn other_http_statuses_stay_unclassified() {
+        for status in [
+            reqwest::StatusCode::FORBIDDEN,
+            reqwest::StatusCode::NOT_FOUND,
+            reqwest::StatusCode::TOO_MANY_REQUESTS,
+            reqwest::StatusCode::INTERNAL_SERVER_ERROR,
+        ] {
+            let err = classify_forge_error(http_error(status));
+            assert!(
+                err.downcast_ref::<but_error::Context>().is_none(),
+                "{status} is not a rejected token and must not become terminal"
+            );
+        }
     }
 }

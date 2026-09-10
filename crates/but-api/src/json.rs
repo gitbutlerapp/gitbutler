@@ -432,6 +432,22 @@ mod error {
         }
 
         #[test]
+        fn static_context_between_operation_layers_keeps_its_code() {
+            const MESSAGE: &str = "GitLab did not accept the token.";
+            // The forge read wrappers add operation text below and above the
+            // classification, like `but_gitlab::mr::list` around its client.
+            let err = anyhow!("HTTP 401")
+                .context("Failed to list open merge requests")
+                .context(Context::new_static(Code::GitLabUnauthorized, MESSAGE))
+                .context("Failed to list open merge requests");
+            assert_eq!(
+                json(err),
+                format!(r#"{{"code":"GitLabUnauthorized","message":"{MESSAGE}"}}"#),
+                "the code survives the outer operation layer and only the static guidance is sent"
+            );
+        }
+
+        #[test]
         fn find_context_without_message() {
             let err = anyhow!("err msg").context(Context::from(Code::Validation));
             assert_eq!(
