@@ -22,6 +22,88 @@ perf_assert_full_oid() {
         perf_die "fixture revision must be a full lowercase 40-character object ID: $1"
 }
 
+# Outer entrypoints own this session; artifacts must live elsewhere.
+perf_create_session() {
+    session_tmpdir=$(CDPATH='' cd "${TMPDIR:-/tmp}" && pwd -P) ||
+        perf_die 'TMPDIR must resolve to an existing directory'
+    case "$session_tmpdir" in
+        /|//) perf_die 'TMPDIR must not resolve to /' ;;
+    esac
+    PERF_SESSION_ROOT=$(mktemp -d "$session_tmpdir/but-performance.XXXXXX")
+    PERF_SESSION_ROOT=$(CDPATH='' cd "$PERF_SESSION_ROOT" && pwd)
+    trap 'perf_cleanup_session' EXIT
+    trap 'exit 130' INT
+    trap 'exit 143' HUP TERM
+}
+
+perf_cleanup_session() {
+    # EXIT traps must not touch unexpected paths if session state was changed.
+    case "${PERF_SESSION_ROOT:-}" in
+        /*/but-performance.[a-zA-Z0-9][a-zA-Z0-9][a-zA-Z0-9][a-zA-Z0-9][a-zA-Z0-9][a-zA-Z0-9]) ;;
+        *)
+            printf 'performance test error: refusing to clean up unexpected session root: %s\n' \
+                "${PERF_SESSION_ROOT:-<unset or empty>}" >&2
+            return 0
+            ;;
+    esac
+    chmod -R u+w "$PERF_SESSION_ROOT" 2>/dev/null || true
+    rm -rf "$PERF_SESSION_ROOT"
+}
+
+perf_resolve_binary() {
+    case "$BUT_BIN" in
+        /*) ;;
+        *) BUT_BIN=$(CDPATH='' cd "$(dirname "$BUT_BIN")" && pwd)/$(basename "$BUT_BIN") ;;
+    esac
+    [ -x "$BUT_BIN" ] || perf_die "BUT_BIN is not executable: $BUT_BIN"
+}
+
+perf_validate_scenario() (
+    case "$1" in
+        ''|*/*|.*|-*) perf_die "invalid scenario name: $1" ;;
+    esac
+    scenario_dir=$PERF_ROOT/scenarios/$1
+    setup_script=$scenario_dir/setup.sh
+    test_script=$scenario_dir/test.sh
+    [ -x "$setup_script" ] || perf_die "scenario setup is not executable: $setup_script"
+    [ -x "$test_script" ] || perf_die "scenario test is not executable: $test_script"
+)
+
+# First argument launches command ("command", or profiler's signal-aware wait).
+# Remaining arguments: explicit NAME=value additions followed by command argv.
+# Never inherit arbitrary caller state (including profiling dispatch state).
+perf_run_isolated() {
+    isolation_launcher=$1
+    shift
+    "$isolation_launcher" env -i \
+        PATH="$PATH" \
+        PERF_ENV_ISOLATED=1 \
+        PERF_ROOT="$PERF_ROOT" \
+        PERF_SOURCE_REPO="$REPO_ROOT" \
+        PERF_SESSION_ROOT="$PERF_SESSION_ROOT" \
+        PERF_FIXTURE_REPO="$PERF_SESSION_ROOT/fixture.git" \
+        PERF_FIXTURE_COMMIT="$PERF_FIXTURE_COMMIT" \
+        BUT_BIN="$BUT_BIN" \
+        GIT_BIN="$GIT_BIN" \
+        HOME="$PERF_SESSION_ROOT/harness-home" \
+        E2E_TEST_APP_DATA_DIR="$PERF_SESSION_ROOT/harness-app-data" \
+        GIT_CONFIG_NOSYSTEM=1 \
+        GIT_CONFIG_GLOBAL=/dev/null \
+        GIT_ATTR_NOSYSTEM=1 \
+        GIT_TERMINAL_PROMPT=0 \
+        GIT_CONFIG_COUNT=4 \
+        GIT_CONFIG_KEY_0=commit.gpgsign \
+        GIT_CONFIG_VALUE_0=false \
+        GIT_CONFIG_KEY_1=tag.gpgsign \
+        GIT_CONFIG_VALUE_1=false \
+        GIT_CONFIG_KEY_2=init.defaultBranch \
+        GIT_CONFIG_VALUE_2=main \
+        GIT_CONFIG_KEY_3=protocol.file.allow \
+        GIT_CONFIG_VALUE_3=always \
+        TZ=UTC LANG=C LC_ALL=C NO_BG_TASKS=1 NOPAGER=1 \
+        "$@"
+}
+
 perf_use_run_environment() {
     : "${PERF_RUN_ROOT:?PERF_RUN_ROOT is not set}"
 
@@ -147,6 +229,10 @@ perf_but() {
 
 perf_exec_but() {
     : "${PERF_REPO:?PERF_REPO is not set}"
+    if [ "${PERF_PROFILE_EXEC:-}" = 1 ]; then
+        # Launch profiler around actual binary, not a system shell (macOS SIP).
+        exec "$PERF_ROOT/profile.sh" "$BUT_BIN" -C "$PERF_REPO" "$@"
+    fi
     if [ "${PERF_SHOW_OUTPUT:-0}" = 1 ]; then
         exec "$BUT_BIN" -C "$PERF_REPO" "$@"
     else

@@ -91,6 +91,57 @@ Use the saved payload unchanged; replaying an accepted upload won't duplicate re
 For local testing, use a separate suite token and a loopback URL such as
 `http://127.0.0.1:6979`; other URLs require HTTPS.
 
+## Profiling one scenario
+
+`profile.sh <backend> <scenario>` reuses benchmark scenarios, profiling only `but`:
+compilation and setup stay outside capture.
+
+```sh
+./crates/but/tests/performance/profile.sh samply status-many-uncommitted-changes
+./crates/but/tests/performance/profile.sh perf squash-10-committed-hunks
+./crates/but/tests/performance/profile.sh flamegraph diff-many-uncommitted-changes
+```
+
+Requires Git, shell utilities, selected profiler, and Cargo unless supplying `BUT_BIN`.
+Install samply/flamegraph with `cargo install --locked samply` / `cargo install --locked flamegraph`.
+Linux perf/flamegraph also require kernel-compatible perf package.
+
+| Backend | Platforms | View capture |
+| --- | --- | --- |
+| `samply` | Linux, macOS | `samply load <profile.json>` |
+| `perf` | Linux | `perf report -i <perf.data>` |
+| `flamegraph` | Linux, macOS with full Xcode/xctrace | Open `flamegraph.svg` in browser |
+
+Configuration uses environment variables, not flags:
+
+- `BUT_BIN`: existing binary; otherwise build optimized native binary with debug symbols.
+- `PERF_PROFILE_OUTPUT_DIR`: new output directory; defaults beneath `target/performance-profiles/<scenario>/`.
+- `PERF_SHOW_OUTPUT=1`: show command stdout.
+- `DEVELOPER_DIR`: optional Xcode selection.
+
+Captures, logs, metadata, and binary/debug symbols are retained; temporary fixtures
+are removed. Keep captures at recorded path for symbol lookup. Benchmark timing,
+upload, and download settings are unsupported.
+
+**macOS:** prefer samply with locally built binary; full Xcode needed only for
+flamegraph.
+
+**Linux:** samply and perf may need `kernel.perf_event_paranoid=1` to allow
+recording and a larger perf buffer allowance (`kernel.perf_event_mlock_kb=2048`,
+in KiB). If recording fails due to permissions or buffer allocation, an administrator
+can apply these machine-wide settings:
+
+```sh
+sudo sysctl -w kernel.perf_event_paranoid=1
+sudo sysctl -w kernel.perf_event_mlock_kb=2048
+```
+
+These changes normally last until reboot and relax profiling restrictions for other
+users too. Harness never changes these settings automatically. See
+[samply](https://github.com/mstange/samply) and
+[flamegraph](https://github.com/flamegraph-rs/flamegraph) docs for permissions and
+symbolization troubleshooting (including lld/mold's `--no-rosegment` requirement).
+
 ## Included scenarios
 
 - `diff-many-uncommitted-changes`: time `but diff` after uncommitting real GitButler commit `c9d8e3a7ff59f2ddabed16a6fa1d66ea054f0215`, which formatted the codebase and changes 1,167 files, with 21,636 insertions and 21,620 deletions.
@@ -107,8 +158,9 @@ process startup and output generation. Downloads, compilation, fixture creation,
 and selector discovery stay outside timing.
 
 Each sample gets fresh workspace, bare remote, and isolated configuration, sharing
-only immutable historical objects from pinned GitButler fixture. See [run.sh](run.sh)
-for environment allowlist and [lib.sh](lib.sh) for fixture/setup details.
+only immutable historical objects from pinned GitButler fixture. See [lib.sh](lib.sh)
+for shared environment allowlist and fixture/setup details; [run.sh](run.sh) adds
+benchmark-specific variables.
 
 Scenario scripts may mutate anything under `$PERF_RUN_ROOT`, but must not write to
 `$PERF_FIXTURE_REPO` or `$PERF_SOURCE_REPO`. Fixtures use `git clone --shared`: do not
@@ -232,7 +284,8 @@ perf_state_load
 perf_exec_but squash "$SOURCE_ID" --target "$TARGET_COMMIT" --use-target-message
 ```
 
-`perf_exec_but` replaces script process with configured `but` binary. It sends output
+`perf_exec_but` replaces script process with configured `but` binary (or profiling
+entrypoint's recorder when explicitly enabled for capture). It sends output
 to `/dev/null` normally and preserves it when `PERF_SHOW_OUTPUT=1`. Do not add
 scenario-local output redirection. Keep `test.sh` limited to loading prepared state,
 validating required values, and executing operation under study.
