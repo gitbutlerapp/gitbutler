@@ -1,16 +1,17 @@
 import { getAppSettings, getUserProfileLocal, updateTelemetryDistinctId } from "@gitbutler/but-sdk";
 import type { UserProfile } from "@gitbutler/but-sdk";
 import { PostHog } from "posthog-node";
+import { getPosthogProjectToken, posthogHost } from "./telemetry.js";
 import { randomUUID } from "node:crypto";
 import { apiCommandFailureLimitConfig, createApiCommandSampler } from "./api-command-sampling.js";
 
 /**
- * Product metrics for the main process. Events go to the same PostHog
+ * Product metrics and uncaught exceptions for the main process. Events go to the same PostHog
  * project as the desktop app, the web app, and the CLI; the `appName` and
  * `container` properties tell the surfaces apart. Conventions shared with
- * those senders: snake_case event names, camelCase properties, and only
- * counts, enums, and booleans as values — never message text, paths, or
- * anything else a user typed.
+ * those senders: snake_case event names and camelCase properties. Product
+ * metrics contain only counts, enums, and booleans — never message text,
+ * paths, or anything else a user typed. Exceptions include error details.
  *
  * The distinct id is the one every surface shares through the settings file
  * (`telemetry.appDistinctId`): `user_<id>` once any surface has seen a login,
@@ -24,9 +25,6 @@ import { apiCommandFailureLimitConfig, createApiCommandSampler } from "./api-com
  * still describes only the retained call.
  */
 
-// The same publishable project key the desktop app and the web app use.
-const POSTHOG_API_KEY = "phc_yJx46mXv6kA5KTuM2eEQ6IwNTgl5YW3feKV5gi7mfGG";
-const POSTHOG_HOST = "https://eu.i.posthog.com";
 const APP_NAME = "gitbutler-lite";
 const CONTAINER = "electron";
 const SHUTDOWN_TIMEOUT_MS = 2000;
@@ -38,6 +36,8 @@ const FAILURE_LIMIT_CONFIG_TIMEOUT_MS = 1_000;
 let client: PostHog | null = null;
 let distinctId = "";
 let appVersion = "";
+let metricsEnabled = false;
+let errorsEnabled = false;
 let failureLimit = apiCommandFailureLimitConfig(undefined);
 let apiCommandSampler = createApiCommandSampler({ failureLimit });
 let shutdownPromise: Promise<void> | null = null;
@@ -81,24 +81,46 @@ const configureFailureLimit = async (metricsClient: PostHog): Promise<void> => {
 };
 
 /**
- * Reads the shared app settings and starts the client. A no-op when metrics
- * are disabled. Never throws: the app must start even when metrics cannot.
+ * Reads the shared app settings and starts the client when metrics or error
+ * reporting is enabled. Never throws: telemetry must not prevent startup.
  *
  * Await this before registering IPC handlers, so the first commands of the
  * session are captured and a launch via a login link cannot race the
  * identity below.
  */
-export const initMetrics = async (version: string): Promise<void> => {
+export const initMetrics = async (
+	version: string,
+	environment: "development" | "production",
+): Promise<void> => {
 	try {
 		const telemetry = (await getAppSettings()).telemetry;
-		if (!telemetry.appMetricsEnabled) return;
+		metricsEnabled = telemetry.appMetricsEnabled;
+		errorsEnabled = telemetry.appErrorReportingEnabled;
+		if (!metricsEnabled && !telemetry.appErrorReportingEnabled) return;
 
 		appVersion = version;
 		// The client exists from here on even if resolving the identity below
 		// fails; a session then captures under the stored or fresh id.
 		setDistinctId(telemetry.appDistinctId ?? randomUUID());
-		client = new PostHog(POSTHOG_API_KEY, {
-			host: POSTHOG_HOST,
+		client = new PostHog(getPosthogProjectToken(environment), {
+			host: posthogHost,
+			enableExceptionAutocapture: telemetry.appErrorReportingEnabled,
+			before_send: (event) => {
+				if (event?.event !== "$exception") return event;
+				return {
+					...event,
+					distinctId,
+					properties: {
+						...event.properties,
+						appName: APP_NAME,
+						appVersion,
+						container: CONTAINER,
+						process: "main",
+						environment,
+						$process_person_profile: distinctId.startsWith("user_"),
+					},
+				};
+			},
 			featureFlagsRequestTimeoutMs: FAILURE_LIMIT_CONFIG_TIMEOUT_MS,
 		});
 
@@ -107,11 +129,20 @@ export const initMetrics = async (version: string): Promise<void> => {
 		else if (distinctId !== telemetry.appDistinctId) await updateTelemetryDistinctId(distinctId);
 		// Not awaited: the window must not wait for PostHog. The built-in
 		// default applies until the remote limit lands.
-		void configureFailureLimit(client);
+		if (metricsEnabled) void configureFailureLimit(client);
 	} catch (error) {
 		// oxlint-disable-next-line no-console
 		console.error("Failed to initialize metrics", error);
 	}
+};
+
+export const reportError = (error: unknown, context: string): void => {
+	if (error instanceof Error && error.name === "AbortError") return;
+
+	// oxlint-disable-next-line no-console
+	console.error(context, error);
+	if (errorsEnabled && shutdownPromise === null)
+		client?.captureException(error, distinctId, { context });
 };
 
 const capture = (event: string, properties: Record<string, unknown>): void => {
@@ -139,7 +170,8 @@ export const withApiCommandCapture =
 	(command: string, handler: (params: unknown) => unknown) =>
 	async (params: unknown): Promise<unknown> => {
 		const metricsClient = client;
-		if (metricsClient === null || shutdownPromise !== null) return handler(params);
+		if (!metricsEnabled || metricsClient === null || shutdownPromise !== null)
+			return handler(params);
 		const start = performance.now();
 		const record = (failure: boolean) => {
 			if (client !== metricsClient) return;

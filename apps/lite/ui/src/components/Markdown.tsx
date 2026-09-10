@@ -1,3 +1,4 @@
+import { reportError } from "#ui/error-reporting.ts";
 import { guiSettingsQueryOptions } from "#ui/api/queries.ts";
 import { classes } from "#ui/components/classes.ts";
 import { Icon } from "#ui/components/Icon.tsx";
@@ -22,8 +23,7 @@ const openExternally = (evt: MouseEvent<HTMLAnchorElement>): void => {
 	const url = evt.currentTarget.href;
 	if (isExternalUrl(url)) {
 		window.lite.openInWebBrowser(url).catch((error: unknown) => {
-			// oxlint-disable-next-line no-console
-			console.error(error);
+			reportError(error);
 		});
 	}
 };

@@ -31,8 +31,6 @@ export const useFetchFromRemotes = (projectId: string) => {
 		void refetch().then(({ error }) => {
 			if (!error) return;
 
-			// oxlint-disable-next-line no-console
-			console.error(error);
 			toastManager.add({
 				type: "error",
 				title: "Failed to fetch",

@@ -1,3 +1,4 @@
+import { reportError } from "./metrics.js";
 import { type WatcherEvent, type WatcherHandle, watcherStart } from "@gitbutler/but-sdk";
 import { randomUUID } from "node:crypto";
 
@@ -134,8 +135,7 @@ export default class WatcherManager {
 				try {
 					projectWatcher.handle.stop();
 				} catch (error) {
-					// oxlint-disable-next-line no-console
-					console.warn("Failed to stop project watcher", error);
+					reportError(error, "Failed to stop project watcher");
 				}
 				this.projectWatchers.delete(subscription.projectId);
 			}
@@ -208,8 +208,7 @@ export default class WatcherManager {
 		// Create a watcher.
 		const creation = watcherStart(projectId, (err, event) => {
 			if (err) {
-				// oxlint-disable-next-line no-console
-				console.warn("Watcher callback failed", err);
+				reportError(err, "Watcher callback failed");
 				return;
 			}
 			this.forwardWatcherEvent(projectId, event);
@@ -237,12 +236,11 @@ export default class WatcherManager {
 	stopAllWatchersForShutdown(): number {
 		const stopped = this.watcherSubscriptions.size;
 
-		for (const [projectId, projectWatcher] of this.projectWatchers) {
+		for (const projectWatcher of this.projectWatchers.values()) {
 			try {
 				projectWatcher.handle.stop();
 			} catch (error) {
-				// oxlint-disable-next-line no-console
-				console.warn(`Failed to stop project watcher for ${projectId}`, error);
+				reportError(error, "Failed to stop project watcher during shutdown");
 			}
 		}
 
@@ -292,8 +290,7 @@ export default class WatcherManager {
 			this.stopAllWatchersForShutdown();
 			WatcherManager.instance = null;
 		} catch (error) {
-			// oxlint-disable-next-line no-console
-			console.warn("Failed to stop project watchers during shutdown", error);
+			reportError(error, "Failed to stop project watchers during shutdown");
 		}
 	}
 }

@@ -73,6 +73,8 @@ jobs:
           CARGO_NET_OFFLINE: "true"
         run: pnpm --filter @gitbutler/but-sdk build:release
       - name: Build Lite
+        env:
+          POSTHOG_PERSONAL_API_KEY: ${{ secrets.POSTHOG_PERSONAL_API_KEY }}
         run: pnpm --filter @gitbutler/lite build
       - name: Prepare askpass
         env:

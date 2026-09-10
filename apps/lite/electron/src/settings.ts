@@ -7,6 +7,7 @@
  */
 
 import { app } from "electron";
+import { reportError } from "./metrics.js";
 import { type Type, type } from "arktype";
 import { readFile, writeFile } from "atomically";
 import path from "node:path";
@@ -79,8 +80,13 @@ export const readSettings = async (): Promise<GUISettings> => {
 
 		return cfg;
 	} catch (e) {
-		// oxlint-disable-next-line no-console
-		console.warn(e);
+		if (e instanceof Error && "code" in e && e.code === "ENOENT") {
+			// A fresh install has no GUI settings file yet.
+			// oxlint-disable-next-line no-console
+			console.warn(e);
+		} else {
+			reportError(e, "Failed to read GUI settings");
+		}
 
 		return emptySettings;
 	}

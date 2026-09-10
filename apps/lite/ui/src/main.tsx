@@ -1,3 +1,4 @@
+import { initErrorReporting, reportError } from "#ui/error-reporting.ts";
 import { MutationCache, QueryCache, QueryClient, focusManager } from "@tanstack/react-query";
 import { App } from "#ui/App.tsx";
 import { invalidateDeclared } from "#ui/api/tags.ts";
@@ -25,8 +26,7 @@ const queryClient: QueryClient = new QueryClient({
 	// rather than raising a toast — but the reason has to land somewhere.
 	queryCache: new QueryCache({
 		onError: (error) => {
-			// oxlint-disable-next-line no-console
-			console.error(error);
+			reportError(error);
 		},
 	}),
 	// A mutation's cache effects come from its endpoint's `invalidates`
@@ -39,8 +39,7 @@ const queryClient: QueryClient = new QueryClient({
 		onSuccess: (_data, _variables, _context, mutation) =>
 			invalidateDeclared(queryClient, mutation.options.mutationKey),
 		onError: (error, _variables, _context, mutation) => {
-			// oxlint-disable-next-line no-console
-			console.error(error);
+			reportError(error);
 
 			const title = mutation.meta?.failureTitle;
 			if (title === undefined) return;
@@ -84,7 +83,9 @@ const rootElement = document.getElementById("root");
 if (!rootElement) throw new Error("Root element not found");
 
 const root = createRoot(rootElement, {
-	onUncaughtError: (error: unknown) => {
+	onCaughtError: (error, info) => reportError(error, { componentStack: info.componentStack }),
+	onUncaughtError: (error: unknown, info) => {
+		reportError(error, { componentStack: info.componentStack });
 		toastManager.add({
 			type: "error",
 			title: "Error",
@@ -93,4 +94,6 @@ const root = createRoot(rootElement, {
 		});
 	},
 });
-root.render(<App queryClient={queryClient} toastManager={toastManager} router={router} />);
+void initErrorReporting(queryClient).then(() => {
+	root.render(<App queryClient={queryClient} toastManager={toastManager} router={router} />);
+});

@@ -20,7 +20,8 @@ export type GlobalQueryKey =
 	| "userProfile"
 	| "projects"
 	| "guiSettings"
-	| "markdownTokens";
+	| "markdownTokens"
+	| "version";
 
 /**
  * Client state kept in the query cache, so nothing declares for them. `dryRun`

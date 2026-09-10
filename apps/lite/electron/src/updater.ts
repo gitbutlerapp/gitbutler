@@ -1,7 +1,7 @@
 import { app, type BrowserWindow, dialog } from "electron";
 import electronUpdater, { type AppUpdater, type UpdateDownloadedEvent } from "electron-updater";
 import { env } from "node:process";
-import { shutdownMetrics } from "./metrics.js";
+import { reportError, shutdownMetrics } from "./metrics.js";
 
 let updaterWindow: BrowserWindow | null = null;
 let updaterRegistered = false;
@@ -51,13 +51,11 @@ export const registerUpdater = (mainWindow: BrowserWindow): void => {
 	autoUpdater.autoInstallOnAppQuit = true;
 	autoUpdater.on("update-downloaded", (event) => {
 		void showUpdateDownloadedDialog(event).catch((error) => {
-			// oxlint-disable-next-line no-console
-			console.error("Failed to show update dialog", error);
+			reportError(error, "Failed to show update dialog");
 		});
 	});
 	autoUpdater.on("error", (error) => {
-		// oxlint-disable-next-line no-console
-		console.error("Update error", error);
+		reportError(error, "Update error");
 	});
 };
 
@@ -85,7 +83,6 @@ export const checkForUpdates = (): void => {
 		return;
 
 	void updater.checkForUpdates().catch((error) => {
-		// oxlint-disable-next-line no-console
-		console.error("Failed to check for updates", error);
+		reportError(error, "Failed to check for updates");
 	});
 };
