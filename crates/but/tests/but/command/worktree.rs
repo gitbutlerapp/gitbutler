@@ -1,4 +1,5 @@
 use but_testsupport::invoke_bash_at_dir;
+use snapbox::IntoData;
 
 use crate::{
     command::util::{add_dirty_worktree, add_worktree_with_commit, enable_worktree_manipulation},
@@ -427,6 +428,113 @@ Error: worktree manipulation is not enabled (featureFlags.worktreeManipulation)
         .stdout_eq(snapbox::str![])
         .stderr_eq(snapbox::str![[r#"
 Error: worktree manipulation is not enabled (featureFlags.worktreeManipulation)
+
+"#]]);
+    env.but("worktree new")
+        .assert()
+        .failure()
+        .stdout_eq(snapbox::str![])
+        .stderr_eq(snapbox::str![[r#"
+Error: worktree manipulation is not enabled (featureFlags.worktreeManipulation)
+
+"#]]);
+}
+
+#[test]
+fn new_checks_out_a_new_branch_at_the_highest_base() {
+    let env = flag_on_sandbox();
+    env.but("worktree new Feature/One")
+        .assert()
+        .success()
+        .stderr_eq(snapbox::str![])
+        .stdout_eq(snapbox::str![[r#"
+Created worktree feature-one on 'Feature/One' from 0dc3733 at [..]/.git/gb-wts/feature-one
+
+"#]]);
+    // Without a name the branch is canned, and its directory is the slug of that name.
+    env.but("--json worktree new")
+        .assert()
+        .success()
+        .stderr_eq(snapbox::str![])
+        .stdout_eq(
+            snapbox::str![[r#"
+{
+  "name": "a-branch-1",
+  "path": "[..]/.git/gb-wts/a-branch-1",
+  "refName": "refs/heads/a-branch-1",
+  "base": "0dc37334a458df421bf67ea806103bf5004845dd"
+}
+"#]]
+            .is_json(),
+        );
+    env.but("worktree list --active")
+        .assert()
+        .success()
+        .stderr_eq(snapbox::str![])
+        .stdout_eq(snapbox::str![[r#"
+Active worktrees
+br a-branch-1 - [..]/.git/gb-wts/a-branch-1
+at feature-one (refs/heads/Feature/One) - [..]/.git/gb-wts/feature-one
+
+"#]]);
+    env.but("status")
+        .assert()
+        .success()
+        .stderr_eq(snapbox::str![])
+        .stdout_eq(snapbox::str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┊╭┄ g0 [A]
+┊●   tpm add A
+├╯
+┊
+┊╭┄ h0 [B]
+┊●   lrm add B
+├╯
+┊
+┊╭┄ br:@ {worktree uncommitted} (no changes)
+┊├┄ br {a-branch-1}
+├╯
+┊
+┊╭┄ at:@ {worktree uncommitted} (no changes)
+┊├┄ at {Feature/One}
+├╯
+┊
+┴ 0dc3733 (common base) 2000-01-02 add M
+
+Hint: run `but help` for all commands
+
+"#]]);
+
+    let ctx = env.context();
+    let (_guard, repo, ws, _db) = ctx.workspace_and_db().unwrap();
+    let base = ws.highest_base().expect("the sandbox has a target");
+    assert_eq!(
+        repo.find_reference("Feature/One")
+            .unwrap()
+            .peel_to_id()
+            .unwrap()
+            .detach(),
+        base,
+        "the branch starts where the applied stacks rest"
+    );
+
+    // Names are validated like `but branch new`, and git refuses what already exists.
+    env.but("worktree new A")
+        .assert()
+        .failure()
+        .stdout_eq(snapbox::str![])
+        .stderr_eq(snapbox::str![[r#"
+Error: A branch named 'A' is already applied
+
+"#]]);
+    env.but("worktree new feature-one")
+        .env("LC_ALL", "C")
+        .assert()
+        .failure()
+        .stdout_eq(snapbox::str![])
+        .stderr_eq(snapbox::str![[r#"
+Error: '[..]/.git/gb-wts/feature-one' already exists
 
 "#]]);
 }

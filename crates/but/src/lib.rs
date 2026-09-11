@@ -995,6 +995,10 @@ async fn dispatch_subcommand(
                     let outcome = command::worktree::remove::remove(&mut ctx, &worktree, force)?;
                     out.print_cli_output(outcome)?;
                 }
+                worktree::Subcommands::New { name } => {
+                    let outcome = command::worktree::new::new(&mut ctx, name.as_ref())?;
+                    out.print_cli_output(outcome)?;
+                }
             }
             None
         }
