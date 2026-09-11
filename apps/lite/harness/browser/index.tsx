@@ -1,3 +1,4 @@
+import { watchReviewState } from "#ui/review-state.ts";
 // oxlint-disable react/only-export-components -- The composition root hosts its helper components by design.
 /**
  * The harness panel's composition root: builds the api over the plugin
@@ -145,8 +146,10 @@ export default function createPanel({
 		);
 	};
 
+	let stopWatchingReviewState: (() => void) | undefined;
 	return {
 		mount: (container) => {
+			stopWatchingReviewState = watchReviewState(queryClient);
 			root = createRoot(container);
 			render();
 		},
@@ -154,6 +157,7 @@ export default function createPanel({
 			render();
 		},
 		unmount: () => {
+			stopWatchingReviewState?.();
 			// Closing the panel is not a navigation, so the route's onLeave never
 			// runs; the binding calls watcherStopAll host-side instead.
 			root?.unmount();

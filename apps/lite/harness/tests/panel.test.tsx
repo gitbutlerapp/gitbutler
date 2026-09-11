@@ -1,5 +1,7 @@
-import type { WatcherEvent, WorktreeChanges } from "@gitbutler/but-sdk";
-import { expect, test, vi } from "vitest";
+import "fake-indexeddb/auto";
+import * as idb from "idb-keyval";
+import type { ForgeReview, WatcherEvent, WorktreeChanges } from "@gitbutler/but-sdk";
+import { beforeEach, expect, test, vi } from "vitest";
 import createPanel from "../browser/index.tsx";
 import { createFakeTransport, createWatcherHandlers, type FakeHandlers } from "./fake-transport.ts";
 import {
@@ -29,24 +31,20 @@ const PROJECT_ID = "fixture-project";
  */
 const settle = { timeout: 15_000 } as const;
 
-/**
- * @param seenMarks watermarks to start from, as the app would have stamped on
- * an earlier run. Local storage is shared across the tests in this file, so it
- * is cleared either way.
- */
-/** The inbox as the detector wrote it, straight from the store's key. */
-const inboxEntries = (): Array<{
-	kind: string;
-	review: number;
-	author: string | null;
-	seen: boolean;
-}> =>
-	JSON.parse(localStorage.getItem(`pr_activity_inbox:v1:${PROJECT_ID}`) ?? "[]") as Array<{
-		kind: string;
-		review: number;
-		author: string | null;
-		seen: boolean;
-	}>;
+beforeEach(() => idb.clear());
+
+const inboxEntries = async () =>
+	(
+		await idb.get<{
+			inbox: Array<{ kind: string; review: number; author: string | null; seen: boolean }>;
+		}>(`pr_activity:v1:${PROJECT_ID}`)
+	)?.inbox ?? [];
+
+const waitForBaseline = (review: ForgeReview) =>
+	vi.waitFor(async () => {
+		const state = await idb.get<{ marks: Record<number, string> }>(`pr_activity:v1:${PROJECT_ID}`);
+		expect(state?.marks[review.number]).toBe(review.modifiedAt);
+	}, settle);
 
 const mountPanel = (handlers: FakeHandlers, seenMarks?: Record<number, string>) => {
 	localStorage.clear();
@@ -183,10 +181,9 @@ test("someone else's review activity files one coalesced inbox entry and the unr
 		listReviewTimelineEvents: () => [],
 	});
 
-	// The PR chip proves the baseline listing landed; nothing is filed yet —
-	// history must never replay as notifications.
-	await vi.waitFor(() => expect(panel.container.textContent).toContain("PR"), settle);
-	expect(inboxEntries()).toHaveLength(0);
+	// Hydrate and stamp the first listing before simulating the next poll.
+	await waitForBaseline(review);
+	expect(await inboxEntries()).toHaveLength(0);
 
 	// Someone comments; the forge bumps the review and a fetch notices.
 	review = { ...review, modifiedAt: "2026-01-01T11:00:00Z" };
@@ -207,8 +204,8 @@ test("someone else's review activity files one coalesced inbox entry and the unr
 	panel.push(eventChannel, event);
 
 	// One coalesced, attributed inbox entry.
-	await vi.waitFor(() => expect(inboxEntries()).toHaveLength(1), settle);
-	expect(inboxEntries()[0]).toMatchObject({ kind: "comment", review: 7, author: "alice" });
+	await vi.waitFor(async () => expect(await inboxEntries()).toHaveLength(1), settle);
+	expect((await inboxEntries())[0]).toMatchObject({ kind: "comment", review: 7, author: "alice" });
 
 	panel.unmount();
 });
@@ -233,7 +230,7 @@ test("a mention left on a diff line is filed like any other", async () => {
 		listReviewTimelineEvents: () => [],
 	});
 
-	await vi.waitFor(() => expect(panel.container.textContent).toContain("PR"), settle);
+	await waitForBaseline(review);
 
 	review = { ...review, modifiedAt: "2026-01-01T11:00:00Z" };
 	threads = [
@@ -266,7 +263,7 @@ test("a mention left on a diff line is filed like any other", async () => {
 	panel.push(eventChannel, event);
 
 	await vi.waitFor(
-		() => expect(inboxEntries()[0]).toMatchObject({ kind: "mention", review: 7 }),
+		async () => expect((await inboxEntries())[0]).toMatchObject({ kind: "mention", review: 7 }),
 		settle,
 	);
 
@@ -297,7 +294,7 @@ test("a mention toasts even when the review's branch is not in the workspace", a
 		listReviewTimelineEvents: () => [],
 	});
 
-	await vi.waitFor(() => expect(panel.container.textContent).toContain("PR"), settle);
+	await waitForBaseline(outside);
 
 	outside = { ...outside, modifiedAt: "2026-01-01T11:00:00Z" };
 	comments = [
@@ -319,8 +316,10 @@ test("a mention toasts even when the review's branch is not in the workspace", a
 	} satisfies WatcherEvent);
 
 	await vi.waitFor(
-		() =>
-			expect(inboxEntries().find((entry) => entry.review === 8)).toMatchObject({ kind: "mention" }),
+		async () =>
+			expect((await inboxEntries()).find((entry) => entry.review === 8)).toMatchObject({
+				kind: "mention",
+			}),
 		settle,
 	);
 
@@ -347,11 +346,9 @@ test("loud activity is offered to the desktop, and its click lands on the entry"
 			shown.push(notice);
 		},
 	});
-	await vi.waitFor(() => expect(panel.container.textContent).toContain("PR"), settle);
+	await waitForBaseline(review);
 
 	review = { ...review, modifiedAt: "2026-01-01T12:00:00Z" };
-	// Its own minute: entry ids carry the time, and the inbox module keeps an
-	// in-memory copy across tests that would file a repeat id as old news.
 	comments = [
 		{
 			id: 3,
@@ -380,7 +377,10 @@ test("loud activity is offered to the desktop, and its click lands on the entry"
 	const [notice] = shown;
 	if (notice === undefined) throw new Error("no notice shown");
 	panel.push("notificationClick", notice.id);
-	await vi.waitFor(() => expect(inboxEntries()[0]).toMatchObject({ seen: true }), settle);
+	await vi.waitFor(
+		async () => expect((await inboxEntries())[0]).toMatchObject({ seen: true }),
+		settle,
+	);
 
 	panel.unmount();
 });

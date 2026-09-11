@@ -1,12 +1,3 @@
-/**
- * @file Which review activity the user has seen.
- *
- * One watermark per review — "everything up to this `modifiedAt` has been
- * seen" — in local storage: disposable, per-machine, and synchronous, so a
- * plain external store rather than a query. Every hook returns a primitive,
- * so React skips the render when a write leaves it unchanged.
- */
-
 import {
 	currentForgeLoginQueryOptions,
 	forgeInfoOptions,
@@ -14,8 +5,21 @@ import {
 	listReviewsQueryOptions,
 } from "#ui/api/queries.ts";
 import { defaultSettings } from "#ui/settings.ts";
-import { useQuery } from "@tanstack/react-query";
-import { createContext, useEffect, useEffectEvent, useState, useSyncExternalStore } from "react";
+import {
+	useQuery,
+	useQueryClient,
+	useSuspenseQuery,
+	type QueryClient,
+} from "@tanstack/react-query";
+import {
+	reviewStateQueryOptions,
+	updateReviewState,
+	unseenCap,
+	type ReviewState,
+	type SeenMarks,
+	type UnseenEntries,
+} from "#ui/review-state.ts";
+import { createContext, useEffect, useEffectEvent, useState } from "react";
 
 /**
  * The PR-notifications dial: loud files activity into the bell, quiet
@@ -38,117 +42,6 @@ export const useDesktopNotifications = (): boolean => {
 	return enabled ?? defaultSettings.desktopNotifications;
 };
 
-/** Watermark by review number, as the ISO stamps the forge reports. */
-type SeenMarks = Record<number, string>;
-
-const storageKey = (projectId: string) => `pr_activity_seen:v1:${projectId}`;
-
-const listeners = new Set<() => void>();
-// Snapshot reads are pure in-memory lookups — a write fans out to one per
-// branch row. Storage is touched only on a miss, a write, or invalidation.
-let cached: { key: string; marks: SeenMarks } | null = null;
-
-// Storage can throw — disabled, partitioned, or over quota — and a throw
-// here would crash every subscriber's render. Tracking degrades instead.
-const storageGet = (key: string): string | null => {
-	try {
-		return localStorage.getItem(key);
-	} catch {
-		return null;
-	}
-};
-const storageSet = (key: string, value: string): void => {
-	try {
-		localStorage.setItem(key, value);
-	} catch {
-		// The in-memory copy still serves this session.
-	}
-};
-
-/**
- * Only valid watermarks survive the parse: a foreign entry or unparseable
- * stamp would baseline the detector at epoch and replay history as news.
- */
-const parseMarks = (raw: string | null): SeenMarks => {
-	if (raw === null) return {};
-	try {
-		const stored: unknown = JSON.parse(raw);
-		if (typeof stored !== "object" || stored === null || Array.isArray(stored)) return {};
-		const marks: SeenMarks = {};
-		for (const [number, seen] of Object.entries(stored)) {
-			if (typeof seen === "string" && /^\d+$/.test(number) && !Number.isNaN(Date.parse(seen)))
-				marks[Number(number)] = seen;
-		}
-		return marks;
-	} catch {
-		return {};
-	}
-};
-
-const readMarks = (projectId: string): SeenMarks => {
-	const key = storageKey(projectId);
-	if (cached?.key === key) return cached.marks;
-	const marks = parseMarks(storageGet(key));
-	cached = { key, marks };
-	return marks;
-};
-
-/**
- * Items the reader jumped over: below the watermark yet still unread. The
- * complement is stored on purpose — a list of *read* items would grow with
- * everything ever read once one stubborn item pinned the mark, while skipped
- * items stay few by nature and dropping one merely reads as seen.
- */
-type UnseenEntries = Record<number, Array<[key: string, at: string]>>;
-
-const unseenStorageKey = (projectId: string) => `pr_activity_unseen:v1:${projectId}`;
-let cachedUnseen: { key: string; entries: UnseenEntries } | null = null;
-
-/** Skipped items per review, oldest first; dropping the overflow reads as seen. */
-const unseenCap = 50;
-
-const parseUnseen = (raw: string | null): UnseenEntries => {
-	if (raw === null) return {};
-	try {
-		const stored: unknown = JSON.parse(raw);
-		if (typeof stored !== "object" || stored === null || Array.isArray(stored)) return {};
-		const entries: UnseenEntries = {};
-		for (const [number, list] of Object.entries(stored)) {
-			if (!/^\d+$/.test(number) || !Array.isArray(list)) continue;
-			const kept = list.filter(
-				(entry): entry is [string, string] =>
-					Array.isArray(entry) &&
-					typeof entry[0] === "string" &&
-					typeof entry[1] === "string" &&
-					!Number.isNaN(Date.parse(entry[1])),
-			);
-			// The newest survive the cap, as the writer keeps them.
-			if (kept.length > 0) entries[Number(number)] = kept.slice(-unseenCap);
-		}
-		return entries;
-	} catch {
-		return {};
-	}
-};
-
-const readUnseen = (projectId: string): UnseenEntries => {
-	const key = unseenStorageKey(projectId);
-	if (cachedUnseen?.key === key) return cachedUnseen.entries;
-	const entries = parseUnseen(storageGet(key));
-	cachedUnseen = { key, entries };
-	return entries;
-};
-
-const setUnseen = (projectId: string, entries: UnseenEntries): void => {
-	storageSet(unseenStorageKey(projectId), JSON.stringify(entries));
-	cachedUnseen = { key: unseenStorageKey(projectId), entries };
-};
-
-const writeUnseen = (projectId: string, entries: UnseenEntries): void => {
-	setUnseen(projectId, entries);
-	notify();
-};
-
 /**
  * What the PR view is showing, so the dwell knows which items above the old
  * watermark were on offer, and which the reader already looked at. In memory
@@ -160,8 +53,8 @@ const pendingSeen = new Map<string, Set<string>>();
 const reviewSlot = (projectId: string, reviewNumber: number) => `${projectId}:${reviewNumber}`;
 
 /** Whether one item is recorded as skipped — unread below the watermark. */
-export const isItemSkipped = (projectId: string, reviewNumber: number, key: string): boolean =>
-	(readUnseen(projectId)[reviewNumber] ?? []).some(([k]) => k === key);
+export const isItemSkipped = (state: ReviewState, reviewNumber: number, key: string): boolean =>
+	(state.unseen[reviewNumber] ?? []).some(([k]) => k === key);
 
 /**
  * Tell the store which unread-eligible items one surface of the review is
@@ -199,78 +92,34 @@ export const unregisterReviewItems = (
  * One item was actually looked at. Before the dwell has advanced the
  * watermark it pre-empts the skip; after, it clears the skip.
  */
-export const markItemSeen = (projectId: string, reviewNumber: number, key: string): void => {
-	const entries = readUnseen(projectId);
-	const skipped = entries[reviewNumber];
-	if (skipped?.some(([k]) => k === key)) {
-		const next = { ...entries };
+export const markItemSeen = async (
+	client: QueryClient,
+	projectId: string,
+	reviewNumber: number,
+	key: string,
+): Promise<void> => {
+	const cached = client.getQueryData(reviewStateQueryOptions(projectId).queryKey);
+	// Register pre-dwell reads synchronously, before the storage write can yield.
+	if (cached === undefined || !isItemSkipped(cached, reviewNumber, key)) {
+		const slot = reviewSlot(projectId, reviewNumber);
+		const pending = pendingSeen.get(slot) ?? new Set<string>();
+		pending.add(key);
+		pendingSeen.set(slot, pending);
+	}
+	await updateReviewState(client, projectId, (state) => {
+		const skipped = state.unseen[reviewNumber];
+		if (!skipped?.some(([k]) => k === key)) return state;
+		const unseen = { ...state.unseen };
 		const kept = skipped.filter(([k]) => k !== key);
-		if (kept.length > 0) next[reviewNumber] = kept;
-		else delete next[reviewNumber];
-		writeUnseen(projectId, next);
-		return;
-	}
-	const slot = reviewSlot(projectId, reviewNumber);
-	const pending = pendingSeen.get(slot) ?? new Set<string>();
-	pending.add(key);
-	pendingSeen.set(slot, pending);
+		if (kept.length > 0) unseen[reviewNumber] = kept;
+		else delete unseen[reviewNumber];
+		return { ...state, unseen };
+	});
 };
-
-const notify = (): void => {
-	for (const listener of listeners) listener();
-};
-
-const writeMarks = (projectId: string, marks: SeenMarks): void => {
-	storageSet(storageKey(projectId), JSON.stringify(marks));
-	cached = { key: storageKey(projectId), marks };
-	notify();
-};
-
-let watchingStorage = false;
-
-/** A write from another window arrives as a storage event. */
-const onStorage = (event: StorageEvent): void => {
-	// A null key is a wholesale clear; anything else outside this feature's
-	// keys is someone else's business.
-	if (event.key !== null && !event.key.startsWith("pr_activity_")) return;
-	cached = null;
-	cachedUnseen = null;
-	notify();
-};
-
-const subscribeMarks = (listener: () => void): (() => void) => {
-	// On first use, so merely importing this module listens to nothing.
-	if (!watchingStorage) {
-		watchingStorage = true;
-		window.addEventListener("storage", onStorage);
-	}
-	// A first subscriber is a fresh surface: re-read whatever storage holds.
-	if (listeners.size === 0) {
-		cached = null;
-		cachedUnseen = null;
-	}
-	listeners.add(listener);
-	return () => listeners.delete(listener);
-};
-
-/** A disabled hook stays out of the fan-out entirely. */
-const subscribeNothing = (): (() => void) => () => {};
-
-/** The stored watermarks, for the activity detector's startup baseline. */
-export const readSeenMarks = (projectId: string): Record<number, string> => readMarks(projectId);
 
 /** Whether activity at `modifiedAt` is newer than the watermark. */
 const pastMark = (modifiedAt: string | null, seen: string | undefined): boolean =>
 	modifiedAt !== null && seen !== undefined && Date.parse(modifiedAt) > Date.parse(seen);
-
-/** Unread: the review moved past the watermark, or skipped items remain. */
-const isUnread = (
-	projectId: string,
-	number: number,
-	modifiedAt: string | null,
-	marks: SeenMarks,
-): boolean =>
-	pastMark(modifiedAt, marks[number]) || (readUnseen(projectId)[number]?.length ?? 0) > 0;
 
 /**
  * Whether one review has unread activity — a boolean, so a watermark moving
@@ -282,9 +131,13 @@ const useReviewUnread = (
 	enabled: boolean,
 ): boolean => {
 	const { number, modifiedAt } = review;
-	return useSyncExternalStore(enabled ? subscribeMarks : subscribeNothing, () =>
-		enabled ? isUnread(projectId, number, modifiedAt, readMarks(projectId)) : false,
-	);
+	const { data: unread = false } = useQuery({
+		...reviewStateQueryOptions(projectId),
+		enabled,
+		select: (state) =>
+			pastMark(modifiedAt, state.marks[number]) || (state.unseen[number]?.length ?? 0) > 0,
+	});
+	return enabled && unread;
 };
 
 /**
@@ -293,8 +146,8 @@ const useReviewUnread = (
  * after first sight count as unread. Mounted once per project surface.
  */
 export const useStampReviewsSeen = (projectId: string): void => {
+	const client = useQueryClient();
 	const { data: forgeInfo } = useQuery(forgeInfoOptions(projectId));
-	// Unconditional: behind `&&` the hook count would change mid-mount.
 	const level = usePrNotificationsLevel();
 	const enabled = !!forgeInfo?.capabilities.prService && level !== "off";
 	const { data: listed } = useQuery({
@@ -306,28 +159,28 @@ export const useStampReviewsSeen = (projectId: string): void => {
 	});
 
 	const reconcile = useEffectEvent((reviews: NonNullable<typeof listed>) => {
-		const marks = readMarks(projectId);
-		const next: SeenMarks = {};
-		let stamped = false;
-		for (const { number, modifiedAt } of reviews) {
-			const seen = marks[number];
-			if (seen !== undefined) {
-				next[number] = seen;
-			} else if (modifiedAt !== null) {
-				next[number] = modifiedAt;
-				stamped = true;
+		void updateReviewState(client, projectId, (state) => {
+			const { marks, unseen } = state;
+			const next: SeenMarks = {};
+			let stamped = false;
+			for (const { number, modifiedAt } of reviews) {
+				const seen = marks[number];
+				if (seen !== undefined) {
+					next[number] = seen;
+				} else if (modifiedAt !== null) {
+					next[number] = modifiedAt;
+					stamped = true;
+				}
 			}
-		}
-		// A mark whose review is gone from the listing is dead weight.
-		const pruned = Object.keys(next).length !== Object.keys(marks).length;
-		if (stamped || pruned) writeMarks(projectId, next);
-
-		const unseen = readUnseen(projectId);
-		const keptUnseen: UnseenEntries = {};
-		for (const [number, entries] of Object.entries(unseen))
-			if (Number(number) in next) keptUnseen[Number(number)] = entries;
-		if (Object.keys(keptUnseen).length !== Object.keys(unseen).length)
-			writeUnseen(projectId, keptUnseen);
+			// A mark whose review is gone from the listing is dead weight.
+			const pruned = Object.keys(next).length !== Object.keys(marks).length;
+			const keptUnseen: UnseenEntries = {};
+			for (const [number, entries] of Object.entries(unseen))
+				if (Number(number) in next) keptUnseen[Number(number)] = entries;
+			return stamped || pruned || Object.keys(keptUnseen).length !== Object.keys(unseen).length
+				? { ...state, marks: next, unseen: keptUnseen }
+				: state;
+		});
 	});
 
 	useEffect(() => {
@@ -356,11 +209,14 @@ export const SeenOnArrivalContext = createContext<SeenOnArrival>({
  * must not vanish under the reader. The next visit starts clean.
  */
 export const useSeenOnArrival = (projectId: string, reviewNumber: number): SeenOnArrival => {
+	const { data: mark } = useSuspenseQuery({
+		...reviewStateQueryOptions(projectId),
+		select: (state) => state.marks[reviewNumber] ?? null,
+	});
 	const { data: selfLogin } = useQuery(currentForgeLoginQueryOptions(projectId));
 	const level = usePrNotificationsLevel();
 	const [sinceMs] = useState(() => {
-		const mark = readMarks(projectId)[reviewNumber];
-		const ms = mark === undefined ? Number.NaN : Date.parse(mark);
+		const ms = mark === null ? Number.NaN : Date.parse(mark);
 		// No watermark means the review was never tracked; nothing is new.
 		return Number.isNaN(ms) ? Infinity : ms;
 	});
@@ -376,28 +232,42 @@ export const useSeenOnArrival = (projectId: string, reviewNumber: number): SeenO
  *
  * @public exported for the store transitions in the test suite.
  */
-export const markReviewSeen = (projectId: string, number: number, modifiedAt: string): void => {
-	const floor = readMarks(projectId)[number];
-	const floorMs = floor === undefined ? Infinity : Date.parse(floor);
+export const markReviewSeen = async (
+	client: QueryClient,
+	projectId: string,
+	number: number,
+	modifiedAt: string,
+): Promise<void> => {
 	const slot = reviewSlot(projectId, number);
 	const pending = pendingSeen.get(slot) ?? new Set<string>();
-	const skipped = new Map((readUnseen(projectId)[number] ?? []).map(([k, at]) => [k, at]));
-	for (const item of [...(shownItems.get(slot)?.values() ?? [])].flat()) {
-		if (item.atMs > floorMs && !pending.has(item.key) && !skipped.has(item.key))
-			skipped.set(item.key, new Date(item.atMs).toISOString());
-	}
 	pendingSeen.delete(slot);
-	const entries = [...skipped]
-		.sort(([, a], [, b]) => Date.parse(a) - Date.parse(b))
-		// Beyond the cap the oldest are dropped: reading as seen is the safe
-		// failure, and a skip that old was never getting read.
-		.slice(-unseenCap);
-	const nextUnseen = { ...readUnseen(projectId) };
-	if (entries.length > 0) nextUnseen[number] = entries;
-	else delete nextUnseen[number];
-	// One notify for both writes: each fans out to a snapshot per row.
-	setUnseen(projectId, nextUnseen);
-	writeMarks(projectId, { ...readMarks(projectId), [number]: modifiedAt });
+	const offered = [...(shownItems.get(slot)?.values() ?? [])].flat();
+	await updateReviewState(client, projectId, (state) => {
+		const floor = state.marks[number];
+		const floorMs = floor === undefined ? Infinity : Date.parse(floor);
+		const skipped = new Map((state.unseen[number] ?? []).map(([k, at]) => [k, at]));
+		for (const item of offered) {
+			if (item.atMs > floorMs && !pending.has(item.key) && !skipped.has(item.key))
+				skipped.set(item.key, new Date(item.atMs).toISOString());
+		}
+		const entries = [...skipped]
+			.sort(([, a], [, b]) => Date.parse(a) - Date.parse(b))
+			// Beyond the cap the oldest are dropped: reading as seen is the safe
+			// failure, and a skip that old was never getting read.
+			.slice(-unseenCap);
+		const nextUnseen = { ...state.unseen };
+		if (entries.length > 0) nextUnseen[number] = entries;
+		else delete nextUnseen[number];
+		return {
+			...state,
+			unseen: nextUnseen,
+			marks: {
+				...state.marks,
+				[number]:
+					floor !== undefined && Date.parse(floor) > Date.parse(modifiedAt) ? floor : modifiedAt,
+			},
+		};
+	});
 };
 
 /**
@@ -406,12 +276,12 @@ export const markReviewSeen = (projectId: string, number: number, modifiedAt: st
  * may already have moved it further — and the review's skips at or before
  * that newest stamp are dropped. A skip after it is still unread.
  */
-export const markReviewsSeenUpTo = (
-	projectId: string,
+export const reviewsSeenUpTo = (
+	state: ReviewState,
 	latest: Iterable<readonly [number, string]>,
-): void => {
-	const marks = { ...readMarks(projectId) };
-	const unseen = { ...readUnseen(projectId) };
+): ReviewState => {
+	const marks = { ...state.marks };
+	const unseen = { ...state.unseen };
 	let marksChanged = false;
 	let unseenChanged = false;
 	// Order-free: the advance is monotonic and the skip filters compose, so
@@ -431,10 +301,7 @@ export const markReviewsSeenUpTo = (
 		else delete unseen[number];
 		unseenChanged = true;
 	}
-	// One notify for both writes, as in `markReviewSeen`.
-	if (unseenChanged) setUnseen(projectId, unseen);
-	if (marksChanged) writeMarks(projectId, marks);
-	else if (unseenChanged) notify();
+	return marksChanged || unseenChanged ? { ...state, marks, unseen } : state;
 };
 
 /** A beat, so flicking past a review does not eat its unread state. */
@@ -450,13 +317,14 @@ export const useMarkReviewSeenOnView = (
 	review: { number: number; modifiedAt: string | null },
 	enabled: boolean,
 ): void => {
+	const client = useQueryClient();
 	const { number, modifiedAt } = review;
 	// Nothing unread means nothing to write, on remount or with tracking off.
 	const behind = useReviewUnread(projectId, review, enabled);
 
 	const mark = useEffectEvent(() => {
 		if (modifiedAt === null || !behind || !document.hasFocus()) return;
-		markReviewSeen(projectId, number, modifiedAt);
+		void markReviewSeen(client, projectId, number, modifiedAt);
 	});
 
 	// `behind` in the deps re-arms the dwell once the watermarks load.

@@ -1,3 +1,6 @@
+import { useQueryClient } from "@tanstack/react-query";
+import { reviewStateQueryOptions } from "#ui/review-state.ts";
+import { sameLogin } from "#ui/review-users.ts";
 /**
  * @file Marking what arrived since the user last looked.
  *
@@ -47,19 +50,18 @@ export const FreshBadge: FC<{
 	itemKey?: string;
 }> = ({ timestamp, author, itemKey }) => {
 	const { sinceMs, selfLogin, projectId, reviewNumber } = useContext(SeenOnArrivalContext);
+	const client = useQueryClient();
 	const ref = useRef<HTMLSpanElement | null>(null);
 	// Decided at mount and held: store writes must not pull the marker out
 	// from under the reader mid-visit. The next visit re-decides.
 	const [show] = useState(() => {
 		// The reader's own actions post-date arrival by definition; not news.
-		const own =
-			author != null &&
-			selfLogin !== null &&
-			author.login.toLowerCase() === selfLogin.toLowerCase();
+		const own = sameLogin(author?.login, selfLogin);
 		if (own || timestamp === null) return false;
+		const state = client.getQueryData(reviewStateQueryOptions(projectId).queryKey);
 		return (
 			timestamp > sinceMs ||
-			(itemKey !== undefined && isItemSkipped(projectId, reviewNumber, itemKey))
+			(itemKey !== undefined && state !== undefined && isItemSkipped(state, reviewNumber, itemKey))
 		);
 	});
 
@@ -71,7 +73,7 @@ export const FreshBadge: FC<{
 		const arm = () => {
 			clearTimeout(timer);
 			timer = window.setTimeout(() => {
-				if (document.hasFocus()) markItemSeen(projectId, reviewNumber, itemKey);
+				if (document.hasFocus()) void markItemSeen(client, projectId, reviewNumber, itemKey);
 			}, seenBeatMs);
 		};
 		const observer = new IntersectionObserver(([entry]) => {
@@ -90,7 +92,7 @@ export const FreshBadge: FC<{
 			observer.disconnect();
 			window.removeEventListener("focus", onFocus);
 		};
-	}, [show, itemKey, projectId, reviewNumber]);
+	}, [show, itemKey, projectId, reviewNumber, client]);
 
 	if (!show) return null;
 	return (

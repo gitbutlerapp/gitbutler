@@ -37,7 +37,8 @@ type LocalQueryKey =
 	| "prMergeMethod"
 	| "prDraft"
 	| "projectAiSettings"
-	| "reviewedFiles";
+	| "reviewedFiles"
+	| "reviewState";
 
 export type QueryKeyPrefix =
 	| [projectId: string, ProjectQueryKey]
