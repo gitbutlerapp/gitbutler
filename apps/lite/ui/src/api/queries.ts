@@ -616,9 +616,15 @@ export const listCIChecksQueryOptions = ({
 		},
 	});
 
+// This matches but_core::unified_diff::filter_from_state: only a null destination
+// object ID reads file content (and attributes) from disk rather than Git.
+const readsWorktree = ({ status }: TreeChange): boolean =>
+	status.type !== "Deletion" && /^0+$/.test(status.subject.state.id);
+
 export const treeChangeDiffsQueryOptions = ({ projectId, change }: PayloadFor<"treeChangeDiffs">) =>
 	queryOptions({
 		queryKey: [projectId, "treeChangeDiffs", change],
+		meta: { readsWorktree: readsWorktree(change) },
 		queryFn: () => window.lite.treeChangeDiffs({ projectId, change }),
 	});
 
@@ -633,7 +639,10 @@ export const treeChangeDiffsQueryOptions = ({ projectId, change }: PayloadFor<"t
  * scope it was computed for, so an array reused under another project or worktree, as a shared
  * empty one is, hashes again rather than colliding.
  */
-const treeChangeDiffHashes = new WeakMap<Array<TreeChange>, { scope: string; hash: string }>();
+const treeChangeDiffHashes = new WeakMap<
+	Array<TreeChange>,
+	{ scope: string; hash: string; readsWorktree: boolean }
+>();
 
 export const treeChangesDiffsQueryOptions = ({
 	projectId,
@@ -648,16 +657,16 @@ export const treeChangesDiffsQueryOptions = ({
 	const queryKey = [projectId, "treeChangeDiffs", worktree, changes] as const;
 
 	const scope = `${projectId}:${worktree ?? ""}`;
-	const cached = treeChangeDiffHashes.get(changes);
-	let queryHash = cached?.scope === scope ? cached.hash : undefined;
-	if (queryHash === undefined) {
-		queryHash = hashKey(queryKey);
-		treeChangeDiffHashes.set(changes, { scope, hash: queryHash });
+	let cached = treeChangeDiffHashes.get(changes);
+	if (cached?.scope !== scope) {
+		cached = { scope, hash: hashKey(queryKey), readsWorktree: changes.some(readsWorktree) };
+		treeChangeDiffHashes.set(changes, cached);
 	}
 
 	return queryOptions({
 		queryKey,
-		queryHash,
+		queryHash: cached.hash,
+		meta: { readsWorktree: cached.readsWorktree },
 		queryFn: experimental_streamedQuery<Array<UnifiedPatch | null>, Array<UnifiedPatch | null>>({
 			initialValue: [],
 			refetchMode: "replace",

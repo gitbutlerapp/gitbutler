@@ -162,6 +162,9 @@ but_schemars::register_sdk_type!(WatcherExternalInvalidationPayload);
 #[derive(Debug, Clone, Serialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct WatcherWorktreeChangesPayload {
+    /// Worktree-relative paths that triggered the event, using the same lossy
+    /// encoding as UI change paths. Empty for index changes or unknown paths.
+    pub changed_paths: Vec<String>,
     /// The file changes in the repository.
     pub changes: WorktreeChanges,
 }

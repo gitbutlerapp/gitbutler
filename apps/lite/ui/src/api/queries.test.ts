@@ -2,8 +2,17 @@ import {
 	getReviewMergeStatusQueryOptions,
 	listCIChecksQueryOptions,
 	treeChangesDiffsQueryOptions,
+	treeChangeDiffsQueryOptions,
 } from "#ui/api/queries.ts";
-import type { CiCheck, ReviewMergeStatus, TreeChange } from "@gitbutler/but-sdk";
+import { handleProjectEvent } from "#ui/project-events.ts";
+import { invalidateTags } from "#ui/api/tags.ts";
+import type {
+	CiCheck,
+	ReviewMergeStatus,
+	TreeChange,
+	TreeStatus,
+	WatcherEvent,
+} from "@gitbutler/but-sdk";
 import { QueryClient, QueryObserver } from "@tanstack/react-query";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
@@ -147,5 +156,185 @@ describe("treeChangesDiffsQueryOptions", () => {
 		expect(worktree.queryHash).not.toBe(main);
 		expect(elsewhere.queryHash).not.toBe(main);
 		expect(treeChangesDiffsQueryOptions({ projectId: "p1", changes }).queryHash).toBe(main);
+	});
+});
+
+describe("diffs after file events", () => {
+	const change = (id: string): TreeChange => ({
+		path: "file.txt",
+		pathBytes: [102, 105, 108, 101, 46, 116, 120, 116],
+		status: {
+			type: "Modification",
+			subject: {
+				previousState: { id: "a".repeat(40), kind: "Blob" },
+				state: { id, kind: "Blob" },
+				flags: null,
+			},
+		},
+	});
+	const fileEvent = {
+		name: "project://p1/worktree_changes",
+		payload: {
+			type: "worktreeChanges",
+			subject: {
+				changedPaths: ["file.txt"],
+				changes: {
+					changes: [],
+					ignoredChanges: [],
+					modificationTimes: {},
+					assignments: [],
+					assignmentsError: null,
+					dependencies: null,
+					dependenciesError: null,
+				},
+			},
+		},
+	} satisfies WatcherEvent;
+
+	const state = { id: "b".repeat(40), kind: "Blob" } as const;
+	const previousState = { ...state, id: "a".repeat(40) };
+	it.each<TreeStatus>([
+		{ type: "Addition", subject: { state, isUntracked: false } },
+		{ type: "Deletion", subject: { previousState } },
+		{ type: "Modification", subject: { state, previousState, flags: null } },
+		{
+			type: "Rename",
+			subject: {
+				state,
+				previousState,
+				previousPath: "old.txt",
+				previousPathBytes: [],
+				flags: null,
+			},
+		},
+	])(
+		"leaves blob $type diffs alone during file churn, but still honors other invalidations",
+		async (status) => {
+			const client = new QueryClient({ defaultOptions: { queries: { staleTime: Infinity } } });
+			const treeChangeDiffs = vi.fn().mockResolvedValue(null);
+			vi.stubGlobal("window", { lite: { treeChangeDiffs } });
+			vi.stubGlobal("navigator", { hardwareConcurrency: 2 });
+			const options = treeChangesDiffsQueryOptions({
+				projectId: "p1",
+				changes: [{ ...change(state.id), status }],
+			});
+			await client.fetchQuery(options);
+			const observer = new QueryObserver(client, options);
+			const unsubscribe = observer.subscribe(() => {});
+			try {
+				for (let i = 0; i < 3; i++) {
+					handleProjectEvent(fileEvent, "p1", client);
+					await vi.waitFor(() => expect(client.isFetching()).toBe(0));
+				}
+				expect(treeChangeDiffs).toHaveBeenCalledTimes(1);
+				await invalidateTags(client, ["Diffs"], "p1");
+				expect(treeChangeDiffs).toHaveBeenCalledTimes(2);
+				for (const payload of [
+					{ type: "gitActivity", subject: { headSha: "head" } },
+					{ type: "workspaceActivity", subject: null },
+				] as const) {
+					handleProjectEvent({ name: payload.type, payload }, "p1", client);
+					await vi.waitFor(() => expect(client.isFetching()).toBe(0));
+				}
+				expect(treeChangeDiffs).toHaveBeenCalledTimes(4);
+				for (const changedPaths of [[], undefined]) {
+					handleProjectEvent(
+						{
+							...fileEvent,
+							payload: {
+								...fileEvent.payload,
+								subject: { ...fileEvent.payload.subject, changedPaths },
+							},
+						} as WatcherEvent,
+						"p1",
+						client,
+					);
+					await vi.waitFor(() => expect(client.isFetching()).toBe(0));
+				}
+				expect(treeChangeDiffs).toHaveBeenCalledTimes(6);
+			} finally {
+				unsubscribe();
+				client.clear();
+			}
+		},
+	);
+
+	it.each([undefined, "linked"])(
+		"refreshes mixed live and blob diffs with unchanged descriptors in %s",
+		async (worktree) => {
+			const client = new QueryClient({ defaultOptions: { queries: { staleTime: Infinity } } });
+			const diff = vi.fn().mockResolvedValue(null);
+			vi.stubGlobal("window", { lite: { treeChangeDiffs: diff, treeChangeDiffsFromSource: diff } });
+			vi.stubGlobal("navigator", { hardwareConcurrency: 2 });
+			const options = treeChangesDiffsQueryOptions({
+				projectId: "p1",
+				changes: [change(state.id), change("0".repeat(40))],
+				worktree,
+			});
+			await client.fetchQuery(options);
+			const observer = new QueryObserver(client, options);
+			const unsubscribe = observer.subscribe(() => {});
+			diff.mockResolvedValue({ type: "Binary" });
+			try {
+				handleProjectEvent(fileEvent, "p1", client);
+				await vi.waitFor(() =>
+					expect(client.getQueryData(options.queryKey)).toEqual([
+						{ type: "Binary" },
+						{ type: "Binary" },
+					]),
+				);
+				expect(diff).toHaveBeenCalledTimes(4);
+			} finally {
+				unsubscribe();
+				client.clear();
+			}
+		},
+	);
+
+	it("does not restart a blob diff stream that has already published a batch", async () => {
+		const client = new QueryClient({ defaultOptions: { queries: { staleTime: Infinity } } });
+		const pending = Promise.withResolvers<null>();
+		const diff = vi.fn(({ change }: { change: TreeChange }) =>
+			change.path === "64" ? pending.promise : Promise.resolve(null),
+		);
+		vi.stubGlobal("window", { lite: { treeChangeDiffs: diff } });
+		vi.stubGlobal("navigator", { hardwareConcurrency: 2 });
+		const options = treeChangesDiffsQueryOptions({
+			projectId: "p1",
+			changes: Array.from({ length: 65 }, (_, i) => ({ ...change(state.id), path: String(i) })),
+		});
+		const observer = new QueryObserver(client, options);
+		const unsubscribe = observer.subscribe(() => {});
+		try {
+			await vi.waitFor(() => expect(client.getQueryData(options.queryKey)).toHaveLength(64));
+			handleProjectEvent(fileEvent, "p1", client);
+			pending.resolve(null);
+			await vi.waitFor(() => expect(client.isFetching()).toBe(0));
+			expect(client.getQueryData(options.queryKey)).toHaveLength(65);
+			expect(diff).toHaveBeenCalledTimes(65);
+		} finally {
+			pending.resolve(null);
+			unsubscribe();
+			client.clear();
+		}
+	});
+
+	it("filters single-file diffs and conservatively refreshes queries without metadata", async () => {
+		const client = new QueryClient();
+		const blob = treeChangeDiffsQueryOptions({ projectId: "p1", change: change(state.id) });
+		const live = treeChangeDiffsQueryOptions({ projectId: "p1", change: change("0".repeat(40)) });
+		const unknown = { queryKey: ["p1", "treeChangeDiffs", "unknown"] as const };
+		vi.stubGlobal("window", { lite: { treeChangeDiffs: vi.fn().mockResolvedValue(null) } });
+		await client.fetchQuery(blob);
+		await client.fetchQuery(live);
+		client.setQueryData(unknown.queryKey, null);
+		try {
+			handleProjectEvent(fileEvent, "p1", client);
+			expect(client.getQueryState(blob.queryKey)?.isInvalidated).toBe(false);
+			expect(client.getQueryState(live.queryKey)?.isInvalidated).toBe(true);
+			expect(client.getQueryState(unknown.queryKey)?.isInvalidated).toBe(true);
+		} finally {
+			client.clear();
+		}
 	});
 });
