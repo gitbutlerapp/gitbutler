@@ -30,7 +30,7 @@ pub fn create_branch(
     ctx.snapshot_create_dependent_branch(&normalized_name, guard.write_permission())
         .ok();
 
-    let (repo, mut ws, _) = ctx.workspace_mut_and_db_with_perm(guard.write_permission())?;
+    let (repo, ws, _) = ctx.workspace_mut_and_db_with_perm(guard.write_permission())?;
     let stack = ws.try_find_stack_by_id(stack_id)?;
     if request.preceding_head.is_some() {
         return Err(anyhow!(
@@ -38,7 +38,7 @@ pub fn create_branch(
         ));
     }
 
-    let new_ws = but_workspace::branch::create_reference(
+    but_workspace::branch::create_reference(
         new_ref.as_ref(),
         {
             use but_workspace::branch::create_reference::Position::Above;
@@ -72,7 +72,6 @@ pub fn create_branch(
         None, // order - not used for dependent branches
     )?;
 
-    *ws = new_ws.into_owned();
     Ok(())
 }
 
@@ -89,8 +88,8 @@ pub fn remove_branch_only(
         .to_full_name(branch_name)
         .map_err(anyhow::Error::from)?;
     let mut meta = ctx.meta()?;
-    let (mut repo, mut ws, _) = ctx.workspace_mut_and_db_with_perm(perm)?;
-    let new_ws = but_workspace::branch::remove_reference(
+    let (mut repo, ws, _) = ctx.workspace_mut_and_db_with_perm(perm)?;
+    but_workspace::branch::remove_reference(
         ref_name.as_ref(),
         &mut repo,
         &ws,
@@ -101,9 +100,6 @@ pub fn remove_branch_only(
         },
     )?;
 
-    if let Some(new_ws) = new_ws {
-        *ws = new_ws;
-    }
     Ok(())
 }
 
