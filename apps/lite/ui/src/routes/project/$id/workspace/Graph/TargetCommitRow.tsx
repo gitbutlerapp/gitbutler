@@ -66,7 +66,7 @@ export const TargetCommitRow: FC<{
 			/>
 			<CommitRowContent
 				commit={commit}
-				title={title}
+				review={review}
 				descriptionId={descriptionId}
 				style={fromTrunk ? commitBendLabelStyle : undefined}
 			/>

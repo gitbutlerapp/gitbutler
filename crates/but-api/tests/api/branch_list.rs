@@ -54,6 +54,12 @@ fn listing_serializes_only_the_review_metadata_it_needs() -> anyhow::Result<()> 
     review.created_at = Some("2026-09-01T12:00:00Z".into());
 
     let json = serde_json::to_value(but_api::branch::json::ListedForgeReview::from(&review))?;
+    let target_review =
+        serde_json::to_value(but_api::target_commits::TargetCommitReview::from(review))?;
+    assert_eq!(
+        target_review["labels"], json["labels"],
+        "upstream and history commits carry the same labels as branch rows"
+    );
     assert_eq!(
         json["labels"][0]["name"], "rust",
         "labels survive transport"

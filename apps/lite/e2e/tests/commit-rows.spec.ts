@@ -76,57 +76,85 @@ test.describe("incoming commit rows", () => {
 
 test.describe("upstream history commit rows", () => {
 	test.use({ scenario: "project-in-single-branch-three-branch-stack.sh" });
-	test("uses the review title and shows authored time and short SHA", async ({
-		appWindow,
-		electronApp,
-	}) => {
-		const listing = await appWindow.evaluate(async () => {
-			const projectId = location.pathname.split("/")[2];
-			if (projectId === undefined) throw new Error("No project");
-			return (window as unknown as { lite: LiteElectronApi }).lite.workspaceTargetCommits({
-				projectId,
-				from: null,
-				limit: null,
+	for (const section of ["upstream", "history"] as const) {
+		test(`shows PR labels, branch, and commit metadata in ${section}`, async ({
+			appWindow,
+			electronApp,
+		}) => {
+			const listing = await appWindow.evaluate(async () => {
+				const projectId = location.pathname.split("/")[2];
+				if (projectId === undefined) throw new Error("No project");
+				return (window as unknown as { lite: LiteElectronApi }).lite.workspaceTargetCommits({
+					projectId,
+					from: null,
+					limit: null,
+				});
 			});
-		});
-		const target = listing.commits[0];
-		if (target === undefined) throw new Error("No target commit");
-		const enriched = {
-			...listing,
-			commits: [
-				{
-					...target,
-					commit: {
-						...target.commit,
-						authoredAt: Date.now() - 86_400_000,
-						committedAt: Date.now(),
+			const target = listing.commits[0];
+			if (target === undefined) throw new Error("No target commit");
+			const enriched = {
+				...listing,
+				commits: [
+					{
+						...target,
+						inWorkspace: section === "history",
+						commit: {
+							...target.commit,
+							id: section === "upstream" ? "a".repeat(40) : target.commit.id,
+							authoredAt: Date.now() - 86_400_000,
+							committedAt: Date.now(),
+						},
+						review: {
+							number: 42,
+							title: "Improve parser diagnostics",
+							htmlUrl: "https://example.com/pull/42",
+							unitSymbol: "#",
+							sourceBranch: "parser-diagnostics",
+							labels: [{ name: "@gitbutler/lite", color: "5319e7", description: "Lite changes" }],
+						},
 					},
-					review: {
-						number: 42,
-						title: "Improve parser diagnostics",
-						htmlUrl: "https://example.com/pull/42",
-						unitSymbol: "#",
-						sourceBranch: "parser-diagnostics",
-					},
-				},
-				...listing.commits.slice(1),
-			],
-		};
-		await electronApp.evaluate(({ ipcMain }, data) => {
-			ipcMain.removeHandler("workspaceTargetCommits");
-			ipcMain.handle("workspaceTargetCommits", (_event, { from }: { from: string | null }) =>
-				from === null ? data : { commits: [], hasMore: false },
+					...listing.commits.slice(section === "upstream" ? 0 : 1),
+				],
+			};
+			await electronApp.evaluate(({ ipcMain }, data) => {
+				ipcMain.removeHandler("workspaceTargetCommits");
+				ipcMain.handle("workspaceTargetCommits", (_event, { from }: { from: string | null }) =>
+					from === null ? data : { commits: [], hasMore: false },
+				);
+			}, enriched);
+			await appWindow.reload();
+			await appWindow
+				.getByRole("button", {
+					name: section === "upstream" ? "Unfold incoming commits" : "Unfold history",
+					exact: true,
+				})
+				.click();
+			const row = appWindow.getByRole("treeitem", {
+				name: "Improve parser diagnostics",
+				exact: true,
+			});
+			await expect(row.getByText("Branchy McBranchface", { exact: true })).toBeVisible();
+			await expect(row.getByText("1 day ago", { exact: true })).toBeVisible();
+			await expect(
+				row.getByText(section === "upstream" ? "aaaaaaa" : target.commit.id.slice(0, 7), {
+					exact: true,
+				}),
+			).toBeVisible();
+			await expect(row.getByText("parser-diagnostics", { exact: true })).toBeVisible();
+			const label = row.getByText("@gitbutler/lite", { exact: true });
+			await expect(label).toBeVisible();
+			const bounds = await label.evaluate((element) => {
+				const text = document.createRange();
+				text.selectNodeContents(element);
+				return {
+					text: text.getBoundingClientRect().bottom,
+					clip: element.getBoundingClientRect().bottom,
+				};
+			});
+			expect(bounds.text).toBeLessThanOrEqual(bounds.clip);
+			await expect(row).toHaveAccessibleDescription(
+				/@gitbutler\/lite.*parser-diagnostics.*Branchy McBranchface.*1 day ago.*[0-9a-f]{7}/,
 			);
-		}, enriched);
-		await appWindow.reload();
-		await appWindow.getByRole("button", { name: "Unfold history", exact: true }).click();
-		const row = appWindow.getByRole("treeitem", {
-			name: "Improve parser diagnostics",
-			exact: true,
 		});
-		await expect(row.getByText("Branchy McBranchface", { exact: true })).toBeVisible();
-		await expect(row.getByText("1 day ago", { exact: true })).toBeVisible();
-		await expect(row.getByText(target.commit.id.slice(0, 7), { exact: true })).toBeVisible();
-		await expect(row).toHaveAccessibleDescription(/Branchy McBranchface.*1 day ago.*[0-9a-f]{7}/);
-	});
+	}
 });
