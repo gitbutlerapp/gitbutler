@@ -46,7 +46,11 @@ fn ad_hoc_workspace_uses_project_target_ref() -> anyhow::Result<()> {
         ws.target_ref_name().map(ToString::to_string),
         Some("refs/remotes/origin/trunk".into())
     );
-    assert_eq!(ws.target_ref_tip_commit_id(), Some(expected_target));
+    assert_eq!(
+        ws.target_commit.as_ref().map(|target| target.commit_id),
+        Some(expected_target),
+        "without a stored target commit the projection bases itself on the target ref tip"
+    );
 
     Ok(())
 }

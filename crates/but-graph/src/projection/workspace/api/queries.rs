@@ -54,20 +54,9 @@ impl Workspace {
     /// Return the stored target commit id.
     ///
     /// This is the previous target position remembered in workspace metadata.
-    /// It is normally the base the workspace last integrated with, and
-    /// intentionally differs from [`Self::target_ref_tip_commit_id()`], which
-    /// returns the current tip of the target reference.
+    /// It is normally the base the workspace last integrated with.
     pub fn stored_target_commit_id(&self) -> Option<gix::ObjectId> {
         self.target_commit.as_ref().map(|target| target.commit_id)
-    }
-
-    /// Return the current tip commit id of the target reference if it is
-    /// present in the workspace graph.
-    pub fn target_ref_tip_commit_id(&self) -> Option<gix::ObjectId> {
-        self.target_ref
-            .as_ref()
-            .and_then(|target| self.tip_commit_by_segment_id(target.segment_index))
-            .map(|commit| commit.id)
     }
 
     /// Return the commit id that currently acts as the workspace target.
