@@ -12,6 +12,7 @@
 import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import type { Page } from "@playwright/test";
+import { openMergeReadinessReview } from "../merge-readiness-fixture.ts";
 import { enabled, goToTab, openProject, outputDir, shoot } from "../screenshot-helpers.ts";
 import { expect, test } from "../test.ts";
 
@@ -61,6 +62,19 @@ test.describe("screenshots", () => {
 			await appWindow.getByRole("button", { name: "Pull Request" }).click();
 			await expect(appWindow.getByPlaceholder("PR title")).toBeVisible();
 			await shoot(appWindow, "pr-form", "#details-panel");
+		});
+
+		test("pull request panel", async ({ appWindow, electronApp }) => {
+			await openProject(appWindow);
+			// A branch with an open review opens on its pull request; the fixture
+			// stubs the forge so the panel has reviewers, checks and labels to show.
+			await openMergeReadinessReview(appWindow, electronApp);
+			await expect(
+				appWindow.getByRole("heading", {
+					name: "Improve keyboard navigation in large repositories",
+				}),
+			).toBeVisible();
+			await shoot(appWindow, "pr-panel", "#details-panel");
 		});
 	});
 

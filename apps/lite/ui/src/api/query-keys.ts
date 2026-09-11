@@ -22,6 +22,7 @@ export type GlobalQueryKey =
 	| "guiSettings"
 	| "isPackaged"
 	| "markdownTokens"
+	| "prChecklist"
 	| "version";
 
 /**
