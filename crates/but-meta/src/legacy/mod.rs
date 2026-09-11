@@ -259,7 +259,8 @@ impl Snapshot {
 }
 
 /// An implementation to read and write metadata from the `virtual_branches.toml` file, meant to be a short-lived item
-/// that is possibly written multiple times. It will write itself on drop only, and log write failures.
+/// that is possibly written multiple times. Pending changes can be flushed explicitly; on drop,
+/// it writes any remaining changes and logs write failures.
 ///
 /// The idea is that it's forgiving and easy to use, while helping to eventually migrate to a database.
 #[derive(Debug)]
@@ -381,6 +382,13 @@ const INTEGRATION_BRANCH: &str = WORKSPACE_REF_NAME;
 
 impl RefMetadata for VirtualBranchesTomlMetadata {
     type Handle<T> = VBTomlMetadataHandle<T>;
+
+    fn flush(&mut self) -> anyhow::Result<()> {
+        if !self.write_on_drop {
+            bail!("Read-only metadata can't persist changes");
+        }
+        self.snapshot.write_if_changed(None)
+    }
 
     fn iter(&self) -> impl Iterator<Item = anyhow::Result<(FullName, Box<dyn Any>)>> {
         let data = &self.snapshot.content;
@@ -811,6 +819,10 @@ impl BranchOrderMetadata {
 
 impl RefMetadata for BranchOrderMetadata {
     type Handle<T> = VBTomlMetadataHandle<T>;
+
+    fn flush(&mut self) -> anyhow::Result<()> {
+        self.legacy.flush()
+    }
 
     fn iter(&self) -> impl Iterator<Item = anyhow::Result<(gix::refs::FullName, Box<dyn Any>)>> {
         self.legacy.iter()
