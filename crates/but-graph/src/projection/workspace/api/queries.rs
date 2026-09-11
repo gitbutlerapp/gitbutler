@@ -90,3 +90,29 @@ impl Workspace {
         Ok(commit_ids)
     }
 }
+
+/// # Bases of Interest
+impl Workspace {
+    /// Return the child-most commit any stack rests on, which is where a new
+    /// independent branch belongs.
+    ///
+    /// Stacks rest on the target's history, so among their bases the one that
+    /// descends from all others wins; unrelated bases keep stack order. Without
+    /// stacks this is the target commit itself, and without a target there is no
+    /// base to return.
+    pub fn highest_base(&self) -> Option<gix::ObjectId> {
+        let target = self.target_commit.as_ref()?;
+        self.stacks
+            .iter()
+            .filter_map(|stack| stack.base().zip(stack.base_segment_id()))
+            .reduce(|best, other| {
+                if self.graph.find_merge_base(best.1, other.1) == Some(best.1) {
+                    other
+                } else {
+                    best
+                }
+            })
+            .map(|(base, _)| base)
+            .or(Some(target.commit_id))
+    }
+}
