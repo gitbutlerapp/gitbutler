@@ -16,6 +16,9 @@ import {
 } from "#ui/api/queries.ts";
 import { Badge, type BadgeVariant } from "#ui/components/Badge.tsx";
 import { getButtonClassName } from "#ui/components/Button.tsx";
+import { Checkbox } from "#ui/components/Checkbox.tsx";
+import { FieldTextareaStyles } from "#ui/components/Field.tsx";
+import { Kbd } from "#ui/components/Kbd.tsx";
 import { classes } from "#ui/components/classes.ts";
 import { Icon } from "#ui/components/Icon.tsx";
 import { TextLink } from "#ui/components/TextLink.tsx";
@@ -30,16 +33,19 @@ import {
 	showNativeMenuFromTrigger,
 } from "#ui/native-menu.ts";
 import { openLinkExternally } from "#ui/external-link.ts";
-import type { DraftPRExtras } from "#ui/pr.ts";
+import {
+	type DraftPRExtras,
+	type ReviewerVerdict,
+	type ReviewerRow,
+	reviewerRows,
+	useMergeReadiness,
+	branchChecklistQueryOptions,
+	useUpdateBranchChecklist,
+} from "#ui/pr.ts";
 import { formatAbsoluteTime, formatCompactDuration, formatRelativeTime } from "#ui/time.ts";
 import { useCopied } from "#ui/components/useCopied.ts";
-import { loginKey, sameLogin } from "#ui/review-users.ts";
-import type {
-	CiCheck,
-	ForgeReview,
-	ForgeReviewSubmission,
-	ForgeReviewUser,
-} from "@gitbutler/but-sdk";
+import { sameLogin } from "#ui/review-users.ts";
+import type { CiCheck, ForgeReview, ForgeReviewUser } from "@gitbutler/but-sdk";
 import { Tooltip } from "@base-ui/react";
 import { useQuery } from "@tanstack/react-query";
 import { Match } from "effect";
@@ -340,67 +346,70 @@ export const NewPullRequestPanel: FC<{
 	);
 
 	return (
-		<aside className={styles.panel}>
-			<Section
-				heading="Reviewers"
-				collapsible={pickedReviewers.length > 0}
-				action={
-					canPickReviewers &&
-					pickerButton({
-						label: "Add reviewers",
-						icon: "user",
-						empty: pickedReviewers.length === 0,
-						onClick: openReviewerMenu,
-					})
-				}
-			>
-				{pickedReviewers.map(({ login, user }) => (
-					<div key={login} className={styles.reviewerRow}>
-						{user === undefined ? (
-							<span className={classes("text-13", styles.userLogin)}>{login}</span>
-						) : (
-							<ReviewUser user={user} />
-						)}
-						<RemoveButton
-							label={`Remove ${login}`}
-							onClick={() =>
-								onExtrasChange({
-									...extras,
-									reviewers: extras.reviewers.filter((entry) => entry !== login),
-								})
-							}
-						/>
-					</div>
-				))}
-			</Section>
+		<aside className={classes(styles.panel, styles.checklistRail)}>
+			<Checklist projectId={projectId} branchName={sourceBranch} readiness={null} />
+			<div className={styles.panelSections}>
+				<Section
+					heading="Reviewers"
+					collapsible={pickedReviewers.length > 0}
+					action={
+						canPickReviewers &&
+						pickerButton({
+							label: "Add reviewers",
+							icon: "user",
+							empty: pickedReviewers.length === 0,
+							onClick: openReviewerMenu,
+						})
+					}
+				>
+					{pickedReviewers.map(({ login, user }) => (
+						<div key={login} className={styles.reviewerRow}>
+							{user === undefined ? (
+								<span className={classes("text-13", styles.userLogin)}>{login}</span>
+							) : (
+								<ReviewUser user={user} />
+							)}
+							<RemoveButton
+								label={`Remove ${login}`}
+								onClick={() =>
+									onExtrasChange({
+										...extras,
+										reviewers: extras.reviewers.filter((entry) => entry !== login),
+									})
+								}
+							/>
+						</div>
+					))}
+				</Section>
 
-			<Section
-				heading="Labels"
-				action={
-					canPickLabels &&
-					pickerButton({
-						label: "Add labels",
-						icon: "tag",
-						empty: pickedLabels.length === 0,
-						onClick: openLabelMenu,
-					})
-				}
-			>
-				{pickedLabels.length > 0 && (
-					<div className={styles.labels}>
-						{pickedLabels.map((label) => (
-							<ForgeLabel key={label.name} label={label} />
-						))}
-					</div>
-				)}
-			</Section>
+				<Section
+					heading="Labels"
+					action={
+						canPickLabels &&
+						pickerButton({
+							label: "Add labels",
+							icon: "tag",
+							empty: pickedLabels.length === 0,
+							onClick: openLabelMenu,
+						})
+					}
+				>
+					{pickedLabels.length > 0 && (
+						<div className={styles.labels}>
+							{pickedLabels.map((label) => (
+								<ForgeLabel key={label.name} label={label} />
+							))}
+						</div>
+					)}
+				</Section>
 
-			<Section heading="Branches">
-				<div className={classes("text-13", styles.branches)}>
-					<CopyableBranch name={sourceBranch} />
-					{targetBranch !== undefined && <TargetBranch name={targetBranch} />}
-				</div>
-			</Section>
+				<Section heading="Branches">
+					<div className={classes("text-13", styles.branches)}>
+						<CopyableBranch name={sourceBranch} />
+						{targetBranch !== undefined && <TargetBranch name={targetBranch} />}
+					</div>
+				</Section>
+			</div>
 		</aside>
 	);
 };
@@ -553,42 +562,6 @@ const ChecksSection: FC<{ projectId: string; reference: string }> = ({ projectId
 	);
 };
 
-/** Dismissals collapse to "commented", so they never appear as a verdict. */
-type ReviewerVerdict = "approved" | "changesRequested" | "commented" | "awaiting";
-
-type ReviewerRow = { user: ForgeReviewUser; verdict: ReviewerVerdict };
-
-/**
- * One row per reviewer: everyone still requested (awaiting) plus everyone
- * who submitted a review, carrying their effective verdict. A comment-only
- * submission never overrides an earlier approval or change request, and a
- * dismissal drops the verdict back to commented.
- */
-const reviewerRows = (
-	requested: Array<ForgeReviewUser>,
-	submissions: Array<ForgeReviewSubmission>,
-): Array<ReviewerRow> => {
-	const byLogin = new Map<string, ReviewerRow>();
-	for (const submission of submissions) {
-		if (submission.author === null) continue;
-		const existing = byLogin.get(loginKey(submission.author.login));
-		const verdict = Match.value(submission.state).pipe(
-			Match.withReturnType<ReviewerVerdict>(),
-			Match.when("approved", () => "approved"),
-			Match.when("changesRequested", () => "changesRequested"),
-			Match.when("commented", () => existing?.verdict ?? "commented"),
-			Match.when("dismissed", () => "commented"),
-			Match.exhaustive,
-		);
-		byLogin.set(loginKey(submission.author.login), { user: submission.author, verdict });
-	}
-	for (const user of requested) {
-		const key = loginKey(user.login);
-		if (!byLogin.has(key)) byLogin.set(key, { user, verdict: "awaiting" });
-	}
-	return [...byLogin.values()];
-};
-
 const verdictBits = (verdict: ReviewerVerdict): [IconName, string, string] =>
 	Match.value(verdict).pipe(
 		Match.withReturnType<[IconName, string, string]>(),
@@ -596,17 +569,193 @@ const verdictBits = (verdict: ReviewerVerdict): [IconName, string, string] =>
 		Match.when("changesRequested", () => [
 			"cross-circle",
 			"var(--fill-danger-bg)",
-			"Requested changes",
+			"Changes requested",
 		]),
 		Match.when("commented", () => ["eye", "var(--text-3)", "Commented"]),
 		Match.when("awaiting", () => ["clock", "var(--text-3)", "Awaiting review"]),
 		Match.exhaustive,
 	);
 
+type MergeReadiness = ReturnType<typeof useMergeReadiness>;
+
+/** The branch's to-dos, under the computed checks once the branch has a pull request. */
+const Checklist: FC<{
+	projectId: string;
+	branchName: string;
+	readiness: MergeReadiness | null;
+}> = ({ projectId, branchName, readiness }) => {
+	const {
+		data: items,
+		isError,
+		refetch,
+	} = useQuery(branchChecklistQueryOptions(projectId, branchName));
+	const {
+		mutate: updateItems,
+		isPending: isSaving,
+		isError: saveFailed,
+	} = useUpdateBranchChecklist(projectId, branchName);
+	const [adding, setAdding] = useState(false);
+	const [label, setLabel] = useState("");
+	const checkedCount = items?.filter((item) => item.checked).length ?? 0;
+
+	return (
+		<section className={styles.checklist} aria-label="Checklist">
+			<div className={styles.checklistHeader}>
+				<h4>Checklist</h4>
+				<span className={styles.checklistProgress}>
+					{[
+						readiness !== null &&
+							readiness.rows.length > 0 &&
+							`${readiness.clearCount} of ${readiness.rows.length} checks`,
+						items !== undefined && `${checkedCount} of ${items.length} to-dos`,
+					]
+						.filter(Boolean)
+						.join(" · ")}
+				</span>
+			</div>
+			{readiness !== null && readiness.headline !== null && (
+				<strong className={styles.checklistHeadline} data-tone={readiness.tone}>
+					{readiness.headline}
+				</strong>
+			)}
+			{readiness !== null && readiness.rows.length > 0 && (
+				<ul className={styles.derivedRows} aria-label="Computed checks">
+					{readiness.rows.map((row) => (
+						<li key={row.label} className={styles.readinessRow}>
+							<span className={styles.readinessDot} data-tone={row.tone} aria-hidden="true" />
+							{row.label}
+						</li>
+					))}
+				</ul>
+			)}
+			<fieldset className={styles.manualItems} aria-label="To-dos">
+				{items?.map((item) => (
+					<div key={item.id} className={styles.manualRow} data-checked={item.checked}>
+						<label className={styles.manualLabel}>
+							<Checkbox
+								className={styles.manualCheckbox}
+								checked={item.checked}
+								disabled={isSaving}
+								onCheckedChange={(checked) => updateItems({ type: "check", id: item.id, checked })}
+							/>
+							<span className={styles.manualText}>{item.label}</span>
+						</label>
+						<button
+							type="button"
+							aria-label={`Remove ${item.label}`}
+							className={classes(
+								getButtonClassName({ variant: "ghost", size: "small", iconOnly: true }),
+								styles.removeItem,
+							)}
+							disabled={isSaving}
+							onClick={() => updateItems({ type: "remove", id: item.id })}
+						>
+							<Icon name="cross" size={12} />
+						</button>
+					</div>
+				))}
+				{isError ? (
+					<output className={styles.checklistError}>
+						Could not load your to-dos.{" "}
+						<button type="button" className={styles.addItem} onClick={() => void refetch()}>
+							Retry
+						</button>
+					</output>
+				) : items === undefined ? (
+					<span className={styles.checklistProgress}>Loading to-dos…</span>
+				) : adding ? (
+					<form
+						className={styles.addItemForm}
+						onSubmit={(event) => {
+							event.preventDefault();
+							const text = label.trim();
+							if (text === "" || isSaving) return;
+							updateItems(
+								{ type: "add", item: { id: crypto.randomUUID(), label: text, checked: false } },
+								{
+									onSuccess: () => {
+										setLabel("");
+										setAdding(false);
+									},
+								},
+							);
+						}}
+					>
+						<FieldTextareaStyles
+							className={styles.addItemField}
+							aria-label="To-do"
+							placeholder="New to-do"
+							rows={1}
+							value={label}
+							disabled={isSaving}
+							onChange={(event) => setLabel(event.target.value)}
+							ref={(input) => input?.focus()}
+							onKeyDown={(event) => {
+								if (event.key === "Escape") {
+									event.stopPropagation();
+									setAdding(false);
+									setLabel("");
+								} else if (event.key === "Enter" && (event.metaKey || event.ctrlKey)) {
+									event.preventDefault();
+									event.currentTarget.form?.requestSubmit();
+								}
+							}}
+						/>
+						<div className={styles.addItemActions}>
+							<button
+								type="button"
+								className={getButtonClassName({ variant: "ghost", size: "small" })}
+								disabled={isSaving}
+								onClick={() => {
+									setAdding(false);
+									setLabel("");
+								}}
+							>
+								Cancel
+							</button>
+							<button
+								type="submit"
+								className={getButtonClassName({ variant: "gray", size: "small" })}
+								disabled={isSaving || label.trim() === ""}
+							>
+								Add
+								<Kbd hotkey="Mod+Enter" variant="button" />
+							</button>
+						</div>
+					</form>
+				) : (
+					<button
+						type="button"
+						aria-label="Add to-do"
+						className={styles.addItem}
+						onClick={() => setAdding(true)}
+					>
+						+ To-do
+					</button>
+				)}
+				{saveFailed && (
+					<output className={styles.checklistError}>Could not save your to-dos. Try again.</output>
+				)}
+			</fieldset>
+		</section>
+	);
+};
+
+const ReviewChecklist: FC<{ projectId: string; branchName: string; review: ForgeReview }> = ({
+	projectId,
+	branchName,
+	review,
+}) => {
+	const readiness = useMergeReadiness(projectId, review);
+	return <Checklist projectId={projectId} branchName={branchName} readiness={readiness} />;
+};
+
 export const PullRequestPanel: FC<{
 	projectId: string;
+	/** The local branch; the forge's name for it, `review.sourceBranch`, can differ. */
+	sourceBranch: string;
 	review: ForgeReview;
-}> = ({ projectId, review }) => {
+}> = ({ projectId, sourceBranch, review }) => {
 	const { data: forgeInfo } = useQuery(forgeInfoOptions(projectId));
 	const { data: reviewers } = useQuery({
 		...listReviewSubmissionsQueryOptions({ projectId, reviewId: review.number }),
@@ -757,105 +906,113 @@ export const PullRequestPanel: FC<{
 	const createdAtMs = review.createdAt === null ? null : Date.parse(review.createdAt);
 
 	return (
-		<aside className={styles.panel}>
-			<Section
-				heading="Status"
-				action={
-					<div className={styles.statusActions}>
-						{canSwitchStatus ? (
-							<button
-								aria-label="Change status"
-								className={styles.statusTrigger}
-								disabled={isStatusPending}
-								onClick={openStatusMenu}
-								type="button"
-							>
-								{statusBadge}
-							</button>
-						) : (
-							statusBadge
-						)}
-						<TextLink href={review.htmlUrl} className="text-12">
-							{review.unitSymbol}
-							{review.number}
-						</TextLink>
-					</div>
-				}
-			>
-				{null}
-			</Section>
-
-			{forgeInfo?.capabilities.checks === true && (
-				<ChecksSection projectId={projectId} reference={review.sourceBranch} />
-			)}
-
-			<Section
-				heading="Reviewers"
-				collapsible={reviewerList.length > 0}
-				action={
-					canPickReviewers &&
-					pickerButton({
-						label: "Add reviewers",
-						icon: "user",
-						empty: reviewerList.length === 0,
-						onClick: openReviewerMenu,
-					})
-				}
-			>
-				{reviewerList.map(({ user, verdict }) => (
-					<ReviewerRow
-						key={user.id}
-						user={user}
-						verdict={verdict}
-						onWithdraw={
-							canManage && verdict === "awaiting"
-								? () =>
-										withdrawReviewRequest({
-											projectId,
-											reviewId: review.number,
-											logins: [user.login],
-										})
-								: null
-						}
-					/>
-				))}
-			</Section>
-
-			<Section
-				heading="Labels"
-				action={
-					canPickLabels &&
-					pickerButton({
-						label: "Add labels",
-						icon: "tag",
-						empty: review.labels.length === 0,
-						onClick: openLabelMenu,
-					})
-				}
-			>
-				{review.labels.length > 0 && (
-					<div className={styles.labels}>
-						{review.labels.map((label) => (
-							<ForgeLabel key={label.name} label={label} />
-						))}
-					</div>
-				)}
-			</Section>
-
-			<Section heading="Branches">
-				<div className={classes("text-13", styles.branches)}>
-					<CopyableBranch name={review.sourceBranch} />
-					<TargetBranch name={review.targetBranch} />
-				</div>
-			</Section>
-
-			{createdAtMs !== null && (
-				<Section heading="Created">
-					<span className={classes("text-13", styles.created)}>
-						{formatRelativeTime(createdAtMs)}, {formatAbsoluteTime(createdAtMs)}
-					</span>
+		<aside className={classes(styles.panel, styles.checklistRail)}>
+			<ReviewChecklist
+				key={review.htmlUrl}
+				projectId={projectId}
+				branchName={sourceBranch}
+				review={review}
+			/>
+			<div className={styles.panelSections}>
+				<Section
+					heading="Status"
+					action={
+						<div className={styles.statusActions}>
+							{canSwitchStatus ? (
+								<button
+									aria-label="Change status"
+									className={styles.statusTrigger}
+									disabled={isStatusPending}
+									onClick={openStatusMenu}
+									type="button"
+								>
+									{statusBadge}
+								</button>
+							) : (
+								statusBadge
+							)}
+							<TextLink href={review.htmlUrl} className="text-12">
+								{review.unitSymbol}
+								{review.number}
+							</TextLink>
+						</div>
+					}
+				>
+					{null}
 				</Section>
-			)}
+
+				{forgeInfo?.capabilities.checks === true && (
+					<ChecksSection projectId={projectId} reference={review.sourceBranch} />
+				)}
+
+				<Section
+					heading="Reviewers"
+					collapsible={reviewerList.length > 0}
+					action={
+						canPickReviewers &&
+						pickerButton({
+							label: "Add reviewers",
+							icon: "user",
+							empty: reviewerList.length === 0,
+							onClick: openReviewerMenu,
+						})
+					}
+				>
+					{reviewerList.map(({ user, verdict }) => (
+						<ReviewerRow
+							key={user.id}
+							user={user}
+							verdict={verdict}
+							onWithdraw={
+								canManage && verdict === "awaiting"
+									? () =>
+											withdrawReviewRequest({
+												projectId,
+												reviewId: review.number,
+												logins: [user.login],
+											})
+									: null
+							}
+						/>
+					))}
+				</Section>
+
+				<Section
+					heading="Labels"
+					action={
+						canPickLabels &&
+						pickerButton({
+							label: "Add labels",
+							icon: "tag",
+							empty: review.labels.length === 0,
+							onClick: openLabelMenu,
+						})
+					}
+				>
+					{review.labels.length > 0 && (
+						<div className={styles.labels}>
+							{review.labels.map((label) => (
+								<ForgeLabel key={label.name} label={label} />
+							))}
+						</div>
+					)}
+				</Section>
+
+				<Section heading="Branches">
+					<div className={classes("text-13", styles.branches)}>
+						<CopyableBranch name={review.sourceBranch} />
+						<TargetBranch name={review.targetBranch} />
+					</div>
+				</Section>
+
+				{createdAtMs !== null && (
+					<Section heading="Created">
+						<span className={classes("text-13", styles.created)}>
+							{formatRelativeTime(createdAtMs)}, {formatAbsoluteTime(createdAtMs)}
+						</span>
+					</Section>
+				)}
+			</div>
 		</aside>
 	);
 };

@@ -3173,9 +3173,15 @@ const CommitDetails: FC<{
 /**
  * A landed review fetched by number, for the surfaces that only know the
  * number: the target-commit listing, the branch listing's merged review, and
- * an integrated applied branch's stored identity.
+ * an integrated applied branch's stored identity. The branch's to-dos are
+ * kept under its local name, which only the branch surfaces know; the forge's
+ * name for it can differ.
  */
-const LandedReviewView: FC<{ projectId: string; reviewId: number }> = ({ projectId, reviewId }) => {
+const LandedReviewView: FC<{ projectId: string; reviewId: number; branchName?: string }> = ({
+	projectId,
+	reviewId,
+	branchName,
+}) => {
 	const { data: review, isError, error } = useQuery(getReviewQueryOptions({ projectId, reviewId }));
 	const { data: forgeInfo } = useQuery(forgeInfoOptions(projectId));
 	const destination = forgeDestination(forgeInfo, review?.htmlUrl);
@@ -3209,7 +3215,7 @@ const LandedReviewView: FC<{ projectId: string; reviewId: number }> = ({ project
 		<ReviewView
 			key={review.number}
 			projectId={projectId}
-			sourceBranch={review.sourceBranch}
+			sourceBranch={branchName ?? review.sourceBranch}
 			review={review}
 		/>
 	);
@@ -3388,7 +3394,7 @@ const ReviewLayout: FC<{
 				{hasConversation && <PullRequestComments projectId={projectId} review={review} />}
 			</div>
 
-			<PullRequestPanel projectId={projectId} review={review} />
+			<PullRequestPanel projectId={projectId} sourceBranch={sourceBranch} review={review} />
 		</div>
 	);
 };
@@ -3550,7 +3556,7 @@ const UnappliedBranchDetails: FC<BranchDetailsProps> = ({
 			review={review}
 		/>
 	) : landedReviewId !== null ? (
-		<LandedReviewView projectId={projectId} reviewId={landedReviewId} />
+		<LandedReviewView projectId={projectId} reviewId={landedReviewId} branchName={branchName} />
 	) : null;
 
 	const chosenTab = useAppSelector((state) =>

@@ -33,6 +33,7 @@ export type GlobalQueryKey =
  * is the update flow's plan and preview, refetched each time the flow asks.
  */
 type LocalQueryKey =
+	| "branchChecklist"
 	| "branchIntegration"
 	| "commitMessageDraft"
 	| "dryRun"
