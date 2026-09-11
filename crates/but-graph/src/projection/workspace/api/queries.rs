@@ -80,21 +80,6 @@ impl Workspace {
                     })
             })
     }
-
-    /// Return the segment that currently acts as the workspace target.
-    ///
-    /// This follows target ref, then stored target commit, then the first
-    /// integrated traversal tip in that order.
-    pub fn effective_target_segment_index(&self) -> Option<SegmentIndex> {
-        self.target_ref
-            .as_ref()
-            .map(|target| target.segment_index)
-            .or(self
-                .target_commit
-                .as_ref()
-                .map(|target| target.segment_index))
-            .or_else(|| self.graph.integrated_tip_segments().into_iter().next())
-    }
 }
 
 /// # Refs of Interest

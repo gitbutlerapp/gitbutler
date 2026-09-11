@@ -215,8 +215,8 @@ impl Workspace {
     }
 
     /// Return the `(merge-base, target-commit-id)` of the merge-base between the `commit_to_merge`
-    /// and the effective target side, see [Self::effective_target_segment_index()].
-    /// Return `None` when none of these is set, or if there was no merge-base.
+    /// and the tip of [`Self::target_ref`].
+    /// Return `None` without a target ref, or if there was no merge-base.
     ///
     /// Use this to get the merge-base for test-merges between `commit_to_merge` and the target,
     /// whose commit is also returned as `target-commit-id`.
@@ -232,7 +232,7 @@ impl Workspace {
                 .then_some(s.id)
         })?;
 
-        let target_segment_index = self.effective_target_segment_index()?;
+        let target_segment_index = self.target_ref.as_ref()?.segment_index;
 
         let merge_base_segment_index = self
             .graph
