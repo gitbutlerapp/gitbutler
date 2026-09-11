@@ -64,6 +64,7 @@
 
 .actions {
 	display: flex;
+	flex-wrap: wrap;
 	align-items: center;
 	/* With a separate header above (commit/branch views), use tighter padding. */
 	padding: 8px;
@@ -79,6 +80,8 @@
 
 .diffControls {
 	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
 	margin-inline-start: auto;
 	gap: 6px;
 }
@@ -516,4 +519,50 @@
    scrolling beneath a pinned ruler. */
 .diffArea > * {
 	min-height: 0;
+}
+
+.reviewProgress {
+	display: flex;
+	align-items: center;
+	gap: 10px;
+	color: var(--text-2);
+	font-size: 13px;
+	white-space: nowrap;
+
+	strong {
+		color: var(--text-1);
+		font-weight: 400;
+		font-family: "Geist Mono", monospace;
+	}
+}
+.reviewProgressTrack {
+	appearance: none;
+	width: 90px;
+	height: 4px;
+	overflow: hidden;
+	border: none;
+	border-radius: 2px;
+	background: var(--bg-mute);
+	&::-webkit-progress-bar {
+		border-radius: 2px;
+		background: var(--bg-mute);
+	}
+	&::-webkit-progress-value {
+		background: var(--fill-pop-bg);
+	}
+	&::-moz-progress-bar {
+		background: var(--fill-pop-bg);
+	}
+}
+.reviewAll {
+	padding: 0;
+	border: 0;
+	border-bottom: 1px dotted var(--text-3);
+	background: none;
+	color: var(--text-2);
+	font-size: 13px;
+	white-space: nowrap;
+	&:disabled {
+		opacity: 0.5;
+	}
 }

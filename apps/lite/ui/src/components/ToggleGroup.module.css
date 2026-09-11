@@ -38,3 +38,24 @@
 		border-end-start-radius: 0;
 	}
 }
+
+.segmented {
+	padding: 2px;
+	border-radius: 4px;
+	background: var(--bg-mute);
+
+	.item {
+		border: 0;
+		border-radius: 3px;
+		background: transparent;
+		color: var(--text-2);
+		white-space: nowrap;
+
+		&[data-pressed] {
+			background: var(--bg-1);
+			box-shadow: var(--shadow-card);
+			color: var(--text-1);
+			font-weight: 600;
+		}
+	}
+}

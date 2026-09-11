@@ -4,8 +4,14 @@ import styles from "./ToggleGroup.module.css";
 import type { ComponentProps, FC } from "react";
 
 /** @public */
-export const ToggleGroupStyles: FC<ComponentProps<"div">> = (props) => (
-	<div {...props} className={classes(props.className, styles.group)} />
+export const ToggleGroupStyles: FC<ComponentProps<"div"> & { segmented?: boolean }> = ({
+	segmented,
+	...props
+}) => (
+	<div
+		{...props}
+		className={classes(props.className, styles.group, segmented && styles.segmented)}
+	/>
 );
 
 /** @public */

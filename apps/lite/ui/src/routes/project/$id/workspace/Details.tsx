@@ -2128,12 +2128,13 @@ const FilesToggle: FC<{ projectId: string }> = ({ projectId }) => {
 				render={
 					<button
 						type="button"
-						className={getButtonClassName({ iconOnly: true, variant: "ghost" })}
+						className={getButtonClassName({ variant: "ghost" })}
 						aria-label={workspaceHotkeys.toggleFiles.meta.name}
 						aria-pressed={filesVisible}
 						onClick={() => dispatch(projectSlice.actions.toggleFiles({ projectId }))}
 					>
 						{filesVisible ? <Icon name="files-sidebar" /> : <Icon name="sidebar-narrow" />}
+						Files
 					</button>
 				}
 			/>
@@ -2148,116 +2149,7 @@ const FilesToggle: FC<{ projectId: string }> = ({ projectId }) => {
 	);
 };
 
-const DiffOverflowToggle: FC<
-	Omit<ComponentProps<typeof Toggle>, "aria-label" | "pressed" | "onPressedChange">
-> = (toggleProps) => {
-	const { data: diffOverflow } = useQuery({
-		...guiSettingsQueryOptions,
-		select: (cfg) => cfg.diffOverflow,
-	});
-	const { mutate: saveGUISettings } = useSaveGUISettings();
-
-	return (
-		<Tooltip.Root>
-			<Tooltip.Trigger
-				render={
-					<Toggle
-						{...toggleProps}
-						aria-label="Toggle line wrapping"
-						pressed={(diffOverflow ?? defaultSettings.diffOverflow) === "wrap"}
-						onPressedChange={(pressed) =>
-							saveGUISettings({ diffOverflow: pressed ? "wrap" : "scroll" })
-						}
-					/>
-				}
-			/>
-			<Tooltip.Portal>
-				<Tooltip.Positioner sideOffset={4}>
-					<Tooltip.Popup render={<TooltipPopup />}>Toggle line wrapping</Tooltip.Popup>
-				</Tooltip.Positioner>
-			</Tooltip.Portal>
-		</Tooltip.Root>
-	);
-};
-
-const DiffBackgroundsToggle: FC<
-	Omit<ComponentProps<typeof Toggle>, "aria-label" | "pressed" | "onPressedChange">
-> = (toggleProps) => {
-	const { data: diffBackgrounds } = useQuery({
-		...guiSettingsQueryOptions,
-		select: (cfg) => cfg.diffBackground,
-	});
-	const { mutate: saveGUISettings } = useSaveGUISettings();
-
-	return (
-		<Tooltip.Root>
-			<Tooltip.Trigger
-				render={
-					<Toggle
-						{...toggleProps}
-						aria-label="Toggle diff backgrounds"
-						pressed={diffBackgrounds ?? defaultSettings.diffBackground}
-						onPressedChange={(enabled) => saveGUISettings({ diffBackground: enabled })}
-					/>
-				}
-			/>
-			<Tooltip.Portal>
-				<Tooltip.Positioner sideOffset={4}>
-					<Tooltip.Popup render={<TooltipPopup />}>Toggle diff backgrounds</Tooltip.Popup>
-				</Tooltip.Positioner>
-			</Tooltip.Portal>
-		</Tooltip.Root>
-	);
-};
-
-const DiffStyleToggleGroup: FC<
-	Omit<
-		ToggleGroup.Props<NonNullable<GUISettings["diffStyle"]>>,
-		"aria-label" | "value" | "onValueChange"
-	>
-> = (toggleGroupProps) => {
-	const { data: diffStyle } = useQuery({
-		...guiSettingsQueryOptions,
-		select: (cfg) => cfg.diffStyle,
-	});
-	const { mutate: saveGUISettings } = useSaveGUISettings();
-
-	return (
-		<Tooltip.Root>
-			<Tooltip.Trigger
-				render={
-					<ToggleGroup
-						{...toggleGroupProps}
-						aria-label={diffHotkeys.toggleDiffStyle.meta.name}
-						value={[diffStyle ?? defaultSettings.diffStyle]}
-						onValueChange={(value: Array<NonNullable<GUISettings["diffStyle"]>>) => {
-							const head = value[0];
-							if (head === undefined) return;
-
-							saveGUISettings({ diffStyle: head });
-						}}
-					/>
-				}
-			/>
-			<Tooltip.Portal>
-				<Tooltip.Positioner sideOffset={4}>
-					<Tooltip.Popup render={<TooltipPopup kbd={diffHotkeys.toggleDiffStyle.hotkey} />}>
-						{diffHotkeys.toggleDiffStyle.meta.name}
-					</Tooltip.Popup>
-				</Tooltip.Positioner>
-			</Tooltip.Portal>
-		</Tooltip.Root>
-	);
-};
-
-/**
- * Kept whole and out of the component so the compiler can memoise the layout on
- * its inputs; derived in render, the rows — and the address space built from
- * them — take a fresh identity every time anything else about the pane changes.
- *
- * The filter narrows the file list only; the diff itself keeps every file, so
- * the list stays a way of reaching a file rather than a way of hiding one.
- */
+/** The filter narrows navigation only; the diff retains every file. */
 const buildFilesRows = ({
 	filesItems,
 	filter,
@@ -2798,9 +2690,56 @@ const Diff: FC<{
 							<ChangeStats fileCount={changes.length} lineStats={lineStats} />
 						)}
 
+						<div className={styles.reviewProgress}>
+							<span>
+								Reviewed <strong>{reviewedFilePaths.size}</strong> of{" "}
+								<strong>{changes.length}</strong>
+							</span>
+							<progress
+								aria-label="Files reviewed"
+								aria-valuenow={reviewedFilePaths.size}
+								max={Math.max(1, changes.length)}
+								value={reviewedFilePaths.size}
+								className={styles.reviewProgressTrack}
+							/>
+						</div>
 						<Toolbar.Root aria-label="Diff controls" className={styles.diffControls}>
+							<ToggleGroup
+								render={<ToggleGroupStyles segmented />}
+								aria-label="Diff layout"
+								value={[diffStyle]}
+								onValueChange={(values: Array<NonNullable<GUISettings["diffStyle"]>>) => {
+									if (values[0] !== undefined) saveGUISettings({ diffStyle: values[0] });
+								}}
+							>
+								<Toolbar.Button
+									render={<Toggle render={<ToggleStyles />} />}
+									value="split"
+									disabled={!canUseSplitDiff}
+								>
+									Split
+								</Toolbar.Button>
+								<Toolbar.Button render={<Toggle render={<ToggleStyles />} />} value="unified">
+									Unified
+								</Toolbar.Button>
+							</ToggleGroup>
+							<ToggleGroup
+								render={<ToggleGroupStyles segmented />}
+								aria-label="Line wrapping"
+								value={[diffSettings?.diffOverflow ?? defaultSettings.diffOverflow]}
+								onValueChange={(values: Array<NonNullable<GUISettings["diffOverflow"]>>) => {
+									if (values[0] !== undefined) saveGUISettings({ diffOverflow: values[0] });
+								}}
+							>
+								<Toolbar.Button render={<Toggle render={<ToggleStyles />} />} value="wrap">
+									Wrap
+								</Toolbar.Button>
+								<Toolbar.Button render={<Toggle render={<ToggleStyles />} />} value="scroll">
+									Scroll
+								</Toolbar.Button>
+							</ToggleGroup>
 							<Toolbar.Button
-								className={getButtonClassName({ variant: "outline" })}
+								className={styles.reviewAll}
 								disabled={
 									preparedDiffFiles.length === 0 || preparedDiffFiles.length !== changes.length
 								}
@@ -2808,38 +2747,6 @@ const Diff: FC<{
 							>
 								{allFilesReviewed ? "Mark all unreviewed" : "Mark all reviewed"}
 							</Toolbar.Button>
-							<ToggleGroupStyles>
-								<Toolbar.Button
-									render={
-										<DiffOverflowToggle render={<ToggleStyles iconOnly />}>
-											<Icon name="text-wrap" />
-										</DiffOverflowToggle>
-									}
-								/>
-								<Toolbar.Button
-									render={
-										<DiffBackgroundsToggle render={<ToggleStyles iconOnly />}>
-											<Icon name="text-block" />
-										</DiffBackgroundsToggle>
-									}
-								/>
-							</ToggleGroupStyles>
-							{canUseSplitDiff && (
-								<DiffStyleToggleGroup render={<ToggleGroupStyles />}>
-									<Toolbar.Button
-										render={<Toggle render={<ToggleStyles />} />}
-										value={"split" satisfies GUISettings["diffStyle"]}
-									>
-										Split
-									</Toolbar.Button>
-									<Toolbar.Button
-										render={<Toggle render={<ToggleStyles />} />}
-										value={"unified" satisfies GUISettings["diffStyle"]}
-									>
-										Unified
-									</Toolbar.Button>
-								</DiffStyleToggleGroup>
-							)}
 						</Toolbar.Root>
 					</div>
 

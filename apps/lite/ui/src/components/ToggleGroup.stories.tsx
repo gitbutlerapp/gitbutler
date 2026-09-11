@@ -152,3 +152,20 @@ export const MultipleSelectionIconOnly = meta.story({
 		</ToggleGroup>
 	),
 });
+
+export const Segmented = meta.story({
+	render: () => (
+		<ToggleGroup
+			render={<ToggleGroupStyles segmented />}
+			defaultValue={["wrap"]}
+			aria-label="Line wrapping"
+		>
+			<Toggle render={<ToggleStyles />} value="wrap">
+				Wrap
+			</Toggle>
+			<Toggle render={<ToggleStyles />} value="scroll">
+				Scroll
+			</Toggle>
+		</ToggleGroup>
+	),
+});
