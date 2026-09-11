@@ -1,7 +1,8 @@
 import { Badge } from "#ui/components/Badge.tsx";
+import { ForgeLabel } from "#ui/components/ForgeLabel.tsx";
 import { branchReviewPresentation } from "#ui/branch.ts";
 import type { ForgeReviewLabel } from "@gitbutler/but-sdk";
-import { type FC, Fragment } from "react";
+import type { FC } from "react";
 import { RowLabel, RowLabelContainer } from "./Row.tsx";
 import styles from "./BranchRowHeadline.module.css";
 
@@ -41,12 +42,9 @@ export const BranchTopics: FC<{
 	return (
 		topics.length > 0 && (
 			<span className={styles.topics}>
-				{separator && "· "}
-				{topics.map((label, index) => (
-					<Fragment key={label.name}>
-						{index > 0 && ", "}
-						<span title={label.description ?? undefined}>{label.name}</span>
-					</Fragment>
+				{separator && <span aria-hidden="true">·</span>}
+				{topics.map((label) => (
+					<ForgeLabel key={label.name} label={label} size="regular" />
 				))}
 			</span>
 		)

@@ -19,5 +19,11 @@
 	color: var(--fill-warn-fg);
 }
 .topics {
+	display: inline-flex;
+	flex-wrap: wrap;
+	align-items: center;
+	min-width: 0;
+	max-width: 100%;
+	gap: 4px;
 	color: var(--text-2);
 }

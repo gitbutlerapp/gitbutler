@@ -10,7 +10,8 @@ import { useBranchRemove } from "#ui/api/mutations.ts";
 import { decodeBytes, encodeBytes } from "#ui/api/bytes.ts";
 import { activeBranchFilterCount, branchIsEmpty, type BranchFilters } from "#ui/branch.ts";
 import { commitIsDiverged, commitTitle } from "#ui/commit.ts";
-import { Badge } from "#ui/components/Badge.tsx";
+import { Badge, type BadgeVariant } from "#ui/components/Badge.tsx";
+import type { IconName } from "#ui/components/iconNames.ts";
 import { getButtonClassName } from "#ui/components/Button.tsx";
 import { BranchRowHeadline, BranchReviewTag, BranchTopics } from "./BranchRowHeadline.tsx";
 import { classes } from "#ui/components/classes.ts";
@@ -35,7 +36,7 @@ import { useAutofocusScope, useAddressSpaceHotkeys, type FocusScope } from "#ui/
 import { useAppDispatch, useAppSelector } from "#ui/store.ts";
 import { RelativeTime } from "#ui/components/RelativeTime.tsx";
 import { getRangeExtractorWithIndices } from "#ui/virtual.ts";
-import type { Commit, ListedBranch } from "@gitbutler/but-sdk";
+import type { BranchReviewStatus, Commit, ListedBranch } from "@gitbutler/but-sdk";
 import { Toolbar, Toggle, ToggleGroup } from "@base-ui/react";
 import { useMergedRefs } from "@base-ui/utils/useMergedRefs";
 import { useHotkey } from "@tanstack/react-hotkeys";
@@ -319,51 +320,63 @@ const BareBranchRow: FC<BranchRowProps> = ({ branch, rowProps, leading, actions,
 	</Row>
 );
 
+const reviewStates: Record<
+	BranchReviewStatus,
+	{ label: string; variant: BadgeVariant; icon: IconName }
+> = {
+	open: { label: "Open", variant: "safe", icon: "pr" },
+	draft: { label: "Draft", variant: "lightGray", icon: "pr-draft" },
+	merged: { label: "Merged", variant: "purple", icon: "branch-merge" },
+	closed: { label: "Closed", variant: "danger", icon: "pr-close" },
+};
+
 const PullRequestBranchRow: FC<
 	BranchRowProps & {
 		review: NonNullable<ListedBranch["review"]>;
 		descriptionId: string;
 		openReview: () => Promise<void>;
 	}
-> = ({ branch, rowProps, leading, actions, now, review, descriptionId, openReview }) => (
-	<Row {...rowProps} className={styles.branchRow}>
-		{leading}
-		<RowLabelGroup id={descriptionId}>
-			<div className={styles.prHeadline}>
-				<span
-					className={styles.stateDot}
-					data-state={branch.reviewStatus}
-					aria-label={branch.reviewStatus ?? "open"}
-				/>
-				<BranchRowHeadline title={review.title} labels={review.labels} />
-				<button
-					type="button"
-					className={styles.reviewLink}
-					aria-label={`Open ${review.unitSymbol}${review.number} in browser`}
-					onClick={() => void openReview()}
-				>
-					{review.unitSymbol}
-					{review.number}
-				</button>
-			</div>
-			<BranchReviewTag title={review.title} labels={review.labels} />
-			<RowMeta className={styles.branchRef} title={branch.displayName}>
-				{branch.displayName}
-			</RowMeta>
-			<RowMeta className={styles.reviewMeta}>
-				{review.author && (
-					<>
-						<span>{review.author.login}</span>
-						<span aria-hidden="true">·</span>
-					</>
-				)}
-				<BranchAge branch={branch} now={now} />
-				<BranchTopics labels={review.labels} separator />
-			</RowMeta>
-		</RowLabelGroup>
-		{actions}
-	</Row>
-);
+> = ({ branch, rowProps, leading, actions, now, review, descriptionId, openReview }) => {
+	const reviewState = reviewStates[branch.reviewStatus ?? "open"];
+	return (
+		<Row {...rowProps} className={styles.branchRow}>
+			{leading}
+			<RowLabelGroup id={descriptionId}>
+				<div className={styles.prHeadline}>
+					<BranchRowHeadline title={review.title} labels={review.labels} />
+					<button
+						type="button"
+						className={styles.reviewLink}
+						aria-label={`Open ${review.unitSymbol}${review.number} in browser`}
+						onClick={() => void openReview()}
+					>
+						<Badge variant={reviewState.variant}>
+							<Icon name={reviewState.icon} size={12} />
+							{reviewState.label}
+						</Badge>
+						{review.unitSymbol}
+						{review.number}
+					</button>
+				</div>
+				<BranchReviewTag title={review.title} labels={review.labels} />
+				<RowMeta className={styles.branchRef} title={branch.displayName}>
+					{branch.displayName}
+				</RowMeta>
+				<RowMeta className={styles.reviewMeta}>
+					{review.author && (
+						<>
+							<span>{review.author.login}</span>
+							<span aria-hidden="true">·</span>
+						</>
+					)}
+					<BranchAge branch={branch} now={now} />
+					<BranchTopics labels={review.labels} separator />
+				</RowMeta>
+			</RowLabelGroup>
+			{actions}
+		</Row>
+	);
+};
 
 const BranchItem: FC<{
 	projectId: string;

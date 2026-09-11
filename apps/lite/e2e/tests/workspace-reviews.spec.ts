@@ -97,6 +97,10 @@ test("shows PR titles and labels on workspace branches without hover shifts", as
 	await expect(branch).toHaveAccessibleDescription(
 		/Improve keyboard navigation.*accessibility.*@gitbutler\/lite/,
 	);
+	await expect(branch.getByTitle("@gitbutler/lite", { exact: true })).not.toHaveCSS(
+		"background-color",
+		"rgba(0, 0, 0, 0)",
+	);
 	await expect(
 		branch.getByTitle("C", { exact: true }).locator("..").locator("[data-icon]"),
 	).toBeVisible();

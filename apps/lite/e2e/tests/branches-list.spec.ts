@@ -170,12 +170,18 @@ test.describe("recent branch reviews", () => {
 			branch.getByText("Speed up branch listing in large repositories", { exact: true }),
 		).toBeVisible();
 		await expect(branch.getByText("performance", { exact: true })).toBeVisible();
-		await expect(branch.getByText("needs review", { exact: true })).toHaveCSS(
+		await expect(branch.getByTitle("needs review", { exact: true })).not.toHaveCSS(
 			"background-color",
 			"rgba(0, 0, 0, 0)",
 		);
 		await expect(branch.getByText("octocat", { exact: true })).toBeVisible();
 		await expect(branch.getByText("2 commits", { exact: true })).toBeVisible();
+		await expect(branch.getByText("Open", { exact: true })).toBeVisible();
+		await expect(
+			appWindow
+				.getByRole("treeitem", { name: "branch2", exact: true })
+				.getByText("Draft", { exact: true }),
+		).toBeVisible();
 		await expect(
 			appWindow.getByRole("treeitem", { name: "Draft group", exact: true }),
 		).toBeVisible();
@@ -296,7 +302,10 @@ test.describe("branch state groups", () => {
 										unitSymbol: "#",
 										createdAt: null,
 										author: { login: "octocat", name: null },
-										labels: [],
+										labels: [
+											{ name: "rust", color: "dea584", description: null },
+											{ name: "@gitbutler/lite", color: "5319e7", description: null },
+										],
 									},
 					},
 				],
@@ -327,6 +336,11 @@ test.describe("branch state groups", () => {
 		await expect(merged).toHaveAttribute("aria-expanded", "true");
 		await expect(
 			appWindow.getByRole("treeitem", { name: "review-pass-0", exact: true }),
+		).toBeVisible();
+		await expect(
+			appWindow
+				.getByRole("treeitem", { name: "review-pass-0", exact: true })
+				.getByText("Merged", { exact: true }),
 		).toBeVisible();
 		await appWindow.getByRole("button", { name: "Author", exact: true }).click();
 		await expect(

@@ -169,25 +169,6 @@
 	font-size: 11px;
 	font-family: "Geist Mono", monospace;
 }
-.stateDot {
-	flex-shrink: 0;
-	align-self: start;
-	width: 6px;
-	height: 6px;
-	margin-top: 8px;
-	border-radius: 50%;
-	background: var(--fill-safe-bg);
-	&[data-state="draft"] {
-		border: 1px solid var(--border-1);
-		background: transparent;
-	}
-	&[data-state="merged"] {
-		background: var(--commit-integrated);
-	}
-	&[data-state="closed"] {
-		background: var(--fill-danger-bg);
-	}
-}
 .branchRow .reviewMeta {
 	color: var(--text-2);
 	font-size: 11px;
