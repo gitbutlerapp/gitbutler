@@ -81,12 +81,17 @@ impl Limit {
         {
             return false;
         }
-        // Do not let *any* non-goal tip consume gas as long as there is still anything with a goal in the queue
-        // that need to meet their local branches.
-        // This is effectively only affecting the entrypoint tips, which isn't setup with a goal.
-        // TODO(perf): could we remember that we are a tip and look for our specific counterpart by matching the goal?
-        //             That way unrelated tips wouldn't cause us to keep traversing.
-        if self.goal_unset() && next.iter().any(|(_, _, _, limit)| !limit.goal_reached()) {
+        // Keep entrypoints alive while other tips seek them. A tip that reached its own goals
+        // must also keep going when an unconnected tip still needs its ancestry, so a target
+        // cannot stop before an older worktree fork connects to its history. Tips already in
+        // the workspace or integrated history don't need this extension.
+        if next.iter().any(|(_, pending_flags, _, limit)| {
+            !limit.goal_reached()
+                && (self.goal_unset()
+                    || (!pending_flags
+                        .intersects(CommitFlags::InWorkspace | CommitFlags::Integrated)
+                        && flags.intersects(limit.goal_flags())))
+        }) {
             return false;
         }
         if self.inner.is_some_and(|l| l == 0) {

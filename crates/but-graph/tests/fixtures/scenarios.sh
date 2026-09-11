@@ -1402,6 +1402,28 @@ EOF
     git worktree add ../worktree-ahead-checkout-feature wt-feature
   )
 
+  # The worktree fork predates the target, beyond its normal traversal allowance.
+  git init worktree-behind-target
+  (cd worktree-behind-target
+    commit init
+    tick
+    commit base
+    git branch wt-feature
+    for n in $(seq 1 6); do
+      tick
+      commit "M$n"
+    done
+    setup_target_to_match_main
+    create_workspace_commit_once main
+    git worktree add ../worktree-behind-target-feature wt-feature
+    (cd ../worktree-behind-target-feature
+      tick
+      commit W1
+      tick
+      commit W2
+    )
+  )
+
   git init target-shared-with-unapplied-and-origin-head
   (cd target-shared-with-unapplied-and-origin-head
     commit init
