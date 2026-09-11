@@ -1727,6 +1727,19 @@ export declare function workspaceRecreate(projectId: string): Promise<WorkspaceR
 export declare function workspaceTargetCommits(projectId: string, from: string | null, limit: number | null): Promise<TargetCommitPage>
 
 /**
+ * Create a linked worktree on a new branch starting at the workspace's highest base, see
+ * [`but_graph::Workspace::highest_base()`].
+ *
+ * The branch is `new_ref` or a canned name, and the checkout lives at
+ * `$GIT_COMMON_DIR/gb-wts/<slug>`, where the slug of the short branch name also names the
+ * worktree. This fails without a target to base the worktree on, and refuses an existing
+ * branch or directory.
+ *
+ * {@link ../../../../../crates/but-api/src/worktrees.rs:301}
+ */
+export declare function worktreeNew(projectId: string, newRef: MaybeLossyFullNameRef): Promise<NewWorktree>
+
+/**
  * Remove the linked worktree named `name` from disk the way `git worktree remove` does,
  * which refuses a dirty checkout unless `force` and a locked one until it is unlocked, and
  * forget its archived state so a worktree created under the same name later starts out
@@ -1734,7 +1747,7 @@ export declare function workspaceTargetCommits(projectId: string, from: string |
  *
  * This works on archived worktrees as well.
  *
- * {@link ../../../../../crates/but-api/src/worktrees.rs:224}
+ * {@link ../../../../../crates/but-api/src/worktrees.rs:227}
  */
 export declare function worktreeRemove(projectId: string, name: string, force: boolean): Promise<void>
 
@@ -1745,14 +1758,14 @@ export declare function worktreeRemove(projectId: string, name: string, force: b
  * which is how projects that predate GitButler's worktree support avoid showing
  * every worktree ever created.
  *
- * {@link ../../../../../crates/but-api/src/worktrees.rs:187}
+ * {@link ../../../../../crates/but-api/src/worktrees.rs:190}
  */
 export declare function worktreeSetArchived(projectId: string, name: string, archived: boolean): Promise<void>
 
 /**
  * List all usable linked worktrees, split by archived state.
  *
- * {@link ../../../../../crates/but-api/src/worktrees.rs:123}
+ * {@link ../../../../../crates/but-api/src/worktrees.rs:126}
  */
 export declare function worktreesList(projectId: string): Promise<WorktreeListing>
 export declare class WatcherHandle {
@@ -3847,6 +3860,18 @@ export type NewComment = {
   lineNumber: number;
   /** The comment text. */
   payload: string;
+};
+
+/** A linked worktree freshly created by [`worktree_new()`]. */
+export type NewWorktree = {
+  /** The stable worktree name, i.e. the directory name under `$GIT_COMMON_DIR/worktrees/`. */
+  name: string;
+  /** The worktree checkout directory. */
+  path: string;
+  /** The branch created for and checked out in the worktree. */
+  refName: string;
+  /** The commit the branch starts at, the workspace's highest base. */
+  base: string;
 };
 
 /** A column in a detailed graph node row. */

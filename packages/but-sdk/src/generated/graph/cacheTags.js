@@ -84,6 +84,7 @@ export const apiInvalidates = {
 	updateReviewComment: ["ReviewComments"],
 	withdrawReviewRequest: ["Reviews"],
 	workspaceBranchAndAncestorsPush: ["Workspace", "Reviews", "MergeStatus", "Checks", "ReviewTimeline"],
+	worktreeNew: ["Worktrees", "Workspace"],
 	worktreeRemove: ["Worktrees", "Workspace"],
 	worktreeSetArchived: ["Worktrees", "Workspace"],
 };

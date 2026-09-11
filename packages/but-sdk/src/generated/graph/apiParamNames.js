@@ -157,6 +157,7 @@ export const apiParamNames = {
 	workspaceIntegrateUpstream: ["projectId", "updates", "dryRun"],
 	workspaceRecreate: ["projectId"],
 	workspaceTargetCommits: ["projectId", "from", "limit"],
+	worktreeNew: ["projectId", "newRef"],
 	worktreeRemove: ["projectId", "name", "force"],
 	worktreeSetArchived: ["projectId", "name", "archived"],
 	worktreesList: ["projectId"],
