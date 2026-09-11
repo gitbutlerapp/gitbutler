@@ -64,7 +64,7 @@
 		"shiki": "^4.0.2",
 		"storybook": "^10.2.19",
 		"svelte-check": "catalog:svelte",
-		"svgo": "^3.3.4",
+		"svgo": "^3.3.5",
 		"vite": "catalog:",
 		"vitest": "catalog:"
 	},
