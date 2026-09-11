@@ -53,3 +53,15 @@ nextest:
 .PHONY: clippy-fix
 clippy-fix:
 	cargo clippy --workspace --all-targets --fix --allow-dirty
+
+.PHONY: but-bench
+but-bench:
+	./crates/but/tests/performance/run.sh $(SCENARIO)
+
+.PHONY: but-bench-fast
+but-bench-fast:
+	PERF_SKIP_SMOKE=1 PERF_WARMUP=0 PERF_RUNS=1 ./crates/but/tests/performance/run.sh $(SCENARIO)
+
+.PHONY: but-bench-show
+but-bench-show:
+	PERF_SHOW_OUTPUT=1 PERF_SKIP_SMOKE=1 PERF_WARMUP=0 PERF_RUNS=1 ./crates/but/tests/performance/run.sh $(SCENARIO)
