@@ -1,5 +1,5 @@
 use anyhow::bail;
-use bstr::BStr;
+use bstr::{BStr, ByteSlice as _};
 use but_error::bail_precondition;
 use but_oxidize::{ObjectIdExt, OidExt as _};
 use gix::{
@@ -73,6 +73,7 @@ pub fn safe_checkout_from_head(
         .peel_to_tree()?;
     let mut conflict_occurred = false;
     if old_tree.id() != new_tree.id() {
+        ensure_index_has_no_conflicts(&git2_repo)?;
         // Reopen to ensure that there is no "object memory" (i.e. all object
         // writes actually happen on disk).
         let mut repo = gix::open(repo.git_dir())?;
@@ -191,4 +192,35 @@ pub fn safe_checkout_from_head(
         head_update,
         conflict_occurred,
     })
+}
+
+/// Refuse to check out while `.git/index` still holds unresolved stage 1/2/3 entries.
+///
+/// Such entries are left behind by a checkout that was allowed to conflict with
+/// uncommitted changes, or by a merge run outside GitButler. libgit2 would reject the
+/// checkout anyway with a raw `Conflict` error; failing here keeps worktree, index and
+/// `HEAD` untouched and classifies the error as a precondition the user can act on.
+///
+/// This runs after the merge-base override's index rewrite on purpose: when that
+/// rewrite falls back to overwriting the index with the override tree, the stages are
+/// gone and the checkout may proceed — the intended steamroll semantic for restoring a
+/// snapshot or committing the conflicted file itself.
+fn ensure_index_has_no_conflicts(git2_repo: &git2::Repository) -> anyhow::Result<()> {
+    let index = git2_repo.index()?;
+    if !index.has_conflicts() {
+        return Ok(());
+    }
+    let mut paths = Vec::new();
+    for conflict in index.conflicts()? {
+        let conflict = conflict?;
+        if let Some(entry) = conflict.our.or(conflict.their).or(conflict.ancestor) {
+            paths.push(format!("{:?}", entry.path.as_slice().as_bstr()));
+        }
+    }
+    paths.sort();
+    paths.dedup();
+    bail_precondition!(
+        "Cannot update the worktree while files have unresolved conflicts: {}. Resolve the conflicts, then mark each file as resolved, e.g. with `but resolve <path>`.",
+        paths.join(", ")
+    );
 }
