@@ -536,66 +536,36 @@ export const BranchRow: FC<
 				/>
 			) : (
 				<RowLabelGroup id={descriptionId}>
-					{openReview !== undefined && (
+					{openReview !== undefined ? (
 						<BranchRowHeadline title={openReview.title} labels={openReview.labels} />
+					) : (
+						<RowLabelContainer>
+							<RowLabel heading singleLine title={optimisticBranchDisplayName}>
+								{optimisticBranchDisplayName}
+							</RowLabel>
+						</RowLabelContainer>
 					)}
-					<RowLabelContainer style={{ columnGap: 4 }}>
-						{pullRequest !== null && (
-							<Icon name="branch" size={12} className={rowStyles.fadedText} />
-						)}
-						<RowLabel
-							className={openReview !== undefined ? rowStyles.fadedText : undefined}
-							heading={openReview === undefined}
-							singleLine
-							title={optimisticBranchDisplayName}
-						>
-							{optimisticBranchDisplayName}
-						</RowLabel>
-					</RowLabelContainer>
 
 					<RowMeta>
-						{/* The remote's news in the row itself; the chip opens the commits. */}
-						{remote !== null && incoming > 0 && (
+						{openReview !== undefined && (
 							<>
-								<button
-									type="button"
-									aria-expanded={incomingExpanded}
-									aria-label={`${incomingExpanded ? "Hide" : "Show"} ${String(incoming)} incoming ${incoming === 1 ? "commit" : "commits"} from ${remote.remoteName}/${remote.displayName}`}
+								<span
 									className={classes(
-										getRowButtonClassName({ variant: "ghost" }),
+										rowStyles.fadedText,
 										rowStyles.metaItem,
 										rowStyles.metaItemShrinkable,
 									)}
-									onClick={toggleIncoming}
 								>
-									<Icon size={12} name={incomingExpanded ? "chevron-down" : "chevron-right"} />
-									<span className={rowStyles.metaItemText}>{incomingLabel}</span>
-									{/* Its own flex item: the chip's gap, not a space, parts it from the label. */}
-									<span>+{incoming}</span>
-								</button>
-								<RowMetaSeparator />
-							</>
-						)}
-
-						{/* Only while folded: the count stands in for the commits it hides,
-						    so showing it alongside them would just be noise. */}
-						{isFolded && commitCount > 0 && (
-							<>
-								<span className={classes(rowStyles.fadedText, rowStyles.metaItem)}>
-									<Icon size={14} name="commit" />
-									{commitCount}
+									<Icon name="branch" size={12} />
+									<span className={rowStyles.metaItemText} title={optimisticBranchDisplayName}>
+										{optimisticBranchDisplayName}
+									</span>
 								</span>
 								<RowMetaSeparator />
 							</>
 						)}
 
-						<span
-							className={classes(
-								rowStyles.fadedText,
-								rowStyles.metaItem,
-								rowStyles.metaItemShrinkable,
-							)}
-						>
+						<span className={classes(rowStyles.fadedText, rowStyles.metaItem)}>
 							<span className={rowStyles.metaItemText} title={pushStatusTooltip}>
 								{Match.value(pushStatus).pipe(
 									Match.when("nothingToPush", () => "Nothing to push"),
@@ -610,28 +580,6 @@ export const BranchRow: FC<
 								)}
 							</span>
 						</span>
-
-						{/* The checks belong to the PR, so they ride alongside its label
-						    rather than standing as their own meta item. */}
-						{pullRequest !== null && (
-							<>
-								<RowMetaSeparator />
-								<span className={classes(rowStyles.fadedText, rowStyles.metaItem)}>
-									<Icon size={14} name="pr" />
-									{forgeInfo?.unit.abbr ?? "PR"} {forgeInfo?.unit.symbol ?? "#"}
-									{pullRequest}
-								</span>
-
-								{ciChecks?.aggregate &&
-									(ciURL != null ? (
-										<a href={ciURL} onClick={(evt) => void openCIChecksInBrowser(evt)}>
-											<CIBubble checks={ciChecks.aggregate} />
-										</a>
-									) : (
-										<CIBubble checks={ciChecks.aggregate} />
-									))}
-							</>
-						)}
 
 						{downstackPushStatus.anyRequiresPush &&
 							(() => {
@@ -698,6 +646,54 @@ export const BranchRow: FC<
 									</Tooltip.Root>
 								);
 							})()}
+
+						{ciChecks?.aggregate && (
+							<>
+								<RowMetaSeparator />
+								{ciURL != null ? (
+									<a href={ciURL} onClick={(evt) => void openCIChecksInBrowser(evt)}>
+										<CIBubble checks={ciChecks.aggregate} />
+									</a>
+								) : (
+									<CIBubble checks={ciChecks.aggregate} />
+								)}
+							</>
+						)}
+
+						{/* The remote's news in the row itself; the chip opens the commits. */}
+						{remote !== null && incoming > 0 && (
+							<>
+								<RowMetaSeparator />
+								<button
+									type="button"
+									aria-expanded={incomingExpanded}
+									aria-label={`${incomingExpanded ? "Hide" : "Show"} ${String(incoming)} incoming ${incoming === 1 ? "commit" : "commits"} from ${remote.remoteName}/${remote.displayName}`}
+									className={classes(
+										getRowButtonClassName({ variant: "ghost" }),
+										rowStyles.metaItem,
+										rowStyles.metaItemShrinkable,
+									)}
+									onClick={toggleIncoming}
+								>
+									<Icon size={12} name={incomingExpanded ? "chevron-down" : "chevron-right"} />
+									<span className={rowStyles.metaItemText}>{incomingLabel}</span>
+									{/* Its own flex item: the chip's gap, not a space, parts it from the label. */}
+									<span>+{incoming}</span>
+								</button>
+							</>
+						)}
+
+						{/* Only while folded: the count stands in for the commits it hides,
+						    so showing it alongside them would just be noise. */}
+						{isFolded && commitCount > 0 && (
+							<>
+								<RowMetaSeparator />
+								<span className={classes(rowStyles.fadedText, rowStyles.metaItem)}>
+									<Icon size={14} name="commit" />
+									{commitCount}
+								</span>
+							</>
+						)}
 
 						{/* Beside Push rather than in its place: a plain push cannot land
 						    while the remote is ahead, and forcing would drop theirs. */}
