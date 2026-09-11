@@ -19,7 +19,9 @@ impl WorkspaceState {
     pub fn create(ctx: &Context, perm: &RepoShared) -> Result<Self> {
         let (repo, ws, _db) = ctx.workspace_and_db_with_perm(perm)?;
         let target_base_oid = ws
-            .stored_target_commit_id()
+            .target_commit
+            .as_ref()
+            .map(|target| target.commit_id)
             .context("failed to get target base oid")?;
         let head_oids = ws
             .stacks

@@ -49,7 +49,9 @@ pub fn remerged_workspace_tree_v2(
     ws: &but_graph::Workspace,
 ) -> Result<(gix::ObjectId, Vec<gix::ObjectId>, gix::ObjectId)> {
     let target_base_oid = ws
-        .stored_target_commit_id()
+        .target_commit
+        .as_ref()
+        .map(|target| target.commit_id)
         .context("failed to get target base oid")?;
     let heads = ws
         .stacks

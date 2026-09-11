@@ -50,14 +50,6 @@ impl Workspace {
                 .commit_by_id(commit_id)
         })
     }
-
-    /// Return the stored target commit id.
-    ///
-    /// This is the previous target position remembered in workspace metadata.
-    /// It is normally the base the workspace last integrated with.
-    pub fn stored_target_commit_id(&self) -> Option<gix::ObjectId> {
-        self.target_commit.as_ref().map(|target| target.commit_id)
-    }
 }
 
 /// # Refs of Interest

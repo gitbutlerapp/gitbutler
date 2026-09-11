@@ -312,7 +312,9 @@ pub(crate) fn save_and_return_to_workspace(ctx: &Context, perm: &mut RepoExclusi
     #[allow(deprecated)]
     let old_workspace_projection = workspace_from_workspace_ref(ctx)?;
     let old_target_base_oid = old_workspace_projection
-        .stored_target_commit_id()
+        .target_commit
+        .as_ref()
+        .map(|target| target.commit_id)
         .context("failed to get target base oid")?;
     let old_head_oids = old_workspace_projection
         .stacks

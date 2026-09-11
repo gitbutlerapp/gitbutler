@@ -2105,7 +2105,9 @@ Single commit, target, no ws commit, but ws-reference
         // Precondition (see `⇣1` above): the target tip (M2) is one commit ahead of A's base,
         // so it sits OUTSIDE the workspace — the situation the no-anchor path mishandled.
         let target_id = ws
-            .resolved_target_commit_id()
+            .target_commit
+            .as_ref()
+            .map(|target| target.commit_id)
             .expect("the scenario sets a default target");
         assert!(
             ws.find_owner_indexes_by_commit_id(target_id).is_none(),

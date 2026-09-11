@@ -196,24 +196,6 @@ impl Workspace {
         }
     }
 
-    /// Return the resolved target commit ID for use as a base for new branches.
-    ///
-    /// Prefers the stored [`Self::target_commit`] (the last-synced target SHA),
-    /// falling back to the tip of [`Self::target_ref`] (the remote tracking branch).
-    /// Does not consider additional traversal tips.
-    ///
-    /// Use [`Self::stored_target_commit_id()`] instead when callers need only the explicit
-    /// stored target commit without falling back to the target ref tip.
-    ///
-    /// Returns `None` if neither `target_commit` nor `target_ref` is configured.
-    pub fn resolved_target_commit_id(&self) -> Option<gix::ObjectId> {
-        self.stored_target_commit_id().or_else(|| {
-            self.target_ref
-                .as_ref()
-                .and_then(|t| self.tip_commit_by_segment_id(t.segment_index).map(|c| c.id))
-        })
-    }
-
     /// Return the `(merge-base, target-commit-id)` of the merge-base between the `commit_to_merge`
     /// and the tip of [`Self::target_ref`].
     /// Return `None` without a target ref, or if there was no merge-base.
