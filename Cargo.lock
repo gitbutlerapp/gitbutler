@@ -1160,6 +1160,7 @@ dependencies = [
  "fslock",
  "git2",
  "gix",
+ "nonempty",
  "parking_lot",
  "rand 0.9.4",
  "schemars 1.2.1",

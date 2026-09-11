@@ -1605,9 +1605,9 @@ fn hunks_within_file_are_not_order_dependent() {
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
-───────────╮
- qs:5 file │
-───────────╯
+─────────────╮
+ qs:5 M file │
+─────────────╯
 
 @@ -1,3 +1,4 @@
 ───────────────
@@ -1616,9 +1616,9 @@ fn hunks_within_file_are_not_order_dependent() {
 2 ┊ 3 │  lines
 3 ┊ 4 │  to
 
-───────────╮
- qs:2 file │
-───────────╯
+─────────────╮
+ qs:2 M file │
+─────────────╯
 
 @@ -6,3 +7,4 @@
 ───────────────
@@ -1695,9 +1695,9 @@ fn overlapping_changes_to_modified_file_are_deduplicated() {
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
-───────────╮
- qs:5 file │
-───────────╯
+─────────────╮
+ qs:5 M file │
+─────────────╯
 
 @@ -1,3 +1,4 @@
 ───────────────
@@ -1706,9 +1706,9 @@ fn overlapping_changes_to_modified_file_are_deduplicated() {
 2 ┊ 3 │  lines
 3 ┊ 4 │  to
 
-───────────╮
- qs:2 file │
-───────────╯
+─────────────╮
+ qs:2 M file │
+─────────────╯
 
 @@ -6,3 +7,4 @@
 ───────────────
@@ -1923,25 +1923,25 @@ Hint: run `but help` for all commands
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
-─────────────────────────╮
- w:l:e dir/to_delete.txt │
-─────────────────────────╯
+───────────────────────────╮
+ w:l:e D dir/to_delete.txt │
+───────────────────────────╯
 
 @@ -1,1 +1,0 @@
 ───────────────
 1 ┊   │ -second
 
-────────────────────────╮
- w:n:e dir/to_empty.txt │
-────────────────────────╯
+──────────────────────────╮
+ w:n:e M dir/to_empty.txt │
+──────────────────────────╯
 
 @@ -1,1 +1,0 @@
 ───────────────
 1 ┊   │ -third
 
-─────────────────────────╮
- w:x:3 dir/to_modify.txt │
-─────────────────────────╯
+───────────────────────────╮
+ w:x:3 M dir/to_modify.txt │
+───────────────────────────╯
 
 @@ -1,1 +1,2 @@
 ───────────────
@@ -2230,9 +2230,9 @@ fn can_overspecify_hunk_id() {
         .success()
         // Full ID is qs:3c81ccd4449094b2becf2b846fc69cfdfcaa613c
         .stdout_eq(snapbox::str![[r#"
-───────────╮
- qs:3 file │
-───────────╯
+─────────────╮
+ qs:3 A file │
+─────────────╯
 
 @@ -1,0 +1,1 @@
 ───────────────
@@ -2311,9 +2311,9 @@ hellooooo
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
-────────────╮
- qs:79 file │
-────────────╯
+──────────────╮
+ qs:79 M file │
+──────────────╯
 
 @@ -2,6 +2,7 @@
 ───────────────
@@ -2325,9 +2325,9 @@ hellooooo
 6 ┊ 7 │  5
 7 ┊ 8 │  6
 
-────────────╮
- qs:78 file │
-────────────╯
+──────────────╮
+ qs:78 M file │
+──────────────╯
 
 @@ -9,6 +10,7 @@
 ────────────────

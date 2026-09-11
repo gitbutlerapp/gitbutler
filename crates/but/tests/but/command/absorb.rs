@@ -141,9 +141,9 @@ fn uncommitted_hunk() {
         .success()
         .stderr_eq(snapbox::str![])
         .stdout_eq(snapbox::str![[r#"
-────────────╮
- nk:2 a.txt │
-────────────╯
+──────────────╮
+ nk:2 M a.txt │
+──────────────╯
 
 @@ -1,4 +1,4 @@
 ───────────────
@@ -153,9 +153,9 @@ fn uncommitted_hunk() {
 3 ┊ 3 │  line
 4 ┊ 4 │  line
 
-────────────╮
- nk:e a.txt │
-────────────╯
+──────────────╮
+ nk:e M a.txt │
+──────────────╯
 
 @@ -6,4 +6,4 @@
 ───────────────
@@ -233,9 +233,9 @@ fn committed_hunk() {
         .success()
         .stderr_eq(snapbox::str![])
         .stdout_eq(snapbox::str![[r#"
-────────────╮
- nk:2 a.txt │
-────────────╯
+──────────────╮
+ nk:2 M a.txt │
+──────────────╯
 
 @@ -1,4 +1,4 @@
 ───────────────
@@ -245,9 +245,9 @@ fn committed_hunk() {
 3 ┊ 3 │  line
 4 ┊ 4 │  line
 
-────────────╮
- nk:e a.txt │
-────────────╯
+──────────────╮
+ nk:e M a.txt │
+──────────────╯
 
 @@ -6,4 +6,4 @@
 ───────────────
@@ -277,9 +277,9 @@ fn committed_hunk() {
         .success()
         .stderr_eq(snapbox::str![])
         .stdout_eq(snapbox::str![[r#"
-────────────╮
- nk:f a.txt │
-────────────╯
+──────────────╮
+ nk:f M a.txt │
+──────────────╯
 
 @@ -1,4 +1,4 @@
 ───────────────
@@ -307,9 +307,9 @@ fn committed_hunk() {
         .success()
         .stderr_eq(snapbox::str![])
         .stdout_eq(snapbox::str![[r#"
-────────────╮
- nk:1 a.txt │
-────────────╯
+──────────────╮
+ nk:1 M a.txt │
+──────────────╯
 
 @@ -6,4 +6,4 @@
 ───────────────
@@ -337,9 +337,9 @@ fn committed_hunk() {
         .success()
         .stderr_eq(snapbox::str![])
         .stdout_eq(snapbox::str![[r#"
-────────────╮
- nk:b a.txt │
-────────────╯
+──────────────╮
+ nk:b M a.txt │
+──────────────╯
 
 @@ -1,4 +1,4 @@
 ───────────────
@@ -349,9 +349,9 @@ fn committed_hunk() {
 3 ┊ 3 │  line
 4 ┊ 4 │  line
 
-────────────╮
- nk:5 a.txt │
-────────────╯
+──────────────╮
+ nk:5 M a.txt │
+──────────────╯
 
 @@ -6,4 +6,4 @@
 ───────────────

@@ -1,5 +1,6 @@
 use anyhow::Context as _;
 use bstr::{BStr, BString, ByteSlice};
+use nonempty::NonEmpty;
 use serde::{Deserialize, Serialize};
 
 use crate::{DiffSpec, HunkHeader, TreeChange, UnifiedPatch};
@@ -40,7 +41,7 @@ impl SingleHunk {
     /// Changes without sub-file identity — binaries, files too large to diff, patches
     /// produced by a binary-to-text filter, and changes whose patch couldn't be computed
     /// at all — yield a single whole-file hunk rather than disappearing.
-    pub fn from_tree_change(change: &TreeChange, patch: Option<UnifiedPatch>) -> Vec<Self> {
+    pub fn from_tree_change(change: &TreeChange, patch: Option<UnifiedPatch>) -> NonEmpty<Self> {
         let hunks = match &patch {
             Some(UnifiedPatch::Patch {
                 hunks,
@@ -52,21 +53,28 @@ impl SingleHunk {
             )
             | None => &[],
         };
-        if hunks.is_empty() {
-            return vec![SingleHunk {
+        match hunks {
+            [] => NonEmpty::new(SingleHunk {
                 hunk_header: None,
                 path: change.path.clone(),
                 diff: None,
-            }];
+            }),
+            [hunk, tail @ ..] => {
+                let mut hunks = NonEmpty::new(SingleHunk {
+                    hunk_header: Some(hunk.into()),
+                    path: change.path.clone(),
+                    diff: Some(hunk.diff.clone()),
+                });
+                for hunk in tail {
+                    hunks.push(SingleHunk {
+                        hunk_header: Some(hunk.into()),
+                        path: change.path.clone(),
+                        diff: Some(hunk.diff.clone()),
+                    });
+                }
+                hunks
+            }
         }
-        hunks
-            .iter()
-            .map(|hunk| SingleHunk {
-                hunk_header: Some(hunk.into()),
-                path: change.path.clone(),
-                diff: Some(hunk.diff.clone()),
-            })
-            .collect()
     }
 
     /// Return the `(added, removed)` line numbers of this hunk, or `None` if it has no
@@ -166,12 +174,28 @@ pub fn hunks_from_changes(
     changes: impl IntoIterator<Item = impl Into<TreeChange>>,
     context_lines: u32,
 ) -> Vec<SingleHunk> {
+    changes_with_hunks(repo, changes, context_lines)
+        .flat_map(|(_, hunks)| hunks)
+        .collect()
+}
+
+/// Extracts hunks for the provided `changes`, retaining the association between each change and its
+/// constituent hunks.
+pub fn changes_with_hunks<'a, I>(
+    repo: &'a gix::Repository,
+    changes: I,
+    context_lines: u32,
+) -> impl Iterator<Item = (TreeChange, NonEmpty<SingleHunk>)> + 'a
+where
+    I: IntoIterator,
+    I::Item: Into<TreeChange>,
+    I::IntoIter: 'a,
+{
     // Object-backed changes use index attributes; worktree-backed changes also read
     // worktree attributes. Keep their pipelines separate to preserve that distinction.
     let mut object_filter = None;
     let mut worktree_filter = None;
-    let mut hunks = Vec::new();
-    for change in changes {
+    changes.into_iter().map(move |change| {
         let change = change.into();
         let state = change.status.state();
         let filter = if state.is_some_and(|state| state.id.is_null()) {
@@ -194,9 +218,10 @@ pub fn hunks_from_changes(
             // As before, failed diffs fall back to whole-file hunks.
             Err(_) => None,
         };
-        hunks.extend(SingleHunk::from_tree_change(&change, patch));
-    }
-    hunks
+
+        let hunks = SingleHunk::from_tree_change(&change, patch);
+        (change, hunks)
+    })
 }
 
 /// Convert `hunk` into a diff spec, completing it with the rename, addition and deletion

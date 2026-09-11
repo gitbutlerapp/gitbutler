@@ -580,7 +580,7 @@ impl ThemeSymbols {
 /// Ratatui [`Span`].
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct StyledSymbol {
-    content: &'static str,
+    pub(crate) content: &'static str,
     style: Style,
 }
 

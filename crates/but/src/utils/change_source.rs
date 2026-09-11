@@ -58,10 +58,8 @@ impl ChangeSourceId {
 pub struct SourceChanges {
     /// The checkout these were read from.
     pub source: ChangeSourceId,
-    /// The changed files, which carry the tree status that hunks do not.
-    pub changes: Vec<but_core::ui::TreeChange>,
     /// The hunks those changes split into.
-    pub hunks: Vec<but_core::SingleHunk>,
+    pub changes_with_hunks: Vec<(but_core::TreeChange, NonEmpty<but_core::SingleHunk>)>,
 }
 
 /// The names of the linked worktrees whose uncommitted changes get CLI IDs.
@@ -119,20 +117,19 @@ pub fn changes_by_source(
     head_changes: Vec<but_core::ui::TreeChange>,
 ) -> anyhow::Result<Vec<SourceChanges>> {
     let mut out = Vec::with_capacity(worktree_names.len() + 1);
-    let head_hunks = but_core::hunks_from_changes(repo, head_changes.clone(), context_lines);
+    let head_changes_with_hunks = but_core::changes_with_hunks(repo, head_changes, context_lines);
     out.push(SourceChanges {
         source: ChangeSourceId::Head,
-        changes: head_changes,
-        hunks: head_hunks,
+        changes_with_hunks: head_changes_with_hunks.collect(),
     });
     for name in worktree_names {
         let wt_repo = but_workspace::worktrees::open_worktree_repo(repo, name.as_ref())?;
         let changes = but_core::diff::ui::worktree_changes(&wt_repo)?.changes;
-        let hunks = but_core::hunks_from_changes(&wt_repo, changes.clone(), context_lines);
+        let changes_with_hunks =
+            but_core::changes_with_hunks(&wt_repo, changes, context_lines).collect();
         out.push(SourceChanges {
             source: ChangeSourceId::Worktree(name),
-            changes,
-            hunks,
+            changes_with_hunks,
         });
     }
     Ok(out)

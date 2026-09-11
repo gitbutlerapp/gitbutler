@@ -1,4 +1,4 @@
-use std::collections::{BTreeMap, HashSet, btree_map::Entry};
+use std::collections::HashSet;
 
 use bstr::BString;
 use nonempty::NonEmpty;
@@ -10,46 +10,54 @@ use crate::{
 
 /// Information about uncommitted files.
 pub(crate) struct UncommittedInfo {
-    /// Uncommitted hunks partitioned by the checkout they come from and their filename.
+    /// Uncommitted changes and associated hunks partitioned by the checkout they come from and
+    /// their path.
     ///
-    /// Ordered by source and then path, so the same working state always yields
-    /// the same IDs.
-    pub(crate) partitioned_hunks: Vec<(ChangeSourceId, NonEmpty<but_core::SingleHunk>)>,
+    /// Ordered by source and then path, so the same working state always yields the same IDs.
+    pub(crate) partitioned_changes_and_hunks: Vec<(
+        ChangeSourceId,
+        but_core::ui::TreeChange,
+        NonEmpty<but_core::SingleHunk>,
+    )>,
     /// The short filenames of every source, which all compete for the same short
     /// IDs as branches do.
     pub(crate) uncommitted_short_filenames: HashSet<BString>,
 }
 
 impl UncommittedInfo {
-    /// Partitions the hunks of every source by source and filename.
-    pub(crate) fn from_sources(sources: Vec<SourceChanges>) -> anyhow::Result<Self> {
-        let mut uncommitted_hunks: BTreeMap<(ChangeSourceId, BString), NonEmpty<_>> =
-            BTreeMap::new();
+    /// Creates an [`UncommittedInfo`] from any amount of [`SourceChanges`].
+    pub(crate) fn from_sources(sources: impl IntoIterator<Item = SourceChanges>) -> Self {
         let mut uncommitted_short_filenames = HashSet::new();
-        for SourceChanges { source, hunks, .. } in sources {
-            for hunk in hunks {
-                if hunk.path.len() <= UintId::LENGTH_LIMIT
-                    && !uncommitted_short_filenames.contains(&hunk.path)
-                {
-                    uncommitted_short_filenames.insert(hunk.path.clone());
+        let mut partitioned_changes_and_hunks: Vec<(
+            ChangeSourceId,
+            but_core::ui::TreeChange,
+            NonEmpty<but_core::SingleHunk>,
+        )> = vec![];
+
+        for SourceChanges {
+            source,
+            changes_with_hunks,
+        } in sources
+        {
+            for (change, hunks) in changes_with_hunks {
+                if change.path.len() <= UintId::LENGTH_LIMIT {
+                    uncommitted_short_filenames.insert(change.path.clone());
                 }
-                match uncommitted_hunks.entry((source.clone(), hunk.path.clone())) {
-                    Entry::Vacant(vacant_entry) => {
-                        vacant_entry.insert(NonEmpty::new(hunk));
-                    }
-                    Entry::Occupied(mut occupied_entry) => {
-                        occupied_entry.get_mut().push(hunk);
-                    }
-                };
+                partitioned_changes_and_hunks.push((source.clone(), change.into(), hunks));
             }
         }
 
-        Ok(Self {
-            partitioned_hunks: uncommitted_hunks
-                .into_iter()
-                .map(|((source, _path), hunks)| (source, hunks))
-                .collect(),
+        partitioned_changes_and_hunks.sort_by(
+            |(lhs_source_id, lhs_change, _), (rhs_source_id, rhs_change, _)| {
+                lhs_source_id
+                    .cmp(rhs_source_id)
+                    .then_with(|| lhs_change.path_bytes.cmp(&rhs_change.path_bytes))
+            },
+        );
+
+        Self {
+            partitioned_changes_and_hunks,
             uncommitted_short_filenames,
-        })
+        }
     }
 }

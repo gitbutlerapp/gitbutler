@@ -9,10 +9,7 @@ use std::{
 use anyhow::bail;
 use bstr::{BStr, BString, ByteSlice as _};
 use but_core::{
-    UnifiedPatch,
-    diff::LineStats,
-    ui::{TreeChange, TreeStatus},
-    unified_diff::DiffHunk,
+    TreeStatusKind, UnifiedPatch, diff::LineStats, ui::TreeChange, unified_diff::DiffHunk,
 };
 use but_ctx::Context;
 use gix::{ObjectId, actor::Signature};
@@ -37,6 +34,7 @@ use crate::{
     theme::Theme,
     utils::{
         change_source::ChangeSourceId,
+        status_letter_kind,
         string_interning::{SharedStrings, Strings},
     },
 };
@@ -656,8 +654,18 @@ pub fn render_uncommitted_source(
         out.write_section_separator()?;
     }
 
-    for (pos, (raw_id, cli_id, UncommittedHunk { hunk, source: _ })) in
-        uncommitted_hunks.into_iter().with_position()
+    for (
+        pos,
+        (
+            raw_id,
+            cli_id,
+            UncommittedHunk {
+                hunk,
+                tree_status,
+                source: _,
+            },
+        ),
+    ) in uncommitted_hunks.into_iter().with_position()
     {
         let id = id_gen.new_id(raw_id);
 
@@ -665,7 +673,7 @@ pub fn render_uncommitted_source(
             id,
             Some(Arc::clone(&cli_id)),
             hunk.path.as_ref(),
-            Some(ShortIdOrTreeStatus::ShortId(raw_id)),
+            Some(StatusLine::ShortIdAndTreeStatus(raw_id, *tree_status)),
             out,
             theme,
         )?;
@@ -765,7 +773,10 @@ fn render_id_and_hunks(
             id,
             Some(Arc::clone(&cli_id)),
             id_and_hunk.hunk.path.as_ref(),
-            Some(ShortIdOrTreeStatus::ShortId(raw_id)),
+            Some(StatusLine::ShortIdAndTreeStatus(
+                raw_id,
+                id_and_hunk.tree_status,
+            )),
             out,
             theme,
         )?;
@@ -930,6 +941,7 @@ fn render_tree_changes_with_id(
         tree_changes.into_iter().enumerate().with_position()
     {
         let mut id_gen = id_gen.scoped(i);
+
         match patch {
             UnifiedPatch::Patch {
                 is_result_of_binary_to_text_conversion,
@@ -947,7 +959,10 @@ fn render_tree_changes_with_id(
                     hunk_id,
                     None,
                     tree_change.inner.path.as_ref(),
-                    Some(ShortIdOrTreeStatus::ShortId(&tree_change.short_id)),
+                    Some(StatusLine::ShortIdAndTreeStatus(
+                        &tree_change.short_id,
+                        tree_change.inner.status.kind(),
+                    )),
                     out,
                     theme,
                 )?;
@@ -974,7 +989,6 @@ fn render_tree_changes_with_id(
             patch @ UnifiedPatch::Patch { .. } => {
                 let mut id_gen = id_gen.scoped("hunks");
                 let hunks = identify_hunks(&tree_change, patch)?;
-
                 for (hunk_pos, (j, hunk)) in hunks.into_iter().enumerate().with_position() {
                     let hunk_id = id_gen.new_id(j);
 
@@ -983,7 +997,10 @@ fn render_tree_changes_with_id(
                         hunk_id,
                         None,
                         tree_change.inner.path.as_ref(),
-                        Some(ShortIdOrTreeStatus::ShortId(&hunk.id)),
+                        Some(StatusLine::ShortIdAndTreeStatus(
+                            &hunk.id,
+                            tree_change.inner.status.kind(),
+                        )),
                         out,
                         theme,
                     )?;
@@ -1001,7 +1018,10 @@ fn render_tree_changes_with_id(
                     out,
                     tree_change_pos,
                     tree_change.inner.path.as_ref(),
-                    Some(ShortIdOrTreeStatus::ShortId(&tree_change.short_id)),
+                    Some(StatusLine::ShortIdAndTreeStatus(
+                        &tree_change.short_id,
+                        tree_change.inner.status.kind(),
+                    )),
                     &mut id_gen,
                 )?;
             }
@@ -1011,7 +1031,10 @@ fn render_tree_changes_with_id(
                     out,
                     tree_change_pos,
                     tree_change.inner.path.as_ref(),
-                    Some(ShortIdOrTreeStatus::ShortId(&tree_change.short_id)),
+                    Some(StatusLine::ShortIdAndTreeStatus(
+                        &tree_change.short_id,
+                        tree_change.inner.status.kind(),
+                    )),
                     id_gen,
                     size_in_bytes,
                 )?;
@@ -1035,6 +1058,8 @@ fn render_tree_changes(
     {
         let mut id_gen = id_gen.scoped(i);
         let path = Arc::new(tree_change.path_bytes.clone());
+        let tree_status = Into::<but_core::TreeStatus>::into(tree_change.status.clone()).kind();
+
         match patch {
             UnifiedPatch::Patch {
                 hunks,
@@ -1052,7 +1077,7 @@ fn render_tree_changes(
                             hunk_id,
                             None,
                             tree_change.path.as_ref(),
-                            Some(ShortIdOrTreeStatus::TreeStatus(&tree_change.status)),
+                            Some(StatusLine::TreeStatus(tree_status)),
                             out,
                             theme,
                         )?;
@@ -1079,7 +1104,7 @@ fn render_tree_changes(
                     out,
                     tree_change_pos,
                     tree_change.path.as_ref(),
-                    Some(ShortIdOrTreeStatus::TreeStatus(&tree_change.status)),
+                    Some(StatusLine::TreeStatus(tree_status)),
                     &mut id_gen,
                 )?;
             }
@@ -1089,7 +1114,7 @@ fn render_tree_changes(
                     out,
                     tree_change_pos,
                     tree_change.path.as_ref(),
-                    Some(ShortIdOrTreeStatus::TreeStatus(&tree_change.status)),
+                    Some(StatusLine::TreeStatus(tree_status)),
                     id_gen,
                     size_in_bytes,
                 )?;
@@ -1105,7 +1130,7 @@ fn render_too_large_hunk(
     out: &mut dyn DiffLineWriter,
     tree_change_pos: Position,
     path: &BStr,
-    status: Option<ShortIdOrTreeStatus<'_>>,
+    status: Option<StatusLine<'_>>,
     mut id_gen: IdGen<'_>,
     size_in_bytes: u64,
 ) -> Result<(), anyhow::Error> {
@@ -1128,7 +1153,7 @@ fn render_binary_hunk(
     out: &mut dyn DiffLineWriter,
     tree_change_pos: Position,
     path: &BStr,
-    status: Option<ShortIdOrTreeStatus<'_>>,
+    status: Option<StatusLine<'_>>,
     id_gen: &mut IdGen<'_>,
 ) -> Result<(), anyhow::Error> {
     let patch_id = id_gen.new_id("binary");
@@ -1160,38 +1185,43 @@ fn render_signature(
     .into_iter()
 }
 
-enum ShortIdOrTreeStatus<'a> {
-    ShortId(&'a str),
-    TreeStatus(&'a TreeStatus),
+enum StatusLine<'a> {
+    TreeStatus(TreeStatusKind),
+    ShortIdAndTreeStatus(&'a str, TreeStatusKind),
 }
 
 fn render_hunk_path_header(
     id: SectionId,
     cli_id: Option<Arc<CliId>>,
     path: &BStr,
-    status: Option<ShortIdOrTreeStatus<'_>>,
+    status: Option<StatusLine<'_>>,
     out: &mut dyn DiffLineWriter,
     theme: &'static Theme,
 ) -> anyhow::Result<()> {
-    let status = status.map(|id_or_status| match id_or_status {
-        ShortIdOrTreeStatus::ShortId(id) => Span::raw(id.to_owned()).blue(),
-        ShortIdOrTreeStatus::TreeStatus(status) => change_status(status, theme),
-    });
-    let path = path.to_string();
-    let path_line = Vec::from_iter(
-        [Span::raw(" ")]
-            .into_iter()
-            .chain(
-                status
-                    .into_iter()
-                    .flat_map(|status| [status, Span::raw(" ")]),
-            )
-            .chain([
-                Span::raw(path),
-                Span::raw(" "),
-                Span::styled("│", theme.border),
-            ]),
-    );
+    let (short_id, status) = match status {
+        Some(StatusLine::TreeStatus(status)) => (None, Some(status)),
+        Some(StatusLine::ShortIdAndTreeStatus(id, status)) => (Some(id), Some(status)),
+        None => (None, None),
+    };
+
+    let mut path_line = Vec::with_capacity(8);
+    path_line.push(Span::raw(" "));
+
+    if let Some(short_id) = short_id {
+        path_line.push(Span::raw(short_id.to_string()).blue());
+        path_line.push(Span::raw(" "));
+    }
+
+    if let Some(status) = status {
+        path_line.push(status_letter_kind(status, theme));
+        path_line.push(Span::raw(" "));
+    }
+
+    path_line.extend([
+        Span::raw(path.to_string()),
+        Span::raw(" "),
+        Span::styled("│", theme.border),
+    ]);
 
     let width_including_padding = 1 + path_line.iter().map(|span| span.width()).sum::<usize>() - 2;
 
@@ -1203,15 +1233,6 @@ fn render_hunk_path_header(
     })?;
 
     Ok(())
-}
-
-fn change_status(status: &TreeStatus, theme: &'static Theme) -> Span<'static> {
-    match status {
-        TreeStatus::Addition { .. } => Span::styled("added", theme.addition),
-        TreeStatus::Deletion { .. } => Span::styled("deleted", theme.deletion),
-        TreeStatus::Modification { .. } => Span::styled("modified", theme.modification),
-        TreeStatus::Rename { .. } => Span::styled("renamed", theme.renaming),
-    }
 }
 
 fn render_unified_patch(
@@ -1481,6 +1502,7 @@ mod tests {
     fn id_and_hunk(id: &str, path: &str) -> IdAndHunk {
         IdAndHunk {
             id: id.to_owned(),
+            tree_status: but_core::TreeStatusKind::Modification,
             hunk: but_core::SingleHunk {
                 hunk_header: None,
                 path: BString::from(path),

@@ -79,9 +79,9 @@ seven
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
-────────────╮
- s:q:3 file │
-────────────╯
+──────────────╮
+ s:q:3 M file │
+──────────────╯
 
 @@ -1,3 +1,4 @@
 ───────────────
@@ -90,9 +90,9 @@ seven
 2 ┊ 3 │  two
 3 ┊ 4 │  three
 
-────────────╮
- s:q:8 file │
-────────────╯
+──────────────╮
+ s:q:8 M file │
+──────────────╯
 
 @@ -5,3 +6,4 @@
 ───────────────
@@ -137,9 +137,9 @@ Hint: run `but help` for all commands
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
-────────────╮
- q:q:3 file │
-────────────╯
+──────────────╮
+ q:q:3 M file │
+──────────────╯
 
 @@ -1,3 +1,4 @@
 ───────────────
@@ -155,9 +155,9 @@ Hint: run `but help` for all commands
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
-────────────╮
- s:q:8 file │
-────────────╯
+──────────────╮
+ s:q:8 M file │
+──────────────╯
 
 @@ -5,3 +5,4 @@
 ───────────────

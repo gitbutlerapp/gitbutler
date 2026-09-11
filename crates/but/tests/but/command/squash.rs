@@ -1141,9 +1141,9 @@ fn amend_uncommitted_hunks_into_commits() {
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
-───────────╮
- qs:9 file │
-───────────╯
+─────────────╮
+ qs:9 M file │
+─────────────╯
 
 @@ -1,3 +1,4 @@
 ───────────────
@@ -1152,9 +1152,9 @@ fn amend_uncommitted_hunks_into_commits() {
 2 ┊ 3 │  line
 3 ┊ 4 │  line
 
-───────────╮
- qs:d file │
-───────────╯
+─────────────╮
+ qs:d M file │
+─────────────╯
 
 @@ -7,4 +8,4 @@
 ───────────────
@@ -1178,9 +1178,9 @@ Amended nky
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
-───────────╮
- qs:d file │
-───────────╯
+─────────────╮
+ qs:d M file │
+─────────────╯
 
 @@ -8,4 +8,4 @@
 ───────────────
@@ -2506,9 +2506,9 @@ Hint: run `but help` for all commands
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
-────────────╮
- s:q:3 file │
-────────────╯
+──────────────╮
+ s:q:3 M file │
+──────────────╯
 
 @@ -1,3 +1,4 @@
 ───────────────
@@ -2517,9 +2517,9 @@ Hint: run `but help` for all commands
 2 ┊ 3 │  two
 3 ┊ 4 │  three
 
-────────────╮
- s:q:8 file │
-────────────╯
+──────────────╮
+ s:q:8 M file │
+──────────────╯
 
 @@ -5,3 +6,4 @@
 ───────────────
@@ -2543,9 +2543,9 @@ Amended knw
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
-────────────╮
- s:q:8 file │
-────────────╯
+──────────────╮
+ s:q:8 M file │
+──────────────╯
 
 @@ -6,3 +6,4 @@
 ───────────────
@@ -2561,9 +2561,9 @@ Amended knw
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
-────────────╮
- k:q:c file │
-────────────╯
+──────────────╮
+ k:q:c A file │
+──────────────╯
 
 @@ -1,0 +1,8 @@
 ───────────────
@@ -2585,9 +2585,9 @@ Amended knw
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
-───────────╮
- qs:8 file │
-───────────╯
+─────────────╮
+ qs:8 M file │
+─────────────╯
 
 @@ -6,3 +6,4 @@
 ───────────────
@@ -2643,9 +2643,9 @@ Hint: run `but help` for all commands
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
-────────────╮
- s:q:3 file │
-────────────╯
+──────────────╮
+ s:q:3 M file │
+──────────────╯
 
 @@ -1,3 +1,4 @@
 ───────────────
@@ -2654,9 +2654,9 @@ Hint: run `but help` for all commands
 2 ┊ 3 │  two
 3 ┊ 4 │  three
 
-────────────╮
- s:q:8 file │
-────────────╯
+──────────────╮
+ s:q:8 M file │
+──────────────╯
 
 @@ -5,3 +6,4 @@
 ───────────────
@@ -2674,9 +2674,9 @@ Hint: run `but help` for all commands
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
-────────────╮
- k:q:0 file │
-────────────╯
+──────────────╮
+ k:q:0 A file │
+──────────────╯
 
 @@ -1,0 +1,9 @@
 ───────────────
@@ -2779,9 +2779,9 @@ Hint: run `but help` for all commands
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
-───────────────────╮
- o:n:f deleted.txt │
-───────────────────╯
+─────────────────────╮
+ o:n:f D deleted.txt │
+─────────────────────╯
 
 @@ -1,1 +1,0 @@
 ───────────────
@@ -2921,9 +2921,9 @@ Hint: run `but help` for all commands
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
-───────────────────╮
- x:s:b renamed.txt │
-───────────────────╯
+─────────────────────╮
+ x:s:b R renamed.txt │
+─────────────────────╯
 
 @@ -1,3 +1,4 @@
 ───────────────

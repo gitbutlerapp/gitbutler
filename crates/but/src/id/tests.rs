@@ -707,6 +707,7 @@ stacks: [ j0 ]
                         path: "uncommitted2.txt",
                         diff: None,
                     },
+                    tree_status: Addition,
                 },
                 tail: [],
             },
@@ -725,6 +726,7 @@ stacks: [ j0 ]
                         path: "uncommitted2.txt",
                         diff: None,
                     },
+                    tree_status: Addition,
                 },
                 tail: [],
             },
@@ -745,6 +747,7 @@ stacks: [ j0 ]
                         path: "uncommitted1.txt",
                         diff: None,
                     },
+                    tree_status: Addition,
                 },
                 tail: [
                     IdAndHunk {
@@ -756,6 +759,7 @@ stacks: [ j0 ]
                             path: "uncommitted1.txt",
                             diff: None,
                         },
+                        tree_status: Addition,
                     },
                 ],
             },
@@ -776,6 +780,7 @@ stacks: [ j0 ]
                         path: "uncommitted1.txt",
                         diff: None,
                     },
+                    tree_status: Addition,
                 },
                 tail: [],
             },
@@ -796,6 +801,7 @@ stacks: [ j0 ]
                         path: "uncommitted1.txt",
                         diff: None,
                     },
+                    tree_status: Addition,
                 },
                 tail: [],
             },
@@ -951,6 +957,7 @@ uncommitted_hunks: [ ln:e ]
                         path: "uncommitted.txt",
                         diff: None,
                     },
+                    tree_status: Addition,
                 },
                 tail: [],
             },
@@ -1034,6 +1041,7 @@ fn uncommitted_files_disambiguate_between_themselves() -> anyhow::Result<()> {
                         path: "foo242",
                         diff: None,
                     },
+                    tree_status: Addition,
                 },
                 tail: [],
             },
@@ -1052,6 +1060,7 @@ fn uncommitted_files_disambiguate_between_themselves() -> anyhow::Result<()> {
                         path: "foo23",
                         diff: None,
                     },
+                    tree_status: Addition,
                 },
                 tail: [],
             },
@@ -1081,6 +1090,7 @@ fn uncommitted_files_disambiguate_between_themselves() -> anyhow::Result<()> {
                         path: "foo242",
                         diff: None,
                     },
+                    tree_status: Addition,
                 },
                 tail: [],
             },
@@ -1109,6 +1119,7 @@ fn uncommitted_files_disambiguate_between_themselves() -> anyhow::Result<()> {
                         path: "foo23",
                         diff: None,
                     },
+                    tree_status: Addition,
                 },
                 tail: [],
             },
@@ -1575,6 +1586,7 @@ fn uncommitted_files_disambiguate_with_branch() -> anyhow::Result<()> {
                         path: "file",
                         diff: None,
                     },
+                    tree_status: Addition,
                 },
                 tail: [],
             },
@@ -1629,6 +1641,7 @@ fn longer_id_is_ok() -> anyhow::Result<()> {
                         path: "foo23",
                         diff: None,
                     },
+                    tree_status: Addition,
                 },
                 tail: [],
             },
@@ -1683,6 +1696,7 @@ fn reverse_hex_filename_is_its_own_id() -> anyhow::Result<()> {
                         path: "klmxyz",
                         diff: None,
                     },
+                    tree_status: Addition,
                 },
                 tail: [],
             },
@@ -1746,6 +1760,7 @@ fn branch_and_file_by_name() -> anyhow::Result<()> {
                         path: "foo",
                         diff: None,
                     },
+                    tree_status: Addition,
                 },
                 tail: [],
             },
@@ -1799,6 +1814,7 @@ fn colon_uncommitted_filename() -> anyhow::Result<()> {
                         path: "assigned",
                         diff: None,
                     },
+                    tree_status: Addition,
                 },
                 tail: [],
             },
@@ -1829,6 +1845,7 @@ fn colon_uncommitted_filename() -> anyhow::Result<()> {
                         path: "assigned",
                         diff: None,
                     },
+                    tree_status: Addition,
                 },
                 tail: [],
             },
@@ -1859,6 +1876,7 @@ fn colon_uncommitted_filename() -> anyhow::Result<()> {
                         path: "uncommitted",
                         diff: None,
                     },
+                    tree_status: Addition,
                 },
                 tail: [],
             },
@@ -1908,6 +1926,7 @@ fn uncommitted_path() -> anyhow::Result<()> {
                     path: "prefix/a",
                     diff: None,
                 },
+                tree_status: Addition,
             },
             tail: [
                 IdAndHunk {
@@ -1917,6 +1936,7 @@ fn uncommitted_path() -> anyhow::Result<()> {
                         path: "prefix/b",
                         diff: None,
                     },
+                    tree_status: Addition,
                 },
             ],
         },
@@ -2145,6 +2165,7 @@ fn short_uncommitted_files_are_properly_reverse_hexed() -> anyhow::Result<()> {
                         path: "k",
                         diff: None,
                     },
+                    tree_status: Addition,
                 },
                 tail: [],
             },
@@ -2174,6 +2195,7 @@ fn short_uncommitted_files_are_properly_reverse_hexed() -> anyhow::Result<()> {
                         path: "kl",
                         diff: None,
                     },
+                    tree_status: Addition,
                 },
                 tail: [],
             },
@@ -2203,6 +2225,7 @@ fn short_uncommitted_files_are_properly_reverse_hexed() -> anyhow::Result<()> {
                         path: "klm",
                         diff: None,
                     },
+                    tree_status: Addition,
                 },
                 tail: [],
             },
@@ -2266,6 +2289,7 @@ fn uncommitted_hunks_by_numeric_index() -> anyhow::Result<()> {
                         path: "uncommitted1.txt",
                         diff: None,
                     },
+                    tree_status: Addition,
                 },
                 tail: [],
             },
@@ -2297,6 +2321,7 @@ fn uncommitted_hunks_by_numeric_index() -> anyhow::Result<()> {
                         path: "uncommitted1.txt",
                         diff: None,
                     },
+                    tree_status: Addition,
                 },
                 tail: [],
             },
@@ -2328,6 +2353,7 @@ fn uncommitted_hunks_by_numeric_index() -> anyhow::Result<()> {
                         path: "uncommitted1.txt",
                         diff: None,
                     },
+                    tree_status: Addition,
                 },
                 tail: [],
             },
@@ -2416,6 +2442,7 @@ fn uncommitted_hunks_by_id() -> anyhow::Result<()> {
                             "@@ -1,6 +1,7 @@\n 1\n 2\n 3\n+hello\n 4\n 5\n 6\n",
                         ),
                     },
+                    tree_status: Addition,
                 },
                 tail: [],
             },
@@ -2450,6 +2477,7 @@ fn uncommitted_hunks_by_id() -> anyhow::Result<()> {
                             "@@ -23,6 +24,7 @@\n 1\n 2\n 3\n+there\n 4\n 5\n 6\n",
                         ),
                     },
+                    tree_status: Addition,
                 },
                 tail: [],
             },
@@ -2484,6 +2512,7 @@ fn uncommitted_hunks_by_id() -> anyhow::Result<()> {
                             "@@ -60,6 +62,7 @@\n 46\n 47\n 48\n+hello\n 49\n 50\n 51\n",
                         ),
                     },
+                    tree_status: Addition,
                 },
                 tail: [],
             },
@@ -2515,6 +2544,7 @@ fn uncommitted_hunks_by_id() -> anyhow::Result<()> {
                         path: "hunk_without_diff.txt",
                         diff: None,
                     },
+                    tree_status: Addition,
                 },
                 tail: [],
             },
@@ -2591,6 +2621,7 @@ fn uncommitted_hunks_by_id_increase_id_length_as_necessary() -> anyhow::Result<(
                             "@@ -1,6 +1,7 @@\n 1\n 2\n 3\n+hellooooo\n 4\n 5\n 6\n",
                         ),
                     },
+                    tree_status: Addition,
                 },
                 tail: [],
             },
@@ -2625,6 +2656,7 @@ fn uncommitted_hunks_by_id_increase_id_length_as_necessary() -> anyhow::Result<(
                             "@@ -23,6 +24,7 @@\n 1\n 2\n 3\n+hellooo\n 4\n 5\n 6\n",
                         ),
                     },
+                    tree_status: Addition,
                 },
                 tail: [],
             },
@@ -2700,6 +2732,7 @@ fn uncommitted_hunks_overspecifying_id_prefix() -> anyhow::Result<()> {
                             "@@ -1,6 +1,7 @@\n 1\n 2\n 3\n+hellooooo\n 4\n 5\n 6\n",
                         ),
                     },
+                    tree_status: Addition,
                 },
                 tail: [],
             },
@@ -2781,6 +2814,7 @@ fn uncommitted_hunks_overspecifying_id_prefix_with_collision_disambiguation() ->
                             "@@ -1,6 +1,7 @@\n 1\n 2\n 3\n+hello\n 4\n 5\n 6\n",
                         ),
                     },
+                    tree_status: Addition,
                 },
                 tail: [],
             },
@@ -2868,6 +2902,7 @@ fn underspecifying_hunk_ids() -> anyhow::Result<()> {
                             "@@ -1,6 +1,7 @@\n 1\n 2\n 3\n+hellooooo\n 4\n 5\n 6\n",
                         ),
                     },
+                    tree_status: Addition,
                 },
                 tail: [],
             },
@@ -2890,6 +2925,7 @@ fn underspecifying_hunk_ids() -> anyhow::Result<()> {
                             "@@ -23,6 +24,7 @@\n 1\n 2\n 3\n+hellooo\n 4\n 5\n 6\n",
                         ),
                     },
+                    tree_status: Addition,
                 },
                 tail: [],
             },
@@ -2912,6 +2948,7 @@ fn underspecifying_hunk_ids() -> anyhow::Result<()> {
                             "@@ -33,6 +35,7 @@\n 1\n 2\n 3\n+hellooooo\n 4\n 5\n 6\n",
                         ),
                     },
+                    tree_status: Addition,
                 },
                 tail: [],
             },
@@ -2947,6 +2984,7 @@ fn underspecifying_hunk_ids() -> anyhow::Result<()> {
                             "@@ -1,6 +1,7 @@\n 1\n 2\n 3\n+hellooooo\n 4\n 5\n 6\n",
                         ),
                     },
+                    tree_status: Addition,
                 },
                 tail: [],
             },
@@ -3047,6 +3085,7 @@ fn uncommitted_hunks_by_id_collision_handling() -> anyhow::Result<()> {
                             "@@ -1,6 +1,7 @@\n 1\n 2\n 3\n+hello\n 4\n 5\n 6\n",
                         ),
                     },
+                    tree_status: Addition,
                 },
                 tail: [],
             },
@@ -3081,6 +3120,7 @@ fn uncommitted_hunks_by_id_collision_handling() -> anyhow::Result<()> {
                             "@@ -23,6 +24,7 @@\n 1\n 2\n 3\n+hello\n 4\n 5\n 6\n",
                         ),
                     },
+                    tree_status: Addition,
                 },
                 tail: [],
             },
@@ -3755,7 +3795,7 @@ fn worktree_commits_share_the_commit_namespace() -> anyhow::Result<()> {
 }
 
 mod util {
-    use std::{cmp::Ordering, fmt::Formatter};
+    use std::{cmp::Ordering, collections::BTreeMap, fmt::Formatter};
 
     use super::TestChanges;
 
@@ -3763,6 +3803,7 @@ mod util {
     use bstr::BString;
     use but_graph::workspace::{Stack, StackCommit, StackSegment};
     use itertools::Itertools;
+    use nonempty::NonEmpty;
 
     use crate::{CliId, IdMap};
 
@@ -3821,16 +3862,30 @@ mod util {
         }
     }
 
-    /// A source whose `changes` are left empty: [`IdMap`] reads only `hunks`, as
-    /// tree statuses are a status-rendering concern.
+    /// Group hunks by path, supplying addition metadata for these ID-focused tests.
     pub fn source_changes(
         source: crate::ChangeSourceId,
         hunks: Vec<but_core::SingleHunk>,
     ) -> crate::utils::change_source::SourceChanges {
+        let mut hunks_by_path: BTreeMap<BString, NonEmpty<but_core::SingleHunk>> = BTreeMap::new();
+        for hunk in hunks {
+            let key = hunk.path.clone();
+
+            match hunks_by_path.entry(key) {
+                std::collections::btree_map::Entry::Vacant(entry) => {
+                    entry.insert(NonEmpty::new(hunk));
+                }
+                std::collections::btree_map::Entry::Occupied(mut entry) => {
+                    entry.get_mut().push(hunk);
+                }
+            }
+        }
         crate::utils::change_source::SourceChanges {
             source,
-            changes: Vec::new(),
-            hunks,
+            changes_with_hunks: hunks_by_path
+                .into_iter()
+                .map(|(path, hunks)| (tree_change_addition(path), hunks))
+                .collect(),
         }
     }
 
@@ -3842,9 +3897,9 @@ mod util {
         }
     }
 
-    pub fn tree_change_addition(path: &str) -> but_core::TreeChange {
+    pub fn tree_change_addition(path: impl Into<BString>) -> but_core::TreeChange {
         but_core::TreeChange {
-            path: BString::from(path),
+            path: path.into(),
             status: but_core::TreeStatus::Addition {
                 state: but_core::ChangeState {
                     // `IdMap` only identifies a committed file by its commit ID

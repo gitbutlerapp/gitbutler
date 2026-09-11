@@ -27,7 +27,7 @@
     <text x="82 90 98 106 114 122" y="42" style="fill:#CCCCCC;">one.py</text>
     <text x="410" y="42" style="fill:#555555;">│</text>
     <text x="10" y="60" style="fill:#CCCCCC;">┊</text>
-    <text x="410 418 426 434 442 450 458 466 474 482 490 498 506 514 522" y="60" style="fill:#555555;">│─────────────╮</text>
+    <text x="410 418 426 434 442 450 458 466 474 482 490 498 506 514 522 530 538" y="60" style="fill:#555555;">│───────────────╮</text>
     <text x="10" y="78" style="fill:#CCCCCC;">┴</text>
     <text x="26 34 42 50 58 66 74" y="78" style="fill:#CCCCCC;opacity:0.75;">0dc3733</text>
     <text x="90 98 106 114 122 130 138" y="78" style="fill:#CCCCCC;">(common</text>
@@ -37,9 +37,10 @@
     <text x="322" y="78" style="fill:#CCCCCC;">M</text>
     <text x="410" y="78" style="fill:#555555;">│</text>
     <text x="426 434 442 450" y="78" style="fill:#0000AA;">sx:e</text>
-    <text x="466 474 482 490 498 506" y="78" style="fill:#CCCCCC;">one.py</text>
-    <text x="522" y="78" style="fill:#555555;">│</text>
-    <text x="410 418 426 434 442 450 458 466 474 482 490 498 506 514 522" y="96" style="fill:#555555;">│─────────────╯</text>
+    <text x="466" y="78" style="fill:#00AA00;">A</text>
+    <text x="482 490 498 506 514 522" y="78" style="fill:#CCCCCC;">one.py</text>
+    <text x="538" y="78" style="fill:#555555;">│</text>
+    <text x="410 418 426 434 442 450 458 466 474 482 490 498 506 514 522 530 538" y="96" style="fill:#555555;">│───────────────╯</text>
     <text x="410" y="114" style="fill:#555555;">│</text>
     <text x="410" y="132" style="fill:#555555;">│</text>
     <text x="418 426" y="132" style="fill:#CCCCCC;opacity:0.75;">@@</text>

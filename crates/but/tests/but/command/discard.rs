@@ -807,9 +807,9 @@ seven
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
-────────────────╮
- x:u:2 file.txt │
-────────────────╯
+──────────────────╮
+ x:u:2 M file.txt │
+──────────────────╯
 
 @@ -1,3 +1,4 @@
 ───────────────
@@ -818,9 +818,9 @@ seven
 2 ┊ 3 │  two
 3 ┊ 4 │  three
 
-────────────────╮
- x:u:e file.txt │
-────────────────╯
+──────────────────╮
+ x:u:e M file.txt │
+──────────────────╯
 
 @@ -5,3 +6,4 @@
 ───────────────
@@ -844,9 +844,9 @@ Discarded changes from file.txt from xsw to create xsw
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
-────────────────╮
- x:u:e file.txt │
-────────────────╯
+──────────────────╮
+ x:u:e M file.txt │
+──────────────────╯
 
 @@ -5,3 +5,4 @@
 ───────────────
@@ -871,9 +871,9 @@ fn discard_single_committed_hunk_in_deleted_file_discards_deletion() {
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
-─────────╮
- s:t:a A │
-─────────╯
+───────────╮
+ s:t:a D A │
+───────────╯
 
 @@ -1,1 +1,0 @@
 ───────────────
@@ -934,9 +934,9 @@ Hint: run `but help` for all commands
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
-─────────╮
- t:t:6 A │
-─────────╯
+───────────╮
+ t:t:6 A A │
+───────────╯
 
 @@ -1,0 +1,1 @@
 ───────────────
@@ -1018,9 +1018,9 @@ Hint: run `but help` for all commands
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
-─────────────────────────╮
- xl:q:7 renamed_file.txt │
-─────────────────────────╯
+───────────────────────────╮
+ xl:q:7 R renamed_file.txt │
+───────────────────────────╯
 
 @@ -1,3 +1,5 @@
 ───────────────
@@ -1062,9 +1062,9 @@ Hint: run `but help` for all commands
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
-─────────────────────────╮
- xl:q:e renamed_file.txt │
-─────────────────────────╯
+───────────────────────────╮
+ xl:q:e R renamed_file.txt │
+───────────────────────────╯
 
 No diff available - file is either empty, binary, or too large
 
@@ -1110,9 +1110,9 @@ Hint: run `but help` for all commands
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
-─────────╮
- y:p:e B │
-─────────╯
+───────────╮
+ y:p:e R B │
+───────────╯
 
 No diff available - file is either empty, binary, or too large
 
@@ -1159,9 +1159,9 @@ fn discard_an_uncommitted_hunk() {
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
-────────────────╮
- lw:2 hunks.txt │
-────────────────╯
+──────────────────╮
+ lw:2 M hunks.txt │
+──────────────────╯
 
 @@ -1,4 +1,4 @@
 ───────────────
@@ -1171,9 +1171,9 @@ fn discard_an_uncommitted_hunk() {
 3 ┊ 3 │  line
 4 ┊ 4 │  line
 
-────────────────╮
- lw:e hunks.txt │
-────────────────╯
+──────────────────╮
+ lw:e M hunks.txt │
+──────────────────╯
 
 @@ -6,4 +6,4 @@
 ───────────────
@@ -1194,9 +1194,9 @@ fn discard_an_uncommitted_hunk() {
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
-────────────────╮
- lw:e hunks.txt │
-────────────────╯
+──────────────────╮
+ lw:e M hunks.txt │
+──────────────────╯
 
 @@ -6,4 +6,4 @@
 ───────────────

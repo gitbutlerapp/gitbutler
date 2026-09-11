@@ -1613,9 +1613,9 @@ off the target
     );
     env.but("diff wx").assert().success().stdout_eq(
         snapbox::str![[r#"
-───────────────╮
- wx:a note.txt │
-───────────────╯
+─────────────────╮
+ wx:a A note.txt │
+─────────────────╯
 
 @@ -1,0 +1,1 @@
 ───────────────
@@ -1628,9 +1628,9 @@ off the target
     // scoped by worktree name reaches into that worktree only.
     env.but("diff in:@").assert().success().stdout_eq(
         snapbox::str![[r#"
-───────────────╮
- wx:a note.txt │
-───────────────╯
+─────────────────╮
+ wx:a A note.txt │
+─────────────────╯
 
 @@ -1,0 +1,1 @@
 ───────────────
@@ -1644,9 +1644,9 @@ off the target
         .success()
         .stdout_eq(
             snapbox::str![[r#"
-───────────────╮
- wx:a note.txt │
-───────────────╯
+─────────────────╮
+ wx:a A note.txt │
+─────────────────╯
 
 @@ -1,0 +1,1 @@
 ───────────────

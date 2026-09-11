@@ -252,9 +252,9 @@ fn resolves_committed_hunk() {
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
-───────────╮
- qs:7 file │
-───────────╯
+─────────────╮
+ qs:7 A file │
+─────────────╯
 
 @@ -1,0 +1,1 @@
 ───────────────
@@ -292,9 +292,9 @@ fn resolves_binary_committed_hunk() {
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
-────────────────╮
- nx:e image.png │
-────────────────╯
+──────────────────╮
+ nx:e A image.png │
+──────────────────╯
 
 No diff available - file is either empty, binary, or too large
 
@@ -346,9 +346,9 @@ Created commit 1 on new branch 'a-branch-1'
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
-───────────╮
- qs:b file │
-───────────╯
+─────────────╮
+ qs:b M file │
+─────────────╯
 
 @@ -8,6 +8,7 @@
 ───────────────
@@ -376,9 +376,9 @@ Created commit 1 on branch 'a-branch-1'
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
-───────────╮
- qs:2 file │
-───────────╯
+─────────────╮
+ qs:2 M file │
+─────────────╯
 
 @@ -8,7 +8,6 @@
 ───────────────
@@ -407,9 +407,9 @@ Created commit 1 on branch 'a-branch-1'
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
-───────────╮
- qs:b file │
-───────────╯
+─────────────╮
+ qs:b M file │
+─────────────╯
 
 @@ -8,6 +8,7 @@
 ───────────────
@@ -523,9 +523,9 @@ Created commit 1 on new branch 'a-branch-1'
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
-───────────────╮
- qs:8#0-2 file │
-───────────────╯
+─────────────────╮
+ qs:8#0-2 M file │
+─────────────────╯
 
 @@ -8,6 +8,7 @@
 ───────────────
@@ -537,9 +537,9 @@ Created commit 1 on new branch 'a-branch-1'
 12 ┊ 13 │  line
 13 ┊ 14 │  line
 
-───────────────╮
- qs:8#1-2 file │
-───────────────╯
+─────────────────╮
+ qs:8#1-2 M file │
+─────────────────╯
 
 @@ -18,6 +19,7 @@
 ─────────────────

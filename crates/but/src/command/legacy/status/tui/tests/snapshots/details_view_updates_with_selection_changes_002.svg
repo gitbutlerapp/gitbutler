@@ -74,7 +74,7 @@
     <text x="10 18" y="168" style="fill:#CCCCCC;">├╯</text>
     <text x="410" y="168" style="fill:#555555;">│</text>
     <text x="10" y="186" style="fill:#CCCCCC;">┊</text>
-    <text x="410 418 426 434 442 450 458 466 474 482 490" y="186" style="fill:#555555;">│─────────╮</text>
+    <text x="410 418 426 434 442 450 458 466 474 482 490 498 506" y="186" style="fill:#555555;">│───────────╮</text>
     <text x="10" y="204" style="fill:#CCCCCC;">┴</text>
     <text x="26 34 42 50 58 66 74" y="204" style="fill:#CCCCCC;opacity:0.75;">0dc3733</text>
     <text x="90 98 106 114 122 130 138" y="204" style="fill:#CCCCCC;">(common</text>
@@ -84,9 +84,10 @@
     <text x="322" y="204" style="fill:#CCCCCC;">M</text>
     <text x="410" y="204" style="fill:#555555;">│</text>
     <text x="426 434 442 450 458" y="204" style="fill:#0000AA;">t:t:6</text>
-    <text x="474" y="204" style="fill:#CCCCCC;">A</text>
-    <text x="490" y="204" style="fill:#555555;">│</text>
-    <text x="410 418 426 434 442 450 458 466 474 482 490" y="222" style="fill:#555555;">│─────────╯</text>
+    <text x="474" y="204" style="fill:#00AA00;">A</text>
+    <text x="490" y="204" style="fill:#CCCCCC;">A</text>
+    <text x="506" y="204" style="fill:#555555;">│</text>
+    <text x="410 418 426 434 442 450 458 466 474 482 490 498 506" y="222" style="fill:#555555;">│───────────╯</text>
     <text x="410" y="240" style="fill:#555555;">│</text>
     <text x="410" y="258" style="fill:#555555;">│</text>
     <text x="418 426" y="258" style="fill:#CCCCCC;opacity:0.75;">@@</text>

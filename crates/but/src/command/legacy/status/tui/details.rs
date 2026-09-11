@@ -2067,6 +2067,7 @@ mod tests {
             id: id.into(),
             hunks: NonEmpty::new(IdAndHunk {
                 id: id.into(),
+                tree_status: but_core::TreeStatusKind::Modification,
                 hunk: but_core::SingleHunk {
                     hunk_header: Some(HunkHeader {
                         old_start,
