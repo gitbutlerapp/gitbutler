@@ -1,0 +1,11 @@
+.headline.headline {
+	display: block;
+	flex-grow: 0;
+	line-height: 22px;
+	overflow-wrap: anywhere;
+}
+
+.headline .title {
+	display: inline;
+	line-height: inherit;
+}

@@ -1,0 +1,23 @@
+.metadata {
+	/* With the 28px title, matches COMMIT_ROW_HEIGHT. */
+	min-height: 26px;
+	font-size: 12px;
+	line-height: 20px;
+	white-space: nowrap;
+}
+
+.author {
+	min-width: 0;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+
+.commitId {
+	flex-shrink: 0;
+	font-family: var(--text-fontfamily-mono);
+}
+
+.conflictIcon {
+	flex-shrink: 0;
+	margin-right: 2px;
+}

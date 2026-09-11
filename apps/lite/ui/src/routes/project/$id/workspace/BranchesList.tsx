@@ -7,7 +7,7 @@ import { activeBranchFilterCount, branchIsEmpty, type BranchFilters } from "#ui/
 import { commitIsDiverged, commitTitle } from "#ui/commit.ts";
 import { Badge, type BadgeVariant } from "#ui/components/Badge.tsx";
 import { getButtonClassName } from "#ui/components/Button.tsx";
-import { ForgeLabel } from "#ui/components/ForgeLabel.tsx";
+import { BranchRowHeadline } from "./BranchRowHeadline.tsx";
 import type { IconName } from "#ui/components/iconNames.ts";
 import { classes } from "#ui/components/classes.ts";
 import { EmptyState } from "#ui/components/EmptyState.tsx";
@@ -62,6 +62,7 @@ import { ListFilterRow } from "./ListFilterRow.tsx";
 import { useListFilter } from "./useListFilter.ts";
 import {
 	getRowButtonClassName,
+	COMMIT_ROW_HEIGHT,
 	treeItemId,
 	useIsSelected as useIsSelectedInList,
 } from "./Row-utils.ts";
@@ -77,6 +78,7 @@ import {
 import { useApplyToWorkspace } from "./useApplyToWorkspace.ts";
 import type { NewBranchActions } from "./useNewBranch.ts";
 import styles from "./BranchesList.module.css";
+import { CommitRowContent } from "./CommitRowContent.tsx";
 
 /** The filter menu, in the order it is shown. */
 const filterMenuLabels: Array<[keyof BranchFilters, string]> = [
@@ -122,6 +124,7 @@ const CommitItem: FC<{
 	const address = commitAddress({ commitId: commit.id, changeId: commit.changeId });
 	const isSelected = useIsSelected(address);
 	const title = commitTitle(commit.message);
+	const descriptionId = useId();
 	const copyCommit = () =>
 		startKeyboardTransfer({ sources: [address], kind: "copy", placement: "above" });
 	const menuItems: Array<NativeMenuItem> = [
@@ -138,6 +141,7 @@ const CommitItem: FC<{
 			id={treeItemId(address)}
 			role="treeitem"
 			aria-label={title ?? "(no message)"}
+			aria-describedby={descriptionId}
 			aria-level={2}
 			aria-posinset={positionInSet}
 			aria-setsize={setSize}
@@ -151,11 +155,20 @@ const CommitItem: FC<{
 				glyph="commit"
 				status={commitIsDiverged(commit) ? "Diverged" : commit.state.type}
 			/>
-			<RowLabelContainer>
-				<RowLabel singleLine>
-					{title === undefined ? <span className={rowStyles.fadedText}>(no message)</span> : title}
-				</RowLabel>
-			</RowLabelContainer>
+			<CommitRowContent
+				commit={commit}
+				hasConflicts={commit.hasConflicts}
+				descriptionId={descriptionId}
+			/>
+			<Toolbar.Root aria-label="Commit actions" render={<RowToolbar reserveSpace />}>
+				<Toolbar.Button
+					aria-label="Commit menu"
+					onClick={(event) => void showNativeMenuFromTrigger(event.currentTarget, menuItems)}
+					className={getRowButtonClassName({ iconOnly: true })}
+				>
+					<Icon name="kebab" />
+				</Toolbar.Button>
+			</Toolbar.Root>
 		</Row>
 	);
 };
@@ -197,8 +210,7 @@ const BranchCommits: FC<{
 		count: commits?.length ?? 0,
 		getScrollElement: () => scrollElementRef.current,
 		initialOffset: () => scrollElementRef.current?.scrollTop ?? 0,
-		// Keep in sync with --single-line-row-height.
-		estimateSize: () => 28,
+		estimateSize: () => COMMIT_ROW_HEIGHT,
 		getItemKey: getCommitKey,
 		rangeExtractor: rangeExtractorWithSelected,
 		scrollMargin,
@@ -404,17 +416,7 @@ const BranchItem: FC<{
 				)}
 
 				<RowLabelGroup id={descriptionId}>
-					<RowLabelContainer className={styles.headline}>
-						<RowLabel heading className={styles.title} title={review?.title ?? branch.displayName}>
-							{review?.title ?? branch.displayName}
-						</RowLabel>
-						{review?.labels.map((label) => (
-							<Fragment key={label.name}>
-								{" "}
-								<ForgeLabel label={label} size="regular" />
-							</Fragment>
-						))}
-					</RowLabelContainer>
+					<BranchRowHeadline title={review?.title ?? branch.displayName} labels={review?.labels} />
 
 					{review !== null && (
 						<RowMeta className={styles.reviewMeta}>
@@ -501,10 +503,7 @@ const BranchItem: FC<{
 					</RowMeta>
 				</RowLabelGroup>
 
-				<Toolbar.Root
-					aria-label="Branch actions"
-					render={<RowToolbar className={styles.branchToolbar} />}
-				>
+				<Toolbar.Root aria-label="Branch actions" render={<RowToolbar reserveSpace />}>
 					<Toolbar.Button
 						aria-label="Branch menu"
 						onClick={(event) => {
@@ -620,7 +619,6 @@ export const BranchesList: FC<
 		getScrollElement: () => scrollElementRef.current,
 		estimateSize: (index) => {
 			// Estimate unwrapped titles; measured cards account for titles and labels that wrap.
-			const singleLineRowHeight = 28;
 			const branchTitleHeight = 34;
 			const reviewMetaHeight = 22;
 			const branchMetaLineHeight = 20;
@@ -640,7 +638,7 @@ export const BranchesList: FC<
 				stackFinalConnectorHeight +
 				branchCount * (branchTitleHeight + branchMetaLineHeight + branchMetaPaddingEnd) +
 				reviewCount * reviewMetaHeight +
-				commitCount * singleLineRowHeight +
+				commitCount * COMMIT_ROW_HEIGHT +
 				Math.max(0, branchCount - 1) * stackBetweenBranchConnectorHeight
 			);
 		},

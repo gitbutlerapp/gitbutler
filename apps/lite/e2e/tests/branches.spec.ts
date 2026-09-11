@@ -118,7 +118,7 @@ test.describe("branches", () => {
 		await applyBranch(appWindow, "branch1");
 
 		const branch = appWindow.getByRole("treeitem", { name: "branch1", exact: true });
-		await branch.getByTitle("branch1").click();
+		await branch.getByTitle("branch1", { exact: true }).click();
 		await appWindow.keyboard.press("F2");
 		const editor = appWindow.getByRole("textbox", { name: "Branch name" });
 		await editor.fill("master");

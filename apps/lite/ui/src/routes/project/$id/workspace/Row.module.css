@@ -104,16 +104,23 @@
 
 .toolbar {
 	display: none;
+	column-gap: 10px;
+	align-items: center;
+	/* Center buttons of any height within the first row line. */
+	height: var(--single-line-row-height);
+
+	&.toolbarReserveSpace {
+		display: flex;
+		visibility: hidden;
+		flex-shrink: 0;
+	}
 
 	.container:hover &,
 	.container:focus-within &,
 	.containerSelected &,
 	&.toolbarForceVisible {
 		display: flex;
-		column-gap: 10px;
-		align-items: center;
-		/* Center buttons of any height within the first row line. */
-		height: var(--single-line-row-height);
+		visibility: visible;
 	}
 
 	button:has([data-icon]) {

@@ -253,12 +253,16 @@ export const RowBubbleGroup: FC<ComponentProps<"span">> = (props) => (
 	<span {...props} className={classes(props.className, styles.bubbleGroup)} />
 );
 
-export const RowToolbar: FC<{ forceVisible?: boolean } & ComponentProps<"div">> = ({
-	forceVisible,
-	...props
-}) => (
+export const RowToolbar: FC<
+	{ forceVisible?: boolean; reserveSpace?: boolean } & ComponentProps<"div">
+> = ({ forceVisible, reserveSpace, ...props }) => (
 	<div
 		{...props}
-		className={classes(props.className, styles.toolbar, forceVisible && styles.toolbarForceVisible)}
+		className={classes(
+			props.className,
+			styles.toolbar,
+			forceVisible && styles.toolbarForceVisible,
+			reserveSpace && styles.toolbarReserveSpace,
+		)}
 	/>
 );
