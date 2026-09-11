@@ -16,17 +16,12 @@ import { useAddressSpace } from "#ui/routes/project/$id/workspace/WorkspaceLists
 import { addressIdentityKey, type Address } from "#ui/addresses.ts";
 import type { AddressSpace } from "#ui/workspace/address-space.ts";
 import type { TargetCommit } from "@gitbutler/but-sdk";
-import { useWorkspaceIntegrateUpstream } from "#ui/api/mutations.ts";
-import { headInfoQueryOptions } from "#ui/api/queries.ts";
-import { stackBottomRelativeTo } from "#ui/api/stack.ts";
-import { projectSlice } from "#ui/projects/state.ts";
-import { useAppSelector } from "#ui/store.ts";
 import { TooltipPopup } from "#ui/components/Tooltip.tsx";
 import { Button, Tooltip } from "@base-ui/react";
-import type { BottomUpdate } from "@gitbutler/but-sdk";
-import { useQuery } from "@tanstack/react-query";
 import { type FC, type ReactNode, type RefObject, useRef, useState } from "react";
 import styles from "./Section.module.css";
+import { Integrate, IntegrationStatus } from "./Integrate.tsx";
+import { useWorkspaceIntegrationPreview } from "./useWorkspaceIntegrationPreview.ts";
 import { TargetCommitRow } from "./TargetCommitRow.tsx";
 import {
 	CARD_GAP,
@@ -95,6 +90,7 @@ const Caption: FC<{ className?: string; hint: ReactNode; children: ReactNode }> 
 /** A header row: not a value. With a fold, the rail's toggle opens it, as on the rows above. */
 const Header: FC<{
 	label: string;
+	status?: ReactNode;
 	/** Beside the label, in the label's own line: a count, or a note. */
 	caption?: ReactNode;
 	/** The fold the header opens; none for a plain row. */
@@ -105,7 +101,7 @@ const Header: FC<{
 	toolbar?: ReactNode;
 	className?: string;
 	children?: ReactNode;
-}> = ({ label, caption, fold, rail, toolbar, className, children }) => (
+}> = ({ label, status, caption, fold, rail, toolbar, className, children }) => (
 	<Row interactive={false} className={className}>
 		{fold === undefined ? (
 			rail
@@ -119,6 +115,7 @@ const Header: FC<{
 			/>
 		)}
 		<RowLabelContainer>
+			{status}
 			<RowLabel heading singleLine>
 				{label}
 				{caption}
@@ -233,32 +230,6 @@ const Fetch: FC<{ projectId: string }> = ({ projectId }) => {
 	);
 };
 
-/** Rebases every stack onto the target's fetched tip; this does not fetch. */
-const Pull: FC<{ target: string; enabled: boolean; isPending: boolean; onPull: () => void }> = ({
-	target,
-	enabled,
-	isPending,
-	onPull,
-}) => (
-	<Tooltip.Root>
-		<Tooltip.Trigger
-			className={getRowButtonClassName({ variant: "outline" })}
-			onClick={onPull}
-			// `disabled` goes on the button so the tooltip still opens over it.
-			render={<Button focusableWhenDisabled disabled={!enabled} />}
-		>
-			{isPending ? "Pulling…" : "Pull latest"}
-		</Tooltip.Trigger>
-		<Tooltip.Portal>
-			<Tooltip.Positioner sideOffset={4}>
-				<Tooltip.Popup render={<TooltipPopup />}>
-					Pull the latest from {target} into the workspace base
-				</Tooltip.Popup>
-			</Tooltip.Positioner>
-		</Tooltip.Portal>
-	</Tooltip.Root>
-);
-
 export const Section: FC<{
 	projectId: string;
 	plan: Plan;
@@ -282,22 +253,7 @@ export const Section: FC<{
 	scrollElementRef,
 }) => {
 	const addressSpace = useAddressSpace();
-	// One mutation for the row and its docked stand-in: each rendering its own
-	// would leave the other's button enabled while a pull runs.
-	const { data: headInfo } = useQuery(headInfoQueryOptions(projectId));
-	const noOperationPending = useAppSelector(
-		(state) => projectSlice.selectors.selectPendingOperation(state, projectId)._tag === "None",
-	);
-	const { isPending: isPulling, mutate: integrate } = useWorkspaceIntegrateUpstream();
-	const pull = () => {
-		const updates = (headInfo?.stacks ?? [])
-			.values()
-			.map(stackBottomRelativeTo)
-			.filter((relativeTo) => relativeTo != null)
-			.map((relativeTo): BottomUpdate => ({ kind: "rebase", selector: relativeTo }))
-			.toArray();
-		integrate({ projectId, updates, dryRun: false });
-	};
+	const preview = useWorkspaceIntegrationPreview(projectId);
 	// Opening from docked: scroll to the bottom and hold it while the fold grows.
 	const incomingFold = useRef<HTMLDivElement>(null);
 	const incomingRows = useRef<HTMLDivElement>(null);
@@ -334,6 +290,7 @@ export const Section: FC<{
 	const header = (docked = false) => (
 		<Header
 			label={target.label}
+			status={!target.current && <IntegrationStatus target={target.label} preview={preview} />}
 			caption={
 				branched && (
 					<Caption
@@ -378,14 +335,7 @@ export const Section: FC<{
 				!docked && expanded && styles.cardHead,
 			)}
 		>
-			{!target.current && (
-				<Pull
-					target={target.label}
-					enabled={noOperationPending && !isPulling}
-					isPending={isPulling}
-					onPull={pull}
-				/>
-			)}
+			{!target.current && <Integrate target={target.label} preview={preview} />}
 		</Header>
 	);
 	// The upstream leg rejoins the trunk below its card; History stays on the trunk.
