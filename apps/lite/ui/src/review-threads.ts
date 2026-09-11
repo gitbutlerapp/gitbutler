@@ -8,8 +8,9 @@
  */
 
 import type { FileParent } from "#ui/addresses.ts";
+import { hash } from "#ui/hash.ts";
 import type { ForgeReviewThread } from "@gitbutler/but-sdk";
-import type { AnnotationSide } from "@pierre/diffs";
+import { type AnnotationSide, type FileDiffMetadata, processFile } from "@pierre/diffs";
 
 /** A thread with the diff position the view can hang it on. */
 export type AnchoredThread = {
@@ -146,7 +147,7 @@ export const threadStillAnchored = (
  * counts are re-tallied from what actually arrived; the start lines are
  * untouched, since the truncation only ever drops the tail.
  */
-export const forgeHunkPatch = (path: string, diffHunk: string): string | null => {
+const forgeHunkPatch = (path: string, diffHunk: string): string | null => {
 	const [header = "", ...rest] = diffHunk.split("\n");
 	const starts = /^@@ -(\d+)(?:,\d+)? \+(\d+)(?:,\d+)? @@/.exec(header);
 	const [, oldStart, newStart] = starts ?? [];
@@ -169,6 +170,22 @@ export const forgeHunkPatch = (path: string, diffHunk: string): string | null =>
 		...lines,
 		"",
 	].join("\n");
+};
+
+/**
+ * The forge's hunk parsed for Pierre, keyed by its content.
+ *
+ * Pierre caches highlighted lines under the diff's `cacheKey`, and stamps a
+ * missing one with the file name alone. Every thread on a file would then
+ * share one entry, so the lines highlighted for the first thread's hunk are
+ * handed to the others — and a longer hunk reads past the end and throws.
+ * Keying on the content keeps each hunk's lines its own, as the diff view
+ * does for whole files.
+ */
+export const forgeHunkDiff = (path: string, diffHunk: string): FileDiffMetadata | null => {
+	const patch = forgeHunkPatch(path, diffHunk);
+	if (patch === null) return null;
+	return processFile(patch, { cacheKey: `review-hunk:${hash(patch)}` }) ?? null;
 };
 
 /**
