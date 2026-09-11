@@ -1849,6 +1849,11 @@ const DiffContents: FC<{
 						};
           }
 
+          [data-overflow="wrap"] [data-line] {
+            white-space: pre-wrap;
+            overflow-wrap: anywhere;
+          }
+
           [data-diffs-header="custom"] {
             background-color: var(--bg-1);
           }

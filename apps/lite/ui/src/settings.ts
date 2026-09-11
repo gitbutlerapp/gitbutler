@@ -13,7 +13,7 @@ export const defaultSettings = {
 	diffFontFamily: "Geist Mono, Menlo, monospace",
 	diffFontSize: 12,
 	diffLigatures: false,
-	diffOverflow: "scroll",
+	diffOverflow: "wrap",
 	diffStyle: "split",
 	diffTabSize: 4,
 	// Previewing while dragging runs a dry run for every target the pointer crosses, and
