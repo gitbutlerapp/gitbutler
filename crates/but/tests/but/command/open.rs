@@ -41,7 +41,7 @@ fn open_with_ambiguous_program() {
         .assert()
         .failure()
         .stderr_eq(snapbox::str![[r#"
-Error: Could not automatically choose program. Found nvim, cursor, sublime, vscode, zed, echo, touch
+Error: Could not automatically choose program. Found nvim, cursor, sublime, vscode, vscodium, zed, echo, touch
 
 Hint: Specify a program with `--program-id`
 
