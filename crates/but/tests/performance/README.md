@@ -27,6 +27,10 @@ PERF_CHANNEL=nightly PERF_WARMUP=0 PERF_RUNS=1 \
 PERF_CHANNEL=nightly PERF_SHOW_OUTPUT=1 PERF_WARMUP=0 PERF_RUNS=1 \
 ./crates/but/tests/performance/run.sh status-many-uncommitted-changes
 
+# Skip preliminary smoke test; keep Hyperfine setup and measured run
+PERF_CHANNEL=nightly PERF_SKIP_SMOKE=1 PERF_WARMUP=0 PERF_RUNS=1 \
+./crates/but/tests/performance/run.sh diff-many-committed-changes
+
 # Save full-suite results as Hyperfine JSON
 PERF_CHANNEL=nightly PERF_RESULTS_DIR="$PWD/target/performance-results" \
 ./crates/but/tests/performance/run.sh
@@ -55,6 +59,9 @@ Requires POSIX shell, Git, and [Hyperfine](https://github.com/sharkdp/hyperfine)
 
 Defaults: three warmups and at least twenty measured runs. Set `PERF_WARMUP`,
 `PERF_MIN_RUNS`, or `PERF_RUNS` to adjust. Name one scenario while developing.
+`PERF_SKIP_SMOKE=1` skips preliminary setup-and-operation smoke tests (default: `0`).
+Only `0` and `1` are accepted. Hyperfine's per-run setup, warmups, and measured runs
+are unaffected.
 
 Binary selection: `PERF_CHANNEL` downloads nightly/release for Linux x86_64;
 otherwise `BUT_BIN` selects existing binary, or runner builds optimized Cargo `bench`
@@ -152,7 +159,8 @@ symbolization troubleshooting (including lld/mold's `--no-rosegment` requirement
 
 ## Measurement and fixture rules
 
-Runner smoke-tests setup and operation before Hyperfine. For every warmup and sample,
+Runner smoke-tests setup and operation before Hyperfine unless `PERF_SKIP_SMOKE=1`.
+For every warmup and sample,
 `setup.sh` runs untimed through `--prepare`; `test.sh` is timed in full, including
 process startup and output generation. Downloads, compilation, fixture creation,
 and selector discovery stay outside timing.
