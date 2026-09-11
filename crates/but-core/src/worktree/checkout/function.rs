@@ -47,6 +47,15 @@ pub fn safe_checkout_from_head(
         bail!("Refusing to check out conflicted commit {new_head_id}");
     }
 
+    // This probe briefly creates and removes index.lock, and only detects a lock held now.
+    // It does not serialize checkout: libgit2 acquires the lock when persisting results.
+    let index_lock = gix::lock::File::acquire_to_update_resource(
+        repo.index_path(),
+        gix::lock::acquire::Fail::Immediately,
+        None,
+    )?;
+    drop(index_lock);
+
     let git2_repo = git2::Repository::open(repo.git_dir())?;
     let head_tree_id = repo.head_tree_id_or_empty()?;
     let head_tree = git2_repo.find_tree(head_tree_id.to_git2())?;
