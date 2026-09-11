@@ -152,7 +152,10 @@ test("a watcher event refreshes the uncommitted files", async () => {
 	worktree = fixtureWorktreeChanges([fixtureFileChange("src/new-file.ts")]);
 	const event: WatcherEvent = {
 		name: "worktreeChanges",
-		payload: { type: "worktreeChanges", subject: { changes: worktree } },
+		payload: {
+			type: "worktreeChanges",
+			subject: { changes: worktree, changedPaths: ["src/new-file.ts"] },
+		},
 	};
 	panel.push(eventChannel, event);
 

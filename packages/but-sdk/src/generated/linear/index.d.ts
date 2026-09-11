@@ -4758,6 +4758,11 @@ export type WatcherWorkspaceActivityPayload = null;
 
 /** Worktree files changes. */
 export type WatcherWorktreeChangesPayload = {
+  /**
+   * Worktree-relative paths that triggered the event, using the same lossy
+   * encoding as UI change paths. Empty for index changes or unknown paths.
+   */
+  changedPaths: Array<string>;
   /** The file changes in the repository. */
   changes: WorktreeChanges;
 };
