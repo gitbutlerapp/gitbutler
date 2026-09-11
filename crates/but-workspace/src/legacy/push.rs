@@ -8,7 +8,7 @@ use std::str::FromStr as _;
 
 use anyhow::{Context as _, Result};
 use bstr::{BStr, BString, ByteSlice, ByteVec};
-use but_core::{extract_remote_name_and_short_name, ref_metadata::ProjectMeta};
+use but_core::extract_remote_name_and_short_name;
 use but_db::DbHandle;
 use gitbutler_git::{PushResult, push_with_askpass};
 use gitbutler_reference::RemoteRefname;
@@ -23,7 +23,6 @@ use crate::{RefInfo, ref_info::Segment, ui::PushStatus};
 pub fn workspace_branch_and_ancestors_push(
     repo: &gix::Repository,
     ws: &but_graph::Workspace,
-    project_meta: &ProjectMeta,
     ref_info: &RefInfo,
     db: &mut DbHandle,
     gerrit_mode: bool,
@@ -43,12 +42,9 @@ pub fn workspace_branch_and_ancestors_push(
         .target_ref_name()
         .context("failed to get target reference name")?
         .to_owned();
-    let push_remote = match project_meta.push_remote.clone() {
-        Some(push_remote) => push_remote,
-        None => extract_remote_name_and_short_name(target_ref_name.as_ref(), &remote_names)
-            .map(|(remote, _)| remote)
-            .context("failed to get target push remote name")?,
-    };
+    let push_remote = ws
+        .push_remote_name()
+        .context("failed to get target push remote name")?;
     let target_branch_name =
         target_branch_name_from_ref_name(target_ref_name.as_ref(), &remote_names)?;
     let mut result = PushResult {
