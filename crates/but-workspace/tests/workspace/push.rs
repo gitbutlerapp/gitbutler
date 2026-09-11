@@ -78,7 +78,6 @@ fn push(
     but_workspace::legacy::workspace_branch_and_ancestors_push(
         repo,
         &workspace,
-        &project_meta(repo)?,
         &info,
         &mut db,
         false,

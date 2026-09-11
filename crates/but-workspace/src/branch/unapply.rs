@@ -685,7 +685,9 @@ pub(crate) mod function {
         if let Some(tip) = future_workspace_tips.first() {
             return Ok(tip.commit_id);
         }
-        ws.resolved_target_commit_id()
+        ws.target_commit
+            .as_ref()
+            .map(|target| target.commit_id)
             .or(ws.lower_bound)
             .context("Cannot determine commit for empty workspace after unapply")
     }

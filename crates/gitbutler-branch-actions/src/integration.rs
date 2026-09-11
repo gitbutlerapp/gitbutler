@@ -65,7 +65,9 @@ pub(crate) fn update_workspace_commit_from_workspace(
     _perm: &mut RepoExclusive,
 ) -> Result<gix::ObjectId> {
     let target_base_oid = ws
-        .stored_target_commit_id()
+        .target_commit
+        .as_ref()
+        .map(|target| target.commit_id)
         .context("failed to get target base oid")?;
 
     #[expect(deprecated, reason = "workspace checkout/index boundary")]

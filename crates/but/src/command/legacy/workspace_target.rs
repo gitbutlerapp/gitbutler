@@ -35,7 +35,7 @@ impl ResolvedTarget {
         Ok(Self {
             oid: target_oid_from_workspace(workspace)?,
             ref_name: target_ref_name_from_workspace(workspace),
-            push_remote_name: target_push_remote_name_from_workspace(workspace),
+            push_remote_name: workspace.push_remote_name(),
         })
     }
 
@@ -99,11 +99,15 @@ fn display_name_from_base_branch(base_branch: &gitbutler_branch_actions::BaseBra
     }
 }
 
-/// Resolve the effective target commit OID from workspace projection data.
+/// Resolve the target commit OID the workspace projection is based on.
 fn target_oid_from_workspace(workspace: &but_graph::Workspace) -> Result<gix::ObjectId> {
-    workspace.effective_target_commit_id().context(
-        "Failed to resolve workspace target: no target information available in workspace.",
-    )
+    workspace
+        .target_commit
+        .as_ref()
+        .map(|target| target.commit_id)
+        .context(
+            "Failed to resolve workspace target: no target information available in workspace.",
+        )
 }
 
 /// Resolve the effective target reference name from workspace projection data.
@@ -113,16 +117,6 @@ fn target_ref_name_from_workspace(workspace: &but_graph::Workspace) -> Option<gi
         .as_ref()
         .map(|target| target.ref_name.clone())
         .or_else(|| workspace.graph.project_meta.target_ref.clone())
-}
-
-/// Resolve the effective target push remote name from workspace projection data.
-fn target_push_remote_name_from_workspace(workspace: &but_graph::Workspace) -> Option<String> {
-    workspace
-        .graph
-        .project_meta
-        .push_remote
-        .clone()
-        .or_else(|| workspace.remote_name())
 }
 
 /// Find the merge base between `branch_oid` and the effective workspace target.
@@ -141,7 +135,7 @@ pub(crate) fn merge_base_with_target_with_perm(
             ResolvedTarget {
                 oid: target_oid,
                 ref_name: target_ref_name_from_workspace(&workspace),
-                push_remote_name: target_push_remote_name_from_workspace(&workspace),
+                push_remote_name: workspace.push_remote_name(),
             },
         ));
     }

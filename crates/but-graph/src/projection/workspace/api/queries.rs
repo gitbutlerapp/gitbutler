@@ -5,13 +5,7 @@
 
 use anyhow::Context;
 
-use crate::{RefInfo, SegmentIndex, Workspace, segment, workspace::TargetRef};
-
-/// Legacy query helpers kept for callers that still depend on compatibility
-/// semantics.
-#[cfg(feature = "legacy")]
-#[path = "legacy.rs"]
-pub mod legacy;
+use crate::{SegmentIndex, Workspace, segment, workspace::TargetRef};
 
 /// # Points of Interest
 impl Workspace {
@@ -50,62 +44,6 @@ impl Workspace {
                 .commit_by_id(commit_id)
         })
     }
-
-    /// Return the stored target commit id.
-    ///
-    /// This is the previous target position remembered in workspace metadata.
-    /// It is normally the base the workspace last integrated with, and
-    /// intentionally differs from [`Self::target_ref_tip_commit_id()`], which
-    /// returns the current tip of the target reference.
-    pub fn stored_target_commit_id(&self) -> Option<gix::ObjectId> {
-        self.target_commit.as_ref().map(|target| target.commit_id)
-    }
-
-    /// Return the current tip commit id of the target reference if it is
-    /// present in the workspace graph.
-    pub fn target_ref_tip_commit_id(&self) -> Option<gix::ObjectId> {
-        self.target_ref
-            .as_ref()
-            .and_then(|target| self.tip_commit_by_segment_id(target.segment_index))
-            .map(|commit| commit.id)
-    }
-
-    /// Return the commit id that currently acts as the workspace target.
-    ///
-    /// This follows the same precedence as operations that need a concrete
-    /// target side: target ref tip, then stored target commit, then the first
-    /// integrated traversal tip.
-    pub fn effective_target_commit_id(&self) -> Option<gix::ObjectId> {
-        self.target_ref
-            .as_ref()
-            .and_then(|target| self.tip_commit_by_segment_id(target.segment_index))
-            .map(|commit| commit.id)
-            .or_else(|| self.target_commit.as_ref().map(|target| target.commit_id))
-            .or_else(|| {
-                self.graph
-                    .integrated_tip_segments()
-                    .into_iter()
-                    .find_map(|segment_index| {
-                        self.tip_commit_by_segment_id(segment_index)
-                            .map(|commit| commit.id)
-                    })
-            })
-    }
-
-    /// Return the segment that currently acts as the workspace target.
-    ///
-    /// This follows target ref, then stored target commit, then the first
-    /// integrated traversal tip in that order.
-    pub fn effective_target_segment_index(&self) -> Option<SegmentIndex> {
-        self.target_ref
-            .as_ref()
-            .map(|target| target.segment_index)
-            .or(self
-                .target_commit
-                .as_ref()
-                .map(|target| target.segment_index))
-            .or_else(|| self.graph.integrated_tip_segments().into_iter().next())
-    }
 }
 
 /// # Refs of Interest
@@ -118,17 +56,6 @@ impl Workspace {
         self.target_ref
             .as_ref()
             .map(|target| target.ref_name.as_ref())
-    }
-
-    /// Return the local tracking branch reference information with the configured
-    ///  [target reference](Self::target_ref). This is available as long as a target
-    /// ref exists (i.e. `refs/remotes/origin/main`) and a local tracking ref for it
-    /// was configured or inferred.
-    pub fn target_local_tracking_ref_info(&self) -> Option<&RefInfo> {
-        self.target_ref
-            .as_ref()
-            .and_then(|target_ref| self.graph[target_ref.segment_index].sibling_segment_id)
-            .and_then(|local_target_ref_sidx| self.graph[local_target_ref_sidx].ref_info.as_ref())
     }
 }
 

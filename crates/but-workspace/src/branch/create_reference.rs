@@ -273,7 +273,9 @@ pub(super) mod function {
                     // Anchor at the merge-base of the target tip and the workspace commit
                     // instead — the fork point, always inside the workspace.
                     let target_tip = workspace
-                        .resolved_target_commit_id()
+                        .target_commit
+                        .as_ref()
+                        .map(|target| target.commit_id)
                         .or(ws_base)
                         .with_context(|| {
                             format!(

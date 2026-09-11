@@ -46,7 +46,11 @@ fn ad_hoc_workspace_uses_project_target_ref() -> anyhow::Result<()> {
         ws.target_ref_name().map(ToString::to_string),
         Some("refs/remotes/origin/trunk".into())
     );
-    assert_eq!(ws.target_ref_tip_commit_id(), Some(expected_target));
+    assert_eq!(
+        ws.target_commit.as_ref().map(|target| target.commit_id),
+        Some(expected_target),
+        "without a stored target commit the projection bases itself on the target ref tip"
+    );
 
     Ok(())
 }
@@ -86,7 +90,10 @@ fn ad_hoc_workspace_uses_stored_project_target_commit() -> anyhow::Result<()> {
     );
 
     assert!(matches!(ws.kind, WorkspaceKind::AdHoc));
-    assert_eq!(ws.stored_target_commit_id(), Some(expected_target));
+    assert_eq!(
+        ws.target_commit.as_ref().map(|target| target.commit_id),
+        Some(expected_target)
+    );
 
     Ok(())
 }
@@ -114,7 +121,7 @@ fn returns_target_tip_when_stacks_have_different_bases() -> anyhow::Result<()> {
     );
 
     // A branches from M2, B branches from M3.
-    // resolved_target_commit_id should return M4 (the tip of origin/main).
+    // The stored target commit is M4 (the tip of origin/main).
     add_workspace(&mut meta);
 
     let ws = Graph::from_head(
@@ -127,7 +134,7 @@ fn returns_target_tip_when_stacks_have_different_bases() -> anyhow::Result<()> {
     .validated()?
     .into_workspace()?;
 
-    let tip = ws.resolved_target_commit_id();
+    let tip = ws.target_commit.as_ref().map(|target| target.commit_id);
     let expected_m4 = repo.rev_parse_single(":/M4")?.detach();
     assert_eq!(
         tip,
@@ -158,7 +165,7 @@ fn returns_target_tip_when_one_stack_is_above_target() -> anyhow::Result<()> {
     );
 
     // A branches from M3 (which is also origin/main), B branches from M2.
-    // resolved_target_commit_id should return M3 (the tip of origin/main).
+    // The stored target commit is M3 (the tip of origin/main).
     add_workspace(&mut meta);
 
     let ws = Graph::from_head(
@@ -171,7 +178,7 @@ fn returns_target_tip_when_one_stack_is_above_target() -> anyhow::Result<()> {
     .validated()?
     .into_workspace()?;
 
-    let tip = ws.resolved_target_commit_id();
+    let tip = ws.target_commit.as_ref().map(|target| target.commit_id);
     let expected_m3 = repo.rev_parse_single(":/M3")?.detach();
     assert_eq!(
         tip,
@@ -215,7 +222,7 @@ fn prefers_target_commit_over_target_ref() -> anyhow::Result<()> {
     assert!(ws.target_ref.is_some(), "target_ref should be set");
     assert!(ws.target_commit.is_some(), "target_commit should be set");
 
-    let result = ws.resolved_target_commit_id();
+    let result = ws.target_commit.as_ref().map(|target| target.commit_id);
     assert_eq!(
         result,
         Some(m2),
@@ -241,7 +248,10 @@ fn returns_none_when_no_target() -> anyhow::Result<()> {
     .into_workspace()?;
 
     assert!(
-        ws.resolved_target_commit_id().is_none(),
+        ws.target_commit
+            .as_ref()
+            .map(|target| target.commit_id)
+            .is_none(),
         "should return None when no target is set"
     );
 

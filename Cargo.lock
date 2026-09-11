@@ -1372,7 +1372,6 @@ dependencies = [
  "bstr",
  "but-core",
  "but-db",
- "but-graph",
  "but-meta",
  "but-testsupport",
  "gitbutler-reference",

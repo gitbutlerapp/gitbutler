@@ -9,7 +9,6 @@ use but_core::{
 };
 use but_ctx::Context;
 use but_error::{Code, bail_precondition};
-use but_graph::FirstParent;
 use gitbutler_project::{FetchResult, Project};
 use gitbutler_reference::{Refname, RemoteRefname};
 use gitbutler_repo::first_parent_commit_ids_until;
@@ -323,12 +322,11 @@ pub(crate) fn target_to_base_branch(
     let target_sha_ahead_of_ref = !target_sha_not_ref.is_empty();
 
     // The longest first-parent list of upstream commit ids.
-    let mut upstream_commit_ids = ws
-        .upstream_commits(repo, target_ref_name.as_ref(), FirstParent::Yes)?
-        .into_iter()
-        .map(|h| h.upstream_commits)
-        .max_by_key(|us| us.len())
-        .unwrap_or_default();
+    let mut upstream_commit_ids =
+        upstream_commits_per_stack_head(ws, repo, target_ref_name.as_ref())?
+            .into_iter()
+            .max_by_key(|us| us.len())
+            .unwrap_or_default();
     if upstream_commit_ids.is_empty() && target_ref_commit_id != target_sha {
         upstream_commit_ids = first_parent_commit_ids_until(repo, target_ref_commit_id, target_sha)
             .context("failed to get target commits since stored base")?;
@@ -429,6 +427,35 @@ fn first_parent_commit_ids_with_limit(
         .all()?
         .take(limit)
         .map(|info| Ok(info?.id))
+        .collect()
+}
+
+fn upstream_commits_per_stack_head(
+    ws: &but_graph::Workspace,
+    repo: &gix::Repository,
+    target_ref: &gix::refs::FullNameRef,
+) -> Result<Vec<Vec<gix::ObjectId>>> {
+    let mut heads = ws
+        .stacks
+        .iter()
+        .filter_map(|stack| stack.tip_skip_empty())
+        .collect::<Vec<_>>();
+    if heads.is_empty()
+        && let Some(entrypoint_commit) = ws.graph.entrypoint()?.commit()
+    {
+        heads.push(entrypoint_commit.id);
+    }
+    let target_ref_id = repo.find_reference(target_ref)?.id();
+    heads
+        .into_iter()
+        .map(|head| {
+            repo.rev_walk([target_ref_id])
+                .with_hidden([head])
+                .first_parent_only()
+                .all()?
+                .map(|info| Ok(info?.id))
+                .collect::<Result<_>>()
+        })
         .collect()
 }
 

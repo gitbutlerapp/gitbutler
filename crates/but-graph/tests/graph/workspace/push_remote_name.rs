@@ -24,7 +24,7 @@ fn with_target_ref_extracts_remote_name() -> anyhow::Result<()> {
 
     assert!(ws.target_ref.is_some());
     assert_eq!(
-        ws.remote_name(),
+        ws.push_remote_name(),
         Some("origin".into()),
         "target_ref is 'refs/remotes/origin/main', should extract 'origin'"
     );
@@ -50,7 +50,7 @@ fn returns_none_when_no_target_and_no_push_remote() -> anyhow::Result<()> {
 
     assert!(ws.target_ref.is_none(), "should not have a target_ref");
     assert!(
-        ws.remote_name().is_none(),
+        ws.push_remote_name().is_none(),
         "should return None without target or metadata"
     );
 
@@ -108,12 +108,6 @@ fn target_local_tracking_ref_exists_when_other_branch_metadata_names_the_same_ti
         ws.target_ref_name().map(|rn| rn.as_bstr()),
         Some("refs/remotes/origin/main".into()),
         "fixture should resolve the workspace target as origin/main"
-    );
-    assert_eq!(
-        ws.target_local_tracking_ref_info()
-            .map(|ri| ri.ref_name.to_string()),
-        Some("refs/heads/main".to_string()),
-        "target/local tracking relationship should be available from the graph projection"
     );
 
     Ok(())

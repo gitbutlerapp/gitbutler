@@ -465,7 +465,6 @@ pub fn workspace_branch_and_ancestors_push_only(
     let result = but_workspace::legacy::push::workspace_branch_and_ancestors_push(
         &repo,
         &ws,
-        &ctx.project_meta()?,
         &head_info,
         &mut db,
         gerrit_mode_enabled,
