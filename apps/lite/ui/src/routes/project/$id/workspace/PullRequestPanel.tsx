@@ -1,3 +1,5 @@
+import { FileIcon } from "#ui/components/FileIcon.tsx";
+import { FileStatusBadge } from "#ui/components/FileStatusBadge.tsx";
 import { reportError } from "#ui/error-reporting.ts";
 import {
 	useAddReviewLabels,
@@ -8,6 +10,7 @@ import {
 	useWithdrawReviewRequest,
 } from "#ui/api/mutations.ts";
 import {
+	branchDiffQueryOptions,
 	currentForgeLoginQueryOptions,
 	forgeInfoOptions,
 	listCIChecksQueryOptions,
@@ -37,9 +40,9 @@ import {
 	reviewerRows,
 	useMergeReadiness,
 } from "#ui/pr.ts";
-import { formatAbsoluteTime, formatCompactDuration, formatRelativeTime } from "#ui/time.ts";
+import { formatCompactDuration } from "#ui/time.ts";
 import { useCopied } from "#ui/routes/project/$id/workspace/useCopied.ts";
-import { loginKey, sameLogin } from "#ui/review-users.ts";
+import { sameLogin } from "#ui/review-users.ts";
 import type { CiCheck, ForgeReview, ForgeReviewUser } from "@gitbutler/but-sdk";
 import { Tooltip } from "@base-ui/react";
 import { useQuery } from "@tanstack/react-query";
@@ -568,6 +571,51 @@ const verdictBits = (verdict: ReviewerVerdict): [IconName, string, string] =>
 		Match.exhaustive,
 	);
 
+const ReviewFiles: FC<{ projectId: string; sourceBranch: string }> = ({
+	projectId,
+	sourceBranch,
+}) => {
+	const [showAll, setShowAll] = useState(false);
+	const {
+		data: changes,
+		isPending,
+		isError,
+	} = useQuery({
+		...branchDiffQueryOptions({ projectId, branch: `refs/heads/${sourceBranch}` }),
+		select: (diff) => diff.changes,
+	});
+	const visible = showAll ? changes : changes?.slice(0, 8);
+	return (
+		<section className={styles.filesSection} aria-label="Files changed">
+			<h4 className={styles.heading}>Files changed{changes && <span> · {changes.length}</span>}</h4>
+			<div className={styles.filesList}>
+				{isPending ? (
+					<span>Loading files…</span>
+				) : isError ? (
+					<span>Files unavailable locally</span>
+				) : changes.length === 0 ? (
+					<span>No changed files</span>
+				) : (
+					visible?.map((change) => (
+						<div className={styles.file} key={change.path} title={change.path}>
+							<FileIcon fileName={change.path} />
+							<span className={styles.fileName}>{change.path}</span>
+							{change.status.type !== "Modification" && (
+								<FileStatusBadge status={change.status.type} fontSize={9} />
+							)}
+						</div>
+					))
+				)}
+				{!showAll && changes && changes.length > 8 && (
+					<button type="button" className={styles.moreFiles} onClick={() => setShowAll(true)}>
+						{changes.length - 8} more
+					</button>
+				)}
+			</div>
+		</section>
+	);
+};
+
 export const PullRequestPanel: FC<{
 	projectId: string;
 	review: ForgeReview;
@@ -601,6 +649,8 @@ export const PullRequestPanel: FC<{
 		useSetReviewDraftiness(projectId);
 	const { isPending: isUpdateReviewPending, mutate: updateReview } = useUpdateReview(projectId);
 
+	const topics = review.labels.filter((label) => !label.name.startsWith("@gitbutler/"));
+	const owners = review.labels.filter((label) => label.name.startsWith("@gitbutler/"));
 	const status = reviewStatus(review);
 	// A merged review is final; anything else can move between open, draft and
 	// closed from the status badge.
@@ -720,132 +770,130 @@ export const PullRequestPanel: FC<{
 		</Badge>
 	);
 
-	const createdAtMs = review.createdAt === null ? null : Date.parse(review.createdAt);
-
 	const handleOpen = (evt: MouseEvent<HTMLAnchorElement>): void => {
 		evt.preventDefault();
 		window.lite.openInWebBrowser(review.htmlUrl).catch(reportError);
 	};
 
 	return (
-		<aside className={styles.panel}>
-			<section
-				className={styles.readiness}
-				data-ready={readiness.ready}
-				aria-label="Merge readiness"
-			>
-				<h4>Merge readiness</h4>
-				<strong>{readiness.headline}</strong>
-				{readiness.rows.map((row) => (
-					<div key={row.label} className={styles.readinessRow}>
-						<span className={styles.readinessDot} data-tone={row.tone} />
-						{row.label}
-					</div>
-				))}
-			</section>
-			<Section
-				heading="Status"
-				action={
-					<div className={styles.statusActions}>
-						{canSwitchStatus ? (
-							<button
-								aria-label="Change status"
-								className={styles.statusTrigger}
-								disabled={isStatusPending}
-								onClick={openStatusMenu}
-								type="button"
+		<aside className={classes(styles.panel, styles.reviewPanel)}>
+			<div className={styles.panelTop}>
+				<section
+					className={styles.readiness}
+					data-ready={readiness.ready}
+					aria-label="Merge readiness"
+				>
+					<div className={styles.readinessHeader}>
+						<h4>Merge readiness</h4>
+						<div className={styles.statusActions}>
+							{canSwitchStatus ? (
+								<button
+									aria-label="Change status"
+									className={styles.statusTrigger}
+									disabled={isStatusPending}
+									onClick={openStatusMenu}
+									type="button"
+								>
+									{statusBadge}
+								</button>
+							) : (
+								statusBadge
+							)}
+							<a
+								href={review.htmlUrl}
+								onClick={handleOpen}
+								className={classes("text-12", styles.link, styles.prLink)}
 							>
-								{statusBadge}
-							</button>
-						) : (
-							statusBadge
-						)}
-						<a
-							href={review.htmlUrl}
-							onClick={handleOpen}
-							className={classes("text-12", styles.link, styles.prLink)}
-						>
-							{review.unitSymbol}
-							{review.number}
-							<Icon name="arrow-up-right" size={12} />
-						</a>
+								{review.unitSymbol}
+								{review.number}
+								<Icon name="arrow-up-right" size={12} />
+							</a>
+						</div>
 					</div>
-				}
-			>
-				{null}
-			</Section>
+					<strong>{readiness.headline}</strong>
+					{readiness.rows.map((row) => (
+						<div key={row.label} className={styles.readinessRow}>
+							<span className={styles.readinessDot} data-tone={row.tone} />
+							{row.label}
+						</div>
+					))}
+				</section>
 
-			{forgeInfo?.capabilities.checks === true && (
-				<ChecksSection projectId={projectId} reference={review.sourceBranch} />
-			)}
-
-			<Section
-				heading="Reviewers"
-				collapsible={reviewerList.length > 0}
-				action={
-					canPickReviewers &&
-					pickerButton({
-						label: "Add reviewers",
-						icon: "user",
-						empty: reviewerList.length === 0,
-						onClick: openReviewerMenu,
-					})
-				}
-			>
-				{reviewerList.map(({ user, verdict }) => (
-					<ReviewerRow
-						key={user.id}
-						user={user}
-						verdict={verdict}
-						onWithdraw={
-							canManage && verdict === "awaiting"
-								? () =>
-										withdrawReviewRequest({
-											projectId,
-											reviewId: review.number,
-											logins: [user.login],
-										})
-								: null
-						}
-					/>
-				))}
-			</Section>
-
-			<Section
-				heading="Labels"
-				action={
-					canPickLabels &&
-					pickerButton({
-						label: "Add labels",
-						icon: "tag",
-						empty: review.labels.length === 0,
-						onClick: openLabelMenu,
-					})
-				}
-			>
-				{review.labels.length > 0 && (
-					<div className={styles.labels}>
-						{review.labels.map((label) => (
-							<ForgeLabel key={label.name} label={label} />
-						))}
-					</div>
+				{forgeInfo?.capabilities.checks === true && (
+					<ChecksSection projectId={projectId} reference={review.sourceBranch} />
 				)}
-			</Section>
 
-			<Section heading="Branches">
-				<div className={classes("text-13", styles.branches)}>
-					<CopyableBranch name={review.sourceBranch} />
-					<TargetBranch name={review.targetBranch} />
-				</div>
-			</Section>
+				<Section
+					heading="Reviewers"
+					collapsible={reviewerList.length > 0}
+					action={
+						canPickReviewers &&
+						pickerButton({
+							label: "Add reviewers",
+							icon: "user",
+							empty: reviewerList.length === 0,
+							onClick: openReviewerMenu,
+						})
+					}
+				>
+					{reviewerList.map(({ user, verdict }) => (
+						<ReviewerRow
+							key={user.id}
+							user={user}
+							verdict={verdict}
+							onWithdraw={
+								canManage && verdict === "awaiting"
+									? () =>
+											withdrawReviewRequest({
+												projectId,
+												reviewId: review.number,
+												logins: [user.login],
+											})
+									: null
+							}
+						/>
+					))}
+				</Section>
 
-			{createdAtMs !== null && (
-				<Section heading="Created">
-					<span className={classes("text-13", styles.created)}>
-						{formatRelativeTime(createdAtMs)}, {formatAbsoluteTime(createdAtMs)}
+				<Section
+					heading="Topics"
+					action={
+						canPickLabels &&
+						pickerButton({
+							label: "Add labels",
+							icon: "tag",
+							empty: topics.length === 0,
+							onClick: openLabelMenu,
+						})
+					}
+				>
+					{topics.length > 0 && (
+						<div className={styles.labels}>
+							{topics.map((label) => (
+								<ForgeLabel key={label.name} label={label} />
+							))}
+						</div>
+					)}
+				</Section>
+
+				<Section heading="Owners">
+					<span className={styles.owners}>
+						{owners.length === 0 ? "No owners" : owners.map((label) => label.name).join(" · ")}
 					</span>
 				</Section>
-			)}
+
+				<Section heading="Branches">
+					<div className={classes("text-13", styles.branches)}>
+						<CopyableBranch name={review.sourceBranch} />
+						<TargetBranch name={review.targetBranch} />
+					</div>
+				</Section>
+			</div>
+			<ReviewFiles
+				key={review.sourceBranch}
+				projectId={projectId}
+				sourceBranch={review.sourceBranch}
+			/>
 		</aside>
 	);
 };

@@ -214,3 +214,16 @@
 	font-size: 11px;
 	text-align: end;
 }
+
+.descriptionBody {
+	background: var(--bg-1);
+}
+.descriptionBody .descriptionMarkdown {
+	font-size: 14px;
+	line-height: 1.6;
+}
+.descriptionBody button {
+	color: var(--text-2);
+	text-decoration-color: var(--text-3);
+	opacity: 1;
+}

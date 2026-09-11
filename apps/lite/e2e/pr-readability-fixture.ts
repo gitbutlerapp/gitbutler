@@ -1,3 +1,4 @@
+import type { LiteElectronApi } from "#electron/ipc.ts";
 import type {
 	ForgeReview,
 	ForgeInfo,
@@ -12,7 +13,7 @@ export const review: ForgeReview = {
 	sourceBranch: "C",
 	targetBranch: "master",
 	htmlUrl: "https://github.com/example/repo/pull/1",
-	body: "This change makes pull request reviews easier to read.\n\nIt keeps the description visible and makes outstanding review work explicit.",
+	body: "This change makes pull request reviews easier to read.\n\nIt keeps the description visible and makes outstanding review work explicit.\n\nReviewers can scan the changed files alongside the conversation.\n\nThe keyboard shortcuts remain available throughout the review.",
 	author: null,
 	labels: [
 		{ name: "accessibility", color: "0e8a16", description: "Keyboard and screen reader support" },
@@ -115,9 +116,24 @@ const checks: Array<CiCheck> = [
 
 export const openReadabilityReview = async (appWindow: Page, electronApp: ElectronApplication) => {
 	await appWindow.setViewportSize({ width: 1440, height: 900 });
+	const sample = await appWindow.evaluate(() =>
+		(window as unknown as { lite: LiteElectronApi }).lite.branchDiff({
+			projectId: location.pathname.split("/")[2] ?? "",
+			branch: "refs/heads/C",
+		}),
+	);
+	const first = sample.changes[0];
+	if (!first) throw new Error("Expected a changed file");
+	const changes = Array.from({ length: 12 }, (_, index) => ({
+		...first,
+		path: `src/file-${index}.ts`,
+		pathBytes: Array.from(Buffer.from(`src/file-${index}.ts`)),
+	}));
+
 	await electronApp.evaluate(
 		({ ipcMain }, data) => {
 			const responses = {
+				branchDiff: { ...data.sample, changes: data.changes },
 				forgeInfo: data.forge,
 				listReviews: [data.review],
 				getReview: data.review,
@@ -136,7 +152,7 @@ export const openReadabilityReview = async (appWindow: Page, electronApp: Electr
 				ipcMain.handle(key, () => value);
 			}
 		},
-		{ review, forge, checks, submissions, comments },
+		{ review, forge, checks, submissions, comments, sample, changes },
 	);
 	await appWindow.reload();
 	await appWindow

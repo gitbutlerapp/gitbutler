@@ -1189,11 +1189,9 @@ const Composer: FC<{
 };
 
 /**
- * Which of the activity the reader is looking at: what people wrote, what
- * agents wrote, or the whole timeline — every comment and review plus the
- * happenings around them (opened, commits, review requests).
+ * Audience applies to comments, reviews, threads and timeline actors.
  */
-type ActivityFeed = "human" | "agents" | "timeline";
+type ActivityFeed = "all" | "human" | "agents";
 
 /**
  * The activity, newest first: the composer, then comment, review and thread
@@ -1204,7 +1202,8 @@ export const PullRequestComments: FC<{ projectId: string; review: ForgeReview }>
 	review,
 }) => {
 	const reviewId = review.number;
-	const [feed, setFeed] = useState<ActivityFeed>("timeline");
+	const [feed, setFeed] = useState<ActivityFeed>("all");
+	const [compact, setCompact] = useState(false);
 	const { data: allComments, isPending } = useQuery(
 		listReviewCommentsQueryOptions({ projectId, reviewId }),
 	);
@@ -1223,12 +1222,27 @@ export const PullRequestComments: FC<{ projectId: string; review: ForgeReview }>
 	// thread goes with whoever started it. Everything downstream — the fresh
 	// registration included — sees only what the feed shows, so a hidden
 	// comment is never counted as looked at.
-	const inFeed = (author: ForgeReviewUser | null) =>
-		feed === "timeline" || (author?.isBot ?? false) === (feed === "agents");
-	const comments = allComments?.filter((comment) => inFeed(comment.author));
-	const submissions = allSubmissions?.filter((submission) => inFeed(submission.author));
-	const threads = allThreads?.filter((thread) => inFeed(thread.comments[0]?.author ?? null));
-	const shownEvents = feed === "timeline" ? events : undefined;
+	const inFeed = useCallback(
+		(author: ForgeReviewUser | null) =>
+			feed === "all" || (author?.isBot ?? false) === (feed === "agents"),
+		[feed],
+	);
+	const comments = useMemo(
+		() => allComments?.filter((comment) => inFeed(comment.author)),
+		[allComments, inFeed],
+	);
+	const submissions = useMemo(
+		() => allSubmissions?.filter((submission) => inFeed(submission.author)),
+		[allSubmissions, inFeed],
+	);
+	const threads = useMemo(
+		() => allThreads?.filter((thread) => inFeed(thread.comments[0]?.author ?? null)),
+		[allThreads, inFeed],
+	);
+	const shownEvents = useMemo(
+		() => events?.filter((event) => inFeed(event.actor)),
+		[events, inFeed],
+	);
 	const { data: currentLogin } = useQuery(currentForgeLoginQueryOptions(projectId));
 	// Whether the review's branch is in the workspace; its threads only check
 	// themselves against the working file when it is.
@@ -1315,9 +1329,9 @@ export const PullRequestComments: FC<{ projectId: string; review: ForgeReview }>
 	const items = useMemo(
 		() =>
 			timelineItems(review, comments, submissions, loose, shownEvents).filter(
-				(item) => shownEvents !== undefined || item.kind !== "opened",
+				(item) => item.kind !== "opened" || inFeed(item.review.author),
 			),
-		[review, comments, submissions, loose, shownEvents],
+		[review, comments, submissions, loose, shownEvents, inFeed],
 	);
 
 	// A notification named a comment: scroll to it once it is on the page.
@@ -1371,24 +1385,32 @@ export const PullRequestComments: FC<{ projectId: string; review: ForgeReview }>
 			<div className={styles.activityHeader}>
 				<h3 className={classes("text-15", "text-semibold")}>Activity</h3>
 				<ToggleGroup
-					render={<ToggleGroupStyles />}
+					render={<ToggleGroupStyles segmented />}
 					value={[feed]}
 					onValueChange={(value: Array<ActivityFeed>) => {
 						const head = value[0];
 						if (head !== undefined) setFeed(head);
 					}}
-					aria-label="Activity feed"
+					aria-label="Activity audience"
 				>
+					<Toggle render={<ToggleStyles />} value={"all" satisfies ActivityFeed}>
+						All
+					</Toggle>
 					<Toggle render={<ToggleStyles />} value={"human" satisfies ActivityFeed}>
 						Humans
 					</Toggle>
 					<Toggle render={<ToggleStyles />} value={"agents" satisfies ActivityFeed}>
 						Agents
 					</Toggle>
-					<Toggle render={<ToggleStyles />} value={"timeline" satisfies ActivityFeed}>
-						Timeline
-					</Toggle>
 				</ToggleGroup>
+				<button
+					type="button"
+					className={styles.compactToggle}
+					aria-pressed={compact}
+					onClick={() => setCompact(!compact)}
+				>
+					Compact
+				</button>
 			</div>
 			<Composer
 				avatarUrl={ownForgeAvatar(items, currentLogin) ?? profile?.picture}
@@ -1405,7 +1427,7 @@ export const PullRequestComments: FC<{ projectId: string; review: ForgeReview }>
 					{feed === "agents" ? "No comments from agents yet" : "No comments yet"}
 				</div>
 			) : (
-				<div className={styles.commentList}>
+				<div className={styles.commentList} data-compact={compact}>
 					{items.map((item) =>
 						item.kind === "comment" ? (
 							<Comment

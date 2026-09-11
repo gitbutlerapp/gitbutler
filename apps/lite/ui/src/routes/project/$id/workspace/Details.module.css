@@ -277,7 +277,7 @@
    details header out of view with it. */
 .prTabScroll {
 	/* The tab's inset and column gap scale with this width (see .prTab). */
-	container-type: inline-size;
+	container-type: size;
 	overflow-y: auto;
 }
 

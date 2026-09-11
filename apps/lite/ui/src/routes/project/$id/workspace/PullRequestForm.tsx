@@ -649,13 +649,11 @@ export const PullRequestDescription: FC<{
 			{meta}
 
 			{body !== null && body.trim() !== "" ? (
-				// A long description opens as a four-line card so the conversation
-				// below is in reach: four rather than three because a body that opens
-				// with a heading spends a line and a half on it. The slack means a
-				// fold always hides at least a few lines, never just one.
-				<Clamped maxHeight="4lh" foldOver="6lh" variant="card">
-					<Markdown>{body}</Markdown>
-				</Clamped>
+				<div className={styles.descriptionBody}>
+					<Clamped maxHeight="12lh">
+						<Markdown className={styles.descriptionMarkdown}>{body}</Markdown>
+					</Clamped>
+				</div>
 			) : (
 				<p className={classes("text-14", "text-body", styles.prViewEmptyBody)}>
 					No description

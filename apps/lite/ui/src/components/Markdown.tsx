@@ -189,8 +189,8 @@ const remarkLiteralTags = () => {
  *   request logs to authors, so they can't track viewers); any other host
  *   renders as a link and is never fetched. See {@link isGitHubHostedImage}.
  */
-export const Markdown: FC<{ children: string }> = ({ children }) => (
-	<div className={classes("text-13", "text-body", styles.markdown)}>
+export const Markdown: FC<{ children: string; className?: string }> = ({ children, className }) => (
+	<div className={classes("text-13", "text-body", styles.markdown, className)}>
 		<ReactMarkdown
 			remarkPlugins={[remarkGfm, remarkGemoji, remarkLiteralTags]}
 			rehypePlugins={[rehypeRaw, [rehypeSanitize, sanitizeSchema]]}

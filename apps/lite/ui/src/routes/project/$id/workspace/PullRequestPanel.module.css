@@ -41,6 +41,11 @@
 	display: flex;
 	align-items: center;
 	color: var(--text-2);
+	font:
+		10px "Geist Mono",
+		monospace;
+	letter-spacing: 0.08em;
+	text-transform: uppercase;
 }
 
 .sectionToggle {
@@ -348,6 +353,7 @@
 	flex-wrap: wrap;
 	align-items: center;
 	gap: 6px;
+	font-family: "Geist Mono", monospace;
 }
 
 /* Dotted underline is the app's copy-a-reference affordance, as on the commit
@@ -390,10 +396,6 @@
 	color: var(--text-2);
 	text-overflow: ellipsis;
 	white-space: nowrap;
-}
-
-.created {
-	color: var(--text-2);
 }
 
 .readiness {
@@ -447,4 +449,92 @@
 }
 .readinessDot[data-tone="pending"] {
 	border: 1px solid var(--border-1);
+}
+
+.reviewPanel {
+	height: calc(100cqh - 40px);
+	min-height: 400px;
+	overflow: hidden;
+}
+.panelTop {
+	flex: none;
+	max-height: calc(100% - 120px);
+	overflow-y: auto;
+}
+.owners {
+	color: var(--text-2);
+	font:
+		12px "Geist Mono",
+		monospace;
+	overflow-wrap: anywhere;
+}
+.filesSection {
+	display: flex;
+	flex: 1;
+	flex-direction: column;
+	min-height: 0;
+	padding: 12px 14px;
+	gap: 10px;
+	border-top: 1px solid var(--border-section);
+}
+.filesList {
+	flex: 1;
+	min-height: 0;
+	overflow-y: auto;
+	color: var(--text-2);
+	font-size: 12px;
+}
+.file {
+	display: flex;
+	align-items: baseline;
+	padding-block: 5px;
+	gap: 6px;
+	color: var(--text-1);
+}
+.file > i {
+	flex: none;
+	align-self: center;
+}
+.fileName {
+	min-width: 0;
+	overflow-wrap: anywhere;
+}
+.file > [data-status-type] {
+	flex: none;
+	font-weight: 700;
+	font-family: "Geist Mono", monospace;
+}
+.moreFiles {
+	margin-top: 8px;
+	padding: 0;
+	border: none;
+	background: none;
+	color: var(--text-2);
+	font: inherit;
+	text-decoration: underline dotted var(--text-3);
+	text-underline-position: from-font;
+}
+@container (max-width: 720px) {
+	.reviewPanel {
+		height: auto;
+		min-height: 0;
+	}
+	.panelTop {
+		max-height: none;
+		overflow: visible;
+	}
+	.filesList {
+		max-height: 220px;
+	}
+}
+
+.readinessHeader {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	margin-bottom: 8px;
+	gap: 8px;
+}
+.readinessHeader h4 {
+	margin: 0;
 }

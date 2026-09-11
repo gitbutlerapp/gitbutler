@@ -509,3 +509,31 @@
 	background: var(--bg-safe);
 	color: var(--text-safe);
 }
+
+.compactToggle {
+	padding: 0;
+	border: none;
+	background: none;
+	color: var(--text-2);
+	font: inherit;
+	text-decoration: underline dotted var(--text-3);
+	text-underline-position: from-font;
+}
+.compactToggle[aria-pressed="true"] {
+	color: var(--text-1);
+	font-weight: 600;
+}
+.activityHeader > div {
+	margin-left: auto;
+}
+.commentList[data-compact="true"] .cardBody {
+	padding: 8px;
+	gap: 4px;
+}
+.commentList[data-compact="true"] .cardFooter {
+	padding: 6px 8px;
+}
+.commentList[data-compact="true"] .avatar {
+	width: 14px;
+	height: 14px;
+}
