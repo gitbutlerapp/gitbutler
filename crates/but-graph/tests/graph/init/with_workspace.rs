@@ -10537,6 +10537,115 @@ fn worktree_ref_as_stack_top_is_spliced_into_fork() -> anyhow::Result<()> {
 }
 
 #[test]
+fn worktree_ref_as_later_stack_top_preserves_stack_order() -> anyhow::Result<()> {
+    let (repo, mut meta, mut db) = read_only_in_memory_scenario("ws/worktree-ref-at-later-stack")?;
+    let first = add_stack(&mut meta, 0, "first", StackState::InWorkspace);
+    let second = add_stack_with_segments(&mut meta, 1, "wsref", StackState::InWorkspace, &["foo"]);
+    db.worktree_meta_mut().mark_adopted()?;
+    let workspace_ref: gix::refs::FullName = "refs/heads/gitbutler/workspace".try_into()?;
+    let original_metadata = meta.workspace(workspace_ref.as_ref())?;
+    let baseline = Graph::from_head(
+        &repo,
+        &*meta,
+        default_project_meta(&repo),
+        &mut db,
+        standard_options(),
+    )?
+    .validated()?
+    .into_workspace()?;
+    snapbox::assert_data_eq!(
+        graph_workspace(&baseline).to_string(),
+        snapbox::str![[r#"
+📕🏘️:gitbutler/workspace[🌳@repo] <> ✓refs/remotes/origin/main on fafd9d0
+├── ≡📙:first on fafd9d0 {0}
+│   └── 📙:first
+└── ≡📙:wsref[📁worktree-ref-at-later-stack-wt] on fafd9d0 {1}
+    ├── 📙:wsref[📁worktree-ref-at-later-stack-wt]
+    └── 📙:foo
+        └── ·e255adc (🏘️)
+
+"#]]
+    );
+    let options = || but_graph::init::Options {
+        worktrees: true,
+        ..standard_options()
+    };
+    let graph = Graph::from_head(
+        &repo,
+        &*meta,
+        default_project_meta(&repo),
+        &mut db,
+        options(),
+    )?
+    .validated()?;
+    snapbox::assert_data_eq!(
+        graph_workspace(&graph.clone().into_workspace()?).to_string(),
+        snapbox::str![[r#"
+📕🏘️:gitbutler/workspace[🌳@repo] <> ✓refs/remotes/origin/main on fafd9d0
+├── ≡📙:first on fafd9d0 {0}
+│   └── 📙:first
+├── ≡📙:foo on fafd9d0 {1}
+│   └── 📙:foo
+│       └── ·e255adc (🏘️)
+└── 📁worktree-ref-at-later-stack-wt on e255adc (🏘️)
+    └── 📙:wsref[📁worktree-ref-at-later-stack-wt]
+
+"#]]
+    );
+    let assert_order = |graph: Graph| -> anyhow::Result<()> {
+        let ws = graph.into_workspace()?;
+        assert_eq!(
+            ws.stacks.iter().map(|stack| stack.id).collect::<Vec<_>>(),
+            vec![Some(first), Some(second)],
+            "forking out a worktree ref must preserve the workspace's stack order"
+        );
+        let projected_metadata = ws.metadata_from_projection()?.expect("managed workspace");
+        assert_eq!(
+            projected_metadata
+                .stacks
+                .iter()
+                .map(|stack| stack.id)
+                .collect::<Vec<_>>(),
+            original_metadata
+                .stacks
+                .iter()
+                .map(|stack| stack.id)
+                .collect::<Vec<_>>(),
+            "saving the projection must preserve stack order"
+        );
+        Ok(())
+    };
+    assert_worktree_ref_is_fork(&graph, "wsref")?;
+    assert_order(graph.clone())?;
+
+    db.worktree_meta_mut().upsert(but_db::WorktreeMeta {
+        name: b"worktree-ref-at-later-stack-wt".to_vec(),
+        archived: true,
+    })?;
+    // A cached graph still has its old worktree tips after another context archives it.
+    assert_order(graph.redo_traversal_with_overlay(&repo, &*meta, Overlay::default())?)?;
+    let fresh = Graph::from_head(
+        &repo,
+        &*meta,
+        default_project_meta(&repo),
+        &mut db,
+        options(),
+    )?
+    .validated()?;
+    assert!(
+        fresh.worktree_tips.is_empty(),
+        "archived worktrees are excluded on refresh"
+    );
+    assert_eq!(
+        graph_workspace(&fresh.clone().into_workspace()?).to_string(),
+        graph_workspace(&baseline).to_string(),
+        "archiving restores the projection from before worktree discovery"
+    );
+    assert_order(fresh)?;
+    Ok(())
+}
+
+#[test]
 fn worktree_ref_as_entrypoint_keeps_its_lane() -> anyhow::Result<()> {
     // Viewing the graph from the worktree branch itself - like branch details
     // for it would - keeps the ref addressable as a lane instead of forking it

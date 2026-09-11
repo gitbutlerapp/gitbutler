@@ -1819,6 +1819,18 @@ EOF
     create_workspace_commit_once foo
   )
 
+  # The worktree ref is the empty top of the second stack in workspace metadata.
+  git init worktree-ref-at-later-stack
+  (cd worktree-ref-at-later-stack
+    commit init
+    setup_target_to_match_main
+    git branch first
+    git checkout -b foo
+      commit A
+    git worktree add -b wsref ../worktree-ref-at-later-stack-wt foo
+    create_workspace_commit_once foo
+  )
+
   # A branch checked out in a linked worktree points at the tip of an applied
   # branch that also has a remote tracking branch.
   git init worktree-ref-at-remote-tracked-branch

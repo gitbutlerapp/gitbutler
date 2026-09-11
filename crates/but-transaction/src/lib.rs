@@ -1451,6 +1451,12 @@ fn workspace_state_from_rebase<M: RefMetadata>(
         )?;
     }
 
+    // The caller owns the metadata handle and may keep it alive after our lock is released.
+    // Fresh readers must see the final stack order as soon as the transaction completes.
+    materialized
+        .meta
+        .flush()
+        .context("Failed to persist workspace transaction metadata")?;
     WorkspaceState::from_materialized(materialized, repo)
 }
 

@@ -146,6 +146,83 @@ fn rollback() {
 }
 
 #[test]
+fn creating_stack_persists_order_before_metadata_is_dropped() -> anyhow::Result<()> {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["branch"]);
+    let repo = but_testsupport::open_repo(env.projects_root())?;
+    assert!(
+        repo.worktrees()?.is_empty(),
+        "no linked worktree is needed to reproduce this"
+    );
+    let mut ctx = Context::from_repo_for_testing(repo)?.with_memory_app_cache();
+    but_api::branch::branch_create(
+        &mut ctx,
+        Some("refs/heads/existing-empty".try_into()?),
+        but_api::branch::json::BranchCreatePlacement::Independent { order: None },
+    )?;
+    env.file("new-file", "new stack content\n");
+    let ref_name: FullName = "refs/heads/new-stack".try_into()?;
+    let mut meta = ctx.meta()?;
+    let _state: WorkspaceState = with_transaction(
+        &mut ctx,
+        &mut meta,
+        SnapshotDetails::new(OperationKind::CreateCommit),
+        DryRun::No,
+        |mut tx| {
+            tx.create_reference(
+                ref_name.as_ref(),
+                None,
+                |_| but_core::ref_metadata::StackId::generate(),
+                Some(1),
+            )?;
+            let outcome = tx.create_commit(
+                RelativeTo::Reference(ref_name.clone()),
+                InsertSide::Below,
+                vec![diff_spec_for_file("new-file")],
+                "New stack commit".into(),
+                but_workspace::commit::ChangeSource::Head,
+            )?;
+            assert!(
+                outcome.new_commit.is_some() && outcome.rejected_specs.is_empty(),
+                "the new stack contains the committed file"
+            );
+            Ok(())
+        },
+    )?;
+    let names = |info: &but_workspace::RefInfo| {
+        info.stacks
+            .iter()
+            .map(|stack| {
+                stack.segments[0]
+                    .ref_info
+                    .as_ref()
+                    .expect("named stack")
+                    .ref_name
+                    .to_string()
+            })
+            .collect::<Vec<_>>()
+    };
+    // Read persisted order independently of the feature-dependent transaction response.
+    let expected = [
+        "refs/heads/branch",
+        "refs/heads/new-stack",
+        "refs/heads/existing-empty",
+    ];
+    assert_eq!(
+        names(&but_api::legacy::workspace::head_info(&ctx)?),
+        expected,
+        "a fresh reader must observe the completed transaction's stack order while meta is alive"
+    );
+    drop(meta);
+    assert_eq!(
+        names(&but_api::legacy::workspace::head_info(&ctx)?),
+        expected,
+        "dropping metadata must not change the visible order"
+    );
+    Ok(())
+}
+
+#[test]
 fn create_reference_without_creating_commits() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
     env.setup_metadata(&["branch"]);
@@ -331,6 +408,8 @@ fn checkout_dry_run_only_previews_the_new_head() {
     let mut meta = ctx.meta().unwrap();
     let snapshot_details = SnapshotDetails::new(OperationKind::CreateBranch);
     let new_branch = FullName::try_from("refs/heads/dry-run-checkout").unwrap();
+    let ws_ref: &gix::refs::FullNameRef = "refs/heads/gitbutler/workspace".try_into().unwrap();
+    let original_stacks = meta.workspace(ws_ref).unwrap().stacks.clone();
 
     let _preview: WorkspaceState = with_transaction(
         &mut ctx,
@@ -367,6 +446,11 @@ fn checkout_dry_run_only_previews_the_new_head() {
         "a dry-run should not persist the created branch"
     );
     assert_num_snapshots(&ctx, 0);
+    assert_eq!(
+        ctx.meta().unwrap().workspace(ws_ref).unwrap().stacks,
+        original_stacks,
+        "a dry run must not persist its preview metadata"
+    );
 }
 
 #[test]
@@ -854,6 +938,8 @@ fn create_reference_is_removed_on_rollback() {
     let mut meta = ctx.meta().unwrap();
     let snapshot_details = SnapshotDetails::new(OperationKind::CreateCommit);
     let refname = FullName::try_from("refs/heads/rolled-back").unwrap();
+    let ws_ref: &gix::refs::FullNameRef = "refs/heads/gitbutler/workspace".try_into().unwrap();
+    let original_stacks = meta.workspace(ws_ref).unwrap().stacks.clone();
 
     let outcome = with_transaction(
         &mut ctx,
@@ -880,6 +966,11 @@ fn create_reference_is_removed_on_rollback() {
         "created reference should be removed when the transaction rolls back"
     );
     assert_num_snapshots(&ctx, 0);
+    assert_eq!(
+        ctx.meta().unwrap().workspace(ws_ref).unwrap().stacks,
+        original_stacks,
+        "a rollback must not persist the created branch's metadata"
+    );
 }
 
 #[test]
