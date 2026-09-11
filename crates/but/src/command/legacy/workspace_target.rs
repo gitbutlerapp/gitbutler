@@ -99,11 +99,15 @@ fn display_name_from_base_branch(base_branch: &gitbutler_branch_actions::BaseBra
     }
 }
 
-/// Resolve the effective target commit OID from workspace projection data.
+/// Resolve the target commit OID the workspace projection is based on.
 fn target_oid_from_workspace(workspace: &but_graph::Workspace) -> Result<gix::ObjectId> {
-    workspace.effective_target_commit_id().context(
-        "Failed to resolve workspace target: no target information available in workspace.",
-    )
+    workspace
+        .target_commit
+        .as_ref()
+        .map(|target| target.commit_id)
+        .context(
+            "Failed to resolve workspace target: no target information available in workspace.",
+        )
 }
 
 /// Resolve the effective target reference name from workspace projection data.

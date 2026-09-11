@@ -665,15 +665,4 @@ impl Graph {
         });
         commits
     }
-
-    /// Segments of integrated traversal tips.
-    pub(super) fn integrated_tip_segments(&self) -> Vec<SegmentIndex> {
-        self.traversal_tips
-            .iter()
-            .filter(|tip| tip.role.is_integrated())
-            .filter_map(|tip| TargetCommit::from_commit(tip.id, self))
-            .map(|target| target.segment_index)
-            .unique()
-            .collect()
-    }
 }

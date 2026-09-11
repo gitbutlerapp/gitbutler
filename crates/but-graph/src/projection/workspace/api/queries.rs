@@ -58,28 +58,6 @@ impl Workspace {
     pub fn stored_target_commit_id(&self) -> Option<gix::ObjectId> {
         self.target_commit.as_ref().map(|target| target.commit_id)
     }
-
-    /// Return the commit id that currently acts as the workspace target.
-    ///
-    /// This follows the same precedence as operations that need a concrete
-    /// target side: target ref tip, then stored target commit, then the first
-    /// integrated traversal tip.
-    pub fn effective_target_commit_id(&self) -> Option<gix::ObjectId> {
-        self.target_ref
-            .as_ref()
-            .and_then(|target| self.tip_commit_by_segment_id(target.segment_index))
-            .map(|commit| commit.id)
-            .or_else(|| self.target_commit.as_ref().map(|target| target.commit_id))
-            .or_else(|| {
-                self.graph
-                    .integrated_tip_segments()
-                    .into_iter()
-                    .find_map(|segment_index| {
-                        self.tip_commit_by_segment_id(segment_index)
-                            .map(|commit| commit.id)
-                    })
-            })
-    }
 }
 
 /// # Refs of Interest
