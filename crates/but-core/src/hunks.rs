@@ -1,5 +1,6 @@
 use anyhow::Context as _;
 use bstr::{BStr, BString, ByteSlice};
+use nonempty::NonEmpty;
 use serde::{Deserialize, Serialize};
 
 use crate::{DiffSpec, HunkHeader, TreeChange, UnifiedPatch};
@@ -40,7 +41,7 @@ impl SingleHunk {
     /// Changes without sub-file identity — binaries, files too large to diff, patches
     /// produced by a binary-to-text filter, and changes whose patch couldn't be computed
     /// at all — yield a single whole-file hunk rather than disappearing.
-    pub fn from_tree_change(change: &TreeChange, patch: Option<UnifiedPatch>) -> Vec<Self> {
+    pub fn from_tree_change(change: &TreeChange, patch: Option<UnifiedPatch>) -> NonEmpty<Self> {
         let hunks = match &patch {
             Some(UnifiedPatch::Patch {
                 hunks,
@@ -52,21 +53,28 @@ impl SingleHunk {
             )
             | None => &[],
         };
-        if hunks.is_empty() {
-            return vec![SingleHunk {
+        match hunks {
+            [] => NonEmpty::new(SingleHunk {
                 hunk_header: None,
                 path: change.path.clone(),
                 diff: None,
-            }];
+            }),
+            [hunk, tail @ ..] => {
+                let mut hunks = NonEmpty::new(SingleHunk {
+                    hunk_header: Some(hunk.into()),
+                    path: change.path.clone(),
+                    diff: Some(hunk.diff.clone()),
+                });
+                for hunk in tail {
+                    hunks.push(SingleHunk {
+                        hunk_header: Some(hunk.into()),
+                        path: change.path.clone(),
+                        diff: Some(hunk.diff.clone()),
+                    });
+                }
+                hunks
+            }
         }
-        hunks
-            .iter()
-            .map(|hunk| SingleHunk {
-                hunk_header: Some(hunk.into()),
-                path: change.path.clone(),
-                diff: Some(hunk.diff.clone()),
-            })
-            .collect()
     }
 
     /// Return the `(added, removed)` line numbers of this hunk, or `None` if it has no
@@ -177,7 +185,7 @@ pub fn changes_with_hunks<'a, I>(
     repo: &'a gix::Repository,
     changes: I,
     context_lines: u32,
-) -> impl Iterator<Item = (TreeChange, Vec<SingleHunk>)> + 'a
+) -> impl Iterator<Item = (TreeChange, NonEmpty<SingleHunk>)> + 'a
 where
     I: IntoIterator,
     I::Item: Into<TreeChange>,

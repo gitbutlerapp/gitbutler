@@ -3803,6 +3803,7 @@ mod util {
     use bstr::BString;
     use but_graph::workspace::{Stack, StackCommit, StackSegment};
     use itertools::Itertools;
+    use nonempty::NonEmpty;
 
     use crate::{CliId, IdMap};
 
@@ -3866,12 +3867,18 @@ mod util {
         source: crate::ChangeSourceId,
         hunks: Vec<but_core::SingleHunk>,
     ) -> crate::utils::change_source::SourceChanges {
-        let mut hunks_by_path: BTreeMap<BString, Vec<but_core::SingleHunk>> = BTreeMap::new();
+        let mut hunks_by_path: BTreeMap<BString, NonEmpty<but_core::SingleHunk>> = BTreeMap::new();
         for hunk in hunks {
-            hunks_by_path
-                .entry(hunk.path.clone())
-                .or_default()
-                .push(hunk);
+            let key = hunk.path.clone();
+
+            match hunks_by_path.entry(key) {
+                std::collections::btree_map::Entry::Vacant(entry) => {
+                    entry.insert(NonEmpty::new(hunk));
+                }
+                std::collections::btree_map::Entry::Occupied(mut entry) => {
+                    entry.get_mut().push(hunk);
+                }
+            }
         }
         crate::utils::change_source::SourceChanges {
             source,

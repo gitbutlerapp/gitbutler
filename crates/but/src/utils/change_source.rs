@@ -59,7 +59,7 @@ pub struct SourceChanges {
     /// The checkout these were read from.
     pub source: ChangeSourceId,
     /// The hunks those changes split into.
-    pub changes_with_hunks: Vec<(but_core::TreeChange, Vec<but_core::SingleHunk>)>,
+    pub changes_with_hunks: Vec<(but_core::TreeChange, NonEmpty<but_core::SingleHunk>)>,
 }
 
 /// The names of the linked worktrees whose uncommitted changes get CLI IDs.

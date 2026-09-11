@@ -24,6 +24,7 @@ but-serde.workspace = true
 git2.workspace = true
 but-oxidize.workspace = true
 
+nonempty.workspace = true
 serde.workspace = true
 bstr.workspace = true
 tracing.workspace = true

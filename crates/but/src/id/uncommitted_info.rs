@@ -1,6 +1,7 @@
 use std::collections::HashSet;
 
 use bstr::BString;
+use nonempty::NonEmpty;
 
 use crate::{
     id::id_usage::UintId,
@@ -16,7 +17,7 @@ pub(crate) struct UncommittedInfo {
     pub(crate) partitioned_changes_and_hunks: Vec<(
         ChangeSourceId,
         but_core::ui::TreeChange,
-        Vec<but_core::SingleHunk>,
+        NonEmpty<but_core::SingleHunk>,
     )>,
     /// The short filenames of every source, which all compete for the same short
     /// IDs as branches do.
@@ -30,7 +31,7 @@ impl UncommittedInfo {
         let mut partitioned_changes_and_hunks: Vec<(
             ChangeSourceId,
             but_core::ui::TreeChange,
-            Vec<but_core::SingleHunk>,
+            NonEmpty<but_core::SingleHunk>,
         )> = vec![];
 
         for SourceChanges {

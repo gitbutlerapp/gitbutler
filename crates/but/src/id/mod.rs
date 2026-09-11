@@ -874,18 +874,7 @@ impl IdMap {
                     source,
                     tree_status: Into::<but_core::TreeChange>::into(change).status.kind(),
                     short_id: ShortId::default(),
-                    short_id_hunks: NonEmpty::collect(
-                        hunks
-                            .into_iter()
-                            .map(|hunk| (UnqualifiedHunkId::default(), hunk)),
-                    )
-                    // Note: This expect holds because but_core::SingleHunk::from_tree_change is
-                    // guaranteed to produce at least one hunk per change, and that's what's used in
-                    // but_core::changes_with_hunks. We could get rid of this expect by encoding
-                    // that in a NonEmpty return value from but_core::SingleHunk::from_tree_change
-                    // and propagate that up the stack, but that requires adding the nonempty crate
-                    // as a dependency in but_core. Decided "not worth it" for now.
-                    .expect("Each tree change produces at least one hunk"),
+                    short_id_hunks: hunks.map(|hunk| (UnqualifiedHunkId::default(), hunk)),
                 },
             );
             // Preserve generated IDs from before path-derived file IDs were introduced. If these
