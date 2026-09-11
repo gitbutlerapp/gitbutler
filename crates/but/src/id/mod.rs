@@ -13,7 +13,7 @@ use bstr::{BStr, BString, ByteSlice};
 use but_core::sync::RepoShared;
 use but_core::{ChangeId, TreeStatusKind, UnifiedPatch, ref_metadata::StackId};
 use but_ctx::Context;
-use but_graph::workspace::{Stack, StackCommit, StackSegment};
+use but_graph::workspace::{Stack, StackCommit, StackSegment, WorktreeStack};
 use gix::hash::hasher;
 use nonempty::NonEmpty;
 use self_cell::self_cell;
@@ -788,12 +788,21 @@ pub struct WorktreeWithId {
     /// The stable worktree name, i.e. the directory name under
     /// `$GIT_COMMON_DIR/worktrees/`.
     pub name: BString,
-    /// The commits this worktree owns exclusively, newest first, sharing the commit
-    /// ID namespace with the workspace stacks.
-    pub commits: Vec<WorkspaceCommitWithId>,
+    /// The segments this worktree owns exclusively, from its `HEAD` down. The first is the
+    /// checked-out branch, or anonymous for a detached `HEAD`, and is named by
+    /// [`Self::short_id`]; the ones beneath carry branch IDs of their own. Their commits share
+    /// the commit ID namespace with the workspace stacks.
+    pub segments: Vec<SegmentWithId>,
 }
 
 impl WorktreeWithId {
+    /// The commits this worktree owns, newest first.
+    pub fn commits(&self) -> impl Iterator<Item = &WorkspaceCommitWithId> {
+        self.segments
+            .iter()
+            .flat_map(|segment| segment.workspace_commits.iter())
+    }
+
     /// The changes in this worktree, as a change source.
     pub fn source(&self) -> ChangeSourceId {
         ChangeSourceId::Worktree(self.name.clone())
@@ -831,7 +840,7 @@ impl IdMap {
         stacks: Vec<Stack>,
         sources: Vec<SourceChanges>,
         commit_id_to_change_id: gix::hashtable::HashMap<gix::ObjectId, ChangeId>,
-        mut worktree_commits: BTreeMap<BString, Vec<StackCommit>>,
+        worktrees: Vec<WorktreeStack>,
         diff_context_lines: u32,
     ) -> anyhow::Result<Self> {
         // Taken before partitioning, which drops sources without changes: a clean
@@ -891,6 +900,10 @@ impl IdMap {
             id_usage = fallback_id_usage;
         }
 
+        let mut worktree_stacks: BTreeMap<BString, WorktreeStack> = worktrees
+            .into_iter()
+            .map(|worktree| (worktree.name.clone(), worktree))
+            .collect();
         let mut worktrees: BTreeMap<BString, WorktreeWithId> = BTreeMap::new();
         for name in worktree_names {
             let short_id = stacks_info::allocate_name_short_id(
@@ -898,25 +911,30 @@ impl IdMap {
                 &mut id_usage,
                 &mut non_hex_used_short_ids,
             )?;
-            let commits = worktree_commits
+            let mut segments: Vec<SegmentWithId> = worktree_stacks
                 .remove(&name)
+                .map(|worktree| worktree.segments)
                 .unwrap_or_default()
                 .into_iter()
-                .map(|commit| WorkspaceCommitWithId {
-                    short_id: ShortId::default(),
-                    change_id: commit_id_to_change_id
-                        .get(&commit.id)
-                        .cloned()
-                        .map(Into::into),
-                    inner: commit,
-                })
+                .map(|segment| stacks_info::segment_with_id(segment, None, &commit_id_to_change_id))
                 .collect();
+            let mut below_top = segments.iter_mut();
+            if let Some(top) = below_top.next() {
+                top.short_id = short_id.clone();
+            }
+            for segment in below_top {
+                stacks_info::populate_segment_short_id(
+                    segment,
+                    &mut id_usage,
+                    &mut non_hex_used_short_ids,
+                )?;
+            }
             worktrees.insert(
                 name.clone(),
                 WorktreeWithId {
                     short_id,
                     name,
-                    commits,
+                    segments,
                 },
             );
         }
@@ -957,20 +975,14 @@ impl IdMap {
 
         // Worktree commits share the change ID namespace with workspace commits, so both are
         // disambiguated together.
-        for worktree in worktrees.values_mut() {
-            for change_id in worktree
-                .commits
-                .iter_mut()
-                .filter_map(|c| c.change_id.as_mut())
-            {
-                reverse_hex_short_ids
-                    .push((change_id.change_id.clone(), Some(&mut change_id.short_id)));
-            }
-        }
-
         for change_id in stacks
             .iter_mut()
             .flat_map(|stack| stack.segments.iter_mut())
+            .chain(
+                worktrees
+                    .values_mut()
+                    .flat_map(|worktree| worktree.segments.iter_mut()),
+            )
             .flat_map(|segment| {
                 segment
                     .workspace_commits
@@ -997,6 +1009,11 @@ impl IdMap {
             stacks
                 .iter_mut()
                 .flat_map(|stack| stack.segments.iter_mut())
+                .chain(
+                    worktrees
+                        .values_mut()
+                        .flat_map(|worktree| worktree.segments.iter_mut()),
+                )
                 .flat_map(|segment| {
                     segment
                         .workspace_commits
@@ -1009,12 +1026,6 @@ impl IdMap {
                                 .map(|c| (c.inner.id, &mut c.short_id)),
                         )
                 })
-                .chain(
-                    worktrees
-                        .values_mut()
-                        .flat_map(|worktree| worktree.commits.iter_mut())
-                        .map(|c| (c.inner.id, &mut c.short_id)),
-                )
                 .collect(),
         );
 
@@ -1224,37 +1235,10 @@ impl IdMap {
             ws.stacks.clone(),
             sources,
             commit_id_to_change_id,
-            worktrees
-                .iter()
-                .map(|worktree| (worktree.name.clone(), worktree.commits().cloned().collect()))
-                .collect(),
+            worktrees.clone(),
             ctx.settings.context_lines,
         )
     }
-}
-
-/// Reshape the commits owned by each linked worktree into what [`IdMap::new`] takes.
-///
-/// The result is empty unless the traversal behind `worktrees` was seeded with worktree tips,
-/// i.e. unless the `worktreeManipulation` flag is on.
-pub(crate) fn worktree_commits_by_name(
-    worktrees: &[but_workspace::worktrees::WorktreeInfo],
-) -> BTreeMap<BString, Vec<StackCommit>> {
-    worktrees
-        .iter()
-        .map(|worktree| {
-            let commits = worktree
-                .commits()
-                .map(|commit| StackCommit {
-                    id: commit.id,
-                    parent_ids: commit.parent_ids.clone(),
-                    flags: commit.flags,
-                    refs: commit.refs.clone(),
-                })
-                .collect();
-            (worktree.name.clone(), commits)
-        })
-        .collect()
 }
 
 /// Private methods to individually parse what can appear on both side of a
@@ -1328,11 +1312,20 @@ impl IdMap {
             .borrow_owner()
             .iter()
             .flat_map(|stack| stack.segments.iter())
+            .chain(self.lower_worktree_segments())
             .any(|segment| segment.short_id == element)
             || self
                 .stack_ids
                 .values()
                 .any(|id| matches!(id, CliId::Stack { id, .. } if id == element))
+    }
+
+    /// The segments beneath each linked worktree's top one, which is named by the worktree's
+    /// own ID rather than a branch ID.
+    fn lower_worktree_segments(&self) -> impl Iterator<Item = &SegmentWithId> {
+        self.worktrees
+            .values()
+            .flat_map(|worktree| worktree.segments.iter().skip(1))
     }
 
     /// The linked worktree named exactly `element`, if any.
@@ -1413,14 +1406,18 @@ impl IdMap {
 
         // Branches match if they match exactly. Likewise for uncommitted, uncommitted files.
         if scope == SourceScope::Any {
-            for stack_with_id in self.indexed_stacks.borrow_owner().iter() {
-                for segment_with_id in stack_with_id.segments.iter() {
-                    if segment_with_id
-                        .branch_name()
-                        .is_some_and(|branch_name| branch_name == element)
-                    {
-                        matches.push(Box::new(segment_with_id));
-                    }
+            for segment_with_id in self
+                .indexed_stacks
+                .borrow_owner()
+                .iter()
+                .flat_map(|stack| stack.segments.iter())
+                .chain(self.lower_worktree_segments())
+            {
+                if segment_with_id
+                    .branch_name()
+                    .is_some_and(|branch_name| branch_name == element)
+                {
+                    matches.push(Box::new(segment_with_id));
                 }
             }
         }
@@ -1493,6 +1490,13 @@ impl IdMap {
             .find(|worktree| worktree.short_id == element)
         {
             matches.push(Box::new(worktree));
+            return;
+        }
+        if let Some(segment_with_id) = self
+            .lower_worktree_segments()
+            .find(|segment| segment.short_id == element)
+        {
+            matches.push(Box::new(segment_with_id));
             return;
         }
 
@@ -1799,23 +1803,24 @@ impl IdMap {
     }
 
     fn commits(&self) -> impl Iterator<Item = CommitWithId<'_>> {
-        let stack_commits = self.indexed_stacks.borrow_owner().iter().flat_map(|stack| {
-            stack.segments.iter().flat_map(|segment| {
+        self.indexed_stacks
+            .borrow_owner()
+            .iter()
+            .flat_map(|stack| stack.segments.iter())
+            // Commits owned by a linked worktree resolve exactly like workspace commits - they
+            // just live outside the stacks.
+            .chain(
+                self.worktrees
+                    .values()
+                    .flat_map(|worktree| worktree.segments.iter()),
+            )
+            .flat_map(|segment| {
                 segment
                     .workspace_commits
                     .iter()
                     .map(CommitWithId::Local)
                     .chain(segment.remote_commits.iter().map(CommitWithId::Remote))
             })
-        });
-
-        stack_commits.chain(
-            // Commits owned by a linked worktree resolve exactly like workspace commits - they
-            // just live outside the stacks.
-            self.worktrees
-                .values()
-                .flat_map(|wt| wt.commits.iter().map(CommitWithId::Local)),
-        )
     }
 
     /// The change ID behind the primary identifier `but status` displays for

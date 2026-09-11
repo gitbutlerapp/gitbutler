@@ -634,8 +634,7 @@ fn build_worktrees_json(
         let files =
             super::uncommitted_file::UncommittedFileWithId::in_source(&status_ctx.id_map, &source);
         let commits = with_id
-            .commits
-            .iter()
+            .commits()
             .map(|commit| {
                 // The same ID rule as for stack commits, so a worktree commit is named
                 // consistently across the JSON.
