@@ -2,7 +2,7 @@
 
 import { hunkAddress, type HunkAddress } from "#ui/addresses.ts";
 import { store } from "#ui/store.ts";
-import type { CodeViewDiffItem } from "@pierre/diffs";
+import { processFile, type CodeViewDiffItem } from "@pierre/diffs";
 import { act, createRef, forwardRef, type RefObject, useImperativeHandle } from "react";
 import { Provider } from "react-redux";
 import { createRoot, type Root } from "react-dom/client";
@@ -68,7 +68,10 @@ const pointerOver = (element: HTMLElement) =>
 		element.dispatchEvent(new Event("pointerover", { bubbles: true, composed: true }));
 	});
 
-type ColumnLine = { number: number; type?: "change-addition" | "context" };
+type ColumnLine = {
+	number: number;
+	type?: "change-addition" | "change-deletion" | "context" | "context-expanded";
+};
 
 /**
  * A column of number cells laid out the way Pierre renders one: a code element holding a gutter
@@ -99,6 +102,10 @@ const createColumn = (
 			cell.setAttribute("data-column-number", `${number}`);
 			cell.setAttribute("data-line-type", type);
 			cell.setAttribute("data-line-index", `${index},${index}`);
+			const numberContent = document.createElement("span");
+			numberContent.setAttribute("data-line-number-content", "");
+			numberContent.textContent = String(number);
+			cell.append(numberContent);
 			return cell;
 		});
 	const cells = build();
@@ -148,6 +155,52 @@ describe("useDiffGutterCheckboxes", () => {
 	afterEach(() => {
 		act(() => root.unmount());
 		container.remove();
+	});
+
+	it("keeps old and new numbers distinct across a replacement and expanded context", async () => {
+		const fileDiff = processFile(
+			"diff --git a/file.ts b/file.ts\n--- a/file.ts\n+++ b/file.ts\n@@ -100,3 +100,4 @@\n before\n-old\n+new\n+extra\n after\n",
+		);
+		if (!fileDiff) throw new Error("expected parsed diff");
+		const item = { ...ITEM, fileDiff };
+		const { host, cells, rerender } = createColumn([
+			{ number: 99, type: "context-expanded" },
+			{ number: 100, type: "context" },
+			{ number: 101, type: "change-deletion" },
+			{ number: 101 },
+			{ number: 102 },
+			{ number: 103, type: "context" },
+			{ number: 104, type: "context-expanded" },
+		]);
+		const render = async () => {
+			await act(async () => {
+				Reflect.apply(handle().onPostRender, undefined, [
+					host,
+					{},
+					"mount",
+					{ type: "diff", item, element: host, version: item.version },
+				]);
+			});
+		};
+		const pairs = (rows: Array<HTMLElement>) =>
+			rows.map((row) => [
+				row.querySelector('[data-gitbutler-line-number="old"]')?.textContent,
+				row.querySelector('[data-gitbutler-line-number="new"]')?.textContent,
+			]);
+		await render();
+		const expected = [
+			["99", "99"],
+			["100", "100"],
+			["101", "·"],
+			["·", "101"],
+			["·", "102"],
+			["102", "103"],
+			["103", "104"],
+		];
+		expect(pairs(cells)).toEqual(expected);
+		const fresh = rerender();
+		await render();
+		expect(pairs(fresh)).toEqual(expected);
 	});
 
 	it("takes the actions card back when the pointer moves off the numbers onto the code", async () => {

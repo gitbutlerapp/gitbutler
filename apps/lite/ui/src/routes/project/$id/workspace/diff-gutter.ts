@@ -1,4 +1,4 @@
-import type { CodeViewOptions } from "@pierre/diffs";
+import type { CodeViewOptions, FileDiffMetadata } from "@pierre/diffs";
 import { createElement, type ReactElement, useLayoutEffect, useRef } from "react";
 import {
 	hunkAddress,
@@ -36,6 +36,27 @@ const OPERATION_SOURCE_ATTRIBUTE = "data-gitbutler-operation-source";
 const CHECK_DRAG_ATTRIBUTE = "data-gitbutler-diff-check-drag";
 
 export const diffGutterUnsafeCSS = `
+	[data-gitbutler-line-numbers] {
+		display: inline-flex;
+		font-family: "Geist Mono", monospace;
+		color: var(--text-3);
+	}
+	[data-gitbutler-line-number] {
+		box-sizing: border-box;
+		width: calc(max(2ch, var(--diffs-min-number-column-width-default, 2ch)) + 4px);
+		padding-inline-end: 4px;
+		text-align: right;
+	}
+	[data-gitbutler-line-number][data-empty] { color: var(--border-1); }
+	[data-unified] [data-column-number] { padding-left: var(--gitbutler-diff-gutter-width); }
+	[data-indicators="classic"] [data-line-type="change-addition"][data-line]::before {
+		color: var(--change-status-addition);
+	}
+	[data-indicators="classic"] [data-line-type="change-deletion"][data-line]::before {
+		content: "−";
+		color: var(--change-status-deletion);
+	}
+
 	/* While a press is painting checkboxes, the lines it crosses are the gesture's, not text. */
 	:host([${CHECK_DRAG_ATTRIBUTE}]) {
 		user-select: none;
@@ -398,6 +419,73 @@ const ensureHunkBand = (
 	return band;
 };
 
+// Pierre keeps both offsets in each hunk, but displays the new number for unified context.
+const oldContextLine = (line: number, diff: FileDiffMetadata): number => {
+	let offset = 0;
+	for (const hunk of diff.hunks) {
+		if (line < hunk.additionStart) return line + offset;
+		let oldLine = hunk.deletionStart;
+		let newLine = hunk.additionStart;
+		for (const content of hunk.hunkContent) {
+			if (content.type === "context") {
+				if (line < newLine + content.lines) return oldLine + line - newLine;
+				oldLine += content.lines;
+				newLine += content.lines;
+			} else {
+				oldLine += content.deletions;
+				newLine += content.additions;
+			}
+		}
+		offset = oldLine - newLine;
+	}
+	return line + offset;
+};
+
+const renderLineNumbers = (
+	cell: HTMLElement,
+	target: DiffLineTarget,
+	diff: FileDiffMetadata,
+): void => {
+	const content = cell.querySelector<HTMLElement>("[data-line-number-content]");
+	if (!content) return;
+	if (!cell.closest("[data-unified]")) {
+		if (content.hasAttribute("data-gitbutler-line-numbers")) {
+			content.removeAttribute("data-gitbutler-line-numbers");
+			content.textContent = String(target.lineNumber);
+		}
+		return;
+	}
+	const oldLine =
+		target.lineType === "context"
+			? oldContextLine(target.lineNumber, diff)
+			: target.side === "deletions"
+				? target.lineNumber
+				: null;
+	const newLine =
+		target.lineType === "context" || target.side === "additions" ? target.lineNumber : null;
+	const signature = `${String(oldLine)}:${String(newLine)}`;
+	if (content.getAttribute("data-gitbutler-line-numbers") === signature) return;
+	content.setAttribute("data-gitbutler-line-numbers", signature);
+	content.replaceChildren(
+		...(
+			[
+				["old", oldLine],
+				["new", newLine],
+			] as const
+		).map(([side, number]) => {
+			const span = document.createElement("span");
+			span.setAttribute("data-gitbutler-line-number", side);
+			span.setAttribute(
+				"aria-label",
+				`${side === "old" ? "Old" : "New"} line ${number ?? "absent"}`,
+			);
+			if (number === null) span.setAttribute("data-empty", "");
+			span.textContent = number === null ? "·" : String(number);
+			return span;
+		}),
+	);
+};
+
 const createGutterStore = <T>(
 	getOnPostRender: () => OnPostRender<T>,
 	getLineAddress: () => GetHunkAddress,
@@ -417,6 +505,7 @@ const createGutterStore = <T>(
 	const controlsByGroupByHost = new Map<HTMLElement, Map<string, Array<HTMLElement>>>();
 	const removeHoverListenersByHost = new Map<HTMLElement, () => void>();
 	const itemIdsByHost = new Map<HTMLElement, string>();
+	const fileDiffsByHost = new WeakMap<HTMLElement, FileDiffMetadata>();
 	const actionCardsByHost = new Map<HTMLElement, ActionsCard>();
 	const bandsByGroupByHost = new Map<HTMLElement, Map<string, Array<HTMLElement>>>();
 	const checkedGroupsByHost = new Map<HTMLElement, Set<string>>();
@@ -793,6 +882,8 @@ const createGutterStore = <T>(
 
 		for (const [index, cell] of cells.entries()) {
 			const target = diffLineTargetFromElement({ element: cell, itemId });
+			const fileDiff = fileDiffsByHost.get(host);
+			if (target && fileDiff) renderLineNumbers(cell, target, fileDiff);
 			if (target?.lineType !== "change") continue;
 
 			const lineAddress = getLineAddress()(target);
@@ -923,8 +1014,12 @@ const createGutterStore = <T>(
 		setGroupChecked,
 		setGroupCheckable,
 		onPostRender: (host, instance, phase, context) => {
-			if (phase === "unmount" || context.type !== "diff") removeTarget(host);
-			else syncTarget(host, context.item.id);
+			if (phase === "unmount" || context.type !== "diff") {
+				removeTarget(host);
+			} else {
+				fileDiffsByHost.set(host, context.item.fileDiff);
+				syncTarget(host, context.item.id);
+			}
 			// CodeView exposes this callback as file/diff overloads; forward the exact invocation.
 			Reflect.apply(getOnPostRender(), undefined, [host, instance, phase, context]);
 		},

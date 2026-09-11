@@ -1822,6 +1822,7 @@ const DiffContents: FC<{
 				onSelectedLinesChange={handleLinesSelected}
 				options={{
 					diffStyle: effectiveDiffStyle,
+					diffIndicators: "classic",
 					loadDiffFiles,
 					disableBackground: !(diffBackgrounds ?? defaultSettings.diffBackground),
 					lineDiffType: settings?.lineDiffType ?? defaultSettings.lineDiffType,
