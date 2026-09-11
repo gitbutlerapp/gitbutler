@@ -278,6 +278,10 @@
 	display: flex;
 	align-items: center;
 	gap: 6px;
+
+	&:has(> .metaButton ~ .metaButton) {
+		flex-wrap: wrap;
+	}
 }
 
 .metaItem {
