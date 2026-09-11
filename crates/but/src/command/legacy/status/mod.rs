@@ -486,12 +486,16 @@ fn build_status_context<'a>(
         // same content and change-ID lookups - or the same change ID could print with a
         // different disambiguation length here than everywhere else.
         let worktrees = head_info.worktrees;
-        for worktree in &worktrees {
-            for local_commit in worktree.commits() {
+        for segment in worktrees.iter().flat_map(|worktree| &worktree.segments) {
+            for local_commit in &segment.commits {
                 commit_id_to_change_id
                     .insert(local_commit.id, local_commit.change_id().into_owned());
                 local_commits_by_id.insert(local_commit.id, local_commit.clone());
             }
+            for remote_commit in &segment.commits_on_remote {
+                remote_commits_by_id.insert(remote_commit.id, remote_commit.clone());
+            }
+            push_statuses_by_segment_id.insert(segment.id, segment.push_status);
         }
         for stack in head_info.stacks {
             for segment in stack.segments {
