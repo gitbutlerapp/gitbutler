@@ -1557,9 +1557,9 @@ fn worktree_lanes() {
 ┊
 ┊╭┄ g0 [A]
 ┊┊
-┊┊╭┄ in:@ {worktree uncommitted}
+┊┊╭┄ in:@ [uncommitted] {wt-inside}
 ┊┊┊   wx A note.txt
-┊┊├┄ in {wt-inside}
+┊┊├┄ in [wt-inside]
 ┊┊●   pwn worktree work (no changes)
 ┊├╯
 ┊●   tpm add A
@@ -1567,14 +1567,14 @@ fn worktree_lanes() {
 ┊
 ┊╭┄ h0 [B]
 ┊┊
-┊┊╭┄ wt:@ {worktree uncommitted} (no changes)
-┊┊├┄ wt {wt-at}
+┊┊╭┄ wt:@ [uncommitted] {wt-at} (no changes)
+┊┊├┄ wt (no commits)
 ┊├╯
 ┊●   lrm add B
 ├╯
 ┊
-┊╭┄ ou:@ {worktree uncommitted} (no changes)
-┊├┄ ou {wt-outside}
+┊╭┄ ou:@ [uncommitted] {wt-outside} (no changes)
+┊├┄ ou [wt-outside]
 ┊●   zum off the target (no changes)
 ├╯
 ┊
@@ -1769,11 +1769,11 @@ fn stacked_worktree_lanes() {
 ┊
 ┊╭┄ g0 [A]
 ┊┊
-┊┊╭┄ wt:@ {worktree uncommitted} (no changes)
-┊┊├┄ wt {wt-first}
+┊┊╭┄ wt:@ [uncommitted] {wt-first} (no changes)
+┊┊├┄ wt [wt-first]
 ┊┊┊
-┊┊┊╭┄ se:@ {worktree uncommitted} (no changes)
-┊┊┊├┄ se {wt-second}
+┊┊┊╭┄ se:@ [uncommitted] {wt-second} (no changes)
+┊┊┊├┄ se [wt-second]
 ┊┊┊●   zzk second work (no changes)
 ┊┊├╯
 ┊┊●   tlr first work (no changes)
@@ -1841,8 +1841,8 @@ fn status_from_inside_a_linked_worktree_shows_the_main_workspace() {
 ┊
 ┊╭┄ g0 [A]
 ┊┊
-┊┊╭┄ wt:@ {worktree uncommitted} (no changes)
-┊┊├┄ wt {wt-inside}
+┊┊╭┄ wt:@ [uncommitted] {wt-inside} (no changes)
+┊┊├┄ wt [wt-inside] (no commits)
 ┊├╯
 ┊●   tpm add A
 ├╯

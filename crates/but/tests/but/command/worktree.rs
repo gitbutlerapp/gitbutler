@@ -492,12 +492,12 @@ at feature-one (refs/heads/Feature/One) - [..]/.git/gb-wts/feature-one
 ┊●   lrm add B
 ├╯
 ┊
-┊╭┄ br:@ {worktree uncommitted} (no changes)
-┊├┄ br {a-branch-1}
+┊╭┄ br:@ [uncommitted] {a-branch-1} (no changes)
+┊├┄ br [a-branch-1] (no commits)
 ├╯
 ┊
-┊╭┄ at:@ {worktree uncommitted} (no changes)
-┊├┄ at {Feature/One}
+┊╭┄ at:@ [uncommitted] {feature-one} (no changes)
+┊├┄ at [Feature/One] (no commits)
 ├╯
 ┊
 ┴ 0dc3733 (common base) 2000-01-02 add M
