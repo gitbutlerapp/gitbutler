@@ -8665,6 +8665,43 @@ fn worktree_tip_in_workspace_priority_mode() -> anyhow::Result<()> {
 }
 
 #[test]
+fn worktree_fork_below_the_target_stays_connected_with_a_limit() -> anyhow::Result<()> {
+    let (repo, mut meta, mut db) = read_only_in_memory_scenario("ws/worktree-behind-target")?;
+    add_workspace(&mut meta);
+    db.worktree_meta_mut().mark_adopted()?;
+    let graph = Graph::from_head(
+        &repo,
+        &*meta,
+        default_project_meta(&repo),
+        &mut db,
+        but_graph::init::Options {
+            worktrees: true,
+            ..but_graph::init::Options::limited().with_limit_hint(1)
+        },
+    )?
+    .validated()?;
+    let workspace = graph.into_workspace()?;
+    let base = id_by_rev(&repo, "wt-feature~2").detach();
+    assert_eq!(
+        workspace.worktrees[0].base,
+        Some(but_graph::workspace::WorktreeBase::Outside(base)),
+        "the target walk must reach the older worktree fork before stopping"
+    );
+    snapbox::assert_data_eq!(
+        graph_workspace(&workspace).to_string(),
+        snapbox::str![[r#"
+📕🏘️:gitbutler/workspace[🌳@repo] <> ✓refs/remotes/origin/main on 67b6d03
+└── 📁worktree-behind-target-feature on 07695fd
+    └── :wt-feature[📁worktree-behind-target-feature]
+        ├── ·1c99085
+        └── ·5845a6a
+
+"#]]
+    );
+    Ok(())
+}
+
+#[test]
 fn workspace_traversal_with_extra_tips() -> anyhow::Result<()> {
     let (repo, mut meta, mut db) = read_only_in_memory_scenario("ws/worktree-ahead")?;
     snapbox::assert_data_eq!(
