@@ -5,12 +5,7 @@ import {
 	listReviewsQueryOptions,
 } from "#ui/api/queries.ts";
 import { defaultSettings } from "#ui/settings.ts";
-import {
-	useQuery,
-	useQueryClient,
-	useSuspenseQuery,
-	type QueryClient,
-} from "@tanstack/react-query";
+import { useQuery, useQueryClient, type QueryClient } from "@tanstack/react-query";
 import {
 	reviewStateQueryOptions,
 	updateReviewState,
@@ -98,13 +93,15 @@ export const markItemSeen = async (
 	reviewNumber: number,
 	key: string,
 ): Promise<void> => {
-	const cached = client.getQueryData(reviewStateQueryOptions(projectId).queryKey);
+	const queryKey = reviewStateQueryOptions(projectId).queryKey;
+	const cached = client.getQueryData(queryKey);
 	// Register pre-dwell reads synchronously, before the storage write can yield.
 	if (cached === undefined || !isItemSkipped(cached, reviewNumber, key)) {
 		const slot = reviewSlot(projectId, reviewNumber);
 		const pending = pendingSeen.get(slot) ?? new Set<string>();
 		pending.add(key);
 		pendingSeen.set(slot, pending);
+		if (cached !== undefined && !client.getQueryState(queryKey)?.isInvalidated) return;
 	}
 	await updateReviewState(client, projectId, (state) => {
 		const skipped = state.unseen[reviewNumber];
@@ -208,20 +205,26 @@ export const SeenOnArrivalContext = createContext<SeenOnArrival>({
  * dwell advances the live mark right after arrival and the "New" badges
  * must not vanish under the reader. The next visit starts clean.
  */
-export const useSeenOnArrival = (projectId: string, reviewNumber: number): SeenOnArrival => {
-	const { data: mark } = useSuspenseQuery({
+export const useSeenOnArrival = (projectId: string, reviewNumber: number): SeenOnArrival | null => {
+	const { data: mark, isFetchedAfterMount } = useQuery({
 		...reviewStateQueryOptions(projectId),
+		staleTime: 0,
+		refetchOnMount: "always",
+		// Only the first fresh read matters to this visit; live marks belong to the unread dots.
+		notifyOnChangeProps: ["isFetchedAfterMount"],
 		select: (state) => state.marks[reviewNumber] ?? null,
 	});
 	const { data: selfLogin } = useQuery(currentForgeLoginQueryOptions(projectId));
 	const level = usePrNotificationsLevel();
-	const [sinceMs] = useState(() => {
-		const ms = mark === null ? Number.NaN : Date.parse(mark);
+	const [sinceMs, setSinceMs] = useState<number | null>(null);
+	if (sinceMs === null && isFetchedAfterMount) {
+		const ms = mark == null ? Number.NaN : Date.parse(mark);
 		// No watermark means the review was never tracked; nothing is new.
-		return Number.isNaN(ms) ? Infinity : ms;
-	});
+		setSinceMs(Number.isNaN(ms) ? Infinity : ms);
+	}
 	// Off means off: no markers, and no seen-state writes from the observer.
 	if (level === "off") return { sinceMs: Infinity, selfLogin: null, projectId, reviewNumber: 0 };
+	if (sinceMs === null) return null;
 	return { sinceMs, selfLogin: selfLogin ?? null, projectId, reviewNumber };
 };
 

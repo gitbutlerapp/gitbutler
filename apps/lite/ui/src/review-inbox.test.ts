@@ -406,3 +406,16 @@ it("retires a migrated alias when a human entry claims its ID", async () => {
 	expect(await findInboxEntry(client, projectId, id)).toBeUndefined();
 	expect(await findInboxEntry(client, projectId, `${id}:bot`)).toBeDefined();
 });
+
+it("finds another window's notification before its invalidation arrives", async () => {
+	const projectId = freshProject();
+	await client.fetchQuery(reviewStateQueryOptions(projectId));
+	const notice = entry("from-another-window", 30);
+	const other = new QueryClient();
+	try {
+		await addInboxEntries(other, projectId, [notice]);
+		expect(await findInboxEntry(client, projectId, notice.id)).toEqual(notice);
+	} finally {
+		other.clear();
+	}
+});

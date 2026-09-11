@@ -265,13 +265,12 @@ export const useReviewActivityInbox = (projectId: string): void => {
 
 	const observe = useEffectEvent(async (listing: Array<ForgeReview>) => {
 		if (!appliedRefs) return;
-		// Keep this listing while hydrating; waiting for another render can skip the first poll.
-		const { marks } = await client.ensureQueryData(reviewStateQueryOptions(projectId));
-		if (ledger.current === null) {
-			// Seeded from what has actually been seen, so activity that landed
-			// while the app was closed still speaks up.
-			ledger.current = seenLedger(listing, marks);
-		}
+		// Keep each listing while reading fresh marks, including another window's latest reads.
+		const { marks } = await client.fetchQuery({
+			...reviewStateQueryOptions(projectId),
+			staleTime: 0,
+		});
+		if (ledger.current === null) ledger.current = seenLedger(listing, marks);
 		const { changed, next } = observeReviews(ledger.current, listing);
 		ledger.current = next;
 		if (changed.length === 0) return;

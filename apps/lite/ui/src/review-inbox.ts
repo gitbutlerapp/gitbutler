@@ -159,7 +159,10 @@ export const findInboxEntry = async (
 	projectId: string,
 	id: string,
 ): Promise<InboxEntry | undefined> => {
-	const { inbox: entries } = await client.fetchQuery(reviewStateQueryOptions(projectId));
+	const { inbox: entries } = await client.fetchQuery({
+		...reviewStateQueryOptions(projectId),
+		staleTime: 0,
+	});
 	// Only migrated entries can answer to an old desktop notification ID.
 	return entries.find((entry) => entry.id === id) ?? entries.find((entry) => entry.legacyId === id);
 };

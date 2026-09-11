@@ -171,6 +171,7 @@ const parseEntries = (raw: string | null): Array<InboxEntry> => {
 	}
 };
 
+const reviewStore = idb.createStore("keyval-store", "keyval");
 const storageKey = (projectId: string) => `pr_activity:v1:${projectId}`;
 const legacyKey = (projectId: string, part: string) => `pr_activity_${part}:v1:${projectId}`;
 const readLegacy = (projectId: string): ReviewState => {
@@ -226,15 +227,24 @@ export const updateReviewState = async (
 	const options = reviewStateQueryOptions(projectId);
 	const loaded = await client.ensureQueryData(options);
 	let next!: ReviewState;
+	let changed = false;
 	try {
-		// Read and write in one transaction so concurrent windows retain each other's changes.
-		await idb.update<ReviewState>(
-			storageKey(projectId),
-			(stored) => (next = update(stored ?? loaded)),
-		);
+		// Compare and write in one transaction so stale windows cannot lose real updates.
+		await reviewStore("readwrite", async (store) => {
+			const current =
+				(await idb.promisifyRequest<ReviewState | undefined>(store.get(storageKey(projectId)))) ??
+				loaded;
+			next = update(current);
+			changed = next !== current;
+			if (changed) store.put(next, storageKey(projectId));
+			return idb.promisifyRequest(store.transaction);
+		});
 	} catch {
-		next = update(client.getQueryData(options.queryKey) ?? loaded);
+		const current = client.getQueryData(options.queryKey) ?? loaded;
+		next = update(current);
+		changed = next !== current;
 	}
+	if (!changed) return next;
 	await client.cancelQueries({ queryKey: options.queryKey });
 	client.setQueryData(options.queryKey, next);
 	return next;
