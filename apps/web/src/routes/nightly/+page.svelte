@@ -30,6 +30,7 @@
 	);
 	const nextVersion = $derived(nextMac?.version ?? nextLinux?.version);
 	const nextReleasedAt = $derived(nextMac?.releasedAt ?? nextLinux?.releasedAt);
+	const nextSha = $derived(nextMac?.sha ?? nextLinux?.sha);
 
 	let linuxArch = $state<"x86-64" | "ARM64">("x86-64");
 	let expandedRelease: string | null = $state(null);
@@ -250,6 +251,17 @@
 						{#if nextReleasedAt}
 							<span> • </span>
 							<span>{formatReleaseDate(nextReleasedAt)}</span>
+						{/if}
+						{#if nextSha}
+							<span> • </span>
+							<a
+								href="https://github.com/gitbutlerapp/gitbutler/commit/{nextSha}"
+								target="_blank"
+								rel="noopener noreferrer"
+								class="sha-link"
+							>
+								{nextSha.substring(0, 7)}
+							</a>
 						{/if}
 					</div>
 					<p class="nightly-hero__description">
@@ -598,6 +610,15 @@
 
 		& .download-card-link:hover {
 			text-decoration-color: #c0e4ff;
+		}
+
+		& .sha-link {
+			color: inherit;
+
+			&:hover {
+				color: #c0e4ff;
+				text-decoration-color: #c0e4ff;
+			}
 		}
 
 		& .linux-arch-select {
