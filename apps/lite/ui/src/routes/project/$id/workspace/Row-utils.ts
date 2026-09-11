@@ -43,3 +43,6 @@ export const getRowButtonClassName = ({
 			Match.exhaustive,
 		),
 	);
+
+/** One title line plus a metadata line; shared by both commit list virtualizers. */
+export const COMMIT_ROW_HEIGHT = 54;

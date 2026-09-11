@@ -67,6 +67,7 @@ import { toggleFoldedSegment } from "./fold.ts";
 import { InlineEditor } from "./InlineEditor.tsx";
 import { insertBlankCommitMenuItem } from "./insertBlankCommitMenuItem.ts";
 import { ItemRow } from "./ItemRow.tsx";
+import { BranchRowHeadline } from "../BranchRowHeadline.tsx";
 import { useStackMenuItems } from "./useStackMenuItems.ts";
 import { ciChecksSummaryUrl, type AggregateCIChecks } from "#ui/ci.ts";
 import {
@@ -128,6 +129,7 @@ const CIBubble: FC<{ checks: AggregateCIChecks }> = (p) => {
 export const BranchRow: FC<
 	{
 		projectId: string;
+		descriptionId: string;
 		refName: BranchReference;
 		canTearOffBranch: boolean;
 		canRemoveBranch: boolean;
@@ -154,6 +156,7 @@ export const BranchRow: FC<
 	} & ComponentProps<"div">
 > = ({
 	projectId,
+	descriptionId,
 	refName,
 	canTearOffBranch,
 	canRemoveBranch,
@@ -532,9 +535,20 @@ export const BranchRow: FC<
 					onExit={endEditing}
 				/>
 			) : (
-				<RowLabelGroup>
-					<RowLabelContainer>
-						<RowLabel heading singleLine title={optimisticBranchDisplayName}>
+				<RowLabelGroup id={descriptionId}>
+					{openReview !== undefined && (
+						<BranchRowHeadline title={openReview.title} labels={openReview.labels} />
+					)}
+					<RowLabelContainer style={{ columnGap: 4 }}>
+						{pullRequest !== null && (
+							<Icon name="branch" size={12} className={rowStyles.fadedText} />
+						)}
+						<RowLabel
+							className={openReview !== undefined ? rowStyles.fadedText : undefined}
+							heading={openReview === undefined}
+							singleLine
+							title={optimisticBranchDisplayName}
+						>
 							{optimisticBranchDisplayName}
 						</RowLabel>
 					</RowLabelContainer>
@@ -604,7 +618,8 @@ export const BranchRow: FC<
 								<RowMetaSeparator />
 								<span className={classes(rowStyles.fadedText, rowStyles.metaItem)}>
 									<Icon size={14} name="pr" />
-									PR
+									{forgeInfo?.unit.abbr ?? "PR"} {forgeInfo?.unit.symbol ?? "#"}
+									{pullRequest}
 								</span>
 
 								{ciChecks?.aggregate &&
@@ -705,7 +720,7 @@ export const BranchRow: FC<
 			)}
 
 			{noOperationPending && (
-				<Toolbar.Root aria-label="Branch actions" render={<RowToolbar />}>
+				<Toolbar.Root aria-label="Branch actions" render={<RowToolbar reserveSpace />}>
 					<Toolbar.Button
 						aria-label="Branch menu"
 						onClick={(event) => {

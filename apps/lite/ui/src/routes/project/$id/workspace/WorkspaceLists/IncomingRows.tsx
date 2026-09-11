@@ -1,14 +1,14 @@
 import rowStyles from "../Row.module.css";
 import { decodeBytes } from "#ui/api/bytes.ts";
 import { branchAddress, addressIdentityKey } from "#ui/addresses.ts";
-import { authorTooltip, commitTitle } from "#ui/commit.ts";
 import { GraphSegment } from "#ui/components/GraphSegment.tsx";
 import { projectSlice } from "#ui/projects/state.ts";
 import { useAppSelector } from "#ui/store.ts";
 import { addressSpaceIncludes } from "#ui/workspace/address-space.ts";
 import type { BranchReference, Segment } from "@gitbutler/but-sdk";
 import type { FC } from "react";
-import { Row, RowLabel, RowLabelContainer } from "../Row.tsx";
+import { Row } from "../Row.tsx";
+import { CommitRowContent } from "../CommitRowContent.tsx";
 import { useAddressSpace } from "./context.tsx";
 
 /**
@@ -37,18 +37,9 @@ export const IncomingRows: FC<{
 	);
 
 	return segment.commitsOnRemote.map((commit) => (
-		<Row
-			key={commit.id}
-			interactive={false}
-			inert={inert}
-			title={authorTooltip(commit.author, commit.committedAt)}
-		>
+		<Row key={commit.id} interactive={false} inert={inert}>
 			<GraphSegment glyph="commit" status="Upstream" behind={behind} />
-			<RowLabelContainer>
-				<RowLabel singleLine className={rowStyles.fadedText}>
-					{commitTitle(commit.message) ?? "(no message)"}
-				</RowLabel>
-			</RowLabelContainer>
+			<CommitRowContent commit={commit} className={rowStyles.fadedText} />
 		</Row>
 	));
 };

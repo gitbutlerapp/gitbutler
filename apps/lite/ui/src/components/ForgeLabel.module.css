@@ -10,8 +10,8 @@
 }
 
 .text {
+	/* Ellipsis clips overflow, so retain the full line box for descenders. */
 	overflow: hidden;
-	text-box: trim-both cap alphabetic;
 	text-overflow: ellipsis;
 	white-space: nowrap;
 }

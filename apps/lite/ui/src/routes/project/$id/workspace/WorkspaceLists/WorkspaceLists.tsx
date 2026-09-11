@@ -1,7 +1,11 @@
 import rowStyles from "../Row.module.css";
 import { setCursor, useActiveList, useSelection } from "#ui/use-cursor.ts";
 import { useCommitAmend } from "#ui/api/mutations.ts";
-import { changesInWorktreeQueryOptions, headInfoQueryOptions } from "#ui/api/queries.ts";
+import {
+	changesInWorktreeQueryOptions,
+	headInfoQueryOptions,
+	listReviewsQueryOptions,
+} from "#ui/api/queries.ts";
 import { getHeadInfoIndex, recordedPullRequest } from "#ui/api/ref-info.ts";
 import { decodeBytes } from "#ui/api/bytes.ts";
 import { commitIsDiverged, commitTitle } from "#ui/commit.ts";
@@ -11,6 +15,7 @@ import {
 	uncommittedChangesFileParent,
 	commitAddress,
 	addressIdentityKey,
+	addressEquals,
 	type Address,
 	commitIdentityKey,
 } from "#ui/addresses.ts";
@@ -36,7 +41,7 @@ import type {
 	Worktree,
 } from "@gitbutler/but-sdk";
 
-import { useMutationState, useQuery } from "@tanstack/react-query";
+import { useMutationState, useQuery, useQueryClient } from "@tanstack/react-query";
 import { type Range, useVirtualizer } from "@tanstack/react-virtual";
 import type { PayloadFor } from "#electron/ipc.ts";
 import { Match } from "effect";
@@ -51,6 +56,7 @@ import {
 	useMemo,
 	useRef,
 	useState,
+	useId,
 	type ComponentProps,
 	type FC,
 	type ReactNode,
@@ -73,7 +79,7 @@ import type { Graph } from "../Graph/usePlan.ts";
 import { GRAPH_TRUNK_INSET } from "#ui/components/graph-spacing.ts";
 import { StackCard } from "../StackCard.tsx";
 import stackCardStyles from "../StackCard.module.css";
-import { treeItemId } from "../Row-utils.ts";
+import { COMMIT_ROW_HEIGHT, treeItemId } from "../Row-utils.ts";
 import { useAddressSpace, WorkspaceListsProvider } from "./context.tsx";
 import { getOperation, useDryRunOperation } from "#ui/operations/operation.ts";
 import { createDiffSpec } from "#ui/operations/diff-specs.ts";
@@ -437,7 +443,12 @@ const BranchSegment: FC<{
 	positionInSet,
 	setSize,
 }) => {
+	const descriptionId = useId();
 	const address = branchAddress({ branchRef: refName.fullNameBytes });
+	const isRenaming = useAppSelector((state) => {
+		const pending = projectSlice.selectors.selectPendingOperation(state, projectId);
+		return pending._tag === "InlineEdit" && addressEquals(address, pending.address);
+	});
 	// The rail below the branch's tick is its first commit's; plain when it has none.
 	const firstCommit = segment.commits[0];
 	const railBelow = firstCommit === undefined ? "LocalOnly" : commitGraphStatus(firstCommit);
@@ -453,6 +464,7 @@ const BranchSegment: FC<{
 		<TreeItem
 			address={address}
 			aria-label={refName.displayName}
+			aria-describedby={isRenaming ? undefined : descriptionId}
 			aria-expanded={segment.commits.length > 0 ? !isFolded : undefined}
 			aria-level={1}
 			aria-posinset={positionInSet}
@@ -460,6 +472,7 @@ const BranchSegment: FC<{
 			render={<AddressC projectId={projectId} address={address} outline="outside" />}
 		>
 			<BranchRow
+				descriptionId={descriptionId}
 				projectId={projectId}
 				refName={refName}
 				canTearOffBranch={canTearOffBranch}
@@ -608,8 +621,7 @@ const SegmentContent: FC<{
 		count: isFolded ? 0 : segment.commits.length,
 		getScrollElement: () => scrollElementRef.current,
 		initialOffset: () => scrollElementRef.current?.scrollTop ?? 0,
-		// Keep in sync with --single-line-row-height.
-		estimateSize: () => 28,
+		estimateSize: () => COMMIT_ROW_HEIGHT,
 		getItemKey: getCommitKey,
 		rangeExtractor: rangeExtractorWithSelected,
 		scrollMargin,
@@ -1087,6 +1099,8 @@ const Stacks: FC<{
 	scrollElementRef,
 	scrollPaddingEnd,
 }) => {
+	const store = useAppStore();
+	const queryClient = useQueryClient();
 	const addressSpace = useAddressSpace();
 	const { data: headInfo } = useQuery(headInfoQueryOptions(projectId));
 	const selection = useSelection("applied", addressSpace);
@@ -1200,14 +1214,35 @@ const Stacks: FC<{
 			const stack = stacks[index];
 			if (stack === undefined) return singleLineRowHeight;
 
+			// Estimation only needs the latest cached state; mounted cards measure wrapped text.
+			const reviews = queryClient.getQueryData(
+				listReviewsQueryOptions({ projectId, cacheConfig: "noCache" }).queryKey,
+			);
+			const state = store.getState();
 			let contentHeight = 0;
 			for (const segment of stack.segments) {
-				if (segment.refName !== null) contentHeight += branchRowHeight;
+				const branchRef =
+					segment.refName === null ? null : decodeBytes(segment.refName.fullNameBytes);
+				if (segment.refName !== null) {
+					contentHeight += branchRowHeight;
+					const review = reviews?.find(
+						(review) => review.sourceBranch === segment.refName?.displayName,
+					);
+					if (review !== undefined) contentHeight += 34 + (review.labels.length > 0 ? 22 : 0);
+				}
 
-				const isFolded =
-					segment.refName !== null &&
-					foldedSegments[decodeBytes(segment.refName.fullNameBytes)] === true;
-				if (!isFolded) contentHeight += Math.max(1, segment.commits.length) * singleLineRowHeight;
+				const isFolded = branchRef !== null && foldedSegments[branchRef] === true;
+				if (!isFolded) {
+					contentHeight +=
+						segment.commits.length === 0
+							? singleLineRowHeight
+							: segment.commits.length * COMMIT_ROW_HEIGHT;
+					if (
+						branchRef !== null &&
+						projectSlice.selectors.selectIncomingExpanded(state, projectId, branchRef)
+					)
+						contentHeight += segment.commitsOnRemote.length * COMMIT_ROW_HEIGHT;
+				}
 			}
 
 			return (

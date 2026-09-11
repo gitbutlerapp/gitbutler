@@ -1,16 +1,13 @@
-import rowStyles from "../Row.module.css";
 import { setCursor } from "#ui/use-cursor.ts";
 import { commitTitle } from "#ui/commit.ts";
-import { classes } from "#ui/components/classes.ts";
 import { GraphSegment, type GraphSegmentStatus } from "#ui/components/GraphSegment.tsx";
 import { GRAPH_COMMIT_BEND_PADDING } from "#ui/components/graph-spacing.ts";
-import { RelativeTime } from "#ui/components/RelativeTime.tsx";
 import type { TargetCommit } from "@gitbutler/but-sdk";
-import { type FC, useState } from "react";
-import { Row, RowLabel, RowLabelContainer, RowLabelFooter, RowLabelGroup } from "../Row.tsx";
+import { type FC, useId } from "react";
+import { Row } from "../Row.tsx";
 import { treeItemId, useIsSelected } from "../Row-utils.ts";
 import { targetCommitAddress } from "./layout.ts";
-import styles from "./TargetCommitRow.module.css";
+import { CommitRowContent } from "../CommitRowContent.tsx";
 
 const commitBendLabelStyle = { paddingBlockStart: GRAPH_COMMIT_BEND_PADDING };
 
@@ -42,15 +39,14 @@ export const TargetCommitRow: FC<{
 	// A commit that landed a review is shown as that review: its title says
 	// what changed, where "Merge pull request #N from …" only says that it did.
 	const title = review?.title ?? commitTitle(commit.message);
-	const [now] = useState(() => Date.now());
-
-	const authorName = commit.author.name;
+	const descriptionId = useId();
 
 	return (
 		<Row
 			id={treeItemId(address)}
 			role="treeitem"
 			aria-label={title ?? "(no message)"}
+			aria-describedby={descriptionId}
 			aria-level={1}
 			aria-posinset={inert ? undefined : positionInSet}
 			aria-setsize={inert ? undefined : setSize}
@@ -68,26 +64,12 @@ export const TargetCommitRow: FC<{
 				behind={behind}
 				railEnds={railEnds}
 			/>
-			<RowLabelGroup style={fromTrunk ? commitBendLabelStyle : undefined}>
-				<RowLabelContainer>
-					<RowLabel singleLine>
-						{title === undefined ? (
-							<span className={rowStyles.fadedText}>(no message)</span>
-						) : (
-							title
-						)}
-					</RowLabel>
-				</RowLabelContainer>
-				<RowLabelFooter className={classes("text-13", styles.labelMeta)}>
-					<span
-						className={classes(rowStyles.fadedText, styles.labelMetaItem)}
-						title={commit.author.email}
-					>
-						{authorName !== "" && <>{authorName} </>}
-						<RelativeTime timestamp={commit.committedAt} now={now} />
-					</span>
-				</RowLabelFooter>
-			</RowLabelGroup>
+			<CommitRowContent
+				commit={commit}
+				title={title}
+				descriptionId={descriptionId}
+				style={fromTrunk ? commitBendLabelStyle : undefined}
+			/>
 		</Row>
 	);
 };

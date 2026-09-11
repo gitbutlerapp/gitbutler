@@ -1,4 +1,3 @@
-import rowStyles from "../Row.module.css";
 import { useAddressSpace } from "./context.tsx";
 import { startKeyboardTransfer, setCursor, startInlineEdit } from "#ui/use-cursor.ts";
 import {
@@ -11,7 +10,6 @@ import {
 } from "#ui/api/mutations.ts";
 import { forgeInfoOptions, headInfoQueryOptions } from "#ui/api/queries.ts";
 import { classes } from "#ui/components/classes.ts";
-import { ConflictIcon } from "#ui/components/ConflictIcon.tsx";
 import { GraphSegment, type GraphSegmentStatus } from "#ui/components/GraphSegment.tsx";
 import { Icon } from "#ui/components/Icon.tsx";
 import { TooltipPopup } from "#ui/components/Tooltip.tsx";
@@ -37,14 +35,15 @@ import { useAppDispatch, useAppSelector, useAppStore } from "#ui/store.ts";
 import type { Commit } from "@gitbutler/but-sdk";
 import { Toast, Toolbar, Tooltip } from "@base-ui/react";
 import { useQuery } from "@tanstack/react-query";
-import { type ComponentProps, type FC, useOptimistic, useTransition } from "react";
-import { RowCheckbox, RowLabel, RowLabelContainer, RowToolbar } from "../Row.tsx";
+import { type ComponentProps, type FC, useId, useOptimistic, useTransition } from "react";
+import { RowCheckbox, RowToolbar } from "../Row.tsx";
 import { getRowButtonClassName } from "../Row-utils.ts";
 import { InlineEditor } from "./InlineEditor.tsx";
 import { insertBlankCommitMenuItem } from "./insertBlankCommitMenuItem.ts";
 import { ItemRow } from "./ItemRow.tsx";
 import { selectAfterDiscardedCommits } from "./selectAfterDiscardedCommit.ts";
 import styles from "./CommitRow.module.css";
+import { CommitRowContent } from "../CommitRowContent.tsx";
 import { getHeadInfoIndex } from "#ui/api/ref-info.ts";
 
 export const CommitRow: FC<
@@ -89,6 +88,7 @@ export const CommitRow: FC<
 	};
 	const address = commitAddress(commitAddressV);
 
+	const descriptionId = useId();
 	const inWorkspace = worktree === undefined;
 	const canCheck =
 		useAppSelector((state) => projectSlice.selectors.selectCanCheckCommits(state, projectId)) &&
@@ -388,6 +388,7 @@ export const CommitRow: FC<
 		<ItemRow
 			{...restProps}
 			address={address}
+			aria-describedby={isRewording ? undefined : descriptionId}
 			isChecked={isChecked}
 			isHighlighted={isDependency}
 			onDoubleClick={noOperationPending && inWorkspace ? startEditing : undefined}
@@ -453,26 +454,15 @@ export const CommitRow: FC<
 					onExit={endEditing}
 				/>
 			) : (
-				<RowLabelContainer>
-					{hasConflicts && (
-						<ConflictIcon
-							variant="conflict"
-							className={styles.conflictIcon}
-							aria-label="Conflicted"
-						/>
-					)}
-					<RowLabel singleLine>
-						{title === undefined ? (
-							<span className={rowStyles.fadedText}>(no message)</span>
-						) : (
-							title
-						)}
-					</RowLabel>
-				</RowLabelContainer>
+				<CommitRowContent
+					commit={commitWithOptimisticMessage}
+					hasConflicts={hasConflicts}
+					descriptionId={descriptionId}
+				/>
 			)}
 
 			{noOperationPending && (
-				<Toolbar.Root aria-label="Commit actions" render={<RowToolbar />}>
+				<Toolbar.Root aria-label="Commit actions" render={<RowToolbar reserveSpace />}>
 					<Toolbar.Button
 						aria-label="Commit menu"
 						onClick={(event) => {

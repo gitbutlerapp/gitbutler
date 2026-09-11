@@ -33,8 +33,3 @@
 		display: none;
 	}
 }
-
-.conflictIcon {
-	flex-shrink: 0;
-	margin-right: 2px;
-}
