@@ -35,28 +35,24 @@ impl BranchArg {
         head_info: &but_workspace::RefInfo,
     ) -> CliResult<but_workspace::ref_info::Segment> {
         let Some(segment) = self.try_resolve_segment(head_info)? else {
-            return Err(bad_input(format!("Branch '{self}' not found in any stack")).into());
+            return Err(bad_input(format!(
+                "Branch '{self}' not found in any stack or worktree"
+            ))
+            .into());
         };
         Ok(segment.clone())
     }
 
-    /// Resolve the argument to its corresponding segment.
+    /// Resolve the argument to its corresponding segment in any lane, stack or worktree.
     pub fn try_resolve_segment(
         &self,
         head_info: &but_workspace::RefInfo,
     ) -> CliResult<Option<but_workspace::ref_info::Segment>> {
         let ref_name = self.resolve_local_branch_name()?;
         let segment = head_info
-            .stacks
-            .iter()
-            .flat_map(|stack| &stack.segments)
-            .find(|segment| {
-                if let Some(ref_info) = &segment.ref_info {
-                    ref_info.ref_name == ref_name
-                } else {
-                    false
-                }
-            });
+            .lanes()
+            .flat_map(|lane| lane.segments)
+            .find(|segment| segment.ref_name() == Some(ref_name.as_ref()));
         Ok(segment.cloned())
     }
 

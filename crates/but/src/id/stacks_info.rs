@@ -1,8 +1,8 @@
 use std::collections::{BTreeMap, HashSet};
 
 use bstr::BString;
-use but_core::ChangeId;
-use but_graph::workspace::Stack;
+use but_core::{ChangeId, ref_metadata::StackId};
+use but_graph::workspace::{Stack, StackSegment};
 
 use crate::id::{
     OLD_UNCOMMITTED, RemoteCommitWithId, SegmentWithId, ShortId, StackWithId,
@@ -20,40 +20,49 @@ fn stacks_info_without_short_ids(
         non_hex_used_short_ids: HashSet::new(),
     };
     for stack in stacks {
-        let mut stack_with_id = StackWithId {
+        stacks_info.stacks.push(StackWithId {
             id: stack.id,
-            segments: Vec::with_capacity(stack.segments.len()),
-        };
-        for mut segment in stack.segments {
-            let workspace_commits = std::mem::take(&mut segment.commits)
+            segments: stack
+                .segments
                 .into_iter()
-                .map(|commit| WorkspaceCommitWithId {
-                    short_id: ShortId::default(),
-                    change_id: commit_id_to_change_id
-                        .get(&commit.id)
-                        .cloned()
-                        .map(Into::into),
-                    inner: commit,
-                })
-                .collect::<Vec<_>>();
-            let remote_commits = std::mem::take(&mut segment.commits_on_remote)
-                .into_iter()
-                .map(|commit| RemoteCommitWithId {
-                    short_id: ShortId::default(),
-                    inner: commit,
-                })
-                .collect::<Vec<_>>();
-            stack_with_id.segments.push(SegmentWithId {
-                short_id: ShortId::default(),
-                inner: segment,
-                workspace_commits,
-                remote_commits,
-                stack_id: stack.id,
-            });
-        }
-        stacks_info.stacks.push(stack_with_id);
+                .map(|segment| segment_with_id(segment, stack.id, commit_id_to_change_id))
+                .collect(),
+        });
     }
     stacks_info
+}
+
+/// Wrap `segment` for ID assignment, moving its commits out so they can carry short IDs.
+pub(crate) fn segment_with_id(
+    mut segment: StackSegment,
+    stack_id: Option<StackId>,
+    commit_id_to_change_id: &gix::hashtable::HashMap<gix::ObjectId, ChangeId>,
+) -> SegmentWithId {
+    let workspace_commits = std::mem::take(&mut segment.commits)
+        .into_iter()
+        .map(|commit| WorkspaceCommitWithId {
+            short_id: ShortId::default(),
+            change_id: commit_id_to_change_id
+                .get(&commit.id)
+                .cloned()
+                .map(Into::into),
+            inner: commit,
+        })
+        .collect();
+    let remote_commits = std::mem::take(&mut segment.commits_on_remote)
+        .into_iter()
+        .map(|commit| RemoteCommitWithId {
+            short_id: ShortId::default(),
+            inner: commit,
+        })
+        .collect();
+    SegmentWithId {
+        short_id: ShortId::default(),
+        inner: segment,
+        workspace_commits,
+        remote_commits,
+        stack_id,
+    }
 }
 
 fn mark_name_short_id_used(
@@ -132,16 +141,23 @@ fn populate_branch_short_ids(
         .iter_mut()
         .flat_map(|stack| stack.segments.iter_mut())
     {
-        if let Some(branch_name) = segment.branch_name() {
-            segment.short_id =
-                allocate_name_short_id(branch_name, id_usage, non_hex_used_short_ids)?;
-        } else {
-            // This segment is anonymous, so we have no name to base the ID on. We just assign it a
-            // generic ID, which allows some rudimentary stuff to work (e.g. `but status`).
-            segment.short_id = allocate_generated_short_id(id_usage, non_hex_used_short_ids)?;
-        }
+        populate_segment_short_id(segment, id_usage, non_hex_used_short_ids)?;
     }
 
+    Ok(())
+}
+
+/// Give `segment` a short ID derived from its branch name, or a generated one when it is
+/// anonymous, which still lets `but status` and the like address it.
+pub(crate) fn populate_segment_short_id(
+    segment: &mut SegmentWithId,
+    id_usage: &mut IdUsage,
+    non_hex_used_short_ids: &mut HashSet<ShortId>,
+) -> anyhow::Result<()> {
+    segment.short_id = match segment.branch_name() {
+        Some(branch_name) => allocate_name_short_id(branch_name, id_usage, non_hex_used_short_ids)?,
+        None => allocate_generated_short_id(id_usage, non_hex_used_short_ids)?,
+    };
     Ok(())
 }
 
