@@ -1,3 +1,4 @@
+import { HistoryMenu } from "./HistoryMenu.tsx";
 import { GraphGap, GraphSegment, type GraphSegmentStatus } from "#ui/components/GraphSegment.tsx";
 import { classes } from "#ui/components/classes.ts";
 import { Icon } from "#ui/components/Icon.tsx";
@@ -422,6 +423,7 @@ export const Section: FC<{
 				<>
 					<Header
 						label="History"
+						toolbar={<HistoryMenu projectId={projectId} />}
 						className={classes(styles.header, styles.trunkHeader)}
 						fold={{ open: plan.historyExpanded, onToggle: onToggleHistory, name: "history" }}
 						rail={

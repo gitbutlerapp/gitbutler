@@ -29,6 +29,7 @@ const guiSettingsV1 = type({
 	"fileDisplayMode?": "'list' | 'tree'",
 	"filesPanelRight?": "boolean",
 	"handCursor?": "boolean",
+	"historyDisplayMode?": "'commits' | 'last-12-hours'",
 	"lineDiffType?": "'word-alt' | 'word' | 'char' | 'none'",
 	"minimap?": "boolean",
 	"pathFirst?": "boolean",

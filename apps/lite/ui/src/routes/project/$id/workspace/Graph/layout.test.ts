@@ -206,6 +206,29 @@ describe("layout", () => {
 		expect(more.historyHidden).toBe(10);
 	});
 
+	it("includes the time boundary and keeps intervening commits in graph order", () => {
+		const timed = [100, 99, 101, 98].map((committedAt, index) => {
+			const entry = commit(`history${index}`, true);
+			return { ...entry, commit: { ...entry.commit, committedAt } };
+		});
+		const plan = layout(
+			[],
+			target(true),
+			{ commits: timed, hasMore: false },
+			{
+				...folded,
+				historyExpanded: true,
+				historySince: 100,
+			},
+		);
+		expect(plan.history.map((entry) => entry.commit.id)).toEqual([
+			"history0",
+			"history1",
+			"history2",
+		]);
+		expect(plan.historyHidden).toBe(1);
+	});
+
 	it("orders cards by base depth, deepest first, then as given", () => {
 		const plan = layout([stack("deep"), stack("shallow"), stack("deep")], null, listing, folded);
 		expect(plan.order).toEqual([0, 2, 1]);

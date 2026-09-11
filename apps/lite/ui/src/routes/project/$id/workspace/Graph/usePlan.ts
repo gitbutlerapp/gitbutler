@@ -1,12 +1,15 @@
 import {
 	headInfoQueryOptions,
+	guiSettingsQueryOptions,
 	olderTargetCommitsInfiniteQueryOptions,
 	workspaceTargetCommitsQueryOptions,
 } from "#ui/api/queries.ts";
 import { projectSlice } from "#ui/projects/state.ts";
+import { defaultSettings } from "#ui/settings.ts";
+import { useNow } from "#ui/components/useNow.ts";
 import { useAppDispatch, useAppSelector } from "#ui/store.ts";
 import type { Stack, TargetCommit, TargetCommitPage, Worktree } from "@gitbutler/but-sdk";
-import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
+import { useInfiniteQuery, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useMemo } from "react";
 import { canLoadHistory, layout, layoutStructure, MORE_COMMITS, type Plan } from "./layout.ts";
 
@@ -19,11 +22,19 @@ export type Graph = ReturnType<typeof usePlan>;
 /** The stacks graph's plan and the cards in its order. Called once per host, which hands it to the stacks. */
 export const usePlan = (projectId: string) => {
 	const dispatch = useAppDispatch();
+	const queryClient = useQueryClient();
 	const { data: headInfo } = useQuery(headInfoQueryOptions(projectId));
 	const { data: baseListing } = useQuery(workspaceTargetCommitsQueryOptions(projectId));
 	const folds = useAppSelector((state) =>
 		projectSlice.selectors.selectGraphFolds(state, projectId),
 	);
+	const { data: historyDisplayMode = defaultSettings.historyDisplayMode } = useQuery({
+		...guiSettingsQueryOptions,
+		select: (settings) => settings.historyDisplayMode ?? defaultSettings.historyDisplayMode,
+	});
+	const recent = historyDisplayMode === "last-12-hours";
+	const now = useNow(recent && folds.historyExpanded ? 60_000 : null);
+	const historySince = recent ? now - 12 * 60 * 60 * 1000 : undefined;
 	const listOrder = useMemo(() => headInfo?.stacks ?? [], [headInfo]);
 	const target = headInfo?.target ?? null;
 	const worktrees = headInfo?.worktrees ?? noWorktrees;
@@ -35,7 +46,7 @@ export const usePlan = (projectId: string) => {
 		isFetching,
 		isError,
 	} = useInfiniteQuery({
-		...olderTargetCommitsInfiniteQueryOptions(projectId, olderFrom),
+		...olderTargetCommitsInfiniteQueryOptions(projectId, olderFrom, recent),
 		enabled: (query) =>
 			folds.historyExpanded &&
 			target !== null &&
@@ -70,8 +81,17 @@ export const usePlan = (projectId: string) => {
 	);
 	// Keep the plan stable: the rails re-measure whenever its identity changes.
 	const plan: Plan = useMemo(
-		() => layout(listOrder, target, listing, folds, worktrees, historyPages, structure),
-		[listOrder, target, listing, folds, worktrees, historyPages, structure],
+		() =>
+			layout(
+				listOrder,
+				target,
+				listing,
+				{ ...folds, historySince },
+				worktrees,
+				historyPages,
+				structure,
+			),
+		[listOrder, target, listing, folds, historySince, worktrees, historyPages, structure],
 	);
 	const stacks: Array<Stack> = useMemo(
 		() =>
@@ -89,8 +109,13 @@ export const usePlan = (projectId: string) => {
 		) {
 			const result = await fetchNextPage();
 			if (result.isError) return;
+			const currentMode =
+				queryClient.getQueryData(guiSettingsQueryOptions.queryKey)?.historyDisplayMode ??
+				defaultSettings.historyDisplayMode;
+			if (currentMode !== historyDisplayMode) return;
 		}
-		if (plan.history.length > 0) dispatch(projectSlice.actions.showMoreGraphHistory({ projectId }));
+		if (plan.history.length > 0 || plan.historyHidden > 0)
+			dispatch(projectSlice.actions.showMoreGraphHistory({ projectId }));
 	};
 	return {
 		plan,
