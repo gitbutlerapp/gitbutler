@@ -1,3 +1,5 @@
+import { DiffStats } from "#ui/components/DiffStats.tsx";
+import type { LineStats } from "./lineStats.ts";
 import { ConflictIcon } from "#ui/components/ConflictIcon.tsx";
 import { FileIcon } from "#ui/components/FileIcon.tsx";
 import { FileStatusBadge } from "#ui/components/FileStatusBadge.tsx";
@@ -31,6 +33,7 @@ const FRESH_CHANGE_MAX_AGE_MS = 60_000;
 const AGE_TOOLTIP_MIN_AGE_MS = 60 * 60_000;
 
 type FileRowProps = {
+	lineStats?: LineStats | null;
 	item: FileRowItem;
 	projectId: string;
 	fileParent: FileParent;
@@ -102,6 +105,7 @@ export const FileRow: FC<FileRowProps> = ({ canUncommit, uncommit, ...props }) =
 
 export const FileRowPresentational: FC<FileRowPresentationalProps> = ({
 	item,
+	lineStats,
 	projectId,
 	fileParent,
 	branchNameByCommitId,
@@ -228,6 +232,15 @@ export const FileRowPresentational: FC<FileRowPresentationalProps> = ({
 						<span className={classes(styles.pathLead, rowStyles.fadedText)}>{directoryPath}/</span>
 					)}
 					{fileName}
+					{lineStats !== undefined &&
+						item._tag === "Change" &&
+						(item.change.status.type !== "Modification" || lineStats === null) && (
+							<FileStatusBadge
+								status={item.change.status.type}
+								fontSize={9}
+								className={styles.inlineStatus}
+							/>
+						)}
 					{directoryPath !== null && pathDisplay === "trail" && (
 						<span className={classes(styles.pathInit, rowStyles.fadedText)}>{directoryPath}</span>
 					)}
@@ -292,7 +305,7 @@ export const FileRowPresentational: FC<FileRowPresentationalProps> = ({
 					</Toolbar.Root>
 				))}
 
-			{item._tag === "Change" && (
+			{lineStats === undefined && item._tag === "Change" && (
 				<Tooltip.Trigger
 					handle={tooltipHandle}
 					payload={{ content: isReviewed ? "Reviewed" : item.change.status.type }}
@@ -311,6 +324,18 @@ export const FileRowPresentational: FC<FileRowPresentationalProps> = ({
 						)
 					}
 				/>
+			)}
+			{lineStats != null && (
+				<DiffStats
+					added={lineStats.linesAdded}
+					removed={lineStats.linesRemoved}
+					className={styles.lineStats}
+				/>
+			)}
+			{lineStats !== undefined && isReviewed && (
+				<span aria-label="Reviewed" className={styles.reviewedMark}>
+					<Icon size={11} name="tick" />
+				</span>
 			)}
 		</Row>
 	);

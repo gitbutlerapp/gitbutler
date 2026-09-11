@@ -2443,6 +2443,14 @@ const Diff: FC<{
 	const diffContextKey =
 		shownFileIndex === null ? reviewedFilesContextId : (activeFileItemId ?? reviewedFilesContextId);
 
+	const lineStatsByPath = useMemo(
+		() =>
+			new Map(
+				preparedDiffFiles.map((file) => [file.change.path, patchLineStats(file.treeChangeDiff)]),
+			),
+		[preparedDiffFiles],
+	);
+
 	const allFilesReviewed =
 		preparedDiffFiles.length > 0 &&
 		preparedDiffFiles.length === changes.length &&
@@ -2635,7 +2643,6 @@ const Diff: FC<{
 						projectId={projectId}
 						fileParent={fileParent}
 						changes={changes}
-						lineStats={lineStats}
 						onOpenFilter={fileFilter.open}
 					/>
 				) : (
@@ -2649,6 +2656,7 @@ const Diff: FC<{
 						onRowSelection={activateRow}
 						projectId={projectId}
 						rows={filesRows}
+						lineStatsByPath={lineStatsByPath}
 						collapsedDirectories={filesCollapsedDirectories}
 						onToggleDirectoryCollapsed={(path) =>
 							dispatch(projectSlice.actions.toggleFilesDirectoryCollapsed({ projectId, path }))

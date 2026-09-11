@@ -1,0 +1,33 @@
+.summary {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	padding: 0 12px 8px;
+	gap: 6px;
+	color: var(--text-2);
+	font-size: 11px;
+	font-family: "Geist Mono", monospace;
+}
+.count {
+	display: inline-flex;
+	align-items: center;
+	gap: 4px;
+	&[data-status="Modification"] > span {
+		color: var(--text-2);
+	}
+	> span {
+		font-family: inherit;
+	}
+	> span[aria-hidden] {
+		color: var(--text-2);
+	}
+	&[data-status="Addition"] {
+		color: var(--change-status-addition);
+	}
+	&[data-status="Deletion"] {
+		color: var(--change-status-deletion);
+	}
+	&[data-status="Rename"] {
+		color: var(--change-status-rename);
+	}
+}

@@ -1,3 +1,4 @@
+import type { LineStats } from "./lineStats.ts";
 import rowStyles from "./Row.module.css";
 import { startAbsorb } from "#ui/use-cursor.ts";
 import {
@@ -382,6 +383,7 @@ const DirectoryOperationSource: FC<
  * stable: the bundle only changes identity when one of its members does.
  */
 type RowShared = {
+	lineStatsByPath?: ReadonlyMap<string, LineStats | null>;
 	projectId: string;
 	fileParent: FileParent;
 	focusScope: FocusScope;
@@ -537,6 +539,7 @@ const FilesTreeRow: FC<{
 						render={
 							<FileRow
 								item={item}
+								lineStats={shared.lineStatsByPath?.get(row.path)}
 								depth={row.depth}
 								pathDisplay={pathDisplay}
 								inert={inert}
@@ -562,6 +565,7 @@ const FilesTreeRow: FC<{
 				) : (
 					<FileRowPresentational
 						item={item}
+						lineStats={shared.lineStatsByPath?.get(row.path)}
 						depth={row.depth}
 						pathDisplay={pathDisplay}
 						inert={inert}
@@ -717,6 +721,7 @@ export const FilesTree: FC<
 	{
 		projectId: string;
 		rows: Array<FileTreeRow<FileRowItem>>;
+		lineStatsByPath?: ReadonlyMap<string, LineStats | null>;
 		canUncommit: boolean;
 		uncommit?: (change: TreeChange, extendToCheckedFiles: boolean) => void;
 		collapsedDirectories: Record<string, true>;
@@ -751,6 +756,7 @@ export const FilesTree: FC<
 	} & ComponentProps<"div">
 > = ({
 	rows,
+	lineStatsByPath,
 	canUncommit,
 	uncommit,
 	collapsedDirectories,
@@ -999,6 +1005,7 @@ export const FilesTree: FC<
 	});
 
 	const shared: RowShared = {
+		lineStatsByPath,
 		projectId,
 		fileParent,
 		focusScope,

@@ -17,7 +17,7 @@ export const DiffStats: FC<Props> = ({ added, removed, ...props }) => {
 	return (
 		<span {...props} className={classes(props.className, styles.container)}>
 			{added > 0 && <span className={styles.added}>+{added}</span>}
-			{removed > 0 && <span className={styles.removed}>-{removed}</span>}
+			{removed > 0 && <span className={styles.removed}>−{removed}</span>}
 		</span>
 	);
 };
