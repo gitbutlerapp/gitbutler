@@ -31,3 +31,8 @@
 		color: var(--change-status-rename);
 	}
 }
+
+.mode {
+	margin: 0 12px 6px 6px;
+	float: right;
+}

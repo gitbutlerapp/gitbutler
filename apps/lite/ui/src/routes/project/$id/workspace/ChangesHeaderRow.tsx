@@ -1,3 +1,7 @@
+import { ToggleGroupStyles, ToggleStyles } from "#ui/components/ToggleGroup.tsx";
+import { useSaveGUISettings } from "#ui/api/mutations.ts";
+import { useFileDisplayMode } from "./useFileDisplayMode.ts";
+import type { FileDisplayMode } from "./file-tree.ts";
 import {
 	useCommitDiscardChanges,
 	useCommitUncommitChanges,
@@ -13,7 +17,7 @@ import {
 } from "#ui/native-menu.ts";
 import type { FileParent } from "#ui/addresses.ts";
 import { createDiffSpec } from "#ui/operations/diff-specs.ts";
-import { Toolbar } from "@base-ui/react";
+import { Toolbar, Toggle, ToggleGroup } from "@base-ui/react";
 import type { TreeChange } from "@gitbutler/but-sdk";
 import { Match } from "effect";
 import type { FC } from "react";
@@ -37,6 +41,8 @@ export const ChangesHeaderRow: FC<{
 	const { isPending: isDiscardWorktreeChangesPending, mutate: discardWorktreeChanges } =
 		useDiscardWorktreeChanges();
 
+	const mode = useFileDisplayMode();
+	const { mutate: saveGUISettings } = useSaveGUISettings();
 	const counts: Partial<Record<FileStatusType, number>> = {};
 	for (const change of changes) counts[change.status.type] = (counts[change.status.type] ?? 0) + 1;
 
@@ -129,6 +135,23 @@ export const ChangesHeaderRow: FC<{
 					</Toolbar.Root>
 				}
 			/>
+			<div className={styles.mode}>
+				<ToggleGroup
+					render={<ToggleGroupStyles segmented />}
+					aria-label="File display"
+					value={[mode]}
+					onValueChange={(values: Array<FileDisplayMode>) => {
+						if (values[0] !== undefined) saveGUISettings({ fileDisplayMode: values[0] });
+					}}
+				>
+					<Toggle render={<ToggleStyles size="small" />} value="tree">
+						Tree
+					</Toggle>
+					<Toggle render={<ToggleStyles size="small" />} value="list">
+						Flat
+					</Toggle>
+				</ToggleGroup>
+			</div>
 			<div className={styles.summary}>
 				<span>{changes.length} files</span>
 				{(["Modification", "Addition", "Deletion", "Rename"] satisfies Array<FileStatusType>).map(

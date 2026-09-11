@@ -34,6 +34,7 @@ const AGE_TOOLTIP_MIN_AGE_MS = 60 * 60_000;
 
 type FileRowProps = {
 	lineStats?: LineStats | null;
+	fileLabel?: string;
 	item: FileRowItem;
 	projectId: string;
 	fileParent: FileParent;
@@ -106,6 +107,7 @@ export const FileRow: FC<FileRowProps> = ({ canUncommit, uncommit, ...props }) =
 export const FileRowPresentational: FC<FileRowPresentationalProps> = ({
 	item,
 	lineStats,
+	fileLabel,
 	projectId,
 	fileParent,
 	branchNameByCommitId,
@@ -177,7 +179,7 @@ export const FileRowPresentational: FC<FileRowPresentationalProps> = ({
 
 			<div className={treeStyles.leading}>
 				<FileIcon
-					fileName={fileName}
+					fileName={pathDisplay === "hidden" ? (fileLabel ?? fileName) : fileName}
 					className={classes(treeStyles.leadingMark, isReviewed && styles.reviewedFade)}
 				/>
 				<RowCheckbox
@@ -227,11 +229,11 @@ export const FileRowPresentational: FC<FileRowPresentationalProps> = ({
 						aria-label="Conflicted"
 					/>
 				)}
-				<RowLabel singleLine>
+				<RowLabel singleLine={lineStats === undefined}>
 					{directoryPath !== null && pathDisplay === "lead" && (
 						<span className={classes(styles.pathLead, rowStyles.fadedText)}>{directoryPath}/</span>
 					)}
-					{fileName}
+					{pathDisplay === "hidden" ? (fileLabel ?? fileName) : fileName}
 					{lineStats !== undefined &&
 						item._tag === "Change" &&
 						(item.change.status.type !== "Modification" || lineStats === null) && (

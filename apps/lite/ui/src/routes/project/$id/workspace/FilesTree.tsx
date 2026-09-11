@@ -456,15 +456,34 @@ const FilesTreeRow: FC<{
 		branchNameByCommitId,
 		rail,
 	} = shared;
-	const virtStyle: CSSProperties = { position: "absolute", top: 0, left: 0, width: "100%", height };
+	const virtStyle: CSSProperties = {
+		position: "absolute",
+		top: 0,
+		left: 0,
+		width: "100%",
+		height: shared.lineStatsByPath === undefined ? height : undefined,
+	};
 
 	if (row._tag === "Directory") {
+		const lineStats =
+			shared.lineStatsByPath === undefined
+				? undefined
+				: row.filePaths.reduce<LineStats>(
+						(total, path) => {
+							const stats = shared.lineStatsByPath?.get(path);
+							total.linesAdded += stats?.linesAdded ?? 0;
+							total.linesRemoved += stats?.linesRemoved ?? 0;
+							return total;
+						},
+						{ linesAdded: 0, linesRemoved: 0 },
+					);
 		const directoryRow = (
 			<DirectoryRow
 				projectId={projectId}
 				path={row.path}
 				name={row.name}
 				fileCount={row.filePaths.length}
+				lineStats={lineStats}
 				depth={row.depth}
 				isCollapsed={isCollapsed}
 				scrollSelectedIntoView={false}
@@ -540,6 +559,7 @@ const FilesTreeRow: FC<{
 							<FileRow
 								item={item}
 								lineStats={shared.lineStatsByPath?.get(row.path)}
+								fileLabel={row.name}
 								depth={row.depth}
 								pathDisplay={pathDisplay}
 								inert={inert}
@@ -566,6 +586,7 @@ const FilesTreeRow: FC<{
 					<FileRowPresentational
 						item={item}
 						lineStats={shared.lineStatsByPath?.get(row.path)}
+						fileLabel={row.name}
 						depth={row.depth}
 						pathDisplay={pathDisplay}
 						inert={inert}
@@ -605,7 +626,6 @@ const FilesTreeVirtualList: FC<{
 	addressSpace: AddressSpace<string>;
 	selection: string | null;
 	hasPendingOperationSources: boolean;
-	collapsedDirectories: Record<string, true>;
 	reviewedPaths: ReadonlySet<string>;
 	isFileChecked: (path: string) => boolean;
 	directoryCheckedState: (filePaths: Array<string>) => DirectoryCheckedState;
@@ -619,7 +639,6 @@ const FilesTreeVirtualList: FC<{
 	addressSpace,
 	selection,
 	hasPendingOperationSources,
-	collapsedDirectories,
 	reviewedPaths,
 	isFileChecked,
 	directoryCheckedState,
@@ -703,7 +722,7 @@ const FilesTreeVirtualList: FC<{
 						isReviewed={
 							!isDirectory && row.item._tag === "Change" && reviewedPaths.has(row.item.change.path)
 						}
-						isCollapsed={isDirectory && collapsedDirectories[row.path] === true}
+						isCollapsed={row._tag === "Directory" && row.collapsed}
 						holdsSelection={
 							isDirectory &&
 							selection !== null &&
@@ -722,9 +741,9 @@ export const FilesTree: FC<
 		projectId: string;
 		rows: Array<FileTreeRow<FileRowItem>>;
 		lineStatsByPath?: ReadonlyMap<string, LineStats | null>;
+		collapsedDirectories?: Record<string, boolean>;
 		canUncommit: boolean;
 		uncommit?: (change: TreeChange, extendToCheckedFiles: boolean) => void;
-		collapsedDirectories: Record<string, true>;
 		onToggleDirectoryCollapsed: (path: string) => void;
 		selection: string | null;
 		onRowSelection: (selection: string) => void;
@@ -757,9 +776,9 @@ export const FilesTree: FC<
 > = ({
 	rows,
 	lineStatsByPath,
+	collapsedDirectories: _collapsedDirectories,
 	canUncommit,
 	uncommit,
-	collapsedDirectories,
 	onToggleDirectoryCollapsed,
 	selection,
 	onRowSelection,
@@ -1052,7 +1071,6 @@ export const FilesTree: FC<
 					addressSpace={addressSpace}
 					selection={selection}
 					hasPendingOperationSources={hasPendingOperationSources}
-					collapsedDirectories={collapsedDirectories}
 					reviewedPaths={reviewedPaths}
 					isFileChecked={isFileChecked}
 					directoryCheckedState={directoryCheckedState}

@@ -31,11 +31,9 @@ describe("buildFileTreeRows", () => {
 		const rows = tree(["readme.md", "src/app.ts", "src/ui/row.ts", "docs/guide.md"]);
 
 		expect(layout(rows)).toEqual([
-			"docs/",
-			"  docs/guide.md",
+			"docs/guide.md",
 			"src/",
-			"  ui/",
-			"    src/ui/row.ts",
+			"  src/ui/row.ts",
 			"  src/app.ts",
 			"readme.md",
 		]);
@@ -45,11 +43,9 @@ describe("buildFileTreeRows", () => {
 		const rows = tree(["readme.md", "src/app.ts", "src/ui/row.ts", "docs/guide.md"]);
 
 		expect(rows.map(({ path, positionInSet, setSize }) => [path, positionInSet, setSize])).toEqual([
-			["docs", 1, 3],
-			["docs/guide.md", 1, 1],
+			["docs/guide.md", 1, 3],
 			["src", 2, 3],
-			["src/ui", 1, 2],
-			["src/ui/row.ts", 1, 1],
+			["src/ui/row.ts", 1, 2],
 			["src/app.ts", 2, 2],
 			["readme.md", 3, 3],
 		]);
@@ -69,7 +65,35 @@ describe("buildFileTreeRows", () => {
 	test("stops folding where a directory holds files of its own", () => {
 		const rows = tree(["src/lib/row.ts", "src/app.ts"]);
 
-		expect(layout(rows)).toEqual(["src/", "  lib/", "    src/lib/row.ts", "  src/app.ts"]);
+		expect(layout(rows)).toEqual(["src/", "  src/lib/row.ts", "  src/app.ts"]);
+	});
+
+	test("folds a single-file chain into the file row", () => {
+		expect(tree(["apps/lite/Graph/usePlan.ts"])).toMatchObject([
+			{
+				_tag: "File",
+				path: "apps/lite/Graph/usePlan.ts",
+				name: "apps/lite/Graph/usePlan.ts",
+				depth: 0,
+			},
+		]);
+	});
+
+	test("collapses reviewed directories by default but respects an explicit expansion", () => {
+		const input = {
+			items: items("reviewed/a.ts", "reviewed/b.ts", "pending/a.ts", "pending/b.ts"),
+			mode: "tree" as const,
+			reviewedPaths: new Set(["reviewed/a.ts", "reviewed/b.ts"]),
+		};
+		const rows = buildFileTreeRows({ ...input, collapsedDirectories: {} });
+		expect(rows.find((row) => row.path === "reviewed")).toMatchObject({ collapsed: true });
+		expect(rows.find((row) => row.path === "pending")).toMatchObject({ collapsed: false });
+		expect(rows.some((row) => row.path === "reviewed/a.ts")).toBe(false);
+		expect(
+			buildFileTreeRows({ ...input, collapsedDirectories: { reviewed: false } }).some(
+				(row) => row.path === "reviewed/a.ts",
+			),
+		).toBe(true);
 	});
 
 	test("sorts names naturally, case only breaking ties", () => {

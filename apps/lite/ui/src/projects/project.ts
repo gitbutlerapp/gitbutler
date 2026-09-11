@@ -126,7 +126,7 @@ type WorkspaceState = {
 	 * and each is somewhere the user is looking separately.
 	 */
 	uncommittedFilesCollapsedDirectories: Record<string, true>;
-	filesCollapsedDirectories: Record<string, true>;
+	filesCollapsedDirectories: Record<string, boolean>;
 };
 
 const createInitialWorkspaceState = (): WorkspaceState => ({
@@ -545,10 +545,12 @@ export const projectReducers = {
 		if (collapsed[path]) delete collapsed[path];
 		else collapsed[path] = true;
 	},
-	toggleFilesDirectoryCollapsed: (state: ProjectState, { path }: { path: string }) => {
+	toggleFilesDirectoryCollapsed: (
+		state: ProjectState,
+		{ path, isCollapsed }: { path: string; isCollapsed?: boolean },
+	) => {
 		const collapsed = state.workspace.filesCollapsedDirectories;
-		if (collapsed[path]) delete collapsed[path];
-		else collapsed[path] = true;
+		collapsed[path] = !(isCollapsed ?? collapsed[path] ?? false);
 	},
 	setBranchSearch: (state: ProjectState, { search }: { search: string | null }) => {
 		branchesReducers.setSearch(state.branches, { search });

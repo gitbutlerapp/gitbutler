@@ -2155,16 +2155,19 @@ const buildFilesRows = ({
 	filter,
 	mode,
 	collapsedDirectories,
+	reviewedPaths,
 }: {
 	filesItems: Array<FileRowItem>;
 	filter: string | null;
 	mode: FileDisplayMode;
-	collapsedDirectories: Record<string, true>;
+	collapsedDirectories: Record<string, boolean>;
+	reviewedPaths: ReadonlySet<string>;
 }): Array<FileTreeRow<FileRowItem>> =>
 	buildFileTreeRows({
 		items: filesItems.filter((item) => pathMatchesFilter(item.path, filter)),
 		mode,
 		collapsedDirectories,
+		reviewedPaths,
 	});
 
 const withLineStats = (treeChangeDiffs: Array<UnifiedPatch | null | undefined>) => ({
@@ -2259,21 +2262,6 @@ const Diff: FC<{
 	const filesCollapsedDirectories = useAppSelector((state) =>
 		projectSlice.selectors.selectFilesCollapsedDirectories(state, projectId),
 	);
-	// As with `fileParent` below, the compiler leaves this derivation outside its
-	// memo blocks here, and the rows carry the identity the file list and its
-	// address space are keyed on — so it is memoised by hand.
-	const filesRows = useMemo(
-		() =>
-			buildFilesRows({
-				filesItems,
-				filter: filesFilter,
-				mode: fileDisplayMode,
-				collapsedDirectories: filesCollapsedDirectories,
-			}),
-		[filesItems, filesFilter, fileDisplayMode, filesCollapsedDirectories],
-	);
-	const filesAddressSpace = useMemo(() => fileTreeAddressSpace(filesRows), [filesRows]);
-	const filesSelection = useSelection("files", filesAddressSpace);
 
 	// At time of writing React Compiler cannot statically analyse that these are pure derivations of
 	// the sidebar selection, even with the helpers inlined, hence manual memoisation.
@@ -2381,11 +2369,6 @@ const Diff: FC<{
 		[threads, fileParent],
 	);
 
-	// A directory row stands for the first file below it, so the diff has
-	// something to show while the cursor rests on a folder.
-	const activeFilePath =
-		selection._tag === "File" ? selection.path : selectedFilePath(filesRows, filesSelection);
-
 	const preparedDiffFiles = useMemo(
 		() =>
 			prepareDiffFiles({ fileParent, changes: unsortedChanges, treeChangeDiffs }).sort((a, b) =>
@@ -2393,6 +2376,33 @@ const Diff: FC<{
 			),
 		[fileParent, unsortedChanges, treeChangeDiffs],
 	);
+	const reviewedFilePaths = useMemo(
+		() => reviewedPaths(preparedDiffFiles, reviewedFiles),
+		[preparedDiffFiles, reviewedFiles],
+	);
+
+	// As with `fileParent`, the compiler leaves this derivation outside its
+	// memo blocks here, and the rows carry the identity the file list and its
+	// address space are keyed on — so it is memoised by hand.
+	const filesRows = useMemo(
+		() =>
+			buildFilesRows({
+				filesItems,
+				filter: filesFilter,
+				mode: fileDisplayMode,
+				collapsedDirectories: filesCollapsedDirectories,
+				reviewedPaths: reviewedFilePaths,
+			}),
+		[filesItems, filesFilter, fileDisplayMode, filesCollapsedDirectories, reviewedFilePaths],
+	);
+	const filesAddressSpace = useMemo(() => fileTreeAddressSpace(filesRows), [filesRows]);
+	const filesSelection = useSelection("files", filesAddressSpace);
+
+	// A directory row stands for the first file below it, so the diff has
+	// something to show while the cursor rests on a folder.
+	const activeFilePath =
+		selection._tag === "File" ? selection.path : selectedFilePath(filesRows, filesSelection);
+
 	// Keyed on the file's index, not its path: scrolling moves the selection, so
 	// keying on path reparsed every file per boundary crossed. `null` is
 	// render-all, distinct from the -1 of a path matching no file.
@@ -2455,10 +2465,6 @@ const Diff: FC<{
 		preparedDiffFiles.length > 0 &&
 		preparedDiffFiles.length === changes.length &&
 		preparedDiffFiles.every(({ change, version }) => reviewedFiles.get(change.path)?.has(version));
-
-	// Resolved once for the whole list rather than per row: a row would have to
-	// find its own version to answer this.
-	const reviewedFilePaths = reviewedPaths(preparedDiffFiles, reviewedFiles);
 
 	const toggleAllFilesReviewed = (): void => {
 		setManualCollapseByItem(new Map());
@@ -2657,9 +2663,16 @@ const Diff: FC<{
 						projectId={projectId}
 						rows={filesRows}
 						lineStatsByPath={lineStatsByPath}
-						collapsedDirectories={filesCollapsedDirectories}
 						onToggleDirectoryCollapsed={(path) =>
-							dispatch(projectSlice.actions.toggleFilesDirectoryCollapsed({ projectId, path }))
+							dispatch(
+								projectSlice.actions.toggleFilesDirectoryCollapsed({
+									projectId,
+									path,
+									isCollapsed: filesRows.some(
+										(row) => row._tag === "Directory" && row.path === path && row.collapsed,
+									),
+								}),
+							)
 						}
 						selection={filesSelection}
 						addressSpace={filesAddressSpace}

@@ -1,3 +1,5 @@
+import { DiffStats } from "#ui/components/DiffStats.tsx";
+import type { LineStats } from "./lineStats.ts";
 import { FolderIcon } from "#ui/components/FolderIcon.tsx";
 import { classes } from "#ui/components/classes.ts";
 import { TooltipPopup } from "#ui/components/Tooltip.tsx";
@@ -22,6 +24,7 @@ export const DirectoryRow: FC<
 		/** The trailing path segments this row stands for, e.g. `src/lib`. */
 		name: string;
 		fileCount: number;
+		lineStats?: LineStats;
 		depth: number;
 		isCollapsed: boolean;
 		onToggleCollapsed: () => void;
@@ -37,6 +40,7 @@ export const DirectoryRow: FC<
 	path,
 	name,
 	fileCount,
+	lineStats,
 	depth,
 	isCollapsed,
 	onToggleCollapsed,
@@ -99,14 +103,21 @@ export const DirectoryRow: FC<
 			</div>
 
 			<RowLabelContainer>
-				<RowLabel singleLine>{name}</RowLabel>
+				<RowLabel singleLine={lineStats === undefined}>{name}</RowLabel>
 			</RowLabelContainer>
 
 			{/* Collapsed, the count is the only sign of what the row is holding. */}
-			{isCollapsed && (
+			{(isCollapsed || lineStats !== undefined) && (
 				<span className={classes(styles.fileCount, rowStyles.fadedText, "text-11")}>
 					{fileCount}
 				</span>
+			)}
+			{lineStats !== undefined && (
+				<DiffStats
+					added={lineStats.linesAdded}
+					removed={lineStats.linesRemoved}
+					className={styles.lineStats}
+				/>
 			)}
 		</Row>
 	);

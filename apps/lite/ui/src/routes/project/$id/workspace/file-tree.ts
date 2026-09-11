@@ -26,20 +26,31 @@ export type FileTreeRow<T> = {
 			name: string;
 			/** Every file below this directory, in the order expanding it would reveal them. */
 			filePaths: Array<string>;
+			collapsed: boolean;
 	  }
-	| { _tag: "File"; item: T }
+	| { _tag: "File"; item: T; name?: string }
 );
 
 type Directory<T> = {
 	directories: Map<string, Directory<T>>;
 	items: Array<T>;
+	hasUnreviewed: boolean;
 };
 
-const emptyDirectory = <T>(): Directory<T> => ({ directories: new Map(), items: [] });
+const emptyDirectory = <T>(): Directory<T> => ({
+	directories: new Map(),
+	items: [],
+	hasUnreviewed: false,
+});
 
-const insert = <T extends { path: string }>(root: Directory<T>, item: T): void => {
+const insert = <T extends { path: string }>(
+	root: Directory<T>,
+	item: T,
+	reviewed: boolean,
+): void => {
 	const segments = item.path.split("/");
 	let directory = root;
+	if (!reviewed) directory.hasUnreviewed = true;
 
 	for (const segment of segments.slice(0, -1)) {
 		let child = directory.directories.get(segment);
@@ -48,6 +59,7 @@ const insert = <T extends { path: string }>(root: Directory<T>, item: T): void =
 			directory.directories.set(segment, child);
 		}
 		directory = child;
+		if (!reviewed) directory.hasUnreviewed = true;
 	}
 
 	directory.items.push(item);
@@ -97,7 +109,7 @@ const collectRows = <T extends { path: string }>({
 	directory: Directory<T>;
 	prefix: string;
 	depth: number;
-	collapsedDirectories: Record<string, true>;
+	collapsedDirectories: Record<string, boolean>;
 }): Collected<T> => {
 	const rows: Array<FileTreeRow<T>> = [];
 	const filePaths: Array<string> = [];
@@ -108,7 +120,25 @@ const collectRows = <T extends { path: string }>({
 		const folded = foldSoleChildren(name, child);
 		const { name: foldedName, directory: foldedDirectory } = folded;
 		const path = prefix === "" ? foldedName : `${prefix}/${foldedName}`;
-		const collapsed = collapsedDirectories[path] === true;
+		const onlyFile =
+			foldedDirectory.directories.size === 0 && foldedDirectory.items.length === 1
+				? foldedDirectory.items[0]
+				: undefined;
+		if (onlyFile !== undefined) {
+			rows.push({
+				_tag: "File",
+				path: onlyFile.path,
+				name: `${foldedName}/${onlyFile.path.split("/").at(-1) ?? onlyFile.path}`,
+				item: onlyFile,
+				depth,
+				positionInSet,
+				setSize,
+			});
+			positionInSet++;
+			filePaths.push(onlyFile.path);
+			continue;
+		}
+		const collapsed = collapsedDirectories[path] ?? !foldedDirectory.hasUnreviewed;
 		let below: Collected<T>;
 		if (collapsed) {
 			const filePaths: Array<string> = [];
@@ -131,6 +161,7 @@ const collectRows = <T extends { path: string }>({
 			positionInSet,
 			setSize,
 			filePaths: below.filePaths,
+			collapsed,
 		});
 		positionInSet++;
 		if (!collapsed) for (const row of below.rows) rows.push(row);
@@ -151,12 +182,14 @@ export const buildFileTreeRows = <T extends { path: string }>({
 	mode,
 	collapsedDirectories,
 	compare,
+	reviewedPaths,
 }: {
 	items: Array<T>;
 	mode: FileDisplayMode;
-	collapsedDirectories: Record<string, true>;
+	collapsedDirectories: Record<string, boolean>;
 	/** Row order; path order when absent. Tree mode still groups by directory around it. */
 	compare?: (a: T, b: T) => number;
+	reviewedPaths?: ReadonlySet<string>;
 }): Array<FileTreeRow<T>> => {
 	const orderedItems = items.toSorted(compare ?? ((a, b) => compareFilePaths(a.path, b.path)));
 
@@ -172,7 +205,7 @@ export const buildFileTreeRows = <T extends { path: string }>({
 	}
 
 	const root = emptyDirectory<T>();
-	for (const item of orderedItems) insert(root, item);
+	for (const item of orderedItems) insert(root, item, reviewedPaths?.has(item.path) ?? false);
 
 	return collectRows({ directory: root, prefix: "", depth: 0, collapsedDirectories }).rows;
 };

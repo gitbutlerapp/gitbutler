@@ -16,7 +16,7 @@
 
 .steps {
 	display: flex;
-	column-gap: 4px;
+	column-gap: 0;
 	flex-shrink: 0;
 	align-self: stretch;
 }
@@ -38,7 +38,7 @@
 	position: absolute;
 	width: 1px;
 	inset-block: 0;
-	background-color: color-mix(in srgb, var(--text-2) 20%, transparent);
+	background-color: var(--border-3);
 	content: "";
 }
 
@@ -75,6 +75,7 @@
 .fileCount {
 	flex-shrink: 0;
 	align-self: center;
+	font-family: "Geist Mono", monospace;
 	font-variant-numeric: tabular-nums;
 }
 
@@ -94,4 +95,9 @@
 	&[data-disabled] {
 		display: none;
 	}
+}
+
+.lineStats {
+	font-size: 10.5px;
+	font-family: "Geist Mono", monospace;
 }
