@@ -65,13 +65,13 @@ import type {
 import { ReviewThreadReply } from "#ui/routes/project/$id/workspace/ReviewThreadReply.tsx";
 import { encodeBytes } from "#ui/api/bytes.ts";
 import { getHeadInfoIndex } from "#ui/api/ref-info.ts";
-import { forgeHunkPatch, threadStillAnchoredInFile } from "#ui/review-threads.ts";
+import { forgeHunkDiff, threadStillAnchoredInFile } from "#ui/review-threads.ts";
 import { isAgent } from "#ui/review-users.ts";
 import { defaultSettings } from "#ui/settings.ts";
 import { pullRequestHotkeys } from "#ui/hotkeys.ts";
 import { FreshBadge, RegisterFreshItems } from "#ui/review-arrival.tsx";
 import { useHotkeys } from "@tanstack/react-hotkeys";
-import { PatchDiff } from "@pierre/diffs/react";
+import { FileDiff } from "@pierre/diffs/react";
 import { useQuery } from "@tanstack/react-query";
 import { clearReviewFocus, useRequestedComment } from "#ui/review-focus.ts";
 import {
@@ -422,7 +422,9 @@ export const ThreadComment: FC<{ comment: ForgeReviewThreadComment; compact?: bo
  * The code a thread hangs off, rendered by the same engine as the diff view
  * so it carries real line numbers and the app's diff settings. Pierre parses
  * a whole patch, and the forge sends only the `@@` hunk, so the file headers
- * are put back on — the same shape `synthesizeFilePatch` builds.
+ * are put back on — the same shape `synthesizeFilePatch` builds — and the
+ * parsed diff is keyed by its content so threads on one file do not share
+ * Pierre's highlight cache.
  */
 const ThreadHunk: FC<{
 	projectId: string;
@@ -494,15 +496,15 @@ const ThreadHunk: FC<{
 		);
 	};
 
-	const patch = useMemo(() => forgeHunkPatch(path, diffHunk), [path, diffHunk]);
+	const fileDiff = useMemo(() => forgeHunkDiff(path, diffHunk), [path, diffHunk]);
 
 	// Nothing to draw from a hunk no parser would take.
-	if (patch === null) return null;
+	if (fileDiff === null) return null;
 
 	return (
 		<div className={styles.hunk} onContextMenu={onContextMenu}>
-			<PatchDiff
-				patch={patch}
+			<FileDiff
+				fileDiff={fileDiff}
 				options={{
 					// Unified whatever the diff view is set to: a comment card is too
 					// narrow for two columns, and a thread hangs on one line anyway.

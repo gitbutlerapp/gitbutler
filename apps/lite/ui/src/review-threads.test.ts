@@ -1,5 +1,5 @@
 import {
-	forgeHunkPatch,
+	forgeHunkDiff,
 	threadsByPathForScope,
 	threadStillAnchored,
 	threadStillAnchoredInFile,
@@ -187,41 +187,45 @@ describe("threadStillAnchored", () => {
 	});
 });
 
-describe("forgeHunkPatch", () => {
+describe("forgeHunkDiff", () => {
 	it("re-tallies the counts the forge left behind", () => {
 		// The header claims six and twelve lines; three and four were sent,
 		// because the hunk stops at the line the comment sits on.
 		const truncated = "@@ -527,6 +527,12 @@ CREATE TABLE\n a\n b\n+c\n d";
+		const diff = forgeHunkDiff("src/lib.rs", truncated);
 
-		expect(forgeHunkPatch("src/lib.rs", truncated)).toBe(
-			[
-				"diff --git a/src/lib.rs b/src/lib.rs",
-				"--- a/src/lib.rs",
-				"+++ b/src/lib.rs",
-				"@@ -527,3 +527,4 @@",
-				" a",
-				" b",
-				"+c",
-				" d",
-				"",
-			].join("\n"),
-		);
+		expect(diff?.hunks[0]?.hunkSpecs).toBe("@@ -527,3 +527,4 @@\n");
+		expect(diff?.deletionLines).toEqual(["a\n", "b\n", "d\n"]);
+		expect(diff?.additionLines).toEqual(["a\n", "b\n", "c\n", "d\n"]);
 	});
 
 	it("keeps a blank context line, which is a space rather than nothing", () => {
-		const patch = forgeHunkPatch("f.ts", "@@ -1,9 +1,9 @@\n a\n \n+b\n");
+		const diff = forgeHunkDiff("f.ts", "@@ -1,9 +1,9 @@\n a\n \n+b\n");
 
-		expect(patch?.split("\n").slice(4, -1)).toEqual([" a", " ", "+b"]);
+		expect(diff?.deletionLines).toEqual(["a\n", "\n"]);
+		expect(diff?.additionLines).toEqual(["a\n", "\n", "b\n"]);
 	});
 
 	it("declines anything that is not a hunk", () => {
-		expect(forgeHunkPatch("f.ts", "no header here")).toBeNull();
+		expect(forgeHunkDiff("f.ts", "no header here")).toBeNull();
+	});
+
+	it("keys the parsed diff by content, not file name", () => {
+		// Two threads on one file: the forge truncates each hunk at its own
+		// comment line, so the same path carries different lines.
+		const short = forgeHunkDiff("f.ts", "@@ -1,3 +1,3 @@\n a\n+b\n");
+		const long = forgeHunkDiff("f.ts", "@@ -1,3 +1,3 @@\n a\n+b\n+c\n");
+
+		expect(short?.cacheKey).toBeDefined();
+		expect(short?.cacheKey).not.toBe(long?.cacheKey);
+		expect(forgeHunkDiff("f.ts", "@@ -1,3 +1,3 @@\n a\n+b\n")?.cacheKey).toBe(short?.cacheKey);
 	});
 
 	it("drops the no-newline marker a file's unterminated end carries", () => {
-		const patch = forgeHunkPatch("f.ts", "@@ -1,2 +1,2 @@\n a\n+b\n\\ No newline at end of file");
+		const diff = forgeHunkDiff("f.ts", "@@ -1,2 +1,2 @@\n a\n+b\n\\ No newline at end of file");
 
-		expect(patch?.split("\n").slice(3, -1)).toEqual(["@@ -1,1 +1,2 @@", " a", "+b"]);
+		expect(diff?.hunks[0]?.hunkSpecs).toBe("@@ -1,1 +1,2 @@\n");
+		expect(diff?.additionLines).toEqual(["a\n", "b\n"]);
 	});
 });
 
