@@ -160,6 +160,8 @@ export const CommitForm: FC<{
 	canAmendCommit: boolean;
 	worktreeChanges: WorktreeChanges | undefined;
 	className?: string;
+	isExpanded: boolean;
+	onExpandedChange: (expanded: boolean) => void;
 }> = ({
 	projectId,
 	commitTarget,
@@ -171,6 +173,8 @@ export const CommitForm: FC<{
 	canAmendCommit,
 	worktreeChanges,
 	className,
+	isExpanded,
+	onExpandedChange,
 }) => {
 	const store = useAppStore();
 	const { isPending: isCommitCreatePending, mutate: commitCreate } = useCommitCreate();
@@ -230,7 +234,6 @@ export const CommitForm: FC<{
 	const draftBranchLabel = cannedBranchName ?? "New branch";
 
 	const [open, setOpen] = useState(false);
-	const [isExpanded, setIsExpanded] = useState(false);
 	const [commitLabelHidden, setCommitLabelHidden] = useState(false);
 	const generationButton = commitMessageGenerationButtonState({
 		enabled: isProjectAiEnabled,
@@ -451,7 +454,7 @@ export const CommitForm: FC<{
 
 			// Persist the draft before the textarea unmounts.
 			persistDraftMessage({ projectId, message: commitTextareaRef.current?.value ?? "" });
-			setIsExpanded(false);
+			onExpandedChange(false);
 			setOpen(false);
 			focusScope("uncommitted-files");
 		},
@@ -541,7 +544,7 @@ export const CommitForm: FC<{
 					className={styles.startCommitSplit}
 					variant={hasWorktreeChanges ? "pop" : "outline"}
 					id={startCommitButtonId}
-					onClick={() => setIsExpanded(true)}
+					onClick={() => onExpandedChange(true)}
 					disabled={!noOperationPending}
 					actionTooltip={hasWorktreeChanges ? undefined : "Makes an empty commit"}
 					menuLabel="Commit options"
@@ -637,7 +640,7 @@ export const CommitForm: FC<{
 										projectId,
 										message: commitTextareaRef.current?.value ?? "",
 									});
-									setIsExpanded(false);
+									onExpandedChange(false);
 									setOpen(false);
 									focusScope("uncommitted-files");
 								}}

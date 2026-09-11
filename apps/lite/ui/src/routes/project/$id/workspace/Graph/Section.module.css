@@ -93,10 +93,15 @@
 
 .docked {
 	visibility: hidden;
-	position: absolute;
-	inset-inline: 0;
-	bottom: 0;
+	position: fixed;
+	/* A tall file list can keep the marker's containing block below the viewport. */
+	position-anchor: --workspace-scroller;
+	inset-inline: anchor(start) anchor(end);
+	bottom: anchor(bottom);
+	min-block-size: 0;
+	max-block-size: anchor-size(block);
 	padding-block: 4px;
+	overflow: clip;
 	border-block-start: 1px solid var(--border-section);
 	background-color: var(--bg-2);
 

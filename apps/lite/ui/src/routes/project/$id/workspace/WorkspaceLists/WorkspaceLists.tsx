@@ -62,6 +62,8 @@ import {
 	type ReactNode,
 	type RefObject,
 } from "react";
+import { Group, Panel, usePanelRef } from "react-resizable-panels";
+import { ResizeHandle } from "#ui/components/ResizeHandle.tsx";
 import styles from "./WorkspaceLists.module.css";
 import { Row, RowLabel, RowLabelContainer, SectionHeaderRow } from "../Row.tsx";
 import { Section } from "../Graph/Section.tsx";
@@ -135,17 +137,19 @@ DryRunWorkspaceContext.displayName = "DryRunWorkspaceContext";
  */
 const noLanes: ReadonlyArray<Worktree> = [];
 
-const useHeight = (): [ref: (element: HTMLElement | null) => void, height: number] => {
+const useHeight = (
+	enabled = true,
+): [ref: (element: HTMLElement | null) => void, height: number] => {
 	const [element, setElement] = useState<HTMLElement | null>(null);
 	const [height, setHeight] = useState(0);
 	useLayoutEffect(() => {
-		if (element === null) return;
+		if (element === null || !enabled) return;
 		const measure = () => setHeight(element.offsetHeight);
 		measure();
 		const observer = new ResizeObserver(measure);
 		observer.observe(element);
 		return () => observer.disconnect();
-	}, [element]);
+	}, [element, enabled]);
 	return [setElement, height];
 };
 
@@ -175,6 +179,8 @@ const UncommittedChanges: FC<
 		/** The card's head, measured by the parent, which docks a stand-in as soon as the head is pushed. */
 		headRef: (element: HTMLElement | null) => void;
 		headHeight: number;
+		commitMode: boolean;
+		changeCommitMode: (expanded: boolean) => void;
 	} & Omit<ComponentProps<"div">, "children">
 > = ({
 	addressSpace,
@@ -191,6 +197,8 @@ const UncommittedChanges: FC<
 	footDock,
 	headRef,
 	headHeight,
+	commitMode,
+	changeCommitMode,
 	...props
 }) => {
 	const dispatch = useAppDispatch();
@@ -225,13 +233,18 @@ const UncommittedChanges: FC<
 	const folded = useAppSelector((state) =>
 		projectSlice.selectors.selectUncommittedFolded(state, projectId),
 	);
-	const toggleFolded = () => dispatch(projectSlice.actions.toggleUncommittedFolded({ projectId }));
+	const toggleFolded = () => {
+		if (commitMode) changeCommitMode(false);
+		dispatch(projectSlice.actions.toggleUncommittedFolded({ projectId }));
+	};
 	// Loaded and holding nothing, as opposed to not loaded yet: the header takes
 	// over the empty wording, so it must not say it before the answer is in.
 	const isClean = worktreeChanges !== undefined && worktreeChanges.changes.length === 0;
 
 	const cardRef = useRef<HTMLDivElement>(null);
 	const fileListRef = useRef<HTMLDivElement>(null);
+	const filesScrollRef = useRef<HTMLDivElement>(null);
+	const filesScrollElementRef = commitMode ? filesScrollRef : scrollElementRef;
 	// The list's start in the scroller, which the card heads: the rows above the
 	// list come and go with the filter and the worktree, so the card's size says
 	// when to measure again.
@@ -243,14 +256,19 @@ const UncommittedChanges: FC<
 			const list = fileListRef.current;
 			if (list === null) return;
 			setListOffset(
-				Math.max(0, list.getBoundingClientRect().top - card.getBoundingClientRect().top),
+				Math.max(
+					0,
+					list.getBoundingClientRect().top -
+						(filesScrollElementRef.current?.getBoundingClientRect().top ?? 0) +
+						(filesScrollElementRef.current?.scrollTop ?? 0),
+				),
 			);
 		};
 		measure();
 		const observer = new ResizeObserver(measure);
 		observer.observe(card);
 		return () => observer.disconnect();
-	}, []);
+	}, [filesScrollElementRef]);
 	const fileFilter = useListFilter({
 		filter,
 		setFilter: (filter) =>
@@ -273,7 +291,12 @@ const UncommittedChanges: FC<
 	return (
 		<div
 			{...props}
-			className={classes(props.className, styles.uncommittedCard)}
+			className={classes(props.className, styles.uncommittedCard, commitMode && styles.commitMode)}
+			style={{
+				...props.style,
+				"--commit-dock-bottom": `${footDock}px`,
+				"--commit-dock-top": `${headHeight}px`,
+			}}
 			ref={useMergedRefs(props.ref, cardRef)}
 		>
 			<div ref={headRef} className={styles.cardHead}>
@@ -304,57 +327,62 @@ const UncommittedChanges: FC<
 			    than unmounted, as with the sidebar's own pages, so the list comes back
 			    scrolled and filtered the way it was left. */}
 			<Activity mode={folded ? "hidden" : "visible"}>
-				{isClean && (
-					<Row interactive={false}>
-						{trunk}
-						<RowLabelContainer>
-							<LastCommitLine projectId={projectId} />
-						</RowLabelContainer>
-					</Row>
-				)}
+				<div
+					ref={filesScrollRef}
+					data-uncommitted-scroll=""
+					className={classes(styles.fileArea, commitMode && uiStyles.scroller)}
+				>
+					{isClean && (
+						<Row interactive={false}>
+							{trunk}
+							<RowLabelContainer>
+								<LastCommitLine projectId={projectId} />
+							</RowLabelContainer>
+						</Row>
+					)}
 
-				{/* A clean worktree drops the list as well: the header says so now, and
+					{/* A clean worktree drops the list as well: the header says so now, and
 				    an empty row under it would only say it twice. An unloaded one drops
 				    it too — its rows are empty for want of an answer, not because there
 				    is none, and the empty row would otherwise flash "No matching files"
 				    under a header still reading "Uncommitted". */}
-				<Activity mode={isClean || worktreeChanges === undefined ? "hidden" : "visible"}>
-					<FilesTree
-						className={styles.uncommittedFiles}
-						aria-labelledby={uncommittedChangesHeadingId}
-						canUncommit={false}
-						data-preview-source={activeList === "uncommitted"}
-						focusScope="uncommitted-files"
-						fileParent={uncommittedChangesFileParent}
-						reviewedPaths={reviewedUncommittedPaths}
-						rows={fileRows}
-						ageBadgeNow={recentFirst ? ageBadgeNow : null}
-						collapsedDirectories={collapsedDirectories}
-						onToggleDirectoryCollapsed={(path) =>
-							dispatch(
-								projectSlice.actions.toggleUncommittedFilesDirectoryCollapsed({
-									projectId,
-									path,
-								}),
-							)
-						}
-						addressSpace={addressSpace}
-						onRowSelection={selectActiveFile}
-						onEdgeSpill={spillEdge}
-						projectId={projectId}
-						ref={useMergedRefs(fileListRef, useAutofocusScope(activeList === "uncommitted"))}
-						selection={fileSelection}
-						rail={trunk}
-						scrollElementRef={scrollElementRef}
-						scrollMargin={listOffset}
-						scrollPaddingStart={headHeight}
-						scrollPaddingEnd={footDock}
-						// Override the tree's inset to keep the rows on the uncommitted card's trunk.
-						style={{ "--row-padding-inline-start": "var(--graph-trunk-inset)" }}
-					/>
-				</Activity>
-
-				<Row interactive={false}>
+					<Activity mode={isClean || worktreeChanges === undefined ? "hidden" : "visible"}>
+						<FilesTree
+							className={styles.uncommittedFiles}
+							aria-labelledby={uncommittedChangesHeadingId}
+							canUncommit={false}
+							data-preview-source={activeList === "uncommitted"}
+							focusScope="uncommitted-files"
+							fileParent={uncommittedChangesFileParent}
+							reviewedPaths={reviewedUncommittedPaths}
+							rows={fileRows}
+							ageBadgeNow={recentFirst ? ageBadgeNow : null}
+							collapsedDirectories={collapsedDirectories}
+							onToggleDirectoryCollapsed={(path) =>
+								dispatch(
+									projectSlice.actions.toggleUncommittedFilesDirectoryCollapsed({
+										projectId,
+										path,
+									}),
+								)
+							}
+							addressSpace={addressSpace}
+							onRowSelection={selectActiveFile}
+							onEdgeSpill={spillEdge}
+							projectId={projectId}
+							ref={useMergedRefs(fileListRef, useAutofocusScope(activeList === "uncommitted"))}
+							selection={fileSelection}
+							rail={trunk}
+							scrollElementRef={filesScrollElementRef}
+							scrollMargin={listOffset}
+							scrollPaddingStart={commitMode ? 0 : headHeight}
+							scrollPaddingEnd={commitMode ? 14 : footDock + 44}
+							// Override the tree's inset to keep the rows on the uncommitted card's trunk.
+							style={{ "--row-padding-inline-start": "var(--graph-trunk-inset)" }}
+						/>
+					</Activity>
+				</div>
+				<Row interactive={false} className={styles.commitRow}>
 					{trunk}
 					<CommitForm
 						projectId={projectId}
@@ -364,6 +392,8 @@ const UncommittedChanges: FC<
 						startCommitButtonId={startCommitButtonId}
 						commitMessageInputId={commitMessageInputId}
 						className={styles.commitForm}
+						isExpanded={commitMode}
+						onExpandedChange={changeCommitMode}
 						onAmendCommit={amendCommit}
 						canAmendCommit={canAmendCommit}
 						worktreeChanges={worktreeChanges}
@@ -1077,8 +1107,8 @@ const Stacks: FC<{
 	onAmendCommit: (commitId: string) => void;
 	canAmendCommit: boolean;
 	onEdgeSpill: (offset: -1 | 1) => void;
-	/** The uncommitted files card, which heads the trunk above the stack cards. */
-	head: ReactNode;
+	headHeight: number;
+	commitMode: boolean;
 	/** Stands in for the card at the scroller's head while the card is scrolled out above. */
 	dock: ReactNode;
 	/** How far down the dock's mark sticks: the card's head height, so the stand-in takes over as the head is pushed. */
@@ -1093,7 +1123,8 @@ const Stacks: FC<{
 	onAmendCommit,
 	canAmendCommit,
 	onEdgeSpill,
-	head,
+	headHeight,
+	commitMode,
 	dock,
 	dockOffset,
 	scrollElementRef,
@@ -1159,12 +1190,10 @@ const Stacks: FC<{
 	);
 	const retainScrollElement = useCallback(
 		(element: HTMLDivElement | null) => {
-			if (element) scrollElementRef.current = element;
+			if (element) scrollElementRef.current = element.parentElement as HTMLDivElement;
 		},
 		[scrollElementRef],
 	);
-	// The cards start under the uncommitted files card and the gap below it.
-	const [headRef, headHeight] = useHeight();
 	const scrollMargin = headHeight + CARD_GAP;
 	const getStackKey = useCallback((index: number) => stacks[index]?.id ?? index, [stacks]);
 	const headInfoIndex = headInfo ? getHeadInfoIndex(headInfo) : undefined;
@@ -1258,7 +1287,7 @@ const Stacks: FC<{
 		rangeExtractor: rangeExtractorWithSelected,
 		scrollMargin,
 		// The head clears the docked uncommitted files row, the foot the docked target row.
-		scrollPaddingStart: HEAD_DOCKED_HEIGHT,
+		scrollPaddingStart: commitMode ? 0 : HEAD_DOCKED_HEIGHT,
 		scrollPaddingEnd,
 	});
 
@@ -1326,16 +1355,17 @@ const Stacks: FC<{
 		<DryRunWorkspaceContext value={dryRunWorkspace}>
 			<div
 				ref={retainScrollElement}
-				className={classes(uiStyles.scroller, styles.stacksScroller)}
+				className={styles.stacksScroller}
 				style={{
 					"--row-padding-inline-start": `${ROW_INSET}px`,
 					"--graph-trunk-inset": `${GRAPH_TRUNK_INSET}px`,
 				}}
 			>
-				{/* Its own tree: the files walk with their own cursor, and the arrow
-				    keys spill into the cards' tree at its edge. */}
-				<div ref={headRef}>{head}</div>
-				<div className={styles.dock} style={{ "--dock-offset": `${dockOffset}px` }}>
+				<div
+					hidden={commitMode}
+					className={styles.dock}
+					style={{ "--dock-offset": `${dockOffset}px` }}
+				>
 					{dock}
 				</div>
 				<GraphGap height={CARD_GAP} />
@@ -1574,6 +1604,58 @@ export const WorkspaceLists: FC<
 		focusScope("uncommitted-files");
 	};
 	const scrollElementRef = useRef<HTMLDivElement>(null);
+	const stacksScrollRef = useRef<HTMLDivElement>(null);
+	const groupElementRef = useRef<HTMLDivElement>(null);
+	const commitPanelRef = usePanelRef();
+	const [commitHeight, setCommitHeight] = useState<number | null>(null);
+	const commitMode = commitHeight !== null;
+	const openingPosition = useRef<{ buttonBottom: number; scrollTop: number } | null>(null);
+	const changeCommitMode = (expanded: boolean) => {
+		if (expanded) {
+			const button = document.getElementById(startCommitButtonId);
+			const group = groupElementRef.current;
+			if (!button || !group) return;
+			const buttonBottom = button.getBoundingClientRect().bottom;
+			openingPosition.current = {
+				buttonBottom,
+				scrollTop: scrollElementRef.current?.scrollTop ?? 0,
+			};
+			setCommitHeight(Math.max(160, buttonBottom - group.getBoundingClientRect().top + 20));
+		} else {
+			const files = scrollElementRef.current?.querySelector<HTMLDivElement>(
+				"[data-uncommitted-scroll]",
+			);
+			if (openingPosition.current && files) openingPosition.current.scrollTop = files.scrollTop;
+			setCommitHeight(null);
+		}
+	};
+	useLayoutEffect(() => {
+		const opening = openingPosition.current;
+		const scroller = scrollElementRef.current;
+		if (!scroller || !opening) return;
+		if (commitHeight === null) {
+			const frame = requestAnimationFrame(() => {
+				scroller.scrollTop = opening.scrollTop;
+				openingPosition.current = null;
+			});
+			return () => cancelAnimationFrame(frame);
+		}
+		commitPanelRef.current?.resize(commitHeight);
+		scroller.scrollTop = 0;
+		const frame = requestAnimationFrame(() => {
+			const submit = scroller.querySelector<HTMLButtonElement>('button[type="submit"]');
+			const panel = commitPanelRef.current;
+			if (submit && panel) {
+				panel.resize(
+					panel.getSize().inPixels + opening.buttonBottom - submit.getBoundingClientRect().bottom,
+				);
+			}
+			const files = scroller.querySelector<HTMLDivElement>("[data-uncommitted-scroll]");
+			if (files) files.scrollTop = opening.scrollTop;
+		});
+		return () => cancelAnimationFrame(frame);
+	}, [commitHeight, commitPanelRef]);
+	const [uncommittedRef, uncommittedHeight] = useHeight(!commitMode);
 	// Rows scrolled into view clear the docked target row, or the foot's gradient.
 	const footDock = graph.plan.header !== null ? DOCKED_HEIGHT : 0;
 	const scrollPaddingEnd = Math.max(footDock, 14);
@@ -1607,10 +1689,41 @@ export const WorkspaceLists: FC<
 							footDock={footDock}
 							headRef={cardHeadRef}
 							headHeight={cardHeadHeight}
+							commitMode={commitMode}
+							changeCommitMode={changeCommitMode}
 						/>
 					}
 				/>
 			}
+		/>
+	);
+
+	const stacksView = (
+		<Stacks
+			projectId={projectId}
+			graph={graph}
+			newBranch={newBranch}
+			checkCommit={checkCommit}
+			onAmendCommit={amendCommit}
+			canAmendCommit={canAmendCommit}
+			onEdgeSpill={spillIntoUncommittedChanges}
+			headHeight={commitMode ? 0 : uncommittedHeight}
+			commitMode={commitMode}
+			dockOffset={cardHeadHeight}
+			dock={
+				<UncommittedChangesRow
+					changes={worktreeChanges?.changes ?? []}
+					isClean={worktreeChanges !== undefined && worktreeChanges.changes.length === 0}
+					projectId={projectId}
+					mode={{
+						kind: "docked",
+						onSelect: () => scrollElementRef.current?.scrollTo({ top: 0 }),
+					}}
+					className={styles.dockRow}
+				/>
+			}
+			scrollElementRef={commitMode ? stacksScrollRef : scrollElementRef}
+			scrollPaddingEnd={scrollPaddingEnd}
 		/>
 	);
 
@@ -1625,31 +1738,44 @@ export const WorkspaceLists: FC<
 					className={styles.header}
 					actions={stacksHeaderActions}
 				/>
-				<Stacks
-					projectId={projectId}
-					graph={graph}
-					newBranch={newBranch}
-					checkCommit={checkCommit}
-					onAmendCommit={amendCommit}
-					canAmendCommit={canAmendCommit}
-					onEdgeSpill={spillIntoUncommittedChanges}
-					head={uncommitted}
-					dockOffset={cardHeadHeight}
-					dock={
-						<UncommittedChangesRow
-							changes={worktreeChanges?.changes ?? []}
-							isClean={worktreeChanges !== undefined && worktreeChanges.changes.length === 0}
-							projectId={projectId}
-							mode={{
-								kind: "docked",
-								onSelect: () => scrollElementRef.current?.scrollTo({ top: 0 }),
+				<Group orientation="vertical" className={styles.commitGroup} elementRef={groupElementRef}>
+					<Panel
+						id="commit-files"
+						panelRef={commitPanelRef}
+						minSize={commitMode ? 160 : "100%"}
+						defaultSize="100%"
+						className={styles.commitPanel}
+						style={{ overflow: "hidden" }}
+					>
+						<div
+							ref={scrollElementRef}
+							className={classes(styles.workspaceScroller, !commitMode && uiStyles.scroller)}
+							data-commit-mode={commitMode}
+							style={{
+								"--row-padding-inline-start": `${ROW_INSET}px`,
+								"--graph-trunk-inset": `${GRAPH_TRUNK_INSET}px`,
 							}}
-							className={styles.dockRow}
-						/>
-					}
-					scrollElementRef={scrollElementRef}
-					scrollPaddingEnd={scrollPaddingEnd}
-				/>
+						>
+							<div ref={uncommittedRef} className={commitMode ? styles.commitHead : undefined}>
+								{uncommitted}
+							</div>
+							{!commitMode && stacksView}
+						</div>
+					</Panel>
+					{commitMode && (
+						<>
+							<ResizeHandle aria-label="Resize uncommitted files and workspace" />
+							<Panel id="commit-stacks" minSize={24} className={styles.commitPanel}>
+								<div
+									ref={stacksScrollRef}
+									className={classes(styles.workspaceScroller, uiStyles.scroller)}
+								>
+									{stacksView}
+								</div>
+							</Panel>
+						</>
+					)}
+				</Group>
 			</div>
 		</WorkspaceListsProvider>
 	);
