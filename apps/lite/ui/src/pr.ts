@@ -1,5 +1,26 @@
-import { forgeInfoOptions, getReviewQueryOptions } from "#ui/api/queries.ts";
-import type { ForgeInfo, ReviewMergeMethod } from "@gitbutler/but-sdk";
+import type { AggregateCIStatus } from "./ci.ts";
+import { loginKey } from "./review-users.ts";
+import { Match } from "effect";
+import {
+	forgeInfoOptions,
+	getReviewQueryOptions,
+	getReviewMergeStatusQueryOptions,
+	listCIChecksQueryOptions,
+	listReviewCommentsQueryOptions,
+	listReviewSubmissionsQueryOptions,
+	listReviewThreadsQueryOptions,
+} from "#ui/api/queries.ts";
+import type {
+	ForgeInfo,
+	ForgeReview,
+	ForgeReviewSubmission,
+	ForgeReviewComment,
+	ForgeReviewThread,
+	ForgeReviewThreadComment,
+	ForgeReviewUser,
+	ReviewMergeStatus,
+	ReviewMergeMethod,
+} from "@gitbutler/but-sdk";
 import { type QueryClient, queryOptions, useMutation, useQuery } from "@tanstack/react-query";
 import * as idb from "idb-keyval";
 
@@ -143,3 +164,417 @@ export const useDeleteDraftPR = () =>
 				null,
 			),
 	});
+
+type ChecklistItem = { id: string; label: string; checked: boolean };
+
+/** To-dos belong to the branch: they are there before its pull request exists and after it lands. */
+const branchChecklistKey = (projectId: string, branchName: string) =>
+	`branch_checklist:v1:${projectId}:${branchName}`;
+
+export const branchChecklistQueryOptions = (projectId: string, branchName: string) =>
+	queryOptions({
+		queryKey: [projectId, "branchChecklist", branchName],
+		queryFn: async () =>
+			(await idb.get<Array<ChecklistItem>>(branchChecklistKey(projectId, branchName))) ?? [],
+	});
+
+type ChecklistChange =
+	| { type: "add"; item: ChecklistItem }
+	| { type: "check"; id: string; checked: boolean }
+	| { type: "remove"; id: string };
+
+export const useUpdateBranchChecklist = (projectId: string, branchName: string) =>
+	useMutation({
+		scope: { id: branchChecklistKey(projectId, branchName) },
+		mutationFn: async (change: ChecklistChange) => {
+			let result: Array<ChecklistItem> = [];
+			await idb.update<Array<ChecklistItem>>(
+				branchChecklistKey(projectId, branchName),
+				(stored) => {
+					const items = stored ?? [];
+					result =
+						change.type === "add"
+							? [...items, change.item]
+							: change.type === "remove"
+								? items.filter((item) => item.id !== change.id)
+								: items.map((item) =>
+										item.id === change.id ? { ...item, checked: change.checked } : item,
+									);
+					return result;
+				},
+			);
+			return result;
+		},
+		onSuccess: (items, _input, _res, ctx) =>
+			ctx.client.setQueryData(branchChecklistQueryOptions(projectId, branchName).queryKey, items),
+	});
+
+/** A renamed branch keeps its to-dos. */
+export const moveBranchChecklist = async ({
+	queryClient,
+	projectId,
+	oldBranch,
+	newBranch,
+}: {
+	queryClient: QueryClient;
+	projectId: string;
+	oldBranch: string;
+	newBranch: string;
+}): Promise<void> => {
+	const items = await idb.get<Array<ChecklistItem>>(branchChecklistKey(projectId, oldBranch));
+	if (items === undefined) return;
+	await idb.set(branchChecklistKey(projectId, newBranch), items);
+	queryClient.setQueryData(branchChecklistQueryOptions(projectId, newBranch).queryKey, items);
+	await idb.del(branchChecklistKey(projectId, oldBranch));
+	queryClient.removeQueries({
+		queryKey: branchChecklistQueryOptions(projectId, oldBranch).queryKey,
+	});
+};
+
+/** Dismissals collapse to "commented", so they never appear as a verdict. */
+export type ReviewerVerdict = "approved" | "changesRequested" | "commented" | "awaiting";
+
+export type ReviewerRow = { user: ForgeReviewUser; verdict: ReviewerVerdict };
+
+/**
+ * One row per reviewer: everyone still requested (awaiting) plus everyone
+ * who submitted a review, carrying their effective verdict. A comment-only
+ * submission never overrides an earlier approval or change request, and a
+ * dismissal drops the verdict back to commented.
+ */
+export const reviewerRows = (
+	requested: Array<ForgeReviewUser>,
+	submissions: Array<ForgeReviewSubmission>,
+): Array<ReviewerRow> => {
+	const byLogin = new Map<string, ReviewerRow>();
+	for (const submission of submissions) {
+		if (submission.author === null) continue;
+		const existing = byLogin.get(loginKey(submission.author.login));
+		const verdict = Match.value(submission.state).pipe(
+			Match.withReturnType<ReviewerVerdict>(),
+			Match.when("approved", () => "approved"),
+			Match.when("changesRequested", () => "changesRequested"),
+			Match.when("commented", () => existing?.verdict ?? "commented"),
+			Match.when("dismissed", () => "commented"),
+			Match.exhaustive,
+		);
+		byLogin.set(loginKey(submission.author.login), { user: submission.author, verdict });
+	}
+	for (const user of requested) {
+		const key = loginKey(user.login);
+		if (!byLogin.has(key)) byLogin.set(key, { user, verdict: "awaiting" });
+	}
+	return [...byLogin.values()];
+};
+
+/** Why the Merge button is disabled, or null when merging is possible. */
+const mergeBlockedReason = (
+	mergeStatus: Pick<ReviewMergeStatus, "isMergeable" | "mergeableState"> | undefined,
+): string | null => {
+	if (mergeStatus === undefined) return "Checking mergeability…";
+	if (mergeStatus.isMergeable) return null;
+
+	switch (mergeStatus.mergeableState) {
+		case "blocked":
+			return "Blocked: required approvals or checks are not satisfied";
+		case "behind":
+			return "Behind the base branch; update the branch first";
+		case "dirty":
+			return "Merge conflicts with the base branch";
+		case "draft":
+			return "Draft pull requests cannot be merged";
+		case "unknown":
+		case "checking":
+		case null:
+			return "Mergeability not yet determined by the forge";
+		default:
+			return `Not mergeable (state: ${mergeStatus.mergeableState})`;
+	}
+};
+
+type ReadinessRow = {
+	label: string;
+	tone: "safe" | "danger" | "warn" | "pending";
+	clear: boolean;
+};
+/** @public */
+export const mergeReadiness = (
+	review: Pick<ForgeReview, "draft" | "mergedAt" | "closedAt">,
+	mergeStatus: Pick<ReviewMergeStatus, "isMergeable" | "mergeableState"> | undefined,
+	checks: AggregateCIStatus | null | undefined,
+	verdicts: ReadonlyArray<ReviewerVerdict | ReviewBodyVerdict>,
+	/** Reviewers asked for a review who have not given one. */
+	pendingReviews = 0,
+) => {
+	const ready =
+		mergeStatus?.isMergeable === true &&
+		!review.draft &&
+		review.mergedAt === null &&
+		review.closedAt === null;
+	const requested = verdicts.includes("changesRequested");
+	const recommended = verdicts.includes("changesRecommended");
+	const closerLook = verdicts.includes("needsCloserLook");
+	const approved = verdicts.includes("approved");
+	const approvalRecommended = verdicts.includes("approvalRecommended");
+	const pending = pendingReviews;
+	const state = mergeStatus?.mergeableState;
+	const conflict = state === "dirty";
+	const clean =
+		state === "clean" || state === "can_be_merged" || state === "unstable" || state === "has_hooks";
+	// Missing or unsupported checks have nothing to report, so they get no row.
+	const checkRow: ReadinessRow | null =
+		checks === "success"
+			? { label: "Checks passed", tone: "safe", clear: true }
+			: checks === "failure"
+				? { label: "Checks failed", tone: "danger", clear: false }
+				: checks === "cancelled"
+					? { label: "Checks cancelled", tone: "warn", clear: false }
+					: checks === "action_required"
+						? { label: "Checks need attention", tone: "warn", clear: false }
+						: checks === "in_progress"
+							? { label: "Checks running", tone: "warn", clear: false }
+							: checks === "unknown"
+								? { label: "Checks pending", tone: "warn", clear: false }
+								: null;
+	// No verdict yet and nobody left to answer are absences, not checks, so they get no row either.
+	const asksForChanges = requested || recommended || closerLook;
+	const verdictRow: ReadinessRow | null =
+		asksForChanges || approved || approvalRecommended
+			? {
+					label: requested
+						? "Changes requested"
+						: recommended
+							? "Changes recommended"
+							: closerLook
+								? "Needs a closer look"
+								: approved
+									? "Approved"
+									: "Approval recommended",
+					tone: requested ? "danger" : asksForChanges ? "warn" : "safe",
+					clear: !asksForChanges,
+				}
+			: null;
+	const pendingLabel = `${pending} review${pending === 1 ? "" : "s"} pending`;
+	const pendingRow: ReadinessRow | null =
+		pending > 0 ? { label: pendingLabel, tone: "pending", clear: false } : null;
+	// The forge says nothing about conflicts for drafts or while it's still checking.
+	const conflictRow: ReadinessRow | null = conflict
+		? { label: "Merge conflicts", tone: "danger", clear: false }
+		: clean
+			? { label: "No conflicts", tone: "safe", clear: true }
+			: null;
+	const rows = [checkRow, verdictRow, pendingRow, conflictRow].filter((row) => row !== null);
+	// Only what can hold up a merge: advice from a verdict heading never does.
+	const inputs = [
+		requested && "Changes requested",
+		pending > 0 && pendingLabel,
+		checkRow !== null && checkRow.tone !== "safe" && checkRow.label,
+	]
+		.filter(Boolean)
+		.join(" · ");
+	const blocker = ready
+		? null
+		: review.mergedAt !== null
+			? "Already merged"
+			: review.closedAt !== null
+				? "Pull request is closed"
+				: review.draft
+					? "Draft pull requests cannot be merged"
+					: (state === "blocked" || state === "unstable") && inputs !== ""
+						? inputs
+						: mergeBlockedReason(mergeStatus);
+	// A draft, merged or closed PR's status badge already says where it stands.
+	const headline =
+		review.draft || review.mergedAt !== null || review.closedAt !== null
+			? null
+			: ready
+				? "Ready to merge"
+				: conflict
+					? "Blocked on conflicts"
+					: checkRow?.tone === "danger"
+						? "Checks failing"
+						: state === "blocked" && (requested || pending > 0)
+							? "Blocked on review"
+							: checkRow?.tone === "warn"
+								? "Blocked on checks"
+								: state === "behind"
+									? "Behind base branch"
+									: mergeStatus === undefined ||
+										  state === "unknown" ||
+										  state === "checking" ||
+										  state === null
+										? "Checking mergeability"
+										: "Merge blocked";
+	const tone = ready
+		? "safe"
+		: checkRow?.tone === "danger" || conflict || requested
+			? "danger"
+			: "warn";
+	return {
+		ready,
+		blocker,
+		headline,
+		tone,
+		rows,
+		clearCount: rows.filter((row) => row.clear).length,
+	};
+};
+
+export const useMergeReadiness = (projectId: string, review: ForgeReview) => {
+	const { data: forgeInfo } = useQuery(forgeInfoOptions(projectId));
+	// Only an open, submitted PR has a merge status worth asking for.
+	const wantsMergeStatus = !review.draft && review.mergedAt === null && review.closedAt === null;
+	const { data: mergeStatus, isError } = useQuery({
+		...getReviewMergeStatusQueryOptions({ projectId, reviewId: review.number }),
+		enabled: wantsMergeStatus,
+	});
+	const { data: checks } = useQuery({
+		...listCIChecksQueryOptions({ projectId, reference: review.sourceBranch, polling: "priority" }),
+		enabled: forgeInfo?.capabilities.checks === true,
+		select: (data) => data.aggregate?.status ?? null,
+	});
+	const { data: submissions } = useQuery({
+		...listReviewSubmissionsQueryOptions({ projectId, reviewId: review.number }),
+		// Fail open, as the panel does: an older backend without the field can still read comments.
+		enabled: forgeInfo?.capabilities.reviewComments !== false,
+	});
+	const { data: comments } = useQuery({
+		...listReviewCommentsQueryOptions({ projectId, reviewId: review.number }),
+		// Fail open, as the panel does: an older backend without the field can still read comments.
+		enabled: forgeInfo?.capabilities.reviewComments !== false,
+	});
+	const { data: threads } = useQuery({
+		...listReviewThreadsQueryOptions({ projectId, reviewId: review.number }),
+		// Fail open, as the panel does: an older backend without the field can still read comments.
+		enabled: forgeInfo?.capabilities.reviewComments !== false,
+	});
+	const verdicts = reviewReadinessVerdicts(submissions ?? [], comments ?? [], threads ?? []);
+	// `review.reviewers` also lists reviewers who have answered; the rows tell them apart.
+	const pendingReviews = reviewerRows(review.reviewers, submissions ?? []).filter(
+		(row) => row.verdict === "awaiting",
+	).length;
+	const result = mergeReadiness(review, mergeStatus, checks, verdicts, pendingReviews);
+	// A stale error from a query no longer asked stays out of the way.
+	return isError && wantsMergeStatus
+		? {
+				...result,
+				ready: false,
+				blocker: "Could not check mergeability",
+				headline: "Mergeability unavailable",
+				tone: "warn",
+			}
+		: result;
+};
+
+export type ReviewBodyVerdict =
+	| "changesRecommended"
+	| "needsCloserLook"
+	| "approvalRecommended"
+	| "approved";
+
+const verdictHeadings: Record<string, ReviewBodyVerdict> = {
+	"changes recommended": "changesRecommended",
+	"needs a closer look": "needsCloserLook",
+	"approval recommended": "approvalRecommended",
+	approved: "approved",
+};
+
+/** Extract only a leading verdict line; ordinary prose and quoted headings stay intact. */
+export const reviewBodyVerdict = (body: string): { body: string; verdict?: ReviewBodyVerdict } => {
+	const heading =
+		/^(?:#{1,6}[ \t]+)?(?:[🟡🔵🟢✅]\uFE0F?[ \t]+)?(?:\*\*)?(Changes recommended|Needs a closer look|Approval recommended|Approved)(?:\*\*)?[ \t]*(?:\r?\n|$)/iu.exec(
+			body,
+		);
+	const verdict = heading === null ? undefined : verdictHeadings[heading[1]?.toLowerCase() ?? ""];
+	if (heading === null || verdict === undefined) return { body };
+	return { body: body.slice(heading[0].length).trimStart(), verdict };
+};
+
+/** @public */
+export const reviewReadinessVerdicts = (
+	submissions: ReadonlyArray<
+		Pick<ForgeReviewSubmission, "id" | "author" | "body" | "state" | "submittedAt">
+	>,
+	comments: ReadonlyArray<
+		Pick<ForgeReviewComment, "id" | "author" | "body" | "createdAt" | "modifiedAt">
+	>,
+	threads: ReadonlyArray<
+		Pick<ForgeReviewThread, "isResolved"> & {
+			comments: ReadonlyArray<Pick<ForgeReviewThreadComment, "reviewId">>;
+		}
+	> = [],
+): Array<ReviewerVerdict | ReviewBodyVerdict> => {
+	type Verdict = ReviewerVerdict | ReviewBodyVerdict;
+	type Event = { key: string; at: number; state: Verdict | "dismissed"; formal: boolean };
+	const timestamp = (value: string | null) => {
+		const at = Date.parse(value ?? "");
+		return Number.isNaN(at) ? 0 : at;
+	};
+	// A review's advice is addressed once every thread it opened is resolved. Advice
+	// that opened no threads has nothing to resolve and stands until the next verdict.
+	const threaded = new Set<number>();
+	const unresolved = new Set<number>();
+	for (const thread of threads) {
+		const reviewId = thread.comments[0]?.reviewId ?? null;
+		if (reviewId === null) continue;
+		threaded.add(reviewId);
+		if (!thread.isResolved) unresolved.add(reviewId);
+	}
+	const addressed = (reviewId: number) => threaded.has(reviewId) && !unresolved.has(reviewId);
+	const submissionState = (
+		submission: Pick<ForgeReviewSubmission, "id" | "body" | "state">,
+	): Verdict | "dismissed" => {
+		if (submission.state !== "commented") return submission.state;
+		const heading = reviewBodyVerdict(submission.body ?? "").verdict;
+		if (heading === undefined) return "commented";
+		const asksForChanges = heading === "changesRecommended" || heading === "needsCloserLook";
+		return asksForChanges && addressed(submission.id) ? "commented" : heading;
+	};
+	const events: Array<Event> = [
+		...comments.flatMap((comment): Array<Event> => {
+			const state = reviewBodyVerdict(comment.body).verdict;
+			return state === undefined
+				? []
+				: [
+						{
+							key: comment.author
+								? loginKey(comment.author.login)
+								: `comment:${String(comment.id)}`,
+							at: timestamp(comment.modifiedAt ?? comment.createdAt),
+							state,
+							formal: false,
+						},
+					];
+		}),
+		...submissions.map(
+			(submission): Event => ({
+				key: submission.author
+					? loginKey(submission.author.login)
+					: `submission:${String(submission.id)}`,
+				at: timestamp(submission.submittedAt),
+				state: submissionState(submission),
+				// Approvals, change requests and dismissals are the forge's own verdicts.
+				formal: submission.state !== "commented",
+			}),
+		),
+	];
+	events.sort((a, b) => a.at - b.at);
+	const verdicts = new Map<string, Verdict>();
+	// A verdict the forge holds stands until the forge changes it; advice can't move it.
+	const heldByForge = new Set<string>();
+	for (const event of events) {
+		if (event.state === "dismissed") {
+			verdicts.set(event.key, "commented");
+			heldByForge.delete(event.key);
+		} else if (event.formal) {
+			verdicts.set(event.key, event.state);
+			heldByForge.add(event.key);
+		} else if (
+			!heldByForge.has(event.key) &&
+			(event.state !== "commented" || !verdicts.has(event.key))
+		) {
+			verdicts.set(event.key, event.state);
+		}
+	}
+	return Array.from(verdicts.values());
+};

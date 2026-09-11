@@ -3388,7 +3388,7 @@ const ReviewLayout: FC<{
 				{hasConversation && <PullRequestComments projectId={projectId} review={review} />}
 			</div>
 
-			<PullRequestPanel projectId={projectId} review={review} />
+			<PullRequestPanel projectId={projectId} sourceBranch={sourceBranch} review={review} />
 		</div>
 	);
 };
