@@ -65,7 +65,23 @@ test("shows PR titles and labels on workspace branches without hover shifts", as
 	await expect(branch.getByText(review.title, { exact: true })).toBeVisible();
 	await expect(branch.getByText("accessibility", { exact: true })).toBeVisible();
 	await expect(branch.getByText("@gitbutler/lite", { exact: true })).toBeVisible();
-	await expect(branch.getByText("PR #1", { exact: true })).toBeVisible();
+	await expect(branch.getByText("PR #1", { exact: true })).toHaveCount(0);
+	const name = branch.getByTitle("C", { exact: true });
+	const status = branch.getByText("Unpushed branch", { exact: true });
+	const push = branch.getByRole("button", {
+		name: "Push this and all branches below",
+		exact: true,
+	});
+	const [nameBox, statusBox, pushBox] = await Promise.all([
+		name.boundingBox(),
+		status.boundingBox(),
+		push.boundingBox(),
+	]);
+	if (!nameBox || !statusBox || !pushBox) throw new Error("Branch push row has no bounds");
+	const centers = [nameBox, statusBox, pushBox].map((box) => box.y + box.height / 2);
+	expect(Math.max(...centers) - Math.min(...centers)).toBeLessThanOrEqual(1);
+	expect(nameBox.x + nameBox.width).toBeLessThan(statusBox.x);
+	expect(statusBox.x + statusBox.width).toBeLessThan(pushBox.x);
 	const labelBounds = await branch
 		.getByText("@gitbutler/lite", { exact: true })
 		.evaluate((element) => {

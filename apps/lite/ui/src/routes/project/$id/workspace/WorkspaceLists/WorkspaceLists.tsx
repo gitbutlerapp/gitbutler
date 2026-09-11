@@ -1228,7 +1228,7 @@ const Stacks: FC<{
 					const review = reviews?.find(
 						(review) => review.sourceBranch === segment.refName?.displayName,
 					);
-					if (review !== undefined) contentHeight += 34 + (review.labels.length > 0 ? 22 : 0);
+					if (review !== undefined) contentHeight += 6 + (review.labels.length > 0 ? 22 : 0);
 				}
 
 				const isFolded = branchRef !== null && foldedSegments[branchRef] === true;
