@@ -115,7 +115,7 @@ but squash <branch> -m "<msg>"                       # a whole branch into one c
 
 `but pull` fetches the target branch and rebases every applied branch onto it in one step, and reports which commits conflicted; resolving those is part of the update (next section). The base shown in status is the last fetched state, so a `main` that git shows as ahead of it is exactly what `but pull` applies; retargeting is never the fix. Uncommitted changes ride along; one that conflicts with the update is not refused but marked `{conflicted}` in status with conflict markers in the file. `but pull --check` previews without updating, for when the user asks for a preview.
 
-`but pull` integrates the target only. Commits pushed to a branch's own remote counterpart are listed by `but status -u` and integrated by `but branch update <branch>`, which rebases the local commits on top of the remote ones by default (`--dry-run` previews). Both commands fetch; `git fetch` is not a step.
+`but pull` integrates the target only. Commits pushed to a branch's own remote counterpart are listed by `but status -u` and integrated by `but branch update <branch>`, which rebases the local commits on top of the remote ones by default (`--dry-run` previews). `but pull` fetches; `but branch update` does not, it integrates what the last fetch brought. When both the target and a branch need updating, `but pull` first, then `but branch update <branch>`; for a branch alone, `but pull --check` fetches without integrating.
 
 ### Resolve conflicted commits
 
@@ -149,7 +149,7 @@ Uncommitted files with merge conflicts show `{conflicted}` in `but status`; edit
 | `git checkout -- <file>` / `git restore` | `but discard <id>` |
 | `git rebase -i` | `but move`, `but squash`, `but reword` |
 | `git rebase --onto <base>` | `but move <branch> --above <base>` |
-| `git fetch` / `git pull` | `but pull` for the target branch; `but branch update <branch>` for a branch's own remote |
+| `git fetch` / `git pull` | `but pull` fetches and updates from the target branch; `but branch update <branch>` integrates a branch's own fetched remote |
 | `git cherry-pick` | `but pick <sha> -b <branch>` |
 | `gh pr create` | `but pr new <branch> -m "…"` |
 
