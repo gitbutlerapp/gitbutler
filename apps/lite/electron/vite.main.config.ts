@@ -1,3 +1,6 @@
+/* oxlint-disable typescript/strict-boolean-expressions */
+
+import posthogRollupPlugin from "@posthog/rollup-plugin";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { defineConfig } from "vite";
@@ -11,6 +14,30 @@ const here = path.dirname(fileURLToPath(import.meta.url));
  * (see "files" in package.json).
  */
 export default defineConfig({
+	plugins: [
+		{
+			name: "prod-env-warning",
+			apply: "build",
+			buildStart() {
+				if (!process.env.POSTHOG_PERSONAL_API_KEY)
+					this.warn("Missing $POSTHOG_PERSONAL_API_KEY, disabling PostHog source-map uploads.");
+
+				if (!process.env.VERSION)
+					this.warn('Missing $VERSION, defaulting PostHog release version to "dev".');
+			},
+		},
+		!!process.env.POSTHOG_PERSONAL_API_KEY &&
+			posthogRollupPlugin({
+				personalApiKey: process.env.POSTHOG_PERSONAL_API_KEY,
+				projectId: "2812",
+				host: "https://eu.posthog.com",
+				sourcemaps: {
+					releaseName: "gitbutler-lite",
+					releaseVersion: process.env.VERSION || "dev",
+					deleteAfterUpload: true,
+				},
+			}),
+	],
 	build: {
 		outDir: path.join(here, "../dist/electron"),
 		// The preload build (vite.config.ts) runs first and empties the dir.

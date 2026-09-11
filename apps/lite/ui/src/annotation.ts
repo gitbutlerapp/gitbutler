@@ -88,9 +88,6 @@ export const useCommentCreate = () => {
 		onError: (error, input, prev, ctx) => {
 			if (prev) ctx.client.setQueryData(commentsQueryOptions(input.projectId).queryKey, prev);
 
-			// oxlint-disable-next-line no-console
-			console.error(error);
-
 			toastManager.add({
 				type: "error",
 				title: "Failed to create comment",
@@ -109,9 +106,6 @@ export const useCommentUpdate = () => {
 		onSettled: (_comment, _err, input, _result, ctx) =>
 			ctx.client.invalidateQueries({ queryKey: commentsQueryOptions(input.projectId).queryKey }),
 		onError: (error) => {
-			// oxlint-disable-next-line no-console
-			console.error(error);
-
 			toastManager.add({
 				type: "error",
 				title: "Failed to update comment",
@@ -142,9 +136,6 @@ export const useCommentArchive = () => {
 			ctx.client.invalidateQueries({ queryKey: commentsQueryOptions(input.projectId).queryKey }),
 		onError: (error, input, prev, ctx) => {
 			if (prev) ctx.client.setQueryData(commentsQueryOptions(input.projectId).queryKey, prev);
-
-			// oxlint-disable-next-line no-console
-			console.error(error);
 
 			toastManager.add({
 				type: "error",

@@ -55,13 +55,6 @@ export class ErrorBoundary extends Component<Props, State> {
 		return { error: null, resetKeys };
 	}
 
-	componentDidCatch(error: unknown): void {
-		// The fallback shows only the message, and swallowing the rest once cost
-		// a session two wrong bisections.
-		// oxlint-disable-next-line no-console
-		console.error(error);
-	}
-
 	handleRetry(): void {
 		this.props.onReset?.();
 		this.setState({ error: null, resetKeys: this.props.resetKeys ?? [] });

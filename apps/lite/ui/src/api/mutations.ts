@@ -1,3 +1,4 @@
+import { reportError } from "#ui/error-reporting.ts";
 import { forgeAuthTags } from "#ui/forge.ts";
 import { decodeBytes, encodeBytes } from "#ui/api/bytes.ts";
 import { remapSearchBranch, remapSearchCommits, setCursor } from "#ui/use-cursor.ts";
@@ -178,8 +179,7 @@ export const useApply = () => {
 								syncCoreCaches(mutation.client, dispatch, input.projectId, checkoutResponse);
 								toastManager.close(toastId);
 							})().catch((error) => {
-								// oxlint-disable-next-line no-console
-								console.error(error);
+								reportError(error);
 
 								toastManager.add({
 									type: "error",
@@ -1199,8 +1199,7 @@ export const useDiscardFileChanges = ({
 			// uncheck it — and discarding the subject instead is not what was asked for.
 			if (changes) runDiscard(changes);
 		} catch (error) {
-			// oxlint-disable-next-line no-console
-			console.error(error);
+			reportError(error);
 
 			toastManager.add({
 				type: "error",

@@ -1,3 +1,4 @@
+import { reportError } from "#ui/error-reporting.ts";
 import type { MouseEvent } from "react";
 
 /**
@@ -7,7 +8,6 @@ import type { MouseEvent } from "react";
 export const openLinkExternally = (evt: MouseEvent<HTMLAnchorElement>): void => {
 	evt.preventDefault();
 	window.lite.openInWebBrowser(evt.currentTarget.href).catch((error: unknown) => {
-		// oxlint-disable-next-line no-console
-		console.error(error);
+		reportError(error);
 	});
 };

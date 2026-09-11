@@ -265,9 +265,6 @@ export const CommitRow: FC<
 					dryRun: false,
 				});
 			} catch (error) {
-				// oxlint-disable-next-line no-console
-				console.error(error);
-
 				toastManager.add({
 					type: "error",
 					title: "Failed to reword commit",

@@ -274,9 +274,6 @@ export const useExecuteOperation = (projectId: string) => {
 			}
 		},
 		onError: (error) => {
-			// oxlint-disable-next-line no-console
-			console.error(error);
-
 			toastManager.add({
 				type: "error",
 				title: "Failed to run operation",

@@ -1,3 +1,4 @@
+import { reportError } from "#ui/error-reporting.ts";
 import {
 	useAddReviewLabels,
 	useRemoveReviewLabel,
@@ -376,11 +377,6 @@ export const NewPullRequestPanel: FC<{
 	);
 };
 
-const reportOpenFailure = (error: unknown) => {
-	// oxlint-disable-next-line no-console
-	console.error(error);
-};
-
 /** A failing check, carrying the dot colour its conclusion earns. */
 type ProblemCheck = { check: CiCheck; tone: "danger" | "warn" | "muted" };
 
@@ -711,7 +707,7 @@ export const PullRequestPanel: FC<{
 
 	const handleOpen = (evt: MouseEvent<HTMLAnchorElement>): void => {
 		evt.preventDefault();
-		window.lite.openInWebBrowser(review.htmlUrl).catch(reportOpenFailure);
+		window.lite.openInWebBrowser(review.htmlUrl).catch(reportError);
 	};
 
 	return (
