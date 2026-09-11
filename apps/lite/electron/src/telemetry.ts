@@ -4,7 +4,3 @@ export const getPosthogProjectToken = (environment: "development" | "production"
 	environment === "development"
 		? "phc_t7VDC9pQELnYep9IiDTxrq2HLseY5wyT7pn0EpHM7rr"
 		: "phc_yJx46mXv6kA5KTuM2eEQ6IwNTgl5YW3feKV5gi7mfGG";
-
-/** Flip this to send metrics and errors to the dev project, for example during QA. */
-// oxlint-disable-next-line typescript/no-inferrable-types
-export const reportTelemetryInDev: boolean = false;

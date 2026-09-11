@@ -32,12 +32,15 @@ export default defineConfig({
 				projectId: "2812",
 				host: "https://eu.posthog.com",
 				sourcemaps: {
-					releaseName: "gitbutler-lite",
+					releaseName: "gitbutler-next",
 					releaseVersion: process.env.VERSION || "dev",
 					deleteAfterUpload: true,
 				},
 			}),
 	],
+	define: {
+		"process.env.CHANNEL": JSON.stringify(process.env.CHANNEL ?? "dev"),
+	},
 	build: {
 		outDir: path.join(here, "../dist/electron"),
 		// The preload build (vite.config.ts) runs first and empties the dir.

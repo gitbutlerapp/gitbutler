@@ -10,6 +10,7 @@ interface CapturedEvent {
 const mocks = vi.hoisted(() => ({
 	client: {
 		capture: vi.fn<(event: CapturedEvent) => void>(),
+		captureException: vi.fn(),
 		getFeatureFlagPayload: vi.fn(),
 		shutdown: vi.fn(),
 	},
@@ -39,13 +40,13 @@ const profile = (id: number): UserProfile => ({
 	githubUsername: null,
 });
 
-const initMetrics = async (failureLimit?: {
-	bucketSize: number;
-	refillIntervalSeconds: number;
-}) => {
+const initMetrics = async (
+	failureLimit?: { bucketSize: number; refillIntervalSeconds: number },
+	channel: "dev" | "nightly" | "release" = "nightly",
+) => {
 	mocks.client.getFeatureFlagPayload.mockResolvedValue(failureLimit);
 	const metrics = await import("../../electron/src/metrics.ts");
-	await metrics.initMetrics("1.2.3", "development");
+	await metrics.initMetrics("1.2.3", "production", channel);
 	// The failure limit lands a few microtasks after init returns; a tick drains
 	// them, and unlike a timer it still fires under fake timers.
 	await new Promise((resolve) => process.nextTick(resolve));
@@ -57,31 +58,90 @@ describe("api command metrics", () => {
 		vi.resetModules();
 		vi.clearAllMocks();
 		mocks.getAppSettings.mockResolvedValue({
-			telemetry: { appMetricsEnabled: true, appDistinctId: "user_1" },
+			telemetry: {
+				appMetricsEnabled: true,
+				appErrorReportingEnabled: true,
+				appDistinctId: "user_1",
+			},
 		});
 		mocks.getUserProfileLocal.mockResolvedValue(null);
 		mocks.updateTelemetryDistinctId.mockResolvedValue(undefined);
 		mocks.client.shutdown.mockResolvedValue(undefined);
 	});
 
-	test("captures successful commands with their sampling rate", async () => {
+	test("preserves error reporting when command collection is disabled", async () => {
+		mocks.getAppSettings.mockResolvedValue({
+			telemetry: {
+				appMetricsEnabled: false,
+				appErrorReportingEnabled: true,
+				appDistinctId: "user_1",
+			},
+		});
 		const metrics = await initMetrics();
-		const handler = vi.fn().mockResolvedValue("result");
+		await metrics.withApiCommandCapture("commitCreate", () => "result")(null);
+		const error = new Error("failed");
+		const consoleError = vi.spyOn(console, "error").mockImplementation(() => {});
+		try {
+			metrics.reportError(error, "test");
+			expect(mocks.client.captureException).toHaveBeenCalledWith(error, "user_1", {
+				context: "test",
+			});
+			expect(mocks.client.capture).not.toHaveBeenCalled();
+			expect(mocks.client.getFeatureFlagPayload).not.toHaveBeenCalled();
+		} finally {
+			consoleError.mockRestore();
+			await metrics.shutdownMetrics();
+		}
+	});
 
+	test("dev builds never start a client or send events", async () => {
+		const metrics = await initMetrics(undefined, "dev");
+		const { PostHog } = await import("posthog-node");
+		const handler = vi.fn().mockResolvedValue("result");
 		await expect(metrics.withApiCommandCapture("commitCreate", handler)(null)).resolves.toBe(
 			"result",
 		);
-		const captured = mocks.client.capture.mock.lastCall?.[0];
-		expect(captured?.distinctId).toBe("user_1");
-		expect(captured?.event).toBe("api_command");
-		expect(captured?.properties).toMatchObject({
-			command: "commitCreate",
-			failure: false,
-			samplingRate: 1,
-		});
-		expect(captured?.properties).not.toHaveProperty("occurrenceCount");
-		await metrics.shutdownMetrics();
+		const error = new Error("failed");
+		await expect(
+			metrics.withApiCommandCapture("commitCreate", vi.fn().mockRejectedValue(error))(null),
+		).rejects.toBe(error);
+		await metrics.metricsOnLogin(profile(2));
+
+		expect(PostHog).not.toHaveBeenCalled();
+		expect(mocks.getAppSettings).not.toHaveBeenCalled();
+		expect(mocks.getUserProfileLocal).not.toHaveBeenCalled();
+		expect(mocks.updateTelemetryDistinctId).not.toHaveBeenCalled();
+		expect(mocks.client.getFeatureFlagPayload).not.toHaveBeenCalled();
+		expect(mocks.client.capture).not.toHaveBeenCalled();
+		expect(metrics.shutdownMetrics()).toBeNull();
+		expect(mocks.client.shutdown).not.toHaveBeenCalled();
 	});
+
+	test.each(["nightly", "release"] as const)(
+		"captures successful commands for %s",
+		async (channel) => {
+			const metrics = await initMetrics(undefined, channel);
+			const handler = vi.fn().mockResolvedValue("result");
+
+			await expect(metrics.withApiCommandCapture("commitCreate", handler)(null)).resolves.toBe(
+				"result",
+			);
+			const captured = mocks.client.capture.mock.lastCall?.[0];
+			expect(captured?.distinctId).toBe("user_1");
+			expect(captured?.event).toBe("api_command");
+			expect(captured?.properties).toMatchObject({
+				appName: "gitbutler-next",
+				appVersion: "1.2.3",
+				appChannel: channel,
+				container: "electron",
+				command: "commitCreate",
+				failure: false,
+				samplingRate: 1,
+			});
+			expect(captured?.properties).not.toHaveProperty("occurrenceCount");
+			await metrics.shutdownMetrics();
+		},
+	);
 
 	test("applies failure limits, rethrows errors, and flushes before resetting on login", async () => {
 		const metrics = await initMetrics({ bucketSize: 1, refillIntervalSeconds: 10 });
@@ -93,8 +153,8 @@ describe("api command metrics", () => {
 
 		await expect(wrapped(null)).rejects.toBe(error);
 		expect(mocks.client.getFeatureFlagPayload).toHaveBeenCalledWith(
-			"lite-api-command-failure-limit",
-			"gitbutler-lite-failure-limit",
+			"next-api-command-failure-limit",
+			"gitbutler-next-failure-limit",
 		);
 		const capturedFailure = mocks.client.capture.mock.lastCall?.[0];
 		expect(capturedFailure?.distinctId).toBe("user_1");

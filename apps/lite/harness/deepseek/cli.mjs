@@ -51,6 +51,7 @@ const defaultAiConfiguration = () => ({
 
 const hostOverrides = {
 	getVersion: () => "gitbutler-harness",
+	isPackaged: () => false,
 	// The harness cannot open the user's browser; the panel degrades silently.
 	openInWebBrowser: () => undefined,
 	pickDirectory: () => null,

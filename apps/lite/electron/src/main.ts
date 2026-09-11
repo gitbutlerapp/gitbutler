@@ -1,4 +1,4 @@
-import { posthogHost, reportTelemetryInDev } from "./telemetry.js";
+import { posthogHost } from "./telemetry.js";
 import { checkForUpdates, registerUpdater, setAutoUpdateEnabled } from "./updater.js";
 import WatcherManager from "./watcher.js";
 import * as sdk from "@gitbutler/but-sdk";
@@ -307,6 +307,7 @@ const electronHandlerOverrides = {
 	clipboardWriteText: (text) => clipboard.writeText(text),
 	getAppSettings: () => sdk.getAppSettings(),
 	getVersion: () => app.getVersion(),
+	isPackaged: () => app.isPackaged,
 	openInWebBrowser: (url) => {
 		// shell.openExternal() is powerful and dangerous. For example, on macOS you can launch a
 		// program with shell.openExternal("file:///Applications/Numbers.app"). Similarly bad
@@ -623,8 +624,14 @@ export const start = async (shellEnvironment: Promise<Record<string, string>>): 
 	initLogging();
 	Object.assign(process.env, await shellEnvironment);
 	await initApplicationNamespace(null);
-	if (app.isPackaged || reportTelemetryInDev)
-		await initMetrics(app.getVersion(), app.isPackaged ? "production" : "development");
+	if (app.isPackaged) {
+		const channel = process.env.CHANNEL;
+		await initMetrics(
+			app.getVersion(),
+			"production",
+			channel === "nightly" || channel === "release" ? channel : "dev",
+		);
+	}
 
 	applyGUISettings(await readSettings());
 	configureAskpass();

@@ -25,12 +25,12 @@ import { apiCommandFailureLimitConfig, createApiCommandSampler } from "./api-com
  * still describes only the retained call.
  */
 
-const APP_NAME = "gitbutler-lite";
+const APP_NAME = "gitbutler-next";
 const CONTAINER = "electron";
 const SHUTDOWN_TIMEOUT_MS = 2000;
 const ACTIVE_API_COMMAND_SHUTDOWN_GRACE_MS = SHUTDOWN_TIMEOUT_MS / 2;
-const FAILURE_LIMIT_FLAG = "lite-api-command-failure-limit";
-const FAILURE_LIMIT_CONFIG_ID = "gitbutler-lite-failure-limit";
+const FAILURE_LIMIT_FLAG = "next-api-command-failure-limit";
+const FAILURE_LIMIT_CONFIG_ID = "gitbutler-next-failure-limit";
 const FAILURE_LIMIT_CONFIG_TIMEOUT_MS = 1_000;
 
 let client: PostHog | null = null;
@@ -38,6 +38,7 @@ let distinctId = "";
 let appVersion = "";
 let metricsEnabled = false;
 let errorsEnabled = false;
+let appChannel: "dev" | "nightly" | "release";
 let failureLimit = apiCommandFailureLimitConfig(undefined);
 let apiCommandSampler = createApiCommandSampler({ failureLimit });
 let shutdownPromise: Promise<void> | null = null;
@@ -82,7 +83,8 @@ const configureFailureLimit = async (metricsClient: PostHog): Promise<void> => {
 
 /**
  * Reads the shared app settings and starts the client when metrics or error
- * reporting is enabled. Never throws: telemetry must not prevent startup.
+ * reporting is enabled. Dev builds send nothing. Never throws: telemetry
+ * must not prevent startup.
  *
  * Await this before registering IPC handlers, so the first commands of the
  * session are captured and a launch via a login link cannot race the
@@ -91,7 +93,10 @@ const configureFailureLimit = async (metricsClient: PostHog): Promise<void> => {
 export const initMetrics = async (
 	version: string,
 	environment: "development" | "production",
+	channel: "dev" | "nightly" | "release",
 ): Promise<void> => {
+	if (channel !== "nightly" && channel !== "release") return;
+
 	try {
 		const telemetry = (await getAppSettings()).telemetry;
 		metricsEnabled = telemetry.appMetricsEnabled;
@@ -99,6 +104,7 @@ export const initMetrics = async (
 		if (!metricsEnabled && !telemetry.appErrorReportingEnabled) return;
 
 		appVersion = version;
+		appChannel = channel;
 		// The client exists from here on even if resolving the identity below
 		// fails; a session then captures under the stored or fresh id.
 		setDistinctId(telemetry.appDistinctId ?? randomUUID());
@@ -114,6 +120,7 @@ export const initMetrics = async (
 						...event.properties,
 						appName: APP_NAME,
 						appVersion,
+						appChannel,
 						container: CONTAINER,
 						process: "main",
 						environment,
@@ -153,6 +160,7 @@ const capture = (event: string, properties: Record<string, unknown>): void => {
 			...properties,
 			appName: APP_NAME,
 			appVersion,
+			appChannel,
 			container: CONTAINER,
 			// Only events for a logged-in account may create a PostHog person
 			// profile; anonymous installs stay person-less (and cheaper).
