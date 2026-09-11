@@ -29,7 +29,6 @@ const SKIPPED: &[&str] = &[
     "but config forge list-users",
     "but config forge forget",
     "but config forge github-stacks",
-    "but config target",
     "but config push-remote",
     "but config feature",
 ];

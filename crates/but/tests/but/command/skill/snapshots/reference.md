@@ -247,3 +247,8 @@ Check if a new version of the GitButler CLI is available
 
 ### but config forge auth
 Authenticate with the forge (GitHub, GitLab, or Bitbucket)
+
+### but config target [BRANCH]
+View or set the target branch
+- `[BRANCH]` New target branch to set (e.g., "origin/main")
+- `--push-remote <REMOTE>` Remote to push branches to (e.g., "origin" for a fork)
