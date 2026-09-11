@@ -49,6 +49,7 @@ pub enum Subcommands {
     ///
     /// This works on archived worktrees too, and keeps the branch the worktree had checked out.
     #[cfg_attr(feature = "raw-clap-docs", clap(verbatim_doc_comment))]
+    #[clap(visible_alias = "rm")]
     Remove {
         /// Remove the worktree even if it has uncommitted changes.
         #[clap(short, long)]
