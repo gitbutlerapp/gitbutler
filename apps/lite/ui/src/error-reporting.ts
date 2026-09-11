@@ -56,9 +56,11 @@ export const initErrorReporting = async (queryClient: QueryClient): Promise<void
 			},
 		});
 
+		const channel = process.env.CHANNEL;
 		const properties = {
-			appName: "gitbutler-lite",
+			appName: "gitbutler-next",
 			appVersion: version,
+			appChannel: channel === "nightly" || channel === "release" ? channel : "dev",
 			container: "electron",
 			process: "renderer",
 			environment,
