@@ -6,6 +6,7 @@ use crate::{CliResult, IdMap, args::atoms::CliIdArg, bad_input};
 
 pub mod archive;
 pub mod list;
+pub mod new;
 pub mod remove;
 
 /// The stable name of the worktree `arg` refers to: its exact name first, as archived

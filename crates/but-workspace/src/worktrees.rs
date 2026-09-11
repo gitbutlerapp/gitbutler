@@ -5,7 +5,7 @@
 //! Enumeration, archived-state reconciliation, and `HEAD` resolution are
 //! centralized in `but-ctx`, keeping this crate independent of it.
 
-use std::path::Path;
+use std::{ffi::OsStr, path::Path};
 
 use anyhow::{Context as _, bail};
 use bstr::{BStr, BString};
@@ -90,22 +90,60 @@ pub fn updated_at(repo: &gix::Repository, name: &BStr) -> anyhow::Result<Option<
 /// Git is invoked directly as it has the only implementation of this, and its own error
 /// message is surfaced on failure.
 pub fn remove(repo: &gix::Repository, path: &Path, force: bool) -> anyhow::Result<()> {
+    let mut args = Vec::new();
+    if force {
+        args.push(OsStr::new("--force"));
+    }
+    args.extend([OsStr::new("--"), path.as_os_str()]);
+    git_worktree(repo, "remove", &args)
+}
+
+/// Create a linked worktree at `path` on the new branch `branch` starting at `base`, the way
+/// `git worktree add -b` does, which refuses an existing branch.
+///
+/// An existing `path` is refused up front, as git would only notice it after creating the branch.
+/// Returns the stable name git gave the worktree, normally the last component of `path`.
+pub fn add(
+    repo: &gix::Repository,
+    path: &Path,
+    branch: &gix::refs::FullNameRef,
+    base: gix::ObjectId,
+) -> anyhow::Result<BString> {
+    if path.exists() {
+        bail!("'{}' already exists", path.display());
+    }
+    let short_name = gix::path::from_bstr(branch.shorten());
+    let base = base.to_string();
+    git_worktree(
+        repo,
+        "add",
+        &[
+            OsStr::new("-b"),
+            short_name.as_os_str(),
+            OsStr::new("--"),
+            path.as_os_str(),
+            OsStr::new(&base),
+        ],
+    )?;
+    gix::open(path)?
+        .worktree()
+        .and_then(|worktree| worktree.id().map(ToOwned::to_owned))
+        .context("git registered the new checkout as a linked worktree")
+}
+
+fn git_worktree(repo: &gix::Repository, subcommand: &str, args: &[&OsStr]) -> anyhow::Result<()> {
     let mut cmd = std::process::Command::new(gix::path::env::exe_invocation());
     // These would override `-C`.
     for var in ["GIT_DIR", "GIT_WORK_TREE", "GIT_INDEX_FILE"] {
         cmd.env_remove(var);
     }
-    cmd.arg("-C")
-        .arg(repo.workdir().unwrap_or(repo.common_dir()))
-        .args(["worktree", "remove"]);
-    if force {
-        cmd.arg("--force");
-    }
     let output = cmd
-        .arg("--")
-        .arg(path)
+        .arg("-C")
+        .arg(repo.workdir().unwrap_or(repo.common_dir()))
+        .args(["worktree", subcommand])
+        .args(args)
         .output()
-        .context("Failed to run `git worktree remove`")?;
+        .with_context(|| format!("Failed to run `git worktree {subcommand}`"))?;
     if !output.status.success() {
         anyhow::bail!("{}", String::from_utf8_lossy(&output.stderr).trim());
     }

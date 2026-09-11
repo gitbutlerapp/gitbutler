@@ -86,6 +86,7 @@ export declare const apiInvalidates: {
 	readonly updateReviewComment: readonly ["ReviewComments"];
 	readonly withdrawReviewRequest: readonly ["Reviews"];
 	readonly workspaceBranchAndAncestorsPush: readonly ["Workspace", "Reviews", "MergeStatus", "Checks", "ReviewTimeline"];
+	readonly worktreeNew: readonly ["Worktrees", "Workspace"];
 	readonly worktreeRemove: readonly ["Worktrees", "Workspace"];
 	readonly worktreeSetArchived: readonly ["Worktrees", "Workspace"];
 };

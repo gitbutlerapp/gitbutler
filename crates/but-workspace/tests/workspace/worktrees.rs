@@ -394,3 +394,32 @@ fn remove_defers_to_git_for_dirty_checkouts() -> Result<()> {
     );
     Ok(())
 }
+
+#[test]
+fn add_checks_out_a_new_branch_at_the_base_and_names_the_worktree_after_the_path() -> Result<()> {
+    let (repo, _tmp) = writable_scenario_slow("worktree-listing");
+    let base = repo.head_id()?.detach();
+    let path = repo.common_dir().join("gb-wts").join("wt-new");
+    let branch: &gix::refs::FullNameRef = "refs/heads/wt-new".try_into()?;
+
+    let name = but_workspace::worktrees::add(&repo, &path, branch, base)?;
+    assert_eq!(
+        name, "wt-new",
+        "git names the worktree after the last path component"
+    );
+    assert_eq!(
+        repo.worktree_proxy_by_id(name.as_bstr())
+            .expect("registered")
+            .base()?,
+        gix::path::realpath(&path)?
+    );
+    assert_eq!(
+        repo.find_reference(branch)?.peel_to_id()?.detach(),
+        base,
+        "the new branch starts where it was told to"
+    );
+
+    let err = but_workspace::worktrees::add(&repo, &path, branch, base).unwrap_err();
+    assert!(err.to_string().contains("already exists"), "{err}");
+    Ok(())
+}

@@ -157,6 +157,7 @@ export declare const apiParamNames: {
 	readonly workspaceIntegrateUpstream: readonly ["projectId", "updates", "dryRun"];
 	readonly workspaceRecreate: readonly ["projectId"];
 	readonly workspaceTargetCommits: readonly ["projectId", "from", "limit"];
+	readonly worktreeNew: readonly ["projectId", "newRef"];
 	readonly worktreeRemove: readonly ["projectId", "name", "force"];
 	readonly worktreeSetArchived: readonly ["projectId", "name", "archived"];
 	readonly worktreesList: readonly ["projectId"];

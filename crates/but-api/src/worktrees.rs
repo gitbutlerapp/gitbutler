@@ -1,4 +1,4 @@
-//! Commands for listing, archiving and removing linked git worktrees (experimental),
+//! Commands for listing, creating, archiving and removing linked git worktrees (experimental),
 //! and the resolution of a [`ChangesSource`](crate::commit::json::ChangesSource) for
 //! the commands that can commit from one.
 //!
@@ -7,13 +7,16 @@
 //! under `$GIT_COMMON_DIR/worktrees/`, which survives `git worktree move`.
 //!
 //! None of the mutations here take part in the oplog: archived state is a
-//! project-database row, and a removed checkout cannot be restored from a snapshot.
+//! project-database row, and a checkout can neither be created nor restored from a snapshot.
 
 use std::path::PathBuf;
 
 use anyhow::{Context as _, Result, bail};
 use but_api_macros::but_api;
-use but_core::sync::{RepoExclusive, RepoShared};
+use but_core::{
+    branch::unique_canned_refname,
+    sync::{RepoExclusive, RepoShared},
+};
 use but_ctx::worktrees::WorktreeEntry;
 use but_workspace::worktrees::open_worktree_repo;
 use gix::bstr::{BStr, BString, ByteSlice};
@@ -255,4 +258,118 @@ pub fn worktree_remove_with_perm(
         .worktree_meta_mut()
         .delete(&worktree.name)?;
     ctx.invalidate_workspace_cache()
+}
+
+/// A linked worktree freshly created by [`worktree_new()`].
+#[derive(Debug, Clone, Serialize)]
+#[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
+#[serde(rename_all = "camelCase")]
+pub struct NewWorktree {
+    /// The stable worktree name, i.e. the directory name under `$GIT_COMMON_DIR/worktrees/`.
+    #[serde(with = "but_serde::bstring_lossy")]
+    #[cfg_attr(
+        feature = "export-schema",
+        schemars(schema_with = "but_schemars::bstring_lossy")
+    )]
+    pub name: BString,
+    /// The worktree checkout directory.
+    #[serde(with = "but_serde::path_lossy")]
+    #[cfg_attr(feature = "export-schema", schemars(with = "String"))]
+    pub path: PathBuf,
+    /// The branch created for and checked out in the worktree.
+    #[serde(with = "but_serde::fullname_lossy")]
+    #[cfg_attr(
+        feature = "export-schema",
+        schemars(schema_with = "but_schemars::fullname_lossy")
+    )]
+    pub ref_name: gix::refs::FullName,
+    /// The commit the branch starts at, the workspace's highest base.
+    #[serde(with = "but_serde::object_id")]
+    #[cfg_attr(feature = "export-schema", schemars(with = "String"))]
+    pub base: gix::ObjectId,
+}
+#[cfg(feature = "export-schema")]
+but_schemars::register_sdk_type!(NewWorktree);
+
+/// Create a linked worktree on a new branch starting at the workspace's highest base, see
+/// [`but_graph::Workspace::highest_base()`].
+///
+/// The branch is `new_ref` or a canned name, and the checkout lives at
+/// `$GIT_COMMON_DIR/gb-wts/<slug>`, where the slug of the short branch name also names the
+/// worktree. This fails without a target to base the worktree on, and refuses an existing
+/// branch or directory.
+#[but_api(napi, invalidates = [Worktrees, Workspace])]
+#[instrument(err(Debug))]
+pub fn worktree_new(
+    ctx: &mut but_ctx::Context,
+    #[but_api(crate::json::MaybeLossyFullNameRef)] new_ref: Option<gix::refs::FullName>,
+) -> Result<NewWorktree> {
+    ensure_worktree_manipulation_enabled(ctx)?;
+    let mut guard = ctx.exclusive_worktree_access();
+    worktree_new_with_perm(ctx, new_ref, guard.write_permission())
+}
+
+/// See [`worktree_new()`]; this variant is for callers that already hold exclusive
+/// worktree access.
+pub fn worktree_new_with_perm(
+    ctx: &but_ctx::Context,
+    new_ref: Option<gix::refs::FullName>,
+    perm: &mut RepoExclusive,
+) -> Result<NewWorktree> {
+    ensure_worktree_manipulation_enabled(ctx)?;
+    let (repo, ws, db) = ctx.workspace_and_db_with_perm(perm.read_permission())?;
+    let base = ws
+        .highest_base()
+        .context("The workspace has no target to base a new worktree on")?;
+    let ref_name = match new_ref {
+        Some(ref_name) => ref_name,
+        None => unique_canned_refname(&repo)?,
+    };
+    let slug = slug(ref_name.shorten());
+    if slug.is_empty() {
+        bail!(
+            "Cannot derive a worktree directory from '{}'",
+            ref_name.shorten()
+        );
+    }
+    let path = repo.common_dir().join("gb-wts").join(&slug);
+    let name = but_workspace::worktrees::add(&repo, &path, ref_name.as_ref(), base)?;
+    let path = gix::path::realpath(&path)?;
+    drop((repo, ws, db));
+    ctx.invalidate_workspace_cache()?;
+    Ok(NewWorktree {
+        name,
+        path,
+        ref_name,
+        base,
+    })
+}
+
+/// Turn `name` into a single lowercase ASCII path component, keeping letters and digits and
+/// collapsing everything else into single hyphens. Empty if nothing survives.
+fn slug(name: &BStr) -> String {
+    let mut slug = String::new();
+    for byte in name.iter() {
+        if byte.is_ascii_alphanumeric() {
+            slug.push(byte.to_ascii_lowercase() as char);
+        } else if !slug.ends_with('-') {
+            slug.push('-');
+        }
+    }
+    slug.trim_matches('-').to_owned()
+}
+
+#[cfg(test)]
+mod tests {
+    #[test]
+    fn slug() {
+        for (input, expected) in [
+            ("Caleb/Foo bar", "caleb-foo-bar"),
+            ("--a--", "a"),
+            ("ünïcode", "n-code"),
+            ("///", ""),
+        ] {
+            assert_eq!(super::slug(input.into()), expected, "{input}");
+        }
+    }
 }
