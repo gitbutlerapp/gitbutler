@@ -7,12 +7,6 @@ use anyhow::Context;
 
 use crate::{SegmentIndex, Workspace, segment, workspace::TargetRef};
 
-/// Legacy query helpers kept for callers that still depend on compatibility
-/// semantics.
-#[cfg(feature = "legacy")]
-#[path = "legacy.rs"]
-pub mod legacy;
-
 /// # Points of Interest
 impl Workspace {
     /// Return the `commit` at the tip of the workspace, or that the tip reference

@@ -19,8 +19,6 @@ use crate::{
 pub type CommitOwnerIndexes = (usize, usize, CommitIndex);
 
 mod queries;
-#[cfg(feature = "legacy")]
-pub use queries::legacy::HeadStatus;
 
 /// Lifecycle
 impl Workspace {
