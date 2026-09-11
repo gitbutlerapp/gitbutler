@@ -71,6 +71,17 @@ pub struct Pick {
     /// When `false`, the rebase copies the pick verbatim instead of
     /// cherry-picking it, preserving its id.
     pub mutable: bool,
+    /// Leave the commit out when cherry-picking it changes nothing, as a
+    /// rebase does with a commit whose changes its new base already has.
+    ///
+    /// A commit that was empty before the pick is kept: it was empty on
+    /// purpose. A merge is kept, whether the commit or its pick is one:
+    /// their point is the parents they join. Conflicted picks are never
+    /// empty, and a commit picked as a root has nothing to be empty against.
+    /// A dropped commit becomes a [`Step::None`] in the rebased graph, so its
+    /// children attach to its parent, and it gets no entry in the commit
+    /// mappings.
+    pub drop_if_empty: bool,
 }
 
 impl Pick {
@@ -85,6 +96,7 @@ impl Pick {
             conflictable: true,
             tree_merge_mode: TreeMergeMode::WithRenames,
             mutable: true,
+            drop_if_empty: false,
         }
     }
 
@@ -109,6 +121,7 @@ impl Pick {
             conflictable: false,
             tree_merge_mode: TreeMergeMode::WithoutRenames,
             mutable: true,
+            drop_if_empty: false,
         }
     }
 }
@@ -358,19 +371,22 @@ impl<'ws, 'meta, M: RefMetadata> SuccessfulRebase<'ws, 'meta, M> {
         selector: Selector,
     ) -> Result<Option<(gix::ObjectId, Option<gix::refs::FullName>)>> {
         let selector = self.history.normalize_selector(selector)?;
+        let first_parent = || -> Result<gix::ObjectId> {
+            let parent = collect_ordered_parents(&self.graph, selector.id)
+                .into_iter()
+                .next()
+                .context("No first parent to reference")?;
+            let Step::Pick(Pick { id, .. }) = self.graph[parent] else {
+                bail!("collect_ordered_parents should always return a commit pick");
+            };
+            Ok(id)
+        };
         Ok(match &self.graph[selector.id] {
-            Step::None => None,
+            // A commit that was dropped or deleted: a checkout on it follows
+            // to the surviving parent, staying detached.
+            Step::None => Some((first_parent()?, None)),
             Step::Pick(Pick { id, .. }) => Some((*id, None)),
-            Step::Reference { refname, .. } => {
-                let parent = collect_ordered_parents(&self.graph, selector.id)
-                    .into_iter()
-                    .next()
-                    .context("No first parent to reference")?;
-                let Step::Pick(Pick { id, .. }) = self.graph[parent] else {
-                    bail!("collect_ordered_parents should always return a commit pick");
-                };
-                Some((id, Some(refname.clone())))
-            }
+            Step::Reference { refname, .. } => Some((first_parent()?, Some(refname.clone()))),
         })
     }
 
@@ -678,6 +694,7 @@ mod test {
                 conflictable: false,
                 tree_merge_mode: TreeMergeMode::WithoutRenames,
                 mutable: true,
+                drop_if_empty: false,
             }
         );
 
@@ -699,6 +716,7 @@ mod test {
                 conflictable: true,
                 tree_merge_mode: TreeMergeMode::WithRenames,
                 mutable: true,
+                drop_if_empty: false,
             }
         );
 

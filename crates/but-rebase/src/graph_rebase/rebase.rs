@@ -29,29 +29,43 @@ impl<'ws, 'graph, M: RefMetadata> Editor<'ws, 'graph, M> {
 
         for step_idx in steps_to_pick {
             // Do the frikkin rebase man!
+            // The node and its edges come first so that parents resolve in the
+            // output graph, where a dropped pick is a `Step::None` to walk through.
+            let new_idx = output_graph.add_node(Step::None);
+            graph_mapping.insert(step_idx, new_idx);
+
+            let mut edges = self
+                .graph
+                .edges_directed(step_idx, petgraph::Direction::Outgoing)
+                .collect::<Vec<_>>();
+            edges.sort_by_key(|e| e.weight().order);
+            edges.reverse();
+
+            for e in edges {
+                let Some(new_parent) = graph_mapping.get(&e.target()) else {
+                    bail!("Failed to find corresponding parent");
+                };
+
+                output_graph.add_edge(new_idx, *new_parent, e.weight().clone());
+            }
+
             let step = self.graph[step_idx].clone();
-            let new_idx = match step {
+            output_graph[new_idx] = match step {
                 Step::Pick(pick) if !pick.mutable => {
                     // Immutable picks are copied verbatim: the commit keeps its
                     // id, so there's no cherry-pick to run and nothing to record
                     // in the history mapping.
-                    output_graph.add_node(Step::Pick(pick))
+                    Step::Pick(pick)
                 }
                 Step::Pick(pick) => {
-                    let graph_parents = collect_ordered_parents(&self.graph, step_idx);
+                    let graph_parents = collect_ordered_parents(&output_graph, new_idx);
                     let ontos = match pick.preserved_parents.clone() {
                         Some(ontos) => ontos,
                         None => graph_parents
                             .iter()
-                            .map(|idx| {
-                                let Some(new_idx) = graph_mapping.get(idx) else {
-                                    bail!("A matching parent can't be found in the output graph");
-                                };
-
-                                match output_graph[*new_idx] {
-                                    Step::Pick(Pick { id, .. }) => Ok(id),
-                                    _ => bail!("A parent in the output graph is not a pick"),
-                                }
+                            .map(|idx| match output_graph[*idx] {
+                                Step::Pick(Pick { id, .. }) => Ok(id),
+                                _ => bail!("A parent in the output graph is not a pick"),
                             })
                             .collect::<Result<Vec<_>>>()?,
                     };
@@ -73,20 +87,27 @@ impl<'ws, 'graph, M: RefMetadata> Editor<'ws, 'graph, M> {
                             pick.id
                         );
                     }
-
                     match outcome {
+                        // Picked as a root, a commit has nothing to be empty
+                        // against, so it stays.
+                        CherryPickOutcome::Commit(new_id)
+                            if pick.drop_if_empty
+                                && pick.preserved_parents.is_none()
+                                && !graph_parents.is_empty()
+                                && became_empty(&self.repo, pick.id, new_id)? =>
+                        {
+                            Step::None
+                        }
                         CherryPickOutcome::Commit(new_id)
                         | CherryPickOutcome::ConflictedCommit(new_id)
                         | CherryPickOutcome::Identity(new_id) => {
                             let mut new_pick = pick.clone();
                             new_pick.id = new_id;
-                            let new_idx = output_graph.add_node(Step::Pick(new_pick));
-                            graph_mapping.insert(step_idx, new_idx);
                             if !pick.exclude_from_tracking {
                                 history.update_mapping(pick.id, new_id);
                             }
 
-                            new_idx
+                            Step::Pick(new_pick)
                         }
                         CherryPickOutcome::FailedToMergeBases {
                             base_merge_failed,
@@ -109,15 +130,12 @@ impl<'ws, 'graph, M: RefMetadata> Editor<'ws, 'graph, M> {
                     // Immutable references are kept in the graph for traversal
                     // but never moved, created, or deleted.
                     if mutable {
-                        let graph_parents = collect_ordered_parents(&self.graph, step_idx);
+                        let graph_parents = collect_ordered_parents(&output_graph, new_idx);
                         let first_parent_idx = graph_parents
                             .first()
                             .context("References should have at least one parent")?;
-                        let Some(new_idx) = graph_mapping.get(first_parent_idx) else {
-                            bail!("A matching parent can't be found in the output graph");
-                        };
 
-                        let to_reference = match output_graph[*new_idx] {
+                        let to_reference = match output_graph[*first_parent_idx] {
                             Step::Pick(Pick { id, .. }) => id,
                             _ => bail!("A parent in the output graph is not a pick"),
                         };
@@ -153,27 +171,10 @@ impl<'ws, 'graph, M: RefMetadata> Editor<'ws, 'graph, M> {
                         }
                     }
 
-                    output_graph.add_node(Step::Reference { refname, mutable })
+                    Step::Reference { refname, mutable }
                 }
-                Step::None => output_graph.add_node(Step::None),
+                Step::None => Step::None,
             };
-
-            graph_mapping.insert(step_idx, new_idx);
-
-            let mut edges = self
-                .graph
-                .edges_directed(step_idx, petgraph::Direction::Outgoing)
-                .collect::<Vec<_>>();
-            edges.sort_by_key(|e| e.weight().order);
-            edges.reverse();
-
-            for e in edges {
-                let Some(new_parent) = graph_mapping.get(&e.target()) else {
-                    bail!("Failed to find corresponding parent");
-                };
-
-                output_graph.add_edge(new_idx, *new_parent, e.weight().clone());
-            }
         }
 
         // Find deleted references. `initial_references` only contains mutable
@@ -200,6 +201,31 @@ impl<'ws, 'graph, M: RefMetadata> Editor<'ws, 'graph, M> {
             db: self.db,
         })
     }
+}
+
+/// Whether picking `source` as `picked` left it without changes of its own,
+/// while `source` still had some against its parent, or against the empty
+/// tree for a root. Neither side may be a merge: a merge's tree says nothing
+/// about the parents it joins.
+fn became_empty(
+    repo: &gix::Repository,
+    source: gix::ObjectId,
+    picked: gix::ObjectId,
+) -> Result<bool> {
+    let (source, picked) = (repo.find_commit(source)?, repo.find_commit(picked)?);
+    if source.parent_ids().count() > 1 || picked.parent_ids().count() > 1 {
+        return Ok(false);
+    }
+    Ok(!has_no_changes(&source)? && has_no_changes(&picked)?)
+}
+
+/// Whether the tree of `commit`, which has at most one parent, equals its
+/// parent's tree, or the empty tree for a root.
+fn has_no_changes(commit: &gix::Commit<'_>) -> Result<bool> {
+    let Some(parent_id) = commit.parent_ids().next() else {
+        return Ok(commit.tree_id()? == commit.repo.empty_tree().id);
+    };
+    Ok(commit.tree_id()? == parent_id.object()?.into_commit().tree_id()?)
 }
 
 /// Return every graph step in parent-before-child dependency order.
