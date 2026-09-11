@@ -331,6 +331,13 @@
 .checkLinkIcon {
 	flex-shrink: 0;
 	color: var(--text-3);
+	opacity: 0;
+	transition: opacity var(--transition-fast);
+
+	.checkRow:hover &,
+	.checkRow:focus-visible & {
+		opacity: 1;
+	}
 }
 
 /* Long branch names truncate instead of shattering mid-word; the arrow and
