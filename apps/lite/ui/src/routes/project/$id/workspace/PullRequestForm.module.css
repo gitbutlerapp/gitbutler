@@ -1,5 +1,6 @@
 .prActions {
 	display: flex;
+	align-items: flex-start;
 	gap: 7px;
 }
 
@@ -198,4 +199,18 @@
 	&:hover {
 		color: var(--text-1);
 	}
+}
+
+.mergeControl {
+	display: flex;
+	flex-direction: column;
+	align-items: flex-end;
+	gap: 4px;
+}
+.mergeBlocker {
+	max-width: 270px;
+	color: var(--text-warn);
+	font-weight: 600;
+	font-size: 11px;
+	text-align: end;
 }

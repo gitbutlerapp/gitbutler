@@ -395,3 +395,56 @@
 .created {
 	color: var(--text-2);
 }
+
+.readiness {
+	padding: 14px;
+	border-radius: var(--radius-card) var(--radius-card) 0 0;
+	background: var(--bg-warn);
+}
+.readiness[data-ready="true"] {
+	background: var(--bg-safe);
+}
+.readiness h4 {
+	margin: 0 0 8px;
+	color: var(--text-warn);
+	font:
+		10px "Geist Mono",
+		monospace;
+	letter-spacing: 0.08em;
+	text-transform: uppercase;
+}
+.readiness[data-ready="true"] h4 {
+	color: var(--text-safe);
+}
+.readiness strong {
+	display: block;
+	margin-bottom: 10px;
+	color: var(--text-1);
+	font-weight: 600;
+	font-size: 14px;
+}
+.readinessRow {
+	display: flex;
+	align-items: center;
+	margin-top: 6px;
+	gap: 8px;
+	font-size: 12px;
+}
+.readinessDot {
+	flex: none;
+	width: 6px;
+	height: 6px;
+	border-radius: 50%;
+}
+.readinessDot[data-tone="safe"] {
+	background: var(--fill-safe-bg);
+}
+.readinessDot[data-tone="warn"] {
+	background: var(--fill-warn-bg);
+}
+.readinessDot[data-tone="danger"] {
+	background: var(--fill-danger-bg);
+}
+.readinessDot[data-tone="pending"] {
+	border: 1px solid var(--border-1);
+}

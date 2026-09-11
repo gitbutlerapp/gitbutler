@@ -1,3 +1,4 @@
+import { useMergeReadiness } from "#ui/pr.ts";
 import {
 	type PushBeforePublish,
 	useAddReviewReaction,
@@ -15,7 +16,6 @@ import {
 	branchDetailsQueryOptions,
 	currentForgeLoginQueryOptions,
 	forgeInfoOptions,
-	getReviewMergeStatusQueryOptions,
 	listReviewReactionsQueryOptions,
 	listReviewTimelineEventsQueryOptions,
 } from "#ui/api/queries.ts";
@@ -54,7 +54,7 @@ import {
 } from "#ui/pr.ts";
 import { type FocusScope, useAutofocusScope } from "#ui/focus-scopes.ts";
 import { Button, Field, Tooltip } from "@base-ui/react";
-import type { ForgeReview, ReviewMergeMethod, ReviewMergeStatus } from "@gitbutler/but-sdk";
+import type { ForgeReview, ReviewMergeMethod } from "@gitbutler/but-sdk";
 import { useQuery, useSuspenseQuery } from "@tanstack/react-query";
 import { useHotkey } from "@tanstack/react-hotkeys";
 import { useMergedRefs } from "@base-ui/utils/useMergedRefs";
@@ -689,29 +689,6 @@ export const PullRequestDescription: FC<{
 	);
 };
 
-/** Why the Merge button is disabled, or null when merging is possible. */
-const mergeBlockedReason = (mergeStatus: ReviewMergeStatus | undefined): string | null => {
-	if (mergeStatus === undefined) return "Checking mergeability…";
-	if (mergeStatus.isMergeable) return null;
-
-	switch (mergeStatus.mergeableState) {
-		case "blocked":
-			return "Blocked: required approvals or checks are not satisfied";
-		case "behind":
-			return "Behind the base branch; update the branch first";
-		case "dirty":
-			return "Merge conflicts with the base branch";
-		case "draft":
-			return "Draft pull requests cannot be merged";
-		case "unknown":
-		case "checking":
-		case null:
-			return "Mergeability not yet determined by the forge";
-		default:
-			return `Not mergeable (state: ${mergeStatus.mergeableState})`;
-	}
-};
-
 /** The choice persists per project (see mergeMethodQueryOptions). */
 const mergeMethods = [
 	"merge",
@@ -742,11 +719,7 @@ export const PullRequestPrimaryAction: FC<{
 	const isMerged = review.mergedAt !== null;
 	const isClosed = !isMerged && review.closedAt !== null;
 
-	const { data: mergeStatus } = useQuery({
-		...getReviewMergeStatusQueryOptions({ projectId, reviewId }),
-		// Minimise API calls.
-		enabled: !isDraft,
-	});
+	const readiness = useMergeReadiness(projectId, review);
 	const { data: storedMergeMethod } = useQuery(mergeMethodQueryOptions(projectId));
 	const mergeMethod = storedMergeMethod ?? "merge";
 	const { mutate: persistMergeMethod } = usePersistMergeMethod();
@@ -764,7 +737,7 @@ export const PullRequestPrimaryAction: FC<{
 		isSetReviewDraftinessPending ||
 		isSetReviewAutoMergePending;
 
-	const blockedReason = mergeBlockedReason(mergeStatus);
+	const blockedReason = readiness.blocker;
 
 	// A merged review can be neither drafted nor reopened, so its menu is the
 	// browser link alone; `nativeMenuItemsFromGroups` would otherwise trail a
@@ -832,29 +805,32 @@ export const PullRequestPrimaryAction: FC<{
 						onCheckedChange={(enable) => setReviewAutoMerge({ projectId, reviewId, enable })}
 					/>
 
-					<DropdownButton
-						variant="pop"
-						disabled={isAnyPending || blockedReason !== null}
-						onClick={() => mergeReview({ projectId, reviewId, mergeMethod })}
-						actionTooltip={!isAnyPending && blockedReason !== null ? blockedReason : undefined}
-						menuLabel="Merge method"
-						menuDisabled={isAnyPending}
-						onMenuTrigger={(trigger) =>
-							void showNativeMenuFromTrigger(
-								trigger,
-								mergeMethods.map((method) =>
-									nativeMenuItem({
-										label: mergeMethodLabels[method],
-										checked: method === mergeMethod,
-										onSelect: () => persistMergeMethod({ projectId, method }),
-									}),
-								),
-							)
-						}
-					>
-						{isMergeReviewPending && <Icon name="spinner" />}
-						{mergeMethodLabels[mergeMethod]}
-					</DropdownButton>
+					<div className={styles.mergeControl}>
+						<DropdownButton
+							variant="pop"
+							disabled={isAnyPending || blockedReason !== null}
+							onClick={() => mergeReview({ projectId, reviewId, mergeMethod })}
+							actionTooltip={!isAnyPending && blockedReason !== null ? blockedReason : undefined}
+							menuLabel="Merge method"
+							menuDisabled={isAnyPending}
+							onMenuTrigger={(trigger) =>
+								void showNativeMenuFromTrigger(
+									trigger,
+									mergeMethods.map((method) =>
+										nativeMenuItem({
+											label: mergeMethodLabels[method],
+											checked: method === mergeMethod,
+											onSelect: () => persistMergeMethod({ projectId, method }),
+										}),
+									),
+								)
+							}
+						>
+							{isMergeReviewPending && <Icon name="spinner" />}
+							{mergeMethodLabels[mergeMethod]}
+						</DropdownButton>
+						{blockedReason !== null && <span className={styles.mergeBlocker}>{blockedReason}</span>}
+					</div>
 				</>
 			)}
 

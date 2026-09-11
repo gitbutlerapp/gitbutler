@@ -95,6 +95,7 @@
 
 .cardTime {
 	flex-shrink: 0;
+	margin-left: auto;
 	color: var(--text-2);
 }
 
@@ -494,4 +495,17 @@
 		flex: 1;
 		min-width: 0;
 	}
+}
+
+.verdictBadge[data-verdict="warn"] {
+	background: var(--bg-warn);
+	color: var(--text-warn);
+}
+.verdictBadge[data-verdict="pop"] {
+	background: var(--bg-pop);
+	color: var(--text-pop);
+}
+.verdictBadge[data-verdict="safe"] {
+	background: var(--bg-safe);
+	color: var(--text-safe);
 }

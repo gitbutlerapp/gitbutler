@@ -30,16 +30,17 @@ import {
 	showNativeMenuFromTrigger,
 } from "#ui/native-menu.ts";
 import { openLinkExternally } from "#ui/external-link.ts";
-import type { DraftPRExtras } from "#ui/pr.ts";
+import {
+	type DraftPRExtras,
+	type ReviewerVerdict,
+	type ReviewerRow,
+	reviewerRows,
+	useMergeReadiness,
+} from "#ui/pr.ts";
 import { formatAbsoluteTime, formatCompactDuration, formatRelativeTime } from "#ui/time.ts";
 import { useCopied } from "#ui/routes/project/$id/workspace/useCopied.ts";
 import { loginKey, sameLogin } from "#ui/review-users.ts";
-import type {
-	CiCheck,
-	ForgeReview,
-	ForgeReviewSubmission,
-	ForgeReviewUser,
-} from "@gitbutler/but-sdk";
+import type { CiCheck, ForgeReview, ForgeReviewUser } from "@gitbutler/but-sdk";
 import { Tooltip } from "@base-ui/react";
 import { useQuery } from "@tanstack/react-query";
 import { Match } from "effect";
@@ -553,42 +554,6 @@ const ChecksSection: FC<{ projectId: string; reference: string }> = ({ projectId
 	);
 };
 
-/** Dismissals collapse to "commented", so they never appear as a verdict. */
-type ReviewerVerdict = "approved" | "changesRequested" | "commented" | "awaiting";
-
-type ReviewerRow = { user: ForgeReviewUser; verdict: ReviewerVerdict };
-
-/**
- * One row per reviewer: everyone still requested (awaiting) plus everyone
- * who submitted a review, carrying their effective verdict. A comment-only
- * submission never overrides an earlier approval or change request, and a
- * dismissal drops the verdict back to commented.
- */
-const reviewerRows = (
-	requested: Array<ForgeReviewUser>,
-	submissions: Array<ForgeReviewSubmission>,
-): Array<ReviewerRow> => {
-	const byLogin = new Map<string, ReviewerRow>();
-	for (const submission of submissions) {
-		if (submission.author === null) continue;
-		const existing = byLogin.get(loginKey(submission.author.login));
-		const verdict = Match.value(submission.state).pipe(
-			Match.withReturnType<ReviewerVerdict>(),
-			Match.when("approved", () => "approved"),
-			Match.when("changesRequested", () => "changesRequested"),
-			Match.when("commented", () => existing?.verdict ?? "commented"),
-			Match.when("dismissed", () => "commented"),
-			Match.exhaustive,
-		);
-		byLogin.set(loginKey(submission.author.login), { user: submission.author, verdict });
-	}
-	for (const user of requested) {
-		const key = loginKey(user.login);
-		if (!byLogin.has(key)) byLogin.set(key, { user, verdict: "awaiting" });
-	}
-	return [...byLogin.values()];
-};
-
 const verdictBits = (verdict: ReviewerVerdict): [IconName, string, string] =>
 	Match.value(verdict).pipe(
 		Match.withReturnType<[IconName, string, string]>(),
@@ -607,6 +572,7 @@ export const PullRequestPanel: FC<{
 	projectId: string;
 	review: ForgeReview;
 }> = ({ projectId, review }) => {
+	const readiness = useMergeReadiness(projectId, review);
 	const { data: forgeInfo } = useQuery(forgeInfoOptions(projectId));
 	const { data: reviewers } = useQuery({
 		...listReviewSubmissionsQueryOptions({ projectId, reviewId: review.number }),
@@ -763,6 +729,20 @@ export const PullRequestPanel: FC<{
 
 	return (
 		<aside className={styles.panel}>
+			<section
+				className={styles.readiness}
+				data-ready={readiness.ready}
+				aria-label="Merge readiness"
+			>
+				<h4>Merge readiness</h4>
+				<strong>{readiness.headline}</strong>
+				{readiness.rows.map((row) => (
+					<div key={row.label} className={styles.readinessRow}>
+						<span className={styles.readinessDot} data-tone={row.tone} />
+						{row.label}
+					</div>
+				))}
+			</section>
 			<Section
 				heading="Status"
 				action={

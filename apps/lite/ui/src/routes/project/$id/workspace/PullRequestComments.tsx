@@ -1,3 +1,4 @@
+import { reviewVerdictBody } from "#ui/pr.ts";
 import {
 	useSetReviewThreadResolved,
 	useAddCommentReaction,
@@ -151,7 +152,15 @@ const Card: FC<{
 			<div className={styles.cardHeader}>
 				<div className={styles.cardIdentity}>
 					{author !== null && <Author user={author} />}
-					{badge !== undefined && <Badge variant={badge.variant}>{badge.label}</Badge>}
+					{badge !== undefined && (
+						<Badge
+							variant={badge.variant}
+							className={styles.verdictBadge}
+							data-verdict={badge.variant}
+						>
+							{badge.label}
+						</Badge>
+					)}
 					{pendingLabel !== undefined ? (
 						<span className={classes("text-12", styles.cardTime)}>{pendingLabel}</span>
 					) : (
@@ -236,6 +245,7 @@ const Comment: FC<{
 	/** Quote this comment into the composer. */
 	onReply: (comment: Quotable) => void;
 }> = ({ projectId, reviewId, comment, currentLogin, onReply }) => {
+	const presentation = reviewVerdictBody(comment.body);
 	const createdAtMs = comment.createdAt === null ? null : Date.parse(comment.createdAt);
 	const isOwn = currentLogin != null && comment.author?.login === currentLogin;
 	// An optimistic comment awaiting its forge id; nothing can act on it yet.
@@ -311,6 +321,7 @@ const Comment: FC<{
 	return (
 		<Card
 			author={comment.author}
+			badge={presentation.badge}
 			id={comment.id > 0 ? commentAnchorId(comment.id) : undefined}
 			className={isSending ? styles.cardSending : undefined}
 			timestamp={createdAtMs}
@@ -354,7 +365,7 @@ const Comment: FC<{
 				/>
 			) : (
 				<Clamped maxHeight="240px">
-					<Markdown>{comment.body}</Markdown>
+					<Markdown>{presentation.body}</Markdown>
 				</Clamped>
 			)}
 		</Card>
@@ -393,6 +404,7 @@ export const ThreadComment: FC<{ comment: ForgeReviewThreadComment; compact?: bo
 	comment,
 	compact = false,
 }) => {
+	const { body, badge } = reviewVerdictBody(comment.body);
 	const createdAtMs = comment.createdAt === null ? null : Date.parse(comment.createdAt);
 
 	return (
@@ -402,6 +414,15 @@ export const ThreadComment: FC<{ comment: ForgeReviewThreadComment; compact?: bo
 		>
 			<div className={styles.cardIdentity}>
 				{comment.author !== null && <Author user={comment.author} />}
+				{badge !== undefined && (
+					<Badge
+						variant={badge.variant}
+						className={styles.verdictBadge}
+						data-verdict={badge.variant}
+					>
+						{badge.label}
+					</Badge>
+				)}
 				{createdAtMs !== null && (
 					<RelativeTime timestamp={createdAtMs} className={classes("text-12", styles.cardTime)} />
 				)}
@@ -412,7 +433,7 @@ export const ThreadComment: FC<{ comment: ForgeReviewThreadComment; compact?: bo
 				/>
 			</div>
 			<Clamped maxHeight="200px">
-				<Markdown>{comment.body}</Markdown>
+				<Markdown>{body}</Markdown>
 			</Clamped>
 		</div>
 	);
@@ -741,8 +762,8 @@ const submissionBadge: Record<
 	ForgeReviewSubmission["state"],
 	{ variant: BadgeVariant; label: string }
 > = {
-	approved: { variant: "safe", label: "Approved changes" },
-	changesRequested: { variant: "danger", label: "Requested changes" },
+	approved: { variant: "safe", label: "Approved" },
+	changesRequested: { variant: "warn", label: "Changes recommended" },
 	commented: { variant: "lightGray", label: "Reviewed" },
 	dismissed: { variant: "lightGray", label: "Review dismissed" },
 };
@@ -759,7 +780,8 @@ const Submission: FC<{
 	onReply: (submission: Quotable) => void;
 }> = ({ projectId, reviewId, submission, threads, branchApplied, currentLogin, onReply }) => {
 	const submittedAtMs = submission.submittedAt === null ? null : Date.parse(submission.submittedAt);
-	const body = submission.body?.trim() === "" ? null : submission.body;
+	const presentation = reviewVerdictBody(submission.body ?? "");
+	const body = presentation.body.trim() === "" ? null : presentation.body;
 
 	// The listing carries every reaction with who left it, so unlike a
 	// comment there is no second request before the chips can toggle.
@@ -778,7 +800,7 @@ const Submission: FC<{
 	return (
 		<Card
 			author={submission.author}
-			badge={submissionBadge[submission.state]}
+			badge={presentation.badge ?? submissionBadge[submission.state]}
 			timestamp={submittedAtMs}
 			freshKey={`s:${submission.id}`}
 			id={submission.id > 0 ? commentAnchorId(submission.id) : undefined}
