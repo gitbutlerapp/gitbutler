@@ -567,7 +567,7 @@ pub fn check_project_setup(ctx: &Context, perm: &RepoShared) -> anyhow::Result<b
     }
 
     // check if there is a remote
-    if ws.remote_name().is_none()
+    if ws.push_remote_name().is_none()
         && repo
             .remote_default_name(gix::remote::Direction::Push)
             .is_none()

@@ -24,7 +24,7 @@ fn with_target_ref_extracts_remote_name() -> anyhow::Result<()> {
 
     assert!(ws.target_ref.is_some());
     assert_eq!(
-        ws.remote_name(),
+        ws.push_remote_name(),
         Some("origin".into()),
         "target_ref is 'refs/remotes/origin/main', should extract 'origin'"
     );
@@ -50,7 +50,7 @@ fn returns_none_when_no_target_and_no_push_remote() -> anyhow::Result<()> {
 
     assert!(ws.target_ref.is_none(), "should not have a target_ref");
     assert!(
-        ws.remote_name().is_none(),
+        ws.push_remote_name().is_none(),
         "should return None without target or metadata"
     );
 

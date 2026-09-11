@@ -173,27 +173,23 @@ impl Workspace {
         Ok(Some(metadata))
     }
 
-    /// Return the name of the remote most closely associated with this workspace.
-    /// In order, we try:
-    /// - The remote name of the [Self::target_ref].
-    /// - The remote name configured in [workspace metadata](Self::metadata).
+    /// Return the name of the remote to push workspace branches to: the configured
+    /// push remote, or else the remote of the [`Self::target_ref`].
     ///
     /// The caller *may* consider falling back to [`gix::Repository::remote_default_name()`],
     /// but beware that one should handle ambiguity if there are more than one remotes.
-    pub fn remote_name(&self) -> Option<String> {
-        if let Some(tr) = self.target_ref.as_ref() {
-            // TODO: should we rather get remote configuration from the repository?
+    pub fn push_remote_name(&self) -> Option<String> {
+        self.graph.project_meta.push_remote.clone().or_else(|| {
             let remote_names = self
                 .graph
                 .symbolic_remote_names
                 .iter()
                 .map(|name| name.as_str().into())
                 .collect();
-            extract_remote_name_and_short_name(tr.ref_name.as_ref(), &remote_names)
+            let target_ref_name = self.target_ref.as_ref()?.ref_name.as_ref();
+            extract_remote_name_and_short_name(target_ref_name, &remote_names)
                 .map(|(remote_name, _)| remote_name)
-        } else {
-            self.graph.project_meta.push_remote.clone()
-        }
+        })
     }
 
     /// Return the `(merge-base, target-commit-id)` of the merge-base between the `commit_to_merge`
