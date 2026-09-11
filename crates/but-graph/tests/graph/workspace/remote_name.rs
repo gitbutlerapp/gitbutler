@@ -109,12 +109,6 @@ fn target_local_tracking_ref_exists_when_other_branch_metadata_names_the_same_ti
         Some("refs/remotes/origin/main".into()),
         "fixture should resolve the workspace target as origin/main"
     );
-    assert_eq!(
-        ws.target_local_tracking_ref_info()
-            .map(|ri| ri.ref_name.to_string()),
-        Some("refs/heads/main".to_string()),
-        "target/local tracking relationship should be available from the graph projection"
-    );
 
     Ok(())
 }

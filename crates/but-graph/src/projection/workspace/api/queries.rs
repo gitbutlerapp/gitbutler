@@ -5,7 +5,7 @@
 
 use anyhow::Context;
 
-use crate::{RefInfo, SegmentIndex, Workspace, segment, workspace::TargetRef};
+use crate::{SegmentIndex, Workspace, segment, workspace::TargetRef};
 
 /// Legacy query helpers kept for callers that still depend on compatibility
 /// semantics.
@@ -107,17 +107,6 @@ impl Workspace {
         self.target_ref
             .as_ref()
             .map(|target| target.ref_name.as_ref())
-    }
-
-    /// Return the local tracking branch reference information with the configured
-    ///  [target reference](Self::target_ref). This is available as long as a target
-    /// ref exists (i.e. `refs/remotes/origin/main`) and a local tracking ref for it
-    /// was configured or inferred.
-    pub fn target_local_tracking_ref_info(&self) -> Option<&RefInfo> {
-        self.target_ref
-            .as_ref()
-            .and_then(|target_ref| self.graph[target_ref.segment_index].sibling_segment_id)
-            .and_then(|local_target_ref_sidx| self.graph[local_target_ref_sidx].ref_info.as_ref())
     }
 }
 
