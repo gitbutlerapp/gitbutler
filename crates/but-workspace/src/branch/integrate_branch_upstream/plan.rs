@@ -354,10 +354,12 @@ pub(crate) fn integration_steps_into_segment_nodes<M: RefMetadata>(
     editor: &mut Editor<'_, '_, M>,
     ref_name: &gix::refs::FullNameRef,
     steps: &[PreparedIntegrationStep],
+    local_commit_ids: &HashSet<gix::ObjectId>,
 ) -> Result<SegmentDelimiter<Selector, Selector>> {
     // Step 1: We interpret the integration steps and transform them into graph steps disconnected from their parents.
     // We disconnect them in order to be able to allow for reordering.
-    let segment_steps = integration_steps_to_segment_steps_for_editor(editor, ref_name, steps)?;
+    let segment_steps =
+        integration_steps_to_segment_steps_for_editor(editor, ref_name, steps, local_commit_ids)?;
 
     // Step 2. We build the new local branch out of the steps.
     // We start by disconnecting all the parents of the local branch reference step, as we will connect it to the new
@@ -393,19 +395,27 @@ pub(crate) fn integration_steps_into_segment_nodes<M: RefMetadata>(
 ///
 /// `steps` is the prepared integration plan in execution order.
 ///
+/// `local_commit_ids` are the branch's own commits; replayed onto upstream
+/// changes that already contain them, they drop out rather than land empty.
+///
 /// Returns the graph steps to insert, starting with a reference step and then
 /// the parent chain steps in insertion order.
 fn integration_steps_to_segment_steps_for_editor<M: RefMetadata>(
     editor: &mut Editor<'_, '_, M>,
     ref_name: &gix::refs::FullNameRef,
     steps: &[PreparedIntegrationStep],
+    local_commit_ids: &HashSet<gix::ObjectId>,
 ) -> Result<Vec<Step>> {
     let mut out = vec![Step::new_reference(ref_name.to_owned())];
 
     for step in steps.iter().rev() {
         match step {
-            PreparedIntegrationStep::Pick { commit_id, .. } => {
-                out.push(existing_or_new_pick_step(editor, *commit_id)?);
+            PreparedIntegrationStep::Pick { commit_id } => {
+                out.push(existing_or_new_pick_step(
+                    editor,
+                    *commit_id,
+                    local_commit_ids.contains(commit_id),
+                )?);
             }
             PreparedIntegrationStep::Merge { commit_id } => {
                 let mut merge_commit = editor.empty_commit()?;
@@ -445,12 +455,16 @@ fn integration_steps_to_segment_steps_for_editor<M: RefMetadata>(
 /// `commit_id` is the commit that should be represented as a pick step in the
 /// rebuilt integration segment.
 ///
+/// `drop_if_empty` marks a local commit being replayed: when upstream already
+/// contains its changes, it drops out instead of landing empty.
+///
 /// Returns either the existing pick step for `commit_id` after detaching the
 /// selected parent edges, or a brand-new pick step when the commit is not yet
 /// selectable in the editor.
 fn existing_or_new_pick_step<M: RefMetadata>(
     editor: &mut Editor<'_, '_, M>,
     commit_id: gix::ObjectId,
+    drop_if_empty: bool,
 ) -> Result<Step> {
     if let Some(existing) = editor.try_select_commit(commit_id) {
         let parents_to_disconnect = determine_parent_selector(editor, existing)?;
@@ -467,15 +481,21 @@ fn existing_or_new_pick_step<M: RefMetadata>(
         // The integration rebuilds this commit onto new parents, so it must be
         // cherry-picked. Reused upstream commits live in immutable segments
         // (they aren't reachable from HEAD), so force them mutable here.
+        // The node in the editor is what gets picked, so options go through `replace`.
         let mut step = editor.lookup_step(existing)?;
         if let Step::Pick(pick) = &mut step
-            && !pick.mutable
+            && (!pick.mutable || pick.drop_if_empty != drop_if_empty)
         {
             pick.mutable = true;
+            pick.drop_if_empty = drop_if_empty;
             editor.replace(existing, step.clone())?;
         }
         return Ok(step);
     }
 
-    Ok(Step::new_pick(commit_id))
+    let mut step = Step::new_pick(commit_id);
+    if let Step::Pick(pick) = &mut step {
+        pick.drop_if_empty = drop_if_empty;
+    }
+    Ok(step)
 }
