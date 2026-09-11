@@ -1,6 +1,8 @@
 use snapbox::str;
 
-use super::util::sandbox_with_conflicted_commit;
+use super::util::{
+    add_worktree_with_commit, enable_worktree_manipulation, sandbox_with_conflicted_commit,
+};
 use crate::utils::{CommandExt, Sandbox};
 
 fn repo_with_unpushed_branch() -> Sandbox {
@@ -22,6 +24,47 @@ fn repo_with_unpushed_branch() -> Sandbox {
         .success();
 
     env
+}
+
+/// [`repo_with_unpushed_branch()`] with the worktree flag on and a linked worktree on the new
+/// branch `wt`, with one commit of its own, resting on the unpushed `branchB`.
+fn repo_with_worktree_on_unpushed_branch() -> Sandbox {
+    let env = repo_with_unpushed_branch();
+    enable_worktree_manipulation(&env);
+    // Worktrees that predate the first flag-on read are adopted as archived.
+    env.but("worktree list").assert().success();
+    add_worktree_with_commit(&env, "wt", "branchB");
+    env
+}
+
+#[test]
+fn pushing_a_worktree_branch_pushes_what_it_rests_on_first() {
+    let env = repo_with_worktree_on_unpushed_branch();
+
+    env.but("push wt").assert().success().stdout_eq(str![[r#"
+
+✓ Push completed successfully
+
+  branchB -> origin/branchB ((new branch) -> 7566fe0)
+  wt -> origin/wt ((new branch) -> 9da8421)
+
+"#]]);
+}
+
+#[test]
+fn bare_push_includes_worktree_lanes() {
+    let env = repo_with_worktree_on_unpushed_branch();
+
+    // Stacks push before worktrees, so `wt` finds `branchB` already current.
+    env.but("push").assert().success().stdout_eq(str![[r#"
+
+✓ Successfully pushed 3 commits
+
+  branchB -> origin/branchB ((new branch) -> 7566fe0)
+  A -> origin/A ((new branch) -> 9477ae7)
+  wt -> origin/wt ((new branch) -> 9da8421)
+
+"#]]);
 }
 
 fn shell_quote_path(path: &std::path::Path) -> String {
@@ -303,6 +346,22 @@ fn push_refuses_conflicted_commits_on_ancestors() {
     // refuse the push even though B itself is clean.
     env.but("push B").assert().failure().stderr_eq(str![[r#"
 Error: Cannot push branch 'B': the push would include 1 conflicted commit.
+Conflicted commits: [..]
+Please resolve conflicts before pushing using 'but resolve <commit>'.
+
+"#]]);
+}
+
+#[test]
+fn push_refuses_conflicted_commits_in_anonymous_segments_beneath_a_worktree() {
+    let env = sandbox_with_conflicted_commit();
+    enable_worktree_manipulation(&env);
+    env.but("worktree list").assert().success();
+    add_worktree_with_commit(&env, "W", "A");
+    env.invoke_git("update-ref refs/heads/A A~1");
+
+    env.but("push W").assert().failure().stderr_eq(str![[r#"
+Error: Cannot push branch 'W': the push would include 1 conflicted commit.
 Conflicted commits: [..]
 Please resolve conflicts before pushing using 'but resolve <commit>'.
 

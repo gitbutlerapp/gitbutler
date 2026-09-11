@@ -331,6 +331,35 @@ impl Segment {
     pub fn tip(&self) -> Option<gix::ObjectId> {
         self.commits.first().map(|commit| commit.id)
     }
+
+    /// Return the name of the branch at the tip of the segment, if present.
+    pub fn ref_name(&self) -> Option<&gix::refs::FullNameRef> {
+        self.ref_info.as_ref().map(|ri| ri.ref_name.as_ref())
+    }
+}
+
+/// A stack or a worktree as the push and review machinery sees it: its segments from tip to base,
+/// and the commit owned by another lane that the bottom segment rests on, if any.
+///
+/// Stacks rest on the target, as do worktrees based outside the workspace or on unrelated history,
+/// so only a worktree based inside the workspace has `rests_on` set.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct Lane<'a> {
+    /// The segments from tip to base, never empty.
+    pub segments: &'a [Segment],
+    /// The commit in another lane that the last segment rests on.
+    pub rests_on: Option<gix::ObjectId>,
+}
+
+impl<'a> Lane<'a> {
+    /// The segments from `index` down to the base.
+    pub fn segments_from(self, index: usize) -> &'a [Segment] {
+        self.segments.get(index..).unwrap_or_default()
+    }
+
+    fn segment_index(&self, matches: impl Fn(&Segment) -> bool) -> Option<usize> {
+        self.segments.iter().position(matches)
+    }
 }
 
 impl std::fmt::Debug for Segment {
@@ -662,6 +691,61 @@ fn forge_review_for_branch(
 }
 
 impl RefInfo {
+    /// Every lane, i.e. each stack followed by each worktree in tip order.
+    ///
+    /// A lane can only rest on a lane listed before it, so following [`Lane::rests_on`] always
+    /// terminates.
+    pub fn lanes(&self) -> impl Iterator<Item = Lane<'_>> {
+        self.stacks
+            .iter()
+            .map(|stack| Lane {
+                segments: &stack.segments,
+                rests_on: None,
+            })
+            .chain(self.worktrees.iter().map(|wt| Lane {
+                segments: &wt.segments,
+                rests_on: match wt.base {
+                    Some(crate::worktrees::WorktreeBase::InWorkspace(id)) => Some(id),
+                    Some(crate::worktrees::WorktreeBase::Outside(_)) | None => None,
+                },
+            }))
+    }
+
+    /// The lane holding `branch` along with the index of the branch's segment, followed by each
+    /// lane it rests on along with the index of the segment owning the commit rested on.
+    ///
+    /// The commit rested on may sit in the middle of that segment. The chain is empty if `branch`
+    /// names no segment of any lane.
+    pub fn lane_chain(&self, branch: &gix::refs::FullNameRef) -> Vec<(Lane<'_>, usize)> {
+        let Some((lane, index)) =
+            self.lane_and_segment(|segment| segment.ref_name() == Some(branch))
+        else {
+            return Vec::new();
+        };
+        let mut chain = vec![(lane, index)];
+        chain.extend(self.lanes_beneath(lane));
+        chain
+    }
+
+    /// The lanes `lane` rests on, nearest first, each along with the index of the segment owning
+    /// the commit rested on.
+    pub fn lanes_beneath(&self, lane: Lane<'_>) -> Vec<(Lane<'_>, usize)> {
+        let mut beneath = Vec::new();
+        let mut rests_on = lane.rests_on;
+        while let Some((lane, index)) = rests_on.and_then(|id| {
+            self.lane_and_segment(|segment| segment.commits.iter().any(|c| c.id == id))
+        }) {
+            beneath.push((lane, index));
+            rests_on = lane.rests_on;
+        }
+        beneath
+    }
+
+    fn lane_and_segment(&self, matches: impl Fn(&Segment) -> bool) -> Option<(Lane<'_>, usize)> {
+        self.lanes()
+            .find_map(|lane| lane.segment_index(&matches).map(|index| (lane, index)))
+    }
+
     /// The segments of every lane, i.e. of each stack and each worktree.
     pub(crate) fn lane_segments_mut(&mut self) -> impl Iterator<Item = &mut Vec<Segment>> {
         self.stacks

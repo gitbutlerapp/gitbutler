@@ -27,7 +27,7 @@ export type DownstackPushStatus = {
 	downstackBranches: number;
 };
 
-const emptyDownstackPushStatus: DownstackPushStatus = {
+export const emptyDownstackPushStatus: DownstackPushStatus = {
 	anyRequiresPush: false,
 	anyPushRequiresForce: false,
 	anyHasConflicts: false,
@@ -49,12 +49,16 @@ const concatDownstackPushStatus = (
 	downstackBranches: x.downstackBranches + y.downstackBranches,
 });
 
-const toDownstackPushStatus = (segment: Segment): DownstackPushStatus => ({
-	anyRequiresPush: pushStatusRequiresPush(segment.pushStatus),
-	anyPushRequiresForce: segment.pushStatus === "unpushedCommitsRequiringForce",
-	anyHasConflicts: segment.commits.some((commit) => commit.hasConflicts),
-	downstackBranches: segment.refName ? 1 : 0,
-});
+// Nothing pushes a segment without a branch, so it adds nothing to what rests on it.
+const toDownstackPushStatus = (segment: Segment): DownstackPushStatus =>
+	segment.refName === null
+		? emptyDownstackPushStatus
+		: {
+				anyRequiresPush: pushStatusRequiresPush(segment.pushStatus),
+				anyPushRequiresForce: segment.pushStatus === "unpushedCommitsRequiringForce",
+				anyHasConflicts: segment.commits.some((commit) => commit.hasConflicts),
+				downstackBranches: 1,
+			};
 
 export const downstackPushStatusDisabled = (dps: DownstackPushStatus): boolean =>
 	!dps.anyRequiresPush || dps.anyHasConflicts;
@@ -65,13 +69,25 @@ export const downstackPushStatusFromSegments = (segments: Array<Segment>): Downs
 		emptyDownstackPushStatus,
 	);
 
+/**
+ * Per segment, what a push from it covers: itself, the segments below, and
+ * `beneath`, which is what the last segment rests on. A stack rests on the
+ * target, a worktree lane on a commit of another lane whose push it also makes.
+ */
 export const downstackPushStatusesFromSegments = (
 	segments: Array<Segment>,
+	beneath: DownstackPushStatus = emptyDownstackPushStatus,
 ): Array<DownstackPushStatus> =>
 	segments.reduceRight((acc, segment, idx) => {
-		acc[idx] = concatDownstackPushStatus(
-			acc[idx + 1] ?? emptyDownstackPushStatus,
-			toDownstackPushStatus(segment),
-		);
+		acc[idx] = concatDownstackPushStatus(acc[idx + 1] ?? beneath, toDownstackPushStatus(segment));
 		return acc;
 	}, [] as Array<DownstackPushStatus>);
+
+export const downstackPushLabel = (dps: DownstackPushStatus): string =>
+	dps.downstackBranches > 1
+		? dps.anyPushRequiresForce
+			? "Force Push With Branches Below"
+			: "Push With Branches Below"
+		: dps.anyPushRequiresForce
+			? "Force Push Branch"
+			: "Push Branch";

@@ -214,7 +214,7 @@ fn handle_dry_run(
     // Get detailed information for each branch
     let mut dry_run_infos = Vec::new();
 
-    let stacks = crate::legacy::workspace::applied_stacks_with_expensive_commit_info(ctx)?;
+    let lanes = crate::legacy::workspace::applied_lanes_with_expensive_commit_info(ctx)?;
 
     // Limit the shared lock to target resolution before continuing with dry-run analysis.
     let fallback_remote = {
@@ -231,11 +231,9 @@ fn handle_dry_run(
     let repo = ctx.repo.get()?.clone().for_commit_shortening();
     let remote_names = repo.remote_names();
     for (branch_name, unpushed_count, stack_name) in &branches_to_show {
-        // Find the stack containing this branch
-        for stack_entry in &stacks {
-            if stack_entry.id.is_some()
-                && let Some(branch_detail) = stack_entry.branch(branch_name)
-            {
+        // Find the lane containing this branch
+        for stack_entry in &lanes {
+            if let Some(branch_detail) = stack_entry.branch(branch_name) {
                 let remote_ref = match repo
                     .branch_remote_tracking_ref_name(
                         branch_detail.reference.as_ref(),
@@ -949,15 +947,13 @@ struct PushCandidate {
     includes: Vec<String>,
 }
 
-/// Returns one push candidate per stack that has unpushed commits.
+/// Returns one push candidate per lane that has unpushed commits. Lanes come stacks first,
+/// then worktrees in tip order, so whatever a worktree rests on is pushed before it.
 fn get_push_candidates(ctx: &Context) -> anyhow::Result<Vec<PushCandidate>> {
-    let stacks = crate::legacy::workspace::applied_stacks_with_expensive_commit_info(ctx)?;
+    let lanes = crate::legacy::workspace::applied_lanes_with_expensive_commit_info(ctx)?;
 
     let mut candidates = Vec::new();
-    for stack in &stacks {
-        if stack.id.is_none() {
-            continue;
-        }
+    for stack in &lanes {
         // Branches are ordered topmost-first; the first one with unpushed
         // commits is the candidate, everything below it comes along.
         let mut unpushed = stack.branches.iter().filter_map(|branch| {
@@ -1007,25 +1003,23 @@ fn branch_unpushed_count(branch: &crate::legacy::workspace::HeadInfoBranch) -> u
 }
 
 fn get_branches_with_unpushed_info(ctx: &Context) -> anyhow::Result<Vec<(String, usize, String)>> {
-    let stacks = crate::legacy::workspace::applied_stacks_with_expensive_commit_info(ctx)?;
+    let lanes = crate::legacy::workspace::applied_lanes_with_expensive_commit_info(ctx)?;
 
     let mut branches_info = Vec::new();
 
-    for stack in stacks {
-        if stack.id.is_some() {
-            let stack_name = stack
-                .top_branch_name()
-                .map(ToOwned::to_owned)
-                .unwrap_or_else(|| "unnamed".to_string());
+    for stack in lanes {
+        let stack_name = stack
+            .top_branch_name()
+            .map(ToOwned::to_owned)
+            .unwrap_or_else(|| "unnamed".to_string());
 
-            // Get branch names from the heads
-            for branch in &stack.branches {
-                branches_info.push((
-                    branch.name.clone(),
-                    branch_unpushed_count(branch),
-                    stack_name.clone(),
-                ));
-            }
+        // Get branch names from the heads
+        for branch in &stack.branches {
+            branches_info.push((
+                branch.name.clone(),
+                branch_unpushed_count(branch),
+                stack_name.clone(),
+            ));
         }
     }
 
@@ -1138,6 +1132,11 @@ fn resolve_branch_name(
 
     match &cli_ids[0] {
         CliId::Branch(branch) => Ok(branch.name.clone()),
+        CliId::Worktree { name, .. } => {
+            let repo = ctx.repo.get()?;
+            let branch = crate::utils::worktrees::worktree_branch(&repo, name.as_ref())?;
+            Ok(branch.shorten().to_string())
+        }
         _ => Err(anyhow::anyhow!(
             "Expected branch identifier, got {}. Please use a branch name or branch CLI ID.",
             cli_ids[0].kind_for_humans()
@@ -1146,10 +1145,10 @@ fn resolve_branch_name(
 }
 
 fn get_available_branch_names(ctx: &Context) -> anyhow::Result<Vec<String>> {
-    let stacks = crate::legacy::workspace::applied_stacks(ctx)?;
+    let lanes = crate::legacy::workspace::applied_lanes_with_expensive_commit_info(ctx)?;
     let mut branch_names = Vec::new();
 
-    for stack in stacks {
+    for stack in lanes {
         for branch in &stack.branches {
             branch_names.push(branch.name.clone());
         }
@@ -1224,63 +1223,50 @@ fn gerrit_review_ref(
 }
 
 /// Check if a push of this branch would include any conflicted commits.
-/// The push covers the branch and its stack ancestors, so those are checked
-/// too. Returns an error if conflicted commits are found.
+/// The push covers the branch and everything beneath it, named by a branch
+/// or not, so all of that is checked. Returns an error if conflicted commits
+/// are found.
 fn check_for_conflicted_commits(ctx: &Context, branch_name: &str) -> anyhow::Result<()> {
-    let stacks = crate::legacy::workspace::applied_stacks_with_expensive_commit_info(ctx)?;
+    let branch = gix::refs::Category::LocalBranch.to_full_name(branch_name)?;
+    let Some(commits) =
+        crate::legacy::workspace::push_scope_with_expensive_commit_info(ctx, branch.as_ref())?
+    else {
+        anyhow::bail!("Branch '{branch_name}' not found when checking for conflicts");
+    };
 
-    let repo = ctx.repo.get()?.clone().for_commit_shortening();
-    // Find the stack containing this branch.
-    for stack in &stacks {
-        if stack.id.is_some()
-            && let Some(position) = stack.branches.iter().position(|b| b.name == branch_name)
-        {
-            // Branches are ordered topmost-first; the push includes the
-            // branch and everything below it.
-            let conflicted: Vec<gix::ObjectId> = stack.branches[position..]
-                .iter()
-                .flat_map(|branch| &branch.commits)
-                .filter(|c| c.has_conflicts)
-                .map(|c| c.id)
-                .collect();
-            // Only pay for the map when the error actually prints.
-            let id_map = (!conflicted.is_empty())
-                .then(|| crate::IdMap::legacy_new_from_context(ctx).ok())
-                .flatten();
-            let conflicted_commits: Vec<String> = conflicted
-                .iter()
-                .map(|id| {
-                    id_map
-                        .as_ref()
-                        .and_then(|id_map| id_map.change_id_ref(*id))
-                        .map(|change_id| change_id.padded_short_id())
-                        .unwrap_or_else(|| shorten_object_id(&repo, *id))
-                })
-                .collect();
-
-            if !conflicted_commits.is_empty() {
-                return Err(anyhow::anyhow!(
-                    "Cannot push branch '{}': the push would include {} conflicted commit{}.\n\
-                         Conflicted commits: {}\n\
-                         Please resolve conflicts before pushing using 'but resolve <commit>'.",
-                    branch_name,
-                    conflicted_commits.len(),
-                    if conflicted_commits.len() == 1 {
-                        ""
-                    } else {
-                        "s"
-                    },
-                    conflicted_commits.join(", ")
-                ));
-            }
-
-            return Ok(());
-        }
+    let conflicted: Vec<gix::ObjectId> = commits
+        .iter()
+        .filter(|c| c.has_conflicts)
+        .map(|c| c.id)
+        .collect();
+    if conflicted.is_empty() {
+        return Ok(());
     }
-
-    // Branch not found - this shouldn't happen as we validate earlier
+    let repo = ctx.repo.get()?.clone().for_commit_shortening();
+    // Only pay for the map when the error actually prints.
+    let id_map = crate::IdMap::legacy_new_from_context(ctx).ok();
+    let conflicted_commits: Vec<String> = conflicted
+        .iter()
+        .map(|id| {
+            id_map
+                .as_ref()
+                .and_then(|id_map| id_map.change_id_ref(*id))
+                .map(|change_id| change_id.padded_short_id())
+                .unwrap_or_else(|| shorten_object_id(&repo, *id))
+        })
+        .collect();
     Err(anyhow::anyhow!(
-        "Branch '{branch_name}' not found when checking for conflicts"
+        "Cannot push branch '{}': the push would include {} conflicted commit{}.\n\
+             Conflicted commits: {}\n\
+             Please resolve conflicts before pushing using 'but resolve <commit>'.",
+        branch_name,
+        conflicted_commits.len(),
+        if conflicted_commits.len() == 1 {
+            ""
+        } else {
+            "s"
+        },
+        conflicted_commits.join(", ")
     ))
 }
 

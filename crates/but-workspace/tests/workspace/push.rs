@@ -46,12 +46,19 @@ fn head_info(
     repo: &gix::Repository,
     meta: &but_meta::VirtualBranchesTomlMetadata,
 ) -> anyhow::Result<(RefInfo, but_graph::Workspace)> {
+    let mut db = but_testsupport::project_db(repo)?;
+    // Adoption already ran, so the fixture worktrees count as active.
+    db.worktree_meta_mut().mark_adopted()?;
     but_workspace::head_info_and_workspace(
         repo,
         meta,
-        &mut but_testsupport::project_db(repo)?,
+        &mut db,
         Options {
             project_meta: project_meta(repo)?,
+            traversal: but_graph::init::Options {
+                worktrees: true,
+                ..Default::default()
+            },
             expensive_commit_info: true,
             ..Default::default()
         },
@@ -107,9 +114,8 @@ fn apply_remote_tracking_updates(
 }
 
 fn status(info: &RefInfo, branch: &str) -> but_workspace::ui::PushStatus {
-    info.stacks
-        .iter()
-        .flat_map(|stack| &stack.segments)
+    info.lanes()
+        .flat_map(|lane| lane.segments)
         .find(|segment| {
             segment
                 .ref_info
@@ -126,11 +132,10 @@ fn logical_scope(info: &RefInfo, branch: &str) -> Vec<String> {
         .expect("valid fixture branch name");
     but_workspace::legacy::push::branch_and_ancestor_segments(info, branch.as_ref())
         .values()
-        .filter_map(|segment| {
+        .map(|segment| {
             segment
-                .ref_info
-                .as_ref()
-                .map(|ref_info| ref_info.ref_name.shorten().to_string())
+                .ref_name()
+                .map_or("<anon>".to_string(), |name| name.shorten().to_string())
         })
         .collect()
 }
@@ -149,6 +154,80 @@ fn logical_push_scope_is_selected_branch_plus_ancestors() -> anyhow::Result<()> 
         "an unrelated stack must not enter the selected scope"
     );
 
+    Ok(())
+}
+
+fn pushed_branches(result: &gitbutler_git::PushResult) -> Vec<&str> {
+    result
+        .branch_to_remote
+        .iter()
+        .map(|(branch, _, _)| branch.as_str())
+        .collect()
+}
+
+#[test]
+fn logical_push_scope_crosses_into_the_lane_a_worktree_rests_on() -> anyhow::Result<()> {
+    let (_tmp, repo, meta) = fixture("push-worktree")?;
+    let (info, _) = head_info(&repo, &meta)?;
+
+    assert_eq!(
+        logical_scope(&info, "wt-on-middle"),
+        ["wt-on-middle", "middle", "bottom"],
+        "a worktree resting on a stack branch continues into that branch and its ancestors"
+    );
+    assert_eq!(
+        logical_scope(&info, "wt-top"),
+        ["wt-top", "wt-bottom"],
+        "a worktree based on the target is a stack of its own"
+    );
+    assert_eq!(
+        logical_scope(&info, "top"),
+        ["top", "middle", "bottom"],
+        "a worktree resting on the stack does not enter the stack's own scope"
+    );
+    Ok(())
+}
+
+#[test]
+fn pushing_a_worktree_branch_pushes_the_stack_branches_beneath_it() -> anyhow::Result<()> {
+    let (_tmp, repo, meta) = fixture("push-worktree")?;
+
+    let result = push(
+        &repo,
+        &meta,
+        r("refs/heads/wt-on-middle"),
+        false,
+        false,
+        false,
+    )?;
+    assert_eq!(
+        pushed_branches(&result),
+        ["bottom", "middle", "wt-on-middle"],
+        "the stack branches beneath the worktree go first, bottom-up"
+    );
+
+    apply_remote_tracking_updates(&repo, &result)?;
+    let (info, _) = head_info(&repo, &meta)?;
+    assert_eq!(status(&info, "bottom"), NothingToPush);
+    assert_eq!(status(&info, "middle"), NothingToPush);
+    assert_eq!(status(&info, "wt-on-middle"), NothingToPush);
+    assert_eq!(
+        status(&info, "top"),
+        CompletelyUnpushed,
+        "the stack branch above the base is not beneath the worktree"
+    );
+    assert_eq!(
+        status(&info, "wt-bottom"),
+        CompletelyUnpushed,
+        "an unrelated worktree is untouched"
+    );
+
+    let result = push(&repo, &meta, r("refs/heads/wt-top"), false, false, false)?;
+    assert_eq!(
+        pushed_branches(&result),
+        ["wt-bottom", "wt-top"],
+        "an independent worktree stack pushes like a workspace stack"
+    );
     Ok(())
 }
 

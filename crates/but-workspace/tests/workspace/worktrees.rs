@@ -233,6 +233,75 @@ fn worktrees_are_projected_onto_the_workspace() -> Result<()> {
 }
 
 #[test]
+fn lane_chains_follow_what_worktrees_rest_on() -> Result<()> {
+    let (repo, _tmp) = writable_scenario_slow("worktree-workspace");
+    let mut meta = but_meta::VirtualBranchesTomlMetadata::from_path(
+        repo.path().join("should-never-be-written.toml"),
+    )?;
+    add_workspace(&mut meta);
+    add_stack(&mut meta, 1, "A", StackState::InWorkspace);
+    add_stack(&mut meta, 2, "B", StackState::InWorkspace);
+    let info = ref_info_with_worktree_tips(&repo, &meta)?;
+
+    let chain = |branch: &str| -> Vec<Vec<String>> {
+        let branch = gix::refs::Category::LocalBranch
+            .to_full_name(branch)
+            .expect("valid fixture branch name");
+        info.lane_chain(branch.as_ref())
+            .into_iter()
+            .map(|(lane, index)| {
+                lane.segments_from(index)
+                    .iter()
+                    .map(|segment| {
+                        segment
+                            .ref_name()
+                            .map_or("<anon>".to_string(), |name| name.shorten().to_string())
+                    })
+                    .collect()
+            })
+            .collect()
+    };
+    let lanes = |lanes: &[&[&str]]| -> Vec<Vec<String>> {
+        lanes
+            .iter()
+            .map(|lane| lane.iter().map(|s| s.to_string()).collect())
+            .collect()
+    };
+
+    assert_eq!(chain("A"), lanes(&[&["A"]]), "a stack rests on the target");
+    assert_eq!(
+        chain("wt-outside"),
+        lanes(&[&["wt-outside"]]),
+        "a worktree based on the target rests on nothing"
+    );
+    assert_eq!(
+        chain("disjoint"),
+        lanes(&[&["disjoint"]]),
+        "unrelated history has nothing beneath it"
+    );
+    assert_eq!(
+        chain("wt-stacked"),
+        lanes(&[&["wt-stacked"], &["wt-inside"], &["A"]]),
+        "a worktree on a worktree on a stack walks through both"
+    );
+    assert_eq!(
+        chain("top"),
+        lanes(&[&["top", "mid"], &["<anon>"], &["A"]]),
+        "the chain enters the detached worktree at its anonymous segment"
+    );
+    assert_eq!(
+        chain("mid"),
+        lanes(&[&["mid"], &["<anon>"], &["A"]]),
+        "a lower branch of a worktree stack starts its chain at its own segment"
+    );
+    assert!(
+        chain("nope").is_empty(),
+        "a branch outside every lane has no chain"
+    );
+    Ok(())
+}
+
+#[test]
 fn worktrees_are_empty_without_seeded_tips() -> Result<()> {
     let mut db = but_testsupport::in_memory_db();
     let (repo, _tmp) = writable_scenario_slow("worktree-workspace");

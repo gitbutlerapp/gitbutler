@@ -69,7 +69,11 @@ import { insertBlankCommitMenuItem } from "./insertBlankCommitMenuItem.ts";
 import { ItemRow } from "./ItemRow.tsx";
 import { useStackMenuItems } from "./useStackMenuItems.ts";
 import { ciChecksSummaryUrl, type AggregateCIChecks } from "#ui/ci.ts";
-import { type DownstackPushStatus, downstackPushStatusDisabled } from "#ui/segment.ts";
+import {
+	type DownstackPushStatus,
+	downstackPushLabel,
+	downstackPushStatusDisabled,
+} from "#ui/segment.ts";
 
 export type PushActivity = "idle" | "blocked" | "pushing";
 
@@ -333,13 +337,7 @@ export const BranchRow: FC<
 	const workspaceBranchAndAncestorsPushDisabled =
 		pushActivity !== "idle" || downstackPushStatusDisabled(downstackPushStatus);
 
-	const pushMenuLabel = pushesMultipleBranches
-		? downstackPushStatus.anyPushRequiresForce
-			? "Force Push With Branches Below"
-			: "Push With Branches Below"
-		: downstackPushStatus.anyPushRequiresForce
-			? "Force Push Branch"
-			: "Push Branch";
+	const pushMenuLabel = downstackPushLabel(downstackPushStatus);
 
 	const foldLabel = isFolded ? "Unfold commits" : "Fold commits";
 	const incomingExpanded = useAppSelector((state) =>
