@@ -543,7 +543,7 @@ fn unapply_stack_v3_with_perm(
         .context("Unapplying a stack requires open workspace mode")?;
 
     let assigned_diffspec = assigned_diffspec_for_stack(ctx, stack_id, perm.read_permission())?;
-    let stack_branches = stack_branch_names(ctx, stack_id, perm)?;
+    let stack_branches = stack_branch_names(ctx, stack_id, perm.read_permission())?;
     let Some(branch_to_unapply) = stack_branches.first().cloned() else {
         return Ok(());
     };
@@ -587,9 +587,9 @@ fn unapply_stack_v3_with_perm(
 fn stack_branch_names(
     ctx: &mut Context,
     stack_id: StackId,
-    perm: &mut RepoExclusive,
+    perm: &RepoShared,
 ) -> Result<Vec<gix::refs::FullName>> {
-    let (_repo, ws, _) = ctx.workspace_mut_and_db_with_perm(perm)?;
+    let (_repo, ws, _) = ctx.workspace_and_db_with_perm(perm)?;
     let Some(stack) = ws.stacks.iter().find(|stack| stack.id == Some(stack_id)) else {
         return Err(
             anyhow!("branch with ID {stack_id} not found").context(but_error::Code::BranchNotFound)
