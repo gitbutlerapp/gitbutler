@@ -128,3 +128,85 @@ export const branchDetailsParams = (
 		? { branchName, remote }
 		: { branchName: refName.replace(/^refs\/heads\//, ""), remote: null };
 };
+
+export type BranchGrouping = "state" | "author" | "recent";
+export type BranchListGroup = { key: string; label: string; count: number; collapsed: boolean };
+type GroupedBranch = { branch: ListedBranch; isTopBranch: boolean; isStacked: boolean };
+type BranchListSection = {
+	key: string;
+	group?: BranchListGroup;
+	branches: Array<GroupedBranch>;
+	grouped: boolean;
+};
+
+export const branchListSections = (
+	stacks: Array<ListedStack>,
+	grouping: BranchGrouping,
+	collapsedGroups: Record<string, boolean>,
+): Array<BranchListSection> => {
+	const entries = stacks.map((stack) =>
+		stack.branches.map((branch, index) => ({
+			branch,
+			isTopBranch: index === 0,
+			isStacked: stack.branches.length > 1,
+		})),
+	);
+	if (grouping === "recent") {
+		return entries.flatMap((branches) => {
+			const first = branches[0];
+			return first ? [{ key: first.branch.refName.full, branches, grouped: false }] : [];
+		});
+	}
+	const labels: Record<string, string> = {
+		open: "Open",
+		draft: "Draft",
+		none: "No pull request",
+		merged: "Merged",
+		closed: "Closed",
+	};
+	const groups = new Map<string, Array<GroupedBranch>>();
+	for (const stack of entries) {
+		for (const entry of stack) {
+			const value =
+				grouping === "state"
+					? (entry.branch.reviewStatus ?? "none")
+					: (entry.branch.review?.author?.login ??
+						entry.branch.lastAuthor?.name ??
+						"Unknown author");
+			const members = groups.get(value);
+			if (members) members.push(entry);
+			else groups.set(value, [entry]);
+		}
+	}
+	const keys =
+		grouping === "state"
+			? Object.keys(labels).filter((key) => groups.has(key))
+			: Array.from(groups.keys()).sort((a, b) => a.localeCompare(b));
+	return keys.flatMap((value): Array<BranchListSection> => {
+		const branches = groups.get(value);
+		if (!branches) return [];
+		const key = `${grouping}:${value}`;
+		const collapsed =
+			collapsedGroups[key] ?? (grouping === "state" && (value === "merged" || value === "closed"));
+		return [
+			{
+				key,
+				group: {
+					key,
+					label: grouping === "state" ? (labels[value] ?? value) : value,
+					count: branches.length,
+					collapsed,
+				},
+				branches: [],
+				grouped: true,
+			},
+			...(collapsed
+				? []
+				: branches.map((entry) => ({
+						key: entry.branch.refName.full,
+						branches: [entry],
+						grouped: true,
+					}))),
+		];
+	});
+};

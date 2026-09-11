@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
 	activeBranchFilterCount,
+	branchListSections,
 	branchDetailsParams,
 	branchIsEmpty,
 	branchOwnCommits,
@@ -236,5 +237,55 @@ describe("branchDetailsParams", () => {
 			branchName: "feature/login",
 			remote: null,
 		});
+	});
+});
+
+describe("branch list sections", () => {
+	const withReview = (name: string, state: "open" | "draft" | "merged") =>
+		branch({
+			displayName: name,
+			reviewStatus: state,
+			review: {
+				title: name,
+				number: 1,
+				htmlUrl: "https://example.com/1",
+				unitSymbol: "#",
+				createdAt: null,
+				author: { login: "alice", name: null },
+				labels: [],
+			},
+		});
+	it("orders states and keeps merged work behind its collapsed header", () => {
+		const result = branchListSections(
+			[
+				stack([
+					withReview("merged", "merged"),
+					branch({ displayName: "bare" }),
+					withReview("draft", "draft"),
+					withReview("open", "open"),
+				]),
+			],
+			"state",
+			{},
+		);
+		expect(
+			result.map((section) => section.group?.label ?? section.branches[0]?.branch.displayName),
+		).toEqual(["Open", "open", "Draft", "draft", "No pull request", "bare", "Merged"]);
+		expect(result.at(-1)?.group).toMatchObject({ count: 1, collapsed: true });
+		const open = result.find((section) => section.branches[0]?.branch.displayName === "open");
+		expect(open?.branches[0]).toMatchObject({ isStacked: true, isTopBranch: false });
+	});
+	it("can expand merged work and group by author without losing bare branches", () => {
+		const input = [stack([withReview("merged", "merged"), branch({ displayName: "bare" })])];
+		expect(
+			branchListSections(input, "state", { "state:merged": false }).at(-1)?.branches[0]?.branch
+				.displayName,
+		).toBe("merged");
+		expect(
+			branchListSections(input, "author", {})
+				.filter((section) => section.group)
+				.map((section) => section.group?.label),
+		).toEqual(["alice", "Unknown author"]);
+		expect(branchListSections(input, "recent", {})).toHaveLength(1);
 	});
 });

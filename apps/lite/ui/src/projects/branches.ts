@@ -8,6 +8,7 @@ export type BranchFilter = keyof BranchFilters;
  * cursor table (`cursors.branches`), with every other list's.
  */
 export type BranchesState = {
+	collapsedGroups?: Record<string, boolean>;
 	filters: BranchFilters;
 	/**
 	 * The filter query, or `null` while the filter is closed — the list's header
@@ -83,6 +84,8 @@ export const writeStoredBranchFilters = (projectId: string, filters: BranchFilte
 	}
 };
 
+const EMPTY_GROUPS: Record<string, boolean> = {};
+
 const branchesSlice = createSlice({
 	name: "branches",
 	initialState,
@@ -117,6 +120,7 @@ const branchesSlice = createSlice({
 		},
 	},
 	selectors: {
+		selectCollapsedBranchGroups: (state) => state.collapsedGroups ?? EMPTY_GROUPS,
 		selectBranchFilters: (state) => state.filters,
 		selectBranchSearch: (state) => state.search,
 		selectUnfoldedBranches: (state) => state.unfolded,

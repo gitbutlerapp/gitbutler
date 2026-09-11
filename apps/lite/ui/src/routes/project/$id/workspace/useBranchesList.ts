@@ -1,8 +1,15 @@
-import { branchDetailsQueryOptions, branchListQueryOptions } from "#ui/api/queries.ts";
+import { defaultSettings } from "#ui/settings.ts";
+import {
+	branchDetailsQueryOptions,
+	branchListQueryOptions,
+	guiSettingsQueryOptions,
+} from "#ui/api/queries.ts";
 import { usePage } from "#ui/use-cursor.ts";
 import { encodeBytes } from "#ui/api/bytes.ts";
 import {
 	branchDetailsParams,
+	branchListSections,
+	type BranchListGroup,
 	branchIsEmpty,
 	branchOwnCommits,
 	searchStacks,
@@ -17,6 +24,8 @@ import { useQueries, useQuery, type UseQueryResult } from "@tanstack/react-query
 import { useDeferredValue } from "react";
 
 type BranchesListBranch = {
+	isTopBranch: boolean;
+	isStacked: boolean;
 	branch: ListedBranch;
 	addressIndex: number;
 	/**
@@ -27,6 +36,9 @@ type BranchesListBranch = {
 };
 
 type BranchesListStack = {
+	key: string;
+	group?: BranchListGroup;
+	grouped: boolean;
 	branches: Array<BranchesListBranch>;
 	commitCount: number;
 	reviewCount: number;
@@ -66,6 +78,14 @@ export const useBranchesList = (projectId: string): UseQueryResult<BranchesListC
 		projectSlice.selectors.selectUnfoldedBranches(state, projectId),
 	);
 
+	const { data: grouping = defaultSettings.branchGrouping } = useQuery({
+		...guiSettingsQueryOptions,
+		select: (cfg) => cfg.branchGrouping ?? defaultSettings.branchGrouping,
+	});
+	const collapsedGroups = useAppSelector((state) =>
+		projectSlice.selectors.selectCollapsedBranchGroups(state, projectId),
+	);
+
 	const unfoldedBranchRefs = Object.keys(unfoldedBranches);
 	const commitsByRef = useQueries({
 		queries: unfoldedBranchRefs.map((refName) => ({
@@ -87,38 +107,51 @@ export const useBranchesList = (projectId: string): UseQueryResult<BranchesListC
 		...branchListQueryOptions(projectId),
 		enabled: active,
 		select: (listedStacks): BranchesListContent => {
-			const unapplied = searchStacks(unappliedStacks(listedStacks, filters), search);
+			const unapplied = branchListSections(
+				searchStacks(unappliedStacks(listedStacks, filters), search),
+				grouping,
+				collapsedGroups,
+			);
 			const items: Array<Address> = [];
 			const stackIndexByAddressIndex: Array<number> = [];
 			const stacks = unapplied.map((stack, stackIndex): BranchesListStack => {
 				let commitCount = 0;
 				let reviewCount = 0;
-				const branches = stack.branches.map((branch): BranchesListBranch => {
-					if (branch.review !== null) reviewCount += 1;
-					const addressIndex = items.length;
-					items.push(branchAddress({ branchRef: encodeBytes(branch.refName.full) }));
-					stackIndexByAddressIndex.push(stackIndex);
+				const branches = stack.branches.map(
+					({ branch, isTopBranch, isStacked }): BranchesListBranch => {
+						if (branch.review !== null) reviewCount += 1;
+						const addressIndex = items.length;
+						items.push(branchAddress({ branchRef: encodeBytes(branch.refName.full) }));
+						stackIndexByAddressIndex.push(stackIndex);
 
-					const branchCommits = commitsByRef.get(branch.refName.full);
-					const commits =
-						unfoldedBranches[branch.refName.full] &&
-						!branchIsEmpty(branch) &&
-						branchCommits !== undefined
-							? branchOwnCommits(branch, branchCommits)
-							: undefined;
+						const branchCommits = commitsByRef.get(branch.refName.full);
+						const commits =
+							unfoldedBranches[branch.refName.full] &&
+							!branchIsEmpty(branch) &&
+							branchCommits !== undefined
+								? branchOwnCommits(branch, branchCommits)
+								: undefined;
 
-					if (commits !== undefined) {
-						commitCount += commits.length;
-						for (const commit of commits) {
-							items.push(commitAddress({ commitId: commit.id, changeId: commit.changeId }));
-							stackIndexByAddressIndex.push(stackIndex);
+						if (commits !== undefined) {
+							commitCount += commits.length;
+							for (const commit of commits) {
+								items.push(commitAddress({ commitId: commit.id, changeId: commit.changeId }));
+								stackIndexByAddressIndex.push(stackIndex);
+							}
 						}
-					}
 
-					return { branch, addressIndex, commits };
-				});
+						return { branch, addressIndex, commits, isTopBranch, isStacked };
+					},
+				);
 
-				return { branches, commitCount, reviewCount };
+				return {
+					key: stack.key,
+					group: stack.group,
+					grouped: stack.grouped,
+					branches,
+					commitCount,
+					reviewCount,
+				};
 			});
 
 			return {

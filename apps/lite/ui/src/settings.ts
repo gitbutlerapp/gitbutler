@@ -13,6 +13,7 @@ export const defaultSettings = {
 	diffFontFamily: "Geist Mono, Menlo, monospace",
 	diffFontSize: 12,
 	diffLigatures: false,
+	branchGrouping: "state",
 	diffOverflow: "wrap",
 	diffStyle: "split",
 	diffTabSize: 4,

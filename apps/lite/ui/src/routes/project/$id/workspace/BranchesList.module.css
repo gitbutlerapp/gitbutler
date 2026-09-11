@@ -109,3 +109,86 @@
 .branchRow .branchMeta {
 	font-size: 12px;
 }
+
+.groupControls {
+	display: flex;
+	align-items: center;
+	padding: 0 12px 8px;
+	gap: 8px;
+	color: var(--text-2);
+	font-size: 11px;
+}
+.groupHeader {
+	display: flex;
+	align-items: center;
+	width: 100%;
+	height: 28px;
+	padding: 0 12px;
+	gap: 6px;
+	border: 0;
+	background: var(--bg-2);
+	color: var(--text-2);
+	font-size: 10px;
+	font-family: "Geist Mono", monospace;
+	letter-spacing: 0.08em;
+	text-transform: uppercase;
+	> span {
+		margin-left: auto;
+		color: var(--text-3);
+	}
+}
+.groupedCard > div {
+	padding-block: 0;
+}
+.branchRef {
+	font-weight: 600;
+	font-size: 12px;
+	font-family: "Geist Mono", monospace;
+}
+.bareBranchMeta {
+	flex-shrink: 0;
+	align-self: center;
+	margin-left: auto;
+	color: var(--text-2);
+	font-size: 11px;
+	white-space: nowrap;
+}
+.prHeadline {
+	display: flex;
+	align-items: baseline;
+	min-width: 0;
+	padding-top: 6px;
+	gap: 6px;
+}
+.reviewLink {
+	align-self: baseline;
+	margin-left: auto;
+	border: 0;
+	background: none;
+	color: var(--text-2);
+	font-size: 11px;
+	font-family: "Geist Mono", monospace;
+}
+.stateDot {
+	flex-shrink: 0;
+	align-self: start;
+	width: 6px;
+	height: 6px;
+	margin-top: 8px;
+	border-radius: 50%;
+	background: var(--fill-safe-bg);
+	&[data-state="draft"] {
+		border: 1px solid var(--border-1);
+		background: transparent;
+	}
+	&[data-state="merged"] {
+		background: var(--commit-integrated);
+	}
+	&[data-state="closed"] {
+		background: var(--fill-danger-bg);
+	}
+}
+.branchRow .reviewMeta {
+	color: var(--text-2);
+	font-size: 11px;
+}

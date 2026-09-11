@@ -1,14 +1,18 @@
+import { guiSettingsQueryOptions } from "#ui/api/queries.ts";
+import { useSaveGUISettings } from "#ui/api/mutations.ts";
+import { defaultSettings } from "#ui/settings.ts";
+import { useQuery } from "@tanstack/react-query";
+import { ToggleGroupStyles, ToggleStyles } from "#ui/components/ToggleGroup.tsx";
+import type { BranchGrouping } from "#ui/branch.ts";
 import rowStyles from "./Row.module.css";
 import uiStyles from "#ui/components/ui.module.css";
 import { useBranchRemove } from "#ui/api/mutations.ts";
 import { decodeBytes, encodeBytes } from "#ui/api/bytes.ts";
-import { assert } from "#ui/assert.ts";
 import { activeBranchFilterCount, branchIsEmpty, type BranchFilters } from "#ui/branch.ts";
 import { commitIsDiverged, commitTitle } from "#ui/commit.ts";
-import { Badge, type BadgeVariant } from "#ui/components/Badge.tsx";
+import { Badge } from "#ui/components/Badge.tsx";
 import { getButtonClassName } from "#ui/components/Button.tsx";
 import { BranchRowHeadline } from "./BranchRowHeadline.tsx";
-import type { IconName } from "#ui/components/iconNames.ts";
 import { classes } from "#ui/components/classes.ts";
 import { EmptyState } from "#ui/components/EmptyState.tsx";
 import {
@@ -31,8 +35,8 @@ import { useAutofocusScope, useAddressSpaceHotkeys, type FocusScope } from "#ui/
 import { useAppDispatch, useAppSelector } from "#ui/store.ts";
 import { RelativeTime } from "#ui/components/RelativeTime.tsx";
 import { getRangeExtractorWithIndices } from "#ui/virtual.ts";
-import type { BranchReviewStatus, Commit, ListedBranch } from "@gitbutler/but-sdk";
-import { Toolbar } from "@base-ui/react";
+import type { Commit, ListedBranch } from "@gitbutler/but-sdk";
+import { Toolbar, Toggle, ToggleGroup } from "@base-ui/react";
 import { useMergedRefs } from "@base-ui/utils/useMergedRefs";
 import { useHotkey } from "@tanstack/react-hotkeys";
 import { type Range, useVirtualizer } from "@tanstack/react-virtual";
@@ -41,6 +45,7 @@ import {
 	type FC,
 	Fragment,
 	type RefObject,
+	type ReactNode,
 	useCallback,
 	useId,
 	useLayoutEffect,
@@ -54,7 +59,6 @@ import {
 	RowLabelContainer,
 	RowLabelGroup,
 	RowMeta,
-	RowMetaSeparator,
 	RowToolbar,
 	SectionHeaderRow,
 } from "./Row.tsx";
@@ -86,16 +90,6 @@ const filterMenuLabels: Array<[keyof BranchFilters, string]> = [
 	["onlyLocal", "Show Only Local Branches"],
 	["onlyStacks", "Show Only Stacks"],
 ];
-
-const reviewStates: Record<
-	BranchReviewStatus,
-	{ label: string; variant: BadgeVariant; icon: IconName }
-> = {
-	open: { label: "Open", variant: "safe", icon: "pr" },
-	draft: { label: "Draft", variant: "lightGray", icon: "pr-draft" },
-	merged: { label: "Merged", variant: "purple", icon: "branch-merge" },
-	closed: { label: "Closed", variant: "danger", icon: "pr-close" },
-};
 
 /**
  * The graph has no remote-only state, so a branch that exists only on a remote
@@ -286,6 +280,89 @@ const BranchCommits: FC<{
 	);
 };
 
+type BranchRowProps = {
+	branch: ListedBranch;
+	rowProps: ComponentProps<typeof Row>;
+	leading: ReactNode;
+	actions: ReactNode;
+	now: number;
+};
+
+const BranchAge: FC<{ branch: ListedBranch; now: number }> = ({ branch, now }) => (
+	<>
+		{branch.commitCount !== null && (
+			<span>
+				{branch.commitCount} {branch.commitCount === 1 ? "commit" : "commits"}
+			</span>
+		)}
+		{branch.updatedAtMs !== null && (
+			<>
+				<span aria-hidden="true"> · </span>
+				<RelativeTime timestamp={branch.updatedAtMs} now={now} compact />
+			</>
+		)}
+	</>
+);
+
+const BareBranchRow: FC<BranchRowProps> = ({ branch, rowProps, leading, actions, now }) => (
+	<Row {...rowProps} className={styles.bareBranchRow}>
+		{leading}
+		<RowLabelContainer>
+			<RowLabel singleLine className={styles.branchRef} title={branch.displayName}>
+				{branch.displayName}
+			</RowLabel>
+		</RowLabelContainer>
+		<span className={styles.bareBranchMeta}>
+			<BranchAge branch={branch} now={now} />
+		</span>
+		{actions}
+	</Row>
+);
+
+const PullRequestBranchRow: FC<
+	BranchRowProps & {
+		review: NonNullable<ListedBranch["review"]>;
+		descriptionId: string;
+		openReview: () => Promise<void>;
+	}
+> = ({ branch, rowProps, leading, actions, now, review, descriptionId, openReview }) => (
+	<Row {...rowProps} className={styles.branchRow}>
+		{leading}
+		<RowLabelGroup id={descriptionId}>
+			<div className={styles.prHeadline}>
+				<span
+					className={styles.stateDot}
+					data-state={branch.reviewStatus}
+					aria-label={branch.reviewStatus ?? "open"}
+				/>
+				<BranchRowHeadline title={review.title} labels={review.labels} />
+				<button
+					type="button"
+					className={styles.reviewLink}
+					aria-label={`Open ${review.unitSymbol}${review.number} in browser`}
+					onClick={() => void openReview()}
+				>
+					{review.unitSymbol}
+					{review.number}
+				</button>
+			</div>
+			<RowMeta className={styles.branchRef} title={branch.displayName}>
+				{branch.displayName}
+			</RowMeta>
+			<RowMeta className={styles.reviewMeta}>
+				{review.author && (
+					<>
+						<span>{review.author.login}</span>
+						<span aria-hidden="true">·</span>
+					</>
+				)}
+				<BranchAge branch={branch} now={now} />
+			</RowMeta>
+		</RowLabelGroup>
+		{actions}
+	</Row>
+);
+
 const BranchItem: FC<{
 	projectId: string;
 	branch: ListedBranch;
@@ -334,8 +411,6 @@ const BranchItem: FC<{
 	const railGlyph: GraphSegmentGlyph = isTopBranch ? "forkRight" : "joinRight";
 
 	const review = branch.review;
-	const reviewState = branch.reviewStatus === null ? null : reviewStates[branch.reviewStatus];
-	const createdAt = review?.createdAt != null ? Date.parse(review.createdAt) : Number.NaN;
 
 	const { isPending: isApplyPending, apply } = useApplyToWorkspace(projectId);
 	const { isPending: isBranchRemovePending, mutate: branchRemove } = useBranchRemove(projectId);
@@ -371,15 +446,37 @@ const BranchItem: FC<{
 		}),
 	];
 
-	const lastAuthorName = branch.lastAuthor?.name;
-
-	const showsAuthorMeta = lastAuthorName !== undefined || branch.updatedAtMs !== null;
-	/* The branch's own commits, matching what unfolding reveals.
-	   commitsAheadOfTarget would also count the branches below it in a stack, so
-	   every row above the bottom would overstate. Only while folded: the count
-	   stands in for the commits it hides, so showing it alongside them would just
-	   be noise. */
-	const showsCommitCount = !unfolded && branch.commitCount !== null && branch.commitCount > 0;
+	const rowProps: ComponentProps<typeof Row> = {
+		isSelected,
+		onSelect: () => setCursor("unapplied", address),
+		onContextMenu: (event) => {
+			void showNativeContextMenu(event, menuItems);
+		},
+	};
+	const leading = canUnfold ? (
+		<RowFoldToggle
+			folded={!unfolded}
+			aria-label={unfolded ? "Fold commits" : "Unfold commits"}
+			onClick={toggleUnfolded}
+			glyph={<GraphSegment glyph={railGlyph} status={branchGraphStatus(branch)} />}
+		/>
+	) : (
+		<GraphSegment glyph={railGlyph} status={branchGraphStatus(branch)} />
+	);
+	const actions = (
+		<Toolbar.Root aria-label="Branch actions" render={<RowToolbar reserveSpace />}>
+			{isApplyPending && <Icon name="spinner" />}
+			<Toolbar.Button
+				aria-label="Branch menu"
+				onClick={(event) => {
+					void showNativeMenuFromTrigger(event.currentTarget, menuItems);
+				}}
+				className={getRowButtonClassName({ iconOnly: true })}
+			>
+				<Icon name="kebab" />
+			</Toolbar.Button>
+		</Toolbar.Root>
+	);
 
 	return (
 		<div
@@ -395,126 +492,26 @@ const BranchItem: FC<{
 			// entirely rather than reporting it as collapsed.
 			aria-expanded={canUnfold ? unfolded : undefined}
 		>
-			<Row
-				className={styles.branchRow}
-				isSelected={isSelected}
-				onSelect={() => setCursor("unapplied", address)}
-				onContextMenu={(event) => {
-					void showNativeContextMenu(event, menuItems);
-				}}
-			>
-				{canUnfold ? (
-					<RowFoldToggle
-						folded={!unfolded}
-						aria-label={unfolded ? "Fold commits" : "Unfold commits"}
-						onClick={toggleUnfolded}
-						glyph={<GraphSegment glyph={railGlyph} status={branchGraphStatus(branch)} />}
-						foldedIndicator={<GraphSegment glyph="group" status={branchGraphStatus(branch)} />}
-					/>
-				) : (
-					<GraphSegment glyph={railGlyph} status={branchGraphStatus(branch)} />
-				)}
-
-				<RowLabelGroup id={descriptionId}>
-					<BranchRowHeadline title={review?.title ?? branch.displayName} labels={review?.labels} />
-
-					{review !== null && (
-						<RowMeta className={styles.reviewMeta}>
-							<button
-								type="button"
-								className={classes(getRowButtonClassName({ variant: "ghost" }), styles.reviewLink)}
-								aria-label={`Open ${review.unitSymbol}${String(review.number)} in browser`}
-								onClick={() => void openReviewInBrowser()}
-							>
-								{reviewState !== null && (
-									<Badge variant={reviewState.variant}>
-										<Icon name={reviewState.icon} size={12} />
-										{reviewState.label}
-									</Badge>
-								)}
-								<span>
-									{review.unitSymbol}
-									{review.number}
-								</span>
-								<Icon name="arrow-up-right" size={12} />
-							</button>
-							<span className={classes(rowStyles.fadedText, styles.reviewAuthor)}>
-								{Number.isFinite(createdAt) && (
-									<>
-										opened <RelativeTime timestamp={createdAt} now={now} compact /> ago{" "}
-									</>
-								)}
-								{review.author && <>by {review.author.login}</>}
-							</span>
-						</RowMeta>
-					)}
-
-					<RowMeta className={styles.branchMeta}>
-						{review !== null ? (
-							<span
-								className={classes(
-									rowStyles.fadedText,
-									rowStyles.metaItem,
-									rowStyles.metaItemShrinkable,
-								)}
-								title={branch.displayName}
-							>
-								<Icon size={12} name="branch" />
-								<span className={rowStyles.metaItemText}>{branch.displayName}</span>
-							</span>
-						) : (
-							showsAuthorMeta && (
-								<span
-									className={classes(
-										rowStyles.fadedText,
-										rowStyles.metaItem,
-										rowStyles.metaItemShrinkable,
-									)}
-									title={branch.lastAuthor?.email}
-								>
-									<span className={rowStyles.metaItemText}>
-										{lastAuthorName !== undefined && (
-											<>
-												{lastAuthorName}
-												{branch.updatedAtMs !== null && " · "}
-											</>
-										)}
-										{branch.updatedAtMs !== null && (
-											<>
-												updated <RelativeTime timestamp={branch.updatedAtMs} now={now} compact />{" "}
-												ago
-											</>
-										)}
-									</span>
-								</span>
-							)
-						)}
-
-						{showsCommitCount && (
-							<>
-								{(review !== null || showsAuthorMeta) && <RowMetaSeparator />}
-								<span className={classes(rowStyles.fadedText, rowStyles.metaItem)}>
-									{branch.commitCount} {branch.commitCount === 1 ? "commit" : "commits"}
-								</span>
-							</>
-						)}
-
-						{isApplyPending && <Icon name="spinner" />}
-					</RowMeta>
-				</RowLabelGroup>
-
-				<Toolbar.Root aria-label="Branch actions" render={<RowToolbar reserveSpace />}>
-					<Toolbar.Button
-						aria-label="Branch menu"
-						onClick={(event) => {
-							void showNativeMenuFromTrigger(event.currentTarget, menuItems);
-						}}
-						className={getRowButtonClassName({ iconOnly: true })}
-					>
-						<Icon name="kebab" />
-					</Toolbar.Button>
-				</Toolbar.Root>
-			</Row>
+			{review === null ? (
+				<BareBranchRow
+					branch={branch}
+					rowProps={rowProps}
+					leading={leading}
+					actions={actions}
+					now={now}
+				/>
+			) : (
+				<PullRequestBranchRow
+					branch={branch}
+					review={review}
+					rowProps={rowProps}
+					leading={leading}
+					actions={actions}
+					now={now}
+					descriptionId={descriptionId}
+					openReview={openReviewInBrowser}
+				/>
+			)}
 
 			{unfolded && (
 				<BranchCommits
@@ -549,6 +546,11 @@ export const BranchesList: FC<
 	// WorkspacePage resolves selection from this query data and passes the same data down, so
 	// selection and rendering consume the same snapshot.
 	const { stacks, stackIndexByAddressIndex, addressSpace } = branches ?? emptyBranchesListContent;
+	const { data: grouping = defaultSettings.branchGrouping } = useQuery({
+		...guiSettingsQueryOptions,
+		select: (cfg) => cfg.branchGrouping ?? defaultSettings.branchGrouping,
+	});
+	const { mutate: saveGUISettings } = useSaveGUISettings();
 	const filters = useAppSelector((state) =>
 		projectSlice.selectors.selectBranchFilters(state, projectId),
 	);
@@ -593,10 +595,7 @@ export const BranchesList: FC<
 	// The virtualiser treats getItemKey identity as part of its measurement model. Keep it stable
 	// across selection renders, but refresh estimates when either stack identity or commit counts
 	// change.
-	const getStackKey = useCallback(
-		(index: number) => stacks[index]?.branches[0]?.branch.refName.full ?? index,
-		[stacks],
-	);
+	const getStackKey = useCallback((index: number) => stacks[index]?.key ?? index, [stacks]);
 	const selectedAddressKey = selection === null ? undefined : addressIdentityKey(selection);
 	const selectedAddressIndex =
 		selectedAddressKey === undefined ? undefined : addressSpace.indexByKey.get(selectedAddressKey);
@@ -618,6 +617,10 @@ export const BranchesList: FC<
 		count: stacks.length,
 		getScrollElement: () => scrollElementRef.current,
 		estimateSize: (index) => {
+			const stack = stacks[index];
+			if (stack?.group) return 28;
+			if (stack?.grouped)
+				return 1 + (stack.reviewCount > 0 ? 78 : 28) + stack.commitCount * COMMIT_ROW_HEIGHT;
 			// Estimate unwrapped titles; measured cards account for titles and labels that wrap.
 			const branchTitleHeight = 34;
 			const reviewMetaHeight = 22;
@@ -716,7 +719,7 @@ export const BranchesList: FC<
 		},
 	);
 
-	const firstBranch = stacks[0]?.branches[0]?.branch;
+	const firstBranch = stacks.find((stack) => stack.branches.length > 0)?.branches[0]?.branch;
 	const branchFilter = useListFilter({
 		filter: search,
 		setFilter: (search) => dispatch(projectSlice.actions.setBranchSearch({ projectId, search })),
@@ -807,6 +810,27 @@ export const BranchesList: FC<
 				<ListFilterRow {...branchFilter.rowProps} />
 			)}
 
+			<div className={styles.groupControls}>
+				<span>Group by</span>
+				<ToggleGroup
+					render={<ToggleGroupStyles segmented />}
+					aria-label="Group branches by"
+					value={[grouping]}
+					onValueChange={(values: Array<BranchGrouping>) => {
+						if (values[0] !== undefined) saveGUISettings({ branchGrouping: values[0] });
+					}}
+				>
+					<Toggle render={<ToggleStyles size="small" />} value="state">
+						State
+					</Toggle>
+					<Toggle render={<ToggleStyles size="small" />} value="author">
+						Author
+					</Toggle>
+					<Toggle render={<ToggleStyles size="small" />} value="recent">
+						Recent
+					</Toggle>
+				</ToggleGroup>
+			</div>
 			<div
 				ref={retainScrollElement}
 				className={classes(uiStyles.scroller, styles.list)}
@@ -865,10 +889,51 @@ export const BranchesList: FC<
 					{rowVirtualizer.getVirtualItems().map((virtualRow) => {
 						const stack = stacks[virtualRow.index];
 						if (stack === undefined) return null;
+						if (stack.group) {
+							const group = stack.group;
+							return (
+								<div
+									key={stack.key}
+									data-index={virtualRow.index}
+									ref={rowVirtualizer.measureElement}
+									role="treeitem"
+									aria-level={1}
+									aria-expanded={!group.collapsed}
+									aria-label={`${group.label} group`}
+									style={{
+										position: "absolute",
+										top: 0,
+										left: 0,
+										width: "100%",
+										transform: `translateY(${virtualRow.start}px)`,
+									}}
+								>
+									<button
+										type="button"
+										className={styles.groupHeader}
+										aria-expanded={!group.collapsed}
+										onClick={() =>
+											dispatch(
+												projectSlice.actions.toggleBranchGroup({
+													projectId,
+													key: group.key,
+													collapsed: group.collapsed,
+												}),
+											)
+										}
+									>
+										<Icon size={12} name={group.collapsed ? "chevron-right" : "chevron-down"} />
+										{group.label}
+										<span>{group.count}</span>
+									</button>
+								</div>
+							);
+						}
 
 						return (
 							<StackCard
-								key={assert(stack.branches[0]).branch.refName.full}
+								key={stack.key}
+								className={stack.grouped ? styles.groupedCard : undefined}
 								data-index={virtualRow.index}
 								ref={rowVirtualizer.measureElement}
 								style={{
@@ -882,40 +947,44 @@ export const BranchesList: FC<
 								role="group"
 								aria-label="Stack"
 							>
-								{stack.branches.map(({ branch, addressIndex, commits }, index) => {
-									const selectedCommitIndex =
-										selectedAddressIndex !== undefined &&
-										selectedAddressIndex > addressIndex &&
-										selectedAddressIndex <= addressIndex + (commits?.length ?? 0)
-											? selectedAddressIndex - addressIndex - 1
-											: undefined;
+								{stack.branches.map(
+									({ branch, addressIndex, commits, isTopBranch, isStacked }, index) => {
+										const selectedCommitIndex =
+											selectedAddressIndex !== undefined &&
+											selectedAddressIndex > addressIndex &&
+											selectedAddressIndex <= addressIndex + (commits?.length ?? 0)
+												? selectedAddressIndex - addressIndex - 1
+												: undefined;
 
-									return (
-										<Fragment key={branch.refName.full}>
-											<BranchItem
-												projectId={projectId}
-												branch={branch}
-												isTopBranch={index === 0}
-												isStacked={stack.branches.length > 1}
-												commits={commits}
-												scrollElementRef={scrollElementRef}
-												stackScrollStart={virtualRow.start}
-												stackSize={virtualRow.size}
-												branchAddressIndex={addressIndex}
-												selectedCommitIndex={selectedCommitIndex}
-												positionInSet={index + 1}
-												setSize={stack.branches.length}
-											/>
+										return (
+											<Fragment key={branch.refName.full}>
+												<BranchItem
+													projectId={projectId}
+													branch={branch}
+													isTopBranch={isTopBranch}
+													isStacked={isStacked}
+													commits={commits}
+													scrollElementRef={scrollElementRef}
+													stackScrollStart={virtualRow.start}
+													stackSize={virtualRow.size}
+													branchAddressIndex={addressIndex}
+													selectedCommitIndex={selectedCommitIndex}
+													positionInSet={index + 1}
+													setSize={stack.branches.length}
+												/>
 
-											{/* Carries the rail down to the next branch, and past the
+												{/* Carries the rail down to the next branch, and past the
 											    last one as the card's floor — as the workspace card's
 											    segment connectors do. */}
-											<Row interactive={false} className={stackCardStyles.railConnector}>
-												<GraphSegment glyph="parent" status={branchGraphStatus(branch)} />
-											</Row>
-										</Fragment>
-									);
-								})}
+												{!stack.grouped && (
+													<Row interactive={false} className={stackCardStyles.railConnector}>
+														<GraphSegment glyph="parent" status={branchGraphStatus(branch)} />
+													</Row>
+												)}
+											</Fragment>
+										);
+									},
+								)}
 							</StackCard>
 						);
 					})}

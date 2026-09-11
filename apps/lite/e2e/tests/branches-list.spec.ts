@@ -1,3 +1,4 @@
+import { enabled, shoot } from "../screenshot-helpers.ts";
 import type { LiteElectronApi } from "../../electron/src/ipc.ts";
 import type { ListedStack } from "@gitbutler/but-sdk";
 import { expect, test } from "../test.ts";
@@ -173,12 +174,10 @@ test.describe("recent branch reviews", () => {
 			"background-color",
 			"rgba(0, 0, 0, 0)",
 		);
-		await expect(branch.getByText(/by octocat/)).toBeVisible();
+		await expect(branch.getByText("octocat", { exact: true })).toBeVisible();
 		await expect(branch.getByText("2 commits", { exact: true })).toBeVisible();
 		await expect(
-			appWindow
-				.getByRole("treeitem", { name: "branch2", exact: true })
-				.getByText("Draft", { exact: true }),
+			appWindow.getByRole("treeitem", { name: "Draft group", exact: true }),
 		).toBeVisible();
 		await expect(
 			appWindow
@@ -240,5 +239,80 @@ test.describe("recent branch reviews", () => {
 		await expect(appWindow.getByText("No branches match", { exact: true })).toBeVisible();
 		await filter.press("Escape");
 		await expect(branch).toBeVisible();
+	});
+});
+
+test.describe("branch state groups", () => {
+	test.use({ scenario: "project-with-remote-branches.sh" });
+	test("keeps open and draft work visible above 27 collapsed merged branches", async ({
+		appWindow,
+		electronApp,
+	}) => {
+		await appWindow.setViewportSize({ width: 1440, height: 900 });
+		const source = await appWindow.evaluate(async () =>
+			(window as unknown as { lite: LiteElectronApi }).lite.branchList(
+				location.pathname.split("/")[2] ?? "",
+			),
+		);
+		const template = source.flatMap((stack) => stack.branches)[0];
+		if (!template) throw new Error("Expected a seeded branch");
+		const stacks: Array<ListedStack> = Array.from({ length: 34 }, (_, index) => {
+			const state = index < 27 ? "merged" : index < 31 ? "open" : index < 33 ? "draft" : null;
+			return {
+				status: "standalone",
+				updatedAtMs: null,
+				branches: [
+					{
+						...template,
+						displayName: `review-pass-${index}`,
+						refName: { full: `refs/heads/review-pass-${index}` },
+						commitCount: 1,
+						reviewStatus: state,
+						review:
+							state === null
+								? null
+								: {
+										title: `Review ${index}`,
+										number: index + 1,
+										htmlUrl: `https://example.com/pull/${index + 1}`,
+										unitSymbol: "#",
+										createdAt: null,
+										author: { login: "octocat", name: null },
+										labels: [],
+									},
+					},
+				],
+			};
+		});
+		await electronApp.evaluate(({ ipcMain }, stacks) => {
+			ipcMain.removeHandler("branchList");
+			ipcMain.handle("branchList", () => stacks);
+		}, stacks);
+		await appWindow.reload();
+		await appWindow
+			.getByRole("group", { name: "Pages" })
+			.getByRole("button", { name: "Branches", exact: true })
+			.click();
+		for (let index = 27; index < 33; index++) {
+			await expect(
+				appWindow.getByRole("treeitem", { name: `review-pass-${index}`, exact: true }),
+			).toBeInViewport();
+		}
+		const merged = appWindow.getByRole("treeitem", { name: "Merged group", exact: true });
+		await expect(merged).toHaveAttribute("aria-expanded", "false");
+		await expect(merged.getByText("27", { exact: true })).toBeVisible();
+		await expect(
+			appWindow.getByRole("treeitem", { name: "review-pass-0", exact: true }),
+		).toHaveCount(0);
+		if (enabled) await shoot(appWindow, "branch-state-groups", "#sidebar-panel");
+		await merged.getByRole("button").click();
+		await expect(merged).toHaveAttribute("aria-expanded", "true");
+		await expect(
+			appWindow.getByRole("treeitem", { name: "review-pass-0", exact: true }),
+		).toBeVisible();
+		await appWindow.getByRole("button", { name: "Author", exact: true }).click();
+		await expect(
+			appWindow.getByRole("treeitem", { name: "octocat group", exact: true }),
+		).toBeVisible();
 	});
 });

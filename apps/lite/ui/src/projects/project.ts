@@ -552,6 +552,12 @@ export const projectReducers = {
 		const collapsed = state.workspace.filesCollapsedDirectories;
 		collapsed[path] = !(isCollapsed ?? collapsed[path] ?? false);
 	},
+	toggleBranchGroup: (
+		state: ProjectState,
+		{ key, collapsed }: { key: string; collapsed: boolean },
+	) => {
+		(state.branches.collapsedGroups ??= {})[key] = !collapsed;
+	},
 	setBranchSearch: (state: ProjectState, { search }: { search: string | null }) => {
 		branchesReducers.setSearch(state.branches, { search });
 	},

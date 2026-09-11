@@ -22,6 +22,7 @@ const guiSettingsV1 = type({
 	"diffFontFamily?": "string",
 	"diffFontSize?": "number",
 	"diffLigatures?": "boolean",
+	"branchGrouping?": "'state' | 'author' | 'recent'",
 	"diffOverflow?": "'scroll' | 'wrap'",
 	"diffStyle?": '"unified" | "split"',
 	"diffTabSize?": "number",
