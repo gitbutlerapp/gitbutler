@@ -123,6 +123,40 @@ fn stack_highlighting_with_a_nested_worktree_lane() {
     ]);
 }
 
+/// A branch beneath a worktree's checked-out one is a row of its own inside the lane: the stack
+/// the lane rests on still highlights through the whole lane, and the row takes a commit like
+/// any branch.
+#[test]
+fn a_branch_beneath_a_worktrees_top_is_its_own_row() {
+    let (mut tui, _editor) = worktree_tui();
+    but_testsupport::invoke_bash_at_dir(
+        "git branch wt-lower && git commit -q --allow-empty -m 'top work'",
+        &tui.env()
+            .projects_root()
+            .join(".git/gitbutler/test-worktrees/wt"),
+    );
+
+    tui.reload();
+    tui.input(KeyCode::Down)
+        .assert_current_line_eq(str!["┊╭┄ g0 [A]"]);
+    tui.input('s').assert_rendered_term_svg_eq(file![
+        "snapshots/a_branch_beneath_a_worktrees_top_is_its_own_row_001.svg"
+    ]);
+    tui.input(KeyCode::Esc);
+
+    tui.input([
+        KeyCode::Down,
+        KeyCode::Down,
+        KeyCode::Down,
+        KeyCode::Down,
+        KeyCode::Down,
+    ])
+    .assert_current_line_eq(str!["┊┊├┄ lo [wt-lower]"]);
+    tui.input('c').assert_rendered_term_svg_eq(file![
+        "snapshots/a_branch_beneath_a_worktrees_top_is_its_own_row_002.svg"
+    ]);
+}
+
 /// The two rows of a lane persist separately: they carry distinct remember keys, so a
 /// collision between them would silently restore the wrong one.
 #[test]
