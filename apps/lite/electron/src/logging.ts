@@ -34,13 +34,11 @@ export const initLogging = (): void => {
 		// persist to main.log too (they still echo to the terminal).
 		Object.assign(console, log.functions);
 
-		// The Rust side resolves the per-platform log folder for our bundle identifier
-		// (the electron-builder appId in package.json, with the desktop app's `.dev`
-		// channel convention for unpackaged builds) and installs the tracing
-		// subscriber; electron-log then writes to the same folder.
+		// Rust resolves the per-platform log folder for the Next channel and installs
+		// the tracing subscriber; electron-log then writes to the same folder.
 		app.setAppLogsPath(
 			initTracing(
-				app.isPackaged ? "com.gitbutler.lite" : "com.gitbutler.lite.dev",
+				app.isPackaged ? "com.gitbutler.next.nightly" : "com.gitbutler.next.dev",
 				!app.isPackaged,
 			),
 		);
