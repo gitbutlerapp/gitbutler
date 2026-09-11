@@ -10,6 +10,7 @@ interface CapturedEvent {
 const mocks = vi.hoisted(() => ({
 	client: {
 		capture: vi.fn<(event: CapturedEvent) => void>(),
+		captureException: vi.fn(),
 		getFeatureFlagPayload: vi.fn(),
 		shutdown: vi.fn(),
 	},
@@ -57,14 +58,66 @@ describe("api command metrics", () => {
 		vi.resetModules();
 		vi.clearAllMocks();
 		mocks.getAppSettings.mockResolvedValue({
-			telemetry: { appMetricsEnabled: true, appDistinctId: "user_1" },
+			telemetry: {
+				appMetricsEnabled: true,
+				appErrorReportingEnabled: true,
+				appDistinctId: "user_1",
+			},
 		});
 		mocks.getUserProfileLocal.mockResolvedValue(null);
 		mocks.updateTelemetryDistinctId.mockResolvedValue(undefined);
 		mocks.client.shutdown.mockResolvedValue(undefined);
 	});
 
-	test.each(["dev", "nightly", "release"] as const)(
+	test("preserves error reporting when command collection is disabled", async () => {
+		mocks.getAppSettings.mockResolvedValue({
+			telemetry: {
+				appMetricsEnabled: false,
+				appErrorReportingEnabled: true,
+				appDistinctId: "user_1",
+			},
+		});
+		const metrics = await initMetrics();
+		await metrics.withApiCommandCapture("commitCreate", () => "result")(null);
+		const error = new Error("failed");
+		const consoleError = vi.spyOn(console, "error").mockImplementation(() => {});
+		try {
+			metrics.reportError(error, "test");
+			expect(mocks.client.captureException).toHaveBeenCalledWith(error, "user_1", {
+				context: "test",
+			});
+			expect(mocks.client.capture).not.toHaveBeenCalled();
+			expect(mocks.client.getFeatureFlagPayload).not.toHaveBeenCalled();
+		} finally {
+			consoleError.mockRestore();
+			await metrics.shutdownMetrics();
+		}
+	});
+
+	test("dev builds never start a client or send events", async () => {
+		const metrics = await initMetrics(undefined, "dev");
+		const { PostHog } = await import("posthog-node");
+		const handler = vi.fn().mockResolvedValue("result");
+		await expect(metrics.withApiCommandCapture("commitCreate", handler)(null)).resolves.toBe(
+			"result",
+		);
+		const error = new Error("failed");
+		await expect(
+			metrics.withApiCommandCapture("commitCreate", vi.fn().mockRejectedValue(error))(null),
+		).rejects.toBe(error);
+		await metrics.metricsOnLogin(profile(2));
+
+		expect(PostHog).not.toHaveBeenCalled();
+		expect(mocks.getAppSettings).not.toHaveBeenCalled();
+		expect(mocks.getUserProfileLocal).not.toHaveBeenCalled();
+		expect(mocks.updateTelemetryDistinctId).not.toHaveBeenCalled();
+		expect(mocks.client.getFeatureFlagPayload).not.toHaveBeenCalled();
+		expect(mocks.client.capture).not.toHaveBeenCalled();
+		expect(metrics.shutdownMetrics()).toBeNull();
+		expect(mocks.client.shutdown).not.toHaveBeenCalled();
+	});
+
+	test.each(["nightly", "release"] as const)(
 		"captures successful commands for %s",
 		async (channel) => {
 			const metrics = await initMetrics(undefined, channel);

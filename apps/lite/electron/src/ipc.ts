@@ -33,6 +33,7 @@ export type LiteElectronApi = SDK & {
 	/** The settings shared with the other surfaces through the settings file. */
 	getAppSettings: () => Promise<AppSettings>;
 	getVersion: () => Promise<string>;
+	isPackaged: () => Promise<boolean>;
 	isFullScreen: () => Promise<boolean>;
 	onFullScreenChange: (callback: (fullScreen: boolean) => void) => () => void;
 	/** A click on a desktop notification, by the id it was shown with. */
@@ -83,6 +84,7 @@ export const localEndpoints = [
 	"getAppSettings",
 	"getVersion",
 	"isFullScreen",
+	"isPackaged",
 	"notificationClick",
 	"openInWebBrowser",
 	"pathJoin",

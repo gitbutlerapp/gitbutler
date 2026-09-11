@@ -3,19 +3,19 @@ import posthog from "posthog-js/dist/module.no-external";
 import "posthog-js/dist/exception-autocapture";
 import {
 	appSettingsQueryOptions,
+	isPackagedQueryOptions,
 	userProfileQueryOptions,
 	versionQueryOptions,
 } from "#ui/api/queries.ts";
-import {
-	getPosthogProjectToken,
-	posthogHost,
-	reportTelemetryInDev,
-} from "../../electron/src/telemetry.ts";
+import { getPosthogProjectToken, posthogHost } from "../../electron/src/telemetry.ts";
 
 export const initErrorReporting = async (queryClient: QueryClient): Promise<void> => {
-	if (import.meta.env.DEV && !reportTelemetryInDev) return;
+	const channel = process.env.CHANNEL;
+	if (import.meta.env.DEV || (channel !== "nightly" && channel !== "release")) return;
 
 	try {
+		if (!(await queryClient.fetchQuery(isPackagedQueryOptions))) return;
+
 		const [settings, version, profile] = await Promise.all([
 			queryClient.fetchQuery(appSettingsQueryOptions),
 			queryClient.fetchQuery(versionQueryOptions),
@@ -24,7 +24,7 @@ export const initErrorReporting = async (queryClient: QueryClient): Promise<void
 
 		if (!settings.telemetry.appErrorReportingEnabled) return;
 
-		const environment = import.meta.env.DEV ? "development" : "production";
+		const environment = "production";
 		posthog.init(getPosthogProjectToken(environment), {
 			api_host: posthogHost,
 			persistence: "memory",
@@ -56,11 +56,10 @@ export const initErrorReporting = async (queryClient: QueryClient): Promise<void
 			},
 		});
 
-		const channel = process.env.CHANNEL;
 		const properties = {
 			appName: "gitbutler-next",
 			appVersion: version,
-			appChannel: channel === "nightly" || channel === "release" ? channel : "dev",
+			appChannel: channel,
 			container: "electron",
 			process: "renderer",
 			environment,

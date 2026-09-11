@@ -83,7 +83,8 @@ const configureFailureLimit = async (metricsClient: PostHog): Promise<void> => {
 
 /**
  * Reads the shared app settings and starts the client when metrics or error
- * reporting is enabled. Never throws: telemetry must not prevent startup.
+ * reporting is enabled. Dev builds send nothing. Never throws: telemetry
+ * must not prevent startup.
  *
  * Await this before registering IPC handlers, so the first commands of the
  * session are captured and a launch via a login link cannot race the
@@ -94,6 +95,8 @@ export const initMetrics = async (
 	environment: "development" | "production",
 	channel: "dev" | "nightly" | "release",
 ): Promise<void> => {
+	if (channel !== "nightly" && channel !== "release") return;
+
 	try {
 		const telemetry = (await getAppSettings()).telemetry;
 		metricsEnabled = telemetry.appMetricsEnabled;
