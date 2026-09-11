@@ -40,7 +40,9 @@ test.describe("stacks list", () => {
 				// Anchored on a stack row: the hidden sidebar tabs are still in the
 				// document, and they look just like this list from the outside.
 				const row = document.querySelector('[role="treeitem"][aria-label^="stack-"]');
-				const scroller = row?.closest('[role="tree"]')?.parentElement;
+				let scroller = row?.parentElement;
+				while (scroller && getComputedStyle(scroller).overflowY !== "auto")
+					scroller = scroller.parentElement;
 				if (!scroller) throw new Error("Stacks list has no scroller");
 
 				return {

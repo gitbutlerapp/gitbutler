@@ -8,7 +8,72 @@
 .lists {
 	display: flex;
 	flex-direction: column;
+	min-height: 0;
 	background-color: var(--bg-2);
+}
+
+.commitGroup {
+	flex: 1;
+	min-height: 0;
+}
+
+.commitPanel,
+.workspaceScroller {
+	display: flex;
+	flex-direction: column;
+	min-height: 0;
+}
+
+.workspaceScroller {
+	anchor-name: --workspace-scroller;
+	anchor-scope: --workspace-scroller;
+
+	flex: 1;
+	& > * {
+		flex-shrink: 0;
+	}
+}
+
+.workspaceScroller[data-commit-mode="true"] {
+	overflow: hidden;
+}
+
+.commitHead,
+.commitMode {
+	height: 100%;
+	min-height: 0;
+}
+
+.commitMode {
+	container-type: size;
+	display: flex;
+	flex-direction: column;
+	overflow: hidden;
+
+	.cardHead,
+	.commitRow {
+		position: static;
+		flex-shrink: 0;
+	}
+
+	.fileArea {
+		flex: 1;
+	}
+
+	.commitForm textarea {
+		max-height: min(10lh, calc(100cqh - var(--commit-dock-top) - 90px));
+	}
+
+	.stub {
+		display: none;
+	}
+}
+
+.commitRow {
+	z-index: 1;
+	position: sticky;
+	bottom: var(--commit-dock-bottom);
+	background-color: var(--bg-1);
 }
 
 .header {
