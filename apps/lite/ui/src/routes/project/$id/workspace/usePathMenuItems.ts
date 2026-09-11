@@ -27,11 +27,6 @@ export const usePathMenuItems = ({
 	worktree?: string;
 }): Array<NativeMenuItem> => {
 	const { data: projects } = useSuspenseQuery(listProjectsQueryOptions);
-	const { data: editors } = useQuery(listEditorsQueryOptions);
-	const { data: preferredEditor } = useQuery({
-		...guiSettingsQueryOptions,
-		select: (cfg) => editors?.find((editor) => editor.id === cfg.editorId),
-	});
 	const { data: worktreePath } = useQuery({
 		...worktreesListQueryOptions(projectId),
 		enabled: worktree !== undefined,
@@ -45,34 +40,16 @@ export const usePathMenuItems = ({
 	const basePath = worktree === undefined ? selectedProject.path : worktreePath;
 	const absolutePath = () => window.lite.pathJoin(basePath ?? "", path);
 
-	const { isPending: isOpenInProgramPending, mutate: openInProgram } = useOpenInProgram();
-	// The backend resolves the path against the project's checkout, so a linked
-	// worktree's file is handed over absolute, which joining leaves untouched.
-	const openPath = async (programId: string) => {
-		const target = worktree === undefined ? path : await absolutePath();
-		openInProgram({ projectId, programId, path: target, lineNr: null });
-	};
-	const canOpen = !isOpenInProgramPending && basePath !== undefined;
+	const editorMenuItem = useEditorMenuItem({
+		projectId,
+		// Linked worktree paths must be absolute; the backend resolves relative paths in the main checkout.
+		path: worktree === undefined ? path : absolutePath,
+		enabled: basePath !== undefined,
+		accelerator: toElectronAccelerator(changesFileHotkeys.openInEditor.hotkey),
+	});
 
 	return [
-		preferredEditor
-			? nativeMenuItem({
-					label: `Open in ${preferredEditor.name}`,
-					enabled: canOpen,
-					accelerator: toElectronAccelerator(changesFileHotkeys.openInEditor.hotkey),
-					onSelect: () => void openPath(preferredEditor.id),
-				})
-			: nativeMenuItem({
-					label: "Open In Editor",
-					submenu:
-						editors?.map((editor) =>
-							nativeMenuItem({
-								label: editor.name,
-								enabled: canOpen,
-								onSelect: () => void openPath(editor.id),
-							}),
-						) ?? [],
-				}),
+		editorMenuItem,
 		nativeMenuItem({
 			label: revealInFolderLabel,
 			enabled: basePath !== undefined,
@@ -94,4 +71,49 @@ export const usePathMenuItems = ({
 			],
 		}),
 	];
+};
+
+export const useEditorMenuItem = ({
+	projectId,
+	path,
+	lineNr = null,
+	enabled = true,
+	accelerator,
+}: {
+	projectId: string;
+	path: string | (() => Promise<string>);
+	lineNr?: number | null;
+	enabled?: boolean;
+	accelerator?: string;
+}): NativeMenuItem => {
+	const { data: editors } = useQuery(listEditorsQueryOptions);
+	const { data: preferredEditor } = useQuery({
+		...guiSettingsQueryOptions,
+		select: (cfg) => editors?.find((editor) => editor.id === cfg.editorId),
+	});
+
+	const { isPending, mutate: openInProgram } = useOpenInProgram();
+	const openPath = async (programId: string) => {
+		const target = typeof path === "string" ? path : await path();
+		openInProgram({ projectId, programId, path: target, lineNr });
+	};
+	const canOpen = enabled && !isPending;
+	return preferredEditor
+		? nativeMenuItem({
+				label: `Open in ${preferredEditor.name}`,
+				enabled: canOpen,
+				accelerator,
+				onSelect: () => void openPath(preferredEditor.id),
+			})
+		: nativeMenuItem({
+				label: "Open In Editor",
+				submenu:
+					editors?.map((editor) =>
+						nativeMenuItem({
+							label: editor.name,
+							enabled: canOpen,
+							onSelect: () => void openPath(editor.id),
+						}),
+					) ?? [],
+			});
 };

@@ -9,6 +9,7 @@ import { createRoot } from "react-dom/client";
 import "./global.css";
 import { Toast } from "@base-ui/react";
 import { errorMessageForToast } from "#ui/errors.ts";
+import { watchReviewState } from "#ui/review-state.ts";
 
 const toastManager = Toast.createToastManager();
 
@@ -52,6 +53,9 @@ const queryClient: QueryClient = new QueryClient({
 		},
 	}),
 });
+
+const stopWatchingReviewState = watchReviewState(queryClient);
+import.meta.hot?.dispose(stopWatchingReviewState);
 
 // By default React Query uses `visibilitychange`, but this doesn't seem to work
 // well in Electron.

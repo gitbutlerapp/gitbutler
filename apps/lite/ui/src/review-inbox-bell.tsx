@@ -27,7 +27,7 @@ import {
 } from "#ui/review-inbox.ts";
 import { usePrNotificationsLevel } from "#ui/review-seen.ts";
 import { Dropdown } from "#ui/components/Popup.tsx";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState, type FC } from "react";
 import styles from "./review-inbox-bell.module.css";
 
@@ -59,12 +59,13 @@ const Entry: FC<{
 	/** The panel closes itself once a click has somewhere to go. */
 	onNavigate: () => void;
 }> = ({ projectId, entry, appliedRefs, onNavigate }) => {
+	const client = useQueryClient();
 	const open = () => {
 		// Still loading is not "not in the workspace": acting now could open
 		// the forge for a local branch, and eat the unread mark doing it.
 		if (appliedRefs === undefined) return;
 		onNavigate();
-		openInboxEntry(projectId, entry, appliedRefs);
+		openInboxEntry(client, projectId, entry, appliedRefs);
 	};
 
 	return (
@@ -108,10 +109,10 @@ const Entry: FC<{
  * without forge review support, or below the loud dial.
  */
 export const NotificationBell: FC<{ projectId: string }> = ({ projectId }) => {
+	const client = useQueryClient();
 	const [open, setOpen] = useState(false);
 	const [tab, setTab] = useState<NotificationType>("humans");
 	const { data: forgeInfo } = useQuery(forgeInfoOptions(projectId));
-	// Unconditional: behind `&&` the hook count would change mid-mount.
 	const level = usePrNotificationsLevel();
 	const shown = level === "loud" && !!forgeInfo?.capabilities.prService;
 	const allEntries = useInboxEntries(projectId, shown);
@@ -176,7 +177,8 @@ export const NotificationBell: FC<{ projectId: string }> = ({ projectId }) => {
 					<button
 						className={classes("text-12", styles.markAll)}
 						onClick={() =>
-							markInboxSeen(
+							void markInboxSeen(
+								client,
 								projectId,
 								entries.map((entry) => entry.id),
 							)

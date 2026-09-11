@@ -190,6 +190,7 @@
 		"electron": "^44.0.0",
 		"electron-builder": "^26.16.1",
 		"eslint-plugin-react-you-might-not-need-an-effect": "^1.0.0",
+		"fake-indexeddb": "^6.2.5",
 		"fast-check": "^4.9.0",
 		"jsdom": "28.1.0",
 		"storybook": "^10.3.3",

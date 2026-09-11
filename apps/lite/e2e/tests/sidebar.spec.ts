@@ -97,24 +97,45 @@ test("keeps unread PR activity off the Workspace tab", async ({ appWindow, elect
 	await expect(pages.getByRole("button", { name: "Workspace", exact: true })).toHaveText(
 		"Workspace",
 	);
-	await appWindow.evaluate(() => {
+	await appWindow.evaluate(async () => {
 		const projectId = location.pathname.split("/")[2];
 		if (projectId === undefined) throw new Error("No project in the URL");
-		const key = `pr_activity_inbox:v1:${projectId}`;
-		const entries = JSON.parse(localStorage.getItem(key) ?? "[]") as Array<{
-			id: string;
-			author: string | null;
-			snippet: string | null;
-		}>;
-		const first = entries[0];
-		if (first === undefined) throw new Error("No seeded notification");
-		entries.push({
-			...first,
-			id: "bot-1",
-			author: "copilot-pull-request-reviewer",
-			snippet: "Bot review",
+		await new Promise<void>((resolve, reject) => {
+			const open = indexedDB.open("keyval-store");
+			open.onerror = () => reject(open.error);
+			open.onsuccess = () => {
+				const db = open.result;
+				const transaction = db.transaction("keyval", "readwrite");
+				transaction.oncomplete = () => {
+					db.close();
+					resolve();
+				};
+				transaction.onabort = () => {
+					db.close();
+					reject(transaction.error);
+				};
+				const store = transaction.objectStore("keyval");
+				const key = `pr_activity:v1:${projectId}`;
+				const read = store.get(key);
+				read.onsuccess = () => {
+					const state = read.result as {
+						inbox: Array<{ id: string; author: string | null; snippet: string | null }>;
+					};
+					const first = state.inbox[0];
+					if (first === undefined) {
+						transaction.abort();
+						return;
+					}
+					state.inbox.push({
+						...first,
+						id: "bot-1",
+						author: "copilot-pull-request-reviewer",
+						snippet: "Bot review",
+					});
+					store.put(state, key);
+				};
+			};
 		});
-		localStorage.setItem(key, JSON.stringify(entries));
 	});
 	await appWindow.reload();
 	await appWindow.getByRole("button", { name: "Notifications, 2 unread" }).click();

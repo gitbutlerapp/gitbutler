@@ -1,3 +1,4 @@
+import { reviewStateQueryOptions } from "#ui/review-state.ts";
 /**
  * @file Turning review activity into inbox entries.
  *
@@ -41,14 +42,10 @@ import { projectSlice } from "#ui/projects/state.ts";
 import { requestReviewFocus } from "#ui/review-focus.ts";
 import { store } from "#ui/store.ts";
 import { setActiveList, setCursor, setPage } from "#ui/use-cursor.ts";
-import {
-	readSeenMarks,
-	useDesktopNotifications,
-	usePrNotificationsLevel,
-} from "#ui/review-seen.ts";
+import { useDesktopNotifications, usePrNotificationsLevel } from "#ui/review-seen.ts";
 import { selfMergedNumbers } from "#ui/api/mutations.ts";
 import type { ForgeReview, RefInfo } from "@gitbutler/but-sdk";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient, type QueryClient } from "@tanstack/react-query";
 import { useEffect, useEffectEvent, useRef } from "react";
 
 /** Applied branches by display name, each with the ref bytes a cursor needs. */
@@ -72,11 +69,12 @@ export const appliedRefsByName = (headInfo: RefInfo): AppliedRefs =>
  * outside the workspace has no local branch to select.
  */
 export const openInboxEntry = (
+	client: QueryClient,
 	projectId: string,
 	entry: InboxEntry,
 	appliedRefs: AppliedRefs,
 ): void => {
-	markInboxSeen(projectId, [entry.id]);
+	void markInboxSeen(client, projectId, [entry.id]);
 	const branchRef = appliedRefs.get(entry.sourceBranch);
 	if (branchRef === undefined) {
 		void window.lite.openInWebBrowser(entry.htmlUrl);
@@ -267,11 +265,12 @@ export const useReviewActivityInbox = (projectId: string): void => {
 
 	const observe = useEffectEvent(async (listing: Array<ForgeReview>) => {
 		if (!appliedRefs) return;
-		if (ledger.current === null) {
-			// Seeded from what has actually been seen, so activity that landed
-			// while the app was closed still speaks up.
-			ledger.current = seenLedger(listing, readSeenMarks(projectId));
-		}
+		// Keep each listing while reading fresh marks, including another window's latest reads.
+		const { marks } = await client.fetchQuery({
+			...reviewStateQueryOptions(projectId),
+			staleTime: 0,
+		});
+		if (ledger.current === null) ledger.current = seenLedger(listing, marks);
 		const { changed, next } = observeReviews(ledger.current, listing);
 		ledger.current = next;
 		if (changed.length === 0) return;
@@ -289,7 +288,7 @@ export const useReviewActivityInbox = (projectId: string): void => {
 				}),
 			)
 		).flat();
-		const fresh = addInboxEntries(projectId, entries);
+		const fresh = await addInboxEntries(client, projectId, entries);
 		if (desktop)
 			for (const notice of desktopNotices(fresh)) void window.lite.showNotification(notice);
 	});
@@ -302,14 +301,14 @@ export const useReviewActivityInbox = (projectId: string): void => {
 
 	// The main process has focused the window by now; a summary, or an entry
 	// since dropped from the inbox, leaves the reader at the lit bell.
-	const onNotificationClick = useEffectEvent((id: string) => {
+	const onNotificationClick = useEffectEvent(async (id: string) => {
 		if (appliedRefs === undefined) return;
-		const entry = findInboxEntry(projectId, id);
-		if (entry !== undefined) openInboxEntry(projectId, entry, appliedRefs);
+		const entry = await findInboxEntry(client, projectId, id);
+		if (entry !== undefined) openInboxEntry(client, projectId, entry, appliedRefs);
 	});
 	useEffect(() => {
 		if (!enabled) return;
-		return window.lite.onNotificationClick(onNotificationClick);
+		return window.lite.onNotificationClick((id) => void onNotificationClick(id));
 	}, [enabled]);
 
 	// `appliedRefs` in the deps takes the baseline as soon as both the

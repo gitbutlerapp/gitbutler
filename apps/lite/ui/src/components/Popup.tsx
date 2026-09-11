@@ -239,35 +239,18 @@ export const PopupSearch: FC<{ onClear?: () => void } & useRender.ComponentProps
 	);
 };
 
-/**
- * What a popup's list shows when it has no rows: one line under a drawing, the "Empty state" block
- * sized for a list rather than a panel — the line sits closer under the illustration and there is
- * no counterweight, since a line under a light drawing has no weight to lift.
- *
- * Which drawing and which line follow the branches tab's rule. The shrugging character and
- * `nothingFound` are for a search that came up empty; a list with nothing in it before anything
- * was typed gets the cactus and `nothingToList`, since nothing was searched for and "found" would
- * be the wrong word. Pass the `query` the list is filtered on — the deferred one, where the caller defers — so
- * the block and the rows it stands in for agree.
- *
- * Both lines are one short line, no full stop, like every other line of their length in Lite:
- * "No hotkeys found", "Nothing to restore yet".
- *
- * For a popup as wide as a picker. A dropdown no wider than its trigger — the commit target
- * combobox — keeps a plain line, since the illustration would fill it.
- *
- * @public
- */
+/** Pass the same query used to filter the rows, including any deferral. */
 export const PopupEmpty: FC<{ query: string; nothingFound: string; nothingToList: string }> = ({
 	query,
 	nothingFound,
 	nothingToList,
-}) =>
-	query === "" ? (
-		<EmptyState illustration="cactus" description={nothingToList} className={styles.empty} />
-	) : (
-		<EmptyState illustration="shrugging" description={nothingFound} className={styles.empty} />
-	);
+}) => (
+	<EmptyState
+		illustration={query === "" ? "cactus" : "shrugging"}
+		description={query === "" ? nothingToList : nothingFound}
+		className={styles.empty}
+	/>
+);
 
 /**
  * A run of {@link PopupItem}s under an optional heading. Sections divide from one another, so a
@@ -290,9 +273,7 @@ export const PopupSection: FC<{ label?: ReactNode } & useRender.ComponentProps<"
 			className: styles.section,
 			children: (
 				<>
-					{label !== undefined && (
-						<div className={classes("text-12", styles.sectionLabel)}>{label}</div>
-					)}
+					{label !== undefined && <PopupSectionLabel>{label}</PopupSectionLabel>}
 					<div className={styles.sectionItems}>{children}</div>
 				</>
 			),

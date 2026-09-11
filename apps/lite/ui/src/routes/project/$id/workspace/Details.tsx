@@ -3376,6 +3376,7 @@ const ReviewLayout: FC<{
  */
 const ReviewView: FC<ComponentProps<typeof ReviewLayout>> = (p) => {
 	const seenOnArrival = useSeenOnArrival(p.projectId, p.review.number);
+	if (seenOnArrival === null) return null;
 	return (
 		<SeenOnArrivalContext.Provider value={seenOnArrival}>
 			<ReviewLayout {...p} />

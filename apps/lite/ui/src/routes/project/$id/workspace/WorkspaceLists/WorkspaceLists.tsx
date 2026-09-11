@@ -129,9 +129,7 @@ const DryRunWorkspaceContext = createContext<WorkspaceState | null>(null);
 DryRunWorkspaceContext.displayName = "DryRunWorkspaceContext";
 
 /**
- * An element's height, kept current as it resizes: give the element the ref.
- * Keyed on the element, not a ref object, so a replaced node (a hot reload
- * swaps them) is measured afresh rather than watched after it is gone.
+ * Reuse the empty lane list so graph inputs keep their identity.
  */
 const noLanes: ReadonlyArray<Worktree> = [];
 

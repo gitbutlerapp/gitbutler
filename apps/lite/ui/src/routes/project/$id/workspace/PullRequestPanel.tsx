@@ -115,11 +115,6 @@ const Section: FC<{
 const orEmptyNotice = (items: Array<NativeMenuItem>, notice: string): Array<NativeMenuItem> =>
 	items.length > 0 ? items : [nativeMenuItem({ label: notice, enabled: false })];
 
-/**
- * The header control for a pickable section. While the section is empty it
- * spells out what the picker adds so the section doesn't read as a bare
- * heading; once something is picked, a plus is enough.
- */
 /** Quiet until its row is hovered, like the comment kebab. */
 const RemoveButton: FC<{ label: string; onClick: () => void }> = ({ label, onClick }) => (
 	<button
@@ -146,15 +141,8 @@ const ReviewerRow: FC<{
 	onWithdraw: (() => void) | null;
 }> = ({ user, verdict, onWithdraw }) => {
 	const [icon, color, label] = verdictBits(verdict);
-	const [hovered, setHovered] = useState(false);
-	const [focused, setFocused] = useState(false);
 	return (
-		<div
-			className={styles.reviewerRow}
-			onPointerEnter={() => setHovered(true)}
-			onPointerLeave={() => setHovered(false)}
-			title={label}
-		>
+		<div className={styles.reviewerRow} title={label}>
 			<ReviewUser user={user} />
 			{onWithdraw === null ? (
 				<span className={styles.verdictSlot}>
@@ -164,19 +152,14 @@ const ReviewerRow: FC<{
 				<button
 					aria-label="Withdraw review request"
 					className={getButtonClassName({ variant: "ghost", size: "small", iconOnly: true })}
-					onBlur={() => setFocused(false)}
 					onClick={onWithdraw}
-					onFocus={() => setFocused(true)}
 					title="Withdraw review request"
 					type="button"
 				>
 					{/* The cross has no ring, so it sits a touch smaller than the
 					    verdicts to read as light. */}
-					{hovered || focused ? (
-						<Icon name="cross" size={13} />
-					) : (
-						<Icon name={icon} style={{ color }} size={15} />
-					)}
+					<Icon name="cross" size={13} className={styles.withdrawIcon} />
+					<Icon name={icon} style={{ color }} size={15} className={styles.pendingIcon} />
 				</button>
 			)}
 		</div>
