@@ -47,7 +47,7 @@ export const usePlan = (projectId: string) => {
 				query.state.data.pages.some((page) => page.commits.some((commit) => commit.inWorkspace)) ||
 				query.state.data.pages.at(-1)?.hasMore === true),
 	});
-	const olderPages = useMemo(
+	const olderCommits = useMemo(
 		() => olderData?.pages.flatMap((page) => page.commits) ?? [],
 		[olderData],
 	);
@@ -57,13 +57,13 @@ export const usePlan = (projectId: string) => {
 		() =>
 			baseListing?.hasMore && olderData !== undefined
 				? {
-						commits: [...baseListing.commits, ...olderPages],
+						commits: [...baseListing.commits, ...olderCommits],
 						hasMore: olderData.pages.at(-1)?.hasMore ?? false,
 					}
 				: baseListing,
-		[baseListing, olderData, olderPages],
+		[baseListing, olderData, olderCommits],
 	);
-	const historyPages = baseListing?.hasMore ? noCommits : olderPages;
+	const historyPages = baseListing?.hasMore ? noCommits : olderCommits;
 	const structure = useMemo(
 		() => layoutStructure(listOrder, listing, worktrees),
 		[listOrder, listing, worktrees],

@@ -378,3 +378,17 @@
 .created {
 	color: var(--text-2);
 }
+
+.withdrawIcon {
+	display: none;
+}
+
+.reviewerRow:hover,
+.reviewerRow:has(button:focus) {
+	.withdrawIcon {
+		display: inline-flex;
+	}
+	.pendingIcon {
+		display: none;
+	}
+}

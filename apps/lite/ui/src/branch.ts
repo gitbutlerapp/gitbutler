@@ -75,9 +75,9 @@ const MIN_SEARCH_LENGTH = 2;
  */
 export const searchStacks = (stacks: Array<ListedStack>, query: string): Array<ListedStack> => {
 	const trimmed = query.trim();
-	const reviewNumber = /^([#!])(\d+)$/.exec(trimmed);
-	if (reviewNumber) {
-		const [, symbol, number] = reviewNumber;
+	const reviewReferenceMatch = /^([#!])(\d+)$/.exec(trimmed);
+	if (reviewReferenceMatch) {
+		const [, symbol, number] = reviewReferenceMatch;
 		return stacks.filter((stack) =>
 			stack.branches.some(
 				({ review }) =>

@@ -19,12 +19,13 @@ import { classes } from "#ui/components/classes.ts";
 import { ConflictIcon } from "#ui/components/ConflictIcon.tsx";
 import { getButtonClassName } from "#ui/components/Button.tsx";
 import { GraphSegment, type GraphSegmentStatus } from "#ui/components/GraphSegment.tsx";
+import { Modal } from "#ui/components/Popup.tsx";
 import { Icon } from "#ui/components/Icon.tsx";
 import { ToggleGroupStyles, ToggleStyles } from "#ui/components/ToggleGroup.tsx";
 import { authorTooltip, commitIsDiverged, commitTitle, shortCommitId } from "#ui/commit.ts";
 import { errorMessageForToast } from "#ui/errors.ts";
 import type { BranchIntegrationStrategy, FullRefName } from "@gitbutler/but-sdk";
-import { Dialog, Toggle, ToggleGroup } from "@base-ui/react";
+import { Toggle, ToggleGroup } from "@base-ui/react";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { type FC, useState } from "react";
 import { Row, RowCheckbox, RowLabel, RowLabelContainer } from "./Row.tsx";
@@ -268,7 +269,7 @@ const BranchUpdatePanel: FC<{
 		/** What landed: an integration still to publish, a push, or a replace. */
 		kind: "integrated" | "pushed" | "replaced";
 		force: boolean;
-		remoteName: string;
+		upstreamBranchLabel: string;
 	} | null>(null);
 
 	if (isPlanError) {
@@ -286,7 +287,7 @@ const BranchUpdatePanel: FC<{
 	const keptCount = previewRows?.filter((row) => row.origin === "local").length ?? null;
 	const conflictCount = previewRows?.filter((row) => row.commit.hasConflicts).length ?? 0;
 	const branchLabel = shortRefName(plan.divergence.branchRefName);
-	const remoteName = shortRefName(plan.divergence.upstreamRefName);
+	const upstreamBranchLabel = shortRefName(plan.divergence.upstreamRefName);
 
 	const allDivergenceCommits = [
 		...plan.divergence.localOnly,
@@ -335,7 +336,7 @@ const BranchUpdatePanel: FC<{
 					runHooks: true,
 					pushOpts: [],
 				},
-				{ onSuccess: () => setApplied({ kind: "pushed", force: true, remoteName }) },
+				{ onSuccess: () => setApplied({ kind: "pushed", force: true, upstreamBranchLabel }) },
 			);
 			return;
 		}
@@ -347,8 +348,8 @@ const BranchUpdatePanel: FC<{
 				onSuccess: () =>
 					setApplied(
 						choice === "theirs"
-							? { kind: "replaced", force: false, remoteName }
-							: { kind: "integrated", force: needsForce, remoteName },
+							? { kind: "replaced", force: false, upstreamBranchLabel }
+							: { kind: "integrated", force: needsForce, upstreamBranchLabel },
 					),
 			},
 		);
@@ -382,11 +383,11 @@ const BranchUpdatePanel: FC<{
 					<p className={classes("text-13", rowStyles.fadedText)}>
 						{applied.kind === "integrated"
 							? applied.force
-								? `${applied.remoteName} still holds the previous versions of your commits; force push to publish the result.`
-								: `${applied.remoteName} is behind; push to publish the result.`
+								? `${applied.upstreamBranchLabel} still holds the previous versions of your commits; force push to publish the result.`
+								: `${applied.upstreamBranchLabel} is behind; push to publish the result.`
 							: applied.kind === "pushed"
-								? `${applied.remoteName} now matches this branch.`
-								: `This branch now matches ${applied.remoteName}.`}
+								? `${applied.upstreamBranchLabel} now matches this branch.`
+								: `This branch now matches ${applied.upstreamBranchLabel}.`}
 					</p>
 				</div>
 				<div className={styles.footer}>
@@ -427,12 +428,12 @@ const BranchUpdatePanel: FC<{
 				<div className={styles.strategyRow}>
 					<p className={classes("text-13", styles.diagnosis)}>
 						{additions > 0 && rewritten > 0
-							? `${remoteName} has ${count(additions, "new commit")}, and a different version of ${rewritten === 1 ? "one" : rewritten} of yours.`
+							? `${upstreamBranchLabel} has ${count(additions, "new commit")}, and a different version of ${rewritten === 1 ? "one" : rewritten} of yours.`
 							: additions > 0
-								? `${remoteName} has ${count(additions, "new commit")}.`
+								? `${upstreamBranchLabel} has ${count(additions, "new commit")}.`
 								: rewritten > 0
-									? `${remoteName} holds a different version of ${rewritten === 1 ? "one" : rewritten} of your commits.`
-									: `${remoteName} and this branch have diverged.`}
+									? `${upstreamBranchLabel} holds a different version of ${rewritten === 1 ? "one" : rewritten} of your commits.`
+									: `${upstreamBranchLabel} and this branch have diverged.`}
 					</p>
 				</div>
 
@@ -556,24 +557,22 @@ export const BranchUpdateDialog: FC<{
 	open: boolean;
 	onOpenChange: (open: boolean) => void;
 }> = ({ projectId, branchRef, open, onOpenChange }) => (
-	<Dialog.Root open={open} onOpenChange={onOpenChange}>
-		<Dialog.Portal>
-			<Dialog.Backdrop className={styles.backdrop} />
-			<Dialog.Viewport className={styles.viewport}>
-				<Dialog.Popup aria-labelledby="branch-update-heading" className={styles.popup}>
-					<div className={styles.dialogHeader}>
-						<Icon name="branch" />
-						<h1 id="branch-update-heading" className={classes("text-14", "text-bold")}>
-							Update {shortRefName({ full: branchRef })} from remote
-						</h1>
-					</div>
-					<BranchUpdatePanel
-						projectId={projectId}
-						branch={branchRef}
-						onApplied={() => onOpenChange(false)}
-					/>
-				</Dialog.Popup>
-			</Dialog.Viewport>
-		</Dialog.Portal>
-	</Dialog.Root>
+	<Modal
+		open={open}
+		onOpenChange={onOpenChange}
+		aria-labelledby="branch-update-heading"
+		className={styles.popup}
+	>
+		<div className={styles.dialogHeader}>
+			<Icon name="branch" />
+			<h1 id="branch-update-heading" className={classes("text-14", "text-bold")}>
+				Update {shortRefName({ full: branchRef })} from remote
+			</h1>
+		</div>
+		<BranchUpdatePanel
+			projectId={projectId}
+			branch={branchRef}
+			onApplied={() => onOpenChange(false)}
+		/>
+	</Modal>
 );

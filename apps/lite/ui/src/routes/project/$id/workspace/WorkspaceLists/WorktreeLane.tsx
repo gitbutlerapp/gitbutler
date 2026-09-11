@@ -309,13 +309,14 @@ const WorktreeBranchRow: FC<
 	const { data: forgeInfo } = useQuery(forgeInfoOptions(projectId));
 	// Only this branch's number: the listing refetches on a timer, and a row
 	// should re-render only when its own pull request changes.
-	const { data: pullRequest = null } = useQuery({
+	const { data: pullRequestNumber = null } = useQuery({
 		...listReviewsQueryOptions({ projectId, cacheConfig: "noCache" }),
 		enabled: !!forgeInfo?.capabilities.prService,
 		select: (reviews) =>
 			reviews.find((review) => review.sourceBranch === refName.displayName)?.number ?? null,
 	});
-	const forgeUrl = pullRequest !== null && forgeInfo ? prForgeUrl(pullRequest, forgeInfo) : null;
+	const forgeUrl =
+		pullRequestNumber !== null && forgeInfo ? prForgeUrl(pullRequestNumber, forgeInfo) : null;
 
 	const pushBranch = () => {
 		workspaceBranchAndAncestorsPush({

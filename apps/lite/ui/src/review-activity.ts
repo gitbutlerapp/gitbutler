@@ -6,7 +6,7 @@
  * it live listings and turns its verdicts into toasts.
  */
 
-import { isAgent } from "#ui/review-users.ts";
+import { isAgent, sameLogin } from "#ui/review-users.ts";
 
 import type {
 	ForgeReview,
@@ -42,10 +42,6 @@ export type ReviewActivityItem = { authorIsBot?: boolean } & (
 );
 
 type Attention = "loud" | "quiet" | "silent";
-
-/** Forge logins compare case-insensitively. */
-const sameLogin = (a: string | null, b: string | null): boolean =>
-	a !== null && b !== null && a.toLowerCase() === b.toLowerCase();
 
 /**
  * Whether the item's text @-mentions the login. Login characters may follow

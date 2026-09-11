@@ -63,9 +63,6 @@
 		transform var(--transition-popup) var(--easing-popup),
 		opacity var(--transition-popup) var(--easing-popup);
 
-	/* Only reached when the caller keeps the modal mounted and toggles `open`. A caller that
-	   renders it already open — `{shown && <Picker open />}` — mounts past the starting state, and
-	   the modal appears without animating. */
 	&[data-starting-style],
 	&[data-ending-style] {
 		transform: translateY(-0.5rem) scale(0.97);

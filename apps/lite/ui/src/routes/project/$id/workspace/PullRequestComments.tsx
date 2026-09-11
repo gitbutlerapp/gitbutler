@@ -1,3 +1,4 @@
+import { useEditorMenuItem } from "./usePathMenuItems.ts";
 import {
 	useSetReviewThreadResolved,
 	useAddCommentReaction,
@@ -6,7 +7,6 @@ import {
 	useDeleteReviewComment,
 	useRemoveCommentReaction,
 	useRemoveSubmissionReaction,
-	useOpenInProgram,
 	useUpdateReviewComment,
 } from "#ui/api/mutations.ts";
 import {
@@ -20,7 +20,6 @@ import {
 	listReviewTimelineEventsQueryOptions,
 	guiSettingsQueryOptions,
 	headInfoQueryOptions,
-	listEditorsQueryOptions,
 	workspaceFileQueryOptions,
 	reviewerCandidatesQueryOptions,
 	userProfileQueryOptions,
@@ -66,7 +65,7 @@ import { ReviewThreadReply } from "#ui/routes/project/$id/workspace/ReviewThread
 import { encodeBytes } from "#ui/api/bytes.ts";
 import { getHeadInfoIndex } from "#ui/api/ref-info.ts";
 import { forgeHunkDiff, threadStillAnchoredInFile } from "#ui/review-threads.ts";
-import { isAgent } from "#ui/review-users.ts";
+import { isAgent, sameLogin } from "#ui/review-users.ts";
 import { defaultSettings } from "#ui/settings.ts";
 import { pullRequestHotkeys } from "#ui/hotkeys.ts";
 import { FreshBadge, RegisterFreshItems } from "#ui/review-arrival.tsx";
@@ -237,7 +236,7 @@ const Comment: FC<{
 	onReply: (comment: Quotable) => void;
 }> = ({ projectId, reviewId, comment, currentLogin, onReply }) => {
 	const createdAtMs = comment.createdAt === null ? null : Date.parse(comment.createdAt);
-	const isOwn = currentLogin != null && comment.author?.login === currentLogin;
+	const isOwn = sameLogin(comment.author?.login, currentLogin);
 	// An optimistic comment awaiting its forge id; nothing can act on it yet.
 	const isSending = comment.id < 0;
 
@@ -433,12 +432,7 @@ const ThreadHunk: FC<{
 	lineNr: number | null;
 	diffHunk: string;
 }> = ({ projectId, path, lineNr, diffHunk }) => {
-	const { data: editors } = useQuery(listEditorsQueryOptions);
-	const { data: preferredEditor } = useQuery({
-		...guiSettingsQueryOptions,
-		select: (cfg) => editors?.find((editor) => editor.id === cfg.editorId),
-	});
-	const { isPending: isOpenInProgramPending, mutate: openInProgram } = useOpenInProgram();
+	const editorMenuItem = useEditorMenuItem({ projectId, path, lineNr });
 	const { data: settings } = useQuery({
 		...guiSettingsQueryOptions,
 		select: (cfg) => ({
@@ -449,8 +443,6 @@ const ThreadHunk: FC<{
 			diffLigatures: cfg.diffLigatures,
 		}),
 	});
-
-	const openAt = (programId: string) => openInProgram({ projectId, programId, path, lineNr });
 
 	/* The app's own menu replaces the window's, so it carries the copy the
 	   window would have offered — quoted code is here to be taken away. */
@@ -474,24 +466,7 @@ const ThreadHunk: FC<{
 						onSelect: () => void navigator.clipboard.writeText(selection),
 					}),
 				],
-				[
-					preferredEditor
-						? nativeMenuItem({
-								label: `Open in ${preferredEditor.name}`,
-								enabled: !isOpenInProgramPending,
-								onSelect: () => openAt(preferredEditor.id),
-							})
-						: nativeMenuItem({
-								label: "Open In Editor",
-								submenu: (editors ?? []).map((editor) =>
-									nativeMenuItem({
-										label: editor.name,
-										enabled: !isOpenInProgramPending,
-										onSelect: () => openAt(editor.id),
-									}),
-								),
-							}),
-				],
+				[editorMenuItem],
 			]),
 		);
 	};
@@ -955,7 +930,8 @@ const ownForgeAvatar = (
 				: item.kind === "submission"
 					? item.submission.author
 					: null;
-		if (author?.login === currentLogin && author.avatarUrl !== null) return author.avatarUrl;
+		if (author != null && sameLogin(author.login, currentLogin) && author.avatarUrl !== null)
+			return author.avatarUrl;
 	}
 	return null;
 };
@@ -1197,12 +1173,10 @@ export const PullRequestComments: FC<{ projectId: string; review: ForgeReview }>
 		// this endpoint's capability gate has to hold here instead.
 		enabled: forgeInfo?.capabilities.reviewComments === true,
 	});
-	// The people and agent feeds are split on the forge's own bot flag; a
-	// thread goes with whoever started it. Everything downstream — the fresh
-	// registration included — sees only what the feed shows, so a hidden
-	// comment is never counted as looked at.
+	// Threads follow their first author. Register only visible activity so
+	// hidden comments cannot be marked as read.
 	const inFeed = (author: ForgeReviewUser | null) =>
-		feed === "timeline" || (author?.isBot ?? false) === (feed === "agents");
+		feed === "timeline" || (author != null && isAgent(author)) === (feed === "agents");
 	const comments = allComments?.filter((comment) => inFeed(comment.author));
 	const submissions = allSubmissions?.filter((submission) => inFeed(submission.author));
 	const threads = allThreads?.filter((thread) => inFeed(thread.comments[0]?.author ?? null));
@@ -1224,8 +1198,7 @@ export const PullRequestComments: FC<{ projectId: string; review: ForgeReview }>
 
 	// What the dwell may record as skipped: the conversation's own unread-
 	// eligible items.
-	const own = (login: string | null | undefined) =>
-		currentLogin != null && login != null && login.toLowerCase() === currentLogin.toLowerCase();
+	const own = (login: string | null | undefined) => sameLogin(login, currentLogin);
 	const freshItems = [
 		...(comments ?? [])
 			.filter(

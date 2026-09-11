@@ -69,6 +69,9 @@ const verdict = (
 ): ReviewActivityItem => ({ kind: "verdict", id: 900 + atMs, author, state, body, atMs });
 
 describe("attentionOf", () => {
+	it("recognizes the same bot account across REST and GraphQL logins", () => {
+		expect(attentionOf(comment("Reviewer[bot]", 1), "reviewer")).toBe("silent");
+	});
 	it("treats someone else's comment as loud", () => {
 		expect(attentionOf(comment("alice", 1), "me")).toBe("loud");
 	});
