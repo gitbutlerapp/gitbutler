@@ -49,7 +49,7 @@ pub(crate) struct WorkspaceStatus {
 #[derive(Clone, Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub(crate) struct Worktree {
-    /// The CLI ID naming this worktree's reference; `<cliId>:@` names its uncommitted area,
+    /// The CLI ID naming this worktree's top branch; `<cliId>:@` names its uncommitted area,
     /// the way `@` names the main worktree's
     cli_id: String,
     /// The stable worktree name, i.e. the directory name under `$GIT_COMMON_DIR/worktrees/`
@@ -60,8 +60,9 @@ pub(crate) struct Worktree {
     base: Option<WorktreeBase>,
     /// The worktree's uncommitted changes
     uncommitted_changes: Vec<FileChange>,
-    /// The commits owned by this worktree alone, newest first
-    commits: Vec<Commit>,
+    /// The branches owned by this worktree alone, newest first; the first is the checked-out
+    /// one, or anonymous for a detached `HEAD`
+    branches: Vec<Branch>,
 }
 
 /// What a linked worktree's commits rest on, and whether that is inside the workspace.
@@ -633,25 +634,11 @@ fn build_worktrees_json(
         let source = with_id.source();
         let files =
             super::uncommitted_file::UncommittedFileWithId::in_source(&status_ctx.id_map, &source);
-        let commits = with_id
-            .commits()
-            .map(|commit| {
-                // The same ID rule as for stack commits, so a worktree commit is named
-                // consistently across the JSON.
-                let cli_id = commit
-                    .change_id
-                    .as_ref()
-                    .map(|change_id| change_id.padded_short_id())
-                    .unwrap_or_else(|| commit.short_id.clone());
-                Commit::from_local_commit(
-                    repo,
-                    cli_id,
-                    commit.clone(),
-                    &status_ctx.local_commits_by_id,
-                    status_ctx.flags.show_files,
-                )
-            })
-            .collect::<anyhow::Result<_>>()?;
+        let branches = with_id
+            .segments
+            .iter()
+            .map(|segment| convert_branch_to_json(repo, segment, status_ctx))
+            .collect::<anyhow::Result<Vec<_>>>()?;
         out.push(Worktree {
             cli_id: with_id.short_id.clone(),
             name: worktree.name.to_string(),
@@ -670,7 +657,7 @@ fn build_worktrees_json(
                 &files,
                 status_ctx.changes_in_source(&source),
             ),
-            commits,
+            branches,
         });
     }
     Ok(out)
