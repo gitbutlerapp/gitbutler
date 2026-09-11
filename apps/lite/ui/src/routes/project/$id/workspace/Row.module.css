@@ -120,7 +120,8 @@
 	.containerSelected &,
 	&.toolbarForceVisible {
 		display: flex;
-		visibility: visible;
+		/* Hidden rows must also hide their toolbars. */
+		visibility: inherit;
 	}
 
 	button:has([data-icon]) {
