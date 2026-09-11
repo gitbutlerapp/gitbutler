@@ -4,8 +4,20 @@
 	line-height: 22px;
 	overflow-wrap: anywhere;
 }
-
 .headline .title {
 	display: inline;
+	font-weight: 600;
+	font-size: 13px;
 	line-height: inherit;
+	font-family: Inter, sans-serif;
+}
+.actionLine {
+	padding-block: 2px;
+}
+.actionLine .screenshots {
+	background: var(--fill-warn-bg);
+	color: var(--fill-warn-fg);
+}
+.topics {
+	color: var(--text-2);
 }

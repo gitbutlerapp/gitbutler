@@ -2,17 +2,6 @@
 	display: flex;
 
 	color: var(--commit-status-color);
-
-	/* Selected rows set --selection-inverted; flipping to the opposite color
-	   scheme resolves the line tokens to their inverted values, so the rail
-	   stays legible against the row's inverted selection background. */
-	@container style(--selection-inverted: true) {
-		color-scheme: dark;
-
-		@media (prefers-color-scheme: dark) {
-			color-scheme: light;
-		}
-	}
 }
 
 /* A stretch of the rail in another status's colour; without one, the glyph's. */

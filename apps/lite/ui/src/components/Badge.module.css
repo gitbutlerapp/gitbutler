@@ -5,19 +5,6 @@
 	min-width: 16px;
 	border-radius: 30px;
 	--badge-bg-opacity: 20%;
-
-	/* Selected rows set --selection-inverted; flipping to the opposite color
-	   scheme makes every light-dark() token inside the badge resolve to its
-	   inverted value, matching the row's inverted selection background. */
-	@container style(--selection-inverted: true) {
-		--badge-bg-opacity: 40%;
-		color-scheme: dark;
-
-		@media (prefers-color-scheme: dark) {
-			color-scheme: light;
-			--badge-bg-opacity: 20%;
-		}
-	}
 }
 
 .regular {

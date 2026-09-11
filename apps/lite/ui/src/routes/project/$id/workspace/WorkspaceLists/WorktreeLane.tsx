@@ -359,7 +359,7 @@ const WorktreeBranchRow: FC<
 		>
 			<GraphSegment glyph="joinRight" status="LocalOnly" behind={behind} />
 			<RowLabelContainer>
-				<RowLabel heading singleLine>
+				<RowLabel heading singleLine className={rowStyles.gitRef}>
 					{refName.displayName}
 				</RowLabel>
 			</RowLabelContainer>

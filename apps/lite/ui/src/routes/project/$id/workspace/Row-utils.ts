@@ -1,9 +1,6 @@
 import { type ButtonSize, type ButtonVariant, getButtonClassName } from "#ui/components/Button.tsx";
-import { classes } from "#ui/components/classes.ts";
 import { addressIdentityKey, type Address } from "#ui/addresses.ts";
 import { useCursorMatches } from "#ui/use-cursor.ts";
-import { Match } from "effect";
-import styles from "./Row.module.css";
 
 export const treeItemId = (address: Address): string =>
 	`sidebar-treeitem-${encodeURIComponent(addressIdentityKey(address))}`;
@@ -26,23 +23,7 @@ export const getRowButtonClassName = ({
 	variant?: Extract<ButtonVariant, "ghost" | "outline">;
 	size?: ButtonSize;
 	iconOnly?: boolean;
-}) =>
-	classes(
-		getButtonClassName({
-			variant,
-			size,
-			iconOnly,
-			// On selection/focus change we change the button variant. This
-			// transition would clash with other selection/focus style changes
-			// which are instant (e.g. the row background).
-			disableTransition: true,
-		}),
-		Match.value(variant).pipe(
-			Match.when("ghost", () => styles.buttonGhost),
-			Match.when("outline", () => styles.buttonOutline),
-			Match.exhaustive,
-		),
-	);
+}) => getButtonClassName({ variant, size, iconOnly });
 
 /** One title line plus a metadata line; shared by both commit list virtualizers. */
 export const COMMIT_ROW_HEIGHT = 54;

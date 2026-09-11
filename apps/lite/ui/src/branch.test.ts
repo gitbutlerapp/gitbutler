@@ -1,3 +1,4 @@
+import { branchReviewPresentation } from "./branch.ts";
 import { describe, expect, it } from "vitest";
 
 import {
@@ -287,5 +288,37 @@ describe("branch list sections", () => {
 				.map((section) => section.group?.label),
 		).toEqual(["alice", "Unknown author"]);
 		expect(branchListSections(input, "recent", {})).toHaveLength(1);
+	});
+});
+
+describe("branch review presentation", () => {
+	it("extracts only known initial bracketed prefixes and limits actions to one", () => {
+		expect(
+			branchReviewPresentation("[DO NOT REVIEW] Jt/lifetime", [
+				{ name: "screenshots needed" },
+				{ name: "rust" },
+			]),
+		).toEqual({ title: "Jt/lifetime", action: "Do not review", topics: [{ name: "rust" }] });
+		expect(branchReviewPresentation("Title [do not review]", [])).toMatchObject({
+			title: "Title [do not review]",
+			action: undefined,
+		});
+		expect(branchReviewPresentation("[unknown] Title", [])).toMatchObject({
+			title: "[unknown] Title",
+			action: undefined,
+		});
+	});
+	it("normalizes actionable labels while preserving topic text", () => {
+		expect(
+			branchReviewPresentation("Title", [
+				{ name: "Screenshots Needed" },
+				{ name: "CLI" },
+				{ name: "@gitbutler/lite" },
+			]),
+		).toEqual({
+			title: "Title",
+			action: "Screenshots needed",
+			topics: [{ name: "CLI" }, { name: "@gitbutler/lite" }],
+		});
 	});
 });

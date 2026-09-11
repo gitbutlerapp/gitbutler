@@ -164,13 +164,13 @@ test.describe("recent branch reviews", () => {
 			.click();
 		const branch = appWindow.getByRole("treeitem", { name: "branch1", exact: true });
 		await expect(branch).toHaveAccessibleDescription(
-			/Speed up branch listing in large repositories.*performance.*octocat/,
+			/Speed up branch listing in large repositories.*octocat.*performance/,
 		);
 		await expect(
 			branch.getByText("Speed up branch listing in large repositories", { exact: true }),
 		).toBeVisible();
 		await expect(branch.getByText("performance", { exact: true })).toBeVisible();
-		await expect(branch.getByTitle("needs review", { exact: true })).not.toHaveCSS(
+		await expect(branch.getByText("needs review", { exact: true })).toHaveCSS(
 			"background-color",
 			"rgba(0, 0, 0, 0)",
 		);
@@ -218,6 +218,24 @@ test.describe("recent branch reviews", () => {
 		).toBe("https://example.com/pull/42");
 		await branch.getByTitle("branch1", { exact: true }).click();
 		await expect(branch).toHaveAttribute("aria-selected", "true");
+		await expect
+			.poll(() =>
+				branch.evaluate((element) => {
+					const row = element.matches('[class*="containerSelected"]')
+						? element
+						: element.querySelector('[class*="containerSelected"]');
+					if (!row) return false;
+					const probe = document.createElement("span");
+					probe.style.backgroundColor = "color-mix(in srgb, var(--fill-pop-bg) 10%, transparent)";
+					row.append(probe);
+					const matches =
+						getComputedStyle(row).backgroundColor === getComputedStyle(probe).backgroundColor;
+					probe.remove();
+					return matches;
+				}),
+			)
+			.toBe(true);
+
 		await branch.getByRole("button", { name: "Unfold commits" }).click();
 		await expect(branch).toHaveAttribute("aria-expanded", "true");
 		await expect(branch.getByRole("treeitem", { name: "branch1: second commit" })).toBeVisible();

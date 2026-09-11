@@ -67,7 +67,7 @@ import { toggleFoldedSegment } from "./fold.ts";
 import { InlineEditor } from "./InlineEditor.tsx";
 import { insertBlankCommitMenuItem } from "./insertBlankCommitMenuItem.ts";
 import { ItemRow } from "./ItemRow.tsx";
-import { BranchRowHeadline } from "../BranchRowHeadline.tsx";
+import { BranchRowHeadline, BranchReviewTag, BranchTopics } from "../BranchRowHeadline.tsx";
 import { useStackMenuItems } from "./useStackMenuItems.ts";
 import { ciChecksSummaryUrl, type AggregateCIChecks } from "#ui/ci.ts";
 import {
@@ -540,12 +540,18 @@ export const BranchRow: FC<
 						<BranchRowHeadline title={openReview.title} labels={openReview.labels} />
 					) : (
 						<RowLabelContainer>
-							<RowLabel heading singleLine title={optimisticBranchDisplayName}>
+							<RowLabel
+								heading
+								singleLine
+								className={rowStyles.gitRef}
+								title={optimisticBranchDisplayName}
+							>
 								{optimisticBranchDisplayName}
 							</RowLabel>
 						</RowLabelContainer>
 					)}
 
+					{openReview && <BranchReviewTag title={openReview.title} labels={openReview.labels} />}
 					<RowMeta>
 						{openReview !== undefined && (
 							<>
@@ -557,7 +563,10 @@ export const BranchRow: FC<
 									)}
 								>
 									<Icon name="branch" size={12} />
-									<span className={rowStyles.metaItemText} title={optimisticBranchDisplayName}>
+									<span
+										className={classes(rowStyles.metaItemText, rowStyles.gitRef)}
+										title={optimisticBranchDisplayName}
+									>
 										{optimisticBranchDisplayName}
 									</span>
 								</span>
@@ -712,6 +721,11 @@ export const BranchRow: FC<
 							</Button>
 						)}
 					</RowMeta>
+					{openReview && (
+						<RowMeta>
+							<BranchTopics labels={openReview.labels} />
+						</RowMeta>
+					)}
 				</RowLabelGroup>
 			)}
 

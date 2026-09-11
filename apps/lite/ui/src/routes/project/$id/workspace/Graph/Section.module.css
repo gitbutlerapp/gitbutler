@@ -110,6 +110,7 @@
 }
 
 .header {
+	font-family: "Geist Mono", monospace;
 	--row-label-offset: calc(-3px + var(--row-fold-chevron-offset, 0px));
 }
 

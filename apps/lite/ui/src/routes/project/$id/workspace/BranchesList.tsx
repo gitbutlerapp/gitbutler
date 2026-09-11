@@ -12,7 +12,7 @@ import { activeBranchFilterCount, branchIsEmpty, type BranchFilters } from "#ui/
 import { commitIsDiverged, commitTitle } from "#ui/commit.ts";
 import { Badge } from "#ui/components/Badge.tsx";
 import { getButtonClassName } from "#ui/components/Button.tsx";
-import { BranchRowHeadline } from "./BranchRowHeadline.tsx";
+import { BranchRowHeadline, BranchReviewTag, BranchTopics } from "./BranchRowHeadline.tsx";
 import { classes } from "#ui/components/classes.ts";
 import { EmptyState } from "#ui/components/EmptyState.tsx";
 import {
@@ -346,6 +346,7 @@ const PullRequestBranchRow: FC<
 					{review.number}
 				</button>
 			</div>
+			<BranchReviewTag title={review.title} labels={review.labels} />
 			<RowMeta className={styles.branchRef} title={branch.displayName}>
 				{branch.displayName}
 			</RowMeta>
@@ -357,6 +358,7 @@ const PullRequestBranchRow: FC<
 					</>
 				)}
 				<BranchAge branch={branch} now={now} />
+				<BranchTopics labels={review.labels} separator />
 			</RowMeta>
 		</RowLabelGroup>
 		{actions}

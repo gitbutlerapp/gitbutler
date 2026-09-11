@@ -73,7 +73,9 @@ test.describe("workspace focus", () => {
 			.toBe("uncommitted-files");
 	});
 
-	test("only the focused details child uses focused selection styling", async ({ appWindow }) => {
+	test("moves focus between details children without changing selection styling", async ({
+		appWindow,
+	}) => {
 		await appWindow.getByRole("treeitem", { name: "C: first commit" }).click();
 
 		const toggleFiles = appWindow.getByRole("button", { name: "Toggle files" });
@@ -97,8 +99,12 @@ test.describe("workspace focus", () => {
 			.poll(async () => (blurredBackground = await selectedFileBackground()))
 			.not.toBe("");
 		await files.focus();
-		await expect.poll(selectedFileBackground).not.toBe(blurredBackground);
+		await expect(files).toBeFocused();
+		await expect(files).toHaveAttribute("data-selection-focused", "true");
+		await expect.poll(selectedFileBackground).toBe(blurredBackground);
 		await diff.focus();
+		await expect(diff).toBeFocused();
+		await expect(files).not.toHaveAttribute("data-selection-focused", "true");
 		await expect.poll(selectedFileBackground).toBe(blurredBackground);
 	});
 
@@ -143,7 +149,7 @@ test.describe("workspace focus", () => {
 		await appWindow.keyboard.press("ControlOrMeta+K");
 		await expect(appWindow.getByRole("dialog", { name: "Command palette" })).toBeVisible();
 		await expect(appWindow.locator("[data-selection-focused]")).toHaveCount(0);
-		await expect.poll(commitBackground).not.toBe(focusedBackground);
+		await expect.poll(commitBackground).toBe(focusedBackground);
 
 		await appWindow.keyboard.press("Escape");
 		await expect(appWindow.getByRole("dialog", { name: "Command palette" })).not.toBeVisible();

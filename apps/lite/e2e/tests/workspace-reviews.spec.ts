@@ -107,6 +107,24 @@ test("shows PR titles and labels on workspace branches without hover shifts", as
 	await expect(branch.getByRole("button", { name: "Branch menu", exact: true })).toBeVisible();
 	expect(await headline.boundingBox()).toEqual(before);
 	await branch.getByTitle("C", { exact: true }).click();
+	await expect
+		.poll(() =>
+			branch.evaluate((element) => {
+				const row = element.matches('[class*="containerSelected"]')
+					? element
+					: element.querySelector('[class*="containerSelected"]');
+				if (!row) return false;
+				const probe = document.createElement("span");
+				probe.style.backgroundColor = "color-mix(in srgb, var(--fill-pop-bg) 10%, transparent)";
+				row.append(probe);
+				const matches =
+					getComputedStyle(row).backgroundColor === getComputedStyle(probe).backgroundColor;
+				probe.remove();
+				return matches;
+			}),
+		)
+		.toBe(true);
+
 	await appWindow.keyboard.press("F2");
 	const editor = branch.getByRole("textbox", { name: "Branch name" });
 	await expect(editor).toHaveValue("C");

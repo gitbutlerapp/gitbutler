@@ -210,3 +210,30 @@ export const branchListSections = (
 		];
 	});
 };
+
+type BranchAction = "Screenshots needed" | "Do not review";
+const branchAction = (value: string): BranchAction | undefined => {
+	switch (value.toLowerCase()) {
+		case "screenshots needed":
+			return "Screenshots needed";
+		case "do not review":
+			return "Do not review";
+		default:
+			return undefined;
+	}
+};
+
+export const branchReviewPresentation = <T extends { name: string }>(
+	title: string,
+	labels: ReadonlyArray<T> = [],
+) => {
+	const prefix = /^\[(do not review|screenshots needed)\]\s*/i.exec(title);
+	const action = prefix
+		? branchAction(prefix[1] ?? "")
+		: labels.map((label) => branchAction(label.name)).find(Boolean);
+	return {
+		title: prefix ? title.slice(prefix[0].length) : title,
+		action,
+		topics: labels.filter((label) => branchAction(label.name) === undefined),
+	};
+};
