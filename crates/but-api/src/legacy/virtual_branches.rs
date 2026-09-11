@@ -54,7 +54,7 @@ pub fn create_virtual_branch(
             .map_err(anyhow::Error::from)?;
 
         let mut meta = ctx.meta()?;
-        let (_guard, repo, mut ws, _) = ctx.workspace_mut_and_db()?;
+        let (_guard, repo, ws, _) = ctx.workspace_mut_and_db()?;
         let new_ws = but_workspace::branch::create_reference(
             new_ref.as_ref(),
             None,
@@ -92,7 +92,6 @@ pub fn create_virtual_branch(
             is_checked_out: false,
         };
 
-        *ws = new_ws.into_owned();
         out
     };
     Ok(stack_entry)
@@ -121,7 +120,7 @@ pub fn delete_local_branch(
         bail_precondition!("Cannot delete a branch that is applied in workspace");
     }
 
-    if let Some(new_ws) = but_workspace::branch::remove_reference(
+    if but_workspace::branch::remove_reference(
         branch_refname.as_ref(),
         &mut repo,
         &ws,
@@ -130,9 +129,9 @@ pub fn delete_local_branch(
             avoid_anonymous_stacks: false,
             keep_metadata: false,
         },
-    )? {
-        *ws = new_ws;
-    } else {
+    )?
+    .is_none()
+    {
         but_workspace::branch::remove_reference::delete_local_branch(
             &mut repo,
             branch_refname.as_ref(),
@@ -558,13 +557,13 @@ fn unapply_stack_v3_with_perm(
 
     let single_branch = ctx.settings.feature_flags.single_branch;
     let mut meta = ctx.legacy_meta_mut(perm)?;
-    let (repo, mut ws, _) = ctx.workspace_mut_and_db_with_perm(perm)?;
+    let (repo, ws, _) = ctx.workspace_mut_and_db_with_perm(perm)?;
     let workspace_disposition = if single_branch {
         WorkspaceDisposition::PreventUnnecessaryWorkspaceReferencesKeepWorkspaceCommit
     } else {
         WorkspaceDisposition::KeepWorkspaceCommit
     };
-    let outcome = but_workspace::branch::unapply(
+    but_workspace::branch::unapply(
         branch_to_unapply.as_ref(),
         &ws,
         &repo,
@@ -573,7 +572,6 @@ fn unapply_stack_v3_with_perm(
             workspace_disposition,
         },
     )?;
-    *ws = outcome.workspace.into_owned();
     // Keeping the workspace merge commit can make legacy reconciliation infer the
     // removed stack as applied again, so persist the explicit workspace metadata.
     meta.write_unreconciled()?;

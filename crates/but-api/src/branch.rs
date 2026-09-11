@@ -857,7 +857,7 @@ pub fn apply_only_with_perm(
     perm: &mut RepoExclusive,
 ) -> anyhow::Result<but_workspace::branch::apply::Outcome> {
     let mut meta = ctx.meta()?;
-    let (repo, mut ws, _db) = ctx.workspace_mut_and_db_with_perm(perm)?;
+    let (repo, ws, _db) = ctx.workspace_mut_and_db_with_perm(perm)?;
     let out = but_workspace::branch::apply(
         existing_branch,
         ws.clone(),
@@ -875,9 +875,6 @@ pub fn apply_only_with_perm(
         },
     )?;
 
-    if out.status.persisted_mutation() {
-        *ws = out.workspace.clone();
-    }
     Ok(out)
 }
 
@@ -1030,7 +1027,7 @@ pub fn branch_create_with_perm(
         DryRun::No,
     );
     let mut meta = ctx.meta()?;
-    let (repo, mut ws, _) = ctx.workspace_mut_and_db_with_perm(perm)?;
+    let (repo, ws, _) = ctx.workspace_mut_and_db_with_perm(perm)?;
     let checkout_after_create = checkout_anchor_ref.as_ref().is_some_and(|anchor_ref| {
         repo.head_name()
             .ok()
@@ -1038,7 +1035,7 @@ pub fn branch_create_with_perm(
             .as_ref()
             .is_some_and(|head_ref| head_ref == anchor_ref)
     });
-    let new_ws = but_workspace::branch::create_reference(
+    but_workspace::branch::create_reference(
         new_ref.as_ref(),
         anchor,
         &repo,
@@ -1047,7 +1044,6 @@ pub fn branch_create_with_perm(
         |_| StackId::generate(),
         order,
     )?;
-    *ws = new_ws.into_owned();
     drop(ws);
     drop(repo);
     drop(meta);
@@ -1179,7 +1175,7 @@ pub fn branch_remove_with_perm(
     }
 
     let mut meta = ctx.meta()?;
-    let (mut repo, mut ws, _) = ctx.workspace_mut_and_db_with_perm(perm)?;
+    let (mut repo, ws, _) = ctx.workspace_mut_and_db_with_perm(perm)?;
     let new_ws = if moved_head {
         None
     } else {
@@ -1194,8 +1190,7 @@ pub fn branch_remove_with_perm(
             },
         )?
     };
-    let changed = if let Some(new_ws) = new_ws {
-        *ws = new_ws;
+    let changed = if new_ws.is_some() {
         true
     } else {
         // Standalone branches are intentionally absent from the workspace
@@ -1205,16 +1200,7 @@ pub fn branch_remove_with_perm(
             ref_name.as_ref(),
         )?;
         let deleted_meta = meta.remove(ref_name.as_ref())?;
-        if deleted_ref || deleted_meta {
-            let new_ws = ws
-                .graph
-                .redo_traversal_with_overlay(&repo, &meta, Default::default())?
-                .into_workspace()?;
-            *ws = new_ws;
-            true
-        } else {
-            false
-        }
+        deleted_ref || deleted_meta
     };
     drop(ws);
     drop(repo);
