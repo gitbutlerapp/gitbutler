@@ -98,6 +98,39 @@ pub fn remove(repo: &gix::Repository, path: &Path, force: bool) -> anyhow::Resul
     git_worktree(repo, "remove", &args)
 }
 
+/// Create a linked worktree at `path` on the new branch `branch` starting at `base`, the way
+/// `git worktree add -b` does, which refuses an existing branch.
+///
+/// An existing `path` is refused up front, as git would only notice it after creating the branch.
+/// Returns the stable name git gave the worktree, normally the last component of `path`.
+pub fn add(
+    repo: &gix::Repository,
+    path: &Path,
+    branch: &gix::refs::FullNameRef,
+    base: gix::ObjectId,
+) -> anyhow::Result<BString> {
+    if path.exists() {
+        bail!("'{}' already exists", path.display());
+    }
+    let short_name = gix::path::from_bstr(branch.shorten());
+    let base = base.to_string();
+    git_worktree(
+        repo,
+        "add",
+        &[
+            OsStr::new("-b"),
+            short_name.as_os_str(),
+            OsStr::new("--"),
+            path.as_os_str(),
+            OsStr::new(&base),
+        ],
+    )?;
+    gix::open(path)?
+        .worktree()
+        .and_then(|worktree| worktree.id().map(ToOwned::to_owned))
+        .context("git registered the new checkout as a linked worktree")
+}
+
 fn git_worktree(repo: &gix::Repository, subcommand: &str, args: &[&OsStr]) -> anyhow::Result<()> {
     let mut cmd = std::process::Command::new(gix::path::env::exe_invocation());
     // These would override `-C`.
