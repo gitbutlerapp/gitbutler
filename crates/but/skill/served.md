@@ -2,7 +2,7 @@
 
 `but` is the version-control interface. GitButler keeps several branches applied in one working directory and assigns changes to them, so anything that moves refs, the index or the working tree (`add`, `commit`, `checkout`, `reset`, `restore`, `rebase`, `merge`, `stash`, `cherry-pick`, `fetch`, `pull`, `push`) goes through `but`; run raw they bypass its bookkeeping, and the workspace they leave behind is not the one `but` describes. Read-only git (`log`, `blame`, `show`) is fine. When the user names a git write command, run the `but` equivalent.
 
-Applied branches share the current workspace. Being “on” one means keeping it applied; use `but teardown` only when the user asks to leave the workspace for a plain Git checkout.
+Applied branches share the current workspace. Being "on" one means keeping it applied; leaving the workspace for a plain Git checkout is a step only when the user asks for it.
 
 ## The loop
 
@@ -41,7 +41,7 @@ IDs are positional and space-separated; `uvw,qyo` is one unknown ID. `but diff` 
 
 The task is done when the printed results cover what was asked. A history edit that cannot carry a change cleanly marks that commit `[conflict]` in its output and `{conflicted}` in status instead of altering it silently; a result without that marker applied every commit's changes and kept its message, and re-deriving that with git repeats what the output stated. When the task needs a fact the result does not state (the resulting order, what is left uncommitted), take it once with the narrowest read; a fact the mutation's own output states does not need a second command.
 
-Pending changes are what `but diff` shows. Leaving work uncommitted or unstaged in this workspace means leaving it pending. Git's index does not queue it for a future `but commit`; select that commit's contents by ID, since omitting IDs can include pending work. Discarding and recreating files to change Git's index display does not change their But state. Use Git's view for an explicitly requested plain checkout.
+Pending changes are what `but diff` shows. Leaving work uncommitted or unstaged in this workspace means leaving it pending. Git's index does not queue it for a future `but commit`; select that commit's contents by ID, since omitting IDs can include pending work. Discarding and recreating files to change Git's index display does not change their `but` state. Use Git's view for an explicitly requested plain checkout.
 
 Leave the working tree as the task described it. Whatever your own verification created (build output, caches, temporary copies) is yours to remove; check for it after your last own command, not before, and a leftover you noticed is not something to hand to the user. Pre-existing files, the user's uncommitted work and the deliverables are not yours to touch.
 
@@ -113,7 +113,7 @@ but squash <branch> -m "<msg>"                       # a whole branch into one c
 
 ### Update the workspace from main
 
-`but pull` fetches the target branch and rebases every applied branch onto it in one step, and reports which commits conflicted; resolving those is part of the update (next section). The base shown in status is the last fetched state, so a `main` that git shows as ahead of it is exactly what `but pull` applies; retargeting is never the fix. Uncommitted changes ride along; one that conflicts with the update is not refused but marked `{conflicted}` in status with conflict markers in the file. `but pull --check` previews without updating, for when the user asks for a preview.
+`but pull` fetches the target branch and rebases every applied branch onto it in one step, and reports which commits conflicted; resolving those is part of the update (next section). The `(upstream: <remote>/<branch>)` line in `but status` names the target and shows its last fetched state, so a `main` that git shows as ahead of it is exactly what `but pull` applies; retargeting is never the fix. Uncommitted changes ride along; one that conflicts with the update is not refused but marked `{conflicted}` in status with conflict markers in the file. `but pull --check` previews without updating, for when the user asks for a preview.
 
 `but pull` integrates the target only. Commits pushed to a branch's own remote counterpart are listed by `but status -u` and integrated by `but branch update <branch>`, which rebases the local commits on top of the remote ones by default (`--dry-run` previews). `but pull` fetches; `but branch update` does not, it integrates what the last fetch brought. When both the target and a branch need updating, `but pull` first, then `but branch update <branch>`; for a branch alone, `but pull --check` fetches without integrating.
 
