@@ -166,7 +166,7 @@
 
 		<Button style="pop" disabled={!isFormValid} onclick={handleSubmit}>Log in</Button>
 
-		<OAuthButtons mode="signup" />
+		<OAuthButtons mode="signin" />
 	</div>
 
 	{#snippet footer()}
