@@ -151,6 +151,7 @@ symbolization troubleshooting (including lld/mold's `--no-rosegment` requirement
 
 ## Included scenarios
 
+- `diff-many-committed-changes`: time `but diff <commit>` on real GitButler formatting commit `c9d8e3a7ff59f2ddabed16a6fa1d66ea054f0215`, applied in a clean workspace, with 1,167 changed files, 21,636 insertions and 21,620 deletions.
 - `diff-many-uncommitted-changes`: time `but diff` after uncommitting real GitButler commit `c9d8e3a7ff59f2ddabed16a6fa1d66ea054f0215`, which formatted the codebase and changes 1,167 files, with 21,636 insertions and 21,620 deletions.
 - `squash-10-committed-hunks`: squash ten committed hunks from one file into previous commit.
 - `status-large-uncommitted-file`: time `but status` with one untracked 400 MiB random binary file.
