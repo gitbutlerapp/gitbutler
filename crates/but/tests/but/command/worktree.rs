@@ -226,6 +226,8 @@ old-3 - [..]/worktrees/old-3
 fn archive_and_unarchive_by_id_or_name() {
     let env = flag_on_sandbox();
     add_worktree_with_commit(&env, "wt-feature", "A");
+    let sentinel = env.context().project_data_dir.join("INVALIDATE");
+    let watcher_token = but_project_handle::process_sentinel_token();
 
     env.but("worktree list --active")
         .assert()
@@ -237,6 +239,7 @@ wt wt-feature - [..]/worktrees/wt-feature
 
 "#]]);
 
+    std::fs::write(&sentinel, "").unwrap();
     env.but("worktree archive wt")
         .assert()
         .success()
@@ -245,6 +248,14 @@ wt wt-feature - [..]/worktrees/wt-feature
 Successfully archived wt-feature
 
 "#]]);
+    assert_eq!(
+        but_project_handle::invalidation_by_others(
+            &std::fs::read_to_string(&sentinel).unwrap(),
+            &watcher_token,
+        ),
+        ["Worktrees", "Workspace"],
+        "archiving notifies the app to refresh the worktree listing and workspace"
+    );
     env.but("worktree list")
         .assert()
         .success()
@@ -259,6 +270,7 @@ wt-feature - [..]/worktrees/wt-feature
 "#]]);
 
     // Archived worktrees have no ID, so the name is the way to address them.
+    std::fs::write(&sentinel, "").unwrap();
     env.but("worktree unarchive wt-feature")
         .assert()
         .success()
@@ -267,6 +279,14 @@ wt-feature - [..]/worktrees/wt-feature
 Successfully unarchived wt-feature
 
 "#]]);
+    assert_eq!(
+        but_project_handle::invalidation_by_others(
+            &std::fs::read_to_string(&sentinel).unwrap(),
+            &watcher_token,
+        ),
+        ["Worktrees", "Workspace"],
+        "unarchiving emits a fresh invalidation as well"
+    );
     env.but("worktree list")
         .assert()
         .success()
@@ -280,6 +300,7 @@ Archived worktrees
 
 "#]]);
 
+    std::fs::write(&sentinel, "").unwrap();
     env.but("worktree archive nope")
         .assert()
         .failure()
@@ -290,6 +311,11 @@ Error: Could not find worktree: 'nope'
 Hint: Run `but worktree list` for the worktrees and their IDs.
 
 "#]]);
+    assert_eq!(
+        std::fs::read_to_string(&sentinel).unwrap(),
+        "",
+        "a failed archive leaves the app's caches valid"
+    );
 
     env.but("--json worktree archive wt")
         .allow_json()
