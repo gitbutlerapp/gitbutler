@@ -83,6 +83,7 @@ if [ "${PERF_ENV_ISOLATED:-}" != 1 ]; then
     MIN_RUNS_VALUE=${PERF_MIN_RUNS:-20}
     RUNS_VALUE=${PERF_RUNS:-}
     SHOW_OUTPUT_VALUE=${PERF_SHOW_OUTPUT:-0}
+    SKIP_SMOKE_VALUE=${PERF_SKIP_SMOKE:-0}
     RESULTS_DIR_VALUE=${PERF_RESULTS_DIR:-}
     if [ "$UPLOAD_ENABLED" = 1 ] && [ -z "$RESULTS_DIR_VALUE" ]; then
         RESULTS_DIR_VALUE=$REPO_ROOT/target/performance-results
@@ -90,6 +91,10 @@ if [ "${PERF_ENV_ISOLATED:-}" != 1 ]; then
     case "$SHOW_OUTPUT_VALUE" in
         0|1) ;;
         *) perf_die "PERF_SHOW_OUTPUT must be 0 or 1" ;;
+    esac
+    case "$SKIP_SMOKE_VALUE" in
+        0|1) ;;
+        *) perf_die "PERF_SKIP_SMOKE must be 0 or 1" ;;
     esac
     if [ -n "$RESULTS_DIR_VALUE" ]; then
         mkdir -p "$RESULTS_DIR_VALUE"
@@ -138,6 +143,7 @@ if [ "${PERF_ENV_ISOLATED:-}" != 1 ]; then
         PERF_MIN_RUNS="$MIN_RUNS_VALUE" \
         PERF_RUNS="$RUNS_VALUE" \
         PERF_SHOW_OUTPUT="$SHOW_OUTPUT_VALUE" \
+        PERF_SKIP_SMOKE="$SKIP_SMOKE_VALUE" \
         PERF_RESULTS_DIR="$BENCHMARK_RESULTS_DIR" \
         HYPERFINE_BIN="$HYPERFINE_BIN" \
         "$0" "$@"
@@ -213,9 +219,11 @@ for scenario_name in "$@"; do
     PERF_RUN_ROOT=$PERF_SESSION_ROOT/runs/$scenario_name
     export PERF_RUN_ROOT
 
-    printf '\nSmoke-testing %s...\n' "$scenario_name" >&2
-    "$setup_script"
-    "$test_script"
+    if [ "$PERF_SKIP_SMOKE" = 0 ]; then
+        printf '\nSmoke-testing %s...\n' "$scenario_name" >&2
+        "$setup_script"
+        "$test_script"
+    fi
 
     printf 'Benchmarking %s...\n' "$scenario_name" >&2
     perf_benchmark_scenario
