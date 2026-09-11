@@ -267,40 +267,13 @@ pub(super) mod function {
                     // Expect the target id to be in the workspace.
                     AnchorResolution::positioned(existing_ref_target_id, true, instruction)
                 } else {
-                    // The target tip (e.g. `origin/main`) can be advanced *past* the
-                    // workspace, i.e. outside it. Anchoring a new independent branch there
-                    // would stop re-projection from surfacing it as a standalone segment.
-                    // Anchor at the merge-base of the target tip and the workspace commit
-                    // instead — the fork point, always inside the workspace.
-                    let target_tip = workspace
-                        .target_commit
-                        .as_ref()
-                        .map(|target| target.commit_id)
-                        .or(ws_base)
-                        .with_context(|| {
-                            format!(
-                                "workspace at {} is missing a base",
-                                workspace.ref_name_display()
-                            )
-                        })?;
-                    // The merge-base needs the workspace commit. Without it (e.g. a headless,
-                    // unmanaged workspace) there is no fork point and thus no insertion point
-                    // inside the workspace, so refuse rather than silently anchor at the
-                    // target tip — the very commit we know may sit outside the workspace.
-                    let ws_commit_id = workspace
-                        .ref_name()
-                        .and_then(|ws_ref| repo.try_find_reference(ws_ref).ok().flatten())
-                        .and_then(|mut ws_ref| ws_ref.peel_to_id().ok())
-                        .map(|id| id.detach())
-                        .with_context(|| {
-                            format!(
-                                "Cannot create independent branch: workspace at {} has no commit to anchor against",
-                                workspace.ref_name_display()
-                            )
-                        })?;
-                    let base = repo.merge_base(target_tip, ws_commit_id)?.detach();
-                    // Don't validate: the merge-base is the workspace's lower bound (the
-                    // fork point), not a commit owned by any segment.
+                    let base = workspace.highest_base().with_context(|| {
+                        format!(
+                            "workspace at {} is missing a base",
+                            workspace.ref_name_display()
+                        )
+                    })?;
+                    // Don't validate: the base sits on the target's history, not in a segment.
                     AnchorResolution::positioned(base, false, Some(Instruction::Independent))
                 }
             }
