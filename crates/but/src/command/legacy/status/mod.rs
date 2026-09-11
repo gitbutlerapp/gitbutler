@@ -460,6 +460,7 @@ fn build_status_context<'a>(
         local_commits_by_id,
         remote_commits_by_id,
         stacks,
+        worktree_stacks,
         resolved_target,
         commit_id_to_change_id,
         worktrees,
@@ -475,6 +476,7 @@ fn build_status_context<'a>(
             },
         )?;
         let stacks = ws.stacks.clone();
+        let worktree_stacks = ws.worktrees.clone();
         let mut push_statuses_by_segment_id = HashMap::<SegmentIndex, PushStatus>::new();
         let mut local_commits_by_id = HashMap::<gix::ObjectId, LocalCommit>::new();
         let mut remote_commits_by_id = HashMap::<gix::ObjectId, Commit>::new();
@@ -517,6 +519,7 @@ fn build_status_context<'a>(
             local_commits_by_id,
             remote_commits_by_id,
             stacks,
+            worktree_stacks,
             resolved_target,
             commit_id_to_change_id,
             worktrees,
@@ -575,7 +578,7 @@ fn build_status_context<'a>(
         stacks,
         sources,
         commit_id_to_change_id,
-        crate::id::worktree_commits_by_name(&worktrees),
+        worktree_stacks,
         ctx.settings.context_lines,
     )?;
 
@@ -1376,7 +1379,7 @@ fn print_worktree_lane(
     // job the bare `┊┊` connector used to do.
     print_worktree_row(with_id, worktree, depth + 1, output)?;
 
-    for commit in &with_id.commits {
+    for commit in with_id.commits() {
         // Worktrees stack on each other too; base assignment follows tip order, so the
         // resting-on relation cannot cycle and this recursion terminates.
         print_worktree_lanes_on(ctx, status_ctx, commit.commit_id(), depth + 1, output)?;

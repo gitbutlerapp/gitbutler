@@ -1375,6 +1375,112 @@ worktrees: [ or worktree-01 ]
     Ok(())
 }
 
+/// A worktree's own ID names its top segment. The segments beneath get branch IDs and resolve
+/// like stack branches do, by ID and by name, with an anonymous one keeping its own kind.
+#[test]
+fn worktree_segments_beneath_the_top_get_branch_ids() -> anyhow::Result<()> {
+    let changed_paths_fn = |commit_id: gix::ObjectId,
+                            parent_id: Option<gix::ObjectId>|
+     -> anyhow::Result<Vec<but_core::TreeChange>> {
+        bail!("unexpected IDs {commit_id} {parent_id:?}");
+    };
+    let mut anonymous_segment = segment(
+        "unused",
+        [hex_to_id("3333333333333333333333333333333333333333")],
+        None,
+        [],
+    );
+    anonymous_segment.ref_info = None;
+    let id_map = IdMap::new(
+        Vec::new(),
+        vec![source_changes(
+            ChangeSourceId::Worktree("wt".into()),
+            Vec::new(),
+        )],
+        gix::hashtable::HashMap::default(),
+        vec![worktree(
+            "wt",
+            [
+                segment(
+                    "first",
+                    [hex_to_id("1111111111111111111111111111111111111111")],
+                    None,
+                    [],
+                ),
+                segment(
+                    "second",
+                    [hex_to_id("2222222222222222222222222222222222222222")],
+                    None,
+                    [],
+                ),
+                anonymous_segment,
+            ],
+        )],
+        3,
+    )?;
+
+    let worktree = id_map.worktrees.values().next().expect("one worktree");
+    let segment_ids: Vec<&str> = worktree
+        .segments
+        .iter()
+        .map(|segment| segment.short_id.as_str())
+        .collect();
+    assert_eq!(
+        segment_ids[0], worktree.short_id,
+        "the worktree's ID names its top segment"
+    );
+    let resolved: Vec<_> = segment_ids
+        .iter()
+        .copied()
+        .chain(["second"])
+        .map(|element| id_map.parse(element, &TestChanges(changed_paths_fn)))
+        .collect::<anyhow::Result<_>>()?;
+    snapbox::assert_data_eq!(
+        resolved.to_debug(),
+        snapbox::str![[r#"
+[
+    [
+        Worktree {
+            id: "wt",
+            name: "wt",
+        },
+    ],
+    [
+        Branch(
+            BranchId {
+                name: "second",
+                id: "se",
+                stack_id: None,
+            },
+        ),
+    ],
+    [
+        AnonymousSegment(
+            AnonymousSegmentId {
+                id: "g0",
+                stack_id: None,
+                anchor_commit_id: Some(
+                    Sha1(3333333333333333333333333333333333333333),
+                ),
+            },
+        ),
+    ],
+    [
+        Branch(
+            BranchId {
+                name: "second",
+                id: "se",
+                stack_id: None,
+            },
+        ),
+    ],
+]
+
+"#]],
+    );
+    Ok(())
+}
+
 /// Generated IDs for named and anonymous segments remain reserved when worktree IDs are allocated
 /// later, while retaining their distinct CLI ID kinds.
 #[test]
@@ -3724,18 +3830,8 @@ fn worktree_commits_share_the_commit_namespace() -> anyhow::Result<()> {
         ChangeSourceId::Worktree("wt-a".into()),
         Vec::new(),
     )];
-    let worktree_commits = [(
-        BString::from("wt-a"),
-        vec![but_graph::workspace::StackCommit {
-            id: wt_commit,
-            parent_ids: Vec::new(),
-            refs: Vec::new(),
-            flags: Default::default(),
-        }],
-    )]
-    .into_iter()
-    .collect();
-    let id_map = IdMap::new(stacks, sources, commit_id_to_change_id, worktree_commits, 3)?;
+    let worktrees = vec![worktree("wt-a", [segment("wt-a", [wt_commit], None, [])])];
+    let id_map = IdMap::new(stacks, sources, commit_id_to_change_id, worktrees, 3)?;
 
     // The worktree commit resolves by its change ID, disambiguated against the
     // workspace commit's "swst".
@@ -3801,7 +3897,7 @@ mod util {
 
     use anyhow::bail;
     use bstr::BString;
-    use but_graph::workspace::{Stack, StackCommit, StackSegment};
+    use but_graph::workspace::{Stack, StackCommit, StackSegment, WorktreeStack};
     use itertools::Itertools;
     use nonempty::NonEmpty;
 
@@ -3859,6 +3955,27 @@ mod util {
         Stack {
             id: None,
             segments: segments.into_iter().collect::<Vec<StackSegment>>(),
+        }
+    }
+
+    /// A linked worktree named `name` whose `HEAD` is the top of `segments`.
+    pub fn worktree<const N: usize>(name: &str, segments: [StackSegment; N]) -> WorktreeStack {
+        let segments = segments.into_iter().collect::<Vec<StackSegment>>();
+        let top = segments
+            .first()
+            .expect("a worktree owns at least one segment");
+        WorktreeStack {
+            name: name.into(),
+            ref_name: top
+                .ref_info
+                .as_ref()
+                .map(|ref_info| ref_info.ref_name.clone()),
+            head: top
+                .commits
+                .first()
+                .map_or_else(|| gix::hash::Kind::Sha1.null(), |commit| commit.id),
+            base: None,
+            segments,
         }
     }
 
@@ -4047,4 +4164,4 @@ mod util {
         a.to_short_string().cmp(&b.to_short_string())
     }
 }
-use util::{hunk, id, segment, source_changes, stack, tree_change_addition};
+use util::{hunk, id, segment, source_changes, stack, tree_change_addition, worktree};
