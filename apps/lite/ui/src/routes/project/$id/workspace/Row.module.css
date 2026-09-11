@@ -180,13 +180,19 @@
 		--chevron-ink-top: 10.5px;
 		--chevron-ink-bottom: 17px;
 
-		mask-image: linear-gradient(
-			to bottom,
-			black calc(var(--chevron-ink-top) - var(--chevron-clearance)),
-			transparent calc(var(--chevron-ink-top) - var(--chevron-clearance)),
-			transparent calc(var(--chevron-ink-bottom) + var(--chevron-clearance)),
-			black calc(var(--chevron-ink-bottom) + var(--chevron-clearance))
-		);
+		mask-image:
+			linear-gradient(
+				to right,
+				black var(--row-fold-mask-inset, 0px),
+				transparent var(--row-fold-mask-inset, 0px)
+			),
+			linear-gradient(
+				to bottom,
+				black calc(var(--chevron-ink-top) - var(--chevron-clearance)),
+				transparent calc(var(--chevron-ink-top) - var(--chevron-clearance)),
+				transparent calc(var(--chevron-ink-bottom) + var(--chevron-clearance)),
+				black calc(var(--chevron-ink-bottom) + var(--chevron-clearance))
+			);
 	}
 
 	.foldToggle[data-chevron="always"][aria-expanded="false"] & {

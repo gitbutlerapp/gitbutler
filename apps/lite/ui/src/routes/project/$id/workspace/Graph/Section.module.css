@@ -113,6 +113,14 @@
 	--row-label-offset: calc(-3px + var(--row-fold-chevron-offset, 0px));
 }
 
+.collapsedBranchHeader {
+	/* Clear the branch lane around the chevron while keeping the trunk continuous. */
+	--row-fold-mask-inset: 5px;
+	/* Keep the label fixed while adjusting the collapsed chevron. */
+	--row-fold-chevron-offset: 0.5px;
+	--row-label-offset: -3px;
+}
+
 /* Centred on the label line, so the row keeps its height. */
 .action {
 	display: flex;

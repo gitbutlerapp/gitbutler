@@ -329,7 +329,6 @@ export const Section: FC<{
 	if (target === null) return null;
 	const branched = target.incoming > 0;
 	const expanded = branched && plan.incomingExpanded;
-	const continuesToHistory = expanded && plan.historyAvailable;
 	/** The target's row. The docked stand-in, with no line to show, wears a chevron instead of the rail. */
 	const header = (docked = false) => (
 		<Header
@@ -359,12 +358,12 @@ export const Section: FC<{
 					<span className={styles.chevron}>
 						{branched && <Icon name={plan.incomingExpanded ? "chevron-down" : "chevron-right"} />}
 					</span>
-				) : expanded ? (
+				) : branched ? (
 					<GraphSegment glyph="forkRight" status="Upstream" behind={1} />
 				) : (
 					<GraphSegment
-						glyph={branched ? "notch" : "space"}
-						status={branched ? "Upstream" : "LocalOnly"}
+						glyph="space"
+						status="LocalOnly"
 						behind={1}
 						folded={!plan.historyAvailable}
 					/>
@@ -373,7 +372,8 @@ export const Section: FC<{
 			toolbar={<Fetch projectId={projectId} />}
 			className={classes(
 				styles.header,
-				!expanded && styles.trunkHeader,
+				!branched && styles.trunkHeader,
+				!docked && branched && !expanded && styles.collapsedBranchHeader,
 				docked && styles.docked,
 				!docked && expanded && styles.cardHead,
 			)}
@@ -412,10 +412,7 @@ export const Section: FC<{
 							)}
 						</div>
 					</Fold>
-					<GraphGap
-						height={expanded ? CARD_GAP : LEG_GAP}
-						bend={continuesToHistory ? "LocalOnly" : expanded ? "Upstream" : undefined}
-					/>
+					<GraphGap height={expanded ? CARD_GAP : LEG_GAP} bend="Upstream" />
 				</>
 			)}
 			{plan.historyAvailable && (
