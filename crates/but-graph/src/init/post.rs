@@ -1888,8 +1888,8 @@ impl Graph {
     }
 
     /// Move all incoming connections of `from` onto `to`, retargeting their
-    /// destination to `(dst, dst_id)` while keeping source positions and
-    /// traversal order.
+    /// destination to `(dst, dst_id)` while keeping source positions and each
+    /// source's outgoing traversal order.
     fn move_incoming_edges(
         &mut self,
         from: (SegmentIndex, Option<CommitIndex>),
@@ -1899,20 +1899,25 @@ impl Graph {
     ) {
         let incoming =
             collect_edges_at_commit_in_traversal_order(&self.inner, from, Direction::Incoming);
-        // Preserve incoming traversal order by re-adding in reverse.
-        for edge in incoming.into_iter().rev() {
-            self.inner.add_edge(
-                edge.source,
-                to,
-                Edge {
-                    src: edge.weight.src,
-                    src_id: edge.weight.src_id,
-                    dst,
-                    dst_id,
-                    parent_order: edge.weight.parent_order,
-                },
-            );
-            self.inner.remove_edge(edge.id);
+        for source in incoming.iter().rev().map(|edge| edge.source).unique() {
+            // Replacing just the moved edge would put it first in petgraph's outgoing
+            // traversal, undoing workspace stack ordering established earlier in this pass.
+            let outgoing: Vec<EdgeOwned> = self
+                .inner
+                .edges_directed(source, Direction::Outgoing)
+                .map(Into::into)
+                .collect();
+            for edge in &outgoing {
+                self.inner.remove_edge(edge.id);
+            }
+            for mut edge in outgoing.into_iter().rev() {
+                if edge.target == from.0 && edge.weight.dst == from.1 {
+                    edge.target = to;
+                    edge.weight.dst = dst;
+                    edge.weight.dst_id = dst_id;
+                }
+                self.inner.add_edge(source, edge.target, edge.weight);
+            }
         }
     }
 }
