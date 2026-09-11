@@ -39,6 +39,7 @@ type Folds = {
 	incomingExpanded: boolean;
 	historyExpanded: boolean;
 	moreHistory: number;
+	historySince?: number;
 	/** How many times more of each run was asked for, by the run's id. */
 	moreRuns: Readonly<Record<string, number>>;
 };
@@ -225,7 +226,13 @@ export const layout = (
 		historyAvailable && folds.historyExpanded
 			? [...shared, ...olderPages.filter((commit) => commit.inWorkspace)]
 			: [];
-	const historyCount = FIRST_HISTORY + folds.moreHistory * MORE_COMMITS;
+	// Keep the graph contiguous even when commit timestamps are out of order.
+	const since = folds.historySince;
+	const initialHistory =
+		since === undefined
+			? FIRST_HISTORY
+			: history.findLastIndex((entry) => entry.commit.committedAt >= since) + 1;
+	const historyCount = initialHistory + folds.moreHistory * MORE_COMMITS;
 
 	return {
 		order: structure.order,

@@ -7,6 +7,7 @@ import type {
 	ForgeName,
 	ForgeReview,
 	ReviewMergeStatus,
+	TargetCommit,
 	TreeChange,
 	UnifiedPatch,
 } from "@gitbutler/but-sdk";
@@ -222,11 +223,41 @@ export const workspaceTargetCommitsQueryOptions = (projectId: string) =>
 	});
 
 /** The cursor is exclusive. Sharing the listing's key prefix also shares its invalidation. */
-export const olderTargetCommitsInfiniteQueryOptions = (projectId: string, from: string) =>
+export const olderTargetCommitsInfiniteQueryOptions = (
+	projectId: string,
+	from: string,
+	recent = false,
+) =>
 	infiniteQueryOptions({
-		queryKey: [projectId, "workspaceTargetCommits", { olderThan: from }],
-		queryFn: ({ pageParam }) =>
-			window.lite.workspaceTargetCommits({ projectId, from: pageParam, limit: 25 }),
+		queryKey: [projectId, "workspaceTargetCommits", { olderThan: from, recent }],
+		queryFn: async ({ pageParam, signal }) => {
+			const since = recent && pageParam === from ? Date.now() - 12 * 60 * 60 * 1000 : undefined;
+			const commits: Array<TargetCommit> = [];
+			let cursor = pageParam;
+			for (;;) {
+				signal.throwIfAborted();
+				const page = await window.lite.workspaceTargetCommits({
+					projectId,
+					from: cursor,
+					limit: 25,
+				});
+				commits.push(...page.commits);
+				const last = page.commits.at(-1);
+				if (
+					since === undefined ||
+					!page.hasMore ||
+					last === undefined ||
+					last.commit.id === cursor ||
+					(last.inWorkspace && last.commit.committedAt < since)
+				) {
+					return {
+						commits,
+						hasMore: page.hasMore && last !== undefined && last.commit.id !== cursor,
+					};
+				}
+				cursor = last.commit.id;
+			}
+		},
 		initialPageParam: from,
 		getNextPageParam: (page) => (page.hasMore ? page.commits.at(-1)?.commit.id : undefined),
 	});

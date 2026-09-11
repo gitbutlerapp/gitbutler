@@ -10,6 +10,7 @@ import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { projectSlice } from "#ui/projects/state.ts";
 import { usePlan, type Graph } from "./usePlan.ts";
 import { sectionAddresses } from "./layout.ts";
+import { guiSettingsQueryOptions } from "#ui/api/queries.ts";
 
 globalThis.IS_REACT_ACT_ENVIRONMENT = true;
 
@@ -73,6 +74,7 @@ beforeEach(async () => {
 			Promise.resolve(from === null ? listing : from === "base" ? page("older") : page("oldest")),
 		);
 	vi.stubGlobal("lite", {
+		readGUISettings: () => Promise.resolve({ version: 1 }),
 		headInfo: () =>
 			Promise.resolve({
 				stacks: [],
@@ -268,4 +270,112 @@ it("preserves stack placement identities while History opens and pages", async (
 	await showMoreHistory();
 	expect(graph().stacks).toBe(stacks);
 	expect(graph().plan.worktrees).toBe(worktrees);
+});
+
+const setRecentHistory = async (recent = true) => {
+	await act(async () => {
+		client.setQueryData(guiSettingsQueryOptions.queryKey, {
+			version: 1,
+			historyDisplayMode: recent ? "last-12-hours" : "commits",
+		});
+	});
+	await flush();
+};
+const timedCommit = (id: string, age: number, inWorkspace = true): TargetCommit => ({
+	...commit(id, inWorkspace),
+	commit: { ...commit(id).commit, committedAt: Date.now() - age },
+});
+const hour = 60 * 60 * 1000;
+
+it("automatically loads the last 12 hours across pages and still reveals older commits on demand", async () => {
+	const first = Array.from({ length: 25 }, (_, i) => timedCommit(`recent${i}`, hour));
+	const second = [timedCommit("last-recent", 11 * hour), timedCommit("old", 13 * hour)];
+	targetCommits.mockResolvedValueOnce({ commits: first, hasMore: true });
+	targetCommits.mockResolvedValueOnce({ commits: second, hasMore: true });
+	await setRecentHistory();
+	expect(targetCommits).toHaveBeenCalledTimes(1);
+	const stacks = graph().stacks;
+	const worktrees = graph().plan.worktrees;
+	await toggleHistory();
+	expect(targetCommits).toHaveBeenCalledTimes(3);
+	expect(targetCommits).toHaveBeenLastCalledWith({ projectId, from: "recent24", limit: 25 });
+	expect(graph().plan.history.at(-1)?.commit.id).toBe("last-recent");
+	expect(graph().plan.history).toHaveLength(27);
+	expect(graph().plan.historyHidden).toBe(1);
+	expect(graph().stacks).toBe(stacks);
+	expect(graph().plan.worktrees).toBe(worktrees);
+	targetCommits.mockResolvedValueOnce({ commits: [commit("oldest")], hasMore: false });
+	await showMoreHistory();
+	expect(graph().plan.history.at(-1)?.commit.id).toBe("oldest");
+	expect(graph().historyMore).toBe("hidden");
+	await toggleHistory();
+	await toggleHistory();
+	expect(graph().plan.history.at(-1)?.commit.id).toBe("last-recent");
+});
+
+it("lets Show more reveal history when there are no commits in the last 12 hours", async () => {
+	await setRecentHistory();
+	await toggleHistory();
+	expect(graph().plan.history).toEqual([]);
+	expect(graph().historyMore).toBe("idle");
+	await showMoreHistory();
+	expect(graph().plan.history).toHaveLength(20);
+	expect(graph().plan.history[0]?.commit.id).toBe("base");
+});
+
+it("keeps walking old incoming pages until it reaches shared history", async () => {
+	await act(async () => {
+		client.setQueryData([projectId, "workspaceTargetCommits"], {
+			commits: [commit("incoming", false)],
+			hasMore: true,
+		});
+	});
+	targetCommits.mockResolvedValueOnce({ commits: [commit("continued", false)], hasMore: true });
+	targetCommits.mockResolvedValueOnce({
+		commits: [timedCommit("shared", hour), commit("old")],
+		hasMore: false,
+	});
+	await setRecentHistory();
+	await toggleHistory();
+	expect(graph().plan.history.map((entry) => entry.commit.id)).toEqual(["shared"]);
+	expect(graph().plan.header?.incoming).toBe(2);
+});
+
+it("updates the time window while open without refetching its cached history", async () => {
+	targetCommits.mockResolvedValueOnce({
+		commits: [timedCommit("recent", 12 * hour - 30_000), commit("old")],
+		hasMore: false,
+	});
+	await setRecentHistory();
+	await toggleHistory();
+	expect(graph().plan.history.at(-1)?.commit.id).toBe("recent");
+	await act(async () => {
+		await vi.advanceTimersByTimeAsync(60_000);
+	});
+	expect(graph().plan.history).toEqual([]);
+	expect(targetCommits).toHaveBeenCalledTimes(2);
+	await setRecentHistory(false);
+	expect(graph().plan.history).toHaveLength(5);
+});
+
+it("does not expand a newly selected mode when an earlier Show more request finishes", async () => {
+	await toggleHistory();
+	await showMoreHistory();
+	const next = Promise.withResolvers<TargetCommitPage>();
+	targetCommits.mockReturnValueOnce(next.promise);
+	let request: Promise<void>;
+	await act(async () => {
+		request = graph().showMoreHistory();
+	});
+	await act(async () => {
+		store.dispatch(projectSlice.actions.resetGraphHistory({ projectId }));
+	});
+	await setRecentHistory();
+	await act(async () => {
+		next.resolve(page("oldest"));
+		await request;
+	});
+	await flush();
+	expect(graph().plan.history).toEqual([]);
+	expect(projectSlice.selectors.selectGraphFolds(store.getState(), projectId).moreHistory).toBe(0);
 });

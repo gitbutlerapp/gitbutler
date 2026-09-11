@@ -18,12 +18,17 @@ vi.mock("#ui/components/Tooltip.tsx", () => ({
 }));
 vi.mock("#ui/api/mutations.ts", () => ({
 	useWorkspaceIntegrateUpstream: () => ({ isPending: false, mutate: vi.fn() }),
+	useSaveGUISettings: () => ({ mutate: saveSettings }),
 }));
 vi.mock("#ui/projects/state.ts", () => ({
-	projectSlice: { selectors: { selectPendingOperation: () => ({ _tag: "None" }) } },
+	projectSlice: {
+		selectors: { selectPendingOperation: () => ({ _tag: "None" }) },
+		actions: { resetGraphHistory: (payload: unknown) => ({ type: "resetGraphHistory", payload }) },
+	},
 }));
 vi.mock("#ui/store.ts", () => ({
 	useAppSelector: (select: (state: object) => unknown) => select({}),
+	useAppDispatch: () => dispatch,
 }));
 vi.mock("#ui/routes/project/$id/workspace/WorkspaceLists/context.tsx", () => ({
 	useAddressSpace: () => ({ items: [], indexByKey: new Map() }),
@@ -37,6 +42,9 @@ let root: Root;
 let container: HTMLDivElement;
 let client: QueryClient;
 const onMore = vi.fn();
+const saveSettings = vi.fn();
+const dispatch = vi.fn();
+const showNativeMenu = vi.fn();
 const plan: Plan = {
 	order: [],
 	header: { label: "origin/main", current: false, incoming: 0 },
@@ -51,6 +59,10 @@ const plan: Plan = {
 
 beforeEach(() => {
 	onMore.mockReset();
+	saveSettings.mockReset();
+	dispatch.mockReset();
+	showNativeMenu.mockReset();
+	vi.stubGlobal("lite", { showNativeMenu });
 	client = new QueryClient({ defaultOptions: { queries: { retry: false, enabled: false } } });
 	container = document.createElement("div");
 	document.body.append(container);
@@ -60,6 +72,7 @@ afterEach(async () => {
 	await act(async () => root.unmount());
 	client.clear();
 	container.remove();
+	vi.unstubAllGlobals();
 });
 const render = async (historyMore: Graph["historyMore"] = "idle", current = false) => {
 	await act(async () => {
@@ -118,4 +131,41 @@ it("does not activate History pagination while a page is loading", async () => {
 		button.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
 	});
 	expect(onMore).not.toHaveBeenCalled();
+});
+
+it("offers both History defaults and saves the selected mode", async () => {
+	await render();
+	showNativeMenu.mockResolvedValueOnce("native-menu:1");
+	const button = assert(container.querySelector<HTMLButtonElement>('[aria-label="History menu"]'));
+	expect(button.tabIndex).toBe(0);
+	expect(button.getAttribute("aria-haspopup")).toBe("menu");
+	await act(async () => button.click());
+	expect(showNativeMenu).toHaveBeenCalledWith(
+		expect.objectContaining({
+			items: [
+				expect.objectContaining({ label: "Last 5 commits", checked: true }),
+				expect.objectContaining({ label: "Last 12 hours", checked: false }),
+			],
+		}),
+	);
+	expect(saveSettings).toHaveBeenCalledWith({ historyDisplayMode: "last-12-hours" });
+	expect(dispatch).toHaveBeenCalledWith({
+		type: "resetGraphHistory",
+		payload: { projectId: "section-test" },
+	});
+	await act(async () => {
+		client.setQueryData(["guiSettings"], { version: 1, historyDisplayMode: "last-12-hours" });
+	});
+	await render();
+	showNativeMenu.mockResolvedValueOnce("native-menu:0");
+	await act(async () => button.click());
+	expect(showNativeMenu).toHaveBeenLastCalledWith(
+		expect.objectContaining({
+			items: [
+				expect.objectContaining({ label: "Last 5 commits", checked: false }),
+				expect.objectContaining({ label: "Last 12 hours", checked: true }),
+			],
+		}),
+	);
+	expect(saveSettings).toHaveBeenLastCalledWith({ historyDisplayMode: "commits" });
 });

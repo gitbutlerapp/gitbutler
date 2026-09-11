@@ -35,6 +35,9 @@ const graphSlice = createSlice({
 			if (!state.historyExpanded) return;
 			state.moreHistory += 1;
 		},
+		resetHistory: (state) => {
+			state.moreHistory = 0;
+		},
 		showMoreRun: (state, { payload: { runId } }: PayloadAction<{ runId: string }>) => {
 			state.moreRuns[runId] = (state.moreRuns[runId] ?? 0) + 1;
 		},
@@ -50,6 +53,9 @@ const graphSlice = createSlice({
 export const createInitialGraphState = (): GraphState => graphSlice.getInitialState();
 
 export const graphReducers = {
+	resetHistory: (state: GraphState) => {
+		graphSlice.caseReducers.resetHistory(state);
+	},
 	toggleHistory: (state: GraphState) => {
 		graphSlice.caseReducers.toggleHistory(state);
 	},

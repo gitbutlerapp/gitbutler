@@ -189,6 +189,9 @@ export const projectReducers = {
 	showMoreGraphHistory: (state: ProjectState) => {
 		graphReducers.showMoreHistory(state.graph);
 	},
+	resetGraphHistory: (state: ProjectState) => {
+		graphReducers.resetHistory(state.graph);
+	},
 	showMoreGraphRun: (state: ProjectState, { runId }: { runId: string }) => {
 		graphReducers.showMoreRun(state.graph, { runId });
 	},
