@@ -20,6 +20,7 @@ import { getButtonClassName } from "#ui/components/Button.tsx";
 import { classes } from "#ui/components/classes.ts";
 import { Icon } from "#ui/components/Icon.tsx";
 import { ForgeLabel } from "#ui/components/ForgeLabel.tsx";
+import { RelativeTime } from "#ui/components/RelativeTime.tsx";
 import type { IconName } from "#ui/components/iconNames.ts";
 import { TooltipPopup } from "#ui/components/Tooltip.tsx";
 import {
@@ -42,7 +43,7 @@ import type {
 import { Tooltip } from "@base-ui/react";
 import { useQuery } from "@tanstack/react-query";
 import { Match } from "effect";
-import { type FC, type MouseEvent, type ReactNode, useState } from "react";
+import { type FC, type MouseEvent, type ReactNode, useId, useState } from "react";
 import styles from "./PullRequestPanel.module.css";
 
 type ReviewStatus = "open" | "draft" | "merged" | "closed";
@@ -69,17 +70,43 @@ const statusBits = (status: ReviewStatus): [string, BadgeVariant, IconName] =>
 const Section: FC<{
 	heading: string;
 	action?: ReactNode;
-	className?: string;
+	collapsible?: boolean;
+	defaultExpanded?: boolean;
+	summary?: ReactNode;
 	children: ReactNode;
-}> = (p) => (
-	<div className={classes(styles.section, p.className)}>
-		<div className={styles.sectionHeader}>
-			<h4 className={classes("text-12", styles.heading)}>{p.heading}</h4>
-			{p.action}
+}> = ({ heading, action, collapsible = false, defaultExpanded = true, summary, children }) => {
+	const [expanded, setExpanded] = useState(defaultExpanded);
+	const contentId = useId();
+	return (
+		<div className={styles.section}>
+			<div className={styles.sectionHeader}>
+				<h4 className={classes("text-12", styles.heading)}>
+					{collapsible && (
+						<button
+							type="button"
+							className={classes(
+								getButtonClassName({ variant: "ghost", size: "small", iconOnly: true }),
+								styles.sectionToggle,
+							)}
+							aria-label={`${expanded ? "Collapse" : "Expand"} ${heading.toLowerCase()}`}
+							aria-expanded={expanded}
+							aria-controls={contentId}
+							onClick={() => setExpanded((current) => !current)}
+						>
+							<Icon name={expanded ? "chevron-down" : "chevron-right"} size={12} />
+						</button>
+					)}
+					<span>{heading}</span>
+				</h4>
+				{action}
+			</div>
+			{summary}
+			<div id={contentId} className={styles.sectionContent} hidden={collapsible && !expanded}>
+				{(!collapsible || expanded) && children}
+			</div>
 		</div>
-		{p.children}
-	</div>
-);
+	);
+};
 
 /**
  * A native menu with no items opens as an empty rectangle, which reads as a
@@ -316,6 +343,7 @@ export const NewPullRequestPanel: FC<{
 		<aside className={styles.panel}>
 			<Section
 				heading="Reviewers"
+				collapsible={pickedReviewers.length > 0}
 				action={
 					canPickReviewers &&
 					pickerButton({
@@ -377,9 +405,6 @@ export const NewPullRequestPanel: FC<{
 	);
 };
 
-/** A failing check, carrying the dot colour its conclusion earns. */
-type ProblemCheck = { check: CiCheck; tone: "danger" | "warn" | "muted" };
-
 /** Wall time from a check's start to its completion, once both are known. */
 const checkDuration = (check: CiCheck): string | null => {
 	const completedAt = typeof check.status === "string" ? null : check.status.complete.completed_at;
@@ -388,8 +413,24 @@ const checkDuration = (check: CiCheck): string | null => {
 	return Number.isNaN(ms) || ms < 0 ? null : formatCompactDuration(ms);
 };
 
-const ProblemCheckRow: FC<{ problem: ProblemCheck }> = ({ problem: { check, tone } }) => {
+const CheckRow: FC<{ check: CiCheck }> = ({ check }) => {
+	const status = typeof check.status === "string" ? check.status : check.status.complete.conclusion;
+	const [label, dotClassName] = Match.value(status).pipe(
+		Match.withReturnType<[string, string | undefined]>(),
+		Match.when("failure", () => ["Failed", styles.checkDotDanger]),
+		Match.when("timedOut", () => ["Timed out", styles.checkDotDanger]),
+		Match.when("actionRequired", () => ["Action required", styles.checkDotWarn]),
+		Match.when("inProgress", () => ["In progress", styles.checkDotWarn]),
+		Match.when("queued", () => ["Queued", styles.checkDotMuted]),
+		Match.when("success", () => ["Succeeded", styles.checkDotSafe]),
+		Match.when("neutral", () => ["Neutral", styles.checkDotMuted]),
+		Match.when("skipped", () => ["Skipped", styles.checkDotMuted]),
+		Match.when("cancelled", () => ["Cancelled", styles.checkDotMuted]),
+		Match.when("unknown", () => ["Unknown", styles.checkDotMuted]),
+		Match.exhaustive,
+	);
 	const duration = checkDuration(check);
+	const startedAt = check.startedAt === null ? Number.NaN : Date.parse(check.startedAt);
 
 	return (
 		<a
@@ -397,64 +438,78 @@ const ProblemCheckRow: FC<{ problem: ProblemCheck }> = ({ problem: { check, tone
 			onClick={openLinkExternally}
 			className={classes("text-12", styles.checkRow)}
 		>
-			<span
-				className={classes(
-					styles.checkDot,
-					Match.value(tone).pipe(
-						Match.when("danger", () => styles.checkDotDanger),
-						Match.when("warn", () => styles.checkDotWarn),
-						Match.when("muted", () => styles.checkDotMuted),
-						Match.exhaustive,
-					),
-				)}
-			/>
-			<span className={styles.checkName}>{check.name}</span>
-			<span className={styles.checkMeta}>
-				{duration !== null && (
-					<>
-						{duration}
-						<span>·</span>
-					</>
-				)}
-				<Icon name="arrow-up-right" size={14} />
+			<span className={classes(styles.checkDot, dotClassName)} />
+			<span className={styles.checkBody}>
+				<span className={styles.checkName} title={check.name}>
+					{check.name}
+				</span>
+				<span className={styles.checkMeta}>
+					<span>{label}</span>
+					{status === "inProgress" && Number.isFinite(startedAt) ? (
+						<>
+							<span>·</span>
+							<RelativeTime timestamp={startedAt} compact />
+						</>
+					) : duration !== null ? (
+						<>
+							<span>·</span>
+							<span>{duration}</span>
+						</>
+					) : null}
+				</span>
 			</span>
+			<Icon name="arrow-up-right" size={14} className={styles.checkLinkIcon} />
 		</a>
 	);
 };
 
-/**
- * CI at a glance: a bar apportioned between the checks that passed, are still
- * running and failed, the same three as counts, and a row per failing check.
- */
 const ChecksSection: FC<{ projectId: string; reference: string }> = ({ projectId, reference }) => {
-	const { data } = useQuery(
-		listCIChecksQueryOptions({ projectId, reference, polling: "priority" }),
-	);
+	const { data } = useQuery({
+		...listCIChecksQueryOptions({ projectId, reference, polling: "priority" }),
+		select: ({ aggregate }) =>
+			aggregate === null
+				? null
+				: {
+						aggregate,
+						checks: [
+							...aggregate.failure,
+							...aggregate.timedOut,
+							...aggregate.actionRequired,
+							...aggregate.inProgress,
+							...aggregate.queued,
+							...aggregate.cancelled,
+							...aggregate.unknown,
+							...aggregate.success,
+							...aggregate.neutral,
+							...aggregate.skipped,
+						],
+					},
+	});
 	const aggregate = data?.aggregate ?? null;
 	if (aggregate === null) return null;
 
-	// Cancelled checks didn't pass either, so they join the problem list — with
-	// a muted dot, since nothing went wrong so much as stopped.
-	const problems: Array<ProblemCheck> = [
-		...aggregate.failure.map((check): ProblemCheck => ({ check, tone: "danger" })),
-		...aggregate.timedOut.map((check): ProblemCheck => ({ check, tone: "danger" })),
-		...aggregate.actionRequired.map((check): ProblemCheck => ({ check, tone: "warn" })),
-		...aggregate.cancelled.map((check): ProblemCheck => ({ check, tone: "muted" })),
-	];
+	const failed = aggregate.failure.length + aggregate.timedOut.length;
+	const actionRequired = aggregate.actionRequired.length;
+	const cancelled = aggregate.cancelled.length;
 	// A check of unknown state hasn't resolved, so it waits with the pending.
 	const pending = aggregate.inProgress.length + aggregate.queued.length + aggregate.unknown.length;
 	const passed = aggregate.success.length + aggregate.neutral.length;
 	const skipped = aggregate.skipped.length;
 	// Skipped checks ran nothing, so they're counted but not apportioned.
 	const segments = [
-		{ key: "passed", count: passed, className: styles.barPassed },
+		{ key: "failed", count: failed, className: styles.barFailed },
+		{ key: "actionRequired", count: actionRequired, className: styles.barActionRequired },
 		{ key: "pending", count: pending, className: styles.barPending },
-		{ key: "failed", count: problems.length, className: styles.barFailed },
+		{ key: "cancelled", count: cancelled, className: styles.barPending },
+		{ key: "passed", count: passed, className: styles.barPassed },
 	].filter((segment) => segment.count > 0);
 
 	return (
-		<Section heading="Checks">
-			<div className={styles.checks}>
+		<Section
+			heading="Checks"
+			collapsible
+			defaultExpanded={false}
+			summary={
 				<div className={styles.checksSummary}>
 					<div className={styles.checksBar}>
 						{segments.map((segment) => (
@@ -467,32 +522,33 @@ const ChecksSection: FC<{ projectId: string; reference: string }> = ({ projectId
 					</div>
 
 					<div className={classes("text-12", styles.checksCounts)}>
-						{problems.length > 0 && (
-							<span className={styles.countFailed}>{problems.length} failed</span>
-						)}
+						{failed > 0 && <span className={styles.countFailed}>{failed} failed</span>}
 						{passed > 0 && (
 							<span className={styles.countPassed}>
-								{problems.length === 0 && pending === 0
-									? `All ${passed} passed`
-									: `${passed} passed`}
+								{passed === aggregate.total ? `All ${passed} passed` : `${passed} passed`}
 							</span>
 						)}
 						{pending > 0 && <span className={styles.countPending}>{pending} pending</span>}
+						{actionRequired > 0 && (
+							<span className={styles.countActionRequired}>{actionRequired} action required</span>
+						)}
+						{cancelled > 0 && <span className={styles.countSkipped}>{cancelled} cancelled</span>}
 						{skipped > 0 && <span className={styles.countSkipped}>{skipped} skipped</span>}
 					</div>
 				</div>
-
-				{problems.length > 0 && (
-					<>
-						<div className={styles.checksDivider} />
-						<div className={styles.checksList}>
-							{problems.map((problem) => (
-								<ProblemCheckRow key={problem.check.id} problem={problem} />
-							))}
-						</div>
-					</>
-				)}
-			</div>
+			}
+		>
+			<div className={styles.checksDivider} />
+			<section
+				className={styles.checksList}
+				aria-label="Check jobs"
+				// oxlint-disable-next-line jsx-a11y/no-noninteractive-tabindex -- Let keyboard users focus and scroll the job list.
+				tabIndex={0}
+			>
+				{data?.checks.map((check) => (
+					<CheckRow key={check.id} check={check} />
+				))}
+			</section>
 		</Section>
 	);
 };
@@ -575,11 +631,6 @@ export const PullRequestPanel: FC<{
 	const { mutate: removeReviewLabel } = useRemoveReviewLabel(projectId);
 	const { mutate: requestReview } = useRequestReview(projectId);
 	const { mutate: withdrawReviewRequest } = useWithdrawReviewRequest(projectId);
-	// Stacked above the description, the whole card would push it out of
-	// view, so there the sections marked foldable — the reference ones,
-	// Branches and Created — hide until asked. The footer that asks only
-	// renders in that layout (see the CSS).
-	const [showsAll, setShowsAll] = useState(false);
 	const { isPending: isDraftinessPending, mutate: setReviewDraftiness } =
 		useSetReviewDraftiness(projectId);
 	const { isPending: isUpdateReviewPending, mutate: updateReview } = useUpdateReview(projectId);
@@ -711,7 +762,7 @@ export const PullRequestPanel: FC<{
 	};
 
 	return (
-		<aside className={styles.panel} data-collapsed={showsAll ? undefined : ""}>
+		<aside className={styles.panel}>
 			<Section
 				heading="Status"
 				action={
@@ -744,8 +795,13 @@ export const PullRequestPanel: FC<{
 				{null}
 			</Section>
 
+			{forgeInfo?.capabilities.checks === true && (
+				<ChecksSection projectId={projectId} reference={review.sourceBranch} />
+			)}
+
 			<Section
 				heading="Reviewers"
+				collapsible={reviewerList.length > 0}
 				action={
 					canPickReviewers &&
 					pickerButton({
@@ -796,11 +852,7 @@ export const PullRequestPanel: FC<{
 				)}
 			</Section>
 
-			{forgeInfo?.capabilities.checks === true && (
-				<ChecksSection projectId={projectId} reference={review.sourceBranch} />
-			)}
-
-			<Section heading="Branches" className={styles.foldable}>
+			<Section heading="Branches">
 				<div className={classes("text-13", styles.branches)}>
 					<CopyableBranch name={review.sourceBranch} />
 					<TargetBranch name={review.targetBranch} />
@@ -808,22 +860,12 @@ export const PullRequestPanel: FC<{
 			</Section>
 
 			{createdAtMs !== null && (
-				<Section heading="Created" className={styles.foldable}>
+				<Section heading="Created">
 					<span className={classes("text-13", styles.created)}>
 						{formatRelativeTime(createdAtMs)}, {formatAbsoluteTime(createdAtMs)}
 					</span>
 				</Section>
 			)}
-
-			<div className={styles.panelFooter}>
-				<button
-					className={classes("text-13", styles.panelFooterToggle)}
-					onClick={() => setShowsAll((current) => !current)}
-					type="button"
-				>
-					{showsAll ? "Show less" : "Show all"}
-				</button>
-			</div>
 		</aside>
 	);
 };

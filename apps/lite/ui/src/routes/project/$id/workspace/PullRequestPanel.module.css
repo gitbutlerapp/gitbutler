@@ -38,32 +38,25 @@
 }
 
 .heading {
+	display: flex;
+	align-items: center;
 	color: var(--text-2);
 }
 
-/* Only the stacked layout folds the card; beside the column it has the
-   height to show everything. */
-.panelFooter {
-	display: none;
-	padding-inline: 14px;
-	padding-block: 8px;
-	border-top: 1px solid var(--border-section);
-	border-radius: 0 0 var(--radius-card) var(--radius-card);
-	background-color: var(--bg-2);
+.sectionToggle {
+	/* Align the 12px chevron inside its 22px hit target with the content inset. */
+	margin-inline-start: -5px;
+	color: inherit;
 }
 
-.panelFooterToggle {
-	padding: 0;
-	border: none;
-	background: none;
-	color: var(--text-1);
-	/* The designed link treatment: dotted, on the font's own underline. */
-	text-decoration: underline dotted;
-	text-underline-position: from-font;
-	opacity: 0.7;
+.sectionContent {
+	display: flex;
+	flex-direction: column;
+	gap: 8px;
 
-	&:hover {
-		opacity: 1;
+	&[hidden],
+	&:empty {
+		display: none;
 	}
 }
 
@@ -74,16 +67,6 @@
 	.panel {
 		position: static;
 		flex-basis: auto;
-	}
-
-	/* Folded, the card hides its reference sections behind the footer, so
-	   the description stays in reach. */
-	.panel[data-collapsed] > .foldable {
-		display: none;
-	}
-
-	.panelFooter {
-		display: flex;
 	}
 }
 
@@ -205,12 +188,6 @@
 	gap: 4px;
 }
 
-.checks {
-	display: flex;
-	flex-direction: column;
-	gap: 12px;
-}
-
 .checksSummary {
 	display: flex;
 	flex-direction: column;
@@ -242,6 +219,10 @@
 	background-color: var(--fill-danger-bg);
 }
 
+.barActionRequired {
+	background-color: var(--fill-warn-bg);
+}
+
 .checksCounts {
 	display: flex;
 	flex-wrap: wrap;
@@ -256,6 +237,10 @@
 	color: var(--text-safe);
 }
 
+.countActionRequired {
+	color: var(--text-warn);
+}
+
 .countPending {
 	color: var(--text-2);
 }
@@ -266,21 +251,32 @@
 
 .checksDivider {
 	height: 1px;
+	margin-inline: -14px -12px;
 	background-color: var(--border-section);
 }
 
 .checksList {
 	display: flex;
 	flex-direction: column;
+	max-height: min(280px, 40vh);
+	/* Reach the section edges; the rows provide the content inset. */
+	margin: -8px -12px -12px -14px;
+	overflow-y: auto;
+	overscroll-behavior-y: contain;
+	scrollbar-gutter: stable;
 }
 
-/* Inset by its own padding so the hover background reads as a row. */
+.checksList:focus-visible {
+	outline: var(--focus-ring);
+	outline-offset: -2px;
+}
+
 .checkRow {
 	display: flex;
+	flex-shrink: 0;
 	align-items: center;
-	padding: 4px;
+	padding: 4px 12px 4px 14px;
 	gap: 8px;
-	border-radius: var(--radius-button);
 	color: var(--text-1);
 
 	&:hover {
@@ -303,13 +299,22 @@
 	background-color: var(--fill-warn-bg);
 }
 
+.checkDotSafe {
+	background-color: var(--fill-safe-bg);
+}
+
 .checkDotMuted {
 	background-color: var(--scale-gray-70);
 }
 
-.checkName {
+.checkBody {
+	display: flex;
 	flex: 1;
+	flex-direction: column;
 	min-width: 0;
+}
+
+.checkName {
 	overflow: hidden;
 	text-overflow: ellipsis;
 	white-space: nowrap;
@@ -317,9 +322,14 @@
 
 .checkMeta {
 	display: flex;
-	flex-shrink: 0;
+	flex-wrap: wrap;
 	align-items: center;
 	gap: 6px;
+	color: var(--text-3);
+}
+
+.checkLinkIcon {
+	flex-shrink: 0;
 	color: var(--text-3);
 }
 
