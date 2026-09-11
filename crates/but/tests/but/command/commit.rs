@@ -2788,6 +2788,115 @@ For more information, try '--help'.
 "#]]);
 }
 
+/// A worktree lane lists every branch it owns with an ID of its own. Committing onto one beneath
+/// the checked-out branch lands there, and the branch above it is rebased along.
+#[test]
+fn commit_onto_a_branch_beneath_a_worktrees_top() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
+    env.setup_metadata(&["A", "B"]);
+    enable_worktree_manipulation(&env);
+    env.but("status").assert().success();
+    let wt = env.app_data_dir().join("worktrees").join("wt");
+    but_testsupport::invoke_bash_at_dir(
+        &format!(
+            r#"
+        git worktree add -q -b wt-lower "{wt}" A
+        (cd "{wt}" && git commit -q --allow-empty -m "lower work" && git checkout -q -b wt-top && git commit -q --allow-empty -m "top work")
+        "#,
+            wt = wt.display()
+        ),
+        env.projects_root(),
+    );
+    env.file("note.txt", "from the main worktree");
+
+    env.but("status")
+        .assert()
+        .success()
+        .stderr_eq(snapbox::str![])
+        .stdout_eq(snapbox::str![[r#"
+╭┄ @ [uncommitted]
+┊   uq A note.txt
+┊
+┊╭┄ g0 [A]
+┊┊
+┊┊╭┄ wt:@ [uncommitted] {wt} (no changes)
+┊┊├┄ wt [wt-top]
+┊┊●   ttl top work (no changes)
+┊┊│
+┊┊├┄ lo [wt-lower]
+┊┊●   skq lower work (no changes)
+┊├╯
+┊●   tpm add A
+├╯
+┊
+┊╭┄ h0 [B]
+┊●   lrm add B
+├╯
+┊
+┴ 0dc3733 (common base) 2000-01-02 add M
+
+Hint: run `but diff` to see uncommitted changes and `but commit -b <branch> -m "message" <id>` to commit them
+
+"#]]);
+
+    env.but("commit uq -b lo -m 'onto the lower branch'")
+        .assert()
+        .success()
+        .stderr_eq(snapbox::str![])
+        .stdout_eq(snapbox::str![[r#"
+Created commit wrm on branch 'wt-lower'
+
+"#]]);
+
+    // The commit sits beneath the worktree's checked-out branch, which was rebased onto it,
+    // and the change left the main worktree's area.
+    env.but("status")
+        .assert()
+        .success()
+        .stderr_eq(snapbox::str![])
+        .stdout_eq(snapbox::str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┊╭┄ g0 [A]
+┊┊
+┊┊╭┄ wt:@ [uncommitted] {wt} (no changes)
+┊┊├┄ wt [wt-top]
+┊┊●   ttl top work (no changes)
+┊┊│
+┊┊├┄ lo [wt-lower]
+┊┊●   wrm onto the lower branch
+┊┊●   skq lower work (no changes)
+┊├╯
+┊●   tpm add A
+├╯
+┊
+┊╭┄ h0 [B]
+┊●   lrm add B
+├╯
+┊
+┴ 0dc3733 (common base) 2000-01-02 add M
+
+Hint: run `but help` for all commands
+
+"#]]);
+    snapbox::assert_data_eq!(
+        env.git_log(),
+        snapbox::str![[r#"
+*   c128bce (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+|/  
+* | d3e2ba3 (B) add B
+| | * 066a89b (wt-top) top work
+| | * 7dc8d44 (wt-lower) onto the lower branch
+| | * fb2a163 lower work
+| |/  
+| * 9477ae7 (A) add A
+|/  
+* 0dc3733 (origin/main, origin/HEAD, main, gitbutler/target) add M
+
+"#]]
+    );
+}
+
 /// A worktree file's ID commits that change onto a workspace branch: it lands
 /// as a commit there and leaves the worktree's uncommitted area, whose checkout
 /// is updated so the change does not reappear.
