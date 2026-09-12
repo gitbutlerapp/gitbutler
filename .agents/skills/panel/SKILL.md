@@ -4,9 +4,9 @@ description: Use when asked to open, show, or try the `but panel` workspace view
 ---
 
 `but panel` serves a narrow, read-only view of a GitButler workspace on
-`http://localhost:7789`: branches, commits, their files and diffs, and the
-uncommitted changes, refreshing every few seconds. It is hidden and
-experimental, so run it from source.
+`http://localhost:7789`: branches with their pull requests and CI, commits, their
+files and diffs, the uncommitted changes, and linked worktrees, refreshing
+every few seconds. It is hidden and experimental, so run it from source.
 
 ## 1. Find the project
 
