@@ -116,6 +116,143 @@ fn assert_edit_mode_cleaned_up(ctx: &Context) -> Result<()> {
     Ok(())
 }
 
+/// The hunk assignments currently persisted for the workspace, as `(path, assigned)` pairs
+/// sorted by path.
+///
+/// Reading assignments reconciles them with the worktree, which is what the desktop app does
+/// on every refresh.
+fn assignments(ctx: &Context, perm: &but_ctx::access::RepoShared) -> Result<Vec<(String, bool)>> {
+    let context_lines = ctx.settings.context_lines;
+    let (repo, ws, mut db) = ctx.workspace_and_db_mut_with_perm(perm)?;
+    let (assignments, _) = but_hunk_assignment::assignments_with_fallback(
+        db.hunk_assignments_mut()?,
+        &repo,
+        &ws,
+        None::<Vec<but_core::TreeChange>>,
+        context_lines,
+    )?;
+    let mut out = assignments
+        .into_iter()
+        .map(|assignment| (assignment.path, assignment.stack_id.is_some()))
+        .collect::<Vec<_>>();
+    out.sort();
+    Ok(out)
+}
+
+/// Assign every uncommitted change to `stack_id`, like picking a lane for them in the UI.
+fn assign_everything_to(
+    ctx: &Context,
+    perm: &but_ctx::access::RepoShared,
+    stack_id: StackId,
+) -> Result<()> {
+    let context_lines = ctx.settings.context_lines;
+    let (repo, ws, mut db) = ctx.workspace_and_db_mut_with_perm(perm)?;
+    let (current, _) = but_hunk_assignment::assignments_with_fallback(
+        db.hunk_assignments_mut()?,
+        &repo,
+        &ws,
+        None::<Vec<but_core::TreeChange>>,
+        context_lines,
+    )?;
+    let requests = current
+        .into_iter()
+        .map(|assignment| but_hunk_assignment::HunkAssignmentRequest {
+            hunk_header: assignment.hunk_header,
+            path_bytes: assignment.path_bytes,
+            target: Some(but_hunk_assignment::HunkAssignmentTarget::Stack { stack_id }),
+        })
+        .collect();
+    but_hunk_assignment::assign(
+        db.hunk_assignments_mut()?,
+        &repo,
+        &ws,
+        requests,
+        context_lines,
+    )?;
+    Ok(())
+}
+
+/// Edit mode parks the uncommitted changes in a ref and checks them out of the worktree, so
+/// while it is active the worktree no longer contains the changes the assignments describe.
+/// Anything that recomputes assignments in that window - the file monitor does, on every
+/// worktree write, via `gitbutler-watcher` - must not persist that view over the real one.
+#[test]
+fn assignments_survive_edit_mode() -> Result<()> {
+    let (mut ctx, _tempdir) = command_ctx("conficted_entries_get_written_when_leaving_edit_mode")?;
+    let repo = ctx.repo.get()?;
+    let foobar = repo.head_commit()?.decode()?.parents().next().unwrap();
+    let worktree_dir = repo.workdir().unwrap().to_owned();
+    drop(repo);
+
+    // An uncommitted change that has nothing to do with the commit being edited.
+    std::fs::write(worktree_dir.join("assigned.txt"), "assigned to branchy\n")?;
+
+    let mut guard = ctx.exclusive_worktree_access();
+    let stack_id = {
+        let (_repo, ws, _db) = ctx.workspace_and_db_with_perm(guard.read_permission())?;
+        stack_id(&ws)?
+    };
+    assign_everything_to(&ctx, guard.read_permission(), stack_id)?;
+    assert_eq!(
+        assignments(&ctx, guard.read_permission())?,
+        [("assigned.txt".to_owned(), true)],
+        "the change starts out assigned to the stack"
+    );
+
+    enter_edit_mode(&mut ctx, foobar, stack_id, guard.write_permission())?;
+
+    // Editing the commit's content is what the report does while in edit mode. Entering it on
+    // an unconflicted commit checks that same commit out, so the working tree starts clean and
+    // the recompute below would otherwise take the empty-changes early return.
+    std::fs::write(worktree_dir.join("file"), "edited during edit mode\n")?;
+    // The file monitor recomputes assignments on every worktree write, ignoring failures.
+    let _ = assignments(&ctx, guard.read_permission());
+
+    save_and_return_to_workspace(&mut ctx, guard.write_permission())?;
+
+    assert_eq!(
+        assignments(&ctx, guard.read_permission())?,
+        [("assigned.txt".to_owned(), true)],
+        "leaving edit mode restores the change to the worktree with its branch still assigned"
+    );
+    Ok(())
+}
+
+/// Aborting throws the edit away rather than keeping it, but it restores the same parked
+/// changes, so their assignments have to survive that exit too.
+#[test]
+fn assignments_survive_aborting_edit_mode() -> Result<()> {
+    let (mut ctx, _tempdir) = command_ctx("conficted_entries_get_written_when_leaving_edit_mode")?;
+    let repo = ctx.repo.get()?;
+    let foobar = repo.head_commit()?.decode()?.parents().next().unwrap();
+    let worktree_dir = repo.workdir().unwrap().to_owned();
+    drop(repo);
+
+    std::fs::write(worktree_dir.join("assigned.txt"), "assigned to branchy\n")?;
+
+    let mut guard = ctx.exclusive_worktree_access();
+    let stack_id = {
+        let (_repo, ws, _db) = ctx.workspace_and_db_with_perm(guard.read_permission())?;
+        stack_id(&ws)?
+    };
+    assign_everything_to(&ctx, guard.read_permission(), stack_id)?;
+
+    enter_edit_mode(&mut ctx, foobar, stack_id, guard.write_permission())?;
+
+    std::fs::write(worktree_dir.join("file"), "edited during edit mode\n")?;
+    let _ = assignments(&ctx, guard.read_permission());
+
+    // Those edits are what makes the abort need forcing.
+    abort_and_return_to_workspace(&mut ctx, true, guard.write_permission())?;
+
+    assert_eq!(
+        assignments(&ctx, guard.read_permission())?,
+        [("assigned.txt".to_owned(), true)],
+        "aborting edit mode restores the change with its branch still assigned"
+    );
+    Ok(())
+}
+
 #[test]
 fn basic_leaving_edit_mode() -> Result<()> {
     let (mut ctx, _tempdir) = command_ctx("conficted_entries_get_written_when_leaving_edit_mode")?;
