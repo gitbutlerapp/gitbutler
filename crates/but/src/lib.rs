@@ -867,6 +867,8 @@ async fn dispatch_subcommand(
         Subcommands::_Comment(..) | Subcommands::Worktree(..) => {
             setup::init_ctx(&args, InitCtxOptions::default(), out)
         }
+        #[cfg(feature = "nightly")]
+        Subcommands::Panel(..) => setup::init_ctx(&args, InitCtxOptions::default(), out),
         #[cfg(feature = "legacy")]
         Subcommands::Actions { .. }
         | Subcommands::Pull { .. }
@@ -979,6 +981,13 @@ async fn dispatch_subcommand(
         Subcommands::_Expand { cli_id } => {
             let outcome = command::expand::handle(&ctx, cli_id)?;
             out.print_cli_output(outcome)?;
+            None
+        }
+        #[cfg(feature = "nightly")]
+        Subcommands::Panel(panel_args) => {
+            use crate::utils::IntermediateChannel;
+
+            command::panel::serve(&mut ctx, IntermediateChannel::new(out), panel_args)?;
             None
         }
         Subcommands::Worktree(worktree::Platform { cmd }) => {
