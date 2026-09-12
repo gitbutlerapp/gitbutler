@@ -134,14 +134,14 @@ pub(super) mod function {
     use anyhow::{Context as _, bail};
     use bstr::ByteSlice;
     use but_core::{
-        RefMetadata, ref_metadata,
+        ref_metadata,
         ref_metadata::{
             StackId, StackKind::AppliedAndUnapplied, WorkspaceCommitRelation::Merged,
             WorkspaceStack, WorkspaceStackBranch,
         },
     };
     use but_error::bail_precondition;
-    use gix::refs::transaction::PreviousValue;
+    use gix::refs::transaction::{PreviousValue, RefEdit};
 
     use crate::branch::create_reference::{Anchor, Position};
 
@@ -202,7 +202,7 @@ pub(super) mod function {
     ///
     /// With [`Anchor::AtReference`] and no managed workspace, the new branch is positioned relative
     /// to a *local* branch by writing the tip-to-base order to `branch_stack_order`. This requires a
-    /// backend where [`RefMetadata::can_persist_branch_stack_order`] is `true`.
+    /// database that persists branch stack order.
     ///
     /// When the new branch is placed [`Position::Above`] the *currently checked-out* branch it
     /// becomes the new tip, and the returned workspace is projected **as if it were already checked
@@ -212,15 +212,44 @@ pub(super) mod function {
     /// entrypoint untouched.
     ///
     /// Return a regenerated Graph that contains the new reference, and from which a new workspace can be derived.
-    pub fn create_reference<'ws, 'name, T: RefMetadata>(
+    pub fn create_reference<'ws, 'name>(
         ref_name: impl Borrow<gix::refs::FullNameRef>,
         anchor: impl Into<Option<Anchor<'name>>>,
         repo: &gix::Repository,
         workspace: &'ws but_graph::Workspace,
-        meta: &mut T,
+        db: &mut but_db::ConnectionMut<'_, '_>,
         new_stack_id: impl FnOnce(&gix::refs::FullNameRef) -> StackId,
         order: impl Into<Option<usize>>,
     ) -> anyhow::Result<Cow<'ws, but_graph::Workspace>> {
+        create_reference_with_ref_edits(
+            ref_name,
+            anchor,
+            repo,
+            workspace,
+            db,
+            new_stack_id,
+            order,
+            &mut Vec::new(),
+        )
+    }
+
+    /// Like [`create_reference`], recording each committed reference edit before
+    /// proceeding to metadata writes that may fail.
+    #[expect(
+        clippy::too_many_arguments,
+        reason = "extends the existing creation API with its reference receipt sink"
+    )]
+    pub fn create_reference_with_ref_edits<'ws, 'name>(
+        ref_name: impl Borrow<gix::refs::FullNameRef>,
+        anchor: impl Into<Option<Anchor<'name>>>,
+        repo: &gix::Repository,
+        workspace: &'ws but_graph::Workspace,
+        db: &mut but_db::ConnectionMut<'_, '_>,
+        new_stack_id: impl FnOnce(&gix::refs::FullNameRef) -> StackId,
+        order: impl Into<Option<usize>>,
+        committed_ref_edits: &mut Vec<RefEdit>,
+    ) -> anyhow::Result<Cow<'ws, but_graph::Workspace>> {
+        let meta = db.meta()?;
         let anchor = anchor.into();
         let order = order.into();
 
@@ -229,8 +258,7 @@ pub(super) mod function {
         let existing_ws_meta = workspace
             .ref_name()
             .filter(|_| workspace.has_metadata())
-            .map(|ws_ref| meta.workspace(ws_ref))
-            .transpose()?;
+            .map(|ws_ref| meta.workspace(ws_ref).cloned().unwrap_or_default());
         let ref_name = ref_name.borrow();
         let existing_ref_target_id = repo
             .try_find_reference(ref_name)?
@@ -346,16 +374,10 @@ pub(super) mod function {
                 // The lower bound owns no commits, so an ad-hoc workspace needs explicit ref
                 // ordering to project the new empty segment at that boundary.
                 let branch_stack_order = if !workspace.has_metadata() && points_to_workspace_base {
-                    if !meta.can_persist_branch_stack_order() {
-                        bail_precondition!(
-                            "Cannot position '{new}' relative to local reference '{anchor}' at the workspace base without branch order metadata",
-                            new = ref_name.shorten(),
-                            anchor = anchor_ref.shorten()
-                        );
-                    }
                     let existing_order = meta
-                        .branch_stack_order(anchor_ref.as_ref())?
-                        .unwrap_or_default();
+                        .branch_stack_order(anchor_ref.as_ref())
+                        .unwrap_or_default()
+                        .to_vec();
                     Some(insert_into_branch_stack_order(
                         existing_order,
                         anchor_ref.as_ref(),
@@ -414,7 +436,7 @@ pub(super) mod function {
                         position,
                         repo,
                         workspace,
-                        meta,
+                        &meta,
                     )?
                 } else {
                     bail_precondition!(
@@ -438,26 +460,26 @@ pub(super) mod function {
             workspace.try_find_owner_indexes_by_commit_id(ref_target_id)?;
         }
 
+        // Prepare metadata before creating the ref, and persist the same value shown in the preview.
+        let mut branch_md = meta.branch(ref_name).cloned().unwrap_or_default();
+        branch_md.update_times(existing_ref_target_id.is_none());
         let graph_with_new_ref = {
-            // Always update the metadata, this may help disambiguating.
-            let mut branch_md = meta.branch(ref_name)?;
-            update_branch_metadata(ref_name, repo, &mut branch_md)?;
-
             let mut overlay = but_graph::init::Overlay::default()
                 .with_references_if_new(Some(gix::refs::Reference {
                     name: ref_name.into(),
                     target: gix::refs::Target::Object(ref_target_id),
                     peeled: None,
                 }))
-                .with_branch_metadata_override(Some((
-                    branch_md.as_ref().to_owned(),
-                    (*branch_md).clone(),
-                )))
-                .with_workspace_metadata_override(
-                    updated_ws_meta
-                        .as_ref()
-                        .map(|ws| (ws.as_ref().to_owned(), (*ws).clone())),
-                );
+                .with_branch_metadata_override(Some((ref_name.to_owned(), branch_md.clone())))
+                .with_workspace_metadata_override(updated_ws_meta.as_ref().map(|ws| {
+                    (
+                        workspace
+                            .ref_name()
+                            .expect("metadata has a workspace ref")
+                            .to_owned(),
+                        ws.clone(),
+                    )
+                }));
             if let Some(branch_stack_order) = branch_stack_order.clone() {
                 overlay = overlay.with_branch_stack_order_override(branch_stack_order);
             }
@@ -467,7 +489,7 @@ pub(super) mod function {
 
             workspace
                 .graph
-                .redo_traversal_with_overlay(repo, meta, overlay)?
+                .redo_traversal_with_overlay(repo, &meta, overlay)?
         };
 
         let updated_workspace = graph_with_new_ref.into_workspace()?;
@@ -496,61 +518,71 @@ pub(super) mod function {
         }
 
         // Actually apply the changes
-        repo.reference(
-            ref_name,
-            ref_target_id,
-            PreviousValue::ExistingMustMatch(gix::refs::Target::Object(ref_target_id)),
-            "Dependent branch by GitButler",
-        )
-        .map_err(|err| {
-            if is_not_a_directory_ref_edit_error(&err)
-                && let Ok(Some(colliding_ref)) = find_colliding_ref_ancestor(repo, ref_name)
-            {
-                return anyhow::anyhow!(
-                    "Branch name '{}' collides with existing branch '{}'",
-                    ref_name.shorten(),
-                    colliding_ref.shorten()
-                );
-            }
-            let code = match err {
-                gix::reference::edit::Error::FileTransactionCommit(
-                    gix::refs::file::transaction::commit::Error::CreateOrUpdateRefLog(
-                        gix::refs::file::log::create_or_update::Error::MissingCommitter,
-                    ),
-                ) => Some(but_error::Code::AuthorMissing),
-                _ => None,
-            };
-            let err = anyhow::Error::from(err);
-            if let Some(code) = code {
-                err.context(code)
-            } else {
-                err
-            }
-        })?;
+        let edits = repo
+            .edit_reference(RefEdit::update(
+                ref_name.to_owned(),
+                ref_target_id,
+                PreviousValue::ExistingMustMatch(gix::refs::Target::Object(ref_target_id)),
+                "Dependent branch by GitButler",
+            ))
+            .map_err(|err| {
+                if is_not_a_directory_ref_edit_error(&err)
+                    && let Ok(Some(colliding_ref)) = find_colliding_ref_ancestor(repo, ref_name)
+                {
+                    return anyhow::anyhow!(
+                        "Branch name '{}' collides with existing branch '{}'",
+                        ref_name.shorten(),
+                        colliding_ref.shorten()
+                    );
+                }
+                let code = match err {
+                    gix::reference::edit::Error::FileTransactionCommit(
+                        gix::refs::file::transaction::commit::Error::CreateOrUpdateRefLog(
+                            gix::refs::file::log::create_or_update::Error::MissingCommitter,
+                        ),
+                    ) => Some(but_error::Code::AuthorMissing),
+                    _ => None,
+                };
+                let err = anyhow::Error::from(err);
+                if let Some(code) = code {
+                    err.context(code)
+                } else {
+                    err
+                }
+            })?;
+        let created_here = edits.iter().any(|edit| {
+            edit.name.as_ref() == ref_name
+                && matches!(&edit.change, gix::refs::transaction::Change::Update { expected, .. }
+                    if !matches!(expected, PreviousValue::MustExistAndMatch(_)))
+        });
+        committed_ref_edits.extend(edits);
         // Important to first update the workspace so we have the correct stack setup.
         if let Some(ws_meta) = updated_ws_meta {
-            meta.set_workspace(&ws_meta)?;
+            db.meta_mut()?.set_workspace(
+                workspace.ref_name().expect("metadata has a workspace ref"),
+                &ws_meta,
+            )?;
         }
         if let Some(branch_stack_order) = branch_stack_order
-            && let Err(err) = meta.set_branch_stack_order(&branch_stack_order)
+            && let Err(err) = db
+                .meta_mut()
+                .and_then(|meta| meta.set_branch_stack_order(&branch_stack_order))
         {
             // Keep the operation atomic from the caller's perspective: if we just created the ref
             // but can't persist its ordering, roll the ref back (best-effort) so we don't leave an
             // unordered same-commit branch that can't be projected consistently.
-            if existing_ref_target_id.is_none()
-                && let Ok(Some(reference)) = repo.try_find_reference(ref_name)
+            if created_here
+                && let Ok(edits) = repo.edit_reference(RefEdit::delete(
+                    ref_name.to_owned(),
+                    PreviousValue::MustExistAndMatch(gix::refs::Target::Object(ref_target_id)),
+                ))
             {
-                reference.delete().ok();
+                committed_ref_edits.extend(edits);
             }
             return Err(err);
         }
 
-        // Always re-obtain the branch as `set_workspace` has created another version of it, possibly.
-        // To avoid duplication, fetch the 'real' one and do the update again.
-        // TODO: remove this in favor of keeping the previous handle once we have a sane `meta` impl
-        let mut branch_md = meta.branch(ref_name)?;
-        update_branch_metadata(ref_name, repo, &mut branch_md)?;
-        meta.set_branch(&branch_md)?;
+        db.meta_mut()?.set_branch(ref_name, &branch_md)?;
 
         Ok(Cow::Owned(updated_workspace))
     }
@@ -560,23 +592,16 @@ pub(super) mod function {
     ///
     /// The new reference points at the same commit as `anchor_ref`. See [`create_reference`] for
     /// the `new_tip` / checkout contract.
-    fn resolve_ad_hoc_at_reference<'a, T: RefMetadata>(
+    fn resolve_ad_hoc_at_reference<'a>(
         new_ref: &gix::refs::FullNameRef,
         anchor_ref: &gix::refs::FullNameRef,
         position: Position,
         repo: &gix::Repository,
         workspace: &but_graph::Workspace,
-        meta: &T,
+        meta: &but_db::Metadata,
     ) -> anyhow::Result<AnchorResolution<'a>> {
         // Callers (the `AtReference` arm) guarantee `new_ref != anchor_ref`, which keeps the
         // `insert_into_branch_stack_order` invariant (the anchor survives `retain`) sound.
-        if !meta.can_persist_branch_stack_order() {
-            bail_precondition!(
-                "Cannot position '{new}' relative to local reference '{anchor}' without branch order metadata",
-                new = new_ref.shorten(),
-                anchor = anchor_ref.shorten()
-            );
-        }
         let Some(mut anchor_reference) = repo.try_find_reference(anchor_ref)? else {
             bail_precondition!(
                 "Cannot position '{new}' relative to '{anchor}': the anchor reference does not exist",
@@ -585,7 +610,10 @@ pub(super) mod function {
             );
         };
         let target_id = anchor_reference.peel_to_id()?.detach();
-        let existing_order = meta.branch_stack_order(anchor_ref)?.unwrap_or_default();
+        let existing_order = meta
+            .branch_stack_order(anchor_ref)
+            .unwrap_or_default()
+            .to_vec();
         let branch_stack_order =
             insert_into_branch_stack_order(existing_order, anchor_ref, new_ref, position);
 
@@ -662,16 +690,6 @@ pub(super) mod function {
             }
         }
         Ok(None)
-    }
-
-    fn update_branch_metadata(
-        ref_name: &gix::refs::FullNameRef,
-        repo: &gix::Repository,
-        md: &mut ref_metadata::Branch,
-    ) -> anyhow::Result<()> {
-        let is_new_ref = repo.try_find_reference(ref_name)?.is_none();
-        md.update_times(is_new_ref);
-        Ok(())
     }
 
     fn update_workspace_metadata(

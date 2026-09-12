@@ -119,6 +119,82 @@ Outcome {
 }
 
 #[test]
+fn checkout_preserves_a_locked_index_and_blocks_independent_staging() -> anyhow::Result<()> {
+    let (repo, _tmp) = writable_scenario("unborn-empty");
+    let mut tree = repo.empty_tree().edit()?;
+    let original = repo.write_blob(b"original\n")?;
+    for path in ["changed", "dirty"] {
+        tree.upsert(path, EntryKind::Blob, original)?;
+    }
+    let initial = repo.new_commit("init", tree.write()?, None::<gix::ObjectId>)?;
+    safe_checkout_from_head(initial.id, &repo, Default::default())?;
+    let worktree = repo.workdir().expect("fixture has a worktree");
+    std::fs::write(worktree.join("dirty"), "staged contents\n")?;
+    git_at_dir(worktree).args(["add", "dirty"]).run();
+    std::fs::write(worktree.join("dirty"), "staged and unstaged contents\n")?;
+    std::fs::write(worktree.join("untracked"), "untracked contents\n")?;
+    let index_before = std::fs::read(repo.index_path())?;
+    let updated = build_commit(
+        &repo,
+        |tree| {
+            tree.upsert("changed", EntryKind::Blob, repo.write_blob(b"updated\n")?)?;
+            Ok(())
+        },
+        "update one file",
+    )?;
+    let index_lock = gix::lock::File::acquire_to_update_resource(
+        repo.index_path(),
+        gix::lock::acquire::Fail::Immediately,
+        None,
+    )?;
+
+    safe_checkout_from_head(
+        updated.id,
+        &repo,
+        checkout::Options {
+            skip_head_update: true,
+            skip_index_update: true,
+            merge_base_override: Some(initial.id),
+            ..Default::default()
+        },
+    )?;
+
+    assert_eq!(
+        std::fs::read_to_string(worktree.join("changed"))?,
+        "updated\n",
+        "checkout updates the requested file while its caller owns the index lock"
+    );
+    assert_eq!(
+        std::fs::read_to_string(worktree.join("dirty"))?,
+        "staged and unstaged contents\n",
+        "checkout preserves unrelated staged and unstaged file contents"
+    );
+    assert_eq!(
+        std::fs::read_to_string(worktree.join("untracked"))?,
+        "untracked contents\n",
+        "checkout preserves untracked contents"
+    );
+    let writer = git_at_dir(worktree).args(["add", "dirty"]).output()?;
+    assert!(
+        !writer.status.success() && writer.stderr.as_bstr().contains_str("index.lock"),
+        "the caller still owns the index lock after checkout: {}",
+        writer.stderr.as_bstr()
+    );
+    assert_eq!(
+        std::fs::read(repo.index_path())?,
+        index_before,
+        "checkout leaves the original index bytes and staging untouched"
+    );
+    assert_eq!(
+        repo.head_id()?,
+        initial.id,
+        "checkout leaves HEAD unchanged"
+    );
+    drop(index_lock);
+    Ok(())
+}
+
+#[test]
 fn conflicted_commits_cannot_be_checked_out() -> anyhow::Result<()> {
     let repo = crate::commit::conflict_repo("normal-and-artificial")?;
     let conflicted = repo.rev_parse_single("conflicted")?.detach();

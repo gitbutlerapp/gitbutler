@@ -1,13 +1,12 @@
-use but_core::RefMetadata;
 use but_rebase::graph_rebase::SuccessfulRebase;
 
 /// Outcome of moving branches between or out of stacks.
 ///
 /// Returned by [function::move_branch()].
 #[derive(Debug)]
-pub struct Outcome<'ws, 'meta, M: RefMetadata> {
+pub struct Outcome<'ws, 'db, 'conn> {
     /// A successful rebase result for continuing operations.
-    pub rebase: SuccessfulRebase<'ws, 'meta, M>,
+    pub rebase: SuccessfulRebase<'ws, 'db, 'conn>,
     /// The updated workspace metadata that accompanies the move operation.
     /// It should replace the actual workspace metadata to configure moved 'virtual' branches segments, if `Some()`.
     pub ws_meta: Option<but_core::ref_metadata::Workspace>,
@@ -18,7 +17,7 @@ pub struct Outcome<'ws, 'meta, M: RefMetadata> {
     /// [`create_reference`](crate::branch::create_reference())). `None` when the tip is unchanged.
     pub new_tip: Option<gix::refs::FullName>,
     /// In single-branch (ad-hoc) mode, the reordered tip-to-base branch chain that the caller should
-    /// persist with [`RefMetadata::set_branch_stack_order`].
+    /// persist with [`but_db::MetadataMut::set_branch_stack_order`].
     /// It is returned rather than written here so callers can apply it only for real runs and skip
     /// persistence for dry-run previews. `None` outside single-branch mode.
     pub branch_stack_order: Option<Vec<gix::refs::FullName>>,
@@ -26,7 +25,6 @@ pub struct Outcome<'ws, 'meta, M: RefMetadata> {
 
 pub(super) mod function {
 
-    use but_core::RefMetadata;
     use but_core::ref_metadata::StackId;
     use but_rebase::graph_rebase::mutate::SomeSelectors;
 
@@ -55,11 +53,11 @@ pub(super) mod function {
     ///     Mainly used for testing purposes.
     ///
     /// Returns the in memory update [outcome](Outcome) that can then used for materialisation.
-    pub fn tear_off_branch<'ws, 'meta, M: RefMetadata>(
-        editor: Editor<'ws, 'meta, M>,
+    pub fn tear_off_branch<'ws, 'db, 'conn>(
+        editor: Editor<'ws, 'db, 'conn>,
         subject_branch_name: &FullNameRef,
         stack_id_override: Option<StackId>,
-    ) -> anyhow::Result<Outcome<'ws, 'meta, M>> {
+    ) -> anyhow::Result<Outcome<'ws, 'db, 'conn>> {
         let successful_rebase = editor.rebase()?;
         let workspace = successful_rebase.overlayed_graph()?.into_workspace()?;
         let mut editor = successful_rebase.into_editor();
@@ -177,11 +175,11 @@ pub(super) mod function {
     /// branch on top of.
     ///
     /// Returns an [outcome](Outcome) for potential materialisation.
-    pub fn move_branch<'ws, 'meta, M: RefMetadata>(
-        editor: Editor<'ws, 'meta, M>,
+    pub fn move_branch<'ws, 'db, 'conn>(
+        editor: Editor<'ws, 'db, 'conn>,
         subject_branch_name: &FullNameRef,
         target_branch_name: &FullNameRef,
-    ) -> anyhow::Result<Outcome<'ws, 'meta, M>> {
+    ) -> anyhow::Result<Outcome<'ws, 'db, 'conn>> {
         if subject_branch_name == target_branch_name {
             bail!("Cannot move branch {subject_branch_name} onto itself");
         }
@@ -224,16 +222,16 @@ pub(super) mod function {
     /// branches can therefore move through metadata alone when their refs already share a target,
     /// while branches with commits or empty branches crossing commits also require a graph rewrite.
     /// The reordered chain is returned in [`Outcome::branch_stack_order`] for the caller to persist
-    /// (via [`RefMetadata::set_branch_stack_order`]) rather than being written here, so callers can
+    /// (via [`but_db::MetadataMut::set_branch_stack_order`]) rather than being written here, so callers can
     /// skip persistence for dry-run previews.
-    fn move_branch_in_single_branch_mode<'ws, 'meta, M: RefMetadata>(
-        mut successful_rebase: SuccessfulRebase<'ws, 'meta, M>,
+    fn move_branch_in_single_branch_mode<'ws, 'db, 'conn>(
+        successful_rebase: SuccessfulRebase<'ws, 'db, 'conn>,
         workspace: but_graph::Workspace,
         source: WorkspaceSegmentContext,
         destination: WorkspaceSegmentContext,
         subject_branch_name: &FullNameRef,
         target_branch_name: &FullNameRef,
-    ) -> anyhow::Result<Outcome<'ws, 'meta, M>> {
+    ) -> anyhow::Result<Outcome<'ws, 'db, 'conn>> {
         let (source_stack, subject_segment) = &source;
         let (destination_stack, _) = &destination;
         let entrypoint = workspace.ref_name().map(ToOwned::to_owned);
@@ -250,29 +248,21 @@ pub(super) mod function {
             || successful_rebase.reference_target(subject_branch_name)?
                 != successful_rebase.reference_target(target_branch_name)?;
         let existing_order = {
-            let (_repo, meta) = successful_rebase.repo_and_meta_mut();
-            if !meta.can_persist_branch_stack_order() {
-                bail!(
-                    "Cannot reorder '{subject_branch_name}' in single-branch mode without branch order metadata"
-                );
-            }
+            let meta = successful_rebase.db().meta()?;
             // Reorder against the existing chain. A movable subject is always part of `branch_order`
             // (that's what makes it a projected segment), so the first lookup normally succeeds. The
             // target and entrypoint lookups are defensive fallbacks so that, should the projection ever
             // surface a segment that isn't tracked yet, we extend the real chain instead of clobbering
             // it down to just the moved refs.
-            match meta.branch_stack_order(subject_branch_name)? {
-                Some(order) => order,
-                None => match meta.branch_stack_order(target_branch_name)? {
-                    Some(order) => order,
-                    None => entrypoint
+            meta.branch_stack_order(subject_branch_name)
+                .or_else(|| meta.branch_stack_order(target_branch_name))
+                .or_else(|| {
+                    entrypoint
                         .as_ref()
-                        .map(|entrypoint| meta.branch_stack_order(entrypoint.as_ref()))
-                        .transpose()?
-                        .flatten()
-                        .unwrap_or_else(|| stack_branch_order(source_stack)),
-                },
-            }
+                        .and_then(|entrypoint| meta.branch_stack_order(entrypoint.as_ref()))
+                })
+                .map(<[_]>::to_vec)
+                .unwrap_or_else(|| stack_branch_order(source_stack))
         };
         let previous_order = existing_order.clone();
         let new_order =
@@ -341,14 +331,14 @@ pub(super) mod function {
     }
 
     /// Move a branch within a managed workspace (one backed by a workspace commit).
-    fn move_branch_in_managed_workspace<'ws, 'meta, M: RefMetadata>(
-        successful_rebase: SuccessfulRebase<'ws, 'meta, M>,
+    fn move_branch_in_managed_workspace<'ws, 'db, 'conn>(
+        successful_rebase: SuccessfulRebase<'ws, 'db, 'conn>,
         workspace: but_graph::Workspace,
         source: WorkspaceSegmentContext,
         destination: WorkspaceSegmentContext,
         subject_branch_name: &FullNameRef,
         target_branch_name: &FullNameRef,
-    ) -> anyhow::Result<Outcome<'ws, 'meta, M>> {
+    ) -> anyhow::Result<Outcome<'ws, 'db, 'conn>> {
         let Some(workspace_head) = workspace.tip_commit().map(|commit| commit.id) else {
             bail!("Couldn't find workspace head.")
         };

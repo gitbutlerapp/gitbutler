@@ -10,7 +10,7 @@ use anyhow::Context as _;
 use bstr::{BString, ByteSlice};
 use but_api_macros::but_api;
 use but_core::{
-    DryRun, RefMetadata, extract_remote_name_and_short_name, is_workspace_ref_name,
+    DryRun, extract_remote_name_and_short_name, is_workspace_ref_name,
     sync::{RepoExclusive, RepoShared},
 };
 use but_error::AnyhowContextExt as _;
@@ -87,14 +87,14 @@ pub fn workspace_recreate_with_perm(
     let conflicting_stacks = if already_on_workspace {
         Vec::new()
     } else {
-        let mut meta = ctx.meta()?;
-        let (repo, mut ws, db) = ctx.workspace_mut_and_db_with_perm(perm)?;
+        let (repo, mut ws, mut db) = ctx.workspace_mut_and_db_mut_with_perm(perm)?;
 
         let previously_applied_stack_heads: Vec<gix::refs::FullName> = {
             let workspace_ref: gix::refs::FullName = but_core::WORKSPACE_REF_NAME.try_into()?;
-            let workspace_meta = meta.workspace(workspace_ref.as_ref())?;
-            workspace_meta
-                .stack_names(but_core::ref_metadata::StackKind::Applied)
+            db.meta()?
+                .workspace(workspace_ref.as_ref())
+                .into_iter()
+                .flat_map(|meta| meta.stack_names(but_core::ref_metadata::StackKind::Applied))
                 .map(|name| name.to_owned())
                 .collect()
         };
@@ -112,7 +112,7 @@ pub fn workspace_recreate_with_perm(
                 head_name.as_ref(),
                 ws.clone(),
                 &repo,
-                &mut meta,
+                &mut db.connection_mut(),
                 but_workspace::branch::apply::Options {
                     allow_applying_already_applied_branch_when_outside_workspace: true,
                     ..Default::default()
@@ -141,7 +141,7 @@ pub fn workspace_recreate_with_perm(
                     stack_ref.as_ref(),
                     ws.clone(),
                     &repo,
-                    &mut meta,
+                    &mut db.connection_mut(),
                     but_workspace::branch::apply::Options::default(),
                 )?;
 
@@ -165,15 +165,55 @@ pub fn workspace_recreate_with_perm(
     if !already_on_workspace {
         ctx.reload_repo_and_invalidate_workspace(perm)?;
     }
-    let mut meta = ctx.meta()?;
     let (repo, ws, mut db) = ctx.workspace_mut_and_db_mut_with_perm(perm)?;
-    let workspace =
-        WorkspaceState::from_workspace_with_db(&ws, &mut meta, &repo, Default::default(), &mut db)?;
+    let workspace = WorkspaceState::from_workspace_with_db(
+        &ws,
+        &repo,
+        Default::default(),
+        db.connection_mut(),
+    )?;
     Ok(WorkspaceRecreateResult {
         workspace,
         conflicting_stacks,
         already_on_workspace,
     })
+}
+
+/// Keep an operation's database writes private until it succeeds, including metadata written
+/// while materializing or constructing the response. Git changes remain best-effort on failure.
+pub(crate) fn with_workspace_transaction<T>(
+    ctx: &mut but_ctx::Context,
+    perm: &mut RepoExclusive,
+    dry_run: DryRun,
+    operation: impl FnOnce(
+        &mut gix::Repository,
+        &mut but_graph::Workspace,
+        &mut but_db::Transaction<'_>,
+    ) -> anyhow::Result<T>,
+) -> anyhow::Result<T> {
+    let result: anyhow::Result<T> = (|| {
+        let (mut repo, mut workspace, mut db) = ctx.workspace_mut_and_db_mut_with_perm(perm)?;
+        let mut transaction = db.immediate_transaction()?;
+        let result = operation(&mut repo, &mut workspace, &mut transaction)?;
+        if dry_run.into() {
+            transaction.rollback()?;
+        } else {
+            transaction.commit()?;
+        }
+        Ok(result)
+    })();
+    // The editor and transaction must release their borrows before the cached view is discarded.
+    if (result.is_err() || dry_run.into())
+        && let Err(err) = ctx.invalidate_workspace_cache()
+    {
+        return match result {
+            Err(operation_error) => Err(operation_error.context(format!(
+                "Discarding the workspace cache after the failed operation also failed: {err:#}"
+            ))),
+            Ok(_) => Err(err),
+        };
+    }
+    result
 }
 
 /// The persisted status of fetches performed through [`workspace_fetch_from_remotes()`].
@@ -376,7 +416,9 @@ pub(crate) fn prune_missing_branch_stack_order(ctx: &but_ctx::Context) -> anyhow
             .map(|reference| reference.name().to_owned())
             .collect::<Vec<_>>()
     };
-    ctx.meta()?
+    ctx.db
+        .get_cache_mut()?
+        .meta_mut()?
         .remove_missing_branch_stack_order_references(&local_branch_refs)?;
     Ok(())
 }
@@ -409,10 +451,9 @@ pub fn get_workspace(
     ctx: &but_ctx::Context,
     perm: &RepoShared,
 ) -> anyhow::Result<but_workspace::ui::workspace::DetailedGraphWorkspace> {
-    let mut meta = ctx.meta()?;
     let (repo, workspace, mut db) = ctx.workspace_and_db_mut_with_perm(perm)?;
     let mut workspace = workspace.clone();
-    but_workspace::workspace::detailed_graph_workspace(&mut workspace, &mut meta, &repo, &mut db)
+    but_workspace::workspace::detailed_graph_workspace(&mut workspace, &repo, db.connection_mut())
         .map(Into::into)
 }
 
@@ -686,7 +727,7 @@ fn review_integration_hints_from_reviews(
 fn forge_review_integration_hints(
     workspace: &but_graph::Workspace,
     project_meta: &but_core::ref_metadata::ProjectMeta,
-    db: &but_db::DbHandle,
+    db: but_db::Connection<'_>,
 ) -> anyhow::Result<Vec<ReviewIntegrationHint>> {
     let Some(target_branch_name) =
         target_branch_name(&workspace.graph.symbolic_remote_names, project_meta)
@@ -830,12 +871,11 @@ pub fn workspace_integrate_upstream_only_with_perm(
     dry_run: DryRun,
     perm: &mut RepoExclusive,
 ) -> anyhow::Result<WorkspaceIntegrateUpstreamOutcome> {
-    let mut meta = ctx.meta()?;
     let single_branch_mode = ctx.settings.feature_flags.single_branch;
-    let (workspace_state, worktree_conflicts) = {
-        let project_meta = ctx.project_meta()?;
-        let (repo, mut ws, mut db) = ctx.workspace_mut_and_db_mut_with_perm(perm)?;
-        let review_hints = match forge_review_integration_hints(&ws, &project_meta, &db) {
+    let project_meta = ctx.project_meta()?;
+    let outcome = with_workspace_transaction(ctx, perm, dry_run, |repo, ws, db| {
+        let review_hints = match forge_review_integration_hints(ws, &project_meta, db.connection())
+        {
             Ok(review_hints) => review_hints,
             Err(err) => {
                 warn!(
@@ -851,11 +891,10 @@ pub fn workspace_integrate_upstream_only_with_perm(
             ws_meta,
             project_meta,
         } = but_workspace::integrate_upstream_with_hints(
-            &mut ws,
-            &mut meta,
+            ws,
             project_meta,
-            &repo,
-            &mut db,
+            repo,
+            db.connection_mut(),
             updates,
             &review_hints,
             single_branch_mode,
@@ -876,10 +915,10 @@ pub fn workspace_integrate_upstream_only_with_perm(
             });
         }
 
-        let materialized = rebase.materialize(Default::default())?;
-        project_meta.persist(&repo)?;
+        let mut materialized = rebase.materialize(Default::default())?;
+        project_meta.persist(repo)?;
         if let Err(err) = but_workspace::fast_forward_local_tracking_branch(
-            &repo,
+            repo,
             project_meta.target_ref_or_err()?.as_ref(),
             project_meta.target_commit_id_or_err()?,
         ) {
@@ -890,18 +929,26 @@ pub fn workspace_integrate_upstream_only_with_perm(
             && let Some(ws_meta) = ws_meta
             && is_workspace_ref_name(ref_name)
         {
-            let mut md = materialized.meta.workspace(ref_name)?;
-            *md = ws_meta;
-            materialized.meta.set_workspace(&md)?;
+            materialized
+                .db
+                .meta_mut()?
+                .set_workspace(ref_name, &ws_meta)?;
         }
 
-        let workspace_state = WorkspaceState::from_materialized(materialized, &repo)?;
-        (workspace_state, worktree_conflicts)
-    };
+        let workspace_state = WorkspaceState::from_materialized(materialized, repo)?;
+        Ok(WorkspaceIntegrateUpstreamOutcome {
+            workspace_state,
+            target_commits: None,
+            worktree_conflicts,
+        })
+    })?;
     ctx.invalidate_workspace_cache()?;
 
+    if dry_run.into() {
+        return Ok(outcome);
+    }
+
     Ok(WorkspaceIntegrateUpstreamOutcome {
-        workspace_state,
         target_commits: crate::target_commits::workspace_target_commits_with_perm(
             ctx,
             None,
@@ -915,7 +962,7 @@ pub fn workspace_integrate_upstream_only_with_perm(
             )
         })
         .ok(),
-        worktree_conflicts,
+        ..outcome
     })
 }
 
@@ -924,7 +971,6 @@ mod tests {
     use super::{
         review_integration_hints_from_reviews, target_branch_name, workspace_fetch_from_remotes,
     };
-    use but_core::RefMetadata;
     use but_testsupport::{CommandExt, git_at_dir, open_repo};
     use std::collections::HashSet;
     use std::path::Path;
@@ -1094,7 +1140,9 @@ mod tests {
         let feature: gix::refs::FullName = "refs/heads/feature".try_into()?;
         let main = repo.head_name()?.expect("HEAD is symbolic").to_owned();
         let mut ctx = but_ctx::Context::from_repo_for_testing(repo)?.with_memory_app_cache();
-        ctx.meta()?
+        ctx.db
+            .get_cache_mut()?
+            .meta_mut()?
             .set_branch_stack_order(&[feature.clone(), main.clone()])?;
 
         git_at_dir(tmp.path())
@@ -1105,7 +1153,11 @@ mod tests {
             .expect_err("the configured origin does not exist");
 
         assert!(
-            ctx.meta()?.branch_stack_order(main.as_ref())?.is_none(),
+            ctx.db
+                .get_cache()?
+                .meta()?
+                .branch_stack_order(main.as_ref())
+                .is_none(),
             "failed fetch should still prune missing branch-order references"
         );
         Ok(())

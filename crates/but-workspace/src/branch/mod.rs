@@ -632,7 +632,7 @@ pub fn local_tracking_branch(
 
 /// Functions and types related to adding a branch to the workspace.
 pub mod apply;
-pub use apply::apply;
+pub use apply::{apply, apply_with_changes};
 
 /// Functions and types related to removing a branch from the workspace.
 pub mod unapply;
@@ -644,7 +644,7 @@ pub use remove_reference::remove_reference;
 
 /// related types for creating a workspace reference.
 pub mod create_reference;
-pub use create_reference::function::create_reference;
+pub use create_reference::function::{create_reference, create_reference_with_ref_edits};
 
 /// Functions and types related to moving branches across stacks.
 pub mod move_branch;

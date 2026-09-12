@@ -100,10 +100,8 @@ impl App {
         let _suspend_guard = terminal_guard.suspend()?;
 
         let mut guard = ctx.exclusive_worktree_access();
-        let mut meta = ctx.meta()?;
         let (outcome, _ws) = reword2::run(
             ctx,
-            &mut meta,
             guard.write_permission(),
             RewordOperation::Commit {
                 target: target.clone(),
@@ -232,7 +230,6 @@ impl App {
             .unwrap_or("");
 
         let mut guard = ctx.exclusive_worktree_access();
-        let mut meta = ctx.meta()?;
 
         match inline_reword_mode {
             InlineRewordMode::Commit {
@@ -240,7 +237,6 @@ impl App {
             } => {
                 let (outcome, _ws) = reword2::run(
                     ctx,
-                    &mut meta,
                     guard.write_permission(),
                     RewordOperation::Commit {
                         target: target.clone(),
@@ -262,7 +258,6 @@ impl App {
             InlineRewordMode::Branch { name: target, .. } => {
                 let (outcome, _ws) = reword2::run(
                     ctx,
-                    &mut meta,
                     guard.write_permission(),
                     RewordOperation::Branch {
                         target: target.clone(),
@@ -306,7 +301,6 @@ impl App {
         };
 
         let mut guard = ctx.exclusive_worktree_access();
-        let mut meta = ctx.meta()?;
 
         let _suspend_guard = terminal_guard.suspend()?;
         let (outcome, _ws) = match inline_reword_mode {
@@ -314,7 +308,6 @@ impl App {
                 commit_id: target, ..
             } => reword2::run(
                 ctx,
-                &mut meta,
                 guard.write_permission(),
                 RewordOperation::Commit {
                     target: target.clone(),
@@ -326,7 +319,6 @@ impl App {
             .into_internal_error()?,
             InlineRewordMode::Branch { name: target, .. } => reword2::run(
                 ctx,
-                &mut meta,
                 guard.write_permission(),
                 RewordOperation::Branch {
                     target: target.clone(),

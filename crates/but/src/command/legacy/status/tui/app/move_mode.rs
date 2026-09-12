@@ -426,8 +426,7 @@ fn move_with(
     move_op: MoveOperation,
 ) -> anyhow::Result<Option<SelectAfterReload>> {
     let mut guard = ctx.exclusive_worktree_access();
-    let mut meta = ctx.meta()?;
-    let (outcome, _ws) = r#move::run(ctx, &mut meta, guard.write_permission(), move_op)?;
+    let (outcome, _ws) = r#move::run(ctx, guard.write_permission(), move_op)?;
 
     Ok(match outcome {
         MoveOperationOutcome::Commits { moved_commits, .. } => {

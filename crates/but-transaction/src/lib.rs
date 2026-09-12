@@ -1,13 +1,10 @@
-use std::{
-    collections::BTreeMap,
-    ops::{Deref, DerefMut},
-};
+use std::collections::BTreeMap;
 
 use anyhow::Context as _;
-use bstr::{BStr, BString, ByteVec};
+use bstr::{BStr, BString, ByteSlice as _, ByteVec};
 use but_api::WorkspaceState;
 use but_core::{
-    DiffSpec, DryRun, RefMetadata,
+    DiffSpec, DryRun,
     commit::CommitIdentifiers,
     ref_metadata,
     sync::RepoExclusive,
@@ -27,6 +24,7 @@ use but_workspace::commit::{
 };
 use gix::{
     ObjectId,
+    prelude::ObjectIdExt as _,
     refs::{
         FullName, FullNameRef, Target,
         transaction::{PreviousValue, RefEdit},
@@ -40,10 +38,11 @@ mod tests;
 ///
 /// This allows chaining multiple operations and having them all succeed or fail together.
 ///
-/// Note this isn't fully ACID compliant database transactions but rather a "best effort" version
-/// using our in-memory repositories and rebases. Its scope is the rebase and the refs and metadata
-/// it writes; project-database rows are *not* part of it, so anything an operation writes there
-/// stands whether the transaction commits or rolls back.
+/// Database changes share one SQLite transaction and become visible only on commit.
+/// Completed Git reference and checkout changes are restored on late failures, including a
+/// rejected database commit. Recovery refuses to overwrite detected independent ref/index
+/// edits and reports failures to safely restore files. Native partial I/O failures remain
+/// best-effort; this is not a cross-resource or crash-atomic transaction.
 ///
 /// # Committing
 ///
@@ -78,35 +77,31 @@ mod tests;
 /// continue using the source commits.
 ///
 /// Commits can still manually be mapped using [`Transaction::get_mapped_commit`] if necessary.
-pub fn with_transaction<M, F, T>(
+pub fn with_transaction<F, T>(
     ctx: &mut Context,
-    meta: &mut M,
     snapshot_details: SnapshotDetails,
     dry_run: DryRun,
     f: F,
 ) -> anyhow::Result<T::Outcome>
 where
-    F: FnOnce(Transaction<'_, '_, M>) -> anyhow::Result<T>,
-    M: RefMetadata,
+    F: FnOnce(Transaction<'_, '_, '_>) -> anyhow::Result<T>,
     T: TransactionOutcome,
 {
     let mut guard = ctx.exclusive_worktree_access();
     let perm = guard.write_permission();
-    with_transaction_with_perm(ctx, meta, perm, snapshot_details, dry_run, f)
+    with_transaction_with_perm(ctx, perm, snapshot_details, dry_run, f)
 }
 
 /// Like [`with_transaction`] but allows the caller to provide the lock.
-pub fn with_transaction_with_perm<M, F, T>(
+pub fn with_transaction_with_perm<F, T>(
     ctx: &mut Context,
-    meta: &mut M,
     perm: &mut RepoExclusive,
     snapshot_details: SnapshotDetails,
     dry_run: DryRun,
     f: F,
 ) -> anyhow::Result<T::Outcome>
 where
-    F: FnOnce(Transaction<'_, '_, M>) -> anyhow::Result<T>,
-    M: RefMetadata,
+    F: FnOnce(Transaction<'_, '_, '_>) -> anyhow::Result<T>,
     T: TransactionOutcome,
 {
     let maybe_oplog_entry = but_oplog::UnmaterializedOplogSnapshot::from_details_with_perm(
@@ -116,7 +111,7 @@ where
         dry_run,
     );
 
-    let (should_rollback, outcome) = with_transaction_with_perm_only(ctx, meta, perm, dry_run, f)?;
+    let (should_rollback, outcome) = with_transaction_with_perm_only(ctx, perm, dry_run, f)?;
 
     if !should_rollback && let Some(snapshot) = maybe_oplog_entry {
         snapshot.commit(ctx, perm)?;
@@ -125,55 +120,47 @@ where
     Ok(outcome)
 }
 
-pub fn with_transaction_with_perm_only<M, F, T>(
+pub fn with_transaction_with_perm_only<F, T>(
     ctx: &mut Context,
-    meta: &mut M,
     perm: &mut RepoExclusive,
     dry_run: DryRun,
     f: F,
 ) -> anyhow::Result<(bool, T::Outcome)>
 where
-    F: FnOnce(Transaction<'_, '_, M>) -> anyhow::Result<T>,
-    M: RefMetadata,
+    F: FnOnce(Transaction<'_, '_, '_>) -> anyhow::Result<T>,
     T: TransactionOutcome,
 {
-    let (should_rollback, outcome) = {
+    let result = (|| {
         let context_lines = ctx.settings.context_lines;
         let (repo, mut ws, mut db) = ctx.workspace_mut_and_db_mut_with_perm(perm)?;
-
-        let editor = Editor::create(&mut ws, meta, &repo, &mut db)?;
+        let mut sql_transaction = db.immediate_transaction()?;
+        let worktree_names = ws
+            .graph
+            .worktree_tips
+            .iter()
+            .map(|tip| tip.name.clone())
+            .collect::<Vec<_>>();
+        let editor = Editor::create(&mut ws, &repo, sql_transaction.connection_mut())?;
         let rebase = editor.rebase()?;
 
         let mut inner = Inner {
             rebase: Some(rebase),
             commit_mappings: CommitMappings::default(),
-            pending_metadata_removals: Vec::new(),
-            pending_metadata_updates: Vec::new(),
             pending_created_independent_refs: Vec::new(),
             pending_ref_changes: PendingRefChanges::default(),
             pending_checkout: None,
             context_lines,
             materialize_without_checkout: MaterializeWithoutCheckout::Either,
         };
-
-        let callback_outcome = {
-            let tx = Transaction { inner: &mut inner };
-            f(tx)
-        };
-
-        let callback_outcome = match callback_outcome {
+        let callback_outcome = match f(Transaction { inner: &mut inner }) {
             Ok(outcome) => outcome,
             Err(err) => {
-                inner.pending_ref_changes.rollback(&repo)?;
-                return Err(err);
+                return Err(inner.pending_ref_changes.rollback_error(&repo, err));
             }
         };
-
         let Inner {
             mut rebase,
             commit_mappings: _,
-            pending_metadata_removals,
-            pending_metadata_updates,
             pending_created_independent_refs,
             mut pending_ref_changes,
             pending_checkout,
@@ -181,72 +168,99 @@ where
             materialize_without_checkout,
         } = inner;
         let rebase = rebase.take().expect("rebase is always Some(_)");
-
         let should_rollback = callback_outcome.should_rollback();
-        // A rolled-back transaction never materializes, so it has no workspace to report.
         let workspace = if should_rollback {
+            drop(rebase);
             Ok(None)
         } else {
-            workspace_state_from_rebase(
-                rebase,
-                &repo,
-                pending_metadata_removals,
-                pending_metadata_updates,
-                pending_created_independent_refs,
-                FinalizeOptions {
-                    checkout: pending_checkout,
-                    dry_run,
-                    materialize_without_checkout: matches!(
+            (|| {
+                let materialize_without_checkout = matches!(
+                    materialize_without_checkout,
+                    MaterializeWithoutCheckout::Yes
+                );
+                if matches!(dry_run, DryRun::No) {
+                    let rebase_checks_out =
+                        !materialize_without_checkout && rebase.references_updated()?;
+                    if rebase_checks_out
+                        || pending_checkout.is_some()
+                        || !pending_created_independent_refs.is_empty()
+                    {
+                        pending_ref_changes.capture_checkouts(
+                            &repo,
+                            if rebase_checks_out {
+                                &worktree_names
+                            } else {
+                                &[]
+                            },
+                        )?;
+                    }
+                }
+                let workspace = workspace_state_from_rebase(
+                    rebase,
+                    &repo,
+                    pending_created_independent_refs,
+                    FinalizeOptions {
+                        checkout: pending_checkout,
+                        dry_run,
                         materialize_without_checkout,
-                        MaterializeWithoutCheckout::Yes
-                    ),
-                },
-            )
-            .map(Some)
+                    },
+                    &mut pending_ref_changes.committed,
+                    &mut pending_ref_changes.checkouts,
+                )
+                .map(Some);
+                let heads = pending_ref_changes.record_materialized_heads();
+                match (workspace, heads) {
+                    (Err(err), Err(head_error)) => Err(err.context(format!(
+                        "Could not record materialized HEAD: {head_error:#}"
+                    ))),
+                    (Err(err), _) | (_, Err(err)) => Err(err),
+                    (Ok(workspace), Ok(())) => Ok(workspace),
+                }
+            })()
         };
-
         let workspace = match workspace {
             Ok(workspace) => workspace,
             Err(err) => {
-                pending_ref_changes.rollback(&repo)?;
-                return Err(err);
+                return Err(pending_ref_changes.rollback_error(&repo, err));
             }
         };
-        let outcome = callback_outcome.into_outcome(workspace);
-
         if should_rollback || dry_run.into() {
             pending_ref_changes.rollback(&repo)?;
+            sql_transaction.rollback()?;
+        } else if let Err(err) = sql_transaction.commit() {
+            return Err(pending_ref_changes.rollback_error(&repo, err.into()));
         }
-
-        (should_rollback, outcome)
-    };
-
-    Ok((should_rollback, outcome))
+        Ok((should_rollback, callback_outcome.into_outcome(workspace)))
+    })();
+    // Release the editor/database borrows before discarding a projection of rolled-back state.
+    if (result.is_err() || dry_run.into() || matches!(&result, Ok((true, _))))
+        && let Err(cache_error) = ctx.invalidate_workspace_cache()
+    {
+        return match result {
+            Err(err) => Err(err.context(format!(
+                "Could not invalidate workspace cache: {cache_error:#}"
+            ))),
+            Ok(_) => Err(cache_error),
+        };
+    }
+    result
 }
 
 /// A workspace transaction that allows changing multiple operations and having them all succeed or
 /// fail together.
 ///
 /// See [`with_transaction`] for more details.
-pub struct Transaction<'inner, 'rebase, M>
-where
-    M: RefMetadata,
-{
+pub struct Transaction<'inner, 'rebase, 'conn> {
     // Store a mutable reference so the callback for `with_transaction` can get an owned
     // `Transaction`. It needs to be owned to verify statically that `Transaction::rollback` is
     // only called once.
-    inner: &'inner mut Inner<'rebase, M>,
+    inner: &'inner mut Inner<'rebase, 'conn>,
 }
 
-struct Inner<'rebase, M>
-where
-    M: RefMetadata,
-{
+struct Inner<'rebase, 'conn> {
     // an Option so we can "take" the rebase, convert it into an editor, perform another rebase,
     // and put the result back.
-    rebase: Option<SuccessfulRebase<'rebase, 'rebase, M>>,
-    pending_metadata_removals: Vec<FullName>,
-    pending_metadata_updates: Vec<PendingMetadataUpdate>,
+    rebase: Option<SuccessfulRebase<'rebase, 'rebase, 'conn>>,
     pending_created_independent_refs: Vec<PendingCreatedIndependentRef>,
     pending_ref_changes: PendingRefChanges,
     // A checkout cannot happen until the in-memory rebase and its references are materialized.
@@ -266,10 +280,7 @@ where
     materialize_without_checkout: MaterializeWithoutCheckout,
 }
 
-impl<'rebase, M> Transaction<'_, 'rebase, M>
-where
-    M: RefMetadata,
-{
+impl<'rebase, 'conn> Transaction<'_, 'rebase, 'conn> {
     /// Rollback the transaction, without returning an error.
     ///
     /// If the transaction needs to be rolled back conditionally use [`DynamicOutcome::Rollback`].
@@ -475,17 +486,20 @@ where
             .pending_ref_changes
             .remove_eagerly_created_ref(&repo, ref_name)?;
         self.inner
-            .pending_metadata_removals
-            .push(ref_name.to_owned());
+            .rebase
+            .as_mut()
+            .expect("rebase is always Some(_)")
+            .repo_and_db_mut()
+            .1
+            .meta_mut()?
+            .remove(ref_name)?;
         Ok(())
     }
 
     /// Restack `source_branch` on top of `target_branch` within the transaction's workspace.
     ///
-    /// Transactions operate on managed workspaces only. The ad-hoc (single-branch) move path is the
-    /// one that populates [`Outcome::new_tip`] and [`Outcome::branch_stack_order`] for the caller to
-    /// apply, and `RecordingMetadata` can't persist branch stack order anyway, so we bail if either
-    /// field is ever set rather than silently dropping a metadata reorder or a required checkout.
+    /// Branch moves inside transactions currently require a managed workspace. The ad-hoc path
+    /// returns [`Outcome::new_tip`] and [`Outcome::branch_stack_order`] for its caller to apply.
     ///
     /// [`Outcome::new_tip`]: but_workspace::branch::move_branch::Outcome::new_tip
     /// [`Outcome::branch_stack_order`]: but_workspace::branch::move_branch::Outcome::branch_stack_order
@@ -508,7 +522,7 @@ where
             "Ad-hoc (single-branch) branch moves are not supported inside transactions"
         );
 
-        self.record_workspace_metadata_update(ws_meta)?;
+        self.set_workspace_metadata(ws_meta)?;
 
         Ok(())
     }
@@ -523,12 +537,12 @@ where
             ))
         })?;
 
-        self.record_workspace_metadata_update(ws_meta)?;
+        self.set_workspace_metadata(ws_meta)?;
 
         Ok(())
     }
 
-    fn record_workspace_metadata_update(
+    fn set_workspace_metadata(
         &mut self,
         ws_meta: Option<ref_metadata::Workspace>,
     ) -> anyhow::Result<()> {
@@ -549,13 +563,13 @@ where
             .context("workspace metadata update requires workspace ref")?
             .to_owned();
 
-        self.inner
-            .pending_metadata_updates
-            .push(PendingMetadataUpdate::Workspace(RecordingMetadataHandle {
-                name: ref_name,
-                value: ws_meta,
-                is_default: false,
-            }));
+        let (_, db) = self
+            .inner
+            .rebase
+            .as_mut()
+            .expect("rebase is always Some(_)")
+            .repo_and_db_mut();
+        db.meta_mut()?.set_workspace(ref_name.as_ref(), &ws_meta)?;
 
         Ok(())
     }
@@ -570,10 +584,6 @@ where
         let anchor = anchor.into();
         let order = order.into();
         let creates_independent_branch = anchor.is_none();
-        let previous = self
-            .repo()
-            .try_find_reference(ref_name)?
-            .map(|reference| reference.target().into());
 
         let graph = self
             .inner
@@ -585,88 +595,77 @@ where
         let (anchor, anchor_segment_oldest_commit_id) = match anchor {
             Some(but_workspace::branch::create_reference::Anchor::AtSegment {
                 ref_name,
-                position,
-            }) => {
-                let (_, segment) =
-                    workspace.try_find_segment_and_stack_by_refname(ref_name.as_ref())?;
-                if matches!(
-                    position,
-                    but_workspace::branch::create_reference::Position::Below
-                ) && segment.commits.is_empty()
+                position: but_workspace::branch::create_reference::Position::Below,
+            }) => self.rebase(|editor, _| {
+                // Metadata ordering can make a projected segment empty before the editor's
+                // topology changes. Resolve its boundary from the steps we will actually edit.
+                let mut cursor = editor.select_reference(ref_name.as_ref())?;
+                let target = editor.target_selector();
+                let mut oldest_commit_id = None;
+                while let Some((parent, _)) = editor
+                    .direct_parents(cursor)?
+                    .into_iter()
+                    .min_by_key(|(_, order)| *order)
                 {
-                    (
-                        Some(
-                            but_workspace::branch::create_reference::Anchor::AtReference {
-                                ref_name,
-                                position,
-                            },
-                        ),
-                        None,
-                    )
-                } else {
-                    let oldest_commit_id = segment
-                        .commits
-                        .last()
-                        .map(|commit| commit.id)
-                        .or_else(|| {
-                            workspace
-                                .tip_commit_by_segment_id(segment.id)
-                                .map(|commit| commit.id)
-                        })
-                        .ok_or_else(|| {
-                            anyhow::anyhow!(
-                                "Cannot position reference below unborn segment '{}'",
-                                ref_name.shorten()
-                            )
-                        })?;
-                    (
-                        Some(but_workspace::branch::create_reference::Anchor::AtSegment {
-                            ref_name,
-                            position,
-                        }),
-                        Some(oldest_commit_id),
-                    )
+                    if Some(parent) == target {
+                        break;
+                    }
+                    match editor.lookup_step(parent)? {
+                        Step::Pick(pick) => oldest_commit_id = Some(pick.id),
+                        Step::Reference { .. } => break,
+                        Step::None => {}
+                    }
+                    cursor = parent;
                 }
-            }
+                use but_workspace::branch::create_reference::{Anchor, Position};
+                let anchor = if oldest_commit_id.is_some() {
+                    Anchor::AtSegment {
+                        ref_name,
+                        position: Position::Below,
+                    }
+                } else {
+                    Anchor::AtReference {
+                        ref_name,
+                        position: Position::Below,
+                    }
+                };
+                Ok((
+                    (Some(anchor), oldest_commit_id),
+                    MaterializeWithoutCheckout::Either,
+                    editor.rebase()?,
+                ))
+            })?,
             anchor => (anchor, None),
         };
         let repo = self.repo().clone();
-        let branch_stack_orders = self
-            .inner
-            .pending_metadata_updates
-            .iter()
-            .filter_map(|update| match update {
-                PendingMetadataUpdate::Workspace(_) | PendingMetadataUpdate::Branch(_) => None,
-                PendingMetadataUpdate::BranchStackOrder(branches) => Some(branches.clone()),
-            })
-            .collect();
         let rebase = self
             .inner
             .rebase
             .as_mut()
             .expect("rebase is always Some(_)");
-        let (_, persisted_meta) = rebase.repo_and_meta_mut();
-        let mut meta = RecordingMetadata {
-            persisted_meta,
-            workspace_name: workspace.ref_name().map(ToOwned::to_owned),
-            workspace: workspace.metadata_from_projection()?,
-            branch_stack_orders,
-            updates: Vec::new(),
-        };
-
-        but_workspace::branch::create_reference(
+        let (_, db) = rebase.repo_and_db_mut();
+        // Dependent anchors need normalized stack membership. Independent branches are applied
+        // after materialization, preserving parent order while initializing workspace metadata.
+        if !creates_independent_branch
+            && let Some(workspace_meta) = workspace.metadata_from_projection()?
+        {
+            db.meta_mut()?.set_workspace(
+                workspace
+                    .ref_name()
+                    .context("managed workspace has a ref")?,
+                &workspace_meta,
+            )?;
+        }
+        but_workspace::branch::create_reference_with_ref_edits(
             ref_name,
             anchor.clone(),
             &repo,
             &workspace,
-            &mut meta,
+            db,
             new_stack_id,
             order,
+            &mut self.inner.pending_ref_changes.committed,
         )?;
-
-        self.inner
-            .pending_metadata_updates
-            .append(&mut meta.updates);
         if creates_independent_branch {
             self.inner
                 .pending_created_independent_refs
@@ -675,9 +674,6 @@ where
                     order,
                 });
         }
-        self.inner
-            .pending_ref_changes
-            .record_eager_create(ref_name, previous);
 
         self.rebase(|mut editor, _| {
             if editor.try_select_reference(ref_name).is_some() {
@@ -990,12 +986,12 @@ where
     fn rebase<F, T>(&mut self, f: F) -> anyhow::Result<T>
     where
         F: FnOnce(
-            Editor<'rebase, 'rebase, M>,
+            Editor<'rebase, 'rebase, 'conn>,
             &CommitMappings,
         ) -> anyhow::Result<(
             T,
             MaterializeWithoutCheckout,
-            SuccessfulRebase<'rebase, 'rebase, M>,
+            SuccessfulRebase<'rebase, 'rebase, 'conn>,
         )>,
     {
         let editor = self
@@ -1047,210 +1043,252 @@ struct FinalizeOptions {
 
 #[derive(Debug, Default)]
 struct PendingRefChanges {
-    eagerly_created_refs: Vec<EagerlyCreatedRef>,
+    committed: Vec<RefEdit>,
+    checkouts: Vec<CheckoutSnapshot>,
 }
 
 impl PendingRefChanges {
-    fn record_eager_create(&mut self, ref_name: &FullNameRef, previous: Option<gix::refs::Target>) {
-        self.eagerly_created_refs.push(EagerlyCreatedRef {
-            name: ref_name.to_owned(),
-            previous,
-        });
-    }
-
     fn remove_eagerly_created_ref(
         &mut self,
         repo: &gix::Repository,
         ref_name: &FullNameRef,
     ) -> anyhow::Result<()> {
-        if let Some(created_ref_index) = self.eagerly_created_refs.iter().position(|created_ref| {
-            created_ref.name.as_ref() == ref_name && created_ref.previous.is_none()
-        }) {
-            let created_ref = self.eagerly_created_refs.remove(created_ref_index);
-            Self::restore_one(repo, created_ref)?;
+        let Some((None, Some(target))) = self.ref_changes().remove(ref_name) else {
+            return Ok(());
+        };
+        self.committed.extend(repo.edit_reference(RefEdit::delete(
+            ref_name.to_owned(),
+            PreviousValue::MustExistAndMatch(target),
+        ))?);
+        Ok(())
+    }
+
+    fn ref_changes(&self) -> BTreeMap<FullName, (Option<Target>, Option<Target>)> {
+        use gix::refs::transaction::{Change, RefLog};
+        let mut changes = BTreeMap::new();
+        for edit in &self.committed {
+            let expected = match &edit.change {
+                Change::Update { log, .. } if log.mode == RefLog::Only => continue,
+                Change::Delete {
+                    log: RefLog::Only, ..
+                } => continue,
+                Change::Update { expected, .. } | Change::Delete { expected, .. } => expected,
+            };
+            // Native transactions replace this constraint only if the ref actually existed.
+            // ExistingMustMatch can remain on a successful creation of an absent reference.
+            let previous = match expected {
+                PreviousValue::MustExistAndMatch(target) => Some(target.clone()),
+                _ => None,
+            };
+            let new = edit.change.new_value().map(Into::into);
+            changes
+                .entry(edit.name.clone())
+                .and_modify(|(original, current)| {
+                    // An independently changed ref breaks our chain. Only undo the newest
+                    // continuous suffix, retaining the intervening writer's value.
+                    if *current != previous {
+                        *original = previous.clone();
+                    }
+                    *current = new.clone();
+                })
+                .or_insert((previous, new));
+        }
+        changes
+    }
+
+    fn capture_checkouts(
+        &mut self,
+        repo: &gix::Repository,
+        worktree_names: &[BString],
+    ) -> anyhow::Result<()> {
+        self.checkouts
+            .push(CheckoutSnapshot::capture(repo.clone())?);
+        if !worktree_names.is_empty() {
+            let proxies = repo.worktrees()?;
+            for name in worktree_names {
+                let proxy = proxies
+                    .iter()
+                    .find(|proxy| proxy.id() == name.as_bstr())
+                    .with_context(|| format!("Visible worktree {name} no longer exists"))?;
+                self.checkouts
+                    .push(CheckoutSnapshot::capture(proxy.clone().into_repo()?)?);
+            }
+        }
+        Ok(())
+    }
+
+    fn record_materialized_heads(&mut self) -> anyhow::Result<()> {
+        for checkout in &mut self.checkouts {
+            if checkout.target.is_some() {
+                checkout.materialized_head = Some((
+                    checkout.repo.head_name()?,
+                    checkout.repo.head()?.id().map(|id| id.detach()),
+                ));
+            }
         }
         Ok(())
     }
 
     fn rollback(&mut self, repo: &gix::Repository) -> anyhow::Result<()> {
-        for created_ref in self.eagerly_created_refs.drain(..).rev() {
-            Self::restore_one(repo, created_ref)?;
+        let mut errors = Vec::new();
+        // Each completed checkout recorded its target before refs could fail. Use that
+        // known base to retain independently added worktree changes during restoration.
+        for checkout in self.checkouts.drain(..).rev() {
+            if let Err(err) = checkout.restore() {
+                errors.push(format!("{err:#}"));
+            }
         }
+        for (name, (previous, current)) in self.ref_changes() {
+            if previous == current {
+                continue;
+            }
+            let expected = match current {
+                Some(target) => PreviousValue::MustExistAndMatch(target),
+                None => PreviousValue::MustNotExist,
+            };
+            let edit = match previous {
+                Some(target) => {
+                    RefEdit::update(name.clone(), target, expected, "rollback transaction")
+                }
+                None => RefEdit::delete(name.clone(), expected),
+            };
+            if let Err(err) = repo.edit_reference(edit) {
+                errors.push(format!("Could not restore {name}: {err}"));
+            }
+        }
+        self.committed.clear();
+        anyhow::ensure!(errors.is_empty(), "{}", errors.join("; "));
         Ok(())
     }
 
-    fn restore_one(repo: &gix::Repository, created_ref: EagerlyCreatedRef) -> anyhow::Result<()> {
-        let EagerlyCreatedRef { name, previous } = created_ref;
-        match previous {
-            Some(target) => {
-                repo.edit_references([RefEdit::update(name, target, PreviousValue::Any, "")])?;
-            }
-            None => {
-                if repo.try_find_reference(name.as_ref())?.is_some() {
-                    repo.edit_references([RefEdit::delete(name, PreviousValue::MustExist)])?;
-                }
-            }
+    fn rollback_error(&mut self, repo: &gix::Repository, err: anyhow::Error) -> anyhow::Error {
+        match self.rollback(repo) {
+            Ok(()) => err,
+            Err(recovery) => err.context(format!("Git transaction recovery failed: {recovery:#}")),
+        }
+    }
+}
+
+#[derive(Debug)]
+struct CheckoutSnapshot {
+    repo: gix::Repository,
+    worktree: ObjectId,
+    index: Option<Vec<u8>>,
+    target: Option<ObjectId>,
+    materialized_index: Option<Option<Vec<u8>>>,
+    materialized_head: Option<(Option<FullName>, Option<ObjectId>)>,
+}
+
+impl CheckoutSnapshot {
+    fn capture(repo: gix::Repository) -> anyhow::Result<Self> {
+        let index = read_index_bytes(&repo)?;
+        let head_tree = repo.head_tree_id_or_empty()?.detach();
+        let changes = but_core::diff::worktree_changes_no_renames(&repo)?;
+        let mut selection = changes
+            .changes
+            .iter()
+            .map(|change| change.path.clone())
+            .collect::<std::collections::BTreeSet<_>>();
+        selection.extend(
+            changes
+                .index_changes
+                .iter()
+                .map(|change| change.location().to_owned()),
+        );
+        selection.extend(changes.index_conflicts.iter().map(|(path, _)| path.clone()));
+        let snapshot = but_core::snapshot::create_tree(
+            head_tree.attach(&repo),
+            but_core::snapshot::create_tree::State {
+                changes,
+                selection,
+                head: false,
+            },
+        )?;
+        Ok(Self {
+            repo,
+            worktree: snapshot.worktree.unwrap_or(head_tree),
+            index,
+            target: None,
+            materialized_index: None,
+            materialized_head: None,
+        })
+    }
+
+    fn record_checkout(&mut self, target: ObjectId) -> anyhow::Result<()> {
+        self.target = Some(target);
+        self.materialized_index = None;
+        self.materialized_index = Some(read_index_bytes(&self.repo)?);
+        Ok(())
+    }
+
+    fn restore(self) -> anyhow::Result<()> {
+        use std::io::Write;
+        let Some(target) = self.target else {
+            return Ok(());
+        };
+        let materialized_index = self
+            .materialized_index
+            .context("Could not capture the completed checkout index for safe recovery")?;
+        let materialized_head = self
+            .materialized_head
+            .context("Could not capture HEAD after materialization for safe recovery")?;
+        anyhow::ensure!(
+            (
+                self.repo.head_name()?,
+                self.repo.head()?.id().map(|id| id.detach())
+            ) == materialized_head,
+            "HEAD changed independently in {}; leaving its worktree intact",
+            self.repo.git_dir().display()
+        );
+        let mut index_lock = gix::lock::File::acquire_to_update_resource(
+            self.repo.index_path(),
+            gix::lock::acquire::Fail::Immediately,
+            None,
+        )?;
+        anyhow::ensure!(
+            read_index_bytes(&self.repo)? == materialized_index,
+            "Index changed independently in {}; leaving its staging intact",
+            self.repo.git_dir().display()
+        );
+        // Keep ownership of the index until both files and staging are restored.
+        safe_checkout_from_head(
+            self.worktree,
+            &self.repo,
+            checkout::Options {
+                skip_head_update: true,
+                skip_index_update: true,
+                merge_base_override: Some(target),
+                ..Default::default()
+            },
+        )
+        .with_context(|| {
+            format!(
+                "Could not restore worktree {}",
+                self.repo.git_dir().display()
+            )
+        })?;
+        if let Some(index) = self.index {
+            index_lock.write_all(&index)?;
+            index_lock.commit()?;
+        } else if materialized_index.is_some() {
+            std::fs::remove_file(self.repo.index_path())?;
         }
         Ok(())
     }
 }
 
-#[derive(Debug)]
-struct EagerlyCreatedRef {
-    name: FullName,
-    previous: Option<gix::refs::Target>,
+fn read_index_bytes(repo: &gix::Repository) -> anyhow::Result<Option<Vec<u8>>> {
+    match std::fs::read(repo.index_path()) {
+        Ok(bytes) => Ok(Some(bytes)),
+        Err(err) if err.kind() == std::io::ErrorKind::NotFound => Ok(None),
+        Err(err) => Err(err.into()),
+    }
 }
 
 #[derive(Debug)]
 struct PendingCreatedIndependentRef {
     name: FullName,
     order: Option<usize>,
-}
-
-#[derive(Clone)]
-enum PendingMetadataUpdate {
-    Workspace(RecordingMetadataHandle<ref_metadata::Workspace>),
-    Branch(RecordingMetadataHandle<ref_metadata::Branch>),
-    BranchStackOrder(Vec<FullName>),
-}
-
-struct RecordingMetadata<'meta, M: RefMetadata> {
-    persisted_meta: &'meta M,
-    workspace_name: Option<FullName>,
-    workspace: Option<ref_metadata::Workspace>,
-    branch_stack_orders: Vec<Vec<FullName>>,
-    updates: Vec<PendingMetadataUpdate>,
-}
-
-#[derive(Clone)]
-struct RecordingMetadataHandle<T> {
-    name: FullName,
-    value: T,
-    is_default: bool,
-}
-
-impl<T> Deref for RecordingMetadataHandle<T> {
-    type Target = T;
-
-    fn deref(&self) -> &Self::Target {
-        &self.value
-    }
-}
-
-impl<T> DerefMut for RecordingMetadataHandle<T> {
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.value
-    }
-}
-
-impl<T> AsRef<FullNameRef> for RecordingMetadataHandle<T> {
-    fn as_ref(&self) -> &FullNameRef {
-        self.name.as_ref()
-    }
-}
-
-impl<T> ref_metadata::ValueInfo for RecordingMetadataHandle<T> {
-    fn is_default(&self) -> bool {
-        self.is_default
-    }
-}
-
-impl<M: RefMetadata> RefMetadata for RecordingMetadata<'_, M> {
-    type Handle<T> = RecordingMetadataHandle<T>;
-
-    fn iter(&self) -> impl Iterator<Item = anyhow::Result<(FullName, Box<dyn std::any::Any>)>> {
-        std::iter::empty()
-    }
-
-    fn workspace(
-        &self,
-        ref_name: &FullNameRef,
-    ) -> anyhow::Result<Self::Handle<ref_metadata::Workspace>> {
-        let value = self
-            .workspace_name
-            .as_ref()
-            .filter(|name| name.as_ref() == ref_name)
-            .and_then(|_| self.workspace.clone());
-        let is_default = value.is_none();
-        Ok(RecordingMetadataHandle {
-            name: ref_name.to_owned(),
-            value: value.unwrap_or_default(),
-            is_default,
-        })
-    }
-
-    fn branch(&self, ref_name: &FullNameRef) -> anyhow::Result<Self::Handle<ref_metadata::Branch>> {
-        Ok(RecordingMetadataHandle {
-            name: ref_name.to_owned(),
-            value: ref_metadata::Branch::default(),
-            is_default: true,
-        })
-    }
-
-    fn set_workspace(
-        &mut self,
-        value: &Self::Handle<ref_metadata::Workspace>,
-    ) -> anyhow::Result<()> {
-        self.updates
-            .push(PendingMetadataUpdate::Workspace(RecordingMetadataHandle {
-                name: value.name.clone(),
-                value: value.value.clone(),
-                is_default: value.is_default,
-            }));
-        Ok(())
-    }
-
-    fn set_branch(&mut self, value: &Self::Handle<ref_metadata::Branch>) -> anyhow::Result<()> {
-        self.updates
-            .push(PendingMetadataUpdate::Branch(RecordingMetadataHandle {
-                name: value.name.clone(),
-                value: value.value.clone(),
-                is_default: value.is_default,
-            }));
-        Ok(())
-    }
-
-    fn branch_stack_order(&self, ref_name: &FullNameRef) -> anyhow::Result<Option<Vec<FullName>>> {
-        let pending_order = self
-            .updates
-            .iter()
-            .rev()
-            .filter_map(|update| match update {
-                PendingMetadataUpdate::Workspace(_) | PendingMetadataUpdate::Branch(_) => None,
-                PendingMetadataUpdate::BranchStackOrder(branches) => Some(branches),
-            })
-            .chain(self.branch_stack_orders.iter().rev())
-            .find(|branches| branches.iter().any(|branch| branch.as_ref() == ref_name));
-
-        match pending_order {
-            Some(branches) => Ok(Some(branches.clone())),
-            None => self.persisted_meta.branch_stack_order(ref_name),
-        }
-    }
-
-    fn set_branch_stack_order(&mut self, branches: &[FullName]) -> anyhow::Result<()> {
-        self.updates
-            .push(PendingMetadataUpdate::BranchStackOrder(branches.to_vec()));
-        Ok(())
-    }
-
-    fn can_persist_branch_stack_order(&self) -> bool {
-        self.persisted_meta.can_persist_branch_stack_order()
-    }
-
-    fn remove(&mut self, _ref_name: &FullNameRef) -> anyhow::Result<bool> {
-        Ok(false)
-    }
-
-    fn rename(
-        &mut self,
-        _old_ref_name: &FullNameRef,
-        _new_ref_name: &FullNameRef,
-    ) -> anyhow::Result<()> {
-        // Renames aren't part of the recorded transaction surface (like `remove`, which is handled
-        // out-of-band via `Transaction::remove_reference`); nothing to record here.
-        Ok(())
-    }
 }
 
 #[derive(Debug, Default)]
@@ -1360,13 +1398,13 @@ impl<T, K> TransactionOutcome for DynamicOutcome<T, K> {
     }
 }
 
-fn workspace_state_from_rebase<M: RefMetadata>(
-    rebase: SuccessfulRebase<'_, '_, M>,
+fn workspace_state_from_rebase(
+    rebase: SuccessfulRebase<'_, '_, '_>,
     repo: &gix::Repository,
-    pending_metadata_removals: Vec<FullName>,
-    pending_metadata_updates: Vec<PendingMetadataUpdate>,
     pending_created_independent_refs: Vec<PendingCreatedIndependentRef>,
     options: FinalizeOptions,
+    committed_ref_edits: &mut Vec<RefEdit>,
+    checkouts: &mut [CheckoutSnapshot],
 ) -> anyhow::Result<WorkspaceState> {
     let FinalizeOptions {
         checkout: pending_checkout,
@@ -1385,21 +1423,29 @@ fn workspace_state_from_rebase<M: RefMetadata>(
             .overlayed_graph_with_workspace_overrides(Some((target, branch)), None)?
             .into_workspace()?;
         let mut rebase = rebase;
-        let (repo, meta, db) = rebase.repo_meta_and_db_mut();
+        let (repo, db) = rebase.repo_and_db_mut();
         return WorkspaceState::from_workspace_with_db(
             &workspace,
-            meta,
             repo,
             replaced_commits,
-            db,
+            db.reborrow(),
         );
     }
 
-    let materialized = if materialize_without_checkout {
-        rebase.materialize_without_checkout()?
-    } else {
-        rebase.materialize(Default::default())?
+    let mut on_checkout = |repo: &gix::Repository, target| {
+        checkouts
+            .iter_mut()
+            .find(|checkout| checkout.repo.index_path() == repo.index_path())
+            .context("BUG: each materialized worktree has a recovery snapshot")?
+            .record_checkout(target)
     };
+    let mut materialized = rebase.materialize_with_changes(
+        but_rebase::graph_rebase::materialize::MaterializeOptions {
+            without_checkout: materialize_without_checkout,
+        },
+        committed_ref_edits,
+        &mut on_checkout,
+    )?;
     for branch in pending_created_independent_refs {
         if materialized
             .workspace
@@ -1408,47 +1454,26 @@ fn workspace_state_from_rebase<M: RefMetadata>(
         {
             continue;
         }
-        let outcome = but_workspace::branch::apply(
+        let outcome = but_workspace::branch::apply_with_changes(
             branch.name.as_ref(),
             materialized.workspace.clone(),
             repo,
-            materialized.meta,
+            &mut materialized.db,
             but_workspace::branch::apply::Options {
                 order: branch.order,
                 ..Default::default()
             },
+            committed_ref_edits,
+            &mut on_checkout,
         )?;
         *materialized.workspace = outcome.workspace;
     }
-    for update in pending_metadata_updates {
-        match update {
-            PendingMetadataUpdate::Workspace(workspace) => {
-                let mut handle = materialized.meta.workspace(workspace.as_ref())?;
-                *handle = workspace.value;
-                materialized.meta.set_workspace(&handle)?;
-            }
-            PendingMetadataUpdate::Branch(branch) => {
-                let mut handle = materialized.meta.branch(branch.as_ref())?;
-                *handle = branch.value;
-                materialized.meta.set_branch(&handle)?;
-            }
-            PendingMetadataUpdate::BranchStackOrder(branches) => {
-                materialized.meta.set_branch_stack_order(&branches)?;
-            }
-        }
-    }
-    for ref_name in pending_metadata_removals {
-        materialized.meta.remove(ref_name.as_ref())?;
-    }
     if let Some(branch) = pending_checkout {
-        checkout_reference(repo, branch.as_ref())?;
+        checkout_reference(repo, branch.as_ref(), committed_ref_edits, &mut on_checkout)?;
         let project_meta = materialized.workspace.graph.project_meta.clone();
-        materialized.workspace.refresh_from_head(
-            repo,
-            &*materialized.meta,
-            project_meta,
-            &mut *materialized.db,
-        )?;
+        materialized
+            .workspace
+            .refresh_from_head(repo, project_meta, &mut materialized.db)?;
     }
 
     WorkspaceState::from_materialized(materialized, repo)
@@ -1474,7 +1499,12 @@ fn resolve_checkout_target(
     Ok(target)
 }
 
-fn checkout_reference(repo: &gix::Repository, reference_name: &FullNameRef) -> anyhow::Result<()> {
+fn checkout_reference(
+    repo: &gix::Repository,
+    reference_name: &FullNameRef,
+    committed_ref_edits: &mut Vec<RefEdit>,
+    on_checkout: &mut impl FnMut(&gix::Repository, ObjectId) -> anyhow::Result<()>,
+) -> anyhow::Result<()> {
     let current_head = repo
         .head_id()
         .context("Cannot check out a branch while HEAD is unborn")?
@@ -1496,15 +1526,18 @@ fn checkout_reference(repo: &gix::Repository, reference_name: &FullNameRef) -> a
             reference_name.as_bstr()
         )
     })?;
-    update_head_reference(
-        repo,
-        Target::Symbolic(reference_name.to_owned()),
-        false,
-        "checkout",
-        reference_name.as_bstr(),
-        target_commit.parent_ids().count(),
-    )
-    .with_context(|| format!("Could not update HEAD to '{}'", reference_name.as_bstr()))?;
+    on_checkout(repo, target)?;
+    committed_ref_edits.extend(
+        update_head_reference(
+            repo,
+            Target::Symbolic(reference_name.to_owned()),
+            false,
+            "checkout",
+            reference_name.as_bstr(),
+            target_commit.parent_ids().count(),
+        )
+        .with_context(|| format!("Could not update HEAD to '{}'", reference_name.as_bstr()))?,
+    );
     Ok(())
 }
 

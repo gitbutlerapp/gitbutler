@@ -13,7 +13,7 @@
 use anyhow::Result;
 use but_core::ref_metadata::ProjectMeta;
 use but_graph::{Graph, init::Options};
-use but_meta::VirtualBranchesTomlMetadata;
+
 use but_testsupport::{gix_testtools::tempfile::TempDir, visualize_commit_graph_all};
 use but_workspace::workspace::{
     DetailedGraphWorkspace, GraphRowData, Stack, detailed_graph_workspace,
@@ -34,11 +34,7 @@ fn detailed(
     target: Option<&str>,
 ) -> Result<(gix::Repository, DetailedGraphWorkspace)> {
     let repo = crate::utils::read_only_in_memory_scenario(fixture)?;
-    let mut meta = VirtualBranchesTomlMetadata::from_path(
-        repo.path()
-            .join(".git")
-            .join("should-never-be-written.toml"),
-    )?;
+    let mut meta = but_testsupport::in_memory_db();
     let project_meta = ProjectMeta {
         target_ref: target.map(gix::refs::FullName::try_from).transpose()?,
         // Bound the graph at the target commit too, so the projection is
@@ -49,10 +45,15 @@ fn detailed(
         ..Default::default()
     };
     // The fixture is shared and read-only, so the database stands alone.
-    let mut db = but_testsupport::in_memory_db();
-    let graph = Graph::from_head(&repo, &meta, project_meta, &mut db, Options::limited())?;
+
+    let graph = Graph::from_head(
+        &repo,
+        project_meta,
+        &mut meta.connection_mut(),
+        Options::limited(),
+    )?;
     let mut ws = graph.into_workspace()?;
-    let detailed = detailed_graph_workspace(&mut ws, &mut meta, &repo, &mut db)?;
+    let detailed = detailed_graph_workspace(&mut ws, &repo, meta.connection_mut())?;
     Ok((repo, detailed))
 }
 
@@ -63,9 +64,9 @@ fn detailed_writable(
     target_remote: &str,
     target_branch: &str,
     target_rev: &str,
-    mut configure_stacks: impl FnMut(&mut VirtualBranchesTomlMetadata),
+    mut configure_stacks: impl FnMut(&mut but_db::DbHandle),
 ) -> Result<(TempDir, DetailedGraphWorkspace)> {
-    let (tmp, repo, mut meta, _desc, mut db) = named_writable_scenario_with_description(fixture)?;
+    let (tmp, repo, mut meta, _desc) = named_writable_scenario_with_description(fixture)?;
     let target_sha = repo.rev_parse_single(target_rev)?.detach();
     configure_stacks(&mut meta);
 
@@ -74,9 +75,14 @@ fn detailed_writable(
         target_commit_id: Some(target_sha),
         push_remote: None,
     };
-    let graph = Graph::from_head(&repo, &meta, project_meta, &mut db, Options::limited())?;
+    let graph = Graph::from_head(
+        &repo,
+        project_meta,
+        &mut meta.connection_mut(),
+        Options::limited(),
+    )?;
     let mut ws = graph.into_workspace()?;
-    let detailed = detailed_graph_workspace(&mut ws, &mut meta, &repo, &mut db)?;
+    let detailed = detailed_graph_workspace(&mut ws, &repo, meta.connection_mut())?;
     Ok((tmp, detailed))
 }
 
@@ -1135,18 +1141,17 @@ fn commit_state_uses_similarity_for_local_and_remote() -> Result<()> {
     use crate::ref_info::with_workspace_commit::utils::{
         StackState, add_stack, project_meta, read_only_in_memory_scenario,
     };
-    let (repo, mut meta, mut db) = read_only_in_memory_scenario("target-ahead-remote-rewritten")?;
+    let (repo, mut meta) = read_only_in_memory_scenario("target-ahead-remote-rewritten")?;
     add_stack(&mut meta, 1, "A", StackState::InWorkspace);
 
     let graph = Graph::from_head(
         &repo,
-        &*meta,
         project_meta(&repo)?,
-        &mut db,
+        &mut meta.connection_mut(),
         Options::limited(),
     )?;
     let mut ws = graph.into_workspace()?;
-    let detailed = detailed_graph_workspace(&mut ws, &mut *meta, &repo, &mut db)?;
+    let detailed = detailed_graph_workspace(&mut ws, &repo, meta.connection_mut())?;
     snapbox::assert_data_eq!(
         render_commit_state(&detailed),
         snapbox::str![[r#"

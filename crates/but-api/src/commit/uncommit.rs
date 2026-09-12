@@ -28,7 +28,7 @@ impl SurfacedHunks {
     fn record_before(
         assign_to: Option<but_core::ref_metadata::StackId>,
         dry_run: DryRun,
-        db: &mut but_db::DbHandle,
+        db: &mut but_db::ConnectionMut<'_, '_>,
         repo: &gix::Repository,
         workspace: &but_graph::Workspace,
         context_lines: u32,
@@ -55,14 +55,13 @@ impl SurfacedHunks {
     /// Assign every hunk that appeared since [`Self::record_before()`] to the target stack.
     fn assign_after(
         self,
-        db: &mut but_db::DbHandle,
+        db: &mut but_db::ConnectionMut<'_, '_>,
         repo: &gix::Repository,
         workspace: &but_graph::Workspace,
         context_lines: u32,
     ) -> anyhow::Result<()> {
-        let mut tx = db.transaction()?;
         let (after_assignments, _) = but_hunk_assignment::assignments_with_fallback(
-            tx.hunk_assignments_mut()?,
+            db.hunk_assignments_mut()?,
             repo,
             workspace,
             None::<Vec<but_core::TreeChange>>,
@@ -86,14 +85,12 @@ impl SurfacedHunks {
             .collect();
 
         but_hunk_assignment::assign(
-            tx.hunk_assignments_mut()?,
+            db.hunk_assignments_mut()?,
             repo,
             workspace,
             to_assign,
             context_lines,
         )?;
-        // Only reached on a real run, so the writes always persist.
-        tx.commit()?;
         Ok(())
     }
 }
@@ -205,64 +202,77 @@ pub fn commit_uncommit_only_with_perm(
     if subject_commit_ids.is_empty() {
         anyhow::bail!("no commit IDs provided for uncommit");
     }
-    let context_lines = ctx.settings.context_lines;
-    let mut meta = ctx.meta()?;
-    let (repo, mut ws, mut db) = ctx.workspace_mut_and_db_mut_with_perm(perm)?;
+    let result = (|| {
+        let context_lines = ctx.settings.context_lines;
+        let (repo, mut ws, mut db) = ctx.workspace_mut_and_db_mut_with_perm(perm)?;
+        let mut transaction = db.immediate_transaction()?;
 
-    let surfaced =
-        SurfacedHunks::record_before(assign_to, dry_run, &mut db, &repo, &ws, context_lines)?;
+        let surfaced = SurfacedHunks::record_before(
+            assign_to,
+            dry_run,
+            &mut transaction.connection_mut(),
+            &repo,
+            &ws,
+            context_lines,
+        )?;
 
-    let editor = Editor::create(&mut ws, &mut meta, &repo, &mut db)?;
+        let editor = Editor::create(&mut ws, &repo, transaction.connection_mut())?;
 
-    let mut rebase =
-        but_workspace::commit::discard_commits(editor, subject_commit_ids.iter().copied())
-            .with_context(|| {
-                format!(
-                    "failed to uncommit commits: {}",
-                    subject_commit_ids
-                        .iter()
-                        .map(|id| id.to_hex().to_string())
-                        .collect::<Vec<_>>()
-                        .join(", ")
-                )
-            })?;
+        let mut rebase =
+            but_workspace::commit::discard_commits(editor, subject_commit_ids.iter().copied())
+                .with_context(|| {
+                    format!(
+                        "failed to uncommit commits: {}",
+                        subject_commit_ids
+                            .iter()
+                            .map(|id| id.to_hex().to_string())
+                            .collect::<Vec<_>>()
+                            .join(", ")
+                    )
+                })?;
 
-    let (workspace, replaced_commits, repo, meta, db) = if dry_run.into() {
-        let graph = rebase.overlayed_graph()?;
-        let replaced_commits = rebase.history.commit_mappings();
-        let (repo, meta, db) = rebase.repo_meta_and_db_mut();
-        (
-            &mut graph.into_workspace()?,
-            replaced_commits,
-            repo,
-            meta,
-            db,
-        )
-    } else {
-        let materialized = rebase.materialize_without_checkout()?;
-        (
-            materialized.workspace,
-            materialized.history.commit_mappings(),
-            &*repo,
-            materialized.meta,
-            materialized.db,
-        )
-    };
+        let (workspace, replaced_commits, repo, mut db) = if dry_run.into() {
+            let graph = rebase.overlayed_graph()?;
+            let replaced_commits = rebase.history.commit_mappings();
+            let (repo, db) = rebase.repo_and_db_mut();
+            (
+                &mut graph.into_workspace()?,
+                replaced_commits,
+                repo,
+                db.reborrow(),
+            )
+        } else {
+            let materialized = rebase.materialize_without_checkout()?;
+            (
+                materialized.workspace,
+                materialized.history.commit_mappings(),
+                &*repo,
+                materialized.db,
+            )
+        };
 
-    if let Some(surfaced) = surfaced {
-        surfaced.assign_after(db, repo, workspace, context_lines)?;
+        if let Some(surfaced) = surfaced {
+            surfaced.assign_after(&mut db, repo, workspace, context_lines)?;
+        }
+
+        let result = UncommitResult {
+            uncommitted_ids: subject_commit_ids,
+            workspace: WorkspaceState::from_workspace_with_db(
+                workspace,
+                repo,
+                replaced_commits,
+                db.reborrow(),
+            )?,
+        };
+        if matches!(dry_run, DryRun::No) {
+            transaction.commit()?;
+        }
+        Ok(result)
+    })();
+    if result.is_err() {
+        ctx.invalidate_workspace_cache()?;
     }
-
-    Ok(UncommitResult {
-        uncommitted_ids: subject_commit_ids,
-        workspace: WorkspaceState::from_workspace_with_db(
-            workspace,
-            meta,
-            repo,
-            replaced_commits,
-            db,
-        )?,
-    })
+    result
 }
 
 // ---------------------------------------------------------------------------
@@ -312,52 +322,65 @@ pub fn commit_uncommit_changes_only_with_perm(
     dry_run: DryRun,
     perm: &mut RepoExclusive,
 ) -> anyhow::Result<MoveChangesResult> {
-    let context_lines = ctx.settings.context_lines;
-    let mut meta = ctx.meta()?;
-    let (repo, mut ws, mut db) = ctx.workspace_mut_and_db_mut_with_perm(perm)?;
+    let result = (|| {
+        let context_lines = ctx.settings.context_lines;
+        let (repo, mut ws, mut db) = ctx.workspace_mut_and_db_mut_with_perm(perm)?;
+        let mut transaction = db.immediate_transaction()?;
 
-    let surfaced =
-        SurfacedHunks::record_before(assign_to, dry_run, &mut db, &repo, &ws, context_lines)?;
+        let surfaced = SurfacedHunks::record_before(
+            assign_to,
+            dry_run,
+            &mut transaction.connection_mut(),
+            &repo,
+            &ws,
+            context_lines,
+        )?;
 
-    let editor = Editor::create(&mut ws, &mut meta, &repo, &mut db)?;
-    let mut outcome =
-        but_workspace::commit::uncommit_changes(editor, commit_id, changes, context_lines)?;
+        let editor = Editor::create(&mut ws, &repo, transaction.connection_mut())?;
+        let mut outcome =
+            but_workspace::commit::uncommit_changes(editor, commit_id, changes, context_lines)?;
 
-    let (workspace, replaced_commits, repo, meta, db) = if dry_run.into() {
-        let graph = outcome.rebase.overlayed_graph()?;
-        let replaced_commits = outcome.rebase.history.commit_mappings();
-        let (repo, meta, db) = outcome.rebase.repo_meta_and_db_mut();
-        (
-            &mut graph.into_workspace()?,
-            replaced_commits,
-            repo,
-            meta,
-            db,
-        )
-    } else {
-        let materialized = outcome.rebase.materialize_without_checkout()?;
-        (
-            materialized.workspace,
-            materialized.history.commit_mappings(),
-            &*repo,
-            materialized.meta,
-            materialized.db,
-        )
-    };
+        let (workspace, replaced_commits, repo, mut db) = if dry_run.into() {
+            let graph = outcome.rebase.overlayed_graph()?;
+            let replaced_commits = outcome.rebase.history.commit_mappings();
+            let (repo, db) = outcome.rebase.repo_and_db_mut();
+            (
+                &mut graph.into_workspace()?,
+                replaced_commits,
+                repo,
+                db.reborrow(),
+            )
+        } else {
+            let materialized = outcome.rebase.materialize_without_checkout()?;
+            (
+                materialized.workspace,
+                materialized.history.commit_mappings(),
+                &*repo,
+                materialized.db,
+            )
+        };
 
-    if let Some(surfaced) = surfaced {
-        surfaced.assign_after(db, repo, workspace, context_lines)?;
+        if let Some(surfaced) = surfaced {
+            surfaced.assign_after(&mut db, repo, workspace, context_lines)?;
+        }
+
+        let result = MoveChangesResult {
+            workspace: WorkspaceState::from_workspace_with_db(
+                workspace,
+                repo,
+                replaced_commits,
+                db.reborrow(),
+            )?,
+        };
+        if matches!(dry_run, DryRun::No) {
+            transaction.commit()?;
+        }
+        Ok(result)
+    })();
+    if result.is_err() {
+        ctx.invalidate_workspace_cache()?;
     }
-
-    Ok(MoveChangesResult {
-        workspace: WorkspaceState::from_workspace_with_db(
-            workspace,
-            meta,
-            repo,
-            replaced_commits,
-            db,
-        )?,
-    })
+    result
 }
 
 /// Extract `changes` from `commit_id` and record the rewrite in the oplog.
@@ -461,79 +484,102 @@ pub fn commit_uncommit_changes_from_commits_only_with_perm(
     dry_run: DryRun,
     perm: &mut RepoExclusive,
 ) -> anyhow::Result<UncommitChangesFromCommitsResult> {
-    let context_lines = ctx.settings.context_lines;
-    let mut meta = ctx.meta()?;
-    let (repo, mut ws, mut db) = ctx.workspace_mut_and_db_mut_with_perm(perm)?;
+    let result = (|| {
+        let context_lines = ctx.settings.context_lines;
+        let (repo, mut ws, mut db) = ctx.workspace_mut_and_db_mut_with_perm(perm)?;
+        let mut transaction = db.immediate_transaction()?;
 
-    let surfaced =
-        SurfacedHunks::record_before(assign_to, dry_run, &mut db, &repo, &ws, context_lines)?;
+        let surfaced = SurfacedHunks::record_before(
+            assign_to,
+            dry_run,
+            &mut transaction.connection_mut(),
+            &repo,
+            &ws,
+            context_lines,
+        )?;
 
-    let editor = Editor::create(&mut ws, &mut meta, &repo, &mut db)?;
-    let workspace_sources = sources
-        .into_iter()
-        .map(|source| but_workspace::commit::UncommitChangesSource {
-            commit_id: source.commit_id,
-            changes: source.changes,
-        })
-        .collect::<Vec<_>>();
-    let outcome = but_workspace::commit::uncommit_changes_from_commits(
-        editor,
-        workspace_sources,
-        context_lines,
-    )?;
-    let failures = outcome
-        .failures
-        .into_iter()
-        .map(|failure| UncommitChangesFailure {
-            commit_id: failure.commit_id,
-            changes: failure.changes,
-            error: failure.error,
-        })
-        .collect::<Vec<_>>();
+        let editor = Editor::create(&mut ws, &repo, transaction.connection_mut())?;
+        let workspace_sources = sources
+            .into_iter()
+            .map(|source| but_workspace::commit::UncommitChangesSource {
+                commit_id: source.commit_id,
+                changes: source.changes,
+            })
+            .collect::<Vec<_>>();
+        let outcome = but_workspace::commit::uncommit_changes_from_commits(
+            editor,
+            workspace_sources,
+            context_lines,
+        )?;
+        let failures = outcome
+            .failures
+            .into_iter()
+            .map(|failure| UncommitChangesFailure {
+                commit_id: failure.commit_id,
+                changes: failure.changes,
+                error: failure.error,
+            })
+            .collect::<Vec<_>>();
 
-    let mut rebase = outcome.rebase;
-    let (workspace, replaced_commits, repo, meta, db) = if dry_run.into() {
-        if let Some(rebase) = rebase.as_mut() {
-            let graph = rebase.overlayed_graph()?;
-            let replaced_commits = rebase.history.commit_mappings();
-            let (repo, meta, db) = rebase.repo_meta_and_db_mut();
+        let mut rebase = outcome.rebase;
+        let (workspace, replaced_commits, repo, mut db) = if dry_run.into() {
+            if let Some(rebase) = rebase.as_mut() {
+                let graph = rebase.overlayed_graph()?;
+                let replaced_commits = rebase.history.commit_mappings();
+                let (repo, db) = rebase.repo_and_db_mut();
+                (
+                    &mut graph.into_workspace()?,
+                    replaced_commits,
+                    repo,
+                    db.reborrow(),
+                )
+            } else {
+                (
+                    &mut *ws,
+                    BTreeMap::new(),
+                    &*repo,
+                    transaction.connection_mut(),
+                )
+            }
+        } else if let Some(rebase) = rebase {
+            let materialized = rebase.materialize_without_checkout()?;
             (
-                &mut graph.into_workspace()?,
-                replaced_commits,
-                repo,
-                meta,
-                db,
+                materialized.workspace,
+                materialized.history.commit_mappings(),
+                &*repo,
+                materialized.db,
             )
         } else {
-            (&mut *ws, BTreeMap::new(), &*repo, &mut meta, &mut *db)
+            (
+                &mut *ws,
+                BTreeMap::new(),
+                &*repo,
+                transaction.connection_mut(),
+            )
+        };
+
+        if let Some(surfaced) = surfaced {
+            surfaced.assign_after(&mut db, repo, workspace, context_lines)?;
         }
-    } else if let Some(rebase) = rebase {
-        let materialized = rebase.materialize_without_checkout()?;
-        (
-            materialized.workspace,
-            materialized.history.commit_mappings(),
-            &*repo,
-            materialized.meta,
-            materialized.db,
-        )
-    } else {
-        (&mut *ws, BTreeMap::new(), &*repo, &mut meta, &mut *db)
-    };
 
-    if let Some(surfaced) = surfaced {
-        surfaced.assign_after(db, repo, workspace, context_lines)?;
+        let result = UncommitChangesFromCommitsResult {
+            workspace: WorkspaceState::from_workspace_with_db(
+                workspace,
+                repo,
+                replaced_commits,
+                db.reborrow(),
+            )?,
+            failures,
+        };
+        if matches!(dry_run, DryRun::No) {
+            transaction.commit()?;
+        }
+        Ok(result)
+    })();
+    if result.is_err() {
+        ctx.invalidate_workspace_cache()?;
     }
-
-    Ok(UncommitChangesFromCommitsResult {
-        workspace: WorkspaceState::from_workspace_with_db(
-            workspace,
-            meta,
-            repo,
-            replaced_commits,
-            db,
-        )?,
-        failures,
-    })
+    result
 }
 
 /// Uncommit specific changes from multiple commits and record an oplog

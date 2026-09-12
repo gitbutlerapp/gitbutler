@@ -128,7 +128,7 @@ impl CachedReviews {
     }
 }
 
-pub(crate) fn reviews_from_cache(db: &but_db::DbHandle) -> anyhow::Result<CachedReviews> {
+pub(crate) fn reviews_from_cache(db: but_db::Connection<'_>) -> anyhow::Result<CachedReviews> {
     let db_reviews = db.forge_reviews().list_all()?;
     let expected_version = ForgeReview::struct_version();
     let saw_incompatible = db_reviews
@@ -165,7 +165,7 @@ pub fn cached_review_states(db: &but_db::DbHandle) -> anyhow::Result<Vec<(i64, b
 /// Lists compatible persisted reviews without performing network I/O.
 ///
 /// Rows written with another [`ForgeReview::struct_version`] are cache misses.
-pub fn list_cached_forge_reviews(db: &but_db::DbHandle) -> anyhow::Result<Vec<ForgeReview>> {
+pub fn list_cached_forge_reviews(db: but_db::Connection<'_>) -> anyhow::Result<Vec<ForgeReview>> {
     Ok(reviews_from_cache(db)?.reviews)
 }
 
@@ -421,7 +421,7 @@ mod tests {
             ])
             .unwrap();
 
-        let compatible = list_cached_forge_reviews(&db).unwrap();
+        let compatible = list_cached_forge_reviews(db.connection()).unwrap();
         assert_eq!(
             compatible
                 .iter()
@@ -431,7 +431,7 @@ mod tests {
             "cache-only readers should skip incompatible rows"
         );
         assert!(
-            reviews_from_cache(&db)
+            reviews_from_cache(db.connection())
                 .unwrap()
                 .fresh_rows(60, now)
                 .is_none(),
@@ -453,7 +453,7 @@ mod tests {
             )])
             .unwrap();
 
-        let cached = reviews_from_cache(&db)
+        let cached = reviews_from_cache(db.connection())
             .unwrap()
             .fresh_rows(60, now)
             .expect("a compatible fresh cache should be reused");
@@ -485,7 +485,7 @@ mod tests {
             ])
             .unwrap();
 
-        let cached = reviews_from_cache(&db)
+        let cached = reviews_from_cache(db.connection())
             .unwrap()
             .fresh_rows(60, now)
             .expect("freshness follows the open rows, not a retained settled one");
@@ -508,7 +508,7 @@ mod tests {
             .unwrap();
 
         assert!(
-            reviews_from_cache(&db)
+            reviews_from_cache(db.connection())
                 .unwrap()
                 .fresh_rows(60, now)
                 .is_none(),
@@ -531,7 +531,7 @@ mod tests {
             .unwrap();
 
         assert!(
-            reviews_from_cache(&db)
+            reviews_from_cache(db.connection())
                 .unwrap()
                 .fresh_rows(60, now)
                 .is_none(),
@@ -574,7 +574,7 @@ mod tests {
             .unwrap();
 
         assert!(
-            list_cached_forge_reviews(&db).is_err(),
+            list_cached_forge_reviews(db.connection()).is_err(),
             "current-version corruption must not be treated as a cache miss"
         );
     }

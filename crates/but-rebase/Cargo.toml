@@ -41,7 +41,6 @@ but-schemars = { workspace = true, optional = true }
 [dev-dependencies]
 but-testsupport.workspace = true
 snapbox.workspace = true
-but-meta = { workspace = true, features = ["legacy"] }
 
 gitbutler-reference.workspace = true
 

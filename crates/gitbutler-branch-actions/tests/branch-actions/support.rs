@@ -43,12 +43,10 @@ pub fn hook_case() -> Result<HookCase> {
 /// synthetic [`StackId::single_branch_id()`]; it isn't a metadata stack, so it is left out.
 pub fn stack_details(ctx: &Context) -> Vec<(StackId, Stack)> {
     let repo = ctx.clone_repo_for_merging_non_persisting().unwrap();
-    let meta = ctx.legacy_meta().unwrap();
     let mut db = ctx.db.get_cache_mut().unwrap();
     but_workspace::head_info(
         &repo,
-        &meta,
-        &mut db,
+        &mut db.connection_mut(),
         but_workspace::ref_info::Options {
             project_meta: ctx.project_meta().unwrap(),
             traversal: but_graph::init::Options {

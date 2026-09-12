@@ -63,38 +63,38 @@ pub(crate) fn commit_create_only_impl(
     perm: &mut RepoExclusive,
 ) -> anyhow::Result<CommitCreateResult> {
     let worktree = crate::worktrees::open_changes_source(ctx, changes_source)?;
-    let mut meta = ctx.meta()?;
-    let (repo, mut ws, mut db) = ctx.workspace_mut_and_db_mut_with_perm(perm)?;
-    let editor = Editor::create(&mut ws, &mut meta, &repo, &mut db)?;
+    crate::workspace::with_workspace_transaction(ctx, perm, dry_run, |repo, ws, db| {
+        let editor = Editor::create(ws, repo, db.connection_mut())?;
 
-    let but_workspace::commit::CommitCreateOutcome {
-        rebase,
-        commit_selector,
-        rejected_specs,
-    } = but_workspace::commit::commit_create(
-        editor,
-        changes,
-        relative_to,
-        side,
-        &message,
-        context_lines,
-        worktree
-            .as_ref()
-            .map_or(ChangeSource::Head, |(name, repo)| ChangeSource::Worktree {
-                repo,
-                name: name.as_bstr(),
-            }),
-    )?;
+        let but_workspace::commit::CommitCreateOutcome {
+            rebase,
+            commit_selector,
+            rejected_specs,
+        } = but_workspace::commit::commit_create(
+            editor,
+            changes,
+            relative_to,
+            side,
+            &message,
+            context_lines,
+            worktree
+                .as_ref()
+                .map_or(ChangeSource::Head, |(name, repo)| ChangeSource::Worktree {
+                    repo,
+                    name: name.as_bstr(),
+                }),
+        )?;
 
-    let new_commit = commit_selector
-        .map(|commit_selector| rebase.lookup_pick(commit_selector))
-        .transpose()?;
-    let workspace = WorkspaceState::from_successful_rebase(rebase, &repo, dry_run)?;
+        let new_commit = commit_selector
+            .map(|commit_selector| rebase.lookup_pick(commit_selector))
+            .transpose()?;
+        let workspace = WorkspaceState::from_successful_rebase(rebase, repo, dry_run)?;
 
-    Ok(CommitCreateResult {
-        new_commit,
-        rejected_specs,
-        workspace,
+        Ok(CommitCreateResult {
+            new_commit,
+            rejected_specs,
+            workspace,
+        })
     })
 }
 

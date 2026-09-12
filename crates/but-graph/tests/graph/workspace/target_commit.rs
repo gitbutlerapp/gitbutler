@@ -10,7 +10,7 @@ use crate::init::utils::{
 
 #[test]
 fn ad_hoc_workspace_uses_project_target_ref() -> anyhow::Result<()> {
-    let (repo, meta, mut db) = read_only_in_memory_scenario("ad-hoc-branch-integrated-upstream")?;
+    let (repo, mut meta) = read_only_in_memory_scenario("ad-hoc-branch-integrated-upstream")?;
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?.replace("  \n", "\n"),
         snapbox::str![[r#"
@@ -28,9 +28,14 @@ fn ad_hoc_workspace_uses_project_target_ref() -> anyhow::Result<()> {
         ..Default::default()
     };
 
-    let ws = Graph::from_head(&repo, &*meta, project_meta, &mut db, standard_options())?
-        .validated()?
-        .into_workspace()?;
+    let ws = Graph::from_head(
+        &repo,
+        project_meta,
+        &mut meta.connection_mut(),
+        standard_options(),
+    )?
+    .validated()?
+    .into_workspace()?;
     snapbox::assert_data_eq!(
         graph_workspace_determinisitcally(&ws).to_string(),
         snapbox::str![[r#"
@@ -57,7 +62,7 @@ fn ad_hoc_workspace_uses_project_target_ref() -> anyhow::Result<()> {
 
 #[test]
 fn ad_hoc_workspace_uses_stored_project_target_commit() -> anyhow::Result<()> {
-    let (repo, meta, mut db) = read_only_in_memory_scenario("ad-hoc-branch-integrated-upstream")?;
+    let (repo, mut meta) = read_only_in_memory_scenario("ad-hoc-branch-integrated-upstream")?;
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?.replace("  \n", "\n"),
         snapbox::str![[r#"
@@ -75,9 +80,14 @@ fn ad_hoc_workspace_uses_stored_project_target_commit() -> anyhow::Result<()> {
         ..Default::default()
     };
 
-    let ws = Graph::from_head(&repo, &*meta, project_meta, &mut db, standard_options())?
-        .validated()?
-        .into_workspace()?;
+    let ws = Graph::from_head(
+        &repo,
+        project_meta,
+        &mut meta.connection_mut(),
+        standard_options(),
+    )?
+    .validated()?
+    .into_workspace()?;
     snapbox::assert_data_eq!(
         graph_workspace_determinisitcally(&ws).to_string(),
         snapbox::str![[r#"
@@ -100,7 +110,7 @@ fn ad_hoc_workspace_uses_stored_project_target_commit() -> anyhow::Result<()> {
 
 #[test]
 fn returns_target_tip_when_stacks_have_different_bases() -> anyhow::Result<()> {
-    let (repo, mut meta, mut db) = read_only_in_memory_scenario("ws/two-branches-one-below-base")?;
+    let (repo, mut meta) = read_only_in_memory_scenario("ws/two-branches-one-below-base")?;
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
         snapbox::str![[r#"
@@ -126,9 +136,8 @@ fn returns_target_tip_when_stacks_have_different_bases() -> anyhow::Result<()> {
 
     let ws = Graph::from_head(
         &repo,
-        &*meta,
         target_meta(&repo),
-        &mut db,
+        &mut meta.connection_mut(),
         standard_options(),
     )?
     .validated()?
@@ -147,7 +156,7 @@ fn returns_target_tip_when_stacks_have_different_bases() -> anyhow::Result<()> {
 
 #[test]
 fn returns_target_tip_when_one_stack_is_above_target() -> anyhow::Result<()> {
-    let (repo, mut meta, mut db) = read_only_in_memory_scenario("ws/two-branches-one-above-base")?;
+    let (repo, mut meta) = read_only_in_memory_scenario("ws/two-branches-one-above-base")?;
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
         snapbox::str![[r#"
@@ -170,9 +179,8 @@ fn returns_target_tip_when_one_stack_is_above_target() -> anyhow::Result<()> {
 
     let ws = Graph::from_head(
         &repo,
-        &*meta,
         target_meta(&repo),
-        &mut db,
+        &mut meta.connection_mut(),
         standard_options(),
     )?
     .validated()?
@@ -191,7 +199,7 @@ fn returns_target_tip_when_one_stack_is_above_target() -> anyhow::Result<()> {
 
 #[test]
 fn prefers_target_commit_over_target_ref() -> anyhow::Result<()> {
-    let (repo, mut meta, mut db) = read_only_in_memory_scenario("ws/local-target-and-stack")?;
+    let (repo, mut meta) = read_only_in_memory_scenario("ws/local-target-and-stack")?;
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
         snapbox::str![[r#"
@@ -215,9 +223,14 @@ fn prefers_target_commit_over_target_ref() -> anyhow::Result<()> {
     let m2 = repo.rev_parse_single(":/M2")?.detach();
     let project_meta = add_workspace_with_target(&mut meta, m2);
 
-    let ws = Graph::from_head(&repo, &*meta, project_meta, &mut db, standard_options())?
-        .validated()?
-        .into_workspace()?;
+    let ws = Graph::from_head(
+        &repo,
+        project_meta,
+        &mut meta.connection_mut(),
+        standard_options(),
+    )?
+    .validated()?
+    .into_workspace()?;
 
     assert!(ws.target_ref.is_some(), "target_ref should be set");
     assert!(ws.target_commit.is_some(), "target_commit should be set");
@@ -234,14 +247,13 @@ fn prefers_target_commit_over_target_ref() -> anyhow::Result<()> {
 
 #[test]
 fn returns_none_when_no_target() -> anyhow::Result<()> {
-    let (repo, mut meta, mut db) = read_only_in_memory_scenario("ws/no-target-without-ws-commit")?;
+    let (repo, mut meta) = read_only_in_memory_scenario("ws/no-target-without-ws-commit")?;
 
     add_workspace(&mut meta);
     let ws = Graph::from_head(
         &repo,
-        &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
-        &mut db,
+        &mut meta.connection_mut(),
         standard_options(),
     )?
     .validated()?

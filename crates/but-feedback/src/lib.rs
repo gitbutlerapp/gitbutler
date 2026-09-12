@@ -38,20 +38,18 @@ impl Archival {
             ..Default::default()
         };
         let repo = ctx.repo.get()?;
-        let meta = ctx.meta()?;
         let project_meta = ctx.project_meta()?;
         let mut db = ctx.db.get_cache_mut()?;
         let mut graph = but_graph::Graph::from_head(
             &repo,
-            &meta,
             project_meta.clone(),
-            &mut db,
+            &mut db.connection_mut(),
             options.clone(),
         )
         .or_else(|_| {
             // Assume it fails because of post-processing, try again without.
             options.dangerously_skip_postprocessing_for_debugging = true;
-            but_graph::Graph::from_head(&repo, &meta, project_meta, &mut db, options)
+            but_graph::Graph::from_head(&repo, project_meta, &mut db.connection_mut(), options)
         })?;
         let dot_file_contents = graph.anonymize(&repo.remote_names())?.dot_graph_pruned();
         let output_file = self.cache_dir.join(format!(

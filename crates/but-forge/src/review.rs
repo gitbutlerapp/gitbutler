@@ -524,12 +524,12 @@ pub fn list_forge_reviews_with_cache(
     let reviews = match cache_config {
         // The cache also retains settled reviews for the branch association;
         // the listing serves only the open ones, matching a fresh sync.
-        CacheConfig::CacheOnly => crate::list_cached_forge_reviews(db)?
+        CacheConfig::CacheOnly => crate::list_cached_forge_reviews(db.connection())?
             .into_iter()
             .filter(ForgeReview::is_open)
             .collect(),
         CacheConfig::CacheWithFallback { max_age_seconds } => {
-            let cached = crate::db::reviews_from_cache(db)?;
+            let cached = crate::db::reviews_from_cache(db.connection())?;
             if let Some(reviews) =
                 cached.fresh_rows(max_age_seconds, chrono::Local::now().naive_local())
             {
@@ -538,10 +538,11 @@ pub fn list_forge_reviews_with_cache(
             match sync_listed_reviews(preferred_forge_user, forge_repo_info, storage, db) {
                 Ok(reviews) => reviews,
                 Err(err) => {
-                    let cached_open: Vec<ForgeReview> = crate::list_cached_forge_reviews(db)?
-                        .into_iter()
-                        .filter(ForgeReview::is_open)
-                        .collect();
+                    let cached_open: Vec<ForgeReview> =
+                        crate::list_cached_forge_reviews(db.connection())?
+                            .into_iter()
+                            .filter(ForgeReview::is_open)
+                            .collect();
                     if serves_stale_reviews(&err, !cached_open.is_empty()) {
                         cached_open
                     } else {
@@ -3756,7 +3757,7 @@ mod tests {
             vec![1],
             "a failed credential lookup must serve the last known open reviews"
         );
-        let persisted: Vec<i64> = crate::list_cached_forge_reviews(&db)
+        let persisted: Vec<i64> = crate::list_cached_forge_reviews(db.connection())
             .unwrap()
             .iter()
             .map(|review| review.number)

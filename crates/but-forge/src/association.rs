@@ -20,7 +20,7 @@ use crate::ForgeReview;
 /// When several cached reviews share a `source_branch`, `preference` decides
 /// the winner.
 pub fn review_for_head_ref(
-    db: &but_db::DbHandle,
+    db: but_db::Connection<'_>,
     head_ref_short: &str,
 ) -> anyhow::Result<Option<ForgeReview>> {
     let reviews = crate::list_cached_forge_reviews(db)?;
@@ -39,7 +39,7 @@ pub type ReviewAssociation = (usize, bool, Option<String>);
 /// review merged, letting the projection recognize a branch whose tip landed
 /// exactly while integration detection still lags a fetch.
 pub fn review_associations_by_head(
-    db: &but_db::DbHandle,
+    db: but_db::Connection<'_>,
 ) -> anyhow::Result<HashMap<String, ReviewAssociation>> {
     Ok(reviews_by_head(db)?
         .into_iter()
@@ -60,7 +60,7 @@ pub fn review_associations_by_head(
 ///
 /// When several cached reviews share a `source_branch`, `preference` decides
 /// which one the key maps to.
-pub fn reviews_by_head(db: &but_db::DbHandle) -> anyhow::Result<HashMap<String, ForgeReview>> {
+pub fn reviews_by_head(db: but_db::Connection<'_>) -> anyhow::Result<HashMap<String, ForgeReview>> {
     let reviews = crate::list_cached_forge_reviews(db)?;
     let mut map: HashMap<String, ForgeReview> = HashMap::new();
     for review in reviews {
@@ -239,11 +239,13 @@ mod tests {
         let (_tmp, mut db) = test_db();
         crate::db::cache_reviews(&mut db, &[review(7, "feature")]).unwrap();
 
-        let resolved = review_for_head_ref(&db, "feature").unwrap();
+        let resolved = review_for_head_ref(db.connection(), "feature").unwrap();
         assert_eq!(resolved.map(|r| r.number), Some(7));
 
         assert!(
-            review_for_head_ref(&db, "missing").unwrap().is_none(),
+            review_for_head_ref(db.connection(), "missing")
+                .unwrap()
+                .is_none(),
             "an unpublished branch resolves to no review"
         );
     }
@@ -251,7 +253,11 @@ mod tests {
     #[test]
     fn empty_cache_resolves_to_none() {
         let (_tmp, db) = test_db();
-        assert!(review_for_head_ref(&db, "feature").unwrap().is_none());
+        assert!(
+            review_for_head_ref(db.connection(), "feature")
+                .unwrap()
+                .is_none()
+        );
     }
 
     #[test]
@@ -263,7 +269,7 @@ mod tests {
         )
         .unwrap();
 
-        let map = reviews_by_head(&db).unwrap();
+        let map = reviews_by_head(db.connection()).unwrap();
         assert_eq!(map.get("feature").map(|r| r.number), Some(2));
     }
 
@@ -272,7 +278,7 @@ mod tests {
         let (_tmp, mut db) = test_db();
         crate::db::cache_reviews(&mut db, &[review(2, "feature"), review(1, "feature")]).unwrap();
 
-        let map = reviews_by_head(&db).unwrap();
+        let map = reviews_by_head(db.connection()).unwrap();
         assert_eq!(map.get("feature").map(|r| r.number), Some(2));
     }
 
@@ -286,7 +292,9 @@ mod tests {
         crate::db::cache_reviews(&mut db, &[settled]).unwrap();
 
         assert_eq!(
-            review_associations_by_head(&db).unwrap().get("feature"),
+            review_associations_by_head(db.connection())
+                .unwrap()
+                .get("feature"),
             // The fixture's sha is empty, so no merged head is exposed.
             Some(&(1, false, None))
         );

@@ -61,16 +61,14 @@ pub fn list_branches(
     }
 
     let remote_names = repo.remote_names();
-    let meta = ctx.meta()?;
     // The worktree-discovering database borrow must end before the gerrit handle
     // borrows the database again below.
     let ws = {
         let mut db = ctx.db.get_cache_mut()?;
         but_graph::Graph::from_head(
             &repo,
-            &meta,
             ctx.project_meta()?,
-            &mut db,
+            &mut db.connection_mut(),
             but_graph::init::Options {
                 worktrees: ctx.settings.feature_flags.worktree_manipulation,
                 ..traversal.clone()
@@ -102,7 +100,7 @@ pub fn list_branches(
     // Resolve each segment's PR association from the forge review cache (keyed by
     // the segment's remote/pushed short name) rather than from stored metadata.
     let review_cache = ctx.db.get_cache()?;
-    let reviews_by_head = but_forge::reviews_by_head(&review_cache)?;
+    let reviews_by_head = but_forge::reviews_by_head(review_cache.connection())?;
     let stacks = info
         .stacks
         .into_iter()

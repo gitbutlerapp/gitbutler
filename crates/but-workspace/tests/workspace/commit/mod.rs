@@ -24,7 +24,7 @@ mod from_new_merge_with_metadata {
 
     #[test]
     fn without_conflict_journey() -> anyhow::Result<()> {
-        let (repo, mut meta, mut db) =
+        let (repo, mut meta) =
             named_read_only_in_memory_scenario("various-heads-for-clean-merge", "")?;
         snapbox::assert_data_eq!(
             visualize_commit_graph_all(&repo)?,
@@ -45,9 +45,8 @@ mod from_new_merge_with_metadata {
         add_stacks(&mut meta, stacks);
         let graph = but_graph::Graph::from_head(
             &repo,
-            &*meta,
             but_core::ref_metadata::ProjectMeta::default(),
-            &mut db,
+            &mut meta.connection_mut(),
             Options::limited(),
         )?;
         let out = WorkspaceCommit::from_new_merge_with_metadata(
@@ -114,9 +113,8 @@ f53c910
         add_stacks(&mut meta, stacks);
         let graph = but_graph::Graph::from_head(
             &repo,
-            &*meta,
             but_core::ref_metadata::ProjectMeta::default(),
-            &mut db,
+            &mut meta.connection_mut(),
             Options::limited(),
         )?;
         let out = WorkspaceCommit::from_new_merge_with_metadata(
@@ -200,7 +198,7 @@ https://docs.gitbutler.com/features/branch-management/integration-branch
 
     #[test]
     fn anonymous_tip_after_removed_parent_slot() -> anyhow::Result<()> {
-        let (repo, mut meta, mut db) =
+        let (repo, mut meta) =
             named_read_only_in_memory_scenario("various-heads-for-clean-merge", "")?;
         snapbox::assert_data_eq!(
             visualize_commit_graph_all(&repo)?,
@@ -219,9 +217,8 @@ https://docs.gitbutler.com/features/branch-management/integration-branch
         add_stacks(&mut meta, ["add-A", "add-B", "add-C"]);
         let graph = but_graph::Graph::from_head(
             &repo,
-            &*meta,
             but_core::ref_metadata::ProjectMeta::default(),
-            &mut db,
+            &mut meta.connection_mut(),
             Options::limited(),
         )?;
 
@@ -271,7 +268,7 @@ Outcome {
 
     #[test]
     fn with_multi_line_conflict_journey() -> anyhow::Result<()> {
-        let (repo, mut meta, mut db) =
+        let (repo, mut meta) =
             named_read_only_in_memory_scenario("various-heads-for-multi-line-merge-conflict", "")?;
         snapbox::assert_data_eq!(
             visualize_commit_graph_all(&repo)?,
@@ -305,9 +302,8 @@ Outcome {
         add_stacks(&mut meta, stacks);
         let graph = but_graph::Graph::from_head(
             &repo,
-            &*meta,
             but_core::ref_metadata::ProjectMeta::default(),
-            &mut db,
+            &mut meta.connection_mut(),
             Options::limited(),
         )?;
 
@@ -403,7 +399,7 @@ Outcome {
 
     #[test]
     fn with_conflict_commits() -> anyhow::Result<()> {
-        let (_tmp, mut graph, repo, mut meta, _description, _db) =
+        let (_tmp, mut graph, repo, mut meta, _description) =
             named_writable_scenario_with_description_and_graph("with-conflict", |_| {})?;
         snapbox::assert_data_eq!(
             visualize_commit_graph_all(&repo)?,
@@ -438,7 +434,7 @@ Outcome {
 
         graph = graph.redo_traversal_with_overlay(
             &repo,
-            &meta,
+            &meta.meta()?,
             Overlay::default().with_references_if_new([
                 repo.find_reference("unrelated")?.inner,
                 // The workspace ref is needed so the workspace and its stacks are iterated as well.
@@ -497,7 +493,7 @@ Outcome {
 
     #[test]
     fn with_conflict_journey() -> anyhow::Result<()> {
-        let (repo, mut meta, mut db) =
+        let (repo, mut meta) =
             named_read_only_in_memory_scenario("various-heads-for-merge-conflict", "")?;
         snapbox::assert_data_eq!(
             visualize_commit_graph_all(&repo)?,
@@ -519,9 +515,8 @@ Outcome {
         add_stacks(&mut meta, stacks);
         let graph = but_graph::Graph::from_head(
             &repo,
-            &*meta,
             but_core::ref_metadata::ProjectMeta::default(),
-            &mut db,
+            &mut meta.connection_mut(),
             Options::limited(),
         )?;
 
@@ -734,13 +729,13 @@ Outcome {
         use but_core::ref_metadata::{
             StackId, WorkspaceCommitRelation::Merged, WorkspaceStack, WorkspaceStackBranch,
         };
-        use but_meta::VirtualBranchesTomlMetadata;
+
         use gix::refs::Category;
 
         use crate::ref_info::with_workspace_commit::utils::{StackState, add_stack_with_segments};
 
         pub fn add_stacks(
-            meta: &mut VirtualBranchesTomlMetadata,
+            meta: &mut but_db::DbHandle,
             short_stack_names: impl IntoIterator<Item = &'static str>,
         ) {
             for (idx, stack_name) in short_stack_names.into_iter().enumerate() {

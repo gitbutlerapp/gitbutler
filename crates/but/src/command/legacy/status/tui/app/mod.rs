@@ -1474,11 +1474,9 @@ impl App {
                 };
 
                 let mut guard = ctx.exclusive_worktree_access();
-                let mut meta = ctx.meta()?;
 
                 let (outcome, _ws) = commit::run(
                     ctx,
-                    &mut meta,
                     guard.write_permission(),
                     CommitOperation::CommitAt(CommitAtOperation {
                         target: CommitRelativeToTarget::BranchTip {
@@ -1501,11 +1499,9 @@ impl App {
                 };
 
                 let mut guard = ctx.exclusive_worktree_access();
-                let mut meta = ctx.meta()?;
 
                 let (outcome, _ws) = commit::run(
                     ctx,
-                    &mut meta,
                     guard.write_permission(),
                     CommitOperation::CommitAt(CommitAtOperation {
                         target: CommitRelativeToTarget::Commit {
@@ -1537,11 +1533,9 @@ impl App {
                 };
 
                 let mut guard = ctx.exclusive_worktree_access();
-                let mut meta = ctx.meta()?;
 
                 let (outcome, _ws) = commit::run(
                     ctx,
-                    &mut meta,
                     guard.write_permission(),
                     CommitOperation::CommitAt(CommitAtOperation {
                         target: CommitRelativeToTarget::BranchTip { name: branch },
@@ -1818,12 +1812,10 @@ impl App {
         }
 
         let head_info = {
-            let meta = ctx.meta()?;
             let mut db = ctx.db.get_cache_mut()?;
             but_workspace::head_info(
                 &*ctx.repo.get()?,
-                &meta,
-                &mut db,
+                &mut db.connection_mut(),
                 but_workspace::ref_info::Options {
                     project_meta: ctx.project_meta()?,
                     traversal: but_graph::init::Options {

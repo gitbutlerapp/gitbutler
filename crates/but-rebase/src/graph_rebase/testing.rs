@@ -7,7 +7,6 @@ use std::{
 };
 
 use anyhow::Result;
-use but_core::RefMetadata;
 use petgraph::{
     dot::{Config, Dot},
     visit::{EdgeRef, IntoEdgeReferences},
@@ -26,13 +25,13 @@ pub trait Testing {
     fn steps_ascii(&self) -> String;
 }
 
-impl<M: RefMetadata> Testing for Editor<'_, '_, M> {
+impl Testing for Editor<'_, '_, '_> {
     fn steps_ascii(&self) -> String {
         render_ascii_graph(&self.graph, |id| lookup_commit_title(&self.repo, id))
     }
 }
 
-impl<M: RefMetadata> Testing for SuccessfulRebase<'_, '_, M> {
+impl Testing for SuccessfulRebase<'_, '_, '_> {
     fn steps_ascii(&self) -> String {
         render_ascii_graph(&self.graph, |id| lookup_commit_title(&self.repo, id))
     }
@@ -43,13 +42,13 @@ pub trait TestingDot {
     fn steps_dot(&self) -> String;
 }
 
-impl<M: RefMetadata> TestingDot for Editor<'_, '_, M> {
+impl TestingDot for Editor<'_, '_, '_> {
     fn steps_dot(&self) -> String {
         self.graph.steps_dot()
     }
 }
 
-impl<M: RefMetadata> TestingDot for SuccessfulRebase<'_, '_, M> {
+impl TestingDot for SuccessfulRebase<'_, '_, '_> {
     fn steps_dot(&self) -> String {
         self.graph.steps_dot()
     }
@@ -284,7 +283,7 @@ where
     render_step_graph(graph, &nodes, &heads, get_title)
 }
 
-impl<M: RefMetadata> Editor<'_, '_, M> {
+impl Editor<'_, '_, '_> {
     /// Render a [`Subgraph`] (e.g. one of the parts of [`Editor::graph_workspace`])
     /// as a box-drawing DAG, in the same style as [`Testing::steps_ascii`].
     pub fn subgraph_ascii(&self, subgraph: &Subgraph) -> String {

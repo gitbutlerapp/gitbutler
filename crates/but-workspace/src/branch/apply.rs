@@ -1,6 +1,6 @@
 use anyhow::{Context as _, bail};
 use but_core::{
-    ObjectStorageExt, RefMetadata, RepositoryExt, ref_metadata,
+    ObjectStorageExt, RepositoryExt, ref_metadata,
     ref_metadata::{
         Workspace,
         WorkspaceCommitRelation::{Merged, Outside},
@@ -227,12 +227,35 @@ pub struct Options {
 ///
 /// Note that options have no effect if `branch` is already in the workspace, so `apply` is *not* a way
 /// to alter certain aspects of the workspace by applying the same branch again.
-#[instrument(skip(workspace, repo, meta), err(Debug))]
 pub fn apply(
     branch: &FullNameRef,
     workspace: but_graph::Workspace,
     repo: &gix::Repository,
-    meta: &mut impl RefMetadata,
+    db: &mut but_db::ConnectionMut<'_, '_>,
+    options: Options,
+) -> anyhow::Result<Outcome> {
+    apply_with_changes(
+        branch,
+        workspace,
+        repo,
+        db,
+        options,
+        &mut Vec::new(),
+        &mut |_, _| Ok(()),
+    )
+}
+
+/// Like [`apply`], recording committed reference edits and immediately reporting each
+/// completed checkout to `on_checkout`, before later reference or metadata writes can fail.
+#[instrument(
+    skip(workspace, repo, db, committed_ref_edits, on_checkout),
+    err(Debug)
+)]
+pub fn apply_with_changes(
+    branch: &FullNameRef,
+    workspace: but_graph::Workspace,
+    repo: &gix::Repository,
+    db: &mut but_db::ConnectionMut<'_, '_>,
     Options {
         workspace_merge: integration_mode,
         on_workspace_conflict,
@@ -241,7 +264,10 @@ pub fn apply(
         new_stack_id,
         allow_applying_already_applied_branch_when_outside_workspace,
     }: Options,
+    committed_ref_edits: &mut Vec<RefEdit>,
+    on_checkout: &mut impl FnMut(&gix::Repository, gix::ObjectId) -> anyhow::Result<()>,
 ) -> anyhow::Result<Outcome> {
+    let meta = db.meta()?;
     let ws = workspace;
     let new_stack_id = new_stack_id.unwrap_or(generate_new_stack_id);
     let branch_orig = branch;
@@ -277,7 +303,7 @@ pub fn apply(
         WorkspaceKind::AdHoc => false,
     };
     let branch_has_applied_metadata =
-        branch_has_applied_workspace_metadata(branch.as_ref(), &ws, meta)?;
+        branch_has_applied_workspace_metadata(branch.as_ref(), &ws, &meta);
     let branch_already_applied = (ws.ref_name() == Some(branch.as_ref())
         || ws.refname_is_segment(branch.as_ref()))
         && branch_has_applied_metadata;
@@ -310,20 +336,31 @@ pub fn apply(
                 ..Default::default()
             },
         )?;
+        on_checkout(repo, commit_to_checkout)?;
         let applied_branches = vec![branch.to_owned()];
         if !branch_has_applied_metadata {
             let ws_ref_name = ws_ref_name
                 .as_ref()
                 .context("Workspace metadata must be available to repair stale applied state")?;
-            let mut ws_md = meta.workspace(ws_ref_name.as_ref())?;
+            let mut ws_md = meta
+                .workspace(ws_ref_name.as_ref())
+                .cloned()
+                .unwrap_or_default();
             add_branch_as_stack_forcefully(&mut ws_md, branch.as_ref(), order, new_stack_id);
-            persist_metadata_and_gitconfig(meta, &applied_branches, &ws_md, None)?;
+            persist_metadata_and_gitconfig(
+                db,
+                &applied_branches,
+                ws_ref_name.as_ref(),
+                &ws_md,
+                None,
+                committed_ref_edits,
+            )?;
         }
         let ws = ws
             .graph
             .redo_traversal_with_overlay(
                 repo,
-                meta,
+                &db.meta()?,
                 Overlay::default().with_entrypoint(commit_to_checkout, ws_ref_name.clone()),
             )?
             .into_workspace()?;
@@ -331,6 +368,7 @@ pub fn apply(
             repo,
             commit_to_checkout,
             ws_ref_name.as_ref().map(|rn| rn.as_ref()),
+            committed_ref_edits,
         )?;
 
         // When exiting early, don't try to adjust the ws commit.
@@ -358,7 +396,7 @@ pub fn apply(
         bail!("Refusing to work on workspace whose workspace commit isn't at the top");
     }
 
-    if meta.workspace_opt(branch.as_ref())?.is_some() {
+    if meta.workspace(branch.as_ref()).is_some() {
         bail!(
             "Refusing to apply a reference that already is a workspace: '{}'",
             branch.shorten()
@@ -437,7 +475,10 @@ pub fn apply(
         },
     };
 
-    let mut ws_md = meta.workspace(workspace_ref_name_to_update.as_ref())?;
+    let mut ws_md = meta
+        .workspace(workspace_ref_name_to_update.as_ref())
+        .cloned()
+        .unwrap_or_default();
     // When HEAD is on a branch that's already in the workspace, applying another branch re-roots
     // the workspace around just that branch plus the ones we apply.
     let head_branch_in_workspace = head_ref_name.as_ref().is_some_and(|head| {
@@ -486,14 +527,16 @@ pub fn apply(
         } else {
             (None, None)
         };
-    let ws_md_override = Some((workspace_ref_name_to_update.clone(), (*ws_md).clone()));
+    let ws_md_override = Some((workspace_ref_name_to_update.clone(), ws_md.clone()));
     let branch_mds = branches_to_apply
         .iter()
         .map(|rn| {
-            meta.branch(rn.as_ref())
-                .map(|md| (rn.to_owned(), (*md).clone()))
+            (
+                rn.to_owned(),
+                meta.branch(rn.as_ref()).cloned().unwrap_or_default(),
+            )
         })
-        .collect::<Result<Vec<_>, _>>()?;
+        .collect::<Vec<_>>();
 
     let overlay = Overlay::default()
         .with_entrypoint(ws_ref_id, Some(workspace_ref_name_to_update.clone()))
@@ -508,7 +551,7 @@ pub fn apply(
         .with_workspace_metadata_override(ws_md_override);
     let ws = ws
         .graph
-        .redo_traversal_with_overlay(repo, meta, overlay.clone())?
+        .redo_traversal_with_overlay(repo, &db.meta()?, overlay.clone())?
         .into_workspace()?;
 
     let all_applied_branches_are_already_visible = branches_to_apply
@@ -533,10 +576,12 @@ pub fn apply(
     let head_id = repo.head_id().context("BUG: we assume HEAD is born here")?;
     if all_applied_branches_are_already_visible && head_id == ws_ref_id {
         persist_metadata_and_gitconfig(
-            meta,
+            db,
             &branches_to_apply,
+            workspace_ref_name_to_update.as_ref(),
             &ws_md,
             local_tracking_config_and_ref_info,
+            committed_ref_edits,
         )?;
         let ws_commit_with_new_message = WorkspaceCommit::from_graph_workspace_and_tree(
             &ws,
@@ -550,7 +595,7 @@ pub fn apply(
         {
             let graph = ws.graph.redo_traversal_with_overlay(
                 repo,
-                meta,
+                &db.meta()?,
                 overlay.with_entrypoint(
                     ws_commit_with_new_message,
                     Some(workspace_ref_name_to_update.clone()),
@@ -567,6 +612,7 @@ pub fn apply(
             // Point HEAD at the workspace ref whenever it isn't already there (covers creating the
             // ref and switching off a directly-checked-out branch).
             (!head_on_workspace_ref).then_some(workspace_ref_name_to_update.as_ref()),
+            committed_ref_edits,
         )?;
         return Ok(Outcome {
             workspace: graph.into_workspace()?,
@@ -625,13 +671,13 @@ pub fn apply(
     let mut conflicting_stacks =
         correlate_conflicting_stacks(&ws_md, &merge_result.conflicting_stacks);
     remove_conflicting_stacks_from_workspace(&mut ws_md, &conflicting_stacks);
-    let ws_md_override = Some((workspace_ref_name_to_update.clone(), (*ws_md).clone()));
+    let ws_md_override = Some((workspace_ref_name_to_update.clone(), ws_md.clone()));
     let overlay = overlay
         .with_entrypoint(new_head_id, Some(workspace_ref_name_to_update.clone()))
         .with_workspace_metadata_override(ws_md_override);
-    let graph = ws
-        .graph
-        .redo_traversal_with_overlay(&in_memory_repo, meta, overlay.clone())?;
+    let graph =
+        ws.graph
+            .redo_traversal_with_overlay(&in_memory_repo, &db.meta()?, overlay.clone())?;
 
     let mut ws = graph.into_workspace()?;
     let collect_unapplied_branches = |ws: &but_graph::Workspace| {
@@ -737,12 +783,12 @@ pub fn apply(
         new_head_id = merge_result.workspace_commit_id;
         conflicting_stacks = correlate_conflicting_stacks(&ws_md, &merge_result.conflicting_stacks);
         remove_conflicting_stacks_from_workspace(&mut ws_md, &conflicting_stacks);
-        let ws_md_override = Some((workspace_ref_name_to_update.clone(), (*ws_md).clone()));
+        let ws_md_override = Some((workspace_ref_name_to_update.clone(), ws_md.clone()));
         ws = ws
             .graph
             .redo_traversal_with_overlay(
                 &in_memory_repo,
-                meta,
+                &db.meta()?,
                 overlay
                     .with_entrypoint(new_head_id, Some(workspace_ref_name_to_update.clone()))
                     .with_workspace_metadata_override(ws_md_override),
@@ -778,12 +824,15 @@ pub fn apply(
             ..Default::default()
         },
     )?;
+    on_checkout(repo, new_head_id)?;
     ws.reconcile_metadata(&mut ws_md)?;
     persist_metadata_and_gitconfig(
-        meta,
+        db,
         &branches_to_apply,
+        workspace_ref_name_to_update.as_ref(),
         &ws_md,
         local_tracking_config_and_ref_info,
+        committed_ref_edits,
     )?;
 
     set_head_to_reference(
@@ -792,6 +841,7 @@ pub fn apply(
         // Point HEAD at the workspace ref whenever it isn't already there (covers creating the ref
         // and switching off a directly-checked-out branch).
         (!head_on_workspace_ref).then_some(workspace_ref_name_to_update.as_ref()),
+        committed_ref_edits,
     )?;
     Ok(Outcome {
         workspace: ws,
@@ -857,15 +907,15 @@ fn remove_conflicting_stacks_from_workspace(
 fn branch_has_applied_workspace_metadata(
     branch: &FullNameRef,
     ws: &but_graph::Workspace,
-    meta: &impl RefMetadata,
-) -> anyhow::Result<bool> {
+    meta: &but_db::Metadata,
+) -> bool {
     let Some(ws_ref_name) = ws.ref_name() else {
-        return Ok(true);
+        return true;
     };
-    let Some(ws_md) = meta.workspace_opt(ws_ref_name)? else {
-        return Ok(true);
+    let Some(ws_md) = meta.workspace(ws_ref_name) else {
+        return true;
     };
-    Ok(ws_md.find_branch(branch, StackKind::Applied).is_some() || ws_ref_name == branch)
+    ws_md.find_branch(branch, StackKind::Applied).is_some() || ws_ref_name == branch
 }
 
 fn filter_superseded_metadata_stacks<'a>(
@@ -1002,34 +1052,36 @@ fn add_branch_as_stack_forcefully(
     stack.workspacecommit_relation = Merged;
 }
 
-fn persist_metadata_and_gitconfig<T: RefMetadata>(
-    meta: &mut T,
+fn persist_metadata_and_gitconfig(
+    db: &mut but_db::ConnectionMut<'_, '_>,
     branches_to_apply: &[gix::refs::FullName],
-    ws_md: &T::Handle<Workspace>,
+    ws_ref_name: &FullNameRef,
+    ws_md: &Workspace,
     config_and_ref: Option<(
         gix::config::FileTransaction,
         (gix::refs::FullName, &gix::refs::FullNameRef, gix::Id),
     )>,
+    committed_ref_edits: &mut Vec<RefEdit>,
 ) -> anyhow::Result<()> {
-    meta.set_workspace(ws_md)?;
+    db.meta_mut()?.set_workspace(ws_ref_name, ws_md)?;
+    let meta = db.meta()?;
     // Always re-obtain the branch information after it was set
-    // or stuff will go wrong right now.
-    // TODO: remove this note and keep using existing handles once vb.toml is gone.
+    // because setting the workspace may move branches between stacks.
     for rn in branches_to_apply {
-        let mut md = meta.branch(rn.as_ref())?;
+        let mut md = meta.branch(rn.as_ref()).cloned().unwrap_or_default();
         md.update_times(false /* is new ref */);
-        meta.set_branch(&md)?;
+        db.meta_mut()?.set_branch(rn.as_ref(), &md)?;
     }
 
     if let Some((config, (ref_to_create, remote_tracking_ref, ref_target_id))) = config_and_ref {
         let repo = ref_target_id.repo;
         // The reference first, as git does: should it fail, the config transaction drops unwritten.
-        repo.reference(
+        committed_ref_edits.extend(repo.edit_reference(RefEdit::update(
             ref_to_create,
-            ref_target_id,
+            ref_target_id.detach(),
             PreviousValue::MustNotExist,
             format!("GitButler creates local tracking for {remote_tracking_ref}"),
-        )?;
+        ))?);
         config.commit()?;
     }
     Ok(())
@@ -1040,6 +1092,7 @@ fn set_head_to_reference(
     repo: &gix::Repository,
     new_ref_target: gix::ObjectId,
     new_ref: Option<&gix::refs::FullNameRef>,
+    committed_ref_edits: &mut Vec<RefEdit>,
 ) -> anyhow::Result<()> {
     let edits = match new_ref {
         None => vec![
@@ -1069,7 +1122,7 @@ fn set_head_to_reference(
             ]
         }
     };
-    repo.edit_references(edits)?;
+    committed_ref_edits.extend(repo.edit_references(edits)?);
     Ok(())
 }
 

@@ -27,6 +27,7 @@ but-api = { workspace = true, features = ["legacy"] }
 but-testsupport = { workspace = true, features = ["sandbox-but-api"] }
 
 snapbox = { workspace = true }
+rusqlite.workspace = true
 
 [lints]
 workspace = true

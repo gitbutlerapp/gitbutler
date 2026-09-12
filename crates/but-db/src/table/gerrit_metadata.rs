@@ -53,11 +53,11 @@ impl<'conn> Transaction<'conn> {
 }
 
 pub struct GerritMetadataHandle<'conn> {
-    conn: &'conn rusqlite::Connection,
+    pub(crate) conn: &'conn rusqlite::Connection,
 }
 
 pub struct GerritMetadataHandleMut<'conn> {
-    conn: &'conn rusqlite::Connection,
+    pub(crate) conn: &'conn rusqlite::Connection,
 }
 
 impl GerritMetadataHandle<'_> {

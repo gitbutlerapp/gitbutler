@@ -1,8 +1,6 @@
-use std::{
-    fs,
-    sync::{Arc, Barrier},
-    thread,
-};
+use std::fs;
+
+mod database_metadata;
 
 use but_core::ref_metadata::ProjectMeta;
 use but_ctx::{Context, ProjectHandle};
@@ -15,8 +13,7 @@ use but_testsupport::{
 #[test]
 fn new_from_project_handle_uses_repo_gitdir() -> anyhow::Result<()> {
     but_testsupport::isolated_app_data_dir(|| {
-        // Keep this fixture private and writable while Context construction migrates project
-        // metadata into local Git config.
+        // Keep this fixture private and writable for context path resolution.
         let tmp = TempDir::new_in(".")?;
         gix::init(tmp.path())?;
         let repo = open_repo(tmp.path().strip_prefix(std::env::current_dir()?)?)?;
@@ -57,8 +54,7 @@ fn new_from_project_handle_uses_repo_gitdir() -> anyhow::Result<()> {
 #[test]
 fn new_from_project_handle_keeps_repo_cached() -> anyhow::Result<()> {
     but_testsupport::isolated_app_data_dir(|| {
-        // Keep this fixture private and writable while Context construction migrates project
-        // metadata into local Git config.
+        // Keep this fixture private and writable for context path resolution.
         let (repo, _tmp) = but_testsupport::writable_scenario("unborn-empty");
         let handle = ProjectHandle::from_path(repo.git_dir())?;
         let ctx = Context::new_from_project_handle(handle)?;
@@ -300,51 +296,20 @@ fn project_meta_observes_changes_made_through_other_repository_handles() -> anyh
 }
 
 #[test]
-fn context_creation_ports_legacy_toml_before_cleanup() -> anyhow::Result<()> {
-    let (_tmp, repo, target_commit_id) = run_fixture("project-meta-toml")?;
+fn context_creation_ignores_legacy_toml() -> anyhow::Result<()> {
+    let (_tmp, repo, _target_commit_id) = run_fixture("project-meta-toml")?;
+    let path = repo.git_dir().join("gitbutler/virtual_branches.toml");
+    let original = fs::read(&path)?;
     let ctx = Context::from_repo_for_testing(repo)?;
-    let expected = project_meta(target_commit_id, "refs/remotes/origin/main", "fork")?;
-
-    assert_eq!(ctx.project_meta()?, expected);
-
-    fs::write(
-        ctx.project_data_dir().join("virtual_branches.toml"),
-        "[branches]\n",
-    )?;
-    let reopened = Context::from_repo_for_testing(open_repo(&ctx.gitdir)?)?;
-    assert_eq!(reopened.project_meta()?, expected);
-    Ok(())
-}
-
-#[test]
-fn concurrent_context_creation_ports_legacy_toml() -> anyhow::Result<()> {
-    let (_tmp, repo, target_commit_id) = run_fixture("project-meta-toml")?;
-    let gitdir = repo.git_dir().to_owned();
-    let barrier = Arc::new(Barrier::new(9));
-    let repos = (0..8)
-        .map(|_| open_repo(&gitdir))
-        .collect::<Result<Vec<_>, _>>()?;
-
-    let threads = repos
-        .into_iter()
-        .map(|repo| {
-            let barrier = barrier.clone();
-            thread::spawn(move || -> anyhow::Result<()> {
-                barrier.wait();
-                Context::from_repo_for_testing(repo)?;
-                Ok(())
-            })
-        })
-        .collect::<Vec<_>>();
-    barrier.wait();
-
-    for thread in threads {
-        thread.join().expect("context creation does not panic")?;
-    }
     assert_eq!(
-        ProjectMeta::resolve(&repo)?,
-        project_meta(target_commit_id, "refs/remotes/origin/main", "fork")?,
-        "legacy project metadata is ported"
+        ctx.project_meta()?,
+        ProjectMeta::default(),
+        "legacy files are no longer imported"
+    );
+    assert_eq!(
+        fs::read(path)?,
+        original,
+        "opening a context does not rewrite legacy files"
     );
     Ok(())
 }

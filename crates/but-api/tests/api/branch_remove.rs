@@ -1,5 +1,3 @@
-use but_core::RefMetadata;
-
 use crate::support::{
     assert_workspace_ref, checkout_branch_in_linked_worktree, create_empty_branch_above,
     repo_with_feature_branch, set_project_target_to_feature,
@@ -93,9 +91,9 @@ fn branch_remove_deletes_middle_empty_branch_and_keeps_head() -> anyhow::Result<
     assert_eq!(repo.head_name()?.expect("HEAD is symbolic"), tip);
     assert!(repo.try_find_reference(middle.as_ref())?.is_none());
     // The order relinks the tip straight onto the base.
-    let order = ctx
-        .meta()?
-        .branch_stack_order(tip.as_ref())?
+    let order_metadata = ctx.db.get_cache()?.meta()?;
+    let order = order_metadata
+        .branch_stack_order(tip.as_ref())
         .expect("branch order still persisted");
     assert_eq!(order, vec![tip, main]);
 
@@ -122,9 +120,9 @@ fn branch_remove_checked_out_empty_tip_moves_head_to_ref_below() -> anyhow::Resu
     assert!(repo.try_find_reference(tip.as_ref())?.is_none());
     assert_workspace_ref(&result.workspace, "refs/heads/middle");
 
-    let order = ctx
-        .meta()?
-        .branch_stack_order(middle.as_ref())?
+    let order_metadata = ctx.db.get_cache()?.meta()?;
+    let order = order_metadata
+        .branch_stack_order(middle.as_ref())
         .expect("branch order still persisted");
     assert_eq!(order, vec![middle, main]);
 
