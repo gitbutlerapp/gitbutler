@@ -79,6 +79,10 @@ export const Sidebar: FC<{
 		dispatch(interfaceSlice.actions.openDialog({ dialog: { _tag: "ApplyBranchPicker" } }));
 	};
 
+	const openOperationsLog = () => {
+		dispatch(interfaceSlice.actions.openDialog({ dialog: { _tag: "OperationsLogPicker" } }));
+	};
+
 	const openSettings = () => {
 		dispatch(interfaceSlice.actions.openDialog({ dialog: { _tag: "Settings" } }));
 	};
@@ -189,6 +193,8 @@ export const Sidebar: FC<{
 					bell={<NotificationBell projectId={projectId} />}
 					project={project}
 					isFetchPending={fetchFromRemotes.isPending}
+					canOpenOperationsLog={noOperationPending}
+					onOpenOperationsLog={openOperationsLog}
 					canOpenSettings={noOperationPending}
 					onOpenSettings={openSettings}
 				/>
