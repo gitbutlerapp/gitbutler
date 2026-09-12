@@ -80,6 +80,7 @@ impl Subcommands {
             Subcommands::Status { .. } => Status,
             #[cfg(feature = "legacy")]
             Subcommands::Tui { .. } => Tui,
+            Subcommands::Panel(..) => Panel,
             #[cfg(feature = "legacy")]
             Subcommands::Diff(..) => Diff,
             #[cfg(feature = "legacy")]

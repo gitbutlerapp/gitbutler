@@ -179,6 +179,7 @@ pub(crate) fn grouped_subcommands(cmd: &clap::Command) -> IndexMap<Group, Vec<&c
                 SubcommandDiscriminant::Teardown => Group::OtherCommands,
                 #[cfg(feature = "legacy")]
                 SubcommandDiscriminant::Tui => Group::OtherCommands,
+                SubcommandDiscriminant::Panel => Group::Inspection,
 
                 SubcommandDiscriminant::Edit => continue,
                 SubcommandDiscriminant::_Open => continue,

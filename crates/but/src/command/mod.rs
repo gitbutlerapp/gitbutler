@@ -16,6 +16,7 @@ pub mod help;
 pub mod mcp;
 pub mod onboarding;
 pub mod open;
+pub mod panel;
 pub mod push;
 pub mod skill;
 pub mod update;

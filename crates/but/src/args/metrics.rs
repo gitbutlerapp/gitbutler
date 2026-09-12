@@ -8,6 +8,7 @@ pub enum CommandName {
     Discard,
     Status,
     Tui,
+    Panel,
     Stf,
     Uncommit,
     Amend,

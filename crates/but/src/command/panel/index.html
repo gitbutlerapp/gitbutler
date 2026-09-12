@@ -1,0 +1,378 @@
+<!doctype html>
+<html lang="en">
+	<head>
+		<meta charset="utf-8" />
+		<meta name="viewport" content="width=device-width,initial-scale=1" />
+		<title>workspace</title>
+		<style>
+			:root {
+				color-scheme: light dark;
+				--bg: #fbfbfa;
+				--raised: #ffffff;
+				--fg: #21201d;
+				--muted: #85817a;
+				--faint: #a8a49c;
+				--rule: #e7e4de;
+				--rail: #d8d4cc;
+				--accent: #3b7de0;
+				--ok: #2f8f56;
+				--warn: #b5852a;
+				--bad: #cc4436;
+				--add-bg: #e4f5e9;
+				--add-fg: #1d6b3c;
+				--del-bg: #fdeaea;
+				--del-fg: #a83a2e;
+				--chip: #f0ede8;
+			}
+			@media (prefers-color-scheme: dark) {
+				:root {
+					--bg: #191817;
+					--raised: #221f1e;
+					--fg: #e9e5df;
+					--muted: #948f88;
+					--faint: #6e6a64;
+					--rule: #322e2a;
+					--rail: #423d37;
+					--accent: #7aa9f2;
+					--ok: #63c187;
+					--warn: #d6ab5c;
+					--bad: #e8796a;
+					--add-bg: #16301f;
+					--add-fg: #7fcf9b;
+					--del-bg: #35191a;
+					--del-fg: #ec8d81;
+					--chip: #2b2724;
+				}
+			}
+
+			* {
+				box-sizing: border-box;
+			}
+			body {
+				margin: 0;
+				background: var(--bg);
+				color: var(--fg);
+				font:
+					13px/1.45 -apple-system,
+					BlinkMacSystemFont,
+					"Segoe UI",
+					system-ui,
+					sans-serif;
+				-webkit-font-smoothing: antialiased;
+			}
+
+			header {
+				position: sticky;
+				top: 0;
+				z-index: 5;
+				background: var(--bg);
+				border-bottom: 1px solid var(--rule);
+				padding: 9px 12px;
+				display: flex;
+				flex-direction: column;
+				gap: 2px;
+			}
+			.hrow {
+				display: flex;
+				align-items: center;
+				gap: 7px;
+			}
+			.repo {
+				font-weight: 650;
+				letter-spacing: 0.01em;
+			}
+			.dot {
+				width: 6px;
+				height: 6px;
+				border-radius: 50%;
+				background: var(--ok);
+				flex: none;
+			}
+			.dot.bad {
+				background: var(--bad);
+			}
+			.sub {
+				color: var(--muted);
+				font-size: 11px;
+				display: flex;
+				align-items: center;
+				gap: 6px;
+				flex-wrap: wrap;
+			}
+			.spacer {
+				margin-left: auto;
+			}
+			button.ghost {
+				border: 0;
+				background: none;
+				color: var(--muted);
+				cursor: pointer;
+				padding: 2px 4px;
+				border-radius: 4px;
+				font: inherit;
+				font-size: 11px;
+			}
+			button.ghost:hover {
+				background: var(--chip);
+				color: var(--fg);
+			}
+
+			main {
+				padding: 6px 0 40px;
+			}
+			.err {
+				margin: 10px 12px;
+				padding: 9px 11px;
+				border-radius: 7px;
+				background: var(--del-bg);
+				color: var(--del-fg);
+				font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+				font-size: 11px;
+				white-space: pre-wrap;
+			}
+
+			section.card {
+				margin: 6px 8px;
+				background: var(--raised);
+				border: 1px solid var(--rule);
+				border-radius: 9px;
+				overflow: hidden;
+			}
+
+			/* Rows ------------------------------------------------------------ */
+			.row {
+				display: flex;
+				align-items: flex-start;
+				gap: 7px;
+				width: 100%;
+				text-align: left;
+				border: 0;
+				background: none;
+				color: inherit;
+				font: inherit;
+				padding: 7px 10px;
+				cursor: pointer;
+			}
+			.row:hover {
+				background: var(--chip);
+			}
+			.row .tw {
+				flex: none;
+				width: 9px;
+				color: var(--faint);
+				font-size: 9px;
+				line-height: 1.7;
+				transition: transform 0.12s ease;
+			}
+			.row.open .tw {
+				transform: rotate(90deg);
+			}
+			.grow {
+				min-width: 0;
+				flex: 1;
+			}
+			.clip {
+				overflow: hidden;
+				text-overflow: ellipsis;
+				white-space: nowrap;
+			}
+			.wrap {
+				overflow-wrap: anywhere;
+			}
+
+			.branch .name {
+				font-weight: 620;
+			}
+			.meta {
+				color: var(--muted);
+				font-size: 11px;
+				display: flex;
+				align-items: center;
+				gap: 6px;
+				flex-wrap: wrap;
+				margin-top: 1px;
+			}
+			a.pr {
+				color: var(--accent);
+				text-decoration: none;
+			}
+			a.pr:hover {
+				text-decoration: underline;
+			}
+
+			/* Commits --------------------------------------------------------- */
+			.commits {
+				border-top: 1px solid var(--rule);
+			}
+			.commit {
+				position: relative;
+				padding-left: 26px;
+			}
+			/* The rail and node echo the client's stack graph. */
+			.commit::before {
+				content: "";
+				position: absolute;
+				left: 15px;
+				top: 0;
+				bottom: 0;
+				width: 1px;
+				background: var(--rail);
+			}
+			.commit:last-of-type::before {
+				bottom: auto;
+				height: 15px;
+			}
+			.commit::after {
+				content: "";
+				position: absolute;
+				left: 12px;
+				top: 11px;
+				width: 7px;
+				height: 7px;
+				border-radius: 50%;
+				background: var(--raised);
+				border: 1.5px solid var(--rail);
+			}
+			.commit.pushed::after {
+				background: var(--rail);
+			}
+			.commit.conflicted::after {
+				border-color: var(--bad);
+				background: var(--bad);
+			}
+
+			.id {
+				font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+				font-size: 10.5px;
+				color: var(--faint);
+				background: var(--chip);
+				padding: 0 4px;
+				border-radius: 3px;
+			}
+			.body {
+				padding: 0 10px 9px 26px;
+				color: var(--muted);
+				font-size: 11.5px;
+			}
+			.body pre.msg {
+				margin: 0 0 8px;
+				white-space: pre-wrap;
+				overflow-wrap: anywhere;
+				font: inherit;
+				color: var(--fg);
+				opacity: 0.85;
+			}
+
+			/* Files and diffs -------------------------------------------------- */
+			.file {
+				padding: 5px 10px 5px 26px;
+				gap: 6px;
+				font-size: 11.5px;
+			}
+			.file .st {
+				flex: none;
+				width: 11px;
+				text-align: center;
+				font-family: ui-monospace, Menlo, monospace;
+				font-size: 10px;
+				font-weight: 700;
+			}
+			.st.added {
+				color: var(--ok);
+			}
+			.st.modified {
+				color: var(--warn);
+			}
+			.st.removed {
+				color: var(--bad);
+			}
+			.st.renamed {
+				color: var(--accent);
+			}
+			.path {
+				direction: rtl;
+				text-align: left;
+			}
+			.stat {
+				flex: none;
+				font-family: ui-monospace, Menlo, monospace;
+				font-size: 10px;
+				color: var(--muted);
+			}
+			.stat .p {
+				color: var(--add-fg);
+			}
+			.stat .m {
+				color: var(--del-fg);
+			}
+
+			.diff {
+				margin: 0 10px 8px 26px;
+				border: 1px solid var(--rule);
+				border-radius: 6px;
+				overflow-x: auto;
+				background: var(--bg);
+			}
+			.diff pre {
+				margin: 0;
+				font:
+					11px/1.5 ui-monospace,
+					SFMono-Regular,
+					Menlo,
+					monospace;
+				white-space: pre;
+				/* This codebase indents with tabs; 2 keeps diffs readable in a narrow column. */
+				tab-size: 2;
+			}
+			.diff .ln {
+				display: block;
+				padding: 0 8px;
+			}
+			.diff .ln.a {
+				background: var(--add-bg);
+				color: var(--add-fg);
+			}
+			.diff .ln.d {
+				background: var(--del-bg);
+				color: var(--del-fg);
+			}
+			.diff .ln.h {
+				color: var(--faint);
+				background: var(--chip);
+			}
+			.loading {
+				padding: 6px 10px 8px 26px;
+				color: var(--faint);
+				font-size: 11px;
+			}
+
+			.empty {
+				padding: 10px;
+				color: var(--faint);
+				font-size: 11.5px;
+			}
+			.base {
+				margin: 10px 12px 0;
+				padding-top: 9px;
+				border-top: 1px solid var(--rule);
+				color: var(--muted);
+				font-size: 11px;
+				display: flex;
+				gap: 6px;
+			}
+		</style>
+	</head>
+	<body>
+		<header>
+			<div class="hrow">
+				<span class="dot" id="dot"></span>
+				<span class="repo" id="repo">…</span>
+				<span class="spacer"></span>
+				<button class="ghost" id="refresh" title="Refresh now">⟳</button>
+			</div>
+			<div class="sub" id="sub"></div>
+		</header>
+		<main id="tree"></main>
+		<script type="module" src="./app.js"></script>
+	</body>
+</html>
