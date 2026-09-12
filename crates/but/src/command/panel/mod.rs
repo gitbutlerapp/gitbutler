@@ -1,7 +1,10 @@
 //! `but panel`: a live, read-only view of the workspace, served to the browser from localhost.
 //!
 //! The page and its script are compiled in. Its data comes from the same `but-api` functions the
-//! GUI uses: the detailed workspace graph, the worktree changes, commit details and file diffs.
+//! GUI uses: the detailed workspace graph, the worktree changes, linked worktrees, commit details
+//! and file diffs. Reviews and CI are the exception: they are only readable through legacy APIs
+//! today, so they appear only in builds with the `legacy` feature.
+//!
 //! Requests are handled one at a time on the calling thread, which keeps the single `Context` free
 //! of concurrent access.
 
@@ -17,7 +20,9 @@ use but_api::{
     commit::json::ChangesSource,
     diff::{ComputeLineStats, json::CommitDetails},
 };
+use but_core::sync::RepoShared;
 use but_ctx::Context;
+use but_workspace::ui::workspace::DetailedGraphRowData;
 use serde_json::json;
 
 use crate::{CliResult, args::panel::Platform, bad_input, utils::IntermediateChannel};
@@ -87,34 +92,153 @@ fn handle_connection(
             content_type: "text/javascript; charset=utf-8",
             body: APP_JS,
         },
-        Route::Workspace => data_response(
-            workspace_json(ctx)
-                .map(|data| json!({ "repo": repo_name, "workspace": data.0, "changes": data.1 })),
-        ),
+        Route::Workspace => data_response(workspace_json(ctx, repo_name)),
         Route::Commit { id } => data_response(commit_json(ctx, &id)),
-        Route::Diff { path, commit } => data_response(diff_json(ctx, &path, commit.as_deref())),
+        Route::Diff {
+            path,
+            commit,
+            worktree,
+        } => data_response(diff_json(
+            ctx,
+            &path,
+            commit.as_deref(),
+            worktree.as_deref(),
+        )),
         Route::Error { status } => Response::Error { status },
     };
     write_response(&stream, response)
 }
 
-/// The workspace graph and the main worktree's uncommitted changes.
-fn workspace_json(ctx: &mut Context) -> anyhow::Result<(serde_json::Value, serde_json::Value)> {
+/// Everything the page shows at once: the workspace graph, the uncommitted changes, the linked
+/// worktrees, and each branch's review.
+fn workspace_json(ctx: &mut Context, repo_name: &str) -> anyhow::Result<serde_json::Value> {
     let mut guard = ctx.exclusive_worktree_access();
     // This command keeps one context for its whole run; drop the cached workspace so each request
     // sees changes made by other processes since the last one.
     ctx.invalidate_workspace(guard.write_permission());
-    let workspace = but_api::workspace::get_workspace(ctx, guard.read_permission())?;
-    let changes = but_api::diff::changes_in_worktree_with_perm(
-        ctx,
-        ChangesSource::Head,
-        false,
-        guard.read_permission(),
-    )?;
-    Ok((
-        serde_json::to_value(workspace)?,
-        serde_json::to_value(changes.worktree_changes.changes)?,
-    ))
+    let perm = guard.read_permission();
+
+    let workspace = but_api::workspace::get_workspace(ctx, perm)?;
+    let changes =
+        but_api::diff::changes_in_worktree_with_perm(ctx, ChangesSource::Head, false, perm)?;
+    let branch_names: Vec<String> = workspace
+        .stacks
+        .iter()
+        .flat_map(|stack| &stack.rows)
+        .filter_map(|row| match &row.data {
+            DetailedGraphRowData::Reference(reference) => {
+                Some(reference.ref_name.display_name.clone())
+            }
+            DetailedGraphRowData::Commit(_) => None,
+        })
+        .collect();
+
+    Ok(json!({
+        "repo": repo_name,
+        "workspace": serde_json::to_value(workspace)?,
+        "changes": serde_json::to_value(changes.worktree_changes.changes)?,
+        "worktrees": worktrees_json(ctx, perm),
+        "reviews": reviews_json(ctx, &branch_names),
+    }))
+}
+
+/// The linked worktrees, active ones with their uncommitted changes, or none when the
+/// `worktreeManipulation` feature flag is off. Archived worktrees are listed without changes, which
+/// can only be read from an active worktree.
+fn worktrees_json(ctx: &Context, perm: &RepoShared) -> Vec<serde_json::Value> {
+    let Ok(listing) = but_api::worktrees::worktrees_list_with_perm(ctx, perm) else {
+        return Vec::new();
+    };
+    let archived = listing
+        .archived
+        .into_iter()
+        .map(|worktree| json!({ "worktree": worktree, "archived": true }));
+    listing
+        .active
+        .into_iter()
+        .map(|worktree| {
+            let source = ChangesSource::Worktree(worktree.name.to_string());
+            let changes = but_api::diff::changes_in_worktree_with_perm(ctx, source, false, perm);
+            let mut value = json!({ "worktree": worktree });
+            match changes {
+                Ok(changes) => value["changes"] = json!(changes.worktree_changes.changes),
+                // One unreadable worktree shouldn't hide the others.
+                Err(err) => value["error"] = json!(format!("{err:#}")),
+            }
+            value
+        })
+        .chain(archived)
+        .collect()
+}
+
+/// Each workspace branch's review with a summary of its CI, keyed by branch name. Both are read
+/// from the forge cache only, so polling never reaches the network.
+#[cfg(feature = "legacy")]
+fn reviews_json(ctx: &Context, branch_names: &[String]) -> serde_json::Value {
+    let cache = Some(but_forge::CacheConfig::CacheOnly);
+    // No forge or no account just means no reviews to show.
+    let reviews = but_api::legacy::forge::list_reviews(ctx, cache.clone()).unwrap_or_default();
+    let mut by_branch = serde_json::Map::new();
+    for branch in branch_names {
+        // GitHub reports a forked pull request's head as `owner:branch`.
+        let Some(review) = reviews
+            .iter()
+            .find(|review| review.source_branch.rsplit(':').next() == Some(branch.as_str()))
+        else {
+            continue;
+        };
+        let checks = but_api::legacy::forge::list_ci_checks_for_ref(ctx, branch, cache.clone())
+            .unwrap_or_default();
+        by_branch.insert(
+            branch.clone(),
+            json!({
+                "number": review.number,
+                "url": review.html_url,
+                "draft": review.draft,
+                "ci": ci_summary(&checks),
+            }),
+        );
+    }
+    serde_json::Value::Object(by_branch)
+}
+
+#[cfg(not(feature = "legacy"))]
+fn reviews_json(_ctx: &Context, _branch_names: &[String]) -> serde_json::Value {
+    serde_json::Value::Object(serde_json::Map::new())
+}
+
+/// Summarise checks the way `but status` does: any failure wins, then anything still running,
+/// then any success. Other conclusions count as neither.
+#[cfg(feature = "legacy")]
+fn ci_summary(checks: &[but_forge::CiCheck]) -> Option<&'static str> {
+    use but_forge::{CiConclusion, CiStatus};
+
+    let (mut failing, mut pending, mut passing) = (false, false, false);
+    for check in checks {
+        match &check.status {
+            CiStatus::InProgress | CiStatus::Queued => pending = true,
+            CiStatus::Complete { conclusion, .. } => match conclusion {
+                CiConclusion::Success => passing = true,
+                CiConclusion::Failure => failing = true,
+                CiConclusion::ActionRequired
+                | CiConclusion::Cancelled
+                | CiConclusion::Neutral
+                | CiConclusion::Skipped
+                | CiConclusion::TimedOut
+                | CiConclusion::Unknown => {}
+            },
+            CiStatus::Unknown => {}
+        }
+    }
+    if failing {
+        Some("failing")
+    } else if pending {
+        Some("pending")
+    } else if passing {
+        Some("passing")
+    } else {
+        None
+    }
 }
 
 /// A commit's metadata, changed files and line statistics.
@@ -125,22 +249,37 @@ fn commit_json(ctx: &Context, id: &str) -> anyhow::Result<serde_json::Value> {
     Ok(serde_json::to_value(details)?)
 }
 
-/// The patch of one file, changed in `commit` or, without one, in the uncommitted changes.
-fn diff_json(ctx: &Context, path: &str, commit: Option<&str>) -> anyhow::Result<serde_json::Value> {
-    let change = match commit {
-        Some(id) => but_api::diff::commit_details(ctx, parse_commit_id(id)?, ComputeLineStats::No)?
-            .diff_with_first_parent
-            .into_iter()
-            .find(|change| change.path == path.as_bytes())
-            .map(Into::into),
-        None => but_api::diff::changes_in_worktree(ctx, ChangesSource::Head, false)?
-            .worktree_changes
-            .changes
-            .into_iter()
-            .find(|change| change.path_bytes == path.as_bytes()),
-    }
-    .with_context(|| format!("'{path}' has no change to show"))?;
-    let patch = but_api::diff::tree_change_diffs(ctx, change)?;
+/// The patch of one file changed in `commit`, or without one, in the uncommitted changes of
+/// `worktree` or of the main worktree.
+fn diff_json(
+    ctx: &Context,
+    path: &str,
+    commit: Option<&str>,
+    worktree: Option<&str>,
+) -> anyhow::Result<serde_json::Value> {
+    let patch = match commit {
+        Some(id) => {
+            let change =
+                but_api::diff::commit_details(ctx, parse_commit_id(id)?, ComputeLineStats::No)?
+                    .diff_with_first_parent
+                    .into_iter()
+                    .find(|change| change.path == path.as_bytes())
+                    .with_context(|| format!("'{path}' has no change to show"))?;
+            but_api::diff::tree_change_diffs(ctx, change.into())?
+        }
+        None => {
+            let source = worktree.map_or(ChangesSource::Head, |name| {
+                ChangesSource::Worktree(name.to_owned())
+            });
+            let change = but_api::diff::changes_in_worktree(ctx, source.clone(), false)?
+                .worktree_changes
+                .changes
+                .into_iter()
+                .find(|change| change.path_bytes == path.as_bytes())
+                .with_context(|| format!("'{path}' has no change to show"))?;
+            but_api::diff::tree_change_diffs_from_source(ctx, source, change)?
+        }
+    };
     Ok(serde_json::to_value(patch)?)
 }
 
@@ -215,10 +354,11 @@ enum Route {
     Commit {
         id: String,
     },
-    /// One file's patch, in `commit` or in the uncommitted changes.
+    /// One file's patch, in `commit` or in the uncommitted changes of `worktree` or the main one.
     Diff {
         path: String,
         commit: Option<String>,
+        worktree: Option<String>,
     },
     Error {
         status: &'static str,
@@ -273,6 +413,7 @@ fn route(request: &Request, port: u16) -> Route {
             Some(path) => Route::Diff {
                 path,
                 commit: param("commit"),
+                worktree: param("worktree"),
             },
             None => Route::Error {
                 status: "400 Bad Request",
@@ -379,7 +520,8 @@ mod tests {
             route(&get("/api/diff?path=src%2Fa%20b.rs", LOCAL), 7789),
             Route::Diff {
                 path: "src/a b.rs".into(),
-                commit: None
+                commit: None,
+                worktree: None,
             },
             "a path without a commit asks for the uncommitted change, decoded"
         );
@@ -387,8 +529,18 @@ mod tests {
             route(&get("/api/diff?path=a.rs&commit=abc123", LOCAL), 7789),
             Route::Diff {
                 path: "a.rs".into(),
-                commit: Some("abc123".into())
+                commit: Some("abc123".into()),
+                worktree: None,
             },
+        );
+        assert_eq!(
+            route(&get("/api/diff?path=a.rs&worktree=feature-wt", LOCAL), 7789),
+            Route::Diff {
+                path: "a.rs".into(),
+                commit: None,
+                worktree: Some("feature-wt".into()),
+            },
+            "a worktree's uncommitted change names the worktree"
         );
     }
 
