@@ -1143,7 +1143,7 @@ fn workspace_merge_surfaces_delete_vs_modify_conflict() -> Result<()> {
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
         snapbox::str![[r#"
-* 8ef051f (stack-2-after) stack-2-after: combine files
+* 756b796 (stack-2-after) stack-2-after: combine files
 | *   978e614 (HEAD -> workspace-before) GitButler Workspace Commit
 | |\  
 | | * b8f64ac (stack-2-before) stack-2-before: unrelated change
