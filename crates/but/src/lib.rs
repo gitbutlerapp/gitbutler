@@ -859,7 +859,7 @@ async fn dispatch_subcommand(
             },
             out,
         ),
-        Subcommands::_Comment(..) | Subcommands::Worktree(..) => {
+        Subcommands::_Comment(..) | Subcommands::Worktree(..) | Subcommands::Panel(..) => {
             setup::init_ctx(&args, InitCtxOptions::default(), out)
         }
         #[cfg(feature = "legacy")]
@@ -972,6 +972,12 @@ async fn dispatch_subcommand(
         Subcommands::_Expand { cli_id } => {
             let outcome = command::expand::handle(&ctx, cli_id)?;
             out.print_cli_output(outcome)?;
+            None
+        }
+        Subcommands::Panel(panel_args) => {
+            use crate::utils::IntermediateChannel;
+
+            command::panel::serve(&mut ctx, IntermediateChannel::new(out), panel_args)?;
             None
         }
         Subcommands::Worktree(worktree::Platform { cmd }) => {
