@@ -80,8 +80,13 @@ async function load(key, url) {
 	paint(true);
 }
 
-const diffUrl = (path, commit) =>
-	`/api/diff?path=${encodeURIComponent(path)}${commit ? `&commit=${encodeURIComponent(commit)}` : ""}`;
+/** Where one file's patch comes from: a commit, a linked worktree, or the main worktree. */
+function diffUrl(path, { commit, worktree } = {}) {
+	const params = new URLSearchParams({ path });
+	if (commit) params.set("commit", commit);
+	if (worktree) params.set("worktree", worktree);
+	return `/api/diff?${params}`;
+}
 
 /**
  * The graph lists rows in display order: a branch row, then its commits, then the next branch.
@@ -128,17 +133,17 @@ function renderPatch(key) {
 	return `<div class="diff"><pre>${lines.join("")}</pre></div>`;
 }
 
-/** File rows for `changes`; opening one fetches its patch, from `commit` when given. */
-function renderFiles(changes, commit) {
+/** File rows for `changes`; opening one fetches its patch from `source`, see `diffUrl()`. */
+function renderFiles(changes, source = {}) {
 	if (!changes.length) return `<div class="empty">No changes.</div>`;
 	return changes
 		.map((change) => {
-			const key = `file:${commit || "uncommitted"}:${change.path}`;
+			const key = `file:${source.commit || source.worktree || "uncommitted"}:${change.path}`;
 			const isOpen = open.has(key);
 			const type = change.status.type;
 			const patch = loaded.get(key)?.data?.subject;
 			return (
-				`<button class="row file ${isOpen ? "open" : ""}" data-key="${esc(key)}" data-url="${esc(diffUrl(change.path, commit))}">` +
+				`<button class="row file ${isOpen ? "open" : ""}" data-key="${esc(key)}" data-url="${esc(diffUrl(change.path, source))}">` +
 				`<span class="tw">▶</span>` +
 				`<span class="st ${STATUS_CLASS[type] || ""}">${STATUS_CHAR[type] || "?"}</span>` +
 				`<span class="grow clip path">&lrm;${esc(change.path)}&lrm;</span>` +
@@ -175,23 +180,39 @@ function renderCommit(commit) {
 		const entry = loaded.get(key);
 		if (!entry || entry.loading) html += `<div class="loading">Loading files…</div>`;
 		else if (entry.error) html += `<div class="err">${esc(entry.error)}</div>`;
-		else html += renderFiles(entry.data.changes, commit.id);
+		else html += renderFiles(entry.data.changes, { commit: commit.id });
 	}
 	return html;
 }
 
-function renderBranch({ reference, commits }) {
+const CI_MARK = {
+	passing: `<span style="color:var(--ok)">✓ CI</span>`,
+	pending: `<span style="color:var(--warn)">⏳ CI</span>`,
+	failing: `<span style="color:var(--bad)">✗ CI</span>`,
+};
+
+function renderBranch({ reference, commits }, reviews) {
 	const name = reference.refName.displayName;
 	const key = `branch:${reference.refName.fullName}`;
 	const isOpen = !open.has(key); // branches start expanded; the key marks "collapsed"
+	const bits = [];
 	const status = reference.status?.pushStatus;
+	if (status) bits.push(esc(words(status)));
+	const review = reviews[name];
+	if (review) {
+		bits.push(
+			`<a class="pr" href="${esc(review.url)}" target="_blank" rel="noreferrer">#${review.number}</a>` +
+				(review.draft ? " draft" : ""),
+		);
+		if (review.ci) bits.push(CI_MARK[review.ci]);
+	}
 
 	return (
 		`<section class="card">` +
 		`<button class="row branch ${isOpen ? "open" : ""}" data-key="${esc(key)}">` +
 		`<span class="tw">▶</span>` +
 		`<span class="grow"><span class="name clip" style="display:block">${esc(name)}</span>` +
-		(status ? `<span class="meta">${esc(words(status))}</span>` : "") +
+		(bits.length ? `<span class="meta">${bits.join(" · ")}</span>` : "") +
 		`</span>` +
 		`<span class="stat">${commits.length}</span>` +
 		`</button>` +
@@ -216,16 +237,55 @@ function renderUncommitted(changes) {
 		`<span class="grow"><span class="name" style="font-weight:620">Uncommitted</span>` +
 		`<span class="meta">${changes.length ? `${changes.length} file${changes.length > 1 ? "s" : ""}` : "no changes"}</span></span>` +
 		`</button>` +
-		(isOpen && changes.length ? renderFiles(changes, null) : "") +
+		(isOpen && changes.length ? renderFiles(changes) : "") +
 		`</section>`
 	);
 }
 
-function render({ workspace, changes }) {
+/** A linked worktree: its branch, where it lives, and its uncommitted changes. */
+function renderWorktree({ worktree, changes = [], error, archived }) {
+	const key = `worktree:${worktree.name}`;
+	// An archived worktree has no readable changes, so there is nothing to open.
+	const isOpen = !archived && open.has(key);
+	const branch = worktree.refName ? worktree.refName.replace(/^refs\/heads\//, "") : null;
+	const state = archived
+		? "archived"
+		: error
+		? `<span style="color:var(--bad)">unreadable</span>`
+		: changes.length
+			? `<span style="color:var(--warn)">${changes.length} changed</span>`
+			: "clean";
+
+	return (
+		`<section class="card"${archived ? ' style="opacity:.6"' : ""}>` +
+		`<button class="row branch ${isOpen ? "open" : ""}"${archived ? "" : ` data-key="${esc(key)}"`}>` +
+		`<span class="tw">${archived ? "" : "▶"}</span>` +
+		`<span class="grow"><span class="name clip" style="display:block">${esc(branch || `${worktree.name} (detached)`)}</span>` +
+		`<span class="meta">${state}</span>` +
+		`<span class="meta"><span class="clip path" style="display:block">&lrm;${esc(worktree.path)}&lrm;</span></span>` +
+		`</span></button>` +
+		(isOpen
+			? error
+				? `<div class="err">${esc(error)}</div>`
+				: renderFiles(changes, { worktree: worktree.name })
+			: "") +
+		`</section>`
+	);
+}
+
+function render({ workspace, changes, worktrees, reviews }) {
 	const { branches, base } = branchesFromRows(workspace.stacks);
-	const parts = [renderUncommitted(changes), ...branches.map(renderBranch)];
+	const parts = [
+		renderUncommitted(changes),
+		...branches.map((branch) => renderBranch(branch, reviews)),
+	];
 	if (base) {
 		parts.push(`<div class="base"><span class="clip">${esc(base.reference.refName.displayName)}</span></div>`);
+	}
+	// Only listed with the `worktreeManipulation` feature flag on.
+	if (worktrees.length) {
+		parts.push(`<div class="section">Worktrees <span class="stat">${worktrees.length}</span></div>`);
+		parts.push(...worktrees.map(renderWorktree));
 	}
 	tree.innerHTML = parts.join("");
 }
@@ -248,7 +308,12 @@ async function tick() {
 		repoEl.textContent = data.repo;
 		document.title = `${data.repo} — workspace`;
 		sub.textContent = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
-		latest = { workspace: data.workspace, changes: data.changes };
+		latest = {
+			workspace: data.workspace,
+			changes: data.changes,
+			worktrees: data.worktrees,
+			reviews: data.reviews,
+		};
 		paint(false);
 	} catch (error) {
 		dot.className = "dot bad";
@@ -258,7 +323,8 @@ async function tick() {
 
 tree.addEventListener("click", (event) => {
 	const row = event.target.closest("[data-key]");
-	if (!row) return;
+	// A review link opens the forge; it isn't a click on the row.
+	if (!row || event.target.closest("a")) return;
 	const { key, url } = row.dataset;
 
 	if (open.has(key)) open.delete(key);
