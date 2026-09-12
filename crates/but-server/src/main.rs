@@ -20,6 +20,8 @@ struct Args {
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
     trace::init()?;
+    // Raise the open-file soft limit so large operations don't hit EMFILE (#14260).
+    but_api::fd_limit::raise_soft_limit();
     // In debug builds, prefer git-credential-backed secret storage when platform keychains are
     // either noisy (macOS rebuild prompts) or unavailable (headless e2e Linux containers).
     // Release builds keep using the platform keychain.
