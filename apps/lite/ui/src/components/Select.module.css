@@ -1,0 +1,55 @@
+/* An outline button that reads rather than acts: the choice sits at the start in regular weight,
+   the chevron closes the row, and the whole thing takes the field's width. While the list is up
+   the trigger keeps the hover tint, so it reads pressed the way the commit target's trigger
+   does. */
+.trigger {
+	justify-content: flex-start;
+	width: 100%;
+	font-weight: var(--text-weight-regular);
+
+	&:not(:disabled, [data-disabled])[data-popup-open] {
+		background-color: var(--button-hover-bg);
+	}
+}
+
+/* The choice is what the control is about, so it takes the width and gives it back last. */
+.value {
+	flex: 1;
+	min-width: 0;
+	overflow: hidden;
+	text-align: start;
+	text-overflow: ellipsis;
+
+	&[data-placeholder] {
+		color: var(--text-3);
+	}
+}
+
+/* Opens over the trigger and covers it. Base UI shifts the list so the rows' text lines up with
+   the trigger's, and a row's text sits 2px further in than the trigger's (border, list inset and
+   row inset against border and button inset), so the list lands 2px to the left of the trigger.
+   The same 2px on each side puts the trigger's edges under the list rather than peeking out. */
+.popup {
+	min-width: calc(var(--anchor-width) + 4px);
+	max-height: var(--available-height);
+}
+
+/* The list is the scroller, so the container's own edge keeps the scrollbar out of the corners. */
+.list {
+	flex: 1;
+	min-height: 0;
+	padding: 4px;
+	overflow: auto;
+
+	/* Reads as the placeholder does on the trigger: a row that stands for no choice. */
+	& .placeholderItem {
+		color: var(--text-3);
+	}
+
+	/* Every row carries the tick, and only the chosen one shows it — which row that is changes
+	   under the pointer, and the row's chrome (PopupItem) has no state of its own to hang it on.
+	   The tick is the row's trailing glyph, so it is always the last child. */
+	& .item:not([data-selected]) > [data-icon]:last-child {
+		display: none;
+	}
+}
