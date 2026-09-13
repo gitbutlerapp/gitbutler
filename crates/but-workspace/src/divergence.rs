@@ -119,6 +119,33 @@ pub(crate) fn find_local_commit_until_merge_base<M: RefMetadata>(
     merge_base: gix::ObjectId,
     editor: &Editor<'_, '_, M>,
 ) -> Result<Option<Selector>> {
+    let Some(path) = local_path_until_merge_base(ref_name, merge_base, editor)? else {
+        return Ok(None);
+    };
+    Ok(path
+        .into_iter()
+        .find(|selector| editor.lookup_pick(*selector).ok() == Some(commit_id)))
+}
+
+/// The commit ids on the effective local first-parent path above `merge_base`,
+/// child to parent, or `None` when the path never reaches `merge_base`.
+pub(crate) fn local_commit_ids_until_merge_base<M: RefMetadata>(
+    ref_name: &gix::refs::FullNameRef,
+    merge_base: gix::ObjectId,
+    editor: &Editor<'_, '_, M>,
+) -> Result<Option<Vec<gix::ObjectId>>> {
+    local_path_until_merge_base(ref_name, merge_base, editor)?
+        .map(|path| commit_ids_from_selectors(editor, path))
+        .transpose()
+}
+
+/// The local first-parent path from the effective tip of `ref_name` down to,
+/// but excluding, `merge_base`; `None` when the path never reaches it.
+fn local_path_until_merge_base<M: RefMetadata>(
+    ref_name: &gix::refs::FullNameRef,
+    merge_base: gix::ObjectId,
+    editor: &Editor<'_, '_, M>,
+) -> Result<Option<Vec<Selector>>> {
     let local_tip = tip_for_ref(editor, ref_name, editor.repo())?;
     let mut path = first_parent_path_until(editor, local_tip, |selector| {
         editor.lookup_pick(*selector).ok() == Some(merge_base)
@@ -129,9 +156,7 @@ pub(crate) fn find_local_commit_until_merge_base<M: RefMetadata>(
     if editor.lookup_pick(path_end).ok() != Some(merge_base) {
         return Ok(None);
     }
-    Ok(path
-        .into_iter()
-        .find(|selector| editor.lookup_pick(*selector).ok() == Some(commit_id)))
+    Ok(Some(path))
 }
 
 /// Classify candidate selectors by whether the target branch reaches them.
