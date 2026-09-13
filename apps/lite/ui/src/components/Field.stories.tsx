@@ -132,6 +132,17 @@ export const AllVariants = meta.story({
 			</Field.Root>
 
 			<Field.Root render={<FieldRootStyles />}>
+				<Field.Label render={<FieldLabelStyles />}>Disabled with icon</Field.Label>
+				<FieldControlWithIcon
+					icon={<Icon name="search" size={16} />}
+					iconPosition="leading"
+					className="text-13"
+					placeholder="Search…"
+					disabled
+				/>
+			</Field.Root>
+
+			<Field.Root render={<FieldRootStyles />}>
 				<Field.Label render={<FieldLabelStyles />}>Textarea</Field.Label>
 				<Field.Control
 					render={<FieldTextareaStyles />}

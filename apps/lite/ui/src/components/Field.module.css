@@ -5,7 +5,7 @@
 }
 
 .fieldLabel {
-	color: var(--text-2);
+	color: var(--text-3);
 }
 
 .fieldControl {
@@ -31,9 +31,12 @@
 		outline-offset: -1.5px;
 	}
 
+	/* A gray wash over the ground and a half-dimmed value; the border and placeholder stay. The
+	   frame adds a lock at the end (.fieldDisabled). */
 	&:disabled,
 	&[data-disabled] {
-		opacity: 0.5;
+		background-color: color-mix(in srgb, var(--fill-gray-bg) var(--opacity-bg-hover), var(--bg-1));
+		color: color-mix(in srgb, var(--text-1) 50%, transparent);
 	}
 }
 
@@ -81,6 +84,28 @@
 
 		& .fieldControl {
 			padding-inline-end: 26px;
+		}
+	}
+
+	&.fieldDisabled {
+		& .fieldLock {
+			right: 8px;
+			left: auto;
+		}
+
+		& .fieldControl {
+			padding-inline-end: 32px;
+		}
+
+		/* The lock takes the end; a trailing icon moves in ahead of it. */
+		&.fieldIconTrailing {
+			& .fieldIcon:not(.fieldLock) {
+				right: 32px;
+			}
+
+			& .fieldControl {
+				padding-inline-end: 56px;
+			}
 		}
 	}
 }

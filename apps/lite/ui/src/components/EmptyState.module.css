@@ -36,13 +36,16 @@
 	flex-shrink: 0;
 	flex-direction: column;
 	align-items: center;
-	max-width: 320px;
+	max-width: 350px;
 	/* Centres itself horizontally whatever the host is — block, flex or grid —
 	   so the cap above cannot pin the block to one edge. Without this every host
 	   would have to remember an `align-items`, and the two that forgot would only
 	   show it once the block was narrower than the surface. */
 	margin-inline: auto;
-	padding-inline: var(--panel-padding-inline);
+	/* Wider than the panel's own inset: the rows above are lists and read fine
+	   flush with their gutter, but centred, balanced prose hugging the same
+	   edges reads as pressed against the sides in a sidebar at its narrowest. */
+	padding-inline: 32px;
 	padding-block-end: var(--empty-state-counterweight, min(80px, 14cqh));
 	gap: var(--empty-state-gap, 24px);
 	text-align: center;
