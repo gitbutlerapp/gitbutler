@@ -298,20 +298,25 @@ const PageBody: FC<{ projectId: string }> = ({ projectId }) => {
 	// to bypass that latter file selection. We could alternatively attempt to pad the scroll
 	// container, but that comes with other complexities and tradeoffs.
 	const didScrollToViaFileRef = useRef(false);
+	// A selected file the viewer has no item for yet; Details scrolls to it once its diff streams in.
+	const pendingFileRef = useRef<FileAddress | null>(null);
 
 	// useCallback, not compiler memoisation: the deferred details element below
 	// keys on this identity, so it must be stable by construction.
 	const onActiveFileSelection = useCallback(
 		(file: FileAddress) => {
 			setCursor("diff", { file, range: null });
+			pendingFileRef.current = null;
 
 			if (renderAllFiles) {
 				const itemId = weakFileIdentityKey(file);
-				didScrollToViaFileRef.current = true;
 				const viewer = viewerRef.current?.getInstance();
 				// Details selection is deferred, so the ref may still point at a viewer without this file.
-				if (!viewer?.getItem(itemId)) return;
-
+				if (!viewer?.getItem(itemId)) {
+					pendingFileRef.current = file;
+					return;
+				}
+				didScrollToViaFileRef.current = true;
 				viewer.scrollTo({
 					type: "item",
 					id: itemId,
@@ -494,7 +499,13 @@ const PageBody: FC<{ projectId: string }> = ({ projectId }) => {
 			? targetCommitReview(graph.listing, appliedSelection.commitId, graph.plan.history)
 			: null;
 	const details = useMemo(() => {
-		const viewProps = { projectId, onActiveFileSelection, viewerRef, didScrollToViaFileRef };
+		const viewProps = {
+			projectId,
+			onActiveFileSelection,
+			viewerRef,
+			didScrollToViaFileRef,
+			pendingFileRef,
+		};
 
 		// Each workspace list's details, null while its cursor is: a cursor is
 		// null only when its list is empty, and an empty list has nothing to give.

@@ -9,7 +9,15 @@ import { Toast, Tooltip } from "@base-ui/react";
 import { useWorkerPool, WorkerPoolContextProvider } from "@pierre/diffs/react";
 import { MutationCache, QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { createMemoryHistory, RouterProvider } from "@tanstack/react-router";
-import { type FC, StrictMode, useEffect } from "react";
+import {
+	createContext,
+	createElement,
+	type FC,
+	type ReactNode,
+	StrictMode,
+	useContext,
+	useEffect,
+} from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { Provider } from "react-redux";
 import { createLiteApi, type LiteApiTransport } from "#electron/lite-api.ts";
@@ -42,9 +50,13 @@ export interface PluginApp {
 	unmount(): void;
 }
 
-// One tree per process, as `createRouteTree` documents: it wires the shared
-// route singletons together, so calling it per panel would re-parent them.
-const routeTree = createRouteTree({ workspace: Panel });
+const WorkspaceContext = createContext<ReactNode>(null);
+const WorkspaceRoute: FC = () => useContext(WorkspaceContext);
+
+// One tree per process, as `createRouteTree` documents: its route definitions
+// are shared module singletons. The context selects each panel's workspace
+// without rebuilding or rewiring that shared tree.
+const routeTree = createRouteTree({ workspace: WorkspaceRoute });
 
 const workerFactory = (): Worker => new DiffWorker();
 
@@ -68,12 +80,23 @@ export default function createPanel({
 	transport,
 	projectId,
 	params = {},
+	workspace = Panel,
+	strict = true,
 }: {
 	transport: LiteApiTransport;
 	projectId: string;
 	params?: UrlQueryParams;
+	/** Override only when a harness test needs the complete workspace page. */
+	workspace?: FC;
+	/**
+	 * StrictMode's mount-time resubscribe cancels a streamed query mid-stream,
+	 * as it does in the app's dev builds; off for a test that depends on later
+	 * batches arriving.
+	 */
+	strict?: boolean;
 }): PluginApp {
 	(window as { lite?: LiteElectronApi }).lite = createLiteApi(transport);
+	const workspaceElement = createElement(workspace);
 
 	const toastManager = Toast.createToastManager();
 
@@ -123,26 +146,27 @@ export default function createPanel({
 	let root: Root | null = null;
 
 	const render = () => {
-		root?.render(
-			<StrictMode>
-				<Provider store={store}>
-					<QueryClientProvider client={queryClient}>
-						<Toast.Provider toastManager={toastManager}>
-							<Tooltip.Provider>
-								<WorkerPoolContextProvider
-									poolOptions={{ workerFactory }}
-									highlighterOptions={{ preferredHighlighter: "shiki-wasm" }}
-								>
-									<SyntaxTheme />
+		const tree = (
+			<Provider store={store}>
+				<QueryClientProvider client={queryClient}>
+					<Toast.Provider toastManager={toastManager}>
+						<Tooltip.Provider>
+							<WorkerPoolContextProvider
+								poolOptions={{ workerFactory }}
+								highlighterOptions={{ preferredHighlighter: "shiki-wasm" }}
+							>
+								<SyntaxTheme />
+								<WorkspaceContext.Provider value={workspaceElement}>
 									<RouterProvider router={router} />
-									<Toasts />
-								</WorkerPoolContextProvider>
-							</Tooltip.Provider>
-						</Toast.Provider>
-					</QueryClientProvider>
-				</Provider>
-			</StrictMode>,
+								</WorkspaceContext.Provider>
+								<Toasts />
+							</WorkerPoolContextProvider>
+						</Tooltip.Provider>
+					</Toast.Provider>
+				</QueryClientProvider>
+			</Provider>
 		);
+		root?.render(strict ? <StrictMode>{tree}</StrictMode> : tree);
 	};
 
 	return {
