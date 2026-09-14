@@ -6,7 +6,7 @@ use crate::{
         app::{
             BranchMode, CherryPickMode, CommandMode, CommandReturnMode, CommitMode, CommitSource,
             JumpMode, MoveMode, MoveSource, MoveStackMode, NormalMode, PickChangesMode, SquashMode,
-            StackMode,
+            StackMode, WorktreeMode,
             mark::{Marks, MarksRef},
         },
         render::ModeRender,
@@ -33,6 +33,7 @@ pub enum Mode {
     Jump(JumpMode),
     CherryPick(CherryPickMode),
     Branch(BranchMode),
+    Worktree(WorktreeMode),
 }
 
 impl Default for Mode {
@@ -69,6 +70,7 @@ impl Mode {
             Mode::Jump(inner) => ModeRef::Jump(inner),
             Mode::CherryPick(inner) => ModeRef::CherryPick(inner),
             Mode::Branch(inner) => ModeRef::Branch(inner),
+            Mode::Worktree(inner) => ModeRef::Worktree(inner),
         }
     }
 }
@@ -79,7 +81,7 @@ impl ModeDiscriminant {
             Self::Normal => theme.tui_mode_normal.bg.unwrap_or(Color::DarkGray),
             Self::Commit | Self::PickChanges => theme.tui_mode_commit.bg.unwrap_or(Color::Green),
             Self::Squash | Self::Jump => theme.tui_mode_squash.bg.unwrap_or(Color::Blue),
-            Self::InlineReword | Self::Stack => {
+            Self::InlineReword | Self::Stack | Self::Worktree => {
                 theme.tui_mode_inline_reword.bg.unwrap_or(Color::Magenta)
             }
             Self::Command | Self::Branch => theme.tui_mode_command.bg.unwrap_or(Color::Yellow),
@@ -98,7 +100,7 @@ impl ModeDiscriminant {
             Self::Normal => theme.tui_mode_normal.fg.unwrap_or(Color::White),
             Self::Commit | Self::PickChanges => theme.tui_mode_commit.fg.unwrap_or(Color::Black),
             Self::Squash | Self::Jump => theme.tui_mode_squash.fg.unwrap_or(Color::Black),
-            Self::InlineReword | Self::Stack => {
+            Self::InlineReword | Self::Stack | Self::Worktree => {
                 theme.tui_mode_inline_reword.fg.unwrap_or(Color::Black)
             }
             Self::Command | Self::Branch => theme.tui_mode_command.fg.unwrap_or(Color::Black),
@@ -124,6 +126,7 @@ impl ModeDiscriminant {
             Self::Jump => "  jump  ",
             Self::CherryPick => "  pick  ",
             Self::Branch => "  branch  ",
+            Self::Worktree => "  worktree  ",
         }
     }
 }
@@ -144,6 +147,7 @@ pub enum ModeRef<'a> {
     Jump(&'a JumpMode),
     CherryPick(&'a CherryPickMode),
     Branch(&'a BranchMode),
+    Worktree(&'a WorktreeMode),
 }
 
 impl<'a> ModeRef<'a> {
@@ -182,6 +186,7 @@ impl<'a> ModeRef<'a> {
             ModeRef::InlineReword(..)
             | ModeRef::Stack(..)
             | ModeRef::MoveStack(..)
+            | ModeRef::Worktree(..)
             | ModeRef::Jump(..) => MarksRef::Empty,
         }
     }

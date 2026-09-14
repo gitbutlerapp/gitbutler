@@ -22,7 +22,7 @@ use crate::{
                 app::{
                     BranchMessage, CherryPickMessage, CommandMessage, CommandModeKind,
                     CommitMessage, JumpMessage, MoveMessage, NormalMode, PickChangesMode,
-                    RewordMessage, SquashMessage, StackMessage, UpdateContext,
+                    RewordMessage, SquashMessage, StackMessage, UpdateContext, WorktreeMessage,
                 },
                 backstack::{Backstack, BackstackEntry},
                 confirm::ConfirmMessage,
@@ -265,6 +265,7 @@ fn event_to_messages(ev: Event, app: &App, terminal_area: Rect, messages: &mut V
                         | Mode::MoveStack(..)
                         | Mode::CherryPick(..)
                         | Mode::Branch(..)
+                        | Mode::Worktree(..)
                         | Mode::Move(..) => {}
                     }
                 }
@@ -302,6 +303,7 @@ fn event_to_messages(ev: Event, app: &App, terminal_area: Rect, messages: &mut V
                 | Mode::MoveStack(..)
                 | Mode::CherryPick(..)
                 | Mode::Branch(..)
+                | Mode::Worktree(..)
                 | Mode::Move(..) => {
                     messages.push(Message::JustRender);
                 }
@@ -453,6 +455,7 @@ pub enum Message {
     Jump(JumpMessage),
     CherryPick(CherryPickMessage),
     Branch(BranchMessage),
+    Worktree(WorktreeMessage),
     ToggleHelp,
     Mark,
     ClearMarks,
@@ -552,6 +555,7 @@ pub enum SelectAfterReload {
     },
     Branch(String),
     CliId(Box<CliId>),
+    Worktree(BString),
     Uncommitted,
 }
 
@@ -654,9 +658,13 @@ fn dedup_mutation_messages(messages: &mut Vec<Message>, other_messages: &mut Vec
             },
             Message::Stack(message) => match message {
                 StackMessage::Unapply | StackMessage::MoveConfirm => true,
-                StackMessage::Enter | StackMessage::ShowApplyPicker | StackMessage::MoveStart => {
+                StackMessage::Start | StackMessage::ShowApplyPicker | StackMessage::MoveStart => {
                     false
                 }
+            },
+            Message::Worktree(message) => match message {
+                WorktreeMessage::New => true,
+                WorktreeMessage::Start => false,
             },
             Message::Details(message) => match message {
                 DetailsMessage::Deselect

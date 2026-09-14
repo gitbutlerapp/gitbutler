@@ -20,6 +20,7 @@ use crate::{
             render::{
                 branch_operation_display, cherry_pick_operation_display, commit_operation_display,
                 move_operation_display, reorder_operation_display, stack_operation_display,
+                worktree_operation_display,
             },
         },
     },
@@ -398,6 +399,20 @@ impl Cursor {
         let idx = lines.iter().position(|line| {
             if let Some(CliId::Branch(branch)) = line.data.cli_id().map(|id| &**id)
                 && branch.name == branch_name
+            {
+                true
+            } else {
+                false
+            }
+        })?;
+        Some(Self(idx))
+    }
+
+    /// Select the first line that points to the given worktree.
+    pub fn select_worktree(worktree_name: &BStr, lines: &[StatusOutputLine]) -> Option<Self> {
+        let idx = lines.iter().position(|line| {
+            if let Some(CliId::Worktree { name, .. }) = line.data.cli_id().map(|id| &**id)
+                && name == worktree_name
             {
                 true
             } else {
@@ -1076,6 +1091,7 @@ fn is_section_header(line: &StatusOutputLine, mode: &Mode) -> bool {
         | Mode::Squash(..)
         | Mode::CherryPick(..)
         | Mode::Branch(..)
+        | Mode::Worktree(..)
         | Mode::Details(..) => {
             matches!(
                 line.data,
@@ -1184,6 +1200,7 @@ pub fn is_selectable_in_mode(
         }
         ModeRef::Command(..)
         | ModeRef::Branch(..)
+        | ModeRef::Worktree(..)
         | ModeRef::InlineReword(..)
         | ModeRef::Normal(..)
         | ModeRef::PickChanges(..)
@@ -1261,6 +1278,7 @@ pub fn is_selectable_in_mode(
         | ModeRef::MoveStack(..)
         | ModeRef::Jump(..)
         | ModeRef::CherryPick(..)
+        | ModeRef::Worktree(..)
         | ModeRef::Stack(..) => {}
     }
 
@@ -1299,6 +1317,9 @@ pub fn is_selectable_in_mode(
             cherry_pick_operation_display(&line.data, cherry_pick_mode).is_some()
         }
         ModeRef::Branch(branch_mode) => branch_operation_display(&line.data, branch_mode).is_some(),
+        ModeRef::Worktree(worktree_mode) => {
+            worktree_operation_display(&line.data, worktree_mode).is_some()
+        }
         ModeRef::PickChanges(..) => {
             if let Some(cli_id) = line.data.cli_id() {
                 match &**cli_id {

@@ -545,3 +545,81 @@ fn discard_worktree() {
     tui.input('y')
         .assert_rendered_term_svg_eq(file!["snapshots/discard_worktree_003.svg"]);
 }
+
+#[test]
+fn creating_new_worktrees() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings_slow("one-stack");
+    env.setup_metadata(&["A"]);
+
+    let mut tui = test_status_tui_with_options(
+        env,
+        TestTuiOptions {
+            worktree_manipulation: true,
+            ..Default::default()
+        },
+    );
+
+    // create a new worktree at the base
+    tui.input('w')
+        .assert_rendered_term_svg_eq(file!["snapshots/creating_new_worktrees_001.svg"]);
+    tui.input('j')
+        .assert_rendered_term_svg_eq(file!["snapshots/creating_new_worktrees_002.svg"]);
+    tui.input('n')
+        .assert_rendered_term_svg_eq(file!["snapshots/creating_new_worktrees_003.svg"]);
+
+    // create worktree at commit
+    tui.input('g');
+    tui.input('w')
+        .assert_rendered_term_svg_eq(file!["snapshots/creating_new_worktrees_004.svg"]);
+    tui.input('n')
+        .assert_rendered_term_svg_eq(file!["snapshots/creating_new_worktrees_005.svg"]);
+
+    // discard both worktrees
+    tui.input('g');
+    tui.input('w');
+    tui.input('x')
+        .assert_rendered_term_svg_eq(file!["snapshots/creating_new_worktrees_006.svg"]);
+    tui.input('y')
+        .assert_rendered_term_svg_eq(file!["snapshots/creating_new_worktrees_007.svg"]);
+    tui.input('w');
+    tui.input('j')
+        .assert_rendered_term_svg_eq(file!["snapshots/creating_new_worktrees_008.svg"]);
+    tui.input('x')
+        .assert_rendered_term_svg_eq(file!["snapshots/creating_new_worktrees_009.svg"]);
+    tui.input('y')
+        .assert_rendered_term_svg_eq(file!["snapshots/creating_new_worktrees_010.svg"]);
+}
+
+#[test]
+fn cannot_create_worktrees_on_conflicted_commits() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings_slow(
+        "one-stack-two-dependent-commits",
+    );
+    env.setup_metadata(&["A"]);
+
+    let mut tui = test_status_tui_with_options(
+        env,
+        TestTuiOptions {
+            worktree_manipulation: true,
+            ..Default::default()
+        },
+    );
+
+    // create a conflicted commit
+    tui.input('j');
+    tui.input('j');
+    tui.input('m');
+    tui.input('j');
+    tui.input('a');
+    tui.input(KeyCode::Enter).assert_rendered_term_svg_eq(file![
+        "snapshots/cannot_create_worktrees_on_conflicted_commits_001.svg"
+    ]);
+
+    // attempt to create a worktree on that commit
+    tui.input('w').assert_rendered_term_svg_eq(file![
+        "snapshots/cannot_create_worktrees_on_conflicted_commits_002.svg"
+    ]);
+    tui.input('n').assert_rendered_term_svg_eq(file![
+        "snapshots/cannot_create_worktrees_on_conflicted_commits_003.svg"
+    ]);
+}

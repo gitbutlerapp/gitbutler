@@ -237,8 +237,6 @@ impl App {
                     )
                 }
                 CliId::Worktree { id, name } => {
-                    use crate::command::worktree::remove;
-
                     let worktree_name = name.clone();
 
                     self.to_be_discarded = Vec::from([Selectable::Worktree {
@@ -249,20 +247,25 @@ impl App {
                         message_on_drop::message_on_drop(Message::DropToBeDiscarded, messages);
 
                     Confirm::new(
-                        NonEmpty::new(format!("Remove {worktree_name}? This cannot be undone").into()),
+                        NonEmpty::new(
+                            format!("Remove {worktree_name}? This cannot be undone").into(),
+                        ),
                         self.theme,
                         move |ctx, messages| {
                             let mut guard = ctx.exclusive_worktree_access();
-                            _ = remove::run(
+                            _ = crate::command::worktree::remove::run(
                                 ctx,
                                 guard.write_permission(),
-                                remove::RemoveOperation {
+                                crate::command::worktree::remove::RemoveOperation {
                                     worktree: worktree_name,
                                     force: true,
                                 },
                             )?;
 
-                            messages.push(Message::Reload(None, ReloadCause::Mutation));
+                            messages.extend([
+                                Message::EnterNormalModeAfterConfirmingOperation,
+                                Message::Reload(None, ReloadCause::Mutation),
+                            ]);
 
                             drop(drop_to_be_discarded);
 
@@ -296,6 +299,7 @@ impl App {
             | Mode::MoveStack(..)
             | Mode::PickChanges(..)
             | Mode::Jump(..)
+            | Mode::Worktree(..)
             | Mode::CherryPick(..) => return Ok(()),
         };
 
@@ -408,6 +412,7 @@ fn map_selected_commits(
             SelectAfterReload::UncommittedDetailsSection { index, direction }
         }
         SelectAfterReload::CliId(cli_id) => SelectAfterReload::CliId(cli_id),
+        SelectAfterReload::Worktree(name) => SelectAfterReload::Worktree(name),
     })
 }
 

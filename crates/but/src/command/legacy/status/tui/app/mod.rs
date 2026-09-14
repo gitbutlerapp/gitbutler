@@ -69,6 +69,7 @@ use super::{
 mod details_layout;
 mod discard;
 pub(super) use discard::run_discard;
+
 pub mod mark;
 mod undo_redo;
 
@@ -104,6 +105,9 @@ pub use squash_mode::*;
 
 mod branch_mode;
 pub use branch_mode::*;
+
+mod worktree_mode;
+pub use worktree_mode::*;
 
 #[derive(Debug)]
 pub struct App {
@@ -375,7 +379,7 @@ impl App {
 
         let app_key_binds = AppKeyBinds {
             key_binds: default_key_binds(&ctx.settings.feature_flags),
-            normal_with_marks_key_binds: normal_with_marks_key_binds(),
+            normal_with_marks_key_binds: normal_with_marks_key_binds(&ctx.settings.feature_flags),
             confirm_key_binds: confirm_key_binds(),
         };
 
@@ -639,6 +643,9 @@ impl App {
                 self.handle_cherry_pick(cherry_pick_message, ctx, messages)?
             }
             Message::Branch(branch_message) => self.handle_branch(branch_message, ctx, messages)?,
+            Message::Worktree(worktree_message) => {
+                self.handle_worktree(worktree_message, ctx, messages)?
+            }
             Message::CopySelection => {
                 self.handle_copy_selection()?;
             }
@@ -830,6 +837,7 @@ impl App {
                 | Mode::Jump(..)
                 | Mode::Branch(..)
                 | Mode::CherryPick(..)
+                | Mode::Worktree(..)
                 | Mode::MoveStack(..) => return,
                 Mode::Details(details_mode) => match &details_mode.return_mode {
                     DetailsReturnMode::PickChanges(PickChangesMode { marks }) => {
@@ -943,6 +951,7 @@ impl App {
                 | Mode::Stack(..)
                 | Mode::MoveStack(..)
                 | Mode::CherryPick(..)
+                | Mode::Worktree(..)
                 | Mode::Jump(..) => {}
             },
             BackstackEntry::OpenSplitDetailsView | BackstackEntry::OpenFullScreenDetailsView => {
@@ -1290,6 +1299,7 @@ impl App {
                 | SelectAfterReload::UncommittedFile { .. }
                 | SelectAfterReload::Branch(_)
                 | SelectAfterReload::CliId(_)
+                | SelectAfterReload::Worktree(_)
                 | SelectAfterReload::Uncommitted => None,
             },
         );
@@ -1312,6 +1322,7 @@ impl App {
                     }
                 }
                 SelectAfterReload::Branch(_)
+                | SelectAfterReload::Worktree(_)
                 | SelectAfterReload::Uncommitted
                 | SelectAfterReload::UncommittedFile { .. }
                 | SelectAfterReload::UncommittedDetailsSection { .. }
@@ -1354,6 +1365,9 @@ impl App {
                 Cursor::select_commit(commit_id, &new_lines)
             }
             Some(SelectAfterReload::Branch(branch)) => Cursor::select_branch(&branch, &new_lines),
+            Some(SelectAfterReload::Worktree(worktree)) => {
+                Cursor::select_worktree(worktree.as_ref(), &new_lines)
+            }
             Some(SelectAfterReload::Uncommitted) => Cursor::select_uncommitted(&new_lines),
             Some(SelectAfterReload::UncommittedFile { path }) => {
                 Cursor::select_uncommitted_file(path.as_ref(), &new_lines)

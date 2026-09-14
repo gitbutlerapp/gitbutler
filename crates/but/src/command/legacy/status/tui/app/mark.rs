@@ -694,6 +694,7 @@ impl App {
                     | Mode::Jump(..)
                     | Mode::CherryPick(..)
                     | Mode::Branch(..)
+                    | Mode::Worktree(..)
                     | Mode::Stack(..) => {}
                 }
             }
@@ -748,6 +749,7 @@ impl App {
             | Mode::MoveStack(..)
             | Mode::CherryPick(..)
             | Mode::Branch(..)
+            | Mode::Worktree(..)
             | Mode::Jump(..) => false,
         };
 
@@ -791,6 +793,7 @@ fn handle_mark_cli_id(commit: &CliId, mode: &mut Mode) -> anyhow::Result<bool> {
         | Mode::MoveStack(..)
         | Mode::Jump(..)
         | Mode::CherryPick(..)
+        | Mode::Worktree(..)
         | Mode::Details(..) => {
             return Ok(false);
         }
