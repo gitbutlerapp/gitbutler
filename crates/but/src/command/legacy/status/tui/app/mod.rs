@@ -1277,6 +1277,9 @@ impl App {
             .and_then(|line| line.data.cli_id())
             .cloned();
 
+        let details_selection_before_reload =
+            self.details.selected_section_cli_id().map(Arc::clone);
+
         let select_details_section_after_reload = select_after_reload.as_ref().and_then(
             |select_after_reload| match select_after_reload {
                 SelectAfterReload::UncommittedDetailsSection { index, direction } => {
@@ -1410,6 +1413,13 @@ impl App {
             self.details.clear_selection_for_reload(details_focused);
             if let Some((index, direction)) = select_details_section_after_reload {
                 self.details.select_section_when_available(index, direction);
+            } else if details_focused
+                && let Some(details_selection_before_reload) = details_selection_before_reload
+            {
+                self.details
+                    .select_cli_id_when_available(Arc::unwrap_or_clone(
+                        details_selection_before_reload,
+                    ));
             }
         }
 
