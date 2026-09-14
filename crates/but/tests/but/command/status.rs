@@ -1557,9 +1557,9 @@ fn worktree_lanes() {
 ┊
 ┊╭┄ g0 [A]
 ┊┊
-┊┊╭┄ in:@ {worktree uncommitted}
+┊┊╭┄ in:@ [uncommitted] {wt-inside}
 ┊┊┊   wx A note.txt
-┊┊├┄ in {wt-inside}
+┊┊├┄ in [wt-inside]
 ┊┊●   pwn worktree work (no changes)
 ┊├╯
 ┊●   tpm add A
@@ -1567,14 +1567,14 @@ fn worktree_lanes() {
 ┊
 ┊╭┄ h0 [B]
 ┊┊
-┊┊╭┄ wt:@ {worktree uncommitted} (no changes)
-┊┊├┄ wt {wt-at}
+┊┊╭┄ wt:@ [uncommitted] {wt-at} (no changes)
+┊┊├┄ wt (no commits)
 ┊├╯
 ┊●   lrm add B
 ├╯
 ┊
-┊╭┄ ou:@ {worktree uncommitted} (no changes)
-┊├┄ ou {wt-outside}
+┊╭┄ ou:@ [uncommitted] {wt-outside} (no changes)
+┊├┄ ou [wt-outside]
 ┊●   zum off the target (no changes)
 ├╯
 ┊
@@ -1671,7 +1671,17 @@ off the target
       "inWorkspace": true
     },
     "uncommittedChanges": [],
-    "commits": []
+    "branches": [
+      {
+        "cliId": "wt",
+        "name": "",
+        "commits": [],
+        "upstreamCommits": [],
+        "branchStatus": "completelyUnpushed",
+        "reviewId": null,
+        "ci": null
+      }
+    ]
   },
   {
     "cliId": "in",
@@ -1688,18 +1698,28 @@ off the target
         "changeType": "added"
       }
     ],
-    "commits": [
+    "branches": [
       {
-        "cliId": "pwn",
-        "changeId": "pwnvnstnootyowqrwlulqtxotsznyvpv",
-        "commitId": "fb0cf2a5252830e6d4697a7c19cd86dd36e323c5",
-        "createdAt": "2000-01-01T00:00:00+00:00",
-        "message": "worktree work\n",
-        "authorName": "author",
-        "authorEmail": "author@example.com",
-        "conflicted": false,
+        "cliId": "in",
+        "name": "wt-inside",
+        "commits": [
+          {
+            "cliId": "pwn",
+            "changeId": "pwnvnstnootyowqrwlulqtxotsznyvpv",
+            "commitId": "fb0cf2a5252830e6d4697a7c19cd86dd36e323c5",
+            "createdAt": "2000-01-01T00:00:00+00:00",
+            "message": "worktree work\n",
+            "authorName": "author",
+            "authorEmail": "author@example.com",
+            "conflicted": false,
+            "reviewId": null,
+            "changes": null
+          }
+        ],
+        "upstreamCommits": [],
+        "branchStatus": "completelyUnpushed",
         "reviewId": null,
-        "changes": null
+        "ci": null
       }
     ]
   },
@@ -1712,18 +1732,28 @@ off the target
       "inWorkspace": false
     },
     "uncommittedChanges": [],
-    "commits": [
+    "branches": [
       {
-        "cliId": "zum",
-        "changeId": "zumtutknquukwkzpsmpkxwynvqmnklrm",
-        "commitId": "ef1fd236b17f3b9238c4f5be50fcfaa93f6a6ba0",
-        "createdAt": "2000-01-01T00:00:00+00:00",
-        "message": "off the target\n",
-        "authorName": "author",
-        "authorEmail": "author@example.com",
-        "conflicted": false,
+        "cliId": "ou",
+        "name": "wt-outside",
+        "commits": [
+          {
+            "cliId": "zum",
+            "changeId": "zumtutknquukwkzpsmpkxwynvqmnklrm",
+            "commitId": "ef1fd236b17f3b9238c4f5be50fcfaa93f6a6ba0",
+            "createdAt": "2000-01-01T00:00:00+00:00",
+            "message": "off the target\n",
+            "authorName": "author",
+            "authorEmail": "author@example.com",
+            "conflicted": false,
+            "reviewId": null,
+            "changes": null
+          }
+        ],
+        "upstreamCommits": [],
+        "branchStatus": "completelyUnpushed",
         "reviewId": null,
-        "changes": null
+        "ci": null
       }
     ]
   }
@@ -1769,11 +1799,11 @@ fn stacked_worktree_lanes() {
 ┊
 ┊╭┄ g0 [A]
 ┊┊
-┊┊╭┄ wt:@ {worktree uncommitted} (no changes)
-┊┊├┄ wt {wt-first}
+┊┊╭┄ wt:@ [uncommitted] {wt-first} (no changes)
+┊┊├┄ wt [wt-first]
 ┊┊┊
-┊┊┊╭┄ se:@ {worktree uncommitted} (no changes)
-┊┊┊├┄ se {wt-second}
+┊┊┊╭┄ se:@ [uncommitted] {wt-second} (no changes)
+┊┊┊├┄ se [wt-second]
 ┊┊┊●   zzk second work (no changes)
 ┊┊├╯
 ┊┊●   tlr first work (no changes)
@@ -1841,8 +1871,8 @@ fn status_from_inside_a_linked_worktree_shows_the_main_workspace() {
 ┊
 ┊╭┄ g0 [A]
 ┊┊
-┊┊╭┄ wt:@ {worktree uncommitted} (no changes)
-┊┊├┄ wt {wt-inside}
+┊┊╭┄ wt:@ [uncommitted] {wt-inside} (no changes)
+┊┊├┄ wt [wt-inside] (no commits)
 ┊├╯
 ┊●   tpm add A
 ├╯

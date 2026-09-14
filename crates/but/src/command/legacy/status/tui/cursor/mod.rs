@@ -770,15 +770,18 @@ impl Cursor {
             if let Some((_, next)) = iter.peek_nth(0) {
                 match next {
                     StatusOutputLineData::Connector | StatusOutputLineData::BetweenStacks => {
+                        let inside_nested_lane = connectors_before_section_end > 0;
                         if let Some((_, next2)) = iter.peek_nth(1)
-                            && matches!(
+                            && (matches!(
                                 next2,
                                 StatusOutputLineData::UpstreamChanges
                                     | StatusOutputLineData::WorktreeUncommitted { .. }
-                            )
+                            ) || (inside_nested_lane
+                                && matches!(next2, StatusOutputLineData::Branch { .. })))
                         {
-                            // a connector that opens a nested section rather than closing this one
-                        } else if connectors_before_section_end > 0 {
+                            // a connector that opens a nested section, or separates the branches
+                            // of a nested worktree lane, rather than closing this one
+                        } else if inside_nested_lane {
                             // Nested sections can have separators before their own closing
                             // connector. Consume only the connector currently being crossed.
                             connectors_before_section_end -= 1;
@@ -787,8 +790,15 @@ impl Cursor {
                         }
                     }
 
-                    StatusOutputLineData::MergeBase | StatusOutputLineData::Branch { .. } => {
+                    StatusOutputLineData::MergeBase => {
                         inside_current_branch = false;
+                    }
+
+                    StatusOutputLineData::Branch { .. } => {
+                        // A branch beneath a nested worktree's top one is still inside the lane.
+                        if connectors_before_section_end == 0 {
+                            inside_current_branch = false;
+                        }
                     }
 
                     StatusOutputLineData::Commit { .. }

@@ -398,8 +398,8 @@ Amended tpm
 ┊
 ┊╭┄ g0 [A]
 ┊┊
-┊┊╭┄ wt:@ {worktree uncommitted} (no changes)
-┊┊├┄ wt {wt-feature}
+┊┊╭┄ wt:@ [uncommitted] {wt-feature} (no changes)
+┊┊├┄ wt [wt-feature] (no commits)
 ┊├╯
 ┊●   tpm add A
 ┊│     tpm:t A A
@@ -446,8 +446,8 @@ Amended lrm
 ┊
 ┊╭┄ g0 [A]
 ┊┊
-┊┊╭┄ wt:@ {worktree uncommitted} (no changes)
-┊┊├┄ wt {wt-feature}
+┊┊╭┄ wt:@ [uncommitted] {wt-feature} (no changes)
+┊┊├┄ wt [wt-feature] (no commits)
 ┊├╯
 ┊●   tpm add A
 ┊│     tpm:t A A
@@ -515,8 +515,8 @@ fn amend_a_clean_worktree_has_nothing_to_amend() {
 ┊
 ┊╭┄ g0 [A]
 ┊┊
-┊┊╭┄ wt:@ {worktree uncommitted} (no changes)
-┊┊├┄ wt {wt-clean}
+┊┊╭┄ wt:@ [uncommitted] {wt-clean} (no changes)
+┊┊├┄ wt [wt-clean] (no commits)
 ┊├╯
 ┊●   tpm add A
 ├╯
