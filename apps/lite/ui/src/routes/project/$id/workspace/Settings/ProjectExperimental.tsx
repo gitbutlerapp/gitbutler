@@ -20,6 +20,7 @@ export const ProjectExperimental: FC<{ projectId: string }> = ({ projectId }) =>
 				hint="Skips certificate verification when authenticating over SSH."
 			>
 				<Switch
+					size="large"
 					aria-labelledby="omit-certificate-check"
 					checked={project.omit_certificate_check ?? false}
 					onCheckedChange={(omitCertificateCheck) =>

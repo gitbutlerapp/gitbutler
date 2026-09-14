@@ -129,6 +129,7 @@ export const ProjectGit: FC<{ projectId: string }> = ({ projectId }) => {
 					hint="Uses git's safer force-push flags so remote commits are not overwritten."
 				>
 					<Switch
+						size="large"
 						aria-labelledby="force-push-protection"
 						checked={project.force_push_protection ?? false}
 						onCheckedChange={(forcePushProtection) =>
@@ -146,6 +147,7 @@ export const ProjectGit: FC<{ projectId: string }> = ({ projectId }) => {
 					hint="GitButler signs as your git configuration says, but gitbutler.signCommits wins."
 				>
 					<Switch
+						size="large"
 						aria-labelledby="sign-commits"
 						checked={signCommits}
 						onCheckedChange={(next) => save({ signCommits: next })}

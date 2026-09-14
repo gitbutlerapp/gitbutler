@@ -21,6 +21,7 @@ export const Experimental: FC = () => {
 				hint="Add comments to diff lines and copy them as feedback for an agent."
 			>
 				<Switch
+					size="large"
 					aria-labelledby="comment-annotations"
 					checked={settings.commentAnnotations ?? defaultSettings.commentAnnotations}
 					onCheckedChange={(commentAnnotations) => saveGUISettings({ commentAnnotations })}
@@ -33,6 +34,7 @@ export const Experimental: FC = () => {
 				hint="Dry-runs a drag-and-drop before it lands to show the outcome, such as conflicts. Slows dragging down."
 			>
 				<Switch
+					size="large"
 					aria-labelledby="dry-run-operations"
 					checked={settings.dryRunOperations ?? defaultSettings.dryRunOperations}
 					onCheckedChange={(dryRunOperations) => saveGUISettings({ dryRunOperations })}
@@ -45,6 +47,7 @@ export const Experimental: FC = () => {
 				hint="A map of the diff down the right-hand edge, standing in for the scrollbar."
 			>
 				<Switch
+					size="large"
 					aria-labelledby="minimap"
 					checked={settings.minimap ?? defaultSettings.minimap}
 					onCheckedChange={(minimap) => saveGUISettings({ minimap })}
@@ -57,6 +60,7 @@ export const Experimental: FC = () => {
 				hint="Shows linked git worktrees in the workspace. Existing ones start out archived; see the project's Worktrees page."
 			>
 				<Switch
+					size="large"
 					aria-labelledby="worktree-manipulation"
 					checked={appSettings.featureFlags.worktreeManipulation}
 					onCheckedChange={(worktreeManipulation) => updateFeatureFlags({ worktreeManipulation })}

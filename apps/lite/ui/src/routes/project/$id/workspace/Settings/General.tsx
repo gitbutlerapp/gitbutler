@@ -101,6 +101,7 @@ export const General: FC = () => {
 						<CheckForUpdatesButton />
 
 						<Switch
+							size="large"
 							aria-labelledby="auto-update"
 							checked={settings.autoUpdate ?? defaultSettings.autoUpdate}
 							onCheckedChange={(autoUpdate) => saveGUISettings({ autoUpdate })}
@@ -114,6 +115,7 @@ export const General: FC = () => {
 					hint="Loud activity that arrives while GitButler is in the background is also shown by the system."
 				>
 					<Switch
+						size="large"
 						aria-labelledby="desktop-notifications"
 						checked={settings.desktopNotifications ?? defaultSettings.desktopNotifications}
 						disabled={(settings.prNotifications ?? defaultSettings.prNotifications) !== "loud"}

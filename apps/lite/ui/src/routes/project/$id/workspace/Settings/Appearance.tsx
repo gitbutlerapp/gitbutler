@@ -99,6 +99,7 @@ export const Appearance: FC = () => {
 					hint="Show the hand over buttons and links, as a web page does. Off keeps the arrow, as desktop apps do."
 				>
 					<Switch
+						size="large"
 						aria-labelledby="hand-cursor"
 						checked={settings.handCursor ?? defaultSettings.handCursor}
 						onCheckedChange={(handCursor) => saveGUISettings({ handCursor })}
@@ -113,6 +114,7 @@ export const Appearance: FC = () => {
 					hint="Lead each row with the directory rather than the file name. The tree gives the directory a row of its own, so this is for the list."
 				>
 					<Switch
+						size="large"
 						aria-labelledby="path-first"
 						checked={settings.pathFirst ?? defaultSettings.pathFirst}
 						onCheckedChange={(pathFirst) => saveGUISettings({ pathFirst })}
@@ -125,6 +127,7 @@ export const Appearance: FC = () => {
 					hint="Keeps the details pane's file list away from the sidebar's, so two lists don't sit side by side."
 				>
 					<Switch
+						size="large"
 						aria-labelledby="files-panel-right"
 						checked={settings.filesPanelRight ?? defaultSettings.filesPanelRight}
 						onCheckedChange={(filesPanelRight) => saveGUISettings({ filesPanelRight })}
@@ -178,6 +181,7 @@ export const Appearance: FC = () => {
 					hint="Wrap long lines instead of scrolling them sideways."
 				>
 					<Switch
+						size="large"
 						aria-labelledby="soft-wrap"
 						checked={(settings.diffOverflow ?? defaultSettings.diffOverflow) === "wrap"}
 						onCheckedChange={(wrap) => saveGUISettings({ diffOverflow: wrap ? "wrap" : "scroll" })}
@@ -190,6 +194,7 @@ export const Appearance: FC = () => {
 					hint="Tint added and removed lines, rather than marking them by symbol alone."
 				>
 					<Switch
+						size="large"
 						aria-labelledby="diff-backgrounds"
 						checked={settings.diffBackground ?? defaultSettings.diffBackground}
 						onCheckedChange={(diffBackground) => saveGUISettings({ diffBackground })}
@@ -232,6 +237,7 @@ export const Appearance: FC = () => {
 					hint="Render combining glyphs such as → and !== if the font provides them."
 				>
 					<Switch
+						size="large"
 						aria-labelledby="ligatures"
 						checked={settings.diffLigatures ?? defaultSettings.diffLigatures}
 						onCheckedChange={(diffLigatures) => saveGUISettings({ diffLigatures })}
