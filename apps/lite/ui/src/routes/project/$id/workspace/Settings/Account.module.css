@@ -1,5 +1,5 @@
-/* The card chrome a Section draws, since this is a form rather than rows. */
-.profileCard {
+/* The card chrome a Section draws, for the account's two states, neither of which is rows. */
+.card {
 	display: flex;
 	align-items: flex-start;
 	padding: 16px;
@@ -7,6 +7,36 @@
 	border: 1px solid var(--border-section);
 	border-radius: var(--radius-card);
 	background-color: var(--bg-1);
+}
+
+/* The drawing stands a little further off than the picture does. */
+.signedOutCard {
+	gap: 20px;
+}
+
+.signedOut {
+	display: flex;
+	flex: 1;
+	flex-direction: column;
+	align-items: flex-start;
+	min-width: 0;
+	gap: 16px;
+}
+
+/* The same title-over-hint pair a settings row draws. */
+.signedOutText {
+	display: flex;
+	flex-direction: column;
+	gap: 6px;
+}
+
+.signedOutLabel {
+	color: var(--text-1);
+}
+
+.signedOutHint {
+	color: var(--text-2);
+	text-wrap: pretty;
 }
 
 .avatarButton {

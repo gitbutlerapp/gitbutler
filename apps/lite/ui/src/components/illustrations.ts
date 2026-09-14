@@ -1,4 +1,5 @@
 import cactus from "./illustrations/cactus.svg?raw";
+import idCard from "./illustrations/id-card.svg?raw";
 import looking from "./illustrations/looking.svg?raw";
 import papers from "./illustrations/papers.svg?raw";
 import waving from "./illustrations/waving.svg?raw";
@@ -29,7 +30,9 @@ import waving from "./illustrations/waving.svg?raw";
  * sidebar's panels and the details pane's empty state), so an illustration for
  * anywhere else wants checking against its ground first. `papers` is the one
  * drawn for `--bg-1`: its only shaded face is `--border-2`, so it reads the
- * same on a popup's paper.
+ * same on a popup's paper. `id-card` sits on a settings card, also `--bg-1`,
+ * and its one `--bg-2` face is meant as a tint there; its asterisks are
+ * `--text-2`, a step darker than the outline, since they stand for text.
  *
  * Each asset keeps the width and height Figma gave it and renders at that size;
  * `<Illustration width={n} />` overrides it where a surface needs another.
@@ -38,7 +41,7 @@ import waving from "./illustrations/waving.svg?raw";
  * from `Icon.tsx`: a module that exports anything but components loses fast
  * refresh for the component beside it.
  */
-export const illustrations = { cactus, looking, papers, waving } as const;
+export const illustrations = { cactus, "id-card": idCard, looking, papers, waving } as const;
 
 /** @public */
 export type IllustrationName = keyof typeof illustrations;

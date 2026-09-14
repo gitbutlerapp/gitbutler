@@ -170,8 +170,8 @@ export const General: FC = () => {
 							disabled={projects.length === 0}
 							onClick={() => setConfirmingRemoveAll(true)}
 						>
-							Remove all…
 							<Icon name="bin" />
+							Remove all…
 						</button>
 					)}
 				</Row>

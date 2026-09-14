@@ -7,10 +7,11 @@ import { getButtonClassName } from "#ui/components/Button.tsx";
 import { classes } from "#ui/components/classes.ts";
 import { FieldControlStyles, FieldLabelStyles, FieldRootStyles } from "#ui/components/Field.tsx";
 import { Icon } from "#ui/components/Icon.tsx";
+import { Illustration } from "#ui/components/Illustration.tsx";
 import { errorMessageForToast } from "#ui/errors.ts";
 import styles from "./Account.module.css";
 import { pollUntilSuccess } from "./poll.ts";
-import { Row, Section } from "./Section.tsx";
+import { Row } from "./Section.tsx";
 
 /** How long to keep asking whether the browser half of the login finished. */
 const pollIntervalMs = 2_000;
@@ -77,23 +78,31 @@ const SignedOut: FC = () => {
 	};
 
 	return (
-		<Section>
-			<Row
-				label="GitButler account"
-				hint={
-					error ?? "Opens gitbutler.com to sign in. Your access token stays in the app's backend."
-				}
-			>
+		// A card of its own rather than a row: the drawing leads, and the button sits under
+		// the words rather than at the row's end.
+		<section className={classes(styles.card, styles.signedOutCard)}>
+			<Illustration name="id-card" />
+			<div className={styles.signedOut}>
+				<div className={styles.signedOutText}>
+					<span className={classes("text-15", "text-semibold", styles.signedOutLabel)}>
+						GitButler account
+					</span>
+					<span className={classes("text-12", "text-body", styles.signedOutHint)}>
+						{error ??
+							"Opens gitbutler.com to sign in. Your access token stays in the app's backend."}
+					</span>
+				</div>
 				<button
 					type="button"
-					className={getButtonClassName({ variant: "pop" })}
+					className={getButtonClassName({ variant: "gray" })}
 					disabled={signingIn}
 					onClick={() => void signIn()}
 				>
-					{signingIn ? "Waiting for browser…" : "Sign in"}
+					{signingIn ? "Waiting for browser…" : "Log in"}
+					<Icon name="login" />
 				</button>
-			</Row>
-		</Section>
+			</div>
+		</section>
 	);
 };
 
@@ -166,7 +175,7 @@ const SignedIn: FC<{ profile: UserProfile }> = ({ profile }) => {
 	return (
 		// Not the rows the other settings use: a form of its own, with the picture beside the
 		// fields it belongs to.
-		<section className={styles.profileCard}>
+		<section className={styles.card}>
 			<button
 				type="button"
 				className={styles.avatarButton}
