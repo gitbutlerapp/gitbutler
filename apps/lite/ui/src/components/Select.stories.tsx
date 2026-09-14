@@ -1,4 +1,5 @@
 import preview from "#storybook/preview";
+import { ProgramIcon } from "./ProgramIcon.tsx";
 import { Select } from "./Select.tsx";
 
 const terminals = [
@@ -55,6 +56,19 @@ export const WithIcons = meta.story({
 			{ value: "finder", label: "Finder", icon: "folder" },
 			{ value: "workbench", label: "Workbench", icon: "workbench", disabled: true },
 		],
+	},
+});
+
+/** A program's own mark on each row and on the trigger, for a list of editors or terminals. */
+export const WithImages = meta.story({
+	args: {
+		label: "Terminal",
+		placeholder: "Select terminal",
+		defaultValue: "warp",
+		items: terminals.map((terminal) => ({
+			...terminal,
+			leading: <ProgramIcon program={terminal.value} />,
+		})),
 	},
 });
 

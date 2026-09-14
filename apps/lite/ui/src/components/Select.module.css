@@ -12,17 +12,27 @@
 	}
 }
 
-/* The choice is what the control is about, so it takes the width and gives it back last. */
+/* The choice is what the control is about, so it takes the width and gives it back last. Its
+   mark, if it has one, sits at the button's own gap from the text. */
 .value {
+	display: flex;
 	flex: 1;
+	align-items: center;
 	min-width: 0;
-	overflow: hidden;
+	gap: var(--button-gap);
 	text-align: start;
-	text-overflow: ellipsis;
 
 	&[data-placeholder] {
 		color: var(--text-3);
 	}
+}
+
+.valueLabel {
+	flex: 1;
+	min-width: 0;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
 }
 
 /* Opens over the trigger and covers it. Base UI shifts the list so the rows' text lines up with

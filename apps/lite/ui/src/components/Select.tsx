@@ -12,8 +12,13 @@ import type { CSSProperties, ReactNode } from "react";
 export type SelectItem<Value extends string> = {
 	value: Value;
 	label: string;
-	/** Leads the row in the list — what kind of thing the choice is. */
+	/** Leads the row in the list and the trigger while chosen — what kind of thing the choice is. */
 	icon?: IconName;
+	/**
+	 * Leads the row and the trigger where a glyph from the icon set is not the right mark — a
+	 * program's own image, say. Sits after `icon` when both are given.
+	 */
+	leading?: ReactNode;
 	disabled?: boolean;
 };
 
@@ -44,8 +49,9 @@ export type SelectProps<Value extends string> = {
 
 /**
  * One choice from a short, fixed list: a terminal, a theme, a default branch. The trigger is a
- * field-sized outline button reading the current choice, and the list it opens is the same
- * {@link Popup} every dropdown wears, with a tick on the row that is chosen now.
+ * field-sized outline button reading the current choice, led by that choice's icon or image if
+ * it has one, and the list it opens is the same {@link Popup} every dropdown wears, with a tick
+ * on the row that is chosen now.
  *
  * The list opens over the trigger so the chosen row sits where the trigger's text was, the way
  * a native select does; Base UI drops that overlap when the window has no room for it. Each row's
@@ -85,7 +91,20 @@ export const Select = <Value extends string>({
 				aria-label={ariaLabel}
 				className={classes(getButtonClassName({ variant: "outline" }), styles.trigger)}
 			>
-				<BaseSelect.Value className={styles.value} placeholder={placeholder} />
+				<BaseSelect.Value className={styles.value} placeholder={placeholder}>
+					{(chosen: Value | null) => {
+						// Base UI hands over the value alone; the item is what carries the mark.
+						const item = items.find((candidate) => candidate.value === chosen);
+						if (item === undefined) return <span className={styles.valueLabel}>{placeholder}</span>;
+						return (
+							<>
+								{item.icon !== undefined && <Icon name={item.icon} />}
+								{item.leading}
+								<span className={styles.valueLabel}>{item.label}</span>
+							</>
+						);
+					}}
+				</BaseSelect.Value>
 				<Icon name="chevron-down" />
 			</BaseSelect.Trigger>
 			<BaseSelect.Portal>
@@ -104,6 +123,7 @@ export const Select = <Value extends string>({
 								<PopupItem
 									key={item.value}
 									icon={item.icon}
+									leading={item.leading}
 									trailing="tick"
 									className={styles.item}
 									render={<BaseSelect.Item value={item.value} disabled={item.disabled} />}

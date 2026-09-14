@@ -1,5 +1,6 @@
 import preview from "#storybook/preview";
 import { Popup, PopupEmpty, PopupItem, PopupSearch, PopupSection } from "./Popup.tsx";
+import { ProgramIcon } from "./ProgramIcon.tsx";
 
 const meta = preview.meta({
 	component: Popup,
@@ -39,6 +40,9 @@ export const Items = meta.story({
 				<PopupItem trailing="plus">Trailing glyph</PopupItem>
 				<PopupItem icon="folder-tree" trailing="tick">
 					Both
+				</PopupItem>
+				<PopupItem leading={<ProgramIcon program="vscode" />} trailing="tick">
+					Leading image
 				</PopupItem>
 			</PopupSection>
 			<PopupSection label="Shortcuts and submenus">
