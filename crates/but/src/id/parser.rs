@@ -107,7 +107,7 @@ fn parse_sources_scoped(
         } else {
             let matches: Vec<String> = source_result
                 .iter()
-                .map(|id| format!("{} ({})", id.to_short_string(), id.kind_for_humans()))
+                .map(|id| format!("{} ({})", id.short_string(), id.kind_for_humans()))
                 .collect();
             return Err(IdResolutionError::new(format!(
                 "Source '{}' is ambiguous. Matches: {}. Try using more characters, a longer SHA, or the full branch name to disambiguate.",

@@ -78,7 +78,7 @@ fn find_line_by_jump_id<'a>(
     std::iter::once(needle).chain(matches).find(|line| {
         line.data
             .cli_id()
-            .is_some_and(|id| id.to_short_string() == query)
+            .is_some_and(|id| id.short_string() == query)
     })
 }
 

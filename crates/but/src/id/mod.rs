@@ -2182,6 +2182,11 @@ impl CliId {
 
     /// Returns the short ID string for display to users.
     pub fn to_short_string(&self) -> ShortId {
+        self.short_string().to_string()
+    }
+
+    /// Borrows the short ID string for display to users.
+    pub fn short_string(&self) -> &str {
         match self {
             CliId::UncommittedHunkOrFile(UncommittedHunkOrFile { id, .. })
             | CliId::PathPrefix { id, .. }
@@ -2193,7 +2198,7 @@ impl CliId {
             | CliId::Stack { id, .. }
             | CliId::Worktree { id, .. }
             | CliId::WorktreeUncommitted { id, .. }
-            | CliId::Uncommitted { id, .. } => id.clone(),
+            | CliId::Uncommitted { id, .. } => id,
         }
     }
 

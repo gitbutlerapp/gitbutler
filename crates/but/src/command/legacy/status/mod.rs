@@ -1793,7 +1793,7 @@ fn print_worktree_row(
     let t = crate::theme::get();
     let cli_id = with_id.reference_id();
     let line = UncommittedLineContent {
-        id: Vec::from([Span::styled(cli_id.to_short_string().to_string(), t.cli_id)]),
+        id: Vec::from([Span::styled(cli_id.to_short_string(), t.cli_id)]),
         decoration_start: Vec::from([Span::raw(" {")]),
         label: Vec::from([Span::styled(
             worktree.ref_name.as_ref().map_or_else(
@@ -1826,7 +1826,7 @@ fn print_uncommitted_group(
 ) -> anyhow::Result<()> {
     let t = crate::theme::get();
     let line = UncommittedLineContent {
-        id: Vec::from([Span::styled(cli_id.to_short_string().to_string(), t.cli_id)]),
+        id: Vec::from([Span::styled(cli_id.to_short_string(), t.cli_id)]),
         decoration_start: Vec::from([Span::raw(format!(" {}", decoration.0))]),
         label: Vec::from([Span::styled(label.to_owned(), t.info)]),
         decoration_end: Vec::from([Span::raw(decoration.1.to_owned())]),
@@ -1868,7 +1868,7 @@ fn lookup_cli_id_for_short_id(
     kind: &str,
 ) -> anyhow::Result<CliId> {
     let mut matches = id_map.parse_using_repo(short_id, repo)?;
-    matches.retain(|id| id.to_short_string() == short_id && predicate(id));
+    matches.retain(|id| id.short_string() == short_id && predicate(id));
 
     match matches.len() {
         1 => Ok(matches.remove(0)),
