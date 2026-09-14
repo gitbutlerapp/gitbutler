@@ -464,6 +464,7 @@ pub fn commit_uncommit_changes_from_commits_only_with_perm(
     let context_lines = ctx.settings.context_lines;
     let mut meta = ctx.meta()?;
     let (repo, mut ws, mut db) = ctx.workspace_mut_and_db_mut_with_perm(perm)?;
+    let mut ws = &mut ws;
 
     let surfaced =
         SurfacedHunks::record_before(assign_to, dry_run, &mut db, &repo, &ws, context_lines)?;

@@ -88,7 +88,7 @@ pub fn workspace_recreate_with_perm(
         Vec::new()
     } else {
         let mut meta = ctx.meta()?;
-        let (repo, mut ws, db) = ctx.workspace_mut_and_db_with_perm(perm)?;
+        let (repo, ws, db) = ctx.workspace_mut_and_db_with_perm(perm)?;
 
         let previously_applied_stack_heads: Vec<gix::refs::FullName> = {
             let workspace_ref: gix::refs::FullName = but_core::WORKSPACE_REF_NAME.try_into()?;
@@ -118,9 +118,7 @@ pub fn workspace_recreate_with_perm(
                     ..Default::default()
                 },
             )?;
-            if outcome.status.persisted_mutation() {
-                *ws = outcome.workspace.clone();
-            } else {
+            if !outcome.status.persisted_mutation() {
                 anyhow::bail!(
                     "BUG: failed to apply head ref ({head_name}). Failed with {:?}",
                     outcome.status
@@ -147,10 +145,6 @@ pub fn workspace_recreate_with_perm(
 
                 if !apply_outcome.conflicting_stacks.is_empty() {
                     conflicting_stacks.push(stack_ref);
-                }
-
-                if apply_outcome.status.persisted_mutation() {
-                    *ws = apply_outcome.workspace.clone();
                 }
             }
 

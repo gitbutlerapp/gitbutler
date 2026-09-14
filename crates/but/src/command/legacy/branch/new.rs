@@ -353,7 +353,7 @@ impl NewUnstackedBranchOperation {
             //
             // this also has the effect of entering the workspace with one branch applied
             {
-                let (repo, mut ws, _db) = ctx.workspace_mut_and_db_with_perm(perm)?;
+                let (repo, ws, _db) = ctx.workspace_mut_and_db_with_perm(perm)?;
                 let outcome = but_workspace::branch::apply(
                     head_name.as_ref(),
                     ws.clone(),
@@ -364,9 +364,7 @@ impl NewUnstackedBranchOperation {
                         ..Default::default()
                     },
                 )?;
-                if outcome.status.persisted_mutation() {
-                    *ws = outcome.workspace.clone();
-                } else {
+                if !outcome.status.persisted_mutation() {
                     bail!(
                         "BUG: failed to apply head ref ({head_name}). Failed with {:?}",
                         outcome.status
