@@ -470,6 +470,8 @@ const DiffContents: FC<{
 	setFilesReviewed: (input: SetFilesReviewedInput) => void;
 	viewerRef: RefObject<DiffViewerHandle | null>;
 	didScrollToViaFileRef: RefObject<boolean>;
+	pendingFileRef: RefObject<FileAddress | null>;
+	renderAllFiles: boolean;
 	minimapFiles: Array<MinimapFile> | null;
 	canUncommit: boolean;
 	uncommit: (change: TreeChange, extendToCheckedFiles: boolean) => void;
@@ -494,6 +496,8 @@ const DiffContents: FC<{
 	setFilesReviewed,
 	viewerRef,
 	didScrollToViaFileRef,
+	pendingFileRef,
+	renderAllFiles,
 	minimapFiles,
 	canUncommit,
 	uncommit,
@@ -630,6 +634,20 @@ const DiffContents: FC<{
 		// oxlint-disable-next-line react-hooks/exhaustive-deps react-hooks-js/exhaustive-deps -- Sync scroll only on mount, otherwise use events.
 	}, []);
 
+	// Finishes a scroll `PageBody` could not issue; CodeView's child layout effect has synced items.
+	useLayoutEffect(() => {
+		const itemId = pendingFileRef.current && weakFileIdentityKey(pendingFileRef.current);
+		if (itemId === null) return;
+		if (!renderAllFiles) {
+			pendingFileRef.current = null;
+			return;
+		}
+		if (itemId !== activeFileItemId || !viewerRef.current?.getItem(itemId)) return;
+		pendingFileRef.current = null;
+		didScrollToViaFileRef.current = true;
+		viewerRef.current.scrollTo({ type: "item", id: itemId });
+	}, [activeFileItemId, renderAllFiles, pendingFileRef, didScrollToViaFileRef, viewerRef]);
+
 	function selectedLinesForHunk(address: HunkAddress): CodeViewLineSelection | null {
 		const hunk = hunkByKey.get(hunkAddressIdentityKey(address));
 		if (!hunk) return null;
@@ -639,6 +657,7 @@ const DiffContents: FC<{
 	const selectDiff = (selection: HunkAddress) => {
 		const nextSelectedLines = selectedLinesForHunk(selection);
 		if (!nextSelectedLines) return;
+		pendingFileRef.current = null;
 		setCursor("diff", { file: selection.parent, range: nextSelectedLines.range });
 
 		viewerRef.current?.scrollTo({
@@ -1217,6 +1236,7 @@ const DiffContents: FC<{
 			didScrollToViaFileRef.current = false;
 			return;
 		}
+		pendingFileRef.current = null;
 
 		const activeItem = viewer
 			.getRenderedItems()
@@ -1274,6 +1294,7 @@ const DiffContents: FC<{
 		if (!selection) return setCursor("diff", null);
 		const file = fileByItemId.get(selection.id);
 		if (!file) return;
+		pendingFileRef.current = null;
 		setCursor("diff", { file: file.address, range: selection.range });
 	}
 
@@ -2290,6 +2311,7 @@ const Diff: FC<{
 	projectId: string;
 	viewerRef: RefObject<DiffViewerHandle | null>;
 	didScrollToViaFileRef: RefObject<boolean>;
+	pendingFileRef: RefObject<FileAddress | null>;
 	headerSlot?: ReactNode;
 	/**
 	 * Whether this scope may have a files panel at all. Its caller knows, and the
@@ -2311,6 +2333,7 @@ const Diff: FC<{
 	onActiveFileSelection,
 	viewerRef,
 	didScrollToViaFileRef,
+	pendingFileRef,
 	headerSlot,
 }) => {
 	const focusScopeRef = useRef<HTMLDivElement>(null);
@@ -2884,6 +2907,8 @@ const Diff: FC<{
 								focusScopeRef={focusScopeRef}
 								viewerRef={viewerRef}
 								didScrollToViaFileRef={didScrollToViaFileRef}
+								pendingFileRef={pendingFileRef}
+								renderAllFiles={renderAllFiles}
 								minimapFiles={minimapShown ? minimapFiles : null}
 							/>
 						</div>
@@ -2955,6 +2980,7 @@ const CommitDetails: FC<{
 	onActiveFileSelection: (file: FileAddress) => void;
 	viewerRef: RefObject<DiffViewerHandle | null>;
 	didScrollToViaFileRef: RefObject<boolean>;
+	pendingFileRef: RefObject<FileAddress | null>;
 }> = ({
 	selection,
 	review,
@@ -2962,6 +2988,7 @@ const CommitDetails: FC<{
 	onActiveFileSelection,
 	viewerRef,
 	didScrollToViaFileRef,
+	pendingFileRef,
 }) => {
 	const detailsFullWindow = useAppSelector(interfaceSlice.selectors.selectDetailsFullWindow);
 	const filesVisibleState = useAppSelector((state) =>
@@ -3143,6 +3170,7 @@ const CommitDetails: FC<{
 					onActiveFileSelection={onActiveFileSelection}
 					viewerRef={viewerRef}
 					didScrollToViaFileRef={didScrollToViaFileRef}
+					pendingFileRef={pendingFileRef}
 				/>
 			)}
 		</div>
@@ -3201,6 +3229,7 @@ const BranchDiff: FC<BranchDetailsProps> = ({
 	onActiveFileSelection,
 	viewerRef,
 	didScrollToViaFileRef,
+	pendingFileRef,
 }) => {
 	const filesVisibleState = useAppSelector((state) =>
 		projectSlice.selectors.selectFilesVisible(state, projectId),
@@ -3234,6 +3263,7 @@ const BranchDiff: FC<BranchDetailsProps> = ({
 					onActiveFileSelection={onActiveFileSelection}
 					viewerRef={viewerRef}
 					didScrollToViaFileRef={didScrollToViaFileRef}
+					pendingFileRef={pendingFileRef}
 				/>
 			)}
 		</SuspenseQuery>
@@ -3455,6 +3485,7 @@ type DetailsViewProps = {
 	onActiveFileSelection: (file: FileAddress) => void;
 	viewerRef: RefObject<DiffViewerHandle | null>;
 	didScrollToViaFileRef: RefObject<boolean>;
+	pendingFileRef: RefObject<FileAddress | null>;
 };
 
 type BranchDetailsProps = { branch: BranchAddress } & DetailsViewProps;
@@ -3471,6 +3502,7 @@ const UnappliedBranchDetails: FC<BranchDetailsProps> = ({
 	onActiveFileSelection,
 	viewerRef,
 	didScrollToViaFileRef,
+	pendingFileRef,
 }) => {
 	const dispatch = useAppDispatch();
 	const branchName = branchDetailsParams(decodeBytes(branch.branchRef)).branchName;
@@ -3600,6 +3632,7 @@ const UnappliedBranchDetails: FC<BranchDetailsProps> = ({
 						onActiveFileSelection={onActiveFileSelection}
 						viewerRef={viewerRef}
 						didScrollToViaFileRef={didScrollToViaFileRef}
+						pendingFileRef={pendingFileRef}
 					/>
 				)}
 			</Suspense>
@@ -3614,6 +3647,7 @@ const AppliedBranchDetails: FC<BranchDetailsProps> = ({
 	onActiveFileSelection,
 	viewerRef,
 	didScrollToViaFileRef,
+	pendingFileRef,
 }) => {
 	const { data: forgeInfo } = useQuery(forgeInfoOptions(projectId));
 	const { data: headInfo } = useQuery(headInfoQueryOptions(projectId));
@@ -3802,6 +3836,7 @@ const AppliedBranchDetails: FC<BranchDetailsProps> = ({
 						onActiveFileSelection={onActiveFileSelection}
 						viewerRef={viewerRef}
 						didScrollToViaFileRef={didScrollToViaFileRef}
+						pendingFileRef={pendingFileRef}
 					/>
 				)}
 			</Suspense>
@@ -3839,6 +3874,7 @@ const FileDetails: FC<{
 	onActiveFileSelection: (file: FileAddress) => void;
 	viewerRef: RefObject<DiffViewerHandle | null>;
 	didScrollToViaFileRef: RefObject<boolean>;
+	pendingFileRef: RefObject<FileAddress | null>;
 }> = ({
 	path,
 	parent,
@@ -3847,6 +3883,7 @@ const FileDetails: FC<{
 	onActiveFileSelection,
 	viewerRef,
 	didScrollToViaFileRef,
+	pendingFileRef,
 }) => {
 	const detailsFullWindow = useAppSelector(interfaceSlice.selectors.selectDetailsFullWindow);
 	// This view is the uncommitted scope, and the sidebar's own "Uncommitted"
@@ -3900,6 +3937,7 @@ const FileDetails: FC<{
 					onActiveFileSelection={onActiveFileSelection}
 					viewerRef={viewerRef}
 					didScrollToViaFileRef={didScrollToViaFileRef}
+					pendingFileRef={pendingFileRef}
 					headerSlot={title}
 				/>
 			) : (
