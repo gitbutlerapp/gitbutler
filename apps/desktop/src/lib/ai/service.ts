@@ -162,8 +162,12 @@ export class AIService {
 			GitAIConfigKey.OpenAIModelName,
 			defaultModel,
 		);
-		if (Object.values(OpenAIModelName).includes(storedValue as OpenAIModelName)) {
-			return storedValue as OpenAIModelName;
+		const modelName = storedValue.trim();
+		if (!modelName) return defaultModel;
+
+		if ((await this.getOpenAICustomEndpoint())?.trim()) return modelName;
+		if (Object.values(OpenAIModelName).includes(modelName as OpenAIModelName)) {
+			return modelName;
 		}
 		return defaultModel;
 	}
