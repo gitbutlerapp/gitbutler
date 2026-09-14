@@ -64,6 +64,8 @@ existing assertions.
 
 Don't reuse snapshots from other tests. Give each test its own snapshots.
 
+Avoid using `tui.env().invoke_git("...")`. Prefer performing operations via the TUI.
+
 ## Running tests
 
 - `cargo test -p but <test-name>` to run one test.
