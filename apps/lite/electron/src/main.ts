@@ -412,11 +412,14 @@ const registerIpcHandlers = (): void => {
 				}),
 			);
 
+			// The renderer measures in CSS pixels; the popup is placed in window points, and
+			// page zoom is the ratio between them.
+			const zoomFactor = event.sender.getZoomFactor();
 			await new Promise<void>((resolve) => {
 				menu.popup({
 					window,
-					x: Math.round(position.x),
-					y: Math.round(position.y),
+					x: Math.round(position.x * zoomFactor),
+					y: Math.round(position.y * zoomFactor),
 					callback: () => resolve(),
 				});
 			});
