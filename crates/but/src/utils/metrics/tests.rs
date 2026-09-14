@@ -93,6 +93,7 @@ fn metrics_use_invoked_command_names() {
 
 #[test]
 fn formerly_unknown_commands_use_explicit_names() {
+    #[cfg(feature = "nightly")]
     assert_command(
         Subcommands::_Expand {
             cli_id: CliIdArg("c1".into()),

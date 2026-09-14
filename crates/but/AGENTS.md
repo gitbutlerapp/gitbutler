@@ -19,6 +19,18 @@ changes, also read `crates/WORKSPACE_MODEL.md`.
   (a TUI or an editor) take `help_heading = "Interactive"`, which the reference
   omits.
 
+## Experimental Commands
+
+- Gate experimental commands and their implementations with
+  `#[cfg(feature = "nightly")]`; never enable this feature by default.
+- Keep experimental command names prefixed with `_` and set `hide = true`.
+  Hidden commands can still appear in shell completions; hiding is not a
+  substitute for the feature gate.
+- Gate command-specific integration tests too, and run them with
+  `cargo test -p but --features nightly`.
+- Nightly release builds enable this feature for both bundled and standalone
+  CLIs. Stable releases must leave it disabled.
+
 ## Worktree Guards And Deadlocks
 
 Command handlers should acquire the required worktree guard at the top of the

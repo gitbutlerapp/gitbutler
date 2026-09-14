@@ -238,6 +238,7 @@ jobs:
           CARGO_PROFILE_RELEASE_SPLIT_DEBUGINFO: "off"
         run: |
           cargo build --locked --release -p but --bin but \
+            --features nightly \
             --target x86_64-unknown-linux-gnu \
             --target-dir target/profiling
 

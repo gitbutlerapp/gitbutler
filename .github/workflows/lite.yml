@@ -52,7 +52,7 @@ jobs:
       - name: Build but CLI
         env:
           GITBUTLER_REQUIRE_MCP_APP: "1"
-        run: cargo build --release --locked --offline -p but --features "packaged-but-distribution"
+        run: cargo build --release --locked --offline -p but --features "packaged-but-distribution,nightly"
       - name: Copy but CLI into Lite resources
         shell: bash
         run: |

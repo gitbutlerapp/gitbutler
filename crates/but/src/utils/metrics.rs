@@ -117,6 +117,7 @@ impl Subcommands {
             #[cfg(feature = "legacy")]
             Subcommands::Switch(..) => Switch,
             Subcommands::Gui { .. } => Gui,
+            #[cfg(feature = "nightly")]
             Subcommands::_Open { .. } => Open,
             #[cfg(feature = "legacy")]
             Subcommands::Commit(..) => Commit,
@@ -169,6 +170,7 @@ impl Subcommands {
                 }) => ForgeListUsers,
                 _ => Config,
             },
+            #[cfg(feature = "nightly")]
             Subcommands::_Expand { .. } => Expand,
             Subcommands::Alias(alias_args::Platform { cmd }) => match cmd {
                 None | Some(alias_args::Subcommands::List) => AliasCheck,

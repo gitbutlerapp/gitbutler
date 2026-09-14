@@ -198,6 +198,9 @@ else
 	exit 1
 fi
 
+if [ "$CHANNEL" = "nightly" ]; then
+	FEATURES="$FEATURES nightly"
+fi
 
 # update the version in the tauri release config
 jq  --arg version "$VERSION"\
