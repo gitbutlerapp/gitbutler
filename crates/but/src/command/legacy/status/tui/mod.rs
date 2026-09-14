@@ -773,6 +773,7 @@ pub enum Selectable {
     CommittedFile(CommittedFileId),
     Branch(BranchId),
     Commit(CommitId),
+    Worktree { id: String, name: BString },
     Uncommitted,
 }
 
@@ -809,6 +810,18 @@ impl PartialEq<CliId> for Selectable {
             }
             Selectable::Uncommitted => {
                 return matches!(other, CliId::Uncommitted { .. });
+            }
+            Selectable::Worktree {
+                id: id_lhs,
+                name: name_lhs,
+            } => {
+                if let CliId::Worktree {
+                    id: id_rhs,
+                    name: name_rhs,
+                } = other
+                {
+                    return id_lhs == id_rhs && name_lhs == name_rhs;
+                }
             }
         }
         false

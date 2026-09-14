@@ -236,12 +236,45 @@ impl App {
                         },
                     )
                 }
+                CliId::Worktree { id, name } => {
+                    use crate::command::worktree::remove;
+
+                    let worktree_name = name.clone();
+
+                    self.to_be_discarded = Vec::from([Selectable::Worktree {
+                        id: id.clone(),
+                        name: worktree_name.clone(),
+                    }]);
+                    let drop_to_be_discarded =
+                        message_on_drop::message_on_drop(Message::DropToBeDiscarded, messages);
+
+                    Confirm::new(
+                        NonEmpty::new(format!("Remove {worktree_name}? This cannot be undone").into()),
+                        self.theme,
+                        move |ctx, messages| {
+                            let mut guard = ctx.exclusive_worktree_access();
+                            _ = remove::run(
+                                ctx,
+                                guard.write_permission(),
+                                remove::RemoveOperation {
+                                    worktree: worktree_name,
+                                    force: true,
+                                },
+                            )?;
+
+                            messages.push(Message::Reload(None, ReloadCause::Mutation));
+
+                            drop(drop_to_be_discarded);
+
+                            Ok(())
+                        },
+                    )
+                }
                 CliId::AnonymousSegment(..)
                 | CliId::CommittedHunk(..)
                 | CliId::Stack { .. }
                 | CliId::PathPrefix { .. }
-                | CliId::WorktreeUncommitted { .. }
-                | CliId::Worktree { .. } => return Ok(()),
+                | CliId::WorktreeUncommitted { .. } => return Ok(()),
             },
         });
 

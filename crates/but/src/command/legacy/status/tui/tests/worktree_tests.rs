@@ -530,3 +530,18 @@ fn uncommit_a_worktree_commit_into_its_own_area() {
         .raw()
     );
 }
+
+#[test]
+fn discard_worktree() {
+    let (mut tui, _editor) = worktree_tui();
+
+    tui.input('j');
+    tui.input('j');
+    tui.input('j');
+    tui.input('j')
+        .assert_rendered_term_svg_eq(file!["snapshots/discard_worktree_001.svg"]);
+    tui.input('x')
+        .assert_rendered_term_svg_eq(file!["snapshots/discard_worktree_002.svg"]);
+    tui.input('y')
+        .assert_rendered_term_svg_eq(file!["snapshots/discard_worktree_003.svg"]);
+}
