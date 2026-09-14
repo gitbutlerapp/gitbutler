@@ -543,7 +543,10 @@ async fn match_subcommand(
         cmd => cmd,
     };
 
+    #[cfg(feature = "nightly")]
     let is_expand = matches!(&cmd, Subcommands::_Expand { .. });
+    #[cfg(not(feature = "nightly"))]
+    let is_expand = false;
     // A non-interactive invocation of a regular command: the situation where an
     // agent-facing maintenance notice is worth printing.
     let notice_worthy_command = !out.can_prompt()
@@ -827,6 +830,7 @@ async fn dispatch_subcommand(
             .map(|()| DispatchOutcome::Return)
             .map_err(CliError::from);
         }
+        #[cfg(feature = "nightly")]
         Subcommands::_Open { .. } => setup::init_ctx(
             &args,
             InitCtxOptions {
@@ -835,6 +839,7 @@ async fn dispatch_subcommand(
             },
             out,
         ),
+        #[cfg(feature = "nightly")]
         Subcommands::_Expand { .. } => but_ctx::Context::discover(&args.current_dir),
         Subcommands::Branch(branch::Platform { ref cmd }) => setup::init_ctx(
             &args,
@@ -959,6 +964,7 @@ async fn dispatch_subcommand(
         Subcommands::Setup { .. } => {
             unreachable!("handled above")
         }
+        #[cfg(feature = "nightly")]
         Subcommands::_Open {
             sources,
             program_id,
@@ -969,6 +975,7 @@ async fn dispatch_subcommand(
             command::open::open(&ctx, out, sources, program_id)?;
             None
         }
+        #[cfg(feature = "nightly")]
         Subcommands::_Expand { cli_id } => {
             let outcome = command::expand::handle(&ctx, cli_id)?;
             out.print_cli_output(outcome)?;

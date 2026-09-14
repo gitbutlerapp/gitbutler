@@ -17,6 +17,8 @@ doctest = false
 
 [features]
 default = ["legacy"]
+## Experimental commands and features, enabled only for nightly releases in CI.
+nightly = []
 ## A very specific utility flag to make clear that the 'but' binary is managed by a package manager.
 ## When set, the CLI cannot self-manage itself and commands like `but update install` are disabled.
 packaged-but-distribution = []

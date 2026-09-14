@@ -8,6 +8,7 @@ pub mod branch;
 pub mod comment;
 pub mod completions;
 pub mod config;
+#[cfg(feature = "nightly")]
 pub mod expand;
 pub(crate) mod external;
 pub(crate) mod git_config;

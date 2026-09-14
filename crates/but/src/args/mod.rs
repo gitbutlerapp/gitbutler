@@ -300,6 +300,7 @@ pub enum Subcommands {
     ///
     /// This is not considered a feature of the CLI and should not be relied upon. It is only for
     /// testing and debugging.
+    #[cfg(feature = "nightly")]
     #[clap(hide = true, name = "_expand")]
     _Expand {
         /// CLI ID to parse.
@@ -679,6 +680,7 @@ pub enum Subcommands {
     },
 
     /// Open files in the workspace using any defined program.
+    #[cfg(feature = "nightly")]
     #[clap(hide = true, name = "_open")]
     #[cfg_attr(feature = "raw-clap-docs", clap(verbatim_doc_comment))]
     _Open {

@@ -2,21 +2,26 @@ use std::path::{Path, PathBuf};
 
 use anyhow::Context as _;
 use bstr::BStr;
+#[cfg(feature = "nightly")]
+use but_api::open::list_program_specs;
 use but_api::open::{
-    list_program_specs, list_program_specs_for_file,
+    list_program_specs_for_file,
     program::{OpenSpec, ProgramSpec, open_in_program_unchecked},
 };
 use but_core::SingleHunk;
+#[cfg(feature = "nightly")]
 use but_ctx::Context;
 use gix::utils::AsBStr;
+#[cfg(feature = "nightly")]
 use itertools::Itertools as _;
 use nonempty::NonEmpty;
 
+use crate::id::UncommittedHunkOrFile;
+#[cfg(feature = "nightly")]
 use crate::{
     CliError, CliResult, IdMap,
     args::atoms::{CliIdArg, Purpose, ResolvedCliIdArg},
     bad_input,
-    id::UncommittedHunkOrFile,
     utils::IntermediateChannel,
 };
 
@@ -109,6 +114,7 @@ impl Openable {
     }
 }
 
+#[cfg(feature = "nightly")]
 pub(crate) fn open(
     ctx: &Context,
     mut out: IntermediateChannel<'_>,
@@ -204,6 +210,7 @@ pub(crate) fn list_program_specs_for_openable(openable: &Openable) -> Vec<Progra
     list_program_specs_for_file(path)
 }
 
+#[cfg(feature = "nightly")]
 fn resolve_source(
     repo: &gix::Repository,
     id_map: &IdMap,
@@ -227,6 +234,7 @@ fn resolve_source(
     }
 }
 
+#[cfg(feature = "nightly")]
 fn resolve_file_source(
     repo: &gix::Repository,
     id_map: &IdMap,
@@ -257,6 +265,7 @@ fn resolve_file_source(
     }
 }
 
+#[cfg(feature = "nightly")]
 fn hunk_with_multiple_sources_error(source: &CliIdArg) -> CliError {
     bad_input(format!(
         "Only entire files can be opened when multiple sources are provided; \
@@ -265,6 +274,7 @@ fn hunk_with_multiple_sources_error(source: &CliIdArg) -> CliError {
     .into()
 }
 
+#[cfg(feature = "nightly")]
 fn unexpected_source_kind(resolved_id: ResolvedCliIdArg) -> CliError {
     bad_input(format!(
         "Expected file or hunk, got {}",
