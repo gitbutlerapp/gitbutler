@@ -94,6 +94,32 @@ async function load(key, url) {
 	paint(true);
 }
 
+/**
+ * Re-fetch the open diffs that can still change: uncommitted files, in the main worktree or a
+ * linked one. A commit's diffs never change, so they stay as first fetched.
+ */
+let refreshingDiffs = false;
+async function refreshLiveDiffs() {
+	if (refreshingDiffs) return;
+	refreshingDiffs = true;
+	try {
+		for (const [key, url] of urls) {
+			const entry = loaded.get(key);
+			const isLive = url.startsWith("/api/diff") && !new URLSearchParams(url.split("?")[1]).has("commit");
+			if (!isLive || !open.has(key) || !entry || entry.loading) continue;
+			try {
+				loaded.set(key, { data: await fetchData(url) });
+			} catch (error) {
+				loaded.set(key, { error: String(error.message || error) });
+			}
+		}
+	} finally {
+		refreshingDiffs = false;
+	}
+	// Redraws only if a patch actually changed.
+	paint(false);
+}
+
 /** Where one file's patch comes from: a commit, a linked worktree, or the main worktree. */
 function diffUrl(path, { commit, worktree } = {}) {
 	const params = { path };
@@ -339,6 +365,7 @@ async function tick() {
 			reviews: data.reviews,
 		};
 		paint(false);
+		refreshLiveDiffs();
 		if (query) loadCommitFiles();
 	} catch (error) {
 		dot.className = "dot bad";
