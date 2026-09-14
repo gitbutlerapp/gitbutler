@@ -6,6 +6,9 @@ const tree = document.getElementById("tree");
 const sub = document.getElementById("sub");
 const dot = document.getElementById("dot");
 const repoEl = document.getElementById("repo");
+const searchEl = document.getElementById("search");
+const menuEl = document.getElementById("menu");
+const toastEl = document.getElementById("toast");
 
 const POLL_MS = 3000;
 
@@ -180,7 +183,8 @@ function renderFiles(changes, source = {}) {
 			const type = change.status.type;
 			const patch = loaded.get(key)?.data?.subject;
 			return (
-				`<button class="row file ${isOpen ? "open" : ""}" data-key="${esc(key)}" data-url="${esc(diffUrl(change.path, source))}">` +
+				`<button class="row file ${isOpen ? "open" : ""}" data-key="${esc(key)}" data-url="${esc(diffUrl(change.path, source))}"` +
+				` data-path="${esc(change.path)}"${source.worktree ? ` data-worktree="${esc(source.worktree)}"` : ""}${type === "Deletion" ? " data-deleted" : ""}>` +
 				`<span class="tw">▶</span>` +
 				`<span class="st ${STATUS_CLASS[type] || ""}">${STATUS_CHAR[type] || "?"}</span>` +
 				`<span class="grow clip path">&lrm;${esc(change.path)}&lrm;</span>` +
@@ -312,6 +316,10 @@ function renderWorktree({ worktree, changes = [], error, archived }) {
 
 function render({ workspace, changes, worktrees, reviews }) {
 	const { branches, base } = branchesFromRows(workspace.stacks);
+	if (query) {
+		tree.innerHTML = renderSearch(branches, changes, worktrees);
+		return;
+	}
 	const parts = [
 		renderUncommitted(changes),
 		...branches.map((branch) => renderBranch(branch, reviews)),
@@ -330,7 +338,11 @@ function render({ workspace, changes, worktrees, reviews }) {
 function paint(force) {
 	if (!latest) return;
 	const signature =
-		JSON.stringify(latest) + [...open].sort().join("|") + JSON.stringify([...loaded]);
+		JSON.stringify(latest) +
+		[...open].sort().join("|") +
+		JSON.stringify([...loaded]) +
+		query +
+		(commitFiles ? commitFiles.key : "");
 	if (!force && signature === lastSignature) return;
 	lastSignature = signature;
 	const y = window.scrollY;
@@ -346,6 +358,7 @@ async function tick() {
 		document.title = `${data.repo} — workspace`;
 		sub.textContent = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
 		latest = {
+			project: data.project,
 			workspace: data.workspace,
 			changes: data.changes,
 			worktrees: data.worktrees,
@@ -353,11 +366,238 @@ async function tick() {
 		};
 		paint(false);
 		refreshLiveDiffs();
+		if (query) loadCommitFiles();
 	} catch (error) {
 		dot.className = "dot bad";
 		if (!latest) tree.innerHTML = `<div class="err">${esc(error.message || error)}</div>`;
 	}
 }
+
+// --- file search -----------------------------------------------------------
+
+let query = "";
+let commitFiles = null; // { key, files: { [commitId]: changes } } for the workspace's commits
+let commitFilesLoading = null;
+
+const commitIdsOf = (workspace) =>
+	workspace.stacks
+		.flatMap((stack) => stack.rows)
+		.filter((row) => row.data.type === "Commit")
+		.map((row) => row.data.subject.id);
+
+/** Fetch the workspace commits' files when the set of commits changed since the last fetch. */
+async function loadCommitFiles() {
+	if (!latest) return;
+	const key = commitIdsOf(latest.workspace).join(",");
+	if (commitFiles?.key === key || commitFilesLoading === key) return;
+	commitFilesLoading = key;
+	try {
+		commitFiles = { key, files: await fetchData(api("/api/commit-files")) };
+	} catch (error) {
+		commitFiles = { key, error: String(error.message || error) };
+	}
+	commitFilesLoading = null;
+	paint(true);
+}
+
+/** Every term must appear in the path, in any order and case. */
+function matches(path) {
+	const lower = path.toLowerCase();
+	return query
+		.toLowerCase()
+		.split(/\s+/)
+		.filter(Boolean)
+		.every((term) => lower.includes(term));
+}
+
+function renderSearch(branches, changes, worktrees) {
+	const groups = [];
+	const addGroup = (title, detail, groupChanges, source) => {
+		const found = groupChanges.filter((change) => matches(change.path));
+		if (!found.length) return;
+		groups.push(
+			`<section class="card"><div class="group"><span class="name clip">${esc(title)}</span>` +
+				(detail ? `<span class="meta clip">${esc(detail)}</span>` : "") +
+				`</div>${renderFiles(found, source)}</section>`,
+		);
+	};
+
+	addGroup("Uncommitted", "", changes, {});
+	for (const { reference, commits } of branches) {
+		for (const commit of commits) {
+			const files = commitFiles?.files?.[commit.id];
+			if (files) {
+				addGroup(reference.refName.displayName, subject(commit.message), files, {
+					commit: commit.id,
+				});
+			}
+		}
+	}
+	for (const { worktree, changes: worktreeChanges = [] } of worktrees) {
+		addGroup(`${worktree.name} worktree`, "uncommitted", worktreeChanges, {
+			worktree: worktree.name,
+		});
+	}
+
+	let status = "";
+	if (commitFiles?.error) status = `<div class="err">${esc(commitFiles.error)}</div>`;
+	else if (commitFiles?.key !== commitIdsOf(latest.workspace).join(","))
+		status = `<div class="loading">Searching commits…</div>`;
+	return status + (groups.length ? groups.join("") : status ? "" : `<div class="empty">No files match.</div>`);
+}
+
+searchEl.addEventListener("input", () => {
+	query = searchEl.value.trim();
+	if (query) loadCommitFiles();
+	paint(true);
+});
+
+addEventListener("keydown", (event) => {
+	if (event.key === "/" && document.activeElement !== searchEl) {
+		event.preventDefault();
+		searchEl.focus();
+	} else if (event.key === "Escape") {
+		if (!menuEl.hidden) closeMenu();
+		else if (document.activeElement === searchEl && searchEl.value) {
+			searchEl.value = "";
+			searchEl.dispatchEvent(new Event("input"));
+		}
+	}
+});
+
+// --- open with ---------------------------------------------------------------
+
+const programsByExtension = new Map();
+
+/** The programs for `path`, which depend only on its extension. */
+async function programsFor(path) {
+	const extension = path.includes(".") ? path.slice(path.lastIndexOf(".")) : "";
+	if (!programsByExtension.has(extension)) {
+		programsByExtension.set(extension, await fetchData(api("/api/programs", { path })));
+	}
+	return programsByExtension.get(extension);
+}
+
+function closeMenu() {
+	menuEl.hidden = true;
+	menuEl.innerHTML = "";
+}
+
+/** Show the menu at the pointer, kept inside the window. */
+function placeMenu(x, y) {
+	menuEl.hidden = false;
+	const { width, height } = menuEl.getBoundingClientRect();
+	menuEl.style.left = `${Math.max(4, Math.min(x, innerWidth - width - 4))}px`;
+	menuEl.style.top = `${Math.max(4, Math.min(y, innerHeight - height - 4))}px`;
+}
+
+function toast(message, bad) {
+	toastEl.textContent = message;
+	toastEl.className = `toast${bad ? " bad" : ""}`;
+	toastEl.hidden = false;
+	clearTimeout(toast.timer);
+	toast.timer = setTimeout(() => (toastEl.hidden = true), bad ? 5000 : 2000);
+}
+
+/** The absolute path of `path` in the checkout it belongs to: a linked worktree or the project. */
+function fullPath(path, worktree) {
+	const root = worktree
+		? latest.worktrees.find((entry) => entry.worktree.name === worktree)?.worktree.path
+		: latest.project;
+	return root ? `${root.replace(/\/$/, "")}/${path}` : path;
+}
+
+const menuItem = (label, data) =>
+	`<button class="menu-item" ${Object.entries(data)
+		.map(([key, value]) => `data-${key}="${esc(value)}"`)
+		.join(" ")}>${esc(label)}</button>`;
+
+tree.addEventListener("contextmenu", async (event) => {
+	const row = event.target.closest(".row.file[data-path]");
+	if (!row) return;
+	event.preventDefault();
+	const { path, worktree } = row.dataset;
+	menuEl.dataset.path = path;
+	menuEl.dataset.worktree = worktree || "";
+
+	const header =
+		`<div class="menu-title clip">&lrm;${esc(path)}&lrm;</div>` +
+		`<div class="menu-label">Copy</div>` +
+		menuItem("File name", { copy: path.slice(path.lastIndexOf("/") + 1), what: "File name" }) +
+		menuItem("Relative path", { copy: path, what: "Relative path" }) +
+		menuItem("Full path", { copy: fullPath(path, worktree), what: "Full path" }) +
+		`<div class="menu-label">Open with</div>`;
+	const show = (openWith) => {
+		menuEl.innerHTML = header + openWith;
+		placeMenu(event.clientX, event.clientY);
+	};
+
+	if ("deleted" in row.dataset) {
+		show(`<div class="menu-note">Deleted, so there is nothing to open.</div>`);
+		return;
+	}
+	show(`<div class="menu-note">Loading…</div>`);
+	try {
+		const programs = await programsFor(path);
+		if (menuEl.hidden || menuEl.dataset.path !== path) return;
+		show(
+			programs.length
+				? programs.map((program) => menuItem(program.name, { program: program.id, name: program.name })).join("")
+				: `<div class="menu-note">No programs found.</div>`,
+		);
+	} catch (error) {
+		show(`<div class="menu-note err-text">${esc(error.message || error)}</div>`);
+	}
+});
+
+/** Copy `text`, falling back to a selection where the clipboard API isn't allowed. */
+async function copyText(text) {
+	try {
+		await navigator.clipboard.writeText(text);
+	} catch {
+		const field = document.createElement("textarea");
+		field.value = text;
+		document.body.append(field);
+		field.select();
+		const copied = document.execCommand("copy");
+		field.remove();
+		if (!copied) throw new Error("The browser didn't allow copying");
+	}
+}
+
+menuEl.addEventListener("click", async (event) => {
+	const item = event.target.closest(".menu-item");
+	if (!item) return;
+	const { path, worktree } = menuEl.dataset;
+	closeMenu();
+
+	if ("copy" in item.dataset) {
+		try {
+			await copyText(item.dataset.copy);
+			toast(`${item.dataset.what} copied`);
+		} catch (error) {
+			toast(String(error.message || error), true);
+		}
+		return;
+	}
+
+	const params = { path, program: item.dataset.program };
+	if (worktree) params.worktree = worktree;
+	try {
+		const response = await fetch(api("/api/open", params), { method: "POST" });
+		const body = await response.json().catch(() => ({ ok: false, error: response.statusText }));
+		if (!body.ok) throw new Error(body.error);
+		toast(`Opened in ${item.dataset.name}`);
+	} catch (error) {
+		toast(String(error.message || error), true);
+	}
+});
+
+addEventListener("mousedown", (event) => {
+	if (!menuEl.hidden && !menuEl.contains(event.target)) closeMenu();
+});
+addEventListener("scroll", () => menuEl.hidden || closeMenu(), true);
+addEventListener("resize", () => menuEl.hidden || closeMenu());
 
 // --- project switcher ------------------------------------------------------
 
