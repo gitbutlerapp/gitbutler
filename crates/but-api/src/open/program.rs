@@ -434,6 +434,26 @@ pub(crate) static PROGRAMS: LazyLock<Vec<ProgramSpec>> = LazyLock::new(|| {
             category: ProgramCategory::Editor,
             extensions: None,
         },
+        ProgramSpec {
+            id: "vscodium".into(),
+            name: "VSCodium".into(),
+            cli_arg_supplier: CliArgumentSupplier::VSCodeLike,
+            #[cfg(not(target_os = "macos"))]
+            executable: ExecutableProgram::PathExecutable(PathExecutable {
+                #[cfg(target_os = "linux")]
+                name_or_path: "codium".into(),
+                #[cfg(target_os = "windows")]
+                name_or_path: "codium.exe".into(),
+                requires_tty: false,
+            }),
+            #[cfg(target_os = "macos")]
+            executable: ExecutableProgram::MacosApplication(MacosApplication {
+                bundle_identifier: "com.vscodium".into(),
+                cli_wrapper_path: Some("Contents/Resources/app/bin/codium".into()),
+            }),
+            category: ProgramCategory::Editor,
+            extensions: None,
+        },
         #[cfg(all(target_os = "macos", not(debug_assertions)))]
         ProgramSpec {
             id: "xcode".into(),
