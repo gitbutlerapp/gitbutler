@@ -985,9 +985,9 @@ async fn dispatch_subcommand(
         }
         #[cfg(feature = "nightly")]
         Subcommands::Panel(panel_args) => {
-            use crate::utils::IntermediateChannel;
-
-            command::panel::serve(&mut ctx, IntermediateChannel::new(out), panel_args)?;
+            let (outcome, server) = command::panel::start(&ctx, panel_args)?;
+            out.print_cli_output(outcome)?;
+            server.run(&mut ctx)?;
             None
         }
         Subcommands::Worktree(worktree::Platform { cmd }) => {
