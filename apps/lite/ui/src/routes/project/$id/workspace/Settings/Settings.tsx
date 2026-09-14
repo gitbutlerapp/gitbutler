@@ -5,7 +5,6 @@ import { Icon } from "#ui/components/Icon.tsx";
 import styles from "./Settings.module.css";
 import {
 	defaultSettingsPageKey,
-	externalLinks,
 	settingsPagesInScope,
 	settingsScopes,
 	type SettingsPageKey,
@@ -60,9 +59,6 @@ export const Settings: FC<Props> = (p) => {
 		.map((scope) => ({ scope, pages: settingsPagesInScope(scope) }))
 		.filter((group) => group.pages.length > 0);
 
-	// A lone group has nothing to be told apart from.
-	const showHeadings = groups.length > 1;
-
 	const Content = pageContent[selected];
 
 	return (
@@ -75,15 +71,18 @@ export const Settings: FC<Props> = (p) => {
 			className={styles.popup}
 		>
 			<nav aria-label="Settings pages" className={styles.sidebar}>
-				<h1 id="settings-heading" className={classes("text-14", "text-bold", styles.heading)}>
+				<h1 id="settings-heading" className={classes("text-16", "text-semibold", styles.heading)}>
 					Settings
 				</h1>
 
 				{groups.map((group) => (
 					<div key={group.scope} className={styles.group}>
-						{showHeadings && (
-							<h2 className={classes("text-12", styles.groupHeading)}>
-								{group.scope === "global" ? "Application" : p.projectName}
+						{/* The application's pages need no heading: the dialog's own is theirs. The
+						    project's are the ones a reader has to be told belong to something else. */}
+						{group.scope === "project" && (
+							<h2 className={classes("text-13", "text-semibold", styles.groupHeading)}>
+								<Icon name="folder" className={styles.linkIcon} />
+								<span className={styles.groupHeadingName}>{p.projectName}</span>
 							</h2>
 						)}
 
@@ -94,7 +93,6 @@ export const Settings: FC<Props> = (p) => {
 								aria-current={page.key === selected ? "page" : undefined}
 								className={classes(
 									"text-13",
-									"text-semibold",
 									styles.link,
 									page.key === selected && styles.linkSelected,
 								)}
@@ -106,23 +104,6 @@ export const Settings: FC<Props> = (p) => {
 						))}
 					</div>
 				))}
-
-				<div className={styles.social}>
-					{externalLinks.map((link) => (
-						<button
-							key={link.label}
-							type="button"
-							className={classes("text-13", "text-semibold", styles.link)}
-							onClick={() => void window.lite.openInWebBrowser(link.url)}
-						>
-							<Icon name={link.icon} className={styles.linkIcon} />
-							<span>{link.label}</span>
-							<span aria-hidden className={styles.linkExternal}>
-								↗
-							</span>
-						</button>
-					))}
-				</div>
 			</nav>
 
 			<div className={styles.content}>

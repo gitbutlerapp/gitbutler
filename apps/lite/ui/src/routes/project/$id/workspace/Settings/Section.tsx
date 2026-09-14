@@ -8,13 +8,13 @@ type SectionProps = {
 	children: ReactNode;
 };
 
-/** A group of rows whose labels and controls share a column pair. */
+/** A card of rows, one setting each. */
 export const Section: FC<SectionProps> = (p) => (
 	<section className={styles.section}>
 		{p.heading !== undefined && (
 			<h2 className={classes("text-13", "text-semibold", styles.heading)}>{p.heading}</h2>
 		)}
-		<div className={classes("text-13", styles.rows)}>{p.children}</div>
+		<div className={styles.rows}>{p.children}</div>
 	</section>
 );
 
@@ -32,29 +32,37 @@ type RowProps = {
 };
 
 /**
- * One setting. A control that a `<label>` can own takes `htmlFor`; anything else — a
- * toggle group, a set of buttons — takes `labelId` and points at it, which is why the
- * label is not always a `<label>`.
+ * One setting: its name and, under that, a line saying what it does, with the control at the
+ * row's end. A control that a `<label>` can own takes `htmlFor`; anything else — a toggle group,
+ * a set of buttons — takes `labelId` and points at it, which is why the label is not always a
+ * `<label>`.
  */
 export const Row: FC<RowProps> = (p) => (
-	<div className={classes(styles.row, p.stacked && styles.stacked)}>
-		{p.htmlFor === undefined ? (
-			<span id={p.labelId} className={classes("text-semibold", styles.label)}>
-				{p.label}
-			</span>
-		) : (
-			<label htmlFor={p.htmlFor} className={classes("text-semibold", styles.label)}>
-				{p.label}
-			</label>
+	<div
+		className={classes(
+			styles.row,
+			p.stacked && styles.stacked,
+			// A row that is one line of text centres its control on that line; one with a hint
+			// keeps the control up against the label, which is what it belongs to.
+			p.hint === undefined && styles.centered,
 		)}
+	>
+		<div className={styles.text}>
+			{p.htmlFor === undefined ? (
+				<span id={p.labelId} className={classes("text-15", "text-semibold", styles.label)}>
+					{p.label}
+				</span>
+			) : (
+				<label htmlFor={p.htmlFor} className={classes("text-15", "text-semibold", styles.label)}>
+					{p.label}
+				</label>
+			)}
+
+			{p.hint !== undefined && (
+				<span className={classes("text-12", "text-body", styles.hint)}>{p.hint}</span>
+			)}
+		</div>
 
 		<div className={styles.control}>{p.children}</div>
-
-		{/*
-		 * On its own line under both columns. Kept in the label cell it would be the
-		 * widest thing there, and the label column sizes to its content — a sentence
-		 * of explanation would take the width the control needs.
-		 */}
-		{p.hint !== undefined && <span className={classes("text-12", styles.hint)}>{p.hint}</span>}
 	</div>
 );

@@ -1,9 +1,10 @@
-/* Matches the card chrome a Section draws, since this is a form rather than rows. */
+/* The card chrome a Section draws, since this is a form rather than rows. */
 .profileCard {
 	display: flex;
-	padding: 12px;
-	gap: 14px;
-	border: 1px solid var(--border-2);
+	align-items: flex-start;
+	padding: 16px;
+	gap: 16px;
+	border: 1px solid var(--border-section);
 	border-radius: var(--radius-card);
 	background-color: var(--bg-1);
 }
@@ -13,18 +14,15 @@
 	position: relative;
 	flex: none;
 	place-items: center;
-	width: 76px;
-	height: 76px;
+	width: 72px;
+	height: 72px;
 	overflow: hidden;
-	border: 1px solid var(--border-2);
-	border-radius: var(--radius-card);
+	border-radius: 50%;
 	background-color: var(--bg-2);
+	color: var(--text-3);
 
-	& > * {
-		grid-area: 1 / 1;
-	}
-
-	&:hover .avatarOverlay {
+	&:hover .avatarOverlay,
+	&:focus-visible .avatarOverlay {
 		opacity: 1;
 	}
 }
@@ -35,18 +33,15 @@
 	object-fit: cover;
 }
 
-.avatarEmpty {
-	color: var(--text-3);
-}
-
-/* Only on hover: the picture is the point, the affordance is secondary. */
+/* Only on hover: the picture is the point, the affordance is secondary. The camera sits on a
+   black wash, so it stays light in both themes rather than following the text colour. */
 .avatarOverlay {
-	align-self: end;
-	inline-size: 100%;
-	padding-block: 4px;
-	background-color: rgb(0 0 0 / 0.55);
-	color: white;
-	text-align: center;
+	display: grid;
+	position: absolute;
+	place-items: center;
+	inset: 0;
+	background-color: rgb(0 0 0 / 0.5);
+	color: var(--clr-gray-95);
 	opacity: 0;
 	transition: opacity var(--transition-fast);
 }
@@ -56,36 +51,19 @@
 	flex: 1;
 	flex-direction: column;
 	min-width: 0;
-	gap: 4px;
+	gap: 16px;
 }
 
-.fieldLabel {
-	color: var(--text-2);
-
-	&:not(:first-child) {
-		margin-block-start: 6px;
-	}
-}
-
-.field {
-	padding: 5px 8px;
-	border: 1px solid var(--border-2);
-	border-radius: var(--radius-button);
-	background-color: var(--bg-1);
-	color: var(--text-1);
-}
-
-.fieldReadonly {
-	background-color: var(--bg-2);
-	color: var(--text-2);
-}
-
-.formActions {
+/* The name and the button that saves it, the button sat on the field's baseline. */
+.nameRow {
 	display: flex;
-	align-items: center;
-	justify-content: flex-end;
-	margin-block-start: 12px;
-	gap: 8px;
+	align-items: flex-end;
+	gap: 10px;
+}
+
+.nameField {
+	flex: 1;
+	min-width: 0;
 }
 
 .error {
