@@ -382,7 +382,7 @@ impl Details {
                 )
             }
             CliId::Worktree { .. } => {
-                self.diff_not_supported("(a worktree reference has no diff of its own)");
+                self.diff_not_supported("(viewing diffs for worktrees is not supported)");
                 Ok(true)
             }
             CliId::AnonymousSegment(..) => {
