@@ -221,6 +221,35 @@ fn repository_name(root: &Path) -> String {
         .unwrap_or_else(|| root.display().to_string())
 }
 
+/// Every project GitButler knows, as name and canonical path. The project list is only readable
+/// through legacy APIs today.
+#[cfg(feature = "legacy")]
+fn known_projects() -> Option<Vec<(String, PathBuf)>> {
+    let projects = but_api::legacy::projects::list_projects_stateless().ok()?;
+    let projects = serde_json::to_value(projects).ok()?;
+    Some(
+        projects
+            .as_array()?
+            .iter()
+            .filter_map(|project| {
+                let path = PathBuf::from(project.get("path")?.as_str()?);
+                // A project whose directory is gone can't be shown.
+                let path = path.canonicalize().ok()?;
+                let name = project
+                    .get("title")
+                    .and_then(|title| title.as_str())
+                    .map_or_else(|| repository_name(&path), str::to_owned);
+                Some((name, path))
+            })
+            .collect(),
+    )
+}
+
+#[cfg(not(feature = "legacy"))]
+fn known_projects() -> Option<Vec<(String, PathBuf)>> {
+    None
+}
+
 /// The projects this server has shown, each with the context it reads through.
 struct Projects<'ctx> {
     /// The project `but panel` was started in.
@@ -233,6 +262,25 @@ struct Projects<'ctx> {
 }
 
 impl Projects<'_> {
+    /// The projects to offer in the page's switcher, by name: every GitButler project where the
+    /// project list is readable, and otherwise the ones this server has shown.
+    fn list(&self) -> serde_json::Value {
+        let mut listed: Vec<(String, PathBuf)> = known_projects().unwrap_or_else(|| {
+            std::iter::once(&self.default_root)
+                .chain(self.opened.keys())
+                .map(|root| (repository_name(root), root.clone()))
+                .collect()
+        });
+        listed.sort_by_key(|(name, _)| name.to_lowercase());
+        listed.dedup_by(|a, b| a.1 == b.1);
+        serde_json::Value::Array(
+            listed
+                .into_iter()
+                .map(|(name, path)| json!({ "name": name, "path": path }))
+                .collect(),
+        )
+    }
+
     /// The context and root for the project at `requested`, or the default project without one.
     fn get(&mut self, requested: Option<&str>) -> anyhow::Result<(&mut Context, PathBuf)> {
         let Some(requested) = requested else {
@@ -286,6 +334,7 @@ fn handle_connection(
                 body: APP_JS,
             },
             Route::Ping => Response::Json(json!({ "panel": true })),
+            Route::Projects => data_response(Ok(projects.list())),
             Route::Workspace => data_response(
                 projects
                     .get(project.as_deref())
@@ -552,6 +601,8 @@ enum Route {
     Script,
     /// Lets a second `but panel` recognise a running panel.
     Ping,
+    /// The projects the page can switch between.
+    Projects,
     Workspace,
     Commit {
         id: String,
@@ -605,6 +656,7 @@ fn route(request: &Request, port: u16) -> Route {
         "/" => Route::Index,
         "/app.js" => Route::Script,
         "/api/ping" => Route::Ping,
+        "/api/projects" => Route::Projects,
         "/api/workspace" => Route::Workspace,
         "/api/commit" => match param("id") {
             Some(id) => Route::Commit { id },
@@ -736,6 +788,7 @@ mod tests {
         assert_eq!(route(&get("/app.js", LOCAL), 7789), Route::Script);
         assert_eq!(route(&get("/api/workspace", LOCAL), 7789), Route::Workspace);
         assert_eq!(route(&get("/api/ping", LOCAL), 7789), Route::Ping);
+        assert_eq!(route(&get("/api/projects", LOCAL), 7789), Route::Projects);
         assert_eq!(
             route(&get("/api/commit?id=abc123", LOCAL), 7789),
             Route::Commit {

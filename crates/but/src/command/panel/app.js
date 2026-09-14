@@ -316,7 +316,7 @@ async function tick() {
 	try {
 		const data = await fetchData(api("/api/workspace"));
 		dot.className = "dot";
-		repoEl.textContent = data.repo;
+		showProject(data);
 		document.title = `${data.repo} — workspace`;
 		sub.textContent = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
 		latest = {
@@ -331,6 +331,39 @@ async function tick() {
 		if (!latest) tree.innerHTML = `<div class="err">${esc(error.message || error)}</div>`;
 	}
 }
+
+// --- project switcher ------------------------------------------------------
+
+let projectList = null;
+let shownProject = null;
+
+/** Fill the header's switcher once, marking the project this page shows. */
+async function showProject({ repo, project }) {
+	if (projectList === null) {
+		try {
+			projectList = await fetchData(api("/api/projects"));
+		} catch {
+			projectList = [];
+		}
+	}
+	if (shownProject === project && repoEl.options.length) return;
+	shownProject = project;
+	const entries = projectList.some((entry) => entry.path === project)
+		? projectList
+		: [{ name: repo, path: project }, ...projectList];
+	repoEl.innerHTML = entries
+		.map(
+			(entry) =>
+				`<option value="${esc(entry.path)}"${entry.path === project ? " selected" : ""}>${esc(entry.name)}</option>`,
+		)
+		.join("");
+}
+
+repoEl.addEventListener("change", () => {
+	// A full navigation, so the address, reloads and history all name the new project.
+	// Keep slashes readable, the way `but panel` prints the URL.
+	location.search = `project=${encodeURIComponent(repoEl.value).replaceAll("%2F", "/")}`;
+});
 
 tree.addEventListener("click", (event) => {
 	const row = event.target.closest("[data-key]");
