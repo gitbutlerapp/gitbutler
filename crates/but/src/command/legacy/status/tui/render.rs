@@ -22,7 +22,8 @@ use crate::{
         },
         tui::app::{
             BranchMode, CherryPickMode, CommitMessageComposer, CommitMode, JumpMode, MoveMode,
-            MoveSource, MoveStackMode, StackMode, find_jump_match, lines_part_of_current_stack,
+            MoveSource, MoveStackMode, StackMode, WorktreeMode, find_jump_match,
+            lines_part_of_current_stack,
         },
     },
     id::CommitId,
@@ -1381,6 +1382,33 @@ pub fn branch_operation_display(
     }
 }
 
+pub fn worktree_operation_display(
+    data: &StatusOutputLineData,
+    _mode: &WorktreeMode,
+) -> Option<&'static str> {
+    match data {
+        StatusOutputLineData::Commit { .. }
+        | StatusOutputLineData::Worktree { .. }
+        | StatusOutputLineData::MergeBase => Some("worktree"),
+        StatusOutputLineData::UpdateNotice
+        | StatusOutputLineData::UncommittedChanges { .. }
+        | StatusOutputLineData::Branch { .. }
+        | StatusOutputLineData::WorktreeUncommitted { .. }
+        | StatusOutputLineData::Connector
+        | StatusOutputLineData::BetweenStacks
+        | StatusOutputLineData::StagedChanges { .. }
+        | StatusOutputLineData::StagedFile { .. }
+        | StatusOutputLineData::UncommittedFile { .. }
+        | StatusOutputLineData::CommitMessage
+        | StatusOutputLineData::EmptyCommitMessage
+        | StatusOutputLineData::File { .. }
+        | StatusOutputLineData::UpstreamChanges
+        | StatusOutputLineData::Warning
+        | StatusOutputLineData::Hint
+        | StatusOutputLineData::NoAssignmentsUnstaged => None,
+    }
+}
+
 pub(crate) fn source_span(theme: &'static Theme) -> Span<'static> {
     Span::raw("<< source >>").mode_colors(ModeDiscriminant::Normal, theme)
 }
@@ -1507,6 +1535,7 @@ impl Mode {
             Mode::Jump(mode) => mode,
             Mode::CherryPick(mode) => mode,
             Mode::Branch(mode) => mode,
+            Mode::Worktree(mode) => mode,
         }
     }
 }

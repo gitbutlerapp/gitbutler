@@ -121,7 +121,7 @@ impl ReorderStackSource {
 
 #[derive(Debug)]
 pub enum StackMessage {
-    Enter,
+    Start,
     ShowApplyPicker,
     Unapply,
     MoveStart,
@@ -315,7 +315,7 @@ impl App {
         messages: &mut Vec<Message>,
     ) -> anyhow::Result<()> {
         match message {
-            StackMessage::Enter => self.handle_stack_enter(ctx)?,
+            StackMessage::Start => self.handle_stack_enter(ctx)?,
             StackMessage::ShowApplyPicker => self.handle_stack_show_apply_picker(ctx)?,
             StackMessage::Unapply => self.handle_stack_unapply(ctx, messages)?,
             StackMessage::MoveStart => self.handle_stack_move_start(),

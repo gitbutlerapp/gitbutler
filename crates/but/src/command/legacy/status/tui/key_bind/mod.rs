@@ -11,6 +11,7 @@ use crate::{
         Message, StackMessage,
         app::{
             BranchMessage, CherryPickMessage, CommitMessageComposer, RewordMessage, SquashMessage,
+            WorktreeMessage,
         },
         details::DetailsMessage,
         help::HelpMessage,
@@ -32,7 +33,7 @@ pub fn default_key_binds(feature_flags: &FeatureFlags) -> KeyBinds {
         let mut builder = key_binds.for_modes([mode]);
         match mode {
             ModeDiscriminant::Normal => {
-                register_normal_mode_key_binds(&mut builder, true);
+                register_normal_mode_key_binds(&mut builder, true, feature_flags);
             }
             ModeDiscriminant::PickChanges => {
                 builder.mark().register();
@@ -92,6 +93,16 @@ pub fn default_key_binds(feature_flags: &FeatureFlags) -> KeyBinds {
                 builder.switch_to_squash_mode().register();
                 builder.switch_to_move_mode().register();
                 register_non_mode_specific_key_binds(&mut builder, WithFocusDetails::No);
+            }
+            ModeDiscriminant::Worktree => {
+                if feature_flags.worktree_manipulation {
+                    builder.worktree_new().register();
+                    builder
+                        .discard()
+                        .long_description("Discard worktree")
+                        .register();
+                    register_non_mode_specific_key_binds(&mut builder, WithFocusDetails::No);
+                }
             }
             ModeDiscriminant::Details => {
                 builder
@@ -335,12 +346,12 @@ pub fn help_key_binds() -> KeyBinds {
     key_binds
 }
 
-pub fn normal_with_marks_key_binds() -> KeyBinds {
+pub fn normal_with_marks_key_binds(feature_flags: &FeatureFlags) -> KeyBinds {
     let mut key_binds = KeyBinds::new();
 
     let mut builder = key_binds.for_modes(Vec::from([ModeDiscriminant::Normal]));
 
-    register_normal_mode_key_binds(&mut builder, false);
+    register_normal_mode_key_binds(&mut builder, false, feature_flags);
 
     key_binds
 }
@@ -734,9 +745,23 @@ impl KeyBindsBuilder<'_> {
 
     fn stack(&mut self) -> KeyBindsInModesBuilder<'_> {
         self.key_bind("stack", press().code(KeyCode::Char('s')), || {
-            Message::Stack(StackMessage::Enter)
+            Message::Stack(StackMessage::Start)
         })
         .long_description("Enter stack mode")
+    }
+
+    fn worktree(&mut self) -> KeyBindsInModesBuilder<'_> {
+        self.key_bind("worktree", press().code(KeyCode::Char('w')), || {
+            Message::Worktree(WorktreeMessage::Start)
+        })
+        .long_description("Enter worktree mode")
+    }
+
+    fn worktree_new(&mut self) -> KeyBindsInModesBuilder<'_> {
+        self.key_bind("new", press().code(KeyCode::Char('n')), || {
+            Message::Worktree(WorktreeMessage::New)
+        })
+        .long_description("Create new worktree")
     }
 
     fn focus_details(&mut self) -> KeyBindsInModesBuilder<'_> {
@@ -1151,7 +1176,11 @@ impl KeyBindsBuilder<'_> {
     }
 }
 
-fn register_normal_mode_key_binds(builder: &mut KeyBindsBuilder<'_>, without_marks: bool) {
+fn register_normal_mode_key_binds(
+    builder: &mut KeyBindsBuilder<'_>,
+    without_marks: bool,
+    feature_flags: &FeatureFlags,
+) {
     builder.up().register();
     builder.down().register();
     builder.next_section().register();
@@ -1176,6 +1205,9 @@ fn register_normal_mode_key_binds(builder: &mut KeyBindsBuilder<'_>, without_mar
     builder.branch().register();
     if without_marks {
         builder.stack().register();
+        if feature_flags.worktree_manipulation {
+            builder.worktree().register();
+        }
     }
 
     builder.cherry_pick().register();

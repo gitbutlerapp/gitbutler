@@ -317,10 +317,23 @@ pub fn worktree_new_with_perm(
     perm: &mut RepoExclusive,
 ) -> Result<NewWorktree> {
     ensure_worktree_manipulation_enabled(ctx)?;
+    let base = {
+        let (_repo, ws, _db) = ctx.workspace_and_db_with_perm(perm.read_permission())?;
+        ws.highest_base()
+            .context("The workspace has no target to base a new worktree on")?
+    };
+    worktree_new_at_base_with_perm(ctx, new_ref, base, perm)
+}
+
+/// Create a worktree at a given base.
+pub fn worktree_new_at_base_with_perm(
+    ctx: &but_ctx::Context,
+    new_ref: Option<gix::refs::FullName>,
+    base: gix::ObjectId,
+    perm: &mut RepoExclusive,
+) -> Result<NewWorktree> {
+    ensure_worktree_manipulation_enabled(ctx)?;
     let (repo, ws, db) = ctx.workspace_and_db_with_perm(perm.read_permission())?;
-    let base = ws
-        .highest_base()
-        .context("The workspace has no target to base a new worktree on")?;
     let ref_name = match new_ref {
         Some(ref_name) => ref_name,
         None => unique_canned_refname(&repo)?,

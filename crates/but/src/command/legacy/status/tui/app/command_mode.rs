@@ -118,6 +118,7 @@ impl App {
                 | Mode::PickChanges(..)
                 | Mode::CherryPick(..)
                 | Mode::Branch(..)
+                | Mode::Worktree(..)
                 | Mode::Jump(..) => CommandReturnMode::Normal(NormalMode::default()),
             };
             backstack.push_leave_command_mode();

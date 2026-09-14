@@ -2,7 +2,7 @@ use anyhow::Result;
 use but_api::worktrees::NewWorktree;
 use but_core::sync::{RepoExclusive, RepoShared};
 use but_ctx::Context;
-use gix::refs::FullName;
+use gix::{ObjectId, refs::FullName};
 use serde::Serialize;
 
 use crate::{
@@ -21,6 +21,7 @@ pub fn new(ctx: &mut Context, name: Option<&BranchArg>) -> CliResult<NewOutcome>
 pub(crate) struct NewOperation {
     /// The branch to create, or `None` for a canned name.
     pub ref_name: Option<FullName>,
+    pub base: Option<ObjectId>,
 }
 
 impl NewOperation {
@@ -37,18 +38,25 @@ impl NewOperation {
             }
             None => None,
         };
-        Ok(Self { ref_name })
+        Ok(Self {
+            ref_name,
+            base: None,
+        })
     }
 }
 
 pub fn run(ctx: &Context, perm: &mut RepoExclusive, op: NewOperation) -> Result<NewOutcome> {
-    let created = but_api::worktrees::worktree_new_with_perm(ctx, op.ref_name, perm)?;
+    let created = if let Some(base) = op.base {
+        but_api::worktrees::worktree_new_at_base_with_perm(ctx, op.ref_name, base, perm)?
+    } else {
+        but_api::worktrees::worktree_new_with_perm(ctx, op.ref_name, perm)?
+    };
     Ok(NewOutcome { created })
 }
 
 #[must_use]
 pub struct NewOutcome {
-    created: NewWorktree,
+    pub created: NewWorktree,
 }
 
 impl CliOutputHuman for NewOutcome {
