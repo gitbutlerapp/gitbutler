@@ -1313,6 +1313,10 @@ fn opening_on_committed_file_shows_its_commit_files() {
 fn opening_on_uncommitted_hunk_focuses_that_hunk() {
     let mut tui = open_tui_on_uncommitted_hunk(false);
 
+    tui.input(None).assert_rendered_term_svg_eq(file![
+        "snapshots/opening_on_uncommitted_hunk_focuses_that_hunk_001.svg"
+    ]);
+
     tui.reload()
         .assert_backstack_eq([
             BackstackEntry::LeaveNormalMode,

@@ -7,7 +7,7 @@ use crate::{
     command::legacy::status::{
         TuiRunOptions,
         tui::{
-            DetailsLayoutMessage, Message,
+            DetailsLayoutMessage, Message, ReloadCause,
             backstack::BackstackEntry,
             tests::utils::{TestTuiOptions, test_status_tui, test_status_tui_with_options},
         },
@@ -78,6 +78,50 @@ fn manual_reload_does_not_highlight_details_when_status_is_focused() {
         .assert_rendered_term_svg_eq(file![
             "snapshots/manual_reload_does_not_highlight_details_when_status_is_focused_001.svg"
         ]);
+
+    tui.input('l');
+    tui.input(binds::SCROLL_DOWN);
+    tui.input(KeyCode::Esc);
+
+    tui.input((KeyModifiers::CONTROL, 'r'))
+        .assert_rendered_term_svg_eq(file![
+            "snapshots/manual_reload_does_not_highlight_details_when_status_is_focused_001.svg"
+        ]);
+}
+
+#[test]
+fn watcher_reload_does_not_highlight_previously_focused_details() {
+    for remove_selected_hunk in [false, true] {
+        let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+        env.setup_metadata(&["A"]);
+        env.file("uncommitted.txt", "changed\n");
+        if remove_selected_hunk {
+            env.file("removed.txt", "removed\n");
+        }
+
+        let mut tui = test_status_tui(env);
+        tui.input('l');
+        tui.input(binds::SCROLL_DOWN);
+        tui.input(KeyCode::Esc);
+
+        if remove_selected_hunk {
+            tui.env().remove_file("removed.txt");
+        }
+
+        // Restoring a remembered hunk or failing to find it must both leave the pane unfocused.
+        tui.render_with_messages(
+            None,
+            Vec::from([Message::Reload(
+                None,
+                ReloadCause::Watcher {
+                    details_selection_changed: true,
+                },
+            )]),
+        )
+        .assert_rendered_term_svg_eq(file![
+            "snapshots/watcher_reload_does_not_highlight_previously_focused_details_001.svg"
+        ]);
+    }
 }
 
 #[test]

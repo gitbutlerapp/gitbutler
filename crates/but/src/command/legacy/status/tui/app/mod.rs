@@ -1271,33 +1271,28 @@ impl App {
             (&self.flags.show_files, &select_after_reload),
             (FilesStatusFlag::All, Some(SelectAfterReload::Commit(_)))
         );
-        let details_selection_before_reload = self
+        let selection_before_reload = self
             .cursor
             .selected_line(&self.status_lines)
             .and_then(|line| line.data.cli_id())
             .cloned();
 
-        let select_details_section_after_reload = match &select_after_reload {
-            Some(SelectAfterReload::UncommittedDetailsSection { index, direction }) => {
-                Some((*index, *direction))
-            }
-            Some(SelectAfterReload::Commit(_))
-            | Some(SelectAfterReload::FirstFileInCommit(_))
-            | Some(SelectAfterReload::UncommittedFile { .. })
-            | Some(SelectAfterReload::Branch(_))
-            | Some(SelectAfterReload::CliId(_))
-            | Some(SelectAfterReload::Uncommitted)
-            | None => None,
-        };
+        let details_selection_before_reload =
+            self.details.selected_section_cli_id().map(Arc::clone);
 
-        let status_selection_before_details_reload = select_details_section_after_reload
-            .is_some()
-            .then(|| {
-                self.cursor
-                    .selection_cli_id_for_reload(&self.status_lines, self.flags.show_files)
-                    .cloned()
-            })
-            .flatten();
+        let select_details_section_after_reload = select_after_reload.as_ref().and_then(
+            |select_after_reload| match select_after_reload {
+                SelectAfterReload::UncommittedDetailsSection { index, direction } => {
+                    Some((*index, *direction))
+                }
+                SelectAfterReload::Commit(_)
+                | SelectAfterReload::FirstFileInCommit(_)
+                | SelectAfterReload::UncommittedFile { .. }
+                | SelectAfterReload::Branch(_)
+                | SelectAfterReload::CliId(_)
+                | SelectAfterReload::Uncommitted => None,
+            },
+        );
 
         if let Some(select_after_reload) = &select_after_reload {
             match select_after_reload {
@@ -1333,46 +1328,40 @@ impl App {
         )?;
         self.head_sha = operations::head_sha(ctx)?;
 
-        self.cursor = if let Some(select_after_reload) = select_after_reload {
-            match select_after_reload {
-                SelectAfterReload::Commit(commit_id) => {
-                    Cursor::select_commit(commit_id, &new_lines)
-                }
-                SelectAfterReload::Branch(branch) => Cursor::select_branch(&branch, &new_lines),
-                SelectAfterReload::Uncommitted => Cursor::select_uncommitted(&new_lines),
-                SelectAfterReload::UncommittedDetailsSection { .. } => {
-                    status_selection_before_details_reload
-                        .as_deref()
-                        .and_then(|cli_id| Cursor::restore(cli_id, &new_lines))
-                        .or_else(|| Cursor::select_uncommitted(&new_lines))
-                }
-                SelectAfterReload::UncommittedFile { path } => {
-                    Cursor::select_uncommitted_file(path.as_ref(), &new_lines)
-                }
-                SelectAfterReload::FirstFileInCommit(commit_id) => {
-                    Cursor::select_first_file_in_commit(commit_id, &new_lines)
-                }
-                SelectAfterReload::CliId(cli_id) => Cursor::restore(&cli_id, &new_lines),
-            }
-        } else {
-            let selected_merge_base = self
-                .cursor
-                .selected_line(&self.status_lines)
-                .is_some_and(|line| matches!(line.data, StatusOutputLineData::MergeBase));
-
-            let default_restore = || {
-                self.cursor
+        self.cursor = match select_after_reload {
+            None | Some(SelectAfterReload::UncommittedDetailsSection { .. }) => {
+                let restored_cursor = self
+                    .cursor
                     .selection_cli_id_for_reload(&self.status_lines, self.flags.show_files)
-                    .and_then(|previously_selected_cli_id| {
-                        Cursor::restore(previously_selected_cli_id, &new_lines)
-                    })
-            };
+                    .and_then(|cli_id| Cursor::restore(cli_id, &new_lines));
 
-            if selected_merge_base {
-                Cursor::select_merge_base(&new_lines).or_else(default_restore)
-            } else {
-                default_restore()
+                if select_details_section_after_reload.is_some() {
+                    restored_cursor.or_else(|| Cursor::select_uncommitted(&new_lines))
+                } else {
+                    let selected_merge_base = self
+                        .cursor
+                        .selected_line(&self.status_lines)
+                        .is_some_and(|line| matches!(line.data, StatusOutputLineData::MergeBase));
+
+                    if selected_merge_base {
+                        Cursor::select_merge_base(&new_lines).or(restored_cursor)
+                    } else {
+                        restored_cursor
+                    }
+                }
             }
+            Some(SelectAfterReload::Commit(commit_id)) => {
+                Cursor::select_commit(commit_id, &new_lines)
+            }
+            Some(SelectAfterReload::Branch(branch)) => Cursor::select_branch(&branch, &new_lines),
+            Some(SelectAfterReload::Uncommitted) => Cursor::select_uncommitted(&new_lines),
+            Some(SelectAfterReload::UncommittedFile { path }) => {
+                Cursor::select_uncommitted_file(path.as_ref(), &new_lines)
+            }
+            Some(SelectAfterReload::FirstFileInCommit(commit_id)) => {
+                Cursor::select_first_file_in_commit(commit_id, &new_lines)
+            }
+            Some(SelectAfterReload::CliId(cli_id)) => Cursor::restore(&cli_id, &new_lines),
         }
         .unwrap_or_else(|| Cursor::new(&new_lines));
 
@@ -1392,20 +1381,20 @@ impl App {
         self.status_lines = new_lines;
         self.ensure_cursor_is_on_selectable_line(MoveCursorDiration::Down);
 
-        let details_selection_after_reload = self
+        let selection_after_reload = self
             .cursor
             .selected_line(&self.status_lines)
             .and_then(|line| line.data.cli_id());
-        let details_selection_changed = match (
-            details_selection_before_reload.as_deref(),
-            details_selection_after_reload.map(|cli_id| &**cli_id),
+        let status_selection_changed = match (
+            selection_before_reload.as_deref(),
+            selection_after_reload.map(|cli_id| &**cli_id),
         ) {
             (Some(previous), Some(current)) => !cursor::same_entity_for_reload(previous, current),
             (None, None) => false,
             (Some(_), None) | (None, Some(_)) => true,
         };
 
-        let mut reload_details_view = details_selection_changed;
+        let mut reload_details_view = status_selection_changed;
         if self.is_details_visible {
             match cause {
                 ReloadCause::Watcher {
@@ -1424,6 +1413,13 @@ impl App {
             self.details.clear_selection_for_reload(details_focused);
             if let Some((index, direction)) = select_details_section_after_reload {
                 self.details.select_section_when_available(index, direction);
+            } else if details_focused
+                && let Some(details_selection_before_reload) = details_selection_before_reload
+            {
+                self.details
+                    .select_cli_id_when_available(Arc::unwrap_or_clone(
+                        details_selection_before_reload,
+                    ));
             }
         }
 

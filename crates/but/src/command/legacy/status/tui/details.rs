@@ -1591,11 +1591,12 @@ fn select_pending_cli_id_in_latest_section(
     else {
         return false;
     };
-    if !section
-        .cli_id
-        .as_ref()
-        .is_some_and(|cli_id| target == &**cli_id)
-    {
+    if !section.cli_id.as_ref().is_some_and(|cli_id| {
+        target == &**cli_id
+            // required to maintain the selection on watcher events since `CliId::eq` doesn't
+            // compare short ids
+            || target.short_string() == cli_id.short_string()
+    }) {
         return false;
     }
 
