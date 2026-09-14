@@ -1,8 +1,11 @@
 /* An outline button that reads rather than acts: the choice sits at the start in regular weight,
    the chevron closes the row, and the whole thing takes the field's width. While the list is up
    the trigger keeps the hover tint, so it reads pressed the way the commit target's trigger
-   does. */
+   does. The mark sits at the list row's gap from the text rather than the button's, so the text
+   lands the same 2px in whether the choice has a mark or not (see `.popup`). */
 .trigger {
+	--button-gap: 8px;
+
 	justify-content: flex-start;
 	width: 100%;
 	font-weight: var(--text-weight-regular);
@@ -13,26 +16,18 @@
 }
 
 /* The choice is what the control is about, so it takes the width and gives it back last. Its
-   mark, if it has one, sits at the button's own gap from the text. */
+   mark, if it has one, is the button's own child before it, at the button's gap. */
 .value {
-	display: flex;
 	flex: 1;
-	align-items: center;
 	min-width: 0;
-	gap: var(--button-gap);
+	overflow: hidden;
 	text-align: start;
+	text-overflow: ellipsis;
+	white-space: nowrap;
 
 	&[data-placeholder] {
 		color: var(--text-3);
 	}
-}
-
-.valueLabel {
-	flex: 1;
-	min-width: 0;
-	overflow: hidden;
-	text-overflow: ellipsis;
-	white-space: nowrap;
 }
 
 /* Opens over the trigger and covers it. Base UI shifts the list so the rows' text lines up with

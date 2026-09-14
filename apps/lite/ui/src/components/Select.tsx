@@ -90,23 +90,24 @@ export const Select = <Value extends string>({
 			<BaseSelect.Trigger
 				aria-label={ariaLabel}
 				className={classes(getButtonClassName({ variant: "outline" }), styles.trigger)}
-			>
-				<BaseSelect.Value className={styles.value} placeholder={placeholder}>
-					{(chosen: Value | null) => {
-						// Base UI hands over the value alone; the item is what carries the mark.
-						const item = items.find((candidate) => candidate.value === chosen);
-						if (item === undefined) return <span className={styles.valueLabel}>{placeholder}</span>;
-						return (
-							<>
-								{item.icon !== undefined && <Icon name={item.icon} />}
-								{item.leading}
-								<span className={styles.valueLabel}>{item.label}</span>
-							</>
-						);
-					}}
-				</BaseSelect.Value>
-				<Icon name="chevron-down" />
-			</BaseSelect.Trigger>
+				render={(props, state) => {
+					// Base UI hands over the value alone; the item is what carries the mark. The mark
+					// sits outside the Value part on purpose: the overlap measures the Value's box against
+					// the chosen row's text, so anything inside it before the text shifts the whole list
+					// that far to the left.
+					const item = items.find((candidate) => candidate.value === state.value);
+					return (
+						<button type="button" {...props}>
+							{item?.icon !== undefined && <Icon name={item.icon} />}
+							{item?.leading}
+							<BaseSelect.Value className={styles.value} placeholder={placeholder}>
+								{item?.label ?? placeholder}
+							</BaseSelect.Value>
+							<Icon name="chevron-down" />
+						</button>
+					);
+				}}
+			/>
 			<BaseSelect.Portal>
 				<BaseSelect.Positioner align="start" sideOffset={4}>
 					<Popup anchored className={styles.popup} render={<BaseSelect.Popup />}>
