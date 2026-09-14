@@ -10,6 +10,15 @@ perf_die() {
     exit 1
 }
 
+# A single, self-contained processed profile; never rewrite accepted bytes.
+perf_validate_profile() (
+    [ -s "$1" ] || perf_die "missing profile: $1"
+    [ "$(wc -c <"$1")" -le 16777216 ] || perf_die "profile exceeds 16 MiB: $1"
+    jq -se 'length == 1 and (.[0] |
+        .meta.symbolicated == true and (.threads | type == "array" and length > 0))' \
+        "$1" >/dev/null 2>&1 || perf_die "profile must contain self-contained symbolicated JSON: $1"
+)
+
 perf_require_command() {
     command -v "$1" >/dev/null 2>&1 || perf_die "required command not found: $1"
 }
@@ -56,6 +65,32 @@ perf_resolve_binary() {
         *) BUT_BIN=$(CDPATH='' cd "$(dirname "$BUT_BIN")" && pwd)/$(basename "$BUT_BIN") ;;
     esac
     [ -x "$BUT_BIN" ] || perf_die "BUT_BIN is not executable: $BUT_BIN"
+}
+
+# Resolve PERF_CHANNEL/PERF_VERSION once per results directory. Reusing the saved
+# document keeps separate benchmark/profiling calls on the same release build.
+# Sets BINARY_CHANNEL, BINARY_VERSION and PERF_BINARY_COMMIT for either caller.
+# shellcheck disable=SC2034
+perf_resolve_release() {
+    perf_require_command jq
+    if [ ! -f "$PERF_RESULTS_DIR/release.json" ]; then
+        : "${PERF_CHANNEL:?set PERF_CHANNEL to select a release}"
+        perf_require_command curl
+        release_url="https://app.gitbutler.com/api/downloads?limit=1&channel=$PERF_CHANNEL"
+        if [ -n "${PERF_VERSION:-}" ]; then
+            release_url="$release_url&version=$PERF_VERSION"
+        fi
+        curl -fsSL "$release_url" -o "$PERF_SESSION_ROOT/downloads.json"
+        jq -e '.[0]' "$PERF_SESSION_ROOT/downloads.json" >"$PERF_RESULTS_DIR/release.json"
+    fi
+    jq -e --arg channel "${PERF_CHANNEL:-}" --arg version "${PERF_VERSION:-}" '
+        ($channel == "" or .channel == $channel) and
+        ($version == "" or .version == $version)
+    ' "$PERF_RESULTS_DIR/release.json" >/dev/null ||
+        perf_die 'saved release does not match PERF_CHANNEL/PERF_VERSION'
+    PERF_BINARY_COMMIT=$(jq -er .sha "$PERF_RESULTS_DIR/release.json")
+    BINARY_VERSION=$(jq -er .version "$PERF_RESULTS_DIR/release.json")
+    BINARY_CHANNEL=$(jq -er .channel "$PERF_RESULTS_DIR/release.json")
 }
 
 perf_validate_scenario() (
