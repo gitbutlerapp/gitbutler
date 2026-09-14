@@ -2054,31 +2054,86 @@ pub enum CliId {
 }
 
 impl PartialEq for CliId {
-    fn eq(&self, other: &Self) -> bool {
-        match (self, other) {
-            (Self::UncommittedHunkOrFile(l), Self::UncommittedHunkOrFile(r)) => l == r,
-            (
-                Self::CommittedFile {
-                    committed_file: l,
-                    id: _,
-                },
-                Self::CommittedFile {
+    fn eq(&self, other: &CliId) -> bool {
+        match self {
+            CliId::UncommittedHunkOrFile(l) => {
+                if let CliId::UncommittedHunkOrFile(r) = other {
+                    l == r
+                } else {
+                    false
+                }
+            }
+            CliId::PathPrefix {
+                id: _,
+                hunks: _,
+                source: _,
+            } => false,
+            CliId::CommittedFile {
+                committed_file: l,
+                id: _,
+            } => {
+                if let CliId::CommittedFile {
                     committed_file: r,
                     id: _,
-                },
-            ) => l == r,
-            (CliId::CommittedHunk(l), CliId::CommittedHunk(r)) => l == r,
-            (Self::Branch(l), Self::Branch(r)) => l == r,
-            (Self::AnonymousSegment(l), Self::AnonymousSegment(r)) => l == r,
-            (Self::Commit { commit: l, id: _ }, Self::Commit { commit: r, id: _ }) => l == r,
-            (Self::Stack { id: l_id, .. }, Self::Stack { id: r_id, .. }) => l_id == r_id,
-            (Self::Uncommitted { .. }, Self::Uncommitted { .. }) => true,
-            (Self::Worktree { name: l, .. }, Self::Worktree { name: r, .. }) => l == r,
-            (
-                Self::WorktreeUncommitted { name: l, .. },
-                Self::WorktreeUncommitted { name: r, .. },
-            ) => l == r,
-            _ => false,
+                } = other
+                {
+                    l == r
+                } else {
+                    false
+                }
+            }
+            CliId::CommittedHunk(l) => {
+                if let CliId::CommittedHunk(r) = other {
+                    l == r
+                } else {
+                    false
+                }
+            }
+            CliId::Branch(l) => {
+                if let CliId::Branch(r) = other {
+                    l == r
+                } else {
+                    false
+                }
+            }
+            CliId::AnonymousSegment(l) => {
+                if let CliId::AnonymousSegment(r) = other {
+                    l == r
+                } else {
+                    false
+                }
+            }
+            CliId::Commit { commit: l, id: _ } => {
+                if let CliId::Commit { commit: r, id: _ } = other {
+                    l == r
+                } else {
+                    false
+                }
+            }
+            CliId::Stack { id: l, stack_id: _ } => {
+                if let CliId::Stack { id: r, stack_id: _ } = other {
+                    l == r
+                } else {
+                    false
+                }
+            }
+            CliId::Uncommitted { id: _ } => {
+                matches!(other, CliId::Uncommitted { id: _ })
+            }
+            CliId::Worktree { name: l, id: _ } => {
+                if let CliId::Worktree { name: r, id: _ } = other {
+                    l == r
+                } else {
+                    false
+                }
+            }
+            CliId::WorktreeUncommitted { name: l, id: _ } => {
+                if let CliId::WorktreeUncommitted { name: r, id: _ } = other {
+                    l == r
+                } else {
+                    false
+                }
+            }
         }
     }
 }
