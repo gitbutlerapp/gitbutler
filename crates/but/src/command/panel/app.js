@@ -9,6 +9,17 @@ const repoEl = document.getElementById("repo");
 
 const POLL_MS = 3000;
 
+// The project this page shows, as `but panel` put it in the URL. Without one the server shows the
+// project it was started in.
+const PROJECT = new URLSearchParams(location.search).get("project");
+
+/** An API URL for `path`, carrying this page's project. */
+function api(path, params = {}) {
+	const query = new URLSearchParams(params);
+	if (PROJECT) query.set("project", PROJECT);
+	return `${path}?${query}`;
+}
+
 const open = new Set(); // keys of expanded rows
 const loaded = new Map(); // key -> {loading} | {data} | {error}
 const urls = new Map(); // key -> where its data was fetched from, for refreshing
@@ -82,10 +93,10 @@ async function load(key, url) {
 
 /** Where one file's patch comes from: a commit, a linked worktree, or the main worktree. */
 function diffUrl(path, { commit, worktree } = {}) {
-	const params = new URLSearchParams({ path });
-	if (commit) params.set("commit", commit);
-	if (worktree) params.set("worktree", worktree);
-	return `/api/diff?${params}`;
+	const params = { path };
+	if (commit) params.commit = commit;
+	if (worktree) params.worktree = worktree;
+	return api("/api/diff", params);
 }
 
 /**
@@ -164,7 +175,7 @@ function renderCommit(commit) {
 	const cls = ["commit", pushed ? "pushed" : "", commit.hasConflicts ? "conflicted" : ""].join(" ");
 
 	let html =
-		`<button class="row ${cls} ${isOpen ? "open" : ""}" data-key="${esc(key)}" data-url="/api/commit?id=${esc(commit.id)}">` +
+		`<button class="row ${cls} ${isOpen ? "open" : ""}" data-key="${esc(key)}" data-url="${esc(api("/api/commit", { id: commit.id }))}">` +
 		`<span class="tw">▶</span>` +
 		`<span class="grow"><span class="${isOpen ? "wrap" : "clip"}" style="display:block">${esc(subject(commit.message))}</span>` +
 		(isOpen
@@ -303,7 +314,7 @@ function paint(force) {
 
 async function tick() {
 	try {
-		const data = await fetchData("/api/workspace");
+		const data = await fetchData(api("/api/workspace"));
 		dot.className = "dot";
 		repoEl.textContent = data.repo;
 		document.title = `${data.repo} — workspace`;
