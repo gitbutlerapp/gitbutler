@@ -3650,17 +3650,19 @@ const AppliedBranchDetails: FC<BranchDetailsProps> = ({
 	pendingFileRef,
 }) => {
 	const { data: forgeInfo } = useQuery(forgeInfoOptions(projectId));
+	const supportsPullRequests = forgeInfo?.capabilities.prService === true;
 	const { data: headInfo } = useQuery(headInfoQueryOptions(projectId));
 	const headInfoIndex = headInfo ? getHeadInfoIndex(headInfo) : null;
 	const dispatch = useAppDispatch();
 	const branchRef = decodeBytes(branch.branchRef);
 	const branchName = branchDetailsParams(branchRef).branchName;
-	const { data: reviews, error: reviewError } = useQuery({
+	const { data: openReviews, error: reviewError } = useQuery({
 		...listReviewsQueryOptions({ projectId, cacheConfig: "noCache" }),
-		enabled: !!forgeInfo?.capabilities.prService,
+		enabled: supportsPullRequests,
 	});
-	const review = reviews?.reviewsBySourceBranch.get(branchName);
-	const destination = forgeDestination(forgeInfo, review?.htmlUrl);
+	const openReview = openReviews?.reviewsBySourceBranch.get(branchName);
+	const reviewsLoaded = openReviews !== undefined;
+	const destination = forgeDestination(forgeInfo, openReview?.htmlUrl);
 	const {
 		data: hasAccount,
 		isError: accountsError,
@@ -3672,14 +3674,23 @@ const AppliedBranchDetails: FC<BranchDetailsProps> = ({
 	});
 	const authFailure = hasAccount === false ? "missing" : forgeAuthFailure(reviewError);
 	const canUseForge = accountsSuccess && hasAccount && authFailure === null;
+	const branchCtx = headInfoIndex?.branchContextByRefBytes(branch.branchRef);
+	// A recorded PR missing from the open listing may be merged or closed.
+	// Keep it visible until verification rules out a merge.
+	const landedReviewId = useLandedReviewId(
+		projectId,
+		branchCtx ? recordedPullRequest(branchCtx.segment) : null,
+		reviewsLoaded && !openReview && canUseForge,
+	);
+	const hasReview = !!openReview || landedReviewId !== null;
 
 	const chosenTab = useAppSelector((state) =>
 		projectSlice.selectors.selectBranchTab(state, projectId, branchName),
 	);
-	// The review is where an applied branch is headed, so a forge that serves
-	// pull requests opens on that tab — the create form when none exists yet.
-	// Without such a forge the tab is a dead form, so the diff leads.
-	const branchTab = chosenTab ?? (forgeInfo?.capabilities.prService ? "pr" : "diff");
+	const defaultTab = supportsPullRequests && hasReview ? "pr" : "diff";
+	const branchTab = chosenTab ?? defaultTab;
+	const showCreatePullRequest =
+		branchTab === "diff" && supportsPullRequests && reviewsLoaded && !hasReview;
 
 	const setBranchTab = (tab: BranchTab) => {
 		dispatch(projectSlice.actions.setSelectedBranchTab({ projectId, branchName, tab }));
@@ -3697,9 +3708,7 @@ const AppliedBranchDetails: FC<BranchDetailsProps> = ({
 	const ref = useRef<HTMLDivElement>(null);
 	useBranchTabHotkeys({ branchTab, setBranchTab, target: ref });
 
-	// Use push status of segment, not branch details; something about remote
-	// tracking refs.
-	const branchCtx = headInfoIndex?.branchContextByRefBytes(branch.branchRef);
+	// Once the parent branch is integrated, the PR can target the workspace's base.
 	const parentSegment = branchCtx?.stack.segments[branchCtx.segmentIndex + 1];
 	const targetBranch =
 		!parentSegment || parentSegment.pushStatus === "integrated"
@@ -3716,23 +3725,6 @@ const AppliedBranchDetails: FC<BranchDetailsProps> = ({
 		: null;
 	const canSubmit = pushFirst === null || !downstack?.anyHasConflicts;
 
-	// The open listing already carries everything an open review needs, so the
-	// verification fetch is spent only when the listing has nothing for this
-	// branch — the case where the recorded number's fate actually decides the
-	// tab between the landed review and the create-PR flow.
-	const { data: hasOpenReview } = useQuery({
-		...listReviewsQueryOptions({ projectId, cacheConfig: "noCache" }),
-		// The listing is alive anyway (every branch row subscribes to it), so
-		// this gate expresses intent rather than saving a fetch.
-		enabled: branchTab === "pr" && !!forgeInfo?.capabilities.prService,
-		select: (reviews) => reviews.some((review) => review.sourceBranch === branchName),
-	});
-	const landedReviewId = useLandedReviewId(
-		projectId,
-		branchCtx ? recordedPullRequest(branchCtx.segment) : null,
-		branchTab === "pr" && hasOpenReview === false && canUseForge,
-	);
-
 	return (
 		<div className={styles.container} ref={ref}>
 			<div className={styles.headerWrap}>
@@ -3741,7 +3733,20 @@ const AppliedBranchDetails: FC<BranchDetailsProps> = ({
 				<div className={styles.tabsRow}>
 					<BranchTabToggle branchTab={branchTab} setBranchTab={setBranchTab} />
 
-					{branchTab === "pr" && !!forgeInfo?.capabilities.prService && canUseForge && (
+					{showCreatePullRequest && (
+						<div className={styles.tabsRowRight}>
+							<button
+								type="button"
+								className={getButtonClassName({ variant: "gray" })}
+								onClick={() => setBranchTab("pr")}
+							>
+								<Icon name="pr" />
+								Create pull request
+							</button>
+						</div>
+					)}
+
+					{branchTab === "pr" && supportsPullRequests && canUseForge && (
 						<Suspense>
 							<SuspenseQuery
 								{...listReviewsQueryOptions({
@@ -3780,7 +3785,7 @@ const AppliedBranchDetails: FC<BranchDetailsProps> = ({
 								</div>
 							) : destination && accountsPending ? (
 								<p className="text-13">Loading…</p>
-							) : !forgeInfo?.capabilities.prService ? (
+							) : !supportsPullRequests ? (
 								<NewPullRequestView
 									projectId={projectId}
 									branchName={branchName}
