@@ -173,6 +173,7 @@ export interface ShowNotificationParams {
 	body: string;
 }
 
+/** In CSS pixels relative to the viewport, as the renderer measures them. */
 export interface NativeMenuPosition {
 	x: number;
 	y: number;
