@@ -23,6 +23,7 @@
 	"scripts": {
 		"package": "tsc",
 		"test": "vitest run",
+		"typecheck:tests": "bash typecheck-tests.sh",
 		"prepare": "pnpm package"
 	},
 	"exports": {
