@@ -332,6 +332,7 @@ async function tick() {
 		document.title = `${data.repo} — workspace`;
 		sub.textContent = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
 		latest = {
+			project: data.project,
 			workspace: data.workspace,
 			changes: data.changes,
 			worktrees: data.worktrees,
@@ -471,47 +472,90 @@ function toast(message, bad) {
 	toast.timer = setTimeout(() => (toastEl.hidden = true), bad ? 5000 : 2000);
 }
 
+/** The absolute path of `path` in the checkout it belongs to: a linked worktree or the project. */
+function fullPath(path, worktree) {
+	const root = worktree
+		? latest.worktrees.find((entry) => entry.worktree.name === worktree)?.worktree.path
+		: latest.project;
+	return root ? `${root.replace(/\/$/, "")}/${path}` : path;
+}
+
+const menuItem = (label, data) =>
+	`<button class="menu-item" ${Object.entries(data)
+		.map(([key, value]) => `data-${key}="${esc(value)}"`)
+		.join(" ")}>${esc(label)}</button>`;
+
 tree.addEventListener("contextmenu", async (event) => {
 	const row = event.target.closest(".row.file[data-path]");
 	if (!row) return;
 	event.preventDefault();
 	const { path, worktree } = row.dataset;
-	const title = `<div class="menu-title clip">&lrm;${esc(path)}&lrm;</div>`;
+	menuEl.dataset.path = path;
+	menuEl.dataset.worktree = worktree || "";
+
+	const header =
+		`<div class="menu-title clip">&lrm;${esc(path)}&lrm;</div>` +
+		`<div class="menu-label">Copy</div>` +
+		menuItem("File name", { copy: path.slice(path.lastIndexOf("/") + 1), what: "File name" }) +
+		menuItem("Relative path", { copy: path, what: "Relative path" }) +
+		menuItem("Full path", { copy: fullPath(path, worktree), what: "Full path" }) +
+		`<div class="menu-label">Open with</div>`;
+	const show = (openWith) => {
+		menuEl.innerHTML = header + openWith;
+		placeMenu(event.clientX, event.clientY);
+	};
 
 	if ("deleted" in row.dataset) {
-		menuEl.innerHTML = `${title}<div class="menu-note">Deleted, so there is nothing to open.</div>`;
-		placeMenu(event.clientX, event.clientY);
+		show(`<div class="menu-note">Deleted, so there is nothing to open.</div>`);
 		return;
 	}
-	menuEl.innerHTML = `${title}<div class="menu-note">Loading…</div>`;
-	placeMenu(event.clientX, event.clientY);
+	show(`<div class="menu-note">Loading…</div>`);
 	try {
 		const programs = await programsFor(path);
-		menuEl.innerHTML =
-			`${title}<div class="menu-label">Open with</div>` +
-			(programs.length
-				? programs
-						.map(
-							(program) =>
-								`<button class="menu-item" data-program="${esc(program.id)}" data-name="${esc(program.name)}">${esc(program.name)}</button>`,
-						)
-						.join("")
-				: `<div class="menu-note">No programs found.</div>`);
-		menuEl.dataset.path = path;
-		menuEl.dataset.worktree = worktree || "";
-		placeMenu(event.clientX, event.clientY);
+		if (menuEl.hidden || menuEl.dataset.path !== path) return;
+		show(
+			programs.length
+				? programs.map((program) => menuItem(program.name, { program: program.id, name: program.name })).join("")
+				: `<div class="menu-note">No programs found.</div>`,
+		);
 	} catch (error) {
-		menuEl.innerHTML = `${title}<div class="menu-note err-text">${esc(error.message || error)}</div>`;
+		show(`<div class="menu-note err-text">${esc(error.message || error)}</div>`);
 	}
 });
+
+/** Copy `text`, falling back to a selection where the clipboard API isn't allowed. */
+async function copyText(text) {
+	try {
+		await navigator.clipboard.writeText(text);
+	} catch {
+		const field = document.createElement("textarea");
+		field.value = text;
+		document.body.append(field);
+		field.select();
+		const copied = document.execCommand("copy");
+		field.remove();
+		if (!copied) throw new Error("The browser didn't allow copying");
+	}
+}
 
 menuEl.addEventListener("click", async (event) => {
 	const item = event.target.closest(".menu-item");
 	if (!item) return;
 	const { path, worktree } = menuEl.dataset;
+	closeMenu();
+
+	if ("copy" in item.dataset) {
+		try {
+			await copyText(item.dataset.copy);
+			toast(`${item.dataset.what} copied`);
+		} catch (error) {
+			toast(String(error.message || error), true);
+		}
+		return;
+	}
+
 	const params = { path, program: item.dataset.program };
 	if (worktree) params.worktree = worktree;
-	closeMenu();
 	try {
 		const response = await fetch(api("/api/open", params), { method: "POST" });
 		const body = await response.json().catch(() => ({ ok: false, error: response.statusText }));
