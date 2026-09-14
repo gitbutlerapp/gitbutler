@@ -117,8 +117,10 @@ row and a badge that opens a menu all settle at the same speed. A control
 whose ring changes transitions `outline-color var(--transition-fast)`, as a
 field does; one that dims transitions `opacity var(--transition-fast)`. Name
 the property that changes, not `all`: a transition on `all` picks up layout
-and reads as lag. Nothing hover- or focus-related uses the medium tier, and
-nothing writes a duration by hand.
+and reads as lag. Nothing hover- or focus-related uses the medium tier — the
+one exception is an icon giving way to another icon, which crossfades on the
+medium tier whatever triggers it (see Motion) — and nothing writes a duration
+by hand.
 
 ## Radius
 
@@ -217,16 +219,16 @@ change feels, not how long something waits.
 turns its transition off under `prefers-reduced-motion: reduce`, as the graph
 section does. A hover color needs no such rule.
 
-**An icon that becomes another icon crossfades.** When a control swaps its
-glyph to report a result — copy becoming a tick, plus becoming a check — the
-old one doesn't cut to the new one. Both icons stay in the DOM, the outgoing
-one absolutely positioned over the incoming one, and each transitions
-`opacity, scale, filter` on the medium tier: the one leaving shrinks to
-`scale(0.25)`, fades to `0` and blurs to `4px`, the one arriving does the
-reverse. The easing is the keyword `ease-out`, as everywhere else. This is a
-transition, not a keyframe, so a second click mid-swap reverses it cleanly.
-It is for the infrequent result swap, not for a hover icon; a change that
-happens on every pass takes the fast tier or nothing.
+**An icon that becomes another icon crossfades.** Whenever one glyph gives
+way to another — copy becoming a tick, plus becoming a check, a placeholder
+becoming a camera under the pointer — the old one doesn't cut to the new one.
+Both icons stay in the DOM, one laid over the other (a shared grid cell or an
+absolutely positioned wrapper), and each transitions `opacity, scale, filter`
+on the medium tier: the one leaving shrinks to `scale(0.25)`, fades to `0` and
+blurs to `4px`, the one arriving does the reverse. The easing is the keyword
+`ease-out`, as everywhere else. This is a transition, not a keyframe, so a
+second click or a pointer leaving mid-swap reverses it cleanly. The same
+recipe serves a result swap and a hover swap alike; only the trigger differs.
 
 **The rules live in two places.** The token descriptions in ⚛️ Lite Core carry
 the same tiers and pairings as this section; change one and change the other.
