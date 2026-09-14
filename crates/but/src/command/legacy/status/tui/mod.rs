@@ -664,7 +664,9 @@ fn dedup_mutation_messages(messages: &mut Vec<Message>, other_messages: &mut Vec
             },
             Message::Worktree(message) => match message {
                 WorktreeMessage::New => true,
-                WorktreeMessage::Start => false,
+                WorktreeMessage::Start
+                | WorktreeMessage::Archive
+                | WorktreeMessage::ShowUnarchivePicker => false,
             },
             Message::Details(message) => match message {
                 DetailsMessage::Deselect
@@ -714,6 +716,7 @@ fn dedup_mutation_messages(messages: &mut Vec<Message>, other_messages: &mut Vec
                 | Modal::CopySelectionPicker { .. }
                 | Modal::GotoBranchPicker { .. }
                 | Modal::ApplyStackPicker { .. }
+                | Modal::UnarchiveWorktreePicker { .. }
                 | Modal::ProgramPicker { .. }
                 | Modal::SwitchBranchPicker { .. }
                 | Modal::Help { .. } => false,

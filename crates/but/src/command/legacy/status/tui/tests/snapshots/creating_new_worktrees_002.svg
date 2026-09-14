@@ -39,22 +39,25 @@
     <text x="114" y="366" style="fill:#0000AA;">n</text>
     <text x="130 138 146" y="366" style="fill:#CCCCCC;opacity:0.75;">new</text>
     <text x="162" y="366" style="fill:#CCCCCC;opacity:0.75;">•</text>
-    <text x="178" y="366" style="fill:#0000AA;">x</text>
-    <text x="194 202 210 218 226 234 242" y="366" style="fill:#CCCCCC;opacity:0.75;">discard</text>
+    <text x="178" y="366" style="fill:#0000AA;">a</text>
+    <text x="194 202 210 218 226 234 242" y="366" style="fill:#CCCCCC;opacity:0.75;">archive</text>
     <text x="258" y="366" style="fill:#CCCCCC;opacity:0.75;">•</text>
-    <text x="274 282 290" y="366" style="fill:#0000AA;">↑/k</text>
-    <text x="306 314" y="366" style="fill:#CCCCCC;opacity:0.75;">up</text>
-    <text x="330" y="366" style="fill:#CCCCCC;opacity:0.75;">•</text>
-    <text x="346 354 362" y="366" style="fill:#0000AA;">↓/j</text>
-    <text x="378 386 394 402" y="366" style="fill:#CCCCCC;opacity:0.75;">down</text>
-    <text x="418" y="366" style="fill:#CCCCCC;opacity:0.75;">•</text>
-    <text x="434" y="366" style="fill:#0000AA;">d</text>
-    <text x="450 458 466 474 482 490 498" y="366" style="fill:#CCCCCC;opacity:0.75;">details</text>
-    <text x="514" y="366" style="fill:#CCCCCC;opacity:0.75;">•</text>
-    <text x="530" y="366" style="fill:#0000AA;">?</text>
-    <text x="546 554 562 570" y="366" style="fill:#CCCCCC;opacity:0.75;">help</text>
-    <text x="586" y="366" style="fill:#CCCCCC;opacity:0.75;">•</text>
-    <text x="602" y="366" style="fill:#0000AA;">q</text>
-    <text x="618 626 634 642" y="366" style="fill:#CCCCCC;opacity:0.75;">quit</text>
+    <text x="274" y="366" style="fill:#0000AA;">u</text>
+    <text x="290 298 306 314 322 330 338 346 354" y="366" style="fill:#CCCCCC;opacity:0.75;">unarchive</text>
+    <text x="370" y="366" style="fill:#CCCCCC;opacity:0.75;">•</text>
+    <text x="386" y="366" style="fill:#0000AA;">x</text>
+    <text x="402 410 418 426 434 442 450" y="366" style="fill:#CCCCCC;opacity:0.75;">discard</text>
+    <text x="466" y="366" style="fill:#CCCCCC;opacity:0.75;">•</text>
+    <text x="482 490 498" y="366" style="fill:#0000AA;">↑/k</text>
+    <text x="514 522" y="366" style="fill:#CCCCCC;opacity:0.75;">up</text>
+    <text x="538" y="366" style="fill:#CCCCCC;opacity:0.75;">•</text>
+    <text x="554 562 570" y="366" style="fill:#0000AA;">↓/j</text>
+    <text x="586 594 602 610" y="366" style="fill:#CCCCCC;opacity:0.75;">down</text>
+    <text x="626" y="366" style="fill:#CCCCCC;opacity:0.75;">•</text>
+    <text x="642" y="366" style="fill:#0000AA;">?</text>
+    <text x="658 666 674 682" y="366" style="fill:#CCCCCC;opacity:0.75;">help</text>
+    <text x="698" y="366" style="fill:#CCCCCC;opacity:0.75;">•</text>
+    <text x="714" y="366" style="fill:#0000AA;">q</text>
+    <text x="730 738 746 754" y="366" style="fill:#CCCCCC;opacity:0.75;">quit</text>
   </g>
 </svg>

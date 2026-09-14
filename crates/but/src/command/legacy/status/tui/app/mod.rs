@@ -451,6 +451,7 @@ impl App {
             Some(Modal::Confirm { .. }) => &self.app_key_binds.confirm_key_binds,
             Some(Modal::GotoBranchPicker { key_binds, .. })
             | Some(Modal::ApplyStackPicker { key_binds, .. })
+            | Some(Modal::UnarchiveWorktreePicker { key_binds, .. })
             | Some(Modal::SwitchBranchPicker { key_binds, .. })
             | Some(Modal::CopySelectionPicker { key_binds, .. })
             | Some(Modal::ProgramPicker { key_binds, .. })
@@ -688,6 +689,14 @@ impl App {
                             self.modal = picker
                                 .handle_message(fuzzy_picker_message, ctx, messages)?
                                 .map(|picker| Modal::ApplyStackPicker {
+                                    picker: Box::new(picker),
+                                    key_binds,
+                                });
+                        }
+                        Modal::UnarchiveWorktreePicker { picker, key_binds } => {
+                            self.modal = picker
+                                .handle_message(fuzzy_picker_message, ctx, messages)?
+                                .map(|picker| Modal::UnarchiveWorktreePicker {
                                     picker: Box::new(picker),
                                     key_binds,
                                 });
@@ -2023,6 +2032,10 @@ pub enum Modal {
         picker: Box<FuzzyPicker<ApplyBranchItem>>,
         key_binds: KeyBinds,
     },
+    UnarchiveWorktreePicker {
+        picker: Box<FuzzyPicker<UnarchiveWorktreeItem>>,
+        key_binds: KeyBinds,
+    },
     SwitchBranchPicker {
         picker: Box<FuzzyPicker<SwitchBranchItem>>,
         key_binds: KeyBinds,
@@ -2043,6 +2056,7 @@ impl Modal {
             Modal::CopySelectionPicker { .. }
             | Modal::GotoBranchPicker { .. }
             | Modal::ApplyStackPicker { .. }
+            | Modal::UnarchiveWorktreePicker { .. }
             | Modal::SwitchBranchPicker { .. }
             | Modal::ProgramPicker { .. } => {
                 Some(Message::FuzzyPicker(FuzzyPickerMessage::Input(event)))

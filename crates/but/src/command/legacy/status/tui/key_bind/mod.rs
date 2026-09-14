@@ -97,6 +97,8 @@ pub fn default_key_binds(feature_flags: &FeatureFlags) -> KeyBinds {
             ModeDiscriminant::Worktree => {
                 if feature_flags.worktree_manipulation {
                     builder.worktree_new().register();
+                    builder.worktree_archive().register();
+                    builder.worktree_unarchive().register();
                     builder
                         .discard()
                         .long_description("Discard worktree")
@@ -762,6 +764,20 @@ impl KeyBindsBuilder<'_> {
             Message::Worktree(WorktreeMessage::New)
         })
         .long_description("Create new worktree")
+    }
+
+    fn worktree_archive(&mut self) -> KeyBindsInModesBuilder<'_> {
+        self.key_bind("archive", press().code(KeyCode::Char('a')), || {
+            Message::Worktree(WorktreeMessage::Archive)
+        })
+        .long_description("Archive worktree")
+    }
+
+    fn worktree_unarchive(&mut self) -> KeyBindsInModesBuilder<'_> {
+        self.key_bind("unarchive", press().code(KeyCode::Char('u')), || {
+            Message::Worktree(WorktreeMessage::ShowUnarchivePicker)
+        })
+        .long_description("Unarchive worktree")
     }
 
     fn focus_details(&mut self) -> KeyBindsInModesBuilder<'_> {
