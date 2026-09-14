@@ -78,8 +78,21 @@
 				gap: 7px;
 			}
 			.repo {
+				font: inherit;
 				font-weight: 650;
 				letter-spacing: 0.01em;
+				color: inherit;
+				background: none;
+				border: 0;
+				border-radius: 5px;
+				padding: 2px 4px;
+				margin-left: -4px;
+				max-width: 100%;
+				min-width: 0;
+				cursor: pointer;
+			}
+			.repo:hover {
+				background: var(--chip);
 			}
 			.dot {
 				width: 6px;
@@ -377,7 +390,7 @@
 		<header>
 			<div class="hrow">
 				<span class="dot" id="dot"></span>
-				<span class="repo" id="repo">…</span>
+				<select class="repo" id="repo" title="Switch project"><option>…</option></select>
 				<span class="spacer"></span>
 				<button class="ghost" id="refresh" title="Refresh now">⟳</button>
 			</div>
