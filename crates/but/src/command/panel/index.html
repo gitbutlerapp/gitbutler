@@ -89,6 +89,8 @@
 				margin-left: -4px;
 				max-width: 100%;
 				min-width: 0;
+				/* As wide as the project shown, not the longest one listed. */
+				field-sizing: content;
 				cursor: pointer;
 			}
 			.repo:hover {
@@ -375,6 +377,98 @@
 				gap: 6px;
 				align-items: baseline;
 			}
+			.search {
+				margin-top: 6px;
+				width: 100%;
+				font: inherit;
+				font-size: 12px;
+				color: var(--fg);
+				background: var(--raised);
+				border: 1px solid var(--rule);
+				border-radius: 6px;
+				padding: 5px 8px;
+				outline: none;
+			}
+			.search:focus {
+				border-color: var(--accent);
+			}
+			.group {
+				display: flex;
+				flex-direction: column;
+				gap: 1px;
+				padding: 7px 10px 5px;
+				border-bottom: 1px solid var(--rule);
+			}
+			.group .name {
+				font-weight: 620;
+			}
+			.menu {
+				position: fixed;
+				z-index: 20;
+				min-width: 180px;
+				max-width: min(320px, calc(100vw - 8px));
+				padding: 4px;
+				background: var(--raised);
+				border: 1px solid var(--rule);
+				border-radius: 8px;
+				box-shadow: 0 6px 24px rgb(0 0 0 / 0.16);
+			}
+			.menu-title {
+				padding: 4px 8px 2px;
+				color: var(--muted);
+				font-size: 11px;
+				direction: rtl;
+				text-align: left;
+			}
+			.menu-label {
+				padding: 6px 8px 2px;
+				color: var(--faint);
+				font-size: 10.5px;
+				font-weight: 600;
+				letter-spacing: 0.04em;
+				text-transform: uppercase;
+			}
+			.menu-item {
+				display: block;
+				width: 100%;
+				text-align: left;
+				font: inherit;
+				color: inherit;
+				background: none;
+				border: 0;
+				border-radius: 5px;
+				padding: 5px 8px;
+				cursor: pointer;
+			}
+			.menu-item:hover {
+				background: var(--chip);
+			}
+			.menu-note {
+				padding: 5px 8px;
+				color: var(--faint);
+				font-size: 11.5px;
+			}
+			.err-text {
+				color: var(--bad);
+			}
+			.toast {
+				position: fixed;
+				z-index: 30;
+				left: 50%;
+				bottom: 12px;
+				transform: translateX(-50%);
+				max-width: calc(100vw - 24px);
+				padding: 6px 12px;
+				border-radius: 7px;
+				font-size: 12px;
+				color: var(--bg);
+				background: var(--fg);
+				box-shadow: 0 4px 16px rgb(0 0 0 / 0.18);
+			}
+			.toast.bad {
+				color: #fff;
+				background: var(--bad);
+			}
 			.base {
 				margin: 10px 12px 0;
 				padding-top: 9px;
@@ -395,8 +489,11 @@
 				<button class="ghost" id="refresh" title="Refresh now">⟳</button>
 			</div>
 			<div class="sub" id="sub"></div>
+			<input class="search" id="search" type="search" placeholder="Search files in commits (/)" autocomplete="off" spellcheck="false" />
 		</header>
 		<main id="tree"></main>
+		<div class="menu" id="menu" hidden></div>
+		<div class="toast" id="toast" hidden></div>
 		<script type="module" src="./app.js"></script>
 	</body>
 </html>

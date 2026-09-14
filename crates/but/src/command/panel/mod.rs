@@ -23,6 +23,7 @@ use anyhow::Context as _;
 use but_api::{
     commit::json::ChangesSource,
     diff::{ComputeLineStats, json::CommitDetails},
+    open::program::{OpenSpec, open_in_program_unchecked},
 };
 use but_core::sync::RepoShared;
 use but_ctx::Context;
@@ -170,9 +171,11 @@ impl Server {
             opened: HashMap::new(),
             roots: HashMap::new(),
         };
+        // A commit's files never change, so each is listed once, whichever project it's in.
+        let mut commit_files = HashMap::new();
         for stream in listener.incoming() {
             let Ok(stream) = stream else { continue };
-            if let Err(err) = handle_connection(&mut projects, port, stream) {
+            if let Err(err) = handle_connection(&mut projects, &mut commit_files, port, stream) {
                 // A dropped or malformed connection only affects that one request.
                 tracing::debug!(?err, "panel request failed");
             }
@@ -316,6 +319,7 @@ impl Projects<'_> {
 
 fn handle_connection(
     projects: &mut Projects<'_>,
+    commit_files: &mut HashMap<gix::ObjectId, serde_json::Value>,
     port: u16,
     stream: TcpStream,
 ) -> anyhow::Result<()> {
@@ -352,6 +356,21 @@ fn handle_connection(
             } => data_response(projects.get(project.as_deref()).and_then(|(ctx, _)| {
                 diff_json(ctx, &path, commit.as_deref(), worktree.as_deref())
             })),
+            Route::CommitFiles => data_response(
+                projects
+                    .get(project.as_deref())
+                    .and_then(|(ctx, _)| commit_files_json(ctx, commit_files)),
+            ),
+            Route::Programs { path } => data_response(Ok(programs_json(&path))),
+            Route::Open {
+                path,
+                program,
+                worktree,
+            } => data_response(
+                projects
+                    .get(project.as_deref())
+                    .and_then(|(ctx, _)| open_file(ctx, &program, &path, worktree.as_deref())),
+            ),
             Route::Error { status } => Response::Error { status },
         };
     write_response(&stream, response)
@@ -532,6 +551,81 @@ fn diff_json(
     Ok(serde_json::to_value(patch)?)
 }
 
+/// The changed files of every commit in the workspace, by commit ID, for the page's file search.
+fn commit_files_json(
+    ctx: &mut Context,
+    cache: &mut HashMap<gix::ObjectId, serde_json::Value>,
+) -> anyhow::Result<serde_json::Value> {
+    let commit_ids: Vec<gix::ObjectId> = {
+        let mut guard = ctx.exclusive_worktree_access();
+        ctx.invalidate_workspace(guard.write_permission());
+        but_api::workspace::get_workspace(ctx, guard.read_permission())?
+            .stacks
+            .iter()
+            .flat_map(|stack| &stack.rows)
+            .filter_map(|row| match &row.data {
+                DetailedGraphRowData::Commit(commit) => Some(commit.id),
+                DetailedGraphRowData::Reference(_) => None,
+            })
+            .collect()
+    };
+
+    let mut files = serde_json::Map::new();
+    for commit_id in commit_ids {
+        let changes = match cache.get(&commit_id) {
+            Some(changes) => changes.clone(),
+            None => {
+                let details: CommitDetails =
+                    but_api::diff::commit_details(ctx, commit_id, ComputeLineStats::No)?.into();
+                let changes = serde_json::to_value(details.changes)?;
+                cache.insert(commit_id, changes.clone());
+                changes
+            }
+        };
+        files.insert(commit_id.to_string(), changes);
+    }
+    Ok(serde_json::Value::Object(files))
+}
+
+/// The GUI programs that suit `path`, by its extension, as `but open` offers them.
+fn programs_json(path: &str) -> serde_json::Value {
+    but_api::open::list_program_specs_for_file(Path::new(path))
+        .into_iter()
+        .filter(|program| !program.requires_terminal())
+        .map(|program| json!({ "id": program.id, "name": program.name }))
+        .collect()
+}
+
+/// Open the working copy of `path` with `program`: in the linked `worktree` when given, and
+/// otherwise in the main worktree.
+fn open_file(
+    ctx: &mut Context,
+    program: &str,
+    path: &str,
+    worktree: Option<&str>,
+) -> anyhow::Result<serde_json::Value> {
+    match worktree {
+        None => but_api::open::open_in_program(ctx, program.to_owned(), path.to_owned(), None)?,
+        Some(name) => {
+            let guard = ctx.shared_worktree_access();
+            let worktree =
+                but_api::worktrees::worktrees_list_with_perm(ctx, guard.read_permission())?
+                    .active
+                    .into_iter()
+                    .find(|worktree| worktree.name.as_slice() == name.as_bytes())
+                    .with_context(|| format!("No active worktree named '{name}'"))?;
+            // The same check `open_in_program` makes, which only resolves paths in the main
+            // worktree.
+            let program = but_api::open::list_program_specs()
+                .into_iter()
+                .find(|spec| spec.id == program && !spec.requires_terminal())
+                .with_context(|| format!("'{program}' is not a program the panel can open"))?;
+            open_in_program_unchecked(&program, OpenSpec::File(worktree.path.join(path)))?;
+        }
+    }
+    Ok(json!({ "opened": true }))
+}
+
 fn parse_commit_id(id: &str) -> anyhow::Result<gix::ObjectId> {
     id.parse()
         .with_context(|| format!("Invalid commit ID: {id}"))
@@ -549,6 +643,7 @@ struct Request {
     method: String,
     target: String,
     host: Option<String>,
+    origin: Option<String>,
 }
 
 fn read_request(mut reader: impl io::BufRead) -> anyhow::Result<Request> {
@@ -559,7 +654,7 @@ fn read_request(mut reader: impl io::BufRead) -> anyhow::Result<Request> {
         anyhow::bail!("malformed request line: {request_line:?}");
     };
 
-    let mut host = None;
+    let (mut host, mut origin) = (None, None);
     let mut line = String::new();
     loop {
         line.clear();
@@ -570,10 +665,12 @@ fn read_request(mut reader: impl io::BufRead) -> anyhow::Result<Request> {
         if header.is_empty() {
             break;
         }
-        if let Some((name, value)) = header.split_once(':')
-            && name.eq_ignore_ascii_case("host")
-        {
-            host = Some(value.trim().to_owned());
+        if let Some((name, value)) = header.split_once(':') {
+            if name.eq_ignore_ascii_case("host") {
+                host = Some(value.trim().to_owned());
+            } else if name.eq_ignore_ascii_case("origin") {
+                origin = Some(value.trim().to_owned());
+            }
         }
     }
 
@@ -581,6 +678,7 @@ fn read_request(mut reader: impl io::BufRead) -> anyhow::Result<Request> {
         method: method.to_owned(),
         target: target.to_owned(),
         host,
+        origin,
     })
 }
 
@@ -613,6 +711,19 @@ enum Route {
         commit: Option<String>,
         worktree: Option<String>,
     },
+    /// The changed files of every workspace commit, for searching.
+    CommitFiles,
+    /// The programs that can open `path`.
+    Programs {
+        path: String,
+    },
+    /// Open `path`, relative to `worktree` or the main worktree, with `program`. The panel's only
+    /// action, and the only `POST`.
+    Open {
+        path: String,
+        program: String,
+        worktree: Option<String>,
+    },
     Error {
         status: &'static str,
     },
@@ -629,12 +740,6 @@ fn route(request: &Request, port: u16) -> Route {
             status: "403 Forbidden",
         };
     }
-    if request.method != "GET" {
-        return Route::Error {
-            status: "405 Method Not Allowed",
-        };
-    }
-
     let (path, query) = request
         .target
         .split_once('?')
@@ -651,6 +756,28 @@ fn route(request: &Request, port: u16) -> Route {
             .map(|(_, value)| value.clone())
             .filter(|value| !value.is_empty())
     };
+
+    // Everything but opening a file only reads, so it's a `GET`. Opening launches a program, so it
+    // is a `POST` from the page itself: another site open in the browser can send a `POST` here,
+    // but not with this server's own origin.
+    let is_open = path == "/api/open";
+    let origin_is_local = request.origin.as_deref().is_some_and(|origin| {
+        origin == format!("http://localhost:{port}") || origin == format!("http://127.0.0.1:{port}")
+    });
+    match (request.method.as_str(), is_open) {
+        ("GET", false) => {}
+        ("POST", true) if origin_is_local => {}
+        ("POST", true) => {
+            return Route::Error {
+                status: "403 Forbidden",
+            };
+        }
+        _ => {
+            return Route::Error {
+                status: "405 Method Not Allowed",
+            };
+        }
+    }
 
     match path {
         "/" => Route::Index,
@@ -674,10 +801,36 @@ fn route(request: &Request, port: u16) -> Route {
                 status: "400 Bad Request",
             },
         },
+        "/api/commit-files" => Route::CommitFiles,
+        "/api/programs" => match param("path") {
+            Some(path) => Route::Programs { path },
+            None => Route::Error {
+                status: "400 Bad Request",
+            },
+        },
+        "/api/open" => match (param("path"), param("program")) {
+            (Some(path), Some(program)) if is_inside_checkout(&path) => Route::Open {
+                path,
+                program,
+                worktree: param("worktree"),
+            },
+            _ => Route::Error {
+                status: "400 Bad Request",
+            },
+        },
         _ => Route::Error {
             status: "404 Not Found",
         },
     }
+}
+
+/// Whether `path` stays inside the checkout it's joined to: relative, and never climbing out.
+fn is_inside_checkout(path: &str) -> bool {
+    let path = Path::new(path);
+    path.is_relative()
+        && path
+            .components()
+            .all(|component| matches!(component, std::path::Component::Normal(_)))
 }
 
 /// The project a request names with `?project=<path>`, if any.
@@ -766,6 +919,15 @@ mod tests {
             method: "GET".to_owned(),
             target: target.to_owned(),
             host: host.map(str::to_owned),
+            origin: None,
+        }
+    }
+
+    fn post(target: &str, origin: Option<&str>) -> Request {
+        Request {
+            method: "POST".to_owned(),
+            origin: origin.map(str::to_owned),
+            ..get(target, LOCAL)
         }
     }
 
@@ -773,12 +935,15 @@ mod tests {
 
     #[test]
     fn reads_the_request_line_and_host_header() {
-        let raw = "GET /api/workspace HTTP/1.1\r\nhost: localhost:7789\r\nAccept: */*\r\n\r\n";
+        let raw = "GET /api/workspace HTTP/1.1\r\nhost: localhost:7789\r\nOrigin: http://localhost:7789\r\n\r\n";
         let request = read_request(raw.as_bytes()).expect("a well-formed request parses");
         assert_eq!(
             request,
-            get("/api/workspace", LOCAL),
-            "the header name matches case-insensitively"
+            Request {
+                origin: Some("http://localhost:7789".into()),
+                ..get("/api/workspace", LOCAL)
+            },
+            "header names match case-insensitively"
         );
     }
 
@@ -842,6 +1007,61 @@ mod tests {
             None,
             "without a project the server shows the one it started in"
         );
+    }
+
+    #[test]
+    fn opens_files_only_when_the_page_asks() {
+        const PAGE: Option<&str> = Some("http://localhost:7789");
+        assert_eq!(
+            route(
+                &post("/api/open?path=src%2Fa.rs&program=vscode", PAGE),
+                7789
+            ),
+            Route::Open {
+                path: "src/a.rs".into(),
+                program: "vscode".into(),
+                worktree: None,
+            },
+        );
+        assert_eq!(
+            route(
+                &post(
+                    "/api/open?path=a.rs&program=vscode",
+                    Some("https://evil.example")
+                ),
+                7789
+            ),
+            Route::Error {
+                status: "403 Forbidden"
+            },
+            "another site in the browser can't open files"
+        );
+        assert_eq!(
+            route(&post("/api/open?path=a.rs&program=vscode", None), 7789),
+            Route::Error {
+                status: "403 Forbidden"
+            },
+            "a POST without an origin isn't from the page"
+        );
+        assert_eq!(
+            route(&get("/api/open?path=a.rs&program=vscode", LOCAL), 7789),
+            Route::Error {
+                status: "405 Method Not Allowed"
+            },
+            "a GET, which any image tag can send, never opens anything"
+        );
+        for escape in ["..%2Fsecret", "%2Fetc%2Fpasswd", "src%2F..%2F..%2Fsecret"] {
+            assert_eq!(
+                route(
+                    &post(&format!("/api/open?path={escape}&program=vscode"), PAGE),
+                    7789
+                ),
+                Route::Error {
+                    status: "400 Bad Request"
+                },
+                "{escape} would leave the checkout"
+            );
+        }
     }
 
     #[test]
