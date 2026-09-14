@@ -88,8 +88,13 @@ const SignedOut: FC = () => {
 						GitButler account
 					</span>
 					<span className={classes("text-12", "text-body", styles.signedOutHint)}>
-						{error ??
-							"Opens gitbutler.com to sign in. Your access token stays in the app's backend."}
+						{error ?? (
+							<>
+								Log in to sync your account and pull requests.
+								<br />
+								Your access token stays in the app&apos;s backend.
+							</>
+						)}
 					</span>
 				</div>
 				<button
@@ -98,8 +103,8 @@ const SignedOut: FC = () => {
 					disabled={signingIn}
 					onClick={() => void signIn()}
 				>
-					{signingIn ? "Waiting for browser…" : "Log in"}
-					<Icon name="login" />
+					{signingIn ? "Waiting for browser…" : "Log in to GitButler"}
+					<Icon name={signingIn ? "spinner" : "login"} />
 				</button>
 			</div>
 		</section>
@@ -183,13 +188,18 @@ const SignedIn: FC<{ profile: UserProfile }> = ({ profile }) => {
 				onClick={() => pictureInput.current?.click()}
 			>
 				{picture !== "" ? (
-					<img src={picture} alt="" className={styles.avatar} />
+					<>
+						<img src={picture} alt="" className={styles.avatar} />
+						<span className={styles.avatarOverlay}>
+							<Icon name="camera" className={styles.avatarOverlayIcon} size={32} />
+						</span>
+					</>
 				) : (
-					<Icon name="user" size={32} />
+					<>
+						<Icon name="user" className={styles.placeholder} size={32} />
+						<Icon name="camera" className={styles.placeholderCamera} size={32} />
+					</>
 				)}
-				<span className={styles.avatarOverlay}>
-					<Icon name="camera" size={32} />
-				</span>
 			</button>
 			<input
 				ref={pictureInput}
