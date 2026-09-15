@@ -193,3 +193,28 @@ test.describe("creating a PR", () => {
 		await expect(appWindow.getByPlaceholder("PR title")).toBeVisible();
 	});
 });
+
+test.describe("without a connection", () => {
+	// The recorded PR number still points this branch at its pull request.
+	test.use({ reviewState: "merged" });
+	test.beforeEach(async ({ appWindow, electronApp }) => {
+		await electronApp.evaluate(({ ipcMain }) => {
+			for (const channel of ["listReviews", "getReview"]) {
+				ipcMain.removeHandler(channel);
+				ipcMain.handle(channel, () => {
+					throw new Error("Unable to connect to GitHub");
+				});
+			}
+		});
+		await appWindow.reload();
+	});
+	test("keeps the branch details and says the forge is unreachable", async ({ appWindow }) => {
+		await selectBranch(appWindow, "C");
+		await expect(appWindow.getByText("GitHub can't be reached", { exact: true })).toBeVisible();
+		await expect(appWindow.getByRole("button", { name: "Try again", exact: true })).toBeVisible();
+		const tabs = branchTabs(appWindow);
+		await tabs.getByRole("button", { name: "Diff", exact: true }).click();
+		await expect(tabs.getByRole("button", { name: "Diff", pressed: true })).toBeVisible();
+		await expect(appWindow.getByText("Something went wrong.")).toHaveCount(0);
+	});
+});
