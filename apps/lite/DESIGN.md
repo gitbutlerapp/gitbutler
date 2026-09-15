@@ -147,6 +147,28 @@ size below 12px, however small the space. If a token from ⚛️ Lite Core is
 smaller than that, the token is wrong, not the rule. Something that only
 works at 11px is something that should be a tooltip, an icon, or left out.
 
+## Line breaks
+
+**No runts, no widows.** A line ends where the sentence lets it, not where
+the box ran out. A full line with a word or two hanging under it reads as an
+accident, and the eye stops on it. That is the rule; how it is met is not.
+Cutting the copy, `text-wrap: pretty`, `text-wrap: balance` — any of them is
+fine, and the right one depends on the text and the room around it.
+
+**Judge by the gap.** Look at what sits beside and below the text. A hint
+that overruns its measure by two words wanted to be one line: cut it. A hint
+that runs well into a second line can stay two lines, and `balance` evens
+them out. But balance is not free: it can turn one long line into two short
+ones, leaving a wide gap to the control beside them or the row below, and two
+short lines against empty space read as wrong as a widow does. When neither
+the copy nor the wrap mode gives lines that fill their space, the text is the
+wrong length for the spot — reword it, or move it.
+
+**Where the wrap is set.** Row hints set `pretty`, which keeps a single word
+off its own line; empty states set `balance`, because centred text always
+wraps and reads best as two even lines. Change the mode for a surface when its
+text calls for it. It is a per-surface call, not a global one.
+
 ## Cursors
 
 **The arrow is the default; the hand is a setting.** Lite is a desktop app,
