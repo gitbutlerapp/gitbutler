@@ -58,3 +58,24 @@
 		display: none;
 	}
 }
+
+/* A searchable list opens below the trigger rather than over it, so there is no overlap to
+   cover: it takes the trigger's width exactly. The search row is not part of the scroller, so
+   the list's own cap leaves room for it under the height the window offers. */
+.searchablePopup {
+	--search-row-height: 36px;
+
+	min-width: var(--anchor-width);
+
+	& .list {
+		max-height: min(300px, calc(var(--available-height) - var(--search-row-height)));
+	}
+}
+
+/* A line, not the block: the dropdown is as narrow as its trigger, and the illustration would
+   fill it. */
+.empty {
+	padding-inline: 10px;
+	padding-block: 8px;
+	color: var(--text-2);
+}

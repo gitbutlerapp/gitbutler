@@ -76,3 +76,40 @@ export const WithImages = meta.story({
 export const Unlabelled = meta.story({
 	args: { label: undefined, "aria-label": "Terminal", defaultValue: "warp" },
 });
+
+/** A list too long to scan leads with the search row every other long list has, and filters as
+ * the query is typed. */
+export const Searchable = meta.story({
+	args: {
+		label: "Syntax theme",
+		"aria-label": undefined,
+		placeholder: undefined,
+		defaultValue: "github-light-default",
+		searchable: true,
+		searchPlaceholder: "Search themes...",
+		nothingFound: "No themes found",
+		style: { width: 240 },
+		items: [
+			"Ayu Light",
+			"Catppuccin Latte",
+			"Everforest Light",
+			"GitHub Light",
+			"GitHub Light Default",
+			"GitHub Light High Contrast",
+			"Gruvbox Light Hard",
+			"Gruvbox Light Medium",
+			"Gruvbox Light Soft",
+			"Horizon Bright",
+			"Kanagawa Lotus",
+			"Light+ (VS Code)",
+			"Material Lighter",
+			"Min Light",
+			"One Light",
+			"Rosé Pine Dawn",
+			"Slack Ochin",
+			"Snazzy Light",
+			"Solarized Light",
+			"Vitesse Light",
+		].map((label) => ({ value: label.toLowerCase().replace(/[^a-z0-9]+/g, "-"), label })),
+	},
+});
