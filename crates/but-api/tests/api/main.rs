@@ -18,4 +18,5 @@ mod resolve_ai;
 mod resolve_hunks;
 mod support;
 mod target_commits;
+mod workspace_integrate;
 mod worktrees;
