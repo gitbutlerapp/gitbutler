@@ -38,11 +38,23 @@ export const createButIpcHandler = ({
 	hostOverrides,
 }: {
 	emit: WatcherEmit;
-	hostOverrides: HandlerOverrides & { [K in Exclude<HostOnlyKey, "watcherStopAll">]: Handler<K> };
+	hostOverrides: HandlerOverrides & {
+		[K in Exclude<
+			HostOnlyKey,
+			"watcherStopAll" | "getUpdateStatus" | "checkForUpdates" | "downloadUpdate" | "installUpdate"
+		>]: Handler<K>;
+	};
 }): ButIpcHandle => {
 	const watcher = createHostWatcher(emit);
 	const table = new Map(
-		createEndpointTable({ watcherStopAll: () => watcher.stopAll(), ...hostOverrides }),
+		createEndpointTable({
+			watcherStopAll: () => watcher.stopAll(),
+			getUpdateStatus: () => ({ _tag: "Idle" }),
+			checkForUpdates: () => ({ _tag: "Unavailable" }),
+			downloadUpdate: () => undefined,
+			installUpdate: () => undefined,
+			...hostOverrides,
+		}),
 	);
 
 	return ({ endpoint, params }) => {

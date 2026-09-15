@@ -9,6 +9,7 @@ import type {
 import type * as sdk from "@gitbutler/but-sdk";
 import { apiParamNames } from "@gitbutler/but-sdk/api-param-names";
 import type { GUISettings } from "./settings.js";
+import type { AvailabilitySnapshot, InstallationStatus } from "./updater-state.js";
 
 type SDK = Pick<
 	{
@@ -24,6 +25,11 @@ type SDK = Pick<
  * SDK's, plus the members electron implements itself.
  */
 export type LiteElectronApi = SDK & {
+	getUpdateStatus: () => Promise<InstallationStatus>;
+	checkForUpdates: () => Promise<AvailabilitySnapshot>;
+	downloadUpdate: (version: string) => Promise<void>;
+	installUpdate: () => Promise<void>;
+	onUpdateStatusChange: (callback: (state: InstallationStatus) => void) => () => void;
 	onAskpassPrompt: (callback: (event: AskpassPromptEvent) => void) => () => void;
 	askpassSubmitPromptResponse: (params: AskpassSubmitPromptResponseParams) => Promise<void>;
 	clipboardWriteText: (text: string) => Promise<void>;
@@ -76,6 +82,11 @@ export const exposedEndpoints = Object.keys(apiParamNames) as ReadonlyArray<Endp
 
 /** Members the main process answers itself rather than forwarding to the SDK. */
 export const localEndpoints = [
+	"getUpdateStatus",
+	"checkForUpdates",
+	"downloadUpdate",
+	"installUpdate",
+	"updateStatusChange",
 	"askpassPrompt",
 	"askpassSubmitPromptResponse",
 	"clipboardWriteText",

@@ -1,3 +1,9 @@
+.updates {
+	display: flex;
+	align-items: center;
+	gap: 12px;
+}
+
 .confirm {
 	display: flex;
 	align-items: center;

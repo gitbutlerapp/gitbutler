@@ -1,6 +1,7 @@
 import type { AskpassPromptEvent, WatcherEvent } from "@gitbutler/but-sdk";
 import { exposedEndpoints, localEndpoints } from "./ipc.js";
 import type { LiteElectronApi, StreamAiResponseToken, WatcherSubscribeResult } from "./ipc.js";
+import type { InstallationStatus } from "./updater-state.js";
 
 /**
  * What a host must provide to build the renderer's api: one request/response
@@ -17,6 +18,7 @@ export type LiteApiTransport = {
 
 /** API members implemented below rather than forwarded. */
 type SpecialKey =
+	| "onUpdateStatusChange"
 	| "onAskpassPrompt"
 	| "onDeepLink"
 	| "onFullScreenChange"
@@ -29,6 +31,7 @@ type SpecialKey =
 
 /** The same members under their endpoint names; `platform` has no channel at all. */
 const specialNames = [
+	"updateStatusChange",
 	"askpassPrompt",
 	"deepLink",
 	"fullScreenChange",
@@ -78,6 +81,8 @@ export const createLiteApi = ({
 
 	return {
 		...forwarders,
+		onUpdateStatusChange: (callback) =>
+			subscribe("updateStatusChange", (payload) => callback(payload as InstallationStatus)),
 		onAskpassPrompt: (callback) =>
 			subscribe("askpassPrompt", (payload) => {
 				callback(payload as AskpassPromptEvent);

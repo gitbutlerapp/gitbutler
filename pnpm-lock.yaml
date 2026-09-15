@@ -515,6 +515,9 @@ importers:
       remark-gfm:
         specifier: ^4.0.1
         version: 4.0.1
+      semver:
+        specifier: ^7.8.5
+        version: 7.8.5
       shiki:
         specifier: ^4.3.0
         version: 4.3.0
