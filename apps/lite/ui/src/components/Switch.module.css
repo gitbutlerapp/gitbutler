@@ -24,6 +24,13 @@
 	}
 }
 
+/* The size a settings row wears, where the switch is the row's only control and sits beside
+   15px text rather than inside a 13px row. The thumb and its travel follow from the height. */
+.large {
+	--switch-width: 28px;
+	--switch-height: 16px;
+}
+
 .thumb {
 	position: absolute;
 	top: 2px;

@@ -1,5 +1,5 @@
 import preview from "#storybook/preview";
-import { Switch } from "./Switch.tsx";
+import { Switch, type SwitchSize } from "./Switch.tsx";
 import { useState } from "react";
 
 const meta = preview.meta({
@@ -12,13 +12,24 @@ const meta = preview.meta({
 	},
 });
 
-const Toggleable = ({ disabled = false }: { disabled?: boolean }) => {
+const Toggleable = ({ disabled = false, size }: { disabled?: boolean; size?: SwitchSize }) => {
 	const [checked, setChecked] = useState(true);
-	return <Switch checked={checked} disabled={disabled} onCheckedChange={setChecked} />;
+	return <Switch checked={checked} disabled={disabled} size={size} onCheckedChange={setChecked} />;
 };
 
 export const Default = meta.story({
 	render: () => <Toggleable />,
+});
+
+/** The size a settings row's switch wears, beside the row's 15px title. */
+export const Large = meta.story({
+	render: () => (
+		<div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+			<Toggleable size="large" />
+			<Switch checked disabled size="large" />
+			<Switch checked={false} disabled size="large" />
+		</div>
+	),
 });
 
 export const Disabled = meta.story({
