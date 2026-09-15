@@ -508,6 +508,13 @@ impl WorkspaceCommitWithId {
     pub fn first_parent_id(&self) -> Option<gix::ObjectId> {
         self.inner.parent_ids.first().cloned()
     }
+    /// The composite ID of the commit.
+    pub fn id(&self) -> CommitId {
+        CommitId {
+            commit_id: self.inner.id,
+            change_id: self.change_id.clone().map(|cid| cid.change_id),
+        }
+    }
 }
 /// Methods to calculate the short IDs of committed files.
 impl WorkspaceCommitWithId {
