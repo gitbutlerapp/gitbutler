@@ -1,9 +1,3 @@
-.updates {
-	display: flex;
-	align-items: center;
-	gap: 12px;
-}
-
 /* The width ⚛️ Lite Core gives a select at the end of a settings row. */
 .select {
 	width: 140px;

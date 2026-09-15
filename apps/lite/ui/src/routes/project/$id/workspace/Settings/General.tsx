@@ -95,18 +95,15 @@ export const General: FC = () => {
 				<Row
 					label="Check for updates automatically"
 					labelId="auto-update"
-					hint="You'll be asked before downloading an update."
+					hint="An update already downloaded still installs on quit."
+					below={<CheckForUpdatesButton />}
 				>
-					<div className={styles.updates}>
-						<CheckForUpdatesButton />
-
-						<Switch
-							size="large"
-							aria-labelledby="auto-update"
-							checked={settings.autoUpdate ?? defaultSettings.autoUpdate}
-							onCheckedChange={(autoUpdate) => saveGUISettings({ autoUpdate })}
-						/>
-					</div>
+					<Switch
+						size="large"
+						aria-labelledby="auto-update"
+						checked={settings.autoUpdate ?? defaultSettings.autoUpdate}
+						onCheckedChange={(autoUpdate) => saveGUISettings({ autoUpdate })}
+					/>
 				</Row>
 
 				<Row
