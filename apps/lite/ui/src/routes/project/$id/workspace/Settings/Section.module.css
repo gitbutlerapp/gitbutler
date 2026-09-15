@@ -1,13 +1,14 @@
 .section {
 	display: flex;
 	flex-direction: column;
-	gap: 6px;
+	gap: 8px;
 }
 
-/* Outside the card, the way desktop labels a group of settings. */
+/* Outside the card, at the rows' own inset, so it reads as the card's name rather than a row
+   of it. */
 .heading {
-	padding-inline-start: 2px;
-	color: var(--text-1);
+	padding-inline-start: 16px;
+	color: var(--text-3);
 }
 
 /* A card on the content pane, its rows divided by hairlines. */

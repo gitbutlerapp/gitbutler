@@ -12,7 +12,7 @@ type SectionProps = {
 export const Section: FC<SectionProps> = (p) => (
 	<section className={styles.section}>
 		{p.heading !== undefined && (
-			<h2 className={classes("text-13", "text-semibold", styles.heading)}>{p.heading}</h2>
+			<h2 className={classes("text-12", "text-semibold", styles.heading)}>{p.heading}</h2>
 		)}
 		<div className={styles.rows}>{p.children}</div>
 	</section>
