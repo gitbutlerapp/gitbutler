@@ -98,6 +98,9 @@ const SyntaxThemePreview: FC<{
 		<div className={styles.previewFooter}>
 			<Select
 				aria-label={`${p.variant === "light" ? "Light" : "Dark"} syntax theme`}
+				searchable
+				searchPlaceholder="Search themes..."
+				nothingFound="No themes found"
 				items={p.themes.map((theme) => ({ value: theme.name, label: theme.displayName }))}
 				value={p.theme}
 				onValueChange={(theme) => theme !== null && p.onChange(theme)}
