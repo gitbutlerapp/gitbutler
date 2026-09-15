@@ -23,11 +23,12 @@ use anyhow::Context as _;
 use but_api::{
     commit::json::ChangesSource,
     diff::{ComputeLineStats, json::CommitDetails},
-    open::program::{OpenSpec, open_in_program_unchecked},
+    open::program::{OpenSpec, ProgramSpec, open_in_program_unchecked},
 };
 use but_core::sync::RepoShared;
 use but_ctx::Context;
 use but_workspace::ui::workspace::DetailedGraphRowData;
+use nonempty::NonEmpty;
 use serde_json::json;
 
 use crate::{
@@ -361,15 +362,15 @@ fn handle_connection(
                     .get(project.as_deref())
                     .and_then(|(ctx, _)| commit_files_json(ctx, commit_files)),
             ),
-            Route::Programs { path } => data_response(Ok(programs_json(&path))),
+            Route::Programs { path } => data_response(Ok(programs_json(path.as_deref()))),
             Route::Open {
-                path,
+                paths,
                 program,
                 worktree,
             } => data_response(
                 projects
                     .get(project.as_deref())
-                    .and_then(|(ctx, _)| open_file(ctx, &program, &path, worktree.as_deref())),
+                    .and_then(|(ctx, _)| open_files(ctx, &program, &paths, worktree.as_deref())),
             ),
             Route::Error { status } => Response::Error { status },
         };
@@ -377,7 +378,7 @@ fn handle_connection(
 }
 
 /// Everything the page shows at once: the workspace graph, the uncommitted changes, the linked
-/// worktrees, and each branch's review.
+/// worktrees, and what the forge has for each branch.
 fn workspace_json(ctx: &mut Context, root: &Path) -> anyhow::Result<serde_json::Value> {
     let mut guard = ctx.exclusive_worktree_access();
     // This command keeps one context for its whole run; drop the cached workspace so each request
@@ -406,7 +407,7 @@ fn workspace_json(ctx: &mut Context, root: &Path) -> anyhow::Result<serde_json::
         "workspace": serde_json::to_value(workspace)?,
         "changes": serde_json::to_value(changes.worktree_changes.changes)?,
         "worktrees": worktrees_json(ctx, perm),
-        "reviews": reviews_json(ctx, &branch_names),
+        "forge": forge_json(ctx, &branch_names),
     }))
 }
 
@@ -439,40 +440,75 @@ fn worktrees_json(ctx: &Context, perm: &RepoShared) -> Vec<serde_json::Value> {
         .collect()
 }
 
-/// Each workspace branch's review with a summary of its CI, keyed by branch name. Both are read
-/// from the forge cache only, so polling never reaches the network.
+/// What the forge has for this workspace, or `null` when the target's forge is unknown: the forge's
+/// name, what it calls a review, the URL a commit ID appends to, and for each branch its compare
+/// page and its review with a summary of its CI. Reviews and CI are read from the forge cache
+/// only, so polling never reaches the network.
 #[cfg(feature = "legacy")]
-fn reviews_json(ctx: &Context, branch_names: &[String]) -> serde_json::Value {
+fn forge_json(ctx: &Context, branch_names: &[String]) -> serde_json::Value {
+    use but_api::legacy::forge;
+    use but_forge::ForgeName;
+
+    let Some(info) = forge::forge_info(ctx).ok().flatten() else {
+        return serde_json::Value::Null;
+    };
+    let name = match info.name {
+        ForgeName::GitHub => "GitHub",
+        ForgeName::GitLab => "GitLab",
+        ForgeName::Bitbucket => "Bitbucket",
+        ForgeName::Azure => "Azure DevOps",
+    };
+    // A compare page is against the target, by its name on the remote.
+    let compare = ctx
+        .project_meta()
+        .ok()
+        .zip(ctx.repo.get().ok())
+        .and_then(|(meta, repo)| {
+            Some((
+                forge::remote_url(&meta, &repo).ok()?,
+                forge::target_short_name(&meta, &repo).ok()?,
+            ))
+        });
+    let accounts = but_forge::get_all_forge_accounts().unwrap_or_default();
     let cache = Some(but_forge::CacheConfig::CacheOnly);
-    // No forge or no account just means no reviews to show.
-    let reviews = but_api::legacy::forge::list_reviews(ctx, cache.clone()).unwrap_or_default();
-    let mut by_branch = serde_json::Map::new();
+    // No account just means no reviews to show.
+    let reviews = forge::list_reviews(ctx, cache.clone()).unwrap_or_default();
+
+    let mut branches = serde_json::Map::new();
     for branch in branch_names {
         // GitHub reports a forked pull request's head as `owner:branch`.
-        let Some(review) = reviews
+        let review = reviews
             .iter()
-            .find(|review| review.source_branch.rsplit(':').next() == Some(branch.as_str()))
-        else {
-            continue;
-        };
-        let checks = but_api::legacy::forge::list_ci_checks_for_ref(ctx, branch, cache.clone())
-            .unwrap_or_default();
-        by_branch.insert(
-            branch.clone(),
+            .find(|review| review.source_branch.rsplit(':').next() == Some(branch.as_str()));
+        let fork = review
+            .and_then(|review| review.source_branch.rsplit_once(':'))
+            .map(|(owner, _)| owner);
+        let url = compare.as_ref().and_then(|(remote_url, base)| {
+            but_forge::compare_branch_url(remote_url, base, branch, fork, &accounts)
+        });
+        let review = review.map(|review| {
+            let checks =
+                forge::list_ci_checks_for_ref(ctx, branch, cache.clone()).unwrap_or_default();
             json!({
                 "number": review.number,
                 "url": review.html_url,
                 "draft": review.draft,
                 "ci": ci_summary(&checks),
-            }),
-        );
+            })
+        });
+        branches.insert(branch.clone(), json!({ "url": url, "review": review }));
     }
-    serde_json::Value::Object(by_branch)
+    json!({
+        "name": name,
+        "unit": info.unit,
+        "commitUrl": format!("{}{}", info.base_url, info.commit_url_path),
+        "branches": branches,
+    })
 }
 
 #[cfg(not(feature = "legacy"))]
-fn reviews_json(_ctx: &Context, _branch_names: &[String]) -> serde_json::Value {
-    serde_json::Value::Object(serde_json::Map::new())
+fn forge_json(_ctx: &Context, _branch_names: &[String]) -> serde_json::Value {
+    serde_json::Value::Null
 }
 
 /// Summarise checks the way `but status` does: any failure wins, then anything still running,
@@ -587,43 +623,73 @@ fn commit_files_json(
     Ok(serde_json::Value::Object(files))
 }
 
-/// The GUI programs that suit `path`, by its extension, as `but open` offers them.
-fn programs_json(path: &str) -> serde_json::Value {
-    but_api::open::list_program_specs_for_file(Path::new(path))
+/// The GUI programs that suit `path`, by its extension, as `but open` offers them. Without a path,
+/// the editors, which can open several files at once.
+fn programs_json(path: Option<&str>) -> serde_json::Value {
+    let programs = match path {
+        Some(path) => but_api::open::list_program_specs_for_file(Path::new(path)),
+        None => but_api::open::list_program_specs()
+            .into_iter()
+            .filter(ProgramSpec::is_gui_editor)
+            .collect(),
+    };
+    programs
         .into_iter()
         .filter(|program| !program.requires_terminal())
         .map(|program| json!({ "id": program.id, "name": program.name }))
         .collect()
 }
 
-/// Open the working copy of `path` with `program`: in the linked `worktree` when given, and
-/// otherwise in the main worktree.
-fn open_file(
-    ctx: &mut Context,
+/// Open the working copies of `paths` with `program`: in the linked `worktree` when given, and
+/// otherwise in the main worktree. Files that are gone from that checkout are skipped, and the
+/// number opened is returned.
+fn open_files(
+    ctx: &Context,
     program: &str,
-    path: &str,
+    paths: &[String],
     worktree: Option<&str>,
 ) -> anyhow::Result<serde_json::Value> {
-    match worktree {
-        None => but_api::open::open_in_program(ctx, program.to_owned(), path.to_owned(), None)?,
+    let checkout = match worktree {
+        None => ctx
+            .repo
+            .get()?
+            .workdir()
+            .context("project must have a workdir")?
+            .to_owned(),
         Some(name) => {
             let guard = ctx.shared_worktree_access();
-            let worktree =
-                but_api::worktrees::worktrees_list_with_perm(ctx, guard.read_permission())?
-                    .active
-                    .into_iter()
-                    .find(|worktree| worktree.name.as_slice() == name.as_bytes())
-                    .with_context(|| format!("No active worktree named '{name}'"))?;
-            // The same check `open_in_program` makes, which only resolves paths in the main
-            // worktree.
-            let program = but_api::open::list_program_specs()
+            but_api::worktrees::worktrees_list_with_perm(ctx, guard.read_permission())?
+                .active
                 .into_iter()
-                .find(|spec| spec.id == program && !spec.requires_terminal())
-                .with_context(|| format!("'{program}' is not a program the panel can open"))?;
-            open_in_program_unchecked(&program, OpenSpec::File(worktree.path.join(path)))?;
+                .find(|worktree| worktree.name.as_slice() == name.as_bytes())
+                .with_context(|| format!("No active worktree named '{name}'"))?
+                .path
         }
-    }
-    Ok(json!({ "opened": true }))
+    };
+    // The same check `open_in_program` makes, which only opens one path in the main worktree.
+    let program = but_api::open::list_program_specs()
+        .into_iter()
+        .find(|spec| spec.id == program && !spec.requires_terminal())
+        .with_context(|| format!("'{program}' is not a program the panel can open"))?;
+
+    let present: Vec<PathBuf> = paths
+        .iter()
+        .map(|path| checkout.join(path))
+        .filter(|path| path.exists())
+        .collect();
+    let Some(files) = NonEmpty::from_vec(present) else {
+        anyhow::bail!(match paths {
+            [path] => format!("'{path}' is no longer in the checkout"),
+            _ => "None of these files are in the checkout any more".to_owned(),
+        });
+    };
+    let opened = files.len();
+    let spec = match files {
+        NonEmpty { head, tail } if tail.is_empty() => OpenSpec::File(head),
+        files => OpenSpec::Files(files),
+    };
+    open_in_program_unchecked(&program, spec)?;
+    Ok(json!({ "opened": opened }))
 }
 
 fn parse_commit_id(id: &str) -> anyhow::Result<gix::ObjectId> {
@@ -713,14 +779,14 @@ enum Route {
     },
     /// The changed files of every workspace commit, for searching.
     CommitFiles,
-    /// The programs that can open `path`.
+    /// The programs that can open `path`, or without one, the editors that open several files.
     Programs {
-        path: String,
+        path: Option<String>,
     },
-    /// Open `path`, relative to `worktree` or the main worktree, with `program`. The panel's only
+    /// Open `paths`, relative to `worktree` or the main worktree, with `program`. The panel's only
     /// action, and the only `POST`.
     Open {
-        path: String,
+        paths: Vec<String>,
         program: String,
         worktree: Option<String>,
     },
@@ -802,22 +868,30 @@ fn route(request: &Request, port: u16) -> Route {
             },
         },
         "/api/commit-files" => Route::CommitFiles,
-        "/api/programs" => match param("path") {
-            Some(path) => Route::Programs { path },
-            None => Route::Error {
-                status: "400 Bad Request",
-            },
+        "/api/programs" => Route::Programs {
+            path: param("path"),
         },
-        "/api/open" => match (param("path"), param("program")) {
-            (Some(path), Some(program)) if is_inside_checkout(&path) => Route::Open {
-                path,
-                program,
-                worktree: param("worktree"),
-            },
-            _ => Route::Error {
-                status: "400 Bad Request",
-            },
-        },
+        "/api/open" => {
+            let paths: Vec<String> = params
+                .iter()
+                .filter(|(key, value)| key == "path" && !value.is_empty())
+                .map(|(_, value)| value.clone())
+                .collect();
+            match param("program") {
+                Some(program)
+                    if !paths.is_empty() && paths.iter().all(|p| is_inside_checkout(p)) =>
+                {
+                    Route::Open {
+                        paths,
+                        program,
+                        worktree: param("worktree"),
+                    }
+                }
+                _ => Route::Error {
+                    status: "400 Bad Request",
+                },
+            }
+        }
         _ => Route::Error {
             status: "404 Not Found",
         },
@@ -1018,10 +1092,29 @@ mod tests {
                 7789
             ),
             Route::Open {
-                path: "src/a.rs".into(),
+                paths: vec!["src/a.rs".into()],
                 program: "vscode".into(),
                 worktree: None,
             },
+        );
+        assert_eq!(
+            route(
+                &post("/api/open?path=a.rs&path=b%2Fc.rs&program=vscode", PAGE),
+                7789
+            ),
+            Route::Open {
+                paths: vec!["a.rs".into(), "b/c.rs".into()],
+                program: "vscode".into(),
+                worktree: None,
+            },
+            "a commit's files open together, in the order listed"
+        );
+        assert_eq!(
+            route(&post("/api/open?program=vscode", PAGE), 7789),
+            Route::Error {
+                status: "400 Bad Request"
+            },
+            "there must be something to open"
         );
         assert_eq!(
             route(
@@ -1061,7 +1154,35 @@ mod tests {
                 },
                 "{escape} would leave the checkout"
             );
+            assert_eq!(
+                route(
+                    &post(
+                        &format!("/api/open?path=a.rs&path={escape}&program=vscode"),
+                        PAGE
+                    ),
+                    7789
+                ),
+                Route::Error {
+                    status: "400 Bad Request"
+                },
+                "{escape} would leave the checkout, even alongside a safe path"
+            );
         }
+    }
+
+    #[test]
+    fn lists_programs_for_a_file_or_editors_for_many() {
+        assert_eq!(
+            route(&get("/api/programs?path=src%2Fa.rs", LOCAL), 7789),
+            Route::Programs {
+                path: Some("src/a.rs".into())
+            }
+        );
+        assert_eq!(
+            route(&get("/api/programs", LOCAL), 7789),
+            Route::Programs { path: None },
+            "without a file, the editors that open a commit's files together"
+        );
     }
 
     #[test]
