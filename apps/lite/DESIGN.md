@@ -80,24 +80,123 @@ thing; dark mode is handled by the tokens. Note that selected rows reach these
 styles through CSS in `Row.module.css` rather than by passing the variant, so
 selection can restyle without a re-render.
 
+## States
+
+**Every interactive component has a hover and a focus state.** A button, a
+row, a tab, a field, a menu item, a clickable badge: if it responds to a click
+or a key, it shows that it can be hovered and that it holds focus. Hover says
+"this reacts"; focus says "the keyboard is here". A control with neither reads
+as static text, and a control with hover only is invisible to anyone not on a
+mouse. Neither is optional, and neither is a separate ticket.
+
+**Hover is a ground, not a cursor.** The cursor never changes to say a thing is
+clickable (see Cursors), so the hover state carries that alone. Controls take
+it from the shared tokens: `Button` from its variant's `--button-hover-bg`,
+a list row from `--list-item-hover-bg`, and anything else from a gray wash at
+`--opacity-bg-hover` so hover reads the same weight everywhere. A disabled
+control shows no hover.
+
+**Focus is the one ring.** `--focus-ring` is the only focus outline in the app,
+and `global.css` already puts it on every `button` and `a` under
+`:focus-visible`, so a plain control gets it for free. A component that draws
+its own — a field, a switch, a segmented toggle — uses the same token, never a
+literal or the browser's accent ring. Buttons and rows use `:focus-visible`,
+so a click doesn't leave a ring behind; a text field uses `:focus`, since a
+field being edited should look edited however it got there.
+
+**The ring can move, but not vanish.** `outline: none` is allowed only when
+the focus is shown somewhere else — a tree item that highlights its row, a
+popup that hands focus straight to its first control — and the rule says so in
+a comment beside it. A bare `outline: none` with nothing taking over is a
+removed focus state, and a bug.
+
+**Hover and focus transition; they don't snap.** A state change on a control
+is a fade, not a cut, and it rides the fast tier (see Motion). A control whose
+ground and text change takes `--transition-button` — one token so a button, a
+row and a badge that opens a menu all settle at the same speed. A control
+whose ring changes transitions `outline-color var(--transition-fast)`, as a
+field does; one that dims transitions `opacity var(--transition-fast)`. Name
+the property that changes, not `all`: a transition on `all` picks up layout
+and reads as lag. Nothing hover- or focus-related uses the medium tier — the
+one exception is an icon giving way to another icon, which crossfades on the
+medium tier whatever triggers it (see Motion) — and nothing writes a duration
+by hand.
+
+## Radius
+
+**Nested corners are concentric.** A thing inside a rounded thing takes a
+radius that follows the same centre: outer radius equals inner radius plus the
+padding between them. A card at `--radius-card` with 4px of padding holds a
+control at `--radius-card` minus 4px, not at the same radius, and not at a
+different token picked for the control alone. Two nested radii that share a
+value but not a centre are the most common way an otherwise on-spec surface
+reads as slightly wrong. The radius tokens come from ⚛️ Lite Core; when the
+subtraction doesn't land on one, compute it with `calc()` from the outer token
+and say so, rather than eyeballing a literal.
+
+## Minimums
+
+**A hit area is never under 16px.** A control can draw smaller than that — a
+chevron, a close cross, a diff line number — but what it responds to is at
+least 16px on each side. Extend the target with padding or a pseudo-element
+rather than growing the glyph, and don't let two extended targets overlap:
+the click goes to one control, not to whichever painted last.
+
+**Text is never under 12px.** No label, count, caption, tag or keycap sets a
+size below 12px, however small the space. If a token from ⚛️ Lite Core is
+smaller than that, the token is wrong, not the rule. Something that only
+works at 11px is something that should be a tooltip, an icon, or left out.
+
+## Line breaks
+
+**No runts, no widows.** A line ends where the sentence lets it, not where
+the box ran out. A full line with a word or two hanging under it reads as an
+accident, and the eye stops on it. That is the rule; how it is met is not.
+Cutting the copy, `text-wrap: pretty`, `text-wrap: balance` — any of them is
+fine, and the right one depends on the text and the room around it.
+
+**Judge by the gap.** Look at what sits beside and below the text. A hint
+that overruns its measure by two words wanted to be one line: cut it. A hint
+that runs well into a second line can stay two lines, and `balance` evens
+them out. But balance is not free: it can turn one long line into two short
+ones, leaving a wide gap to the control beside them or the row below, and two
+short lines against empty space read as wrong as a widow does. When neither
+the copy nor the wrap mode gives lines that fill their space, the text is the
+wrong length for the spot — reword it, or move it.
+
+**Where the wrap is set.** Row hints set `pretty`, which keeps a single word
+off its own line; empty states set `balance`, because centred text always
+wraps and reads best as two even lines. Change the mode for a surface when its
+text calls for it. It is a per-surface call, not a global one.
+
 ## Cursors
 
-**No pointer cursors.** Lite is a desktop app, and desktop apps keep the arrow
-over buttons, menus and rows; the hand is a web convention for links out to a
-page. Whoever wants the hand anyway turns it on in Appearance, and the harness
-panel takes it always, being part of a web page. Both go through one property:
-the host sets `--control-cursor` on its root, and `control-cursor.css` puts it
-on every control in one rule — buttons, links, `summary`, `select`, a `label`
-that owns a control, and the roles Base UI renders when it draws a control as a
-span or a div: button, checkbox, switch, radio, tab, option and the menu items.
-The same stylesheet gives a disabled control `not-allowed`, so no component
-does. Don't set `cursor: pointer` on a control, and don't pin `cursor: default`
-on one either — both defeat the setting. Don't reintroduce the hand by
-resetting a `<button>`: the browser default for buttons is already the arrow.
-A clickable that is none of those elements (a list row, a folded card, a
-minimap badge, a diff line number) takes `cursor: var(--control-cursor)`
-itself. Interactivity is shown by the hover state, not the cursor. The cursors
-that do change are the ones that describe a gesture: `text` over editable
+**The arrow is the default; the hand is a setting.** Lite is a desktop app,
+and desktop apps keep the arrow over buttons, menus and rows; the hand is a
+web convention for links out to a page. So the app ships with the arrow, and
+the _Hand cursor_ switch in Appearance turns the hand on for whoever wants it.
+The harness panel takes the hand always, being part of a web page.
+
+**One property carries the choice.** The host sets `--control-cursor` on its
+root — the app flips `data-hand-cursor` on the document from the setting and
+`global.css` maps it to `pointer`, the panel sets it outright — and
+`control-cursor.css` puts that property on every control in one rule:
+buttons, links, `summary`, `select`, a `label` that owns a control, and the
+roles Base UI renders when it draws a control as a span or a div: button,
+checkbox, switch, radio, tab, option and the menu items. The same stylesheet
+gives a disabled control `not-allowed`, so no component does.
+
+**Components don't choose a cursor.** Don't set `cursor: pointer` on a
+control, and don't pin `cursor: default` on one either — both defeat the
+setting. Don't reintroduce the hand by resetting a `<button>`: the browser
+default for buttons is already the arrow. A clickable that is none of the
+elements above (a list row, a folded card, a minimap badge, a diff line
+number) takes `cursor: var(--control-cursor)` itself, so it follows the
+setting too. Interactivity is shown by the hover state (see States), not by
+the cursor.
+
+**Gesture cursors are the exception.** The cursors that do change regardless
+of the setting are the ones that describe a gesture: `text` over editable
 text, `grab` and `grabbing` while dragging, and the resize cursors on a
 splitter.
 
@@ -141,6 +240,17 @@ change feels, not how long something waits.
 **Anything that moves respects reduced motion.** A fold that changes height
 turns its transition off under `prefers-reduced-motion: reduce`, as the graph
 section does. A hover color needs no such rule.
+
+**An icon that becomes another icon crossfades.** Whenever one glyph gives
+way to another — copy becoming a tick, plus becoming a check, a placeholder
+becoming a camera under the pointer — the old one doesn't cut to the new one.
+Both icons stay in the DOM, one laid over the other (a shared grid cell or an
+absolutely positioned wrapper), and each transitions `opacity, scale, filter`
+on the medium tier: the one leaving shrinks to `scale(0.25)`, fades to `0` and
+blurs to `4px`, the one arriving does the reverse. The easing is the keyword
+`ease-out`, as everywhere else. This is a transition, not a keyframe, so a
+second click or a pointer leaving mid-swap reverses it cleanly. The same
+recipe serves a result swap and a hover swap alike; only the trigger differs.
 
 **The rules live in two places.** The token descriptions in ⚛️ Lite Core carry
 the same tiers and pairings as this section; change one and change the other.
