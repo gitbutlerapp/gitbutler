@@ -24,6 +24,7 @@
 				"ui/src/components/ToggleGroup.tsx!",
 				"ui/src/components/Select.tsx!",
 				"ui/src/components/NumberField.tsx!",
+				"ui/src/components/Range.tsx!",
 			],
 			"project": [
 				"electron/src/**!",
