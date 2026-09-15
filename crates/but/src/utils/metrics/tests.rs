@@ -24,6 +24,24 @@ fn assert_command(subcommand: Subcommands, expected: &str) {
 }
 
 #[test]
+fn experimental_metric_names_require_nightly() {
+    assert_eq!(
+        CommandName::from_str("expand", false).is_ok(),
+        cfg!(feature = "nightly"),
+        "expand metrics must only be accepted in nightly builds"
+    );
+    assert_eq!(
+        serde_json::from_value::<CommandName>(serde_json::json!("expand")).is_ok(),
+        cfg!(feature = "nightly"),
+        "serialized expand metrics must follow the same feature gate"
+    );
+    assert!(
+        CommandName::from_str("open", false).is_ok(),
+        "open metrics are also used by the stable open command"
+    );
+}
+
+#[test]
 fn metrics_use_invoked_command_names() {
     assert_command(
         Subcommands::Update(update::Platform {
