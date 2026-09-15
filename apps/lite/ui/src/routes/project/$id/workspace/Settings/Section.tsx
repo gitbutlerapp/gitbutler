@@ -5,6 +5,11 @@ import type { FC, ReactNode } from "react";
 type SectionProps = {
 	/** Omit on a page's first section, where the page's own label already says it. */
 	heading?: string;
+	/**
+	 * A recessed strip closing the card, for what the rows add up to rather than another setting:
+	 * a connection's status and the button that checks it.
+	 */
+	footer?: ReactNode;
 	children: ReactNode;
 };
 
@@ -14,7 +19,10 @@ export const Section: FC<SectionProps> = (p) => (
 		{p.heading !== undefined && (
 			<h2 className={classes("text-12", "text-semibold", styles.heading)}>{p.heading}</h2>
 		)}
-		<div className={styles.rows}>{p.children}</div>
+		<div className={styles.rows}>
+			{p.children}
+			{p.footer !== undefined && <div className={styles.footer}>{p.footer}</div>}
+		</div>
 	</section>
 );
 

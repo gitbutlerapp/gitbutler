@@ -36,6 +36,17 @@
 	align-items: center;
 }
 
+/* Sits on the card's recessed ground rather than its paper, so it reads as the card's status
+   line and not as one more row of it. */
+.footer {
+	display: flex;
+	align-items: center;
+	padding: 12px 16px;
+	gap: 16px;
+	border-top: 1px solid var(--border-section);
+	background-color: var(--bg-2);
+}
+
 .stacked {
 	flex-direction: column;
 	align-items: stretch;
