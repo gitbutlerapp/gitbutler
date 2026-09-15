@@ -10,6 +10,7 @@ import {
 } from "#ui/api/queries.ts";
 import { useDeleteAllData, useSaveGUISettings } from "#ui/api/mutations.ts";
 import { AccountSection } from "./Account.tsx";
+import { InstallCli } from "./InstallCli.tsx";
 import { getButtonClassName } from "#ui/components/Button.tsx";
 import { Switch } from "#ui/components/Switch.tsx";
 import { defaultSettings } from "#ui/settings.ts";
@@ -50,6 +51,7 @@ export const General: FC = () => {
 			<AccountSection profile={profile} />
 
 			<Section>
+				<InstallCli />
 				<Row label="Default editor" htmlFor="editor">
 					<select
 						id="editor"

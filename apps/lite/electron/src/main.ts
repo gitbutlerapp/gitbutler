@@ -2,6 +2,7 @@ import { posthogHost } from "./telemetry.js";
 import { checkForUpdates, downloadUpdate, getUpdateStatus, installUpdate } from "./updater.js";
 import WatcherManager from "./watcher.js";
 import * as sdk from "@gitbutler/but-sdk";
+import { installCli } from "./cli.js";
 import {
 	createEndpointTable,
 	type Handler,
@@ -307,6 +308,7 @@ const electronHandlerOverrides = {
 	getAppSettings: () => sdk.getAppSettings(),
 	getVersion: () => app.getVersion(),
 	isPackaged: () => app.isPackaged,
+	installCli,
 	openInWebBrowser: (url) => {
 		// shell.openExternal() is powerful and dangerous. For example, on macOS you can launch a
 		// program with shell.openExternal("file:///Applications/Numbers.app"). Similarly bad

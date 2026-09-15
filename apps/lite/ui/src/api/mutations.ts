@@ -78,6 +78,12 @@ declare module "@tanstack/react-query" {
 	}
 }
 
+export const useInstallCli = () =>
+	useMutation({
+		mutationFn: () => window.lite.installCli(),
+		meta: { failureTitle: "Could not install CLI" },
+	});
+
 const pluralRules = new Intl.PluralRules("en");
 
 // oxlint-disable-next-line typescript/no-explicit-any
