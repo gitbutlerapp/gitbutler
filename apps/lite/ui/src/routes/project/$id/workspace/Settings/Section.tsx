@@ -36,6 +36,11 @@ type RowProps = {
 	labelId?: string;
 	/** Sits under the label: a unit, an inferred value, a caveat. */
 	hint?: ReactNode;
+	/**
+	 * Sits under the hint, flush with the words rather than at the row's end: a button that does
+	 * once what the control at the end does on its own.
+	 */
+	below?: ReactNode;
 	children?: ReactNode;
 };
 
@@ -69,6 +74,8 @@ export const Row: FC<RowProps> = (p) => (
 			{p.hint !== undefined && (
 				<span className={classes("text-12", "text-body", styles.hint)}>{p.hint}</span>
 			)}
+
+			{p.below !== undefined && <div className={styles.below}>{p.below}</div>}
 		</div>
 
 		<div className={styles.control}>{p.children}</div>

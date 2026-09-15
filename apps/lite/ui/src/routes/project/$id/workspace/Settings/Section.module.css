@@ -75,6 +75,13 @@
 	text-wrap: pretty;
 }
 
+/* Twice the words' own gap, so it reads as what follows them rather than one more line of them;
+   a flex row so a button keeps its width instead of stretching across the column. */
+.below {
+	display: flex;
+	margin-top: 6px;
+}
+
 /*
  * Controls sit against the right edge. A field stretches to fill the column and reads
  * right-aligned; a composite widget keeps its natural width and just ends there.
