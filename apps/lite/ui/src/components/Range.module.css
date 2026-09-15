@@ -122,7 +122,7 @@
 		outline-offset: 1px;
 	}
 
-	.range:not([data-disabled]) &:is(:hover, [data-dragging]) {
+	.range:not([data-disabled]) &:is(:hover, .dragging) {
 		&::before {
 			width: var(--thumb-hover-width);
 		}

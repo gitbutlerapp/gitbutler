@@ -133,7 +133,14 @@ export const Range = <Value extends number | ReadonlyArray<number> = number>({
 								index={index}
 								aria-label={ariaLabel}
 								getAriaValueText={getAriaValueText}
-								className={styles.thumb}
+								// Base UI puts data-dragging on every thumb while any of them drags, so the
+								// thumb in the hand is told apart from the other by the root's active index.
+								className={(state) =>
+									classes(
+										styles.thumb,
+										state.dragging && state.activeThumbIndex === index && styles.dragging,
+									)
+								}
 							/>
 						))}
 					</Slider.Track>
