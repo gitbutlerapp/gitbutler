@@ -93,6 +93,11 @@ export interface AiConfiguration {
   lmstudioModel: string
   /** Whether the active provider has everything it needs to answer. */
   isConfigured: boolean
+  /**
+   * Whether nothing has been changed from the defaults and no key is stored, so a reset
+   * would change nothing.
+   */
+  isDefault: boolean
 }
 
 /** One complete AI configuration to save, with any newly entered API keys. */
@@ -743,7 +748,7 @@ export declare function forgetGitlabAccount(account: GitlabAccountIdentifier): P
 /**
  * Read application-global AI configuration without exposing stored secrets.
  *
- * {@link ../../../../../crates/but-api/src/ai.rs:213}
+ * {@link ../../../../../crates/but-api/src/ai.rs:220}
  */
 export declare function getAiConfiguration(): Promise<AiConfiguration>
 
@@ -1322,7 +1327,7 @@ export declare function requestReview(projectId: string, reviewId: number, login
 /**
  * Clear application-global AI configuration and stored provider API keys.
  *
- * {@link ../../../../../crates/but-api/src/ai.rs:251}
+ * {@link ../../../../../crates/but-api/src/ai.rs:258}
  */
 export declare function resetAiConfiguration(): Promise<AiConfiguration>
 
@@ -1554,7 +1559,7 @@ export declare function unapplyStack(projectId: string, stackId: string): Promis
 /**
  * Validate and save one complete application-global AI configuration.
  *
- * {@link ../../../../../crates/but-api/src/ai.rs:219}
+ * {@link ../../../../../crates/but-api/src/ai.rs:226}
  */
 export declare function updateAiConfiguration(update: AiConfigurationUpdate): Promise<AiConfiguration>
 
