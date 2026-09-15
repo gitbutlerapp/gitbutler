@@ -431,7 +431,7 @@ export const Ai: FC = () => {
 				<Note icon="warning">Sign in on the General page before using the GitButler AI API.</Note>
 			)}
 
-			<Note icon="info">
+			<Note icon="lock">
 				Configure GitButler's AI provider. API keys are safely stored in the backend.
 			</Note>
 		</>
