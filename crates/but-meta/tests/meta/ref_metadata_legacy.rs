@@ -70,12 +70,45 @@ fn read_only_store_does_not_write_on_drop() -> anyhow::Result<()> {
         let mut store = VirtualBranchesTomlMetadata::from_path_read_only(&writable_toml_path)?;
         store.data_mut().branches.clear();
         store.set_changed_to_necessitate_write();
+        assert!(
+            store.flush().is_err(),
+            "read-only metadata cannot be flushed"
+        );
     }
 
     assert_eq!(
         std::fs::read_to_string(&writable_toml_path)?,
         original,
         "read-only metadata is projection input and must not reconcile or persist on drop"
+    );
+    Ok(())
+}
+
+#[test]
+fn flushed_metadata_remains_writable_until_drop() -> anyhow::Result<()> {
+    let (mut store, _tmp) = vb_store_rw("virtual-branches-01")?;
+    let path = store.path().to_owned();
+    let ws_ref: gix::refs::FullName = "refs/heads/gitbutler/workspace".try_into()?;
+    let mut ws = store.workspace(ws_ref.as_ref())?;
+    assert!(ws.stacks.len() > 1, "the fixture has stacks to reorder");
+    ws.stacks.reverse();
+    store.set_workspace(&ws)?;
+    store.flush()?;
+    let fresh = VirtualBranchesTomlMetadata::from_path_read_only(&path)?;
+    assert_eq!(
+        fresh.workspace(ws_ref.as_ref())?.stacks,
+        ws.stacks,
+        "flushing makes stack order visible without dropping the writable handle"
+    );
+
+    ws.stacks.reverse();
+    store.set_workspace(&ws)?;
+    drop(store);
+    let fresh = VirtualBranchesTomlMetadata::from_path_read_only(&path)?;
+    assert_eq!(
+        fresh.workspace(ws_ref.as_ref())?.stacks,
+        ws.stacks,
+        "changes made after flushing are still saved on drop"
     );
     Ok(())
 }

@@ -239,6 +239,15 @@ pub trait RefMetadata {
     /// Set branch metadata to match `value`.
     fn set_branch(&mut self, value: &Self::Handle<ref_metadata::Branch>) -> anyhow::Result<()>;
 
+    /// Persist pending metadata changes before returning from a mutation.
+    ///
+    /// Buffered backends must override this so fresh readers can observe the completed mutation
+    /// without waiting for the metadata handle to be dropped. In-memory backends and backends
+    /// that persist each change immediately need no additional work.
+    fn flush(&mut self) -> anyhow::Result<()> {
+        Ok(())
+    }
+
     /// Return the ordered local branch refs in the same stack as `ref_name`, from tip to base.
     ///
     /// Implementations that don't persist branch stack order can return `Ok(None)`.

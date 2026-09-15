@@ -146,6 +146,207 @@ fn rollback() {
 }
 
 #[test]
+fn creating_stack_persists_order_before_metadata_is_dropped() -> anyhow::Result<()> {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["branch"]);
+    let repo = but_testsupport::open_repo(env.projects_root())?;
+    assert!(
+        repo.worktrees()?.is_empty(),
+        "no linked worktree is needed to reproduce this"
+    );
+    let mut ctx = Context::from_repo_for_testing(repo)?.with_memory_app_cache();
+    but_api::branch::branch_create(
+        &mut ctx,
+        Some("refs/heads/existing-empty".try_into()?),
+        but_api::branch::json::BranchCreatePlacement::Independent { order: None },
+    )?;
+    env.file("new-file", "new stack content\n");
+    let ref_name: FullName = "refs/heads/new-stack".try_into()?;
+    let mut meta = ctx.meta()?;
+    let _state: WorkspaceState = with_transaction(
+        &mut ctx,
+        &mut meta,
+        SnapshotDetails::new(OperationKind::CreateCommit),
+        DryRun::No,
+        |mut tx| {
+            tx.create_reference(
+                ref_name.as_ref(),
+                None,
+                |_| but_core::ref_metadata::StackId::generate(),
+                Some(1),
+            )?;
+            let outcome = tx.create_commit(
+                RelativeTo::Reference(ref_name.clone()),
+                InsertSide::Below,
+                vec![diff_spec_for_file("new-file")],
+                "New stack commit".into(),
+                but_workspace::commit::ChangeSource::Head,
+            )?;
+            assert!(
+                outcome.new_commit.is_some() && outcome.rejected_specs.is_empty(),
+                "the new stack contains the committed file"
+            );
+            Ok(())
+        },
+    )?;
+    let names = |info: &but_workspace::RefInfo| {
+        info.stacks
+            .iter()
+            .map(|stack| {
+                stack.segments[0]
+                    .ref_info
+                    .as_ref()
+                    .expect("named stack")
+                    .ref_name
+                    .to_string()
+            })
+            .collect::<Vec<_>>()
+    };
+    // Read persisted order independently of the feature-dependent transaction response.
+    let expected = [
+        "refs/heads/branch",
+        "refs/heads/new-stack",
+        "refs/heads/existing-empty",
+    ];
+    assert_eq!(
+        names(&but_api::legacy::workspace::head_info(&ctx)?),
+        expected,
+        "a fresh reader must observe the completed transaction's stack order while meta is alive"
+    );
+    drop(meta);
+    assert_eq!(
+        names(&but_api::legacy::workspace::head_info(&ctx)?),
+        expected,
+        "dropping metadata must not change the visible order"
+    );
+    Ok(())
+}
+
+/// Forwards to the real metadata, but saving always fails, as it would on a full disk.
+struct UnsavableMetadata<M>(M);
+
+impl<M: RefMetadata> RefMetadata for UnsavableMetadata<M> {
+    type Handle<T> = M::Handle<T>;
+
+    fn iter(&self) -> impl Iterator<Item = anyhow::Result<(FullName, Box<dyn std::any::Any>)>> {
+        self.0.iter()
+    }
+
+    fn workspace(
+        &self,
+        ref_name: &gix::refs::FullNameRef,
+    ) -> anyhow::Result<Self::Handle<but_core::ref_metadata::Workspace>> {
+        self.0.workspace(ref_name)
+    }
+
+    fn branch(
+        &self,
+        ref_name: &gix::refs::FullNameRef,
+    ) -> anyhow::Result<Self::Handle<but_core::ref_metadata::Branch>> {
+        self.0.branch(ref_name)
+    }
+
+    fn set_workspace(
+        &mut self,
+        value: &Self::Handle<but_core::ref_metadata::Workspace>,
+    ) -> anyhow::Result<()> {
+        self.0.set_workspace(value)
+    }
+
+    fn set_branch(
+        &mut self,
+        value: &Self::Handle<but_core::ref_metadata::Branch>,
+    ) -> anyhow::Result<()> {
+        self.0.set_branch(value)
+    }
+
+    fn flush(&mut self) -> anyhow::Result<()> {
+        anyhow::bail!("No space left on device")
+    }
+
+    fn branch_stack_order(
+        &self,
+        ref_name: &gix::refs::FullNameRef,
+    ) -> anyhow::Result<Option<Vec<FullName>>> {
+        self.0.branch_stack_order(ref_name)
+    }
+
+    fn set_branch_stack_order(&mut self, branches: &[FullName]) -> anyhow::Result<()> {
+        self.0.set_branch_stack_order(branches)
+    }
+
+    fn can_persist_branch_stack_order(&self) -> bool {
+        self.0.can_persist_branch_stack_order()
+    }
+
+    fn rename_branch_stack_order_reference(
+        &mut self,
+        old_ref_name: &gix::refs::FullNameRef,
+        new_ref_name: &gix::refs::FullNameRef,
+    ) -> anyhow::Result<()> {
+        self.0
+            .rename_branch_stack_order_reference(old_ref_name, new_ref_name)
+    }
+
+    fn remove_missing_branch_stack_order_references(
+        &mut self,
+        existing_ref_names: &[FullName],
+    ) -> anyhow::Result<()> {
+        self.0
+            .remove_missing_branch_stack_order_references(existing_ref_names)
+    }
+
+    fn remove(&mut self, ref_name: &gix::refs::FullNameRef) -> anyhow::Result<bool> {
+        self.0.remove(ref_name)
+    }
+
+    fn rename(
+        &mut self,
+        old_ref_name: &gix::refs::FullNameRef,
+        new_ref_name: &gix::refs::FullNameRef,
+    ) -> anyhow::Result<()> {
+        self.0.rename(old_ref_name, new_ref_name)
+    }
+}
+
+#[test]
+fn failed_metadata_save_keeps_the_completed_transaction() -> anyhow::Result<()> {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["branch"]);
+    let [three] = find_commits(&env, ["1e25c58"]);
+    let repo = but_testsupport::open_repo(env.projects_root())?;
+    let mut ctx = Context::from_repo_for_testing(repo)?.with_memory_app_cache();
+    let mut meta = UnsavableMetadata(ctx.meta()?);
+
+    let _state: WorkspaceState = with_transaction(
+        &mut ctx,
+        &mut meta,
+        SnapshotDetails::new(OperationKind::UpdateCommitMessage),
+        DryRun::No,
+        |mut tx| {
+            tx.reword_commit(three, "reworded".into())?;
+            Ok(())
+        },
+    )?;
+
+    // The reword landed even though the metadata couldn't be saved.
+    snapbox::assert_data_eq!(
+        env.git_log(),
+        snapbox::str![[r#"
+* 5272902 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+* 9727a8e (branch) reworded
+* 9b3b3d5 add file-two
+* dbdbcea add file-one
+* 6674d4f (origin/main, origin/HEAD, main, gitbutler/target) add random-file
+
+"#]]
+    );
+    // The refs moved before the save failed, so the change stays on record and undoable.
+    assert_num_snapshots(&ctx, 1);
+    Ok(())
+}
+
+#[test]
 fn create_reference_without_creating_commits() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
     env.setup_metadata(&["branch"]);
@@ -331,6 +532,8 @@ fn checkout_dry_run_only_previews_the_new_head() {
     let mut meta = ctx.meta().unwrap();
     let snapshot_details = SnapshotDetails::new(OperationKind::CreateBranch);
     let new_branch = FullName::try_from("refs/heads/dry-run-checkout").unwrap();
+    let ws_ref: &gix::refs::FullNameRef = "refs/heads/gitbutler/workspace".try_into().unwrap();
+    let original_stacks = meta.workspace(ws_ref).unwrap().stacks.clone();
 
     let _preview: WorkspaceState = with_transaction(
         &mut ctx,
@@ -367,6 +570,11 @@ fn checkout_dry_run_only_previews_the_new_head() {
         "a dry-run should not persist the created branch"
     );
     assert_num_snapshots(&ctx, 0);
+    assert_eq!(
+        ctx.meta().unwrap().workspace(ws_ref).unwrap().stacks,
+        original_stacks,
+        "a dry run must not persist its preview metadata"
+    );
 }
 
 #[test]
@@ -854,6 +1062,8 @@ fn create_reference_is_removed_on_rollback() {
     let mut meta = ctx.meta().unwrap();
     let snapshot_details = SnapshotDetails::new(OperationKind::CreateCommit);
     let refname = FullName::try_from("refs/heads/rolled-back").unwrap();
+    let ws_ref: &gix::refs::FullNameRef = "refs/heads/gitbutler/workspace".try_into().unwrap();
+    let original_stacks = meta.workspace(ws_ref).unwrap().stacks.clone();
 
     let outcome = with_transaction(
         &mut ctx,
@@ -880,6 +1090,11 @@ fn create_reference_is_removed_on_rollback() {
         "created reference should be removed when the transaction rolls back"
     );
     assert_num_snapshots(&ctx, 0);
+    assert_eq!(
+        ctx.meta().unwrap().workspace(ws_ref).unwrap().stacks,
+        original_stacks,
+        "a rollback must not persist the created branch's metadata"
+    );
 }
 
 #[test]
