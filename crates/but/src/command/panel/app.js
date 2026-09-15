@@ -16,7 +16,7 @@ const POLL_MS = 3000;
 // project it was started in.
 const PROJECT = new URLSearchParams(location.search).get("project");
 
-/** An API URL for `path`, carrying this page's project. */
+/** An API URL for `path`, carrying this page's project. `params` may repeat a key as pairs. */
 function api(path, params = {}) {
 	const query = new URLSearchParams(params);
 	if (PROJECT) query.set("project", PROJECT);
@@ -205,7 +205,7 @@ function renderCommit(commit) {
 	const cls = ["commit", pushed ? "pushed" : "", commit.hasConflicts ? "conflicted" : ""].join(" ");
 
 	let html =
-		`<button class="row ${cls} ${isOpen ? "open" : ""}" data-key="${esc(key)}" data-url="${esc(api("/api/commit", { id: commit.id }))}">` +
+		`<button class="row ${cls} ${isOpen ? "open" : ""}" data-key="${esc(key)}" data-url="${esc(api("/api/commit", { id: commit.id }))}" data-commit="${esc(commit.id)}">` +
 		`<span class="tw">▶</span>` +
 		`<span class="grow"><span class="${isOpen ? "wrap" : "clip"}" style="display:block">${esc(subject(commit.message))}</span>` +
 		(isOpen
@@ -232,14 +232,14 @@ const CI_MARK = {
 	failing: `<span style="color:var(--bad)">✗ CI</span>`,
 };
 
-function renderBranch({ reference, commits }, reviews) {
+function renderBranch({ reference, commits }, forge) {
 	const name = reference.refName.displayName;
 	const key = `branch:${reference.refName.fullName}`;
 	const isOpen = !open.has(key); // branches start expanded; the key marks "collapsed"
 	const bits = [];
 	const status = reference.status?.pushStatus;
 	if (status) bits.push(esc(words(status)));
-	const review = reviews[name];
+	const review = forge?.branches[name]?.review;
 	if (review) {
 		bits.push(
 			`<a class="pr" href="${esc(review.url)}" target="_blank" rel="noreferrer">#${review.number}</a>` +
@@ -250,7 +250,7 @@ function renderBranch({ reference, commits }, reviews) {
 
 	return (
 		`<section class="card">` +
-		`<button class="row branch ${isOpen ? "open" : ""}" data-key="${esc(key)}">` +
+		`<button class="row branch ${isOpen ? "open" : ""}" data-key="${esc(key)}" data-branch="${esc(reference.refName.fullName)}">` +
 		`<span class="tw">▶</span>` +
 		`<span class="grow"><span class="name clip" style="display:block">${esc(name)}</span>` +
 		(bits.length ? `<span class="meta">${bits.join(" · ")}</span>` : "") +
@@ -314,7 +314,7 @@ function renderWorktree({ worktree, changes = [], error, archived }) {
 	);
 }
 
-function render({ workspace, changes, worktrees, reviews }) {
+function render({ workspace, changes, worktrees, forge }) {
 	const { branches, base } = branchesFromRows(workspace.stacks);
 	if (query) {
 		tree.innerHTML = renderSearch(branches, changes, worktrees);
@@ -322,7 +322,7 @@ function render({ workspace, changes, worktrees, reviews }) {
 	}
 	const parts = [
 		renderUncommitted(changes),
-		...branches.map((branch) => renderBranch(branch, reviews)),
+		...branches.map((branch) => renderBranch(branch, forge)),
 	];
 	if (base) {
 		parts.push(`<div class="base"><span class="clip">${esc(base.reference.refName.displayName)}</span></div>`);
@@ -362,7 +362,7 @@ async function tick() {
 			workspace: data.workspace,
 			changes: data.changes,
 			worktrees: data.worktrees,
-			reviews: data.reviews,
+			forge: data.forge,
 		};
 		paint(false);
 		refreshLiveDiffs();
@@ -465,7 +465,7 @@ addEventListener("keydown", (event) => {
 	}
 });
 
-// --- open with ---------------------------------------------------------------
+// --- context menus -----------------------------------------------------------
 
 const programsByExtension = new Map();
 
@@ -478,7 +478,19 @@ async function programsFor(path) {
 	return programsByExtension.get(extension);
 }
 
+let editors = null;
+
+/** The editors that open a commit's files together. */
+async function editorsList() {
+	editors ??= await fetchData(api("/api/programs"));
+	return editors;
+}
+
+// Counts the menus shown, so a fetch for one menu can't fill in a later one or reopen a closed one.
+let menuSerial = 0;
+
 function closeMenu() {
+	menuSerial++;
 	menuEl.hidden = true;
 	menuEl.innerHTML = "";
 }
@@ -511,42 +523,157 @@ const menuItem = (label, data) =>
 	`<button class="menu-item" ${Object.entries(data)
 		.map(([key, value]) => `data-${key}="${esc(value)}"`)
 		.join(" ")}>${esc(label)}</button>`;
+const menuLabel = (text) => `<div class="menu-label">${esc(text)}</div>`;
+const menuNote = (text, bad) => `<div class="menu-note${bad ? " err-text" : ""}">${esc(text)}</div>`;
 
-tree.addEventListener("contextmenu", async (event) => {
-	const row = event.target.closest(".row.file[data-path]");
-	if (!row) return;
-	event.preventDefault();
+/** The "open with" items for `programs`, or `none` when there aren't any. */
+const programItems = (programs, none) =>
+	programs.length
+		? programs.map((program) => menuItem(program.name, { program: program.id, name: program.name })).join("")
+		: menuNote(none);
+
+/** Show `html` as menu number `serial` at the pointer, unless that menu has been replaced. */
+function showMenu(serial, event, html) {
+	if (serial !== menuSerial) return;
+	menuEl.innerHTML = html;
+	placeMenu(event.clientX, event.clientY);
+}
+
+/** The commit with `id` in the workspace graph. */
+function commitById(id) {
+	for (const stack of latest.workspace.stacks) {
+		for (const row of stack.rows) {
+			if (row.data.type === "Commit" && row.data.subject.id === id) return row.data.subject;
+		}
+	}
+	return null;
+}
+
+/** A commit's details, as its row shows them, fetched now if the row was never opened. */
+async function commitDetails(id) {
+	const key = `commit:${id}`;
+	const entry = loaded.get(key);
+	if (entry?.data) return entry.data;
+	const url = api("/api/commit", { id });
+	const data = await fetchData(url);
+	urls.set(key, url);
+	loaded.set(key, { data });
+	return data;
+}
+
+async function fileMenu(event, serial, row) {
 	const { path, worktree } = row.dataset;
-	menuEl.dataset.path = path;
+	menuEl.dataset.paths = JSON.stringify([path]);
 	menuEl.dataset.worktree = worktree || "";
 
 	const header =
-		`<div class="menu-title clip">&lrm;${esc(path)}&lrm;</div>` +
-		`<div class="menu-label">Copy</div>` +
+		`<div class="menu-title path clip">&lrm;${esc(path)}&lrm;</div>` +
+		menuLabel("Copy") +
 		menuItem("File name", { copy: path.slice(path.lastIndexOf("/") + 1), what: "File name" }) +
 		menuItem("Relative path", { copy: path, what: "Relative path" }) +
 		menuItem("Full path", { copy: fullPath(path, worktree), what: "Full path" }) +
-		`<div class="menu-label">Open with</div>`;
-	const show = (openWith) => {
-		menuEl.innerHTML = header + openWith;
-		placeMenu(event.clientX, event.clientY);
-	};
-
+		menuLabel("Open with");
 	if ("deleted" in row.dataset) {
-		show(`<div class="menu-note">Deleted, so there is nothing to open.</div>`);
+		showMenu(serial, event, header + menuNote("Deleted, so there is nothing to open."));
 		return;
 	}
-	show(`<div class="menu-note">Loading…</div>`);
+	showMenu(serial, event, header + menuNote("Loading…"));
 	try {
-		const programs = await programsFor(path);
-		if (menuEl.hidden || menuEl.dataset.path !== path) return;
-		show(
-			programs.length
-				? programs.map((program) => menuItem(program.name, { program: program.id, name: program.name })).join("")
-				: `<div class="menu-note">No programs found.</div>`,
+		showMenu(serial, event, header + programItems(await programsFor(path), "No programs found."));
+	} catch (error) {
+		showMenu(serial, event, header + menuNote(error.message || error, true));
+	}
+}
+
+async function commitMenu(event, serial, commit) {
+	const forge = latest.forge;
+	const pushed = commit.state?.type !== "LocalOnly";
+	let header =
+		`<div class="menu-title clip">${esc(subject(commit.message))}</div>` +
+		menuLabel("Copy") +
+		menuItem("Short ID", { copy: commit.id.slice(0, 7), what: "Commit ID" }) +
+		menuItem("Full ID", { copy: commit.id, what: "Commit ID" }) +
+		menuItem("Change ID", { copy: commit.changeId, what: "Change ID" }) +
+		menuItem("Subject", { copy: subject(commit.message), what: "Subject" }) +
+		menuItem("Full message", { copy: commit.message.trimEnd(), what: "Message" });
+	if (forge) {
+		header +=
+			menuLabel(forge.name) +
+			(pushed
+				? menuItem("Open commit", { href: forge.commitUrl + commit.id })
+				: menuNote(`Not pushed yet, so it isn't on ${forge.name}.`));
+	}
+	header += menuLabel("Open all changed files with");
+	showMenu(serial, event, header + menuNote("Loading…"));
+	try {
+		const [details, programs] = await Promise.all([commitDetails(commit.id), editorsList()]);
+		if (serial !== menuSerial) return;
+		// A deleted file has no working copy to open; a renamed one is opened at its new path.
+		const paths = details.changes.filter((change) => change.status.type !== "Deletion").map((change) => change.path);
+		menuEl.dataset.paths = JSON.stringify(paths);
+		showMenu(
+			serial,
+			event,
+			header +
+				(paths.length
+					? programItems(programs, "No editors found.")
+					: menuNote("Only deletions, so there is nothing to open.")),
 		);
 	} catch (error) {
-		show(`<div class="menu-note err-text">${esc(error.message || error)}</div>`);
+		showMenu(serial, event, header + menuNote(error.message || error, true));
+	}
+}
+
+function branchMenu(event, serial, { reference, commits }) {
+	const name = reference.refName.displayName;
+	const forge = latest.forge;
+	const onForge = forge?.branches[name];
+	// Oldest first, the order a review reads them in.
+	const commitList = commits
+		.map((commit) => `- ${subject(commit.message)}`)
+		.reverse()
+		.join("\n");
+	let html =
+		`<div class="menu-title clip">${esc(name)}</div>` +
+		menuLabel("Copy") +
+		menuItem("Branch name", { copy: name, what: "Branch name" }) +
+		(commits.length ? menuItem("Commit list", { copy: commitList, what: "Commit list" }) : "");
+	if (forge) {
+		const unit = forge.unit.abbr;
+		const review = onForge?.review;
+		html += menuLabel(forge.name);
+		if (review) {
+			html +=
+				menuItem(`Open ${unit} #${review.number}`, { href: review.url }) +
+				menuItem(`Copy ${unit} link`, { copy: review.url, what: `${unit} link` });
+		}
+		if (reference.status?.pushStatus === "CompletelyUnpushed") {
+			html += menuNote(`Not pushed yet, so it isn't on ${forge.name}.`);
+		} else if (onForge?.url) {
+			html += menuItem("Open branch", { href: onForge.url });
+		}
+	}
+	showMenu(serial, event, html);
+}
+
+tree.addEventListener("contextmenu", (event) => {
+	const row = event.target.closest(".row[data-path], .row[data-commit], .row[data-branch]");
+	if (!row) return;
+	event.preventDefault();
+	const serial = ++menuSerial;
+	menuEl.dataset.paths = "";
+	menuEl.dataset.worktree = "";
+	const { path, commit, branch } = row.dataset;
+	if (path !== undefined) {
+		fileMenu(event, serial, row);
+	} else if (commit) {
+		const found = commitById(commit);
+		if (found) commitMenu(event, serial, found);
+	} else {
+		const found = branchesFromRows(latest.workspace.stacks).branches.find(
+			(entry) => entry.reference.refName.fullName === branch,
+		);
+		if (found) branchMenu(event, serial, found);
 	}
 });
 
@@ -568,7 +695,7 @@ async function copyText(text) {
 menuEl.addEventListener("click", async (event) => {
 	const item = event.target.closest(".menu-item");
 	if (!item) return;
-	const { path, worktree } = menuEl.dataset;
+	const { paths, worktree } = menuEl.dataset;
 	closeMenu();
 
 	if ("copy" in item.dataset) {
@@ -580,14 +707,20 @@ menuEl.addEventListener("click", async (event) => {
 		}
 		return;
 	}
+	if ("href" in item.dataset) {
+		window.open(item.dataset.href, "_blank", "noopener");
+		return;
+	}
 
-	const params = { path, program: item.dataset.program };
-	if (worktree) params.worktree = worktree;
+	const params = JSON.parse(paths || "[]").map((path) => ["path", path]);
+	params.push(["program", item.dataset.program]);
+	if (worktree) params.push(["worktree", worktree]);
 	try {
 		const response = await fetch(api("/api/open", params), { method: "POST" });
 		const body = await response.json().catch(() => ({ ok: false, error: response.statusText }));
 		if (!body.ok) throw new Error(body.error);
-		toast(`Opened in ${item.dataset.name}`);
+		const { opened } = body.data;
+		toast(opened === 1 ? `Opened in ${item.dataset.name}` : `Opened ${opened} files in ${item.dataset.name}`);
 	} catch (error) {
 		toast(String(error.message || error), true);
 	}
