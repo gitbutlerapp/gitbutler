@@ -1,0 +1,155 @@
+/* A column: the header, the control, and the scale if there is one. Disabled dims the whole
+   thing at the switch's opacity; no part of it responds to hover then. */
+.range {
+	--disabled-opacity: 50%;
+	--track-height: 4px;
+	--thumb-height: 16px;
+	--thumb-width: 13px;
+	--thumb-hover-width: 16px;
+
+	display: flex;
+	row-gap: var(--size-layout-sm);
+	flex-direction: column;
+	transition: opacity var(--transition-fast);
+
+	&[data-disabled] {
+		opacity: var(--disabled-opacity);
+	}
+}
+
+/* The label at one end and the value at the other, both quiet: this header reads the value
+   off, it doesn't name a field to fill in. */
+.header {
+	display: flex;
+	column-gap: 8px;
+	align-items: center;
+	justify-content: space-between;
+	white-space: nowrap;
+}
+
+.label {
+	overflow: hidden;
+	color: var(--text-3);
+	text-overflow: ellipsis;
+}
+
+.value {
+	flex: none;
+	color: var(--text-2);
+	text-align: end;
+}
+
+/* The pointer's target: as tall as the thumb with a little over, so a press just off the track
+   still lands. The arrow over it follows the setting like every control, and the hand that
+   holds the thumb closes while it drags (DESIGN.md, Cursors). */
+.control {
+	display: flex;
+	align-items: center;
+	height: calc(var(--thumb-height) + 4px);
+	cursor: var(--control-cursor);
+	touch-action: none;
+
+	&[data-dragging] {
+		cursor: grabbing;
+	}
+
+	&[data-disabled] {
+		cursor: not-allowed;
+	}
+}
+
+/* A hairline that is its own pill, and the fill inside it takes the same radius since the two
+   are the same height. */
+.track {
+	width: 100%;
+	height: var(--track-height);
+	border-radius: var(--radius-button);
+	background-color: var(--border-2);
+}
+
+.indicator {
+	height: 100%;
+	border-radius: var(--radius-button);
+	background-color: var(--fill-gray-bg);
+}
+
+/* The thumb's box is the card at rest and never changes, so the inset Base UI measures from it
+   holds still under the pointer, the card covers the track's end exactly at either limit, and
+   the marks below can be laid out from the same number (see .mark). What shows is drawn on the
+   box's pseudo-elements: a small upright card, its outline the fill's color, that under the
+   pointer or in the hand squares off to the thumb's full height and shows its grip — two
+   hairlines that say it can be dragged sideways. The wider card overflows the box evenly on
+   both sides. The grip fades and the width grows on the fast tier, since this is a hover state,
+   not a move (DESIGN.md, States). The ring is the field's; it shows for the keyboard only, so a
+   click doesn't leave one behind. */
+.thumb {
+	width: var(--thumb-width);
+	height: var(--thumb-height);
+
+	/* Pinned to the box's centre by their own middle, so a change of width spreads both ways;
+	   a grid cell would size itself to the wider card and let it grow to one side. */
+	&::before,
+	&::after {
+		position: absolute;
+		top: 50%;
+		left: 50%;
+		translate: -50% -50%;
+		content: "";
+	}
+
+	&::before {
+		box-sizing: border-box;
+		width: var(--thumb-width);
+		height: var(--thumb-height);
+		border: 1.5px solid var(--fill-gray-bg);
+		border-radius: var(--radius-xs);
+		background-color: var(--bg-1);
+		transition:
+			width var(--transition-fast),
+			outline-color var(--transition-fast);
+	}
+
+	&::after {
+		width: 3px;
+		height: 6px;
+		border-inline: 1px solid var(--text-3);
+		opacity: 0;
+		transition: opacity var(--transition-fast);
+	}
+
+	&:has(:focus-visible)::before {
+		outline: var(--focus-ring);
+		outline-offset: 1px;
+	}
+
+	.range:not([data-disabled]) &:is(:hover, .dragging) {
+		&::before {
+			width: var(--thumb-hover-width);
+		}
+
+		&::after {
+			opacity: 1;
+		}
+	}
+}
+
+/* The scale hangs 2px under the control rather than the column's 4px, so it reads as part of
+   the track and not as a row of its own. */
+.marks {
+	position: relative;
+	height: 16px;
+	margin-top: -2px;
+	color: var(--text-2);
+}
+
+/* Each mark is centred under where the thumb's centre sits at that value. The thumb is inset by
+   its own width, so its centre travels from half a thumb in from one end to half a thumb in from
+   the other, and the mark's position is that same fraction of that same travel. */
+.mark {
+	position: absolute;
+	top: 0;
+	left: calc(var(--thumb-width) / 2 + (100% - var(--thumb-width)) * var(--mark-position));
+	translate: -50% 0;
+	line-height: 16px;
+	white-space: nowrap;
+}

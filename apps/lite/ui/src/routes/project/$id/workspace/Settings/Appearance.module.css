@@ -1,0 +1,42 @@
+/* One card per colour scheme, side by side: a few lines of diff in the theme the select under
+   it names, so a choice can be seen before it is made. */
+.themePreviews {
+	display: flex;
+	flex: 1;
+	gap: 8px;
+}
+
+.preview {
+	display: flex;
+	flex: 1;
+	flex-direction: column;
+	min-width: 0;
+	overflow: hidden;
+	border: 1px solid var(--border-section);
+	border-radius: var(--radius-card);
+}
+
+/* Pierre lays the code out at its natural width. The card clips rather than scrolls: this is a
+   swatch, not something to read to the end. */
+.previewDiff {
+	overflow: hidden;
+	border-bottom: 1px solid var(--border-section);
+}
+
+.previewFooter {
+	padding: 8px;
+}
+
+/* The widths ⚛️ Lite Core gives a field, a number field and a select at the end of a settings
+   row. */
+.field {
+	width: 240px;
+}
+
+.number {
+	width: 86px;
+}
+
+.select {
+	width: 140px;
+}

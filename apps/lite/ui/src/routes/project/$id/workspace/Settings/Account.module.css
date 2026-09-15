@@ -1,11 +1,42 @@
-/* Matches the card chrome a Section draws, since this is a form rather than rows. */
-.profileCard {
+/* The card chrome a Section draws, for the account's two states, neither of which is rows. */
+.card {
 	display: flex;
-	padding: 12px;
-	gap: 14px;
-	border: 1px solid var(--border-2);
+	align-items: flex-start;
+	padding: 16px;
+	gap: 16px;
+	border: 1px solid var(--border-section);
 	border-radius: var(--radius-card);
 	background-color: var(--bg-1);
+}
+
+/* The drawing stands a little further off than the picture does. */
+.signedOutCard {
+	gap: 20px;
+}
+
+.signedOut {
+	display: flex;
+	flex: 1;
+	flex-direction: column;
+	align-items: flex-start;
+	min-width: 0;
+	gap: 16px;
+}
+
+/* The same title-over-hint pair a settings row draws. */
+.signedOutText {
+	display: flex;
+	flex-direction: column;
+	gap: 6px;
+}
+
+.signedOutLabel {
+	color: var(--text-1);
+}
+
+.signedOutHint {
+	color: var(--text-2);
+	text-wrap: pretty;
 }
 
 .avatarButton {
@@ -13,20 +44,64 @@
 	position: relative;
 	flex: none;
 	place-items: center;
-	width: 76px;
-	height: 76px;
+	width: 72px;
+	height: 72px;
 	overflow: hidden;
-	border: 1px solid var(--border-2);
-	border-radius: var(--radius-card);
-	background-color: var(--bg-2);
+	border-radius: 50%;
+	background-color: var(--scale-gray-80);
+	color: var(--text-1);
+	transition: var(--transition-button);
 
-	& > * {
-		grid-area: 1 / 1;
+	/* One step down, as any control's ground does under the pointer. Only seen without a
+	   picture; with one the wash carries the hover instead. */
+	&:hover,
+	&:focus-visible {
+		background-color: var(--scale-gray-70);
 	}
 
-	&:hover .avatarOverlay {
+	&:hover .avatarOverlay,
+	&:focus-visible .avatarOverlay {
 		opacity: 1;
 	}
+
+	&:hover .avatarOverlayIcon,
+	&:focus-visible .avatarOverlayIcon {
+		scale: 1;
+		filter: blur(0);
+		opacity: 1;
+	}
+
+	&:hover .placeholder,
+	&:focus-visible .placeholder {
+		scale: 0.25;
+		filter: blur(4px);
+		opacity: 0;
+	}
+
+	&:hover .placeholderCamera,
+	&:focus-visible .placeholderCamera {
+		scale: 1;
+		filter: blur(0);
+		opacity: 1;
+	}
+}
+
+/* Without a picture there is nothing to wash over: the drawing itself gives way to the camera,
+   the two sharing one cell so the swap happens in place. It is the icon crossfade from
+   DESIGN.md (Motion): the medium tier, since the glyph moves, and ease-out so it lands early. */
+.placeholder,
+.placeholderCamera {
+	grid-area: 1 / 1;
+	transition:
+		opacity var(--transition-medium) ease-out,
+		scale var(--transition-medium) ease-out,
+		filter var(--transition-medium) ease-out;
+}
+
+.placeholderCamera {
+	scale: 0.25;
+	filter: blur(4px);
+	opacity: 0;
 }
 
 .avatar {
@@ -35,20 +110,32 @@
 	object-fit: cover;
 }
 
-.avatarEmpty {
-	color: var(--text-3);
-}
-
-/* Only on hover: the picture is the point, the affordance is secondary. */
+/* Only on hover: the picture is the point, the affordance is secondary. The camera sits on a
+   black wash, so it stays light in both themes rather than following the text colour. */
 .avatarOverlay {
-	align-self: end;
-	inline-size: 100%;
-	padding-block: 4px;
-	background-color: rgb(0 0 0 / 0.55);
-	color: white;
-	text-align: center;
+	display: grid;
+	position: absolute;
+	place-items: center;
+	inset: 0;
+	background-color: rgb(0 0 0 / 0.5);
+	color: var(--text-1-invert);
 	opacity: 0;
 	transition: opacity var(--transition-fast);
+}
+
+/* The camera arrives the way the crossfade's incoming icon does (DESIGN.md, Motion), but
+   with no outgoing icon to cover for it, its opacity rides the wash's fast fade so it is on
+   screen the moment the wash is; only the shape and blur take the medium tier. It also
+   starts larger than a crossfade's 0.25: with nothing shrinking away to meet it, that far a
+   journey reads as a late arrival. */
+.avatarOverlayIcon {
+	scale: 0.8;
+	filter: blur(4px);
+	opacity: 0;
+	transition:
+		opacity var(--transition-fast),
+		scale var(--transition-medium) ease-out,
+		filter var(--transition-medium) ease-out;
 }
 
 .fields {
@@ -56,36 +143,19 @@
 	flex: 1;
 	flex-direction: column;
 	min-width: 0;
-	gap: 4px;
+	gap: 16px;
 }
 
-.fieldLabel {
-	color: var(--text-2);
-
-	&:not(:first-child) {
-		margin-block-start: 6px;
-	}
-}
-
-.field {
-	padding: 5px 8px;
-	border: 1px solid var(--border-2);
-	border-radius: var(--radius-button);
-	background-color: var(--bg-1);
-	color: var(--text-1);
-}
-
-.fieldReadonly {
-	background-color: var(--bg-2);
-	color: var(--text-2);
-}
-
-.formActions {
+/* The name and the button that saves it, the button sat on the field's baseline. */
+.nameRow {
 	display: flex;
-	align-items: center;
-	justify-content: flex-end;
-	margin-block-start: 12px;
-	gap: 8px;
+	align-items: flex-end;
+	gap: 10px;
+}
+
+.nameField {
+	flex: 1;
+	min-width: 0;
 }
 
 .error {

@@ -1,9 +1,16 @@
+import { Tooltip } from "@base-ui/react";
 import { useQueryClient, useSuspenseQueries } from "@tanstack/react-query";
-import { useState, type FC } from "react";
+import { useState, type FC, type ReactNode } from "react";
 import type { AiConfiguration, AiConfigurationUpdate } from "@gitbutler/but-sdk";
 import { aiConfigurationQueryOptions, userProfileQueryOptions } from "#ui/api/queries.ts";
 import { getButtonClassName } from "#ui/components/Button.tsx";
 import { classes } from "#ui/components/classes.ts";
+import { FieldControlStyles } from "#ui/components/Field.tsx";
+import { Icon } from "#ui/components/Icon.tsx";
+import type { IconName } from "#ui/components/iconNames.ts";
+import { RelativeTime } from "#ui/components/RelativeTime.tsx";
+import { Select } from "#ui/components/Select.tsx";
+import { TooltipPopup } from "#ui/components/Tooltip.tsx";
 import { errorMessageForToast } from "#ui/errors.ts";
 import {
 	anthropicModels,
@@ -18,62 +25,106 @@ import styles from "./Ai.module.css";
 type Provider = AiConfigurationUpdate["provider"];
 type KeyOption = AiConfiguration["openaiKeyOption"];
 
-const providerLabels: Record<Provider, string> = {
-	openai: "OpenAI",
-	anthropic: "Anthropic",
-	ollama: "Ollama",
-	lmstudio: "LM Studio",
-};
+const providers: ReadonlyArray<{ value: Provider; label: string }> = [
+	{ value: "openai", label: "OpenAI" },
+	{ value: "anthropic", label: "Anthropic" },
+	{ value: "ollama", label: "Ollama" },
+	{ value: "lmstudio", label: "LM Studio" },
+];
+
+const keyOptions: ReadonlyArray<{ value: KeyOption; label: string }> = [
+	{ value: "butlerAPI", label: "GitButler" },
+	{ value: "bringYourOwn", label: "Your own key" },
+];
 
 const modelLabels: Record<string, string> = {
 	"gpt-5.4": "GPT 5.4",
 	"gpt-5.4-mini": "GPT 5.4 Mini",
-	"gpt-5.4-nano": "GPT 5.4 Nano (recommended)",
-	"claude-haiku-4-5": "Haiku (recommended)",
+	"gpt-5.4-nano": "GPT 5.4 Nano",
+	"claude-haiku-4-5": "Haiku",
 	"claude-sonnet-4-6": "Sonnet",
 	"claude-opus-4-6": "Opus",
 };
 
+/** A text field at the end of a row that keeps what is typed and saves it when focus leaves. */
+const TextField: FC<{
+	id: string;
+	type?: "text" | "url" | "password";
+	placeholder?: string;
+	value: string;
+	onChange: (value: string) => void;
+	onCommit: () => void;
+}> = (p) => (
+	<FieldControlStyles
+		id={p.id}
+		type={p.type ?? "text"}
+		autoComplete="off"
+		className={styles.field}
+		placeholder={p.placeholder}
+		value={p.value}
+		onChange={(event) => p.onChange(event.currentTarget.value)}
+		onBlur={p.onCommit}
+		onKeyDown={(event) => (event.key === "Enter" || event.key === "Escape") && p.onCommit()}
+	/>
+);
+
+/**
+ * Picking a preset saves at once. Picking "Custom" only opens the name field; that saves when
+ * it loses focus, so a half-typed model name is never stored.
+ */
 const ModelField: FC<{
 	id: string;
-	label: string;
 	model: string;
 	presets: ReadonlyArray<string>;
-	onChange: (model: string) => void;
+	recommended: string;
+	onChange: (model: string, save: boolean) => void;
 }> = (p) => {
 	const selection = modelSelection(p.model, p.presets);
 	return (
 		<>
-			<Row label={p.label} htmlFor={`${p.id}-preset`}>
-				<select
-					id={`${p.id}-preset`}
+			<Row label="Model" hint={`${modelLabels[p.recommended] ?? p.recommended} is recommended.`}>
+				<Select
+					aria-label="Model"
+					className={styles.select}
+					items={[
+						...p.presets.map((model) => ({ value: model, label: modelLabels[model] ?? model })),
+						{ value: "custom", label: "Custom" },
+					]}
 					value={selection}
-					onChange={(event) => {
-						const value = event.currentTarget.value;
-						p.onChange(value === "custom" ? "" : value);
+					onValueChange={(value) => {
+						if (value === null) return;
+						if (value === "custom") p.onChange("", false);
+						else p.onChange(value, true);
 					}}
-				>
-					{p.presets.map((model) => (
-						<option key={model} value={model}>
-							{modelLabels[model] ?? model}
-						</option>
-					))}
-					<option value="custom">Custom…</option>
-				</select>
+				/>
 			</Row>
 			{selection === "custom" && (
-				<Row label="Custom model" htmlFor={`${p.id}-custom`}>
-					<input
-						id={`${p.id}-custom`}
-						type="text"
+				<Row label="Model name" htmlFor={`${p.id}-name`}>
+					<TextField
+						id={`${p.id}-name`}
 						value={p.model}
-						onChange={(event) => p.onChange(event.currentTarget.value)}
+						onChange={(model) => p.onChange(model, false)}
+						onCommit={() => p.onChange(p.model, true)}
 					/>
 				</Row>
 			)}
 		</>
 	);
 };
+
+/** A line under the card: the info the rows don't say, or a caveat about how they are set. */
+const Note: FC<{ icon: IconName; children: ReactNode }> = (p) => (
+	<p className={classes("text-12", styles.note)}>
+		<Icon name={p.icon} className={styles.noteIcon} />
+		<span>{p.children}</span>
+	</p>
+);
+
+type Status =
+	| { kind: "untested" }
+	| { kind: "testing" }
+	| { kind: "connected"; testedAt: number }
+	| { kind: "failed"; message: string };
 
 export const Ai: FC = () => {
 	const [{ data: configuration }, { data: profile }] = useSuspenseQueries({
@@ -84,110 +135,163 @@ export const Ai: FC = () => {
 		configurationUpdate(configuration),
 	);
 	const [saved, setSaved] = useState<AiConfiguration>(configuration);
-	const [dirty, setDirty] = useState(configuration.provider === "openrouter");
 	const [saving, setSaving] = useState(false);
 	const [resetting, setResetting] = useState(false);
-	const [testing, setTesting] = useState(false);
-	const [result, setResult] = useState("");
-	const [error, setError] = useState<string | null>(null);
+	const [status, setStatus] = useState<Status>({ kind: "untested" });
 
-	const change = <K extends keyof AiConfigurationUpdate>(
-		key: K,
-		value: AiConfigurationUpdate[K],
-	) => {
-		setDirty(true);
-		setUpdate((current) => ({ ...current, [key]: value }));
-	};
-
+	// Keeps whatever is being typed in other fields. The keys are stored now, so
+	// stop resending them; a blank key field means "keep the stored one".
 	const acceptSaved = (next: AiConfiguration) => {
 		client.setQueryData(aiConfigurationQueryOptions.queryKey, next);
 		setSaved(next);
-		setUpdate(configurationUpdate(next));
-		setDirty(false);
+		setUpdate((current) => ({ ...current, openaiApiKey: undefined, anthropicApiKey: undefined }));
 	};
 
-	const save = async () => {
+	const persist = async (next: AiConfigurationUpdate) => {
 		setSaving(true);
-		setError(null);
 		try {
-			acceptSaved(await window.lite.updateAiConfiguration(update));
+			acceptSaved(await window.lite.updateAiConfiguration(next));
 		} catch (caught) {
-			setError(errorMessageForToast(caught));
+			setStatus({ kind: "failed", message: errorMessageForToast(caught) });
 		} finally {
 			setSaving(false);
 		}
 	};
 
+	// Selects save at once; text fields collect keystrokes and save on blur.
+	const change = <K extends keyof AiConfigurationUpdate>(
+		key: K,
+		value: AiConfigurationUpdate[K],
+		save: boolean,
+	) => {
+		const next = { ...update, [key]: value };
+		setUpdate(next);
+		if (save) void persist(next);
+	};
+	const commit = () => void persist(update);
+
 	const test = async () => {
-		setTesting(true);
-		setError(null);
-		setResult("");
+		setStatus({ kind: "testing" });
 		try {
-			const response = await saveThenTest(update, acceptSaved, (token) =>
-				setResult((current) => current + token),
-			);
-			setResult(response);
+			await saveThenTest(update, acceptSaved, () => {});
+			setStatus({ kind: "connected", testedAt: Date.now() });
 		} catch (caught) {
-			setError(errorMessageForToast(caught));
-		} finally {
-			setTesting(false);
+			setStatus({ kind: "failed", message: errorMessageForToast(caught) });
 		}
 	};
 
 	const reset = async () => {
 		if (!window.confirm("Reset AI settings and delete all stored AI API keys?")) return;
 		setResetting(true);
-		setError(null);
-		setResult("");
 		try {
-			acceptSaved(await window.lite.resetAiConfiguration());
+			const next = await window.lite.resetAiConfiguration();
+			acceptSaved(next);
+			setUpdate(configurationUpdate(next));
+			setStatus({ kind: "untested" });
 		} catch (caught) {
-			setError(errorMessageForToast(caught));
+			setStatus({ kind: "failed", message: errorMessageForToast(caught) });
 		} finally {
 			setResetting(false);
 		}
 	};
 
 	const provider = update.provider;
+	const unsupported = saved.provider === "openrouter";
 	const usesGitButler =
 		(provider === "openai" && update.openaiKeyOption === "butlerAPI") ||
 		(provider === "anthropic" && update.anthropicKeyOption === "butlerAPI");
-	const busy = saving || testing || resetting;
+	const busy = saving || resetting || status.kind === "testing";
 
 	return (
 		<>
-			<p className={classes("text-13", styles.intro)}>
-				Configure the Rust AI provider used by GitButler. API keys stay in secure backend storage.
-			</p>
-
-			<Section>
-				<Row label="Provider" htmlFor="ai-provider">
-					<select
-						id="ai-provider"
-						value={provider}
-						onChange={(event) => change("provider", event.currentTarget.value as Provider)}
-					>
-						{Object.entries(providerLabels).map(([value, label]) => (
-							<option key={value} value={value}>
-								{label}
-							</option>
-						))}
-					</select>
+			<Section
+				footer={
+					<>
+						<output aria-live="polite" className={classes("text-12", "text-body", styles.status)}>
+							{status.kind === "testing" ? (
+								<Icon name="spinner" size={14} />
+							) : (
+								<span
+									className={classes(
+										styles.dot,
+										status.kind === "connected" && styles.dotConnected,
+										status.kind === "failed" && styles.dotFailed,
+									)}
+								/>
+							)}
+							{status.kind === "untested" && "Not tested yet"}
+							{status.kind === "testing" && "AI is responding…"}
+							{status.kind === "connected" && (
+								<span>
+									Connected · tested <RelativeTime timestamp={status.testedAt} />
+								</span>
+							)}
+							{status.kind === "failed" && status.message}
+						</output>
+						<button
+							type="button"
+							className={getButtonClassName({ size: "small" })}
+							disabled={busy || (usesGitButler && profile === null)}
+							onClick={() => void test()}
+						>
+							Test connection
+						</button>
+					</>
+				}
+			>
+				<Row label="Provider">
+					<div className={styles.provider}>
+						<Tooltip.Root>
+							<Tooltip.Trigger
+								className={getButtonClassName({ iconOnly: true })}
+								// base-ui's own `disabled` only suppresses the tooltip, leaving a live
+								// button behind, so the native attribute goes on the element.
+								render={
+									<button
+										type="button"
+										aria-label="Reset AI settings"
+										disabled={busy || saved.isDefault}
+									/>
+								}
+								onClick={() => void reset()}
+							>
+								<Icon name="undo" />
+							</Tooltip.Trigger>
+							<Tooltip.Portal>
+								<Tooltip.Positioner sideOffset={4}>
+									<Tooltip.Popup render={<TooltipPopup />}>Reset AI settings</Tooltip.Popup>
+								</Tooltip.Positioner>
+							</Tooltip.Portal>
+						</Tooltip.Root>
+						<Select<Provider | "openrouter">
+							aria-label="Provider"
+							className={styles.select}
+							items={
+								unsupported
+									? [
+											{ value: "openrouter", label: "OpenRouter (not supported)", disabled: true },
+											...providers,
+										]
+									: providers
+							}
+							value={unsupported ? "openrouter" : provider}
+							onValueChange={(value) => {
+								if (value !== null && value !== "openrouter") change("provider", value, true);
+							}}
+						/>
+					</div>
 				</Row>
 
 				{provider === "openai" && (
 					<>
-						<Row label="Credentials" htmlFor="openai-credentials">
-							<select
-								id="openai-credentials"
+						<Row label="Credentials">
+							<Select
+								aria-label="Credentials"
+								className={styles.select}
+								items={keyOptions}
 								value={update.openaiKeyOption}
-								onChange={(event) =>
-									change("openaiKeyOption", event.currentTarget.value as KeyOption)
-								}
-							>
-								<option value="butlerAPI">GitButler account</option>
-								<option value="bringYourOwn">Your own key</option>
-							</select>
+								onValueChange={(value) => value !== null && change("openaiKeyOption", value, true)}
+							/>
 						</Row>
 						{update.openaiKeyOption === "bringYourOwn" && (
 							<Row
@@ -197,31 +301,32 @@ export const Ai: FC = () => {
 									saved.openaiHasApiKey ? "A key is configured. Leave blank to keep it." : undefined
 								}
 							>
-								<input
+								<TextField
 									id="openai-api-key"
 									type="password"
-									autoComplete="off"
 									placeholder={saved.openaiHasApiKey ? "••••••••" : "sk-…"}
 									value={update.openaiApiKey ?? ""}
-									onChange={(event) => change("openaiApiKey", event.currentTarget.value)}
+									onChange={(value) => change("openaiApiKey", value, false)}
+									onCommit={commit}
 								/>
 							</Row>
 						)}
 						<ModelField
 							id="openai-model"
-							label="Model"
 							model={update.openaiModel}
 							presets={openAiModels}
-							onChange={(model) => change("openaiModel", model)}
+							recommended="gpt-5.4-nano"
+							onChange={(model, save) => change("openaiModel", model, save)}
 						/>
 						{update.openaiKeyOption === "bringYourOwn" && (
 							<Row label="Custom endpoint" htmlFor="openai-endpoint" hint="Optional.">
-								<input
+								<TextField
 									id="openai-endpoint"
 									type="url"
 									placeholder="https://api.openai.com/v1"
 									value={update.openaiCustomEndpoint ?? ""}
-									onChange={(event) => change("openaiCustomEndpoint", event.currentTarget.value)}
+									onChange={(value) => change("openaiCustomEndpoint", value, false)}
+									onCommit={commit}
 								/>
 							</Row>
 						)}
@@ -230,17 +335,16 @@ export const Ai: FC = () => {
 
 				{provider === "anthropic" && (
 					<>
-						<Row label="Credentials" htmlFor="anthropic-credentials">
-							<select
-								id="anthropic-credentials"
+						<Row label="Credentials">
+							<Select
+								aria-label="Credentials"
+								className={styles.select}
+								items={keyOptions}
 								value={update.anthropicKeyOption}
-								onChange={(event) =>
-									change("anthropicKeyOption", event.currentTarget.value as KeyOption)
+								onValueChange={(value) =>
+									value !== null && change("anthropicKeyOption", value, true)
 								}
-							>
-								<option value="butlerAPI">GitButler account</option>
-								<option value="bringYourOwn">Your own key</option>
-							</select>
+							/>
 						</Row>
 						{update.anthropicKeyOption === "bringYourOwn" && (
 							<Row
@@ -252,22 +356,22 @@ export const Ai: FC = () => {
 										: undefined
 								}
 							>
-								<input
+								<TextField
 									id="anthropic-api-key"
 									type="password"
-									autoComplete="off"
 									placeholder={saved.anthropicHasApiKey ? "••••••••" : "sk-ant-…"}
 									value={update.anthropicApiKey ?? ""}
-									onChange={(event) => change("anthropicApiKey", event.currentTarget.value)}
+									onChange={(value) => change("anthropicApiKey", value, false)}
+									onCommit={commit}
 								/>
 							</Row>
 						)}
 						<ModelField
 							id="anthropic-model"
-							label="Model"
 							model={update.anthropicModel}
 							presets={anthropicModels}
-							onChange={(model) => change("anthropicModel", model)}
+							recommended="claude-haiku-4-5"
+							onChange={(model, save) => change("anthropicModel", model, save)}
 						/>
 					</>
 				)}
@@ -275,19 +379,19 @@ export const Ai: FC = () => {
 				{provider === "ollama" && (
 					<>
 						<Row label="Endpoint" htmlFor="ollama-endpoint" hint="Use host:port format.">
-							<input
+							<TextField
 								id="ollama-endpoint"
-								type="text"
 								value={update.ollamaEndpoint}
-								onChange={(event) => change("ollamaEndpoint", event.currentTarget.value)}
+								onChange={(value) => change("ollamaEndpoint", value, false)}
+								onCommit={commit}
 							/>
 						</Row>
-						<Row label="Model" htmlFor="ollama-model">
-							<input
+						<Row label="Model name" htmlFor="ollama-model">
+							<TextField
 								id="ollama-model"
-								type="text"
 								value={update.ollamaModel}
-								onChange={(event) => change("ollamaModel", event.currentTarget.value)}
+								onChange={(value) => change("ollamaModel", value, false)}
+								onCommit={commit}
 							/>
 						</Row>
 					</>
@@ -296,73 +400,40 @@ export const Ai: FC = () => {
 				{provider === "lmstudio" && (
 					<>
 						<Row label="Endpoint" htmlFor="lmstudio-endpoint" hint="OpenAI-compatible base URL.">
-							<input
+							<TextField
 								id="lmstudio-endpoint"
 								type="url"
 								value={update.lmstudioEndpoint}
-								onChange={(event) => change("lmstudioEndpoint", event.currentTarget.value)}
+								onChange={(value) => change("lmstudioEndpoint", value, false)}
+								onCommit={commit}
 							/>
 						</Row>
-						<Row label="Model" htmlFor="lmstudio-model">
-							<input
+						<Row label="Model name" htmlFor="lmstudio-model">
+							<TextField
 								id="lmstudio-model"
-								type="text"
 								value={update.lmstudioModel}
-								onChange={(event) => change("lmstudioModel", event.currentTarget.value)}
+								onChange={(value) => change("lmstudioModel", value, false)}
+								onCommit={commit}
 							/>
 						</Row>
 					</>
 				)}
 			</Section>
 
-			{saved.provider === "openrouter" && (
-				<p className={classes("text-12", styles.warning)}>
-					OpenRouter is configured but is not supported in GitButler. Save to switch providers, or
+			{unsupported && (
+				<Note icon="warning">
+					OpenRouter is configured but is not supported in GitButler. Choose another provider, or
 					reset these settings.
-				</p>
+				</Note>
 			)}
 
 			{usesGitButler && profile === null && (
-				<p className={classes("text-12", styles.warning)}>
-					Sign in on the General page before using the GitButler AI API.
-				</p>
+				<Note icon="warning">Sign in on the General page before using the GitButler AI API.</Note>
 			)}
 
-			<div className={styles.actions}>
-				<button
-					type="button"
-					className={classes(getButtonClassName({ size: "small" }), styles.reset)}
-					disabled={busy}
-					onClick={() => void reset()}
-				>
-					{resetting ? "Resetting…" : "Reset settings"}
-				</button>
-				<button
-					type="button"
-					className={getButtonClassName({ size: "small" })}
-					disabled={busy || !dirty}
-					onClick={() => void save()}
-				>
-					{saving ? "Saving…" : "Save"}
-				</button>
-				<button
-					type="button"
-					className={getButtonClassName({ variant: "pop", size: "small" })}
-					disabled={busy || (usesGitButler && profile === null)}
-					onClick={() => void test()}
-				>
-					{testing ? "AI is responding…" : "Test connection"}
-				</button>
-			</div>
-
-			{(result !== "" || error !== null) && (
-				<output
-					aria-live="polite"
-					className={classes("text-12", styles.result, error !== null && styles.resultError)}
-				>
-					{error ?? result}
-				</output>
-			)}
+			<Note icon="lock">
+				Configure GitButler's AI provider. API keys are safely stored in the backend.
+			</Note>
 		</>
 	);
 };

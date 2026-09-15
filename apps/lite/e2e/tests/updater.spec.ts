@@ -9,7 +9,7 @@ test("settings permits a manual check with automatic checks disabled", async ({
 	await expect(
 		appWindow.getByRole("switch", { name: "Check for updates automatically" }),
 	).not.toBeChecked();
-	const check = appWindow.getByRole("button", { name: "Check now", exact: true });
+	const check = appWindow.getByRole("button", { name: "Check for updates", exact: true });
 	await expect(check).toBeVisible();
 	const screenshot = testInfo.outputPath("settings-updates.png");
 	await appWindow.screenshot({ path: screenshot });
@@ -34,15 +34,18 @@ test("check results and native preparation render nonmodal notices with explicit
 		return () => resolve({ _tag: "Available", version: "0.0.201" });
 	});
 	await appWindow.getByRole("button", { name: "Settings", exact: true }).click();
-	const check = appWindow.getByRole("button", { name: "Check now", exact: true });
+	const check = appWindow.getByRole("button", { name: "Check for updates", exact: true });
 	await check.click();
+	const spinner = check.locator('[data-icon][class*="spinning"]');
 	await expect(check).toBeDisabled();
-	await expect(check.locator("[data-icon]")).toBeVisible();
+	await expect(spinner).toBeVisible();
 	await finishCheck.evaluate((finish) => finish());
 	await finishCheck.dispose();
 	await expect(check).toBeEnabled();
-	await expect(check.locator("[data-icon]")).toHaveCount(0);
+	await expect(spinner).toHaveCount(0);
 	await appWindow.keyboard.press("Escape");
+	// The button shares the toast's title, so wait until the dialog has taken it away.
+	await expect(appWindow.getByRole("dialog", { name: "Settings", exact: true })).toHaveCount(0);
 	await expect(appWindow.getByText("Check for updates", { exact: true })).toBeVisible();
 	await expect(
 		appWindow.getByText(

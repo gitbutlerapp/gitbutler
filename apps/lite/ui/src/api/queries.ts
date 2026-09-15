@@ -1,7 +1,7 @@
 import { forgeAuthFailure } from "#ui/forge.ts";
 import type { PayloadFor } from "#electron/ipc.ts";
 import { type AggregateCIChecks, aggregateCIChecks } from "#ui/ci.ts";
-import { clampAutoFetch, defaultSettings } from "#ui/settings.ts";
+import { clampAutoFetch, defaultSettings, parseAutoFetch } from "#ui/settings.ts";
 import type {
 	CiCheck,
 	ForgeName,
@@ -18,7 +18,6 @@ import {
 	queryOptions,
 	skipToken,
 } from "@tanstack/react-query";
-import * as ms from "ms";
 import pMap from "p-map";
 
 /**
@@ -241,13 +240,7 @@ export const workspaceFetchQueryOptions = (
 	projectId: string,
 	autoFetchFrequency = defaultSettings.autoFetchFrequency,
 ) => {
-	// Throws on empty and large strings.
-	let autoFetchFrequencyMs: number;
-	try {
-		autoFetchFrequencyMs = ms.parse(autoFetchFrequency);
-	} catch {
-		autoFetchFrequencyMs = Number.NaN;
-	}
+	const autoFetchFrequencyMs = parseAutoFetch(autoFetchFrequency);
 
 	return queryOptions({
 		queryKey: [projectId, "workspaceFetchFromRemotes"],

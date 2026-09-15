@@ -11,12 +11,12 @@ export const CheckForUpdatesButton: FC = () => {
 	return (
 		<button
 			type="button"
-			className={getButtonClassName({ variant: "outline", size: "small" })}
+			className={getButtonClassName({})}
 			disabled={isCheckingForUpdates}
 			onClick={checkForUpdates}
 		>
-			{isCheckingForUpdates && <Icon name="spinner" />}
-			Check now
+			Check for updates
+			<Icon name={isCheckingForUpdates ? "spinner" : "refresh"} />
 		</button>
 	);
 };

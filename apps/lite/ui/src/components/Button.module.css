@@ -109,7 +109,7 @@
 	--button-bg: transparent;
 	--button-fg: color-mix(in srgb, var(--text-1) 90%, transparent);
 	--button-hover-fg: var(--text-1);
-	--button-hover-bg: color-mix(in srgb, var(--scale-gray-0) 5%, transparent);
+	--button-hover-bg: color-mix(in srgb, var(--fill-gray-bg) 5%, transparent);
 }
 
 :where(.outline-inverted) {
@@ -133,5 +133,5 @@
 	--button-bg: transparent;
 	--button-fg: color-mix(in srgb, var(--text-1) 90%, transparent);
 	--button-hover-fg: var(--text-1);
-	--button-hover-bg: color-mix(in srgb, var(--scale-gray-0) 5%, transparent);
+	--button-hover-bg: color-mix(in srgb, var(--fill-gray-bg) 5%, transparent);
 }

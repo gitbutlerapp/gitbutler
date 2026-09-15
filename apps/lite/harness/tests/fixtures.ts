@@ -116,6 +116,7 @@ const fixtureAiConfiguration: AiConfiguration = {
 	lmstudioEndpoint: "",
 	lmstudioModel: "",
 	isConfigured: false,
+	isDefault: false,
 };
 
 /**

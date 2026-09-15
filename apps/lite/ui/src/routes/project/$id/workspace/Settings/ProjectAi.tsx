@@ -45,6 +45,7 @@ export const ProjectAi: FC<{ projectId: string }> = ({ projectId }) => {
 				}
 			>
 				<Switch
+					size="large"
 					aria-labelledby="project-ai-enabled"
 					checked={stored.enabled && configuration.isConfigured}
 					disabled={!configuration.isConfigured}

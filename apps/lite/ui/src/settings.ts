@@ -1,4 +1,5 @@
 import type { BundledTheme } from "shiki";
+import * as ms from "ms";
 import type { GUISettings } from "#electron/settings.ts";
 
 // [tag:lite_default_settings]
@@ -47,3 +48,16 @@ export const defaultSettings = {
 
 export const clampAutoFetch = (ms: number): number =>
 	Math.min(Math.max(ms, 10_000), 60 * 1000 * 60 * 24);
+
+/**
+ * The stored auto-fetch frequency in milliseconds, or `NaN` for a value that isn't a duration —
+ * "off", or something an older build wrote — which turns auto-fetch off.
+ */
+export const parseAutoFetch = (setting: string): number => {
+	// Throws on empty and large strings.
+	try {
+		return ms.parse(setting);
+	} catch {
+		return Number.NaN;
+	}
+};

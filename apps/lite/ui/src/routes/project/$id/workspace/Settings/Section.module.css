@@ -1,50 +1,68 @@
 .section {
 	display: flex;
 	flex-direction: column;
-	gap: 6px;
+	gap: 8px;
 }
 
-/* Outside the card, the way desktop labels a group of settings. */
+/* Outside the card, at the rows' own inset, so it reads as the card's name rather than a row
+   of it. */
 .heading {
-	padding-inline-start: 2px;
-	color: var(--text-1);
+	padding-inline-start: 16px;
+	color: var(--text-3);
 }
 
-/*
- * A card on the recessed content pane. Rows stay one line of label against one
- * control rather than desktop's taller title-over-caption stack, which is what
- * keeps a page of settings readable at lite's density.
- */
+/* A card on the content pane, its rows divided by hairlines. */
 .rows {
-	display: grid;
-	grid-template-columns: auto 1fr;
-	padding: 10px 12px;
-	gap: 10px 12px;
-	border: 1px solid var(--border-2);
+	display: flex;
+	flex-direction: column;
+	overflow: hidden;
+	border: 1px solid var(--border-section);
 	border-radius: var(--radius-card);
 	background-color: var(--bg-1);
 }
 
 .row {
-	display: grid;
-	grid-template-columns: subgrid;
-	row-gap: 2px;
-	grid-column: 1 / -1;
+	display: flex;
+	align-items: flex-start;
+	padding: 16px;
+	gap: 16px;
+
+	& + & {
+		border-top: 1px solid var(--border-section);
+	}
+}
+
+.centered {
 	align-items: center;
-	justify-content: space-between;
+}
+
+/* Sits on the card's recessed ground rather than its paper, so it reads as the card's status
+   line and not as one more row of it. */
+.footer {
+	display: flex;
+	align-items: center;
+	padding: 12px 16px;
+	gap: 16px;
+	border-top: 1px solid var(--border-section);
+	background-color: var(--bg-2);
 }
 
 .stacked {
-	& > .label,
-	& > .control,
-	& > .hint {
-		grid-column: 1 / -1;
-	}
+	flex-direction: column;
+	align-items: stretch;
 
 	& > .control {
-		grid-row: 3;
 		justify-content: stretch;
 	}
+}
+
+/* The words take the width; the control keeps its own. */
+.text {
+	display: flex;
+	flex: 1;
+	flex-direction: column;
+	min-width: 0;
+	gap: 6px;
 }
 
 .label {
@@ -52,11 +70,16 @@
 	text-wrap: pretty;
 }
 
-/* Spans both columns, so a sentence of it cannot squeeze the control. */
 .hint {
-	grid-column: 1 / -1;
-	color: var(--text-3);
+	color: var(--text-2);
 	text-wrap: pretty;
+}
+
+/* Twice the words' own gap, so it reads as what follows them rather than one more line of them;
+   a flex row so a button keeps its width instead of stretching across the column. */
+.below {
+	display: flex;
+	margin-top: 6px;
 }
 
 /*
@@ -65,6 +88,7 @@
  */
 .control {
 	display: flex;
+	flex: none;
 	justify-content: flex-end;
 
 	& > input,

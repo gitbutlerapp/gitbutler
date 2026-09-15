@@ -23,28 +23,22 @@ type SettingsPage = {
  */
 export const settingsPages = [
 	{ key: "global:general", label: "General", icon: "settings" },
-	{ key: "global:appearance", label: "Appearance", icon: "mixer" },
+	{ key: "global:appearance", label: "Appearance", icon: "contrast" },
 	{ key: "global:ai", label: "AI", icon: "ai" },
-	{ key: "global:git", label: "Git", icon: "branch" },
-	{ key: "global:integrations", label: "Integrations", icon: "globe" },
-	{ key: "global:experimental", label: "Experimental", icon: "danger" },
-	{ key: "project:project", label: "Project", icon: "workbench" },
+	{ key: "global:git", label: "Git", icon: "pr" },
+	{ key: "global:integrations", label: "Integrations", icon: "plug" },
+	{ key: "global:experimental", label: "Experimental", icon: "lab" },
+	{ key: "project:project", label: "Project", icon: "mixer" },
 	{ key: "project:ai", label: "AI", icon: "ai" },
-	{ key: "project:git", label: "Git", icon: "branch" },
-	{ key: "project:worktrees", label: "Worktrees", icon: "folder-tree" },
-	{ key: "project:experimental", label: "Experimental", icon: "danger" },
+	{ key: "project:git", label: "Git", icon: "pr" },
+	{ key: "project:worktrees", label: "Worktrees", icon: "globe" },
+	{ key: "project:experimental", label: "Experimental", icon: "lab" },
 ] as const satisfies ReadonlyArray<SettingsPage>;
 
 /** Sidebar group order. */
 export const settingsScopes = ["global", "project"] as const satisfies ReadonlyArray<SettingsScope>;
 
 export type SettingsPageKey = (typeof settingsPages)[number]["key"];
-
-/** Sits under the pages, the way desktop ends its settings nav. */
-export const externalLinks = [
-	{ label: "Docs", icon: "docs", url: "https://docs.gitbutler.com/" },
-	{ label: "Our Discord", icon: "discord", url: "https://discord.gg/MmFkmaJ42D" },
-] as const satisfies ReadonlyArray<{ label: string; icon: IconName; url: string }>;
 
 export const settingsPagesInScope = (scope: SettingsScope) =>
 	settingsPages.filter((page) => page.key.startsWith(`${scope}:`));

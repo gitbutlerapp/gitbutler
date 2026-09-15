@@ -1,13 +1,17 @@
 import { useQueryClient } from "@tanstack/react-query";
 import { useEffect, useRef, useState, type FC } from "react";
 import type { UserProfile } from "@gitbutler/but-sdk";
+import { Field } from "@base-ui/react";
 import { aiConfigurationQueryOptions, userProfileQueryOptions } from "#ui/api/queries.ts";
 import { getButtonClassName } from "#ui/components/Button.tsx";
 import { classes } from "#ui/components/classes.ts";
+import { FieldControlStyles, FieldLabelStyles, FieldRootStyles } from "#ui/components/Field.tsx";
+import { Icon } from "#ui/components/Icon.tsx";
+import { Illustration } from "#ui/components/Illustration.tsx";
 import { errorMessageForToast } from "#ui/errors.ts";
 import styles from "./Account.module.css";
 import { pollUntilSuccess } from "./poll.ts";
-import { Row, Section } from "./Section.tsx";
+import { Row } from "./Section.tsx";
 
 /** How long to keep asking whether the browser half of the login finished. */
 const pollIntervalMs = 2_000;
@@ -74,23 +78,36 @@ const SignedOut: FC = () => {
 	};
 
 	return (
-		<Section>
-			<Row
-				label="GitButler account"
-				hint={
-					error ?? "Opens gitbutler.com to sign in. Your access token stays in the app's backend."
-				}
-			>
+		// A card of its own rather than a row: the drawing leads, and the button sits under
+		// the words rather than at the row's end.
+		<section className={classes(styles.card, styles.signedOutCard)}>
+			<Illustration name="id-card" />
+			<div className={styles.signedOut}>
+				<div className={styles.signedOutText}>
+					<span className={classes("text-15", "text-semibold", styles.signedOutLabel)}>
+						GitButler account
+					</span>
+					<span className={classes("text-12", "text-body", styles.signedOutHint)}>
+						{error ?? (
+							<>
+								Log in to sync your account and pull requests.
+								<br />
+								Your access token stays in the app&apos;s backend.
+							</>
+						)}
+					</span>
+				</div>
 				<button
 					type="button"
-					className={getButtonClassName({ variant: "pop", size: "small" })}
+					className={getButtonClassName({ variant: "gray" })}
 					disabled={signingIn}
 					onClick={() => void signIn()}
 				>
-					{signingIn ? "Waiting for browser…" : "Sign in"}
+					{signingIn ? "Waiting for browser…" : "Log in to GitButler"}
+					<Icon name={signingIn ? "spinner" : "login"} />
 				</button>
-			</Row>
-		</Section>
+			</div>
+		</section>
 	);
 };
 
@@ -123,6 +140,7 @@ const SignedIn: FC<{ profile: UserProfile }> = ({ profile }) => {
 	}, [previewUrl]);
 
 	const dirty = name !== (profile.name ?? "") || pendingPicture !== null;
+	const picture = previewUrl ?? profile.picture;
 
 	const choosePicture = async (file: File) => {
 		try {
@@ -159,6 +177,85 @@ const SignedIn: FC<{ profile: UserProfile }> = ({ profile }) => {
 		}
 	};
 
+	return (
+		// Not the rows the other settings use: a form of its own, with the picture beside the
+		// fields it belongs to.
+		<section className={styles.card}>
+			<button
+				type="button"
+				className={styles.avatarButton}
+				aria-label="Change profile picture"
+				onClick={() => pictureInput.current?.click()}
+			>
+				{picture !== "" ? (
+					<>
+						<img src={picture} alt="" className={styles.avatar} />
+						<span className={styles.avatarOverlay}>
+							<Icon name="camera" className={styles.avatarOverlayIcon} size={32} />
+						</span>
+					</>
+				) : (
+					<>
+						<Icon name="user" className={styles.placeholder} size={32} />
+						<Icon name="camera" className={styles.placeholderCamera} size={32} />
+					</>
+				)}
+			</button>
+			<input
+				ref={pictureInput}
+				type="file"
+				accept="image/png,image/jpeg"
+				className={styles.fileInput}
+				onChange={(evt) => {
+					const file = evt.currentTarget.files?.[0];
+					// Cleared so choosing the same file again still counts as a change, which
+					// is what a retry after a failed save looks like.
+					evt.currentTarget.value = "";
+					if (file) void choosePicture(file);
+				}}
+			/>
+
+			<div className={styles.fields}>
+				<Field.Root render={<FieldRootStyles />}>
+					<Field.Label render={<FieldLabelStyles />}>Email</Field.Label>
+					<Field.Control
+						render={<FieldControlStyles />}
+						value={profile.email ?? ""}
+						disabled
+						title="Changed on gitbutler.com"
+					/>
+				</Field.Root>
+
+				<div className={styles.nameRow}>
+					<Field.Root render={<FieldRootStyles />} className={styles.nameField}>
+						<Field.Label render={<FieldLabelStyles />}>Full name</Field.Label>
+						<Field.Control
+							render={<FieldControlStyles />}
+							value={name}
+							onValueChange={(value) => setName(value)}
+						/>
+					</Field.Root>
+					<button
+						type="button"
+						className={getButtonClassName({ variant: "gray" })}
+						disabled={!dirty || saving}
+						onClick={() => void save()}
+					>
+						{saving ? "Saving…" : "Save changes"}
+					</button>
+				</div>
+
+				{error !== null && <span className={classes("text-12", styles.error)}>{error}</span>}
+			</div>
+		</section>
+	);
+};
+
+/** Forgets the account on this machine. Only for a page that knows someone is signed in. */
+export const SignOutRow: FC = () => {
+	const client = useQueryClient();
+	const [error, setError] = useState<string | null>(null);
+
 	const signOut = async () => {
 		try {
 			await window.lite.deleteUser();
@@ -171,89 +268,14 @@ const SignedIn: FC<{ profile: UserProfile }> = ({ profile }) => {
 	};
 
 	return (
-		<>
-			{/* Not the label-and-control grid the other settings use: a form of its own,
-			    with the picture beside the fields it belongs to. */}
-			<section className={styles.profileCard}>
-				<button
-					type="button"
-					className={styles.avatarButton}
-					aria-label="Change profile picture"
-					onClick={() => pictureInput.current?.click()}
-				>
-					{(previewUrl ?? profile.picture) !== "" ? (
-						<img src={previewUrl ?? profile.picture} alt="" className={styles.avatar} />
-					) : (
-						<span className={classes("text-12", styles.avatarEmpty)}>Choose</span>
-					)}
-					<span className={classes("text-12", styles.avatarOverlay)}>Change</span>
-				</button>
-				<input
-					ref={pictureInput}
-					type="file"
-					accept="image/png,image/jpeg"
-					className={styles.fileInput}
-					onChange={(evt) => {
-						const file = evt.currentTarget.files?.[0];
-						// Cleared so choosing the same file again still counts as a change, which
-						// is what a retry after a failed save looks like.
-						evt.currentTarget.value = "";
-						if (file) void choosePicture(file);
-					}}
-				/>
-
-				<div className={styles.fields}>
-					<label className={classes("text-12", styles.fieldLabel)} htmlFor="account-name">
-						Full name
-					</label>
-					<input
-						id="account-name"
-						type="text"
-						className={classes("text-13", styles.field)}
-						value={name}
-						onChange={(evt) => setName(evt.currentTarget.value)}
-					/>
-
-					<label className={classes("text-12", styles.fieldLabel)} htmlFor="account-email">
-						Email
-					</label>
-					<input
-						id="account-email"
-						type="text"
-						className={classes("text-13", styles.field, styles.fieldReadonly)}
-						value={profile.email ?? ""}
-						readOnly
-						title="Changed on gitbutler.com"
-					/>
-
-					<div className={styles.formActions}>
-						{error !== null && <span className={classes("text-12", styles.error)}>{error}</span>}
-						<button
-							type="button"
-							className={getButtonClassName({ variant: "pop" })}
-							disabled={!dirty || saving}
-							onClick={() => void save()}
-						>
-							{saving ? "Updating…" : "Update profile"}
-						</button>
-					</div>
-				</div>
-			</section>
-
-			<Section>
-				<Row
-					label="Forget credentials and log out"
-					hint="Clears the account from this machine. Your repositories are untouched."
-				>
-					<button
-						type="button"
-						className={getButtonClassName({ size: "small" })}
-						onClick={() => void signOut()}
-					>
-						Forget credentials
-					</button>
-				</Row>
-			</Section>
-		</>
+		<Row
+			label="Forget credentials and log out"
+			hint={error ?? "Clears the account from this machine. Your repositories are untouched."}
+		>
+			<button type="button" className={getButtonClassName({})} onClick={() => void signOut()}>
+				Sign out
+				<Icon name="logout" />
+			</button>
+		</Row>
 	);
 };

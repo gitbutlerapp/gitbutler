@@ -1,0 +1,10 @@
+/* 14px is the size ⚛️ Lite Core draws a program's mark in a select's leading slot. The 3px
+   radius follows: the marks are rounded squares, and the corner scales with the size. */
+.programIcon {
+	display: block;
+	flex-shrink: 0;
+	width: var(--program-icon-size, 14px);
+	height: var(--program-icon-size, 14px);
+	object-fit: cover;
+	border-radius: 3px;
+}
