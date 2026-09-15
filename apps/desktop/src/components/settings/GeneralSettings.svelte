@@ -290,6 +290,9 @@
 			{:else if platformName === "windows"}
 				On Windows, you can manually copy the executable (<code>`but`</code>) to a directory in your
 				PATH. Click "Show Command" for instructions.
+			{:else if platformName === "linux"}
+				On Linux, you can manually create a symlink to the CLI in your PATH. Click "Show Command"
+				for instructions.
 			{:else}
 				Installs the GitButler CLI (<code>`but`</code>) in your PATH, allowing you to use it from
 				the terminal. This action will request admin privileges. Alternatively, you could create a
@@ -300,7 +303,7 @@
 		{#if !$appSettings?.ui.cliIsManagedByPackageManager}
 			<div class="flex flex-col gap-16">
 				<div class="flex gap-8 justify-end">
-					{#if platformName !== "windows"}
+					{#if platformName === "macos"}
 						<Button
 							style="pop"
 							icon="play"
