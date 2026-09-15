@@ -210,7 +210,7 @@ on run argv
             "elif [ -e " & targetPath & " ] || [ -L " & targetPath & " ]; then " & ¬
             "echo 'CLI destination already exists' >&2; exit 1; fi; " & ¬
             "/bin/ln -s -h " & sourcePath & " " & targetPath) ¬
-            with prompt "GitButler needs administrator access to install the but cli into /usr/local/bin." ¬
+            with prompt "GitButler needs administrator access to install but into /usr/local/bin." ¬
             with administrator privileges
         return "gitbutler-cli-installed"
     on error messageText number errorNumber
