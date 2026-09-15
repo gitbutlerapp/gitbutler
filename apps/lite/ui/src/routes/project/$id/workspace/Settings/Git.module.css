@@ -1,0 +1,8 @@
+/* The slider takes the row. It is inset a little so the marks at its ends, centred under the
+   thumb's outermost positions, don't run past the card's text. The control carries headroom
+   above its track, so it is pulled up from the row's 16px gap to sit 12px under the hint. */
+.range {
+	flex: 1;
+	margin-block-start: -4px;
+	padding-inline: 10px;
+}
