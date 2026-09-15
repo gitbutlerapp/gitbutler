@@ -1,34 +1,60 @@
-.intro {
+/* The widths ⚛️ Lite Core gives a select and a field at the end of a settings row. */
+.select {
+	width: 140px;
+}
+
+.field {
+	width: 185px;
+}
+
+/* The reset button leads the provider select: undoing the settings sits beside the one that
+   decides which of them apply. */
+.provider {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+}
+
+/* The status line takes the width; the button keeps its own. */
+.status {
+	display: flex;
+	flex: 1;
+	align-items: center;
+	min-width: 0;
+	gap: 10px;
 	color: var(--text-2);
 	text-wrap: pretty;
 }
 
-.warning {
-	padding: 8px 10px;
-	border-radius: var(--radius-button);
-	background-color: var(--bg-2);
-	color: var(--text-2);
+.dot {
+	flex: none;
+	width: 8px;
+	height: 8px;
+	border-radius: 50%;
+	background-color: var(--text-3);
 }
 
-.actions {
+.dotConnected {
+	background-color: var(--fill-safe-bg);
+}
+
+.dotFailed {
+	background-color: var(--fill-danger-bg);
+}
+
+/* A card with nothing to set: a glyph saying what kind of note it is, then the line itself. */
+.note {
 	display: flex;
-	justify-content: flex-end;
-	gap: 6px;
-}
-
-.reset {
-	margin-right: auto;
-}
-
-.result {
-	padding: 10px 12px;
-	border: 1px solid var(--border-2);
+	align-items: center;
+	padding: 16px;
+	gap: 12px;
+	border: 1px solid var(--border-section);
 	border-radius: var(--radius-card);
-	background-color: var(--bg-1);
 	color: var(--text-2);
-	white-space: pre-wrap;
+	text-wrap: pretty;
 }
 
-.resultError {
-	color: var(--text-danger);
+.noteIcon {
+	flex: none;
+	color: var(--text-3);
 }
