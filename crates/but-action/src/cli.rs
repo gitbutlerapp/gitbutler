@@ -1,4 +1,6 @@
-use anyhow::{Context as _, anyhow, bail};
+#[cfg(any(target_os = "macos", all(test, unix)))]
+use anyhow::{Context as _, anyhow};
+#[cfg(any(target_os = "macos", all(test, unix)))]
 use but_error::{Code, Context as ErrorContext};
 
 pub fn get_cli_path() -> anyhow::Result<std::path::PathBuf> {
@@ -11,6 +13,10 @@ pub fn get_cli_path() -> anyhow::Result<std::path::PathBuf> {
     })
 }
 
+#[cfg(all(test, unix))]
+mod tests;
+
+#[cfg(any(target_os = "macos", all(test, unix)))]
 const UNIX_LINK_PATH: &str = "/usr/local/bin/but";
 
 pub enum InstallMode {
@@ -18,141 +24,226 @@ pub enum InstallMode {
     CurrentUserOnly,
 }
 
-pub fn do_install_cli(mode: InstallMode) -> anyhow::Result<()> {
-    let cli_path = get_cli_path()?;
-    #[cfg(windows)]
-    {
-        return install_cli_windows(cli_path);
-    }
-
-    match std::fs::symlink_metadata(UNIX_LINK_PATH) {
-        Ok(md) => {
-            if !md.is_symlink() {
-                bail!(
-                    "Refusing to install symlink onto existing non-symlink at '{UNIX_LINK_PATH}'"
-                );
-            }
-            let current_link = std::fs::read_link(UNIX_LINK_PATH)
-                .context(format!("error reading existing link: {UNIX_LINK_PATH}"))?;
-            if current_link == cli_path {
-                return Ok(());
-            }
-            ensure_cli_path_exists_prior_to_link(&cli_path)?;
-            #[cfg(not(windows))]
-            if std::fs::remove_file(UNIX_LINK_PATH)
-                .and_then(|_| std::os::unix::fs::symlink(&cli_path, UNIX_LINK_PATH))
-                .is_ok()
-            {
-                return Ok(());
-            }
-        }
-        Err(err) if err.kind() == std::io::ErrorKind::NotFound => {
-            ensure_cli_path_exists_prior_to_link(&cli_path)?;
-            #[cfg(not(windows))]
-            if std::os::unix::fs::symlink(&cli_path, UNIX_LINK_PATH).is_ok() {
-                return Ok(());
-            }
-        }
-        // Also: can happen if the `/usr/local/bin` dir doesn't exist, which then is unlikely to be in PATH anyway.
-        Err(err) => return Err(err.into()),
-    }
-
-    let can_elevate_privileges = matches!(mode, InstallMode::AllowPrivilegeElevation);
-    if cfg!(target_os = "macos") && can_elevate_privileges {
-        let status = std::process::Command::new("/usr/bin/osascript")
-            .args([
-                "-e",
-                &format!(
-                    "do shell script \" \
-                    ln -sf \'{}\' \'{UNIX_LINK_PATH}\' \
-                \" with administrator privileges",
-                    cli_path.display()
-                ),
-            ])
-            .stdout(std::process::Stdio::inherit())
-            .stderr(std::process::Stdio::inherit())
-            .status()
-            .context("Failed to run osascript")?;
-
-        if status.success() {
-            Ok(())
-        } else if status.code() == Some(1) {
-            // osascript exits 1 when the user dismisses the admin-privileges
-            // prompt. This is a benign abort, not an error — tag it with a
-            // dedicated Code so the frontend can react based on the code
-            // rather than matching on an English message.
-            Err(
-                anyhow!("osascript exited with status 1").context(ErrorContext::new_static(
-                    Code::CliInstallCancelled,
-                    "CLI install cancelled",
-                )),
-            )
-        } else {
-            Err(anyhow!(
-                "osascript exited with status {}",
-                status
-                    .code()
-                    .map(|c| c.to_string())
-                    .unwrap_or_else(|| "unknown".into())
-            ))
-        }
-    } else {
-        Err(anyhow!(
-            "Would probably need to run \"ln -sf '{}' '{UNIX_LINK_PATH}'\"{privilege}",
-            cli_path.display(),
-            privilege = if can_elevate_privileges {
-                " with root permissions"
-            } else {
-                ""
-            }
-        ))
-    }
+/// Whether installation may replace an existing symlink to another executable.
+#[derive(Clone, Copy, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
+pub enum ExistingSymlinkPolicy {
+    /// Report a conflict without changing the existing link.
+    Refuse,
+    /// Replace existing symlinks, including dangling ones, but not files or directories.
+    Replace,
 }
 
-fn ensure_cli_path_exists_prior_to_link(cli_path: &std::path::Path) -> anyhow::Result<()> {
-    if cli_path.exists() {
-        return Ok(());
-    }
-    bail!("Run `CARGO_TARGET_DIR=$PWD/target/tauri cargo build -p but` to build the `but` binary")
-}
-
-/// On Windows, we'll provide helpful instructions rather than attempt automatic installation
-/// since:
-/// 1. Creating symlinks requires developer mode or admin privileges
-/// 2. There's no standard user-writable directory that's always in PATH
-/// 3. Users typically add directories to PATH manually on Windows
+/// Install an explicitly supplied bundled CLI at `/usr/local/bin/but` on macOS.
 ///
-/// Note that this isn't usually called on Windows.
-#[cfg(windows)]
-fn install_cli_windows(cli_path: std::path::PathBuf) -> anyhow::Result<()> {
-    let but_filename = cli_path
-        .file_name()
-        .context("BUG: encountered but CLI path without /")?;
-
-    bail!(
-        "Automatic CLI installation is not supported on Windows.\n\
-        \n\
-        To use the But CLI, you have two options:\n\
-        \n\
-        1. Copy the executable to a directory in your PATH:\n\
-           copy \"{}\" \"%LOCALAPPDATA%\\Microsoft\\WindowsApps\\{}\"\n\
-        \n\
-        2. Add the current location to your PATH environment variable:\n\
-           - Press the Win key and select 'System'\n\
-           - Type 'Environment' into the search box and select 'edit variables for your account'\n\
-           - Under 'User variables', select 'Path' and click 'Edit'\n\
-           - Click 'New' and add: {}\n\
-        \n\
-        After either option, restart your terminal to use the 'but' command.",
-        cli_path.display(),
-        but_filename.display(),
-        cli_path
-            .parent()
-            .map(|p| p.display().to_string())
-            .unwrap_or_else(|| cli_path.display().to_string())
-    );
+/// The caller must supply an absolute executable path from a stable app installation,
+/// not renderer input or a mounted disk image. Existing symlinks are handled according
+/// to `symlink_policy`; files and directories are refused. Authorization cancellation
+/// is reported as [`Code::CliInstallCancelled`].
+/// This does not discover the CLI or change shell configuration.
+#[cfg(any(target_os = "macos", all(test, unix)))]
+pub fn do_install_cli_v2(
+    cli_path: &std::path::Path,
+    mode: InstallMode,
+    symlink_policy: ExistingSymlinkPolicy,
+) -> anyhow::Result<()> {
+    let destination = std::path::Path::new(UNIX_LINK_PATH);
+    match install_cli_link(cli_path, destination, symlink_policy) {
+        Ok(()) => Ok(()),
+        Err(InstallError::InstallationRequiresElevatedPrivileges(err)) => match mode {
+            InstallMode::AllowPrivilegeElevation => {
+                install_cli_link_escalated(cli_path, destination, symlink_policy)
+            }
+            InstallMode::CurrentUserOnly => Err(err)
+                .context("Privilege escalation required but not allowed under user install mode"),
+        },
+        Err(InstallError::Other(err)) => Err(err),
+    }
 }
 
+/// Installs the CLI link with escalated privileges.
+#[cfg(any(target_os = "macos", all(test, unix)))]
+fn install_cli_link_escalated(
+    cli_path: &std::path::Path,
+    destination: &std::path::Path,
+    symlink_policy: ExistingSymlinkPolicy,
+) -> anyhow::Result<()> {
+    anyhow::ensure!(
+        destination.is_absolute(),
+        "CLI destination must be absolute"
+    );
+    let directory = destination
+        .parent()
+        .context("CLI destination has no parent")?;
+    // osascript accepts text arguments, so reject non-UTF-8 instead of changing paths.
+    let source = cli_path.to_str().context("CLI path is not valid UTF-8")?;
+    let target = destination
+        .to_str()
+        .context("CLI destination is not valid UTF-8")?;
+    let directory = directory
+        .to_str()
+        .context("CLI destination directory is not valid UTF-8")?;
+    // The script's destination check and `ln` are not atomic: if a directory appears at the
+    // destination between them, `ln` can create a link inside it. Verification below rejects that
+    // result, but the stray link remains. Avoiding this race would require an elevated helper
+    // calling symlink(2) directly instead of `ln`. That seems a bit overkill for now.
+    let policy = match symlink_policy {
+        ExistingSymlinkPolicy::Refuse => "refuse",
+        ExistingSymlinkPolicy::Replace => "replace",
+    };
+    let output = std::process::Command::new("/usr/bin/osascript")
+        .args(["-e", INSTALL_CLI_SCRIPT, source, target, directory, policy])
+        .output()
+        .context("Failed to request administrator authorization for CLI installation")?;
+    check_cli_install_output(output)?;
+    verify_cli_link(cli_path, destination)
+}
+
+/// Specific errors returned by [`install_cli_link`].
+#[cfg(any(target_os = "macos", all(test, unix)))]
+#[derive(Debug)]
+enum InstallError {
+    /// The install failed because of insufficient privileges - escalation recommended to proceed.
+    InstallationRequiresElevatedPrivileges(anyhow::Error),
+    /// Any other error - we don't act on this.
+    Other(anyhow::Error),
+}
+
+#[cfg(any(target_os = "macos", all(test, unix)))]
+fn install_cli_link(
+    source: &std::path::Path,
+    destination: &std::path::Path,
+    symlink_policy: ExistingSymlinkPolicy,
+) -> Result<(), InstallError> {
+    use std::fs;
+
+    validate_cli_source(source).map_err(InstallError::Other)?;
+    match fs::symlink_metadata(destination) {
+        Ok(metadata) => {
+            if !metadata.is_symlink() {
+                return Err(InstallError::Other(anyhow::anyhow!(
+                    "Refusing to replace non-symlink file '{}'",
+                    destination.display()
+                )));
+            }
+            let target = fs::read_link(destination)
+                .context("Cannot read existing CLI symlink")
+                .map_err(InstallError::Other)?;
+            if target == source || matches!(symlink_policy, ExistingSymlinkPolicy::Refuse) {
+                return verify_cli_link(source, destination).map_err(InstallError::Other);
+            }
+            fs::remove_file(destination)
+                .context("Cannot remove existing CLI symlink")
+                .map_err(escalate_privilege_error_if_permission_denied)?;
+        }
+        Err(err) if err.kind() == std::io::ErrorKind::NotFound => {}
+        Err(err) => {
+            return Err(err)
+                .context("Cannot inspect CLI installation destination")
+                .map_err(InstallError::Other);
+        }
+    }
+    fs::create_dir_all(
+        destination
+            .parent()
+            .context("CLI destination has no parent")
+            .map_err(InstallError::Other)?,
+    )
+    .context("Cannot create CLI installation directory")
+    .map_err(escalate_privilege_error_if_permission_denied)?;
+    std::os::unix::fs::symlink(source, destination)
+        .context("Cannot create CLI symlink; existing entries will not be replaced")
+        .map_err(escalate_privilege_error_if_permission_denied)?;
+    verify_cli_link(source, destination).map_err(InstallError::Other)?;
+    Ok(())
+}
+
+/// Map the error to escalate privileges if permission was denied.
+#[cfg(any(target_os = "macos", all(test, unix)))]
+fn escalate_privilege_error_if_permission_denied(err: anyhow::Error) -> InstallError {
+    match err.downcast_ref::<std::io::Error>() {
+        Some(io_err) if io_err.kind() == std::io::ErrorKind::PermissionDenied => {
+            InstallError::InstallationRequiresElevatedPrivileges(err)
+        }
+        _ => InstallError::Other(err),
+    }
+}
+
+#[cfg(any(target_os = "macos", all(test, unix)))]
+fn validate_cli_source(source: &std::path::Path) -> anyhow::Result<()> {
+    use std::os::unix::fs::PermissionsExt;
+
+    anyhow::ensure!(source.is_absolute(), "CLI source path must be absolute");
+    let metadata = std::fs::metadata(source)
+        .with_context(|| format!("Cannot access CLI executable at '{}'", source.display()))?;
+    anyhow::ensure!(
+        metadata.is_file() && metadata.permissions().mode() & 0o111 != 0,
+        "CLI source '{}' must be an executable file",
+        source.display()
+    );
+    Ok(())
+}
+
+#[cfg(any(target_os = "macos", all(test, unix)))]
+fn verify_cli_link(source: &std::path::Path, destination: &std::path::Path) -> anyhow::Result<()> {
+    let target = std::fs::read_link(destination).context("Cannot read installed CLI symlink")?;
+    anyhow::ensure!(
+        target == source,
+        "Refusing to replace '{}', which points to '{}' instead of '{}'",
+        destination.display(),
+        target.display(),
+        source.display()
+    );
+    Ok(())
+}
+
+#[cfg(any(target_os = "macos", all(test, unix)))]
+const INSTALL_CLI_SCRIPT: &str = r#"
+on run argv
+    set sourcePath to quoted form of (item 1 of argv)
+    set targetPath to quoted form of (item 2 of argv)
+    set targetDirectory to quoted form of (item 3 of argv)
+    set symlinkPolicy to quoted form of (item 4 of argv)
+    try
+        do shell script ("/bin/mkdir -p " & targetDirectory & " || exit $?; " & ¬
+            "if [ -L " & targetPath & " ] && [ " & symlinkPolicy & " = replace ]; then " & ¬
+            "/bin/rm " & targetPath & " || exit $?; " & ¬
+            "elif [ -e " & targetPath & " ] || [ -L " & targetPath & " ]; then " & ¬
+            "echo 'CLI destination already exists' >&2; exit 1; fi; " & ¬
+            "/bin/ln -s -h " & sourcePath & " " & targetPath) ¬
+            with prompt "GitButler needs administrator access to install the but cli into /usr/local/bin." ¬
+            with administrator privileges
+        return "gitbutler-cli-installed"
+    on error messageText number errorNumber
+        if errorNumber is -128 then return "gitbutler-cli-install-cancelled"
+        error messageText number errorNumber
+    end try
+end run
+"#;
+
+#[cfg(any(target_os = "macos", all(test, unix)))]
+fn check_cli_install_output(output: std::process::Output) -> anyhow::Result<()> {
+    anyhow::ensure!(
+        output.status.success(),
+        "CLI installation failed ({}): {}",
+        output.status,
+        String::from_utf8_lossy(&output.stderr).trim()
+    );
+    if output.stdout == b"gitbutler-cli-install-cancelled\n" {
+        return Err(
+            anyhow!("Administrator authorization was cancelled").context(ErrorContext::new_static(
+                Code::CliInstallCancelled,
+                "CLI install cancelled",
+            )),
+        );
+    }
+    anyhow::ensure!(
+        output.stdout == b"gitbutler-cli-installed\n",
+        "Unexpected CLI installer response"
+    );
+    Ok(())
+}
+
+#[cfg(target_os = "macos")]
 pub fn auto_fix_broken_but_cli_symlink() {
     let Ok(absolute_link_destination) = std::fs::read_link(UNIX_LINK_PATH) else {
         return;
@@ -161,7 +252,14 @@ pub fn auto_fix_broken_but_cli_symlink() {
         return;
     }
 
-    match do_install_cli(InstallMode::CurrentUserOnly) {
+    let result = get_cli_path().and_then(|source| {
+        do_install_cli_v2(
+            &source,
+            InstallMode::CurrentUserOnly,
+            ExistingSymlinkPolicy::Replace,
+        )
+    });
+    match result {
         Ok(_) => {
             tracing::info!(
                 "Successfully fixed symlink at {UNIX_LINK_PATH}, which pointed to non-existing location '{}'",

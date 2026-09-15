@@ -8,7 +8,7 @@ rust-version.workspace = true
 
 [lib]
 doctest = false
-test = false
+test = true
 
 [features]
 ## If enabled, we will let the current executable (gitbutler-tauri) be the source for the `but` link.
@@ -43,6 +43,9 @@ gix.workspace = true
 rmcp.workspace = true
 tracing.workspace = true
 bstr = { workspace = true }
+
+[dev-dependencies]
+tempfile.workspace = true
 
 [lints]
 workspace = true
