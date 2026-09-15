@@ -1,9 +1,11 @@
 import { commitTitle, shortCommitId } from "#ui/commit.ts";
 import { classes } from "#ui/components/classes.ts";
 import { ConflictIcon } from "#ui/components/ConflictIcon.tsx";
+import { Icon } from "#ui/components/Icon.tsx";
 import { RelativeTime } from "#ui/components/RelativeTime.tsx";
-import type { Commit } from "@gitbutler/but-sdk";
+import type { Commit, TargetCommitReview } from "@gitbutler/but-sdk";
 import { type ComponentProps, type FC, useState } from "react";
+import { BranchRowHeadline } from "./BranchRowHeadline.tsx";
 import { RowLabel, RowLabelContainer, RowLabelGroup, RowMeta, RowMetaSeparator } from "./Row.tsx";
 import rowStyles from "./Row.module.css";
 import styles from "./CommitRowContent.module.css";
@@ -11,31 +13,49 @@ import styles from "./CommitRowContent.module.css";
 export const CommitRowContent: FC<
 	{
 		commit: Pick<Commit, "id" | "message" | "author" | "authoredAt">;
-		/** A landed review can supply a more useful title than the merge message. */
-		title?: string;
+		review?: Pick<TargetCommitReview, "title" | "sourceBranch" | "labels"> | null;
 		hasConflicts?: boolean;
 		descriptionId?: string;
 	} & Omit<ComponentProps<typeof RowLabelGroup>, "children" | "title">
-> = ({ commit, title: reviewTitle, hasConflicts = false, descriptionId, ...props }) => {
+> = ({ commit, review, hasConflicts = false, descriptionId, ...props }) => {
 	const [now] = useState(() => Date.now());
-	const title = reviewTitle ?? commitTitle(commit.message);
+	const title = commitTitle(commit.message);
 	const author = commit.author.name !== "" ? commit.author.name : commit.author.email;
 
 	return (
-		<RowLabelGroup {...props}>
-			<RowLabelContainer>
-				{hasConflicts && (
-					<ConflictIcon
-						variant="conflict"
-						className={styles.conflictIcon}
-						aria-label="Conflicted"
-					/>
+		<RowLabelGroup {...props} id={descriptionId}>
+			{review ? (
+				<BranchRowHeadline title={review.title} labels={review.labels} />
+			) : (
+				<RowLabelContainer>
+					{hasConflicts && (
+						<ConflictIcon
+							variant="conflict"
+							className={styles.conflictIcon}
+							aria-label="Conflicted"
+						/>
+					)}
+					<RowLabel singleLine title={title}>
+						{title === undefined ? (
+							<span className={rowStyles.fadedText}>(no message)</span>
+						) : (
+							title
+						)}
+					</RowLabel>
+				</RowLabelContainer>
+			)}
+			<RowMeta className={classes(rowStyles.fadedText, styles.metadata)}>
+				{review && review.sourceBranch !== "" && (
+					<>
+						<span className={classes(rowStyles.metaItem, rowStyles.metaItemShrinkable)}>
+							<Icon name="branch" size={12} />
+							<span className={rowStyles.metaItemText} title={review.sourceBranch}>
+								{review.sourceBranch}
+							</span>
+						</span>
+						<RowMetaSeparator />
+					</>
 				)}
-				<RowLabel singleLine title={title}>
-					{title === undefined ? <span className={rowStyles.fadedText}>(no message)</span> : title}
-				</RowLabel>
-			</RowLabelContainer>
-			<RowMeta id={descriptionId} className={classes(rowStyles.fadedText, styles.metadata)}>
 				{author !== "" && (
 					<>
 						<span className={styles.author} title={commit.author.email}>

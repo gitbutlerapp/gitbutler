@@ -249,6 +249,8 @@ pub struct TargetCommitReview {
     pub unit_symbol: String,
     /// The short name of the branch the review proposed, e.g. `feature-branch`.
     pub source_branch: String,
+    /// Labels attached to the review, when available in the forge cache.
+    pub labels: Vec<but_forge::ForgeReviewLabel>,
 }
 
 #[cfg(feature = "export-schema")]
@@ -262,6 +264,7 @@ impl From<ForgeReview> for TargetCommitReview {
             html_url: value.html_url,
             unit_symbol: value.unit_symbol,
             source_branch: value.source_branch,
+            labels: value.labels,
         }
     }
 }
@@ -284,6 +287,7 @@ impl TargetCommitReview {
             ),
             unit_symbol: forge_info.unit.symbol.clone(),
             source_branch: review.source_branch.unwrap_or_default().to_owned(),
+            labels: Vec::new(),
         })
     }
 }

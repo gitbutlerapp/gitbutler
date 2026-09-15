@@ -4465,6 +4465,8 @@ export type TargetCommitReview = {
   unitSymbol: string;
   /** The short name of the branch the review proposed, e.g. `feature-branch`. */
   sourceBranch: string;
+  /** Labels attached to the review, when available in the forge cache. */
+  labels: Array<ForgeReviewLabel>;
 };
 
 export type TelemetrySettings = {
