@@ -40,6 +40,8 @@ export type LiteElectronApi = SDK & {
 	getAppSettings: () => Promise<AppSettings>;
 	getVersion: () => Promise<string>;
 	isPackaged: () => Promise<boolean>;
+	/** Install bundled CLI; false means administrator authorization was cancelled. */
+	installCli: () => Promise<boolean>;
 	isFullScreen: () => Promise<boolean>;
 	onFullScreenChange: (callback: (fullScreen: boolean) => void) => () => void;
 	/** A click on a desktop notification, by the id it was shown with. */
@@ -73,12 +75,14 @@ export type LiteElectronApi = SDK & {
 };
 
 /**
- * The SDK endpoints the renderer can call: all of them, each under its own
+ * The SDK endpoints the renderer can call, each under its own
  * name as the IPC channel, so a new declaration in Rust reaches `window.lite`
  * with nothing to keep in step.
  */
 // `Object.keys` erases key types; the record's keys are exactly these.
-export const exposedEndpoints = Object.keys(apiParamNames) as ReadonlyArray<Endpoint>;
+export const exposedEndpoints = Object.keys(apiParamNames).filter(
+	(name) => name !== "installCliV2",
+) as ReadonlyArray<Endpoint>;
 
 /** Members the main process answers itself rather than forwarding to the SDK. */
 export const localEndpoints = [
@@ -96,6 +100,7 @@ export const localEndpoints = [
 	"getVersion",
 	"isFullScreen",
 	"isPackaged",
+	"installCli",
 	"notificationClick",
 	"openInWebBrowser",
 	"pathJoin",
@@ -113,7 +118,8 @@ export const localEndpoints = [
 ] as const;
 
 /** An endpoint the SDK exposes to JavaScript. */
-export type Endpoint = keyof typeof apiParamNames & keyof typeof sdk;
+// Source-path installation is host-only: renderers get parameterless installCli instead.
+export type Endpoint = Exclude<keyof typeof apiParamNames & keyof typeof sdk, "installCliV2">;
 
 /**
  * The payload for an endpoint, named.
