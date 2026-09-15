@@ -34,7 +34,7 @@ pub struct ProjectMeta {
 /// We would have to detect this case by validating parents, and the refs pointing to it, before
 /// using the metadata, or at least have a way to communicate possible states when trying to use
 /// this information.
-#[derive(Default, Debug, Clone, PartialEq, Eq)]
+#[derive(Default, Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct Workspace {
     /// Standard data we want to know about any ref.
     pub ref_info: RefInfo,
@@ -393,16 +393,6 @@ impl ProjectMeta {
         Self::try_from_config(&config)
     }
 
-    /// Return whether legacy project metadata has already been ported to repository-local Git
-    /// configuration.
-    pub fn is_ported_repo(repo: &gix::Repository) -> anyhow::Result<bool> {
-        let config = git_config::open_repo_local_config_for_reading(repo)?;
-        Ok(matches!(
-            config.boolean(PROJECT_PORTED_META),
-            Ok(Some(true))
-        ))
-    }
-
     /// Read project metadata from the given repository-local Git configuration.
     ///
     /// Malformed values are tolerated: a target ref that doesn't parse as a full ref name or
@@ -462,28 +452,7 @@ impl ProjectMeta {
         let changed = git_config::edit_repo_config(repo, gix::config::Source::Local, |config| {
             project_meta.write_to_config(config)
         })?;
-        notify_legacy_storage(repo, changed);
-        Ok(())
-    }
-
-    /// Port project metadata, loading the legacy fallback only if Git config has no metadata.
-    pub fn port_if_needed(
-        repo: &gix::Repository,
-        legacy_fallback: impl FnOnce() -> anyhow::Result<Self>,
-    ) -> anyhow::Result<()> {
-        let changed = git_config::edit_repo_config(repo, gix::config::Source::Local, |config| {
-            if matches!(config.boolean(PROJECT_PORTED_META), Ok(Some(true))) {
-                return Ok(());
-            }
-            let configured = Self::try_from_config(config)?;
-            let project_meta = if configured == Self::default() {
-                legacy_fallback()?
-            } else {
-                configured
-            };
-            repair_target_metadata_for_migration(&project_meta, repo).write_to_config(config)
-        })?;
-        notify_legacy_storage(repo, changed);
+        notify_metadata(repo, changed);
         Ok(())
     }
 
@@ -505,9 +474,9 @@ impl ProjectMeta {
     }
 }
 
-fn notify_legacy_storage(repo: &gix::Repository, changed: bool) {
+fn notify_metadata(repo: &gix::Repository, changed: bool) {
     if changed && let Ok(storage_path) = but_project_handle::gitbutler_storage_path(repo) {
-        but_project_handle::write_refresh_sentinel(&storage_path.join("virtual_branches.toml"));
+        but_project_handle::write_refresh_sentinel(&storage_path.join("but.sqlite"));
     }
 }
 
@@ -672,7 +641,7 @@ impl Workspace {
 }
 
 /// Metadata about branches, associated with any Git branch.
-#[derive(serde::Serialize, Clone, Eq, PartialEq, Default)]
+#[derive(serde::Serialize, serde::Deserialize, Clone, Eq, PartialEq, Default)]
 #[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
 #[serde(rename_all = "camelCase")]
 pub struct Branch {
@@ -736,7 +705,7 @@ impl<T: std::fmt::Debug> std::fmt::Debug for MaybeDebug<'_, T> {
 ///
 /// It allows keeping track of when it changed, but also if we created it initially, a useful
 /// bit of information.
-#[derive(serde::Serialize, Default, Clone, Eq, PartialEq)]
+#[derive(serde::Serialize, serde::Deserialize, Default, Clone, Eq, PartialEq)]
 #[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
 #[serde(rename_all = "camelCase")]
 #[cfg_attr(feature = "export-schema", schemars(rename = "MetadataRefInfo"))]
@@ -810,7 +779,7 @@ impl StackId {
 
 /// A stack that was, at some point in time, applied to the workspace, i.e. a parent of the *workspace commit*.
 /// Note that if `in_workspace` is `false`, it's not considered unapplied.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct WorkspaceStack {
     /// A unique and stable identifier for the stack itself.
     pub id: StackId,
@@ -826,7 +795,7 @@ pub struct WorkspaceStack {
 }
 
 /// The relationship that a [WorkspaceStack] *supposedly* has with a workspace commit.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub enum WorkspaceCommitRelation {
     /// The stack is considered to be merged into the workspace commit, with its tree being observable
     /// in the worktree associated with the workspace reference.
@@ -866,7 +835,7 @@ impl WorkspaceCommitRelation {
 
 /// A branch within a [`WorkspaceStack`], holding per-branch metadata that is
 /// stored alongside a stack that is available in a workspace.
-#[derive(Clone, PartialEq, Eq)]
+#[derive(Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct WorkspaceStackBranch {
     /// The name of the branch.
     pub ref_name: gix::refs::FullName,
@@ -907,7 +876,7 @@ impl WorkspaceStack {
 }
 
 /// Metadata about branches, associated with any Git branch.
-#[derive(serde::Serialize, Clone, Eq, PartialEq, Default)]
+#[derive(serde::Serialize, serde::Deserialize, Clone, Eq, PartialEq, Default)]
 #[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
 #[serde(rename_all = "camelCase")]
 pub struct Review {
@@ -928,10 +897,4 @@ impl std::fmt::Debug for Review {
             MaybeDebug(&self.review_id)
         )
     }
-}
-
-/// Additional information about the RefMetadata value itself.
-pub trait ValueInfo {
-    /// Return `true` if the value didn't exist for a given `ref_name` and thus was defaulted.
-    fn is_default(&self) -> bool;
 }

@@ -3,7 +3,7 @@
 use std::collections::HashSet;
 
 use anyhow::bail;
-use but_core::{RefMetadata, commit::Headers};
+use but_core::commit::Headers;
 use but_rebase::commit::DateMode;
 use but_rebase::graph_rebase::{
     Editor, Selector, Step, SuccessfulRebase, ToSelector as _,
@@ -19,12 +19,12 @@ use but_rebase::graph_rebase::{
 /// `git cherry-pick`: the first source lands at `side` of `relative_to`, and each later one
 /// directly above the one before it.
 /// Child commits, and the target commit, if applicable, are rebased atop the cherry-picked commits.
-pub fn cherry_pick_commits<'ws, 'meta, M: RefMetadata>(
-    mut editor: Editor<'ws, 'meta, M>,
+pub fn cherry_pick_commits<'ws, 'db, 'conn>(
+    mut editor: Editor<'ws, 'db, 'conn>,
     source_commits: impl IntoIterator<Item = gix::ObjectId>,
     relative_to: RelativeTo,
     side: InsertSide,
-) -> anyhow::Result<(SuccessfulRebase<'ws, 'meta, M>, Vec<Selector>)> {
+) -> anyhow::Result<(SuccessfulRebase<'ws, 'db, 'conn>, Vec<Selector>)> {
     let mut seen = HashSet::new();
     let sources = source_commits
         .into_iter()

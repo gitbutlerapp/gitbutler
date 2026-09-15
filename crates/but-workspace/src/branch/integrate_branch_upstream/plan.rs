@@ -5,7 +5,7 @@ use std::collections::{HashMap, HashSet};
 use anyhow::{Context as _, Result, bail};
 use bstr::BStr;
 use but_core::{
-    ChangeId, RefMetadata, RepositoryExt,
+    ChangeId, RepositoryExt,
     commit::{add_conflict_markers, write_conflicted_tree},
 };
 use but_error::bail_precondition;
@@ -210,8 +210,8 @@ pub(super) enum PreparedIntegrationStep {
 /// order.
 ///
 /// Returns the normalized execution plan used by later graph-building helpers.
-pub(super) fn prepare_integration_steps_for_editor<M: RefMetadata>(
-    editor: &Editor<'_, '_, M>,
+pub(super) fn prepare_integration_steps_for_editor(
+    editor: &Editor<'_, '_, '_>,
     steps: &[InteractiveIntegrationStep],
 ) -> Result<Vec<PreparedIntegrationStep>> {
     let mut prepared = Vec::with_capacity(steps.len());
@@ -248,8 +248,8 @@ pub(super) fn prepare_integration_steps_for_editor<M: RefMetadata>(
 
 /// Precompute the squash payload from the current editor/repository state,
 /// before later integration graph mutations can rewire step-graph ancestry.
-fn prepare_squash_step_for_editor<M: RefMetadata>(
-    editor: &Editor<'_, '_, M>,
+fn prepare_squash_step_for_editor(
+    editor: &Editor<'_, '_, '_>,
     commit_ids: &[gix::ObjectId],
     message: Option<&str>,
 ) -> Result<gix::ObjectId> {
@@ -350,8 +350,8 @@ fn apply_merge_commit_changes_outcome(
 ///
 /// Returns the delimiter spanning from the reference node to the deepest
 /// inserted parent.
-pub(crate) fn integration_steps_into_segment_nodes<M: RefMetadata>(
-    editor: &mut Editor<'_, '_, M>,
+pub(crate) fn integration_steps_into_segment_nodes(
+    editor: &mut Editor<'_, '_, '_>,
     ref_name: &gix::refs::FullNameRef,
     steps: &[PreparedIntegrationStep],
 ) -> Result<SegmentDelimiter<Selector, Selector>> {
@@ -395,8 +395,8 @@ pub(crate) fn integration_steps_into_segment_nodes<M: RefMetadata>(
 ///
 /// Returns the graph steps to insert, starting with a reference step and then
 /// the parent chain steps in insertion order.
-fn integration_steps_to_segment_steps_for_editor<M: RefMetadata>(
-    editor: &mut Editor<'_, '_, M>,
+fn integration_steps_to_segment_steps_for_editor(
+    editor: &mut Editor<'_, '_, '_>,
     ref_name: &gix::refs::FullNameRef,
     steps: &[PreparedIntegrationStep],
 ) -> Result<Vec<Step>> {
@@ -448,8 +448,8 @@ fn integration_steps_to_segment_steps_for_editor<M: RefMetadata>(
 /// Returns either the existing pick step for `commit_id` after detaching the
 /// selected parent edges, or a brand-new pick step when the commit is not yet
 /// selectable in the editor.
-fn existing_or_new_pick_step<M: RefMetadata>(
-    editor: &mut Editor<'_, '_, M>,
+fn existing_or_new_pick_step(
+    editor: &mut Editor<'_, '_, '_>,
     commit_id: gix::ObjectId,
 ) -> Result<Step> {
     if let Some(existing) = editor.try_select_commit(commit_id) {

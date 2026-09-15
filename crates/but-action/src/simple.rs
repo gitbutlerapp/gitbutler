@@ -1,8 +1,8 @@
 use std::collections::HashMap;
 
 use anyhow::{Context as _, anyhow};
-use but_core::{DiffSpec, RefMetadata, ref_metadata::StackId, sync::RepoExclusive};
-use but_db::DbHandle;
+use but_core::{DiffSpec, ref_metadata::StackId, sync::RepoExclusive};
+use but_db::ConnectionMut;
 use but_rebase::graph_rebase::{
     Editor, LookupStep as _,
     mutate::{InsertSide, RelativeToRef},
@@ -40,8 +40,7 @@ pub(crate) fn handle_changes(
     perm: &mut RepoExclusive,
     repo: &gix::Repository,
     ws: &mut but_graph::Workspace,
-    db: &mut DbHandle,
-    meta: &mut impl RefMetadata,
+    db: &mut ConnectionMut<'_, '_>,
     context_lines: u32,
 ) -> anyhow::Result<Outcome> {
     let (assignments, _) = but_hunk_assignment::assignments_with_fallback(
@@ -59,7 +58,7 @@ pub(crate) fn handle_changes(
     }
 
     // Get the current stacks in the workspace, creating one if none exists.
-    let stacks = stacks_creating_if_none(repo, ws, meta, perm)?;
+    let stacks = stacks_creating_if_none(repo, ws, db, perm)?;
 
     // Put the assignments into buckets by stack ID.
     let mut stack_assignments: HashMap<StackId, Vec<DiffSpec>> =
@@ -114,7 +113,7 @@ pub(crate) fn handle_changes(
         let full_ref_name: gix::refs::FullName =
             format!("refs/heads/{stack_branch_name}").try_into()?;
 
-        let editor = Editor::create(ws, meta, repo, db)?;
+        let editor = Editor::create(ws, repo, db.reborrow())?;
         let outcome = but_workspace::commit::commit_create(
             editor,
             diff_specs,
@@ -158,7 +157,7 @@ pub(crate) fn handle_changes(
 fn stacks_creating_if_none(
     repo: &gix::Repository,
     ws: &mut but_graph::Workspace,
-    meta: &mut impl RefMetadata,
+    db: &mut ConnectionMut<'_, '_>,
     _perm: &mut RepoExclusive,
 ) -> anyhow::Result<Vec<StackForAction>> {
     let stacks = stack_info(ws);
@@ -172,7 +171,7 @@ fn stacks_creating_if_none(
         None,
         repo,
         ws,
-        meta,
+        db,
         |_| StackId::generate(),
         None,
     )?;

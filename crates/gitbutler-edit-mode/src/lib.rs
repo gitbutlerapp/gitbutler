@@ -214,15 +214,13 @@ fn open_workspace_ref<'repo>(repo: &'repo gix::Repository) -> Result<gix::Refere
 #[deprecated = "extra traversals must not be done and shouldn't be needed here."]
 fn workspace_from_workspace_ref(ctx: &Context) -> Result<but_graph::Workspace> {
     let repo = ctx.repo.get()?;
-    let meta = ctx.meta()?;
     let mut workspace_ref = open_workspace_ref(&repo)?;
     let mut db = ctx.db.get_cache_mut()?;
     let graph = but_graph::Graph::from_commit_traversal(
         workspace_ref.peel_to_id()?,
         Some(workspace_ref.inner.name.clone()),
-        &meta,
         ctx.project_meta()?,
-        &mut db,
+        &mut db.connection_mut(),
         but_graph::init::Options::limited(),
     )?;
     graph.into_workspace()
@@ -348,18 +346,16 @@ pub(crate) fn save_and_return_to_workspace(ctx: &Context, perm: &mut RepoExclusi
     let workspace_commit = repo
         .find_reference(WORKSPACE_BRANCH_REF)?
         .peel_to_commit()?;
-    let mut meta = ctx.meta()?;
     let mut db = ctx.db.get_cache_mut()?;
     let mut workspace = but_graph::Graph::from_commit_traversal(
         workspace_commit.id(),
         Some(gix::refs::FullName::try_from(WORKSPACE_BRANCH_REF)?),
-        &meta,
         ctx.project_meta()?,
-        &mut db,
+        &mut db.connection_mut(),
         but_graph::init::Options::limited(),
     )?
     .into_workspace()?;
-    let mut editor = Editor::create(&mut workspace, &mut meta, repo, &mut db)?;
+    let mut editor = Editor::create(&mut workspace, repo, db.connection_mut())?;
     let (target_selector, _commit) =
         editor.find_selectable_commit(edit_mode_metadata.commit_oid)?;
 

@@ -3,7 +3,7 @@ use but_api::{
     json::{ChangeIdString, HexHash},
 };
 use but_core::{
-    DryRun, RefMetadata,
+    DryRun,
     ref_metadata::StackId,
     sync::{RepoExclusive, RepoShared},
 };
@@ -135,7 +135,6 @@ pub fn pick(
     args: Platform,
 ) -> CliResult<(PickOutcome, WorkspaceState)> {
     let mut guard = ctx.exclusive_worktree_access();
-    let mut meta = ctx.meta()?;
     let id_map = IdMap::new_from_context(ctx, guard.read_permission())?;
     let head_info = but_api::legacy::workspace::head_info(ctx)?;
 
@@ -148,7 +147,7 @@ pub fn pick(
         args,
     )?;
 
-    Ok(run(ctx, &mut meta, guard.write_permission(), pick_op)?)
+    Ok(run(ctx, guard.write_permission(), pick_op)?)
 }
 
 fn resolve(
@@ -246,7 +245,6 @@ pub struct PickOperation {
 
 pub fn run(
     ctx: &mut Context,
-    meta: &mut impl RefMetadata,
     perm: &mut RepoExclusive,
     pick_op: PickOperation,
 ) -> anyhow::Result<(PickOutcome, WorkspaceState)> {
@@ -260,7 +258,6 @@ pub fn run(
         SnapshotDetails::new(OperationKind::CherryPick).with_count(sources.len());
     let ((new_commits, branch_name_target), ws) = but_transaction::with_transaction_with_perm(
         ctx,
-        meta,
         perm,
         snapshot_details,
         DryRun::No,

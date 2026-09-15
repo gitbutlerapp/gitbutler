@@ -1,7 +1,6 @@
 mod without_workspace {
     use but_core::ref_metadata::ProjectMeta;
     use but_error::{AnyhowContextExt, Code};
-    use but_testsupport::InMemoryRefMetadata;
 
     use crate::utils::read_only_in_memory_scenario_named;
 
@@ -9,14 +8,17 @@ mod without_workspace {
     fn uses_the_project_target_as_the_traversal_boundary() -> anyhow::Result<()> {
         let repo =
             read_only_in_memory_scenario_named("with-remotes-no-workspace", "nothing-to-push")?;
-        let meta = InMemoryRefMetadata::default();
         let project_meta = ProjectMeta {
             target_ref: Some("refs/remotes/origin/main".try_into()?),
             ..Default::default()
         };
 
-        let details =
-            but_workspace::branch_details(&repo, "refs/heads/A".try_into()?, &meta, &project_meta)?;
+        let details = but_workspace::branch_details(
+            &repo,
+            "refs/heads/A".try_into()?,
+            &Default::default(),
+            &project_meta,
+        )?;
         let target_id = repo.rev_parse_single("refs/remotes/origin/main")?.detach();
 
         assert_eq!(
@@ -35,7 +37,6 @@ mod without_workspace {
     fn classifies_a_missing_branch() -> anyhow::Result<()> {
         let repo =
             read_only_in_memory_scenario_named("with-remotes-no-workspace", "nothing-to-push")?;
-        let meta = InMemoryRefMetadata::default();
         let project_meta = ProjectMeta {
             target_ref: Some("refs/remotes/origin/main".try_into()?),
             ..Default::default()
@@ -44,7 +45,7 @@ mod without_workspace {
         let error = but_workspace::branch_details(
             &repo,
             "refs/heads/missing".try_into()?,
-            &meta,
+            &Default::default(),
             &project_meta,
         )
         .unwrap_err();
@@ -61,17 +62,9 @@ mod without_workspace {
 /// All tests have a workspace present.
 mod with_workspace {
     use snapbox::prelude::*;
-    use std::{
-        any::Any,
-        ops::{Deref, DerefMut},
-    };
 
-    use but_core::{
-        RefMetadata,
-        ref_metadata::{Branch, ProjectMeta, RefInfo, Review, Workspace},
-    };
+    use but_core::ref_metadata::{Branch, ProjectMeta, RefInfo, Review};
     use but_testsupport::{visualize_commit_graph, visualize_commit_graph_all};
-    use gix::refs::{FullName, FullNameRef};
 
     use crate::utils::{read_only_in_memory_scenario, read_only_in_memory_scenario_named};
 
@@ -99,15 +92,16 @@ mod with_workspace {
 "#]]
             .raw()
         );
-        let store = WorkspaceRefMetadataStore::default()
-            .with_target("B")
-            .with_named_branch("A");
+        let project_meta = ProjectMeta {
+            target_ref: Some(refname("B")),
+            ..Default::default()
+        };
         snapbox::assert_data_eq!(
             but_workspace::branch_details(
                 &repo,
                 refname("A").as_ref(),
-                &store,
-                &store.project_meta,
+                &reviewed_branch(),
+                &project_meta
             )
             .unwrap()
             .to_debug(),
@@ -161,15 +155,16 @@ BranchDetails {
 
 "#]]
         );
-        let store = WorkspaceRefMetadataStore::default()
-            .with_target("main")
-            .with_named_branch("A");
+        let project_meta = ProjectMeta {
+            target_ref: Some(refname("main")),
+            ..Default::default()
+        };
         snapbox::assert_data_eq!(
             but_workspace::branch_details(
                 &repo,
                 refname("A").as_ref(),
-                &store,
-                &store.project_meta
+                &reviewed_branch(),
+                &project_meta
             )
             .unwrap()
             .to_debug(),
@@ -228,15 +223,16 @@ BranchDetails {
 "#]]
         );
 
-        let store = WorkspaceRefMetadataStore::default()
-            .with_target("main")
-            .with_named_branch("A");
+        let project_meta = ProjectMeta {
+            target_ref: Some(refname("main")),
+            ..Default::default()
+        };
         snapbox::assert_data_eq!(
             but_workspace::branch_details(
                 &repo,
                 refname("A").as_ref(),
-                &store,
-                &store.project_meta
+                &reviewed_branch(),
+                &project_meta
             )
             .unwrap()
             .to_debug(),
@@ -283,8 +279,8 @@ BranchDetails {
             but_workspace::branch_details(
                 &repo,
                 refname("origin/A").as_ref(),
-                &store,
-                &store.project_meta
+                &Branch::default(),
+                &project_meta
             )
             .unwrap()
             .to_debug(),
@@ -335,15 +331,16 @@ BranchDetails {
 "#]]
         );
 
-        let store = WorkspaceRefMetadataStore::default()
-            .with_target("main")
-            .with_named_branch("A");
+        let project_meta = ProjectMeta {
+            target_ref: Some(refname("main")),
+            ..Default::default()
+        };
         snapbox::assert_data_eq!(
             but_workspace::branch_details(
                 &repo,
                 refname("A").as_ref(),
-                &store,
-                &store.project_meta
+                &reviewed_branch(),
+                &project_meta
             )
             .unwrap()
             .to_debug(),
@@ -389,124 +386,16 @@ BranchDetails {
         Ok(())
     }
 
-    #[derive(Default)]
-    struct WorkspaceRefMetadataStore {
-        workspace: Workspace,
-        project_meta: ProjectMeta,
-        branches: Vec<(FullName, Branch)>,
-    }
-
-    impl WorkspaceRefMetadataStore {
-        pub fn with_target(mut self, short_name: &str) -> Self {
-            self.project_meta.target_ref = Some(refname(short_name));
-            self
-        }
-
-        pub fn with_branch(mut self, short_name: &str, branch: Branch) -> Self {
-            self.branches.push((refname(short_name), branch));
-            self
-        }
-
-        pub fn with_named_branch(self, short_name: &str) -> Self {
-            let branch = Branch {
-                ref_info: RefInfo {
-                    created_at: None,
-                    updated_at: Some(gix::date::Time::new(56, 0)),
-                },
-                review: Review {
-                    pull_request: Some(42),
-                    review_id: Some("uuid".into()),
-                },
-            };
-            self.with_branch(short_name, branch)
-        }
-    }
-
-    struct NullHandle<T> {
-        inner: T,
-        is_default: bool,
-        name: FullName,
-    }
-
-    impl<T> but_core::ref_metadata::ValueInfo for NullHandle<T> {
-        fn is_default(&self) -> bool {
-            self.is_default
-        }
-    }
-
-    impl<T> Deref for NullHandle<T> {
-        type Target = T;
-
-        fn deref(&self) -> &Self::Target {
-            &self.inner
-        }
-    }
-
-    impl<T> DerefMut for NullHandle<T> {
-        fn deref_mut(&mut self) -> &mut Self::Target {
-            &mut self.inner
-        }
-    }
-
-    impl<T> AsRef<FullNameRef> for NullHandle<T> {
-        fn as_ref(&self) -> &FullNameRef {
-            self.name.as_ref()
-        }
-    }
-
-    impl RefMetadata for WorkspaceRefMetadataStore {
-        type Handle<T> = NullHandle<T>;
-
-        fn iter(&self) -> impl Iterator<Item = anyhow::Result<(FullName, Box<dyn Any>)>> {
-            std::iter::empty()
-        }
-
-        fn workspace(&self, ref_name: &FullNameRef) -> anyhow::Result<Self::Handle<Workspace>> {
-            Ok(NullHandle {
-                inner: self.workspace.clone(),
-                is_default: false,
-                name: ref_name.into(),
-            })
-        }
-
-        fn branch(&self, ref_name: &FullNameRef) -> anyhow::Result<Self::Handle<Branch>> {
-            let mut is_default = true;
-            let inner = self
-                .branches
-                .iter()
-                .find_map(|(name, branch)| {
-                    (name.as_ref() == ref_name).then(|| {
-                        is_default = false;
-                        branch
-                    })
-                })
-                .cloned()
-                .unwrap_or_default();
-            Ok(NullHandle {
-                inner,
-                is_default: true,
-                name: ref_name.into(),
-            })
-        }
-
-        fn set_workspace(&mut self, _value: &Self::Handle<Workspace>) -> anyhow::Result<()> {
-            unreachable!()
-        }
-
-        fn set_branch(&mut self, _value: &Self::Handle<Branch>) -> anyhow::Result<()> {
-            unreachable!()
-        }
-
-        fn remove(&mut self, _ref_name: &FullNameRef) -> anyhow::Result<bool> {
-            unreachable!()
-        }
-
-        fn rename(
-            &mut self,
-            _old_ref_name: &FullNameRef,
-            _new_ref_name: &FullNameRef,
-        ) -> anyhow::Result<()> {
-            unreachable!()
+    fn reviewed_branch() -> Branch {
+        Branch {
+            ref_info: RefInfo {
+                created_at: None,
+                updated_at: Some(gix::date::Time::new(56, 0)),
+            },
+            review: Review {
+                pull_request: Some(42),
+                review_id: Some("uuid".into()),
+            },
         }
     }
 }

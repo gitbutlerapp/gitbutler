@@ -149,13 +149,11 @@ pub fn workspace_graph(ctx: &but_ctx::Context) -> anyhow::Result<String> {
 #[cfg(not(feature = "graph-workspace"))]
 pub fn fresh_head_info(ctx: &but_ctx::Context) -> anyhow::Result<but_workspace::RefInfo> {
     let project_meta = ctx.project_meta()?;
-    let meta = ctx.meta()?;
     let repo = ctx.repo.get()?;
     let mut db = ctx.db.get_cache_mut()?;
     let mut info = but_workspace::head_info(
         &repo,
-        &meta,
-        &mut db,
+        &mut db.connection_mut(),
         but_workspace::ref_info::Options {
             project_meta,
             traversal: but_graph::init::Options {
@@ -168,7 +166,7 @@ pub fn fresh_head_info(ctx: &but_ctx::Context) -> anyhow::Result<but_workspace::
     )?;
     drop(db);
     let db = ctx.db.get_cache()?;
-    let prs_by_head = but_forge::review_associations_by_head(&db)?;
+    let prs_by_head = but_forge::review_associations_by_head(db.connection())?;
     info.apply_forge_review_associations(&repo, &prs_by_head);
     Ok(info)
 }
@@ -177,9 +175,8 @@ pub fn fresh_head_info(ctx: &but_ctx::Context) -> anyhow::Result<but_workspace::
 pub fn fresh_graph_workspace(
     ctx: &but_ctx::Context,
 ) -> anyhow::Result<but_workspace::ui::workspace::DetailedGraphWorkspace> {
-    let mut meta = ctx.meta()?;
     let (_guard, repo, ws, mut db) = ctx.workspace_and_db_mut()?;
     let mut ws = ws.clone();
-    but_workspace::workspace::detailed_graph_workspace(&mut ws, &mut meta, &repo, &mut db)
+    but_workspace::workspace::detailed_graph_workspace(&mut ws, &repo, db.connection_mut())
         .map(Into::into)
 }

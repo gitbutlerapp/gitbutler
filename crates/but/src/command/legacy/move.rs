@@ -5,7 +5,7 @@ use but_api::{
     WorkspaceState,
     json::{ChangeIdString, HexHash},
 };
-use but_core::{DiffSpec, DryRun, RefMetadata, ref_metadata::StackId, sync::RepoExclusive};
+use but_core::{DiffSpec, DryRun, ref_metadata::StackId, sync::RepoExclusive};
 use but_ctx::Context;
 use but_rebase::graph_rebase::mutate::RelativeTo;
 use but_transaction::Transaction;
@@ -229,14 +229,13 @@ pub fn r#move(
     args: Platform,
 ) -> CliResult<(MoveOutcome, WorkspaceState)> {
     let mut guard = ctx.exclusive_worktree_access();
-    let mut meta = ctx.meta()?;
     let id_map = IdMap::new_from_context(ctx, guard.read_permission())?;
 
     let allow_merged = args.allow_merged;
     let move_op = resolve(ctx, guard.write_permission(), args, &id_map)?;
     ensure_not_touching_merged_upstream(&move_op, &MergedUpstream::from_ctx(ctx, allow_merged)?)?;
 
-    Ok(run(ctx, &mut meta, guard.write_permission(), move_op)?)
+    Ok(run(ctx, guard.write_permission(), move_op)?)
 }
 
 /// Reject moves whose committed sources or targets have already landed in the
@@ -300,10 +299,7 @@ pub struct MoveCommitsRelativeToOperation {
 }
 
 impl MoveCommitsRelativeToOperation {
-    fn execute(
-        self,
-        tx: &mut Transaction<'_, '_, impl RefMetadata>,
-    ) -> anyhow::Result<Option<FullName>> {
+    fn execute(self, tx: &mut Transaction<'_, '_, '_>) -> anyhow::Result<Option<FullName>> {
         let (relative_to, side, new_branch_name) = match self.target {
             MoveTarget::Commit { commit, side } => {
                 (RelativeTo::Commit(commit.commit_id), side.into(), None)
@@ -341,7 +337,7 @@ pub struct MoveCommitsToNewBranchOperation {
 }
 
 impl MoveCommitsToNewBranchOperation {
-    fn execute(self, tx: &mut Transaction<'_, '_, impl RefMetadata>) -> anyhow::Result<FullName> {
+    fn execute(self, tx: &mut Transaction<'_, '_, '_>) -> anyhow::Result<FullName> {
         let new_branch_name = if let Some(branch_name) = self.branch_name {
             branch_name
         } else {
@@ -372,7 +368,7 @@ pub struct MoveChangesRelativeToOperation {
 impl MoveChangesRelativeToOperation {
     fn execute(
         self,
-        tx: &mut Transaction<'_, '_, impl RefMetadata>,
+        tx: &mut Transaction<'_, '_, '_>,
     ) -> anyhow::Result<(CommitId, Option<FullName>)> {
         let Self {
             target,
@@ -423,10 +419,7 @@ pub struct MoveChangesToNewBranchOperation {
 }
 
 impl MoveChangesToNewBranchOperation {
-    fn execute(
-        self,
-        tx: &mut Transaction<'_, '_, impl RefMetadata>,
-    ) -> anyhow::Result<(CommitId, FullName)> {
+    fn execute(self, tx: &mut Transaction<'_, '_, '_>) -> anyhow::Result<(CommitId, FullName)> {
         let Self {
             source_commit,
             changes,
@@ -466,7 +459,7 @@ pub struct StackBranchOnOperation {
 }
 
 impl StackBranchOnOperation {
-    fn execute(self, tx: &mut Transaction<'_, '_, impl RefMetadata>) -> anyhow::Result<()> {
+    fn execute(self, tx: &mut Transaction<'_, '_, '_>) -> anyhow::Result<()> {
         tx.stack_branch_on(self.source_branch.as_ref(), self.target_branch.as_ref())
     }
 }
@@ -477,7 +470,7 @@ pub struct UnstackBranchOperation {
 }
 
 impl UnstackBranchOperation {
-    fn execute(self, tx: &mut Transaction<'_, '_, impl RefMetadata>) -> anyhow::Result<()> {
+    fn execute(self, tx: &mut Transaction<'_, '_, '_>) -> anyhow::Result<()> {
         tx.tear_off_branch(self.source_branch.as_ref())
     }
 }
@@ -969,7 +962,6 @@ fn resolve_sources(
 /// new tip returned by single-branch moves, and use the checkout-aware `but-api` path instead.
 pub fn run(
     ctx: &mut Context,
-    meta: &mut impl RefMetadata,
     perm: &mut RepoExclusive,
     move_op: MoveOperation,
 ) -> anyhow::Result<(MoveOutcome, WorkspaceState)> {
@@ -1002,7 +994,6 @@ pub fn run(
     };
     let (outcome, ws) = but_transaction::with_transaction_with_perm(
         ctx,
-        meta,
         perm,
         snapshot_details,
         DryRun::No,

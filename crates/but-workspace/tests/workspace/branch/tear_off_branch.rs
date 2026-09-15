@@ -1,4 +1,4 @@
-use but_core::{RefMetadata, ref_metadata::StackId};
+use but_core::ref_metadata::StackId;
 use but_rebase::graph_rebase::Editor;
 use but_testsupport::{graph_workspace, visualize_commit_graph_all};
 use snapbox::IntoData;
@@ -9,7 +9,7 @@ use crate::ref_info::with_workspace_commit::utils::{
 
 #[test]
 fn tear_off_top_most_branch() -> anyhow::Result<()> {
-    let (_tmp, graph, repo, mut meta, _description, mut db) =
+    let (_tmp, graph, repo, mut meta, _description) =
         named_writable_scenario_with_description_and_graph(
             "ws-ref-ws-commit-single-stack-double-stack",
             |meta| {
@@ -48,7 +48,7 @@ fn tear_off_top_most_branch() -> anyhow::Result<()> {
 
 "#]]
     );
-    let editor = Editor::create(&mut ws, &mut meta, &repo, &mut db)?;
+    let editor = Editor::create(&mut ws, &repo, meta.connection_mut())?;
     // Tear off C from the stack.
     let but_workspace::branch::move_branch::Outcome {
         rebase, ws_meta, ..
@@ -62,7 +62,7 @@ fn tear_off_top_most_branch() -> anyhow::Result<()> {
     rebase.materialize(Default::default())?;
     set_workspace_metadata(&mut meta, &ws, ws_meta)?;
     let project_meta = ws.graph.project_meta.clone();
-    ws.refresh_from_head(&repo, &meta, project_meta, &mut db)?;
+    ws.refresh_from_head(&repo, project_meta, &mut meta.connection_mut())?;
 
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
@@ -102,7 +102,7 @@ fn tear_off_top_most_branch() -> anyhow::Result<()> {
 
 #[test]
 fn tear_off_bottom_most_branch() -> anyhow::Result<()> {
-    let (_tmp, graph, repo, mut meta, _description, mut db) =
+    let (_tmp, graph, repo, mut meta, _description) =
         named_writable_scenario_with_description_and_graph(
             "ws-ref-ws-commit-single-stack-double-stack",
             |meta| {
@@ -141,7 +141,7 @@ fn tear_off_bottom_most_branch() -> anyhow::Result<()> {
 
 "#]]
     );
-    let editor = Editor::create(&mut ws, &mut meta, &repo, &mut db)?;
+    let editor = Editor::create(&mut ws, &repo, meta.connection_mut())?;
     // Tear off B from the stack.
     let but_workspace::branch::move_branch::Outcome {
         rebase, ws_meta, ..
@@ -155,7 +155,7 @@ fn tear_off_bottom_most_branch() -> anyhow::Result<()> {
     rebase.materialize(Default::default())?;
     set_workspace_metadata(&mut meta, &ws, ws_meta)?;
     let project_meta = ws.graph.project_meta.clone();
-    ws.refresh_from_head(&repo, &meta, project_meta, &mut db)?;
+    ws.refresh_from_head(&repo, project_meta, &mut meta.connection_mut())?;
 
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
@@ -195,7 +195,7 @@ fn tear_off_bottom_most_branch() -> anyhow::Result<()> {
 
 #[test]
 fn tear_off_only_branch_in_stack() -> anyhow::Result<()> {
-    let (_tmp, graph, repo, mut meta, _description, mut db) =
+    let (_tmp, graph, repo, mut meta, _description) =
         named_writable_scenario_with_description_and_graph(
             "ws-ref-ws-commit-single-stack-double-stack",
             |meta| {
@@ -234,7 +234,7 @@ fn tear_off_only_branch_in_stack() -> anyhow::Result<()> {
 
 "#]]
     );
-    let editor = Editor::create(&mut ws, &mut meta, &repo, &mut db)?;
+    let editor = Editor::create(&mut ws, &repo, meta.connection_mut())?;
     // Tear off A from the stack. Should be a no-op.
     let but_workspace::branch::move_branch::Outcome {
         rebase, ws_meta, ..
@@ -248,7 +248,7 @@ fn tear_off_only_branch_in_stack() -> anyhow::Result<()> {
     rebase.materialize(Default::default())?;
     set_workspace_metadata(&mut meta, &ws, ws_meta)?;
     let project_meta = ws.graph.project_meta.clone();
-    ws.refresh_from_head(&repo, &meta, project_meta, &mut db)?;
+    ws.refresh_from_head(&repo, project_meta, &mut meta.connection_mut())?;
 
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
@@ -286,7 +286,7 @@ fn tear_off_only_branch_in_stack() -> anyhow::Result<()> {
 
 #[test]
 fn tear_off_from_single_stack_in_ws_top() -> anyhow::Result<()> {
-    let (_tmp, graph, repo, mut meta, _description, mut db) =
+    let (_tmp, graph, repo, mut meta, _description) =
         named_writable_scenario_with_description_and_graph("ws-ref-ws-commit-one-stack", |meta| {
             add_stack_with_segments(meta, 1, "A", StackState::InWorkspace, &[]);
             add_stack_with_segments(meta, 2, "B", StackState::InWorkspace, &[]);
@@ -315,7 +315,7 @@ fn tear_off_from_single_stack_in_ws_top() -> anyhow::Result<()> {
 
 "#]]
     );
-    let editor = Editor::create(&mut ws, &mut meta, &repo, &mut db)?;
+    let editor = Editor::create(&mut ws, &repo, meta.connection_mut())?;
     // Tear off B from the stack.
     let but_workspace::branch::move_branch::Outcome {
         rebase, ws_meta, ..
@@ -329,7 +329,7 @@ fn tear_off_from_single_stack_in_ws_top() -> anyhow::Result<()> {
     rebase.materialize(Default::default())?;
     set_workspace_metadata(&mut meta, &ws, ws_meta)?;
     let project_meta = ws.graph.project_meta.clone();
-    ws.refresh_from_head(&repo, &meta, project_meta, &mut db)?;
+    ws.refresh_from_head(&repo, project_meta, &mut meta.connection_mut())?;
 
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
@@ -352,7 +352,7 @@ fn tear_off_from_single_stack_in_ws_top() -> anyhow::Result<()> {
 ├── ≡📙:A on 85efbe4 {1}
 │   └── 📙:A
 │       └── ·09d8e52 (🏘️)
-└── ≡📙:B on 85efbe4 {2}
+└── ≡📙:B on 85efbe4 {3}
     └── 📙:B
         └── ·1273ba9 (🏘️)
 
@@ -364,7 +364,7 @@ fn tear_off_from_single_stack_in_ws_top() -> anyhow::Result<()> {
 
 #[test]
 fn tear_off_from_single_stack_in_ws_bottom() -> anyhow::Result<()> {
-    let (_tmp, graph, repo, mut meta, _description, mut db) =
+    let (_tmp, graph, repo, mut meta, _description) =
         named_writable_scenario_with_description_and_graph("ws-ref-ws-commit-one-stack", |meta| {
             add_stack_with_segments(meta, 1, "A", StackState::InWorkspace, &[]);
             add_stack_with_segments(meta, 2, "B", StackState::InWorkspace, &[]);
@@ -393,7 +393,7 @@ fn tear_off_from_single_stack_in_ws_bottom() -> anyhow::Result<()> {
 
 "#]]
     );
-    let editor = Editor::create(&mut ws, &mut meta, &repo, &mut db)?;
+    let editor = Editor::create(&mut ws, &repo, meta.connection_mut())?;
     // Tear off A from the stack.
     let but_workspace::branch::move_branch::Outcome {
         rebase, ws_meta, ..
@@ -407,7 +407,7 @@ fn tear_off_from_single_stack_in_ws_bottom() -> anyhow::Result<()> {
     rebase.materialize(Default::default())?;
     set_workspace_metadata(&mut meta, &ws, ws_meta)?;
     let project_meta = ws.graph.project_meta.clone();
-    ws.refresh_from_head(&repo, &meta, project_meta, &mut db)?;
+    ws.refresh_from_head(&repo, project_meta, &mut meta.connection_mut())?;
 
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
@@ -430,7 +430,7 @@ fn tear_off_from_single_stack_in_ws_bottom() -> anyhow::Result<()> {
 ├── ≡📙:B on 85efbe4 {2}
 │   └── 📙:B
 │       └── ·1273ba9 (🏘️)
-└── ≡📙:A on 85efbe4 {1}
+└── ≡📙:A on 85efbe4 {3}
     └── 📙:A
         └── ·09d8e52 (🏘️)
 
@@ -442,7 +442,7 @@ fn tear_off_from_single_stack_in_ws_bottom() -> anyhow::Result<()> {
 
 #[test]
 fn tear_off_empty_branch() -> anyhow::Result<()> {
-    let (_tmp, graph, repo, mut meta, _description, mut db) =
+    let (_tmp, graph, repo, mut meta, _description) =
         named_writable_scenario_with_description_and_graph(
             "ws-ref-ws-commit-one-stack-with-empty-top-branch",
             |meta| {
@@ -471,7 +471,7 @@ fn tear_off_empty_branch() -> anyhow::Result<()> {
 
 "#]]
     );
-    let editor = Editor::create(&mut ws, &mut meta, &repo, &mut db)?;
+    let editor = Editor::create(&mut ws, &repo, meta.connection_mut())?;
     // Tear off B from the stack.
     let but_workspace::branch::move_branch::Outcome {
         rebase, ws_meta, ..
@@ -485,7 +485,7 @@ fn tear_off_empty_branch() -> anyhow::Result<()> {
     rebase.materialize(Default::default())?;
     set_workspace_metadata(&mut meta, &ws, ws_meta)?;
     let project_meta = ws.graph.project_meta.clone();
-    ws.refresh_from_head(&repo, &meta, project_meta, &mut db)?;
+    ws.refresh_from_head(&repo, project_meta, &mut meta.connection_mut())?;
 
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
@@ -518,7 +518,7 @@ fn tear_off_empty_branch() -> anyhow::Result<()> {
 
 #[test]
 fn tear_off_non_empty_branch() -> anyhow::Result<()> {
-    let (_tmp, graph, repo, mut meta, _description, mut db) =
+    let (_tmp, graph, repo, mut meta, _description) =
         named_writable_scenario_with_description_and_graph(
             "ws-ref-ws-commit-one-stack-with-empty-top-branch",
             |meta| {
@@ -547,7 +547,7 @@ fn tear_off_non_empty_branch() -> anyhow::Result<()> {
 
 "#]]
     );
-    let editor = Editor::create(&mut ws, &mut meta, &repo, &mut db)?;
+    let editor = Editor::create(&mut ws, &repo, meta.connection_mut())?;
     // Tear off A from the stack.
     let but_workspace::branch::move_branch::Outcome {
         rebase, ws_meta, ..
@@ -561,7 +561,7 @@ fn tear_off_non_empty_branch() -> anyhow::Result<()> {
     rebase.materialize(Default::default())?;
     set_workspace_metadata(&mut meta, &ws, ws_meta)?;
     let project_meta = ws.graph.project_meta.clone();
-    ws.refresh_from_head(&repo, &meta, project_meta, &mut db)?;
+    ws.refresh_from_head(&repo, project_meta, &mut meta.connection_mut())?;
 
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
@@ -593,14 +593,12 @@ fn tear_off_non_empty_branch() -> anyhow::Result<()> {
 }
 
 fn set_workspace_metadata(
-    meta: &mut impl RefMetadata,
+    meta: &mut but_db::DbHandle,
     ws: &but_graph::Workspace,
     ws_meta: Option<but_core::ref_metadata::Workspace>,
 ) -> anyhow::Result<()> {
     if let Some((ws_meta, ref_name)) = ws_meta.zip(ws.ref_name()) {
-        let mut md = meta.workspace(ref_name)?;
-        *md = ws_meta;
-        meta.set_workspace(&md)?;
+        meta.meta_mut().unwrap().set_workspace(ref_name, &ws_meta)?;
     }
     Ok(())
 }

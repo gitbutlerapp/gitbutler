@@ -1,41 +1,21 @@
 use but_core::ref_metadata::{ProjectMeta, StackId};
-use but_meta::{
-    VirtualBranchesTomlMetadata,
-    virtual_branches_legacy_types::{Stack, StackBranch},
-};
 use but_testsupport::gix_testtools::scripted_fixture_read_only;
 
 pub fn read_only_in_memory_scenario(
     name: &str,
-) -> anyhow::Result<(
-    gix::Repository,
-    std::mem::ManuallyDrop<VirtualBranchesTomlMetadata>,
-    but_db::DbHandle,
-)> {
+) -> anyhow::Result<(gix::Repository, but_db::DbHandle)> {
     named_read_only_in_memory_scenario("scenarios", name)
 }
 
 pub fn named_read_only_in_memory_scenario(
     script: &str,
     name: &str,
-) -> anyhow::Result<(
-    gix::Repository,
-    std::mem::ManuallyDrop<VirtualBranchesTomlMetadata>,
-    but_db::DbHandle,
-)> {
+) -> anyhow::Result<(gix::Repository, but_db::DbHandle)> {
     let repo = read_only_in_memory_scenario_named(script, name)?;
-    let meta = in_memory_meta(repo.path().join(".git"))?;
+    let meta = in_memory_db();
     // The fixture is shared and read-only, so its database cannot live on disk.
-    let db = but_testsupport::in_memory_db();
-    Ok((repo, meta, db))
-}
 
-pub fn in_memory_meta(
-    dir: impl AsRef<std::path::Path>,
-) -> anyhow::Result<std::mem::ManuallyDrop<VirtualBranchesTomlMetadata>> {
-    let meta =
-        VirtualBranchesTomlMetadata::from_path(dir.as_ref().join("should-never-be-written.toml"))?;
-    Ok(std::mem::ManuallyDrop::new(meta))
+    Ok((repo, meta))
 }
 
 /// Provide a scenario but assure the returned repository will write objects to memory, in a subdirectory `dirname`.
@@ -50,27 +30,24 @@ pub fn read_only_in_memory_scenario_named(
     Ok(repo)
 }
 
-pub enum StackState {
-    InWorkspace,
-    Inactive,
-}
+pub use but_testsupport::{StackState, in_memory_db};
 
-pub fn add_workspace(meta: &mut VirtualBranchesTomlMetadata) {
+pub fn add_workspace(meta: &mut but_db::DbHandle) {
     add_stack(
         meta,
-        usize::MAX,
+        i64::MAX as usize,
         "definitely-outside-of-the-workspace-just-to-have-it",
         StackState::Inactive,
     );
 }
 
 pub fn add_workspace_with_target(
-    meta: &mut VirtualBranchesTomlMetadata,
+    meta: &mut but_db::DbHandle,
     target_commit: impl Into<gix::ObjectId>,
 ) -> ProjectMeta {
     add_stack(
         meta,
-        usize::MAX,
+        i64::MAX as usize,
         "definitely-outside-of-the-workspace-just-to-have-it",
         StackState::Inactive,
     );
@@ -104,7 +81,7 @@ pub fn default_project_meta(repo: &gix::Repository) -> ProjectMeta {
 }
 
 pub fn add_stack(
-    meta: &mut VirtualBranchesTomlMetadata,
+    meta: &mut but_db::DbHandle,
     stack_id: usize,
     stack_name: &str,
     state: StackState,
@@ -114,37 +91,13 @@ pub fn add_stack(
 
 // Add parameters as needed.
 pub fn add_stack_with_segments(
-    meta: &mut VirtualBranchesTomlMetadata,
+    meta: &mut but_db::DbHandle,
     stack_id: usize,
     stack_name: &str,
     state: StackState,
     segments: &[&str],
 ) -> StackId {
-    let mut stack = Stack::new_with_just_heads(
-        segments
-            .iter()
-            .rev()
-            .map(|stack_name| {
-                StackBranch::new_with_zero_head((*stack_name).into(), None, None, false)
-            })
-            .chain(std::iter::once(StackBranch::new_with_zero_head(
-                stack_name.into(),
-                None,
-                None,
-                false,
-            )))
-            .collect(),
-        meta.data().branches.len(),
-        match state {
-            StackState::InWorkspace => true,
-            StackState::Inactive => false,
-        },
-    );
-    stack.order = stack_id;
-    let stack_id = StackId::from_number_for_testing(stack_id as u128);
-    stack.id = stack_id;
-    meta.data_mut().branches.insert(stack_id, stack);
-    stack_id
+    but_testsupport::add_stack_with_segments(meta, stack_id as u128, stack_name, state, segments)
 }
 
 pub fn standard_options() -> but_graph::init::Options {
