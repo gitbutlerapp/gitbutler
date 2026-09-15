@@ -30,6 +30,28 @@ export const WithMarks = meta.story({
 	args: { defaultValue: 80, marks: [0, 20, 40, 60, 80, 100] },
 });
 
+/** Marks with labels, for stops whose numbers alone wouldn't say what they mean: here each step
+ * of the range stands for a duration, and the first for none at all. */
+export const LabelledMarks = meta.story({
+	args: {
+		label: undefined,
+		"aria-label": "Auto-fetch frequency",
+		defaultValue: 2,
+		min: 0,
+		max: 5,
+		step: 1,
+		marks: [
+			{ value: 0, label: "Off" },
+			{ value: 1, label: "5min" },
+			{ value: 2, label: "15min" },
+			{ value: 3, label: "30min" },
+			{ value: 4, label: "1h" },
+			{ value: 5, label: "2h" },
+		],
+		style: { width: 400 },
+	},
+});
+
 /** Steps snap the thumb, and the format gives the value its unit. */
 export const Stepped = meta.story({
 	args: {

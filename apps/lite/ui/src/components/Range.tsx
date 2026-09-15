@@ -3,6 +3,15 @@ import styles from "./Range.module.css";
 import { Field, Slider } from "@base-ui/react";
 import type { CSSProperties, ReactNode } from "react";
 
+/**
+ * A stop on the scale under the track: a bare value reads as a number in the range's `format`,
+ * and a value with a `label` reads as that label instead — "Off" for a zero, "1h" for a stop
+ * whose number alone wouldn't say what it means.
+ *
+ * @public
+ */
+export type RangeMark = number | { value: number; label: ReactNode };
+
 /** @public */
 export type RangeProps<Value extends number | ReadonlyArray<number> = number> = {
 	/**
@@ -34,9 +43,9 @@ export type RangeProps<Value extends number | ReadonlyArray<number> = number> = 
 	/**
 	 * Values to write under the track as a scale, each centred on where the thumb sits at that
 	 * value. For a range whose stops the user should be able to read off without dragging to
-	 * them.
+	 * them. A mark with a `label` shows that in place of its number.
 	 */
-	marks?: ReadonlyArray<number>;
+	marks?: ReadonlyArray<RangeMark>;
 	/** How the value reads in the header and on the scale — a unit, a fraction. */
 	format?: Intl.NumberFormatOptions;
 	disabled?: boolean;
@@ -84,6 +93,13 @@ export const Range = <Value extends number | ReadonlyArray<number> = number>({
 	const initial = value ?? defaultValue;
 	const thumbCount = Array.isArray(initial) ? initial.length : 1;
 	const formatter = new Intl.NumberFormat(undefined, format);
+	// A thumb on a labelled mark reads that label to assistive tech, as it does on screen.
+	const getAriaValueText = (formattedValue: string, thumbValue: number): string => {
+		const mark = marks?.find((mark) => typeof mark !== "number" && mark.value === thumbValue);
+		return mark !== undefined && typeof mark !== "number" && typeof mark.label === "string"
+			? mark.label
+			: formattedValue;
+	};
 
 	return (
 		<Field.Root className={className} style={style}>
@@ -116,6 +132,7 @@ export const Range = <Value extends number | ReadonlyArray<number> = number>({
 								key={index}
 								index={index}
 								aria-label={ariaLabel}
+								getAriaValueText={getAriaValueText}
 								className={styles.thumb}
 							/>
 						))}
@@ -123,15 +140,18 @@ export const Range = <Value extends number | ReadonlyArray<number> = number>({
 				</Slider.Control>
 				{marks !== undefined && (
 					<div className={classes("text-12", styles.marks)} aria-hidden="true">
-						{marks.map((mark) => (
-							<span
-								key={mark}
-								className={styles.mark}
-								style={{ "--mark-position": (mark - min) / (max - min) }}
-							>
-								{formatter.format(mark)}
-							</span>
-						))}
+						{marks.map((mark) => {
+							const value = typeof mark === "number" ? mark : mark.value;
+							return (
+								<span
+									key={value}
+									className={styles.mark}
+									style={{ "--mark-position": (value - min) / (max - min) }}
+								>
+									{typeof mark === "number" ? formatter.format(mark) : mark.label}
+								</span>
+							);
+						})}
 					</div>
 				)}
 			</Slider.Root>
