@@ -80,7 +80,6 @@
 
 .linkIcon {
 	flex: none;
-	color: var(--text-2);
 	transition: color var(--transition-fast);
 }
 
