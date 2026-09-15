@@ -1,0 +1,32 @@
+/* The input between two outline icon buttons, the three reading as one control the way a
+   ToggleGroup's segments do: each button gives up its corners and its border on the side it
+   shares with the input, and the input's own outline is the divider on both sides. */
+.group {
+	display: flex;
+	align-items: center;
+
+	/* The input keeps the text field's chrome (Field.module.css) and gives up its corners. The
+	   value sits centred between the two steppers it belongs to. */
+	& .input {
+		flex: 1;
+		min-width: 0;
+		border-radius: 0;
+		text-align: center;
+	}
+}
+
+.step {
+	flex: none;
+
+	&:first-child {
+		border-inline-end: none;
+		border-start-end-radius: 0;
+		border-end-end-radius: 0;
+	}
+
+	&:last-child {
+		border-inline-start: none;
+		border-start-start-radius: 0;
+		border-end-start-radius: 0;
+	}
+}

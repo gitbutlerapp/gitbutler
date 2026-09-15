@@ -23,6 +23,7 @@
 				"ui/src/components/ProgramIcon.tsx!",
 				"ui/src/components/ToggleGroup.tsx!",
 				"ui/src/components/Select.tsx!",
+				"ui/src/components/NumberField.tsx!",
 			],
 			"project": [
 				"electron/src/**!",
