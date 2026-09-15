@@ -86,6 +86,7 @@ export declare const apiParamNames: {
 	readonly headInfo: readonly ["projectId"];
 	readonly initApplicationNamespace: readonly ["identifier"];
 	readonly initGithubDeviceOauth: readonly [];
+	readonly installCliV2: readonly ["cliPath", "symlinkPolicy"];
 	readonly listAvailableReviewTemplates: readonly ["projectId"];
 	readonly listBranches: readonly ["projectId", "filter"];
 	readonly listCiChecks: readonly ["projectId", "reference", "cacheConfig"];
