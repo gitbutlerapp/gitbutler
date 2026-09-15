@@ -24,7 +24,13 @@ async function fetchNextBuild(fetch: typeof globalThis.fetch, path: string, mani
 			if (label && url.href.startsWith(base)) downloads.push({ url: url.href, label });
 		}
 		const releasedAt = typeof data.releaseDate === "string" ? data.releaseDate : null;
-		return downloads.length ? { version: data.version as string, releasedAt, downloads } : null;
+		// The Lite workflow publishes the build's commit under the manifest's `vendor.sha`.
+		const vendorSha = data.vendor?.sha;
+		const sha =
+			typeof vendorSha === "string" && /^[0-9a-f]{40}$/.test(vendorSha) ? vendorSha : null;
+		return downloads.length
+			? { version: data.version as string, releasedAt, sha, downloads }
+			: null;
 	} catch (error) {
 		console.error(`Failed to fetch Next nightly for ${path}:`, error);
 		return null;
