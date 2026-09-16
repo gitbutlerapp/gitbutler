@@ -350,9 +350,7 @@ function render({ workspace, behind, changes, worktrees, forge }) {
 					? `<span>up to date</span>`
 					: "";
 		parts.push(
-			`<div class="base"><span class="clip">${esc(base.reference.refName.displayName)}</span>${status ? " · " + status : ""}` +
-				(behind > 0 ? `<button class="ghost pull" data-base="${esc(base.reference.refName.displayName)}">Pull</button>` : "") +
-				`</div>`,
+			`<div class="base"><span class="clip">${esc(base.reference.refName.displayName)}</span>${status ? " · " + status : ""}</div>`,
 		);
 	}
 	// Only listed with the `worktreeManipulation` feature flag on.
@@ -394,6 +392,7 @@ async function tick() {
 			forge: data.forge,
 		};
 		paint(false);
+		showUpstream();
 		refreshLiveDiffs();
 		if (query) loadCommitFiles();
 	} catch (error) {
@@ -826,26 +825,84 @@ const PULL_WORD = {
 	conflicted_rebasable: "will conflict",
 };
 
+const upstreamEl = document.getElementById("upstream");
+let pulling = false;
+let pullPreview = null; // what a pull would do, shown in the notice until confirmed or cancelled
+
+/** The target's name as the base row shows it. */
+const baseName = () => branchesFromRows(latest.workspace.stacks).base?.reference.refName.displayName || "the target";
+
+const plural = (count, noun) => `${count} ${noun}${count === 1 ? "" : noun === "branch" ? "es" : "s"}`;
+
+/** The header's notice that the target moved on, with the Pull button, while the workspace is behind. */
+function showUpstream() {
+	// A preview being read or a pull in progress keeps the notice as it is until it's done.
+	if (pulling || pullPreview) return;
+	const behind = latest?.behind;
+	upstreamEl.hidden = !(behind > 0);
+	upstreamEl.classList.remove("open");
+	// Redrawn only when it would change, so a poll never replaces the button mid-click.
+	const state = behind > 0 ? `${behind}:${baseName()}` : "";
+	if (state && upstreamEl.dataset.state !== state) {
+		upstreamEl.innerHTML =
+			`<span>⇣ ${plural(behind, "new commit")} on ${esc(baseName())}</span>` + `<button class="pull">Pull</button>`;
+	}
+	upstreamEl.dataset.state = state;
+}
+
+/** The notice grown into a question: what rebasing each branch would do, and the buttons to answer. */
+function showPullPreview(preview) {
+	const lines = preview.branches
+		.map(
+			(branch) =>
+				`<div class="line"><span class="clip">${esc(branch.name)}</span>` +
+				`<span class="word">${esc(PULL_WORD[branch.status] || branch.status)}</span></div>`,
+		)
+		.join("");
+	const refused = preview.worktreeConflicts.length
+		? `<div class="refused">Uncommitted changes in ${plural(preview.worktreeConflicts.length, "file")} would conflict, so the pull will be refused.</div>`
+		: "";
+	upstreamEl.classList.add("open");
+	upstreamEl.innerHTML =
+		`<div class="title">Rebase ${plural(preview.branches.length, "branch")} onto ${esc(baseName())}?</div>` +
+		lines +
+		refused +
+		`<div class="actions"><span class="hint">but undo reverts it</span>` +
+		`<button class="cancel">Cancel</button><button class="pull confirm">Pull</button></div>`;
+}
+
 /**
- * Pull: show what rebasing every stack onto the target would do, and once confirmed, do it. The
- * rebase runs on the server without stopping; commits that conflict are marked, not left half done.
+ * Pull: first show what rebasing every stack onto the target would do, and once confirmed, do it.
+ * The rebase runs on the server without stopping; commits that conflict are marked, not left half
+ * done.
  */
-tree.addEventListener("click", async (event) => {
-	const button = event.target.closest("button.pull");
-	if (!button) return;
-	event.stopPropagation();
-	button.disabled = true;
-	button.textContent = "Checking…";
-	try {
-		const preview = await post("/api/pull", { check: "1" });
-		const lines = preview.branches.map((branch) => `${branch.name}: ${PULL_WORD[branch.status] || branch.status}`);
-		let question = `Rebase ${preview.branches.length} branch${preview.branches.length === 1 ? "" : "es"} onto ${button.dataset.base}?\n\n${lines.join("\n")}`;
-		if (preview.worktreeConflicts.length) {
-			question += `\n\nUncommitted changes in ${preview.worktreeConflicts.length} file${preview.worktreeConflicts.length === 1 ? "" : "s"} would conflict, so the pull will be refused.`;
+upstreamEl.addEventListener("click", async (event) => {
+	const button = event.target.closest("button");
+	if (!button || pulling) return;
+
+	if (button.classList.contains("cancel")) {
+		pullPreview = null;
+		showUpstream();
+		return;
+	}
+	if (!button.classList.contains("confirm")) {
+		button.disabled = true;
+		button.textContent = "Checking…";
+		try {
+			pullPreview = await post("/api/pull", { check: "1" });
+			showPullPreview(pullPreview);
+		} catch (error) {
+			toast(String(error.message || error), true);
+			button.disabled = false;
+			button.textContent = "Pull";
 		}
-		question += "\n\n`but undo` reverts a pull.";
-		if (!confirm(question)) return;
-		button.textContent = "Pulling…";
+		return;
+	}
+
+	pulling = true;
+	button.disabled = true;
+	button.textContent = "Pulling…";
+	try {
 		const result = await post("/api/pull");
 		const conflicted = result.branches
 			.filter((branch) => branch.status === "conflicted_rebasable")
@@ -853,16 +910,16 @@ tree.addEventListener("click", async (event) => {
 		toast(
 			conflicted.length
 				? `Pulled with conflicts in ${conflicted.join(", ")}: resolve them with but resolve, or but undo`
-				: `Pulled: ${result.branches.length} branch${result.branches.length === 1 ? "" : "es"} rebased`,
+				: `Pulled: ${plural(result.branches.length, "branch")} rebased`,
 			conflicted.length > 0,
 		);
-		await tick();
 	} catch (error) {
 		toast(String(error.message || error), true);
 	} finally {
-		// A refresh replaces the button; until then, put it back.
-		button.disabled = false;
-		button.textContent = "Pull";
+		pulling = false;
+		pullPreview = null;
+		// Redraws the notice, or hides it once the workspace has caught up.
+		tick();
 	}
 });
 
