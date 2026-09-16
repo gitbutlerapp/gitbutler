@@ -71,6 +71,46 @@ the script minifies them.
 After running the script, render the icon in the app (or in `Icon.stories.tsx`)
 at both 16px and a larger size before committing.
 
+### Tokens
+
+Every `var(--x)` Lite reads has to be a name something declares: a token from
+`@gitbutler/design-core`, a variable Lite's own CSS or TS sets, or one a
+dependency documents. A name nothing declares doesn't error in the browser; the
+property silently falls back, which is how a misremembered token once shipped
+square corners. `pnpm -F @gitbutler/lite check` runs
+`apps/lite/scripts/check-tokens.mjs`, which fails on any undefined name and
+suggests the nearest real one. When a dependency sets a variable at runtime
+that the script can't see, add it to `KNOWN_RUNTIME` in the script with who
+sets it.
+
+### Components
+
+Every component in `ui/src/components/` has a story beside it, and the story
+is how a component is checked on its own, in both themes, before it goes
+into a surface. Storybook runs on port 6007:
+
+```console
+$ pnpm -F @gitbutler/lite demos
+```
+
+A story renders alone, without the Storybook chrome, at
+
+```
+http://localhost:6007/iframe.html?id=<title>--<export>&viewMode=story
+```
+
+No story sets a title, so Storybook derives it from the file's path under
+`ui/src`, and the export name gives the second half; both are kebab-cased.
+`ui/src/components/Markdown.stories.tsx` with `export const Sample` is
+`components-markdown--sample`. Append `&globals=theme:dark` for the dark
+theme.
+
+Check colour, underline, font and spacing from computed styles (the
+browser's inspector, or a Playwright script against the iframe URL) rather
+than by eye, and keep one screenshot as the proof. A story links its Figma
+component through the `design` parameter when one exists, so the two sides
+can be compared when either changes.
+
 ## Verifying your work
 
 In dev the app is accessible for automation over CDP on port 9222.
