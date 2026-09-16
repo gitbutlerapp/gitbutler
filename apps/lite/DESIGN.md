@@ -31,6 +31,46 @@ waiting for a redesign, not a decision.
 `ui/src/components/` gets a story and, once the designer has drawn it, a
 Figma spec. A component that lives only in code is half a component.
 
+## Voice
+
+Every string in Lite reads as one person talking — the tooltips, the hints
+under settings rows, the empty states, the toasts. The sections below say what
+each surface adds; this is the voice they share.
+
+**Plain and warm.** The word a colleague would use across a desk, not the one
+from the spec: "Forget" over "Remove credential", "checks your remotes" over
+"polls the upstream", "bring them back" over "unarchive" inside a sentence.
+Git's own terms only where the thing has no other name and the user meets it
+in git anyway — commit, branch, worktree, rebase — and never git's phrasing
+around them: "linked git worktrees" is git's, "the repository's other
+worktrees" is ours.
+
+**Say what it does, not what it is.** A hint starts with the verb — "Shows",
+"Checks", "Skips" — and describes what happens when the thing is on, not what
+the feature is. When it costs something, say the cost in the same breath:
+"Slows dragging."
+
+**Talk to the user, never about the system.** "before you drop it", "your
+remotes", "you have 5 branches". Not "the user", not "the system", and no
+passive that hides who does what — "will be shown" says nothing about by whom.
+
+**Same word for the same thing, everywhere.** A hint uses the word the button
+uses: where the page says Archive, the hint says archived. A path through the
+app is written as one — "Project → Worktrees", "Settings → AI" — never as "the
+project's Worktrees page".
+
+**One thought per string, and no string repeats its neighbour.** A label names
+the thing; its hint says what it does; a toast title says what happened and
+its description carries the detail. A body that restates its title is noise.
+
+**Sentence case, and a full stop only where there is a sentence.** Labels,
+tooltips, snackbars and the two lines of an empty state are fragments and end
+without one. Hints and toast descriptions are sentences and take one. Nothing
+takes an exclamation mark.
+
+**A number is a number.** "5 branches", "3h ago", "1 of 4" — never "several"
+or "some" when the count is known.
+
 ## Emphasis
 
 **Gray highlights, pop points.** Gray is the workhorse: when a control needs to
@@ -351,9 +391,9 @@ icon-only button gets an `aria-label` as well — the tooltip repeats that name,
 it doesn't supply it. Nothing a user must read to proceed lives only in a
 tooltip, and nothing inside one is clickable.
 
-**Say it the way the rest of Lite says it.** Tooltips get the same plain, warm
-wording as every other string — the friendly word over git's own term, and the
-same wording as the menu item or button elsewhere that does the same thing.
+**Say it the way the rest of Lite says it.** See Voice: the friendly word over
+git's own term, and the same wording as the menu item or button elsewhere that
+does the same thing.
 
 ## Fields
 
@@ -556,11 +596,10 @@ timer carries no close button at all: the only close button on screen should
 belong to whatever the user still has in hand. Toasts always carry Dismiss,
 plus at most one action beside it.
 
-**Say it the way the rest of Lite says it.** Same plain, warm wording as
-tooltips and empty states. A snackbar is one sentence, sentence case, no full
-stop. A toast title names what happened in a short line — "Some changes were
-not committed" — and the description carries the detail; don't split one
-thought across the two.
+**Say it the way the rest of Lite says it.** See Voice. A snackbar is one
+sentence, sentence case, no full stop. A toast title names what happened in a
+short line — "Some changes were not committed" — and the description carries
+the detail; don't split one thought across the two.
 
 **Both announce themselves to screen readers, differently.** A snackbar is
 `role="status"` and waits its turn, except `danger`, which is `role="alert"`
