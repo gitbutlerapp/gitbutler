@@ -355,6 +355,47 @@ tooltip, and nothing inside one is clickable.
 wording as every other string — the friendly word over git's own term, and the
 same wording as the menu item or button elsewhere that does the same thing.
 
+## Fields
+
+**A form field has a label.** Always, above the field, saying what it is —
+"Personal access token", "Signing key", "Account email" — for every field
+that takes a value the user has to think about: settings, credentials, the
+integration and signing forms. `Field.tsx` has the parts — `FieldLabelStyles`
+for the label, `FieldControlStyles` for the input — and the settings pages'
+`Row` takes a `label` and an `htmlFor`.
+
+**The placeholder shows the shape, when the shape needs showing.** A token, a
+key fingerprint, a custom API URL, a path to a signing program: the user may
+not know what a valid value looks like, so the placeholder shows one —
+`GLPAT-XXXXXXXXXXXXXXXXXX`, `723CCA3AC13CF28D`, `https://api.openai.com/v1`.
+An email, a name, a branch name needs no example; the label already says it
+all, and the field stays empty. Ask whether someone could get the format wrong.
+If not, leave the placeholder out.
+
+**A placeholder is not a label.** It disappears the moment the user types, so
+a field that introduces itself only through its placeholder is unnamed as soon
+as it holds a value, and unnamed for a screen reader from the start. Putting
+"Account email" in the placeholder and nothing above the field is the label
+wearing the wrong hat: move it up, and use the placeholder for what it is for.
+For the same reason nothing the user needs to know lives only in the
+placeholder. The scope a token needs, where to generate it, what happens on
+save — that is a hint under the field, in text that stays.
+
+**An example is a value, not a caption.** Show it the way a real one would
+look — a token's prefix and length, a key's fingerprint, a full URL, a path.
+Don't repeat the label ("Enter your token"), and don't describe the value in
+words when you can show one. A secret that is already saved shows dots
+(`••••••••`) in place of the example, since the value itself never comes back.
+
+**The exceptions are fields that are the surface.** A search box, a filter
+row, the command palette, a comment or reply composer: the field is the whole
+control, its purpose is obvious from where it sits, and a label above it would
+name what the eye already knows. There the placeholder does the talking —
+"Search for branches…", "Filter files", "Write a reply…" — and the input
+still gets an `aria-label` so it has a name where there is nothing to see.
+This is for a field that stands alone and acts on its own; the moment it sits
+in a form with a button that saves it, it is a form field and gets its label.
+
 ## Empty states
 
 **One component, in ⚛️ Lite Core: "Empty state".** An illustration slot, a
