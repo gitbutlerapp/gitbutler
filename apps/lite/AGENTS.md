@@ -71,6 +71,18 @@ the script minifies them.
 After running the script, render the icon in the app (or in `Icon.stories.tsx`)
 at both 16px and a larger size before committing.
 
+### Tokens
+
+Every `var(--x)` Lite reads has to be a name something declares: a token from
+`@gitbutler/design-core`, a variable Lite's own CSS or TS sets, or one a
+dependency documents. A name nothing declares doesn't error in the browser; the
+property silently falls back, which is how a misremembered token once shipped
+square corners. `pnpm -F @gitbutler/lite check` runs
+`apps/lite/scripts/check-tokens.mjs`, which fails on any undefined name and
+suggests the nearest real one. When a dependency sets a variable at runtime
+that the script can't see, add it to `KNOWN_RUNTIME` in the script with who
+sets it.
+
 ## Verifying your work
 
 In dev the app is accessible for automation over CDP on port 9222.

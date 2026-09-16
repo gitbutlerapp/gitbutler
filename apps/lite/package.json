@@ -23,7 +23,7 @@
 		"build:ui": "vite build --config ui/vite.config.ts",
 		"build:electron": "vite build --config electron/vite.config.ts && vite build --config electron/vite.main.config.ts",
 		"build:harness": "vite build --config harness/vite.config.ts && vite build --config harness/vite.host.config.ts",
-		"check": "tsgo -p ui/tsconfig.json --noEmit && tsgo -p electron/tsconfig.json --noEmit && tsgo -p harness/tsconfig.json --noEmit && tsgo -p e2e/tsconfig.json --noEmit",
+		"check": "tsgo -p ui/tsconfig.json --noEmit && tsgo -p electron/tsconfig.json --noEmit && tsgo -p harness/tsconfig.json --noEmit && tsgo -p e2e/tsconfig.json --noEmit && node scripts/check-tokens.mjs",
 		"test": "vitest run --config ui/vite.config.ts && vitest run --config harness/vitest.config.ts",
 		"test:e2e": "pnpm prepare-askpass --debug && pnpm build:electron && playwright test --config ./e2e/playwright.config.ts",
 		"bundle": "pnpm build && pnpm prepare-askpass && electron-builder",
