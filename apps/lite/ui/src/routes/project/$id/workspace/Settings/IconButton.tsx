@@ -1,5 +1,5 @@
 import { Tooltip } from "@base-ui/react";
-import type { FC, ReactNode } from "react";
+import type { FC, MouseEvent, ReactNode } from "react";
 import { getButtonClassName } from "#ui/components/Button.tsx";
 import { classes } from "#ui/components/classes.ts";
 import { TooltipPopup } from "#ui/components/Tooltip.tsx";
@@ -10,7 +10,8 @@ export const IconButton: FC<{
 	/** For a button carrying two glyphs, which the one-glyph square cannot hold. */
 	className?: string;
 	disabled?: boolean;
-	onClick: () => void;
+	/** Handed the event, for a menu that opens where the button is. */
+	onClick: (event: MouseEvent<HTMLButtonElement>) => void;
 	children: ReactNode;
 }> = (p) => (
 	<Tooltip.Root>

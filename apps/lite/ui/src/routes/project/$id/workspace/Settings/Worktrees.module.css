@@ -1,8 +1,69 @@
+/* The same title-over-hint pair a settings row draws, on the recessed ground rather than the
+   card's paper, so it reads as the state of the page and not as one more row of it. */
+.empty {
+	display: flex;
+	flex-direction: column;
+	padding: 16px;
+	gap: 6px;
+	border: 1px solid var(--border-section);
+	border-radius: var(--radius-card);
+	background-color: var(--bg-2);
+}
+
+.emptyTitle {
+	color: var(--text-1);
+}
+
+.emptyHint {
+	color: var(--text-2);
+	text-wrap: pretty;
+}
+
+/* A worktree's row: its name over its path, and the actions at the end. Not a `Row` only because
+   that has no place for the glyph before the name. The gap is twice a row's: the path is clipped
+   to whatever width is left, so it runs right up to the actions and needs the room. */
+.row {
+	display: flex;
+	align-items: flex-start;
+	padding: 16px;
+	gap: 32px;
+
+	& + & {
+		border-top: 1px solid var(--border-section);
+	}
+}
+
+/* The words take the width; the actions keep their own. */
+.text {
+	display: flex;
+	flex: 1;
+	flex-direction: column;
+	min-width: 0;
+	gap: 6px;
+}
+
+.name {
+	display: flex;
+	align-items: center;
+	overflow: hidden;
+	gap: 8px;
+	color: var(--text-1);
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+/* The glyph sits one step quieter than the name it marks. */
+.folder {
+	flex: none;
+	color: var(--text-2);
+}
+
 /* The checkout path, clipped from its start so the directory name stays in view;
    the path itself is a left-to-right run, or bidi would move its leading slash to the end. */
 .path {
 	display: block;
 	overflow: hidden;
+	color: var(--text-2);
 	direction: rtl;
 	text-align: left;
 	text-overflow: ellipsis;
