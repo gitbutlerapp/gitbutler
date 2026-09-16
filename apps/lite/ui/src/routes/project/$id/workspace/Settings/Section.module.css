@@ -119,3 +119,20 @@
 		text-align: right;
 	}
 }
+
+/* A card with nothing to set: a glyph saying what kind of note it is, then the line itself. */
+.note {
+	display: flex;
+	align-items: center;
+	padding: 16px;
+	gap: 12px;
+	border: 1px solid var(--border-section);
+	border-radius: var(--radius-card);
+	color: var(--text-2);
+	text-wrap: pretty;
+}
+
+.noteIcon {
+	flex: none;
+	color: var(--text-3);
+}

@@ -1,4 +1,6 @@
 import { classes } from "#ui/components/classes.ts";
+import { Icon } from "#ui/components/Icon.tsx";
+import type { IconName } from "#ui/components/iconNames.ts";
 import styles from "./Section.module.css";
 import type { FC, ReactNode } from "react";
 
@@ -87,4 +89,12 @@ export const Row: FC<RowProps> = (p) => (
 
 		<div className={styles.control}>{p.children}</div>
 	</div>
+);
+
+/** A card with nothing to set: a glyph saying what kind of note it is, then the line itself. */
+export const Note: FC<{ icon: IconName; children: ReactNode }> = (p) => (
+	<p className={classes("text-12", styles.note)}>
+		<Icon name={p.icon} className={styles.noteIcon} />
+		<span>{p.children}</span>
+	</p>
 );
