@@ -31,6 +31,46 @@ waiting for a redesign, not a decision.
 `ui/src/components/` gets a story and, once the designer has drawn it, a
 Figma spec. A component that lives only in code is half a component.
 
+## Voice
+
+Every string in Lite reads as one person talking — the tooltips, the hints
+under settings rows, the empty states, the toasts. The sections below say what
+each surface adds; this is the voice they share.
+
+**Plain and warm.** The word a colleague would use across a desk, not the one
+from the spec: "Forget" over "Remove credential", "checks your remotes" over
+"polls the upstream", "bring them back" over "unarchive" inside a sentence.
+Git's own terms only where the thing has no other name and the user meets it
+in git anyway — commit, branch, worktree, rebase — and never git's phrasing
+around them: "linked git worktrees" is git's, "the repository's other
+worktrees" is ours.
+
+**Say what it does, not what it is.** A hint starts with the verb — "Shows",
+"Checks", "Skips" — and describes what happens when the thing is on, not what
+the feature is. When it costs something, say the cost in the same breath:
+"Slows dragging."
+
+**Talk to the user, never about the system.** "before you drop it", "your
+remotes", "you have 5 branches". Not "the user", not "the system", and no
+passive that hides who does what — "will be shown" says nothing about by whom.
+
+**Same word for the same thing, everywhere.** A hint uses the word the button
+uses: where the page says Archive, the hint says archived. A path through the
+app is written as one — "Project → Worktrees", "Settings → AI" — never as "the
+project's Worktrees page".
+
+**One thought per string, and no string repeats its neighbour.** A label names
+the thing; its hint says what it does; a toast title says what happened and
+its description carries the detail. A body that restates its title is noise.
+
+**Sentence case, and a full stop only where there is a sentence.** Labels,
+tooltips, snackbars and the two lines of an empty state are fragments and end
+without one. Hints and toast descriptions are sentences and take one. Nothing
+takes an exclamation mark.
+
+**A number is a number.** "5 branches", "3h ago", "1 of 4" — never "several"
+or "some" when the count is known.
+
 ## Emphasis
 
 **Gray highlights, pop points.** Gray is the workhorse: when a control needs to
@@ -79,6 +119,34 @@ fill flips and the text turns to `--text-1-invert`. They are not a dark-mode
 thing; dark mode is handled by the tokens. Note that selected rows reach these
 styles through CSS in `Row.module.css` rather than by passing the variant, so
 selection can restyle without a re-render.
+
+### Links
+
+**A link looks like a link.** Text that opens a page is underlined, in
+`--text-2`, with the underline at 40% of the text color and going solid on
+hover as the text lifts to `--text-1`. The underline is what says "this goes
+somewhere"; nothing else about the text changes. `TextLink` is that link; the
+pull request number in a branch row and in the pull request panel are the
+reference.
+
+**Never dress a link as a button.** A link is not wrapped in a ghost or
+outline button, doesn't take a ground, and doesn't share a control with the
+things beside it. A status badge next to a number is two things, the badge and
+the link, not one button that holds both. If a surface seems to need a link
+that looks like a button, it wants a button that runs an action, or the link
+wants to be plain; either way the underline stays on the link.
+
+**The exception states its reason.** Somewhere the underline may not work,
+say a link that is the whole of a card, or one that sits inside a line of
+inline chips. That is a corner case, and the CSS that drops the underline
+says why in a comment beside it, the same way a removed focus ring does. A
+link that is silently unmarked is a bug.
+
+**Every link leaves the app, and the arrow says so.** Links open in the
+browser, never in Lite, and each ends in an arrow the height of the text's
+caps, hung off the text without a space so the underline stops at the word.
+`TextLink` draws it inline at a 1px stroke, and nothing else should: the
+text fonts don't carry ↗ at every weight, which is why it isn't typed.
 
 ## States
 
@@ -323,9 +391,61 @@ icon-only button gets an `aria-label` as well — the tooltip repeats that name,
 it doesn't supply it. Nothing a user must read to proceed lives only in a
 tooltip, and nothing inside one is clickable.
 
-**Say it the way the rest of Lite says it.** Tooltips get the same plain, warm
-wording as every other string — the friendly word over git's own term, and the
-same wording as the menu item or button elsewhere that does the same thing.
+**Say it the way the rest of Lite says it.** See Voice: the friendly word over
+git's own term, and the same wording as the menu item or button elsewhere that
+does the same thing.
+
+## Fields
+
+**A form field has a label.** Always, above the field, saying what it is —
+"Personal access token", "Signing key", "Account email" — for every field
+that takes a value the user has to think about: settings, credentials, the
+integration and signing forms. `Field.tsx` has the parts — `FieldLabelStyles`
+for the label, `FieldControlStyles` for the input — and the settings pages'
+`Row` takes a `label` and an `htmlFor`.
+
+**A name already on the surface is not given twice.** The rule is that every
+field has one name the eye and the screen reader both find, not that every
+field wears its own. A field at the end of a settings row is named by the
+row's label — "Description", "Auto-fetch frequency" — and that label is the
+field's: `Row`'s `htmlFor` ties the two, so a second one above the input would
+say the same word twice, one line apart. The same goes for anything else that
+already says what the field is, a column heading over a field in a table, or
+a card whose title names its single field. `FieldLabelStyles` is for a field
+nothing else names: the forms that stack several fields in one strip, where
+each needs its own.
+
+**The placeholder shows the shape, when the shape needs showing.** A token, a
+key fingerprint, a custom API URL, a path to a signing program: the user may
+not know what a valid value looks like, so the placeholder shows one —
+`GLPAT-XXXXXXXXXXXXXXXXXX`, `723CCA3AC13CF28D`, `https://api.openai.com/v1`.
+An email, a name, a branch name needs no example; the label already says it
+all, and the field stays empty. Ask whether someone could get the format wrong.
+If not, leave the placeholder out.
+
+**A placeholder is not a label.** It disappears the moment the user types, so
+a field that introduces itself only through its placeholder is unnamed as soon
+as it holds a value, and unnamed for a screen reader from the start. Putting
+"Account email" in the placeholder and nothing above the field is the label
+wearing the wrong hat: move it up, and use the placeholder for what it is for.
+For the same reason nothing the user needs to know lives only in the
+placeholder. The scope a token needs, where to generate it, what happens on
+save — that is a hint under the field, in text that stays.
+
+**An example is a value, not a caption.** Show it the way a real one would
+look — a token's prefix and length, a key's fingerprint, a full URL, a path.
+Don't repeat the label ("Enter your token"), and don't describe the value in
+words when you can show one. A secret that is already saved shows dots
+(`••••••••`) in place of the example, since the value itself never comes back.
+
+**The exceptions are fields that are the surface.** A search box, a filter
+row, the command palette, a comment or reply composer: the field is the whole
+control, its purpose is obvious from where it sits, and a label above it would
+name what the eye already knows. There the placeholder does the talking —
+"Search for branches…", "Filter files", "Write a reply…" — and the input
+still gets an `aria-label` so it has a name where there is nothing to see.
+This is for a field that stands alone and acts on its own; the moment it sits
+in a form with a button that saves it, it is a form field and gets its label.
 
 ## Empty states
 
@@ -487,11 +607,10 @@ timer carries no close button at all: the only close button on screen should
 belong to whatever the user still has in hand. Toasts always carry Dismiss,
 plus at most one action beside it.
 
-**Say it the way the rest of Lite says it.** Same plain, warm wording as
-tooltips and empty states. A snackbar is one sentence, sentence case, no full
-stop. A toast title names what happened in a short line — "Some changes were
-not committed" — and the description carries the detail; don't split one
-thought across the two.
+**Say it the way the rest of Lite says it.** See Voice. A snackbar is one
+sentence, sentence case, no full stop. A toast title names what happened in a
+short line — "Some changes were not committed" — and the description carries
+the detail; don't split one thought across the two.
 
 **Both announce themselves to screen readers, differently.** A snackbar is
 `role="status"` and waits its turn, except `danger`, which is `role="alert"`
@@ -527,9 +646,10 @@ component for them, and a description that needs a fourth level needs fewer
 levels.
 
 **Every link leaves the app, and the arrow says so.** Links open in the
-browser, never in Lite, and each carries `arrow-up-right` at 12px after its
-text, hung off the anchor without a space so the underline stops at the word.
-Figma writes ↗.
+browser, never in Lite, and each is a `TextLink`, so it ends in the arrow
+hung off the text without a space and the underline stops at the word. Figma
+writes ↗. Prose links keep the kit's blue, so their hover is the underline
+going solid rather than the text lifting.
 
 **A box gets an edge.** Code blocks and inline code sit on `--bg-2`, at
 `--radius-card` and `--radius-button` respectively, in mono 12. A blockquote

@@ -1,13 +1,12 @@
 import { Tooltip } from "@base-ui/react";
 import { useQueryClient, useSuspenseQueries } from "@tanstack/react-query";
-import { useState, type FC, type ReactNode } from "react";
+import { useState, type FC } from "react";
 import type { AiConfiguration, AiConfigurationUpdate } from "@gitbutler/but-sdk";
 import { aiConfigurationQueryOptions, userProfileQueryOptions } from "#ui/api/queries.ts";
 import { getButtonClassName } from "#ui/components/Button.tsx";
 import { classes } from "#ui/components/classes.ts";
 import { FieldControlStyles } from "#ui/components/Field.tsx";
 import { Icon } from "#ui/components/Icon.tsx";
-import type { IconName } from "#ui/components/iconNames.ts";
 import { RelativeTime } from "#ui/components/RelativeTime.tsx";
 import { Select } from "#ui/components/Select.tsx";
 import { TooltipPopup } from "#ui/components/Tooltip.tsx";
@@ -19,7 +18,7 @@ import {
 	openAiModels,
 	saveThenTest,
 } from "./ai-settings.ts";
-import { Row, Section } from "./Section.tsx";
+import { Note, Row, Section } from "./Section.tsx";
 import styles from "./Ai.module.css";
 
 type Provider = AiConfigurationUpdate["provider"];
@@ -111,14 +110,6 @@ const ModelField: FC<{
 		</>
 	);
 };
-
-/** A line under the card: the info the rows don't say, or a caveat about how they are set. */
-const Note: FC<{ icon: IconName; children: ReactNode }> = (p) => (
-	<p className={classes("text-12", styles.note)}>
-		<Icon name={p.icon} className={styles.noteIcon} />
-		<span>{p.children}</span>
-	</p>
-);
 
 type Status =
 	| { kind: "untested" }

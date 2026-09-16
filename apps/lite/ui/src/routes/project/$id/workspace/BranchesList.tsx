@@ -17,6 +17,7 @@ import {
 	type GraphSegmentStatus,
 } from "#ui/components/GraphSegment.tsx";
 import { Icon } from "#ui/components/Icon.tsx";
+import { TextLink } from "#ui/components/TextLink.tsx";
 import { branchesHotkeys, toElectronAccelerator } from "#ui/hotkeys.ts";
 import {
 	nativeMenuItem,
@@ -426,7 +427,7 @@ const BranchItem: FC<{
 									{reviewState.label}
 								</Badge>
 							)}
-							<a
+							<TextLink
 								href={review.htmlUrl}
 								className={styles.reviewLink}
 								aria-label={`Open ${review.unitSymbol}${String(review.number)} in browser`}
@@ -437,8 +438,7 @@ const BranchItem: FC<{
 							>
 								{review.unitSymbol}
 								{review.number}
-								<Icon name="arrow-up-right" size={12} />
-							</a>
+							</TextLink>
 							<span className={classes(rowStyles.fadedText, styles.reviewAuthor)}>
 								{Number.isFinite(createdAt) && (
 									<>

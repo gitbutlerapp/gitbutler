@@ -15,21 +15,28 @@
 	gap: 6px;
 }
 
-/* The status line takes the width; the button keeps its own. */
+/* The status line takes the width; the button keeps its own. The glyph before the words is
+   centred on their first line, not on the block, so a message that wraps keeps it where a
+   bullet would sit. */
 .status {
 	display: flex;
 	flex: 1;
-	align-items: center;
+	align-items: flex-start;
 	min-width: 0;
 	gap: 10px;
 	color: var(--text-2);
 	text-wrap: pretty;
+
+	& > [data-icon] {
+		margin-top: calc((1lh - 14px) / 2);
+	}
 }
 
 .dot {
 	flex: none;
 	width: 8px;
 	height: 8px;
+	margin-top: calc((1lh - 8px) / 2);
 	border-radius: 50%;
 	background-color: var(--text-3);
 }
@@ -40,21 +47,4 @@
 
 .dotFailed {
 	background-color: var(--fill-danger-bg);
-}
-
-/* A card with nothing to set: a glyph saying what kind of note it is, then the line itself. */
-.note {
-	display: flex;
-	align-items: center;
-	padding: 16px;
-	gap: 12px;
-	border: 1px solid var(--border-section);
-	border-radius: var(--radius-card);
-	color: var(--text-2);
-	text-wrap: pretty;
-}
-
-.noteIcon {
-	flex: none;
-	color: var(--text-3);
 }

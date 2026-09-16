@@ -20,14 +20,16 @@ export type LogoName = "github" | "gitlab" | "bitbucket";
 
 type Props = {
 	name: LogoName;
+	/** The mark as a silhouette on the recessed ground: a forge the user has not connected. */
+	muted?: boolean;
 } & ComponentProps<"i">;
 
-export const Logo: FC<Props> = ({ name, ...props }) => (
+export const Logo: FC<Props> = ({ name, muted = false, ...props }) => (
 	<i
 		{...props}
 		className={classes(props.className, styles.logo)}
 		aria-hidden
 		// oxlint-disable-next-line react/no-danger -- SVGs are bundled app assets.
-		dangerouslySetInnerHTML={{ __html: assert(logos.get(name)) }}
+		dangerouslySetInnerHTML={{ __html: assert(logos.get(muted ? `${name}-muted` : name)) }}
 	/>
 );

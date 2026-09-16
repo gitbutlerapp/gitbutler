@@ -100,25 +100,6 @@
 	}
 }
 
-.link {
-	display: flex;
-	align-items: center;
-	gap: 4px;
-	color: var(--text-2);
-}
-
-/* Sits in the Status section's header, opposite the heading. */
-.prLink {
-	text-decoration: underline;
-	text-decoration-color: color-mix(in srgb, currentcolor 40%, transparent);
-	text-underline-position: from-font;
-
-	&:hover {
-		color: var(--text-1);
-		text-decoration-color: currentcolor;
-	}
-}
-
 .user {
 	display: flex;
 	align-items: center;

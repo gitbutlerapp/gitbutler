@@ -1,6 +1,7 @@
 import { forgeAuthFailure, forgeDestination, isCloudForge } from "#ui/forge.ts";
 import { ForgeAuthPrompt } from "./ForgeAuthPrompt.tsx";
 import { ResizeHandle } from "#ui/components/ResizeHandle.tsx";
+import { TextLink } from "#ui/components/TextLink.tsx";
 import { startAbsorb, setCursor, useCanShowFiles, useSelection } from "#ui/use-cursor.ts";
 import uiStyles from "#ui/components/ui.module.css";
 import { SuspenseQuery } from "@suspensive/react-query";
@@ -425,15 +426,7 @@ const DiffFooter: FC = () => {
 					<span>Thanks for testing GitButler Next Nightly! ❤️</span>
 					<span>
 						We’d love to hear what you think.{" "}
-						<a
-							href="https://discord.gg/MmFkmaJ42D"
-							onClick={(event) => {
-								event.preventDefault();
-								void window.lite.openInWebBrowser(event.currentTarget.href);
-							}}
-						>
-							Share feedback on Discord
-						</a>
+						<TextLink href="https://discord.gg/MmFkmaJ42D">Share feedback on Discord</TextLink>
 					</span>
 				</>
 			)}

@@ -37,10 +37,12 @@
 }
 
 /* Sits on the card's recessed ground rather than its paper, so it reads as the card's status
-   line and not as one more row of it. */
+   line and not as one more row of it. Top-aligned: the status line can wrap, and a small
+   button is as tall as one line of body text, so it sits on the first line whether the text
+   is one line or two. */
 .footer {
 	display: flex;
-	align-items: center;
+	align-items: flex-start;
 	padding: 12px 16px;
 	gap: 16px;
 	border-top: 1px solid var(--border-section);
@@ -53,6 +55,24 @@
 
 	& > .control {
 		justify-content: stretch;
+	}
+}
+
+/* The other way round: the control takes the width and the label keeps the library's 150px. */
+.wide {
+	& > .text {
+		flex: none;
+		width: 150px;
+	}
+
+	& > .control {
+		flex: 1;
+		min-width: 0;
+
+		& > * {
+			flex: 1;
+			min-width: 0;
+		}
 	}
 }
 
@@ -98,4 +118,21 @@
 		padding-block: 5px;
 		text-align: right;
 	}
+}
+
+/* A card with nothing to set: a glyph saying what kind of note it is, then the line itself. */
+.note {
+	display: flex;
+	align-items: center;
+	padding: 16px;
+	gap: 12px;
+	border: 1px solid var(--border-section);
+	border-radius: var(--radius-card);
+	color: var(--text-2);
+	text-wrap: pretty;
+}
+
+.noteIcon {
+	flex: none;
+	color: var(--text-3);
 }

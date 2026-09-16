@@ -92,21 +92,9 @@
 	line-height: 18px;
 }
 
-/* Only the number is the link; the arrow hangs off it without a space so the
-   underline stops at the number. Mirrors the pull request panel's link. */
+/* Only the number is the link; the author text beside it is what truncates. */
 .reviewLink {
-	display: inline-flex;
 	flex-shrink: 0;
-	align-items: center;
-	color: var(--text-2);
-	text-decoration: underline;
-	text-decoration-color: color-mix(in srgb, currentcolor 40%, transparent);
-	text-underline-position: from-font;
-
-	&:hover {
-		color: var(--text-1);
-		text-decoration-color: currentcolor;
-	}
 }
 
 .reviewAuthor {

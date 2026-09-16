@@ -1,13 +1,29 @@
 import { useSuspenseQuery } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
-import { useState, type FC } from "react";
+import { useState, type FC, type ReactNode } from "react";
 import { listProjectsQueryOptions } from "#ui/api/queries.ts";
 import { useDeleteProject, useUpdateProjectSettings } from "#ui/api/mutations.ts";
 import { getButtonClassName } from "#ui/components/Button.tsx";
+import { classes } from "#ui/components/classes.ts";
+import { FieldControlStyles, FieldTextareaStyles } from "#ui/components/Field.tsx";
+import { Icon } from "#ui/components/Icon.tsx";
 import { assert } from "#ui/assert.ts";
+import { revealInFolderLabel } from "#ui/hotkeys.ts";
+import { useCopied } from "../useCopied.ts";
+import { IconButton } from "./IconButton.tsx";
 import styles from "./Project.module.css";
 import { changing } from "./project-settings.ts";
 import { Row, Section } from "./Section.tsx";
+
+/** A control with a line under it, at the row's end: the field, then what it is for. */
+const Stack: FC<{ note?: ReactNode; children: ReactNode }> = (p) => (
+	<div className={styles.stack}>
+		{p.children}
+		{p.note !== undefined && (
+			<span className={classes("text-12", "text-body", styles.note)}>{p.note}</span>
+		)}
+	</div>
+);
 
 export const Project: FC<{ projectId: string }> = ({ projectId }) => {
 	const { data: projects } = useSuspenseQuery(listProjectsQueryOptions);
@@ -15,6 +31,7 @@ export const Project: FC<{ projectId: string }> = ({ projectId }) => {
 	const { mutate: updateProjectSettings } = useUpdateProjectSettings(projectId);
 	const { isPending: isRemoving, mutate: deleteProject } = useDeleteProject(projectId);
 	const navigate = useNavigate();
+	const { copied, copy: copyPath } = useCopied(project.path);
 
 	// Held locally so a refetch cannot interrupt typing; committed on blur or Enter.
 	const [title, setTitle] = useState(project.title);
@@ -33,72 +50,94 @@ export const Project: FC<{ projectId: string }> = ({ projectId }) => {
 		else updateProjectSettings({ projectId, settings: changing({ title }) });
 	};
 
+	const saveDescription = () =>
+		updateProjectSettings({ projectId, settings: changing({ description }) });
+
 	return (
-		<Section>
-			<Row label="Name" htmlFor="project-title">
-				<input
-					id="project-title"
-					type="text"
-					value={title}
-					onChange={(evt) => setTitle(evt.currentTarget.value)}
-					onBlur={saveTitle}
-					onKeyDown={(evt) => evt.key === "Enter" && saveTitle()}
-				/>
-			</Row>
+		<>
+			<Section>
+				<Row label="Name" htmlFor="project-title" wide>
+					<Stack note="How this repository is labelled inside GitButler">
+						<FieldControlStyles
+							id="project-title"
+							type="text"
+							value={title}
+							onChange={(evt) => setTitle(evt.currentTarget.value)}
+							onBlur={saveTitle}
+							onKeyDown={(evt) => evt.key === "Enter" && saveTitle()}
+						/>
+					</Stack>
+				</Row>
 
-			<Row label="Description" htmlFor="project-description">
-				<input
-					id="project-description"
-					type="text"
-					value={description}
-					onChange={(evt) => setDescription(evt.currentTarget.value)}
-					onBlur={() => updateProjectSettings({ projectId, settings: changing({ description }) })}
-					onKeyDown={(evt) =>
-						evt.key === "Enter" &&
-						updateProjectSettings({ projectId, settings: changing({ description }) })
-					}
-				/>
-			</Row>
+				<Row label="Description" htmlFor="project-description" wide>
+					<Stack>
+						<FieldTextareaStyles
+							id="project-description"
+							className={styles.description}
+							placeholder="About the project"
+							value={description}
+							onChange={(evt) => setDescription(evt.currentTarget.value)}
+							onBlur={saveDescription}
+						/>
+					</Stack>
+				</Row>
 
-			<Row label="Path" hint="Where the repository lives. Set when the project was added.">
-				<span className={styles.path} title={project.path}>
-					{project.path}
-				</span>
-			</Row>
+				<Row label="Path" wide>
+					<Stack note="Where the repository lives. Set when the project was added.">
+						<div className={styles.path}>
+							<FieldControlStyles type="text" aria-label="Path" value={project.path} disabled />
+							<IconButton label={copied ? "Copied" : "Copy path"} onClick={copyPath}>
+								<Icon name={copied ? "tick" : "copy"} />
+							</IconButton>
+							<IconButton
+								label={revealInFolderLabel}
+								className={styles.reveal}
+								onClick={() => void window.lite.showItemInFolder(project.path)}
+							>
+								<Icon name="folder" />
+								<Icon name="arrow-up-right" />
+							</IconButton>
+						</div>
+					</Stack>
+				</Row>
+			</Section>
 
-			<Row
-				label="Remove project"
-				hint="Forgets its GitButler configuration. The repository on disk is untouched."
-			>
-				{confirmingRemove ? (
-					<div className={styles.confirm}>
+			<Section>
+				<Row
+					label="Remove project"
+					hint="Forgets its GitButler configuration. The repository on disk is untouched."
+				>
+					{confirmingRemove ? (
+						<div className={styles.confirm}>
+							<button
+								type="button"
+								className={getButtonClassName({ variant: "danger" })}
+								disabled={isRemoving}
+								onClick={removeProject}
+							>
+								{isRemoving ? "Removing…" : "Confirm"}
+							</button>
+							<button
+								type="button"
+								className={getButtonClassName({})}
+								disabled={isRemoving}
+								onClick={() => setConfirmingRemove(false)}
+							>
+								Cancel
+							</button>
+						</div>
+					) : (
 						<button
 							type="button"
-							className={getButtonClassName({ variant: "danger", size: "small" })}
-							disabled={isRemoving}
-							onClick={removeProject}
+							className={getButtonClassName({ variant: "danger" })}
+							onClick={() => setConfirmingRemove(true)}
 						>
-							{isRemoving ? "Removing…" : "Confirm"}
+							<Icon name="bin" />
+							Remove…
 						</button>
-						<button
-							type="button"
-							className={getButtonClassName({ size: "small" })}
-							disabled={isRemoving}
-							onClick={() => setConfirmingRemove(false)}
-						>
-							Cancel
-						</button>
-					</div>
-				) : (
-					<button
-						type="button"
-						className={getButtonClassName({ variant: "danger", size: "small" })}
-						onClick={() => setConfirmingRemove(true)}
-					>
-						Remove…
-					</button>
-				)}
-			</Row>
-		</Section>
+					)}
+				</Row>
+			</Section>
+		</>
 	);
 };

@@ -1,4 +1,3 @@
-import { reportError } from "#ui/error-reporting.ts";
 import {
 	useAddReviewLabels,
 	useRemoveReviewLabel,
@@ -19,6 +18,7 @@ import { Badge, type BadgeVariant } from "#ui/components/Badge.tsx";
 import { getButtonClassName } from "#ui/components/Button.tsx";
 import { classes } from "#ui/components/classes.ts";
 import { Icon } from "#ui/components/Icon.tsx";
+import { TextLink } from "#ui/components/TextLink.tsx";
 import { ForgeLabel } from "#ui/components/ForgeLabel.tsx";
 import { RelativeTime } from "#ui/components/RelativeTime.tsx";
 import type { IconName } from "#ui/components/iconNames.ts";
@@ -756,11 +756,6 @@ export const PullRequestPanel: FC<{
 
 	const createdAtMs = review.createdAt === null ? null : Date.parse(review.createdAt);
 
-	const handleOpen = (evt: MouseEvent<HTMLAnchorElement>): void => {
-		evt.preventDefault();
-		window.lite.openInWebBrowser(review.htmlUrl).catch(reportError);
-	};
-
 	return (
 		<aside className={styles.panel}>
 			<Section
@@ -780,15 +775,10 @@ export const PullRequestPanel: FC<{
 						) : (
 							statusBadge
 						)}
-						<a
-							href={review.htmlUrl}
-							onClick={handleOpen}
-							className={classes("text-12", styles.link, styles.prLink)}
-						>
+						<TextLink href={review.htmlUrl} className="text-12">
 							{review.unitSymbol}
 							{review.number}
-							<Icon name="arrow-up-right" size={12} />
-						</a>
+						</TextLink>
 					</div>
 				}
 			>

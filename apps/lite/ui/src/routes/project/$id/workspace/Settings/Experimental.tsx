@@ -29,9 +29,9 @@ export const Experimental: FC = () => {
 			</Row>
 
 			<Row
-				label="Preview operations while dragging"
+				label="Preview while dragging"
 				labelId="dry-run-operations"
-				hint="Dry-runs a drag-and-drop before it lands to show the outcome, such as conflicts. Slows dragging down."
+				hint="Shows a drag's outcome, such as a conflict, before you drop it. Slows dragging."
 			>
 				<Switch
 					size="large"
@@ -57,7 +57,7 @@ export const Experimental: FC = () => {
 			<Row
 				label="Linked worktrees"
 				labelId="worktree-manipulation"
-				hint="Shows linked git worktrees in the workspace. Existing ones start out archived; see the project's Worktrees page."
+				hint="Shows the repository's other worktrees in the workspace. Existing ones start out archived; bring them back under Project → Worktrees."
 			>
 				<Switch
 					size="large"
