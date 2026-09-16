@@ -1,7 +1,8 @@
-import { reportError } from "#ui/error-reporting.ts";
 import { guiSettingsQueryOptions } from "#ui/api/queries.ts";
+import { reportError } from "#ui/error-reporting.ts";
 import { classes } from "#ui/components/classes.ts";
 import { Icon } from "#ui/components/Icon.tsx";
+import { TextLink } from "#ui/components/TextLink.tsx";
 import { defaultSettings } from "#ui/settings.ts";
 import { useQuery } from "@tanstack/react-query";
 import type { CSSProperties, FC, MouseEvent } from "react";
@@ -18,6 +19,7 @@ import styles from "./Markdown.module.css";
 const isExternalUrl = (url: string | undefined): url is string =>
 	url !== undefined && (url.startsWith("http://") || url.startsWith("https://"));
 
+/** For the image anchors, whose source may not be a URL at all. */
 const openExternally = (evt: MouseEvent<HTMLAnchorElement>): void => {
 	evt.preventDefault();
 	const url = evt.currentTarget.href;
@@ -195,15 +197,16 @@ export const Markdown: FC<{ children: string }> = ({ children }) => (
 			remarkPlugins={[remarkGfm, remarkGemoji, remarkLiteralTags]}
 			rehypePlugins={[rehypeRaw, [rehypeSanitize, sanitizeSchema]]}
 			components={{
-				a: ({ node: _node, children, ...props }) => (
-					// oxlint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions -- href arrives via the spread; it stays a real anchor.
-					<a {...props} onClick={openExternally}>
-						{children}
-						{isExternalUrl(props.href) && (
-							<Icon name="arrow-up-right" size={12} className={styles.externalIcon} />
-						)}
-					</a>
-				),
+				a: ({ node: _node, children, href, ...props }) =>
+					isExternalUrl(href) ? (
+						<TextLink {...props} href={href} className={styles.externalLink}>
+							{children}
+						</TextLink>
+					) : (
+						<a {...props} href={href}>
+							{children}
+						</a>
+					),
 				code: ({ node: _node, className, children, ...props }) => {
 					const language = fencedLanguage(className);
 					return language !== undefined && typeof children === "string" ? (

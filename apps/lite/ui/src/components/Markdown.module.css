@@ -168,16 +168,15 @@
 		color: var(--text-2);
 	}
 
+	/* The longhand so the link component's 40% underline tint survives. */
 	a {
 		color: var(--text-blue);
-		text-decoration: underline;
+		text-decoration-line: underline;
 	}
 
-	/* Every link leaves the app, and the arrow says so. It hangs off the
-	   anchor without a space so the underline stops at the text. */
-	.externalIcon {
-		margin-inline-start: 3px;
-		vertical-align: middle;
+	/* Prose links stay blue on hover; the underline going solid is the hover. */
+	.externalLink:hover {
+		color: var(--text-blue);
 	}
 
 	.imageLink {

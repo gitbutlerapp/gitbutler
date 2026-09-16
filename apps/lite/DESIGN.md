@@ -85,8 +85,9 @@ selection can restyle without a re-render.
 **A link looks like a link.** Text that opens a page is underlined, in
 `--text-2`, with the underline at 40% of the text color and going solid on
 hover as the text lifts to `--text-1`. The underline is what says "this goes
-somewhere"; nothing else about the text changes. The pull request number in a
-branch row and in the pull request panel are the reference.
+somewhere"; nothing else about the text changes. `TextLink` is that link; the
+pull request number in a branch row and in the pull request panel are the
+reference.
 
 **Never dress a link as a button.** A link is not wrapped in a ghost or
 outline button, doesn't take a ground, and doesn't share a control with the
@@ -102,8 +103,10 @@ says why in a comment beside it, the same way a removed focus ring does. A
 link that is silently unmarked is a bug.
 
 **Every link leaves the app, and the arrow says so.** Links open in the
-browser, never in Lite, and each carries `arrow-up-right` at 12px hung off
-the text without a space, so the underline stops at the word (see Markdown).
+browser, never in Lite, and each ends in an arrow the height of the text's
+caps, hung off the text without a space so the underline stops at the word.
+`TextLink` draws it inline at a 1px stroke, and nothing else should: the
+text fonts don't carry ↗ at every weight, which is why it isn't typed.
 
 ## States
 
@@ -552,9 +555,10 @@ component for them, and a description that needs a fourth level needs fewer
 levels.
 
 **Every link leaves the app, and the arrow says so.** Links open in the
-browser, never in Lite, and each carries `arrow-up-right` at 12px after its
-text, hung off the anchor without a space so the underline stops at the word.
-Figma writes ↗.
+browser, never in Lite, and each is a `TextLink`, so it ends in the arrow
+hung off the text without a space and the underline stops at the word. Figma
+writes ↗. Prose links keep the kit's blue, so their hover is the underline
+going solid rather than the text lifting.
 
 **A box gets an edge.** Code blocks and inline code sit on `--bg-2`, at
 `--radius-card` and `--radius-button` respectively, in mono 12. A blockquote

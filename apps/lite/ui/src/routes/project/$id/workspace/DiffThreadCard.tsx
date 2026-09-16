@@ -1,6 +1,5 @@
 import { classes } from "#ui/components/classes.ts";
-import { Icon } from "#ui/components/Icon.tsx";
-import { openLinkExternally } from "#ui/external-link.ts";
+import { TextLink } from "#ui/components/TextLink.tsx";
 import type { ForgeReviewThread } from "@gitbutler/but-sdk";
 import { ThreadComment } from "#ui/routes/project/$id/workspace/PullRequestComments.tsx";
 import { ReviewThreadReply } from "#ui/routes/project/$id/workspace/ReviewThreadReply.tsx";
@@ -34,14 +33,12 @@ export const DiffThreadCard: FC<Props> = ({ projectId, reviewId, thread }) => (
 		<div className={styles.footer}>
 			<ReviewThreadReply projectId={projectId} reviewId={reviewId} threadId={thread.id} />
 			{thread.comments[0] !== undefined && (
-				<a
+				<TextLink
 					className={classes("text-12", styles.forgeLink)}
 					href={thread.comments[0].htmlUrl}
-					onClick={openLinkExternally}
 				>
 					Open on the forge
-					<Icon name="arrow-up-right" size={12} />
-				</a>
+				</TextLink>
 			)}
 		</div>
 	</div>
