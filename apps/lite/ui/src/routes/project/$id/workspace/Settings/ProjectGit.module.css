@@ -1,3 +1,25 @@
+/* The width ⚛️ Lite Core gives a select at the end of a settings row. */
+.select {
+	width: 140px;
+}
+
+/* The field takes the width; the button after it keeps its own. */
+.field {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+
+	& > :first-child {
+		flex: 1;
+		min-width: 0;
+	}
+}
+
+/* Two glyphs side by side, at the inset a lone glyph gets rather than a word's. */
+.reveal {
+	--button-padding-inline: 6px;
+}
+
 .check {
 	display: flex;
 	align-items: center;

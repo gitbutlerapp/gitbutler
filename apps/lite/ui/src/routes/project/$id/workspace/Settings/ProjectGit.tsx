@@ -15,8 +15,14 @@ import {
 import { useSetGbConfig, useUpdateProjectSettings } from "#ui/api/mutations.ts";
 import { assert } from "#ui/assert.ts";
 import { getButtonClassName } from "#ui/components/Button.tsx";
+import { FieldControlStyles } from "#ui/components/Field.tsx";
+import { Icon } from "#ui/components/Icon.tsx";
+import { Select } from "#ui/components/Select.tsx";
 import { Switch } from "#ui/components/Switch.tsx";
 import { classes } from "#ui/components/classes.ts";
+import { revealInFolderLabel } from "#ui/hotkeys.ts";
+import { useCopied } from "../useCopied.ts";
+import { IconButton } from "./IconButton.tsx";
 import styles from "./ProjectGit.module.css";
 import { changing } from "./project-settings.ts";
 import { Row, Section } from "./Section.tsx";
@@ -27,14 +33,14 @@ const signingFormats = [
 	{
 		value: "openpgp",
 		label: "GPG",
-		keyPlaceholder: "ex: 723CCA3AC13CF28D",
-		programPlaceholder: "ex: /usr/local/bin/gpg",
+		keyPlaceholder: "723CCA3AC13CF28D",
+		programPlaceholder: "/opt/homebrew/bin/gpg",
 	},
 	{
 		value: "ssh",
 		label: "SSH",
-		keyPlaceholder: "ex: /Users/bob/.ssh/id_rsa.pub",
-		programPlaceholder: "ex: /Applications/1Password.app/Contents/MacOS/op-ssh-sign",
+		keyPlaceholder: "~/.ssh/id_ed25519.pub",
+		programPlaceholder: "/Applications/1Password.app/Contents/MacOS/op-ssh-sign",
 	},
 ] as const satisfies ReadonlyArray<
 	{ value: SigningFormat; label: string } & Record<string, string>
@@ -71,6 +77,7 @@ export const ProjectGit: FC<{ projectId: string }> = ({ projectId }) => {
 	// Held locally so a refetch cannot interrupt typing; committed on blur or Enter.
 	const [key, setKey] = useState(config.signingKey ?? "");
 	const [program, setProgram] = useState(programOf(config, format));
+	const { copied, copy: copyKey } = useCopied(key);
 
 	const save = (update: Partial<GitConfigSettings>) =>
 		setGbConfig({ projectId, config: { ...config, ...update } });
@@ -83,6 +90,7 @@ export const ProjectGit: FC<{ projectId: string }> = ({ projectId }) => {
 		save({ signingFormat: next });
 	};
 
+	const saveKey = () => save({ signingKey: key });
 	const saveProgram = () =>
 		save(format === "openpgp" ? { gpgProgram: program } : { gpgSshProgram: program });
 
@@ -126,7 +134,7 @@ export const ProjectGit: FC<{ projectId: string }> = ({ projectId }) => {
 				<Row
 					label="Force push protection"
 					labelId="force-push-protection"
-					hint="Uses git's safer force-push flags so remote commits are not overwritten."
+					hint="Refuses a force push that would overwrite commits you haven't fetched yet."
 				>
 					<Switch
 						size="large"
@@ -140,11 +148,13 @@ export const ProjectGit: FC<{ projectId: string }> = ({ projectId }) => {
 						}
 					/>
 				</Row>
+			</Section>
 
+			<Section heading="Signing">
 				<Row
 					label="Sign commits"
 					labelId="sign-commits"
-					hint="GitButler signs as your git configuration says, but gitbutler.signCommits wins."
+					hint="Signs GitButler's commits, overriding commit.gpgsign in your git config."
 				>
 					<Switch
 						size="large"
@@ -153,87 +163,103 @@ export const ProjectGit: FC<{ projectId: string }> = ({ projectId }) => {
 						onCheckedChange={(next) => save({ signCommits: next })}
 					/>
 				</Row>
+
+				{signCommits && (
+					<>
+						<Row label="Format">
+							<Select
+								aria-label="Format"
+								className={styles.select}
+								items={signingFormats.map(({ value, label }) => ({ value, label }))}
+								value={format}
+								onValueChange={(value) => value !== null && saveFormat(value)}
+							/>
+						</Row>
+
+						<Row label="Signing key" htmlFor="signing-key" wide>
+							<div className={styles.field}>
+								<FieldControlStyles
+									id="signing-key"
+									type="text"
+									placeholder={selected?.keyPlaceholder}
+									value={key}
+									onChange={(evt) => setKey(evt.currentTarget.value)}
+									onBlur={saveKey}
+									onKeyDown={(evt) => evt.key === "Enter" && saveKey()}
+								/>
+								<IconButton
+									label={copied ? "Copied" : "Copy key"}
+									disabled={key === ""}
+									onClick={copyKey}
+								>
+									<Icon name={copied ? "tick" : "copy"} />
+								</IconButton>
+							</div>
+						</Row>
+
+						<Row label="Signing program" htmlFor="signing-program" wide>
+							<div className={styles.field}>
+								<FieldControlStyles
+									id="signing-program"
+									type="text"
+									placeholder={selected?.programPlaceholder}
+									value={program}
+									onChange={(evt) => setProgram(evt.currentTarget.value)}
+									onBlur={saveProgram}
+									onKeyDown={(evt) => evt.key === "Enter" && saveProgram()}
+								/>
+								<IconButton
+									label={revealInFolderLabel}
+									className={styles.reveal}
+									disabled={program === ""}
+									onClick={() => void window.lite.showItemInFolder(program)}
+								>
+									<Icon name="folder" />
+									<Icon name="arrow-up-right" />
+								</IconButton>
+							</div>
+						</Row>
+
+						<Row label="Test signing" hint="Signs a throwaway commit to prove these settings work.">
+							<div className={styles.check}>
+								{signingError !== null && (
+									<span className={classes("text-12", styles.failed)}>
+										{signingError.message.split("\n")[0]}
+									</span>
+								)}
+								{signingError === null && signingWorks === true && (
+									<span className={classes("text-12", styles.passed)}>Signing works</span>
+								)}
+								<button
+									type="button"
+									className={getButtonClassName({})}
+									disabled={isCheckingSigning}
+									onClick={() => void checkSigning()}
+								>
+									{isCheckingSigning ? "Testing…" : "Run test"}
+								</button>
+							</div>
+						</Row>
+					</>
+				)}
 			</Section>
 
-			{signCommits && (
-				<Section heading="Signing">
-					<Row label="Format" htmlFor="signing-format">
-						<select
-							id="signing-format"
-							value={format}
-							onChange={(evt) => saveFormat(evt.currentTarget.value as SigningFormat)}
-						>
-							{signingFormats.map((option) => (
-								<option key={option.value} value={option.value}>
-									{option.label}
-								</option>
-							))}
-						</select>
-					</Row>
-
-					<Row label="Signing key" htmlFor="signing-key">
-						<input
-							id="signing-key"
-							type="text"
-							placeholder={selected?.keyPlaceholder}
-							value={key}
-							onChange={(evt) => setKey(evt.currentTarget.value)}
-							onBlur={() => save({ signingKey: key })}
-							onKeyDown={(evt) => evt.key === "Enter" && save({ signingKey: key })}
-						/>
-					</Row>
-
-					<Row label="Signing program" htmlFor="signing-program">
-						<input
-							id="signing-program"
-							type="text"
-							placeholder={selected?.programPlaceholder}
-							value={program}
-							onChange={(evt) => setProgram(evt.currentTarget.value)}
-							onBlur={saveProgram}
-							onKeyDown={(evt) => evt.key === "Enter" && saveProgram()}
-						/>
-					</Row>
-
-					<Row label="Check signing" hint="Signs a throwaway commit to prove the settings work.">
-						<div className={styles.check}>
-							{signingError !== null && (
-								<span className={classes("text-12", styles.failed)}>
-									{signingError.message.split("\n")[0]}
-								</span>
-							)}
-							{signingError === null && signingWorks === true && (
-								<span className={classes("text-12", styles.passed)}>Signing works</span>
-							)}
-							<button
-								type="button"
-								className={getButtonClassName({ size: "small" })}
-								disabled={isCheckingSigning}
-								onClick={() => void checkSigning()}
-							>
-								{isCheckingSigning ? "Checking…" : "Check"}
-							</button>
-						</div>
-					</Row>
-				</Section>
-			)}
-
-			<Section heading="Git authentication">
+			<Section heading="Authentication">
 				<Row
 					label="Credentials"
 					hint={
 						target === null || target === undefined
 							? "Needs a target branch with a remote to test against."
-							: `Fetches from ${target.remoteName}, then pushes an empty branch and removes it again.`
+							: `Fetches from ${target.remoteName}, then pushes and deletes an empty branch.`
 					}
 				>
 					<button
 						type="button"
-						className={getButtonClassName({ size: "small" })}
+						className={getButtonClassName({})}
 						disabled={credentials._tag === "Running" || target === null || target === undefined}
 						onClick={() => void checkCredentials()}
 					>
-						{credentials._tag === "Running" ? "Testing…" : "Re-test credentials"}
+						{credentials._tag === "Running" ? "Testing…" : "Test credentials"}
 					</button>
 				</Row>
 
