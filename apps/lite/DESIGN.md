@@ -404,6 +404,17 @@ integration and signing forms. `Field.tsx` has the parts — `FieldLabelStyles`
 for the label, `FieldControlStyles` for the input — and the settings pages'
 `Row` takes a `label` and an `htmlFor`.
 
+**A name already on the surface is not given twice.** The rule is that every
+field has one name the eye and the screen reader both find, not that every
+field wears its own. A field at the end of a settings row is named by the
+row's label — "Description", "Auto-fetch frequency" — and that label is the
+field's: `Row`'s `htmlFor` ties the two, so a second one above the input would
+say the same word twice, one line apart. The same goes for anything else that
+already says what the field is, a column heading over a field in a table, or
+a card whose title names its single field. `FieldLabelStyles` is for a field
+nothing else names: the forms that stack several fields in one strip, where
+each needs its own.
+
 **The placeholder shows the shape, when the shape needs showing.** A token, a
 key fingerprint, a custom API URL, a path to a signing program: the user may
 not know what a valid value looks like, so the placeholder shows one —
