@@ -1,11 +1,38 @@
-.path {
-	max-width: 320px;
-	overflow: hidden;
+/* A field and the note under it, stacked in the width a wide row gives its control. */
+.stack {
+	display: flex;
+	flex-direction: column;
+	gap: 10px;
+}
+
+/* Balanced rather than pretty: a two-sentence note wraps in this measure, and two even lines
+   read better than a full one with a short tail. */
+.note {
 	color: var(--text-2);
-	direction: rtl;
-	text-align: right;
-	text-overflow: ellipsis;
-	white-space: nowrap;
+	text-wrap: balance;
+}
+
+/* Two or three lines is the room a description gets; the library's textarea minimum is for a
+   commit message. Selector-qualified so it outranks the component's own minimum. */
+.stack :is(.description) {
+	min-height: 70px;
+}
+
+/* The path takes the width; the two buttons after it keep theirs. */
+.path {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+
+	& > :first-child {
+		flex: 1;
+		min-width: 0;
+	}
+}
+
+/* Two glyphs side by side, at the inset a lone glyph gets rather than a word's. */
+.reveal {
+	--button-padding-inline: 6px;
 }
 
 .confirm {

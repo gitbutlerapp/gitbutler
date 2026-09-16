@@ -37,6 +37,12 @@ type RowProps = {
 	/** Sits under the label: a unit, an inferred value, a caveat. */
 	hint?: ReactNode;
 	/**
+	 * The control takes the width and the label keeps the 150px the library gives it, with the
+	 * label on the control's first line rather than centred beside it. For a field with a note
+	 * under it, or a textarea: controls taller than a line, that want the room.
+	 */
+	wide?: boolean;
+	/**
 	 * Sits under the hint, flush with the words rather than at the row's end: a button that does
 	 * once what the control at the end does on its own.
 	 */
@@ -55,9 +61,10 @@ export const Row: FC<RowProps> = (p) => (
 		className={classes(
 			styles.row,
 			p.stacked && styles.stacked,
+			p.wide && styles.wide,
 			// A row that is one line of text centres its control on that line; one with a hint
 			// keeps the control up against the label, which is what it belongs to.
-			p.hint === undefined && styles.centered,
+			p.hint === undefined && p.wide !== true && styles.centered,
 		)}
 	>
 		<div className={styles.text}>

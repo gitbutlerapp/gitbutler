@@ -58,6 +58,24 @@
 	}
 }
 
+/* The other way round: the control takes the width and the label keeps the library's 150px. */
+.wide {
+	& > .text {
+		flex: none;
+		width: 150px;
+	}
+
+	& > .control {
+		flex: 1;
+		min-width: 0;
+
+		& > * {
+			flex: 1;
+			min-width: 0;
+		}
+	}
+}
+
 /* The words take the width; the control keeps its own. */
 .text {
 	display: flex;
