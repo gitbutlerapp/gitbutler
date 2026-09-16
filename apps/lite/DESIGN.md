@@ -80,6 +80,31 @@ thing; dark mode is handled by the tokens. Note that selected rows reach these
 styles through CSS in `Row.module.css` rather than by passing the variant, so
 selection can restyle without a re-render.
 
+### Links
+
+**A link looks like a link.** Text that opens a page is underlined, in
+`--text-2`, with the underline at 40% of the text color and going solid on
+hover as the text lifts to `--text-1`. The underline is what says "this goes
+somewhere"; nothing else about the text changes. The pull request number in a
+branch row and in the pull request panel are the reference.
+
+**Never dress a link as a button.** A link is not wrapped in a ghost or
+outline button, doesn't take a ground, and doesn't share a control with the
+things beside it. A status badge next to a number is two things, the badge and
+the link, not one button that holds both. If a surface seems to need a link
+that looks like a button, it wants a button that runs an action, or the link
+wants to be plain; either way the underline stays on the link.
+
+**The exception states its reason.** Somewhere the underline may not work,
+say a link that is the whole of a card, or one that sits inside a line of
+inline chips. That is a corner case, and the CSS that drops the underline
+says why in a comment beside it, the same way a removed focus ring does. A
+link that is silently unmarked is a bug.
+
+**Every link leaves the app, and the arrow says so.** Links open in the
+browser, never in Lite, and each carries `arrow-up-right` at 12px hung off
+the text without a space, so the underline stops at the word (see Markdown).
+
 ## States
 
 **Every interactive component has a hover and a focus state.** A button, a
