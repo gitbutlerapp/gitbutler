@@ -117,6 +117,85 @@
 			.spacer {
 				margin-left: auto;
 			}
+			/* The target moved on: the one notice the header shows, with its remedy. */
+			.upstream {
+				display: flex;
+				align-items: center;
+				gap: 8px;
+				margin-top: 5px;
+				padding: 5px 6px 5px 9px;
+				border-radius: 7px;
+				background: color-mix(in srgb, var(--warn) 12%, transparent);
+				color: var(--warn);
+				font-size: 11.5px;
+			}
+			.upstream[hidden] {
+				display: none;
+			}
+			/* Grown into the pull's preview: one line per branch, and the answer buttons. */
+			.upstream.open {
+				flex-direction: column;
+				align-items: stretch;
+				gap: 3px;
+				color: var(--fg);
+			}
+			.upstream .title {
+				font-weight: 620;
+				margin-bottom: 2px;
+			}
+			.upstream .line {
+				display: flex;
+				gap: 8px;
+				justify-content: space-between;
+			}
+			.upstream .word,
+			.upstream .hint {
+				color: var(--muted);
+				white-space: nowrap;
+			}
+			.upstream .refused {
+				color: var(--bad);
+				margin-top: 2px;
+			}
+			.upstream .actions {
+				display: flex;
+				align-items: center;
+				gap: 6px;
+				margin-top: 4px;
+			}
+			.upstream .actions .hint {
+				margin-right: auto;
+				font-size: 11px;
+			}
+			.upstream button.cancel {
+				border: 1px solid var(--rule);
+				border-radius: 5px;
+				padding: 2px 9px;
+				background: var(--raised);
+				color: var(--fg);
+				font: inherit;
+				font-size: 11.5px;
+				cursor: pointer;
+			}
+			.upstream.open button.pull {
+				margin-left: 0;
+			}
+			.upstream button.pull {
+				margin-left: auto;
+				border: 0;
+				border-radius: 5px;
+				padding: 3px 10px;
+				background: var(--accent);
+				color: #fff;
+				font: inherit;
+				font-size: 11.5px;
+				font-weight: 600;
+				cursor: pointer;
+			}
+			.upstream button.pull:disabled {
+				opacity: 0.6;
+				cursor: default;
+			}
 			button.ghost {
 				border: 0;
 				background: none;
@@ -518,6 +597,7 @@
 				<button class="ghost" id="more" title="Project menu">⋯</button>
 			</div>
 			<div class="sub" id="sub"></div>
+			<div class="upstream" id="upstream" hidden></div>
 			<input class="search" id="search" type="search" placeholder="Search files in commits (/)" autocomplete="off" spellcheck="false" />
 		</header>
 		<main id="tree"></main>
