@@ -211,7 +211,7 @@ test.describe("recent branch reviews", () => {
 		}).toEqual(beforeHover);
 		expect(await sidebar.evaluate((el) => el.scrollWidth <= el.clientWidth)).toBe(true);
 
-		await branch.getByRole("button", { name: "Open #42 in browser" }).click();
+		await branch.getByRole("link", { name: "Open #42 in browser" }).click();
 		expect(
 			await electronApp.evaluate(
 				() => (globalThis as { openedReviewUrl?: string }).openedReviewUrl,

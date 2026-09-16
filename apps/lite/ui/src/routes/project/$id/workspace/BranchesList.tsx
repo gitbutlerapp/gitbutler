@@ -420,24 +420,25 @@ const BranchItem: FC<{
 
 					{review !== null && (
 						<RowMeta className={styles.reviewMeta}>
-							<button
-								type="button"
-								className={classes(getRowButtonClassName({ variant: "ghost" }), styles.reviewLink)}
+							{reviewState !== null && (
+								<Badge variant={reviewState.variant}>
+									<Icon name={reviewState.icon} size={12} />
+									{reviewState.label}
+								</Badge>
+							)}
+							<a
+								href={review.htmlUrl}
+								className={styles.reviewLink}
 								aria-label={`Open ${review.unitSymbol}${String(review.number)} in browser`}
-								onClick={() => void openReviewInBrowser()}
+								onClick={(evt) => {
+									evt.preventDefault();
+									void openReviewInBrowser();
+								}}
 							>
-								{reviewState !== null && (
-									<Badge variant={reviewState.variant}>
-										<Icon name={reviewState.icon} size={12} />
-										{reviewState.label}
-									</Badge>
-								)}
-								<span>
-									{review.unitSymbol}
-									{review.number}
-								</span>
+								{review.unitSymbol}
+								{review.number}
 								<Icon name="arrow-up-right" size={12} />
-							</button>
+							</a>
 							<span className={classes(rowStyles.fadedText, styles.reviewAuthor)}>
 								{Number.isFinite(createdAt) && (
 									<>
