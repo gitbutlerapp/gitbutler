@@ -350,7 +350,9 @@ function render({ workspace, behind, changes, worktrees, forge }) {
 					? `<span>up to date</span>`
 					: "";
 		parts.push(
-			`<div class="base"><span class="clip">${esc(base.reference.refName.displayName)}</span>${status ? " · " + status : ""}</div>`,
+			`<div class="base"><span class="clip">${esc(base.reference.refName.displayName)}</span>${status ? " · " + status : ""}` +
+				(behind > 0 ? `<button class="ghost pull" data-base="${esc(base.reference.refName.displayName)}">Pull</button>` : "") +
+				`</div>`,
 		);
 	}
 	// Only listed with the `worktreeManipulation` feature flag on.
@@ -676,8 +678,19 @@ function branchMenu(event, serial, { reference, commits }) {
 		.map((commit) => `- ${subject(commit.message)}`)
 		.reverse()
 		.join("\n");
-	let html =
-		`<div class="menu-title clip">${esc(name)}</div>` +
+	// A push takes the branches below this one along, so on a stack's top branch it pushes the stack.
+	const pushStatus = reference.status?.pushStatus;
+	const force = pushStatus === "unpushedCommitsRequiringForce";
+	const pushable = force || pushStatus === "unpushedCommits" || pushStatus === "completelyUnpushed";
+	let html = `<div class="menu-title clip">${esc(name)}</div>`;
+	if (pushable) {
+		html += menuItem(force ? "Force push" : "Push", {
+			push: reference.refName.fullName,
+			name,
+			...(force ? { force: "1" } : {}),
+		});
+	}
+	html +=
 		menuLabel("Copy") +
 		menuItem("Branch name", { copy: name, what: "Branch name" }) +
 		(commits.length ? menuItem("Commit list", { copy: commitList, what: "Commit list" }) : "");
@@ -690,7 +703,7 @@ function branchMenu(event, serial, { reference, commits }) {
 				menuItem(`Open ${unit} #${review.number}`, { href: review.url }) +
 				menuItem(`Copy ${unit} link`, { copy: review.url, what: `${unit} link` });
 		}
-		if (reference.status?.pushStatus === "CompletelyUnpushed") {
+		if (pushStatus === "completelyUnpushed") {
 			html += menuNote(`Not pushed yet, so it isn't on ${forge.name}.`);
 		} else if (onForge?.url) {
 			html += menuItem("Open branch", { href: onForge.url });
@@ -761,6 +774,15 @@ menuEl.addEventListener("click", async (event) => {
 			toast(`Opened in ${item.dataset.name}`);
 			return;
 		}
+		if ("push" in item.dataset) {
+			toast(`Pushing ${item.dataset.name}…`);
+			const params = { branch: item.dataset.push };
+			if ("force" in item.dataset) params.force = "1";
+			const { pushed } = await post("/api/push", params);
+			toast(pushed.length ? `Pushed ${pushed.join(", ")}` : "Nothing to push");
+			tick();
+			return;
+		}
 		const params = JSON.parse(paths || "[]").map((path) => ["path", path]);
 		params.push(["program", item.dataset.program]);
 		if (worktree) params.push(["worktree", worktree]);
@@ -795,6 +817,52 @@ document.getElementById("more").addEventListener("click", async (event) => {
 		showMenu(serial, at, header + items.join(""));
 	} catch (error) {
 		showMenu(serial, at, header + menuNote(error.message || error, true));
+	}
+});
+
+const PULL_WORD = {
+	updatable: "rebase",
+	integrated: "merged upstream, will be removed",
+	conflicted_rebasable: "will conflict",
+};
+
+/**
+ * Pull: show what rebasing every stack onto the target would do, and once confirmed, do it. The
+ * rebase runs on the server without stopping; commits that conflict are marked, not left half done.
+ */
+tree.addEventListener("click", async (event) => {
+	const button = event.target.closest("button.pull");
+	if (!button) return;
+	event.stopPropagation();
+	button.disabled = true;
+	button.textContent = "Checking…";
+	try {
+		const preview = await post("/api/pull", { check: "1" });
+		const lines = preview.branches.map((branch) => `${branch.name}: ${PULL_WORD[branch.status] || branch.status}`);
+		let question = `Rebase ${preview.branches.length} branch${preview.branches.length === 1 ? "" : "es"} onto ${button.dataset.base}?\n\n${lines.join("\n")}`;
+		if (preview.worktreeConflicts.length) {
+			question += `\n\nUncommitted changes in ${preview.worktreeConflicts.length} file${preview.worktreeConflicts.length === 1 ? "" : "s"} would conflict, so the pull will be refused.`;
+		}
+		question += "\n\n`but undo` reverts a pull.";
+		if (!confirm(question)) return;
+		button.textContent = "Pulling…";
+		const result = await post("/api/pull");
+		const conflicted = result.branches
+			.filter((branch) => branch.status === "conflicted_rebasable")
+			.map((branch) => branch.name);
+		toast(
+			conflicted.length
+				? `Pulled with conflicts in ${conflicted.join(", ")}: resolve them with but resolve, or but undo`
+				: `Pulled: ${result.branches.length} branch${result.branches.length === 1 ? "" : "es"} rebased`,
+			conflicted.length > 0,
+		);
+		await tick();
+	} catch (error) {
+		toast(String(error.message || error), true);
+	} finally {
+		// A refresh replaces the button; until then, put it back.
+		button.disabled = false;
+		button.textContent = "Pull";
 	}
 });
 

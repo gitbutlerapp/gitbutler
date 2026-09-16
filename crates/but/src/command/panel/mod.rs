@@ -1,5 +1,6 @@
-//! `but panel`: a live view of the workspace, served to the browser from localhost. It opens files,
-//! folders and forge pages and fetches on request, but never changes the workspace.
+//! `but panel`: a live view of the workspace, served to the browser from localhost. On request it
+//! opens files, folders and forge pages, fetches, pushes, and pulls the target's new commits into
+//! the workspace; it never edits commits or the worktree.
 //!
 //! The page and its script are compiled in. Its data comes from the same `but-api` functions the
 //! GUI uses: the detailed workspace graph, the worktree changes, linked worktrees, commit details
@@ -383,6 +384,16 @@ fn handle_connection(
                 projects
                     .get(project.as_deref())
                     .and_then(|(ctx, _)| fetch(ctx)),
+            ),
+            Route::Push { branch, force } => data_response(
+                projects
+                    .get(project.as_deref())
+                    .and_then(|(ctx, _)| push(ctx, &branch, force)),
+            ),
+            Route::Pull { check } => data_response(
+                projects
+                    .get(project.as_deref())
+                    .and_then(|(ctx, _)| pull(ctx, check)),
             ),
             Route::Error { status } => Response::Error { status },
         };
@@ -799,6 +810,98 @@ fn fetch(ctx: &mut Context) -> anyhow::Result<serde_json::Value> {
     Ok(json!({ "fetched": true }))
 }
 
+/// Push `branch` and the branches below it in its stack, then bring their reviews up to date, as
+/// `but push` does. Refused while a commit in that scope is conflicted, since the remote should
+/// never see one. Returns the branches that were pushed.
+#[cfg(feature = "legacy")]
+fn push(ctx: &mut Context, branch: &str, force: bool) -> anyhow::Result<serde_json::Value> {
+    let full_name: gix::refs::FullName = branch
+        .try_into()
+        .with_context(|| format!("'{branch}' is not a branch name"))?;
+    let commits =
+        crate::legacy::workspace::push_scope_with_expensive_commit_info(ctx, full_name.as_ref())?
+            .with_context(|| format!("'{branch}' is not in the workspace"))?;
+    let conflicted = commits.iter().filter(|commit| commit.has_conflicts).count();
+    if conflicted > 0 {
+        anyhow::bail!(
+            "{conflicted} conflicted commit{} must be resolved before pushing",
+            if conflicted == 1 { "" } else { "s" }
+        );
+    }
+    let outcome = block_on(
+        but_api::legacy::workspace::workspace_branch_and_ancestors_push(
+            ctx.to_sync(),
+            force,
+            false,
+            full_name.to_string(),
+            true,
+            Vec::new(),
+        ),
+    )?;
+    let pushed: Vec<&str> = outcome
+        .push
+        .branch_to_remote
+        .iter()
+        .map(|(name, _, _)| name.as_str())
+        .collect();
+    Ok(json!({ "pushed": pushed }))
+}
+
+/// What pulling would do to each stack, or with `check` off, do it: fetch, then rebase every
+/// stack onto the target, and report each branch's state after. Records an undo snapshot, so
+/// `but undo` reverts it.
+#[cfg(feature = "legacy")]
+fn pull(ctx: &mut Context, check: bool) -> anyhow::Result<serde_json::Value> {
+    use crate::command::legacy::upstream;
+
+    let branches = |statuses: &[upstream::BranchStatusInfo]| -> Vec<serde_json::Value> {
+        statuses
+            .iter()
+            .map(|status| json!({ "name": status.name, "status": status.status.as_str() }))
+            .collect()
+    };
+    if !check {
+        fetch(ctx)?;
+    }
+    let mut guard = ctx.exclusive_worktree_access();
+    let perm = guard.write_permission();
+    let preview = upstream::dry_run_integration_with_perm(ctx, perm)?;
+    if check {
+        return Ok(json!({
+            "branches": branches(&preview.statuses),
+            "worktreeConflicts": preview.outcome.worktree_conflicts,
+        }));
+    }
+    let updates = but_api::workspace::rebase_stack_bottoms(&preview.current);
+    let outcome = but_api::workspace::workspace_integrate_upstream_with_perm(
+        ctx,
+        updates,
+        but_core::DryRun::No,
+        perm,
+    )?;
+    let after = upstream::classify(&preview.current, &outcome.workspace_state);
+    // The rebase moved the workspace head under this context's cached repository.
+    ctx.reload_repo_and_invalidate_workspace(perm)?;
+    Ok(json!({ "branches": branches(&after) }))
+}
+
+#[cfg(not(feature = "legacy"))]
+fn push(_ctx: &mut Context, _branch: &str, _force: bool) -> anyhow::Result<serde_json::Value> {
+    anyhow::bail!("Pushing needs a build of `but` with the `legacy` feature")
+}
+
+#[cfg(not(feature = "legacy"))]
+fn pull(_ctx: &mut Context, _check: bool) -> anyhow::Result<serde_json::Value> {
+    anyhow::bail!("Pulling needs a build of `but` with the `legacy` feature")
+}
+
+/// Wait for `future` on the runtime this command runs in. Requests are handled on its thread, so
+/// the runtime must be told this thread is blocking.
+#[cfg(feature = "legacy")]
+fn block_on<T>(future: impl std::future::Future<Output = T>) -> T {
+    tokio::task::block_in_place(|| tokio::runtime::Handle::current().block_on(future))
+}
+
 fn parse_commit_id(id: &str) -> anyhow::Result<gix::ObjectId> {
     id.parse()
         .with_context(|| format!("Invalid commit ID: {id}"))
@@ -903,8 +1006,18 @@ enum Route {
     OpenFolder {
         with: FolderOpener,
     },
-    /// Fetch from every remote: the only route that reaches the network, and a `POST`.
+    /// Fetch from every remote. A `POST`, like everything that reaches the network.
     Fetch,
+    /// Push `branch` and the branches below it in its stack, with force when asked.
+    Push {
+        branch: String,
+        force: bool,
+    },
+    /// Rebase every stack onto the target, or with `check`, only say what that would do. The one
+    /// route that changes the workspace.
+    Pull {
+        check: bool,
+    },
     Error {
         status: &'static str,
     },
@@ -938,10 +1051,13 @@ fn route(request: &Request, port: u16) -> Route {
             .filter(|value| !value.is_empty())
     };
 
-    // Everything that only reads is a `GET`. Launching a program or fetching is a `POST` from the
-    // page itself: another site open in the browser can send a `POST` here, but not with this
-    // server's own origin.
-    let is_action = matches!(path, "/api/open" | "/api/open-folder" | "/api/fetch");
+    // Everything that only reads is a `GET`. Launching a program, reaching the network or changing
+    // the workspace is a `POST` from the page itself: another site open in the browser can send a
+    // `POST` here, but not with this server's own origin.
+    let is_action = matches!(
+        path,
+        "/api/open" | "/api/open-folder" | "/api/fetch" | "/api/push" | "/api/pull"
+    );
     let origin_is_local = request.origin.as_deref().is_some_and(|origin| {
         origin == format!("http://localhost:{port}") || origin == format!("http://127.0.0.1:{port}")
     });
@@ -995,6 +1111,18 @@ fn route(request: &Request, port: u16) -> Route {
             },
         },
         "/api/fetch" => Route::Fetch,
+        "/api/push" => match param("branch") {
+            Some(branch) => Route::Push {
+                branch,
+                force: param("force").is_some(),
+            },
+            None => Route::Error {
+                status: "400 Bad Request",
+            },
+        },
+        "/api/pull" => Route::Pull {
+            check: param("check").is_some(),
+        },
         "/api/open" => {
             let paths: Vec<String> = params
                 .iter()
@@ -1318,11 +1446,50 @@ mod tests {
         );
         assert_eq!(route(&post("/api/fetch", PAGE), 7789), Route::Fetch);
         assert_eq!(
+            route(&post("/api/push?branch=refs%2Fheads%2Ffeat", PAGE), 7789),
+            Route::Push {
+                branch: "refs/heads/feat".into(),
+                force: false,
+            },
+        );
+        assert_eq!(
+            route(
+                &post("/api/push?branch=refs%2Fheads%2Ffeat&force=1", PAGE),
+                7789
+            ),
+            Route::Push {
+                branch: "refs/heads/feat".into(),
+                force: true,
+            },
+            "force is asked for explicitly"
+        );
+        assert_eq!(
+            route(&post("/api/push", PAGE), 7789),
+            Route::Error {
+                status: "400 Bad Request"
+            },
+            "a push needs a branch"
+        );
+        assert_eq!(
+            route(&post("/api/pull?check=1", PAGE), 7789),
+            Route::Pull { check: true },
+            "a check only previews"
+        );
+        assert_eq!(
+            route(&post("/api/pull", PAGE), 7789),
+            Route::Pull { check: false }
+        );
+        assert_eq!(
             route(&get("/api/folder-openers", LOCAL), 7789),
             Route::FolderOpeners,
             "listing what can open the folder only reads"
         );
-        for target in ["/api/open-folder", "/api/fetch"] {
+        for target in [
+            "/api/open-folder",
+            "/api/fetch",
+            "/api/push?branch=refs%2Fheads%2Ffeat",
+            "/api/pull",
+        ] {
             assert_eq!(
                 route(&post(target, Some("https://evil.example")), 7789),
                 Route::Error {
