@@ -55,7 +55,7 @@ export const diffGutterUnsafeCSS = `
 		--gitbutler-diff-gutter-seam: 2px;
 		/* The inset the card keeps around the controls it carries. */
 		--gitbutler-diff-actions-padding: 2px;
-		--gitbutler-diff-gutter-seam-color: var(--diffs-background, var(--bg-1));
+		--gitbutler-diff-gutter-seam-color: var(--diffs-bg, var(--bg-1));
 	}
 
 	[data-column-number] {

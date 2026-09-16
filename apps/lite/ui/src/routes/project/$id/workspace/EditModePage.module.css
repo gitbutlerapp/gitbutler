@@ -35,7 +35,7 @@
 .commitRef {
 	color: var(--text-2);
 	font-size: 12px;
-	font-family: var(--font-mono, monospace);
+	font-family: var(--text-fontfamily-mono);
 }
 
 .sectionTitle {
@@ -82,7 +82,7 @@
 .resolvedHint {
 	flex: none;
 	margin-left: auto;
-	color: var(--clr-scale-succ-40, var(--text-2));
+	color: var(--text-safe);
 }
 
 .empty {
