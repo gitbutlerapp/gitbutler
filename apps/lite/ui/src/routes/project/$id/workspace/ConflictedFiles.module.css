@@ -88,7 +88,7 @@
 	margin-block-end: 4px;
 	overflow: hidden;
 	border: 1px solid var(--border-2);
-	border-radius: var(--radius-m);
+	border-radius: var(--radius-card);
 }
 
 .editorActions {

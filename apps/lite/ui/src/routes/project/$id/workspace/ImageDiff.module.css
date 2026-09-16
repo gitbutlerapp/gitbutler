@@ -21,7 +21,7 @@
 	min-height: 200px;
 	overflow: hidden;
 	border: 1px solid var(--border-2);
-	border-radius: var(--radius-m);
+	border-radius: var(--radius-card);
 	background-image:
 		linear-gradient(45deg, var(--bg-3) 25%, transparent 25%),
 		linear-gradient(-45deg, var(--bg-3) 25%, transparent 25%),
