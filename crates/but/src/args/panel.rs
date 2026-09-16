@@ -2,11 +2,12 @@
 
 #![deny(missing_docs)]
 
-/// Serve a live, read-only view of the workspace in the browser (experimental).
+/// Serve a live view of the workspace in the browser (experimental).
 ///
 /// The panel shows stacks, branches, commits, diffs, and linked worktrees on a page served from
 /// `127.0.0.1`, refreshing every few seconds. It is narrow enough to sit in a side pane next to an
-/// agent chat. Nothing in it changes the repository.
+/// agent chat. It can open files, folders and forge pages, and fetch from the remotes, but
+/// nothing in it changes the workspace.
 ///
 /// The server runs in the foreground; stop it with Ctrl-C.
 #[derive(Debug, clap::Parser)]
