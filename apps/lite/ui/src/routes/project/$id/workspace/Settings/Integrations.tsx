@@ -1,5 +1,6 @@
+import { Field } from "@base-ui/react";
 import { useQueryClient, useSuspenseQueries } from "@tanstack/react-query";
-import { useEffect, useRef, useState, type FC } from "react";
+import { useEffect, useRef, useState, type FC, type ReactNode } from "react";
 import {
 	bitbucketAccountsQueryOptions,
 	githubAccountsQueryOptions,
@@ -14,27 +15,64 @@ import {
 	useStoreGitlabPat,
 } from "#ui/api/mutations.ts";
 import { getButtonClassName } from "#ui/components/Button.tsx";
+import { classes } from "#ui/components/classes.ts";
+import { FieldControlStyles, FieldLabelStyles, FieldRootStyles } from "#ui/components/Field.tsx";
 import { Icon } from "#ui/components/Icon.tsx";
 import { Logo, type LogoName } from "#ui/components/Logo.tsx";
-import { classes } from "#ui/components/classes.ts";
+import { TextLink } from "#ui/components/TextLink.tsx";
 import { errorMessageForToast } from "#ui/errors.ts";
 import { nativeMenuItem, showNativeMenuFromTrigger } from "#ui/native-menu.ts";
+import { useCopied } from "../useCopied.ts";
 import { signInWithGithub } from "./github-oauth.ts";
 import styles from "./Integrations.module.css";
+import { Note, Section } from "./Section.tsx";
 
-/** One account as the card shows it, over whatever identifier its forge uses. */
-type Account<Identifier> = {
-	username: string;
-	/** How it authenticated — the part a username alone hides. */
-	kind: string;
-	identifier: Identifier;
+/** A forge's mark, a title over a line about it, and at the row's end what can be done about it. */
+const ForgeRow: FC<{
+	logo: LogoName;
+	/** A forge that is only on offer wears its mark as a silhouette; a connected one, in colour. */
+	muted?: boolean;
+	title: string;
+	hint: string;
+	children: ReactNode;
+}> = (p) => (
+	<div className={styles.row}>
+		<Logo name={p.logo} muted={p.muted} className={styles.logo} />
+		<div className={styles.text}>
+			<span className={classes("text-15", "text-semibold", styles.title)}>{p.title}</span>
+			<span className={classes("text-12", "text-body", styles.hint)}>{p.hint}</span>
+		</div>
+		{p.children}
+	</div>
+);
+
+/** The code GitHub's device flow wants typed into the page it opened, with a button to carry it. */
+const DeviceCode: FC<{ code: string }> = (p) => {
+	const { copied, copy } = useCopied(p.code);
+	return (
+		<>
+			<p className={classes("text-12", "text-body", styles.deviceCode)}>
+				Enter <strong>{p.code}</strong> on the GitHub page that just opened. <br /> This waits until
+				you have.
+			</p>
+			<button type="button" className={getButtonClassName({ variant: "gray" })} onClick={copy}>
+				{copied ? "Copied" : "Copy code"}
+				<Icon name={copied ? "tick" : "copy"} />
+			</button>
+		</>
+	);
 };
 
-type ForgeCardProps<Identifier> = {
+type ForgeCardProps = {
+	/** Only the first card names the group the cards make up. */
+	heading?: string;
 	name: string;
 	logo: LogoName;
 	blurb: string;
-	accounts: Array<Account<Identifier>>;
+	/** What a valid token looks like, since the user may not know. */
+	tokenPlaceholder: string;
+	/** The scope the token needs and where to generate one. */
+	tokenHint: ReactNode;
 	/** Bitbucket wants an email alongside the token; the others do not. */
 	needsEmail?: boolean;
 	/** Present when the forge supports signing in through the browser. */
@@ -42,11 +80,10 @@ type ForgeCardProps<Identifier> = {
 	/** Shown once the browser flow has a code for the user to enter. */
 	pendingCode?: string | null;
 	isBusy: boolean;
-	onForget: (account: Identifier) => void;
 	onAdd: (token: string, email: string) => void;
 };
 
-const ForgeCard = <Identifier,>(p: ForgeCardProps<Identifier>) => {
+const ForgeCard: FC<ForgeCardProps> = (p) => {
 	const [adding, setAdding] = useState(false);
 	const [token, setToken] = useState("");
 	const [email, setEmail] = useState("");
@@ -55,126 +92,114 @@ const ForgeCard = <Identifier,>(p: ForgeCardProps<Identifier>) => {
 	// would post a request it cannot fulfil.
 	const incomplete = token.trim() === "" || (p.needsEmail === true && email.trim() === "");
 
+	const close = () => {
+		setAdding(false);
+		setToken("");
+		setEmail("");
+	};
+
 	const submit = () => {
 		if (incomplete) return;
 		p.onAdd(token, email);
-		setToken("");
-		setEmail("");
-		setAdding(false);
+		close();
 	};
 
-	return (
-		<section className={styles.card}>
-			{p.accounts.map((account) => (
-				// Keyed on the identifier because that is what the forge treats as unique: a
-				// username repeats across auth kinds, and across enterprise hosts.
-				<div key={JSON.stringify(account.identifier)} className={styles.account}>
-					<span className={styles.identity}>
-						<span className="text-13 text-semibold">{account.username}</span>
-						<span className={classes("text-12", styles.muted)}>{account.kind}</span>
-					</span>
+	const signIn = p.onSignIn;
+
+	const footer =
+		p.pendingCode != null ? (
+			<DeviceCode code={p.pendingCode} />
+		) : adding ? (
+			<form
+				className={styles.form}
+				onSubmit={(evt) => {
+					evt.preventDefault();
+					submit();
+				}}
+			>
+				<div className={styles.fields}>
+					{p.needsEmail === true && (
+						<Field.Root render={<FieldRootStyles />}>
+							<Field.Label render={<FieldLabelStyles />}>Account email</Field.Label>
+							<Field.Control
+								render={<FieldControlStyles />}
+								type="email"
+								required
+								value={email}
+								onValueChange={(value) => setEmail(value)}
+							/>
+						</Field.Root>
+					)}
+					<Field.Root render={<FieldRootStyles />}>
+						<Field.Label render={<FieldLabelStyles />}>Personal access token</Field.Label>
+						<Field.Control
+							render={<FieldControlStyles />}
+							type="password"
+							autoComplete="off"
+							placeholder={p.tokenPlaceholder}
+							value={token}
+							onValueChange={(value) => setToken(value)}
+						/>
+					</Field.Root>
+					<p className={classes("text-12", "text-body", styles.hint)}>{p.tokenHint}</p>
+				</div>
+				<div className={styles.actions}>
 					<button
-						type="button"
-						className={classes(
-							getButtonClassName({ variant: "danger", size: "small" }),
-							styles.addButton,
-						)}
-						disabled={p.isBusy}
-						onClick={() => p.onForget(account.identifier)}
+						type="submit"
+						className={getButtonClassName({ variant: "gray" })}
+						disabled={p.isBusy || incomplete}
 					>
-						Forget
-						<Icon name="bin" size={12} />
+						{p.isBusy ? "Authorizing…" : "Authorize"}
+						<Icon name="tick" />
+					</button>
+					<button type="button" className={getButtonClassName({})} onClick={close}>
+						Cancel
 					</button>
 				</div>
-			))}
+			</form>
+		) : undefined;
 
-			<div className={classes(styles.forge, p.accounts.length > 0 && styles.forgeUnderAccounts)}>
-				<Logo name={p.logo} className={styles.forgeLogo} />
-				<span className={styles.identity}>
-					<span className="text-13 text-semibold">{p.name}</span>
-					<span className={classes("text-12", styles.muted)}>{p.blurb}</span>
-				</span>
-
-				{!adding && (
-					<button
-						type="button"
-						className={classes(getButtonClassName({ size: "small" }), styles.addButton)}
-						disabled={p.isBusy}
-						// One way in goes straight there; several offer the choice, as desktop does.
-						onClick={(event) => {
-							if (p.onSignIn === undefined) return setAdding(true);
-							void showNativeMenuFromTrigger(event.currentTarget, [
-								nativeMenuItem({ label: `Authorize ${p.name} Account`, onSelect: p.onSignIn }),
-								nativeMenuItem({
-									label: "Add Personal Access Token",
-									onSelect: () => setAdding(true),
-								}),
-							]);
-						}}
-					>
-						{p.accounts.length > 0 ? "Add another account" : "Add account"}
-						<Icon name="plus" size={12} />
-					</button>
-				)}
-			</div>
-
-			{p.pendingCode != null && (
-				<p className={classes("text-12", styles.deviceCode)}>
-					Enter <code>{p.pendingCode}</code> on the GitHub page that just opened. This waits until
-					you have.
-				</p>
-			)}
-
-			{adding && (
-				<form
-					className={styles.addForm}
-					onSubmit={(evt) => {
-						evt.preventDefault();
-						submit();
+	return (
+		<Section heading={p.heading} footer={footer}>
+			<ForgeRow logo={p.logo} muted title={p.name} hint={p.blurb}>
+				<button
+					type="button"
+					className={getButtonClassName({})}
+					disabled={p.isBusy}
+					// One way in goes straight there; several offer the choice, as desktop does.
+					onClick={(event) => {
+						if (signIn === undefined) return setAdding(true);
+						void showNativeMenuFromTrigger(event.currentTarget, [
+							nativeMenuItem({
+								label: `Authorize ${p.name} Account`,
+								onSelect: () => {
+									close();
+									signIn();
+								},
+							}),
+							nativeMenuItem({
+								label: "Add Personal Access Token",
+								onSelect: () => setAdding(true),
+							}),
+						]);
 					}}
 				>
-					{p.needsEmail === true && (
-						<input
-							type="email"
-							required
-							className="text-13"
-							placeholder="Account email"
-							value={email}
-							onChange={(evt) => setEmail(evt.currentTarget.value)}
-						/>
-					)}
-					<input
-						type="password"
-						className="text-13"
-						placeholder="Personal access token"
-						autoComplete="off"
-						value={token}
-						onChange={(evt) => setToken(evt.currentTarget.value)}
-					/>
-					<div className={styles.addActions}>
-						<button
-							type="submit"
-							className={getButtonClassName({ variant: "pop", size: "small" })}
-							disabled={p.isBusy || incomplete}
-						>
-							{p.isBusy ? "Adding…" : "Add"}
-						</button>
-						<button
-							type="button"
-							className={getButtonClassName({ size: "small" })}
-							onClick={() => {
-								setAdding(false);
-								setToken("");
-								setEmail("");
-							}}
-						>
-							Cancel
-						</button>
-					</div>
-				</form>
-			)}
-		</section>
+					Connect
+				</button>
+			</ForgeRow>
+		</Section>
 	);
+};
+
+/** One connected account, whichever forge it belongs to. */
+type ConnectedAccount = {
+	key: string;
+	logo: LogoName;
+	username: string;
+	/** The forge and how it authenticated — the part a username alone hides. */
+	kind: string;
+	isBusy: boolean;
+	onForget: () => void;
 };
 
 const githubKind = (type: string): string =>
@@ -226,60 +251,127 @@ export const Integrations: FC = () => {
 			});
 	};
 
+	// Keyed on the identifier because that is what the forge treats as unique: a username
+	// repeats across auth kinds, and across enterprise hosts.
+	const connected: Array<ConnectedAccount> = [
+		...github.map((account) => ({
+			key: `github:${JSON.stringify(account)}`,
+			logo: "github" as const,
+			username: account.info.username,
+			kind:
+				account.type === "enterprise"
+					? `GitHub · Enterprise · ${account.info.host}`
+					: `GitHub · ${githubKind(account.type)}`,
+			isBusy: forgetGithub.isPending,
+			onForget: () => forgetGithub.mutate(account),
+		})),
+		...gitlab.map((account) => ({
+			key: `gitlab:${JSON.stringify(account)}`,
+			logo: "gitlab" as const,
+			username: account.info.username,
+			kind:
+				account.type === "selfHosted"
+					? `GitLab · Self-hosted · ${account.info.host}`
+					: "GitLab · Access token",
+			isBusy: forgetGitlab.isPending,
+			onForget: () => forgetGitlab.mutate(account),
+		})),
+		...bitbucket.map((account) => ({
+			key: `bitbucket:${JSON.stringify(account)}`,
+			logo: "bitbucket" as const,
+			// Bitbucket names an account by the email its token was issued for.
+			username: account.info.email,
+			kind: "Bitbucket · API token",
+			isBusy: forgetBitbucket.isPending,
+			onForget: () => forgetBitbucket.mutate(account),
+		})),
+	];
+
 	return (
 		<>
+			{connected.length > 0 && (
+				<Section heading="Connected">
+					{connected.map((account) => (
+						<ForgeRow
+							key={account.key}
+							logo={account.logo}
+							title={account.username}
+							hint={account.kind}
+						>
+							<button
+								type="button"
+								className={getButtonClassName({ variant: "danger" })}
+								disabled={account.isBusy}
+								onClick={account.onForget}
+							>
+								Forget
+							</button>
+						</ForgeRow>
+					))}
+				</Section>
+			)}
+
 			<ForgeCard
+				heading="Add an account"
 				name="GitHub"
 				logo="github"
-				blurb="Allows you to create Pull Requests"
-				accounts={github.map((account) => ({
-					username: account.info.username,
-					kind: githubKind(account.type),
-					identifier: account,
-				}))}
+				blurb="Create and review pull requests"
+				tokenPlaceholder="ghp_XXXXXXXXXXXXXXXXXXXX"
+				tokenHint={
+					<>
+						Classic token with the repo scope, or a fine-grained token with Pull requests: read and
+						write, plus Checks: read for CI status.{" "}
+						<TextLink href="https://github.com/settings/tokens">Generate on GitHub</TextLink>
+					</>
+				}
 				isBusy={forgetGithub.isPending || addGithub.isPending || githubBusy}
 				onSignIn={signInGithub}
 				pendingCode={githubCode}
-				onForget={forgetGithub.mutate}
 				onAdd={(token) => addGithub.mutate(token)}
 			/>
 
 			<ForgeCard
 				name="GitLab"
 				logo="gitlab"
-				blurb="Allows you to create Merge Requests"
-				accounts={gitlab.map((account) => ({
-					username: account.info.username,
-					kind: account.type === "selfHosted" ? "Self-hosted" : "Access token",
-					identifier: account,
-				}))}
+				blurb="Create and review merge requests"
+				tokenPlaceholder="glpat-XXXXXXXXXXXXXXXXXXXX"
+				tokenHint={
+					<>
+						Token with the api scope.{" "}
+						<TextLink href="https://gitlab.com/-/user_settings/personal_access_tokens">
+							Generate on GitLab
+						</TextLink>
+					</>
+				}
 				isBusy={forgetGitlab.isPending || addGitlab.isPending}
-				onForget={forgetGitlab.mutate}
 				onAdd={(token) => addGitlab.mutate(token)}
 			/>
 
 			<ForgeCard
 				name="Bitbucket"
 				logo="bitbucket"
-				blurb="Allows you to create Pull Requests"
+				blurb="Create and review pull requests"
+				tokenPlaceholder="ATATT3xXXXXXXXXXXXXXXXXXXXXX"
+				tokenHint={
+					<>
+						API token with the read:user:bitbucket, read:repository:bitbucket,
+						read:pullrequest:bitbucket and write:pullrequest:bitbucket scopes, plus the email on
+						your Atlassian account.{" "}
+						<TextLink href="https://id.atlassian.com/manage-profile/security/api-tokens">
+							Generate on Atlassian
+						</TextLink>
+					</>
+				}
 				needsEmail
-				accounts={bitbucket.map((account) => ({
-					// Bitbucket names an account by the email its token was issued for.
-					username: account.info.email,
-					kind: "API token",
-					identifier: account,
-				}))}
 				isBusy={forgetBitbucket.isPending || addBitbucket.isPending}
-				onForget={forgetBitbucket.mutate}
 				onAdd={(accessToken, email) => addBitbucket.mutate({ email, accessToken })}
 			/>
 
 			{githubError !== null && <p className={classes("text-12", styles.error)}>{githubError}</p>}
 
-			<p className={classes("text-12", styles.footnote)}>
-				<Icon name="lock" className={styles.footnoteIcon} />
+			<Note icon="lock">
 				Credentials are kept in your operating system's keychain, not by GitButler.
-			</p>
+			</Note>
 		</>
 	);
 };
