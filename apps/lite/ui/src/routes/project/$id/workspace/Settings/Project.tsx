@@ -1,4 +1,3 @@
-import { Tooltip } from "@base-ui/react";
 import { useSuspenseQuery } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
 import { useState, type FC, type ReactNode } from "react";
@@ -8,10 +7,10 @@ import { getButtonClassName } from "#ui/components/Button.tsx";
 import { classes } from "#ui/components/classes.ts";
 import { FieldControlStyles, FieldTextareaStyles } from "#ui/components/Field.tsx";
 import { Icon } from "#ui/components/Icon.tsx";
-import { TooltipPopup } from "#ui/components/Tooltip.tsx";
 import { assert } from "#ui/assert.ts";
 import { revealInFolderLabel } from "#ui/hotkeys.ts";
 import { useCopied } from "../useCopied.ts";
+import { IconButton } from "./IconButton.tsx";
 import styles from "./Project.module.css";
 import { changing } from "./project-settings.ts";
 import { Row, Section } from "./Section.tsx";
@@ -24,30 +23,6 @@ const Stack: FC<{ note?: ReactNode; children: ReactNode }> = (p) => (
 			<span className={classes("text-12", "text-body", styles.note)}>{p.note}</span>
 		)}
 	</div>
-);
-
-/** A button of glyphs alone, which says what it does on hover since they cannot. */
-const IconButton: FC<{
-	label: string;
-	/** For a button carrying two glyphs, which the one-glyph square cannot hold. */
-	className?: string;
-	onClick: () => void;
-	children: ReactNode;
-}> = (p) => (
-	<Tooltip.Root>
-		<Tooltip.Trigger
-			className={classes(getButtonClassName({ iconOnly: p.className === undefined }), p.className)}
-			render={<button type="button" aria-label={p.label} />}
-			onClick={p.onClick}
-		>
-			{p.children}
-		</Tooltip.Trigger>
-		<Tooltip.Portal>
-			<Tooltip.Positioner sideOffset={4}>
-				<Tooltip.Popup render={<TooltipPopup />}>{p.label}</Tooltip.Popup>
-			</Tooltip.Positioner>
-		</Tooltip.Portal>
-	</Tooltip.Root>
 );
 
 export const Project: FC<{ projectId: string }> = ({ projectId }) => {
