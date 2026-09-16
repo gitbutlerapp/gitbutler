@@ -129,23 +129,35 @@ function diffUrl(path, { commit, worktree } = {}) {
 }
 
 /**
- * The graph lists rows in display order: a branch row, then its commits, then the next branch.
- * A trailing branch row with no commits is the target the stacks sit on.
+ * The graph lists rows in display order: a branch row, then its commits, then the branch below it.
+ * Branches stacked on each other are drawn as one unbroken line: the branch below continues in the
+ * same column, right after a commit that neither links its line into another column nor ends it.
+ * Anything else starts an independent stack, as do the rows of the next graph stack. A trailing
+ * branch row with no commits is the target the stacks sit on. Returns the branches per stack, all
+ * of them flat, and that target.
  */
 function branchesFromRows(stacks) {
-	const branches = [];
+	const grouped = [];
 	for (const stack of stacks) {
+		let column = null;
+		let ended = true;
 		for (const row of stack.rows) {
 			if (row.data.type === "Reference") {
-				branches.push({ reference: row.data.subject, commits: [] });
-			} else if (branches.length) {
+				const rowColumn = row.nodeLine.indexOf("node");
+				if (ended || rowColumn !== column) grouped.push([]);
+				column = rowColumn;
+				grouped[grouped.length - 1].push({ reference: row.data.subject, commits: [] });
+			} else if (grouped.length) {
+				const branches = grouped[grouped.length - 1];
 				branches[branches.length - 1].commits.push(row.data.subject);
 			}
+			ended = Boolean(row.linkLine || row.termLine);
 		}
 	}
-	const last = branches[branches.length - 1];
-	const base = last && last.commits.length === 0 ? branches.pop() : null;
-	return { branches, base };
+	const lastStack = grouped[grouped.length - 1];
+	const last = lastStack?.[lastStack.length - 1];
+	const base = last && last.commits.length === 0 ? lastStack.pop() : null;
+	return { stacks: grouped.filter((branches) => branches.length), branches: grouped.flat(), base };
 }
 
 // --- rendering -------------------------------------------------------------
@@ -314,18 +326,32 @@ function renderWorktree({ worktree, changes = [], error, archived }) {
 	);
 }
 
-function render({ workspace, changes, worktrees, forge }) {
-	const { branches, base } = branchesFromRows(workspace.stacks);
+function render({ workspace, behind, changes, worktrees, forge }) {
+	const { stacks, branches, base } = branchesFromRows(workspace.stacks);
 	if (query) {
 		tree.innerHTML = renderSearch(branches, changes, worktrees);
 		return;
 	}
-	const parts = [
-		renderUncommitted(changes),
-		...branches.map((branch) => renderBranch(branch, forge)),
-	];
+	const parts = [renderUncommitted(changes)];
+	for (const group of stacks) {
+		const cards = group.map((branch) => renderBranch(branch, forge)).join("");
+		parts.push(
+			group.length > 1
+				? `<div class="stack"><div class="stack-label">Stack · ${group.length} branches</div>${cards}</div>`
+				: cards,
+		);
+	}
 	if (base) {
-		parts.push(`<div class="base"><span class="clip">${esc(base.reference.refName.displayName)}</span></div>`);
+		// As of the last fetch; the Fetch button updates it.
+		const status =
+			behind > 0
+				? `<span class="behind" title="Commits on the remote that the workspace doesn't have yet">⇣ ${behind} behind</span>`
+				: behind === 0
+					? `<span>up to date</span>`
+					: "";
+		parts.push(
+			`<div class="base"><span class="clip">${esc(base.reference.refName.displayName)}</span>${status ? " · " + status : ""}</div>`,
+		);
 	}
 	// Only listed with the `worktreeManipulation` feature flag on.
 	if (worktrees.length) {
@@ -360,6 +386,7 @@ async function tick() {
 		latest = {
 			project: data.project,
 			workspace: data.workspace,
+			behind: data.behind,
 			changes: data.changes,
 			worktrees: data.worktrees,
 			forge: data.forge,
@@ -484,6 +511,22 @@ let editors = null;
 async function editorsList() {
 	editors ??= await fetchData(api("/api/programs"));
 	return editors;
+}
+
+let openers = null;
+
+/** What can open the project's folder, each with the query that asks for it. */
+async function folderOpeners() {
+	openers ??= await fetchData(api("/api/folder-openers"));
+	return openers;
+}
+
+/** Ask the server to do something, and return what it reports. */
+async function post(path, params) {
+	const response = await fetch(api(path, params), { method: "POST" });
+	const body = await response.json().catch(() => ({ ok: false, error: response.statusText }));
+	if (!body.ok) throw new Error(body.error);
+	return body.data;
 }
 
 // Counts the menus shown, so a fetch for one menu can't fill in a later one or reopen a closed one.
@@ -712,17 +755,64 @@ menuEl.addEventListener("click", async (event) => {
 		return;
 	}
 
-	const params = JSON.parse(paths || "[]").map((path) => ["path", path]);
-	params.push(["program", item.dataset.program]);
-	if (worktree) params.push(["worktree", worktree]);
 	try {
-		const response = await fetch(api("/api/open", params), { method: "POST" });
-		const body = await response.json().catch(() => ({ ok: false, error: response.statusText }));
-		if (!body.ok) throw new Error(body.error);
-		const { opened } = body.data;
+		if ("with" in item.dataset) {
+			await post("/api/open-folder", item.dataset.with);
+			toast(`Opened in ${item.dataset.name}`);
+			return;
+		}
+		const params = JSON.parse(paths || "[]").map((path) => ["path", path]);
+		params.push(["program", item.dataset.program]);
+		if (worktree) params.push(["worktree", worktree]);
+		const { opened } = await post("/api/open", params);
 		toast(opened === 1 ? `Opened in ${item.dataset.name}` : `Opened ${opened} files in ${item.dataset.name}`);
 	} catch (error) {
 		toast(String(error.message || error), true);
+	}
+});
+
+/** The project menu, below its button: the path, the forge page, and what opens the folder. */
+document.getElementById("more").addEventListener("click", async (event) => {
+	if (!latest) return;
+	const serial = ++menuSerial;
+	menuEl.dataset.paths = "";
+	menuEl.dataset.worktree = "";
+	const rect = event.currentTarget.getBoundingClientRect();
+	const at = { clientX: rect.left, clientY: rect.bottom + 4 };
+	const forge = latest.forge;
+
+	let header =
+		`<div class="menu-title path clip">&lrm;${esc(latest.project)}&lrm;</div>` +
+		menuLabel("Copy") +
+		menuItem("Project path", { copy: latest.project, what: "Project path" });
+	if (forge) header += menuLabel(forge.name) + menuItem("Open repository", { href: forge.url });
+	header += menuLabel("Open folder with");
+	showMenu(serial, at, header + menuNote("Loading…"));
+	try {
+		const items = (await folderOpeners()).map((opener) =>
+			menuItem(opener.name, { with: opener.with, name: opener.name }),
+		);
+		showMenu(serial, at, header + items.join(""));
+	} catch (error) {
+		showMenu(serial, at, header + menuNote(error.message || error, true));
+	}
+});
+
+/** Fetch from the remotes, then show what the target gained. */
+const fetchEl = document.getElementById("fetch");
+fetchEl.addEventListener("click", async () => {
+	fetchEl.disabled = true;
+	fetchEl.textContent = "Fetching…";
+	try {
+		await post("/api/fetch");
+		await tick();
+		const behind = latest?.behind;
+		toast(behind > 0 ? `Fetched: ${behind} new commit${behind > 1 ? "s" : ""} on the target` : "Fetched, up to date");
+	} catch (error) {
+		toast(String(error.message || error), true);
+	} finally {
+		fetchEl.disabled = false;
+		fetchEl.textContent = "⇣ Fetch";
 	}
 });
 

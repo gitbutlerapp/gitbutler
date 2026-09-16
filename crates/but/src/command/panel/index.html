@@ -153,6 +153,26 @@
 				border-radius: 9px;
 				overflow: hidden;
 			}
+			/* Branches stacked on each other share a rail, top branch first. */
+			.stack {
+				margin: 6px 8px;
+				padding-left: 6px;
+				border-left: 2px solid var(--rail);
+			}
+			.stack > .card {
+				margin: 0 0 4px;
+			}
+			.stack > .card:last-child {
+				margin-bottom: 0;
+			}
+			.stack-label {
+				padding: 0 0 3px 4px;
+				color: var(--faint);
+				font-size: 10.5px;
+				font-weight: 600;
+				letter-spacing: 0.04em;
+				text-transform: uppercase;
+			}
 
 			/* Rows ------------------------------------------------------------ */
 			.row {
@@ -481,6 +501,10 @@
 				display: flex;
 				gap: 6px;
 			}
+			.base .behind {
+				color: var(--warn);
+				white-space: nowrap;
+			}
 		</style>
 	</head>
 	<body>
@@ -489,7 +513,9 @@
 				<span class="dot" id="dot"></span>
 				<select class="repo" id="repo" title="Switch project"><option>…</option></select>
 				<span class="spacer"></span>
+				<button class="ghost" id="fetch" title="Fetch from the remotes">⇣ Fetch</button>
 				<button class="ghost" id="refresh" title="Refresh now">⟳</button>
+				<button class="ghost" id="more" title="Project menu">⋯</button>
 			</div>
 			<div class="sub" id="sub"></div>
 			<input class="search" id="search" type="search" placeholder="Search files in commits (/)" autocomplete="off" spellcheck="false" />

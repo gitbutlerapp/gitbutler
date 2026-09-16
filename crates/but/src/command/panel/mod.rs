@@ -1,4 +1,5 @@
-//! `but panel`: a live, read-only view of the workspace, served to the browser from localhost.
+//! `but panel`: a live view of the workspace, served to the browser from localhost. It opens files,
+//! folders and forge pages and fetches on request, but never changes the workspace.
 //!
 //! The page and its script are compiled in. Its data comes from the same `but-api` functions the
 //! GUI uses: the detailed workspace graph, the worktree changes, linked worktrees, commit details
@@ -363,6 +364,7 @@ fn handle_connection(
                     .and_then(|(ctx, _)| commit_files_json(ctx, commit_files)),
             ),
             Route::Programs { path } => data_response(Ok(programs_json(path.as_deref()))),
+            Route::FolderOpeners => data_response(Ok(folder_openers_json())),
             Route::Open {
                 paths,
                 program,
@@ -372,13 +374,24 @@ fn handle_connection(
                     .get(project.as_deref())
                     .and_then(|(ctx, _)| open_files(ctx, &program, &paths, worktree.as_deref())),
             ),
+            Route::OpenFolder { with } => data_response(
+                projects
+                    .get(project.as_deref())
+                    .and_then(|(_, root)| open_folder(&root, &with)),
+            ),
+            Route::Fetch => data_response(
+                projects
+                    .get(project.as_deref())
+                    .and_then(|(ctx, _)| fetch(ctx)),
+            ),
             Route::Error { status } => Response::Error { status },
         };
     write_response(&stream, response)
 }
 
-/// Everything the page shows at once: the workspace graph, the uncommitted changes, the linked
-/// worktrees, and what the forge has for each branch.
+/// Everything the page shows at once: the workspace graph, how far the target has moved on since
+/// the last update, the uncommitted changes, the linked worktrees, and what the forge has for each
+/// branch.
 fn workspace_json(ctx: &mut Context, root: &Path) -> anyhow::Result<serde_json::Value> {
     let mut guard = ctx.exclusive_worktree_access();
     // This command keeps one context for its whole run; drop the cached workspace so each request
@@ -387,6 +400,13 @@ fn workspace_json(ctx: &mut Context, root: &Path) -> anyhow::Result<serde_json::
     let perm = guard.read_permission();
 
     let workspace = but_api::workspace::get_workspace(ctx, perm)?;
+    // Commits on the target's remote-tracking branch that no stack has yet, as last fetched.
+    let behind = ctx
+        .workspace_and_db_with_perm(perm)?
+        .1
+        .target_ref
+        .as_ref()
+        .map(|target| target.commits_ahead);
     let changes =
         but_api::diff::changes_in_worktree_with_perm(ctx, ChangesSource::Head, false, perm)?;
     let branch_names: Vec<String> = workspace
@@ -405,6 +425,7 @@ fn workspace_json(ctx: &mut Context, root: &Path) -> anyhow::Result<serde_json::
         "repo": repository_name(root),
         "project": root,
         "workspace": serde_json::to_value(workspace)?,
+        "behind": behind,
         "changes": serde_json::to_value(changes.worktree_changes.changes)?,
         "worktrees": worktrees_json(ctx, perm),
         "forge": forge_json(ctx, &branch_names),
@@ -441,9 +462,9 @@ fn worktrees_json(ctx: &Context, perm: &RepoShared) -> Vec<serde_json::Value> {
 }
 
 /// What the forge has for this workspace, or `null` when the target's forge is unknown: the forge's
-/// name, what it calls a review, the URL a commit ID appends to, and for each branch its compare
-/// page and its review with a summary of its CI. Reviews and CI are read from the forge cache
-/// only, so polling never reaches the network.
+/// name, what it calls a review, the repository's page, the URL a commit ID appends to, and for
+/// each branch its compare page and its review with a summary of its CI. Reviews and CI are read
+/// from the forge cache only, so polling never reaches the network.
 #[cfg(feature = "legacy")]
 fn forge_json(ctx: &Context, branch_names: &[String]) -> serde_json::Value {
     use but_api::legacy::forge;
@@ -501,6 +522,7 @@ fn forge_json(ctx: &Context, branch_names: &[String]) -> serde_json::Value {
     json!({
         "name": name,
         "unit": info.unit,
+        "url": info.base_url,
         "commitUrl": format!("{}{}", info.base_url, info.commit_url_path),
         "branches": branches,
     })
@@ -666,11 +688,7 @@ fn open_files(
                 .path
         }
     };
-    // The same check `open_in_program` makes, which only opens one path in the main worktree.
-    let program = but_api::open::list_program_specs()
-        .into_iter()
-        .find(|spec| spec.id == program && !spec.requires_terminal())
-        .with_context(|| format!("'{program}' is not a program the panel can open"))?;
+    let program = gui_program(program)?;
 
     let present: Vec<PathBuf> = paths
         .iter()
@@ -690,6 +708,95 @@ fn open_files(
     };
     open_in_program_unchecked(&program, spec)?;
     Ok(json!({ "opened": opened }))
+}
+
+/// The program with `id`, if it's one the panel may launch: the same check `open_in_program`
+/// makes, which only opens one path in the main worktree.
+fn gui_program(id: &str) -> anyhow::Result<ProgramSpec> {
+    but_api::open::list_program_specs()
+        .into_iter()
+        .find(|spec| spec.id == id && !spec.requires_terminal())
+        .with_context(|| format!("'{id}' is not a program the panel can open"))
+}
+
+/// What opens the project's directory.
+#[derive(Debug, PartialEq)]
+enum FolderOpener {
+    /// The platform's file manager.
+    FileManager,
+    /// A terminal, by the ID `open_in_terminal` knows.
+    Terminal(String),
+    /// A program, by its ID.
+    Program(String),
+}
+
+/// What can open the project's directory, each with the query that asks for it: the file manager,
+/// a terminal that is installed, and the editors.
+fn folder_openers_json() -> serde_json::Value {
+    let file_manager = match std::env::consts::OS {
+        "macos" => "Finder",
+        "windows" => "Explorer",
+        _ => "File manager",
+    };
+    let mut openers = vec![json!({ "with": "", "name": file_manager })];
+    if let Some((id, name)) = installed_terminal() {
+        openers.push(json!({ "with": format!("terminal={}", percent_encode(&id)), "name": name }));
+    }
+    for program in but_api::open::list_program_specs()
+        .into_iter()
+        .filter(ProgramSpec::is_gui_editor)
+    {
+        openers.push(json!({
+            "with": format!("program={}", percent_encode(&program.id)),
+            "name": program.name,
+        }));
+    }
+    serde_json::Value::Array(openers)
+}
+
+/// The terminal `but` recommends for this platform, if one is installed. The terminal list is only
+/// readable through a legacy API today.
+#[cfg(feature = "legacy")]
+fn installed_terminal() -> Option<(String, String)> {
+    but_api::open::terminal::get_recommended_terminal_for_platform(std::env::consts::OS.to_owned())
+        .ok()
+        .flatten()
+        .map(|terminal| (terminal.identifier, terminal.display_name))
+}
+
+#[cfg(not(feature = "legacy"))]
+fn installed_terminal() -> Option<(String, String)> {
+    None
+}
+
+/// Open the project's directory at `root` with `with`.
+fn open_folder(root: &Path, with: &FolderOpener) -> anyhow::Result<serde_json::Value> {
+    match with {
+        FolderOpener::FileManager => {
+            let url = url::Url::from_directory_path(root)
+                .ok()
+                .with_context(|| format!("'{}' can't be opened as a URL", root.display()))?;
+            but_api::open::open_url(url.to_string())?;
+        }
+        FolderOpener::Terminal(id) => {
+            but_api::open::open_in_terminal(id.clone(), root.to_string_lossy().into_owned())?;
+        }
+        FolderOpener::Program(id) => {
+            open_in_program_unchecked(&gui_program(id)?, OpenSpec::File(root.to_owned()))?;
+        }
+    }
+    Ok(json!({ "opened": true }))
+}
+
+/// Fetch from every remote, so the target's new commits and each branch's push status show. One
+/// refresh at a time across `but` processes, as `but refresh` does.
+fn fetch(ctx: &mut Context) -> anyhow::Result<serde_json::Value> {
+    let _lock = but_core::sync::try_exclusive_inter_process_access(
+        &ctx.gitdir,
+        but_core::sync::LockScope::BackgroundRefreshOperations,
+    )?;
+    but_api::workspace::workspace_fetch_from_remotes(ctx, Some("auto".to_owned()))?;
+    Ok(json!({ "fetched": true }))
 }
 
 fn parse_commit_id(id: &str) -> anyhow::Result<gix::ObjectId> {
@@ -783,13 +890,21 @@ enum Route {
     Programs {
         path: Option<String>,
     },
-    /// Open `paths`, relative to `worktree` or the main worktree, with `program`. The panel's only
-    /// action, and the only `POST`.
+    /// What can open the project's directory.
+    FolderOpeners,
+    /// Open `paths`, relative to `worktree` or the main worktree, with `program`. A `POST`, like
+    /// everything that launches a program.
     Open {
         paths: Vec<String>,
         program: String,
         worktree: Option<String>,
     },
+    /// Open the project's directory with `with`.
+    OpenFolder {
+        with: FolderOpener,
+    },
+    /// Fetch from every remote: the only route that reaches the network, and a `POST`.
+    Fetch,
     Error {
         status: &'static str,
     },
@@ -823,14 +938,14 @@ fn route(request: &Request, port: u16) -> Route {
             .filter(|value| !value.is_empty())
     };
 
-    // Everything but opening a file only reads, so it's a `GET`. Opening launches a program, so it
-    // is a `POST` from the page itself: another site open in the browser can send a `POST` here,
-    // but not with this server's own origin.
-    let is_open = path == "/api/open";
+    // Everything that only reads is a `GET`. Launching a program or fetching is a `POST` from the
+    // page itself: another site open in the browser can send a `POST` here, but not with this
+    // server's own origin.
+    let is_action = matches!(path, "/api/open" | "/api/open-folder" | "/api/fetch");
     let origin_is_local = request.origin.as_deref().is_some_and(|origin| {
         origin == format!("http://localhost:{port}") || origin == format!("http://127.0.0.1:{port}")
     });
-    match (request.method.as_str(), is_open) {
+    match (request.method.as_str(), is_action) {
         ("GET", false) => {}
         ("POST", true) if origin_is_local => {}
         ("POST", true) => {
@@ -871,6 +986,15 @@ fn route(request: &Request, port: u16) -> Route {
         "/api/programs" => Route::Programs {
             path: param("path"),
         },
+        "/api/folder-openers" => Route::FolderOpeners,
+        "/api/open-folder" => Route::OpenFolder {
+            with: match (param("program"), param("terminal")) {
+                (Some(id), _) => FolderOpener::Program(id),
+                (None, Some(id)) => FolderOpener::Terminal(id),
+                (None, None) => FolderOpener::FileManager,
+            },
+        },
+        "/api/fetch" => Route::Fetch,
         "/api/open" => {
             let paths: Vec<String> = params
                 .iter()
@@ -1166,6 +1290,52 @@ mod tests {
                     status: "400 Bad Request"
                 },
                 "{escape} would leave the checkout, even alongside a safe path"
+            );
+        }
+    }
+
+    #[test]
+    fn opens_the_folder_and_fetches_only_when_the_page_asks() {
+        const PAGE: Option<&str> = Some("http://localhost:7789");
+        assert_eq!(
+            route(&post("/api/open-folder", PAGE), 7789),
+            Route::OpenFolder {
+                with: FolderOpener::FileManager
+            },
+            "without a program or terminal, the file manager shows the folder"
+        );
+        assert_eq!(
+            route(&post("/api/open-folder?terminal=iterm2", PAGE), 7789),
+            Route::OpenFolder {
+                with: FolderOpener::Terminal("iterm2".into())
+            },
+        );
+        assert_eq!(
+            route(&post("/api/open-folder?program=vscode", PAGE), 7789),
+            Route::OpenFolder {
+                with: FolderOpener::Program("vscode".into())
+            },
+        );
+        assert_eq!(route(&post("/api/fetch", PAGE), 7789), Route::Fetch);
+        assert_eq!(
+            route(&get("/api/folder-openers", LOCAL), 7789),
+            Route::FolderOpeners,
+            "listing what can open the folder only reads"
+        );
+        for target in ["/api/open-folder", "/api/fetch"] {
+            assert_eq!(
+                route(&post(target, Some("https://evil.example")), 7789),
+                Route::Error {
+                    status: "403 Forbidden"
+                },
+                "another site in the browser can't {target}"
+            );
+            assert_eq!(
+                route(&get(target, LOCAL), 7789),
+                Route::Error {
+                    status: "405 Method Not Allowed"
+                },
+                "a GET never launches anything or reaches the network: {target}"
             );
         }
     }
