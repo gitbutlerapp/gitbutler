@@ -4,6 +4,9 @@
 
 .diff {
 	background-color: var(--bg-2);
+	/* The app resets selection globally (global.css); the diff library relies on
+	   the browser default instead of restating it, so it inherits that reset. */
+	user-select: text;
 }
 
 .fileHeader {
@@ -33,9 +36,12 @@
 }
 
 /* The children lay out as items of the shadow root's own actions row, so
-   they share its gap and vertical rhythm with library-rendered content. */
+   they share its gap and vertical rhythm with library-rendered content.
+   These are controls, not diff content, so they opt back out of the
+   selectability .diff turns on. */
 .actions {
 	display: contents;
+	user-select: none;
 }
 
 .check {
@@ -89,6 +95,8 @@
 	overflow: hidden;
 	border: 1px solid var(--border-2);
 	border-radius: var(--radius-card);
+	/* Its contents are edited text, unlike the rest of .actions. */
+	user-select: text;
 }
 
 .editorActions {
