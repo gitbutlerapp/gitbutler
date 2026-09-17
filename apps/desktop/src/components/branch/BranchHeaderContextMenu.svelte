@@ -1,5 +1,5 @@
 <script lang="ts" module>
-	import type { Segment } from "@gitbutler/but-sdk";
+	import type { RelativeTo, Segment } from "@gitbutler/but-sdk";
 
 	export type BranchHeaderContextData = {
 		segment: Segment;
@@ -9,6 +9,24 @@
 		lastBranch?: boolean;
 		isNewBranch?: boolean;
 	};
+
+	/**
+	 * Anchor for creating a dependent branch next to `segment`. In a managed workspace a
+	 * reference-relative "below" hands every commit of the segment to the new branch, so it is
+	 * anchored below the segment's bottom commit instead (as Lite does); an empty segment or an
+	 * ad-hoc workspace keeps the reference-relative request.
+	 */
+	export function createBranchRelativeTo(
+		segment: Segment,
+		position: "above" | "below",
+		isOpenWorkspace: boolean,
+	): RelativeTo | undefined {
+		if (!segment.refName) return;
+		const bottomCommit =
+			isOpenWorkspace && position === "below" ? segment.commits.at(-1) : undefined;
+		if (bottomCommit) return { type: "commit", subject: bottomCommit.id };
+		return { type: "reference", subject: `refs/heads/${segment.refName.displayName}` };
+	}
 </script>
 
 <script lang="ts">
@@ -172,17 +190,14 @@
 	}
 
 	async function handleCreateNewRef(stackId: string, position: "above" | "below") {
-		if (!branchName) return;
-		const branchReference = `refs/heads/${branchName}`;
+		const relativeTo = createBranchRelativeTo(contextData.segment, position, isOpenWorkspace);
+		if (!relativeTo) return;
 		await createBranch({
 			projectId,
 			newRef: null,
 			placement: {
 				type: "dependent",
-				subject: {
-					relativeTo: { type: "reference", subject: branchReference },
-					side: position,
-				},
+				subject: { relativeTo, side: position },
 			},
 		});
 	}
