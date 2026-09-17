@@ -1881,3 +1881,20 @@ fn squash_source_with_partial_marks_is_selectable() {
         "snapshots/squash_source_with_partial_marks_is_selectable_001.svg"
     ]);
 }
+
+#[test]
+fn undo_from_details_mode() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["A"]);
+
+    let mut tui = test_status_tui(env);
+
+    tui.input('j');
+    tui.input('j');
+    tui.input('x');
+    tui.input('y');
+    tui.input('l')
+        .assert_rendered_term_svg_eq(file!["snapshots/undo_from_details_mode_001.svg"]);
+    tui.input('u')
+        .assert_rendered_term_svg_eq(file!["snapshots/undo_from_details_mode_002.svg"]);
+}

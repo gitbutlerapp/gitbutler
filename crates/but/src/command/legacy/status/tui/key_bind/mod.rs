@@ -154,6 +154,8 @@ pub fn default_key_binds(feature_flags: &FeatureFlags) -> KeyBinds {
                 builder.shrink_details().register();
                 builder.details_focus_status().register();
 
+                builder.undo().register();
+
                 builder.command().register();
                 builder.shell_command().register();
 
