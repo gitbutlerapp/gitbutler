@@ -89,7 +89,7 @@ fn maybe_persist_overrides(config_path: &Path, legacy_overrides: serde_json::Val
     {
         but_utils::write(
             config_path,
-            serde_json_lenient::to_string_pretty(&customizations_with_overrides)?,
+            serde_json::to_string_pretty(&customizations_with_overrides)?,
         )?;
     }
 
