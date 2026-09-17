@@ -43,6 +43,7 @@ use crate::{
 
 const INDEX_HTML: &str = include_str!("index.html");
 const APP_JS: &str = include_str!("app.js");
+const ICON_SVG: &str = include_str!("icon.svg");
 
 /// Requests are a request line and a few headers; anything larger is not from the page.
 const MAX_REQUEST_BYTES: u64 = 16 * 1024;
@@ -52,7 +53,7 @@ const MAX_REQUEST_BYTES: u64 = 16 * 1024;
 /// Returns what to print, and the server to [run](Server::run) once it's printed: printing first
 /// puts the URL on stdout before this process starts serving and never returns.
 pub fn start(ctx: &Context, args: Platform) -> CliResult<(PanelOutcome, Server)> {
-    let Platform { port, no_open } = args;
+    let Platform { port, no_open, app } = args;
     let root = repository_root(ctx)?;
     let url = project_url(port, &root);
 
@@ -81,6 +82,7 @@ pub fn start(ctx: &Context, args: Platform) -> CliResult<(PanelOutcome, Server)>
         listener,
         port,
         url: if no_open { None } else { Some(url) },
+        app,
         root,
     };
     Ok((outcome, server))
@@ -147,6 +149,8 @@ pub struct Server {
     port: u16,
     /// The page to open in a browser, unless `--no-open` was passed.
     url: Option<String>,
+    /// Open it in a window of its own rather than a tab.
+    app: bool,
     root: PathBuf,
 }
 
@@ -157,12 +161,18 @@ impl Server {
             listener,
             port,
             url,
+            app,
             root,
         } = self;
-        if let Some(url) = url
-            && let Err(err) = but_api::open::open_url(url)
-        {
-            tracing::warn!(?err, "could not open a browser for the panel");
+        if let Some(url) = url {
+            let opened = if app {
+                open_app_window(&url)
+            } else {
+                but_api::open::open_url(url)
+            };
+            if let Err(err) = opened {
+                tracing::warn!(?err, "could not open a browser for the panel");
+            }
         }
         let Some(listener) = listener else {
             return Ok(());
@@ -176,15 +186,99 @@ impl Server {
         };
         // A commit's files never change, so each is listed once, whichever project it's in.
         let mut commit_files = HashMap::new();
+        // Each project's last graph, by repository root, reused while nothing it depends on changed.
+        let mut graphs = HashMap::new();
         for stream in listener.incoming() {
             let Ok(stream) = stream else { continue };
-            if let Err(err) = handle_connection(&mut projects, &mut commit_files, port, stream) {
+            if let Err(err) =
+                handle_connection(&mut projects, &mut commit_files, &mut graphs, port, stream)
+            {
                 // A dropped or malformed connection only affects that one request.
                 tracing::debug!(?err, "panel request failed");
             }
         }
         Ok(())
     }
+}
+
+/// Open `url` in a window of its own, the way Chromium browsers do with `--app`: the first of the
+/// known ones that is installed takes it. With none, the default browser opens it as a tab.
+fn open_app_window(url: &str) -> anyhow::Result<()> {
+    use std::process::{Command, Stdio};
+
+    let app_flag = format!("--app={url}");
+    let launched = if cfg!(target_os = "macos") {
+        // `open` finds the application by name, and fails when it isn't installed.
+        [
+            "Google Chrome",
+            "Arc",
+            "Microsoft Edge",
+            "Brave Browser",
+            "Chromium",
+        ]
+        .iter()
+        .any(|browser| {
+            Command::new("/usr/bin/open")
+                .args(["-na", browser, "--args", &app_flag])
+                .stdout(Stdio::null())
+                .stderr(Stdio::null())
+                .status()
+                .is_ok_and(|status| status.success())
+        })
+    } else {
+        let browsers: &[&str] = if cfg!(target_os = "windows") {
+            &["chrome", "msedge", "brave"]
+        } else {
+            &[
+                "google-chrome",
+                "google-chrome-stable",
+                "chromium",
+                "chromium-browser",
+                "microsoft-edge",
+                "brave-browser",
+            ]
+        };
+        browsers.iter().any(|browser| {
+            Command::new(browser)
+                .arg(&app_flag)
+                .stdout(Stdio::null())
+                .stderr(Stdio::null())
+                .spawn()
+                .is_ok()
+        })
+    };
+    if launched {
+        return Ok(());
+    }
+    tracing::info!("no Chromium browser found for an app window; opening the default browser");
+    but_api::open::open_url(url.to_owned())
+}
+
+/// The web app manifest that lets a Chromium browser install the panel as a windowed app: one per
+/// project, named after it, opening on it. A page without a project gets the one the server
+/// started in; only when a project can't be resolved does it install as the plain panel.
+fn manifest_json(root: Option<PathBuf>) -> serde_json::Value {
+    let (name, start_url) = match root {
+        Some(root) => (
+            format!("{} · GitButler", repository_name(&root)),
+            format!("/?project={}", percent_encode(&root.to_string_lossy())),
+        ),
+        None => ("GitButler Panel".to_owned(), "/".to_owned()),
+    };
+    json!({
+        "name": name,
+        "short_name": "Panel",
+        "description": "A live view of the GitButler workspace",
+        "start_url": start_url,
+        "id": start_url,
+        "scope": "/",
+        "display": "standalone",
+        // Installed, the page may take the title bar too, keeping only the window's buttons.
+        "display_override": ["window-controls-overlay"],
+        "background_color": "#fbfbfa",
+        "theme_color": "#fbfbfa",
+        "icons": [{ "src": "/icon.svg", "sizes": "any", "type": "image/svg+xml" }],
+    })
 }
 
 /// The page for the project at `root`.
@@ -256,6 +350,70 @@ fn known_projects() -> Option<Vec<(String, PathBuf)>> {
     None
 }
 
+/// Remember the repository at `root` as a GitButler project, as the app's "add project" does.
+/// Already being one is fine.
+#[cfg(feature = "legacy")]
+fn register_project(root: &Path) -> anyhow::Result<()> {
+    use gitbutler_project::AddProjectOutcome;
+
+    let outcome = but_api::legacy::projects::add_project_best_effort(root.to_owned())?;
+    let refused = match outcome {
+        AddProjectOutcome::Added(_) | AddProjectOutcome::AlreadyExists(_) => return Ok(()),
+        AddProjectOutcome::PathNotFound => "the path doesn't exist",
+        AddProjectOutcome::NotADirectory => "the path isn't a directory",
+        AddProjectOutcome::BareRepository => "the repository is bare",
+        AddProjectOutcome::NonMainWorktree => "the path is a linked worktree; add its main one",
+        AddProjectOutcome::NoWorkdir => "the repository has no working directory",
+        AddProjectOutcome::NoDotGitDirectory => "the repository has no .git directory",
+        AddProjectOutcome::ReftableRefFormatUnsupported => "reftable repositories aren't supported",
+        AddProjectOutcome::NotAGitRepository(_) => "the path isn't a Git repository",
+    };
+    anyhow::bail!("GitButler can't add {}: {refused}", root.display())
+}
+
+#[cfg(not(feature = "legacy"))]
+fn register_project(_root: &Path) -> anyhow::Result<()> {
+    Ok(())
+}
+
+/// How often the app fetches on its own, in minutes, or zero or less when it doesn't. The panel
+/// keeps to the same setting, and offers to change it.
+fn auto_fetch_minutes() -> isize {
+    but_settings::AppSettings::load_from_default_path_creating_without_customization()
+        .map_or(-1, |settings| settings.fetch.auto_fetch_interval_minutes)
+}
+
+/// Change how often the app and the panel fetch on their own; zero or less turns it off.
+fn set_auto_fetch_minutes(minutes: isize) -> anyhow::Result<serde_json::Value> {
+    crate::command::config::load_app_settings_sync()?.update_fetch(
+        but_settings::api::FetchUpdate {
+            auto_fetch_interval_minutes: Some(minutes),
+        },
+    )?;
+    Ok(json!({ "autoFetchMinutes": minutes }))
+}
+
+/// Fetch when the last attempt is older than the auto-fetch interval, as the app does. Any
+/// process's fetch through the workspace API counts, and so does a failed attempt, so an
+/// unreachable remote is tried no more often.
+fn auto_fetch_if_due(ctx: &mut Context, minutes: isize) {
+    if minutes <= 0 {
+        return;
+    }
+    let last_attempt = but_api::workspace::workspace_fetch_status(ctx)
+        .ok()
+        .and_then(|status| status.last_attempted_ms);
+    let now = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map_or(0, |since| since.as_millis() as u64);
+    let interval = minutes as u64 * 60_000;
+    if last_attempt.is_none_or(|last| now.saturating_sub(last) >= interval)
+        && let Err(err) = fetch(ctx)
+    {
+        tracing::debug!(?err, "the panel's automatic fetch failed");
+    }
+}
+
 /// The projects this server has shown, each with the context it reads through.
 struct Projects<'ctx> {
     /// The project `but panel` was started in.
@@ -269,14 +427,14 @@ struct Projects<'ctx> {
 
 impl Projects<'_> {
     /// The projects to offer in the page's switcher, by name: every GitButler project where the
-    /// project list is readable, and otherwise the ones this server has shown.
+    /// project list is readable, and the ones this server has shown.
     fn list(&self) -> serde_json::Value {
-        let mut listed: Vec<(String, PathBuf)> = known_projects().unwrap_or_else(|| {
+        let mut listed: Vec<(String, PathBuf)> = known_projects().unwrap_or_default();
+        listed.extend(
             std::iter::once(&self.default_root)
                 .chain(self.opened.keys())
-                .map(|root| (repository_name(root), root.clone()))
-                .collect()
-        });
+                .map(|root| (repository_name(root), root.clone())),
+        );
         listed.sort_by_key(|(name, _)| name.to_lowercase());
         listed.dedup_by(|a, b| a.1 == b.1);
         serde_json::Value::Array(
@@ -285,6 +443,15 @@ impl Projects<'_> {
                 .map(|(name, path)| json!({ "name": name, "path": path }))
                 .collect(),
         )
+    }
+
+    /// Open the repository at `path` so the switcher lists it, and remember it as a GitButler
+    /// project where the project list is writable, so it stays listed after this server stops.
+    /// Returns the project's root, for the page to show.
+    fn add(&mut self, path: &str) -> anyhow::Result<PathBuf> {
+        let (_, root) = self.get(Some(path))?;
+        register_project(&root)?;
+        Ok(root)
     }
 
     /// The context and root for the project at `requested`, or the default project without one.
@@ -323,6 +490,7 @@ impl Projects<'_> {
 fn handle_connection(
     projects: &mut Projects<'_>,
     commit_files: &mut HashMap<gix::ObjectId, serde_json::Value>,
+    graphs: &mut HashMap<PathBuf, GraphCache>,
     port: u16,
     stream: TcpStream,
 ) -> anyhow::Result<()> {
@@ -340,13 +508,33 @@ fn handle_connection(
                 content_type: "text/javascript; charset=utf-8",
                 body: APP_JS,
             },
+            Route::Icon => Response::Page {
+                content_type: "image/svg+xml",
+                body: ICON_SVG,
+            },
+            Route::Manifest => Response::Manifest(manifest_json(
+                projects.get(project.as_deref()).ok().map(|(_, root)| root),
+            )),
             Route::Ping => Response::Json(json!({ "panel": true })),
             Route::Projects => data_response(Ok(projects.list())),
-            Route::Workspace => data_response(
-                projects
-                    .get(project.as_deref())
-                    .and_then(|(ctx, root)| workspace_json(ctx, &root)),
-            ),
+            Route::AddProject { path } => {
+                data_response(projects.add(&path).map(|root| json!({ "path": root })))
+            }
+            Route::Workspace => {
+                data_response(projects.get(project.as_deref()).and_then(|(ctx, root)| {
+                    let minutes = auto_fetch_minutes();
+                    auto_fetch_if_due(ctx, minutes);
+                    let mut graph = graphs.remove(&root);
+                    let result = workspace_json(ctx, &root, minutes, &mut graph);
+                    if let Some(graph) = graph {
+                        graphs.insert(root, graph);
+                    }
+                    result
+                }))
+            }
+            Route::Settings { auto_fetch_minutes } => {
+                data_response(set_auto_fetch_minutes(auto_fetch_minutes))
+            }
             Route::Commit { id } => data_response(
                 projects
                     .get(project.as_deref())
@@ -400,46 +588,122 @@ fn handle_connection(
     write_response(&stream, response)
 }
 
+/// The workspace graph as last computed for a project, kept while nothing that feeds it changed.
+/// Walking the graph is most of a poll's cost, and polls come every few seconds.
+struct GraphCache {
+    fingerprint: u64,
+    taken: std::time::Instant,
+    workspace: serde_json::Value,
+    branch_names: Vec<String>,
+    behind: Option<usize>,
+}
+
+/// The cached graph is recomputed at least this often, in case something it depends on changed
+/// without touching what the fingerprint watches.
+const GRAPH_MAX_AGE: Duration = Duration::from_secs(30);
+
+/// A digest of everything on disk the graph is computed from: `HEAD`, the refs, loose and
+/// packed, the linked worktrees' heads, and GitButler's branch metadata. Any ref or metadata
+/// write changes a modification time or size in there.
+fn graph_fingerprint(ctx: &Context) -> anyhow::Result<u64> {
+    use std::hash::{Hash, Hasher};
+
+    fn hash_path(path: &Path, hasher: &mut impl Hasher) {
+        let Ok(metadata) = std::fs::metadata(path) else {
+            return;
+        };
+        path.hash(hasher);
+        metadata.len().hash(hasher);
+        metadata.modified().ok().hash(hasher);
+        if metadata.is_dir()
+            && let Ok(entries) = std::fs::read_dir(path)
+        {
+            for entry in entries.flatten() {
+                hash_path(&entry.path(), hasher);
+            }
+        }
+    }
+
+    let repo = ctx.repo.get()?;
+    let common = repo.common_dir().to_owned();
+    let mut hasher = std::hash::DefaultHasher::new();
+    for path in [
+        repo.git_dir().join("HEAD"),
+        common.join("packed-refs"),
+        common.join("refs"),
+        common.join("worktrees"),
+        ctx.project_data_dir.join("virtual_branches.toml"),
+    ] {
+        hash_path(&path, &mut hasher);
+    }
+    Ok(hasher.finish())
+}
+
 /// Everything the page shows at once: the workspace graph, how far the target has moved on since
 /// the last update, the uncommitted changes, the linked worktrees, and what the forge has for each
-/// branch.
-fn workspace_json(ctx: &mut Context, root: &Path) -> anyhow::Result<serde_json::Value> {
-    let mut guard = ctx.exclusive_worktree_access();
-    // This command keeps one context for its whole run; drop the cached workspace so each request
-    // sees changes made by other processes since the last one.
-    ctx.invalidate_workspace(guard.write_permission());
-    let perm = guard.read_permission();
+/// branch. The graph comes from `graph` while its fingerprint holds; the uncommitted changes are
+/// read every time, as edits to files leave no trace the fingerprint could see.
+fn workspace_json(
+    ctx: &mut Context,
+    root: &Path,
+    auto_fetch_minutes: isize,
+    graph: &mut Option<GraphCache>,
+) -> anyhow::Result<serde_json::Value> {
+    let fingerprint = graph_fingerprint(ctx)?;
+    let fresh = graph.as_ref().is_some_and(|cache| {
+        cache.fingerprint == fingerprint && cache.taken.elapsed() < GRAPH_MAX_AGE
+    });
 
-    let workspace = but_api::workspace::get_workspace(ctx, perm)?;
-    // Commits on the target's remote-tracking branch that no stack has yet, as last fetched.
-    let behind = ctx
-        .workspace_and_db_with_perm(perm)?
-        .1
-        .target_ref
+    let mut guard = ctx.exclusive_worktree_access();
+    if !fresh {
+        // This command keeps one context for its whole run; drop the cached workspace so the
+        // request sees changes made by other processes since the last one.
+        ctx.invalidate_workspace(guard.write_permission());
+    }
+    let perm = guard.read_permission();
+    if !fresh {
+        let workspace = but_api::workspace::get_workspace(ctx, perm)?;
+        // Commits on the target's remote-tracking branch that no stack has yet, as last fetched.
+        let behind = ctx
+            .workspace_and_db_with_perm(perm)?
+            .1
+            .target_ref
+            .as_ref()
+            .map(|target| target.commits_ahead);
+        let branch_names = workspace
+            .stacks
+            .iter()
+            .flat_map(|stack| &stack.rows)
+            .filter_map(|row| match &row.data {
+                DetailedGraphRowData::Reference(reference) => {
+                    Some(reference.ref_name.display_name.clone())
+                }
+                DetailedGraphRowData::Commit(_) => None,
+            })
+            .collect();
+        *graph = Some(GraphCache {
+            fingerprint,
+            taken: std::time::Instant::now(),
+            workspace: serde_json::to_value(workspace)?,
+            branch_names,
+            behind,
+        });
+    }
+    let cache = graph
         .as_ref()
-        .map(|target| target.commits_ahead);
+        .expect("computed above when missing or stale");
     let changes =
         but_api::diff::changes_in_worktree_with_perm(ctx, ChangesSource::Head, false, perm)?;
-    let branch_names: Vec<String> = workspace
-        .stacks
-        .iter()
-        .flat_map(|stack| &stack.rows)
-        .filter_map(|row| match &row.data {
-            DetailedGraphRowData::Reference(reference) => {
-                Some(reference.ref_name.display_name.clone())
-            }
-            DetailedGraphRowData::Commit(_) => None,
-        })
-        .collect();
 
     Ok(json!({
         "repo": repository_name(root),
         "project": root,
-        "workspace": serde_json::to_value(workspace)?,
-        "behind": behind,
+        "workspace": cache.workspace,
+        "behind": cache.behind,
         "changes": serde_json::to_value(changes.worktree_changes.changes)?,
         "worktrees": worktrees_json(ctx, perm),
-        "forge": forge_json(ctx, &branch_names),
+        "forge": forge_json(ctx, &cache.branch_names, auto_fetch_minutes),
+        "autoFetchMinutes": auto_fetch_minutes,
     }))
 }
 
@@ -474,10 +738,15 @@ fn worktrees_json(ctx: &Context, perm: &RepoShared) -> Vec<serde_json::Value> {
 
 /// What the forge has for this workspace, or `null` when the target's forge is unknown: the forge's
 /// name, what it calls a review, the repository's page, the URL a commit ID appends to, and for
-/// each branch its compare page and its review with a summary of its CI. Reviews and CI are read
-/// from the forge cache only, so polling never reaches the network.
+/// each branch its compare page and its review with a summary of its CI. Reviews and CI come from
+/// the forge cache, refreshed from the forge once they are older than the auto-fetch interval;
+/// with auto-fetching off they are read from the cache only, so polling never reaches the network.
 #[cfg(feature = "legacy")]
-fn forge_json(ctx: &Context, branch_names: &[String]) -> serde_json::Value {
+fn forge_json(
+    ctx: &Context,
+    branch_names: &[String],
+    auto_fetch_minutes: isize,
+) -> serde_json::Value {
     use but_api::legacy::forge;
     use but_forge::ForgeName;
 
@@ -502,7 +771,13 @@ fn forge_json(ctx: &Context, branch_names: &[String]) -> serde_json::Value {
             ))
         });
     let accounts = but_forge::get_all_forge_accounts().unwrap_or_default();
-    let cache = Some(but_forge::CacheConfig::CacheOnly);
+    let cache = Some(if auto_fetch_minutes > 0 {
+        but_forge::CacheConfig::CacheWithFallback {
+            max_age_seconds: auto_fetch_minutes as u64 * 60,
+        }
+    } else {
+        but_forge::CacheConfig::CacheOnly
+    });
     // No account just means no reviews to show.
     let reviews = forge::list_reviews(ctx, cache.clone()).unwrap_or_default();
 
@@ -540,8 +815,24 @@ fn forge_json(ctx: &Context, branch_names: &[String]) -> serde_json::Value {
 }
 
 #[cfg(not(feature = "legacy"))]
-fn forge_json(_ctx: &Context, _branch_names: &[String]) -> serde_json::Value {
+fn forge_json(
+    _ctx: &Context,
+    _branch_names: &[String],
+    _auto_fetch_minutes: isize,
+) -> serde_json::Value {
     serde_json::Value::Null
+}
+
+/// Read every branch's review and CI from the forge again, whatever the cache holds.
+#[cfg(feature = "legacy")]
+fn refresh_forge(ctx: &Context) -> anyhow::Result<()> {
+    but_api::legacy::forge::list_reviews(ctx, Some(but_forge::CacheConfig::NoCache))?;
+    but_api::legacy::forge::warm_ci_checks_cache(ctx)
+}
+
+#[cfg(not(feature = "legacy"))]
+fn refresh_forge(_ctx: &Context) -> anyhow::Result<()> {
+    Ok(())
 }
 
 /// Summarise checks the way `but status` does: any failure wins, then anything still running,
@@ -799,14 +1090,18 @@ fn open_folder(root: &Path, with: &FolderOpener) -> anyhow::Result<serde_json::V
     Ok(json!({ "opened": true }))
 }
 
-/// Fetch from every remote, so the target's new commits and each branch's push status show. One
-/// refresh at a time across `but` processes, as `but refresh` does.
+/// Fetch from every remote, so the target's new commits and each branch's push status show, and
+/// read the reviews and CI again. One refresh at a time across `but` processes, as `but refresh`
+/// does. Without a forge account there are no reviews to read, which isn't a failed fetch.
 fn fetch(ctx: &mut Context) -> anyhow::Result<serde_json::Value> {
     let _lock = but_core::sync::try_exclusive_inter_process_access(
         &ctx.gitdir,
         but_core::sync::LockScope::BackgroundRefreshOperations,
     )?;
     but_api::workspace::workspace_fetch_from_remotes(ctx, Some("auto".to_owned()))?;
+    if let Err(err) = refresh_forge(ctx) {
+        tracing::debug!(?err, "the panel could not refresh reviews and CI");
+    }
     Ok(json!({ "fetched": true }))
 }
 
@@ -964,6 +1259,8 @@ enum Response {
         body: &'static str,
     },
     Json(serde_json::Value),
+    /// A web app manifest, which browsers want served as its own type.
+    Manifest(serde_json::Value),
     Error {
         status: &'static str,
     },
@@ -973,10 +1270,23 @@ enum Response {
 enum Route {
     Index,
     Script,
+    /// The icon the browser tab and an installed app show.
+    Icon,
+    /// The web app manifest, for installing the page as an app of its own.
+    Manifest,
     /// Lets a second `but panel` recognise a running panel.
     Ping,
     /// The projects the page can switch between.
     Projects,
+    /// Open the repository at `path` and list it among the projects, remembering it as a GitButler
+    /// project where possible.
+    AddProject {
+        path: String,
+    },
+    /// Change how often the app and the panel fetch on their own.
+    Settings {
+        auto_fetch_minutes: isize,
+    },
     Workspace,
     Commit {
         id: String,
@@ -1056,8 +1366,13 @@ fn route(request: &Request, port: u16) -> Route {
     // `POST` here, but not with this server's own origin.
     let is_action = matches!(
         path,
-        "/api/open" | "/api/open-folder" | "/api/fetch" | "/api/push" | "/api/pull"
-    );
+        "/api/open"
+            | "/api/open-folder"
+            | "/api/fetch"
+            | "/api/push"
+            | "/api/pull"
+            | "/api/settings"
+    ) || (path == "/api/projects" && request.method == "POST");
     let origin_is_local = request.origin.as_deref().is_some_and(|origin| {
         origin == format!("http://localhost:{port}") || origin == format!("http://127.0.0.1:{port}")
     });
@@ -1079,8 +1394,22 @@ fn route(request: &Request, port: u16) -> Route {
     match path {
         "/" => Route::Index,
         "/app.js" => Route::Script,
+        "/icon.svg" => Route::Icon,
+        "/manifest.webmanifest" => Route::Manifest,
         "/api/ping" => Route::Ping,
+        "/api/projects" if is_action => match param("path") {
+            Some(path) => Route::AddProject { path },
+            None => Route::Error {
+                status: "400 Bad Request",
+            },
+        },
         "/api/projects" => Route::Projects,
+        "/api/settings" => match param("autoFetchMinutes").and_then(|value| value.parse().ok()) {
+            Some(auto_fetch_minutes) => Route::Settings { auto_fetch_minutes },
+            None => Route::Error {
+                status: "400 Bad Request",
+            },
+        },
         "/api/workspace" => Route::Workspace,
         "/api/commit" => match param("id") {
             Some(id) => Route::Commit { id },
@@ -1219,6 +1548,11 @@ fn write_response(mut stream: &TcpStream, response: Response) -> anyhow::Result<
             "application/json",
             serde_json::to_string(&value).context("serializing the panel response")?,
         ),
+        Response::Manifest(value) => (
+            "200 OK",
+            "application/manifest+json",
+            serde_json::to_string(&value).context("serializing the panel manifest")?,
+        ),
         Response::Error { status } => (status, "text/plain; charset=utf-8", status.to_owned()),
     };
     write!(
@@ -1277,6 +1611,12 @@ mod tests {
     fn routes_the_page_and_its_data() {
         assert_eq!(route(&get("/", LOCAL), 7789), Route::Index);
         assert_eq!(route(&get("/app.js", LOCAL), 7789), Route::Script);
+        assert_eq!(route(&get("/icon.svg", LOCAL), 7789), Route::Icon);
+        assert_eq!(
+            route(&get("/manifest.webmanifest?project=%2Fa", LOCAL), 7789),
+            Route::Manifest,
+            "the manifest names the project the page carries"
+        );
         assert_eq!(route(&get("/api/workspace", LOCAL), 7789), Route::Workspace);
         assert_eq!(route(&get("/api/ping", LOCAL), 7789), Route::Ping);
         assert_eq!(route(&get("/api/projects", LOCAL), 7789), Route::Projects);
@@ -1312,6 +1652,21 @@ mod tests {
             },
             "a worktree's uncommitted change names the worktree"
         );
+    }
+
+    #[test]
+    fn names_the_project_in_the_manifest() {
+        let manifest = manifest_json(Some(PathBuf::from("/Users/me/My Repo/fliege")));
+        assert_eq!(manifest["name"], "fliege · GitButler");
+        assert_eq!(
+            manifest["start_url"], "/?project=/Users/me/My%20Repo/fliege",
+            "an installed app opens on the project it was installed from"
+        );
+        assert_eq!(
+            manifest["id"], manifest["start_url"],
+            "each project is an app of its own"
+        );
+        assert_eq!(manifest_json(None)["start_url"], "/");
     }
 
     #[test]
@@ -1480,6 +1835,33 @@ mod tests {
             Route::Pull { check: false }
         );
         assert_eq!(
+            route(&post("/api/projects?path=%2FUsers%2Fme%2Frepo", PAGE), 7789),
+            Route::AddProject {
+                path: "/Users/me/repo".into()
+            },
+            "a POST to the project list adds one; a GET lists them"
+        );
+        assert_eq!(
+            route(&post("/api/projects", PAGE), 7789),
+            Route::Error {
+                status: "400 Bad Request"
+            },
+            "adding needs a path"
+        );
+        assert_eq!(
+            route(&post("/api/settings?autoFetchMinutes=-1", PAGE), 7789),
+            Route::Settings {
+                auto_fetch_minutes: -1
+            },
+            "a negative interval turns auto-fetching off"
+        );
+        assert_eq!(
+            route(&post("/api/settings?autoFetchMinutes=soon", PAGE), 7789),
+            Route::Error {
+                status: "400 Bad Request"
+            },
+        );
+        assert_eq!(
             route(&get("/api/folder-openers", LOCAL), 7789),
             Route::FolderOpeners,
             "listing what can open the folder only reads"
@@ -1489,6 +1871,7 @@ mod tests {
             "/api/fetch",
             "/api/push?branch=refs%2Fheads%2Ffeat",
             "/api/pull",
+            "/api/settings?autoFetchMinutes=5",
         ] {
             assert_eq!(
                 route(&post(target, Some("https://evil.example")), 7789),

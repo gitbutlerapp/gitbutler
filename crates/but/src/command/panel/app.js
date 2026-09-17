@@ -23,6 +23,10 @@ function api(path, params = {}) {
 	return `${path}?${query}`;
 }
 
+// The web app manifest for this project, so "Install" in a Chromium browser makes the panel a
+// windowed app of its own for this project.
+if (PROJECT) document.getElementById("manifest").href = api("/manifest.webmanifest");
+
 const open = new Set(); // keys of expanded rows
 const loaded = new Map(); // key -> {loading} | {data} | {error}
 const urls = new Map(); // key -> where its data was fetched from, for refreshing
@@ -390,6 +394,7 @@ async function tick() {
 			changes: data.changes,
 			worktrees: data.worktrees,
 			forge: data.forge,
+			autoFetchMinutes: data.autoFetchMinutes,
 		};
 		paint(false);
 		showUpstream();
@@ -491,6 +496,21 @@ addEventListener("keydown", (event) => {
 			searchEl.dispatchEvent(new Event("input"));
 		}
 	}
+});
+
+// --- installing --------------------------------------------------------------
+
+// A Chromium browser offers this once the page qualifies as an installable app, and the project
+// menu then offers to install. It never comes in a window that already is the app, nor in
+// browsers without app installs, so the item stays out of the way there.
+let installPrompt = null;
+addEventListener("beforeinstallprompt", (event) => {
+	event.preventDefault();
+	installPrompt = event;
+});
+addEventListener("appinstalled", () => {
+	installPrompt = null;
+	toast("Installed; find it with your other apps");
 });
 
 // --- context menus -----------------------------------------------------------
@@ -773,6 +793,18 @@ menuEl.addEventListener("click", async (event) => {
 			toast(`Opened in ${item.dataset.name}`);
 			return;
 		}
+		if ("install" in item.dataset) {
+			const prompt = installPrompt;
+			installPrompt = null;
+			await prompt.prompt();
+			return;
+		}
+		if ("autofetch" in item.dataset) {
+			await post("/api/settings", { autoFetchMinutes: item.dataset.autofetch });
+			toast(`Auto-fetch: ${item.dataset.label.toLowerCase()}`);
+			tick();
+			return;
+		}
 		if ("push" in item.dataset) {
 			toast(`Pushing ${item.dataset.name}…`);
 			const params = { branch: item.dataset.push };
@@ -792,6 +824,15 @@ menuEl.addEventListener("click", async (event) => {
 	}
 });
 
+// What the app offers for its auto-fetch frequency, in minutes; a negative value turns it off.
+const AUTO_FETCH = [
+	[1, "Every minute"],
+	[5, "Every 5 minutes"],
+	[10, "Every 10 minutes"],
+	[15, "Every 15 minutes"],
+	[-1, "Off"],
+];
+
 /** The project menu, below its button: the path, the forge page, and what opens the folder. */
 document.getElementById("more").addEventListener("click", async (event) => {
 	if (!latest) return;
@@ -807,6 +848,13 @@ document.getElementById("more").addEventListener("click", async (event) => {
 		menuLabel("Copy") +
 		menuItem("Project path", { copy: latest.project, what: "Project path" });
 	if (forge) header += menuLabel(forge.name) + menuItem("Open repository", { href: forge.url });
+	if (installPrompt) header += menuLabel("This page") + menuItem("Install as an app", { install: "" });
+	// The app's own setting, so changing it here changes it there too.
+	header +=
+		menuLabel("Auto-fetch") +
+		AUTO_FETCH.map(([minutes, label]) =>
+			menuItem(`${minutes === latest.autoFetchMinutes ? "✓ " : " "}${label}`, { autofetch: minutes, label }),
+		).join("");
 	header += menuLabel("Open folder with");
 	showMenu(serial, at, header + menuNote("Loading…"));
 	try {
@@ -966,18 +1014,56 @@ async function showProject({ repo, project }) {
 	const entries = projectList.some((entry) => entry.path === project)
 		? projectList
 		: [{ name: repo, path: project }, ...projectList];
-	repoEl.innerHTML = entries
-		.map(
-			(entry) =>
-				`<option value="${esc(entry.path)}"${entry.path === project ? " selected" : ""}>${esc(entry.name)}</option>`,
-		)
-		.join("");
+	repoEl.innerHTML =
+		entries
+			.map(
+				(entry) =>
+					`<option value="${esc(entry.path)}"${entry.path === project ? " selected" : ""}>${esc(entry.name)}</option>`,
+			)
+			.join("") + `<option disabled>──────</option><option value="${ADD_PROJECT}">Add project…</option>`;
+}
+
+// A relative path, which no project root can be.
+const ADD_PROJECT = "+";
+const addForm = document.getElementById("add-project");
+const addPath = document.getElementById("add-path");
+
+/** Show the page for the project at `path`: a full navigation, so the address, reloads and history
+ * all name it. Slashes stay readable, the way `but panel` prints the URL. */
+function showProjectAt(path) {
+	location.search = `project=${encodeURIComponent(path).replaceAll("%2F", "/")}`;
 }
 
 repoEl.addEventListener("change", () => {
-	// A full navigation, so the address, reloads and history all name the new project.
-	// Keep slashes readable, the way `but panel` prints the URL.
-	location.search = `project=${encodeURIComponent(repoEl.value).replaceAll("%2F", "/")}`;
+	if (repoEl.value !== ADD_PROJECT) {
+		showProjectAt(repoEl.value);
+		return;
+	}
+	repoEl.value = shownProject;
+	addForm.hidden = false;
+	addPath.focus();
+});
+
+document.getElementById("add-cancel").addEventListener("click", () => {
+	addForm.hidden = true;
+	addPath.value = "";
+});
+
+/** Add the repository typed in, then show it. It stays listed after the server stops when
+ * GitButler could remember it as a project. */
+addForm.addEventListener("submit", async (event) => {
+	event.preventDefault();
+	const path = addPath.value.trim();
+	if (!path) return;
+	const button = addForm.querySelector("button[type=submit]");
+	button.disabled = true;
+	try {
+		const added = await post("/api/projects", { path });
+		showProjectAt(added.path);
+	} catch (error) {
+		toast(String(error.message || error), true);
+		button.disabled = false;
+	}
 });
 
 tree.addEventListener("click", (event) => {
@@ -997,15 +1083,16 @@ tree.addEventListener("click", (event) => {
 	paint(true);
 });
 
-// Refetch what is open; closed rows fetch again when they next open.
-document.getElementById("refresh").addEventListener("click", () => {
-	for (const key of loaded.keys()) {
-		if (open.has(key)) load(key, urls.get(key));
-		else loaded.delete(key);
-	}
+// Poll only while the page can be seen: a hidden tab costs the server nothing, and catches up the
+// moment it's shown again.
+let poll = null;
+function watchVisibility() {
+	clearInterval(poll);
+	poll = null;
+	if (document.visibilityState !== "visible") return;
 	tick();
-});
-
-tick();
-setInterval(tick, POLL_MS);
-addEventListener("focus", tick);
+	poll = setInterval(tick, POLL_MS);
+}
+document.addEventListener("visibilitychange", watchVisibility);
+addEventListener("focus", () => document.visibilityState === "visible" && tick());
+watchVisibility();

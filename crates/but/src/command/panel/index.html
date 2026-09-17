@@ -3,7 +3,12 @@
 	<head>
 		<meta charset="utf-8" />
 		<meta name="viewport" content="width=device-width,initial-scale=1" />
+		<meta name="theme-color" content="#fbfbfa" media="(prefers-color-scheme: light)" />
+		<meta name="theme-color" content="#191817" media="(prefers-color-scheme: dark)" />
 		<title>workspace</title>
+		<link rel="icon" href="/icon.svg" type="image/svg+xml" />
+		<!-- Names the project shown, so each project installs as its own app; see app.js. -->
+		<link rel="manifest" id="manifest" href="/manifest.webmanifest" />
 		<style>
 			:root {
 				color-scheme: light dark;
@@ -72,10 +77,22 @@
 				flex-direction: column;
 				gap: 2px;
 			}
+			/*
+			 * As an installed app with the title bar handed to the page, the first row starts after
+			 * the window's buttons, is at least as tall as their strip, and drags the window. In a
+			 * tab the title bar variables are unset, and none of this applies.
+			 */
 			.hrow {
 				display: flex;
 				align-items: center;
 				gap: 7px;
+				padding-left: env(titlebar-area-x, 0px);
+				min-height: env(titlebar-area-height, 0px);
+				-webkit-app-region: drag;
+			}
+			.hrow button,
+			.hrow select {
+				-webkit-app-region: no-drag;
 			}
 			.repo {
 				font: inherit;
@@ -116,6 +133,42 @@
 			}
 			.spacer {
 				margin-left: auto;
+			}
+			/* Adding a repository by path, since a page can't browse for a folder. */
+			.add-project {
+				display: flex;
+				align-items: center;
+				gap: 6px;
+				margin-top: 6px;
+			}
+			.add-project[hidden] {
+				display: none;
+			}
+			.add-project input {
+				flex: 1;
+				min-width: 0;
+				font: inherit;
+				font-size: 12px;
+				color: var(--fg);
+				background: var(--raised);
+				border: 1px solid var(--rule);
+				border-radius: 6px;
+				padding: 4px 8px;
+				outline: none;
+			}
+			.add-project input:focus {
+				border-color: var(--accent);
+			}
+			.add-project button[type="submit"] {
+				border: 0;
+				border-radius: 5px;
+				padding: 4px 10px;
+				background: var(--accent);
+				color: #fff;
+				font: inherit;
+				font-size: 11.5px;
+				font-weight: 600;
+				cursor: pointer;
 			}
 			/* The target moved on: the one notice the header shows, with its remedy. */
 			.upstream {
@@ -592,11 +645,15 @@
 				<span class="dot" id="dot"></span>
 				<select class="repo" id="repo" title="Switch project"><option>…</option></select>
 				<span class="spacer"></span>
-				<button class="ghost" id="fetch" title="Fetch from the remotes">⇣ Fetch</button>
-				<button class="ghost" id="refresh" title="Refresh now">⟳</button>
+				<button class="ghost" id="fetch" title="Fetch from the remotes, and read reviews and CI again">⇣ Fetch</button>
 				<button class="ghost" id="more" title="Project menu">⋯</button>
 			</div>
 			<div class="sub" id="sub"></div>
+			<form class="add-project" id="add-project" hidden>
+				<input id="add-path" placeholder="/path/to/a/repository" autocomplete="off" spellcheck="false" />
+				<button type="submit">Add</button>
+				<button type="button" class="ghost" id="add-cancel">Cancel</button>
+			</form>
 			<div class="upstream" id="upstream" hidden></div>
 			<input class="search" id="search" type="search" placeholder="Search files in commits (/)" autocomplete="off" spellcheck="false" />
 		</header>
