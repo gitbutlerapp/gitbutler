@@ -2,6 +2,7 @@ import cactus from "./illustrations/cactus.svg?raw";
 import idCard from "./illustrations/id-card.svg?raw";
 import looking from "./illustrations/looking.svg?raw";
 import papers from "./illustrations/papers.svg?raw";
+import terminal from "./illustrations/terminal.svg?raw";
 import waving from "./illustrations/waving.svg?raw";
 
 /**
@@ -33,6 +34,8 @@ import waving from "./illustrations/waving.svg?raw";
  * same on a popup's paper. `id-card` sits on a settings card, also `--bg-1`,
  * and its one `--bg-2` face is meant as a tint there; its asterisks are
  * `--text-2`, a step darker than the outline, since they stand for text.
+ * `terminal` sits on the same card and has no shaded face at all: its screen
+ * is solid `currentColor` with the prompt cut out of it in `--bg-1`.
  *
  * Each asset keeps the width and height Figma gave it and renders at that size;
  * `<Illustration width={n} />` overrides it where a surface needs another.
@@ -41,7 +44,14 @@ import waving from "./illustrations/waving.svg?raw";
  * from `Icon.tsx`: a module that exports anything but components loses fast
  * refresh for the component beside it.
  */
-export const illustrations = { cactus, "id-card": idCard, looking, papers, waving } as const;
+export const illustrations = {
+	cactus,
+	"id-card": idCard,
+	looking,
+	papers,
+	terminal,
+	waving,
+} as const;
 
 /** @public */
 export type IllustrationName = keyof typeof illustrations;

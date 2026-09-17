@@ -30,6 +30,8 @@ export const Section: FC<SectionProps> = (p) => (
 
 type RowProps = {
 	label: string;
+	/** Leads the row, ahead of the words: a drawing saying what the setting is about. */
+	leading?: ReactNode;
 	/** Places the control below the label and hint, spanning the row. */
 	stacked?: boolean;
 	/** Ties the label to a native control. Composite widgets pass `labelId` instead. */
@@ -69,6 +71,8 @@ export const Row: FC<RowProps> = (p) => (
 			p.hint === undefined && p.wide !== true && styles.centered,
 		)}
 	>
+		{p.leading !== undefined && <div className={styles.leading}>{p.leading}</div>}
+
 		<div className={styles.text}>
 			{p.htmlFor === undefined ? (
 				<span id={p.labelId} className={classes("text-15", "text-semibold", styles.label)}>

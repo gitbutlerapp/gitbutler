@@ -86,6 +86,7 @@ export const apiParamNames = {
 	headInfo: ["projectId"],
 	initApplicationNamespace: ["identifier"],
 	initGithubDeviceOauth: [],
+	installCliV2: ["cliPath", "symlinkPolicy"],
 	listAvailableReviewTemplates: ["projectId"],
 	listBranches: ["projectId", "filter"],
 	listCiChecks: ["projectId", "reference", "cacheConfig"],

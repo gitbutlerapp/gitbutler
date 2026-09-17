@@ -10,6 +10,7 @@ import {
 } from "#ui/api/queries.ts";
 import { useDeleteAllData, useSaveGUISettings } from "#ui/api/mutations.ts";
 import { AccountSection, SignOutRow } from "./Account.tsx";
+import { InstallCli } from "./InstallCli.tsx";
 import { getButtonClassName } from "#ui/components/Button.tsx";
 import { Icon } from "#ui/components/Icon.tsx";
 import { ProgramIcon } from "#ui/components/ProgramIcon.tsx";
@@ -57,6 +58,8 @@ export const General: FC = () => {
 	return (
 		<>
 			<AccountSection profile={profile} />
+
+			<InstallCli />
 
 			<Section>
 				<Row label="Default editor">

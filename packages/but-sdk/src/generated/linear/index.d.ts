@@ -975,6 +975,14 @@ export declare function initApplicationNamespace(identifier: string | null): Pro
 export declare function initGithubDeviceOauth(): Promise<Verification>
 
 /**
+ * Install the bundled macOS CLI. Trusted hosts supply the source path, not renderers.
+ * Returns false when administrator authorization is cancelled.
+ *
+ * {@link ../../../../../crates/but-api/src/legacy/cli.rs:32}
+ */
+export declare function installCliV2(cliPath: string, symlinkPolicy: ExistingSymlinkPolicy): Promise<boolean>
+
+/**
  * Get the list of review template paths for the given project.
  *
  * {@link ../../../../../crates/but-api/src/legacy/forge.rs:150}
@@ -2868,6 +2876,9 @@ export type EditModeMetadata = {
 };
 
 export type EntryKind = "Tree" | "Blob" | "BlobExecutable" | "Link" | "Commit";
+
+/** Whether installation may replace an existing symlink to another executable. */
+export type ExistingSymlinkPolicy = "Refuse" | "Replace";
 
 export type ExtraCsp = {
   /** Additional hosts that the application can connect to. */
