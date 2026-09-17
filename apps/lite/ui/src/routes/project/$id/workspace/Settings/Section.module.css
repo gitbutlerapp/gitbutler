@@ -76,6 +76,13 @@
 	}
 }
 
+/* Keeps its drawn size; the words beside it take the width. A drawing stands further off
+   than a control does — 24px, as the library draws it — so the row's gap is topped up. */
+.leading {
+	flex: none;
+	margin-inline-end: 8px;
+}
+
 /* The words take the width; the control keeps its own. */
 .text {
 	display: flex;

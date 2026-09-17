@@ -59,8 +59,9 @@ export const General: FC = () => {
 		<>
 			<AccountSection profile={profile} />
 
+			<InstallCli />
+
 			<Section>
-				<InstallCli />
 				<Row label="Default editor">
 					<Select
 						aria-label="Default editor"

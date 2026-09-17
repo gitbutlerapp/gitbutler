@@ -2,7 +2,9 @@ import { useQuery } from "@tanstack/react-query";
 import { useInstallCli } from "#ui/api/mutations.ts";
 import { isPackagedQueryOptions } from "#ui/api/queries.ts";
 import { getButtonClassName } from "#ui/components/Button.tsx";
-import { Row } from "./Section.tsx";
+import { Icon } from "#ui/components/Icon.tsx";
+import { Illustration } from "#ui/components/Illustration.tsx";
+import { Row, Section } from "./Section.tsx";
 import { Toast } from "@base-ui/react";
 
 export const InstallCli = () => {
@@ -13,18 +15,26 @@ export const InstallCli = () => {
 	if (window.lite.platform !== "darwin" || !isPackaged) return null;
 
 	let buttonLabel = "Install";
-	if (isPending) buttonLabel = "Installing ...";
-	else if (installed) buttonLabel = "but is Installed";
+	if (isPending) buttonLabel = "Installing…";
+	else if (installed) buttonLabel = "Installed";
 
 	return (
-		<Row
-			label="Command-line interface"
-			hint="Makes but available at /usr/local/bin/but. Administrator authorization may be required."
-		>
-			<div>
+		// A card of its own: the drawing leads, and nothing else on the page is about the CLI.
+		<Section>
+			<Row
+				label="Command-line interface"
+				leading={<Illustration name="terminal" />}
+				hint={
+					<>
+						Makes but available at /usr/local/bin/but.
+						<br />
+						Administrator authorization may be required.
+					</>
+				}
+			>
 				<button
 					type="button"
-					className={getButtonClassName({ size: "small" })}
+					className={getButtonClassName({})}
 					disabled={isPending || installed}
 					onClick={() =>
 						mutate(undefined, {
@@ -42,8 +52,9 @@ export const InstallCli = () => {
 					}
 				>
 					{buttonLabel}
+					<Icon name={isPending ? "spinner" : installed ? "tick" : "arrow-in-box"} />
 				</button>
-			</div>
-		</Row>
+			</Row>
+		</Section>
 	);
 };
