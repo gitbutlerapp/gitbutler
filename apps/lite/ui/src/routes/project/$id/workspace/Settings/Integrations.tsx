@@ -22,7 +22,7 @@ import { Logo, type LogoName } from "#ui/components/Logo.tsx";
 import { TextLink } from "#ui/components/TextLink.tsx";
 import { errorMessageForToast } from "#ui/errors.ts";
 import { nativeMenuItem, showNativeMenuFromTrigger } from "#ui/native-menu.ts";
-import { useCopied } from "../useCopied.ts";
+import { useCopied } from "#ui/components/useCopied.ts";
 import { signInWithGithub } from "./github-oauth.ts";
 import styles from "./Integrations.module.css";
 import { Note, Section } from "./Section.tsx";

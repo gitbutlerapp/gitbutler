@@ -78,7 +78,7 @@ import { Badge } from "#ui/components/Badge.tsx";
 import { getButtonClassName } from "#ui/components/Button.tsx";
 import { Icon } from "#ui/components/Icon.tsx";
 import { TooltipPopup } from "#ui/components/Tooltip.tsx";
-import { useCopied } from "#ui/routes/project/$id/workspace/useCopied.ts";
+import { useCopied } from "#ui/components/useCopied.ts";
 import { ToggleGroupStyles, ToggleStyles } from "#ui/components/ToggleGroup.tsx";
 import { OperationSourceC } from "#ui/routes/project/$id/workspace/OperationSourceC.tsx";
 import { PullRequestComments } from "#ui/routes/project/$id/workspace/PullRequestComments.tsx";

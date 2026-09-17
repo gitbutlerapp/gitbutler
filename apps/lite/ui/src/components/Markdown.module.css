@@ -142,16 +142,63 @@
 		font-family: var(--text-fontfamily-mono);
 	}
 
-	pre {
-		padding: 10px 12px;
-		overflow-x: auto;
+	/* The block's chrome sits on the wrapper, not the `<pre>`, so the copy button
+	   can be pinned to the corner while the `<pre>` scrolls under it. */
+	.codeBlock {
+		position: relative;
 		border-radius: var(--radius-card);
 		background-color: var(--bg-2);
+	}
+
+	pre {
+		padding: 10px 12px;
+		/* 12 + the small button's 22 + its 8px inset: a long line ends before the button. */
+		padding-inline-end: 42px;
+		overflow-x: auto;
 
 		code {
 			padding: 0;
 			background-color: transparent;
 		}
+	}
+
+	/* Shown while the block is under the pointer, or has the keyboard, or has just copied. */
+	.copy {
+		position: absolute;
+		top: 8px;
+		right: 8px;
+		opacity: 0;
+		transition:
+			var(--transition-button),
+			opacity var(--transition-fast);
+
+		.codeBlock:hover &,
+		&:focus-visible,
+		&[data-copied] {
+			opacity: 1;
+		}
+	}
+
+	/* Copy becomes a tick: the icon crossfade from DESIGN.md (Motion). Both glyphs share
+	   one cell; the leaving one shrinks, blurs and fades, the arriving one does the reverse. */
+	.copyIcons {
+		display: grid;
+		place-items: center;
+	}
+
+	.copyIcon {
+		display: flex;
+		grid-area: 1 / 1;
+		transition:
+			opacity var(--transition-medium) ease-out,
+			scale var(--transition-medium) ease-out,
+			filter var(--transition-medium) ease-out;
+	}
+
+	.copyIconGone {
+		scale: 0.25;
+		filter: blur(4px);
+		opacity: 0;
 	}
 
 	.highlighted span span {

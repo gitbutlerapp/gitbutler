@@ -9,7 +9,7 @@ import { FieldControlStyles, FieldTextareaStyles } from "#ui/components/Field.ts
 import { Icon } from "#ui/components/Icon.tsx";
 import { assert } from "#ui/assert.ts";
 import { revealInFolderLabel } from "#ui/hotkeys.ts";
-import { useCopied } from "../useCopied.ts";
+import { useCopied } from "#ui/components/useCopied.ts";
 import { IconButton } from "./IconButton.tsx";
 import styles from "./Project.module.css";
 import { changing } from "./project-settings.ts";

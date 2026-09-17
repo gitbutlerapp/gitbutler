@@ -1,7 +1,14 @@
-import { Markdown } from "#ui/components/Markdown.tsx";
+/** @vitest-environment jsdom */
+
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
+
+// The code block's copy button pulls in the tooltip, whose shortcut table reads the
+// platform as it loads — so the bridge has to exist before the import is evaluated.
+globalThis.window.lite = { platform: "darwin" } as unknown as typeof window.lite;
+
+const { Markdown } = await import("#ui/components/Markdown.tsx");
 
 const render = (markdown: string): string =>
 	renderToStaticMarkup(

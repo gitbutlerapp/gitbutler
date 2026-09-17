@@ -32,7 +32,7 @@ import {
 import { openLinkExternally } from "#ui/external-link.ts";
 import type { DraftPRExtras } from "#ui/pr.ts";
 import { formatAbsoluteTime, formatCompactDuration, formatRelativeTime } from "#ui/time.ts";
-import { useCopied } from "#ui/routes/project/$id/workspace/useCopied.ts";
+import { useCopied } from "#ui/components/useCopied.ts";
 import { loginKey, sameLogin } from "#ui/review-users.ts";
 import type {
 	CiCheck,
