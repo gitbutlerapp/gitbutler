@@ -21,7 +21,7 @@ import { Select } from "#ui/components/Select.tsx";
 import { Switch } from "#ui/components/Switch.tsx";
 import { classes } from "#ui/components/classes.ts";
 import { revealInFolderLabel } from "#ui/hotkeys.ts";
-import { useCopied } from "../useCopied.ts";
+import { useCopied } from "#ui/components/useCopied.ts";
 import { IconButton } from "./IconButton.tsx";
 import styles from "./ProjectGit.module.css";
 import { changing } from "./project-settings.ts";

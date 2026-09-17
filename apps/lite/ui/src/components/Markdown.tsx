@@ -1,11 +1,15 @@
 import { guiSettingsQueryOptions } from "#ui/api/queries.ts";
 import { reportError } from "#ui/error-reporting.ts";
+import { getButtonClassName } from "#ui/components/Button.tsx";
 import { classes } from "#ui/components/classes.ts";
 import { Icon } from "#ui/components/Icon.tsx";
 import { TextLink } from "#ui/components/TextLink.tsx";
+import { TooltipPopup } from "#ui/components/Tooltip.tsx";
+import { useCopied } from "#ui/components/useCopied.ts";
 import { defaultSettings } from "#ui/settings.ts";
+import { Tooltip } from "@base-ui/react";
 import { useQuery } from "@tanstack/react-query";
-import type { CSSProperties, FC, MouseEvent } from "react";
+import type { CSSProperties, FC, MouseEvent, ReactNode } from "react";
 import { useState } from "react";
 import ReactMarkdown from "react-markdown";
 import rehypeRaw from "rehype-raw";
@@ -143,6 +147,61 @@ const CodeBlock: FC<{ language: string; code: string }> = ({ language, code }) =
 const fencedLanguage = (className: string | undefined): string | undefined =>
 	/language-([\w+#-]+)/.exec(className ?? "")?.[1];
 
+/** The syntax tree react-markdown hands each component, reduced to what reading text needs. */
+type HastNode = {
+	type: string;
+	value?: string;
+	children?: Array<HastNode>;
+};
+
+const hastText = (node: HastNode): string =>
+	node.type === "text" ? (node.value ?? "") : (node.children ?? []).map(hastText).join("");
+
+/**
+ * A fenced code block with a button that copies its text. The button sits on
+ * the block's corner rather than in the `<pre>`, which scrolls sideways and
+ * would carry it away; the block's chrome moves out with it.
+ */
+const Pre: FC<{ node?: HastNode; children?: ReactNode }> = ({ node, children }) => {
+	// A fence's text ends with the newline that closed it, which nobody wants pasted.
+	const code = node === undefined ? "" : hastText(node).replace(/\n$/, "");
+	const { copied, copy } = useCopied(code);
+
+	return (
+		<div className={styles.codeBlock}>
+			<pre>{children}</pre>
+			<Tooltip.Root>
+				<Tooltip.Trigger
+					className={classes(
+						getButtonClassName({ variant: "ghost", size: "small", iconOnly: true }),
+						styles.copy,
+					)}
+					// Keeps the button shown for the tick, even once the pointer has left the block.
+					data-copied={copied || undefined}
+					onClick={copy}
+					render={<button type="button" aria-label={copied ? "Copied" : "Copy"} />}
+				>
+					{/* Each glyph in its own wrapper: the button styles the icons' opacity itself, so the
+					    crossfade has to fade something else. */}
+					<span className={styles.copyIcons}>
+						<span className={classes(styles.copyIcon, copied && styles.copyIconGone)}>
+							<Icon name="copy" />
+						</span>
+						<span className={classes(styles.copyIcon, !copied && styles.copyIconGone)}>
+							<Icon name="tick" />
+						</span>
+					</span>
+				</Tooltip.Trigger>
+				<Tooltip.Portal>
+					<Tooltip.Positioner sideOffset={4}>
+						<Tooltip.Popup render={<TooltipPopup />}>{copied ? "Copied" : "Copy"}</Tooltip.Popup>
+					</Tooltip.Positioner>
+				</Tooltip.Portal>
+			</Tooltip.Root>
+		</div>
+	);
+};
+
 type MarkdownNode = {
 	type: string;
 	value?: string;
@@ -217,6 +276,7 @@ export const Markdown: FC<{ children: string }> = ({ children }) => (
 						</code>
 					);
 				},
+				pre: ({ node, children }) => <Pre node={node}>{children}</Pre>,
 				img: ({ node: _node, src, alt }) => {
 					if (typeof src !== "string" || src === "") return null;
 					const altText = typeof alt === "string" && alt !== "" ? alt : "image";
