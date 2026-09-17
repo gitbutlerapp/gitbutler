@@ -110,6 +110,10 @@ perf_validate_scenario() (
 perf_run_isolated() {
     isolation_launcher=$1
     shift
+    # Agent behavior is opt-in; never inherit the launcher's agent detection.
+    if [ "${PERF_AI_AGENT+x}" = x ]; then
+        set -- "AI_AGENT=$PERF_AI_AGENT" "$@"
+    fi
     "$isolation_launcher" env -i \
         PATH="$PATH" \
         PERF_ENV_ISOLATED=1 \
