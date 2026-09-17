@@ -2,6 +2,10 @@ use bstr::BString;
 use but_ctx::Context;
 use gix::refs::FullName;
 use nonempty::NonEmpty;
+use ratatui::{
+    style::Stylize,
+    text::{Line, Span},
+};
 use serde::Serialize;
 
 use crate::{
@@ -35,18 +39,36 @@ impl CliOutputHuman for DiffOutcome<'_> {
     fn on_human(
         self,
         out: &mut dyn WriteWithUtils,
-        _agent: bool,
+        agent: bool,
         theme: &'static Theme,
     ) -> anyhow::Result<()> {
         let Self { ctx, target } = self;
 
-        let syntax_set = load_syntax_set();
-        let syntax_theme = theme.load_syntax_highlighting_theme()?;
+        // Agents need neither syntax parsing nor its theme-loading cost.
+        let syntax = if agent {
+            None
+        } else {
+            Some((load_syntax_set(), theme.load_syntax_highlighting_theme()?))
+        };
 
         let strings = Strings::default();
-        let writer = DiffWriter { out, theme };
-        let mut writer =
-            WithSyntaxHighlighting::new(writer, strings.clone(), &syntax_set, &syntax_theme);
+        let mut plain_writer = DiffWriter {
+            out,
+            theme,
+            strings: strings.clone(),
+        };
+        let mut highlighted_writer;
+        let writer: &mut dyn DiffLineWriter = if let Some((syntax_set, syntax_theme)) = &syntax {
+            highlighted_writer = WithSyntaxHighlighting::new(
+                plain_writer,
+                strings.clone(),
+                syntax_set,
+                syntax_theme,
+            );
+            &mut highlighted_writer
+        } else {
+            &mut plain_writer
+        };
         let mut id_gen = IdGen::new(strings);
 
         let options = diff_rendering::Options {
@@ -56,7 +78,7 @@ impl CliOutputHuman for DiffOutcome<'_> {
 
         match target {
             DiffOperation::Uncommitted => {
-                diff_rendering::render_uncommitted(ctx, theme, &mut id_gen, options, &mut writer)?;
+                diff_rendering::render_uncommitted(ctx, theme, &mut id_gen, options, writer)?;
             }
             DiffOperation::WorktreeUncommitted { name } => {
                 diff_rendering::render_uncommitted_source(
@@ -65,7 +87,7 @@ impl CliOutputHuman for DiffOutcome<'_> {
                     theme,
                     &mut id_gen,
                     options,
-                    &mut writer,
+                    writer,
                 )?;
             }
             DiffOperation::Commit { commit } => {
@@ -76,19 +98,12 @@ impl CliOutputHuman for DiffOutcome<'_> {
                     theme,
                     &mut id_gen,
                     options,
-                    &mut writer,
+                    writer,
                 )?;
             }
             DiffOperation::Branch { branch } => {
                 let branch = branch.shorten().to_string();
-                diff_rendering::render_branch(
-                    branch,
-                    ctx,
-                    theme,
-                    &mut id_gen,
-                    options,
-                    &mut writer,
-                )?;
+                diff_rendering::render_branch(branch, ctx, theme, &mut id_gen, options, writer)?;
             }
             DiffOperation::UncommittedHunkOrFile { hunk } => {
                 diff_rendering::render_uncommitted_hunk(
@@ -96,7 +111,7 @@ impl CliOutputHuman for DiffOutcome<'_> {
                     theme,
                     &mut id_gen,
                     options,
-                    &mut writer,
+                    writer,
                 )?;
             }
             DiffOperation::CommittedFile { commit, path } => {
@@ -107,7 +122,7 @@ impl CliOutputHuman for DiffOutcome<'_> {
                     theme,
                     &mut id_gen,
                     options,
-                    &mut writer,
+                    writer,
                 )?;
             }
             DiffOperation::PathPrefix { id, hunks } => {
@@ -118,7 +133,7 @@ impl CliOutputHuman for DiffOutcome<'_> {
                     theme,
                     &mut id_gen,
                     options,
-                    &mut writer,
+                    writer,
                 )?;
             }
         }
@@ -361,6 +376,7 @@ impl CliOutput for DiffOutcome<'_> {
 struct DiffWriter<'a> {
     out: &'a mut dyn WriteWithUtils,
     theme: &'static Theme,
+    strings: Strings,
 }
 
 impl DiffLineWriter for DiffWriter<'_> {
@@ -378,13 +394,26 @@ impl DiffLineWriter for DiffWriter<'_> {
                 writeln!(self.out, "{text}")?;
             }
             DetailsLine::Code(code_line) => {
-                let syntax_highlighted_line = code_line.syntax_highlighted_line.borrow();
-                let syntax_highlighted_line = syntax_highlighted_line
-                    .as_ref()
-                    .expect("WithSyntaxHighlighting ensures the line is highlighted");
+                let highlighted = code_line.syntax_highlighted_line.borrow();
+                let mut plain;
+                let line = if let Some(highlighted) = highlighted.as_ref() {
+                    highlighted
+                } else {
+                    let numbers = code_line
+                        .line_numbers
+                        .spans(&mut self.strings.lock(), self.theme);
+                    let code = code_line.with_line_from_diff(|code| {
+                        diff_rendering::expand_tabs_for_display(Span::raw(code.to_owned()), &mut 0)
+                    });
+                    plain = Line::from_iter(numbers.into_iter().chain([code]));
+                    if let Some(bg) = code_line.line_numbers.kind.bg(self.theme) {
+                        plain = plain.bg(bg);
+                    }
+                    &plain
+                };
 
-                let line_style = syntax_highlighted_line.style;
-                for span in syntax_highlighted_line {
+                let line_style = line.style;
+                for span in line {
                     let rendered = line_style.patch(span.style).paint(&span.content);
                     write!(self.out, "{rendered}")?;
                 }

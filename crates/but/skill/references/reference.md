@@ -48,7 +48,8 @@ but show <id> --verbose # Show with full messages and file details
 
 ### `but diff [target]`
 
-Display diff for file, branch, stack, or commit.
+Display diff for file, branch, stack, or commit. When an agent is detected, syntax
+highlighting is skipped; line numbers, diff markers, and hunk IDs are preserved.
 
 ```bash
 but diff                # Diff for entire workspace; best first command for selective dirty commits
