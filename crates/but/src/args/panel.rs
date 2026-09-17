@@ -20,4 +20,10 @@ pub struct Platform {
     /// Start the server without opening a browser.
     #[clap(long)]
     pub no_open: bool,
+
+    /// Open the panel in a window of its own, without browser chrome, in the first of Chrome,
+    /// Arc, Edge, Brave or Chromium that is installed. Falls back to the default browser. The
+    /// page can also be installed as an app from such a browser's menu.
+    #[clap(long, conflicts_with = "no_open")]
+    pub app: bool,
 }
