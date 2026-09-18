@@ -898,20 +898,71 @@ const baseName = () => branchesFromRows(latest.workspace.stacks).base?.reference
 
 const plural = (count, noun) => `${count} ${noun}${count === 1 ? "" : noun === "branch" ? "es" : "s"}`;
 
-/** The header's notice that the target moved on, with the Pull button, while the workspace is behind. */
+let upstreamOpen = false; // whether the notice is unfolded into the upstream commits
+let upstreamCommits = null; // { key, commits } | { key, error }, for the count and target in `key`
+let upstreamLoading = null;
+
+/** Fetch the commits a pull would bring in, for the notice as `key` describes it. */
+async function loadUpstream(key) {
+	if (upstreamLoading === key) return;
+	upstreamLoading = key;
+	try {
+		upstreamCommits = { key, commits: await fetchData(api("/api/upstream")) };
+	} catch (error) {
+		upstreamCommits = { key, error: String(error.message || error) };
+	}
+	upstreamLoading = null;
+	showUpstream();
+}
+
+/**
+ * The unfolded notice's rows: each commit on the target the workspace lacks, newest first. A
+ * merge shows as the review it landed, linked, where the forge cache knows it.
+ */
+function renderUpstreamCommits(key) {
+	const list = upstreamCommits;
+	if (!list || list.key !== key) return `<div class="list"><div class="line"><span class="word">Loading…</span></div></div>`;
+	if (list.error) return `<div class="refused">${esc(list.error)}</div>`;
+	if (!list.commits.length) return `<div class="list"><div class="line"><span class="word">Nothing to list.</span></div></div>`;
+	const rows = list.commits.map(({ commit, review }) => {
+		const title = review ? `${review.unitSymbol}${review.number} ${review.title}` : subject(commit.message);
+		const href = review?.htmlUrl || (latest.forge ? latest.forge.commitUrl + commit.id : null);
+		const name = href
+			? `<a class="pr clip" href="${esc(href)}" target="_blank" rel="noreferrer">${esc(title)}</a>`
+			: `<span class="clip">${esc(title)}</span>`;
+		return `<div class="line">${name}<span class="word">${esc(commit.author?.name || "")} · ${esc(shortDate(Number(commit.authoredAt)))}</span></div>`;
+	});
+	// The list follows the target's main line, where a merge is one commit however many it brought.
+	const behind = latest.behind;
+	if (rows.length !== behind) {
+		rows.push(`<div class="line"><span class="word">${plural(behind, "commit")} in all; a merge shows once</span></div>`);
+	}
+	return `<div class="list">${rows.join("")}</div>`;
+}
+
+/**
+ * The header's notice that the target moved on, with the Pull button, while the workspace is
+ * behind. Its count unfolds into the commits themselves.
+ */
 function showUpstream() {
 	// A preview being read or a pull in progress keeps the notice as it is until it's done.
 	if (pulling || pullPreview) return;
 	const behind = latest?.behind;
 	upstreamEl.hidden = !(behind > 0);
 	upstreamEl.classList.remove("open");
-	// Redrawn only when it would change, so a poll never replaces the button mid-click.
-	const state = behind > 0 ? `${behind}:${baseName()}` : "";
+	const key = `${behind}:${baseName()}`;
+	const listed = upstreamCommits?.key === key ? (upstreamCommits.error ? "error" : upstreamCommits.commits.length) : "loading";
+	// Redrawn only when it would change, so a poll never replaces a button mid-click.
+	const state = behind > 0 ? `${key}:${upstreamOpen ? listed : "folded"}` : "";
 	if (state && upstreamEl.dataset.state !== state) {
 		upstreamEl.innerHTML =
-			`<span>⇣ ${plural(behind, "new commit")} on ${esc(baseName())}</span>` + `<button class="pull">Pull</button>`;
+			`<div class="summary"><button class="unfold${upstreamOpen ? " open" : ""}" title="Show these commits">` +
+			`<span class="tw">▶</span><span class="clip">⇣ ${plural(behind, "new commit")} on ${esc(baseName())}</span></button>` +
+			`<button class="pull">Pull</button></div>` +
+			(upstreamOpen ? renderUpstreamCommits(key) : "");
 	}
 	upstreamEl.dataset.state = state;
+	if (behind > 0 && upstreamOpen && upstreamCommits?.key !== key) loadUpstream(key);
 }
 
 /** The notice grown into a question: what rebasing each branch would do, and the buttons to answer. */
@@ -927,6 +978,8 @@ function showPullPreview(preview) {
 		? `<div class="refused">Uncommitted changes in ${plural(preview.worktreeConflicts.length, "file")} would conflict, so the pull will be refused.</div>`
 		: "";
 	upstreamEl.classList.add("open");
+	// Whatever the notice showed is gone, so it's redrawn in full when the preview closes.
+	upstreamEl.dataset.state = "preview";
 	upstreamEl.innerHTML =
 		`<div class="title">Rebase ${plural(preview.branches.length, "branch")} onto ${esc(baseName())}?</div>` +
 		lines +
@@ -944,6 +997,11 @@ upstreamEl.addEventListener("click", async (event) => {
 	const button = event.target.closest("button");
 	if (!button || pulling) return;
 
+	if (button.classList.contains("unfold")) {
+		upstreamOpen = !upstreamOpen;
+		showUpstream();
+		return;
+	}
 	if (button.classList.contains("cancel")) {
 		pullPreview = null;
 		showUpstream();

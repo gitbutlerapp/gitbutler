@@ -173,8 +173,8 @@
 			/* The target moved on: the one notice the header shows, with its remedy. */
 			.upstream {
 				display: flex;
-				align-items: center;
-				gap: 8px;
+				flex-direction: column;
+				gap: 3px;
 				margin-top: 5px;
 				padding: 5px 6px 5px 9px;
 				border-radius: 7px;
@@ -185,11 +185,46 @@
 			.upstream[hidden] {
 				display: none;
 			}
+			.upstream .summary {
+				display: flex;
+				align-items: center;
+				gap: 8px;
+			}
+			/* The count unfolds into the commits a pull would bring in. */
+			.upstream button.unfold {
+				display: flex;
+				align-items: center;
+				gap: 6px;
+				min-width: 0;
+				border: 0;
+				padding: 0;
+				background: none;
+				color: inherit;
+				font: inherit;
+				cursor: pointer;
+			}
+			.upstream button.unfold .tw {
+				font-size: 9px;
+				transition: transform 0.12s ease;
+			}
+			.upstream button.unfold.open .tw {
+				transform: rotate(90deg);
+			}
+			.upstream .list {
+				display: flex;
+				flex-direction: column;
+				gap: 3px;
+				max-height: 40vh;
+				overflow: auto;
+				margin-top: 4px;
+				color: var(--fg);
+			}
+			.upstream .line a,
+			.upstream .line .clip {
+				min-width: 0;
+			}
 			/* Grown into the pull's preview: one line per branch, and the answer buttons. */
 			.upstream.open {
-				flex-direction: column;
-				align-items: stretch;
-				gap: 3px;
 				color: var(--fg);
 			}
 			.upstream .title {

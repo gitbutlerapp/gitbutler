@@ -573,6 +573,11 @@ fn handle_connection(
                     .get(project.as_deref())
                     .and_then(|(_, root)| open_folder(&root, &with)),
             ),
+            Route::Upstream => data_response(
+                projects
+                    .get(project.as_deref())
+                    .and_then(|(ctx, _)| upstream_json(ctx)),
+            ),
             Route::Fetch => data_response(
                 projects
                     .get(project.as_deref())
@@ -1095,6 +1100,19 @@ fn open_folder(root: &Path, with: &FolderOpener) -> anyhow::Result<serde_json::V
     Ok(json!({ "opened": true }))
 }
 
+/// The target's commits the workspace doesn't have yet, newest first and as last fetched: what a
+/// pull would bring in. It follows first parents, so a merge is one commit, carrying the review it
+/// landed where the forge cache knows it.
+fn upstream_json(ctx: &Context) -> anyhow::Result<serde_json::Value> {
+    let page = but_api::target_commits::workspace_target_commits(ctx, None, None)?;
+    let upstream: Vec<_> = page
+        .commits
+        .into_iter()
+        .filter(|commit| !commit.in_workspace)
+        .collect();
+    Ok(serde_json::to_value(upstream)?)
+}
+
 /// Fetch from every remote, so the target's new commits and each branch's push status show, and
 /// read the reviews and CI again. One refresh at a time across `but` processes, as `but refresh`
 /// does. Without a forge account there are no reviews to read, which isn't a failed fetch.
@@ -1323,6 +1341,8 @@ enum Route {
     OpenFolder {
         with: FolderOpener,
     },
+    /// The target's commits a pull would bring in.
+    Upstream,
     /// Fetch from every remote. A `POST`, like everything that reaches the network.
     Fetch,
     /// Push `branch` and the branches below it in its stack, with force when asked.
@@ -1447,6 +1467,7 @@ fn route(request: &Request, port: u16) -> Route {
                 (None, None) => FolderOpener::FileManager,
             },
         },
+        "/api/upstream" => Route::Upstream,
         "/api/fetch" => Route::Fetch,
         "/api/push" => match param("branch") {
             Some(branch) => Route::Push {
@@ -1629,6 +1650,7 @@ mod tests {
         assert_eq!(route(&get("/api/workspace", LOCAL), 7789), Route::Workspace);
         assert_eq!(route(&get("/api/ping", LOCAL), 7789), Route::Ping);
         assert_eq!(route(&get("/api/projects", LOCAL), 7789), Route::Projects);
+        assert_eq!(route(&get("/api/upstream", LOCAL), 7789), Route::Upstream);
         assert_eq!(
             route(&get("/api/commit?id=abc123", LOCAL), 7789),
             Route::Commit {
