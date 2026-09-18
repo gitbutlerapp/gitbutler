@@ -170,13 +170,6 @@ impl App {
     }
 
     fn handle_jump_enter(&mut self) {
-        // TODO(david): dont enter if commit file list is open
-
-        match self.flags.show_files {
-            FilesStatusFlag::None | FilesStatusFlag::All => {}
-            FilesStatusFlag::Commit(..) => return,
-        }
-
         let previous_mode = match &*self.mode {
             Mode::Details(..) => return,
             mode @ (Mode::Normal(..)

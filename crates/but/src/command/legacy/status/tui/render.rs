@@ -15,7 +15,7 @@ use unicode_width::UnicodeWidthStr;
 use crate::{
     CliId,
     command::legacy::status::{
-        CommitLineContent, FileLineContent, StatusOutputLine,
+        CommitLineContent, FileLineContent, FilesStatusFlag, StatusOutputLine,
         output::{
             BranchLineContent, MergeBaseLineContent, StatusOutputContent, StatusOutputLineData,
             UncommittedLineContent,
@@ -542,6 +542,20 @@ fn render_status_list_item(
         false
     };
 
+    // A commit file list only advertises jump hints within its selectable scope.
+    let jump_mode = if let Mode::Jump(mode) = &*app.mode
+        && (!matches!(app.flags.show_files, FilesStatusFlag::Commit(_))
+            || super::app::prefix_match(
+                mode.query(),
+                status_line,
+                &mode.return_mode,
+                app.flags.show_files,
+            )) {
+        Some(mode)
+    } else {
+        None
+    };
+
     // ┊●   982b7d85c5 my commit
     //      ^^^^^^^^^^^^^^^^^^^^ render the main content
     let area_used_by_main_content = line.area_used_by(|line| {
@@ -554,7 +568,7 @@ fn render_status_list_item(
                 suffix,
                 commit_id: _,
             }) => {
-                if let Mode::Jump(jump_mode) = &*app.mode {
+                if let Some(jump_mode) = jump_mode {
                     line.extend(style_jump_mode_matches(
                         id,
                         jump_mode,
@@ -581,7 +595,7 @@ fn render_status_list_item(
                         }
                     }));
                 } else if !change_id.is_empty()
-                    && let Mode::Jump(jump_mode) = &*app.mode
+                    && let Some(jump_mode) = jump_mode
                 {
                     line.extend(style_jump_mode_matches(
                         change_id,
@@ -595,7 +609,7 @@ fn render_status_list_item(
                 if line_has_copied_highlight && change_id.is_empty() {
                     line.extend(sha.iter().cloned().map(with_highlight));
                 } else if change_id.is_empty()
-                    && let Mode::Jump(jump_mode) = &*app.mode
+                    && let Some(jump_mode) = jump_mode
                 {
                     line.extend(style_jump_mode_matches(
                         sha,
@@ -634,7 +648,7 @@ fn render_status_list_item(
             }) => {
                 if line_has_copied_highlight {
                     line.extend(id);
-                } else if let Mode::Jump(jump_mode) = &*app.mode {
+                } else if let Some(jump_mode) = jump_mode {
                     line.extend(style_jump_mode_matches(
                         id,
                         jump_mode,
@@ -669,7 +683,7 @@ fn render_status_list_item(
             StatusOutputContent::File(FileLineContent { id, status, path }) => {
                 if line_has_copied_highlight {
                     line.extend(id);
-                } else if let Mode::Jump(jump_mode) = &*app.mode {
+                } else if let Some(jump_mode) = jump_mode {
                     line.extend(style_jump_mode_matches(
                         id,
                         jump_mode,
@@ -697,7 +711,7 @@ fn render_status_list_item(
                     .is_some_and(|cli_id| matches!(&**cli_id, CliId::Worktree { .. }));
                 if line_has_copied_highlight && !is_worktree {
                     line.extend(id.iter().cloned().map(with_highlight));
-                } else if let Mode::Jump(jump_mode) = &*app.mode {
+                } else if let Some(jump_mode) = jump_mode {
                     line.extend(style_jump_mode_matches(
                         id,
                         jump_mode,

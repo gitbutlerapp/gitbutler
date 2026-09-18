@@ -918,8 +918,11 @@ impl App {
                 }
             }
             BackstackEntry::LeaveNormalMode => {
+                // Cancelling jump only restores the mode and backstack, never the cursor.
+                if self.restore_mode_before_jump() {
+                    return;
+                }
                 if !self.restore_mode_before_details(messages)
-                    && !self.restore_mode_before_jump()
                     && !self.restore_cursor_before_move_stack(messages)
                 {
                     let marks = self.marks_ref().to_owned();
