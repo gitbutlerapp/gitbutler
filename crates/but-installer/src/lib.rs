@@ -64,14 +64,17 @@ pub fn run_installation_with_version(
 /// If neither is provided, installs the latest release.
 ///
 /// This is the entry point for the standalone installer binary, and runs in interactive mode with
-/// shell configuration and other onboarding if there is a terminal connected. Otherwise it runs
-/// non-interactively.
+/// shell configuration and other onboarding if there is a terminal connected. Otherwise, or when
+/// `GITBUTLER_NONINTERACTIVE` is set to a non-empty value (for scripts that wrap the installer),
+/// it runs non-interactively.
 ///
 /// Returns an error if any step fails. The function will attempt to rollback
 /// changes on installation failure.
 pub fn run_installation() -> Result<()> {
     let config = InstallerConfig::new()?;
-    let interactive = ui::is_connected_to_terminal();
+    let forced_noninteractive =
+        std::env::var("GITBUTLER_NONINTERACTIVE").is_ok_and(|v| !v.is_empty());
+    let interactive = ui::is_connected_to_terminal() && !forced_noninteractive;
     let but_path = but_binary_path(&config.home_dir);
     run_installation_impl(config, interactive)?;
     if supports_agent_setup(&but_path) {
