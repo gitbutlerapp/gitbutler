@@ -49,7 +49,6 @@ const encodeAddress = (address: Address): string | null => {
 	}
 };
 
-const branchPrefix = "branch:";
 const changePrefix = "change:";
 const commitPrefix = "commit:";
 
@@ -61,10 +60,6 @@ const cursorParam: { [L in UrlCursorName]: (item: CursorItem[L]) => string | nul
 	uncommitted: encodePath,
 	files: encodePath,
 };
-
-/** The full ref name a cursor param carries, if it names a branch. */
-export const branchParamRef = (param: string | undefined): string | null =>
-	param !== undefined && param.startsWith(branchPrefix) ? param.slice(branchPrefix.length) : null;
 
 /** The commit reference a cursor param carries, if it names a commit. */
 export const commitParamRef = (

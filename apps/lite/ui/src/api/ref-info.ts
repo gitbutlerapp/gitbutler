@@ -79,6 +79,36 @@ const buildHeadInfoIndex = (headInfo: RefInfo): HeadInfoIndex => {
 	};
 };
 
+/**
+ * Branches renamed between two snapshots of the workspace.
+ *
+ * Branches have no stable identity, so a rename is taken to be a branch
+ * whose name left the workspace while a name new to it took its stack and
+ * segment position.
+ */
+export const detectBranchRenames = (
+	prev: RefInfo,
+	next: RefInfo,
+): Array<{ oldRef: Array<number>; newRef: Array<number> }> => {
+	const prevIndex = getHeadInfoIndex(prev);
+	const nextIndex = getHeadInfoIndex(next);
+	return prev.stacks
+		.entries()
+		.flatMap(([stackIndex, stack]) =>
+			stack.segments.entries().map(([segmentIndex, segment]) => {
+				const oldRef = segment.refName?.fullNameBytes;
+				if (!oldRef || nextIndex.isApplied(oldRef)) return null;
+
+				const newRef = next.stacks[stackIndex]?.segments[segmentIndex]?.refName?.fullNameBytes;
+				if (!newRef || prevIndex.isApplied(newRef)) return null;
+
+				return { oldRef, newRef };
+			}),
+		)
+		.filter((x) => x != null)
+		.toArray();
+};
+
 export const getHeadInfoIndex = (headInfo: RefInfo): HeadInfoIndex => {
 	const cached = headInfoIndexCache.get(headInfo);
 	if (cached) return cached;
