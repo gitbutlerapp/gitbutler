@@ -62,6 +62,7 @@ import type {
 import { type QueryClient, useMutation, useQueryClient } from "@tanstack/react-query";
 import type { GUISettings } from "#electron/settings.ts";
 import { moveBranchChecklist, moveDraftPR } from "#ui/pr.ts";
+import { moveBranchReviewedFiles } from "#ui/reviewed-files.ts";
 import { invalidateTags } from "#ui/api/tags.ts";
 import { presentableOperation } from "#ui/snapshot.ts";
 import { sameLogin } from "#ui/review-users.ts";
@@ -1467,8 +1468,8 @@ export const useBranchRename = (projectId: string) => {
 		mutationKey: [projectId, "branchRename"],
 		mutationFn: window.lite.branchRename,
 		onSuccess: async (response, input, _context, mutation) => {
-			// Before the caches learn the new name: the PR form for it mounts on
-			// that update and seeds its fields from whatever draft it finds then.
+			// Before the caches learn the new name: the views for it mount on that
+			// update and seed their state from whatever they find stored then.
 			const renamed = {
 				queryClient: mutation.client,
 				projectId: input.projectId,
@@ -1479,6 +1480,12 @@ export const useBranchRename = (projectId: string) => {
 			};
 			await moveDraftPR(renamed);
 			await moveBranchChecklist(renamed);
+			await moveBranchReviewedFiles({
+				queryClient: mutation.client,
+				projectId: input.projectId,
+				oldBranchRef: input.refName,
+				newBranchRef: response.newRef.fullNameBytes,
+			});
 
 			syncCoreCaches(mutation.client, dispatch, input.projectId, response);
 

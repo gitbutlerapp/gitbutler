@@ -1,5 +1,6 @@
-import { queryOptions, useMutation } from "@tanstack/react-query";
+import { queryOptions, useMutation, type QueryClient } from "@tanstack/react-query";
 import * as idb from "idb-keyval";
+import { branchFileParent, weakFileParentIdentityKey } from "#ui/addresses.ts";
 
 /** Positively reviewed diff versions keyed by file path within one file-parent context. */
 export type ReviewedFileVersions = Map<string, Set<number>>;
@@ -15,6 +16,36 @@ export const reviewedFilesQueryOptions = (projectId: string, contextId: string) 
 		queryFn: async (): Promise<ReviewedFileVersions> =>
 			(await idb.get<ReviewedFileVersions>(reviewedFilesKey(projectId, contextId))) ?? new Map(),
 	});
+
+/** Move a branch's reviewed files, if any, to its new ref following a rename. */
+export const moveBranchReviewedFiles = async ({
+	queryClient,
+	projectId,
+	oldBranchRef,
+	newBranchRef,
+}: {
+	queryClient: QueryClient;
+	projectId: string;
+	oldBranchRef: Array<number>;
+	newBranchRef: Array<number>;
+}): Promise<void> => {
+	const oldContextId = weakFileParentIdentityKey(branchFileParent({ branchRef: oldBranchRef }));
+	const newContextId = weakFileParentIdentityKey(branchFileParent({ branchRef: newBranchRef }));
+	const prevKey = reviewedFilesKey(projectId, oldContextId);
+	const reviewedFiles = await idb.get<ReviewedFileVersions>(prevKey);
+	if (!reviewedFiles) return;
+
+	await idb.set(reviewedFilesKey(projectId, newContextId), reviewedFiles);
+	queryClient.setQueryData(
+		reviewedFilesQueryOptions(projectId, newContextId).queryKey,
+		reviewedFiles,
+	);
+
+	await idb.del(prevKey);
+	queryClient.removeQueries({
+		queryKey: reviewedFilesQueryOptions(projectId, oldContextId).queryKey,
+	});
+};
 
 const updateReviewedFileVersions = (
 	reviewedFiles: ReviewedFileVersions,
