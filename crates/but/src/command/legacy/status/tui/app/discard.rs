@@ -1,6 +1,7 @@
 use but_ctx::Context;
 use gix::{ObjectId, refs::Category};
 use nonempty::NonEmpty;
+use ratatui::text::{Line, Span};
 
 use crate::{
     CliId,
@@ -123,7 +124,11 @@ impl App {
                     let drop_to_be_discarded =
                         message_on_drop::message_on_drop(Message::DropToBeDiscarded, messages);
                     Confirm::new(
-                        NonEmpty::new(format!("Discard commit {}?", theme::Commit(&commit)).into()),
+                        NonEmpty::new(Line::from_iter([
+                            Span::raw("Discard commit "),
+                            theme::Commit(&commit).to_span(),
+                            Span::raw("?"),
+                        ])),
                         self.theme,
                         move |ctx, messages| {
                             let DiscardOutcome::Commits {
