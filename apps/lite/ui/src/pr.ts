@@ -92,8 +92,13 @@ export type DraftPRExtras = {
 const draftPRKey = ({ projectId, branchName }: { projectId: string; branchName: string }): string =>
 	`pr_draft:v1:${projectId}:${branchName}`;
 
-/** Move a draft PR, if any, from an old branch name to a new one following a rename. */
-export const moveDraftPR = async ({
+/**
+ * Move a draft PR, if any, from an old branch name to a new one following a rename.
+ *
+ * The move runs as the new name's query, so a view mounting under the new name
+ * meanwhile waits for the moved draft instead of reading none.
+ */
+export const moveDraftPR = ({
 	queryClient,
 	projectId,
 	oldBranch,
@@ -103,22 +108,29 @@ export const moveDraftPR = async ({
 	projectId: string;
 	oldBranch: string;
 	newBranch: string;
-}): Promise<void> => {
+}): void => {
 	const prevKey = draftPRKey({ projectId, branchName: oldBranch });
-	const draft = await idb.get<DraftPR>(prevKey);
-	if (!draft) return;
-
 	const newKey = draftPRKey({ projectId, branchName: newBranch });
-	await idb.set(newKey, draft);
-	queryClient.setQueryData(
-		draftPRQueryOptions({ projectId, branchName: newBranch }).queryKey,
-		draft,
-	);
+	void queryClient
+		.fetchQuery({
+			...draftPRQueryOptions({ projectId, branchName: newBranch }),
+			staleTime: 0,
+			queryFn: async () => {
+				const draft = await idb.get<DraftPR>(prevKey);
+				if (!draft) return (await idb.get<DraftPR>(newKey)) ?? null;
 
-	await idb.del(prevKey);
-	queryClient.removeQueries({
-		queryKey: draftPRQueryOptions({ projectId, branchName: oldBranch }).queryKey,
-	});
+				await idb.set(newKey, draft);
+				await idb.del(prevKey);
+				return draft;
+			},
+		})
+		.then(() =>
+			queryClient.removeQueries({
+				queryKey: draftPRQueryOptions({ projectId, branchName: oldBranch }).queryKey,
+			}),
+		)
+		// The query holds the failure for whoever reads it.
+		.catch(() => undefined);
 };
 
 export const draftPRQueryOptions = ({
