@@ -42,7 +42,7 @@ export const useDirectoryMenuItems = ({
 }): Array<NativeMenuItem> => {
 	// A directory in a linked worktree opens and reveals where it lives, as a file row's
 	// does; what it can act on is `useFileSetActions`' to say, for both alike.
-	const worktree = fileParent._tag === "UncommittedChanges" ? fileParent.worktree : undefined;
+	const worktree = fileParent.worktree;
 	const pathMenuItems = usePathMenuItems({ projectId, path, worktree });
 	const actions = useFileSetActions({ projectId, fileParent });
 

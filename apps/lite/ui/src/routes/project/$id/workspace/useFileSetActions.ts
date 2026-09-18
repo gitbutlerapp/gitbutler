@@ -109,9 +109,7 @@ export const useFileSetActions = ({
 					treeChangesDiffsQueryOptions({
 						projectId,
 						changes,
-						// As the diff pane asks for them: only uncommitted changes are read
-						// from a checkout, so only they are diffed against a linked one.
-						worktree: fileParent._tag === "UncommittedChanges" ? fileParent.worktree : undefined,
+						worktree: fileParent.worktree,
 					}),
 				)
 				.then((treeChangeDiffs) => {

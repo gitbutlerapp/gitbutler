@@ -2280,9 +2280,10 @@ const Diff: FC<{
 		() =>
 			Match.value(selection).pipe(
 				Match.tags({
-					Branch: ({ branchRef }) => branchFileParent({ branchRef }),
+					Branch: ({ branchRef, worktree }) => branchFileParent({ branchRef, worktree }),
 					File: ({ parent }) => parent,
-					Commit: ({ commitId, changeId }) => commitFileParent({ commitId, changeId }),
+					Commit: ({ commitId, changeId, worktree }) =>
+						commitFileParent({ commitId, changeId, worktree }),
 				}),
 				Match.orElseAbsurd,
 			),
@@ -3454,7 +3455,7 @@ const UnappliedBranchDetails: FC<BranchDetailsProps> = ({
 				) : (
 					<BranchDiff
 						projectId={projectId}
-						branch={branch}
+						branch={{ ...branch, worktree: worktreeName }}
 						onActiveFileSelection={onActiveFileSelection}
 						viewerRef={viewerRef}
 						didScrollToViaFileRef={didScrollToViaFileRef}

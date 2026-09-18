@@ -62,7 +62,13 @@ export const buildAppliedAddressSpace = ({
 				: []),
 			...segment.commits.flatMap((commit) => [
 				...lanesOn(commit.id),
-				foreign(commitAddress({ commitId: commit.id, changeId: commit.changeId })),
+				foreign(
+					commitAddress({
+						commitId: commit.id,
+						changeId: commit.changeId,
+						worktree: worktree.name,
+					}),
+				),
 			]),
 		]),
 	];
