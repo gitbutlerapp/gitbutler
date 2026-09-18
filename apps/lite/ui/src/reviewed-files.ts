@@ -17,8 +17,13 @@ export const reviewedFilesQueryOptions = (projectId: string, contextId: string) 
 			(await idb.get<ReviewedFileVersions>(reviewedFilesKey(projectId, contextId))) ?? new Map(),
 	});
 
-/** Move a branch's reviewed files, if any, to its new ref following a rename. */
-export const moveBranchReviewedFiles = async ({
+/**
+ * Move a branch's reviewed files, if any, to its new ref following a rename.
+ *
+ * The move runs as the new ref's query, so a view mounting under the new ref
+ * meanwhile waits for the moved files instead of reading none.
+ */
+export const moveBranchReviewedFiles = ({
 	queryClient,
 	projectId,
 	oldBranchRef,
@@ -28,23 +33,31 @@ export const moveBranchReviewedFiles = async ({
 	projectId: string;
 	oldBranchRef: Array<number>;
 	newBranchRef: Array<number>;
-}): Promise<void> => {
+}): void => {
 	const oldContextId = weakFileParentIdentityKey(branchFileParent({ branchRef: oldBranchRef }));
 	const newContextId = weakFileParentIdentityKey(branchFileParent({ branchRef: newBranchRef }));
 	const prevKey = reviewedFilesKey(projectId, oldContextId);
-	const reviewedFiles = await idb.get<ReviewedFileVersions>(prevKey);
-	if (!reviewedFiles) return;
+	const newKey = reviewedFilesKey(projectId, newContextId);
+	void queryClient
+		.fetchQuery({
+			...reviewedFilesQueryOptions(projectId, newContextId),
+			staleTime: 0,
+			queryFn: async () => {
+				const reviewedFiles = await idb.get<ReviewedFileVersions>(prevKey);
+				if (!reviewedFiles) return (await idb.get<ReviewedFileVersions>(newKey)) ?? new Map();
 
-	await idb.set(reviewedFilesKey(projectId, newContextId), reviewedFiles);
-	queryClient.setQueryData(
-		reviewedFilesQueryOptions(projectId, newContextId).queryKey,
-		reviewedFiles,
-	);
-
-	await idb.del(prevKey);
-	queryClient.removeQueries({
-		queryKey: reviewedFilesQueryOptions(projectId, oldContextId).queryKey,
-	});
+				await idb.set(newKey, reviewedFiles);
+				await idb.del(prevKey);
+				return reviewedFiles;
+			},
+		})
+		.then(() =>
+			queryClient.removeQueries({
+				queryKey: reviewedFilesQueryOptions(projectId, oldContextId).queryKey,
+			}),
+		)
+		// The query holds the failure for whoever reads it.
+		.catch(() => undefined);
 };
 
 const updateReviewedFileVersions = (

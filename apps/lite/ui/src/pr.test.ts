@@ -1,6 +1,22 @@
-import { describe, expect, it } from "vitest";
-import { mergeReadiness, reviewBodyVerdict, reviewerRows } from "./pr.ts";
+import { beforeEach, describe, expect, it, test, vi } from "vitest";
+import {
+	draftPRQueryOptions,
+	mergeReadiness,
+	moveDraftPR,
+	reviewBodyVerdict,
+	reviewerRows,
+} from "./pr.ts";
 import type { ForgeReviewSubmission } from "@gitbutler/but-sdk";
+import { QueryClient } from "@tanstack/react-query";
+
+const stored = new Map<string, unknown>();
+vi.mock("idb-keyval", () => ({
+	get: async (key: string) => stored.get(key),
+	set: async (key: string, value: unknown) => void stored.set(key, value),
+	del: async (key: string) => void stored.delete(key),
+}));
+
+beforeEach(() => stored.clear());
 
 describe("merge readiness", () => {
 	const review = { draft: false, mergedAt: null, closedAt: null };
@@ -210,4 +226,17 @@ describe("reviewer standing", () => {
 			"awaiting",
 		]);
 	});
+});
+
+test("a view reading the new name while a draft moves gets the moved draft", async () => {
+	const client = new QueryClient({ defaultOptions: { queries: { staleTime: Infinity } } });
+	stored.set("pr_draft:v1:p1:old", { title: "Draft" });
+
+	moveDraftPR({ queryClient: client, projectId: "p1", oldBranch: "old", newBranch: "new" });
+	const draft = await client.fetchQuery(
+		draftPRQueryOptions({ projectId: "p1", branchName: "new" }),
+	);
+
+	expect(draft).toEqual({ title: "Draft" });
+	expect([...stored.keys()]).toEqual(["pr_draft:v1:p1:new"]);
 });
