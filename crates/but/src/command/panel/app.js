@@ -402,8 +402,24 @@ async function tick() {
 		if (query) loadCommitFiles();
 	} catch (error) {
 		dot.className = "dot bad";
-		if (!latest) tree.innerHTML = `<div class="err">${esc(error.message || error)}</div>`;
+		if (latest) return;
+		// A refused connection, rather than an answer, means no `but panel` is serving. The poll
+		// keeps trying, so starting one is all it takes.
+		tree.innerHTML =
+			error instanceof TypeError
+				? `<div class="down"><div class="down-title">The panel isn't running</div>` +
+					`<p>Start it from any GitButler project. This page connects on its own once it's up.</p>` +
+					`<pre class="cmd">but panel --no-open</pre><button class="ghost" id="copy-cmd">Copy command</button></div>`
+				: `<div class="err">${esc(error.message || error)}</div>`;
 	}
+}
+
+// Keeps the page itself at hand for when the server is down; see sw.js.
+if ("serviceWorker" in navigator) {
+	navigator.serviceWorker
+		.register("/sw.js")
+		.then((registration) => registration.update())
+		.catch((error) => console.warn("The page won't be kept for offline use:", error));
 }
 
 // --- file search -----------------------------------------------------------
@@ -1067,6 +1083,13 @@ addForm.addEventListener("submit", async (event) => {
 });
 
 tree.addEventListener("click", (event) => {
+	if (event.target.closest("#copy-cmd")) {
+		copyText(tree.querySelector(".down .cmd").textContent).then(
+			() => toast("Command copied"),
+			(error) => toast(String(error.message || error), true),
+		);
+		return;
+	}
 	const row = event.target.closest("[data-key]");
 	// A review link opens the forge; it isn't a click on the row.
 	if (!row || event.target.closest("a")) return;
