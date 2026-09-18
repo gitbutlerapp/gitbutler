@@ -44,7 +44,6 @@ impl CliOutputHuman for DiffOutcome<'_> {
     ) -> anyhow::Result<()> {
         let Self { ctx, target } = self;
 
-        // Agents need neither syntax parsing nor its theme-loading cost.
         let syntax = if agent {
             None
         } else {
