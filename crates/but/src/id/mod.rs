@@ -81,7 +81,10 @@ struct UnqualifiedHunkId {
 /// here and it'd be silly to pull it in all the way. This will work for the vast majority of agent
 /// invocations, and that's good enough for now.
 fn min_length_for_prefix_based_short_ids() -> usize {
-    if detect_agent::detect().is_some() {
+    if
+    // Unit tests aren't isolated from the environment, and we want agents and humans to get the
+    // same results in tests, so we ignore agent detection in test.
+    !cfg!(test) && detect_agent::detect().is_some() {
         3
     } else {
         1
