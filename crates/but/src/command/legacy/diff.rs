@@ -44,12 +44,6 @@ impl CliOutputHuman for DiffOutcome<'_> {
     ) -> anyhow::Result<()> {
         let Self { ctx, target } = self;
 
-        let syntax = if agent {
-            None
-        } else {
-            Some((load_syntax_set(), theme.load_syntax_highlighting_theme()?))
-        };
-
         let strings = Strings::default();
         let mut plain_writer = DiffWriter {
             out,
@@ -57,13 +51,12 @@ impl CliOutputHuman for DiffOutcome<'_> {
             strings: strings.clone(),
         };
         let mut highlighted_writer;
-        let writer: &mut dyn DiffLineWriter = if let Some((syntax_set, syntax_theme)) = &syntax {
-            highlighted_writer = WithSyntaxHighlighting::new(
-                plain_writer,
-                strings.clone(),
-                syntax_set,
-                syntax_theme,
-            );
+        let syntax;
+
+        let writer: &mut dyn DiffLineWriter = if !agent {
+            syntax = (load_syntax_set(), theme.load_syntax_highlighting_theme()?);
+            highlighted_writer =
+                WithSyntaxHighlighting::new(plain_writer, strings.clone(), &syntax.0, &syntax.1);
             &mut highlighted_writer
         } else {
             &mut plain_writer
