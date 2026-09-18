@@ -1467,6 +1467,19 @@ export const useBranchRename = (projectId: string) => {
 		mutationKey: [projectId, "branchRename"],
 		mutationFn: window.lite.branchRename,
 		onSuccess: async (response, input, _context, mutation) => {
+			// Before the caches learn the new name: the PR form for it mounts on
+			// that update and seeds its fields from whatever draft it finds then.
+			const renamed = {
+				queryClient: mutation.client,
+				projectId: input.projectId,
+				oldBranch:
+					// https://linear.app/gitbutler/issue/GB-1226/unify-branch-identifiers
+					decodeBytes(input.refName).replace(/^refs\/heads\//, ""),
+				newBranch: response.newRef.displayName,
+			};
+			await moveDraftPR(renamed);
+			await moveBranchChecklist(renamed);
+
 			syncCoreCaches(mutation.client, dispatch, input.projectId, response);
 
 			dispatch(
@@ -1481,17 +1494,6 @@ export const useBranchRename = (projectId: string) => {
 				}),
 			);
 			remapSearchBranch(decodeBytes(input.refName), decodeBytes(response.newRef.fullNameBytes));
-
-			const renamed = {
-				queryClient: mutation.client,
-				projectId: input.projectId,
-				oldBranch:
-					// https://linear.app/gitbutler/issue/GB-1226/unify-branch-identifiers
-					decodeBytes(input.refName).replace(/^refs\/heads\//, ""),
-				newBranch: response.newRef.displayName,
-			};
-			await moveDraftPR(renamed);
-			await moveBranchChecklist(renamed);
 
 			dispatch(projectSlice.actions.clearPendingOperation({ projectId: input.projectId }));
 		},
