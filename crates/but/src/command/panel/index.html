@@ -518,6 +518,38 @@
 				color: var(--faint);
 				font-size: 11.5px;
 			}
+			/* Shown in place of the workspace while no server answers. */
+			.down {
+				margin: 48px 20px;
+				text-align: center;
+				color: var(--muted);
+			}
+			.down-title {
+				color: var(--fg);
+				font-size: 14px;
+				font-weight: 650;
+				margin-bottom: 6px;
+			}
+			.down p {
+				margin: 0 auto 12px;
+				max-width: 320px;
+			}
+			.down .cmd {
+				display: inline-block;
+				margin: 0 0 8px;
+				padding: 6px 12px;
+				border: 1px solid var(--rule);
+				border-radius: 6px;
+				background: var(--raised);
+				color: var(--fg);
+				font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+				font-size: 12px;
+				user-select: all;
+			}
+			.down button {
+				display: block;
+				margin: 0 auto;
+			}
 			.section {
 				margin: 18px 12px 4px;
 				color: var(--muted);

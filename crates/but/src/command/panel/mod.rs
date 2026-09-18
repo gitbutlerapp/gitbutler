@@ -44,6 +44,7 @@ use crate::{
 const INDEX_HTML: &str = include_str!("index.html");
 const APP_JS: &str = include_str!("app.js");
 const ICON_SVG: &str = include_str!("icon.svg");
+const SERVICE_WORKER_JS: &str = include_str!("sw.js");
 
 /// Requests are a request line and a few headers; anything larger is not from the page.
 const MAX_REQUEST_BYTES: u64 = 16 * 1024;
@@ -511,6 +512,10 @@ fn handle_connection(
             Route::Icon => Response::Page {
                 content_type: "image/svg+xml",
                 body: ICON_SVG,
+            },
+            Route::ServiceWorker => Response::Page {
+                content_type: "text/javascript; charset=utf-8",
+                body: SERVICE_WORKER_JS,
             },
             Route::Manifest => Response::Manifest(manifest_json(
                 projects.get(project.as_deref()).ok().map(|(_, root)| root),
@@ -1272,6 +1277,8 @@ enum Route {
     Script,
     /// The icon the browser tab and an installed app show.
     Icon,
+    /// The script the browser keeps to show the page while the server is down.
+    ServiceWorker,
     /// The web app manifest, for installing the page as an app of its own.
     Manifest,
     /// Lets a second `but panel` recognise a running panel.
@@ -1395,6 +1402,7 @@ fn route(request: &Request, port: u16) -> Route {
         "/" => Route::Index,
         "/app.js" => Route::Script,
         "/icon.svg" => Route::Icon,
+        "/sw.js" => Route::ServiceWorker,
         "/manifest.webmanifest" => Route::Manifest,
         "/api/ping" => Route::Ping,
         "/api/projects" if is_action => match param("path") {
@@ -1612,6 +1620,7 @@ mod tests {
         assert_eq!(route(&get("/", LOCAL), 7789), Route::Index);
         assert_eq!(route(&get("/app.js", LOCAL), 7789), Route::Script);
         assert_eq!(route(&get("/icon.svg", LOCAL), 7789), Route::Icon);
+        assert_eq!(route(&get("/sw.js", LOCAL), 7789), Route::ServiceWorker);
         assert_eq!(
             route(&get("/manifest.webmanifest?project=%2Fa", LOCAL), 7789),
             Route::Manifest,
