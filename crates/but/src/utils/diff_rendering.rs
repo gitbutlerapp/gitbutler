@@ -333,7 +333,10 @@ fn syntax_highlight(
     }
 }
 
-fn expand_tabs_for_display(mut span: Span<'static>, visual_column: &mut usize) -> Span<'static> {
+pub(crate) fn expand_tabs_for_display(
+    mut span: Span<'static>,
+    visual_column: &mut usize,
+) -> Span<'static> {
     const TAB_WIDTH: usize = 4;
 
     if !span.content.contains('\t') {
