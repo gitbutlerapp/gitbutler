@@ -3649,7 +3649,11 @@ const AppliedBranchDetails: FC<BranchDetailsProps> = ({
 	const dispatch = useAppDispatch();
 	const branchRef = decodeBytes(branch.branchRef);
 	const branchName = branchDetailsParams(branchRef).branchName;
-	const { data: openReviews, error: reviewError } = useQuery({
+	const {
+		data: openReviews,
+		error: reviewError,
+		refetch: refetchReviews,
+	} = useQuery({
 		...listReviewsQueryOptions({ projectId, cacheConfig: "noCache" }),
 		enabled: supportsPullRequests,
 	});
@@ -3667,6 +3671,10 @@ const AppliedBranchDetails: FC<BranchDetailsProps> = ({
 	});
 	const authFailure = hasAccount === false ? "missing" : forgeAuthFailure(reviewError);
 	const canUseForge = accountsSuccess && hasAccount && authFailure === null;
+	// A forge that can't be reached is not one refusing us: the tab says so, rather
+	// than the listing throwing and the whole section giving way to the error.
+	const forgeUnreachable =
+		reviewError !== null && openReviews === undefined && authFailure === null;
 	const branchCtx = headInfoIndex?.branchContextByRefBytes(branch.branchRef);
 	// A recorded PR missing from the open listing may be merged or closed.
 	// Keep it visible until verification rules out a merge.
@@ -3739,37 +3747,36 @@ const AppliedBranchDetails: FC<BranchDetailsProps> = ({
 						</div>
 					)}
 
-					{branchTab === "pr" && supportsPullRequests && canUseForge && (
-						<Suspense>
-							<SuspenseQuery
-								{...listReviewsQueryOptions({
-									projectId,
-									cacheConfig: "noCache",
-								})}
-							>
-								{({ data }) => {
-									const review = data.reviewsBySourceBranch.get(branchName);
-									if (!review) return null;
-
-									return (
-										<div className={styles.tabsRowRight}>
-											<PullRequestPrimaryAction
-												projectId={projectId}
-												review={review}
-												isEditing={prEditing}
-												onStartEdit={startPrEdit}
-											/>
-										</div>
-									);
-								}}
-							</SuspenseQuery>
-						</Suspense>
+					{branchTab === "pr" && canUseForge && openReview !== undefined && (
+						<div className={styles.tabsRowRight}>
+							<PullRequestPrimaryAction
+								projectId={projectId}
+								review={openReview}
+								isEditing={prEditing}
+								onStartEdit={startPrEdit}
+							/>
+						</div>
 					)}
 				</div>
 			</div>
 
 			<Suspense fallback={<div className={classes(styles.loadingTab, "text-13")}>Loading…</div>}>
-				{branchTab === "pr" ? (
+				{branchTab === "pr" && forgeUnreachable ? (
+					<div className={classes(styles.diffTab, styles.diffTabEmpty)}>
+						<EmptyState
+							title={`${destination?.label ?? "The forge"} can't be reached`}
+							description="Check your connection, then try again."
+						>
+							<button
+								type="button"
+								className={getButtonClassName({ variant: "outline" })}
+								onClick={() => void refetchReviews()}
+							>
+								Try again
+							</button>
+						</EmptyState>
+					</div>
+				) : branchTab === "pr" ? (
 					<div className={styles.prTabScroll}>
 						<div className={styles.prTab}>
 							{destination && accountsError ? (
@@ -3788,42 +3795,30 @@ const AppliedBranchDetails: FC<BranchDetailsProps> = ({
 								/>
 							) : authFailure !== null ? (
 								<ForgeAuthPrompt destination={destination} hasAccount={hasAccount === true} />
+							) : !reviewsLoaded ? (
+								<div className={classes(styles.loadingTab, "text-13")}>Loading…</div>
+							) : !openReview && landedReviewId !== null ? (
+								<LandedReviewView projectId={projectId} reviewId={landedReviewId} />
+							) : !openReview ? (
+								<NewPullRequestView
+									projectId={projectId}
+									branchName={branchName}
+									targetBranch={targetBranch}
+									canSubmit={canSubmit}
+									pushFirst={pushFirst}
+								/>
 							) : (
-								<SuspenseQuery
-									{...listReviewsQueryOptions({
-										projectId,
-										cacheConfig: "noCache",
-									})}
-								>
-									{({ data }) => {
-										const review = data.reviewsBySourceBranch.get(branchName);
-
-										if (!review && landedReviewId !== null)
-											return <LandedReviewView projectId={projectId} reviewId={landedReviewId} />;
-
-										return !review ? (
-											<NewPullRequestView
-												projectId={projectId}
-												branchName={branchName}
-												targetBranch={targetBranch}
-												canSubmit={canSubmit}
-												pushFirst={pushFirst}
-											/>
-										) : (
-											<ReviewView
-												key={review.number}
-												projectId={projectId}
-												sourceBranch={branchName}
-												review={review}
-												editing={{
-													active: prEditing,
-													onStart: startPrEdit,
-													onDone: () => setPrEditing(false),
-												}}
-											/>
-										);
+								<ReviewView
+									key={openReview.number}
+									projectId={projectId}
+									sourceBranch={branchName}
+									review={openReview}
+									editing={{
+										active: prEditing,
+										onStart: startPrEdit,
+										onDone: () => setPrEditing(false),
 									}}
-								</SuspenseQuery>
+								/>
 							)}
 						</div>
 					</div>
