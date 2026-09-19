@@ -1,4 +1,5 @@
 import { createBackendApi, type BackendApi } from "$lib/state/backendApi";
+import { persistConfigFor } from "$lib/state/persistConfig";
 import { uiStateSlice } from "$lib/state/uiState.svelte";
 import { InjectionToken } from "@gitbutler/core/context";
 import { mergeUnlisten } from "@gitbutler/ui/utils/mergeUnlisten";
@@ -65,11 +66,21 @@ export class ClientState {
 		});
 	}
 
-	injectPersistedSlice<S>(slice: Slice<S>): () => S | undefined {
+	/**
+	 * Persist `slice` across restarts, restoring it before the first render.
+	 *
+	 * `blacklist` names parts of the slice that should not survive. State that a query refetches
+	 * on startup belongs there: persisting it means the previous session's copy is rendered
+	 * first and replaced moments later, which reads as a flash of stale data.
+	 */
+	injectPersistedSlice<S extends object>(
+		slice: Slice<S>,
+		blacklist?: Extract<keyof S, string>[],
+	): () => S | undefined {
 		this.reducer.inject(
 			{
 				reducerPath: slice.reducerPath,
-				reducer: persistReducer({ key: slice.reducerPath, storage }, slice.reducer),
+				reducer: persistReducer(persistConfigFor(slice.reducerPath, blacklist), slice.reducer),
 			},
 			{ overrideExisting: false },
 		);

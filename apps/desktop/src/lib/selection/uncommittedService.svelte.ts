@@ -9,6 +9,7 @@ import {
 import { showToast } from "$lib/notifications/toasts";
 import { compositeKey, partialKey, type HunkSelection } from "$lib/selection/entityAdapters";
 import {
+	UNCOMMITTED_PERSIST_BLACKLIST,
 	uncommittedSelectors,
 	uncommittedSlice,
 	type CheckboxStatus,
@@ -59,7 +60,9 @@ export class UncommittedService {
 		private diffService: DiffService,
 	) {
 		this.dispatch = clientState.dispatch;
-		const getSlice = clientState.injectPersistedSlice(uncommittedSlice);
+		const getSlice = clientState.injectPersistedSlice(uncommittedSlice, [
+			...UNCOMMITTED_PERSIST_BLACKLIST,
+		]);
 
 		$effect(() => {
 			this.state = getSlice() ?? uncommittedSlice.getInitialState();
