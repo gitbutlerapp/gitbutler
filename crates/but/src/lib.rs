@@ -864,7 +864,7 @@ async fn dispatch_subcommand(
             },
             out,
         ),
-        Subcommands::_Comment(..) | Subcommands::Worktree(..) => {
+        Subcommands::_Comment(..) | Subcommands::Worktree(..) | Subcommands::Panel(..) => {
             setup::init_ctx(&args, InitCtxOptions::default(), out)
         }
         #[cfg(feature = "legacy")]
@@ -979,6 +979,12 @@ async fn dispatch_subcommand(
         Subcommands::_Expand { cli_id } => {
             let outcome = command::expand::handle(&ctx, cli_id)?;
             out.print_cli_output(outcome)?;
+            None
+        }
+        Subcommands::Panel(panel_args) => {
+            let (outcome, server) = command::panel::start(&ctx, panel_args)?;
+            out.print_cli_output(outcome)?;
+            server.run(&mut ctx)?;
             None
         }
         Subcommands::Worktree(worktree::Platform { cmd }) => {
