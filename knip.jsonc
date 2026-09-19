@@ -5,7 +5,7 @@
 		// usages in ignored workspaces.
 		"catalog": "off",
 	},
-	"ignoreWorkspaces": [".", "apps/desktop", "apps/web", "e2e", "packages/*"],
+	"ignoreWorkspaces": [".", "apps/web", "packages/*"],
 	"workspaces": {
 		"apps/lite": {
 			"entry": [

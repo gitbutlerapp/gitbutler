@@ -13,7 +13,7 @@ vendored, or fixture data unless the task is specifically about that code.
   behavior-neutral.
 - Minimize new `VirtualBranchesHandle` usage. At API boundaries, prefer
   `but_ctx::Context` workspace helpers and newer `but-*` APIs.
-- `but-api` is the API surface for Tauri, Electron/N-API, CLI, and TUI callers.
+- `but-api` is the API surface for Electron/N-API, CLI, and TUI callers.
   Outer callers should prefer existing `but-api` functions when they fit, but
   lower-level crates should not depend on `but-api`.
 - Preserve existing `but-api` macro, transport, serialization, and conversion

@@ -36,10 +36,8 @@ ships one fully self-contained build per flavor:
 
 Each folder has its own `.node` binary, loader, and declarations, so importing
 an entry point loads the matching native build — types and runtime cannot
-disagree for napi consumers. (The desktop app consumes this package for types
-only; its runtime is the Tauri backend, so it must still keep its import flavor
-in lockstep with `gitbutler-tauri`'s `graph-workspace` feature.) Both folders'
-`index.js`/`index.d.ts` are committed and CI-checked.
+disagree for napi consumers. Both folders' `index.js`/`index.d.ts` are committed
+and CI-checked.
 
 ## Generate bindings and types
 

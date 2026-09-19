@@ -1,6 +1,4 @@
 //! Helpers for resolving binary paths.
-#[cfg(target_os = "linux")]
-use std::path::Path;
 use std::path::PathBuf;
 
 /// Resolve the path to the current executable, assuming it's `but`, such that it can be executed.
@@ -16,11 +14,7 @@ use std::path::PathBuf;
 /// (causing `/proc/self/exe` to point to the new location) and then removes itself once the new
 /// version is successfully installed (causing `/proc/self/exe` to point to a non-existing binary).
 ///
-/// As [`std::env::current_exe`] resolves the symlink, it also means that the `but ->
-/// gitbutler-tauri` symlink trick to execute the CLI via the primary `gitbutler-tauri` executable
-/// fails, as it's executed with the fully resolved path.
-///
-/// Note that both of the above issues could _probably_ be addressed by using argv[0] as the path,
+/// Note that this could _probably_ be addressed by using argv[0] as the path,
 /// but as we are always guaranteed to have `/proc/self/exe` we might as well use it.
 ///
 /// # Windows and macOS
@@ -45,25 +39,5 @@ pub fn current_exe_for_but_exec() -> std::io::Result<PathBuf> {
     #[cfg(not(target_os = "linux"))]
     {
         std::env::current_exe()
-    }
-}
-
-/// Determine if this program was executed with the intention of running the `but` CLI, handling the
-/// case where this may be `gitbutler-tauri` invoked via symlink.
-pub fn is_executed_as_but() -> anyhow::Result<bool> {
-    #[cfg(target_os = "linux")]
-    {
-        Ok(std::env::args_os().next().is_some_and(|exec_path| {
-            // Assumption: We never self-exec the GUI itself
-            exec_path == "/proc/self/exe"
-                || Path::new(&exec_path)
-                    .file_stem()
-                    .is_some_and(|stem| stem == "but")
-        }))
-    }
-    #[cfg(not(target_os = "linux"))]
-    {
-        let current_exe = std::env::current_exe()?;
-        Ok(current_exe.file_stem().is_some_and(|stem| stem == "but"))
     }
 }

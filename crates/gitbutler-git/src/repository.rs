@@ -195,7 +195,7 @@ where
     envs.insert("GITBUTLER_ASKPASS_SECRET".into(), secret.clone());
 
     // Note: SSH_ASKPASS_REQUIRE is available since SSH 8.4, which was released in 2020, and as
-    // such has further backwards compatibility than we do with the Tauri GUI in general. At this
+    // such has further backwards compatibility than we do with the GUI in general. At this
     // point it is therefore relatively safe to depend on this behavior.
     //
     // See https://www.openssh.org/txt/release-8.4

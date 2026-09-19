@@ -6,13 +6,11 @@ agent instruction precedence and scoped guidance, follow the nearest applicable
 
 The main applications are found in the `apps` directory:
 
-- `desktop` containing the Tauri application's frontend code
 - `web` containing the web application's frontend code
 - `lite` containing the Electron/React desktop app
 
-Rust code is found in the `crates` directory. It contains `gitbutler-tauri` for
-the Tauri application, `but-api` for the API surface used by Tauri, Electron,
-CLI, and TUI callers, and the `but` CLI crate.
+Rust code is found in the `crates` directory. It contains `but-api` for the API
+surface used by Electron, CLI, and TUI callers, and the `but` CLI crate.
 
 The `packages` directory contains different self-contained npm packages.
 These are shared between the applications.
@@ -26,14 +24,14 @@ The packages are:
 - `no-relative-imports` containing the no-relative-imports ESLint package
 - `svelte-comment-injector` containing the Svelte comment injector package
 
-The `e2e` directory contains Playwright, WebdriverIO, and blackbox end-to-end
-tests.
+The `e2e/playwright` directory contains repository fixture scripts shared with
+the Lite end-to-end tests in `apps/lite/e2e`.
 
 ## Technology Stack
 
-- **Frontend**: Svelte with TypeScript
+- **Frontend**: React (Lite) and Svelte (web) with TypeScript
 - **Backend**: Rust
-- **Desktop Framework**: Tauri (like Electron but using Rust instead of Node.js)
+- **Desktop Framework**: Electron, backed by the native Rust SDK
 - **Build Tools**: Turborepo for monorepo management, pnpm for package management
 - **Git Libraries**: gix (gitoxide) and git2 (libgit2)
 - **Testing**: Vitest for JS/TS, Playwright for E2E tests, standard Rust testing framework
@@ -45,7 +43,7 @@ tests.
 1. **Rust**: as specified in `rust-toolchain.toml`. Install via rustup.
 2. **Node.js**: as specified in `package.json`. Use the version in `.nvmrc` (lts/krypton, which resolves to Node 24).
 3. **pnpm**: as specified in `package.json`. Enabled via corepack. Run `corepack enable` in the project root.
-4. **System Dependencies**: Tauri requires platform-specific dependencies (see DEVELOPMENT.md for details).
+4. **System Dependencies**: see DEVELOPMENT.md for platform-specific dependencies.
 
 ### Initial Setup
 
@@ -60,12 +58,10 @@ corepack enable
 # Install dependencies
 pnpm install
 
-# Build Rust binaries (required before running the app)
-# look at https://github.com/gitbutlerapp/gitbutler/blob/fd9a58de5579074c0526193143d531c21907a26b/scripts/install-tauri-debian-dependencies.sh
-# for Linux prerequisites for tauri.
+# Build Rust binaries
 cargo build
 
-# or use this to build the `but` CLI, without the need for tauri dependencies.
+# or use this to build only the `but` CLI.
 cargo build -p but
 ```
 
@@ -75,10 +71,7 @@ cargo build -p but
 
 ```bash
 # Run desktop app in development mode
-pnpm dev:desktop
-
-# Run with debug logs
-LOG_LEVEL=debug pnpm dev:desktop
+pnpm dev:lite
 
 # Run web app
 pnpm dev:web
@@ -94,10 +87,7 @@ pnpm dev:ui
 pnpm build
 
 # Build desktop app only
-pnpm build:desktop
-
-# Build for production (used for releases)
-pnpm tauri build --features devtools --config crates/gitbutler-tauri/tauri.conf.nightly.json
+pnpm build:lite
 ```
 
 ## Testing
@@ -181,7 +171,7 @@ cargo clippy --all-targets
 pnpm add -D <package>
 
 # Add to specific package
-pnpm add <package> --filter @gitbutler/desktop
+pnpm add <package> --filter @gitbutler/lite
 pnpm add <package> --filter @gitbutler/ui
 ```
 
@@ -234,7 +224,6 @@ Located in `.github/workflows/`:
 
 - `push.yaml`: Main CI for linting, building, and testing on push
 - `publish.yaml`: Release builds for different platforms
-- `test-e2e.yml`: E2E tests (Playwright and blackbox)
 - `test-client-fe-integration.yml`: Frontend integration tests
 
 ### Pre-commit Checks
