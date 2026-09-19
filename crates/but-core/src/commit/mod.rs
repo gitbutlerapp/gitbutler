@@ -660,9 +660,9 @@ impl ConflictEntries {
 /// This is the shared translation used when a merge is auto-resolved but still
 /// has unresolved conflicts that must be persisted in a conflicted commit/tree.
 /// It first asks `gix` to materialize conflict stages into an index view of the
-/// merged tree. If that yields no staged conflict paths, it falls back to the
-/// unresolved conflict list from the merge outcome itself, which is important
-/// for force-resolved merges where Git would otherwise omit index stages.
+/// merged tree, then includes paths from the unresolved conflicts themselves.
+/// This covers force-resolved tree conflicts that Git omits from index stages,
+/// including when the same merge also has staged content conflicts.
 ///
 /// - `repo` - is the repository that owns `merged_tree_id` and provides the index
 ///   machinery used to derive stage entries from the merge result.
@@ -708,23 +708,29 @@ pub fn conflict_entries_from_merge_outcome(
         their_entries,
     };
 
-    if !out.has_entries() {
-        fn push_unique(v: &mut Vec<PathBuf>, change: &gix::diff::tree_with_rewrites::Change) {
-            let path = gix::path::from_bstr(change.location()).into_owned();
-            if !v.contains(&path) {
-                v.push(path);
-            }
+    // Some forced tree resolutions (for example modify/delete) don't produce
+    // index stages even when other conflicts do. Include their paths as well.
+    fn push_unique(
+        paths: &mut Vec<PathBuf>,
+        seen: &mut HashSet<PathBuf>,
+        change: &gix::diff::tree_with_rewrites::Change,
+    ) {
+        let path = gix::path::from_bstr(change.location()).into_owned();
+        if seen.insert(path.clone()) {
+            paths.push(path);
         }
+    }
+    let mut seen_ours = out.our_entries.iter().cloned().collect();
+    let mut seen_theirs = out.their_entries.iter().cloned().collect();
 
-        for conflict in merge_result
-            .conflicts
-            .iter()
-            .filter(|c| c.is_unresolved(treat_as_unresolved))
-        {
-            let (ours, theirs) = conflict.changes_in_resolution();
-            push_unique(&mut out.our_entries, ours);
-            push_unique(&mut out.their_entries, theirs);
-        }
+    for conflict in merge_result
+        .conflicts
+        .iter()
+        .filter(|c| c.is_unresolved(treat_as_unresolved))
+    {
+        let (ours, theirs) = conflict.changes_in_resolution();
+        push_unique(&mut out.our_entries, &mut seen_ours, ours);
+        push_unique(&mut out.their_entries, &mut seen_theirs, theirs);
     }
 
     assert_eq!(
