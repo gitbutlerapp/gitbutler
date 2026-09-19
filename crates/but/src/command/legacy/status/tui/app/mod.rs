@@ -563,32 +563,50 @@ impl App {
                     self.cursor = new_cursor;
                 }
             }
-            Message::SelectUncommitted => {
-                let new_cursor = Cursor::new(&self.status_lines);
-                if let Some(uncommitted_line) = new_cursor.selected_line(&self.status_lines)
-                    && cursor::is_selectable_in_mode(
-                        uncommitted_line,
-                        self.mode.as_ref(),
-                        self.flags.show_files,
-                    )
-                {
-                    self.cursor = new_cursor;
+            Message::GotoTop => match self.flags.show_files {
+                FilesStatusFlag::None | FilesStatusFlag::All => {
+                    let new_cursor = Cursor::new(&self.status_lines);
+                    if let Some(uncommitted_line) = new_cursor.selected_line(&self.status_lines)
+                        && cursor::is_selectable_in_mode(
+                            uncommitted_line,
+                            self.mode.as_ref(),
+                            self.flags.show_files,
+                        )
+                    {
+                        self.cursor = new_cursor;
+                    }
                 }
-            }
-            Message::SelectMergeBase => {
-                let Some(new_cursor) = Cursor::select_merge_base(&self.status_lines) else {
-                    return Ok(());
-                };
-                if let Some(merge_base_line) = new_cursor.selected_line(&self.status_lines)
-                    && cursor::is_selectable_in_mode(
-                        merge_base_line,
-                        self.mode.as_ref(),
-                        self.flags.show_files,
-                    )
-                {
-                    self.cursor = new_cursor;
+                FilesStatusFlag::Commit(..) => {
+                    if let Some(new_cursor) =
+                        Cursor::select_first(&self.status_lines, &self.mode, self.flags.show_files)
+                    {
+                        self.cursor = new_cursor;
+                    }
                 }
-            }
+            },
+            Message::GotoBottom => match self.flags.show_files {
+                FilesStatusFlag::None | FilesStatusFlag::All => {
+                    let Some(new_cursor) = Cursor::select_merge_base(&self.status_lines) else {
+                        return Ok(());
+                    };
+                    if let Some(merge_base_line) = new_cursor.selected_line(&self.status_lines)
+                        && cursor::is_selectable_in_mode(
+                            merge_base_line,
+                            self.mode.as_ref(),
+                            self.flags.show_files,
+                        )
+                    {
+                        self.cursor = new_cursor;
+                    }
+                }
+                FilesStatusFlag::Commit(..) => {
+                    if let Some(new_cursor) =
+                        Cursor::select_last(&self.status_lines, &self.mode, self.flags.show_files)
+                    {
+                        self.cursor = new_cursor;
+                    }
+                }
+            },
             Message::Squash(squash_message) => {
                 self.handle_squash(squash_message, ctx, terminal_guard, messages)?
             }
@@ -1912,7 +1930,7 @@ impl App {
                                 messages.push(Message::SelectBranch(branch_name));
                             }
                             GotoBranchItem::Uncommitted => {
-                                messages.push(Message::SelectUncommitted);
+                                messages.push(Message::GotoTop);
                             }
                         }
                         Ok(())

@@ -652,8 +652,8 @@ impl KeyBindsBuilder<'_> {
     }
 
     fn uncommitted_area(&mut self) -> KeyBindsInModesBuilder<'_> {
-        self.key_bind("goto uncommitted", press().code(KeyCode::Char('g')), || {
-            Message::SelectUncommitted
+        self.key_bind("goto top", press().code(KeyCode::Char('g')), || {
+            Message::GotoTop
         })
         .hide_from_hotbar()
         .show_only_in_normal_mode_help_section()
@@ -661,9 +661,9 @@ impl KeyBindsBuilder<'_> {
 
     fn merge_base(&mut self) -> KeyBindsInModesBuilder<'_> {
         self.key_bind(
-            "goto merge base",
+            "goto bottom",
             press().shift().code(KeyCode::Char('G')),
-            || Message::SelectMergeBase,
+            || Message::GotoBottom,
         )
         .hide_from_hotbar()
         .show_only_in_normal_mode_help_section()

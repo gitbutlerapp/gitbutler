@@ -538,6 +538,29 @@ impl Cursor {
             })
     }
 
+    /// Select the first row allowed by the current mode and file scope.
+    pub fn select_first(
+        lines: &[StatusOutputLine],
+        mode: &Mode,
+        show_files: FilesStatusFlag,
+    ) -> Option<Cursor> {
+        (0..lines.len())
+            .find(|idx| is_cursor_selectable_at_index(*idx, lines, mode, show_files))
+            .map(Cursor)
+    }
+
+    /// Select the last row allowed by the current mode and file scope.
+    pub fn select_last(
+        lines: &[StatusOutputLine],
+        mode: &Mode,
+        show_files: FilesStatusFlag,
+    ) -> Option<Cursor> {
+        (0..lines.len())
+            .rev()
+            .find(|idx| is_cursor_selectable_at_index(*idx, lines, mode, show_files))
+            .map(Cursor)
+    }
+
     #[must_use]
     pub fn move_up(
         self,

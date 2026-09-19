@@ -14,7 +14,7 @@ use crate::command::legacy::status::tui::tests::utils::{
 };
 use crate::command::legacy::status::tui::{BackstackEntry, Message, ReloadCause};
 use crate::command::legacy::status::{Selectable, TuiLaunchOptions, TuiOutcome, TuiRunOptions};
-use crate::tui::test_utils::TestTui;
+use crate::tui::test_utils::{Shift, TestTui};
 use crate::{CliId, IdMap};
 
 mod branch_picker_tests;
@@ -1383,4 +1383,29 @@ fn open_tui_on_uncommitted_hunk(show_diff: bool) -> TestTui<App> {
             ..Default::default()
         },
     )
+}
+
+#[test]
+fn jumping_to_top_and_bottom_in_file_lists() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("zero-stacks");
+    env.setup_metadata(&[]);
+
+    env.file("one", "");
+    env.file("two", "");
+    env.file("three", "");
+
+    let mut tui = test_status_tui(env);
+
+    tui.input('c');
+    tui.input('e');
+    tui.input('b');
+    tui.input('f').assert_rendered_term_svg_eq(file![
+        "snapshots/jumping_to_top_and_bottom_in_file_lists_001.svg"
+    ]);
+    tui.input(Shift('g')).assert_rendered_term_svg_eq(file![
+        "snapshots/jumping_to_top_and_bottom_in_file_lists_002.svg"
+    ]);
+    tui.input('g').assert_rendered_term_svg_eq(file![
+        "snapshots/jumping_to_top_and_bottom_in_file_lists_003.svg"
+    ]);
 }
