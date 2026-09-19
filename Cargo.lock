@@ -1718,6 +1718,7 @@ dependencies = [
  "but-workspace",
  "gix",
  "snapbox",
+ "tracing",
 ]
 
 [[package]]

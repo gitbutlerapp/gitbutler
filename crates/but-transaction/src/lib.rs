@@ -1451,6 +1451,12 @@ fn workspace_state_from_rebase<M: RefMetadata>(
         )?;
     }
 
+    // The caller may keep the metadata handle alive after our lock is released, so fresh
+    // readers need the final stack order now. The refs are already updated, so a failed save
+    // is logged, as it would be on drop, rather than reported as a failed transaction.
+    if let Err(err) = materialized.meta.flush() {
+        tracing::error!("Could not persist workspace transaction metadata: {err:#}");
+    }
     WorkspaceState::from_materialized(materialized, repo)
 }
 
