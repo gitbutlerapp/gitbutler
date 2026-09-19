@@ -111,3 +111,30 @@ EOF
 
   git tag conflicted-target $conflict_commit
 )
+
+git clone repo save_with_unmergeable_workspace
+(cd save_with_unmergeable_workspace
+  git config user.name "Author"
+  git config user.email "author@example.com"
+
+  # Two heads that rewrite `shared` divergently from the same base: merging
+  # them into one workspace tree conflicts. The restore test hand-builds
+  # workspace states from these heads to make the transplant fail.
+  echo base > shared
+  git add shared && git commit -m "add shared"
+  git update-ref refs/remotes/origin/main main
+
+  git checkout -b branchy
+  echo b > file
+  echo branchy-side > shared
+  git add file shared && git commit -m "foobar"
+
+  git checkout -b other main
+  echo other-side > shared
+  git add shared && git commit -m "other"
+
+  ws=$(git commit-tree main^{tree} -p branchy -p other -m "GitButler Workspace Commit")
+  git branch gitbutler/workspace $ws
+  git symbolic-ref HEAD refs/heads/gitbutler/workspace
+  git reset --hard gitbutler/workspace
+)
