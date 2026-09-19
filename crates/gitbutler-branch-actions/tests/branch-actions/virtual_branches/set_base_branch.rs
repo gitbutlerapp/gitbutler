@@ -705,7 +705,7 @@ mod behind_count {
         // Apply C (forks from M2, 1 behind).
         let mut guard = ctx.exclusive_worktree_access();
         let mut meta = ctx.meta().unwrap();
-        let (repo, mut workspace, _) = ctx
+        let (repo, workspace, _) = ctx
             .workspace_mut_and_db_with_perm(guard.write_permission())
             .unwrap();
         let outcome = but_workspace::branch::apply(
@@ -720,7 +720,6 @@ mod behind_count {
             outcome.status.persisted_mutation(),
             "branch C must be applied for the multi-stack behind-count scenario"
         );
-        *workspace = outcome.workspace;
         drop((repo, workspace));
         drop(guard);
 
