@@ -682,6 +682,22 @@ fn fmt_commit_id_or_change_id(
     }
 }
 
+/// Like [`fmt_commit_id_or_change_id`], but produces a ratatui [`Span`] styled via [`Style`]
+/// instead of a string carrying raw ANSI escape codes. Use this (via [`Commit::to_span`]) when
+/// rendering a commit inside a ratatui widget; the `Display` impls below are for one-shot CLI
+/// output only, and their ANSI escapes render as literal text in a ratatui buffer.
+fn span_commit_id_or_change_id(commit_id: ObjectId, change_id: Option<&ChangeId>) -> Span<'static> {
+    let t = get();
+    if let Some(change_id) = change_id {
+        let s = change_id
+            .get(..MIN_DISPLAYED_CHANGE_ID_CHARS.min(change_id.len()))
+            .unwrap_or_default();
+        Span::raw(s.to_str_lossy().into_owned()).style(t.change_id)
+    } else {
+        Span::raw(commit_id.to_hex_with_len(7).to_string()).style(t.commit_id)
+    }
+}
+
 pub struct Commit<T>(pub T);
 
 impl Display for Commit<ObjectId> {
@@ -711,6 +727,14 @@ impl Display for Commit<CommitId> {
 impl Display for Commit<&CommitId> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         fmt_commit_id_or_change_id(self.0.commit_id, self.0.change_id.as_ref(), f)
+    }
+}
+
+impl Commit<&CommitId> {
+    /// Render as a themed ratatui [`Span`] for use in TUI widgets, in place of `Display`'s
+    /// ANSI-escaped string, which is meant for one-shot CLI output only.
+    pub fn to_span(&self) -> Span<'static> {
+        span_commit_id_or_change_id(self.0.commit_id, self.0.change_id.as_ref())
     }
 }
 
