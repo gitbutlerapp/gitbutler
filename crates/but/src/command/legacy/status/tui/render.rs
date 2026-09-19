@@ -706,10 +706,7 @@ fn render_status_list_item(
                 decoration_end,
                 suffix,
             }) => {
-                let is_worktree = data
-                    .cli_id()
-                    .is_some_and(|cli_id| matches!(&**cli_id, CliId::Worktree { .. }));
-                if line_has_copied_highlight && !is_worktree {
+                if line_has_copied_highlight {
                     line.extend(id.iter().cloned().map(with_highlight));
                 } else if let Some(jump_mode) = jump_mode {
                     line.extend(style_jump_mode_matches(
@@ -721,11 +718,7 @@ fn render_status_list_item(
                     line.extend(id);
                 }
                 line.extend(decoration_start);
-                if line_has_copied_highlight && is_worktree {
-                    line.extend(label.iter().cloned().map(with_highlight));
-                } else {
-                    line.extend(label);
-                }
+                line.extend(label);
                 line.extend(decoration_end);
                 line.extend(suffix);
             }
