@@ -435,8 +435,8 @@ pub enum Message {
     MoveCursorDown(usize),
     MoveCursorPreviousSection,
     MoveCursorNextSection,
-    SelectUncommitted,
-    SelectMergeBase,
+    GotoTop,
+    GotoBottom,
     PickAndGotoBranch,
     SelectBranch(FullName),
 
@@ -741,8 +741,8 @@ fn dedup_mutation_messages(messages: &mut Vec<Message>, other_messages: &mut Vec
             | Message::MoveCursorDown(_)
             | Message::MoveCursorPreviousSection
             | Message::MoveCursorNextSection
-            | Message::SelectUncommitted
-            | Message::SelectMergeBase
+            | Message::GotoTop
+            | Message::GotoBottom
             | Message::PickAndGotoBranch
             | Message::SelectBranch(..)
             | Message::ToggleHelp
