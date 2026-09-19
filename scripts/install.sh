@@ -46,8 +46,27 @@ main() {
   INSTALLER_BIN=$(mktemp "${TMPDIR:-/tmp}/gitbutler-installer-bin.XXXXXX")
   trap 'rm -f "$INSTALLER_JSON" "$INSTALLER_BIN"' EXIT INT TERM
 
+  # Detect an existing install, so a fresh install can be told apart from an
+  # upgrade. The installer itself discovers this, but only after downloading --
+  # by then the API has already answered, so the server can never distinguish
+  # the two. Checking here, before the request, is what makes it countable.
+  #
+  # Only a version number is sent: never a path, hostname, or anything about
+  # the machine. The value is parsed down to digits and dots, so whatever the
+  # local binary prints cannot inject anything into the URL.
+  EXISTING_VERSION=none
+  if command -v but >/dev/null 2>&1; then
+      # Anchored at the start: a leading `.*` would match greedily and leave
+      # only the final digit behind.
+      EXISTING_VERSION=$(but --version 2>/dev/null | head -1 | sed -n 's/^[^0-9]*\([0-9][0-9.]*\).*/\1/p')
+      # Installed, but the version could not be parsed.
+      [ -n "$EXISTING_VERSION" ] || EXISTING_VERSION=unknown
+      # Bound the length; printf is a shell builtin so this adds no dependency.
+      EXISTING_VERSION=$(printf '%.32s' "$EXISTING_VERSION")
+  fi
+
   # Fetch installer metadata and validate effective URL
-  INSTALLER_API_URL="https://app.gitbutler.com/installers/info/$INSTALLER_OS/$INSTALLER_ARCH"
+  INSTALLER_API_URL="https://app.gitbutler.com/installers/info/$INSTALLER_OS/$INSTALLER_ARCH?from=$EXISTING_VERSION"
   echo "Fetching installer information..."
 
   EFFECTIVE_URL=$(curl --fail --silent --show-error --location --max-redirs 5 --max-time 300 \
