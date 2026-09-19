@@ -28,7 +28,7 @@ pub struct Handler {
     // The following fields our currently required state as we are running in the background
     // and access it as filesystem events are processed. It's still to be decided how granular it
     // should be, and I can imagine having a top-level `app` handle that keeps the application state of
-    // the tauri app, assuming that such application would not be `Send + Sync` everywhere and thus would
+    // the app, assuming that such application would not be `Send + Sync` everywhere and thus would
     // need extra protection.
     /// A function to send events - decoupled from app-handle for testing purposes.
     send_event: Arc<dyn Fn(Change) -> Result<()> + Send + Sync + 'static>,

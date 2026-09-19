@@ -46,8 +46,8 @@ const SignedOut: FC = () => {
 		setError(null);
 		try {
 			const login = await window.lite.getLoginToken();
-			// Names the client for the login page, as apps/desktop does with its
-			// build type. Without it the page can only offer a token to copy.
+			// Names the client's build type for the login page. Without it the
+			// page can only offer a token to copy.
 			const url = new URL(login.url);
 			url.searchParams.set("bt", "release");
 			await window.lite.openInWebBrowser(url.toString());

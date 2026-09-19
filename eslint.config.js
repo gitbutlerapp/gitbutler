@@ -123,13 +123,6 @@ export default defineConfig(
 		},
 	},
 	{
-		// Composition-layer folders and routes compose across domains by design — no restriction.
-		files: ["apps/desktop/src/components/views/**", "apps/desktop/src/routes/**"],
-		rules: {
-			"no-cross-domain-imports/no-cross-domain-imports": "off",
-		},
-	},
-	{
 		files: ["**/*.svelte", "**/*.svelte.ts"],
 		...ts.configs.disableTypeChecked,
 	},
@@ -167,7 +160,6 @@ export default defineConfig(
 			"!**/.storybook",
 			"target/",
 			"crates/",
-			"apps/desktop/embedded-frontend",
 			"packages/ui/storybook-static",
 			// Storybook Meta type wrapper
 			"packages/ui/src/stories/**/*.stories.ts",

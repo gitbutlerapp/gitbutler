@@ -4,13 +4,7 @@ use anyhow::{Context as _, anyhow};
 use but_error::{Code, Context as ErrorContext};
 
 pub fn get_cli_path() -> anyhow::Result<std::path::PathBuf> {
-    let cli_path = std::env::current_exe()?;
-    Ok(if cfg!(feature = "builtin-but") {
-        // This is expected to be `tauri`, which also is expected to have `but` capabilities.
-        cli_path
-    } else {
-        cli_path.with_file_name(if cfg!(windows) { "but.exe" } else { "but" })
-    })
+    Ok(std::env::current_exe()?.with_file_name(if cfg!(windows) { "but.exe" } else { "but" }))
 }
 
 #[cfg(all(test, unix))]

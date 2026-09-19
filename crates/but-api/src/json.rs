@@ -208,12 +208,12 @@ mod error {
     //!
     //! ## How to use this
     //!
-    //! Just make sure this `Error` type is used for each provided `tauri` command. The rest happens automatically
+    //! Just make sure this `Error` type is used for each provided frontend command. The rest happens automatically
     //! such that [context](gitbutler_error::error::Context) is handled correctly.
     //!
-    //! ### Interfacing with `tauri` using `Error`
+    //! ### Interfacing with the frontend using `Error`
     //!
-    //! `tauri` serializes backend errors and makes these available as JSON objects to the frontend. The format
+    //! Backend errors are serialized and made available as JSON objects to the frontend. The format
     //! is an implementation detail, but here it's implemented to turn each `Error` into a dict with `code`
     //! and `message` fields.
     //!

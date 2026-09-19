@@ -88,7 +88,7 @@ pub fn list_branches(
     };
 
     // This projection is intended to match the but-api head_info, such that
-    // the current tauri frontend can look them up consistently.
+    // the frontend can look them up consistently.
     let info = but_workspace::ref_info::graph_to_ref_info(
         &ws,
         &repo,

@@ -8,10 +8,6 @@ CLI:
   - changed-files:
       - any-glob-to-any-file: crates/but/**/*
 
-"@gitbutler/desktop":
-  - changed-files:
-      - any-glob-to-any-file: apps/desktop/**/*
-
 "@gitbutler/web":
   - changed-files:
       - any-glob-to-any-file: apps/web/**/*

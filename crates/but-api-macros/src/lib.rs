@@ -65,7 +65,6 @@ use syn::{FnArg, ItemFn, Pat, parse_macro_input};
 ///
 /// * `func` - the original item, unchanged
 /// * `func_json` for calls from the frontend, taking `(#(json_params*),)` and returning `Result<JsonRVal, json::Error>`
-///     - This is also annotated with the `tauri` macro when the feature is enabled in the `but-api` crate.
 ///     - **Parameter Transformation**
 ///         - It supports `but_ctx::Context`, `&Context`, `&mut Context` or `ThreadSafeContext` as parameter,
 ///           which will be translated to `project_id`:
@@ -214,16 +213,8 @@ pub fn but_api(attr: TokenStream, item: TokenStream) -> TokenStream {
     // Napi function name: <function_name>_napi
     let fn_napi_name = format_ident!("{}_napi", fn_name);
 
-    // Module name for tauri-renames, to keep the original function names.
+    // Module name for napi-renames, to keep the original function names.
     let napi_mod_name = format_ident!("napi_{}", fn_name);
-
-    // Module name for tauri-renames, to keep the original function names.
-    let tauri_mod_name = format_ident!("tauri_{}", fn_name);
-    let tauri_cmd_name = format_ident!("__cmd__{}", fn_json_name);
-    let tauri_orig_cmd_name = format_ident!("__cmd__{}", fn_name);
-    let fn_name_str = fn_name.to_string();
-    let tauri_command_name_macro = format_ident!("__tauri_command_name_{}", fn_json_name);
-    let tauri_orig_command_name_macro = format_ident!("__tauri_command_name_{}", fn_name);
 
     let (convert_to_json_result_type, json_ty) = if let Some(ResultConversion {
         mode,
@@ -463,8 +454,7 @@ pub fn but_api(attr: TokenStream, item: TokenStream) -> TokenStream {
             Ok(::serde_json::to_value(result)?)
         }
 
-        /// tauri function - json input, json output, by #fn_name
-        #[cfg_attr(feature = "tauri", tauri::command(async, rename = #fn_name_str))]
+        /// json function - json input, json output.
         #legacy_cfg_if_json_mapping_is_used
         #vis #asyncness fn #fn_json_name(
             #(#json_fn_input_params),*
@@ -473,14 +463,6 @@ pub fn but_api(attr: TokenStream, item: TokenStream) -> TokenStream {
             let result = #call_fn_args?;
             #convert_to_json_result_type
             Ok(result)
-        }
-
-        /// A dummy module just to make generated tauri functions available *and* working.
-        #[cfg(feature = "tauri")]
-        pub mod #tauri_mod_name {
-            pub use super::#fn_json_name as #fn_name;
-            pub use super::#tauri_cmd_name as #tauri_orig_cmd_name;
-            pub use super::#tauri_command_name_macro as #tauri_orig_command_name_macro;
         }
 
         #napi_fn_block

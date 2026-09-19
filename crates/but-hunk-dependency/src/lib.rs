@@ -137,7 +137,7 @@ use tracing::instrument;
 
 use crate::ui::HunkLockTarget;
 
-/// Types and conversions for use in `tauri`.
+/// Types and conversions for use in the frontend.
 pub mod ui;
 
 mod utils;
