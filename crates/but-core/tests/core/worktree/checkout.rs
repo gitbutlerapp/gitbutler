@@ -144,6 +144,59 @@ fn conflicted_commits_cannot_be_checked_out() -> anyhow::Result<()> {
 }
 
 #[test]
+fn unresolved_index_conflicts_refuse_checkout_before_mutation() -> anyhow::Result<()> {
+    let (repo, _tmp) = writable_scenario("merge-with-two-branches-conflict");
+    let index_before = visualize_index(&*repo.index()?);
+    snapbox::assert_data_eq!(
+        index_before.as_str(),
+        snapbox::str![[r#"
+100644:e69de29 file:1
+100644:e6c4914 file:2
+100644:e33f5e9 file:3
+
+"#]]
+    );
+    let status_before = git_status(&repo)?;
+    snapbox::assert_data_eq!(
+        status_before.as_str(),
+        snapbox::str![[r#"
+UU file
+
+"#]]
+    );
+
+    // A no-op checkout of the current head doesn't touch index or worktree,
+    // so it may proceed - materializations that keep the head tree (e.g. a reword)
+    // must still work while conflicts are unresolved.
+    let head_commit = repo.head_commit()?;
+    safe_checkout_from_head(head_commit.id, &repo, Default::default())
+        .expect("no-op checkouts succeed despite index conflicts");
+
+    let target = repo.rev_parse_single("A")?.detach();
+    let err = safe_checkout_from_head(target, &repo, Default::default())
+        .expect_err("a real checkout must refuse while the index has unresolved conflicts");
+    assert_eq!(
+        err.to_string(),
+        "Cannot update the worktree while files have unresolved conflicts: \"file\". Resolve the conflicts, then mark each file as resolved, e.g. with `but resolve <path>`.",
+    );
+
+    // Nothing changed: worktree, index and HEAD are preserved.
+    assert_eq!(visualize_index(&*repo.index()?), index_before);
+    assert_eq!(git_status(&repo)?, status_before);
+    snapbox::assert_data_eq!(
+        visualize_commit_graph_all(&repo)?,
+        snapbox::str![[r#"
+* 88d7acc (A) 10 to 20
+| * 47334c6 (HEAD -> merge, B) 20 to 30
+|/  
+* 15bcd1b (main) init
+
+"#]]
+    );
+    Ok(())
+}
+
+#[test]
 fn pure_deletion_checkout_does_not_restore_unrelated_worktree_deletions() -> anyhow::Result<()> {
     let (repo, _tmp) = writable_scenario_slow("all-file-types-renamed-and-modified");
     snapbox::assert_data_eq!(
@@ -1150,6 +1203,69 @@ fn cancelling_consumed_changes_keeps_a_concurrent_edit() -> anyhow::Result<()> {
         std::fs::read_to_string(&file_path)?,
         "line1\nunchanged\nadded-b\nline2\nline3\nappended\n",
         "the snapshot is taken live, so the concurrent edit survives the cancellation"
+    );
+    Ok(())
+}
+
+/// The merge-base override path must keep working while the index has unresolved
+/// conflicts: snapshot restore (undo) always passes an override and is the escape
+/// hatch from exactly this state. The override's index rewrite falls back to
+/// overwriting the index with the override tree (patching a conflicted index fails),
+/// which clears the stages before the conflict guard runs, and the checkout then
+/// persists the conflict-free index.
+#[test]
+fn merge_base_override_steamrolls_stale_index_conflicts() -> anyhow::Result<()> {
+    let (repo, _tmp) = writable_scenario("merge-with-two-branches-conflict");
+    assert!(
+        git2::Repository::open(repo.git_dir())?
+            .index()?
+            .has_conflicts(),
+        "the fixture starts out mid-merge with unresolved index stages"
+    );
+
+    // Restore-shaped call: the override is the current workdir tree (like the
+    // pre-restore snapshot's), so uncommitted content cancels out in the merge and
+    // the destination tree is checked out as-is.
+    let wd_blob = repo.write_blob(std::fs::read(repo.workdir_path("file").expect("non-bare"))?)?;
+    let mut editor = repo.empty_tree().edit()?;
+    editor.upsert("file", EntryKind::Blob, wd_blob.detach())?;
+    let wd_tree = editor.write()?.detach();
+
+    let target = repo.rev_parse_single("A")?.detach();
+    safe_checkout_from_head(
+        target,
+        &repo,
+        checkout::Options {
+            merge_base_override: Some(wd_tree),
+            ..Default::default()
+        },
+    )
+    .expect("an override checkout succeeds despite index conflicts");
+
+    // The conflict stages are gone from the on-disk index and everything matches `A`.
+    assert!(
+        !git2::Repository::open(repo.git_dir())?
+            .index()?
+            .has_conflicts(),
+        "the override checkout persistently cleared the conflict stages"
+    );
+    snapbox::assert_data_eq!(
+        visualize_index(&*repo.index()?),
+        snapbox::str![[r#"
+100644:e33f5e9 file
+
+"#]]
+    );
+    snapbox::assert_data_eq!(git_status(&repo)?, snapbox::str![""]);
+    snapbox::assert_data_eq!(
+        visualize_commit_graph_all(&repo)?,
+        snapbox::str![[r#"
+* 88d7acc (HEAD -> merge, A) 10 to 20
+| * 47334c6 (B) 20 to 30
+|/  
+* 15bcd1b (main) init
+
+"#]]
     );
     Ok(())
 }
