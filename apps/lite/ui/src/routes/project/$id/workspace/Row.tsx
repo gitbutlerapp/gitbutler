@@ -1,6 +1,7 @@
 import { classes } from "#ui/components/classes.ts";
 import { Checkbox } from "#ui/components/Checkbox.tsx";
 import { Icon } from "#ui/components/Icon.tsx";
+import type { IconName } from "#ui/components/iconNames.ts";
 import { useMergedRefs } from "@base-ui/utils/useMergedRefs";
 import {
 	type ComponentProps,
@@ -11,6 +12,7 @@ import {
 	useRef,
 } from "react";
 import styles from "./Row.module.css";
+import { getRowButtonClassName } from "./Row-utils.ts";
 import { mergeProps, useRender } from "@base-ui/react";
 
 const isFromInteractiveDescendant = (event: MouseEvent<HTMLDivElement>): boolean => {
@@ -265,4 +267,21 @@ export const RowToolbar: FC<
 			reserveSpace && styles.toolbarReserveSpace,
 		)}
 	/>
+);
+
+/**
+ * A toolbar button as a row renders it mid-scroll: the same button in the same
+ * place with nothing behind it, so the row keeps its shape and gains no
+ * controls as the list settles.
+ */
+export const PresentationalRowButton: FC<{ icon: IconName }> = ({ icon }) => (
+	<button
+		type="button"
+		inert
+		aria-hidden="true"
+		tabIndex={-1}
+		className={getRowButtonClassName({ iconOnly: true })}
+	>
+		<Icon name={icon} />
+	</button>
 );

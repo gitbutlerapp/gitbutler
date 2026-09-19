@@ -103,7 +103,6 @@ const WorktreeFileRow: FC<
 			fileParent={fileParent}
 			branchNameByCommitId={() => undefined}
 			canCheck={false}
-			canUncommit={false}
 			isChecked={false}
 			isReviewed={false}
 			checkFile={noop}
