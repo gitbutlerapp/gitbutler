@@ -72,6 +72,7 @@
 .cardIdentity {
 	display: flex;
 	flex: 1;
+	flex-wrap: wrap;
 	align-items: center;
 	min-width: 0;
 	gap: 6px;
@@ -95,7 +96,21 @@
 
 .cardTime {
 	flex-shrink: 0;
+	margin-left: auto;
 	color: var(--text-2);
+}
+
+.reviewVerdict {
+	flex-shrink: 0;
+	&[data-variant="warn"] {
+		background-color: var(--bg-warn);
+	}
+	&[data-variant="danger"] {
+		background-color: var(--bg-danger);
+	}
+	&[data-variant="safe"] {
+		background-color: var(--bg-safe);
+	}
 }
 
 .cardEdited {

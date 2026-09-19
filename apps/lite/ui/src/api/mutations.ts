@@ -61,7 +61,7 @@ import type {
 } from "@gitbutler/but-sdk";
 import { type QueryClient, useMutation, useQueryClient } from "@tanstack/react-query";
 import type { GUISettings } from "#electron/settings.ts";
-import { moveDraftPR } from "#ui/pr.ts";
+import { moveBranchChecklist, moveDraftPR } from "#ui/pr.ts";
 import { invalidateTags } from "#ui/api/tags.ts";
 import { presentableOperation } from "#ui/snapshot.ts";
 import { sameLogin } from "#ui/review-users.ts";
@@ -1482,14 +1482,16 @@ export const useBranchRename = (projectId: string) => {
 			);
 			remapSearchBranch(decodeBytes(input.refName), decodeBytes(response.newRef.fullNameBytes));
 
-			await moveDraftPR({
+			const renamed = {
 				queryClient: mutation.client,
 				projectId: input.projectId,
 				oldBranch:
 					// https://linear.app/gitbutler/issue/GB-1226/unify-branch-identifiers
 					decodeBytes(input.refName).replace(/^refs\/heads\//, ""),
 				newBranch: response.newRef.displayName,
-			});
+			};
+			await moveDraftPR(renamed);
+			await moveBranchChecklist(renamed);
 
 			dispatch(projectSlice.actions.clearPendingOperation({ projectId: input.projectId }));
 		},

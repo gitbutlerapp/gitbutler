@@ -67,6 +67,7 @@ import { encodeBytes } from "#ui/api/bytes.ts";
 import { getHeadInfoIndex } from "#ui/api/ref-info.ts";
 import { forgeHunkDiff, threadStillAnchoredInFile } from "#ui/review-threads.ts";
 import { isAgent } from "#ui/review-users.ts";
+import { reviewBodyVerdict, type ReviewBodyVerdict } from "#ui/pr.ts";
 import { defaultSettings } from "#ui/settings.ts";
 import { pullRequestHotkeys } from "#ui/hotkeys.ts";
 import { FreshBadge, RegisterFreshItems } from "#ui/review-arrival.tsx";
@@ -92,6 +93,24 @@ const commentAnchorId = (commentId: number): string => `review-comment-${comment
 
 /** What a reply picks up from the card it answers. */
 type Quotable = { body: string | null; author: ForgeReviewUser | null };
+
+type ReviewBadge = { variant: BadgeVariant; label: string; verdict?: boolean };
+const verdictBadges: Record<ReviewBodyVerdict, ReviewBadge> = {
+	changesRecommended: { variant: "warn", label: "Changes recommended", verdict: true },
+	needsCloserLook: { variant: "warn", label: "Needs a closer look", verdict: true },
+	approvalRecommended: { variant: "safe", label: "Approval recommended", verdict: true },
+	approved: { variant: "safe", label: "Approved", verdict: true },
+};
+
+const ReviewTag: FC<{ badge: ReviewBadge }> = ({ badge }) => (
+	<Badge
+		variant={badge.variant}
+		data-variant={badge.variant}
+		className={badge.verdict ? styles.reviewVerdict : undefined}
+	>
+		{badge.label}
+	</Badge>
+);
 
 /**
  * The card header's identity: round avatar plus the login, as designed. An
@@ -120,7 +139,7 @@ const Avatar: FC<{ src: string | null | undefined }> = ({ src }) =>
  */
 const Card: FC<{
 	author: ForgeReviewUser | null;
-	badge?: { variant: BadgeVariant; label: string };
+	badge?: ReviewBadge;
 	timestamp: number | null;
 	/** Shown in place of the time while an optimistic write is in flight. */
 	pendingLabel?: string;
@@ -151,7 +170,7 @@ const Card: FC<{
 			<div className={styles.cardHeader}>
 				<div className={styles.cardIdentity}>
 					{author !== null && <Author user={author} />}
-					{badge !== undefined && <Badge variant={badge.variant}>{badge.label}</Badge>}
+					{badge !== undefined && <ReviewTag badge={badge} />}
 					{pendingLabel !== undefined ? (
 						<span className={classes("text-12", styles.cardTime)}>{pendingLabel}</span>
 					) : (
@@ -236,6 +255,7 @@ const Comment: FC<{
 	/** Quote this comment into the composer. */
 	onReply: (comment: Quotable) => void;
 }> = ({ projectId, reviewId, comment, currentLogin, onReply }) => {
+	const { body, verdict } = reviewBodyVerdict(comment.body);
 	const createdAtMs = comment.createdAt === null ? null : Date.parse(comment.createdAt);
 	const isOwn = currentLogin != null && comment.author?.login === currentLogin;
 	// An optimistic comment awaiting its forge id; nothing can act on it yet.
@@ -311,6 +331,7 @@ const Comment: FC<{
 	return (
 		<Card
 			author={comment.author}
+			badge={verdict === undefined ? undefined : verdictBadges[verdict]}
 			id={comment.id > 0 ? commentAnchorId(comment.id) : undefined}
 			className={isSending ? styles.cardSending : undefined}
 			timestamp={createdAtMs}
@@ -354,7 +375,7 @@ const Comment: FC<{
 				/>
 			) : (
 				<Clamped maxHeight="240px">
-					<Markdown>{comment.body}</Markdown>
+					<Markdown>{body}</Markdown>
 				</Clamped>
 			)}
 		</Card>
@@ -393,6 +414,7 @@ export const ThreadComment: FC<{ comment: ForgeReviewThreadComment; compact?: bo
 	comment,
 	compact = false,
 }) => {
+	const { body, verdict } = reviewBodyVerdict(comment.body);
 	const createdAtMs = comment.createdAt === null ? null : Date.parse(comment.createdAt);
 
 	return (
@@ -402,6 +424,7 @@ export const ThreadComment: FC<{ comment: ForgeReviewThreadComment; compact?: bo
 		>
 			<div className={styles.cardIdentity}>
 				{comment.author !== null && <Author user={comment.author} />}
+				{verdict !== undefined && <ReviewTag badge={verdictBadges[verdict]} />}
 				{createdAtMs !== null && (
 					<RelativeTime timestamp={createdAtMs} className={classes("text-12", styles.cardTime)} />
 				)}
@@ -412,7 +435,7 @@ export const ThreadComment: FC<{ comment: ForgeReviewThreadComment; compact?: bo
 				/>
 			</div>
 			<Clamped maxHeight="200px">
-				<Markdown>{comment.body}</Markdown>
+				<Markdown>{body}</Markdown>
 			</Clamped>
 		</div>
 	);
@@ -737,12 +760,10 @@ const fileThreadsUnderSubmissions = (
 };
 
 /** The verdict a submission carries into its card header. */
-const submissionBadge: Record<
-	ForgeReviewSubmission["state"],
-	{ variant: BadgeVariant; label: string }
-> = {
-	approved: { variant: "safe", label: "Approved changes" },
-	changesRequested: { variant: "danger", label: "Requested changes" },
+const submissionBadge: Record<ForgeReviewSubmission["state"], ReviewBadge> = {
+	approved: verdictBadges.approved,
+	// A formal change request blocks merging; a verdict heading only recommends.
+	changesRequested: { variant: "danger", label: "Changes requested", verdict: true },
 	commented: { variant: "lightGray", label: "Reviewed" },
 	dismissed: { variant: "lightGray", label: "Review dismissed" },
 };
@@ -759,7 +780,12 @@ const Submission: FC<{
 	onReply: (submission: Quotable) => void;
 }> = ({ projectId, reviewId, submission, threads, branchApplied, currentLogin, onReply }) => {
 	const submittedAtMs = submission.submittedAt === null ? null : Date.parse(submission.submittedAt);
-	const body = submission.body?.trim() === "" ? null : submission.body;
+	const parsed = reviewBodyVerdict(submission.body ?? "");
+	const body = parsed.body.trim() === "" ? null : parsed.body;
+	const badge =
+		submission.state === "commented" && parsed.verdict !== undefined
+			? verdictBadges[parsed.verdict]
+			: submissionBadge[submission.state];
 
 	// The listing carries every reaction with who left it, so unlike a
 	// comment there is no second request before the chips can toggle.
@@ -778,7 +804,7 @@ const Submission: FC<{
 	return (
 		<Card
 			author={submission.author}
-			badge={submissionBadge[submission.state]}
+			badge={badge}
 			timestamp={submittedAtMs}
 			freshKey={`s:${submission.id}`}
 			id={submission.id > 0 ? commentAnchorId(submission.id) : undefined}
