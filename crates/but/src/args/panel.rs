@@ -18,6 +18,12 @@ pub struct Platform {
     #[clap(long, default_value_t = 7789)]
     pub port: u16,
 
+    /// The address to listen on. The default is only reachable from this machine; `0.0.0.0`
+    /// listens on every network interface, for opening the panel on another device. Other
+    /// devices need the access token that is part of the network URL `but panel` then prints.
+    #[clap(long, default_value_t = std::net::IpAddr::V4(std::net::Ipv4Addr::LOCALHOST))]
+    pub host: std::net::IpAddr,
+
     /// Start the server without opening a browser.
     #[clap(long)]
     pub no_open: bool,

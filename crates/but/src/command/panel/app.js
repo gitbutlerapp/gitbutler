@@ -16,10 +16,24 @@ const POLL_MS = 3000;
 // project it was started in.
 const PROJECT = new URLSearchParams(location.search).get("project");
 
-/** An API URL for `path`, carrying this page's project. `params` may repeat a key as pairs. */
+// On another device than the server's, the access token `but panel --host` put in the URL. It's
+// kept, so the page still works once a project switch or a bookmark drops it from the address.
+const TOKEN = (() => {
+	const given = new URLSearchParams(location.search).get("token");
+	try {
+		if (given) localStorage.setItem("token", given);
+		return given || localStorage.getItem("token");
+	} catch {
+		return given;
+	}
+})();
+
+/** An API URL for `path`, carrying this page's project and its access token, if it needs one.
+ * `params` may repeat a key as pairs. */
 function api(path, params = {}) {
 	const query = new URLSearchParams(params);
 	if (PROJECT) query.set("project", PROJECT);
+	if (TOKEN) query.set("token", TOKEN);
 	return `${path}?${query}`;
 }
 
@@ -78,8 +92,16 @@ const STATUS_CLASS = {
 
 // --- data ------------------------------------------------------------------
 
+/** The server refused: from another device, that's a missing or outdated access token. */
+class NoAccess extends Error {
+	constructor() {
+		super("This device needs the panel's network address to show it");
+	}
+}
+
 async function fetchData(url) {
 	const response = await fetch(url, { cache: "no-store" });
+	if (response.status === 403) throw new NoAccess();
 	const body = await response.json();
 	if (!body.ok) throw new Error(body.error);
 	return body.data;
@@ -406,7 +428,12 @@ async function tick() {
 		// A refused connection, rather than an answer, means no `but panel` is serving. The poll
 		// keeps trying, so starting one is all it takes.
 		tree.innerHTML =
-			error instanceof TypeError
+			error instanceof NoAccess
+				? `<div class="down"><div class="down-title">This device needs the panel's link</div>` +
+					`<p>The panel only shows a project to other devices that open its network address, ` +
+					`which carries an access token. On the computer running it, copy it from ` +
+					`⋯ → Network address, or run <code>but panel</code> again to print it.</p></div>`
+				: error instanceof TypeError
 				? `<div class="down"><div class="down-title">The panel isn't running</div>` +
 					`<p>Start it from any GitButler project. This page connects on its own once it's up.</p>` +
 					`<pre class="cmd">but panel --no-open</pre><button class="ghost" id="copy-cmd">Copy command</button></div>`
@@ -561,6 +588,7 @@ async function folderOpeners() {
 /** Ask the server to do something, and return what it reports. */
 async function post(path, params) {
 	const response = await fetch(api(path, params), { method: "POST" });
+	if (response.status === 403) throw new NoAccess();
 	const body = await response.json().catch(() => ({ ok: false, error: response.statusText }));
 	if (!body.ok) throw new Error(body.error);
 	return body.data;
@@ -877,6 +905,11 @@ document.getElementById("more").addEventListener("click", async (event) => {
 		`<div class="menu-title path clip">&lrm;${esc(latest.project)}&lrm;</div>` +
 		menuLabel("Copy") +
 		menuItem("Project path", { copy: latest.project, what: "Project path" });
+	// Only a panel started with `--host` has an address for other devices, and says so only to
+	// the machine it runs on. Another device already has it: it's this page's own address.
+	const network = await fetchData(api("/api/network")).catch(() => null);
+	const networkUrl = network?.url || (TOKEN ? `${location.origin}${api("/")}` : null);
+	if (networkUrl) header += menuItem("Network address", { copy: networkUrl, what: "Network address" });
 	if (forge) header += menuLabel(forge.name) + menuItem("Open repository", { href: forge.url });
 	if (installPrompt) header += menuLabel("This page") + menuItem("Install as an app", { install: "" });
 	// The app's own setting, so changing it here changes it there too.

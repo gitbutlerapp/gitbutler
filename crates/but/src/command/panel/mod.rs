@@ -15,12 +15,16 @@
 //! No invocation owns that server: without `--foreground`, `but panel` starts it as a background
 //! process of its own, so it outlives the terminal or chat that first asked for it, and
 //! `but panel --stop` ends it.
+//!
+//! By default only this machine reaches it. With `--host` it listens on the network too, and as
+//! the panel can push and open files, another device must then present the server's access token
+//! with everything but the page itself. The token is part of the network URL `but panel` prints.
 
 use std::{
     collections::HashMap,
     fmt::Write as _,
     io::{self, BufReader, Read as _, Write as _},
-    net::{TcpListener, TcpStream},
+    net::{IpAddr, Ipv4Addr, SocketAddr, TcpListener, TcpStream, UdpSocket},
     path::{Path, PathBuf},
     time::Duration,
 };
@@ -56,13 +60,14 @@ const MAX_REQUEST_BYTES: u64 = 16 * 1024;
 /// How long a background server gets to answer its first ping.
 const BACKGROUND_START_TIMEOUT: Duration = Duration::from_secs(10);
 
-/// Find the panel serving `port`, or start one: in the background, or from this process with
+/// Find the panel serving `port`, which can show this project too, or start one: in the background, or from this process with
 /// `--foreground`. With `--stop`, end the one that runs instead.
 ///
 /// Returns what to print, and the server to [run](Server::run) once it's printed: printing first
 /// puts the URL on stdout before a foreground server starts serving and never returns.
 pub fn start(ctx: &Context, args: Platform) -> CliResult<(PanelOutcome, Server)> {
     let Platform {
+        host,
         port,
         no_open,
         app,
@@ -71,11 +76,21 @@ pub fn start(ctx: &Context, args: Platform) -> CliResult<(PanelOutcome, Server)>
     } = args;
     let root = repository_root(ctx)?;
     let url = project_url(port, &root);
+    // Where this machine reaches the server: over loopback, unless it listens on one address only.
+    let at = SocketAddr::new(
+        if host.is_unspecified() {
+            IpAddr::V4(Ipv4Addr::LOCALHOST)
+        } else {
+            host
+        },
+        port,
+    );
 
     if stop {
-        let stopped = is_panel(port) && stop_panel(port);
+        let stopped = is_panel(at) && stop_panel(at);
         let outcome = PanelOutcome {
             url,
+            network_url: None,
             project: root.clone(),
             state: if stopped {
                 PanelState::Stopped
@@ -89,34 +104,55 @@ pub fn start(ctx: &Context, args: Platform) -> CliResult<(PanelOutcome, Server)>
             url: None,
             app,
             root,
+            network: None,
         };
         return Ok((outcome, server));
     }
 
-    let listener = match TcpListener::bind(("127.0.0.1", port)) {
-        Ok(listener) if foreground => Some(listener),
-        // The port is free: hand it to a server of its own, which outlives this invocation.
-        Ok(listener) => {
-            drop(listener);
-            start_in_background(port, &root)?;
-            None
-        }
-        // A panel already runs here, and it can show this project too.
-        Err(err) if err.kind() == io::ErrorKind::AddrInUse && is_panel(port) => None,
-        Err(err) if err.kind() == io::ErrorKind::AddrInUse => {
-            return Err(bad_input(format!("Port {port} is already in use"))
-                .hint("Pass `--port` to serve the panel on another port")
-                .into());
-        }
-        Err(err) => {
-            return Err(anyhow::Error::from(err)
-                .context(format!("Could not listen on 127.0.0.1:{port}"))
-                .into());
+    // Ask before binding: next to a server that listens on every address, binding one of them can
+    // succeed, and would start a second panel in front of it.
+    let listener = if is_panel(at) {
+        None
+    } else {
+        match TcpListener::bind((host, port)) {
+            Ok(listener) if foreground => Some(listener),
+            // The port is free: hand it to a server of its own, which outlives this invocation.
+            Ok(listener) => {
+                drop(listener);
+                start_in_background(host, at, &root)?;
+                None
+            }
+            Err(err) if err.kind() == io::ErrorKind::AddrInUse => {
+                return Err(bad_input(format!("Port {port} is already in use"))
+                    .hint("Pass `--port` to serve the panel on another port")
+                    .into());
+            }
+            Err(err) => {
+                return Err(anyhow::Error::from(err)
+                    .context(format!("Could not listen on {host}:{port}"))
+                    .into());
+            }
         }
     };
 
+    // A server this process runs makes up its network access; one that runs already is asked.
+    let network = if listener.is_some() {
+        (!host.is_loopback()).then(|| Network::new(host))
+    } else {
+        network_of(at)
+    };
+    if !host.is_loopback() && network.is_none() {
+        return Err(bad_input(format!(
+            "The panel on port {port} only listens on this machine"
+        ))
+        .hint("Stop it with `but panel --stop`, then start it with `--host` again")
+        .into());
+    }
     let outcome = PanelOutcome {
         url: url.clone(),
+        network_url: network
+            .as_ref()
+            .map(|network| network.project_url(port, &root)),
         project: root.clone(),
         state: if listener.is_some() {
             PanelState::Foreground
@@ -130,14 +166,64 @@ pub fn start(ctx: &Context, args: Platform) -> CliResult<(PanelOutcome, Server)>
         url: if no_open { None } else { Some(url) },
         app,
         root,
+        network,
     };
     Ok((outcome, server))
+}
+
+/// How other devices reach a server that listens on the network.
+#[derive(Debug, Clone, PartialEq)]
+struct Network {
+    /// This machine's address on the network.
+    address: IpAddr,
+    /// What another device must present: the panel can push and open files, and has no login.
+    token: String,
+}
+
+impl Network {
+    fn new(host: IpAddr) -> Self {
+        use rand::Rng as _;
+
+        let token = rand::rng()
+            .sample_iter(rand::distr::Alphanumeric)
+            .take(32)
+            .map(char::from)
+            .collect();
+        Network {
+            address: if host.is_unspecified() {
+                network_address().unwrap_or(host)
+            } else {
+                host
+            },
+            token,
+        }
+    }
+
+    /// The page for the project at `root`, for another device.
+    fn project_url(&self, port: u16, root: &Path) -> String {
+        format!(
+            "http://{}/?project={}&token={}",
+            SocketAddr::new(self.address, port),
+            percent_encode(&root.to_string_lossy()),
+            self.token
+        )
+    }
+}
+
+/// The address this machine has on the network it reaches the internet through. Connecting a UDP
+/// socket only picks the route; nothing is sent.
+fn network_address() -> Option<IpAddr> {
+    let socket = UdpSocket::bind(("0.0.0.0", 0)).ok()?;
+    socket.connect(("8.8.8.8", 80)).ok()?;
+    Some(socket.local_addr().ok()?.ip())
 }
 
 /// Where the panel shows this project, and which server does.
 #[must_use]
 pub struct PanelOutcome {
     url: String,
+    /// Where another device finds it, if the server listens on the network.
+    network_url: Option<String>,
     project: PathBuf,
     state: PanelState,
 }
@@ -164,21 +250,27 @@ impl CliOutputHuman for PanelOutcome {
     ) -> anyhow::Result<()> {
         let Self {
             url,
+            network_url,
             project,
             state,
         } = self;
         let name = repository_name(&project);
-        match state {
-            PanelState::Background => writeln!(
-                out,
-                "Showing {name} in the panel at {url} (`but panel --stop` to stop it)"
-            )?,
-            PanelState::Foreground => writeln!(
-                out,
-                "Serving the panel for {name} at {url} (Ctrl-C to stop)"
-            )?,
-            PanelState::Stopped => writeln!(out, "Stopped the panel")?,
-            PanelState::NotRunning => writeln!(out, "No panel is running")?,
+        let (showing, stop) = match state {
+            PanelState::Background => ("Showing", "`but panel --stop` to stop it"),
+            PanelState::Foreground => ("Serving", "Ctrl-C to stop"),
+            PanelState::Stopped | PanelState::NotRunning => ("", ""),
+        };
+        match (state, network_url) {
+            (PanelState::Background | PanelState::Foreground, None) => {
+                writeln!(out, "{showing} {name} in the panel at {url} ({stop})")?
+            }
+            (PanelState::Background | PanelState::Foreground, Some(network_url)) => {
+                writeln!(out, "{showing} {name} in the panel ({stop})")?;
+                writeln!(out, "  On this machine: {url}")?;
+                writeln!(out, "  On your network: {network_url}")?;
+            }
+            (PanelState::Stopped, _) => writeln!(out, "Stopped the panel")?,
+            (PanelState::NotRunning, _) => writeln!(out, "No panel is running")?,
         }
         Ok(())
     }
@@ -187,19 +279,24 @@ impl CliOutputHuman for PanelOutcome {
 impl CliOutput for PanelOutcome {
     fn on_json(self) -> impl serde::Serialize {
         #[derive(serde::Serialize)]
+        #[serde(rename_all = "camelCase")]
         struct Output {
             url: String,
+            #[serde(skip_serializing_if = "Option::is_none")]
+            network_url: Option<String>,
             project: PathBuf,
             state: PanelState,
         }
 
         let Self {
             url,
+            network_url,
             project,
             state,
         } = self;
         Output {
             url,
+            network_url,
             project,
             state,
         }
@@ -215,6 +312,8 @@ pub struct Server {
     /// Open it in a window of its own rather than a tab.
     app: bool,
     root: PathBuf,
+    /// How other devices reach it, if it listens on the network.
+    network: Option<Network>,
 }
 
 impl Server {
@@ -226,6 +325,7 @@ impl Server {
             url,
             app,
             root,
+            network,
         } = self;
         if let Some(url) = url {
             let opened = if app {
@@ -253,7 +353,14 @@ impl Server {
         let mut graphs = HashMap::new();
         for stream in listener.incoming() {
             let Ok(stream) = stream else { continue };
-            match handle_connection(&mut projects, &mut commit_files, &mut graphs, port, stream) {
+            match handle_connection(
+                &mut projects,
+                &mut commit_files,
+                &mut graphs,
+                port,
+                network.as_ref(),
+                stream,
+            ) {
                 Ok(Served::Stop) => break,
                 Ok(Served::Continue) => {}
                 // A dropped or malformed connection only affects that one request.
@@ -354,7 +461,7 @@ fn project_url(port: u16, root: &Path) -> String {
 
 /// Run `but panel --foreground` for `root` as a process of its own, in its own process group so
 /// the terminal's Ctrl-C and hang-up don't reach it, and wait until it answers.
-fn start_in_background(port: u16, root: &Path) -> anyhow::Result<()> {
+fn start_in_background(host: IpAddr, at: SocketAddr, root: &Path) -> anyhow::Result<()> {
     use std::process::{Command, Stdio};
 
     use command_group::CommandGroup as _;
@@ -364,8 +471,10 @@ fn start_in_background(port: u16, root: &Path) -> anyhow::Result<()> {
     Command::new(but_path)
         .arg("-C")
         .arg(root)
-        .args(["panel", "--foreground", "--no-open", "--port"])
-        .arg(port.to_string())
+        .args(["panel", "--foreground", "--no-open", "--host"])
+        .arg(host.to_string())
+        .arg("--port")
+        .arg(at.port().to_string())
         .stdin(Stdio::null())
         .stdout(Stdio::null())
         .stderr(Stdio::null())
@@ -374,21 +483,21 @@ fn start_in_background(port: u16, root: &Path) -> anyhow::Result<()> {
 
     let started = std::time::Instant::now();
     while started.elapsed() < BACKGROUND_START_TIMEOUT {
-        if is_panel(port) {
+        if is_panel(at) {
             return Ok(());
         }
         std::thread::sleep(Duration::from_millis(100));
     }
-    anyhow::bail!("The panel server did not start on port {port}")
+    anyhow::bail!("The panel server did not start on port {}", at.port())
 }
 
-/// Send one request to the server on `port`, as the page would, and return its response.
-fn request(port: u16, method: &str, target: &str) -> io::Result<String> {
-    let mut stream = TcpStream::connect(("127.0.0.1", port))?;
+/// Send one request to the server at `at`, as the page would, and return its response.
+fn request(at: SocketAddr, method: &str, target: &str) -> io::Result<String> {
+    let mut stream = TcpStream::connect(at)?;
     stream.set_read_timeout(Some(Duration::from_secs(2)))?;
     write!(
         stream,
-        "{method} {target} HTTP/1.1\r\nHost: 127.0.0.1:{port}\r\nOrigin: http://127.0.0.1:{port}\r\nConnection: close\r\n\r\n"
+        "{method} {target} HTTP/1.1\r\nHost: {at}\r\nOrigin: http://{at}\r\nConnection: close\r\n\r\n"
     )?;
     let mut response = String::new();
     stream
@@ -397,14 +506,27 @@ fn request(port: u16, method: &str, target: &str) -> io::Result<String> {
     Ok(response)
 }
 
-/// Whether the server holding `port` is a panel, which answers `/api/ping`.
-fn is_panel(port: u16) -> bool {
-    request(port, "GET", "/api/ping").is_ok_and(|response| response.contains(r#""panel":true"#))
+/// Whether the server at `at` is a panel, which answers `/api/ping`.
+fn is_panel(at: SocketAddr) -> bool {
+    request(at, "GET", "/api/ping").is_ok_and(|response| response.contains(r#""panel":true"#))
 }
 
-/// Ask the panel on `port` to stop serving, and say whether it agreed.
-fn stop_panel(port: u16) -> bool {
-    request(port, "POST", "/api/stop").is_ok_and(|response| response.contains(r#""stopped":true"#))
+/// Ask the panel at `at` to stop serving, and say whether it agreed.
+fn stop_panel(at: SocketAddr) -> bool {
+    request(at, "POST", "/api/stop").is_ok_and(|response| response.contains(r#""stopped":true"#))
+}
+
+/// How other devices reach the panel at `at`, which it tells this machine only. `None` if it
+/// listens on this machine alone.
+fn network_of(at: SocketAddr) -> Option<Network> {
+    let response = request(at, "GET", "/api/network").ok()?;
+    let (_, body) = response.split_once("\r\n\r\n")?;
+    let body: serde_json::Value = serde_json::from_str(body).ok()?;
+    let network = body.get("data")?;
+    Some(Network {
+        address: network.get("address")?.as_str()?.parse().ok()?,
+        token: network.get("token")?.as_str()?.to_owned(),
+    })
 }
 
 /// The canonical directory a project is known by: its main worktree, so a linked worktree's path
@@ -592,11 +714,27 @@ fn handle_connection(
     commit_files: &mut HashMap<gix::ObjectId, serde_json::Value>,
     graphs: &mut HashMap<PathBuf, GraphCache>,
     port: u16,
+    network: Option<&Network>,
     stream: TcpStream,
 ) -> anyhow::Result<Served> {
     stream.set_read_timeout(Some(Duration::from_secs(5)))?;
-    let request = read_request(BufReader::new((&stream).take(MAX_REQUEST_BYTES)))?;
-    let route = route(&request, port);
+    let (peer, arrived_at) = (stream.peer_addr()?.ip(), stream.local_addr()?.ip());
+    // A connection from this machine comes over loopback, or to its own address from that address.
+    let from_this_machine = peer.is_loopback() || peer == arrived_at;
+    let mut request = read_request(BufReader::new((&stream).take(MAX_REQUEST_BYTES)))?;
+    request.arrived_at = (!arrived_at.is_loopback()).then_some(arrived_at);
+    let route = match route(&request, port) {
+        // The page holds nothing; its data and what it can do are for those with the token.
+        page @ (Route::Index | Route::Script | Route::Icon | Route::ServiceWorker) => page,
+        error @ Route::Error { .. } => error,
+        Route::Network if !from_this_machine => Route::Error {
+            status: "403 Forbidden",
+        },
+        _ if !from_this_machine && !has_token(&request, network) => Route::Error {
+            status: "403 Forbidden",
+        },
+        route => route,
+    };
     let served = if route == Route::Stop {
         Served::Stop
     } else {
@@ -626,6 +764,17 @@ fn handle_connection(
             )),
             Route::Ping => Response::Json(json!({ "panel": true })),
             Route::Stop => Response::Json(json!({ "stopped": true })),
+            Route::Network => data_response(Ok(match network {
+                Some(network) => json!({
+                    "address": network.address,
+                    "token": network.token,
+                    "url": projects
+                        .get(project.as_deref())
+                        .ok()
+                        .map(|(_, root)| network.project_url(port, &root)),
+                }),
+                None => serde_json::Value::Null,
+            })),
             Route::Projects => data_response(Ok(projects.list())),
             Route::AddProject { path } => {
                 data_response(projects.add(&path).map(|root| json!({ "path": root })))
@@ -707,6 +856,20 @@ fn handle_connection(
         };
     write_response(&stream, response)?;
     Ok(served)
+}
+
+/// Whether `request` carries the token a device other than this machine needs.
+fn has_token(request: &Request, network: Option<&Network>) -> bool {
+    let Some(network) = network else {
+        return false;
+    };
+    request
+        .target
+        .split_once('?')
+        .and_then(|(_, query)| query_params(query))
+        .into_iter()
+        .flatten()
+        .any(|(key, value)| key == "token" && value == network.token)
 }
 
 /// Whether the server goes on after a request.
@@ -1385,6 +1548,9 @@ struct Request {
     target: String,
     host: Option<String>,
     origin: Option<String>,
+    /// This machine's address the request arrived on, unless that is loopback. A page opened on
+    /// another device names the server by it.
+    arrived_at: Option<IpAddr>,
 }
 
 fn read_request(mut reader: impl io::BufRead) -> anyhow::Result<Request> {
@@ -1420,6 +1586,7 @@ fn read_request(mut reader: impl io::BufRead) -> anyhow::Result<Request> {
         target: target.to_owned(),
         host,
         origin,
+        arrived_at: None,
     })
 }
 
@@ -1450,6 +1617,8 @@ enum Route {
     Ping,
     /// `but panel --stop` asks the server to exit.
     Stop,
+    /// How other devices reach the server, for `but panel` on this machine to print.
+    Network,
     /// The projects the page can switch between.
     Projects,
     /// Open the repository at `path` and list it among the projects, remembering it as a GitButler
@@ -1515,10 +1684,16 @@ enum Route {
 
 fn route(request: &Request, port: u16) -> Route {
     // Only the page itself may call in. Checking `Host` stops another site from reaching this
-    // server by pointing its own domain at 127.0.0.1 (DNS rebinding).
-    let host_is_local = request.host.as_deref().is_some_and(|host| {
-        host == format!("localhost:{port}") || host == format!("127.0.0.1:{port}")
-    });
+    // server by pointing its own domain at it (DNS rebinding). The page names the server by
+    // localhost, or on another device by the address its request arrived on.
+    let names_this_server = |authority: &str| {
+        authority == format!("localhost:{port}")
+            || authority == format!("127.0.0.1:{port}")
+            || request
+                .arrived_at
+                .is_some_and(|address| authority == SocketAddr::new(address, port).to_string())
+    };
+    let host_is_local = request.host.as_deref().is_some_and(names_this_server);
     if !host_is_local {
         return Route::Error {
             status: "403 Forbidden",
@@ -1555,9 +1730,11 @@ fn route(request: &Request, port: u16) -> Route {
             | "/api/settings"
             | "/api/stop"
     ) || (path == "/api/projects" && request.method == "POST");
-    let origin_is_local = request.origin.as_deref().is_some_and(|origin| {
-        origin == format!("http://localhost:{port}") || origin == format!("http://127.0.0.1:{port}")
-    });
+    let origin_is_local = request
+        .origin
+        .as_deref()
+        .and_then(|origin| origin.strip_prefix("http://"))
+        .is_some_and(names_this_server);
     match (request.method.as_str(), is_action) {
         ("GET", false) => {}
         ("POST", true) if origin_is_local => {}
@@ -1581,6 +1758,7 @@ fn route(request: &Request, port: u16) -> Route {
         "/manifest.webmanifest" => Route::Manifest,
         "/api/ping" => Route::Ping,
         "/api/stop" => Route::Stop,
+        "/api/network" => Route::Network,
         "/api/projects" if is_action => match param("path") {
             Some(path) => Route::AddProject { path },
             None => Route::Error {
@@ -1771,6 +1949,7 @@ mod tests {
             target: target.to_owned(),
             host: host.map(str::to_owned),
             origin: None,
+            arrived_at: None,
         }
     }
 
@@ -2211,5 +2390,73 @@ mod tests {
             "only web pages are opened"
         );
         assert!(!is_on_forge("not a url", forge));
+    }
+
+    #[test]
+    fn a_page_on_another_device_names_the_server_by_its_network_address() {
+        let address: IpAddr = "192.168.1.5".parse().unwrap();
+        let on_network = |mut request: Request| {
+            request.arrived_at = Some(address);
+            request
+        };
+        assert_eq!(
+            route(
+                &on_network(get("/api/ping", Some("192.168.1.5:7789"))),
+                7789
+            ),
+            Route::Ping
+        );
+        assert_eq!(
+            route(
+                &on_network(Request {
+                    host: Some("192.168.1.5:7789".into()),
+                    ..post("/api/fetch", Some("http://192.168.1.5:7789"))
+                }),
+                7789
+            ),
+            Route::Fetch
+        );
+        assert_eq!(
+            route(
+                &on_network(get("/api/ping", Some("evil.example:7789"))),
+                7789
+            ),
+            Route::Error {
+                status: "403 Forbidden"
+            },
+            "a foreign host rebound to the network address is refused too"
+        );
+        assert_eq!(
+            route(&get("/api/ping", Some("192.168.1.5:7789")), 7789),
+            Route::Error {
+                status: "403 Forbidden"
+            },
+            "over loopback the server only goes by localhost"
+        );
+    }
+
+    #[test]
+    fn another_device_needs_the_token() {
+        let network = Network {
+            address: "192.168.1.5".parse().unwrap(),
+            token: "s3cret".into(),
+        };
+        assert!(has_token(
+            &get("/api/workspace?project=%2Fa&token=s3cret", LOCAL),
+            Some(&network)
+        ));
+        assert!(!has_token(
+            &get("/api/workspace?token=guess", LOCAL),
+            Some(&network)
+        ));
+        assert!(!has_token(&get("/api/workspace", LOCAL), Some(&network)));
+        assert!(
+            !has_token(&get("/api/workspace?token=", LOCAL), None),
+            "a server on this machine alone has no token to match"
+        );
+        assert_eq!(
+            network.project_url(7789, Path::new("/Users/me/fliege")),
+            "http://192.168.1.5:7789/?project=/Users/me/fliege&token=s3cret"
+        );
     }
 }
