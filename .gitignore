@@ -13,8 +13,6 @@ $.zed
 
 .sentryclirc
 .DS_Store
-e2e/blackbox/videos/*.mp4
-e2e/web/test-results/
 
 .env
 .env.*

@@ -27,7 +27,6 @@ you right. Let's get started.
 - [Design](#design)
 - [Contributing](#contributing)
 - [Some Other Random Notes](#some-other-random-notes)
-  - [Icon generation](#icon-generation)
   - [Release](#release)
   - [Versioning](#versioning)
   - [Publishing](#publishing)
@@ -40,14 +39,12 @@ you right. Let's get started.
 
 So how does this whole thing work?
 
-It's a [Tauri app](https://tauri.app/), which is basically like an Electron app,
-in that we can develop a desktop app from one source with multiple OS targets
-and write the UI in HTML and Javascript. Except instead of Node for the
-filesystem access part, Tauri uses [Rust](https://www.rust-lang.org/).
+The desktop app is an [Electron](https://www.electronjs.org/) app backed by a
+native [Rust](https://www.rust-lang.org/) SDK.
 
 So everything that hits disk is in Rust, everything that the
-user sees is in HTML/JS. Specifically we use [Svelte](https://svelte.dev/)
-in Typescript for that layer.
+user sees is in HTML/JS. Specifically we use [React](https://react.dev/)
+in Typescript for that layer. See [apps/lite/README.md](apps/lite/README.md).
 
 For a deep dive into the architecture, see [DEEPWIKI](https://deepwiki.com/gitbutlerapp/gitbutler).
 
@@ -103,30 +100,11 @@ OK, let's get it running.
 
 ### Prerequisites
 
-First of all, this is a Tauri app, which uses Rust for the backend and Javascript for the frontend. So let's make sure you have all the prerequisites installed.
+The app uses Rust for the backend and Javascript for the frontend. So let's make sure you have all the prerequisites installed.
 
-1. Tauri Dev Deps (https://tauri.app/start/prerequisites/#system-dependencies)
+1. System dependencies
 
-On Mac OS, ensure you've installed XCode and `cmake`. On Linux, if you're on Debian or one of its derivatives like Ubuntu, you can use the following command.
-
-<details>
-<summary>Linux Tauri dependencies</summary>
-
-```bash
-$ sudo apt update
-$ sudo apt install libwebkit2gtk-4.1-dev \
-  build-essential \
-  curl \
-  wget \
-  file \
-  libxdo-dev \
-  libssl-dev \
-  libayatana-appindicator3-dev \
-  librsvg2-dev \
-  cmake
-```
-
-</details>
+On Mac OS, ensure you've installed XCode and `cmake`. On Linux, if you're on Debian or one of its derivatives like Ubuntu, run `sudo ./scripts/install-minimal-debian-dependencies.sh`.
 
 2. Rust
 
@@ -175,22 +153,10 @@ You'll have to re-run this occasionally when our deps change.
 
 ### Run the app
 
-First, run cargo build such that supplementary bins such as `gitbutler-git-askpass` are created (Note the default folder (`target`) will be used for the build):
+Run the app in development mode:
 
 ```bash
-$ cargo build
-```
-
-Now you should be able to run the app in development mode:
-
-```bash
-$ pnpm dev:desktop
-```
-
-By default it will not print debug logs to console. If you want debug logs, set `LOG_LEVEL` environment variable:
-
-```bash
-$ LOG_LEVEL=debug pnpm dev:desktop
+$ pnpm dev:lite
 ```
 
 ### Lint & format
@@ -225,19 +191,6 @@ it is that you're working on.
 The app writes logs into:
 
 1. `stdout` in development mode
-2. The Tauri [logs](https://tauri.app/v1/api/js/path/#platform-specific) directory
-
-One can get performance log when launching the application locally as follows:
-
-```bash
-GITBUTLER_PERFORMANCE_LOG=1 LOG_LEVEL=debug pnpm tauri dev
-```
-
-For more realistic performance logging, use local release builds with `--release`.
-
-```bash
-GITBUTLER_PERFORMANCE_LOG=1 LOG_LEVEL=debug pnpm tauri dev --release
-```
 
 ### Repository
 
@@ -292,7 +245,7 @@ Common issues and solutions when developing GitButler.
 
 #### Case-sensitive volume problems
 
-If you're experiencing issues with the `dev:desktop` target failing to start, especially on macOS with case-sensitive filesystems, this may be related to Turborepo's handling of case-sensitive volumes.
+If you're experiencing issues with the `dev:lite` target failing to start, especially on macOS with case-sensitive filesystems, this may be related to Turborepo's handling of case-sensitive volumes.
 
 **Solution:** See the related issue at [vercel/turborepo#8491](https://github.com/vercel/turborepo/issues/8491) for current workarounds.
 
@@ -308,7 +261,7 @@ pnpm exec turbo daemon stop
 pnpm exec turbo daemon clean
 
 # Restart development
-pnpm dev:desktop
+pnpm dev:lite
 ```
 
 ### Cache issues
@@ -346,7 +299,6 @@ corepack prepare pnpm@10 --activate
 For issues specific to our toolchain components:
 
 - [Turborepo issues](https://github.com/vercel/turborepo/issues)
-- [Tauri issues](https://github.com/tauri-apps/tauri/issues)
 
 If none of these solutions work, please check our [GitHub Issues](https://github.com/gitbutlerapp/gitbutler/issues) or create a new issue with detailed information about your system and the error you're encountering.
 
@@ -357,10 +309,8 @@ If none of these solutions work, please check our [GitHub Issues](https://github
 To build the app in production mode, run:
 
 ```bash
-$ pnpm tauri build --features devtools,builtin-but,disable-auto-updates,nightly --config crates/gitbutler-tauri/tauri.conf.nightly-local.json
+$ pnpm build:lite
 ```
-
-This will make an asset similar to our nightly build.
 
 ### Building on Windows
 
@@ -436,21 +386,6 @@ export CARGO_BUILD_TARGET=x86_64-pc-windows-msvc
 export OPENSSL_SRC_PERL="c:/Strawberry/perl/bin/perl.exe"
 ```
 
-Here is how to produce a nightly release build:
-
-```
-pnpm tauri build --features windows,devtools,nightly --config  crates/gitbutler-tauri/tauri.conf.nightly.json
-```
-
-And this is how to get a local developer debug build:
-
-```bash
-pnpm tauri dev --features windows --target x86_64-pc-windows-msvc
-```
-
-Note that it's necessary to repeat the `--target` specification as otherwise the final copy operation doesn't work,
-triggered by `tauri` itself.
-
 ---
 
 ## Design
@@ -477,15 +412,6 @@ Most of this is for internal GitButler use, but maybe everyone else will find
 it interesting too.
 
 ---
-
-### Icon generation
-
-I always forget how to do this, but when we update our app icon, run this to
-import it.
-
-```bash
-$ pnpm tauri icon path/to/icon.png
-```
 
 ### Release
 
@@ -515,11 +441,6 @@ PUBLIC_API_BASE_URL=https://app.gitbutler.com/
 The desktop frontend and local backend both honor `PUBLIC_API_BASE_URL`. If you
 need a backend-only override while debugging, `GITBUTLER_API_URL` still takes
 precedence on the Rust side.
-
-When you start the desktop app with `pnpm dev:desktop`, the Tauri launcher now
-loads `apps/desktop/.env`, `.env.local`, `.env.development`, and
-`.env.development.local` into the Rust process as well, so the frontend and
-backend see the same local overrides by default.
 
 ---
 

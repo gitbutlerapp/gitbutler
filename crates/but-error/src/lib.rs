@@ -47,9 +47,9 @@
 //! #### Meet the `Code`
 //!
 //! The [`Code`] is a classifier for errors, and it can be attached as [`anyhow context`](anyhow::Context)
-//! to be visible to `tauri`, which looks at the error chain to obtain such metadata.
+//! to be visible to the API layer, which looks at the error chain to obtain such metadata.
 //!
-//! By default, the frontend will show the stringified root error if a `tauri` command fails.
+//! By default, the frontend will show the stringified root error if a command fails.
 //! However, **sometimes we want to cut that short and display a particular message**.
 //!
 //! ```rust

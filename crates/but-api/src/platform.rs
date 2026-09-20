@@ -11,8 +11,7 @@ use but_api_macros::but_api;
 #[serde(rename_all = "camelCase")]
 pub struct ServerCapabilities {
     /// True when the server is reachable from outside localhost (e.g. a
-    /// tunnel is active). False in the Tauri desktop app and when
-    /// but-server is running locally.
+    /// tunnel is active). False when but-server is running locally.
     pub is_remote: bool,
     /// Whether the user can add a local project via a filesystem path.
     pub can_add_projects: bool,

@@ -10,10 +10,6 @@ rust-version.workspace = true
 doctest = false
 test = true
 
-[features]
-## If enabled, we will let the current executable (gitbutler-tauri) be the source for the `but` link.
-builtin-but = []
-
 [dependencies]
 but-serde.workspace = true
 but-db.workspace = true

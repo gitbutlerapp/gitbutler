@@ -288,7 +288,7 @@ jobs:
       - name: Dependencies for 'keyring'
         run: sudo ./scripts/install-minimal-debian-dependencies.sh
       - name: Check documentation
-        run: cargo doc --workspace --no-deps --exclude gitbutler-tauri --exclude but-api-macros-tests
+        run: cargo doc --workspace --no-deps --exclude but-api-macros-tests
 
   rust-test:
     needs: changes
@@ -311,7 +311,7 @@ jobs:
       - name: Rust Cache
         uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
         with:
-          shared-key: cargo-test-no-tauri
+          shared-key: cargo-test
           save-if: ${{ github.ref == 'refs/heads/master' }}
       - name: Dependencies for 'keyring'
         run: sudo ./scripts/install-minimal-debian-dependencies.sh
@@ -328,9 +328,9 @@ jobs:
           tar -xzf cargo-nextest.tar.gz -C ${CARGO_HOME:-~/.cargo}/bin
           rm cargo-nextest.tar.gz
       - name: Run workspace tests
-        run: cargo nextest run --workspace --exclude gitbutler-tauri --exclude but-api-macros-tests --profile ci
+        run: cargo nextest run --workspace --exclude but-api-macros-tests --profile ci
       - name: Run doctests
-        run: cargo test --doc --workspace --exclude gitbutler-tauri --exclude but-api-macros-tests
+        run: cargo test --doc --workspace --exclude but-api-macros-tests
       - name: Upload results to tests.but.dev
         if: ${{ always() && !cancelled() }}
         continue-on-error: true
@@ -385,8 +385,6 @@ jobs:
             cache_suffix: default
           - features: "--features legacy"
             cache_suffix: legacy
-          - features: "--features tauri"
-            cache_suffix: tauri
           - features: "--features napi"
             cache_suffix: napi
     container:
@@ -407,37 +405,6 @@ jobs:
           save-if: ${{ github.ref == 'refs/heads/master' }}
       - name: Test but-api-macros ${{ matrix.features || '(default)' }}
         run: cargo test -p but-api-macros-tests ${{ matrix.features }}
-
-  rust-test-tauri:
-    needs: changes
-    if: ${{ needs.changes.outputs.rust == 'true' }}
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      packages: read
-    container:
-      image: ghcr.io/gitbutlerapp/ci-base-image@sha256:3eaeae1b07072796a53dc1e7585cdc1f462d0b11d10ecd3685c6fa8082d647dd
-    env:
-      CARGO_TERM_COLOR: always
-    defaults:
-      run:
-        shell: bash
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
-      - name: Rust Cache
-        uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
-        with:
-          shared-key: cargo-test-tauri
-          save-if: ${{ github.ref == 'refs/heads/master' }}
-      - run: |
-          set -e
-          cargo check -p gitbutler-tauri --no-default-features
-          for feature in devtools custom-protocol error-context packaged-but-distribution builtin-but; do
-            cargo check -p gitbutler-tauri --no-default-features --features "$feature"
-          done
-        name: Test Tauri and Check Tauri App Features
 
   check-rust-windows:
     needs: changes
@@ -657,7 +624,6 @@ jobs:
       - check-rust-windows
       - rust-test
       - rust-test-but-api-macros
-      - rust-test-tauri
       - rust-lint
       - cargo-machete
       - cargo-doc

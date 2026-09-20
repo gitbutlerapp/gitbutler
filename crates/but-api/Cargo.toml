@@ -19,8 +19,6 @@ ignored = [
     "napi",
     # Used only when the `napi` feature is enabled for Node bindings.
     "napi-derive",
-    # Used only when the `tauri` feature is enabled for Tauri command bindings.
-    "tauri",
 ]
 
 [lib]
@@ -28,9 +26,6 @@ doctest = false
 
 [features]
 default = []
-## Provide Tauri commands automatically where possible, to avoid duplication.
-## Needs "legacy" as long as it needs legacy project support.
-tauri = ["dep:tauri", "legacy"]
 ## Provide napi bindings for Node.js via napi-rs.
 ## Needs "legacy" as long as it needs legacy project support.
 napi = ["dep:napi", "dep:napi-derive", "legacy", "export-schema"]
@@ -59,7 +54,7 @@ export-schema = [
 ##
 ## This changes the shape of a public type, so it must stay coherent across one
 ## build: never enable it in any crate's default features. Leaf crates
-## (`gitbutler-tauri`, `but-napi`, `but`) forward it so artifact builds can opt
+## (`but-napi`, `but`) forward it so artifact builds can opt
 ## in on the command line.
 graph-workspace = []
 ## Make legacy functionality available.
@@ -126,9 +121,6 @@ gitbutler-edit-mode = { workspace = true, optional = true }
 gitbutler-operating-modes = { workspace = true, optional = true }
 gitbutler-oplog = { workspace = true, optional = true }
 gitbutler-git.workspace = true
-tauri = { version = "^2.10.3", features = [
-    "unstable",
-], optional = true } # For the #[tauri::command(async)] macro only
 napi = { version = "3.8.5", features = [
     "serde-json",
     "tokio_rt",
