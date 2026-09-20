@@ -11,7 +11,7 @@
 	import { STACK_SERVICE } from "$lib/stacks/stackService.svelte";
 	import { UI_STATE } from "$lib/state/uiState.svelte";
 	import { inject } from "@gitbutler/core/context";
-	import { TestId } from "@gitbutler/ui";
+	import { TestId } from "@gitbutler/ui-svelte";
 
 	interface Props {
 		projectId: string;

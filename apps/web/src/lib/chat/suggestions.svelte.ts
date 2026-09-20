@@ -3,8 +3,8 @@ import type MentionSuggestions from "$lib/components/chat/MentionSuggestions.sve
 import type { User } from "$lib/user/userService";
 import type { UserSimple } from "@gitbutler/shared/users/types";
 import type { UserService } from "@gitbutler/shared/users/userService";
-import type { MentionSuggestion, MentionSuggestionUpdate } from "@gitbutler/ui";
-import type Mention from "@gitbutler/ui/richText/plugins/Mention.svelte";
+import type { MentionSuggestion, MentionSuggestionUpdate } from "@gitbutler/ui-svelte";
+import type Mention from "@gitbutler/ui-svelte/richText/plugins/Mention.svelte";
 
 const RECENTLY_MENTIONED_USERS_KEY = "chat-recently_mentioned_users";
 

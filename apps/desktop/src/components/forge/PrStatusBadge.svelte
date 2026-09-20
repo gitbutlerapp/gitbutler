@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { PrStatusBadge, type PrStatusInfoType } from "@gitbutler/ui";
+	import { PrStatusBadge, type PrStatusInfoType } from "@gitbutler/ui-svelte";
 
 	import type { PullRequest } from "$lib/forge/interface/types";
 

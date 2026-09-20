@@ -10,9 +10,13 @@
 		SelectItem,
 		Textbox,
 		Toggle,
-	} from "@gitbutler/ui";
-	import { LIGHT_THEMES, DARK_THEMES, setSyntaxThemes } from "@gitbutler/ui/utils/shikiHighlighter";
-	import type { ScrollbarVisilitySettings } from "@gitbutler/ui";
+	} from "@gitbutler/ui-svelte";
+	import {
+		LIGHT_THEMES,
+		DARK_THEMES,
+		setSyntaxThemes,
+	} from "@gitbutler/ui-svelte/utils/shikiHighlighter";
+	import type { ScrollbarVisilitySettings } from "@gitbutler/ui-svelte";
 
 	const uiState = inject(UI_STATE);
 

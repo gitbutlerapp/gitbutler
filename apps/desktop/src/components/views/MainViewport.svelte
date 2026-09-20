@@ -28,8 +28,8 @@ the window, then enlarge it and retain the original widths of the layout.
 	import SashLayer from "$components/shared/SashLayer.svelte";
 	import { UI_STATE } from "$lib/state/uiState.svelte";
 	import { inject } from "@gitbutler/core/context";
-	import { focusable } from "@gitbutler/ui/focus/focusable";
-	import { pxToRem } from "@gitbutler/ui/utils/pxToRem";
+	import { focusable } from "@gitbutler/ui-svelte/focus/focusable";
+	import { pxToRem } from "@gitbutler/ui-svelte/utils/pxToRem";
 	import type { Snippet } from "svelte";
 
 	type Props = {

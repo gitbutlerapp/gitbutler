@@ -31,8 +31,8 @@
 	import { sleep } from "$lib/utils/sleep";
 	import { inject } from "@gitbutler/core/context";
 	import { persisted } from "@gitbutler/shared/persisted";
-	import { chipToasts, TestId } from "@gitbutler/ui";
-	import { IME_COMPOSITION_HANDLER } from "@gitbutler/ui/utils/imeHandling";
+	import { chipToasts, TestId } from "@gitbutler/ui-svelte";
+	import { IME_COMPOSITION_HANDLER } from "@gitbutler/ui-svelte/utils/imeHandling";
 	import { tick, untrack } from "svelte";
 	import type { Commit, Segment } from "@gitbutler/but-sdk";
 

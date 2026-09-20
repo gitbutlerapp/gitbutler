@@ -12,7 +12,7 @@
 			docs: {
 				description: {
 					component:
-						"The ChipToast component displays temporary messages to users with different types (info, success, warning, error) and supports custom action buttons and dismiss functionality. Use the toast system from @gitbutler/ui for programmatic toasts.\n\n## Basic Usage\n\n```javascript\nimport { chipToasts, ChipToastContainer } from '@gitbutler/ui';\n\n// Show programmatic toasts\nchipToasts.success('Operation completed!');\nchipToasts.warning('Please review your changes');\nchipToasts.error('Something went wrong');\nchipToasts.info('Information message');\n\n// Add container to your app root\n<ChipToastContainer />\n```\n\n**IMPORTANT**: Use only short messages in toasts, as they are designed for brief notifications. For longer messages, consider using regular toast messages or a modal instead.",
+						"The ChipToast component displays temporary messages to users with different types (info, success, warning, error) and supports custom action buttons and dismiss functionality. Use the toast system from @gitbutler/ui-svelte for programmatic toasts.\n\n## Basic Usage\n\n```javascript\nimport { chipToasts, ChipToastContainer } from '@gitbutler/ui-svelte';\n\n// Show programmatic toasts\nchipToasts.success('Operation completed!');\nchipToasts.warning('Please review your changes');\nchipToasts.error('Something went wrong');\nchipToasts.info('Information message');\n\n// Add container to your app root\n<ChipToastContainer />\n```\n\n**IMPORTANT**: Use only short messages in toasts, as they are designed for brief notifications. For longer messages, consider using regular toast messages or a modal instead.",
 				},
 			},
 		},

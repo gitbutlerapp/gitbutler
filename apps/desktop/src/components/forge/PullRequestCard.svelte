@@ -17,8 +17,8 @@
 		Icon,
 		AvatarGroup,
 		TestId,
-	} from "@gitbutler/ui";
-	import { getForgeLogo } from "@gitbutler/ui/utils/getForgeLogo";
+	} from "@gitbutler/ui-svelte";
+	import { getForgeLogo } from "@gitbutler/ui-svelte/utils/getForgeLogo";
 	import type { PullRequest } from "$lib/forge/interface/types";
 	import type { Snippet } from "svelte";
 

@@ -3,7 +3,7 @@
 	import { MODE_SERVICE } from "$lib/mode/modeService";
 	import { STACK_SERVICE } from "$lib/stacks/stackService.svelte";
 	import { inject } from "@gitbutler/core/context";
-	import { ContextMenuItem, ContextMenuSection, Icon, KebabButton } from "@gitbutler/ui";
+	import { ContextMenuItem, ContextMenuSection, Icon, KebabButton } from "@gitbutler/ui-svelte";
 	import type { Stack } from "$lib/stacks/stack";
 
 	type Props = {

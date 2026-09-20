@@ -7,7 +7,7 @@
 <script lang="ts" generics="A, B extends string | undefined, C extends string | undefined">
 	import { isNormalizedError } from "$lib/error/normalizedError";
 
-	import { Icon, InfoMessage } from "@gitbutler/ui";
+	import { Icon, InfoMessage } from "@gitbutler/ui-svelte";
 	import { QueryStatus } from "@reduxjs/toolkit/query";
 	import type { Result } from "$lib/state/helpers";
 	import type { Snippet } from "svelte";

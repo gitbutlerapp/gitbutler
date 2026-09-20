@@ -6,8 +6,8 @@
 	import { UI_STATE } from "$lib/state/uiState.svelte";
 	import { inject } from "@gitbutler/core/context";
 
-	import { Badge, TestId, type MessageStyle, type IconName } from "@gitbutler/ui";
-	import type { ComponentColorType } from "@gitbutler/ui/utils/colorTypes";
+	import { Badge, TestId, type MessageStyle, type IconName } from "@gitbutler/ui-svelte";
+	import type { ComponentColorType } from "@gitbutler/ui-svelte/utils/colorTypes";
 
 	type Props = {
 		projectId: string;

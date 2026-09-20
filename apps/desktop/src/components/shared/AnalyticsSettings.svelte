@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { SETTINGS_SERVICE } from "$lib/settings/appSettings";
 	import { inject } from "@gitbutler/core/context";
-	import { CardGroup, Link, TestId, Toggle } from "@gitbutler/ui";
+	import { CardGroup, Link, TestId, Toggle } from "@gitbutler/ui-svelte";
 
 	const settingsService = inject(SETTINGS_SERVICE);
 	const appSettings = $derived(settingsService.appSettings);

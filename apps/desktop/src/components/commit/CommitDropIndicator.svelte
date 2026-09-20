@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { portal } from "@gitbutler/ui/utils/portal";
+	import { portal } from "@gitbutler/ui-svelte/utils/portal";
 
 	interface Props {
 		hovered: boolean;

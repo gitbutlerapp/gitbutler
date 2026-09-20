@@ -1,4 +1,4 @@
-import { isDefined } from "@gitbutler/ui/utils/typeguards";
+import { isDefined } from "@gitbutler/ui-svelte/utils/typeguards";
 import type {
 	ExclusiveAction,
 	WritableReactiveStore,

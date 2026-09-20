@@ -2,7 +2,7 @@
 	import { getColorFromCommitState } from "$components/lib";
 	import { type CommitStatusType } from "$lib/commits/commit";
 
-	import { Tooltip } from "@gitbutler/ui";
+	import { Tooltip } from "@gitbutler/ui-svelte";
 
 	interface Props {
 		commitStatus: CommitStatusType;

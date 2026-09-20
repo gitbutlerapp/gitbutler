@@ -30,7 +30,7 @@
 	import { ensureValue } from "$lib/utils/validation";
 	import { inject } from "@gitbutler/core/context";
 	import { reactive } from "@gitbutler/shared/reactiveUtils.svelte";
-	import { Button, TestId } from "@gitbutler/ui";
+	import { Button, TestId } from "@gitbutler/ui-svelte";
 	import { QueryStatus } from "@reduxjs/toolkit/query";
 	import { tick } from "svelte";
 	import type { Segment } from "@gitbutler/but-sdk";

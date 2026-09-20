@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { eventTimeStamp } from "@gitbutler/shared/branches/utils";
 
-	import { Icon } from "@gitbutler/ui";
+	import { Icon } from "@gitbutler/ui-svelte";
 	import type { IssueUpdateEvent } from "@gitbutler/shared/patchEvents/types";
 
 	const UNKNOWN_AUTHOR = "Unknown author";

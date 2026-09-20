@@ -28,7 +28,7 @@
 		Textbox,
 		Toggle,
 		chipToasts,
-	} from "@gitbutler/ui";
+	} from "@gitbutler/ui-svelte";
 	import { onMount } from "svelte";
 	import type { User } from "$lib/user/user";
 

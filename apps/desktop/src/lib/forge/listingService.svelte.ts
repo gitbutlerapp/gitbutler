@@ -8,7 +8,7 @@ import { catchUpOnReturn } from "$lib/forge/shared/catchUpOnReturn";
 import { createSelectByIds } from "$lib/state/customSelectors";
 import { invalidatesList, providesList, ReduxTag } from "$lib/state/tags";
 import { InjectionToken } from "@gitbutler/core/context";
-import { isDefined } from "@gitbutler/ui/utils/typeguards";
+import { isDefined } from "@gitbutler/ui-svelte/utils/typeguards";
 import { createEntityAdapter, type EntityState } from "@reduxjs/toolkit";
 import type { BackendApi } from "$lib/state/backendApi";
 import type { AppDispatch } from "$lib/state/clientState.svelte";

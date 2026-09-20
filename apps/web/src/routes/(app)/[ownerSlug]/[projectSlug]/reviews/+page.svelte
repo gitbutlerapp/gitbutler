@@ -11,7 +11,7 @@
 	import { getProject } from "@gitbutler/shared/organizations/projectsPreview.svelte";
 	import { type ProjectParameters } from "@gitbutler/shared/routing/webRoutes.svelte";
 	import { WEB_ROUTES_SERVICE } from "@gitbutler/shared/routing/webRoutes.svelte";
-	import { Button, Select, SelectItem } from "@gitbutler/ui";
+	import { Button, Select, SelectItem } from "@gitbutler/ui-svelte";
 
 	// Get authentication service and check if user is logged in
 	const routes = inject(WEB_ROUTES_SERVICE);

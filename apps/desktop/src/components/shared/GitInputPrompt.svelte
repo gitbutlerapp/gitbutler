@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { PROMPT_SERVICE } from "$lib/prompt/promptService";
 	import { inject } from "@gitbutler/core/context";
-	import { Button, Modal, Textbox } from "@gitbutler/ui";
+	import { Button, Modal, Textbox } from "@gitbutler/ui-svelte";
 
 	const promptService = inject(PROMPT_SERVICE);
 	const [prompt, error] = promptService.reactToPrompt({ timeoutMs: 30000 });

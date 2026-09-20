@@ -1,6 +1,6 @@
 <script lang="ts">
 	import BranchesCardLayout from "$components/branchesPage/BranchesCardLayout.svelte";
-	import { Avatar, SeriesLabelsRow, TestId } from "@gitbutler/ui";
+	import { Avatar, SeriesLabelsRow, TestId } from "@gitbutler/ui-svelte";
 	import type { Author } from "@gitbutler/but-sdk";
 	interface Props {
 		originName: string;

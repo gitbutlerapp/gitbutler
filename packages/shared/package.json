@@ -55,7 +55,7 @@
 		"@codemirror/legacy-modes": "^6.5.2",
 		"@csstools/postcss-bundler": "^1.0.15",
 		"@gitbutler/core": "workspace:*",
-		"@gitbutler/ui": "workspace:*",
+		"@gitbutler/ui-svelte": "workspace:*",
 		"@lezer/common": "^1.5.1",
 		"@lezer/highlight": "^1.2.1",
 		"@rails/actioncable": "^8.1.200",

@@ -3,7 +3,7 @@
 	import { SETTINGS_SERVICE } from "$lib/settings/appSettings";
 	import { USER_SERVICE } from "$lib/user/userService.svelte";
 	import { inject } from "@gitbutler/core/context";
-	import { CardGroup, Toggle } from "@gitbutler/ui";
+	import { CardGroup, Toggle } from "@gitbutler/ui-svelte";
 
 	const settingsService = inject(SETTINGS_SERVICE);
 	const settingsStore = settingsService.appSettings;

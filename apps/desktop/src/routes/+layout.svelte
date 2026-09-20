@@ -29,8 +29,8 @@
 	import { POSTHOG_WRAPPER } from "$lib/telemetry/posthog";
 	import { USER_SERVICE } from "$lib/user/userService.svelte";
 	import { inject } from "@gitbutler/core/context";
-	import { ChipToastContainer } from "@gitbutler/ui";
-	import { FOCUS_MANAGER } from "@gitbutler/ui/focus/focusManager";
+	import { ChipToastContainer } from "@gitbutler/ui-svelte";
+	import { FOCUS_MANAGER } from "@gitbutler/ui-svelte/focus/focusManager";
 	import { untrack, type Snippet } from "svelte";
 	import type { LayoutData } from "./$types";
 

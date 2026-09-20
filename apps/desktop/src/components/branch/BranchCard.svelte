@@ -17,8 +17,8 @@
 	import { STACK_SERVICE } from "$lib/stacks/stackService.svelte";
 	import { UI_STATE } from "$lib/state/uiState.svelte";
 	import { inject } from "@gitbutler/core/context";
-	import { ReviewBadge, TestId } from "@gitbutler/ui";
-	import { isDefined } from "@gitbutler/ui/utils/typeguards";
+	import { ReviewBadge, TestId } from "@gitbutler/ui-svelte";
+	import { isDefined } from "@gitbutler/ui-svelte/utils/typeguards";
 	import type { BranchIconName } from "$lib/branches/branchIcon";
 	import type { DropzoneHandler } from "$lib/dragging/handler";
 	import type { PushStatus, Segment } from "@gitbutler/but-sdk";

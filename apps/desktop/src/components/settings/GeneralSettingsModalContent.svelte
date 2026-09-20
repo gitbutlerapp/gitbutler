@@ -13,7 +13,7 @@
 	import { generalSettingsPages } from "$lib/settings/generalSettingsPages";
 	import { USER_SERVICE } from "$lib/user/userService.svelte";
 	import { inject } from "@gitbutler/core/context";
-	import { Icon } from "@gitbutler/ui";
+	import { Icon } from "@gitbutler/ui-svelte";
 	import type { GeneralSettingsModalState, GeneralSettingsPageId } from "$lib/state/uiState.svelte";
 
 	type Props = {

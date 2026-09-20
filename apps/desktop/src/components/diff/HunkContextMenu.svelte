@@ -20,9 +20,9 @@
 	import { STACK_SERVICE } from "$lib/stacks/stackService.svelte";
 	import { UI_STATE } from "$lib/state/uiState.svelte";
 	import { inject } from "@gitbutler/core/context";
-	import { ContextMenu, ContextMenuItem, ContextMenuSection, TestId } from "@gitbutler/ui";
+	import { ContextMenu, ContextMenuItem, ContextMenuSection, TestId } from "@gitbutler/ui-svelte";
 	import type { TreeChange } from "@gitbutler/but-sdk";
-	import type { LineId } from "@gitbutler/ui/utils/diffParsing";
+	import type { LineId } from "@gitbutler/ui-svelte/utils/diffParsing";
 
 	interface Props {
 		trigger: HTMLElement | undefined;

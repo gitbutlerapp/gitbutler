@@ -1,6 +1,6 @@
 <script lang="ts">
-	import { Spacer } from "@gitbutler/ui";
-	import { pxToRem } from "@gitbutler/ui/utils/pxToRem";
+	import { Spacer } from "@gitbutler/ui-svelte";
+	import { pxToRem } from "@gitbutler/ui-svelte/utils/pxToRem";
 	import type { Snippet } from "svelte";
 
 	interface Props {

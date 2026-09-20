@@ -10,7 +10,7 @@
 	import { SHORTCUT_SERVICE } from "$lib/shortcuts/shortcutService";
 	import { UI_STATE } from "$lib/state/uiState.svelte";
 	import { inject } from "@gitbutler/core/context";
-	import { mergeUnlisten } from "@gitbutler/ui/utils/mergeUnlisten";
+	import { mergeUnlisten } from "@gitbutler/ui-svelte/utils/mergeUnlisten";
 
 	const { projectId }: { projectId: string } = $props();
 

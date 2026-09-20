@@ -1,4 +1,4 @@
-import { type IconName } from "@gitbutler/ui";
+import { type IconName } from "@gitbutler/ui-svelte";
 
 interface SettingsPage {
 	id: string;

@@ -23,7 +23,7 @@
 		"test:e2e:playwright:open": "PLAYWRIGHT_UI=1 pnpm exec playwright test --config ./playwright/playwright.config.ts --tsconfig ./playwright/tsconfig.json --ui"
 	},
 	"dependencies": {
-		"@gitbutler/ui": "workspace:*",
+		"@gitbutler/ui-svelte": "workspace:*",
 		"get-port": "^7.1.0",
 		"tmp-promise": "^3.0.3"
 	}

@@ -22,7 +22,7 @@
 	import { ScrollSelectionLock } from "$lib/selection/scrollSelectionLock.svelte";
 	import { UI_STATE } from "$lib/state/uiState.svelte";
 	import { inject } from "@gitbutler/core/context";
-	import { Button, FileViewHeader, HunkDiffSkeleton, VirtualList } from "@gitbutler/ui";
+	import { Button, FileViewHeader, HunkDiffSkeleton, VirtualList } from "@gitbutler/ui-svelte";
 	import { untrack } from "svelte";
 	import type { TreeChange } from "@gitbutler/but-sdk";
 

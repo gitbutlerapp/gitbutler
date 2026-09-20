@@ -4,7 +4,7 @@
 	import { readableRejectionReason } from "$lib/stacks/stackEndpoints";
 	import { REJECTTION_REASONS } from "$lib/stacks/stackService.svelte";
 	import { type RejectionReason } from "$lib/state/uiState.svelte";
-	import { Icon, ModalHeader, TestId, Tooltip } from "@gitbutler/ui";
+	import { Icon, ModalHeader, TestId, Tooltip } from "@gitbutler/ui-svelte";
 	import { untrack } from "svelte";
 	import type { CommitFailedModalState } from "$lib/state/uiState.svelte";
 

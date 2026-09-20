@@ -13,8 +13,8 @@
 	} from "$lib/interdiffRangeQuery.svelte";
 	import Loading from "@gitbutler/shared/network/Loading.svelte";
 	import { getPatchIdableSections } from "@gitbutler/shared/patches/patchCommitsPreview.svelte";
-	import { Button, Select, SelectItem, type SelectItemType } from "@gitbutler/ui";
-	import { isDefined } from "@gitbutler/ui/utils/typeguards";
+	import { Button, Select, SelectItem, type SelectItemType } from "@gitbutler/ui-svelte";
+	import { isDefined } from "@gitbutler/ui-svelte/utils/typeguards";
 	import type { PatchCommit } from "@gitbutler/shared/patches/types";
 
 	interface Props {

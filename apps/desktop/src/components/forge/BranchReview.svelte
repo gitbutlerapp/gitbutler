@@ -6,7 +6,7 @@
 	import StackedPullRequestCard from "$components/forge/StackedPullRequestCard.svelte";
 	import { FORGE_INFO_SERVICE } from "$lib/forge/forgeInfo.svelte";
 	import { inject } from "@gitbutler/core/context";
-	import { Button, Modal } from "@gitbutler/ui";
+	import { Button, Modal } from "@gitbutler/ui-svelte";
 	import type { Segment } from "@gitbutler/but-sdk";
 	import type { Snippet } from "svelte";
 

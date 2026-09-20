@@ -20,8 +20,8 @@
 		Select,
 		SelectItem,
 		TestId,
-	} from "@gitbutler/ui";
-	import { isDefined } from "@gitbutler/ui/utils/typeguards";
+	} from "@gitbutler/ui-svelte";
+	import { isDefined } from "@gitbutler/ui-svelte/utils/typeguards";
 
 	type Props = {
 		projectId: string;

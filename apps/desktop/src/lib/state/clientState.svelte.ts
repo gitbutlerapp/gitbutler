@@ -1,7 +1,7 @@
 import { createBackendApi, type BackendApi } from "$lib/state/backendApi";
 import { uiStateSlice } from "$lib/state/uiState.svelte";
 import { InjectionToken } from "@gitbutler/core/context";
-import { mergeUnlisten } from "@gitbutler/ui/utils/mergeUnlisten";
+import { mergeUnlisten } from "@gitbutler/ui-svelte/utils/mergeUnlisten";
 import { combineSlices, configureStore, type Slice } from "@reduxjs/toolkit";
 import { setupListeners, type RootState } from "@reduxjs/toolkit/query";
 import { FLUSH, PAUSE, PERSIST, persistReducer, PURGE, REGISTER, REHYDRATE } from "redux-persist";

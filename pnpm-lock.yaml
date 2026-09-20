@@ -254,7 +254,7 @@ importers:
       '@gitbutler/svelte-comment-injector':
         specifier: workspace:*
         version: link:../../packages/svelte-comment-injector
-      '@gitbutler/ui':
+      '@gitbutler/ui-svelte':
         specifier: workspace:*
         version: link:../../packages/ui
       '@reduxjs/toolkit':
@@ -637,7 +637,7 @@ importers:
       '@gitbutler/shared':
         specifier: workspace:*
         version: link:../../packages/shared
-      '@gitbutler/ui':
+      '@gitbutler/ui-svelte':
         specifier: workspace:*
         version: link:../../packages/ui
       '@playwright/test':
@@ -712,7 +712,7 @@ importers:
 
   e2e:
     dependencies:
-      '@gitbutler/ui':
+      '@gitbutler/ui-svelte':
         specifier: workspace:*
         version: link:../packages/ui
       get-port:
@@ -918,7 +918,7 @@ importers:
       '@gitbutler/core':
         specifier: workspace:*
         version: link:../core
-      '@gitbutler/ui':
+      '@gitbutler/ui-svelte':
         specifier: workspace:*
         version: link:../ui
       '@lezer/common':

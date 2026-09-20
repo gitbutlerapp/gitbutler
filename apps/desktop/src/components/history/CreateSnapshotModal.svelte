@@ -7,7 +7,7 @@
 <script lang="ts">
 	import { HISTORY_SERVICE } from "$lib/history/history";
 	import { inject } from "@gitbutler/core/context";
-	import { Button, ElementId, Modal, TestId, Textbox } from "@gitbutler/ui";
+	import { Button, ElementId, Modal, TestId, Textbox } from "@gitbutler/ui-svelte";
 
 	const { projectId }: CreateSnapshotModalProps = $props();
 

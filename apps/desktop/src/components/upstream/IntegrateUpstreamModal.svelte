@@ -22,7 +22,7 @@
 		ScrollableContainer,
 		TestId,
 		AsyncButton,
-	} from "@gitbutler/ui";
+	} from "@gitbutler/ui-svelte";
 	import { tick } from "svelte";
 
 	type OperationState = "inert" | "loading" | "completed";

@@ -4,7 +4,7 @@
 	import { UserService, USER_SERVICE } from "$lib/user/userService";
 	import { inject } from "@gitbutler/core/context";
 
-	import { AsyncButton, Button, Markdown, chipToasts } from "@gitbutler/ui";
+	import { AsyncButton, Button, Markdown, chipToasts } from "@gitbutler/ui-svelte";
 	import { untrack } from "svelte";
 	import { get } from "svelte/store";
 	import type { ExtendedUser } from "$lib/owner/types";

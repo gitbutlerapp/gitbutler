@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { Modal, Button } from "@gitbutler/ui";
+	import { Modal, Button } from "@gitbutler/ui-svelte";
 
 	type Props = {
 		fileName: string;

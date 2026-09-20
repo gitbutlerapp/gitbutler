@@ -7,7 +7,7 @@
 	import notFoundSvg from "$lib/assets/illustrations/not-found.svg?raw";
 	import { PROJECTS_SERVICE } from "$lib/project/projectsService";
 	import { inject } from "@gitbutler/core/context";
-	import { Button, InfoMessage, type MessageStyle, Spacer, TestId } from "@gitbutler/ui";
+	import { Button, InfoMessage, type MessageStyle, Spacer, TestId } from "@gitbutler/ui-svelte";
 
 	interface Props {
 		projectId: string;

@@ -2,7 +2,7 @@
 	import { showError } from "$lib/error/showError";
 	import { STACK_SERVICE } from "$lib/stacks/stackService.svelte";
 	import { inject } from "@gitbutler/core/context";
-	import { AsyncButton, Button, Modal, chipToasts } from "@gitbutler/ui";
+	import { AsyncButton, Button, Modal, chipToasts } from "@gitbutler/ui-svelte";
 
 	type Props = {
 		projectId: string;

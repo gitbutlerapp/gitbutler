@@ -12,8 +12,16 @@
 	import { SETTINGS_SERVICE } from "$lib/settings/appSettings";
 	import { SHORTCUT_SERVICE } from "$lib/shortcuts/shortcutService";
 	import { inject } from "@gitbutler/core/context";
-	import { Button, Icon, OptionsGroup, Select, SelectItem, TestId, Tooltip } from "@gitbutler/ui";
-	import { focusable } from "@gitbutler/ui/focus/focusable";
+	import {
+		Button,
+		Icon,
+		OptionsGroup,
+		Select,
+		SelectItem,
+		TestId,
+		Tooltip,
+	} from "@gitbutler/ui-svelte";
+	import { focusable } from "@gitbutler/ui-svelte/focus/focusable";
 
 	type Props = {
 		projectId: string;

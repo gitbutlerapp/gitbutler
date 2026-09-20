@@ -6,8 +6,8 @@
 	import { useUserAvatarUrl } from "$lib/user/userAvatar.svelte";
 	import { inject } from "@gitbutler/core/context";
 
-	import { AvatarGroup, ReviewBadge, SeriesLabelsRow, TestId, TimeAgo } from "@gitbutler/ui";
-	import { gravatarUrlFromEmail } from "@gitbutler/ui/components/avatar/gravatar";
+	import { AvatarGroup, ReviewBadge, SeriesLabelsRow, TestId, TimeAgo } from "@gitbutler/ui-svelte";
+	import { gravatarUrlFromEmail } from "@gitbutler/ui-svelte/components/avatar/gravatar";
 	import type { PullRequest } from "$lib/forge/interface/types";
 	import type { BranchListing, BranchListingDetails, ForgeUnitInfo } from "@gitbutler/but-sdk";
 

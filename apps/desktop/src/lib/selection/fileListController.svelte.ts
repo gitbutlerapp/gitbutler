@@ -14,7 +14,7 @@
 import { FILE_SELECTION_MANAGER } from "$lib/selection/fileSelectionManager.svelte";
 import { type SelectionId } from "$lib/selection/key";
 import { inject } from "@gitbutler/core/context";
-import { FOCUS_MANAGER } from "@gitbutler/ui/focus/focusManager";
+import { FOCUS_MANAGER } from "@gitbutler/ui-svelte/focus/focusManager";
 import { getContext, setContext, untrack } from "svelte";
 import { get } from "svelte/store";
 import type { FileSelectionManager } from "$lib/selection/fileSelectionManager.svelte";

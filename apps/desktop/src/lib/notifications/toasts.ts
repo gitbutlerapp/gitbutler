@@ -1,6 +1,6 @@
 import posthog from "posthog-js";
 import { writable, type Writable } from "svelte/store";
-import type { MessageStyle } from "@gitbutler/ui";
+import type { MessageStyle } from "@gitbutler/ui-svelte";
 
 type ExtraAction = {
 	label: string;

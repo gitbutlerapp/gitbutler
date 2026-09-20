@@ -2,7 +2,7 @@
 	import { splitDiffIntoHunks } from "$lib/diffParsing";
 	import { isLockfile } from "@gitbutler/shared/lockfiles";
 	import { getFilePathInfo } from "@gitbutler/shared/utils/file";
-	import { Button, FileIcon, HunkDiff } from "@gitbutler/ui";
+	import { Button, FileIcon, HunkDiff } from "@gitbutler/ui-svelte";
 	import type { DiffSection } from "@gitbutler/shared/patches/types";
 
 	interface Props {

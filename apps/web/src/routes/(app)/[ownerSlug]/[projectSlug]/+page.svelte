@@ -12,7 +12,7 @@
 		type ProjectParameters,
 	} from "@gitbutler/shared/routing/webRoutes.svelte";
 
-	import { AsyncButton, Button, Markdown, Modal, chipToasts } from "@gitbutler/ui";
+	import { AsyncButton, Button, Markdown, Modal, chipToasts } from "@gitbutler/ui-svelte";
 	import { untrack } from "svelte";
 
 	interface Props {

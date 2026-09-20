@@ -10,7 +10,7 @@
 	import { SETTINGS_SERVICE } from "$lib/settings/appSettings";
 	import { OnboardingEvent, POSTHOG_WRAPPER } from "$lib/telemetry/posthog";
 	import { inject } from "@gitbutler/core/context";
-	import { TestId } from "@gitbutler/ui";
+	import { TestId } from "@gitbutler/ui-svelte";
 	import type { RemoteBranchInfo } from "$lib/baseBranch/baseBranch";
 
 	interface Props {

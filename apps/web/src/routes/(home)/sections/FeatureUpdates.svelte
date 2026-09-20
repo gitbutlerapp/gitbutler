@@ -10,7 +10,7 @@
 		getFallbackThumbnail,
 		type YouTubePlaylist,
 	} from "$lib/youtube";
-	import { SkeletonBone } from "@gitbutler/ui";
+	import { SkeletonBone } from "@gitbutler/ui-svelte";
 	import { onMount } from "svelte";
 
 	// Constants

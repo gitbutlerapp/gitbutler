@@ -8,7 +8,7 @@
 	import { USER_SERVICE } from "$lib/users/userService";
 	import { getUserByLogin } from "$lib/users/usersPreview.svelte";
 	import { inject } from "@gitbutler/core/context";
-	import { Avatar, Button, CardGroup, Modal, Textbox } from "@gitbutler/ui";
+	import { Avatar, Button, CardGroup, Modal, Textbox } from "@gitbutler/ui-svelte";
 
 	type Props = {
 		slug: string;

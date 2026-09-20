@@ -4,9 +4,14 @@
 	import { inject } from "@gitbutler/core/context";
 	import { persisted, type Persisted } from "@gitbutler/shared/persisted";
 
-	import { ContextMenuItem, ContextMenuSection, DropdownButton, TestId } from "@gitbutler/ui";
+	import {
+		ContextMenuItem,
+		ContextMenuSection,
+		DropdownButton,
+		TestId,
+	} from "@gitbutler/ui-svelte";
 	import { untrack } from "svelte";
-	import type { ButtonProps } from "@gitbutler/ui";
+	import type { ButtonProps } from "@gitbutler/ui-svelte";
 
 	interface Props {
 		projectId: string;

@@ -16,8 +16,8 @@
 	import { UI_STATE } from "$lib/state/uiState.svelte";
 	import { WORKTREE_SERVICE } from "$lib/worktree/worktreeService.svelte";
 	import { inject } from "@gitbutler/core/context";
-	import { Button, TestId } from "@gitbutler/ui";
-	import { IME_COMPOSITION_HANDLER } from "@gitbutler/ui/utils/imeHandling";
+	import { Button, TestId } from "@gitbutler/ui-svelte";
+	import { IME_COMPOSITION_HANDLER } from "@gitbutler/ui-svelte/utils/imeHandling";
 
 	import { tick, untrack } from "svelte";
 

@@ -34,13 +34,13 @@
 		Icon,
 		PopoverActionsContainer,
 		PopoverActionsItem,
-	} from "@gitbutler/ui";
+	} from "@gitbutler/ui-svelte";
 	import {
 		findEmojiByUnicode,
 		getInitialEmojis,
 		markRecentlyUsedEmoji,
 		type EmojiInfo,
-	} from "@gitbutler/ui/components/emoji/utils";
+	} from "@gitbutler/ui-svelte/components/emoji/utils";
 
 	import { SvelteSet } from "svelte/reactivity";
 	import type { ChatEvent } from "@gitbutler/shared/patchEvents/types";

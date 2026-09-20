@@ -30,9 +30,9 @@
 	import { inject } from "@gitbutler/core/context";
 	import { persisted } from "@gitbutler/shared/persisted";
 	import { reactive } from "@gitbutler/shared/reactiveUtils.svelte";
-	import { AsyncButton, Button, Modal, TestId } from "@gitbutler/ui";
-	import { focusable } from "@gitbutler/ui/focus/focusable";
-	import { getTimeAgo } from "@gitbutler/ui/utils/timeAgo";
+	import { AsyncButton, Button, Modal, TestId } from "@gitbutler/ui-svelte";
+	import { focusable } from "@gitbutler/ui-svelte/focus/focusable";
+	import { getTimeAgo } from "@gitbutler/ui-svelte/utils/timeAgo";
 	import { tick, untrack } from "svelte";
 	import type { BranchFilterOption, SidebarEntrySubject } from "$lib/branches/branchListing";
 	type Props = {

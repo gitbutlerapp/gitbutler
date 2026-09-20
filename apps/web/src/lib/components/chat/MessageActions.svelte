@@ -2,7 +2,7 @@
 	import { inject } from "@gitbutler/core/context";
 	import { CHAT_CHANNELS_SERVICE } from "@gitbutler/shared/chat/chatChannelsService";
 
-	import { Button } from "@gitbutler/ui";
+	import { Button } from "@gitbutler/ui-svelte";
 	import type { ChatMessage } from "@gitbutler/shared/chat/types";
 
 	interface Props {

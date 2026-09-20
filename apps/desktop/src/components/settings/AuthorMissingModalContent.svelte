@@ -1,7 +1,14 @@
 <script lang="ts">
 	import { GIT_SERVICE } from "$lib/git/gitService";
 	import { inject } from "@gitbutler/core/context";
-	import { TestId, ModalHeader, ModalFooter, Textbox, EmailTextbox, Button } from "@gitbutler/ui";
+	import {
+		TestId,
+		ModalHeader,
+		ModalFooter,
+		Textbox,
+		EmailTextbox,
+		Button,
+	} from "@gitbutler/ui-svelte";
 	import { untrack } from "svelte";
 	import type { AuthorMissingModalState } from "$lib/state/uiState.svelte";
 

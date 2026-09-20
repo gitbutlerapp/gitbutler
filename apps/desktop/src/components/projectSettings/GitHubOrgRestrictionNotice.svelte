@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { InfoMessage, Link } from "@gitbutler/ui";
+	import { InfoMessage, Link } from "@gitbutler/ui-svelte";
 
 	import type { Code } from "@gitbutler/but-sdk";
 

@@ -33,10 +33,10 @@
 		GhostTextPlugin,
 		HardWrapPlugin,
 		FormattingButton,
-	} from "@gitbutler/ui";
+	} from "@gitbutler/ui-svelte";
 	import FileUploadPlugin, {
 		type DropFileResult,
-	} from "@gitbutler/ui/richText/plugins/FileUpload.svelte";
+	} from "@gitbutler/ui-svelte/richText/plugins/FileUpload.svelte";
 
 	import { tick, untrack } from "svelte";
 

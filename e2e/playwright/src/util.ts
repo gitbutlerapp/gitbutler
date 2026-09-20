@@ -1,5 +1,5 @@
 import { IDLE_BUDGET_MS, idleSince, watchIdle } from "./idle.ts";
-import { TestId } from "@gitbutler/ui/utils/testIds";
+import { TestId } from "@gitbutler/ui-svelte/utils/testIds";
 import { type Locator, type Page } from "@playwright/test";
 
 type TestIdValues = `${TestId}`;

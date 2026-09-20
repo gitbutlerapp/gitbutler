@@ -2,8 +2,8 @@
 	import BranchHeaderIcon from "$components/branch/BranchHeaderIcon.svelte";
 	import { getColorFromCommitState } from "$components/lib";
 	import { type CommitStatusType } from "$lib/commits/commit";
-	import { Icon, FileIcon } from "@gitbutler/ui";
-	import { type DragStateService } from "@gitbutler/ui/drag/dragStateService.svelte";
+	import { Icon, FileIcon } from "@gitbutler/ui-svelte";
+	import { type DragStateService } from "@gitbutler/ui-svelte/drag/dragStateService.svelte";
 	import { readable } from "svelte/store";
 	import type { PushStatus } from "@gitbutler/but-sdk";
 

@@ -9,9 +9,9 @@
 	import { type SelectionId } from "$lib/selection/key";
 	import { UI_STATE } from "$lib/state/uiState.svelte";
 	import { inject } from "@gitbutler/core/context";
-	import { FileViewHeader, TestId } from "@gitbutler/ui";
-	import { DRAG_STATE_SERVICE } from "@gitbutler/ui/drag/dragStateService.svelte";
-	import { sticky as stickyAction } from "@gitbutler/ui/utils/sticky";
+	import { FileViewHeader, TestId } from "@gitbutler/ui-svelte";
+	import { DRAG_STATE_SERVICE } from "@gitbutler/ui-svelte/drag/dragStateService.svelte";
+	import { sticky as stickyAction } from "@gitbutler/ui-svelte/utils/sticky";
 	import type { UnifiedDiff } from "$lib/hunks/diff";
 	import type { TreeChange } from "@gitbutler/but-sdk";
 

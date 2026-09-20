@@ -10,7 +10,7 @@
 </script>
 
 <script lang="ts">
-	import { Tooltip } from "@gitbutler/ui";
+	import { Tooltip } from "@gitbutler/ui-svelte";
 
 	type Props = {
 		length: number;
