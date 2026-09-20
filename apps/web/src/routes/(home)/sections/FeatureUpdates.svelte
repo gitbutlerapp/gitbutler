@@ -10,12 +10,14 @@
 		getFallbackThumbnail,
 		type YouTubePlaylist,
 	} from "$lib/youtube";
+	import { SkeletonBone } from "@gitbutler/ui";
 	import { onMount } from "svelte";
 
 	// Constants
 	const PLAYLIST_URL =
 		"https://youtube.com/playlist?list=PLNXkW_le40U7IH8qA5VPN6f01oC25LOj4&si=IRZbd5aBoNLWDH5g";
 	const SCROLL_AMOUNT = 400;
+	const PLACEHOLDER_COUNT = 3;
 	const SCROLL_UPDATE_DELAY = 300;
 
 	// State
@@ -27,6 +29,9 @@
 	let canScrollRight = $state(false);
 	let showVideoOverlay = $state(false);
 	let selectedVideoUrl = $state("");
+	// Thumbnails come from YouTube's CDN, so they can lag well behind the playlist
+	// metadata. Track which have arrived to keep a skeleton behind the rest.
+	let loadedThumbnails = $state<Record<string, boolean>>({});
 
 	// Touch/swipe state
 	let touchStartX = $state(0);
@@ -66,6 +71,10 @@
 	function handleImageError(event: Event, videoId: string) {
 		const img = event.currentTarget as HTMLImageElement;
 		img.src = getFallbackThumbnail(videoId);
+	}
+
+	function handleImageLoad(videoId: string) {
+		loadedThumbnails[videoId] = true;
 	}
 
 	// Keyboard interaction
@@ -171,8 +180,16 @@
 	</SectionHeader>
 
 	{#if isLoading}
-		<div class="loading-state">
-			<p>Loading videos...</p>
+		<div class="video-content">
+			<div class="video-carousel__container">
+				<div class="video-carousel__scroll">
+					{#each { length: PLACEHOLDER_COUNT } as _, i (i)}
+						<div class="video-embed">
+							<SkeletonBone width="100%" height="100%" radius="8px" />
+						</div>
+					{/each}
+				</div>
+			</div>
 		</div>
 	{:else if error}
 		<div class="loading-state">
@@ -204,10 +221,16 @@
 								onclick={() => handleVideoPlay(video.videoId)}
 								onkeydown={(e) => handleKeydown(e, video.videoId)}
 							>
+								{#if !loadedThumbnails[video.videoId]}
+									<div class="video-preview__skeleton">
+										<SkeletonBone width="100%" height="100%" radius="8px" />
+									</div>
+								{/if}
 								<img
 									src={getHighQualityThumbnail(video.videoId)}
 									alt={video.title}
 									loading="lazy"
+									onload={() => handleImageLoad(video.videoId)}
 									onerror={(e) => handleImageError(e, video.videoId)}
 								/>
 								<div class="play-button">
@@ -333,6 +356,12 @@
 		height: 100%;
 		object-fit: cover;
 		border-radius: 8px;
+	}
+
+	/* Sits behind the thumbnail, which covers it once it decodes. */
+	.video-preview__skeleton {
+		position: absolute;
+		inset: 0;
 	}
 
 	.play-button {
