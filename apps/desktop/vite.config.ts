@@ -141,7 +141,7 @@ function debounceReload(): Plugin {
 	};
 }
 function isLocalPackageFile(file: string) {
-	return ["gitbutler/packages/shared/dist", "gitbutler/packages/ui/dist"].some((pkg) =>
+	return ["gitbutler/packages/shared/dist", "gitbutler/packages/ui-svelte/dist"].some((pkg) =>
 		file.includes(pkg),
 	);
 }

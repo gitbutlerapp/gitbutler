@@ -49,7 +49,7 @@ jobs:
               - 'package.json'
               - 'pnpm-lock.yaml'
             ui:
-              - 'packages/ui/**'
+              - 'packages/ui-svelte/**'
             but_sdk:
               - 'crates/**'
               - *workflows
@@ -743,8 +743,8 @@ jobs:
         with:
           name: playwright-report
           path: |
-            ./packages/ui/playwright-report/
-            ./packages/ui/test-results/
+            ./packages/ui-svelte/playwright-report/
+            ./packages/ui-svelte/test-results/
           retention-days: 30
 
   lite-e2e:

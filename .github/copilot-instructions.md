@@ -256,7 +256,7 @@ Auto-fix with `pnpm begood && cargo clippy --fix --all-targets`
 - Use absolute imports via package references (e.g., `@gitbutler/ui-svelte`) instead of relative imports
 - Components should be in logical directories by feature
 - Shared utilities go in `packages/shared`
-- UI components go in `packages/ui`
+- UI components go in `packages/ui-svelte`
 
 ### Naming Conventions
 

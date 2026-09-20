@@ -24,7 +24,7 @@ pnpm test:ct -- "HardWrap.*"
 
 ```bash
 # Run tests in the ui package matching a pattern
-cd packages/ui && pnpm test -- -t BranchLane
+cd packages/ui-svelte && pnpm test -- -t BranchLane
 
 # Run tests in the desktop package
 cd apps/desktop && pnpm test -- -t myComponent.test

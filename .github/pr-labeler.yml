@@ -22,7 +22,7 @@ CLI:
 
 "@gitbutler/ui-svelte":
   - changed-files:
-      - any-glob-to-any-file: packages/ui/**/*
+      - any-glob-to-any-file: packages/ui-svelte/**/*
 
 "@gitbutler/no-relative-imports":
   - changed-files:
