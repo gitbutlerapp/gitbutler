@@ -678,6 +678,11 @@ fn handle_connection(
                     .get(project.as_deref())
                     .and_then(|(_, root)| open_folder(&root, &with)),
             ),
+            Route::OpenForgePage { url } => data_response(
+                projects
+                    .get(project.as_deref())
+                    .and_then(|(ctx, _)| open_forge_page(ctx, &url)),
+            ),
             Route::Upstream => data_response(
                 projects
                     .get(project.as_deref())
@@ -944,6 +949,35 @@ fn forge_json(
     _auto_fetch_minutes: isize,
 ) -> serde_json::Value {
     serde_json::Value::Null
+}
+
+/// Open `url` in the default browser, which a page shown in an embedded pane can't do by itself:
+/// its links open in that pane. Only pages on the project's own forge are opened, so the page
+/// can't be made to open anything else.
+#[cfg(feature = "legacy")]
+fn open_forge_page(ctx: &Context, url: &str) -> anyhow::Result<serde_json::Value> {
+    let info =
+        but_api::legacy::forge::forge_info(ctx)?.context("The project's forge is unknown")?;
+    anyhow::ensure!(
+        is_on_forge(url, &info.base_url),
+        "'{url}' isn't a page on the project's forge"
+    );
+    but_api::open::open_url(url.to_owned())?;
+    Ok(json!({ "opened": true }))
+}
+
+#[cfg(not(feature = "legacy"))]
+fn open_forge_page(_ctx: &Context, _url: &str) -> anyhow::Result<serde_json::Value> {
+    anyhow::bail!("The project's forge is unknown")
+}
+
+/// Whether `url` is a web page on the host that serves `forge_base_url`.
+#[cfg_attr(not(feature = "legacy"), allow(dead_code))]
+fn is_on_forge(url: &str, forge_base_url: &str) -> bool {
+    let (Ok(url), Ok(forge)) = (url::Url::parse(url), url::Url::parse(forge_base_url)) else {
+        return false;
+    };
+    matches!(url.scheme(), "http" | "https") && url.host().is_some() && url.host() == forge.host()
 }
 
 /// Read every branch's review and CI from the forge again, whatever the cache holds.
@@ -1456,6 +1490,10 @@ enum Route {
     OpenFolder {
         with: FolderOpener,
     },
+    /// Open a page on the project's forge in the default browser.
+    OpenForgePage {
+        url: String,
+    },
     /// The target's commits a pull would bring in.
     Upstream,
     /// Fetch from every remote. A `POST`, like everything that reaches the network.
@@ -1510,6 +1548,7 @@ fn route(request: &Request, port: u16) -> Route {
         path,
         "/api/open"
             | "/api/open-folder"
+            | "/api/open-url"
             | "/api/fetch"
             | "/api/push"
             | "/api/pull"
@@ -1582,6 +1621,12 @@ fn route(request: &Request, port: u16) -> Route {
                 (Some(id), _) => FolderOpener::Program(id),
                 (None, Some(id)) => FolderOpener::Terminal(id),
                 (None, None) => FolderOpener::FileManager,
+            },
+        },
+        "/api/open-url" => match param("url") {
+            Some(url) => Route::OpenForgePage { url },
+            None => Route::Error {
+                status: "400 Bad Request",
             },
         },
         "/api/upstream" => Route::Upstream,
@@ -1786,6 +1831,28 @@ mod tests {
             "following a link can't stop the panel"
         );
         assert_eq!(route(&get("/api/projects", LOCAL), 7789), Route::Projects);
+        assert_eq!(
+            route(
+                &post(
+                    "/api/open-url?url=https%3A%2F%2Fgithub.com%2Fo%2Fr%2Fpull%2F1",
+                    Some("http://localhost:7789")
+                ),
+                7789
+            ),
+            Route::OpenForgePage {
+                url: "https://github.com/o/r/pull/1".into()
+            }
+        );
+        assert_eq!(
+            route(
+                &get("/api/open-url?url=https%3A%2F%2Fgithub.com", LOCAL),
+                7789
+            ),
+            Route::Error {
+                status: "405 Method Not Allowed"
+            },
+            "following a link can't open the browser"
+        );
         assert_eq!(route(&get("/api/upstream", LOCAL), 7789), Route::Upstream);
         assert_eq!(
             route(&get("/api/commit?id=abc123", LOCAL), 7789),
@@ -2125,5 +2192,24 @@ mod tests {
             },
             "only the page, its script and the data routes exist"
         );
+    }
+
+    #[test]
+    fn opens_only_pages_on_the_projects_forge() {
+        let forge = "https://github.com/gitbutlerapp/gitbutler";
+        assert!(is_on_forge(
+            "https://github.com/gitbutlerapp/gitbutler/pull/1",
+            forge
+        ));
+        assert!(
+            !is_on_forge("https://github.com.evil.example/pull/1", forge),
+            "a host that only starts like the forge's is another site"
+        );
+        assert!(!is_on_forge("https://evil.example/github.com", forge));
+        assert!(
+            !is_on_forge("file:///etc/passwd", forge),
+            "only web pages are opened"
+        );
+        assert!(!is_on_forge("not a url", forge));
     }
 }

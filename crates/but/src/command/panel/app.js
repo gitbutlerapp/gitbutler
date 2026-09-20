@@ -566,6 +566,20 @@ async function post(path, params) {
 	return body.data;
 }
 
+/* Forge pages open in the default browser, through the server: opened by the page they'd land in
+ * whatever shows it, which next to an agent chat is a pane and not the browser. Should the server
+ * refuse, the page opens them after all. */
+function openForgePage(url) {
+	post("/api/open-url", { url }).catch(() => window.open(url, "_blank", "noopener"));
+}
+
+document.addEventListener("click", (event) => {
+	const link = event.button === 0 && event.target.closest("a.pr");
+	if (!link) return;
+	event.preventDefault();
+	openForgePage(link.href);
+});
+
 // Counts the menus shown, so a fetch for one menu can't fill in a later one or reopen a closed one.
 let menuSerial = 0;
 
@@ -799,7 +813,7 @@ menuEl.addEventListener("click", async (event) => {
 		return;
 	}
 	if ("href" in item.dataset) {
-		window.open(item.dataset.href, "_blank", "noopener");
+		openForgePage(item.dataset.href);
 		return;
 	}
 
