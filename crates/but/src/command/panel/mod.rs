@@ -11,6 +11,10 @@
 //! its own `Context`, opened on first use. Running `but panel` again, from another project, reuses a
 //! server that already holds the port and only points at that project's page. Requests are handled
 //! one at a time on the calling thread, which keeps every `Context` free of concurrent access.
+//!
+//! No invocation owns that server: without `--foreground`, `but panel` starts it as a background
+//! process of its own, so it outlives the terminal or chat that first asked for it, and
+//! `but panel --stop` ends it.
 
 use std::{
     collections::HashMap,
@@ -49,17 +53,54 @@ const SERVICE_WORKER_JS: &str = include_str!("sw.js");
 /// Requests are a request line and a few headers; anything larger is not from the page.
 const MAX_REQUEST_BYTES: u64 = 16 * 1024;
 
-/// Claim the panel's port for this project, or find a panel already serving it.
+/// How long a background server gets to answer its first ping.
+const BACKGROUND_START_TIMEOUT: Duration = Duration::from_secs(10);
+
+/// Find the panel serving `port`, or start one: in the background, or from this process with
+/// `--foreground`. With `--stop`, end the one that runs instead.
 ///
 /// Returns what to print, and the server to [run](Server::run) once it's printed: printing first
-/// puts the URL on stdout before this process starts serving and never returns.
+/// puts the URL on stdout before a foreground server starts serving and never returns.
 pub fn start(ctx: &Context, args: Platform) -> CliResult<(PanelOutcome, Server)> {
-    let Platform { port, no_open, app } = args;
+    let Platform {
+        port,
+        no_open,
+        app,
+        foreground,
+        stop,
+    } = args;
     let root = repository_root(ctx)?;
     let url = project_url(port, &root);
 
+    if stop {
+        let stopped = is_panel(port) && stop_panel(port);
+        let outcome = PanelOutcome {
+            url,
+            project: root.clone(),
+            state: if stopped {
+                PanelState::Stopped
+            } else {
+                PanelState::NotRunning
+            },
+        };
+        let server = Server {
+            listener: None,
+            port,
+            url: None,
+            app,
+            root,
+        };
+        return Ok((outcome, server));
+    }
+
     let listener = match TcpListener::bind(("127.0.0.1", port)) {
-        Ok(listener) => Some(listener),
+        Ok(listener) if foreground => Some(listener),
+        // The port is free: hand it to a server of its own, which outlives this invocation.
+        Ok(listener) => {
+            drop(listener);
+            start_in_background(port, &root)?;
+            None
+        }
         // A panel already runs here, and it can show this project too.
         Err(err) if err.kind() == io::ErrorKind::AddrInUse && is_panel(port) => None,
         Err(err) if err.kind() == io::ErrorKind::AddrInUse => {
@@ -77,7 +118,11 @@ pub fn start(ctx: &Context, args: Platform) -> CliResult<(PanelOutcome, Server)>
     let outcome = PanelOutcome {
         url: url.clone(),
         project: root.clone(),
-        reused: listener.is_none(),
+        state: if listener.is_some() {
+            PanelState::Foreground
+        } else {
+            PanelState::Background
+        },
     };
     let server = Server {
         listener,
@@ -89,12 +134,25 @@ pub fn start(ctx: &Context, args: Platform) -> CliResult<(PanelOutcome, Server)>
     Ok((outcome, server))
 }
 
-/// Where the panel shows this project, and whether an already running panel does.
+/// Where the panel shows this project, and which server does.
 #[must_use]
 pub struct PanelOutcome {
     url: String,
     project: PathBuf,
-    reused: bool,
+    state: PanelState,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+enum PanelState {
+    /// A background server shows the project, started now or earlier.
+    Background,
+    /// This process serves it until interrupted.
+    Foreground,
+    /// `--stop` ended the server.
+    Stopped,
+    /// `--stop` found no server to end.
+    NotRunning,
 }
 
 impl CliOutputHuman for PanelOutcome {
@@ -107,16 +165,20 @@ impl CliOutputHuman for PanelOutcome {
         let Self {
             url,
             project,
-            reused,
+            state,
         } = self;
         let name = repository_name(&project);
-        if reused {
-            writeln!(out, "Showing {name} in the running panel at {url}")?;
-        } else {
-            writeln!(
+        match state {
+            PanelState::Background => writeln!(
+                out,
+                "Showing {name} in the panel at {url} (`but panel --stop` to stop it)"
+            )?,
+            PanelState::Foreground => writeln!(
                 out,
                 "Serving the panel for {name} at {url} (Ctrl-C to stop)"
-            )?;
+            )?,
+            PanelState::Stopped => writeln!(out, "Stopped the panel")?,
+            PanelState::NotRunning => writeln!(out, "No panel is running")?,
         }
         Ok(())
     }
@@ -128,18 +190,18 @@ impl CliOutput for PanelOutcome {
         struct Output {
             url: String,
             project: PathBuf,
-            reused: bool,
+            state: PanelState,
         }
 
         let Self {
             url,
             project,
-            reused,
+            state,
         } = self;
         Output {
             url,
             project,
-            reused,
+            state,
         }
     }
 }
@@ -191,11 +253,11 @@ impl Server {
         let mut graphs = HashMap::new();
         for stream in listener.incoming() {
             let Ok(stream) = stream else { continue };
-            if let Err(err) =
-                handle_connection(&mut projects, &mut commit_files, &mut graphs, port, stream)
-            {
+            match handle_connection(&mut projects, &mut commit_files, &mut graphs, port, stream) {
+                Ok(Served::Stop) => break,
+                Ok(Served::Continue) => {}
                 // A dropped or malformed connection only affects that one request.
-                tracing::debug!(?err, "panel request failed");
+                Err(err) => tracing::debug!(?err, "panel request failed"),
             }
         }
         Ok(())
@@ -290,22 +352,59 @@ fn project_url(port: u16, root: &Path) -> String {
     )
 }
 
+/// Run `but panel --foreground` for `root` as a process of its own, in its own process group so
+/// the terminal's Ctrl-C and hang-up don't reach it, and wait until it answers.
+fn start_in_background(port: u16, root: &Path) -> anyhow::Result<()> {
+    use std::process::{Command, Stdio};
+
+    use command_group::CommandGroup as _;
+
+    let but_path = crate::utils::binary_path::current_exe_for_but_exec()
+        .context("Could not find the `but` binary to serve the panel with")?;
+    Command::new(but_path)
+        .arg("-C")
+        .arg(root)
+        .args(["panel", "--foreground", "--no-open", "--port"])
+        .arg(port.to_string())
+        .stdin(Stdio::null())
+        .stdout(Stdio::null())
+        .stderr(Stdio::null())
+        .group_spawn()
+        .context("Could not start the panel server")?;
+
+    let started = std::time::Instant::now();
+    while started.elapsed() < BACKGROUND_START_TIMEOUT {
+        if is_panel(port) {
+            return Ok(());
+        }
+        std::thread::sleep(Duration::from_millis(100));
+    }
+    anyhow::bail!("The panel server did not start on port {port}")
+}
+
+/// Send one request to the server on `port`, as the page would, and return its response.
+fn request(port: u16, method: &str, target: &str) -> io::Result<String> {
+    let mut stream = TcpStream::connect(("127.0.0.1", port))?;
+    stream.set_read_timeout(Some(Duration::from_secs(2)))?;
+    write!(
+        stream,
+        "{method} {target} HTTP/1.1\r\nHost: 127.0.0.1:{port}\r\nOrigin: http://127.0.0.1:{port}\r\nConnection: close\r\n\r\n"
+    )?;
+    let mut response = String::new();
+    stream
+        .take(MAX_REQUEST_BYTES)
+        .read_to_string(&mut response)?;
+    Ok(response)
+}
+
 /// Whether the server holding `port` is a panel, which answers `/api/ping`.
 fn is_panel(port: u16) -> bool {
-    let ask = || -> io::Result<String> {
-        let mut stream = TcpStream::connect(("127.0.0.1", port))?;
-        stream.set_read_timeout(Some(Duration::from_secs(2)))?;
-        write!(
-            stream,
-            "GET /api/ping HTTP/1.1\r\nHost: 127.0.0.1:{port}\r\nConnection: close\r\n\r\n"
-        )?;
-        let mut response = String::new();
-        stream
-            .take(MAX_REQUEST_BYTES)
-            .read_to_string(&mut response)?;
-        Ok(response)
-    };
-    ask().is_ok_and(|response| response.contains(r#""panel":true"#))
+    request(port, "GET", "/api/ping").is_ok_and(|response| response.contains(r#""panel":true"#))
+}
+
+/// Ask the panel on `port` to stop serving, and say whether it agreed.
+fn stop_panel(port: u16) -> bool {
+    request(port, "POST", "/api/stop").is_ok_and(|response| response.contains(r#""stopped":true"#))
 }
 
 /// The canonical directory a project is known by: its main worktree, so a linked worktree's path
@@ -494,10 +593,15 @@ fn handle_connection(
     graphs: &mut HashMap<PathBuf, GraphCache>,
     port: u16,
     stream: TcpStream,
-) -> anyhow::Result<()> {
+) -> anyhow::Result<Served> {
     stream.set_read_timeout(Some(Duration::from_secs(5)))?;
     let request = read_request(BufReader::new((&stream).take(MAX_REQUEST_BYTES)))?;
     let route = route(&request, port);
+    let served = if route == Route::Stop {
+        Served::Stop
+    } else {
+        Served::Continue
+    };
     let project = requested_project(&request);
     let response =
         match route {
@@ -521,6 +625,7 @@ fn handle_connection(
                 projects.get(project.as_deref()).ok().map(|(_, root)| root),
             )),
             Route::Ping => Response::Json(json!({ "panel": true })),
+            Route::Stop => Response::Json(json!({ "stopped": true })),
             Route::Projects => data_response(Ok(projects.list())),
             Route::AddProject { path } => {
                 data_response(projects.add(&path).map(|root| json!({ "path": root })))
@@ -595,7 +700,15 @@ fn handle_connection(
             ),
             Route::Error { status } => Response::Error { status },
         };
-    write_response(&stream, response)
+    write_response(&stream, response)?;
+    Ok(served)
+}
+
+/// Whether the server goes on after a request.
+enum Served {
+    Continue,
+    /// The request was `but panel --stop`'s.
+    Stop,
 }
 
 /// The workspace graph as last computed for a project, kept while nothing that feeds it changed.
@@ -1301,6 +1414,8 @@ enum Route {
     Manifest,
     /// Lets a second `but panel` recognise a running panel.
     Ping,
+    /// `but panel --stop` asks the server to exit.
+    Stop,
     /// The projects the page can switch between.
     Projects,
     /// Open the repository at `path` and list it among the projects, remembering it as a GitButler
@@ -1399,6 +1514,7 @@ fn route(request: &Request, port: u16) -> Route {
             | "/api/push"
             | "/api/pull"
             | "/api/settings"
+            | "/api/stop"
     ) || (path == "/api/projects" && request.method == "POST");
     let origin_is_local = request.origin.as_deref().is_some_and(|origin| {
         origin == format!("http://localhost:{port}") || origin == format!("http://127.0.0.1:{port}")
@@ -1425,6 +1541,7 @@ fn route(request: &Request, port: u16) -> Route {
         "/sw.js" => Route::ServiceWorker,
         "/manifest.webmanifest" => Route::Manifest,
         "/api/ping" => Route::Ping,
+        "/api/stop" => Route::Stop,
         "/api/projects" if is_action => match param("path") {
             Some(path) => Route::AddProject { path },
             None => Route::Error {
@@ -1649,6 +1766,25 @@ mod tests {
         );
         assert_eq!(route(&get("/api/workspace", LOCAL), 7789), Route::Workspace);
         assert_eq!(route(&get("/api/ping", LOCAL), 7789), Route::Ping);
+        assert_eq!(
+            route(&post("/api/stop", Some("http://127.0.0.1:7789")), 7789),
+            Route::Stop,
+            "`but panel --stop` asks as the page would"
+        );
+        assert_eq!(
+            route(&post("/api/stop", Some("https://evil.example")), 7789),
+            Route::Error {
+                status: "403 Forbidden"
+            },
+            "another site in the browser can't stop the panel"
+        );
+        assert_eq!(
+            route(&get("/api/stop", LOCAL), 7789),
+            Route::Error {
+                status: "405 Method Not Allowed"
+            },
+            "following a link can't stop the panel"
+        );
         assert_eq!(route(&get("/api/projects", LOCAL), 7789), Route::Projects);
         assert_eq!(route(&get("/api/upstream", LOCAL), 7789), Route::Upstream);
         assert_eq!(

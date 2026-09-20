@@ -9,7 +9,8 @@
 /// agent chat. It can open files, folders and forge pages, fetch, push a branch or its stack, and
 /// pull the target's new commits into the workspace; it never edits commits or the worktree.
 ///
-/// The server runs in the foreground; stop it with Ctrl-C.
+/// One server shows every project, and it runs in the background: `but panel` starts it if it
+/// isn't running yet, shows this project in it, and returns. Stop it with `but panel --stop`.
 #[derive(Debug, clap::Parser)]
 #[cfg_attr(feature = "raw-clap-docs", clap(verbatim_doc_comment))]
 pub struct Platform {
@@ -26,4 +27,12 @@ pub struct Platform {
     /// page can also be installed as an app from such a browser's menu.
     #[clap(long, conflicts_with = "no_open")]
     pub app: bool,
+
+    /// Serve from this process instead of the background, until interrupted with Ctrl-C.
+    #[clap(long)]
+    pub foreground: bool,
+
+    /// Stop the panel server running on `--port`.
+    #[clap(long, conflicts_with_all = ["no_open", "app", "foreground"])]
+    pub stop: bool,
 }
