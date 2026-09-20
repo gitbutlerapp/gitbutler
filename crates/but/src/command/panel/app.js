@@ -236,6 +236,14 @@ function renderFiles(changes, source = {}) {
 		.join("");
 }
 
+/** Lines added and removed, as the file rows show them, after the number of files if `files` is
+ * set. Nothing until the statistics are known. */
+function lineStat(stats, { files = false } = {}) {
+	if (!stats) return "";
+	const count = files ? `${plural(stats.filesChanged, "file")} ` : "";
+	return `<span class="stat">${count}<span class="p">+${stats.linesAdded}</span> <span class="m">−${stats.linesRemoved}</span></span>`;
+}
+
 function renderCommit(commit) {
 	const key = `commit:${commit.id}`;
 	const isOpen = open.has(key);
@@ -251,7 +259,10 @@ function renderCommit(commit) {
 					commit.hasConflicts ? ' · <span style="color:var(--bad)">conflicted</span>' : ""
 				}</span>`
 			: "") +
-		`</span></button>`;
+		`</span>` +
+		// Sized with every other commit once, or with its own files if those came first.
+		lineStat(commitFiles?.files?.[commit.id]?.stats || loaded.get(key)?.data?.stats, { files: true }) +
+		`</button>`;
 
 	if (isOpen) {
 		const body = bodyOf(commit.message);
@@ -270,7 +281,7 @@ const CI_MARK = {
 	failing: `<span style="color:var(--bad)">✗ CI</span>`,
 };
 
-function renderBranch({ reference, commits }, forge) {
+function renderBranch({ reference, commits }, forge, branchStats) {
 	const name = reference.refName.displayName;
 	const key = `branch:${reference.refName.fullName}`;
 	const isOpen = !open.has(key); // branches start expanded; the key marks "collapsed"
@@ -293,6 +304,7 @@ function renderBranch({ reference, commits }, forge) {
 		`<span class="grow"><span class="name clip" style="display:block">${esc(name)}</span>` +
 		(bits.length ? `<span class="meta">${bits.join(" · ")}</span>` : "") +
 		`</span>` +
+		(commits.length ? lineStat(branchStats?.[name]) : "") +
 		`<span class="stat">${commits.length}</span>` +
 		`</button>` +
 		(isOpen
@@ -360,7 +372,7 @@ function render({ workspace, behind, changes, worktrees, forge }) {
 	}
 	const parts = [renderUncommitted(changes)];
 	for (const group of stacks) {
-		const cards = group.map((branch) => renderBranch(branch, forge)).join("");
+		const cards = group.map((branch) => renderBranch(branch, forge, latest.branchStats)).join("");
 		parts.push(
 			group.length > 1
 				? `<div class="stack"><div class="stack-label">Stack · ${group.length} branches</div>${cards}</div>`
@@ -416,12 +428,13 @@ async function tick() {
 			changes: data.changes,
 			worktrees: data.worktrees,
 			forge: data.forge,
+			branchStats: data.branchStats,
 			autoFetchMinutes: data.autoFetchMinutes,
 		};
 		paint(false);
 		showUpstream();
 		refreshLiveDiffs();
-		if (query) loadCommitFiles();
+		loadCommitFiles();
 	} catch (error) {
 		dot.className = "dot bad";
 		if (latest) return;
@@ -452,7 +465,7 @@ if ("serviceWorker" in navigator) {
 // --- file search -----------------------------------------------------------
 
 let query = "";
-let commitFiles = null; // { key, files: { [commitId]: changes } } for the workspace's commits
+let commitFiles = null; // { key, files: { [commitId]: { changes, stats } } } for the workspace's commits
 let commitFilesLoading = null;
 
 const commitIdsOf = (workspace) =>
@@ -501,7 +514,7 @@ function renderSearch(branches, changes, worktrees) {
 	addGroup("Uncommitted", "", changes, {});
 	for (const { reference, commits } of branches) {
 		for (const commit of commits) {
-			const files = commitFiles?.files?.[commit.id];
+			const files = commitFiles?.files?.[commit.id]?.changes;
 			if (files) {
 				addGroup(reference.refName.displayName, subject(commit.message), files, {
 					commit: commit.id,

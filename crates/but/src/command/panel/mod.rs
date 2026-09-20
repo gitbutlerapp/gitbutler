@@ -886,6 +886,9 @@ struct GraphCache {
     taken: std::time::Instant,
     workspace: serde_json::Value,
     branch_names: Vec<String>,
+    /// For each branch by name, the lines and files its commits change, against the branch below
+    /// it or the target. They only change when the graph does, and cost a diff per branch.
+    branch_stats: serde_json::Map<String, serde_json::Value>,
     behind: Option<usize>,
 }
 
@@ -961,22 +964,40 @@ fn workspace_json(
             .target_ref
             .as_ref()
             .map(|target| target.commits_ahead);
-        let branch_names = workspace
+        let references = workspace
             .stacks
             .iter()
             .flat_map(|stack| &stack.rows)
             .filter_map(|row| match &row.data {
-                DetailedGraphRowData::Reference(reference) => {
-                    Some(reference.ref_name.display_name.clone())
-                }
+                DetailedGraphRowData::Reference(reference) => Some(&reference.ref_name),
                 DetailedGraphRowData::Commit(_) => None,
-            })
+            });
+        let branch_names = references
+            .clone()
+            .map(|name| name.display_name.clone())
             .collect();
+        let branch_stats = {
+            let (repo, ws, _) = ctx.workspace_and_db_with_perm(perm)?;
+            references
+                .filter_map(|name| {
+                    let full_name =
+                        gix::refs::FullName::try_from(name.full_name_bytes.clone()).ok()?;
+                    let changes =
+                        but_workspace::ui::diff::changes_in_branch(&repo, &ws, full_name.as_ref())
+                            .ok()?;
+                    Some((
+                        name.display_name.clone(),
+                        serde_json::to_value(changes.stats).ok()?,
+                    ))
+                })
+                .collect()
+        };
         *graph = Some(GraphCache {
             fingerprint,
             taken: std::time::Instant::now(),
             workspace: serde_json::to_value(workspace)?,
             branch_names,
+            branch_stats,
             behind,
         });
     }
@@ -990,6 +1011,7 @@ fn workspace_json(
         "repo": repository_name(root),
         "project": root,
         "workspace": cache.workspace,
+        "branchStats": cache.branch_stats,
         "behind": cache.behind,
         "changes": serde_json::to_value(changes.worktree_changes.changes)?,
         "worktrees": worktrees_json(ctx, perm),
@@ -1231,7 +1253,8 @@ fn diff_json(
     Ok(serde_json::to_value(patch)?)
 }
 
-/// The changed files of every commit in the workspace, by commit ID, for the page's file search.
+/// The changed files and line statistics of every commit in the workspace, by commit ID, for the
+/// page's file search and for the size each commit's row shows.
 fn commit_files_json(
     ctx: &mut Context,
     cache: &mut HashMap<gix::ObjectId, serde_json::Value>,
@@ -1256,8 +1279,8 @@ fn commit_files_json(
             Some(changes) => changes.clone(),
             None => {
                 let details: CommitDetails =
-                    but_api::diff::commit_details(ctx, commit_id, ComputeLineStats::No)?.into();
-                let changes = serde_json::to_value(details.changes)?;
+                    but_api::diff::commit_details(ctx, commit_id, ComputeLineStats::Yes)?.into();
+                let changes = json!({ "changes": details.changes, "stats": details.line_stats });
                 cache.insert(commit_id, changes.clone());
                 changes
             }
