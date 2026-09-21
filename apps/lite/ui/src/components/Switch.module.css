@@ -10,7 +10,7 @@
 	height: var(--switch-height);
 	padding: 0;
 	border: none;
-	border-radius: 100px;
+	border-radius: var(--radius-full);
 	background-color: var(--border-2);
 	transition: background-color var(--transition-medium);
 

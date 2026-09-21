@@ -291,7 +291,7 @@ code {
 .branch-kind {
 	padding: 2px 6px;
 	border: 1px solid var(--gb-border-3);
-	border-radius: 999px;
+	border-radius: var(--radius-full);
 	color: var(--gb-text-2);
 	font-size: 9px;
 	letter-spacing: 0.03em;
@@ -300,7 +300,7 @@ code {
 
 .conflict-badge {
 	padding: 2px 5px;
-	border-radius: 999px;
+	border-radius: var(--radius-full);
 	background: color-mix(in srgb, var(--gb-danger) 14%, transparent);
 	color: var(--gb-danger);
 	font-weight: var(--text-weight-semibold);
@@ -503,7 +503,7 @@ code {
 	justify-self: start;
 	padding: 3px 7px;
 	border: 1px solid var(--gb-border-3);
-	border-radius: 999px;
+	border-radius: var(--radius-full);
 	color: var(--gb-text-2);
 	font-size: 9px;
 }

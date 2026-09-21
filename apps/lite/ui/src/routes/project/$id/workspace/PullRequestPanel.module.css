@@ -84,7 +84,7 @@
 	display: flex;
 	padding: 0;
 	border: none;
-	border-radius: 30px;
+	border-radius: var(--radius-full);
 	background: none;
 
 	& > span {

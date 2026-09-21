@@ -3,7 +3,7 @@
 	align-items: center;
 	justify-content: center;
 	min-width: 16px;
-	border-radius: 30px;
+	border-radius: var(--radius-full);
 	--badge-bg-opacity: 20%;
 
 	/* Selected rows set --selection-inverted; flipping to the opposite color
