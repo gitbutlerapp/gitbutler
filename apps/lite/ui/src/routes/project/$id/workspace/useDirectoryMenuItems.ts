@@ -3,10 +3,11 @@ import { fileAddress } from "#ui/addresses.ts";
 import { changesFileHotkeys, toElectronAccelerator } from "#ui/hotkeys.ts";
 import { type NativeMenuItem, nativeMenuItem, nativeMenuItemsFromGroups } from "#ui/native-menu.ts";
 import { usePathMenuItems } from "./usePathMenuItems.ts";
-import { fileSetMenuItems } from "./fileSetMenuItems.ts";
+import { fileSetMenuItems, reviewedMenuItem } from "./fileSetMenuItems.ts";
 import { useFileSetActions, useFileSetSubject } from "./useFileSetActions.ts";
 import type { DirectoryCheckedState } from "./DirectoryRow.tsx";
 import type { FileRowItem } from "./file-row.ts";
+import type { TreeChange } from "@gitbutler/but-sdk";
 import { useMemo } from "react";
 
 /**
@@ -24,6 +25,7 @@ export const useDirectoryMenuItems = ({
 	path,
 	items,
 	checkedState,
+	isReviewed,
 	isCollapsed,
 	onToggleCollapsed,
 }: {
@@ -33,6 +35,8 @@ export const useDirectoryMenuItems = ({
 	/** Every file below this directory. */
 	items: Array<FileRowItem>;
 	checkedState: DirectoryCheckedState;
+	/** Whether every change below this directory has been reviewed; the row's tick says the same. */
+	isReviewed: boolean;
 	isCollapsed: boolean;
 	onToggleCollapsed: () => void;
 }): Array<NativeMenuItem> => {
@@ -47,22 +51,22 @@ export const useDirectoryMenuItems = ({
 	//
 	// Split by hand, in one pass: a directory stands for every file below it, so this walks
 	// the whole subtree, and the compiler gives a scope only to the half that feeds a hook.
-	const { changePaths, conflictPaths } = useMemo(() => {
-		const changePaths: Array<string> = [];
+	const { changes, conflictPaths } = useMemo(() => {
+		const changes: Array<TreeChange> = [];
 		const conflictPaths: Array<string> = [];
 		for (const item of items) {
-			if (item._tag === "Change") changePaths.push(item.path);
+			if (item._tag === "Change") changes.push(item.change);
 			else conflictPaths.push(item.path);
 		}
-		return { changePaths, conflictPaths };
+		return { changes, conflictPaths };
 	}, [items]);
 
 	const subject = useFileSetSubject({
 		projectId,
 		fileParent,
 		promote: checkedState === "checked",
-		own: () => changePaths.map((path) => fileAddress({ parent: fileParent, path })),
-		ownCount: changePaths.length,
+		own: () => changes.map(({ path }) => fileAddress({ parent: fileParent, path })),
+		ownCount: changes.length,
 	});
 
 	return nativeMenuItemsFromGroups([
@@ -81,7 +85,12 @@ export const useDirectoryMenuItems = ({
 					] satisfies Array<NativeMenuItem>,
 				]
 			: []),
-		...(changePaths.length > 0 ? fileSetMenuItems({ actions, subject, fileParent }) : []),
+		...(changes.length > 0
+			? [
+					...fileSetMenuItems({ actions, subject, fileParent }),
+					[reviewedMenuItem({ actions, changes, isReviewed })],
+				]
+			: []),
 		[
 			nativeMenuItem({
 				label: isCollapsed ? "Expand" : "Collapse",

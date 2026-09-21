@@ -68,7 +68,7 @@ type FileRowPresentationalProps = FileRowProps & {
 };
 
 export const FileRow: FC<FileRowProps> = (props) => {
-	const { item, projectId, fileParent } = props;
+	const { item, projectId, fileParent, isReviewed } = props;
 	const relativePath = item._tag === "Change" ? item.change.path : item.path;
 
 	const anyOperationPending = useAppSelector(
@@ -79,6 +79,7 @@ export const FileRow: FC<FileRowProps> = (props) => {
 		address: { parent: fileParent, path: relativePath },
 		path: relativePath,
 		change: item._tag === "Change" ? item.change : undefined,
+		isReviewed,
 	});
 
 	return (

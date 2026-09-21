@@ -1,6 +1,6 @@
 import { type NativeMenuItem, nativeMenuItem, nativeMenuItemsFromGroups } from "#ui/native-menu.ts";
 import { usePathMenuItems } from "./usePathMenuItems.ts";
-import { fileSetMenuItems } from "./fileSetMenuItems.ts";
+import { fileSetMenuItems, reviewedMenuItem } from "./fileSetMenuItems.ts";
 import { useFileSetActions, useFileSetSubject } from "./useFileSetActions.ts";
 import { fileAddress, type FileAddress } from "#ui/addresses.ts";
 import { projectSlice } from "#ui/projects/state.ts";
@@ -12,11 +12,19 @@ export const useFileMenuItems = ({
 	address,
 	path,
 	change,
+	isReviewed,
 }: {
 	projectId: string;
 	address: FileAddress;
 	path: string;
 	change?: TreeChange;
+	/**
+	 * Whether the diff on show has been reviewed, which is what the row's own tick
+	 * says and which way round the mark reads. Left out where the surface offers
+	 * reviewing in its own chrome — the diff header's button — so that the menu
+	 * does not say it a second time.
+	 */
+	isReviewed?: boolean;
 }): Array<NativeMenuItem> => {
 	// A linked worktree's file is opened and revealed where it lives, not in the
 	// project's own checkout; what it can act on is `useFileSetActions`' to say.
@@ -54,5 +62,8 @@ export const useFileMenuItems = ({
 				]
 			: []),
 		...(change ? fileSetMenuItems({ actions, subject, fileParent: address.parent }) : []),
+		...(change && isReviewed !== undefined
+			? [[reviewedMenuItem({ actions, changes: [change], isReviewed })]]
+			: []),
 	]);
 };

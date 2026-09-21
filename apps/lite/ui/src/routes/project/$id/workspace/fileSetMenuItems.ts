@@ -6,6 +6,7 @@ import {
 } from "#ui/hotkeys.ts";
 import { type NativeMenuItem, nativeMenuItem } from "#ui/native-menu.ts";
 import type { useFileSetActions, useFileSetSubject } from "./useFileSetActions.ts";
+import type { TreeChange } from "@gitbutler/but-sdk";
 import { Match } from "effect";
 
 /**
@@ -68,4 +69,34 @@ export const fileSetMenuItems = ({
 			Branch: () => [],
 		}),
 	);
+};
+
+/**
+ * Reviewing, addressed to the row's own changes: its file, or every change below a
+ * directory. Unlike the acts above it does not give way to the checked set — how far
+ * a reader has got through a row is the row's own business, as marking its conflicts
+ * resolved is — and it is the one item branch files get, since review state is kept
+ * for them too.
+ *
+ * The row is already saying which way round this reads: a file row wears the tick once
+ * its diff is reviewed, a directory row once every diff below it is.
+ */
+export const reviewedMenuItem = ({
+	actions,
+	changes,
+	isReviewed,
+}: {
+	actions: ReturnType<typeof useFileSetActions>;
+	changes: Array<TreeChange>;
+	isReviewed: boolean;
+}): NativeMenuItem => {
+	const verb = isReviewed ? "Unreviewed" : "Reviewed";
+
+	return nativeMenuItem({
+		label:
+			changes.length > 1
+				? `Mark ${changes.length.toLocaleString()} Files as ${verb}`
+				: `Mark as ${verb}`,
+		onSelect: () => actions.setReviewed(changes, !isReviewed),
+	});
 };

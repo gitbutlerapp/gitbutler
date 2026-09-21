@@ -21,6 +21,7 @@ const hookState = vi.hoisted(() => ({
 	uncommit: vi.fn(),
 	resolveWorktreeConflicts: vi.fn(),
 	cut: vi.fn(),
+	setFilesReviewed: vi.fn(),
 }));
 
 vi.mock("#ui/api/mutations.ts", () => ({
@@ -33,6 +34,19 @@ vi.mock("#ui/api/mutations.ts", () => ({
 }));
 vi.mock("#ui/api/queries.ts", () => ({
 	changesInWorktreeQueryOptions: () => ({ queryKey: ["changes"] }),
+	// The real diffs are the backend's; a review only needs one entry per change,
+	// which the stubbed `prepareDiffFiles` below turns into a version.
+	treeChangesDiffsQueryOptions: ({ changes }: { changes: Array<{ path: string }> }) => ({
+		queryKey: ["treeChangeDiffs", changes],
+		queryFn: () => changes.map(() => null),
+	}),
+}));
+vi.mock("#ui/reviewed-files.ts", () => ({
+	useSetFilesReviewed: () => ({ mutate: hookState.setFilesReviewed }),
+}));
+vi.mock("./diff-view.ts", () => ({
+	prepareDiffFiles: ({ changes }: { changes: Array<{ path: string }> }) =>
+		changes.map((change) => ({ change, version: 1 })),
 }));
 vi.mock("#ui/operations/diff-specs.ts", () => ({ resolveDiffSpecs: async () => [] }));
 vi.mock("#ui/use-cursor.ts", () => ({
@@ -89,6 +103,7 @@ const render = (options: {
 	fileParent: FileParent;
 	items: Array<FileRowItem>;
 	checkedState?: "checked" | "indeterminate" | "unchecked";
+	isReviewed?: boolean;
 }): void => {
 	const Probe: FC = () => {
 		const menuItems = useDirectoryMenuItems({
@@ -97,6 +112,7 @@ const render = (options: {
 			path: "src/ui",
 			items: options.items,
 			checkedState: options.checkedState ?? "unchecked",
+			isReviewed: options.isReviewed ?? false,
 			isCollapsed: false,
 			onToggleCollapsed: () => {},
 		});
@@ -125,6 +141,14 @@ const select = (label: string): void => {
 	act(() => void item.onSelect?.());
 };
 
+/** The same, for an act that has to fetch the diffs its subject is named by. */
+const selectAndSettle = async (label: string): Promise<void> => {
+	select(label);
+	await act(async () => {
+		await queryClient.getQueryCache().getAll().at(-1)?.promise;
+	});
+};
+
 let container: HTMLDivElement;
 let queryClient: QueryClient;
 let root: Root;
@@ -137,6 +161,7 @@ describe("useDirectoryMenuItems", () => {
 		hookState.uncommit.mockClear();
 		hookState.resolveWorktreeConflicts.mockClear();
 		hookState.cut.mockClear();
+		hookState.setFilesReviewed.mockClear();
 		container = document.createElement("div");
 		document.body.append(container);
 		queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
@@ -156,6 +181,7 @@ describe("useDirectoryMenuItems", () => {
 			"Cut 2 Files",
 			"Absorb 2 Files",
 			"Discard Changes in 2 Files",
+			"Mark 2 Files as Reviewed",
 			"Collapse",
 		]);
 	});
@@ -163,7 +189,13 @@ describe("useDirectoryMenuItems", () => {
 	it("says what a file row says when it holds one file", () => {
 		render({ fileParent: uncommitted, items: [change("src/ui/a.ts")] });
 
-		expect(labels()).toEqual(["Cut File", "Absorb", "Discard Changes", "Collapse"]);
+		expect(labels()).toEqual([
+			"Cut File",
+			"Absorb",
+			"Discard Changes",
+			"Mark as Reviewed",
+			"Collapse",
+		]);
 	});
 
 	it("offers uncommitting rather than absorbing under a commit", () => {
@@ -173,16 +205,16 @@ describe("useDirectoryMenuItems", () => {
 		expect(labels()).not.toContain("Absorb 2 Files");
 	});
 
-	it("offers no acts on branch files", () => {
+	it("offers reviewing but no other acts on branch files", () => {
 		render({ fileParent: branch, items: [change("src/ui/a.ts")] });
 
-		expect(labels()).toEqual(["Collapse"]);
+		expect(labels()).toEqual(["Mark as Reviewed", "Collapse"]);
 	});
 
 	it("offers cutting but no absorbing or discarding in a linked worktree", () => {
 		render({ fileParent: linkedWorktree, items: [change("src/ui/a.ts")] });
 
-		expect(labels()).toEqual(["Cut File", "Collapse"]);
+		expect(labels()).toEqual(["Cut File", "Mark as Reviewed", "Collapse"]);
 	});
 
 	it("offers resolving only what is conflicted below it", () => {
@@ -233,6 +265,61 @@ describe("useDirectoryMenuItems", () => {
 
 		select("Discard Changes in 2 Files");
 		expect(hookState.discard).toHaveBeenCalledWith(hookState.checkedAddresses);
+	});
+
+	it("marks every change below it reviewed, leaving its conflicts alone", async () => {
+		render({
+			fileParent: uncommitted,
+			items: [
+				change("src/ui/a.ts"),
+				change("src/ui/b.ts"),
+				conflictFileRowItem({ path: "src/ui/c.ts" }),
+			],
+		});
+
+		await selectAndSettle("Mark 2 Files as Reviewed");
+		expect(hookState.setFilesReviewed).toHaveBeenCalledWith(
+			expect.objectContaining({
+				projectId,
+				files: [
+					{ path: "src/ui/a.ts", version: 1 },
+					{ path: "src/ui/b.ts", version: 1 },
+				],
+				reviewed: true,
+			}),
+		);
+	});
+
+	it("reads the other way round once every change below it is reviewed", async () => {
+		render({
+			fileParent: uncommitted,
+			items: [change("src/ui/a.ts")],
+			isReviewed: true,
+		});
+
+		expect(labels()).toContain("Mark as Unreviewed");
+
+		await selectAndSettle("Mark as Unreviewed");
+		expect(hookState.setFilesReviewed).toHaveBeenCalledWith(
+			expect.objectContaining({ files: [{ path: "src/ui/a.ts", version: 1 }], reviewed: false }),
+		);
+	});
+
+	it("reviews its own files however the checked set stands", async () => {
+		hookState.checkedAddresses = [
+			{ _tag: "File", parent: uncommitted, path: "src/ui/a.ts" },
+			{ _tag: "File", parent: uncommitted, path: "elsewhere.ts" },
+		];
+		render({ fileParent: uncommitted, items: [change("src/ui/a.ts")], checkedState: "checked" });
+
+		// The acts above give way to the checked set; how far a reader has got does not.
+		expect(labels()).toContain("Discard Changes in 2 Files");
+		expect(labels()).toContain("Mark as Reviewed");
+
+		await selectAndSettle("Mark as Reviewed");
+		expect(hookState.setFilesReviewed).toHaveBeenCalledWith(
+			expect.objectContaining({ files: [{ path: "src/ui/a.ts", version: 1 }] }),
+		);
 	});
 
 	it("keeps to its own files when the checked set is not wholly ours", () => {

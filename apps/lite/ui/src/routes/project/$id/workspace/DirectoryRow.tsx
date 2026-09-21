@@ -63,7 +63,7 @@ type DirectoryRowPresentationalProps = Omit<DirectoryRowProps, "projectId" | "fi
  * handful of queries per row, which a list being scrolled should not be paying.
  */
 export const DirectoryRow: FC<DirectoryRowProps> = ({ projectId, fileParent, ...props }) => {
-	const { path, items, checkedState, isCollapsed, onToggleCollapsed } = props;
+	const { path, items, checkedState, isReviewed, isCollapsed, onToggleCollapsed } = props;
 
 	const menuItems = useDirectoryMenuItems({
 		projectId,
@@ -71,6 +71,7 @@ export const DirectoryRow: FC<DirectoryRowProps> = ({ projectId, fileParent, ...
 		path,
 		items,
 		checkedState,
+		isReviewed,
 		isCollapsed,
 		onToggleCollapsed,
 	});

@@ -3,14 +3,17 @@ import {
 	useDiscardFileChanges,
 	useResolveWorktreeConflicts,
 } from "#ui/api/mutations.ts";
-import { changesInWorktreeQueryOptions } from "#ui/api/queries.ts";
-import type { Address, FileParent } from "#ui/addresses.ts";
+import { changesInWorktreeQueryOptions, treeChangesDiffsQueryOptions } from "#ui/api/queries.ts";
+import { weakFileParentIdentityKey, type Address, type FileParent } from "#ui/addresses.ts";
 import { focusScope } from "#ui/focus-scopes.ts";
 import { resolveDiffSpecs } from "#ui/operations/diff-specs.ts";
 import { projectSlice } from "#ui/projects/state.ts";
+import { useSetFilesReviewed } from "#ui/reviewed-files.ts";
 import { useAppSelector, useAppStore } from "#ui/store.ts";
 import { startAbsorb, startKeyboardTransfer } from "#ui/use-cursor.ts";
+import type { TreeChange } from "@gitbutler/but-sdk";
 import { useQueryClient } from "@tanstack/react-query";
+import { prepareDiffFiles } from "./diff-view.ts";
 
 /** A file address in the tagged form the checked set and the operation machinery carry. */
 type FileSetAddress = Extract<Address, { _tag: "File" }>;
@@ -18,8 +21,9 @@ type FileSetAddress = Extract<Address, { _tag: "File" }>;
 /**
  * The acts a list of files offers, addressed to a set rather than to one file: a row's
  * own file, the files below a directory row, or the checked set, whichever the caller
- * decides. Every act names its subject by address and looks the changes back up itself,
- * so no caller has to hold a {@link TreeChange} to offer one.
+ * decides. Every act but reviewing names its subject by address and looks the changes
+ * back up itself, so no caller has to hold a {@link TreeChange} to offer one; reviewing
+ * names them outright, since what it records is a version of their diff.
  *
  * A subject with a stale member fails the whole act rather than acting on the rest —
  * the same all-or-nothing rule discarding the checked set has always followed.
@@ -37,6 +41,7 @@ export const useFileSetActions = ({
 		useCommitUncommitChanges();
 	const { isPending: isResolvePending, mutate: resolveWorktreeConflicts } =
 		useResolveWorktreeConflicts();
+	const { mutate: setFilesReviewed } = useSetFilesReviewed();
 	// A linked worktree's files commit and amend into the workspace like any uncommitted
 	// file, but have no absorb or discard yet: both act on the project's own checkout.
 	const isLinkedWorktree =
@@ -91,6 +96,34 @@ export const useFileSetActions = ({
 
 		markResolved: (paths: Array<string>): void => {
 			resolveWorktreeConflicts({ projectId, paths });
+		},
+
+		/**
+		 * Reviewing records the version of the diff it saw, and only the patch carries
+		 * one, so the diffs have to be in hand before the mark can be made. They are the
+		 * ones the diff pane loads anyway, so they usually come from the cache.
+		 */
+		setReviewed: (changes: Array<TreeChange>, reviewed: boolean): void => {
+			void queryClient
+				.fetchQuery(
+					treeChangesDiffsQueryOptions({
+						projectId,
+						changes,
+						// As the diff pane asks for them: only uncommitted changes are read
+						// from a checkout, so only they are diffed against a linked one.
+						worktree: fileParent._tag === "UncommittedChanges" ? fileParent.worktree : undefined,
+					}),
+				)
+				.then((treeChangeDiffs) => {
+					setFilesReviewed({
+						projectId,
+						contextId: weakFileParentIdentityKey(fileParent),
+						files: prepareDiffFiles({ fileParent, changes, treeChangeDiffs }).map(
+							({ change, version }) => ({ path: change.path, version }),
+						),
+						reviewed,
+					});
+				});
 		},
 	};
 };
