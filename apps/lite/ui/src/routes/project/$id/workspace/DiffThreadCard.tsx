@@ -3,6 +3,7 @@ import { TextLink } from "#ui/components/TextLink.tsx";
 import type { ForgeReviewThread } from "@gitbutler/but-sdk";
 import { ThreadComment } from "#ui/routes/project/$id/workspace/PullRequestComments.tsx";
 import { ReviewThreadReply } from "#ui/routes/project/$id/workspace/ReviewThreadReply.tsx";
+import { openLinkExternally } from "#ui/external-link.ts";
 import type { FC } from "react";
 import styles from "./DiffThreadCard.module.css";
 
@@ -36,6 +37,7 @@ export const DiffThreadCard: FC<Props> = ({ projectId, reviewId, thread }) => (
 				<TextLink
 					className={classes("text-12", styles.forgeLink)}
 					href={thread.comments[0].htmlUrl}
+					onClick={openLinkExternally}
 				>
 					Open on the forge
 				</TextLink>

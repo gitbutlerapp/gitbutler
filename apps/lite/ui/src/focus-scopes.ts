@@ -25,10 +25,6 @@ export const getFocusedScope = (activeElement: Element | null): FocusScope | nul
 	return isFocusScope(focusScope) ? focusScope : null;
 };
 
-/** Whether keyboard focus currently sits inside the given selection scope. */
-export const isFocusWithinScope = (scope: FocusScope): boolean =>
-	document.activeElement?.closest(`[data-focus-scope="${scope}"]`) != null;
-
 /**
  * Whether bare-arrow pane navigation may act for the current focus. Widgets
  * with their own arrow keys keep them: anything outside every pane (dialogs,
