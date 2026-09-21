@@ -25,6 +25,9 @@
 	h6 {
 		margin-block: 24px 8px;
 		font-weight: 600;
+		/* The body's 160% is for running text. On a heading it reads as a gap
+		   the moment the heading wraps. */
+		line-height: 130%;
 	}
 
 	h1 {

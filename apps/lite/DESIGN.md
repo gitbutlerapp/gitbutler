@@ -640,7 +640,8 @@ Figma the same numbers are the slot's 12px gap plus each block's own padding:
 4 on Block, 12 on H2, 8 on H3. Margins collapse in CSS, so a box next to a
 paragraph gets 16, not 28.
 
-**Type.** Body/13 on a 160% line. H1 is 18, H2 16, H3 14, all semibold.
+**Type.** Body/13 on a 160% line. H1 is 18, H2 16, H3 14, all semibold on a
+130% line: a heading that wraps should still read as one heading.
 Levels four to six stay at the body size and only go semibold; Figma has no
 component for them, and a description that needs a fourth level needs fewer
 levels.
