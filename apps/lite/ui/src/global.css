@@ -1,5 +1,5 @@
 @import "@gitbutler/design-core/core";
-@import "./control-cursor.css";
+@import "./components/base.css";
 
 /*
     color-scheme isn't yet respected by prefers-color-scheme, so where we can't use light-dark() we
@@ -14,16 +14,6 @@
 :root {
 	color-scheme: light dark;
 
-	/* The arrow over controls until the appearance setting asks for the hand (control-cursor.css). */
-	--control-cursor: default;
-
-	--list-item-hover-bg: color-mix(var(--fill-gray-bg) var(--opacity-bg-hover), transparent);
-	--focus-ring: 1.5px solid color-mix(in srgb, var(--fill-gray-bg) 70%, transparent);
-	/* How a control's ground and text respond to hover and press. Shared by Button and
-	   by anything that behaves like one without being one, such as a badge that opens a
-	   menu, so all controls settle at the same speed. The durations (--transition-fast,
-	   --transition-popup) and the popup curve (--easing-popup) are design-core tokens. */
-	--transition-button: background-color var(--transition-fast), color var(--transition-fast);
 	--panel-padding-block: 12px;
 	--panel-padding-inline: 12px;
 
@@ -31,10 +21,6 @@
 	   that sit on another background (popups) restate these on themselves. */
 	--scrollbar-track-bg: var(--bg-2);
 	--scrollbar-track-border: var(--border-section);
-}
-
-:root[data-hand-cursor] {
-	--control-cursor: pointer;
 }
 
 body {
