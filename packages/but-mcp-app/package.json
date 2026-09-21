@@ -9,7 +9,7 @@
 	},
 	"dependencies": {
 		"@gitbutler/but-sdk": "workspace:*",
-		"@gitbutler/design-core": "3.9.1",
+		"@gitbutler/design-core": "5.1.0",
 		"@hono/node-server": "2.0.10",
 		"@modelcontextprotocol/ext-apps": "1.7.4",
 		"@modelcontextprotocol/sdk": "1.30.0",
