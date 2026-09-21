@@ -7,6 +7,7 @@ import { TextLink } from "#ui/components/TextLink.tsx";
 import { TooltipPopup } from "#ui/components/Tooltip.tsx";
 import { useCopied } from "#ui/components/useCopied.ts";
 import { defaultSettings } from "#ui/settings.ts";
+import { openLinkExternally } from "#ui/external-link.ts";
 import { Tooltip } from "@base-ui/react";
 import { useQuery } from "@tanstack/react-query";
 import type { CSSProperties, FC, MouseEvent, ReactNode } from "react";
@@ -258,7 +259,12 @@ export const Markdown: FC<{ children: string }> = ({ children }) => (
 			components={{
 				a: ({ node: _node, children, href, ...props }) =>
 					isExternalUrl(href) ? (
-						<TextLink {...props} href={href} className={styles.externalLink}>
+						<TextLink
+							{...props}
+							href={href}
+							className={styles.externalLink}
+							onClick={openLinkExternally}
+						>
 							{children}
 						</TextLink>
 					) : (

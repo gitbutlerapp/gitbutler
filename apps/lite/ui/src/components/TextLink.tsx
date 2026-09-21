@@ -1,5 +1,4 @@
 import { classes } from "#ui/components/classes.ts";
-import { openLinkExternally } from "#ui/external-link.ts";
 import type { ComponentProps, FC } from "react";
 import styles from "./TextLink.module.css";
 
@@ -10,17 +9,12 @@ type Props = Omit<ComponentProps<"a">, "href"> & {
 /**
  * A link that reads as a link: underlined text with an arrow hung off the
  * end, since every link leaves the app. The arrow is drawn here rather than
- * typed, because the text fonts don't carry ↗ at every weight. Opens in the
- * system browser unless an `onClick` takes over.
+ * typed, because the text fonts don't carry ↗ at every weight. How a link
+ * leaves is the host's to say, through `onClick`: a web page can let the
+ * anchor navigate, while Electron has to hand the URL to the system browser.
  */
-export const TextLink: FC<Props> = ({
-	href,
-	children,
-	className,
-	onClick = openLinkExternally,
-	...props
-}) => (
-	<a {...props} href={href} className={classes(styles.link, className)} onClick={onClick}>
+export const TextLink: FC<Props> = ({ href, children, className, ...props }) => (
+	<a {...props} href={href} className={classes(styles.link, className)}>
 		{children}
 		<svg aria-hidden className={styles.arrow} viewBox="0 0 12 12" fill="none">
 			<path

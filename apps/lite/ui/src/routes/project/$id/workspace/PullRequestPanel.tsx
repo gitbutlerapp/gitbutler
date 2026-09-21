@@ -931,7 +931,7 @@ export const PullRequestPanel: FC<{
 							) : (
 								statusBadge
 							)}
-							<TextLink href={review.htmlUrl} className="text-12">
+							<TextLink href={review.htmlUrl} className="text-12" onClick={openLinkExternally}>
 								{review.unitSymbol}
 								{review.number}
 							</TextLink>

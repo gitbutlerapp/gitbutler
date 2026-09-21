@@ -250,6 +250,7 @@ import {
 } from "#ui/reviewed-files.ts";
 import { useApplyToWorkspace } from "./useApplyToWorkspace.ts";
 import { getRandomDadJoke } from "#ui/dad-jokes.ts";
+import { openLinkExternally } from "#ui/external-link.ts";
 
 export type DiffViewerHandle = CodeViewHandle<Annotation>;
 
@@ -426,7 +427,9 @@ const DiffFooter: FC = () => {
 					<span>Thanks for testing GitButler Next Nightly! ❤️</span>
 					<span>
 						We’d love to hear what you think.{" "}
-						<TextLink href="https://discord.gg/MmFkmaJ42D">Share feedback on Discord</TextLink>
+						<TextLink href="https://discord.gg/MmFkmaJ42D" onClick={openLinkExternally}>
+							Share feedback on Discord
+						</TextLink>
 					</span>
 				</>
 			)}

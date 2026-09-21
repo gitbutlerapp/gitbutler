@@ -23,6 +23,7 @@ import { TextLink } from "#ui/components/TextLink.tsx";
 import { errorMessageForToast } from "#ui/errors.ts";
 import { nativeMenuItem, showNativeMenuFromTrigger } from "#ui/native-menu.ts";
 import { useCopied } from "#ui/components/useCopied.ts";
+import { openLinkExternally } from "#ui/external-link.ts";
 import { signInWithGithub } from "./github-oauth.ts";
 import styles from "./Integrations.module.css";
 import { Note, Section } from "./Section.tsx";
@@ -321,7 +322,9 @@ export const Integrations: FC = () => {
 					<>
 						Classic token with the repo scope, or a fine-grained token with Pull requests: read and
 						write, plus Checks: read for CI status.{" "}
-						<TextLink href="https://github.com/settings/tokens">Generate on GitHub</TextLink>
+						<TextLink href="https://github.com/settings/tokens" onClick={openLinkExternally}>
+							Generate on GitHub
+						</TextLink>
 					</>
 				}
 				isBusy={forgetGithub.isPending || addGithub.isPending || githubBusy}
@@ -338,7 +341,10 @@ export const Integrations: FC = () => {
 				tokenHint={
 					<>
 						Token with the api scope.{" "}
-						<TextLink href="https://gitlab.com/-/user_settings/personal_access_tokens">
+						<TextLink
+							href="https://gitlab.com/-/user_settings/personal_access_tokens"
+							onClick={openLinkExternally}
+						>
 							Generate on GitLab
 						</TextLink>
 					</>
@@ -357,7 +363,10 @@ export const Integrations: FC = () => {
 						API token with the read:user:bitbucket, read:repository:bitbucket,
 						read:pullrequest:bitbucket and write:pullrequest:bitbucket scopes, plus the email on
 						your Atlassian account.{" "}
-						<TextLink href="https://id.atlassian.com/manage-profile/security/api-tokens">
+						<TextLink
+							href="https://id.atlassian.com/manage-profile/security/api-tokens"
+							onClick={openLinkExternally}
+						>
 							Generate on Atlassian
 						</TextLink>
 					</>
