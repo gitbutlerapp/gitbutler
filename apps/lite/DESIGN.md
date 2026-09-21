@@ -8,12 +8,12 @@ files, commands — lives in `apps/lite/AGENTS.md`.
 ## Components
 
 **Build from the library.** Every control users touch — a button, a switch, a
-segmented toggle, a popup — already has a component in `ui/src/components/`,
-with a spec in the ⚛️ Lite Core Figma library or a Storybook story. Reach for
-those first, even when hand-styling a primitive in the feature's own CSS module
-would be quicker. The point of a library is that the app reads as one thing;
-each control styled locally is one that will drift, and one more that has to
-be found and reconciled when the design moves.
+segmented toggle, a popup — already has a component in `@gitbutler/ui-react`
+(`packages/ui-react/src/`), with a spec in the ⚛️ Lite Core Figma library or a
+Storybook story. Reach for those first, even when hand-styling a primitive in
+the feature's own CSS module would be quicker. The point of a library is that
+the app reads as one thing; each control styled locally is one that will
+drift, and one more that has to be found and reconciled when the design moves.
 
 **If the library lacks it, think twice, then ask.** A missing component is a
 design question before it is an engineering one. Check whether an existing one
@@ -28,7 +28,7 @@ here. A custom control with no motivation in the commit or a comment is a bug
 waiting for a redesign, not a decision.
 
 **New components are documented.** Anything that graduates into
-`ui/src/components/` gets a story and, once the designer has drawn it, a
+`@gitbutler/ui-react` gets a story and, once the designer has drawn it, a
 Figma spec. A component that lives only in code is half a component.
 
 ## Voice
@@ -343,7 +343,7 @@ to look different in a state, change the color of its container.
 asset, so an icon scales with the row, button, or type it belongs to. Don't
 size an icon by editing the SVG.
 
-**The exception: file icons.** `ui/src/components/file-icons/` holds
+**The exception: file icons.** `packages/ui-react/src/file-icons/` holds
 language/filetype glyphs that carry their own brand colors (the Rust gear, the
 TypeScript square). They are deliberately full-color and are the only icons
 that don't inherit `currentColor`. Use them for files and file-shaped things

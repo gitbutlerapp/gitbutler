@@ -24,6 +24,10 @@ CLI:
   - changed-files:
       - any-glob-to-any-file: packages/ui-svelte/**/*
 
+"@gitbutler/ui-react":
+  - changed-files:
+      - any-glob-to-any-file: packages/ui-react/**/*
+
 "@gitbutler/no-relative-imports":
   - changed-files:
       - any-glob-to-any-file: packages/no-relative-imports/**/*

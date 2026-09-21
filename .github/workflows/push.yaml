@@ -72,6 +72,7 @@ jobs:
               - 'e2e/playwright/fixtures/**'
               - 'e2e/playwright/scripts/**'
               - 'packages/but-sdk/**'
+              - 'packages/ui-react/**'
               - 'scripts/install-minimal-debian-dependencies.sh'
               - '.nvmrc'
               - 'Cargo.lock'

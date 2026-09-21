@@ -54,6 +54,7 @@ jobs:
           filters: |
             css:
               - 'apps/lite/ui/**/*.css'
+              - 'packages/ui-react/**/*.css'
 
   remind:
     needs: changes

@@ -25,7 +25,7 @@ packages/but-sdk/**/*.md
 apps/lite/ui/src/routeTree.gen.ts
 
 # Auto-generated icon names union type
-apps/lite/ui/src/components/iconNames.ts
+packages/ui-react/src/iconNames.ts
 
 # Icon assets, including Apple Icon Composer generated files
 apps/lite/resources/icons/

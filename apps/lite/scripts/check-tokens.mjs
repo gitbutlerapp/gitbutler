@@ -19,6 +19,9 @@
  * - Lite's own CSS: `--x:` declarations and `@function --f(--a, --b)` params.
  * - Lite's TS/TSX: CSS in template strings, and any quoted `"--x"` name,
  *   which is a style key or an argument to setProperty or a local setter.
+ * - @gitbutler/ui-react, the same way. It ships source, not a build, so its
+ *   files are Lite's to compile and are checked here alongside Lite's own:
+ *   the variables its base.css declares count, and so do its references.
  *
  * Names in KNOWN_RUNTIME are set by code this script can't see; each entry
  * says who sets it. Add to that list only with the same justification.
@@ -26,12 +29,13 @@
  * Usage: node scripts/check-tokens.mjs   (exit 1 on any undefined reference)
  */
 
-import { readdirSync, readFileSync, statSync } from "node:fs";
+import { readdirSync, readFileSync, realpathSync, statSync } from "node:fs";
 import { dirname, join, relative } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const liteRoot = join(dirname(fileURLToPath(import.meta.url)), "..");
 const uiSrc = join(liteRoot, "ui", "src");
+const uiReactSrc = realpathSync(join(liteRoot, "node_modules", "@gitbutler", "ui-react", "src"));
 
 /** Variables set at runtime by code outside this repo's stylesheets. */
 const KNOWN_RUNTIME = new Map([
@@ -90,7 +94,9 @@ for (const { pkg, files } of DEPENDENCY_STYLES) {
 	for (const file of files) collect(DECLARATION, readFileSync(join(root, file), "utf8"), defined);
 }
 
-const sources = [...walk(uiSrc)].filter((p) => /\.(css|tsx?)$/.test(p) && statSync(p).isFile());
+const sources = [...walk(uiSrc), ...walk(uiReactSrc)].filter(
+	(p) => /\.(css|tsx?)$/.test(p) && statSync(p).isFile(),
+);
 for (const path of sources) {
 	const text = readFileSync(path, "utf8");
 	collect(DECLARATION, text, defined);
