@@ -1,4 +1,8 @@
-import { SectionType, type ContentSection, type Line } from "@gitbutler/ui/utils/diffParsing";
+import {
+	SectionType,
+	type ContentSection,
+	type Line,
+} from "@gitbutler/ui-svelte/utils/diffParsing";
 import type { DiffPatch } from "@gitbutler/shared/chat/types";
 
 function getSectionType(line: DiffPatch): SectionType {

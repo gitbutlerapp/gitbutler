@@ -26,7 +26,7 @@
 	import { PROJECTS_SERVICE } from "$lib/project/projectsService";
 	import { inject } from "@gitbutler/core/context";
 	import { reactive } from "@gitbutler/shared/reactiveUtils.svelte";
-	import { CardGroup, Select, SelectItem } from "@gitbutler/ui";
+	import { CardGroup, Select, SelectItem } from "@gitbutler/ui-svelte";
 
 	import type { Project } from "$lib/project/project";
 	import type {

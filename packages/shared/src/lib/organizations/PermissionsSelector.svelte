@@ -4,7 +4,7 @@
 	import { getProjectByRepositoryId } from "$lib/organizations/projectsPreview.svelte";
 	import { ShareLevel } from "$lib/permissions";
 	import { inject } from "@gitbutler/core/context";
-	import { ContextMenuItem, ContextMenuSection, DropdownButton } from "@gitbutler/ui";
+	import { ContextMenuItem, ContextMenuSection, DropdownButton } from "@gitbutler/ui-svelte";
 
 	type Props = {
 		repositoryId: string;

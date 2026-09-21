@@ -5,7 +5,7 @@ import { type Reactive } from "@gitbutler/shared/storeUtils";
 import { createEntityAdapter, createSlice, type EntityState } from "@reduxjs/toolkit";
 import type { TerminalService } from "$lib/settings/terminalService";
 import type { AppDispatch } from "$lib/state/clientState.svelte";
-import type { ScrollbarVisilitySettings } from "@gitbutler/ui";
+import type { ScrollbarVisilitySettings } from "@gitbutler/ui-svelte";
 
 export type GeneralSettingsPageId =
 	| "general"

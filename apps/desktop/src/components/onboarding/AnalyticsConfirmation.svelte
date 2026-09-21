@@ -4,7 +4,7 @@
 	import { SETTINGS_SERVICE } from "$lib/settings/appSettings";
 	import { OnboardingEvent, POSTHOG_WRAPPER } from "$lib/telemetry/posthog";
 	import { inject } from "@gitbutler/core/context";
-	import { AsyncButton, TestId } from "@gitbutler/ui";
+	import { AsyncButton, TestId } from "@gitbutler/ui-svelte";
 
 	const settingsService = inject(SETTINGS_SERVICE);
 	const appSettings = $derived(settingsService.appSettings);

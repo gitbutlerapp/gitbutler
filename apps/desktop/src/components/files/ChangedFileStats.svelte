@@ -1,6 +1,6 @@
 <script lang="ts">
 	import FileListViewToggle from "$components/files/FileListViewToggle.svelte";
-	import { Badge, LineStats } from "@gitbutler/ui";
+	import { Badge, LineStats } from "@gitbutler/ui-svelte";
 
 	type Props = {
 		title: string;

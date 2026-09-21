@@ -13,8 +13,14 @@
 	import { useSettingsModal } from "$lib/settings/settingsModal.svelte";
 	import { UI_STATE } from "$lib/state/uiState.svelte";
 	import { inject } from "@gitbutler/core/context";
-	import { Button, ContextMenu, ContextMenuItem, ContextMenuSection, TestId } from "@gitbutler/ui";
-	import { focusable } from "@gitbutler/ui/focus/focusable";
+	import {
+		Button,
+		ContextMenu,
+		ContextMenuItem,
+		ContextMenuSection,
+		TestId,
+	} from "@gitbutler/ui-svelte";
+	import { focusable } from "@gitbutler/ui-svelte/focus/focusable";
 
 	import { slide } from "svelte/transition";
 

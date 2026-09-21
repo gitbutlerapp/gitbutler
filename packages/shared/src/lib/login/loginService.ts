@@ -1,5 +1,5 @@
 import { InjectionToken } from "@gitbutler/core/context";
-import { isStr } from "@gitbutler/ui/utils/string";
+import { isStr } from "@gitbutler/ui-svelte/utils/string";
 import type { HttpClient } from "$lib/network/httpClient";
 
 interface BaseLoginResponse {

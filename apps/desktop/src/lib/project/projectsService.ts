@@ -5,7 +5,7 @@ import { projectPath } from "$lib/routes/routes.svelte";
 import { getCookie } from "$lib/utils/cookies";
 import { InjectionToken } from "@gitbutler/core/context";
 import { persisted } from "@gitbutler/shared/persisted";
-import { chipToasts } from "@gitbutler/ui";
+import { chipToasts } from "@gitbutler/ui-svelte";
 import { get } from "svelte/store";
 import type { IBackend } from "$lib/backend";
 import type { ProjectInfo } from "$lib/project/projectEndpoints";

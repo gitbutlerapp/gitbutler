@@ -13,8 +13,8 @@
 	import ChangeStatus from "@gitbutler/shared/patches/ChangeStatus.svelte";
 	import { type PatchCommit } from "@gitbutler/shared/patches/types";
 	import { APP_STATE } from "@gitbutler/shared/redux/store.svelte";
-	import { AvatarGroup, Icon } from "@gitbutler/ui";
-	import { copyToClipboard } from "@gitbutler/ui/utils/clipboard";
+	import { AvatarGroup, Icon } from "@gitbutler/ui-svelte";
+	import { copyToClipboard } from "@gitbutler/ui-svelte/utils/clipboard";
 	import { untrack } from "svelte";
 
 	const NO_REVIEWERS = "Not reviewed yet";

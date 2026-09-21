@@ -2,8 +2,8 @@
 	import { BACKEND } from "$lib/backend";
 	import { CLI_MANAGER } from "$lib/config/cli";
 	import { inject } from "@gitbutler/core/context";
-	import { Icon } from "@gitbutler/ui";
-	import { copyToClipboard } from "@gitbutler/ui/utils/clipboard";
+	import { Icon } from "@gitbutler/ui-svelte";
+	import { copyToClipboard } from "@gitbutler/ui-svelte/utils/clipboard";
 
 	interface Props {
 		class?: string;

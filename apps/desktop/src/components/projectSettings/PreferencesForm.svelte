@@ -3,7 +3,7 @@
 	import SettingsSection from "$components/shared/SettingsSection.svelte";
 	import { PROJECTS_SERVICE } from "$lib/project/projectsService";
 	import { inject } from "@gitbutler/core/context";
-	import { CardGroup, Toggle } from "@gitbutler/ui";
+	import { CardGroup, Toggle } from "@gitbutler/ui-svelte";
 
 	const { projectId }: { projectId: string } = $props();
 	const projectsService = inject(PROJECTS_SERVICE);

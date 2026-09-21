@@ -3,7 +3,7 @@
 	import { GIT_CONFIG_SERVICE } from "$lib/config/gitConfigService";
 	import { PROJECTS_SERVICE } from "$lib/project/projectsService";
 	import { inject } from "@gitbutler/core/context";
-	import { CardGroup, Link, Toggle } from "@gitbutler/ui";
+	import { CardGroup, Link, Toggle } from "@gitbutler/ui-svelte";
 
 	type Props = {
 		projectId: string;

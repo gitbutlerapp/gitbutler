@@ -23,7 +23,7 @@
 		ContextMenuSection,
 		chipToasts,
 		TestId,
-	} from "@gitbutler/ui";
+	} from "@gitbutler/ui-svelte";
 	import type { SelectionId } from "$lib/selection/key";
 	import type { TreeChange } from "@gitbutler/but-sdk";
 

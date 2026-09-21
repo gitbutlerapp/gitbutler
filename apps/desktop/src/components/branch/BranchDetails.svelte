@@ -1,6 +1,6 @@
 <script lang="ts">
 	import BranchBadge from "$components/branch/BranchBadge.svelte";
-	import { AvatarGroup, Button } from "@gitbutler/ui";
+	import { AvatarGroup, Button } from "@gitbutler/ui-svelte";
 	import type { Author, PushStatus } from "@gitbutler/but-sdk";
 	import type { Snippet } from "svelte";
 

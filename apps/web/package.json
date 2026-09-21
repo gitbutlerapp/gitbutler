@@ -22,7 +22,7 @@
 		"@gitbutler/core": "workspace:*",
 		"@gitbutler/design-core": "2.2.2",
 		"@gitbutler/shared": "workspace:*",
-		"@gitbutler/ui": "workspace:*",
+		"@gitbutler/ui-svelte": "workspace:*",
 		"@playwright/test": "catalog:",
 		"@reduxjs/toolkit": "catalog:redux",
 		"@sveltejs/adapter-vercel": "^6.3.3",

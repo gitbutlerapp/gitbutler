@@ -2,7 +2,7 @@
 	import ReduxResult from "$components/shared/ReduxResult.svelte";
 	import { PROJECTS_SERVICE } from "$lib/project/projectsService";
 	import { inject } from "@gitbutler/core/context";
-	import { CardGroup, Spacer, Textarea, Textbox } from "@gitbutler/ui";
+	import { CardGroup, Spacer, Textarea, Textbox } from "@gitbutler/ui-svelte";
 
 	const { projectId }: { projectId: string } = $props();
 

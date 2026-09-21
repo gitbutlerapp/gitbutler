@@ -3,7 +3,7 @@
 	import { SETTINGS_SERVICE } from "$lib/settings/appSettings";
 	import { STACK_SERVICE } from "$lib/stacks/stackService.svelte";
 	import { inject } from "@gitbutler/core/context";
-	import { Button, CardGroup, InfoMessage, Select, SelectItem } from "@gitbutler/ui";
+	import { Button, CardGroup, InfoMessage, Select, SelectItem } from "@gitbutler/ui-svelte";
 
 	const { projectId }: { projectId: string } = $props();
 

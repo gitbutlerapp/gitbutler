@@ -3,7 +3,7 @@ import { classify } from "$lib/error/errorClassification";
 import { isNormalizedError, type NormalizedError } from "$lib/error/normalizedError";
 import { reactive } from "@gitbutler/shared/reactiveUtils.svelte";
 import { type Reactive } from "@gitbutler/shared/storeUtils";
-import { isErrorlike } from "@gitbutler/ui/utils/typeguards";
+import { isErrorlike } from "@gitbutler/ui-svelte/utils/typeguards";
 import {
 	type Api,
 	type ApiEndpointMutation,

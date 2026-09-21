@@ -2,7 +2,7 @@
 	import { GIT_CONFIG_SERVICE } from "$lib/config/gitConfigService";
 	import { SETTINGS_SERVICE } from "$lib/settings/appSettings";
 	import { inject } from "@gitbutler/core/context";
-	import { CardGroup, Link, Select, SelectItem, Toggle } from "@gitbutler/ui";
+	import { CardGroup, Link, Select, SelectItem, Toggle } from "@gitbutler/ui-svelte";
 	import { onMount } from "svelte";
 
 	const gitConfig = inject(GIT_CONFIG_SERVICE);

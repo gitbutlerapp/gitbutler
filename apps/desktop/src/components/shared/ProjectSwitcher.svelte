@@ -4,7 +4,7 @@
 	import { PROJECTS_SERVICE } from "$lib/project/projectsService";
 	import { projectPath } from "$lib/routes/routes.svelte";
 	import { inject } from "@gitbutler/core/context";
-	import { Button, OptionsGroup, Select, SelectItem } from "@gitbutler/ui";
+	import { Button, OptionsGroup, Select, SelectItem } from "@gitbutler/ui-svelte";
 	import { untrack } from "svelte";
 
 	const { projectId }: { projectId?: string } = $props();

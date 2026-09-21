@@ -12,7 +12,7 @@
 	import BranchNameTextbox from "$components/branch/BranchNameTextbox.svelte";
 	import { STACK_SERVICE } from "$lib/stacks/stackService.svelte";
 	import { inject } from "@gitbutler/core/context";
-	import { Button, ElementId, Modal, TestId } from "@gitbutler/ui";
+	import { Button, ElementId, Modal, TestId } from "@gitbutler/ui-svelte";
 
 	const { projectId, laneId, branchName, isPushed }: BranchRenameModalProps = $props();
 	const stackService = inject(STACK_SERVICE);

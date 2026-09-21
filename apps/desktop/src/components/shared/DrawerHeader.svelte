@@ -1,6 +1,6 @@
 <script lang="ts">
-	import { Button } from "@gitbutler/ui";
-	import { focusable } from "@gitbutler/ui/focus/focusable";
+	import { Button } from "@gitbutler/ui-svelte";
+	import { focusable } from "@gitbutler/ui-svelte/focus/focusable";
 	import { onMount } from "svelte";
 	import type { Snippet } from "svelte";
 

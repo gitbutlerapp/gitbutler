@@ -37,10 +37,10 @@ covers the tooling that enforces it.
 There are two icon sets with two separate scripts, and each script only walks
 its own directory:
 
-| Path                                      | Owner                                  | Script                                    |
-| ----------------------------------------- | -------------------------------------- | ----------------------------------------- |
-| `apps/lite/ui/src/components/icons/*.svg` | Lite                                   | `pnpm -F @gitbutler/lite optimize-icons`  |
-| `packages/ui/src/lib/icons/svg/*.svg`     | shared Svelte UI package (desktop/web) | `pnpm -F @gitbutler/ui optimize-ui-icons` |
+| Path                                         | Owner                                  | Script                                           |
+| -------------------------------------------- | -------------------------------------- | ------------------------------------------------ |
+| `apps/lite/ui/src/components/icons/*.svg`    | Lite                                   | `pnpm -F @gitbutler/lite optimize-icons`         |
+| `packages/ui-svelte/src/lib/icons/svg/*.svg` | shared Svelte UI package (desktop/web) | `pnpm -F @gitbutler/ui-svelte optimize-ui-icons` |
 
 Running `optimize-ui-icons` will **not** touch a Lite icon, and vice versa.
 Dropping an SVG into the wrong folder is the most common reason an icon "won't

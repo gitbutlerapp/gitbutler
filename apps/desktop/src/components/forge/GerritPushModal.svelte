@@ -11,7 +11,15 @@
 </script>
 
 <script lang="ts">
-	import { Button, Modal, Select, SelectItem, Textbox, TagInput, Toggle } from "@gitbutler/ui";
+	import {
+		Button,
+		Modal,
+		Select,
+		SelectItem,
+		Textbox,
+		TagInput,
+		Toggle,
+	} from "@gitbutler/ui-svelte";
 	import { untrack } from "svelte";
 	import type { GerritPushFlag } from "$lib/stacks/stack";
 

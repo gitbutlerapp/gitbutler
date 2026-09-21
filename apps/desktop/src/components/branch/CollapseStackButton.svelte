@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { Tooltip } from "@gitbutler/ui";
+	import { Tooltip } from "@gitbutler/ui-svelte";
 
 	interface Props {
 		disabled?: boolean;

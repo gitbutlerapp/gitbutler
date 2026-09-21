@@ -2,11 +2,11 @@ import { type CommitStatusType } from "$lib/commits/commit";
 import DragClone from "$lib/dragging/DragClone.svelte";
 import { FileChangeDropData, type DropData } from "$lib/dragging/draggables";
 import { CommitDropData } from "$lib/dragging/dropHandlers/commitDropHandler";
-import { pxToRem } from "@gitbutler/ui/utils/pxToRem";
+import { pxToRem } from "@gitbutler/ui-svelte/utils/pxToRem";
 import { mount } from "svelte";
 import type { DropzoneRegistry } from "$lib/dragging/registry";
 import type { PushStatus } from "@gitbutler/but-sdk";
-import type { DragStateService } from "@gitbutler/ui/drag/dragStateService.svelte";
+import type { DragStateService } from "@gitbutler/ui-svelte/drag/dragStateService.svelte";
 
 // Added to element being dragged (not the clone that follows the cursor).
 const DRAGGING_CLASS = "dragging";

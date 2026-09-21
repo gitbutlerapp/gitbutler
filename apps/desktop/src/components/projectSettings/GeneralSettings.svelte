@@ -4,7 +4,7 @@
 	import ForgeForm from "$components/projectSettings/ForgeForm.svelte";
 	import GerritForm from "$components/projectSettings/GerritForm.svelte";
 	import RemoveProjectForm from "$components/projectSettings/RemoveProjectForm.svelte";
-	import { Spacer } from "@gitbutler/ui";
+	import { Spacer } from "@gitbutler/ui-svelte";
 
 	const { projectId }: { projectId: string } = $props();
 </script>

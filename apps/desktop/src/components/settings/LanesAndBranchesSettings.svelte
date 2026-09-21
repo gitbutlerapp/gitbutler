@@ -6,7 +6,7 @@
 		type StagingBehavior,
 	} from "$lib/config/uiFeatureFlags";
 	import { persisted } from "@gitbutler/shared/persisted";
-	import { CardGroup, RadioButton, Toggle, Spacer } from "@gitbutler/ui";
+	import { CardGroup, RadioButton, Toggle, Spacer } from "@gitbutler/ui-svelte";
 
 	const addToLeftmost = persisted<boolean>(false, "branch-placement-leftmost");
 	function onStagingBehaviorFormChange(form: HTMLFormElement) {

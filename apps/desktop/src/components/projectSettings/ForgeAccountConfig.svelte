@@ -1,6 +1,6 @@
 <script lang="ts" generics="TAccount">
 	import { useSettingsModal } from "$lib/settings/settingsModal.svelte";
-	import { Button, CardGroup, Link, Select, SelectItem } from "@gitbutler/ui";
+	import { Button, CardGroup, Link, Select, SelectItem } from "@gitbutler/ui-svelte";
 	import type { Component, Snippet } from "svelte";
 
 	type Props = {

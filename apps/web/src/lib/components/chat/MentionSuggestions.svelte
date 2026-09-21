@@ -1,5 +1,5 @@
 <script lang="ts" module>
-	import type { MentionSuggestion } from "@gitbutler/ui";
+	import type { MentionSuggestion } from "@gitbutler/ui-svelte";
 
 	export interface Props {
 		isLoading: boolean;
@@ -10,8 +10,8 @@
 
 <script lang="ts">
 	import MentionSuggestionItem from "$lib/components/chat/MentionSuggestionItem.svelte";
-	import { tooltip } from "@gitbutler/ui/utils/tooltipPosition";
-	import { flyScale } from "@gitbutler/ui/utils/transitions";
+	import { tooltip } from "@gitbutler/ui-svelte/utils/tooltipPosition";
+	import { flyScale } from "@gitbutler/ui-svelte/utils/transitions";
 
 	const { suggestions, selectSuggestion, isLoading }: Props = $props();
 

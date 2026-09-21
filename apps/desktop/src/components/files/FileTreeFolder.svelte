@@ -7,10 +7,10 @@
 	import { FILE_SELECTION_MANAGER } from "$lib/selection/fileSelectionManager.svelte";
 	import { UNCOMMITTED_SERVICE } from "$lib/selection/uncommittedService.svelte";
 	import { inject } from "@gitbutler/core/context";
-	import { FolderListItem } from "@gitbutler/ui";
-	import { DRAG_STATE_SERVICE } from "@gitbutler/ui/drag/dragStateService.svelte";
+	import { FolderListItem } from "@gitbutler/ui-svelte";
+	import { DRAG_STATE_SERVICE } from "@gitbutler/ui-svelte/drag/dragStateService.svelte";
 	import type { SelectionId } from "$lib/selection/key";
-	import type { FocusableOptions } from "@gitbutler/ui/focus/focusTypes";
+	import type { FocusableOptions } from "@gitbutler/ui-svelte/focus/focusTypes";
 
 	type Props = {
 		projectId: string;

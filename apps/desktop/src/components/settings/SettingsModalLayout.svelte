@@ -11,8 +11,8 @@
 
 <script lang="ts" generics="T extends Page">
 	import AppScrollableContainer from "$components/shared/AppScrollableContainer.svelte";
-	import { Icon, type IconName } from "@gitbutler/ui";
-	import { focusable } from "@gitbutler/ui/focus/focusable";
+	import { Icon, type IconName } from "@gitbutler/ui-svelte";
+	import { focusable } from "@gitbutler/ui-svelte/focus/focusable";
 	import { type Snippet } from "svelte";
 
 	type PageId = T["id"];

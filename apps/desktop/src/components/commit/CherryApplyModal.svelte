@@ -7,7 +7,7 @@
 	import { cherryPickTargets } from "$lib/stacks/stack";
 	import { STACK_SERVICE } from "$lib/stacks/stackService.svelte";
 	import { inject } from "@gitbutler/core/context";
-	import { Button, CardGroup, InfoMessage, Modal, RadioButton } from "@gitbutler/ui";
+	import { Button, CardGroup, InfoMessage, Modal, RadioButton } from "@gitbutler/ui-svelte";
 
 	type Props = {
 		projectId: string;

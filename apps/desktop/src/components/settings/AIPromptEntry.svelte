@@ -1,7 +1,7 @@
 <script lang="ts">
 	import AIPromptBubble from "$components/shared/AIPromptBubble.svelte";
 	import { MessageRole, type UserPrompt } from "$lib/ai/types";
-	import { Button, Icon, Textbox } from "@gitbutler/ui";
+	import { Button, Icon, Textbox } from "@gitbutler/ui-svelte";
 
 	interface Props {
 		prompt: UserPrompt;

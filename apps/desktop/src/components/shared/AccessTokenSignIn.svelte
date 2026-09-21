@@ -2,7 +2,7 @@
 	import signinSvg from "$lib/assets/token.svg?raw";
 	import { USER_SERVICE } from "$lib/user/userService.svelte";
 	import { inject } from "@gitbutler/core/context";
-	import { CardGroup, Textbox, Spacer, AsyncButton } from "@gitbutler/ui";
+	import { CardGroup, Textbox, Spacer, AsyncButton } from "@gitbutler/ui-svelte";
 
 	const userService = inject(USER_SERVICE);
 

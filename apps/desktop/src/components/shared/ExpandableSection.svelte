@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { Icon, type IconName } from "@gitbutler/ui";
+	import { Icon, type IconName } from "@gitbutler/ui-svelte";
 	import type { Snippet } from "svelte";
 
 	type Props = {

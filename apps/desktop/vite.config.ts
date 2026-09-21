@@ -48,7 +48,7 @@ export default defineConfig({
 	},
 	optimizeDeps: {
 		// Exclude local packages from pre-bundling
-		exclude: ["@gitbutler/core", "@gitbutler/ui", "@gitbutler/shared"],
+		exclude: ["@gitbutler/core", "@gitbutler/ui-svelte", "@gitbutler/shared"],
 	},
 	// to make use of `TAURI_ENV_DEBUG` and other env variables
 	// https://tauri.studio/v1/api/config#buildconfig.beforedevcommand
@@ -141,7 +141,7 @@ function debounceReload(): Plugin {
 	};
 }
 function isLocalPackageFile(file: string) {
-	return ["gitbutler/packages/shared/dist", "gitbutler/packages/ui/dist"].some((pkg) =>
+	return ["gitbutler/packages/shared/dist", "gitbutler/packages/ui-svelte/dist"].some((pkg) =>
 		file.includes(pkg),
 	);
 }

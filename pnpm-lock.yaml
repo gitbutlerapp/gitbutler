@@ -254,9 +254,9 @@ importers:
       '@gitbutler/svelte-comment-injector':
         specifier: workspace:*
         version: link:../../packages/svelte-comment-injector
-      '@gitbutler/ui':
+      '@gitbutler/ui-svelte':
         specifier: workspace:*
-        version: link:../../packages/ui
+        version: link:../../packages/ui-svelte
       '@reduxjs/toolkit':
         specifier: catalog:redux
         version: 2.11.2(react-redux@9.2.0(@types/react@19.2.14)(react@19.2.4)(redux@5.0.1))(react@19.2.4)
@@ -637,9 +637,9 @@ importers:
       '@gitbutler/shared':
         specifier: workspace:*
         version: link:../../packages/shared
-      '@gitbutler/ui':
+      '@gitbutler/ui-svelte':
         specifier: workspace:*
-        version: link:../../packages/ui
+        version: link:../../packages/ui-svelte
       '@playwright/test':
         specifier: 'catalog:'
         version: 1.58.2
@@ -712,9 +712,9 @@ importers:
 
   e2e:
     dependencies:
-      '@gitbutler/ui':
+      '@gitbutler/ui-svelte':
         specifier: workspace:*
-        version: link:../packages/ui
+        version: link:../packages/ui-svelte
       get-port:
         specifier: ^7.1.0
         version: 7.1.0
@@ -918,9 +918,9 @@ importers:
       '@gitbutler/core':
         specifier: workspace:*
         version: link:../core
-      '@gitbutler/ui':
+      '@gitbutler/ui-svelte':
         specifier: workspace:*
-        version: link:../ui
+        version: link:../ui-svelte
       '@lezer/common':
         specifier: ^1.5.1
         version: 1.5.1
@@ -993,7 +993,7 @@ importers:
 
   packages/svelte-comment-injector: {}
 
-  packages/ui:
+  packages/ui-svelte:
     dependencies:
       '@giphy/js-fetch-api':
         specifier: ^5.7.0

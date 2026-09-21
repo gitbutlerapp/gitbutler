@@ -13,8 +13,8 @@
 	import { APP_STATE } from "@gitbutler/shared/redux/store.svelte";
 	import { NOTIFICATION_SETTINGS_SERVICE } from "@gitbutler/shared/settings/notificationSettingsService";
 	import { getNotificationSettingsInterest } from "@gitbutler/shared/settings/notificationSetttingsPreview.svelte";
-	import { Button, CardGroup, chipToasts, Icon, Modal, Spacer } from "@gitbutler/ui";
-	import { copyToClipboard } from "@gitbutler/ui/utils/clipboard";
+	import { Button, CardGroup, chipToasts, Icon, Modal, Spacer } from "@gitbutler/ui-svelte";
+	import { copyToClipboard } from "@gitbutler/ui-svelte/utils/clipboard";
 	import { env } from "$env/dynamic/public";
 
 	const userService = inject(USER_SERVICE);

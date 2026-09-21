@@ -6,7 +6,7 @@
 	import { useSettingsModal } from "$lib/settings/settingsModal.svelte";
 	import { inject } from "@gitbutler/core/context";
 
-	import { CardGroup, chipToasts } from "@gitbutler/ui";
+	import { CardGroup, chipToasts } from "@gitbutler/ui-svelte";
 	import type { Project } from "$lib/project/project";
 
 	const { projectId }: { projectId: string } = $props();

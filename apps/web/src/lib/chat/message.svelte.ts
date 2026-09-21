@@ -1,7 +1,7 @@
 import { type DiffLineSelected, type DiffSelection } from "$lib/diff/lineSelection.svelte";
 import { ChatChannelsService } from "@gitbutler/shared/chat/chatChannelsService";
-import { extractUserMention } from "@gitbutler/ui/richText/node/mention";
-import { encodeDiffLineRange } from "@gitbutler/ui/utils/diffParsing";
+import { extractUserMention } from "@gitbutler/ui-svelte/richText/node/mention";
+import { encodeDiffLineRange } from "@gitbutler/ui-svelte/utils/diffParsing";
 
 export interface SendParams {
 	issue?: boolean;

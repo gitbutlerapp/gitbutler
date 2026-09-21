@@ -48,7 +48,7 @@ tsconfig.tsbuildinfo
 # playwright
 test-results*
 playwright-report
-packages/ui/tests/.cache
+packages/ui-svelte/tests/.cache
 apps/lite/e2e/screenshots/
 
 # storybook
@@ -81,7 +81,7 @@ storybook-static
 !/.claude/skills
 
 # Auto-generated design tokens
-packages/ui/src/styles/tokens.css
+packages/ui-svelte/src/styles/tokens.css
 
 debug-graph-??.svg
 

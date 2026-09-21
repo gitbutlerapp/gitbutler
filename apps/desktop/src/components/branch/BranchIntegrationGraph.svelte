@@ -1,7 +1,7 @@
 <script lang="ts">
 	import BranchHeaderIcon from "$components/branch/BranchHeaderIcon.svelte";
-	import { Avatar, Badge, ScrollableContainer } from "@gitbutler/ui";
-	import { getTimeAgo } from "@gitbutler/ui/utils/timeAgo";
+	import { Avatar, Badge, ScrollableContainer } from "@gitbutler/ui-svelte";
+	import { getTimeAgo } from "@gitbutler/ui-svelte/utils/timeAgo";
 	import type { BranchIconName } from "$lib/branches/branchIcon";
 	import type {
 		BranchIntegrationDisplayConnectorKind,

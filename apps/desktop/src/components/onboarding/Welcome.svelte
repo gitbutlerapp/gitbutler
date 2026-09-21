@@ -9,7 +9,7 @@
 	import { PROJECTS_SERVICE } from "$lib/project/projectsService";
 	import { OnboardingEvent, POSTHOG_WRAPPER } from "$lib/telemetry/posthog";
 	import { inject } from "@gitbutler/core/context";
-	import { TestId } from "@gitbutler/ui";
+	import { TestId } from "@gitbutler/ui-svelte";
 
 	const projectsService = inject(PROJECTS_SERVICE);
 	const posthog = inject(POSTHOG_WRAPPER);

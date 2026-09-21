@@ -1,4 +1,4 @@
-import { getTimeAgo } from "@gitbutler/ui/utils/timeAgo";
+import { getTimeAgo } from "@gitbutler/ui-svelte/utils/timeAgo";
 import type { UserMaybe } from "@gitbutler/shared/users/types";
 
 const UNKNOWN_AUTHOR = "Unknown author";

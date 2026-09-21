@@ -10,7 +10,7 @@
 	import { OnboardingEvent, POSTHOG_WRAPPER } from "$lib/telemetry/posthog";
 	import { inject } from "@gitbutler/core/context";
 
-	import { AddForgeAccountButton, Button, CardGroup, Link, Textbox } from "@gitbutler/ui";
+	import { AddForgeAccountButton, Button, CardGroup, Link, Textbox } from "@gitbutler/ui-svelte";
 	import { fade } from "svelte/transition";
 
 	const gitlabUserService = inject(GITLAB_USER_SERVICE);

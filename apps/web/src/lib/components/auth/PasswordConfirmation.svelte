@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { Textbox } from "@gitbutler/ui";
+	import { Textbox } from "@gitbutler/ui-svelte";
 
 	interface Props {
 		password?: string;

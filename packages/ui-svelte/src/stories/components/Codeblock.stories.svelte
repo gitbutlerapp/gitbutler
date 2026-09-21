@@ -21,7 +21,7 @@
 
 <Story name="Basic">
 	{#snippet template()}
-		<Codeblock content="npm install @gitbutler/ui" />
+		<Codeblock content="npm install @gitbutler/ui-svelte" />
 	{/snippet}
 </Story>
 
@@ -81,7 +81,7 @@ console.log(result);`}
 		<Codeblock
 			label="package.json"
 			content={`{
-  "name": "@gitbutler/ui",
+  "name": "@gitbutler/ui-svelte",
   "version": "1.0.0",
   "dependencies": {
     "svelte": "^5.0.0"

@@ -4,8 +4,8 @@
 	import { UI_STATE } from "$lib/state/uiState.svelte";
 	import { inject } from "@gitbutler/core/context";
 	import { persistWithExpiration } from "@gitbutler/shared/persisted";
-	import { mergeUnlisten } from "@gitbutler/ui/utils/mergeUnlisten";
-	import { pxToRem, remToPx } from "@gitbutler/ui/utils/pxToRem";
+	import { mergeUnlisten } from "@gitbutler/ui-svelte/utils/mergeUnlisten";
+	import { pxToRem, remToPx } from "@gitbutler/ui-svelte/utils/pxToRem";
 	import { getContext, onDestroy } from "svelte";
 	import { on } from "svelte/events";
 	import { writable } from "svelte/store";

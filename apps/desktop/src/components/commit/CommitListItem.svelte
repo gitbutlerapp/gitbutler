@@ -4,8 +4,8 @@
 	import { URL_SERVICE } from "$lib/backend/url";
 	import { type CommitStatusType } from "$lib/commits/commit";
 	import { inject } from "@gitbutler/core/context";
-	import { Avatar, Icon, TestId } from "@gitbutler/ui";
-	import { focusable } from "@gitbutler/ui/focus/focusable";
+	import { Avatar, Icon, TestId } from "@gitbutler/ui-svelte";
+	import { focusable } from "@gitbutler/ui-svelte/focus/focusable";
 
 	import { slide } from "svelte/transition";
 	import type { Snippet } from "svelte";

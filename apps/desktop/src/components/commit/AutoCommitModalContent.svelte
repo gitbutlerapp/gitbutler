@@ -9,7 +9,7 @@
 		ScrollableContainer,
 		SimpleCommitRow,
 		SimpleCommitRowSkeleton,
-	} from "@gitbutler/ui";
+	} from "@gitbutler/ui-svelte";
 
 	type AutoCommitEvent =
 		| { type: "started"; steps_length: number }

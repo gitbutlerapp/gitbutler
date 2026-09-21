@@ -13,7 +13,7 @@
 	import { STACK_SERVICE } from "$lib/stacks/stackService.svelte";
 	import { UI_STATE, withStackBusy } from "$lib/state/uiState.svelte";
 	import { inject, injectOptional } from "@gitbutler/core/context";
-	import { Button, TestId } from "@gitbutler/ui";
+	import { Button, TestId } from "@gitbutler/ui-svelte";
 	import type { Commit, UpstreamCommit } from "@gitbutler/but-sdk";
 
 	type Props = {

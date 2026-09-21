@@ -182,7 +182,7 @@ pnpm add -D <package>
 
 # Add to specific package
 pnpm add <package> --filter @gitbutler/desktop
-pnpm add <package> --filter @gitbutler/ui
+pnpm add <package> --filter @gitbutler/ui-svelte
 ```
 
 **Always check for vulnerabilities before adding npm packages** (ecosystem: npm).
@@ -253,10 +253,10 @@ Auto-fix with `pnpm begood && cargo clippy --fix --all-targets`
 
 ### Frontend File Organization
 
-- Use absolute imports via package references (e.g., `@gitbutler/ui`) instead of relative imports
+- Use absolute imports via package references (e.g., `@gitbutler/ui-svelte`) instead of relative imports
 - Components should be in logical directories by feature
 - Shared utilities go in `packages/shared`
-- UI components go in `packages/ui`
+- UI components go in `packages/ui-svelte`
 
 ### Naming Conventions
 

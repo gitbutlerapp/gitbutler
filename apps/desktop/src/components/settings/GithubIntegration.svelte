@@ -17,7 +17,7 @@
 		Textbox,
 		Spacer,
 		chipToasts as toasts,
-	} from "@gitbutler/ui";
+	} from "@gitbutler/ui-svelte";
 	import { fade } from "svelte/transition";
 
 	const githubUserService = inject(GITHUB_USER_SERVICE);

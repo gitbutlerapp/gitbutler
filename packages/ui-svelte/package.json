@@ -1,5 +1,5 @@
 {
-	"name": "@gitbutler/ui",
+	"name": "@gitbutler/ui-svelte",
 	"version": "0.0.2",
 	"description": "GitButler Component Library",
 	"keywords": [

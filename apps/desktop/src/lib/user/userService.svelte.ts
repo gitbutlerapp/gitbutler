@@ -2,7 +2,7 @@ import { resetSentry, setSentryUser } from "$lib/analytics/sentry";
 import { showWarning } from "$lib/notifications/toasts";
 import { type UiState } from "$lib/state/uiState.svelte";
 import { InjectionToken } from "@gitbutler/core/context";
-import { chipToasts } from "@gitbutler/ui";
+import { chipToasts } from "@gitbutler/ui-svelte";
 import type { IBackend } from "$lib/backend";
 import type { BackendApi } from "$lib/state/backendApi";
 import type { PostHogWrapper } from "$lib/telemetry/posthog";

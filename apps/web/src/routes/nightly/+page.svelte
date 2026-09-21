@@ -2,7 +2,7 @@
 	import Footer from "$lib/components/marketing/Footer.svelte";
 	import Header from "$lib/components/marketing/Header.svelte";
 	import ReleaseDownloadLinks from "$lib/components/marketing/ReleaseDownloadLinks.svelte";
-	import { Icon } from "@gitbutler/ui";
+	import { Icon } from "@gitbutler/ui-svelte";
 	import { untrack } from "svelte";
 	import type { Release } from "$lib/types/releases";
 	import type { LatestReleaseBuilds } from "$lib/utils/releaseUtils";

@@ -9,7 +9,7 @@ import type { Stack } from "$lib/stacks/stack";
 import type { EventProperties } from "$lib/state/customHooks.svelte";
 import type { HunkAssignment } from "@gitbutler/but-sdk";
 import type { Commit, Segment } from "@gitbutler/but-sdk";
-import type { FModeManager } from "@gitbutler/ui/focus/fModeManager";
+import type { FModeManager } from "@gitbutler/ui-svelte/focus/fModeManager";
 
 export const COMMIT_ANALYTICS = new InjectionToken<CommitAnalytics>("CommitAnalytics");
 

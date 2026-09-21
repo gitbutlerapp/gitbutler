@@ -24,7 +24,7 @@
 		SelectItem,
 		TestId,
 		Toggle,
-	} from "@gitbutler/ui";
+	} from "@gitbutler/ui-svelte";
 	import { slide } from "svelte/transition";
 	import type { RemoteBranchInfo } from "$lib/baseBranch/baseBranch";
 
