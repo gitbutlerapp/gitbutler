@@ -1,5 +1,5 @@
-import { classes } from "#ui/components/classes.ts";
-import { TextLink } from "#ui/components/TextLink.tsx";
+import { classes } from "@gitbutler/ui-react/classes.ts";
+import { TextLink } from "@gitbutler/ui-react/TextLink.tsx";
 import type { ForgeReviewThread } from "@gitbutler/but-sdk";
 import { ThreadComment } from "#ui/routes/project/$id/workspace/PullRequestComments.tsx";
 import { ReviewThreadReply } from "#ui/routes/project/$id/workspace/ReviewThreadReply.tsx";

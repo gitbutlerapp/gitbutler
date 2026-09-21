@@ -1,6 +1,6 @@
 import type { LocalAnnotationsByPath } from "#ui/annotation.ts";
 import type { ThreadsByPath } from "#ui/review-threads.ts";
-import { FileIcon } from "#ui/components/FileIcon.tsx";
+import { FileIcon } from "@gitbutler/ui-react/FileIcon.tsx";
 import type { GUISettings } from "#electron/settings.ts";
 import type { CodeViewHandle } from "@pierre/diffs/react";
 import {

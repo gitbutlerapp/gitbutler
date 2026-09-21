@@ -34,20 +34,20 @@ import {
 } from "#ui/native-menu.ts";
 import * as md from "#ui/markdown-editing.ts";
 import { applyToTextarea } from "#ui/markdown-textarea.ts";
-import { TooltipPopup } from "#ui/components/Tooltip.tsx";
+import { TooltipPopup } from "@gitbutler/ui-react/Tooltip.tsx";
 import { Toggle, ToggleGroup, Tooltip } from "@base-ui/react";
-import { Badge, type BadgeVariant } from "#ui/components/Badge.tsx";
-import { getButtonClassName } from "#ui/components/Button.tsx";
-import { Clamped } from "#ui/components/Clamped.tsx";
-import { classes } from "#ui/components/classes.ts";
-import { Icon } from "#ui/components/Icon.tsx";
-import { Kbd } from "#ui/components/Kbd.tsx";
-import type { IconName } from "#ui/components/iconNames.ts";
+import { Badge, type BadgeVariant } from "@gitbutler/ui-react/Badge.tsx";
+import { getButtonClassName } from "@gitbutler/ui-react/Button.tsx";
+import { Clamped } from "@gitbutler/ui-react/Clamped.tsx";
+import { classes } from "@gitbutler/ui-react/classes.ts";
+import { Icon } from "@gitbutler/ui-react/Icon.tsx";
+import { Kbd } from "@gitbutler/ui-react/Kbd.tsx";
+import type { IconName } from "@gitbutler/ui-react/iconNames.ts";
 import { Markdown } from "#ui/components/Markdown.tsx";
 import { MarkdownAttachments } from "#ui/components/MarkdownAttachments.tsx";
 import { useMentionSuggestions } from "#ui/components/MentionSuggestions.tsx";
-import { RelativeTime } from "#ui/components/RelativeTime.tsx";
-import { ToggleGroupStyles, ToggleStyles } from "#ui/components/ToggleGroup.tsx";
+import { RelativeTime } from "@gitbutler/ui-react/RelativeTime.tsx";
+import { ToggleGroupStyles, ToggleStyles } from "@gitbutler/ui-react/ToggleGroup.tsx";
 import {
 	groupReactors,
 	Reactions,

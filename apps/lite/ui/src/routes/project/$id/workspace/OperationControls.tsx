@@ -7,12 +7,16 @@ import {
 } from "#ui/use-cursor.ts";
 import { absorptionPlanQueryOptions, headInfoQueryOptions } from "#ui/api/queries.ts";
 import { getHeadInfoIndex, type HeadInfoIndex } from "#ui/api/ref-info.ts";
-import { getButtonClassName, type ButtonSize, type ButtonVariant } from "#ui/components/Button.tsx";
-import { Snackbar } from "#ui/components/Snackbar.tsx";
-import { Icon } from "#ui/components/Icon.tsx";
-import type { IconName } from "#ui/components/iconNames.ts";
-import { Kbd } from "#ui/components/Kbd.tsx";
-import { ToggleGroupStyles, ToggleStyles } from "#ui/components/ToggleGroup.tsx";
+import {
+	getButtonClassName,
+	type ButtonSize,
+	type ButtonVariant,
+} from "@gitbutler/ui-react/Button.tsx";
+import { Snackbar } from "@gitbutler/ui-react/Snackbar.tsx";
+import { Icon } from "@gitbutler/ui-react/Icon.tsx";
+import type { IconName } from "@gitbutler/ui-react/iconNames.ts";
+import { Kbd } from "@gitbutler/ui-react/Kbd.tsx";
+import { ToggleGroupStyles, ToggleStyles } from "@gitbutler/ui-react/ToggleGroup.tsx";
 import {
 	Toolbox,
 	ToolboxMeta,
@@ -21,8 +25,9 @@ import {
 	ToolboxSection,
 	ToolboxSeparator,
 	ToolboxStack,
-} from "#ui/components/Toolbox.tsx";
-import { formatForDisplaySorted, operationHotkeys } from "#ui/hotkeys.ts";
+} from "@gitbutler/ui-react/Toolbox.tsx";
+import { formatForDisplaySorted } from "@gitbutler/ui-react/formatHotkey.ts";
+import { operationHotkeys } from "#ui/hotkeys.ts";
 import { addressEquals, addressFileParent, type Address } from "#ui/addresses.ts";
 import {
 	getOperations,

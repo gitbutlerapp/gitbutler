@@ -28,7 +28,7 @@ import { createAppRouter } from "#ui/router.ts";
 import { createRouteTree } from "#ui/routes.tsx";
 import { defaultSettings } from "#ui/settings.ts";
 import { store } from "#ui/store.ts";
-import { Toasts } from "#ui/components/Toasts.tsx";
+import { Toasts } from "@gitbutler/ui-react/Toasts.tsx";
 import { Panel } from "./Panel.tsx";
 import type { LiteElectronApi } from "#electron/ipc.ts";
 

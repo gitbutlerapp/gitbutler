@@ -1,9 +1,9 @@
-import { getButtonClassName } from "#ui/components/Button.tsx";
-import { classes } from "#ui/components/classes.ts";
-import { Icon } from "#ui/components/Icon.tsx";
-import { TooltipPopup } from "#ui/components/Tooltip.tsx";
+import { getButtonClassName } from "@gitbutler/ui-react/Button.tsx";
+import { classes } from "@gitbutler/ui-react/classes.ts";
+import { Icon } from "@gitbutler/ui-react/Icon.tsx";
+import { TooltipPopup } from "@gitbutler/ui-react/Tooltip.tsx";
 import { Tooltip } from "@base-ui/react";
-import { Dropdown } from "#ui/components/Popup.tsx";
+import { Dropdown } from "@gitbutler/ui-react/Popup.tsx";
 import type { ForgeReviewReaction, ForgeReviewReactionCount } from "@gitbutler/but-sdk";
 import { type FC, useState } from "react";
 import styles from "./PullRequestReactions.module.css";

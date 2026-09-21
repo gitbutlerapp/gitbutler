@@ -3,11 +3,15 @@ import { useEffect, useRef, useState, type FC } from "react";
 import type { UserProfile } from "@gitbutler/but-sdk";
 import { Field } from "@base-ui/react";
 import { aiConfigurationQueryOptions, userProfileQueryOptions } from "#ui/api/queries.ts";
-import { getButtonClassName } from "#ui/components/Button.tsx";
-import { classes } from "#ui/components/classes.ts";
-import { FieldControlStyles, FieldLabelStyles, FieldRootStyles } from "#ui/components/Field.tsx";
-import { Icon } from "#ui/components/Icon.tsx";
-import { Illustration } from "#ui/components/Illustration.tsx";
+import { getButtonClassName } from "@gitbutler/ui-react/Button.tsx";
+import { classes } from "@gitbutler/ui-react/classes.ts";
+import {
+	FieldControlStyles,
+	FieldLabelStyles,
+	FieldRootStyles,
+} from "@gitbutler/ui-react/Field.tsx";
+import { Icon } from "@gitbutler/ui-react/Icon.tsx";
+import { Illustration } from "@gitbutler/ui-react/Illustration.tsx";
 import { errorMessageForToast } from "#ui/errors.ts";
 import styles from "./Account.module.css";
 import { pollUntilSuccess } from "./poll.ts";

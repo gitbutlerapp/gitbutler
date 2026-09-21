@@ -1,8 +1,8 @@
 import { Tooltip } from "@base-ui/react";
 import type { FC, MouseEvent, ReactNode } from "react";
-import { getButtonClassName } from "#ui/components/Button.tsx";
-import { classes } from "#ui/components/classes.ts";
-import { TooltipPopup } from "#ui/components/Tooltip.tsx";
+import { getButtonClassName } from "@gitbutler/ui-react/Button.tsx";
+import { classes } from "@gitbutler/ui-react/classes.ts";
+import { TooltipPopup } from "@gitbutler/ui-react/Tooltip.tsx";
 
 /** A button of glyphs alone, which says what it does on hover since they cannot. */
 export const IconButton: FC<{

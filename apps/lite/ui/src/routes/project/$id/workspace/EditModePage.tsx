@@ -12,10 +12,10 @@ import {
 	useOpenInProgram,
 	useSaveEditAndReturnToWorkspace,
 } from "#ui/api/mutations.ts";
-import { getButtonClassName } from "#ui/components/Button.tsx";
-import { classes } from "#ui/components/classes.ts";
-import { ConflictIcon } from "#ui/components/ConflictIcon.tsx";
-import { FileIcon } from "#ui/components/FileIcon.tsx";
+import { getButtonClassName } from "@gitbutler/ui-react/Button.tsx";
+import { classes } from "@gitbutler/ui-react/classes.ts";
+import { ConflictIcon } from "@gitbutler/ui-react/ConflictIcon.tsx";
+import { FileIcon } from "@gitbutler/ui-react/FileIcon.tsx";
 import { nativeMenuItem, showNativeContextMenu } from "#ui/native-menu.ts";
 import type { ConflictEntryPresence, EditModeMetadata } from "@gitbutler/but-sdk";
 import { type ConflictState, conflictHint, conflictStateOf } from "./edit-mode-conflicts.ts";

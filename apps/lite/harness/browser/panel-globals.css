@@ -1,7 +1,7 @@
 /* The component CSS modules use the design tokens. The app loads them via
    global.css; the panel loads them here, without the app's window styling. */
 @import "@gitbutler/design-core/core";
-@import "../../ui/src/components/base.css";
+@import "@gitbutler/ui-react/base.css";
 
 /* The app's `:root` custom properties (global.css) — the panel has no
    global.css, so the components' `var(--panel-padding-*)` references would

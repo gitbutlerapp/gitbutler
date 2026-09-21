@@ -1,6 +1,6 @@
-import { getButtonClassName } from "#ui/components/Button.tsx";
-import { classes } from "#ui/components/classes.ts";
-import { FolderIcon } from "#ui/components/FolderIcon.tsx";
+import { getButtonClassName } from "@gitbutler/ui-react/Button.tsx";
+import { classes } from "@gitbutler/ui-react/classes.ts";
+import { FolderIcon } from "@gitbutler/ui-react/FolderIcon.tsx";
 import {
 	Popup,
 	PopupEmpty,
@@ -8,8 +8,8 @@ import {
 	PopupSearch,
 	PopupSection,
 	PopupSectionLabel,
-} from "#ui/components/Popup.tsx";
-import { TooltipPopup } from "#ui/components/Tooltip.tsx";
+} from "@gitbutler/ui-react/Popup.tsx";
+import { TooltipPopup } from "@gitbutler/ui-react/Tooltip.tsx";
 import { useAddLocalRepository } from "#ui/components/useAddLocalRepository.ts";
 import { globalHotkeys } from "#ui/hotkeys.ts";
 import { interfaceSlice } from "#ui/interface/state.ts";
@@ -24,7 +24,7 @@ import {
 } from "#ui/project.ts";
 import { useAppDispatch, useAppSelector } from "#ui/store.ts";
 import { Button, Combobox, Tooltip } from "@base-ui/react";
-import type { IconName } from "#ui/components/iconNames.ts";
+import type { IconName } from "@gitbutler/ui-react/iconNames.ts";
 import type { ProjectForFrontend } from "@gitbutler/but-sdk";
 import { useQuery, useSuspenseQuery } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";

@@ -1,7 +1,7 @@
 import rowStyles from "../Row.module.css";
 import { decodeBytes } from "#ui/api/bytes.ts";
 import { branchAddress, addressIdentityKey } from "#ui/addresses.ts";
-import { GraphSegment } from "#ui/components/GraphSegment.tsx";
+import { GraphSegment } from "@gitbutler/ui-react/GraphSegment.tsx";
 import { projectSlice } from "#ui/projects/state.ts";
 import { useAppSelector } from "#ui/store.ts";
 import { addressSpaceIncludes } from "#ui/workspace/address-space.ts";

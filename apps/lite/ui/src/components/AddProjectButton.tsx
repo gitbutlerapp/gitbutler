@@ -1,5 +1,5 @@
 import type { FC } from "react";
-import { getButtonClassName } from "#ui/components/Button.tsx";
+import { getButtonClassName } from "@gitbutler/ui-react/Button.tsx";
 
 type Props = {
 	isPending: boolean;

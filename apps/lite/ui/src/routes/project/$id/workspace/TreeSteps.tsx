@@ -1,5 +1,5 @@
-import { Icon } from "#ui/components/Icon.tsx";
-import { classes } from "#ui/components/classes.ts";
+import { Icon } from "@gitbutler/ui-react/Icon.tsx";
+import { classes } from "@gitbutler/ui-react/classes.ts";
 import type { ComponentProps, FC, ReactNode } from "react";
 import styles from "./FilesTree.module.css";
 

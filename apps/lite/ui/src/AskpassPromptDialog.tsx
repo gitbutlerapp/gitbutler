@@ -1,8 +1,8 @@
 import { Dialog } from "@base-ui/react";
 import { useEffect, useRef, useState } from "react";
 import type { FC, SyntheticEvent } from "react";
-import { getButtonClassName } from "#ui/components/Button.tsx";
-import { Modal } from "#ui/components/Popup.tsx";
+import { getButtonClassName } from "@gitbutler/ui-react/Button.tsx";
+import { Modal } from "@gitbutler/ui-react/Popup.tsx";
 import styles from "./AskpassPromptDialog.module.css";
 import type { AskpassPromptEvent } from "@gitbutler/but-sdk";
 

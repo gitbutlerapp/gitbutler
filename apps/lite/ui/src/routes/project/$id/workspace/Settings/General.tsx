@@ -11,11 +11,11 @@ import {
 import { useDeleteAllData, useSaveGUISettings } from "#ui/api/mutations.ts";
 import { AccountSection, SignOutRow } from "./Account.tsx";
 import { InstallCli } from "./InstallCli.tsx";
-import { getButtonClassName } from "#ui/components/Button.tsx";
-import { Icon } from "#ui/components/Icon.tsx";
-import { ProgramIcon } from "#ui/components/ProgramIcon.tsx";
-import { Select } from "#ui/components/Select.tsx";
-import { Switch } from "#ui/components/Switch.tsx";
+import { getButtonClassName } from "@gitbutler/ui-react/Button.tsx";
+import { Icon } from "@gitbutler/ui-react/Icon.tsx";
+import { ProgramIcon } from "@gitbutler/ui-react/ProgramIcon.tsx";
+import { Select } from "@gitbutler/ui-react/Select.tsx";
+import { Switch } from "@gitbutler/ui-react/Switch.tsx";
 import { defaultSettings } from "#ui/settings.ts";
 import { CheckForUpdatesButton } from "#ui/CheckForUpdatesButton.tsx";
 import styles from "./General.module.css";

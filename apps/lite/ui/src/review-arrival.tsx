@@ -8,7 +8,7 @@
  * only then does the next visit consider the item read.
  */
 
-import { classes } from "#ui/components/classes.ts";
+import { classes } from "@gitbutler/ui-react/classes.ts";
 import {
 	isItemSkipped,
 	markItemSeen,

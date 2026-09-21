@@ -14,12 +14,16 @@ import {
 	useStoreGithubPat,
 	useStoreGitlabPat,
 } from "#ui/api/mutations.ts";
-import { getButtonClassName } from "#ui/components/Button.tsx";
-import { classes } from "#ui/components/classes.ts";
-import { FieldControlStyles, FieldLabelStyles, FieldRootStyles } from "#ui/components/Field.tsx";
-import { Icon } from "#ui/components/Icon.tsx";
-import { Logo, type LogoName } from "#ui/components/Logo.tsx";
-import { TextLink } from "#ui/components/TextLink.tsx";
+import { getButtonClassName } from "@gitbutler/ui-react/Button.tsx";
+import { classes } from "@gitbutler/ui-react/classes.ts";
+import {
+	FieldControlStyles,
+	FieldLabelStyles,
+	FieldRootStyles,
+} from "@gitbutler/ui-react/Field.tsx";
+import { Icon } from "@gitbutler/ui-react/Icon.tsx";
+import { Logo, type LogoName } from "@gitbutler/ui-react/Logo.tsx";
+import { TextLink } from "@gitbutler/ui-react/TextLink.tsx";
 import { errorMessageForToast } from "#ui/errors.ts";
 import { nativeMenuItem, showNativeMenuFromTrigger } from "#ui/native-menu.ts";
 import { useCopied } from "#ui/components/useCopied.ts";

@@ -1,10 +1,10 @@
 import { guiSettingsQueryOptions } from "#ui/api/queries.ts";
 import { reportError } from "#ui/error-reporting.ts";
-import { getButtonClassName } from "#ui/components/Button.tsx";
-import { classes } from "#ui/components/classes.ts";
-import { Icon } from "#ui/components/Icon.tsx";
-import { TextLink } from "#ui/components/TextLink.tsx";
-import { TooltipPopup } from "#ui/components/Tooltip.tsx";
+import { getButtonClassName } from "@gitbutler/ui-react/Button.tsx";
+import { classes } from "@gitbutler/ui-react/classes.ts";
+import { Icon } from "@gitbutler/ui-react/Icon.tsx";
+import { TextLink } from "@gitbutler/ui-react/TextLink.tsx";
+import { TooltipPopup } from "@gitbutler/ui-react/Tooltip.tsx";
 import { useCopied } from "#ui/components/useCopied.ts";
 import { defaultSettings } from "#ui/settings.ts";
 import { openLinkExternally } from "#ui/external-link.ts";

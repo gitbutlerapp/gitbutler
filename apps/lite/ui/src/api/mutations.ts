@@ -43,7 +43,7 @@ import { commitAddress, addressEquals, type FileParent } from "#ui/addresses.ts"
 import { projectSlice } from "#ui/projects/state.ts";
 import { projectAiSettingsQueryOptions } from "#ui/project-ai-settings.ts";
 import { type AppDispatch, useAppDispatch, useAppStore } from "#ui/store.ts";
-import { formatRelativeTime } from "#ui/time.ts";
+import { formatRelativeTime } from "@gitbutler/ui-react/time.ts";
 import { Toast } from "@base-ui/react";
 import { Match } from "effect";
 import type {

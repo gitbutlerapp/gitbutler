@@ -1,7 +1,7 @@
-import { getButtonClassName } from "#ui/components/Button.tsx";
+import { getButtonClassName } from "@gitbutler/ui-react/Button.tsx";
 import { sidebarFocusScopeOf } from "#ui/use-cursor.ts";
-import { Icon } from "#ui/components/Icon.tsx";
-import { TooltipPopup } from "#ui/components/Tooltip.tsx";
+import { Icon } from "@gitbutler/ui-react/Icon.tsx";
+import { TooltipPopup } from "@gitbutler/ui-react/Tooltip.tsx";
 import { interfaceSlice } from "#ui/interface/state.ts";
 import { focusScope } from "#ui/focus-scopes.ts";
 import { useAppDispatch, useAppSelector } from "#ui/store.ts";

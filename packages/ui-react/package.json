@@ -1,0 +1,44 @@
+{
+	"name": "@gitbutler/ui-react",
+	"description": "GitButler's React component library: the components, icons and base styles shared by Lite, `but panel` and the MCP app.",
+	"private": true,
+	"version": "0.0.0-dev",
+	"type": "module",
+	"license": "FSL-1.1-MIT",
+	"exports": {
+		"./storybook/*": "./.storybook/*",
+		"./*": "./src/*"
+	},
+	"imports": {
+		"#storybook/*": "./.storybook/*.ts"
+	},
+	"scripts": {
+		"check": "tsgo -p tsconfig.json --noEmit",
+		"optimize-icons": "node scripts/optimize-icons.mjs",
+		"test": "vitest run"
+	},
+	"dependencies": {
+		"@base-ui/react": "^1.6.0",
+		"@tanstack/react-hotkeys": "^0.10.0",
+		"effect": "^3.20.0",
+		"react-resizable-panels": "^4.11.2"
+	},
+	"peerDependencies": {
+		"@gitbutler/design-core": "^5.1.0",
+		"react": "^19.2.4",
+		"react-dom": "^19.2.4"
+	},
+	"devDependencies": {
+		"@gitbutler/but-sdk": "workspace:*",
+		"@gitbutler/design-core": "5.1.0",
+		"@storybook/react-vite": "^10.3.6",
+		"@types/react": "^19.2.14",
+		"@types/react-dom": "^19.2.3",
+		"@typescript/native-preview": "7.0.0-dev.20260707.2",
+		"jsdom": "28.1.0",
+		"react": "^19.2.4",
+		"react-dom": "^19.2.4",
+		"vite": "catalog:",
+		"vitest": "catalog:"
+	}
+}

@@ -9,7 +9,7 @@ import type { InstallationStatus } from "#electron/updater-state.ts";
 import { guiSettingsQueryOptions } from "#ui/api/queries.ts";
 import { AppUpdater } from "./AppUpdater.tsx";
 import { CheckForUpdatesContext } from "./updater-context.ts";
-import { Toasts } from "#ui/components/Toasts.tsx";
+import { Toasts } from "@gitbutler/ui-react/Toasts.tsx";
 import { reportError } from "#ui/error-reporting.ts";
 
 const getUpdateStatus = vi.hoisted(() => {

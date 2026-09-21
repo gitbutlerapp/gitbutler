@@ -9,10 +9,10 @@ import {
 	useEnterEditMode,
 } from "#ui/api/mutations.ts";
 import { forgeInfoOptions, headInfoQueryOptions } from "#ui/api/queries.ts";
-import { classes } from "#ui/components/classes.ts";
-import { GraphSegment, type GraphSegmentStatus } from "#ui/components/GraphSegment.tsx";
-import { Icon } from "#ui/components/Icon.tsx";
-import { TooltipPopup } from "#ui/components/Tooltip.tsx";
+import { classes } from "@gitbutler/ui-react/classes.ts";
+import { GraphSegment, type GraphSegmentStatus } from "@gitbutler/ui-react/GraphSegment.tsx";
+import { Icon } from "@gitbutler/ui-react/Icon.tsx";
+import { TooltipPopup } from "@gitbutler/ui-react/Tooltip.tsx";
 import { commitBody, commitForgeUrl, commitIsDiverged, commitTitle } from "#ui/commit.ts";
 import { errorMessageForToast } from "#ui/errors.ts";
 import {

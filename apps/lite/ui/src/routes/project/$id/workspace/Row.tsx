@@ -1,6 +1,6 @@
-import { classes } from "#ui/components/classes.ts";
-import { Checkbox } from "#ui/components/Checkbox.tsx";
-import { Icon } from "#ui/components/Icon.tsx";
+import { classes } from "@gitbutler/ui-react/classes.ts";
+import { Checkbox } from "@gitbutler/ui-react/Checkbox.tsx";
+import { Icon } from "@gitbutler/ui-react/Icon.tsx";
 import { useMergedRefs } from "@base-ui/utils/useMergedRefs";
 import {
 	type ComponentProps,

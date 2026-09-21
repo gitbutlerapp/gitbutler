@@ -1,7 +1,7 @@
 import { useCreateReviewThreadReply } from "#ui/api/mutations.ts";
-import { getButtonClassName } from "#ui/components/Button.tsx";
-import { classes } from "#ui/components/classes.ts";
-import { FieldTextareaStyles } from "#ui/components/Field.tsx";
+import { getButtonClassName } from "@gitbutler/ui-react/Button.tsx";
+import { classes } from "@gitbutler/ui-react/classes.ts";
+import { FieldTextareaStyles } from "@gitbutler/ui-react/Field.tsx";
 import { useMentionSuggestions } from "#ui/components/MentionSuggestions.tsx";
 import { type FC, type KeyboardEvent, useRef, useState } from "react";
 import styles from "./ReviewThreadReply.module.css";

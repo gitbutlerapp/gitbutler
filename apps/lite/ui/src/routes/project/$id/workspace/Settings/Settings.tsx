@@ -1,7 +1,7 @@
-import { Modal } from "#ui/components/Popup.tsx";
+import { Modal } from "@gitbutler/ui-react/Popup.tsx";
 import { Suspense, useState, type FC } from "react";
-import { classes } from "#ui/components/classes.ts";
-import { Icon } from "#ui/components/Icon.tsx";
+import { classes } from "@gitbutler/ui-react/classes.ts";
+import { Icon } from "@gitbutler/ui-react/Icon.tsx";
 import styles from "./Settings.module.css";
 import {
 	defaultSettingsPageKey,

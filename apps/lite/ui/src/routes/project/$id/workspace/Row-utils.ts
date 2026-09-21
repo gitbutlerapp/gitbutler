@@ -1,5 +1,9 @@
-import { type ButtonSize, type ButtonVariant, getButtonClassName } from "#ui/components/Button.tsx";
-import { classes } from "#ui/components/classes.ts";
+import {
+	type ButtonSize,
+	type ButtonVariant,
+	getButtonClassName,
+} from "@gitbutler/ui-react/Button.tsx";
+import { classes } from "@gitbutler/ui-react/classes.ts";
 import { addressIdentityKey, type Address } from "#ui/addresses.ts";
 import { useCursorMatches } from "#ui/use-cursor.ts";
 import { Match } from "effect";

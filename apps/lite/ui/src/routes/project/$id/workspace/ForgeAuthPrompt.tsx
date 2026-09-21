@@ -1,6 +1,6 @@
 import type { ForgeDestination } from "#ui/forge.ts";
-import { getButtonClassName } from "#ui/components/Button.tsx";
-import { EmptyState } from "#ui/components/EmptyState.tsx";
+import { getButtonClassName } from "@gitbutler/ui-react/Button.tsx";
+import { EmptyState } from "@gitbutler/ui-react/EmptyState.tsx";
 import { useAppDispatch } from "#ui/store.ts";
 import { interfaceSlice } from "#ui/interface/state.ts";
 import type { FC } from "react";

@@ -2,7 +2,7 @@ import { useSuspenseQuery } from "@tanstack/react-query";
 import type { FC } from "react";
 import { listProjectsQueryOptions } from "#ui/api/queries.ts";
 import { useUpdateProjectSettings } from "#ui/api/mutations.ts";
-import { Switch } from "#ui/components/Switch.tsx";
+import { Switch } from "@gitbutler/ui-react/Switch.tsx";
 import { assert } from "#ui/assert.ts";
 import { changing } from "./project-settings.ts";
 import { Row, Section } from "./Section.tsx";

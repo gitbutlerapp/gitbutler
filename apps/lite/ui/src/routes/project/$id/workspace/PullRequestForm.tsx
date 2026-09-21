@@ -23,20 +23,20 @@ import {
 	Reactions,
 	tallyReactions,
 } from "#ui/routes/project/$id/workspace/PullRequestReactions.tsx";
-import { getButtonClassName } from "#ui/components/Button.tsx";
-import { Clamped } from "#ui/components/Clamped.tsx";
-import { classes } from "#ui/components/classes.ts";
-import { DropdownButton } from "#ui/components/DropdownButton.tsx";
-import { FieldControlStyles, FieldRootStyles } from "#ui/components/Field.tsx";
-import { Icon } from "#ui/components/Icon.tsx";
+import { getButtonClassName } from "@gitbutler/ui-react/Button.tsx";
+import { Clamped } from "@gitbutler/ui-react/Clamped.tsx";
+import { classes } from "@gitbutler/ui-react/classes.ts";
+import { DropdownButton } from "@gitbutler/ui-react/DropdownButton.tsx";
+import { FieldControlStyles, FieldRootStyles } from "@gitbutler/ui-react/Field.tsx";
+import { Icon } from "@gitbutler/ui-react/Icon.tsx";
 import { Markdown } from "#ui/components/Markdown.tsx";
 import { ReviewUser } from "#ui/routes/project/$id/workspace/PullRequestPanel.tsx";
-import { formatAbsoluteTime, formatRelativeTime } from "#ui/time.ts";
+import { formatAbsoluteTime, formatRelativeTime } from "@gitbutler/ui-react/time.ts";
 import { branchDetailsParams } from "#ui/branch.ts";
 import { MarkdownAttachments } from "#ui/components/MarkdownAttachments.tsx";
 import { MarkdownToolbar } from "#ui/components/MarkdownToolbar.tsx";
-import { SwitchButton } from "#ui/components/SwitchButton.tsx";
-import { TooltipPopup } from "#ui/components/Tooltip.tsx";
+import { SwitchButton } from "@gitbutler/ui-react/SwitchButton.tsx";
+import { TooltipPopup } from "@gitbutler/ui-react/Tooltip.tsx";
 import { pullRequestHotkeys } from "#ui/hotkeys.ts";
 import { prDescriptionGenerationButtonState } from "#ui/pr-description-generation.ts";
 import { projectAiSettingsQueryOptions } from "#ui/project-ai-settings.ts";
