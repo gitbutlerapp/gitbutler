@@ -114,21 +114,6 @@ impl StatusOutput<'_> {
         )
     }
 
-    pub fn worktree(
-        &mut self,
-        connector: Vec<Span<'static>>,
-        line: UncommittedLineContent,
-        id: CliId,
-    ) -> anyhow::Result<()> {
-        self.push_line(
-            Some(connector),
-            StatusOutputContent::Uncommitted(line),
-            StatusOutputLineData::Worktree {
-                cli_id: Arc::new(id),
-            },
-        )
-    }
-
     pub fn worktree_uncommitted(
         &mut self,
         connector: Vec<Span<'static>>,
@@ -438,6 +423,7 @@ pub enum StatusOutputLineData {
     UncommittedChanges {
         cli_id: Arc<CliId>,
     },
+    #[allow(dead_code)]
     Worktree {
         cli_id: Arc<CliId>,
     },

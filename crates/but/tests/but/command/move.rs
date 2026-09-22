@@ -4192,8 +4192,8 @@ fn cannot_name_branches_when_moving_commits_relative_to_worktree() {
 ┊●   zll add first
 ├╯
 ┊
-┊╭┄ br:@ {worktree uncommitted} (no changes)
-┊├┄ br {a-branch-1}
+┊╭┄ br:@ [uncommitted] {a-branch-1} (no changes)
+┊├┄ br [a-branch-1] (no commits)
 ├╯
 ┊
 ┴ 1bbc04b (common base) 2000-01-02 add Base

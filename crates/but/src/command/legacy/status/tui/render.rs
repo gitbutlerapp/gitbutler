@@ -25,7 +25,7 @@ use crate::{
             MoveSource, MoveStackMode, StackMode, WorktreeMode, lines_part_of_current_stack,
         },
     },
-    id::CommitId,
+    id::{CommitId, LaneId},
     theme::Theme,
     utils::targeting::Side,
 };
@@ -1112,11 +1112,12 @@ pub fn commit_operation_display(
 
     match data {
         StatusOutputLineData::Branch { cli_id, .. } => {
-            if let Some(stack_scope) = scope_to_stack
-                && let Some(stack_id) = cli_id.stack_id()
-                && *stack_scope != stack_id
-            {
-                // don't allow selecting branches outside the scoped stack
+            let outside_scope = match (scope_to_stack, cli_id.lane()) {
+                (Some(_), Some(LaneId::Worktree(_))) => true,
+                (Some(stack_scope), Some(LaneId::Stack(Some(stack_id)))) => stack_scope != stack_id,
+                _ => false,
+            };
+            if outside_scope {
                 None
             } else {
                 Some("commit to branch")
@@ -1390,6 +1391,11 @@ pub fn worktree_operation_display(
     _mode: &WorktreeMode,
 ) -> Option<&'static str> {
     match data {
+        StatusOutputLineData::Branch { cli_id, .. }
+            if cli_id.lane().and_then(LaneId::worktree_name).is_some() =>
+        {
+            Some("worktree")
+        }
         StatusOutputLineData::Commit { .. }
         | StatusOutputLineData::Worktree { .. }
         | StatusOutputLineData::MergeBase => Some("worktree"),

@@ -590,10 +590,10 @@ fn resolve(
                 WorktreeTip(FullName),
                 Missing,
             }
-            let target = match branch.try_resolve_branch(&repo, id_map)? {
-                Some(target) => BranchTargetIsh::Workspace(target),
-                None => match worktree_branch_target(&repo, id_map, &branch)? {
-                    Some(name) => BranchTargetIsh::WorktreeTip(name),
+            let target = match worktree_branch_target(&repo, id_map, &branch)? {
+                Some(name) => BranchTargetIsh::WorktreeTip(name),
+                None => match branch.try_resolve_branch(&repo, id_map)? {
+                    Some(target) => BranchTargetIsh::Workspace(target),
                     None => BranchTargetIsh::Missing,
                 },
             };
@@ -824,7 +824,16 @@ fn create_move_above_or_below_op(
     new_branch_name: Option<Option<CliIdArg>>,
 ) -> CliResult<MoveOperation> {
     let branch_flag_provided = new_branch_name.is_some();
-    let target = {
+    let target = if let Some(name) = unresolved_target.try_resolve_worktree(repo, id_map)? {
+        if branch_flag_provided {
+            return Err(
+                bad_input("Cannot use `-b/--branch` when moving relative to worktrees").into(),
+            );
+        }
+        MoveTarget::BranchTip {
+            name: worktree_tip_target(repo, name.as_ref(), side, &unresolved_target)?,
+        }
+    } else {
         match unresolved_target.resolve_in_workspace(repo, id_map, Purpose::Anchor, None)? {
             ResolvedCliIdArg::Worktree(name) => {
                 if new_branch_name.is_some() {

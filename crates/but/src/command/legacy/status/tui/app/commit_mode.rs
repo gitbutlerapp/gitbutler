@@ -25,7 +25,7 @@ use crate::{
             },
         },
     },
-    id::UncommittedHunkOrFile,
+    id::{LaneId, UncommittedHunkOrFile},
     tui::TerminalGuard,
     utils::{
         change_source::{ChangeSourceId, UncommittedSelection},
@@ -143,13 +143,20 @@ impl CommitSource {
 
     fn try_from_cli_id(id: &CliId) -> Option<Self> {
         match id {
+            // A worktree lane's rows offer the area whose changes land on that lane by default,
+            // the way a stack's branch row offers the main area: `c` then confirm on it commits
+            // the worktree's own changes, never another worktree's.
+            CliId::Branch(..) | CliId::AnonymousSegment(..)
+                if let Some(name) = id.lane().and_then(LaneId::worktree_name) =>
+            {
+                Some(CommitSource::UncommittedArea(ChangeSourceId::Worktree(
+                    name.to_owned(),
+                )))
+            }
             CliId::Branch(..) | CliId::Commit { .. } | CliId::Uncommitted { .. } => {
                 Some(CommitSource::UncommittedArea(ChangeSourceId::Head))
             }
             CliId::UncommittedHunkOrFile(hunk) => Some(CommitSource::UncommittedHunk(hunk.clone())),
-            // The reference offers the area whose changes land on its lane by default, the way a
-            // branch row offers the main area: `c` then confirm on it commits the worktree's own
-            // changes, never another worktree's.
             CliId::WorktreeUncommitted { name, .. } | CliId::Worktree { name, .. } => Some(
                 CommitSource::UncommittedArea(ChangeSourceId::Worktree(name.clone())),
             ),

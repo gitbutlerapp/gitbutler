@@ -21,7 +21,7 @@ use crate::{
             },
         },
     },
-    id::CommitId,
+    id::{CommitId, LaneId},
     theme,
 };
 
@@ -152,6 +152,45 @@ impl App {
                         },
                     )
                 }
+                CliId::Branch(..) | CliId::AnonymousSegment(..)
+                    if let Some(name) = cli_id.lane().and_then(LaneId::worktree_name) =>
+                {
+                    let worktree_name = name.to_owned();
+
+                    self.to_be_discarded = match &**cli_id {
+                        CliId::Branch(branch) => Vec::from([Selectable::Branch(branch.clone())]),
+                        _ => Vec::new(),
+                    };
+                    let drop_to_be_discarded =
+                        message_on_drop::message_on_drop(Message::DropToBeDiscarded, messages);
+
+                    Confirm::new(
+                        NonEmpty::new(
+                            format!("Remove {worktree_name}? This cannot be undone").into(),
+                        ),
+                        self.theme,
+                        move |ctx, messages| {
+                            let mut guard = ctx.exclusive_worktree_access();
+                            _ = crate::command::worktree::remove::run(
+                                ctx,
+                                guard.write_permission(),
+                                crate::command::worktree::remove::RemoveOperation {
+                                    worktree: worktree_name,
+                                    force: true,
+                                },
+                            )?;
+
+                            messages.extend([
+                                Message::EnterNormalModeAfterConfirmingOperation,
+                                Message::Reload(None, ReloadCause::Mutation),
+                            ]);
+
+                            drop(drop_to_be_discarded);
+
+                            Ok(())
+                        },
+                    )
+                }
                 CliId::Branch(branch) => {
                     let name = branch.name.to_owned();
                     let ref_name = Category::LocalBranch.to_full_name(&*name)?;
@@ -241,47 +280,11 @@ impl App {
                         },
                     )
                 }
-                CliId::Worktree { id, name } => {
-                    let worktree_name = name.clone();
-
-                    self.to_be_discarded = Vec::from([Selectable::Worktree {
-                        id: id.clone(),
-                        name: worktree_name.clone(),
-                    }]);
-                    let drop_to_be_discarded =
-                        message_on_drop::message_on_drop(Message::DropToBeDiscarded, messages);
-
-                    Confirm::new(
-                        NonEmpty::new(
-                            format!("Remove {worktree_name}? This cannot be undone").into(),
-                        ),
-                        self.theme,
-                        move |ctx, messages| {
-                            let mut guard = ctx.exclusive_worktree_access();
-                            _ = crate::command::worktree::remove::run(
-                                ctx,
-                                guard.write_permission(),
-                                crate::command::worktree::remove::RemoveOperation {
-                                    worktree: worktree_name,
-                                    force: true,
-                                },
-                            )?;
-
-                            messages.extend([
-                                Message::EnterNormalModeAfterConfirmingOperation,
-                                Message::Reload(None, ReloadCause::Mutation),
-                            ]);
-
-                            drop(drop_to_be_discarded);
-
-                            Ok(())
-                        },
-                    )
-                }
                 CliId::AnonymousSegment(..)
                 | CliId::CommittedHunk(..)
                 | CliId::Stack { .. }
                 | CliId::PathPrefix { .. }
+                | CliId::Worktree { .. }
                 | CliId::WorktreeUncommitted { .. } => return Ok(()),
             },
         });

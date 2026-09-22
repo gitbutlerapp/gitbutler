@@ -74,8 +74,11 @@ pub(crate) fn worktree_branch_target(
     // A worktree whose checkout cannot be read (detached, vanished, or on a workspace ref)
     // has no branch and simply cannot match the name.
     let wanted = arg.0.as_bytes();
-    Ok(id_map.worktrees.values().find_map(|worktree| {
-        let branch = worktree_branch(repo, worktree.name.as_ref()).ok()?;
+    Ok(id_map.worktree_lanes().find_map(|lane| {
+        let crate::id::LaneId::Worktree(name) = &lane.lane else {
+            return None;
+        };
+        let branch = worktree_branch(repo, name.as_ref()).ok()?;
         (branch.shorten().as_bytes() == wanted || branch.as_bstr().as_bytes() == wanted)
             .then_some(branch)
     }))

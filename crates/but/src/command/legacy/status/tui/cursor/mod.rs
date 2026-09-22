@@ -24,7 +24,7 @@ use crate::{
             },
         },
     },
-    id::{CommitId, CommittedFileId},
+    id::{CommitId, CommittedFileId, LaneId},
 };
 
 #[cfg(test)]
@@ -411,13 +411,16 @@ impl Cursor {
     /// Select the first line that points to the given worktree.
     pub fn select_worktree(worktree_name: &BStr, lines: &[StatusOutputLine]) -> Option<Self> {
         let idx = lines.iter().position(|line| {
-            if let Some(CliId::Worktree { name, .. }) = line.data.cli_id().map(|id| &**id)
-                && name == worktree_name
-            {
-                true
-            } else {
-                false
-            }
+            matches!(
+                line.data,
+                StatusOutputLineData::Branch { .. }
+                    if line
+                        .data
+                        .cli_id()
+                        .and_then(|id| id.lane())
+                        .and_then(LaneId::worktree_name)
+                        == Some(worktree_name)
+            )
         })?;
         Some(Self(idx))
     }

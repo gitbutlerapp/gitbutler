@@ -474,7 +474,15 @@ pub fn route_commit_operation(
             )?)
         }
         CommitOperationTargetIsh::Branch(cli_id) => {
-            if let Some(branch) = cli_id.try_resolve_branch(repo, id_map)? {
+            if let Some(name) = worktree_branch_target(repo, id_map, &cli_id)? {
+                // A worktree, or a branch checked out in one, is that lane's tip - not a
+                // workspace branch, and not a branch waiting to be created. Merged branches
+                // are guarded the same whichever way they are spelled.
+                merged.ensure_branch_not_merged(name.as_ref())?;
+                Ok(CommitOperation::CommitAt(CommitAtOperation {
+                    target: CommitRelativeToTarget::BranchTip { name },
+                }))
+            } else if let Some(branch) = cli_id.try_resolve_branch(repo, id_map)? {
                 let segment = branch.resolve_segment(head_info)?;
                 let ref_info = segment.ref_info.with_context(|| {
                     format!("BUG: Segment resolved from branch name {branch} has no ref info")
@@ -486,14 +494,6 @@ pub fn route_commit_operation(
                 };
 
                 Ok(CommitOperation::CommitAt(CommitAtOperation { target }))
-            } else if let Some(name) = worktree_branch_target(repo, id_map, &cli_id)? {
-                // A worktree, or a branch checked out in one, is that lane's tip - not a
-                // branch waiting to be created. Merged branches are guarded the same
-                // whichever way they are spelled.
-                merged.ensure_branch_not_merged(name.as_ref())?;
-                Ok(CommitOperation::CommitAt(CommitAtOperation {
-                    target: CommitRelativeToTarget::BranchTip { name },
-                }))
             } else {
                 let branch = BranchArg(cli_id.0);
                 let branch_name = branch
@@ -648,14 +648,25 @@ fn route_commit_above_or_below(
     merged: &MergedUpstream,
     new_branch_name: Option<Option<CliIdArg>>,
 ) -> CliResult<CommitOperation> {
+    if let Some(name) = target.try_resolve_worktree(repo, id_map)? {
+        let name = worktree_tip_target(repo, name.as_ref(), side, &target)?;
+        merged.ensure_branch_not_merged(name.as_ref())?;
+        if new_branch_name.is_some() {
+            return Err(bad_input(
+                "Cannot use `-b/--branch` when committing relative to worktrees",
+            )
+            .into());
+        }
+        return Ok(CommitOperation::CommitAt(CommitAtOperation {
+            target: CommitRelativeToTarget::BranchTip { name },
+        }));
+    }
     let resolved = target
         .resolve_in_workspace(repo, id_map, Purpose::Target, None)
         .hint(
             "Target must be an applied branch or commit. Run `but status` for applicable targets.",
         )?;
     let target = match resolved {
-        // Below a worktree heading is the top of its lane, so the commit goes to the tip of
-        // the branch checked out there - the same targeting `but move` uses.
         ResolvedCliIdArg::Worktree(name) => {
             let name = worktree_tip_target(repo, name.as_ref(), side, &target)?;
             merged.ensure_branch_not_merged(name.as_ref())?;

@@ -2821,9 +2821,9 @@ fn commit_a_file_from_a_linked_worktree() {
 ┊
 ┊╭┄ g0 [A]
 ┊┊
-┊┊╭┄ wt:@ {worktree uncommitted}
+┊┊╭┄ wt:@ [uncommitted] {wt-feature}
 ┊┊┊   nl A note.txt
-┊┊├┄ wt {wt-feature}
+┊┊├┄ wt [wt-feature] (no commits)
 ┊├╯
 ┊●   tpm add A
 ├╯
@@ -2859,8 +2859,8 @@ Created commit lpo on branch 'A'
 ┊●   lpo note from worktree
 ┊│     lpo:u A note.txt
 ┊┊
-┊┊╭┄ wt:@ {worktree uncommitted} (no changes)
-┊┊├┄ wt {wt-feature}
+┊┊╭┄ wt:@ [uncommitted] {wt-feature} (no changes)
+┊┊├┄ wt [wt-feature] (no commits)
 ┊├╯
 ┊●   tpm add A
 ┊│     tpm:t A A
@@ -2906,8 +2906,8 @@ Created commit ulz on branch 'B'
 ┊
 ┊╭┄ g0 [A]
 ┊┊
-┊┊╭┄ wt:@ {worktree uncommitted} (no changes)
-┊┊├┄ wt {wt-feature}
+┊┊╭┄ wt:@ [uncommitted] {wt-feature} (no changes)
+┊┊├┄ wt [wt-feature] (no commits)
 ┊├╯
 ┊●   tpm add A
 ┊│     tpm:t A A
@@ -3167,8 +3167,8 @@ Created commit vzp on branch 'wt-feature'
 ┊
 ┊╭┄ g0 [A]
 ┊┊
-┊┊╭┄ wt:@ {worktree uncommitted} (no changes)
-┊┊├┄ wt {wt-feature}
+┊┊╭┄ wt:@ [uncommitted] {wt-feature} (no changes)
+┊┊├┄ wt [wt-feature]
 ┊┊●   vzp note from the worktree
 ┊┊│     vzp:u A note.txt
 ┊┊●   nsn add W
@@ -3520,8 +3520,8 @@ fn cannot_split_worktree_by_committing_above_on_new_branch() {
         .stdout_eq(snapbox::str![[r#"
 ╭┄ @ [uncommitted] (no changes)
 ┊
-┊╭┄ br:@ {worktree uncommitted} (no changes)
-┊├┄ br {a-branch-1}
+┊╭┄ br:@ [uncommitted] {a-branch-1} (no changes)
+┊├┄ br [a-branch-1] (no commits)
 ├╯
 ┊
 ┴ 0dc3733 (common base) 2000-01-02 add M

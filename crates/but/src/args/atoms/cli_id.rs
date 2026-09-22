@@ -9,7 +9,7 @@ use crate::{
     bad_input,
     id::{
         AnonymousSegmentId, CommitId, CommitIdRef, CommittedFileId, CommittedHunk, IdAndHunk,
-        UncommittedHunkOrFile,
+        LaneId, UncommittedHunkOrFile,
     },
     theme,
     utils::change_source::ChangeSourceId,
@@ -199,7 +199,8 @@ impl CliIdArg {
         }
     }
 
-    /// Try and resolve the argument to a linked worktree, by its ID or stable name.
+    /// Try and resolve the argument to a linked worktree, by the ID or name of a branch on its
+    /// lane, its stable name, or its uncommitted area.
     ///
     /// Returns `Ok(None)` if it doesn't name a worktree.
     pub fn try_resolve_worktree(
@@ -207,11 +208,24 @@ impl CliIdArg {
         repo: &gix::Repository,
         id_map: &IdMap,
     ) -> CliResult<Option<BString>> {
-        let Some(id) = try_resolve_cli_id(self, repo, id_map, Purpose::Worktree, None)? else {
+        let Some(id) = try_resolve_cli_id(
+            self,
+            repo,
+            id_map,
+            Purpose::Worktree,
+            Some(Priority::Branch),
+        )?
+        else {
             return Ok(None);
         };
         match id {
-            CliId::Worktree { name, .. } => Ok(Some(name)),
+            CliId::Worktree { name, .. } | CliId::WorktreeUncommitted { name, .. } => {
+                Ok(Some(name))
+            }
+            CliId::Branch(..) | CliId::AnonymousSegment(..) => Ok(id
+                .lane()
+                .and_then(LaneId::worktree_name)
+                .map(ToOwned::to_owned)),
             _ => Ok(None),
         }
     }

@@ -1198,7 +1198,7 @@ fn same_path_in_several_sources_gets_distinct_ids() -> anyhow::Result<()> {
     Ok(())
 }
 
-/// A linked worktree gets its own CLI ID, resolves by name, and scopes a
+/// A linked worktree's name resolves to the top segment of its lane, which scopes a
 /// filename to its own checkout the way `@` does for the main worktree.
 #[test]
 fn worktree_container_id() -> anyhow::Result<()> {
@@ -1207,11 +1207,14 @@ fn worktree_container_id() -> anyhow::Result<()> {
         vec![
             source_changes(ChangeSourceId::Head, vec![hunk("file")]),
             source_changes(ChangeSourceId::Worktree("wt-a".into()), vec![hunk("file")]),
-            // A worktree without changes still gets an ID, so it can be listed.
+            // A worktree without changes still gets a lane, so it can be listed.
             source_changes(ChangeSourceId::Worktree("wt-b".into()), Vec::new()),
         ],
         gix::hashtable::HashMap::default(),
-        Default::default(),
+        vec![
+            worktree("wt-a", [segment("wt-a", [], None, [])]),
+            worktree("wt-b", [segment("wt-b", [], None, [])]),
+        ],
         3,
     )?;
     let changed_paths_fn = |commit_id: gix::ObjectId,
@@ -1225,10 +1228,15 @@ fn worktree_container_id() -> anyhow::Result<()> {
         by_name.to_debug(),
         snapbox::str![[r#"
 [
-    Worktree {
-        id: "wt",
-        name: "wt-a",
-    },
+    Branch(
+        BranchId {
+            name: "wt-a",
+            id: "wt",
+            lane: Worktree(
+                "wt-a",
+            ),
+        },
+    ),
 ]
 
 "#]]
@@ -1283,7 +1291,7 @@ fn worktree_container_id() -> anyhow::Result<()> {
 }
 
 /// `<worktree>:@` names that worktree's uncommitted area, the way `@` names the
-/// main worktree's, and is distinct from the worktree reference itself.
+/// main worktree's, and is distinct from the worktree's top branch itself.
 #[test]
 fn worktree_uncommitted_area_id() -> anyhow::Result<()> {
     let id_map = IdMap::new(
@@ -1293,7 +1301,7 @@ fn worktree_uncommitted_area_id() -> anyhow::Result<()> {
             source_changes(ChangeSourceId::Worktree("wt-a".into()), vec![hunk("file")]),
         ],
         gix::hashtable::HashMap::default(),
-        Default::default(),
+        vec![worktree("wt-a", [segment("wt-a", [], None, [])])],
         3,
     )?;
     let changed_paths_fn = |commit_id: gix::ObjectId,
@@ -1327,7 +1335,7 @@ fn worktree_uncommitted_area_id() -> anyhow::Result<()> {
     )?;
     assert_eq!(round_tripped, by_short_id, "the printed ID resolves back");
 
-    // The reference and its area are different entities, not two spellings of one.
+    // The top branch and its area are different entities, not two spellings of one.
     let reference = id_map.parse("wt", &TestChanges(changed_paths_fn))?;
     assert_ne!(
         reference, by_short_id,
@@ -1341,7 +1349,7 @@ fn worktree_uncommitted_area_id() -> anyhow::Result<()> {
     assert_eq!(
         reference[0].uncommitted_area(),
         None,
-        "the reference holds no changes"
+        "the top branch holds no changes"
     );
 
     // `@` alone stays the main worktree's area and never reaches into a linked one.
@@ -1355,7 +1363,7 @@ fn worktree_uncommitted_area_id() -> anyhow::Result<()> {
     Ok(())
 }
 
-/// Branches and worktrees draw from the same name-derived short-ID namespace.
+/// Stack branches and worktree branches draw from the same name-derived short-ID namespace.
 #[test]
 fn branch_and_worktree_short_ids_do_not_collide() -> anyhow::Result<()> {
     let id_map = IdMap::new(
@@ -1365,7 +1373,10 @@ fn branch_and_worktree_short_ids_do_not_collide() -> anyhow::Result<()> {
             Vec::new(),
         )],
         gix::hashtable::HashMap::default(),
-        Default::default(),
+        vec![worktree(
+            "worktree-01",
+            [segment("worktree-01", [], None, [])],
+        )],
         3,
     )?;
 
@@ -1373,7 +1384,7 @@ fn branch_and_worktree_short_ids_do_not_collide() -> anyhow::Result<()> {
         id_map.debug_state().to_debug(),
         snapbox::str![[r#"
 workspace_and_remote_commits_count: 0
-branches: [ wo ]
+branches: [ or, wo ]
 worktrees: [ or worktree-01 ]
 
 
@@ -1383,8 +1394,8 @@ worktrees: [ or worktree-01 ]
     Ok(())
 }
 
-/// Generated IDs for named and anonymous segments remain reserved when worktree IDs are allocated
-/// later, while retaining their distinct CLI ID kinds.
+/// Generated IDs for named and anonymous segments remain reserved when worktree branch IDs are
+/// allocated later, while retaining their distinct CLI ID kinds.
 #[test]
 fn generated_segment_ids_do_not_collide_with_worktree_names() -> anyhow::Result<()> {
     let mut anonymous_segment = segment("unused", [], None, []);
@@ -1396,21 +1407,40 @@ fn generated_segment_ids_do_not_collide_with_worktree_names() -> anyhow::Result<
             source_changes(ChangeSourceId::Worktree("h0-worktree".into()), Vec::new()),
         ],
         gix::hashtable::HashMap::default(),
-        Default::default(),
+        vec![
+            worktree("g0-worktree", [segment("g0-worktree", [], None, [])]),
+            worktree(
+                "h0-worktree",
+                [
+                    segment("h0-worktree", [], None, []),
+                    segment("lower", [], None, []),
+                ],
+            ),
+        ],
         3,
     )?;
 
-    let branch_ids = id_map.branch_ids();
+    let branch_ids: Vec<_> = id_map
+        .stacks()
+        .iter()
+        .flat_map(|stack| &stack.segments)
+        .map(|segment| segment.short_id.clone())
+        .collect();
     assert_eq!(
         branch_ids,
         ["g0", "h0"],
         "the named fallback and anonymous segment use generated IDs"
     );
     let worktree_ids: Vec<_> = id_map
-        .worktrees
-        .values()
-        .map(|worktree| worktree.short_id.as_str())
+        .worktree_lanes()
+        .flat_map(|lane| &lane.segments)
+        .map(|segment| segment.short_id.as_str())
         .collect();
+    assert_eq!(
+        worktree_ids.len(),
+        3,
+        "every worktree segment has an ID: two tops and one lower segment"
+    );
     for branch_id in &branch_ids {
         assert!(
             !worktree_ids.contains(&branch_id.as_str()),
@@ -1446,16 +1476,38 @@ fn generated_segment_ids_do_not_collide_with_worktree_names() -> anyhow::Result<
         "anonymous segment resolves as its own CLI ID kind"
     );
 
-    for worktree in id_map.worktrees.values() {
+    for lane in id_map.worktree_lanes() {
+        for segment in &lane.segments {
+            assert_eq!(
+                id_map.parse(&segment.short_id, &TestChanges(changed_paths_fn))?,
+                [CliId::Branch(BranchId {
+                    name: segment.branch_name().expect("named").to_string(),
+                    id: segment.short_id.clone(),
+                    lane: lane.lane.clone(),
+                })],
+                "each displayed worktree segment ID resolves to a branch on its worktree's lane"
+            );
+        }
+        let area = id_map.parse(
+            &format!("{}:{UNCOMMITTED}", lane.segments[0].short_id),
+            &TestChanges(changed_paths_fn),
+        )?;
         assert_eq!(
-            id_map.parse(&worktree.short_id, &TestChanges(changed_paths_fn))?,
-            [CliId::Worktree {
-                id: worktree.short_id.clone(),
-                name: worktree.name.clone(),
-            }],
-            "each displayed worktree ID resolves to its worktree"
+            area,
+            [lane.uncommitted_id().expect("a worktree lane")],
+            "each worktree's `<top>:@` resolves to its uncommitted area"
         );
     }
+    let lower = id_map.parse("lower", &TestChanges(changed_paths_fn))?;
+    assert_eq!(
+        lower,
+        [CliId::Branch(BranchId {
+            name: "lower".to_string(),
+            id: lower[0].to_short_string(),
+            lane: LaneId::Worktree("h0-worktree".into()),
+        })],
+        "a lower worktree segment is a branch on that worktree's lane"
+    );
 
     Ok(())
 }
@@ -3811,11 +3863,11 @@ mod util {
 
     use anyhow::bail;
     use bstr::BString;
-    use but_graph::workspace::{Stack, StackCommit, StackSegment};
+    use but_graph::workspace::{Stack, StackCommit, StackSegment, WorktreeStack};
     use itertools::Itertools;
     use nonempty::NonEmpty;
 
-    use crate::{CliId, IdMap};
+    use crate::{CliId, IdMap, id::LaneId};
 
     pub fn id(byte: u8) -> gix::ObjectId {
         gix::ObjectId::try_from([byte].repeat(20).as_slice()).expect("could not generate ID")
@@ -3869,6 +3921,20 @@ mod util {
         Stack {
             id: None,
             segments: segments.into_iter().collect::<Vec<StackSegment>>(),
+        }
+    }
+
+    pub fn worktree<const N: usize>(name: &str, segments: [StackSegment; N]) -> WorktreeStack {
+        let top = segments.first().expect("a worktree lane is never empty");
+        WorktreeStack {
+            name: BString::from(name),
+            ref_name: top.ref_info.as_ref().map(|info| info.ref_name.clone()),
+            head: top
+                .commits
+                .first()
+                .map_or_else(|| id(0), |commit| commit.id),
+            base: None,
+            segments: segments.into_iter().collect(),
         }
     }
 
@@ -3963,7 +4029,6 @@ mod util {
                 uncommitted: _,
                 uncommitted_files,
                 uncommitted_hunks,
-                worktrees: _,
                 diff_context_lines: _,
             } = self;
             let changed_paths_fn = |commit_id: gix::ObjectId,
@@ -4004,7 +4069,6 @@ mod util {
                 uncommitted: _,
                 uncommitted_files,
                 uncommitted_hunks,
-                worktrees,
                 diff_context_lines: _,
             } = self.inner;
             let commits_count = self.inner.commit_ids().len();
@@ -4026,9 +4090,14 @@ mod util {
             id_list_if_not_empty(
                 f,
                 "worktrees",
-                worktrees
-                    .values()
-                    .map(|worktree| format!("{} {}", worktree.short_id, worktree.name))
+                self.inner
+                    .worktree_lanes()
+                    .filter_map(|lane| {
+                        let LaneId::Worktree(name) = &lane.lane else {
+                            return None;
+                        };
+                        Some(format!("{} {name}", lane.segments.first()?.short_id))
+                    })
                     .sorted(),
             )?;
             id_list_if_not_empty(
@@ -4057,4 +4126,4 @@ mod util {
         a.to_short_string().cmp(&b.to_short_string())
     }
 }
-use util::{hunk, id, segment, source_changes, stack, tree_change_addition};
+use util::{hunk, id, segment, source_changes, stack, tree_change_addition, worktree};

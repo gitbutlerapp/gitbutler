@@ -150,9 +150,11 @@ impl SquashSource {
                 } => Some(SquashRoute::UncommittedToCommit {
                     target: target.clone(),
                 }),
-                CliId::Branch(branch) => Some(SquashRoute::UncommittedToBranch {
-                    target: &branch.name,
-                }),
+                CliId::Branch(branch) if branch.lane.worktree_name().is_none() => {
+                    Some(SquashRoute::UncommittedToBranch {
+                        target: &branch.name,
+                    })
+                }
                 _ => None,
             },
             SquashSource::Commit(source_commit) => {
@@ -909,10 +911,12 @@ fn squash_route_from_commit<'a>(
                 })
             }
         }
-        CliId::Branch(branch) => Some(SquashRoute::CommitToBranch {
-            sources: source_commits,
-            target: &branch.name,
-        }),
+        CliId::Branch(branch) if branch.lane.worktree_name().is_none() => {
+            Some(SquashRoute::CommitToBranch {
+                sources: source_commits,
+                target: &branch.name,
+            })
+        }
         _ if is_uncommit_target(target, uncommitted_area) => {
             Some(SquashRoute::CommitToUncommitted {
                 sources: source_commits,
@@ -943,10 +947,12 @@ fn squash_route_from_branch<'a>(
                 sources: source_branches,
                 target: target.clone(),
             }),
-            CliId::Branch(branch) => Some(SquashRoute::BranchToBranch {
-                sources: source_branches,
-                target: &branch.name,
-            }),
+            CliId::Branch(branch) if branch.lane.worktree_name().is_none() => {
+                Some(SquashRoute::BranchToBranch {
+                    sources: source_branches,
+                    target: &branch.name,
+                })
+            }
             _ if is_uncommit_target(target, uncommitted_area) => {
                 Some(SquashRoute::BranchToUncommitted {
                     sources: source_branches,
@@ -969,10 +975,12 @@ fn squash_route_from_uncommitted_hunk<'a>(
             sources: source_hunks,
             target: target.clone(),
         }),
-        CliId::Branch(branch) => Some(SquashRoute::UncommittedHunkToBranch {
-            sources: source_hunks,
-            target: &branch.name,
-        }),
+        CliId::Branch(branch) if branch.lane.worktree_name().is_none() => {
+            Some(SquashRoute::UncommittedHunkToBranch {
+                sources: source_hunks,
+                target: &branch.name,
+            })
+        }
         _ => None,
     }
 }
@@ -990,10 +998,12 @@ fn squash_route_from_committed_file<'a>(
             sources: source_files,
             target: target.clone(),
         }),
-        CliId::Branch(branch) => Some(SquashRoute::CommittedFileToBranch {
-            sources: source_files,
-            target: &branch.name,
-        }),
+        CliId::Branch(branch) if branch.lane.worktree_name().is_none() => {
+            Some(SquashRoute::CommittedFileToBranch {
+                sources: source_files,
+                target: &branch.name,
+            })
+        }
         _ if is_uncommit_target(target, uncommitted_area) => {
             Some(SquashRoute::CommittedFileToUncommitted {
                 sources: source_files,

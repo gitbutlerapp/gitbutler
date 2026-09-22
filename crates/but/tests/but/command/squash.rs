@@ -3470,9 +3470,9 @@ Uncommitted nsn
 ┊
 ┊╭┄ g0 [A]
 ┊┊
-┊┊╭┄ wt:@ {worktree uncommitted}
+┊┊╭┄ wt:@ [uncommitted] {wt-feature}
 ┊┊┊   nv A wt-file.txt
-┊┊├┄ wt {wt-feature}
+┊┊├┄ wt [wt-feature] (no commits)
 ┊├╯
 ┊●   tpm add A
 ├╯

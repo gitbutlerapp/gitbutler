@@ -20,6 +20,7 @@ use serde::Serialize;
 use crate::{
     command::legacy::status::FilesStatusFlag,
     id::{RemoteCommitWithId, SegmentWithId, WorkspaceCommitWithId},
+    utils::change_source::ChangeSourceId,
 };
 
 use super::StatusContext;
@@ -49,7 +50,7 @@ pub(crate) struct WorkspaceStatus {
 #[derive(Clone, Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub(crate) struct Worktree {
-    /// The CLI ID naming this worktree's reference; `<cliId>:@` names its uncommitted area,
+    /// The CLI ID of the worktree's top branch; `<cliId>:@` names its uncommitted area,
     /// the way `@` names the main worktree's
     cli_id: String,
     /// The stable worktree name, i.e. the directory name under `$GIT_COMMON_DIR/worktrees/`
@@ -60,8 +61,8 @@ pub(crate) struct Worktree {
     base: Option<WorktreeBase>,
     /// The worktree's uncommitted changes
     uncommitted_changes: Vec<FileChange>,
-    /// The commits owned by this worktree alone, newest first
-    commits: Vec<Commit>,
+    /// The branches of the worktree's lane with the commits it owns alone, newest first
+    branches: Vec<Branch>,
 }
 
 /// What a linked worktree's commits rest on, and whether that is inside the workspace.
@@ -621,40 +622,23 @@ fn build_worktrees_json(
 ) -> anyhow::Result<Vec<Worktree>> {
     let mut out = Vec::new();
     for worktree in &status_ctx.worktrees {
-        let Some(with_id) = status_ctx
-            .id_map
-            .worktrees
-            .values()
-            .find(|candidate| candidate.name == worktree.name)
-        else {
+        let Some(lane) = status_ctx.id_map.worktree_lane(worktree.name.as_ref()) else {
             // Without IDs nothing here could be passed back to another command.
             continue;
         };
-        let source = with_id.source();
+        let Some(top) = lane.segments.first() else {
+            continue;
+        };
+        let source = ChangeSourceId::Worktree(worktree.name.clone());
         let files =
             super::uncommitted_file::UncommittedFileWithId::in_source(&status_ctx.id_map, &source);
-        let commits = with_id
-            .commits
+        let branches = lane
+            .segments
             .iter()
-            .map(|commit| {
-                // The same ID rule as for stack commits, so a worktree commit is named
-                // consistently across the JSON.
-                let cli_id = commit
-                    .change_id
-                    .as_ref()
-                    .map(|change_id| change_id.padded_short_id())
-                    .unwrap_or_else(|| commit.short_id.clone());
-                Commit::from_local_commit(
-                    repo,
-                    cli_id,
-                    commit.clone(),
-                    &status_ctx.local_commits_by_id,
-                    status_ctx.flags.show_files,
-                )
-            })
-            .collect::<anyhow::Result<_>>()?;
+            .map(|segment| convert_branch_to_json(repo, segment, status_ctx))
+            .collect::<anyhow::Result<Vec<_>>>()?;
         out.push(Worktree {
-            cli_id: with_id.short_id.clone(),
+            cli_id: top.short_id.clone(),
             name: worktree.name.to_string(),
             reference: worktree
                 .ref_name
@@ -671,7 +655,7 @@ fn build_worktrees_json(
                 &files,
                 status_ctx.changes_in_source(&source),
             ),
-            commits,
+            branches,
         });
     }
     Ok(out)
