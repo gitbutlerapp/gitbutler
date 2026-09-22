@@ -55,9 +55,13 @@ fn annotate_keychain_error(err: anyhow::Error) -> anyhow::Error {
         // This is fine, except for when we might be dependent on the locale.
         // If this is an issue, actually test this.
         if err_string.contains(" org.freedesktop.secrets ")
+            || err_string.contains("no secret service provider or dbus session found")
             // This is supposed to prevent the DBus-Error to trigger a popup on CI which disturbs E2E tests.
             // Ideally, e2e could be made to auto-confirm this particular message after a timeout, maybe?
-            || (!cfg!(debug_assertions) && err_string.contains("DBus error"))
+            || (!cfg!(debug_assertions)
+                && ["zbus error", "zbus fdo error"]
+                    .iter()
+                    .any(|prefix| err_string.contains(prefix)))
         {
             // Attach an explicit, stable message alongside the Code so the
             // frontend/telemetry see a human-readable label instead of the raw
@@ -67,7 +71,7 @@ fn annotate_keychain_error(err: anyhow::Error) -> anyhow::Error {
                 but_error::Code::SecretKeychainNotFound,
                 "System keychain is not available",
             ));
-        } else if err_string.contains("Secret Service: no result found") {
+        } else if err_string.contains("SS error: result not returned from SS API") {
             return err.context(but_error::Context::new_static(
                 but_error::Code::MissingLoginKeychain,
                 "Login keychain is missing",
@@ -84,6 +88,54 @@ fn annotate_keychain_error(err: anyhow::Error) -> anyhow::Error {
         but_error::Code::Unknown,
         "System keychain access failed",
     ))
+}
+
+#[cfg(all(test, target_os = "linux"))]
+mod tests {
+    use super::annotate_keychain_error;
+    use but_error::{Code, Context};
+
+    #[test]
+    fn missing_login_keychain_from_secret_service() {
+        let err =
+            annotate_keychain_error(anyhow::anyhow!("SS error: result not returned from SS API"));
+        assert_eq!(
+            err.downcast_ref::<Context>().unwrap().code,
+            Code::MissingLoginKeychain,
+            "a missing Secret Service collection must retain its stable error code"
+        );
+    }
+
+    #[test]
+    fn dbus_errors_keep_build_specific_classification() {
+        for message in [
+            "zbus error: connection refused",
+            "zbus fdo error: connection refused",
+        ] {
+            let err = annotate_keychain_error(anyhow::anyhow!(message));
+            assert_eq!(
+                err.downcast_ref::<Context>().unwrap().code,
+                if cfg!(debug_assertions) {
+                    Code::Unknown
+                } else {
+                    Code::SecretKeychainNotFound
+                },
+                "D-Bus errors must retain the release-only keychain classification"
+            );
+        }
+    }
+
+    #[test]
+    fn unavailable_secret_service() {
+        let err = annotate_keychain_error(anyhow::anyhow!(
+            "no secret service provider or dbus session found"
+        ));
+        assert_eq!(
+            err.downcast_ref::<Context>().unwrap().code,
+            Code::SecretKeychainNotFound,
+            "an unavailable Secret Service must keep its stable error code"
+        );
+    }
 }
 
 /// Delete the secret at `handle` permanently from `namespace`.

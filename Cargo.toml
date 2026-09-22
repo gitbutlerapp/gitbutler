@@ -227,7 +227,9 @@ tokio = { version = "1.50.0", default-features = false }
 keyring = { version = "3.6.3", features = [
     "apple-native",
     "windows-native",
-    "linux-native-sync-persistent",
+    "linux-native-async-persistent",
+    # Keep synchronous keyring calls independent of callers' Tokio runtimes.
+    "async-io",
     "crypto-rust",
 ] }
 anyhow = "1.0.100"
