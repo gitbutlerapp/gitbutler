@@ -68,6 +68,7 @@ pub enum CommandName {
     Land,
     Setup,
     Teardown,
+    #[cfg(feature = "nightly")]
     Expand,
     Comment,
     Completions,

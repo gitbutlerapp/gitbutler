@@ -288,7 +288,7 @@ jobs:
       - name: Dependencies for 'keyring'
         run: sudo ./scripts/install-minimal-debian-dependencies.sh
       - name: Check documentation
-        run: cargo doc --workspace --no-deps --exclude gitbutler-tauri --exclude but-api-macros-tests
+        run: cargo doc --workspace --no-deps --exclude gitbutler-tauri --exclude but-api-macros-tests --features but/nightly
 
   rust-test:
     needs: changes
@@ -328,9 +328,9 @@ jobs:
           tar -xzf cargo-nextest.tar.gz -C ${CARGO_HOME:-~/.cargo}/bin
           rm cargo-nextest.tar.gz
       - name: Run workspace tests
-        run: cargo nextest run --workspace --exclude gitbutler-tauri --exclude but-api-macros-tests --profile ci
+        run: cargo nextest run --workspace --exclude gitbutler-tauri --exclude but-api-macros-tests --features but/nightly --profile ci
       - name: Run doctests
-        run: cargo test --doc --workspace --exclude gitbutler-tauri --exclude but-api-macros-tests
+        run: cargo test --doc --workspace --exclude gitbutler-tauri --exclude but-api-macros-tests --features but/nightly
       - name: Upload results to tests.but.dev
         if: ${{ always() && !cancelled() }}
         continue-on-error: true
@@ -356,6 +356,9 @@ jobs:
             -F "tags[language]=rust" \
             -F "tags[type]=unit" \
             https://tests.but.dev/v1/uploads
+      - name: Run workspace tests without nightly
+        if: github.ref == 'refs/heads/master'
+        run: cargo nextest run --workspace --exclude gitbutler-tauri --exclude but-api-macros-tests --profile ci
       # It's intentional to use 'name equals run-script' so it's easy to re-run locally on failure.
       - run: make test-modern-but
       - name: test vendored
