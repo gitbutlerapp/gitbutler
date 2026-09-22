@@ -269,6 +269,7 @@ impl App {
                         target: CommitRelativeToTarget::BranchBucket {
                             name,
                             side: InsertSide::Above.into(),
+                            new_branch_name: None,
                         },
                     }),
                     order_commits_by_parentage: true,

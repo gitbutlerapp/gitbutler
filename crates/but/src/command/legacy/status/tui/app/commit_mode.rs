@@ -420,6 +420,7 @@ impl App {
                 target: commit::CommitRelativeToTarget::BranchBucket {
                     name: Category::LocalBranch.to_full_name(&*branch.name)?,
                     side: targeting::Side::Above,
+                    new_branch_name: None,
                 },
             }),
 
