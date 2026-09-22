@@ -20,6 +20,7 @@
 	"dependencies": {
 		"@base-ui/react": "^1.6.0",
 		"@tanstack/react-hotkeys": "^0.10.0",
+		"@tanstack/react-virtual": "^3.14.10",
 		"effect": "^3.20.0",
 		"react-resizable-panels": "^4.11.2"
 	},

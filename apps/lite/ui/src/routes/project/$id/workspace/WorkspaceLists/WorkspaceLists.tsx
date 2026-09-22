@@ -112,7 +112,7 @@ import {
 } from "#ui/segment.ts";
 import { checkedRange, addressSpaceRange } from "#ui/checking.ts";
 import { focusScope, useAutofocusScope, type FocusScope } from "#ui/focus-scopes.ts";
-import { getRangeExtractorWithIndices } from "#ui/virtual.ts";
+import { getRangeExtractorWithIndices } from "@gitbutler/ui-react/virtual.ts";
 import { FilesTree } from "#ui/routes/project/$id/workspace/FilesTree.tsx";
 import {
 	CommitForm,

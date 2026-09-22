@@ -1004,6 +1004,9 @@ importers:
       '@tanstack/react-hotkeys':
         specifier: ^0.10.0
         version: 0.10.0(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
+      '@tanstack/react-virtual':
+        specifier: ^3.14.10
+        version: 3.14.10(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
       effect:
         specifier: ^3.20.0
         version: 3.20.0

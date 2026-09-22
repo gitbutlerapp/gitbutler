@@ -1,5 +1,5 @@
 import { headInfoQueryOptions } from "#ui/api/queries.ts";
-import { PickerDialog } from "#ui/components/PickerDialog.tsx";
+import { PickerDialog } from "@gitbutler/ui-react/PickerDialog.tsx";
 import type { BranchAddress } from "#ui/addresses.ts";
 import type { Segment, Stack } from "@gitbutler/but-sdk";
 import { useQuery } from "@tanstack/react-query";
