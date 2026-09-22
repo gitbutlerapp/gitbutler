@@ -1,5 +1,6 @@
 use super::util::{
-    add_dirty_worktree, enable_worktree_manipulation, find_branch, status_json_with_files,
+    add_dirty_worktree, enable_worktree_manipulation, find_branch, status_json,
+    status_json_with_files,
 };
 use crate::utils::{CommandExt as _, Sandbox};
 
@@ -500,6 +501,40 @@ fn non_agent_commit_json_uses_native_result() {
 }
 
 "#]]);
+}
+
+#[test]
+fn commit_json_status_after_includes_committed_files() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["A"]);
+    env.file("status-after.txt", "Some text");
+
+    let output = env
+        .but("commit --no-message --json --status-after")
+        .allow_json()
+        .assert()
+        .success()
+        .get_output()
+        .stdout
+        .clone();
+    let output: serde_json::Value =
+        serde_json::from_slice(&output).expect("commit output should be valid JSON");
+
+    let result = output["result"]
+        .as_object()
+        .expect("status-after result should be an object");
+    assert_eq!(result.len(), 2, "status-after must preserve result shape");
+    assert!(result["commitId"].is_string());
+    assert!(result["changeId"].is_string());
+    assert_eq!(
+        find_branch(&output["status"], "A")["commits"][0]["changes"][0]["filePath"],
+        "status-after.txt",
+        "status-after must include files from the new commit"
+    );
+    assert!(
+        find_branch(&status_json(&env), "A")["commits"][0]["changes"].is_null(),
+        "ordinary JSON status must omit commit files unless requested"
+    );
 }
 
 #[test]
