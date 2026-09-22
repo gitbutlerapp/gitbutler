@@ -11,14 +11,21 @@ doctest = false
 
 [dependencies]
 but-error.workspace = true
+but-utils.workspace = true
 
 anyhow.workspace = true
 tracing.workspace = true
 serde.workspace = true
 gix = { workspace = true, features = ["dirwalk", "credentials", "parallel"] }
 keyring.workspace = true
+sha2.workspace = true
+
+[target.'cfg(target_os = "linux")'.dependencies]
+nix = { workspace = true, features = ["user"] }
 
 [dev-dependencies]
+serial_test = "3.2.0"
+tempfile.workspace = true
 tokio = { workspace = true, features = ["rt", "rt-multi-thread"] }
 
 [lints]

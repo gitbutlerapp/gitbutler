@@ -189,6 +189,134 @@ fn entry_for(handle: &str, namespace: Namespace) -> Result<keyring::Entry> {
 /// How to further specialize secrets to avoid name clashes in the globally shared keystore.
 static NAMESPACE: Mutex<String> = Mutex::new(String::new());
 
+/// A simple file-based credentials store where each key maps to a filepath with a file containing
+/// only the value. As the amount of credentials is generally small, this gives a very simple
+/// concurrency model.
+///
+/// This is only available on Linux and is only meant to be used for the `but` CLI, with the
+/// intention of more easily supporting headless Linux runtimes that most often lack a
+/// D-Bus-connected Secret Service.
+#[cfg(target_os = "linux")]
+pub mod file_credentials {
+    use std::{
+        any::Any,
+        fs::{DirBuilder, metadata, read_to_string, remove_file},
+        io,
+        os::unix::fs::{DirBuilderExt, MetadataExt},
+        path::{Path, PathBuf},
+    };
+
+    use anyhow::{bail, ensure};
+    use keyring::credential::{CredentialApi, CredentialBuilderApi};
+    use sha2::{Digest, Sha256};
+
+    struct Entry(PathBuf);
+
+    impl AsRef<Path> for Entry {
+        fn as_ref(&self) -> &Path {
+            &self.0
+        }
+    }
+
+    impl CredentialApi for Entry {
+        fn set_password(&self, password: &str) -> keyring::Result<()> {
+            but_utils::write(self.as_ref(), password)
+                .map_err(|err| keyring::Error::PlatformFailure(err.into_boxed_dyn_error()))?;
+            Ok(())
+        }
+
+        fn get_password(&self) -> keyring::Result<String> {
+            let content = read_to_string(self.as_ref()).map_err(|err| match err.kind() {
+                io::ErrorKind::NotFound => keyring::Error::NoEntry,
+                _ => keyring::Error::PlatformFailure(err.into()),
+            })?;
+            Ok(content)
+        }
+
+        fn set_secret(&self, _password: &[u8]) -> keyring::Result<()> {
+            unreachable!("unused")
+        }
+
+        fn get_secret(&self) -> keyring::Result<Vec<u8>> {
+            unreachable!("unused")
+        }
+
+        fn delete_credential(&self) -> keyring::Result<()> {
+            remove_file(self.as_ref()).map_err(|err| match err.kind() {
+                io::ErrorKind::NotFound => keyring::Error::NoEntry,
+                _ => keyring::Error::PlatformFailure(err.into()),
+            })
+        }
+
+        fn as_any(&self) -> &dyn Any {
+            self
+        }
+    }
+
+    pub(super) struct Builder {
+        pub(super) store: PathBuf,
+    }
+
+    impl CredentialBuilderApi for Builder {
+        fn build(
+            &self,
+            _target: Option<&str>,
+            service: &str,
+            _user: &str,
+        ) -> keyring::Result<Box<keyring::Credential>> {
+            // Turn into hex to make the key guaranteed to be path safe
+            let handle_hex = Sha256::digest(service);
+            let path = self.store.join(format!("{handle_hex:x}"));
+            Ok(Box::new(Entry(path)))
+        }
+
+        fn as_any(&self) -> &dyn Any {
+            self
+        }
+    }
+
+    pub fn setup<P: AsRef<Path>>(credentials_directory: P) -> anyhow::Result<()> {
+        let mut builder = DirBuilder::new();
+        builder.recursive(true).mode(0o700);
+        builder.create(&credentials_directory)?;
+
+        let stat = metadata(&credentials_directory)?;
+        ensure!(
+            stat.is_dir(),
+            "Successfully created a directory at {:?} - must be a directory!",
+            credentials_directory.as_ref()
+        );
+
+        let euid = nix::unistd::Uid::effective().as_raw();
+        let dir_uid = stat.uid();
+        if dir_uid != euid {
+            bail!(
+                "Bad owner {dir_uid} of credentials directory {:?}. Must be owned by current user {euid}.",
+                credentials_directory.as_ref()
+            );
+        }
+
+        // If the directory already existed OR there is a umask restriction on the owner's bits, it
+        // may not have the correct permissions. We don't want to change the permissions of an
+        // existing directory nor forcibly override a umask, but the app won't work properly if we
+        // don't have rwx on the credentials directory and we don't want to store secrets in it if
+        // there are overly permissive permissions. So we bail with an informative error.
+        let mode = stat.mode();
+        if (mode & 0o777) != 0o700 {
+            bail!(
+                "Bad permissions 0{mode:o} on credentials directory {:?}. Must be 0700.",
+                credentials_directory.as_ref()
+            )
+        }
+
+        let builder = Builder {
+            store: credentials_directory.as_ref().to_owned(),
+        };
+        keyring::set_default_credential_builder(Box::new(builder));
+        Ok(())
+    }
+}
+
 /// A keystore that uses git-credentials under to hood. It's useful on Systems that nag the user
 /// with popups if the underlying binary changes, and is available if `git` can be found and executed.
 pub mod git_credentials {
