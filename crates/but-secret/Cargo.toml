@@ -19,6 +19,7 @@ gix = { workspace = true, features = ["dirwalk", "credentials", "parallel"] }
 keyring.workspace = true
 
 [dev-dependencies]
+tokio = { workspace = true, features = ["rt", "rt-multi-thread"] }
 
 [lints]
 workspace = true
