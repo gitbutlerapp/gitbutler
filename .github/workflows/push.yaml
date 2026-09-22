@@ -356,6 +356,9 @@ jobs:
             -F "tags[language]=rust" \
             -F "tags[type]=unit" \
             https://tests.but.dev/v1/uploads
+      - name: Run workspace tests without nightly
+        if: github.ref == 'refs/heads/master'
+        run: cargo nextest run --workspace --exclude gitbutler-tauri --exclude but-api-macros-tests --profile ci
       # It's intentional to use 'name equals run-script' so it's easy to re-run locally on failure.
       - run: make test-modern-but
       - name: test vendored
