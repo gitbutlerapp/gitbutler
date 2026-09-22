@@ -474,15 +474,6 @@ fn resolve(ctx: &Context, id_map: &IdMap, args: Platform) -> CliResult<DiffOpera
         ResolvedCliIdArg::WorktreeUncommitted(name) => {
             Ok(DiffOperation::WorktreeUncommitted { name })
         }
-        // The reference names the lane's commits, which no diff operation renders yet.
-        ResolvedCliIdArg::Worktree(name) => Err(bad_input(format!(
-            "Worktree {name} has no changes of its own"
-        ))
-        .hint(format!(
-            "Use `{name}:{}` for that worktree's uncommitted changes",
-            crate::id::UNCOMMITTED
-        ))
-        .into()),
         ResolvedCliIdArg::Stack { .. } => {
             Err(bad_input("viewing diffs for stack assignments is not supported").into())
         }

@@ -90,7 +90,6 @@ impl Cursor {
             ResolvedCliIdArg::AnonymousSegment(..)
             | ResolvedCliIdArg::Commit(..)
             | ResolvedCliIdArg::Branch(..)
-            | ResolvedCliIdArg::Worktree(..)
             | ResolvedCliIdArg::WorktreeUncommitted(..)
             | ResolvedCliIdArg::Uncommitted
             | ResolvedCliIdArg::UncommittedHunkOrFile(..)
@@ -124,7 +123,6 @@ impl Cursor {
                         | CliId::Branch(..)
                         | CliId::Commit { .. }
                         | CliId::Uncommitted { .. }
-                        | CliId::Worktree { .. }
                         | CliId::WorktreeUncommitted { .. }
                         | CliId::Stack { .. } => false,
                     }
@@ -136,7 +134,6 @@ impl Cursor {
                 | ResolvedCliIdArg::CommittedFile(..)
                 | ResolvedCliIdArg::Uncommitted
                 | ResolvedCliIdArg::PathPrefix { .. }
-                | ResolvedCliIdArg::Worktree(..)
                 | ResolvedCliIdArg::WorktreeUncommitted(..)
                 | ResolvedCliIdArg::Stack { .. }
                 | ResolvedCliIdArg::CommittedHunk(..) => target == **cli_id,
@@ -499,7 +496,6 @@ impl Cursor {
                 | Some(CliId::Branch(..))
                 | Some(CliId::Commit { .. })
                 | Some(CliId::Uncommitted { .. })
-                | Some(CliId::Worktree { .. })
                 | Some(CliId::WorktreeUncommitted { .. })
                 | Some(CliId::Stack { .. }) => matches!(show_files, FilesStatusFlag::All),
                 Some(CliId::CommittedHunk(..)) | None => false,
@@ -522,7 +518,6 @@ impl Cursor {
                 StatusOutputLineData::Commit { .. }
                 | StatusOutputLineData::Branch { .. }
                 | StatusOutputLineData::StagedChanges { .. }
-                | StatusOutputLineData::Worktree { .. }
                 | StatusOutputLineData::WorktreeUncommitted { .. }
                 | StatusOutputLineData::UncommittedChanges { .. } => line.data.cli_id(),
                 StatusOutputLineData::UpdateNotice
@@ -794,13 +789,11 @@ impl Cursor {
             {
                 // A worktree lane opens on its uncommitted area and closes on `├╯`, so every lane
                 // nested in the selected branch adds exactly one connector to cross before the
-                // branch's own closing connector is reached. The reference row sits inside the
-                // lane and never opens one:
+                // branch's own closing connector is reached:
                 //
                 //     ┊╭┄ br [branch]
                 //     ┊┊
                 //     ┊┊╭┄ wt:@ {worktree uncommitted}
-                //     ┊┊├┄ wt {worktree}
                 //     ┊┊●   abc (no commit message)
                 //     ┊├╯
                 //     ┊●   abc (no commit message)
@@ -837,7 +830,6 @@ impl Cursor {
                     | StatusOutputLineData::StagedChanges { .. }
                     | StatusOutputLineData::StagedFile { .. }
                     | StatusOutputLineData::UncommittedChanges { .. }
-                    | StatusOutputLineData::Worktree { .. }
                     | StatusOutputLineData::WorktreeUncommitted { .. }
                     | StatusOutputLineData::UncommittedFile { .. }
                     | StatusOutputLineData::CommitMessage
@@ -1026,20 +1018,6 @@ pub(super) fn same_entity_for_reload(previous: &CliId, current: &CliId) -> bool 
                 false
             }
         }
-        CliId::Worktree {
-            id: _,
-            name: previous,
-        } => {
-            if let CliId::Worktree {
-                id: _,
-                name: current,
-            } = current
-            {
-                previous == current
-            } else {
-                false
-            }
-        }
         CliId::Stack {
             stack_id: previous, ..
         } => {
@@ -1071,7 +1049,6 @@ fn select_after_reload_for_cli_id(cli_id: &Arc<CliId>) -> SelectAfterReload {
         | CliId::UncommittedHunkOrFile(..)
         | CliId::PathPrefix { .. }
         | CliId::Branch(..)
-        | CliId::Worktree { .. }
         | CliId::WorktreeUncommitted { .. }
         | CliId::Stack { .. } => SelectAfterReload::CliId(Box::new((**cli_id).clone())),
     }
@@ -1083,7 +1060,6 @@ fn is_discard_commit_boundary(line: &StatusOutputLine) -> bool {
         StatusOutputLineData::Branch { .. }
         | StatusOutputLineData::StagedChanges { .. }
         | StatusOutputLineData::UncommittedChanges { .. }
-        | StatusOutputLineData::Worktree { .. }
         | StatusOutputLineData::WorktreeUncommitted { .. }
         | StatusOutputLineData::MergeBase => true,
         StatusOutputLineData::UpdateNotice
@@ -1123,7 +1099,6 @@ fn is_section_header(line: &StatusOutputLine, mode: &Mode) -> bool {
                 line.data,
                 StatusOutputLineData::Branch { .. }
                     | StatusOutputLineData::UncommittedChanges { .. }
-                    | StatusOutputLineData::Worktree { .. }
                     | StatusOutputLineData::WorktreeUncommitted { .. }
                     | StatusOutputLineData::MergeBase
             )
@@ -1356,7 +1331,6 @@ pub fn is_selectable_in_mode(
                     | CliId::CommittedHunk { .. }
                     | CliId::Branch(..)
                     | CliId::Commit { .. }
-                    | CliId::Worktree { .. }
                     | CliId::WorktreeUncommitted { .. }
                     | CliId::Stack { .. } => false,
                 }

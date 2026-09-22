@@ -102,9 +102,7 @@ impl App {
             .selected_line(&self.status_lines)
             .and_then(|line| line.data.cli_id())
             .and_then(|id| match &**id {
-                CliId::Worktree { name, .. } | CliId::WorktreeUncommitted { name, .. } => {
-                    Some(name.clone())
-                }
+                CliId::WorktreeUncommitted { name, .. } => Some(name.clone()),
                 CliId::Branch(..) | CliId::AnonymousSegment(..) => id
                     .lane()
                     .and_then(LaneId::worktree_name)
@@ -234,7 +232,6 @@ impl App {
             | StatusOutputLineData::StagedChanges { .. }
             | StatusOutputLineData::StagedFile { .. }
             | StatusOutputLineData::UncommittedChanges { .. }
-            | StatusOutputLineData::Worktree { .. }
             | StatusOutputLineData::WorktreeUncommitted { .. }
             | StatusOutputLineData::UncommittedFile { .. }
             | StatusOutputLineData::Branch { .. }

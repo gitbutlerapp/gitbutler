@@ -284,7 +284,6 @@ impl App {
                 | CliId::CommittedHunk(..)
                 | CliId::Stack { .. }
                 | CliId::PathPrefix { .. }
-                | CliId::Worktree { .. }
                 | CliId::WorktreeUncommitted { .. } => return Ok(()),
             },
         });

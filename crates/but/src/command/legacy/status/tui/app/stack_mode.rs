@@ -112,7 +112,6 @@ impl ReorderStackSource {
             | CliId::CommittedFile { .. }
             | CliId::CommittedHunk { .. }
             | CliId::Commit { .. }
-            | CliId::Worktree { .. }
             | CliId::WorktreeUncommitted { .. }
             | CliId::Uncommitted { .. } => false,
         }
@@ -171,7 +170,6 @@ impl FuzzyPickerItem for ApplyBranchItem {
 fn line_uses_top_stack_for_stack_mode(line: &StatusOutputLine) -> bool {
     match &line.data {
         StatusOutputLineData::UncommittedChanges { .. }
-        | StatusOutputLineData::Worktree { .. }
         | StatusOutputLineData::WorktreeUncommitted { .. } => true,
         StatusOutputLineData::UncommittedFile { cli_id }
         | StatusOutputLineData::StagedFile { cli_id }
@@ -226,7 +224,6 @@ fn stack_id_for_line(
         | StatusOutputLineData::Connector
         | StatusOutputLineData::BetweenStacks
         | StatusOutputLineData::UncommittedChanges { .. }
-        | StatusOutputLineData::Worktree { .. }
         | StatusOutputLineData::WorktreeUncommitted { .. }
         | StatusOutputLineData::CommitMessage
         | StatusOutputLineData::EmptyCommitMessage
@@ -250,7 +247,6 @@ fn stack_id_for_cli_id(cli_id: &CliId, status_lines: &[StatusOutputLine]) -> Opt
         | CliId::PathPrefix { .. }
         | CliId::Branch(..)
         | CliId::Uncommitted { .. }
-        | CliId::Worktree { .. }
         | CliId::WorktreeUncommitted { .. }
         | CliId::Stack { .. }
         | CliId::CommittedHunk(..) => false,
@@ -271,7 +267,6 @@ fn stack_id_for_cli_id(cli_id: &CliId, status_lines: &[StatusOutputLine]) -> Opt
                     | CliId::Branch(..)
                     | CliId::Commit { .. }
                     | CliId::Uncommitted { .. }
-                    | CliId::Worktree { .. }
                     | CliId::WorktreeUncommitted { .. }
                     | CliId::Stack { .. } => None,
                 },
@@ -281,7 +276,6 @@ fn stack_id_for_cli_id(cli_id: &CliId, status_lines: &[StatusOutputLine]) -> Opt
                 | StatusOutputLineData::StagedChanges { .. }
                 | StatusOutputLineData::StagedFile { .. }
                 | StatusOutputLineData::UncommittedChanges { .. }
-                | StatusOutputLineData::Worktree { .. }
                 | StatusOutputLineData::WorktreeUncommitted { .. }
                 | StatusOutputLineData::UncommittedFile { .. }
                 | StatusOutputLineData::Branch { .. }
@@ -300,7 +294,6 @@ fn stack_id_for_cli_id(cli_id: &CliId, status_lines: &[StatusOutputLine]) -> Opt
         CliId::Stack { stack_id, .. } => Some(*stack_id),
         CliId::UncommittedHunkOrFile(..)
         | CliId::PathPrefix { .. }
-        | CliId::Worktree { .. }
         | CliId::WorktreeUncommitted { .. }
         | CliId::Uncommitted { .. }
         | CliId::CommittedHunk(..) => None,
@@ -484,7 +477,6 @@ impl App {
             | CliId::CommittedHunk { .. }
             | CliId::Commit { .. }
             | CliId::Uncommitted { .. }
-            | CliId::Worktree { .. }
             | CliId::WorktreeUncommitted { .. }
             | CliId::Stack { .. } => return Ok(()),
         };
@@ -772,13 +764,11 @@ fn row_stack_ids(lines: &[StatusOutputLine]) -> Vec<Option<StackId>> {
                 | CliId::Branch(..)
                 | CliId::Commit { .. }
                 | CliId::Uncommitted { .. }
-                | CliId::Worktree { .. }
                 | CliId::WorktreeUncommitted { .. }
                 | CliId::Stack { .. } => None,
             },
             StatusOutputLineData::UpdateNotice
             | StatusOutputLineData::UncommittedChanges { .. }
-            | StatusOutputLineData::Worktree { .. }
             | StatusOutputLineData::WorktreeUncommitted { .. }
             | StatusOutputLineData::UncommittedFile { .. }
             | StatusOutputLineData::MergeBase
@@ -827,7 +817,6 @@ fn stack_id_from_cli_id(cli_id: &CliId) -> Option<StackId> {
         | CliId::CommittedFile { .. }
         | CliId::CommittedHunk(..)
         | CliId::Commit { .. }
-        | CliId::Worktree { .. }
         | CliId::WorktreeUncommitted { .. }
         | CliId::Uncommitted { .. } => None,
     }

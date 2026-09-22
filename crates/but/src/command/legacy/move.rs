@@ -834,40 +834,30 @@ fn create_move_above_or_below_op(
             name: worktree_tip_target(repo, name.as_ref(), side, &unresolved_target)?,
         }
     } else {
-        match unresolved_target.resolve_in_workspace(repo, id_map, Purpose::Anchor, None)? {
-            ResolvedCliIdArg::Worktree(name) => {
-                if new_branch_name.is_some() {
+        match unresolved_target
+            .resolve_in_workspace(repo, id_map, Purpose::Anchor, None)?
+            .into_branch_or_commit()?
+        {
+            BranchOrCommit::Commit(commit) => {
+                if branch_flag_provided {
                     return Err(bad_input(
-                        "Cannot use `-b/--branch` when moving relative to worktrees",
+                        "Cannot use `-b/--branch` when moving relative to commits",
                     )
                     .into());
                 }
-                MoveTarget::BranchTip {
-                    name: worktree_tip_target(repo, name.as_ref(), side, &unresolved_target)?,
+                MoveTarget::Commit { commit, side }
+            }
+            BranchOrCommit::Branch(branch_arg) => {
+                let new_branch_name = new_branch_name
+                    .flatten()
+                    .map(|branch| BranchArg(branch.0).resolve_for_creation(repo, ws))
+                    .transpose()?;
+                MoveTarget::BranchBucket {
+                    name: branch_arg.resolve_existing_local_branch(repo)?,
+                    side,
+                    new_branch_name,
                 }
             }
-            resolved => match resolved.into_branch_or_commit()? {
-                BranchOrCommit::Commit(commit) => {
-                    if new_branch_name.is_some() {
-                        return Err(bad_input(
-                            "Cannot use `-b/--branch` when moving relative to commits",
-                        )
-                        .into());
-                    }
-                    MoveTarget::Commit { commit, side }
-                }
-                BranchOrCommit::Branch(branch_arg) => {
-                    let new_branch_name = new_branch_name
-                        .flatten()
-                        .map(|branch| BranchArg(branch.0).resolve_for_creation(repo, ws))
-                        .transpose()?;
-                    MoveTarget::BranchBucket {
-                        name: branch_arg.resolve_existing_local_branch(repo)?,
-                        side,
-                        new_branch_name,
-                    }
-                }
-            },
         }
     };
 

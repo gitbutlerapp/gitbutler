@@ -38,13 +38,6 @@ fn uncommitted_area(id: &str) -> Arc<CliId> {
     Arc::new(CliId::Uncommitted { id: id.into() })
 }
 
-fn worktree_cli_id(name: &str, id: &str) -> Arc<CliId> {
-    Arc::new(CliId::Worktree {
-        id: id.into(),
-        name: name.into(),
-    })
-}
-
 fn worktree_uncommitted_cli_id(name: &str, id: &str) -> Arc<CliId> {
     Arc::new(CliId::WorktreeUncommitted {
         id: id.into(),
@@ -160,7 +153,6 @@ fn uncommitted_source(cli_ids: &[Arc<CliId>]) -> CommitSource {
             | CliId::CommittedHunk { .. }
             | CliId::Branch(BranchId { .. })
             | CliId::Stack { .. }
-            | CliId::Worktree { .. }
             | CliId::WorktreeUncommitted { .. }
             | CliId::Commit { .. } => panic!("test cli ID should be uncommitted"),
         }
@@ -1685,7 +1677,7 @@ fn move_next_section_moves_to_next_jump_target() {
 }
 
 #[test]
-fn section_navigation_stops_on_worktree_headings() {
+fn section_navigation_stops_on_worktree_areas() {
     let lines = vec![
         branch_line("main", "b0"),
         line(StatusOutputLineData::Commit {
@@ -1693,8 +1685,8 @@ fn section_navigation_stops_on_worktree_headings() {
             stack_id: None,
             classification: CommitClassification::LocalOnly,
         }),
-        line(StatusOutputLineData::Worktree {
-            cli_id: worktree_uncommitted_cli_id("worktree", "w0"),
+        line(StatusOutputLineData::WorktreeUncommitted {
+            cli_id: worktree_uncommitted_cli_id("worktree", "w0:@"),
         }),
         uncommitted_file_line("worktree-file", "u0"),
         branch_line("other", "b1"),
@@ -1706,11 +1698,11 @@ fn section_navigation_stops_on_worktree_headings() {
             &Mode::Normal(NormalMode::default()),
             FilesStatusFlag::All,
         )
-        .expect("the worktree heading is the next section");
+        .expect("the worktree area is the next section");
     assert_eq!(
         cursor,
         Cursor(2),
-        "next-section navigation stops on the worktree heading"
+        "next-section navigation stops on the worktree area"
     );
 
     let cursor = Cursor(4)
@@ -1719,11 +1711,11 @@ fn section_navigation_stops_on_worktree_headings() {
             &Mode::Normal(NormalMode::default()),
             FilesStatusFlag::All,
         )
-        .expect("the worktree heading is the previous section");
+        .expect("the worktree area is the previous section");
     assert_eq!(
         cursor,
         Cursor(2),
-        "previous-section navigation stops on the worktree heading"
+        "previous-section navigation stops on the worktree area"
     );
 }
 
@@ -2089,17 +2081,10 @@ fn worktree_area_remains_selectable_with_uncommitted_marks() {
     let area = line(StatusOutputLineData::WorktreeUncommitted {
         cli_id: worktree_uncommitted_cli_id("worktree", "w0:@"),
     });
-    let reference = line(StatusOutputLineData::Worktree {
-        cli_id: worktree_cli_id("worktree", "w0"),
-    });
 
     assert!(
         is_selectable_in_mode(&area, mode.as_ref(), FilesStatusFlag::All),
         "a linked worktree's uncommitted area stays selectable while hunks are marked",
-    );
-    assert!(
-        !is_selectable_in_mode(&reference, mode.as_ref(), FilesStatusFlag::All),
-        "a worktree reference holds no hunks, so marking hunks does not reach it",
     );
 }
 
@@ -2206,11 +2191,6 @@ fn status_line(rendered: &str) -> StatusOutputLineData {
         | "┊┊╭┄ wt:@ {worktree uncommitted} (no changes)"
         | "┊╭┄ wt:@ {worktree uncommitted} (no changes)" => {
             StatusOutputLineData::WorktreeUncommitted {
-                cli_id: random_cli_id(),
-            }
-        }
-        "┊┊┊├┄ wt {worktree}" | "┊┊├┄ wt {worktree}" | "┊├┄ wt {worktree}" => {
-            StatusOutputLineData::Worktree {
                 cli_id: random_cli_id(),
             }
         }
@@ -2487,12 +2467,10 @@ fn lines_part_of_current_branch_with_stacked_worktrees() {
         ┊╭┄ br [branch]
         ┊┊
         ┊┊╭┄ wt:@ {worktree uncommitted} (no changes)
-        ┊┊├┄ wt {worktree}
         ┊┊●   abc (no commit message)
         ┊├╯
         ┊┊
         ┊┊╭┄ wt:@ {worktree uncommitted} (no changes)
-        ┊┊├┄ wt {worktree}
         ┊├╯
         ┊●   abc (no commit message)
         ├╯
@@ -2510,12 +2488,10 @@ fn lines_part_of_current_branch_with_stacked_worktrees() {
             true,  // ┊╭┄ br [branch]
             true,  // ┊┊
             true,  // ┊┊╭┄ wt:@ {worktree uncommitted} (no changes)
-            true,  // ┊┊├┄ wt {worktree}
             true,  // ┊┊●   abc (no commit message)
             true,  // ┊├╯
             true,  // ┊┊
             true,  // ┊┊╭┄ wt:@ {worktree uncommitted} (no changes)
-            true,  // ┊┊├┄ wt {worktree}
             true,  // ┊├╯
             true,  // ┊●   abc (no commit message)
             false, // ├╯
@@ -2538,7 +2514,6 @@ fn lines_part_of_current_branch_with_stacked_worktrees_with_commits_above() {
         ┊●   abc (no commit message)
         ┊┊
         ┊┊╭┄ wt:@ {worktree uncommitted} (no changes)
-        ┊┊├┄ wt {worktree}
         ┊┊●   abc (no commit message)
         ┊├╯
         ┊●   abc (no commit message)
@@ -2558,7 +2533,6 @@ fn lines_part_of_current_branch_with_stacked_worktrees_with_commits_above() {
             true,  // ┊●   abc (no commit message)
             true,  // ┊┊
             true,  // ┊┊╭┄ wt:@ {worktree uncommitted} (no changes)
-            true,  // ┊┊├┄ wt {worktree}
             true,  // ┊┊●   abc (no commit message)
             true,  // ┊├╯
             true,  // ┊●   abc (no commit message)
@@ -2583,7 +2557,6 @@ fn lines_part_of_current_branch_with_dirty_stacked_worktrees() {
         ┊┊
         ┊┊╭┄ wt:@ {worktree uncommitted} (no changes)
         ┊┊┊   ab M file.rs
-        ┊┊├┄ wt {worktree}
         ┊├╯
         ┊●   abc (no commit message)
         ├╯
@@ -2603,7 +2576,6 @@ fn lines_part_of_current_branch_with_dirty_stacked_worktrees() {
             true,  // ┊┊
             true,  // ┊┊╭┄ wt:@ {worktree uncommitted} (no changes)
             true,  // ┊┊┊   ab M file.rs
-            true,  // ┊┊├┄ wt {worktree}
             true,  // ┊├╯
             true,  // ┊●   abc (no commit message)
             false, // ├╯
@@ -2627,7 +2599,6 @@ fn lines_part_of_current_branch_with_dirty_stacked_worktrees_with_commits() {
         ┊┊
         ┊┊╭┄ wt:@ {worktree uncommitted} (no changes)
         ┊┊┊   ab M file.rs
-        ┊┊├┄ wt {worktree}
         ┊┊●   abc (no commit message)
         ┊├╯
         ┊●   abc (no commit message)
@@ -2648,7 +2619,6 @@ fn lines_part_of_current_branch_with_dirty_stacked_worktrees_with_commits() {
             true,  // ┊┊
             true,  // ┊┊╭┄ wt:@ {worktree uncommitted} (no changes)
             true,  // ┊┊┊   ab M file.rs
-            true,  // ┊┊├┄ wt {worktree}
             true,  // ┊┊●   abc (no commit message)
             true,  // ┊├╯
             true,  // ┊●   abc (no commit message)
@@ -2672,7 +2642,6 @@ fn lines_part_of_current_branch_with_dirty_worktree_commit_files() {
         ┊┊
         ┊┊╭┄ wt:@ {worktree uncommitted} (no changes)
         ┊┊┊   ab M file.rs
-        ┊┊├┄ wt {worktree}
         ┊┊●   abc (no commit message)
         ┊┊│     ab M committed.rs
         ┊├╯
@@ -2693,7 +2662,6 @@ fn lines_part_of_current_branch_with_dirty_worktree_commit_files() {
             true,  // ┊┊
             true,  // ┊┊╭┄ wt:@ {worktree uncommitted} (no changes)
             true,  // ┊┊┊   ab M file.rs
-            true,  // ┊┊├┄ wt {worktree}
             true,  // ┊┊●   abc (no commit message)
             true,  // ┊┊│     ab M committed.rs
             true,  // ┊├╯
@@ -2719,11 +2687,9 @@ fn lines_part_of_current_branch_with_nested_worktree_between_dirty_worktree_comm
         ┊┊
         ┊┊╭┄ wt:@ {worktree uncommitted} (no changes)
         ┊┊┊   ab M file.rs
-        ┊┊├┄ wt {worktree}
         ┊┊●   abc (no commit message)
         ┊┊┊
         ┊┊┊╭┄ wt:@ {worktree uncommitted} (no changes)
-        ┊┊┊├┄ wt {worktree}
         ┊┊┊●   abc (no commit message)
         ┊┊├╯
         ┊┊●   abc (no commit message)
@@ -2745,11 +2711,9 @@ fn lines_part_of_current_branch_with_nested_worktree_between_dirty_worktree_comm
             true,  // ┊┊
             true,  // ┊┊╭┄ wt:@ {worktree uncommitted} (no changes)
             true,  // ┊┊┊   ab M file.rs
-            true,  // ┊┊├┄ wt {worktree}
             true,  // ┊┊●   abc (no commit message)
             true,  // ┊┊┊
             true,  // ┊┊┊╭┄ wt:@ {worktree uncommitted} (no changes)
-            true,  // ┊┊┊├┄ wt {worktree}
             true,  // ┊┊┊●   abc (no commit message)
             true,  // ┊┊├╯
             true,  // ┊┊●   abc (no commit message)
@@ -2766,8 +2730,7 @@ fn lines_part_of_current_branch_with_nested_worktree_between_dirty_worktree_comm
     );
 }
 
-/// Fixed by GB-1915: the typed reference row lets each lane earn and spend exactly one
-/// connector, which the peek-ahead heuristic this replaced could not get right.
+/// Fixed by GB-1915.
 #[test]
 fn lines_part_of_current_branch_with_dirty_nested_worktree_between_dirty_worktree_commits() {
     let lines = status_lines(
@@ -2778,12 +2741,10 @@ fn lines_part_of_current_branch_with_dirty_nested_worktree_between_dirty_worktre
         ┊┊
         ┊┊╭┄ wt:@ {worktree uncommitted} (no changes)
         ┊┊┊   ab M file.rs
-        ┊┊├┄ wt {worktree}
         ┊┊●   abc (no commit message)
         ┊┊┊
         ┊┊┊╭┄ wt:@ {worktree uncommitted} (no changes)
         ┊┊┊┊   ab M file.rs
-        ┊┊┊├┄ wt {worktree}
         ┊┊┊●   abc (no commit message)
         ┊┊├╯
         ┊┊●   abc (no commit message)
@@ -2805,12 +2766,10 @@ fn lines_part_of_current_branch_with_dirty_nested_worktree_between_dirty_worktre
             true,  // ┊┊
             true,  // ┊┊╭┄ wt:@ {worktree uncommitted} (no changes)
             true,  // ┊┊┊   ab M file.rs
-            true,  // ┊┊├┄ wt {worktree}
             true,  // ┊┊●   abc (no commit message)
             true,  // ┊┊┊
             true,  // ┊┊┊╭┄ wt:@ {worktree uncommitted} (no changes)
             true,  // ┊┊┊┊   ab M file.rs
-            true,  // ┊┊┊├┄ wt {worktree}
             true,  // ┊┊┊●   abc (no commit message)
             true,  // ┊┊├╯
             true,  // ┊┊●   abc (no commit message)
@@ -2838,12 +2797,10 @@ fn lines_part_of_current_branch_with_dirty_nested_worktrees_with_commits() {
         ┊┊
         ┊┊╭┄ wt:@ {worktree uncommitted} (no changes)
         ┊┊┊   ab M file.rs
-        ┊┊├┄ wt {worktree}
         ┊┊●   abc (no commit message)
         ┊├╯
         ┊┊
         ┊┊╭┄ wt:@ {worktree uncommitted} (no changes)
-        ┊┊├┄ wt {worktree}
         ┊├╯
         ┊●   abc (no commit message)
         ├╯
@@ -2863,12 +2820,10 @@ fn lines_part_of_current_branch_with_dirty_nested_worktrees_with_commits() {
             true,  // ┊┊
             true,  // ┊┊╭┄ wt:@ {worktree uncommitted} (no changes)
             true,  // ┊┊┊   ab M file.rs
-            true,  // ┊┊├┄ wt {worktree}
             true,  // ┊┊●   abc (no commit message)
             true,  // ┊├╯
             true,  // ┊┊
             true,  // ┊┊╭┄ wt:@ {worktree uncommitted} (no changes)
-            true,  // ┊┊├┄ wt {worktree}
             true,  // ┊├╯
             true,  // ┊●   abc (no commit message)
             false, // ├╯

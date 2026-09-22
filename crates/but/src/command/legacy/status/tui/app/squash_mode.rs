@@ -495,8 +495,7 @@ impl App {
             | CliId::CommittedHunk(..)
             | CliId::PathPrefix { .. }
             | CliId::Stack { .. }
-            | CliId::WorktreeUncommitted { .. }
-            | CliId::Worktree { .. } => {}
+            | CliId::WorktreeUncommitted { .. } => {}
         }
         Ok(())
     }

@@ -390,7 +390,6 @@ impl StatusOutputLine {
             StatusOutputLineData::StagedChanges { .. }
             | StatusOutputLineData::StagedFile { .. }
             | StatusOutputLineData::UncommittedChanges { .. }
-            | StatusOutputLineData::Worktree { .. }
             | StatusOutputLineData::WorktreeUncommitted { .. }
             | StatusOutputLineData::UncommittedFile { .. }
             | StatusOutputLineData::CommitMessage
@@ -421,10 +420,6 @@ pub enum StatusOutputLineData {
         cli_id: Arc<CliId>,
     },
     UncommittedChanges {
-        cli_id: Arc<CliId>,
-    },
-    #[allow(dead_code)]
-    Worktree {
         cli_id: Arc<CliId>,
     },
     WorktreeUncommitted {
@@ -458,7 +453,6 @@ impl StatusOutputLineData {
     pub fn cli_id(&self) -> Option<&Arc<CliId>> {
         match self {
             StatusOutputLineData::UncommittedChanges { cli_id }
-            | StatusOutputLineData::Worktree { cli_id }
             | StatusOutputLineData::WorktreeUncommitted { cli_id }
             | StatusOutputLineData::UncommittedFile { cli_id }
             | StatusOutputLineData::Branch { cli_id, .. }

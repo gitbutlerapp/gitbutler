@@ -30,7 +30,6 @@ use crate::{
     utils::{
         change_source::{ChangeSourceId, UncommittedSelection},
         targeting::{self, Side},
-        worktrees::worktree_branch,
     },
 };
 
@@ -71,11 +70,9 @@ pub enum CommitSource {
 
 impl ModeRender for CommitMode {
     fn operation_extension(&self, data: &StatusOutputLineData) -> Option<OperationExtension<'_>> {
-        let is_worktree_heading = matches!(data, StatusOutputLineData::Worktree { .. });
         let direction = if matches!(data, StatusOutputLineData::Commit { .. }) {
             self.insert_side.into()
-        } else if matches!(data, StatusOutputLineData::Branch { .. }) || is_worktree_heading {
-            // Below the heading is the top of the worktree's lane, which is where the commit goes.
+        } else if matches!(data, StatusOutputLineData::Branch { .. }) {
             ExtensionDirection::Below
         } else {
             return None;
@@ -157,9 +154,9 @@ impl CommitSource {
                 Some(CommitSource::UncommittedArea(ChangeSourceId::Head))
             }
             CliId::UncommittedHunkOrFile(hunk) => Some(CommitSource::UncommittedHunk(hunk.clone())),
-            CliId::WorktreeUncommitted { name, .. } | CliId::Worktree { name, .. } => Some(
-                CommitSource::UncommittedArea(ChangeSourceId::Worktree(name.clone())),
-            ),
+            CliId::WorktreeUncommitted { name, .. } => Some(CommitSource::UncommittedArea(
+                ChangeSourceId::Worktree(name.clone()),
+            )),
             CliId::AnonymousSegment(..)
             | CliId::PathPrefix { .. }
             | CliId::CommittedFile { .. }
@@ -373,12 +370,6 @@ impl App {
                 commit: commit.clone(),
                 side: *insert_side,
             },
-            CliId::Worktree { name, .. } => {
-                let repo = ctx.repo.get()?;
-                commit::CommitRelativeToTarget::BranchTip {
-                    name: worktree_branch(&repo, name.as_ref())?,
-                }
-            }
             CliId::AnonymousSegment(..)
             | CliId::UncommittedHunkOrFile(..)
             | CliId::WorktreeUncommitted { .. }
@@ -436,7 +427,6 @@ impl App {
             | CliId::CommittedFile { .. }
             | CliId::CommittedHunk { .. }
             | CliId::Commit { .. }
-            | CliId::Worktree { .. }
             | CliId::WorktreeUncommitted { .. }
             | CliId::Stack { .. } => return Ok(()),
         };

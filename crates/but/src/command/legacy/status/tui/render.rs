@@ -692,10 +692,7 @@ fn render_status_list_item(
                 decoration_end,
                 suffix,
             }) => {
-                let is_worktree = data
-                    .cli_id()
-                    .is_some_and(|cli_id| matches!(&**cli_id, CliId::Worktree { .. }));
-                if line_has_copied_highlight && !is_worktree {
+                if line_has_copied_highlight {
                     line.extend(id.iter().cloned().map(with_highlight));
                 } else if let Some(jump_mode) = jump_mode {
                     line.extend(style_jump_mode_matches(
@@ -707,11 +704,7 @@ fn render_status_list_item(
                     line.extend(id);
                 }
                 line.extend(decoration_start);
-                if line_has_copied_highlight && is_worktree {
-                    line.extend(label.iter().cloned().map(with_highlight));
-                } else {
-                    line.extend(label);
-                }
+                line.extend(label);
                 line.extend(decoration_end);
                 line.extend(suffix);
             }
@@ -812,9 +805,7 @@ pub(crate) fn render_commit_operation_target_marker(
         return;
     };
 
-    // A line that is both the source and a genuine destination - a worktree heading - commits
-    // rather than cancelling, so it must not advertise itself as a no-op.
-    if mode.source.contains(target) && commit_operation_display(data, mode).is_none() {
+    if mode.source.contains(target) {
         line.extend([source_span(app.theme), Span::raw(" ")]);
         line.extend(
             [
@@ -1136,12 +1127,6 @@ pub fn commit_operation_display(
                 }
             }
         }
-        // The reference row is the top of the worktree's lane, which is the only place a commit
-        // made from that worktree can go. Scoping to a stack excludes it, as a worktree branch is
-        // by definition outside the workspace.
-        StatusOutputLineData::Worktree { .. } => {
-            scope_to_stack.is_none().then_some("commit to worktree")
-        }
         StatusOutputLineData::WorktreeUncommitted { .. } => None,
         StatusOutputLineData::StagedChanges { .. }
         | StatusOutputLineData::StagedFile { .. }
@@ -1176,9 +1161,6 @@ pub fn move_operation_display(
                 InsertSide::Below => Some("move commit below"),
             },
             StatusOutputLineData::Branch { .. } => Some("move commit to branch"),
-            // The reference row is the top of the worktree's lane, which is the only place in
-            // the lane a whole commit can move to.
-            StatusOutputLineData::Worktree { .. } => Some("move commit to worktree"),
             StatusOutputLineData::WorktreeUncommitted { .. } => None,
             StatusOutputLineData::MergeBase => Some("move commit to new branch"),
             StatusOutputLineData::UpdateNotice
@@ -1208,13 +1190,6 @@ pub fn move_operation_display(
                     Some("move commit to branch")
                 } else {
                     Some("move commits to branch")
-                }
-            }
-            StatusOutputLineData::Worktree { .. } => {
-                if marks.len() == 1 {
-                    Some("move commit to worktree")
-                } else {
-                    Some("move commits to worktree")
                 }
             }
             StatusOutputLineData::WorktreeUncommitted { .. } => None,
@@ -1250,7 +1225,6 @@ pub fn move_operation_display(
             | StatusOutputLineData::StagedChanges { .. }
             | StatusOutputLineData::StagedFile { .. }
             | StatusOutputLineData::UncommittedChanges { .. }
-            | StatusOutputLineData::Worktree { .. }
             | StatusOutputLineData::WorktreeUncommitted { .. }
             | StatusOutputLineData::UncommittedFile { .. }
             | StatusOutputLineData::CommitMessage
@@ -1275,7 +1249,6 @@ pub fn reorder_operation_display(
         | StatusOutputLineData::StagedChanges { .. }
         | StatusOutputLineData::StagedFile { .. }
         | StatusOutputLineData::UncommittedChanges { .. }
-        | StatusOutputLineData::Worktree { .. }
         | StatusOutputLineData::WorktreeUncommitted { .. }
         | StatusOutputLineData::UncommittedFile { .. }
         | StatusOutputLineData::Branch { .. }
@@ -1313,7 +1286,6 @@ pub fn stack_operation_display(
         | StatusOutputLineData::StagedChanges { .. }
         | StatusOutputLineData::StagedFile { .. }
         | StatusOutputLineData::UncommittedChanges { .. }
-        | StatusOutputLineData::Worktree { .. }
         | StatusOutputLineData::WorktreeUncommitted { .. }
         | StatusOutputLineData::UncommittedFile { .. }
         | StatusOutputLineData::Commit { .. }
@@ -1340,7 +1312,6 @@ pub fn cherry_pick_operation_display(
             InsertSide::Below => Some("pick below"),
         },
         StatusOutputLineData::MergeBase => Some("pick to new unstacked branch"),
-        StatusOutputLineData::Worktree { .. } => Some("pick to worktree"),
         StatusOutputLineData::WorktreeUncommitted { .. } => None,
         StatusOutputLineData::UpdateNotice
         | StatusOutputLineData::UncommittedChanges { .. }
@@ -1368,7 +1339,6 @@ pub fn branch_operation_display(
         | StatusOutputLineData::Branch { .. }
         | StatusOutputLineData::MergeBase => Some("branch"),
         StatusOutputLineData::UpdateNotice
-        | StatusOutputLineData::Worktree { .. }
         | StatusOutputLineData::WorktreeUncommitted { .. }
         | StatusOutputLineData::Connector
         | StatusOutputLineData::BetweenStacks
@@ -1396,9 +1366,7 @@ pub fn worktree_operation_display(
         {
             Some("worktree")
         }
-        StatusOutputLineData::Commit { .. }
-        | StatusOutputLineData::Worktree { .. }
-        | StatusOutputLineData::MergeBase => Some("worktree"),
+        StatusOutputLineData::Commit { .. } | StatusOutputLineData::MergeBase => Some("worktree"),
         StatusOutputLineData::UpdateNotice
         | StatusOutputLineData::UncommittedChanges { .. }
         | StatusOutputLineData::Branch { .. }

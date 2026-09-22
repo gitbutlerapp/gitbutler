@@ -667,19 +667,6 @@ fn route_commit_above_or_below(
             "Target must be an applied branch or commit. Run `but status` for applicable targets.",
         )?;
     let target = match resolved {
-        ResolvedCliIdArg::Worktree(name) => {
-            let name = worktree_tip_target(repo, name.as_ref(), side, &target)?;
-            merged.ensure_branch_not_merged(name.as_ref())?;
-
-            if new_branch_name.is_some() {
-                return Err(bad_input(
-                    "Cannot use `-b/--branch` when committing relative to worktrees",
-                )
-                .into());
-            }
-
-            CommitRelativeToTarget::BranchTip { name }
-        }
         ResolvedCliIdArg::AnonymousSegment(segment) => {
             return Err(crate::args::atoms::anonymous_segment_error(&segment.id));
         }

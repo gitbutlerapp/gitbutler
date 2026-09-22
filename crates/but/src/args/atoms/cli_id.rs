@@ -106,7 +106,6 @@ impl CliIdArg {
             }
             CliId::CommittedHunk(committed) => ResolvedCliIdArg::CommittedHunk(Box::new(committed)),
             CliId::Uncommitted { .. } => ResolvedCliIdArg::Uncommitted,
-            CliId::Worktree { name, .. } => ResolvedCliIdArg::Worktree(name),
             CliId::WorktreeUncommitted { name, .. } => ResolvedCliIdArg::WorktreeUncommitted(name),
             CliId::Stack { id, stack_id } => ResolvedCliIdArg::Stack { id, stack_id },
         }))
@@ -219,9 +218,7 @@ impl CliIdArg {
             return Ok(None);
         };
         match id {
-            CliId::Worktree { name, .. } | CliId::WorktreeUncommitted { name, .. } => {
-                Ok(Some(name))
-            }
+            CliId::WorktreeUncommitted { name, .. } => Ok(Some(name)),
             CliId::Branch(..) | CliId::AnonymousSegment(..) => Ok(id
                 .lane()
                 .and_then(LaneId::worktree_name)
@@ -266,17 +263,6 @@ impl CliIdArg {
             CliId::WorktreeUncommitted { name, .. } => Ok(Some(
                 id_map.uncommitted_files_in(&ChangeSourceId::Worktree(name)),
             )),
-            // The reference holds no changes. Named where changes are wanted, point at the
-            // area rather than reporting the ID as simply not found.
-            CliId::Worktree { id, name } => Err(bad_input(format!(
-                "Worktree {name} has no changes of its own"
-            ))
-            .arg_value(self.0.clone())
-            .hint(format!(
-                "Use `{id}:{}` for that worktree's uncommitted changes",
-                crate::id::UNCOMMITTED
-            ))
-            .into()),
             // `@` names the main checkout's uncommitted area the same way, so it
             // expands to the files a bare `but commit` takes.
             CliId::Uncommitted { .. } => {
@@ -389,7 +375,6 @@ impl CliIdArg {
             CliId::CommittedFile { .. } => "a committed file",
             CliId::CommittedHunk(..) => "a committed change",
             CliId::Uncommitted { .. } => "uncommitted changes",
-            CliId::Worktree { .. } => "a worktree",
             CliId::WorktreeUncommitted { .. } => "a worktree's uncommitted changes",
             CliId::Stack { .. } => "a stack",
         };
@@ -459,7 +444,6 @@ fn try_resolve_cli_id(
                 | CliId::CommittedFile { .. }
                 | CliId::CommittedHunk { .. }
                 | CliId::Uncommitted { .. }
-                | CliId::Worktree { .. }
                 | CliId::AnonymousSegment(..)
                 | CliId::WorktreeUncommitted { .. }
                 | CliId::Stack { .. } => {}
@@ -546,9 +530,6 @@ pub enum ResolvedCliIdArg {
     CommittedFile(CommittedFileId),
     CommittedHunk(Box<CommittedHunk>),
     Uncommitted,
-    /// A linked worktree, named by its stable name. The reference alone: its
-    /// uncommitted changes are [`Self::WorktreeUncommitted`].
-    Worktree(BString),
     /// A linked worktree's uncommitted area, named by the worktree's stable name.
     WorktreeUncommitted(BString),
     PathPrefix {
@@ -603,7 +584,6 @@ impl ResolvedCliIdArg {
             ResolvedCliIdArg::AnonymousSegment { .. } => "an anonymous branch",
             ResolvedCliIdArg::Commit { .. } => "a commit",
             ResolvedCliIdArg::Uncommitted => "uncommitted changes",
-            ResolvedCliIdArg::Worktree(..) => "a worktree",
             ResolvedCliIdArg::WorktreeUncommitted(..) => "a worktree's uncommitted changes",
             ResolvedCliIdArg::Stack { .. } => "a stack",
         }
@@ -630,7 +610,6 @@ impl ResolvedCliIdArg {
                 ResolvedCliIdArgRef::PathPrefix { id, hunks }
             }
             ResolvedCliIdArg::Uncommitted => ResolvedCliIdArgRef::Uncommitted,
-            ResolvedCliIdArg::Worktree(name) => ResolvedCliIdArgRef::Worktree(name.as_ref()),
             ResolvedCliIdArg::WorktreeUncommitted(name) => {
                 ResolvedCliIdArgRef::WorktreeUncommitted(name.as_ref())
             }
@@ -647,11 +626,6 @@ impl PartialEq<CliId> for ResolvedCliIdArg {
         match self {
             ResolvedCliIdArg::Commit(lhs) => {
                 if let CliId::Commit { commit: rhs, .. } = other {
-                    return lhs == rhs;
-                }
-            }
-            ResolvedCliIdArg::Worktree(lhs) => {
-                if let CliId::Worktree { name: rhs, .. } = other {
                     return lhs == rhs;
                 }
             }
@@ -735,7 +709,6 @@ impl std::fmt::Display for ResolvedCliIdArg {
             ResolvedCliIdArg::CommittedFile(..) => f.write_str("committed file"),
             ResolvedCliIdArg::CommittedHunk(..) => f.write_str("committed hunk"),
             ResolvedCliIdArg::Uncommitted => f.write_str("uncommitted changes"),
-            ResolvedCliIdArg::Worktree(name) => write!(f, "worktree {name}"),
             ResolvedCliIdArg::WorktreeUncommitted(name) => {
                 write!(f, "uncommitted changes in worktree {name}")
             }
@@ -759,7 +732,6 @@ pub enum ResolvedCliIdArgRef<'a> {
         hunks: &'a NonEmpty<IdAndHunk>,
     },
     Uncommitted,
-    Worktree(&'a BStr),
     WorktreeUncommitted(&'a BStr),
     Stack {
         id: &'a str,

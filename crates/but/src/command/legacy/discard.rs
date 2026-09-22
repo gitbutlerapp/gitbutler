@@ -330,16 +330,6 @@ fn resolve(repo: &gix::Repository, id_map: &IdMap, args: Platform) -> CliResult<
                 .hint("Discard its files or hunks by their CLI IDs instead")
                 .into());
             }
-            ResolvedCliIdArg::Worktree(name) => {
-                return Err(bad_input(format!("Worktree {name} cannot be discarded"))
-                    .arg_name("<CHANGES>")
-                    .arg_value(value)
-                    .hint(format!(
-                        "Use `{name}:{}` to name that worktree's uncommitted changes",
-                        crate::id::UNCOMMITTED
-                    ))
-                    .into());
-            }
             ResolvedCliIdArg::Stack { .. } => {
                 return Err(bad_input("Stacks cannot be discarded")
                     .arg_name("<CHANGES>")

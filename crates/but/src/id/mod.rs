@@ -1762,7 +1762,6 @@ fn cli_ids_refer_to_same_entity(lhs: &CliId, rhs: &CliId) -> bool {
             },
         ) => lhs_stack_id == rhs_stack_id,
         (CliId::Uncommitted { .. }, CliId::Uncommitted { .. }) => true,
-        (CliId::Worktree { name: l, .. }, CliId::Worktree { name: r, .. }) => l == r,
         (
             CliId::WorktreeUncommitted { name: l, .. },
             CliId::WorktreeUncommitted { name: r, .. },
@@ -1913,18 +1912,6 @@ pub enum CliId {
         /// The CLI ID for the uncommitted area.
         id: ShortId,
     },
-    /// A linked worktree, as the reference whose lane holds that worktree's
-    /// commits and the branch checked out there.
-    ///
-    /// Its uncommitted changes are [`Self::WorktreeUncommitted`]; this ID never
-    /// denotes them, so it is never a change source.
-    Worktree {
-        /// The name-derived short CLI ID for this worktree (at least 2 characters).
-        id: ShortId,
-        /// The stable worktree name, i.e. the directory name under
-        /// `$GIT_COMMON_DIR/worktrees/`.
-        name: BString,
-    },
     /// A linked worktree's uncommitted area, the way [`Self::Uncommitted`] names
     /// the main worktree's.
     WorktreeUncommitted {
@@ -2012,13 +1999,6 @@ impl PartialEq for CliId {
             CliId::Uncommitted { id: _ } => {
                 matches!(other, CliId::Uncommitted { id: _ })
             }
-            CliId::Worktree { name: l, id: _ } => {
-                if let CliId::Worktree { name: r, id: _ } = other {
-                    l == r
-                } else {
-                    false
-                }
-            }
             CliId::WorktreeUncommitted { name: l, id: _ } => {
                 if let CliId::WorktreeUncommitted { name: r, id: _ } = other {
                     l == r
@@ -2045,7 +2025,6 @@ impl CliId {
             CliId::AnonymousSegment(..) => "an anonymous branch",
             CliId::Commit { .. } => "a commit",
             CliId::Uncommitted { .. } => "the uncommitted area",
-            CliId::Worktree { .. } => "a worktree",
             CliId::WorktreeUncommitted { .. } => "a worktree's uncommitted area",
             CliId::Stack { .. } => "a stack",
         }
@@ -2054,8 +2033,8 @@ impl CliId {
     /// The worktree whose uncommitted changes this ID names, if it names any.
     ///
     /// The total form of the question every `matches!(id, CliId::Uncommitted { .. })`
-    /// was asking while there was only one area. A worktree *reference* holds no
-    /// changes, so it yields `None`.
+    /// was asking while there was only one area. A worktree's segments hold no
+    /// changes, so they yield `None`.
     pub fn uncommitted_area(&self) -> Option<ChangeSourceId> {
         match self {
             CliId::Uncommitted { .. } => Some(ChangeSourceId::Head),
@@ -2067,7 +2046,6 @@ impl CliId {
             | CliId::Branch(..)
             | CliId::AnonymousSegment(..)
             | CliId::Commit { .. }
-            | CliId::Worktree { .. }
             | CliId::Stack { .. } => None,
         }
     }
@@ -2088,7 +2066,6 @@ impl CliId {
             | CliId::AnonymousSegment(AnonymousSegmentId { id, .. })
             | CliId::Commit { id, .. }
             | CliId::Stack { id, .. }
-            | CliId::Worktree { id, .. }
             | CliId::WorktreeUncommitted { id, .. }
             | CliId::Uncommitted { id, .. } => id,
         }
@@ -2105,7 +2082,6 @@ impl CliId {
             | CliId::CommittedHunk { .. }
             | CliId::Commit { .. }
             | CliId::Stack { .. }
-            | CliId::Worktree { .. }
             | CliId::WorktreeUncommitted { .. }
             | CliId::Uncommitted { .. } => None,
         }
@@ -2122,7 +2098,6 @@ impl CliId {
             | CliId::CommittedFile { .. }
             | CliId::CommittedHunk { .. }
             | CliId::Commit { .. }
-            | CliId::Worktree { .. }
             | CliId::WorktreeUncommitted { .. }
             | CliId::Uncommitted { .. } => None,
         }

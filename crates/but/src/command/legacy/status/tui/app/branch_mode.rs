@@ -404,7 +404,6 @@ impl App {
                 outcome.name.shorten().to_string()
             }
             StatusOutputLineData::UncommittedChanges { .. }
-            | StatusOutputLineData::Worktree { .. }
             | StatusOutputLineData::WorktreeUncommitted { .. }
             | StatusOutputLineData::MergeBase
             | StatusOutputLineData::UncommittedFile { .. } => {

@@ -702,8 +702,7 @@ impl App {
             | CliId::CommittedHunk(..)
             | CliId::PathPrefix { .. }
             | CliId::Stack { .. }
-            | CliId::WorktreeUncommitted { .. }
-            | CliId::Worktree { .. } => {}
+            | CliId::WorktreeUncommitted { .. } => {}
         }
 
         if self.marks_ref().is_empty() {
@@ -873,7 +872,6 @@ fn handle_mark_uncommitted(
             | StatusOutputLineData::StagedChanges { .. }
             | StatusOutputLineData::StagedFile { .. }
             | StatusOutputLineData::UncommittedChanges { .. }
-            | StatusOutputLineData::Worktree { .. }
             | StatusOutputLineData::WorktreeUncommitted { .. }
             | StatusOutputLineData::Branch { .. }
             | StatusOutputLineData::Commit { .. }

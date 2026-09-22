@@ -103,7 +103,6 @@ fn resolve(
             | ResolvedCliIdArg::Branch(..)
             | ResolvedCliIdArg::UncommittedHunkOrFile(..)
             | ResolvedCliIdArg::Uncommitted
-            | ResolvedCliIdArg::Worktree(..)
             | ResolvedCliIdArg::WorktreeUncommitted(..)
             | ResolvedCliIdArg::PathPrefix { .. }
             | ResolvedCliIdArg::Stack { .. }) => {
