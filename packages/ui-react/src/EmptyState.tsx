@@ -31,7 +31,7 @@ type Props = {
  * For a surface that is empty, not one still loading: that says so in a line
  * where the list would be. A filter that matched nothing takes the block in a
  * panel with room for it, and a line in a short strip; see "Empty states" in
- * `apps/lite/DESIGN.md`.
+ * `packages/ui-react/DESIGN.md`.
  */
 export const EmptyState: FC<Props> = ({ illustration, title, description, children, ...props }) => (
 	<div {...props} className={classes(props.className, styles.empty)}>

@@ -5,7 +5,7 @@ import { Match } from "effect";
 /**
  * Ghost and outline are the two quiet buttons and rank equally; gray and pop are the two ways to
  * raise one above the rest. Reach for a quiet one unless there is a reason not to. Gray is how you
- * highlight, pop is how you point — see "Emphasis" in `apps/lite/DESIGN.md`.
+ * highlight, pop is how you point — see "Emphasis" in `packages/ui-react/DESIGN.md`.
  *
  * @public
  */
