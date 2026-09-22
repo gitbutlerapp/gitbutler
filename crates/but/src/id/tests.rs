@@ -3738,18 +3738,14 @@ fn worktree_commits_share_the_commit_namespace() -> anyhow::Result<()> {
         ChangeSourceId::Worktree("wt-a".into()),
         Vec::new(),
     )];
-    let worktree_commits = [(
-        BString::from("wt-a"),
-        vec![but_graph::workspace::StackCommit {
-            id: wt_commit,
-            parent_ids: Vec::new(),
-            refs: Vec::new(),
-            flags: Default::default(),
-        }],
-    )]
-    .into_iter()
-    .collect();
-    let id_map = IdMap::new(stacks, sources, commit_id_to_change_id, worktree_commits, 3)?;
+    let worktrees = vec![but_graph::workspace::WorktreeStack {
+        name: BString::from("wt-a"),
+        ref_name: Some("refs/heads/wt-a".try_into()?),
+        head: wt_commit,
+        base: None,
+        segments: vec![segment("wt-a", [wt_commit], None, [])],
+    }];
+    let id_map = IdMap::new(stacks, sources, commit_id_to_change_id, worktrees, 3)?;
 
     // The worktree commit resolves by its change ID, disambiguated against the
     // workspace commit's "swst".

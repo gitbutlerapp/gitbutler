@@ -463,6 +463,7 @@ fn build_status_context<'a>(
         resolved_target,
         commit_id_to_change_id,
         worktrees,
+        worktree_stacks,
     ) = {
         let (repo, ws, _db) = ctx.workspace_and_db_with_perm(perm.read_permission())?;
         let head_info = but_workspace::graph_to_ref_info(
@@ -475,6 +476,7 @@ fn build_status_context<'a>(
             },
         )?;
         let stacks = ws.stacks.clone();
+        let worktree_stacks = ws.worktrees.clone();
         let mut push_statuses_by_segment_id = HashMap::<SegmentIndex, PushStatus>::new();
         let mut local_commits_by_id = HashMap::<gix::ObjectId, LocalCommit>::new();
         let mut remote_commits_by_id = HashMap::<gix::ObjectId, Commit>::new();
@@ -520,6 +522,7 @@ fn build_status_context<'a>(
             resolved_target,
             commit_id_to_change_id,
             worktrees,
+            worktree_stacks,
         )
     };
 
@@ -575,7 +578,7 @@ fn build_status_context<'a>(
         stacks,
         sources,
         commit_id_to_change_id,
-        crate::id::worktree_commits_by_name(&worktrees),
+        worktree_stacks,
         ctx.settings.context_lines,
     )?;
 

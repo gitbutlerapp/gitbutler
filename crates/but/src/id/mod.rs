@@ -13,7 +13,7 @@ use bstr::{BStr, BString, ByteSlice};
 use but_core::sync::RepoShared;
 use but_core::{ChangeId, TreeStatusKind, UnifiedPatch, ref_metadata::StackId};
 use but_ctx::Context;
-use but_graph::workspace::{Stack, StackCommit, StackSegment};
+use but_graph::workspace::{Stack, StackCommit, StackSegment, WorktreeStack};
 use gix::hash::hasher;
 use nonempty::NonEmpty;
 use self_cell::self_cell;
@@ -841,7 +841,7 @@ impl IdMap {
         stacks: Vec<Stack>,
         sources: Vec<SourceChanges>,
         commit_id_to_change_id: gix::hashtable::HashMap<gix::ObjectId, ChangeId>,
-        mut worktree_commits: BTreeMap<BString, Vec<StackCommit>>,
+        worktrees: Vec<WorktreeStack>,
         diff_context_lines: u32,
     ) -> anyhow::Result<Self> {
         // Taken before partitioning, which drops sources without changes: a clean
@@ -901,6 +901,17 @@ impl IdMap {
             id_usage = fallback_id_usage;
         }
 
+        let mut worktree_commits: BTreeMap<BString, Vec<StackCommit>> = worktrees
+            .into_iter()
+            .map(|worktree| {
+                let commits = worktree
+                    .segments
+                    .into_iter()
+                    .flat_map(|segment| segment.commits)
+                    .collect();
+                (worktree.name, commits)
+            })
+            .collect();
         let mut worktrees: BTreeMap<BString, WorktreeWithId> = BTreeMap::new();
         for name in worktree_names {
             let short_id = stacks_info::allocate_name_short_id(
@@ -1234,37 +1245,10 @@ impl IdMap {
             ws.stacks.clone(),
             sources,
             commit_id_to_change_id,
-            worktrees
-                .iter()
-                .map(|worktree| (worktree.name.clone(), worktree.commits().cloned().collect()))
-                .collect(),
+            worktrees.clone(),
             ctx.settings.context_lines,
         )
     }
-}
-
-/// Reshape the commits owned by each linked worktree into what [`IdMap::new`] takes.
-///
-/// The result is empty unless the traversal behind `worktrees` was seeded with worktree tips,
-/// i.e. unless the `worktreeManipulation` flag is on.
-pub(crate) fn worktree_commits_by_name(
-    worktrees: &[but_workspace::worktrees::WorktreeInfo],
-) -> BTreeMap<BString, Vec<StackCommit>> {
-    worktrees
-        .iter()
-        .map(|worktree| {
-            let commits = worktree
-                .commits()
-                .map(|commit| StackCommit {
-                    id: commit.id,
-                    parent_ids: commit.parent_ids.clone(),
-                    flags: commit.flags,
-                    refs: commit.refs.clone(),
-                })
-                .collect();
-            (worktree.name.clone(), commits)
-        })
-        .collect()
 }
 
 /// Private methods to individually parse what can appear on both side of a
