@@ -714,16 +714,16 @@ impl<'a> Node<'a> for &'a SegmentWithId {
     }
 }
 
-/// A stack with segment and commit IDs.
+/// A lane with segment and commit IDs.
 #[derive(Debug, Clone)]
-pub struct StackWithId {
-    /// Same as [Stack::id].
-    pub id: Option<StackId>,
+pub struct LaneWithId {
+    /// The lane these segments belong to.
+    pub lane: LaneId,
     /// Parallel to the original [Stack::segments].
     pub segments: Vec<SegmentWithId>,
 }
 
-impl<'a> Node<'a> for &'a StackWithId {
+impl<'a> Node<'a> for &'a LaneWithId {
     fn parse(
         self: Box<Self>,
         element: &str,
@@ -744,7 +744,7 @@ impl<'a> Node<'a> for &'a StackWithId {
         short_id: &str,
         _id_map: &IdMap,
     ) -> anyhow::Result<Option<CliId>> {
-        let Some(stack_id) = self.id else {
+        let LaneId::Stack(Some(stack_id)) = self.lane else {
             return Ok(None);
         };
         Ok(Some(CliId::Stack {
@@ -757,12 +757,12 @@ impl<'a> Node<'a> for &'a StackWithId {
 struct StacksIndexes<'a> {
     // This is left here in case we need indexes in the future. (If we don't, we
     // can delete this.)
-    _dummy: &'a Vec<StackWithId>,
+    _dummy: &'a Vec<LaneWithId>,
 }
 
 self_cell!(
     struct IndexedStacks {
-        owner: Vec<StackWithId>,
+        owner: Vec<LaneWithId>,
         #[covariant]
         dependent: StacksIndexes,
     }
@@ -895,7 +895,7 @@ impl IdMap {
         let mut compatibility_probe = id_usage.clone();
         let compatibility_has_room_for_stacks = stacks
             .iter()
-            .filter(|stack| stack.id.is_some())
+            .filter(|stack| stack.lane.stack_id().is_some())
             .all(|_| compatibility_probe.next_available().is_ok());
         if !compatibility_has_room_for_stacks {
             id_usage = fallback_id_usage;
@@ -1058,7 +1058,7 @@ impl IdMap {
         }
         let mut stack_ids = BTreeMap::new();
         for stack in &stacks {
-            if let Some(id) = stack.id {
+            if let Some(id) = stack.lane.stack_id() {
                 stack_ids.insert(
                     id,
                     CliId::Stack {
@@ -1542,7 +1542,7 @@ impl IdMap {
         }
 
         // handle stack_ids as well
-        // TODO: add a ShortId field to StackWithId so that we don't have to do
+        // TODO: add a ShortId field to LaneWithId so that we don't have to do
         // a double lookup
         for cli_id in self.stack_ids.values() {
             if let CliId::Stack { id, stack_id } = cli_id
@@ -1551,7 +1551,7 @@ impl IdMap {
                     .indexed_stacks
                     .borrow_owner()
                     .iter()
-                    .find(|stack_with_id| stack_with_id.id == Some(*stack_id))
+                    .find(|stack_with_id| stack_with_id.lane == LaneId::Stack(Some(*stack_id)))
             {
                 matches.push(Box::new(stack_with_id));
                 break;
@@ -1770,7 +1770,7 @@ impl IdMap {
     }
 
     /// Returns all known stacks.
-    pub fn stacks(&self) -> &Vec<StackWithId> {
+    pub fn stacks(&self) -> &Vec<LaneWithId> {
         self.indexed_stacks.borrow_owner()
     }
 

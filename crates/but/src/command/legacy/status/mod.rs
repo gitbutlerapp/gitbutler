@@ -40,7 +40,7 @@ use crate::{
         workspace_target,
     },
     id::{
-        ChangeIdWithShortId, CommitId, CommittedFileId, SegmentWithId, ShortId, StackWithId,
+        ChangeIdWithShortId, CommitId, CommittedFileId, LaneWithId, SegmentWithId, ShortId,
         TreeChangeWithId,
     },
     tui::text::truncate_text,
@@ -205,7 +205,7 @@ pub(crate) enum CommitClassification {
     Integrated,
 }
 
-type StackDetail = (Option<StackWithId>, Vec<UncommittedFileWithId>);
+type StackDetail = (Option<LaneWithId>, Vec<UncommittedFileWithId>);
 type StackEntry = (Option<StackId>, StackDetail);
 
 #[derive(Serialize)]
@@ -597,7 +597,7 @@ fn build_status_context<'a>(
     ));
 
     for stack in stacks {
-        stack_details.push((stack.id, (Some(stack.clone()), Vec::new())));
+        stack_details.push((stack.lane.stack_id(), (Some(stack.clone()), Vec::new())));
     }
 
     let ci_map = ci_map(
@@ -1533,7 +1533,7 @@ fn print_files(
 fn print_group(
     ctx: &Context,
     status_ctx: &StatusContext<'_>,
-    stack_with_id: &Option<StackWithId>,
+    stack_with_id: &Option<LaneWithId>,
     files: &[UncommittedFileWithId],
     first: bool,
     output: &mut StatusOutput<'_>,
@@ -1709,7 +1709,7 @@ fn print_group(
                 print_commit(
                     &repo,
                     status_ctx,
-                    stack_with_id.id,
+                    stack_with_id.lane.stack_id(),
                     commit.short_id.clone(),
                     None,
                     inner,
@@ -1743,7 +1743,7 @@ fn print_group(
                 print_commit(
                     &repo,
                     status_ctx,
-                    stack_with_id.id,
+                    stack_with_id.lane.stack_id(),
                     commit.short_id.clone(),
                     commit.change_id.as_ref(),
                     &inner.inner,

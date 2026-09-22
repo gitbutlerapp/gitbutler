@@ -5,7 +5,7 @@ use but_core::ChangeId;
 use but_graph::workspace::Stack;
 
 use crate::id::{
-    LaneId, OLD_UNCOMMITTED, RemoteCommitWithId, SegmentWithId, ShortId, StackWithId,
+    LaneId, LaneWithId, OLD_UNCOMMITTED, RemoteCommitWithId, SegmentWithId, ShortId,
     WorkspaceCommitWithId,
     id_usage::{IdUsage, UintId},
 };
@@ -20,8 +20,8 @@ fn stacks_info_without_short_ids(
         non_hex_used_short_ids: HashSet::new(),
     };
     for stack in stacks {
-        let mut stack_with_id = StackWithId {
-            id: stack.id,
+        let mut stack_with_id = LaneWithId {
+            lane: LaneId::Stack(stack.id),
             segments: Vec::with_capacity(stack.segments.len()),
         };
         for mut segment in stack.segments {
@@ -48,7 +48,7 @@ fn stacks_info_without_short_ids(
                 inner: segment,
                 workspace_commits,
                 remote_commits,
-                lane: LaneId::Stack(stack.id),
+                lane: stack_with_id.lane.clone(),
             });
         }
         stacks_info.stacks.push(stack_with_id);
@@ -114,7 +114,7 @@ pub(crate) fn allocate_name_short_id(
 }
 
 fn populate_branch_short_ids(
-    stacks: &mut [StackWithId],
+    stacks: &mut [LaneWithId],
     id_usage: &mut IdUsage,
     non_hex_used_short_ids: &mut HashSet<ShortId>,
     uncommitted_short_filenames: &HashSet<BString>,
@@ -196,7 +196,7 @@ pub(crate) fn populate_commit_short_ids(commits: Vec<(gix::ObjectId, &mut ShortI
 }
 
 pub(crate) struct StacksInfo {
-    pub(crate) stacks: Vec<StackWithId>,
+    pub(crate) stacks: Vec<LaneWithId>,
     pub(crate) id_usage: IdUsage,
     /// The set of short IDs allocated to items when building the [`StacksInfo`].
     ///
