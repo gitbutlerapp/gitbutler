@@ -52,6 +52,13 @@ To add one:
 `src/file-icons/` are the language and filetype glyphs. They keep their brand
 colours and are deliberately not run through the script.
 
+`src/program-icons/` are the marks of editors and terminals, as PNGs at 2×.
+Their rounded corner is part of the image: export each from the "Programm"
+frame on ⚛️ Lite Core's Icons page, where the mark is a 14px rectangle with
+the corner on it, as PNG at 2× with the layer named as the file is
+(`vscode` → `vscode@2x.png`). No CSS rounds them, so a square export shows
+square.
+
 ## Verifying your work
 
 Always run the specified commands **exactly** as written. The package has no
