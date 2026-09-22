@@ -7,7 +7,7 @@
  * stack.
  */
 
-import type * as md from "#ui/markdown-editing.ts";
+import type * as md from "./markdown-editing.ts";
 
 /** The span that actually changed between two revisions of the same source. */
 const changedSpan = (from: string, to: string): { start: number; end: number; insert: string } => {

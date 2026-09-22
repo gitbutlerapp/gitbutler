@@ -18,7 +18,7 @@ import {
 import { projectSlice } from "#ui/projects/state.ts";
 import { useAppDispatch, useAppSelector, useAppStore } from "#ui/store.ts";
 import { classes } from "@gitbutler/ui-react/classes.ts";
-import { getRangeExtractorWithIndices } from "#ui/virtual.ts";
+import { getRangeExtractorWithIndices } from "@gitbutler/ui-react/virtual.ts";
 import { mergeProps, Tooltip, useRender } from "@base-ui/react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { type Range, useVirtualizer } from "@tanstack/react-virtual";

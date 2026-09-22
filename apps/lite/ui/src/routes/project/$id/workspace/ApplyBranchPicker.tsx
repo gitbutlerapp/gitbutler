@@ -1,7 +1,7 @@
 import { useApply } from "#ui/api/mutations.ts";
 import { branchListQueryOptions } from "#ui/api/queries.ts";
 import { branchDetailsParams } from "#ui/branch.ts";
-import { PickerDialog, type PickerDialogGroup } from "#ui/components/PickerDialog.tsx";
+import { PickerDialog, type PickerDialogGroup } from "@gitbutler/ui-react/PickerDialog.tsx";
 import { formatRelativeTime } from "@gitbutler/ui-react/time.ts";
 import type { ListedBranch, ListedStack } from "@gitbutler/but-sdk";
 import { useQuery } from "@tanstack/react-query";

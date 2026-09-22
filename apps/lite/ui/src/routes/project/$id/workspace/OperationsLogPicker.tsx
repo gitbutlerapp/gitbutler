@@ -1,7 +1,7 @@
 import { useRestoreSnapshot } from "#ui/api/mutations.ts";
 import { operationsLogQueryOptions } from "#ui/api/queries.ts";
 import { getButtonClassName } from "@gitbutler/ui-react/Button.tsx";
-import { PickerDialog, type PickerDialogGroup } from "#ui/components/PickerDialog.tsx";
+import { PickerDialog, type PickerDialogGroup } from "@gitbutler/ui-react/PickerDialog.tsx";
 import { presentableOperation } from "#ui/snapshot.ts";
 import { formatRelativeTime } from "@gitbutler/ui-react/time.ts";
 import type { Snapshot } from "@gitbutler/but-sdk";

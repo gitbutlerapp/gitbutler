@@ -31,7 +31,7 @@ import { projectSlice } from "#ui/projects/state.ts";
 import { useAutofocusScope, useAddressSpaceHotkeys, type FocusScope } from "#ui/focus-scopes.ts";
 import { useAppDispatch, useAppSelector } from "#ui/store.ts";
 import { RelativeTime } from "@gitbutler/ui-react/RelativeTime.tsx";
-import { getRangeExtractorWithIndices } from "#ui/virtual.ts";
+import { getRangeExtractorWithIndices } from "@gitbutler/ui-react/virtual.ts";
 import type { BranchReviewStatus, Commit, ListedBranch } from "@gitbutler/but-sdk";
 import { Toolbar } from "@base-ui/react";
 import { useMergedRefs } from "@base-ui/utils/useMergedRefs";

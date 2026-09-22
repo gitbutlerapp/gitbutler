@@ -29,8 +29,10 @@ Consider backwards compatibility for any persisted state.
 ## Design
 
 The visual language — how icons, color, and composition should look — is in
-`apps/lite/DESIGN.md`. Read it before changing anything users see. This section
-covers the tooling that enforces it.
+`packages/ui-react/DESIGN.md`, with the component library it describes. Read
+it before changing anything users see. The library's own `AGENTS.md` covers
+its tooling: icons, stories, the checks to run. This section covers what is
+the app's own.
 
 ### Icons
 
@@ -48,28 +50,7 @@ optimize". File icons (`packages/ui-react/src/file-icons/`) are deliberately not
 run through either script — recoloring them to `currentColor` would destroy
 them.
 
-To add an icon to Lite:
-
-1. Export it from Figma at 16×16 (⚛️ Lite Core library) as SVG.
-2. Save it to `packages/ui-react/src/icons/` with a kebab-case name — the filename
-   _is_ the icon name (`folder-lock.svg` → `<Icon name="folder-lock" />`).
-3. Run:
-
-   ```console
-   $ pnpm -F @gitbutler/ui-react optimize-icons
-   ```
-
-4. Commit both the SVG and the regenerated `packages/ui-react/src/iconNames.ts`.
-
-The script is `packages/ui-react/scripts/optimize-icons.mjs`; its header comment
-documents each transform and the export problems it can't fix. It is
-idempotent, so it's safe to run any time. `iconNames.ts` is generated — never
-hand-edit it; add or remove the SVG and re-run. Icons are inlined into the
-bundle as raw strings and injected with `dangerouslySetInnerHTML`, which is why
-the script minifies them.
-
-After running the script, render the icon in the app (or in `Icon.stories.tsx`)
-at both 16px and a larger size before committing.
+To add an icon, follow `packages/ui-react/AGENTS.md`.
 
 ### Tokens
 

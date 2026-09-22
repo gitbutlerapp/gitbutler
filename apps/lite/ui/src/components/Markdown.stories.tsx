@@ -71,7 +71,7 @@ $ but push
 
 ---
 
-[See the design notes](https://github.com/gitbutlerapp/gitbutler/blob/master/apps/lite/DESIGN.md)
+[See the design notes](https://github.com/gitbutlerapp/gitbutler/blob/master/packages/ui-react/DESIGN.md)
 
 Then run \`but status\` to check.`,
 	},

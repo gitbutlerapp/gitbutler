@@ -1,10 +1,10 @@
-import { getButtonClassName } from "@gitbutler/ui-react/Button.tsx";
-import { classes } from "@gitbutler/ui-react/classes.ts";
-import { Icon } from "@gitbutler/ui-react/Icon.tsx";
-import { TooltipPopup } from "@gitbutler/ui-react/Tooltip.tsx";
-import type { IconName } from "@gitbutler/ui-react/iconNames.ts";
-import * as md from "#ui/markdown-editing.ts";
-import { applyToTextarea } from "#ui/markdown-textarea.ts";
+import { getButtonClassName } from "./Button.tsx";
+import { classes } from "./classes.ts";
+import { Icon } from "./Icon.tsx";
+import { TooltipPopup } from "./Tooltip.tsx";
+import type { IconName } from "./iconNames.ts";
+import * as md from "./markdown-editing.ts";
+import { applyToTextarea } from "./markdown-textarea.ts";
 import { Tooltip } from "@base-ui/react";
 import { Fragment, useRef, useState } from "react";
 import type { FC, RefCallback, RefObject } from "react";

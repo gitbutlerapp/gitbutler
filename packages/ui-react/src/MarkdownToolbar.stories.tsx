@@ -1,6 +1,6 @@
 import preview from "#storybook/preview";
-import { FieldTextareaStyles } from "@gitbutler/ui-react/Field.tsx";
-import { MarkdownToolbar } from "#ui/components/MarkdownToolbar.tsx";
+import { FieldTextareaStyles } from "./Field.tsx";
+import { MarkdownToolbar } from "./MarkdownToolbar.tsx";
 import { Tooltip } from "@base-ui/react";
 import { useRef, useState } from "react";
 import type { FC } from "react";

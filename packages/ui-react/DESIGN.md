@@ -1,9 +1,10 @@
-# Lite design notes
+# Design notes
 
-The visual language of Lite (`apps/lite/ui`): the conventions you need to make
-an on-brand choice without opening Figma. Rules here are about how the UI
-should look and read. The tooling that enforces them — scripts, generated
-files, commands — lives in `apps/lite/AGENTS.md`.
+The visual language of GitButler's React surfaces, Lite first among them: the
+conventions you need to make an on-brand choice without opening Figma. Rules
+here are about how the UI should look and read. The tooling that enforces
+them — scripts, generated files, commands — lives in `AGENTS.md` beside this
+file, and in `apps/lite/AGENTS.md` for what is the app's own.
 
 ## Components
 
@@ -624,7 +625,7 @@ not in a surface that leaves.
 block — Heading with its three levels, Paragraph, List and List item, Link,
 Inline code, and Block, which wraps a code block, blockquote, table, image or
 rule chosen by its swap — and "Markdown / slot", whose default content is a
-sample description built from them. `Markdown.stories.tsx` renders the same
+sample description built from them. Lite's `Markdown.stories.tsx` renders the same
 document, so compare the two when either side changes. Each component's
 description in Figma names the CSS selector it stands for; change one and
 change the other.

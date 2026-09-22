@@ -14,7 +14,7 @@ import { useAddLocalRepository } from "#ui/components/useAddLocalRepository.ts";
 import { globalHotkeys } from "#ui/hotkeys.ts";
 import { interfaceSlice } from "#ui/interface/state.ts";
 import { listProjectsQueryOptions, repoInfoQueryOptions } from "#ui/api/queries.ts";
-import { getRangeExtractorWithIndices } from "#ui/virtual.ts";
+import { getRangeExtractorWithIndices } from "@gitbutler/ui-react/virtual.ts";
 import {
 	readProjectsOpenedAt,
 	readProjectsRepoMarks,
