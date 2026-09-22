@@ -47,7 +47,7 @@ jobs:
             ui:
               - 'packages/ui-react/**'
               - 'packages/ui-svelte/**'
-              - 'apps/lite/DESIGN.md'
+              - 'packages/ui-react/DESIGN.md'
 
   request:
     needs: changes
