@@ -10,7 +10,7 @@ import {
 	quote,
 	taskList,
 	type MarkdownCommand,
-} from "#ui/markdown-editing.ts";
+} from "./markdown-editing.ts";
 import { describe, expect, test } from "vitest";
 
 /**

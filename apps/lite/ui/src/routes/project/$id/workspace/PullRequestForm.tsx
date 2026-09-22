@@ -34,7 +34,7 @@ import { ReviewUser } from "#ui/routes/project/$id/workspace/PullRequestPanel.ts
 import { formatAbsoluteTime, formatRelativeTime } from "@gitbutler/ui-react/time.ts";
 import { branchDetailsParams } from "#ui/branch.ts";
 import { MarkdownAttachments } from "#ui/components/MarkdownAttachments.tsx";
-import { MarkdownToolbar } from "#ui/components/MarkdownToolbar.tsx";
+import { MarkdownToolbar } from "@gitbutler/ui-react/MarkdownToolbar.tsx";
 import { SwitchButton } from "@gitbutler/ui-react/SwitchButton.tsx";
 import { TooltipPopup } from "@gitbutler/ui-react/Tooltip.tsx";
 import { pullRequestHotkeys } from "#ui/hotkeys.ts";

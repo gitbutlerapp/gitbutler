@@ -32,8 +32,8 @@ import {
 	showNativeContextMenu,
 	showNativeMenuFromTrigger,
 } from "#ui/native-menu.ts";
-import * as md from "#ui/markdown-editing.ts";
-import { applyToTextarea } from "#ui/markdown-textarea.ts";
+import * as md from "@gitbutler/ui-react/markdown-editing.ts";
+import { applyToTextarea } from "@gitbutler/ui-react/markdown-textarea.ts";
 import { TooltipPopup } from "@gitbutler/ui-react/Tooltip.tsx";
 import { Toggle, ToggleGroup, Tooltip } from "@base-ui/react";
 import { Badge, type BadgeVariant } from "@gitbutler/ui-react/Badge.tsx";

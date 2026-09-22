@@ -1,6 +1,6 @@
 import { reviewerCandidatesQueryOptions } from "#ui/api/queries.ts";
 import { Popup, PopupItem } from "@gitbutler/ui-react/Popup.tsx";
-import { applyToTextarea } from "#ui/markdown-textarea.ts";
+import { applyToTextarea } from "@gitbutler/ui-react/markdown-textarea.ts";
 import { completeMention, matchMentions, mentionAtCaret } from "#ui/mentions.ts";
 import { isAgent } from "#ui/review-users.ts";
 import { Popover } from "@base-ui/react";
