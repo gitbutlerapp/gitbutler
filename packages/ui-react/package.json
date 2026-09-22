@@ -13,7 +13,8 @@
 		"#storybook/*": "./.storybook/*.ts"
 	},
 	"scripts": {
-		"check": "tsgo -p tsconfig.json --noEmit",
+		"check": "tsgo -p tsconfig.json --noEmit && pnpm lint:css",
+		"lint:css": "stylelint \"src/**/*.css\"",
 		"optimize-icons": "node scripts/optimize-icons.mjs",
 		"test": "vitest run"
 	},
@@ -39,6 +40,7 @@
 		"jsdom": "28.1.0",
 		"react": "^19.2.4",
 		"react-dom": "^19.2.4",
+		"stylelint": "^17.15.0",
 		"vite": "catalog:",
 		"vitest": "catalog:"
 	}

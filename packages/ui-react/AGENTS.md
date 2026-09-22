@@ -65,12 +65,23 @@ Always run the specified commands **exactly** as written. The package has no
 app to run, so the story is how a component is checked before it goes into a
 surface.
 
-### Typechecking and tests
+### Typechecking, the CSS rules, and tests
 
 ```console
 $ pnpm -F @gitbutler/ui-react check
 $ pnpm -F @gitbutler/ui-react test
 ```
+
+`check` typechecks and then runs Stylelint over the components' CSS with the
+rules DESIGN.md gives a machine: colours are tokens, font sizes are on the
+11–16 scale, radii come from the radius tokens. An error names what to use
+instead. The exceptions are the ones DESIGN.md names, and each is marked
+where it is: the file icons' brand colours (a file-level override in
+`stylelint.config.mjs`) and a mask's opaque stop. A radius that is a share of
+another, an inner corner following its outer one, is a `calc()` from the
+outer token and needs no exception (DESIGN.md, Radius). A new exception is
+a design decision first; if it stands, disable the rule on that line with the
+reason after `--`.
 
 ### Tokens
 
