@@ -180,7 +180,9 @@ The other editing commands are narrower entry points on the same model:
 - `but uncommit <commits-branches-or-committed-changes>` — move committed work back to uncommitted;
   branches are removed, and committed changes in one call must come from one commit
 - `but move <sources> --above|--below|--branch|--unstack` — relocate commits, committed changes, or a
-  branch; this is the command with position control
+  branch; this is the command with position control. For commits or committed changes,
+  `--above <branch>`, `--below <branch>`, and `--unstack` create a new branch; add `-b <new-name>`
+  to name it instead of using a generated name
 - `but discard <changes>` — drop work instead of relocating it
 
 ## Dependency Tracking

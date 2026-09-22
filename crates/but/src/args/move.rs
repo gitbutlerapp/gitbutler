@@ -32,6 +32,7 @@ use crate::args::atoms::{AllowMergedArg, CliIdArg};
     clap::ArgGroup::new("targeting")
         .args(["above", "below", "branch", "unstack"])
         .required(true)
+        .multiple(true)
 ))]
 pub struct Platform {
     /// Place `<SOURCES>` on the branch `BRANCH`.
@@ -61,7 +62,14 @@ pub struct Platform {
     /// branch.
     ///
     /// This target is applicable for all kinds of `<SOURCES>`.
-    #[clap(short = 'A', long, value_name = "BRANCH_OR_COMMIT")]
+    ///
+    /// If moving commits or committed changes, use `--branch NAME` to name the new branch.
+    #[clap(
+        short = 'A',
+        long,
+        value_name = "BRANCH_OR_COMMIT",
+        conflicts_with = "below"
+    )]
     pub above: Option<CliIdArg>,
 
     /// Place `<SOURCES>` below `BRANCH_OR_COMMIT`.
@@ -77,6 +85,8 @@ pub struct Platform {
     /// that worktree has checked out.
     ///
     /// This target is only applicable for `<SOURCES>` that are commits or committed changes.
+    ///
+    /// If moving commits or committed changes, use `--branch NAME` to name the new branch.
     #[clap(short = 'B', long, value_name = "BRANCH_OR_COMMIT")]
     pub below: Option<CliIdArg>,
 
@@ -84,7 +94,9 @@ pub struct Platform {
     ///
     /// `--unstack` does not take an argument, so `--unstack <SOURCES>` and `<SOURCES> --unstack`
     /// are equivalent.
-    #[clap(long)]
+    ///
+    /// If moving commits or committed changes, use `--branch NAME` to name the new branch.
+    #[clap(long, conflicts_with_all = ["above", "below"])]
     pub unstack: bool,
 
     /// The message to use when moving changes into a new commit.

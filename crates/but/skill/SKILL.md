@@ -81,6 +81,7 @@ The first token on each `but diff` / `but status` line is that line's ID. When a
 - Reorder commits: `but move <commit-id> --below <commit-id>` (`--above` for the other direction; **commit IDs**, not branch names)
 - Reorder a block: `but move <commit-id> <commit-id> --below <following-commit-id>` or `--above <preceding-commit-id>` (both anchors accept multiple space-separated sources)
 - Move commit to branch top: `but move <commit-id> -b <branch>`
+- Move commits or committed changes onto a new named branch: `but move <source> --above <branch> -b <new-name>` (`--below` also works); use `but move <source> --unstack -b <new-name>` for an independent branch. Omit `-b` for a generated name. Naming is not supported when stacking or unstacking a branch source.
 - Stack branches: `but move <branch-name> --above <target-branch-name>` (**use full branch names**)
 - Tear off a branch: `but move <branch> --unstack`
 - Discard: `but discard <id> [<id>...]` — accepts branches, commits, committed changes, uncommitted changes, or `@` for all uncommitted changes
