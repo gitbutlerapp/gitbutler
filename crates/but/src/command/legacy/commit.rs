@@ -752,7 +752,15 @@ impl CommitOperation {
                 CommitRelativeToTarget::BranchTip { name } => {
                     rejection::Target::Branch(name.shorten().to_string())
                 }
-                CommitRelativeToTarget::BranchBucket { .. } => rejection::Target::NewBranch(None),
+                CommitRelativeToTarget::BranchBucket {
+                    name: _,
+                    new_branch_name,
+                    side: _,
+                } => rejection::Target::NewBranch(
+                    new_branch_name
+                        .as_ref()
+                        .map(|name| name.shorten().to_string()),
+                ),
             },
         }
     }

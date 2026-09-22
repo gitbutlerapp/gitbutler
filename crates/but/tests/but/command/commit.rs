@@ -927,6 +927,30 @@ Hint: to apply these changes, create bar stacked on top of foo and try again:
 }
 
 #[test]
+fn rejected_commit_below_branch_preserves_requested_branch_name() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("zero-stacks");
+    env.setup_metadata(&[]);
+
+    env.file("first", "Some text");
+    env.but("commit -m 'add first' -b foo").assert().success();
+    env.file("first", "changes");
+
+    // The rejected insertion must retain the explicit name in the recovery hint.
+    env.but("commit -m 'change first' --below foo --branch bar")
+        .assert()
+        .failure()
+        .stderr_eq(snapbox::str![[r#"
+Error: Cannot commit: 1 change could not be applied:
+  first
+    line 1 depends on foo (xsz)
+
+Hint: to apply these changes, create bar stacked on top of foo and try again:
+  but branch new bar --above foo
+
+"#]]);
+}
+
+#[test]
 fn newly_created_branches_are_included_in_json_output() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("zero-stacks");
     env.setup_metadata(&[]);
