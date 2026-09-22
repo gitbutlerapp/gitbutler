@@ -6,13 +6,15 @@ const names = (Object.keys(illustrations) as Array<IllustrationName>).sort((a, b
 	a.localeCompare(b),
 );
 
-const meta = preview.type<{ args: { width: number } }>().meta({
+const meta = preview.type<{ args: { width: number | undefined } }>().meta({
 	argTypes: {
 		width: {
 			control: { type: "range", min: 32, max: 256, step: 8 },
 		},
 	},
-	args: { width: 96 },
+	// No default width: each illustration was drawn at a size and shows at it,
+	// so the story reads as the set really is. The control overrides for all.
+	args: { width: undefined },
 });
 
 export const AllIllustrations = meta.story({
@@ -26,7 +28,8 @@ export const AllIllustrations = meta.story({
 		<div
 			style={{
 				display: "grid",
-				gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))",
+				// Wide enough for the largest drawing at its own size, plus the padding.
+				gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))",
 				gap: 16,
 			}}
 		>
