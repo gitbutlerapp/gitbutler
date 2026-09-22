@@ -16,6 +16,7 @@ export type SwitchSize =
  * {@link SwitchButton}'s job, not this one's.
  *
  * @public
+ * @import import { Switch } from "@gitbutler/ui-react/Switch.tsx";
  */
 export const Switch: FC<
 	{ size?: SwitchSize } & Omit<ComponentProps<typeof BaseSwitch.Root>, "children">

@@ -26,6 +26,7 @@ const resolveLength = (length: string, text: Element): number => {
  * Content that changes size after mount (lazy images, async syntax
  * highlighting) re-measures via a ResizeObserver on the inner wrapper, and
  * viewport resizes re-measure the vh-based caps.
+ * @import import { Clamped } from "@gitbutler/ui-react/Clamped.tsx";
  */
 export const Clamped: FC<{
 	/** A px, vh or lh length, e.g. `"240px"`, `"80vh"` or `"3lh"`. */

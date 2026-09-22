@@ -195,6 +195,9 @@ interface GraphSegmentProps extends ComponentProps<"span"> {
 	behind?: number;
 }
 
+/**
+ * @import import { GraphSegment } from "@gitbutler/ui-react/GraphSegment.tsx";
+ */
 export const GraphSegment: FC<GraphSegmentProps> = ({
 	glyph,
 	className,

@@ -35,6 +35,7 @@ const defaultIcon = (variant: SnackbarVariant): IconName =>
  * snackbars reads as one row of statements rather than a traffic light.
  *
  * @public
+ * @import import { Snackbar } from "@gitbutler/ui-react/Snackbar.tsx";
  */
 export const Snackbar: FC<
 	{

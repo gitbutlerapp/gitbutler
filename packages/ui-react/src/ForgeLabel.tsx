@@ -3,6 +3,9 @@ import type { FC } from "react";
 import { Badge, type BadgeSize } from "./Badge.tsx";
 import styles from "./ForgeLabel.module.css";
 
+/**
+ * @import import { ForgeLabel } from "@gitbutler/ui-react/ForgeLabel.tsx";
+ */
 export const ForgeLabel: FC<{ label: ForgeReviewLabel; size?: BadgeSize }> = ({
 	label,
 	size = "large",

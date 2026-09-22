@@ -48,6 +48,7 @@ export type NumberFieldProps = {
  * For a number that is one of a few named choices — a preset — reach for {@link Select}.
  *
  * @public
+ * @import import { NumberField } from "@gitbutler/ui-react/NumberField.tsx";
  */
 export const NumberField = ({
 	label,

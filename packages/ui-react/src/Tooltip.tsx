@@ -4,6 +4,9 @@ import { Kbd } from "./Kbd.tsx";
 import type { HotkeySequence } from "@tanstack/react-hotkeys";
 import { useState, type ComponentProps, type FC } from "react";
 
+/**
+ * @import import { TooltipPopup } from "@gitbutler/ui-react/Tooltip.tsx";
+ */
 export const TooltipPopup: FC<
 	ComponentProps<"div"> & {
 		/** Optional keyboard shortcut displayed alongside the content. */

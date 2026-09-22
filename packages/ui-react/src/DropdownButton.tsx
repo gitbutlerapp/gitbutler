@@ -47,6 +47,7 @@ type Props = {
  * Both halves stay focusable while disabled so keyboard users can reach them
  * and find out why they're unavailable — which also keeps a disabled action
  * hoverable, so `actionTooltip` needs no wrapper element to carry it.
+ * @import import { DropdownButton } from "@gitbutler/ui-react/DropdownButton.tsx";
  */
 export const DropdownButton: FC<Props> = ({
 	children,

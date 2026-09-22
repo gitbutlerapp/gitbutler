@@ -32,6 +32,9 @@ const trimTextChildren = (children: ReactNode) =>
 		),
 	);
 
+/**
+ * @import import { Badge } from "@gitbutler/ui-react/Badge.tsx";
+ */
 export const Badge: FC<{ variant: BadgeVariant; size?: BadgeSize } & ComponentProps<"span">> = ({
 	variant,
 	size = "regular",

@@ -10,6 +10,9 @@ type Props = {
 	size?: number;
 } & ComponentProps<"i">;
 
+/**
+ * @import import { Icon } from "@gitbutler/ui-react/Icon.tsx";
+ */
 export const Icon: FC<Props> = ({ name, size, ...props }) => (
 	<i
 		{...props}

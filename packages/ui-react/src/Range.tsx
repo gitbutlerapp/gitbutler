@@ -71,6 +71,7 @@ export type RangeProps<Value extends number | ReadonlyArray<number> = number> = 
  * for {@link NumberField}.
  *
  * @public
+ * @import import { Range } from "@gitbutler/ui-react/Range.tsx";
  */
 export const Range = <Value extends number | ReadonlyArray<number> = number>({
 	label,

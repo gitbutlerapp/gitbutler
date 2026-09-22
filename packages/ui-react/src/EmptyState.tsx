@@ -32,6 +32,7 @@ type Props = {
  * where the list would be. A filter that matched nothing takes the block in a
  * panel with room for it, and a line in a short strip; see "Empty states" in
  * `packages/ui-react/DESIGN.md`.
+ * @import import { EmptyState } from "@gitbutler/ui-react/EmptyState.tsx";
  */
 export const EmptyState: FC<Props> = ({ illustration, title, description, children, ...props }) => (
 	<div {...props} className={classes(props.className, styles.empty)}>

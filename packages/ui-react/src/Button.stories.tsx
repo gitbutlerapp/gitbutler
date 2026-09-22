@@ -9,7 +9,11 @@ import { classes } from "./classes.ts";
 import { Icon } from "./Icon.tsx";
 import React from "react";
 
-const meta = preview.meta({});
+const meta = preview.meta({
+	// A button is Base UI's Button with getButtonClassName, a function, not a
+	// component, so the manifest has nothing to document; AGENTS.md says how.
+	tags: ["!manifest"],
+});
 
 const invertedDemoStyle: React.CSSProperties = {
 	display: "inline-flex",
