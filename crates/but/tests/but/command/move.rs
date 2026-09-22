@@ -2,7 +2,7 @@ use snapbox::IntoData as _;
 
 use crate::{
     command::util::{
-        branch_commit_cli_ids, commit_two_files_as_two_hunks_each,
+        branch_commit_cli_ids, commit_two_files_as_two_hunks_each, enable_worktree_manipulation,
         status_json_with_files as status_json,
     },
     utils::{CommandExt as _, Sandbox},
@@ -3848,6 +3848,365 @@ Error: `-m/--message` can only be used when moving committed changes
         .failure()
         .stderr_eq(snapbox::str![[r#"
 Error: `-m/--message` can only be used when moving committed changes
+
+"#]]);
+}
+
+#[test]
+fn moving_commit_to_named_branch_above_or_below() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack-two-commits");
+    env.setup_metadata(&["A"]);
+
+    env.but("status")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┊╭┄ g0 [A]
+┊●   ywx add second
+┊●   zll add first
+├╯
+┊
+┴ 1bbc04b (common base) 2000-01-02 add Base
+
+Hint: run `but help` for all commands
+
+"#]]);
+
+    env.but("move ywx --above A -b top")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+Moved ywx to new branch 'top' above branch 'A'
+
+"#]]);
+
+    env.but("status")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┊╭┄ to [top]
+┊●   ywx add second
+┊│
+┊├┄ g0 [A]
+┊●   zll add first
+├╯
+┊
+┴ 1bbc04b (common base) 2000-01-02 add Base
+
+Hint: run `but help` for all commands
+
+"#]]);
+
+    env.but("move ywx --below A -b bottom")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+Moved ywx to new branch 'bottom' below branch 'A'
+
+"#]]);
+
+    env.but("status")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┊╭┄ to [top] (no commits)
+┊│
+┊├┄ g0 [A]
+┊●   zll add first
+┊│
+┊├┄ bo [bottom]
+┊●   ywx add second
+├╯
+┊
+┴ 1bbc04b (common base) 2000-01-02 add Base
+
+Hint: run `but help` for all commands
+
+"#]]);
+}
+
+#[test]
+fn moving_committed_hunk_to_named_branch_above_or_below() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack-two-commits");
+    env.setup_metadata(&["A"]);
+
+    env.but("diff ywx")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+────────────────╮
+ y:w:3 A second │
+────────────────╯
+
+@@ -1,0 +1,1 @@
+───────────────
+  ┊ 1 │ +second
+
+"#]]);
+
+    env.but("move y:w:3 --above A -b top")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+Moved 1 change from ywx to new commit qkw on new branch 'top' above branch 'A'
+
+"#]]);
+
+    env.but("status")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┊╭┄ to [top]
+┊●   qkw (no commit message)
+┊│
+┊├┄ g0 [A]
+┊●   ywx add second (no changes)
+┊●   zll add first
+├╯
+┊
+┴ 1bbc04b (common base) 2000-01-02 add Base
+
+Hint: run `but help` for all commands
+
+"#]]);
+}
+
+#[test]
+fn cannot_rename_branches_when_stacking() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
+    env.setup_metadata(&["A", "B"]);
+
+    env.but("status")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┊╭┄ g0 [A]
+┊●   tpm add A
+├╯
+┊
+┊╭┄ h0 [B]
+┊●   lrm add B
+├╯
+┊
+┴ 0dc3733 (common base) 2000-01-02 add M
+
+Hint: run `but help` for all commands
+
+"#]]);
+
+    for command in [
+        "move A --above B -b B2",
+        "move A --above B -b",
+        "move A --above B --branch",
+    ] {
+        env.but(command)
+            .assert()
+            .failure()
+            .stderr_eq(snapbox::str![[r#"
+Error: Cannot use `-b/--branch` when stacking branches.
+
+"#]]);
+    }
+}
+
+#[test]
+fn naming_branches_when_unstacking_commits() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["A"]);
+
+    env.but("status")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┊╭┄ g0 [A]
+┊●   tpm add A
+├╯
+┊
+┴ 0dc3733 (common base) 2000-01-02 add M
+
+Hint: run `but help` for all commands
+
+"#]]);
+
+    env.but("move tpm --unstack -b new-branch")
+        .assert()
+        .success();
+
+    env.but("status")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┊╭┄ ne [new-branch]
+┊●   tpm add A
+├╯
+┊
+┊╭┄ g0 [A] (no commits)
+├╯
+┊
+┴ 0dc3733 (common base) 2000-01-02 add M
+
+Hint: run `but help` for all commands
+
+"#]]);
+}
+
+#[test]
+fn naming_branches_when_unstacking_committed_changes() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["A"]);
+
+    env.but("diff tpm")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+───────────╮
+ t:t:6 A A │
+───────────╯
+
+@@ -1,0 +1,1 @@
+───────────────
+  ┊ 1 │ +A
+
+"#]]);
+
+    env.but("move t:t:6 --unstack -b new-branch")
+        .assert()
+        .success();
+
+    env.but("status")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┊╭┄ ne [new-branch]
+┊●   qkw (no commit message)
+├╯
+┊
+┊╭┄ g0 [A]
+┊●   tpm add A (no changes)
+├╯
+┊
+┴ 0dc3733 (common base) 2000-01-02 add M
+
+Hint: run `but help` for all commands
+
+"#]]);
+}
+
+#[test]
+fn cannot_name_branches_when_unstacking_branches() {
+    let env =
+        Sandbox::init_scenario_with_target_and_default_settings("one-stack-two-dependent-branches");
+    env.setup_metadata(&["A", "B"]);
+
+    env.but("status")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┊╭┄ g0 [B]
+┊●   wwm add B
+┊│
+┊├┄ h0 [A]
+┊●   tpm add A
+├╯
+┊
+┴ 0dc3733 (common base) 2000-01-02 add M
+
+Hint: run `but help` for all commands
+
+"#]]);
+
+    env.but("move B --unstack -b new-branch")
+        .assert()
+        .failure()
+        .stderr_eq(snapbox::str![[r#"
+Error: Cannot use `-b/--branch` when unstacking branches
+
+"#]]);
+}
+
+#[test]
+fn cannot_name_branches_when_moving_commits_relative_to_commits() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack-two-commits");
+    env.setup_metadata(&["A", "B"]);
+
+    env.but("status")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┊╭┄ g0 [A]
+┊●   ywx add second
+┊●   zll add first
+├╯
+┊
+┴ 1bbc04b (common base) 2000-01-02 add Base
+
+Hint: run `but help` for all commands
+
+"#]]);
+
+    env.but("move ywx --below zll -b new-branch")
+        .assert()
+        .failure()
+        .stderr_eq(snapbox::str![[r#"
+Error: Cannot use `-b/--branch` when moving relative to commits
+
+"#]]);
+}
+
+#[test]
+fn cannot_name_branches_when_moving_commits_relative_to_worktree() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack-two-commits");
+    env.setup_metadata(&["A", "B"]);
+    enable_worktree_manipulation(&env);
+
+    env.but("wt new").assert().success();
+
+    env.but("status")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┊╭┄ g0 [A]
+┊●   ywx add second
+┊●   zll add first
+├╯
+┊
+┊╭┄ br:@ {worktree uncommitted} (no changes)
+┊├┄ br {a-branch-1}
+├╯
+┊
+┴ 1bbc04b (common base) 2000-01-02 add Base
+
+Hint: run `but help` for all commands
+
+"#]]);
+
+    env.but("move ywx --below br -b new-branch")
+        .assert()
+        .failure()
+        .stderr_eq(snapbox::str![[r#"
+Error: Cannot use `-b/--branch` when moving relative to worktrees
 
 "#]]);
 }

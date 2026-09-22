@@ -292,7 +292,8 @@ but move <commit> --above <target-commit>          # Place above target (newer)
 but move <commit> <commit> --below <target-commit> # Move an adjacent block in one command
 but move <commit> <commit> --above <target-commit> # Same block move, anchored from the other side
 but move <commit> -b <branch>                      # Move commit to the tip of a branch (created if missing)
-but move <commit> --unstack                        # Move commit onto a new unstacked branch
+but move <commit> --above <branch> -b <new-name>   # Move onto a new named branch above it (--below also works)
+but move <commit> --unstack -b <new-name>          # Move onto a new named unstacked branch
 but move <branch> --above <target-branch>          # Stack branch on top of target branch
 but move <branch> --unstack                        # Tear off (unstack) a branch
 but move <commit-id>:<file-id> --above <commit> -m "<msg>" # Move a committed file into a new commit
@@ -305,6 +306,10 @@ branch may be moved at a time. Source order does not matter. For a branch source
 with no value is equivalent to `--unstack`. With the experimental worktree flag on, `-b` also
 accepts a worktree or the branch checked out in it, moving commit or committed-change
 sources onto that branch's tip (nothing is created); a branch source is refused there.
+
+For commits or committed changes, add `-b <new-name>` to `--above <branch>`, `--below <branch>`,
+or `--unstack` to name the new branch; omit it for a generated name. This does not rename an
+existing branch: naming is not supported when stacking or unstacking a branch source.
 
 For committed-change sources, `-m/--message` sets the new commit's message; repeat `-m` to
 join paragraphs with blank lines. Without it, the new commit has an empty message and no editor
