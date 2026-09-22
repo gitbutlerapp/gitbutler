@@ -2,7 +2,7 @@ import { useSuspenseQueries } from "@tanstack/react-query";
 import type { FC } from "react";
 import { appSettingsQueryOptions, guiSettingsQueryOptions } from "#ui/api/queries.ts";
 import { useSaveGUISettings, useUpdateFeatureFlags } from "#ui/api/mutations.ts";
-import { Switch } from "#ui/components/Switch.tsx";
+import { Switch } from "@gitbutler/ui-react/Switch.tsx";
 import { defaultSettings } from "#ui/settings.ts";
 import { Row, Section } from "./Section.tsx";
 

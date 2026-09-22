@@ -1,5 +1,5 @@
 import styles from "./DetailsPlaceholder.module.css";
-import { EmptyState } from "#ui/components/EmptyState.tsx";
+import { EmptyState } from "@gitbutler/ui-react/EmptyState.tsx";
 import type { FC, ReactNode } from "react";
 
 /**

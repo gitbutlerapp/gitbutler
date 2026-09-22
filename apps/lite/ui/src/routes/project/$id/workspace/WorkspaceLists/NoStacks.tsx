@@ -1,8 +1,8 @@
 import { branchListQueryOptions } from "#ui/api/queries.ts";
 import { unappliedStacks } from "#ui/branch.ts";
-import { getButtonClassName } from "#ui/components/Button.tsx";
-import { EmptyState } from "#ui/components/EmptyState.tsx";
-import { Icon } from "#ui/components/Icon.tsx";
+import { getButtonClassName } from "@gitbutler/ui-react/Button.tsx";
+import { EmptyState } from "@gitbutler/ui-react/EmptyState.tsx";
+import { Icon } from "@gitbutler/ui-react/Icon.tsx";
 import { focusScope } from "#ui/focus-scopes.ts";
 import { projectSlice } from "#ui/projects/state.ts";
 import { useAppSelector } from "#ui/store.ts";

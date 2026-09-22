@@ -3,7 +3,7 @@ import {
 	useCommitUncommitChanges,
 	useDiscardWorktreeChanges,
 } from "#ui/api/mutations.ts";
-import { Icon } from "#ui/components/Icon.tsx";
+import { Icon } from "@gitbutler/ui-react/Icon.tsx";
 import {
 	nativeMenuItem,
 	nativeMenuItemsFromGroups,

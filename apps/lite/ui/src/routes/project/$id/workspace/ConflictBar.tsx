@@ -1,12 +1,12 @@
 import { useEnterEditMode } from "#ui/api/mutations.ts";
 import { headInfoQueryOptions } from "#ui/api/queries.ts";
-import { getButtonClassName } from "#ui/components/Button.tsx";
-import { classes } from "#ui/components/classes.ts";
-import { Icon } from "#ui/components/Icon.tsx";
+import { getButtonClassName } from "@gitbutler/ui-react/Button.tsx";
+import { classes } from "@gitbutler/ui-react/classes.ts";
+import { Icon } from "@gitbutler/ui-react/Icon.tsx";
 import { projectSlice } from "#ui/projects/state.ts";
 import { useAppDispatch, useAppSelector } from "#ui/store.ts";
 import { Dialog } from "@base-ui/react";
-import { Modal } from "#ui/components/Popup.tsx";
+import { Modal } from "@gitbutler/ui-react/Popup.tsx";
 import { useQuery } from "@tanstack/react-query";
 import type { FC } from "react";
 import styles from "./ConflictBar.module.css";

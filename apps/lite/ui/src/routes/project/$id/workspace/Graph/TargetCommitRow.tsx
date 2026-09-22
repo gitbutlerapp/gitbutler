@@ -1,7 +1,7 @@
 import { setCursor } from "#ui/use-cursor.ts";
 import { commitTitle } from "#ui/commit.ts";
-import { GraphSegment, type GraphSegmentStatus } from "#ui/components/GraphSegment.tsx";
-import { GRAPH_COMMIT_BEND_PADDING } from "#ui/components/graph-spacing.ts";
+import { GraphSegment, type GraphSegmentStatus } from "@gitbutler/ui-react/GraphSegment.tsx";
+import { GRAPH_COMMIT_BEND_PADDING } from "@gitbutler/ui-react/graph-spacing.ts";
 import type { TargetCommit } from "@gitbutler/but-sdk";
 import { type FC, useId } from "react";
 import { Row } from "../Row.tsx";

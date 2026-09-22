@@ -14,7 +14,7 @@ import {
 	uncommittedChangesFileParent,
 	type Address,
 } from "#ui/addresses.ts";
-import type { ButtonVariant } from "#ui/components/Button.tsx";
+import type { ButtonVariant } from "@gitbutler/ui-react/Button.tsx";
 import { focusScope } from "#ui/focus-scopes.ts";
 import {
 	changesFileHotkeys,

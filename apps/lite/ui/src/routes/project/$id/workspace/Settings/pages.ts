@@ -1,4 +1,4 @@
-import type { IconName } from "#ui/components/iconNames.ts";
+import type { IconName } from "@gitbutler/ui-react/iconNames.ts";
 
 /** What a page configures: the application, or the project it was opened over. */
 type SettingsScope = "global" | "project";

@@ -2,9 +2,9 @@ import { useSuspenseQuery } from "@tanstack/react-query";
 import { useState, type FC } from "react";
 import { guiSettingsQueryOptions } from "#ui/api/queries.ts";
 import { useSaveGUISettings } from "#ui/api/mutations.ts";
-import { Range } from "#ui/components/Range.tsx";
+import { Range } from "@gitbutler/ui-react/Range.tsx";
 import { clampAutoFetch, defaultSettings, parseAutoFetch } from "#ui/settings.ts";
-import { formatDuration } from "#ui/time.ts";
+import { formatDuration } from "@gitbutler/ui-react/time.ts";
 import styles from "./Git.module.css";
 import { Row, Section } from "./Section.tsx";
 

@@ -1,5 +1,5 @@
 @import "@gitbutler/design-core/core";
-@import "./components/base.css";
+@import "@gitbutler/ui-react/base.css";
 
 /*
     color-scheme isn't yet respected by prefers-color-scheme, so where we can't use light-dark() we

@@ -8,7 +8,7 @@ import {
 	type Address,
 } from "#ui/addresses.ts";
 import { assert } from "#ui/assert.ts";
-import { icons } from "#ui/components/icons.ts";
+import { icons } from "@gitbutler/ui-react/icons.ts";
 import { getOperationSources } from "#ui/operations/pending-operation.ts";
 import { projectSlice } from "#ui/projects/state.ts";
 import { useAppStore } from "#ui/store.ts";

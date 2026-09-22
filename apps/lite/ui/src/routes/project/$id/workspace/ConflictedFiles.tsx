@@ -1,9 +1,9 @@
 import { guiSettingsQueryOptions } from "#ui/api/queries.ts";
-import { Badge } from "#ui/components/Badge.tsx";
-import { getButtonClassName } from "#ui/components/Button.tsx";
-import { Checkbox } from "#ui/components/Checkbox.tsx";
-import { classes } from "#ui/components/classes.ts";
-import { FileIcon } from "#ui/components/FileIcon.tsx";
+import { Badge } from "@gitbutler/ui-react/Badge.tsx";
+import { getButtonClassName } from "@gitbutler/ui-react/Button.tsx";
+import { Checkbox } from "@gitbutler/ui-react/Checkbox.tsx";
+import { classes } from "@gitbutler/ui-react/classes.ts";
+import { FileIcon } from "@gitbutler/ui-react/FileIcon.tsx";
 import { projectSlice } from "#ui/projects/state.ts";
 import { defaultSettings } from "#ui/settings.ts";
 import { useAppDispatch, useAppSelector } from "#ui/store.ts";

@@ -1,6 +1,6 @@
 import { getRowButtonClassName } from "../Row-utils.ts";
 import { RowLabel, RowLabelContainer, RowLabelFooter } from "../Row.tsx";
-import { formatForDisplaySorted } from "#ui/hotkeys.ts";
+import { formatForDisplaySorted } from "@gitbutler/ui-react/formatHotkey.ts";
 import { useMergedRefs } from "@base-ui/utils/useMergedRefs";
 import { useHotkey } from "@tanstack/react-hotkeys";
 import { type FC, useId, useRef } from "react";

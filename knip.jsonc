@@ -20,9 +20,6 @@
 				"ui/src/css-modules.d.ts!",
 				"ui/src/electron.d.ts!",
 				"ui/src/react-css-properties.d.ts!",
-				"ui/src/components/ToggleGroup.tsx!",
-				"ui/src/components/NumberField.tsx!",
-				"ui/src/components/Range.tsx!",
 			],
 			"project": [
 				"electron/src/**!",

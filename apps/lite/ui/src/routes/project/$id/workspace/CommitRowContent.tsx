@@ -1,8 +1,8 @@
 import { commitTitle, shortCommitId } from "#ui/commit.ts";
-import { classes } from "#ui/components/classes.ts";
-import { ConflictIcon } from "#ui/components/ConflictIcon.tsx";
-import { Icon } from "#ui/components/Icon.tsx";
-import { RelativeTime } from "#ui/components/RelativeTime.tsx";
+import { classes } from "@gitbutler/ui-react/classes.ts";
+import { ConflictIcon } from "@gitbutler/ui-react/ConflictIcon.tsx";
+import { Icon } from "@gitbutler/ui-react/Icon.tsx";
+import { RelativeTime } from "@gitbutler/ui-react/RelativeTime.tsx";
 import type { Commit, TargetCommitReview } from "@gitbutler/but-sdk";
 import { type ComponentProps, type FC, useState } from "react";
 import { BranchRowHeadline } from "./BranchRowHeadline.tsx";

@@ -1,4 +1,4 @@
-import { ForgeLabel } from "#ui/components/ForgeLabel.tsx";
+import { ForgeLabel } from "@gitbutler/ui-react/ForgeLabel.tsx";
 import type { ForgeReviewLabel } from "@gitbutler/but-sdk";
 import { type FC, Fragment } from "react";
 import { RowLabel, RowLabelContainer } from "./Row.tsx";

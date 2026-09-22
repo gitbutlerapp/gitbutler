@@ -1,4 +1,4 @@
-import { TooltipPopup } from "#ui/components/Tooltip.tsx";
+import { TooltipPopup } from "@gitbutler/ui-react/Tooltip.tsx";
 import type { FocusScope } from "#ui/focus-scopes.ts";
 import { Tooltip } from "@base-ui/react";
 import type { HotkeySequence } from "@tanstack/react-hotkeys";

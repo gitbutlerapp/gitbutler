@@ -14,12 +14,12 @@ import {
 } from "#ui/routes/project/$id/workspace/Settings/credential-check.ts";
 import { useSetGbConfig, useUpdateProjectSettings } from "#ui/api/mutations.ts";
 import { assert } from "#ui/assert.ts";
-import { getButtonClassName } from "#ui/components/Button.tsx";
-import { FieldControlStyles } from "#ui/components/Field.tsx";
-import { Icon } from "#ui/components/Icon.tsx";
-import { Select } from "#ui/components/Select.tsx";
-import { Switch } from "#ui/components/Switch.tsx";
-import { classes } from "#ui/components/classes.ts";
+import { getButtonClassName } from "@gitbutler/ui-react/Button.tsx";
+import { FieldControlStyles } from "@gitbutler/ui-react/Field.tsx";
+import { Icon } from "@gitbutler/ui-react/Icon.tsx";
+import { Select } from "@gitbutler/ui-react/Select.tsx";
+import { Switch } from "@gitbutler/ui-react/Switch.tsx";
+import { classes } from "@gitbutler/ui-react/classes.ts";
 import { revealInFolderLabel } from "#ui/hotkeys.ts";
 import { useCopied } from "#ui/components/useCopied.ts";
 import { IconButton } from "./IconButton.tsx";

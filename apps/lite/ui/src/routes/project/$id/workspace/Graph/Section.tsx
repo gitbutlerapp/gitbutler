@@ -1,6 +1,10 @@
-import { GraphGap, GraphSegment, type GraphSegmentStatus } from "#ui/components/GraphSegment.tsx";
-import { classes } from "#ui/components/classes.ts";
-import { Icon } from "#ui/components/Icon.tsx";
+import {
+	GraphGap,
+	GraphSegment,
+	type GraphSegmentStatus,
+} from "@gitbutler/ui-react/GraphSegment.tsx";
+import { classes } from "@gitbutler/ui-react/classes.ts";
+import { Icon } from "@gitbutler/ui-react/Icon.tsx";
 import { getRowButtonClassName } from "#ui/routes/project/$id/workspace/Row-utils.ts";
 import {
 	Row,
@@ -11,7 +15,7 @@ import {
 } from "#ui/routes/project/$id/workspace/Row.tsx";
 import { useFetchFromRemotes } from "#ui/routes/project/$id/workspace/useFetchFromRemotes.ts";
 import { workspaceHotkeys } from "#ui/hotkeys.ts";
-import { formatRelativeTime } from "#ui/time.ts";
+import { formatRelativeTime } from "@gitbutler/ui-react/time.ts";
 import { useAddressSpace } from "#ui/routes/project/$id/workspace/WorkspaceLists/context.tsx";
 import { addressIdentityKey, type Address } from "#ui/addresses.ts";
 import type { AddressSpace } from "#ui/workspace/address-space.ts";
@@ -21,7 +25,7 @@ import { headInfoQueryOptions } from "#ui/api/queries.ts";
 import { stackBottomRelativeTo } from "#ui/api/stack.ts";
 import { projectSlice } from "#ui/projects/state.ts";
 import { useAppSelector } from "#ui/store.ts";
-import { TooltipPopup } from "#ui/components/Tooltip.tsx";
+import { TooltipPopup } from "@gitbutler/ui-react/Tooltip.tsx";
 import { Button, Tooltip } from "@base-ui/react";
 import type { BottomUpdate } from "@gitbutler/but-sdk";
 import { useQuery } from "@tanstack/react-query";

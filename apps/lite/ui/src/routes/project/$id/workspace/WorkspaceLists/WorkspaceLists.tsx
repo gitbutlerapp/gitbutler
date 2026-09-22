@@ -26,10 +26,10 @@ import { OperationSourceC } from "#ui/routes/project/$id/workspace/OperationSour
 import { AddressC, OperationTarget, TreeItem } from "./TreeItem.tsx";
 import { WorktreeCard, WorktreeLane, WorktreeOnTip } from "./WorktreeLane.tsx";
 import { useAppDispatch, useAppSelector, useAppStore } from "#ui/store.ts";
-import { classes } from "#ui/components/classes.ts";
+import { classes } from "@gitbutler/ui-react/classes.ts";
 import { addressSpaceIncludes, type AddressSpace } from "#ui/workspace/address-space.ts";
 import { useMergedRefs } from "@base-ui/utils/useMergedRefs";
-import uiStyles from "#ui/components/ui.module.css";
+import uiStyles from "@gitbutler/ui-react/ui.module.css";
 import type {
 	BranchReference,
 	Commit,
@@ -76,7 +76,7 @@ import {
 	worktreesOnTip,
 } from "../Graph/layout.ts";
 import type { Graph } from "../Graph/usePlan.ts";
-import { GRAPH_TRUNK_INSET } from "#ui/components/graph-spacing.ts";
+import { GRAPH_TRUNK_INSET } from "@gitbutler/ui-react/graph-spacing.ts";
 import { StackCard } from "../StackCard.tsx";
 import stackCardStyles from "../StackCard.module.css";
 import { COMMIT_ROW_HEIGHT, treeItemId } from "../Row-utils.ts";
@@ -88,8 +88,8 @@ import {
 	GraphGap,
 	GraphSegment,
 	type GraphSegmentStatus,
-} from "#ui/components/GraphSegment.tsx";
-import { useNow } from "#ui/components/useNow.ts";
+} from "@gitbutler/ui-react/GraphSegment.tsx";
+import { useNow } from "@gitbutler/ui-react/useNow.ts";
 import { segmentBottomRelativeTo } from "#ui/api/stack.ts";
 import { assert } from "#ui/assert.ts";
 import { CommitRow } from "./CommitRow.tsx";

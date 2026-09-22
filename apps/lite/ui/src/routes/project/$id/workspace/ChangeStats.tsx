@@ -1,7 +1,7 @@
-import { Badge } from "#ui/components/Badge.tsx";
-import { classes } from "#ui/components/classes.ts";
-import { DiffStats } from "#ui/components/DiffStats.tsx";
-import { TooltipPopup } from "#ui/components/Tooltip.tsx";
+import { Badge } from "@gitbutler/ui-react/Badge.tsx";
+import { classes } from "@gitbutler/ui-react/classes.ts";
+import { DiffStats } from "@gitbutler/ui-react/DiffStats.tsx";
+import { TooltipPopup } from "@gitbutler/ui-react/Tooltip.tsx";
 import { Tooltip } from "@base-ui/react";
 import type { FC } from "react";
 import styles from "./ChangeStats.module.css";

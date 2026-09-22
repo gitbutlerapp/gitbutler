@@ -28,7 +28,7 @@ import {
 import { projectSlice } from "#ui/projects/state.ts";
 import { useParams } from "@tanstack/react-router";
 import { interfaceSlice } from "#ui/interface/state.ts";
-import { ResizeHandle } from "#ui/components/ResizeHandle.tsx";
+import { ResizeHandle } from "@gitbutler/ui-react/ResizeHandle.tsx";
 import { globalHotkeys, workspaceHotkeys } from "#ui/hotkeys.ts";
 import { useAppDispatch, useAppSelector, useAppStore } from "#ui/store.ts";
 import { useHotkey, useHotkeys, type UseHotkeyDefinition } from "@tanstack/react-hotkeys";
@@ -75,7 +75,7 @@ import { OperationsLogPicker } from "./OperationsLogPicker.tsx";
 import { DetailsPlaceholder } from "./DetailsPlaceholder.tsx";
 import { Sidebar } from "./Sidebar.tsx";
 import { OperationControls } from "#ui/routes/project/$id/workspace/OperationControls.tsx";
-import { ErrorBoundary } from "#ui/components/ErrorBoundary.tsx";
+import { ErrorBoundary } from "@gitbutler/ui-react/ErrorBoundary.tsx";
 import { Settings } from "./Settings/Settings.tsx";
 import { BranchUpdateDialog } from "./BranchUpdatePanel.tsx";
 import { useBranchesList } from "./useBranchesList.ts";

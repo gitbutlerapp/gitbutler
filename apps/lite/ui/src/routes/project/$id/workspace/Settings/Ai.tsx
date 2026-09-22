@@ -3,13 +3,13 @@ import { useQueryClient, useSuspenseQueries } from "@tanstack/react-query";
 import { useState, type FC } from "react";
 import type { AiConfiguration, AiConfigurationUpdate } from "@gitbutler/but-sdk";
 import { aiConfigurationQueryOptions, userProfileQueryOptions } from "#ui/api/queries.ts";
-import { getButtonClassName } from "#ui/components/Button.tsx";
-import { classes } from "#ui/components/classes.ts";
-import { FieldControlStyles } from "#ui/components/Field.tsx";
-import { Icon } from "#ui/components/Icon.tsx";
-import { RelativeTime } from "#ui/components/RelativeTime.tsx";
-import { Select } from "#ui/components/Select.tsx";
-import { TooltipPopup } from "#ui/components/Tooltip.tsx";
+import { getButtonClassName } from "@gitbutler/ui-react/Button.tsx";
+import { classes } from "@gitbutler/ui-react/classes.ts";
+import { FieldControlStyles } from "@gitbutler/ui-react/Field.tsx";
+import { Icon } from "@gitbutler/ui-react/Icon.tsx";
+import { RelativeTime } from "@gitbutler/ui-react/RelativeTime.tsx";
+import { Select } from "@gitbutler/ui-react/Select.tsx";
+import { TooltipPopup } from "@gitbutler/ui-react/Tooltip.tsx";
 import { errorMessageForToast } from "#ui/errors.ts";
 import {
 	anthropicModels,

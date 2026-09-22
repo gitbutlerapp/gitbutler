@@ -1,4 +1,4 @@
-import { formatAbsoluteTime } from "#ui/time.ts";
+import { formatAbsoluteTime } from "@gitbutler/ui-react/time.ts";
 import type { Commit, ForgeInfo } from "@gitbutler/but-sdk";
 import { queryOptions, useMutation } from "@tanstack/react-query";
 import * as idb from "idb-keyval";

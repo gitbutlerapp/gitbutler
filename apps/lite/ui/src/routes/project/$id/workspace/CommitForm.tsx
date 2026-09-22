@@ -1,4 +1,4 @@
-import { Popup, PopupItem, PopupSearch } from "#ui/components/Popup.tsx";
+import { Popup, PopupItem, PopupSearch } from "@gitbutler/ui-react/Popup.tsx";
 import { setCursor } from "#ui/use-cursor.ts";
 import { useBranchCreate, useCommitCreate, useGenerateCommitMessage } from "#ui/api/mutations.ts";
 import {
@@ -8,13 +8,13 @@ import {
 	operatingModeQueryOptions,
 } from "#ui/api/queries.ts";
 import { getHeadInfoIndex, resolveRelativeTo } from "#ui/api/ref-info.ts";
-import { getButtonClassName } from "#ui/components/Button.tsx";
-import { classes } from "#ui/components/classes.ts";
-import { DropdownButton } from "#ui/components/DropdownButton.tsx";
-import { Icon } from "#ui/components/Icon.tsx";
-import type { IconName } from "#ui/components/iconNames.ts";
-import { Kbd } from "#ui/components/Kbd.tsx";
-import { TooltipPopup } from "#ui/components/Tooltip.tsx";
+import { getButtonClassName } from "@gitbutler/ui-react/Button.tsx";
+import { classes } from "@gitbutler/ui-react/classes.ts";
+import { DropdownButton } from "@gitbutler/ui-react/DropdownButton.tsx";
+import { Icon } from "@gitbutler/ui-react/Icon.tsx";
+import type { IconName } from "@gitbutler/ui-react/iconNames.ts";
+import { Kbd } from "@gitbutler/ui-react/Kbd.tsx";
+import { TooltipPopup } from "@gitbutler/ui-react/Tooltip.tsx";
 import {
 	changesSelectedForCommit,
 	commitMessageGenerationButtonState,

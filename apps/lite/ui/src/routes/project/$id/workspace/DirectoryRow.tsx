@@ -1,6 +1,6 @@
-import { FolderIcon } from "#ui/components/FolderIcon.tsx";
-import { classes } from "#ui/components/classes.ts";
-import { TooltipPopup } from "#ui/components/Tooltip.tsx";
+import { FolderIcon } from "@gitbutler/ui-react/FolderIcon.tsx";
+import { classes } from "@gitbutler/ui-react/classes.ts";
+import { TooltipPopup } from "@gitbutler/ui-react/Tooltip.tsx";
 import { changesFileHotkeys } from "#ui/hotkeys.ts";
 import { projectSlice } from "#ui/projects/state.ts";
 import type { FocusScope } from "#ui/focus-scopes.ts";

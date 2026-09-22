@@ -39,29 +39,29 @@ its own directory:
 
 | Path                                         | Owner                                  | Script                                           |
 | -------------------------------------------- | -------------------------------------- | ------------------------------------------------ |
-| `apps/lite/ui/src/components/icons/*.svg`    | Lite                                   | `pnpm -F @gitbutler/lite optimize-icons`         |
+| `packages/ui-react/src/icons/*.svg`          | React component library (Lite, panel)  | `pnpm -F @gitbutler/ui-react optimize-icons`     |
 | `packages/ui-svelte/src/lib/icons/svg/*.svg` | shared Svelte UI package (desktop/web) | `pnpm -F @gitbutler/ui-svelte optimize-ui-icons` |
 
 Running `optimize-ui-icons` will **not** touch a Lite icon, and vice versa.
 Dropping an SVG into the wrong folder is the most common reason an icon "won't
-optimize". File icons (`ui/src/components/file-icons/`) are deliberately not
+optimize". File icons (`packages/ui-react/src/file-icons/`) are deliberately not
 run through either script — recoloring them to `currentColor` would destroy
 them.
 
 To add an icon to Lite:
 
 1. Export it from Figma at 16×16 (⚛️ Lite Core library) as SVG.
-2. Save it to `ui/src/components/icons/` with a kebab-case name — the filename
+2. Save it to `packages/ui-react/src/icons/` with a kebab-case name — the filename
    _is_ the icon name (`folder-lock.svg` → `<Icon name="folder-lock" />`).
 3. Run:
 
    ```console
-   $ pnpm -F @gitbutler/lite optimize-icons
+   $ pnpm -F @gitbutler/ui-react optimize-icons
    ```
 
-4. Commit both the SVG and the regenerated `ui/src/components/iconNames.ts`.
+4. Commit both the SVG and the regenerated `packages/ui-react/src/iconNames.ts`.
 
-The script is `apps/lite/scripts/optimize-icons.mjs`; its header comment
+The script is `packages/ui-react/scripts/optimize-icons.mjs`; its header comment
 documents each transform and the export problems it can't fix. It is
 idempotent, so it's safe to run any time. `iconNames.ts` is generated — never
 hand-edit it; add or remove the SVG and re-run. Icons are inlined into the
@@ -85,7 +85,7 @@ sets it.
 
 ### Components
 
-Every component in `ui/src/components/` has a story beside it, and the story
+Every component in `packages/ui-react/src/` has a story beside it, and the story
 is how a component is checked on its own, in both themes, before it goes
 into a surface. Storybook runs on port 6007:
 

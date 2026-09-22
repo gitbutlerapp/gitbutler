@@ -30,7 +30,6 @@
 		"bundle-local": "CHANNEL=${CHANNEL:-} pnpm -F @gitbutler/but-sdk build && CHANNEL=${CHANNEL:-} pnpm bundle -c.mac.identity=- -c.mac.entitlements=resources/entitlements.mac.local.plist -c.mac.entitlementsInherit=resources/entitlements.mac.local.plist",
 		"bundle-local-nightly": "CHANNEL=nightly pnpm -F @gitbutler/but-sdk build:release && CHANNEL=nightly pnpm bundle -c.mac.identity=- -c.mac.entitlements=resources/entitlements.mac.local.plist -c.mac.entitlementsInherit=resources/entitlements.mac.local.plist",
 		"demos": "storybook dev --no-open -p 6007",
-		"optimize-icons": "node scripts/optimize-icons.mjs",
 		"prepare-askpass": "node scripts/prepare-askpass.mjs"
 	},
 	"build": {
@@ -138,6 +137,7 @@
 		"@base-ui/utils": "^0.3.1",
 		"@gitbutler/but-sdk": "workspace:*",
 		"@gitbutler/design-core": "5.1.0",
+		"@gitbutler/ui-react": "workspace:*",
 		"@pierre/diffs": "^1.3.5",
 		"@pierre/theming": "^1.0.1",
 		"@reduxjs/toolkit": "catalog:redux",

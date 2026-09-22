@@ -1,23 +1,23 @@
 import rowStyles from "./Row.module.css";
-import uiStyles from "#ui/components/ui.module.css";
+import uiStyles from "@gitbutler/ui-react/ui.module.css";
 import { useBranchRemove } from "#ui/api/mutations.ts";
 import { decodeBytes, encodeBytes } from "#ui/api/bytes.ts";
 import { assert } from "#ui/assert.ts";
 import { activeBranchFilterCount, branchIsEmpty, type BranchFilters } from "#ui/branch.ts";
 import { commitIsDiverged, commitTitle } from "#ui/commit.ts";
-import { Badge, type BadgeVariant } from "#ui/components/Badge.tsx";
-import { getButtonClassName } from "#ui/components/Button.tsx";
+import { Badge, type BadgeVariant } from "@gitbutler/ui-react/Badge.tsx";
+import { getButtonClassName } from "@gitbutler/ui-react/Button.tsx";
 import { BranchRowHeadline } from "./BranchRowHeadline.tsx";
-import type { IconName } from "#ui/components/iconNames.ts";
-import { classes } from "#ui/components/classes.ts";
-import { EmptyState } from "#ui/components/EmptyState.tsx";
+import type { IconName } from "@gitbutler/ui-react/iconNames.ts";
+import { classes } from "@gitbutler/ui-react/classes.ts";
+import { EmptyState } from "@gitbutler/ui-react/EmptyState.tsx";
 import {
 	GraphSegment,
 	type GraphSegmentGlyph,
 	type GraphSegmentStatus,
-} from "#ui/components/GraphSegment.tsx";
-import { Icon } from "#ui/components/Icon.tsx";
-import { TextLink } from "#ui/components/TextLink.tsx";
+} from "@gitbutler/ui-react/GraphSegment.tsx";
+import { Icon } from "@gitbutler/ui-react/Icon.tsx";
+import { TextLink } from "@gitbutler/ui-react/TextLink.tsx";
 import { branchesHotkeys, toElectronAccelerator } from "#ui/hotkeys.ts";
 import {
 	nativeMenuItem,
@@ -30,7 +30,7 @@ import { branchAddress, commitAddress, addressIdentityKey, type Address } from "
 import { projectSlice } from "#ui/projects/state.ts";
 import { useAutofocusScope, useAddressSpaceHotkeys, type FocusScope } from "#ui/focus-scopes.ts";
 import { useAppDispatch, useAppSelector } from "#ui/store.ts";
-import { RelativeTime } from "#ui/components/RelativeTime.tsx";
+import { RelativeTime } from "@gitbutler/ui-react/RelativeTime.tsx";
 import { getRangeExtractorWithIndices } from "#ui/virtual.ts";
 import type { BranchReviewStatus, Commit, ListedBranch } from "@gitbutler/but-sdk";
 import { Toolbar } from "@base-ui/react";

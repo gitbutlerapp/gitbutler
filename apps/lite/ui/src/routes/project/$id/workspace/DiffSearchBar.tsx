@@ -1,9 +1,9 @@
 import { assert } from "#ui/assert.ts";
-import { getButtonClassName } from "#ui/components/Button.tsx";
-import { classes } from "#ui/components/classes.ts";
-import { FieldControlStyles, FieldRootStyles } from "#ui/components/Field.tsx";
-import { Icon } from "#ui/components/Icon.tsx";
-import { Popup } from "#ui/components/Popup.tsx";
+import { getButtonClassName } from "@gitbutler/ui-react/Button.tsx";
+import { classes } from "@gitbutler/ui-react/classes.ts";
+import { FieldControlStyles, FieldRootStyles } from "@gitbutler/ui-react/Field.tsx";
+import { Icon } from "@gitbutler/ui-react/Icon.tsx";
+import { Popup } from "@gitbutler/ui-react/Popup.tsx";
 import { focusScope } from "#ui/focus-scopes.ts";
 import { diffHotkeys } from "#ui/hotkeys.ts";
 import { Field } from "@base-ui/react";

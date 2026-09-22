@@ -1,9 +1,9 @@
 import { forgeAuthFailure, forgeDestination, isCloudForge } from "#ui/forge.ts";
 import { ForgeAuthPrompt } from "./ForgeAuthPrompt.tsx";
-import { ResizeHandle } from "#ui/components/ResizeHandle.tsx";
-import { TextLink } from "#ui/components/TextLink.tsx";
+import { ResizeHandle } from "@gitbutler/ui-react/ResizeHandle.tsx";
+import { TextLink } from "@gitbutler/ui-react/TextLink.tsx";
 import { startAbsorb, setCursor, useCanShowFiles, useSelection } from "#ui/use-cursor.ts";
-import uiStyles from "#ui/components/ui.module.css";
+import uiStyles from "@gitbutler/ui-react/ui.module.css";
 import { SuspenseQuery } from "@suspensive/react-query";
 import {
 	type PushBeforePublish,
@@ -74,12 +74,12 @@ import { checkedRange, addressSpaceRange, selectionAfterChecking } from "#ui/che
 import type { BranchTab, CheckableAddress } from "#ui/projects/project.ts";
 import { projectSlice } from "#ui/projects/state.ts";
 import { interfaceSlice } from "#ui/interface/state.ts";
-import { Badge } from "#ui/components/Badge.tsx";
-import { getButtonClassName } from "#ui/components/Button.tsx";
-import { Icon } from "#ui/components/Icon.tsx";
-import { TooltipPopup } from "#ui/components/Tooltip.tsx";
+import { Badge } from "@gitbutler/ui-react/Badge.tsx";
+import { getButtonClassName } from "@gitbutler/ui-react/Button.tsx";
+import { Icon } from "@gitbutler/ui-react/Icon.tsx";
+import { TooltipPopup } from "@gitbutler/ui-react/Tooltip.tsx";
 import { useCopied } from "#ui/components/useCopied.ts";
-import { ToggleGroupStyles, ToggleStyles } from "#ui/components/ToggleGroup.tsx";
+import { ToggleGroupStyles, ToggleStyles } from "@gitbutler/ui-react/ToggleGroup.tsx";
 import { OperationSourceC } from "#ui/routes/project/$id/workspace/OperationSourceC.tsx";
 import { PullRequestComments } from "#ui/routes/project/$id/workspace/PullRequestComments.tsx";
 import {
@@ -93,8 +93,8 @@ import {
 	PullRequestPrimaryAction,
 } from "#ui/routes/project/$id/workspace/PullRequestForm.tsx";
 import { useAppDispatch, useAppSelector, useAppStore } from "#ui/store.ts";
-import { classes } from "#ui/components/classes.ts";
-import { EmptyState } from "#ui/components/EmptyState.tsx";
+import { classes } from "@gitbutler/ui-react/classes.ts";
+import { EmptyState } from "@gitbutler/ui-react/EmptyState.tsx";
 import { Toggle, ToggleGroup, Toolbar, Tooltip } from "@base-ui/react";
 import type {
 	CommitDetails as CommitDetailsData,
@@ -145,8 +145,8 @@ import {
 } from "#ui/focus-scopes.ts";
 import { buildIndexByKey, getAdjacent } from "#ui/workspace/address-space.ts";
 import { ChangeStats } from "#ui/routes/project/$id/workspace/ChangeStats.tsx";
-import { ChangeScale } from "#ui/components/ChangeScale.tsx";
-import { DiffStats } from "#ui/components/DiffStats.tsx";
+import { ChangeScale } from "@gitbutler/ui-react/ChangeScale.tsx";
+import { DiffStats } from "@gitbutler/ui-react/DiffStats.tsx";
 import { ChangesHeaderRow } from "#ui/routes/project/$id/workspace/ChangesHeaderRow.tsx";
 import {
 	describeLineStats,
@@ -190,7 +190,7 @@ import { useMergedRefs } from "@base-ui/utils/useMergedRefs";
 import { getHeadInfoIndex, recordedPullRequest } from "#ui/api/ref-info.ts";
 import type { GUISettings } from "#electron/settings.ts";
 import { defaultSettings } from "#ui/settings.ts";
-import type { IconName } from "#ui/components/iconNames.ts";
+import type { IconName } from "@gitbutler/ui-react/iconNames.ts";
 import { combineHashes, hash } from "#ui/hash.ts";
 import { compareFilePaths } from "#ui/file-order.ts";
 import { assert } from "#ui/assert.ts";
@@ -219,7 +219,7 @@ import {
 	type LocalAnnotationsByPath,
 	useCommentCreate,
 } from "#ui/annotation.ts";
-import { FileIcon } from "#ui/components/FileIcon.tsx";
+import { FileIcon } from "@gitbutler/ui-react/FileIcon.tsx";
 import {
 	type Annotation,
 	codeViewItemMetrics,

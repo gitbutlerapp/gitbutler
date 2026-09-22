@@ -14,18 +14,18 @@ import {
 	repoLabelsQueryOptions,
 	reviewerCandidatesQueryOptions,
 } from "#ui/api/queries.ts";
-import { Badge, type BadgeVariant } from "#ui/components/Badge.tsx";
-import { getButtonClassName } from "#ui/components/Button.tsx";
-import { Checkbox } from "#ui/components/Checkbox.tsx";
-import { FieldTextareaStyles } from "#ui/components/Field.tsx";
-import { Kbd } from "#ui/components/Kbd.tsx";
-import { classes } from "#ui/components/classes.ts";
-import { Icon } from "#ui/components/Icon.tsx";
-import { TextLink } from "#ui/components/TextLink.tsx";
-import { ForgeLabel } from "#ui/components/ForgeLabel.tsx";
-import { RelativeTime } from "#ui/components/RelativeTime.tsx";
-import type { IconName } from "#ui/components/iconNames.ts";
-import { TooltipPopup } from "#ui/components/Tooltip.tsx";
+import { Badge, type BadgeVariant } from "@gitbutler/ui-react/Badge.tsx";
+import { getButtonClassName } from "@gitbutler/ui-react/Button.tsx";
+import { Checkbox } from "@gitbutler/ui-react/Checkbox.tsx";
+import { FieldTextareaStyles } from "@gitbutler/ui-react/Field.tsx";
+import { Kbd } from "@gitbutler/ui-react/Kbd.tsx";
+import { classes } from "@gitbutler/ui-react/classes.ts";
+import { Icon } from "@gitbutler/ui-react/Icon.tsx";
+import { TextLink } from "@gitbutler/ui-react/TextLink.tsx";
+import { ForgeLabel } from "@gitbutler/ui-react/ForgeLabel.tsx";
+import { RelativeTime } from "@gitbutler/ui-react/RelativeTime.tsx";
+import type { IconName } from "@gitbutler/ui-react/iconNames.ts";
+import { TooltipPopup } from "@gitbutler/ui-react/Tooltip.tsx";
 import {
 	type NativeMenuItem,
 	nativeMenuItem,
@@ -42,7 +42,11 @@ import {
 	branchChecklistQueryOptions,
 	useUpdateBranchChecklist,
 } from "#ui/pr.ts";
-import { formatAbsoluteTime, formatCompactDuration, formatRelativeTime } from "#ui/time.ts";
+import {
+	formatAbsoluteTime,
+	formatCompactDuration,
+	formatRelativeTime,
+} from "@gitbutler/ui-react/time.ts";
 import { useCopied } from "#ui/components/useCopied.ts";
 import { sameLogin } from "#ui/review-users.ts";
 import type { CiCheck, ForgeReview, ForgeReviewUser } from "@gitbutler/but-sdk";

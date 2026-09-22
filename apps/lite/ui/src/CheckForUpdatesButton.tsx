@@ -1,7 +1,7 @@
 import { useIsFetching } from "@tanstack/react-query";
 import { use, type FC } from "react";
-import { getButtonClassName } from "#ui/components/Button.tsx";
-import { Icon } from "#ui/components/Icon.tsx";
+import { getButtonClassName } from "@gitbutler/ui-react/Button.tsx";
+import { Icon } from "@gitbutler/ui-react/Icon.tsx";
 import { CheckForUpdatesContext } from "#ui/updater-context.ts";
 
 export const CheckForUpdatesButton: FC = () => {

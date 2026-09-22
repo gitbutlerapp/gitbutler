@@ -1,6 +1,6 @@
 import { useDiscardWorktreeChanges } from "#ui/api/mutations.ts";
 import { startAbsorb, startKeyboardTransfer } from "#ui/use-cursor.ts";
-import { Icon } from "#ui/components/Icon.tsx";
+import { Icon } from "@gitbutler/ui-react/Icon.tsx";
 import { createDiffSpec } from "#ui/operations/diff-specs.ts";
 import {
 	nativeMenuItem,
@@ -25,8 +25,8 @@ import { getRowButtonClassName } from "../Row-utils.ts";
 import { ChangeStats } from "../ChangeStats.tsx";
 import { Row, RowFoldToggle, RowLabel, RowLabelContainer, RowToolbar } from "../Row.tsx";
 import { useFileDisplayModeMenuItems } from "../useFileDisplayModeMenuItems.ts";
-import { GraphEdge } from "#ui/components/GraphSegment.tsx";
-import { classes } from "#ui/components/classes.ts";
+import { GraphEdge } from "@gitbutler/ui-react/GraphSegment.tsx";
+import { classes } from "@gitbutler/ui-react/classes.ts";
 import { useQuery } from "@tanstack/react-query";
 import styles from "./UncommittedChangesRow.module.css";
 import { treeChangesDiffsQueryOptions } from "#ui/api/queries.ts";

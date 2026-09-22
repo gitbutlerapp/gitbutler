@@ -1,4 +1,4 @@
-import type { IconName } from "#ui/components/iconNames.ts";
+import type { IconName } from "@gitbutler/ui-react/iconNames.ts";
 import type { SnapshotDetails } from "@gitbutler/but-sdk";
 
 export const presentableOperation = (

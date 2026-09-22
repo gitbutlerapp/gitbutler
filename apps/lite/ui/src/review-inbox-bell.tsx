@@ -8,13 +8,13 @@
  */
 
 import { forgeInfoOptions, headInfoQueryOptions } from "#ui/api/queries.ts";
-import { Icon } from "#ui/components/Icon.tsx";
-import { ToggleGroupStyles, ToggleStyles } from "#ui/components/ToggleGroup.tsx";
+import { Icon } from "@gitbutler/ui-react/Icon.tsx";
+import { ToggleGroupStyles, ToggleStyles } from "@gitbutler/ui-react/ToggleGroup.tsx";
 import { Toggle, ToggleGroup } from "@base-ui/react";
-import type { IconName } from "#ui/components/iconNames.ts";
-import { RelativeTime } from "#ui/components/RelativeTime.tsx";
-import { classes } from "#ui/components/classes.ts";
-import { getButtonClassName } from "#ui/components/Button.tsx";
+import type { IconName } from "@gitbutler/ui-react/iconNames.ts";
+import { RelativeTime } from "@gitbutler/ui-react/RelativeTime.tsx";
+import { classes } from "@gitbutler/ui-react/classes.ts";
+import { getButtonClassName } from "@gitbutler/ui-react/Button.tsx";
 import { appliedRefsByName, openInboxEntry, type AppliedRefs } from "#ui/review-notifications.ts";
 import {
 	entryHeadline,
@@ -26,7 +26,7 @@ import {
 	type InboxKind,
 } from "#ui/review-inbox.ts";
 import { usePrNotificationsLevel } from "#ui/review-seen.ts";
-import { Dropdown } from "#ui/components/Popup.tsx";
+import { Dropdown } from "@gitbutler/ui-react/Popup.tsx";
 import { useQuery } from "@tanstack/react-query";
 import { useState, type FC } from "react";
 import styles from "./review-inbox-bell.module.css";

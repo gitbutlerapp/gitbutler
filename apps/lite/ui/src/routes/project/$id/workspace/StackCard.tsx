@@ -1,4 +1,4 @@
-import { classes } from "#ui/components/classes.ts";
+import { classes } from "@gitbutler/ui-react/classes.ts";
 import type { ComponentProps, FC } from "react";
 import styles from "./StackCard.module.css";
 

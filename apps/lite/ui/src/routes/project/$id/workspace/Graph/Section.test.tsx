@@ -12,8 +12,8 @@ globalThis.IS_REACT_ACT_ENVIRONMENT = true;
 vi.mock("#ui/hotkeys.ts", () => ({
 	workspaceHotkeys: { fetchFromRemotes: { hotkey: "F", meta: { name: "Fetch" } } },
 }));
-vi.mock("#ui/components/Kbd.tsx", () => ({ Kbd: () => null }));
-vi.mock("#ui/components/Tooltip.tsx", () => ({
+vi.mock("@gitbutler/ui-react/Kbd.tsx", () => ({ Kbd: () => null }));
+vi.mock("@gitbutler/ui-react/Tooltip.tsx", () => ({
 	TooltipPopup: ({ children }: { children: ReactNode }) => <div>{children}</div>,
 }));
 vi.mock("#ui/api/mutations.ts", () => ({

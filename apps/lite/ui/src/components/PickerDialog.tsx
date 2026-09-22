@@ -3,7 +3,7 @@
  */
 
 import { Autocomplete, Dialog } from "@base-ui/react";
-import { Modal, PopupEmpty, PopupSearch, PopupSectionLabel } from "#ui/components/Popup.tsx";
+import { Modal, PopupEmpty, PopupSearch, PopupSectionLabel } from "@gitbutler/ui-react/Popup.tsx";
 import { getRangeExtractorWithIndices } from "#ui/virtual.ts";
 import { type Range, useVirtualizer } from "@tanstack/react-virtual";
 import {
@@ -17,9 +17,9 @@ import {
 	useRef,
 	useState,
 } from "react";
-import { classes } from "#ui/components/classes.ts";
-import { formatForDisplaySorted } from "#ui/hotkeys.ts";
-import uiStyles from "#ui/components/ui.module.css";
+import { classes } from "@gitbutler/ui-react/classes.ts";
+import { formatForDisplaySorted } from "@gitbutler/ui-react/formatHotkey.ts";
+import uiStyles from "@gitbutler/ui-react/ui.module.css";
 import styles from "./PickerDialog.module.css";
 
 export type PickerDialogGroup<T> = {

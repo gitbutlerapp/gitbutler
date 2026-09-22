@@ -1,14 +1,14 @@
-import { ConflictIcon } from "#ui/components/ConflictIcon.tsx";
-import { FileIcon } from "#ui/components/FileIcon.tsx";
-import { FileStatusBadge } from "#ui/components/FileStatusBadge.tsx";
+import { ConflictIcon } from "@gitbutler/ui-react/ConflictIcon.tsx";
+import { FileIcon } from "@gitbutler/ui-react/FileIcon.tsx";
+import { FileStatusBadge } from "@gitbutler/ui-react/FileStatusBadge.tsx";
 import rowStyles from "./Row.module.css";
 import { showNativeContextMenu, showNativeMenuFromTrigger } from "#ui/native-menu.ts";
 import type { FileParent } from "#ui/addresses.ts";
 import { projectSlice } from "#ui/projects/state.ts";
 import type { FocusScope } from "#ui/focus-scopes.ts";
 import { useAppSelector } from "#ui/store.ts";
-import { Icon } from "#ui/components/Icon.tsx";
-import { classes } from "#ui/components/classes.ts";
+import { Icon } from "@gitbutler/ui-react/Icon.tsx";
+import { classes } from "@gitbutler/ui-react/classes.ts";
 import { changesFileHotkeys } from "#ui/hotkeys.ts";
 import { Toolbar, Tooltip } from "@base-ui/react";
 import type { ComponentProps, CSSProperties, FC, ReactNode } from "react";
@@ -20,7 +20,7 @@ import { DependencyIndicator } from "#ui/routes/project/$id/workspace/Dependency
 import { useFileMenuItems } from "#ui/routes/project/$id/workspace/useFileMenuItems.ts";
 import type { FileRowItem } from "./file-row.ts";
 import { TreeSteps } from "./TreeSteps.tsx";
-import { ageBadgeOpacity, formatAgeBadge, formatRelativeTime } from "#ui/time.ts";
+import { ageBadgeOpacity, formatAgeBadge, formatRelativeTime } from "@gitbutler/ui-react/time.ts";
 import type { TreeChange } from "@gitbutler/but-sdk";
 import type { FileRowTooltipPayload } from "./FileRowTooltip.tsx";
 

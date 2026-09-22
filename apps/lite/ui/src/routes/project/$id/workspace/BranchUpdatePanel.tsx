@@ -1,5 +1,5 @@
 import rowStyles from "./Row.module.css";
-import uiStyles from "#ui/components/ui.module.css";
+import uiStyles from "@gitbutler/ui-react/ui.module.css";
 import {
 	applyPlanEdits,
 	buildPreviewRows,
@@ -15,12 +15,12 @@ import {
 } from "#ui/api/mutations.ts";
 import { headInfoQueryOptions } from "#ui/api/queries.ts";
 import { decodeBytes } from "#ui/api/bytes.ts";
-import { classes } from "#ui/components/classes.ts";
-import { ConflictIcon } from "#ui/components/ConflictIcon.tsx";
-import { getButtonClassName } from "#ui/components/Button.tsx";
-import { GraphSegment, type GraphSegmentStatus } from "#ui/components/GraphSegment.tsx";
-import { Icon } from "#ui/components/Icon.tsx";
-import { ToggleGroupStyles, ToggleStyles } from "#ui/components/ToggleGroup.tsx";
+import { classes } from "@gitbutler/ui-react/classes.ts";
+import { ConflictIcon } from "@gitbutler/ui-react/ConflictIcon.tsx";
+import { getButtonClassName } from "@gitbutler/ui-react/Button.tsx";
+import { GraphSegment, type GraphSegmentStatus } from "@gitbutler/ui-react/GraphSegment.tsx";
+import { Icon } from "@gitbutler/ui-react/Icon.tsx";
+import { ToggleGroupStyles, ToggleStyles } from "@gitbutler/ui-react/ToggleGroup.tsx";
 import { authorTooltip, commitIsDiverged, commitTitle, shortCommitId } from "#ui/commit.ts";
 import { errorMessageForToast } from "#ui/errors.ts";
 import type { BranchIntegrationStrategy, FullRefName } from "@gitbutler/but-sdk";

@@ -1,5 +1,5 @@
 import { addressEquals, addressIdentityKey, type Address } from "#ui/addresses.ts";
-import { TooltipPopup } from "#ui/components/Tooltip.tsx";
+import { TooltipPopup } from "@gitbutler/ui-react/Tooltip.tsx";
 import { getOperation, type Placement } from "#ui/operations/operation.ts";
 import { getTransferKind, getTransferTarget } from "#ui/operations/pending-operation.ts";
 import { projectSlice } from "#ui/projects/state.ts";

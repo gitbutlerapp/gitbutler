@@ -1,6 +1,6 @@
-import { classes } from "#ui/components/classes.ts";
-import { FieldControlWithIcon, FieldRootStyles } from "#ui/components/Field.tsx";
-import { Icon } from "#ui/components/Icon.tsx";
+import { classes } from "@gitbutler/ui-react/classes.ts";
+import { FieldControlWithIcon, FieldRootStyles } from "@gitbutler/ui-react/Field.tsx";
+import { Icon } from "@gitbutler/ui-react/Icon.tsx";
 import { Field } from "@base-ui/react";
 import type { FC, ReactNode } from "react";
 import rowStyles from "./Row.module.css";
