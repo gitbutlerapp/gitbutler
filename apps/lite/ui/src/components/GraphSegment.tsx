@@ -1,5 +1,5 @@
 import styles from "./GraphSegment.module.css";
-import { classes } from "./classes.ts";
+import { classes } from "@gitbutler/ui-react/classes.ts";
 import { GRAPH_COMMIT_BEND_PADDING, GRAPH_LANE_WIDTH } from "./graph-spacing.ts";
 import type { ComponentProps, FC } from "react";
 import type { CommitState } from "@gitbutler/but-sdk";
@@ -196,7 +196,7 @@ interface GraphSegmentProps extends ComponentProps<"span"> {
 }
 
 /**
- * @import import { GraphSegment } from "@gitbutler/ui-react/GraphSegment.tsx";
+ * @import import { GraphSegment } from "#ui/components/GraphSegment.tsx";
  */
 export const GraphSegment: FC<GraphSegmentProps> = ({
 	glyph,

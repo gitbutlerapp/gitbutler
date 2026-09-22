@@ -1,7 +1,7 @@
 import { addressEquals, commitAddress, type Address } from "#ui/addresses.ts";
 import { assert } from "#ui/assert.ts";
 import { remoteTrackingLabel } from "#ui/branch.ts";
-import { GRAPH_LANE_WIDTH, GRAPH_TRUNK_INSET } from "@gitbutler/ui-react/graph-spacing.ts";
+import { GRAPH_LANE_WIDTH, GRAPH_TRUNK_INSET } from "#ui/components/graph-spacing.ts";
 import type { RefInfo, Stack, TargetCommit, TargetCommitPage, Worktree } from "@gitbutler/but-sdk";
 
 /*

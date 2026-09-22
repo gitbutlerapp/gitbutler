@@ -71,7 +71,7 @@ import {
 	worktreesOnTip,
 } from "../Graph/layout.ts";
 import type { Graph } from "../Graph/usePlan.ts";
-import { GRAPH_TRUNK_INSET } from "@gitbutler/ui-react/graph-spacing.ts";
+import { GRAPH_TRUNK_INSET } from "#ui/components/graph-spacing.ts";
 import { StackCard } from "../StackCard.tsx";
 import stackCardStyles from "../StackCard.module.css";
 import { COMMIT_ROW_HEIGHT, treeItemId } from "../Row-utils.ts";
@@ -82,7 +82,7 @@ import {
 	GraphGap,
 	GraphSegment,
 	type GraphSegmentStatus,
-} from "@gitbutler/ui-react/GraphSegment.tsx";
+} from "#ui/components/GraphSegment.tsx";
 import { useNow } from "@gitbutler/ui-react/useNow.ts";
 import { segmentBottomRelativeTo } from "#ui/api/stack.ts";
 import { assert } from "#ui/assert.ts";

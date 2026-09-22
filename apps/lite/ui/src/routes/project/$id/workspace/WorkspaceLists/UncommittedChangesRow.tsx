@@ -25,7 +25,7 @@ import { getRowButtonClassName } from "../Row-utils.ts";
 import { ChangeStats } from "../ChangeStats.tsx";
 import { Row, RowFoldToggle, RowLabel, RowLabelContainer, RowToolbar } from "../Row.tsx";
 import { useFileDisplayModeMenuItems } from "../useFileDisplayModeMenuItems.ts";
-import { GraphEdge } from "@gitbutler/ui-react/GraphSegment.tsx";
+import { GraphEdge } from "#ui/components/GraphSegment.tsx";
 import { classes } from "@gitbutler/ui-react/classes.ts";
 import { useQuery } from "@tanstack/react-query";
 import styles from "./UncommittedChangesRow.module.css";

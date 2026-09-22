@@ -34,7 +34,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Match } from "effect";
 import { type ComponentProps, type FC, type MouseEvent, useOptimistic, useTransition } from "react";
 import { classes } from "@gitbutler/ui-react/classes.ts";
-import { GraphSegment, type GraphSegmentStatus } from "@gitbutler/ui-react/GraphSegment.tsx";
+import { GraphSegment, type GraphSegmentStatus } from "#ui/components/GraphSegment.tsx";
 import { Icon } from "@gitbutler/ui-react/Icon.tsx";
 import { TooltipPopup } from "@gitbutler/ui-react/Tooltip.tsx";
 import { sidebarHotkeys, selectionOperationHotkeys, toElectronAccelerator } from "#ui/hotkeys.ts";
