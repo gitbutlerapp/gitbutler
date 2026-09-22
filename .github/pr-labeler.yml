@@ -27,3 +27,7 @@ CLI:
 "@gitbutler/no-relative-imports":
   - changed-files:
       - any-glob-to-any-file: packages/no-relative-imports/**/*
+
+CSS:
+  - changed-files:
+      - any-glob-to-any-file: "**/*.css"
