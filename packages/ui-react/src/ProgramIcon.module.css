@@ -1,10 +1,10 @@
-/* 14px is the size ⚛️ Lite Core draws a program's mark in a select's leading slot. The 3px
-   radius follows: the marks are rounded squares, and the corner scales with the size. */
+/* 14px is the size ⚛️ Lite Core draws a program's mark in a select's leading slot. The
+   rounded corner is the icon's own and is in the image, exported from the library with
+   it, so nothing here clips: the shape scales with the image wherever it is drawn. */
 .programIcon {
 	display: block;
 	flex-shrink: 0;
 	width: var(--program-icon-size, 14px);
 	height: var(--program-icon-size, 14px);
 	object-fit: cover;
-	border-radius: 3px;
 }
