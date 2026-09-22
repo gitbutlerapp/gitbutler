@@ -289,8 +289,8 @@ but move <commit> -b <branch>                      # Move commit to the tip of a
 but move <commit> --unstack                        # Move commit onto a new unstacked branch
 but move <branch> --above <target-branch>          # Stack branch on top of target branch
 but move <branch> --unstack                        # Tear off (unstack) a branch
-but move <commit-id>:<file-id> --above <commit>    # Move a committed file into a new commit
-but move <commit-id>:<file-id>:<hunk-id> --above <commit> # Move a committed hunk into a new commit
+but move <commit-id>:<file-id> --above <commit> -m "<msg>" # Move a committed file into a new commit
+but move <commit-id>:<file-id>:<hunk-id> --above <commit> -m "<msg>" # Move a committed hunk into a new commit
 ```
 
 Sources may not mix categories, all committed changes must come from the same commit, and only one
@@ -300,16 +300,22 @@ with no value is equivalent to `--unstack`. With the experimental worktree flag 
 accepts a worktree or the branch checked out in it, moving commit or committed-change
 sources onto that branch's tip (nothing is created); a branch source is refused there.
 
+For committed-change sources, `-m/--message` sets the new commit's message; repeat `-m` to
+join paragraphs with blank lines. Without it, the new commit has an empty message and no editor
+opens. `-m` is rejected when moving whole commits or branches.
+
 ### `but split <SOURCES>...`
 
 Move selected committed files/hunks into a new commit immediately above their source.
-Files and hunks may be mixed, but must come from one commit. The new commit has no message;
-unselected changes stay in the source.
+Files and hunks may be mixed, but must come from one commit. Unselected changes and the original
+message stay in the source. Use `-m/--message` to set the new commit's message directly rather
+than rewording afterward. Repeated `-m` values are joined with blank lines; omitting it creates
+an empty-message commit without opening an editor.
 
 ```bash
 but diff <commit-id>                              # Read committed file/hunk IDs
-but split <commit-id>:<file-id>                    # Split a file
-but split <commit-id>:<file-id>:<hunk-id>           # Split a hunk
+but split <commit-id>:<file-id> -m "Extract file"   # Split a file
+but split <commit-id>:<file-id>:<hunk-id> -m "Extract hunk" # Split a hunk
 ```
 
 ### `but uncommit <SOURCES>...`

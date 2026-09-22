@@ -72,7 +72,9 @@ The first token on each `but diff` / `but status` line is that line's ID. When a
 - Insert empty commit: `but commit --empty -b <branch> -m "<msg>"`
 - Squash commits: `but squash <source-commit-id> [<source-commit-id>...] -t <target-commit-id> -m "<msg>"`
 - Move committed changes into an existing commit or `@`: `but squash <commit-id>:<file-id> -t <commit-id-or-@>` for a committed file; `but squash <commit-id>:<file-id>:<hunk-id> -t <commit-id-or-@>` for a committed hunk; all sources must come from one commit
-- Move committed changes into a new commit at a chosen position: `but move <commit-id>:<file-id> --above <commit-or-branch>` for a committed file; `but move <commit-id>:<file-id>:<hunk-id> --above <commit-or-branch>` for a committed hunk (`--below`, `--branch`, and `--unstack` also work)
+- Move committed changes into a new commit at a chosen position: `but move <commit-id>:<file-id> --above <commit-or-branch> -m "<msg>"` for a committed file; `but move <commit-id>:<file-id>:<hunk-id> --above <commit-or-branch> -m "<msg>"` for a committed hunk (`--below`, `--branch`, and `--unstack` also work)
+- Split selected committed changes into a new commit immediately above their source: `but split <committed-file-or-hunk-id> [<committed-file-or-hunk-id>...] -m "<msg>"`
+- For `but split` and committed-change `but move`, use `-m/--message` to name the new commit directly; repeated `-m` values are joined with blank lines. Omitting it creates an empty-message commit without opening an editor. `but move -m` rejects whole-commit and branch sources.
 - Squash a whole branch into one commit: `but squash <branch> -m "<msg>"` (no `-t`)
 - Uncommit and remove a branch: `but uncommit <branch>`
 - Reorder commits: `but move <commit-id> --below <commit-id>` (`--above` for the other direction; **commit IDs**, not branch names)
@@ -119,10 +121,10 @@ Edge case: if wanted and unwanted edits are in the same diff hunk, GitButler can
 For a two-way split, move selected committed files or hunks directly into a new commit:
 
 1. `but diff <source-commit-id>` — read committed file and hunk IDs.
-2. `but split <committed-file-or-hunk-id> [<committed-file-or-hunk-id>...]` — sources may mix files and hunks, but must come from one commit. The command creates a no-message commit immediately above the source and leaves unselected changes in the source.
-3. Add `--status-after` when the next step needs the rewritten commit IDs, for example to run `but reword <new-commit-id> -m "<message>"`.
+2. `but split <committed-file-or-hunk-id> [<committed-file-or-hunk-id>...] -m "<message>"` — sources may mix files and hunks, but must come from one commit. The command creates the named commit immediately above the source and leaves unselected changes and the original message in the source. No follow-up reword is needed for the new commit.
+3. Add `--status-after` only when the next step needs workspace IDs or details not provided by the mutation result.
 
-For more than two replacement commits or when every message must be chosen during creation:
+For more than two replacement commits, repeat `but split ... -m "<message>"` using the remaining source's committed changes, or use the uncommit/recommit workflow below when rebuilding the entire commit:
 
 1. `but status -fv` when you need the source commit, branch name, or placement anchor.
 2. `but uncommit <source-commit-id> && but diff` in one shell call exposes the commit's changes and prints the resulting file and hunk IDs.

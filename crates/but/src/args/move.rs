@@ -51,6 +51,7 @@ pub struct Platform {
     /// Attempting to place `<SOURCES>` on a branch that exists but is not applied is an error.
     #[clap(short, long, value_name = "BRANCH")]
     pub branch: Option<Option<CliIdArg>>,
+
     /// Place `<SOURCES>` above `BRANCH_OR_COMMIT`.
     ///
     /// If `BRANCH_OR_COMMIT` is a commit, `<SOURCES>` are placed on the same branch as the targeted
@@ -62,6 +63,7 @@ pub struct Platform {
     /// This target is applicable for all kinds of `<SOURCES>`.
     #[clap(short = 'A', long, value_name = "BRANCH_OR_COMMIT")]
     pub above: Option<CliIdArg>,
+
     /// Place `<SOURCES>` below `BRANCH_OR_COMMIT`.
     ///
     /// If `BRANCH_OR_COMMIT` is a commit, the `<SOURCES>` are placed on the same branch as the
@@ -77,12 +79,21 @@ pub struct Platform {
     /// This target is only applicable for `<SOURCES>` that are commits or committed changes.
     #[clap(short = 'B', long, value_name = "BRANCH_OR_COMMIT")]
     pub below: Option<CliIdArg>,
+
     /// Unstack `<SOURCES>` from their current stacks.
     ///
     /// `--unstack` does not take an argument, so `--unstack <SOURCES>` and `<SOURCES> --unstack`
     /// are equivalent.
     #[clap(long)]
     pub unstack: bool,
+
+    /// The message to use when moving changes into a new commit.
+    ///
+    /// Can be supplied any amount of times, each value being appended to the preceding ones with a
+    /// blank line in between. Without `-m`, the new commit will get an empty message.
+    #[clap(short, long)]
+    pub message: Option<Vec<String>>,
+
     /// One or more sources to move, all of one kind: commits; committed files and hunks from one
     /// commit; or a single branch.
     ///

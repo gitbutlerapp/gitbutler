@@ -67,8 +67,9 @@ Stacks:           m0, n0              (auto-generated, 2–3 chars)
 but commit -b <branch-name> -m "message" <file-or-hunk-id>   # Commit selected changes to a branch
 but amend -t <commit-id> <file-or-hunk-id> <file-or-hunk-id>  # Amend file(s) or hunk(s) into commit
 but squash <commit-id> -t <commit-id> -m "message"         # Squash commits
-but move <commit-id>:<file-id> --above <commit-id>           # Reposition a committed file
-but move <commit-id>:<file-id>:<hunk-id> --above <commit-id> # Reposition a committed hunk
+but move <commit-id>:<file-id> --above <commit-id> -m "message" # Reposition a committed file
+but move <commit-id>:<file-id>:<hunk-id> --above <commit-id> -m "message" # Reposition a committed hunk
+but split <commit-id>:<file-id> -m "message"              # Extract a file immediately above its source
 ```
 
 IDs are positional and space-separated. `but help cli-ids` documents every ID kind in detail.

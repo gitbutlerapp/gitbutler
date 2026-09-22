@@ -3749,3 +3749,105 @@ Cannot stack a branch onto worktree branch 'wt-inside'
 
 "#]]);
 }
+
+#[test]
+fn moving_changes_to_new_branch_with_message() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["A"]);
+
+    env.but("move tpm:t --above g0 --message 'new commit'")
+        .assert()
+        .success();
+
+    env.but("status -f")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┊╭┄ br [a-branch-1]
+┊●   qkw new commit
+┊│     qkw:t A A
+┊│
+┊├┄ g0 [A]
+┊●   tpm add A (no changes)
+├╯
+┊
+┴ 0dc3733 (common base) 2000-01-02 add M
+
+Hint: run `but help` for all commands
+
+"#]]);
+}
+
+#[test]
+fn moving_changes_to_new_commit_with_message() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["A"]);
+
+    env.but("move tpm:t --above tpm --message 'new commit'")
+        .assert()
+        .success();
+
+    env.but("status -f")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┊╭┄ g0 [A]
+┊●   qkw new commit
+┊│     qkw:t A A
+┊●   tpm add A (no changes)
+├╯
+┊
+┴ 0dc3733 (common base) 2000-01-02 add M
+
+Hint: run `but help` for all commands
+
+"#]]);
+}
+
+#[test]
+fn when_message_isnt_allowed() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
+    env.setup_metadata(&["A", "B"]);
+
+    env.but("status -f")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┊╭┄ g0 [A]
+┊●   tpm add A
+┊│     tpm:t A A
+├╯
+┊
+┊╭┄ h0 [B]
+┊●   lrm add B
+┊│     lrm:p A B
+├╯
+┊
+┴ 0dc3733 (common base) 2000-01-02 add M
+
+Hint: run `but help` for all commands
+
+"#]]);
+
+    env.but("move tpm --above g0 --message 'not allowed'")
+        .assert()
+        .failure()
+        .stderr_eq(snapbox::str![[r#"
+Error: `-m/--message` can only be used when moving committed changes
+
+"#]]);
+
+    env.but("move B --above A --message 'not allowed'")
+        .assert()
+        .failure()
+        .stderr_eq(snapbox::str![[r#"
+Error: `-m/--message` can only be used when moving committed changes
+
+"#]]);
+}
