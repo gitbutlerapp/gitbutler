@@ -22,7 +22,7 @@ use crate::{
             },
         },
     },
-    id::{BranchId, CommitId, CommittedFileId, IdAndHunk, UncommittedHunkOrFile},
+    id::{BranchId, CommitId, CommittedFileId, IdAndHunk, LaneId, UncommittedHunkOrFile},
     utils::{change_source::ChangeSourceId, targeting::Side},
 };
 
@@ -91,7 +91,7 @@ fn branch_cli_id(name: &str, id: &str, stack_id: Option<StackId>) -> Arc<CliId> 
     Arc::new(CliId::Branch(BranchId {
         name: name.into(),
         id: id.into(),
-        stack_id,
+        lane: LaneId::Stack(stack_id),
     }))
 }
 
@@ -342,7 +342,7 @@ fn restore_returns_matching_branch_after_short_ids_change() {
     let selected_cli_id = CliId::Branch(BranchId {
         name: "main".into(),
         id: "b0".into(),
-        stack_id: None,
+        lane: LaneId::Stack(None),
     });
 
     assert_eq!(
@@ -441,7 +441,7 @@ fn restore_returns_none_when_cli_id_is_not_present() {
             &CliId::Branch(BranchId {
                 name: "main".into(),
                 id: "b0".into(),
-                stack_id: None,
+                lane: LaneId::Stack(None),
             }),
             &lines
         ),
@@ -474,7 +474,7 @@ fn select_finds_commit_line_by_object_id() {
             cli_id: Arc::new(CliId::Branch(BranchId {
                 name: "main".into(),
                 id: "b0".into(),
-                stack_id: None,
+                lane: LaneId::Stack(None),
             })),
             is_merged_upstream: false,
         }),
@@ -1095,7 +1095,7 @@ fn select_branch_finds_branch_line_by_name() {
             cli_id: Arc::new(CliId::Branch(BranchId {
                 name: "main".into(),
                 id: "b0".into(),
-                stack_id: None,
+                lane: LaneId::Stack(None),
             })),
             is_merged_upstream: false,
         }),
@@ -1110,7 +1110,7 @@ fn select_branch_returns_none_when_branch_is_missing() {
         cli_id: Arc::new(CliId::Branch(BranchId {
             name: "main".into(),
             id: "b0".into(),
-            stack_id: None,
+            lane: LaneId::Stack(None),
         })),
         is_merged_upstream: false,
     })];
@@ -1125,7 +1125,7 @@ fn select_branch_uses_first_matching_line_when_branch_appears_multiple_times() {
             cli_id: Arc::new(CliId::Branch(BranchId {
                 name: "main".into(),
                 id: "b0".into(),
-                stack_id: None,
+                lane: LaneId::Stack(None),
             })),
             is_merged_upstream: false,
         }),
@@ -1133,7 +1133,7 @@ fn select_branch_uses_first_matching_line_when_branch_appears_multiple_times() {
             cli_id: Arc::new(CliId::Branch(BranchId {
                 name: "main".into(),
                 id: "b0".into(),
-                stack_id: None,
+                lane: LaneId::Stack(None),
             })),
         }),
     ];
@@ -1148,7 +1148,7 @@ fn select_uncommitted_finds_uncommitted_line() {
             cli_id: Arc::new(CliId::Branch(BranchId {
                 name: "main".into(),
                 id: "b0".into(),
-                stack_id: None,
+                lane: LaneId::Stack(None),
             })),
             is_merged_upstream: false,
         }),
@@ -1180,7 +1180,7 @@ fn select_uncommitted_returns_none_when_missing() {
         cli_id: Arc::new(CliId::Branch(BranchId {
             name: "main".into(),
             id: "b0".into(),
-            stack_id: None,
+            lane: LaneId::Stack(None),
         })),
         is_merged_upstream: false,
     })];
@@ -1195,7 +1195,7 @@ fn select_merge_base_finds_merge_base_line() {
             cli_id: Arc::new(CliId::Branch(BranchId {
                 name: "main".into(),
                 id: "b0".into(),
-                stack_id: None,
+                lane: LaneId::Stack(None),
             })),
             is_merged_upstream: false,
         }),
@@ -1211,7 +1211,7 @@ fn select_merge_base_returns_none_when_missing() {
         cli_id: Arc::new(CliId::Branch(BranchId {
             name: "main".into(),
             id: "b0".into(),
-            stack_id: None,
+            lane: LaneId::Stack(None),
         })),
         is_merged_upstream: false,
     })];
@@ -1267,7 +1267,7 @@ fn selection_cli_id_for_reload_uses_parent_when_file_is_selected_and_files_are_h
     let parent = Arc::new(CliId::Branch(BranchId {
         name: "main".into(),
         id: "b0".into(),
-        stack_id: None,
+        lane: LaneId::Stack(None),
     }));
     let lines = vec![
         line(StatusOutputLineData::Hint),
@@ -1316,7 +1316,7 @@ fn selection_cli_id_for_reload_uses_selected_cli_id_for_non_file_lines() {
     let selected = Arc::new(CliId::Branch(BranchId {
         name: "main".into(),
         id: "b0".into(),
-        stack_id: None,
+        lane: LaneId::Stack(None),
     }));
     let lines = vec![line(StatusOutputLineData::Branch {
         cli_id: selected.clone(),
@@ -1335,7 +1335,7 @@ fn selection_cli_id_for_reload_returns_none_when_cursor_is_out_of_bounds() {
         cli_id: Arc::new(CliId::Branch(BranchId {
             name: "main".into(),
             id: "b0".into(),
-            stack_id: None,
+            lane: LaneId::Stack(None),
         })),
         is_merged_upstream: false,
     })];
@@ -1361,7 +1361,7 @@ fn selection_cli_id_for_reload_uses_nearest_parent_section_for_file() {
     let first_parent = Arc::new(CliId::Branch(BranchId {
         name: "main".into(),
         id: "b0".into(),
-        stack_id: None,
+        lane: LaneId::Stack(None),
     }));
     let nearest_parent = uncommitted_area("u0");
     let lines = vec![
@@ -1648,7 +1648,7 @@ fn move_next_section_moves_to_next_jump_target() {
             cli_id: Arc::new(CliId::Branch(BranchId {
                 name: "main".into(),
                 id: "a0".into(),
-                stack_id: None,
+                lane: LaneId::Stack(None),
             })),
             is_merged_upstream: false,
         }),
@@ -1661,7 +1661,7 @@ fn move_next_section_moves_to_next_jump_target() {
             cli_id: Arc::new(CliId::Branch(BranchId {
                 name: "other".into(),
                 id: "a1".into(),
-                stack_id: None,
+                lane: LaneId::Stack(None),
             })),
             is_merged_upstream: false,
         }),
@@ -1757,7 +1757,7 @@ fn move_previous_section_moves_to_current_section_header_when_cursor_is_inside_i
             cli_id: Arc::new(CliId::Branch(BranchId {
                 name: "main".into(),
                 id: "a0".into(),
-                stack_id: None,
+                lane: LaneId::Stack(None),
             })),
             is_merged_upstream: false,
         }),
@@ -1770,7 +1770,7 @@ fn move_previous_section_moves_to_current_section_header_when_cursor_is_inside_i
             cli_id: Arc::new(CliId::Branch(BranchId {
                 name: "other".into(),
                 id: "a1".into(),
-                stack_id: None,
+                lane: LaneId::Stack(None),
             })),
             is_merged_upstream: false,
         }),
@@ -1872,7 +1872,7 @@ fn move_next_section_skips_non_jump_targets_like_commits() {
             cli_id: Arc::new(CliId::Branch(BranchId {
                 name: "main".into(),
                 id: "b0".into(),
-                stack_id: None,
+                lane: LaneId::Stack(None),
             })),
             is_merged_upstream: false,
         }),
@@ -1885,7 +1885,7 @@ fn move_next_section_skips_non_jump_targets_like_commits() {
             cli_id: Arc::new(CliId::Branch(BranchId {
                 name: "other".into(),
                 id: "a0".into(),
-                stack_id: None,
+                lane: LaneId::Stack(None),
             })),
             is_merged_upstream: false,
         }),
@@ -1910,7 +1910,7 @@ fn move_next_section_can_jump_to_merge_base_line() {
             cli_id: Arc::new(CliId::Branch(BranchId {
                 name: "main".into(),
                 id: "b0".into(),
-                stack_id: None,
+                lane: LaneId::Stack(None),
             })),
             is_merged_upstream: false,
         }),
@@ -1941,7 +1941,7 @@ fn move_previous_section_can_jump_from_merge_base_line() {
             cli_id: Arc::new(CliId::Branch(BranchId {
                 name: "main".into(),
                 id: "b0".into(),
-                stack_id: None,
+                lane: LaneId::Stack(None),
             })),
             is_merged_upstream: false,
         }),
@@ -2039,7 +2039,7 @@ fn move_stack_skips_noop_target_above_source() {
             branch: BranchId {
                 name: "B".into(),
                 id: "b1".into(),
-                stack_id: Some(stack_b),
+                lane: LaneId::Stack(Some(stack_b)),
             },
         },
     });
@@ -2069,7 +2069,7 @@ fn move_stack_skips_noop_target_below_source() {
             branch: BranchId {
                 name: "B".into(),
                 id: "b1".into(),
-                stack_id: Some(stack_b),
+                lane: LaneId::Stack(Some(stack_b)),
             },
         },
     });

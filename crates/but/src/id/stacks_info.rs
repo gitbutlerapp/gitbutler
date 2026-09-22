@@ -5,7 +5,7 @@ use but_core::ChangeId;
 use but_graph::workspace::Stack;
 
 use crate::id::{
-    OLD_UNCOMMITTED, RemoteCommitWithId, SegmentWithId, ShortId, StackWithId,
+    LaneId, OLD_UNCOMMITTED, RemoteCommitWithId, SegmentWithId, ShortId, StackWithId,
     WorkspaceCommitWithId,
     id_usage::{IdUsage, UintId},
 };
@@ -48,7 +48,7 @@ fn stacks_info_without_short_ids(
                 inner: segment,
                 workspace_commits,
                 remote_commits,
-                stack_id: stack.id,
+                lane: LaneId::Stack(stack.id),
             });
         }
         stacks_info.stacks.push(stack_with_id);

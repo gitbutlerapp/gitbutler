@@ -665,10 +665,10 @@ pub struct SegmentWithId {
     pub workspace_commits: Vec<WorkspaceCommitWithId>,
     /// The original `inner.commits_on_remote` with additional information.
     pub remote_commits: Vec<RemoteCommitWithId>,
-    /// Backreference to the ID of the stack that this segment belongs to, for
+    /// Backreference to the lane that this segment belongs to, for
     /// workflows that refer to a stack by the name of one of its constituent
     /// segments.
-    pub stack_id: Option<StackId>,
+    pub lane: LaneId,
 }
 impl SegmentWithId {
     /// Returns the branch name.
@@ -700,11 +700,11 @@ impl<'a> Node<'a> for &'a SegmentWithId {
             Some(name) => CliId::Branch(BranchId {
                 name: name.to_string(),
                 id: self.short_id.clone(),
-                stack_id: self.stack_id,
+                lane: self.lane.clone(),
             }),
             None => CliId::AnonymousSegment(AnonymousSegmentId {
                 id: self.short_id.clone(),
-                stack_id: self.stack_id,
+                lane: self.lane.clone(),
                 anchor_commit_id: self
                     .workspace_commits
                     .first()
@@ -2215,8 +2215,8 @@ impl CliId {
     /// Get the stack id, if any.
     pub fn stack_id(&self) -> Option<StackId> {
         match self {
-            CliId::Branch(BranchId { stack_id, .. })
-            | CliId::AnonymousSegment(AnonymousSegmentId { stack_id, .. }) => *stack_id,
+            CliId::Branch(BranchId { lane, .. })
+            | CliId::AnonymousSegment(AnonymousSegmentId { lane, .. }) => lane.stack_id(),
             CliId::Stack { stack_id, .. } => Some(*stack_id),
             CliId::PathPrefix { .. }
             | CliId::UncommittedHunkOrFile(..)
@@ -2441,20 +2441,39 @@ impl PartialEq for CommittedFileIdRef<'_> {
     }
 }
 
+/// The lane a segment belongs to.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum LaneId {
+    /// A workspace stack, with its metadata ID when it has one.
+    Stack(Option<StackId>),
+    /// A linked worktree, by its stable name.
+    Worktree(BString),
+}
+
+impl LaneId {
+    /// The stack's metadata ID, if this is a stack that has one.
+    pub fn stack_id(&self) -> Option<StackId> {
+        match self {
+            LaneId::Stack(stack_id) => *stack_id,
+            LaneId::Worktree(_) => None,
+        }
+    }
+}
+
 /// CLI identity and naming anchor for a segment without a branch reference.
 #[derive(Debug, Clone, Eq)]
 pub struct AnonymousSegmentId {
     /// Short CLI ID displayed by status.
     pub id: ShortId,
-    /// Stack containing this segment, when backed by workspace metadata.
-    pub stack_id: Option<StackId>,
+    /// The lane containing this segment.
+    pub lane: LaneId,
     /// Top commit where a branch can be created to name this segment.
     pub anchor_commit_id: Option<gix::ObjectId>,
 }
 
 impl PartialEq for AnonymousSegmentId {
     fn eq(&self, other: &Self) -> bool {
-        self.stack_id == other.stack_id
+        self.lane == other.lane
             && match (self.anchor_commit_id, other.anchor_commit_id) {
                 (Some(lhs), Some(rhs)) => lhs == rhs,
                 (None, None) => self.id == other.id,
@@ -2469,8 +2488,8 @@ pub struct BranchId {
     pub name: String,
     /// The short CLI ID for this branch (typically 2 characters)
     pub id: ShortId,
-    /// The stack ID.
-    pub stack_id: Option<StackId>,
+    /// The lane containing this branch.
+    pub lane: LaneId,
 }
 
 impl BranchId {
@@ -2478,7 +2497,7 @@ impl BranchId {
         BranchIdRef {
             id: &self.id,
             name: &self.name,
-            stack_id: self.stack_id,
+            lane: &self.lane,
         }
     }
 }
@@ -2493,7 +2512,7 @@ impl PartialEq for BranchId {
 pub struct BranchIdRef<'a> {
     pub name: &'a str,
     pub id: &'a str,
-    pub stack_id: Option<StackId>,
+    pub lane: &'a LaneId,
 }
 
 impl BranchIdRef<'_> {
@@ -2501,19 +2520,15 @@ impl BranchIdRef<'_> {
         BranchId {
             name: self.name.to_owned(),
             id: self.id.to_owned(),
-            stack_id: self.stack_id,
+            lane: self.lane.clone(),
         }
     }
 }
 
 impl PartialEq for BranchIdRef<'_> {
     fn eq(&self, other: &Self) -> bool {
-        let Self {
-            name,
-            id: _,
-            stack_id,
-        } = self;
-        name == &other.name && stack_id == &other.stack_id
+        let Self { name, id: _, lane } = self;
+        name == &other.name && lane == &other.lane
     }
 }
 

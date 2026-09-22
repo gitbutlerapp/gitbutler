@@ -15,7 +15,9 @@ use snapbox::{assert_data_eq, prelude::*};
 use crate::{
     CliId, IdMap,
     args::atoms::CliIdArg,
-    id::{BranchId, ChangesInCommit, CommitId, OLD_UNCOMMITTED, UNCOMMITTED, id_usage::UintId},
+    id::{
+        BranchId, ChangesInCommit, CommitId, LaneId, OLD_UNCOMMITTED, UNCOMMITTED, id_usage::UintId,
+    },
     utils::change_source::ChangeSourceId,
 };
 
@@ -241,7 +243,9 @@ branches: [ no ]
         BranchId {
             name: "not-important",
             id: "no",
-            stack_id: None,
+            lane: Stack(
+                None,
+            ),
         },
     ),
 ]
@@ -289,7 +293,7 @@ fn exact_branch_short_id_takes_priority() {
         [CliId::Branch(BranchId {
             name: "tp-branch".into(),
             id: "tp".into(),
-            stack_id: None,
+            lane: LaneId::Stack(None),
         })],
         "exact branch short ID wins over change ID prefix"
     );
@@ -323,7 +327,7 @@ branches: [ g0 ]
     let expected = [CliId::Branch(BranchId {
         name: "f".into(),
         id: "g0".into(),
-        stack_id: None,
+        lane: LaneId::Stack(None),
     })];
     assert_eq!(
         id_map.parse("f", &TestChanges(changed_paths_fn))?,
@@ -389,7 +393,7 @@ branches: [ za ]
     let expected = [CliId::Branch(BranchId {
         name: "zza".into(),
         id: "za".into(),
-        stack_id: None,
+        lane: LaneId::Stack(None),
     })];
     assert_eq!(
         id_map.parse("za", &TestChanges(changed_paths_fn))?,
@@ -457,7 +461,7 @@ branches: [ ax, yz ]
     let expected = [CliId::Branch(BranchId {
         name: "x-yz_/hi".into(),
         id: "yz".into(),
-        stack_id: None,
+        lane: LaneId::Stack(None),
     })];
     assert_eq!(
         id_map.parse("yz", &TestChanges(changed_paths_fn))?,
@@ -467,7 +471,7 @@ branches: [ ax, yz ]
     let expected = [CliId::Branch(BranchId {
         name: "0ax".into(),
         id: "ax".into(),
-        stack_id: None,
+        lane: LaneId::Stack(None),
     })];
     assert_eq!(
         id_map.parse("ax", &TestChanges(changed_paths_fn))?,
@@ -508,7 +512,7 @@ uncommitted_hunks: [ nx:e, yz:e ]
     let expected = [CliId::Branch(BranchId {
         name: "ghij".into(),
         id: "ij".into(),
-        stack_id: None,
+        lane: LaneId::Stack(None),
     })];
     assert_eq!(
         id_map.parse("ghij", &TestChanges(changed_paths_fn))?,
@@ -617,7 +621,7 @@ branches: [ su, up ]
     let expected = [CliId::Branch(BranchId {
         name: "substring".into(),
         id: "su".into(),
-        stack_id: None,
+        lane: LaneId::Stack(None),
     })];
     assert_eq!(
         id_map.parse("su", &TestChanges(changed_paths_fn))?,
@@ -626,7 +630,7 @@ branches: [ su, up ]
     let expected = [CliId::Branch(BranchId {
         name: "supersubstring".into(),
         id: "up".into(),
-        stack_id: None,
+        lane: LaneId::Stack(None),
     })];
     assert_eq!(
         id_map.parse("supersubstring", &TestChanges(changed_paths_fn))?,
@@ -687,8 +691,10 @@ stacks: [ j0 ]
         BranchId {
             name: "h0",
             id: "h0",
-            stack_id: Some(
-                00000000-0000-0000-0000-000000000001,
+            lane: Stack(
+                Some(
+                    00000000-0000-0000-0000-000000000001,
+                ),
             ),
         },
     ),
@@ -927,7 +933,9 @@ uncommitted_hunks: [ ln:e ]
         BranchId {
             name: "h0",
             id: "h0",
-            stack_id: None,
+            lane: Stack(
+                None,
+            ),
         },
     ),
 ]
@@ -1541,7 +1549,9 @@ fn uncommitted_files_disambiguate_with_branch() -> anyhow::Result<()> {
         BranchId {
             name: "qsy",
             id: "qs",
-            stack_id: None,
+            lane: Stack(
+                None,
+            ),
         },
     ),
 ]
@@ -1560,7 +1570,9 @@ fn uncommitted_files_disambiguate_with_branch() -> anyhow::Result<()> {
         BranchId {
             name: "qsy",
             id: "qs",
-            stack_id: None,
+            lane: Stack(
+                None,
+            ),
         },
     ),
 ]
@@ -1746,7 +1758,9 @@ fn branch_and_file_by_name() -> anyhow::Result<()> {
         BranchId {
             name: "foo",
             id: "fo",
-            stack_id: None,
+            lane: Stack(
+                None,
+            ),
         },
     ),
     UncommittedHunkOrFile(
@@ -3239,12 +3253,12 @@ fn dedupe_does_not_hide_ambiguity_between_branches_in_different_stacks() -> anyh
     assert!(
         matches
             .iter()
-            .any(|m| matches!(m, CliId::Branch(branch) if branch.name == "foo" && branch.stack_id == Some(StackId::from_number_for_testing(1))))
+            .any(|m| matches!(m, CliId::Branch(branch) if branch.name == "foo" && branch.lane.stack_id() == Some(StackId::from_number_for_testing(1))))
     );
     assert!(
         matches
             .iter()
-            .any(|m| matches!(m, CliId::Branch(branch) if branch.name == "foo" && branch.stack_id == Some(StackId::from_number_for_testing(2))))
+            .any(|m| matches!(m, CliId::Branch(branch) if branch.name == "foo" && branch.lane.stack_id() == Some(StackId::from_number_for_testing(2))))
     );
 
     Ok(())
@@ -3273,7 +3287,7 @@ fn dedupe_treats_unmanaged_branches_with_same_name_as_the_same_branch() -> anyho
     assert!(
         matches!(
             matches.as_slice(),
-            [CliId::Branch(branch)] if branch.name == "foo" && branch.stack_id.is_none()
+            [CliId::Branch(branch)] if branch.name == "foo" && branch.lane.stack_id().is_none()
         ),
         "unmanaged branches with the same name have the same identity"
     );

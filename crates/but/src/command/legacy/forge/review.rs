@@ -1268,7 +1268,7 @@ fn resolve_cli_ids_to_review_ids(
             CliId::Branch(branch) => applied_stacks
                 .iter()
                 .find_map(|stack| {
-                    if stack.id == branch.stack_id {
+                    if stack.id == branch.lane.stack_id() {
                         stack
                             .branch(&branch.name)
                             .and_then(|branch| branch.review_id)

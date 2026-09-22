@@ -202,7 +202,7 @@ pub fn stack_ids_in_display_order(status_lines: &[StatusOutputLine]) -> Vec<Stac
     for line in status_lines {
         if let StatusOutputLineData::Branch { cli_id, .. } = &line.data
             && let CliId::Branch(branch) = &**cli_id
-            && let Some(stack_id) = branch.stack_id
+            && let Some(stack_id) = branch.lane.stack_id()
             && !stack_ids.contains(&stack_id)
         {
             stack_ids.push(stack_id);
@@ -295,8 +295,8 @@ fn stack_id_for_cli_id(cli_id: &CliId, status_lines: &[StatusOutputLine]) -> Opt
                 | StatusOutputLineData::NoAssignmentsUnstaged => None,
             })
         }
-        CliId::Branch(branch) => branch.stack_id,
-        CliId::AnonymousSegment(segment) => segment.stack_id,
+        CliId::Branch(branch) => branch.lane.stack_id(),
+        CliId::AnonymousSegment(segment) => segment.lane.stack_id(),
         CliId::Stack { stack_id, .. } => Some(*stack_id),
         CliId::UncommittedHunkOrFile(..)
         | CliId::PathPrefix { .. }
@@ -472,7 +472,7 @@ impl App {
 
         let (stack_id, name) = match &**selection {
             CliId::Branch(branch) => {
-                let Some(stack_id) = branch.stack_id else {
+                let Some(stack_id) = branch.lane.stack_id() else {
                     return Ok(());
                 };
                 (stack_id, &branch.name)
@@ -498,7 +498,9 @@ impl App {
                 self.status_lines
                     .iter()
                     .filter_map(|line| match line.data.cli_id().map(|id| &**id) {
-                        Some(CliId::Branch(branch)) if branch.stack_id == Some(next_stack_id) => {
+                        Some(CliId::Branch(branch))
+                            if branch.lane.stack_id() == Some(next_stack_id) =>
+                        {
                             Some(branch.name.to_owned())
                         }
                         _ => None,
@@ -541,7 +543,7 @@ impl App {
         let Some(CliId::Branch(branch)) = selection.data.cli_id().map(|id| &**id) else {
             return;
         };
-        if branch.stack_id.is_none() {
+        if branch.lane.stack_id().is_none() {
             return;
         }
         self.mode
@@ -580,7 +582,7 @@ impl App {
             return Ok(());
         }
 
-        let Some(source_stack_id) = source.branch.stack_id else {
+        let Some(source_stack_id) = source.branch.lane.stack_id() else {
             return Ok(());
         };
         let current_stack_order = stack_ids_in_display_order(&self.status_lines);
@@ -817,8 +819,8 @@ fn row_stack_ids(lines: &[StatusOutputLine]) -> Vec<Option<StackId>> {
 
 fn stack_id_from_cli_id(cli_id: &CliId) -> Option<StackId> {
     match cli_id {
-        CliId::Branch(branch) => branch.stack_id,
-        CliId::AnonymousSegment(segment) => segment.stack_id,
+        CliId::Branch(branch) => branch.lane.stack_id(),
+        CliId::AnonymousSegment(segment) => segment.lane.stack_id(),
         CliId::Stack { stack_id, .. } => Some(*stack_id),
         CliId::UncommittedHunkOrFile(..)
         | CliId::PathPrefix { .. }
