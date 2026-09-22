@@ -1842,7 +1842,10 @@ fn run_status_after(
         let status_result = command::legacy::status::worktree(
             ctx,
             out,
-            StatusFlags::all_false(),
+            StatusFlags {
+                show_files: crate::command::legacy::status::FilesStatusFlag::All,
+                ..StatusFlags::all_false()
+            },
             command::legacy::status::StatusRenderMode::Oneshot,
         );
         let status_json = out.take_json_buffer().unwrap_or(serde_json::Value::Null);
