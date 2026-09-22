@@ -4,7 +4,8 @@ import { Icon } from "./Icon.tsx";
 import { ToggleGroupStyles, ToggleStyles } from "./ToggleGroup.tsx";
 
 const meta = preview.meta({
-	component: ToggleGroup,
+	// The library's part is the styles; the story composes them on Base UI's ToggleGroup.
+	component: ToggleGroupStyles,
 	parameters: {
 		design: {
 			type: "figma",

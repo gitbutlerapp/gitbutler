@@ -92,6 +92,14 @@ than by eye, and keep one screenshot as the proof. A story links its Figma
 component through the `design` parameter when one exists, so the two sides
 can be compared when either changes.
 
+Storybook also writes the component manifest (`/manifests/components.json`)
+from every story, the app's included, and the import it lists for a
+component is the `@import` tag in that component's JSDoc, as
+`@import import { Markdown } from "#ui/components/Markdown.tsx";`. Give an
+app component with a story one, or mark a story that has no component
+behind it with `tags: ["!manifest"]`, as `AppUpdater.stories.tsx` does.
+`packages/ui-react/AGENTS.md` has the rest about the manifest.
+
 ## Verifying your work
 
 In dev the app is accessible for automation over CDP on port 9222.

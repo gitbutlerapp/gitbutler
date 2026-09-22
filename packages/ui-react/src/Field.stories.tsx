@@ -10,7 +10,8 @@ import { Icon } from "./Icon.tsx";
 import { Field } from "@base-ui/react";
 
 const meta = preview.meta({
-	component: Field.Root,
+	// The library's part is the styles; the story composes them on Base UI's Field.
+	component: FieldRootStyles,
 	parameters: {
 		design: {
 			type: "figma",

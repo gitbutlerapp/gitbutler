@@ -21,7 +21,7 @@ export const AllIllustrations = meta.story({
 	parameters: {
 		design: {
 			type: "figma",
-			url: "https://www.figma.com/design/EBuHQGUcCaSw4Ln5uVpWkn/Lite?node-id=4719-48274",
+			url: "https://www.figma.com/design/cqdnAotT8n9op8WGYLOHg4/%E2%9A%9B%EF%B8%8F-Lite-Core?node-id=2124-1502",
 		},
 	},
 	render: (args) => (

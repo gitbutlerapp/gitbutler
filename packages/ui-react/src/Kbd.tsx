@@ -17,6 +17,9 @@ const formatKeys = (hotkey: string | HotkeySequence): string =>
 		? formatForDisplaySorted(hotkey)
 		: hotkey.map(formatForDisplaySorted).join(" ");
 
+/**
+ * @import import { Kbd } from "@gitbutler/ui-react/Kbd.tsx";
+ */
 export const Kbd: FC<Props> = ({ hotkey, variant, className, keyClassName }) => (
 	<span
 		className={classes(

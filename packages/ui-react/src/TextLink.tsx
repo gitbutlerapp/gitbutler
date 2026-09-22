@@ -12,6 +12,7 @@ type Props = Omit<ComponentProps<"a">, "href"> & {
  * typed, because the text fonts don't carry ↗ at every weight. How a link
  * leaves is the host's to say, through `onClick`: a web page can let the
  * anchor navigate, while Electron has to hand the URL to the system browser.
+ * @import import { TextLink } from "@gitbutler/ui-react/TextLink.tsx";
  */
 export const TextLink: FC<Props> = ({ href, children, className, ...props }) => (
 	<a {...props} href={href} className={classes(styles.link, className)}>

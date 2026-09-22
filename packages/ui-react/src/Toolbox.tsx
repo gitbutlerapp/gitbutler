@@ -22,6 +22,7 @@ export const ToolboxStack: FC<ComponentProps<"div">> = (props) => (
  * strip and stacks one {@link ToolboxSection} per decision the subject still needs.
  *
  * @public
+ * @import import { Toolbox } from "@gitbutler/ui-react/Toolbox.tsx";
  */
 export const Toolbox: FC<ComponentProps<"div">> = (props) => (
 	<Popup {...props} className={classes(props.className, styles.toolbox)} />

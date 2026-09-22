@@ -9,6 +9,9 @@ type Props = {
 	width?: number;
 } & ComponentProps<"i">;
 
+/**
+ * @import import { Illustration } from "@gitbutler/ui-react/Illustration.tsx";
+ */
 export const Illustration: FC<Props> = ({ name, width, ...props }) => (
 	<i
 		{...props}

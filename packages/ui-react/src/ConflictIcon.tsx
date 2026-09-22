@@ -5,6 +5,9 @@ type Props = {
 	size?: number;
 } & Omit<ComponentProps<"svg">, "width" | "height">;
 
+/**
+ * @import import { ConflictIcon } from "@gitbutler/ui-react/ConflictIcon.tsx";
+ */
 export const ConflictIcon: FC<Props> = ({ variant, size = 16, ...props }) => {
 	if (variant === "conflict") {
 		return (

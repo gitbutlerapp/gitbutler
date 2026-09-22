@@ -12,6 +12,13 @@ export default defineMain({
 		},
 	],
 	framework: "@storybook/react-vite",
+	features: {
+		// /manifests/components.json (and .html to read): every component, its
+		// props from the types, its stories and the import to write, for an agent
+		// to read instead of guessing. Built from the TypeScript program this app's
+		// tsconfig.json describes, which is why that file includes the library.
+		componentsManifest: true,
+	},
 	addons: ["@storybook/addon-designs", "@storybook/addon-docs"],
 	typescript: {
 		// Better props inference.

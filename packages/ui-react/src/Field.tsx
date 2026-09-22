@@ -3,7 +3,10 @@ import { Icon } from "./Icon.tsx";
 import styles from "./Field.module.css";
 import type { ComponentProps, FC, ReactNode } from "react";
 
-/** @public */
+/**
+ * @public
+ * @import import { FieldRootStyles } from "@gitbutler/ui-react/Field.tsx";
+ */
 export const FieldRootStyles: FC<ComponentProps<"div">> = (props) => (
 	<div {...props} className={classes(props.className, styles.fieldRoot)} />
 );

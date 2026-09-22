@@ -113,6 +113,8 @@ const Demo: FC = () => {
 const meta = preview.meta({
 	title: "App/Updater",
 	component: Demo,
+	// Demo wraps the updater for the story; there is no component here for the manifest.
+	tags: ["!manifest"],
 	beforeEach: () => {
 		let status: InstallationStatus = { _tag: "Idle" };
 		const client = new QueryClient({

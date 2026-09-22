@@ -25,6 +25,7 @@ type Props = Omit<ComponentProps<typeof Switch>, "className" | "id"> & {
  * The chrome lives on a `<label>` rather than around the switch, so the text
  * shares the switch's hit area: base-ui points the label at the hidden
  * checkbox it renders alongside the `<span role="switch">`.
+ * @import import { SwitchButton } from "@gitbutler/ui-react/SwitchButton.tsx";
  */
 export const SwitchButton: FC<Props> = ({
 	label,

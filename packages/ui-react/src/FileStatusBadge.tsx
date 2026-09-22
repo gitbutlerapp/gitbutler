@@ -13,6 +13,9 @@ type Props = {
 	fontSize?: number;
 } & ComponentProps<"span">;
 
+/**
+ * @import import { FileStatusBadge } from "@gitbutler/ui-react/FileStatusBadge.tsx";
+ */
 export const FileStatusBadge: FC<Props> = ({ status, fontSize = 11, ...props }) => (
 	<span
 		aria-label={status}

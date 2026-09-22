@@ -26,6 +26,7 @@ import {
  * out of the corner it is anchored to rather than fading in place.
  *
  * @public
+ * @import import { Popup } from "@gitbutler/ui-react/Popup.tsx";
  */
 export const Popup: FC<{ anchored?: boolean } & useRender.ComponentProps<"div">> = ({
 	anchored = false,
@@ -93,6 +94,7 @@ export type ModalProps = {
  * as involved as settings lays itself out entirely.
  *
  * @public
+ * @import import { Modal } from "@gitbutler/ui-react/Popup.tsx";
  */
 export const Modal: FC<ModalProps> = ({
 	open,
@@ -176,6 +178,7 @@ export type DropdownProps = {
  * are Electron's own, raised through `native-menu.ts`; a dropdown is not the place to rebuild one.
  *
  * @public
+ * @import import { Dropdown } from "@gitbutler/ui-react/Popup.tsx";
  */
 export const Dropdown: FC<DropdownProps> = ({
 	open,

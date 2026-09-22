@@ -24,18 +24,14 @@ import waving from "./illustrations/waving.svg?raw";
  * - a darker face, where a drawing needs one more step between the ground
  *   and its outline, is `--border-2` — the token ⚛️ Lite Core binds it to.
  *
- * A `--bg-2` face therefore paints in the ground's own colour and shows only
- * its outline — an open face, not a filled one, which is what the drawing
- * intends. It is a real dependency on the surface: put one of these on `--bg-1`
- * and every open face closes up into a tint. Both hosts today are `--bg-2` (the
- * sidebar's panels and the details pane's empty state), so an illustration for
- * anywhere else wants checking against its ground first. `papers` is the one
- * drawn for `--bg-1`: its only shaded face is `--border-2`, so it reads the
- * same on a popup's paper. `id-card` sits on a settings card, also `--bg-1`,
- * and its one `--bg-2` face is meant as a tint there; its asterisks are
- * `--text-2`, a step darker than the outline, since they stand for text.
- * `terminal` sits on the same card and has no shaded face at all: its screen
- * is solid `currentColor` with the prompt cut out of it in `--bg-1`.
+ * An illustration works on either ground. On `--bg-2` (the sidebar's panels,
+ * the details pane's empty state) a `--bg-2` face paints in the ground's own
+ * colour and shows only its outline, an open face; on `--bg-1` (a popup's
+ * paper, a settings card) the same face reads as a light tint. Both are the
+ * drawing as intended, so nothing is checked against its ground. `id-card`'s
+ * asterisks are `--text-2`, a step darker than the outline, since they stand
+ * for text. `terminal` has no shaded face at all: its screen is solid
+ * `currentColor` with the prompt cut out of it in `--bg-1`.
  *
  * Each asset keeps the width and height Figma gave it and renders at that size;
  * `<Illustration width={n} />` overrides it where a surface needs another.

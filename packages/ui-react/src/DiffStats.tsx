@@ -10,6 +10,7 @@ type Props = {
 /**
  * The `+N -N` line counts of a diff. Renders nothing when nothing changed, and
  * drops either side when it is zero, so a header shows only what it has to say.
+ * @import import { DiffStats } from "@gitbutler/ui-react/DiffStats.tsx";
  */
 export const DiffStats: FC<Props> = ({ added, removed, ...props }) => {
 	if (added === 0 && removed === 0) return null;

@@ -28,6 +28,7 @@ type Props = {
  * counts next to it carry the numbers, so it is hidden from screen readers.
  *
  * Renders nothing when nothing changed.
+ * @import import { ChangeScale } from "@gitbutler/ui-react/ChangeScale.tsx";
  */
 export const ChangeScale: FC<Props> = ({ added, removed, ...props }) => {
 	if (added === 0 && removed === 0) return null;

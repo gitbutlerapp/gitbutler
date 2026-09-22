@@ -78,6 +78,7 @@ export type SelectProps<Value extends string> = {
  * commit target — reach for the combobox directly instead.
  *
  * @public
+ * @import import { Select } from "@gitbutler/ui-react/Select.tsx";
  */
 export const Select = <Value extends string>(props: SelectProps<Value>) => (
 	<Field.Root render={<FieldRootStyles />} className={props.className} style={props.style}>

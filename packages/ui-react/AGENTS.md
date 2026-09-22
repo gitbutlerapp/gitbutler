@@ -112,6 +112,25 @@ spacing from computed styles rather than by eye. A story links its Figma
 component through the `design` parameter; keep the link when you add a story,
 and compare the two sides when either changes.
 
+### The manifest
+
+Storybook writes `/manifests/components.json` (and `components.html`, to
+read) from the stories: every component, its props from the TypeScript
+types, its stories with their source, and the import to write. An agent
+reads it instead of guessing an API. Two things about it to know:
+
+- The import to write is the `@import` tag in each component's JSDoc, as
+  `@import import { Badge } from "@gitbutler/ui-react/Badge.tsx";`. Give a
+  new component one. The entry's `reactDocgenTypescript.tags.import` carries
+  it; the top-level `import` field is Storybook's own guess, which names
+  the package without the file, and there is no such barrel.
+- The link to the Figma component is the story's `design` parameter, not
+  the manifest. `grep -l 'type: "figma"' src/*.stories.tsx` lists the stories
+  that have one; a story without one has no drawn spec yet.
+
+A story whose subject is a function rather than a component, as `Button`'s
+`getButtonClassName` is, carries `tags: ["!manifest"]` and says why.
+
 ### Linting & formatting
 
 The package is linted by oxlint with Lite's config, not by ESLint:

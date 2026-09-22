@@ -16,6 +16,7 @@ type Props = {
  * so a caller can place it unconditionally and let the text carry the name alone.
  *
  * @public
+ * @import import { ProgramIcon } from "@gitbutler/ui-react/ProgramIcon.tsx";
  */
 export const ProgramIcon: FC<Props> = ({ program, size, ...props }) => {
 	const src = programIconFor(program);

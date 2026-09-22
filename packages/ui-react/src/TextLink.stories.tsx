@@ -3,6 +3,12 @@ import { TextLink } from "./TextLink.tsx";
 
 const meta = preview.meta({
 	component: TextLink,
+	parameters: {
+		design: {
+			type: "figma",
+			url: "https://www.figma.com/design/cqdnAotT8n9op8WGYLOHg4/%E2%9A%9B%EF%B8%8F-Lite-Core?node-id=2118-1509",
+		},
+	},
 	args: {
 		href: "https://github.com/gitbutlerapp/gitbutler/pull/15941",
 		children: "#15941",

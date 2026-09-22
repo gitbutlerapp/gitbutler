@@ -3,7 +3,8 @@
 // and an error that only forbids gets worked around. The rules and their
 // exceptions are DESIGN.md's; when one changes there, change it here.
 
-const hex = "/#[0-9a-f]{3,8}\\b/i";
+// Not a fragment id: url(#clip) is a reference, not a colour.
+const hex = "/(?<!url\\()#[0-9a-f]{3,8}\\b/i";
 
 export default {
 	rules: {

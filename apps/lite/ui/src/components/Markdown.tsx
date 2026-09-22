@@ -250,6 +250,7 @@ const remarkLiteralTags = () => {
  * - Images inline only from GitHub-operated hosts (which don't expose
  *   request logs to authors, so they can't track viewers); any other host
  *   renders as a link and is never fetched. See {@link isGitHubHostedImage}.
+ * @import import { Markdown } from "#ui/components/Markdown.tsx";
  */
 export const Markdown: FC<{ children: string }> = ({ children }) => (
 	<div className={classes("text-13", "text-body", styles.markdown)}>
