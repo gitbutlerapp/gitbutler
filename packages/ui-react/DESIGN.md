@@ -621,7 +621,7 @@ not in a surface that leaves.
 
 ## Markdown
 
-**One kit, in ⚛️ Lite Core: the `Markdown/` components.** A component per
+**One kit, on the Lite mockup file's ⚙️ Meta page: the `Markdown/` components.** A component per
 block — Heading with its three levels, Paragraph, List and List item, Link,
 Inline code, and Block, which wraps a code block, blockquote, table, image or
 rule chosen by its swap — and "Markdown / slot", whose default content is a
