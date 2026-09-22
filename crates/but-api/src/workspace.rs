@@ -1,7 +1,7 @@
 //! Functions that operate on the workspace.
 
 use std::{
-    collections::HashSet,
+    collections::{BTreeMap, HashSet},
     time::{SystemTime, UNIX_EPOCH},
 };
 
@@ -495,6 +495,8 @@ pub struct WorkspaceIntegrateUpstreamOutcome {
     pub target_commits: Option<crate::target_commits::TargetCommitPage>,
     /// Dirty worktree paths that would conflict when applied onto the resulting workspace head.
     pub worktree_conflicts: Vec<BStringForFrontend>,
+    /// Conflicted paths by resulting commit ID, for both previews and applied updates.
+    pub commit_conflicts: BTreeMap<gix::ObjectId, Vec<BStringForFrontend>>,
 }
 
 /// JSON transport types for workspace APIs.
@@ -595,6 +597,13 @@ pub mod json {
         /// Dirty worktree paths that would conflict when applied onto the resulting workspace head.
         #[cfg_attr(feature = "export-schema", schemars(with = "Vec<String>"))]
         pub worktree_conflicts: Vec<BStringForFrontend>,
+        /// Conflicted paths by resulting commit ID, for both previews and applied updates.
+        #[cfg_attr(
+            feature = "export-schema",
+            schemars(with = "std::collections::BTreeMap<String, Vec<String>>")
+        )]
+        pub commit_conflicts:
+            std::collections::BTreeMap<crate::json::HexHash, Vec<BStringForFrontend>>,
     }
 
     #[cfg(feature = "export-schema")]
@@ -608,6 +617,11 @@ pub mod json {
                 workspace_state: value.workspace_state.try_into()?,
                 target_commits: value.target_commits,
                 worktree_conflicts: value.worktree_conflicts,
+                commit_conflicts: value
+                    .commit_conflicts
+                    .into_iter()
+                    .map(|(id, paths)| (id.into(), paths))
+                    .collect(),
             })
         }
     }
@@ -832,7 +846,7 @@ pub fn workspace_integrate_upstream_only_with_perm(
 ) -> anyhow::Result<WorkspaceIntegrateUpstreamOutcome> {
     let mut meta = ctx.meta()?;
     let single_branch_mode = ctx.settings.feature_flags.single_branch;
-    let (workspace_state, worktree_conflicts) = {
+    let (workspace_state, worktree_conflicts, commit_conflicts) = {
         let project_meta = ctx.project_meta()?;
         let (repo, mut ws, mut db) = ctx.workspace_mut_and_db_mut_with_perm(perm)?;
         let review_hints = match forge_review_integration_hints(&ws, &project_meta, &db) {
@@ -869,9 +883,11 @@ pub fn workspace_integrate_upstream_only_with_perm(
             // The preview was projected against the new target; the cached workspace,
             // which the next caller of this context reuses, has not moved.
             rebase.project_meta_mut().target_commit_id = cached_target;
+            let commit_conflicts = workspace_commit_conflicts(rebase.repo(), &workspace_state)?;
             return Ok(WorkspaceIntegrateUpstreamOutcome {
                 workspace_state,
                 target_commits: None,
+                commit_conflicts,
                 worktree_conflicts,
             });
         }
@@ -896,7 +912,8 @@ pub fn workspace_integrate_upstream_only_with_perm(
         }
 
         let workspace_state = WorkspaceState::from_materialized(materialized, &repo)?;
-        (workspace_state, worktree_conflicts)
+        let commit_conflicts = workspace_commit_conflicts(&repo, &workspace_state)?;
+        (workspace_state, worktree_conflicts, commit_conflicts)
     };
     ctx.invalidate_workspace_cache()?;
 
@@ -916,7 +933,62 @@ pub fn workspace_integrate_upstream_only_with_perm(
         })
         .ok(),
         worktree_conflicts,
+        commit_conflicts,
     })
+}
+
+/// Read conflicted paths from the resulting workspace, while any preview objects are still available.
+fn workspace_commit_conflicts(
+    repo: &gix::Repository,
+    workspace: &WorkspaceState,
+) -> anyhow::Result<BTreeMap<gix::ObjectId, Vec<BStringForFrontend>>> {
+    use gix::prelude::ObjectIdExt;
+
+    #[cfg(not(feature = "graph-workspace"))]
+    let commits = workspace
+        .head_info
+        .stacks
+        .iter()
+        .flat_map(|stack| &stack.segments)
+        .flat_map(|segment| &segment.commits)
+        .filter(|commit| commit.has_conflicts)
+        .map(|commit| commit.id);
+    #[cfg(feature = "graph-workspace")]
+    let commits = workspace
+        .graph_workspace
+        .stacks
+        .iter()
+        .flat_map(|stack| &stack.rows)
+        .filter_map(|row| match &row.data {
+            but_workspace::ui::workspace::DetailedGraphRowData::Commit(commit)
+                if commit.has_conflicts =>
+            {
+                Some(commit.id)
+            }
+            _ => None,
+        });
+
+    let mut conflicts = BTreeMap::new();
+    for id in commits {
+        if conflicts.contains_key(&id) {
+            continue;
+        }
+        let Some(entries) = but_core::Commit::from_id(id.attach(repo))?.conflict_entries()? else {
+            continue;
+        };
+        // Include every stage: delete and rename conflicts may have no path on one side.
+        let mut paths: Vec<BStringForFrontend> = entries
+            .ancestor_entries
+            .into_iter()
+            .chain(entries.our_entries)
+            .chain(entries.their_entries)
+            .map(|path| gix::path::into_bstr(path).into_owned().into())
+            .collect();
+        paths.sort();
+        paths.dedup();
+        conflicts.insert(id, paths);
+    }
+    Ok(conflicts)
 }
 
 #[cfg(test)]
