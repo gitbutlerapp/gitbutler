@@ -533,9 +533,18 @@ pub async fn update(
     params: crate::client::UpdatePullRequestParams<'_>,
     storage: &but_forge_storage::Controller,
 ) -> Result<crate::client::PullRequest> {
-    let pr = GitHubClient::from_storage(storage, preferred_account)?
-        .update_pull_request(&params)
+    let client = GitHubClient::from_storage(storage, preferred_account)?;
+    update_with_client(&client, &params).await
+}
+
+async fn update_with_client(
+    client: &GitHubClient,
+    params: &crate::client::UpdatePullRequestParams<'_>,
+) -> Result<crate::client::PullRequest> {
+    let pr = client
+        .update_pull_request(params)
         .await
+        .map_err(classify_forge_error)
         .context("Failed to update pull request")?;
     Ok(pr)
 }
@@ -575,6 +584,90 @@ pub async fn set_auto_merge(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[tokio::test(flavor = "current_thread")]
+    async fn update_classifies_saml_refusal_and_preserves_the_error_chain() {
+        use std::io::{Read as _, Write as _};
+
+        let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+        let address = listener.local_addr().unwrap();
+        listener.set_nonblocking(true).unwrap();
+        let body = r#"{"message":"Resource protected by organization SAML enforcement. You must grant your OAuth token access to this organization."}"#;
+        let server = std::thread::spawn(move || {
+            let deadline = std::time::Instant::now() + std::time::Duration::from_secs(2);
+            let (mut stream, _) = loop {
+                match listener.accept() {
+                    Ok(connection) => break connection,
+                    Err(error) if error.kind() == std::io::ErrorKind::WouldBlock => {
+                        assert!(std::time::Instant::now() < deadline, "request timed out");
+                        std::thread::sleep(std::time::Duration::from_millis(5));
+                    }
+                    Err(error) => panic!("failed to accept request: {error}"),
+                }
+            };
+            stream
+                .set_read_timeout(Some(std::time::Duration::from_secs(2)))
+                .unwrap();
+            let mut request = Vec::new();
+            while !request.windows(4).any(|bytes| bytes == b"\r\n\r\n") {
+                let mut buffer = [0; 1024];
+                let read = stream.read(&mut buffer).unwrap();
+                assert_ne!(read, 0, "request ended before its headers");
+                request.extend_from_slice(&buffer[..read]);
+            }
+            let request = String::from_utf8_lossy(&request);
+            assert!(
+                request.starts_with("PATCH /repos/o/r/pulls/7 "),
+                "the update uses the pull request mutation endpoint"
+            );
+            write!(
+                stream,
+                "HTTP/1.1 403 Forbidden\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{body}",
+                body.len()
+            )
+            .unwrap();
+        });
+        let client = GitHubClient::new_with_host_override(
+            &but_secret::Sensitive("token".to_string()),
+            &format!("http://{address}"),
+        )
+        .unwrap();
+        let params = crate::client::UpdatePullRequestParams {
+            owner: "o",
+            repo: "r",
+            pr_number: 7,
+            title: None,
+            body: None,
+            base: Some("main"),
+            state: None,
+        };
+
+        let err = update_with_client(&client, &params).await.unwrap_err();
+        server.join().unwrap();
+
+        let context = err
+            .downcast_ref::<but_error::Context>()
+            .expect("the update path classifies the SAML refusal");
+        assert_eq!(
+            (context.code, context.message.as_deref()),
+            (
+                but_error::Code::GitHubOrgSamlRestricted,
+                Some(GITHUB_ORG_SAML_RESTRICTION_MESSAGE)
+            ),
+            "the update reports the canonical code and static guidance"
+        );
+        assert!(
+            err.downcast_ref::<HttpStatusError>()
+                .is_some_and(|cause| cause.status == reqwest::StatusCode::FORBIDDEN),
+            "the original HTTP status remains in the chain"
+        );
+        assert!(
+            err.chain().any(|cause| cause
+                .to_string()
+                .contains("Resource protected by organization SAML enforcement")),
+            "the original provider refusal remains in the chain"
+        );
+    }
 
     /// Shape the error like `ensure_success` does: the status-carrying error
     /// wrapped by what the forge said in the response body.
