@@ -139,7 +139,10 @@ but diff nn                  # Read the committed hunk ID
 but squash nn:a2:5 -t mm     # Target message is reused
 
 # Or put that committed hunk in a new commit at a chosen position
-but move nn:a2:5 --above mm
+but move nn:a2:5 --above mm -m "Extract utility change"
+
+# Or split it into a named commit immediately above its source
+but split nn:a2:5 -m "Extract utility change"
 
 # Or move that committed hunk back to uncommitted
 but squash nn:a2:5 -t @

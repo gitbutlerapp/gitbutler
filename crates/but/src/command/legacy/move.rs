@@ -23,6 +23,7 @@ use crate::{
         r#move::Platform,
     },
     bad_input,
+    command::legacy::reword2::CommitMessageSource,
     id::{CommitId, CommittedFileId, CommittedHunk},
     theme::{self, Theme},
     utils::{
@@ -225,7 +226,7 @@ impl CliOutput for MoveOutcome {
 
 pub fn r#move(
     ctx: &mut Context,
-    _out: IntermediateChannel<'_>,
+    mut out: IntermediateChannel<'_>,
     args: Platform,
 ) -> CliResult<(MoveOutcome, WorkspaceState)> {
     let mut guard = ctx.exclusive_worktree_access();
@@ -233,7 +234,7 @@ pub fn r#move(
     let id_map = IdMap::new_from_context(ctx, guard.read_permission())?;
 
     let allow_merged = args.allow_merged;
-    let move_op = resolve(ctx, guard.write_permission(), args, &id_map)?;
+    let move_op = resolve(ctx, &mut out, guard.write_permission(), args, &id_map)?;
     ensure_not_touching_merged_upstream(&move_op, &MergedUpstream::from_ctx(ctx, allow_merged)?)?;
 
     Ok(run(ctx, &mut meta, guard.write_permission(), move_op)?)
@@ -367,6 +368,7 @@ pub struct MoveChangesRelativeToOperation {
     pub source_commit: CommitId,
     pub changes: NonEmpty<DiffSpec>,
     pub target: MoveTarget,
+    pub reword: CommitMessageSource,
 }
 
 impl MoveChangesRelativeToOperation {
@@ -378,6 +380,7 @@ impl MoveChangesRelativeToOperation {
             target,
             changes,
             source_commit,
+            reword,
         } = self;
 
         let (relative_to, side, new_branch_name) = match target {
@@ -411,7 +414,9 @@ impl MoveChangesRelativeToOperation {
             changes.into(),
         )?;
 
-        Ok((new_commit.into(), new_branch_name))
+        let new_commit = reword.execute(new_commit.into(), tx)?;
+
+        Ok((new_commit, new_branch_name))
     }
 }
 
@@ -420,6 +425,7 @@ pub struct MoveChangesToNewBranchOperation {
     pub source_commit: CommitId,
     pub changes: NonEmpty<DiffSpec>,
     pub branch_name: Option<FullName>,
+    pub reword: CommitMessageSource,
 }
 
 impl MoveChangesToNewBranchOperation {
@@ -431,6 +437,7 @@ impl MoveChangesToNewBranchOperation {
             source_commit,
             changes,
             branch_name,
+            reword,
         } = self;
 
         let new_branch_name = if let Some(branch_name) = branch_name {
@@ -455,7 +462,10 @@ impl MoveChangesToNewBranchOperation {
             empty_commit_id.id,
             changes.into(),
         )?;
-        Ok((new_commit.into(), new_branch_name))
+
+        let new_commit = reword.execute(new_commit.into(), tx)?;
+
+        Ok((new_commit, new_branch_name))
     }
 }
 
@@ -516,6 +526,7 @@ impl Display for MoveTarget {
 
 fn resolve(
     ctx: &mut Context,
+    out: &mut IntermediateChannel<'_>,
     perm: &mut RepoExclusive,
     args: Platform,
     id_map: &IdMap,
@@ -526,6 +537,7 @@ fn resolve(
         sources,
         branch,
         unstack,
+        message,
         // Consumed by the caller when building the `MergedUpstream` guard.
         allow_merged: _,
     } = args;
@@ -534,6 +546,18 @@ fn resolve(
     let (repo, ws, _db) = ctx.workspace_and_db_mut_with_perm(perm.read_permission())?;
 
     let resolved_sources = resolve_sources(&repo, context_lines, id_map, sources)?;
+
+    match &resolved_sources {
+        ResolvedSources::CommittedChanges(..) => {}
+        ResolvedSources::Commits { .. } | ResolvedSources::Branch(..) => {
+            if message.is_some() {
+                return Err(bad_input(
+                    "`-m/--message` can only be used when moving committed changes",
+                )
+                .into());
+            }
+        }
+    }
 
     match (branch, above, below, unstack) {
         (Some(Some(branch)), None, None, false) => {
@@ -636,6 +660,7 @@ fn resolve(
                         target: MoveTarget::BranchTip {
                             name: target.resolve_local_branch_name()?,
                         },
+                        reword: message_args_to_reword_operation(message, out)?,
                     },
                 )),
                 (
@@ -646,6 +671,7 @@ fn resolve(
                         source_commit,
                         changes,
                         target: MoveTarget::BranchTip { name },
+                        reword: message_args_to_reword_operation(message, out)?,
                     },
                 )),
                 (
@@ -659,6 +685,7 @@ fn resolve(
                             source_commit,
                             changes,
                             branch_name: Some(branch_name),
+                            reword: message_args_to_reword_operation(message, out)?,
                         },
                     ))
                 }
@@ -684,15 +711,28 @@ fn resolve(
                     source_commit,
                     changes,
                     branch_name: None,
+                    reword: message_args_to_reword_operation(message, out)?,
                 }),
             ),
         },
-        (None, Some(above), None, false) => {
-            create_move_above_or_below_op(&repo, id_map, resolved_sources, above, Side::Above)
-        }
-        (None, None, Some(below), false) => {
-            create_move_above_or_below_op(&repo, id_map, resolved_sources, below, Side::Below)
-        }
+        (None, Some(above), None, false) => create_move_above_or_below_op(
+            &repo,
+            id_map,
+            resolved_sources,
+            above,
+            Side::Above,
+            out,
+            message,
+        ),
+        (None, None, Some(below), false) => create_move_above_or_below_op(
+            &repo,
+            id_map,
+            resolved_sources,
+            below,
+            Side::Below,
+            out,
+            message,
+        ),
         (None, None, None, true) => match resolved_sources {
             ResolvedSources::Branch(source_branch) => {
                 Ok(MoveOperation::UnstackBranch(UnstackBranchOperation {
@@ -713,11 +753,19 @@ fn resolve(
                     source_commit,
                     changes,
                     branch_name: None,
+                    reword: message_args_to_reword_operation(message, out)?,
                 }),
             ),
         },
         _ => unreachable!("BUG: Targeting group is required"),
     }
+}
+
+pub fn message_args_to_reword_operation(
+    message: Option<Vec<String>>,
+    out: &mut IntermediateChannel<'_>,
+) -> CliResult<CommitMessageSource> {
+    CommitMessageSource::from_args(message.is_none(), message, out.format())
 }
 
 fn create_move_above_or_below_op(
@@ -726,6 +774,8 @@ fn create_move_above_or_below_op(
     resolved_sources: ResolvedSources,
     unresolved_target: CliIdArg,
     side: Side,
+    out: &mut IntermediateChannel<'_>,
+    message: Option<Vec<String>>,
 ) -> CliResult<MoveOperation> {
     let target = {
         match unresolved_target.resolve_in_workspace(repo, id_map, Purpose::Anchor, None)? {
@@ -803,6 +853,7 @@ fn create_move_above_or_below_op(
                 changes,
                 source_commit,
                 target,
+                reword: message_args_to_reword_operation(message, out)?,
             }),
         ),
     }

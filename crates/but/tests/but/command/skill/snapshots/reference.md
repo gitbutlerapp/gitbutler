@@ -138,10 +138,12 @@ Move commits and changes around
 - `-A, --above <BRANCH_OR_COMMIT>` Place <SOURCES> above BRANCH_OR_COMMIT. If BRANCH_OR_COMMIT is a commit, <SOURCES> are placed on the same branch as the targeted commit. If BRANCH_OR_COMMIT is a branch, the sources are placed on a new branch above the targeted branch. This target is applicable for all kinds of <SOURCES>.
 - `-B, --below <BRANCH_OR_COMMIT>` Place <SOURCES> below BRANCH_OR_COMMIT. If BRANCH_OR_COMMIT is a commit, the <SOURCES> are placed on the same branch as the targeted commit. If BRANCH_OR_COMMIT is a branch, <SOURCES> are placed on a new branch below the targeted branch. Branches are treated as buckets, meaning that "below a branch" is treated as below the oldest ancestor on that branch. If BRANCH_OR_COMMIT is a worktree, <SOURCES> are placed on the tip of the branch that worktree has checked out. This target is only applicable for <SOURCES> that are commits or committed changes.
 - `--unstack` Unstack <SOURCES> from their current stacks. --unstack does not take an argument, so --unstack <SOURCES> and <SOURCES> --unstack are equivalent.
+- `-m, --message <MESSAGE>` The message to use when moving changes into a new commit. Can be supplied any amount of times, each value being appended to the preceding ones with a blank line in between. Without -m, the new commit will get an empty message.
 
 ### but split <SOURCES>...
 Split a commit in two
 - `<SOURCES>...` The committed files and hunks to move into a new commit
+- `-m, --message <MESSAGE>` The message to use for the new commit. Can be supplied any amount of times, each value being appended to the preceding ones with a blank line in between. Without -m, the new commit will get an empty message.
 
 ### but absorb [SOURCE]
 Amend uncommitted changes into the commits they belong to
