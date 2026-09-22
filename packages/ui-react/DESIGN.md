@@ -625,7 +625,7 @@ not in a surface that leaves.
 block — Heading with its three levels, Paragraph, List and List item, Link,
 Inline code, and Block, which wraps a code block, blockquote, table, image or
 rule chosen by its swap — and "Markdown / slot", whose default content is a
-sample description built from them. Lite's `Markdown.stories.tsx` renders the same
+sample description built from them. `Markdown.stories.tsx` renders the same
 document, so compare the two when either side changes. Each component's
 description in Figma names the CSS selector it stands for; change one and
 change the other.

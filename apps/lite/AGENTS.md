@@ -82,8 +82,8 @@ http://localhost:6007/iframe.html?id=<title>--<export>&viewMode=story
 
 No story sets a title, so Storybook derives it from the file's path under
 `ui/src`, and the export name gives the second half; both are kebab-cased.
-`ui/src/components/Markdown.stories.tsx` with `export const Sample` is
-`components-markdown--sample`. Append `&globals=theme:dark` for the dark
+`ui/src/AppUpdater.stories.tsx`, titled `App/Updater`, with
+`export const Playground` is `app-updater--playground`. Append `&globals=theme:dark` for the dark
 theme.
 
 Check colour, underline, font and spacing from computed styles (the

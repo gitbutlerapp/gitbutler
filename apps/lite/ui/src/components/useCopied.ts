@@ -1,28 +1,5 @@
-import { useEffect, useRef, useState } from "react";
+import { useCopied as useCopiedWith } from "@gitbutler/ui-react/useCopied.ts";
 
-/**
- * Copies `value` to the clipboard on `copy`, and says so for a moment:
- * `copied` holds for a second and a half after each copy, for the control
- * to show in place of its usual text.
- */
-export const useCopied = (value: string): { copied: boolean; copy: () => void } => {
-	const [copied, setCopied] = useState(false);
-	const resetTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-	const copy = () => {
-		void window.lite.clipboardWriteText(value);
-		setCopied(true);
-
-		if (resetTimeoutRef.current !== null) clearTimeout(resetTimeoutRef.current);
-		resetTimeoutRef.current = setTimeout(() => setCopied(false), 1500);
-	};
-
-	useEffect(
-		() => () => {
-			if (resetTimeoutRef.current !== null) clearTimeout(resetTimeoutRef.current);
-		},
-		[],
-	);
-
-	return { copied, copy };
-};
+/** The library's `useCopied`, writing through Electron's clipboard rather than the page's. */
+export const useCopied = (value: string): { copied: boolean; copy: () => void } =>
+	useCopiedWith(value, (text) => window.lite.clipboardWriteText(text));

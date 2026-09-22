@@ -1,15 +1,5 @@
 import preview from "#storybook/preview";
-import type { GUISettings } from "#electron/settings.ts";
-import { guiSettingsQueryOptions } from "#ui/api/queries.ts";
-import { defaultSettings } from "#ui/settings.ts";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Markdown } from "./Markdown.tsx";
-
-// The code block reads the syntax theme through the settings query, which
-// the Electron bridge answers in the app. Seeding the client with the
-// defaults keeps the story offline and quiet.
-const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-queryClient.setQueryData(guiSettingsQueryOptions.queryKey, defaultSettings as GUISettings);
 
 const meta = preview.meta({
 	component: Markdown,
@@ -23,11 +13,9 @@ const meta = preview.meta({
 		// The width a PR description gets in the details pane; the blocks in
 		// Figma are set to the same measure.
 		(Story) => (
-			<QueryClientProvider client={queryClient}>
-				<div style={{ width: 480, padding: 24 }}>
-					<Story />
-				</div>
-			</QueryClientProvider>
+			<div style={{ width: 480, padding: 24 }}>
+				<Story />
+			</div>
 		),
 	],
 });

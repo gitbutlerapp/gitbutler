@@ -1,301 +1,32 @@
 import { guiSettingsQueryOptions } from "#ui/api/queries.ts";
-import { reportError } from "#ui/error-reporting.ts";
-import { getButtonClassName } from "@gitbutler/ui-react/Button.tsx";
-import { classes } from "@gitbutler/ui-react/classes.ts";
-import { Icon } from "@gitbutler/ui-react/Icon.tsx";
-import { TextLink } from "@gitbutler/ui-react/TextLink.tsx";
-import { TooltipPopup } from "@gitbutler/ui-react/Tooltip.tsx";
-import { useCopied } from "#ui/components/useCopied.ts";
 import { defaultSettings } from "#ui/settings.ts";
 import { openLinkExternally } from "#ui/external-link.ts";
-import { Tooltip } from "@base-ui/react";
+import { Markdown as BaseMarkdown } from "@gitbutler/ui-react/Markdown.tsx";
 import { useQuery } from "@tanstack/react-query";
-import type { CSSProperties, FC, MouseEvent, ReactNode } from "react";
-import { useState } from "react";
-import ReactMarkdown from "react-markdown";
-import rehypeRaw from "rehype-raw";
-import rehypeSanitize, { defaultSchema } from "rehype-sanitize";
-import remarkGemoji from "remark-gemoji";
-import remarkGfm from "remark-gfm";
-import { codeToTokens, type BundledLanguage } from "shiki";
-import styles from "./Markdown.module.css";
-
-/** The links that leave the app — the only ones that open at all. */
-const isExternalUrl = (url: string | undefined): url is string =>
-	url !== undefined && (url.startsWith("http://") || url.startsWith("https://"));
-
-/** For the image anchors, whose source may not be a URL at all. */
-const openExternally = (evt: MouseEvent<HTMLAnchorElement>): void => {
-	evt.preventDefault();
-	const url = evt.currentTarget.href;
-	if (isExternalUrl(url)) {
-		window.lite.openInWebBrowser(url).catch((error: unknown) => {
-			reportError(error);
-		});
-	}
-};
+import type { FC } from "react";
 
 /**
- * GitHub-operated image hosts; this is the UX decision and the CSP's
- * `img-src` is the enforcement (it additionally allows GitHub's signed S3
- * bucket, the redirect *target* of user-attachments URLs — sources are
- * still only ever these hosts). GitHub launders third-party images through
- * camo only in its own rendered HTML — raw markdown keeps the original
- * URL — so external hosts stay links and can't track viewers, matching
- * github.com's own privacy posture.
+ * The library's Markdown with the app plugged in: links leave through the
+ * system browser, code blocks copy through Electron's clipboard, and fenced
+ * code takes the syntax theme pair from the settings, as the diff viewer does.
+ * @import import { Markdown } from "#ui/components/Markdown.tsx";
  */
-const isGitHubHostedImage = (src: string): boolean => {
-	try {
-		const url = new URL(src);
-		return (
-			url.protocol === "https:" &&
-			(url.hostname === "github.com" || url.hostname.endsWith(".githubusercontent.com"))
-		);
-	} catch {
-		return false;
-	}
-};
-
-const ImageLink: FC<{ src: string; alt: string }> = ({ src, alt }) => (
-	<a href={src} onClick={openExternally} className={styles.imageLink}>
-		<Icon name="paperclip" />
-		{alt}
-	</a>
-);
-
-/**
- * Inline image with a link fallback: private-repo attachments need browser
- * session cookies we don't have, so a failed load degrades to the link.
- */
-const GitHubImage: FC<{ src: string; alt: string }> = ({ src, alt }) => {
-	const [failed, setFailed] = useState(false);
-
-	if (failed) return <ImageLink src={src} alt={alt} />;
-
-	return (
-		<a href={src} onClick={openExternally}>
-			<img
-				src={src}
-				alt={alt}
-				loading="lazy"
-				className={styles.image}
-				onError={() => setFailed(true)}
-			/>
-		</a>
-	);
-};
-
-/**
- * GitHub-parity sanitization: rehype-sanitize's default schema is modeled on
- * GitHub's own pipeline (safe tag subset incl. `details`/`summary`/`kbd`, no
- * `style` attributes, no event handlers, `javascript:`/`data:` URLs dropped).
- * The one addition: strip `style` elements entirely — the default unwraps
- * them, which would leak the CSS source as visible text.
- */
-const sanitizeSchema = {
-	...defaultSchema,
-	strip: [...(defaultSchema.strip ?? []), "style"],
-};
-
-/**
- * Fenced code with a language tag, highlighted through shiki's token API.
- * Tokens render as React spans — never HTML strings — so the no-innerHTML
- * property of this component is preserved. Colors come out as CSS variables
- * resolved with `light-dark()`, matching the app's theming, using the same
- * theme pair as the diff viewer. Unknown languages fall back to plain text.
- */
-const CodeBlock: FC<{ language: string; code: string }> = ({ language, code }) => {
-	const { data: themeCfg } = useQuery({
+export const Markdown: FC<{ children: string }> = ({ children }) => {
+	const { data: themes } = useQuery({
 		...guiSettingsQueryOptions,
 		select: (cfg) => cfg.syntaxHighlighting,
 	});
-	const light = themeCfg?.light ?? defaultSettings.syntaxHighlighting.light;
-	const dark = themeCfg?.dark ?? defaultSettings.syntaxHighlighting.dark;
-
-	const { data: tokensResult } = useQuery({
-		queryKey: ["markdownTokens", code, language, light, dark],
-		queryFn: () =>
-			codeToTokens(code, {
-				// Invalid names reject and we keep the plain fallback.
-				lang: language as BundledLanguage,
-				themes: { light, dark },
-				defaultColor: false,
-				cssVariablePrefix: "--shiki-",
-			}),
-	});
-
-	if (tokensResult === undefined) return <code>{code}</code>;
 
 	return (
-		<code className={styles.highlighted}>
-			{tokensResult.tokens.map((line, lineIdx) => (
-				// Lines are positional; there is no stable identity to key on.
-				// oxlint-disable-next-line react/no-array-index-key
-				<span key={lineIdx}>
-					{line.map((token, tokenIdx) => (
-						// oxlint-disable-next-line react/no-array-index-key
-						<span key={tokenIdx} style={token.htmlStyle as CSSProperties | undefined}>
-							{token.content}
-						</span>
-					))}
-					{"\n"}
-				</span>
-			))}
-		</code>
-	);
-};
-
-const fencedLanguage = (className: string | undefined): string | undefined =>
-	/language-([\w+#-]+)/.exec(className ?? "")?.[1];
-
-/** The syntax tree react-markdown hands each component, reduced to what reading text needs. */
-type HastNode = {
-	type: string;
-	value?: string;
-	children?: Array<HastNode>;
-};
-
-const hastText = (node: HastNode): string =>
-	node.type === "text" ? (node.value ?? "") : (node.children ?? []).map(hastText).join("");
-
-/**
- * A fenced code block with a button that copies its text. The button sits on
- * the block's corner rather than in the `<pre>`, which scrolls sideways and
- * would carry it away; the block's chrome moves out with it.
- */
-const Pre: FC<{ node?: HastNode; children?: ReactNode }> = ({ node, children }) => {
-	// A fence's text ends with the newline that closed it, which nobody wants pasted.
-	const code = node === undefined ? "" : hastText(node).replace(/\n$/, "");
-	const { copied, copy } = useCopied(code);
-
-	return (
-		<div className={styles.codeBlock}>
-			<pre>{children}</pre>
-			<Tooltip.Root>
-				<Tooltip.Trigger
-					className={classes(
-						getButtonClassName({ variant: "ghost", size: "small", iconOnly: true }),
-						styles.copy,
-					)}
-					// Keeps the button shown for the tick, even once the pointer has left the block.
-					data-copied={copied || undefined}
-					onClick={copy}
-					render={<button type="button" aria-label={copied ? "Copied" : "Copy"} />}
-				>
-					{/* Each glyph in its own wrapper: the button styles the icons' opacity itself, so the
-					    crossfade has to fade something else. */}
-					<span className={styles.copyIcons}>
-						<span className={classes(styles.copyIcon, copied && styles.copyIconGone)}>
-							<Icon name="copy" />
-						</span>
-						<span className={classes(styles.copyIcon, !copied && styles.copyIconGone)}>
-							<Icon name="tick" />
-						</span>
-					</span>
-				</Tooltip.Trigger>
-				<Tooltip.Portal>
-					<Tooltip.Positioner sideOffset={4}>
-						<Tooltip.Popup render={<TooltipPopup />}>{copied ? "Copied" : "Copy"}</Tooltip.Popup>
-					</Tooltip.Positioner>
-				</Tooltip.Portal>
-			</Tooltip.Root>
-		</div>
-	);
-};
-
-type MarkdownNode = {
-	type: string;
-	value?: string;
-	children?: Array<MarkdownNode>;
-};
-
-// Review prose sometimes mentions a tag without backticks. Preserve a lone
-// tag inside a paragraph before the HTML parser can split the sentence around it.
-const remarkLiteralTags = () => {
-	const visit = (node: MarkdownNode): void => {
-		if (["paragraph", "emphasis", "strong", "delete", "link"].includes(node.type)) {
-			const html = node.children?.filter((child) => child.type === "html") ?? [];
-			const markup = html.map((child) => child.value).join("");
-			for (const child of html) {
-				const match = /^<(\/?)([a-z][a-z0-9-]*)>$/i.exec(child.value ?? "");
-				if (!match) continue;
-				const [, closing, tag] = match;
-				if (
-					tag === undefined ||
-					/^(area|base|br|col|embed|hr|img|input|link|meta|param|source|track|wbr)$/i.test(tag)
-				)
-					continue;
-
-				const counterpart = new RegExp(
-					closing === "/" ? `<${tag}(?:\\s[^>]*|)>` : `</${tag}\\s*>`,
-					"i",
-				);
-				if (!counterpart.test(markup)) child.type = "inlineCode";
-			}
-		}
-		for (const child of node.children ?? []) visit(child);
-	};
-	return visit;
-};
-
-/**
- * Renders forge-flavored markdown with GitHub-parity restrictions:
- *
- * - Raw HTML renders through {@link sanitizeSchema} — GitHub's safe subset,
- *   so `<details>` folds here like it does on github.com, while scripts,
- *   styles, event handlers, and unsafe URL schemes are stripped.
- * - Markdown-authored URLs additionally pass react-markdown's default
- *   transform; links only open via the system browser, and the Electron
- *   shell blocks all in-app navigation.
- * - Images inline only from GitHub-operated hosts (which don't expose
- *   request logs to authors, so they can't track viewers); any other host
- *   renders as a link and is never fetched. See {@link isGitHubHostedImage}.
- * @import import { Markdown } from "#ui/components/Markdown.tsx";
- */
-export const Markdown: FC<{ children: string }> = ({ children }) => (
-	<div className={classes("text-13", "text-body", styles.markdown)}>
-		<ReactMarkdown
-			remarkPlugins={[remarkGfm, remarkGemoji, remarkLiteralTags]}
-			rehypePlugins={[rehypeRaw, [rehypeSanitize, sanitizeSchema]]}
-			components={{
-				a: ({ node: _node, children, href, ...props }) =>
-					isExternalUrl(href) ? (
-						<TextLink
-							{...props}
-							href={href}
-							className={styles.externalLink}
-							onClick={openLinkExternally}
-						>
-							{children}
-						</TextLink>
-					) : (
-						<a {...props} href={href}>
-							{children}
-						</a>
-					),
-				code: ({ node: _node, className, children, ...props }) => {
-					const language = fencedLanguage(className);
-					return language !== undefined && typeof children === "string" ? (
-						<CodeBlock language={language} code={children.replace(/\n$/, "")} />
-					) : (
-						<code className={className} {...props}>
-							{children}
-						</code>
-					);
-				},
-				pre: ({ node, children }) => <Pre node={node}>{children}</Pre>,
-				img: ({ node: _node, src, alt }) => {
-					if (typeof src !== "string" || src === "") return null;
-					const altText = typeof alt === "string" && alt !== "" ? alt : "image";
-					return isGitHubHostedImage(src) ? (
-						<GitHubImage src={src} alt={altText} />
-					) : (
-						<ImageLink src={src} alt={altText} />
-					);
-				},
+		<BaseMarkdown
+			onOpenLink={openLinkExternally}
+			copyText={(text) => window.lite.clipboardWriteText(text)}
+			highlightThemes={{
+				light: themes?.light ?? defaultSettings.syntaxHighlighting.light,
+				dark: themes?.dark ?? defaultSettings.syntaxHighlighting.dark,
 			}}
 		>
 			{children}
-		</ReactMarkdown>
-	</div>
-);
+		</BaseMarkdown>
+	);
+};

@@ -161,13 +161,8 @@
 		"posthog-node": "5.21.0",
 		"react": "^19.2.4",
 		"react-dom": "^19.2.4",
-		"react-markdown": "^10.1.0",
 		"react-redux": "^9.2.0",
 		"react-resizable-panels": "^4.11.2",
-		"rehype-raw": "^7.0.0",
-		"rehype-sanitize": "^6.0.0",
-		"remark-gemoji": "^8.0.0",
-		"remark-gfm": "^4.0.1",
 		"semver": "^7.8.5",
 		"shiki": "^4.3.0"
 	},

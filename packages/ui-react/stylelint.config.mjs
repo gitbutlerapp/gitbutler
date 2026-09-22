@@ -31,8 +31,7 @@ export default {
 		],
 		"declaration-property-value-allowed-list": [
 			{
-				// The type scale: 11 to 16, as Figma's Base/ and Body/ styles. Lite's Markdown
-				// headings go to 18 in its own CSS, outside this package.
+				// The type scale: 11 to 16, as Figma's Base/ and Body/ styles.
 				"font-size": ["/^1[1-6]px$/", "inherit", "/^var\\(/"],
 				// Radii come from the scale, or from a token with padding subtracted (DESIGN.md, Radius).
 				"border-radius": ["/^var\\(--radius-/", "/^calc\\(/", "0", "50%", "inherit"],
@@ -52,6 +51,19 @@ export default {
 		],
 	},
 	overrides: [
+		{
+			// Markdown's H1 is 18px, the one step above the scale (DESIGN.md, Markdown);
+			// the kit's Markdown/H1 style in Figma is the same size.
+			files: ["src/Markdown.module.css"],
+			rules: {
+				"declaration-property-value-allowed-list": [
+					{
+						"font-size": ["/^1[1-8]px$/", "inherit", "/^var\\(/"],
+						"border-radius": ["/^var\\(--radius-/", "/^calc\\(/", "0", "50%", "inherit"],
+					},
+				],
+			},
+		},
 		{
 			// Language and filetype glyphs carry their own brand colours by design (DESIGN.md, Icons).
 			files: ["src/FileIcon.module.css"],

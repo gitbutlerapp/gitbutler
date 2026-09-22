@@ -20,9 +20,11 @@ comments explain the non-obvious why, never the what.
 
 A component belongs here when it doesn't reach into an app: no API calls,
 no settings, no store, nothing on `window.lite`. Everything a component needs
-from its host arrives as a prop, the way `TextLink` takes its `onClick` rather
-than assuming Electron. A component that needs the app stays in the app;
-Lite keeps its Markdown renderer and mention suggestions for that reason.
+from its host arrives as a prop, the way `TextLink` takes its `onClick` and
+`Markdown` its `onOpenLink`, rather than assuming Electron. A component that
+needs the app stays in the app; Lite keeps its mention suggestions and
+markdown attachments for that reason, and wraps `Markdown` in a component of
+its own that plugs the app in.
 
 Imports are deep and carry the extension: `@gitbutler/ui-react/Button.tsx`.
 There is no barrel file. Inside the package, siblings import each other
