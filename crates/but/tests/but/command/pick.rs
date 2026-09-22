@@ -327,6 +327,141 @@ Hint: run `but help` for all commands
 "#]]);
 }
 
+#[test]
+fn pick_commit_above_branch_with_new_branch_name() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
+    // Keep unapply from switching to single-branch mode.
+    env.but("config feature single-branch disable")
+        .assert()
+        .success();
+    env.setup_metadata(&["A", "B"]);
+    env.but("unapply B").assert().success();
+
+    env.but("pick d3e2ba3 --above A -b top")
+        .assert()
+        .success()
+        .stdout_eq(str![[r#"
+Picked d3e2ba3 onto new branch 'top' to create olw
+
+"#]]);
+
+    env.but("status").assert().success().stdout_eq(str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┊╭┄ to [top]
+┊●   olw add B
+┊│
+┊├┄ g0 [A]
+┊●   tpm add A
+├╯
+┊
+┴ 0dc3733 (common base) 2000-01-02 add M
+
+Hint: run `but help` for all commands
+
+"#]]);
+}
+
+#[test]
+fn pick_commit_below_branch_with_new_branch_name() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
+    // Keep unapply from switching to single-branch mode.
+    env.but("config feature single-branch disable")
+        .assert()
+        .success();
+    env.setup_metadata(&["A", "B"]);
+    env.but("unapply B").assert().success();
+
+    env.but("pick d3e2ba3 --below A -b bottom")
+        .assert()
+        .success()
+        .stdout_eq(str![[r#"
+Picked d3e2ba3 onto new branch 'bottom' to create olw
+
+"#]]);
+
+    env.but("status").assert().success().stdout_eq(str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┊╭┄ g0 [A]
+┊●   tpm add A
+┊│
+┊├┄ bo [bottom]
+┊●   olw add B
+├╯
+┊
+┴ 0dc3733 (common base) 2000-01-02 add M
+
+Hint: run `but help` for all commands
+
+"#]]);
+}
+
+#[test]
+fn pick_relative_to_branch_rejects_existing_new_branch_name() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
+    env.setup_metadata(&["A", "B"]);
+
+    for side in ["--above", "--below"] {
+        env.but(format!("pick d3e2ba3 {side} A -b B"))
+            .assert()
+            .failure()
+            .stderr_eq(str![[r#"
+Error: A branch named 'B' is already applied
+
+"#]]);
+    }
+
+    env.but("unapply B").assert().success();
+
+    for side in ["--above", "--below"] {
+        env.but(format!("pick d3e2ba3 {side} A -b B"))
+            .assert()
+            .failure()
+            .stderr_eq(str![[r#"
+Error: A branch named 'B' exists but is not applied
+
+"#]]);
+    }
+}
+
+#[test]
+fn pick_relative_to_commit_rejects_new_branch() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
+    env.setup_metadata(&["A", "B"]);
+
+    for command in [
+        "pick d3e2ba3 --above tpm -b new-branch",
+        "pick d3e2ba3 --above tpm -b",
+        "pick d3e2ba3 --below tpm -b new-branch",
+        "pick d3e2ba3 --below tpm -b",
+    ] {
+        env.but(command).assert().failure().stderr_eq(str![[r#"
+Error: Cannot use `-b/--branch` when committing relative to commits
+
+"#]]);
+    }
+}
+
+#[test]
+fn pick_relative_to_worktree_rejects_new_branch() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
+    env.setup_metadata(&["A", "B"]);
+    super::util::enable_worktree_manipulation(&env);
+    env.but("status").assert().success();
+    super::util::add_worktree_with_commit(&env, "wt-inside", "A");
+
+    for command in [
+        "pick d3e2ba3 --below wt-inside -b new-branch",
+        "pick d3e2ba3 --below wt-inside -b",
+    ] {
+        env.but(command).assert().failure().stderr_eq(str![[r#"
+Error: Cannot use `-b/--branch` when committing relative to worktrees
+
+"#]]);
+    }
+}
+
 /// A commit owned by a linked worktree can be cherry-picked onto another stack's branch by
 /// its ID: the pick is a copy, so the worktree's history and checkout stay untouched.
 #[test]

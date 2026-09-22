@@ -382,10 +382,18 @@ pub enum CommitOperationTargetIsh {
     /// Target newest base with a new canned branch name.
     UnstackedCannedBranch,
     /// Targets above the [`CliIdArg`], which must denote either a commit or a branch.
-    Above(CliIdArg),
+    Above {
+        target: CliIdArg,
+        /// If target is a branch, this specifies the name of the new branch to create.
+        new_branch_name: Option<Option<CliIdArg>>,
+    },
     /// Targets below the [`CliIdArg`], which must denote either a commit or a branch. For commits,
     /// this is directly below. For branches, this is below the segment.
-    Below(CliIdArg),
+    Below {
+        target: CliIdArg,
+        /// If target is a branch, this specifies the name of the new branch to create.
+        new_branch_name: Option<Option<CliIdArg>>,
+    },
     /// The default target, makes a sensible choice about where to put the commit, creating a branch
     /// if necessary. This should be used if there is no input from the user about where to put the
     /// commit.
@@ -401,8 +409,14 @@ impl CommitOperationTargetIsh {
         Ok(match (branch, above, below) {
             (Some(Some(branch)), None, None) => CommitOperationTargetIsh::Branch(branch),
             (Some(None), None, None) => CommitOperationTargetIsh::UnstackedCannedBranch,
-            (None, Some(cli_id), None) => CommitOperationTargetIsh::Above(cli_id),
-            (None, None, Some(cli_id)) => CommitOperationTargetIsh::Below(cli_id),
+            (branch, Some(cli_id), None) => CommitOperationTargetIsh::Above {
+                target: cli_id,
+                new_branch_name: branch,
+            },
+            (branch, None, Some(cli_id)) => CommitOperationTargetIsh::Below {
+                target: cli_id,
+                new_branch_name: branch,
+            },
             (None, None, None) => CommitOperationTargetIsh::Default,
             _ => {
                 return Err(anyhow::anyhow!(
@@ -429,16 +443,34 @@ pub fn route_commit_operation(
     merged: &MergedUpstream,
 ) -> Result<CommitOperation, RouteCommitOperationError> {
     match target {
-        CommitOperationTargetIsh::Above(cli_id) => {
+        CommitOperationTargetIsh::Above {
+            target,
+            new_branch_name,
+        } => {
             let side = Side::Above;
             Ok(route_commit_above_or_below(
-                repo, id_map, cli_id, side, merged,
+                repo,
+                ws,
+                id_map,
+                target,
+                side,
+                merged,
+                new_branch_name,
             )?)
         }
-        CommitOperationTargetIsh::Below(cli_id) => {
+        CommitOperationTargetIsh::Below {
+            target,
+            new_branch_name,
+        } => {
             let side = Side::Below;
             Ok(route_commit_above_or_below(
-                repo, id_map, cli_id, side, merged,
+                repo,
+                ws,
+                id_map,
+                target,
+                side,
+                merged,
+                new_branch_name,
             )?)
         }
         CommitOperationTargetIsh::Branch(cli_id) => {
@@ -609,12 +641,14 @@ enum PickerItem<'a> {
 
 fn route_commit_above_or_below(
     repo: &gix::Repository,
+    ws: &but_graph::Workspace,
     id_map: &IdMap,
-    cli_id: CliIdArg,
+    target: CliIdArg,
     side: Side,
     merged: &MergedUpstream,
+    new_branch_name: Option<Option<CliIdArg>>,
 ) -> CliResult<CommitOperation> {
-    let resolved = cli_id
+    let resolved = target
         .resolve_in_workspace(repo, id_map, Purpose::Target, None)
         .hint(
             "Target must be an applied branch or commit. Run `but status` for applicable targets.",
@@ -623,8 +657,16 @@ fn route_commit_above_or_below(
         // Below a worktree heading is the top of its lane, so the commit goes to the tip of
         // the branch checked out there - the same targeting `but move` uses.
         ResolvedCliIdArg::Worktree(name) => {
-            let name = worktree_tip_target(repo, name.as_ref(), side, &cli_id)?;
+            let name = worktree_tip_target(repo, name.as_ref(), side, &target)?;
             merged.ensure_branch_not_merged(name.as_ref())?;
+
+            if new_branch_name.is_some() {
+                return Err(bad_input(
+                    "Cannot use `-b/--branch` when committing relative to worktrees",
+                )
+                .into());
+            }
+
             CommitRelativeToTarget::BranchTip { name }
         }
         ResolvedCliIdArg::AnonymousSegment(segment) => {
@@ -636,12 +678,30 @@ fn route_commit_above_or_below(
         {
             BranchOrCommit::Commit(commit) => {
                 merged.ensure_commit_not_merged(commit.commit_id)?;
+
+                if new_branch_name.is_some() {
+                    return Err(bad_input(
+                        "Cannot use `-b/--branch` when committing relative to commits",
+                    )
+                    .into());
+                }
+
                 CommitRelativeToTarget::Commit { commit, side }
             }
             BranchOrCommit::Branch(arg) => {
                 let name = arg.resolve_local_branch_name()?;
+
+                let new_branch_name = new_branch_name
+                    .flatten()
+                    .map(|branch| BranchArg(branch.0).resolve_for_creation(repo, ws))
+                    .transpose()?;
+
                 merged.ensure_branch_not_merged(name.as_ref())?;
-                CommitRelativeToTarget::BranchBucket { name, side }
+                CommitRelativeToTarget::BranchBucket {
+                    name,
+                    side,
+                    new_branch_name,
+                }
             }
         },
     };
@@ -692,7 +752,15 @@ impl CommitOperation {
                 CommitRelativeToTarget::BranchTip { name } => {
                     rejection::Target::Branch(name.shorten().to_string())
                 }
-                CommitRelativeToTarget::BranchBucket { .. } => rejection::Target::NewBranch(None),
+                CommitRelativeToTarget::BranchBucket {
+                    name: _,
+                    new_branch_name,
+                    side: _,
+                } => rejection::Target::NewBranch(
+                    new_branch_name
+                        .as_ref()
+                        .map(|name| name.shorten().to_string()),
+                ),
             },
         }
     }
@@ -809,8 +877,16 @@ impl CommitAtOperation {
             CommitRelativeToTarget::Commit { commit, side } => {
                 (RelativeTo::Commit(commit.commit_id), (*side).into(), None)
             }
-            CommitRelativeToTarget::BranchBucket { name, side } => {
-                let new_branch_name = but_core::branch::unique_canned_refname(tx.repo())?;
+            CommitRelativeToTarget::BranchBucket {
+                name,
+                side,
+                new_branch_name,
+            } => {
+                let new_branch_name = if let Some(new_branch_name) = new_branch_name {
+                    new_branch_name.clone()
+                } else {
+                    but_core::branch::unique_canned_refname(tx.repo())?
+                };
                 let anchor = Anchor::at_segment(name.as_ref(), (*side).into());
                 tx.create_reference(
                     new_branch_name.as_ref(),
@@ -844,6 +920,11 @@ pub enum CommitRelativeToTarget {
     BranchTip { name: FullName },
     /// Place the commit relative to this branch, treating the branch as a bucket.
     ///
-    /// The commit is always inserted on a new branch with a canned name.
-    BranchBucket { name: FullName, side: Side },
+    /// The commit is always inserted on a new branch. If `new_branch_name` is `None` a canned name
+    /// will be generated.
+    BranchBucket {
+        name: FullName,
+        new_branch_name: Option<FullName>,
+        side: Side,
+    },
 }

@@ -11,7 +11,8 @@ use crate::args::atoms::{AllowMergedArg, CliIdArg};
 /// If there are no branches applied, a new branch is created for the picked commits. If there is
 /// only one stack of branches applied, the commits are placed at the tip of that stack. Otherwise,
 /// the targeting flags `--above`, `--below`, and `--branch` control where the commits are placed.
-/// Only one targeting flag can be provided at a time.
+/// `--above` and `--below` are mutually exclusive; combine either with `--branch` to name a new
+/// branch when targeting a branch.
 ///
 /// For more details about CLI IDs, see `but help cli-ids`.
 #[derive(Debug, clap::Parser)]
@@ -19,12 +20,15 @@ use crate::args::atoms::{AllowMergedArg, CliIdArg};
 pub struct Platform {
     /// Place the picked commits on the branch `BRANCH`.
     ///
-    /// If `BRANCH` does not exist, it is created as an unstacked branch.
+    /// With `--above` or `--below`, name the new branch created relative to the target branch.
+    /// The name must not already exist; omit it for a generated name. Cannot be combined with
+    /// commit or worktree targets.
     ///
+    /// Otherwise, if `BRANCH` does not exist, it is created as an unstacked branch.
     /// If `BRANCH` is omitted, an unstacked branch with a generated name is created.
     ///
     /// Attempting to pick onto a branch that exists but is not applied is an error.
-    #[clap(short, long, value_name = "BRANCH", group = "targeting")]
+    #[clap(short, long, value_name = "BRANCH")]
     pub branch: Option<Option<CliIdArg>>,
 
     /// Place the picked commits above `BRANCH_OR_COMMIT`.
@@ -33,7 +37,7 @@ pub struct Platform {
     /// targeted commit.
     ///
     /// If `BRANCH_OR_COMMIT` is a branch, the picked commits are placed on a new branch above the
-    /// targeted branch.
+    /// targeted branch. Use `--branch <NAME>` to name it; otherwise a name is generated.
     #[clap(
         short = 'A',
         long,
@@ -49,7 +53,8 @@ pub struct Platform {
     ///
     /// If `BRANCH_OR_COMMIT` is a branch, the picked commits are placed on a new branch below the
     /// targeted branch. Branches are treated as buckets, meaning that "below a branch" is treated
-    /// as below the oldest ancestor on that branch.
+    /// as below the oldest ancestor on that branch. Use `--branch <NAME>` to name the new branch;
+    /// otherwise a name is generated.
     #[clap(
         short = 'B',
         long,

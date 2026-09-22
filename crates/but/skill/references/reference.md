@@ -165,11 +165,16 @@ Cherry-pick commits from unapplied branches into applied branches.
 ```bash
 but pick <commit-sha> --branch <branch>       # Pick specific commit into branch
 but pick <cli-id> --branch <branch>           # Pick using CLI ID (e.g., "nn")
+but pick <commit-sha> --above <branch> -b <new-name>  # Pick onto a new named branch above it
 ```
 
 Name both the source commit and the target branch. Omitting the target prompts
 for one when several branches exist. The source can be a commit SHA (full or
 short) or a CLI ID from `but status`.
+
+`--above` and `--below` are mutually exclusive. With a branch target, either creates a new branch;
+add `-b <new-name>` to name it, or omit the name for a generated one. The name must not already
+exist. `-b` (even without a name) is rejected with commit/worktree targets.
 
 ## Committing
 
@@ -183,13 +188,14 @@ but commit -b <branch> -m "message" <id> <id>  # Commit specific files or hunks 
 but commit -b <branch> -m "msg" -m "body"    # Repeat -m; parts joined by a blank line
 but commit --above <target> -m "message" <id>  # Place the commit above a commit or branch
 but commit --below <target> -m "message" <id>  # Place the commit below a commit or branch
+but commit --above <branch> -b <new-name> -m "message"  # Commit on a new named branch above it
 but commit -b <branch> --no-message <id>     # Commit without a message
 but commit --empty -b <branch> -m "message"  # Insert an empty commit
 ```
 
-**Where the commit goes:** `-b`/`--branch`, `-A`/`--above`, and `-B`/`--below` are mutually exclusive.
+**Where the commit goes:** `-A`/`--above` and `-B`/`--below` are mutually exclusive. With a branch target, combine either with `-b <new-name>` to name the new branch. The name must not already exist; omit it for a generated name. `-b` (even without a name) is rejected with commit/worktree targets.
 
-- `-b <branch>` places the commit at the tip of `<branch>`, creating it as an unstacked branch if it does not exist. `-b` with no value creates a branch with a generated name. Targeting a branch that exists but is not applied is an error — except a branch checked out in a worktree (experimental worktree flag), which is targeted at its tip, as is a worktree named directly.
+- Without `--above`/`--below`, `-b <branch>` places the commit at the tip of `<branch>`, creating it as an unstacked branch if it does not exist. `-b` with no value creates a branch with a generated name. Targeting a branch that exists but is not applied is an error — except a branch checked out in a worktree (experimental worktree flag), which is targeted at its tip, as is a worktree named directly.
 - `--above <commit>` / `--below <commit>` insert relative to a commit on that commit's branch. Against a branch, they create a new branch above/below it. Against a worktree (experimental worktree flag), `--below` targets the tip of its checked-out branch and `--above` is refused.
 - With no branches applied, a new branch is created. With one applied stack, the commit goes to its top branch's tip. With more than one stack, a targeting flag is **required** — otherwise the command fails with "Unclear where to commit. Found more than one stack". The gate is stacks, not branches: several branches stacked together take an untargeted commit on the stack's top branch.
 
