@@ -9,6 +9,45 @@ use crate::{
 };
 
 #[test]
+fn unapplying_a_worktree_branch_is_refused() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["A"]);
+    util::enable_worktree_manipulation(&env);
+    env.but("status").assert().success();
+    util::add_worktree_with_commit(&env, "wt-feature", "A");
+
+    env.but("unapply wt-feature")
+        .assert()
+        .failure()
+        .stderr_eq(str![[r#"
+Error: Branch wt-feature belongs to worktree wt-feature, which cannot be unapplied
+
+Hint: Use `but worktree remove wt-feature` to remove the worktree
+
+"#]])
+        .stdout_eq(str![]);
+
+    // The worktree's branch and its commit are untouched.
+    env.but("status").assert().success().stdout_eq(str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┊╭┄ g0 [A]
+┊┊
+┊┊╭┄ wt:@ [uncommitted] {wt-feature} (no changes)
+┊┊├┄ wt [wt-feature]
+┊┊●   nsn add W
+┊├╯
+┊●   tpm add A
+├╯
+┊
+┴ 0dc3733 (common base) 2000-01-02 add M
+
+Hint: run `but help` for all commands
+
+"#]]);
+}
+
+#[test]
 fn anonymous_segment_reports_recovery_workflow() {
     let env =
         Sandbox::init_scenario_with_target_and_default_settings("one-stack-anonymous-segment");
