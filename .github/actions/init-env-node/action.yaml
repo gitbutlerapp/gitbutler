@@ -7,7 +7,3 @@ runs:
       name: Install pnpm
       with:
         cache: true
-        install: false
-    - name: Install dependencies
-      shell: bash
-      run: pnpm install
