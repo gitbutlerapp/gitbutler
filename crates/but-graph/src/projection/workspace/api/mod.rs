@@ -222,15 +222,31 @@ impl Workspace {
             )
     }
 
-    /// Return an iterator over all commits in the workspace,
-    /// i.e. all commits in all segments in all stacks.
-    ///
-    /// This doesn't include the workspace commit.
-    pub fn commits(&self) -> impl Iterator<Item = &StackCommit> + '_ {
+    /// Every segment of every lane, i.e. of each stack followed by each worktree.
+    pub fn segments(&self) -> impl Iterator<Item = &StackSegment> + '_ {
         self.stacks
             .iter()
-            .flat_map(|s| s.segments.iter())
-            .flat_map(|s| s.commits.iter())
+            .map(|stack| &stack.segments)
+            .chain(self.worktrees.iter().map(|worktree| &worktree.segments))
+            .flatten()
+    }
+
+    /// Every commit of every lane. This doesn't include the workspace commit.
+    pub fn commits(&self) -> impl Iterator<Item = &StackCommit> + '_ {
+        self.segments().flat_map(|segment| segment.commits.iter())
+    }
+
+    /// Find the commit with `oid` in any lane.
+    pub fn find_commit(&self, oid: impl Into<gix::ObjectId>) -> Option<&StackCommit> {
+        let oid = oid.into();
+        self.commits().find(|commit| commit.id == oid)
+    }
+
+    /// Like [`Self::find_commit()`], but fails with an error.
+    pub fn try_find_commit(&self, oid: impl Into<gix::ObjectId>) -> anyhow::Result<&StackCommit> {
+        let oid = oid.into();
+        self.find_commit(oid)
+            .with_context(|| format!("Commit {oid} isn't part of the workspace"))
     }
 
     /// Return `true` if the branch with `name` is the workspace target or the targets local tracking branch.
@@ -331,11 +347,7 @@ impl Workspace {
 
     /// Try to find `name` in any named [`StackSegment`] of a stack, then of a worktree.
     pub fn find_segment_by_refname(&self, name: &gix::refs::FullNameRef) -> Option<&StackSegment> {
-        self.stacks
-            .iter()
-            .map(|stack| &stack.segments)
-            .chain(self.worktrees.iter().map(|worktree| &worktree.segments))
-            .flatten()
+        self.segments()
             .find(|segment| segment.ref_name() == Some(name))
     }
 
