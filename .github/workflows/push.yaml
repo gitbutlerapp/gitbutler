@@ -141,7 +141,10 @@ jobs:
           persist-credentials: false
       - uses: ./.github/actions/init-env-node
       - id: get_playwright_version
-        uses: eviden-actions/get-playwright-version@b0cd9674901dfcdabb64e3cff99a4e582719f0f6 # v1
+        shell: bash
+        run: |
+          version=$(pnpm --filter @gitbutler/ui-svelte --fail-if-no-match exec node -p 'require("playwright/package.json").version')
+          echo "playwright-version=v$version" >> "$GITHUB_OUTPUT"
       - name: Cache playwright binaries
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v5
         id: playwright-cache
@@ -722,7 +725,10 @@ jobs:
           persist-credentials: false
       - uses: ./.github/actions/init-env-node
       - id: get_playwright_version
-        uses: eviden-actions/get-playwright-version@b0cd9674901dfcdabb64e3cff99a4e582719f0f6 # v1
+        shell: bash
+        run: |
+          version=$(pnpm --filter @gitbutler/ui-svelte --fail-if-no-match exec node -p 'require("playwright/package.json").version')
+          echo "playwright-version=v$version" >> "$GITHUB_OUTPUT"
       - name: cache playwright binaries
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v5
         id: playwright-cache
