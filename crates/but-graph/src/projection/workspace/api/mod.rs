@@ -266,11 +266,6 @@ impl Workspace {
                 .is_some_and(|local_tracking_ref| local_tracking_ref == name)
     }
 
-    /// Lookup a triple obtained by [`Self::find_owner_indexes_by_commit_id()`] or panic.
-    pub fn lookup_commit(&self, (stack_idx, seg_idx, cidx): CommitOwnerIndexes) -> &StackCommit {
-        &self.stacks[stack_idx].segments[seg_idx].commits[cidx]
-    }
-
     /// Find a stack with the given `id` or error.
     pub fn try_find_stack_by_id(&self, id: impl Into<Option<StackId>>) -> anyhow::Result<&Stack> {
         let id = id.into();
@@ -305,16 +300,6 @@ impl Workspace {
                         })
                     })
             })
-    }
-
-    /// Like [`Self::find_owner_indexes_by_commit_id()`], but returns an error if the commit can't be found.
-    pub fn try_find_owner_indexes_by_commit_id(
-        &self,
-        oid: impl Into<gix::ObjectId>,
-    ) -> anyhow::Result<CommitOwnerIndexes> {
-        let oid = oid.into();
-        self.find_owner_indexes_by_commit_id(oid)
-            .with_context(|| format!("Commit {oid} isn't part of the workspace"))
     }
 
     /// Try to find the `(stack_idx, segment_idx)` to be able to access the named segment going by `name`.
