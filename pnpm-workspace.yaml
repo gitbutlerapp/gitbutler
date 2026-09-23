@@ -10,6 +10,13 @@ nodeLinker: isolated
 
 allowBuilds:
   "@ffmpeg-installer/darwin-arm64": true
+  "@ffmpeg-installer/darwin-x64": true
+  "@ffmpeg-installer/linux-arm": true
+  "@ffmpeg-installer/linux-arm64": true
+  "@ffmpeg-installer/linux-ia32": true
+  "@ffmpeg-installer/linux-x64": true
+  "@ffmpeg-installer/win32-ia32": true
+  "@ffmpeg-installer/win32-x64": true
   "@prisma/client": true
   core-js: true
   electron: true
