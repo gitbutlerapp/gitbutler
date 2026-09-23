@@ -239,6 +239,28 @@ pub(super) mod function {
         let existing_ref_target_in_workspace =
             existing_ref_target_id.filter(|id| workspace.find_commit(*id).is_some());
 
+        if let Some(
+            Anchor::AtSegment {
+                ref_name: anchor_ref,
+                ..
+            }
+            | Anchor::AtReference {
+                ref_name: anchor_ref,
+                ..
+            },
+        ) = &anchor
+            && workspace
+                .find_segment_and_stack_by_refname(anchor_ref.as_ref())
+                .is_none()
+            && workspace.refname_is_segment(anchor_ref.as_ref())
+        {
+            bail_precondition!(
+                "Cannot place '{}' relative to worktree branch '{}': branches can't be ordered in worktrees yet",
+                ref_name.shorten(),
+                anchor_ref.shorten()
+            );
+        }
+
         let AnchorResolution {
             target_id: ref_target_id,
             validate_in_workspace: check_if_id_in_workspace,
@@ -338,7 +360,10 @@ pub(super) mod function {
                 let mut resolution = AnchorResolution::positioned(
                     ref_target_id,
                     !points_to_workspace_base,
-                    dependent_in_stack(workspace, anchor_ref, position),
+                    Some(Instruction::Dependent {
+                        ref_name: anchor_ref,
+                        position,
+                    }),
                 );
                 resolution.branch_stack_order = branch_stack_order;
                 resolution
@@ -367,7 +392,10 @@ pub(super) mod function {
                     AnchorResolution::positioned(
                         ref_target_id,
                         Some(ref_target_id) != ws_base,
-                        dependent_in_stack(workspace, anchor_ref, position),
+                        Some(Instruction::Dependent {
+                            ref_name: anchor_ref,
+                            position,
+                        }),
                     )
                 } else if anchor_ref.category() == Some(gix::refs::Category::LocalBranch) {
                     resolve_ad_hoc_at_reference(
@@ -401,8 +429,8 @@ pub(super) mod function {
         }
         if starts_worktree_segment(workspace, ref_target_id) {
             bail_precondition!(
-                "Cannot place '{}' at {ref_target_id}: it already starts a segment of a worktree, \
-                 and branches sharing a commit can't be ordered in worktrees yet",
+                "Cannot place '{}' at {ref_target_id}: a worktree branch or checkout already points there, \
+                 and branches can't be ordered in worktrees yet",
                 ref_name.shorten()
             );
         }
@@ -782,21 +810,6 @@ pub(super) mod function {
                     .commits
                     .first()
                     .is_some_and(|commit| commit.id == id)
-            })
-    }
-
-    /// Place the new ref at `position` of `anchor_ref` in workspace metadata, unless `anchor_ref`
-    /// lives in a worktree lane, which has no workspace metadata.
-    fn dependent_in_stack<'a>(
-        ws: &but_graph::Workspace,
-        anchor_ref: Cow<'a, gix::refs::FullNameRef>,
-        position: Position,
-    ) -> Option<Instruction<'a>> {
-        ws.find_segment_and_stack_by_refname(anchor_ref.as_ref())
-            .is_some()
-            .then_some(Instruction::Dependent {
-                ref_name: anchor_ref,
-                position,
             })
     }
 

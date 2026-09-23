@@ -1680,7 +1680,7 @@ Hint: run `but help` for all commands
 Error: failed to create reference. anchor=AtSegment { ref_name: FullNameRef("refs/heads/wt-feature"), position: Above }; new_ref=FullName("refs/heads/wt-upper")
 
 Caused by:
-    Cannot place 'wt-upper' at cf9da84303863fd1d858038de7a1a7c514c452a7: it already starts a segment of a worktree, and branches sharing a commit can't be ordered in worktrees yet
+    Cannot place 'wt-upper' relative to worktree branch 'wt-feature': branches can't be ordered in worktrees yet
 
 "#]])
         .stdout_eq(str![]);

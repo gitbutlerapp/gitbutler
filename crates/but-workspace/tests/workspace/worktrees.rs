@@ -585,7 +585,7 @@ fn references_can_be_created_at_commits_of_worktree_lanes() -> Result<()> {
         .expect_err(what);
         assert!(
             err.to_string()
-                .contains("branches sharing a commit can't be ordered in worktrees yet"),
+                .contains("branches can't be ordered in worktrees yet"),
             "{what}: {err}"
         );
     }
