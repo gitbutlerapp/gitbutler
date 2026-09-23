@@ -1911,9 +1911,14 @@ const DiffContents: FC<{
           /* Pierre pins the leading hunk separator flush against the file header:
              its virtual layout models no gap before the first separator, so a real
              margin would desync item heights. Inset the band inside the row
-             instead — same box, a little air under the header. */
+             instead — same box, a little air under the header. Clip rather than
+             clear the row's own background: in split view Pierre paints part of
+             the band with it (the deletions code column, and the additions
+             gutter behind its rounded wrapper). */
           [data-separator="line-info"][data-separator-first] {
-            background-color: transparent;
+            box-sizing: border-box;
+            padding-top: 6px;
+            background-clip: content-box;
 
             & [data-separator-wrapper] {
               top: 6px;
