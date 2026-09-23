@@ -587,8 +587,7 @@ where
                 ref_name,
                 position,
             }) => {
-                let (_, segment) =
-                    workspace.try_find_segment_and_stack_by_refname(ref_name.as_ref())?;
+                let segment = workspace.try_find_segment_by_refname(ref_name.as_ref())?;
                 if matches!(
                     position,
                     but_workspace::branch::create_reference::Position::Below

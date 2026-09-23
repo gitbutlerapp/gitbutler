@@ -311,20 +311,6 @@ impl Workspace {
         find_segment_owner_indexes_by_refname(&self.stacks, ref_name)
     }
 
-    /// Like [`Self::find_segment_owner_indexes_by_refname`], but fails with an error.
-    pub fn try_find_segment_owner_indexes_by_refname(
-        &self,
-        name: &gix::refs::FullNameRef,
-    ) -> anyhow::Result<(usize, usize)> {
-        self.find_segment_owner_indexes_by_refname(name)
-            .with_context(|| {
-                format!(
-                    "Couldn't find any stack that contained the branch named '{}'",
-                    name.shorten()
-                )
-            })
-    }
-
     /// Return `true` if `name` is contained in the workspace as segment of a stack or a worktree.
     pub fn refname_is_segment(&self, name: &gix::refs::FullNameRef) -> bool {
         self.find_segment_by_refname(name).is_some()
@@ -361,20 +347,6 @@ impl Workspace {
                     .then_some((stack, seg))
             })
         })
-    }
-
-    /// Like [`Self::find_segment_and_stack_by_refname`], but fails with an error.
-    pub fn try_find_segment_and_stack_by_refname(
-        &self,
-        name: &gix::refs::FullNameRef,
-    ) -> anyhow::Result<(&Stack, &StackSegment)> {
-        self.find_segment_and_stack_by_refname(name)
-            .with_context(|| {
-                format!(
-                    "Couldn't find any stack that contained the branch named '{}'",
-                    name.shorten()
-                )
-            })
     }
 }
 
