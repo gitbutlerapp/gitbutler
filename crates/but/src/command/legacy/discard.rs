@@ -480,8 +480,8 @@ pub fn run(
                     ctx.workspace_and_db_with_perm(perm.read_permission())?;
                 let mut commits = Vec::new();
                 for branch in &branches {
-                    let (_stack, segment) = workspace
-                        .try_find_segment_and_stack_by_refname(branch.as_ref())
+                    let segment = workspace
+                        .try_find_segment_by_refname(branch.as_ref())
                         .with_context(|| {
                             format!(
                                 "Could not find branch {} in the workspace",

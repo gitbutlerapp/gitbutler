@@ -1885,7 +1885,7 @@ pub fn resolve_commits_on_branch_by_ref(
     repo: &gix::Repository,
     ws: &Workspace,
 ) -> anyhow::Result<Vec<CommitId>> {
-    let (_, segment) = ws.try_find_segment_and_stack_by_refname(branch)?;
+    let segment = ws.try_find_segment_by_refname(branch)?;
     let commits_in_segment = segment
         .commits
         .iter()
