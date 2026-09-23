@@ -133,6 +133,8 @@ const SignedIn: FC<{ profile: UserProfile }> = ({ profile }) => {
 		null,
 	);
 	const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+	// The uploaded picture, marked to go on save.
+	const [removingPicture, setRemovingPicture] = useState(false);
 	const [saving, setSaving] = useState(false);
 	const [error, setError] = useState<string | null>(null);
 
@@ -143,13 +145,18 @@ const SignedIn: FC<{ profile: UserProfile }> = ({ profile }) => {
 		return () => URL.revokeObjectURL(previewUrl);
 	}, [previewUrl]);
 
-	const dirty = name !== (profile.name ?? "") || pendingPicture !== null;
-	const picture = previewUrl ?? profile.picture;
+	const dirty = name !== (profile.name ?? "") || pendingPicture !== null || removingPicture;
+	const picture = removingPicture ? null : (previewUrl ?? profile.picture);
+	// Only an uploaded picture can be removed; the sign-in picture and Gravatar are what
+	// removing falls back to. The API says which by its storage path until it says so
+	// outright (GB-2076).
+	const uploadedPicture = profile.picture.includes("/rails/active_storage/");
 
 	const choosePicture = async (file: File) => {
 		try {
 			setPendingPicture({ base64: await readAsBase64(file), filename: file.name });
 			setPreviewUrl(URL.createObjectURL(file));
+			setRemovingPicture(false);
 		} catch (caught) {
 			setError(errorMessageForToast(caught));
 		}
@@ -170,9 +177,11 @@ const SignedIn: FC<{ profile: UserProfile }> = ({ profile }) => {
 				email_share: null,
 				avatar_base64: pendingPicture?.base64 ?? null,
 				avatar_filename: pendingPicture?.filename ?? null,
+				remove_avatar: removingPicture ? true : null,
 			});
 			setPendingPicture(null);
 			setPreviewUrl(null);
+			setRemovingPicture(false);
 			await client.invalidateQueries({ queryKey: userProfileQueryOptions.queryKey });
 		} catch (caught) {
 			setError(errorMessageForToast(caught));
@@ -190,15 +199,17 @@ const SignedIn: FC<{ profile: UserProfile }> = ({ profile }) => {
 				// The email first: it is what the server's own fallback, Gravatar, is keyed on.
 				seed={profile.email ?? profile.login ?? String(profile.id)}
 				onChoose={(file) => void choosePicture(file)}
-				// The API sets a picture but can't clear one, so remove only drops a choice
-				// that isn't saved yet, going back to the account's own picture.
+				// Remove drops a picture chosen but not saved; failing that, it marks the
+				// uploaded one to go on save.
 				onRemove={
-					pendingPicture === null
-						? undefined
-						: () => {
+					pendingPicture !== null
+						? () => {
 								setPendingPicture(null);
 								setPreviewUrl(null);
 							}
+						: uploadedPicture && !removingPicture
+							? () => setRemovingPicture(true)
+							: undefined
 				}
 			/>
 

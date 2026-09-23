@@ -4687,6 +4687,11 @@ export type UpdateUserParams = {
   avatar_base64: string | null;
   /** Original filename of the avatar (e.g. "photo.png"). */
   avatar_filename: string | null;
+  /**
+   * Remove the uploaded avatar, so the picture falls back to the sign-in one or
+   * Gravatar. Ignored when a new avatar is sent in the same update.
+   */
+  remove_avatar: boolean | null;
 };
 
 /** A file uploaded to gitbutler.com, ready to be linked from markdown. */
