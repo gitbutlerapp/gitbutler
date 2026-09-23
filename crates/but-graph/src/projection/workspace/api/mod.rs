@@ -329,6 +329,29 @@ impl Workspace {
         self.find_segment_and_stack_by_refname(name).is_some()
     }
 
+    /// Try to find `name` in any named [`StackSegment`] of a stack, then of a worktree.
+    pub fn find_segment_by_refname(&self, name: &gix::refs::FullNameRef) -> Option<&StackSegment> {
+        self.stacks
+            .iter()
+            .map(|stack| &stack.segments)
+            .chain(self.worktrees.iter().map(|worktree| &worktree.segments))
+            .flatten()
+            .find(|segment| segment.ref_name() == Some(name))
+    }
+
+    /// Like [`Self::find_segment_by_refname`], but fails with an error.
+    pub fn try_find_segment_by_refname(
+        &self,
+        name: &gix::refs::FullNameRef,
+    ) -> anyhow::Result<&StackSegment> {
+        self.find_segment_by_refname(name).with_context(|| {
+            format!(
+                "Couldn't find any stack or worktree that contained the branch named '{}'",
+                name.shorten()
+            )
+        })
+    }
+
     /// Try to find `name` in any named [`StackSegment`] and return it along with the stack containing it.
     pub fn find_segment_and_stack_by_refname(
         &self,

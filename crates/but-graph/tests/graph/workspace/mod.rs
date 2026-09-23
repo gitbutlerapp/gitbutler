@@ -1,3 +1,4 @@
+mod find_segment_by_refname;
 mod highest_base;
 mod merge_base_with_target_branch;
 mod push_remote_name;
