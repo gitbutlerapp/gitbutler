@@ -1,0 +1,63 @@
+.tag {
+	display: inline-flex;
+	align-items: center;
+	max-width: 100%;
+	border: 1px solid var(--border-2);
+	border-radius: var(--radius-full);
+	color: var(--text-1);
+	vertical-align: middle;
+
+	/* Selected rows set --selection-inverted, as Badge reads it: the opposite scheme makes the
+	   border and text tokens resolve to their inverted values over the selection. */
+	@container style(--selection-inverted: true) {
+		color-scheme: dark;
+
+		@media (prefers-color-scheme: dark) {
+			color-scheme: light;
+		}
+	}
+}
+
+.regular {
+	height: 16px;
+	padding-inline: 5px;
+	gap: 4px;
+	font-size: 11px;
+}
+
+.large {
+	height: var(--size-tag);
+	padding-inline: 7px;
+	gap: 5px;
+	font-size: 12px;
+}
+
+/* The category's own colour, the one thing in the tag that isn't a token. A dot as light
+   as the ground (white on a light panel) or as dark gets a hairline in a shade of itself,
+   fading in only near that end of the scale, so every other colour is drawn bare. */
+.dot {
+	flex: none;
+	width: 8px;
+	height: 8px;
+	border-radius: 50%;
+	background-color: var(--tag-color);
+	box-shadow: inset 0 0 0 1px
+		light-dark(
+			oklch(from var(--tag-color) calc(l - 0.25) c h / clamp(0, (l - 0.85) * 7, 1)),
+			oklch(from var(--tag-color) calc(l + 0.35) c h / clamp(0, (0.3 - l) * 5, 1))
+		);
+
+	.regular & {
+		width: 6px;
+		height: 6px;
+	}
+}
+
+/* Not trimmed to cap and baseline as Badge's label is: the ellipsis needs overflow hidden,
+   which would clip the descenders of a trimmed box. The full line box, centred by the pill. */
+.name {
+	overflow: hidden;
+	line-height: 1.25;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
