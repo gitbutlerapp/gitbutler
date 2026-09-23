@@ -2,9 +2,10 @@ use anyhow::Context as _;
 use bstr::{BStr, ByteSlice as _};
 
 use crate::{
-    CliResult, IdMap,
+    CliId, CliResult, IdMap,
     args::atoms::CliIdArg,
     bad_input,
+    id::AnonymousSegmentId,
     utils::{change_source::ChangeSourceId, targeting::Side},
 };
 
@@ -28,6 +29,42 @@ pub(crate) fn worktree_branch(
         "Worktree {name} has a workspace ref checked out, so there is no branch to commit to"
     );
     Ok(branch)
+}
+
+pub(crate) fn is_worktree_top(
+    repo: &gix::Repository,
+    name: &BStr,
+    segment: &CliId,
+) -> anyhow::Result<bool> {
+    match segment {
+        CliId::Branch(branch) => {
+            let branch = gix::refs::Category::LocalBranch.to_full_name(branch.name.as_str())?;
+            let worktree_repo = but_workspace::worktrees::open_worktree_repo(repo, name)?;
+            Ok(worktree_repo.head_name()? == Some(branch))
+        }
+        CliId::AnonymousSegment(AnonymousSegmentId {
+            anchor_commit_id: Some(anchor),
+            ..
+        }) => {
+            let worktree_repo = but_workspace::worktrees::open_worktree_repo(repo, name)?;
+            Ok(
+                worktree_repo.head_name()?.is_none()
+                    && worktree_repo.head_id()?.detach() == *anchor,
+            )
+        }
+        CliId::AnonymousSegment(AnonymousSegmentId {
+            anchor_commit_id: None,
+            ..
+        })
+        | CliId::Commit { .. }
+        | CliId::CommittedFile { .. }
+        | CliId::CommittedHunk(..)
+        | CliId::UncommittedHunkOrFile(..)
+        | CliId::PathPrefix { .. }
+        | CliId::Uncommitted { .. }
+        | CliId::WorktreeUncommitted { .. }
+        | CliId::Stack { .. } => Ok(false),
+    }
 }
 
 /// The tip an `--above`/`--below` argument naming the worktree `name` targets.

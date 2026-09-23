@@ -1,7 +1,10 @@
 use bstr::ByteSlice;
 
 use crate::{
-    command::util::{self, commit_file_with_worktree_changes_as_two_hunks},
+    command::util::{
+        self, add_dirty_worktree, add_worktree_with_commit,
+        commit_file_with_worktree_changes_as_two_hunks, enable_worktree_manipulation,
+    },
     utils::{CommandExt as _, Sandbox},
 };
 
@@ -1283,6 +1286,56 @@ Discarded uncommitted changes from src/discard-me.ts
 ┴ 0dc3733 (common base) 2000-01-02 add M
 
 Hint: run `but help` for all commands
+
+"#]]);
+}
+
+#[test]
+fn discarding_the_top_of_a_clean_worktree_removes_it() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
+    env.setup_metadata(&["A", "B"]);
+    enable_worktree_manipulation(&env);
+    env.but("status").assert().success();
+    add_worktree_with_commit(&env, "wt-feature", "A");
+
+    env.but("discard wt")
+        .assert()
+        .success()
+        .stderr_eq(snapbox::str![])
+        .stdout_eq(snapbox::str![[r#"
+Removed worktree wt-feature
+
+"#]]);
+    env.but("worktree list")
+        .assert()
+        .success()
+        .stderr_eq(snapbox::str![])
+        .stdout_eq(snapbox::str![[r#"
+Active worktrees
+(none)
+
+Archived worktrees
+(none)
+
+"#]]);
+}
+
+#[test]
+fn discarding_the_top_of_a_dirty_worktree_is_refused() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
+    env.setup_metadata(&["A", "B"]);
+    enable_worktree_manipulation(&env);
+    env.but("status").assert().success();
+    add_dirty_worktree(&env, "wt-feature", "A");
+
+    env.but("discard wt")
+        .assert()
+        .failure()
+        .stdout_eq(snapbox::str![])
+        .stderr_eq(snapbox::str![[r#"
+Error: Worktree wt-feature has uncommitted changes
+
+Hint: Use `but worktree remove --force wt-feature` to remove it anyway
 
 "#]]);
 }

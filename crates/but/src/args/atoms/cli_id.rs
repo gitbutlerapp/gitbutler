@@ -227,6 +227,24 @@ impl CliIdArg {
         }
     }
 
+    /// Try and resolve the argument to the checkout of a linked worktree: the branch checked out
+    /// there or, for a detached `HEAD`, its anonymous segment.
+    ///
+    /// Returns `Ok(None)` if it names anything else, including a branch below the checkout.
+    pub fn try_resolve_worktree_top(
+        &self,
+        repo: &gix::Repository,
+        id_map: &IdMap,
+    ) -> CliResult<Option<BString>> {
+        let Some(id) = try_resolve_cli_id(self, repo, id_map, Purpose::Source, None)? else {
+            return Ok(None);
+        };
+        let Some(name) = id.lane().and_then(LaneId::worktree_name) else {
+            return Ok(None);
+        };
+        Ok(crate::utils::worktrees::is_worktree_top(repo, name, &id)?.then(|| name.to_owned()))
+    }
+
     /// TODO: docs
     pub fn try_resolve_uncommitted(
         &self,

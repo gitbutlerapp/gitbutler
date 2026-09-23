@@ -36,7 +36,6 @@ pub(crate) mod merged_upstream;
 #[cfg(feature = "legacy")]
 pub(crate) mod rejection;
 pub(crate) mod targeting;
-#[cfg(feature = "legacy")]
 pub(crate) mod worktrees;
 
 pub mod diff_rendering;

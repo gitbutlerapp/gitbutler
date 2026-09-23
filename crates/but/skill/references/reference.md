@@ -374,7 +374,7 @@ but discard <commit-id>:<file-id>:<hunk-id> # Drop one hunk from its commit
 but discard <branch>               # Drop a branch and its commits
 ```
 
-All provided IDs must be from the same category, and committed changes must come from the same commit.
+All provided IDs must be from the same category, and committed changes must come from the same commit. Discarding the top branch of a worktree lane removes the worktree when its checkout is clean.
 
 ## Conflict Resolution
 

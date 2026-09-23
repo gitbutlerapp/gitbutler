@@ -552,6 +552,35 @@ fn discard_worktree() {
 }
 
 #[test]
+fn a_branch_below_the_worktree_top_gets_the_branch_confirm_not_worktree_removal() {
+    let env =
+        Sandbox::init_scenario_with_target_and_default_settings_slow("one-stack-with-worktree");
+    env.setup_metadata(&["A"]);
+    env.invoke_bash(
+        r#"
+        git branch wt-below wt-branch
+        git -C .git/gitbutler/test-worktrees/wt commit -q --allow-empty -m "top work"
+        "#,
+    );
+    let mut tui = test_status_tui_with_options(
+        env,
+        TestTuiOptions {
+            worktree_manipulation: true,
+            ..Default::default()
+        },
+    );
+
+    tui.input("jjjjjj")
+        .assert_current_line_eq(str!["┊┊├┄ el [wt-below]"]);
+    tui.input('x').assert_rendered_term_svg_eq(file![
+        "snapshots/a_branch_below_the_worktree_top_gets_the_branch_confirm_not_worktree_removal_001.svg"
+    ]);
+    tui.input('y').assert_rendered_term_svg_eq(file![
+        "snapshots/a_branch_below_the_worktree_top_gets_the_branch_confirm_not_worktree_removal_002.svg"
+    ]);
+}
+
+#[test]
 fn cannot_enter_worktree_mode_from_commit_file_list() {
     let (mut tui, _editor) = worktree_tui();
 

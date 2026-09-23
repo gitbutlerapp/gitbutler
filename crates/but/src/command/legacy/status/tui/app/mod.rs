@@ -780,7 +780,7 @@ impl App {
                 self.incoming_out_of_band_messages.push(rx);
             }
             Message::Discard => {
-                self.handle_discard(messages)?;
+                self.handle_discard(ctx, messages)?;
             }
             Message::DropToBeDiscarded => {
                 self.to_be_discarded.clear();
