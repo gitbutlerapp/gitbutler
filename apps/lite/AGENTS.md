@@ -1,6 +1,29 @@
 # Lite
 
-JavaScript dependencies are sourced from pnpm. Commands are surfaced via pnpm.
+## Preparing the checkout
+
+Before implementing or validating Lite changes, ensure this checkout has installed dependencies and generated SDK types/native bindings. In an unprepared checkout, run from the repository root:
+
+```console
+$ pnpm install
+$ pnpm build:sdk
+```
+
+Reuse completed setup in this checkout. If another agent is preparing the same checkout, coordinate rather than starting duplicate installs/builds. Isolated checkouts need their own setup if missing. Read-only investigation does not require setup.
+
+pnpm manages Node.js runtime and dependency installation, so always use pnpm scripts or `pnpm exec`.
+
+Rebuild the SDK after Rust changes, not for frontend-only edits.
+
+## Running the app
+
+After preparing the checkout, run from the repository root:
+
+```console
+$ pnpm dev:lite
+```
+
+Verify running apps and servers belong to this checkout before reusing them, including the Vite server reused by E2E tests. Ask about port conflicts rather than stopping another checkout's processes.
 
 ## Writing the code
 
