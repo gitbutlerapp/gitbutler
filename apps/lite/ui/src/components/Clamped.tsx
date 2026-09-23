@@ -1,6 +1,6 @@
-import { getButtonClassName } from "./Button.tsx";
-import { classes } from "./classes.ts";
-import { Icon } from "./Icon.tsx";
+import { getButtonClassName } from "@gitbutler/ui-react/Button.tsx";
+import { classes } from "@gitbutler/ui-react/classes.ts";
+import { Icon } from "@gitbutler/ui-react/Icon.tsx";
 import type { CSSProperties, FC, MouseEvent, ReactNode } from "react";
 import { useLayoutEffect, useRef, useState } from "react";
 import styles from "./Clamped.module.css";
@@ -26,7 +26,7 @@ const resolveLength = (length: string, text: Element): number => {
  * Content that changes size after mount (lazy images, async syntax
  * highlighting) re-measures via a ResizeObserver on the inner wrapper, and
  * viewport resizes re-measure the vh-based caps.
- * @import import { Clamped } from "@gitbutler/ui-react/Clamped.tsx";
+ * @import import { Clamped } from "#ui/components/Clamped.tsx";
  */
 export const Clamped: FC<{
 	/** A px, vh or lh length, e.g. `"240px"`, `"80vh"` or `"3lh"`. */

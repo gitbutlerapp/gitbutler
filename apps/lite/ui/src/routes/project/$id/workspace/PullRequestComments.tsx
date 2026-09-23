@@ -38,7 +38,7 @@ import { TooltipPopup } from "@gitbutler/ui-react/Tooltip.tsx";
 import { Toggle, ToggleGroup, Tooltip } from "@base-ui/react";
 import { Badge, type BadgeVariant } from "@gitbutler/ui-react/Badge.tsx";
 import { getButtonClassName } from "@gitbutler/ui-react/Button.tsx";
-import { Clamped } from "@gitbutler/ui-react/Clamped.tsx";
+import { Clamped } from "#ui/components/Clamped.tsx";
 import { classes } from "@gitbutler/ui-react/classes.ts";
 import { Icon } from "@gitbutler/ui-react/Icon.tsx";
 import { Kbd } from "@gitbutler/ui-react/Kbd.tsx";
