@@ -2439,8 +2439,7 @@ pub async fn update_review(
                 base: target_base.as_deref(),
                 state: state_str,
             };
-            but_github::GitHubClient::from_storage(storage, preferred_account)?
-                .update_pull_request(&params)
+            but_github::pr::update(preferred_account, params, storage)
                 .await
                 .context("Failed to update PR")?;
             Ok(())
