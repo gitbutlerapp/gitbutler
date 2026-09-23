@@ -83,6 +83,13 @@
 		"typescript": "catalog:",
 		"typescript-eslint": "^8.57.1"
 	},
+	"devEngines": {
+		"runtime": {
+			"name": "node",
+			"version": "^24.0.0",
+			"onFail": "download"
+		}
+	},
 	"pnpm": {
 		"overrides": {
 			"ajv@6.12.6": "6.14.0",
