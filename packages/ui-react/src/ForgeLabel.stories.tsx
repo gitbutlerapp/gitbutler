@@ -33,6 +33,29 @@ export const DarkColor = meta.story({
 	args: { label: { name: "wontfix", color: "000000", description: null } },
 });
 
+/** This repository's own labels, to hold against the same row on github.com. */
+export const RepositoryLabels = meta.story({
+	args: { label: performanceLabel },
+	render: (args) => (
+		<div style={{ display: "flex", flexWrap: "wrap", gap: 6, maxWidth: 480 }}>
+			{(
+				[
+					["dependencies", "0366d6"],
+					["@gitbutler/desktop", "76AF01"],
+					["@gitbutler/lite", "ededed"],
+					["@gitbutler/ui-react", "f79614"],
+					["@gitbutler/ui-svelte", "198E62"],
+					["@gitbutler/web", "839FD1"],
+					["javascript", "168700"],
+					["@gitbutler/butler-bot", "5319e7"],
+				] as const
+			).map(([name, color]) => (
+				<ForgeLabel key={name} size={args.size} label={{ name, color, description: null }} />
+			))}
+		</div>
+	),
+});
+
 export const LongLabel = meta.story({
 	args: {
 		label: {
