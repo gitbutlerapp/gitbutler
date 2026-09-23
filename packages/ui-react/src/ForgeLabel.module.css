@@ -4,9 +4,25 @@
 	vertical-align: middle;
 }
 
+/* The label's colour drawn the way the forge draws it, so a label reads the
+   same here as on github.com. In the light theme it is the fill, with black or
+   white text by its lightness, and a near-white label gets a hairline in a
+   shade of itself so it keeps a shape on the panel. In the dark theme it is a
+   tint with the text and a faint edge lifted to a readable lightness, so a
+   dark label still shows on a dark panel. */
 .label[data-colored] {
-	background-color: color-mix(in srgb, var(--label-color) var(--badge-bg-opacity), transparent);
-	color: color-mix(in oklab, var(--label-color) 30%, var(--text-1));
+	--label-lifted: oklch(from var(--label-color) max(l, 0.8) c h);
+
+	background-color: light-dark(var(--label-color), oklch(from var(--label-color) l c h / 0.18));
+	box-shadow: inset 0 0 0 1px
+		light-dark(
+			oklch(from var(--label-color) calc(l - 0.2) c h / clamp(0, (l - 0.9) * 10, 1)),
+			oklch(from var(--label-lifted) l c h / 0.3)
+		);
+	color: light-dark(
+		oklch(from var(--label-color) clamp(0, (0.62 - l) * 1000, 1) 0 0),
+		var(--label-lifted)
+	);
 }
 
 .text {
