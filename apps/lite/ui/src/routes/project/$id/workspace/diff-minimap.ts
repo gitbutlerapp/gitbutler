@@ -218,7 +218,7 @@ export const getMinimapFiles = ({
 		const fileDiff = parsePreparedDiffFile(file);
 		const marks: Array<MinimapMark> = [];
 		const anchors: Array<MinimapAnchor> = [];
-		let top = codeViewItemMetrics.diffHeaderHeight;
+		let top = codeViewItemMetrics.diffHeaderHeight + codeViewItemMetrics.paddingTop;
 
 		for (const [hunkIndex, hunk] of fileDiff.hunks.entries()) {
 			if (hunk.collapsedBefore > 0) top += hunkIndex === 0 ? SEPARATOR_LEADING : SEPARATOR_BETWEEN;

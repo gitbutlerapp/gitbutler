@@ -49,6 +49,7 @@ export const codeViewLayout: CodeViewLayout = {
 
 export const codeViewItemMetrics = {
 	diffHeaderHeight: 38,
+	paddingTop: 6,
 	paddingBottom: 9,
 } satisfies Partial<VirtualFileMetrics>;
 
