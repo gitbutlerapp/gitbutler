@@ -337,8 +337,8 @@ Use pnpm via Corepack (avoid global installs):
 ```bash
 corepack enable
 corepack pnpm -v
-# optionally pin a major:
-corepack prepare pnpm@10 --activate
+# optionally activate the repository's pinned version:
+corepack prepare pnpm@12.5.1 --activate
 ```
 
 ### Additional resources

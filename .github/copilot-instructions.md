@@ -302,7 +302,7 @@ nvm use
 
 # Ensure pnpm is via corepack
 corepack enable
-corepack prepare pnpm@10.17.0 --activate
+corepack prepare pnpm@12.5.1 --activate
 ```
 
 ### Platform-Specific Issues
