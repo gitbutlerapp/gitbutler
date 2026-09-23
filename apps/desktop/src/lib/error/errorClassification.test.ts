@@ -158,6 +158,7 @@ describe("classify", () => {
 			// Terminal: telemetry captures once per session and pollers stop.
 			expect(result.terminal).toBe(true);
 			expect(result.userMessage).toContain("permission");
+			expect(result.userMessage).toContain("IP allow list");
 		});
 
 		test("GitHubTokenLifetimeRestricted is terminal with token-expiration guidance", () => {
