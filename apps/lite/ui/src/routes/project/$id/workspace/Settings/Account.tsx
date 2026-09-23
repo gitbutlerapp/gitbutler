@@ -187,6 +187,8 @@ const SignedIn: FC<{ profile: UserProfile }> = ({ profile }) => {
 		<section className={styles.card}>
 			<ProfileImage
 				src={picture}
+				// The email first: it is what the server's own fallback, Gravatar, is keyed on.
+				seed={profile.email ?? profile.login ?? String(profile.id)}
 				onChoose={(file) => void choosePicture(file)}
 				// The API sets a picture but can't clear one, so remove only drops a choice
 				// that isn't saved yet, going back to the account's own picture.

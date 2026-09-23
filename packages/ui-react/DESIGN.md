@@ -350,6 +350,14 @@ TypeScript square). They are deliberately full-color and are the only icons
 that don't inherit `currentColor`. Use them for files and file-shaped things
 only — never as general-purpose UI icons.
 
+**A person without a picture gets their glitch, never a blank.** `Avatar` and
+`ProfileImage` are one design at two sizes. They show the person's picture,
+else the real Gravatar photo for their email. Anyone without either gets their
+glitch: a quiet pattern of big blocks in their colour's next step on their
+colour, both picked from their email or login, so a person looks the same
+everywhere. The same glitch shows while a picture loads. No generated faces: Gravatar URLs from the server and
+the backend are asked for the real photo only.
+
 ## Tooltips
 
 **Short.** A tooltip is a label, not a sentence. Aim for two to five words,

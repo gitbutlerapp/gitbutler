@@ -222,7 +222,7 @@ const pickerButton = (p: {
 
 export const ReviewUser: FC<{ user: ForgeReviewUser }> = ({ user }) => (
 	<div className={classes("text-13", styles.user)} title={user.name ?? user.login}>
-		<Avatar src={user.avatarUrl} size={18} />
+		<Avatar src={user.avatarUrl} seed={user.login} size={18} />
 		<span className={styles.userLogin}>{user.login}</span>
 	</div>
 );

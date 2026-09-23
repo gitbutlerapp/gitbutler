@@ -3118,7 +3118,11 @@ const CommitDetails: FC<{
 							className={styles.commitDetailsMetaTabs}
 						/>
 					)}
-					<Avatar src={commitDetails.commit.author.gravatarUrl} alt="Commit author avatar" />
+					<Avatar
+						src={commitDetails.commit.author.gravatarUrl}
+						seed={commitDetails.commit.author.email}
+						alt="Commit author avatar"
+					/>
 					<span>
 						<span title={commitDetails.commit.author.email}>
 							{commitDetails.commit.author.name}

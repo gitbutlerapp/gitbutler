@@ -194,7 +194,7 @@ export const useMentionSuggestions = ({ projectId, targetRef, value, onInput }: 
 										tabIndex={-1}
 									>
 										<span className={styles.row}>
-											<Avatar src={user.avatarUrl} />
+											<Avatar src={user.avatarUrl} seed={user.login} />
 											<span className={styles.login}>{user.login}</span>
 											{user.name !== null && <span className={styles.name}>{user.name}</span>}
 										</span>

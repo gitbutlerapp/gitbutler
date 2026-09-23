@@ -1,5 +1,7 @@
 import { classes } from "./classes.ts";
 import { Icon } from "./Icon.tsx";
+import { PersonGlitch } from "./Avatar.tsx";
+import { usePicture } from "./usePicture.ts";
 import { useRef, type FC } from "react";
 import styles from "./ProfileImage.module.css";
 
@@ -8,13 +10,16 @@ import styles from "./ProfileImage.module.css";
  * file, and with a picture set, hovering offers a remove button in its corner. It holds no
  * state and uploads nothing; the host gets the chosen file and decides what to do with it.
  *
- * Without a picture it shows a person on the gray ground, which gives way to the camera
- * under the pointer; with one, a dark wash carries the camera over the picture.
+ * Without a picture it shows the account's Gravatar photo, else the account's glitch, the
+ * one `Avatar` draws, which also shows while a picture loads. On the glitch alone the camera
+ * always shows; over either, a dark wash comes on hover, the camera on it.
  * @import import { ProfileImage } from "@gitbutler/ui-react/ProfileImage.tsx";
  */
 export const ProfileImage: FC<{
-	/** The picture to show; nothing for the placeholder. */
+	/** The picture to show; without one, the Gravatar photo or the colour. */
 	src: string | null | undefined;
+	/** Who this is: an email finds their Gravatar, and either picks the colour. */
+	seed: string;
 	/** A file the person chose. */
 	onChoose: (file: File) => void;
 	/** Removes the picture. Without it, or without a picture, there is no remove button. */
@@ -22,29 +27,35 @@ export const ProfileImage: FC<{
 	/** The image types the picker offers. */
 	accept?: string;
 	className?: string;
-}> = ({ src, onChoose, onRemove, accept = "image/png,image/jpeg", className }) => {
+}> = ({ src, seed, onChoose, onRemove, accept = "image/png,image/jpeg", className }) => {
 	const input = useRef<HTMLInputElement>(null);
 	const hasPicture = src != null && src !== "";
+	// A picture that fails to load still counts for the remove button; only what is drawn
+	// falls back.
+	const { url, tint, onError } = usePicture(src, seed, 72);
 
 	return (
 		<div className={classes(styles.root, className)}>
 			<button
 				type="button"
 				className={styles.picture}
+				// The person's colour, which also fills the circle while a picture loads.
+				style={{ backgroundColor: tint }}
 				aria-label="Change profile picture"
 				onClick={() => input.current?.click()}
 			>
-				{hasPicture ? (
+				<PersonGlitch seed={seed} className={styles.glitch} />
+				{url !== null ? (
 					<>
-						<img src={src} alt="" className={styles.image} />
+						<img src={url} alt="" className={styles.image} onError={onError} />
 						<span className={styles.overlay}>
 							<Icon name="camera" className={styles.overlayIcon} size={32} />
 						</span>
 					</>
 				) : (
 					<>
-						<Icon name="user" className={styles.placeholder} size={32} />
-						<Icon name="camera" className={styles.placeholderCamera} size={32} />
+						<span className={styles.overlay} />
+						<Icon name="camera" className={styles.camera} size={32} />
 					</>
 				)}
 			</button>

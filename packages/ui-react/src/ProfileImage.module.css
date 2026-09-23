@@ -29,16 +29,7 @@
 	height: 72px;
 	overflow: hidden;
 	border-radius: 50%;
-	background-color: var(--scale-gray-80);
 	color: var(--text-1);
-	transition: var(--transition-button);
-
-	/* One step down, as any control's ground does under the pointer. Only seen without a
-	   picture; with one the wash carries the hover instead. */
-	&:hover,
-	&:focus-visible {
-		background-color: var(--scale-gray-70);
-	}
 
 	&:hover .overlay,
 	&:focus-visible .overlay {
@@ -52,40 +43,31 @@
 		opacity: 1;
 	}
 
-	&:hover .placeholder,
-	&:focus-visible .placeholder {
-		scale: 0.25;
-		filter: blur(4px);
-		opacity: 0;
-	}
-
-	&:hover .placeholderCamera,
-	&:focus-visible .placeholderCamera {
-		scale: 1;
-		filter: blur(0);
-		opacity: 1;
+	/* The same hover as over a picture: the wash comes in and the camera turns light on it. */
+	&:hover .camera,
+	&:focus-visible .camera {
+		color: var(--text-1-invert);
 	}
 }
 
-/* Without a picture there is nothing to wash over: the drawing itself gives way to the camera,
-   the two sharing one cell so the swap happens in place. It is the icon crossfade from
-   DESIGN.md (Motion): the medium tier, since the glyph moves, and ease-out so it lands early. */
-.placeholder,
-.placeholderCamera {
-	grid-area: 1 / 1;
-	transition:
-		opacity var(--transition-medium) ease-out,
-		scale var(--transition-medium) ease-out,
-		filter var(--transition-medium) ease-out;
+/* The account's glitch, alone or under a picture while it loads. */
+.glitch {
+	position: absolute;
+	width: 100%;
+	height: 100%;
+	inset: 0;
 }
 
-.placeholderCamera {
-	scale: 0.25;
-	filter: blur(4px);
-	opacity: 0;
+/* Without any picture, the camera stays: choosing one is all there is to do here. Positioned,
+   so it paints over the glitch and the wash rather than under them. */
+.camera {
+	position: relative;
+	transition: color var(--transition-fast);
 }
 
 .image {
+	/* Positioned, so it covers the glitch once it loads. */
+	position: relative;
 	width: 100%;
 	height: 100%;
 	object-fit: cover;
