@@ -6,7 +6,7 @@
 		"node": ">=24"
 	},
 	"type": "module",
-	"packageManager": "pnpm@10.20.0",
+	"packageManager": "pnpm@12.5.1",
 	"scripts": {
 		"dev:ui": "pnpm --filter @gitbutler/ui-svelte storybook",
 		"dev:web": "turbo watch --filter @gitbutler/web dev",
@@ -89,59 +89,5 @@
 			"version": "^24.0.0",
 			"onFail": "download"
 		}
-	},
-	"pnpm": {
-		"overrides": {
-			"ajv@6.12.6": "6.14.0",
-			"axios": "1.13.5",
-			"devalue": "5.6.3",
-			"diff@^4.0.0": "4.0.4",
-			"diff@^5.0.0": "5.2.2",
-			"diff@^8.0.0": "8.0.3",
-			"fast-xml-parser": "5.3.7",
-			"@isaacs/brace-expansion": "5.0.1",
-			"lodash": "4.17.23",
-			"lodash-es": "4.17.23",
-			"minimatch@^10.0.0": "10.2.2",
-			"qs": "6.15.2",
-			"undici@6.22.0": "6.23.0",
-			"@lexical/clipboard": "0.27.2",
-			"@lexical/code": "0.27.2",
-			"@lexical/file": "0.27.2",
-			"@lexical/hashtag": "0.27.2",
-			"@lexical/history": "0.27.2",
-			"@lexical/html": "0.27.2",
-			"@lexical/link": "0.27.2",
-			"@lexical/list": "0.27.2",
-			"@lexical/mark": "0.27.2",
-			"@lexical/markdown": "0.27.2",
-			"@lexical/offset": "0.27.2",
-			"@lexical/overflow": "0.27.2",
-			"@lexical/plain-text": "0.27.2",
-			"@lexical/rich-text": "0.27.2",
-			"@lexical/selection": "0.27.2",
-			"@lexical/table": "0.27.2",
-			"@lexical/text": "0.27.2",
-			"@lexical/utils": "0.27.2",
-			"@lexical/yjs": "0.27.2",
-			"lexical": "0.27.2"
-		},
-		"onlyBuiltDependencies": [
-			"@ffmpeg-installer/darwin-arm64",
-			"@prisma/client",
-			"core-js",
-			"electron",
-			"electron-winstaller"
-		],
-		"ignoredBuiltDependencies": [
-			"@parcel/watcher",
-			"@sentry/cli",
-			"edgedriver",
-			"esbuild",
-			"geckodriver",
-			"leveldown",
-			"playwright-webkit",
-			"unrs-resolver"
-		]
 	}
 }
