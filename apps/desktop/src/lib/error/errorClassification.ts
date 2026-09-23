@@ -242,7 +242,7 @@ Your GitHub token appears expired. Please log out and back in to refresh it. (Se
 		terminal: true,
 		title: "GitHub Permissions Error",
 		userMessage: `
-GitHub could not access this repository or part of it (for example CI checks). Check that the repository still exists, grant the missing read permission, or reconnect GitHub under Settings → Integrations.
+GitHub could not access this repository or part of it (for example CI checks). Check that the repository still exists and that your account has the needed read permission, or reconnect GitHub under Settings → Integrations. If the organization uses an IP allow list, connect from an allowed network or ask an organization owner to update the list.
 		`,
 	},
 	/**
