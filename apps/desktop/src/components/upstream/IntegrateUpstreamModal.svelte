@@ -17,6 +17,7 @@
 		Button,
 		FileListItem,
 		IntegrationSeriesRow,
+		InfoMessage,
 		Modal,
 		SimpleCommitRow,
 		ScrollableContainer,
@@ -25,7 +26,7 @@
 	} from "@gitbutler/ui-svelte";
 	import { tick } from "svelte";
 
-	type OperationState = "inert" | "loading" | "completed";
+	type OperationState = "idle" | "running" | "previewFailed" | "executeFailed";
 
 	interface Props {
 		projectId: string;
@@ -45,17 +46,23 @@
 	const clipboardService = inject(CLIPBOARD_SERVICE);
 
 	let modal = $state<Modal>();
-	let integratingUpstream = $state<OperationState>("inert");
+	let operationState = $state<OperationState>("idle");
 	let statuses = $state<UpstreamIntegrationStackStatus[]>([]);
 	let integrationStatuses = $state<UpstreamIntegrationStatuses | undefined>();
 	let statusesLoading = $state(false);
 	let statusesStale = $state(false);
 	let statusRequest = 0;
+	let operationRequest = 0;
 
 	const baseLoaded = $derived(!!base);
 	const isBaseDiverged = $derived(!!base?.targetShaAheadOfRef);
 	const canIntegrate = $derived(
-		baseLoaded && !isBaseDiverged && !!integrationStatuses && !statusesLoading && !statusesStale,
+		operationState === "idle" &&
+			baseLoaded &&
+			!isBaseDiverged &&
+			!!integrationStatuses &&
+			!statusesLoading &&
+			!statusesStale,
 	);
 	const worktreeConflicts = $derived(integrationStatuses?.worktreeConflicts ?? []);
 	const [integrateUpstream] = upstreamIntegrationService.integrateUpstream();
@@ -91,6 +98,7 @@
 			statuses = statusesTmp;
 			statusesStale = false;
 		} catch (error) {
+			if (request === statusRequest) operationState = "previewFailed";
 			console.error("Failed to load upstream integration statuses:", error);
 		} finally {
 			if (request === statusRequest) {
@@ -100,7 +108,7 @@
 	}
 
 	$effect(() => {
-		if (integratingUpstream !== "inert") {
+		if (operationState !== "idle") {
 			statusRequest++;
 			return;
 		}
@@ -127,24 +135,63 @@
 	async function integrate() {
 		if (!canIntegrate || !integrationStatuses) return;
 
-		integratingUpstream = "loading";
+		const request = ++operationRequest;
+		operationState = "running";
 		await tick();
 
-		await integrateUpstream({
-			projectId,
-			updates: integrationStatuses.updates,
-			dryRun: false,
-		});
-		await baseBranchService.refreshBaseBranch(projectId);
-		integratingUpstream = "completed";
-		modal?.close();
+		try {
+			await integrateUpstream({
+				projectId,
+				updates: integrationStatuses.updates,
+				dryRun: false,
+			});
+		} catch (error) {
+			clearStatuses();
+			if (request !== operationRequest) {
+				operationState = "idle";
+				return;
+			}
+
+			operationState = "executeFailed";
+			console.error("Failed to update workspace:", error);
+			return;
+		}
+
+		try {
+			await baseBranchService.refreshBaseBranch(projectId);
+		} catch (error) {
+			console.error("Failed to refresh the workspace after updating:", error);
+		}
+		if (request !== operationRequest) {
+			clearStatuses();
+			operationState = "idle";
+			return;
+		}
+
+		await modal?.close();
+		operationState = "idle";
+	}
+
+	function retryFailedOperation() {
+		operationState = "idle";
 	}
 
 	export async function show() {
-		integratingUpstream = "inert";
+		operationRequest++;
+		if (operationState !== "running") operationState = "idle";
 		clearStatuses();
 		await tick();
 		modal?.show();
+	}
+
+	function close() {
+		operationRequest++;
+		void modal?.close();
+	}
+
+	function handleClose() {
+		operationRequest++;
+		onClose?.();
 	}
 
 	export const imports = {
@@ -173,7 +220,7 @@
 <Modal
 	testId={TestId.IntegrateUpstreamCommitsModal}
 	bind:this={modal}
-	{onClose}
+	onClose={handleClose}
 	width={520}
 	noPadding
 	onSubmit={() => integrate()}
@@ -257,19 +304,28 @@
 				</div>
 			</div>
 		{/if}
+		{#if operationState === "previewFailed" || operationState === "executeFailed"}
+			<div class="integration-error">
+				<InfoMessage style="danger" primaryLabel="Try again" primaryAction={retryFailedOperation}>
+					{#snippet content()}
+						{operationState === "previewFailed"
+							? "Couldn't preview this workspace update."
+							: "Couldn't update the workspace."}
+					{/snippet}
+				</InfoMessage>
+			</div>
+		{/if}
 	</ScrollableContainer>
 
 	{#snippet controls()}
 		<div class="controls">
-			<Button onclick={() => modal?.close()} kind="outline">Cancel</Button>
+			<Button onclick={close} kind="outline">Cancel</Button>
 			<AsyncButton
 				testId={TestId.IntegrateUpstreamActionButton}
 				wide
 				style="pop"
 				disabled={!canIntegrate}
-				loading={integratingUpstream === "loading" ||
-					statusesLoading ||
-					(!integrationStatuses && !isBaseDiverged)}
+				loading={operationState === "running" || statusesLoading}
 				action={async () => {
 					await integrate();
 				}}
@@ -350,6 +406,10 @@
 
 	.worktree-conflicts-description {
 		color: var(--text-2);
+	}
+
+	.integration-error {
+		padding: 16px;
 	}
 
 	/* CONTROLS */
