@@ -1,4 +1,4 @@
-import { ForgeLabel } from "@gitbutler/ui-react/ForgeLabel.tsx";
+import { Tag } from "@gitbutler/ui-react/Tag.tsx";
 import type { ForgeReviewLabel } from "@gitbutler/but-sdk";
 import { type FC, Fragment } from "react";
 import { RowLabel, RowLabelContainer } from "./Row.tsx";
@@ -15,7 +15,7 @@ export const BranchRowHeadline: FC<{
 		{labels?.map((label) => (
 			<Fragment key={label.name}>
 				{" "}
-				<ForgeLabel label={label} size="regular" />
+				<Tag name={label.name} color={label.color} description={label.description} size="regular" />
 			</Fragment>
 		))}
 	</RowLabelContainer>

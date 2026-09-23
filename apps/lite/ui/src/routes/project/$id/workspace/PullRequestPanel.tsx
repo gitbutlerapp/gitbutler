@@ -22,7 +22,7 @@ import { Kbd } from "@gitbutler/ui-react/Kbd.tsx";
 import { classes } from "@gitbutler/ui-react/classes.ts";
 import { Icon } from "@gitbutler/ui-react/Icon.tsx";
 import { TextLink } from "@gitbutler/ui-react/TextLink.tsx";
-import { ForgeLabel } from "@gitbutler/ui-react/ForgeLabel.tsx";
+import { Tag } from "@gitbutler/ui-react/Tag.tsx";
 import { RelativeTime } from "@gitbutler/ui-react/RelativeTime.tsx";
 import type { IconName } from "@gitbutler/ui-react/iconNames.ts";
 import { TooltipPopup } from "@gitbutler/ui-react/Tooltip.tsx";
@@ -401,7 +401,12 @@ export const NewPullRequestPanel: FC<{
 					{pickedLabels.length > 0 && (
 						<div className={styles.labels}>
 							{pickedLabels.map((label) => (
-								<ForgeLabel key={label.name} label={label} />
+								<Tag
+									key={label.name}
+									name={label.name}
+									color={label.color}
+									description={label.description}
+								/>
 							))}
 						</div>
 					)}
@@ -996,7 +1001,12 @@ export const PullRequestPanel: FC<{
 					{review.labels.length > 0 && (
 						<div className={styles.labels}>
 							{review.labels.map((label) => (
-								<ForgeLabel key={label.name} label={label} />
+								<Tag
+									key={label.name}
+									name={label.name}
+									color={label.color}
+									description={label.description}
+								/>
 							))}
 						</div>
 					)}

@@ -169,10 +169,10 @@ test.describe("recent branch reviews", () => {
 			branch.getByText("Speed up branch listing in large repositories", { exact: true }),
 		).toBeVisible();
 		await expect(branch.getByText("performance", { exact: true })).toBeVisible();
-		await expect(branch.getByTitle("needs review", { exact: true })).not.toHaveCSS(
-			"background-color",
-			"rgba(0, 0, 0, 0)",
-		);
+		// A colourless label is still a pill, not bare text: the outline gives it its shape.
+		const colorless = branch.getByTitle("needs review", { exact: true });
+		await expect(colorless).toHaveCSS("border-top-style", "solid");
+		await expect(colorless).not.toHaveCSS("border-top-color", "rgba(0, 0, 0, 0)");
 		await expect(branch.getByText(/by octocat/)).toBeVisible();
 		await expect(branch.getByText("2 commits", { exact: true })).toBeVisible();
 		await expect(
