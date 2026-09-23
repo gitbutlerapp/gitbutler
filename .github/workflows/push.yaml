@@ -74,7 +74,6 @@ jobs:
               - 'packages/but-sdk/**'
               - 'packages/ui-react/**'
               - 'scripts/install-minimal-debian-dependencies.sh'
-              - '.nvmrc'
               - 'Cargo.lock'
               - 'Cargo.toml'
               - 'package.json'
