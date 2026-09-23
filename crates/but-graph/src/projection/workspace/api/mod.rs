@@ -324,9 +324,9 @@ impl Workspace {
             })
     }
 
-    /// Return `true` if `name` is contained in the workspace as segment.
+    /// Return `true` if `name` is contained in the workspace as segment of a stack or a worktree.
     pub fn refname_is_segment(&self, name: &gix::refs::FullNameRef) -> bool {
-        self.find_segment_and_stack_by_refname(name).is_some()
+        self.find_segment_by_refname(name).is_some()
     }
 
     /// Try to find `name` in any named [`StackSegment`] of a stack, then of a worktree.

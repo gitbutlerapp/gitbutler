@@ -45,6 +45,10 @@ fn worktree_segments_are_found_alongside_stack_segments() -> anyhow::Result<()> 
         "no stack owns the worktree's branch"
     );
     assert!(
+        ws.refname_is_segment(wsref.as_ref()),
+        "a branch in a worktree lane is applied"
+    );
+    assert!(
         ws.find_segment_by_refname(main.as_ref()).is_none(),
         "the target branch is in no lane"
     );
