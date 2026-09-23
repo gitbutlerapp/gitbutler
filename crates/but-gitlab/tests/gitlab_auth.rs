@@ -521,42 +521,91 @@ fn rejected_token_on_read_paths_carries_the_unauthorized_code_on_every_seam() {
                 ],
             ),
         ];
-        for (read, replies) in seams {
-            let requests = replies.len() + 1;
-            let fixture = stored_account(replies).await;
-            let error = perform(read, &fixture.storage, &fixture.account)
-                .await
-                .expect_err("a rejected token must fail the read, never return a partial page");
-            let StoredAccount { server, host, .. } = fixture;
-            assert_eq!(
-                server.finish().len(),
-                requests,
-                "{read:?}: every page up to the rejection should have been requested"
-            );
-
-            let context = error.custom_context_or_error_chain();
-            assert_eq!(
-                context.code.to_string(),
-                "GitLabUnauthorized",
-                "{read:?}: a 401 on a read path is the same rejected token the account refresh reports: {error:#}"
-            );
-            assert_eq!(
-                context.message.as_deref(),
-                Some("GitLab did not accept the token."),
-                "{read:?}: the API sends only the static guidance"
-            );
-            let chain = format!("{error:#}");
-            assert!(
-                chain.contains("HTTP 401"),
-                "{read:?}: the status should stay in the chain for logs: {chain}"
-            );
-            let debug = format!("{error:?}");
-            assert!(
-                !debug.contains(TOKEN) && !debug.contains(&host),
-                "{read:?}: neither the token nor the host may reach the error: {debug}"
-            );
-        }
+        // A 401 on a read path is the same rejected token the account refresh reports.
+        assert_terminal_on_every_seam(
+            seams,
+            "GitLabUnauthorized",
+            "GitLab did not accept the token.",
+            "HTTP 401",
+        )
+        .await;
     });
+}
+
+/// A 403 on a review listing will not clear up on the next poll either, so it
+/// is terminal too; single-MR and CI reads keep their 403 handling below.
+#[test]
+fn forbidden_review_listing_carries_the_access_refusal_code() {
+    memory_keyring::install();
+
+    run(async {
+        let seams: Vec<(Read, Vec<Reply>)> = vec![
+            (Read::OpenList, vec![reply(403, REJECTED)]),
+            (
+                Read::OpenList,
+                vec![page(format!("[{}]", mr(1)), "2"), reply(403, REJECTED)],
+            ),
+            (Read::TargetList, vec![reply(403, REJECTED)]),
+            (Read::CommitList, vec![reply(403, REJECTED)]),
+            (Read::RecentlyClosed, vec![reply(403, REJECTED)]),
+            (
+                Read::RecentlyClosed,
+                vec![reply(200, "[]"), reply(403, REJECTED)],
+            ),
+        ];
+        assert_terminal_on_every_seam(
+            seams,
+            "GitLabForbidden",
+            "GitLab refused access for the token.",
+            "HTTP 403",
+        )
+        .await;
+    });
+}
+
+/// Every seam fails with `code` and only the static `message`, keeps `status`
+/// in the chain for logs, and leaks neither the token nor the host.
+async fn assert_terminal_on_every_seam(
+    seams: Vec<(Read, Vec<Reply>)>,
+    code: &str,
+    message: &str,
+    status: &str,
+) {
+    for (read, replies) in seams {
+        let requests = replies.len() + 1;
+        let fixture = stored_account(replies).await;
+        let error = perform(read, &fixture.storage, &fixture.account)
+            .await
+            .expect_err("a terminal failure must fail the read, never return a partial page");
+        let StoredAccount { server, host, .. } = fixture;
+        assert_eq!(
+            server.finish().len(),
+            requests,
+            "{read:?}: every page up to the failure should have been requested"
+        );
+
+        let context = error.custom_context_or_error_chain();
+        assert_eq!(
+            context.code.to_string(),
+            code,
+            "{read:?}: the poller stops on this code: {error:#}"
+        );
+        assert_eq!(
+            context.message.as_deref(),
+            Some(message),
+            "{read:?}: the API sends only the static guidance"
+        );
+        let chain = format!("{error:#}");
+        assert!(
+            chain.contains(status),
+            "{read:?}: the status should stay in the chain for logs: {chain}"
+        );
+        let debug = format!("{error:?}");
+        assert!(
+            !debug.contains(TOKEN) && !debug.contains(&host),
+            "{read:?}: neither the token nor the host may reach the error: {debug}"
+        );
+    }
 }
 
 #[test]
@@ -565,7 +614,6 @@ fn read_failures_other_than_a_rejected_token_stay_unclassified() {
 
     run(async {
         let cases: Vec<(Read, Vec<Reply>, &str)> = vec![
-            (Read::OpenList, vec![reply(403, REJECTED)], "403"),
             (Read::OpenList, vec![reply(404, REJECTED)], "404"),
             (Read::OpenList, vec![reply(429, REJECTED)], "429"),
             // Auth wording in the body of another status is not a rejection.
@@ -580,6 +628,7 @@ fn read_failures_other_than_a_rejected_token_stay_unclassified() {
                 "error decoding response body",
             ),
             (Read::Get, vec![reply(500, REJECTED)], "500"),
+            (Read::Get, vec![reply(403, REJECTED)], "403"),
             (Read::MergeStatus, vec![reply(403, REJECTED)], "403"),
             (Read::PipelineJobs, vec![reply(500, REJECTED)], "500"),
             (
