@@ -100,6 +100,11 @@ app component with a story one, or mark a story that has no component
 behind it with `tags: ["!manifest"]`, as `AppUpdater.stories.tsx` does.
 `packages/ui-react/AGENTS.md` has the rest about the manifest.
 
+Lite's own components are drawn on the ⚙️ Meta page of the Lite working file,
+<https://www.figma.com/design/EBuHQGUcCaSw4Ln5uVpWkn/Lite>, and drafts go on
+its 🚧 Drafts pages; the library's are in ⚛️ Lite Core.
+`packages/ui-react/AGENTS.md`, under Figma, has the rules for both.
+
 ## Verifying your work
 
 In dev the app is accessible for automation over CDP on port 9222.

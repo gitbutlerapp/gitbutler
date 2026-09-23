@@ -15,7 +15,7 @@ import {
 	GraphSegment,
 	type GraphSegmentGlyph,
 	type GraphSegmentStatus,
-} from "@gitbutler/ui-react/GraphSegment.tsx";
+} from "#ui/components/GraphSegment.tsx";
 import { Icon } from "@gitbutler/ui-react/Icon.tsx";
 import { TextLink } from "@gitbutler/ui-react/TextLink.tsx";
 import { branchesHotkeys, toElectronAccelerator } from "#ui/hotkeys.ts";

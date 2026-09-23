@@ -18,7 +18,7 @@ import { decodeBytes } from "#ui/api/bytes.ts";
 import { classes } from "@gitbutler/ui-react/classes.ts";
 import { ConflictIcon } from "@gitbutler/ui-react/ConflictIcon.tsx";
 import { getButtonClassName } from "@gitbutler/ui-react/Button.tsx";
-import { GraphSegment, type GraphSegmentStatus } from "@gitbutler/ui-react/GraphSegment.tsx";
+import { GraphSegment, type GraphSegmentStatus } from "#ui/components/GraphSegment.tsx";
 import { Icon } from "@gitbutler/ui-react/Icon.tsx";
 import { ToggleGroupStyles, ToggleStyles } from "@gitbutler/ui-react/ToggleGroup.tsx";
 import { authorTooltip, commitIsDiverged, commitTitle, shortCommitId } from "#ui/commit.ts";

@@ -1,8 +1,4 @@
-import {
-	GraphGap,
-	GraphSegment,
-	type GraphSegmentStatus,
-} from "@gitbutler/ui-react/GraphSegment.tsx";
+import { GraphGap, GraphSegment, type GraphSegmentStatus } from "#ui/components/GraphSegment.tsx";
 import { classes } from "@gitbutler/ui-react/classes.ts";
 import { Icon } from "@gitbutler/ui-react/Icon.tsx";
 import { getRowButtonClassName } from "#ui/routes/project/$id/workspace/Row-utils.ts";

@@ -5,32 +5,32 @@ const statuses: Array<FileStatusType> = ["Addition", "Deletion", "Modification",
 
 const meta = preview.meta({
 	component: FileStatusBadge,
+	parameters: {
+		design: {
+			type: "figma",
+			url: "https://www.figma.com/design/cqdnAotT8n9op8WGYLOHg4/%E2%9A%9B%EF%B8%8F-Lite-Core?node-id=2134-5945",
+		},
+	},
 	argTypes: {
 		status: {
 			control: "select",
 			options: statuses,
 		},
-		fontSize: {
-			control: { type: "range", min: 8, max: 64, step: 1 },
-		},
 	},
 	args: {
 		status: "Addition",
-		fontSize: 11,
 	},
 });
 
 export const Default = meta.story({
 	args: {
 		status: "Addition",
-		fontSize: 10,
 	},
 });
 
 export const AllStatuses = meta.story({
 	args: {
 		status: "Addition",
-		fontSize: 11,
 	},
 	render: (args) => (
 		<div style={{ display: "flex", gap: 16, alignItems: "center" }}>
