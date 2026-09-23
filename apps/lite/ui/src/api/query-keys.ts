@@ -27,16 +27,13 @@ export type GlobalQueryKey =
 	| "version";
 
 /**
- * Client state kept in the query cache, so nothing declares for them. `dryRun`
- * memoizes an imperative preview: its key carries the operation and changes it
- * was measured against, and nothing refreshes it in place. `branchIntegration`
- * is the update flow's plan and preview, refetched each time the flow asks.
+ * Client state kept in the query cache, so nothing declares for them.
+ * `branchIntegration` is the update flow's plan and preview, refetched each time the flow asks.
  */
 type LocalQueryKey =
 	| "branchChecklist"
 	| "branchIntegration"
 	| "commitMessageDraft"
-	| "dryRun"
 	| "prMergeMethod"
 	| "prDraft"
 	| "projectAiSettings"

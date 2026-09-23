@@ -29,19 +29,6 @@ export const Experimental: FC = () => {
 			</Row>
 
 			<Row
-				label="Preview while dragging"
-				labelId="dry-run-operations"
-				hint="Shows a drag's outcome, such as a conflict, before you drop it. Slows dragging."
-			>
-				<Switch
-					size="large"
-					aria-labelledby="dry-run-operations"
-					checked={settings.dryRunOperations ?? defaultSettings.dryRunOperations}
-					onCheckedChange={(dryRunOperations) => saveGUISettings({ dryRunOperations })}
-				/>
-			</Row>
-
-			<Row
 				label="Minimap"
 				labelId="minimap"
 				hint="A map of the diff down the right-hand edge, standing in for the scrollbar."
