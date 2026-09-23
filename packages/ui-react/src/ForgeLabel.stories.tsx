@@ -28,6 +28,11 @@ export const PrefixedColor = meta.story({
 	args: { label: { name: "@gitbutler/lite", color: "#ffffff", description: null } },
 });
 
+/** As dark as the dark theme's panel: the counterpart of the white label there. */
+export const DarkColor = meta.story({
+	args: { label: { name: "wontfix", color: "000000", description: null } },
+});
+
 export const LongLabel = meta.story({
 	args: {
 		label: {

@@ -6,6 +6,15 @@
 
 .label[data-colored] {
 	background-color: color-mix(in srgb, var(--label-color) var(--badge-bg-opacity), transparent);
+	/* A label as light as the panel (white in the light theme) or as dark (black in
+	   the dark one) tints nothing, and the pill loses its shape. It gets a hairline
+	   in a shade of its own colour, fading in only near the panel's end of the
+	   scale, so a label of any other colour is left as it is. */
+	box-shadow: inset 0 0 0 1px
+		light-dark(
+			oklch(from var(--label-color) calc(l - 0.2) c h / clamp(0, (l - 0.8) * 5, 1)),
+			oklch(from var(--label-color) calc(l + 0.4) c h / clamp(0, (0.3 - l) * 5, 1))
+		);
 	color: color-mix(in oklab, var(--label-color) 30%, var(--text-1));
 }
 
