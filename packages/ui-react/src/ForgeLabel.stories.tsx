@@ -9,6 +9,12 @@ const performanceLabel = {
 
 const meta = preview.meta({
 	component: ForgeLabel,
+	parameters: {
+		design: {
+			type: "figma",
+			url: "https://www.figma.com/design/cqdnAotT8n9op8WGYLOHg4/%E2%9A%9B%EF%B8%8F-Lite-Core?node-id=2143-1538",
+		},
+	},
 	args: { size: "regular" },
 });
 
