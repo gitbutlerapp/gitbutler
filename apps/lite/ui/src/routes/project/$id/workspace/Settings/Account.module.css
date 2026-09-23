@@ -39,105 +39,6 @@
 	text-wrap: pretty;
 }
 
-.avatarButton {
-	display: grid;
-	position: relative;
-	flex: none;
-	place-items: center;
-	width: 72px;
-	height: 72px;
-	overflow: hidden;
-	border-radius: 50%;
-	background-color: var(--scale-gray-80);
-	color: var(--text-1);
-	transition: var(--transition-button);
-
-	/* One step down, as any control's ground does under the pointer. Only seen without a
-	   picture; with one the wash carries the hover instead. */
-	&:hover,
-	&:focus-visible {
-		background-color: var(--scale-gray-70);
-	}
-
-	&:hover .avatarOverlay,
-	&:focus-visible .avatarOverlay {
-		opacity: 1;
-	}
-
-	&:hover .avatarOverlayIcon,
-	&:focus-visible .avatarOverlayIcon {
-		scale: 1;
-		filter: blur(0);
-		opacity: 1;
-	}
-
-	&:hover .placeholder,
-	&:focus-visible .placeholder {
-		scale: 0.25;
-		filter: blur(4px);
-		opacity: 0;
-	}
-
-	&:hover .placeholderCamera,
-	&:focus-visible .placeholderCamera {
-		scale: 1;
-		filter: blur(0);
-		opacity: 1;
-	}
-}
-
-/* Without a picture there is nothing to wash over: the drawing itself gives way to the camera,
-   the two sharing one cell so the swap happens in place. It is the icon crossfade from
-   DESIGN.md (Motion): the medium tier, since the glyph moves, and ease-out so it lands early. */
-.placeholder,
-.placeholderCamera {
-	grid-area: 1 / 1;
-	transition:
-		opacity var(--transition-medium) ease-out,
-		scale var(--transition-medium) ease-out,
-		filter var(--transition-medium) ease-out;
-}
-
-.placeholderCamera {
-	scale: 0.25;
-	filter: blur(4px);
-	opacity: 0;
-}
-
-.avatar {
-	width: 100%;
-	height: 100%;
-	object-fit: cover;
-}
-
-/* Only on hover: the picture is the point, the affordance is secondary. The camera sits on a
-   black wash, so it stays light in both themes rather than following the text colour. */
-.avatarOverlay {
-	display: grid;
-	position: absolute;
-	place-items: center;
-	inset: 0;
-	background-color: rgb(0 0 0 / 0.5);
-	color: var(--text-1-invert);
-	opacity: 0;
-	transition: opacity var(--transition-fast);
-}
-
-/* The camera arrives the way the crossfade's incoming icon does (DESIGN.md, Motion), but
-   with no outgoing icon to cover for it, its opacity rides the wash's fast fade so it is on
-   screen the moment the wash is; only the shape and blur take the medium tier. It also
-   starts larger than a crossfade's 0.25: with nothing shrinking away to meet it, that far a
-   journey reads as a late arrival. */
-.avatarOverlayIcon {
-	scale: 0.8;
-	filter: blur(4px);
-	opacity: 0;
-	transition:
-		opacity var(--transition-fast),
-		scale var(--transition-medium) ease-out,
-		filter var(--transition-medium) ease-out;
-}
-
 .fields {
 	display: flex;
 	flex: 1;
@@ -161,9 +62,4 @@
 .error {
 	color: var(--text-danger);
 	text-wrap: pretty;
-}
-
-/* The real control is the avatar; this only carries the file. */
-.fileInput {
-	display: none;
 }

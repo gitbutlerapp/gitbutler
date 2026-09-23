@@ -1,3 +1,4 @@
+import { Avatar } from "@gitbutler/ui-react/Avatar.tsx";
 import {
 	useSetReviewThreadResolved,
 	useAddCommentReaction,
@@ -119,18 +120,11 @@ const ReviewTag: FC<{ badge: ReviewBadge }> = ({ badge }) => (
  */
 const Author: FC<{ user: ForgeReviewUser }> = ({ user }) => (
 	<>
-		<Avatar src={user.avatarUrl} />
+		<Avatar src={user.avatarUrl} size={18} className={styles.avatar} />
 		<span className={classes("text-13", "text-semibold", styles.authorLogin)}>{user.login}</span>
 		{isAgent(user) && <Badge variant="lightGray">Agent</Badge>}
 	</>
 );
-
-const Avatar: FC<{ src: string | null | undefined }> = ({ src }) =>
-	src != null ? (
-		<img src={src} className={styles.avatar} alt="" />
-	) : (
-		<span className={styles.avatar} />
-	);
 
 /**
  * The card shell shared by comments and review submissions: an identity row
@@ -1138,7 +1132,7 @@ const Composer: FC<{
 				aria-label="Write a comment"
 				type="button"
 			>
-				<Avatar src={avatarUrl} />
+				<Avatar src={avatarUrl} size={18} />
 				<span className={styles.composerPrompt}>Write a comment…</span>
 			</button>
 		);
@@ -1154,7 +1148,7 @@ const Composer: FC<{
 			ref={composerRef}
 		>
 			<div className={styles.composerBody}>
-				<Avatar src={avatarUrl} />
+				<Avatar src={avatarUrl} size={18} />
 				<textarea
 					{...mentions.textareaProps}
 					aria-label="Write a comment"

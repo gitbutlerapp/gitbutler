@@ -12,6 +12,7 @@ import {
 } from "@gitbutler/ui-react/Field.tsx";
 import { Icon } from "@gitbutler/ui-react/Icon.tsx";
 import { Illustration } from "@gitbutler/ui-react/Illustration.tsx";
+import { ProfileImage } from "@gitbutler/ui-react/ProfileImage.tsx";
 import { errorMessageForToast } from "#ui/errors.ts";
 import styles from "./Account.module.css";
 import { pollUntilSuccess } from "./poll.ts";
@@ -126,7 +127,6 @@ export const AccountSection: FC<{ profile: UserProfile | null }> = ({ profile })
 
 const SignedIn: FC<{ profile: UserProfile }> = ({ profile }) => {
 	const client = useQueryClient();
-	const pictureInput = useRef<HTMLInputElement>(null);
 
 	const [name, setName] = useState(profile.name ?? "");
 	const [pendingPicture, setPendingPicture] = useState<{ base64: string; filename: string } | null>(
@@ -185,38 +185,19 @@ const SignedIn: FC<{ profile: UserProfile }> = ({ profile }) => {
 		// Not the rows the other settings use: a form of its own, with the picture beside the
 		// fields it belongs to.
 		<section className={styles.card}>
-			<button
-				type="button"
-				className={styles.avatarButton}
-				aria-label="Change profile picture"
-				onClick={() => pictureInput.current?.click()}
-			>
-				{picture !== "" ? (
-					<>
-						<img src={picture} alt="" className={styles.avatar} />
-						<span className={styles.avatarOverlay}>
-							<Icon name="camera" className={styles.avatarOverlayIcon} size={32} />
-						</span>
-					</>
-				) : (
-					<>
-						<Icon name="user" className={styles.placeholder} size={32} />
-						<Icon name="camera" className={styles.placeholderCamera} size={32} />
-					</>
-				)}
-			</button>
-			<input
-				ref={pictureInput}
-				type="file"
-				accept="image/png,image/jpeg"
-				className={styles.fileInput}
-				onChange={(evt) => {
-					const file = evt.currentTarget.files?.[0];
-					// Cleared so choosing the same file again still counts as a change, which
-					// is what a retry after a failed save looks like.
-					evt.currentTarget.value = "";
-					if (file) void choosePicture(file);
-				}}
+			<ProfileImage
+				src={picture}
+				onChoose={(file) => void choosePicture(file)}
+				// The API sets a picture but can't clear one, so remove only drops a choice
+				// that isn't saved yet, going back to the account's own picture.
+				onRemove={
+					pendingPicture === null
+						? undefined
+						: () => {
+								setPendingPicture(null);
+								setPreviewUrl(null);
+							}
+				}
 			/>
 
 			<div className={styles.fields}>

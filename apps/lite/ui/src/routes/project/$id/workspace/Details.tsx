@@ -1,3 +1,4 @@
+import { Avatar } from "@gitbutler/ui-react/Avatar.tsx";
 import { forgeAuthFailure, forgeDestination, isCloudForge } from "#ui/forge.ts";
 import { ForgeAuthPrompt } from "./ForgeAuthPrompt.tsx";
 import { ResizeHandle } from "@gitbutler/ui-react/ResizeHandle.tsx";
@@ -3117,11 +3118,7 @@ const CommitDetails: FC<{
 							className={styles.commitDetailsMetaTabs}
 						/>
 					)}
-					<img
-						src={commitDetails.commit.author.gravatarUrl}
-						className={styles.avatar}
-						alt="Commit author avatar"
-					/>
+					<Avatar src={commitDetails.commit.author.gravatarUrl} alt="Commit author avatar" />
 					<span>
 						<span title={commitDetails.commit.author.email}>
 							{commitDetails.commit.author.name}

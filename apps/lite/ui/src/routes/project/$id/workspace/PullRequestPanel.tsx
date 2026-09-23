@@ -1,3 +1,4 @@
+import { Avatar } from "@gitbutler/ui-react/Avatar.tsx";
 import {
 	useAddReviewLabels,
 	useRemoveReviewLabel,
@@ -221,11 +222,7 @@ const pickerButton = (p: {
 
 export const ReviewUser: FC<{ user: ForgeReviewUser }> = ({ user }) => (
 	<div className={classes("text-13", styles.user)} title={user.name ?? user.login}>
-		{user.avatarUrl !== null ? (
-			<img src={user.avatarUrl} className={styles.avatar} alt="" />
-		) : (
-			<span className={styles.avatar} />
-		)}
+		<Avatar src={user.avatarUrl} size={18} />
 		<span className={styles.userLogin}>{user.login}</span>
 	</div>
 );
