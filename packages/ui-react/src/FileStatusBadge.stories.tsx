@@ -5,6 +5,12 @@ const statuses: Array<FileStatusType> = ["Addition", "Deletion", "Modification",
 
 const meta = preview.meta({
 	component: FileStatusBadge,
+	parameters: {
+		design: {
+			type: "figma",
+			url: "https://www.figma.com/design/cqdnAotT8n9op8WGYLOHg4/%E2%9A%9B%EF%B8%8F-Lite-Core?node-id=2134-5945",
+		},
+	},
 	argTypes: {
 		status: {
 			control: "select",
