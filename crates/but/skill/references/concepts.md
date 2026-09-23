@@ -91,10 +91,11 @@ worktrees at once is ambiguous; the error suggests the scoped forms. A worktree 
 source: the change lands on the target and leaves that worktree's uncommitted area. Without a
 target flag, worktree changes commit to the tip of the worktree's own branch; an explicit target
 commit or branch does not have to be the worktree's own. One operation reads from one worktree
-at a time — a selection mixing worktrees is refused. A worktree is also a target: `but commit`,
-`but move`, and `but pick` with `-b <worktree-name-or-its-branch>` or `--below <its-branch-id>`
-place the commit on the tip of the branch the worktree has checked out (`--above` is refused —
-that is its uncommitted area). A worktree's own commits carry ordinary commit IDs: `reword`, `move`,
+at a time — a selection mixing worktrees is refused. A worktree's branches are also targets:
+`but commit`, `but move`, and `but pick` with `-b <branch>` place the commit on that branch's tip,
+and `--below <checked-out-branch-id>` on the tip of the branch the worktree has checked out
+(`--above` it is refused — that is its uncommitted area). A new branch can't be placed above or
+below a worktree's branch yet, as worktrees can't order branches. A worktree's own commits carry ordinary commit IDs: `reword`, `move`,
 `squash`, and `pick` accept them, and the worktree's branch and checkout follow the rewrite.
 Uncommitting one lands in that worktree's uncommitted area, so `squash -t` names it by the
 worktree's area ID (`<id>:@`), not `@`; `but uncommit` infers it.

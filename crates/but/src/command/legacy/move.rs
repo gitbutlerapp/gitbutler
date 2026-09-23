@@ -28,10 +28,8 @@ use crate::{
     theme::{self, Theme},
     utils::{
         CliOutput, CliOutputHuman, IntermediateChannel, WriteWithUtils,
-        diff_specs::DiffSpecBuilder,
-        merged_upstream::MergedUpstream,
-        targeting::Side,
-        worktrees::{worktree_branch_target, worktree_tip_target},
+        diff_specs::DiffSpecBuilder, merged_upstream::MergedUpstream, targeting::Side,
+        worktrees::worktree_tip_target,
     },
 };
 
@@ -582,46 +580,43 @@ fn resolve(
 
     match (branch, above, below, unstack) {
         (Some(Some(branch)), None, None, false) => {
-            // A `--branch` target is one of three things, resolved once for every
-            // source kind: a workspace branch, a worktree lane's tip (named by the
-            // worktree's ID or name, or by its checked-out branch), or nothing yet.
+            // A `--branch` target is an existing branch in any lane or one to create, resolved
+            // once for every source kind.
             enum BranchTargetIsh {
-                Workspace(BranchArg),
-                WorktreeTip(FullName),
+                Existing(FullName),
                 Missing,
             }
-            let target = match worktree_branch_target(&repo, id_map, &branch)? {
-                Some(name) => BranchTargetIsh::WorktreeTip(name),
-                None => match branch.try_resolve_branch(&repo, id_map)? {
-                    Some(target) => BranchTargetIsh::Workspace(target),
-                    None => BranchTargetIsh::Missing,
-                },
+            let target = match branch.try_resolve_branch(&repo, id_map)? {
+                Some(target) => BranchTargetIsh::Existing(target.resolve_local_branch_name()?),
+                None => BranchTargetIsh::Missing,
             };
             match (target, resolved_sources) {
-                (BranchTargetIsh::Workspace(target), ResolvedSources::Branch(source)) => {
-                    let target = target.resolve_local_branch_name()?;
+                (BranchTargetIsh::Existing(target), ResolvedSources::Branch(source)) => {
                     if source == target {
                         return Err(bad_input("Source cannot also be target")
                             .arg_name("--branch")
                             .arg_value(branch.to_string())
                             .into());
                     }
+                    // Stacking targets live in the workspace; refusing beats a misleading
+                    // "not found".
+                    if ws
+                        .find_segment_and_stack_by_refname(target.as_ref())
+                        .is_none()
+                        && ws.refname_is_segment(target.as_ref())
+                    {
+                        return Err(bad_input(format!(
+                            "Cannot stack a branch onto worktree branch {}",
+                            theme::Branch(&*branch.0)
+                        ))
+                        .arg_name("--branch")
+                        .arg_value(branch.to_string())
+                        .into());
+                    }
                     Ok(MoveOperation::StackBranch(StackBranchOnOperation {
                         source_branch: source,
                         target_branch: target,
                     }))
-                }
-                // The branch exists when a worktree has it checked out, but stacking
-                // targets live in the workspace; refusing beats a misleading
-                // "not found".
-                (BranchTargetIsh::WorktreeTip(_), ResolvedSources::Branch(_)) => {
-                    Err(bad_input(format!(
-                        "Cannot stack a branch onto worktree branch {}",
-                        theme::Branch(&*branch.0)
-                    ))
-                    .arg_name("--branch")
-                    .arg_value(branch.to_string())
-                    .into())
                 }
                 (BranchTargetIsh::Missing, ResolvedSources::Branch(_)) => Err(bad_input(format!(
                     "Branch {} not found",
@@ -630,21 +625,7 @@ fn resolve(
                 .hint("`--branch` can only move branches onto existing branches")
                 .into()),
                 (
-                    BranchTargetIsh::Workspace(target),
-                    ResolvedSources::Commits {
-                        resolved_commits: sources,
-                        ..
-                    },
-                ) => Ok(MoveOperation::CommitsRelativeTo(
-                    MoveCommitsRelativeToOperation {
-                        sources,
-                        target: MoveTarget::BranchTip {
-                            name: target.resolve_local_branch_name()?,
-                        },
-                    },
-                )),
-                (
-                    BranchTargetIsh::WorktreeTip(name),
+                    BranchTargetIsh::Existing(name),
                     ResolvedSources::Commits {
                         resolved_commits: sources,
                         ..
@@ -672,20 +653,7 @@ fn resolve(
                     ))
                 }
                 (
-                    BranchTargetIsh::Workspace(target),
-                    ResolvedSources::CommittedChanges(source_commit, changes),
-                ) => Ok(MoveOperation::ChangesRelativeTo(
-                    MoveChangesRelativeToOperation {
-                        source_commit,
-                        changes,
-                        target: MoveTarget::BranchTip {
-                            name: target.resolve_local_branch_name()?,
-                        },
-                        reword: message_args_to_reword_operation(message, out)?,
-                    },
-                )),
-                (
-                    BranchTargetIsh::WorktreeTip(name),
+                    BranchTargetIsh::Existing(name),
                     ResolvedSources::CommittedChanges(source_commit, changes),
                 ) => Ok(MoveOperation::ChangesRelativeTo(
                     MoveChangesRelativeToOperation {

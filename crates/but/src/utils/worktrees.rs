@@ -1,8 +1,8 @@
 use anyhow::Context as _;
-use bstr::{BStr, ByteSlice as _};
+use bstr::BStr;
 
 use crate::{
-    CliId, CliResult, IdMap,
+    CliId, CliResult,
     args::atoms::CliIdArg,
     bad_input,
     id::AnonymousSegmentId,
@@ -88,37 +88,6 @@ pub(crate) fn worktree_tip_target(
             .hint("Use `--below` to target the tip of the worktree's branch")
             .into()),
     }
-}
-
-/// The tip a branch-style target names when it points into a worktree lane: `arg` is either a
-/// worktree (by ID or name) or the name of a branch checked out in an active linked worktree.
-///
-/// Branch targeting otherwise falls back to branch creation, which would misread a worktree's
-/// branch - real, but checked out elsewhere - as "does not exist". Returns `Ok(None)` when
-/// `arg` names neither, so that fallback stays reachable.
-pub(crate) fn worktree_branch_target(
-    repo: &gix::Repository,
-    id_map: &IdMap,
-    arg: &CliIdArg,
-) -> CliResult<Option<gix::refs::FullName>> {
-    if let Some(name) = arg.try_resolve_worktree(repo, id_map)? {
-        // A detached or otherwise branchless worktree is bad input naming this
-        // target, not an internal failure; the message names the worktree.
-        let branch =
-            worktree_branch(repo, name.as_ref()).map_err(|err| bad_input(err.to_string()))?;
-        return Ok(Some(branch));
-    }
-    // A worktree whose checkout cannot be read (detached, vanished, or on a workspace ref)
-    // has no branch and simply cannot match the name.
-    let wanted = arg.0.as_bytes();
-    Ok(id_map.worktree_lanes().find_map(|lane| {
-        let crate::id::LaneId::Worktree(name) = &lane.lane else {
-            return None;
-        };
-        let branch = worktree_branch(repo, name.as_ref()).ok()?;
-        (branch.shorten().as_bytes() == wanted || branch.as_bstr().as_bytes() == wanted)
-            .then_some(branch)
-    }))
 }
 
 /// The worktree an uncommit of `commit` lands in: the linked worktree that owns it, or the main

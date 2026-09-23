@@ -538,3 +538,29 @@ Error: '[..]/.git/gb-wts/feature-one' already exists
 
 "#]]);
 }
+
+/// A worktree is named by its checkout, never by a branch below it, which it merely holds.
+#[test]
+fn a_lower_branch_does_not_name_its_worktree() {
+    let env = flag_on_sandbox();
+    crate::command::util::add_worktree_with_lower_branch(&env, "wt-inside", "A");
+
+    env.but("worktree remove wt-lower")
+        .assert()
+        .stdout_eq(snapbox::str![""])
+        .stderr_eq(snapbox::str![[r#"
+Error: Could not find worktree: 'wt-lower'
+
+Hint: Run `but worktree list` for the worktrees and their IDs.
+
+"#]]);
+    env.but("worktree list --active")
+        .assert()
+        .success()
+        .stderr_eq(snapbox::str![])
+        .stdout_eq(snapbox::str![[r#"
+Active worktrees
+wt wt-inside - [..]/worktrees/wt-inside
+
+"#]]);
+}

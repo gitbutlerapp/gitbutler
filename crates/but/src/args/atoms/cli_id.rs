@@ -198,8 +198,8 @@ impl CliIdArg {
         }
     }
 
-    /// Try and resolve the argument to a linked worktree, by the ID or name of a branch on its
-    /// lane, its stable name, or its uncommitted area.
+    /// Try and resolve the argument to a linked worktree, by the ID or name of its checkout, its
+    /// stable name, or its uncommitted area.
     ///
     /// Returns `Ok(None)` if it doesn't name a worktree.
     pub fn try_resolve_worktree(
@@ -219,11 +219,7 @@ impl CliIdArg {
         };
         match id {
             CliId::WorktreeUncommitted { name, .. } => Ok(Some(name)),
-            CliId::Branch(..) | CliId::AnonymousSegment(..) => Ok(id
-                .lane()
-                .and_then(LaneId::worktree_name)
-                .map(ToOwned::to_owned)),
-            _ => Ok(None),
+            id => worktree_checked_out_at(repo, &id),
         }
     }
 
@@ -239,10 +235,7 @@ impl CliIdArg {
         let Some(id) = try_resolve_cli_id(self, repo, id_map, Purpose::Source, None)? else {
             return Ok(None);
         };
-        let Some(name) = id.lane().and_then(LaneId::worktree_name) else {
-            return Ok(None);
-        };
-        Ok(crate::utils::worktrees::is_worktree_top(repo, name, &id)?.then(|| name.to_owned()))
+        worktree_checked_out_at(repo, &id)
     }
 
     /// TODO: docs
@@ -780,4 +773,13 @@ impl std::fmt::Display for BranchOrCommit {
 pub enum BranchOrStack {
     Branch(BranchArg),
     Stack { id: String, stack_id: StackId },
+}
+
+/// The worktree whose checkout `id` names: the branch checked out there or, for a detached
+/// `HEAD`, its anonymous segment.
+fn worktree_checked_out_at(repo: &gix::Repository, id: &CliId) -> CliResult<Option<BString>> {
+    let Some(name) = id.lane().and_then(LaneId::worktree_name) else {
+        return Ok(None);
+    };
+    Ok(crate::utils::worktrees::is_worktree_top(repo, name, id)?.then(|| name.to_owned()))
 }

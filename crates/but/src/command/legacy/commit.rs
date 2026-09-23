@@ -41,7 +41,7 @@ use crate::{
         merged_upstream::MergedUpstream,
         rejection,
         targeting::Side,
-        worktrees::{worktree_branch, worktree_branch_target, worktree_tip_target},
+        worktrees::{worktree_branch, worktree_tip_target},
     },
 };
 
@@ -474,15 +474,7 @@ pub fn route_commit_operation(
             )?)
         }
         CommitOperationTargetIsh::Branch(cli_id) => {
-            if let Some(name) = worktree_branch_target(repo, id_map, &cli_id)? {
-                // A worktree, or a branch checked out in one, is that lane's tip - not a
-                // workspace branch, and not a branch waiting to be created. Merged branches
-                // are guarded the same whichever way they are spelled.
-                merged.ensure_branch_not_merged(name.as_ref())?;
-                Ok(CommitOperation::CommitAt(CommitAtOperation {
-                    target: CommitRelativeToTarget::BranchTip { name },
-                }))
-            } else if let Some(branch) = cli_id.try_resolve_branch(repo, id_map)? {
+            if let Some(branch) = cli_id.try_resolve_branch(repo, id_map)? {
                 let segment = branch.resolve_segment(head_info)?;
                 let ref_info = segment.ref_info.with_context(|| {
                     format!("BUG: Segment resolved from branch name {branch} has no ref info")
