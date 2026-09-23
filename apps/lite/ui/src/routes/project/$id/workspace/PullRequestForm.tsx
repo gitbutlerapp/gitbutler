@@ -24,7 +24,7 @@ import {
 	tallyReactions,
 } from "#ui/routes/project/$id/workspace/PullRequestReactions.tsx";
 import { getButtonClassName } from "@gitbutler/ui-react/Button.tsx";
-import { Clamped } from "@gitbutler/ui-react/Clamped.tsx";
+import { Clamped } from "#ui/components/Clamped.tsx";
 import { classes } from "@gitbutler/ui-react/classes.ts";
 import { DropdownButton } from "@gitbutler/ui-react/DropdownButton.tsx";
 import { FieldControlStyles, FieldRootStyles } from "@gitbutler/ui-react/Field.tsx";
