@@ -21,7 +21,6 @@ import {
 } from "#ui/addresses.ts";
 import { useReviewedPaths } from "#ui/routes/project/$id/workspace/reviewed-paths.ts";
 import { projectSlice } from "#ui/projects/state.ts";
-import { getTransferKind, getTransferTarget } from "#ui/operations/pending-operation.ts";
 import { OperationSourceC } from "#ui/routes/project/$id/workspace/OperationSourceC.tsx";
 import { AddressC, OperationTarget, TreeItem } from "./TreeItem.tsx";
 import { WorktreeCard, WorktreeLane, WorktreeOnTip } from "./WorktreeLane.tsx";
@@ -37,20 +36,16 @@ import type {
 	Stack,
 	PushStatus,
 	WorktreeChanges,
-	WorkspaceState,
 	Worktree,
 } from "@gitbutler/but-sdk";
 
 import { useMutationState, useQuery, useQueryClient } from "@tanstack/react-query";
 import { type Range, useVirtualizer } from "@tanstack/react-virtual";
 import type { PayloadFor } from "#electron/ipc.ts";
-import { Match } from "effect";
 import {
 	Activity,
 	type CSSProperties,
 	Fragment,
-	createContext,
-	use,
 	useCallback,
 	useLayoutEffect,
 	useMemo,
@@ -81,7 +76,6 @@ import { StackCard } from "../StackCard.tsx";
 import stackCardStyles from "../StackCard.module.css";
 import { COMMIT_ROW_HEIGHT, treeItemId } from "../Row-utils.ts";
 import { useAddressSpace, WorkspaceListsProvider } from "./context.tsx";
-import { getOperation, useDryRunOperation } from "#ui/operations/operation.ts";
 import { createDiffSpec } from "#ui/operations/diff-specs.ts";
 import {
 	GraphEdge,
@@ -124,9 +118,6 @@ import {
 } from "./commitTargetComboboxItems.ts";
 
 const uncommittedChangesHeadingId = "uncommitted-changes-heading";
-
-const DryRunWorkspaceContext = createContext<WorkspaceState | null>(null);
-DryRunWorkspaceContext.displayName = "DryRunWorkspaceContext";
 
 /**
  * An element's height, kept current as it resizes: give the element the ref.
@@ -685,9 +676,6 @@ const SegmentContent: FC<{
 			));
 	}
 
-	const dryRunWorkspace = use(DryRunWorkspaceContext);
-	const dryRunHeadInfoIndex = dryRunWorkspace ? getHeadInfoIndex(dryRunWorkspace.headInfo) : null;
-
 	return (
 		<div ref={containerRef} className={styles.virtualContainer}>
 			{rowVirtualizer.getVirtualItems().map((virtualRow) => {
@@ -696,11 +684,6 @@ const SegmentContent: FC<{
 				// The rail below the commit is the next one's; plain under the last.
 				const next = segment.commits[virtualRow.index + 1];
 
-				const dryRunCommitId = dryRunWorkspace?.replacedCommits[commit.id];
-				const dryRunCommit =
-					dryRunCommitId !== undefined
-						? (dryRunHeadInfoIndex?.commitContextByCommitId(dryRunCommitId)?.commit ?? null)
-						: null;
 				return (
 					<CommitItem
 						key={commit.id}
@@ -717,7 +700,6 @@ const SegmentContent: FC<{
 						checkCommit={checkCommit}
 						onAmendCommit={onAmendCommit}
 						canAmendCommit={canAmendCommit}
-						dryRunCommit={dryRunCommit}
 						ariaLevel={ariaLevel}
 						positionInSet={positionOffset + virtualRow.index + 1}
 						setSize={setSize}
@@ -751,7 +733,6 @@ const CommitItem: FC<{
 	checkCommit: (evt: { commitId: string; shiftKey: boolean }) => void;
 	onAmendCommit: (commitId: string) => void;
 	canAmendCommit: boolean;
-	dryRunCommit: Commit | null;
 	ariaLevel: number;
 	positionInSet: number;
 	setSize: number;
@@ -769,7 +750,6 @@ const CommitItem: FC<{
 	checkCommit,
 	onAmendCommit,
 	canAmendCommit,
-	dryRunCommit,
 	ariaLevel,
 	positionInSet,
 	setSize,
@@ -820,7 +800,6 @@ const CommitItem: FC<{
 								amendCommit={() => onAmendCommit(commit.id)}
 								canAmendCommit={canAmendCommit}
 								projectId={projectId}
-								dryRunCommit={dryRunCommit}
 								scrollSelectedIntoView={false}
 							/>
 						}
@@ -1106,35 +1085,6 @@ const Stacks: FC<{
 	const selection = useSelection("applied", addressSpace);
 	const activeList = useActiveList();
 	const dispatch = useAppDispatch();
-	const dryRunOperation = useAppSelector((state) => {
-		const pendingOperation = projectSlice.selectors.selectPendingOperation(state, projectId);
-
-		return Match.value(pendingOperation).pipe(
-			Match.tags({
-				Transfer: ({ value: mode }) => {
-					if (mode.placement === null) return;
-
-					const target = getTransferTarget(mode, selection, activeList);
-					if (!target) return;
-
-					return getOperation({
-						sources: mode.sources,
-						target,
-						placement: mode.placement,
-						kind: getTransferKind(mode),
-					})?.operation;
-				},
-			}),
-			Match.orElse(() => undefined),
-		);
-	});
-
-	// TODO: debounce?
-	const { data: dryRunOperationResult } = useDryRunOperation({
-		projectId,
-		operation: dryRunOperation,
-	});
-	const dryRunWorkspace = dryRunOperationResult?.workspace ?? null;
 	// Cards in the graph's order, the section below.
 	const { plan, stacks } = graph;
 	// Undefined `headInfo` is still loading, which is not the same as "empty" —
@@ -1323,100 +1273,95 @@ const Stacks: FC<{
 	});
 
 	return (
-		<DryRunWorkspaceContext value={dryRunWorkspace}>
-			<div
-				ref={retainScrollElement}
-				className={classes(uiStyles.scroller, styles.stacksScroller)}
-				style={{
-					"--row-padding-inline-start": `${ROW_INSET}px`,
-					"--graph-trunk-inset": `${GRAPH_TRUNK_INSET}px`,
-				}}
-			>
-				{/* Its own tree: the files walk with their own cursor, and the arrow
-				    keys spill into the cards' tree at its edge. */}
-				<div ref={headRef}>{head}</div>
-				<div className={styles.dock} style={{ "--dock-offset": `${dockOffset}px` }}>
-					{dock}
-				</div>
-				<GraphGap height={CARD_GAP} />
-				{/* One tree: the cards and the upstream section below them share the
-				    applied list's cursor, and arrow keys walk them in reading order. */}
-				<div
-					tabIndex={0}
-					role="tree"
-					aria-activedescendant={selection ? treeItemId(selection) : undefined}
-					className={classes(styles.tree, styles.content)}
-					data-focus-scope={"sidebar" satisfies FocusScope}
-					data-preview-source={activeList === "applied"}
-					ref={useMergedRefs<HTMLDivElement>(
-						hotkeysRef,
-						useAutofocusScope(activeList === "applied"),
-					)}
-				>
-					<div
-						className={classes(styles.stacks, styles.virtualContainer)}
-						ref={rowVirtualizer.containerRef}
-					>
-						{rowVirtualizer.getVirtualItems().map((virtualRow) => {
-							const stack = stacks[virtualRow.index];
-							if (stack === undefined) return null;
-
-							return (
-								<StackC
-									key={stack.id ?? virtualRow.index}
-									data-index={virtualRow.index}
-									ref={rowVirtualizer.measureElement}
-									projectId={projectId}
-									stack={stack}
-									checkCommit={checkCommit}
-									onAmendCommit={onAmendCommit}
-									canAmendCommit={canAmendCommit}
-									pendingPushBranches={pendingPushBranches}
-									scrollElementRef={scrollElementRef}
-									scrollPaddingEnd={scrollPaddingEnd}
-									stackScrollStart={virtualRow.start}
-									stackSize={virtualRow.size}
-									scrollMargin={scrollMargin}
-									worktrees={plan.worktrees}
-									selectedSegmentIndex={
-										selectedStackIndex === virtualRow.index ? selectedSegmentIndex : undefined
-									}
-									selectedCommitIndex={
-										selectedStackIndex === virtualRow.index ? selectedCommitIndex : undefined
-									}
-								/>
-							);
-						})}
-					</div>
-					{plan.worktrees.standalone.map((worktree) => (
-						<WorktreeCard
-							key={worktree.name}
-							projectId={projectId}
-							worktree={worktree}
-							worktrees={plan.worktrees}
-						/>
-					))}
-					<Section
-						projectId={projectId}
-						plan={plan}
-						onToggleIncoming={toggleIncoming}
-						onToggleHistory={toggleHistory}
-						onShowMoreHistory={() => void graph.showMoreHistory()}
-						historyMore={graph.historyMore}
-						onShowMoreRun={showMoreRun}
-						onFoldRun={foldRun}
-						scrollElementRef={scrollElementRef}
-					/>
-				</div>
-
-				{isEmpty && (
-					<div className={styles.empty}>
-						<NoStacks projectId={projectId} newBranch={newBranch} />
-					</div>
-				)}
-				<div className={styles.foot} />
+		<div
+			ref={retainScrollElement}
+			className={classes(uiStyles.scroller, styles.stacksScroller)}
+			style={{
+				"--row-padding-inline-start": `${ROW_INSET}px`,
+				"--graph-trunk-inset": `${GRAPH_TRUNK_INSET}px`,
+			}}
+		>
+			{/* Its own tree: the files walk with their own cursor, and the arrow
+			    keys spill into the cards' tree at its edge. */}
+			<div ref={headRef}>{head}</div>
+			<div className={styles.dock} style={{ "--dock-offset": `${dockOffset}px` }}>
+				{dock}
 			</div>
-		</DryRunWorkspaceContext>
+			<GraphGap height={CARD_GAP} />
+			{/* One tree: the cards and the upstream section below them share the
+			    applied list's cursor, and arrow keys walk them in reading order. */}
+			<div
+				tabIndex={0}
+				role="tree"
+				aria-activedescendant={selection ? treeItemId(selection) : undefined}
+				className={classes(styles.tree, styles.content)}
+				data-focus-scope={"sidebar" satisfies FocusScope}
+				data-preview-source={activeList === "applied"}
+				ref={useMergedRefs<HTMLDivElement>(hotkeysRef, useAutofocusScope(activeList === "applied"))}
+			>
+				<div
+					className={classes(styles.stacks, styles.virtualContainer)}
+					ref={rowVirtualizer.containerRef}
+				>
+					{rowVirtualizer.getVirtualItems().map((virtualRow) => {
+						const stack = stacks[virtualRow.index];
+						if (stack === undefined) return null;
+
+						return (
+							<StackC
+								key={stack.id ?? virtualRow.index}
+								data-index={virtualRow.index}
+								ref={rowVirtualizer.measureElement}
+								projectId={projectId}
+								stack={stack}
+								checkCommit={checkCommit}
+								onAmendCommit={onAmendCommit}
+								canAmendCommit={canAmendCommit}
+								pendingPushBranches={pendingPushBranches}
+								scrollElementRef={scrollElementRef}
+								scrollPaddingEnd={scrollPaddingEnd}
+								stackScrollStart={virtualRow.start}
+								stackSize={virtualRow.size}
+								scrollMargin={scrollMargin}
+								worktrees={plan.worktrees}
+								selectedSegmentIndex={
+									selectedStackIndex === virtualRow.index ? selectedSegmentIndex : undefined
+								}
+								selectedCommitIndex={
+									selectedStackIndex === virtualRow.index ? selectedCommitIndex : undefined
+								}
+							/>
+						);
+					})}
+				</div>
+				{plan.worktrees.standalone.map((worktree) => (
+					<WorktreeCard
+						key={worktree.name}
+						projectId={projectId}
+						worktree={worktree}
+						worktrees={plan.worktrees}
+					/>
+				))}
+				<Section
+					projectId={projectId}
+					plan={plan}
+					onToggleIncoming={toggleIncoming}
+					onToggleHistory={toggleHistory}
+					onShowMoreHistory={() => void graph.showMoreHistory()}
+					historyMore={graph.historyMore}
+					onShowMoreRun={showMoreRun}
+					onFoldRun={foldRun}
+					scrollElementRef={scrollElementRef}
+				/>
+			</div>
+
+			{isEmpty && (
+				<div className={styles.empty}>
+					<NoStacks projectId={projectId} newBranch={newBranch} />
+				</div>
+			)}
+			<div className={styles.foot} />
+		</div>
 	);
 };
 

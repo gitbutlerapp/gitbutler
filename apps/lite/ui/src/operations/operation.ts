@@ -1,26 +1,18 @@
 /**
- * @file Plan, dry run, and execute operations upon potentially multiple sources and a target.
+ * @file Plan and execute operations upon potentially multiple sources and a target.
  *
  * Operations are declarative representations of mutations that may be performed, organised by
  * positional "placements".
- *
- * Executions upon operations may be previewed in terms of a dry run.
  */
 
 import { Toast } from "@base-ui/react";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { type QueryClient, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Match } from "effect";
 import { rejectedChangesToastOptions } from "#ui/operations/toastOptions.tsx";
-import type { ChangesSource, DiffSpec, InsertSide, RelativeTo } from "@gitbutler/but-sdk";
+import type { ChangesSource, InsertSide, RelativeTo } from "@gitbutler/but-sdk";
 import { type Address, addressEquals, addressFileParent, changesSourceOf } from "#ui/addresses.ts";
-import {
-	fileParentFromSources,
-	resolveDiffSpecs,
-	useResolveDiffSpecs,
-} from "#ui/operations/diff-specs.ts";
+import { fileParentFromSources, resolveDiffSpecs } from "#ui/operations/diff-specs.ts";
 import { decodeBytes } from "#ui/api/bytes.ts";
-import { guiSettingsQueryOptions } from "#ui/api/queries.ts";
-import { defaultSettings } from "#ui/settings.ts";
 import { useAppDispatch } from "#ui/store.ts";
 import { errorMessageForToast } from "#ui/errors.ts";
 import { syncCoreCaches } from "#ui/api/mutations.ts";
@@ -89,15 +81,15 @@ const changesSourceFor = (sources: Array<Address>): ChangesSource => {
 const executeOperation = async ({
 	projectId,
 	operation,
-	resolveChanges,
-	dryRun,
+	queryClient,
 }: {
 	projectId: string;
 	operation: Operation;
-	resolveChanges: (sources: Array<Address>) => Promise<Array<DiffSpec> | null>;
-	dryRun: boolean;
-}) =>
-	Match.value(operation).pipe(
+	queryClient: QueryClient;
+}) => {
+	const resolveChanges = (sources: Array<Address>) =>
+		resolveDiffSpecs({ projectId, queryClient, sources });
+	return Match.value(operation).pipe(
 		Match.tagsExhaustive({
 			AmendCommit: async (operation) => {
 				const changes = await resolveChanges(operation.sources);
@@ -107,7 +99,7 @@ const executeOperation = async ({
 					commitId: operation.commitId,
 					changes,
 					changesSource: changesSourceFor(operation.sources),
-					dryRun,
+					dryRun: false,
 				});
 			},
 			CherryPick: (operation) =>
@@ -116,7 +108,7 @@ const executeOperation = async ({
 					sourceCommitIds: operation.sourceCommitIds,
 					relativeTo: operation.relativeTo,
 					side: operation.side,
-					dryRun,
+					dryRun: false,
 				}),
 			MoveCommitFile: async (operation) => {
 				const changes = await resolveChanges(operation.sources);
@@ -126,7 +118,7 @@ const executeOperation = async ({
 					sourceCommitId: operation.sourceCommitId,
 					destinationCommitId: operation.destinationCommitId,
 					changes,
-					dryRun,
+					dryRun: false,
 				});
 			},
 			SquashCommit: (operation) =>
@@ -135,14 +127,14 @@ const executeOperation = async ({
 					subjectCommitIds: operation.subjectCommitIds,
 					targetCommitId: operation.destinationCommitId,
 					howToCombineMessages: "KeepBoth",
-					dryRun,
+					dryRun: false,
 				}),
 			UndoCommit: (operation) =>
 				window.lite.commitUncommit({
 					projectId,
 					subjectCommitIds: operation.subjectCommitIds,
 					assignTo: operation.assignTo,
-					dryRun,
+					dryRun: false,
 				}),
 			DiscardChanges: async (operation) => {
 				const changes = await resolveChanges(operation.sources);
@@ -152,7 +144,7 @@ const executeOperation = async ({
 					commitId: operation.commitId,
 					assignTo: operation.assignTo,
 					changes,
-					dryRun,
+					dryRun: false,
 				});
 			},
 			CreateCommit: async (operation) => {
@@ -165,22 +157,18 @@ const executeOperation = async ({
 					changes,
 					changesSource: changesSourceFor(operation.sources),
 					message: operation.message,
-					dryRun,
+					dryRun: false,
 				});
 			},
 			SplitCommit: async (operation) => {
 				const changes = await resolveChanges(operation.sources);
 				if (!changes) return null;
 
-				// We can't dry run this as it's not an atomic operation. Ideally this
-				// would be an atomic backend operation.
-				if (dryRun) return null;
-
 				const insertedCommit = await window.lite.commitInsertBlank({
 					projectId,
 					relativeTo: operation.relativeTo,
 					side: operation.side,
-					dryRun,
+					dryRun: false,
 				});
 
 				return window.lite.commitMoveChangesBetween({
@@ -190,7 +178,7 @@ const executeOperation = async ({
 						operation.sourceCommitId,
 					destinationCommitId: insertedCommit.newCommit,
 					changes,
-					dryRun,
+					dryRun: false,
 				});
 			},
 			MoveCommit: (operation) =>
@@ -199,51 +187,17 @@ const executeOperation = async ({
 					subjectCommitIds: operation.subjectCommitIds,
 					relativeTo: operation.relativeTo,
 					side: operation.side,
-					dryRun,
+					dryRun: false,
 				}),
 			MoveBranch: (operation) =>
 				window.lite.moveBranch({
 					projectId,
 					subjectBranch: operation.subjectBranch,
 					targetBranch: operation.targetBranch,
-					dryRun,
+					dryRun: false,
 				}),
 		}),
 	);
-
-export const useDryRunOperation = ({
-	projectId,
-	operation: requestedOperation,
-}: {
-	projectId: string;
-	operation?: Operation;
-}) => {
-	const { data: dryRunsEnabled } = useQuery({
-		...guiSettingsQueryOptions,
-		select: (cfg) => cfg.dryRunOperations ?? defaultSettings.dryRunOperations,
-	});
-	// Blank the operation when disabled so nothing below it does any work.
-	const operation = dryRunsEnabled ? requestedOperation : undefined;
-	const changes = useResolveDiffSpecs({
-		projectId,
-		sources: operation && "sources" in operation ? operation.sources : undefined,
-	});
-
-	return useQuery({
-		enabled: !!operation,
-		queryKey: [projectId, "dryRun", operation, changes],
-		queryFn: () => {
-			if (!operation) return null;
-			return executeOperation({
-				projectId,
-				operation,
-				resolveChanges: async () => changes,
-				dryRun: true,
-			});
-		},
-		// We may have a lot of different dry runs in a short amount of time.
-		gcTime: 10_000,
-	});
 };
 
 export const useExecuteOperation = (projectId: string) => {
@@ -256,8 +210,7 @@ export const useExecuteOperation = (projectId: string) => {
 			executeOperation({
 				projectId,
 				operation,
-				resolveChanges: (sources) => resolveDiffSpecs({ projectId, queryClient, sources }),
-				dryRun: false,
+				queryClient,
 			}),
 		onSuccess: async (response, _input, _ctx, { client }) => {
 			if (response) {

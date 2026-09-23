@@ -479,7 +479,6 @@ const WorktreeRows: FC<{
 														commit={commit}
 														projectId={projectId}
 														stackId={null}
-														dryRunCommit={null}
 														checkCommit={noop}
 														amendCommit={noop}
 														canAmendCommit={false}

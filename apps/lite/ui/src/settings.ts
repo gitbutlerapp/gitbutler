@@ -17,9 +17,6 @@ export const defaultSettings = {
 	diffOverflow: "scroll",
 	diffStyle: "split",
 	diffTabSize: 4,
-	// Previewing while dragging runs a dry run for every target the pointer crosses, and
-	// each one takes the same workspace lock as the real operation. Off until that's cheap.
-	dryRunOperations: false,
 	// Show the folder tree until the user chooses a display mode.
 	fileDisplayMode: "tree",
 	filesPanelRight: false,

@@ -4,7 +4,7 @@ import {
 	worktreeChangesQueryOptions,
 } from "#ui/api/queries.ts";
 import { addressEquals, type FileParent, type Address, addressFileParent } from "#ui/addresses.ts";
-import { type QueryClient, useQueries } from "@tanstack/react-query";
+import type { QueryClient } from "@tanstack/react-query";
 import type {
 	CommitDetails,
 	DiffSpec,
@@ -206,44 +206,6 @@ export const resolveDiffSpecs = async ({
 			? queryClient.fetchQuery(commitDetailsWithLineStatsQueryOptions({ projectId, commitId }))
 			: undefined,
 	]);
-
-	return resolvedDiffSpecsFromSources({
-		sources,
-		worktreeChanges,
-		commitDetails,
-		hunkAction,
-	});
-};
-
-export const useResolveDiffSpecs = ({
-	sources,
-	projectId,
-	hunkAction,
-}: {
-	sources?: Array<Address>;
-	projectId: string;
-	hunkAction?: HunkAction;
-}) => {
-	const fileParent = fileParentFromSources(sources ?? []);
-	const worktree = worktreeOf(fileParent);
-	// The two options differ in key type, which one `useQuery` cannot take; a list can.
-	const worktreeChanges = useQueries({
-		queries: [
-			worktree === undefined
-				? changesInWorktreeQueryOptions(projectId)
-				: worktreeChangesQueryOptions(projectId, worktree),
-		],
-		combine: ([result]) => result.data,
-	});
-	const commitId = fileParent ? commitIdFromParent(fileParent) : null;
-	const commitDetails = useQueries({
-		queries: (commitId !== null ? [commitId] : []).map((commitId) =>
-			commitDetailsWithLineStatsQueryOptions({ projectId, commitId }),
-		),
-		combine: ([result]) => result?.data,
-	});
-
-	if (!sources || !fileParent) return null;
 
 	return resolvedDiffSpecsFromSources({
 		sources,
