@@ -50,4 +50,17 @@ describe("forge", () => {
 			),
 		).toBeNull();
 	});
+	it("treats a GitLab review-listing refusal as terminal", () => {
+		expect(
+			forgeAuthFailure(
+				new Error(
+					"Error invoking remote method 'listReviews': Error: GitLab refused access for the token.",
+				),
+			),
+		).toBe("rejected");
+		expect(
+			forgeAuthFailure(new Error("Failed to list open merge requests: HTTP 403 Forbidden")),
+		).toBeNull();
+		expect(forgeAuthFailure(new Error("Unable to connect to GitLab."))).toBeNull();
+	});
 });

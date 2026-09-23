@@ -206,9 +206,10 @@ Your GitHub token appears expired. Please log out and back in to refresh it. (Se
 	`,
 	},
 	/**
-	 * GitLab rejected a stored token (401) or refused the account behind it
-	 * (403). Both are terminal until the user stores a different token; a 403
-	 * needs scopes or permissions, not the same token typed again.
+	 * GitLab rejected a stored token (401) or refused access (403) to the
+	 * account or a project's review listing. Both stop polling until a retry
+	 * succeeds or the credential or access changes; a 403 may come from token
+	 * scopes, project membership, or instance policy.
 	 */
 	GitLabUnauthorized: {
 		severity: "error",
@@ -222,7 +223,7 @@ Your GitHub token appears expired. Please log out and back in to refresh it. (Se
 		terminal: true,
 		title: "GitLab Access Refused",
 		userMessage:
-			"GitLab refused access for your stored token. Check the token scopes and your account permissions, then store a new token under Settings → Integrations.",
+			"GitLab refused access for your stored token. Check the token scopes, your membership in the project, and any GitLab instance policies. If the token needs different scopes, store a new one under Settings → Integrations.",
 	},
 	...GITHUB_DEVICE_OAUTH_CLASSIFICATIONS,
 	GitHubOrgOAuthRestricted: GH_ORG_AUTH_CLASSIFICATION,
