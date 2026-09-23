@@ -1778,7 +1778,9 @@ Single commit, target, no ws commit, but ws-reference
         .unwrap_err();
         snapbox::assert_data_eq!(
             err.to_string(),
-            snapbox::str!["Couldn't find any stack that contained the branch named 'bogus'"]
+            snapbox::str![
+                "Couldn't find any stack or worktree that contained the branch named 'bogus'"
+            ]
         );
         assert!(
             repo.try_find_reference(new_ref)?.is_none(),
@@ -1881,7 +1883,7 @@ Single commit, target, no ws commit, but ws-reference
             let expected_err = if matches!(anchor, Anchor::AtCommit { .. }) {
                 "Commit 3183e43ff482a2c4c8ff531d595453b64f58d90b isn't part of the workspace"
             } else {
-                "Couldn't find any stack that contained the branch named 'origin/main'"
+                "Couldn't find any stack or worktree that contained the branch named 'origin/main'"
             };
             assert_eq!(
                 err.to_string(),
@@ -2052,7 +2054,7 @@ Single commit, target, no ws commit, but ws-reference
 
         assert_eq!(
             err.to_string(),
-            "Couldn't find any stack that contained the branch named 'bogus'",
+            "Couldn't find any stack or worktree that contained the branch named 'bogus'",
             "It yells loudly if the inputs don't match up - anchors must always be in the workspace."
         );
         Ok(())
@@ -2304,7 +2306,7 @@ fn errors() -> anyhow::Result<()> {
         .unwrap_err();
         assert_eq!(
             err.to_string(),
-            "Could not find a segment named 'A' in workspace",
+            "Couldn't find any stack or worktree that contained the branch named 'A'",
             "segments need to be in the workspace, too"
         );
         assert!(

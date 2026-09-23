@@ -294,12 +294,8 @@ pub(super) mod function {
                 ref_name: anchor_ref,
                 position,
             }) => {
-                let mut validate_id = true;
+                let segment = workspace.try_find_segment_by_refname(anchor_ref.as_ref())?;
                 let ref_target_id = if workspace.has_metadata() {
-                    let (stack_idx, seg_idx) =
-                        workspace.try_find_segment_owner_indexes_by_refname(anchor_ref.as_ref())?;
-                    let segment = &workspace.stacks[stack_idx].segments[seg_idx];
-
                     workspace
                         .tip_commit_by_segment_id(segment.id)
                         .map(|commit| position.resolve_commit(commit.into(), ws_base))
@@ -307,14 +303,6 @@ pub(super) mod function {
                             "BUG: we should always see through to the base or eligible commits",
                         )??
                 } else {
-                    let Some((_stack, segment)) =
-                        workspace.find_segment_and_stack_by_refname(anchor_ref.as_ref())
-                    else {
-                        bail!(
-                            "Could not find a segment named '{}' in workspace",
-                            anchor_ref.shorten()
-                        );
-                    };
                     position.resolve_commit(
                         segment
                             .commits
@@ -325,9 +313,6 @@ pub(super) mod function {
                     )?
                 };
                 let points_to_workspace_base = Some(ref_target_id) == ws_base;
-                if points_to_workspace_base {
-                    validate_id = false;
-                }
                 // The lower bound owns no commits, so an ad-hoc workspace needs explicit ref
                 // ordering to project the new empty segment at that boundary.
                 let branch_stack_order = if !workspace.has_metadata() && points_to_workspace_base {
@@ -352,11 +337,8 @@ pub(super) mod function {
                 };
                 let mut resolution = AnchorResolution::positioned(
                     ref_target_id,
-                    validate_id,
-                    Some(Instruction::Dependent {
-                        ref_name: anchor_ref,
-                        position,
-                    }),
+                    !points_to_workspace_base,
+                    dependent_in_stack(workspace, anchor_ref, position),
                 );
                 resolution.branch_stack_order = branch_stack_order;
                 resolution
@@ -375,9 +357,7 @@ pub(super) mod function {
                     );
                 }
                 if workspace.has_metadata() {
-                    let (stack_idx, seg_idx) =
-                        workspace.try_find_segment_owner_indexes_by_refname(anchor_ref.as_ref())?;
-                    let segment = &workspace.stacks[stack_idx].segments[seg_idx];
+                    let segment = workspace.try_find_segment_by_refname(anchor_ref.as_ref())?;
                     let ref_target_id = workspace
                         .tip_commit_by_segment_id(segment.id)
                         .map(|commit| commit.id)
@@ -387,10 +367,7 @@ pub(super) mod function {
                     AnchorResolution::positioned(
                         ref_target_id,
                         Some(ref_target_id) != ws_base,
-                        Some(Instruction::Dependent {
-                            ref_name: anchor_ref,
-                            position,
-                        }),
+                        dependent_in_stack(workspace, anchor_ref, position),
                     )
                 } else if anchor_ref.category() == Some(gix::refs::Category::LocalBranch) {
                     resolve_ad_hoc_at_reference(
@@ -421,6 +398,13 @@ pub(super) mod function {
         // Assure this commit is in the workspace as well.
         if check_if_id_in_workspace {
             workspace.try_find_commit(ref_target_id)?;
+        }
+        if starts_worktree_segment(workspace, ref_target_id) {
+            bail_precondition!(
+                "Cannot place '{}' at {ref_target_id}: it already starts a segment of a worktree, \
+                 and branches sharing a commit can't be ordered in worktrees yet",
+                ref_name.shorten()
+            );
         }
 
         let graph_with_new_ref = {
@@ -786,6 +770,34 @@ pub(super) mod function {
                 },
             );
         Some(instruction)
+    }
+
+    /// Return `true` if `id` is where a branch or a detached `HEAD` of a worktree lane points.
+    fn starts_worktree_segment(ws: &but_graph::Workspace, id: gix::ObjectId) -> bool {
+        ws.worktrees
+            .iter()
+            .flat_map(|worktree| &worktree.segments)
+            .any(|segment| {
+                segment
+                    .commits
+                    .first()
+                    .is_some_and(|commit| commit.id == id)
+            })
+    }
+
+    /// Place the new ref at `position` of `anchor_ref` in workspace metadata, unless `anchor_ref`
+    /// lives in a worktree lane, which has no workspace metadata.
+    fn dependent_in_stack<'a>(
+        ws: &but_graph::Workspace,
+        anchor_ref: Cow<'a, gix::refs::FullNameRef>,
+        position: Position,
+    ) -> Option<Instruction<'a>> {
+        ws.find_segment_and_stack_by_refname(anchor_ref.as_ref())
+            .is_some()
+            .then_some(Instruction::Dependent {
+                ref_name: anchor_ref,
+                position,
+            })
     }
 
     #[derive(Debug)]

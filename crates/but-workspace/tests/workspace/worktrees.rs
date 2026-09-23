@@ -554,5 +554,44 @@ fn references_can_be_created_at_commits_of_worktree_lanes() -> Result<()> {
         "worktree lanes have no applied stack to record the new branch in"
     );
 
+    // Without metadata to order them, a new branch can't share a commit with a lane's branch or
+    // detached `HEAD`, which placing it relative to a branch always does.
+    for (anchor, what) in [
+        (
+            Anchor::AtCommit {
+                commit_id: repo.rev_parse_single("mid")?.detach(),
+                position: Above,
+            },
+            "the tip of a branch",
+        ),
+        (
+            Anchor::at_segment(crate::utils::r("refs/heads/below-pushed"), Above),
+            "above a branch",
+        ),
+        (
+            Anchor::at_segment(crate::utils::r("refs/heads/mid"), Below),
+            "below a branch, onto a detached HEAD",
+        ),
+    ] {
+        let err = but_workspace::branch::create_reference(
+            crate::utils::r("refs/heads/refused"),
+            anchor,
+            &repo,
+            &ws,
+            &mut meta,
+            |_| unreachable!("worktree lanes have no stack"),
+            None,
+        )
+        .expect_err(what);
+        assert!(
+            err.to_string()
+                .contains("branches sharing a commit can't be ordered in worktrees yet"),
+            "{what}: {err}"
+        );
+    }
+    assert!(
+        repo.try_find_reference("refs/heads/refused")?.is_none(),
+        "refusals leave no reference behind"
+    );
     Ok(())
 }
