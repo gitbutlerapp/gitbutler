@@ -15,6 +15,7 @@ use gitbutler_edit_mode::commands::{
 use gitbutler_operating_modes::{
     EditModeMetadata, INTEGRATION_BRANCH_REF, read_edit_mode_metadata, write_edit_mode_metadata,
 };
+use gitbutler_oplog::OplogExt as _;
 use snapbox::prelude::*;
 use tempfile::TempDir;
 
@@ -155,6 +156,123 @@ created during edit mode
 "#]]
     );
 
+    Ok(())
+}
+
+#[test]
+fn locked_index_rejects_enter_edit_mode_without_changes() -> Result<()> {
+    assert_locked_index_rejects_enter_edit_mode(false)
+}
+
+#[test]
+#[cfg(unix)]
+fn locked_symlinked_index_rejects_enter_edit_mode_without_changes() -> Result<()> {
+    assert_locked_index_rejects_enter_edit_mode(true)
+}
+
+/// Hold the index lock externally and assert that edit-mode entry fails without writing
+/// anything, then succeeds once the lock is released. With `symlink_index`, the index is a
+/// symlink and the lock is held on its target, where checkout would take it.
+fn assert_locked_index_rejects_enter_edit_mode(symlink_index: bool) -> Result<()> {
+    let (mut ctx, _tempdir) = command_ctx("conficted_entries_get_written_when_leaving_edit_mode")?;
+    let repo = ctx.repo.get()?;
+    let commit_to_edit = repo.head_commit()?.decode()?.parents().next().unwrap();
+    let worktree_file = repo
+        .workdir()
+        .context("non-bare test repository")?
+        .join("file");
+    let worktree_before = std::fs::read(&worktree_file)?;
+    let index_path = repo.index_path();
+    let locked_index_path = if symlink_index {
+        let target = index_path.with_file_name("index-target");
+        std::fs::rename(&index_path, &target)?;
+        #[cfg(unix)]
+        std::os::unix::fs::symlink("index-target", &index_path)?;
+        target
+    } else {
+        index_path.clone()
+    };
+    #[expect(deprecated)]
+    let git2_index_path = ctx.git2_repo.get()?.index()?.path().map(ToOwned::to_owned);
+    assert_eq!(
+        git2_index_path.as_deref(),
+        Some(index_path.as_path()),
+        "the probe must lock the index that checkout writes"
+    );
+    let index_before = std::fs::read(&index_path)?;
+    let head_name_before = repo.head_name()?.context("symbolic HEAD")?;
+    let head_id_before = repo.head_id()?.detach();
+    let head_ref_id_before = repo.find_reference(&head_name_before)?.id().detach();
+    drop(repo);
+    let oplog_head_before = ctx.oplog_head()?;
+
+    let external_lock = gix::lock::File::acquire_to_update_resource(
+        &locked_index_path,
+        gix::lock::acquire::Fail::Immediately,
+        None,
+    )?;
+    let mut guard = ctx.exclusive_worktree_access();
+    let stack_id = {
+        let (_repo, ws, _db) = ctx.workspace_and_db_with_perm(guard.read_permission())?;
+        stack_id(&ws)?
+    };
+    let error = enter_edit_mode(&mut ctx, commit_to_edit, stack_id, guard.write_permission())
+        .expect_err("an external index lock must reject edit-mode entry");
+    assert!(
+        format!("{error:#}").contains("locked"),
+        "the failure names the index lock: {error:#}"
+    );
+
+    let repo = ctx.repo.get()?;
+    let unchanged = "the probe fails before anything is written";
+    assert_eq!(
+        std::fs::read(&worktree_file)?,
+        worktree_before,
+        "{unchanged}"
+    );
+    assert_eq!(std::fs::read(&index_path)?, index_before, "{unchanged}");
+    assert_eq!(
+        repo.head_name()?,
+        Some(head_name_before.clone()),
+        "{unchanged}"
+    );
+    assert_eq!(repo.head_id()?.detach(), head_id_before, "{unchanged}");
+    assert_eq!(
+        repo.find_reference(&head_name_before)?.id().detach(),
+        head_ref_id_before,
+        "{unchanged}"
+    );
+    assert!(
+        external_lock.lock_path().exists(),
+        "the external lock must stay in place"
+    );
+    drop(repo);
+    assert_edit_mode_cleaned_up(&ctx)?;
+    assert_eq!(
+        ctx.oplog_head()?,
+        oplog_head_before,
+        "no snapshot for a failed entry"
+    );
+
+    drop(external_lock);
+    enter_edit_mode(&mut ctx, commit_to_edit, stack_id, guard.write_permission())?;
+    let repo = ctx.repo.get()?;
+    assert_eq!(
+        repo.head_name()?.map(|name| name.to_string()),
+        Some("refs/heads/gitbutler/edit".to_owned()),
+        "the retry enters edit mode once the lock is released"
+    );
+    assert!(
+        repo.try_find_reference("refs/heads/gitbutler/edit")?
+            .is_some(),
+        "the retry creates the edit branch"
+    );
+    drop(repo);
+    assert_eq!(
+        read_edit_mode_metadata(&ctx)?.commit_oid,
+        commit_to_edit,
+        "the retry records the commit being edited"
+    );
     Ok(())
 }
 
