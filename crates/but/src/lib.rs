@@ -43,6 +43,8 @@ use theme::Paint;
 
 #[cfg(feature = "legacy")]
 use crate::command::legacy::ShowDiffInEditor;
+#[cfg(target_os = "linux")]
+use crate::utils::envs::BUT_CREDENTIALS_DIRECTORY;
 use crate::{
     setup::{BackgroundSync, InitCtxOptions, TargetRequirement},
     utils::{OutputChannel, ResultErrorExt, ResultMetricsExt, envs},
@@ -302,6 +304,11 @@ pub async fn handle_args(args: impl Iterator<Item = OsString>) -> Result<()> {
 
     let namespace = option_env!("IDENTIFIER").unwrap_or("com.gitbutler.app");
     but_secret::secret::set_application_namespace(namespace);
+
+    #[cfg(target_os = "linux")]
+    if let Some(credentials_dir) = std::env::var_os(BUT_CREDENTIALS_DIRECTORY) {
+        but_secret::secret::file_credentials::setup(credentials_dir)?;
+    }
 
     let mut out = OutputChannel::new(output_format);
     out.set_full_error_chain(watwat);

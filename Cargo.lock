@@ -1617,9 +1617,14 @@ version = "0.0.0"
 dependencies = [
  "anyhow",
  "but-error",
+ "but-utils",
  "gix",
  "keyring",
+ "nix 0.30.1",
  "serde",
+ "serial_test",
+ "sha2 0.10.9",
+ "tempfile",
  "tokio",
  "tracing",
 ]

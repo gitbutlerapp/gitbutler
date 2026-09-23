@@ -242,6 +242,7 @@ tracing-subscriber = "0.3.23"
 tempfile = "3.24"
 rand = "0.9.3"
 notify-rust = "4.16.0"
+nix = "0.30.0"
 git2-hooks = { version = "0.7.0" }
 itertools = "0.14.0"
 dirs = "6.0.0"
