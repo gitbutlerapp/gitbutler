@@ -39,7 +39,7 @@ use crate::{
         },
         open::{self, Openable},
     },
-    id::{CommitId, CommittedFileId},
+    id::{AnonymousSegmentId, BranchId, CommitId, CommittedFileId},
     theme::Theme,
     tui::{Clipboard, TerminalGuard, event_polling::EventPolling},
     utils::{in_single_branch_mode, targeting::Side},
@@ -1639,9 +1639,12 @@ impl App {
                 let commit_id = *commit_id;
                 copy_selection_picker::commit_picker(commit_id, self.theme)
             }
-            CliId::Branch(branch) => {
-                let branch = Category::LocalBranch.to_full_name(&*branch.name)?;
-                copy_selection_picker::branch_picker(branch, self.theme)
+            CliId::Branch(BranchId { name, id, .. }) => {
+                let branch = Category::LocalBranch.to_full_name(name.as_str())?;
+                copy_selection_picker::branch_picker(branch, id.to_owned(), self.theme)
+            }
+            CliId::AnonymousSegment(AnonymousSegmentId { id, .. }) => {
+                copy_selection_picker::anonymous_segment_picker(id.to_owned(), self.theme)
             }
             CliId::UncommittedHunkOrFile(hunk) => {
                 copy_selection_picker::uncommitted_hunk_picker(hunk.clone(), self.theme)
@@ -1659,8 +1662,7 @@ impl App {
                 id.to_owned(),
                 self.theme,
             ),
-            CliId::AnonymousSegment(..)
-            | CliId::CommittedHunk(..)
+            CliId::CommittedHunk(..)
             | CliId::PathPrefix { .. }
             | CliId::Uncommitted { .. }
             | CliId::WorktreeUncommitted { .. }

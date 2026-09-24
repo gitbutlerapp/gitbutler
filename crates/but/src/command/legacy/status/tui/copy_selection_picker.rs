@@ -35,16 +35,25 @@ pub fn commit_picker(
     )
 }
 
-pub fn branch_picker(branch: FullName, theme: &'static Theme) -> FuzzyPicker<CopySelectionItem> {
-    picker(
-        NonEmpty::from_slice(&[
-            CopySelectionItem::BranchName(branch.clone()),
-            CopySelectionItem::PullRequestUrl(branch.clone()),
-            CopySelectionItem::BranchDiff(branch.clone()),
-        ])
-        .unwrap(),
-        theme,
-    )
+pub fn branch_picker(
+    branch: FullName,
+    id: ShortId,
+    theme: &'static Theme,
+) -> FuzzyPicker<CopySelectionItem> {
+    let mut items = NonEmpty::new(CopySelectionItem::BranchName(branch.clone()));
+    items.extend([
+        CopySelectionItem::ShortId(id),
+        CopySelectionItem::PullRequestUrl(branch.clone()),
+        CopySelectionItem::BranchDiff(branch),
+    ]);
+    picker(items, theme)
+}
+
+pub fn anonymous_segment_picker(
+    id: ShortId,
+    theme: &'static Theme,
+) -> FuzzyPicker<CopySelectionItem> {
+    picker(NonEmpty::new(CopySelectionItem::ShortId(id)), theme)
 }
 
 pub fn uncommitted_hunk_picker(

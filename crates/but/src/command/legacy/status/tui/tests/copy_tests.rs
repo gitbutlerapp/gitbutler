@@ -139,7 +139,11 @@ fn copies_every_branch_value() {
     tui.input(KeyCode::Enter).assert_copied_text_eq("A");
 
     tui.input(COPY_MORE);
-    tui.input([KeyCode::Down; 2]);
+    tui.input(KeyCode::Down);
+    tui.input(KeyCode::Enter).assert_copied_text_eq("g0");
+
+    tui.input(COPY_MORE);
+    tui.input([KeyCode::Down; 3]);
     tui.input(KeyCode::Enter)
         .assert_copied_text_eq("--- /dev/null\n+++ b/A\n@@ -1,0 +1,1 @@\n+A\n");
 }
