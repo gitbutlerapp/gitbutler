@@ -538,6 +538,14 @@ height it is given, falling back to the top when the panel is too short to
 hold it, so the block's head never goes out of reach above the scroll origin.
 Its host only has to give it that height: a pane that fills its column.
 
+**An empty section inside a page takes the same block.** A settings list with
+nothing in it — no active worktrees, a feature turned off — uses `EmptyState`
+too, without the illustration, framed on the recessed ground so it reads as
+the page's state rather than one more row. A section has no height to centre in
+and no weight to lift, so its frame turns the counterweight off. There is no
+second empty pattern: a title-and-hint card styled in a page's own CSS is the
+one-off this rule replaces.
+
 **Centred optically, which is not the same as centred.** The block's weight
 sits low — two lines of type and a row of buttons under a light illustration —
 so centring it on its geometry reads as sitting below the middle. The component
