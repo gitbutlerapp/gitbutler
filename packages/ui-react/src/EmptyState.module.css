@@ -40,7 +40,6 @@
 	align-items: center;
 	justify-content: safe center;
 	max-width: 350px;
-	min-block-size: 100%;
 	/* Centres itself horizontally whatever the host is — block, flex or grid —
 	   so the cap above cannot pin the block to one edge. Without this every host
 	   would have to remember an `align-items`, and the two that forgot would only
@@ -53,6 +52,14 @@
 	padding-block-end: var(--empty-state-counterweight, min(80px, 14cqh));
 	gap: var(--empty-state-gap, 24px);
 	text-align: center;
+}
+
+/* Fills the height its container gives it, so there is room to centre in. A
+   default, not a rule: `:where` gives it no specificity, so a host that sets
+   its own height, as a popup's list holds 200 for the rows it replaces, wins
+   whichever stylesheet loads last. */
+:where(.empty) {
+	min-block-size: 100%;
 }
 
 .body {
