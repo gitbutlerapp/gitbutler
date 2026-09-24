@@ -17,7 +17,7 @@ import zed from "./program-icons/zed@2x.png";
  *
  * These are images rather than icons: a program's mark carries its own colours and
  * detail, so it cannot be a monochrome glyph that inherits the text colour the way
- * everything in `icons/` does. They are exported from ⚛️ Lite Core at twice their
+ * everything in `icons/` does. They are exported from ⚛️ Core at twice their
  * rendered size, which is what keeps them sharp on a retina display.
  *
  * Listed by hand, as `illustrations.ts` is, so a mark nobody renders shows up as an

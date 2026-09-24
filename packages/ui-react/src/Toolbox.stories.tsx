@@ -24,7 +24,7 @@ const meta = preview.meta({
 		layout: "centered",
 		design: {
 			type: "figma",
-			url: "https://www.figma.com/design/EBuHQGUcCaSw4Ln5uVpWkn/Lite?node-id=4272-2053",
+			url: "https://www.figma.com/design/EBuHQGUcCaSw4Ln5uVpWkn/Client?node-id=4272-2053",
 		},
 	},
 });

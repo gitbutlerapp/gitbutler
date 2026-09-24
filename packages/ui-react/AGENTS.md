@@ -44,7 +44,7 @@ Icons are SVGs in `src/icons/`, inlined into the bundle as raw strings; the
 filename is the icon name (`folder-lock.svg` → `<Icon name="folder-lock" />`).
 To add one:
 
-1. Export it from Figma at 16×16 (⚛️ Lite Core library) as SVG into `src/icons/`.
+1. Export it from Figma at 16×16 (⚛️ Core library) as SVG into `src/icons/`.
 2. Run `pnpm -F @gitbutler/ui-react optimize-icons`. It minifies the SVG,
    recolors it to `currentColor` and regenerates `src/iconNames.ts`.
 3. Commit both. `iconNames.ts` is generated; never hand-edit it.
@@ -54,7 +54,7 @@ colours and are deliberately not run through the script.
 
 `src/program-icons/` are the marks of editors and terminals, as PNGs at 2×.
 Their rounded corner is part of the image: export each from the "Programm"
-frame on ⚛️ Lite Core's Icons page, where the mark is a 14px rectangle with
+frame on ⚛️ Core's Icons page, where the mark is a 14px rectangle with
 the corner on it, as PNG at 2× with the layer named as the file is
 (`vscode` → `vscode@2x.png`). No CSS rounds them, so a square export shows
 square.
@@ -63,20 +63,20 @@ square.
 
 Two files, split the way the code is:
 
-- **⚛️ Lite Core** —
+- **⚛️ Core** —
   <https://www.figma.com/design/cqdnAotT8n9op8WGYLOHg4/%E2%9A%9B%EF%B8%8F-Lite-Core>,
   the published library: tokens (Tokens page), icons (Icons page) and this
   package's components (Components page), one section per component. It is
   the source of truth for tokens; for components, code is, and the drawing
   follows it.
-- **Lite**, the working file —
-  <https://www.figma.com/design/EBuHQGUcCaSw4Ln5uVpWkn/Lite>: Lite's own
+- **Client**, the working file —
+  <https://www.figma.com/design/EBuHQGUcCaSw4Ln5uVpWkn/Client>: Lite's own
   components on the ⚙️ Meta page, the full screens, and drafts on the
   🚧 Drafts page and the pages under it. A new mockup or an exploration goes
   here, never in the library.
 
-A component is drawn where its code lives: one in this package goes in Lite
-Core, one in `apps/lite` on ⚙️ Meta. When a component moves between the two
+A component is drawn where its code lives: one in this package goes in
+⚛️ Core, one in `apps/lite` on ⚙️ Meta. When a component moves between the two
 in code, its drawing moves with it in the same piece of work, and the
 mockups' instances are swapped to the new one.
 

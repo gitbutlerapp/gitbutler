@@ -26,7 +26,7 @@ type Props = {
 
 /**
  * A surface at rest with nothing in it — the "Empty state" component in
- * ⚛️ Lite Core, whose description carries the rules for what to put in it.
+ * ⚛️ Core, whose description carries the rules for what to put in it.
  *
  * For a surface that is empty, not one still loading: that says so in a line
  * where the list would be. A filter that matched nothing takes the block in a

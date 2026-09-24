@@ -10,7 +10,7 @@
 		margin-block-end: 0;
 	}
 
-	/* The rhythm, in step with the Markdown kit in ⚛️ Lite Core:
+	/* The rhythm, in step with the Markdown kit in ⚛️ Core:
 	   12px between text blocks, 16px around anything with an edge (a table,
 	   a code block, a quote bar, an image) because text carries its own
 	   leading and a box doesn't, 4px within a list, and a heading takes

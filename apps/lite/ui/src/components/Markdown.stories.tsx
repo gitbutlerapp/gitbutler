@@ -16,7 +16,7 @@ const meta = preview.meta({
 	parameters: {
 		design: {
 			type: "figma",
-			url: "https://www.figma.com/design/EBuHQGUcCaSw4Ln5uVpWkn/Lite?node-id=5314-14890",
+			url: "https://www.figma.com/design/EBuHQGUcCaSw4Ln5uVpWkn/Client?node-id=5314-14890",
 		},
 	},
 	decorators: [

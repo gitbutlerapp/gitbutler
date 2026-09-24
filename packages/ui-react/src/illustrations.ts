@@ -17,12 +17,12 @@ import waving from "./illustrations/waving.svg?raw";
  * and each maps to a token so one asset works in both themes:
  *
  * - strokes and solid shapes are `currentColor`, so the container sets them —
- *   `--border-1`, matching the ⚛️ Lite Core library.
+ *   `--border-1`, matching the ⚛️ Core library.
  * - enclosed areas are `--bg-1`, the app's paper, so a shape occludes whatever
  *   it overlaps instead of staying white in the dark.
  * - shaded faces are `--bg-2`, the ground these illustrations sit on.
  * - a darker face, where a drawing needs one more step between the ground
- *   and its outline, is `--border-2` — the token ⚛️ Lite Core binds it to.
+ *   and its outline, is `--border-2` — the token ⚛️ Core binds it to.
  *
  * An illustration works on either ground. On `--bg-2` (the sidebar's panels,
  * the details pane's empty state) a `--bg-2` face paints in the ground's own
