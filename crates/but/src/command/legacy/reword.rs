@@ -1,4 +1,4 @@
-use anyhow::{Result, bail};
+use anyhow::{Context as _, Result, bail};
 use bstr::{BString, ByteSlice};
 use but_api::diff::ComputeLineStats;
 use but_core::{DryRun, ref_metadata::StackId, sync::RepoExclusive};
@@ -247,10 +247,12 @@ pub(crate) fn get_commit_message_from_editor(
         })
         .transpose()?;
 
+    let comment_prefix = comment_prefix(&repo.config_snapshot(), &editor_initial_message)?;
     let new_message = actually_get_commit_message_from_editor(
         &editor_initial_message,
         &changed_files,
         diff.as_deref(),
+        &comment_prefix,
     )?;
 
     if should_update_commit_message(current_message_for_comparison, &new_message) {
@@ -348,10 +350,38 @@ fn get_changed_files_from_commit_details(
     files
 }
 
+/// The prefix of comment lines in the commit message template, read from Git's
+/// `core.commentString` or `core.commentChar` and defaulting to `#`.
+///
+/// Like `git commit`, `auto` picks the first candidate that doesn't start a line of `message`.
+fn comment_prefix(config: &gix::config::Snapshot<'_>, message: &str) -> Result<String> {
+    let value = config
+        .string("core.commentString")
+        .or_else(|| config.string("core.commentChar"))
+        .map(|value| value.to_str_lossy().into_owned())
+        .filter(|value| !value.is_empty() && !value.contains('\n'));
+    match value.as_deref() {
+        Some(value) if value.eq_ignore_ascii_case("auto") => "#;@!$%^&|:"
+            .chars()
+            .find(|candidate| {
+                !message
+                    .lines()
+                    .any(|line| line.starts_with(*candidate))
+            })
+            .map(String::from)
+            .context(
+                "Unable to select a comment character that is not used in the current commit message",
+            ),
+        Some(value) => Ok(value.to_owned()),
+        None => Ok("#".to_owned()),
+    }
+}
+
 fn actually_get_commit_message_from_editor(
     current_message: &str,
     changed_files: &[String],
     diff: Option<&[BString]>,
+    comment_prefix: &str,
 ) -> Result<String> {
     // Generate commit message template with current message
     let mut template = String::new();
@@ -359,15 +389,18 @@ fn actually_get_commit_message_from_editor(
     if !current_message.is_empty() && !current_message.ends_with('\n') {
         template.push('\n');
     }
-    template.push_str("\n# Please enter the commit message for your changes. Lines starting\n");
-    template.push_str("# with '#' will be ignored, and an empty message aborts the commit.\n");
-    template.push_str("#\n");
-    template.push_str("# Changes in this commit:\n");
-
+    let c = comment_prefix;
+    template.push_str(&format!(
+        "\n{c} Please enter the commit message for your changes. Lines starting\n"
+    ));
+    template.push_str(&format!(
+        "{c} with '{c}' will be ignored, and an empty message aborts the commit.\n"
+    ));
+    template.push_str(&format!("{c}\n{c} Changes in this commit:\n"));
     for file in changed_files {
-        template.push_str(&format!("#\t{file}\n"));
+        template.push_str(&format!("{c}\t{file}\n"));
     }
-    template.push_str("#\n");
+    template.push_str(&format!("{c}\n"));
 
     let mut template_rest = String::new();
     if let Some(diff) = diff
@@ -383,6 +416,7 @@ fn actually_get_commit_message_from_editor(
         "commit_msg",
         &template,
         Some(template_rest.as_str()).filter(|s| !s.is_empty()),
+        comment_prefix,
     )?
     .to_string();
 
