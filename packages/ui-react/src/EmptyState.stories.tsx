@@ -24,16 +24,12 @@ const meta = preview.meta({
 		description: "You have 5 branches to pick from",
 	},
 	decorators: [
-		// The component is built to be centred by its host, and the counterweight
-		// only reads as correct against a surface with room above and below it.
+		// A plain box with a height, as a pane gives it: the block centres itself
+		// in it, and the counterweight scales to it.
 		(Story) => (
 			<div
 				style={{
-					// As the app's host does: the counterweight scales to this box.
 					containerType: "size",
-					display: "flex",
-					flexDirection: "column",
-					justifyContent: "safe center",
 					width: 360,
 					height: 520,
 					backgroundColor: "var(--bg-2)",

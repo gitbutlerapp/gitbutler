@@ -21,10 +21,12 @@
    illustration would otherwise spread across it. This is the only measure —
    the lines inside take theirs from here.
 
-   Centring itself belongs to the host, not here: only the host knows whether
-   its surface scrolls, and a scrolling one needs `justify-content: safe center`
-   so a short panel falls back to the top rather than putting the block's head
-   out of reach above the scroll origin.
+   It centres itself: the box grows to the height its container gives it and
+   centres its content in that, so no host has to remember to. `safe` so a
+   short panel falls back to the top rather than putting the block's head out
+   of reach above the scroll origin. The host's one job is to give it a height,
+   by being a pane that fills its column; in a box as tall as its content there
+   is nothing to centre in.
 
    The gap under the illustration and the counterweight are custom properties
    because both are sized for the full block, and a host holding a lighter one
@@ -33,10 +35,12 @@
    line has no weight to lift. See `PopupEmpty`. */
 .empty {
 	display: flex;
-	flex-shrink: 0;
+	flex: 1 0 auto;
 	flex-direction: column;
 	align-items: center;
+	justify-content: safe center;
 	max-width: 350px;
+	min-block-size: 100%;
 	/* Centres itself horizontally whatever the host is — block, flex or grid —
 	   so the cap above cannot pin the block to one edge. Without this every host
 	   would have to remember an `align-items`, and the two that forgot would only
