@@ -411,12 +411,12 @@ turns back on only when the button collapses to an icon.
   instead — see Empty states.
 
 **Shortcuts go in the `kbd` slot, not the text.** Don't write "Fetch (⌘R)" —
-pass the hotkey and let `TooltipPopup` render the keycaps. Pass `kbdScope`
+pass the hotkey as `Tooltip`'s `kbd` and let it render the keycaps. Pass `kbdScope`
 alongside it when the hotkey is bound to a pane: a shortcut that does nothing
 from where the user is standing is worse than no shortcut at all.
 
-**A tooltip is never the only way to know.** It needs hover, so it doesn't
-exist for keyboard or screen readers, and it's out of reach of touch. An
+**A tooltip is never the only way to know.** It opens on hover and on keyboard
+focus, but a screen reader doesn't announce it and touch can't reach it. An
 icon-only button gets an `aria-label` as well — the tooltip repeats that name,
 it doesn't supply it. Nothing a user must read to proceed lives only in a
 tooltip, and nothing inside one is clickable.
