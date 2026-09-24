@@ -294,20 +294,18 @@ describe("moveSelectedLineRange", () => {
 				...unified,
 				range: { start: 2, side: "deletions", end: 2 },
 				offset: 1,
-				extend: false,
 			}),
 		).toEqual({ start: 2, side: "additions", end: 2 });
 	});
 
-	it("extends from the mouse range's active end", () => {
+	it("moves from a previous range's active end without extending it", () => {
 		expect(
 			moveSelectedLineRange({
 				...unified,
 				range: { start: 5, side: "additions", end: 2, endSide: "deletions" },
 				offset: -1,
-				extend: true,
 			}),
-		).toEqual({ start: 5, side: "additions", end: 1 });
+		).toEqual({ start: 1, side: "additions", end: 1 });
 	});
 
 	it("moves by visual row while retaining a split column", () => {
@@ -316,7 +314,6 @@ describe("moveSelectedLineRange", () => {
 				...split,
 				range: { start: 2, side: "deletions", end: 2 },
 				offset: 1,
-				extend: false,
 			}),
 		).toEqual({ start: 3, side: "deletions", end: 3 });
 	});

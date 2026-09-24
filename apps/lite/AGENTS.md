@@ -2,11 +2,12 @@
 
 ## Preparing the checkout
 
-Before implementing or validating Lite changes, ensure this checkout has installed dependencies and generated SDK types/native bindings. In an unprepared checkout, run from the repository root:
+Before implementing or validating Lite changes, ensure this checkout has installed dependencies, generated SDK types/native bindings, and the `but` CLI needed to seed E2E fixtures. In an unprepared checkout, run from the repository root:
 
 ```console
 $ pnpm install
 $ pnpm build:sdk
+$ cargo build -p but
 ```
 
 Reuse completed setup in this checkout. If another agent is preparing the same checkout, coordinate rather than starting duplicate installs/builds. Isolated checkouts need their own setup if missing. Read-only investigation does not require setup.
