@@ -1,10 +1,10 @@
-import { getButtonClassName } from "@gitbutler/ui-react/Button.tsx";
+import { Button } from "@gitbutler/ui-react/Button.tsx";
 import { Icon } from "@gitbutler/ui-react/Icon.tsx";
 import { TooltipPopup } from "@gitbutler/ui-react/Tooltip.tsx";
 import { globalHotkeys, workspaceHotkeys } from "#ui/hotkeys.ts";
 import { ProjectPicker } from "#ui/routes/project/$id/workspace/ProjectPicker.tsx";
 import { TopLeftControls } from "#ui/routes/project/$id/workspace/TopLeftControls.tsx";
-import { Button, Tooltip } from "@base-ui/react";
+import { Tooltip } from "@base-ui/react";
 import type { ProjectForFrontend } from "@gitbutler/but-sdk";
 import { useIsFetching, useIsMutating } from "@tanstack/react-query";
 import { Match } from "effect";
@@ -63,11 +63,17 @@ export const SidebarHeader: FC<{
 			<Tooltip.Root>
 				<Tooltip.Trigger
 					aria-label={globalHotkeys.operationsLog.meta.name}
-					className={getButtonClassName({ iconOnly: true, variant: "ghost" })}
 					onClick={p.onOpenOperationsLog}
 					// We pass `disabled` here because we want to disable the button, not
 					// the tooltip. Other props should be passed above.
-					render={<Button focusableWhenDisabled disabled={!p.canOpenOperationsLog} />}
+					render={
+						<Button
+							iconOnly
+							variant="ghost"
+							focusableWhenDisabled
+							disabled={!p.canOpenOperationsLog}
+						/>
+					}
 				>
 					<Icon name="history" />
 				</Tooltip.Trigger>
@@ -83,11 +89,12 @@ export const SidebarHeader: FC<{
 			<Tooltip.Root>
 				<Tooltip.Trigger
 					aria-label={workspaceHotkeys.settings.meta.name}
-					className={getButtonClassName({ iconOnly: true, variant: "ghost" })}
 					onClick={p.onOpenSettings}
 					// We pass `disabled` here because we want to disable the button, not
 					// the tooltip. Other props should be passed above.
-					render={<Button focusableWhenDisabled disabled={!p.canOpenSettings} />}
+					render={
+						<Button iconOnly variant="ghost" focusableWhenDisabled disabled={!p.canOpenSettings} />
+					}
 				>
 					<Icon name="settings" />
 				</Tooltip.Trigger>

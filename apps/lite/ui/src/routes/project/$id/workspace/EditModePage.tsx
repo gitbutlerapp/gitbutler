@@ -12,8 +12,7 @@ import {
 	useOpenInProgram,
 	useSaveEditAndReturnToWorkspace,
 } from "#ui/api/mutations.ts";
-import { getButtonClassName } from "@gitbutler/ui-react/Button.tsx";
-import { classes } from "@gitbutler/ui-react/classes.ts";
+import { Button } from "@gitbutler/ui-react/Button.tsx";
 import { ConflictIcon } from "@gitbutler/ui-react/ConflictIcon.tsx";
 import { FileIcon } from "@gitbutler/ui-react/FileIcon.tsx";
 import { nativeMenuItem, showNativeContextMenu } from "#ui/native-menu.ts";
@@ -248,32 +247,18 @@ export const EditModePage: FC<{ projectId: string; metadata: EditModeMetadata }>
 
 				<div className={styles.buttons}>
 					{conflicted.length > 0 && preferredEditor && (
-						<button
-							type="button"
-							className={classes(getButtonClassName({ variant: "outline" }), styles.openAll)}
-							onClick={openConflictedFiles}
-						>
+						<Button variant="outline" className={styles.openAll} onClick={openConflictedFiles}>
 							{conflicted.length === 1
 								? `Open conflicted file in ${preferredEditor.name}`
 								: `Open ${conflicted.length} conflicted files in ${preferredEditor.name}`}
-						</button>
+						</Button>
 					)}
-					<button
-						type="button"
-						className={getButtonClassName({ variant: "pop" })}
-						disabled={busy}
-						onClick={() => void save()}
-					>
+					<Button variant="pop" disabled={busy} onClick={() => void save()}>
 						Save and return
-					</button>
-					<button
-						type="button"
-						className={classes(getButtonClassName({ variant: "outline" }))}
-						disabled={busy}
-						onClick={() => void cancel()}
-					>
+					</Button>
+					<Button variant="outline" disabled={busy} onClick={() => void cancel()}>
 						Cancel edit
-					</button>
+					</Button>
 				</div>
 			</div>
 		</div>

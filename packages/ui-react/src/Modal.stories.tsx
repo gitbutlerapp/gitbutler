@@ -1,5 +1,5 @@
 import preview from "#storybook/preview";
-import { getButtonClassName } from "./Button.tsx";
+import { Button } from "./Button.tsx";
 import { Modal, PopupItem, PopupSearch, PopupSection } from "./Popup.tsx";
 
 const meta = preview.meta({
@@ -14,11 +14,7 @@ const meta = preview.meta({
 		size: "small",
 		align: "center",
 		alert: false,
-		trigger: (
-			<button type="button" className={getButtonClassName({})}>
-				Open modal
-			</button>
-		),
+		trigger: <Button>Open modal</Button>,
 	},
 	argTypes: {
 		size: { control: "inline-radio", options: ["small", "medium", "large"] },
@@ -45,12 +41,8 @@ export const Playground = meta.story({
 					question has to be answered rather than dismissed.
 				</span>
 				<div style={{ display: "flex", justifyContent: "flex-end", gap: 8 }}>
-					<button type="button" className={getButtonClassName({ variant: "ghost" })}>
-						Cancel
-					</button>
-					<button type="button" className={getButtonClassName({ variant: "pop" })}>
-						Continue
-					</button>
+					<Button variant="ghost">Cancel</Button>
+					<Button variant="pop">Continue</Button>
 				</div>
 			</div>
 		),
@@ -63,11 +55,7 @@ export const Picker = meta.story({
 		size: "small",
 		align: "top",
 		"aria-label": "Select project",
-		trigger: (
-			<button type="button" className={getButtonClassName({})}>
-				Select project
-			</button>
-		),
+		trigger: <Button>Select project</Button>,
 		children: (
 			<>
 				<PopupSearch placeholder="Search projects..." aria-label="Search projects" />
@@ -92,11 +80,7 @@ export const Large = meta.story({
 	args: {
 		size: "large",
 		"aria-label": "Resolve conflicts",
-		trigger: (
-			<button type="button" className={getButtonClassName({})}>
-				Resolve conflicts
-			</button>
-		),
+		trigger: <Button>Resolve conflicts</Button>,
 		children: (
 			<div style={{ height: 400, padding: 16 }}>
 				<span className="text-13">

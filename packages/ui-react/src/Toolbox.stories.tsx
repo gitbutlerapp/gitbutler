@@ -1,5 +1,5 @@
 import preview from "#storybook/preview";
-import { getButtonClassName } from "./Button.tsx";
+import { Button } from "./Button.tsx";
 import { Icon } from "./Icon.tsx";
 import { Kbd } from "./Kbd.tsx";
 import {
@@ -35,13 +35,10 @@ const Action: FC<{ label: string; hotkey?: string; variant?: ButtonVariant; smal
 	variant,
 	small,
 }) => (
-	<button
-		type="button"
-		className={getButtonClassName({ variant, size: small ? "small" : "regular" })}
-	>
+	<Button variant={variant} size={small ? "small" : "regular"}>
 		{label}
 		{hotkey !== undefined && <Kbd hotkey={hotkey} variant="button" />}
-	</button>
+	</Button>
 );
 
 /**
@@ -60,13 +57,9 @@ export const Actions = meta.story({
 				<Action label="Cut" hotkey="Mod+X" />
 				<Action label="Discard" hotkey="Mod+Backspace" variant="danger" />
 				<ToolboxSeparator />
-				<button
-					type="button"
-					aria-label="Cancel"
-					className={getButtonClassName({ variant: "ghost", iconOnly: true })}
-				>
+				<Button aria-label="Cancel" variant="ghost" iconOnly>
 					<Icon name="cross" />
-				</button>
+				</Button>
 			</ToolboxSection>
 		</Toolbox>
 	),

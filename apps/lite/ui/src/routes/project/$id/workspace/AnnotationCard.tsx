@@ -6,7 +6,7 @@ import {
 	useCommentUpdate,
 } from "#ui/annotation.ts";
 import { Annotation } from "@gitbutler/ui-react/Annotation.tsx";
-import { getButtonClassName } from "@gitbutler/ui-react/Button.tsx";
+import { Button } from "@gitbutler/ui-react/Button.tsx";
 import { Icon } from "@gitbutler/ui-react/Icon.tsx";
 import type { FileParent } from "#ui/addresses.ts";
 import { useHotkey } from "@tanstack/react-hotkeys";
@@ -148,34 +148,26 @@ export const AnnotationCard: FC<Props> = (p) => {
 				actions={
 					isDraft ? (
 						<>
-							<button type="submit" className={getButtonClassName({ variant: "pop" })}>
+							<Button type="submit" variant="pop">
 								Save
-							</button>
+							</Button>
 
-							<button
-								type="button"
-								className={getButtonClassName({ variant: "ghost" })}
-								onClick={archiveAndRefocus}
-							>
+							<Button variant="ghost" onClick={archiveAndRefocus}>
 								Cancel
-							</button>
+							</Button>
 						</>
 					) : (
 						<>
-							<button
-								type="button"
-								className={getButtonClassName({ variant: "ghost" })}
-								onClick={archiveAndRefocus}
-							>
+							<Button variant="ghost" onClick={archiveAndRefocus}>
 								Archive
-							</button>
+							</Button>
 
-							<button
-								type="button"
+							<Button
 								aria-label="Copy as prompt"
 								title="Copy as prompt"
 								style={{ marginLeft: "auto" }}
-								className={getButtonClassName({ variant: "ghost", iconOnly: true })}
+								variant="ghost"
+								iconOnly
 								onClick={(evt) => {
 									const body = bodyFromForm(evt.currentTarget.form);
 									void window.lite.clipboardWriteText(
@@ -190,17 +182,17 @@ export const AnnotationCard: FC<Props> = (p) => {
 								}}
 							>
 								<Icon name="copy" />
-							</button>
+							</Button>
 
-							<button
-								type="button"
+							<Button
 								aria-label="Copy all as prompt"
 								title="Copy all as prompt"
-								className={getButtonClassName({ variant: "ghost", iconOnly: true })}
+								variant="ghost"
+								iconOnly
 								onClick={copyAll}
 							>
 								<Icon name="checklist" />
-							</button>
+							</Button>
 						</>
 					)
 				}

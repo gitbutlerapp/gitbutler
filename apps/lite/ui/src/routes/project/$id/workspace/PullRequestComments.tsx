@@ -38,7 +38,7 @@ import { applyToTextarea } from "@gitbutler/ui-react/markdown-textarea.ts";
 import { TooltipPopup } from "@gitbutler/ui-react/Tooltip.tsx";
 import { Toggle, ToggleGroup, Tooltip } from "@base-ui/react";
 import { Badge, type BadgeVariant } from "@gitbutler/ui-react/Badge.tsx";
-import { getButtonClassName } from "@gitbutler/ui-react/Button.tsx";
+import { Button } from "@gitbutler/ui-react/Button.tsx";
 import { Clamped } from "#ui/components/Clamped.tsx";
 import { classes } from "@gitbutler/ui-react/classes.ts";
 import { Icon } from "@gitbutler/ui-react/Icon.tsx";
@@ -218,23 +218,13 @@ const BodyEditor: FC<{
 			/>
 			{mentions.popup}
 			<div className={styles.editorActions}>
-				<button
-					className={getButtonClassName({})}
-					disabled={saving}
-					onClick={onCancel}
-					type="button"
-				>
+				<Button disabled={saving} onClick={onCancel}>
 					Cancel
-				</button>
-				<button
-					className={getButtonClassName({ variant: "gray" })}
-					disabled={saving || value.trim() === ""}
-					onClick={onSave}
-					type="button"
-				>
+				</Button>
+				<Button variant="gray" disabled={saving || value.trim() === ""} onClick={onSave}>
 					{saveLabel}
 					<Icon name={saving ? "spinner" : "tick"} />
-				</button>
+				</Button>
 			</div>
 		</div>
 	);
@@ -293,9 +283,11 @@ const Comment: FC<{
 	};
 
 	const actions = isOwn && !isSending && !editing && (
-		<button
+		<Button
 			aria-label="Comment actions"
-			className={classes(getButtonClassName({ variant: "ghost", iconOnly: true }), styles.kebab)}
+			variant="ghost"
+			iconOnly
+			className={styles.kebab}
 			disabled={isDeleting}
 			onClick={(evt) =>
 				void showNativeMenuFromTrigger(evt.currentTarget, [
@@ -316,10 +308,9 @@ const Comment: FC<{
 					}),
 				])
 			}
-			type="button"
 		>
 			<Icon name={isDeleting ? "spinner" : "kebab"} />
-		</button>
+		</Button>
 	);
 
 	return (
@@ -345,13 +336,9 @@ const Comment: FC<{
 							// double-add; display-only for that moment.
 							onToggle={hasReactions && reactors === undefined ? undefined : toggleReaction}
 						/>
-						<button
-							className={getButtonClassName({ variant: "ghost" })}
-							onClick={() => onReply(comment)}
-							type="button"
-						>
+						<Button variant="ghost" onClick={() => onReply(comment)}>
 							Reply
-						</button>
+						</Button>
 					</>
 				)
 			}
@@ -646,16 +633,15 @@ const Thread: FC<{
 					))}
 					<div className={styles.threadActions}>
 						<ReviewThreadReply projectId={projectId} reviewId={reviewId} threadId={thread.id} />
-						<button
-							className={getButtonClassName({ variant: "ghost" })}
-							type="button"
+						<Button
+							variant="ghost"
 							disabled={resolving}
 							onClick={() =>
 								setResolved({ projectId, threadId: thread.id, resolved: !thread.isResolved })
 							}
 						>
 							{resolving ? "Updating…" : thread.isResolved ? "Reopen conversation" : "Resolve"}
-						</button>
+						</Button>
 					</div>
 				</div>
 			)}
@@ -810,13 +796,9 @@ const Submission: FC<{
 						myLogin={currentLogin}
 						onToggle={toggleReaction}
 					/>
-					<button
-						className={getButtonClassName({ variant: "ghost" })}
-						onClick={() => onReply(submission)}
-						type="button"
-					>
+					<Button variant="ghost" onClick={() => onReply(submission)}>
 						Reply
-					</button>
+					</Button>
 				</>
 			}
 		>
@@ -995,8 +977,7 @@ const InsertButton: FC<{
 }> = ({ label, icon, items, notice }) => (
 	<Tooltip.Root>
 		<Tooltip.Trigger
-			className={getButtonClassName({ variant: "ghost", iconOnly: true })}
-			render={<button aria-label={label} type="button" />}
+			render={<Button variant="ghost" iconOnly aria-label={label} />}
 			// Keeps the caret in the textarea: a plain click would blur it
 			// first, so the insert would have no position to act on.
 			onMouseDown={(evt) => evt.preventDefault()}
@@ -1174,15 +1155,10 @@ const Composer: FC<{
 					<MarkdownAttachments onInput={setDraft} targetRef={textareaRef} />
 					<ForgeInserts onInput={setDraft} projectId={projectId} targetRef={textareaRef} />
 				</div>
-				<button
-					className={getButtonClassName({ variant: "gray" })}
-					disabled={empty}
-					onClick={submit}
-					type="button"
-				>
+				<Button variant="gray" disabled={empty} onClick={submit}>
 					Comment
 					<Kbd hotkey={pullRequestHotkeys.comment.hotkey} variant="button" />
-				</button>
+				</Button>
 			</div>
 		</div>
 	);

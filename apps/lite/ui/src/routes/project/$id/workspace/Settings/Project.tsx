@@ -3,7 +3,7 @@ import { useNavigate } from "@tanstack/react-router";
 import { useState, type FC, type ReactNode } from "react";
 import { listProjectsQueryOptions } from "#ui/api/queries.ts";
 import { useDeleteProject, useUpdateProjectSettings } from "#ui/api/mutations.ts";
-import { getButtonClassName } from "@gitbutler/ui-react/Button.tsx";
+import { Button } from "@gitbutler/ui-react/Button.tsx";
 import { classes } from "@gitbutler/ui-react/classes.ts";
 import { FieldControlStyles, FieldTextareaStyles } from "@gitbutler/ui-react/Field.tsx";
 import { Icon } from "@gitbutler/ui-react/Icon.tsx";
@@ -109,32 +109,18 @@ export const Project: FC<{ projectId: string }> = ({ projectId }) => {
 				>
 					{confirmingRemove ? (
 						<div className={styles.confirm}>
-							<button
-								type="button"
-								className={getButtonClassName({ variant: "danger" })}
-								disabled={isRemoving}
-								onClick={removeProject}
-							>
+							<Button variant="danger" disabled={isRemoving} onClick={removeProject}>
 								{isRemoving ? "Removing…" : "Confirm"}
-							</button>
-							<button
-								type="button"
-								className={getButtonClassName({})}
-								disabled={isRemoving}
-								onClick={() => setConfirmingRemove(false)}
-							>
+							</Button>
+							<Button disabled={isRemoving} onClick={() => setConfirmingRemove(false)}>
 								Cancel
-							</button>
+							</Button>
 						</div>
 					) : (
-						<button
-							type="button"
-							className={getButtonClassName({ variant: "danger" })}
-							onClick={() => setConfirmingRemove(true)}
-						>
+						<Button variant="danger" onClick={() => setConfirmingRemove(true)}>
 							<Icon name="bin" />
 							Remove…
-						</button>
+						</Button>
 					)}
 				</Row>
 			</Section>

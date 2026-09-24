@@ -3,7 +3,7 @@ import { useEffect, useRef, useState, type FC } from "react";
 import type { UserProfile } from "@gitbutler/but-sdk";
 import { Field } from "@base-ui/react";
 import { aiConfigurationQueryOptions, userProfileQueryOptions } from "#ui/api/queries.ts";
-import { getButtonClassName } from "@gitbutler/ui-react/Button.tsx";
+import { Button } from "@gitbutler/ui-react/Button.tsx";
 import { classes } from "@gitbutler/ui-react/classes.ts";
 import {
 	FieldControlStyles,
@@ -102,15 +102,10 @@ const SignedOut: FC = () => {
 						)}
 					</span>
 				</div>
-				<button
-					type="button"
-					className={getButtonClassName({ variant: "gray" })}
-					disabled={signingIn}
-					onClick={() => void signIn()}
-				>
+				<Button variant="gray" disabled={signingIn} onClick={() => void signIn()}>
 					{signingIn ? "Waiting for browser…" : "Log in to GitButler"}
 					<Icon name={signingIn ? "spinner" : "login"} />
-				</button>
+				</Button>
 			</div>
 		</section>
 	);
@@ -231,14 +226,9 @@ const SignedIn: FC<{ profile: UserProfile }> = ({ profile }) => {
 							onValueChange={(value) => setName(value)}
 						/>
 					</Field.Root>
-					<button
-						type="button"
-						className={getButtonClassName({ variant: "gray" })}
-						disabled={!dirty || saving}
-						onClick={() => void save()}
-					>
+					<Button variant="gray" disabled={!dirty || saving} onClick={() => void save()}>
 						{saving ? "Saving…" : "Save changes"}
-					</button>
+					</Button>
 				</div>
 
 				{error !== null && <span className={classes("text-12", styles.error)}>{error}</span>}
@@ -268,10 +258,10 @@ export const SignOutRow: FC = () => {
 			label="Forget credentials and log out"
 			hint={error ?? "Clears the account from this machine. Your repositories are untouched."}
 		>
-			<button type="button" className={getButtonClassName({})} onClick={() => void signOut()}>
+			<Button onClick={() => void signOut()}>
 				Sign out
 				<Icon name="logout" />
-			</button>
+			</Button>
 		</Row>
 	);
 };

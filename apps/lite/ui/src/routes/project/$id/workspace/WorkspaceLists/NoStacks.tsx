@@ -1,6 +1,6 @@
 import { branchListQueryOptions } from "#ui/api/queries.ts";
 import { unappliedStacks } from "#ui/branch.ts";
-import { getButtonClassName } from "@gitbutler/ui-react/Button.tsx";
+import { Button } from "@gitbutler/ui-react/Button.tsx";
 import { EmptyState } from "@gitbutler/ui-react/EmptyState.tsx";
 import { Icon } from "@gitbutler/ui-react/Icon.tsx";
 import { focusScope } from "#ui/focus-scopes.ts";
@@ -58,9 +58,8 @@ export const NoStacks: FC<{ projectId: string; newBranch: NewBranchActions }> = 
 			}
 		>
 			{hasBranchesElsewhere && (
-				<button
-					type="button"
-					className={getButtonClassName({ variant: "gray" })}
+				<Button
+					variant="gray"
 					onClick={() => {
 						setPage("branches");
 						focusScope("sidebar");
@@ -68,17 +67,16 @@ export const NoStacks: FC<{ projectId: string; newBranch: NewBranchActions }> = 
 				>
 					See all
 					<Icon name="list" />
-				</button>
+				</Button>
 			)}
-			<button
-				type="button"
-				className={getButtonClassName({ variant: "outline" })}
+			<Button
+				variant="outline"
 				disabled={!newBranch.canCreateInWorkspace}
 				onClick={newBranch.createInWorkspace}
 			>
 				New branch
 				<Icon name="plus" />
-			</button>
+			</Button>
 		</EmptyState>
 	);
 };

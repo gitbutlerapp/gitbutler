@@ -1,5 +1,5 @@
 import preview from "#storybook/preview";
-import { getButtonClassName } from "./Button.tsx";
+import { Button } from "./Button.tsx";
 import { Icon } from "./Icon.tsx";
 import { Dropdown, PopupItem, PopupSearch, PopupSection } from "./Popup.tsx";
 
@@ -33,11 +33,7 @@ export const Playground = meta.story({
 	args: {
 		"aria-label": "Dropdown playground",
 		style: { width: 240 },
-		trigger: (
-			<button type="button" className={getButtonClassName({})}>
-				Open dropdown
-			</button>
-		),
+		trigger: <Button>Open dropdown</Button>,
 		children: (
 			<PopupSection>
 				<PopupItem icon="branch">Switch branch</PopupItem>
@@ -53,11 +49,7 @@ export const WithSearch = meta.story({
 	args: {
 		"aria-label": "Select target",
 		style: { width: 256 },
-		trigger: (
-			<button type="button" className={getButtonClassName({})}>
-				Select target
-			</button>
-		),
+		trigger: <Button>Select target</Button>,
 		children: (
 			<>
 				<PopupSearch placeholder="Search targets..." aria-label="Search targets" />
@@ -79,9 +71,9 @@ export const Panel = meta.story({
 		"aria-label": "Notifications",
 		style: { width: 380 },
 		trigger: (
-			<button type="button" className={getButtonClassName({ iconOnly: true })}>
+			<Button iconOnly>
 				<Icon name="bell" />
-			</button>
+			</Button>
 		),
 		children: (
 			<div style={{ display: "flex", flexDirection: "column", gap: 8, padding: 12 }}>

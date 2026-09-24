@@ -1,4 +1,4 @@
-import { getButtonClassName } from "@gitbutler/ui-react/Button.tsx";
+import { Button } from "@gitbutler/ui-react/Button.tsx";
 import { Icon } from "@gitbutler/ui-react/Icon.tsx";
 import { TooltipPopup } from "@gitbutler/ui-react/Tooltip.tsx";
 import { Modal } from "@gitbutler/ui-react/Popup.tsx";
@@ -111,15 +111,15 @@ export const MarkdownAttachments: FC<Props> = (p) => {
 			<Tooltip.Root>
 				{/* Disabled buttons swallow hover, so the wrapper span carries the tooltip. */}
 				<Tooltip.Trigger render={<span className={styles.triggerWrap} />}>
-					<button
+					<Button
 						aria-label="Attach a file"
-						className={getButtonClassName({ variant: "ghost", iconOnly: true })}
+						variant="ghost"
+						iconOnly
 						disabled={!enabled}
 						onClick={() => inputRef.current?.click()}
-						type="button"
 					>
 						<Icon name={uploadFiles.isPending ? "spinner" : "paperclip"} />
-					</button>
+					</Button>
 				</Tooltip.Trigger>
 				<Tooltip.Portal>
 					<Tooltip.Positioner sideOffset={4}>
@@ -151,20 +151,12 @@ export const MarkdownAttachments: FC<Props> = (p) => {
 					))}
 				</ul>
 				<div className={styles.actions}>
-					<button
-						className={getButtonClassName({ variant: "ghost" })}
-						onClick={() => setPending([])}
-						type="button"
-					>
+					<Button variant="ghost" onClick={() => setPending([])}>
 						Cancel
-					</button>
-					<button
-						className={getButtonClassName({ variant: "pop" })}
-						onClick={confirm}
-						type="button"
-					>
+					</Button>
+					<Button variant="pop" onClick={confirm}>
 						Yes, upload
-					</button>
+					</Button>
 				</div>
 			</Modal>
 		</>

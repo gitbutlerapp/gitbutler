@@ -1,4 +1,4 @@
-import { getButtonClassName } from "@gitbutler/ui-react/Button.tsx";
+import { Button } from "@gitbutler/ui-react/Button.tsx";
 import { sidebarFocusScopeOf } from "#ui/use-cursor.ts";
 import { Icon } from "@gitbutler/ui-react/Icon.tsx";
 import { TooltipPopup } from "@gitbutler/ui-react/Tooltip.tsx";
@@ -27,14 +27,14 @@ const FullWindowButton: FC = () => {
 		<Tooltip.Root>
 			<Tooltip.Trigger
 				render={
-					<button
-						type="button"
-						className={getButtonClassName({ iconOnly: true, variant: "ghost" })}
+					<Button
+						iconOnly
+						variant="ghost"
 						aria-label={workspaceHotkeys.toggleSidebar.meta.name}
 						onClick={toggle}
 					>
 						{fullWindow ? <Icon name="sidebar-narrow" /> : <Icon name="sidebar" />}
-					</button>
+					</Button>
 				}
 			/>
 			<Tooltip.Portal>

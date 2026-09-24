@@ -23,7 +23,7 @@ import {
 	Reactions,
 	tallyReactions,
 } from "#ui/routes/project/$id/workspace/PullRequestReactions.tsx";
-import { getButtonClassName } from "@gitbutler/ui-react/Button.tsx";
+import { Button } from "@gitbutler/ui-react/Button.tsx";
 import { Clamped } from "#ui/components/Clamped.tsx";
 import { classes } from "@gitbutler/ui-react/classes.ts";
 import { DropdownButton } from "@gitbutler/ui-react/DropdownButton.tsx";
@@ -53,7 +53,7 @@ import {
 	usePersistMergeMethod,
 } from "#ui/pr.ts";
 import { type FocusScope, useAutofocusScope } from "#ui/focus-scopes.ts";
-import { Button, Field, Tooltip } from "@base-ui/react";
+import { Field, Tooltip } from "@base-ui/react";
 import type { ForgeReview, ReviewMergeMethod } from "@gitbutler/but-sdk";
 import { useQuery, useSuspenseQuery } from "@tanstack/react-query";
 import { useHotkey } from "@tanstack/react-hotkeys";
@@ -434,15 +434,15 @@ export const PullRequestForm: FC<{
 							<Tooltip.Root>
 								{/* Disabled buttons swallow hover, so the wrapper span carries the tooltip. */}
 								<Tooltip.Trigger render={<span className={styles.disabledActionWrap} />}>
-									<button
+									<Button
 										aria-label="Generate title and description"
-										className={getButtonClassName({ variant: "ghost", iconOnly: true })}
+										variant="ghost"
+										iconOnly
 										disabled={generationButton.disabled}
 										onClick={generateDescription}
-										type="button"
 									>
 										<Icon name={isGenerating ? "spinner" : "ai-text"} />
-									</button>
+									</Button>
 								</Tooltip.Trigger>
 								<Tooltip.Portal>
 									<Tooltip.Positioner sideOffset={4}>
@@ -473,17 +473,15 @@ export const PullRequestForm: FC<{
 								    already drops the persisted draft on blur, so a Reset button
 								    would just be a destructive shortcut for that. */}
 								{onCancel !== undefined && (
-									<button
-										className={getButtonClassName({})}
+									<Button
 										disabled={isAnyPending}
 										onClick={() => {
 											handleReset();
 											onCancel();
 										}}
-										type="button"
 									>
 										Cancel
-									</button>
+									</Button>
 								)}
 
 								{/* The reason rides in the label, not a tooltip: it is the
@@ -493,9 +491,9 @@ export const PullRequestForm: FC<{
 								<Tooltip.Root disabled={!submitLabelHidden || !isNew}>
 									<Tooltip.Trigger
 										aria-label={submitLabel}
-										className={getButtonClassName({ variant: "gray" })}
 										render={
 											<Button
+												variant="gray"
 												disabled={!canSubmit || noCommits || isAnyPending || !hasChanges}
 												focusableWhenDisabled
 												type="submit"
@@ -782,15 +780,10 @@ export const PullRequestPrimaryAction: FC<{
 	return (
 		<div className={styles.prActions}>
 			{/* One-way: the form's own Cancel and Save leave edit mode. */}
-			<button
-				className={getButtonClassName({ variant: "ghost" })}
-				disabled={isAnyPending || isEditing}
-				onClick={onStartEdit}
-				type="button"
-			>
+			<Button variant="ghost" disabled={isAnyPending || isEditing} onClick={onStartEdit}>
 				Edit
 				<Icon name="edit" />
-			</button>
+			</Button>
 
 			{!isDraft && (
 				<>
@@ -831,19 +824,19 @@ export const PullRequestPrimaryAction: FC<{
 				</>
 			)}
 
-			<button
+			<Button
 				aria-label="More pull request actions"
-				className={getButtonClassName({ variant: "ghost", iconOnly: true })}
+				variant="ghost"
+				iconOnly
 				disabled={isAnyPending}
 				onClick={(evt) => void showNativeMenuFromTrigger(evt.currentTarget, menuItems)}
-				type="button"
 			>
 				{isUpdateReviewPending || isSetReviewDraftinessPending ? (
 					<Icon name="spinner" />
 				) : (
 					<Icon name="kebab" />
 				)}
-			</button>
+			</Button>
 		</div>
 	);
 };

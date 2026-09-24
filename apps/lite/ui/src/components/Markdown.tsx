@@ -1,6 +1,6 @@
 import { guiSettingsQueryOptions } from "#ui/api/queries.ts";
 import { reportError } from "#ui/error-reporting.ts";
-import { getButtonClassName } from "@gitbutler/ui-react/Button.tsx";
+import { Button } from "@gitbutler/ui-react/Button.tsx";
 import { classes } from "@gitbutler/ui-react/classes.ts";
 import { Icon } from "@gitbutler/ui-react/Icon.tsx";
 import { TextLink } from "@gitbutler/ui-react/TextLink.tsx";
@@ -173,14 +173,13 @@ const Pre: FC<{ node?: HastNode; children?: ReactNode }> = ({ node, children }) 
 			<pre>{children}</pre>
 			<Tooltip.Root>
 				<Tooltip.Trigger
-					className={classes(
-						getButtonClassName({ variant: "ghost", size: "small", iconOnly: true }),
-						styles.copy,
-					)}
+					className={styles.copy}
 					// Keeps the button shown for the tick, even once the pointer has left the block.
 					data-copied={copied || undefined}
 					onClick={copy}
-					render={<button type="button" aria-label={copied ? "Copied" : "Copy"} />}
+					render={
+						<Button variant="ghost" size="small" iconOnly aria-label={copied ? "Copied" : "Copy"} />
+					}
 				>
 					{/* Each glyph in its own wrapper: the button styles the icons' opacity itself, so the
 					    crossfade has to fade something else. */}

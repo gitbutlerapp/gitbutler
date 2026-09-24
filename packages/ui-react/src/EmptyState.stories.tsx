@@ -1,5 +1,5 @@
 import preview from "#storybook/preview";
-import { getButtonClassName } from "./Button.tsx";
+import { Button } from "./Button.tsx";
 import { EmptyState } from "./EmptyState.tsx";
 import { Icon } from "./Icon.tsx";
 import { illustrations, type IllustrationName } from "./illustrations.ts";
@@ -52,14 +52,14 @@ export const TwoActions = meta.story({
 		description: "You have 5 branches to pick from",
 		children: (
 			<>
-				<button type="button" className={getButtonClassName({ variant: "gray" })}>
+				<Button variant="gray">
 					See all
 					<Icon name="list" />
-				</button>
-				<button type="button" className={getButtonClassName({ variant: "outline" })}>
+				</Button>
+				<Button variant="outline">
 					New branch
 					<Icon name="plus" />
-				</button>
+				</Button>
 			</>
 		),
 	},
@@ -71,10 +71,10 @@ export const OneAction = meta.story({
 		title: "No branches yet",
 		description: "Your first commit will start one",
 		children: (
-			<button type="button" className={getButtonClassName({ variant: "outline" })}>
+			<Button variant="outline">
 				New branch
 				<Icon name="plus" />
-			</button>
+			</Button>
 		),
 	},
 });
@@ -94,10 +94,10 @@ export const WithoutIllustration = meta.story({
 		description: "You have 5 branches to pick from",
 		illustration: undefined,
 		children: (
-			<button type="button" className={getButtonClassName({ variant: "outline" })}>
+			<Button variant="outline">
 				New branch
 				<Icon name="plus" />
-			</button>
+			</Button>
 		),
 	},
 });

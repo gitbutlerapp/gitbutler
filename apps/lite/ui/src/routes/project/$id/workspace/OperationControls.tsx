@@ -7,11 +7,7 @@ import {
 } from "#ui/use-cursor.ts";
 import { absorptionPlanQueryOptions, headInfoQueryOptions } from "#ui/api/queries.ts";
 import { getHeadInfoIndex, type HeadInfoIndex } from "#ui/api/ref-info.ts";
-import {
-	getButtonClassName,
-	type ButtonSize,
-	type ButtonVariant,
-} from "@gitbutler/ui-react/Button.tsx";
+import { Button, type ButtonSize, type ButtonVariant } from "@gitbutler/ui-react/Button.tsx";
 import { Snackbar } from "@gitbutler/ui-react/Snackbar.tsx";
 import { Icon } from "@gitbutler/ui-react/Icon.tsx";
 import type { IconName } from "@gitbutler/ui-react/iconNames.ts";
@@ -41,7 +37,7 @@ import { isCommitFormKeyEvent } from "#ui/routes/project/$id/workspace/commitFor
 import { addressLabel, addressesLabel } from "#ui/routes/project/$id/workspace/addressLabel.ts";
 import { useCheckedActions } from "#ui/routes/project/$id/workspace/useCheckedActions.ts";
 import { useAppDispatch, useAppSelector } from "#ui/store.ts";
-import { Button, Toggle, ToggleGroup } from "@base-ui/react";
+import { Toggle, ToggleGroup } from "@base-ui/react";
 import { useHotkeys, type UseHotkeyDefinition } from "@tanstack/react-hotkeys";
 import { useQuery } from "@tanstack/react-query";
 import { Match } from "effect";
@@ -92,7 +88,8 @@ const ToolboxButton: FC<{
 	onClick: () => void;
 }> = ({ label, hotkey, variant, size, enabled = true, onClick }) => (
 	<Button
-		className={getButtonClassName({ variant, size })}
+		variant={variant}
+		size={size}
 		disabled={!enabled}
 		focusableWhenDisabled
 		onMouseDown={(event) => {
@@ -155,7 +152,9 @@ const useControlHotkeys = ({
  */
 const CloseButton: FC<{ onCancel: () => void; size?: ButtonSize }> = ({ onCancel, size }) => (
 	<Button
-		className={getButtonClassName({ variant: "ghost", iconOnly: true, size })}
+		variant="ghost"
+		iconOnly
+		size={size}
 		aria-label="Cancel"
 		onMouseDown={(event) => {
 			// Prevent stealing focus from the tree.

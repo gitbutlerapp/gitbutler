@@ -14,7 +14,7 @@ import {
 } from "#ui/routes/project/$id/workspace/Settings/credential-check.ts";
 import { useSetGbConfig, useUpdateProjectSettings } from "#ui/api/mutations.ts";
 import { assert } from "#ui/assert.ts";
-import { getButtonClassName } from "@gitbutler/ui-react/Button.tsx";
+import { Button } from "@gitbutler/ui-react/Button.tsx";
 import { FieldControlStyles } from "@gitbutler/ui-react/Field.tsx";
 import { Icon } from "@gitbutler/ui-react/Icon.tsx";
 import { Select } from "@gitbutler/ui-react/Select.tsx";
@@ -230,14 +230,9 @@ export const ProjectGit: FC<{ projectId: string }> = ({ projectId }) => {
 								{signingError === null && signingWorks === true && (
 									<span className={classes("text-12", styles.passed)}>Signing works</span>
 								)}
-								<button
-									type="button"
-									className={getButtonClassName({})}
-									disabled={isCheckingSigning}
-									onClick={() => void checkSigning()}
-								>
+								<Button disabled={isCheckingSigning} onClick={() => void checkSigning()}>
 									{isCheckingSigning ? "Testing…" : "Run test"}
-								</button>
+								</Button>
 							</div>
 						</Row>
 					</>
@@ -253,14 +248,12 @@ export const ProjectGit: FC<{ projectId: string }> = ({ projectId }) => {
 							: `Fetches from ${target.remoteName}, then pushes and deletes an empty branch.`
 					}
 				>
-					<button
-						type="button"
-						className={getButtonClassName({})}
+					<Button
 						disabled={credentials._tag === "Running" || target === null || target === undefined}
 						onClick={() => void checkCredentials()}
 					>
 						{credentials._tag === "Running" ? "Testing…" : "Test credentials"}
-					</button>
+					</Button>
 				</Row>
 
 				{credentials._tag !== "Idle" &&

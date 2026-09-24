@@ -1,4 +1,4 @@
-import { getButtonClassName } from "@gitbutler/ui-react/Button.tsx";
+import { Button } from "@gitbutler/ui-react/Button.tsx";
 import { classes } from "@gitbutler/ui-react/classes.ts";
 import { Icon } from "@gitbutler/ui-react/Icon.tsx";
 import { TooltipPopup } from "@gitbutler/ui-react/Tooltip.tsx";
@@ -159,16 +159,14 @@ export const Reactions: FC<{
 					onOpenChange={setPickerOpen}
 					className={styles.reactionPicker}
 					trigger={
-						<button
+						<Button
 							aria-label="Add reaction"
-							className={classes(
-								getButtonClassName({ variant: "ghost", iconOnly: true }),
-								styles.reactionPickerTrigger,
-							)}
-							type="button"
+							variant="ghost"
+							iconOnly
+							className={styles.reactionPickerTrigger}
 						>
 							<Icon name="smiley" />
-						</button>
+						</Button>
 					}
 				>
 					{reactionGlyphs.map(([kind, glyph]) => {

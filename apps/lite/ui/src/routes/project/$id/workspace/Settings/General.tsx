@@ -11,7 +11,7 @@ import {
 import { useDeleteAllData, useSaveGUISettings } from "#ui/api/mutations.ts";
 import { AccountSection, SignOutRow } from "./Account.tsx";
 import { InstallCli } from "./InstallCli.tsx";
-import { getButtonClassName } from "@gitbutler/ui-react/Button.tsx";
+import { Button } from "@gitbutler/ui-react/Button.tsx";
 import { Icon } from "@gitbutler/ui-react/Icon.tsx";
 import { ProgramIcon } from "@gitbutler/ui-react/ProgramIcon.tsx";
 import { Select } from "@gitbutler/ui-react/Select.tsx";
@@ -148,33 +148,22 @@ export const General: FC = () => {
 				>
 					{confirmingRemoveAll ? (
 						<div className={styles.confirm}>
-							<button
-								type="button"
-								className={getButtonClassName({ variant: "danger" })}
-								disabled={isRemoving}
-								onClick={removeAllProjects}
-							>
+							<Button variant="danger" disabled={isRemoving} onClick={removeAllProjects}>
 								{isRemoving ? "Removing…" : "Confirm"}
-							</button>
-							<button
-								type="button"
-								className={getButtonClassName({})}
-								disabled={isRemoving}
-								onClick={() => setConfirmingRemoveAll(false)}
-							>
+							</Button>
+							<Button disabled={isRemoving} onClick={() => setConfirmingRemoveAll(false)}>
 								Cancel
-							</button>
+							</Button>
 						</div>
 					) : (
-						<button
-							type="button"
-							className={getButtonClassName({ variant: "danger" })}
+						<Button
+							variant="danger"
 							disabled={projects.length === 0}
 							onClick={() => setConfirmingRemoveAll(true)}
 						>
 							<Icon name="bin" />
 							Remove all…
-						</button>
+						</Button>
 					)}
 				</Row>
 			</Section>

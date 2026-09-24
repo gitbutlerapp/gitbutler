@@ -8,7 +8,7 @@ import {
 	operatingModeQueryOptions,
 } from "#ui/api/queries.ts";
 import { getHeadInfoIndex, resolveRelativeTo } from "#ui/api/ref-info.ts";
-import { getButtonClassName } from "@gitbutler/ui-react/Button.tsx";
+import { Button, type ButtonVariant } from "@gitbutler/ui-react/Button.tsx";
 import { classes } from "@gitbutler/ui-react/classes.ts";
 import { DropdownButton } from "@gitbutler/ui-react/DropdownButton.tsx";
 import { Icon } from "@gitbutler/ui-react/Icon.tsx";
@@ -30,7 +30,7 @@ import { projectSlice } from "#ui/projects/state.ts";
 import { projectAiSettingsQueryOptions } from "#ui/project-ai-settings.ts";
 import { focusScope } from "#ui/focus-scopes.ts";
 import { useAppSelector, useAppStore } from "#ui/store.ts";
-import { Button, Combobox, Tooltip } from "@base-ui/react";
+import { Combobox, Tooltip } from "@base-ui/react";
 import type { InsertSide, RelativeTo, WorktreeChanges } from "@gitbutler/but-sdk";
 import { useHotkey, useHotkeys } from "@tanstack/react-hotkeys";
 import { useIsMutating, useQuery } from "@tanstack/react-query";
@@ -466,7 +466,11 @@ export const CommitForm: FC<{
 	// The collapsed row and the expanded footer show the same picker, differing
 	// only in how the trigger is dressed. A render function rather than a
 	// component, so the picker state needs no threading through props.
-	const renderTargetPicker = (trigger: { className: string; iconSize?: number }) => (
+	const renderTargetPicker = (trigger: {
+		variant: ButtonVariant;
+		className?: string;
+		iconSize?: number;
+	}) => (
 		<CommitTargetCombobox
 			// The new-branch row goes last, so that `autoHighlight` lands on a target
 			// and Enter never creates a branch by accident.
@@ -483,7 +487,9 @@ export const CommitForm: FC<{
 					aria-label={
 						willCreateBranch ? `Will create branch ${draftBranchLabel}` : "Select commit target"
 					}
-					render={<Button focusableWhenDisabled render={<Tooltip.Trigger />} />}
+					render={
+						<Button variant={trigger.variant} focusableWhenDisabled render={<Tooltip.Trigger />} />
+					}
 				>
 					<Icon name="bullseye" size={trigger.iconSize} />
 					<Icon name={pickerItemIcon(pickerValue)} size={trigger.iconSize} />
@@ -521,10 +527,8 @@ export const CommitForm: FC<{
 		return (
 			<div {...{ [NO_DRAG_ATTRIBUTE]: "" }} className={classes(styles.startCommitRow, className)}>
 				{renderTargetPicker({
-					className: classes(
-						getButtonClassName({ variant: "outline" }),
-						styles.collapsedTargetTrigger,
-					),
+					variant: "outline",
+					className: styles.collapsedTargetTrigger,
 					iconSize: 14,
 				})}
 
@@ -593,22 +597,21 @@ export const CommitForm: FC<{
 				<div className={styles.footerRow}>
 					<div className={styles.footerStart}>
 						{renderTargetPicker({
-							className: classes(getButtonClassName({ variant: "ghost" }), styles.targetTrigger),
+							variant: "ghost",
+							className: styles.targetTrigger,
 						})}
 
 						<div aria-hidden className={styles.footerSeparator} />
 						<Tooltip.Root>
 							<Tooltip.Trigger
 								aria-label="Generate commit message"
-								className={classes(
-									getButtonClassName({ variant: "ghost", iconOnly: true }),
-									styles.generateButton,
-								)}
+								className={styles.generateButton}
 								onClick={generateCommitMessage}
 								render={
 									<Button
+										variant="ghost"
+										iconOnly
 										focusableWhenDisabled
-										type="button"
 										disabled={generationButton.disabled}
 									/>
 								}
@@ -630,7 +633,6 @@ export const CommitForm: FC<{
 						<Tooltip.Root>
 							<Tooltip.Trigger
 								aria-label="Cancel"
-								className={getButtonClassName({ variant: "outline" })}
 								onClick={() => {
 									// Persist the draft before the textarea unmounts.
 									persistDraftMessage({
@@ -643,9 +645,9 @@ export const CommitForm: FC<{
 								}}
 								render={
 									<Button
+										variant="outline"
 										focusableWhenDisabled
 										disabled={isCommitOrAmendPending || isGenerating}
-										type="button"
 									/>
 								}
 							>
@@ -663,8 +665,9 @@ export const CommitForm: FC<{
 						<Tooltip.Root disabled={!commitLabelHidden}>
 							<Tooltip.Trigger
 								aria-label="Commit"
-								className={getButtonClassName({ variant: "pop" })}
-								render={<Button focusableWhenDisabled type="submit" disabled={!canCommit} />}
+								render={
+									<Button variant="pop" focusableWhenDisabled type="submit" disabled={!canCommit} />
+								}
 							>
 								<span ref={observeCommitLabel} className={styles.commitButtonLabel}>
 									Commit

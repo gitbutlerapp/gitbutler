@@ -1,4 +1,4 @@
-import { getButtonClassName } from "./Button.tsx";
+import { Button } from "./Button.tsx";
 import { Component, type ReactNode } from "react";
 import styles from "./ErrorBoundary.module.css";
 
@@ -67,13 +67,7 @@ export class ErrorBoundary extends Component<Props, State> {
 			<div className={styles.error}>
 				<h1 className={styles.errorTitle}>Something went wrong.</h1>
 				<div className={styles.errorActions}>
-					<button
-						type="button"
-						className={getButtonClassName({})}
-						onClick={() => this.handleRetry()}
-					>
-						Retry
-					</button>
+					<Button onClick={() => this.handleRetry()}>Retry</Button>
 				</div>
 				<code className={styles.errorMessage}>{this.state.error.message}</code>
 			</div>

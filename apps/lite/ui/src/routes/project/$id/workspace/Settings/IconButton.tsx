@@ -1,7 +1,6 @@
 import { Tooltip } from "@base-ui/react";
 import type { FC, MouseEvent, ReactNode } from "react";
-import { getButtonClassName } from "@gitbutler/ui-react/Button.tsx";
-import { classes } from "@gitbutler/ui-react/classes.ts";
+import { Button } from "@gitbutler/ui-react/Button.tsx";
 import { TooltipPopup } from "@gitbutler/ui-react/Tooltip.tsx";
 
 /** A button of glyphs alone, which says what it does on hover since they cannot. */
@@ -16,8 +15,10 @@ export const IconButton: FC<{
 }> = (p) => (
 	<Tooltip.Root>
 		<Tooltip.Trigger
-			className={classes(getButtonClassName({ iconOnly: p.className === undefined }), p.className)}
-			render={<button type="button" aria-label={p.label} disabled={p.disabled} />}
+			className={p.className}
+			render={
+				<Button iconOnly={p.className === undefined} aria-label={p.label} disabled={p.disabled} />
+			}
 			onClick={p.onClick}
 		>
 			{p.children}

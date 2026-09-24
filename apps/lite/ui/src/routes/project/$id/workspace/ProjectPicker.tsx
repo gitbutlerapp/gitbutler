@@ -1,4 +1,4 @@
-import { getButtonClassName } from "@gitbutler/ui-react/Button.tsx";
+import { Button } from "@gitbutler/ui-react/Button.tsx";
 import { classes } from "@gitbutler/ui-react/classes.ts";
 import { FolderIcon } from "@gitbutler/ui-react/FolderIcon.tsx";
 import {
@@ -23,7 +23,7 @@ import {
 	type ProjectRepoMarks,
 } from "#ui/project.ts";
 import { useAppDispatch, useAppSelector } from "#ui/store.ts";
-import { Button, Combobox, Tooltip } from "@base-ui/react";
+import { Combobox, Tooltip } from "@base-ui/react";
 import type { IconName } from "@gitbutler/ui-react/iconNames.ts";
 import type { ProjectForFrontend } from "@gitbutler/but-sdk";
 import { useQuery, useSuspenseQuery } from "@tanstack/react-query";
@@ -307,14 +307,9 @@ export const ProjectPicker: FC<{ project: ProjectForFrontend }> = (p) => {
 		>
 			<Tooltip.Root>
 				<Combobox.Trigger
-					className={classes(
-						getButtonClassName({ variant: "ghost" }),
-						"text-15",
-						"text-bold",
-						headerStyles.workspaceName,
-					)}
+					className={classes("text-15", "text-bold", headerStyles.workspaceName)}
 					aria-label={`${globalHotkeys.selectProject.meta.name} (current: ${p.project.title})`}
-					render={<Button render={<Tooltip.Trigger />} />}
+					render={<Button variant="ghost" render={<Tooltip.Trigger />} />}
 				>
 					<FolderIcon className={headerStyles.workspaceNameFolder} />
 					<span className={headerStyles.workspaceNameLabel}>{p.project.title}</span>

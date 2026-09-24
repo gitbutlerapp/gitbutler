@@ -1,7 +1,7 @@
 import { Toast } from "@base-ui/react";
 import type { FC } from "react";
 import { classes } from "./classes.ts";
-import { getButtonClassName } from "./Button.tsx";
+import { Button } from "./Button.tsx";
 import styles from "./Toasts.module.css";
 import popupStyles from "./Popup.module.css";
 
@@ -27,8 +27,8 @@ export const Toasts: FC = () => {
 								className="text-13"
 							/>
 							<div className={styles.actions}>
-								{toast.actionProps && <Toast.Action className={getButtonClassName({})} />}
-								<Toast.Close className={getButtonClassName({})}>Dismiss</Toast.Close>
+								{toast.actionProps && <Toast.Action render={<Button />} />}
+								<Toast.Close render={<Button />}>Dismiss</Toast.Close>
 							</div>
 						</Toast.Content>
 					</Toast.Root>

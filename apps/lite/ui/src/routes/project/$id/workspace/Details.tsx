@@ -74,7 +74,7 @@ import type { BranchTab, CheckableAddress } from "#ui/projects/project.ts";
 import { projectSlice } from "#ui/projects/state.ts";
 import { interfaceSlice } from "#ui/interface/state.ts";
 import { Badge } from "@gitbutler/ui-react/Badge.tsx";
-import { getButtonClassName } from "@gitbutler/ui-react/Button.tsx";
+import { Button, getButtonClassName } from "@gitbutler/ui-react/Button.tsx";
 import { Icon } from "@gitbutler/ui-react/Icon.tsx";
 import { TooltipPopup } from "@gitbutler/ui-react/Tooltip.tsx";
 import { useCopied } from "#ui/components/useCopied.ts";
@@ -1973,8 +1973,8 @@ const DiffFileHeader: FC<DiffFileHeaderProps> = (p) => {
 					<Tooltip.Trigger
 						aria-label={collapseLabel}
 						aria-expanded={!p.collapsed}
-						className={getButtonClassName({ size: "small", variant: "ghost", iconOnly: true })}
 						onClick={() => p.setCollapsed(!p.collapsed)}
+						render={<Button size="small" variant="ghost" iconOnly />}
 					>
 						<Icon name={p.collapsed ? "chevron-right" : "chevron-down"} />
 					</Tooltip.Trigger>
@@ -2080,15 +2080,15 @@ const FilesToggle: FC<{ projectId: string }> = ({ projectId }) => {
 		<Tooltip.Root>
 			<Tooltip.Trigger
 				render={
-					<button
-						type="button"
-						className={getButtonClassName({ iconOnly: true, variant: "ghost" })}
+					<Button
+						iconOnly
+						variant="ghost"
 						aria-label={workspaceHotkeys.toggleFiles.meta.name}
 						aria-pressed={filesVisible}
 						onClick={() => dispatch(projectSlice.actions.toggleFiles({ projectId }))}
 					>
 						{filesVisible ? <Icon name="files-sidebar" /> : <Icon name="sidebar-narrow" />}
-					</button>
+					</Button>
 				}
 			/>
 			<Tooltip.Portal>
@@ -2980,15 +2980,15 @@ const CommitDetails: FC<{
 										aria-expanded={!commitBodyCollapsed}
 										aria-label={commitBodyCollapsed ? "Expand commit body" : "Collapse commit body"}
 										aria-pressed={!commitBodyCollapsed}
-										className={classes(
-											getButtonClassName({
-												variant: commitBodyCollapsed ? "outline" : "gray",
-												iconOnly: true,
-												size: "small",
-											}),
-											styles.commitBodyToggle,
-										)}
+										className={styles.commitBodyToggle}
 										onClick={() => setCommitBodyCollapsed(!commitBodyCollapsed)}
+										render={
+											<Button
+												variant={commitBodyCollapsed ? "outline" : "gray"}
+												iconOnly
+												size="small"
+											/>
+										}
 									>
 										<Icon name="kebab" />
 									</Tooltip.Trigger>
@@ -3506,15 +3506,14 @@ const UnappliedBranchDetails: FC<BranchDetailsProps> = ({
 
 					<div className={styles.tabsRowRight}>
 						{worktreeName === undefined ? (
-							<button
-								type="button"
-								className={getButtonClassName({ variant: "gray" })}
+							<Button
+								variant="gray"
 								disabled={isApplyPending}
 								onClick={() => apply(decodeBytes(branch.branchRef))}
 							>
 								{isApplyPending && <Icon name="spinner" />}
 								Apply to workspace
-							</button>
+							</Button>
 						) : (
 							<span className={classes("text-12", rowStyles.fadedText)}>
 								Checked out in worktree {worktreeName}
@@ -3639,14 +3638,10 @@ const AppliedBranchDetails: FC<BranchDetailsProps> = ({
 
 					{showCreatePullRequest && (
 						<div className={styles.tabsRowRight}>
-							<button
-								type="button"
-								className={getButtonClassName({ variant: "gray" })}
-								onClick={() => setBranchTab("pr")}
-							>
+							<Button variant="gray" onClick={() => setBranchTab("pr")}>
 								<Icon name="pr" />
 								Create pull request
-							</button>
+							</Button>
 						</div>
 					)}
 

@@ -1,6 +1,6 @@
 import { guiSettingsQueryOptions } from "#ui/api/queries.ts";
 import { Badge } from "@gitbutler/ui-react/Badge.tsx";
-import { getButtonClassName } from "@gitbutler/ui-react/Button.tsx";
+import { Button } from "@gitbutler/ui-react/Button.tsx";
 import { Checkbox } from "@gitbutler/ui-react/Checkbox.tsx";
 import { classes } from "@gitbutler/ui-react/classes.ts";
 import { FileIcon } from "@gitbutler/ui-react/FileIcon.tsx";
@@ -349,9 +349,9 @@ const ConflictActions: FC<{
 						/>
 					</div>
 					<div className={styles.editorActions}>
-						<button
-							type="button"
-							className={getButtonClassName({ variant: "outline", size: "small" })}
+						<Button
+							variant="outline"
+							size="small"
 							disabled={disabled}
 							onClick={() =>
 								apply({
@@ -361,15 +361,15 @@ const ConflictActions: FC<{
 							}
 						>
 							Apply resolution
-						</button>
-						<button
-							type="button"
-							className={getButtonClassName({ variant: "ghost", size: "small" })}
+						</Button>
+						<Button
+							variant="ghost"
+							size="small"
 							disabled={p.busy}
 							onClick={() => setEditing(false)}
 						>
 							Cancel
-						</button>
+						</Button>
 					</div>
 				</>
 			)}

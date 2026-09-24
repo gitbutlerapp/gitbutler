@@ -1,4 +1,4 @@
-import { getButtonClassName } from "./Button.tsx";
+import { Button } from "./Button.tsx";
 import { classes } from "./classes.ts";
 import { Icon } from "./Icon.tsx";
 import { TooltipPopup } from "./Tooltip.tsx";
@@ -127,11 +127,15 @@ export const MarkdownToolbar: FC<Props> = (p) => {
 							{group.map((button) => (
 								<Tooltip.Root key={button.label}>
 									<Tooltip.Trigger
-										className={getButtonClassName({ variant: "ghost", iconOnly: true })}
 										// base-ui's own `disabled` only suppresses the tooltip, leaving a
 										// live button behind, so the native attributes go on the element.
 										render={
-											<button aria-label={button.label} disabled={p.disabled} type="button" />
+											<Button
+												variant="ghost"
+												iconOnly
+												aria-label={button.label}
+												disabled={p.disabled}
+											/>
 										}
 										// Keeps the caret in the textarea: a plain click would blur it
 										// first, so the command would have no selection to act on.
@@ -155,26 +159,26 @@ export const MarkdownToolbar: FC<Props> = (p) => {
 			{reach !== "fits" && (
 				<div className={styles.nav}>
 					<div aria-hidden className={styles.separator} />
-					<button
+					<Button
 						aria-label="Previous formatting group"
-						className={getButtonClassName({ variant: "ghost", iconOnly: true })}
+						variant="ghost"
+						iconOnly
 						disabled={reach === "start"}
 						onMouseDown={(evt) => evt.preventDefault()}
 						onClick={() => scrollByGroup(-1)}
-						type="button"
 					>
 						<Icon name="chevron-left" />
-					</button>
-					<button
+					</Button>
+					<Button
 						aria-label="Next formatting group"
-						className={getButtonClassName({ variant: "ghost", iconOnly: true })}
+						variant="ghost"
+						iconOnly
 						disabled={reach === "end"}
 						onMouseDown={(evt) => evt.preventDefault()}
 						onClick={() => scrollByGroup(1)}
-						type="button"
 					>
 						<Icon name="chevron-right" />
-					</button>
+					</Button>
 				</div>
 			)}
 		</div>
