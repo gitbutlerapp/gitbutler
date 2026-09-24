@@ -88,6 +88,12 @@ its count is zero, and a `state` property (`default`, `hover`) for what CSS
 draws under the pointer, as Button has; two components the code keeps apart
 stay apart in Figma and are placed side by side where a surface shows both.
 
+A component's description in Figma says what its JSDoc and DESIGN.md say
+about it: what it is for, when to pick which variant, and a `Code:` line
+naming the component and its file. Change one and change the other in the
+same piece of work; a description that lags the code is what an agent reading
+Figma will build from.
+
 ## Verifying your work
 
 Always run the specified commands **exactly** as written. The package has no
