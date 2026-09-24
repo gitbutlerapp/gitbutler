@@ -80,6 +80,7 @@ import { createDiffSpec } from "#ui/operations/diff-specs.ts";
 import {
 	GraphEdge,
 	GraphGap,
+	GraphRail,
 	GraphSegment,
 	type GraphSegmentStatus,
 } from "#ui/components/GraphSegment.tsx";
@@ -93,7 +94,6 @@ import { useActiveListsHotkeys } from "./hotkeys.ts";
 import { UncommittedChangesRow } from "./UncommittedChangesRow.tsx";
 import { LastCommitLine } from "./LastCommitLine.tsx";
 import { NoStacks } from "./NoStacks.tsx";
-import type { NewBranchActions } from "../useNewBranch.ts";
 import { ListFilterRow } from "../ListFilterRow.tsx";
 import { useListFilter } from "../useListFilter.ts";
 import { buildUncommittedFileRows } from "../file-row.ts";
@@ -1050,7 +1050,6 @@ const focusCommitMessageInput = () => {
 const Stacks: FC<{
 	projectId: string;
 	graph: Graph;
-	newBranch: NewBranchActions;
 	checkCommit: (evt: { commitId: string; shiftKey: boolean }) => void;
 	onAmendCommit: (commitId: string) => void;
 	canAmendCommit: boolean;
@@ -1066,7 +1065,6 @@ const Stacks: FC<{
 }> = ({
 	projectId,
 	graph,
-	newBranch,
 	checkCommit,
 	onAmendCommit,
 	canAmendCommit,
@@ -1287,6 +1285,15 @@ const Stacks: FC<{
 				{dock}
 			</div>
 			<GraphGap height={CARD_GAP} />
+			{/* Where the cards would be: the panel has content, only the branches are
+			    missing, so this is an empty section in its place, not a block for the
+			    whole panel. */}
+			{isEmpty && (
+				<div className={styles.empty}>
+					<GraphRail />
+					<NoStacks projectId={projectId} />
+				</div>
+			)}
 			{/* One tree: the cards and the upstream section below them share the
 			    applied list's cursor, and arrow keys walk them in reading order. */}
 			<div
@@ -1354,11 +1361,6 @@ const Stacks: FC<{
 				/>
 			</div>
 
-			{isEmpty && (
-				<div className={styles.empty}>
-					<NoStacks projectId={projectId} newBranch={newBranch} />
-				</div>
-			)}
 			<div className={styles.foot} />
 		</div>
 	);
@@ -1374,7 +1376,6 @@ export const WorkspaceLists: FC<
 		absorptionTargetCommitIds: ReadonlySet<string>;
 		onActiveFileSelection: (selection: string) => void;
 		stacksHeaderActions?: ReactNode;
-		newBranch: NewBranchActions;
 	} & ComponentProps<"div">
 > = ({
 	projectId,
@@ -1384,7 +1385,6 @@ export const WorkspaceLists: FC<
 	absorptionTargetCommitIds,
 	onActiveFileSelection,
 	stacksHeaderActions,
-	newBranch,
 	...props
 }) => {
 	const { data: headInfo } = useQuery(headInfoQueryOptions(projectId));
@@ -1572,7 +1572,6 @@ export const WorkspaceLists: FC<
 				<Stacks
 					projectId={projectId}
 					graph={graph}
-					newBranch={newBranch}
 					checkCommit={checkCommit}
 					onAmendCommit={amendCommit}
 					canAmendCommit={canAmendCommit}
