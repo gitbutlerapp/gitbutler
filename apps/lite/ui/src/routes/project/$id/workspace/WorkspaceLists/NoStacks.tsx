@@ -1,30 +1,21 @@
 import { branchListQueryOptions } from "#ui/api/queries.ts";
 import { unappliedStacks } from "#ui/branch.ts";
-import { Button } from "@gitbutler/ui-react/Button.tsx";
 import { EmptyState } from "@gitbutler/ui-react/EmptyState.tsx";
-import { Icon } from "@gitbutler/ui-react/Icon.tsx";
-import { focusScope } from "#ui/focus-scopes.ts";
 import { projectSlice } from "#ui/projects/state.ts";
 import { useAppSelector } from "#ui/store.ts";
-import { setPage } from "#ui/use-cursor.ts";
 import { useQuery } from "@tanstack/react-query";
 import type { FC } from "react";
-import type { NewBranchActions } from "../useNewBranch.ts";
 
 /**
  * The stacks panel with nothing applied, which is two states rather than one.
  *
  * A project with no branches at all needs no rescue: committing creates one on
- * its own, so the panel says so and the button beside it is only a shortcut. A
- * project whose branches are simply elsewhere is a different question — the
- * work exists and the panel is the wrong place to be looking — so there the
- * highlight goes on the way back to them, and the count is what makes that
- * worth pressing.
+ * its own, and the line says so. A project whose branches are simply elsewhere
+ * says how many are waiting. Both are an empty section where the cards would
+ * be, text only: the panel's header and the Branches tab already carry the
+ * ways to start or pick one, so the section doesn't repeat them.
  */
-export const NoStacks: FC<{ projectId: string; newBranch: NewBranchActions }> = ({
-	projectId,
-	newBranch,
-}) => {
+export const NoStacks: FC<{ projectId: string }> = ({ projectId }) => {
 	// The same filters the branches page lists under, so the count promises
 	// exactly what "See all" then shows.
 	const filters = useAppSelector((state) =>
@@ -49,34 +40,13 @@ export const NoStacks: FC<{ projectId: string; newBranch: NewBranchActions }> = 
 
 	return (
 		<EmptyState
-			illustration="cactus"
-			title={hasBranchesElsewhere ? "Your workspace is empty" : "No branches yet"}
+			align="start"
+			title={hasBranchesElsewhere ? "No branches applied" : "No branches yet"}
 			description={
 				hasBranchesElsewhere
 					? `You have ${unappliedBranchCount} ${unappliedBranchCount === 1 ? "branch" : "branches"} to pick from`
 					: "Your first commit will start one"
 			}
-		>
-			{hasBranchesElsewhere && (
-				<Button
-					variant="gray"
-					onClick={() => {
-						setPage("branches");
-						focusScope("sidebar");
-					}}
-				>
-					See all
-					<Icon name="list" />
-				</Button>
-			)}
-			<Button
-				variant="outline"
-				disabled={!newBranch.canCreateInWorkspace}
-				onClick={newBranch.createInWorkspace}
-			>
-				New branch
-				<Icon name="plus" />
-			</Button>
-		</EmptyState>
+		/>
 	);
 };

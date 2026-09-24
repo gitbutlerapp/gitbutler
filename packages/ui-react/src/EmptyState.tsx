@@ -22,6 +22,11 @@ type Props = {
 	description?: ReactNode;
 	/** The actions slot: at most two buttons, and never `pop`. */
 	children?: ReactNode;
+	/**
+	 * `start` for an empty section in a list that reads from the left edge, as a sidebar's stack of
+	 * cards does: flush with the rows it stands in for rather than centred in the panel.
+	 */
+	align?: "center" | "start";
 } & Omit<ComponentProps<"div">, "children" | "title">;
 
 /**
@@ -34,8 +39,18 @@ type Props = {
  * `packages/ui-react/DESIGN.md`.
  * @import import { EmptyState } from "@gitbutler/ui-react/EmptyState.tsx";
  */
-export const EmptyState: FC<Props> = ({ illustration, title, description, children, ...props }) => (
-	<div {...props} className={classes(props.className, styles.empty)}>
+export const EmptyState: FC<Props> = ({
+	illustration,
+	title,
+	description,
+	children,
+	align = "center",
+	...props
+}) => (
+	<div
+		{...props}
+		className={classes(props.className, styles.empty, align === "start" && styles.start)}
+	>
 		{illustration !== undefined && <Illustration name={illustration} />}
 
 		<div className={styles.body}>

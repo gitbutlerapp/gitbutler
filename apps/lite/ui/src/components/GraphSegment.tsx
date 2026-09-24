@@ -359,3 +359,32 @@ export const GraphGap: FC<{
 		</svg>
 	</div>
 );
+
+/**
+ * The trunk through something whose height is its content's, not a fixed gap: the gap's line,
+ * stretched to the height beside it. `vector-effect` keeps the stroke 1.5 however far it stretches.
+ */
+export const GraphRail: FC = () => (
+	<div className={classes(styles.gap, styles.rail)} aria-hidden>
+		<svg
+			viewBox="0 0 28 1"
+			preserveAspectRatio="none"
+			style={gapInsetStyle}
+			width="28"
+			height="100%"
+			fill="none"
+			xmlns="http://www.w3.org/2000/svg"
+			aria-hidden="true"
+			focusable="false"
+		>
+			<g className={styles.tone} data-status="LocalOnly">
+				<path
+					className={styles.line}
+					d="M8 0V1"
+					strokeWidth="1.5"
+					vectorEffect="non-scaling-stroke"
+				/>
+			</g>
+		</svg>
+	</div>
+);

@@ -140,3 +140,7 @@
 	flex-shrink: 0;
 	padding-inline-start: var(--row-padding-inline-start, 12px);
 }
+
+.rail {
+	align-self: stretch;
+}

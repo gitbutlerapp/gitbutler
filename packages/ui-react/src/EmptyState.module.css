@@ -62,6 +62,19 @@
 	min-block-size: 100%;
 }
 
+/* Flush with the list it stands in for: the rows' left edge, their width, no measure of its own. */
+.start {
+	align-items: flex-start;
+	max-width: none;
+	margin-inline: 0;
+	padding-inline: 0;
+	text-align: start;
+
+	& .body {
+		align-items: flex-start;
+	}
+}
+
 .body {
 	display: flex;
 	flex-direction: column;
