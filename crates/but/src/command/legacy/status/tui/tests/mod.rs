@@ -1364,7 +1364,6 @@ fn open_tui_on_uncommitted_hunk(show_diff: bool) -> TestTui<App> {
                 | CliId::Branch(..)
                 | CliId::Commit { .. }
                 | CliId::Uncommitted { .. }
-                | CliId::Worktree { .. }
                 | CliId::WorktreeUncommitted { .. }
                 | CliId::Stack { .. } => None,
             })

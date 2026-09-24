@@ -12,7 +12,7 @@ use crate::{
     command::legacy::status::tui::{
         Col, FuzzyPicker, FuzzyPickerItem, Message, SearchableToken, ToastKind,
     },
-    id::{ShortId, UncommittedHunkOrFile},
+    id::{LaneId, ShortId, UncommittedHunkOrFile},
     theme::Theme,
 };
 
@@ -35,16 +35,39 @@ pub fn commit_picker(
     )
 }
 
-pub fn branch_picker(branch: FullName, theme: &'static Theme) -> FuzzyPicker<CopySelectionItem> {
-    picker(
-        NonEmpty::from_slice(&[
-            CopySelectionItem::BranchName(branch.clone()),
-            CopySelectionItem::PullRequestUrl(branch.clone()),
-            CopySelectionItem::BranchDiff(branch.clone()),
-        ])
-        .unwrap(),
-        theme,
-    )
+pub fn branch_picker(
+    branch: FullName,
+    id: ShortId,
+    lane: &LaneId,
+    theme: &'static Theme,
+) -> FuzzyPicker<CopySelectionItem> {
+    let mut items = NonEmpty::new(CopySelectionItem::BranchName(branch.clone()));
+    items.extend([
+        CopySelectionItem::ShortId(id),
+        CopySelectionItem::PullRequestUrl(branch.clone()),
+        CopySelectionItem::BranchDiff(branch),
+    ]);
+    items.extend(worktree_items(lane));
+    picker(items, theme)
+}
+
+pub fn anonymous_segment_picker(
+    id: ShortId,
+    lane: &LaneId,
+    theme: &'static Theme,
+) -> FuzzyPicker<CopySelectionItem> {
+    let mut items = NonEmpty::new(CopySelectionItem::ShortId(id));
+    items.extend(worktree_items(lane));
+    picker(items, theme)
+}
+
+fn worktree_items(lane: &LaneId) -> impl Iterator<Item = CopySelectionItem> {
+    lane.worktree_name().into_iter().flat_map(|name| {
+        [
+            CopySelectionItem::WorktreePath(name.to_owned()),
+            CopySelectionItem::WorktreeName(name.to_owned()),
+        ]
+    })
 }
 
 pub fn uncommitted_hunk_picker(
@@ -73,22 +96,6 @@ pub fn committed_file_picker(
         NonEmpty::from_slice(&[
             CopySelectionItem::ShortId(id),
             CopySelectionItem::FilePath(path.to_string()),
-        ])
-        .unwrap(),
-        theme,
-    )
-}
-
-pub fn worktree_picker(
-    name: BString,
-    id: ShortId,
-    theme: &'static Theme,
-) -> FuzzyPicker<CopySelectionItem> {
-    picker(
-        NonEmpty::from_slice(&[
-            CopySelectionItem::ShortId(id),
-            CopySelectionItem::WorktreePath(name.clone()),
-            CopySelectionItem::WorktreeName(name),
         ])
         .unwrap(),
         theme,

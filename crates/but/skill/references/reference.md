@@ -195,8 +195,8 @@ but commit --empty -b <branch> -m "message"  # Insert an empty commit
 
 **Where the commit goes:** `-A`/`--above` and `-B`/`--below` are mutually exclusive. With a branch target, combine either with `-b <new-name>` to name the new branch. The name must not already exist; omit it for a generated name. `-b` (even without a name) is rejected with commit/worktree targets.
 
-- Without `--above`/`--below`, `-b <branch>` places the commit at the tip of `<branch>`, creating it as an unstacked branch if it does not exist. `-b` with no value creates a branch with a generated name. Targeting a branch that exists but is not applied is an error — except a branch checked out in a worktree (experimental worktree flag), which is targeted at its tip, as is a worktree named directly.
-- `--above <commit>` / `--below <commit>` insert relative to a commit on that commit's branch. Against a branch, they create a new branch above/below it. Against a worktree (experimental worktree flag), `--below` targets the tip of its checked-out branch and `--above` is refused.
+- Without `--above`/`--below`, `-b <branch>` places the commit at the tip of `<branch>`, creating it as an unstacked branch if it does not exist. `-b` with no value creates a branch with a generated name. Targeting a branch that exists but is not applied is an error — except a branch in a worktree's lane (experimental worktree flag), which is targeted at its tip.
+- `--above <commit>` / `--below <commit>` insert relative to a commit on that commit's branch. Against a branch, they create a new branch above/below it. Against a worktree's checked-out branch (experimental worktree flag), `--below` targets its tip and `--above` is refused; against a branch below it, both are refused.
 - With no branches applied, a new branch is created. With one applied stack, the commit goes to its top branch's tip. With more than one stack, a targeting flag is **required** — otherwise the command fails with "Unclear where to commit. Found more than one stack". The gate is stacks, not branches: several branches stacked together take an untargeted commit on the stack's top branch.
 
 **Important:** `but commit -b <branch> -m "msg"` with no IDs commits ALL uncommitted changes. Pass IDs to commit only specific files or hunks.
@@ -304,8 +304,8 @@ Sources may not mix categories, all committed changes must come from the same co
 branch may be moved at a time. Source order does not matter. For a branch source only `--above` and
 `--unstack` apply; `--below` and `-b <name>` require commit or committed-change sources. `--branch`
 with no value is equivalent to `--unstack`. With the experimental worktree flag on, `-b` also
-accepts a worktree or the branch checked out in it, moving commit or committed-change
-sources onto that branch's tip (nothing is created); a branch source is refused there.
+accepts a branch in a worktree's lane, moving commit or committed-change sources onto that
+branch's tip (nothing is created); a branch source is refused there.
 
 For commits or committed changes, add `-b <new-name>` to `--above <branch>`, `--below <branch>`,
 or `--unstack` to name the new branch; omit it for a generated name. This does not rename an
@@ -374,7 +374,7 @@ but discard <commit-id>:<file-id>:<hunk-id> # Drop one hunk from its commit
 but discard <branch>               # Drop a branch and its commits
 ```
 
-All provided IDs must be from the same category, and committed changes must come from the same commit.
+All provided IDs must be from the same category, and committed changes must come from the same commit. Discarding the top branch of a worktree lane removes the worktree when its checkout is clean.
 
 ## Conflict Resolution
 

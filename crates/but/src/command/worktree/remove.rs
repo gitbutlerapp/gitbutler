@@ -44,7 +44,7 @@ pub fn run(ctx: &Context, perm: &mut RepoExclusive, op: RemoveOperation) -> Resu
 
 #[must_use]
 pub struct RemoveOutcome {
-    name: BString,
+    pub(crate) name: BString,
 }
 
 impl CliOutputHuman for RemoveOutcome {

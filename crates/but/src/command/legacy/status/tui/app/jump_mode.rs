@@ -160,7 +160,6 @@ fn jump_id<'a>(line: &'a StatusOutputLine, hex_buf: &'a mut [u8]) -> Option<&'a 
         CliId::PathPrefix { id, .. }
         | CliId::CommittedFile { id, .. }
         | CliId::Uncommitted { id }
-        | CliId::Worktree { id, .. }
         | CliId::WorktreeUncommitted { id, .. }
         | CliId::Stack { id, .. } => Some(id),
         CliId::Branch(branch) => Some(&branch.id),

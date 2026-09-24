@@ -9,7 +9,7 @@ pub fn changes_in_branch(
     workspace: &but_graph::Workspace,
     branch: &gix::refs::FullNameRef,
 ) -> anyhow::Result<ui::TreeChanges> {
-    let commits = if let Some((_, segment)) = workspace.find_segment_and_stack_by_refname(branch) {
+    let commits = if let Some(segment) = workspace.find_segment_by_refname(branch) {
         let base = segment.base;
         segment.tip().zip(base)
     } else {

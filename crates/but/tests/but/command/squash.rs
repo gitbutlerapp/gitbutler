@@ -3425,6 +3425,41 @@ Squashed nsn into tpm
     );
 }
 
+#[test]
+fn squash_a_worktree_branch_into_its_bottom_commit() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["A"]);
+    super::util::enable_worktree_manipulation(&env);
+    env.but("status").assert().success();
+    let wt_dir = super::util::add_worktree_with_commit(&env, "wt-feature", "A");
+    env.invoke_bash(format!(
+        r#"cd "{}" && echo more >>wt-file.txt && git commit -q -am 'more W'"#,
+        wt_dir.display()
+    ));
+
+    env.but("squash wt-feature --message 'add W'")
+        .assert()
+        .success()
+        .stderr_eq(str![])
+        .stdout_eq(str![[r#"
+Squashed branch 'wt-feature' into nsn
+
+"#]]);
+
+    // Both worktree commits become one, and the worktree's checkout follows it.
+    snapbox::assert_data_eq!(
+        but_testsupport::visualize_commit_graph_all_from_dir(&wt_dir).unwrap(),
+        snapbox::str![[r#"
+* edd3eb7 (gitbutler/workspace) GitButler Workspace Commit
+| * 376d6e7 (HEAD -> wt-feature) add W
+|/  
+* 9477ae7 (A) add A
+* 0dc3733 (origin/main, origin/HEAD, main, gitbutler/target) add M
+
+"#]]
+    );
+}
+
 /// A worktree's commit uncommits into that worktree's area, so `@` is refused for it and its
 /// own area is the target; a workspace commit cannot target a worktree's area either.
 #[test]
@@ -3470,9 +3505,9 @@ Uncommitted nsn
 ┊
 ┊╭┄ g0 [A]
 ┊┊
-┊┊╭┄ wt:@ {worktree uncommitted}
+┊┊╭┄ wt:@ [uncommitted] {wt-feature}
 ┊┊┊   nv A wt-file.txt
-┊┊├┄ wt {wt-feature}
+┊┊├┄ wt [wt-feature] (no commits)
 ┊├╯
 ┊●   tpm add A
 ├╯

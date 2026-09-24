@@ -2,56 +2,76 @@ use std::collections::{BTreeMap, HashSet};
 
 use bstr::BString;
 use but_core::ChangeId;
-use but_graph::workspace::Stack;
+use but_graph::workspace::{Stack, StackSegment, WorktreeStack};
 
 use crate::id::{
-    OLD_UNCOMMITTED, RemoteCommitWithId, SegmentWithId, ShortId, StackWithId,
+    LaneId, LaneWithId, OLD_UNCOMMITTED, RemoteCommitWithId, SegmentWithId, ShortId,
     WorkspaceCommitWithId,
     id_usage::{IdUsage, UintId},
 };
 
+fn lane_without_short_ids(
+    lane: LaneId,
+    segments: Vec<StackSegment>,
+    commit_id_to_change_id: &gix::hashtable::HashMap<gix::ObjectId, ChangeId>,
+) -> LaneWithId {
+    let mut lane_with_id = LaneWithId {
+        lane,
+        segments: Vec::with_capacity(segments.len()),
+    };
+    for mut segment in segments {
+        let workspace_commits = std::mem::take(&mut segment.commits)
+            .into_iter()
+            .map(|commit| WorkspaceCommitWithId {
+                short_id: ShortId::default(),
+                change_id: commit_id_to_change_id
+                    .get(&commit.id)
+                    .cloned()
+                    .map(Into::into),
+                inner: commit,
+            })
+            .collect::<Vec<_>>();
+        let remote_commits = std::mem::take(&mut segment.commits_on_remote)
+            .into_iter()
+            .map(|commit| RemoteCommitWithId {
+                short_id: ShortId::default(),
+                inner: commit,
+            })
+            .collect::<Vec<_>>();
+        lane_with_id.segments.push(SegmentWithId {
+            short_id: ShortId::default(),
+            inner: segment,
+            workspace_commits,
+            remote_commits,
+            lane: lane_with_id.lane.clone(),
+        });
+    }
+    lane_with_id
+}
+
 fn stacks_info_without_short_ids(
     stacks: Vec<Stack>,
+    worktrees: Vec<WorktreeStack>,
     commit_id_to_change_id: &gix::hashtable::HashMap<gix::ObjectId, ChangeId>,
 ) -> StacksInfo {
     let mut stacks_info = StacksInfo {
-        stacks: Vec::with_capacity(stacks.len()),
+        stacks: Vec::with_capacity(stacks.len() + worktrees.len()),
         id_usage: IdUsage::default(),
         non_hex_used_short_ids: HashSet::new(),
     };
     for stack in stacks {
-        let mut stack_with_id = StackWithId {
-            id: stack.id,
-            segments: Vec::with_capacity(stack.segments.len()),
-        };
-        for mut segment in stack.segments {
-            let workspace_commits = std::mem::take(&mut segment.commits)
-                .into_iter()
-                .map(|commit| WorkspaceCommitWithId {
-                    short_id: ShortId::default(),
-                    change_id: commit_id_to_change_id
-                        .get(&commit.id)
-                        .cloned()
-                        .map(Into::into),
-                    inner: commit,
-                })
-                .collect::<Vec<_>>();
-            let remote_commits = std::mem::take(&mut segment.commits_on_remote)
-                .into_iter()
-                .map(|commit| RemoteCommitWithId {
-                    short_id: ShortId::default(),
-                    inner: commit,
-                })
-                .collect::<Vec<_>>();
-            stack_with_id.segments.push(SegmentWithId {
-                short_id: ShortId::default(),
-                inner: segment,
-                workspace_commits,
-                remote_commits,
-                stack_id: stack.id,
-            });
-        }
-        stacks_info.stacks.push(stack_with_id);
+        stacks_info.stacks.push(lane_without_short_ids(
+            LaneId::Stack(stack.id),
+            stack.segments,
+            commit_id_to_change_id,
+        ));
+    }
+    for worktree in worktrees {
+        stacks_info.stacks.push(lane_without_short_ids(
+            LaneId::Worktree(worktree.name),
+            worktree.segments,
+            commit_id_to_change_id,
+        ));
     }
     stacks_info
 }
@@ -97,7 +117,7 @@ fn allocate_generated_short_id(
     }
 }
 
-pub(crate) fn allocate_name_short_id(
+fn allocate_name_short_id(
     name: &[u8],
     id_usage: &mut IdUsage,
     non_hex_used_short_ids: &mut HashSet<ShortId>,
@@ -114,7 +134,7 @@ pub(crate) fn allocate_name_short_id(
 }
 
 fn populate_branch_short_ids(
-    stacks: &mut [StackWithId],
+    stacks: &mut [LaneWithId],
     id_usage: &mut IdUsage,
     non_hex_used_short_ids: &mut HashSet<ShortId>,
     uncommitted_short_filenames: &HashSet<BString>,
@@ -196,7 +216,7 @@ pub(crate) fn populate_commit_short_ids(commits: Vec<(gix::ObjectId, &mut ShortI
 }
 
 pub(crate) struct StacksInfo {
-    pub(crate) stacks: Vec<StackWithId>,
+    pub(crate) stacks: Vec<LaneWithId>,
     pub(crate) id_usage: IdUsage,
     /// The set of short IDs allocated to items when building the [`StacksInfo`].
     ///
@@ -209,18 +229,18 @@ pub(crate) struct StacksInfo {
 impl StacksInfo {
     pub(crate) fn new(
         stacks: Vec<Stack>,
+        worktrees: Vec<WorktreeStack>,
         uncommitted_short_filenames: &HashSet<BString>,
         commit_id_to_change_id: &gix::hashtable::HashMap<gix::ObjectId, ChangeId>,
     ) -> anyhow::Result<Self> {
-        let mut stacks_info = stacks_info_without_short_ids(stacks, commit_id_to_change_id);
+        let mut stacks_info =
+            stacks_info_without_short_ids(stacks, worktrees, commit_id_to_change_id);
         populate_branch_short_ids(
             &mut stacks_info.stacks,
             &mut stacks_info.id_usage,
             &mut stacks_info.non_hex_used_short_ids,
             uncommitted_short_filenames,
         )?;
-        // Commit short IDs are assigned by the caller, which also knows the linked worktrees'
-        // commits that share the same namespace.
         Ok(stacks_info)
     }
 }

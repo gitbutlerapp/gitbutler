@@ -278,12 +278,16 @@ pub fn apply(
     };
     let branch_has_applied_metadata =
         branch_has_applied_workspace_metadata(branch.as_ref(), &ws, meta)?;
-    let branch_already_applied = (ws.ref_name() == Some(branch.as_ref())
-        || ws.refname_is_segment(branch.as_ref()))
-        && branch_has_applied_metadata;
-    if branch_already_applied
-        && (!allow_applying_already_applied_branch_when_outside_workspace
-            || head_on_managed_workspace_ref)
+    let branch_in_stack = ws
+        .find_segment_and_stack_by_refname(branch.as_ref())
+        .is_some();
+    let branch_in_worktree_lane = !branch_in_stack && ws.refname_is_segment(branch.as_ref());
+    let branch_already_applied =
+        (ws.ref_name() == Some(branch.as_ref()) || branch_in_stack) && branch_has_applied_metadata;
+    if branch_in_worktree_lane
+        || (branch_already_applied
+            && (!allow_applying_already_applied_branch_when_outside_workspace
+                || head_on_managed_workspace_ref))
     {
         let workspace_ref_created = false;
         // When exiting early, don't try to adjust the ws commit.
@@ -295,7 +299,7 @@ pub fn apply(
             conflicting_stacks: Vec::new(),
             applied_branches: Vec::new(),
         });
-    } else if !branch_has_applied_metadata && ws.refname_is_segment(branch.as_ref()) {
+    } else if !branch_has_applied_metadata && branch_in_stack {
         // This means our workspace encloses the desired branch, but it's not checked out yet.
         let commit_to_checkout = ws
             .tip_commit()

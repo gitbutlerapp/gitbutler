@@ -1588,7 +1588,6 @@ mod tests {
                     | CliId::Branch(..)
                     | CliId::Commit { .. }
                     | CliId::Uncommitted { .. }
-                    | CliId::Worktree { .. }
                     | CliId::WorktreeUncommitted { .. }
                     | CliId::Stack { .. } => None,
                 },

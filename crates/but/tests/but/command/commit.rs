@@ -2821,9 +2821,9 @@ fn commit_a_file_from_a_linked_worktree() {
 ┊
 ┊╭┄ g0 [A]
 ┊┊
-┊┊╭┄ wt:@ {worktree uncommitted}
+┊┊╭┄ wt:@ [uncommitted] {wt-feature}
 ┊┊┊   nl A note.txt
-┊┊├┄ wt {wt-feature}
+┊┊├┄ wt [wt-feature] (no commits)
 ┊├╯
 ┊●   tpm add A
 ├╯
@@ -2859,8 +2859,8 @@ Created commit lpo on branch 'A'
 ┊●   lpo note from worktree
 ┊│     lpo:u A note.txt
 ┊┊
-┊┊╭┄ wt:@ {worktree uncommitted} (no changes)
-┊┊├┄ wt {wt-feature}
+┊┊╭┄ wt:@ [uncommitted] {wt-feature} (no changes)
+┊┊├┄ wt [wt-feature] (no commits)
 ┊├╯
 ┊●   tpm add A
 ┊│     tpm:t A A
@@ -2906,8 +2906,8 @@ Created commit ulz on branch 'B'
 ┊
 ┊╭┄ g0 [A]
 ┊┊
-┊┊╭┄ wt:@ {worktree uncommitted} (no changes)
-┊┊├┄ wt {wt-feature}
+┊┊╭┄ wt:@ [uncommitted] {wt-feature} (no changes)
+┊┊├┄ wt [wt-feature] (no commits)
 ┊├╯
 ┊●   tpm add A
 ┊│     tpm:t A A
@@ -3167,8 +3167,8 @@ Created commit vzp on branch 'wt-feature'
 ┊
 ┊╭┄ g0 [A]
 ┊┊
-┊┊╭┄ wt:@ {worktree uncommitted} (no changes)
-┊┊├┄ wt {wt-feature}
+┊┊╭┄ wt:@ [uncommitted] {wt-feature} (no changes)
+┊┊├┄ wt [wt-feature]
 ┊┊●   vzp note from the worktree
 ┊┊│     vzp:u A note.txt
 ┊┊●   nsn add W
@@ -3520,8 +3520,8 @@ fn cannot_split_worktree_by_committing_above_on_new_branch() {
         .stdout_eq(snapbox::str![[r#"
 ╭┄ @ [uncommitted] (no changes)
 ┊
-┊╭┄ br:@ {worktree uncommitted} (no changes)
-┊├┄ br {a-branch-1}
+┊╭┄ br:@ [uncommitted] {a-branch-1} (no changes)
+┊├┄ br [a-branch-1] (no commits)
 ├╯
 ┊
 ┴ 0dc3733 (common base) 2000-01-02 add M
@@ -3545,4 +3545,75 @@ Error: Cannot use `-b/--branch` when committing relative to worktrees
 Error: Cannot use `-b/--branch` when committing relative to worktrees
 
 "#]]);
+}
+
+/// A branch below a worktree's checkout is a `--branch` target of its own, like a stack's
+/// lower branch: the commit lands on its tip and the checkout's commit is rebased on top.
+#[test]
+fn commit_b_targets_a_lower_worktree_branch() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
+    env.setup_metadata(&["A", "B"]);
+    enable_worktree_manipulation(&env);
+    env.but("status").assert().success();
+    crate::command::util::add_worktree_with_lower_branch(&env, "wt-inside", "A");
+    env.file("main.txt", "from the main checkout\n");
+
+    env.but("commit -b wt-lower -m 'onto the lower branch'")
+        .assert()
+        .stderr_eq(snapbox::str![])
+        .stdout_eq(snapbox::str![[r#"
+Created commit nuy on branch 'wt-lower'
+
+"#]]);
+    snapbox::assert_data_eq!(
+        env.git_log(),
+        snapbox::str![[r#"
+*   c128bce (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+|/  
+* | d3e2ba3 (B) add B
+| | * d1e317c (wt-inside) add W2
+| | * 83e1b27 (wt-lower) onto the lower branch
+| | * 580bef0 add W
+| |/  
+| * 9477ae7 (A) add A
+|/  
+* 0dc3733 (origin/main, origin/HEAD, main, gitbutler/target) add M
+
+"#]]
+    );
+}
+
+/// Below a lower worktree branch means a new branch there, like below a stack's branch, which
+/// worktrees can't order yet - rather than the tip of the worktree's checkout.
+#[test]
+fn commit_below_a_lower_worktree_branch_is_refused() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
+    env.setup_metadata(&["A", "B"]);
+    enable_worktree_manipulation(&env);
+    env.but("status").assert().success();
+    crate::command::util::add_worktree_with_lower_branch(&env, "wt-inside", "A");
+    env.file("main.txt", "from the main checkout\n");
+
+    env.but("commit --below wt-lower -m 'nope'")
+        .assert()
+        .stderr_eq(snapbox::str![[r#"
+Error: Cannot place 'a-branch-1' relative to worktree branch 'wt-lower': branches can't be ordered in worktrees yet
+
+"#]])
+        .stdout_eq(snapbox::str![""]);
+    snapbox::assert_data_eq!(
+        env.git_log(),
+        snapbox::str![[r#"
+*   c128bce (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+|/  
+* | d3e2ba3 (B) add B
+| | * 3b0b265 (wt-inside) add W2
+| | * 580bef0 (wt-lower) add W
+| |/  
+| * 9477ae7 (A) add A
+|/  
+* 0dc3733 (origin/main, origin/HEAD, main) add M
+
+"#]]
+    );
 }

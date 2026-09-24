@@ -21,22 +21,31 @@ use crate::{
             },
         },
     },
-    id::CommitId,
+    id::{CommitId, LaneId},
     theme,
+    utils::worktrees,
 };
 
 use super::mark::Marks;
 
 impl App {
-    pub fn handle_discard(&mut self, messages: &mut Vec<Message>) -> anyhow::Result<()> {
+    pub fn handle_discard(
+        &mut self,
+        ctx: &Context,
+        messages: &mut Vec<Message>,
+    ) -> anyhow::Result<()> {
         if self.marks_ref().is_empty() {
-            self.handle_discard_selection(messages)
+            self.handle_discard_selection(ctx, messages)
         } else {
             self.handle_discard_marks(messages)
         }
     }
 
-    pub fn handle_discard_selection(&mut self, messages: &mut Vec<Message>) -> anyhow::Result<()> {
+    pub fn handle_discard_selection(
+        &mut self,
+        ctx: &Context,
+        messages: &mut Vec<Message>,
+    ) -> anyhow::Result<()> {
         let Some(selection) = self.cursor.selected_line(&self.status_lines) else {
             return Ok(());
         };
@@ -152,6 +161,46 @@ impl App {
                         },
                     )
                 }
+                CliId::Branch(..) | CliId::AnonymousSegment(..)
+                    if let Some(name) = cli_id.lane().and_then(LaneId::worktree_name)
+                        && worktrees::is_worktree_top(&*ctx.repo.get()?, name, cli_id)? =>
+                {
+                    let worktree_name = name.to_owned();
+
+                    self.to_be_discarded = match &**cli_id {
+                        CliId::Branch(branch) => Vec::from([Selectable::Branch(branch.clone())]),
+                        _ => Vec::new(),
+                    };
+                    let drop_to_be_discarded =
+                        message_on_drop::message_on_drop(Message::DropToBeDiscarded, messages);
+
+                    Confirm::new(
+                        NonEmpty::new(
+                            format!("Remove {worktree_name}? This cannot be undone").into(),
+                        ),
+                        self.theme,
+                        move |ctx, messages| {
+                            let mut guard = ctx.exclusive_worktree_access();
+                            _ = crate::command::worktree::remove::run(
+                                ctx,
+                                guard.write_permission(),
+                                crate::command::worktree::remove::RemoveOperation {
+                                    worktree: worktree_name,
+                                    force: true,
+                                },
+                            )?;
+
+                            messages.extend([
+                                Message::EnterNormalModeAfterConfirmingOperation,
+                                Message::Reload(None, ReloadCause::Mutation),
+                            ]);
+
+                            drop(drop_to_be_discarded);
+
+                            Ok(())
+                        },
+                    )
+                }
                 CliId::Branch(branch) => {
                     let name = branch.name.to_owned();
                     let ref_name = Category::LocalBranch.to_full_name(&*name)?;
@@ -237,43 +286,6 @@ impl App {
                             ));
 
                             drop(drop_to_be_discarded);
-                            Ok(())
-                        },
-                    )
-                }
-                CliId::Worktree { id, name } => {
-                    let worktree_name = name.clone();
-
-                    self.to_be_discarded = Vec::from([Selectable::Worktree {
-                        id: id.clone(),
-                        name: worktree_name.clone(),
-                    }]);
-                    let drop_to_be_discarded =
-                        message_on_drop::message_on_drop(Message::DropToBeDiscarded, messages);
-
-                    Confirm::new(
-                        NonEmpty::new(
-                            format!("Remove {worktree_name}? This cannot be undone").into(),
-                        ),
-                        self.theme,
-                        move |ctx, messages| {
-                            let mut guard = ctx.exclusive_worktree_access();
-                            _ = crate::command::worktree::remove::run(
-                                ctx,
-                                guard.write_permission(),
-                                crate::command::worktree::remove::RemoveOperation {
-                                    worktree: worktree_name,
-                                    force: true,
-                                },
-                            )?;
-
-                            messages.extend([
-                                Message::EnterNormalModeAfterConfirmingOperation,
-                                Message::Reload(None, ReloadCause::Mutation),
-                            ]);
-
-                            drop(drop_to_be_discarded);
-
                             Ok(())
                         },
                     )
@@ -378,9 +390,9 @@ impl App {
                             commit_id
                         }
                     }),
-                    DiscardOutcome::Branches(_) | DiscardOutcome::Uncommitted { .. } => {
-                        select_after_reload
-                    }
+                    DiscardOutcome::Branches(_)
+                    | DiscardOutcome::Uncommitted { .. }
+                    | DiscardOutcome::Worktree(_) => select_after_reload,
                 };
 
                 drop(drop_to_be_discarded);

@@ -1455,7 +1455,7 @@ async fn dispatch_subcommand(
                 discard_args,
             )?;
             out.print_cli_output(outcome)?;
-            Some(ws)
+            ws
         }
         Subcommands::_Comment(comment_args) => {
             use crate::utils::IntermediateChannel;

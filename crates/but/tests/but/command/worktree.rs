@@ -86,9 +86,9 @@ and 1 more... Use `--archived` to list all.
         .stderr_eq(snapbox::str![])
         .stdout_eq(snapbox::str![[r#"
 Active worktrees
-mi mismatch (refs/heads/qux) - [..]/worktrees/mismatch
-wt wt-at (detached) - [..]/worktrees/wt-at
-at wt-feature - [..]/worktrees/wt-feature
+qu mismatch (refs/heads/qux) - [..]/worktrees/mismatch
+i0 wt-at (detached) - [..]/worktrees/wt-at
+wt wt-feature - [..]/worktrees/wt-feature
 
 Archived worktrees
 old-6 - [..]/worktrees/old-6
@@ -104,9 +104,9 @@ and 1 more... Use `--archived` to list all.
         .stderr_eq(snapbox::str![])
         .stdout_eq(snapbox::str![[r#"
 Active worktrees
-mi mismatch (refs/heads/qux) - [..]/worktrees/mismatch
-wt wt-at (detached) - [..]/worktrees/wt-at
-at wt-feature - [..]/worktrees/wt-feature
+qu mismatch (refs/heads/qux) - [..]/worktrees/mismatch
+i0 wt-at (detached) - [..]/worktrees/wt-at
+wt wt-feature - [..]/worktrees/wt-feature
 
 Archived worktrees
 old-6 - [..]/worktrees/old-6
@@ -134,9 +134,9 @@ old-3 - [..]/worktrees/old-3
         .stderr_eq(snapbox::str![])
         .stdout_eq(snapbox::str![[r#"
 Active worktrees
-mi mismatch (refs/heads/qux) - [..]/worktrees/mismatch
-wt wt-at (detached) - [..]/worktrees/wt-at
-at wt-feature - [..]/worktrees/wt-feature
+qu mismatch (refs/heads/qux) - [..]/worktrees/mismatch
+i0 wt-at (detached) - [..]/worktrees/wt-at
+wt wt-feature - [..]/worktrees/wt-feature
 
 "#]]);
     env.but("worktree list --active --archived")
@@ -145,9 +145,9 @@ at wt-feature - [..]/worktrees/wt-feature
         .stderr_eq(snapbox::str![])
         .stdout_eq(snapbox::str![[r#"
 Active worktrees
-mi mismatch (refs/heads/qux) - [..]/worktrees/mismatch
-wt wt-at (detached) - [..]/worktrees/wt-at
-at wt-feature - [..]/worktrees/wt-feature
+qu mismatch (refs/heads/qux) - [..]/worktrees/mismatch
+i0 wt-at (detached) - [..]/worktrees/wt-at
+wt wt-feature - [..]/worktrees/wt-feature
 
 Archived worktrees
 old-6 - [..]/worktrees/old-6
@@ -167,21 +167,21 @@ old-3 - [..]/worktrees/old-3
 {
   "active": [
     {
-      "id": "mi",
+      "id": "qu",
       "name": "mismatch",
       "refName": "refs/heads/qux",
       "path": "[..]/worktrees/mismatch",
       "updatedAtMs": 947376000000
     },
     {
-      "id": "wt",
+      "id": "i0",
       "name": "wt-at",
       "refName": null,
       "path": "[..]/worktrees/wt-at",
       "updatedAtMs": 947289600000
     },
     {
-      "id": "at",
+      "id": "wt",
       "name": "wt-feature",
       "refName": "refs/heads/wt-feature",
       "path": "[..]/worktrees/wt-feature",
@@ -492,12 +492,12 @@ at feature-one (refs/heads/Feature/One) - [..]/.git/gb-wts/feature-one
 ┊●   lrm add B
 ├╯
 ┊
-┊╭┄ br:@ {worktree uncommitted} (no changes)
-┊├┄ br {a-branch-1}
+┊╭┄ br:@ [uncommitted] {a-branch-1} (no changes)
+┊├┄ br [a-branch-1] (no commits)
 ├╯
 ┊
-┊╭┄ at:@ {worktree uncommitted} (no changes)
-┊├┄ at {Feature/One}
+┊╭┄ at:@ [uncommitted] {feature-one} (no changes)
+┊├┄ at [Feature/One] (no commits)
 ├╯
 ┊
 ┴ 0dc3733 (common base) 2000-01-02 add M
@@ -535,6 +535,32 @@ Error: A branch named 'A' is already applied
         .stdout_eq(snapbox::str![])
         .stderr_eq(snapbox::str![[r#"
 Error: '[..]/.git/gb-wts/feature-one' already exists
+
+"#]]);
+}
+
+/// A worktree is named by its checkout, never by a branch below it, which it merely holds.
+#[test]
+fn a_lower_branch_does_not_name_its_worktree() {
+    let env = flag_on_sandbox();
+    crate::command::util::add_worktree_with_lower_branch(&env, "wt-inside", "A");
+
+    env.but("worktree remove wt-lower")
+        .assert()
+        .stdout_eq(snapbox::str![""])
+        .stderr_eq(snapbox::str![[r#"
+Error: Could not find worktree: 'wt-lower'
+
+Hint: Run `but worktree list` for the worktrees and their IDs.
+
+"#]]);
+    env.but("worktree list --active")
+        .assert()
+        .success()
+        .stderr_eq(snapbox::str![])
+        .stdout_eq(snapbox::str![[r#"
+Active worktrees
+wt wt-inside - [..]/worktrees/wt-inside
 
 "#]]);
 }

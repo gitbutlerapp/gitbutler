@@ -381,10 +381,6 @@ impl Details {
                     },
                 )
             }
-            CliId::Worktree { .. } => {
-                self.diff_not_supported("(viewing diffs for worktrees is not supported)");
-                Ok(true)
-            }
             CliId::AnonymousSegment(..) => {
                 self.diff_not_supported("(anonymous branches must be named with `but reword` before viewing their diff)");
                 Ok(true)
@@ -1275,7 +1271,6 @@ impl Details {
             | CliId::CommittedHunk { .. }
             | CliId::Branch(..)
             | CliId::Commit { .. }
-            | CliId::Worktree { .. }
             | CliId::WorktreeUncommitted { .. }
             | CliId::Stack { .. } => false,
         }

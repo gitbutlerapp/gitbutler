@@ -22,7 +22,7 @@ use crate::{
             },
         },
     },
-    id::{BranchId, CommitId, CommittedFileId, IdAndHunk, UncommittedHunkOrFile},
+    id::{BranchId, CommitId, CommittedFileId, IdAndHunk, LaneId, UncommittedHunkOrFile},
     utils::{change_source::ChangeSourceId, targeting::Side},
 };
 
@@ -36,13 +36,6 @@ fn line(data: StatusOutputLineData) -> StatusOutputLine {
 
 fn uncommitted_area(id: &str) -> Arc<CliId> {
     Arc::new(CliId::Uncommitted { id: id.into() })
-}
-
-fn worktree_cli_id(name: &str, id: &str) -> Arc<CliId> {
-    Arc::new(CliId::Worktree {
-        id: id.into(),
-        name: name.into(),
-    })
 }
 
 fn worktree_uncommitted_cli_id(name: &str, id: &str) -> Arc<CliId> {
@@ -91,7 +84,7 @@ fn branch_cli_id(name: &str, id: &str, stack_id: Option<StackId>) -> Arc<CliId> 
     Arc::new(CliId::Branch(BranchId {
         name: name.into(),
         id: id.into(),
-        stack_id,
+        lane: LaneId::Stack(stack_id),
     }))
 }
 
@@ -160,7 +153,6 @@ fn uncommitted_source(cli_ids: &[Arc<CliId>]) -> CommitSource {
             | CliId::CommittedHunk { .. }
             | CliId::Branch(BranchId { .. })
             | CliId::Stack { .. }
-            | CliId::Worktree { .. }
             | CliId::WorktreeUncommitted { .. }
             | CliId::Commit { .. } => panic!("test cli ID should be uncommitted"),
         }
@@ -342,7 +334,7 @@ fn restore_returns_matching_branch_after_short_ids_change() {
     let selected_cli_id = CliId::Branch(BranchId {
         name: "main".into(),
         id: "b0".into(),
-        stack_id: None,
+        lane: LaneId::Stack(None),
     });
 
     assert_eq!(
@@ -441,7 +433,7 @@ fn restore_returns_none_when_cli_id_is_not_present() {
             &CliId::Branch(BranchId {
                 name: "main".into(),
                 id: "b0".into(),
-                stack_id: None,
+                lane: LaneId::Stack(None),
             }),
             &lines
         ),
@@ -474,7 +466,7 @@ fn select_finds_commit_line_by_object_id() {
             cli_id: Arc::new(CliId::Branch(BranchId {
                 name: "main".into(),
                 id: "b0".into(),
-                stack_id: None,
+                lane: LaneId::Stack(None),
             })),
             is_merged_upstream: false,
         }),
@@ -1095,7 +1087,7 @@ fn select_branch_finds_branch_line_by_name() {
             cli_id: Arc::new(CliId::Branch(BranchId {
                 name: "main".into(),
                 id: "b0".into(),
-                stack_id: None,
+                lane: LaneId::Stack(None),
             })),
             is_merged_upstream: false,
         }),
@@ -1110,7 +1102,7 @@ fn select_branch_returns_none_when_branch_is_missing() {
         cli_id: Arc::new(CliId::Branch(BranchId {
             name: "main".into(),
             id: "b0".into(),
-            stack_id: None,
+            lane: LaneId::Stack(None),
         })),
         is_merged_upstream: false,
     })];
@@ -1125,7 +1117,7 @@ fn select_branch_uses_first_matching_line_when_branch_appears_multiple_times() {
             cli_id: Arc::new(CliId::Branch(BranchId {
                 name: "main".into(),
                 id: "b0".into(),
-                stack_id: None,
+                lane: LaneId::Stack(None),
             })),
             is_merged_upstream: false,
         }),
@@ -1133,7 +1125,7 @@ fn select_branch_uses_first_matching_line_when_branch_appears_multiple_times() {
             cli_id: Arc::new(CliId::Branch(BranchId {
                 name: "main".into(),
                 id: "b0".into(),
-                stack_id: None,
+                lane: LaneId::Stack(None),
             })),
         }),
     ];
@@ -1148,7 +1140,7 @@ fn select_uncommitted_finds_uncommitted_line() {
             cli_id: Arc::new(CliId::Branch(BranchId {
                 name: "main".into(),
                 id: "b0".into(),
-                stack_id: None,
+                lane: LaneId::Stack(None),
             })),
             is_merged_upstream: false,
         }),
@@ -1180,7 +1172,7 @@ fn select_uncommitted_returns_none_when_missing() {
         cli_id: Arc::new(CliId::Branch(BranchId {
             name: "main".into(),
             id: "b0".into(),
-            stack_id: None,
+            lane: LaneId::Stack(None),
         })),
         is_merged_upstream: false,
     })];
@@ -1195,7 +1187,7 @@ fn select_merge_base_finds_merge_base_line() {
             cli_id: Arc::new(CliId::Branch(BranchId {
                 name: "main".into(),
                 id: "b0".into(),
-                stack_id: None,
+                lane: LaneId::Stack(None),
             })),
             is_merged_upstream: false,
         }),
@@ -1211,7 +1203,7 @@ fn select_merge_base_returns_none_when_missing() {
         cli_id: Arc::new(CliId::Branch(BranchId {
             name: "main".into(),
             id: "b0".into(),
-            stack_id: None,
+            lane: LaneId::Stack(None),
         })),
         is_merged_upstream: false,
     })];
@@ -1267,7 +1259,7 @@ fn selection_cli_id_for_reload_uses_parent_when_file_is_selected_and_files_are_h
     let parent = Arc::new(CliId::Branch(BranchId {
         name: "main".into(),
         id: "b0".into(),
-        stack_id: None,
+        lane: LaneId::Stack(None),
     }));
     let lines = vec![
         line(StatusOutputLineData::Hint),
@@ -1316,7 +1308,7 @@ fn selection_cli_id_for_reload_uses_selected_cli_id_for_non_file_lines() {
     let selected = Arc::new(CliId::Branch(BranchId {
         name: "main".into(),
         id: "b0".into(),
-        stack_id: None,
+        lane: LaneId::Stack(None),
     }));
     let lines = vec![line(StatusOutputLineData::Branch {
         cli_id: selected.clone(),
@@ -1335,7 +1327,7 @@ fn selection_cli_id_for_reload_returns_none_when_cursor_is_out_of_bounds() {
         cli_id: Arc::new(CliId::Branch(BranchId {
             name: "main".into(),
             id: "b0".into(),
-            stack_id: None,
+            lane: LaneId::Stack(None),
         })),
         is_merged_upstream: false,
     })];
@@ -1361,7 +1353,7 @@ fn selection_cli_id_for_reload_uses_nearest_parent_section_for_file() {
     let first_parent = Arc::new(CliId::Branch(BranchId {
         name: "main".into(),
         id: "b0".into(),
-        stack_id: None,
+        lane: LaneId::Stack(None),
     }));
     let nearest_parent = uncommitted_area("u0");
     let lines = vec![
@@ -1648,7 +1640,7 @@ fn move_next_section_moves_to_next_jump_target() {
             cli_id: Arc::new(CliId::Branch(BranchId {
                 name: "main".into(),
                 id: "a0".into(),
-                stack_id: None,
+                lane: LaneId::Stack(None),
             })),
             is_merged_upstream: false,
         }),
@@ -1661,7 +1653,7 @@ fn move_next_section_moves_to_next_jump_target() {
             cli_id: Arc::new(CliId::Branch(BranchId {
                 name: "other".into(),
                 id: "a1".into(),
-                stack_id: None,
+                lane: LaneId::Stack(None),
             })),
             is_merged_upstream: false,
         }),
@@ -1685,7 +1677,7 @@ fn move_next_section_moves_to_next_jump_target() {
 }
 
 #[test]
-fn section_navigation_stops_on_worktree_headings() {
+fn section_navigation_stops_on_worktree_areas() {
     let lines = vec![
         branch_line("main", "b0"),
         line(StatusOutputLineData::Commit {
@@ -1693,8 +1685,8 @@ fn section_navigation_stops_on_worktree_headings() {
             stack_id: None,
             classification: CommitClassification::LocalOnly,
         }),
-        line(StatusOutputLineData::Worktree {
-            cli_id: worktree_uncommitted_cli_id("worktree", "w0"),
+        line(StatusOutputLineData::WorktreeUncommitted {
+            cli_id: worktree_uncommitted_cli_id("worktree", "w0:@"),
         }),
         uncommitted_file_line("worktree-file", "u0"),
         branch_line("other", "b1"),
@@ -1706,11 +1698,11 @@ fn section_navigation_stops_on_worktree_headings() {
             &Mode::Normal(NormalMode::default()),
             FilesStatusFlag::All,
         )
-        .expect("the worktree heading is the next section");
+        .expect("the worktree area is the next section");
     assert_eq!(
         cursor,
         Cursor(2),
-        "next-section navigation stops on the worktree heading"
+        "next-section navigation stops on the worktree area"
     );
 
     let cursor = Cursor(4)
@@ -1719,11 +1711,11 @@ fn section_navigation_stops_on_worktree_headings() {
             &Mode::Normal(NormalMode::default()),
             FilesStatusFlag::All,
         )
-        .expect("the worktree heading is the previous section");
+        .expect("the worktree area is the previous section");
     assert_eq!(
         cursor,
         Cursor(2),
-        "previous-section navigation stops on the worktree heading"
+        "previous-section navigation stops on the worktree area"
     );
 }
 
@@ -1757,7 +1749,7 @@ fn move_previous_section_moves_to_current_section_header_when_cursor_is_inside_i
             cli_id: Arc::new(CliId::Branch(BranchId {
                 name: "main".into(),
                 id: "a0".into(),
-                stack_id: None,
+                lane: LaneId::Stack(None),
             })),
             is_merged_upstream: false,
         }),
@@ -1770,7 +1762,7 @@ fn move_previous_section_moves_to_current_section_header_when_cursor_is_inside_i
             cli_id: Arc::new(CliId::Branch(BranchId {
                 name: "other".into(),
                 id: "a1".into(),
-                stack_id: None,
+                lane: LaneId::Stack(None),
             })),
             is_merged_upstream: false,
         }),
@@ -1872,7 +1864,7 @@ fn move_next_section_skips_non_jump_targets_like_commits() {
             cli_id: Arc::new(CliId::Branch(BranchId {
                 name: "main".into(),
                 id: "b0".into(),
-                stack_id: None,
+                lane: LaneId::Stack(None),
             })),
             is_merged_upstream: false,
         }),
@@ -1885,7 +1877,7 @@ fn move_next_section_skips_non_jump_targets_like_commits() {
             cli_id: Arc::new(CliId::Branch(BranchId {
                 name: "other".into(),
                 id: "a0".into(),
-                stack_id: None,
+                lane: LaneId::Stack(None),
             })),
             is_merged_upstream: false,
         }),
@@ -1910,7 +1902,7 @@ fn move_next_section_can_jump_to_merge_base_line() {
             cli_id: Arc::new(CliId::Branch(BranchId {
                 name: "main".into(),
                 id: "b0".into(),
-                stack_id: None,
+                lane: LaneId::Stack(None),
             })),
             is_merged_upstream: false,
         }),
@@ -1941,7 +1933,7 @@ fn move_previous_section_can_jump_from_merge_base_line() {
             cli_id: Arc::new(CliId::Branch(BranchId {
                 name: "main".into(),
                 id: "b0".into(),
-                stack_id: None,
+                lane: LaneId::Stack(None),
             })),
             is_merged_upstream: false,
         }),
@@ -2039,7 +2031,7 @@ fn move_stack_skips_noop_target_above_source() {
             branch: BranchId {
                 name: "B".into(),
                 id: "b1".into(),
-                stack_id: Some(stack_b),
+                lane: LaneId::Stack(Some(stack_b)),
             },
         },
     });
@@ -2069,7 +2061,7 @@ fn move_stack_skips_noop_target_below_source() {
             branch: BranchId {
                 name: "B".into(),
                 id: "b1".into(),
-                stack_id: Some(stack_b),
+                lane: LaneId::Stack(Some(stack_b)),
             },
         },
     });
@@ -2089,17 +2081,10 @@ fn worktree_area_remains_selectable_with_uncommitted_marks() {
     let area = line(StatusOutputLineData::WorktreeUncommitted {
         cli_id: worktree_uncommitted_cli_id("worktree", "w0:@"),
     });
-    let reference = line(StatusOutputLineData::Worktree {
-        cli_id: worktree_cli_id("worktree", "w0"),
-    });
 
     assert!(
         is_selectable_in_mode(&area, mode.as_ref(), FilesStatusFlag::All),
         "a linked worktree's uncommitted area stays selectable while hunks are marked",
-    );
-    assert!(
-        !is_selectable_in_mode(&reference, mode.as_ref(), FilesStatusFlag::All),
-        "a worktree reference holds no hunks, so marking hunks does not reach it",
     );
 }
 
@@ -2206,11 +2191,6 @@ fn status_line(rendered: &str) -> StatusOutputLineData {
         | "┊┊╭┄ wt:@ {worktree uncommitted} (no changes)"
         | "┊╭┄ wt:@ {worktree uncommitted} (no changes)" => {
             StatusOutputLineData::WorktreeUncommitted {
-                cli_id: random_cli_id(),
-            }
-        }
-        "┊┊┊├┄ wt {worktree}" | "┊┊├┄ wt {worktree}" | "┊├┄ wt {worktree}" => {
-            StatusOutputLineData::Worktree {
                 cli_id: random_cli_id(),
             }
         }
@@ -2487,12 +2467,10 @@ fn lines_part_of_current_branch_with_stacked_worktrees() {
         ┊╭┄ br [branch]
         ┊┊
         ┊┊╭┄ wt:@ {worktree uncommitted} (no changes)
-        ┊┊├┄ wt {worktree}
         ┊┊●   abc (no commit message)
         ┊├╯
         ┊┊
         ┊┊╭┄ wt:@ {worktree uncommitted} (no changes)
-        ┊┊├┄ wt {worktree}
         ┊├╯
         ┊●   abc (no commit message)
         ├╯
@@ -2510,12 +2488,10 @@ fn lines_part_of_current_branch_with_stacked_worktrees() {
             true,  // ┊╭┄ br [branch]
             true,  // ┊┊
             true,  // ┊┊╭┄ wt:@ {worktree uncommitted} (no changes)
-            true,  // ┊┊├┄ wt {worktree}
             true,  // ┊┊●   abc (no commit message)
             true,  // ┊├╯
             true,  // ┊┊
             true,  // ┊┊╭┄ wt:@ {worktree uncommitted} (no changes)
-            true,  // ┊┊├┄ wt {worktree}
             true,  // ┊├╯
             true,  // ┊●   abc (no commit message)
             false, // ├╯
@@ -2538,7 +2514,6 @@ fn lines_part_of_current_branch_with_stacked_worktrees_with_commits_above() {
         ┊●   abc (no commit message)
         ┊┊
         ┊┊╭┄ wt:@ {worktree uncommitted} (no changes)
-        ┊┊├┄ wt {worktree}
         ┊┊●   abc (no commit message)
         ┊├╯
         ┊●   abc (no commit message)
@@ -2558,7 +2533,6 @@ fn lines_part_of_current_branch_with_stacked_worktrees_with_commits_above() {
             true,  // ┊●   abc (no commit message)
             true,  // ┊┊
             true,  // ┊┊╭┄ wt:@ {worktree uncommitted} (no changes)
-            true,  // ┊┊├┄ wt {worktree}
             true,  // ┊┊●   abc (no commit message)
             true,  // ┊├╯
             true,  // ┊●   abc (no commit message)
@@ -2583,7 +2557,6 @@ fn lines_part_of_current_branch_with_dirty_stacked_worktrees() {
         ┊┊
         ┊┊╭┄ wt:@ {worktree uncommitted} (no changes)
         ┊┊┊   ab M file.rs
-        ┊┊├┄ wt {worktree}
         ┊├╯
         ┊●   abc (no commit message)
         ├╯
@@ -2603,7 +2576,6 @@ fn lines_part_of_current_branch_with_dirty_stacked_worktrees() {
             true,  // ┊┊
             true,  // ┊┊╭┄ wt:@ {worktree uncommitted} (no changes)
             true,  // ┊┊┊   ab M file.rs
-            true,  // ┊┊├┄ wt {worktree}
             true,  // ┊├╯
             true,  // ┊●   abc (no commit message)
             false, // ├╯
@@ -2627,7 +2599,6 @@ fn lines_part_of_current_branch_with_dirty_stacked_worktrees_with_commits() {
         ┊┊
         ┊┊╭┄ wt:@ {worktree uncommitted} (no changes)
         ┊┊┊   ab M file.rs
-        ┊┊├┄ wt {worktree}
         ┊┊●   abc (no commit message)
         ┊├╯
         ┊●   abc (no commit message)
@@ -2648,7 +2619,6 @@ fn lines_part_of_current_branch_with_dirty_stacked_worktrees_with_commits() {
             true,  // ┊┊
             true,  // ┊┊╭┄ wt:@ {worktree uncommitted} (no changes)
             true,  // ┊┊┊   ab M file.rs
-            true,  // ┊┊├┄ wt {worktree}
             true,  // ┊┊●   abc (no commit message)
             true,  // ┊├╯
             true,  // ┊●   abc (no commit message)
@@ -2672,7 +2642,6 @@ fn lines_part_of_current_branch_with_dirty_worktree_commit_files() {
         ┊┊
         ┊┊╭┄ wt:@ {worktree uncommitted} (no changes)
         ┊┊┊   ab M file.rs
-        ┊┊├┄ wt {worktree}
         ┊┊●   abc (no commit message)
         ┊┊│     ab M committed.rs
         ┊├╯
@@ -2693,7 +2662,6 @@ fn lines_part_of_current_branch_with_dirty_worktree_commit_files() {
             true,  // ┊┊
             true,  // ┊┊╭┄ wt:@ {worktree uncommitted} (no changes)
             true,  // ┊┊┊   ab M file.rs
-            true,  // ┊┊├┄ wt {worktree}
             true,  // ┊┊●   abc (no commit message)
             true,  // ┊┊│     ab M committed.rs
             true,  // ┊├╯
@@ -2719,11 +2687,9 @@ fn lines_part_of_current_branch_with_nested_worktree_between_dirty_worktree_comm
         ┊┊
         ┊┊╭┄ wt:@ {worktree uncommitted} (no changes)
         ┊┊┊   ab M file.rs
-        ┊┊├┄ wt {worktree}
         ┊┊●   abc (no commit message)
         ┊┊┊
         ┊┊┊╭┄ wt:@ {worktree uncommitted} (no changes)
-        ┊┊┊├┄ wt {worktree}
         ┊┊┊●   abc (no commit message)
         ┊┊├╯
         ┊┊●   abc (no commit message)
@@ -2745,11 +2711,9 @@ fn lines_part_of_current_branch_with_nested_worktree_between_dirty_worktree_comm
             true,  // ┊┊
             true,  // ┊┊╭┄ wt:@ {worktree uncommitted} (no changes)
             true,  // ┊┊┊   ab M file.rs
-            true,  // ┊┊├┄ wt {worktree}
             true,  // ┊┊●   abc (no commit message)
             true,  // ┊┊┊
             true,  // ┊┊┊╭┄ wt:@ {worktree uncommitted} (no changes)
-            true,  // ┊┊┊├┄ wt {worktree}
             true,  // ┊┊┊●   abc (no commit message)
             true,  // ┊┊├╯
             true,  // ┊┊●   abc (no commit message)
@@ -2766,8 +2730,7 @@ fn lines_part_of_current_branch_with_nested_worktree_between_dirty_worktree_comm
     );
 }
 
-/// Fixed by GB-1915: the typed reference row lets each lane earn and spend exactly one
-/// connector, which the peek-ahead heuristic this replaced could not get right.
+/// Fixed by GB-1915.
 #[test]
 fn lines_part_of_current_branch_with_dirty_nested_worktree_between_dirty_worktree_commits() {
     let lines = status_lines(
@@ -2778,12 +2741,10 @@ fn lines_part_of_current_branch_with_dirty_nested_worktree_between_dirty_worktre
         ┊┊
         ┊┊╭┄ wt:@ {worktree uncommitted} (no changes)
         ┊┊┊   ab M file.rs
-        ┊┊├┄ wt {worktree}
         ┊┊●   abc (no commit message)
         ┊┊┊
         ┊┊┊╭┄ wt:@ {worktree uncommitted} (no changes)
         ┊┊┊┊   ab M file.rs
-        ┊┊┊├┄ wt {worktree}
         ┊┊┊●   abc (no commit message)
         ┊┊├╯
         ┊┊●   abc (no commit message)
@@ -2805,12 +2766,10 @@ fn lines_part_of_current_branch_with_dirty_nested_worktree_between_dirty_worktre
             true,  // ┊┊
             true,  // ┊┊╭┄ wt:@ {worktree uncommitted} (no changes)
             true,  // ┊┊┊   ab M file.rs
-            true,  // ┊┊├┄ wt {worktree}
             true,  // ┊┊●   abc (no commit message)
             true,  // ┊┊┊
             true,  // ┊┊┊╭┄ wt:@ {worktree uncommitted} (no changes)
             true,  // ┊┊┊┊   ab M file.rs
-            true,  // ┊┊┊├┄ wt {worktree}
             true,  // ┊┊┊●   abc (no commit message)
             true,  // ┊┊├╯
             true,  // ┊┊●   abc (no commit message)
@@ -2838,12 +2797,10 @@ fn lines_part_of_current_branch_with_dirty_nested_worktrees_with_commits() {
         ┊┊
         ┊┊╭┄ wt:@ {worktree uncommitted} (no changes)
         ┊┊┊   ab M file.rs
-        ┊┊├┄ wt {worktree}
         ┊┊●   abc (no commit message)
         ┊├╯
         ┊┊
         ┊┊╭┄ wt:@ {worktree uncommitted} (no changes)
-        ┊┊├┄ wt {worktree}
         ┊├╯
         ┊●   abc (no commit message)
         ├╯
@@ -2863,12 +2820,10 @@ fn lines_part_of_current_branch_with_dirty_nested_worktrees_with_commits() {
             true,  // ┊┊
             true,  // ┊┊╭┄ wt:@ {worktree uncommitted} (no changes)
             true,  // ┊┊┊   ab M file.rs
-            true,  // ┊┊├┄ wt {worktree}
             true,  // ┊┊●   abc (no commit message)
             true,  // ┊├╯
             true,  // ┊┊
             true,  // ┊┊╭┄ wt:@ {worktree uncommitted} (no changes)
-            true,  // ┊┊├┄ wt {worktree}
             true,  // ┊├╯
             true,  // ┊●   abc (no commit message)
             false, // ├╯

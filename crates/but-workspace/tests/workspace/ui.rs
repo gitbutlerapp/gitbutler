@@ -317,4 +317,57 @@ TreeChanges {
 "#]].raw());
         Ok(())
     }
+
+    #[test]
+    fn worktree_branch_resting_on_a_stack() -> anyhow::Result<()> {
+        let repo =
+            crate::utils::read_only_in_memory_scenario_named("worktree-on-stack-with-files", "")?;
+        let meta = but_meta::VirtualBranchesTomlMetadata::from_path(
+            repo.path().join("should-never-be-written.toml"),
+        )?;
+        let mut db = but_testsupport::in_memory_db();
+        db.worktree_meta_mut().mark_adopted()?;
+        let graph = but_graph::Graph::from_head(
+            &repo,
+            &meta,
+            project_meta(&repo)?,
+            &mut db,
+            Options {
+                worktrees: true,
+                ..Options::limited()
+            },
+        )?;
+        let ws = graph.into_workspace()?;
+
+        // Only the worktree's own commit is diffed, not stack `A` beneath it.
+        snapbox::assert_data_eq!(
+            ui::diff::changes_in_branch(&repo, &ws, r("refs/heads/wt-on-A"))?.to_debug(),
+            snapbox::str![[r#"
+TreeChanges {
+    changes: [
+        TreeChange {
+            path: BStringForFrontend(
+                "W",
+            ),
+            path_bytes: "W",
+            status: Addition {
+                state: ChangeState {
+                    id: Sha1(a42d8ff61914884d31a8f36bbc78085aae1e0b01),
+                    kind: Blob,
+                },
+                is_untracked: false,
+            },
+        },
+    ],
+    stats: TreeStats {
+        lines_added: 1,
+        lines_removed: 0,
+        files_changed: 1,
+    },
+}
+
+"#]]
+        );
+        Ok(())
+    }
 }

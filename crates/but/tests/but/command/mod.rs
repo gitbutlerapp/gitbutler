@@ -305,4 +305,19 @@ mod util {
         );
         wt.join(name)
     }
+
+    /// Like [`add_worktree_with_commit`], with a second commit adding `wt-top.txt` on top and
+    /// `wt-lower` naming the first, so the worktree's lane holds a branch below its checkout.
+    pub fn add_worktree_with_lower_branch(
+        env: &Sandbox,
+        name: &str,
+        start_point: &str,
+    ) -> std::path::PathBuf {
+        let wt = add_worktree_with_commit(env, name, start_point);
+        but_testsupport::invoke_bash_at_dir(
+            "echo top >wt-top.txt && git add wt-top.txt && git commit -q -m 'add W2' && git branch wt-lower HEAD~1",
+            &wt,
+        );
+        wt
+    }
 }

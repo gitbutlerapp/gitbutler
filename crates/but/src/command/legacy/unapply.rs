@@ -111,6 +111,23 @@ fn resolve(
             });
 
             let Some(stack) = stack else {
+                if let Some(worktree) = head_info.worktrees.iter().find(|worktree| {
+                    worktree
+                        .segments
+                        .iter()
+                        .any(|segment| segment.ref_name() == Some(branch.as_ref()))
+                }) {
+                    return Err(bad_input(format!(
+                        "Branch {} belongs to worktree {}, which cannot be unapplied",
+                        branch.shorten(),
+                        worktree.name
+                    ))
+                    .hint(format!(
+                        "Use `but worktree remove {}` to remove the worktree",
+                        worktree.name
+                    ))
+                    .into());
+                }
                 return Err(bad_input(format!("Branch {} not found", branch.shorten()))
                     .hint(CliIdArg::TARGET_MISSING_HINT)
                     .into());

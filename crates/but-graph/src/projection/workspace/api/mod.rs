@@ -222,15 +222,31 @@ impl Workspace {
             )
     }
 
-    /// Return an iterator over all commits in the workspace,
-    /// i.e. all commits in all segments in all stacks.
-    ///
-    /// This doesn't include the workspace commit.
-    pub fn commits(&self) -> impl Iterator<Item = &StackCommit> + '_ {
+    /// Every segment of every lane, i.e. of each stack followed by each worktree.
+    pub fn segments(&self) -> impl Iterator<Item = &StackSegment> + '_ {
         self.stacks
             .iter()
-            .flat_map(|s| s.segments.iter())
-            .flat_map(|s| s.commits.iter())
+            .map(|stack| &stack.segments)
+            .chain(self.worktrees.iter().map(|worktree| &worktree.segments))
+            .flatten()
+    }
+
+    /// Every commit of every lane. This doesn't include the workspace commit.
+    pub fn commits(&self) -> impl Iterator<Item = &StackCommit> + '_ {
+        self.segments().flat_map(|segment| segment.commits.iter())
+    }
+
+    /// Find the commit with `oid` in any lane.
+    pub fn find_commit(&self, oid: impl Into<gix::ObjectId>) -> Option<&StackCommit> {
+        let oid = oid.into();
+        self.commits().find(|commit| commit.id == oid)
+    }
+
+    /// Like [`Self::find_commit()`], but fails with an error.
+    pub fn try_find_commit(&self, oid: impl Into<gix::ObjectId>) -> anyhow::Result<&StackCommit> {
+        let oid = oid.into();
+        self.find_commit(oid)
+            .with_context(|| format!("Commit {oid} isn't part of the workspace"))
     }
 
     /// Return `true` if the branch with `name` is the workspace target or the targets local tracking branch.
@@ -248,11 +264,6 @@ impl Workspace {
                 .lookup_sibling_segment(t.segment_index)
                 .and_then(|local_tracking_segment| local_tracking_segment.ref_name())
                 .is_some_and(|local_tracking_ref| local_tracking_ref == name)
-    }
-
-    /// Lookup a triple obtained by [`Self::find_owner_indexes_by_commit_id()`] or panic.
-    pub fn lookup_commit(&self, (stack_idx, seg_idx, cidx): CommitOwnerIndexes) -> &StackCommit {
-        &self.stacks[stack_idx].segments[seg_idx].commits[cidx]
     }
 
     /// Find a stack with the given `id` or error.
@@ -291,16 +302,6 @@ impl Workspace {
             })
     }
 
-    /// Like [`Self::find_owner_indexes_by_commit_id()`], but returns an error if the commit can't be found.
-    pub fn try_find_owner_indexes_by_commit_id(
-        &self,
-        oid: impl Into<gix::ObjectId>,
-    ) -> anyhow::Result<CommitOwnerIndexes> {
-        let oid = oid.into();
-        self.find_owner_indexes_by_commit_id(oid)
-            .with_context(|| format!("Commit {oid} isn't part of the workspace"))
-    }
-
     /// Try to find the `(stack_idx, segment_idx)` to be able to access the named segment going by `name`.
     /// Access the segment as `ws.stacks[stack_idx].segments[segment_idx]`
     pub fn find_segment_owner_indexes_by_refname(
@@ -310,23 +311,28 @@ impl Workspace {
         find_segment_owner_indexes_by_refname(&self.stacks, ref_name)
     }
 
-    /// Like [`Self::find_segment_owner_indexes_by_refname`], but fails with an error.
-    pub fn try_find_segment_owner_indexes_by_refname(
-        &self,
-        name: &gix::refs::FullNameRef,
-    ) -> anyhow::Result<(usize, usize)> {
-        self.find_segment_owner_indexes_by_refname(name)
-            .with_context(|| {
-                format!(
-                    "Couldn't find any stack that contained the branch named '{}'",
-                    name.shorten()
-                )
-            })
+    /// Return `true` if `name` is contained in the workspace as segment of a stack or a worktree.
+    pub fn refname_is_segment(&self, name: &gix::refs::FullNameRef) -> bool {
+        self.find_segment_by_refname(name).is_some()
     }
 
-    /// Return `true` if `name` is contained in the workspace as segment.
-    pub fn refname_is_segment(&self, name: &gix::refs::FullNameRef) -> bool {
-        self.find_segment_and_stack_by_refname(name).is_some()
+    /// Try to find `name` in any named [`StackSegment`] of a stack, then of a worktree.
+    pub fn find_segment_by_refname(&self, name: &gix::refs::FullNameRef) -> Option<&StackSegment> {
+        self.segments()
+            .find(|segment| segment.ref_name() == Some(name))
+    }
+
+    /// Like [`Self::find_segment_by_refname`], but fails with an error.
+    pub fn try_find_segment_by_refname(
+        &self,
+        name: &gix::refs::FullNameRef,
+    ) -> anyhow::Result<&StackSegment> {
+        self.find_segment_by_refname(name).with_context(|| {
+            format!(
+                "Couldn't find any stack or worktree that contained the branch named '{}'",
+                name.shorten()
+            )
+        })
     }
 
     /// Try to find `name` in any named [`StackSegment`] and return it along with the stack containing it.
@@ -341,20 +347,6 @@ impl Workspace {
                     .then_some((stack, seg))
             })
         })
-    }
-
-    /// Like [`Self::find_segment_and_stack_by_refname`], but fails with an error.
-    pub fn try_find_segment_and_stack_by_refname(
-        &self,
-        name: &gix::refs::FullNameRef,
-    ) -> anyhow::Result<(&Stack, &StackSegment)> {
-        self.find_segment_and_stack_by_refname(name)
-            .with_context(|| {
-                format!(
-                    "Couldn't find any stack that contained the branch named '{}'",
-                    name.shorten()
-                )
-            })
     }
 }
 

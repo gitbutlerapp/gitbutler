@@ -1,10 +1,11 @@
 use anyhow::Context as _;
-use bstr::{BStr, ByteSlice as _};
+use bstr::BStr;
 
 use crate::{
-    CliResult, IdMap,
+    CliId, CliResult,
     args::atoms::CliIdArg,
     bad_input,
+    id::AnonymousSegmentId,
     utils::{change_source::ChangeSourceId, targeting::Side},
 };
 
@@ -30,6 +31,42 @@ pub(crate) fn worktree_branch(
     Ok(branch)
 }
 
+pub(crate) fn is_worktree_top(
+    repo: &gix::Repository,
+    name: &BStr,
+    segment: &CliId,
+) -> anyhow::Result<bool> {
+    match segment {
+        CliId::Branch(branch) => {
+            let branch = gix::refs::Category::LocalBranch.to_full_name(branch.name.as_str())?;
+            let worktree_repo = but_workspace::worktrees::open_worktree_repo(repo, name)?;
+            Ok(worktree_repo.head_name()? == Some(branch))
+        }
+        CliId::AnonymousSegment(AnonymousSegmentId {
+            anchor_commit_id: Some(anchor),
+            ..
+        }) => {
+            let worktree_repo = but_workspace::worktrees::open_worktree_repo(repo, name)?;
+            Ok(
+                worktree_repo.head_name()?.is_none()
+                    && worktree_repo.head_id()?.detach() == *anchor,
+            )
+        }
+        CliId::AnonymousSegment(AnonymousSegmentId {
+            anchor_commit_id: None,
+            ..
+        })
+        | CliId::Commit { .. }
+        | CliId::CommittedFile { .. }
+        | CliId::CommittedHunk(..)
+        | CliId::UncommittedHunkOrFile(..)
+        | CliId::PathPrefix { .. }
+        | CliId::Uncommitted { .. }
+        | CliId::WorktreeUncommitted { .. }
+        | CliId::Stack { .. } => Ok(false),
+    }
+}
+
 /// The tip an `--above`/`--below` argument naming the worktree `name` targets.
 ///
 /// Below the heading is the top of its lane, so the tip of the branch checked out there. Above
@@ -51,34 +88,6 @@ pub(crate) fn worktree_tip_target(
             .hint("Use `--below` to target the tip of the worktree's branch")
             .into()),
     }
-}
-
-/// The tip a branch-style target names when it points into a worktree lane: `arg` is either a
-/// worktree (by ID or name) or the name of a branch checked out in an active linked worktree.
-///
-/// Branch targeting otherwise falls back to branch creation, which would misread a worktree's
-/// branch - real, but checked out elsewhere - as "does not exist". Returns `Ok(None)` when
-/// `arg` names neither, so that fallback stays reachable.
-pub(crate) fn worktree_branch_target(
-    repo: &gix::Repository,
-    id_map: &IdMap,
-    arg: &CliIdArg,
-) -> CliResult<Option<gix::refs::FullName>> {
-    if let Some(name) = arg.try_resolve_worktree(repo, id_map)? {
-        // A detached or otherwise branchless worktree is bad input naming this
-        // target, not an internal failure; the message names the worktree.
-        let branch =
-            worktree_branch(repo, name.as_ref()).map_err(|err| bad_input(err.to_string()))?;
-        return Ok(Some(branch));
-    }
-    // A worktree whose checkout cannot be read (detached, vanished, or on a workspace ref)
-    // has no branch and simply cannot match the name.
-    let wanted = arg.0.as_bytes();
-    Ok(id_map.worktrees.values().find_map(|worktree| {
-        let branch = worktree_branch(repo, worktree.name.as_ref()).ok()?;
-        (branch.shorten().as_bytes() == wanted || branch.as_bstr().as_bytes() == wanted)
-            .then_some(branch)
-    }))
 }
 
 /// The worktree an uncommit of `commit` lands in: the linked worktree that owns it, or the main

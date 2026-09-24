@@ -39,7 +39,7 @@ use crate::{
         },
         open::{self, Openable},
     },
-    id::{CommitId, CommittedFileId},
+    id::{AnonymousSegmentId, BranchId, CommitId, CommittedFileId},
     theme::Theme,
     tui::{Clipboard, TerminalGuard, event_polling::EventPolling},
     utils::{in_single_branch_mode, targeting::Side},
@@ -346,7 +346,6 @@ impl App {
             | ResolvedCliIdArg::CommittedHunk(..)
             | ResolvedCliIdArg::Uncommitted
             | ResolvedCliIdArg::PathPrefix { .. }
-            | ResolvedCliIdArg::Worktree(..)
             | ResolvedCliIdArg::WorktreeUncommitted(..)
             | ResolvedCliIdArg::Stack { .. } => None,
         });
@@ -781,7 +780,7 @@ impl App {
                 self.incoming_out_of_band_messages.push(rx);
             }
             Message::Discard => {
-                self.handle_discard(messages)?;
+                self.handle_discard(ctx, messages)?;
             }
             Message::DropToBeDiscarded => {
                 self.to_be_discarded.clear();
@@ -1207,7 +1206,6 @@ impl App {
                                             | CliId::Branch(..)
                                             | CliId::Commit { .. }
                                             | CliId::Stack { .. }
-                                            | CliId::Worktree { .. }
                                             | CliId::WorktreeUncommitted { .. }
                                             | CliId::Uncommitted { .. } => None,
                                         }
@@ -1218,7 +1216,6 @@ impl App {
                                     | StatusOutputLineData::StagedChanges { .. }
                                     | StatusOutputLineData::StagedFile { .. }
                                     | StatusOutputLineData::UncommittedChanges { .. }
-                                    | StatusOutputLineData::Worktree { .. }
                                     | StatusOutputLineData::WorktreeUncommitted { .. }
                                     | StatusOutputLineData::Branch { .. }
                                     | StatusOutputLineData::Commit { .. }
@@ -1257,7 +1254,6 @@ impl App {
                         | CliId::CommittedHunk { .. }
                         | CliId::Branch(..)
                         | CliId::Commit { .. }
-                        | CliId::Worktree { .. }
                         | CliId::WorktreeUncommitted { .. }
                         | CliId::Stack { .. } => {
                             messages.push(Message::Reload(
@@ -1564,38 +1560,6 @@ impl App {
                 ));
             }
             StatusOutputLineData::WorktreeUncommitted { .. } => return Ok(()),
-            StatusOutputLineData::Worktree { cli_id } => {
-                // The reference row is the top of its lane, so the empty commit goes to the tip
-                // of the branch checked out there. The uncommitted areas name no branch, so they
-                // stay no-ops.
-                let CliId::Worktree { name, .. } = &**cli_id else {
-                    return Ok(());
-                };
-                let branch = {
-                    let repo = ctx.repo.get()?;
-                    crate::utils::worktrees::worktree_branch(&repo, name.as_ref())?
-                };
-
-                let mut guard = ctx.exclusive_worktree_access();
-                let mut meta = ctx.meta()?;
-
-                let (outcome, _ws) = commit::run(
-                    ctx,
-                    &mut meta,
-                    guard.write_permission(),
-                    CommitOperation::CommitAt(CommitAtOperation {
-                        target: CommitRelativeToTarget::BranchTip { name: branch },
-                    }),
-                    false,
-                    CommitSelection::Nothing,
-                    CommitMessageSource::Empty,
-                )?;
-
-                messages.push(Message::Reload(
-                    Some(SelectAfterReload::Commit(outcome.new_commit.commit_id)),
-                    ReloadCause::Mutation,
-                ));
-            }
             StatusOutputLineData::UpdateNotice
             | StatusOutputLineData::UncommittedChanges { .. }
             | StatusOutputLineData::Connector
@@ -1642,7 +1606,6 @@ impl App {
             CliId::UncommittedHunkOrFile(uncommitted) => {
                 uncommitted.hunks.first().hunk.path.to_str_lossy()
             }
-            CliId::Worktree { name, .. } => name.to_str_lossy(),
             CliId::AnonymousSegment(..)
             | CliId::CommittedHunk(..)
             | CliId::PathPrefix { .. }
@@ -1676,9 +1639,12 @@ impl App {
                 let commit_id = *commit_id;
                 copy_selection_picker::commit_picker(commit_id, self.theme)
             }
-            CliId::Branch(branch) => {
-                let branch = Category::LocalBranch.to_full_name(&*branch.name)?;
-                copy_selection_picker::branch_picker(branch, self.theme)
+            CliId::Branch(BranchId { name, id, lane }) => {
+                let branch = Category::LocalBranch.to_full_name(name.as_str())?;
+                copy_selection_picker::branch_picker(branch, id.to_owned(), lane, self.theme)
+            }
+            CliId::AnonymousSegment(AnonymousSegmentId { id, lane, .. }) => {
+                copy_selection_picker::anonymous_segment_picker(id.to_owned(), lane, self.theme)
             }
             CliId::UncommittedHunkOrFile(hunk) => {
                 copy_selection_picker::uncommitted_hunk_picker(hunk.clone(), self.theme)
@@ -1696,11 +1662,7 @@ impl App {
                 id.to_owned(),
                 self.theme,
             ),
-            CliId::Worktree { id, name } => {
-                copy_selection_picker::worktree_picker(name.to_owned(), id.to_owned(), self.theme)
-            }
-            CliId::AnonymousSegment(..)
-            | CliId::CommittedHunk(..)
+            CliId::CommittedHunk(..)
             | CliId::PathPrefix { .. }
             | CliId::Uncommitted { .. }
             | CliId::WorktreeUncommitted { .. }
@@ -1743,7 +1705,6 @@ impl App {
                     | CliId::Branch(_)
                     | CliId::PathPrefix { .. }
                     | CliId::Uncommitted { .. }
-                    | CliId::Worktree { .. }
                     | CliId::WorktreeUncommitted { .. }
                     | CliId::Stack { .. } => Ok(None),
                 }

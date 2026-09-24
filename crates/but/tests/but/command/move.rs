@@ -4192,8 +4192,8 @@ fn cannot_name_branches_when_moving_commits_relative_to_worktree() {
 ┊●   zll add first
 ├╯
 ┊
-┊╭┄ br:@ {worktree uncommitted} (no changes)
-┊├┄ br {a-branch-1}
+┊╭┄ br:@ [uncommitted] {a-branch-1} (no changes)
+┊├┄ br [a-branch-1] (no commits)
 ├╯
 ┊
 ┴ 1bbc04b (common base) 2000-01-02 add Base
@@ -4209,4 +4209,92 @@ Hint: run `but help` for all commands
 Error: Cannot use `-b/--branch` when moving relative to worktrees
 
 "#]]);
+}
+
+/// A branch below a worktree's checkout is a `--branch` target of its own.
+#[test]
+fn move_a_commit_to_a_lower_worktree_branch() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
+    env.setup_metadata(&["A", "B"]);
+    enable_worktree_manipulation(&env);
+    env.but("status").assert().success();
+    crate::command::util::add_worktree_with_lower_branch(&env, "wt-inside", "A");
+
+    env.but("move lrm -b wt-lower")
+        .assert()
+        .stderr_eq(snapbox::str![])
+        .stdout_eq(snapbox::str![[r#"
+Moved lrm to the tip of branch 'wt-lower'
+
+"#]]);
+    snapbox::assert_data_eq!(
+        env.git_log(),
+        snapbox::str![[r#"
+*   e1a91a3 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+|\  
+| | * 9f6b492 (wt-inside) add W2
+| | * 4ce1279 (wt-lower) add B
+| | * 580bef0 add W
+| |/  
+| * 9477ae7 (A) add A
+|/  
+* 0dc3733 (origin/main, origin/HEAD, main, gitbutler/target, B) add M
+
+"#]]
+        .raw()
+    );
+}
+
+/// Below a lower worktree branch means a new branch there, which worktrees can't order yet.
+#[test]
+fn move_commit_below_a_lower_worktree_branch_is_refused() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
+    env.setup_metadata(&["A", "B"]);
+    enable_worktree_manipulation(&env);
+    env.but("status").assert().success();
+    crate::command::util::add_worktree_with_lower_branch(&env, "wt-inside", "A");
+
+    env.but("move lrm --below wt-lower")
+        .assert()
+        .stderr_eq(snapbox::str![[r#"
+Error: Cannot place 'a-branch-1' relative to worktree branch 'wt-lower': branches can't be ordered in worktrees yet
+
+"#]])
+        .stdout_eq(snapbox::str![""]);
+    snapbox::assert_data_eq!(
+        env.git_log(),
+        snapbox::str![[r#"
+*   c128bce (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+|\  
+* | d3e2ba3 (B) add B
+| | * 3b0b265 (wt-inside) add W2
+| | * 580bef0 (wt-lower) add W
+| |/  
+| * 9477ae7 (A) add A
+|/  
+* 0dc3733 (origin/main, origin/HEAD, main) add M
+
+"#]]
+        .raw()
+    );
+}
+
+/// Stacking onto a lower worktree branch is refused like stacking onto a worktree's checkout.
+#[test]
+fn move_a_branch_onto_a_lower_worktree_branch_is_refused() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
+    env.setup_metadata(&["A", "B"]);
+    enable_worktree_manipulation(&env);
+    env.but("status").assert().success();
+    crate::command::util::add_worktree_with_lower_branch(&env, "wt-inside", "A");
+
+    env.but("move B -b wt-lower")
+        .assert()
+        .stderr_eq(snapbox::str![[r#"
+Error: Bad input 'wt-lower' for '--branch'
+
+Cannot stack a branch onto worktree branch 'wt-lower'
+
+"#]])
+        .stdout_eq(snapbox::str![]);
 }

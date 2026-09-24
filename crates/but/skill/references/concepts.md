@@ -75,22 +75,27 @@ but split <commit-id>:<file-id> -m "message"              # Extract a file immed
 IDs are positional and space-separated. `but help cli-ids` documents every ID kind in detail.
 
 **Worktrees** (experimental, only with the `worktreeManipulation` feature flag on): each
-active worktree gets its own ID and is drawn in `but status` as a lane — a braced
-`{<branch>}` heading (the worktree name when its `HEAD` is detached) nested above the commit the
+active worktree is drawn in `but status` as a lane of its own, nested above the commit the
 worktree rests on — another worktree's commit included, lanes nest recursively — or standing on
-its own below the stacks when it rests outside the workspace.
-The lane lists that worktree's uncommitted files and commits. The heading ID names the worktree;
-`<worktree>:@` (ID or name) names its uncommitted area. `<worktree>:<path>` scopes a
-filename to it — `@:<path>` keeps meaning the main worktree. A filename dirty in several
+its own below the stacks when it rests outside the workspace. The lane opens with the worktree's
+uncommitted area, `<id>:@ [uncommitted] {<worktree-name>}`, followed by ordinary branch rows
+for the branch checked out there and the branches below it (a detached `HEAD` shows as an
+anonymous segment) and their commits. The top branch's ID and the worktree's name both name the
+worktree; `<worktree>:@` (that ID or the name) names its uncommitted area. `but discard` on that
+top branch removes the worktree when its checkout is clean; the branches below it discard and
+squash like stack branches. A worktree's branches count as applied: `but apply` on one changes
+nothing, and `but unapply` refuses it — remove the worktree instead. `<worktree>:<path>`
+scopes a filename to it — `@:<path>` keeps meaning the main worktree. A filename dirty in several
 worktrees at once is ambiguous; the error suggests the scoped forms. A worktree file ID or
 `<worktree>:@` works as a `but commit` change and a `but amend`
 source: the change lands on the target and leaves that worktree's uncommitted area. Without a
 target flag, worktree changes commit to the tip of the worktree's own branch; an explicit target
 commit or branch does not have to be the worktree's own. One operation reads from one worktree
-at a time — a selection mixing worktrees is refused. A worktree is also a target: `but commit`,
-`but move`, and `but pick` with `-b <worktree-id-or-its-branch-name>` or `--below <worktree-id>`
-place the commit on the tip of the branch the worktree has checked out (`--above` is refused —
-that is its uncommitted area). A worktree's own commits carry ordinary commit IDs: `reword`, `move`,
+at a time — a selection mixing worktrees is refused. A worktree's branches are also targets:
+`but commit`, `but move`, and `but pick` with `-b <branch>` place the commit on that branch's tip,
+and `--below <checked-out-branch-id>` on the tip of the branch the worktree has checked out
+(`--above` it is refused — that is its uncommitted area). A new branch can't be placed above or
+below a worktree's branch yet, as worktrees can't order branches. A worktree's own commits carry ordinary commit IDs: `reword`, `move`,
 `squash`, and `pick` accept them, and the worktree's branch and checkout follow the rewrite.
 Uncommitting one lands in that worktree's uncommitted area, so `squash -t` names it by the
 worktree's area ID (`<id>:@`), not `@`; `but uncommit` infers it.

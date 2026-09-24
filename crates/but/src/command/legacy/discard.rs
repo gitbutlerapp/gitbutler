@@ -20,10 +20,11 @@ use serde::Serialize;
 use crate::{
     CliResult, IdMap,
     args::{
-        atoms::{BranchArg, Purpose, ResolvedCliIdArg},
+        atoms::{BranchArg, CliIdArg, Purpose, ResolvedCliIdArg},
         discard::Platform,
     },
     bad_input,
+    command::worktree::remove::{RemoveOperation, RemoveOutcome},
     id::{CommitId, CommittedFileId, CommittedHunk, IdAndHunk, UncommittedHunkOrFile},
     theme::{self, Theme},
     utils::{
@@ -151,14 +152,15 @@ pub enum DiscardOutcome {
     Uncommitted {
         paths: NonEmpty<BString>,
     },
+    Worktree(RemoveOutcome),
 }
 
 impl CliOutputHuman for DiscardOutcome {
     fn on_human(
         self,
         out: &mut dyn WriteWithUtils,
-        _agent: bool,
-        _theme: &'static Theme,
+        agent: bool,
+        theme: &'static Theme,
     ) -> anyhow::Result<()> {
         match self {
             DiscardOutcome::Branches(branches) => {
@@ -197,6 +199,7 @@ impl CliOutputHuman for DiscardOutcome {
                 let paths = paths.iter().map(|path| path.as_bstr()).join(", ");
                 writeln!(out, "Discarded uncommitted changes from {paths}")?;
             }
+            DiscardOutcome::Worktree(removed) => removed.on_human(out, agent, theme)?,
         }
 
         Ok(())
@@ -229,6 +232,9 @@ impl CliOutput for DiscardOutcome {
             },
             UncommittedChanges {
                 paths: Vec<String>,
+            },
+            Worktree {
+                name: String,
             },
         }
 
@@ -265,6 +271,9 @@ impl CliOutput for DiscardOutcome {
                     .map(|path| path.to_str_lossy().into_owned())
                     .collect(),
             },
+            DiscardOutcome::Worktree(removed) => Output::Worktree {
+                name: removed.name.to_string(),
+            },
         }
     }
 }
@@ -273,22 +282,77 @@ pub fn discard(
     ctx: &mut Context,
     _out: IntermediateChannel<'_>,
     args: Platform,
-) -> CliResult<(DiscardOutcome, WorkspaceState)> {
+) -> CliResult<(DiscardOutcome, Option<WorkspaceState>)> {
     let mut guard = ctx.exclusive_worktree_access();
     let mut meta = ctx.meta()?;
     let id_map = IdMap::new_from_context(ctx, guard.read_permission())?;
     let operation = {
         let repo = ctx.repo.get()?;
+        if let Some(name) = resolve_worktree(&repo, &id_map, &args.changes)? {
+            let removed = remove_clean_worktree(ctx, guard.write_permission(), &repo, name)?;
+            return Ok((DiscardOutcome::Worktree(removed), None));
+        }
         resolve(&repo, &id_map, args)?
     };
 
-    Ok(run(
+    let (outcome, ws) = run(
         ctx,
         &mut meta,
         guard.write_permission(),
         operation,
         gitbutler_oplog::entry::OperationKind::Discard,
-    )?)
+    )?;
+    Ok((outcome, Some(ws)))
+}
+
+fn resolve_worktree(
+    repo: &gix::Repository,
+    id_map: &IdMap,
+    changes: &[CliIdArg],
+) -> CliResult<Option<BString>> {
+    for change in changes {
+        if let Some(name) = change.try_resolve_worktree_top(repo, id_map)? {
+            if changes.len() > 1 {
+                return Err(bad_input(
+                    "A worktree cannot be discarded together with other changes",
+                )
+                .arg_name("<CHANGES>")
+                .arg_value(change.to_string())
+                .into());
+            }
+            return Ok(Some(name));
+        }
+    }
+    Ok(None)
+}
+
+fn remove_clean_worktree(
+    ctx: &Context,
+    perm: &mut RepoExclusive,
+    repo: &gix::Repository,
+    name: BString,
+) -> CliResult<RemoveOutcome> {
+    let operation = RemoveOperation {
+        worktree: name.clone(),
+        force: false,
+    };
+    let err = match crate::command::worktree::remove::run(ctx, perm, operation) {
+        Ok(removed) => return Ok(removed),
+        Err(err) => err,
+    };
+    let dirty = but_workspace::worktrees::open_worktree_repo(repo, name.as_ref())
+        .and_then(|worktree_repo| but_core::diff::worktree_changes(&worktree_repo))
+        .is_ok_and(|changes| !changes.changes.is_empty());
+    if !dirty {
+        return Err(err.into());
+    }
+    Err(
+        bad_input(format!("Worktree {name} has uncommitted changes"))
+            .hint(format!(
+                "Use `but worktree remove --force {name}` to remove it anyway"
+            ))
+            .into(),
+    )
 }
 
 fn resolve(repo: &gix::Repository, id_map: &IdMap, args: Platform) -> CliResult<DiscardOperation> {
@@ -329,16 +393,6 @@ fn resolve(repo: &gix::Repository, id_map: &IdMap, args: Platform) -> CliResult<
                 .arg_value(value)
                 .hint("Discard its files or hunks by their CLI IDs instead")
                 .into());
-            }
-            ResolvedCliIdArg::Worktree(name) => {
-                return Err(bad_input(format!("Worktree {name} cannot be discarded"))
-                    .arg_name("<CHANGES>")
-                    .arg_value(value)
-                    .hint(format!(
-                        "Use `{name}:{}` to name that worktree's uncommitted changes",
-                        crate::id::UNCOMMITTED
-                    ))
-                    .into());
             }
             ResolvedCliIdArg::Stack { .. } => {
                 return Err(bad_input("Stacks cannot be discarded")
@@ -426,8 +480,8 @@ pub fn run(
                     ctx.workspace_and_db_with_perm(perm.read_permission())?;
                 let mut commits = Vec::new();
                 for branch in &branches {
-                    let (_stack, segment) = workspace
-                        .try_find_segment_and_stack_by_refname(branch.as_ref())
+                    let segment = workspace
+                        .try_find_segment_by_refname(branch.as_ref())
                         .with_context(|| {
                             format!(
                                 "Could not find branch {} in the workspace",

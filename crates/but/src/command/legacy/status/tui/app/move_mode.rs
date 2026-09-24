@@ -1,6 +1,6 @@
 use but_ctx::Context;
 use but_rebase::graph_rebase::mutate::InsertSide;
-use gix::refs::{Category, FullName};
+use gix::refs::Category;
 use nonempty::NonEmpty;
 use ratatui::prelude::Span;
 
@@ -44,12 +44,8 @@ pub enum MoveSource {
 }
 
 enum MoveTarget<'a> {
-    Branch {
-        name: &'a str,
-    },
+    Branch { name: &'a str },
     Commit(CommitId),
-    /// The branch checked out in a linked worktree, targeted through its lane heading.
-    WorktreeTip(FullName),
     MergeBase,
 }
 
@@ -77,16 +73,6 @@ impl ModeRender for MoveMode {
                     ExtensionDirection::Above
                 },
             })
-        } else if matches!(data, StatusOutputLineData::Worktree { .. }) {
-            // Below the heading is the top of the worktree's lane, which is where the moved
-            // commit goes. A branch source has no place there.
-            match &self.source {
-                MoveSource::Marks(..) | MoveSource::Commit(..) => Some(OperationExtension::Move {
-                    mode: self,
-                    direction: ExtensionDirection::Below,
-                }),
-                MoveSource::Branch(..) => None,
-            }
         } else if let StatusOutputLineData::MergeBase = data {
             Some(OperationExtension::Move {
                 mode: self,
@@ -154,7 +140,6 @@ impl MoveSource {
             | CliId::CommittedFile { .. }
             | CliId::CommittedHunk { .. }
             | CliId::Uncommitted { .. }
-            | CliId::Worktree { .. }
             | CliId::WorktreeUncommitted { .. }
             | CliId::Stack { .. } => None,
         }
@@ -327,17 +312,6 @@ impl App {
                 }
             }
             StatusOutputLineData::WorktreeUncommitted { .. } => return Ok(()),
-            StatusOutputLineData::Worktree { cli_id } => {
-                if let CliId::Worktree { name, .. } = &**cli_id {
-                    let repo = ctx.repo.get()?;
-                    MoveTarget::WorktreeTip(crate::utils::worktrees::worktree_branch(
-                        &repo,
-                        name.as_ref(),
-                    )?)
-                } else {
-                    return Ok(());
-                }
-            }
             StatusOutputLineData::MergeBase => MoveTarget::MergeBase,
             StatusOutputLineData::UpdateNotice
             | StatusOutputLineData::UncommittedChanges { .. }
@@ -376,7 +350,7 @@ impl App {
                     MoveTarget::MergeBase => {
                         MoveOperation::UnstackBranch(UnstackBranchOperation { source_branch })
                     }
-                    MoveTarget::Commit { .. } | MoveTarget::WorktreeTip(..) => return Ok(()),
+                    MoveTarget::Commit { .. } => return Ok(()),
                 }
             }
         };
@@ -405,7 +379,6 @@ fn move_commits_operation(
             commit,
             side: targeting::Side::from(insert_side),
         },
-        MoveTarget::WorktreeTip(name) => r#move::MoveTarget::BranchTip { name },
         MoveTarget::MergeBase => {
             return Ok(MoveOperation::CommitsToNewBranch(
                 MoveCommitsToNewBranchOperation {

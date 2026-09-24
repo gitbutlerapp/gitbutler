@@ -44,9 +44,7 @@ impl ModeRender for CherryPickMode {
             && !self.source.contains(target)
         {
             self.insert_side.into()
-        } else if matches!(data, StatusOutputLineData::Branch { .. })
-            || matches!(data, StatusOutputLineData::Worktree { .. })
-        {
+        } else if matches!(data, StatusOutputLineData::Branch { .. }) {
             ExtensionDirection::Below
         } else if matches!(data, StatusOutputLineData::MergeBase) {
             ExtensionDirection::Above
@@ -166,7 +164,6 @@ impl App {
                         | CliId::CommittedHunk { .. }
                         | CliId::Branch(..)
                         | CliId::Uncommitted { .. }
-                        | CliId::Worktree { .. }
                         | CliId::WorktreeUncommitted { .. }
                         | CliId::Stack { .. } => return,
                     };
@@ -212,7 +209,7 @@ impl App {
         ctx: &mut Context,
         messages: &mut Vec<Message>,
     ) -> anyhow::Result<()> {
-        self.cherry_pick_confirm_with(ctx, messages, |ctx, commits, data, insert_side| {
+        self.cherry_pick_confirm_with(ctx, messages, |commits, data, insert_side| {
             if matches!(data, StatusOutputLineData::MergeBase) {
                 return Ok(Some(PickOperation {
                     sources: commits,
@@ -246,19 +243,6 @@ impl App {
                     }),
                     order_commits_by_parentage: true,
                 })),
-                CliId::Worktree { name, .. } => {
-                    let repo = ctx.repo.get()?;
-                    let name = crate::utils::worktrees::worktree_branch(&repo, name.as_ref())?;
-
-                    Ok(Some(PickOperation {
-                        sources: commits,
-                        commit_op: CommitOperation::CommitAt(CommitAtOperation {
-                            target: CommitRelativeToTarget::BranchTip { name },
-                        }),
-                        order_commits_by_parentage: true,
-                    }))
-                }
-
                 CliId::AnonymousSegment(..)
                 | CliId::UncommittedHunkOrFile(..)
                 | CliId::PathPrefix { .. }
@@ -276,7 +260,7 @@ impl App {
         ctx: &mut Context,
         messages: &mut Vec<Message>,
     ) -> anyhow::Result<()> {
-        self.cherry_pick_confirm_with(ctx, messages, |_, commits, data, _| {
+        self.cherry_pick_confirm_with(ctx, messages, |commits, data, _| {
             let Some(target) = data.cli_id() else {
                 return Ok(None);
             };
@@ -302,7 +286,6 @@ impl App {
                 | CliId::CommittedFile { .. }
                 | CliId::CommittedHunk { .. }
                 | CliId::Uncommitted { .. }
-                | CliId::Worktree { .. }
                 | CliId::WorktreeUncommitted { .. }
                 | CliId::Stack { .. } => Ok(None),
             }
@@ -317,7 +300,6 @@ impl App {
     ) -> anyhow::Result<()>
     where
         F: FnOnce(
-            &mut Context,
             Vec<ObjectId>,
             &StatusOutputLineData,
             InsertSide,
@@ -351,7 +333,7 @@ impl App {
             CherryPickSource::Commit(commit) => Vec::from([commit.commit_id]),
         };
 
-        let Some(pick_operation) = make_pick_operation(ctx, commits, target, *insert_side)? else {
+        let Some(pick_operation) = make_pick_operation(commits, target, *insert_side)? else {
             return Ok(());
         };
 

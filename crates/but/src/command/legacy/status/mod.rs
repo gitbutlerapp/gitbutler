@@ -40,7 +40,7 @@ use crate::{
         workspace_target,
     },
     id::{
-        ChangeIdWithShortId, CommitId, CommittedFileId, SegmentWithId, ShortId, StackWithId,
+        ChangeIdWithShortId, CommitId, CommittedFileId, LaneWithId, SegmentWithId, ShortId,
         TreeChangeWithId,
     },
     tui::text::truncate_text,
@@ -205,7 +205,7 @@ pub(crate) enum CommitClassification {
     Integrated,
 }
 
-type StackDetail = (Option<StackWithId>, Vec<UncommittedFileWithId>);
+type StackDetail = (Option<LaneWithId>, Vec<UncommittedFileWithId>);
 type StackEntry = (Option<StackId>, StackDetail);
 
 #[derive(Serialize)]
@@ -463,6 +463,7 @@ fn build_status_context<'a>(
         resolved_target,
         commit_id_to_change_id,
         worktrees,
+        worktree_stacks,
     ) = {
         let (repo, ws, _db) = ctx.workspace_and_db_with_perm(perm.read_permission())?;
         let head_info = but_workspace::graph_to_ref_info(
@@ -475,6 +476,7 @@ fn build_status_context<'a>(
             },
         )?;
         let stacks = ws.stacks.clone();
+        let worktree_stacks = ws.worktrees.clone();
         let mut push_statuses_by_segment_id = HashMap::<SegmentIndex, PushStatus>::new();
         let mut local_commits_by_id = HashMap::<gix::ObjectId, LocalCommit>::new();
         let mut remote_commits_by_id = HashMap::<gix::ObjectId, Commit>::new();
@@ -520,6 +522,7 @@ fn build_status_context<'a>(
             resolved_target,
             commit_id_to_change_id,
             worktrees,
+            worktree_stacks,
         )
     };
 
@@ -575,7 +578,7 @@ fn build_status_context<'a>(
         stacks,
         sources,
         commit_id_to_change_id,
-        crate::id::worktree_commits_by_name(&worktrees),
+        worktree_stacks,
         ctx.settings.context_lines,
     )?;
 
@@ -594,7 +597,7 @@ fn build_status_context<'a>(
     ));
 
     for stack in stacks {
-        stack_details.push((stack.id, (Some(stack.clone()), Vec::new())));
+        stack_details.push((stack.lane.stack_id(), (Some(stack.clone()), Vec::new())));
     }
 
     let ci_map = ci_map(
@@ -1227,13 +1230,7 @@ fn print_worktree_status(
                 .worktrees
                 .iter()
                 // A worktree the ID map skips prints no lane, so nothing can nest into it.
-                .filter(|wt| {
-                    status_ctx
-                        .id_map
-                        .worktrees
-                        .values()
-                        .any(|candidate| candidate.name == wt.name)
-                })
+                .filter(|wt| status_ctx.id_map.worktree_lane(wt.name.as_ref()).is_some())
                 .flat_map(|wt| wt.commits().map(|c| c.id)),
         )
         .collect();
@@ -1330,8 +1327,8 @@ fn print_worktree_lanes_on(
     Ok(())
 }
 
-/// Print one linked worktree as its own lane: heading, uncommitted changes, its commits, and
-/// the connector merging back into the lane it branched from.
+/// Print one linked worktree as its own lane: uncommitted changes, its segments, and the
+/// connector merging back into the lane it branched from.
 fn print_worktree_lane(
     ctx: &Context,
     status_ctx: &StatusContext<'_>,
@@ -1341,29 +1338,25 @@ fn print_worktree_lane(
     output: &mut StatusOutput<'_>,
 ) -> anyhow::Result<()> {
     let repo = ctx.repo.get()?;
-    let Some(with_id) = status_ctx
-        .id_map
-        .worktrees
-        .values()
-        .find(|candidate| candidate.name == worktree.name)
-    else {
+    let Some(lane) = status_ctx.id_map.worktree_lane(worktree.name.as_ref()) else {
         // Only worktrees the ID map knows can be addressed, so printing one without IDs would
         // show selectors that no other command resolves.
         return Ok(());
     };
+    let uncommitted_id = lane
+        .uncommitted_id()
+        .context("BUG: a worktree lane names its uncommitted area")?;
 
     if separator == Some(LaneSeparator::Above) {
         output.between_stacks(in_lane(depth, [Span::raw("┊")]))?;
     }
 
-    let source = with_id.source();
+    let source = ChangeSourceId::Worktree(worktree.name.clone());
     let files = UncommittedFileWithId::in_source(&status_ctx.id_map, &source);
     print_uncommitted_group(
         &repo,
         status_ctx,
-        with_id.uncommitted_id(),
-        "worktree uncommitted",
-        ("{", "}"),
+        uncommitted_id,
         &files,
         status_ctx.changes_in_source(&source),
         // Conflicted paths are read from the main worktree only.
@@ -1372,34 +1365,15 @@ fn print_worktree_lane(
         output,
     )?;
 
-    // The reference row separates the area's files from the lane's commits, which is the
-    // job the bare `┊┊` connector used to do.
-    print_worktree_row(with_id, worktree, depth + 1, output)?;
-
-    for commit in &with_id.commits {
-        // Worktrees stack on each other too; base assignment follows tip order, so the
-        // resting-on relation cannot cycle and this recursion terminates.
-        print_worktree_lanes_on(ctx, status_ctx, commit.commit_id(), depth + 1, output)?;
-
-        let inner = status_ctx
-            .local_commits_by_id
-            .get(&commit.commit_id())
-            .context("BUG: head_info does not contain a worktree commit that the ID map has")?;
-        print_commit(
-            &repo,
-            status_ctx,
-            None,
-            commit.short_id.clone(),
-            commit.change_id.as_ref(),
-            &inner.inner,
-            CommitChanges::Workspace(&commit.tree_changes_using_repo(&repo)?),
-            // A worktree's own commits are never pushed as part of the workspace.
-            CommitClassification::LocalOnly,
-            None,
-            depth,
-            output,
-        )?;
-    }
+    print_lane_segments(
+        ctx,
+        status_ctx,
+        &repo,
+        lane,
+        depth,
+        LaneOpening::RowAbove,
+        output,
+    )?;
     output.connector(in_lane(depth, [Span::raw("├╯")]))?;
     if separator == Some(LaneSeparator::Below) {
         output.between_stacks(in_lane(depth, [Span::raw("┊")]))?;
@@ -1530,231 +1504,26 @@ fn print_files(
 fn print_group(
     ctx: &Context,
     status_ctx: &StatusContext<'_>,
-    stack_with_id: &Option<StackWithId>,
+    stack_with_id: &Option<LaneWithId>,
     files: &[UncommittedFileWithId],
     first: bool,
     output: &mut StatusOutput<'_>,
 ) -> anyhow::Result<bool> {
-    let t = crate::theme::get();
     let repo = ctx
         .legacy_project
         .open_isolated_repo()?
         .for_commit_shortening();
     let mut has_merged_upstream_branch = false;
     if let Some(stack_with_id) = stack_with_id {
-        // The bottom-most branch resting on the target is the only one eligible to be
-        // reported as merged purely because it has no commits: branches above it merely
-        // inherit the remote tip of the branch below and were not themselves merged.
-        let bottom_non_target_segment = stack_with_id.segments.iter().rposition(|segment| {
-            segment
-                .inner
-                .remote_tracking_ref_name
-                .as_ref()
-                .is_none_or(|remote| {
-                    !remote_tracking_ref_is_target_branch(status_ctx, remote.as_ref())
-                })
-        });
-        let mut first = true;
-        for (segment_index, segment) in stack_with_id.segments.iter().enumerate() {
-            let notch = if first { "╭" } else { "├" };
-            if !first {
-                output.connector(Vec::from([Span::raw("┊│")]))?;
-            }
-
-            let no_commits = if segment.workspace_commits.is_empty() {
-                "(no commits)"
-            } else {
-                ""
-            };
-
-            let review_spans: Vec<Span<'static>> = segment
-                .branch_name()
-                .and_then(|branch_name| {
-                    review::from_branch_details(&status_ctx.review_map, branch_name)
-                })
-                .map(|r| {
-                    [Span::raw(" ")]
-                        .into_iter()
-                        .chain(r.display_cli(
-                            status_ctx.flags.verbose,
-                            status_ctx.should_truncate_for_terminal,
-                        ))
-                        .chain([Span::raw(" ")])
-                        .collect()
-                })
-                .unwrap_or_default();
-
-            let ci_spans: Vec<Span<'static>> = segment
-                .branch_name()
-                .and_then(|branch_name| status_ctx.ci_map.get(&branch_name.to_string()))
-                .map(CiChecks::from)
-                .map(|c| {
-                    c.display_cli(
-                        status_ctx.flags.verbose,
-                        status_ctx.should_truncate_for_terminal,
-                    )
-                    .into_iter()
-                    .collect::<Vec<_>>()
-                })
-                .unwrap_or_default();
-
-            let branch_merge_status = branch_merge_status(status_ctx, segment);
-            let is_merged_upstream = branch_is_merged_upstream(
-                status_ctx,
-                segment,
-                &repo,
-                Some(segment_index) == bottom_non_target_segment,
-            );
-            has_merged_upstream_branch |= is_merged_upstream;
-            let branch_status = if is_merged_upstream {
-                Some(Span::styled(" (merged upstream)", t.remote_branch))
-            } else if !status_ctx.flags.show_upstream {
-                None
-            } else {
-                branch_merge_status.map(|status| match status {
-                    UpstreamBranchStatus::Clear => {
-                        Span::styled(" [✓ upstream merges cleanly]", t.success)
-                    }
-                    UpstreamBranchStatus::Integrated => {
-                        Span::styled(" (merged upstream)", t.remote_branch)
-                    }
-                    UpstreamBranchStatus::Conflicted => {
-                        Span::styled(" [⚠ upstream conflicts]", t.error)
-                    }
-                    UpstreamBranchStatus::Empty => Span::styled(" ○ empty", t.hint),
-                })
-            };
-
-            let branch = segment.branch_name().unwrap_or(BStr::new("")).to_string();
-            let is_anonymous = segment.branch_name().is_none();
-            let branch_cli_id = lookup_cli_id_for_short_id(
-                &status_ctx.id_map,
-                &repo,
-                &segment.short_id,
-                |id| {
-                    matches!(id, CliId::AnonymousSegment(..)) == is_anonymous
-                        && matches!(id, CliId::Branch(..) | CliId::AnonymousSegment(..))
-                },
-                "branch",
-            )?;
-            let mut branch_suffix = Vec::new();
-            branch_suffix.extend(ci_spans);
-            if let Some(branch_status) = branch_status {
-                branch_suffix.push(branch_status);
-            }
-            branch_suffix.extend(review_spans);
-            if !no_commits.is_empty() {
-                branch_suffix.push(Span::raw(" "));
-                branch_suffix.push(Span::styled(no_commits, t.hint));
-            }
-
-            let (decoration_start, decoration_end) = if branch.is_empty() {
-                ("", "")
-            } else {
-                (" [", "]")
-            };
-
-            output.branch(
-                Vec::from([
-                    Span::raw("┊"),
-                    Span::raw(format!("{notch}┄")),
-                    Span::raw(" "),
-                ]),
-                BranchLineContent {
-                    id: Vec::from([Span::styled(segment.short_id.clone(), t.cli_id)]),
-                    decoration_start: Vec::from([Span::raw(decoration_start)]),
-                    branch_name: Vec::from([Span::styled(branch, t.local_branch)]),
-                    decoration_end: Vec::from([Span::raw(decoration_end)]),
-                    suffix: branch_suffix,
-                },
-                branch_cli_id,
-                is_merged_upstream,
-            )?;
-
-            first = false;
-
-            let has_remote_commits_to_print = segment.remote_commits.iter().any(|commit| {
-                status_ctx
-                    .remote_commits_by_id
-                    .contains_key(&commit.commit_id())
-            });
-
-            if has_remote_commits_to_print {
-                let tracking_branch = segment
-                    .inner
-                    .remote_tracking_ref_name
-                    .as_ref()
-                    .and_then(|rtb| rtb.as_bstr().strip_prefix(b"refs/remotes/"))
-                    .unwrap_or(b"unknown");
-                output.connector(Vec::from([Span::raw("┊┊")]))?;
-                output.upstream_changes(
-                    Vec::from([Span::raw("┊╭┄┄ ")]),
-                    Vec::from([Span::styled(
-                        format!("(upstream: on {})", BStr::new(tracking_branch)),
-                        t.attention,
-                    )]),
-                )?;
-            }
-            for commit in &segment.remote_commits {
-                let Some(inner) = status_ctx.remote_commits_by_id.get(&commit.commit_id()) else {
-                    // This was filtered out because there is a corresponding
-                    // local commit, so don't show it.
-                    continue;
-                };
-                let details =
-                    but_api::diff::commit_details(ctx, commit.commit_id(), ComputeLineStats::No)?;
-                print_commit(
-                    &repo,
-                    status_ctx,
-                    stack_with_id.id,
-                    commit.short_id.clone(),
-                    None,
-                    inner,
-                    CommitChanges::Remote(&details.diff_with_first_parent),
-                    CommitClassification::Upstream,
-                    None,
-                    0,
-                    output,
-                )?;
-            }
-            if has_remote_commits_to_print {
-                output.connector(Vec::from([Span::raw("┊-")]))?;
-            }
-            for commit in segment.workspace_commits.iter() {
-                // Commits are listed newest first, so a worktree branching off this commit
-                // opens its lane just above it and closes back onto it.
-                print_worktree_lanes_on(ctx, status_ctx, commit.commit_id(), 1, output)?;
-                let inner = status_ctx
-                    .local_commits_by_id
-                    .get(&commit.commit_id())
-                    .context("BUG: head_info does not contain local commit that graph has")?;
-                let classification = match inner.relation {
-                    LocalCommitRelation::LocalOnly => CommitClassification::LocalOnly,
-                    LocalCommitRelation::LocalAndRemote(_) if is_rewritten_local_commit(inner) => {
-                        CommitClassification::Modified
-                    }
-                    LocalCommitRelation::LocalAndRemote(_) => CommitClassification::Pushed,
-                    LocalCommitRelation::Integrated(_) => CommitClassification::Integrated,
-                };
-
-                print_commit(
-                    &repo,
-                    status_ctx,
-                    stack_with_id.id,
-                    commit.short_id.clone(),
-                    commit.change_id.as_ref(),
-                    &inner.inner,
-                    CommitChanges::Workspace(&commit.tree_changes_using_repo(&repo)?),
-                    classification,
-                    // TODO: populate the Gerrit review URL. It
-                    // seems to be populated in handle_gerrit in
-                    // crates/but-api/src/legacy/workspace.rs
-                    None,
-                    0,
-                    output,
-                )?;
-            }
-        }
+        has_merged_upstream_branch = print_lane_segments(
+            ctx,
+            status_ctx,
+            &repo,
+            stack_with_id,
+            0,
+            LaneOpening::FirstSegment,
+            output,
+        )?;
     } else {
         // Linked worktrees are drawn as lanes off the commit they rest on, so only the main
         // worktree's uncommitted area belongs here.
@@ -1762,8 +1531,6 @@ fn print_group(
             &repo,
             status_ctx,
             status_ctx.id_map.uncommitted().clone(),
-            "uncommitted",
-            ("[", "]"),
             files,
             &status_ctx.worktree_changes,
             &status_ctx.conflicted_paths,
@@ -1778,46 +1545,251 @@ fn print_group(
     Ok(has_merged_upstream_branch)
 }
 
-/// Print one uncommitted-changes heading and the files below it.
-///
-/// The worktree reference row: the lane the worktree's commits hang off, naming the
-/// branch checked out there.
-///
-/// Sits below the area's files rather than above them, so `├┄` rather than `╭┄`.
-fn print_worktree_row(
-    with_id: &crate::id::WorktreeWithId,
-    worktree: &but_workspace::worktrees::WorktreeInfo,
-    depth: usize,
-    output: &mut StatusOutput<'_>,
-) -> anyhow::Result<()> {
-    let t = crate::theme::get();
-    let cli_id = with_id.reference_id();
-    let line = UncommittedLineContent {
-        id: Vec::from([Span::styled(cli_id.to_short_string(), t.cli_id)]),
-        decoration_start: Vec::from([Span::raw(" {")]),
-        label: Vec::from([Span::styled(
-            worktree.ref_name.as_ref().map_or_else(
-                || worktree.name.to_string(),
-                |name| name.shorten().to_string(),
-            ),
-            t.info,
-        )]),
-        decoration_end: Vec::from([Span::raw("}")]),
-        suffix: Vec::new(),
-    };
-    output.worktree(in_lane(depth, [Span::raw("├┄ ")]), line, cli_id)
+#[derive(Copy, Clone, PartialEq, Eq)]
+enum LaneOpening {
+    FirstSegment,
+    RowAbove,
 }
 
+fn print_lane_segments(
+    ctx: &Context,
+    status_ctx: &StatusContext<'_>,
+    repo: &gix::Repository,
+    lane: &LaneWithId,
+    depth: usize,
+    opening: LaneOpening,
+    output: &mut StatusOutput<'_>,
+) -> anyhow::Result<bool> {
+    let t = crate::theme::get();
+    let mut has_merged_upstream_branch = false;
+    // The bottom-most branch resting on the target is the only one eligible to be
+    // reported as merged purely because it has no commits: branches above it merely
+    // inherit the remote tip of the branch below and were not themselves merged.
+    let bottom_non_target_segment = lane.segments.iter().rposition(|segment| {
+        segment
+            .inner
+            .remote_tracking_ref_name
+            .as_ref()
+            .is_none_or(|remote| !remote_tracking_ref_is_target_branch(status_ctx, remote.as_ref()))
+    });
+    for (segment_index, segment) in lane.segments.iter().enumerate() {
+        let notch = if segment_index == 0 && opening == LaneOpening::FirstSegment {
+            "╭"
+        } else {
+            "├"
+        };
+        if segment_index > 0 {
+            output.connector(in_lane(depth, [Span::raw("┊│")]))?;
+        }
+
+        let no_commits = if segment.workspace_commits.is_empty() {
+            "(no commits)"
+        } else {
+            ""
+        };
+
+        let review_spans: Vec<Span<'static>> = segment
+            .branch_name()
+            .and_then(|branch_name| {
+                review::from_branch_details(&status_ctx.review_map, branch_name)
+            })
+            .map(|r| {
+                [Span::raw(" ")]
+                    .into_iter()
+                    .chain(r.display_cli(
+                        status_ctx.flags.verbose,
+                        status_ctx.should_truncate_for_terminal,
+                    ))
+                    .chain([Span::raw(" ")])
+                    .collect()
+            })
+            .unwrap_or_default();
+
+        let ci_spans: Vec<Span<'static>> = segment
+            .branch_name()
+            .and_then(|branch_name| status_ctx.ci_map.get(&branch_name.to_string()))
+            .map(CiChecks::from)
+            .map(|c| {
+                c.display_cli(
+                    status_ctx.flags.verbose,
+                    status_ctx.should_truncate_for_terminal,
+                )
+                .into_iter()
+                .collect::<Vec<_>>()
+            })
+            .unwrap_or_default();
+
+        let branch_merge_status = branch_merge_status(status_ctx, segment);
+        let is_merged_upstream = branch_is_merged_upstream(
+            status_ctx,
+            segment,
+            repo,
+            Some(segment_index) == bottom_non_target_segment,
+        );
+        has_merged_upstream_branch |= is_merged_upstream;
+        let branch_status = if is_merged_upstream {
+            Some(Span::styled(" (merged upstream)", t.remote_branch))
+        } else if !status_ctx.flags.show_upstream {
+            None
+        } else {
+            branch_merge_status.map(|status| match status {
+                UpstreamBranchStatus::Clear => {
+                    Span::styled(" [✓ upstream merges cleanly]", t.success)
+                }
+                UpstreamBranchStatus::Integrated => {
+                    Span::styled(" (merged upstream)", t.remote_branch)
+                }
+                UpstreamBranchStatus::Conflicted => {
+                    Span::styled(" [⚠ upstream conflicts]", t.error)
+                }
+                UpstreamBranchStatus::Empty => Span::styled(" ○ empty", t.hint),
+            })
+        };
+
+        let branch = segment.branch_name().unwrap_or(BStr::new("")).to_string();
+        let is_anonymous = segment.branch_name().is_none();
+        let branch_cli_id = lookup_cli_id_for_short_id(
+            &status_ctx.id_map,
+            repo,
+            &segment.short_id,
+            |id| {
+                matches!(id, CliId::AnonymousSegment(..)) == is_anonymous
+                    && matches!(id, CliId::Branch(..) | CliId::AnonymousSegment(..))
+            },
+            "branch",
+        )?;
+        let mut branch_suffix = Vec::new();
+        branch_suffix.extend(ci_spans);
+        if let Some(branch_status) = branch_status {
+            branch_suffix.push(branch_status);
+        }
+        branch_suffix.extend(review_spans);
+        if !no_commits.is_empty() {
+            branch_suffix.push(Span::raw(" "));
+            branch_suffix.push(Span::styled(no_commits, t.hint));
+        }
+
+        let (decoration_start, decoration_end) = if branch.is_empty() {
+            ("", "")
+        } else {
+            (" [", "]")
+        };
+
+        output.branch(
+            in_lane(
+                depth,
+                [
+                    Span::raw("┊"),
+                    Span::raw(format!("{notch}┄")),
+                    Span::raw(" "),
+                ],
+            ),
+            BranchLineContent {
+                id: Vec::from([Span::styled(segment.short_id.clone(), t.cli_id)]),
+                decoration_start: Vec::from([Span::raw(decoration_start)]),
+                branch_name: Vec::from([Span::styled(branch, t.local_branch)]),
+                decoration_end: Vec::from([Span::raw(decoration_end)]),
+                suffix: branch_suffix,
+            },
+            branch_cli_id,
+            is_merged_upstream,
+        )?;
+
+        let has_remote_commits_to_print = segment.remote_commits.iter().any(|commit| {
+            status_ctx
+                .remote_commits_by_id
+                .contains_key(&commit.commit_id())
+        });
+
+        if has_remote_commits_to_print {
+            let tracking_branch = segment
+                .inner
+                .remote_tracking_ref_name
+                .as_ref()
+                .and_then(|rtb| rtb.as_bstr().strip_prefix(b"refs/remotes/"))
+                .unwrap_or(b"unknown");
+            output.connector(in_lane(depth, [Span::raw("┊┊")]))?;
+            output.upstream_changes(
+                in_lane(depth, [Span::raw("┊╭┄┄ ")]),
+                Vec::from([Span::styled(
+                    format!("(upstream: on {})", BStr::new(tracking_branch)),
+                    t.attention,
+                )]),
+            )?;
+        }
+        for commit in &segment.remote_commits {
+            let Some(inner) = status_ctx.remote_commits_by_id.get(&commit.commit_id()) else {
+                // This was filtered out because there is a corresponding
+                // local commit, so don't show it.
+                continue;
+            };
+            let details =
+                but_api::diff::commit_details(ctx, commit.commit_id(), ComputeLineStats::No)?;
+            print_commit(
+                repo,
+                status_ctx,
+                lane.lane.stack_id(),
+                commit.short_id.clone(),
+                None,
+                inner,
+                CommitChanges::Remote(&details.diff_with_first_parent),
+                CommitClassification::Upstream,
+                None,
+                depth,
+                output,
+            )?;
+        }
+        if has_remote_commits_to_print {
+            output.connector(in_lane(depth, [Span::raw("┊-")]))?;
+        }
+        for commit in segment.workspace_commits.iter() {
+            // Commits are listed newest first, so a worktree branching off this commit
+            // opens its lane just above it and closes back onto it.
+            print_worktree_lanes_on(ctx, status_ctx, commit.commit_id(), depth + 1, output)?;
+            let inner = status_ctx
+                .local_commits_by_id
+                .get(&commit.commit_id())
+                .context("BUG: head_info does not contain local commit that graph has")?;
+            let classification = match inner.relation {
+                LocalCommitRelation::LocalOnly => CommitClassification::LocalOnly,
+                LocalCommitRelation::LocalAndRemote(_) if is_rewritten_local_commit(inner) => {
+                    CommitClassification::Modified
+                }
+                LocalCommitRelation::LocalAndRemote(_) => CommitClassification::Pushed,
+                LocalCommitRelation::Integrated(_) => CommitClassification::Integrated,
+            };
+
+            print_commit(
+                repo,
+                status_ctx,
+                lane.lane.stack_id(),
+                commit.short_id.clone(),
+                commit.change_id.as_ref(),
+                &inner.inner,
+                CommitChanges::Workspace(&commit.tree_changes_using_repo(repo)?),
+                classification,
+                // TODO: populate the Gerrit review URL. It
+                // seems to be populated in handle_gerrit in
+                // crates/but-api/src/legacy/workspace.rs
+                None,
+                depth,
+                output,
+            )?;
+        }
+    }
+    Ok(has_merged_upstream_branch)
+}
+
+/// Print one uncommitted-changes heading and the files below it.
+///
 /// `changes` supplies the tree status letters and must come from the same
-/// checkout as `files`, or every file renders without one. `decoration` brackets the label:
-/// `[]` for the main worktree's area, `{}` for a linked worktree's.
+/// checkout as `files`, or every file renders without one. A linked worktree's area names
+/// the worktree after the label.
 #[expect(clippy::too_many_arguments)]
 fn print_uncommitted_group(
     repo: &gix::Repository,
     status_ctx: &StatusContext<'_>,
     cli_id: CliId,
-    label: &str,
-    decoration: (&str, &str),
     files: &[UncommittedFileWithId],
     changes: &[ui::TreeChange],
     conflicted_paths: &[String],
@@ -1825,16 +1797,22 @@ fn print_uncommitted_group(
     output: &mut StatusOutput<'_>,
 ) -> anyhow::Result<()> {
     let t = crate::theme::get();
+    let mut suffix = Vec::new();
+    if let CliId::WorktreeUncommitted { name, .. } = &cli_id {
+        suffix.push(Span::raw(" {"));
+        suffix.push(Span::styled(name.to_string(), t.info));
+        suffix.push(Span::raw("}"));
+    }
+    if files.is_empty() && conflicted_paths.is_empty() {
+        suffix.push(Span::raw(" "));
+        suffix.push(Span::styled("(no changes)", t.hint));
+    }
     let line = UncommittedLineContent {
         id: Vec::from([Span::styled(cli_id.to_short_string(), t.cli_id)]),
-        decoration_start: Vec::from([Span::raw(format!(" {}", decoration.0))]),
-        label: Vec::from([Span::styled(label.to_owned(), t.info)]),
-        decoration_end: Vec::from([Span::raw(decoration.1.to_owned())]),
-        suffix: if files.is_empty() && conflicted_paths.is_empty() {
-            Vec::from([Span::raw(" "), Span::styled("(no changes)", t.hint)])
-        } else {
-            Vec::new()
-        },
+        decoration_start: Vec::from([Span::raw(" [")]),
+        label: Vec::from([Span::styled("uncommitted".to_owned(), t.info)]),
+        decoration_end: Vec::from([Span::raw("]")]),
+        suffix,
     };
     if matches!(cli_id, CliId::WorktreeUncommitted { .. }) {
         output.worktree_uncommitted(in_lane(depth, [Span::raw("╭┄ ")]), line, cli_id)?;

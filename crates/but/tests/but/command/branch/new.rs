@@ -1,6 +1,9 @@
 use snapbox::str;
 
-use crate::utils::{CommandExt, Sandbox};
+use crate::{
+    command::util,
+    utils::{CommandExt, Sandbox},
+};
 
 #[test]
 fn rejects_unnamed_segment_as_anchor() {
@@ -1633,4 +1636,52 @@ Hint: run `but help` for all commands
 
 "#]]
     );
+}
+
+#[test]
+fn places_a_branch_in_a_worktree_lane() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["A"]);
+    util::enable_worktree_manipulation(&env);
+    env.but("status").assert().success();
+    let wt = util::add_worktree_with_commit(&env, "wt-feature", "A");
+    but_testsupport::invoke_bash_at_dir("echo more >>wt-file.txt && git commit -qam 'add W2'", &wt);
+    let w1 = env.invoke_git("rev-parse wt-feature~1");
+
+    env.but(format!("branch new wt-lower --above {w1}"))
+        .assert()
+        .success();
+    env.but("status").assert().success().stdout_eq(str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┊╭┄ g0 [A]
+┊┊
+┊┊╭┄ wt:@ [uncommitted] {wt-feature} (no changes)
+┊┊├┄ wt [wt-feature]
+┊┊●   luv add W2
+┊┊│
+┊┊├┄ lo [wt-lower]
+┊┊●   nsn add W
+┊├╯
+┊●   tpm add A
+├╯
+┊
+┴ 0dc3733 (common base) 2000-01-02 add M
+
+Hint: run `but help` for all commands
+
+"#]]);
+
+    // A new branch can't share a commit with a worktree's branch until worktrees can order them.
+    env.but("branch new wt-upper --above wt-feature")
+        .assert()
+        .failure()
+        .stderr_eq(str![[r#"
+Error: failed to create reference. anchor=AtSegment { ref_name: FullNameRef("refs/heads/wt-feature"), position: Above }; new_ref=FullName("refs/heads/wt-upper")
+
+Caused by:
+    Cannot place 'wt-upper' relative to worktree branch 'wt-feature': branches can't be ordered in worktrees yet
+
+"#]])
+        .stdout_eq(str![]);
 }
