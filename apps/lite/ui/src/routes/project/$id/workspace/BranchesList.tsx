@@ -826,7 +826,7 @@ export const BranchesList: FC<
 						<EmptyState
 							// The binoculars are for a search that came up empty; filters that
 							// hide everything get the same cactus as a list with nothing in it.
-							illustration={query === "" ? "cactus" : "looking"}
+							illustration={query === "" ? "cactus" : "papers"}
 							title="No branches match"
 							description={
 								query === ""

@@ -6,16 +6,7 @@ const names = (Object.keys(illustrations) as Array<IllustrationName>).sort((a, b
 	a.localeCompare(b),
 );
 
-const meta = preview.type<{ args: { width: number | undefined } }>().meta({
-	argTypes: {
-		width: {
-			control: { type: "range", min: 32, max: 256, step: 8 },
-		},
-	},
-	// No default width: each illustration was drawn at a size and shows at it,
-	// so the story reads as the set really is. The control overrides for all.
-	args: { width: undefined },
-});
+const meta = preview.meta({});
 
 export const AllIllustrations = meta.story({
 	parameters: {
@@ -24,7 +15,7 @@ export const AllIllustrations = meta.story({
 			url: "https://www.figma.com/design/cqdnAotT8n9op8WGYLOHg4/%E2%9A%9B%EF%B8%8F-Lite-Core?node-id=2124-1502",
 		},
 	},
-	render: (args) => (
+	render: () => (
 		<div
 			style={{
 				display: "grid",
@@ -57,7 +48,7 @@ export const AllIllustrations = meta.story({
 							backgroundColor: "var(--bg-2)",
 						}}
 					>
-						<Illustration name={name} width={args.width} />
+						<Illustration name={name} />
 					</div>
 					<span style={{ fontSize: 11, lineHeight: 1.3, opacity: 0.5 }}>{name}</span>
 				</div>

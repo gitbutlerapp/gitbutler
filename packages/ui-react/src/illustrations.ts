@@ -1,6 +1,5 @@
 import cactus from "./illustrations/cactus.svg?raw";
 import idCard from "./illustrations/id-card.svg?raw";
-import looking from "./illustrations/looking.svg?raw";
 import papers from "./illustrations/papers.svg?raw";
 import terminal from "./illustrations/terminal.svg?raw";
 import waving from "./illustrations/waving.svg?raw";
@@ -33,8 +32,8 @@ import waving from "./illustrations/waving.svg?raw";
  * for text. `terminal` has no shaded face at all: its screen is solid
  * `currentColor` with the prompt cut out of it in `--bg-1`.
  *
- * Each asset keeps the width and height Figma gave it and renders at that size;
- * `<Illustration width={n} />` overrides it where a surface needs another.
+ * Each asset keeps the width and height Figma gave it and renders at that size,
+ * never scaled.
  *
  * Separate from `Illustration.tsx` for the same reason `icons.ts` is separate
  * from `Icon.tsx`: a module that exports anything but components loses fast
@@ -43,7 +42,6 @@ import waving from "./illustrations/waving.svg?raw";
 export const illustrations = {
 	cactus,
 	"id-card": idCard,
-	looking,
 	papers,
 	terminal,
 	waving,
