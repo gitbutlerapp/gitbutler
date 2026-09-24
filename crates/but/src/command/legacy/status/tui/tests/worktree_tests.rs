@@ -12,6 +12,7 @@ use crate::command::legacy::status::{
 };
 use crate::tui::test_utils::TestTui;
 
+const COPY_MORE: (KeyModifiers, char) = (KeyModifiers::SHIFT, 'Y');
 const TEST_EDITOR_MESSAGE: &str = "commit from worktree";
 
 /// A workspace with one stack, plus a linked worktree that branched off that stack's commit,
@@ -373,6 +374,54 @@ fn marks_spanning_worktrees_are_refused() {
 /// A detached worktree's top is an anonymous segment, which like a stack's anonymous segment
 /// names no branch to commit to, so confirming on it does nothing rather than committing
 /// somewhere else.
+#[test]
+fn copies_worktree_path_and_name_from_its_reference() {
+    let (mut tui, _editor) = worktree_tui();
+    let path = tui
+        .env()
+        .projects_root()
+        .join(".git/gitbutler/test-worktrees/wt");
+
+    tui.reload();
+    tui.input([KeyCode::Down; 4])
+        .assert_current_line_eq(str!["┊┊├┄ wt [wt-branch]"]);
+
+    tui.input(COPY_MORE);
+    tui.input([KeyCode::Down; 4]);
+    tui.input(KeyCode::Enter)
+        .assert_copied_text_eq(std::fs::canonicalize(&path).unwrap().display().to_string());
+
+    tui.input(COPY_MORE);
+    tui.input([KeyCode::Down; 5]);
+    tui.input(KeyCode::Enter).assert_copied_text_eq("wt");
+}
+
+#[test]
+fn copies_short_id_and_worktree_values_from_a_detached_worktree_segment() {
+    let (mut tui, _editor) = worktree_tui();
+    let path = tui
+        .env()
+        .projects_root()
+        .join(".git/gitbutler/test-worktrees/wt");
+    but_testsupport::invoke_bash_at_dir("git checkout -q --detach", &path);
+
+    tui.reload();
+    tui.input([KeyCode::Down; 4])
+        .assert_current_line_eq(str!["┊┊├┄ h0"]);
+
+    tui.input(COPY_MORE);
+    tui.input(KeyCode::Enter).assert_copied_text_eq("h0");
+
+    tui.input(COPY_MORE);
+    tui.input(KeyCode::Down);
+    tui.input(KeyCode::Enter)
+        .assert_copied_text_eq(std::fs::canonicalize(&path).unwrap().display().to_string());
+
+    tui.input(COPY_MORE);
+    tui.input([KeyCode::Down; 2]);
+    tui.input(KeyCode::Enter).assert_copied_text_eq("wt");
+}
+
 #[test]
 fn commit_to_a_detached_worktree_reference_is_refused() {
     let (mut tui, _editor) = worktree_tui();

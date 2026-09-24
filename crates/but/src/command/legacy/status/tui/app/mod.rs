@@ -1639,12 +1639,12 @@ impl App {
                 let commit_id = *commit_id;
                 copy_selection_picker::commit_picker(commit_id, self.theme)
             }
-            CliId::Branch(BranchId { name, id, .. }) => {
+            CliId::Branch(BranchId { name, id, lane }) => {
                 let branch = Category::LocalBranch.to_full_name(name.as_str())?;
-                copy_selection_picker::branch_picker(branch, id.to_owned(), self.theme)
+                copy_selection_picker::branch_picker(branch, id.to_owned(), lane, self.theme)
             }
-            CliId::AnonymousSegment(AnonymousSegmentId { id, .. }) => {
-                copy_selection_picker::anonymous_segment_picker(id.to_owned(), self.theme)
+            CliId::AnonymousSegment(AnonymousSegmentId { id, lane, .. }) => {
+                copy_selection_picker::anonymous_segment_picker(id.to_owned(), lane, self.theme)
             }
             CliId::UncommittedHunkOrFile(hunk) => {
                 copy_selection_picker::uncommitted_hunk_picker(hunk.clone(), self.theme)

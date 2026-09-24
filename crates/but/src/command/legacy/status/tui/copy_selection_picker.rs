@@ -12,7 +12,7 @@ use crate::{
     command::legacy::status::tui::{
         Col, FuzzyPicker, FuzzyPickerItem, Message, SearchableToken, ToastKind,
     },
-    id::{ShortId, UncommittedHunkOrFile},
+    id::{LaneId, ShortId, UncommittedHunkOrFile},
     theme::Theme,
 };
 
@@ -38,6 +38,7 @@ pub fn commit_picker(
 pub fn branch_picker(
     branch: FullName,
     id: ShortId,
+    lane: &LaneId,
     theme: &'static Theme,
 ) -> FuzzyPicker<CopySelectionItem> {
     let mut items = NonEmpty::new(CopySelectionItem::BranchName(branch.clone()));
@@ -46,14 +47,27 @@ pub fn branch_picker(
         CopySelectionItem::PullRequestUrl(branch.clone()),
         CopySelectionItem::BranchDiff(branch),
     ]);
+    items.extend(worktree_items(lane));
     picker(items, theme)
 }
 
 pub fn anonymous_segment_picker(
     id: ShortId,
+    lane: &LaneId,
     theme: &'static Theme,
 ) -> FuzzyPicker<CopySelectionItem> {
-    picker(NonEmpty::new(CopySelectionItem::ShortId(id)), theme)
+    let mut items = NonEmpty::new(CopySelectionItem::ShortId(id));
+    items.extend(worktree_items(lane));
+    picker(items, theme)
+}
+
+fn worktree_items(lane: &LaneId) -> impl Iterator<Item = CopySelectionItem> {
+    lane.worktree_name().into_iter().flat_map(|name| {
+        [
+            CopySelectionItem::WorktreePath(name.to_owned()),
+            CopySelectionItem::WorktreeName(name.to_owned()),
+        ]
+    })
 }
 
 pub fn uncommitted_hunk_picker(
@@ -127,6 +141,10 @@ pub enum CopySelectionItem {
 
     // uncommitted files/hunks
     HunkDiff(Box<UncommittedHunkOrFile>),
+
+    // worktrees
+    WorktreeName(BString),
+    WorktreePath(BString),
 }
 
 impl CopySelectionItem {
@@ -145,6 +163,8 @@ impl CopySelectionItem {
             CopySelectionItem::PullRequestUrl(_) => "Pull Request URL",
             CopySelectionItem::ShortId(_) => "Short ID",
             CopySelectionItem::FilePath(_) => "File path",
+            CopySelectionItem::WorktreeName(_) => "Worktree name",
+            CopySelectionItem::WorktreePath(_) => "Worktree path",
         }
     }
 
@@ -237,6 +257,15 @@ impl CopySelectionItem {
                 uncommitted_hunk_or_file_to_diff(ctx, uncommitted_hunk_or_file)
             }
             CopySelectionItem::FilePath(path) => Ok(path.to_owned()),
+            CopySelectionItem::WorktreePath(name) => {
+                let entry = ctx
+                    .worktrees_with_state()?
+                    .into_iter()
+                    .find(|entry| entry.name == *name)
+                    .context("worktree no longer exists")?;
+                Ok(entry.path.display().to_string())
+            }
+            CopySelectionItem::WorktreeName(name) => Ok(name.to_string()),
         }
     }
 }
