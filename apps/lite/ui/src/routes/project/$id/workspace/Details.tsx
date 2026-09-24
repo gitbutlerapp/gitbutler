@@ -402,14 +402,6 @@ const navigationHunkForSelectedLines = ({
 	return hunkByKey.get(hunkAddressIdentityKey(address))?.address ?? null;
 };
 
-const lineSelectionsEqual = (a: CodeViewLineSelection, b: CodeViewLineSelection): boolean =>
-	a.id === b.id &&
-	a.range.start === b.range.start &&
-	(a.range.side ?? "additions") === (b.range.side ?? "additions") &&
-	a.range.end === b.range.end &&
-	(a.range.endSide ?? a.range.side ?? "additions") ===
-		(b.range.endSide ?? b.range.side ?? "additions");
-
 const DiffFooter: FC = () => {
 	const dispatch = useAppDispatch();
 	const view = useAppSelector(interfaceSlice.selectors.selectDiffFooterView);
@@ -654,7 +646,8 @@ const DiffContents: FC<{
 		const nextSelectedLines = selectedLinesForHunk(selection);
 		if (!nextSelectedLines) return;
 		pendingFileRef.current = null;
-		setCursor("diff", { file: selection.parent, range: nextSelectedLines.range });
+		const { start, side } = nextSelectedLines.range;
+		setCursor("diff", { file: selection.parent, range: { start, side, end: start } });
 
 		viewerRef.current?.scrollTo({
 			type: "range",
@@ -679,7 +672,11 @@ const DiffContents: FC<{
 
 				if (lineHunk) {
 					const hunkLines = selectedLinesForHunk(lineHunk.address);
-					if (hunkLines && !lineSelectionsEqual(selectedLines, hunkLines)) {
+					if (
+						hunkLines &&
+						(selectedLines.range.start !== hunkLines.range.start ||
+							selectedLines.range.side !== hunkLines.range.side)
+					) {
 						selectDiff(lineHunk.address);
 						return;
 					}
@@ -778,7 +775,7 @@ const DiffContents: FC<{
 		});
 	};
 
-	const moveSelectedLines = (offset: -1 | 1, extend: boolean): void => {
+	const moveSelectedLines = (offset: -1 | 1): void => {
 		if (!selectedLines) return;
 		const file = fileByItemId.get(selectedLines.id);
 		if (!file || file.patch?.type !== "Patch") return;
@@ -788,7 +785,6 @@ const DiffContents: FC<{
 			range: selectedLines.range,
 			diffStyle: effectiveDiffStyle,
 			offset,
-			extend,
 		});
 		if (!range) return;
 
@@ -843,7 +839,6 @@ const DiffContents: FC<{
 					range,
 					diffStyle: effectiveDiffStyle,
 					offset,
-					extend: false,
 				});
 				return nextRange ? { id, range: nextRange } : null;
 			},
@@ -906,7 +901,7 @@ const DiffContents: FC<{
 	useHotkeys([
 		{
 			hotkey: "ArrowUp",
-			callback: () => moveSelectedLines(-1, false),
+			callback: () => moveSelectedLines(-1),
 			options: {
 				conflictBehavior: "allow",
 				enabled: selectedLines !== null,
@@ -915,7 +910,7 @@ const DiffContents: FC<{
 		},
 		{
 			hotkey: "K",
-			callback: () => moveSelectedLines(-1, false),
+			callback: () => moveSelectedLines(-1),
 			options: {
 				conflictBehavior: "allow",
 				enabled: selectedLines !== null,
@@ -924,7 +919,7 @@ const DiffContents: FC<{
 		},
 		{
 			hotkey: "ArrowDown",
-			callback: () => moveSelectedLines(1, false),
+			callback: () => moveSelectedLines(1),
 			options: {
 				conflictBehavior: "allow",
 				enabled: selectedLines !== null,
@@ -933,43 +928,7 @@ const DiffContents: FC<{
 		},
 		{
 			hotkey: "J",
-			callback: () => moveSelectedLines(1, false),
-			options: {
-				conflictBehavior: "allow",
-				enabled: selectedLines !== null,
-				target: focusScopeRef,
-			},
-		},
-		{
-			hotkey: "Shift+ArrowUp",
-			callback: () => moveSelectedLines(-1, true),
-			options: {
-				conflictBehavior: "allow",
-				enabled: selectedLines !== null,
-				target: focusScopeRef,
-			},
-		},
-		{
-			hotkey: "Shift+K",
-			callback: () => moveSelectedLines(-1, true),
-			options: {
-				conflictBehavior: "allow",
-				enabled: selectedLines !== null,
-				target: focusScopeRef,
-			},
-		},
-		{
-			hotkey: "Shift+ArrowDown",
-			callback: () => moveSelectedLines(1, true),
-			options: {
-				conflictBehavior: "allow",
-				enabled: selectedLines !== null,
-				target: focusScopeRef,
-			},
-		},
-		{
-			hotkey: "Shift+J",
-			callback: () => moveSelectedLines(1, true),
+			callback: () => moveSelectedLines(1),
 			options: {
 				conflictBehavior: "allow",
 				enabled: selectedLines !== null,
@@ -1294,14 +1253,6 @@ const DiffContents: FC<{
 		setCursor("diff", { file: file.address, range: selection.range });
 	}
 
-	const handleLinesSelected = (selection: CodeViewLineSelection | null): void => {
-		// Keep the active line selected when it is clicked again: Lite treats line selection as a
-		// persistent operation target, not a toggle. Still clear it when its item leaves the view.
-		if (selection === null && selectedLines !== null && fileByItemId.has(selectedLines.id)) return;
-
-		applySelectedLines(selection);
-	};
-
 	const getLineAddressAtLine = ({
 		itemId,
 		lineNumber,
@@ -1334,16 +1285,16 @@ const DiffContents: FC<{
 	// useCallback with the render-local helpers as dependencies) invalidates the compiler's cached
 	// CodeView on focus, causing Pierre to rebuild its DOM during native text selection.
 	const handleLineNumberClick: NonNullable<CodeViewOptions<Annotation>["onLineNumberClick"]> =
-		useStableCallback(({ event, numberElement }, context) => {
-			if (event.detail !== 2) return;
+		useStableCallback(({ numberElement }, context) => {
 			const target = diffLineTargetFromElement({
 				element: numberElement,
 				itemId: context.item.id,
 			});
 			if (!target) return;
-			const address = getContiguousHunkAddressAtLine(target);
-			if (!address) return;
-			applySelectedLines(selectedLinesForHunk(address));
+			applySelectedLines({
+				id: target.itemId,
+				range: { start: target.lineNumber, end: target.lineNumber, side: target.side },
+			});
 		});
 
 	const getContextMenuAddressAtLine = ({
@@ -1443,8 +1394,6 @@ const DiffContents: FC<{
 			})
 			.filter((x) => x != null);
 
-	// Checkbox Shift-click extends persistent checked ranges. Shift-clicking the surrounding gutter
-	// remains Pierre's active line-range gesture, unlike the whole-row shortcut on file/commit rows.
 	function checkLine(address: HunkAddress, shiftKey: boolean): void {
 		const key = hunkAddressIdentityKey(address);
 		const previous = shiftKey && lineCheckRangeAnchor.current !== null ? checkedHunkKeys() : null;
@@ -1836,7 +1785,6 @@ const DiffContents: FC<{
 				className={styles.diffContents}
 				items={displayItems}
 				selectedLines={selectedLines}
-				onSelectedLinesChange={handleLinesSelected}
 				options={{
 					diffStyle: effectiveDiffStyle,
 					loadDiffFiles,
@@ -1845,7 +1793,6 @@ const DiffContents: FC<{
 					overflow: diffOverflow ?? defaultSettings.diffOverflow,
 					themeType: settings?.theme ?? defaultSettings.theme,
 					stickyHeaders: true,
-					enableLineSelection: true,
 					onLineNumberClick: handleLineNumberClick,
 					layout: codeViewLayout,
 					// This appears to validate before our custom header has been slotted, in which case - if

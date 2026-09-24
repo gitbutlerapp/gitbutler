@@ -107,8 +107,12 @@ export const resolveDiffSelection = ({
 	const file = fileByItemId.get(weakFileIdentityKey(selection.file));
 	if (!file) return null;
 
-	const range = selection.range ?? file.hunks[0]?.ranges[diffStyle];
-	return range ? { id: file.item.id, range } : null;
+	// Only user interactions and defaults are single-line; externally supplied cursors retain
+	// their full range for rendering and operations.
+	if (selection.range) return { id: file.item.id, range: selection.range };
+	const range = file.hunks[0]?.ranges[diffStyle];
+	if (!range) return null;
+	return { id: file.item.id, range: { start: range.start, end: range.start, side: range.side } };
 };
 
 const parseFileDiff = (
