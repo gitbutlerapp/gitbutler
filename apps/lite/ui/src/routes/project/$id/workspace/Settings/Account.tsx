@@ -129,24 +129,20 @@ const SignedIn: FC<{ profile: UserProfile }> = ({ profile }) => {
 	const client = useQueryClient();
 
 	const [name, setName] = useState(profile.name ?? "");
-	const [pendingPicture, setPendingPicture] = useState<{ base64: string; filename: string } | null>(
-		null,
-	);
-	const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+	// The chosen picture, with a data URL to preview it by: CSP allows `data:` images but not
+	// `blob:` ones, and the bytes are already base64 for the upload.
+	const [pendingPicture, setPendingPicture] = useState<{
+		base64: string;
+		filename: string;
+		previewUrl: string;
+	} | null>(null);
 	// The uploaded picture, marked to go on save.
 	const [removingPicture, setRemovingPicture] = useState(false);
 	const [saving, setSaving] = useState(false);
 	const [error, setError] = useState<string | null>(null);
 
-	// An object URL is held by the document, not by the state that named it, so each one
-	// has to be handed back when it is replaced, cleared on save, or unmounted.
-	useEffect(() => {
-		if (previewUrl === null) return;
-		return () => URL.revokeObjectURL(previewUrl);
-	}, [previewUrl]);
-
 	const dirty = name !== (profile.name ?? "") || pendingPicture !== null || removingPicture;
-	const picture = removingPicture ? null : (previewUrl ?? profile.picture);
+	const picture = removingPicture ? null : (pendingPicture?.previewUrl ?? profile.picture);
 	// Only an uploaded picture can be removed; the sign-in picture and Gravatar are what
 	// removing falls back to. The API says which by its storage path until it says so
 	// outright (GB-2076).
@@ -154,8 +150,12 @@ const SignedIn: FC<{ profile: UserProfile }> = ({ profile }) => {
 
 	const choosePicture = async (file: File) => {
 		try {
-			setPendingPicture({ base64: await readAsBase64(file), filename: file.name });
-			setPreviewUrl(URL.createObjectURL(file));
+			const base64 = await readAsBase64(file);
+			setPendingPicture({
+				base64,
+				filename: file.name,
+				previewUrl: `data:${file.type};base64,${base64}`,
+			});
 			setRemovingPicture(false);
 		} catch (caught) {
 			setError(errorMessageForToast(caught));
@@ -167,7 +167,7 @@ const SignedIn: FC<{ profile: UserProfile }> = ({ profile }) => {
 		setError(null);
 		try {
 			// UpdateUserParams has no rename_all, so its wire shape is snake_case.
-			await window.lite.updateProfileAndPersist({
+			const updated = await window.lite.updateProfileAndPersist({
 				name: name.trim() === "" ? null : name,
 				website: null,
 				twitter: null,
@@ -179,10 +179,11 @@ const SignedIn: FC<{ profile: UserProfile }> = ({ profile }) => {
 				avatar_filename: pendingPicture?.filename ?? null,
 				remove_avatar: removingPicture ? true : null,
 			});
+			// The saved profile goes in before the preview comes out: dropping the preview
+			// first showed the cached profile, and its old picture, until a refetch landed.
+			client.setQueryData(userProfileQueryOptions.queryKey, updated);
 			setPendingPicture(null);
-			setPreviewUrl(null);
 			setRemovingPicture(false);
-			await client.invalidateQueries({ queryKey: userProfileQueryOptions.queryKey });
 		} catch (caught) {
 			setError(errorMessageForToast(caught));
 		} finally {
@@ -203,10 +204,7 @@ const SignedIn: FC<{ profile: UserProfile }> = ({ profile }) => {
 				// uploaded one to go on save.
 				onRemove={
 					pendingPicture !== null
-						? () => {
-								setPendingPicture(null);
-								setPreviewUrl(null);
-							}
+						? () => setPendingPicture(null)
 						: uploadedPicture && !removingPicture
 							? () => setRemovingPicture(true)
 							: undefined
