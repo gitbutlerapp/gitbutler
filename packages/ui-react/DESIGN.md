@@ -115,11 +115,11 @@ Ghost and outline are the two quiet buttons and sit at the same level as each
 other; gray and pop are the two ways to raise one above the rest. Reach for a
 quiet one unless there is a reason not to.
 
-- **`ghost`** — no ground, no border. The default, and by far the most used.
-  For actions inside something that is already a container: a row, a toolbar,
-  a card header, a popup.
-- **`outline`** — a ghost with an edge. For a button on open ground, where
-  nothing else marks it as a target.
+- **`outline`** — the default. A ghost with an edge, for a button on open
+  ground where nothing else marks it as a target; a `Button` with no `variant`
+  is one.
+- **`ghost`** — no ground, no border. For actions inside something that is
+  already a container: a row, a toolbar, a card header, a popup.
 - **`gray`** — solid gray ground. Lifts one button above the ones around it
   without spending color. This is how you highlight; it is not a primary
   action.

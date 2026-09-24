@@ -1,18 +1,10 @@
 import preview from "#storybook/preview";
-import {
-	type ButtonSize,
-	type ButtonVariant,
-	getButtonClassName,
-	type ButtonStyleProps,
-} from "./Button.tsx";
-import { classes } from "./classes.ts";
+import { Button, type ButtonProps, type ButtonSize, type ButtonVariant } from "./Button.tsx";
 import { Icon } from "./Icon.tsx";
 import React from "react";
 
 const meta = preview.meta({
-	// A button is Base UI's Button with getButtonClassName, a function, not a
-	// component, so the manifest has nothing to document; AGENTS.md says how.
-	tags: ["!manifest"],
+	component: Button,
 });
 
 const invertedDemoStyle: React.CSSProperties = {
@@ -56,15 +48,11 @@ export const Playground = meta.story({
 		size: "regular",
 		showIcon: false,
 	},
-	render: (args: React.ComponentProps<"button"> & ButtonStyleProps & { showIcon?: boolean }) => {
-		const { showIcon, children, variant, size, iconOnly, className, ...buttonArgs } = args;
+	render: (args: ButtonProps & { showIcon?: boolean }) => {
+		const { showIcon, children, ...buttonArgs } = args;
 
 		const button = (
-			<button
-				{...buttonArgs}
-				type="button"
-				className={classes(getButtonClassName({ variant, size, iconOnly }), className)}
-			>
+			<Button {...buttonArgs}>
 				{showIcon ? (
 					<>
 						<Icon name="plus" />
@@ -73,10 +61,10 @@ export const Playground = meta.story({
 				) : (
 					children
 				)}
-			</button>
+			</Button>
 		);
 
-		if (variant === "ghost-inverted") return <div style={invertedDemoStyle}>{button}</div>;
+		if (args.variant === "ghost-inverted") return <div style={invertedDemoStyle}>{button}</div>;
 
 		return button;
 	},
@@ -85,31 +73,17 @@ export const Playground = meta.story({
 export const Variants = meta.story({
 	render: () => (
 		<div style={{ display: "grid", gridTemplateColumns: "repeat(7, max-content)", gap: 12 }}>
-			<button type="button" className={getButtonClassName({ variant: "pop" })}>
-				Button
-			</button>
-			<button type="button" className={getButtonClassName({ variant: "gray" })}>
-				Button
-			</button>
-			<button type="button" className={getButtonClassName({ variant: "outline" })}>
-				Button
-			</button>
+			<Button variant="pop">Button</Button>
+			<Button variant="gray">Button</Button>
+			<Button variant="outline">Button</Button>
 			<div style={invertedDemoStyle}>
-				<button type="button" className={getButtonClassName({ variant: "outline-inverted" })}>
-					Button
-				</button>
+				<Button variant="outline-inverted">Button</Button>
 			</div>
-			<button type="button" className={getButtonClassName({ variant: "ghost" })}>
-				Button
-			</button>
+			<Button variant="ghost">Button</Button>
 			<div style={invertedDemoStyle}>
-				<button type="button" className={getButtonClassName({ variant: "ghost-inverted" })}>
-					Button
-				</button>
+				<Button variant="ghost-inverted">Button</Button>
 			</div>
-			<button type="button" className={getButtonClassName({ variant: "danger" })}>
-				Button
-			</button>
+			<Button variant="danger">Button</Button>
 		</div>
 	),
 });
@@ -117,59 +91,31 @@ export const Variants = meta.story({
 export const IconOnly = meta.story({
 	render: () => (
 		<div style={{ display: "flex", gap: 12 }}>
-			<button
-				type="button"
-				className={getButtonClassName({ iconOnly: true })}
-				aria-label="Pop action"
-			>
+			<Button variant="pop" iconOnly aria-label="Pop action">
 				<Icon name="plus" />
-			</button>
-			<button
-				type="button"
-				className={getButtonClassName({ variant: "gray", iconOnly: true })}
-				aria-label="Gray action"
-			>
+			</Button>
+			<Button variant="gray" iconOnly aria-label="Gray action">
 				<Icon name="plus" />
-			</button>
-			<button
-				type="button"
-				className={getButtonClassName({ variant: "outline", iconOnly: true })}
-				aria-label="Outline action"
-			>
+			</Button>
+			<Button variant="outline" iconOnly aria-label="Outline action">
 				<Icon name="plus" />
-			</button>
+			</Button>
 			<div style={invertedDemoStyle}>
-				<button
-					type="button"
-					className={getButtonClassName({ variant: "outline-inverted", iconOnly: true })}
-					aria-label="Outline inverted action"
-				>
+				<Button variant="outline-inverted" iconOnly aria-label="Outline inverted action">
 					<Icon name="plus" />
-				</button>
+				</Button>
 			</div>
-			<button
-				type="button"
-				className={getButtonClassName({ variant: "ghost", iconOnly: true })}
-				aria-label="Ghost action"
-			>
+			<Button variant="ghost" iconOnly aria-label="Ghost action">
 				<Icon name="plus" />
-			</button>
+			</Button>
 			<div style={invertedDemoStyle}>
-				<button
-					type="button"
-					className={getButtonClassName({ variant: "ghost-inverted", iconOnly: true })}
-					aria-label="Ghost inverted action"
-				>
+				<Button variant="ghost-inverted" iconOnly aria-label="Ghost inverted action">
 					<Icon name="plus" />
-				</button>
+				</Button>
 			</div>
-			<button
-				type="button"
-				className={getButtonClassName({ variant: "danger", iconOnly: true })}
-				aria-label="Danger action"
-			>
+			<Button variant="danger" iconOnly aria-label="Danger action">
 				<Icon name="plus" />
-			</button>
+			</Button>
 		</div>
 	),
 });
@@ -177,14 +123,14 @@ export const IconOnly = meta.story({
 export const WithIconStartAndEnd = meta.story({
 	render: () => (
 		<div style={{ display: "grid", gridTemplateColumns: "repeat(2, max-content)", gap: 12 }}>
-			<button type="button" className={getButtonClassName({ variant: "outline" })}>
+			<Button variant="outline">
 				<Icon name="branch" />
 				New Branch
-			</button>
-			<button type="button" className={getButtonClassName({ variant: "outline" })}>
+			</Button>
+			<Button variant="outline">
 				New Branch
 				<Icon name="branch" />
-			</button>
+			</Button>
 		</div>
 	),
 });

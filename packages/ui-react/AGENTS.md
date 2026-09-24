@@ -84,8 +84,9 @@ The drawing mirrors the code's structure: the same component under the same
 name, variant properties named as the props and their values (`status`,
 `variant`, `glyph`), and no property the code lacks. Figma may add only what
 the code produces from data, such as a toggle for a side the code drops when
-its count is zero; two components the code keeps apart stay apart in Figma
-and are placed side by side where a surface shows both.
+its count is zero, and a `state` property (`default`, `hover`) for what CSS
+draws under the pointer, as Button has; two components the code keeps apart
+stay apart in Figma and are placed side by side where a surface shows both.
 
 ## Verifying your work
 
@@ -156,8 +157,11 @@ reads it instead of guessing an API. Two things about it to know:
   the manifest. `grep -l 'type: "figma"' src/*.stories.tsx` lists the stories
   that have one; a story without one has no drawn spec yet.
 
-A story whose subject is a function rather than a component, as `Button`'s
-`getButtonClassName` is, carries `tags: ["!manifest"]` and says why.
+A story with no component behind it, as Lite's `AppUpdater.stories.tsx`,
+carries `tags: ["!manifest"]` and says why. That is also why a styling
+helper is not how a control is offered: `getButtonClassName` is for making
+another component look like a button, and a button is `<Button>`, which the
+manifest documents.
 
 ### The Storybook MCP server
 
