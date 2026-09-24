@@ -197,6 +197,13 @@ to it (it asks once); another agent, or one outside this repo, adds it:
 $ claude mcp add --transport http gitbutler-storybook-published https://master--6ab536f5f40e41db628ccf1b.chromatic.com/mcp
 ```
 
+The published server can time out, most often while a new master Storybook
+deploys. Fall back in order: the manifest at
+<https://master--6ab536f5f40e41db628ccf1b.chromatic.com/manifests/components.json>,
+a static file that keeps answering, then the component's own source and JSDoc
+in `src/`, which the manifest is built from. Never guess a prop because the
+tools were down.
+
 ### Accessibility
 
 `@storybook/addon-a11y` runs axe on every story: the Accessibility tab under
