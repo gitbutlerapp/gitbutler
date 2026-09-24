@@ -3,6 +3,7 @@ import type { FC, ReactNode } from "react";
 import { appSettingsQueryOptions, worktreesListQueryOptions } from "#ui/api/queries.ts";
 import { useWorktreeRemove, useWorktreeSetArchived } from "#ui/api/mutations.ts";
 import { Button } from "@gitbutler/ui-react/Button.tsx";
+import { EmptyState } from "@gitbutler/ui-react/EmptyState.tsx";
 import { Icon } from "@gitbutler/ui-react/Icon.tsx";
 import { classes } from "@gitbutler/ui-react/classes.ts";
 import { branchDetailsParams } from "#ui/branch.ts";
@@ -13,11 +14,11 @@ import { IconButton } from "./IconButton.tsx";
 import styles from "./Worktrees.module.css";
 import { Section } from "./Section.tsx";
 
-/** A card with nothing to list: on the recessed ground, so it reads as a state and not a row. */
+/** A section with nothing to list: the library's empty state, framed on the recessed ground so it
+ * reads as the state of the page and not as one more row of it. */
 const Empty: FC<{ title: string; children: ReactNode }> = (p) => (
 	<div className={styles.empty}>
-		<span className={classes("text-15", "text-semibold", styles.emptyTitle)}>{p.title}</span>
-		<span className={classes("text-12", "text-body", styles.emptyHint)}>{p.children}</span>
+		<EmptyState title={p.title} description={p.children} />
 	</div>
 );
 
@@ -27,7 +28,7 @@ export const Worktrees: FC<{ projectId: string }> = ({ projectId }) => {
 	if (!appSettings.featureFlags.worktreeManipulation) {
 		return (
 			<Empty title="Linked worktrees are off">
-				Turn them on under Experimental to list them here and show their commits in the workspace.
+				Turn them on under Experimental to see them here and in the workspace.
 			</Empty>
 		);
 	}
