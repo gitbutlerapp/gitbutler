@@ -22,8 +22,7 @@ use crate::{
         },
         tui::app::{
             BranchMode, CherryPickMode, CommitMessageComposer, CommitMode, JumpMode, MoveMode,
-            MoveSource, MoveStackMode, StackMode, WorktreeMode, find_jump_match,
-            lines_part_of_current_stack,
+            MoveSource, MoveStackMode, StackMode, WorktreeMode, lines_part_of_current_stack,
         },
     },
     id::CommitId,
@@ -335,6 +334,11 @@ fn render_status(app: &App, area: Rect, frame: &mut Frame) {
         .lines_part_of_current_branch(&app.mode, app.status_lines.iter().map(|line| &line.data));
 
     let mut areas = available_lines_in_area(area);
+    let immediate_jump_targets = if let Mode::Jump(mode) = &*app.mode {
+        mode.immediate_jump_targets(&app.status_lines, app.flags.show_files)
+    } else {
+        Vec::new()
+    };
 
     for (idx, status_line) in app
         .status_lines
@@ -357,6 +361,7 @@ fn render_status(app: &App, area: Rect, frame: &mut Frame) {
             status_line,
             app.cursor.index() == idx,
             mode_highlight,
+            immediate_jump_targets.get(idx).copied().unwrap_or(false),
             idx,
             lines_part_of_current_branch.as_deref(),
             &mut areas,
@@ -390,6 +395,7 @@ fn render_status_list_item(
     status_line: &StatusOutputLine,
     is_selected: bool,
     mode_highlight: bool,
+    is_immediate_jump_target: bool,
     status_line_idx: usize,
     lines_part_of_current_branch: Option<&[bool]>,
     areas: &mut dyn Iterator<Item = Rect>,
@@ -522,26 +528,6 @@ fn render_status_list_item(
             .render_operation_source_marker(app, data, &mut line);
     }
 
-    // Check if the line is the line that will be selected if we confirm the current jump mode
-    // search. If so we highlight it so its clear where you'll land.
-    let line_is_jump_match = if let Mode::Jump(jump_mode) = &*app.mode {
-        find_jump_match(
-            app.cursor,
-            &app.status_lines,
-            jump_mode,
-            app.flags.show_files,
-        )
-        .and_then(|cursor_for_match| {
-            if app.cursor == cursor_for_match {
-                return None;
-            }
-            Some(cursor_for_match.index() == status_line_idx)
-        })
-        .unwrap_or(false)
-    } else {
-        false
-    };
-
     // A commit file list only advertises jump hints within its selectable scope.
     let jump_mode = if let Mode::Jump(mode) = &*app.mode
         && (!matches!(app.flags.show_files, FilesStatusFlag::Commit(_))
@@ -572,7 +558,7 @@ fn render_status_list_item(
                     line.extend(style_jump_mode_matches(
                         id,
                         jump_mode,
-                        is_selected || line_is_jump_match,
+                        is_immediate_jump_target,
                     ));
                 } else {
                     line.extend(id);
@@ -600,7 +586,7 @@ fn render_status_list_item(
                     line.extend(style_jump_mode_matches(
                         change_id,
                         jump_mode,
-                        is_selected || line_is_jump_match,
+                        is_immediate_jump_target,
                     ));
                 } else {
                     line.extend(change_id.iter().cloned());
@@ -614,7 +600,7 @@ fn render_status_list_item(
                     line.extend(style_jump_mode_matches(
                         sha,
                         jump_mode,
-                        is_selected || line_is_jump_match,
+                        is_immediate_jump_target,
                     ));
                 } else {
                     line.extend(sha);
@@ -652,7 +638,7 @@ fn render_status_list_item(
                     line.extend(style_jump_mode_matches(
                         id,
                         jump_mode,
-                        is_selected || line_is_jump_match,
+                        is_immediate_jump_target,
                     ));
                 } else {
                     line.extend(id);
@@ -687,7 +673,7 @@ fn render_status_list_item(
                     line.extend(style_jump_mode_matches(
                         id,
                         jump_mode,
-                        is_selected || line_is_jump_match,
+                        is_immediate_jump_target,
                     ));
                 } else {
                     line.extend(id);
@@ -715,7 +701,7 @@ fn render_status_list_item(
                     line.extend(style_jump_mode_matches(
                         id,
                         jump_mode,
-                        is_selected || line_is_jump_match,
+                        is_immediate_jump_target,
                     ));
                 } else {
                     line.extend(id);
@@ -1459,7 +1445,7 @@ fn cursor_at_end(textarea: &TextArea<'_>) -> bool {
 fn style_jump_mode_matches(
     content: &[Span<'static>],
     jump_mode: &JumpMode,
-    is_selected: bool,
+    is_immediate_jump_target: bool,
 ) -> impl IntoIterator<Item = Span<'static>> {
     use itertools::Either;
 
@@ -1493,8 +1479,8 @@ fn style_jump_mode_matches(
         return Either::Left(content.iter().cloned());
     }
 
-    let next_char_style = if is_selected {
-        Style::default().black().on_red()
+    let next_char_style = if is_immediate_jump_target {
+        Style::default().black().on_green()
     } else {
         Style::default().black().on_white()
     };

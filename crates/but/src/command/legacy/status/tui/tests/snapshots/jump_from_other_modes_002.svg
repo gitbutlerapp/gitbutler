@@ -1,15 +1,15 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="820" height="380" viewBox="0 0 820 380">
   <rect x="0" y="0" width="820" height="380" fill="#000000" />
   <rect x="10" y="10" width="24" height="18" fill="#45475A" />
-  <rect x="34" y="10" width="8" height="18" fill="#AA0000" />
+  <rect x="34" y="10" width="8" height="18" fill="#00AA00" />
   <rect x="42" y="10" width="768" height="18" fill="#45475A" />
   <rect x="42" y="28" width="8" height="18" fill="#FFFFFF" />
-  <rect x="42" y="64" width="8" height="18" fill="#FFFFFF" />
-  <rect x="50" y="82" width="8" height="18" fill="#FFFFFF" />
-  <rect x="42" y="136" width="8" height="18" fill="#FFFFFF" />
-  <rect x="50" y="154" width="8" height="18" fill="#FFFFFF" />
-  <rect x="42" y="190" width="8" height="18" fill="#FFFFFF" />
-  <rect x="50" y="208" width="8" height="18" fill="#FFFFFF" />
+  <rect x="42" y="64" width="8" height="18" fill="#00AA00" />
+  <rect x="50" y="82" width="8" height="18" fill="#00AA00" />
+  <rect x="42" y="136" width="8" height="18" fill="#00AA00" />
+  <rect x="50" y="154" width="8" height="18" fill="#00AA00" />
+  <rect x="42" y="190" width="8" height="18" fill="#00AA00" />
+  <rect x="50" y="208" width="8" height="18" fill="#00AA00" />
   <rect x="26" y="262" width="8" height="18" fill="#FFFFFF" />
   <rect x="10" y="352" width="64" height="18" fill="#0000AA" />
   <g font-family="Menlo, Monaco, 'Courier New', monospace" font-size="14" xml:space="preserve">

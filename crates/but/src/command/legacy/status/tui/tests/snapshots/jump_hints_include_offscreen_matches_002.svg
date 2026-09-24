@@ -1,0 +1,40 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="820" height="164" viewBox="0 0 820 164">
+  <rect x="0" y="0" width="820" height="164" fill="#000000" />
+  <rect x="10" y="10" width="800" height="18" fill="#45475A" />
+  <rect x="50" y="82" width="8" height="18" fill="#00AA00" />
+  <rect x="10" y="136" width="64" height="18" fill="#0000AA" />
+  <g font-family="Menlo, Monaco, 'Courier New', monospace" font-size="14" xml:space="preserve">
+    <text x="10 18" y="24" style="fill:#FFFFFF;font-weight:bold;">╭┄</text>
+    <text x="34" y="24" style="fill:#0000AA;font-weight:bold;opacity:0.75;">@</text>
+    <text x="50" y="24" style="fill:#FFFFFF;font-weight:bold;opacity:0.75;">[</text>
+    <text x="58 66 74 82 90 98 106 114 122 130 138" y="24" style="fill:#00AAAA;font-weight:bold;opacity:0.75;">uncommitted</text>
+    <text x="146" y="24" style="fill:#FFFFFF;font-weight:bold;opacity:0.75;">]</text>
+    <text x="10" y="42" style="fill:#CCCCCC;">┊</text>
+    <text x="42 50 58" y="42" style="fill:#0000AA;font-weight:bold;opacity:0.75;">klx</text>
+    <text x="82" y="42" style="fill:#00AA00;opacity:0.75;">A</text>
+    <text x="98 106" y="42" style="fill:#CCCCCC;opacity:0.75;">kl</text>
+    <text x="10" y="60" style="fill:#CCCCCC;">┊</text>
+    <text x="42 50 58" y="60" style="fill:#0000AA;font-weight:bold;opacity:0.75;">klz</text>
+    <text x="82" y="60" style="fill:#00AA00;opacity:0.75;">A</text>
+    <text x="98 106 114" y="60" style="fill:#CCCCCC;opacity:0.75;">one</text>
+    <text x="10" y="78" style="fill:#CCCCCC;">┊</text>
+    <text x="42 50" y="78" style="fill:#0000AA;font-weight:bold;opacity:0.75;">or</text>
+    <text x="82" y="78" style="fill:#00AA00;opacity:0.75;">A</text>
+    <text x="98 106 114 122 130" y="78" style="fill:#CCCCCC;opacity:0.75;">three</text>
+    <text x="10" y="96" style="fill:#CCCCCC;">┊</text>
+    <text x="42" y="96" style="fill:#0000AA;font-weight:bold;">t</text>
+    <text x="50" y="96" style="fill:#000000;">w</text>
+    <text x="58 66" y="96" style="fill:#0000AA;font-weight:bold;">op</text>
+    <text x="82" y="96" style="fill:#00AA00;">A</text>
+    <text x="98 106 114" y="96" style="fill:#CCCCCC;">two</text>
+    <text x="10" y="114" style="fill:#CCCCCC;">┊</text>
+    <text x="10 18 26" y="132" style="fill:#CCCCCC;">┊╭┄</text>
+    <text x="42 50" y="132" style="fill:#0000AA;font-weight:bold;opacity:0.75;">g0</text>
+    <text x="66" y="132" style="fill:#CCCCCC;opacity:0.75;">[</text>
+    <text x="74" y="132" style="fill:#00AA00;opacity:0.75;">A</text>
+    <text x="82" y="132" style="fill:#CCCCCC;opacity:0.75;">]</text>
+    <text x="26 34 42 50" y="150" style="fill:#000000;">jump</text>
+    <text x="82" y="150" style="fill:#CCCCCC;">/</text>
+    <text x="98" y="150" style="fill:#CCCCCC;">t</text>
+  </g>
+</svg>

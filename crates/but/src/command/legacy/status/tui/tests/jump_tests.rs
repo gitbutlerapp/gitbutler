@@ -18,9 +18,11 @@ fn jumping_around() {
 
     let mut tui = test_status_tui(env);
 
-    // jumping straight to the matching line
+    // Unique next keys (such as g) have green backgrounds; shared prefixes (such as k) do not.
     tui.input('/')
         .assert_rendered_term_svg_eq(file!["snapshots/jumping_around_001.svg"]);
+    tui.input('g').assert_current_line_eq(str!["┊╭┄ g0 [A]"]);
+    tui.input('/');
     tui.input("h0")
         .assert_rendered_term_svg_eq(file!["snapshots/jumping_around_002.svg"]);
 
@@ -39,6 +41,39 @@ fn jumping_around() {
     tui.input('/');
     tui.input('@')
         .assert_rendered_term_svg_eq(file!["snapshots/jumping_around_008.svg"]);
+}
+
+/// Offscreen matches must prevent a visible hint from promising an immediate jump.
+#[test]
+fn jump_hints_include_offscreen_matches() {
+    use super::utils::{TestTuiOptions, test_status_tui_with_options};
+
+    let env = Sandbox::init_scenario_with_target_and_default_settings(
+        "two-stacks-one-single-and-ready-to-mingle-one-double",
+    );
+    env.setup_metadata(&["A", "B"]);
+    env.file("one", "");
+    env.file("two", "");
+    env.file("three", "");
+    env.file("kl", "");
+    let mut tui = test_status_tui_with_options(
+        env,
+        TestTuiOptions {
+            height: 8,
+            ..Default::default()
+        },
+    );
+
+    // The file twop is visible, but the commit tpm is below the viewport.
+    tui.input('/').assert_rendered_term_svg_eq(file![
+        "snapshots/jump_hints_include_offscreen_matches_001.svg"
+    ]);
+    // After t, w will immediately select the file, even though t alone would not.
+    tui.input('t').assert_rendered_term_svg_eq(file![
+        "snapshots/jump_hints_include_offscreen_matches_002.svg"
+    ]);
+    tui.input('p')
+        .assert_current_line_eq(str!["┊●   tpm add A"]);
 }
 
 #[test]
