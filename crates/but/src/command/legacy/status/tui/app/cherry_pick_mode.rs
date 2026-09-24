@@ -7,7 +7,9 @@ use ratatui::text::Span;
 use crate::{
     CliId,
     command::legacy::{
-        commit::{CommitAtOperation, CommitOperation, CommitRelativeToTarget},
+        commit::{
+            CommitAtOperation, CommitOperation, CommitRelativeToTarget, CommitToNewBranchOperation,
+        },
         pick::{self, PickOperation, PickOutcome},
         status::{
             output::StatusOutputLineData,
@@ -46,6 +48,8 @@ impl ModeRender for CherryPickMode {
             || matches!(data, StatusOutputLineData::Worktree { .. })
         {
             ExtensionDirection::Below
+        } else if matches!(data, StatusOutputLineData::MergeBase) {
+            ExtensionDirection::Above
         } else {
             return None;
         };
@@ -208,8 +212,20 @@ impl App {
         ctx: &mut Context,
         messages: &mut Vec<Message>,
     ) -> anyhow::Result<()> {
-        self.cherry_pick_confirm_with(ctx, messages, |ctx, commits, target, insert_side| {
-            match target {
+        self.cherry_pick_confirm_with(ctx, messages, |ctx, commits, data, insert_side| {
+            if matches!(data, StatusOutputLineData::MergeBase) {
+                return Ok(Some(PickOperation {
+                    sources: commits,
+                    commit_op: CommitOperation::CommitToNewBranch(CommitToNewBranchOperation {
+                        branch_name: None,
+                    }),
+                    order_commits_by_parentage: true,
+                }));
+            }
+            let Some(target) = data.cli_id() else {
+                return Ok(None);
+            };
+            match &**target {
                 CliId::Branch(branch_id) => {
                     let name = Category::LocalBranch.to_full_name(&*branch_id.name)?;
                     Ok(Some(PickOperation {
@@ -260,31 +276,36 @@ impl App {
         ctx: &mut Context,
         messages: &mut Vec<Message>,
     ) -> anyhow::Result<()> {
-        self.cherry_pick_confirm_with(ctx, messages, |_, commits, target, _| match target {
-            CliId::Branch(branch_id) => {
-                let name = Category::LocalBranch.to_full_name(&*branch_id.name)?;
-                Ok(Some(PickOperation {
-                    sources: commits,
-                    commit_op: CommitOperation::CommitAt(CommitAtOperation {
-                        target: CommitRelativeToTarget::BranchBucket {
-                            name,
-                            side: InsertSide::Above.into(),
-                            new_branch_name: None,
-                        },
-                    }),
-                    order_commits_by_parentage: true,
-                }))
+        self.cherry_pick_confirm_with(ctx, messages, |_, commits, data, _| {
+            let Some(target) = data.cli_id() else {
+                return Ok(None);
+            };
+            match &**target {
+                CliId::Branch(branch_id) => {
+                    let name = Category::LocalBranch.to_full_name(&*branch_id.name)?;
+                    Ok(Some(PickOperation {
+                        sources: commits,
+                        commit_op: CommitOperation::CommitAt(CommitAtOperation {
+                            target: CommitRelativeToTarget::BranchBucket {
+                                name,
+                                side: InsertSide::Above.into(),
+                                new_branch_name: None,
+                            },
+                        }),
+                        order_commits_by_parentage: true,
+                    }))
+                }
+                CliId::AnonymousSegment(..)
+                | CliId::Commit { .. }
+                | CliId::UncommittedHunkOrFile(..)
+                | CliId::PathPrefix { .. }
+                | CliId::CommittedFile { .. }
+                | CliId::CommittedHunk { .. }
+                | CliId::Uncommitted { .. }
+                | CliId::Worktree { .. }
+                | CliId::WorktreeUncommitted { .. }
+                | CliId::Stack { .. } => Ok(None),
             }
-            CliId::AnonymousSegment(..)
-            | CliId::Commit { .. }
-            | CliId::UncommittedHunkOrFile(..)
-            | CliId::PathPrefix { .. }
-            | CliId::CommittedFile { .. }
-            | CliId::CommittedHunk { .. }
-            | CliId::Uncommitted { .. }
-            | CliId::Worktree { .. }
-            | CliId::WorktreeUncommitted { .. }
-            | CliId::Stack { .. } => Ok(None),
         })
     }
 
@@ -298,7 +319,7 @@ impl App {
         F: FnOnce(
             &mut Context,
             Vec<ObjectId>,
-            &CliId,
+            &StatusOutputLineData,
             InsertSide,
         ) -> anyhow::Result<Option<PickOperation>>,
     {
@@ -310,15 +331,15 @@ impl App {
             return Ok(());
         };
 
-        let Some(target) = self
-            .cursor
-            .selected_line(&self.status_lines)
-            .and_then(|line| line.data.cli_id())
-        else {
+        let Some(selection) = self.cursor.selected_line(&self.status_lines) else {
             return Ok(());
         };
+        let target = &selection.data;
 
-        if source.contains(target) {
+        if target
+            .cli_id()
+            .is_some_and(|target| source.contains(target))
+        {
             messages.push(Message::EnterNormalModeAfterConfirmingOperation);
             return Ok(());
         }
