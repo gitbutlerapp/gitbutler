@@ -1,6 +1,6 @@
 import { useEnterEditMode } from "#ui/api/mutations.ts";
 import { headInfoQueryOptions } from "#ui/api/queries.ts";
-import { getButtonClassName } from "@gitbutler/ui-react/Button.tsx";
+import { Button } from "@gitbutler/ui-react/Button.tsx";
 import { classes } from "@gitbutler/ui-react/classes.ts";
 import { Icon } from "@gitbutler/ui-react/Icon.tsx";
 import { projectSlice } from "#ui/projects/state.ts";
@@ -104,9 +104,9 @@ export const ConflictBar: FC<Props> = (p) => {
 				</span>
 			)}
 
-			<button
-				type="button"
-				className={classes(getButtonClassName({ variant: "outline", size: "small" }))}
+			<Button
+				variant="outline"
+				size="small"
 				disabled={p.busy || stackId === null}
 				title="Check the commit out into your working directory and edit its files directly"
 				onClick={() => {
@@ -115,7 +115,7 @@ export const ConflictBar: FC<Props> = (p) => {
 				}}
 			>
 				Open Edit Mode
-			</button>
+			</Button>
 
 			{total > 0 && (
 				<Modal
@@ -124,15 +124,9 @@ export const ConflictBar: FC<Props> = (p) => {
 					aria-labelledby="resolve-conflicts-heading"
 					className={styles.popup}
 					trigger={
-						<button
-							type="button"
-							className={classes(
-								getButtonClassName({ variant: "outline", size: "small" }),
-								styles.resolve,
-							)}
-						>
+						<Button variant="outline" size="small" className={styles.resolve}>
 							Resolve conflicts
-						</button>
+						</Button>
 					}
 				>
 					<header className={styles.header}>
@@ -148,41 +142,37 @@ export const ConflictBar: FC<Props> = (p) => {
 
 						{checkedLive.length > 0 && (
 							<div className={styles.actions}>
-								<button
-									type="button"
-									className={getButtonClassName({ variant: "outline", size: "small" })}
+								<Button
+									variant="outline"
+									size="small"
 									disabled={p.busy}
 									onClick={() => apply({ type: "theirs" })}
 								>
 									Accept incoming
-								</button>
-								<button
-									type="button"
-									className={getButtonClassName({ variant: "outline", size: "small" })}
+								</Button>
+								<Button
+									variant="outline"
+									size="small"
 									disabled={p.busy}
 									onClick={() => apply({ type: "ours" })}
 								>
 									Accept current
-								</button>
-								<button
-									type="button"
-									className={getButtonClassName({ variant: "ghost", size: "small" })}
+								</Button>
+								<Button
+									variant="ghost"
+									size="small"
 									onClick={() =>
 										dispatch(projectSlice.actions.clearCheckedConflicts({ projectId: p.projectId }))
 									}
 								>
 									Clear
-								</button>
+								</Button>
 							</div>
 						)}
 
 						<Dialog.Close
 							aria-label="Close"
-							className={getButtonClassName({
-								variant: "ghost",
-								size: "small",
-								iconOnly: true,
-							})}
+							render={<Button variant="ghost" size="small" iconOnly />}
 						>
 							<Icon name="cross" />
 						</Dialog.Close>

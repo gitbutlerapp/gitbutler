@@ -1,12 +1,12 @@
 import { FolderIcon } from "@gitbutler/ui-react/FolderIcon.tsx";
 import { Icon } from "@gitbutler/ui-react/Icon.tsx";
 import { classes } from "@gitbutler/ui-react/classes.ts";
-import { TooltipPopup } from "@gitbutler/ui-react/Tooltip.tsx";
+import { Tooltip } from "@gitbutler/ui-react/Tooltip.tsx";
 import { changesFileHotkeys } from "#ui/hotkeys.ts";
 import { showNativeContextMenu, showNativeMenuFromTrigger } from "#ui/native-menu.ts";
 import type { FileParent } from "#ui/addresses.ts";
 import type { FocusScope } from "#ui/focus-scopes.ts";
-import { Toolbar, Tooltip } from "@base-ui/react";
+import { Toolbar, Tooltip as BaseTooltip } from "@base-ui/react";
 import type { ComponentProps, FC, ReactNode } from "react";
 import styles from "./FilesTree.module.css";
 import fileRowStyles from "./FileRow.module.css";
@@ -47,7 +47,7 @@ type DirectoryRowProps = {
 	isReviewed: boolean;
 	checkDirectory: (evt: { path: string; checked: boolean }) => void;
 	focusScope: FocusScope;
-	tooltipHandle: Tooltip.Handle<FileRowTooltipPayload>;
+	tooltipHandle: BaseTooltip.Handle<FileRowTooltipPayload>;
 	/** See {@link FilesTree}'s prop of the same name. */
 	rail?: ReactNode;
 } & ComponentProps<typeof Row>;
@@ -111,27 +111,18 @@ export const DirectoryRowPresentational: FC<DirectoryRowPresentationalProps> = (
 	>
 		{rail}
 		<TreeSteps depth={depth}>
-			<Tooltip.Root disableHoverablePopup>
-				<Tooltip.Trigger
+			<Tooltip
+				disableHoverablePopup
+				content={isCollapsed ? "Expand directory" : "Collapse directory"}
+				kbd={changesFileHotkeys.toggleFoldDirectory.hotkey}
+				kbdScope={focusScope}
+			>
+				<TreeStepsToggle
+					isCollapsed={isCollapsed}
 					aria-label={`${isCollapsed ? "Expand" : "Collapse"} directory ${path}`}
 					onClick={onToggleCollapsed}
-					render={<TreeStepsToggle isCollapsed={isCollapsed} />}
 				/>
-				<Tooltip.Portal>
-					<Tooltip.Positioner sideOffset={4}>
-						<Tooltip.Popup
-							render={
-								<TooltipPopup
-									kbd={changesFileHotkeys.toggleFoldDirectory.hotkey}
-									kbdScope={focusScope}
-								/>
-							}
-						>
-							{isCollapsed ? "Expand directory" : "Collapse directory"}
-						</Tooltip.Popup>
-					</Tooltip.Positioner>
-				</Tooltip.Portal>
-			</Tooltip.Root>
+			</Tooltip>
 		</TreeSteps>
 
 		{/* The folder stands where a file's type icon stands, and gives way to the
@@ -151,7 +142,7 @@ export const DirectoryRowPresentational: FC<DirectoryRowPresentationalProps> = (
 					presentationalOnly ? (
 						<button type="button" inert aria-hidden="true" tabIndex={-1} />
 					) : (
-						<Tooltip.Trigger
+						<BaseTooltip.Trigger
 							handle={tooltipHandle}
 							payload={{
 								content: "Check directory",
@@ -173,13 +164,13 @@ export const DirectoryRowPresentational: FC<DirectoryRowPresentationalProps> = (
 
 		{/* A folded chain names several segments at once and a deep row is narrow, so
 		    the whole path is a hover away, as a file's is. */}
-		<Tooltip.Trigger
+		<BaseTooltip.Trigger
 			handle={tooltipHandle}
 			payload={{ content: path }}
 			render={<RowLabelContainer className={classes(isReviewed && fileRowStyles.reviewedFade)} />}
 		>
 			<RowLabel singleLine>{name}</RowLabel>
-		</Tooltip.Trigger>
+		</BaseTooltip.Trigger>
 
 		{!anyOperationPending &&
 			(presentationalOnly ? (
@@ -210,7 +201,7 @@ export const DirectoryRowPresentational: FC<DirectoryRowPresentationalProps> = (
 		{/* The same tick a reviewed file row shows in place of its change type: every
 		    change below this directory is done with. */}
 		{isReviewed && (
-			<Tooltip.Trigger
+			<BaseTooltip.Trigger
 				handle={tooltipHandle}
 				payload={{ content: "Reviewed" }}
 				render={

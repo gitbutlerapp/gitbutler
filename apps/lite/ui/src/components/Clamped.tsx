@@ -1,4 +1,4 @@
-import { getButtonClassName } from "@gitbutler/ui-react/Button.tsx";
+import { Button } from "@gitbutler/ui-react/Button.tsx";
 import { classes } from "@gitbutler/ui-react/classes.ts";
 import { Icon } from "@gitbutler/ui-react/Icon.tsx";
 import type { CSSProperties, FC, MouseEvent, ReactNode } from "react";
@@ -144,18 +144,17 @@ export const Clamped: FC<{
 			>
 				{clamp}
 				{framed && (
-					<button
+					<Button
 						aria-expanded={expanded}
 						aria-label={expanded ? "Show less" : "Show more"}
-						className={classes(
-							getButtonClassName({ variant: "ghost", iconOnly: true, size: "small" }),
-							styles.cardToggle,
-						)}
+						variant="ghost"
+						iconOnly
+						size="small"
+						className={styles.cardToggle}
 						onClick={() => setExpanded(!expanded)}
-						type="button"
 					>
 						<Icon name={expanded ? "chevron-up" : "chevron-down"} />
-					</button>
+					</Button>
 				)}
 			</div>
 		);

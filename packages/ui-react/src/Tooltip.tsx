@@ -1,10 +1,14 @@
 import { classes } from "./classes.ts";
 import styles from "./Tooltip.module.css";
 import { Kbd } from "./Kbd.tsx";
+import { Tooltip as BaseTooltip } from "@base-ui/react";
 import type { HotkeySequence } from "@tanstack/react-hotkeys";
-import { useState, type ComponentProps, type FC } from "react";
+import { useState, type ComponentProps, type FC, type ReactElement, type ReactNode } from "react";
 
 /**
+ * The tooltip's look, for a tooltip `Tooltip` can't build: one whose trigger is detached through a
+ * `handle`, or whose content moves between triggers. Give it as `Tooltip.Popup`'s `render`.
+ *
  * @import import { TooltipPopup } from "@gitbutler/ui-react/Tooltip.tsx";
  */
 export const TooltipPopup: FC<
@@ -39,3 +43,47 @@ export const TooltipPopup: FC<
 		</div>
 	);
 };
+
+/** @public */
+export type TooltipProps = Omit<BaseTooltip.Root.Props, "children"> & {
+	/** What the tooltip says. */
+	content: ReactNode;
+	/** The element it describes, usually a `Button`. It becomes the trigger, so it must take a ref and spread props. */
+	children: ReactElement;
+	/** A keyboard shortcut shown after the content. */
+	kbd?: string | HotkeySequence;
+	/** The focus scope the shortcut acts in; see `TooltipPopup`. */
+	kbdScope?: string;
+	side?: BaseTooltip.Positioner.Props["side"];
+	sideOffset?: number;
+};
+
+/**
+ * A tooltip on the element it wraps. An icon-only button still needs its own `aria-label`: a
+ * tooltip shows on hover and focus, and a screen reader doesn't read it as the button's name.
+ *
+ * A disabled button swallows hover, so give one under a tooltip `focusableWhenDisabled`, which
+ * keeps it hoverable and focusable while it can't be pressed.
+ *
+ * @import import { Tooltip } from "@gitbutler/ui-react/Tooltip.tsx";
+ */
+export const Tooltip: FC<TooltipProps> = ({
+	content,
+	children,
+	kbd,
+	kbdScope,
+	side,
+	sideOffset = 4,
+	...rootProps
+}) => (
+	<BaseTooltip.Root {...rootProps}>
+		<BaseTooltip.Trigger render={children} />
+		<BaseTooltip.Portal>
+			<BaseTooltip.Positioner side={side} sideOffset={sideOffset}>
+				<BaseTooltip.Popup render={<TooltipPopup kbd={kbd} kbdScope={kbdScope} />}>
+					{content}
+				</BaseTooltip.Popup>
+			</BaseTooltip.Positioner>
+		</BaseTooltip.Portal>
+	</BaseTooltip.Root>
+);

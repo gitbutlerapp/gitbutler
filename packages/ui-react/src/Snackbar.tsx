@@ -1,9 +1,8 @@
 import { classes } from "./classes.ts";
-import { getButtonClassName } from "./Button.tsx";
+import { Button } from "./Button.tsx";
 import { Icon } from "./Icon.tsx";
 import type { IconName } from "./iconNames.ts";
 import styles from "./Snackbar.module.css";
-import { Button } from "@base-ui/react";
 import { Match } from "effect";
 import type { ComponentProps, FC } from "react";
 
@@ -70,10 +69,10 @@ export const Snackbar: FC<
 				<div aria-hidden className={styles.divider} />
 				<Button
 					aria-label={dismissLabel}
-					className={classes(
-						getButtonClassName({ variant: "ghost", size: "small", iconOnly: true }),
-						styles.dismiss,
-					)}
+					variant="ghost"
+					size="small"
+					iconOnly
+					className={styles.dismiss}
 					onClick={onDismiss}
 				>
 					<Icon name="cross" />

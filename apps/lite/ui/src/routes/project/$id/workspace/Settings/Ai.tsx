@@ -1,15 +1,14 @@
-import { Tooltip } from "@base-ui/react";
 import { useQueryClient, useSuspenseQueries } from "@tanstack/react-query";
 import { useState, type FC } from "react";
 import type { AiConfiguration, AiConfigurationUpdate } from "@gitbutler/but-sdk";
 import { aiConfigurationQueryOptions, userProfileQueryOptions } from "#ui/api/queries.ts";
-import { getButtonClassName } from "@gitbutler/ui-react/Button.tsx";
+import { Button } from "@gitbutler/ui-react/Button.tsx";
 import { classes } from "@gitbutler/ui-react/classes.ts";
 import { FieldControlStyles } from "@gitbutler/ui-react/Field.tsx";
 import { Icon } from "@gitbutler/ui-react/Icon.tsx";
 import { RelativeTime } from "@gitbutler/ui-react/RelativeTime.tsx";
 import { Select } from "@gitbutler/ui-react/Select.tsx";
-import { TooltipPopup } from "@gitbutler/ui-react/Tooltip.tsx";
+import { Tooltip } from "@gitbutler/ui-react/Tooltip.tsx";
 import { errorMessageForToast } from "#ui/errors.ts";
 import {
 	anthropicModels,
@@ -219,41 +218,28 @@ export const Ai: FC = () => {
 							)}
 							{status.kind === "failed" && status.message}
 						</output>
-						<button
-							type="button"
-							className={getButtonClassName({ size: "small" })}
+						<Button
+							size="small"
 							disabled={busy || (usesGitButler && profile === null)}
 							onClick={() => void test()}
 						>
 							Test connection
-						</button>
+						</Button>
 					</>
 				}
 			>
 				<Row label="Provider">
 					<div className={styles.provider}>
-						<Tooltip.Root>
-							<Tooltip.Trigger
-								className={getButtonClassName({ iconOnly: true })}
-								// base-ui's own `disabled` only suppresses the tooltip, leaving a live
-								// button behind, so the native attribute goes on the element.
-								render={
-									<button
-										type="button"
-										aria-label="Reset AI settings"
-										disabled={busy || saved.isDefault}
-									/>
-								}
+						<Tooltip content="Reset AI settings">
+							<Button
+								iconOnly
+								aria-label="Reset AI settings"
+								disabled={busy || saved.isDefault}
 								onClick={() => void reset()}
 							>
 								<Icon name="undo" />
-							</Tooltip.Trigger>
-							<Tooltip.Portal>
-								<Tooltip.Positioner sideOffset={4}>
-									<Tooltip.Popup render={<TooltipPopup />}>Reset AI settings</Tooltip.Popup>
-								</Tooltip.Positioner>
-							</Tooltip.Portal>
-						</Tooltip.Root>
+							</Button>
+						</Tooltip>
 						<Select<Provider | "openrouter">
 							aria-label="Provider"
 							className={styles.select}

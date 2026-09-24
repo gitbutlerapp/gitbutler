@@ -1,8 +1,7 @@
-import { getButtonClassName } from "@gitbutler/ui-react/Button.tsx";
+import { Button } from "@gitbutler/ui-react/Button.tsx";
 import { classes } from "@gitbutler/ui-react/classes.ts";
 import { Icon } from "@gitbutler/ui-react/Icon.tsx";
-import { TooltipPopup } from "@gitbutler/ui-react/Tooltip.tsx";
-import { Tooltip } from "@base-ui/react";
+import { Tooltip } from "@gitbutler/ui-react/Tooltip.tsx";
 import { Dropdown } from "@gitbutler/ui-react/Popup.tsx";
 import type { ForgeReviewReaction, ForgeReviewReactionCount } from "@gitbutler/but-sdk";
 import { type FC, useState } from "react";
@@ -140,16 +139,9 @@ export const Reactions: FC<{
 				if (chip.who === undefined || chip.who.length === 0) return chipNode;
 
 				return (
-					<Tooltip.Root key={chip.kind}>
-						<Tooltip.Trigger render={chipNode} />
-						<Tooltip.Portal>
-							<Tooltip.Positioner sideOffset={4}>
-								<Tooltip.Popup render={<TooltipPopup />}>
-									{chip.who.map((entry) => entry.login).join(", ")}
-								</Tooltip.Popup>
-							</Tooltip.Positioner>
-						</Tooltip.Portal>
-					</Tooltip.Root>
+					<Tooltip key={chip.kind} content={chip.who.map((entry) => entry.login).join(", ")}>
+						{chipNode}
+					</Tooltip>
 				);
 			})}
 
@@ -159,16 +151,14 @@ export const Reactions: FC<{
 					onOpenChange={setPickerOpen}
 					className={styles.reactionPicker}
 					trigger={
-						<button
+						<Button
 							aria-label="Add reaction"
-							className={classes(
-								getButtonClassName({ variant: "ghost", iconOnly: true }),
-								styles.reactionPickerTrigger,
-							)}
-							type="button"
+							variant="ghost"
+							iconOnly
+							className={styles.reactionPickerTrigger}
 						>
 							<Icon name="smiley" />
-						</button>
+						</Button>
 					}
 				>
 					{reactionGlyphs.map(([kind, glyph]) => {

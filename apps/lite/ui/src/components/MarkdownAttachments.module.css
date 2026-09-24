@@ -8,10 +8,6 @@
 	pointer-events: none;
 }
 
-.triggerWrap {
-	display: inline-flex;
-}
-
 .popup {
 	row-gap: 12px;
 	padding: 16px;

@@ -74,9 +74,9 @@ import type { BranchTab, CheckableAddress } from "#ui/projects/project.ts";
 import { projectSlice } from "#ui/projects/state.ts";
 import { interfaceSlice } from "#ui/interface/state.ts";
 import { Badge } from "@gitbutler/ui-react/Badge.tsx";
-import { getButtonClassName } from "@gitbutler/ui-react/Button.tsx";
+import { Button, getButtonClassName } from "@gitbutler/ui-react/Button.tsx";
 import { Icon } from "@gitbutler/ui-react/Icon.tsx";
-import { TooltipPopup } from "@gitbutler/ui-react/Tooltip.tsx";
+import { Tooltip } from "@gitbutler/ui-react/Tooltip.tsx";
 import { useCopied } from "#ui/components/useCopied.ts";
 import { ToggleGroupStyles, ToggleStyles } from "@gitbutler/ui-react/ToggleGroup.tsx";
 import { OperationSourceC } from "#ui/routes/project/$id/workspace/OperationSourceC.tsx";
@@ -94,7 +94,7 @@ import {
 import { useAppDispatch, useAppSelector, useAppStore } from "#ui/store.ts";
 import { classes } from "@gitbutler/ui-react/classes.ts";
 import { EmptyState } from "@gitbutler/ui-react/EmptyState.tsx";
-import { Toggle, ToggleGroup, Toolbar, Tooltip } from "@base-ui/react";
+import { Toggle, ToggleGroup, Toolbar } from "@base-ui/react";
 import type {
 	CommitDetails as CommitDetailsData,
 	ConflictedFile,
@@ -1969,25 +1969,18 @@ const DiffFileHeader: FC<DiffFileHeaderProps> = (p) => {
 					p.selected && styles.fileHeaderSelected,
 				)}
 			>
-				<Tooltip.Root>
-					<Tooltip.Trigger
+				<Tooltip content={collapseLabel} kbd={diffHotkeys.toggleFoldFile.hotkey} kbdScope="diff">
+					<Button
+						size="small"
+						variant="ghost"
+						iconOnly
 						aria-label={collapseLabel}
 						aria-expanded={!p.collapsed}
-						className={getButtonClassName({ size: "small", variant: "ghost", iconOnly: true })}
 						onClick={() => p.setCollapsed(!p.collapsed)}
 					>
 						<Icon name={p.collapsed ? "chevron-right" : "chevron-down"} />
-					</Tooltip.Trigger>
-					<Tooltip.Portal>
-						<Tooltip.Positioner sideOffset={4}>
-							<Tooltip.Popup
-								render={<TooltipPopup kbd={diffHotkeys.toggleFoldFile.hotkey} kbdScope="diff" />}
-							>
-								{collapseLabel}
-							</Tooltip.Popup>
-						</Tooltip.Positioner>
-					</Tooltip.Portal>
-				</Tooltip.Root>
+					</Button>
+				</Tooltip>
 				<h4 className={classes("text-13", styles.filePath)}>
 					<FileIcon fileName={fileName} className={styles.icon} />
 					{fileName}
@@ -1995,28 +1988,16 @@ const DiffFileHeader: FC<DiffFileHeaderProps> = (p) => {
 				</h4>
 				<div className={styles.fileHeaderEnd}>
 					{p.lineStats && lineStatsLabel !== null && (
-						<Tooltip.Root>
-							<Tooltip.Trigger
-								render={
-									<div aria-label={lineStatsLabel} className={styles.fileMeta}>
-										<DiffStats
-											added={p.lineStats.linesAdded}
-											removed={p.lineStats.linesRemoved}
-											className="text-12"
-										/>
-										<ChangeScale
-											added={p.lineStats.linesAdded}
-											removed={p.lineStats.linesRemoved}
-										/>
-									</div>
-								}
-							/>
-							<Tooltip.Portal>
-								<Tooltip.Positioner sideOffset={4}>
-									<Tooltip.Popup render={<TooltipPopup />}>{lineStatsLabel}</Tooltip.Popup>
-								</Tooltip.Positioner>
-							</Tooltip.Portal>
-						</Tooltip.Root>
+						<Tooltip content={lineStatsLabel}>
+							<div aria-label={lineStatsLabel} className={styles.fileMeta}>
+								<DiffStats
+									added={p.lineStats.linesAdded}
+									removed={p.lineStats.linesRemoved}
+									className="text-12"
+								/>
+								<ChangeScale added={p.lineStats.linesAdded} removed={p.lineStats.linesRemoved} />
+							</div>
+						</Tooltip>
 					)}
 
 					<Toolbar.Root aria-label="File actions" className={styles.fileHeaderActions}>
@@ -2026,34 +2007,23 @@ const DiffFileHeader: FC<DiffFileHeaderProps> = (p) => {
 						    those leave two controls where the design has one, and Base UI's
 						    checkbox renders unfocusable inside a label. "Changed since you
 						    reviewed it" is the mixed state; the tooltip spells that out. */}
-						<Tooltip.Root>
-							<Tooltip.Trigger
-								render={
-									<Toolbar.Button
-										aria-pressed={
-											p.reviewState === "changed" ? "mixed" : p.reviewState === "reviewed"
-										}
-										className={classes(
-											getButtonClassName({ size: "small", variant: "ghost" }),
-											styles.fileReview,
-										)}
-										onClick={() => p.setReviewed(p.reviewState !== "reviewed")}
-									>
-										<span className={styles.fileReviewBox} aria-hidden="true">
-											{p.reviewState !== null && (
-												<Icon size={10} name={p.reviewState === "reviewed" ? "tick" : "minus"} />
-											)}
-										</span>
-										Reviewed
-									</Toolbar.Button>
-								}
-							/>
-							<Tooltip.Portal>
-								<Tooltip.Positioner sideOffset={4}>
-									<Tooltip.Popup render={<TooltipPopup />}>{reviewLabel}</Tooltip.Popup>
-								</Tooltip.Positioner>
-							</Tooltip.Portal>
-						</Tooltip.Root>
+						<Tooltip content={reviewLabel}>
+							<Toolbar.Button
+								aria-pressed={p.reviewState === "changed" ? "mixed" : p.reviewState === "reviewed"}
+								className={classes(
+									getButtonClassName({ size: "small", variant: "ghost" }),
+									styles.fileReview,
+								)}
+								onClick={() => p.setReviewed(p.reviewState !== "reviewed")}
+							>
+								<span className={styles.fileReviewBox} aria-hidden="true">
+									{p.reviewState !== null && (
+										<Icon size={10} name={p.reviewState === "reviewed" ? "tick" : "minus"} />
+									)}
+								</span>
+								Reviewed
+							</Toolbar.Button>
+						</Tooltip>
 						<Toolbar.Button
 							aria-label="File menu"
 							onClick={(event) => {
@@ -2077,28 +2047,20 @@ const FilesToggle: FC<{ projectId: string }> = ({ projectId }) => {
 	);
 
 	return (
-		<Tooltip.Root>
-			<Tooltip.Trigger
-				render={
-					<button
-						type="button"
-						className={getButtonClassName({ iconOnly: true, variant: "ghost" })}
-						aria-label={workspaceHotkeys.toggleFiles.meta.name}
-						aria-pressed={filesVisible}
-						onClick={() => dispatch(projectSlice.actions.toggleFiles({ projectId }))}
-					>
-						{filesVisible ? <Icon name="files-sidebar" /> : <Icon name="sidebar-narrow" />}
-					</button>
-				}
-			/>
-			<Tooltip.Portal>
-				<Tooltip.Positioner sideOffset={4}>
-					<Tooltip.Popup render={<TooltipPopup kbd={workspaceHotkeys.toggleFiles.hotkey} />}>
-						{workspaceHotkeys.toggleFiles.meta.name}
-					</Tooltip.Popup>
-				</Tooltip.Positioner>
-			</Tooltip.Portal>
-		</Tooltip.Root>
+		<Tooltip
+			content={workspaceHotkeys.toggleFiles.meta.name}
+			kbd={workspaceHotkeys.toggleFiles.hotkey}
+		>
+			<Button
+				iconOnly
+				variant="ghost"
+				aria-label={workspaceHotkeys.toggleFiles.meta.name}
+				aria-pressed={filesVisible}
+				onClick={() => dispatch(projectSlice.actions.toggleFiles({ projectId }))}
+			>
+				{filesVisible ? <Icon name="files-sidebar" /> : <Icon name="sidebar-narrow" />}
+			</Button>
+		</Tooltip>
 	);
 };
 
@@ -2112,25 +2074,16 @@ const DiffOverflowToggle: FC<
 	const { mutate: saveGUISettings } = useSaveGUISettings();
 
 	return (
-		<Tooltip.Root>
-			<Tooltip.Trigger
-				render={
-					<Toggle
-						{...toggleProps}
-						aria-label="Toggle line wrapping"
-						pressed={(diffOverflow ?? defaultSettings.diffOverflow) === "wrap"}
-						onPressedChange={(pressed) =>
-							saveGUISettings({ diffOverflow: pressed ? "wrap" : "scroll" })
-						}
-					/>
+		<Tooltip content="Toggle line wrapping">
+			<Toggle
+				{...toggleProps}
+				aria-label="Toggle line wrapping"
+				pressed={(diffOverflow ?? defaultSettings.diffOverflow) === "wrap"}
+				onPressedChange={(pressed) =>
+					saveGUISettings({ diffOverflow: pressed ? "wrap" : "scroll" })
 				}
 			/>
-			<Tooltip.Portal>
-				<Tooltip.Positioner sideOffset={4}>
-					<Tooltip.Popup render={<TooltipPopup />}>Toggle line wrapping</Tooltip.Popup>
-				</Tooltip.Positioner>
-			</Tooltip.Portal>
-		</Tooltip.Root>
+		</Tooltip>
 	);
 };
 
@@ -2144,23 +2097,14 @@ const DiffBackgroundsToggle: FC<
 	const { mutate: saveGUISettings } = useSaveGUISettings();
 
 	return (
-		<Tooltip.Root>
-			<Tooltip.Trigger
-				render={
-					<Toggle
-						{...toggleProps}
-						aria-label="Toggle diff backgrounds"
-						pressed={diffBackgrounds ?? defaultSettings.diffBackground}
-						onPressedChange={(enabled) => saveGUISettings({ diffBackground: enabled })}
-					/>
-				}
+		<Tooltip content="Toggle diff backgrounds">
+			<Toggle
+				{...toggleProps}
+				aria-label="Toggle diff backgrounds"
+				pressed={diffBackgrounds ?? defaultSettings.diffBackground}
+				onPressedChange={(enabled) => saveGUISettings({ diffBackground: enabled })}
 			/>
-			<Tooltip.Portal>
-				<Tooltip.Positioner sideOffset={4}>
-					<Tooltip.Popup render={<TooltipPopup />}>Toggle diff backgrounds</Tooltip.Popup>
-				</Tooltip.Positioner>
-			</Tooltip.Portal>
-		</Tooltip.Root>
+		</Tooltip>
 	);
 };
 
@@ -2177,30 +2121,22 @@ const DiffStyleToggleGroup: FC<
 	const { mutate: saveGUISettings } = useSaveGUISettings();
 
 	return (
-		<Tooltip.Root>
-			<Tooltip.Trigger
-				render={
-					<ToggleGroup
-						{...toggleGroupProps}
-						aria-label={diffHotkeys.toggleDiffStyle.meta.name}
-						value={[diffStyle ?? defaultSettings.diffStyle]}
-						onValueChange={(value: Array<NonNullable<GUISettings["diffStyle"]>>) => {
-							const head = value[0];
-							if (head === undefined) return;
+		<Tooltip
+			content={diffHotkeys.toggleDiffStyle.meta.name}
+			kbd={diffHotkeys.toggleDiffStyle.hotkey}
+		>
+			<ToggleGroup
+				{...toggleGroupProps}
+				aria-label={diffHotkeys.toggleDiffStyle.meta.name}
+				value={[diffStyle ?? defaultSettings.diffStyle]}
+				onValueChange={(value: Array<NonNullable<GUISettings["diffStyle"]>>) => {
+					const head = value[0];
+					if (head === undefined) return;
 
-							saveGUISettings({ diffStyle: head });
-						}}
-					/>
-				}
+					saveGUISettings({ diffStyle: head });
+				}}
 			/>
-			<Tooltip.Portal>
-				<Tooltip.Positioner sideOffset={4}>
-					<Tooltip.Popup render={<TooltipPopup kbd={diffHotkeys.toggleDiffStyle.hotkey} />}>
-						{diffHotkeys.toggleDiffStyle.meta.name}
-					</Tooltip.Popup>
-				</Tooltip.Positioner>
-			</Tooltip.Portal>
-		</Tooltip.Root>
+		</Tooltip>
 	);
 };
 
@@ -2833,21 +2769,17 @@ const CopyableId: FC<{
 	const { copied, copy } = useCopied(copyValue);
 
 	return (
-		<Tooltip.Root>
-			<Tooltip.Trigger
+		<Tooltip content={label}>
+			<button
+				type="button"
+				aria-label={label}
 				className={styles.commitDetailsMetaSha}
 				onClick={copy}
-				render={<button type="button" aria-label={label} />}
 			>
 				<Icon size={14} name={copied ? "tick" : icon} />
 				<span>{copied ? "Copied!" : displayValue}</span>
-			</Tooltip.Trigger>
-			<Tooltip.Portal>
-				<Tooltip.Positioner sideOffset={4}>
-					<Tooltip.Popup render={<TooltipPopup />}>{label}</Tooltip.Popup>
-				</Tooltip.Positioner>
-			</Tooltip.Portal>
-		</Tooltip.Root>
+			</button>
+		</Tooltip>
 	);
 };
 
@@ -2974,32 +2906,23 @@ const CommitDetails: FC<{
 							)}
 
 							{commitBody(commitDetails.commit.message) !== undefined && (
-								<Tooltip.Root>
-									<Tooltip.Trigger
+								<Tooltip
+									content={commitBodyCollapsed ? "Expand commit body" : "Collapse commit body"}
+								>
+									<Button
+										variant={commitBodyCollapsed ? "outline" : "gray"}
+										iconOnly
+										size="small"
 										aria-controls={commitBodyId}
 										aria-expanded={!commitBodyCollapsed}
 										aria-label={commitBodyCollapsed ? "Expand commit body" : "Collapse commit body"}
 										aria-pressed={!commitBodyCollapsed}
-										className={classes(
-											getButtonClassName({
-												variant: commitBodyCollapsed ? "outline" : "gray",
-												iconOnly: true,
-												size: "small",
-											}),
-											styles.commitBodyToggle,
-										)}
+										className={styles.commitBodyToggle}
 										onClick={() => setCommitBodyCollapsed(!commitBodyCollapsed)}
 									>
 										<Icon name="kebab" />
-									</Tooltip.Trigger>
-									<Tooltip.Portal>
-										<Tooltip.Positioner sideOffset={4}>
-											<Tooltip.Popup render={<TooltipPopup />}>
-												{commitBodyCollapsed ? "Expand commit body" : "Collapse commit body"}
-											</Tooltip.Popup>
-										</Tooltip.Positioner>
-									</Tooltip.Portal>
-								</Tooltip.Root>
+									</Button>
+								</Tooltip>
 							)}
 						</h3>
 					</div>
@@ -3506,15 +3429,14 @@ const UnappliedBranchDetails: FC<BranchDetailsProps> = ({
 
 					<div className={styles.tabsRowRight}>
 						{worktreeName === undefined ? (
-							<button
-								type="button"
-								className={getButtonClassName({ variant: "gray" })}
+							<Button
+								variant="gray"
 								disabled={isApplyPending}
 								onClick={() => apply(decodeBytes(branch.branchRef))}
 							>
 								{isApplyPending && <Icon name="spinner" />}
 								Apply to workspace
-							</button>
+							</Button>
 						) : (
 							<span className={classes("text-12", rowStyles.fadedText)}>
 								Checked out in worktree {worktreeName}
@@ -3639,14 +3561,10 @@ const AppliedBranchDetails: FC<BranchDetailsProps> = ({
 
 					{showCreatePullRequest && (
 						<div className={styles.tabsRowRight}>
-							<button
-								type="button"
-								className={getButtonClassName({ variant: "gray" })}
-								onClick={() => setBranchTab("pr")}
-							>
+							<Button variant="gray" onClick={() => setBranchTab("pr")}>
 								<Icon name="pr" />
 								Create pull request
-							</button>
+							</Button>
 						</div>
 					)}
 

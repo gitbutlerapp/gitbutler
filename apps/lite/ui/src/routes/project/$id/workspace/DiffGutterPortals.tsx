@@ -1,4 +1,4 @@
-import { getButtonClassName } from "@gitbutler/ui-react/Button.tsx";
+import { Button } from "@gitbutler/ui-react/Button.tsx";
 import { classes } from "@gitbutler/ui-react/classes.ts";
 import { Checkbox } from "@gitbutler/ui-react/Checkbox.tsx";
 import { Icon } from "@gitbutler/ui-react/Icon.tsx";
@@ -81,8 +81,7 @@ const CommentButton: FC<{
 	onComment: (target: DiffLineTarget) => void;
 }> = (p) => (
 	<span slot={p.slotName} className={styles.comment}>
-		<button
-			type="button"
+		<Button
 			onPointerDown={(event) => {
 				// This control lives inside a line-number cell, but pressing it is not a line selection.
 				event.preventDefault();
@@ -94,10 +93,12 @@ const CommentButton: FC<{
 				if (target) p.onComment(target);
 			}}
 			aria-label="Annotate"
-			className={getButtonClassName({ variant: "ghost", size: "small", iconOnly: true })}
+			variant="ghost"
+			size="small"
+			iconOnly
 		>
 			<Icon name="plus" />
-		</button>
+		</Button>
 	</span>
 );
 

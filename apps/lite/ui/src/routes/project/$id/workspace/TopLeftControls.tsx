@@ -1,12 +1,11 @@
-import { getButtonClassName } from "@gitbutler/ui-react/Button.tsx";
+import { Button } from "@gitbutler/ui-react/Button.tsx";
 import { sidebarFocusScopeOf } from "#ui/use-cursor.ts";
 import { Icon } from "@gitbutler/ui-react/Icon.tsx";
-import { TooltipPopup } from "@gitbutler/ui-react/Tooltip.tsx";
+import { Tooltip } from "@gitbutler/ui-react/Tooltip.tsx";
 import { interfaceSlice } from "#ui/interface/state.ts";
 import { focusScope } from "#ui/focus-scopes.ts";
 import { useAppDispatch, useAppSelector } from "#ui/store.ts";
 import { workspaceHotkeys } from "#ui/hotkeys.ts";
-import { Tooltip } from "@base-ui/react";
 import { useEffect, useState, type FC } from "react";
 import styles from "./TopLeftControls.module.css";
 
@@ -24,27 +23,19 @@ const FullWindowButton: FC = () => {
 	};
 
 	return (
-		<Tooltip.Root>
-			<Tooltip.Trigger
-				render={
-					<button
-						type="button"
-						className={getButtonClassName({ iconOnly: true, variant: "ghost" })}
-						aria-label={workspaceHotkeys.toggleSidebar.meta.name}
-						onClick={toggle}
-					>
-						{fullWindow ? <Icon name="sidebar-narrow" /> : <Icon name="sidebar" />}
-					</button>
-				}
-			/>
-			<Tooltip.Portal>
-				<Tooltip.Positioner sideOffset={4}>
-					<Tooltip.Popup render={<TooltipPopup kbd={workspaceHotkeys.toggleSidebar.hotkey} />}>
-						{workspaceHotkeys.toggleSidebar.meta.name}
-					</Tooltip.Popup>
-				</Tooltip.Positioner>
-			</Tooltip.Portal>
-		</Tooltip.Root>
+		<Tooltip
+			content={workspaceHotkeys.toggleSidebar.meta.name}
+			kbd={workspaceHotkeys.toggleSidebar.hotkey}
+		>
+			<Button
+				iconOnly
+				variant="ghost"
+				aria-label={workspaceHotkeys.toggleSidebar.meta.name}
+				onClick={toggle}
+			>
+				{fullWindow ? <Icon name="sidebar-narrow" /> : <Icon name="sidebar" />}
+			</Button>
+		</Tooltip>
 	);
 };
 

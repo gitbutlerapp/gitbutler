@@ -6,7 +6,7 @@ import { assert } from "#ui/assert.ts";
 import { activeBranchFilterCount, branchIsEmpty, type BranchFilters } from "#ui/branch.ts";
 import { commitIsDiverged, commitTitle } from "#ui/commit.ts";
 import { Badge, type BadgeVariant } from "@gitbutler/ui-react/Badge.tsx";
-import { getButtonClassName } from "@gitbutler/ui-react/Button.tsx";
+import { Button } from "@gitbutler/ui-react/Button.tsx";
 import { BranchRowHeadline } from "./BranchRowHeadline.tsx";
 import type { IconName } from "@gitbutler/ui-react/iconNames.ts";
 import { classes } from "@gitbutler/ui-react/classes.ts";
@@ -836,13 +836,9 @@ export const BranchesList: FC<
 										: `No matches for “${query}” in branches or pull requests`
 							}
 						>
-							<button
-								type="button"
-								className={getButtonClassName({ variant: "outline" })}
-								onClick={showAllBranches}
-							>
+							<Button variant="outline" onClick={showAllBranches}>
 								Show all branches
-							</button>
+							</Button>
 						</EmptyState>
 					) : (
 						<EmptyState

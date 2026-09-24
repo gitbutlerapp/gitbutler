@@ -1,4 +1,4 @@
-import { getButtonClassName } from "@gitbutler/ui-react/Button.tsx";
+import { Button } from "@gitbutler/ui-react/Button.tsx";
 import { classes } from "@gitbutler/ui-react/classes.ts";
 import { FolderIcon } from "@gitbutler/ui-react/FolderIcon.tsx";
 import {
@@ -9,7 +9,7 @@ import {
 	PopupSection,
 	PopupSectionLabel,
 } from "@gitbutler/ui-react/Popup.tsx";
-import { TooltipPopup } from "@gitbutler/ui-react/Tooltip.tsx";
+import { Tooltip } from "@gitbutler/ui-react/Tooltip.tsx";
 import { useAddLocalRepository } from "#ui/components/useAddLocalRepository.ts";
 import { globalHotkeys } from "#ui/hotkeys.ts";
 import { interfaceSlice } from "#ui/interface/state.ts";
@@ -23,7 +23,7 @@ import {
 	type ProjectRepoMarks,
 } from "#ui/project.ts";
 import { useAppDispatch, useAppSelector } from "#ui/store.ts";
-import { Button, Combobox, Tooltip } from "@base-ui/react";
+import { Combobox } from "@base-ui/react";
 import type { IconName } from "@gitbutler/ui-react/iconNames.ts";
 import type { ProjectForFrontend } from "@gitbutler/but-sdk";
 import { useQuery, useSuspenseQuery } from "@tanstack/react-query";
@@ -305,28 +305,19 @@ export const ProjectPicker: FC<{ project: ProjectForFrontend }> = (p) => {
 				}
 			}}
 		>
-			<Tooltip.Root>
+			<Tooltip
+				content={globalHotkeys.selectProject.meta.name}
+				kbd={globalHotkeys.selectProject.hotkey}
+			>
 				<Combobox.Trigger
-					className={classes(
-						getButtonClassName({ variant: "ghost" }),
-						"text-15",
-						"text-bold",
-						headerStyles.workspaceName,
-					)}
+					className={classes("text-15", "text-bold", headerStyles.workspaceName)}
 					aria-label={`${globalHotkeys.selectProject.meta.name} (current: ${p.project.title})`}
-					render={<Button render={<Tooltip.Trigger />} />}
+					render={<Button variant="ghost" />}
 				>
 					<FolderIcon className={headerStyles.workspaceNameFolder} />
 					<span className={headerStyles.workspaceNameLabel}>{p.project.title}</span>
 				</Combobox.Trigger>
-				<Tooltip.Portal>
-					<Tooltip.Positioner sideOffset={4}>
-						<Tooltip.Popup render={<TooltipPopup kbd={globalHotkeys.selectProject.hotkey} />}>
-							{globalHotkeys.selectProject.meta.name}
-						</Tooltip.Popup>
-					</Tooltip.Positioner>
-				</Tooltip.Portal>
-			</Tooltip.Root>
+			</Tooltip>
 
 			<Combobox.Portal>
 				<Combobox.Positioner align="start" sideOffset={4}>

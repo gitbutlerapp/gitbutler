@@ -1,7 +1,7 @@
 import { Dialog } from "@base-ui/react";
 import { useEffect, useRef, useState } from "react";
 import type { FC, SyntheticEvent } from "react";
-import { getButtonClassName } from "@gitbutler/ui-react/Button.tsx";
+import { Button } from "@gitbutler/ui-react/Button.tsx";
 import { Modal } from "@gitbutler/ui-react/Popup.tsx";
 import styles from "./AskpassPromptDialog.module.css";
 import type { AskpassPromptEvent } from "@gitbutler/but-sdk";
@@ -102,21 +102,16 @@ export const AskpassPromptDialog: FC = () => {
 						<p className={styles.error}>Failed to send response: {currentSubmitError}</p>
 					)}
 					<div className={styles.actions}>
-						<button
-							type="button"
-							className={getButtonClassName({ variant: "ghost" })}
+						<Button
+							variant="ghost"
 							disabled={submitting}
 							onClick={() => void respond(currentPrompt, null)}
 						>
 							Cancel
-						</button>
-						<button
-							type="submit"
-							className={getButtonClassName({ variant: "pop" })}
-							disabled={submitting}
-						>
+						</Button>
+						<Button type="submit" variant="pop" disabled={submitting}>
 							Continue
-						</button>
+						</Button>
 					</div>
 				</form>
 			)}

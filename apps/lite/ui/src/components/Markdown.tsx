@@ -1,14 +1,13 @@
 import { guiSettingsQueryOptions } from "#ui/api/queries.ts";
 import { reportError } from "#ui/error-reporting.ts";
-import { getButtonClassName } from "@gitbutler/ui-react/Button.tsx";
+import { Button } from "@gitbutler/ui-react/Button.tsx";
 import { classes } from "@gitbutler/ui-react/classes.ts";
 import { Icon } from "@gitbutler/ui-react/Icon.tsx";
 import { TextLink } from "@gitbutler/ui-react/TextLink.tsx";
-import { TooltipPopup } from "@gitbutler/ui-react/Tooltip.tsx";
+import { Tooltip } from "@gitbutler/ui-react/Tooltip.tsx";
 import { useCopied } from "#ui/components/useCopied.ts";
 import { defaultSettings } from "#ui/settings.ts";
 import { openLinkExternally } from "#ui/external-link.ts";
-import { Tooltip } from "@base-ui/react";
 import { useQuery } from "@tanstack/react-query";
 import type { CSSProperties, FC, MouseEvent, ReactNode } from "react";
 import { useState } from "react";
@@ -171,16 +170,16 @@ const Pre: FC<{ node?: HastNode; children?: ReactNode }> = ({ node, children }) 
 	return (
 		<div className={styles.codeBlock}>
 			<pre>{children}</pre>
-			<Tooltip.Root>
-				<Tooltip.Trigger
-					className={classes(
-						getButtonClassName({ variant: "ghost", size: "small", iconOnly: true }),
-						styles.copy,
-					)}
+			<Tooltip content={copied ? "Copied" : "Copy"}>
+				<Button
+					variant="ghost"
+					size="small"
+					iconOnly
+					aria-label={copied ? "Copied" : "Copy"}
+					className={styles.copy}
 					// Keeps the button shown for the tick, even once the pointer has left the block.
 					data-copied={copied || undefined}
 					onClick={copy}
-					render={<button type="button" aria-label={copied ? "Copied" : "Copy"} />}
 				>
 					{/* Each glyph in its own wrapper: the button styles the icons' opacity itself, so the
 					    crossfade has to fade something else. */}
@@ -192,13 +191,8 @@ const Pre: FC<{ node?: HastNode; children?: ReactNode }> = ({ node, children }) 
 							<Icon name="tick" />
 						</span>
 					</span>
-				</Tooltip.Trigger>
-				<Tooltip.Portal>
-					<Tooltip.Positioner sideOffset={4}>
-						<Tooltip.Popup render={<TooltipPopup />}>{copied ? "Copied" : "Copy"}</Tooltip.Popup>
-					</Tooltip.Positioner>
-				</Tooltip.Portal>
-			</Tooltip.Root>
+				</Button>
+			</Tooltip>
 		</div>
 	);
 };

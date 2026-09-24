@@ -115,11 +115,11 @@ Ghost and outline are the two quiet buttons and sit at the same level as each
 other; gray and pop are the two ways to raise one above the rest. Reach for a
 quiet one unless there is a reason not to.
 
-- **`ghost`** — no ground, no border. The default, and by far the most used.
-  For actions inside something that is already a container: a row, a toolbar,
-  a card header, a popup.
-- **`outline`** — a ghost with an edge. For a button on open ground, where
-  nothing else marks it as a target.
+- **`outline`** — the default. A ghost with an edge, for a button on open
+  ground where nothing else marks it as a target; a `Button` with no `variant`
+  is one.
+- **`ghost`** — no ground, no border. For actions inside something that is
+  already a container: a row, a toolbar, a card header, a popup.
 - **`gray`** — solid gray ground. Lifts one button above the ones around it
   without spending color. This is how you highlight; it is not a primary
   action.
@@ -411,12 +411,12 @@ turns back on only when the button collapses to an icon.
   instead — see Empty states.
 
 **Shortcuts go in the `kbd` slot, not the text.** Don't write "Fetch (⌘R)" —
-pass the hotkey and let `TooltipPopup` render the keycaps. Pass `kbdScope`
+pass the hotkey as `Tooltip`'s `kbd` and let it render the keycaps. Pass `kbdScope`
 alongside it when the hotkey is bound to a pane: a shortcut that does nothing
 from where the user is standing is worse than no shortcut at all.
 
-**A tooltip is never the only way to know.** It needs hover, so it doesn't
-exist for keyboard or screen readers, and it's out of reach of touch. An
+**A tooltip is never the only way to know.** It opens on hover and on keyboard
+focus, but a screen reader doesn't announce it and touch can't reach it. An
 icon-only button gets an `aria-label` as well — the tooltip repeats that name,
 it doesn't supply it. Nothing a user must read to proceed lives only in a
 tooltip, and nothing inside one is clickable.

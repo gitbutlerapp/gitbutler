@@ -14,7 +14,7 @@ import { Toggle, ToggleGroup } from "@base-ui/react";
 import type { IconName } from "@gitbutler/ui-react/iconNames.ts";
 import { RelativeTime } from "@gitbutler/ui-react/RelativeTime.tsx";
 import { classes } from "@gitbutler/ui-react/classes.ts";
-import { getButtonClassName } from "@gitbutler/ui-react/Button.tsx";
+import { Button } from "@gitbutler/ui-react/Button.tsx";
 import { appliedRefsByName, openInboxEntry, type AppliedRefs } from "#ui/review-notifications.ts";
 import {
 	entryHeadline,
@@ -137,14 +137,15 @@ export const NotificationBell: FC<{ projectId: string }> = ({ projectId }) => {
 			sideOffset={6}
 			className={styles.panel}
 			trigger={
-				<button
-					type="button"
+				<Button
 					aria-label={unseen > 0 ? `Notifications, ${unseen} unread` : "Notifications"}
-					className={classes(getButtonClassName({ iconOnly: true, variant: "ghost" }), styles.bell)}
+					iconOnly
+					variant="ghost"
+					className={styles.bell}
 				>
 					<Icon name="bell" />
 					{unseen > 0 && <span aria-hidden className={styles.bellDot} />}
-				</button>
+				</Button>
 			}
 		>
 			<div className={styles.panelHeader}>

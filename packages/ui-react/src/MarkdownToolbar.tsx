@@ -1,11 +1,10 @@
-import { getButtonClassName } from "./Button.tsx";
+import { Button } from "./Button.tsx";
 import { classes } from "./classes.ts";
 import { Icon } from "./Icon.tsx";
-import { TooltipPopup } from "./Tooltip.tsx";
+import { Tooltip } from "./Tooltip.tsx";
 import type { IconName } from "./iconNames.ts";
 import * as md from "./markdown-editing.ts";
 import { applyToTextarea } from "./markdown-textarea.ts";
-import { Tooltip } from "@base-ui/react";
 import { Fragment, useRef, useState } from "react";
 import type { FC, RefCallback, RefObject } from "react";
 import styles from "./MarkdownToolbar.module.css";
@@ -125,27 +124,20 @@ export const MarkdownToolbar: FC<Props> = (p) => {
 						{index > 0 && <div aria-hidden className={styles.separator} />}
 						<div className={styles.group} data-group>
 							{group.map((button) => (
-								<Tooltip.Root key={button.label}>
-									<Tooltip.Trigger
-										className={getButtonClassName({ variant: "ghost", iconOnly: true })}
-										// base-ui's own `disabled` only suppresses the tooltip, leaving a
-										// live button behind, so the native attributes go on the element.
-										render={
-											<button aria-label={button.label} disabled={p.disabled} type="button" />
-										}
+								<Tooltip key={button.label} content={button.label}>
+									<Button
+										variant="ghost"
+										iconOnly
+										aria-label={button.label}
+										disabled={p.disabled}
 										// Keeps the caret in the textarea: a plain click would blur it
 										// first, so the command would have no selection to act on.
 										onMouseDown={(evt) => evt.preventDefault()}
 										onClick={() => apply(button.command)}
 									>
 										<Icon name={button.icon} />
-									</Tooltip.Trigger>
-									<Tooltip.Portal>
-										<Tooltip.Positioner sideOffset={4}>
-											<Tooltip.Popup render={<TooltipPopup />}>{button.label}</Tooltip.Popup>
-										</Tooltip.Positioner>
-									</Tooltip.Portal>
-								</Tooltip.Root>
+									</Button>
+								</Tooltip>
 							))}
 						</div>
 					</Fragment>
@@ -155,26 +147,26 @@ export const MarkdownToolbar: FC<Props> = (p) => {
 			{reach !== "fits" && (
 				<div className={styles.nav}>
 					<div aria-hidden className={styles.separator} />
-					<button
+					<Button
 						aria-label="Previous formatting group"
-						className={getButtonClassName({ variant: "ghost", iconOnly: true })}
+						variant="ghost"
+						iconOnly
 						disabled={reach === "start"}
 						onMouseDown={(evt) => evt.preventDefault()}
 						onClick={() => scrollByGroup(-1)}
-						type="button"
 					>
 						<Icon name="chevron-left" />
-					</button>
-					<button
+					</Button>
+					<Button
 						aria-label="Next formatting group"
-						className={getButtonClassName({ variant: "ghost", iconOnly: true })}
+						variant="ghost"
+						iconOnly
 						disabled={reach === "end"}
 						onMouseDown={(evt) => evt.preventDefault()}
 						onClick={() => scrollByGroup(1)}
-						type="button"
 					>
 						<Icon name="chevron-right" />
-					</button>
+					</Button>
 				</div>
 			)}
 		</div>

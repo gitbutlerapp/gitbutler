@@ -1,10 +1,11 @@
 import preview from "#storybook/preview";
-import { getButtonClassName } from "./Button.tsx";
-import { Tooltip } from "@base-ui/react";
-import { TooltipPopup } from "./Tooltip.tsx";
+import { Button } from "./Button.tsx";
+import { Icon } from "./Icon.tsx";
+import { Tooltip as BaseTooltip } from "@base-ui/react";
+import { Tooltip } from "./Tooltip.tsx";
 
 const meta = preview.meta({
-	component: TooltipPopup,
+	component: Tooltip,
 	parameters: {
 		design: {
 			type: "figma",
@@ -14,9 +15,9 @@ const meta = preview.meta({
 	decorators: [
 		(Story) => (
 			<div style={{ display: "flex", justifyContent: "center", padding: "64px" }}>
-				<Tooltip.Provider>
+				<BaseTooltip.Provider>
 					<Story />
-				</Tooltip.Provider>
+				</BaseTooltip.Provider>
 			</div>
 		),
 	],
@@ -24,17 +25,29 @@ const meta = preview.meta({
 
 export const Playground = meta.story({
 	args: {
-		children: "This is a tooltip",
+		content: "This is a tooltip",
 		kbd: "Mod+A",
+		side: "top",
+		children: <Button>Hover me</Button>,
 	},
-	render: (args) => (
-		<Tooltip.Root>
-			<Tooltip.Trigger className={getButtonClassName({})}>Hover me</Tooltip.Trigger>
-			<Tooltip.Portal>
-				<Tooltip.Positioner sideOffset={4} side="top">
-					<Tooltip.Popup render={<TooltipPopup {...args} />} />
-				</Tooltip.Positioner>
-			</Tooltip.Portal>
-		</Tooltip.Root>
+});
+
+export const IconOnly = meta.story({
+	render: () => (
+		<Tooltip content="New branch" kbd="Mod+B">
+			<Button variant="ghost" iconOnly aria-label="New branch">
+				<Icon name="plus" />
+			</Button>
+		</Tooltip>
+	),
+});
+
+export const OnDisabledButton = meta.story({
+	render: () => (
+		<Tooltip content="Nothing to commit">
+			<Button variant="pop" focusableWhenDisabled disabled>
+				Commit
+			</Button>
+		</Tooltip>
 	),
 });

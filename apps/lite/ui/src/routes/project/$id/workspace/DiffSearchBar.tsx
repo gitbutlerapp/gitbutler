@@ -1,5 +1,5 @@
 import { assert } from "#ui/assert.ts";
-import { getButtonClassName } from "@gitbutler/ui-react/Button.tsx";
+import { Button } from "@gitbutler/ui-react/Button.tsx";
 import { classes } from "@gitbutler/ui-react/classes.ts";
 import { FieldControlStyles, FieldRootStyles } from "@gitbutler/ui-react/Field.tsx";
 import { Icon } from "@gitbutler/ui-react/Icon.tsx";
@@ -174,32 +174,29 @@ export const DiffSearchBar: FC<Props> = ({
 					</>
 				)}
 				<div className={styles.buttons}>
-					<button
-						type="button"
+					<Button
 						aria-label="Previous match"
 						disabled={matches.length === 0}
-						className={getButtonClassName({ size: "small", variant: "ghost", iconOnly: true })}
+						size="small"
+						variant="ghost"
+						iconOnly
 						onClick={() => step(-1)}
 					>
 						<Icon name="arrow-up" />
-					</button>
-					<button
-						type="button"
+					</Button>
+					<Button
 						aria-label="Next match"
 						disabled={matches.length === 0}
-						className={getButtonClassName({ size: "small", variant: "ghost", iconOnly: true })}
+						size="small"
+						variant="ghost"
+						iconOnly
 						onClick={() => step(1)}
 					>
 						<Icon name="arrow-down" />
-					</button>
-					<button
-						type="button"
-						aria-label="Close search"
-						className={getButtonClassName({ size: "small", variant: "ghost", iconOnly: true })}
-						onClick={close}
-					>
+					</Button>
+					<Button aria-label="Close search" size="small" variant="ghost" iconOnly onClick={close}>
 						<Icon name="cross" />
-					</button>
+					</Button>
 				</div>
 			</div>
 		</Popup>

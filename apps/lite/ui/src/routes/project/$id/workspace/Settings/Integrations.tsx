@@ -14,7 +14,7 @@ import {
 	useStoreGithubPat,
 	useStoreGitlabPat,
 } from "#ui/api/mutations.ts";
-import { getButtonClassName } from "@gitbutler/ui-react/Button.tsx";
+import { Button } from "@gitbutler/ui-react/Button.tsx";
 import { classes } from "@gitbutler/ui-react/classes.ts";
 import {
 	FieldControlStyles,
@@ -60,10 +60,10 @@ const DeviceCode: FC<{ code: string }> = (p) => {
 				Enter <strong>{p.code}</strong> on the GitHub page that just opened. <br /> This waits until
 				you have.
 			</p>
-			<button type="button" className={getButtonClassName({ variant: "gray" })} onClick={copy}>
+			<Button variant="gray" onClick={copy}>
 				{copied ? "Copied" : "Copy code"}
 				<Icon name={copied ? "tick" : "copy"} />
-			</button>
+			</Button>
 		</>
 	);
 };
@@ -149,17 +149,11 @@ const ForgeCard: FC<ForgeCardProps> = (p) => {
 					<p className={classes("text-12", "text-body", styles.hint)}>{p.tokenHint}</p>
 				</div>
 				<div className={styles.actions}>
-					<button
-						type="submit"
-						className={getButtonClassName({ variant: "gray" })}
-						disabled={p.isBusy || incomplete}
-					>
+					<Button type="submit" variant="gray" disabled={p.isBusy || incomplete}>
 						{p.isBusy ? "Authorizing…" : "Authorize"}
 						<Icon name="tick" />
-					</button>
-					<button type="button" className={getButtonClassName({})} onClick={close}>
-						Cancel
-					</button>
+					</Button>
+					<Button onClick={close}>Cancel</Button>
 				</div>
 			</form>
 		) : undefined;
@@ -167,9 +161,7 @@ const ForgeCard: FC<ForgeCardProps> = (p) => {
 	return (
 		<Section heading={p.heading} footer={footer}>
 			<ForgeRow logo={p.logo} muted title={p.name} hint={p.blurb}>
-				<button
-					type="button"
-					className={getButtonClassName({})}
+				<Button
 					disabled={p.isBusy}
 					// One way in goes straight there; several offer the choice, as desktop does.
 					onClick={(event) => {
@@ -190,7 +182,7 @@ const ForgeCard: FC<ForgeCardProps> = (p) => {
 					}}
 				>
 					Connect
-				</button>
+				</Button>
 			</ForgeRow>
 		</Section>
 	);
@@ -303,14 +295,9 @@ export const Integrations: FC = () => {
 							title={account.username}
 							hint={account.kind}
 						>
-							<button
-								type="button"
-								className={getButtonClassName({ variant: "danger" })}
-								disabled={account.isBusy}
-								onClick={account.onForget}
-							>
+							<Button variant="danger" disabled={account.isBusy} onClick={account.onForget}>
 								Forget
-							</button>
+							</Button>
 						</ForgeRow>
 					))}
 				</Section>

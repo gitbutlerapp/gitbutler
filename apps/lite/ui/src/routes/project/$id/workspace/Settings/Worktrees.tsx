@@ -2,7 +2,7 @@ import { useSuspenseQuery } from "@tanstack/react-query";
 import type { FC, ReactNode } from "react";
 import { appSettingsQueryOptions, worktreesListQueryOptions } from "#ui/api/queries.ts";
 import { useWorktreeRemove, useWorktreeSetArchived } from "#ui/api/mutations.ts";
-import { getButtonClassName } from "@gitbutler/ui-react/Button.tsx";
+import { Button } from "@gitbutler/ui-react/Button.tsx";
 import { Icon } from "@gitbutler/ui-react/Icon.tsx";
 import { classes } from "@gitbutler/ui-react/classes.ts";
 import { branchDetailsParams } from "#ui/branch.ts";
@@ -58,14 +58,12 @@ const WorktreeList: FC<{ projectId: string }> = ({ projectId }) => {
 					</span>
 				</div>
 				<div className={styles.actions}>
-					<button
-						type="button"
-						className={getButtonClassName({})}
+					<Button
 						disabled={busy}
 						onClick={() => setArchived({ projectId, name: worktree.name, archived: !archived })}
 					>
 						{archived ? "Unarchive" : "Archive"}
-					</button>
+					</Button>
 					<IconButton
 						label="Worktree menu"
 						onClick={(event) =>

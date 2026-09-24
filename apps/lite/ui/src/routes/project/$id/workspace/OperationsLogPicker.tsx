@@ -1,6 +1,6 @@
 import { useRestoreSnapshot } from "#ui/api/mutations.ts";
 import { operationsLogQueryOptions } from "#ui/api/queries.ts";
-import { getButtonClassName } from "@gitbutler/ui-react/Button.tsx";
+import { Button } from "@gitbutler/ui-react/Button.tsx";
 import { PickerDialog, type PickerDialogGroup } from "@gitbutler/ui-react/PickerDialog.tsx";
 import { presentableOperation } from "#ui/snapshot.ts";
 import { formatRelativeTime } from "@gitbutler/ui-react/time.ts";
@@ -48,14 +48,9 @@ export const OperationsLogPicker: FC<Props> = ({ open, onOpenChange, projectId }
 			nothingToListLabel="Nothing to restore yet"
 			footerAction={
 				hasNextPage ? (
-					<button
-						type="button"
-						className={getButtonClassName({ size: "small" })}
-						disabled={isFetchingNextPage}
-						onClick={() => void fetchNextPage()}
-					>
+					<Button size="small" disabled={isFetchingNextPage} onClick={() => void fetchNextPage()}>
 						{isFetchingNextPage ? "Loading…" : "Load more"}
-					</button>
+					</Button>
 				) : undefined
 			}
 			getItemKey={(snapshot) => snapshot.commitId}

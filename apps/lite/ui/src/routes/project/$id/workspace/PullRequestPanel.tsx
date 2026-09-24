@@ -16,7 +16,7 @@ import {
 	reviewerCandidatesQueryOptions,
 } from "#ui/api/queries.ts";
 import { Badge, type BadgeVariant } from "@gitbutler/ui-react/Badge.tsx";
-import { getButtonClassName } from "@gitbutler/ui-react/Button.tsx";
+import { Button } from "@gitbutler/ui-react/Button.tsx";
 import { Checkbox } from "@gitbutler/ui-react/Checkbox.tsx";
 import { FieldTextareaStyles } from "@gitbutler/ui-react/Field.tsx";
 import { Kbd } from "@gitbutler/ui-react/Kbd.tsx";
@@ -26,7 +26,7 @@ import { TextLink } from "@gitbutler/ui-react/TextLink.tsx";
 import { Tag } from "@gitbutler/ui-react/Tag.tsx";
 import { RelativeTime } from "@gitbutler/ui-react/RelativeTime.tsx";
 import type { IconName } from "@gitbutler/ui-react/iconNames.ts";
-import { TooltipPopup } from "@gitbutler/ui-react/Tooltip.tsx";
+import { Tooltip } from "@gitbutler/ui-react/Tooltip.tsx";
 import {
 	type NativeMenuItem,
 	nativeMenuItem,
@@ -51,7 +51,6 @@ import {
 import { useCopied } from "#ui/components/useCopied.ts";
 import { sameLogin } from "#ui/review-users.ts";
 import type { CiCheck, ForgeReview, ForgeReviewUser } from "@gitbutler/but-sdk";
-import { Tooltip } from "@base-ui/react";
 import { useQuery } from "@tanstack/react-query";
 import { Match } from "effect";
 import { type FC, type MouseEvent, type ReactNode, useId, useState } from "react";
@@ -93,19 +92,18 @@ const Section: FC<{
 			<div className={styles.sectionHeader}>
 				<h4 className={classes("text-12", styles.heading)}>
 					{collapsible && (
-						<button
-							type="button"
-							className={classes(
-								getButtonClassName({ variant: "ghost", size: "small", iconOnly: true }),
-								styles.sectionToggle,
-							)}
+						<Button
+							variant="ghost"
+							size="small"
+							iconOnly
+							className={styles.sectionToggle}
 							aria-label={`${expanded ? "Collapse" : "Expand"} ${heading.toLowerCase()}`}
 							aria-expanded={expanded}
 							aria-controls={contentId}
 							onClick={() => setExpanded((current) => !current)}
 						>
 							<Icon name={expanded ? "chevron-down" : "chevron-right"} size={12} />
-						</button>
+						</Button>
 					)}
 					<span>{heading}</span>
 				</h4>
@@ -133,17 +131,16 @@ const orEmptyNotice = (items: Array<NativeMenuItem>, notice: string): Array<Nati
  */
 /** Quiet until its row is hovered, like the comment kebab. */
 const RemoveButton: FC<{ label: string; onClick: () => void }> = ({ label, onClick }) => (
-	<button
+	<Button
 		aria-label={label}
-		className={classes(
-			getButtonClassName({ variant: "ghost", size: "small", iconOnly: true }),
-			styles.reviewerRemove,
-		)}
+		variant="ghost"
+		size="small"
+		iconOnly
+		className={styles.reviewerRemove}
 		onClick={onClick}
-		type="button"
 	>
 		<Icon name="cross" />
-	</button>
+	</Button>
 );
 
 /**
@@ -172,14 +169,15 @@ const ReviewerRow: FC<{
 					<Icon name={icon} style={{ color }} size={15} />
 				</span>
 			) : (
-				<button
+				<Button
 					aria-label="Withdraw review request"
-					className={getButtonClassName({ variant: "ghost", size: "small", iconOnly: true })}
+					variant="ghost"
+					size="small"
+					iconOnly
 					onBlur={() => setFocused(false)}
 					onClick={onWithdraw}
 					onFocus={() => setFocused(true)}
 					title="Withdraw review request"
-					type="button"
 				>
 					{/* The cross has no ring, so it sits a touch smaller than the
 					    verdicts to read as light. */}
@@ -188,7 +186,7 @@ const ReviewerRow: FC<{
 					) : (
 						<Icon name={icon} style={{ color }} size={15} />
 					)}
-				</button>
+				</Button>
 			)}
 		</div>
 	);
@@ -201,23 +199,14 @@ const pickerButton = (p: {
 	onClick: (evt: MouseEvent<HTMLButtonElement>) => void;
 }) =>
 	p.empty ? (
-		<button
-			className={getButtonClassName({ variant: "outline", size: "small" })}
-			onClick={p.onClick}
-			type="button"
-		>
+		<Button variant="outline" size="small" onClick={p.onClick}>
 			{p.label}
 			<Icon name={p.icon} />
-		</button>
+		</Button>
 	) : (
-		<button
-			aria-label={p.label}
-			className={getButtonClassName({ variant: "ghost", size: "small", iconOnly: true })}
-			onClick={p.onClick}
-			type="button"
-		>
+		<Button aria-label={p.label} variant="ghost" size="small" iconOnly onClick={p.onClick}>
 			<Icon name="plus" />
-		</button>
+		</Button>
 	);
 
 export const ReviewUser: FC<{ user: ForgeReviewUser }> = ({ user }) => (
@@ -231,20 +220,16 @@ const CopyableBranch: FC<{ name: string }> = ({ name }) => {
 	const { copied, copy } = useCopied(name);
 
 	return (
-		<Tooltip.Root>
-			<Tooltip.Trigger
+		<Tooltip content="Copy branch name">
+			<button
+				type="button"
+				aria-label="Copy branch name"
 				className={styles.sourceBranch}
 				onClick={copy}
-				render={<button type="button" aria-label="Copy branch name" />}
 			>
 				{copied ? "Copied!" : name}
-			</Tooltip.Trigger>
-			<Tooltip.Portal>
-				<Tooltip.Positioner sideOffset={4}>
-					<Tooltip.Popup render={<TooltipPopup />}>Copy branch name</Tooltip.Popup>
-				</Tooltip.Positioner>
-			</Tooltip.Portal>
-		</Tooltip.Root>
+			</button>
+		</Tooltip>
 	);
 };
 
@@ -646,18 +631,17 @@ const Checklist: FC<{
 							/>
 							<span className={styles.manualText}>{item.label}</span>
 						</label>
-						<button
-							type="button"
+						<Button
 							aria-label={`Remove ${item.label}`}
-							className={classes(
-								getButtonClassName({ variant: "ghost", size: "small", iconOnly: true }),
-								styles.removeItem,
-							)}
+							variant="ghost"
+							size="small"
+							iconOnly
+							className={styles.removeItem}
 							disabled={isSaving}
 							onClick={() => updateItems({ type: "remove", id: item.id })}
 						>
 							<Icon name="cross" size={12} />
-						</button>
+						</Button>
 					</div>
 				))}
 				{isError ? (
@@ -708,9 +692,9 @@ const Checklist: FC<{
 							}}
 						/>
 						<div className={styles.addItemActions}>
-							<button
-								type="button"
-								className={getButtonClassName({ variant: "ghost", size: "small" })}
+							<Button
+								variant="ghost"
+								size="small"
 								disabled={isSaving}
 								onClick={() => {
 									setAdding(false);
@@ -718,15 +702,16 @@ const Checklist: FC<{
 								}}
 							>
 								Cancel
-							</button>
-							<button
+							</Button>
+							<Button
 								type="submit"
-								className={getButtonClassName({ variant: "gray", size: "small" })}
+								variant="gray"
+								size="small"
 								disabled={isSaving || label.trim() === ""}
 							>
 								Add
 								<Kbd hotkey="Mod+Enter" variant="button" />
-							</button>
+							</Button>
 						</div>
 					</form>
 				) : (
