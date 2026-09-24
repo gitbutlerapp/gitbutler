@@ -233,10 +233,11 @@ least 16px on each side. Extend the target with padding or a pseudo-element
 rather than growing the glyph, and don't let two extended targets overlap:
 the click goes to one control, not to whichever painted last.
 
-**Text is never under 12px.** No label, count, caption, tag or keycap sets a
-size below 12px, however small the space. If a token from ⚛️ Core is
-smaller than that, the token is wrong, not the rule. Something that only
-works at 11px is something that should be a tooltip, an icon, or left out.
+**11px is for small UI, and nothing goes smaller.** Badges, counts, tags,
+keycaps and a file's status letter can set 11px; labels, body text, captions
+and hints are 12px or more. Nothing sets a size below 11px, however small the
+space: if a token from ⚛️ Core is smaller, the token is wrong, not the rule.
+Something that only works under 11px should be a tooltip, an icon, or left out.
 
 ## Line breaks
 
