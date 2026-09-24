@@ -72,7 +72,11 @@ fn jump_to_a_worktree_reference_despite_its_area_extending_the_id() {
 
     tui.reload();
     tui.input('/');
-    tui.input("wt")
+    // Typing t selects wt, not wt:@, even though both IDs have that prefix.
+    tui.input('w').assert_rendered_term_svg_eq(file![
+        "snapshots/jump_to_a_worktree_reference_despite_its_area_extending_the_id_001.svg"
+    ]);
+    tui.input('t')
         .assert_current_line_eq(str!["┊┊├┄ wt {wt-branch}"]);
 
     tui.input('/');
