@@ -23,6 +23,14 @@ nothing does, ask the designer before building. The answer may be a new
 library component with a spec, or it may be that the surface should use
 something we already have.
 
+**When you can't ask, flag it.** An agent working alone builds the smallest
+thing that works, then says so. The PR description gets a "New UI" note: what
+was needed, which library components were tried and why none fit, and where
+the new one lives. Then file a Linear ticket in GitButler Internal (GB)
+assigned to Pavel Laptew (@pavel), with that note, the PR link and a
+screenshot if you can take one. If you can't reach Linear, say so in the note
+and the PR author files it.
+
 **A custom control needs a reason.** Sometimes a one-off is right. When it is,
 the code should say why: what the library could not do, and why that mattered
 here. A custom control with no motivation in the commit or a comment is a bug
@@ -240,11 +248,12 @@ text calls for it. It is a per-surface call, not a global one.
 
 ## Cursors
 
-**The arrow is the default; the hand is a setting.** Lite is a desktop app,
-and desktop apps keep the arrow over buttons, menus and rows; the hand is a
-web convention for links out to a page. So the app ships with the arrow, and
-the _Hand cursor_ switch in Appearance turns the hand on for whoever wants it.
-The harness panel takes the hand always, being part of a web page.
+**The host picks the cursor: the arrow on the desktop, the hand on the web.**
+Desktop apps keep the arrow over buttons, menus and rows; the hand is a web
+convention. So Lite ships with the arrow, and the _Hand cursor_ switch in
+Appearance turns the hand on for whoever wants it. A web app — the harness
+panel, but.dev — takes the hand always: it sets `--control-cursor: pointer` on
+its root and loads `control-cursor.css`, and every control follows.
 
 **One property carries the choice.** The host sets `--control-cursor` on its
 root — the app flips `data-hand-cursor` on the document from the setting and
