@@ -1,16 +1,22 @@
 # Design notes
 
-The visual language of GitButler's React surfaces, Lite first among them: the
-conventions you need to make an on-brand choice without opening Figma. Rules
-here are about how the UI should look and read. The tooling that enforces
-them — scripts, generated files, commands — lives in `AGENTS.md` beside this
-file, and in `apps/lite/AGENTS.md` for what is the app's own.
+The visual language of every GitButler app built on `@gitbutler/ui-react`, on
+the desktop or on the web: the conventions you need to make an on-brand choice
+without opening Figma. Rules here are about how the UI should look and read,
+and hold for any app; the examples are GitButler's own surfaces — branches,
+commits, pull requests. What one app decides for itself lives in that app's
+own design notes (Lite's are `apps/lite/DESIGN.md`). The tooling that enforces
+the rules — scripts, generated files, commands — lives in `AGENTS.md` beside
+this file.
+
+The Figma library is ⚛️ Core, the library for every app. 💎 Core is a
+different library, for the Svelte desktop app.
 
 ## Components
 
 **Build from the library.** Every control users touch — a button, a switch, a
 segmented toggle, a popup — already has a component in `@gitbutler/ui-react`
-(`packages/ui-react/src/`), with a spec in the ⚛️ Lite Core Figma library or a
+(`packages/ui-react/src/`), with a spec in the ⚛️ Core Figma library or a
 Storybook story. Reach for those first, even when hand-styling a primitive in
 the feature's own CSS module would be quicker. The point of a library is that
 the app reads as one thing; each control styled locally is one that will
@@ -42,7 +48,7 @@ Figma spec. A component that lives only in code is half a component.
 
 ## Voice
 
-Every string in Lite reads as one person talking — the tooltips, the hints
+Every string in the app reads as one person talking — the tooltips, the hints
 under settings rows, the empty states, the toasts. The sections below say what
 each surface adds; this is the voice they share.
 
@@ -125,9 +131,9 @@ distinct. Use it to separate kinds, never to imply one action matters more.
 **The inverted pair.** `ghost-inverted` and `outline-inverted` are the same two
 buttons for a button sitting on an inverted ground — a selected row, where the
 fill flips and the text turns to `--text-1-invert`. They are not a dark-mode
-thing; dark mode is handled by the tokens. Note that selected rows reach these
-styles through CSS in `Row.module.css` rather than by passing the variant, so
-selection can restyle without a re-render.
+thing; dark mode is handled by the tokens. A row that restyles on selection
+can reach these styles through CSS rather than by passing the variant, so
+selection restyles without a re-render.
 
 ### Links
 
@@ -151,9 +157,9 @@ inline chips. That is a corner case, and the CSS that drops the underline
 says why in a comment beside it, the same way a removed focus ring does. A
 link that is silently unmarked is a bug.
 
-**Every link leaves the app, and the arrow says so.** Links open in the
-browser, never in Lite, and each ends in an arrow the height of the text's
-caps, hung off the text without a space so the underline stops at the word.
+**Every link leaves the app, and the arrow says so.** A link opens outside
+the app — in the browser from a desktop app, in a new tab from a web app —
+and each ends in an arrow the height of the text's caps, hung off the text without a space so the underline stops at the word.
 `TextLink` draws it inline at a 1px stroke, and nothing else should: the
 text fonts don't carry ↗ at every weight, which is why it isn't typed.
 
@@ -174,7 +180,7 @@ a list row from `--list-item-hover-bg`, and anything else from a gray wash at
 control shows no hover.
 
 **Focus is the one ring.** `--focus-ring` is the only focus outline in the app,
-and `global.css` already puts it on every `button` and `a` under
+and the app's global stylesheet puts it on every `button` and `a` under
 `:focus-visible`, so a plain control gets it for free. A component that draws
 its own — a field, a switch, a segmented toggle — uses the same token, never a
 literal or the browser's accent ring. Buttons and rows use `:focus-visible`,
@@ -207,7 +213,7 @@ padding between them. A card at `--radius-card` with 4px of padding holds a
 control at `--radius-card` minus 4px, not at the same radius, and not at a
 different token picked for the control alone. Two nested radii that share a
 value but not a centre are the most common way an otherwise on-spec surface
-reads as slightly wrong. The radius tokens come from ⚛️ Lite Core; when the
+reads as slightly wrong. The radius tokens come from ⚛️ Core; when the
 subtraction doesn't land on one, compute it with `calc()` from the outer token
 and say so, rather than eyeballing a literal.
 
@@ -220,7 +226,7 @@ rather than growing the glyph, and don't let two extended targets overlap:
 the click goes to one control, not to whichever painted last.
 
 **Text is never under 12px.** No label, count, caption, tag or keycap sets a
-size below 12px, however small the space. If a token from ⚛️ Lite Core is
+size below 12px, however small the space. If a token from ⚛️ Core is
 smaller than that, the token is wrong, not the rule. Something that only
 works at 11px is something that should be a tooltip, an icon, or left out.
 
@@ -250,15 +256,13 @@ text calls for it. It is a per-surface call, not a global one.
 
 **The host picks the cursor: the arrow on the desktop, the hand on the web.**
 Desktop apps keep the arrow over buttons, menus and rows; the hand is a web
-convention. So Lite ships with the arrow, and the _Hand cursor_ switch in
-Appearance turns the hand on for whoever wants it. A web app — the harness
-panel, but.dev — takes the hand always: it sets `--control-cursor: pointer` on
-its root and loads `control-cursor.css`, and every control follows.
+convention. So a desktop app ships with the arrow, and may offer the hand as a
+setting for whoever wants it. A web app takes the hand always.
 
 **One property carries the choice.** The host sets `--control-cursor` on its
-root — the app flips `data-hand-cursor` on the document from the setting and
-`global.css` maps it to `pointer`, the panel sets it outright — and
-`control-cursor.css` puts that property on every control in one rule:
+root — a web app to `pointer` outright, a desktop app from its setting — and
+loads `control-cursor.css`, which puts that property on every control in one
+rule:
 buttons, links, `summary`, `select`, a `label` that owns a control, and the
 roles Base UI renders when it draws a control as a span or a div: button,
 checkbox, switch, radio, tab, option and the menu items. The same stylesheet
@@ -266,15 +270,15 @@ gives a disabled control `not-allowed`, so no component does.
 
 **Components don't choose a cursor.** Don't set `cursor: pointer` on a
 control, and don't pin `cursor: default` on one either — both defeat the
-setting. Don't reintroduce the hand by resetting a `<button>`: the browser
+host's choice. Don't reintroduce the hand by resetting a `<button>`: the browser
 default for buttons is already the arrow. A clickable that is none of the
 elements above (a list row, a folded card, a minimap badge, a diff line
 number) takes `cursor: var(--control-cursor)` itself, so it follows the
-setting too. Interactivity is shown by the hover state (see States), not by
+host's choice too. Interactivity is shown by the hover state (see States), not by
 the cursor.
 
 **Gesture cursors are the exception.** The cursors that do change regardless
-of the setting are the ones that describe a gesture: `text` over editable
+of the host's choice are the ones that describe a gesture: `text` over editable
 text, `grab` and `grabbing` while dragging, and the resize cursors on a
 splitter.
 
@@ -292,7 +296,7 @@ neither tier fits, the answer is a new tier in Figma, not a literal here.
 **Popups are the medium tier with a curve.** `--transition-popup` is an alias
 of medium, and `--easing-popup` is the one curve in the app that is a decision
 rather than a keyword: a hard ease-out that lands quickly and settles without
-overshoot, so a modal, a dropdown or the toolbox arrives rather than drifts in.
+overshoot, so a modal, a dropdown or a popover arrives rather than drifts in.
 The two always go together — `transform var(--transition-popup)
 var(--easing-popup)` — and the backdrop behind a modal takes the same pair,
 since it is rendered as a sibling and can't inherit it. Popups close the way
@@ -316,8 +320,7 @@ label reverts is a delay in code. Neither takes a token: a token says how a
 change feels, not how long something waits.
 
 **Anything that moves respects reduced motion.** A fold that changes height
-turns its transition off under `prefers-reduced-motion: reduce`, as the graph
-section does. A hover color needs no such rule.
+turns its transition off under `prefers-reduced-motion: reduce`. A hover color needs no such rule.
 
 **An icon that becomes another icon crossfades.** Whenever one glyph gives
 way to another — copy becoming a tick, plus becoming a check, a placeholder
@@ -330,14 +333,14 @@ blurs to `4px`, the one arriving does the reverse. The easing is the keyword
 second click or a pointer leaving mid-swap reverses it cleanly. The same
 recipe serves a result swap and a hover swap alike; only the trigger differs.
 
-**The rules live in two places.** The token descriptions in ⚛️ Lite Core carry
+**The rules live in two places.** The token descriptions in ⚛️ Core carry
 the same tiers and pairings as this section; change one and change the other.
 
 ## Icons
 
-**Source.** Icons come from the ⚛️ Lite Core Figma library. Don't draw new
+**Source.** Icons come from the ⚛️ Core Figma library. Don't draw new
 ones, and don't borrow from 💎 Core or the shared Svelte UI package — those are
-a different set for a different app.
+a different set, for the Svelte desktop app.
 
 **Grid and weight.** Icons are drawn 16×16 on a 16px grid with 1.5px strokes.
 Stroke width is constant in screen pixels, so a 16px icon and a 24px icon read
@@ -364,8 +367,9 @@ only — never as general-purpose UI icons.
 else the real Gravatar photo for their email. Anyone without either gets their
 glitch: a quiet pattern of big blocks in their colour's next step on their
 colour, both picked from their email or login, so a person looks the same
-everywhere. The same glitch shows while a picture loads. No generated faces: Gravatar URLs from the server and
-the backend are asked for the real photo only.
+everywhere. The same glitch shows while a picture loads. No generated faces:
+Gravatar URLs from the server and the backend are asked for the real photo
+only.
 
 ## Tooltips
 
@@ -409,7 +413,7 @@ icon-only button gets an `aria-label` as well — the tooltip repeats that name,
 it doesn't supply it. Nothing a user must read to proceed lives only in a
 tooltip, and nothing inside one is clickable.
 
-**Say it the way the rest of Lite says it.** See Voice: the friendly word over
+**Say it the way the rest of the app says it.** See Voice: the friendly word over
 git's own term, and the same wording as the menu item or button elsewhere that
 does the same thing.
 
@@ -419,14 +423,13 @@ does the same thing.
 "Personal access token", "Signing key", "Account email" — for every field
 that takes a value the user has to think about: settings, credentials, the
 integration and signing forms. `Field.tsx` has the parts — `FieldLabelStyles`
-for the label, `FieldControlStyles` for the input — and the settings pages'
-`Row` takes a `label` and an `htmlFor`.
+for the label, `FieldControlStyles` for the input.
 
 **A name already on the surface is not given twice.** The rule is that every
 field has one name the eye and the screen reader both find, not that every
 field wears its own. A field at the end of a settings row is named by the
 row's label — "Description", "Auto-fetch frequency" — and that label is the
-field's: `Row`'s `htmlFor` ties the two, so a second one above the input would
+field's: the row ties the two with `htmlFor`, so a second one above the input would
 say the same word twice, one line apart. The same goes for anything else that
 already says what the field is, a column heading over a field in a table, or
 a card whose title names its single field. `FieldLabelStyles` is for a field
@@ -467,7 +470,7 @@ in a form with a button that saves it, it is a form field and gets its label.
 
 ## Empty states
 
-**One component, in ⚛️ Lite Core: "Empty state".** An illustration slot, a
+**One component, in ⚛️ Core: "Empty state".** An illustration slot, a
 title, a body line, and an actions slot. Its description in Figma carries the
 same rules as this section; change one and change the other.
 
@@ -530,8 +533,7 @@ has no equivalent, so lines there are broken by hand — the component's
 description says so.
 
 **At most two buttons, and never `pop`.** The surface's accent is already spent
-on its primary action elsewhere — Start commit sits directly above the stacks
-panel — and if two things pop, neither does. Gray marks the likelier of two,
+on its primary action elsewhere, and if two things pop, neither does. Gray marks the likelier of two,
 outline takes the other; a button on its own stays outline. Rarer routes to the
 same place stay in the panel header's controls rather than crowding the block.
 
@@ -551,7 +553,7 @@ genuinely the user's — committing, say.
 surface that has content but cannot act yet keeps its content, because the
 block would throw away work the surface still supports: the PR form on a
 branch with no commits still takes a title, a description and a draft toggle,
-and Lite keeps that draft per branch, so the form stays and only its action
+and keeps that draft per branch, so the form stays and only its action
 waits. Three cases, three treatments — nothing here gets the block, not yet
 gets a held control that says why, not loaded gets neither.
 
@@ -580,12 +582,11 @@ Two ways of saying what just happened, and the choice between them is about
 **where the news belongs**, not how bad it is.
 
 **A snackbar is a sentence next to the thing it is about.** One glyph, one
-line, floated over the surface that caused it — `Snackbar.tsx`, ⚛️ Lite Core
+line, floated over the surface that caused it — `Snackbar.tsx`, ⚛️ Core
 node `1706-1682`. It has no title and no room for one: if the news won't fit in
-a line the reader can take in without stopping, it isn't a snackbar. The
-workspace uses it for a refused operation, seated in the toolbox lane where the
-operation's own controls stood, so the answer arrives where the user was
-already looking.
+a line the reader can take in without stopping, it isn't a snackbar. Seat it
+where the operation's own controls stood, so the answer arrives where the user
+was already looking.
 
 **A toast is a card in the corner of the window.** A title, a description that
 can hold real content — a list of rejected paths, an error message — and
@@ -602,8 +603,7 @@ from the React root take the corner for exactly this reason: nothing else knows
 where they came from.
 
 **Pick by whether it needs reading twice.** A snackbar states an outcome and
-goes; five seconds is the workspace's measure, and a click anywhere on it ends
-it early. A toast can hold a paragraph, a bulleted breakdown, and a retry, and
+goes, after about five seconds, and a click anywhere on it ends it early. A toast can hold a paragraph, a bulleted breakdown, and a retry, and
 it waits. Anything the user may want to copy, act on, or read a second time is
 a toast.
 
@@ -625,7 +625,7 @@ timer carries no close button at all: the only close button on screen should
 belong to whatever the user still has in hand. Toasts always carry Dismiss,
 plus at most one action beside it.
 
-**Say it the way the rest of Lite says it.** See Voice. A snackbar is one
+**Say it the way the rest of the app says it.** See Voice. A snackbar is one
 sentence, sentence case, no full stop. A toast title names what happened in a
 short line — "Some changes were not committed" — and the description carries
 the detail; don't split one thought across the two.
@@ -638,14 +638,8 @@ not in a surface that leaves.
 
 ## Markdown
 
-**One kit, on the Lite mockup file's ⚙️ Meta page: the `Markdown/` components.** A component per
-block — Heading with its three levels, Paragraph, List and List item, Link,
-Inline code, and Block, which wraps a code block, blockquote, table, image or
-rule chosen by its swap — and "Markdown / slot", whose default content is a
-sample description built from them. Lite's `Markdown.stories.tsx` renders the same
-document, so compare the two when either side changes. Each component's
-description in Figma names the CSS selector it stands for; change one and
-change the other.
+How rendered markdown — a pull request description, a comment — looks in any
+app. Lite's kit and renderer are in `apps/lite/DESIGN.md`.
 
 **The rhythm is 12, 16, 4.** 12px between text blocks. 16px around anything
 with an edge — a table, a code block, a quote bar, an image, a rule — because
@@ -653,10 +647,8 @@ text carries its own leading and a box doesn't. 4px between the items of a
 list, and a nested list keeps the item rhythm rather than the block one. A
 heading takes twice the text gap above it, 24px, and a little less for h3 and
 below, 20px, so a section reads as a section rather than as one more
-paragraph; 8px below, which collapses into the next block's own margin. In
-Figma the same numbers are the slot's 12px gap plus each block's own padding:
-4 on Block, 12 on H2, 8 on H3. Margins collapse in CSS, so a box next to a
-paragraph gets 16, not 28.
+paragraph; 8px below, which collapses into the next block's own margin.
+Margins collapse in CSS, so a box next to a paragraph gets 16, not 28.
 
 **Type.** Body/13 on a 160% line. H1 is 18, H2 16, H3 14, all semibold on a
 130% line: a heading that wraps should still read as one heading.
@@ -664,10 +656,9 @@ Levels four to six stay at the body size and only go semibold; Figma has no
 component for them, and a description that needs a fourth level needs fewer
 levels.
 
-**Every link leaves the app, and the arrow says so.** Links open in the
-browser, never in Lite, and each is a `TextLink`, so it ends in the arrow
-hung off the text without a space and the underline stops at the word. Figma
-writes ↗. Prose links keep the kit's blue, so their hover is the underline
+**Every link leaves the app, and the arrow says so.** As everywhere (see
+Links), each is a `TextLink`, so it ends in the arrow hung off the text
+without a space and the underline stops at the word. Prose links keep the kit's blue, so their hover is the underline
 going solid rather than the text lifting.
 
 **A box gets an edge.** Code blocks and inline code sit on `--bg-2`, at
@@ -676,11 +667,3 @@ is a 3px `--border-2` bar with `--text-2` text. An image takes a 1px
 `--card-border` ring inset inside `--radius-card` corners, so a white
 screenshot has an edge on a white panel, and opens externally on click. A
 table's cells are bordered in `--border-3` under a `--bg-2` header row.
-
-**Inline pieces Figma can't run.** Inline code, keycaps and folds sit inside a
-text line in the app. Figma has no way to flow a chip through text, so the
-kit's sample puts the chip between two text nodes in a row. That is a limit of
-the mockup, not a layout: don't design around where the chip breaks.
-
-**The measure is 480.** A description is set at the details pane's width, the
-story sets the same, and every block component in the kit is 480 wide.

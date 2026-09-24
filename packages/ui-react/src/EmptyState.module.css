@@ -1,4 +1,4 @@
-/* Spacing mirrors the "Empty state" component in ⚛️ Lite Core: 24 under the
+/* Spacing mirrors the "Empty state" component in ⚛️ Core: 24 under the
    illustration, 8 between the two lines, 14 above the actions.
 
    The bottom padding is that component's optical counterweight, and it is
@@ -29,7 +29,7 @@
    The gap under the illustration and the counterweight are custom properties
    because both are sized for the full block, and a host holding a lighter one
    sets its own. A picker's list shows one line under a small illustration: the
-   Lite mockups close that gap to 18, and there is no counterweight, because a
+   Client mockups close that gap to 18, and there is no counterweight, because a
    line has no weight to lift. See `PopupEmpty`. */
 .empty {
 	display: flex;

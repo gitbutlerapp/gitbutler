@@ -6,7 +6,7 @@
    default. A `width` prop overrides it.
 
    `--border-1` rather than a text colour: the strokes are the drawing's
-   outline, and this is the token ⚛️ Lite Core binds them to. */
+   outline, and this is the token ⚛️ Core binds them to. */
 .illustration {
 	display: block;
 	flex-shrink: 0;

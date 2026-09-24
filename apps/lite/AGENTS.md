@@ -52,8 +52,9 @@ Consider backwards compatibility for any persisted state.
 ## Design
 
 The visual language — how icons, color, and composition should look — is in
-`packages/ui-react/DESIGN.md`, with the component library it describes. Read
-it before changing anything users see. The library's own `AGENTS.md` covers
+`packages/ui-react/DESIGN.md`, with the component library it describes, and
+what Lite decides for itself is in `DESIGN.md` beside this file. Read both
+before changing anything users see. The library's own `AGENTS.md` covers
 its tooling: icons, stories, the checks to run. This section covers what is
 the app's own.
 
@@ -123,9 +124,9 @@ app component with a story one, or mark a story that has no component
 behind it with `tags: ["!manifest"]`, as `AppUpdater.stories.tsx` does.
 `packages/ui-react/AGENTS.md` has the rest about the manifest.
 
-Lite's own components are drawn on the ⚙️ Meta page of the Lite working file,
-<https://www.figma.com/design/EBuHQGUcCaSw4Ln5uVpWkn/Lite>, and drafts go on
-its 🚧 Drafts pages; the library's are in ⚛️ Lite Core.
+Lite's own components are drawn on the ⚙️ Meta page of the Client working file,
+<https://www.figma.com/design/EBuHQGUcCaSw4Ln5uVpWkn/Client>, and drafts go on
+its 🚧 Drafts pages; the library's are in ⚛️ Core.
 `packages/ui-react/AGENTS.md`, under Figma, has the rules for both.
 
 ## Verifying your work

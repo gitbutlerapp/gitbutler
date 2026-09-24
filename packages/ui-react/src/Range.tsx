@@ -64,7 +64,7 @@ export type RangeProps<Value extends number | ReadonlyArray<number> = number> = 
  * a point, and give it `marks` for a scale under the track.
  *
  * The thumb is inset so it sits inside the track at either end rather than hanging over it, the
- * way ⚛️ Lite Core draws it. Under the pointer it widens and grows a grip, and the drag cursor
+ * way ⚛️ Core draws it. Under the pointer it widens and grows a grip, and the drag cursor
  * takes over while it is held (see DESIGN.md, Cursors).
  *
  * For a number the user knows and would rather type or nudge — a font size, a tab width — reach

@@ -11,7 +11,7 @@ import type { FC, ReactNode } from "react";
  * for. Present tense — an instruction would be unfollowable, since there is
  * nothing in the list to act on.
  *
- * No actions, matching the component in ⚛️ Lite Core, which hides its actions
+ * No actions, matching the component in ⚛️ Core, which hides its actions
  * slot here: every action belonging to this state belongs to the section that
  * owns it, and would be out of context in the pane.
  */

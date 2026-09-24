@@ -1,4 +1,4 @@
-/* 14px is the size ⚛️ Lite Core draws a program's mark in a select's leading slot. The
+/* 14px is the size ⚛️ Core draws a program's mark in a select's leading slot. The
    rounded corner is the icon's own and is in the image, exported from the library with
    it, so nothing here clips: the shape scales with the image wherever it is drawn. */
 .programIcon {
