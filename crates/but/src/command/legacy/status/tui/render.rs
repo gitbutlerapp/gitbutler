@@ -1352,6 +1352,7 @@ pub fn cherry_pick_operation_display(
             InsertSide::Above => Some("pick above"),
             InsertSide::Below => Some("pick below"),
         },
+        StatusOutputLineData::MergeBase => Some("pick to new unstacked branch"),
         StatusOutputLineData::Worktree { .. } => Some("pick to worktree"),
         StatusOutputLineData::WorktreeUncommitted { .. } => None,
         StatusOutputLineData::UpdateNotice
@@ -1364,7 +1365,6 @@ pub fn cherry_pick_operation_display(
         | StatusOutputLineData::CommitMessage
         | StatusOutputLineData::EmptyCommitMessage
         | StatusOutputLineData::File { .. }
-        | StatusOutputLineData::MergeBase
         | StatusOutputLineData::UpstreamChanges
         | StatusOutputLineData::Warning
         | StatusOutputLineData::Hint
