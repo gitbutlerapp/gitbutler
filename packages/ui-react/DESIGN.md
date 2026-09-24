@@ -493,7 +493,7 @@ miss and the body quoting what missed: the search, the filters, or both. The
 one action shows everything again, because the filters live in a native menu
 the block cannot point at. A short strip keeps the line where its rows would
 be, next to the filter that caused it. A picker's list takes a smaller block,
-`PopupEmpty`: the shrugging character over the one line that reports the miss,
+`PopupEmpty`: the `papers` drawing over the one line that reports the miss,
 with no title above it, the line closer under the illustration, and no
 counterweight, because a line has no weight to lift. The same rule as the
 branches tab picks the drawing and the line: a list with nothing in it before
@@ -501,6 +501,28 @@ anything was typed gets the cactus and says what that means — "Nothing left to
 apply" — since nothing was searched for and "found" would be the wrong word. A
 dropdown no wider than its trigger keeps the plain line: the commit target
 combobox is too narrow for the drawing.
+
+### Illustrations
+
+**Each one means something; pick it by meaning.** They are not decoration to
+rotate for variety:
+
+| Illustration | Size    | Means                                                                                   |
+| ------------ | ------- | --------------------------------------------------------------------------------------- |
+| `cactus`     | 96×82   | A list with nothing in it: no branches, no machines, nothing yet                        |
+| `papers`     | 98×86   | Looked and found nothing, or a state the app can't name: a search, a filter, an address |
+| `id-card`    | 130×100 | Signing in, accounts, identity                                                          |
+| `terminal`   | 79×59   | The command line                                                                        |
+| `waving`     | 186×215 | Good news in a large view: all good, nothing to do. Large views only                    |
+
+**Always at 1:1.** Each is drawn at its size and renders at it; never scale
+one up or down to fit. If a surface has no room for the drawing, leave the
+drawing out (the block works without it) rather than shrinking it.
+
+**`waving` is the big one, and the happy one.** It needs both: a large view,
+a details pane or a whole page, and good news, where "nothing to do here" is
+the point. Never in a sidebar, a popup or anything narrow, and never for a
+miss or an error, however large the view: those take `papers`.
 
 **Never a stand-in that looks like content.** Gray avatar circles and text
 bars where the reviewers would go are what every app draws while it is still
@@ -511,9 +533,10 @@ one thing a skeleton never shows.
 
 **Centred, and only in a panel with room for it.** A short strip — the
 uncommitted list above its commit form — takes a single muted line inset to the
-column its rows would occupy, not this. Panels resize, so a centred block needs
-`justify-content: safe center`: plain centring pushes the top of the block out
-of reach above the scroll origin when the splitter comes down.
+column its rows would occupy, not this. The component centres itself in the
+height it is given, falling back to the top when the panel is too short to
+hold it, so the block's head never goes out of reach above the scroll origin.
+Its host only has to give it that height: a pane that fills its column.
 
 **Centred optically, which is not the same as centred.** The block's weight
 sits low — two lines of type and a row of buttons under a light illustration —

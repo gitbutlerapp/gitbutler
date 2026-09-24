@@ -1,5 +1,18 @@
 # Lite
 
+## Before changing anything users see
+
+However small the change:
+
+1. Read `packages/ui-react/DESIGN.md` and `DESIGN.md` beside this file. They
+   are the rules; the code around your change may predate them.
+2. Look up every component before you use it, with the Storybook MCP
+   server's `docs-list` and `docs-show` (`.mcp.json` connects it), or in
+   <https://master--6ab536f5f40e41db628ccf1b.chromatic.com/manifests/components.json>.
+   Use only the props it documents.
+3. Build from `@gitbutler/ui-react` — `Button`, `Tooltip`, `EmptyState` and
+   the rest — not from controls styled in a feature's CSS module.
+
 ## Preparing the checkout
 
 Before implementing or validating Lite changes, ensure this checkout has installed dependencies, generated SDK types/native bindings, and the `but` CLI needed to seed E2E fixtures. In an unprepared checkout, run from the repository root:
