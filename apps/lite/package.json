@@ -30,6 +30,8 @@
 		"bundle-local": "CHANNEL=${CHANNEL:-} pnpm -F @gitbutler/but-sdk build && CHANNEL=${CHANNEL:-} pnpm bundle -c.mac.identity=- -c.mac.entitlements=resources/entitlements.mac.local.plist -c.mac.entitlementsInherit=resources/entitlements.mac.local.plist",
 		"bundle-local-nightly": "CHANNEL=nightly pnpm -F @gitbutler/but-sdk build:release && CHANNEL=nightly pnpm bundle -c.mac.identity=- -c.mac.entitlements=resources/entitlements.mac.local.plist -c.mac.entitlementsInherit=resources/entitlements.mac.local.plist",
 		"demos": "storybook dev --no-open -p 6007",
+		"build-storybook": "storybook build",
+		"chromatic": "chromatic --build-script-name build-storybook --only-changed --exit-zero-on-changes --auto-accept-changes master --exit-once-uploaded",
 		"prepare-askpass": "node scripts/prepare-askpass.mjs"
 	},
 	"build": {
@@ -174,9 +176,11 @@
 	"devDependencies": {
 		"@playwright/test": "catalog:",
 		"@posthog/rollup-plugin": "^1.6.0",
-		"@storybook/addon-designs": "^11.1.3",
-		"@storybook/addon-docs": "^10.3.3",
-		"@storybook/react-vite": "^10.3.6",
+		"@storybook/addon-a11y": "^10.6.0",
+		"@storybook/addon-designs": "^11.1.4",
+		"@storybook/addon-docs": "^10.6.0",
+		"@storybook/addon-mcp": "^10.6.0",
+		"@storybook/react-vite": "^10.6.0",
 		"@tanstack/eslint-plugin-query": "^5.91.4",
 		"@types/node": "^24.13.3",
 		"@types/react": "^19.2.14",
@@ -186,6 +190,7 @@
 		"@vitejs/plugin-react": "^5.2.0",
 		"babel-plugin-react-compiler": "^1.0.0",
 		"buildkite-test-collector": "^1.9.5",
+		"chromatic": "18.9.4",
 		"concurrently": "^9.2.1",
 		"cross-env": "^10.1.0",
 		"electron": "^44.0.0",
@@ -193,7 +198,7 @@
 		"eslint-plugin-react-you-might-not-need-an-effect": "^1.0.0",
 		"fast-check": "^4.9.0",
 		"jsdom": "28.1.0",
-		"storybook": "^10.3.3",
+		"storybook": "^10.6.0",
 		"vite": "catalog:",
 		"vitest": "catalog:",
 		"wait-on": "^9.0.4"

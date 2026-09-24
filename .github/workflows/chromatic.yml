@@ -1,0 +1,104 @@
+name: Chromatic
+
+# Publishes the React Storybook (Lite's stories and @gitbutler/ui-react's) to
+# Chromatic. On master it becomes the published Storybook, with its MCP server's
+# docs tools; on a pull request it gives a preview link and a UI Review check
+# that compares every story's screenshot with master's.
+#
+# A visual change doesn't fail the build: it waits in Chromatic's UI Review for
+# someone to accept or deny.
+#
+# The build needs CHROMATIC_PROJECT_TOKEN, which a fork's pull request can't
+# read, so those are skipped rather than failed.
+#
+# A pull request gets one comment with its links — the Storybook preview, its
+# builds on Chromatic, the MCP server — updated on each push rather than posted
+# again. Chromatic's own GitHub app would report there, but the organisation
+# doesn't allow it.
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+    paths:
+      - "apps/lite/ui/**"
+      - "apps/lite/.storybook/**"
+      - "apps/lite/package.json"
+      - "packages/ui-react/**"
+      - "pnpm-lock.yaml"
+      - ".github/workflows/chromatic.yml"
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  # The public "GitButler UI" project on Chromatic.
+  CHROMATIC_APP_ID: 6ab536f5f40e41db628ccf1b
+
+jobs:
+  chromatic:
+    if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      # For the one comment with the links.
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          # The pull request's own commit, not the merge commit GitHub makes for it.
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          # Enough history to find the last build to compare with, and no more:
+          # Chromatic searches it for commits with builds, and over the full
+          # history that search ran for more than half an hour.
+          fetch-depth: 100
+          persist-credentials: false
+      - uses: $/.github/actions/init-env-node
+      # The CLI from the lockfile rather than chromaui/action, which the
+      # organisation's allowed-actions list doesn't include. Its options are the
+      # `chromatic` script in apps/lite/package.json: only the stories a change can
+      # affect are snapshotted, to stay inside the monthly quota, a visual change
+      # waits in UI Review rather than failing, and the job ends once the
+      # Storybook is uploaded while Chromatic takes the screenshots.
+      - name: Publish to Chromatic
+        working-directory: apps/lite
+        env:
+          CHROMATIC_PROJECT_TOKEN: ${{ secrets.CHROMATIC_PROJECT_TOKEN }}
+          # The checkout is a detached commit, so name the branch it belongs to.
+          CHROMATIC_BRANCH: ${{ github.head_ref || github.ref_name }}
+          CHROMATIC_SLUG: ${{ github.repository }}
+        run: pnpm run chromatic
+      - name: Link the build
+        env:
+          BRANCH: ${{ github.head_ref || github.ref_name }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+        run: |
+          # Chromatic's permalinks name a branch with every character outside
+          # [A-Za-z0-9-] turned into a dash.
+          slug=$(printf '%s' "$BRANCH" | sed 's/[^A-Za-z0-9-]/-/g')
+          storybook="https://${slug}--${CHROMATIC_APP_ID}.chromatic.com"
+          branch_query=$(jq -rn --arg b "$BRANCH" '$b | @uri')
+          builds="https://www.chromatic.com/builds?appId=${CHROMATIC_APP_ID}&branch=${branch_query}"
+          marker='<!-- chromatic-links -->'
+          body="${marker}
+          🎩 **Your Storybook has been served**
+
+          - 🫖 [Have a look](${storybook})
+          - 🔍 [Inspect the changes](${builds}): anything that looks different from master is waiting for your approval
+          - 🤖 Service entrance for agents (MCP): \`${storybook}/mcp\`"
+          printf '%s\n' "$body" >> "$GITHUB_STEP_SUMMARY"
+          if [ -z "$PR_NUMBER" ]; then exit 0; fi
+          existing=$(gh api "repos/${REPO}/issues/${PR_NUMBER}/comments" --paginate \
+            --jq "[.[] | select(.user.login == \"github-actions[bot]\" and (.body | startswith(\"${marker}\")))][0].id // empty")
+          if [ -n "$existing" ]; then
+            gh api -X PATCH "repos/${REPO}/issues/comments/${existing}" -f body="$body" >/dev/null
+          else
+            gh api -X POST "repos/${REPO}/issues/${PR_NUMBER}/comments" -f body="$body" >/dev/null
+          fi

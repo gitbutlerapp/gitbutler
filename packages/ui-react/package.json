@@ -33,7 +33,8 @@
 	"devDependencies": {
 		"@gitbutler/but-sdk": "workspace:*",
 		"@gitbutler/design-core": "5.1.0",
-		"@storybook/react-vite": "^10.3.6",
+		"@storybook/addon-docs": "^10.6.0",
+		"@storybook/react-vite": "^10.6.0",
 		"@types/react": "^19.2.14",
 		"@types/react-dom": "^19.2.3",
 		"@typescript/native-preview": "7.0.0-dev.20260707.2",

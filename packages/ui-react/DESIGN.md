@@ -17,10 +17,18 @@ different library, for the Svelte desktop app.
 **Build from the library.** Every control users touch — a button, a switch, a
 segmented toggle, a popup — already has a component in `@gitbutler/ui-react`
 (`packages/ui-react/src/`), with a spec in the ⚛️ Core Figma library or a
-Storybook story. Reach for those first, even when hand-styling a primitive in
-the feature's own CSS module would be quicker. The point of a library is that
+Storybook story, published at
+<https://master--6ab536f5f40e41db628ccf1b.chromatic.com>. Reach for those
+first, even when hand-styling a primitive in the feature's own CSS module
+would be quicker. The point of a library is that
 the app reads as one thing; each control styled locally is one that will
 drift, and one more that has to be found and reconciled when the design moves.
+Before using a component, look up its props and the import to write rather
+than guessing: the published Storybook lists them for every component in its
+manifest,
+<https://master--6ab536f5f40e41db628ccf1b.chromatic.com/manifests/components.json>,
+and through its MCP server,
+`https://master--6ab536f5f40e41db628ccf1b.chromatic.com/mcp`.
 
 **If the library lacks it, think twice, then ask.** A missing component is a
 design question before it is an engineering one. Check whether an existing one

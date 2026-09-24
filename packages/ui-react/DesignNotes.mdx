@@ -1,0 +1,13 @@
+import { Meta, Markdown } from "@storybook/addon-docs/blocks";
+import notes from "./DESIGN.md?raw";
+
+<Meta title="Design notes" />
+
+GitButler's design language: the rules for any UI built on `@gitbutler/ui-react`.
+Read them before designing UI or writing UI copy. They are
+`packages/ui-react/DESIGN.md` in the gitbutler repository, rendered below, and as
+plain text at
+[raw.githubusercontent.com/gitbutlerapp/gitbutler/master/packages/ui-react/DESIGN.md](https://raw.githubusercontent.com/gitbutlerapp/gitbutler/master/packages/ui-react/DESIGN.md). If you have
+already read that file in the repository, this is the same text; skip it.
+
+<Markdown options={{ overrides: { code: "code" } }}>{notes}</Markdown>
