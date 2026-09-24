@@ -814,22 +814,28 @@ const DiffContents: FC<{
 	): CodeViewLineSelection | null {
 		const addresses = addressesForSelectedLines(selection, "line");
 		if (addresses.length === 0) return null;
-		const state = store.getState();
-		const checked = !addresses.every((address) =>
-			projectSlice.selectors.selectAddressChecked(state, projectId, address),
-		);
-		dispatch(projectSlice.actions.checkAddresses({ projectId, addresses, checked }));
-
-		if (shiftKey) return null;
 		const { range, id } = selection;
 		if (
 			range.start !== range.end ||
 			(range.endSide ?? range.side ?? "additions") !== (range.side ?? "additions")
-		)
+		) {
+			const state = store.getState();
+			const checked = !addresses.every((address) =>
+				projectSlice.selectors.selectAddressChecked(state, projectId, address),
+			);
+			dispatch(projectSlice.actions.checkAddresses({ projectId, addresses, checked }));
 			return null;
-		const currentAddress = addresses[0];
+		}
+		const currentAddress = getLineAddressAtLine({
+			itemId: id,
+			lineNumber: range.start,
+			side: range.side ?? "additions",
+			lineType: "change",
+		});
 		const file = fileByItemId.get(id);
 		if (!currentAddress || file?.patch?.type !== "Patch") return null;
+		checkLine(currentAddress, shiftKey);
+		if (shiftKey) return null;
 		const nextState = store.getState();
 		const next = selectionAfterChecking({
 			selection,
@@ -843,18 +849,22 @@ const DiffContents: FC<{
 				return nextRange ? { id, range: nextRange } : null;
 			},
 			getChecked: (selection) => {
-				const addresses = addressesForSelectedLines(selection, "line");
+				const address = getLineAddressAtLine({
+					itemId: selection.id,
+					lineNumber: selection.range.start,
+					side: selection.range.side ?? "additions",
+					lineType: "change",
+				});
 				if (
-					addresses.length === 0 ||
-					addresses.some(
-						(address) =>
-							address.hunkHeader.oldStart !== currentAddress.hunkHeader.oldStart ||
-							address.hunkHeader.newStart !== currentAddress.hunkHeader.newStart,
-					)
+					!address ||
+					address.hunkHeader.oldStart !== currentAddress.hunkHeader.oldStart ||
+					address.hunkHeader.newStart !== currentAddress.hunkHeader.newStart
 				)
 					return null;
-				return addresses.every((address) =>
-					projectSlice.selectors.selectAddressChecked(nextState, projectId, address),
+				return projectSlice.selectors.selectAddressChecked(
+					nextState,
+					projectId,
+					hunkAddress(address),
 				);
 			},
 		});
