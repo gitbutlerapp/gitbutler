@@ -1908,16 +1908,14 @@ const DiffContents: FC<{
             color: var(--text-1);
           }
 
-          /* Pierre pins the leading hunk separator flush against the file header:
-             its virtual layout models no gap before the first separator, so a real
-             margin would desync item heights. Inset the band inside the row
-             instead — same box, a little air under the header. */
-          [data-separator="line-info"][data-separator-first] {
-            background-color: transparent;
-
-            & [data-separator-wrapper] {
-              top: 6px;
-              height: calc(100% - 6px);
+          /* Air under the file header. Pierre zeroes this padding when there is a
+             header; the selectors mirror that rule, and the virtual layout accounts
+             for it through the paddingTop item metric. */
+          [data-diffs-header] ~ [data-diff] {
+            & [data-code],
+            &[data-diff-type="split"][data-overflow="wrap"],
+            &[data-dehydrated][data-diff-type="split"][data-overflow="scroll"] {
+              padding-top: ${codeViewItemMetrics.paddingTop}px;
             }
           }
 
