@@ -224,13 +224,6 @@
 	}
 }
 
-.avatar {
-	width: 16px;
-	height: 16px;
-	border-radius: 50%;
-	background-color: lightgray;
-}
-
 .toggleAvatar {
 	width: 14px;
 	height: 14px;

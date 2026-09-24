@@ -1,0 +1,127 @@
+/* The picture and its remove button share a corner, so the root holds both, and the
+   picture's circle clips only what is inside it. */
+.root {
+	position: relative;
+	flex: none;
+	width: 72px;
+	height: 72px;
+
+	&:hover .remove,
+	&:focus-within .remove {
+		scale: 1;
+		opacity: 1;
+	}
+
+	/* Under the pointer the remove button waits a beat, so passing over the picture on the
+	   way to change it doesn't flash a destructive control. It leaves at once, and keyboard
+	   focus shows it at once: only this state carries the wait. */
+	&:hover:not(:focus-within) .remove {
+		transition-delay: 200ms;
+	}
+}
+
+.picture {
+	display: grid;
+	position: relative;
+	flex: none;
+	place-items: center;
+	width: 72px;
+	height: 72px;
+	overflow: hidden;
+	border-radius: 50%;
+	color: var(--text-1);
+
+	&:hover .overlay,
+	&:focus-visible .overlay {
+		opacity: 1;
+	}
+
+	&:hover .overlayIcon,
+	&:focus-visible .overlayIcon {
+		scale: 1;
+		filter: blur(0);
+		opacity: 1;
+	}
+
+	/* The same hover as over a picture: the wash comes in and the camera turns light on it. */
+	&:hover .camera,
+	&:focus-visible .camera {
+		color: var(--text-1-invert);
+	}
+}
+
+/* The account's glitch, alone or under a picture while it loads. */
+.glitch {
+	position: absolute;
+	width: 100%;
+	height: 100%;
+	inset: 0;
+}
+
+/* Without any picture, the camera stays: choosing one is all there is to do here. Positioned,
+   so it paints over the glitch and the wash rather than under them. */
+.camera {
+	position: relative;
+	transition: color var(--transition-fast);
+}
+
+.image {
+	/* Positioned, so it covers the glitch once it loads. */
+	position: relative;
+	width: 100%;
+	height: 100%;
+	object-fit: cover;
+}
+
+/* Only on hover: the picture is the point, the affordance is secondary. The camera sits on a
+   black wash, so it stays light in both themes rather than following the text colour. */
+.overlay {
+	display: grid;
+	position: absolute;
+	place-items: center;
+	inset: 0;
+	background-color: color-mix(in srgb, black 50%, transparent);
+	color: var(--text-1-invert);
+	opacity: 0;
+	transition: opacity var(--transition-fast);
+}
+
+/* The camera arrives the way the crossfade's incoming icon does (DESIGN.md, Motion), but
+   with no outgoing icon to cover for it, its opacity rides the wash's fast fade so it is on
+   screen the moment the wash is; only the shape and blur take the medium tier. It also
+   starts larger than a crossfade's 0.25: with nothing shrinking away to meet it, that far a
+   journey reads as a late arrival. */
+.overlayIcon {
+	scale: 0.8;
+	filter: blur(4px);
+	opacity: 0;
+	transition:
+		opacity var(--transition-fast),
+		scale var(--transition-medium) ease-out,
+		filter var(--transition-medium) ease-out;
+}
+
+/* On the picture's corner, the danger fill that says this one deletes. It shows with the
+   camera, on hover or while anything in the control has focus, so a keyboard reaches it. */
+.remove {
+	display: grid;
+	position: absolute;
+	top: 0;
+	right: 0;
+	place-items: center;
+	width: 24px;
+	height: 24px;
+	scale: 0.8;
+	border-radius: 50%;
+	background-color: var(--fill-danger-bg);
+	color: var(--fill-danger-fg);
+	opacity: 0;
+	transition:
+		opacity var(--transition-fast),
+		scale var(--transition-medium) ease-out;
+}
+
+/* The real control is the picture; this only carries the file. */
+.fileInput {
+	display: none;
+}

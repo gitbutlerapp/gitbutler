@@ -1,3 +1,4 @@
+import { Avatar } from "@gitbutler/ui-react/Avatar.tsx";
 import {
 	useSetReviewThreadResolved,
 	useAddCommentReaction,
@@ -119,18 +120,11 @@ const ReviewTag: FC<{ badge: ReviewBadge }> = ({ badge }) => (
  */
 const Author: FC<{ user: ForgeReviewUser }> = ({ user }) => (
 	<>
-		<Avatar src={user.avatarUrl} />
+		<Avatar src={user.avatarUrl} seed={user.login} size={18} className={styles.avatar} />
 		<span className={classes("text-13", "text-semibold", styles.authorLogin)}>{user.login}</span>
 		{isAgent(user) && <Badge variant="lightGray">Agent</Badge>}
 	</>
 );
-
-const Avatar: FC<{ src: string | null | undefined }> = ({ src }) =>
-	src != null ? (
-		<img src={src} className={styles.avatar} alt="" />
-	) : (
-		<span className={styles.avatar} />
-	);
 
 /**
  * The card shell shared by comments and review submissions: an identity row
@@ -1084,8 +1078,10 @@ const Composer: FC<{
 	onSubmit: () => void;
 	textareaRef: RefObject<HTMLTextAreaElement | null>;
 	avatarUrl: string | null | undefined;
+	/** What the stand-in is generated from when there is no avatar: the author's login. */
+	avatarSeed: string;
 	projectId: string;
-}> = ({ draft, setDraft, onSubmit, textareaRef, avatarUrl, projectId }) => {
+}> = ({ draft, setDraft, onSubmit, textareaRef, avatarUrl, avatarSeed, projectId }) => {
 	// Folded to one quiet row until engaged; a draft arriving from outside —
 	// a reply quote, a failed submit restoring its text — unfolds it too.
 	const [engaged, setEngaged] = useState(false);
@@ -1138,7 +1134,7 @@ const Composer: FC<{
 				aria-label="Write a comment"
 				type="button"
 			>
-				<Avatar src={avatarUrl} />
+				<Avatar src={avatarUrl} seed={avatarSeed} size={18} />
 				<span className={styles.composerPrompt}>Write a comment…</span>
 			</button>
 		);
@@ -1154,7 +1150,7 @@ const Composer: FC<{
 			ref={composerRef}
 		>
 			<div className={styles.composerBody}>
-				<Avatar src={avatarUrl} />
+				<Avatar src={avatarUrl} seed={avatarSeed} size={18} />
 				<textarea
 					{...mentions.textareaProps}
 					aria-label="Write a comment"
@@ -1396,6 +1392,7 @@ export const PullRequestComments: FC<{ projectId: string; review: ForgeReview }>
 			</div>
 			<Composer
 				avatarUrl={ownForgeAvatar(items, currentLogin) ?? profile?.picture}
+				avatarSeed={currentLogin ?? profile?.login ?? profile?.email ?? ""}
 				projectId={projectId}
 				draft={draft}
 				onSubmit={handleSubmit}

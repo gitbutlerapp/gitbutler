@@ -1,0 +1,19 @@
+.avatar {
+	display: inline-block;
+	position: relative;
+	flex: none;
+	width: var(--avatar-size);
+	height: var(--avatar-size);
+	overflow: hidden;
+	border-radius: 50%;
+}
+
+/* The glitch, and the picture over it once it loads. */
+.layer {
+	display: block;
+	position: absolute;
+	width: 100%;
+	height: 100%;
+	inset: 0;
+	object-fit: cover;
+}

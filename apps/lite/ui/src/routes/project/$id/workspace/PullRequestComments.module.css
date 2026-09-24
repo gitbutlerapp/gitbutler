@@ -78,15 +78,6 @@
 	gap: 6px;
 }
 
-.avatar {
-	flex-shrink: 0;
-	width: 18px;
-	height: 18px;
-	object-fit: cover;
-	border-radius: 50%;
-	background-color: var(--bg-2);
-}
-
 .authorLogin {
 	overflow: hidden;
 	color: var(--text-1);
@@ -494,6 +485,7 @@
 		font-size: 12px;
 	}
 
+	/* A reply's author runs smaller than a card's. */
 	& .avatar {
 		width: 14px;
 		height: 14px;

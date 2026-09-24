@@ -155,14 +155,6 @@
 	}
 }
 
-.avatar {
-	flex-shrink: 0;
-	width: 18px;
-	height: 18px;
-	border-radius: 50%;
-	background-color: lightgray;
-}
-
 .labels {
 	display: flex;
 	flex-wrap: wrap;

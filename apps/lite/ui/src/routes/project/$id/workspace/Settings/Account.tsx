@@ -12,6 +12,7 @@ import {
 } from "@gitbutler/ui-react/Field.tsx";
 import { Icon } from "@gitbutler/ui-react/Icon.tsx";
 import { Illustration } from "@gitbutler/ui-react/Illustration.tsx";
+import { ProfileImage } from "@gitbutler/ui-react/ProfileImage.tsx";
 import { errorMessageForToast } from "#ui/errors.ts";
 import styles from "./Account.module.css";
 import { pollUntilSuccess } from "./poll.ts";
@@ -126,30 +127,36 @@ export const AccountSection: FC<{ profile: UserProfile | null }> = ({ profile })
 
 const SignedIn: FC<{ profile: UserProfile }> = ({ profile }) => {
 	const client = useQueryClient();
-	const pictureInput = useRef<HTMLInputElement>(null);
 
 	const [name, setName] = useState(profile.name ?? "");
-	const [pendingPicture, setPendingPicture] = useState<{ base64: string; filename: string } | null>(
-		null,
-	);
-	const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+	// The chosen picture, with a data URL to preview it by: CSP allows `data:` images but not
+	// `blob:` ones, and the bytes are already base64 for the upload.
+	const [pendingPicture, setPendingPicture] = useState<{
+		base64: string;
+		filename: string;
+		previewUrl: string;
+	} | null>(null);
+	// The uploaded picture, marked to go on save.
+	const [removingPicture, setRemovingPicture] = useState(false);
 	const [saving, setSaving] = useState(false);
 	const [error, setError] = useState<string | null>(null);
 
-	// An object URL is held by the document, not by the state that named it, so each one
-	// has to be handed back when it is replaced, cleared on save, or unmounted.
-	useEffect(() => {
-		if (previewUrl === null) return;
-		return () => URL.revokeObjectURL(previewUrl);
-	}, [previewUrl]);
-
-	const dirty = name !== (profile.name ?? "") || pendingPicture !== null;
-	const picture = previewUrl ?? profile.picture;
+	const dirty = name !== (profile.name ?? "") || pendingPicture !== null || removingPicture;
+	const picture = removingPicture ? null : (pendingPicture?.previewUrl ?? profile.picture);
+	// Only an uploaded picture can be removed; the sign-in picture and Gravatar are what
+	// removing falls back to. The API says which by its storage path until it says so
+	// outright (GB-2076).
+	const uploadedPicture = profile.picture.includes("/rails/active_storage/");
 
 	const choosePicture = async (file: File) => {
 		try {
-			setPendingPicture({ base64: await readAsBase64(file), filename: file.name });
-			setPreviewUrl(URL.createObjectURL(file));
+			const base64 = await readAsBase64(file);
+			setPendingPicture({
+				base64,
+				filename: file.name,
+				previewUrl: `data:${file.type};base64,${base64}`,
+			});
+			setRemovingPicture(false);
 		} catch (caught) {
 			setError(errorMessageForToast(caught));
 		}
@@ -160,7 +167,7 @@ const SignedIn: FC<{ profile: UserProfile }> = ({ profile }) => {
 		setError(null);
 		try {
 			// UpdateUserParams has no rename_all, so its wire shape is snake_case.
-			await window.lite.updateProfileAndPersist({
+			const updated = await window.lite.updateProfileAndPersist({
 				name: name.trim() === "" ? null : name,
 				website: null,
 				twitter: null,
@@ -170,10 +177,13 @@ const SignedIn: FC<{ profile: UserProfile }> = ({ profile }) => {
 				email_share: null,
 				avatar_base64: pendingPicture?.base64 ?? null,
 				avatar_filename: pendingPicture?.filename ?? null,
+				remove_avatar: removingPicture ? true : null,
 			});
+			// The saved profile goes in before the preview comes out: dropping the preview
+			// first showed the cached profile, and its old picture, until a refetch landed.
+			client.setQueryData(userProfileQueryOptions.queryKey, updated);
 			setPendingPicture(null);
-			setPreviewUrl(null);
-			await client.invalidateQueries({ queryKey: userProfileQueryOptions.queryKey });
+			setRemovingPicture(false);
 		} catch (caught) {
 			setError(errorMessageForToast(caught));
 		} finally {
@@ -185,38 +195,20 @@ const SignedIn: FC<{ profile: UserProfile }> = ({ profile }) => {
 		// Not the rows the other settings use: a form of its own, with the picture beside the
 		// fields it belongs to.
 		<section className={styles.card}>
-			<button
-				type="button"
-				className={styles.avatarButton}
-				aria-label="Change profile picture"
-				onClick={() => pictureInput.current?.click()}
-			>
-				{picture !== "" ? (
-					<>
-						<img src={picture} alt="" className={styles.avatar} />
-						<span className={styles.avatarOverlay}>
-							<Icon name="camera" className={styles.avatarOverlayIcon} size={32} />
-						</span>
-					</>
-				) : (
-					<>
-						<Icon name="user" className={styles.placeholder} size={32} />
-						<Icon name="camera" className={styles.placeholderCamera} size={32} />
-					</>
-				)}
-			</button>
-			<input
-				ref={pictureInput}
-				type="file"
-				accept="image/png,image/jpeg"
-				className={styles.fileInput}
-				onChange={(evt) => {
-					const file = evt.currentTarget.files?.[0];
-					// Cleared so choosing the same file again still counts as a change, which
-					// is what a retry after a failed save looks like.
-					evt.currentTarget.value = "";
-					if (file) void choosePicture(file);
-				}}
+			<ProfileImage
+				src={picture}
+				// The email first: it is what the server's own fallback, Gravatar, is keyed on.
+				seed={profile.email ?? profile.login ?? String(profile.id)}
+				onChoose={(file) => void choosePicture(file)}
+				// Remove drops a picture chosen but not saved; failing that, it marks the
+				// uploaded one to go on save.
+				onRemove={
+					pendingPicture !== null
+						? () => setPendingPicture(null)
+						: uploadedPicture && !removingPicture
+							? () => setRemovingPicture(true)
+							: undefined
+				}
 			/>
 
 			<div className={styles.fields}>

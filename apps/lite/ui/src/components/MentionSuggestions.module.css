@@ -16,15 +16,6 @@
 	gap: 8px;
 }
 
-.avatar {
-	flex: none;
-	width: 16px;
-	height: 16px;
-	object-fit: cover;
-	border-radius: 50%;
-	background-color: var(--bg-2);
-}
-
 .login {
 	flex: none;
 }

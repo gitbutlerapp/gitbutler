@@ -1,5 +1,6 @@
 import { reviewerCandidatesQueryOptions } from "#ui/api/queries.ts";
 import { Popup, PopupItem } from "@gitbutler/ui-react/Popup.tsx";
+import { Avatar } from "@gitbutler/ui-react/Avatar.tsx";
 import { applyToTextarea } from "@gitbutler/ui-react/markdown-textarea.ts";
 import { completeMention, matchMentions, mentionAtCaret } from "#ui/mentions.ts";
 import { isAgent } from "#ui/review-users.ts";
@@ -193,11 +194,7 @@ export const useMentionSuggestions = ({ projectId, targetRef, value, onInput }: 
 										tabIndex={-1}
 									>
 										<span className={styles.row}>
-											{user.avatarUrl !== null ? (
-												<img src={user.avatarUrl} className={styles.avatar} alt="" />
-											) : (
-												<span className={styles.avatar} />
-											)}
+											<Avatar src={user.avatarUrl} seed={user.login} />
 											<span className={styles.login}>{user.login}</span>
 											{user.name !== null && <span className={styles.name}>{user.name}</span>}
 										</span>
