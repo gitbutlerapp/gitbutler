@@ -34,15 +34,15 @@ import {
 } from "#ui/pr-description-generation.ts";
 import { errorMessageForToast } from "#ui/errors.ts";
 import { oversizedFile, toBase64, UPLOAD_SIZE_LIMIT } from "#ui/uploads.ts";
-import { createDiffSpec, resolveDiffSpecs } from "#ui/operations/diff-specs.ts";
+import { resolveDiffSpecs } from "#ui/operations/diff-specs.ts";
 import {
 	discardChangesToastOptions,
 	rejectedChangesToastOptions,
 } from "#ui/operations/toastOptions.tsx";
-import { commitAddress, addressEquals, type FileParent } from "#ui/addresses.ts";
+import { commitAddress, type Address, type FileParent } from "#ui/addresses.ts";
 import { projectSlice } from "#ui/projects/state.ts";
 import { projectAiSettingsQueryOptions } from "#ui/project-ai-settings.ts";
-import { type AppDispatch, useAppDispatch, useAppStore } from "#ui/store.ts";
+import { type AppDispatch, useAppDispatch } from "#ui/store.ts";
 import { formatRelativeTime } from "@gitbutler/ui-react/time.ts";
 import { Toast } from "@base-ui/react";
 import { Match } from "effect";
@@ -1145,7 +1145,6 @@ export const useDiscardFileChanges = ({
 	projectId: string;
 	fileParent: FileParent;
 }) => {
-	const store = useAppStore();
 	const queryClient = useQueryClient();
 	const toastManager = Toast.useToastManager();
 	const { isPending: isCommitDiscardChangesPending, mutate: commitDiscardChanges } =
@@ -1176,29 +1175,13 @@ export const useDiscardFileChanges = ({
 		);
 
 	/**
-	 * Discard `change`, extended to the checked files when `extendToCheckedFiles` — a row's menu
-	 * passes its own checked state, as dragging does; a list hotkey passes true, as cut and move do.
-	 * A caller with no row of its own, like the checked-set toolbar, passes a null `change` and
-	 * leans wholly on the checked set.
+	 * Discard the files `sources` names. Which files those are — one row, the files below a
+	 * directory, or the checked set — is the caller's to decide; see `useFileSetSubject`.
 	 */
-	const discard = async ({
-		change,
-		extendToCheckedFiles,
-	}: {
-		change: TreeChange | null;
-		extendToCheckedFiles: boolean;
-	}): Promise<void> => {
-		const sources = projectSlice.selectors.selectCheckedAddresses(store.getState(), projectId);
+	const discard = async (sources: Array<Address>): Promise<void> => {
+		if (sources.length === 0) return;
 
-		const areAllFilesUnder = () =>
-			sources.every(
-				(address) => address._tag === "File" && addressEquals(address.parent, fileParent),
-			);
-
-		if (!extendToCheckedFiles || sources.length === 0 || !areAllFilesUnder())
-			return change === null ? undefined : runDiscard([createDiffSpec(change, [])]);
-
-		// Checked files carry only paths, so their changes have to be looked up.
+		// The sources carry only paths, so their changes have to be looked up.
 		try {
 			const changes = await resolveDiffSpecs({ projectId, queryClient, sources });
 			// One of them gone stale fails resolution for the whole set — the reconciler is about to

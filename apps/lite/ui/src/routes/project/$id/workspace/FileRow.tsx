@@ -14,14 +14,20 @@ import { Toolbar, Tooltip } from "@base-ui/react";
 import type { ComponentProps, CSSProperties, FC, ReactNode } from "react";
 import styles from "./FileRow.module.css";
 import treeStyles from "./FilesTree.module.css";
-import { Row, RowCheckbox, RowLabel, RowLabelContainer, RowToolbar } from "./Row.tsx";
+import {
+	PresentationalRowButton,
+	Row,
+	RowCheckbox,
+	RowLabel,
+	RowLabelContainer,
+	RowToolbar,
+} from "./Row.tsx";
 import { getRowButtonClassName } from "./Row-utils.ts";
 import { DependencyIndicator } from "#ui/routes/project/$id/workspace/DependencyIndicator.tsx";
 import { useFileMenuItems } from "#ui/routes/project/$id/workspace/useFileMenuItems.ts";
 import type { FileRowItem } from "./file-row.ts";
 import { TreeSteps } from "./TreeSteps.tsx";
 import { ageBadgeOpacity, formatAgeBadge, formatRelativeTime } from "@gitbutler/ui-react/time.ts";
-import type { TreeChange } from "@gitbutler/but-sdk";
 import type { FileRowTooltipPayload } from "./FileRowTooltip.tsx";
 
 /** Pulse lifetime. The 30s clock driving it can stretch this by up to a tick. */
@@ -36,8 +42,6 @@ type FileRowProps = {
 	fileParent: FileParent;
 	branchNameByCommitId: (commitId: string) => string | undefined;
 	canCheck: boolean;
-	canUncommit: boolean;
-	uncommit?: (change: TreeChange, extendToCheckedFiles: boolean) => void;
 	isChecked: boolean;
 	/** Whether the diff on show has been reviewed; the row says so in place of its change type. */
 	isReviewed: boolean;
@@ -57,26 +61,14 @@ type FileRowProps = {
 	rail?: ReactNode;
 } & Omit<ComponentProps<typeof Row>, "projectId">;
 
-type FileRowPresentationalProps = Omit<FileRowProps, "canUncommit" | "uncommit"> & {
+type FileRowPresentationalProps = FileRowProps & {
 	anyOperationPending: boolean;
 	menuItems: ReturnType<typeof useFileMenuItems>;
 	presentationalOnly?: boolean;
 };
 
-const PresentationalRowButton: FC<{ icon: "kebab" | "link" }> = ({ icon }) => (
-	<button
-		type="button"
-		inert
-		aria-hidden="true"
-		tabIndex={-1}
-		className={getRowButtonClassName({ iconOnly: true })}
-	>
-		<Icon name={icon} />
-	</button>
-);
-
-export const FileRow: FC<FileRowProps> = ({ canUncommit, uncommit, ...props }) => {
-	const { item, projectId, fileParent } = props;
+export const FileRow: FC<FileRowProps> = (props) => {
+	const { item, projectId, fileParent, isReviewed } = props;
 	const relativePath = item._tag === "Change" ? item.change.path : item.path;
 
 	const anyOperationPending = useAppSelector(
@@ -87,8 +79,7 @@ export const FileRow: FC<FileRowProps> = ({ canUncommit, uncommit, ...props }) =
 		address: { parent: fileParent, path: relativePath },
 		path: relativePath,
 		change: item._tag === "Change" ? item.change : undefined,
-		canUncommit,
-		uncommit,
+		isReviewed,
 	});
 
 	return (

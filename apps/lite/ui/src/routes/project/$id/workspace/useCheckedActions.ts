@@ -3,9 +3,9 @@ import {
 	useCommitDiscardChanges,
 	useCommitUncommit,
 	useCommitUncommitChanges,
-	useDiscardFileChanges,
 	useDiscardWorktreeChanges,
 } from "#ui/api/mutations.ts";
+import { useFileSetActions } from "./useFileSetActions.ts";
 import { changesInWorktreeQueryOptions, headInfoQueryOptions } from "#ui/api/queries.ts";
 import { getHeadInfoIndex } from "#ui/api/ref-info.ts";
 import {
@@ -64,7 +64,7 @@ export const useCheckedActions = ({
 	// Hooks cannot be conditional, so a non-file set still has to name a parent; it gets no file
 	// actions below, so which one it names is immaterial.
 	const fileParent = fileParentFromSources(checkedAddresses);
-	const { canDiscard, discard } = useDiscardFileChanges({
+	const fileActions = useFileSetActions({
 		projectId,
 		fileParent: fileParent ?? uncommittedChangesFileParent,
 	});
@@ -269,13 +269,14 @@ export const useCheckedActions = ({
 			File: () => {
 				if (fileParent === null || !checkedAddresses.every((address) => address._tag === "File"))
 					return [];
+				const files = checkedAddresses;
 
 				const discardChanges: CheckedAction = {
 					label: "Discard",
 					hotkey: changesFileHotkeys.discard.hotkey,
 					variant: "danger",
-					enabled: canDiscard,
-					run: () => void discard({ change: null, extendToCheckedFiles: true }),
+					enabled: fileActions.canDiscard,
+					run: () => void fileActions.discard(files),
 				};
 
 				return Match.value(fileParent).pipe(
@@ -285,52 +286,19 @@ export const useCheckedActions = ({
 							{
 								label: "Absorb",
 								hotkey: changesFileHotkeys.absorb.hotkey,
-								enabled: true,
-								run: () => {
-									// Checked files carry only paths, so their changes have to be looked up.
-									// One of them gone stale fails the whole set, as discarding one does.
-									const paths = new Set(checkedAddresses.map((address) => address.path));
-									const changes = queryClient
-										.getQueryData(changesInWorktreeQueryOptions(projectId).queryKey)
-										?.changes.filter((change) => paths.has(change.path));
-									if (!changes || changes.length !== paths.size) return;
-
-									startAbsorb({
-										sources: checkedAddresses,
-										sourceTarget: {
-											type: "treeChanges",
-											subject: { changes, assignedStackId: null },
-										},
-									});
-									focusScope("sidebar");
-								},
+								enabled: fileActions.canAbsorb,
+								run: () => fileActions.absorb(files),
 							},
 							cut(checkedAddresses),
 							discardChanges,
 						],
-						Commit: ({ commitId }) => [
+						Commit: () => [
 							cut(checkedAddresses),
 							{
 								label: "Uncommit",
 								hotkey: changesFileHotkeys.uncommit.hotkey,
-								enabled: !isUncommitChangesPending,
-								run: () => {
-									void resolveDiffSpecs({
-										projectId,
-										queryClient,
-										sources: checkedAddresses,
-									}).then((changes) => {
-										if (!changes) return;
-
-										commitUncommitChanges({
-											projectId,
-											commitId,
-											assignTo: null,
-											changes,
-											dryRun: false,
-										});
-									});
-								},
+								enabled: fileActions.canUncommit,
+								run: () => fileActions.uncommit(files),
 							},
 							discardChanges,
 						],
