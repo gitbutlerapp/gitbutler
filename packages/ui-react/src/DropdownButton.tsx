@@ -1,4 +1,4 @@
-import { Button, type ButtonSize } from "./Button.tsx";
+import { Button } from "./Button.tsx";
 import { classes } from "./classes.ts";
 import { Icon } from "./Icon.tsx";
 import { Tooltip } from "./Tooltip.tsx";
@@ -30,7 +30,6 @@ type Props = {
 	 */
 	actionTooltip?: ReactNode;
 	variant?: DropdownButtonVariant;
-	size?: ButtonSize;
 	onClick?: () => void;
 	/** Disables the main action; the chevron trigger keeps its own flag. */
 	disabled?: boolean;
@@ -54,7 +53,6 @@ export const DropdownButton: FC<Props> = ({
 	onMenuTrigger,
 	actionTooltip,
 	variant = "outline",
-	size = "regular",
 	onClick,
 	disabled = false,
 	menuDisabled = false,
@@ -65,7 +63,6 @@ export const DropdownButton: FC<Props> = ({
 		<Tooltip disabled={actionTooltip === undefined} content={actionTooltip}>
 			<Button
 				variant={variant}
-				size={size}
 				focusableWhenDisabled
 				disabled={disabled}
 				id={id}
@@ -79,7 +76,6 @@ export const DropdownButton: FC<Props> = ({
 		<Button
 			aria-label={menuLabel}
 			variant={variant}
-			size={size}
 			iconOnly
 			className={styles.trigger}
 			onClick={(event) => onMenuTrigger(event.currentTarget)}

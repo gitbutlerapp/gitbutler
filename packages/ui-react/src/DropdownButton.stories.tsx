@@ -57,7 +57,6 @@ const Demo = ({
 export const Playground = meta.story({
 	argTypes: {
 		variant: { control: "radio", options: variants },
-		size: { control: "radio", options: ["regular", "small"] },
 		children: { control: "text" },
 		disabled: { control: "boolean" },
 		menuDisabled: { control: "boolean" },
@@ -66,7 +65,6 @@ export const Playground = meta.story({
 		children: "Button",
 		menuLabel: "Button options",
 		variant: "pop",
-		size: "regular",
 		disabled: false,
 		menuDisabled: false,
 		onMenuTrigger: () => {},
@@ -91,25 +89,6 @@ export const Disabled = meta.story({
 			<Demo variant="pop" disabled />
 			<Demo variant="pop" menuDisabled />
 			<Demo variant="outline" disabled menuDisabled />
-		</div>
-	),
-});
-
-/** Small matches the surrounding row when the button sits inside dense chrome. */
-export const Sizes = meta.story({
-	render: () => (
-		<div style={{ display: "flex", gap: 12, alignItems: "center" }}>
-			<DropdownButton
-				variant="pop"
-				size="small"
-				menuLabel="Commit options"
-				onMenuTrigger={() => {}}
-			>
-				Commit
-			</DropdownButton>
-			<DropdownButton variant="pop" menuLabel="Commit options" onMenuTrigger={() => {}}>
-				Commit
-			</DropdownButton>
 		</div>
 	),
 });
