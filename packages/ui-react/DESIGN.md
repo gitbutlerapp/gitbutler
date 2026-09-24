@@ -1,13 +1,11 @@
 # Design notes
 
-The visual language of every GitButler app built on `@gitbutler/ui-react`, on
-the desktop or on the web: the conventions you need to make an on-brand choice
-without opening Figma. Rules here are about how the UI should look and read,
-and hold for any app; the examples are GitButler's own surfaces — branches,
-commits, pull requests. What one app decides for itself lives in that app's
-own design notes (Lite's are `apps/lite/DESIGN.md`). The tooling that enforces
-the rules — scripts, generated files, commands — lives in `AGENTS.md` beside
-this file.
+The visual language of every GitButler app built on `@gitbutler/ui-react`,
+desktop or web: enough to make an on-brand choice without opening Figma. The
+rules hold for any app; the examples are GitButler's own surfaces. What one app
+decides for itself lives in its own design notes (Lite's are
+`apps/lite/DESIGN.md`); the tooling that enforces the rules lives in
+`AGENTS.md` beside this file.
 
 The Figma library is ⚛️ Core, the library for every app. 💎 Core is a
 different library, for the Svelte desktop app.
@@ -16,496 +14,400 @@ different library, for the Svelte desktop app.
 
 **Build from the library.** Every control users touch — a button, a switch, a
 segmented toggle, a popup — already has a component in `@gitbutler/ui-react`
-(`packages/ui-react/src/`), with a spec in the ⚛️ Core Figma library or a
-Storybook story, published at
-<https://master--6ab536f5f40e41db628ccf1b.chromatic.com>. Reach for those
-first, even when hand-styling a primitive in the feature's own CSS module
-would be quicker. The point of a library is that
-the app reads as one thing; each control styled locally is one that will
-drift, and one more that has to be found and reconciled when the design moves.
-Before using a component, look up its props and the import to write rather
-than guessing: the published Storybook lists them for every component in its
-manifest,
+(`packages/ui-react/src/`), with a spec in ⚛️ Core or a Storybook story,
+published at <https://master--6ab536f5f40e41db628ccf1b.chromatic.com>. Use it
+even when hand-styling in the feature's CSS module would be quicker: a control
+styled locally drifts. Look up props and the import rather than guessing, in
+the Storybook manifest,
 <https://master--6ab536f5f40e41db628ccf1b.chromatic.com/manifests/components.json>,
-and through its MCP server,
-`https://master--6ab536f5f40e41db628ccf1b.chromatic.com/mcp`.
+or its MCP server, `https://master--6ab536f5f40e41db628ccf1b.chromatic.com/mcp`.
 
-**If the library lacks it, think twice, then ask.** A missing component is a
-design question before it is an engineering one. Check whether an existing one
-fits with a variant or a prop — a small size, an icon-only mode — and if
-nothing does, ask the designer before building. The answer may be a new
-library component with a spec, or it may be that the surface should use
-something we already have.
+**If the library lacks it, think twice, then ask.** Check whether a variant or
+prop of an existing component fits — a small size, an icon-only mode — and if
+nothing does, ask the designer before building.
 
-**When you can't ask, flag it.** An agent working alone builds the smallest
-thing that works, then says so. The PR description gets a "New UI" note: what
-was needed, which library components were tried and why none fit, and where
-the new one lives. Then file a Linear ticket in GitButler Internal (GB)
-assigned to Pavel Laptew (@pavel), with that note, the PR link and a
-screenshot if you can take one. If you can't reach Linear, say so in the note
-and the PR author files it.
+**When you can't ask, flag it.** Build the smallest thing that works. The PR
+description gets a "New UI" note: what was needed, which library components
+were tried and why none fit, and where the new one lives. File a Linear ticket
+in GitButler Internal (GB) assigned to Pavel Laptew (@pavel) with that note,
+the PR link and a screenshot if you can. If you can't reach Linear, say so in
+the note and the PR author files it.
 
-**A custom control needs a reason.** Sometimes a one-off is right. When it is,
-the code should say why: what the library could not do, and why that mattered
-here. A custom control with no motivation in the commit or a comment is a bug
-waiting for a redesign, not a decision.
+**A custom control needs a reason.** The commit or a comment says what the
+library could not do and why that mattered here. Without it, a one-off is a
+bug waiting for a redesign.
 
 **New components are documented.** Anything that graduates into
 `@gitbutler/ui-react` gets a story and, once the designer has drawn it, a
-Figma spec. A component that lives only in code is half a component.
+Figma spec.
 
 ## Voice
 
-Every string in the app reads as one person talking — the tooltips, the hints
-under settings rows, the empty states, the toasts. The sections below say what
-each surface adds; this is the voice they share.
+Every string — tooltips, row hints, empty states, toasts — reads as one person
+talking.
 
-**Plain and warm.** The word a colleague would use across a desk, not the one
-from the spec: "Forget" over "Remove credential", "checks your remotes" over
-"polls the upstream", "bring them back" over "unarchive" inside a sentence.
-Git's own terms only where the thing has no other name and the user meets it
-in git anyway — commit, branch, worktree, rebase — and never git's phrasing
-around them: "linked git worktrees" is git's, "the repository's other
-worktrees" is ours.
+**Plain and warm.** The word a colleague would use across a desk: "Forget"
+over "Remove credential", "checks your remotes" over "polls the upstream",
+"bring them back" over "unarchive" inside a sentence. Git's terms only where
+the thing has no other name and the user meets it in git anyway — commit,
+branch, worktree, rebase — and never git's phrasing: "linked git worktrees" is
+git's, "the repository's other worktrees" is ours.
 
 **Say what it does, not what it is.** A hint starts with the verb — "Shows",
-"Checks", "Skips" — and describes what happens when the thing is on, not what
-the feature is. When it costs something, say the cost in the same breath:
-"Slows dragging."
+"Checks", "Skips" — and says what happens when the thing is on. A cost goes in
+the same breath: "Slows dragging."
 
 **Talk to the user, never about the system.** "before you drop it", "your
 remotes", "you have 5 branches". Not "the user", not "the system", and no
-passive that hides who does what — "will be shown" says nothing about by whom.
+passive like "will be shown" that hides who does what.
 
-**Same word for the same thing, everywhere.** A hint uses the word the button
-uses: where the page says Archive, the hint says archived. A path through the
-app is written as one — "Project → Worktrees", "Settings → AI" — never as "the
-project's Worktrees page".
+**Same word for the same thing, everywhere.** Where the button says Archive,
+the hint says archived. A path through the app is "Project → Worktrees",
+"Settings → AI", never "the project's Worktrees page".
 
 **One thought per string, and no string repeats its neighbour.** A label names
 the thing; its hint says what it does; a toast title says what happened and
-its description carries the detail. A body that restates its title is noise.
+its description carries the detail.
 
 **Sentence case, and a full stop only where there is a sentence.** Labels,
-tooltips, snackbars and the two lines of an empty state are fragments and end
-without one. Hints and toast descriptions are sentences and take one. Nothing
-takes an exclamation mark.
+tooltips, snackbars and the two lines of an empty state are fragments: no full
+stop. Hints and toast descriptions are sentences and take one. Nothing takes
+an exclamation mark.
 
 **A number is a number.** "5 branches", "3h ago", "1 of 4" — never "several"
 or "some" when the count is known.
 
 ## Emphasis
 
-**Gray highlights, pop points.** Gray is the workhorse: when a control needs to
-read as interactive, or one button needs to sit above its neighbours, give it a
-solid gray ground. Pop is the accent, and it is the rarest color in the app —
-it doesn't mean "important", it means "this one, out of all of these". Spend it
-only when a surface carries many actions and one of them is _the_ action.
+**Gray highlights, pop points.** To make a control read as interactive, or
+lift one button above its neighbours, give it a solid gray ground. Pop is the
+rarest color in the app, meaning "this one, out of all of these": spend it only
+when a surface carries many actions and one is _the_ action.
 
-**At most one pop per surface.** If two things pop, neither does. A screen that
-seems to need a second one usually needs its first one demoted to gray.
+**At most one pop per surface.** If two things pop, neither does; demote the
+first to gray before adding a second.
 
 **Semantic color is chosen by meaning, not by weight.** Danger, warn and safe
-say what a thing _is_, so they sit outside the gray-to-pop ladder entirely — a
-danger button can be the only button on screen.
+say what a thing _is_ and sit outside the gray-to-pop ladder: a danger button
+can be the only button on screen.
 
 ### Button variants
 
-Ghost and outline are the two quiet buttons and sit at the same level as each
-other; gray and pop are the two ways to raise one above the rest. Reach for a
-quiet one unless there is a reason not to.
+Ghost and outline are the two quiet buttons, at the same level; gray and pop
+raise one above the rest. Default to a quiet one.
 
-- **`outline`** — the default. A ghost with an edge, for a button on open
-  ground where nothing else marks it as a target; a `Button` with no `variant`
-  is one.
-- **`ghost`** — no ground, no border. For actions inside something that is
-  already a container: a row, a toolbar, a card header, a popup.
-- **`gray`** — solid gray ground. Lifts one button above the ones around it
-  without spending color. This is how you highlight; it is not a primary
-  action.
-- **`pop`** — the accent ground. The primary action of the whole surface, and
-  at most one of them. See above.
+- **`outline`** — the default; a `Button` with no `variant` is one. For a
+  button on open ground where nothing else marks it as a target.
+- **`ghost`** — no ground, no border. For actions inside a container: a row, a
+  toolbar, a card header, a popup.
+- **`gray`** — solid gray ground. Lifts one button above its neighbours
+  without spending color. It highlights; it is not a primary action.
+- **`pop`** — the accent ground. The primary action of the whole surface, at
+  most one.
 - **`danger`** — for an act the user cannot take back: deleting, discarding,
-  hard-resetting. Chosen by consequence, so it is not part of the ladder.
+  hard-resetting. Chosen by consequence, outside the ladder.
 
-**Mixing the quiet two.** Ghost and outline can sit side by side in one group,
-and the difference then tells kinds of control apart rather than ranking them.
-The pull request toolbar does this: Edit and the overflow menu are ghosts, the
-Auto-merge toggle is an outline, and Merge is the single pop — the outline
-marks the control that holds state, not a louder action. It works in either
-direction; whichever of the two is rarer in that group is the one that reads as
-distinct. Use it to separate kinds, never to imply one action matters more.
+**Mixing the quiet two.** Ghost and outline side by side tell kinds of control
+apart, never rank them; whichever is rarer in the group reads as distinct. In
+the pull request toolbar, Edit and the overflow menu are ghosts, the Auto-merge
+toggle is an outline because it holds state, and Merge is the single pop.
 
-**The inverted pair.** `ghost-inverted` and `outline-inverted` are the same two
-buttons for a button sitting on an inverted ground — a selected row, where the
-fill flips and the text turns to `--text-1-invert`. They are not a dark-mode
-thing; dark mode is handled by the tokens. A row that restyles on selection
-can reach these styles through CSS rather than by passing the variant, so
-selection restyles without a re-render.
+**The inverted pair.** `ghost-inverted` and `outline-inverted` are for a
+button on an inverted ground — a selected row, where the text turns to
+`--text-1-invert` — not for dark mode, which the tokens handle. A row can apply
+these styles through CSS on selection rather than the variant, avoiding a
+re-render.
 
 ### Links
 
 **A link looks like a link.** Text that opens a page is underlined, in
-`--text-2`, with the underline at 40% of the text color and going solid on
-hover as the text lifts to `--text-1`. The underline is what says "this goes
-somewhere"; nothing else about the text changes. `TextLink` is that link; the
+`--text-2`, the underline at 40% of the text color, going solid on hover as the
+text lifts to `--text-1`. Nothing else changes. `TextLink` is that link; the
 pull request number in a branch row and in the pull request panel are the
 reference.
 
-**Never dress a link as a button.** A link is not wrapped in a ghost or
-outline button, doesn't take a ground, and doesn't share a control with the
-things beside it. A status badge next to a number is two things, the badge and
-the link, not one button that holds both. If a surface seems to need a link
-that looks like a button, it wants a button that runs an action, or the link
-wants to be plain; either way the underline stays on the link.
+**Never dress a link as a button.** No ghost or outline wrapper, no ground, no
+shared control: a status badge next to a number is two things, the badge and
+the link. If it seems to need a button look, it wants a button or a plain
+link.
 
-**The exception states its reason.** Somewhere the underline may not work,
-say a link that is the whole of a card, or one that sits inside a line of
-inline chips. That is a corner case, and the CSS that drops the underline
-says why in a comment beside it, the same way a removed focus ring does. A
-link that is silently unmarked is a bug.
+**The exception states its reason.** Where the underline may not work — a link
+that is the whole of a card, one inside a line of inline chips — the CSS that
+drops it says why in a comment, as for a removed focus ring. A silently
+unmarked link is a bug.
 
-**Every link leaves the app, and the arrow says so.** A link opens outside
-the app — in the browser from a desktop app, in a new tab from a web app —
-and each ends in an arrow the height of the text's caps, hung off the text without a space so the underline stops at the word.
-`TextLink` draws it inline at a 1px stroke, and nothing else should: the
-text fonts don't carry ↗ at every weight, which is why it isn't typed.
+**Every link leaves the app, and the arrow says so.** It opens in the browser
+from a desktop app, in a new tab from a web app, and ends in an arrow the
+height of the text's caps, hung off the text without a space so the underline
+stops at the word. `TextLink` draws it inline at a 1px stroke and nothing else
+should; ↗ isn't typed because the text fonts don't carry it at every weight.
 
 ## States
 
-**Every interactive component has a hover and a focus state.** A button, a
-row, a tab, a field, a menu item, a clickable badge: if it responds to a click
-or a key, it shows that it can be hovered and that it holds focus. Hover says
-"this reacts"; focus says "the keyboard is here". A control with neither reads
-as static text, and a control with hover only is invisible to anyone not on a
-mouse. Neither is optional, and neither is a separate ticket.
+**Every interactive component has a hover and a focus state.** A button, row,
+tab, field, menu item or clickable badge: if it responds to a click or a key,
+hover says "this reacts" and focus says "the keyboard is here". Hover alone is
+invisible to anyone not on a mouse. Neither is optional or a separate ticket.
 
-**Hover is a ground, not a cursor.** The cursor never changes to say a thing is
-clickable (see Cursors), so the hover state carries that alone. Controls take
-it from the shared tokens: `Button` from its variant's `--button-hover-bg`,
-a list row from `--list-item-hover-bg`, and anything else from a gray wash at
-`--opacity-bg-hover` so hover reads the same weight everywhere. A disabled
-control shows no hover.
+**Hover is a ground, not a cursor.** The cursor never signals clickability
+(see Cursors). `Button` takes its variant's
+`--button-hover-bg`, a list row `--list-item-hover-bg`, anything else a gray
+wash at `--opacity-bg-hover`. A disabled control shows no hover.
 
-**Focus is the one ring.** `--focus-ring` is the only focus outline in the app,
-and the app's global stylesheet puts it on every `button` and `a` under
-`:focus-visible`, so a plain control gets it for free. A component that draws
-its own — a field, a switch, a segmented toggle — uses the same token, never a
-literal or the browser's accent ring. Buttons and rows use `:focus-visible`,
-so a click doesn't leave a ring behind; a text field uses `:focus`, since a
-field being edited should look edited however it got there.
+**Focus is the one ring.** `--focus-ring` is the only focus outline. The global
+stylesheet puts it on every `button` and `a` under `:focus-visible`; a
+component that draws its own — a field, a switch, a segmented toggle — uses the
+same token, never a literal or the browser's accent ring. Buttons and rows use
+`:focus-visible`, so a click leaves no ring; a text field uses `:focus`, so a
+field being edited looks edited.
 
-**The ring can move, but not vanish.** `outline: none` is allowed only when
-the focus is shown somewhere else — a tree item that highlights its row, a
-popup that hands focus straight to its first control — and the rule says so in
-a comment beside it. A bare `outline: none` with nothing taking over is a
-removed focus state, and a bug.
+**The ring can move, but not vanish.** `outline: none` only when focus is shown
+elsewhere — a tree item highlighting its row, a popup handing focus to its
+first control — with a comment saying so; otherwise it is a bug.
 
-**Hover and focus transition; they don't snap.** A state change on a control
-is a fade, not a cut, and it rides the fast tier (see Motion). A control whose
-ground and text change takes `--transition-button` — one token so a button, a
-row and a badge that opens a menu all settle at the same speed. A control
-whose ring changes transitions `outline-color var(--transition-fast)`, as a
-field does; one that dims transitions `opacity var(--transition-fast)`. Name
-the property that changes, not `all`: a transition on `all` picks up layout
-and reads as lag. Nothing hover- or focus-related uses the medium tier — the
-one exception is an icon giving way to another icon, which crossfades on the
-medium tier whatever triggers it (see Motion) — and nothing writes a duration
+**Hover and focus transition; they don't snap.** They ride the fast tier (see
+Motion). Ground and text changes take `--transition-button`; a ring takes
+`outline-color var(--transition-fast)`, a dim
+`opacity var(--transition-fast)`. Name the property, never `all`, which picks
+up layout and lags. Nothing hover- or focus-related uses the medium tier except
+an icon giving way to another icon (see Motion), and nothing writes a duration
 by hand.
 
 ## Radius
 
-**Nested corners are concentric.** A thing inside a rounded thing takes a
-radius that follows the same centre: outer radius equals inner radius plus the
-padding between them. A card at `--radius-card` with 4px of padding holds a
-control at `--radius-card` minus 4px, not at the same radius, and not at a
-different token picked for the control alone. Two nested radii that share a
-value but not a centre are the most common way an otherwise on-spec surface
-reads as slightly wrong. The radius tokens come from ⚛️ Core; when the
-subtraction doesn't land on one, compute it with `calc()` from the outer token
-and say so, rather than eyeballing a literal.
+**Nested corners are concentric.** Outer radius equals inner radius plus the
+padding between: a card at `--radius-card` with 4px of padding holds a control
+at `--radius-card` minus 4px, not the same radius or a token picked for the
+control alone. Radius tokens come from ⚛️ Core; when the subtraction doesn't
+land on one, compute it with `calc()` from the outer token and say so, rather
+than eyeballing a literal.
 
 ## Minimums
 
-**A hit area is never under 16px.** A control can draw smaller than that — a
-chevron, a close cross, a diff line number — but what it responds to is at
-least 16px on each side. Extend the target with padding or a pseudo-element
-rather than growing the glyph, and don't let two extended targets overlap:
-the click goes to one control, not to whichever painted last.
+**A hit area is never under 16px.** A control can draw smaller — a chevron, a
+close cross, a diff line number — but responds to at least 16px on each side.
+Extend the target with padding or a pseudo-element, not by growing the glyph,
+and don't let two extended targets overlap.
 
-**Text is never under 12px.** No label, count, caption, tag or keycap sets a
-size below 12px, however small the space. If a token from ⚛️ Core is
-smaller than that, the token is wrong, not the rule. Something that only
-works at 11px is something that should be a tooltip, an icon, or left out.
+**11px is for small UI, and nothing goes smaller.** Badges, counts, tags,
+keycaps and a file's status letter can set 11px; labels, body text, captions
+and hints are 12px or more. Nothing goes below 11px: if a ⚛️ Core token is
+smaller, the token is wrong. Something that only works under 11px should be a
+tooltip, an icon, or left out.
 
 ## Line breaks
 
-**No runts, no widows.** A line ends where the sentence lets it, not where
-the box ran out. A full line with a word or two hanging under it reads as an
-accident, and the eye stops on it. That is the rule; how it is met is not.
-Cutting the copy, `text-wrap: pretty`, `text-wrap: balance` — any of them is
-fine, and the right one depends on the text and the room around it.
+**No runts, no widows.** A line ends where the sentence lets it, not where the
+box ran out. Cutting the copy, `text-wrap: pretty` and `text-wrap: balance` are
+all fine; pick by the text and the room around it.
 
-**Judge by the gap.** Look at what sits beside and below the text. A hint
-that overruns its measure by two words wanted to be one line: cut it. A hint
-that runs well into a second line can stay two lines, and `balance` evens
-them out. But balance is not free: it can turn one long line into two short
-ones, leaving a wide gap to the control beside them or the row below, and two
-short lines against empty space read as wrong as a widow does. When neither
-the copy nor the wrap mode gives lines that fill their space, the text is the
-wrong length for the spot — reword it, or move it.
+**Judge by the gap.** A hint that overruns its measure by two words wanted to
+be one line: cut it. One well into a second line can stay two, evened by
+`balance`, unless that leaves two short lines against a wide gap. When neither
+copy nor wrap mode fills the space, reword the text or move it.
 
-**Where the wrap is set.** Row hints set `pretty`, which keeps a single word
-off its own line; empty states set `balance`, because centred text always
-wraps and reads best as two even lines. Change the mode for a surface when its
-text calls for it. It is a per-surface call, not a global one.
+**Where the wrap is set.** Row hints set `pretty`, keeping a single word off
+its own line; empty states set `balance`, since centred text reads best as two
+even lines. Change it per surface, never globally.
 
 ## Cursors
 
 **The host picks the cursor: the arrow on the desktop, the hand on the web.**
-Desktop apps keep the arrow over buttons, menus and rows; the hand is a web
-convention. So a desktop app ships with the arrow, and may offer the hand as a
-setting for whoever wants it. A web app takes the hand always.
+A desktop app keeps the arrow over buttons, menus and rows, and may offer the
+hand as a setting. A web app takes the hand always.
 
 **One property carries the choice.** The host sets `--control-cursor` on its
-root — a web app to `pointer` outright, a desktop app from its setting — and
-loads `control-cursor.css`, which puts that property on every control in one
-rule:
-buttons, links, `summary`, `select`, a `label` that owns a control, and the
-roles Base UI renders when it draws a control as a span or a div: button,
-checkbox, switch, radio, tab, option and the menu items. The same stylesheet
-gives a disabled control `not-allowed`, so no component does.
+root — a web app to `pointer`, a desktop app from its setting — and loads
+`control-cursor.css`, which applies it in one rule to buttons, links,
+`summary`, `select`, a `label` that owns a control, and the roles Base UI
+renders as a span or div: button, checkbox, switch, radio, tab, option and the
+menu items. It also gives a disabled control `not-allowed`, so no component
+does.
 
-**Components don't choose a cursor.** Don't set `cursor: pointer` on a
-control, and don't pin `cursor: default` on one either — both defeat the
-host's choice. Don't reintroduce the hand by resetting a `<button>`: the browser
-default for buttons is already the arrow. A clickable that is none of the
-elements above (a list row, a folded card, a minimap badge, a diff line
-number) takes `cursor: var(--control-cursor)` itself, so it follows the
-host's choice too. Interactivity is shown by the hover state (see States), not by
-the cursor.
+**Components don't choose a cursor.** No `cursor: pointer`, no pinned
+`cursor: default`, and no reintroducing the hand by resetting a `<button>` —
+its browser default is already the arrow. A clickable outside that list (a
+list row, a folded card, a minimap badge, a diff line number) takes
+`cursor: var(--control-cursor)` itself. Interactivity is shown by hover (see
+States).
 
-**Gesture cursors are the exception.** The cursors that do change regardless
-of the host's choice are the ones that describe a gesture: `text` over editable
-text, `grab` and `grabbing` while dragging, and the resize cursors on a
-splitter.
+**Gesture cursors are the exception.** They change regardless of the host:
+`text` over editable text, `grab` and `grabbing` while dragging, and the resize
+cursors on a splitter.
 
 ## Motion
 
-**Two speeds, both tokens.** Every transition takes its duration from
-design-core. `--transition-fast` (80ms) is for a state change on a control that
-stays where it is: hover and press on a button, the outline of a focused field,
-a small opacity fade. `--transition-medium` (150ms) is for something that moves
-or changes shape: a switch thumb, a chevron turning, a section folding, the
-minimap fading in. A move on the fast tier reads as a jump with a flicker on
-it; a hover on the medium tier feels laggy. Don't write a duration by hand. If
-neither tier fits, the answer is a new tier in Figma, not a literal here.
+**Two speeds, both tokens.** Every duration comes from design-core.
+`--transition-fast` (80ms) is for a control changing state in place: hover and
+press on a button, a focused field's outline, a small opacity fade.
+`--transition-medium` (150ms) is for something that moves or changes shape: a
+switch thumb, a chevron turning, a section folding, the minimap fading in. No
+hand-written durations; if neither tier fits, add a tier in Figma.
 
-**Popups are the medium tier with a curve.** `--transition-popup` is an alias
-of medium, and `--easing-popup` is the one curve in the app that is a decision
-rather than a keyword: a hard ease-out that lands quickly and settles without
-overshoot, so a modal, a dropdown or a popover arrives rather than drifts in.
-The two always go together — `transform var(--transition-popup)
-var(--easing-popup)` — and the backdrop behind a modal takes the same pair,
-since it is rendered as a sibling and can't inherit it. Popups close the way
-they open; the exit is not tuned separately.
+**Popups are the medium tier with a curve.** `--transition-popup` aliases
+medium, and `--easing-popup` is the one tokenised curve: a hard ease-out that
+lands without overshoot, so a modal, dropdown or popover arrives rather than
+drifts in. They always go together —
+`transform var(--transition-popup) var(--easing-popup)` — and a modal's
+backdrop, a sibling that can't inherit, takes the same pair. Popups close the
+way they open.
 
-**Easings are keywords.** Outside popups nothing names a curve. The fast and
-medium tiers ride on the browser's default `ease`, and the one place that wants
-a different shape says `ease-out` after the duration. Don't tokenise `ease`:
-the token would export as a cubic-bezier that is longer and says less. Figma
-has no preset for it, so a prototype that wants parity uses a custom bezier of
-0.25, 0.1, 0.25, 1; its Ease in, Ease out and Ease in and out are the CSS
+**Easings are keywords.** Outside popups nothing names a curve: the tiers ride
+the browser's default `ease`, and a place that wants another shape writes
+`ease-out` after the duration. Don't tokenise `ease`; it would export as a
+longer cubic-bezier that says less. In Figma, `ease` is a custom bezier of
+0.25, 0.1, 0.25, 1; Ease in, Ease out and Ease in and out match the CSS
 keywords of the same name.
 
 **Feel comes from the curve before the tier.** A medium transition that seems
-slow wants `ease-out`, which spends the motion early, before it wants to be
-fast.
+slow wants `ease-out`, not the fast tier.
 
-**Loops and holds are not transitions.** The spinner and the fresh-change pulse
-are keyframe animations with their own timing, and the pause before a "Copied"
-label reverts is a delay in code. Neither takes a token: a token says how a
-change feels, not how long something waits.
+**Loops and holds are not transitions.** The spinner and the fresh-change
+pulse are keyframe animations with their own timing; the pause before a
+"Copied" label reverts is a delay in code. Neither takes a token.
 
 **Anything that moves respects reduced motion.** A fold that changes height
-turns its transition off under `prefers-reduced-motion: reduce`. A hover color needs no such rule.
+turns its transition off under `prefers-reduced-motion: reduce`. A hover color
+needs no such rule.
 
-**An icon that becomes another icon crossfades.** Whenever one glyph gives
-way to another — copy becoming a tick, plus becoming a check, a placeholder
-becoming a camera under the pointer — the old one doesn't cut to the new one.
-Both icons stay in the DOM, one laid over the other (a shared grid cell or an
-absolutely positioned wrapper), and each transitions `opacity, scale, filter`
-on the medium tier: the one leaving shrinks to `scale(0.25)`, fades to `0` and
-blurs to `4px`, the one arriving does the reverse. The easing is the keyword
-`ease-out`, as everywhere else. This is a transition, not a keyframe, so a
-second click or a pointer leaving mid-swap reverses it cleanly. The same
-recipe serves a result swap and a hover swap alike; only the trigger differs.
+**An icon that becomes another icon crossfades.** Copy becoming a tick, plus
+becoming a check, a placeholder becoming a camera under the pointer: both icons
+stay in the DOM, one over the other (a shared grid cell or an absolutely
+positioned wrapper), each transitioning `opacity, scale, filter` on the medium
+tier with `ease-out`. The leaving one shrinks to `scale(0.25)`, fades to `0`
+and blurs to `4px`; the arriving one does the reverse. It is a transition,
+not a keyframe, so it reverses cleanly mid-swap, for result and hover swaps
+alike.
 
-**The rules live in two places.** The token descriptions in ⚛️ Core carry
-the same tiers and pairings as this section; change one and change the other.
+**The rules live in two places.** The token descriptions in ⚛️ Core carry the
+same tiers and pairings; change one and change the other.
 
 ## Icons
 
-**Source.** Icons come from the ⚛️ Core Figma library. Don't draw new
-ones, and don't borrow from 💎 Core or the shared Svelte UI package — those are
-a different set, for the Svelte desktop app.
+**Source.** Icons come from the ⚛️ Core Figma library. Don't draw new ones, and
+don't borrow from 💎 Core or the shared Svelte UI package, a different set for
+the Svelte desktop app.
 
-**Grid and weight.** Icons are drawn 16×16 on a 16px grid with 1.5px strokes.
-Stroke width is constant in screen pixels, so a 16px icon and a 24px icon read
-at the same visual weight and sit correctly next to text of any size. Keep
-coordinates on the pixel grid; keep all geometry inside the `0 0 16 16` frame.
+**Grid and weight.** Icons are drawn 16×16 on a 16px grid with 1.5px strokes,
+constant in screen pixels, so a 16px and a 24px icon read at the same weight.
+Keep coordinates on the pixel grid and geometry inside the `0 0 16 16` frame.
 
-**Color.** Icons are monochrome and inherit the text color of whatever they sit
-in — one asset works in light and dark, in hover and disabled states, and in
-accent-colored buttons. Never give an icon a color of its own. If an icon needs
-to look different in a state, change the color of its container.
+**Color.** Icons are monochrome and inherit the text color around them, so one
+asset works in light, dark, hover, disabled and accent buttons. Never give an
+icon its own color; to change it in a state, change its container's.
 
-**Sizing.** Size is owned by CSS (`--icon-size`, default 16px), not by the
-asset, so an icon scales with the row, button, or type it belongs to. Don't
-size an icon by editing the SVG.
+**Sizing.** Size is owned by CSS (`--icon-size`, default 16px), not the asset.
+Don't size an icon by editing the SVG.
 
 **The exception: file icons.** `packages/ui-react/src/file-icons/` holds
-language/filetype glyphs that carry their own brand colors (the Rust gear, the
-TypeScript square). They are deliberately full-color and are the only icons
-that don't inherit `currentColor`. Use them for files and file-shaped things
-only — never as general-purpose UI icons.
+language/filetype glyphs in their brand colors (the Rust gear, the TypeScript
+square), the only icons that don't inherit `currentColor`. Use them for files
+and file-shaped things only.
 
 **A person without a picture gets their glitch, never a blank.** `Avatar` and
-`ProfileImage` are one design at two sizes. They show the person's picture,
-else the real Gravatar photo for their email. Anyone without either gets their
-glitch: a quiet pattern of big blocks in their colour's next step on their
-colour, both picked from their email or login, so a person looks the same
-everywhere. The same glitch shows while a picture loads. No generated faces:
-Gravatar URLs from the server and the backend are asked for the real photo
-only.
+`ProfileImage` are one design at two sizes: the person's picture, else the
+real Gravatar photo for their email, else their glitch — a quiet pattern of big
+blocks in their colour's next step on their colour, both picked from their
+email or login so a person looks the same everywhere. The glitch also shows
+while a picture loads. No generated faces: Gravatar URLs from the server and
+the backend ask for the real photo only.
 
 ## Tooltips
 
-**Short.** A tooltip is a label, not a sentence. Aim for two to five words,
-sentence case, no full stop. The popup caps at 240px and wraps, but a tooltip
-that needs two lines of prose is usually explaining something the UI should
-have made obvious on its own — or it belongs in a popup, an empty state, or the
-docs.
+**Short.** A label, not a sentence: two to five words, sentence case, no full
+stop. The popup caps at 240px and wraps; two lines of prose belong in the UI, a
+popup, an empty state, or the docs.
 
-**Never repeat the trigger's own label.** A tooltip that says "Commit" over a
-button reading _Commit_ is noise on every hover. If a control already says what
-it does, the tooltip has to add something — a shortcut, the reason it is
-disabled, the full value behind a truncation — or not exist. The Commit button
-does this literally: its tooltip is disabled while its label is visible and
-turns back on only when the button collapses to an icon.
+**Never repeat the trigger's own label.** "Commit" over a _Commit_ button is
+noise. Add something — a shortcut, why it is disabled, the full value behind a
+truncation — or have no tooltip. The Commit button's tooltip is off while its
+label is visible and on only when it collapses to an icon.
 
 **What a tooltip is for.** Three jobs, and not much else:
 
-- **Naming an icon-only control.** The icon carries the meaning, the tooltip
-  spells it out. Use the imperative — "Copy branch name", "Hide form", "Toggle
-  line wrapping".
+- **Naming an icon-only control.** In the imperative — "Copy branch name",
+  "Hide form", "Toggle line wrapping".
 - **Revealing what didn't fit.** The truncated path, the branch name, the
-  absolute time behind "3h ago", the counts behind a stats badge. Here the
-  tooltip is the value itself, not a description of it.
-- **Saying why something is disabled.** A disabled control can't explain
-  itself, so its tooltip does: "No changes to commit", "Set up AI in Settings →
-  Application → AI". Swap the hint in for the normal tooltip while the reason
-  applies. This needs the control to stay hoverable while disabled
-  (`focusableWhenDisabled`), and it is for a reason that is one detail of the
-  surface; when the reason is the surface's whole story, it goes in the label
-  instead — see Empty states.
+  absolute time behind "3h ago", the counts behind a stats badge — the value
+  itself, not a description of it.
+- **Saying why something is disabled.** "No changes to commit", "Set up AI in
+  Settings → Application → AI", in place of the normal tooltip while the reason
+  applies; the control stays hoverable with `focusableWhenDisabled`. Only for a
+  reason that is one detail of the surface; when it is the whole story, it goes
+  in the label — see Empty states.
 
-**Shortcuts go in the `kbd` slot, not the text.** Don't write "Fetch (⌘R)" —
-pass the hotkey as `Tooltip`'s `kbd` and let it render the keycaps. Pass `kbdScope`
-alongside it when the hotkey is bound to a pane: a shortcut that does nothing
-from where the user is standing is worse than no shortcut at all.
+**Shortcuts go in the `kbd` slot, not the text.** Not "Fetch (⌘R)": pass the
+hotkey as `Tooltip`'s `kbd` for keycaps, with `kbdScope` when it is bound to a
+pane — a shortcut that does nothing from where the user stands is worse than
+none.
 
-**A tooltip is never the only way to know.** It opens on hover and on keyboard
-focus, but a screen reader doesn't announce it and touch can't reach it. An
-icon-only button gets an `aria-label` as well — the tooltip repeats that name,
-it doesn't supply it. Nothing a user must read to proceed lives only in a
+**A tooltip is never the only way to know.** Screen readers don't announce it
+and touch can't reach it. An icon-only button also gets an `aria-label`, which
+the tooltip repeats. Nothing a user must read to proceed lives only in a
 tooltip, and nothing inside one is clickable.
 
-**Say it the way the rest of the app says it.** See Voice: the friendly word over
-git's own term, and the same wording as the menu item or button elsewhere that
-does the same thing.
+**Say it the way the rest of the app says it.** See Voice: the friendly word,
+and the wording of the button that does the same thing.
 
 ## Fields
 
-**A form field has a label.** Always, above the field, saying what it is —
-"Personal access token", "Signing key", "Account email" — for every field
-that takes a value the user has to think about: settings, credentials, the
-integration and signing forms. `Field.tsx` has the parts — `FieldLabelStyles`
-for the label, `FieldControlStyles` for the input.
+**A form field has a label.** Always, above the field — "Personal access
+token", "Signing key", "Account email" — for every value the user has to think
+about: settings, credentials, the integration and signing forms. `Field.tsx`
+has `FieldLabelStyles` for the label and `FieldControlStyles` for the input.
 
-**A name already on the surface is not given twice.** The rule is that every
-field has one name the eye and the screen reader both find, not that every
-field wears its own. A field at the end of a settings row is named by the
-row's label — "Description", "Auto-fetch frequency" — and that label is the
-field's: the row ties the two with `htmlFor`, so a second one above the input would
-say the same word twice, one line apart. The same goes for anything else that
-already says what the field is, a column heading over a field in a table, or
-a card whose title names its single field. `FieldLabelStyles` is for a field
-nothing else names: the forms that stack several fields in one strip, where
-each needs its own.
+**A name already on the surface is not given twice.** Each field needs one name
+the eye and the screen reader both find. A field at the end of a settings row
+is named by the row's label — "Description", "Auto-fetch frequency" — tied with
+`htmlFor`; so is one under a table column heading, or in a card whose title
+names its single field. `FieldLabelStyles` is for fields nothing else names, as
+in forms that stack several in one strip.
 
-**The placeholder shows the shape, when the shape needs showing.** A token, a
-key fingerprint, a custom API URL, a path to a signing program: the user may
-not know what a valid value looks like, so the placeholder shows one —
-`GLPAT-XXXXXXXXXXXXXXXXXX`, `723CCA3AC13CF28D`, `https://api.openai.com/v1`.
-An email, a name, a branch name needs no example; the label already says it
-all, and the field stays empty. Ask whether someone could get the format wrong.
-If not, leave the placeholder out.
+**The placeholder shows the shape, when the shape needs showing.** If the user
+could get the format wrong — a token, a key fingerprint, a custom API URL, a
+path to a signing program — show a valid value: `GLPAT-XXXXXXXXXXXXXXXXXX`,
+`723CCA3AC13CF28D`, `https://api.openai.com/v1`. An email, a name or a branch
+name needs none; leave the field empty.
 
-**A placeholder is not a label.** It disappears the moment the user types, so
-a field that introduces itself only through its placeholder is unnamed as soon
-as it holds a value, and unnamed for a screen reader from the start. Putting
-"Account email" in the placeholder and nothing above the field is the label
-wearing the wrong hat: move it up, and use the placeholder for what it is for.
-For the same reason nothing the user needs to know lives only in the
-placeholder. The scope a token needs, where to generate it, what happens on
-save — that is a hint under the field, in text that stays.
+**A placeholder is not a label.** It vanishes once the user types and a screen
+reader never has it: "Account email" as a placeholder with nothing above is a
+missing label. Nothing the user needs lives only there; a token's scope, where
+to generate it, what happens on save go in a hint under the field.
 
-**An example is a value, not a caption.** Show it the way a real one would
-look — a token's prefix and length, a key's fingerprint, a full URL, a path.
-Don't repeat the label ("Enter your token"), and don't describe the value in
-words when you can show one. A secret that is already saved shows dots
-(`••••••••`) in place of the example, since the value itself never comes back.
+**An example is a value, not a caption.** A token's prefix and length, a key's
+fingerprint, a full URL, a path — not the label again ("Enter your token") or a
+description in words. A saved secret shows dots (`••••••••`), since its value
+never comes back.
 
-**The exceptions are fields that are the surface.** A search box, a filter
-row, the command palette, a comment or reply composer: the field is the whole
-control, its purpose is obvious from where it sits, and a label above it would
-name what the eye already knows. There the placeholder does the talking —
-"Search for branches…", "Filter files", "Write a reply…" — and the input
-still gets an `aria-label` so it has a name where there is nothing to see.
-This is for a field that stands alone and acts on its own; the moment it sits
-in a form with a button that saves it, it is a form field and gets its label.
+**The exceptions are fields that are the surface.** A search box, a filter row,
+the command palette, a comment or reply composer: the field is the whole
+control, so the placeholder does the talking — "Search for branches…", "Filter
+files", "Write a reply…" — with an `aria-label` for the name. Once such a field
+sits in a form with a save button, it is a form field and gets its label.
 
 ## Empty states
 
-**One component, in ⚛️ Core: "Empty state".** An illustration slot, a
-title, a body line, and an actions slot. Its description in Figma carries the
-same rules as this section; change one and change the other.
+**One component, in ⚛️ Core: "Empty state".** An illustration slot, a title, a
+body line, and an actions slot. Its Figma description carries the same rules;
+change one and change the other.
 
-**It is for a surface that is empty, once the app knows it is.** Not a loading
-state — "not loaded" is not the same as "nothing to report", and a panel that
-claims an emptiness it hasn't checked yet will flash the wrong words on every
-open.
+**It is for a surface that is empty, once the app knows it is.** Never a
+loading state.
 
 **A filter that matched nothing is empty too, and says so.** In a panel with
-room for it — the branches tab — it takes the block, with the title naming the
-miss and the body quoting what missed: the search, the filters, or both. The
-one action shows everything again, because the filters live in a native menu
-the block cannot point at. A short strip keeps the line where its rows would
-be, next to the filter that caused it. A picker's list takes a smaller block,
-`PopupEmpty`: the `papers` drawing over the one line that reports the miss,
-with no title above it, the line closer under the illustration, and no
-counterweight, because a line has no weight to lift. The same rule as the
-branches tab picks the drawing and the line: a list with nothing in it before
-anything was typed gets the cactus and says what that means — "Nothing left to
-apply" — since nothing was searched for and "found" would be the wrong word. A
-dropdown no wider than its trigger keeps the plain line: the commit target
-combobox is too narrow for the drawing.
+room — the branches tab — it takes the block: the title names the miss, the
+body quotes what missed (the search, the filters, or both), and the one action
+shows everything again, since the filters live in a native menu the block
+can't point at. A short strip keeps the line where its rows would be, next to
+the filter. A picker's list takes `PopupEmpty`: the `papers` drawing over one
+line reporting the miss, no title, the line closer under the drawing, no
+counterweight. A list empty before anything was typed gets the cactus and says
+what that means — "Nothing left to apply" — not "found". A dropdown no wider
+than its trigger, like the commit target combobox, keeps the plain line.
 
 ### Illustrations
 
-**Each one means something; pick it by meaning.** They are not decoration to
-rotate for variety:
+**Each one means something; pick it by meaning,** never for variety:
 
 | Illustration | Size    | Means                                                                                   |
 | ------------ | ------- | --------------------------------------------------------------------------------------- |
@@ -515,194 +417,154 @@ rotate for variety:
 | `terminal`   | 79×59   | The command line                                                                        |
 | `waving`     | 186×215 | Good news in a large view: all good, nothing to do. Large views only                    |
 
-**Always at 1:1.** Each is drawn at its size and renders at it; never scale
-one up or down to fit. If a surface has no room for the drawing, leave the
-drawing out (the block works without it) rather than shrinking it.
+**Always at 1:1.** Never scale one. With no room, leave the drawing out; the
+block works without it.
 
-**`waving` is the big one, and the happy one.** It needs both: a large view,
-a details pane or a whole page, and good news, where "nothing to do here" is
-the point. Never in a sidebar, a popup or anything narrow, and never for a
-miss or an error, however large the view: those take `papers`.
+**`waving` is the big one, and the happy one.** It needs a large view — a
+details pane or a whole page — and good news. Never in a sidebar, a popup or
+anything narrow, and never for a miss or an error: those take `papers`.
 
-**Never a stand-in that looks like content.** Gray avatar circles and text
-bars where the reviewers would go are what every app draws while it is still
-loading, so a section that draws them at rest reads as stuck, not empty. The PR
-panel's Reviewers and Labels used to do this, and lost the shapes for an "Add
-reviewers" button: the empty section says what fills it, and a control is the
-one thing a skeleton never shows.
+**Never a stand-in that looks like content.** Gray avatar circles and text bars
+at rest read as stuck loading. Say what fills the section with a control — the
+PR panel's Reviewers and Labels show an "Add reviewers" button — which a
+skeleton never shows.
 
 **Centred, and only in a panel with room for it.** A short strip — the
 uncommitted list above its commit form — takes a single muted line inset to the
-column its rows would occupy, not this. The component centres itself in the
-height it is given, falling back to the top when the panel is too short to
-hold it, so the block's head never goes out of reach above the scroll origin.
-Its host only has to give it that height: a pane that fills its column.
+column its rows would occupy instead. The component centres itself in the
+height it is given, falling back to the top when the panel is too short so its
+head stays above the scroll origin. The host gives it that height: a pane that
+fills its column.
 
 **An empty section inside a page takes the same block.** A settings list with
 nothing in it — no active worktrees, a feature turned off — uses `EmptyState`
-too, without the illustration, framed on the recessed ground so it reads as
-the page's state rather than one more row. A section has no height to centre in
-and no weight to lift, so its frame turns the counterweight off. There is no
-second empty pattern: a title-and-hint card styled in a page's own CSS is the
-one-off this rule replaces.
+without the illustration, framed on the recessed ground so it reads as the
+page's state, not another row, with the counterweight off. There is no second
+empty pattern: no title-and-hint card in a page's own CSS.
 
 **Centred optically, which is not the same as centred.** The block's weight
-sits low — two lines of type and a row of buttons under a light illustration —
-so centring it on its geometry reads as sitting below the middle. The component
-carries 60px of bottom padding to correct for it, and the frontend carries the
-same: padding rather than a margin, so that centring the box moves the ink,
-lifting what you see by half of what you add. Keep the two in step; if the
-block's proportions change, the counterweight is what changes with them.
+sits low, so the component and the frontend both carry 60px of bottom padding
+(padding, not margin, so centring lifts the ink by half). Keep the two in step
+with the block's proportions.
 
 **The title names the state; the body says what happens next.** One short line
-each, sentence case, no full stop. The body's job is the thing the user can't
-see — what the next action will do, or the live answer behind the emptiness: a
-count, a branch name, a time. "You have 5 branches to pick from" earns its
-place; "There is nothing here" repeats the title and the picture both.
+each, sentence case, no full stop. The body gives what the user can't see: what
+the next action will do, or the live answer behind the emptiness — a count, a
+branch name, a time. "You have 5 branches to pick from", not "There is nothing
+here".
 
-**The block caps at 320px.** It is a block, not a banner, and the details pane
-it can land in is over a thousand pixels wide. The cap is on the component, so
-no host has to remember it, and it is the measure the copy is set in — nothing
-inside sets a narrower one.
+**The block caps at 320px.** It is a block, not a banner. The cap is on the
+component and is the measure for the copy; nothing inside sets a narrower one.
 
-**Both lines wrap balanced.** They get `text-balance`, and 320 is what gives
-them something to balance within. Centred text with a full line and a two-word
-orphan under it reads as broken, which is the whole reason for the rule. Figma
-has no equivalent, so lines there are broken by hand — the component's
-description says so.
+**Both lines wrap balanced.** They get `text-balance` within the 320 measure.
+Figma has no equivalent, so lines there are broken by hand.
 
-**At most two buttons, and never `pop`.** The surface's accent is already spent
-on its primary action elsewhere, and if two things pop, neither does. Gray marks the likelier of two,
-outline takes the other; a button on its own stays outline. Rarer routes to the
-same place stay in the panel header's controls rather than crowding the block.
+**At most two buttons, and never `pop`.** The surface's accent is spent
+elsewhere. Gray marks the likelier of two, outline the other; a lone button is
+outline. Rarer routes stay in the panel header's controls.
 
-**A button is not always owed.** Where the app handles the state on its own —
-committing with no branches creates one — the button is a shortcut and should
-read as one, and a body line promising the automatic path shouldn't sit under a
-highlighted button arguing the opposite.
+**A button is not always owed.** Where the app handles the state itself —
+committing with no branches creates one — any button is a shortcut and is not
+highlighted.
 
 **An empty state is not the answer to a missing step.** Before designing a
-state for "can't do this yet", ask whether the app should take the step itself.
-The PR form used to disable its button on a branch that had never been pushed,
-when desktop and the CLI simply push and then create; removing the condition
-beat designing a state for it. Design the state only when the step is
-genuinely the user's — committing, say.
+"can't do this yet" state, ask whether the app should take the step: a PR from
+a never-pushed branch just pushes and then creates, as desktop and the CLI do.
+Design the state only when the step is genuinely the user's — committing, say.
 
-**Blocked is not empty.** The block is for a surface with nothing in it. A
-surface that has content but cannot act yet keeps its content, because the
-block would throw away work the surface still supports: the PR form on a
-branch with no commits still takes a title, a description and a draft toggle,
-and keeps that draft per branch, so the form stays and only its action
-waits. Three cases, three treatments — nothing here gets the block, not yet
-gets a held control that says why, not loaded gets neither.
+**Blocked is not empty.** A surface with content that cannot act yet keeps its
+content: the PR form on a branch with no commits still takes a title, a
+description and a draft toggle, kept per branch; only its action waits. Nothing
+here gets the block; not yet gets a held control that says why; not loaded gets
+neither.
 
 **A held control says why, and where depends on what else is on the surface.**
-When the reason is the whole story of the surface it goes in the label, visible
-without hover, in place of the action it replaces: the branch tabs' "No pull
-request", the form's "No commits yet" — "No X" or "No X yet", and short. When
-the surface already shows the situation and the reason is one detail of it, a
-tooltip is enough (see Tooltips): the merge button blocked by checks, with the
-checks listed right above it. A tooltip only works on a control that stays
+When the reason is the surface's whole story, it goes in the label, visible
+without hover, in place of the action: "No pull request" on the branch tabs,
+"No commits yet" on the form — "No X" or "No X yet", short. When the surface
+already shows the situation, a tooltip is enough (see Tooltips): the merge
+button blocked by checks listed right above it. That needs a control that stays
 hoverable while disabled — `Button`'s `focusableWhenDisabled`, which
-`DropdownButton` relies on — which is the other reason a plain disabled button
-says it in the label.
+`DropdownButton` relies on; a plain disabled button says it in the label.
 
 **Whether the reason will pass decides the entry point.** Keep a surface
-reachable when its block clears with the user's next ordinary action: an empty
+reachable when the user's next ordinary action clears the block: an empty
 branch is one commit from a PR, so its tab stays live and the form explains
 itself. Disable the entry point only when the reason is permanent for that
-view — an unapplied branch cannot open a PR at all, so its tab segment is the
-thing that says so. Otherwise a fresh branch would have both tabs dead, its
-diff being empty too.
+view: an unapplied branch cannot open a PR, so its tab segment says so.
 
 ## Toasts and snackbars
 
-Two ways of saying what just happened, and the choice between them is about
-**where the news belongs**, not how bad it is.
+Two ways of saying what just happened; choose by **where the news belongs**,
+not how bad it is.
 
-**A snackbar is a sentence next to the thing it is about.** One glyph, one
-line, floated over the surface that caused it — `Snackbar.tsx`, ⚛️ Core
-node `1706-1682`. It has no title and no room for one: if the news won't fit in
-a line the reader can take in without stopping, it isn't a snackbar. Seat it
-where the operation's own controls stood, so the answer arrives where the user
-was already looking.
+**A snackbar is a sentence next to the thing it is about.** One glyph, one line,
+no title, floated over the surface that caused it — `Snackbar.tsx`, ⚛️ Core
+node `1706-1682`. News that won't fit in a line read without stopping isn't a
+snackbar. Seat it where the operation's own controls stood.
 
 **A toast is a card in the corner of the window.** A title, a description that
 can hold real content — a list of rejected paths, an error message — and
-buttons, in a 250px stack at the bottom right. It's the surface for news that
-outlives the place that produced it: a background failure, an operation that
-half-succeeded, an uncaught error from anywhere in the app.
+buttons, in a 250px stack at the bottom right. It is for news that outlives its
+source: a background failure, a half-succeeded operation, an uncaught error.
 
-**Pick by whether the surface is still there.** If the user is standing in
-front of the thing that failed, say it there — a snackbar keeps the cause and
-the consequence in one glance. If the news would land on a screen that has
-moved on, or the user could reasonably be somewhere else by now, it needs the
-corner and it needs a title to say what it is about. Errors from mutations and
-from the React root take the corner for exactly this reason: nothing else knows
-where they came from.
+**Pick by whether the surface is still there.** If the user is in front of the
+thing that failed, use a snackbar. If the screen may have moved on, the news
+needs the corner and a title; errors from mutations and the React root always
+take the corner.
 
-**Pick by whether it needs reading twice.** A snackbar states an outcome and
-goes, after about five seconds, and a click anywhere on it ends it early. A toast can hold a paragraph, a bulleted breakdown, and a retry, and
-it waits. Anything the user may want to copy, act on, or read a second time is
-a toast.
+**Pick by whether it needs reading twice.** A snackbar goes after about five
+seconds, or early on a click anywhere on it. A toast can hold a paragraph, a
+bulleted breakdown and a retry, and waits. Anything to copy, act on or reread
+is a toast.
 
 **Nothing routine gets either one.** A success the UI already shows — the
-commit that appeared in the list, the branch that is now on screen — needs no
-announcement. Reach for one of these only when the result is invisible, partial,
-or refused.
+commit in the list, the branch on screen — needs no announcement. Use one only
+when the result is invisible, partial, or refused.
 
-**The verdict is carried by the glyph, not the surface.** All three snackbar
-variants wear the same ground and the same border; `info`, `danger` and `safe`
-differ only in the leading icon, so a run of them reads as a row of statements
-rather than a traffic light. Don't add a colored fill to make one louder — if
-it needs more weight than a line, it needs to be a toast.
+**The verdict is carried by the glyph, not the surface.** The three snackbar
+variants share ground and border; `info`, `danger` and `safe` differ only in
+the leading icon. No colored fill: news that needs more weight is a toast.
 
 **A snackbar's way out is optional; a toast's is not.** Give a snackbar
-`onDismiss` only when it will sit there until dealt with — it then grows a
-divider and a close button, and the row grows with it. One that leaves on a
-timer carries no close button at all: the only close button on screen should
-belong to whatever the user still has in hand. Toasts always carry Dismiss,
-plus at most one action beside it.
+`onDismiss` only when it stays until dealt with; it then grows a divider and a
+close button. One on a timer has none. Toasts always carry Dismiss, plus at
+most one action.
 
 **Say it the way the rest of the app says it.** See Voice. A snackbar is one
-sentence, sentence case, no full stop. A toast title names what happened in a
-short line — "Some changes were not committed" — and the description carries
-the detail; don't split one thought across the two.
+sentence, no full stop. A toast title names what happened in a short line —
+"Some changes were not committed" — and the description carries the detail.
 
 **Both announce themselves to screen readers, differently.** A snackbar is
 `role="status"` and waits its turn, except `danger`, which is `role="alert"`
-and interrupts. Toasts get theirs from the toast viewport. Neither is the only
-way to know something: a state the user must act on belongs in the UI itself,
-not in a surface that leaves.
+and interrupts. Toasts get theirs from the toast viewport. A state the user
+must act on belongs in the UI itself.
 
 ## Markdown
 
 How rendered markdown — a pull request description, a comment — looks in any
 app. Lite's kit and renderer are in `apps/lite/DESIGN.md`.
 
-**The rhythm is 12, 16, 4.** 12px between text blocks. 16px around anything
-with an edge — a table, a code block, a quote bar, an image, a rule — because
-text carries its own leading and a box doesn't. 4px between the items of a
-list, and a nested list keeps the item rhythm rather than the block one. A
-heading takes twice the text gap above it, 24px, and a little less for h3 and
-below, 20px, so a section reads as a section rather than as one more
-paragraph; 8px below, which collapses into the next block's own margin.
-Margins collapse in CSS, so a box next to a paragraph gets 16, not 28.
+**The rhythm is 12, 16, 4.** 12px between text blocks; 16px around anything
+with an edge — a table, a code block, a quote bar, an image, a rule — because a
+box lacks text's leading; 4px between list items, nested lists included. A
+heading takes 24px above (twice the text gap), 20px for h3 and below, and 8px
+below, collapsing into the next block's margin. Margins collapse, so a box next
+to a paragraph gets 16, not 28.
 
 **Type.** Body/13 on a 160% line. H1 is 18, H2 16, H3 14, all semibold on a
-130% line: a heading that wraps should still read as one heading.
-Levels four to six stay at the body size and only go semibold; Figma has no
-component for them, and a description that needs a fourth level needs fewer
-levels.
+130% line so a wrapped heading reads as one. Levels four to six stay at body
+size, semibold only; Figma has no component for them, and a description that
+needs a fourth level needs fewer levels.
 
-**Every link leaves the app, and the arrow says so.** As everywhere (see
-Links), each is a `TextLink`, so it ends in the arrow hung off the text
-without a space and the underline stops at the word. Prose links keep the kit's blue, so their hover is the underline
-going solid rather than the text lifting.
+**Every link leaves the app, and the arrow says so.** Each is a `TextLink` (see
+Links), ending in the arrow hung off the text without a space. Prose links keep
+the kit's blue, so their hover is the underline going solid, not the text
+lifting.
 
 **A box gets an edge.** Code blocks and inline code sit on `--bg-2`, at
-`--radius-card` and `--radius-button` respectively, in mono 12. A blockquote
-is a 3px `--border-2` bar with `--text-2` text. An image takes a 1px
+`--radius-card` and `--radius-button` respectively, in mono 12. A blockquote is
+a 3px `--border-2` bar with `--text-2` text. An image takes a 1px
 `--card-border` ring inset inside `--radius-card` corners, so a white
 screenshot has an edge on a white panel, and opens externally on click. A
 table's cells are bordered in `--border-3` under a `--bg-2` header row.
