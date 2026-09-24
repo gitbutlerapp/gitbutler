@@ -117,12 +117,12 @@ impl StatusOutput<'_> {
     pub fn worktree(
         &mut self,
         connector: Vec<Span<'static>>,
-        line: UncommittedLineContent,
+        line: BranchLineContent,
         id: CliId,
     ) -> anyhow::Result<()> {
         self.push_line(
             Some(connector),
-            StatusOutputContent::Uncommitted(line),
+            StatusOutputContent::Branch(line),
             StatusOutputLineData::Worktree {
                 cli_id: Arc::new(id),
             },
