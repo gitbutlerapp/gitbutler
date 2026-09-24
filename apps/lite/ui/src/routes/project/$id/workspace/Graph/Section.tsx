@@ -21,8 +21,8 @@ import { headInfoQueryOptions } from "#ui/api/queries.ts";
 import { stackBottomRelativeTo } from "#ui/api/stack.ts";
 import { projectSlice } from "#ui/projects/state.ts";
 import { useAppSelector } from "#ui/store.ts";
-import { TooltipPopup } from "@gitbutler/ui-react/Tooltip.tsx";
-import { Button, Tooltip } from "@base-ui/react";
+import { Tooltip } from "@gitbutler/ui-react/Tooltip.tsx";
+import { Button } from "@base-ui/react";
 import type { BottomUpdate } from "@gitbutler/but-sdk";
 import { useQuery } from "@tanstack/react-query";
 import { type FC, type ReactNode, type RefObject, useRef, useState } from "react";
@@ -80,16 +80,9 @@ const Caption: FC<{ className?: string; hint: ReactNode; children: ReactNode }> 
 	hint,
 	children,
 }) => (
-	<Tooltip.Root>
-		<Tooltip.Trigger render={<span className={classes("text-12", className)} />}>
-			{children}
-		</Tooltip.Trigger>
-		<Tooltip.Portal>
-			<Tooltip.Positioner sideOffset={4}>
-				<Tooltip.Popup render={<TooltipPopup />}>{hint}</Tooltip.Popup>
-			</Tooltip.Positioner>
-		</Tooltip.Portal>
-	</Tooltip.Root>
+	<Tooltip content={hint}>
+		<span className={classes("text-12", className)}>{children}</span>
+	</Tooltip>
 );
 
 /** A header row: not a value. With a fold, the rail's toggle opens it, as on the rows above. */
@@ -207,29 +200,28 @@ const Fetch: FC<{ projectId: string }> = ({ projectId }) => {
 	const { fetch, isPending, enabled, lastSuccessfulMs } = useFetchFromRemotes(projectId);
 	const [tooltipNow, setTooltipNow] = useState(() => Date.now());
 	return (
-		<Tooltip.Root
+		<Tooltip
 			onOpenChange={(open) => {
 				if (open) setTooltipNow(Date.now());
 			}}
+			content={
+				<>
+					{workspaceHotkeys.fetchFromRemotes.meta.name}
+					{lastSuccessfulMs != null && ` (${formatRelativeTime(lastSuccessfulMs, tooltipNow)})`}
+				</>
+			}
+			kbd={workspaceHotkeys.fetchFromRemotes.hotkey}
 		>
-			<Tooltip.Trigger
+			<Button
 				aria-label={workspaceHotkeys.fetchFromRemotes.meta.name}
 				className={getRowButtonClassName({ iconOnly: true })}
 				onClick={fetch}
-				// `disabled` goes on the button so the tooltip still opens over it.
-				render={<Button focusableWhenDisabled disabled={!enabled} />}
+				focusableWhenDisabled
+				disabled={!enabled}
 			>
 				<Icon name={isPending ? "spinner" : "refresh"} />
-			</Tooltip.Trigger>
-			<Tooltip.Portal>
-				<Tooltip.Positioner sideOffset={4}>
-					<Tooltip.Popup render={<TooltipPopup kbd={workspaceHotkeys.fetchFromRemotes.hotkey} />}>
-						{workspaceHotkeys.fetchFromRemotes.meta.name}
-						{lastSuccessfulMs != null && ` (${formatRelativeTime(lastSuccessfulMs, tooltipNow)})`}
-					</Tooltip.Popup>
-				</Tooltip.Positioner>
-			</Tooltip.Portal>
-		</Tooltip.Root>
+			</Button>
+		</Tooltip>
 	);
 };
 
@@ -240,23 +232,16 @@ const Pull: FC<{ target: string; enabled: boolean; isPending: boolean; onPull: (
 	isPending,
 	onPull,
 }) => (
-	<Tooltip.Root>
-		<Tooltip.Trigger
+	<Tooltip content={<>Pull the latest from {target} into the workspace base</>}>
+		<Button
 			className={getRowButtonClassName({ variant: "outline" })}
 			onClick={onPull}
-			// `disabled` goes on the button so the tooltip still opens over it.
-			render={<Button focusableWhenDisabled disabled={!enabled} />}
+			focusableWhenDisabled
+			disabled={!enabled}
 		>
 			{isPending ? "Pulling…" : "Pull latest"}
-		</Tooltip.Trigger>
-		<Tooltip.Portal>
-			<Tooltip.Positioner sideOffset={4}>
-				<Tooltip.Popup render={<TooltipPopup />}>
-					Pull the latest from {target} into the workspace base
-				</Tooltip.Popup>
-			</Tooltip.Positioner>
-		</Tooltip.Portal>
-	</Tooltip.Root>
+		</Button>
+	</Tooltip>
 );
 
 export const Section: FC<{

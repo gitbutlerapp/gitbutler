@@ -35,8 +35,8 @@ import {
 } from "#ui/native-menu.ts";
 import * as md from "@gitbutler/ui-react/markdown-editing.ts";
 import { applyToTextarea } from "@gitbutler/ui-react/markdown-textarea.ts";
-import { TooltipPopup } from "@gitbutler/ui-react/Tooltip.tsx";
-import { Toggle, ToggleGroup, Tooltip } from "@base-ui/react";
+import { Tooltip } from "@gitbutler/ui-react/Tooltip.tsx";
+import { Toggle, ToggleGroup } from "@base-ui/react";
 import { Badge, type BadgeVariant } from "@gitbutler/ui-react/Badge.tsx";
 import { Button } from "@gitbutler/ui-react/Button.tsx";
 import { Clamped } from "#ui/components/Clamped.tsx";
@@ -975,9 +975,11 @@ const InsertButton: FC<{
 	items: () => Array<NativeMenuItem>;
 	notice: string;
 }> = ({ label, icon, items, notice }) => (
-	<Tooltip.Root>
-		<Tooltip.Trigger
-			render={<Button variant="ghost" iconOnly aria-label={label} />}
+	<Tooltip content={label}>
+		<Button
+			variant="ghost"
+			iconOnly
+			aria-label={label}
 			// Keeps the caret in the textarea: a plain click would blur it
 			// first, so the insert would have no position to act on.
 			onMouseDown={(evt) => evt.preventDefault()}
@@ -986,13 +988,8 @@ const InsertButton: FC<{
 			}
 		>
 			<Icon name={icon} />
-		</Tooltip.Trigger>
-		<Tooltip.Portal>
-			<Tooltip.Positioner sideOffset={4}>
-				<Tooltip.Popup render={<TooltipPopup />}>{label}</Tooltip.Popup>
-			</Tooltip.Positioner>
-		</Tooltip.Portal>
-	</Tooltip.Root>
+		</Button>
+	</Tooltip>
 );
 
 /**

@@ -14,7 +14,7 @@ vi.mock("#ui/hotkeys.ts", () => ({
 }));
 vi.mock("@gitbutler/ui-react/Kbd.tsx", () => ({ Kbd: () => null }));
 vi.mock("@gitbutler/ui-react/Tooltip.tsx", () => ({
-	TooltipPopup: ({ children }: { children: ReactNode }) => <div>{children}</div>,
+	Tooltip: ({ children }: { children: ReactNode }) => children,
 }));
 vi.mock("#ui/api/mutations.ts", () => ({
 	useWorkspaceIntegrateUpstream: () => ({ isPending: false, mutate: vi.fn() }),

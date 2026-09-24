@@ -36,7 +36,7 @@ import { branchDetailsParams } from "#ui/branch.ts";
 import { MarkdownAttachments } from "#ui/components/MarkdownAttachments.tsx";
 import { MarkdownToolbar } from "@gitbutler/ui-react/MarkdownToolbar.tsx";
 import { SwitchButton } from "@gitbutler/ui-react/SwitchButton.tsx";
-import { TooltipPopup } from "@gitbutler/ui-react/Tooltip.tsx";
+import { Tooltip } from "@gitbutler/ui-react/Tooltip.tsx";
 import { pullRequestHotkeys } from "#ui/hotkeys.ts";
 import { prDescriptionGenerationButtonState } from "#ui/pr-description-generation.ts";
 import { projectAiSettingsQueryOptions } from "#ui/project-ai-settings.ts";
@@ -53,7 +53,7 @@ import {
 	usePersistMergeMethod,
 } from "#ui/pr.ts";
 import { type FocusScope, useAutofocusScope } from "#ui/focus-scopes.ts";
-import { Field, Tooltip } from "@base-ui/react";
+import { Field } from "@base-ui/react";
 import type { ForgeReview, ReviewMergeMethod } from "@gitbutler/but-sdk";
 import { useQuery, useSuspenseQuery } from "@tanstack/react-query";
 import { useHotkey } from "@tanstack/react-hotkeys";
@@ -431,27 +431,18 @@ export const PullRequestForm: FC<{
 								targetRef={bodyRef}
 							/>
 							<div aria-hidden className={styles.footerSeparator} />
-							<Tooltip.Root>
-								{/* Disabled buttons swallow hover, so the wrapper span carries the tooltip. */}
-								<Tooltip.Trigger render={<span className={styles.disabledActionWrap} />}>
-									<Button
-										aria-label="Generate title and description"
-										variant="ghost"
-										iconOnly
-										disabled={generationButton.disabled}
-										onClick={generateDescription}
-									>
-										<Icon name={isGenerating ? "spinner" : "ai-text"} />
-									</Button>
-								</Tooltip.Trigger>
-								<Tooltip.Portal>
-									<Tooltip.Positioner sideOffset={4}>
-										<Tooltip.Popup render={<TooltipPopup />}>
-											{generationButton.hint ?? "Generate title and description"}
-										</Tooltip.Popup>
-									</Tooltip.Positioner>
-								</Tooltip.Portal>
-							</Tooltip.Root>
+							<Tooltip content={generationButton.hint ?? "Generate title and description"}>
+								<Button
+									aria-label="Generate title and description"
+									variant="ghost"
+									iconOnly
+									focusableWhenDisabled
+									disabled={generationButton.disabled}
+									onClick={generateDescription}
+								>
+									<Icon name={isGenerating ? "spinner" : "ai-text"} />
+								</Button>
+							</Tooltip>
 						</div>
 
 						<div className={styles.footerEnd}>
@@ -488,17 +479,13 @@ export const PullRequestForm: FC<{
 								    form's whole story, so it has to be readable without hover
 								    (DESIGN.md → Empty states). Only once the editor is too
 								    narrow for the label does the tooltip take it over. */}
-								<Tooltip.Root disabled={!submitLabelHidden || !isNew}>
-									<Tooltip.Trigger
+								<Tooltip disabled={!submitLabelHidden || !isNew} content={submitLabel}>
+									<Button
+										variant="gray"
+										disabled={!canSubmit || noCommits || isAnyPending || !hasChanges}
+										focusableWhenDisabled
+										type="submit"
 										aria-label={submitLabel}
-										render={
-											<Button
-												variant="gray"
-												disabled={!canSubmit || noCommits || isAnyPending || !hasChanges}
-												focusableWhenDisabled
-												type="submit"
-											/>
-										}
 									>
 										<span ref={observeSubmitLabel} className={styles.submitLabel}>
 											{submitLabel}
@@ -512,13 +499,8 @@ export const PullRequestForm: FC<{
 										{isNew && pushFirst !== null && !noCommits && (
 											<Icon name="arrow-up" className={styles.submitPushIcon} />
 										)}
-									</Tooltip.Trigger>
-									<Tooltip.Portal>
-										<Tooltip.Positioner sideOffset={4}>
-											<Tooltip.Popup render={<TooltipPopup />}>{submitLabel}</Tooltip.Popup>
-										</Tooltip.Positioner>
-									</Tooltip.Portal>
-								</Tooltip.Root>
+									</Button>
+								</Tooltip>
 							</div>
 						</div>
 					</div>

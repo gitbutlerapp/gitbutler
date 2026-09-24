@@ -4,14 +4,14 @@ import { headInfoQueryOptions } from "#ui/api/queries.ts";
 import { NotificationBell } from "#ui/review-inbox-bell.tsx";
 import { stackBottomRelativeTo } from "#ui/api/stack.ts";
 import { Icon } from "@gitbutler/ui-react/Icon.tsx";
-import { TooltipPopup } from "@gitbutler/ui-react/Tooltip.tsx";
+import { Tooltip } from "@gitbutler/ui-react/Tooltip.tsx";
 import { workspaceHotkeys } from "#ui/hotkeys.ts";
 import type { Address } from "#ui/addresses.ts";
 import { projectSlice } from "#ui/projects/state.ts";
 import { interfaceSlice } from "#ui/interface/state.ts";
 import { useAppDispatch, useAppSelector } from "#ui/store.ts";
 import type { AddressSpace } from "#ui/workspace/address-space.ts";
-import { Button, Toggle, ToggleGroup, Tooltip } from "@base-ui/react";
+import { Button, Toggle, ToggleGroup } from "@base-ui/react";
 import type { BottomUpdate, ProjectForFrontend } from "@gitbutler/but-sdk";
 import { useQuery } from "@tanstack/react-query";
 import { useHotkeys } from "@tanstack/react-hotkeys";
@@ -247,33 +247,23 @@ export const Sidebar: FC<{
 					newBranch={newBranch}
 					stacksHeaderActions={
 						<RowToolbar forceVisible>
-							<Tooltip.Root>
-								<Tooltip.Trigger
+							<Tooltip
+								content="New branch"
+								// The menu carries both keys; the tooltip names the one that skips it.
+								kbd={workspaceHotkeys.createIndependentBranch.hotkey}
+							>
+								<Button
 									aria-label="New branch"
 									className={getRowButtonClassName({ size: "regular", iconOnly: true })}
 									onClick={(event) => {
 										void showNativeMenuFromTrigger(event.currentTarget, newBranch.menuItems);
 									}}
-									// We pass `disabled` here because we want to disable the button, not
-									// the tooltip. Other props should be passed above.
-									render={<Button focusableWhenDisabled disabled={!canCreateBranch} />}
+									focusableWhenDisabled
+									disabled={!canCreateBranch}
 								>
 									{newBranch.isPending ? <Icon name="spinner" /> : <Icon name="plus" />}
-								</Tooltip.Trigger>
-								<Tooltip.Portal>
-									<Tooltip.Positioner sideOffset={4}>
-										{/* The menu carries both keys; the tooltip names the one that
-										    skips it. */}
-										<Tooltip.Popup
-											render={
-												<TooltipPopup kbd={workspaceHotkeys.createIndependentBranch.hotkey} />
-											}
-										>
-											New branch
-										</Tooltip.Popup>
-									</Tooltip.Positioner>
-								</Tooltip.Portal>
-							</Tooltip.Root>
+								</Button>
+							</Tooltip>
 						</RowToolbar>
 					}
 				/>

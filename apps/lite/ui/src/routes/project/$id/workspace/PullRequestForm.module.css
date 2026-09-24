@@ -4,15 +4,6 @@
 	gap: 7px;
 }
 
-.disabledActionWrap {
-	display: inline-flex;
-
-	/* Disabled buttons don't fire pointer events; let the wrapper receive them. */
-	> button:disabled {
-		pointer-events: none;
-	}
-}
-
 .prForm {
 	display: flex;
 	row-gap: 8px;

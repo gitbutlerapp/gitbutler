@@ -1,7 +1,6 @@
-import { TooltipPopup } from "./Tooltip.tsx";
+import { Tooltip } from "./Tooltip.tsx";
 import { useNow } from "./useNow.ts";
 import { formatAbsoluteTime, formatCompactRelativeTime, formatRelativeTime } from "./time.ts";
-import { Tooltip } from "@base-ui/react";
 import type { FC } from "react";
 
 /** Refresh periodically as timestamps age out of "just now" and into minutes. */
@@ -21,17 +20,12 @@ export const RelativeTime: FC<{
 	const ticking = useNow(now === undefined ? TICK_MS : null);
 
 	return (
-		<Tooltip.Root>
-			<Tooltip.Trigger render={<span className={className} />}>
+		<Tooltip content={formatAbsoluteTime(timestamp)}>
+			<span className={className}>
 				{compact
 					? formatCompactRelativeTime(timestamp, now ?? ticking)
 					: formatRelativeTime(timestamp, now ?? ticking)}
-			</Tooltip.Trigger>
-			<Tooltip.Portal>
-				<Tooltip.Positioner sideOffset={4}>
-					<Tooltip.Popup render={<TooltipPopup />}>{formatAbsoluteTime(timestamp)}</Tooltip.Popup>
-				</Tooltip.Positioner>
-			</Tooltip.Portal>
-		</Tooltip.Root>
+			</span>
+		</Tooltip>
 	);
 };

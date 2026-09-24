@@ -21,7 +21,7 @@ import {
 	listReviewsQueryOptions,
 } from "#ui/api/queries.ts";
 import { decodeBytes } from "#ui/api/bytes.ts";
-import { Button, Toolbar, Tooltip } from "@base-ui/react";
+import { Button, Toolbar } from "@base-ui/react";
 import type {
 	BranchReference,
 	InsertSide,
@@ -36,7 +36,7 @@ import { type ComponentProps, type FC, type MouseEvent, useOptimistic, useTransi
 import { classes } from "@gitbutler/ui-react/classes.ts";
 import { GraphSegment, type GraphSegmentStatus } from "#ui/components/GraphSegment.tsx";
 import { Icon } from "@gitbutler/ui-react/Icon.tsx";
-import { TooltipPopup } from "@gitbutler/ui-react/Tooltip.tsx";
+import { Tooltip } from "@gitbutler/ui-react/Tooltip.tsx";
 import { sidebarHotkeys, selectionOperationHotkeys, toElectronAccelerator } from "#ui/hotkeys.ts";
 import {
 	nativeMenuItem,
@@ -478,40 +478,29 @@ export const BranchRow: FC<
 			}}
 		>
 			{commitCount > 0 ? (
-				<Tooltip.Root>
-					<Tooltip.Trigger
-						aria-label={foldLabel}
-						onClick={toggleFolded}
-						render={
-							<RowFoldToggle
-								folded={isFolded}
-								glyph={
-									// The glyph describes where the branch sits in the stack, so it
-									// does not change with fold state.
-									<GraphSegment
-										glyph={startsRail ? "forkRight" : "joinRight"}
-										status={graphStatus}
-										above="LocalOnly"
-										below={railBelow}
-										behind={behind}
-									/>
-								}
-								foldedIndicator={<GraphSegment glyph="group" status={graphStatus} />}
+				<Tooltip
+					content={foldLabel}
+					kbd={sidebarHotkeys.toggleFoldBranch.hotkey}
+					kbdScope="sidebar"
+				>
+					<RowFoldToggle
+						folded={isFolded}
+						glyph={
+							// The glyph describes where the branch sits in the stack, so it
+							// does not change with fold state.
+							<GraphSegment
+								glyph={startsRail ? "forkRight" : "joinRight"}
+								status={graphStatus}
+								above="LocalOnly"
+								below={railBelow}
+								behind={behind}
 							/>
 						}
+						foldedIndicator={<GraphSegment glyph="group" status={graphStatus} />}
+						aria-label={foldLabel}
+						onClick={toggleFolded}
 					/>
-					<Tooltip.Portal>
-						<Tooltip.Positioner sideOffset={4}>
-							<Tooltip.Popup
-								render={
-									<TooltipPopup kbd={sidebarHotkeys.toggleFoldBranch.hotkey} kbdScope="sidebar" />
-								}
-							>
-								{foldLabel}
-							</Tooltip.Popup>
-						</Tooltip.Positioner>
-					</Tooltip.Portal>
-				</Tooltip.Root>
+				</Tooltip>
 			) : (
 				<GraphSegment
 					glyph={startsRail ? "forkRight" : "joinRight"}
@@ -603,22 +592,20 @@ export const BranchRow: FC<
 								}${workspaceBranchAndAncestorsPushDisabledReason !== null ? ` (${workspaceBranchAndAncestorsPushDisabledReason})` : ""}`;
 
 								return (
-									<Tooltip.Root>
-										<Tooltip.Trigger
+									<Tooltip
+										content={pushButtonLabel}
+										kbd={sidebarHotkeys.workspaceBranchAndAncestorsPush.hotkey}
+										kbdScope="sidebar"
+									>
+										<Button
 											aria-label={pushButtonLabel}
 											onClick={pushBranch}
 											className={classes(
 												getRowButtonClassName({ variant: "outline" }),
 												rowStyles.metaButton,
 											)}
-											// We pass `disabled` here because we want to disable the button, not
-											// the tooltip. Other props should be passed above.
-											render={
-												<Button
-													focusableWhenDisabled
-													disabled={workspaceBranchAndAncestorsPushDisabled}
-												/>
-											}
+											focusableWhenDisabled
+											disabled={workspaceBranchAndAncestorsPushDisabled}
 										>
 											<span className={rowStyles.metaButtonLabel}>Push</span>
 											{pushActivity === "pushing" ? (
@@ -628,22 +615,8 @@ export const BranchRow: FC<
 											) : (
 												<Icon size={12} name="arrow-up" />
 											)}
-										</Tooltip.Trigger>
-										<Tooltip.Portal>
-											<Tooltip.Positioner sideOffset={4}>
-												<Tooltip.Popup
-													render={
-														<TooltipPopup
-															kbd={sidebarHotkeys.workspaceBranchAndAncestorsPush.hotkey}
-															kbdScope="sidebar"
-														/>
-													}
-												>
-													{pushButtonLabel}
-												</Tooltip.Popup>
-											</Tooltip.Positioner>
-										</Tooltip.Portal>
-									</Tooltip.Root>
+										</Button>
+									</Tooltip>
 								);
 							})()}
 

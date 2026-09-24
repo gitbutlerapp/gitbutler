@@ -1,10 +1,9 @@
 import { Button } from "@gitbutler/ui-react/Button.tsx";
 import { Icon } from "@gitbutler/ui-react/Icon.tsx";
-import { TooltipPopup } from "@gitbutler/ui-react/Tooltip.tsx";
+import { Tooltip } from "@gitbutler/ui-react/Tooltip.tsx";
 import { globalHotkeys, workspaceHotkeys } from "#ui/hotkeys.ts";
 import { ProjectPicker } from "#ui/routes/project/$id/workspace/ProjectPicker.tsx";
 import { TopLeftControls } from "#ui/routes/project/$id/workspace/TopLeftControls.tsx";
-import { Tooltip } from "@base-ui/react";
 import type { ProjectForFrontend } from "@gitbutler/but-sdk";
 import { useIsFetching, useIsMutating } from "@tanstack/react-query";
 import { Match } from "effect";
@@ -60,52 +59,34 @@ export const SidebarHeader: FC<{
 		</div>
 
 		<div className={styles.workspaceControlsActions}>
-			<Tooltip.Root>
-				<Tooltip.Trigger
+			<Tooltip
+				content={globalHotkeys.operationsLog.meta.name}
+				kbd={globalHotkeys.operationsLog.hotkey}
+			>
+				<Button
+					iconOnly
+					variant="ghost"
+					focusableWhenDisabled
+					disabled={!p.canOpenOperationsLog}
 					aria-label={globalHotkeys.operationsLog.meta.name}
 					onClick={p.onOpenOperationsLog}
-					// We pass `disabled` here because we want to disable the button, not
-					// the tooltip. Other props should be passed above.
-					render={
-						<Button
-							iconOnly
-							variant="ghost"
-							focusableWhenDisabled
-							disabled={!p.canOpenOperationsLog}
-						/>
-					}
 				>
 					<Icon name="history" />
-				</Tooltip.Trigger>
-				<Tooltip.Portal>
-					<Tooltip.Positioner sideOffset={4}>
-						<Tooltip.Popup render={<TooltipPopup kbd={globalHotkeys.operationsLog.hotkey} />}>
-							{globalHotkeys.operationsLog.meta.name}
-						</Tooltip.Popup>
-					</Tooltip.Positioner>
-				</Tooltip.Portal>
-			</Tooltip.Root>
+				</Button>
+			</Tooltip>
 
-			<Tooltip.Root>
-				<Tooltip.Trigger
+			<Tooltip content={workspaceHotkeys.settings.meta.name} kbd={workspaceHotkeys.settings.hotkey}>
+				<Button
+					iconOnly
+					variant="ghost"
+					focusableWhenDisabled
+					disabled={!p.canOpenSettings}
 					aria-label={workspaceHotkeys.settings.meta.name}
 					onClick={p.onOpenSettings}
-					// We pass `disabled` here because we want to disable the button, not
-					// the tooltip. Other props should be passed above.
-					render={
-						<Button iconOnly variant="ghost" focusableWhenDisabled disabled={!p.canOpenSettings} />
-					}
 				>
 					<Icon name="settings" />
-				</Tooltip.Trigger>
-				<Tooltip.Portal>
-					<Tooltip.Positioner sideOffset={4}>
-						<Tooltip.Popup render={<TooltipPopup kbd={workspaceHotkeys.settings.hotkey} />}>
-							{workspaceHotkeys.settings.meta.name}
-						</Tooltip.Popup>
-					</Tooltip.Positioner>
-				</Tooltip.Portal>
-			</Tooltip.Root>
+				</Button>
+			</Tooltip>
 			{p.bell}
 		</div>
 	</header>

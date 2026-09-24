@@ -1,13 +1,13 @@
 import { Button } from "@gitbutler/ui-react/Button.tsx";
 import { Icon } from "@gitbutler/ui-react/Icon.tsx";
-import { TooltipPopup } from "@gitbutler/ui-react/Tooltip.tsx";
+import { Tooltip } from "@gitbutler/ui-react/Tooltip.tsx";
 import { Modal } from "@gitbutler/ui-react/Popup.tsx";
 import { useUploadFiles } from "#ui/api/mutations.ts";
 import { userProfileQueryOptions } from "#ui/api/queries.ts";
 import * as md from "@gitbutler/ui-react/markdown-editing.ts";
 import { applyToTextarea } from "@gitbutler/ui-react/markdown-textarea.ts";
 import { ACCEPTED_FILE_TYPES, filesFromTransfer, uploadsToMarkdown } from "#ui/uploads.ts";
-import { Dialog, Tooltip } from "@base-ui/react";
+import { Dialog } from "@base-ui/react";
 import { useQuery } from "@tanstack/react-query";
 import { type FC, type RefObject, useEffect, useRef, useState } from "react";
 import styles from "./MarkdownAttachments.module.css";
@@ -108,25 +108,18 @@ export const MarkdownAttachments: FC<Props> = (p) => {
 				type="file"
 			/>
 
-			<Tooltip.Root>
-				{/* Disabled buttons swallow hover, so the wrapper span carries the tooltip. */}
-				<Tooltip.Trigger render={<span className={styles.triggerWrap} />}>
-					<Button
-						aria-label="Attach a file"
-						variant="ghost"
-						iconOnly
-						disabled={!enabled}
-						onClick={() => inputRef.current?.click()}
-					>
-						<Icon name={uploadFiles.isPending ? "spinner" : "paperclip"} />
-					</Button>
-				</Tooltip.Trigger>
-				<Tooltip.Portal>
-					<Tooltip.Positioner sideOffset={4}>
-						<Tooltip.Popup render={<TooltipPopup />}>{reason}</Tooltip.Popup>
-					</Tooltip.Positioner>
-				</Tooltip.Portal>
-			</Tooltip.Root>
+			<Tooltip content={reason}>
+				<Button
+					aria-label="Attach a file"
+					variant="ghost"
+					iconOnly
+					focusableWhenDisabled
+					disabled={!enabled}
+					onClick={() => inputRef.current?.click()}
+				>
+					<Icon name={uploadFiles.isPending ? "spinner" : "paperclip"} />
+				</Button>
+			</Tooltip>
 
 			<Modal
 				alert

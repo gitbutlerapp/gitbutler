@@ -12,7 +12,7 @@ import { forgeInfoOptions, headInfoQueryOptions } from "#ui/api/queries.ts";
 import { classes } from "@gitbutler/ui-react/classes.ts";
 import { GraphSegment, type GraphSegmentStatus } from "#ui/components/GraphSegment.tsx";
 import { Icon } from "@gitbutler/ui-react/Icon.tsx";
-import { TooltipPopup } from "@gitbutler/ui-react/Tooltip.tsx";
+import { Tooltip } from "@gitbutler/ui-react/Tooltip.tsx";
 import { commitBody, commitForgeUrl, commitIsDiverged, commitTitle } from "#ui/commit.ts";
 import { errorMessageForToast } from "#ui/errors.ts";
 import {
@@ -33,7 +33,7 @@ import { projectSlice } from "#ui/projects/state.ts";
 import { focusScope } from "#ui/focus-scopes.ts";
 import { useAppDispatch, useAppSelector, useAppStore } from "#ui/store.ts";
 import type { Commit } from "@gitbutler/but-sdk";
-import { Toast, Toolbar, Tooltip } from "@base-ui/react";
+import { Toast, Toolbar } from "@base-ui/react";
 import { useQuery } from "@tanstack/react-query";
 import { type ComponentProps, type FC, useId, useOptimistic, useTransition } from "react";
 import { RowCheckbox, RowToolbar } from "../Row.tsx";
@@ -104,6 +104,7 @@ export const CommitRow: FC<
 	const noOperationPending = useAppSelector(
 		(state) => projectSlice.selectors.selectPendingOperation(state, projectId)._tag === "None",
 	);
+	const checkDisabled = !noOperationPending || !canCheck;
 	const isRewording = useAppSelector((state) => {
 		const pendingOperation = projectSlice.selectors.selectPendingOperation(state, projectId);
 		return (
@@ -403,18 +404,22 @@ export const CommitRow: FC<
 					below={below}
 					behind={behind}
 				/>
-				<Tooltip.Root
+				<Tooltip
+					content={sidebarHotkeys.checkCommit.meta.name}
+					kbd={sidebarHotkeys.checkCommit.hotkey}
+					kbdScope="sidebar"
 					// This gets in the way when the user tries to move their hover to a
 					// sibling row.
 					disableHoverablePopup
+					// A checkbox that can't be checked has no shortcut to advertise.
+					disabled={checkDisabled}
 				>
 					<RowCheckbox
-						disabled={!noOperationPending || !canCheck}
+						disabled={checkDisabled}
 						aria-label={`Check commit ${title ?? "(no message)"}`}
 						checked={isChecked}
 						className={styles.checkbox}
 						nativeButton
-						render={<Tooltip.Trigger />}
 						onCheckedChange={(_checked, { event }) => {
 							const shiftKey =
 								(event instanceof MouseEvent || event instanceof KeyboardEvent) &&
@@ -422,16 +427,7 @@ export const CommitRow: FC<
 							checkCommit({ commitId: commit.id, shiftKey });
 						}}
 					/>
-					<Tooltip.Portal>
-						<Tooltip.Positioner sideOffset={4}>
-							<Tooltip.Popup
-								render={<TooltipPopup kbd={sidebarHotkeys.checkCommit.hotkey} kbdScope="sidebar" />}
-							>
-								{sidebarHotkeys.checkCommit.meta.name}
-							</Tooltip.Popup>
-						</Tooltip.Positioner>
-					</Tooltip.Portal>
-				</Tooltip.Root>
+				</Tooltip>
 			</div>
 
 			{isRewording ? (

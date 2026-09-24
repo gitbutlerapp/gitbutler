@@ -1,5 +1,6 @@
 import { addressEquals, addressIdentityKey, type Address } from "#ui/addresses.ts";
-import { TooltipPopup } from "@gitbutler/ui-react/Tooltip.tsx";
+import { Tooltip } from "@gitbutler/ui-react/Tooltip.tsx";
+import { useMergedRefs } from "@base-ui/utils/useMergedRefs";
 import { getOperation, type Placement } from "#ui/operations/operation.ts";
 import { getTransferKind, getTransferTarget } from "#ui/operations/pending-operation.ts";
 import { projectSlice } from "#ui/projects/state.ts";
@@ -12,7 +13,7 @@ import { useOperationDropTarget } from "#ui/routes/project/$id/workspace/useOper
 import { useAppSelector } from "#ui/store.ts";
 import { useActiveList, useIsCursorAt, useSelection } from "#ui/use-cursor.ts";
 import { addressSpaceIncludes } from "#ui/workspace/address-space.ts";
-import { mergeProps, Tooltip, useRender } from "@base-ui/react";
+import { mergeProps, useRender } from "@base-ui/react";
 import { Match } from "effect";
 import type { FC } from "react";
 import { treeItemId } from "../Row-utils.ts";
@@ -49,9 +50,11 @@ export const OperationTarget: FC<
 		address: Address;
 		projectId: string;
 		outline: OperationTargetOutline;
-	} & useRender.ComponentProps<"button">
+	} & useRender.ComponentProps<"div">
 > = ({ enabled, address, projectId, outline, render, ...props }) => {
 	const dropRef = useOperationDropTarget({ enabled, target: address, projectId });
+	// The row's own ref, when one is passed down, and the drop target's.
+	const ref = useMergedRefs(props.ref, dropRef);
 
 	const absorptionTargetCommitIds = useAbsorptionTargetCommitIds();
 	const addressSpace = useAddressSpace();
@@ -101,7 +104,8 @@ export const OperationTarget: FC<
 	});
 
 	return (
-		<Tooltip.Root
+		<Tooltip
+			content={activeOperation?.tooltip}
 			open={activeOperation?.tooltip !== undefined}
 			disableHoverablePopup
 			onOpenChange={(_, eventDetails) => {
@@ -109,26 +113,17 @@ export const OperationTarget: FC<
 				// operation shortcut.
 				if (eventDetails.reason === "escape-key") eventDetails.allowPropagation();
 			}}
+			side="right"
+			sideOffset={8}
 		>
-			<Tooltip.Trigger
+			<OperationTarget_
 				{...props}
-				render={
-					<OperationTarget_
-						ref={(el) => {
-							dropRef.current = el;
-						}}
-						placement={activeOperation?.placement}
-						outline={outline}
-						render={render}
-					/>
-				}
+				ref={ref}
+				placement={activeOperation?.placement}
+				outline={outline}
+				render={render}
 			/>
-			<Tooltip.Portal>
-				<Tooltip.Positioner sideOffset={8} side="right">
-					<Tooltip.Popup render={<TooltipPopup />}>{activeOperation?.tooltip}</Tooltip.Popup>
-				</Tooltip.Positioner>
-			</Tooltip.Portal>
-		</Tooltip.Root>
+		</Tooltip>
 	);
 };
 

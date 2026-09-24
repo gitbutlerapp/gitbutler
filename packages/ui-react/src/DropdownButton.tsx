@@ -1,8 +1,7 @@
 import { Button, type ButtonSize } from "./Button.tsx";
 import { classes } from "./classes.ts";
 import { Icon } from "./Icon.tsx";
-import { TooltipPopup } from "./Tooltip.tsx";
-import { Tooltip } from "@base-ui/react";
+import { Tooltip } from "./Tooltip.tsx";
 import type { FC, ReactNode } from "react";
 import styles from "./DropdownButton.module.css";
 
@@ -63,21 +62,19 @@ export const DropdownButton: FC<Props> = ({
 	className,
 }) => (
 	<div className={classes(styles.dropdownButton, styles[variant], className)}>
-		<Tooltip.Root disabled={actionTooltip === undefined}>
-			<Tooltip.Trigger
+		<Tooltip disabled={actionTooltip === undefined} content={actionTooltip}>
+			<Button
+				variant={variant}
+				size={size}
+				focusableWhenDisabled
+				disabled={disabled}
 				id={id}
 				className={styles.action}
 				onClick={onClick}
-				render={<Button variant={variant} size={size} focusableWhenDisabled disabled={disabled} />}
 			>
 				{children}
-			</Tooltip.Trigger>
-			<Tooltip.Portal>
-				<Tooltip.Positioner sideOffset={4}>
-					<Tooltip.Popup render={<TooltipPopup />}>{actionTooltip}</Tooltip.Popup>
-				</Tooltip.Positioner>
-			</Tooltip.Portal>
-		</Tooltip.Root>
+			</Button>
+		</Tooltip>
 		<div aria-hidden className={styles.separator} />
 		<Button
 			aria-label={menuLabel}

@@ -26,7 +26,7 @@ import { TextLink } from "@gitbutler/ui-react/TextLink.tsx";
 import { Tag } from "@gitbutler/ui-react/Tag.tsx";
 import { RelativeTime } from "@gitbutler/ui-react/RelativeTime.tsx";
 import type { IconName } from "@gitbutler/ui-react/iconNames.ts";
-import { TooltipPopup } from "@gitbutler/ui-react/Tooltip.tsx";
+import { Tooltip } from "@gitbutler/ui-react/Tooltip.tsx";
 import {
 	type NativeMenuItem,
 	nativeMenuItem,
@@ -51,7 +51,6 @@ import {
 import { useCopied } from "#ui/components/useCopied.ts";
 import { sameLogin } from "#ui/review-users.ts";
 import type { CiCheck, ForgeReview, ForgeReviewUser } from "@gitbutler/but-sdk";
-import { Tooltip } from "@base-ui/react";
 import { useQuery } from "@tanstack/react-query";
 import { Match } from "effect";
 import { type FC, type MouseEvent, type ReactNode, useId, useState } from "react";
@@ -221,20 +220,16 @@ const CopyableBranch: FC<{ name: string }> = ({ name }) => {
 	const { copied, copy } = useCopied(name);
 
 	return (
-		<Tooltip.Root>
-			<Tooltip.Trigger
+		<Tooltip content="Copy branch name">
+			<button
+				type="button"
+				aria-label="Copy branch name"
 				className={styles.sourceBranch}
 				onClick={copy}
-				render={<button type="button" aria-label="Copy branch name" />}
 			>
 				{copied ? "Copied!" : name}
-			</Tooltip.Trigger>
-			<Tooltip.Portal>
-				<Tooltip.Positioner sideOffset={4}>
-					<Tooltip.Popup render={<TooltipPopup />}>Copy branch name</Tooltip.Popup>
-				</Tooltip.Positioner>
-			</Tooltip.Portal>
-		</Tooltip.Root>
+			</button>
+		</Tooltip>
 	);
 };
 

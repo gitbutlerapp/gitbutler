@@ -1,8 +1,7 @@
 import { Badge } from "@gitbutler/ui-react/Badge.tsx";
 import { classes } from "@gitbutler/ui-react/classes.ts";
 import { DiffStats } from "@gitbutler/ui-react/DiffStats.tsx";
-import { TooltipPopup } from "@gitbutler/ui-react/Tooltip.tsx";
-import { Tooltip } from "@base-ui/react";
+import { Tooltip } from "@gitbutler/ui-react/Tooltip.tsx";
 import type { FC } from "react";
 import styles from "./ChangeStats.module.css";
 import { describeLineStats, type LineStats } from "./lineStats.ts";
@@ -26,25 +25,16 @@ export const ChangeStats: FC<{
 	const spoken = [description, ...describeLineStats(lineStats)];
 
 	return (
-		<Tooltip.Root>
-			<Tooltip.Trigger
-				render={
-					<span aria-label={spoken.join(", ")} className={classes(styles.container, className)}>
-						<Badge variant="lightGray">{fileCount}</Badge>
+		<Tooltip content={description}>
+			<span aria-label={spoken.join(", ")} className={classes(styles.container, className)}>
+				<Badge variant="lightGray">{fileCount}</Badge>
 
-						<DiffStats
-							added={lineStats.linesAdded}
-							removed={lineStats.linesRemoved}
-							className="text-12"
-						/>
-					</span>
-				}
-			/>
-			<Tooltip.Portal>
-				<Tooltip.Positioner sideOffset={4}>
-					<Tooltip.Popup render={<TooltipPopup />}>{description}</Tooltip.Popup>
-				</Tooltip.Positioner>
-			</Tooltip.Portal>
-		</Tooltip.Root>
+				<DiffStats
+					added={lineStats.linesAdded}
+					removed={lineStats.linesRemoved}
+					className="text-12"
+				/>
+			</span>
+		</Tooltip>
 	);
 };

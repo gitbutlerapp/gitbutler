@@ -14,7 +14,7 @@ import { DropdownButton } from "@gitbutler/ui-react/DropdownButton.tsx";
 import { Icon } from "@gitbutler/ui-react/Icon.tsx";
 import type { IconName } from "@gitbutler/ui-react/iconNames.ts";
 import { Kbd } from "@gitbutler/ui-react/Kbd.tsx";
-import { TooltipPopup } from "@gitbutler/ui-react/Tooltip.tsx";
+import { Tooltip } from "@gitbutler/ui-react/Tooltip.tsx";
 import {
 	changesSelectedForCommit,
 	commitMessageGenerationButtonState,
@@ -30,7 +30,7 @@ import { projectSlice } from "#ui/projects/state.ts";
 import { projectAiSettingsQueryOptions } from "#ui/project-ai-settings.ts";
 import { focusScope } from "#ui/focus-scopes.ts";
 import { useAppSelector, useAppStore } from "#ui/store.ts";
-import { Combobox, Tooltip } from "@base-ui/react";
+import { Combobox } from "@base-ui/react";
 import type { InsertSide, RelativeTo, WorktreeChanges } from "@gitbutler/but-sdk";
 import { useHotkey, useHotkeys } from "@tanstack/react-hotkeys";
 import { useIsMutating, useQuery } from "@tanstack/react-query";
@@ -481,45 +481,35 @@ export const CommitForm: FC<{
 			onValueChange={selectTarget}
 			disabled={!ready || hasNoBranches}
 		>
-			<Tooltip.Root>
+			<Tooltip
+				kbd={hasNoBranches ? undefined : changesHotkeys.selectCommitTarget.hotkey}
+				content={
+					willCreateBranch ? (
+						<span className={styles.tooltipTarget}>
+							<span className={styles.tooltipTargetLabel}>Will create branch:</span>
+							<span className={styles.tooltipTargetName}>{draftBranchLabel}</span>
+						</span>
+					) : commitTarget ? (
+						<span className={styles.tooltipTarget}>
+							<span className={styles.tooltipTargetLabel}>Target:</span>
+							<span className={styles.tooltipTargetName}>{commitTarget.label}</span>
+						</span>
+					) : (
+						"Select commit target"
+					)
+				}
+			>
 				<Combobox.Trigger
 					className={trigger.className}
 					aria-label={
 						willCreateBranch ? `Will create branch ${draftBranchLabel}` : "Select commit target"
 					}
-					render={
-						<Button variant={trigger.variant} focusableWhenDisabled render={<Tooltip.Trigger />} />
-					}
+					render={<Button variant={trigger.variant} focusableWhenDisabled />}
 				>
 					<Icon name="bullseye" size={trigger.iconSize} />
 					<Icon name={pickerItemIcon(pickerValue)} size={trigger.iconSize} />
 				</Combobox.Trigger>
-				<Tooltip.Portal>
-					<Tooltip.Positioner sideOffset={4}>
-						<Tooltip.Popup
-							render={
-								<TooltipPopup
-									kbd={hasNoBranches ? undefined : changesHotkeys.selectCommitTarget.hotkey}
-								/>
-							}
-						>
-							{willCreateBranch ? (
-								<span className={styles.tooltipTarget}>
-									<span className={styles.tooltipTargetLabel}>Will create branch:</span>
-									<span className={styles.tooltipTargetName}>{draftBranchLabel}</span>
-								</span>
-							) : commitTarget ? (
-								<span className={styles.tooltipTarget}>
-									<span className={styles.tooltipTargetLabel}>Target:</span>
-									<span className={styles.tooltipTargetName}>{commitTarget.label}</span>
-								</span>
-							) : (
-								"Select commit target"
-							)}
-						</Tooltip.Popup>
-					</Tooltip.Positioner>
-				</Tooltip.Portal>
-			</Tooltip.Root>
+			</Tooltip>
 		</CommitTargetCombobox>
 	);
 
@@ -602,36 +592,31 @@ export const CommitForm: FC<{
 						})}
 
 						<div aria-hidden className={styles.footerSeparator} />
-						<Tooltip.Root>
-							<Tooltip.Trigger
+						<Tooltip
+							content={
+								generationButton.hint ?? (isGenerating ? "Generating message…" : "Generate message")
+							}
+						>
+							<Button
+								variant="ghost"
+								iconOnly
+								focusableWhenDisabled
+								disabled={generationButton.disabled}
 								aria-label="Generate commit message"
 								className={styles.generateButton}
 								onClick={generateCommitMessage}
-								render={
-									<Button
-										variant="ghost"
-										iconOnly
-										focusableWhenDisabled
-										disabled={generationButton.disabled}
-									/>
-								}
 							>
 								<Icon name={isGenerating ? "spinner" : "ai-text"} />
-							</Tooltip.Trigger>
-							<Tooltip.Portal>
-								<Tooltip.Positioner sideOffset={4}>
-									<Tooltip.Popup render={<TooltipPopup />}>
-										{generationButton.hint ??
-											(isGenerating ? "Generating message…" : "Generate message")}
-									</Tooltip.Popup>
-								</Tooltip.Positioner>
-							</Tooltip.Portal>
-						</Tooltip.Root>
+							</Button>
+						</Tooltip>
 					</div>
 
 					<div className={styles.commitActions}>
-						<Tooltip.Root>
-							<Tooltip.Trigger
+						<Tooltip content="Hide form" kbd="Escape">
+							<Button
+								variant="outline"
+								focusableWhenDisabled
+								disabled={isCommitOrAmendPending || isGenerating}
 								aria-label="Cancel"
 								onClick={() => {
 									// Persist the draft before the textarea unmounts.
@@ -643,45 +628,31 @@ export const CommitForm: FC<{
 									setOpen(false);
 									focusScope("uncommitted-files");
 								}}
-								render={
-									<Button
-										variant="outline"
-										focusableWhenDisabled
-										disabled={isCommitOrAmendPending || isGenerating}
-									/>
-								}
 							>
 								<span className={styles.cancelLabel}>Cancel</span>
 								<Icon name="cross" className={styles.cancelIcon} />
-							</Tooltip.Trigger>
-							<Tooltip.Portal>
-								<Tooltip.Positioner sideOffset={4}>
-									<Tooltip.Popup render={<TooltipPopup kbd="Escape" />}>Hide form</Tooltip.Popup>
-								</Tooltip.Positioner>
-							</Tooltip.Portal>
-						</Tooltip.Root>
+							</Button>
+						</Tooltip>
 
 						{/* The tooltip is redundant while the label is visible. */}
-						<Tooltip.Root disabled={!commitLabelHidden}>
-							<Tooltip.Trigger
+						<Tooltip
+							disabled={!commitLabelHidden}
+							content="Commit"
+							kbd={changesHotkeys.commit.hotkey}
+						>
+							<Button
+								variant="pop"
+								focusableWhenDisabled
+								type="submit"
+								disabled={!canCommit}
 								aria-label="Commit"
-								render={
-									<Button variant="pop" focusableWhenDisabled type="submit" disabled={!canCommit} />
-								}
 							>
 								<span ref={observeCommitLabel} className={styles.commitButtonLabel}>
 									Commit
 								</span>
 								<Kbd hotkey={changesHotkeys.commit.hotkey} variant="button" />
-							</Tooltip.Trigger>
-							<Tooltip.Portal>
-								<Tooltip.Positioner sideOffset={4}>
-									<Tooltip.Popup render={<TooltipPopup kbd={changesHotkeys.commit.hotkey} />}>
-										Commit
-									</Tooltip.Popup>
-								</Tooltip.Positioner>
-							</Tooltip.Portal>
-						</Tooltip.Root>
+							</Button>
+						</Tooltip>
 					</div>
 				</div>
 			</div>

@@ -1,7 +1,6 @@
-import { Tooltip } from "@base-ui/react";
 import type { FC, MouseEvent, ReactNode } from "react";
 import { Button } from "@gitbutler/ui-react/Button.tsx";
-import { TooltipPopup } from "@gitbutler/ui-react/Tooltip.tsx";
+import { Tooltip } from "@gitbutler/ui-react/Tooltip.tsx";
 
 /** A button of glyphs alone, which says what it does on hover since they cannot. */
 export const IconButton: FC<{
@@ -13,20 +12,15 @@ export const IconButton: FC<{
 	onClick: (event: MouseEvent<HTMLButtonElement>) => void;
 	children: ReactNode;
 }> = (p) => (
-	<Tooltip.Root>
-		<Tooltip.Trigger
+	<Tooltip content={p.label}>
+		<Button
+			iconOnly={p.className === undefined}
+			aria-label={p.label}
+			disabled={p.disabled}
 			className={p.className}
-			render={
-				<Button iconOnly={p.className === undefined} aria-label={p.label} disabled={p.disabled} />
-			}
 			onClick={p.onClick}
 		>
 			{p.children}
-		</Tooltip.Trigger>
-		<Tooltip.Portal>
-			<Tooltip.Positioner sideOffset={4}>
-				<Tooltip.Popup render={<TooltipPopup />}>{p.label}</Tooltip.Popup>
-			</Tooltip.Positioner>
-		</Tooltip.Portal>
-	</Tooltip.Root>
+		</Button>
+	</Tooltip>
 );
