@@ -247,7 +247,7 @@ export const PopupSearch: FC<{ onClear?: () => void } & useRender.ComponentProps
  * sized for a list rather than a panel — the line sits closer under the illustration and there is
  * no counterweight, since a line under a light drawing has no weight to lift.
  *
- * Which drawing and which line follow the branches tab's rule. The papers peeking out and
+ * Which drawing and which line follow the branches tab's rule. The `papers` drawing and
  * `nothingFound` are for a search that came up empty; a list with nothing in it before anything
  * was typed gets the cactus and `nothingToList`, since nothing was searched for and "found" would
  * be the wrong word. Pass the `query` the list is filtered on — the deferred one, where the caller defers — so
