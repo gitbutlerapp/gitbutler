@@ -283,7 +283,7 @@ export class StackService {
 		// fires on every stack-details refresh.
 		const STALE_SELECTION_COMMIT_LIMIT = 1000;
 
-		$effect(() => {
+		$effect.pre(() => {
 			if (allCommits.length > STALE_SELECTION_COMMIT_LIMIT) {
 				console.warn(
 					`Skipping stale selection detection: commit count (${allCommits.length}) exceeds limit (${STALE_SELECTION_COMMIT_LIMIT}).`,
