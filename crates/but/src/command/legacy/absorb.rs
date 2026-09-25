@@ -15,7 +15,7 @@ use gitbutler_oplog::{
 use itertools::Itertools;
 
 use crate::{
-    CliId, IdMap,
+    CliId, CliResult, IdMap, bad_input,
     id::{UncommittedHunkOrFile, parser::parse_sources},
     utils::{OutputChannel, merged_upstream::MergedUpstream},
 };
@@ -39,11 +39,11 @@ pub(crate) fn handle(
     source: Option<&str>,
     dry_run: bool,
     allow_merged: crate::args::atoms::AllowMergedArg,
-) -> anyhow::Result<()> {
+) -> CliResult<()> {
     let mut guard = ctx.exclusive_worktree_access();
     let id_map = IdMap::new_from_context(ctx, guard.read_permission())?;
     let source: Option<CliId> = source
-        .map(|s| -> anyhow::Result<CliId> {
+        .map(|s| -> CliResult<CliId> {
             // Uncommitted selectors resolve in the uncommitted namespace first
             // so later commits cannot shadow them; branch selectors resolve in
             // the full namespace. A selector that names neither is an error —
@@ -58,14 +58,15 @@ pub(crate) fn handle(
                     || matches!(id, CliId::Branch(..))
             });
             let first = acceptable.next().ok_or_else(|| {
-                anyhow::anyhow!(
+                bad_input(format!(
                     "'{s}' does not name an uncommitted change or branch; refusing to absorb everything"
-                )
+                ))
             })?;
             if acceptable.next().is_some() {
-                anyhow::bail!(
+                return Err(bad_input(format!(
                     "'{s}' is ambiguous - it matches more than one uncommitted change. Use more characters to disambiguate."
-                );
+                ))
+                .into());
             }
             Ok(first)
         })
@@ -86,7 +87,10 @@ pub(crate) fn handle(
                 }
             }
             _ => {
-                anyhow::bail!("Invalid source: expected an uncommitted file or branch");
+                return Err(anyhow::anyhow!(
+                    "Invalid source: expected an uncommitted file or branch"
+                )
+                .into());
             }
         }
     } else {
