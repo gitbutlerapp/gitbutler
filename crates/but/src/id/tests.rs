@@ -3997,7 +3997,7 @@ mod util {
         /// Return a list of all branch CliIds.
         pub fn branch_ids(&self) -> Vec<String> {
             let mut short_ids = Vec::new();
-            for stack_with_id in self.indexed_stacks.borrow_owner().iter() {
+            for stack_with_id in self.lanes.iter() {
                 for segment_with_id in stack_with_id.segments.iter() {
                     short_ids.push(segment_with_id.short_id.clone());
                 }
@@ -4008,7 +4008,7 @@ mod util {
         /// Return a list of all commit CliIds.
         pub fn commit_ids(&self) -> Vec<String> {
             let mut short_ids = Vec::new();
-            for stack_with_id in self.indexed_stacks.borrow_owner().iter() {
+            for stack_with_id in self.lanes.iter() {
                 for segment_with_id in stack_with_id.segments.iter() {
                     for workspace_commit_with_id in segment_with_id.workspace_commits.iter() {
                         short_ids.push(workspace_commit_with_id.short_id.clone());
@@ -4024,7 +4024,7 @@ mod util {
         /// Return a sorted list of all CliIds we can provide, excluding uncommitted.
         pub fn all_ids(&self) -> Vec<CliId> {
             let IdMap {
-                indexed_stacks: _,
+                lanes: _,
                 stack_ids,
                 uncommitted: _,
                 uncommitted_files,
@@ -4064,7 +4064,7 @@ mod util {
         fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
             use itertools::Itertools;
             let IdMap {
-                indexed_stacks: _,
+                lanes: _,
                 stack_ids,
                 uncommitted: _,
                 uncommitted_files,
