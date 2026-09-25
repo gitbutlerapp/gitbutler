@@ -4032,7 +4032,6 @@ mod util {
                 lanes: _,
                 uncommitted: _,
                 uncommitted_files,
-                uncommitted_hunks,
                 diff_context_lines: _,
             } = self;
             let changed_paths_fn = |commit_id: gix::ObjectId,
@@ -4050,7 +4049,7 @@ mod util {
                         .values()
                         .map(|uncommitted_file| uncommitted_file.short_id.clone()),
                 )
-                .chain(uncommitted_hunks.keys().cloned())
+                .chain(self.uncommitted_hunk_ids().map(|hunk| hunk.id))
                 .flat_map(|id| {
                     self.parse(&id, &TestChanges(changed_paths_fn))
                         .expect("BUG: valid ID means no error")
@@ -4071,7 +4070,6 @@ mod util {
                 lanes: _,
                 uncommitted: _,
                 uncommitted_files,
-                uncommitted_hunks,
                 diff_context_lines: _,
             } = self.inner;
             let commits_count = self.inner.commit_ids().len();
@@ -4088,7 +4086,10 @@ mod util {
             id_list_if_not_empty(
                 f,
                 "uncommitted_hunks",
-                uncommitted_hunks.keys().sorted().cloned(),
+                self.inner
+                    .uncommitted_hunk_ids()
+                    .map(|hunk| hunk.id)
+                    .sorted(),
             )?;
             id_list_if_not_empty(
                 f,

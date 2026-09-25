@@ -226,6 +226,24 @@ impl CliOutput for DiffOutcome<'_> {
                 .collect()
         }
 
+        fn uncommitted_changes(
+            ctx: &Context,
+            source: &ChangeSourceId,
+        ) -> anyhow::Result<Vec<Change>> {
+            let id_map = IdMap::legacy_new_from_context(ctx)?;
+            let hunks: Vec<_> = id_map
+                .uncommitted_hunk_ids()
+                .filter(|uncommitted| uncommitted.source == *source)
+                .map(|uncommitted| uncommitted.hunks.head)
+                .collect();
+            Ok(hunk_changes(
+                hunks
+                    .iter()
+                    .map(|hunk| (hunk.id.as_str(), &hunk.hunk))
+                    .collect(),
+            ))
+        }
+
         fn tree_change_to_change(ctx: &Context, change: but_core::ui::TreeChange) -> Change {
             use but_core::{UnifiedPatch, ui::TreeStatus};
 
@@ -284,28 +302,9 @@ impl CliOutput for DiffOutcome<'_> {
 
         fn build_output(ctx: &Context, target: &DiffOperation) -> anyhow::Result<Output> {
             let changes = match target {
-                DiffOperation::Uncommitted => {
-                    let id_map = IdMap::legacy_new_from_context(ctx)?;
-                    hunk_changes(
-                        id_map
-                            .uncommitted_hunks
-                            .iter()
-                            .filter(|(_, hunk)| hunk.source == ChangeSourceId::Head)
-                            .map(|(id, hunk)| (id.as_str(), &hunk.hunk))
-                            .collect(),
-                    )
-                }
+                DiffOperation::Uncommitted => uncommitted_changes(ctx, &ChangeSourceId::Head)?,
                 DiffOperation::WorktreeUncommitted { name } => {
-                    let id_map = IdMap::legacy_new_from_context(ctx)?;
-                    let source = ChangeSourceId::Worktree(name.clone());
-                    hunk_changes(
-                        id_map
-                            .uncommitted_hunks
-                            .iter()
-                            .filter(|(_, hunk)| hunk.source == source)
-                            .map(|(id, hunk)| (id.as_str(), &hunk.hunk))
-                            .collect(),
-                    )
+                    uncommitted_changes(ctx, &ChangeSourceId::Worktree(name.clone()))?
                 }
                 DiffOperation::Commit { commit } => commit_changes(ctx, commit.commit_id, None)?,
                 DiffOperation::Branch { branch } => {

@@ -6,7 +6,7 @@
 
 #![forbid(missing_docs)]
 
-use std::collections::{BTreeMap, HashMap, btree_map};
+use std::collections::{BTreeMap, btree_map};
 use std::str::{self, FromStr as _};
 
 use bstr::{BStr, BString, ByteSlice};
@@ -774,8 +774,6 @@ pub struct IdMap {
 
     /// Maps full reverse hex IDs to uncommitted files.
     pub uncommitted_files: BTreeMap<ChangeId, UncommittedFile>,
-    /// Uncommitted hunks.
-    pub uncommitted_hunks: HashMap<ShortId, UncommittedHunk>,
 }
 
 fn common_prefix_len(a: &[u8], b: &[u8]) -> usize {
@@ -918,22 +916,8 @@ impl IdMap {
                 .collect(),
         );
 
-        let mut uncommitted_hunks = HashMap::new();
         for uncommitted_file in uncommitted_files.values_mut() {
-            {
-                Self::assign_content_based_hunk_ids(uncommitted_file.short_id_hunks.iter_mut())?;
-            }
-
-            for (hunk_id, hunk) in &uncommitted_file.short_id_hunks {
-                uncommitted_hunks.insert(
-                    format!("{}:{}", uncommitted_file.short_id, hunk_id.short_id()),
-                    UncommittedHunk {
-                        source: uncommitted_file.source.clone(),
-                        tree_status: uncommitted_file.tree_status,
-                        hunk: hunk.clone(),
-                    },
-                );
-            }
+            Self::assign_content_based_hunk_ids(uncommitted_file.short_id_hunks.iter_mut())?;
         }
         for stack in &mut stacks {
             if stack.lane.stack_id().is_some() {
@@ -947,7 +931,6 @@ impl IdMap {
                 id: UNCOMMITTED.to_string(),
             },
             uncommitted_files,
-            uncommitted_hunks,
             diff_context_lines,
         })
     }
@@ -1139,19 +1122,12 @@ impl IdMap {
     /// prefix spanning several checkouts could never be committed in one go, as
     /// an operation only ever reads changes from a single source.
     fn parse_uncommitted_path_prefix<'a>(&'a self, element: &str) -> Vec<Node<'a>> {
-        let mut hunks = Vec::new();
-        for (short_id, uncommitted_hunk) in self.uncommitted_hunks.iter() {
-            let hunk = &uncommitted_hunk.hunk;
-            if hunk.path.starts_with(element.as_bytes())
-                && uncommitted_hunk.source == ChangeSourceId::Head
-            {
-                hunks.push(IdAndHunk {
-                    id: short_id.to_owned(),
-                    hunk: hunk.to_owned(),
-                    tree_status: uncommitted_hunk.tree_status,
-                });
-            }
-        }
+        let mut hunks: Vec<IdAndHunk> = self
+            .uncommitted_hunk_ids()
+            .filter(|uncommitted| uncommitted.source == ChangeSourceId::Head)
+            .map(|uncommitted| uncommitted.hunks.head)
+            .filter(|id_and_hunk| id_and_hunk.hunk.path.starts_with(element.as_bytes()))
+            .collect();
         hunks.sort_by(|a, b| a.hunk.path.cmp(&b.hunk.path));
         let Some(hunks) = NonEmpty::from_vec(hunks) else {
             return vec![];
@@ -1499,6 +1475,13 @@ impl IdMap {
             .iter()
             .find(|lane| lane.lane.stack_id() == Some(stack_id))?
             .stack_cli_id()
+    }
+
+    /// Every uncommitted hunk, each as its own ID.
+    pub fn uncommitted_hunk_ids(&self) -> impl Iterator<Item = UncommittedHunkOrFile> + '_ {
+        self.uncommitted_files
+            .values()
+            .flat_map(UncommittedFile::hunk_ids)
     }
 
     /// Every uncommitted file of `source`, as whole-file IDs.
@@ -2037,8 +2020,22 @@ impl UncommittedFile {
     }
 
     fn hunk_cli_id(&self, hunk_id: &UnqualifiedHunkId, hunk: &but_core::SingleHunk) -> CliId {
+        CliId::UncommittedHunkOrFile(self.hunk_id(hunk_id, hunk))
+    }
+
+    fn hunk_ids(&self) -> impl Iterator<Item = UncommittedHunkOrFile> + '_ {
+        self.short_id_hunks
+            .iter()
+            .map(|(hunk_id, hunk)| self.hunk_id(hunk_id, hunk))
+    }
+
+    fn hunk_id(
+        &self,
+        hunk_id: &UnqualifiedHunkId,
+        hunk: &but_core::SingleHunk,
+    ) -> UncommittedHunkOrFile {
         let id = format!("{}:{}", self.short_id, hunk_id.short_id());
-        CliId::UncommittedHunkOrFile(UncommittedHunkOrFile {
+        UncommittedHunkOrFile {
             id: id.clone(),
             hunks: NonEmpty::new(IdAndHunk {
                 id,
@@ -2047,19 +2044,8 @@ impl UncommittedFile {
             }),
             is_entire_file: false,
             source: self.source.clone(),
-        })
+        }
     }
-}
-
-/// An uncommitted hunk.
-#[derive(Debug)]
-pub struct UncommittedHunk {
-    /// The hunk assignment.
-    pub hunk: but_core::SingleHunk,
-    /// The checkout this hunk was read from.
-    pub source: ChangeSourceId,
-    /// The status of the associated tree change.
-    pub tree_status: TreeStatusKind,
 }
 
 #[derive(Debug, Clone, Eq)]

@@ -29,7 +29,7 @@ use crate::{
     CliId, IdMap,
     id::{
         CommitId, CommitWithId, CommittedFileId, CommittedHunk, IdAndHunk, TreeChangeWithId,
-        UncommittedHunk, UncommittedHunkOrFile, identify_hunks,
+        UncommittedHunkOrFile, identify_hunks,
     },
     theme::Theme,
     utils::{
@@ -650,41 +650,37 @@ pub fn render_uncommitted_source(
     let mut id_gen = id_gen.scoped("uncommitted");
 
     let id_map = IdMap::legacy_new_from_context(ctx)?;
-    let uncommitted_hunks = filter_uncommitted_hunks(ctx, &id_map, |hunk| hunk.source == source)?;
+    let uncommitted_hunks = uncommitted_hunks_in_display_order(&id_map, &source);
 
     if !options.skip_line_stats {
         let line_stats = render_line_stats(compute_line_stats_from_uncommitted_hunks(
-            uncommitted_hunks.iter().map(|(_, _, hunk)| &hunk.hunk),
+            uncommitted_hunks
+                .iter()
+                .map(|uncommitted| &uncommitted.hunks.head.hunk),
         ));
         out.write_selectable_text(id_gen.new_id("line_stats"), None, line_stats)?;
         out.write_section_separator()?;
     }
 
-    for (
-        pos,
-        (
-            raw_id,
-            cli_id,
-            UncommittedHunk {
-                hunk,
-                tree_status,
-                source: _,
-            },
-        ),
-    ) in uncommitted_hunks.into_iter().with_position()
-    {
-        let id = id_gen.new_id(raw_id);
+    for (pos, uncommitted) in uncommitted_hunks.into_iter().with_position() {
+        let IdAndHunk {
+            id: raw_id,
+            hunk,
+            tree_status,
+        } = uncommitted.hunks.head.clone();
+        let cli_id = Arc::new(CliId::UncommittedHunkOrFile(uncommitted));
+        let id = id_gen.new_id(&raw_id);
 
         render_hunk_path_header(
             id,
             Some(Arc::clone(&cli_id)),
             hunk.path.as_ref(),
-            Some(StatusLine::ShortIdAndTreeStatus(raw_id, *tree_status)),
+            Some(StatusLine::ShortIdAndTreeStatus(&raw_id, tree_status)),
             out,
             theme,
         )?;
 
-        render_hunk(id, Some(Arc::clone(&cli_id)), hunk, theme, out)?;
+        render_hunk(id, Some(Arc::clone(&cli_id)), &hunk, theme, out)?;
 
         if pos.needs_padding_below() {
             out.write_section_separator()?;
@@ -1386,55 +1382,23 @@ fn compute_line_stats_from_uncommitted_hunks<'a>(
     line_stats
 }
 
-fn filter_uncommitted_hunks<'a, F>(
-    ctx: &'a Context,
-    id_map: &'a IdMap,
-    mut filter: F,
-) -> anyhow::Result<Vec<(&'a str, Arc<CliId>, &'a UncommittedHunk)>>
-where
-    F: FnMut(&UncommittedHunk) -> bool,
-{
-    let mut uncommitted_hunks = id_map
-        .uncommitted_hunks
-        .iter()
-        .filter(move |(_, hunk)| filter(hunk))
-        .map(|(raw_id, hunk)| {
-            let mut cli_ids = id_map.parse_using_context(raw_id, ctx)?;
-            if cli_ids.len() == 1 {
-                Ok((&**raw_id, Arc::new(cli_ids.remove(0)), hunk))
-            } else if cli_ids.is_empty() {
-                bail!("'{raw_id}' no found")
-            } else {
-                bail!(
-                    "'{raw_id}' resolved to more than one hunk ({})",
-                    cli_ids.len()
-                )
-            }
-        })
-        .collect::<anyhow::Result<Vec<_>>>()?;
-
-    uncommitted_hunks.sort_by(|(id_a, _, hunk_a), (id_b, _, hunk_b)| {
+fn uncommitted_hunks_in_display_order(
+    id_map: &IdMap,
+    source: &ChangeSourceId,
+) -> Vec<UncommittedHunkOrFile> {
+    let mut uncommitted_hunks: Vec<_> = id_map
+        .uncommitted_hunk_ids()
+        .filter(|uncommitted| uncommitted.source == *source)
+        .collect();
+    uncommitted_hunks.sort_by_cached_key(|uncommitted| {
+        let hunk = &uncommitted.hunks.head.hunk;
         (
-            &hunk_a.hunk.path,
-            hunk_a
-                .hunk
-                .hunk_header
-                .as_ref()
-                .map(|header| header.old_start),
-            id_a,
+            hunk.path.clone(),
+            hunk.hunk_header.as_ref().map(|header| header.old_start),
+            uncommitted.id.clone(),
         )
-            .cmp(&(
-                &hunk_b.hunk.path,
-                hunk_b
-                    .hunk
-                    .hunk_header
-                    .as_ref()
-                    .map(|header| header.old_start),
-                id_b,
-            ))
     });
-
-    Ok(uncommitted_hunks)
+    uncommitted_hunks
 }
 
 trait PositionExt {
