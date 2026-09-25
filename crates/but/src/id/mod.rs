@@ -509,6 +509,16 @@ impl WorkspaceCommitWithId {
             change_id: self.change_id.clone().map(|cid| cid.change_id),
         }
     }
+    /// The ID naming this commit.
+    pub fn cli_id(&self) -> CliId {
+        CliId::Commit {
+            commit: CommitId {
+                commit_id: self.commit_id(),
+                change_id: self.change_id.as_ref().map(|id| id.change_id.clone()),
+            },
+            id: self.short_id.clone(),
+        }
+    }
 }
 /// Methods to calculate the short IDs of committed files.
 impl WorkspaceCommitWithId {
@@ -591,13 +601,7 @@ impl<'a> Node<'a> for &'a WorkspaceCommitWithId {
     }
 
     fn to_cli_id(self: Box<Self>) -> Option<CliId> {
-        Some(CliId::Commit {
-            commit: CommitId {
-                commit_id: self.commit_id(),
-                change_id: self.change_id.as_ref().map(|id| id.change_id.clone()),
-            },
-            id: self.short_id.clone(),
-        })
+        Some(self.cli_id())
     }
 }
 
@@ -614,6 +618,16 @@ impl RemoteCommitWithId {
     pub fn commit_id(&self) -> gix::ObjectId {
         self.inner.id
     }
+    /// The ID naming this commit.
+    pub fn cli_id(&self) -> CliId {
+        CliId::Commit {
+            commit: CommitId {
+                commit_id: self.commit_id(),
+                change_id: None,
+            },
+            id: self.short_id.clone(),
+        }
+    }
 }
 impl<'a> Node<'a> for &'a RemoteCommitWithId {
     fn parse(
@@ -626,13 +640,7 @@ impl<'a> Node<'a> for &'a RemoteCommitWithId {
     }
 
     fn to_cli_id(self: Box<Self>) -> Option<CliId> {
-        Some(CliId::Commit {
-            commit: CommitId {
-                commit_id: self.commit_id(),
-                change_id: None,
-            },
-            id: self.short_id.clone(),
-        })
+        Some(self.cli_id())
     }
 }
 
@@ -660,6 +668,24 @@ impl SegmentWithId {
             .ref_info
             .as_ref()
             .map(|ref_info| ref_info.ref_name.shorten())
+    }
+    /// The ID naming this segment.
+    pub fn cli_id(&self) -> CliId {
+        match self.branch_name() {
+            Some(name) => CliId::Branch(BranchId {
+                name: name.to_string(),
+                id: self.short_id.clone(),
+                lane: self.lane.clone(),
+            }),
+            None => CliId::AnonymousSegment(AnonymousSegmentId {
+                id: self.short_id.clone(),
+                lane: self.lane.clone(),
+                anchor_commit_id: self
+                    .workspace_commits
+                    .first()
+                    .map(WorkspaceCommitWithId::commit_id),
+            }),
+        }
     }
 }
 impl<'a> Node<'a> for &'a SegmentWithId {
@@ -692,21 +718,7 @@ impl<'a> Node<'a> for &'a SegmentWithId {
     }
 
     fn to_cli_id(self: Box<Self>) -> Option<CliId> {
-        Some(match self.branch_name() {
-            Some(name) => CliId::Branch(BranchId {
-                name: name.to_string(),
-                id: self.short_id.clone(),
-                lane: self.lane.clone(),
-            }),
-            None => CliId::AnonymousSegment(AnonymousSegmentId {
-                id: self.short_id.clone(),
-                lane: self.lane.clone(),
-                anchor_commit_id: self
-                    .workspace_commits
-                    .first()
-                    .map(WorkspaceCommitWithId::commit_id),
-            }),
-        })
+        Some(self.cli_id())
     }
 }
 
