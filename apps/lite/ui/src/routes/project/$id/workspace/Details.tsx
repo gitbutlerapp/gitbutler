@@ -222,6 +222,7 @@ import {
 	codeViewItemMetrics,
 	codeViewLayout,
 	type DiffView,
+	type DiffViewFile,
 	getDiffView,
 	hunkAddressIdentityKey,
 	prepareDiffFiles,
@@ -259,6 +260,12 @@ const EMPTY_ANNOTATIONS_BY_PATH: LocalAnnotationsByPath = new Map();
 const EMPTY_THREADS_BY_PATH: ThreadsByPath = new Map();
 const EMPTY_CONFLICTS: Array<ConflictedFile> = [];
 const EMPTY_MANUAL: Array<ManualConflict> = [];
+
+// The diff-spec API treats additions/deletions as whole files, even when they have text hunks.
+const canCheckFileLines = (file: DiffViewFile | undefined): boolean =>
+	file?.patch?.type === "Patch" &&
+	!file.patch.subject.isResultOfBinaryToTextConversion &&
+	(file.change.status.type === "Modification" || file.change.status.type === "Rename");
 
 const isInteractiveElement = (target: EventTarget): boolean =>
 	target instanceof Element &&
@@ -558,9 +565,12 @@ const DiffContents: FC<{
 		[storedSelectedLines, fileByItemId, hunkByKey],
 	);
 	const diffSelection = storedSelectionHunk ?? visibleAddressSpace.items[0] ?? null;
-	const canCheckHunks = useAppSelector((state) =>
-		projectSlice.selectors.selectCanCheckHunks(state, projectId, fileParent),
-	);
+	const canCheckSelectedLines =
+		useAppSelector((state) =>
+			projectSlice.selectors.selectCanCheckFilesOrHunks(state, projectId, fileParent),
+		) &&
+		diffSelection !== null &&
+		canCheckFileLines(fileByItemId.get(weakFileIdentityKey(diffSelection.parent)));
 	const noOperationPending = useAppSelector(
 		(state) => projectSlice.selectors.selectPendingOperation(state, projectId)._tag === "None",
 	);
@@ -818,7 +828,7 @@ const DiffContents: FC<{
 			const checked = !addresses.every((address) =>
 				projectSlice.selectors.selectAddressChecked(state, projectId, address),
 			);
-			dispatch(projectSlice.actions.checkAddresses({ projectId, addresses, checked }));
+			applyLineChecks(checked ? addresses : [], checked ? [] : addresses);
 			return null;
 		}
 		const currentAddress = getLineAddressAtLine({
@@ -1078,24 +1088,21 @@ const DiffContents: FC<{
 				});
 				if (!address) return;
 
-				dispatch(
-					projectSlice.actions.checkAddresses({
-						projectId,
-						addresses: address.lineGroups.flatMap((group) =>
-							Array.from({ length: group.lines }, (_, index) =>
-								hunkAddress({
-									...address,
-									lineGroups: [{ side: group.side, start: group.start + index, lines: 1 }],
-								}),
-							),
+				applyLineChecks(
+					address.lineGroups.flatMap((group) =>
+						Array.from({ length: group.lines }, (_, index) =>
+							hunkAddress({
+								...address,
+								lineGroups: [{ side: group.side, start: group.start + index, lines: 1 }],
+							}),
 						),
-						checked: true,
-					}),
+					),
+					[],
 				);
 			},
 			options: {
 				conflictBehavior: "allow",
-				enabled: selectedLinesHunk !== null && canCheckHunks && noOperationPending,
+				enabled: selectedLinesHunk !== null && canCheckSelectedLines && noOperationPending,
 				ignoreInputs: true,
 				target: focusScopeRef,
 				meta: diffHotkeys.checkAll.meta,
@@ -1106,7 +1113,7 @@ const DiffContents: FC<{
 			callback: toggleSelectedLinesChecked,
 			options: {
 				conflictBehavior: "allow",
-				enabled: selectedLines !== null && canCheckHunks,
+				enabled: selectedLines !== null && canCheckSelectedLines,
 				preventDefault: false,
 				stopPropagation: false,
 				target: focusScopeRef,
@@ -1118,7 +1125,7 @@ const DiffContents: FC<{
 			callback: toggleSelectedLinesChecked,
 			options: {
 				conflictBehavior: "allow",
-				enabled: selectedLines !== null && canCheckHunks,
+				enabled: selectedLines !== null && canCheckSelectedLines,
 				preventDefault: false,
 				stopPropagation: false,
 				target: focusScopeRef,
@@ -1318,14 +1325,45 @@ const DiffContents: FC<{
 		);
 	};
 
-	const checkedHunkKeys = (): Set<string> =>
-		new Set(
-			projectSlice.selectors
-				.selectCheckedAddresses(store.getState(), projectId)
-				.values()
-				.map((address) => (address._tag === "Hunk" ? hunkAddressIdentityKey(address) : null))
-				.filter((x) => x != null),
+	/**
+	 * A whole-file check stores no individual lines, and the reducer has no diff data.
+	 * Supply every changed line in affected files so it can retain the rest when a line
+	 * is unchecked, or collapse a complete line selection back to a whole-file check.
+	 */
+	function applyLineChecks(
+		checked: Array<Extract<CheckableAddress, { _tag: "Hunk" }>>,
+		unchecked: Array<Extract<CheckableAddress, { _tag: "Hunk" }>>,
+	): void {
+		const fileIds = new Set(
+			[...checked, ...unchecked].map((address) => weakFileIdentityKey(address.parent)),
 		);
+
+		const files = fileIds
+			.values()
+			.flatMap((id) => {
+				const file = fileByItemId.get(id);
+				if (!file || !canCheckFileLines(file)) return [];
+
+				// Expand the complete file, not the visible/folded range that triggered the check.
+				const lines = file.hunks.flatMap(({ address }) =>
+					address.lineGroups.flatMap((group) =>
+						Array.from({ length: group.lines }, (_, index) =>
+							hunkAddress({
+								...address,
+								lineGroups: [{ side: group.side, start: group.start + index, lines: 1 }],
+							}),
+						),
+					),
+				);
+
+				return [{ file: file.address, lines }];
+			})
+			.toArray();
+
+		if (files.length === 0) return;
+
+		dispatch(projectSlice.actions.checkLines({ projectId, files, checked, unchecked }));
+	}
 
 	const applyCheckedAddressGroups = ({
 		previous,
@@ -1336,25 +1374,15 @@ const DiffContents: FC<{
 		next: Set<string>;
 		addressesByKey: Map<string, Array<Extract<Address, { _tag: "Hunk" }>>>;
 	}): void => {
-		const addressesForKeys = (keys: Set<string>): Array<CheckableAddress> =>
+		const addressesForKeys = (keys: Set<string>): Array<Extract<Address, { _tag: "Hunk" }>> =>
 			keys
 				.values()
 				.flatMap((key) => addressesByKey.get(key) ?? [])
 				.toArray();
 
-		dispatch(
-			projectSlice.actions.checkAddresses({
-				projectId,
-				addresses: addressesForKeys(next.difference(previous)),
-				checked: true,
-			}),
-		);
-		dispatch(
-			projectSlice.actions.checkAddresses({
-				projectId,
-				addresses: addressesForKeys(previous.difference(next)),
-				checked: false,
-			}),
+		applyLineChecks(
+			addressesForKeys(next.difference(previous)),
+			addressesForKeys(previous.difference(next)),
 		);
 	};
 
@@ -1393,11 +1421,22 @@ const DiffContents: FC<{
 		visibleAddressSpace.items
 			.values()
 			.map((address) => {
+				if (!canCheckFileLines(fileByItemId.get(weakFileIdentityKey(address.parent)))) return null;
 				const selection = selectedLinesForHunk(address);
 				const lineAddresses = selection ? addressesForSelectedLines(selection, "line") : null;
 				return lineAddresses && lineAddresses.length > 0 ? { address, lineAddresses } : null;
 			})
 			.filter((x) => x != null);
+
+	const checkedHunkKeys = (): Set<string> =>
+		new Set(
+			visibleHunkGroups()
+				.flatMap(({ lineAddresses }) => lineAddresses)
+				.filter((address) =>
+					projectSlice.selectors.selectAddressChecked(store.getState(), projectId, address),
+				)
+				.map(hunkAddressIdentityKey),
+		);
 
 	function checkLine(address: HunkAddress, shiftKey: boolean): void {
 		const key = hunkAddressIdentityKey(address);
@@ -1435,7 +1474,7 @@ const DiffContents: FC<{
 		);
 		lineCheckRangeAnchor.current = key;
 		lineCheckRangeEnd.current = key;
-		dispatch(projectSlice.actions.checkAddress({ projectId, address: source, checked }));
+		applyLineChecks(checked ? [source] : [], checked ? [] : [source]);
 	}
 
 	function checkHunkLines(
@@ -1443,6 +1482,16 @@ const DiffContents: FC<{
 		lineAddresses: Array<Extract<Address, { _tag: "Hunk" }>>,
 		shiftKey: boolean,
 	): void {
+		if (lineAddresses.length === 0) {
+			const source = fileAddress(address.parent);
+			const checked = !projectSlice.selectors.selectAddressChecked(
+				store.getState(),
+				projectId,
+				source,
+			);
+			dispatch(projectSlice.actions.checkAddress({ projectId, address: source, checked }));
+			return;
+		}
 		const key = hunkAddressIdentityKey(address);
 		if (!shiftKey || hunkCheckRangeAnchor.current === null) {
 			const state = store.getState();
@@ -1451,9 +1500,7 @@ const DiffContents: FC<{
 			);
 			hunkCheckRangeAnchor.current = key;
 			hunkCheckRangeEnd.current = key;
-			dispatch(
-				projectSlice.actions.checkAddresses({ projectId, addresses: lineAddresses, checked }),
-			);
+			applyLineChecks(checked ? lineAddresses : [], checked ? [] : lineAddresses);
 			return;
 		}
 
@@ -1537,7 +1584,8 @@ const DiffContents: FC<{
 	const { onPostRender: handleDiffPostRender, portals: diffGutterPortals } =
 		useDiffGutterCheckboxes(
 			handleHunkPostRender,
-			getLineAddressAtLine,
+			(target) =>
+				canCheckFileLines(fileByItemId.get(target.itemId)) ? getLineAddressAtLine(target) : null,
 			getContiguousHunkAddressAtLine,
 			projectId,
 			checkLine,
