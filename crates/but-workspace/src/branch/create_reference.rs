@@ -294,8 +294,13 @@ pub(super) mod function {
                 commit_id,
                 position,
             }) => {
-                let ref_target_id = position
-                    .resolve_commit(workspace.try_find_commit(commit_id)?.into(), ws_base)?;
+                // The workspace base is a valid boundary anchor, but isn't a stack commit.
+                let ref_target_id = if Some(commit_id) == ws_base {
+                    commit_id
+                } else {
+                    position
+                        .resolve_commit(workspace.try_find_commit(commit_id)?.into(), ws_base)?
+                };
                 let id_out_of_workspace = Some(ref_target_id) == ws_base;
 
                 let instruction = existing_ws_meta
@@ -308,7 +313,8 @@ pub(super) mod function {
                         workspace.stacks[stack_idx]
                             .id
                             .map(Instruction::DependentInStack)
-                    });
+                    })
+                    .or_else(|| id_out_of_workspace.then_some(Instruction::Independent));
 
                 AnchorResolution::positioned(ref_target_id, !id_out_of_workspace, instruction)
             }
