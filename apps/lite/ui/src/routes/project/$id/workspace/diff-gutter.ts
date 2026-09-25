@@ -437,19 +437,27 @@ const createGutterStore = <T>(
 		});
 	};
 
+	// A column that cannot check anything has nothing to answer the pointer with.
+	const isGroupHovered = (host: HTMLElement, groupKey: string): boolean =>
+		hoveredGroupKeys.get(host) === groupKey &&
+		(checkableGroupsByHost.get(host)?.has(groupKey) ?? false);
+
+	const paintGroupHover = (host: HTMLElement, groupKey: string): void => {
+		const hovered = isGroupHovered(host, groupKey);
+		for (const control of controlsByGroupByHost.get(host)?.get(groupKey) ?? [])
+			control.toggleAttribute(GUTTER_HOVERED_ATTRIBUTE, hovered);
+	};
+
 	/** The hunk whose own column the pointer is in, which is the only hunk the gutter answers for. */
 	const setHoveredGroup = (host: HTMLElement, groupKey: string | undefined): void => {
 		const previousGroupKey = hoveredGroupKeys.get(host);
 		if (previousGroupKey === groupKey) return;
 
-		const controlsByGroup = controlsByGroupByHost.get(host);
-		for (const control of controlsByGroup?.get(previousGroupKey ?? "") ?? [])
-			control.removeAttribute(GUTTER_HOVERED_ATTRIBUTE);
-		for (const control of controlsByGroup?.get(groupKey ?? "") ?? [])
-			control.setAttribute(GUTTER_HOVERED_ATTRIBUTE, "");
-
 		if (groupKey === undefined) hoveredGroupKeys.delete(host);
 		else hoveredGroupKeys.set(host, groupKey);
+
+		if (previousGroupKey !== undefined) paintGroupHover(host, previousGroupKey);
+		if (groupKey !== undefined) paintGroupHover(host, groupKey);
 	};
 
 	const paintBand = (band: HTMLElement, checked: boolean): void => {
@@ -499,6 +507,7 @@ const createGutterStore = <T>(
 		if (checkable) groups.add(groupKey);
 		else groups.delete(groupKey);
 		checkableGroupsByHost.set(host, groups);
+		paintGroupHover(host, groupKey);
 	};
 
 	/**
@@ -842,10 +851,7 @@ const createGutterStore = <T>(
 				}
 				parentSlot.name = parentSlotName;
 				parentSlot.setAttribute(GUTTER_GROUP_ATTRIBUTE, groupKey);
-				parentSlot.toggleAttribute(
-					GUTTER_HOVERED_ATTRIBUTE,
-					hoveredGroupKeys.get(host) === groupKey,
-				);
+				parentSlot.toggleAttribute(GUTTER_HOVERED_ATTRIBUTE, isGroupHovered(host, groupKey));
 				const groupControls = controlsByGroup.get(groupKey);
 				if (groupControls) groupControls.push(parentSlot);
 				else controlsByGroup.set(groupKey, [parentSlot]);
@@ -869,7 +875,7 @@ const createGutterStore = <T>(
 
 			const band = ensureHunkBand(cell, groupKey, handleBandClick);
 			paintBand(band, checkedGroups?.has(groupKey) ?? false);
-			band.toggleAttribute(GUTTER_HOVERED_ATTRIBUTE, hoveredGroupKeys.get(host) === groupKey);
+			band.toggleAttribute(GUTTER_HOVERED_ATTRIBUTE, isGroupHovered(host, groupKey));
 			const groupBands = bandsByGroup.get(groupKey);
 			if (groupBands) groupBands.push(band);
 			else bandsByGroup.set(groupKey, [band]);
