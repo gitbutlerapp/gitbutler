@@ -12,7 +12,6 @@ const GITLAB_REQUEST_TIMEOUT: Duration = Duration::from_secs(30);
 // Independent of GitLab's configurable offset, this generous cap accommodates realistic
 // self-hosted projects while bounding runaway pagination.
 const MAX_MERGE_REQUEST_REQUESTS: usize = 10_000;
-const MAX_PIPELINE_JOB_PAGES: usize = 25;
 
 /// An HTTP error with a status code, returned when the API responds with a non-success status.
 ///
@@ -684,104 +683,90 @@ impl GitLabClient {
         Ok(mr)
     }
 
-    /// Fetch pipeline jobs for the latest commit on a given branch reference.
+    /// The newest pipeline on a branch, including merge request pipelines.
     ///
-    /// Returns an empty vec if GitLab has no pipeline for the latest commit on the ref.
-    pub async fn list_pipeline_jobs_for_ref(
+    /// Uses the pipeline *list* endpoint rather than `pipelines/latest`: the
+    /// latter finds only branch pipelines and answers 403 for a ref with none.
+    /// Merge request pipelines run on `refs/merge-requests/:iid/{head,merge,train}`,
+    /// and only the list endpoint's `ref` filter matches them to the source branch.
+    pub async fn latest_pipeline_for_branch(
         &self,
         project_id: GitLabProjectId,
-        reference: &str,
-    ) -> Result<Vec<GitLabPipelineJob>> {
-        #[derive(Deserialize)]
-        struct GitLabPipelineResponse {
-            id: i64,
-            status: String,
-            web_url: Option<String>,
-        }
-
-        let url = format!("{}/projects/{}/pipelines/latest", self.base_url, project_id);
+        branch: &str,
+    ) -> Result<PipelineLookup> {
+        let url = format!("{}/projects/{}/pipelines", self.base_url, project_id);
         let response = self
             .client
             .get(&url)
-            .query(&[("ref", reference)])
+            .query(&[("ref", branch), ("per_page", "1")])
             .send()
             .await
-            .with_context(|| {
-                format!("Failed to get latest GitLab pipeline for ref '{reference}'")
-            })?;
+            .with_context(|| format!("Failed to list GitLab pipelines for branch '{branch}'"))?;
 
+        // GitLab answers 403, not 404, when pipeline visibility is restricted.
+        // Neither is a failed fetch, or the badge would stay "Failed to load checks".
+        if response.status() == reqwest::StatusCode::FORBIDDEN
+            || response.status() == reqwest::StatusCode::NOT_FOUND
+        {
+            return Ok(PipelineLookup::Unresolved);
+        }
         if !response.status().is_success() {
-            let status = response.status();
-            if status == reqwest::StatusCode::FORBIDDEN || status == reqwest::StatusCode::NOT_FOUND
-            {
-                return Ok(Vec::new());
-            }
-            return Err(anyhow::Error::from(HttpStatusError { status })
-                .context("Failed to get latest pipeline for ref"));
+            return Err(anyhow::Error::from(HttpStatusError {
+                status: response.status(),
+            })
+            .context(format!(
+                "Failed to list GitLab pipelines for branch '{branch}'"
+            )));
         }
 
-        let pipeline: GitLabPipelineResponse = response
+        let pipelines: Vec<GitLabPipeline> = response
             .json()
             .await
-            .with_context(|| format!("Failed to parse GitLab pipeline for ref '{reference}'"))?;
+            .with_context(|| format!("Failed to parse GitLab pipelines for branch '{branch}'"))?;
 
-        let pipeline_web_url = pipeline.web_url;
-        let pipeline_status = Some(pipeline.status);
+        // GitLab lists pipelines newest first, so `per_page=1` is the head pipeline.
+        Ok(PipelineLookup::Resolved(pipelines.into_iter().next()))
+    }
 
-        let jobs_url = format!(
+    /// The failed jobs of a pipeline, used to name what went wrong. One page
+    /// keeps this bounded on pipelines with hundreds of jobs.
+    pub async fn failed_jobs(
+        &self,
+        project_id: GitLabProjectId,
+        pipeline_id: i64,
+    ) -> Result<Vec<GitLabPipelineJob>> {
+        let url = format!(
             "{}/projects/{}/pipelines/{}/jobs",
-            self.base_url, project_id, pipeline.id
+            self.base_url, project_id, pipeline_id
         );
-        let mut jobs = Vec::new();
-        let mut next_page = Some("1".to_string());
-        let mut seen_pages = HashSet::new();
-        let mut pages_iterated = 0;
+        let response = self
+            .client
+            .get(&url)
+            .query(&[("scope[]", "failed"), ("per_page", "100")])
+            .send()
+            .await
+            .with_context(|| format!("Failed to list GitLab jobs for pipeline {pipeline_id}"))?;
 
-        while let Some(page) = next_page.take() {
-            if pages_iterated >= MAX_PIPELINE_JOB_PAGES || !seen_pages.insert(page.clone()) {
-                bail!(
-                    "Stopped listing GitLab jobs for pipeline {} after unsafe pagination state",
-                    pipeline.id
-                );
-            }
-            pages_iterated += 1;
-
-            let response = self
-                .client
-                .get(&jobs_url)
-                .query(&[("per_page", "100"), ("page", page.as_str())])
-                .send()
-                .await
-                .with_context(|| {
-                    format!("Failed to list GitLab jobs for pipeline {}", pipeline.id)
-                })?;
-
-            if !response.status().is_success() {
-                return Err(anyhow::Error::from(HttpStatusError {
-                    status: response.status(),
-                })
-                .context("Failed to list jobs for pipeline"));
-            }
-
-            next_page = next_page_from_headers(response.headers());
-            let mut page_jobs: Vec<GitLabPipelineJob> =
-                response.json().await.with_context(|| {
-                    format!("Failed to parse GitLab jobs for pipeline {}", pipeline.id)
-                })?;
-            if page_jobs.is_empty() {
-                break;
-            }
-            jobs.append(&mut page_jobs);
+        if response.status() == reqwest::StatusCode::FORBIDDEN
+            || response.status() == reqwest::StatusCode::NOT_FOUND
+        {
+            // Restricted job visibility. The pipeline status still stands, so
+            // degrade to naming no individual job rather than failing.
+            return Ok(Vec::new());
+        }
+        if !response.status().is_success() {
+            return Err(anyhow::Error::from(HttpStatusError {
+                status: response.status(),
+            })
+            .context(format!(
+                "Failed to list GitLab jobs for pipeline {pipeline_id}"
+            )));
         }
 
-        let jobs = normalize_pipeline_jobs(
-            jobs,
-            pipeline_web_url,
-            pipeline_status,
-            &self.base_url,
-            project_id,
-        );
-        Ok(jobs)
+        response
+            .json()
+            .await
+            .with_context(|| format!("Failed to parse GitLab jobs for pipeline {pipeline_id}"))
     }
 }
 
@@ -799,44 +784,6 @@ fn next_page_from_headers(headers: &HeaderMap) -> Option<String> {
         .map(str::trim)
         .filter(|value| !value.is_empty())
         .map(str::to_owned)
-}
-
-fn normalize_pipeline_jobs(
-    jobs: Vec<GitLabPipelineJob>,
-    pipeline_web_url: Option<String>,
-    pipeline_status: Option<String>,
-    base_url: &str,
-    project_id: GitLabProjectId,
-) -> Vec<GitLabPipelineJob> {
-    let web_base = base_url
-        .strip_suffix("/api/v4")
-        .unwrap_or(base_url)
-        .trim_end_matches('/');
-    let username = project_id.username();
-    let project_name = project_id.project_name();
-
-    jobs.into_iter()
-        .map(|mut job| {
-            if job.web_url.is_none() {
-                job.web_url = pipeline_web_url
-                    .clone()
-                    .or_else(|| job.pipeline.web_url.clone())
-                    .or_else(|| {
-                        Some(format!(
-                            "{}/{}/{}/-/pipelines/{}",
-                            web_base, username, project_name, job.pipeline.id
-                        ))
-                    });
-            }
-            if job.pipeline.web_url.is_none() {
-                job.pipeline.web_url = pipeline_web_url.clone().or_else(|| job.web_url.clone());
-            }
-            if job.pipeline.status.is_none() {
-                job.pipeline.status = pipeline_status.clone();
-            }
-            job
-        })
-        .collect()
 }
 
 pub struct CreateMergeRequestParams<'a> {
@@ -1004,27 +951,37 @@ pub struct GitLabProject {
     pub access_level: Option<i64>,
 }
 
-/// GitLab CI job with the pipeline fields needed to build GitButler check status.
+#[derive(Debug, Clone, Deserialize)]
+pub struct GitLabPipeline {
+    pub id: i64,
+    pub sha: String,
+    pub status: String,
+    pub created_at: Option<String>,
+    /// Last change to the pipeline; the finish time once it has settled.
+    pub updated_at: Option<String>,
+    pub web_url: Option<String>,
+}
+
+/// `Resolved(None)` and `Unresolved` are deliberately distinct: the first is an
+/// authoritative "no CI here" that may clear the checks cache, the second is a
+/// lookup whose subject was not found and must leave a previously-good cache
+/// alone, since it can be transient.
+#[derive(Debug, Clone)]
+pub enum PipelineLookup {
+    Resolved(Option<GitLabPipeline>),
+    Unresolved,
+}
+
+/// GitLab CI job, fetched only to name the jobs that failed.
 #[derive(Debug, Clone, Deserialize)]
 pub struct GitLabPipelineJob {
     pub id: i64,
     pub name: String,
-    pub status: String,
     #[serde(default)]
     pub allow_failure: bool,
     pub started_at: Option<String>,
     pub finished_at: Option<String>,
     pub web_url: Option<String>,
-    pub pipeline: GitLabPipelineRef,
-}
-
-/// Minimal pipeline reference embedded in GitLab job responses.
-#[derive(Debug, Clone, Deserialize)]
-pub struct GitLabPipelineRef {
-    pub id: i64,
-    pub web_url: Option<String>,
-    #[serde(default)]
-    pub status: Option<String>,
 }
 
 #[derive(Debug, Serialize)]
@@ -1187,33 +1144,10 @@ pub(crate) fn resolve_account(
 #[cfg(test)]
 mod tests {
     use super::{
-        GitLabMergeRequest, GitLabPipelineJob, GitLabPipelineRef, MAX_MERGE_REQUEST_REQUESTS,
-        MergeRequest, merge_request_page_is_safe, next_page_from_headers, normalize_pipeline_jobs,
-        repo_owner_from_path_with_namespace, update_draft_state_in_title,
+        GitLabMergeRequest, MAX_MERGE_REQUEST_REQUESTS, MergeRequest, merge_request_page_is_safe,
+        next_page_from_headers, repo_owner_from_path_with_namespace, update_draft_state_in_title,
     };
     use reqwest::header::{HeaderMap, HeaderValue};
-
-    fn job(
-        id: i64,
-        pipeline_id: i64,
-        web_url: Option<&str>,
-        pipeline_web_url: Option<&str>,
-    ) -> GitLabPipelineJob {
-        GitLabPipelineJob {
-            id,
-            name: format!("job-{id}"),
-            status: "success".into(),
-            allow_failure: false,
-            started_at: None,
-            finished_at: None,
-            web_url: web_url.map(str::to_owned),
-            pipeline: GitLabPipelineRef {
-                id: pipeline_id,
-                web_url: pipeline_web_url.map(str::to_owned),
-                status: None,
-            },
-        }
-    }
 
     #[test]
     fn reads_next_page_from_headers() {
@@ -1316,47 +1250,6 @@ mod tests {
         assert_eq!(
             update_draft_state_in_title("Draft: Rename API validation", false),
             "Rename API validation"
-        );
-    }
-
-    #[test]
-    fn normalize_pipeline_jobs_prefers_pipeline_url_and_backfills_job_urls() {
-        let jobs = normalize_pipeline_jobs(
-            vec![job(1, 123, None, None), job(2, 123, None, None)],
-            Some("https://gitlab.example/pipelines/123".into()),
-            Some("success".into()),
-            "https://gitlab.example/api/v4",
-            crate::GitLabProjectId::new("group", "repo"),
-        );
-
-        assert_eq!(
-            jobs[0].web_url.as_deref(),
-            Some("https://gitlab.example/pipelines/123")
-        );
-        assert_eq!(
-            jobs[1].web_url.as_deref(),
-            Some("https://gitlab.example/pipelines/123")
-        );
-        assert_eq!(
-            jobs[0].pipeline.web_url.as_deref(),
-            Some("https://gitlab.example/pipelines/123")
-        );
-        assert_eq!(jobs[0].pipeline.status.as_deref(), Some("success"));
-    }
-
-    #[test]
-    fn normalize_pipeline_jobs_synthesizes_pipeline_url_when_missing_everywhere() {
-        let jobs = normalize_pipeline_jobs(
-            vec![job(1, 123, None, None)],
-            None,
-            None,
-            "https://gitlab.example/api/v4",
-            crate::GitLabProjectId::new("group", "repo"),
-        );
-
-        assert_eq!(
-            jobs[0].web_url.as_deref(),
-            Some("https://gitlab.example/group/repo/-/pipelines/123")
         );
     }
 
