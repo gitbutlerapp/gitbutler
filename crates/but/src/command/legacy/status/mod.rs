@@ -1414,11 +1414,8 @@ fn print_files(
     if let Some(stack) = stack
         && (!unstaged && !files.is_empty())
     {
-        let assigned_changes_cli_id = status_ctx
-            .id_map
-            .resolve_stack(stack)
-            .cloned()
-            .with_context(|| {
+        let assigned_changes_cli_id =
+            status_ctx.id_map.resolve_stack(stack).with_context(|| {
                 format!("Could not resolve stack CLI id for assigned changes. stack_id={stack:?}")
             })?;
 
