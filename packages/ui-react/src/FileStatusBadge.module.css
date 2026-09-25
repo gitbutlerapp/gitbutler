@@ -3,9 +3,9 @@
 	align-self: center;
 	/* Sized off the text so the column stays aligned at any font size. */
 	width: 1.1em;
-	font-weight: var(--text-weight-semibold);
+	font-weight: var(--font-weight-semibold);
 	font-size: 11px;
-	font-family: var(--text-fontfamily-base);
+	font-family: var(--font-family-base);
 	text-box: trim-both cap alphabetic;
 	text-align: center;
 

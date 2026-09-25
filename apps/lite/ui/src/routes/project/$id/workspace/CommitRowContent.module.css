@@ -14,7 +14,7 @@
 
 .commitId {
 	flex-shrink: 0;
-	font-family: var(--text-fontfamily-mono);
+	font-family: var(--font-family-mono);
 }
 
 .conflictIcon {

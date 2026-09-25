@@ -8,7 +8,7 @@
 	--thumb-hover-width: 16px;
 
 	display: flex;
-	row-gap: var(--size-layout-sm);
+	row-gap: var(--space-sm);
 	flex-direction: column;
 	transition: opacity var(--transition-fast);
 

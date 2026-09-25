@@ -8,7 +8,7 @@
  * to its fallback, its initial value, or whatever it inherits. That is how
  * `--radius-m` shipped square corners on two panels and `--font-mono` rendered
  * a generic monospace: each name was plausible next to a real token
- * (`--radius-md`, `--text-fontfamily-mono`) and nothing said otherwise.
+ * (`--radius-md`, `--font-family-mono`) and nothing said otherwise.
  *
  * Definitions are gathered from:
  *
