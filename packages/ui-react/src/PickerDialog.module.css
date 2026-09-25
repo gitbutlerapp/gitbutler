@@ -44,7 +44,7 @@
 	margin-inline: 4px;
 	padding-inline: 8px;
 	gap: 8px;
-	border-radius: var(--radius-button);
+	border-radius: var(--radius-control);
 	outline: 0;
 	font-size: 13px;
 	scroll-margin-block: 4px;

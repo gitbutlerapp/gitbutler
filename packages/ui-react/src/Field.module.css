@@ -11,7 +11,7 @@
 .fieldControl {
 	height: 28px;
 	padding-inline: 8px;
-	border-radius: var(--radius-button);
+	border-radius: var(--radius-control);
 	outline: 1px solid var(--border-2);
 	outline-offset: -1px;
 	background-color: var(--bg-1);

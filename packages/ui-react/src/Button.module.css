@@ -9,7 +9,7 @@
 	height: var(--button-height);
 	padding-inline: var(--button-padding-inline);
 	border: var(--button-border);
-	border-radius: var(--radius-button);
+	border-radius: var(--radius-control);
 	background-color: var(--button-bg);
 	color: var(--button-fg);
 	line-height: 1.1;

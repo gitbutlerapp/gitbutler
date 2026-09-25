@@ -146,7 +146,7 @@
 	height: 24px;
 	padding: 4px;
 	border: 1px solid color-mix(in srgb, var(--fill-gray-bg) 30%, transparent);
-	border-radius: var(--radius-button);
+	border-radius: var(--radius-control);
 	background: transparent;
 	color: color-mix(in srgb, var(--text-1) 90%, transparent);
 	cursor: pointer;
@@ -194,7 +194,7 @@
 .branch-flow code {
 	padding: 3px 6px;
 	overflow: hidden;
-	border-radius: var(--radius-button);
+	border-radius: var(--radius-control);
 	background: var(--gb-bg-2);
 	text-overflow: ellipsis;
 	white-space: nowrap;
@@ -260,7 +260,7 @@
 	padding: 4px 8px;
 	gap: 6px;
 	border: 1px solid color-mix(in srgb, var(--fill-gray-bg) 30%, transparent);
-	border-radius: var(--radius-button);
+	border-radius: var(--radius-control);
 	background: transparent;
 	color: color-mix(in srgb, var(--text-1) 90%, transparent);
 	font-weight: var(--font-weight-semibold);

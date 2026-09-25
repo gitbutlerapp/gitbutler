@@ -54,7 +54,7 @@
 	align-items: center;
 	padding: 6px 8px;
 	gap: 10px;
-	border-radius: var(--radius-button);
+	border-radius: var(--radius-control);
 	color: var(--text-1);
 	text-align: left;
 	transition: var(--transition-button);

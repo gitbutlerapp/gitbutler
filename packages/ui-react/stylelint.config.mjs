@@ -47,7 +47,7 @@ export default {
 						? `font-size ${value} is off the scale. Sizes are 11px to 16px, matching Figma's Base/ and Body/ styles; ` +
 							"prefer the text-NN class on the element (DESIGN.md)."
 						: `border-radius ${value} is not a token. Use var(--radius-xs|sm|md|lg|xl|2xl|full), a semantic one ` +
-							"(--radius-button, --radius-card, --radius-popup), calc() from one, 0 or 50% for a circle (DESIGN.md, Radius).",
+							"(--radius-control, --radius-card, --radius-popup, --radius-section), calc() from one, 0 or 50% for a circle (DESIGN.md, Radius).",
 			},
 		],
 	},
