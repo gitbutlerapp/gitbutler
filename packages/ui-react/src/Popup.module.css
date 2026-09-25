@@ -73,6 +73,10 @@
 	}
 }
 
+.sizeXsmall {
+	width: 320px;
+}
+
 .sizeSmall {
 	width: 420px;
 }
@@ -83,6 +87,65 @@
 
 .sizeLarge {
 	width: 1100px;
+}
+
+/* A form wrapping a modal's parts, so Enter submits, lays out as the modal itself would. */
+.modal > form {
+	display: flex;
+	flex-direction: column;
+	min-height: 0;
+}
+
+/* Header, body and footer each pad themselves, so the modal's own padding holds at the edges and
+   one stack gap separates any two of them, whichever are present. */
+.modalPart {
+	padding: var(--gap-stack) var(--padding-modal) 0;
+
+	&:first-child {
+		padding-top: var(--padding-modal);
+	}
+
+	&:last-child {
+		padding-bottom: var(--padding-modal);
+	}
+}
+
+/* Title and description a step apart, still well inside the stack gap to the body. */
+.modalHeader {
+	display: flex;
+	flex: none;
+	flex-direction: column;
+	gap: var(--space-lg);
+}
+
+.modalTitle {
+	margin: 0;
+	color: var(--text-1);
+	overflow-wrap: anywhere;
+}
+
+.modalDescription {
+	margin: 0;
+	color: var(--text-2);
+	overflow-wrap: anywhere;
+}
+
+/* The one part that scrolls, so a tall list or form keeps its title and buttons in view. */
+.modalBody {
+	display: flex;
+	flex: 1 1 auto;
+	flex-direction: column;
+	min-height: 0;
+	overflow-y: auto;
+	gap: var(--gap-stack);
+	color: var(--text-1);
+}
+
+.modalFooter {
+	display: flex;
+	flex: none;
+	justify-content: flex-end;
+	gap: var(--gap-buttons);
 }
 
 /* Grows out of the corner it is anchored to, rather than from its own middle. */

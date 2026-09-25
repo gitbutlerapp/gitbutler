@@ -1,13 +1,14 @@
 import { Button } from "@gitbutler/ui-react/Button.tsx";
+import { FileIcon } from "@gitbutler/ui-react/FileIcon.tsx";
 import { Icon } from "@gitbutler/ui-react/Icon.tsx";
+import { List, ListItem } from "@gitbutler/ui-react/List.tsx";
 import { Tooltip } from "@gitbutler/ui-react/Tooltip.tsx";
-import { Modal } from "@gitbutler/ui-react/Popup.tsx";
+import { Modal, ModalBody, ModalFooter, ModalHeader } from "@gitbutler/ui-react/Popup.tsx";
 import { useUploadFiles } from "#ui/api/mutations.ts";
 import { userProfileQueryOptions } from "#ui/api/queries.ts";
 import * as md from "@gitbutler/ui-react/markdown-editing.ts";
 import { applyToTextarea } from "@gitbutler/ui-react/markdown-textarea.ts";
 import { ACCEPTED_FILE_TYPES, filesFromTransfer, uploadsToMarkdown } from "#ui/uploads.ts";
-import { Dialog } from "@base-ui/react";
 import { useQuery } from "@tanstack/react-query";
 import { type FC, type RefObject, useEffect, useRef, useState } from "react";
 import styles from "./MarkdownAttachments.module.css";
@@ -124,33 +125,35 @@ export const MarkdownAttachments: FC<Props> = (p) => {
 			<Modal
 				alert
 				size="small"
-				className={styles.popup}
 				open={pending.length > 0}
 				onOpenChange={(open) => open || setPending([])}
 			>
-				<Dialog.Title>
-					{pending.length === 1 ? "Upload this file?" : `Upload these ${pending.length} files?`}
-				</Dialog.Title>
-				<Dialog.Description className={styles.description}>
-					They are uploaded to gitbutler.com and anyone with the link can open them, which is what
-					lets the forge show them in your description.
-				</Dialog.Description>
-				<ul className={styles.files}>
-					{pending.map((file, index) => (
-						// Names repeat — two pasted images are both "pasted-image" —
-						// and the list is fixed while the dialog is open.
-						// oxlint-disable-next-line react/no-array-index-key
-						<li key={index}>{file.name}</li>
-					))}
-				</ul>
-				<div className={styles.actions}>
+				<ModalHeader
+					title={
+						pending.length === 1 ? "Upload this file?" : `Upload these ${pending.length} files?`
+					}
+					description="They are uploaded to gitbutler.com and anyone with the link can open them, which is what lets the forge show them in your description."
+				/>
+				<ModalBody>
+					<List className={styles.files}>
+						{pending.map((file, index) => (
+							// Names repeat — two pasted images are both "pasted-image" —
+							// and the list is fixed while the dialog is open.
+							// oxlint-disable-next-line react/no-array-index-key
+							<ListItem key={index} marker={<FileIcon fileName={file.name} />}>
+								{file.name}
+							</ListItem>
+						))}
+					</List>
+				</ModalBody>
+				<ModalFooter>
 					<Button variant="ghost" onClick={() => setPending([])}>
 						Cancel
 					</Button>
-					<Button variant="pop" onClick={confirm}>
-						Yes, upload
+					<Button variant="gray" onClick={confirm}>
+						Upload
 					</Button>
-				</div>
+				</ModalFooter>
 			</Modal>
 		</>
 	);

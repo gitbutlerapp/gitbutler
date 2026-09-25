@@ -41,15 +41,24 @@ export const Popup: FC<{ anchored?: boolean } & useRender.ComponentProps<"div">>
 	});
 
 /**
- * How wide a modal opens. The steps are the three widths the app already uses — a prompt, a
- * settings-sized pane, and a working surface — rather than a free measurement per caller.
+ * How wide a modal opens, picked by what it holds rather than measured per caller:
+ *
+ * - `xsmall` (320): a one-line question and its buttons — "Discard 3 files?".
+ * - `small` (420): a prompt with a field or a short list, and pickers.
+ * - `medium` (820): a pane that lays itself out, like settings.
+ * - `large` (1100): a working surface, like the conflict resolver.
  *
  * @public
  */
-export type ModalSize = "small" | "medium" | "large";
+export type ModalSize = "xsmall" | "small" | "medium" | "large";
 
 const sizeClassName = (size: ModalSize): string | undefined =>
-	size === "small" ? styles.sizeSmall : size === "medium" ? styles.sizeMedium : styles.sizeLarge;
+	({
+		xsmall: styles.sizeXsmall,
+		small: styles.sizeSmall,
+		medium: styles.sizeMedium,
+		large: styles.sizeLarge,
+	})[size];
 
 /** @public */
 export type ModalProps = {
@@ -65,7 +74,7 @@ export type ModalProps = {
 	 * @default false
 	 */
 	alert?: boolean;
-	/** @default "medium" */
+	/** @default "small" */
 	size?: ModalSize;
 	/**
 	 * Where the modal sits in the window. A picker opens `top`, so its list grows downward the way a
@@ -89,9 +98,10 @@ export type ModalProps = {
  * A popup that opens over the whole window, dimming what it covers. The backdrop is the only thing
  * separating it from a {@link Dropdown} — the container beneath is the same.
  *
- * The modal owns its chrome and placement, not its insides: a confirmation stacks its own prompt
- * and buttons, a picker fills itself with {@link PopupSearch} and {@link PopupSection}, and a pane
- * as involved as settings lays itself out entirely.
+ * The modal owns its chrome and placement. A prompt, a confirmation or a short form is built from
+ * {@link ModalHeader}, {@link ModalBody} and {@link ModalFooter}; a picker fills itself with
+ * {@link PopupSearch} and {@link PopupSection}; and a pane as involved as settings lays itself out
+ * entirely.
  *
  * @public
  * @import import { Modal } from "@gitbutler/ui-react/Popup.tsx";
@@ -101,7 +111,7 @@ export const Modal: FC<ModalProps> = ({
 	onOpenChange,
 	trigger,
 	alert = false,
-	size = "medium",
+	size = "small",
 	align = "center",
 	recessed = false,
 	initialFocus,
@@ -154,6 +164,64 @@ export const Modal: FC<ModalProps> = ({
 		</Root>
 	);
 };
+
+/**
+ * A modal's title, and the one line under it that says what answering does. The first of the three
+ * parts a prompt, a confirmation or a short form is built from, above {@link ModalBody} and
+ * {@link ModalFooter}. The title is the dialog's accessible name and the description its
+ * description, so neither needs restating in an `aria-label`.
+ *
+ * There is no close button: Cancel, Escape and the backdrop dismiss a modal, and an `alert` one
+ * must be answered.
+ *
+ * @public
+ * @import import { Modal, ModalBody, ModalFooter, ModalHeader } from "@gitbutler/ui-react/Popup.tsx";
+ */
+export const ModalHeader: FC<
+	{
+		title: ReactNode;
+		/** What happens on answering, or what the user needs to know first. One or two sentences. */
+		description?: ReactNode;
+	} & ComponentProps<"div">
+> = ({ title, description, className, ...props }) => (
+	<div {...props} className={classes(className, styles.modalPart, styles.modalHeader)}>
+		<Dialog.Title className={classes("text-14", "text-semibold", styles.modalTitle)}>
+			{title}
+		</Dialog.Title>
+		{description !== undefined && (
+			<Dialog.Description className={classes("text-13", "text-body", styles.modalDescription)}>
+				{description}
+			</Dialog.Description>
+		)}
+	</div>
+);
+
+/**
+ * What a modal asks about: fields, a list of the things it acts on, a note. Stacks its children
+ * apart and scrolls when the modal outgrows the window, while {@link ModalHeader} and
+ * {@link ModalFooter} stay in place.
+ *
+ * @public
+ * @import import { Modal, ModalBody, ModalFooter, ModalHeader } from "@gitbutler/ui-react/Popup.tsx";
+ */
+export const ModalBody: FC<ComponentProps<"div">> = ({ className, ...props }) => (
+	<div {...props} className={classes(className, styles.modalPart, styles.modalBody)} />
+);
+
+/**
+ * A modal's buttons, right-aligned with the one that answers last: Cancel as `ghost`, then the
+ * answer as `gray`, or `danger` when it destroys something. Not `pop`: a modal with two buttons is
+ * not the busy surface pop is kept for (see Emphasis in the design notes).
+ *
+ * A form that submits on Enter wraps all three parts, header to footer, with the submit button
+ * here; the modal lays a form out as it would the parts themselves.
+ *
+ * @public
+ * @import import { Modal, ModalBody, ModalFooter, ModalHeader } from "@gitbutler/ui-react/Popup.tsx";
+ */
+export const ModalFooter: FC<ComponentProps<"div">> = ({ className, ...props }) => (
+	<div {...props} className={classes(className, styles.modalPart, styles.modalFooter)} />
+);
 
 /** @public */
 export type DropdownProps = {
