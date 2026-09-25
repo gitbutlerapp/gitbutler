@@ -9,7 +9,6 @@ import { SuspenseQuery } from "@suspensive/react-query";
 import {
 	type PushBeforePublish,
 	useAddReviewLabels,
-	useOpenInProgram,
 	useRequestReview,
 	useResolveCommitConflictHunks,
 	useSaveGUISettings,
@@ -200,7 +199,7 @@ import { diffGutterUnsafeCSS, useDiffGutterCheckboxes } from "./diff-gutter.ts";
 import { useDiffHunkDrag } from "./diff-hunk-drag.ts";
 import { diffLineTargetFromElement, type DiffLineTarget } from "./diff-line-target.ts";
 import { useHunkMenuItems } from "./useHunkMenuItems.ts";
-import { useRevealInFolder } from "./useRevealInFolder.ts";
+import { useOpenPathInProgram, useRevealInFolder } from "./usePathActions.ts";
 import { reviewedPaths } from "./reviewed-paths.ts";
 import { AnnotationCard } from "#ui/routes/project/$id/workspace/AnnotationCard.tsx";
 import { DiffThreadCard } from "#ui/routes/project/$id/workspace/DiffThreadCard.tsx";
@@ -500,7 +499,7 @@ const DiffContents: FC<{
 			theme: cfg.theme,
 		}),
 	});
-	const { mutate: openInProgram } = useOpenInProgram();
+	const { openPathInProgram } = useOpenPathInProgram(projectId);
 	const hunkMenuItems = useHunkMenuItems({ projectId });
 	const revealInFolder = useRevealInFolder(projectId);
 	const store = useAppStore();
@@ -1162,11 +1161,11 @@ const DiffContents: FC<{
 			callback: () =>
 				diffSelectionHunk &&
 				settings?.editor &&
-				openInProgram({
-					projectId,
+				void openPathInProgram({
 					programId: settings.editor.id,
 					path: diffSelectionHunk.file.change.path,
 					lineNr: selectedLines?.range.start ?? null,
+					worktree: fileParent.worktree,
 				}),
 			options: {
 				enabled: !!diffSelectionHunk && !!settings?.editor,
@@ -1179,7 +1178,7 @@ const DiffContents: FC<{
 			hotkey: diffHotkeys.revealInFolder.hotkey,
 			callback: () => {
 				if (!diffSelectionHunk) return;
-				void revealInFolder(diffSelectionHunk.file.change.path);
+				void revealInFolder(diffSelectionHunk.file.change.path, fileParent.worktree);
 			},
 			options: {
 				enabled: !!diffSelectionHunk,
