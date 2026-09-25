@@ -280,6 +280,8 @@ but pr new user-dashboard -m "Add user dashboard"
 # Created PR #123: https://github.com/org/repo/pull/123
 
 # 10. After PR is merged, update
+but pull --check                # is user-dashboard listed as [integrated]?
+but unapply user-dashboard      # only if it is not: `but pull` would rebase it instead
 but pull
 ```
 
