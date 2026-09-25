@@ -7,16 +7,18 @@
 
 use anyhow::bail;
 use bstr::BString;
-use but_core::{ChangeId, ref_metadata::StackId};
+use but_core::{ChangeId, TreeStatusKind, ref_metadata::StackId};
 use but_graph::workspace::Stack;
 use but_testsupport::{hex_to_id, hunk_header};
+use nonempty::NonEmpty;
 use snapbox::{assert_data_eq, prelude::*};
 
 use crate::{
     CliId, IdMap,
     args::atoms::CliIdArg,
     id::{
-        BranchId, ChangesInCommit, CommitId, LaneId, OLD_UNCOMMITTED, UNCOMMITTED, id_usage::UintId,
+        BranchId, ChangesInCommit, CommitId, IdAndHunk, LaneId, OLD_UNCOMMITTED, UNCOMMITTED,
+        id_usage::UintId,
     },
     utils::change_source::ChangeSourceId,
 };
@@ -66,6 +68,34 @@ fn committed_hunk_equality() {
         committed_hunk(id(1)),
         committed_hunk(id(2)),
         "identical hunks in different commits are not equal"
+    );
+}
+
+#[test]
+fn cli_id_equality_ignores_short_ids() {
+    let stack = |id: &str| CliId::Stack {
+        id: id.into(),
+        stack_id: StackId::from_number_for_testing(1),
+    };
+    assert_eq!(
+        stack("g0"),
+        stack("a@{stack}"),
+        "a stack is the same whichever selector named it"
+    );
+
+    let path_prefix = CliId::PathPrefix {
+        id: "dir/".into(),
+        hunks: NonEmpty::new(IdAndHunk {
+            id: "kv:e".into(),
+            hunk: hunk("dir/file.txt"),
+            tree_status: TreeStatusKind::Addition,
+        }),
+        source: ChangeSourceId::Head,
+    };
+    assert_eq!(
+        path_prefix,
+        path_prefix.clone(),
+        "a path prefix is equal to itself"
     );
 }
 

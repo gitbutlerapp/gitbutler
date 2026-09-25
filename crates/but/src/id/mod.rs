@@ -1412,13 +1412,10 @@ impl IdMap {
         let cli_ids = nodes.into_iter().filter_map(Node::into_cli_id);
 
         let mut deduped = Vec::new();
-        'next: for cli_id in cli_ids {
-            for existing in &deduped {
-                if cli_ids_refer_to_same_entity(existing, &cli_id) {
-                    continue 'next;
-                }
+        for cli_id in cli_ids {
+            if !deduped.contains(&cli_id) {
+                deduped.push(cli_id);
             }
-            deduped.push(cli_id);
         }
 
         Ok(deduped)
@@ -1568,40 +1565,6 @@ impl IdMap {
             .find(|commit| commit.commit_id() == commit_id)?
             .change_id
             .as_ref()
-    }
-}
-
-fn cli_ids_refer_to_same_entity(lhs: &CliId, rhs: &CliId) -> bool {
-    match (lhs, rhs) {
-        (CliId::UncommittedHunkOrFile(lhs), CliId::UncommittedHunkOrFile(rhs)) => lhs == rhs,
-        (CliId::Commit { commit: l, id: _ }, CliId::Commit { commit: r, id: _ }) => l == r,
-        (
-            CliId::CommittedFile {
-                committed_file: l,
-                id: _,
-            },
-            CliId::CommittedFile {
-                committed_file: r,
-                id: _,
-            },
-        ) => l == r,
-        (CliId::CommittedHunk(l), CliId::CommittedHunk(r)) => l == r,
-        (CliId::Branch(l), CliId::Branch(r)) => l == r,
-        (CliId::AnonymousSegment(l), CliId::AnonymousSegment(r)) => l == r,
-        (
-            CliId::Stack {
-                stack_id: lhs_stack_id,
-                ..
-            },
-            CliId::Stack {
-                stack_id: rhs_stack_id,
-                ..
-            },
-        ) => lhs_stack_id == rhs_stack_id,
-        (CliId::UncommittedArea { source: l, .. }, CliId::UncommittedArea { source: r, .. }) => {
-            l == r
-        }
-        _ => false,
     }
 }
 
@@ -1772,9 +1735,20 @@ impl PartialEq for CliId {
             }
             CliId::PathPrefix {
                 id: _,
-                hunks: _,
-                source: _,
-            } => false,
+                hunks: l_hunks,
+                source: l_source,
+            } => {
+                if let CliId::PathPrefix {
+                    id: _,
+                    hunks: r_hunks,
+                    source: r_source,
+                } = other
+                {
+                    l_hunks == r_hunks && l_source == r_source
+                } else {
+                    false
+                }
+            }
             CliId::CommittedFile {
                 committed_file: l,
                 id: _,
@@ -1817,8 +1791,8 @@ impl PartialEq for CliId {
                     false
                 }
             }
-            CliId::Stack { id: l, stack_id: _ } => {
-                if let CliId::Stack { id: r, stack_id: _ } = other {
+            CliId::Stack { id: _, stack_id: l } => {
+                if let CliId::Stack { id: _, stack_id: r } = other {
                     l == r
                 } else {
                     false
