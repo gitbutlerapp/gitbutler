@@ -122,8 +122,17 @@ pub fn in_single_branch_mode(ctx: &Context) -> anyhow::Result<bool> {
 
 #[cfg(feature = "legacy")]
 pub fn in_single_branch_mode_with_perm(ctx: &Context, perm: &RepoShared) -> anyhow::Result<bool> {
-    Ok(ctx.settings.feature_flags.single_branch
-        && gitbutler_operating_modes::in_outside_workspace_mode(ctx, perm)?)
+    if !ctx.settings.feature_flags.single_branch {
+        return Ok(false);
+    }
+
+    let (_repo, ws, _db) = ctx.workspace_and_db_with_perm(perm)?;
+
+    Ok(match &ws.kind {
+        but_graph::workspace::WorkspaceKind::AdHoc => true,
+        but_graph::workspace::WorkspaceKind::Managed { .. }
+        | but_graph::workspace::WorkspaceKind::ManagedMissingWorkspaceCommit { .. } => false,
+    })
 }
 
 pub fn head_name(repo: &gix::Repository) -> anyhow::Result<FullName> {
