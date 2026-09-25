@@ -1,4 +1,3 @@
-use bstr::BStr;
 use but_ctx::Context;
 
 use crate::{CliId, IdMap, id::SourceScope};
@@ -87,16 +86,6 @@ fn parse_sources_scoped(
         return parse_list(ctx, id_map, source, scope);
     }
 
-    // Check if it's a valid range (e.g., "g0-h2" where both sides are uncommitted files).
-    // If the string contains '-' but isn't a valid range (e.g., a filename like "my-file.rs"
-    // or a branch name like "feature-auth"), fall through to single-entity parsing.
-    if source.contains('-')
-        && let Some(range_result) = try_parse_range(ctx, id_map, source, scope)?
-    {
-        return Ok(range_result);
-    }
-
-    // Single source (including strings with dashes that aren't valid ranges)
     let source_result = parse_scoped(ctx, id_map, source, scope)?;
     if source_result.len() != 1 {
         if source_result.is_empty() {
@@ -118,75 +107,6 @@ fn parse_sources_scoped(
         }
     }
     Ok(vec![source_result[0].clone()])
-}
-
-/// Tries to parse `source` as a range expression like "g0-h2".
-///
-/// A range is only valid when:
-/// - The string splits on '-' into exactly 2 parts
-/// - Both parts resolve to exactly one `Uncommitted` entity each
-///
-/// Returns `Ok(Some(ids))` for a valid range, `Ok(None)` if it's not a range
-/// (allowing the caller to fall through to single-entity parsing), or `Err`
-/// if it looks like a range but the IDs aren't in the display order.
-fn try_parse_range(
-    ctx: &mut Context,
-    id_map: &IdMap,
-    source: &str,
-    scope: SourceScope,
-) -> anyhow::Result<Option<Vec<CliId>>> {
-    let parts: Vec<&str> = source.split('-').collect();
-    if parts.len() != 2 {
-        return Ok(None);
-    }
-
-    // If either half fails to parse (e.g., single character "a" in "a-file.txt"),
-    // this isn't a range — fall through to single-entity parsing. Endpoints
-    // honor the caller's scope: a range copied from `but diff` must keep
-    // resolving even when a later commit's change ID shadows an endpoint in
-    // the full namespace.
-    let Ok(start_matches) = parse_scoped(ctx, id_map, parts[0], scope) else {
-        return Ok(None);
-    };
-    let Ok(end_matches) = parse_scoped(ctx, id_map, parts[1], scope) else {
-        return Ok(None);
-    };
-
-    // Both sides must resolve to exactly one Uncommitted entity
-    if start_matches.len() != 1 || end_matches.len() != 1 {
-        return Ok(None);
-    }
-    if !matches!(&start_matches[0], CliId::UncommittedHunkOrFile(_))
-        || !matches!(&end_matches[0], CliId::UncommittedHunkOrFile(_))
-    {
-        return Ok(None);
-    }
-
-    // Valid range — resolve positions in display order
-    let all_files = get_all_files_in_display_order(id_map)?;
-    let start_pos = all_files.iter().position(|id| id == &start_matches[0]);
-    let end_pos = all_files.iter().position(|id| id == &end_matches[0]);
-
-    match (start_pos, end_pos) {
-        (Some(s), Some(e)) if s <= e => Ok(Some(all_files[s..=e].to_vec())),
-        (Some(s), Some(e)) => Ok(Some(all_files[e..=s].to_vec())),
-        _ => Err(anyhow::anyhow!(
-            "Could not find range from '{}' to '{}' in the displayed file list",
-            parts[0],
-            parts[1]
-        )),
-    }
-}
-
-fn get_all_files_in_display_order(id_map: &IdMap) -> anyhow::Result<Vec<CliId>> {
-    let mut files: Vec<(&BStr, CliId)> = id_map
-        .uncommitted_files
-        .values()
-        .map(|uncommitted_file| (uncommitted_file.path(), uncommitted_file.to_id()))
-        .collect();
-    files.sort_by_key(|(a_path, _)| *a_path);
-
-    Ok(files.into_iter().map(|(_, cli_id)| cli_id).collect())
 }
 
 fn parse_list(
