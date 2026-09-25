@@ -27,6 +27,7 @@ pub mod mutate;
 pub mod ordering;
 pub(crate) mod util;
 pub mod workspace;
+mod workspace_commit;
 pub use workspace::{GraphWorkspace, Subgraph};
 
 /// Utilities for testing
