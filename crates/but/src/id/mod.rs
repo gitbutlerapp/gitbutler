@@ -189,41 +189,22 @@ fn create_reverse_hex_id(source: &ChangeSourceId, path_bytes: &[u8]) -> anyhow::
 fn assign_short_ids(
     reverse_hex_short_ids: BTreeMap<ChangeId, Vec<Option<&mut ShortId>>>,
 ) -> anyhow::Result<()> {
-    let mut common_with_previous_len = 0;
-    let mut reverse_hex_short_ids: Vec<_> = reverse_hex_short_ids.into_iter().collect();
-    let mut remaining = reverse_hex_short_ids.as_mut_slice();
     let global_min_short_id_chars = min_length_for_prefix_based_short_ids();
-
-    while let Some(((reverse_hex, short_ids), rest)) = remaining.split_first_mut() {
+    let keys: Vec<&[u8]> = reverse_hex_short_ids.keys().map(|key| &***key).collect();
+    let lengths = unique_prefix_lengths(&keys);
+    for ((reverse_hex, short_ids), len) in reverse_hex_short_ids.into_iter().zip(lengths) {
         // TODO should compare UTF8 chars instead of bytes once we start putting full branch names
         // in here. Otherwise we risk splitting in the middle of a UTF8 character.
-        let common_with_next_len = rest
-            .first()
-            .map_or(0, |(next_reverse_hex, _next_short_id)| {
-                common_prefix_len(reverse_hex, next_reverse_hex)
-            });
-
-        let min_disambiguation_len =
-            (1 + common_with_previous_len.max(common_with_next_len)).max(global_min_short_id_chars);
-
+        let len = len.max(global_min_short_id_chars).min(reverse_hex.len());
+        let prefix = str::from_utf8(&reverse_hex[..len])?;
         let num_conflicting_ids = short_ids.len();
-        for (i, short_id) in short_ids.iter_mut().flatten().enumerate() {
-            short_id.clear();
-
-            let reverse_hex_utf8 = str::from_utf8(reverse_hex)?;
-            if min_disambiguation_len > reverse_hex.len() {
-                short_id.push_str(reverse_hex_utf8);
+        for (i, short_id) in short_ids.into_iter().flatten().enumerate() {
+            *short_id = if num_conflicting_ids > 1 {
+                format!("{prefix}{INDEX_SEPARATOR}{i}")
             } else {
-                short_id.push_str(str::from_utf8(&reverse_hex[..min_disambiguation_len])?);
-            }
-
-            if num_conflicting_ids > 1 {
-                short_id.push(INDEX_SEPARATOR);
-                short_id.push_str(&i.to_string());
-            }
+                prefix.to_owned()
+            };
         }
-        common_with_previous_len = common_with_next_len;
-        remaining = rest;
     }
     Ok(())
 }
@@ -788,6 +769,22 @@ fn common_prefix_len(a: &[u8], b: &[u8]) -> usize {
     a.iter().zip(b.iter()).take_while(|(a, b)| a == b).count()
 }
 
+/// The length of the shortest prefix of each of the sorted, distinct `keys` that no other key
+/// shares.
+pub(crate) fn unique_prefix_lengths(keys: &[&[u8]]) -> Vec<usize> {
+    let common_with_next: Vec<usize> = keys
+        .windows(2)
+        .map(|pair| common_prefix_len(pair[0], pair[1]))
+        .collect();
+    (0..keys.len())
+        .map(|i| {
+            let common_with_previous = i.checked_sub(1).map_or(0, |i| common_with_next[i]);
+            let common_with_next = common_with_next.get(i).copied().unwrap_or(0);
+            1 + common_with_previous.max(common_with_next)
+        })
+        .collect()
+}
+
 /// Lifecycle methods for creating and initializing `IdMap` instances.
 impl IdMap {
     /// Initializes CLI IDs for branches, commits, and uncommitted
@@ -1009,35 +1006,20 @@ impl IdMap {
                 .push(hunk_id);
         }
 
-        let mut all_hashes = content_hash_to_short_ids.into_iter();
-
-        let mut current = all_hashes.next();
-        let mut len_in_common_with_last: usize = 0;
-        while let Some((content_hash, mut ids)) = current {
-            let next = all_hashes.next();
-
-            let len_in_common_with_next = common_prefix_len(
-                content_hash.as_bytes(),
-                next.as_ref()
-                    .map(|(content_hash, _)| content_hash.as_bytes())
-                    .unwrap_or_default(),
-            );
-            let min_short_id_chars = global_min_short_id_chars
-                .max(len_in_common_with_next + 1)
-                .max(len_in_common_with_last + 1);
-
+        let keys: Vec<&[u8]> = content_hash_to_short_ids
+            .keys()
+            .map(|content_hash| content_hash.as_bytes())
+            .collect();
+        let lengths = unique_prefix_lengths(&keys);
+        for ((content_hash, ids), len) in content_hash_to_short_ids.into_iter().zip(lengths) {
             let num_colliding_ids = ids.len();
-            for (i, hunk_id) in ids.iter_mut().enumerate() {
-                hunk_id.id.push_str(&content_hash);
-                hunk_id.min_short_id_chars = min_short_id_chars;
-
+            for (i, hunk_id) in ids.into_iter().enumerate() {
+                hunk_id.id = content_hash.clone();
+                hunk_id.min_short_id_chars = len.max(global_min_short_id_chars);
                 if num_colliding_ids > 1 {
                     hunk_id.collision_index = Some(format!("{i}-{num_colliding_ids}"))
                 }
             }
-
-            len_in_common_with_last = len_in_common_with_next;
-            current = next;
         }
 
         Ok(())

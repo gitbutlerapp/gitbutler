@@ -8,6 +8,7 @@ use crate::id::{
     LaneId, LaneWithId, OLD_UNCOMMITTED, RemoteCommitWithId, SegmentWithId, ShortId,
     WorkspaceCommitWithId,
     id_usage::{IdUsage, UintId},
+    unique_prefix_lengths,
 };
 
 fn lane_without_short_ids(
@@ -166,21 +167,6 @@ fn populate_branch_short_ids(
     Ok(())
 }
 
-/// Returns the length of the longest common *nybble* prefix.
-fn common_nybble_len(a: &[u8], b: &[u8]) -> usize {
-    let mut byte_len = 0usize;
-    let extra_nybble = loop {
-        let (Some(a_byte), Some(b_byte)) = (a.get(byte_len), b.get(byte_len)) else {
-            break 0;
-        };
-        if a_byte != b_byte {
-            break if a_byte & 0xf0 == b_byte & 0xf0 { 1 } else { 0 };
-        }
-        byte_len += 1;
-    };
-    byte_len * 2 + extra_nybble
-}
-
 /// Append the shortest unambiguous hash prefix to every short ID in `commits`.
 ///
 /// All commits sharing a CLI ID namespace must come in one call - the prefix length is derived
@@ -194,25 +180,19 @@ pub(crate) fn populate_commit_short_ids(commits: Vec<(gix::ObjectId, &mut ShortI
             .or_default()
             .push(short_id);
     }
-    // Ideally we would use BTreeMap cursors, but those are still experimental,
-    // so convert to a Vec for now.
-    let mut commit_id_to_short_ids: Vec<_> = commit_id_to_short_ids.into_iter().collect();
-
-    let mut common_with_previous_len = 0;
-    let mut remaining = commit_id_to_short_ids.as_mut_slice();
-    while let Some(((commit_id, short_ids), rest)) = remaining.split_first_mut() {
-        let common_with_next_len = rest.first().map_or(0, |(next_commit_id, _next_short_id)| {
-            common_nybble_len(commit_id.as_bytes(), next_commit_id.as_bytes())
-        });
-        for short_id in short_ids.iter_mut() {
-            short_id.push_str(
-                &commit_id
-                    .to_hex_with_len(1 + common_with_previous_len.max(common_with_next_len))
-                    .to_string(),
-            );
+    let hexes: Vec<String> = commit_id_to_short_ids
+        .keys()
+        .map(|commit_id| commit_id.to_string())
+        .collect();
+    let lengths = unique_prefix_lengths(&hexes.iter().map(String::as_bytes).collect::<Vec<_>>());
+    for ((short_ids, hex), len) in commit_id_to_short_ids
+        .into_values()
+        .zip(&hexes)
+        .zip(lengths)
+    {
+        for short_id in short_ids {
+            *short_id = hex[..len].to_owned();
         }
-        common_with_previous_len = common_with_next_len;
-        remaining = rest;
     }
 }
 
