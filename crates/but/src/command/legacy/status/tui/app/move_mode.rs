@@ -170,8 +170,7 @@ impl MoveSource {
             | CliId::UncommittedHunkOrFile(..)
             | CliId::PathPrefix { .. }
             | CliId::CommittedHunk { .. }
-            | CliId::Uncommitted { .. }
-            | CliId::WorktreeUncommitted { .. }
+            | CliId::UncommittedArea { .. }
             | CliId::Stack { .. } => None,
         }
     }

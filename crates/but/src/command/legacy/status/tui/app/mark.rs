@@ -673,7 +673,10 @@ impl App {
                     self.cursor = new_cursor;
                 }
             }
-            CliId::Uncommitted { .. } => {
+            CliId::UncommittedArea {
+                source: ChangeSourceId::Head,
+                ..
+            } => {
                 match self
                     .mode
                     .get_mut_and_i_promise_not_to_switch_to_a_different_state()
@@ -702,7 +705,10 @@ impl App {
             | CliId::CommittedHunk(..)
             | CliId::PathPrefix { .. }
             | CliId::Stack { .. }
-            | CliId::WorktreeUncommitted { .. } => {}
+            | CliId::UncommittedArea {
+                source: ChangeSourceId::Worktree(_),
+                ..
+            } => {}
         }
 
         if self.marks_ref().is_empty() {

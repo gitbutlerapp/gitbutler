@@ -748,9 +748,9 @@ impl LaneWithId {
         let LaneId::Worktree(name) = &self.lane else {
             return None;
         };
-        Some(CliId::WorktreeUncommitted {
+        Some(CliId::UncommittedArea {
             id: format!("{top}:{UNCOMMITTED}", top = self.segments.first()?.short_id),
-            name: name.clone(),
+            source: ChangeSourceId::Worktree(name.clone()),
         })
     }
 }
@@ -780,8 +780,6 @@ impl<'a> Node<'a> for &'a LaneWithId {
 pub struct IdMap {
     /// Workspace stacks followed by linked-worktree lanes.
     lanes: Vec<LaneWithId>,
-    /// The ID representing the uncommitted area, i.e. uncommitted files that aren't assigned to a stack.
-    uncommitted: CliId,
     /// The amount of context lines to use when calculating diffs. This is necessary for on-demand
     /// resolution of committed hunks as different context line settings may produce different
     /// hunks.
@@ -955,9 +953,6 @@ impl IdMap {
 
         Ok(Self {
             lanes: stacks,
-            uncommitted: CliId::Uncommitted {
-                id: UNCOMMITTED.to_string(),
-            },
             uncommitted_files,
             uncommitted_hunks,
             diff_context_lines,
@@ -1440,9 +1435,7 @@ impl<'a> Node<'a> for Unstaged {
     }
 
     fn to_cli_id(self: Box<Self>) -> Option<CliId> {
-        Some(CliId::Uncommitted {
-            id: UNCOMMITTED.to_owned(),
-        })
+        Some(CliId::head_uncommitted_area())
     }
 }
 
@@ -1468,7 +1461,7 @@ impl IdMap {
     /// be invalidated by a commit minted in between.
     ///
     /// Container selectors still surface their containers: bare `@` yields
-    /// [`CliId::Uncommitted`], `dir/` yields [`CliId::PathPrefix`], and
+    /// [`CliId::UncommittedArea`], `dir/` yields [`CliId::PathPrefix`], and
     /// `X@{stack}` resolves its stack (and can yield
     /// [`CliId::Stack`]); callers validate the kinds they accept.
     fn parse_uncommitted(
@@ -1592,12 +1585,10 @@ impl IdMap {
             .collect()
     }
 
-    /// Returns the [`CliId::Uncommitted`] for the uncommitted area, which is useful as an
-    /// ID for a destination of operations.
-    ///
-    /// The uncommitted area represents files and changes that are not assigned to any branch.
-    pub fn uncommitted(&self) -> &CliId {
-        &self.uncommitted
+    /// Returns the main worktree's uncommitted area, which is useful as an ID for a destination
+    /// of operations.
+    pub fn uncommitted(&self) -> CliId {
+        CliId::head_uncommitted_area()
     }
 
     /// Returns all known stacks.
@@ -1700,11 +1691,9 @@ fn cli_ids_refer_to_same_entity(lhs: &CliId, rhs: &CliId) -> bool {
                 ..
             },
         ) => lhs_stack_id == rhs_stack_id,
-        (CliId::Uncommitted { .. }, CliId::Uncommitted { .. }) => true,
-        (
-            CliId::WorktreeUncommitted { name: l, .. },
-            CliId::WorktreeUncommitted { name: r, .. },
-        ) => l == r,
+        (CliId::UncommittedArea { source: l, .. }, CliId::UncommittedArea { source: r, .. }) => {
+            l == r
+        }
         _ => false,
     }
 }
@@ -1846,21 +1835,14 @@ pub enum CliId {
         /// commits in the repo).
         id: ShortId,
     },
-    /// The uncommitted area, as a designated area that files can be put in.
-    Uncommitted {
-        /// The CLI ID for the uncommitted area.
+    /// A checkout's uncommitted area, as a designated area that files can be put in.
+    UncommittedArea {
+        /// `@` for the main worktree, or `<worktree-short-id>:@` for a linked one, derived from
+        /// the worktree's own ID rather than allocated, so it consumes no slot in the short-ID
+        /// pools and no other ID moves.
         id: ShortId,
-    },
-    /// A linked worktree's uncommitted area, the way [`Self::Uncommitted`] names
-    /// the main worktree's.
-    WorktreeUncommitted {
-        /// The selector, `<worktree-short-id>:@`, derived from the worktree's own
-        /// ID rather than allocated, so it consumes no slot in the short-ID pools
-        /// and no other ID moves.
-        id: ShortId,
-        /// The stable worktree name, i.e. the directory name under
-        /// `$GIT_COMMON_DIR/worktrees/`.
-        name: BString,
+        /// The checkout whose uncommitted changes this names.
+        source: ChangeSourceId,
     },
     /// A stack in the workspace.
     Stack {
@@ -1935,11 +1917,8 @@ impl PartialEq for CliId {
                     false
                 }
             }
-            CliId::Uncommitted { id: _ } => {
-                matches!(other, CliId::Uncommitted { id: _ })
-            }
-            CliId::WorktreeUncommitted { name: l, id: _ } => {
-                if let CliId::WorktreeUncommitted { name: r, id: _ } = other {
+            CliId::UncommittedArea { source: l, id: _ } => {
+                if let CliId::UncommittedArea { source: r, id: _ } = other {
                     l == r
                 } else {
                     false
@@ -1963,21 +1942,32 @@ impl CliId {
             CliId::Branch(..) => "a branch",
             CliId::AnonymousSegment(..) => "an anonymous branch",
             CliId::Commit { .. } => "a commit",
-            CliId::Uncommitted { .. } => "the uncommitted area",
-            CliId::WorktreeUncommitted { .. } => "a worktree's uncommitted area",
+            CliId::UncommittedArea {
+                source: ChangeSourceId::Head,
+                ..
+            } => "the uncommitted area",
+            CliId::UncommittedArea {
+                source: ChangeSourceId::Worktree(_),
+                ..
+            } => "a worktree's uncommitted area",
             CliId::Stack { .. } => "a stack",
         }
     }
 
-    /// The worktree whose uncommitted changes this ID names, if it names any.
+    /// The main worktree's uncommitted area, `@`.
+    pub fn head_uncommitted_area() -> CliId {
+        CliId::UncommittedArea {
+            id: UNCOMMITTED.to_owned(),
+            source: ChangeSourceId::Head,
+        }
+    }
+
+    /// The checkout whose uncommitted changes this ID names, if it names any.
     ///
-    /// The total form of the question every `matches!(id, CliId::Uncommitted { .. })`
-    /// was asking while there was only one area. A worktree's segments hold no
-    /// changes, so they yield `None`.
+    /// A worktree's segments hold no changes, so they yield `None`.
     pub fn uncommitted_area(&self) -> Option<ChangeSourceId> {
         match self {
-            CliId::Uncommitted { .. } => Some(ChangeSourceId::Head),
-            CliId::WorktreeUncommitted { name, .. } => Some(ChangeSourceId::Worktree(name.clone())),
+            CliId::UncommittedArea { source, .. } => Some(source.clone()),
             CliId::UncommittedHunkOrFile(..)
             | CliId::PathPrefix { .. }
             | CliId::CommittedFile { .. }
@@ -2005,8 +1995,7 @@ impl CliId {
             | CliId::AnonymousSegment(AnonymousSegmentId { id, .. })
             | CliId::Commit { id, .. }
             | CliId::Stack { id, .. }
-            | CliId::WorktreeUncommitted { id, .. }
-            | CliId::Uncommitted { id, .. } => id,
+            | CliId::UncommittedArea { id, .. } => id,
         }
     }
 
@@ -2021,8 +2010,7 @@ impl CliId {
             | CliId::CommittedHunk { .. }
             | CliId::Commit { .. }
             | CliId::Stack { .. }
-            | CliId::WorktreeUncommitted { .. }
-            | CliId::Uncommitted { .. } => None,
+            | CliId::UncommittedArea { .. } => None,
         }
     }
 
@@ -2037,8 +2025,7 @@ impl CliId {
             | CliId::CommittedFile { .. }
             | CliId::CommittedHunk { .. }
             | CliId::Commit { .. }
-            | CliId::WorktreeUncommitted { .. }
-            | CliId::Uncommitted { .. } => None,
+            | CliId::UncommittedArea { .. } => None,
         }
     }
 
