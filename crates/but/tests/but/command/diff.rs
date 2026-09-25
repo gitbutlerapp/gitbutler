@@ -64,6 +64,44 @@ puts "\nA distant door unlocks."
 }
 
 #[test]
+fn agent_diff_skips_syntax_highlighting() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("zero-stacks");
+    env.setup_metadata(&[]);
+    env.file("example.rs", "fn main() {\n\tprintln!(\"before\");\n}\n");
+    env.but("commit -m 'Add Rust file'").assert().success();
+    env.file("example.rs", "fn main() {\n\tprintln!(\"hello\");\n}\n");
+
+    // Humans retain syntax colors; agents retain diff colors and layout only.
+    env.but("diff")
+        .with_color_for_svg()
+        .assert()
+        .success()
+        .stdout_eq(snapbox::file![
+            "snapshots/diff/human-syntax.stdout.term.svg"
+        ]);
+
+    env.but("diff")
+        .env("AI_AGENT", "test-agent")
+        .with_color_for_svg()
+        .assert()
+        .success()
+        .stdout_eq(snapbox::file![
+            "snapshots/diff/agent-no-syntax.stdout.term.svg"
+        ]);
+
+    env.but("commit -m 'Update Rust file'").assert().success();
+    let commit = env.invoke_git("rev-parse a-branch-1");
+    env.but(format!("diff {commit}"))
+        .env("AI_AGENT", "test-agent")
+        .with_color_for_svg()
+        .assert()
+        .success()
+        .stdout_eq(snapbox::file![
+            "snapshots/diff/agent-committed-no-syntax.stdout.term.svg"
+        ]);
+}
+
+#[test]
 fn path_prefix() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("zero-stacks");
     env.setup_metadata(&[]);
