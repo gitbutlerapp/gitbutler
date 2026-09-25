@@ -1,8 +1,7 @@
-import { Dialog } from "@base-ui/react";
 import { useEffect, useRef, useState } from "react";
 import type { FC, SyntheticEvent } from "react";
 import { Button } from "@gitbutler/ui-react/Button.tsx";
-import { Modal } from "@gitbutler/ui-react/Popup.tsx";
+import { Modal, ModalBody, ModalFooter, ModalHeader } from "@gitbutler/ui-react/Popup.tsx";
 import styles from "./AskpassPromptDialog.module.css";
 import type { AskpassPromptEvent } from "@gitbutler/but-sdk";
 
@@ -83,25 +82,27 @@ export const AskpassPromptDialog: FC = () => {
 			}}
 		>
 			{currentPrompt !== undefined && (
-				<form className={styles.form} onSubmit={submit}>
-					<Dialog.Title>Git credentials required</Dialog.Title>
-					<Dialog.Description className={styles.prompt}>
-						{getDescription(currentPrompt)}
-					</Dialog.Description>
-					<input
-						className={styles.input}
-						type={isSecretPrompt(currentPrompt.prompt) ? "password" : "text"}
-						value={currentResponse}
-						onChange={(event) =>
-							setResponse({ promptId: currentPrompt.id, value: event.target.value })
-						}
-						disabled={submitting}
-						aria-label="Credential response"
+				<form onSubmit={submit}>
+					<ModalHeader
+						title="Git credentials required"
+						description={getDescription(currentPrompt)}
 					/>
-					{currentSubmitError !== null && (
-						<p className={styles.error}>Failed to send response: {currentSubmitError}</p>
-					)}
-					<div className={styles.actions}>
+					<ModalBody>
+						<input
+							className={styles.input}
+							type={isSecretPrompt(currentPrompt.prompt) ? "password" : "text"}
+							value={currentResponse}
+							onChange={(event) =>
+								setResponse({ promptId: currentPrompt.id, value: event.target.value })
+							}
+							disabled={submitting}
+							aria-label="Credential response"
+						/>
+						{currentSubmitError !== null && (
+							<p className={styles.error}>Failed to send response: {currentSubmitError}</p>
+						)}
+					</ModalBody>
+					<ModalFooter>
 						<Button
 							variant="ghost"
 							disabled={submitting}
@@ -109,10 +110,10 @@ export const AskpassPromptDialog: FC = () => {
 						>
 							Cancel
 						</Button>
-						<Button type="submit" variant="pop" disabled={submitting}>
+						<Button type="submit" variant="gray" disabled={submitting}>
 							Continue
 						</Button>
-					</div>
+					</ModalFooter>
 				</form>
 			)}
 		</Modal>

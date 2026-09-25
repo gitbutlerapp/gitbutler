@@ -1,13 +1,23 @@
 import preview from "#storybook/preview";
 import { Button } from "./Button.tsx";
-import { Modal, PopupItem, PopupSearch, PopupSection } from "./Popup.tsx";
+import { FieldControlStyles, FieldLabelStyles, FieldRootStyles } from "./Field.tsx";
+import {
+	Modal,
+	ModalBody,
+	ModalFooter,
+	ModalHeader,
+	PopupItem,
+	PopupSearch,
+	PopupSection,
+} from "./Popup.tsx";
+import { Field } from "@base-ui/react";
 
 const meta = preview.meta({
 	component: Modal,
 	parameters: {
 		design: {
 			type: "figma",
-			url: "https://www.figma.com/design/cqdnAotT8n9op8WGYLOHg4/%E2%9A%9B%EF%B8%8F-Lite-Core?node-id=1819-3456",
+			url: "https://www.figma.com/design/cqdnAotT8n9op8WGYLOHg4/%E2%9A%9B%EF%B8%8F-Lite-Core?node-id=2229-1566",
 		},
 	},
 	args: {
@@ -17,7 +27,7 @@ const meta = preview.meta({
 		trigger: <Button>Open modal</Button>,
 	},
 	argTypes: {
-		size: { control: "inline-radio", options: ["small", "medium", "large"] },
+		size: { control: "inline-radio", options: ["xsmall", "small", "medium", "large"] },
 		align: { control: "inline-radio", options: ["center", "top"] },
 		alert: { control: "boolean" },
 	},
@@ -30,21 +40,82 @@ const meta = preview.meta({
 	],
 });
 
+/**
+ * A confirmation, built from the three parts: a title and what answering does, what it acts on,
+ * then Cancel and the answer. The answer is `gray`, not `pop` — two buttons are not the busy
+ * surface pop is kept for.
+ */
 export const Playground = meta.story({
 	args: {
-		"aria-label": "Modal playground",
 		children: (
-			<div style={{ display: "flex", flexDirection: "column", gap: 12, padding: 16 }}>
-				<strong className="text-15 text-semibold">Git credentials required</strong>
-				<span className="text-13">
-					An alert modal takes the `alertdialog` role and refuses Escape and backdrop clicks — the
-					question has to be answered rather than dismissed.
-				</span>
-				<div style={{ display: "flex", justifyContent: "flex-end", gap: 8 }}>
+			<>
+				<ModalHeader
+					title="Upload these 2 files?"
+					description="They go to gitbutler.com, and anyone with the link can open them."
+				/>
+				<ModalBody>
+					<ul className="text-13" style={{ margin: 0, paddingLeft: 18 }}>
+						<li>screenshot.png</li>
+						<li>pasted-image.png</li>
+					</ul>
+				</ModalBody>
+				<ModalFooter>
 					<Button variant="ghost">Cancel</Button>
-					<Button variant="pop">Continue</Button>
-				</div>
-			</div>
+					<Button variant="gray">Upload</Button>
+				</ModalFooter>
+			</>
+		),
+	},
+});
+
+/**
+ * A short form. The `<form>` wraps all three parts so Enter submits, and the modal lays it out as
+ * it would the parts on their own.
+ */
+export const Form = meta.story({
+	args: {
+		alert: true,
+		trigger: <Button>Sign in to git</Button>,
+		children: (
+			<form onSubmit={(event) => event.preventDefault()}>
+				<ModalHeader
+					title="Git credentials required"
+					description="Your remote asks for a password to fetch."
+				/>
+				<ModalBody>
+					<Field.Root render={<FieldRootStyles />}>
+						<Field.Label render={<FieldLabelStyles />}>Password</Field.Label>
+						<Field.Control render={<FieldControlStyles />} type="password" />
+					</Field.Root>
+				</ModalBody>
+				<ModalFooter>
+					<Button variant="ghost">Cancel</Button>
+					<Button type="submit" variant="gray">
+						Continue
+					</Button>
+				</ModalFooter>
+			</form>
+		),
+	},
+});
+
+/** Something that cannot be taken back: the answer is `danger`, chosen by consequence. A one-line question takes the `xsmall` width. */
+export const Destructive = meta.story({
+	args: {
+		size: "xsmall",
+		alert: true,
+		trigger: <Button>Discard changes</Button>,
+		children: (
+			<>
+				<ModalHeader
+					title="Discard 3 files?"
+					description="Their changes are gone for good; nothing keeps a copy."
+				/>
+				<ModalFooter>
+					<Button variant="ghost">Cancel</Button>
+					<Button variant="danger">Discard</Button>
+				</ModalFooter>
+			</>
 		),
 	},
 });

@@ -8,17 +8,6 @@
 	pointer-events: none;
 }
 
-.popup {
-	row-gap: 12px;
-	padding: 16px;
-}
-
-.description {
-	color: var(--text-2);
-	font-size: 13px;
-	line-height: 1.4;
-}
-
 .files {
 	max-height: 140px;
 	margin: 0;
@@ -28,10 +17,4 @@
 	font-size: 12px;
 	line-height: 1.5;
 	overflow-wrap: anywhere;
-}
-
-.actions {
-	display: flex;
-	column-gap: 8px;
-	justify-content: flex-end;
 }
