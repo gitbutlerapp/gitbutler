@@ -44,6 +44,7 @@ import {
 	type BranchesState,
 } from "./branches.ts";
 import { decodeBytes } from "#ui/api/bytes.ts";
+import { branchDetailsParams } from "#ui/branch.ts";
 import type { FocusScope } from "#ui/focus-scopes.ts";
 import {
 	createInitialGraphState,
@@ -68,6 +69,13 @@ export type BranchTab = "diff" | "pr";
  * compact hunk positions, so checks carry across; the commit id is remapped.
  */
 export type CheckedConflict = { commitId: string; path: string; id: string };
+
+const moveKey = <T>(record: Record<string, T>, from: string, to: string) => {
+	const value = record[from];
+	if (value === undefined) return;
+	record[to] = value;
+	delete record[from];
+};
 
 const conflictCheckKey = ({ commitId, path, id }: CheckedConflict): string =>
 	`${commitId}\u0000${path}\u0000${id}`;
@@ -222,10 +230,15 @@ export const projectReducers = {
 			workspaceState.pendingOperation = pendingInlineEdit({ address: branchAddress(newBranch) });
 
 		const oldRef = decodeBytes(oldBranch.branchRef);
-		if (workspaceState.foldedSegments[oldRef]) {
-			delete workspaceState.foldedSegments[oldRef];
-			workspaceState.foldedSegments[decodeBytes(newBranch.branchRef)] = true;
-		}
+		const newRef = decodeBytes(newBranch.branchRef);
+		moveKey(workspaceState.foldedSegments, oldRef, newRef);
+		moveKey(workspaceState.expandedIncoming, oldRef, newRef);
+		moveKey(state.branches.unfolded, oldRef, newRef);
+		moveKey(
+			workspaceState.selectedBranchTabs,
+			branchDetailsParams(oldRef).branchName,
+			branchDetailsParams(newRef).branchName,
+		);
 
 		const oldFileParent = branchFileParent(oldBranch);
 		const newFileParent = branchFileParent(newBranch);

@@ -1,10 +1,10 @@
 /**
  * @file Known rewritten commit IDs and branch names are handled separately before reaching this
- * module.
+ * module. Branch renames made elsewhere, such as with the CLI, are only detected here.
  */
 
-import { useQueries, useQuery } from "@tanstack/react-query";
-import { branchParamRef } from "#ui/cursor-url.ts";
+import { useQueries, useQuery, useQueryClient } from "@tanstack/react-query";
+import { applyBranchRename } from "#ui/branch-rename.ts";
 import {
 	branchDiffQueryOptions,
 	changesInWorktreeQueryOptions,
@@ -12,8 +12,7 @@ import {
 	headInfoQueryOptions,
 	treeChangesDiffsQueryOptions,
 } from "./api/queries.ts";
-import { currentParams, remapSearchBranch } from "#ui/use-cursor.ts";
-import { getHeadInfoIndex, type HeadInfoIndex } from "./api/ref-info.ts";
+import { detectBranchRenames, getHeadInfoIndex, type HeadInfoIndex } from "./api/ref-info.ts";
 import { useEffect, useEffectEvent, useLayoutEffect, useRef } from "react";
 import { useAppDispatch, useAppSelector } from "./store.ts";
 import { projectSlice } from "./projects/state.ts";
@@ -25,7 +24,7 @@ import {
 	uncommittedChangesFileParent,
 	weakFileParentIdentityKey,
 } from "./addresses.ts";
-import { decodeBytes, encodeBytes } from "./api/bytes.ts";
+import { decodeBytes } from "./api/bytes.ts";
 import { hunkContainsHunk } from "./hunk.ts";
 import type { RefInfo, TreeChange } from "@gitbutler/but-sdk";
 import { reviewedFilesQueryOptions, usePruneReviewedFiles } from "./reviewed-files.ts";
@@ -43,30 +42,11 @@ export const useStateReconciler = (projectId: string): void => {
 
 	// Commit cursors need no repair here: `change:` params re-resolve by change
 	// id (encode-match), and a `commit:` param names an identity nothing survives.
-	const reconcileSelectedBranch = useEffectEvent(
-		(headInfo: RefInfo, headInfoIndex: HeadInfoIndex, prevHeadInfoIndex: HeadInfoIndex) => {
-			const refName = branchParamRef(currentParams().applied);
-			if (refName === null) return;
-
-			const refBytes = encodeBytes(refName);
-			if (headInfoIndex.isApplied(refBytes)) return;
-
-			const prev = prevHeadInfoIndex.branchContextByRefBytes(refBytes);
-			if (!prev) return;
-
-			// We've no stable identifier for branches, so assume a rename retains its stack and segment
-			// positions between snapshots.
-			const sameSegmentBranch =
-				headInfo.stacks[prev.stackIndex]?.segments[prev.segmentIndex]?.refName;
-			if (
-				!sameSegmentBranch ||
-				prevHeadInfoIndex.branchContextByRefBytes(sameSegmentBranch.fullNameBytes)
-			)
-				return;
-
-			remapSearchBranch(refName, decodeBytes(sameSegmentBranch.fullNameBytes));
-		},
-	);
+	const queryClient = useQueryClient();
+	const reconcileRenamedBranches = useEffectEvent((headInfo: RefInfo, prevHeadInfo: RefInfo) => {
+		for (const { oldRef, newRef } of detectBranchRenames(prevHeadInfo, headInfo))
+			applyBranchRename({ queryClient, dispatch, projectId, oldRef, newRef });
+	});
 
 	const checkedAddresses = useAppSelector((state) =>
 		projectSlice.selectors.selectCheckedAddresses(state, projectId),
@@ -199,16 +179,16 @@ export const useStateReconciler = (projectId: string): void => {
 
 	const { data: headInfo } = useQuery(headInfoQueryOptions(projectId));
 	const headInfoIndex = headInfo ? getHeadInfoIndex(headInfo) : undefined;
-	const prevHeadInfoIndexRef = useRef<HeadInfoIndex>(null);
+	const prevHeadInfoRef = useRef<RefInfo>(null);
 	useLayoutEffect(() => {
 		if (!headInfo || !headInfoIndex) return;
 
-		const prevHeadInfoIndex = prevHeadInfoIndexRef.current;
-		if (prevHeadInfoIndex) reconcileSelectedBranch(headInfo, headInfoIndex, prevHeadInfoIndex);
+		const prevHeadInfo = prevHeadInfoRef.current;
+		if (prevHeadInfo) reconcileRenamedBranches(headInfo, prevHeadInfo);
 
 		reconcileCheckedCommits(headInfoIndex);
 
-		prevHeadInfoIndexRef.current = headInfoIndex;
+		prevHeadInfoRef.current = headInfo;
 	}, [headInfo, headInfoIndex]);
 
 	const { data: worktreeChangesByPath } = useQuery({
