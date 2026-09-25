@@ -18,6 +18,7 @@ fn lane_without_short_ids(
     let mut lane_with_id = LaneWithId {
         lane,
         segments: Vec::with_capacity(segments.len()),
+        short_id: None,
     };
     for mut segment in segments {
         let workspace_commits = std::mem::take(&mut segment.commits)

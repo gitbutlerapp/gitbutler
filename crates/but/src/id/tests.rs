@@ -569,7 +569,7 @@ fn many_uncommitted_files_do_not_exhaust_generated_ids() -> anyhow::Result<()> {
     let real_ids: Vec<_> = id_map
         .branch_ids()
         .into_iter()
-        .chain(id_map.stack_ids.values().map(CliId::to_short_string))
+        .chain(id_map.stack_short_ids())
         .collect();
     assert_eq!(real_ids.len(), 4);
     for (index, real_id) in real_ids.iter().enumerate() {
@@ -4005,6 +4005,11 @@ mod util {
             short_ids
         }
 
+        /// Return all stack CliIds.
+        pub fn stack_short_ids(&self) -> impl Iterator<Item = String> + '_ {
+            self.lanes.iter().filter_map(|lane| lane.short_id.clone())
+        }
+
         /// Return a list of all commit CliIds.
         pub fn commit_ids(&self) -> Vec<String> {
             let mut short_ids = Vec::new();
@@ -4025,7 +4030,6 @@ mod util {
         pub fn all_ids(&self) -> Vec<CliId> {
             let IdMap {
                 lanes: _,
-                stack_ids,
                 uncommitted: _,
                 uncommitted_files,
                 uncommitted_hunks,
@@ -4039,7 +4043,7 @@ mod util {
 
             self.branch_ids()
                 .into_iter()
-                .chain(stack_ids.values().map(|id| id.to_short_string()))
+                .chain(self.stack_short_ids())
                 .chain(self.commit_ids())
                 .chain(
                     uncommitted_files
@@ -4065,7 +4069,6 @@ mod util {
             use itertools::Itertools;
             let IdMap {
                 lanes: _,
-                stack_ids,
                 uncommitted: _,
                 uncommitted_files,
                 uncommitted_hunks,
@@ -4100,11 +4103,7 @@ mod util {
                     })
                     .sorted(),
             )?;
-            id_list_if_not_empty(
-                f,
-                "stacks",
-                stack_ids.values().map(|id| id.to_short_string()).sorted(),
-            )?;
+            id_list_if_not_empty(f, "stacks", self.inner.stack_short_ids().sorted())?;
             Ok(())
         }
     }
