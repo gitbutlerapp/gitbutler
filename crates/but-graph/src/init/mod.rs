@@ -3,7 +3,7 @@ use std::collections::{BTreeMap, BTreeSet};
 use anyhow::{Context as _, bail, ensure};
 use bstr::{BString, ByteSlice};
 use but_core::{
-    RefMetadata, WORKSPACE_REF_NAME, extract_remote_name_and_short_name,
+    WORKSPACE_REF_NAME, extract_remote_name_and_short_name,
     ref_metadata::{self, ProjectMeta},
 };
 use gix::{
@@ -546,7 +546,7 @@ impl Options {
 /// skipped.
 fn discover_worktree_tips(
     repo: &gix::Repository,
-    db: &mut but_db::DbHandle,
+    db: &mut but_db::ConnectionMut<'_, '_>,
     collect: bool,
 ) -> anyhow::Result<Vec<WorktreeTip>> {
     if !collect {
@@ -576,12 +576,12 @@ impl Graph {
     /// See [`Self::from_commit_traversal()`] for details.
     pub fn from_head(
         repo: &gix::Repository,
-        meta: &impl RefMetadata,
         project_meta: ProjectMeta,
-        db: &mut but_db::DbHandle,
+        db: &mut but_db::ConnectionMut<'_, '_>,
         options: Options,
     ) -> anyhow::Result<Self> {
         let worktree_tips = discover_worktree_tips(repo, db, options.worktrees)?;
+        let meta = db.meta()?;
         let head = repo.head()?;
         let mut is_detached = false;
         let (tip, maybe_name) = match head.kind {
@@ -592,7 +592,7 @@ impl Graph {
                 };
                 // It's OK to default-initialise this here as overlays are only used when redoing
                 // the traversal.
-                let (_repo, meta, _entrypoint) = Overlay::default().into_parts(repo, meta);
+                let (_repo, meta, _entrypoint) = Overlay::default().into_parts(repo, &meta);
                 let wt_by_branch = {
                     // Assume linked worktrees are never unborn!
                     let mut m = BTreeMap::new();
@@ -628,7 +628,7 @@ impl Graph {
             tip,
             maybe_name,
             None::<Tip>,
-            meta,
+            &meta,
             project_meta,
             worktree_tips,
             options,
@@ -642,7 +642,7 @@ impl Graph {
     /// can represent everything that's observed, without losing information.
     /// `ref_name` is assumed to point to `tip` if given.
     ///
-    /// `meta` is used to learn more about the encountered references, and `options` is used for additional configuration.
+    /// Metadata from `db` describes encountered references, and `options` controls traversal.
     /// `db` backs the [discovery of active linked worktrees](Options::worktrees), whose `HEAD`s are
     /// seeded as [extra traversal tips](Graph::worktree_tips) - discovery may run the one-time
     /// worktree adoption and thus write to the database.
@@ -709,16 +709,14 @@ impl Graph {
     pub fn from_commit_traversal(
         tip: gix::Id<'_>,
         ref_name: impl Into<Option<gix::refs::FullName>>,
-        meta: &impl RefMetadata,
         project_meta: ProjectMeta,
-        db: &mut but_db::DbHandle,
+        db: &mut but_db::ConnectionMut<'_, '_>,
         options: Options,
     ) -> anyhow::Result<Self> {
         Self::from_commit_traversal_with_extra_tips(
             tip,
             ref_name,
             None::<Tip>,
-            meta,
             project_meta,
             db,
             options,
@@ -744,17 +742,17 @@ impl Graph {
         tip: gix::Id<'_>,
         ref_name: impl Into<Option<gix::refs::FullName>>,
         extra_tips: impl IntoIterator<Item = Tip>,
-        meta: &impl RefMetadata,
         project_meta: ProjectMeta,
-        db: &mut but_db::DbHandle,
+        db: &mut but_db::ConnectionMut<'_, '_>,
         options: Options,
     ) -> anyhow::Result<Self> {
         let worktree_tips = discover_worktree_tips(tip.repo, db, options.worktrees)?;
+        let meta = db.meta()?;
         Self::from_commit_traversal_inner(
             tip,
             ref_name,
             extra_tips,
-            meta,
+            &meta,
             project_meta,
             worktree_tips,
             options,
@@ -767,7 +765,7 @@ impl Graph {
         tip: gix::Id<'_>,
         ref_name: impl Into<Option<gix::refs::FullName>>,
         extra_tips: impl IntoIterator<Item = Tip>,
-        meta: &impl RefMetadata,
+        meta: &but_db::Metadata,
         project_meta: ProjectMeta,
         worktree_tips: Vec<WorktreeTip>,
         options: Options,
@@ -837,20 +835,20 @@ impl Graph {
     /// commit-graph acceleration for traversal.
     /// `tips` provides the resolved commits and their traversal roles. It must
     /// contain exactly one tip whose [`Tip::is_entrypoint`] flag is set.
-    /// `meta` provides branch metadata for any refs encountered while walking.
+    /// `db` provides branch metadata for any refs encountered while walking.
     /// `options` controls tag collection, traversal limits, additional
     /// integrated tips, and post-processing behavior.
     pub fn from_commit_traversal_tips(
         repo: &gix::Repository,
         tips: impl IntoIterator<Item = Tip>,
-        meta: &impl RefMetadata,
         project_meta: ProjectMeta,
-        db: &mut but_db::DbHandle,
+        db: &mut but_db::ConnectionMut<'_, '_>,
         options: Options,
     ) -> anyhow::Result<Self> {
         let tips: Vec<_> = tips.into_iter().collect();
         let worktree_tips = discover_worktree_tips(repo, db, options.worktrees)?;
-        let (overlay_repo, overlay_meta, _entrypoint) = Overlay::default().into_parts(repo, meta);
+        let meta = db.meta()?;
+        let (overlay_repo, overlay_meta, _entrypoint) = Overlay::default().into_parts(repo, &meta);
         validate_explicit_tip_refs(&overlay_repo, &tips)?;
         Graph::traverse_tips_with_overlay(
             &overlay_repo,
@@ -869,10 +867,10 @@ impl Graph {
         skip_all,
         err(Debug)
     )]
-    fn traverse_tips_with_overlay<T: RefMetadata>(
+    fn traverse_tips_with_overlay(
         repo: &OverlayRepo<'_>,
         tips: Vec<Tip>,
-        meta: &OverlayMetadata<'_, T>,
+        meta: &OverlayMetadata<'_>,
         project_meta: ProjectMeta,
         options: Options,
         worktree_tips: Vec<WorktreeTip>,
@@ -1197,7 +1195,7 @@ impl Graph {
     pub fn redo_traversal_with_overlay(
         &self,
         repo: &gix::Repository,
-        meta: &impl RefMetadata,
+        meta: &but_db::Metadata,
         overlay: Overlay,
     ) -> anyhow::Result<Self> {
         let (repo, meta, entrypoint) = overlay.into_parts(repo, meta);
@@ -1258,7 +1256,7 @@ impl Graph {
     pub fn into_workspace_of_redone_traversal(
         mut self,
         repo: &gix::Repository,
-        meta: &impl RefMetadata,
+        meta: &but_db::Metadata,
     ) -> anyhow::Result<crate::Workspace> {
         let new = self.redo_traversal_with_overlay(repo, meta, Default::default())?;
         self = new;
@@ -1682,9 +1680,9 @@ fn tip_sort_name(tip: &Tip) -> Option<String> {
 
 /// Discover workspaces, targets, local tracking branches, and workspace stack
 /// branch refs and turn them into initial traversal tips.
-fn initial_tips_from_workspace_metadata<T: RefMetadata>(
+fn initial_tips_from_workspace_metadata(
     repo: &OverlayRepo<'_>,
-    meta: &OverlayMetadata<'_, T>,
+    meta: &OverlayMetadata<'_>,
     entrypoint: gix::ObjectId,
     entrypoint_ref: Option<&gix::refs::FullName>,
     project_meta: &ProjectMeta,
@@ -1819,7 +1817,8 @@ fn append_project_target_tips(
         let local_info =
             local_info.filter(|(_local_ref_name, local_tip)| !queued_ids.contains(local_tip));
         let local_tip = local_info.as_ref().map(|(_, local_tip)| *local_tip);
-        tips.push(
+        push_tip_once(
+            tips,
             Tip::new(target_ref_id)
                 .with_ref_name(Some(target_ref))
                 .with_role(TipRole::TargetRemote),
@@ -2021,7 +2020,7 @@ fn sorted_symbolic_remote_names(names: impl Iterator<Item = (usize, String)>) ->
 /// Insert initial segments, seed the traversal queue, and return workspace
 /// ownership roots for post-processing.
 #[expect(clippy::too_many_arguments)]
-fn queue_initial_tips<T: RefMetadata>(
+fn queue_initial_tips(
     graph: &mut Graph,
     next: &mut Queue,
     initial_tips: &InitialTips,
@@ -2032,7 +2031,7 @@ fn queue_initial_tips<T: RefMetadata>(
     goals: &mut Goals,
     commit_graph: Option<&gix::commitgraph::Graph>,
     repo: &OverlayRepo<'_>,
-    meta: &OverlayMetadata<'_, T>,
+    meta: &OverlayMetadata<'_>,
     ctx: &post::Context<'_>,
     buf: &mut Vec<u8>,
 ) -> anyhow::Result<Vec<SegmentIndex>> {
@@ -2079,7 +2078,8 @@ fn queue_initial_tips<T: RefMetadata>(
                     &ctx.worktree_by_branch,
                 ));
                 segment.metadata = meta
-                    .branch_opt(desired_ref_name.as_ref())?
+                    .branch(desired_ref_name.as_ref())
+                    .cloned()
                     .map(SegmentMetadata::Branch);
             }
         }

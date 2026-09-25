@@ -183,12 +183,11 @@ mod snapshot_details {
 }
 
 mod prepare_snapshot {
-    use but_meta::virtual_branches_legacy_types::VirtualBranches;
     use but_testsupport::Sandbox;
     use gitbutler_oplog::OplogExt;
 
     #[test]
-    fn metadata_free_workspace_marks_legacy_stacks_outside() -> anyhow::Result<()> {
+    fn metadata_free_workspace_marks_stored_stacks_outside() -> anyhow::Result<()> {
         let env =
             Sandbox::init_scenario_with_target_and_default_settings("metadata-free-workspace");
         let [stack_id] = *env.setup_metadata(&["A"]) else {
@@ -202,19 +201,23 @@ mod prepare_snapshot {
         let repo = ctx.repo.get()?;
         let snapshot_tree = repo.find_tree(snapshot_tree_id)?;
         let metadata_blob = snapshot_tree
-            .lookup_entry_by_path("virtual_branches.toml")?
-            .expect("snapshot contains legacy metadata")
+            .lookup_entry_by_path("ref_metadata.json")?
+            .expect("snapshot contains reference metadata")
             .object()?
             .into_blob();
-        let metadata: VirtualBranches = toml::from_str(std::str::from_utf8(&metadata_blob.data)?)?;
+        let data: serde_json::Value = serde_json::from_slice(&metadata_blob.data)?;
+        let metadata: but_db::Metadata = serde_json::from_value(data["metadata"].clone())?;
 
         assert!(
             !metadata
-                .branches
-                .get(&stack_id)
-                .expect("legacy stack is retained")
-                .in_workspace,
-            "metadata-free projections must mark legacy stacks outside the workspace"
+                .workspace(but_core::WORKSPACE_REF_NAME.try_into()?)
+                .unwrap()
+                .stacks
+                .iter()
+                .find(|stack| stack.id == stack_id)
+                .expect("stored stack is retained")
+                .is_in_workspace(),
+            "metadata-free projections must mark stored stacks outside the workspace"
         );
         Ok(())
     }

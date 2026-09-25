@@ -11,7 +11,7 @@ mod changes_in_branch {
 
     #[test]
     fn multiple_inside_and_outside_of_workspace() -> anyhow::Result<()> {
-        let (repo, meta, mut db) = read_only_in_memory_scenario("remote-advanced-ff")?;
+        let (repo, mut meta) = read_only_in_memory_scenario("remote-advanced-ff")?;
         snapbox::assert_data_eq!(
             visualize_commit_graph_all(&repo)?,
             snapbox::str![[r#"
@@ -26,9 +26,8 @@ mod changes_in_branch {
 
         let graph = but_graph::Graph::from_head(
             &repo,
-            &*meta,
             project_meta(&repo)?,
-            &mut db,
+            &mut meta.connection_mut(),
             Options::limited(),
         )?;
         let ws = graph.into_workspace()?;
@@ -174,8 +173,7 @@ TreeChanges {
 
         let ref_info: ui::RefInfo = but_workspace::head_info(
             &repo,
-            &*meta,
-            &mut db,
+            &mut meta.connection_mut(),
             but_workspace::ref_info::Options {
                 project_meta: project_meta(&repo)?,
                 ..Default::default()
@@ -322,16 +320,12 @@ TreeChanges {
     fn worktree_branch_resting_on_a_stack() -> anyhow::Result<()> {
         let repo =
             crate::utils::read_only_in_memory_scenario_named("worktree-on-stack-with-files", "")?;
-        let meta = but_meta::VirtualBranchesTomlMetadata::from_path(
-            repo.path().join("should-never-be-written.toml"),
-        )?;
         let mut db = but_testsupport::in_memory_db();
         db.worktree_meta_mut().mark_adopted()?;
         let graph = but_graph::Graph::from_head(
             &repo,
-            &meta,
             project_meta(&repo)?,
-            &mut db,
+            &mut db.connection_mut(),
             Options {
                 worktrees: true,
                 ..Options::limited()

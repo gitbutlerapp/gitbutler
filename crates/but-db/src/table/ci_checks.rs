@@ -77,12 +77,12 @@ impl<'conn> Transaction<'conn> {
 }
 
 pub struct CiChecksHandle<'conn> {
-    conn: &'conn rusqlite::Connection,
+    pub(crate) conn: &'conn rusqlite::Connection,
 }
 
 pub struct CiChecksHandleMut<'conn> {
     // Use savepoint as transaction, otherwise use `Connection`.
-    sp: rusqlite::Savepoint<'conn>,
+    pub(crate) sp: rusqlite::Savepoint<'conn>,
 }
 
 impl CiChecksHandle<'_> {

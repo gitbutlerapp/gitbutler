@@ -15,22 +15,16 @@ use crate::state::OplogHandle;
 pub struct ReflogCommits {
     target: gix::ObjectId,
     oplog: Option<gix::ObjectId>,
-    last_pushed_base: Option<gix::ObjectId>,
 }
 
 impl ReflogCommits {
     /// Collect the current state of all relevant commits that we want to protect in the reflog to prevent them from being GC'd.
     pub fn new(ctx: &Context, target: gix::ObjectId) -> Result<Self> {
-        let last_pushed_base = ctx.legacy_meta()?.data().last_pushed_base;
         let project_data_dir = ctx.project_data_dir();
         let oplog_state = OplogHandle::new(&project_data_dir);
         let oplog = oplog_state.oplog_head()?;
 
-        Ok(ReflogCommits {
-            target,
-            oplog,
-            last_pushed_base,
-        })
+        Ok(ReflogCommits { target, oplog })
     }
 }
 
@@ -85,14 +79,10 @@ pub fn set_reference_to_oplog(git_dir: &Path, reflog_commits: ReflogCommits) -> 
     }
 
     let content = build_reflog_content(
-        &[
-            Some(reflog_commits.target),
-            reflog_commits.oplog,
-            reflog_commits.last_pushed_base,
-        ]
-        .into_iter()
-        .flatten()
-        .collect::<Vec<_>>(),
+        &[Some(reflog_commits.target), reflog_commits.oplog]
+            .into_iter()
+            .flatten()
+            .collect::<Vec<_>>(),
     );
     write(reflog_file_path, content)?;
 
@@ -386,7 +376,6 @@ mod set_target_ref {
         ReflogCommits {
             target,
             oplog: Some(oplog),
-            last_pushed_base: None,
         }
     }
 

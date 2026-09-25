@@ -87,10 +87,8 @@ pub fn handle(
     }
 
     let mut guard = ctx.exclusive_worktree_access();
-    let mut meta = ctx.meta()?;
     let (_outcome, ws) = discard::run(
         ctx,
-        &mut meta,
         guard.write_permission(),
         discard::DiscardOperation::Branches(
             empty_branches

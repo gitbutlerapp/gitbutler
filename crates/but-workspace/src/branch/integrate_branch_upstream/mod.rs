@@ -4,7 +4,7 @@ use std::{
 };
 
 use anyhow::{Result, bail};
-use but_core::{RefMetadata, commit::Headers};
+use but_core::commit::Headers;
 use but_error::bail_precondition;
 use but_rebase::graph_rebase::{
     Editor, LookupStep, SuccessfulRebase, ToSelector,
@@ -112,20 +112,19 @@ pub struct InitialBranchIntegration {
 ///
 /// `steps` - The vector of steps in the application order (parent to child) that describe the actions to perform
 ///   for the integration of the changes.
-pub fn integrate_branch_with_steps<'ws, 'meta, M: RefMetadata>(
+pub fn integrate_branch_with_steps<'ws, 'db, 'conn>(
     ref_name: &gix::refs::FullNameRef,
     integration: InteractiveIntegration,
     workspace: &'ws mut but_graph::Workspace,
-    meta: &'meta mut M,
     repo: &gix::Repository,
-    db: &'meta mut but_db::DbHandle,
-) -> Result<SuccessfulRebase<'ws, 'meta, M>> {
+    db: but_db::ConnectionMut<'db, 'conn>,
+) -> Result<SuccessfulRebase<'ws, 'db, 'conn>> {
     if integration.steps.is_empty() {
         bail!("Integration steps cannot be empty")
     }
     // The editor maps every segment in the graph, including the remote
     // reference of the branch we're integrating.
-    let mut editor = Editor::create(workspace, meta, repo, db)?;
+    let mut editor = Editor::create(workspace, repo, db)?;
     // Step 1: We prepare the steps before building.
     // At this point, we construct the commits for the squash steps in memory.
     let prepared_steps = prepare_integration_steps_for_editor(&editor, &integration.steps)?;
@@ -244,13 +243,12 @@ fn integration_step_commit_ids(steps: &[InteractiveIntegrationStep]) -> HashSet<
 /// `meta` - Reference metadata used while constructing the editor.
 ///
 /// Returns the initial integration script and current divergence display state.
-pub fn get_initial_integration_steps_for_branch<M: RefMetadata>(
+pub fn get_initial_integration_steps_for_branch(
     ref_name: &gix::refs::FullNameRef,
     strategy: BranchIntegrationStrategy,
     workspace: &mut but_graph::Workspace,
-    meta: &mut M,
     repo: &gix::Repository,
-    db: &mut but_db::DbHandle,
+    db: but_db::ConnectionMut<'_, '_>,
 ) -> Result<InitialBranchIntegration> {
     // Step 1: We create the editor, which maps every segment in the graph -
     // including the remote branch to integrate and the project's target ref.
@@ -261,7 +259,7 @@ pub fn get_initial_integration_steps_for_branch<M: RefMetadata>(
         .map(|target| target.ref_name.clone())
         .filter(|target_ref_name| *target_ref_name != *upstream_ref_name);
 
-    let editor = Editor::create(workspace, meta, repo, db)?;
+    let editor = Editor::create(workspace, repo, db)?;
 
     // Step 2: We traverse the editor graph and determine the divergence between the local and remote branch.
     let BranchMergeBaseCommits {
