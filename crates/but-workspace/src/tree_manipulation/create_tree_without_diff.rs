@@ -124,11 +124,52 @@ pub fn create_tree_without_diff(
                     before_entry.object_id(),
                 )?;
                 continue;
-            } else {
+            }
+
+            if !is_blob(before_entry.mode().kind()) {
+                // Only blobs have hunks to speak of, so anything else stays the
+                // caller's problem, exactly as it was before.
                 anyhow::bail!(
                     "Deletions or additions aren't well-defined for hunk-based operations - use the whole-file mode instead"
                 );
             }
+
+            // A file the change deletes has no 'after' state to diff against, so it gets
+            // an empty one. Removing all of the deletion's hunks then brings the file
+            // back in full, and removing only some of them brings back just those lines.
+            let before_blob = before_entry.object()?.into_blob();
+            let removal = contents_without_hunks(
+                repository,
+                &change,
+                before_path.as_bstr(),
+                ChangeState {
+                    id: before_entry.id().detach(),
+                    kind: before_entry.mode().kind(),
+                },
+                &before_blob.data,
+                ChangeState {
+                    id: repository.write_blob(b"")?.detach(),
+                    kind: before_entry.mode().kind(),
+                },
+                &[],
+                context_lines,
+            )?;
+
+            if !removal.unmatched.is_empty() {
+                dropped.push(DiffSpec {
+                    previous_path: change.previous_path.clone(),
+                    path: change.path.clone(),
+                    hunk_headers: removal.unmatched,
+                });
+            }
+
+            if removal.removed_any {
+                // Leave the deletion in place when nothing matched, or the file would
+                // come back empty rather than staying deleted.
+                let restored = repository.write_blob(&removal.contents)?;
+                builder.upsert(change.path.as_bstr(), before_entry.mode().kind(), restored)?;
+            }
+            continue;
         };
 
         match after_entry.mode().kind() {
@@ -137,82 +178,77 @@ pub fn create_tree_without_diff(
                 if change.hunk_headers.is_empty() {
                     revert_file_to_before_state(&before_entry, &mut builder, &change)?;
                 } else {
-                    let Some(before_entry) = before_entry else {
-                        anyhow::bail!(
-                            "Deletions or additions aren't well-defined for hunk-based operations - use the whole-file mode instead"
-                        );
+                    // A file the change adds has no 'before' state to diff against, so
+                    // it gets an empty one. That keeps its hunks matchable, and removing
+                    // all of them then simply means the addition is gone.
+                    // Anything that isn't a blob has no contents to work with, and is
+                    // left to the diff below to reject with its own message.
+                    let before_blob = match &before_entry {
+                        Some(before_entry) if is_blob(before_entry.mode().kind()) => {
+                            Some(before_entry.object()?.into_blob())
+                        }
+                        _ => None,
+                    };
+                    let before_data: &[u8] = before_blob
+                        .as_ref()
+                        .map_or(&[], |blob| blob.data.as_slice());
+                    let before_state = match &before_entry {
+                        Some(before_entry) => ChangeState {
+                            id: before_entry.id().detach(),
+                            kind: before_entry.mode().kind(),
+                        },
+                        None => ChangeState {
+                            id: repository.write_blob(b"")?.detach(),
+                            kind: after_entry.mode().kind(),
+                        },
                     };
 
-                    let diff = but_core::UnifiedPatch::compute(
+                    let removal = contents_without_hunks(
                         repository,
-                        change.path.as_bstr(),
-                        Some(before_path.as_bstr()),
+                        &change,
+                        before_path.as_bstr(),
+                        before_state,
+                        before_data,
                         ChangeState {
                             id: after_entry.id().detach(),
                             kind: after_entry.mode().kind(),
                         },
-                        ChangeState {
-                            id: before_entry.id().detach(),
-                            kind: before_entry.mode().kind(),
-                        },
+                        &after_blob.data,
                         context_lines,
-                    )?
-                    .context(
-                        "Cannot diff submodules - if this is encountered we should look into it",
                     )?;
 
-                    let but_core::UnifiedPatch::Patch {
-                        hunks: diff_hunks, ..
-                    } = diff
-                    else {
-                        anyhow::bail!("expected a patch");
-                    };
-
-                    let mut good_hunk_headers = vec![];
-                    let mut bad_hunk_headers = vec![];
-
-                    for hunk in &change.hunk_headers {
-                        if diff_hunks
-                            .iter()
-                            .any(|diff_hunk| HunkHeader::from(diff_hunk).contains(*hunk))
-                        {
-                            good_hunk_headers.push(*hunk);
-                        } else {
-                            bad_hunk_headers.push(*hunk);
-                        }
-                    }
-
-                    if !bad_hunk_headers.is_empty() {
+                    if !removal.unmatched.is_empty() {
                         dropped.push(DiffSpec {
                             previous_path: change.previous_path.clone(),
                             path: change.path.clone(),
-                            hunk_headers: bad_hunk_headers,
+                            hunk_headers: removal.unmatched,
                         });
                     }
 
-                    // TODO: Validate that the hunks correspond with actual changes?
-                    let before_blob = before_entry.object()?.into_blob();
-
-                    let new_hunks = new_hunks_after_removals(
-                        diff_hunks.into_iter().map(Into::into).collect(),
-                        good_hunk_headers,
-                    )?;
-                    let new_after_contents = but_core::apply_hunks(
-                        before_blob.data.as_bstr(),
-                        after_blob.data.as_bstr(),
-                        &new_hunks,
-                    )?;
-                    let mode = if new_after_contents == before_blob.data {
-                        before_entry.mode().kind()
+                    let new_after_contents = removal.contents;
+                    if before_entry.is_none()
+                        && removal.removed_any
+                        && new_after_contents.is_empty()
+                    {
+                        // Every hunk of an added file was removed, so there is no
+                        // addition left to keep - an empty blob would be a different
+                        // file rather than none at all. Nothing matching at all leaves
+                        // the addition alone instead, including for an empty file.
+                        builder.remove(change.path.as_bstr())?;
                     } else {
-                        after_entry.mode().kind()
-                    };
-                    let new_after_contents = repository.write_blob(&new_after_contents)?;
+                        let mode = match &before_entry {
+                            Some(before_entry) if new_after_contents == before_data => {
+                                before_entry.mode().kind()
+                            }
+                            _ => after_entry.mode().kind(),
+                        };
+                        let new_after_contents = repository.write_blob(&new_after_contents)?;
 
-                    // Keep the mode of the after state. We _should_ at some
-                    // point introduce the mode specifically as part of the
-                    // DiscardSpec, but for now, we can just use the after state.
-                    builder.upsert(change.path.as_bstr(), mode, new_after_contents)?;
+                        // Keep the mode of the after state. We _should_ at some
+                        // point introduce the mode specifically as part of the
+                        // DiscardSpec, but for now, we can just use the after state.
+                        builder.upsert(change.path.as_bstr(), mode, new_after_contents)?;
+                    }
                 }
             }
             _ => {
@@ -223,6 +259,88 @@ pub fn create_tree_without_diff(
 
     let final_tree = builder.write()?;
     Ok((final_tree.detach(), dropped))
+}
+
+/// Remove the hunks named in `change` from the diff between `before` and `after`,
+/// returning the resulting file contents along with the hunks that couldn't be matched.
+///
+/// A side that doesn't exist - an addition has no `before`, a deletion has no `after` -
+/// is passed in as an empty blob. That keeps its hunks matchable, so removing all of them
+/// resolves to the whole-file outcome instead of being rejected as undefined.
+#[allow(clippy::too_many_arguments)]
+fn contents_without_hunks(
+    repository: &gix::Repository,
+    change: &DiffSpec,
+    before_path: &bstr::BStr,
+    before_state: ChangeState,
+    before_data: &[u8],
+    after_state: ChangeState,
+    after_data: &[u8],
+    context_lines: u32,
+) -> anyhow::Result<HunkRemoval> {
+    let diff = but_core::UnifiedPatch::compute(
+        repository,
+        change.path.as_bstr(),
+        Some(before_path),
+        after_state,
+        before_state,
+        context_lines,
+    )?
+    .context("Cannot diff submodules - if this is encountered we should look into it")?;
+
+    let but_core::UnifiedPatch::Patch {
+        hunks: diff_hunks, ..
+    } = diff
+    else {
+        anyhow::bail!("expected a patch");
+    };
+
+    let mut good_hunk_headers = vec![];
+    let mut bad_hunk_headers = vec![];
+    for hunk in &change.hunk_headers {
+        if diff_hunks
+            .iter()
+            .any(|diff_hunk| HunkHeader::from(diff_hunk).contains(*hunk))
+        {
+            good_hunk_headers.push(*hunk);
+        } else {
+            bad_hunk_headers.push(*hunk);
+        }
+    }
+
+    // TODO: Validate that the hunks correspond with actual changes?
+    let removed_any = !good_hunk_headers.is_empty();
+    let new_hunks = new_hunks_after_removals(
+        diff_hunks.into_iter().map(Into::into).collect(),
+        good_hunk_headers,
+    )?;
+    let contents = but_core::apply_hunks(before_data.as_bstr(), after_data.as_bstr(), &new_hunks)?;
+    Ok(HunkRemoval {
+        contents,
+        unmatched: bad_hunk_headers,
+        removed_any,
+    })
+}
+
+/// Whether `kind` is a file whose contents can be diffed into hunks.
+fn is_blob(kind: gix::objs::tree::EntryKind) -> bool {
+    matches!(
+        kind,
+        gix::objs::tree::EntryKind::Blob | gix::objs::tree::EntryKind::BlobExecutable
+    )
+}
+
+/// The outcome of removing hunks from a file's diff.
+struct HunkRemoval {
+    /// The file's contents with the matched hunks removed.
+    contents: bstr::BString,
+    /// Hunks that matched nothing in the diff, and so were not removed.
+    unmatched: Vec<HunkHeader>,
+    /// Whether any hunk matched at all.
+    ///
+    /// When nothing matched, the entry must be left exactly as it is: reporting a
+    /// spec as unmatched and still rewriting the entry would contradict each other.
+    removed_any: bool,
 }
 
 fn new_hunks_after_removals(
