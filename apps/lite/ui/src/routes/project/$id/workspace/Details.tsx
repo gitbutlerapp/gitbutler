@@ -1966,6 +1966,7 @@ const DiffFileHeader: FC<DiffFileHeaderProps> = (p) => {
 				className={classes(
 					styles.fileHeader,
 					(p.collapsed || !p.hasDiff) && styles.lone,
+					p.collapsed && styles.folded,
 					p.selected && styles.fileHeaderSelected,
 				)}
 			>

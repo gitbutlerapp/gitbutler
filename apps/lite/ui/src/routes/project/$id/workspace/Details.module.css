@@ -186,6 +186,14 @@
 		&:first-child {
 			border-top-color: var(--bg-1);
 		}
+
+		/* Pierre still reserves the paddingTop item metric (diff-view.ts) under a
+		   folded file's header, though the code it pads is not rendered. Left
+		   empty, the sticky layout parks the header at the bottom of that box,
+		   so folding nudges it down and opens a gap above it. Fill it below. */
+		&:has(.folded) {
+			margin-bottom: 6px;
+		}
 	}
 
 	[data-selection-focus-styles="true"] [data-focus-scope="diff"][data-selection-focused="true"] & {
