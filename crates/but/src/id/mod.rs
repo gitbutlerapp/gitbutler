@@ -857,8 +857,6 @@ impl IdMap {
             &uncommitted_short_filenames,
             &commit_id_to_change_id,
         )?;
-        let mut fallback_id_usage = id_usage.clone();
-
         let mut uncommitted_files: BTreeMap<ChangeId, UncommittedFile> = BTreeMap::new();
         for (source, change, hunks) in partitioned_changes_and_hunks {
             let path = &change.path_bytes;
@@ -866,11 +864,9 @@ impl IdMap {
             // Ensure that uncommitted files do not collide with CLI IDs generated after
             if let Some(uint_id) = UintId::from_name(&reverse_hex[..2]) {
                 id_usage.mark_used(uint_id);
-                fallback_id_usage.mark_used(uint_id);
             }
             if let Some(uint_id) = UintId::from_name(&reverse_hex[..3]) {
                 id_usage.mark_used(uint_id);
-                fallback_id_usage.mark_used(uint_id);
             }
             uncommitted_files.insert(
                 reverse_hex,
@@ -881,18 +877,6 @@ impl IdMap {
                     short_id_hunks: hunks.map(|hunk| (UnqualifiedHunkId::default(), hunk)),
                 },
             );
-            // Preserve generated IDs from before path-derived file IDs were introduced. If these
-            // synthetic skips exhaust the bounded space, fall back to the allocator containing
-            // only real allocations and path collision reservations.
-            id_usage.skip_available();
-        }
-        let mut compatibility_probe = id_usage.clone();
-        let compatibility_has_room_for_stacks = stacks
-            .iter()
-            .filter(|stack| stack.lane.stack_id().is_some())
-            .all(|_| compatibility_probe.next_available().is_ok());
-        if !compatibility_has_room_for_stacks {
-            id_usage = fallback_id_usage;
         }
 
         let mut reverse_hex_short_ids: Vec<(ChangeId, Option<&mut ShortId>)> = uncommitted_files

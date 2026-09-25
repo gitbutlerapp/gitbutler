@@ -273,7 +273,7 @@ fn json_shows_paths_as_strings() {
   ],
   "stacks": [
     {
-      "cliId": "j0",
+      "cliId": "i0",
       "assignedChanges": [],
       "branches": [
         {
@@ -301,7 +301,7 @@ fn json_shows_paths_as_strings() {
       ]
     },
     {
-      "cliId": "k0",
+      "cliId": "j0",
       "assignedChanges": [],
       "branches": [
         {

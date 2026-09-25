@@ -671,7 +671,7 @@ workspace_and_remote_commits_count: 1
 branches: [ h0 ]
 uncommitted_files: [ kv, ro ]
 uncommitted_hunks: [ kv:e, ro:e#0-2, ro:e#1-2 ]
-stacks: [ j0 ]
+stacks: [ g0 ]
 
 
 "#]]
@@ -687,6 +687,10 @@ stacks: [ j0 ]
         },
         id: "0",
     },
+    Stack {
+        id: "g0",
+        stack_id: 00000000-0000-0000-0000-000000000001,
+    },
     Branch(
         BranchId {
             name: "h0",
@@ -698,10 +702,6 @@ stacks: [ j0 ]
             ),
         },
     ),
-    Stack {
-        id: "j0",
-        stack_id: 00000000-0000-0000-0000-000000000001,
-    },
     UncommittedHunkOrFile(
         UncommittedHunkOrFile {
             id: "kv",
