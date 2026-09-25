@@ -162,12 +162,24 @@ fn create_reverse_hex_id(source: &ChangeSourceId, path_bytes: &[u8]) -> anyhow::
     Ok(change_id)
 }
 
-/// Assign short IDs to each `Some` entry such that they are unambiguous with respect to every other
-/// entry.
-///
-/// `None` entries represent reserved IDs that cannot be changed, such as filenames. They are only
-/// there to cause disambiguation with other IDs that we can change. There is currently no mechanism
-/// to deal with multiple colliding `None` entries. These will simply slip through.
+/// A key competing for a reverse-hex short ID.
+enum Claim<'a> {
+    /// An ID that cannot be changed, such as a filename, that assigned IDs must not be confused
+    /// with. There is currently no mechanism to deal with colliding reserved IDs.
+    Reserved,
+    /// A short ID to assign, at least `min_len` characters long.
+    Assigned {
+        short_id: &'a mut ShortId,
+        min_len: usize,
+    },
+}
+
+/// Change IDs of commits share the namespace of uncommitted files, so a new commit can make a
+/// short file ID ambiguous. Keeping file IDs longer makes that less likely.
+const MIN_UNCOMMITTED_FILE_ID_LEN: usize = 2;
+
+/// Assign each [`Claim::Assigned`] a short ID that is unambiguous with respect to every other
+/// claim.
 ///
 /// Short IDs are disambiguated in two ways:
 ///
@@ -186,19 +198,24 @@ fn create_reverse_hex_id(source: &ChangeSourceId, path_bytes: &[u8]) -> anyhow::
 /// as a string, but that is rather inconvenient when it comes to rendering and matching. The
 /// [`ShortId`] type needs to carry collision information in the same way that [`UnqualifiedHunkId`]
 /// does.
-fn assign_short_ids(
-    reverse_hex_short_ids: BTreeMap<ChangeId, Vec<Option<&mut ShortId>>>,
-) -> anyhow::Result<()> {
+fn assign_short_ids(claims: BTreeMap<ChangeId, Vec<Claim<'_>>>) -> anyhow::Result<()> {
     let global_min_short_id_chars = min_length_for_prefix_based_short_ids();
-    let keys: Vec<&[u8]> = reverse_hex_short_ids.keys().map(|key| &***key).collect();
+    let keys: Vec<&[u8]> = claims.keys().map(|key| &***key).collect();
     let lengths = unique_prefix_lengths(&keys);
-    for ((reverse_hex, short_ids), len) in reverse_hex_short_ids.into_iter().zip(lengths) {
-        // TODO should compare UTF8 chars instead of bytes once we start putting full branch names
-        // in here. Otherwise we risk splitting in the middle of a UTF8 character.
-        let len = len.max(global_min_short_id_chars).min(reverse_hex.len());
-        let prefix = str::from_utf8(&reverse_hex[..len])?;
-        let num_conflicting_ids = short_ids.len();
-        for (i, short_id) in short_ids.into_iter().flatten().enumerate() {
+    for ((reverse_hex, claims), len) in claims.into_iter().zip(lengths) {
+        let num_conflicting_ids = claims.len();
+        let assigned = claims.into_iter().filter_map(|claim| match claim {
+            Claim::Reserved => None,
+            Claim::Assigned { short_id, min_len } => Some((short_id, min_len)),
+        });
+        for (i, (short_id, min_len)) in assigned.enumerate() {
+            // TODO should compare UTF8 chars instead of bytes once we start putting full branch
+            // names in here. Otherwise we risk splitting in the middle of a UTF8 character.
+            let len = len
+                .max(min_len)
+                .max(global_min_short_id_chars)
+                .min(reverse_hex.len());
+            let prefix = str::from_utf8(&reverse_hex[..len])?;
             *short_id = if num_conflicting_ids > 1 {
                 format!("{prefix}{INDEX_SEPARATOR}{i}")
             } else {
@@ -231,16 +248,17 @@ fn short_ids_from_tree_changes(
             ShortId::default(),
         ));
     }
-    let mut reverse_hex_short_ids = BTreeMap::<ChangeId, Vec<_>>::new();
-
+    let mut claims = BTreeMap::<ChangeId, Vec<_>>::new();
     for (_, reverse_hex, short_id) in short_ids.iter_mut() {
-        reverse_hex_short_ids
+        claims
             .entry(reverse_hex.clone())
             .or_default()
-            .push(Some(short_id));
+            .push(Claim::Assigned {
+                short_id,
+                min_len: 1,
+            });
     }
-
-    assign_short_ids(reverse_hex_short_ids)?;
+    assign_short_ids(claims)?;
     Ok(short_ids)
 }
 
@@ -842,29 +860,16 @@ impl IdMap {
             );
         }
 
-        let mut reverse_hex_short_ids: Vec<(ChangeId, Option<&mut ShortId>)> = uncommitted_files
-            .iter_mut()
-            .flat_map(|(reverse_hex, uncommitted_file)| {
-                [
-                    // Change IDs of commits compete for the same namespace as uncommitted file
-                    // short IDs (reverse hex). Thus, creating a new commit may result in a prefix
-                    // collision with an uncommitted file, making a previously unambiguous ID
-                    // ambiguous. This risk increases the shorter we allow uncommitted file short
-                    // IDs to be, so for the moment we synthetically force them to be two characters
-                    // long by inserting a dummy collision ID containing only the first character of
-                    // the uncommitted file's short ID.
-                    //
-                    // This should be removed once we've got structured information about short IDs
-                    // to the point where we can render them independently of what the shortest
-                    // possible ID is.
-                    (
-                        ChangeId::from(BString::from(reverse_hex.get(..1).unwrap_or_default())),
-                        None,
-                    ),
-                    (reverse_hex.clone(), Some(&mut uncommitted_file.short_id)),
-                ]
-            })
-            .collect();
+        let mut claims = BTreeMap::<ChangeId, Vec<Claim<'_>>>::new();
+        for (reverse_hex, uncommitted_file) in uncommitted_files.iter_mut() {
+            claims
+                .entry(reverse_hex.clone())
+                .or_default()
+                .push(Claim::Assigned {
+                    short_id: &mut uncommitted_file.short_id,
+                    min_len: MIN_UNCOMMITTED_FILE_ID_LEN,
+                });
+        }
 
         // Ensure that uncommitted file revers hexes do not collide short IDs that have already been allocated
         //
@@ -873,7 +878,10 @@ impl IdMap {
         // extension. E.g. the file "out" gets the short ID "outk", which seems pretty redundant as
         // there is no ambiguity if both IDs point to the same thing.
         for short_id in non_hex_used_short_ids {
-            reverse_hex_short_ids.push((ChangeId::from(BString::from(short_id.as_str())), None));
+            claims
+                .entry(ChangeId::from(BString::from(short_id)))
+                .or_default()
+                .push(Claim::Reserved);
         }
 
         for change_id in stacks
@@ -886,18 +894,15 @@ impl IdMap {
                     .filter_map(|c| c.change_id.as_mut())
             })
         {
-            reverse_hex_short_ids.push((change_id.change_id.clone(), Some(&mut change_id.short_id)))
-        }
-
-        let mut mapped_reverse_hex_short_ids =
-            BTreeMap::<ChangeId, Vec<Option<&mut ShortId>>>::new();
-        for (id, short_id) in reverse_hex_short_ids {
-            mapped_reverse_hex_short_ids
-                .entry(id)
+            claims
+                .entry(change_id.change_id.clone())
                 .or_default()
-                .push(short_id);
+                .push(Claim::Assigned {
+                    short_id: &mut change_id.short_id,
+                    min_len: 1,
+                });
         }
-        assign_short_ids(mapped_reverse_hex_short_ids)?;
+        assign_short_ids(claims)?;
 
         stacks_info::populate_commit_short_ids(
             stacks
