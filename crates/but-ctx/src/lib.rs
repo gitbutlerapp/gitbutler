@@ -566,7 +566,7 @@ impl Context {
     ) -> anyhow::Result<(
         RepoExclusiveGuard,
         cell::RefMut<'_, gix::Repository>,
-        cell::RefMut<'_, but_graph::Workspace>,
+        but_graph::Workspace,
         cell::RefMut<'_, but_db::DbHandle>,
     )> {
         let mut guard = self.exclusive_worktree_access();
@@ -591,21 +591,13 @@ impl Context {
         _perm: &mut RepoExclusive,
     ) -> anyhow::Result<(
         cell::RefMut<'_, gix::Repository>,
-        cell::RefMut<'_, but_graph::Workspace>,
+        but_graph::Workspace,
         cell::RefMut<'_, but_db::DbHandle>,
     )> {
-        if let Ok(cached) =
-            cell::RefMut::filter_map(self.workspace.try_borrow_mut()?, |opt| opt.as_mut())
-        {
+        if let Some(cached) = self.workspace.take() {
             return Ok((self.repo.get_mut()?, cached, self.db.get_cache_mut()?));
         }
         let ws = self.workspace_from_head()?;
-        {
-            let mut value = self.workspace.try_borrow_mut()?;
-            *value = Some(ws);
-        }
-        let ws = cell::RefMut::filter_map(self.workspace.borrow_mut(), |opt| opt.as_mut())
-            .unwrap_or_else(|_| unreachable!("just set the value"));
         Ok((self.repo.get_mut()?, ws, self.db.get_cache_mut()?))
     }
 
@@ -676,7 +668,7 @@ impl Context {
     ) -> anyhow::Result<(
         RepoExclusiveGuard,
         cell::RefMut<'_, gix::Repository>,
-        cell::RefMut<'_, but_graph::Workspace>,
+        but_graph::Workspace,
         cell::Ref<'_, but_db::DbHandle>,
     )> {
         let mut guard = self.exclusive_worktree_access();
@@ -700,21 +692,13 @@ impl Context {
         _perm: &RepoExclusive,
     ) -> anyhow::Result<(
         cell::RefMut<'_, gix::Repository>,
-        cell::RefMut<'_, but_graph::Workspace>,
+        but_graph::Workspace,
         cell::Ref<'_, but_db::DbHandle>,
     )> {
-        if let Ok(cached) =
-            cell::RefMut::filter_map(self.workspace.try_borrow_mut()?, |opt| opt.as_mut())
-        {
+        if let Some(cached) = self.workspace.take() {
             return Ok((self.repo.get_mut()?, cached, self.db.get_cache()?));
         }
         let ws = self.workspace_from_head()?;
-        {
-            let mut value = self.workspace.try_borrow_mut()?;
-            *value = Some(ws);
-        }
-        let ws = cell::RefMut::filter_map(self.workspace.borrow_mut(), |opt| opt.as_mut())
-            .unwrap_or_else(|_| unreachable!("just set the value"));
         Ok((self.repo.get_mut()?, ws, self.db.get_cache()?))
     }
 
