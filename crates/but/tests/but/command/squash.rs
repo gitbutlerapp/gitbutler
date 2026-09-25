@@ -1730,7 +1730,7 @@ fn committed_file_to_uncommitted_area() {
   ],
   "stacks": [
     {
-      "cliId": "j0",
+      "cliId": "i0",
       "assignedChanges": [],
       "branches": [
         {
@@ -1773,7 +1773,7 @@ fn committed_file_to_uncommitted_area() {
 ...
     },
     {
-      "cliId": "k0",
+      "cliId": "j0",
       "assignedChanges": [],
       "branches": [
         {
