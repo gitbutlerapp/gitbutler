@@ -30,6 +30,19 @@ type UncommittedState = {
 };
 
 /**
+ * The parts of this slice that must not survive a restart.
+ *
+ * Both are refetched from the worktree on startup, so a persisted copy is only ever the previous
+ * session's, rendered for the frames before the fresh query replaces it. `hunkSelection` is
+ * deliberately absent: the checkboxes are the state worth keeping, and `update()` rebuilds them
+ * against whatever assignments arrive.
+ */
+export const UNCOMMITTED_PERSIST_BLACKLIST = [
+	"treeChanges",
+	"hunkAssignments",
+] as const satisfies readonly (keyof UncommittedState)[];
+
+/**
  * State representing uncommitted changes.
  *
  * In this slice we manage a few related concepts, 1) tree changes, 2) hunk
