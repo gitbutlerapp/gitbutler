@@ -164,39 +164,34 @@ fn commit_from_unstaged_changes_to_new_branch_creates_branch_and_commit() {
 }
 
 #[test]
-fn commit_from_unstaged_changes_to_new_branch_checks_out_branch_in_single_branch_mode() {
+fn commit_from_unstaged_changes_to_new_branch_enters_workspace_in_single_branch_mode() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
     env.setup_metadata(&["A"]);
     env.invoke_git("checkout A");
-
-    env.file(
-        "editor.sh",
-        format!("printf '{TEST_EDITOR_MESSAGE}\\n' > \"$1\"\n"),
-    );
-    let editor_path = env.projects_root().join("editor.sh");
-    let editor_command = format!("sh {}", editor_path.display());
+    env.file("test.txt", "content");
 
     let mut tui = test_status_tui(env);
 
-    tui.env().file("test.txt", "content");
     tui.reload();
+
     tui.input('c');
+    tui.input('e');
+    tui.input('b').assert_rendered_term_svg_eq(file![
+        "snapshots/commit_from_unstaged_changes_to_new_branch_enters_workspace_in_single_branch_mode_final.svg"
+    ]);
 
-    with_var("GIT_EDITOR", Some(editor_command), || {
-        tui.input('b').assert_rendered_term_svg_eq(file![
-            "snapshots/commit_from_unstaged_changes_to_new_branch_checks_out_branch_in_single_branch_mode_final.svg"
-        ]);
-    });
+    // HEAD enters the workspace, with the empty-message commit on a branch independent of A.
+    snapbox::assert_data_eq!(
+        tui.env().git_log(),
+        str![[r#"
+*   bdcb20a (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+|/  
+| * 9477ae7 (A) add A
+* | 80b9bc6 (c-branch-1) 
+|/  
+* 0dc3733 (origin/main, origin/HEAD, main, gitbutler/target) add M
 
-    assert_eq!(
-        tui.env().invoke_git("symbolic-ref --short HEAD"),
-        "c-branch-1",
-        "creating a branch from the TUI should check it out in single-branch mode"
-    );
-    assert_eq!(
-        tui.env().invoke_git("log -1 --format=%s"),
-        TEST_EDITOR_MESSAGE,
-        "the checked-out branch should contain the TUI commit"
+"#]]
     );
 }
 

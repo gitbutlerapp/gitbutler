@@ -1598,11 +1598,10 @@ Hint: run `but help` for all commands
     snapbox::assert_data_eq!(
         env.git_log(),
         snapbox::str![[r#"
-*-.   6afce52 (gitbutler/workspace) GitButler Workspace Commit
-|/ /  
-| | * 9477ae7 (A) add A
-| |/  
-* / d3e2ba3 (B) add B
+*   c128bce (gitbutler/workspace) GitButler Workspace Commit
+|/  
+| * 9477ae7 (A) add A
+* | d3e2ba3 (B) add B
 |/  
 * 0dc3733 (HEAD -> a-branch-1, origin/main, origin/HEAD, main, gitbutler/target) add M
 
@@ -1626,16 +1625,43 @@ Hint: run `but help` for all commands
     snapbox::assert_data_eq!(
         env.git_log(),
         snapbox::str![[r#"
-*-.   6afce52 (gitbutler/workspace) GitButler Workspace Commit
-|/ /  
-| | * 9477ae7 (A) add A
-| |/  
-* / d3e2ba3 (B) add B
+*   c128bce (gitbutler/workspace) GitButler Workspace Commit
+|/  
+| * 9477ae7 (A) add A
+* | d3e2ba3 (B) add B
 |/  
 * 0dc3733 (HEAD -> a-branch-2, origin/main, origin/HEAD, main, gitbutler/target, a-branch-1) add M
 
 "#]]
     );
+}
+
+#[test]
+fn switching_back_after_creating_an_independent_branch_restores_workspace() {
+    let env = Sandbox::open_with_default_settings("two-stacks");
+    env.setup_metadata(&["B", "A"]);
+    env.but("branch new example --switch").assert().success();
+    env.but("switch --workspace").assert().success();
+    // Returning restores the previous branches and adds the independent branch last.
+    env.but("status").assert().success().stdout_eq(str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┊╭┄ g0 [B]
+┊●   lrm add B
+├╯
+┊
+┊╭┄ h0 [A]
+┊●   tpm add A
+├╯
+┊
+┊╭┄ ex [example] (no commits)
+├╯
+┊
+┴ 0dc3733 (common base) 2000-01-02 add M
+
+Hint: run `but help` for all commands
+
+"#]]);
 }
 
 #[test]

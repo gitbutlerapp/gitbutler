@@ -215,6 +215,7 @@ impl App {
                     sources: commits,
                     commit_op: CommitOperation::CommitToNewBranch(CommitToNewBranchOperation {
                         branch_name: None,
+                        switch: false,
                     }),
                     order_commits_by_parentage: true,
                 }));
@@ -228,7 +229,10 @@ impl App {
                     Ok(Some(PickOperation {
                         sources: commits,
                         commit_op: CommitOperation::CommitAt(CommitAtOperation {
-                            target: CommitRelativeToTarget::BranchTip { name },
+                            target: CommitRelativeToTarget::BranchTip {
+                                name,
+                                switch: false,
+                            },
                         }),
                         order_commits_by_parentage: true,
                     }))
@@ -274,6 +278,7 @@ impl App {
                                 name,
                                 side: InsertSide::Above.into(),
                                 new_branch_name: None,
+                                switch: false,
                             },
                         }),
                         order_commits_by_parentage: true,

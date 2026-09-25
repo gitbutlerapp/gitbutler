@@ -63,6 +63,10 @@ pub struct Platform {
     )]
     pub below: Option<CliIdArg>,
 
+    /// Switch to the target branch instead of remaining in the GitButler workspace.
+    #[clap(long, short, group = "targeting")]
+    pub switch: bool,
+
     /// The commits to copy, as SHAs or as CLI IDs of commits on applied branches. IDs
     /// shown for unapplied branches do not resolve; use the SHA.
     #[clap(group = "changes_to_commit", required = true)]

@@ -36,6 +36,7 @@ Create a commit
 - `-A, --above <BRANCH_OR_COMMIT>` Place the commit above BRANCH_OR_COMMIT, which must be an applied branch or commit. If BRANCH_OR_COMMIT is a commit, the new commit is placed on the same branch as the targeted commit. If BRANCH_OR_COMMIT is a branch, the new commit is placed on a new branch above the targeted branch. Use --branch <NAME> to name it; otherwise a name is generated.
 - `-B, --below <BRANCH_OR_COMMIT>` Place the commit below BRANCH_OR_COMMIT, which must be an applied branch or commit. If BRANCH_OR_COMMIT is a commit, the new commit is placed on the same branch as the targeted commit. If BRANCH_OR_COMMIT is a branch, the new commit is placed on a new branch below the targeted branch. Branches are treated as buckets, meaning that "below a branch" is treated as below the oldest ancestor on that branch. Use --branch <NAME> to name the new branch; otherwise a name is generated. If BRANCH_OR_COMMIT is a worktree, the new commit is placed on the tip of the branch that worktree has checked out.
 - `--empty` Create an empty commit even when there are changes
+- `-s, --switch` Switch to the target branch instead of remaining in the GitButler workspace
 
 ### but branch new [NAME]
 Create a new branch
@@ -119,6 +120,7 @@ Cherry-pick commits into an applied branch
 - `-b, --branch [<BRANCH>]` Place the picked commits on the branch BRANCH. With --above or --below, name the new branch created relative to the target branch. The name must not already exist; omit it for a generated name. Cannot be combined with commit or worktree targets. Otherwise, if BRANCH does not exist, it is created as an unstacked branch. If BRANCH is omitted, an unstacked branch with a generated name is created. Attempting to pick onto a branch that exists but is not applied is an error.
 - `-A, --above <BRANCH_OR_COMMIT>` Place the picked commits above BRANCH_OR_COMMIT. If BRANCH_OR_COMMIT is a commit, the picked commits are placed on the same branch as the targeted commit. If BRANCH_OR_COMMIT is a branch, the picked commits are placed on a new branch above the targeted branch. Use --branch <NAME> to name it; otherwise a name is generated.
 - `-B, --below <BRANCH_OR_COMMIT>` Place the picked commits below BRANCH_OR_COMMIT. If BRANCH_OR_COMMIT is a commit, the picked commits are placed on the same branch as the targeted commit. If BRANCH_OR_COMMIT is a branch, the picked commits are placed on a new branch below the targeted branch. Branches are treated as buckets, meaning that "below a branch" is treated as below the oldest ancestor on that branch. Use --branch <NAME> to name the new branch; otherwise a name is generated.
+- `-s, --switch` Switch to the target branch instead of remaining in the GitButler workspace
 
 ## Editing Commits
 

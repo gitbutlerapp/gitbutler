@@ -1,16 +1,11 @@
-use std::borrow::Cow;
-
-use anyhow::{Context as _, bail};
+use anyhow::Context as _;
 use but_core::{
-    DryRun, RefMetadata,
-    ref_metadata::{ProjectMeta, StackId},
+    RefMetadata,
+    ref_metadata::StackId,
     sync::{RepoExclusive, RepoShared},
 };
 use but_ctx::Context;
-use but_workspace::{
-    RefInfo,
-    branch::create_reference::{Anchor, Position},
-};
+use but_workspace::{RefInfo, branch::create_reference::Anchor};
 use gitbutler_oplog::entry::{OperationKind, SnapshotDetails};
 use gix::refs::FullName;
 use serde::Serialize;
@@ -26,8 +21,12 @@ use crate::{
     print_deprecation_warning,
     theme::{self, Theme},
     utils::{
-        CliOutput, CliOutputHuman, IntermediateChannel, WriteWithUtils, head_name,
-        in_single_branch_mode_with_perm, merged_upstream::MergedUpstream, targeting::Side,
+        CliOutput, CliOutputHuman, IntermediateChannel, WriteWithUtils,
+        merged_upstream::MergedUpstream,
+        single_branch_mode::{
+            HowToCreateStackedReference, HowToCreateUnstackedReference, SingleBranchMode,
+        },
+        targeting::Side,
     },
 };
 
@@ -195,31 +194,16 @@ impl NewUnstackedBranchOperation {
         meta: &mut impl RefMetadata,
         perm: &mut RepoExclusive,
     ) -> anyhow::Result<NewOutcome> {
-        let in_single_branch_mode = in_single_branch_mode_with_perm(ctx, perm.read_permission())?;
-
-        if in_single_branch_mode {
-            self.execute_single_branch_mode(ctx, meta, perm)
-        } else {
-            self.execute_workspace_mode(ctx, meta, perm)
-        }
-    }
-
-    fn execute_workspace_mode(
-        self,
-        ctx: &mut Context,
-        meta: &mut impl RefMetadata,
-        perm: &mut RepoExclusive,
-    ) -> anyhow::Result<NewOutcome> {
-        let Self { name, switch } = self;
-
+        let NewUnstackedBranchOperation { name, switch } = self;
+        let sbm = SingleBranchMode::new(ctx, perm.read_permission(), switch)?;
         let snapshot_details = SnapshotDetails::new(OperationKind::CreateBranch);
 
-        let (new_ref, _ws) = but_transaction::with_transaction_with_perm(
+        let (new_ref, _ws) = sbm.transaction_with_workspace_setup(
             ctx,
             meta,
-            perm,
             snapshot_details,
-            DryRun::No,
+            perm,
+            true,
             |mut tx| {
                 let new_ref = if let Some(name) = name {
                     name.clone()
@@ -227,169 +211,35 @@ impl NewUnstackedBranchOperation {
                     but_core::branch::unique_canned_refname(tx.repo())?
                 };
 
-                tx.create_reference(new_ref.as_ref(), None, |_| StackId::generate(), Some(0))?;
-
-                if switch {
-                    tx.checkout(new_ref.as_ref())?;
+                match sbm.how_to_create_unstacked_reference() {
+                    HowToCreateUnstackedReference::Normally => {
+                        tx.create_reference(
+                            new_ref.as_ref(),
+                            None,
+                            |_| StackId::generate(),
+                            Some(0),
+                        )?;
+                    }
+                    HowToCreateUnstackedReference::CreateRefAtAnchorThenCheckout(anchor) => {
+                        tx.create_reference(
+                            new_ref.as_ref(),
+                            anchor,
+                            |_| StackId::generate(),
+                            Some(0),
+                        )?;
+                        tx.checkout(new_ref.as_ref())?;
+                    }
+                    HowToCreateUnstackedReference::CreateRefAtCommitThenCheckout {
+                        target_commit_id,
+                    } => {
+                        tx.create_reference_at_commit(new_ref.as_ref(), target_commit_id)?;
+                        tx.checkout(new_ref.as_ref())?;
+                    }
                 }
 
                 Ok(but_transaction::Commit(new_ref))
             },
         )?;
-
-        Ok(NewOutcome {
-            name: new_ref,
-            target: None,
-        })
-    }
-
-    fn execute_single_branch_mode(
-        self,
-        ctx: &mut Context,
-        meta: &mut impl RefMetadata,
-        perm: &mut RepoExclusive,
-    ) -> anyhow::Result<NewOutcome> {
-        let Self { name, switch } = self;
-
-        let snapshot_details = SnapshotDetails::new(OperationKind::CreateBranch);
-
-        let repo = ctx.repo.get()?;
-        let project_meta = ProjectMeta::resolve(&repo)?;
-        let head_name = head_name(&repo)?;
-
-        let new_ref = if let Some(name) = name {
-            name.clone()
-        } else {
-            but_core::branch::unique_canned_refname(&repo)?
-        };
-
-        let target_ref = project_meta
-            .target_ref
-            .as_ref()
-            .context("BUG: target ref is missing")?;
-
-        let is_on_target =
-            but_core::branch::resolve_tracking_branch_ref_name(head_name.as_ref(), &repo)
-                .is_ok_and(|upstream| &*upstream == target_ref.as_ref());
-
-        if is_on_target {
-            // we're directly on the target then we haven't created any branches yet so
-            // create the branch on top of the target then check it out
-
-            drop(repo);
-
-            but_transaction::with_transaction_with_perm(
-                ctx,
-                meta,
-                perm,
-                snapshot_details,
-                DryRun::No,
-                |mut tx| {
-                    let anchor = Some(Anchor::AtReference {
-                        ref_name: Cow::Owned(head_name),
-                        position: Side::Above.into(),
-                    });
-
-                    tx.create_reference(
-                        new_ref.as_ref(),
-                        anchor,
-                        |_| StackId::generate(),
-                        Some(0),
-                    )?;
-
-                    tx.checkout(new_ref.as_ref())?;
-
-                    Ok(())
-                },
-            )?;
-        } else if switch {
-            drop(repo);
-
-            let target_commit_id = project_meta.target_commit_id_or_err()?;
-
-            but_transaction::with_transaction_with_perm(
-                ctx,
-                meta,
-                perm,
-                snapshot_details,
-                DryRun::No,
-                |mut tx| {
-                    tx.repo().reference(
-                        new_ref.as_ref(),
-                        target_commit_id,
-                        gix::refs::transaction::PreviousValue::MustNotExist,
-                        format!("create {new_ref}"),
-                    )?;
-
-                    tx.checkout(new_ref.as_ref())?;
-
-                    Ok(())
-                },
-            )?;
-        } else {
-            // if we're not on the target then enter a workspace and create the branch
-
-            let maybe_oplog_entry = but_oplog::UnmaterializedOplogSnapshot::from_details_with_perm(
-                ctx,
-                snapshot_details,
-                perm.read_permission(),
-                DryRun::No,
-            );
-
-            if repo
-                .try_find_reference(but_core::WORKSPACE_REF_NAME)?
-                .is_none()
-            {
-                // the workspace doesn't exist, create it
-                drop(repo);
-                let target_ref = target_ref.to_string().parse()?;
-                gitbutler_branch_actions::set_base_branch_only(ctx, &target_ref, perm)?;
-            } else {
-                drop(repo);
-            }
-
-            // make sure the previous branch is applied
-            // if the branch had no commits `set_base_branch` doesn't apply it
-            //
-            // this also has the effect of entering the workspace with one branch applied
-            {
-                let (repo, mut ws, _db) = ctx.workspace_mut_and_db_with_perm(perm)?;
-                let outcome = but_workspace::branch::apply(
-                    head_name.as_ref(),
-                    ws.clone(),
-                    &repo,
-                    meta,
-                    but_workspace::branch::apply::Options {
-                        allow_applying_already_applied_branch_when_outside_workspace: true,
-                        ..Default::default()
-                    },
-                )?;
-                if outcome.status.persisted_mutation() {
-                    *ws = outcome.workspace.clone();
-                } else {
-                    bail!(
-                        "BUG: failed to apply head ref ({head_name}). Failed with {:?}",
-                        outcome.status
-                    )
-                }
-            };
-
-            let (did_rollback, _) = but_transaction::with_transaction_with_perm_only(
-                ctx,
-                meta,
-                perm,
-                DryRun::No,
-                |mut tx| {
-                    tx.create_reference(new_ref.as_ref(), None, |_| StackId::generate(), Some(0))?;
-
-                    Ok(())
-                },
-            )?;
-
-            if !did_rollback && let Some(snapshot) = maybe_oplog_entry {
-                _ = snapshot.commit(ctx, perm);
-            }
-        }
 
         Ok(NewOutcome {
             name: new_ref,
@@ -405,23 +255,22 @@ impl NewStackedBranchOperation {
         meta: &mut impl RefMetadata,
         perm: &mut RepoExclusive,
     ) -> anyhow::Result<NewOutcome> {
-        let Self {
+        let NewStackedBranchOperation {
             name,
             target,
             side,
             switch,
         } = self;
 
-        let in_single_branch_mode = in_single_branch_mode_with_perm(ctx, perm.read_permission())?;
-
+        let sbm = SingleBranchMode::new(ctx, perm.read_permission(), switch)?;
         let snapshot_details = SnapshotDetails::new(OperationKind::CreateBranch);
 
-        let (new_ref, _ws) = but_transaction::with_transaction_with_perm(
+        let (new_ref, _ws) = sbm.transaction_with_workspace_setup(
             ctx,
             meta,
-            perm,
             snapshot_details,
-            DryRun::No,
+            perm,
+            false,
             |mut tx| {
                 let new_ref = if let Some(name) = name {
                     name.clone()
@@ -429,39 +278,22 @@ impl NewStackedBranchOperation {
                     but_core::branch::unique_canned_refname(tx.repo())?
                 };
 
-                let anchor = match &target {
-                    NewStackedBranchTarget::Commit(commit_target) => Anchor::AtCommit {
-                        commit_id: commit_target.commit_id,
-                        position: side.into(),
-                    },
+                let (anchor, checkout_after_create) = match &target {
+                    NewStackedBranchTarget::Commit(commit_target) => (
+                        Anchor::AtCommit {
+                            commit_id: commit_target.commit_id,
+                            position: side.into(),
+                        },
+                        false,
+                    ),
                     NewStackedBranchTarget::Branch(branch_target) => {
-                        Anchor::at_segment(branch_target.as_ref(), side.into())
+                        match sbm.how_to_create_stacked_reference(branch_target.as_ref(), side) {
+                            HowToCreateStackedReference::Normally(anchor) => (anchor, false),
+                            HowToCreateStackedReference::CreateRefAtAnchorThenCheckout(anchor) => {
+                                (anchor, true)
+                            }
+                        }
                     }
-                };
-
-                let (anchor, checkout_after_create) = if in_single_branch_mode
-                    && let Anchor::AtSegment {
-                        position: position @ Position::Above,
-                        ref_name,
-                    } = anchor
-                {
-                    // creating a new branch above HEAD works differently in single branch mode
-                    // have to use a different anchor type and manually checkout the newly created
-                    // branch
-                    let head_name = head_name(tx.repo())?;
-                    if &*ref_name == head_name.as_ref() {
-                        (
-                            Anchor::AtReference {
-                                ref_name: Cow::Owned(head_name),
-                                position: Side::Above.into(),
-                            },
-                            true,
-                        )
-                    } else {
-                        (Anchor::AtReference { ref_name, position }, false)
-                    }
-                } else {
-                    (anchor, false)
                 };
 
                 tx.create_reference(

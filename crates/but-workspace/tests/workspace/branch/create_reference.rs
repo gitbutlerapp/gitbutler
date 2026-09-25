@@ -1516,6 +1516,42 @@ Single commit, target, no ws commit, but ws-reference
     }
 
     #[test]
+    fn at_commit_on_ws_base() -> anyhow::Result<()> {
+        for position in [Above, Below] {
+            let (_tmp, repo, mut meta, mut db) =
+                named_writable_scenario("single-branch-no-ws-commit")?;
+            let ws = but_graph::Graph::from_head(
+                &repo,
+                &meta,
+                project_meta(&repo)?,
+                &mut db,
+                Options::limited(),
+            )?
+            .into_workspace()?;
+            let base = ws.lower_bound.expect("fixture has a workspace base");
+            let new_ref = r("refs/heads/at-base");
+            but_workspace::branch::create_reference(
+                new_ref,
+                Anchor::AtCommit {
+                    commit_id: base,
+                    position,
+                },
+                &repo,
+                &ws,
+                &mut meta,
+                stack_id_for_name,
+                None,
+            )?;
+            assert_eq!(
+                repo.find_reference(new_ref)?.peel_to_id()?.detach(),
+                base,
+                "both positions at the workspace boundary must point to the base"
+            );
+        }
+        Ok(())
+    }
+
+    #[test]
     fn at_reference_on_ws_base() -> anyhow::Result<()> {
         let (_tmp, repo, mut meta, mut db) = named_writable_scenario("single-branch-no-ws-commit")?;
         snapbox::assert_data_eq!(
@@ -2245,9 +2281,9 @@ fn errors() -> anyhow::Result<()> {
             matches!(
                 err.as_str(),
                 "Cannot create reference on unborn branch"
-                    | "Commit c166d42d4ef2e5e742d33554d03805cfb0b24d11 isn't part of the workspace"
+                    | "Branch 'does-not-matter' cannot be created: the target commit (c166d42d4ef2e5e742d33554d03805cfb0b24d11) already belongs to another branch in the workspace. Each commit can only belong to one branch at a time."
             ),
-            "workspace base cannot be used as a below-anchor: {err}"
+            "a base anchor must not create a branch absent from the resulting projection: {err}"
         );
         assert!(
             repo.try_find_reference(new_name)?.is_none(),

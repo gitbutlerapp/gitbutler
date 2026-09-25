@@ -5,6 +5,27 @@ use super::util::{
 use crate::utils::{CommandExt as _, Sandbox};
 
 #[test]
+fn switch_requires_single_branch_feature() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
+    env.setup_metadata(&["A", "B"]);
+    env.but("config feature single-branch disable")
+        .assert()
+        .success();
+    env.file("new.txt", "content\n");
+
+    env.but("commit --switch -b new-branch -m test")
+        .assert()
+        .failure()
+        .stdout_eq(snapbox::str![])
+        .stderr_eq(snapbox::str![[r#"
+Error: `--switch` requires the `single-branch` feature to be enabled
+
+Hint: Enable the feature with `but config feature single-branch enable`
+
+"#]]);
+}
+
+#[test]
 fn rejects_unnamed_segment_as_target() {
     let env =
         Sandbox::init_scenario_with_target_and_default_settings("one-stack-anonymous-segment");
@@ -305,41 +326,6 @@ Hint: run `but help` for all commands
             .unwrap()
             .is_none(),
         "stacked commits must remain outside managed workspace mode"
-    );
-}
-
-#[test]
-fn commits_on_top_of_a_checked_out_managed_workspace_branch() {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
-    env.setup_metadata(&["A"]);
-    env.but("config feature single-branch enable")
-        .assert()
-        .success();
-    env.invoke_git("checkout A");
-    env.file("outside-workspace.txt", "content\n");
-
-    env.but("commit -b feature -m 'commit outside workspace'")
-        .assert()
-        .success()
-        .stderr_eq(snapbox::str![])
-        .stdout_eq(snapbox::str![[r#"
-Created commit umu on new branch 'feature'
-
-"#]]);
-
-    assert_eq!(
-        env.invoke_git("symbolic-ref --short HEAD"),
-        "feature",
-        "the new branch should be checked out"
-    );
-    assert_eq!(
-        env.invoke_git("rev-parse feature^"),
-        env.invoke_git("rev-parse A"),
-        "the new branch should be based on the previously checked-out branch"
-    );
-    assert_eq!(
-        env.invoke_git("show feature:outside-workspace.txt"),
-        "content"
     );
 }
 
@@ -959,6 +945,418 @@ Hint: to apply these changes, create bar stacked on top of foo and try again:
   but branch new bar --above foo
 
 "#]]);
+}
+
+#[test]
+fn failed_commit_switch_preserves_selected_changes_in_single_branch_mode() {
+    let env = Sandbox::open_with_default_settings("single-branch-mode");
+    env.file("first", "Some text\n");
+    env.but("commit -b foo -m 'add first'").assert().success();
+    env.file("first", "changes\n");
+    env.file("new.txt", "new content\n");
+
+    // sy selects only new.txt; the modification to foo's file blocks checkout.
+    env.but("commit --switch -b bar -m test sy").assert().failure().stderr_eq(snapbox::str![[r#"
+Error: Could not safely check out 'refs/heads/bar' from 4db633b4a785a1a47a416e428f82b57e1e4708dc to 87d6a1a51a0607ab42894ed0af2df2a2c1a0a6f6
+
+Caused by:
+    Uncommitted files would be overwritten by checkout: "first"
+
+"#]]);
+
+    // Both the selected addition and the unselected modification must survive failure.
+    env.but("diff")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+──────────────╮
+ lz:7 M first │
+──────────────╯
+
+@@ -1,1 +1,1 @@
+───────────────
+1 ┊   │ -Some text
+  ┊ 1 │ +changes
+
+────────────────╮
+ sy:a A new.txt │
+────────────────╯
+
+@@ -1,0 +1,1 @@
+───────────────
+  ┊ 1 │ +new content
+
+"#]]);
+
+    // Both files remain uncommitted on foo, without a new bar branch.
+    env.but("status -f").assert().success().stdout_eq(snapbox::str![[r#"
+╭┄ @ [uncommitted]
+┊   lz M first
+┊   sy A new.txt
+┊
+┊╭┄ fo [foo]
+┊●   ppu add first
+┊│     ppu:l A first
+├╯
+┊
+┴ b1540e5 (common base) 2000-01-02 M
+
+Hint: run `but diff` to see uncommitted changes and `but commit -b <branch> -m "message" <id>` to commit them
+
+"#]]);
+    // HEAD and foo's commit remain unchanged; no workspace or bar ref was left behind.
+    snapbox::assert_data_eq!(
+        env.git_log(),
+        snapbox::str![[r#"
+* 4db633b (HEAD -> foo) add first
+* b1540e5 (origin/main, origin/HEAD, main, gitbutler/target) M
+* e31e6ca add init
+
+"#]]
+    );
+}
+
+#[test]
+fn failed_commit_switch_preserves_selected_changes_in_workspace_mode() {
+    let env = Sandbox::open_with_default_settings("single-branch-mode");
+    env.file("first", "Some text\n");
+    env.but("commit -b foo -m 'add first'").assert().success();
+    env.but("branch new other").assert().success();
+    env.file("first", "changes\n");
+    env.file("new.txt", "new content\n");
+
+    // sy selects only new.txt; the modification to foo's file blocks checkout.
+    env.but("commit --switch -b bar -m test sy").assert().failure().stderr_eq(snapbox::str![[r#"
+Error: Could not safely check out 'refs/heads/bar' from 3fcc02f2c0cb1879458235e2f9d9e624126a428e to 87d6a1a51a0607ab42894ed0af2df2a2c1a0a6f6
+
+Caused by:
+    Uncommitted files would be overwritten by checkout: "first"
+
+"#]]);
+
+    // Rollback must restore selected content even when starting in a managed workspace.
+    env.but("diff")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+──────────────╮
+ lz:7 M first │
+──────────────╯
+
+@@ -1,1 +1,1 @@
+───────────────
+1 ┊   │ -Some text
+  ┊ 1 │ +changes
+
+────────────────╮
+ sy:a A new.txt │
+────────────────╯
+
+@@ -1,0 +1,1 @@
+───────────────
+  ┊ 1 │ +new content
+
+"#]]);
+
+    // The original workspace still has both branches and both uncommitted files.
+    env.but("status -f").assert().success().stdout_eq(snapbox::str![[r#"
+╭┄ @ [uncommitted]
+┊   lz M first
+┊   sy A new.txt
+┊
+┊╭┄ ot [other] (no commits)
+├╯
+┊
+┊╭┄ fo [foo]
+┊●   ppu add first
+┊│     ppu:l A first
+├╯
+┊
+┴ b1540e5 (common base) 2000-01-02 M
+
+Hint: run `but diff` to see uncommitted changes and `but commit -b <branch> -m "message" <id>` to commit them
+
+"#]]);
+    // HEAD stays on the original workspace commit; bar must not survive the failure.
+    snapbox::assert_data_eq!(
+        env.git_log(),
+        snapbox::str![[r#"
+*   3fcc02f (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+|/  
+| * 4db633b (foo) add first
+|/  
+* b1540e5 (origin/main, origin/HEAD, other, main, gitbutler/target) M
+* e31e6ca add init
+
+"#]]
+    );
+}
+
+#[test]
+fn failed_commit_switch_to_existing_branch_rolls_back_materialization() {
+    let env = Sandbox::open_with_default_settings("single-branch-mode");
+    env.file("first", "Some text\n");
+    env.but("commit -b foo -m 'add first'").assert().success();
+    env.but("branch new other").assert().success();
+    env.file("first", "changes\n");
+    env.file("new.txt", "new content\n");
+
+    // sy selects new.txt, but the remaining modification prevents switching to other.
+    env.but("commit --switch -b other -m test sy")
+        .assert()
+        .failure()
+        .stderr_eq(snapbox::str![[r#"
+Error: Could not safely check out 'refs/heads/other' from [..] to [..]
+
+Caused by:
+    Uncommitted files would be overwritten by checkout: "first"
+
+"#]]);
+
+    // Both the selected addition and the unselected modification must survive failure.
+    env.but("diff")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+──────────────╮
+ lz:7 M first │
+──────────────╯
+
+@@ -1,1 +1,1 @@
+───────────────
+1 ┊   │ -Some text
+  ┊ 1 │ +changes
+
+────────────────╮
+ sy:a A new.txt │
+────────────────╯
+
+@@ -1,0 +1,1 @@
+───────────────
+  ┊ 1 │ +new content
+
+"#]]);
+    // The existing destination stays empty, and both files remain uncommitted.
+    env.but("status -f").assert().success().stdout_eq(snapbox::str![[r#"
+╭┄ @ [uncommitted]
+┊   lz M first
+┊   sy A new.txt
+┊
+┊╭┄ ot [other] (no commits)
+├╯
+┊
+┊╭┄ fo [foo]
+┊●   ppu add first
+┊│     ppu:l A first
+├╯
+┊
+┴ b1540e5 (common base) 2000-01-02 M
+
+Hint: run `but diff` to see uncommitted changes and `but commit -b <branch> -m "message" <id>` to commit them
+
+"#]]);
+    // Both the workspace commit and the existing destination ref must be restored.
+    snapbox::assert_data_eq!(
+        env.git_log(),
+        snapbox::str![[r#"
+*   3fcc02f (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+|/  
+| * 4db633b (foo) add first
+|/  
+* b1540e5 (origin/main, origin/HEAD, other, main, gitbutler/target) M
+* e31e6ca add init
+
+"#]]
+    );
+}
+
+#[test]
+fn failed_commit_switch_restores_ad_hoc_stack_refs() {
+    let env = Sandbox::open_with_default_settings("single-branch-mode");
+    env.but("branch new bottom").assert().success();
+    env.but("commit --empty -m bottom").assert().success();
+    env.but("branch new middle --above bottom")
+        .assert()
+        .success();
+    env.but("commit --empty -m middle").assert().success();
+    env.but("branch new top --above middle").assert().success();
+    env.file("first.txt", "original\n");
+    env.but("commit -m 'add first'").assert().success();
+    env.file("first.txt", "modified\n");
+    env.file("new.txt", "new content\n");
+
+    // sy selects new.txt; first.txt exists only on top and prevents checkout of bottom.
+    env.but("commit --switch -b bottom -m test sy")
+        .assert()
+        .failure()
+        .stderr_eq(snapbox::str![[r#"
+Error: Could not safely check out 'refs/heads/bottom' from [..] to [..]
+
+Caused by:
+    Uncommitted files would be overwritten by checkout: "first.txt"
+
+"#]]);
+
+    // Both the selected addition and the modification that blocked checkout survive.
+    env.but("diff")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+──────────────────╮
+ zo:f M first.txt │
+──────────────────╯
+
+@@ -1,1 +1,1 @@
+───────────────
+1 ┊   │ -original
+  ┊ 1 │ +modified
+
+────────────────╮
+ sy:a A new.txt │
+────────────────╯
+
+@@ -1,0 +1,1 @@
+───────────────
+  ┊ 1 │ +new content
+
+"#]]);
+    // All three branches still form the original stack, without the rejected commit.
+    env.but("status -f").assert().success().stdout_eq(snapbox::str![[r#"
+╭┄ @ [uncommitted]
+┊   zo M first.txt
+┊   sy A new.txt
+┊
+┊╭┄ to [top]
+┊●   muz add first
+┊│     muz:z A first.txt
+┊│
+┊├┄ mi [middle]
+┊●   xpx middle (no changes)
+┊│
+┊├┄ bo [bottom]
+┊●   lsm bottom (no changes)
+├╯
+┊
+┴ b1540e5 (common base) 2000-01-02 M
+
+Hint: run `but diff` to see uncommitted changes and `but commit -b <branch> -m "message" <id>` to commit them
+
+"#]]);
+    // Every ref, including middle, returns to its original commit; no workspace exists.
+    snapbox::assert_data_eq!(
+        env.git_log(),
+        snapbox::str![[r#"
+* d607d72 (HEAD -> top) add first
+* beaf835 (middle) middle
+* 119880a (bottom) bottom
+* b1540e5 (origin/main, origin/HEAD, main, gitbutler/target) M
+* e31e6ca add init
+
+"#]]
+    );
+}
+
+#[test]
+fn single_branch_rejected_commit_removes_new_workspace() {
+    let env = Sandbox::open_with_default_settings("single-branch-mode");
+    env.file("first", "Some text\n");
+    env.but("commit -b foo -m 'add first'").assert().success();
+
+    env.file("first", "changes\n");
+    // Editing a file introduced on foo cannot be committed to an independent bar branch.
+    env.but("commit -b bar -m change")
+        .assert()
+        .failure()
+        .stderr_eq(snapbox::str![[r#"
+Error: Cannot commit: 1 change could not be applied:
+  first
+    line 1 depends on foo (ppu)
+
+Hint: to apply these changes, create bar stacked on top of foo and try again:
+  but branch new bar --above foo
+
+"#]]);
+
+    // The rejected change remains uncommitted on foo; bar was not added to the workspace.
+    env.but("status -f").assert().success().stdout_eq(snapbox::str![[r#"
+╭┄ @ [uncommitted]
+┊   lz M first
+┊
+┊╭┄ fo [foo]
+┊●   ppu add first
+┊│     ppu:l A first
+├╯
+┊
+┴ b1540e5 (common base) 2000-01-02 M
+
+Hint: run `but diff` to see uncommitted changes and `but commit -b <branch> -m "message" <id>` to commit them
+
+"#]]);
+
+    // No workspace or destination branch remains, and foo is still checked out.
+    snapbox::assert_data_eq!(
+        env.git_log(),
+        snapbox::str![[r#"
+* 4db633b (HEAD -> foo) add first
+* b1540e5 (origin/main, origin/HEAD, main, gitbutler/target) M
+* e31e6ca add init
+
+"#]]
+    );
+}
+
+#[test]
+fn single_branch_rejected_commit_preserves_existing_workspace() {
+    let env = Sandbox::open_with_default_settings("single-branch-mode");
+    env.file("first", "Some text\n");
+    env.but("commit -b foo -m 'add first'").assert().success();
+    env.but("branch new other").assert().success();
+    env.invoke_git("checkout foo");
+
+    env.file("first", "changes\n");
+    // Reusing an existing workspace must still reject the cross-branch dependency.
+    env.but("commit -b bar -m change")
+        .assert()
+        .failure()
+        .stderr_eq(snapbox::str![[r#"
+Error: Cannot commit: 1 change could not be applied:
+  first
+    line 1 depends on foo (ppu)
+
+Hint: to apply these changes, create bar stacked on top of foo and try again:
+  but branch new bar --above foo
+
+"#]]);
+
+    // We remain in single-branch mode on foo with the rejected change still uncommitted.
+    env.but("status -f").assert().success().stdout_eq(snapbox::str![[r#"
+╭┄ @ [uncommitted]
+┊   lz M first
+┊
+┊╭┄ fo [foo]
+┊●   ppu add first
+┊│     ppu:l A first
+├╯
+┊
+┴ b1540e5 (common base) 2000-01-02 M
+
+Hint: run `but diff` to see uncommitted changes and `but commit -b <branch> -m "message" <id>` to commit them
+
+"#]]);
+
+    // The old workspace survives unchanged, but HEAD stays on foo.
+    snapbox::assert_data_eq!(
+        env.git_log(),
+        snapbox::str![[r#"
+*   3fcc02f (gitbutler/workspace) GitButler Workspace Commit
+|/  
+| * 4db633b (HEAD -> foo) add first
+|/  
+* b1540e5 (origin/main, origin/HEAD, other, main, gitbutler/target) M
+* e31e6ca add init
+
+"#]]
+    );
 }
 
 #[test]
@@ -3616,4 +4014,516 @@ Error: Cannot place 'a-branch-1' relative to worktree branch 'wt-lower': branche
 
 "#]]
     );
+}
+
+#[test]
+fn single_branch_mode_committing_to_new_branches() {
+    let env = Sandbox::open_with_default_settings("single-branch-mode");
+
+    // committing creates a new unstacked branch
+    // without entering workspace
+    env.but("commit -b middle -m 'on middle'")
+        .assert()
+        .success();
+
+    env.but("status -f")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┊╭┄ mi [middle]
+┊●   lsm on middle (no changes)
+├╯
+┊
+┴ b1540e5 (common base) 2000-01-02 M
+
+Hint: run `but help` for all commands
+
+"#]]);
+
+    snapbox::assert_data_eq!(
+        env.git_log(),
+        snapbox::str![[r#"
+* 8b08d79 (HEAD -> middle) on middle
+* b1540e5 (origin/main, origin/HEAD, main, gitbutler/target) M
+* e31e6ca add init
+
+"#]]
+    );
+
+    // we can continue committing to the same branch
+    env.but("commit -b middle -m 'also on middle'")
+        .assert()
+        .success();
+
+    env.but("status -f")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┊╭┄ mi [middle]
+┊●   qzl also on middle (no changes)
+┊●   lsm on middle (no changes)
+├╯
+┊
+┴ b1540e5 (common base) 2000-01-02 M
+
+Hint: run `but help` for all commands
+
+"#]]);
+
+    snapbox::assert_data_eq!(
+        env.git_log(),
+        snapbox::str![[r#"
+* d91fc46 (HEAD -> middle) also on middle
+* 8b08d79 on middle
+* b1540e5 (origin/main, origin/HEAD, main, gitbutler/target) M
+* e31e6ca add init
+
+"#]]
+    );
+
+    // we can commit to a new branch above
+    env.but("commit -b top --above middle -m 'on top'")
+        .assert()
+        .success();
+
+    env.but("status -f")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┊╭┄ to [top]
+┊●   prq on top (no changes)
+┊│
+┊├┄ mi [middle]
+┊●   qzl also on middle (no changes)
+┊●   lsm on middle (no changes)
+├╯
+┊
+┴ b1540e5 (common base) 2000-01-02 M
+
+Hint: run `but help` for all commands
+
+"#]]);
+
+    snapbox::assert_data_eq!(
+        env.git_log(),
+        snapbox::str![[r#"
+* 7c680a7 (HEAD -> top) on top
+* d91fc46 (middle) also on middle
+* 8b08d79 on middle
+* b1540e5 (origin/main, origin/HEAD, main, gitbutler/target) M
+* e31e6ca add init
+
+"#]]
+    );
+
+    // we can commit to a new branch below
+    env.but("commit -b bottom --below middle -m 'on bottom'")
+        .assert()
+        .success();
+
+    env.but("status -f")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┊╭┄ to [top]
+┊●   prq on top (no changes)
+┊│
+┊├┄ mi [middle]
+┊●   qzl also on middle (no changes)
+┊●   l#0 on middle (no changes)
+┊│
+┊├┄ bo [bottom]
+┊●   l#1 on bottom (no changes)
+├╯
+┊
+┴ b1540e5 (common base) 2000-01-02 M
+
+Hint: run `but help` for all commands
+
+"#]]);
+
+    snapbox::assert_data_eq!(
+        env.git_log(),
+        snapbox::str![[r#"
+* 2388a3a (HEAD -> top) on top
+* 1c81de8 (middle) also on middle
+* 2596ebb on middle
+* ff665ad (bottom) on bottom
+* b1540e5 (origin/main, origin/HEAD, main, gitbutler/target) M
+* e31e6ca add init
+
+"#]]
+    );
+
+    // committing to a new unstacked branch enters workspace
+    env.but("commit -b my-second-branch -m 'on new branch'")
+        .assert()
+        .success();
+
+    env.but("status -f")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┊╭┄ my [my-second-branch]
+┊●   l#0 on new branch (no changes)
+├╯
+┊
+┊╭┄ to [top]
+┊●   prq on top (no changes)
+┊│
+┊├┄ mi [middle]
+┊●   qzl also on middle (no changes)
+┊●   l#1 on middle (no changes)
+┊│
+┊├┄ bo [bottom]
+┊●   l#2 on bottom (no changes)
+├╯
+┊
+┴ b1540e5 (common base) 2000-01-02 M
+
+Hint: run `but help` for all commands
+
+"#]]);
+
+    snapbox::assert_data_eq!(
+        env.git_log(),
+        snapbox::str![[r#"
+*   6c30ea2 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+|/  
+| * 2388a3a (top) on top
+| * 1c81de8 (middle) also on middle
+| * 2596ebb on middle
+| * ff665ad (bottom) on bottom
+* | f194feb (my-second-branch) on new branch
+|/  
+* b1540e5 (origin/main, origin/HEAD, main, gitbutler/target) M
+* e31e6ca add init
+
+"#]]
+    );
+}
+
+#[test]
+fn single_branch_mode_committing_and_switching_to_new_branches() {
+    let env = Sandbox::open_with_default_settings("single-branch-mode");
+
+    // create the first branch, this should automatically switch
+    env.but("commit -b one -m 'on one'").assert().success();
+
+    env.but("status -f")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┊╭┄ on [one]
+┊●   lsm on one (no changes)
+├╯
+┊
+┴ b1540e5 (common base) 2000-01-02 M
+
+Hint: run `but help` for all commands
+
+"#]]);
+
+    snapbox::assert_data_eq!(
+        env.git_log(),
+        snapbox::str![[r#"
+* 26559e2 (HEAD -> one) on one
+* b1540e5 (origin/main, origin/HEAD, main, gitbutler/target) M
+* e31e6ca add init
+
+"#]]
+    );
+
+    // create a second branch and switch to it, without entering workspace
+    env.but("commit --switch -b two -m 'on two'")
+        .assert()
+        .success();
+
+    env.but("status -f")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┊╭┄ tw [two]
+┊●   lsm on two (no changes)
+├╯
+┊
+┴ b1540e5 (common base) 2000-01-02 M
+
+Hint: run `but help` for all commands
+
+"#]]);
+
+    snapbox::assert_data_eq!(
+        env.git_log(),
+        snapbox::str![[r#"
+* 26559e2 (one) on one
+| * 5ec2cd8 (HEAD -> two) on two
+|/  
+* b1540e5 (origin/main, origin/HEAD, main, gitbutler/target) M
+* e31e6ca add init
+
+"#]]
+    );
+
+    // enter workspace
+    env.but("apply one").assert().success();
+
+    env.but("status -f")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┊╭┄ on [one]
+┊●   l#0 on one (no changes)
+├╯
+┊
+┊╭┄ tw [two]
+┊●   l#1 on two (no changes)
+├╯
+┊
+┴ b1540e5 (common base) 2000-01-02 M
+
+Hint: run `but help` for all commands
+
+"#]]);
+
+    snapbox::assert_data_eq!(
+        env.git_log(),
+        snapbox::str![[r#"
+*   db45286 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+|/  
+| * 5ec2cd8 (two) on two
+* | 26559e2 (one) on one
+|/  
+* b1540e5 (origin/main, origin/HEAD, main, gitbutler/target) M
+* e31e6ca add init
+
+"#]]
+    );
+
+    // create a third branch and switch to it
+    env.but("commit --switch -b three -m 'on three'")
+        .assert()
+        .success();
+
+    env.but("status -f")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┊╭┄ th [three]
+┊●   lsm on three (no changes)
+├╯
+┊
+┴ b1540e5 (common base) 2000-01-02 M
+
+Hint: run `but help` for all commands
+
+"#]]);
+
+    snapbox::assert_data_eq!(
+        env.git_log(),
+        snapbox::str![[r#"
+*   db45286 (gitbutler/workspace) GitButler Workspace Commit
+|/  
+| * 5ec2cd8 (two) on two
+* | 26559e2 (one) on one
+|/  
+| * 6e48c63 (HEAD -> three) on three
+|/  
+* b1540e5 (origin/main, origin/HEAD, main, gitbutler/target) M
+* e31e6ca add init
+
+"#]]
+    );
+
+    // can switch back to the workspace
+    env.but("switch --workspace").assert().success();
+
+    env.but("status -f")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┊╭┄ on [one]
+┊●   l#0 on one (no changes)
+├╯
+┊
+┊╭┄ tw [two]
+┊●   l#1 on two (no changes)
+├╯
+┊
+┊╭┄ th [three]
+┊●   l#2 on three (no changes)
+├╯
+┊
+┴ b1540e5 (common base) 2000-01-02 M
+
+Hint: run `but help` for all commands
+
+"#]]);
+
+    snapbox::assert_data_eq!(
+        env.git_log(),
+        snapbox::str![[r#"
+*-.   c1ed93d (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+|/ /  
+| | * 6e48c63 (three) on three
+| * | 5ec2cd8 (two) on two
+| |/  
+* / 26559e2 (one) on one
+|/  
+* b1540e5 (origin/main, origin/HEAD, main, gitbutler/target) M
+* e31e6ca add init
+
+"#]]
+    );
+
+    // can commit to an existing branch and switch to it
+    env.but("commit --switch -b one -m 'new commit on one'")
+        .assert()
+        .success();
+
+    env.but("status -f")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┊╭┄ on [one]
+┊●   mmx new commit on one (no changes)
+┊●   lsm on one (no changes)
+├╯
+┊
+┴ b1540e5 (common base) 2000-01-02 M
+
+Hint: run `but help` for all commands
+
+"#]]);
+
+    snapbox::assert_data_eq!(
+        env.git_log(),
+        snapbox::str![[r#"
+*-.   45db92d (gitbutler/workspace) GitButler Workspace Commit
+|/ /  
+| | * 6e48c63 (three) on three
+| * | 5ec2cd8 (two) on two
+| |/  
+* | 9791c42 (HEAD -> one) new commit on one
+* | 26559e2 on one
+|/  
+* b1540e5 (origin/main, origin/HEAD, main, gitbutler/target) M
+* e31e6ca add init
+
+"#]]
+    );
+
+    // cannot commit to branches that aren't applied to switched to
+    env.but("commit --switch -b two -m 'new commit on two'")
+        .assert()
+        .failure()
+        .stderr_eq(snapbox::str![[r#"
+Error: A branch named 'two' exists but is not applied
+
+Hint: Run `but apply two` to apply the branch first
+
+"#]]);
+}
+
+#[test]
+fn single_branch_mode_committing_above_a_lower_branch() {
+    let env = Sandbox::open_with_default_settings("single-branch-mode");
+
+    env.but("commit -b bottom -m 'on bottom'")
+        .assert()
+        .success();
+    env.but("commit -b top --above bottom -m 'on top'")
+        .assert()
+        .success();
+    env.but("commit -b middle --above bottom -m 'on middle'")
+        .assert()
+        .success();
+
+    assert_eq!(
+        env.invoke_git("symbolic-ref --short HEAD"),
+        "top",
+        "creating a branch above a lower branch must preserve the checked-out branch"
+    );
+
+    env.but("status -f")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┊╭┄ to [top]
+┊●   y#0 on top (no changes)
+┊│
+┊├┄ mi [middle]
+┊●   y#1 on middle (no changes)
+┊│
+┊├┄ bo [bottom]
+┊●   lsm on bottom (no changes)
+├╯
+┊
+┴ b1540e5 (common base) 2000-01-02 M
+
+Hint: run `but help` for all commands
+
+"#]]);
+
+    snapbox::assert_data_eq!(
+        env.git_log(),
+        snapbox::str![[r#"
+* 29f7e52 (HEAD -> top) on top
+* c5ca33e (middle) on middle
+* ff665ad (bottom) on bottom
+* b1540e5 (origin/main, origin/HEAD, main, gitbutler/target) M
+* e31e6ca add init
+
+"#]]
+    );
+}
+
+#[test]
+fn single_branch_mode_cannot_committing_above_branch_with_switch() {
+    let env = Sandbox::open_with_default_settings("single-branch-mode");
+
+    env.but("commit -b middle -m 'on middle'")
+        .assert()
+        .success();
+
+    env.but("commit --switch -b top --above middle -m 'on middle'")
+        .assert()
+        .failure()
+        .stderr_eq(snapbox::str![[r#"
+error: the argument '--switch' cannot be used with '--above <BRANCH_OR_COMMIT>'
+
+...
+"#]]);
+    env.but("branch new --switch top --above middle")
+        .assert()
+        .failure()
+        .stderr_eq(snapbox::str![[r#"
+error: the argument '--switch' cannot be used with '--above <BRANCH_OR_COMMIT>'
+
+...
+"#]]);
 }

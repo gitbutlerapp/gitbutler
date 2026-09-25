@@ -447,10 +447,8 @@ fn create_and_switch_to_branch() {
     snapbox::assert_data_eq!(
         tui.env().git_log(),
         snapbox::str![[r#"
-*   cc54560 (gitbutler/workspace) GitButler Workspace Commit
-|/  
-| * 9477ae7 (A) add A
-|/  
+* edd3eb7 (gitbutler/workspace) GitButler Workspace Commit
+* 9477ae7 (A) add A
 * 0dc3733 (HEAD -> c-branch-1, origin/main, origin/HEAD, main, gitbutler/target) add M
 
 "#]]

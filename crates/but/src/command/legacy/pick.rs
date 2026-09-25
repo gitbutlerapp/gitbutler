@@ -4,11 +4,12 @@ use but_api::{
 };
 use but_core::{
     DryRun, RefMetadata,
-    ref_metadata::StackId,
+    commit::CommitIdentifiers,
     sync::{RepoExclusive, RepoShared},
 };
 use but_ctx::Context;
 use but_rebase::graph_rebase::mutate::{InsertSide, RelativeTo};
+use but_transaction::Transaction;
 use but_workspace::RefInfo;
 use gitbutler_oplog::entry::{OperationKind, SnapshotDetails};
 use gix::ObjectId;
@@ -23,14 +24,14 @@ use crate::{
     },
     bad_input,
     command::legacy::commit::{
-        BranchNameTarget, CommitOperation, CommitOperationTargetIsh, CommitToNewBranchOperation,
-        RouteCommitOperationError, route_commit_operation,
+        BranchNameTarget, CommitOperation, CommitOperationTargetIsh, RouteCommitOperationError,
+        route_commit_operation,
     },
     id::CommitId,
     theme::{self, Theme},
     utils::{
         CliOutput, CliOutputHuman, IntermediateChannel, WriteWithUtils,
-        merged_upstream::MergedUpstream,
+        merged_upstream::MergedUpstream, single_branch_mode::SingleBranchMode,
     },
 };
 
@@ -165,7 +166,16 @@ fn resolve(
         below,
         sources,
         allow_merged,
+        switch,
     } = args;
+
+    if switch && !ctx.settings.feature_flags.single_branch {
+        return Err(
+            bad_input("`--switch` requires the `single-branch` feature to be enabled")
+                .hint("Enable the feature with `but config feature single-branch enable`")
+                .into(),
+        );
+    }
 
     let merged = MergedUpstream::new(&*ctx.repo.get()?, head_info, allow_merged);
 
@@ -214,7 +224,7 @@ fn resolve(
         // steer the default target.
         let source = crate::utils::change_source::ChangeSourceId::Head;
         route_commit_operation(
-            &repo, &ws, head_info, out, id_map, target_ish, &source, &merged,
+            &repo, &ws, head_info, out, id_map, target_ish, &source, &merged, switch,
         )
         .map_err(|err| match err {
             RouteCommitOperationError::NoStackToCommitTo => {
@@ -255,55 +265,38 @@ pub fn run(
         order_commits_by_parentage,
     } = pick_op;
 
+    let sbm = (commit_op.will_create_reference() || commit_op.switch())
+        .then(|| SingleBranchMode::new(ctx, perm.read_permission(), commit_op.switch()))
+        .transpose()?;
     let snapshot_details =
         SnapshotDetails::new(OperationKind::CherryPick).with_count(sources.len());
-    let ((new_commits, branch_name_target), ws) = but_transaction::with_transaction_with_perm(
-        ctx,
-        meta,
-        perm,
-        snapshot_details,
-        DryRun::No,
-        |mut tx| {
-            let (new_commits, branch_name_target) = match commit_op {
-                CommitOperation::CommitToNewBranch(CommitToNewBranchOperation { branch_name }) => {
-                    let branch_name = if let Some(branch_name) = branch_name {
-                        branch_name
-                    } else {
-                        but_core::branch::unique_canned_refname(tx.repo())?
-                    };
-
-                    tx.create_reference(
-                        branch_name.as_ref(),
-                        None,
-                        |_| StackId::generate(),
-                        Some(0),
-                    )?;
-
-                    let new_commits = tx.cherry_pick_commits(
-                        sources.iter().copied(),
-                        RelativeTo::Reference(branch_name.clone()),
-                        InsertSide::Below,
-                        order_commits_by_parentage,
-                    )?;
-
-                    (new_commits, Some(BranchNameTarget::New(branch_name)))
-                }
-                CommitOperation::CommitAt(op) => {
-                    let (relative_to, side, branch_name_target) = op.create_target(&mut tx)?;
-                    let new_commits = tx.cherry_pick_commits(
-                        sources.iter().copied(),
-                        relative_to,
-                        side,
-                        order_commits_by_parentage,
-                    )?;
-
-                    (new_commits, branch_name_target)
-                }
-            };
-
-            Ok(but_transaction::Commit((new_commits, branch_name_target)))
-        },
-    )?;
+    let ((new_commits, branch_name_target), ws) = if let Some(sbm) = sbm {
+        sbm.transaction_with_workspace_setup(
+            ctx,
+            meta,
+            snapshot_details,
+            perm,
+            commit_op.will_create_unstacked_reference(),
+            |tx| {
+                pick_with_transaction(
+                    tx,
+                    commit_op,
+                    &sources,
+                    order_commits_by_parentage,
+                    Some(&sbm),
+                )
+            },
+        )
+    } else {
+        but_transaction::with_transaction_with_perm(
+            ctx,
+            meta,
+            perm,
+            snapshot_details,
+            DryRun::No,
+            |tx| pick_with_transaction(tx, commit_op, &sources, order_commits_by_parentage, None),
+        )
+    }?;
 
     let new_commits = new_commits.into_iter().map(Into::into).collect();
 
@@ -315,4 +308,32 @@ pub fn run(
         },
         ws,
     ))
+}
+
+fn pick_with_transaction(
+    mut tx: Transaction<'_, '_, impl RefMetadata>,
+    commit_op: CommitOperation,
+    sources: &[ObjectId],
+    order_commits_by_parentage: bool,
+    sbm: Option<&SingleBranchMode>,
+) -> anyhow::Result<but_transaction::Commit<(Vec<CommitIdentifiers>, Option<BranchNameTarget>)>> {
+    let (relative_to, side, branch_name_target) = match commit_op {
+        CommitOperation::CommitToNewBranch(op) => {
+            let branch_name = op.create_reference(&mut tx, sbm)?;
+            (
+                RelativeTo::Reference(branch_name.clone()),
+                InsertSide::Below,
+                Some(BranchNameTarget::New(branch_name)),
+            )
+        }
+        CommitOperation::CommitAt(op) => op.create_target(&mut tx, sbm)?,
+    };
+    let new_commits = tx.cherry_pick_commits(
+        sources.iter().copied(),
+        relative_to,
+        side,
+        order_commits_by_parentage,
+    )?;
+
+    Ok(but_transaction::Commit((new_commits, branch_name_target)))
 }

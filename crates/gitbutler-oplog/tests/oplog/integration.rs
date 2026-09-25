@@ -12,6 +12,152 @@ use gitbutler_oplog::{OplogExt, RestoreKind};
 use gix::bstr::ByteSlice as _;
 
 #[test]
+fn restore_ad_hoc_refs_and_redo_refs_no_longer_reachable_from_head() -> anyhow::Result<()> {
+    let Test { repo, ctx } = &mut Test::default();
+    repo.invoke_bash(
+        r#"
+        git checkout main
+        git update-ref -d refs/heads/gitbutler/workspace
+        git checkout -b bottom
+        git commit --allow-empty -m bottom
+        git checkout -b middle
+        git commit --allow-empty -m middle
+        git checkout -b top
+        git commit --allow-empty -m top
+    "#,
+    );
+    let mut guard = ctx.exclusive_worktree_access();
+    let perm = guard.write_permission();
+    ctx.reload_repo_and_invalidate_workspace(perm)?;
+    let snapshot =
+        ctx.create_snapshot(SnapshotDetails::new(OperationKind::OnDemandSnapshot), perm)?;
+
+    // Split both lower refs away from HEAD, as failed transaction materialization can do.
+    let new_bottom =
+        repo.invoke_git("commit-tree origin/main^{tree} -p origin/main -m rewritten-bottom");
+    let new_middle = repo.invoke_git(&format!(
+        "commit-tree origin/main^{{tree}} -p {new_bottom} -m rewritten-middle"
+    ));
+    repo.invoke_git(&format!("update-ref refs/heads/bottom {new_bottom}"));
+    repo.invoke_git(&format!("update-ref refs/heads/middle {new_middle}"));
+    ctx.reload_repo_and_invalidate_workspace(perm)?;
+    let undo = ctx.restore_snapshot(snapshot, RestoreKind::RestoreFromSnapshotViaUndo, perm)?;
+
+    // Restore must recover the entire original stack, not merely top's checkout identity.
+    snapbox::assert_data_eq!(
+        repo.git_log(),
+        snapbox::str![[r#"
+* 931a0f6 (HEAD -> top) top
+* 43b38f2 (middle) middle
+* 4a2b5dc (bottom) bottom
+* 0dc3733 (origin/main, origin/HEAD, main, gitbutler/target) add M
+
+"#]]
+    );
+
+    ctx.reload_repo_and_invalidate_workspace(perm)?;
+    ctx.restore_snapshot(undo, RestoreKind::RestoreFromSnapshotViaRedo, perm)?;
+    // The before-restore snapshot must preserve bottom and middle even outside HEAD's graph.
+    snapbox::assert_data_eq!(
+        repo.git_log(),
+        snapbox::str![[r#"
+* fa9408d (middle) rewritten-middle
+* c2f5013 (bottom) rewritten-bottom
+| * 931a0f6 (HEAD -> top) top
+| * 43b38f2 middle
+| * 4a2b5dc bottom
+|/  
+* 0dc3733 (origin/main, origin/HEAD, main, gitbutler/target) add M
+
+"#]]
+    );
+    Ok(())
+}
+
+#[test]
+fn restore_legacy_single_additional_ref() -> anyhow::Result<()> {
+    let Test { repo, ctx } = &mut Test::from_scenario("one-stack-two-commits", &["A"]);
+    let reference: gix::refs::FullName = "refs/heads/extra".try_into()?;
+    repo.invoke_git("branch extra A");
+    let mut guard = ctx.exclusive_worktree_access();
+    let perm = guard.write_permission();
+    let tree_id = ctx.prepare_snapshot_with_ref(reference.as_ref(), perm.read_permission())?;
+    let legacy_tree = {
+        let git = repo.open_repo();
+        let tree = git.find_tree(tree_id)?;
+        let entry = tree
+            .lookup_entry_by_path("additional-refs/0")?
+            .expect("the explicit ref is captured");
+        let mut editor = tree.edit()?;
+        editor.upsert(
+            "additional-ref",
+            gix::objs::tree::EntryKind::Tree,
+            entry.id(),
+        )?;
+        editor.remove("additional-refs")?;
+        editor.write()?.detach()
+    };
+    let snapshot = ctx.commit_snapshot(
+        legacy_tree,
+        SnapshotDetails::new(OperationKind::OnDemandSnapshot),
+        perm,
+    )?;
+    repo.invoke_git("update-ref refs/heads/extra origin/main");
+    ctx.restore_snapshot(snapshot, RestoreKind::RestoreFromSnapshotViaUndo, perm)?;
+
+    // The old singular additional-ref encoding still restores the saved branch tip.
+    snapbox::assert_data_eq!(
+        repo.invoke_git("rev-parse extra A"),
+        snapbox::str![[r#"
+4bed59b96e6cdb81015812875e82c36c1ff20b68
+4bed59b96e6cdb81015812875e82c36c1ff20b68
+"#]]
+    );
+    Ok(())
+}
+
+#[test]
+fn restore_additional_refs_rejects_other_worktrees() -> anyhow::Result<()> {
+    let Test { repo, ctx } = &mut Test::from_scenario("one-stack-two-commits", &["A"]);
+    let reference: gix::refs::FullName = "refs/heads/extra".try_into()?;
+    repo.invoke_git("branch extra A");
+    let mut guard = ctx.exclusive_worktree_access();
+    let perm = guard.write_permission();
+    let tree = ctx.prepare_snapshot_with_ref(reference.as_ref(), perm.read_permission())?;
+    let snapshot = ctx.commit_snapshot(
+        tree,
+        SnapshotDetails::new(OperationKind::OnDemandSnapshot),
+        perm,
+    )?;
+    repo.invoke_git("update-ref refs/heads/extra origin/main");
+    let worktree = tempfile::tempdir()?;
+    repo.invoke_git(&format!(
+        "worktree add '{}' extra",
+        worktree.path().display()
+    ));
+
+    let error = ctx
+        .restore_snapshot(snapshot, RestoreKind::RestoreFromSnapshotViaUndo, perm)
+        .unwrap_err();
+    // Restoring our checkout is allowed, but moving a ref checked out elsewhere is not.
+    snapbox::assert_data_eq!(
+        error.to_string(),
+        snapbox::str![[
+            r#"Cannot restore branch 'extra' because it is checked out in worktrees: [..]"#
+        ]]
+    );
+    // The rejected restore leaves the other worktree's branch at its current target.
+    snapbox::assert_data_eq!(
+        repo.invoke_git("rev-parse extra origin/main"),
+        snapbox::str![[r#"
+0dc37334a458df421bf67ea806103bf5004845dd
+0dc37334a458df421bf67ea806103bf5004845dd
+"#]]
+    );
+    Ok(())
+}
+
+#[test]
 fn snapshot_with_additional_ref_includes_branch_order() -> anyhow::Result<()> {
     let Test { repo, ctx } = &mut Test::from_scenario("one-stack-two-commits", &["A"]);
     set_branch_order(ctx, &["refs/heads/A", "refs/heads/B"])?;

@@ -104,6 +104,10 @@ pub struct Platform {
     #[clap(flatten)]
     #[allow(missing_docs)]
     pub allow_merged: AllowMergedArg,
+
+    /// Switch to the target branch instead of remaining in the GitButler workspace.
+    #[clap(long, short, group = "targeting")]
+    pub switch: bool,
 }
 
 /// Example invocations appended to a `but commit` parse error.
