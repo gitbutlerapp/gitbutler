@@ -39,6 +39,7 @@ pub fn split(
         &mut meta,
         guard.write_permission(),
         move_op,
+        false,
     )?)
 }
 

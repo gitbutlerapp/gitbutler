@@ -74,7 +74,10 @@ impl SingleBranchMode {
             && !self.target_checked_out
             && will_create_independent_branch
             && !self.switch;
-        if !needs_workspace_setup && !self.switch {
+        // Single-branch operations can schedule an implicit checkout (for example when
+        // creating above HEAD or moving the top branch). Protect those just like --switch.
+        let may_checkout = self.switch || self.in_single_branch_mode || self.target_checked_out;
+        if !needs_workspace_setup && !may_checkout {
             return but_transaction::with_transaction_with_perm(
                 ctx,
                 meta,
