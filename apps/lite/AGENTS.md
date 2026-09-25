@@ -1,20 +1,9 @@
 # Lite
 
-## Before changing anything users see
+## Changing what users see
 
-However small the change:
-
-1. Read `packages/ui-react/DESIGN.md` and `DESIGN.md` beside this file. They
-   are the rules; the code around your change may predate them.
-2. Look up every component before you use it, with the Storybook MCP
-   server's `docs-list` and `docs-show` (`.mcp.json` connects it). If it
-   doesn't answer — it can time out while a new Storybook deploys — read
-   <https://master--6ab536f5f40e41db628ccf1b.chromatic.com/manifests/components.json>,
-   and failing that the component's source and JSDoc in
-   `packages/ui-react/src/`. Use only the props they document; the tools being
-   down is never a reason to guess one.
-3. Build from `@gitbutler/ui-react` — `Button`, `Tooltip`, `EmptyState` and
-   the rest — not from controls styled in a feature's CSS module.
+For components, layout or the words on screen, load the `gitbutler-ui` skill
+(`packages/ui-react/skill/SKILL.md`).
 
 ## Preparing the checkout
 
@@ -70,10 +59,10 @@ Consider backwards compatibility for any persisted state.
 
 The visual language — how icons, color, and composition should look — is in
 `packages/ui-react/DESIGN.md`, with the component library it describes, and
-what Lite decides for itself is in `DESIGN.md` beside this file. Read both
-before changing anything users see. The library's own `AGENTS.md` covers
-its tooling: icons, stories, the checks to run. This section covers what is
-the app's own.
+what Lite decides for itself is in `DESIGN.md` beside this file; the
+`gitbutler-ui` skill says which parts to read. The library's own `AGENTS.md`
+covers its tooling: icons, stories, the checks to run. This section covers
+what is the app's own.
 
 ### Icons
 
