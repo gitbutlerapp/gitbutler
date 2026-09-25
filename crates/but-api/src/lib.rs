@@ -68,6 +68,8 @@ pub mod open;
 
 pub mod panic_capture;
 
+pub mod fd_limit;
+
 /// The types for watcher events
 #[cfg(feature = "export-schema")]
 pub mod watcher;
