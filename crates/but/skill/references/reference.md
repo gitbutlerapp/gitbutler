@@ -466,7 +466,8 @@ but pull --check              # Dry-run preview: report what would happen, chang
 
 Run `but pull` directly for a straightforward update; its output reports the result and `but undo`
 reverts it. Use `--check` first when the user or repository policy requires a preview without
-updating.
+updating, or when an applied branch was just merged upstream: `but pull` removes only branches
+`--check` lists as `[integrated]` and rebases the rest.
 Do not use raw `git pull` or `git rebase`.
 
 ### `but pr`

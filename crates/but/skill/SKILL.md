@@ -55,7 +55,7 @@ The first token on each `but diff` / `but status` line is that line's ID. When a
 
 1. Use `but` for all write operations. Never run `git add`, `git commit`, `git push`, `git checkout`, `git merge`, `git rebase`, `git stash`, or `git cherry-pick`. If the user says a `git` write command, translate it to `but` and run that. Running from a worktree acts on the main workspace, the same as running from the main worktree; address that worktree's own changes as `<worktree>:@`. `but setup` refuses to run from a worktree.
 2. Mutation commands print their result without appending workspace status. Add `--status-after` only when the next step needs resulting workspace IDs or details; otherwise trust the mutation result and do not run a verification status/diff.
-3. Branches marked `(merged upstream)` have landed; run `but pull` to remove them, or start new work on another branch. `push` and mutations (`commit`, `amend`, `squash`, `uncommit`, `reword`, `move`) refuse landed branches and commits, `absorb` skips them with a notice, and `commit` skips them when picking a default target.
+3. Branches marked `(merged upstream)` have landed; start new work on another branch. That marker alone does not mean `but pull` removes them: run `but pull --check` first. `but pull` removes only branches listed `[integrated]` ("has been integrated upstream and removed locally") and rebases the rest, which stay applied. To clear a landed branch that stays applied, use `but unapply <branch>` (acts on its whole stack; `but apply <branch>` restores it) rather than `but discard`. `push` and mutations (`commit`, `amend`, `squash`, `uncommit`, `reword`, `move`) refuse landed branches and commits, `absorb` skips them with a notice, and `commit` skips them when picking a default target.
 4. In non-interactive CLI workflows, do not narrate progress between routine commands. Execute the needed `but` commands and give a concise final summary.
 5. Prefer this skill and `but skill reference` over exploratory help calls. Use `<command> --help` when required syntax is missing or a command fails; use top-level help only when you genuinely need to discover an undocumented command.
 
@@ -99,8 +99,8 @@ For "get latest from main", "update/sync this workspace", "rebase onto main", or
 2. If commits come back conflicted, resolve them oldest-first following the printed instructions: `but resolve <commit>`, edit the files, then `but resolve finish`. Its result gives the current ID of the next conflict. Add `--status-after` to the finish you expect to clear the last conflict only when the task needs the complete resulting workspace. When it says no conflicted commits remain, stop; do not run a verification status. Finishing a lower commit rebases the ones above it, so always work bottom-up.
 
 `but pull --check` answers "would this conflict?" without updating. Do not use it as a routine
-preflight; use it when the user asks for a preview, repository policy requires one, or other agents'
-branches may move.
+preflight; use it when the user asks for a preview, repository policy requires one, other agents'
+branches may move, or an applied branch was just merged upstream (see rule 3).
 
 Rebasing applied branches onto the latest target IS `but pull` — never `move`, `config target`, `unapply`, or raw `git pull`/`git rebase`. The base shown in status is the last FETCHED state: when `git log` shows `main` (local or remote) ahead of it, that is exactly the update `but pull` fetches and applies — the target setting is not stale and repointing it is never the fix. Pull carries uncommitted changes along, and its output reports the resulting state. If it refuses because uncommitted changes conflict, park them: `but commit -b <branch> -m "wip" <ids>`, pull again, then `but uncommit` the parked commit (there is no stash; do not hand-revert files).
 
