@@ -62,7 +62,7 @@ impl SingleBranchMode {
         meta: &mut Meta,
         snapshot_details: SnapshotDetails,
         perm: &mut RepoExclusive,
-        will_create_unstacked_reference: bool,
+        will_create_independent_branch: bool,
         callback: F,
     ) -> anyhow::Result<T::Outcome>
     where
@@ -72,7 +72,7 @@ impl SingleBranchMode {
     {
         let needs_workspace_setup = self.in_single_branch_mode
             && !self.target_checked_out
-            && will_create_unstacked_reference
+            && will_create_independent_branch
             && !self.switch;
         if !needs_workspace_setup && !self.switch {
             return but_transaction::with_transaction_with_perm(
@@ -147,10 +147,18 @@ impl SingleBranchMode {
         if needs_workspace {
             let target_ref = self.target_ref.to_string().parse()?;
             gitbutler_branch_actions::set_base_branch_only(ctx, &target_ref, perm)?;
+            // Base setup writes metadata through its own handle. Keep the caller's handle in
+            // sync so creating the destination doesn't overwrite the newly applied source stack.
+            let workspace_ref = but_core::WORKSPACE_REF_NAME.try_into()?;
+            let updated = ctx.meta()?.workspace(workspace_ref)?;
+            let mut workspace = meta.workspace(workspace_ref)?;
+            *workspace = (*updated).clone();
+            meta.set_workspace(&workspace)?;
         }
 
         let (repo, mut ws, _db) = ctx.workspace_mut_and_db_with_perm(perm)?;
         // Also apply an empty branch, which set_base_branch doesn't apply itself.
+        // Non-empty branches may already have been applied by set_base_branch.
         let outcome = but_workspace::branch::apply(
             self.head_reference.as_ref(),
             ws.clone(),
@@ -161,7 +169,12 @@ impl SingleBranchMode {
                 ..Default::default()
             },
         )?;
-        if outcome.status.persisted_mutation() {
+        if outcome.status.persisted_mutation()
+            || matches!(
+                outcome.status,
+                but_workspace::branch::apply::OutcomeStatus::AlreadyApplied
+            )
+        {
             *ws = outcome.workspace;
         } else {
             anyhow::bail!(
