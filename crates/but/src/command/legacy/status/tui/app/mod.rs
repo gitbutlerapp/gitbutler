@@ -16,7 +16,7 @@ use nonempty::NonEmpty;
 use ratatui::prelude::*;
 
 use crate::{
-    CliId, CliResult,
+    ChangeSourceId, CliId, CliResult,
     args::atoms::ResolvedCliIdArg,
     command::{
         legacy::{
@@ -1189,7 +1189,10 @@ impl App {
                                 },
                             ));
                         }
-                        CliId::Uncommitted { .. } => {
+                        CliId::UncommittedArea {
+                            source: ChangeSourceId::Head,
+                            ..
+                        } => {
                             let previous_uncommitted_paths = self
                                 .status_lines
                                 .iter()
@@ -1206,8 +1209,7 @@ impl App {
                                             | CliId::Branch(..)
                                             | CliId::Commit { .. }
                                             | CliId::Stack { .. }
-                                            | CliId::WorktreeUncommitted { .. }
-                                            | CliId::Uncommitted { .. } => None,
+                                            | CliId::UncommittedArea { .. } => None,
                                         }
                                     }
                                     StatusOutputLineData::UpdateNotice
@@ -1254,7 +1256,10 @@ impl App {
                         | CliId::CommittedHunk { .. }
                         | CliId::Branch(..)
                         | CliId::Commit { .. }
-                        | CliId::WorktreeUncommitted { .. }
+                        | CliId::UncommittedArea {
+                            source: ChangeSourceId::Worktree(_),
+                            ..
+                        }
                         | CliId::Stack { .. } => {
                             messages.push(Message::Reload(
                                 None,
@@ -1609,8 +1614,7 @@ impl App {
             CliId::AnonymousSegment(..)
             | CliId::CommittedHunk(..)
             | CliId::PathPrefix { .. }
-            | CliId::Uncommitted { .. }
-            | CliId::WorktreeUncommitted { .. }
+            | CliId::UncommittedArea { .. }
             | CliId::Stack { .. } => return Ok(()),
         };
 
@@ -1664,8 +1668,7 @@ impl App {
             ),
             CliId::CommittedHunk(..)
             | CliId::PathPrefix { .. }
-            | CliId::Uncommitted { .. }
-            | CliId::WorktreeUncommitted { .. }
+            | CliId::UncommittedArea { .. }
             | CliId::Stack { .. } => return Ok(()),
         };
         self.modal = Some(Modal::CopySelectionPicker {
@@ -1704,8 +1707,7 @@ impl App {
                     | CliId::Commit { .. }
                     | CliId::Branch(_)
                     | CliId::PathPrefix { .. }
-                    | CliId::Uncommitted { .. }
-                    | CliId::WorktreeUncommitted { .. }
+                    | CliId::UncommittedArea { .. }
                     | CliId::Stack { .. } => Ok(None),
                 }
             }

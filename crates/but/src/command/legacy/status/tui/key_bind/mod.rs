@@ -5,7 +5,7 @@ use crossterm::event::{KeyCode, KeyEvent, KeyEventKind, KeyModifiers};
 use strum::IntoEnumIterator;
 
 use crate::{
-    CliId,
+    ChangeSourceId, CliId,
     command::legacy::status::tui::{
         CommandMessage, ConfirmMessage, DetailsLayoutMessage, FuzzyPickerMessage, JumpMessage,
         Message, StackMessage,
@@ -1636,14 +1636,21 @@ impl KeyBindCondition {
                     return false;
                 };
                 match selection {
-                    CliId::UncommittedHunkOrFile(..) | CliId::Uncommitted { .. } => true,
+                    CliId::UncommittedHunkOrFile(..)
+                    | CliId::UncommittedArea {
+                        source: ChangeSourceId::Head,
+                        ..
+                    } => true,
                     CliId::AnonymousSegment(..)
                     | CliId::PathPrefix { .. }
                     | CliId::CommittedFile { .. }
                     | CliId::CommittedHunk { .. }
                     | CliId::Branch(..)
                     | CliId::Commit { .. }
-                    | CliId::WorktreeUncommitted { .. }
+                    | CliId::UncommittedArea {
+                        source: ChangeSourceId::Worktree(_),
+                        ..
+                    }
                     | CliId::Stack { .. } => false,
                 }
             }

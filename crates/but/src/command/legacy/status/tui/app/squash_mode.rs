@@ -69,7 +69,13 @@ impl SquashSource {
     pub fn contains(&self, other: &CliId) -> bool {
         let marks = match self {
             SquashSource::Uncommitted => {
-                return matches!(other, CliId::Uncommitted { .. });
+                return matches!(
+                    other,
+                    CliId::UncommittedArea {
+                        source: ChangeSourceId::Head,
+                        ..
+                    }
+                );
             }
             SquashSource::Marks(marks) => marks.as_ref(),
             SquashSource::Branch(branch) => MarksRef::from_branch_ref(branch),
@@ -470,7 +476,10 @@ impl App {
         ctx: &Context,
     ) -> anyhow::Result<()> {
         match &*source {
-            CliId::Uncommitted { .. } => {
+            CliId::UncommittedArea {
+                source: ChangeSourceId::Head,
+                ..
+            } => {
                 self.squash_start_with_source(SquashSource::Uncommitted, ctx)?;
             }
             CliId::Branch(branch) => {
@@ -495,7 +504,10 @@ impl App {
             | CliId::CommittedHunk(..)
             | CliId::PathPrefix { .. }
             | CliId::Stack { .. }
-            | CliId::WorktreeUncommitted { .. } => {}
+            | CliId::UncommittedArea {
+                source: ChangeSourceId::Worktree(_),
+                ..
+            } => {}
         }
         Ok(())
     }
@@ -630,9 +642,10 @@ impl App {
             SquashOutcome::UncommitCommit { .. }
             | SquashOutcome::UncommitHunk { .. }
             | SquashOutcome::UncommitBranch { .. } => match &**target {
-                CliId::WorktreeUncommitted { .. } => {
-                    SelectAfterReload::CliId(Box::new((**target).clone()))
-                }
+                CliId::UncommittedArea {
+                    source: ChangeSourceId::Worktree(_),
+                    ..
+                } => SelectAfterReload::CliId(Box::new((**target).clone())),
                 _ => SelectAfterReload::Uncommitted,
             },
         };
@@ -1015,10 +1028,20 @@ fn squash_route_from_committed_file<'a>(
 /// Whether `target` names the uncommitted area of the worktree in `uncommitted_area`.
 fn is_uncommit_target(target: &CliId, uncommitted_area: Option<&ChangeSourceId>) -> bool {
     match (target, uncommitted_area) {
-        (CliId::Uncommitted { .. }, Some(ChangeSourceId::Head)) => true,
-        (CliId::WorktreeUncommitted { name, .. }, Some(ChangeSourceId::Worktree(owner))) => {
-            name == owner
-        }
+        (
+            CliId::UncommittedArea {
+                source: ChangeSourceId::Head,
+                ..
+            },
+            Some(ChangeSourceId::Head),
+        ) => true,
+        (
+            CliId::UncommittedArea {
+                source: ChangeSourceId::Worktree(name),
+                ..
+            },
+            Some(ChangeSourceId::Worktree(owner)),
+        ) => name == owner,
         _ => false,
     }
 }

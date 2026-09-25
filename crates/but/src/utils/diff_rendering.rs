@@ -1551,8 +1551,7 @@ mod tests {
                     | CliId::CommittedHunk { .. }
                     | CliId::Branch(..)
                     | CliId::Commit { .. }
-                    | CliId::Uncommitted { .. }
-                    | CliId::WorktreeUncommitted { .. }
+                    | CliId::UncommittedArea { .. }
                     | CliId::Stack { .. } => None,
                 },
                 DetailsLine::Text { .. }

@@ -207,8 +207,14 @@ fn resources_from_cli_id(cli_id: CliId) -> Vec<Resource> {
                 .unwrap_or_else(|| "<no hunk header>".to_string()),
         }],
         CliId::PathPrefix { id, .. } => vec![Resource::PathPrefix { path: id }],
-        CliId::Uncommitted { .. } => vec![Resource::Uncommitted],
-        CliId::WorktreeUncommitted { name, .. } => vec![Resource::WorktreeUncommitted {
+        CliId::UncommittedArea {
+            source: ChangeSourceId::Head,
+            ..
+        } => vec![Resource::Uncommitted],
+        CliId::UncommittedArea {
+            source: ChangeSourceId::Worktree(name),
+            ..
+        } => vec![Resource::WorktreeUncommitted {
             name: name.to_string(),
         }],
         CliId::Stack { stack_id, .. } => vec![Resource::Stack {

@@ -61,8 +61,7 @@ pub(crate) fn is_worktree_top(
         | CliId::CommittedHunk(..)
         | CliId::UncommittedHunkOrFile(..)
         | CliId::PathPrefix { .. }
-        | CliId::Uncommitted { .. }
-        | CliId::WorktreeUncommitted { .. }
+        | CliId::UncommittedArea { .. }
         | CliId::Stack { .. } => Ok(false),
     }
 }

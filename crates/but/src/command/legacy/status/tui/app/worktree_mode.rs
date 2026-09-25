@@ -6,7 +6,7 @@ use nonempty::NonEmpty;
 use ratatui::{style::Style, text::Span};
 
 use crate::{
-    CliId,
+    ChangeSourceId, CliId,
     command::{
         legacy::status::{
             FilesStatusFlag,
@@ -102,7 +102,10 @@ impl App {
             .selected_line(&self.status_lines)
             .and_then(|line| line.data.cli_id())
             .and_then(|id| match &**id {
-                CliId::WorktreeUncommitted { name, .. } => Some(name.clone()),
+                CliId::UncommittedArea {
+                    source: ChangeSourceId::Worktree(name),
+                    ..
+                } => Some(name.clone()),
                 CliId::Branch(..) | CliId::AnonymousSegment(..) => id
                     .lane()
                     .and_then(LaneId::worktree_name)
@@ -112,7 +115,10 @@ impl App {
                 | CliId::CommittedFile { .. }
                 | CliId::CommittedHunk(..)
                 | CliId::Commit { .. }
-                | CliId::Uncommitted { .. }
+                | CliId::UncommittedArea {
+                    source: ChangeSourceId::Head,
+                    ..
+                }
                 | CliId::Stack { .. } => None,
             })
         else {

@@ -4,7 +4,7 @@ use nonempty::NonEmpty;
 use ratatui::text::{Line, Span};
 
 use crate::{
-    CliId,
+    ChangeSourceId, CliId,
     command::legacy::{
         discard::{
             self, CommittedDiscardSource, DiscardOperation, DiscardOutcome, UncommittedSelection,
@@ -55,7 +55,10 @@ impl App {
 
         self.modal = Some(Modal::Confirm {
             confirm: match &**cli_id {
-                CliId::Uncommitted { .. } => {
+                CliId::UncommittedArea {
+                    source: ChangeSourceId::Head,
+                    ..
+                } => {
                     self.to_be_discarded = Vec::from([Selectable::Uncommitted]);
                     // The uncommitted header remains selectable when staged assignments consume
                     // all changes. Preserve confirming discard as a no-op in that state.
@@ -294,7 +297,10 @@ impl App {
                 | CliId::CommittedHunk(..)
                 | CliId::Stack { .. }
                 | CliId::PathPrefix { .. }
-                | CliId::WorktreeUncommitted { .. } => return Ok(()),
+                | CliId::UncommittedArea {
+                    source: ChangeSourceId::Worktree(_),
+                    ..
+                } => return Ok(()),
             },
         });
 

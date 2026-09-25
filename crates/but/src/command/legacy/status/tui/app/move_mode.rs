@@ -139,8 +139,7 @@ impl MoveSource {
             | CliId::PathPrefix { .. }
             | CliId::CommittedFile { .. }
             | CliId::CommittedHunk { .. }
-            | CliId::Uncommitted { .. }
-            | CliId::WorktreeUncommitted { .. }
+            | CliId::UncommittedArea { .. }
             | CliId::Stack { .. } => None,
         }
     }

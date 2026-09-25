@@ -1514,7 +1514,7 @@ fn print_group(
         // worktree's uncommitted area belongs here.
         print_uncommitted_group(
             status_ctx,
-            status_ctx.id_map.uncommitted().clone(),
+            status_ctx.id_map.uncommitted(),
             files,
             &status_ctx.worktree_changes,
             &status_ctx.conflicted_paths,
@@ -1770,7 +1770,11 @@ fn print_uncommitted_group(
 ) -> anyhow::Result<()> {
     let t = crate::theme::get();
     let mut suffix = Vec::new();
-    if let CliId::WorktreeUncommitted { name, .. } = &cli_id {
+    if let CliId::UncommittedArea {
+        source: ChangeSourceId::Worktree(name),
+        ..
+    } = &cli_id
+    {
         suffix.push(Span::raw(" {"));
         suffix.push(Span::styled(name.to_string(), t.info));
         suffix.push(Span::raw("}"));
@@ -1786,7 +1790,13 @@ fn print_uncommitted_group(
         decoration_end: Vec::from([Span::raw("]")]),
         suffix,
     };
-    if matches!(cli_id, CliId::WorktreeUncommitted { .. }) {
+    if matches!(
+        cli_id,
+        CliId::UncommittedArea {
+            source: ChangeSourceId::Worktree(_),
+            ..
+        }
+    ) {
         output.worktree_uncommitted(in_lane(depth, [Span::raw("╭┄ ")]), line, cli_id)?;
     } else {
         output.uncommitted_changes(in_lane(depth, [Span::raw("╭┄ ")]), line, cli_id)?;

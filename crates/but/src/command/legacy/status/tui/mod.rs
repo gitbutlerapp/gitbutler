@@ -13,7 +13,7 @@ use gix::refs::FullName;
 use ratatui::prelude::*;
 
 use crate::{
-    CliId, CliResult,
+    ChangeSourceId, CliId, CliResult,
     args::atoms::ResolvedCliIdArg,
     command::{
         legacy::status::{
@@ -819,7 +819,13 @@ impl PartialEq<CliId> for Selectable {
                 }
             }
             Selectable::Uncommitted => {
-                return matches!(other, CliId::Uncommitted { .. });
+                return matches!(
+                    other,
+                    CliId::UncommittedArea {
+                        source: ChangeSourceId::Head,
+                        ..
+                    }
+                );
             }
         }
         false

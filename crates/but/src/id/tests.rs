@@ -1315,9 +1315,11 @@ fn worktree_uncommitted_area_id() -> anyhow::Result<()> {
         by_short_id.to_debug(),
         snapbox::str![[r#"
 [
-    WorktreeUncommitted {
+    UncommittedArea {
         id: "wt:@",
-        name: "wt-a",
+        source: Worktree(
+            "wt-a",
+        ),
     },
 ]
 
@@ -1534,7 +1536,10 @@ fn at_scopes_filenames_to_the_main_worktree() -> anyhow::Result<()> {
 
     assert_eq!(
         id_map.parse("@", &TestChanges(changed_paths_fn))?,
-        [CliId::Uncommitted { id: "@".into() }],
+        [CliId::UncommittedArea {
+            id: "@".into(),
+            source: ChangeSourceId::Head,
+        }],
         "bare @ names the main worktree's whole uncommitted area"
     );
 
@@ -3586,7 +3591,10 @@ fn a_file_literally_named_at_competes_with_the_uncommitted_area() -> anyhow::Res
     match scoped.as_slice() {
         [
             CliId::UncommittedHunkOrFile(uncommitted),
-            CliId::Uncommitted { .. },
+            CliId::UncommittedArea {
+                source: ChangeSourceId::Head,
+                ..
+            },
         ] => {
             assert_eq!(uncommitted.hunks.first().hunk.path, "@");
         }
@@ -4030,7 +4038,6 @@ mod util {
         pub fn all_ids(&self) -> Vec<CliId> {
             let IdMap {
                 lanes: _,
-                uncommitted: _,
                 uncommitted_files,
                 diff_context_lines: _,
             } = self;
@@ -4068,7 +4075,6 @@ mod util {
             use itertools::Itertools;
             let IdMap {
                 lanes: _,
-                uncommitted: _,
                 uncommitted_files,
                 diff_context_lines: _,
             } = self.inner;

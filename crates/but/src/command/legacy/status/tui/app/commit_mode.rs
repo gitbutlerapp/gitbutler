@@ -150,13 +150,19 @@ impl CommitSource {
                     name.to_owned(),
                 )))
             }
-            CliId::Branch(..) | CliId::Commit { .. } | CliId::Uncommitted { .. } => {
-                Some(CommitSource::UncommittedArea(ChangeSourceId::Head))
-            }
+            CliId::Branch(..)
+            | CliId::Commit { .. }
+            | CliId::UncommittedArea {
+                source: ChangeSourceId::Head,
+                ..
+            } => Some(CommitSource::UncommittedArea(ChangeSourceId::Head)),
             CliId::UncommittedHunkOrFile(hunk) => Some(CommitSource::UncommittedHunk(hunk.clone())),
-            CliId::WorktreeUncommitted { name, .. } => Some(CommitSource::UncommittedArea(
-                ChangeSourceId::Worktree(name.clone()),
-            )),
+            CliId::UncommittedArea {
+                source: ChangeSourceId::Worktree(name),
+                ..
+            } => Some(CommitSource::UncommittedArea(ChangeSourceId::Worktree(
+                name.clone(),
+            ))),
             CliId::AnonymousSegment(..)
             | CliId::PathPrefix { .. }
             | CliId::CommittedFile { .. }
@@ -372,11 +378,10 @@ impl App {
             },
             CliId::AnonymousSegment(..)
             | CliId::UncommittedHunkOrFile(..)
-            | CliId::WorktreeUncommitted { .. }
+            | CliId::UncommittedArea { .. }
             | CliId::PathPrefix { .. }
             | CliId::CommittedFile { .. }
             | CliId::CommittedHunk { .. }
-            | CliId::Uncommitted { .. }
             | CliId::Stack { .. } => return Ok(()),
         };
         let commit_op = commit::CommitOperation::CommitAt(commit::CommitAtOperation { target });
@@ -409,11 +414,13 @@ impl App {
         };
 
         let commit_op = match &**data {
-            CliId::UncommittedHunkOrFile(..) | CliId::Uncommitted { .. } => {
-                commit::CommitOperation::CommitToNewBranch(commit::CommitToNewBranchOperation {
-                    branch_name: None,
-                })
-            }
+            CliId::UncommittedHunkOrFile(..)
+            | CliId::UncommittedArea {
+                source: ChangeSourceId::Head,
+                ..
+            } => commit::CommitOperation::CommitToNewBranch(commit::CommitToNewBranchOperation {
+                branch_name: None,
+            }),
             CliId::Branch(branch) => commit::CommitOperation::CommitAt(commit::CommitAtOperation {
                 target: commit::CommitRelativeToTarget::BranchBucket {
                     name: Category::LocalBranch.to_full_name(&*branch.name)?,
@@ -427,7 +434,10 @@ impl App {
             | CliId::CommittedFile { .. }
             | CliId::CommittedHunk { .. }
             | CliId::Commit { .. }
-            | CliId::WorktreeUncommitted { .. }
+            | CliId::UncommittedArea {
+                source: ChangeSourceId::Worktree(_),
+                ..
+            }
             | CliId::Stack { .. } => return Ok(()),
         };
 
