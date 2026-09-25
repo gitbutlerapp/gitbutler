@@ -37,7 +37,7 @@
 	width: 8px;
 	height: 8px;
 	margin-top: calc((1lh - 8px) / 2);
-	border-radius: 50%;
+	border-radius: var(--radius-full);
 	background-color: var(--text-3);
 }
 

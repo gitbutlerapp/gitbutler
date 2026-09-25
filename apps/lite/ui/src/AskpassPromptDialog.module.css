@@ -17,7 +17,7 @@
 	height: 32px;
 	padding-inline: 8px;
 	border: 1px solid color-mix(in srgb, var(--fill-gray-bg) 34%, transparent);
-	border-radius: 6px;
+	border-radius: var(--radius-control);
 	background: var(--bg-2);
 	color: var(--text-1);
 	font: inherit;

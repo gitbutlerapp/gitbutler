@@ -10,8 +10,8 @@
 	min-height: 31px;
 	padding: 7px 9px;
 	border: 1px solid var(--border-2);
-	/* The design names `--radius-m`; the token set spells that size `--radius-lg`. */
-	border-radius: var(--radius-lg);
+	/* It floats over the page, so it wears the popup radius. */
+	border-radius: var(--radius-popup);
 	background-color: var(--bg-1);
 	box-shadow: var(--shadow-md);
 	color: var(--text-1);

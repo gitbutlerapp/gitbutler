@@ -71,7 +71,7 @@
 	height: 18px;
 	padding-inline: 5px;
 	gap: 4px;
-	border-radius: 10px;
+	border-radius: var(--radius-full);
 	background: light-dark(hsl(0 0% 83.9% / 0.45), hsl(0 0% 0% / 0.5));
 	color: var(--text-1);
 	font-weight: var(--font-weight-semibold);
@@ -110,7 +110,7 @@
 	align-items: center;
 	height: 18px;
 	padding-inline: 6px;
-	border-radius: 10px;
+	border-radius: var(--radius-full);
 	color: var(--gb-text-2);
 	font-weight: var(--font-weight-semibold);
 	font-size: 10px;

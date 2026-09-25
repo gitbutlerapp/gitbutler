@@ -28,7 +28,7 @@
 	width: 72px;
 	height: 72px;
 	overflow: hidden;
-	border-radius: 50%;
+	border-radius: var(--radius-full);
 	color: var(--text-1);
 
 	&:hover .overlay,
@@ -112,7 +112,7 @@
 	width: 24px;
 	height: 24px;
 	scale: 0.8;
-	border-radius: 50%;
+	border-radius: var(--radius-full);
 	background-color: var(--fill-danger-bg);
 	color: var(--fill-danger-fg);
 	opacity: 0;
