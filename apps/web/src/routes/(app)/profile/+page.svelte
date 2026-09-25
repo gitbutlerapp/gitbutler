@@ -29,6 +29,7 @@
 	);
 
 	const user = $derived(userService.user);
+	const userLoaded = $derived(userService.loaded);
 
 	const detectedOS = $derived.by(() => {
 		const os = getOS();
@@ -83,7 +84,9 @@
 	<title>GitButler | User</title>
 </svelte:head>
 
-{#if !$user?.id}
+{#if !$user?.id && !$userLoaded}
+	<div class="loading-user"></div>
+{:else if !$user?.id}
 	<div class="not-logged-in">
 		<h3 class="text-18 text-bold">It looks like you're not logged in</h3>
 		<p class="text-14 text-body clr-text-2">
@@ -274,6 +277,11 @@
 </Modal>
 
 <style lang="postcss">
+	.loading-user {
+		grid-column: full-start / full-end;
+		min-height: 100%;
+	}
+
 	.not-logged-in {
 		display: flex;
 		row-gap: 10px;
