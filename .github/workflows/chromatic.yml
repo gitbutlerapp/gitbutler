@@ -13,8 +13,8 @@ name: Chromatic
 #
 # A pull request gets one comment with its links — the Storybook preview, its
 # builds on Chromatic, the MCP server — updated on each push rather than posted
-# again. Chromatic's own GitHub app would report there, but the organisation
-# doesn't allow it.
+# again, and only once a push changes what a story shows. Chromatic's own GitHub
+# app would report there, but the organisation doesn't allow it.
 
 on:
   push:
@@ -72,7 +72,8 @@ jobs:
           # The checkout is a detached commit, so name the branch it belongs to.
           CHROMATIC_BRANCH: ${{ github.head_ref || github.ref_name }}
           CHROMATIC_SLUG: ${{ github.repository }}
-        run: pnpm run chromatic
+        # The diagnostics tell the next step whether any story was affected.
+        run: pnpm run chromatic --diagnostics-file chromatic-diagnostics.json
       - name: Link the build
         env:
           BRANCH: ${{ github.head_ref || github.ref_name }}
@@ -80,6 +81,12 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           REPO: ${{ github.repository }}
         run: |
+          # A push no story depends on skips the build: nothing to look at, and
+          # the links would lead to a build that doesn't exist.
+          if jq -e '.skip == true' apps/lite/chromatic-diagnostics.json >/dev/null; then
+            echo "No story affected, so no build and no comment."
+            exit 0
+          fi
           # Chromatic's permalinks name a branch with every character outside
           # [A-Za-z0-9-] turned into a dash.
           slug=$(printf '%s' "$BRANCH" | sed 's/[^A-Za-z0-9-]/-/g')
