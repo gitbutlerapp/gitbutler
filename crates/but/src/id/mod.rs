@@ -298,15 +298,59 @@ impl<'a> ChangesInCommit for ChangesInCommitImpl<'a> {
     }
 }
 
-trait Node<'a>: std::fmt::Debug {
+/// One interpretation of a selector element, whose children interpret the element after the next
+/// colon.
+#[derive(Debug)]
+enum Node<'a> {
+    Leaf(CliId),
+    Unstaged,
+    Lane(&'a LaneWithId),
+    Segment(&'a SegmentWithId),
+    LocalCommit(&'a WorkspaceCommitWithId),
+    RemoteCommit(&'a RemoteCommitWithId),
+    UncommittedFile(&'a UncommittedFile),
+    CommittedFile(CommittedFile),
+}
+
+impl<'a> Node<'a> {
     fn parse(
-        self: Box<Self>,
+        self,
         element: &str,
         id_map: &'a IdMap,
         changes_in_commit: &dyn ChangesInCommit,
-    ) -> anyhow::Result<Vec<Box<dyn Node<'a> + 'a>>>;
+    ) -> anyhow::Result<Vec<Node<'a>>> {
+        Ok(match self {
+            Node::Leaf(_) | Node::RemoteCommit(_) => Vec::new(),
+            // `@` means the main worktree, so `@:<path>` must never reach into a
+            // linked worktree that happens to have the same path dirty.
+            Node::Unstaged => {
+                id_map.parse_uncommitted_filename(element, Some(&ChangeSourceId::Head))
+            }
+            Node::Lane(lane) => lane.parse_child(element, id_map),
+            Node::Segment(segment) => segment.parse_child(element, id_map),
+            Node::LocalCommit(commit) => commit.parse_child(element, changes_in_commit)?,
+            Node::UncommittedFile(file) => file.parse_child(element),
+            Node::CommittedFile(file) => file.parse_child(element, id_map, changes_in_commit)?,
+        })
+    }
 
-    fn to_cli_id(self: Box<Self>) -> Option<CliId>;
+    fn into_cli_id(self) -> Option<CliId> {
+        match self {
+            Node::Leaf(cli_id) => Some(cli_id),
+            Node::Unstaged => Some(CliId::Uncommitted {
+                id: UNCOMMITTED.to_owned(),
+            }),
+            Node::Lane(lane) => lane.stack_cli_id(),
+            Node::Segment(segment) => Some(segment.cli_id()),
+            Node::LocalCommit(commit) => Some(commit.cli_id()),
+            Node::RemoteCommit(commit) => Some(commit.cli_id()),
+            Node::UncommittedFile(file) => Some(file.to_id()),
+            Node::CommittedFile(file) => Some(CliId::CommittedFile {
+                committed_file: file.committed_file,
+                id: file.short_id,
+            }),
+        }
+    }
 }
 
 /// Internal type forming a superset of [`CliId::CommittedFile`] to propagate the
@@ -326,14 +370,14 @@ struct CommittedFile {
     tree_changes: NonEmpty<but_core::TreeChange>,
 }
 
-impl<'a> Node<'a> for CommittedFile {
-    fn parse(
-        self: Box<Self>,
+impl CommittedFile {
+    fn parse_child<'a>(
+        self,
         element: &str,
-        id_map: &'a IdMap,
+        id_map: &IdMap,
         changes_in_commit: &dyn ChangesInCommit,
-    ) -> anyhow::Result<Vec<Box<dyn Node<'a> + 'a>>> {
-        let mut matches = Vec::<Box<dyn Node<'a> + 'a>>::new();
+    ) -> anyhow::Result<Vec<Node<'a>>> {
+        let mut matches = Vec::new();
 
         if self.tree_changes.len() > 1 {
             // There isn't a whole lot we can do if there are multiple tree changes for a single
@@ -368,18 +412,11 @@ impl<'a> Node<'a> for CommittedFile {
                     id: short_id,
                     hunk,
                 });
-                matches.push(Box::new(Leaf { cli_id }));
+                matches.push(Node::Leaf(cli_id));
             }
         }
 
         Ok(matches)
-    }
-
-    fn to_cli_id(self: Box<Self>) -> Option<CliId> {
-        Some(CliId::CommittedFile {
-            committed_file: self.committed_file,
-            id: self.short_id,
-        })
     }
 }
 
@@ -411,26 +448,6 @@ fn identify_hunks_internal(
     IdMap::assign_content_based_hunk_ids(short_ids_and_hunks.iter_mut())?;
 
     Ok(short_ids_and_hunks)
-}
-
-#[derive(Debug)]
-struct Leaf {
-    cli_id: CliId,
-}
-
-impl<'a> Node<'a> for Leaf {
-    fn parse(
-        self: Box<Self>,
-        _element: &str,
-        _id_map: &'a IdMap,
-        _changes_in_commit: &dyn ChangesInCommit,
-    ) -> anyhow::Result<Vec<Box<dyn Node<'a> + 'a>>> {
-        Ok(vec![])
-    }
-
-    fn to_cli_id(self: Box<Self>) -> Option<CliId> {
-        Some(self.cli_id.clone())
-    }
 }
 
 /// A change in a workspace commit.
@@ -552,14 +569,13 @@ impl WorkspaceCommitWithId {
         })
     }
 }
-impl<'a> Node<'a> for &'a WorkspaceCommitWithId {
-    fn parse(
-        self: Box<Self>,
+impl WorkspaceCommitWithId {
+    fn parse_child<'a>(
+        &self,
         element: &str,
-        _id_map: &'a IdMap,
         changes_in_commit: &dyn ChangesInCommit,
-    ) -> anyhow::Result<Vec<Box<dyn Node<'a> + 'a>>> {
-        let mut matches = Vec::<Box<dyn Node<'a> + 'a>>::new();
+    ) -> anyhow::Result<Vec<Node<'a>>> {
+        let mut matches = Vec::new();
         let rhs_indexes = short_ids_from_tree_changes(
             changes_in_commit.tree_changes(self.commit_id(), self.first_parent_id())?,
         )?;
@@ -586,20 +602,20 @@ impl<'a> Node<'a> for &'a WorkspaceCommitWithId {
                     ),
                     tree_changes,
                 };
-                matches.push(Box::new(committed_file_node))
+                matches.push(Node::CommittedFile(committed_file_node))
             }
         }
         Ok(matches)
     }
 
-    fn to_cli_id(self: Box<Self>) -> Option<CliId> {
-        Some(CliId::Commit {
+    fn cli_id(&self) -> CliId {
+        CliId::Commit {
             commit: CommitId {
                 commit_id: self.commit_id(),
                 change_id: self.change_id.as_ref().map(|id| id.change_id.clone()),
             },
             id: self.short_id.clone(),
-        })
+        }
     }
 }
 
@@ -617,24 +633,15 @@ impl RemoteCommitWithId {
         self.inner.id
     }
 }
-impl<'a> Node<'a> for &'a RemoteCommitWithId {
-    fn parse(
-        self: Box<Self>,
-        _element: &str,
-        _id_map: &'a IdMap,
-        _changes_in_commit: &dyn ChangesInCommit,
-    ) -> anyhow::Result<Vec<Box<dyn Node<'a> + 'a>>> {
-        Ok(Vec::new())
-    }
-
-    fn to_cli_id(self: Box<Self>) -> Option<CliId> {
-        Some(CliId::Commit {
+impl RemoteCommitWithId {
+    fn cli_id(&self) -> CliId {
+        CliId::Commit {
             commit: CommitId {
                 commit_id: self.commit_id(),
                 change_id: None,
             },
             id: self.short_id.clone(),
-        })
+        }
     }
 }
 
@@ -664,17 +671,12 @@ impl SegmentWithId {
             .map(|ref_info| ref_info.ref_name.shorten())
     }
 }
-impl<'a> Node<'a> for &'a SegmentWithId {
-    fn parse(
-        self: Box<Self>,
-        element: &str,
-        id_map: &'a IdMap,
-        _changes_in_commit: &dyn ChangesInCommit,
-    ) -> anyhow::Result<Vec<Box<dyn Node<'a> + 'a>>> {
+impl SegmentWithId {
+    fn parse_child<'a>(&self, element: &str, id_map: &'a IdMap) -> Vec<Node<'a>> {
         let LaneId::Worktree(name) = &self.lane else {
             // TODO: it may be confusing for the user if `branch_id:something`
             // silently does not match instead of an error message being printed.
-            return Ok(Vec::new());
+            return Vec::new();
         };
         // `<worktree>:<path>` is how a path that is dirty in several checkouts is
         // narrowed down to one, mirroring `@:<path>` for the main worktree.
@@ -688,13 +690,13 @@ impl<'a> Node<'a> for &'a SegmentWithId {
                 .worktree_lane(name.as_ref())
                 .and_then(LaneWithId::uncommitted_id)
         {
-            matches.push(Box::new(Leaf { cli_id }));
+            matches.push(Node::Leaf(cli_id));
         }
-        Ok(matches)
+        matches
     }
 
-    fn to_cli_id(self: Box<Self>) -> Option<CliId> {
-        Some(match self.branch_name() {
+    fn cli_id(&self) -> CliId {
+        match self.branch_name() {
             Some(name) => CliId::Branch(BranchId {
                 name: name.to_string(),
                 id: self.short_id.clone(),
@@ -708,7 +710,7 @@ impl<'a> Node<'a> for &'a SegmentWithId {
                     .first()
                     .map(WorkspaceCommitWithId::commit_id),
             }),
-        })
+        }
     }
 }
 
@@ -745,24 +747,14 @@ impl LaneWithId {
     }
 }
 
-impl<'a> Node<'a> for &'a LaneWithId {
-    fn parse(
-        self: Box<Self>,
-        element: &str,
-        id_map: &'a IdMap,
-        _changes_in_commit: &dyn ChangesInCommit,
-    ) -> anyhow::Result<Vec<Box<dyn Node<'a> + 'a>>> {
-        // Parse known suffixes.
+impl LaneWithId {
+    fn parse_child<'a>(&self, element: &str, id_map: &'a IdMap) -> Vec<Node<'a>> {
         if element.ends_with('/') {
-            return Ok(id_map.parse_uncommitted_path_prefix(element));
+            return id_map.parse_uncommitted_path_prefix(element);
         }
         // A stack lives in the workspace, so only the main worktree's files are
         // reachable through it.
-        Ok(id_map.parse_uncommitted_filename(element, Some(&ChangeSourceId::Head)))
-    }
-
-    fn to_cli_id(self: Box<Self>) -> Option<CliId> {
-        self.stack_cli_id()
+        id_map.parse_uncommitted_filename(element, Some(&ChangeSourceId::Head))
     }
 }
 
@@ -1121,8 +1113,8 @@ impl IdMap {
         &'a self,
         element: &str,
         source: Option<&ChangeSourceId>,
-    ) -> Vec<Box<dyn Node<'a> + 'a>> {
-        let mut matches = Vec::<Box<dyn Node<'a> + 'a>>::new();
+    ) -> Vec<Node<'a>> {
+        let mut matches = Vec::<Node<'a>>::new();
         for uncommitted_file in self.uncommitted_files.values() {
             let hunks = uncommitted_file.hunks();
             let hunk = hunks.first();
@@ -1132,7 +1124,7 @@ impl IdMap {
             if hunk.1.path == element.as_bytes()
                 && source.is_none_or(|source| *source == uncommitted_file.source)
             {
-                matches.push(Box::new(uncommitted_file));
+                matches.push(Node::UncommittedFile(uncommitted_file));
             }
         }
         matches
@@ -1143,7 +1135,7 @@ impl IdMap {
     /// Deliberately restricted to [`ChangeSourceId::Head`], mirroring `@`: a
     /// prefix spanning several checkouts could never be committed in one go, as
     /// an operation only ever reads changes from a single source.
-    fn parse_uncommitted_path_prefix<'a>(&'a self, element: &str) -> Vec<Box<dyn Node<'a> + 'a>> {
+    fn parse_uncommitted_path_prefix<'a>(&'a self, element: &str) -> Vec<Node<'a>> {
         let mut hunks = Vec::new();
         for (short_id, uncommitted_hunk) in self.uncommitted_hunks.iter() {
             let hunk = &uncommitted_hunk.hunk;
@@ -1161,12 +1153,10 @@ impl IdMap {
         let Some(hunks) = NonEmpty::from_vec(hunks) else {
             return vec![];
         };
-        vec![Box::new(Leaf {
-            cli_id: CliId::PathPrefix {
-                id: element.to_string(),
-                hunks,
-                source: ChangeSourceId::Head,
-            },
+        vec![Node::Leaf(CliId::PathPrefix {
+            id: element.to_string(),
+            hunks,
+            source: ChangeSourceId::Head,
         })]
     }
 
@@ -1187,29 +1177,26 @@ impl IdMap {
     }
 
     /// The top segment of the linked worktree named exactly `element`, if any.
-    fn parse_worktree_name<'a>(&'a self, element: &str) -> Vec<Box<dyn Node<'a> + 'a>> {
+    fn parse_worktree_name<'a>(&'a self, element: &str) -> Vec<Node<'a>> {
         self.worktree_lane(BStr::new(element))
             .and_then(|lane| lane.segments.first())
-            .map(|segment| Box::new(segment) as Box<dyn Node<'a> + 'a>)
+            .map(Node::Segment)
             .into_iter()
             .collect()
     }
 
     /// The worktree-lane segment whose short ID exactly matches `element`, if any.
-    fn parse_worktree_segment_short_id<'a>(&'a self, element: &str) -> Vec<Box<dyn Node<'a> + 'a>> {
+    fn parse_worktree_segment_short_id<'a>(&'a self, element: &str) -> Vec<Node<'a>> {
         self.worktree_lanes()
             .flat_map(|lane| lane.segments.iter())
             .filter(|segment| segment.short_id == element)
-            .map(|segment| Box::new(segment) as Box<dyn Node<'a> + 'a>)
+            .map(Node::Segment)
             .collect()
     }
 
     /// All uncommitted files whose full reverse-hex ID starts with `element`.
-    fn uncommitted_file_id_prefix_matches<'a>(
-        &'a self,
-        element: &str,
-    ) -> Vec<Box<dyn Node<'a> + 'a>> {
-        let mut matches = Vec::<Box<dyn Node<'a> + 'a>>::new();
+    fn uncommitted_file_id_prefix_matches<'a>(&'a self, element: &str) -> Vec<Node<'a>> {
+        let mut matches = Vec::<Node<'a>>::new();
         let element_bstring = BString::from(element);
         for (reverse_hex, uncommitted_file) in self
             .uncommitted_files
@@ -1218,7 +1205,7 @@ impl IdMap {
             if !reverse_hex.starts_with(&element_bstring) {
                 break;
             }
-            matches.push(Box::new(uncommitted_file));
+            matches.push(Node::UncommittedFile(uncommitted_file));
         }
         matches
     }
@@ -1227,7 +1214,7 @@ impl IdMap {
         &'a self,
         element: &str,
         scope: SourceScope,
-    ) -> anyhow::Result<Vec<Box<dyn Node<'a> + 'a>>> {
+    ) -> anyhow::Result<Vec<Node<'a>>> {
         if element.is_empty() {
             return Ok(vec![]);
         }
@@ -1242,14 +1229,14 @@ impl IdMap {
 
         // Parse known suffixes.
         if let Some(prefix) = element.strip_suffix("@{stack}") {
-            let mut matches = Vec::<Box<dyn Node<'a> + 'a>>::new();
+            let mut matches = Vec::<Node<'a>>::new();
             for stack_with_id in self.lanes.iter() {
                 for segment_with_id in stack_with_id.segments.iter() {
                     if segment_with_id
                         .branch_name()
                         .is_some_and(|branch_name| branch_name.contains_str(prefix))
                     {
-                        matches.push(Box::new(stack_with_id));
+                        matches.push(Node::Lane(stack_with_id));
                         break;
                     }
                 }
@@ -1260,7 +1247,7 @@ impl IdMap {
             return Ok(self.parse_uncommitted_path_prefix(element));
         }
 
-        let mut matches = Vec::<Box<dyn Node<'a> + 'a>>::new();
+        let mut matches = Vec::<Node<'a>>::new();
 
         // Branches match if they match exactly. Likewise for uncommitted, uncommitted files.
         if scope == SourceScope::Any {
@@ -1270,7 +1257,7 @@ impl IdMap {
                         .branch_name()
                         .is_some_and(|branch_name| branch_name == element)
                     {
-                        matches.push(Box::new(segment_with_id));
+                        matches.push(Node::Segment(segment_with_id));
                     }
                 }
             }
@@ -1284,7 +1271,7 @@ impl IdMap {
         // `@` competes here for the same reason a worktree name does: a dirty file
         // called `@` must surface as an ambiguity, not silently shadow the area.
         if element == UNCOMMITTED {
-            matches.push(Box::new(Unstaged {}));
+            matches.push(Node::Unstaged);
         }
 
         // The following match only if there have been no matches so far.
@@ -1320,18 +1307,14 @@ impl IdMap {
 
     /// Commit, stack, and branch short-ID matches for `element`, appended to
     /// `matches`. Only meaningful in the full namespace.
-    fn push_generated_id_matches<'a>(
-        &'a self,
-        element: &str,
-        matches: &mut Vec<Box<dyn Node<'a> + 'a>>,
-    ) {
+    fn push_generated_id_matches<'a>(&'a self, element: &str, matches: &mut Vec<Node<'a>>) {
         // Branch short IDs are allowed to be prefixes of other IDs, so if we match any branch short
         // ID exactly we must return immediately to prevent ambiguity. This design prevents us from
         // needing some branch disambiguator.
         for stack_with_id in self.lanes.iter() {
             for segment_with_id in stack_with_id.segments.iter() {
                 if segment_with_id.short_id == element {
-                    matches.push(Box::new(segment_with_id));
+                    matches.push(Node::Segment(segment_with_id));
                     return;
                 }
             }
@@ -1370,7 +1353,7 @@ impl IdMap {
                 CommitWithId::Local(commit)
                     if element_matches_commit(commit.commit_id(), commit.change_id.as_ref()) =>
                 {
-                    matches.push(Box::new(commit))
+                    matches.push(Node::LocalCommit(commit))
                 }
                 CommitWithId::Remote(commit)
                     if element_matches_commit(
@@ -1382,7 +1365,7 @@ impl IdMap {
                         None,
                     ) =>
                 {
-                    matches.push(Box::new(commit))
+                    matches.push(Node::RemoteCommit(commit))
                 }
                 _ => (),
             }
@@ -1393,34 +1376,8 @@ impl IdMap {
             .iter()
             .find(|lane| lane.short_id.as_deref() == Some(element))
         {
-            matches.push(Box::new(lane));
+            matches.push(Node::Lane(lane));
         }
-    }
-}
-
-/// The `@` uncommitted-area sentinel as a parse node: children are unstaged
-/// filenames, and by itself it resolves to [`CliId::Uncommitted`]. Shared by
-/// the full and the uncommitted-scoped element parsers so the sentinel cannot
-/// drift between them.
-#[derive(Debug)]
-struct Unstaged {}
-
-impl<'a> Node<'a> for Unstaged {
-    fn parse(
-        self: Box<Self>,
-        element: &str,
-        id_map: &'a IdMap,
-        _changes_in_commit: &dyn ChangesInCommit,
-    ) -> anyhow::Result<Vec<Box<dyn Node<'a> + 'a>>> {
-        // `@` means the main worktree, so `@:<path>` must never reach into a
-        // linked worktree that happens to have the same path dirty.
-        Ok(id_map.parse_uncommitted_filename(element, Some(&ChangeSourceId::Head)))
-    }
-
-    fn to_cli_id(self: Box<Self>) -> Option<CliId> {
-        Some(CliId::Uncommitted {
-            id: UNCOMMITTED.to_owned(),
-        })
     }
 }
 
@@ -1463,38 +1420,24 @@ impl IdMap {
         changes_in_commit: &dyn ChangesInCommit,
         scope: SourceScope,
     ) -> anyhow::Result<Vec<CliId>> {
-        let mut cli_ids = Vec::new();
-        if let Some((lhs, rhs)) = entity.split_once(':') {
-            if let Some((mhs, rhs)) = rhs.rsplit_once(':') {
-                // 2 colons is the limit. This allows filenames with
-                // colons to be specified in the middle part (e.g.
-                // `a:filename:with:colon:b` will parse to `a`,
-                // `filename:with:colon`, `b`).
-                for node in self.parse_element_scoped(lhs, scope)? {
-                    for node in node.parse(mhs, self, changes_in_commit)? {
-                        for node in node.parse(rhs, self, changes_in_commit)? {
-                            if let Some(cli_id) = node.to_cli_id() {
-                                cli_ids.push(cli_id);
-                            }
-                        }
-                    }
-                }
-            } else {
-                for node in self.parse_element_scoped(lhs, scope)? {
-                    for node in node.parse(rhs, self, changes_in_commit)? {
-                        if let Some(cli_id) = node.to_cli_id() {
-                            cli_ids.push(cli_id);
-                        }
-                    }
-                }
+        // 2 colons is the limit. This allows filenames with colons to be specified in the middle
+        // part (e.g. `a:filename:with:colon:b` will parse to `a`, `filename:with:colon`, `b`).
+        let (first, rest) = match entity.split_once(':') {
+            None => (entity, Vec::new()),
+            Some((lhs, rhs)) => match rhs.rsplit_once(':') {
+                None => (lhs, vec![rhs]),
+                Some((mhs, rhs)) => (lhs, vec![mhs, rhs]),
+            },
+        };
+        let mut nodes = self.parse_element_scoped(first, scope)?;
+        for element in rest {
+            let mut children = Vec::new();
+            for node in nodes {
+                children.extend(node.parse(element, self, changes_in_commit)?);
             }
-        } else {
-            for node in self.parse_element_scoped(entity, scope)? {
-                if let Some(cli_id) = node.to_cli_id() {
-                    cli_ids.push(cli_id);
-                }
-            }
+            nodes = children;
         }
+        let cli_ids = nodes.into_iter().filter_map(Node::into_cli_id);
 
         let mut deduped = Vec::new();
         'next: for cli_id in cli_ids {
@@ -2072,59 +2015,36 @@ impl UncommittedFile {
     }
 }
 
-impl<'a> Node<'a> for &'a UncommittedFile {
-    fn parse(
-        self: Box<Self>,
-        element: &str,
-        _id_map: &'a IdMap,
-        _changes_in_commit: &dyn ChangesInCommit,
-    ) -> anyhow::Result<Vec<Box<dyn Node<'a> + 'a>>> {
+impl UncommittedFile {
+    fn parse_child<'a>(&self, element: &str) -> Vec<Node<'a>> {
         match element.strip_prefix(INDEX_SEPARATOR) {
-            Some(maybe_index) if let Ok(index) = usize::from_str(maybe_index) => {
-                if let Some((hunk_id, hunk)) = self.short_id_hunks.get(index) {
-                    let id = format!("{}:{}", self.short_id, hunk_id.short_id());
-                    let cli_id = CliId::UncommittedHunkOrFile(UncommittedHunkOrFile {
-                        id: id.clone(),
-                        hunks: NonEmpty::new(IdAndHunk {
-                            id,
-                            tree_status: self.tree_status,
-                            hunk: hunk.to_owned(),
-                        }),
-                        is_entire_file: false,
-                        source: self.source.clone(),
-                    });
-                    Ok(vec![Box::new(Leaf { cli_id })])
-                } else {
-                    Ok(vec![])
-                }
-            }
-            _ => {
-                let matches = self
-                    .short_id_hunks
-                    .iter()
-                    .filter(|(hunk_id, _)| hunk_id.matches_prefix(element))
-                    .map(|(hunk_id, hunk)| {
-                        let id = format!("{}:{}", self.short_id, hunk_id.short_id());
-                        let cli_id = CliId::UncommittedHunkOrFile(UncommittedHunkOrFile {
-                            id: id.clone(),
-                            hunks: NonEmpty::new(IdAndHunk {
-                                id: id.clone(),
-                                tree_status: self.tree_status,
-                                hunk: hunk.to_owned(),
-                            }),
-                            is_entire_file: false,
-                            source: self.source.clone(),
-                        });
-                        Box::new(Leaf { cli_id }) as Box<dyn Node<'a> + 'a>
-                    });
-
-                Ok(matches.collect())
-            }
+            Some(maybe_index) if let Ok(index) = usize::from_str(maybe_index) => self
+                .short_id_hunks
+                .get(index)
+                .map(|(hunk_id, hunk)| Node::Leaf(self.hunk_cli_id(hunk_id, hunk)))
+                .into_iter()
+                .collect(),
+            _ => self
+                .short_id_hunks
+                .iter()
+                .filter(|(hunk_id, _)| hunk_id.matches_prefix(element))
+                .map(|(hunk_id, hunk)| Node::Leaf(self.hunk_cli_id(hunk_id, hunk)))
+                .collect(),
         }
     }
 
-    fn to_cli_id(self: Box<Self>) -> Option<CliId> {
-        Some((*self).to_id())
+    fn hunk_cli_id(&self, hunk_id: &UnqualifiedHunkId, hunk: &but_core::SingleHunk) -> CliId {
+        let id = format!("{}:{}", self.short_id, hunk_id.short_id());
+        CliId::UncommittedHunkOrFile(UncommittedHunkOrFile {
+            id: id.clone(),
+            hunks: NonEmpty::new(IdAndHunk {
+                id,
+                tree_status: self.tree_status,
+                hunk: hunk.to_owned(),
+            }),
+            is_entire_file: false,
+            source: self.source.clone(),
+        })
     }
 }
 
