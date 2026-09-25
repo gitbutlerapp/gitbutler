@@ -560,6 +560,40 @@ where
         Ok(())
     }
 
+    /// Create a new local branch at a commit already present in the editor.
+    ///
+    /// Unlike [`Transaction::create_reference`], this does not add the branch to workspace
+    /// metadata or require it to appear in the current checkout's projection. It can be used
+    /// with [`Transaction::checkout`] to prepare an independent branch before switching to it.
+    /// The reference is available to subsequent operations and is removed on rollback or dry run.
+    pub fn create_reference_at_commit(
+        &mut self,
+        ref_name: &FullNameRef,
+        commit_id: ObjectId,
+    ) -> anyhow::Result<()> {
+        anyhow::ensure!(
+            ref_name.category() == Some(gix::refs::Category::LocalBranch),
+            "Can only create local branches under refs/heads"
+        );
+        let commit_id = self.inner.commit_mappings.map(commit_id);
+        self.repo().reference(
+            ref_name,
+            commit_id,
+            gix::refs::transaction::PreviousValue::MustNotExist,
+            format!("create {ref_name}"),
+        )?;
+        self.inner
+            .pending_ref_changes
+            .record_eager_create(ref_name, None);
+
+        self.rebase(|mut editor, _| {
+            let target = editor.select_commit(commit_id)?;
+            let reference = editor.add_step(Step::new_reference(ref_name.to_owned()))?;
+            editor.add_edge(reference, target, 0)?;
+            Ok(((), MaterializeWithoutCheckout::No, editor.rebase()?))
+        })
+    }
+
     pub fn create_reference<'name>(
         &mut self,
         ref_name: &FullNameRef,
