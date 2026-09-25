@@ -273,6 +273,7 @@ fn commit_extra_props_describe_targeting_and_selection_without_ids() {
                 .map(|index| CliIdArg(format!("private-change-{index}")))
                 .collect(),
             allow_merged: Default::default(),
+            switch: false,
         });
         let props = command.to_metrics_extra_props();
 

@@ -1519,9 +1519,9 @@ impl App {
                     CommitOperation::CommitAt(CommitAtOperation {
                         target: CommitRelativeToTarget::BranchTip {
                             name: Category::LocalBranch.to_full_name(&*branch.name)?,
+                            switch: false,
                         },
                     }),
-                    false,
                     CommitSelection::Nothing,
                     CommitMessageSource::Empty,
                 )?;
@@ -1549,7 +1549,6 @@ impl App {
                             side: Side::Above,
                         },
                     }),
-                    false,
                     CommitSelection::Nothing,
                     CommitMessageSource::Empty,
                 )?;

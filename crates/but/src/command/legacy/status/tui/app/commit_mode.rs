@@ -365,6 +365,7 @@ impl App {
         let target = match &**data {
             CliId::Branch(branch) => commit::CommitRelativeToTarget::BranchTip {
                 name: Category::LocalBranch.to_full_name(&*branch.name)?,
+                switch: false,
             },
             CliId::Commit { commit, id: _ } => commit::CommitRelativeToTarget::Commit {
                 commit: commit.clone(),
@@ -381,7 +382,7 @@ impl App {
         };
         let commit_op = commit::CommitOperation::CommitAt(commit::CommitAtOperation { target });
 
-        commit_with(ctx, terminal_guard, messages, mode, commit_op, false)?;
+        commit_with(ctx, terminal_guard, messages, mode, commit_op)?;
 
         Ok(())
     }
@@ -412,6 +413,7 @@ impl App {
             CliId::UncommittedHunkOrFile(..) | CliId::Uncommitted { .. } => {
                 commit::CommitOperation::CommitToNewBranch(commit::CommitToNewBranchOperation {
                     branch_name: None,
+                    switch: false,
                 })
             }
             CliId::Branch(branch) => commit::CommitOperation::CommitAt(commit::CommitAtOperation {
@@ -419,6 +421,7 @@ impl App {
                     name: Category::LocalBranch.to_full_name(&*branch.name)?,
                     side: targeting::Side::Above,
                     new_branch_name: None,
+                    switch: false,
                 },
             }),
 
@@ -431,14 +434,7 @@ impl App {
             | CliId::Stack { .. } => return Ok(()),
         };
 
-        commit_with(
-            ctx,
-            terminal_guard,
-            messages,
-            mode,
-            commit_op,
-            commit::should_stack_on_head(&self.operating_mode),
-        )?;
+        commit_with(ctx, terminal_guard, messages, mode, commit_op)?;
 
         Ok(())
     }
@@ -489,7 +485,6 @@ fn commit_with<T>(
     messages: &mut Vec<Message>,
     mode: &CommitMode,
     commit_op: commit::CommitOperation,
-    stack_on_head: bool,
 ) -> anyhow::Result<()>
 where
     T: TerminalGuard,
@@ -550,7 +545,6 @@ where
         &mut meta,
         guard.write_permission(),
         commit_op,
-        stack_on_head,
         commit_selection,
         reword_op,
     )?;
