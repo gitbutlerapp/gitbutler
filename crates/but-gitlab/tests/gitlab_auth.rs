@@ -394,7 +394,7 @@ fn mock_gitlab_reads(replies: Vec<Reply>) -> (String, ReadMockServer) {
 
 const TOKEN: &str = "synthetic-token-that-must-not-leak";
 const MERGE_STATUS: &str = r#"{"merge_status":"can_be_merged","user_notes_count":0}"#;
-const PIPELINE: &str = r#"{"id":5,"status":"success","web_url":null}"#;
+const FAILED_PIPELINES: &str = r#"[{"id":5,"sha":"0123456789abcdef","status":"failed","created_at":null,"updated_at":null,"web_url":null}]"#;
 const PROJECT: &str = r#"{"id":7,"path_with_namespace":"group/repo","ssh_url_to_repo":"git@gitlab.example:group/repo.git","http_url_to_repo":"https://gitlab.example/group/repo.git","default_branch":"main"}"#;
 
 fn mr(iid: i64) -> String {
@@ -405,7 +405,7 @@ fn mr(iid: i64) -> String {
 
 fn job(id: i64) -> String {
     format!(
-        r#"{{"id":{id},"name":"job-{id}","status":"success","allow_failure":false,"started_at":null,"finished_at":null,"web_url":null,"pipeline":{{"id":5,"web_url":null,"status":"success"}}}}"#
+        r#"{{"id":{id},"name":"job-{id}","allow_failure":false,"started_at":null,"finished_at":null,"web_url":null}}"#
     )
 }
 
@@ -447,7 +447,7 @@ enum Read {
     RecentlyClosed,
     Get,
     MergeStatus,
-    PipelineJobs,
+    PipelineChecks,
 }
 
 /// Perform `read` through the stored account and report how many items it returned.
@@ -479,9 +479,10 @@ async fn perform(
             but_gitlab::mr::get_merge_status(account, project, 1, storage).await?;
             1
         }
-        Read::PipelineJobs => {
-            but_gitlab::checks::list_pipeline_jobs_for_ref(account, project, "main", storage)
+        Read::PipelineChecks => {
+            but_gitlab::checks::latest_pipeline_for_branch(account, project, "main", storage)
                 .await?
+                .1
                 .len()
         }
     })
@@ -507,18 +508,10 @@ fn rejected_token_on_read_paths_carries_the_unauthorized_code_on_every_seam() {
             ),
             (Read::Get, vec![reply(401, REJECTED)]),
             (Read::MergeStatus, vec![reply(401, REJECTED)]),
-            (Read::PipelineJobs, vec![reply(401, REJECTED)]),
+            (Read::PipelineChecks, vec![reply(401, REJECTED)]),
             (
-                Read::PipelineJobs,
-                vec![reply(200, PIPELINE), reply(401, REJECTED)],
-            ),
-            (
-                Read::PipelineJobs,
-                vec![
-                    reply(200, PIPELINE),
-                    page(format!("[{}]", job(1)), "2"),
-                    reply(401, REJECTED),
-                ],
+                Read::PipelineChecks,
+                vec![reply(200, FAILED_PIPELINES), reply(401, REJECTED)],
             ),
         ];
         // A 401 on a read path is the same rejected token the account refresh reports.
@@ -630,11 +623,11 @@ fn read_failures_other_than_a_rejected_token_stay_unclassified() {
             (Read::Get, vec![reply(500, REJECTED)], "500"),
             (Read::Get, vec![reply(403, REJECTED)], "403"),
             (Read::MergeStatus, vec![reply(403, REJECTED)], "403"),
-            (Read::PipelineJobs, vec![reply(500, REJECTED)], "500"),
+            (Read::PipelineChecks, vec![reply(500, REJECTED)], "500"),
             (
-                Read::PipelineJobs,
-                vec![reply(200, PIPELINE), reply(403, REJECTED)],
-                "403",
+                Read::PipelineChecks,
+                vec![reply(200, FAILED_PIPELINES), reply(500, REJECTED)],
+                "500",
             ),
         ];
         for (read, replies, detail) in cases {
@@ -673,17 +666,53 @@ fn read_failures_other_than_a_rejected_token_stay_unclassified() {
 }
 
 #[test]
-fn ci_reads_keep_treating_a_forbidden_or_missing_pipeline_as_no_checks() {
+fn ci_reads_tell_an_unresolved_lookup_from_a_branch_without_pipelines() {
     memory_keyring::install();
 
     run(async {
+        let fetch = |replies: Vec<Reply>| async {
+            let fixture = stored_account(replies).await;
+            let result = but_gitlab::checks::latest_pipeline_for_branch(
+                Some(&fixture.account),
+                GitLabProjectId::new("group", "repo"),
+                "main",
+                &fixture.storage,
+            )
+            .await
+            .expect("these answers are not failures");
+            (result, fixture.server.finish())
+        };
+
         for status in [403, 404] {
-            let fixture = stored_account(vec![reply(status, REJECTED)]).await;
-            let jobs = perform(Read::PipelineJobs, &fixture.storage, &fixture.account)
-                .await
-                .expect("a pipeline GitLab hides or lacks is an empty check list");
-            fixture.server.finish();
-            assert_eq!(jobs, 0, "HTTP {status} on the latest pipeline stays empty");
+            let ((lookup, _), _) = fetch(vec![reply(status, REJECTED)]).await;
+            assert!(
+                matches!(lookup, but_gitlab::PipelineLookup::Unresolved),
+                "HTTP {status} on the lookup must keep the cached checks"
+            );
+        }
+
+        let ((lookup, _), targets) = fetch(vec![reply(200, "[]")]).await;
+        assert!(
+            matches!(lookup, but_gitlab::PipelineLookup::Resolved(None)),
+            "a branch without pipelines authoritatively has no checks"
+        );
+        assert_eq!(
+            targets.last().map(String::as_str),
+            Some("/api/v4/projects/group%2Frepo/pipelines?ref=main&per_page=1"),
+            "the list endpoint's ref filter also matches merge request pipelines"
+        );
+
+        let green = FAILED_PIPELINES.replace("failed", "success");
+        let (_, targets) = fetch(vec![reply(200, green)]).await;
+        assert_eq!(targets.len(), 2, "a green pipeline needs no job request");
+
+        for status in [403, 404] {
+            let ((lookup, jobs), _) =
+                fetch(vec![reply(200, FAILED_PIPELINES), reply(status, REJECTED)]).await;
+            assert!(
+                matches!(lookup, but_gitlab::PipelineLookup::Resolved(Some(_))) && jobs.is_empty(),
+                "HTTP {status} on the jobs leaves the pipeline status to stand alone"
+            );
         }
     });
 }
@@ -713,11 +742,10 @@ fn read_paths_still_return_data_across_pages() {
             (Read::Get, vec![reply(200, mr(1)), reply(200, PROJECT)], 1),
             (Read::MergeStatus, vec![reply(200, MERGE_STATUS)], 1),
             (
-                Read::PipelineJobs,
+                Read::PipelineChecks,
                 vec![
-                    reply(200, PIPELINE),
-                    page(format!("[{}]", job(1)), "2"),
-                    reply(200, format!("[{}]", job(2))),
+                    reply(200, FAILED_PIPELINES),
+                    reply(200, format!("[{},{}]", job(1), job(2))),
                 ],
                 2,
             ),
