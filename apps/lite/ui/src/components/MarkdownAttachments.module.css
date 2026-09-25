@@ -8,13 +8,8 @@
 	pointer-events: none;
 }
 
+/* A long paste scrolls here rather than pushing the buttons off the modal. */
 .files {
 	max-height: 140px;
-	margin: 0;
-	padding-left: 18px;
 	overflow-y: auto;
-	color: var(--text-2);
-	font-size: 12px;
-	line-height: 1.5;
-	overflow-wrap: anywhere;
 }

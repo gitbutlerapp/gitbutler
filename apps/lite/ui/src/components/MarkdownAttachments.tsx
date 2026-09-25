@@ -1,5 +1,7 @@
 import { Button } from "@gitbutler/ui-react/Button.tsx";
+import { FileIcon } from "@gitbutler/ui-react/FileIcon.tsx";
 import { Icon } from "@gitbutler/ui-react/Icon.tsx";
+import { List, ListItem } from "@gitbutler/ui-react/List.tsx";
 import { Tooltip } from "@gitbutler/ui-react/Tooltip.tsx";
 import { Modal, ModalBody, ModalFooter, ModalHeader } from "@gitbutler/ui-react/Popup.tsx";
 import { useUploadFiles } from "#ui/api/mutations.ts";
@@ -133,14 +135,16 @@ export const MarkdownAttachments: FC<Props> = (p) => {
 					description="They are uploaded to gitbutler.com and anyone with the link can open them, which is what lets the forge show them in your description."
 				/>
 				<ModalBody>
-					<ul className={styles.files}>
+					<List className={styles.files}>
 						{pending.map((file, index) => (
 							// Names repeat — two pasted images are both "pasted-image" —
 							// and the list is fixed while the dialog is open.
 							// oxlint-disable-next-line react/no-array-index-key
-							<li key={index}>{file.name}</li>
+							<ListItem key={index} marker={<FileIcon fileName={file.name} />}>
+								{file.name}
+							</ListItem>
 						))}
-					</ul>
+					</List>
 				</ModalBody>
 				<ModalFooter>
 					<Button variant="ghost" onClick={() => setPending([])}>

@@ -1,6 +1,8 @@
 import preview from "#storybook/preview";
 import { Button } from "./Button.tsx";
 import { FieldControlStyles, FieldLabelStyles, FieldRootStyles } from "./Field.tsx";
+import { FileIcon } from "./FileIcon.tsx";
+import { List, ListItem } from "./List.tsx";
 import {
 	Modal,
 	ModalBody,
@@ -54,10 +56,10 @@ export const Playground = meta.story({
 					description="They go to gitbutler.com, and anyone with the link can open them."
 				/>
 				<ModalBody>
-					<ul className="text-13" style={{ margin: 0, paddingLeft: 18 }}>
-						<li>screenshot.png</li>
-						<li>pasted-image.png</li>
-					</ul>
+					<List>
+						<ListItem marker={<FileIcon fileName="screenshot.png" />}>screenshot.png</ListItem>
+						<ListItem marker={<FileIcon fileName="pasted-image.png" />}>pasted-image.png</ListItem>
+					</List>
 				</ModalBody>
 				<ModalFooter>
 					<Button variant="ghost">Cancel</Button>

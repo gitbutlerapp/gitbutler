@@ -1,0 +1,42 @@
+/* Items sit clearly further apart than the lines of a paragraph, so each reads as its own thing,
+   and not so far that the list falls apart into paragraphs. */
+.list {
+	display: flex;
+	flex-direction: column;
+	margin: 0;
+	padding: 0;
+	gap: var(--space-lg);
+	color: var(--text-1);
+	list-style: none;
+}
+
+.item {
+	display: flex;
+	align-items: flex-start;
+	min-width: 0;
+	gap: var(--gap-icon-text);
+}
+
+/* One line tall and one icon wide, so a dot, a file icon and an icon all sit centred on the first
+   line and the text starts at the same place whichever the item carries. */
+.marker {
+	display: flex;
+	flex: none;
+	align-items: center;
+	justify-content: center;
+	width: var(--size-icon);
+	height: 1lh;
+	color: var(--text-3);
+}
+
+.dot {
+	width: 4px;
+	height: 4px;
+	border-radius: var(--radius-full);
+	background-color: currentColor;
+}
+
+.content {
+	min-width: 0;
+	overflow-wrap: anywhere;
+}
