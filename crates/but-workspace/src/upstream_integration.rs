@@ -990,7 +990,7 @@ fn empty_local_reference_remote_tip_integrated<'ws, 'meta, M: RefMetadata>(
     Ok(editor
         .repo()
         .merge_base(remote_tip_id, target_ref_commit)
-        .is_ok_and(|merge_base| merge_base == remote_tip_id))
+        .is_ok_and(|merge_base| merge_base.is_some_and(|merge_base| merge_base == remote_tip_id)))
 }
 
 /// Return `true` if `ref_name` currently resolves to either the old target
@@ -1208,7 +1208,7 @@ fn replace_checkout_ref_with_fallback<M: RefMetadata>(
         let can_fast_forward = local_tip == target.id
             || repo
                 .merge_base(local_tip, target.id)
-                .is_ok_and(|base| base.detach() == local_tip);
+                .is_ok_and(|base| base.is_some_and(|base| base.detach() == local_tip));
         if can_fast_forward
             && but_core::branch::SafeDelete::new(repo)?
                 .worktree_dirs_with_ref(&reference)
@@ -1348,7 +1348,7 @@ pub fn local_tracking_branch_to_fast_forward(
     if local_id == target_id
         || !repo
             .merge_base(local_id, target_id)
-            .is_ok_and(|base| base.detach() == local_id)
+            .is_ok_and(|base| base.is_some_and(|base| base.detach() == local_id))
     {
         return Ok(None);
     }

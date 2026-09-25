@@ -466,7 +466,7 @@ fn remote_branch_short_name_requires_disambiguation_across_multiple_remotes() {
 Error: Failed to apply branch
 
 Caused by:
-    The reference 'remote-feature' did not exist
+    The ref partially named "remote-feature" could not be found[..]
 
 "#]])
         .stdout_eq(str![""]);
@@ -541,7 +541,7 @@ fn nonexistent_branch() {
 Error: Failed to apply branch
 
 Caused by:
-    The reference 'nonexistent-branch' did not exist
+    The ref partially named "nonexistent-branch" could not be found[..]
 
 "#]])
         .stdout_eq(str![""]);
@@ -560,7 +560,7 @@ fn nonexistent_branch_with_json() {
 Error: Failed to apply branch
 
 Caused by:
-    The reference 'nonexistent-branch' did not exist
+    The ref partially named "nonexistent-branch" could not be found[..]
 
 "#]]);
     // Note: Currently the apply function doesn't output anything with JSON when branch not found

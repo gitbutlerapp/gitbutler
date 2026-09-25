@@ -133,7 +133,7 @@ fn config_push_remote_rejects_unknown_remote_without_changing_metadata() {
 Error: failed to find remote missing
 
 Caused by:
-    The remote named "missing" did not exist
+    The remote named "missing" did not exist[..]
 
 "#]]);
     assert_eq!(

@@ -406,15 +406,7 @@ fn merge_base(
     first: gix::ObjectId,
     second: gix::ObjectId,
 ) -> Result<Option<gix::ObjectId>> {
-    match repo.merge_base(first, second) {
-        Ok(oid) => Ok(Some(oid.detach())),
-        // It's very possible we'll see scenarios where there are two parents
-        // that have no common ancestor. We should handle that well by using the
-        // empty tree as the base.
-        Err(gix::repository::merge_base::Error::FindMergeBase(_))
-        | Err(gix::repository::merge_base::Error::NotFound { .. }) => Ok(None),
-        Err(e) => bail!(e),
-    }
+    Ok(repo.merge_base(first, second)?.map(gix::Id::detach))
 }
 
 fn peel_to_tree_or_empty(

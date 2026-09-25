@@ -1835,12 +1835,13 @@ fn run_agentlog_command(
 
 pub(crate) fn is_not_in_git_repository_error(err: &anyhow::Error) -> bool {
     matches!(
-        err.downcast_ref::<gix::discover::Error>(),
-        Some(gix::discover::Error::Discover(
+        err.downcast_ref::<gix::Error>()
+            .and_then(|err| err.downcast_any_ref::<gix::discover::upwards::Error>()),
+        Some(
             gix::discover::upwards::Error::NoGitRepository { .. }
                 | gix::discover::upwards::Error::NoGitRepositoryWithinCeiling { .. }
                 | gix::discover::upwards::Error::NoGitRepositoryWithinFs { .. }
-        ))
+        )
     )
 }
 
@@ -1978,6 +1979,32 @@ pub use utils::detect_agent::ENVIRONMENT_VARIABLES as AGENT_ENVIRONMENT_VARIABLE
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn repository_discovery_errors_keep_their_classification() -> anyhow::Result<()> {
+        let tmp = tempfile::tempdir()?;
+        let err = anyhow::Error::from(gix::discover(tmp.path()).unwrap_err())
+            .context("discovering the optional repository");
+        assert!(
+            is_not_in_git_repository_error(&err),
+            "missing repositories are recognized through both error wrappers"
+        );
+
+        let err = anyhow::Error::from(gix::Error::from_error(
+            gix::discover::upwards::Error::NoTrustedGitRepository {
+                path: tmp.path().into(),
+                candidate: tmp.path().into(),
+                required: gix::sec::Trust::Full,
+                trust: gix::sec::Trust::Reduced,
+            },
+        ))
+        .context("discovering the optional repository");
+        assert!(
+            !is_not_in_git_repository_error(&err),
+            "an untrusted repository must remain an error rather than being treated as an absent repository"
+        );
+        Ok(())
+    }
 
     fn os_args(args: &[&str]) -> Vec<OsString> {
         args.iter().map(|arg| OsString::from(*arg)).collect()

@@ -207,11 +207,13 @@ bstr = "1.12.1"
 zip = { version = "4", default-features = false, features = ["bzip2"] }
 # Add the `tracing` or `tracing-detail` features to see more of gitoxide in the logs. Useful to see which programs it invokes.
 # When adjusting this, update `gix-testtools` as well!
-gix = { version = "0.87.1", git = "https://github.com/GitoxideLabs/gitoxide", rev = "4ec7c08e4771d3e0ac6ed22e1639bc33ed9d48be", default-features = false, features = [
+gix = { version = "0.89.0", git = "https://github.com/GitoxideLabs/gitoxide", rev = "475cfdddb1e3a1a2a1eab94e8890a6483ff344e0", default-features = false, features = [
     "sha1",
     "sha256",
+    "anyhow",
+    "auto-chain-error"
 ] }
-gix-testtools = { version = "0.20.0", git = "https://github.com/GitoxideLabs/gitoxide", rev = "4ec7c08e4771d3e0ac6ed22e1639bc33ed9d48be" }
+gix-testtools = { version = "0.22.0", git = "https://github.com/GitoxideLabs/gitoxide", rev = "475cfdddb1e3a1a2a1eab94e8890a6483ff344e0" }
 
 
 git2 = { version = "0.21.0", features = [
@@ -307,15 +309,16 @@ crossterm = "0.29"
 unicode-segmentation = "1.13.2"
 urlencoding = "2.1"
 inventory = "0.3"
-git-meta-lib = { git = "https://github.com/git-meta/git-meta", rev = "d5ad47dcd2935f0ca1836cef0cbab03ca1431190" }
+# ponytail: git-meta keeps released gix until it supports main's optional merge-base results.
+git-meta-lib = { git = "https://github.com/git-meta/git-meta", rev = "38a237dbc3b7d6ada306937ad42d66c547f6a658" }
 smallvec = "1.15.1"
 
 sapling-renderdag = "0.1.0"
 
 [patch.crates-io]
-# Keep workspace crates that use the `gix 0.87` line on the same git revision.
-# This was relevant to force `git-meta` to use our version.
-gix = { git = "https://github.com/GitoxideLabs/gitoxide", rev = "4ec7c08e4771d3e0ac6ed22e1639bc33ed9d48be" }
+# Keep workspace crates that use the `gix 0.89` line on the same git revision.
+# This is relevant to force `git-meta` to use our version.
+gix = { git = "https://github.com/GitoxideLabs/gitoxide", rev = "475cfdddb1e3a1a2a1eab94e8890a6483ff344e0" }
 git2 = { git = "https://github.com/gitbutlerapp/git2-rs", rev = "a87a7bb3f6843504339fe7434ee0732a3e968f3e" }
 
 [workspace.lints.clippy]
@@ -371,7 +374,7 @@ gix-hash = { opt-level = 3 }
 gix-actor = { opt-level = 3 }
 gix-config = { opt-level = 3 }
 gix-worktree = { opt-level = 3 }
-sha1-checked = { opt-level = 3 }
+sha1dc = { opt-level = 3 }
 zlib-rs = { opt-level = 3 }
 serde = { opt-level = 3 }
 serde_json = { opt-level = 3 }

@@ -193,10 +193,16 @@ fn assert_locked_index_rejects_enter_edit_mode(symlink_index: bool) -> Result<()
         index_path.clone()
     };
     #[expect(deprecated)]
-    let git2_index_path = ctx.git2_repo.get()?.index()?.path().map(ToOwned::to_owned);
+    let git2_index_path = ctx
+        .git2_repo
+        .get()?
+        .index()?
+        .path()
+        .map(std::fs::canonicalize)
+        .transpose()?;
     assert_eq!(
-        git2_index_path.as_deref(),
-        Some(index_path.as_path()),
+        git2_index_path,
+        Some(index_path.canonicalize()?),
         "the probe must lock the index that checkout writes"
     );
     let index_before = std::fs::read(&index_path)?;
@@ -210,6 +216,7 @@ fn assert_locked_index_rejects_enter_edit_mode(symlink_index: bool) -> Result<()
         &locked_index_path,
         gix::lock::acquire::Fail::Immediately,
         None,
+        0,
     )?;
     let mut guard = ctx.exclusive_worktree_access();
     let stack_id = {

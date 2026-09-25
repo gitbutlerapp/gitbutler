@@ -259,6 +259,7 @@ mod file {
                 gix::tempfile::create_dir::all(
                     file_path.parent().context("encountered strange filepath")?,
                     Retries::default(),
+                    0,
                 )?;
                 let file = match tempfile.persist(&file_path) {
                     Ok(res) => res,
@@ -281,7 +282,7 @@ mod file {
                     std::fs::remove_file(&link_path)?;
                 }
                 let link_target = state.id.attach(repo).object()?;
-                let link_target = gix::path::from_bstr(link_target.data.as_bstr());
+                let link_target = gix::path::from_bstr(link_target.data.as_bstr())?;
                 if let Err(err) = gix::fs::symlink::create(&link_target, &link_path) {
                     // When directories are replaced, the user could undo everything. Then
                     // it's a matter of order if *we* have already created the directory content.
@@ -298,13 +299,13 @@ mod file {
                     // TODO(gix): actual checkout/reset functionality - it will be fine to support that fully.
                     // Since `git2` doesn't support filters, it will save us some trouble to just use Git for that.
                     let submodule_repo_dir = &file_path;
-                    let out = std::process::Command::from(
+                    let out = std::process::Command::try_from(
                         gix::command::prepare(format!(
                             "git reset --hard {id} && git clean -fxd",
                             id = state.id
                         ))
                         .with_shell(),
-                    )
+                    )?
                     .current_dir(submodule_repo_dir)
                     .output()?;
                     if !out.status.success() {

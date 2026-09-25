@@ -166,10 +166,12 @@ TreeChanges {
 
         let err =
             ui::diff::changes_in_branch(&repo, &ws, r("refs/heads/does-not-exist")).unwrap_err();
-        assert_eq!(
+        // passing strange ref-names still causes an error - they must exist
+        snapbox::assert_data_eq!(
             err.to_string(),
-            "The reference 'refs/heads/does-not-exist' did not exist",
-            "passing strange ref-names still causes an error - they must exist"
+            snapbox::str![[
+                r#"The ref partially named "refs/heads/does-not-exist" could not be found[..]"#
+            ]]
         );
 
         let ref_info: ui::RefInfo = but_workspace::head_info(

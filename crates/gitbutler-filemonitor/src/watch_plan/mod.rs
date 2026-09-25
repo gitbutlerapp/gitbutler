@@ -78,7 +78,7 @@ pub(crate) fn compute_watch_plan_for_repo(
                 .is_ok_and(|platform| platform.is_excluded());
             if is_excluded
                 && !is_tracked_in_index(
-                    to_repo_relative_path(relative).as_ref(),
+                    to_repo_relative_path(relative)?.as_ref(),
                     true,
                     &index,
                     icase_acc.as_ref(),
@@ -196,6 +196,8 @@ pub(crate) fn is_tracked_in_index(
     }
 }
 
-pub(crate) fn to_repo_relative_path(path: &Path) -> Cow<'_, BStr> {
-    gix::path::to_unix_separators_on_windows(gix::path::into_bstr(path))
+pub(crate) fn to_repo_relative_path(path: &Path) -> gix::Result<Cow<'_, BStr>> {
+    Ok(gix::path::to_unix_separators_on_windows(
+        gix::path::into_bstr(path)?,
+    ))
 }

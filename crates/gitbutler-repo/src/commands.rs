@@ -409,7 +409,7 @@ pub fn read_worktree_file(repo: &gix::Repository, path: &Path) -> Result<FileInf
                 FileInfo::from_content(&relative_path, &content)
             } else if md.is_symlink() {
                 let content = std::fs::read_link(&path)?;
-                FileInfo::utf8_text_or_binary(&relative_path, &gix::path::into_bstr(content))
+                FileInfo::utf8_text_or_binary(&relative_path, &gix::path::into_bstr(content)?)
             } else if md.is_dir() {
                 // Directories on disk (notably git submodules, which appear
                 // as real directories in the worktree but are represented
@@ -430,7 +430,7 @@ pub fn read_worktree_file(repo: &gix::Repository, path: &Path) -> Result<FileInf
         }
         Err(err) if err.kind() == std::io::ErrorKind::NotFound => {
             let relative_path_bstr = gix::path::to_unix_separators_on_windows(
-                gix::path::into_bstr(relative_path.as_path()),
+                gix::path::into_bstr(relative_path.as_path())?,
             );
             let index = repo.index_or_empty()?;
             match index.entry_by_path(relative_path_bstr.as_ref()) {
@@ -458,7 +458,7 @@ pub fn read_worktree_file(repo: &gix::Repository, path: &Path) -> Result<FileInf
 /// no matter what the link is called.
 fn ensure_not_ignored(repo: &gix::Repository, relative_path: &Path) -> Result<()> {
     let relative_path_bstr =
-        gix::path::to_unix_separators_on_windows(gix::path::into_bstr(relative_path));
+        gix::path::to_unix_separators_on_windows(gix::path::into_bstr(relative_path)?);
     let index = repo.index_or_empty()?;
     if index.entry_by_path(relative_path_bstr.as_ref()).is_some() {
         return Ok(());

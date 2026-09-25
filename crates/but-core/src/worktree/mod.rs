@@ -27,7 +27,7 @@ pub fn worktree_file_to_git_in_buf(
     } else {
         let to_git = pipeline.convert_to_git(
             std::fs::File::open(path)?,
-            &gix::path::from_bstr(rela_path),
+            &gix::path::from_bstr(rela_path)?,
             index,
         )?;
         match to_git {

@@ -419,7 +419,9 @@ pub fn spawn(
                                     .at_path(relative_path, is_dir.then_some(gix::index::entry::Mode::DIR))
                                     .map(|platform| platform.is_excluded())
                                     .unwrap_or(false);
-                                let repo_relative_path = to_repo_relative_path(relative_path);
+                                let Ok(repo_relative_path) = to_repo_relative_path(relative_path) else {
+                                    continue;
+                                };
                                 if is_excluded && is_untracked(&repo_relative_path, is_dir) {
                                     *kind = FileKind::ProjectIgnored
                                 }

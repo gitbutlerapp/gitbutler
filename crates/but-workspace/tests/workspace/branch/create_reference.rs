@@ -2395,11 +2395,20 @@ fn errors() -> anyhow::Result<()> {
             None,
         )
         .unwrap_err();
+        let err = err
+            .downcast_ref::<gix::Error>()
+            .and_then(|err| {
+                err.downcast_any_ref::<gix::refs::file::transaction::prepare::ReferenceOutOfDate>()
+            })
+            .expect("the existing ref must fail the expected-value constraint");
         assert_eq!(
-            err.to_string(),
-            "The reference \"refs/heads/A\" should have content c166d42d4ef2e5e742d33554d03805cfb0b24d11, actual content was 89cc2d303514654e9cab2d05b9af08b420a740c1",
-            "it won't reset existing refs as the constraint is setup correctly.\
-                It does try though."
+            err.full_name, "refs/heads/A",
+            "the error identifies the ref"
+        );
+        assert_eq!(
+            err.actual,
+            gix::refs::Target::Object(a_id.detach()),
+            "the error retains the existing target"
         );
         assert!(meta.branch(a_ref)?.is_default(), "no data was stored");
         assert_ne!(

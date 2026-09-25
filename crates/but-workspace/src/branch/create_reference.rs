@@ -513,14 +513,9 @@ pub(super) mod function {
                     colliding_ref.shorten()
                 );
             }
-            let code = match err {
-                gix::reference::edit::Error::FileTransactionCommit(
-                    gix::refs::file::transaction::commit::Error::CreateOrUpdateRefLog(
-                        gix::refs::file::log::create_or_update::Error::MissingCommitter,
-                    ),
-                ) => Some(but_error::Code::AuthorMissing),
-                _ => None,
-            };
+            let code = err
+                .downcast_any_ref::<gix::refs::file::log::create_or_update::MissingCommitter>()
+                .map(|_| but_error::Code::AuthorMissing);
             let err = anyhow::Error::from(err);
             if let Some(code) = code {
                 err.context(code)
@@ -641,13 +636,9 @@ pub(super) mod function {
         order
     }
 
-    fn is_not_a_directory_ref_edit_error(err: &gix::reference::edit::Error) -> bool {
-        matches!(
-            err,
-            gix::reference::edit::Error::FileTransactionPrepare(
-                gix::refs::file::transaction::prepare::Error::Io(io_err)
-            ) if io_err.kind() == std::io::ErrorKind::NotADirectory
-        )
+    fn is_not_a_directory_ref_edit_error(err: &gix::Error) -> bool {
+        err.downcast_any_ref::<std::io::Error>()
+            .is_some_and(|err| err.kind() == std::io::ErrorKind::NotADirectory)
     }
 
     fn find_colliding_ref_ancestor(

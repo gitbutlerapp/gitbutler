@@ -1472,8 +1472,7 @@ fn deserialize_commit(commit_tree_id: gix::Id) -> Result<gix::ObjectId> {
     let commit_blob = repo
         .find_blob(commit_blob_entry.id())
         .context("failed to convert commit tree entry to blob")?;
-    repo.write_buf(gix::object::Kind::Commit, &commit_blob.data)
-        .map_err(anyhow::Error::from_boxed)
+    Ok(repo.write_buf(gix::object::Kind::Commit, &commit_blob.data)?)
 }
 
 /// Creates a tree that is the merge of all applied branches from a given snapshot and returns the tree id.

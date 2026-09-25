@@ -15,7 +15,7 @@ use but_ctx::Context;
 use but_serde::BStringForFrontend;
 use gitbutler_branch::{BranchIdentity, ReferenceExtGix};
 use gitbutler_reference::normalize_branch_name;
-use gix::{object::tree::diff::Action, prelude::TreeDiffChangeExt, reference::Category};
+use gix::{prelude::TreeDiffChangeExt, reference::Category};
 use serde::{Deserialize, Serialize};
 
 use crate::gravatar::gravatar_url_from_email;
@@ -800,6 +800,7 @@ pub fn get_branch_listing_details(
                         let base = repo
                             .merge_base_with_graph(other_branch_commit_id, branch_head, &mut graph)
                             .ok()
+                            .flatten()
                             .map(gix::Id::detach);
                         let res = match base {
                             Some(base) => {
@@ -848,7 +849,7 @@ pub fn get_branch_listing_details(
                     opts.track_rewrites(None);
                 })
                 // NOTE: `stats(head_tree)` is also possible, but we have a separate thread for that.
-                .for_each_to_obtain_tree(&head_tree, move |change| -> anyhow::Result<Action> {
+                .for_each_to_obtain_tree(&head_tree, move |change| {
                     change_tx.send(change.detach()).ok();
                     Ok(std::ops::ControlFlow::Continue(()))
                 })?;

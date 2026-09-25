@@ -49,7 +49,7 @@ fn graph_with_worktrees(
 fn linked_repo(repo: &gix::Repository, name: &str) -> Result<gix::Repository> {
     repo.worktrees()?
         .into_iter()
-        .find(|proxy| proxy.id() == name)
+        .find(|proxy| proxy.id().is_ok_and(|id| id == name))
         .with_context(|| format!("missing worktree {name}"))?
         .into_repo()
         .map_err(Into::into)

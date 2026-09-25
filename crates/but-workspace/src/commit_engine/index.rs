@@ -70,7 +70,7 @@ pub fn sync_index_to_tree(
     gix::diff::index(
         tree,
         index,
-        |change| -> Result<_, std::convert::Infallible> {
+        |change| {
             changes.push(change.into_owned());
             Ok(std::ops::ControlFlow::Continue(()))
         },
