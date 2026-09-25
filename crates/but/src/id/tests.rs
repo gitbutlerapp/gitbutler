@@ -2030,7 +2030,7 @@ fn uncommitted_path() -> anyhow::Result<()> {
 /// This test represents a bad state: This shouldn't really happened, but if it does we don't want
 /// to just lose changes.
 ///
-/// See [super::FileInfo::changes] for details on this situation.
+/// See [super::CommittedFile::tree_changes] for details on this situation.
 #[test]
 fn duplicate_tree_changes_for_committed_files_are_coalesced_for_short_id_assignment()
 -> anyhow::Result<()> {

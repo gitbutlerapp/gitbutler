@@ -6,7 +6,7 @@
 
 #![forbid(missing_docs)]
 
-use std::collections::{BTreeMap, HashMap};
+use std::collections::{BTreeMap, HashMap, btree_map};
 use std::str::{self, FromStr as _};
 
 use bstr::{BStr, BString, ByteSlice};
@@ -17,15 +17,11 @@ use but_graph::workspace::{Stack, StackCommit, StackSegment, WorktreeStack};
 use gix::hash::hasher;
 use nonempty::NonEmpty;
 
-use crate::id::{
-    file_info::FileInfo, id_usage::UintId, stacks_info::StacksInfo,
-    uncommitted_info::UncommittedInfo,
-};
+use crate::id::{id_usage::UintId, stacks_info::StacksInfo, uncommitted_info::UncommittedInfo};
 use crate::theme;
 use crate::utils::change_source::{self, ChangeSourceId, SourceChanges};
 use crate::utils::{detect_agent, get_change_id_for_commit};
 
-mod file_info;
 mod id_usage;
 pub mod parser;
 mod stacks_info;
@@ -235,9 +231,17 @@ fn assign_short_ids(
 fn short_ids_from_tree_changes(
     tree_changes: Vec<but_core::TreeChange>,
 ) -> anyhow::Result<Vec<(NonEmpty<but_core::TreeChange>, ChangeId, ShortId)>> {
-    let FileInfo { changes } = FileInfo::from_tree_changes(tree_changes)?;
+    let mut changes_by_path = BTreeMap::<BString, NonEmpty<but_core::TreeChange>>::new();
+    for change in tree_changes {
+        match changes_by_path.entry(change.path.clone()) {
+            btree_map::Entry::Vacant(entry) => {
+                entry.insert(NonEmpty::new(change));
+            }
+            btree_map::Entry::Occupied(mut entry) => entry.get_mut().push(change),
+        }
+    }
     let mut short_ids = Vec::new();
-    for (path, changes) in changes {
+    for (path, changes) in changes_by_path {
         // Committed files are namespaced under their commit's ID, so they never
         // compete with the uncommitted namespace and need no source of their own.
         short_ids.push((
@@ -317,10 +321,9 @@ struct CommittedFile {
     short_id: ShortId,
     /// Tree change from the commit's first-parent diff.
     ///
-    /// This should in practice always contain a single change, but according to the docs on
-    /// [FileInfo::changes], there have been cases where a single path resolved to multiple tree
-    /// changes. As we currently cannot structurally guarantee this does not happen, we need this
-    /// awkward list here.
+    /// This should in practice always contain a single change, but bd5151cf9 observed a single
+    /// path resolving to multiple tree changes. As we currently cannot structurally guarantee this
+    /// does not happen, we need this awkward list here.
     tree_changes: NonEmpty<but_core::TreeChange>,
 }
 
