@@ -1,6 +1,6 @@
 import preview from "#storybook/preview";
 import { Button } from "./Button.tsx";
-import { FieldControlStyles, FieldLabelStyles, FieldRootStyles } from "./Field.tsx";
+import { FieldControlStyles, FieldRootStyles } from "./Field.tsx";
 import { FileIcon } from "./FileIcon.tsx";
 import { List, ListItem } from "./List.tsx";
 import {
@@ -72,7 +72,8 @@ export const Playground = meta.story({
 
 /**
  * A short form. The `<form>` wraps all three parts so Enter submits, and the modal lays it out as
- * it would the parts on their own.
+ * it would the parts on their own. The description names the one field, so it has no label above
+ * it, only an `aria-label`.
  */
 export const Form = meta.story({
 	args: {
@@ -82,12 +83,11 @@ export const Form = meta.story({
 			<form onSubmit={(event) => event.preventDefault()}>
 				<ModalHeader
 					title="Git credentials required"
-					description="Your remote asks for a password to fetch."
+					description="Enter your password for github.com to fetch."
 				/>
 				<ModalBody>
 					<Field.Root render={<FieldRootStyles />}>
-						<Field.Label render={<FieldLabelStyles />}>Password</Field.Label>
-						<Field.Control render={<FieldControlStyles />} type="password" />
+						<Field.Control render={<FieldControlStyles />} type="password" aria-label="Password" />
 					</Field.Root>
 				</ModalBody>
 				<ModalFooter>
