@@ -586,8 +586,8 @@ importers:
         specifier: workspace:*
         version: link:../../packages/but-sdk
       '@gitbutler/design-core':
-        specifier: 6.0.1
-        version: 6.0.1
+        specifier: 7.0.0
+        version: 7.0.0
       '@gitbutler/ui-react':
         specifier: workspace:*
         version: link:../../packages/ui-react
@@ -937,8 +937,8 @@ importers:
         specifier: workspace:*
         version: link:../but-sdk
       '@gitbutler/design-core':
-        specifier: 6.0.1
-        version: 6.0.1
+        specifier: 7.0.0
+        version: 7.0.0
       '@hono/node-server':
         specifier: 2.0.10
         version: 2.0.10(hono@4.12.32)
@@ -1190,8 +1190,8 @@ importers:
         specifier: workspace:*
         version: link:../but-sdk
       '@gitbutler/design-core':
-        specifier: 6.0.1
-        version: 6.0.1
+        specifier: 7.0.0
+        version: 7.0.0
       '@storybook/addon-docs':
         specifier: ^10.6.0
         version: 10.6.0(@types/react-dom@19.2.3(@types/react@19.2.14))(@types/react@19.2.14)(storybook@10.6.0(@types/react@19.2.14)(prettier@3.8.1)(react@19.2.4))
@@ -2353,8 +2353,8 @@ packages:
   '@gitbutler/design-core@2.2.2':
     resolution: {integrity: sha512-oPPnYjwsKxwoTY6wK/fT9ylwhSIBgQxCOGJzYefbM8WFr2OuJePH9MnDnZ3K9UQlb94p+NR7m/QCFzhbDVRwxw==}
 
-  '@gitbutler/design-core@6.0.1':
-    resolution: {integrity: sha512-sMShx9WEXVd7p/YowXl94IomGrFWRQaGEvpNuH/WSfZxYtVKcH+vMOoLYhFmqsfoTeL/ntAprLXulqP0J9vhEw==}
+  '@gitbutler/design-core@7.0.0':
+    resolution: {integrity: sha512-T7foHX31B00ZYlxrDpnRu6QJWWEjKXFslKprK9K4iOpT+vx+za3Drxni4j/t2/HeDrJILHFz+/hX9XzeMdCOfw==}
 
   '@hapi/address@5.1.1':
     resolution: {integrity: sha512-A+po2d/dVoY7cYajycYI43ZbYMXukuopIsqCjh5QzsBCipDtdofHntljDlpccMjIfTy6UOkg+5KPriwYch2bXA==}
@@ -12365,7 +12365,7 @@ snapshots:
 
   '@gitbutler/design-core@2.2.2': {}
 
-  '@gitbutler/design-core@6.0.1': {}
+  '@gitbutler/design-core@7.0.0': {}
 
   '@hapi/address@5.1.1':
     dependencies:

@@ -19,7 +19,7 @@
 	margin: auto;
 	overflow: hidden;
 	border: 1px solid var(--border-2);
-	border-radius: var(--radius-lg);
+	border-radius: var(--radius-popup);
 	/* The dialog receives initial focus; the ring belongs on its controls. */
 	outline: none;
 	background-color: var(--bg-1);

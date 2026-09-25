@@ -136,7 +136,7 @@
 	   the track ended up — and so how much of it a lens at its floor takes. */
 	top: var(--minimap-marker-top, 0px);
 	height: var(--minimap-marker-height, 0px);
-	border-radius: 2px;
+	border-radius: var(--radius-xs);
 	background-color: color-mix(in srgb, var(--fill-gray-bg) 16%, transparent);
 	pointer-events: none;
 }
@@ -181,7 +181,7 @@
 	padding: 6px 8px;
 	gap: 6px;
 	translate: 0 -50%;
-	border-radius: var(--radius-button);
+	border-radius: var(--radius-control);
 	background-color: var(--bg-1);
 	box-shadow: var(--shadow-tooltip);
 	color: var(--text-1);

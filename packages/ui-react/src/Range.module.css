@@ -63,13 +63,13 @@
 .track {
 	width: 100%;
 	height: var(--track-height);
-	border-radius: var(--radius-button);
+	border-radius: var(--radius-control);
 	background-color: var(--border-2);
 }
 
 .indicator {
 	height: 100%;
-	border-radius: var(--radius-button);
+	border-radius: var(--radius-control);
 	background-color: var(--fill-gray-bg);
 }
 

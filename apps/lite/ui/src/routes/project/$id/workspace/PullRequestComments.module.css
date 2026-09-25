@@ -152,7 +152,7 @@
 .editor {
 	display: flex;
 	flex-direction: column;
-	border-radius: var(--radius-button);
+	border-radius: var(--radius-control);
 	outline: 1px solid var(--border-2);
 	outline-offset: -1px;
 	transition: outline-color var(--transition-fast);
@@ -378,7 +378,7 @@
 .thread {
 	overflow: hidden;
 	border: 1px solid var(--border-3);
-	border-radius: var(--radius-md);
+	border-radius: var(--radius-card);
 	background-color: var(--bg-2);
 }
 
@@ -430,7 +430,7 @@
 	overflow-x: auto;
 	overflow-y: hidden;
 	border: 1px solid var(--border-3);
-	border-radius: var(--radius-md);
+	border-radius: var(--radius-card);
 	/* The body turns selection off app-wide; quoted code is there to be read
 	   and copied, so it opts back in the way the diff view does. Inherited,
 	   which is how it reaches the code inside the shadow root. */

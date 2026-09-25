@@ -71,7 +71,7 @@
 	height: 18px;
 	padding-inline: 5px;
 	gap: 4px;
-	border-radius: 10px;
+	border-radius: var(--radius-full);
 	background: light-dark(hsl(0 0% 83.9% / 0.45), hsl(0 0% 0% / 0.5));
 	color: var(--text-1);
 	font-weight: var(--font-weight-semibold);
@@ -110,7 +110,7 @@
 	align-items: center;
 	height: 18px;
 	padding-inline: 6px;
-	border-radius: 10px;
+	border-radius: var(--radius-full);
 	color: var(--gb-text-2);
 	font-weight: var(--font-weight-semibold);
 	font-size: 10px;
@@ -146,7 +146,7 @@
 	height: 24px;
 	padding: 4px;
 	border: 1px solid color-mix(in srgb, var(--fill-gray-bg) 30%, transparent);
-	border-radius: var(--radius-button);
+	border-radius: var(--radius-control);
 	background: transparent;
 	color: color-mix(in srgb, var(--text-1) 90%, transparent);
 	cursor: pointer;
@@ -194,7 +194,7 @@
 .branch-flow code {
 	padding: 3px 6px;
 	overflow: hidden;
-	border-radius: var(--radius-button);
+	border-radius: var(--radius-control);
 	background: var(--gb-bg-2);
 	text-overflow: ellipsis;
 	white-space: nowrap;
@@ -260,7 +260,7 @@
 	padding: 4px 8px;
 	gap: 6px;
 	border: 1px solid color-mix(in srgb, var(--fill-gray-bg) 30%, transparent);
-	border-radius: var(--radius-button);
+	border-radius: var(--radius-control);
 	background: transparent;
 	color: color-mix(in srgb, var(--text-1) 90%, transparent);
 	font-weight: var(--font-weight-semibold);

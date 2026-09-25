@@ -177,7 +177,7 @@
 
 .barSegment {
 	flex-basis: 0;
-	border-radius: 5px;
+	border-radius: var(--radius-full);
 }
 
 .barPassed {
@@ -261,7 +261,7 @@
 	flex-shrink: 0;
 	width: 8px;
 	height: 8px;
-	border-radius: 50%;
+	border-radius: var(--radius-full);
 }
 
 .checkDotDanger {
@@ -450,7 +450,7 @@
 	flex: none;
 	width: 6px;
 	height: 6px;
-	border-radius: 50%;
+	border-radius: var(--radius-full);
 }
 .readinessDot[data-tone="safe"] {
 	background: var(--fill-safe-bg);

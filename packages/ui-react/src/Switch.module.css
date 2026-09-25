@@ -37,7 +37,7 @@
 	left: 2px;
 	width: calc(var(--switch-height) - 4px);
 	height: calc(var(--switch-height) - 4px);
-	border-radius: 50%;
+	border-radius: var(--radius-full);
 	background-color: var(--bg-1);
 	transition: left var(--transition-medium);
 

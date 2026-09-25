@@ -19,7 +19,7 @@
 	container-type: inline-size;
 	display: flex;
 	flex-direction: column;
-	border-radius: var(--radius-lg);
+	border-radius: var(--radius-card);
 	outline: 1px solid var(--border-2);
 	outline-offset: -1px;
 	background: var(--bg-1);

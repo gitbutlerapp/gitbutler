@@ -5,7 +5,7 @@
 	width: var(--avatar-size);
 	height: var(--avatar-size);
 	overflow: hidden;
-	border-radius: 50%;
+	border-radius: var(--radius-full);
 }
 
 /* The glitch, and the picture over it once it loads. */

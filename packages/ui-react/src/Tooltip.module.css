@@ -4,7 +4,7 @@
 	max-width: 240px;
 	padding: 6px 8px;
 	gap: 7px;
-	border-radius: var(--radius-button);
+	border-radius: var(--radius-control);
 	background-color: var(--bg-1);
 	box-shadow: var(--shadow-tooltip);
 	color: var(--text-1);

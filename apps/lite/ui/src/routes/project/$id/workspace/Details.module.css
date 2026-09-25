@@ -235,7 +235,7 @@
 .toggleAvatar {
 	width: 14px;
 	height: 14px;
-	border-radius: 50%;
+	border-radius: var(--radius-full);
 	background-color: lightgray;
 }
 

@@ -39,7 +39,7 @@
 	flex: none;
 	width: 8px;
 	height: 8px;
-	border-radius: 50%;
+	border-radius: var(--radius-full);
 	background-color: var(--tag-color);
 	box-shadow: inset 0 0 0 1px
 		light-dark(
