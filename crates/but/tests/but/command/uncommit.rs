@@ -244,7 +244,7 @@ fn uncommit_command_on_commit() {
   ],
   "stacks": [
     {
-      "cliId": "k0",
+      "cliId": "i0",
       "assignedChanges": [],
       "branches": [
 ...
