@@ -13,7 +13,7 @@ const meta = preview.meta({
 
 export const Default = meta.story({
 	args: {
-		hotkey: "A",
+		hotkey: "B",
 	},
 });
 
