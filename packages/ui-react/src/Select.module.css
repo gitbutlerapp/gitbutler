@@ -8,7 +8,7 @@
 
 	justify-content: flex-start;
 	width: 100%;
-	font-weight: var(--text-weight-regular);
+	font-weight: var(--font-weight-regular);
 
 	&:not(:disabled, [data-disabled])[data-popup-open] {
 		background-color: var(--button-hover-bg);

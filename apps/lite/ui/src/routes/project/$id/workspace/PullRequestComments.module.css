@@ -253,7 +253,7 @@
 }
 
 .eventMono {
-	font-family: var(--text-fontfamily-mono);
+	font-family: var(--font-family-mono);
 }
 
 /* ---- Composer ---------------------------------------------------------- */

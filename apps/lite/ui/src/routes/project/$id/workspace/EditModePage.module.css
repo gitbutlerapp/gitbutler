@@ -35,7 +35,7 @@
 .commitRef {
 	color: var(--text-2);
 	font-size: 12px;
-	font-family: var(--text-fontfamily-mono);
+	font-family: var(--font-family-mono);
 }
 
 .sectionTitle {

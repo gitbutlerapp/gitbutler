@@ -67,7 +67,7 @@ button {
 	display: block;
 	margin-bottom: 2px;
 	color: var(--gb-text-2);
-	font-weight: var(--text-weight-semibold);
+	font-weight: var(--font-weight-semibold);
 	font-size: 10px;
 	letter-spacing: 0.065em;
 	text-transform: uppercase;
@@ -76,7 +76,7 @@ button {
 h1 {
 	margin: 0;
 	overflow: hidden;
-	font-weight: var(--text-weight-semibold);
+	font-weight: var(--font-weight-semibold);
 	font-size: 17px;
 	line-height: 1.3;
 	text-overflow: ellipsis;
@@ -155,7 +155,7 @@ h1 {
 
 .stack-header > span:first-of-type {
 	overflow: hidden;
-	font-weight: var(--text-weight-semibold);
+	font-weight: var(--font-weight-semibold);
 	font-size: 12px;
 	text-overflow: ellipsis;
 	white-space: nowrap;
@@ -275,7 +275,7 @@ code {
 
 .branch-label strong {
 	overflow: hidden;
-	font-weight: var(--text-weight-semibold);
+	font-weight: var(--font-weight-semibold);
 	font-size: 13px;
 	line-height: 16px;
 	text-overflow: ellipsis;
@@ -303,7 +303,7 @@ code {
 	border-radius: var(--radius-full);
 	background: color-mix(in srgb, var(--gb-danger) 14%, transparent);
 	color: var(--gb-danger);
-	font-weight: var(--text-weight-semibold);
+	font-weight: var(--font-weight-semibold);
 	font-size: 9px;
 }
 
@@ -387,7 +387,7 @@ code {
 
 .detail-kind {
 	color: var(--gb-text-2);
-	font-weight: var(--text-weight-semibold);
+	font-weight: var(--font-weight-semibold);
 	font-size: 9px;
 	letter-spacing: 0.055em;
 	text-transform: uppercase;
@@ -395,7 +395,7 @@ code {
 
 .detail-header h2 {
 	margin: 0;
-	font-weight: var(--text-weight-semibold);
+	font-weight: var(--font-weight-semibold);
 	font-size: 15px;
 	line-height: 1.35;
 	overflow-wrap: anywhere;
@@ -488,7 +488,7 @@ code {
 	align-items: center;
 	width: fit-content;
 	gap: 3px;
-	font-weight: var(--text-weight-semibold);
+	font-weight: var(--font-weight-semibold);
 }
 
 .line-stats .additions {
@@ -570,7 +570,7 @@ code {
 	border: 1px solid var(--gb-border-2);
 	border-radius: var(--radius-button);
 	background: var(--gb-bg-1);
-	font-weight: var(--text-weight-semibold);
+	font-weight: var(--font-weight-semibold);
 	font-size: 11px;
 	cursor: pointer;
 }
