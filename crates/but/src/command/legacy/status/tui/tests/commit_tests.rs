@@ -164,7 +164,7 @@ fn commit_from_unstaged_changes_to_new_branch_creates_branch_and_commit() {
 }
 
 #[test]
-fn commit_from_unstaged_changes_to_new_branch_checks_out_branch_in_single_branch_mode() {
+fn commit_from_unstaged_changes_to_new_branch_enters_workspace_in_single_branch_mode() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
     env.setup_metadata(&["A"]);
     env.invoke_git("checkout A");

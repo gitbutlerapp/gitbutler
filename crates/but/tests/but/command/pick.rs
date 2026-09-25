@@ -3,6 +3,26 @@ use snapbox::str;
 use crate::utils::{CommandExt as _, Sandbox};
 
 #[test]
+fn switch_requires_single_branch_feature() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
+    env.setup_metadata(&["A", "B"]);
+    env.but("config feature single-branch disable")
+        .assert()
+        .success();
+
+    env.but("pick d3e2ba3 -b picked --switch")
+        .assert()
+        .failure()
+        .stdout_eq(str![])
+        .stderr_eq(str![[r#"
+Error: `--switch` requires the `single-branch` feature to be enabled
+
+Hint: Enable the feature with `but config feature single-branch enable`
+
+"#]]);
+}
+
+#[test]
 fn rejects_unnamed_segment_as_source_or_target() {
     let env =
         Sandbox::init_scenario_with_target_and_default_settings("one-stack-anonymous-segment");
@@ -20,6 +40,199 @@ Hint: Name it with `but reword g0` first! Note that the short ID is likely to ch
 
 "#]]);
     }
+}
+
+#[test]
+fn pick_commit_to_new_branch_with_switch_in_single_branch_mode() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
+    env.setup_metadata(&["A", "B"]);
+    env.but("switch A").assert().success();
+
+    env.but("pick d3e2ba3 -b picked --switch")
+        .assert()
+        .success()
+        .stdout_eq(str![[r#"
+Picked d3e2ba3 onto new branch 'picked' to create olw
+
+"#]]);
+
+    // Picking with --switch creates an independent branch at the target, not above A.
+    assert_eq!(
+        env.invoke_git("symbolic-ref --short HEAD"),
+        "picked",
+        "the new branch must be checked out"
+    );
+    assert_eq!(
+        env.invoke_git("rev-parse picked^"),
+        env.invoke_git("rev-parse gitbutler/target"),
+        "the picked commit must be directly above the target"
+    );
+    env.but("status").assert().success().stdout_eq(str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┊╭┄ pi [picked]
+┊●   olw add B
+├╯
+┊
+┴ 0dc3733 (common base) 2000-01-02 add M
+
+Hint: run `but help` for all commands
+
+"#]]);
+}
+
+#[test]
+fn failed_pick_switch_to_existing_branch_rolls_back_materialization() {
+    let env = Sandbox::open_with_default_settings("single-branch-mode");
+    env.invoke_git("checkout -b source");
+    env.file("picked.txt", "picked content\n");
+    env.invoke_git("add picked.txt");
+    env.invoke_git("commit -m 'source commit'");
+    env.invoke_git("checkout main");
+    env.file("first", "Some text\n");
+    env.but("commit -b foo -m 'add first'").assert().success();
+    env.but("branch new other").assert().success();
+    env.file("first", "changes\n");
+
+    // Materializing the pick succeeds, but the remaining modification blocks checkout.
+    let source = env.invoke_git("rev-parse source");
+    env.but(format!("pick {source} -b other --switch"))
+        .assert()
+        .failure()
+        .stderr_eq(str![[r#"
+Error: Could not safely check out 'refs/heads/other' from [..] to [..]
+
+Caused by:
+    Uncommitted files would be overwritten by checkout: "first"
+
+"#]]);
+
+    // The unselected modification must survive; picked.txt must not leak into the worktree.
+    env.but("diff").assert().success().stdout_eq(str![[r#"
+──────────────╮
+ lz:7 M first │
+──────────────╯
+
+@@ -1,1 +1,1 @@
+───────────────
+1 ┊   │ -Some text
+  ┊ 1 │ +changes
+
+"#]]);
+    // The destination remains empty instead of retaining the unsuccessfully picked commit.
+    env.but("status -f").assert().success().stdout_eq(str![[r#"
+╭┄ @ [uncommitted]
+┊   lz M first
+┊
+┊╭┄ ot [other] (no commits)
+├╯
+┊
+┊╭┄ fo [foo]
+┊●   ppu add first
+┊│     ppu:l A first
+├╯
+┊
+┴ b1540e5 (common base) 2000-01-02 M
+
+Hint: run `but diff` to see uncommitted changes and `but commit -b <branch> -m "message" <id>` to commit them
+
+"#]]);
+    // Workspace and destination refs return to their original commits; source remains untouched.
+    snapbox::assert_data_eq!(
+        env.git_log(),
+        str![[r#"
+*   3fcc02f (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+|/  
+| * 4db633b (foo) add first
+|/  
+| * 181ba7d (source) source commit
+|/  
+* b1540e5 (origin/main, origin/HEAD, other, main, gitbutler/target) M
+* e31e6ca add init
+
+"#]]
+    );
+}
+
+#[test]
+fn failed_pick_switch_restores_ad_hoc_stack_refs() {
+    let env = Sandbox::open_with_default_settings("single-branch-mode");
+    env.invoke_git("checkout -b source");
+    env.file("picked.txt", "picked content\n");
+    env.invoke_git("add picked.txt");
+    env.invoke_git("commit -m 'source commit'");
+    env.invoke_git("checkout main");
+    env.but("branch new bottom").assert().success();
+    env.but("commit --empty -m bottom").assert().success();
+    env.but("branch new middle --above bottom")
+        .assert()
+        .success();
+    env.but("commit --empty -m middle").assert().success();
+    env.but("branch new top --above middle").assert().success();
+    env.file("first.txt", "original\n");
+    env.but("commit -m 'add first'").assert().success();
+    env.file("first.txt", "modified\n");
+
+    // Inserting on bottom rewrites middle and top before checkout fails.
+    let source = env.invoke_git("rev-parse source");
+    env.but(format!("pick {source} -b bottom --switch"))
+        .assert()
+        .failure()
+        .stderr_eq(str![[r#"
+Error: Could not safely check out 'refs/heads/bottom' from [..] to [..]
+
+Caused by:
+    Uncommitted files would be overwritten by checkout: "first.txt"
+
+"#]]);
+
+    // The blocking modification survives, without adding picked.txt to the worktree.
+    env.but("diff").assert().success().stdout_eq(str![[r#"
+──────────────────╮
+ zo:f M first.txt │
+──────────────────╯
+
+@@ -1,1 +1,1 @@
+───────────────
+1 ┊   │ -original
+  ┊ 1 │ +modified
+
+"#]]);
+    // No picked commit remains on bottom, and middle is still between bottom and top.
+    env.but("status -f").assert().success().stdout_eq(str![[r#"
+╭┄ @ [uncommitted]
+┊   zo M first.txt
+┊
+┊╭┄ to [top]
+┊●   muz add first
+┊│     muz:z A first.txt
+┊│
+┊├┄ mi [middle]
+┊●   xpx middle (no changes)
+┊│
+┊├┄ bo [bottom]
+┊●   lsm bottom (no changes)
+├╯
+┊
+┴ b1540e5 (common base) 2000-01-02 M
+
+Hint: run `but diff` to see uncommitted changes and `but commit -b <branch> -m "message" <id>` to commit them
+
+"#]]);
+    // Rollback restores all ad-hoc refs, not just HEAD, and leaves source alone.
+    snapbox::assert_data_eq!(
+        env.git_log(),
+        str![[r#"
+* 181ba7d (source) source commit
+| * d607d72 (HEAD -> top) add first
+| * beaf835 (middle) middle
+| * 119880a (bottom) bottom
+|/  
+* b1540e5 (origin/main, origin/HEAD, main, gitbutler/target) M
+* e31e6ca add init
+
+"#]]
+    );
 }
 
 #[test]
