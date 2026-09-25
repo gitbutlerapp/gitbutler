@@ -38,6 +38,9 @@ pub(crate) mod rejection;
 pub(crate) mod targeting;
 pub(crate) mod worktrees;
 
+#[cfg(feature = "legacy")]
+pub mod single_branch_mode;
+
 pub mod diff_rendering;
 pub mod string_interning;
 
