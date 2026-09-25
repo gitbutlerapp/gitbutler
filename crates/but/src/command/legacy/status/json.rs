@@ -558,7 +558,7 @@ fn convert_uncommitted_files(
                 .iter()
                 .find(|c| c.path_bytes == file.path)?;
             Some(FileChange::from_tree_change(
-                file.short_id.clone(),
+                file.cli_id.to_short_string(),
                 change.clone(),
             ))
         })

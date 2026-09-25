@@ -608,7 +608,8 @@ impl WorkspaceCommitWithId {
         Ok(matches)
     }
 
-    fn cli_id(&self) -> CliId {
+    /// The ID naming this commit.
+    pub fn cli_id(&self) -> CliId {
         CliId::Commit {
             commit: CommitId {
                 commit_id: self.commit_id(),
@@ -634,7 +635,8 @@ impl RemoteCommitWithId {
     }
 }
 impl RemoteCommitWithId {
-    fn cli_id(&self) -> CliId {
+    /// The ID naming this commit.
+    pub fn cli_id(&self) -> CliId {
         CliId::Commit {
             commit: CommitId {
                 commit_id: self.commit_id(),
@@ -695,7 +697,8 @@ impl SegmentWithId {
         matches
     }
 
-    fn cli_id(&self) -> CliId {
+    /// The ID naming this segment.
+    pub fn cli_id(&self) -> CliId {
         match self.branch_name() {
             Some(name) => CliId::Branch(BranchId {
                 name: name.to_string(),
