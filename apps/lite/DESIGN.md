@@ -1,6 +1,7 @@
 # Lite design notes
 
-The shared design language is `packages/ui-react/DESIGN.md`; read it first.
+The shared design language is indexed in `packages/ui-react/DESIGN.md`; read
+the pages it lists for what you are building first.
 These are the choices Lite makes for itself, as a desktop app, and where it
 keeps what the shared rules ask for.
 

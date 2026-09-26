@@ -477,7 +477,7 @@ export const PullRequestForm: FC<{
 
 								{/* The reason rides in the label, not a tooltip: it is the
 								    form's whole story, so it has to be readable without hover
-								    (DESIGN.md → Empty states). Only once the editor is too
+								    (ui-react's design/patterns/blocked-states.md). Only once the editor is too
 								    narrow for the label does the tooltip take it over. */}
 								<Tooltip disabled={!submitLabelHidden || !isNew} content={submitLabel}>
 									<Button

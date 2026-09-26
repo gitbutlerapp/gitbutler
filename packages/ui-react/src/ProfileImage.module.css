@@ -86,7 +86,7 @@
 	transition: opacity var(--transition-fast);
 }
 
-/* The camera arrives the way the crossfade's incoming icon does (DESIGN.md, Motion), but
+/* The camera arrives the way the crossfade's incoming icon does (design/foundations/motion.md), but
    with no outgoing icon to cover for it, its opacity rides the wash's fast fade so it is on
    screen the moment the wash is; only the shape and blur take the medium tier. It also
    starts larger than a crossfade's 0.25: with nothing shrinking away to meet it, that far a

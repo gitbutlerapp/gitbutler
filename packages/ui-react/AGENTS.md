@@ -6,8 +6,9 @@ build; each consumer's Vite compiles it, and React Compiler runs on it under
 the consumer's config as it does on the consumer's own code.
 
 `DESIGN.md` beside this file is the visual language: how things should look
-and read. Read it before changing anything a user sees. This file is the
-tooling that enforces it.
+and read. It is an index of the pages in `design/`, one per topic; read the
+ones for what you are changing before changing anything a user sees. This file
+is the tooling that enforces them.
 
 ## Writing the code
 
@@ -108,15 +109,15 @@ $ pnpm -F @gitbutler/ui-react test
 ```
 
 `check` typechecks and then runs Stylelint over the components' CSS with the
-rules DESIGN.md gives a machine: colours are tokens, font sizes are on the
-11–16 scale, radii come from the radius tokens. An error names what to use
-instead. The exceptions are the ones DESIGN.md names, and each is marked
-where it is: the file icons' brand colours (a file-level override in
+rules the design pages give a machine: colours are tokens, font sizes are on
+the 11–16 scale, radii come from the radius tokens. An error names what to use
+instead. The exceptions are the ones the pages name, and each is marked where
+it is: the file icons' brand colours (a file-level override in
 `stylelint.config.mjs`) and a mask's opaque stop. A radius that is a share of
-another, an inner corner following its outer one, is a `calc()` from the
-outer token and needs no exception (DESIGN.md, Radius). A new exception is
-a design decision first; if it stands, disable the rule on that line with the
-reason after `--`.
+another, an inner corner following its outer one, is a `calc()` from the outer
+token and needs no exception (`design/foundations/radius.md`). A new exception
+is a design decision first; if it stands, disable the rule on that line with
+the reason after `--`.
 
 ### Tokens
 
@@ -178,11 +179,15 @@ While Storybook runs, it serves an MCP server at `http://localhost:6007/mcp`
 $ claude mcp add --transport http gitbutler-storybook http://localhost:6007/mcp
 ```
 
-`DesignNotes.mdx` beside DESIGN.md puts the design notes in Storybook as a
-docs page, so the published Storybook shows them and the MCP server's
-`docs-list` lists them; it renders the file itself, so edit DESIGN.md, never
-the page. An agent reading it through `docs-show` gets the page's source, which
-names the file and its raw URL.
+Each design notes page has an `.mdx` beside its `.md` in `design/`, under
+Storybook's Design section, so the published Storybook shows them and the MCP
+server's `docs-list` lists them; `design/overview.mdx` renders DESIGN.md. The
+MDX renders the Markdown file itself, so edit the `.md`, never the page. What
+the MDX writes is the title, a one-line summary (the description `docs-list`
+shows) and the file's raw URL, since `docs-show` returns the MDX source, not
+the rendered text. A new page takes a Markdown file, an MDX beside it titled
+`Design/<Group>/<Name>` after its folder and file name (that is how links
+between the files find their Storybook page), and a row in DESIGN.md.
 
 Before using a component, ask it rather than guessing: `docs-list` lists the
 components, `docs-show` gives one's props, its stories and the import to

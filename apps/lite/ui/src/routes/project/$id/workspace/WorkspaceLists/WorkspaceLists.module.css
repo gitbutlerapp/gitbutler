@@ -123,11 +123,11 @@
 	margin-block: 8px;
 }
 
-/* No branches applied: an empty section where the cards would be (ui-react
-   DESIGN.md, Empty states). The panel has content above and below, so the
-   block keeps its place in the flow: no illustration, no centring in the
-   panel's leftover height, and no counterweight, since a section has no weight
-   to lift. */
+/* No branches applied: an empty section where the cards would be (ui-react's
+   design/patterns/empty-states.md). The panel has content above and below, so
+   the block keeps its place in the flow: no illustration, no centring in the
+   panel's leftover height, and no counterweight, since a section has no
+   weight to lift. */
 .empty {
 	--empty-state-counterweight: 0px;
 	--empty-state-gap: 0px;

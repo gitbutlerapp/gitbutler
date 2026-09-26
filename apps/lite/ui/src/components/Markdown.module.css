@@ -182,7 +182,7 @@
 		}
 	}
 
-	/* Copy becomes a tick: the icon crossfade from DESIGN.md (Motion). Both glyphs share
+	/* Copy becomes a tick: the icon crossfade from ui-react's design/foundations/motion.md. Both glyphs share
 	   one cell; the leaving one shrinks, blurs and fades, the arriving one does the reverse. */
 	.copyIcons {
 		display: grid;

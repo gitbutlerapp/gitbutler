@@ -41,7 +41,7 @@
 
 /* The pointer's target: as tall as the thumb with a little over, so a press just off the track
    still lands. The arrow over it follows the setting like every control, and the hand that
-   holds the thumb closes while it drags (DESIGN.md, Cursors). */
+   holds the thumb closes while it drags (design/foundations/cursors.md). */
 .control {
 	display: flex;
 	align-items: center;
@@ -80,7 +80,7 @@
    pointer or in the hand squares off to the thumb's full height and shows its grip — two
    hairlines that say it can be dragged sideways. The wider card overflows the box evenly on
    both sides. The grip fades and the width grows on the fast tier, since this is a hover state,
-   not a move (DESIGN.md, States). The ring is the field's; it shows for the keyboard only, so a
+   not a move (design/foundations/states.md). The ring is the field's; it shows for the keyboard only, so a
    click doesn't leave one behind. */
 .thumb {
 	width: var(--thumb-width);

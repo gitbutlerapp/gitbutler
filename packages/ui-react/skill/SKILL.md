@@ -35,23 +35,12 @@ source when they don't. Don't wait on them.
 When nothing fits, build the smallest thing that works and say so in the PR
 description: what was needed, which components you tried.
 
-## Read the part of DESIGN.md you need
+## Read the design pages you need
 
 The shared design language is the library's `DESIGN.md`, beside `src/` in the
-same two places. Read the sections for what you are building, not the whole
-file:
-
-| Building                               | Sections                    |
-| -------------------------------------- | --------------------------- |
-| Buttons, choosing which one stands out | Emphasis, Button variants   |
-| A link, or text that opens something   | Links                       |
-| Anything clickable                     | States, Minimums, Cursors   |
-| A form or settings row                 | Fields                      |
-| Nothing to show yet                    | Empty states, Illustrations |
-| Telling the user something happened    | Toasts and snackbars        |
-| A hover hint                           | Tooltips                    |
-| An animation                           | Motion                      |
-| Any words on screen                    | Voice                       |
+same two places: an index of one page per topic, in `design/`, each saying
+when to read it. Read the pages for what you are building, not all of them.
+In Storybook they are the Design section, and `docs-list` lists them.
 
 Each app keeps its own choices in its own `DESIGN.md`: Lite's is
 `apps/lite/DESIGN.md`, but.dev's is at its repository root.
