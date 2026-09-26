@@ -33,6 +33,12 @@ type Props = {
 	fileName: string;
 } & ComponentProps<"i">;
 
+/**
+ * A file's language or type glyph, picked from its name: the longest known suffix wins
+ * (`vite.config.ts` before `.ts`), and anything unknown is a plain document.
+ *
+ * @import import { FileIcon } from "@gitbutler/ui-react/FileIcon.tsx";
+ */
 export const FileIcon: FC<Props> = ({ fileName, ...props }) => (
 	<i
 		{...props}
