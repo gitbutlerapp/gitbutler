@@ -77,6 +77,7 @@ import {
 	useSelection,
 } from "#ui/use-cursor.ts";
 import { useApplyToWorkspace } from "./useApplyToWorkspace.ts";
+import { ApplyPullRequest } from "./ApplyPullRequest.tsx";
 import type { NewBranchActions } from "./useNewBranch.ts";
 import styles from "./BranchesList.module.css";
 import { CommitRowContent } from "./CommitRowContent.tsx";
@@ -791,6 +792,8 @@ export const BranchesList: FC<
 							</Toolbar.Group>
 
 							<Toolbar.Separator className={styles.headerSeparator} />
+
+							<ApplyPullRequest projectId={projectId} />
 
 							<Toolbar.Button
 								aria-label="New branch"
