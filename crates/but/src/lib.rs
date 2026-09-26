@@ -1486,6 +1486,7 @@ async fn dispatch_subcommand(
                     no_hooks,
                     default,
                     draft,
+                    attach,
                 }) => {
                     let draft = top_level_draft || draft;
                     // Read message content from file or inline
@@ -1519,6 +1520,8 @@ async fn dispatch_subcommand(
                             ).into());
                         }
                     }
+                    // Checked before pushing, so a mistyped path fails while it is free to rerun.
+                    let attachments = command::legacy::forge::attachment::parse(&attach)?;
                     command::legacy::forge::review::create_review(
                         &mut ctx,
                         branch,
@@ -1528,6 +1531,7 @@ async fn dispatch_subcommand(
                         default,
                         draft,
                         review_message,
+                        &attachments,
                         out,
                     )
                     .await
@@ -1572,6 +1576,7 @@ async fn dispatch_subcommand(
                         false,
                         top_level_draft,
                         None,
+                        &[],
                         out,
                     )
                     .await

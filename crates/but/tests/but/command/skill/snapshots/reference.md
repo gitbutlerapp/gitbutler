@@ -222,6 +222,7 @@ Create a new review for a branch, force-pushing it first
 - `--no-hooks` Bypass pre-push hooks
 - `-t, --default` Use the default content for the review title and description, skipping any prompts. If the branch contains only a single commit, the commit message will be used
 - `-d, --draft` Create the review as a draft
+- `--attach <FILE[#ALT]>` Attach a file to the review description, as <file>#<alt text>; repeatable. Files are uploaded publicly to gitbutler.com, which needs a GitButler account signed in through the desktop app. Images are embedded and other files linked, appended to the description; a description reference to the file's path, such as ![alt](./login.png), is pointed at the upload instead. Without alt text the file name is used.
 
 ### but pr auto-merge [SELECTOR]
 Enable or disable the automatic merging of reviews

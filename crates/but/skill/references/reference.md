@@ -481,6 +481,7 @@ but pr new <branch-selector> -t     # Use default content (commit message), skip
 but pr new <branch-selector> --draft  # Create as draft
 but pr new <branch-selector> --no-hooks  # Bypass pre-push hooks (--no-verify also works)
 but pr new <branch-selector> -s     # Skip force-push protection checks
+but pr new <branch-selector> -m "Title" --attach './shot.png#Alt text'  # Upload a file publicly to gitbutler.com and link it in the description; repeatable
 but pr --draft                # Top-level draft flag
 but pr auto-merge <selector>  # Enable auto-merge
 but pr set-draft <selector>   # Mark review as draft
@@ -496,7 +497,7 @@ Selectors for `auto-merge`, `set-draft`, and `set-ready` can be branch names, br
 
 Agents must use `--message (-m)`, `--file (-F)`, or `--default (-t)` to avoid editor prompts. The `-t` flag uses the commit message as title/description for single-commit branches; for multi-commit branches it falls back to the branch name as the title.
 
-**Stacked branches:** Use `but pr` for stacked PRs. It creates reviews against the right bases and updates GitButler stack footers in PR descriptions. Creating stacked PRs with `gh pr create` or another forge tool loses that stack-aware behavior. To publish a whole stack, run `but pr new <top-branch-name> -t`; custom messages (`-m` or `-F`) only apply to the selected branch, while dependent branches use default messages (commit title/description).
+**Stacked branches:** Use `but pr` for stacked PRs. It creates reviews against the right bases and updates GitButler stack footers in PR descriptions. Creating stacked PRs with `gh pr create` or another forge tool loses that stack-aware behavior. To publish a whole stack, run `but pr new <top-branch-name> -t`; custom messages (`-m` or `-F`) and `--attach` files only apply to the selected branch, while dependent branches use default messages (commit title/description).
 
 When the selected branch sits on dependencies that already have PRs, the summary lists those as "PR already exists for ..." and ends with the newly created review. The already-exists lines are normal stack reporting, not a failure to create the selected branch's PR.
 

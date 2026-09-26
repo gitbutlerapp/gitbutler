@@ -1095,4 +1095,34 @@ mod pr {
             }
         }
     }
+
+    #[test]
+    fn parses_repeated_attach() {
+        let args = crate::args::Args::try_parse_from([
+            "but",
+            "pr",
+            "new",
+            "topic",
+            "--attach",
+            "./before.png",
+            "--attach",
+            "./after.png#The fixed state",
+        ])
+        .expect("parse args");
+
+        let cmd = args.cmd.expect("subcommand");
+        match cmd {
+            crate::args::Subcommands::Pr(crate::args::forge::pr::Platform {
+                cmd: Some(crate::args::forge::pr::Subcommands::New { attach, .. }),
+                ..
+            }) => {
+                assert_eq!(
+                    attach,
+                    ["./before.png", "./after.png#The fixed state"],
+                    "each --attach is kept in order, alt text still attached"
+                );
+            }
+            _ => panic!("unexpected command shape"),
+        }
+    }
 }

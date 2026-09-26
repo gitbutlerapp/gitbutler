@@ -44,6 +44,15 @@ pub mod pr {
             /// Create the review as a draft.
             #[clap(long, short = 'd', default_value_t = false)]
             draft: bool,
+            /// Attach a file to the review description, as `<file>#<alt text>`; repeatable.
+            /// Files are uploaded publicly to gitbutler.com, which needs a GitButler account
+            /// signed in through the desktop app.
+            ///
+            /// Images are embedded and other files linked, appended to the description; a
+            /// description reference to the file's path, such as `![alt](./login.png)`, is
+            /// pointed at the upload instead. Without alt text the file name is used.
+            #[clap(long = "attach", value_name = "FILE[#ALT]")]
+            attach: Vec<String>,
         },
         /// Enable or disable the automatic merging of reviews.
         AutoMerge {
