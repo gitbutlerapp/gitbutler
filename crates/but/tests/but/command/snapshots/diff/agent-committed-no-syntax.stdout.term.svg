@@ -1,0 +1,57 @@
+<svg width="740px" height="218px" xmlns="http://www.w3.org/2000/svg">
+  <style>
+    .fg { fill: #AAAAAA }
+    .bg { fill: #000000 }
+    .bg-rgb-004100 { stroke: #004100; fill: #004100; user-select: none;  }
+    .bg-rgb-004120 { stroke: #004120; fill: #004120; user-select: none;  }
+    .bg-rgb-00415A { stroke: #00415A; fill: #00415A; user-select: none;  }
+    .bg-rgb-580001 { stroke: #580001; fill: #580001; user-select: none;  }
+    .bg-rgb-58001F { stroke: #58001F; fill: #58001F; user-select: none;  }
+    .bg-rgb-58005A { stroke: #58005A; fill: #58005A; user-select: none;  }
+    .fg-blue { fill: #0000AA }
+    .fg-bright-black { fill: #555555 }
+    .fg-yellow { fill: #AA5500 }
+    .container {
+      padding: 0 10px;
+      line-height: 18px;
+    }
+    .dimmed { opacity: 0.4; }
+    tspan {
+      font: 14px SFMono-Regular, Consolas, Liberation Mono, Menlo, monospace;
+      white-space: pre;
+      line-height: 18px;
+    }
+  </style>
+
+  <rect width="100%" height="100%" y="0" rx="4.5" class="bg" />
+
+  <text xml:space="preserve" class="container fg">
+    <tspan x="10px" y="28px"><tspan class="fg-bright-black">─</tspan><tspan class="fg-bright-black">─</tspan><tspan class="fg-bright-black">─</tspan><tspan class="fg-bright-black">─</tspan><tspan class="fg-bright-black">─</tspan><tspan class="fg-bright-black">─</tspan><tspan class="fg-bright-black">─</tspan><tspan class="fg-bright-black">─</tspan><tspan class="fg-bright-black">─</tspan><tspan class="fg-bright-black">─</tspan><tspan class="fg-bright-black">─</tspan><tspan class="fg-bright-black">─</tspan><tspan class="fg-bright-black">─</tspan><tspan class="fg-bright-black">─</tspan><tspan class="fg-bright-black">─</tspan><tspan class="fg-bright-black">─</tspan><tspan class="fg-bright-black">─</tspan><tspan class="fg-bright-black">─</tspan><tspan class="fg-bright-black">─</tspan><tspan class="fg-bright-black">─</tspan><tspan class="fg-bright-black">─</tspan><tspan class="fg-bright-black">─</tspan><tspan class="fg-bright-black">─</tspan><tspan class="fg-bright-black">─</tspan><tspan class="fg-bright-black">─</tspan><tspan class="fg-bright-black">─</tspan><tspan class="fg-bright-black">╮</tspan>
+</tspan>
+    <tspan x="10px" y="46px"><tspan> </tspan><tspan class="fg-blue">sko:yko:a31</tspan><tspan> </tspan><tspan class="fg-yellow">M</tspan><tspan> example.rs </tspan><tspan class="fg-bright-black">│</tspan>
+</tspan>
+    <tspan x="10px" y="64px"><tspan class="fg-bright-black">─</tspan><tspan class="fg-bright-black">─</tspan><tspan class="fg-bright-black">─</tspan><tspan class="fg-bright-black">─</tspan><tspan class="fg-bright-black">─</tspan><tspan class="fg-bright-black">─</tspan><tspan class="fg-bright-black">─</tspan><tspan class="fg-bright-black">─</tspan><tspan class="fg-bright-black">─</tspan><tspan class="fg-bright-black">─</tspan><tspan class="fg-bright-black">─</tspan><tspan class="fg-bright-black">─</tspan><tspan class="fg-bright-black">─</tspan><tspan class="fg-bright-black">─</tspan><tspan class="fg-bright-black">─</tspan><tspan class="fg-bright-black">─</tspan><tspan class="fg-bright-black">─</tspan><tspan class="fg-bright-black">─</tspan><tspan class="fg-bright-black">─</tspan><tspan class="fg-bright-black">─</tspan><tspan class="fg-bright-black">─</tspan><tspan class="fg-bright-black">─</tspan><tspan class="fg-bright-black">─</tspan><tspan class="fg-bright-black">─</tspan><tspan class="fg-bright-black">─</tspan><tspan class="fg-bright-black">─</tspan><tspan class="fg-bright-black">╯</tspan>
+</tspan>
+    <tspan x="10px" y="82px">
+</tspan>
+    <tspan x="10px" y="100px"><tspan class="dimmed">@@ -1,3 +1,3 @@</tspan>
+</tspan>
+    <tspan x="10px" y="118px"><tspan class="fg-bright-black">─</tspan><tspan class="fg-bright-black">─</tspan><tspan class="fg-bright-black">─</tspan><tspan class="fg-bright-black">─</tspan><tspan class="fg-bright-black">─</tspan><tspan class="fg-bright-black">─</tspan><tspan class="fg-bright-black">─</tspan><tspan class="fg-bright-black">─</tspan><tspan class="fg-bright-black">─</tspan><tspan class="fg-bright-black">─</tspan><tspan class="fg-bright-black">─</tspan><tspan class="fg-bright-black">─</tspan><tspan class="fg-bright-black">─</tspan><tspan class="fg-bright-black">─</tspan><tspan class="fg-bright-black">─</tspan>
+</tspan>
+    <tspan x="10px" y="136px"><tspan class="dimmed">1</tspan><tspan class="fg-bright-black"> ┊ </tspan><tspan class="dimmed">1</tspan><tspan class="fg-bright-black"> │  </tspan><tspan>fn main() {</tspan>
+</tspan>
+    <tspan x="10px" y="154px"><tspan class="bg-rgb-58001F">█</tspan><tspan class="bg-rgb-58005A">███</tspan><tspan class="bg-rgb-580001">█</tspan><tspan class="bg-rgb-58005A">███</tspan><tspan class="bg-rgb-580001">█</tspan><tspan class="bg-rgb-580001">███████████████████████</tspan>
+</tspan>
+    <tspan x="10px" y="154px"><tspan>2</tspan><tspan> ┊ </tspan><tspan> </tspan><tspan> │ </tspan><tspan>-</tspan><tspan>    println!("before");</tspan>
+</tspan>
+    <tspan x="10px" y="172px"><tspan class="bg-rgb-004100">█</tspan><tspan class="bg-rgb-00415A">███</tspan><tspan class="bg-rgb-004120">█</tspan><tspan class="bg-rgb-00415A">███</tspan><tspan class="bg-rgb-004100">█</tspan><tspan class="bg-rgb-004100">██████████████████████</tspan>
+</tspan>
+    <tspan x="10px" y="172px"><tspan> </tspan><tspan> ┊ </tspan><tspan>2</tspan><tspan> │ </tspan><tspan>+</tspan><tspan>    println!("hello");</tspan>
+</tspan>
+    <tspan x="10px" y="190px"><tspan class="dimmed">3</tspan><tspan class="fg-bright-black"> ┊ </tspan><tspan class="dimmed">3</tspan><tspan class="fg-bright-black"> │  </tspan><tspan>}</tspan>
+</tspan>
+    <tspan x="10px" y="208px">
+</tspan>
+  </text>
+
+</svg>
