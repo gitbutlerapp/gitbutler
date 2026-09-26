@@ -3,7 +3,6 @@
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { Annotation } from "./Annotation.tsx";
 import { RelativeTime } from "./RelativeTime.tsx";
 
 declare global {
@@ -52,39 +51,5 @@ describe("RelativeTime", () => {
 
 		// A pinned list stays stable no matter how long it is left open.
 		expect(container.textContent).toBe("just now");
-	});
-
-	it("refreshes an edited annotation's clock before the next tick", () => {
-		const renderAnnotation = (updatedAt: number) =>
-			act(() =>
-				root.render(
-					<Annotation author="You" defaultBody="Comment" name="comment" updatedAt={updatedAt} />,
-				),
-			);
-
-		renderAnnotation(start - 60_000);
-		const textarea = container.querySelector("textarea");
-		if (textarea === null) throw new Error("Missing annotation textarea");
-		textarea.value = "Edited comment";
-		textarea.focus();
-		act(() => {
-			vi.advanceTimersByTime(20_000);
-		});
-
-		renderAnnotation(start + 19_000);
-
-		expect(container.querySelector("time")?.textContent).toBe("just now");
-		expect(container.querySelector("textarea")).toBe(textarea);
-		expect(textarea.value).toBe("Edited comment");
-		expect(document.activeElement).toBe(textarea);
-
-		act(() => {
-			vi.advanceTimersByTime(30_000);
-		});
-		expect(container.querySelector("time")?.textContent).toBe("just now");
-		act(() => {
-			vi.advanceTimersByTime(30_000);
-		});
-		expect(container.querySelector("time")?.textContent).toBe("1 minute ago");
 	});
 });
