@@ -39,6 +39,8 @@ const keysChanged = (before: ReadonlyArray<unknown>, after: ReadonlyArray<unknow
  * only see errors thrown while rendering below them: a throw in an event
  * handler, a timer, or in the parent that builds this subtree's elements
  * escapes to the toast in `main.tsx` instead.
+ *
+ * @import import { ErrorBoundary } from "@gitbutler/ui-react/ErrorBoundary.tsx";
  */
 export class ErrorBoundary extends Component<Props, State> {
 	state: State = { error: null, resetKeys: this.props.resetKeys ?? [] };

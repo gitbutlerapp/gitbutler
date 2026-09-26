@@ -5,6 +5,8 @@ import { useId, type ComponentProps, type FC } from "react";
  * The folder mark, wherever a folder is named: the workspace header and every
  * directory row in the file tree. Callers size it with CSS; it keeps its
  * proportions inside whatever box they give it.
+ *
+ * @import import { FolderIcon } from "@gitbutler/ui-react/FolderIcon.tsx";
  */
 export const FolderIcon: FC<ComponentProps<"svg">> = (p) => {
 	// A directory row renders one of these, so many copies share the DOM and the

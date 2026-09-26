@@ -6,7 +6,11 @@ import type { FC } from "react";
 /** Refresh periodically as timestamps age out of "just now" and into minutes. */
 const TICK_MS = 60_000;
 
-/** A relative timestamp whose hover tooltip carries the absolute time. */
+/**
+ * A relative timestamp whose hover tooltip carries the absolute time.
+ *
+ * @import import { RelativeTime } from "@gitbutler/ui-react/RelativeTime.tsx";
+ */
 export const RelativeTime: FC<{
 	timestamp: number;
 	/** Pin "now" for stable output across re-renders, as the row lists do. */
