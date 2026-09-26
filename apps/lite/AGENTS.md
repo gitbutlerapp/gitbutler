@@ -122,6 +122,20 @@ than by eye, and keep one screenshot as the proof. A story links its Figma
 component through the `design` parameter when one exists, so the two sides
 can be compared when either changes.
 
+Every story, the library's and the app's, also runs as a test in headless
+Chromium, as part of `pnpm -F @gitbutler/lite test` or on its own:
+
+```console
+$ pnpm -F @gitbutler/lite test:stories
+```
+
+A story fails when it throws while rendering or its `play` function fails.
+The tests need Playwright's Chromium, once per checkout:
+
+```console
+$ pnpm -F @gitbutler/lite playwright:install:unit
+```
+
 Storybook also writes the component manifest (`/manifests/components.json`)
 from every story, the app's included, and the import it lists for a
 component is the `@import` tag in that component's JSDoc, as

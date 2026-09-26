@@ -20,7 +20,9 @@ import { CheckForUpdatesContext } from "#ui/updater-context.ts";
 
 const updateStatusQueryOptions = queryOptions({
 	queryKey: ["updateStatus"],
-	queryFn: window.lite.getUpdateStatus,
+	// Looked up when it runs, not when this module loads: a story installs its own window.lite
+	// after the import.
+	queryFn: () => window.lite.getUpdateStatus(),
 });
 
 // Share a common ID and title without inheriting any props from previous invocations.
