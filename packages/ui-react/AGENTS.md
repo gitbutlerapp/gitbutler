@@ -134,8 +134,10 @@ after any CSS change here, even when the package's own check passes.
 ### Stories
 
 Every component has a story beside it, in both themes, and a component that
-lives only in code is half a component. Storybook is Lite's, on port 6007, and
-lists this package's stories under `components/`:
+lives only in code is half a component. `pnpm check` holds the package to it
+through `scripts/check-stories.mjs`, which fails on a component no story
+imports. Storybook is Lite's, on port 6007, and lists this package's stories
+under `components/`:
 
 ```console
 $ pnpm -F @gitbutler/lite demos
