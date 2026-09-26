@@ -24,6 +24,8 @@ export type UncommittedChangesAddress = {
 
 export type BranchAddress = {
 	branchRef: Array<number>;
+	/** The linked worktree this branch is checked out in; unset for a branch applied to the workspace. */
+	worktree?: string;
 };
 
 /**
@@ -33,6 +35,8 @@ export type BranchAddress = {
 export type CommitAddress = {
 	commitId: string;
 	changeId: string;
+	/** The linked worktree whose own lane this commit belongs to; unset for a commit in the workspace. */
+	worktree?: string;
 };
 
 export type FileAddress = {
@@ -55,18 +59,22 @@ export const changesSourceOf = ({ worktree }: UncommittedChangesAddress): Change
 
 export const branchAddress = ({
 	branchRef,
+	worktree,
 }: BranchAddress): Extract<Address, { _tag: "Branch" }> => ({
 	_tag: "Branch",
 	branchRef,
+	worktree,
 });
 
 export const commitAddress = ({
 	commitId,
 	changeId,
+	worktree,
 }: CommitAddress): Extract<Address, { _tag: "Commit" }> => ({
 	_tag: "Commit",
 	commitId,
 	changeId,
+	worktree,
 });
 
 export const fileAddress = ({ parent, path }: FileAddress): Extract<Address, { _tag: "File" }> => ({
@@ -97,15 +105,17 @@ export const worktreeChangesFileParent = (
 	worktree,
 });
 
-export const branchFileParent = ({ branchRef }: BranchAddress): FileParent => ({
+export const branchFileParent = ({ branchRef, worktree }: BranchAddress): FileParent => ({
 	_tag: "Branch",
 	branchRef,
+	worktree,
 });
 
-export const commitFileParent = ({ commitId, changeId }: CommitAddress): FileParent => ({
+export const commitFileParent = ({ commitId, changeId, worktree }: CommitAddress): FileParent => ({
 	_tag: "Commit",
 	commitId,
 	changeId,
+	worktree,
 });
 
 const uncommittedChangesIdentityKey = ({ worktree }: UncommittedChangesAddress) =>

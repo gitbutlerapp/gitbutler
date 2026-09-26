@@ -2,14 +2,9 @@ import {
 	useCommitDiscardChanges,
 	useCommitUncommitChanges,
 	useDiscardWorktreeChanges,
-	useOpenInProgram,
 } from "#ui/api/mutations.ts";
 import { startAbsorb, startKeyboardTransfer } from "#ui/use-cursor.ts";
-import {
-	guiSettingsQueryOptions,
-	listEditorsQueryOptions,
-	listProjectsQueryOptions,
-} from "#ui/api/queries.ts";
+import { guiSettingsQueryOptions, listEditorsQueryOptions } from "#ui/api/queries.ts";
 import {
 	diffHotkeys,
 	revealInFolderLabel,
@@ -20,12 +15,12 @@ import { diffSpecHunkHeadersForLineSelection } from "#ui/hunk.ts";
 import { type NativeMenuItem, nativeMenuItem, nativeMenuItemsFromGroups } from "#ui/native-menu.ts";
 import { hunkAddress, type HunkAddress, type Address } from "#ui/addresses.ts";
 import { createDiffSpec } from "#ui/operations/diff-specs.ts";
-import { useRevealInFolder } from "./useRevealInFolder.ts";
+import { useAbsolutePath, useOpenPathInProgram, useRevealInFolder } from "./usePathActions.ts";
 import { projectSlice } from "#ui/projects/state.ts";
 import { focusScope } from "#ui/focus-scopes.ts";
 import { useAppStore } from "#ui/store.ts";
 import type { TreeChange } from "@gitbutler/but-sdk";
-import { useQuery, useSuspenseQuery } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import { Match } from "effect";
 
 type HunkMenuTarget = {
@@ -43,15 +38,11 @@ export const useHunkMenuItems = ({
 	projectId: string;
 }): ((target: HunkMenuTarget) => Array<NativeMenuItem>) => {
 	const store = useAppStore();
-	const { data: projects } = useSuspenseQuery(listProjectsQueryOptions);
 	const { data: editors } = useQuery(listEditorsQueryOptions);
 	const { data: preferredEditor } = useQuery({
 		...guiSettingsQueryOptions,
 		select: (cfg) => editors?.find((editor) => editor.id === cfg.editorId),
 	});
-
-	const selectedProject = projects.find((project) => project.id === projectId);
-	if (!selectedProject) throw new Error("Could not find selected project");
 
 	const { isPending: isCommitUncommitChangesPending, mutate: commitUncommitChanges } =
 		useCommitUncommitChanges();
@@ -59,8 +50,9 @@ export const useHunkMenuItems = ({
 		useCommitDiscardChanges();
 	const { isPending: isDiscardWorktreeChangesPending, mutate: discardWorktreeChanges } =
 		useDiscardWorktreeChanges();
-	const { isPending: isOpenInProgramPending, mutate: openInProgram } = useOpenInProgram();
+	const { isPending: isOpenInProgramPending, openPathInProgram } = useOpenPathInProgram(projectId);
 	const revealInFolder = useRevealInFolder(projectId);
+	const absolutePath = useAbsolutePath(projectId);
 
 	return ({ sources, checkedProbe, usesSelectedLines, change, hunk, lineNumber }) => {
 		const state = store.getState();
@@ -78,6 +70,8 @@ export const useHunkMenuItems = ({
 			startKeyboardTransfer({ sources: cutSources, kind: "move" });
 			focusScope("sidebar");
 		};
+		// A linked worktree's file is opened and revealed where it lives.
+		const { worktree } = hunk.parent.parent;
 		const discardDiffSpec = createDiffSpec(
 			change,
 			sources.flatMap((source) => diffSpecHunkHeadersForLineSelection(source, "discard")),
@@ -91,11 +85,11 @@ export const useHunkMenuItems = ({
 							enabled: !isOpenInProgramPending,
 							accelerator: toElectronAccelerator(diffHotkeys.openInEditor.hotkey),
 							onSelect: () =>
-								openInProgram({
-									projectId,
+								void openPathInProgram({
 									programId: preferredEditor.id,
 									path: change.path,
 									lineNr: lineNumber,
+									worktree,
 								}),
 						})
 					: nativeMenuItem({
@@ -106,11 +100,11 @@ export const useHunkMenuItems = ({
 										label: editor.name,
 										enabled: !isOpenInProgramPending,
 										onSelect: () =>
-											openInProgram({
-												projectId,
+											void openPathInProgram({
 												programId: editor.id,
 												path: change.path,
 												lineNr: lineNumber,
+												worktree,
 											}),
 									}),
 								) ?? [],
@@ -118,17 +112,15 @@ export const useHunkMenuItems = ({
 				nativeMenuItem({
 					label: revealInFolderLabel,
 					accelerator: toElectronAccelerator(diffHotkeys.revealInFolder.hotkey),
-					onSelect: () => revealInFolder(change.path),
+					onSelect: () => revealInFolder(change.path, worktree),
 				}),
 				nativeMenuItem({
 					label: "Copy Path",
 					submenu: [
 						nativeMenuItem({
 							label: "Absolute Path",
-							onSelect: async () => {
-								const absolutePath = await window.lite.pathJoin(selectedProject.path, change.path);
-								await window.lite.clipboardWriteText(absolutePath);
-							},
+							onSelect: async () =>
+								window.lite.clipboardWriteText(await absolutePath(change.path, worktree)),
 						}),
 						nativeMenuItem({
 							label: "Relative Path",
