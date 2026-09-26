@@ -2190,34 +2190,6 @@ pub struct UncommittedHunk {
     pub tree_status: TreeStatusKind,
 }
 
-impl<'a> Node<'a> for &'a UncommittedHunk {
-    fn parse(
-        self: Box<Self>,
-        _element: &str,
-        _id_map: &'a IdMap,
-        _changes_in_commit: &dyn ChangesInCommit,
-    ) -> anyhow::Result<Vec<Box<dyn Node<'a> + 'a>>> {
-        Ok(Vec::new())
-    }
-
-    fn to_cli_id(
-        self: Box<Self>,
-        short_id: &str,
-        _id_map: &IdMap,
-    ) -> anyhow::Result<Option<CliId>> {
-        Ok(Some(CliId::UncommittedHunkOrFile(UncommittedHunkOrFile {
-            id: short_id.to_owned(),
-            hunks: NonEmpty::new(IdAndHunk {
-                id: short_id.to_owned(),
-                tree_status: self.tree_status,
-                hunk: self.hunk.clone(),
-            }),
-            is_entire_file: false,
-            source: self.source.clone(),
-        })))
-    }
-}
-
 #[derive(Debug, Clone, Eq)]
 pub struct CommittedFileId {
     /// The object ID of the commit containing the change to the file

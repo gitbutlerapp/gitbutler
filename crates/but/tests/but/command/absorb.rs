@@ -24,7 +24,13 @@ fn unresolvable_source_errors_instead_of_absorbing_everything() {
 
     // A source that resolves to nothing must fail loudly. It used to be
     // swallowed, silently degrading `absorb <id>` to absorb-everything.
-    env.but("absorb zq").assert().failure();
+    env.but("absorb zq")
+        .assert()
+        .failure()
+        .stderr_eq(snapbox::str![[r#"
+Error: Source 'zq' not found. If you just performed a Git operation (squash, rebase, etc.), try running 'but status' to refresh the current state.
+
+"#]]);
 
     // The worktree change is untouched.
     let status = util::status_json(&env);
@@ -44,7 +50,13 @@ fn ambiguous_source_errors_instead_of_absorbing_an_arbitrary_match() {
     env.file("foo23", "data\n");
     env.file("foo242", "data\n");
 
-    env.but("absorb kp").assert().failure();
+    env.but("absorb kp")
+        .assert()
+        .failure()
+        .stderr_eq(snapbox::str![[r#"
+Error: 'kp' is ambiguous - it matches more than one uncommitted change. Use more characters to disambiguate.
+
+"#]]);
 
     // Nothing was absorbed by the ambiguous selector.
     let status = util::status_json(&env);

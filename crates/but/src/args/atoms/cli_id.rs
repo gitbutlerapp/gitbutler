@@ -374,23 +374,6 @@ impl CliIdArg {
             )
         }
     }
-
-    #[expect(dead_code)]
-    fn wrong_kind_error(&self, id: &CliId, expected: &'static str) -> CliError {
-        let kind = match id {
-            CliId::Branch(..) => "a branch",
-            CliId::AnonymousSegment(..) => "an anonymous branch",
-            CliId::Commit { .. } => "a commit",
-            CliId::UncommittedHunkOrFile(..) => "an uncommitted change",
-            CliId::PathPrefix { .. } => "a path",
-            CliId::CommittedFile { .. } => "a committed file",
-            CliId::CommittedHunk(..) => "a committed change",
-            CliId::Uncommitted { .. } => "uncommitted changes",
-            CliId::WorktreeUncommitted { .. } => "a worktree's uncommitted changes",
-            CliId::Stack { .. } => "a stack",
-        };
-        bad_input(format!("Invalid {expected}. '{self}' is {kind}")).into()
-    }
 }
 
 pub(crate) fn anonymous_segment_error(id: &str) -> CliError {

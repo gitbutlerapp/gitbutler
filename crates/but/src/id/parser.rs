@@ -1,48 +1,18 @@
 use but_ctx::Context;
 
-use crate::{CliId, IdMap, id::SourceScope};
-
-#[derive(Debug)]
-pub(crate) struct IdResolutionError(String);
-
-impl IdResolutionError {
-    pub(crate) fn new(message: impl Into<String>) -> Self {
-        Self(message.into())
-    }
-}
-
-impl std::fmt::Display for IdResolutionError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.write_str(&self.0)
-    }
-}
-
-impl std::error::Error for IdResolutionError {}
-
-fn parse_scoped(
-    ctx: &mut Context,
-    id_map: &IdMap,
-    part: &str,
-    scope: SourceScope,
-) -> anyhow::Result<Vec<CliId>> {
-    match scope {
-        SourceScope::Any => id_map.parse_using_context(part, ctx),
-        SourceScope::UncommittedOnly => resolve_uncommitted_part(ctx, id_map, part),
-    }
-}
+use crate::{CliId, CliResult, IdMap, bad_input};
 
 /// Resolve one selector that must name uncommitted changes: the uncommitted
 /// namespace first, then a full-namespace fallback that keeps any uncommitted
 /// interpretations (container selectors the scoped parser does not model) and
 /// turns everything else into a targeted error naming what the selector is.
 ///
-/// This is the single home of that policy, used by callers that resolve a
-/// selector under [`SourceScope::UncommittedOnly`] — currently `but absorb`.
+/// This is the single home of that policy, currently used by `but absorb`.
 pub(crate) fn resolve_uncommitted_part(
     ctx: &mut Context,
     id_map: &IdMap,
     part: &str,
-) -> anyhow::Result<Vec<CliId>> {
+) -> CliResult<Vec<CliId>> {
     let scoped = id_map.parse_uncommitted_using_context(part, ctx)?;
     if !scoped.is_empty() {
         return Ok(scoped);
@@ -57,7 +27,7 @@ pub(crate) fn resolve_uncommitted_part(
         return Ok(uncommitted);
     }
     if let Some(other) = full.first() {
-        return Err(IdResolutionError::new(format!(
+        return Err(bad_input(format!(
             "'{}' is {} but must be an uncommitted file or hunk",
             part,
             other.kind_for_humans()
@@ -71,25 +41,16 @@ pub(crate) fn parse_sources(
     ctx: &mut Context,
     id_map: &IdMap,
     source: &str,
-) -> anyhow::Result<Vec<CliId>> {
-    parse_sources_scoped(ctx, id_map, source, SourceScope::Any)
-}
-
-fn parse_sources_scoped(
-    ctx: &mut Context,
-    id_map: &IdMap,
-    source: &str,
-    scope: SourceScope,
-) -> anyhow::Result<Vec<CliId>> {
+) -> CliResult<Vec<CliId>> {
     // Check if it's a list (contains ',')
     if source.contains(',') {
-        return parse_list(ctx, id_map, source, scope);
+        return parse_list(ctx, id_map, source);
     }
 
-    let source_result = parse_scoped(ctx, id_map, source, scope)?;
+    let source_result = id_map.parse_using_context(source, ctx)?;
     if source_result.len() != 1 {
         if source_result.is_empty() {
-            return Err(IdResolutionError::new(format!(
+            return Err(bad_input(format!(
                 "Source '{source}' not found. If you just performed a Git operation (squash, rebase, etc.), try running 'but status' to refresh the current state."
             ))
             .into());
@@ -98,7 +59,7 @@ fn parse_sources_scoped(
                 .iter()
                 .map(|id| format!("{} ({})", id.short_string(), id.kind_for_humans()))
                 .collect();
-            return Err(IdResolutionError::new(format!(
+            return Err(bad_input(format!(
                 "Source '{}' is ambiguous. Matches: {}. Try using more characters, a longer SHA, or the full branch name to disambiguate.",
                 source,
                 matches.join(", ")
@@ -109,12 +70,7 @@ fn parse_sources_scoped(
     Ok(vec![source_result[0].clone()])
 }
 
-fn parse_list(
-    ctx: &mut Context,
-    id_map: &IdMap,
-    source: &str,
-    scope: SourceScope,
-) -> anyhow::Result<Vec<CliId>> {
+fn parse_list(ctx: &mut Context, id_map: &IdMap, source: &str) -> CliResult<Vec<CliId>> {
     let parts: Vec<&str> = source.split(',').collect();
     let mut result = Vec::new();
 
@@ -126,15 +82,15 @@ fn parse_list(
             continue;
         }
 
-        let matches = parse_scoped(ctx, id_map, part, scope)?;
+        let matches = id_map.parse_using_context(part, ctx)?;
         if matches.len() != 1 {
             if matches.is_empty() {
-                return Err(IdResolutionError::new(format!(
+                return Err(bad_input(format!(
                     "Item '{part}' in list not found. If you just performed a Git operation (squash, rebase, etc.), try running 'but status' to refresh the current state."
                 ))
                 .into());
             } else {
-                return Err(IdResolutionError::new(format!(
+                return Err(bad_input(format!(
                     "Item '{part}' in list is ambiguous. Try using more characters to disambiguate."
                 ))
                 .into());
@@ -145,10 +101,7 @@ fn parse_list(
 
     // If all parts were empty, return an error
     if result.is_empty() {
-        return Err(IdResolutionError::new(format!(
-            "Source list '{source}' contains no valid items"
-        ))
-        .into());
+        return Err(bad_input(format!("Source list '{source}' contains no valid items")).into());
     }
 
     Ok(result)
