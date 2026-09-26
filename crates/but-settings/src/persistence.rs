@@ -1,8 +1,9 @@
 use std::path::{Path, PathBuf};
 
 use anyhow::{Context, Result};
-use serde_json::json;
-use serde_json_lenient::to_string_pretty;
+// The lenient parser reads the file, which may hold comments, but `serde_json` must write it: its
+// numbers are arbitrary-precision here, and only its own serializer knows to print them plainly.
+use serde_json::{json, to_string_pretty};
 
 use crate::{
     AppSettings,
@@ -204,6 +205,29 @@ mod tests {
         assert!(
             !settings.telemetry.app_metrics_enabled,
             "Custom settings should be preserved when migration is skipped"
+        );
+    }
+
+    #[test]
+    fn save_writes_numbers_plainly() {
+        let (_temp_dir, config_path, _legacy_path) = create_test_env();
+        std::fs::write(&config_path, "{}").unwrap();
+
+        let mut settings = AppSettings::load(&config_path, None).unwrap();
+        settings.fetch.auto_fetch_interval_minutes = 5;
+        settings.save(&config_path, None).unwrap();
+
+        let raw = std::fs::read_to_string(&config_path).unwrap();
+        assert!(
+            raw.contains(r#""autoFetchIntervalMinutes": 5"#),
+            "a number is written as a JSON number, not as serde_json's private form: {raw}"
+        );
+        assert_eq!(
+            AppSettings::load(&config_path, None)
+                .unwrap()
+                .fetch
+                .auto_fetch_interval_minutes,
+            5
         );
     }
 

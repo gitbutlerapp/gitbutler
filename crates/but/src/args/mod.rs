@@ -696,6 +696,11 @@ pub enum Subcommands {
     #[cfg(feature = "legacy")]
     Tui(tui::Platform),
 
+    #[cfg_attr(feature = "raw-clap-docs", clap(verbatim_doc_comment))]
+    #[cfg(feature = "nightly")]
+    #[clap(hide = true)]
+    Panel(panel::Platform),
+
     /// Remove empty branches from the workspace.
     ///
     /// A branch is considered empty if it has no local commits and (by default)
@@ -1029,6 +1034,8 @@ pub mod mcp;
 pub mod r#move;
 #[cfg(feature = "legacy")]
 pub mod open;
+#[cfg(feature = "nightly")]
+pub mod panel;
 #[cfg(feature = "legacy")]
 pub mod pick;
 #[cfg(feature = "legacy")]
