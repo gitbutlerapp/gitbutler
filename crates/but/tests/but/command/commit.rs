@@ -773,6 +773,61 @@ Hint: run `but help` for all commands
 }
 
 #[test]
+fn selective_commits_keep_the_on_disk_index_in_sync_with_head() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("selective-commits");
+    env.setup_metadata(&["A"]);
+
+    let original_data = "enough\nlines\nto\ncreate\nmultiple\nhunks\nwhen\nediting";
+    // Start from a clean index rather than seeding the stale state ourselves.
+    snapbox::assert_data_eq!(env.invoke_git("status --porcelain"), snapbox::str![]);
+
+    env.file("file", format!("first hunk\n{original_data}\nlast hunk"));
+    env.file("second", "modified second\n");
+    // Split an existing dirty file across commits on a new parallel branch,
+    // combining its remaining hunk with another file in the second commit.
+    env.but("commit -b feature -m 'first hunk' qs:5")
+        .assert()
+        .success();
+    // Only the selected hunk is committed, not the other dirty content.
+    snapbox::assert_data_eq!(
+        env.invoke_git("show feature:file"),
+        snapbox::str![[r#"
+first hunk
+enough
+lines
+to
+create
+multiple
+hunks
+when
+editing"#]]
+    );
+    snapbox::assert_data_eq!(
+        env.invoke_git("show feature:second"),
+        snapbox::str!["original second"]
+    );
+    env.but("commit -b feature -m 'remaining changes' qs:2 second")
+        .assert()
+        .success();
+
+    env.but("status")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄ @ [uncommitted] (no changes)
+...
+"#]]);
+    env.but("diff")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![]);
+    // A clean worktree relative to HEAD is not enough: a stale index can show
+    // staged reversions and equal-and-opposite unstaged changes for these files.
+    snapbox::assert_data_eq!(env.invoke_git("diff HEAD"), snapbox::str![]);
+    snapbox::assert_data_eq!(env.invoke_git("status --porcelain"), snapbox::str![]);
+}
+
+#[test]
 fn create_commit_on_user_provided_branch() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("zero-stacks");
     env.setup_metadata(&[]);
