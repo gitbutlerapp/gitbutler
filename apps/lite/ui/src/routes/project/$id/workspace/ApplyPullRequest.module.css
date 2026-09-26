@@ -1,0 +1,8 @@
+.meta {
+	color: var(--text-2);
+}
+
+.error {
+	color: var(--text-danger);
+	text-wrap: pretty;
+}

@@ -1,16 +1,20 @@
 /** @vitest-environment jsdom */
 
 import {
+	useApplyReview,
 	useRequestReview,
 	useWithdrawReviewRequest,
 	useWorkspaceIntegrateUpstream,
 } from "#ui/api/mutations.ts";
 import {
+	branchListQueryOptions,
+	forgeInfoOptions,
 	getReviewQueryOptions,
+	headInfoQueryOptions,
 	reviewerCandidatesQueryOptions,
 	workspaceTargetCommitsQueryOptions,
 } from "#ui/api/queries.ts";
-import type { ForgeReview, ForgeReviewUser } from "@gitbutler/but-sdk";
+import type { ApplyOutcome, ForgeReview, ForgeReviewUser } from "@gitbutler/but-sdk";
 import { QueryClient, QueryClientProvider, useQuery } from "@tanstack/react-query";
 import { act, type FC } from "react";
 import { createRoot, type Root } from "react-dom/client";
@@ -240,4 +244,94 @@ describe("reviewer request mutations", () => {
 			logins: ["bob"],
 		});
 	});
+});
+
+describe("useApplyReview", () => {
+	let client: QueryClient;
+	let root: Root;
+	let applyReview: ReturnType<typeof useApplyReview>["mutateAsync"];
+	const keys = {
+		branches: branchListQueryOptions("project").queryKey,
+		workspace: headInfoQueryOptions("project").queryKey,
+		review: getReviewQueryOptions({ projectId: "project", reviewId: 42 }).queryKey,
+		forge: forgeInfoOptions("project").queryKey,
+	};
+
+	beforeEach(() => {
+		vi.stubGlobal("lite", { reviewApply: vi.fn() });
+		client = new QueryClient();
+		for (const key of Object.values(keys)) client.setQueryData(key, null);
+		const container = document.createElement("div");
+		root = createRoot(container);
+		const Probe = () => {
+			const mutation = useApplyReview("project");
+			return (
+				<button
+					type="button"
+					onClick={() => {
+						applyReview = mutation.mutateAsync;
+					}}
+				>
+					Connect
+				</button>
+			);
+		};
+		act(() =>
+			root.render(
+				<QueryClientProvider client={client}>
+					<Probe />
+				</QueryClientProvider>,
+			),
+		);
+		act(() => container.querySelector("button")?.click());
+	});
+
+	afterEach(() => {
+		act(() => root.unmount());
+		client.clear();
+		vi.unstubAllGlobals();
+	});
+
+	const run = async (status: ApplyOutcome["status"], appliedBranches: Array<string>) => {
+		vi.mocked(window.lite.reviewApply).mockResolvedValue({
+			status,
+			workspaceChanged: status === "applied",
+			appliedBranches: appliedBranches.map((full) => ({ full })),
+			workspaceRefCreated: false,
+			conflictingStacks: [],
+		});
+		await act(async () => {
+			await applyReview(42);
+		});
+		expect(window.lite.reviewApply).toHaveBeenCalledWith({ projectId: "project", reviewId: 42 });
+	};
+	const invalidated = () => ({
+		branches: client.getQueryState(keys.branches)?.isInvalidated,
+		workspace: client.getQueryState(keys.workspace)?.isInvalidated,
+		review: client.getQueryState(keys.review)?.isInvalidated,
+		forge: client.getQueryState(keys.forge)?.isInvalidated,
+	});
+
+	it("refreshes branches, workspace and reviews once a branch is applied", async () => {
+		await run("applied", ["refs/heads/master", "refs/heads/feature"]);
+		expect(invalidated()).toEqual({ branches: true, workspace: true, review: true, forge: false });
+	});
+
+	it("refreshes the branch the review is recorded on when it is already applied", async () => {
+		await run("alreadyApplied", []);
+		expect(invalidated()).toEqual({ branches: true, workspace: true, review: false, forge: false });
+	});
+
+	it.each(["applied", "conflictAborted"] as const)(
+		"leaves the caches alone when %s records nothing",
+		async (status) => {
+			await run(status, []);
+			expect(invalidated()).toEqual({
+				branches: false,
+				workspace: false,
+				review: false,
+				forge: false,
+			});
+		},
+	);
 });
