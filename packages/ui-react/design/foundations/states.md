@@ -7,13 +7,15 @@ invisible to anyone not on a mouse. Neither is optional or a separate ticket.
 
 **Hover is a ground, not a cursor.** The cursor never signals clickability
 (see [Cursors](../foundations/cursors.md)). `Button` takes its variant's
-`--button-hover-bg`, a list row `--list-item-hover-bg`, anything else a gray
-wash at `--opacity-bg-hover`. A disabled control shows no hover.
+`--button-hover-bg`; a list row, a tab and anything else without a fill of its
+own `--bg-hover`, or `--bg-hover-invert` on a dark surface. A disabled control
+shows no hover.
 
-**Focus is the one ring.** `--focus-ring` is the only focus outline. The global
-stylesheet puts it on every `button` and `a` under `:focus-visible`; a
-component that draws its own — a field, a switch, a segmented toggle — uses the
-same token, never a literal or the browser's accent ring. Buttons and rows use
+**Focus is the one ring.** `--focus-ring` (1.5px of `--border-focus`) is the
+only focus outline. The global stylesheet puts it on every `button` and `a`
+under `:focus-visible`; a component that draws its own — a field, a switch, a
+segmented toggle — uses the same token, never a literal or the browser's accent
+ring. Buttons and rows use
 `:focus-visible`, so a click leaves no ring; a text field uses `:focus`, so a
 field being edited looks edited.
 
