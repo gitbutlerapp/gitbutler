@@ -145,6 +145,11 @@ under `components/`:
 $ pnpm -F @gitbutler/lite demos
 ```
 
+The package's own `test` runs its unit tests, not its stories. Lite's runs
+every story, this package's included, as a test in headless Chromium; run
+them alone with `pnpm -F @gitbutler/lite test:stories` (`apps/lite/AGENTS.md`
+has the setup).
+
 A story renders alone at
 `http://localhost:6007/iframe.html?id=components-<name>--<export>&viewMode=story`;
 append `&globals=theme:dark` for the dark theme. Check colour, font and
