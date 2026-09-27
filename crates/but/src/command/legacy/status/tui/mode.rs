@@ -175,8 +175,10 @@ impl<'a> ModeRef<'a> {
                 CommandReturnMode::Details(details_mode) => details_mode.return_mode.marks(),
             },
             ModeRef::Move(move_mode) => match &move_mode.source {
-                MoveSource::Marks(commits) => MarksRef::from_commits(commits),
-                MoveSource::Commit { .. } | MoveSource::Branch(..) => MarksRef::Empty,
+                MoveSource::Marks(marks) => marks.as_ref(),
+                MoveSource::Commit { .. }
+                | MoveSource::Branch(..)
+                | MoveSource::CommittedFile(..) => MarksRef::Empty,
             },
             ModeRef::CherryPick(cherry_pick_mode) => match &cherry_pick_mode.source {
                 CherryPickSource::Marks(marks) => marks.as_ref(),

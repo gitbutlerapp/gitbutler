@@ -148,7 +148,7 @@ fn ensure_distinct_source_commit(
         return Err(bad_input(format!(
             "Can only split changes from one commit. Got {} and {}",
             theme::Commit(source_commit.as_ref()),
-            theme::Commit(committed_file.as_commit_ref())
+            theme::Commit(committed_file.as_commit_id_ref())
         ))
         .into());
     }
