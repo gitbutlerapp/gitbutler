@@ -611,7 +611,7 @@ export declare function createReviewThreadReply(projectId: string, threadId: str
 export declare function currentForgeLogin(projectId: string): Promise<string | null>
 
 /**
- * {@link ../../../../../crates/but-api/src/legacy/git.rs:66}
+ * {@link ../../../../../crates/but-api/src/legacy/git.rs:76}
  */
 export declare function deleteAllData(): Promise<void>
 
@@ -930,12 +930,12 @@ export declare function getWorkspaceFile(projectId: string, relativePath: string
 export declare function getWorkspaceFileFromSource(projectId: string, changesSource: ChangesSource, relativePath: string): Promise<FileInfo>
 
 /**
- * {@link ../../../../../crates/but-api/src/legacy/git.rs:39}
+ * {@link ../../../../../crates/but-api/src/legacy/git.rs:49}
  */
 export declare function gitTestFetch(projectId: string, remoteName: string, action: string | null): Promise<void>
 
 /**
- * {@link ../../../../../crates/but-api/src/legacy/git.rs:28}
+ * {@link ../../../../../crates/but-api/src/legacy/git.rs:38}
  */
 export declare function gitTestPush(projectId: string, remoteName: string, branchName: string): Promise<void>
 
