@@ -18,9 +18,12 @@ modal: a list to search and pick from is a `PickerDialog` (its
 `CommandPalette` story), or, anchored to the control that opened it, Popup's
 combobox (its `SelectProject` story).
 
-**One question per modal.** A modal asks one thing and closes on the answer.
-If it needs steps, a Back button or a choice that opens another choice, it is a
-page or a panel, not a modal.
+**One task per modal.** A modal asks one thing and closes on the answer. It
+may drill in one level: a list of choices whose pick opens that choice's step
+in the same modal, with Back in the header (`onBack` on `ModalHeader`) to
+return to the list — "Where does the code live?", then "Connect a computer".
+If it runs a sequence instead (Next, Next, Finish), or a step opens another
+list of its own, it is a page or a panel, not a modal.
 
 **Size by what it holds, starting at `small`.** `xsmall` (320) for a one-line
 question, `small` (420) for a prompt with a field or a short list, `medium`

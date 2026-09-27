@@ -3,7 +3,7 @@ import { Button } from "./Button.tsx";
 import { FieldControlStyles, FieldRootStyles } from "./Field.tsx";
 import { FileIcon } from "./FileIcon.tsx";
 import { List, ListItem } from "./List.tsx";
-import { Modal, ModalBody, ModalFooter, ModalHeader } from "./Popup.tsx";
+import { Modal, ModalBody, ModalFooter, ModalHeader, PopupItem, PopupSection } from "./Popup.tsx";
 import { Field } from "@base-ui/react";
 import { useState } from "react";
 
@@ -174,6 +174,106 @@ export const Destructive = meta.story({
 						Discard
 					</Button>
 				</ModalFooter>
+			</Modal>
+		);
+	},
+});
+
+type Place = "computer" | "cloud";
+
+const places: Array<{ id: Place; label: string }> = [
+	{ id: "computer", label: "On a computer I keep" },
+	{ id: "cloud", label: "In Claude Code cloud sessions" },
+];
+
+/**
+ * A modal that drills in: picking a choice opens its step in the same modal, and that step's
+ * header takes `onBack` to return to the list. One level in, one task — adding a machine — not a
+ * sequence of steps. Escape and the backdrop still close the whole modal, so it starts over at the
+ * list next time. Back returns focus to the choice it came from.
+ */
+export const WithBack = meta.story({
+	parameters: figma("2302-2152"),
+	render: function WithBack() {
+		const [open, setOpen] = useState(true);
+		const [place, setPlace] = useState<Place | null>(null);
+		const [from, setFrom] = useState<Place | null>(null);
+		const pick = (next: Place) => {
+			setFrom(next);
+			setPlace(next);
+		};
+
+		return (
+			<Modal
+				open={open}
+				onOpenChange={(next) => {
+					setOpen(next);
+					if (!next) {
+						setPlace(null);
+						setFrom(null);
+					}
+				}}
+				trigger={<Button>Add a machine</Button>}
+			>
+				{place === null && (
+					<>
+						<ModalHeader
+							title="Where does the code live?"
+							description="Each place joins your fleet as a machine."
+						/>
+						<PopupSection>
+							{places.map(({ id, label }) => (
+								<PopupItem
+									key={id}
+									trailing="chevron-right"
+									onClick={() => pick(id)}
+									// oxlint-disable-next-line jsx_a11y/no-autofocus -- Back unmounted with focus on it.
+									autoFocus={id === from}
+								>
+									{label}
+								</PopupItem>
+							))}
+						</PopupSection>
+					</>
+				)}
+				{place === "computer" && (
+					<>
+						<ModalHeader
+							title="Connect a computer"
+							description="Run this in a terminal on the computer you want to connect, macOS or Linux. It prints a code to approve in any browser."
+							onBack={() => setPlace(null)}
+						/>
+						<ModalBody>
+							<Field.Root render={<FieldRootStyles />}>
+								<Field.Control
+									render={<FieldControlStyles />}
+									readOnly
+									value="curl -fsSL https://but.dev/install | sh"
+									aria-label="Install command"
+								/>
+							</Field.Root>
+						</ModalBody>
+					</>
+				)}
+				{place === "cloud" && (
+					<>
+						<ModalHeader
+							title="Claude Code cloud sessions"
+							description="Paste this setup script into the environment in Claude. Each session joins when it starts."
+							onBack={() => setPlace(null)}
+						/>
+						<ModalBody>
+							<Field.Root render={<FieldRootStyles />}>
+								<Field.Control
+									render={<FieldControlStyles />}
+									readOnly
+									value="curl -fsSL https://but.dev/install | BUT_FLEET_NO_LOGIN=1 sh"
+									aria-label="Setup script"
+								/>
+							</Field.Root>
+						</ModalBody>
+					</>
+				)}
 			</Modal>
 		);
 	},

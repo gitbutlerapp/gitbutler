@@ -1,3 +1,4 @@
+import { Button } from "./Button.tsx";
 import { classes } from "./classes.ts";
 import { EmptyState } from "./EmptyState.tsx";
 import { Icon } from "./Icon.tsx";
@@ -171,6 +172,11 @@ export const Modal: FC<ModalProps> = ({
  * {@link ModalFooter}. The title is the dialog's accessible name and the description its
  * description, so neither needs restating in an `aria-label`.
  *
+ * Pass `onBack` on a step the modal drilled into — a choice picked from a list in the same modal —
+ * and the header leads with a Back button that returns to it. Back is for that one level in, not
+ * for walking a sequence of steps. The pick that had focus is gone once the step opens, so Back
+ * takes focus; on returning, the caller focuses the pick it came from.
+ *
  * There is no close button: Cancel, Escape and the backdrop dismiss a modal, and an `alert` one
  * must be answered.
  *
@@ -182,19 +188,44 @@ export const ModalHeader: FC<
 		title: ReactNode;
 		/** What happens on answering, or what the user needs to know first. One or two sentences. */
 		description?: ReactNode;
+		/** Returns to the step this one was opened from. Draws a Back button before the title. */
+		onBack?: () => void;
 	} & ComponentProps<"div">
-> = ({ title, description, className, ...props }) => (
-	<div {...props} className={classes(className, styles.modalPart, styles.modalHeader)}>
+> = ({ title, description, onBack, className, ...props }) => {
+	const titleElement = (
 		<Dialog.Title className={classes("text-14", "text-semibold", styles.modalTitle)}>
 			{title}
 		</Dialog.Title>
-		{description !== undefined && (
-			<Dialog.Description className={classes("text-13", "text-body", styles.modalDescription)}>
-				{description}
-			</Dialog.Description>
-		)}
-	</div>
-);
+	);
+
+	return (
+		<div {...props} className={classes(className, styles.modalPart, styles.modalHeader)}>
+			{onBack === undefined ? (
+				titleElement
+			) : (
+				<div className={styles.modalTitleRow}>
+					<Button
+						variant="ghost"
+						size="small"
+						iconOnly
+						aria-label="Back"
+						onClick={onBack}
+						// oxlint-disable-next-line jsx_a11y/no-autofocus -- The pick that opened this step unmounted with focus on it.
+						autoFocus
+					>
+						<Icon name="arrow-left" />
+					</Button>
+					{titleElement}
+				</div>
+			)}
+			{description !== undefined && (
+				<Dialog.Description className={classes("text-13", "text-body", styles.modalDescription)}>
+					{description}
+				</Dialog.Description>
+			)}
+		</div>
+	);
+};
 
 /**
  * What a modal asks about: fields, a list of the things it acts on, a note. Stacks its children

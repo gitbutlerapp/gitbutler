@@ -118,6 +118,13 @@
 	gap: var(--space-lg);
 }
 
+/* A drilled-in step's Back button, then its title, on one line. */
+.modalTitleRow {
+	display: flex;
+	align-items: center;
+	gap: var(--gap-icon-text);
+}
+
 .modalTitle {
 	margin: 0;
 	color: var(--text-1);
