@@ -16,7 +16,6 @@ use crate::{
             SquashTarget, resolve_target,
         },
         status::{
-            FilesStatusFlag,
             output::StatusOutputLineData,
             tui::{
                 DetailsLayoutMessage, Message, ReloadCause, SelectAfterReload,
@@ -32,7 +31,7 @@ use crate::{
 };
 
 use super::{
-    CommitSource, MoveSource,
+    CommitSource, MoveMarks, MoveSource,
     mark::{Marks, MarksRef},
 };
 
@@ -420,14 +419,30 @@ impl App {
                 CommitSource::UncommittedArea(ChangeSourceId::Worktree(..)) => {}
             },
             Mode::Move(move_mode) => match &move_mode.source {
-                MoveSource::Marks(commits) => {
-                    self.squash_start_with_source(
-                        SquashSource::Marks(SquashMarks::Commits(commits.clone())),
-                        ctx,
-                    )?;
-                }
+                MoveSource::Marks(marks) => match marks {
+                    MoveMarks::Commits(commits) => {
+                        self.squash_start_with_source(
+                            SquashSource::Marks(SquashMarks::Commits(commits.clone())),
+                            ctx,
+                        )?;
+                    }
+                    MoveMarks::CommittedFiles(committed_files) => {
+                        self.squash_start_with_source(
+                            SquashSource::Marks(SquashMarks::CommittedFiles(
+                                committed_files.clone(),
+                            )),
+                            ctx,
+                        )?;
+                    }
+                },
                 MoveSource::Commit(commit) => {
                     self.squash_start_with_source(SquashSource::Commit(commit.clone()), ctx)?;
+                }
+                MoveSource::CommittedFile(committed_file) => {
+                    self.squash_start_with_source(
+                        SquashSource::CommittedFile(committed_file.clone()),
+                        ctx,
+                    )?;
                 }
                 MoveSource::Branch(branch) => {
                     self.squash_start_with_source(SquashSource::Branch(branch.clone()), ctx)?;
@@ -613,15 +628,8 @@ impl App {
 
         drop(_suspend_guard);
 
-        match self.flags.show_files {
-            FilesStatusFlag::Commit(..) => {
-                self.backstack.remove_show_file_list();
-                self.flags.show_files = FilesStatusFlag::None;
-            }
-            FilesStatusFlag::None | FilesStatusFlag::All => {}
-        }
-
         messages.extend([
+            Message::CloseCommitFileListAfterConfirmingOperation,
             Message::EnterNormalModeAfterConfirmingOperation,
             Message::Reload(Some(what_to_select), ReloadCause::Mutation),
         ]);

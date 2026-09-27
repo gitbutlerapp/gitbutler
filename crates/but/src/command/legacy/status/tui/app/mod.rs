@@ -618,6 +618,9 @@ impl App {
             Message::EnterNormalModeAfterConfirmingOperation => {
                 self.handle_enter_normal_mode_after_confirming_operation(messages);
             }
+            Message::CloseCommitFileListAfterConfirmingOperation => {
+                self.handle_close_commit_file_list_after_confirming_operation();
+            }
             Message::DetailsLayout(details_layout_message) => match details_layout_message {
                 DetailsLayoutMessage::Focus { full_screen } => {
                     self.handle_focus_details(full_screen, messages);
@@ -915,6 +918,16 @@ impl App {
             // the cursor didn't move back into a file list but thats fine since all lines are
             // selectable in normal mode. So we don't need to worry about the cursor being in an
             // invalid position
+        }
+    }
+
+    fn handle_close_commit_file_list_after_confirming_operation(&mut self) {
+        match self.flags.show_files {
+            FilesStatusFlag::Commit(..) => {
+                self.backstack.remove_show_file_list();
+                self.flags.show_files = FilesStatusFlag::None;
+            }
+            FilesStatusFlag::None | FilesStatusFlag::All => {}
         }
     }
 

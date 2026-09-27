@@ -2209,7 +2209,14 @@ impl CommittedFileId {
         }
     }
 
-    pub fn as_commit_ref(&self) -> CommitIdRef<'_> {
+    pub fn to_commit_id(&self) -> CommitId {
+        CommitId {
+            commit_id: self.commit_id,
+            change_id: self.change_id.clone(),
+        }
+    }
+
+    pub fn as_commit_id_ref(&self) -> CommitIdRef<'_> {
         CommitIdRef {
             commit_id: self.commit_id,
             change_id: self.change_id.as_ref(),

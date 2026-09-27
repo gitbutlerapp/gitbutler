@@ -412,6 +412,7 @@ pub enum Message {
     Quit,
     ConfirmAndQuit,
     EnterNormalModeAfterConfirmingOperation,
+    CloseCommitFileListAfterConfirmingOperation,
     Reload(Option<SelectAfterReload>, ReloadCause),
     ShowError(anyhow::Error),
     ShowToast {
@@ -727,6 +728,7 @@ fn dedup_mutation_messages(messages: &mut Vec<Message>, other_messages: &mut Vec
             | Message::Crash
             | Message::ConfirmAndQuit
             | Message::EnterNormalModeAfterConfirmingOperation
+            | Message::CloseCommitFileListAfterConfirmingOperation
             | Message::ShowError(..)
             | Message::ShowToast { .. }
             | Message::DropToBeDiscarded
