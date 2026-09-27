@@ -60,8 +60,8 @@ pub fn default_key_binds(feature_flags: &FeatureFlags) -> KeyBinds {
             ModeDiscriminant::Move => {
                 builder.move_confirm().register();
                 builder.move_toggle_insert_side().register();
+                builder.move_to_new_branch().register();
                 builder.switch_to_squash_mode().register();
-                builder.switch_to_branch_mode().register();
                 register_non_mode_specific_key_binds(&mut builder, WithFocusDetails::No);
             }
             ModeDiscriminant::Stack => {
@@ -738,6 +738,15 @@ impl KeyBindsBuilder<'_> {
             Message::Move(MoveMessage::ToggleInsertSide)
         })
         .long_description("Toggle moving above or below")
+    }
+
+    fn move_to_new_branch(&mut self) -> KeyBindsInModesBuilder<'_> {
+        self.key_bind(
+            "move to new branch",
+            press().code(KeyCode::Char('b')),
+            || Message::Move(MoveMessage::MoveToNewBranch),
+        )
+        .long_description("Move to a new branch above")
     }
 
     fn branch(&mut self) -> KeyBindsInModesBuilder<'_> {
