@@ -1,3 +1,4 @@
+import { Button } from "./Button.tsx";
 import { classes } from "./classes.ts";
 import { EmptyState } from "./EmptyState.tsx";
 import { Icon } from "./Icon.tsx";
@@ -99,9 +100,9 @@ export type ModalProps = {
  * separating it from a {@link Dropdown} — the container beneath is the same.
  *
  * The modal owns its chrome and placement. A prompt, a confirmation or a short form is built from
- * {@link ModalHeader}, {@link ModalBody} and {@link ModalFooter}; a picker fills itself with
- * {@link PopupSearch} and {@link PopupSection}; and a pane as involved as settings lays itself out
- * entirely.
+ * {@link ModalHeader}, {@link ModalBody} and {@link ModalFooter}, and a pane as involved as settings
+ * lays itself out entirely. A list to search and pick from is not a modal's: it is a `PickerDialog`,
+ * or Popup's combobox when it hangs off the control that opened it.
  *
  * @public
  * @import import { Modal } from "@gitbutler/ui-react/Popup.tsx";
@@ -171,6 +172,11 @@ export const Modal: FC<ModalProps> = ({
  * {@link ModalFooter}. The title is the dialog's accessible name and the description its
  * description, so neither needs restating in an `aria-label`.
  *
+ * Pass `onBack` on a step the modal drilled into — a choice picked from a list in the same modal —
+ * and the header leads with a Back button that returns to it. Back is for that one level in, not
+ * for walking a sequence of steps. The pick that had focus is gone once the step opens, so Back
+ * takes focus; on returning, the caller focuses the pick it came from.
+ *
  * There is no close button: Cancel, Escape and the backdrop dismiss a modal, and an `alert` one
  * must be answered.
  *
@@ -182,19 +188,44 @@ export const ModalHeader: FC<
 		title: ReactNode;
 		/** What happens on answering, or what the user needs to know first. One or two sentences. */
 		description?: ReactNode;
+		/** Returns to the step this one was opened from. Draws a Back button before the title. */
+		onBack?: () => void;
 	} & ComponentProps<"div">
-> = ({ title, description, className, ...props }) => (
-	<div {...props} className={classes(className, styles.modalPart, styles.modalHeader)}>
+> = ({ title, description, onBack, className, ...props }) => {
+	const titleElement = (
 		<Dialog.Title className={classes("text-14", "text-semibold", styles.modalTitle)}>
 			{title}
 		</Dialog.Title>
-		{description !== undefined && (
-			<Dialog.Description className={classes("text-13", "text-body", styles.modalDescription)}>
-				{description}
-			</Dialog.Description>
-		)}
-	</div>
-);
+	);
+
+	return (
+		<div {...props} className={classes(className, styles.modalPart, styles.modalHeader)}>
+			{onBack === undefined ? (
+				titleElement
+			) : (
+				<div className={styles.modalTitleRow}>
+					<Button
+						variant="ghost"
+						size="small"
+						iconOnly
+						aria-label="Back"
+						onClick={onBack}
+						// oxlint-disable-next-line jsx_a11y/no-autofocus -- The pick that opened this step unmounted with focus on it.
+						autoFocus
+					>
+						<Icon name="arrow-left" />
+					</Button>
+					{titleElement}
+				</div>
+			)}
+			{description !== undefined && (
+				<Dialog.Description className={classes("text-13", "text-body", styles.modalDescription)}>
+					{description}
+				</Dialog.Description>
+			)}
+		</div>
+	);
+};
 
 /**
  * What a modal asks about: fields, a list of the things it acts on, a note. Stacks its children
@@ -245,6 +276,9 @@ export type DropdownProps = {
  * This is for anchored *panels* — a notification list, a reaction picker, a filter. Menus in Lite
  * are Electron's own, raised through `native-menu.ts`; a dropdown is not the place to rebuild one.
  *
+ * It is as wide as its content, and never narrower than its trigger: a short list under a wide
+ * control lines up with it, and a long one grows past it.
+ *
  * @public
  * @import import { Dropdown } from "@gitbutler/ui-react/Popup.tsx";
  */
@@ -256,13 +290,19 @@ export const Dropdown: FC<DropdownProps> = ({
 	align = "start",
 	sideOffset = 4,
 	children,
+	className,
 	...props
 }) => (
 	<Popover.Root open={open} onOpenChange={onOpenChange}>
 		<Popover.Trigger render={trigger} />
 		<Popover.Portal>
 			<Popover.Positioner side={side} align={align} sideOffset={sideOffset}>
-				<Popup anchored {...props} render={<Popover.Popup />}>
+				<Popup
+					anchored
+					{...props}
+					className={classes(className, styles.dropdownPanel)}
+					render={<Popover.Popup />}
+				>
 					{children}
 				</Popup>
 			</Popover.Positioner>

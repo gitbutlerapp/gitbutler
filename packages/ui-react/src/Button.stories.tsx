@@ -14,7 +14,7 @@ const invertedDemoStyle: React.CSSProperties = {
 	backgroundColor: "var(--clr-gray-10)",
 };
 
-export const Playground = meta.story({
+export const Default = meta.story({
 	parameters: {
 		design: {
 			type: "figma",

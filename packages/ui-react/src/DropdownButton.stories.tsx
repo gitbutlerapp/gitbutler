@@ -54,7 +54,7 @@ const Demo = ({
 	);
 };
 
-export const Playground = meta.story({
+export const Default = meta.story({
 	argTypes: {
 		variant: { control: "radio", options: variants },
 		children: { control: "text" },
@@ -110,11 +110,10 @@ export const Stretched = meta.story({
 });
 
 /**
- * A disabled action can still say why: both halves stay hoverable while
- * disabled, so the tooltip needs no wrapper element. This is the pull request
- * pane's merge button, blocked on its checks.
+ * `actionTooltip` on a disabled action says why it is disabled: both halves stay
+ * hoverable while disabled, so the tooltip needs no wrapper element.
  */
-export const BlockedAction = meta.story({
+export const DisabledWithTooltip = meta.story({
 	render: () => (
 		<DropdownButton
 			variant="pop"

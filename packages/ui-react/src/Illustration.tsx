@@ -10,8 +10,8 @@ type Props = {
 /**
  * A drawing at the size it was drawn, never scaled. Pick it by meaning: `cactus` a list with
  * nothing in it, `papers` a search or filter that found nothing or a state the app can't name, `id-card` signing in, `terminal` the command line, `waving` all good with nothing to do —
- * and `waving` only in a large view, never a sidebar or a popup. See "Illustrations" in
- * `packages/ui-react/DESIGN.md`.
+ * and `waving` only in a large view, never a sidebar or a popup. See
+ * `packages/ui-react/design/patterns/empty-states.md`.
  *
  * @import import { Illustration } from "@gitbutler/ui-react/Illustration.tsx";
  */

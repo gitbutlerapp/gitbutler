@@ -24,6 +24,12 @@ type Props = {
 	muted?: boolean;
 } & ComponentProps<"i">;
 
+/**
+ * A forge's own mark — GitHub, GitLab, Bitbucket — in its brand colours, or `muted` for one the
+ * user has not connected.
+ *
+ * @import import { Logo } from "@gitbutler/ui-react/Logo.tsx";
+ */
 export const Logo: FC<Props> = ({ name, muted = false, ...props }) => (
 	<i
 		{...props}

@@ -118,6 +118,13 @@
 	gap: var(--space-lg);
 }
 
+/* A drilled-in step's Back button, then its title, on one line. */
+.modalTitleRow {
+	display: flex;
+	align-items: center;
+	gap: var(--gap-icon-text);
+}
+
 .modalTitle {
 	margin: 0;
 	color: var(--text-1);
@@ -146,6 +153,12 @@
 	flex: none;
 	justify-content: flex-end;
 	gap: var(--gap-buttons);
+}
+
+/* Dropdown's own: at least as wide as its trigger, wider when its content asks. Not on
+   .dropdown, which comboboxes and the caret-anchored mention list wear too. */
+.dropdownPanel {
+	min-width: var(--anchor-width);
 }
 
 /* Grows out of the corner it is anchored to, rather than from its own middle. */

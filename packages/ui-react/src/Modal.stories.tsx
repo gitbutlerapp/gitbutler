@@ -3,25 +3,20 @@ import { Button } from "./Button.tsx";
 import { FieldControlStyles, FieldRootStyles } from "./Field.tsx";
 import { FileIcon } from "./FileIcon.tsx";
 import { List, ListItem } from "./List.tsx";
-import {
-	Modal,
-	ModalBody,
-	ModalFooter,
-	ModalHeader,
-	PopupItem,
-	PopupSearch,
-	PopupSection,
-} from "./Popup.tsx";
+import { Modal, ModalBody, ModalFooter, ModalHeader, PopupItem, PopupSection } from "./Popup.tsx";
 import { Field } from "@base-ui/react";
+import { useState } from "react";
+
+const figma = (nodeId: string) => ({
+	design: {
+		type: "figma",
+		url: `https://www.figma.com/design/cqdnAotT8n9op8WGYLOHg4/%E2%9A%9B%EF%B8%8F-Core?node-id=${nodeId}`,
+	},
+});
 
 const meta = preview.meta({
 	component: Modal,
-	parameters: {
-		design: {
-			type: "figma",
-			url: "https://www.figma.com/design/cqdnAotT8n9op8WGYLOHg4/%E2%9A%9B%EF%B8%8F-Lite-Core?node-id=2229-1566",
-		},
-	},
+	parameters: figma("2229-1566"),
 	args: {
 		size: "small",
 		align: "center",
@@ -43,14 +38,42 @@ const meta = preview.meta({
 });
 
 /**
- * A confirmation, built from the three parts: a title and what answering does, what it acts on,
- * then Cancel and the answer. The answer is `gray`, not `pop` — two buttons are not the busy
- * surface pop is kept for.
+ * The modal and its props, to try with the controls. The stories after it are modals as the app
+ * writes them — a confirmation, a form, a destructive question — opened and whole, to copy from.
  */
-export const Playground = meta.story({
+export const Default = meta.story({
 	args: {
 		children: (
 			<>
+				<ModalHeader
+					title="Leave without saving?"
+					description="Your edits to the description are lost."
+				/>
+				<ModalFooter>
+					<Button variant="ghost">Cancel</Button>
+					<Button variant="gray">Leave</Button>
+				</ModalFooter>
+			</>
+		),
+	},
+});
+
+/**
+ * A confirmation: the title asks, the description says what answering does, the body shows what
+ * it acts on, and the footer holds Cancel and the answer. The answer is `gray` and repeats the
+ * title's verb. Escape and the backdrop cancel it.
+ */
+export const Confirm = meta.story({
+	parameters: figma("2283-1871"),
+	render: function Confirm() {
+		const [open, setOpen] = useState(true);
+		return (
+			<Modal
+				size="small"
+				open={open}
+				onOpenChange={setOpen}
+				trigger={<Button>Upload files</Button>}
+			>
 				<ModalHeader
 					title="Upload these 2 files?"
 					description="They go to gitbutler.com, and anyone with the link can open them."
@@ -62,89 +85,197 @@ export const Playground = meta.story({
 					</List>
 				</ModalBody>
 				<ModalFooter>
-					<Button variant="ghost">Cancel</Button>
-					<Button variant="gray">Upload</Button>
+					<Button variant="ghost" onClick={() => setOpen(false)}>
+						Cancel
+					</Button>
+					<Button variant="gray" onClick={() => setOpen(false)}>
+						Upload
+					</Button>
 				</ModalFooter>
-			</>
-		),
+			</Modal>
+		);
 	},
 });
 
 /**
- * A short form. The `<form>` wraps all three parts so Enter submits, and the modal lays it out as
- * it would the parts on their own. The description names the one field, so it has no label above
- * it, only an `aria-label`.
+ * A short form. The `<form>` wraps all three parts so Enter submits, and the submit button is the
+ * answer. The description names the one field, so it has no label above it, only an `aria-label`.
  */
 export const Form = meta.story({
-	args: {
-		alert: true,
-		trigger: <Button>Sign in to git</Button>,
-		children: (
-			<form onSubmit={(event) => event.preventDefault()}>
-				<ModalHeader
-					title="Git credentials required"
-					description="Enter your password for github.com to fetch."
-				/>
-				<ModalBody>
-					<Field.Root render={<FieldRootStyles />}>
-						<Field.Control render={<FieldControlStyles />} type="password" aria-label="Password" />
-					</Field.Root>
-				</ModalBody>
-				<ModalFooter>
-					<Button variant="ghost">Cancel</Button>
-					<Button type="submit" variant="gray">
-						Continue
-					</Button>
-				</ModalFooter>
-			</form>
-		),
+	parameters: figma("2283-1878"),
+	render: function Form() {
+		const [open, setOpen] = useState(true);
+		return (
+			<Modal
+				alert
+				size="small"
+				open={open}
+				onOpenChange={setOpen}
+				trigger={<Button>Sign in to git</Button>}
+			>
+				<form
+					onSubmit={(event) => {
+						event.preventDefault();
+						setOpen(false);
+					}}
+				>
+					<ModalHeader
+						title="Git credentials required"
+						description="Enter your password for github.com to fetch."
+					/>
+					<ModalBody>
+						<Field.Root render={<FieldRootStyles />}>
+							<Field.Control
+								render={<FieldControlStyles />}
+								type="password"
+								aria-label="Password"
+							/>
+						</Field.Root>
+					</ModalBody>
+					<ModalFooter>
+						<Button variant="ghost" onClick={() => setOpen(false)}>
+							Cancel
+						</Button>
+						<Button type="submit" variant="gray">
+							Continue
+						</Button>
+					</ModalFooter>
+				</form>
+			</Modal>
+		);
 	},
 });
 
-/** Something that cannot be taken back: the answer is `danger`, chosen by consequence. A one-line question takes the `xsmall` width. */
+/**
+ * Something that cannot be taken back: the answer is `danger`, chosen by consequence. A one-line
+ * question with nothing to list takes `xsmall` and no body.
+ */
 export const Destructive = meta.story({
-	args: {
-		size: "xsmall",
-		alert: true,
-		trigger: <Button>Discard changes</Button>,
-		children: (
-			<>
+	parameters: figma("2283-1882"),
+	render: function Destructive() {
+		const [open, setOpen] = useState(true);
+		return (
+			<Modal
+				alert
+				size="xsmall"
+				open={open}
+				onOpenChange={setOpen}
+				trigger={<Button>Discard changes</Button>}
+			>
 				<ModalHeader
 					title="Discard 3 files?"
 					description="Their changes are gone for good; nothing keeps a copy."
 				/>
 				<ModalFooter>
-					<Button variant="ghost">Cancel</Button>
-					<Button variant="danger">Discard</Button>
+					<Button variant="ghost" onClick={() => setOpen(false)}>
+						Cancel
+					</Button>
+					<Button variant="danger" onClick={() => setOpen(false)}>
+						Discard
+					</Button>
 				</ModalFooter>
-			</>
-		),
+			</Modal>
+		);
 	},
 });
 
-/** A picker: top-aligned so its list grows downward, and filled with the popup's own parts. */
-export const Picker = meta.story({
-	args: {
-		size: "small",
-		align: "top",
-		"aria-label": "Select project",
-		trigger: <Button>Select project</Button>,
-		children: (
-			<>
-				<PopupSearch placeholder="Search projects..." aria-label="Search projects" />
-				<PopupSection label="Recent projects">
-					<PopupItem icon="folder-tree" trailing="tick">
-						rocketFlasher
-					</PopupItem>
-					<PopupItem icon="lock">Fliege-mono</PopupItem>
-					<PopupItem icon="folder-tree">brutalism</PopupItem>
-				</PopupSection>
-				<PopupSection>
-					<PopupItem trailing="plus">Add local repository</PopupItem>
-					<PopupItem trailing="copy">Clone repository</PopupItem>
-				</PopupSection>
-			</>
-		),
+type Place = "computer" | "cloud";
+
+const places: Array<{ id: Place; label: string }> = [
+	{ id: "computer", label: "On a computer I keep" },
+	{ id: "cloud", label: "In Claude Code cloud sessions" },
+];
+
+/**
+ * A modal that drills in: picking a choice opens its step in the same modal, and that step's
+ * header takes `onBack` to return to the list. One level in, one task — adding a machine — not a
+ * sequence of steps. Escape and the backdrop still close the whole modal, so it starts over at the
+ * list next time. Back returns focus to the choice it came from.
+ */
+export const WithBack = meta.story({
+	parameters: figma("2302-2152"),
+	render: function WithBack() {
+		const [open, setOpen] = useState(true);
+		const [place, setPlace] = useState<Place | null>(null);
+		const [from, setFrom] = useState<Place | null>(null);
+		const pick = (next: Place) => {
+			setFrom(next);
+			setPlace(next);
+		};
+
+		return (
+			<Modal
+				open={open}
+				onOpenChange={(next) => {
+					setOpen(next);
+					if (!next) {
+						setPlace(null);
+						setFrom(null);
+					}
+				}}
+				trigger={<Button>Add a machine</Button>}
+			>
+				{place === null && (
+					<>
+						<ModalHeader
+							title="Where does the code live?"
+							description="Each place joins your fleet as a machine."
+						/>
+						<PopupSection>
+							{places.map(({ id, label }) => (
+								<PopupItem
+									key={id}
+									trailing="chevron-right"
+									onClick={() => pick(id)}
+									// oxlint-disable-next-line jsx_a11y/no-autofocus -- Back unmounted with focus on it.
+									autoFocus={id === from}
+								>
+									{label}
+								</PopupItem>
+							))}
+						</PopupSection>
+					</>
+				)}
+				{place === "computer" && (
+					<>
+						<ModalHeader
+							title="Connect a computer"
+							description="Run this in a terminal on the computer you want to connect, macOS or Linux. It prints a code to approve in any browser."
+							onBack={() => setPlace(null)}
+						/>
+						<ModalBody>
+							<Field.Root render={<FieldRootStyles />}>
+								<Field.Control
+									render={<FieldControlStyles />}
+									readOnly
+									value="curl -fsSL https://but.dev/install | sh"
+									aria-label="Install command"
+								/>
+							</Field.Root>
+						</ModalBody>
+					</>
+				)}
+				{place === "cloud" && (
+					<>
+						<ModalHeader
+							title="Claude Code cloud sessions"
+							description="Paste this setup script into the environment in Claude. Each session joins when it starts."
+							onBack={() => setPlace(null)}
+						/>
+						<ModalBody>
+							<Field.Root render={<FieldRootStyles />}>
+								<Field.Control
+									render={<FieldControlStyles />}
+									readOnly
+									value="curl -fsSL https://but.dev/install | BUT_FLEET_NO_LOGIN=1 sh"
+									aria-label="Setup script"
+								/>
+							</Field.Root>
+						</ModalBody>
+					</>
+				)}
+			</Modal>
+		);
 	},
 });
 

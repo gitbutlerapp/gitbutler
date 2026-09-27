@@ -65,7 +65,7 @@ export type RangeProps<Value extends number | ReadonlyArray<number> = number> = 
  *
  * The thumb is inset so it sits inside the track at either end rather than hanging over it, the
  * way ⚛️ Core draws it. Under the pointer it widens and grows a grip, and the drag cursor
- * takes over while it is held (see DESIGN.md, Cursors).
+ * takes over while it is held (see design/foundations/cursors.md).
  *
  * For a number the user knows and would rather type or nudge — a font size, a tab width — reach
  * for {@link NumberField}.

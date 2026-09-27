@@ -6,8 +6,9 @@ build; each consumer's Vite compiles it, and React Compiler runs on it under
 the consumer's config as it does on the consumer's own code.
 
 `DESIGN.md` beside this file is the visual language: how things should look
-and read. Read it before changing anything a user sees. This file is the
-tooling that enforces it.
+and read. It is an index of the pages in `design/`, one per topic; read the
+ones for what you are changing before changing anything a user sees. This file
+is the tooling that enforces them.
 
 ## Writing the code
 
@@ -68,7 +69,10 @@ Two files, split the way the code is:
   the published library: tokens (Tokens page), icons (Icons page) and this
   package's components (Components page), one section per component. It is
   the source of truth for tokens; for components, code is, and the drawing
-  follows it.
+  follows it. The Components page lays the sections out in four rows, by what
+  the components are for: Actions, Inputs, Overlays, and Content & status,
+  with nothing wrapping a row. A new component's section goes at the end of
+  its row, with its examples section under it.
 - **Client**, the working file —
   <https://www.figma.com/design/EBuHQGUcCaSw4Ln5uVpWkn/Client>: Lite's own
   components on the ⚙️ Meta page, the full screens, and drafts on the
@@ -108,15 +112,15 @@ $ pnpm -F @gitbutler/ui-react test
 ```
 
 `check` typechecks and then runs Stylelint over the components' CSS with the
-rules DESIGN.md gives a machine: colours are tokens, font sizes are on the
-11–16 scale, radii come from the radius tokens. An error names what to use
-instead. The exceptions are the ones DESIGN.md names, and each is marked
-where it is: the file icons' brand colours (a file-level override in
+rules the design pages give a machine: colours are tokens, font sizes are on
+the 11–16 scale, radii come from the radius tokens. An error names what to use
+instead. The exceptions are the ones the pages name, and each is marked where
+it is: the file icons' brand colours (a file-level override in
 `stylelint.config.mjs`) and a mask's opaque stop. A radius that is a share of
-another, an inner corner following its outer one, is a `calc()` from the
-outer token and needs no exception (DESIGN.md, Radius). A new exception is
-a design decision first; if it stands, disable the rule on that line with the
-reason after `--`.
+another, an inner corner following its outer one, is a `calc()` from the outer
+token and needs no exception (`design/foundations/radius.md`). A new exception
+is a design decision first; if it stands, disable the rule on that line with
+the reason after `--`.
 
 ### Tokens
 
@@ -133,8 +137,10 @@ after any CSS change here, even when the package's own check passes.
 ### Stories
 
 Every component has a story beside it, in both themes, and a component that
-lives only in code is half a component. Storybook is Lite's, on port 6007, and
-lists this package's stories under `components/`:
+lives only in code is half a component. `pnpm check` holds the package to it
+through `scripts/check-stories.mjs`, which fails on a component no story
+imports. Storybook is Lite's, on port 6007, and lists this package's stories
+under `components/`:
 
 ```console
 $ pnpm -F @gitbutler/lite demos
@@ -146,6 +152,29 @@ append `&globals=theme:dark` for the dark theme. Check colour, font and
 spacing from computed styles rather than by eye. A story links its Figma
 component through the `design` parameter; keep the link when you add a story,
 and compare the two sides when either changes.
+
+### Default, then examples
+
+A component's stories are one entry in Storybook, in one order:
+
+- **`Default` first:** the simplest use of the component, its props on the
+  controls where they have any to show. It answers what the component is and
+  accepts. `pnpm check` fails on a stories file that opens with anything
+  else.
+- **Examples after it:** each named after what it shows — a state
+  (`OnlyAdditions`, `NothingToList`) or a surface the app builds from it
+  (`Confirm`, `SelectProject`, `CommandPalette`). An example is written as
+  the app writes it: its own state, real copy, rendered open, since its
+  source is what an agent copies from `docs-show`.
+
+A surface built from several components is an example of the outermost one:
+the upload confirmation is Modal's, the project picker is Popup's (a
+combobox dressed in its parts), the command palette is PickerDialog's.
+
+In ⚛️ Core the examples sit in a section named `<Component> examples`
+directly under the component's own section on the Components page, one
+instance per story, named as the story is; an example story links its
+instance through the `design` parameter.
 
 ### The manifest
 
@@ -178,11 +207,15 @@ While Storybook runs, it serves an MCP server at `http://localhost:6007/mcp`
 $ claude mcp add --transport http gitbutler-storybook http://localhost:6007/mcp
 ```
 
-`DesignNotes.mdx` beside DESIGN.md puts the design notes in Storybook as a
-docs page, so the published Storybook shows them and the MCP server's
-`docs-list` lists them; it renders the file itself, so edit DESIGN.md, never
-the page. An agent reading it through `docs-show` gets the page's source, which
-names the file and its raw URL.
+Each design notes page has an `.mdx` beside its `.md` in `design/`, under
+Storybook's Design section, so the published Storybook shows them and the MCP
+server's `docs-list` lists them; `design/overview.mdx` renders DESIGN.md. The
+MDX renders the Markdown file itself, so edit the `.md`, never the page. What
+the MDX writes is the title, a one-line summary (the description `docs-list`
+shows) and the file's raw URL, since `docs-show` returns the MDX source, not
+the rendered text. A new page takes a Markdown file, an MDX beside it titled
+`Design/<Group>/<Name>` after its folder and file name (that is how links
+between the files find their Storybook page), and a row in DESIGN.md.
 
 Before using a component, ask it rather than guessing: `docs-list` lists the
 components, `docs-show` gives one's props, its stories and the import to

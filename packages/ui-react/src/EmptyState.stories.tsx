@@ -42,7 +42,7 @@ const meta = preview.meta({
 	],
 });
 
-export const TwoActions = meta.story({
+export const Default = meta.story({
 	args: {
 		title: "Your workspace is empty",
 		description: "You have 5 branches to pick from",

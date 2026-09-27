@@ -2,6 +2,15 @@ import { defineMain } from "@storybook/react-vite/node";
 
 export default defineMain({
 	stories: [
+		// The design notes, one docs page per file under design/, so the MCP server's
+		// docs tools serve them. Listed first, and group by group, for the sidebar's
+		// reading order.
+		"../../../packages/ui-react/design/overview.mdx",
+		"../../../packages/ui-react/design/getting-started/*.mdx",
+		"../../../packages/ui-react/design/foundations/*.mdx",
+		"../../../packages/ui-react/design/content/*.mdx",
+		"../../../packages/ui-react/design/components/*.mdx",
+		"../../../packages/ui-react/design/patterns/*.mdx",
 		"../ui/src/**/*.stories.tsx",
 		// The library's stories keep the "components/" titles, and so the story
 		// ids, they had while they lived in ui/src/components.
@@ -10,8 +19,6 @@ export default defineMain({
 			files: "**/*.stories.tsx",
 			titlePrefix: "components",
 		},
-		// The design notes, as a docs page, so the MCP server's docs tools serve them.
-		"../../../packages/ui-react/DesignNotes.mdx",
 	],
 	framework: "@storybook/react-vite",
 	features: {

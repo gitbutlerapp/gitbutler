@@ -5,6 +5,12 @@ import { Button } from "./Button.tsx";
 import styles from "./Toasts.module.css";
 import popupStyles from "./Popup.module.css";
 
+/**
+ * Where toasts appear. Render it once inside Base UI's `Toast.Provider`; anything under the
+ * provider raises one through `Toast.useToastManager().add()`.
+ *
+ * @import import { Toasts } from "@gitbutler/ui-react/Toasts.tsx";
+ */
 export const Toasts: FC = () => {
 	const { toasts } = Toast.useToastManager();
 

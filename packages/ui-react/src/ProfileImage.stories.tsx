@@ -17,7 +17,7 @@ const meta = preview.meta({
 });
 
 /** No picture and no Gravatar: the account's glitch, with the camera on it. */
-export const NoPicture = meta.story({ args: { src: null } });
+export const Default = meta.story({ args: { src: null } });
 
 /** Each account gets its own colour and glitch, the same one every time. */
 export const Accounts = meta.story({

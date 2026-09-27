@@ -35,8 +35,8 @@ type Props = {
  *
  * For a surface that is empty, not one still loading: that says so in a line
  * where the list would be. A filter that matched nothing takes the block in a
- * panel with room for it, and a line in a short strip; see "Empty states" in
- * `packages/ui-react/DESIGN.md`.
+ * panel with room for it, and a line in a short strip; see
+ * `packages/ui-react/design/patterns/empty-states.md`.
  * @import import { EmptyState } from "@gitbutler/ui-react/EmptyState.tsx";
  */
 export const EmptyState: FC<Props> = ({

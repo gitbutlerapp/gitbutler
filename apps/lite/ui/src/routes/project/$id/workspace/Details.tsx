@@ -3118,7 +3118,7 @@ const BranchTitleRow: FC<{ branchName: string }> = ({ branchName }) => {
  * the tab goes disabled and says so, where dropping the toggle would instead
  * read as the control having gone missing. The reason rides in the label
  * rather than a tooltip: it is the whole story of this tab, so it has to be
- * readable without hover (DESIGN.md → Empty states).
+ * readable without hover (ui-react's design/patterns/blocked-states.md).
  */
 const BranchTabToggle: FC<{
 	branchTab: BranchTab;

@@ -5,7 +5,7 @@ import {
 	useCommentArchive,
 	useCommentUpdate,
 } from "#ui/annotation.ts";
-import { Annotation } from "@gitbutler/ui-react/Annotation.tsx";
+import { Annotation } from "#ui/components/Annotation.tsx";
 import { Button } from "@gitbutler/ui-react/Button.tsx";
 import { Icon } from "@gitbutler/ui-react/Icon.tsx";
 import type { FileParent } from "#ui/addresses.ts";

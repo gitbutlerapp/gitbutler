@@ -299,6 +299,13 @@ type Props<T> = {
 	statusLabel?: string;
 };
 
+/**
+ * A searchable list of grouped items in a modal: type to filter, arrows to move, Enter to act on
+ * the highlighted one. Lite's branch pickers, the operations log and the command palette are
+ * built from it.
+ *
+ * @import import { PickerDialog } from "@gitbutler/ui-react/PickerDialog.tsx";
+ */
 export const PickerDialog = <T,>({
 	ariaLabel,
 	closeLabel,

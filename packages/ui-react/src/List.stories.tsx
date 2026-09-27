@@ -21,7 +21,7 @@ const meta = preview.meta({
 });
 
 /** The default marker: a dot on each item's first line. A long item wraps under itself. */
-export const Dots = meta.story({
+export const Default = meta.story({
 	render: () => (
 		<List>
 			<ListItem>Rejected by a pre-receive hook: 2 files</ListItem>

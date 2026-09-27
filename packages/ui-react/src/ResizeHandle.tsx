@@ -8,6 +8,8 @@ import styles from "./ResizeHandle.module.css";
  * the separator's `aria-orientation`, so the same handle works in both
  * horizontal and vertical `Group`s. `grab="after"` puts the whole grab area
  * past the hairline, for a previous panel whose scrollbar meets it.
+ *
+ * @import import { ResizeHandle } from "@gitbutler/ui-react/ResizeHandle.tsx";
  */
 export const ResizeHandle: FC<SeparatorProps & { grab?: "after" }> = ({ grab, ...p }) => (
 	<Separator

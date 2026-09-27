@@ -2,8 +2,8 @@
    height has to come from its own viewBox or it distorts.
 
    `fit-content` is the asset's own width: each illustration was drawn at a
-   size and renders at it, and is never scaled to fit (DESIGN.md,
-   Illustrations).
+   size and renders at it, and is never scaled to fit
+   (design/patterns/empty-states.md).
 
    `--border-1` rather than a text colour: the strokes are the drawing's
    outline, and this is the token ⚛️ Core binds them to. */
