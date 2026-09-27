@@ -87,7 +87,7 @@
 
 .section {
 	display: flex;
-	column-gap: 4px;
+	column-gap: var(--gap-buttons-compact);
 	align-items: center;
 	padding: 10px;
 
