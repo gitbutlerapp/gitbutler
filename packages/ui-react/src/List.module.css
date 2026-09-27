@@ -18,8 +18,11 @@
 }
 
 /* One line tall and one icon wide, so a dot, a file icon and an icon all sit centred on the first
-   line and the text starts at the same place whichever the item carries. */
+   line and the text starts at the same place whichever the item carries. The glyph inside is 14px,
+   a file icon's size, so a branch mark sits no larger than a file's. */
 .marker {
+	--icon-size: 14px;
+
 	display: flex;
 	flex: none;
 	align-items: center;
