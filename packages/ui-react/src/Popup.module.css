@@ -148,6 +148,12 @@
 	gap: var(--gap-buttons);
 }
 
+/* Dropdown's own: at least as wide as its trigger, wider when its content asks. Not on
+   .dropdown, which comboboxes and the caret-anchored mention list wear too. */
+.dropdownPanel {
+	min-width: var(--anchor-width);
+}
+
 /* Grows out of the corner it is anchored to, rather than from its own middle. */
 .dropdown {
 	transform-origin: var(--transform-origin);

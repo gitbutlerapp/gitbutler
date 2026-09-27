@@ -245,6 +245,9 @@ export type DropdownProps = {
  * This is for anchored *panels* — a notification list, a reaction picker, a filter. Menus in Lite
  * are Electron's own, raised through `native-menu.ts`; a dropdown is not the place to rebuild one.
  *
+ * It is as wide as its content, and never narrower than its trigger: a short list under a wide
+ * control lines up with it, and a long one grows past it.
+ *
  * @public
  * @import import { Dropdown } from "@gitbutler/ui-react/Popup.tsx";
  */
@@ -256,13 +259,19 @@ export const Dropdown: FC<DropdownProps> = ({
 	align = "start",
 	sideOffset = 4,
 	children,
+	className,
 	...props
 }) => (
 	<Popover.Root open={open} onOpenChange={onOpenChange}>
 		<Popover.Trigger render={trigger} />
 		<Popover.Portal>
 			<Popover.Positioner side={side} align={align} sideOffset={sideOffset}>
-				<Popup anchored {...props} render={<Popover.Popup />}>
+				<Popup
+					anchored
+					{...props}
+					className={classes(className, styles.dropdownPanel)}
+					render={<Popover.Popup />}
+				>
 					{children}
 				</Popup>
 			</Popover.Positioner>
