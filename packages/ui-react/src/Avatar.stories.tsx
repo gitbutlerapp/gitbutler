@@ -15,7 +15,7 @@ const meta = preview.meta({
 	argTypes: { size: { control: "select", options: sizes } },
 });
 
-export const Image = meta.story({});
+export const Default = meta.story({});
 
 /** No picture: the person's glitch, in a colour picked from the login, the same wherever they appear. */
 export const NoPicture = meta.story({

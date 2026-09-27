@@ -5,10 +5,18 @@
 `Modal / Footer` on the popup container. Their descriptions carry the rules
 below that the code can hold; change one and change the other.
 
+**Copy a whole one.** Modal's stories, after `Default`, are the
+confirmation, the form and the destructive question these notes describe,
+opened and written as the app writes them, and the Modal examples beside the
+Modal section in ⚛️ Core draw the same three. Start from the closest and
+change the words.
+
 **Pick the kind before the layout.** A prompt, a confirmation or a short form
 is built from the three parts. A pane that holds more than one group, like
-settings or the conflict resolver, lays itself out. A picker fills itself with
-`PopupSearch` and `PopupSection`. Nothing else goes in a modal.
+settings or the conflict resolver, lays itself out. Nothing else goes in a
+modal: a list to search and pick from is a `PickerDialog` (its
+`CommandPalette` story), or, anchored to the control that opened it, Popup's
+combobox (its `SelectProject` story).
 
 **One question per modal.** A modal asks one thing and closes on the answer.
 If it needs steps, a Back button or a choice that opens another choice, it is a

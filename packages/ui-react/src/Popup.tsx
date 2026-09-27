@@ -99,9 +99,9 @@ export type ModalProps = {
  * separating it from a {@link Dropdown} — the container beneath is the same.
  *
  * The modal owns its chrome and placement. A prompt, a confirmation or a short form is built from
- * {@link ModalHeader}, {@link ModalBody} and {@link ModalFooter}; a picker fills itself with
- * {@link PopupSearch} and {@link PopupSection}; and a pane as involved as settings lays itself out
- * entirely.
+ * {@link ModalHeader}, {@link ModalBody} and {@link ModalFooter}, and a pane as involved as settings
+ * lays itself out entirely. A list to search and pick from is not a modal's: it is a `PickerDialog`,
+ * or Popup's combobox when it hangs off the control that opened it.
  *
  * @public
  * @import import { Modal } from "@gitbutler/ui-react/Popup.tsx";

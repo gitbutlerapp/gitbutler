@@ -21,6 +21,12 @@ const meta = preview.type<{ args: { size: number } }>().meta({
 	},
 });
 
+/** One mark, at the size the controls set. */
+export const Default = meta.story({
+	args: { size: 14 },
+	render: (args) => <ProgramIcon program="vscode" size={args.size} />,
+});
+
 /** Every mark the library has drawn, at the size a select's slot renders it. */
 export const AllPrograms = meta.story({
 	args: { size: 14 },

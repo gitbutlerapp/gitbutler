@@ -23,7 +23,7 @@ const meta = preview.meta({
 	],
 });
 
-export const Playground = meta.story({
+export const Default = meta.story({
 	args: {
 		content: "This is a tooltip",
 		kbd: "Mod+A",

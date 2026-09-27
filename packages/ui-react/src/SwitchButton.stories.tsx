@@ -29,7 +29,7 @@ const Toggleable = ({
 	);
 };
 
-export const Playground = meta.story({
+export const Default = meta.story({
 	argTypes: {
 		variant: { control: "radio", options: variants },
 		label: { control: "text" },

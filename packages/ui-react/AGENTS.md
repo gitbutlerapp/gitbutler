@@ -69,7 +69,10 @@ Two files, split the way the code is:
   the published library: tokens (Tokens page), icons (Icons page) and this
   package's components (Components page), one section per component. It is
   the source of truth for tokens; for components, code is, and the drawing
-  follows it.
+  follows it. The Components page lays the sections out in four rows, by what
+  the components are for: Actions, Inputs, Overlays, and Content & status,
+  with nothing wrapping a row. A new component's section goes at the end of
+  its row, with its examples section under it.
 - **Client**, the working file —
   <https://www.figma.com/design/EBuHQGUcCaSw4Ln5uVpWkn/Client>: Lite's own
   components on the ⚙️ Meta page, the full screens, and drafts on the
@@ -149,6 +152,29 @@ append `&globals=theme:dark` for the dark theme. Check colour, font and
 spacing from computed styles rather than by eye. A story links its Figma
 component through the `design` parameter; keep the link when you add a story,
 and compare the two sides when either changes.
+
+### Default, then examples
+
+A component's stories are one entry in Storybook, in one order:
+
+- **`Default` first:** the simplest use of the component, its props on the
+  controls where they have any to show. It answers what the component is and
+  accepts. `pnpm check` fails on a stories file that opens with anything
+  else.
+- **Examples after it:** each named after what it shows — a state
+  (`OnlyAdditions`, `NothingToList`) or a surface the app builds from it
+  (`Confirm`, `SelectProject`, `CommandPalette`). An example is written as
+  the app writes it: its own state, real copy, rendered open, since its
+  source is what an agent copies from `docs-show`.
+
+A surface built from several components is an example of the outermost one:
+the upload confirmation is Modal's, the project picker is Popup's (a
+combobox dressed in its parts), the command palette is PickerDialog's.
+
+In ⚛️ Core the examples sit in a section named `<Component> examples`
+directly under the component's own section on the Components page, one
+instance per story, named as the story is; an example story links its
+instance through the `design` parameter.
 
 ### The manifest
 

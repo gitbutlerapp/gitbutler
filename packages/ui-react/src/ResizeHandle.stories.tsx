@@ -17,7 +17,7 @@ const meta = preview.meta({
 });
 
 /** Between two side-by-side panels. Drag the hairline to resize them. */
-export const Horizontal = meta.story({
+export const Default = meta.story({
 	render: () => (
 		<Group orientation="horizontal" style={{ height: 240, border: "1px solid var(--border-2)" }}>
 			<Panel minSize={80}>

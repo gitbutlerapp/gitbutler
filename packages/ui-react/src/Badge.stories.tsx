@@ -1,6 +1,7 @@
 import preview from "#storybook/preview";
 import { Badge, type BadgeSize, type BadgeVariant } from "./Badge.tsx";
 import { Icon } from "./Icon.tsx";
+import type { IconName } from "./iconNames.ts";
 
 const meta = preview.meta({
 	component: Badge,
@@ -115,29 +116,30 @@ export const WithIcon = meta.story({
 	),
 });
 
-export const CIChecks = meta.story({
+const ciStates: ReadonlyArray<{ label: string; variant: BadgeVariant; icon: IconName }> = [
+	{ label: "success", variant: "safe", icon: "tick" },
+	{ label: "failure", variant: "danger", icon: "cross" },
+	{ label: "in progress", variant: "lightGray", icon: "spinner" },
+	{ label: "in progress (some failed)", variant: "danger", icon: "spinner" },
+	{ label: "cancelled", variant: "lightGray", icon: "cross" },
+	{ label: "action required", variant: "warn", icon: "warning" },
+	{ label: "unknown", variant: "lightGray", icon: "question" },
+];
+
+/**
+ * A pull request's checks as an app shows them: every CI state and the icon-only badge it
+ * takes, its variant chosen by what the state asks of the reader. A run still going that already has a failure is red with
+ * the spinner: the failure is the news, the spinner says more may come.
+ */
+export const CIStates = meta.story({
 	render: () => (
 		<div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-			{(
-				[
-					{ label: "success", variant: "safe", icon: "tick" },
-					{ label: "failure", variant: "danger", icon: "cross" },
-					{ label: "in progress", variant: "lightGray", icon: "spinner" },
-					{ label: "in progress (some failed)", variant: "danger", icon: "spinner" },
-					{ label: "cancelled", variant: "lightGray", icon: "cross" },
-					{ label: "action required", variant: "warn", icon: "warning" },
-					{ label: "unknown", variant: "lightGray", icon: "question" },
-				] satisfies ReadonlyArray<{
-					label: string;
-					variant: BadgeVariant;
-					icon: Parameters<typeof Icon>[0]["name"];
-				}>
-			).map(({ label, variant, icon }) => (
+			{ciStates.map(({ label, variant, icon }) => (
 				<div key={label} style={{ display: "flex", gap: 8, alignItems: "center" }}>
 					<Badge variant={variant}>
 						<Icon name={icon} size={12} />
 					</Badge>
-					<span style={{ fontSize: 12 }}>{label}</span>
+					<span className="text-12">{label}</span>
 				</div>
 			))}
 		</div>

@@ -45,7 +45,7 @@ const Action: FC<{ label: string; hotkey?: string; variant?: ButtonVariant; smal
  * The acts on a checked set run without confirming, so each one is its own button. With nothing
  * pending to abandon, the way out is a close affordance and its chord is stated in the strip.
  */
-export const Actions = meta.story({
+export const Default = meta.story({
 	render: () => (
 		<Toolbox>
 			<ToolboxMeta icon="commit">

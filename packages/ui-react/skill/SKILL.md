@@ -32,6 +32,12 @@ Each component's JSDoc says what its props do. The Storybook MCP server
 have the same docs with examples; use them when they answer, and go back to the
 source when they don't. Don't wait on them.
 
+Each component's stories open with `Default`, its simplest use and its props;
+the ones after it are examples, the component put to work the way an app
+writes it. For a whole surface, find the closest example under its outermost
+component (a confirmation is Modal's, a picker Popup's or PickerDialog's),
+copy it and change what differs.
+
 When nothing fits, build the smallest thing that works and say so in the PR
 description: what was needed, which components you tried.
 

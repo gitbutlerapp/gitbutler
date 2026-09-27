@@ -1,7 +1,7 @@
 import preview from "#storybook/preview";
 import { Button } from "./Button.tsx";
 import { Icon } from "./Icon.tsx";
-import { Dropdown, PopupItem, PopupSearch, PopupSection } from "./Popup.tsx";
+import { Dropdown, PopupItem, PopupSection } from "./Popup.tsx";
 
 const meta = preview.meta({
 	component: Dropdown,
@@ -29,43 +29,29 @@ const meta = preview.meta({
 	],
 });
 
-export const Playground = meta.story({
+/**
+ * A filter anchored under its control: each row shows or hides one kind, ticked while shown. Not a
+ * menu of actions — those are Electron's own, raised through `native-menu.ts`.
+ */
+export const Default = meta.story({
 	args: {
-		"aria-label": "Dropdown playground",
-		style: { width: 240 },
-		trigger: <Button>Open dropdown</Button>,
+		"aria-label": "Show",
+		trigger: <Button>Filter</Button>,
 		children: (
 			<PopupSection>
-				<PopupItem icon="branch">Switch branch</PopupItem>
-				<PopupItem icon="commit">Amend commit</PopupItem>
-				<PopupItem icon="bin">Discard changes</PopupItem>
+				<PopupItem aria-pressed trailing="tick">
+					Local branches
+				</PopupItem>
+				<PopupItem aria-pressed trailing="tick">
+					Remote branches
+				</PopupItem>
+				<PopupItem aria-pressed={false}>Pull requests</PopupItem>
 			</PopupSection>
 		),
 	},
 });
 
-/** The target selector: a filter over a short list, anchored under the control that opened it. */
-export const WithSearch = meta.story({
-	args: {
-		"aria-label": "Select target",
-		style: { width: 256 },
-		trigger: <Button>Select target</Button>,
-		children: (
-			<>
-				<PopupSearch placeholder="Search targets..." aria-label="Search targets" />
-				<PopupSection>
-					<PopupItem icon="branch" trailing="bullseye">
-						rocketFlasher
-					</PopupItem>
-					<PopupItem icon="branch">Fliege-mono</PopupItem>
-					<PopupItem icon="branch">brutalism</PopupItem>
-				</PopupSection>
-			</>
-		),
-	},
-});
-
-/** A panel rather than a list — what the notifications bell opens. */
+/** A panel rather than rows: `children` can be anything, and the container does not change for it. */
 export const Panel = meta.story({
 	args: {
 		"aria-label": "Notifications",

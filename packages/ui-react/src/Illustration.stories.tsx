@@ -8,6 +8,11 @@ const names = (Object.keys(illustrations) as Array<IllustrationName>).sort((a, b
 
 const meta = preview.meta({});
 
+/** One drawing, at the size it was drawn. */
+export const Default = meta.story({
+	render: () => <Illustration name="cactus" />,
+});
+
 export const AllIllustrations = meta.story({
 	parameters: {
 		design: {

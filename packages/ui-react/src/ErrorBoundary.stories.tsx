@@ -22,7 +22,7 @@ const meta = preview.meta({
 });
 
 /** What takes the place of a view that threw while rendering: the message, and Retry. */
-export const Fallback = meta.story({
+export const Default = meta.story({
 	render: () => (
 		<ErrorBoundary>
 			<Broken broken />

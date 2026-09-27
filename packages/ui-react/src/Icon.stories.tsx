@@ -12,6 +12,12 @@ const meta = preview.type<{ args: { size: number } }>().meta({
 	},
 });
 
+/** One icon, at the size the controls set. */
+export const Default = meta.story({
+	args: { size: 16 },
+	render: (args) => <Icon name="branch" size={args.size} />,
+});
+
 export const AllIcons = meta.story({
 	parameters: {
 		design: {

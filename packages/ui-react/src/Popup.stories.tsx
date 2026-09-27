@@ -1,6 +1,10 @@
 import preview from "#storybook/preview";
+import { Button } from "./Button.tsx";
+import { FolderIcon } from "./FolderIcon.tsx";
 import { Popup, PopupEmpty, PopupItem, PopupSearch, PopupSection } from "./Popup.tsx";
 import { ProgramIcon } from "./ProgramIcon.tsx";
+import { Combobox } from "@base-ui/react";
+import { useDeferredValue, useState } from "react";
 
 const meta = preview.meta({
 	component: Popup,
@@ -20,7 +24,7 @@ const meta = preview.meta({
 });
 
 /** The bare container — what a modal, a dropdown and the toolbox all sit in. */
-export const Container = meta.story({
+export const Default = meta.story({
 	args: {
 		style: { width: 320, padding: 16 },
 		className: "text-13",
@@ -62,30 +66,101 @@ export const Items = meta.story({
 	),
 });
 
-/** The project selector, as drawn in the Figma file. */
-export const ProjectSelector = meta.story({
-	args: { style: { width: 256 } },
-	render: (args) => (
-		<Popup {...args}>
-			<PopupSearch placeholder="Search projects..." aria-label="Search projects" />
-			<PopupSection label="Recent projects">
-				<PopupItem icon="folder-tree" trailing="tick">
-					rocketFlasher
-				</PopupItem>
-				<PopupItem icon="lock">Fliege-mono</PopupItem>
-				<PopupItem icon="folder-tree">brutalism</PopupItem>
-			</PopupSection>
-			<PopupSection label="Older">
-				<PopupItem icon="folder-tree">but-dev</PopupItem>
-				<PopupItem icon="lock">clock-demo</PopupItem>
-				<PopupItem icon="folder-tree">blogerator</PopupItem>
-			</PopupSection>
-			<PopupSection>
-				<PopupItem trailing="plus">Add local repository</PopupItem>
-				<PopupItem trailing="copy">Clone repository</PopupItem>
-			</PopupSection>
-		</Popup>
-	),
+type Project = { id: string; title: string; private: boolean };
+
+const projects: Array<Project> = [
+	{ id: "1", title: "rocketFlasher", private: false },
+	{ id: "2", title: "Fliege-mono", private: true },
+	{ id: "3", title: "brutalism", private: false },
+	{ id: "4", title: "but-dev", private: false },
+	{ id: "5", title: "clock-demo", private: true },
+];
+
+/**
+ * The project selector: a combobox anchored under the button that names the current project.
+ * Base UI's combobox owns its popup, input and rows, so `Popup`, `PopupSearch` and `PopupItem`
+ * dress those parts through `render` rather than wrapping them; `anchored` makes it open the way
+ * every dropdown does. The tick marks the current project, and the action below the list is a row
+ * of its own section.
+ */
+export const SelectProject = meta.story({
+	parameters: {
+		design: {
+			type: "figma",
+			url: "https://www.figma.com/design/cqdnAotT8n9op8WGYLOHg4/%E2%9A%9B%EF%B8%8F-Core?node-id=1839-4085",
+		},
+	},
+	render: function SelectProject() {
+		const [open, setOpen] = useState(true);
+		const [current, setCurrent] = useState(projects[0] ?? null);
+		const [query, setQuery] = useState("");
+		const deferredQuery = useDeferredValue(query);
+
+		return (
+			<Combobox.Root<Project>
+				items={projects}
+				open={open}
+				onOpenChange={setOpen}
+				value={current}
+				onValueChange={(project) => {
+					if (project === null) return;
+					setCurrent(project);
+					setOpen(false);
+				}}
+				inputValue={query}
+				onInputValueChange={setQuery}
+				itemToStringLabel={(project) => project.title}
+				itemToStringValue={(project) => project.id}
+				isItemEqualToValue={(a, b) => a.id === b.id}
+				autoHighlight
+			>
+				<Combobox.Trigger
+					aria-label={`Select project (current: ${current?.title ?? "none"})`}
+					render={<Button variant="ghost" />}
+				>
+					<FolderIcon />
+					{current?.title}
+				</Combobox.Trigger>
+
+				<Combobox.Portal>
+					<Combobox.Positioner align="start" sideOffset={4}>
+						<Popup anchored style={{ width: 256 }} render={<Combobox.Popup />}>
+							<PopupSearch
+								placeholder="Search projects…"
+								aria-label="Search projects"
+								onClear={query === "" ? undefined : () => setQuery("")}
+								render={<Combobox.Input />}
+							/>
+							<Combobox.Empty>
+								<PopupEmpty
+									query={deferredQuery}
+									nothingFound="No projects found"
+									nothingToList="No projects yet"
+								/>
+							</Combobox.Empty>
+							<Combobox.List>
+								{(project: Project) => (
+									<PopupItem
+										key={project.id}
+										icon={project.private ? "lock" : "folder-tree"}
+										trailing={project.id === current?.id ? "tick" : undefined}
+										render={<Combobox.Item value={project} />}
+									>
+										{project.title}
+									</PopupItem>
+								)}
+							</Combobox.List>
+							<PopupSection>
+								<PopupItem trailing="plus" onClick={() => setOpen(false)}>
+									Add local repository
+								</PopupItem>
+							</PopupSection>
+						</Popup>
+					</Combobox.Positioner>
+				</Combobox.Portal>
+			</Combobox.Root>
+		);
+	},
 });
 
 /** A search that matched nothing: the block a picker's list shows in place of its rows. */
@@ -117,34 +192,6 @@ export const NothingToList = meta.story({
 				nothingFound="No available branches found"
 				nothingToList="Nothing left to apply"
 			/>
-		</Popup>
-	),
-});
-
-/** The hotkeys palette: a search, grouped rows, and a body that scrolls under a capped height. */
-export const HotkeysPalette = meta.story({
-	args: { style: { width: 420, maxHeight: 360 } },
-	render: (args) => (
-		<Popup {...args}>
-			<PopupSearch placeholder="Search hotkeys..." aria-label="Search hotkeys" />
-			<div style={{ minHeight: 0, overflow: "auto" }}>
-				<PopupSection>
-					<PopupItem kbd="F">Toggle files</PopupItem>
-				</PopupSection>
-				<PopupSection label="Global">
-					<PopupItem kbd="Mod+Shift+P">Select project</PopupItem>
-					<PopupItem kbd="Mod+.">Toggle sidebar</PopupItem>
-				</PopupSection>
-				<PopupSection label="Operations log">
-					<PopupItem kbd="Mod+Z">Undo</PopupItem>
-					<PopupItem kbd="Mod+Shift+O">Show operations log</PopupItem>
-					<PopupItem kbd="Mod+Shift+Z">Redo</PopupItem>
-				</PopupSection>
-				<PopupSection label="Uncommitted changes">
-					<PopupItem kbd="Mod+Alt+Enter">Amend</PopupItem>
-					<PopupItem kbd="Mod+Enter">Commit</PopupItem>
-				</PopupSection>
-			</div>
 		</Popup>
 	),
 });
