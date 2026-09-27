@@ -2,6 +2,8 @@
 	display: flex;
 	align-items: center;
 	justify-content: center;
+	/* A flex box fills a block container; a badge is as wide as its count. */
+	width: fit-content;
 	min-width: 16px;
 	border-radius: var(--radius-full);
 	--badge-bg-opacity: 20%;
