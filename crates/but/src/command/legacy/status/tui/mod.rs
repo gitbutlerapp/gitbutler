@@ -643,7 +643,7 @@ fn dedup_mutation_messages(messages: &mut Vec<Message>, other_messages: &mut Vec
                 | FilesMessage::ToggleFilesForSelectedCommit => false,
             },
             Message::Move(message) => match message {
-                MoveMessage::Confirm => true,
+                MoveMessage::Confirm | MoveMessage::MoveToNewBranch => true,
                 MoveMessage::Start | MoveMessage::ToggleInsertSide => false,
             },
             Message::CherryPick(message) => match message {

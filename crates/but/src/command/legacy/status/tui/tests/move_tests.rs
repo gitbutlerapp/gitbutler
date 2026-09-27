@@ -286,27 +286,42 @@ fn moving_multiple_commits() {
 }
 
 #[test]
-fn switch_from_move_mode_to_branch_mode() {
+fn move_commit_to_new_branch() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
     env.setup_metadata(&["A"]);
 
     let mut tui = test_status_tui(env);
 
     tui.input('j');
-    tui.input('m').assert_rendered_term_svg_eq(file![
-        "snapshots/switch_from_move_mode_to_branch_mode_001.svg"
-    ]);
-    tui.input('b').assert_rendered_term_svg_eq(file![
-        "snapshots/switch_from_move_mode_to_branch_mode_002.svg"
-    ]);
-    tui.input(KeyCode::Esc);
+    tui.input('j');
+    tui.input('m')
+        .assert_rendered_term_svg_eq(file!["snapshots/move_commit_to_new_branch_001.svg"]);
+    tui.input('k');
+    tui.input('b')
+        .assert_rendered_term_svg_eq(file!["snapshots/move_commit_to_new_branch_002.svg"]);
+}
+
+#[test]
+fn move_multiple_commits_to_new_branch() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
+    env.setup_metadata(&["A", "B"]);
+
+    let mut tui = test_status_tui(env);
 
     tui.input('j');
-    tui.input('m').assert_rendered_term_svg_eq(file![
-        "snapshots/switch_from_move_mode_to_branch_mode_003.svg"
+    tui.input('j');
+    tui.input(' ');
+    tui.input('j');
+    tui.input(' ').assert_rendered_term_svg_eq(file![
+        "snapshots/move_multiple_commits_to_new_branch_001.svg"
+    ]);
+    tui.input('m');
+    tui.input('k');
+    tui.input('k');
+    tui.input('k').assert_rendered_term_svg_eq(file![
+        "snapshots/move_multiple_commits_to_new_branch_002.svg"
     ]);
     tui.input('b').assert_rendered_term_svg_eq(file![
-        "snapshots/switch_from_move_mode_to_branch_mode_004.svg"
+        "snapshots/move_multiple_commits_to_new_branch_003.svg"
     ]);
-    tui.input(KeyCode::Esc);
 }

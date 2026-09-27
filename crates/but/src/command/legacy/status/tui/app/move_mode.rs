@@ -24,7 +24,7 @@ use crate::{
         },
     },
     id::{BranchId, CommitId},
-    utils::targeting,
+    utils::targeting::{self, Side},
 };
 
 use super::{MoveCursorDiration, SquashMarks, SquashSource, mark::MarksRef};
@@ -150,6 +150,7 @@ impl MoveSource {
 pub enum MoveMessage {
     Start,
     ToggleInsertSide,
+    MoveToNewBranch,
     Confirm,
 }
 
@@ -163,6 +164,7 @@ impl App {
         match move_message {
             MoveMessage::Start => self.handle_move_start(),
             MoveMessage::ToggleInsertSide => self.handle_move_toggle_insert_side(),
+            MoveMessage::MoveToNewBranch => self.handle_move_to_new_branch(ctx, messages)?,
             MoveMessage::Confirm => self.handle_move_confirm(ctx, messages)?,
         }
 
@@ -226,26 +228,6 @@ impl App {
                 | SquashSource::CommittedFile(..)
                 | SquashSource::Uncommitted => return,
             },
-            Mode::Branch(branch_mode) => match branch_mode.marks.as_ref() {
-                MarksRef::Empty => {
-                    let Some(CliId::Branch(branch)) = self
-                        .cursor
-                        .selected_line(&self.status_lines)
-                        .and_then(|line| line.data.cli_id())
-                        .map(|id| &**id)
-                    else {
-                        return;
-                    };
-                    MoveMode {
-                        source: MoveSource::Branch(branch.clone()),
-                        insert_side: InsertSide::Above,
-                    }
-                }
-                MarksRef::Branches { .. }
-                | MarksRef::Hunks { .. }
-                | MarksRef::Commits { .. }
-                | MarksRef::CommittedFiles { .. } => return,
-            },
             _ => return,
         };
 
@@ -268,6 +250,87 @@ impl App {
             InsertSide::Above => InsertSide::Below,
             InsertSide::Below => InsertSide::Above,
         };
+    }
+
+    fn handle_move_to_new_branch(
+        &mut self,
+        ctx: &mut Context,
+        messages: &mut Vec<Message>,
+    ) -> anyhow::Result<()> {
+        let Mode::Move(MoveMode {
+            source,
+            insert_side: _,
+        }) = &*self.mode
+        else {
+            return Ok(());
+        };
+
+        let Some(selection) = self.cursor.selected_line(&self.status_lines) else {
+            return Ok(());
+        };
+
+        if selection
+            .data
+            .cli_id()
+            .is_some_and(|target| source.contains(target))
+        {
+            messages.push(Message::EnterNormalModeAfterConfirmingOperation);
+            return Ok(());
+        }
+
+        let target_branch = match &selection.data {
+            StatusOutputLineData::Branch { cli_id, .. } => {
+                if let CliId::Branch(branch) = &**cli_id {
+                    branch
+                } else {
+                    return Ok(());
+                }
+            }
+            StatusOutputLineData::WorktreeUncommitted { .. }
+            | StatusOutputLineData::MergeBase
+            | StatusOutputLineData::Commit { .. }
+            | StatusOutputLineData::UpdateNotice
+            | StatusOutputLineData::UncommittedChanges { .. }
+            | StatusOutputLineData::Connector
+            | StatusOutputLineData::BetweenStacks
+            | StatusOutputLineData::StagedChanges { .. }
+            | StatusOutputLineData::StagedFile { .. }
+            | StatusOutputLineData::UncommittedFile { .. }
+            | StatusOutputLineData::CommitMessage
+            | StatusOutputLineData::EmptyCommitMessage
+            | StatusOutputLineData::File { .. }
+            | StatusOutputLineData::UpstreamChanges
+            | StatusOutputLineData::Warning
+            | StatusOutputLineData::Hint
+            | StatusOutputLineData::NoAssignmentsUnstaged => {
+                return Ok(());
+            }
+        };
+
+        let move_op_sources = match source {
+            MoveSource::Commit(commit) => NonEmpty::new(commit.clone()),
+            MoveSource::Marks(marks) => marks.clone(),
+            MoveSource::Branch(..) => return Ok(()),
+        };
+
+        let target_branch = Category::LocalBranch.to_full_name(target_branch.name.as_str())?;
+        let move_op = MoveOperation::CommitsRelativeTo(MoveCommitsRelativeToOperation {
+            sources: move_op_sources,
+            target: crate::command::legacy::r#move::MoveTarget::BranchBucket {
+                name: target_branch,
+                side: Side::Above,
+                new_branch_name: None,
+            },
+        });
+
+        let selection_after_reload = move_with(ctx, move_op)?;
+
+        messages.extend([
+            Message::EnterNormalModeAfterConfirmingOperation,
+            Message::Reload(selection_after_reload, ReloadCause::Mutation),
+        ]);
+
+        Ok(())
     }
 
     fn handle_move_confirm(

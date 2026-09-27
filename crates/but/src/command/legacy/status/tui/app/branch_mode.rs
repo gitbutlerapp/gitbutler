@@ -33,12 +33,11 @@ use crate::{
         },
         switch::{self, SwitchOperation},
     },
-    id::CommitId,
     theme::Theme,
     utils::{targeting::Side, time::format_relative_time},
 };
 
-use super::{Cursor, MoveCursorDiration, MoveSource, SquashMarks, SquashSource};
+use super::MoveCursorDiration;
 
 #[derive(Debug, Clone)]
 pub struct BranchMode {
@@ -152,61 +151,10 @@ impl App {
             }
         };
 
-        let new_mode = match &*self.mode {
-            Mode::Squash(squash_mode) => match &squash_mode.source {
-                SquashSource::Branch(branch_id) => {
-                    let Some(cursor_at_branch) =
-                        Cursor::select_branch(&branch_id.name, &self.status_lines)
-                    else {
-                        return;
-                    };
-                    self.cursor = cursor_at_branch;
-                    Mode::Branch(BranchMode {
-                        marks: marks.to_owned(),
-                        side: Side::Above,
-                    })
-                }
-                SquashSource::Marks(squash_marks) => match squash_marks {
-                    SquashMarks::Branches(branches) => Mode::Branch(BranchMode {
-                        marks: Marks::Branches(branches.to_owned()),
-                        side: Side::Above,
-                    }),
-                    SquashMarks::Hunks(..)
-                    | SquashMarks::Commits(..)
-                    | SquashMarks::CommittedFiles(..) => return,
-                },
-                SquashSource::Uncommitted
-                | SquashSource::Commit(..)
-                | SquashSource::UncommittedHunk(..)
-                | SquashSource::CommittedFile(..) => return,
-            },
-            Mode::Move(move_mode) => match &move_mode.source {
-                MoveSource::Branch(branch_id) => {
-                    let Some(cursor_at_branch) =
-                        Cursor::select_branch(&branch_id.name, &self.status_lines)
-                    else {
-                        return;
-                    };
-                    self.cursor = cursor_at_branch;
-                    Mode::Branch(BranchMode {
-                        marks: marks.to_owned(),
-                        side: Side::Above,
-                    })
-                }
-                MoveSource::Marks(marks) => {
-                    // if one day you can move something else than commits this'll trigger a type
-                    // error so we're reminded to update it. Likely that means changing to
-                    // `match marks { ... }`
-                    _ = std::convert::identity::<&NonEmpty<CommitId>>(marks);
-                    return;
-                }
-                MoveSource::Commit(..) => return,
-            },
-            _ => Mode::Branch(BranchMode {
-                marks: marks.to_owned(),
-                side: Side::Above,
-            }),
-        };
+        let new_mode = Mode::Branch(BranchMode {
+            marks: marks.to_owned(),
+            side: Side::Above,
+        });
 
         self.mode
             .update_and_push_leave_normal_mode(&mut self.backstack, |mode| {
