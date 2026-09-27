@@ -231,18 +231,18 @@ pub(crate) fn set_base_branch(
 
     let mut workspace_to_initialize = None;
     if !head_is_workspace {
-        // if there are any commits on the head branch or uncommitted changes in the working directory, we need to
-        // put them into a virtual branch
+        let branch_matches_target = if let Refname::Local(head_name) = &head_name {
+            let upstream_name = target_branch_ref.with_branch(head_name.branch());
+            upstream_name.eq(target_branch_ref)
+        } else {
+            false
+        };
 
+        // Preserve non-target branches even when the entire visible stack is empty.
+        // The target branch only needs a new stack for commits or uncommitted changes.
         let changes = but_core::diff::worktree_changes(&*ctx.repo.get()?)?.changes;
-        if !changes.is_empty() || current_head_commit != target_commit_oid {
-            let branch_matches_target = if let Refname::Local(head_name) = &head_name {
-                let upstream_name = target_branch_ref.with_branch(head_name.branch());
-                upstream_name.eq(target_branch_ref)
-            } else {
-                false
-            };
-
+        if !branch_matches_target || !changes.is_empty() || current_head_commit != target_commit_oid
+        {
             let stack_ref_name = if branch_matches_target {
                 let stack_ref_name = but_core::branch::unique_canned_refname(&repo)?;
                 repo.reference(
@@ -264,6 +264,13 @@ pub(crate) fn set_base_branch(
                 WorkspaceCommitRelation::Merged,
                 |_| StackId::generate(),
             );
+            if !branch_matches_target {
+                // Single-branch mode can already have metadata for the visible branches,
+                // but mark them as outside the workspace. Preserve the entire visible stack,
+                // including empty branches and their ordering, when entering the workspace.
+                let current_workspace = ctx.workspace_from_head_uncached(perm.read_permission())?;
+                current_workspace.reconcile_metadata(&mut workspace)?;
+            }
             meta.set_workspace(&workspace)?;
             drop((workspace, meta));
             if !branch_matches_target {
