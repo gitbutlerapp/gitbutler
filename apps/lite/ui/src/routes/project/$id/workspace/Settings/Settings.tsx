@@ -63,7 +63,7 @@ export const Settings: FC<Props> = (p) => {
 
 	return (
 		<Modal
-			size="medium"
+			size="large"
 			recessed
 			open={p.open}
 			onOpenChange={p.onOpenChange}

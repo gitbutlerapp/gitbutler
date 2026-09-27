@@ -10,7 +10,6 @@
 	--gb-border-3: var(--border-3);
 	--gb-text-1: var(--text-1);
 	--gb-text-2: var(--text-2);
-	--gb-hover: color-mix(var(--fill-gray-bg) var(--opacity-bg-hover), transparent);
 	--gb-local: var(--commit-local);
 	--gb-remote: var(--commit-remote);
 	--gb-integrated: var(--commit-integrated);
@@ -41,7 +40,7 @@ button {
 	font: inherit;
 
 	&:focus-visible {
-		outline: 1.5px solid color-mix(in srgb, var(--fill-gray-bg) 70%, transparent);
+		outline: 1.5px solid var(--border-focus);
 		outline-offset: 1px;
 	}
 }
@@ -150,7 +149,7 @@ h1 {
 }
 
 .stack-header:hover {
-	background: var(--gb-hover);
+	background: var(--bg-hover);
 }
 
 .stack-header > span:first-of-type {
@@ -204,7 +203,7 @@ h1 {
 }
 
 .outline-row:hover {
-	background: var(--gb-hover);
+	background: var(--bg-hover);
 }
 
 .outline-row[data-selected] {
@@ -431,7 +430,7 @@ code {
 
 .copy-button:hover {
 	border-color: var(--gb-border-2);
-	background: var(--gb-hover);
+	background: var(--bg-hover);
 	color: var(--gb-text-1);
 }
 
@@ -576,7 +575,7 @@ code {
 }
 
 .detail-button:hover:not(:disabled) {
-	background: var(--gb-hover);
+	background: var(--bg-hover);
 }
 
 .detail-button.primary {
@@ -610,7 +609,7 @@ code {
 }
 
 .back-button:hover {
-	background: var(--gb-hover);
+	background: var(--bg-hover);
 	color: var(--gb-text-1);
 }
 

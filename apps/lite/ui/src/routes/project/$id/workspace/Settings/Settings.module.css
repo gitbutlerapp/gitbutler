@@ -60,7 +60,7 @@
 	transition: var(--transition-button);
 
 	&:hover {
-		background-color: var(--list-item-hover-bg);
+		background-color: var(--bg-hover);
 	}
 
 	/* The glyph sits one step quieter than its label, on both grounds. */

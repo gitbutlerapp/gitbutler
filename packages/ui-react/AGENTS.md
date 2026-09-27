@@ -32,9 +32,8 @@ relatively.
 
 Tokens come from `@gitbutler/design-core`, imported by the host once.
 `src/base.css` declares the few variables components read that aren't tokens
-(`--focus-ring`, `--control-cursor`, `--list-item-hover-bg`,
-`--transition-button`) and the control cursor rules; every host imports it
-right after design-core. A variable nothing declares doesn't error, the
+(`--focus-ring`, `--control-cursor`, `--transition-button`) and the control
+cursor rules; every host imports it right after design-core. A variable nothing declares doesn't error, the
 property quietly falls back, so a new shared variable goes in `base.css`, not
 in a host's stylesheet.
 

@@ -121,7 +121,7 @@
 	padding-inline: 6px;
 
 	&:not([data-disabled])[aria-expanded="true"] {
-		background-color: color-mix(in srgb, var(--fill-gray-bg) var(--opacity-bg-hover), transparent);
+		background-color: var(--bg-hover);
 	}
 }
 
