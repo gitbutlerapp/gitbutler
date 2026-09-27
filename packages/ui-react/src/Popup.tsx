@@ -42,12 +42,14 @@ export const Popup: FC<{ anchored?: boolean } & useRender.ComponentProps<"div">>
 	});
 
 /**
- * How wide a modal opens, picked by what it holds rather than measured per caller:
+ * How wide a modal opens, picked by what it holds rather than measured per caller. Each is a
+ * design-core token, `--size-modal-xs` to `--size-modal-lg`:
  *
  * - `xsmall` (320): a one-line question and its buttons — "Discard 3 files?".
  * - `small` (420): a prompt with a field or a short list, and pickers.
- * - `medium` (820): a pane that lays itself out, like settings.
- * - `large` (1100): a working surface, like the conflict resolver.
+ * - `medium` (640): a pane that lays itself out around one group.
+ * - `large` (820): a pane with more than one group, or a working surface: settings, the conflict
+ *   resolver.
  *
  * @public
  */

@@ -44,5 +44,5 @@
 
 /* Outline has no fill to divide, so the seam matches its border. */
 .outline {
-	--dropdown-button-separator: color-mix(in srgb, var(--fill-gray-bg) 26%, transparent);
+	--dropdown-button-separator: var(--border-control);
 }

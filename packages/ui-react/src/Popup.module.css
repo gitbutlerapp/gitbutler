@@ -74,19 +74,19 @@
 }
 
 .sizeXsmall {
-	width: 320px;
+	width: var(--size-modal-xs);
 }
 
 .sizeSmall {
-	width: 420px;
+	width: var(--size-modal-sm);
 }
 
 .sizeMedium {
-	width: 820px;
+	width: var(--size-modal-md);
 }
 
 .sizeLarge {
-	width: 1100px;
+	width: var(--size-modal-lg);
 }
 
 /* A form wrapping a modal's parts, so Enter submits, lays out as the modal itself would. */
@@ -298,7 +298,7 @@
 	   pointer and keyboard land on the same tint. */
 	&:hover:not(:disabled, [data-disabled]),
 	&[data-highlighted] {
-		background-color: var(--list-item-hover-bg);
+		background-color: var(--bg-hover);
 	}
 
 	&:disabled,

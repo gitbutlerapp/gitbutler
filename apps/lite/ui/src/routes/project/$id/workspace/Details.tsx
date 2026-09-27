@@ -1849,10 +1849,7 @@ const DiffContents: FC<{
             [data-line-type="context"],
             [data-line-type="context-expanded"]
           ) {
-            --diffs-bg-selection-number-override: color-mix(
-              var(--fill-gray-bg) var(--opacity-bg-selected-blur),
-              transparent
-            );
+            --diffs-bg-selection-number-override: var(--bg-selected-inactive);
 
             color: var(--text-1);
           }

@@ -51,7 +51,7 @@
 	user-select: none;
 
 	&[data-highlighted] {
-		background-color: var(--list-item-hover-bg);
+		background-color: var(--bg-hover);
 	}
 }
 

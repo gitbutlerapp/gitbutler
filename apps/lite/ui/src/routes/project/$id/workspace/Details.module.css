@@ -159,10 +159,7 @@
 }
 
 .diffContents {
-	--diffs-bg-selection-number-override: color-mix(
-		var(--fill-gray-bg) var(--opacity-bg-selected-blur),
-		transparent
-	);
+	--diffs-bg-selection-number-override: var(--bg-selected-inactive);
 	--diffs-bg-selection-override: transparent;
 
 	overflow: auto;
@@ -354,7 +351,7 @@
 		inset: 0 auto 0 0;
 		/* The row-selection fill, dimmed like row selections in a blurred
 		   panel; full strength while the diff pane owns focus. */
-		background-color: color-mix(var(--fill-gray-bg) var(--opacity-bg-selected-blur), transparent);
+		background-color: var(--bg-selected-inactive);
 		content: "";
 	}
 

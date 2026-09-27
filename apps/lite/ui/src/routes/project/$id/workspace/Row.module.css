@@ -34,7 +34,7 @@
 	cursor: var(--control-cursor);
 
 	&:where(:hover) {
-		background-color: var(--list-item-hover-bg);
+		background-color: var(--bg-hover);
 	}
 }
 
@@ -55,7 +55,7 @@
    where each one's cursor sits has to stay legible from the other one. What
    separates them is the rail below and the focused fill further down. */
 .containerSelected {
-	background-color: color-mix(var(--fill-gray-bg) var(--opacity-bg-selected-blur), transparent);
+	background-color: var(--bg-selected-inactive);
 
 	/* Only one row in the window is the source of what the details pane shows.
 	   A rail on its leading edge says so even when focus has moved away — into
@@ -76,7 +76,7 @@
 
 	&:has(:is(textarea, input):focus),
 	[data-selection-focus-styles="true"] [data-focus-scope][data-selection-focused="true"] & {
-		background-color: var(--fill-gray-bg);
+		background-color: var(--bg-selected);
 		color: var(--fill-gray-fg);
 	}
 }
@@ -359,7 +359,7 @@
 		--button-bg: transparent;
 		--button-fg: color-mix(in srgb, var(--text-1-invert) 90%, transparent);
 		--button-hover-fg: var(--text-1-invert);
-		--button-hover-bg: color-mix(in srgb, var(--scale-gray-100) 5%, transparent);
+		--button-hover-bg: var(--bg-hover-invert);
 	}
 }
 
@@ -376,7 +376,7 @@
 		--button-bg: transparent;
 		--button-fg: color-mix(in srgb, var(--text-1-invert) 90%, transparent);
 		--button-hover-fg: var(--text-1-invert);
-		--button-hover-bg: color-mix(in srgb, var(--scale-gray-100) 5%, transparent);
+		--button-hover-bg: var(--bg-hover-invert);
 	}
 }
 

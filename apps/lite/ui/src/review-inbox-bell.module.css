@@ -7,7 +7,7 @@
    clutter, and the tint keeps keyboard position visible. */
 .bell:focus-visible {
 	outline: none;
-	background-color: var(--list-item-hover-bg);
+	background-color: var(--bg-hover);
 }
 
 .bellDot {
@@ -79,7 +79,7 @@
 }
 
 .entry:hover {
-	background-color: var(--list-item-hover-bg);
+	background-color: var(--bg-hover);
 }
 
 .entryIcon {
