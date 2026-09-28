@@ -131,6 +131,18 @@ pub fn commit(
     args: Platform,
     invoked_from: &InvokedFrom,
 ) -> CliResult<(CommitOutcome, WorkspaceState)> {
+    let query = args
+        .query
+        .as_deref()
+        .map(but_lisp::Query::parse)
+        .transpose()
+        .map_err(|error| {
+            let mut rendered = String::new();
+            miette::GraphicalReportHandler::new_themed(miette::GraphicalTheme::unicode_nocolor())
+                .render_report(&mut rendered, &error)
+                .expect("rendering a diagnostic to a String cannot fail");
+            bad_input(rendered)
+        })?;
     let guard = ctx.exclusive_worktree_access();
     let mut meta = ctx.meta()?;
     let id_map = IdMap::new_from_context(ctx, guard.read_permission())?;
@@ -154,6 +166,7 @@ pub fn commit(
         commit_op,
         commit_selection,
         reword_op,
+        query,
     )?)
 }
 
@@ -180,6 +193,7 @@ fn resolve(
         below,
         interactive,
         changes,
+        query: _,
         allow_merged,
         switch,
     } = args;
@@ -331,6 +345,7 @@ pub fn run(
     commit_op: CommitOperation,
     commit_selection: CommitSelection,
     reword_op: CommitMessageSource,
+    query: Option<but_lisp::Query>,
 ) -> anyhow::Result<(CommitOutcome, WorkspaceState)> {
     // Owned for the whole operation: the `ChangeSource` handed to the transaction
     // below borrows from it.
@@ -340,13 +355,15 @@ pub fn run(
         .then(|| SingleBranchMode::new(ctx, perm.read_permission(), commit_op.switch()))
         .transpose()?;
 
+    let has_query = query.is_some();
     let changes = {
         let context_lines = ctx.settings.context_lines;
         let (repo, ..) = ctx.workspace_and_db_mut_with_perm(perm.read_permission())?;
 
         // One repo per builder, which is also what keeps `reconcile_worktree_diff_specs`
         // from seeing a spec whose path is not among that checkout's changes.
-        let mut builder = DiffSpecBuilder::for_change_source(&source_repo, &repo, context_lines);
+        let mut builder = DiffSpecBuilder::for_change_source(&source_repo, &repo, context_lines)
+            .with_query(query);
 
         match commit_selection {
             CommitSelection::AllChanges(_) => {
@@ -365,6 +382,10 @@ pub fn run(
         builder.into_diff_specs()
     };
 
+    anyhow::ensure!(
+        !has_query || !changes.is_empty(),
+        "Query selected no changes to commit"
+    );
     let changed_path_count = changes.len();
     let rejection_target = commit_op.rejection_target();
     let snapshot_details = SnapshotDetails::new(OperationKind::CreateCommit);

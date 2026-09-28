@@ -94,6 +94,15 @@ pub struct Platform {
     #[clap(long, group = "changes_to_commit")]
     pub empty: bool,
 
+    /// Narrow the selected changes with a Lisp query.
+    ///
+    /// Supports line, line-added, line-removed, hunk, hunk-added, and hunk-removed
+    /// with :contains, composed with not, union, intersection, and difference.
+    /// Only changed lines are searched, never context. For example:
+    /// --query '(not (line :contains "TODO"))'.
+    #[clap(long, value_name = "EXPR", conflicts_with = "empty")]
+    pub query: Option<String>,
+
     /// Open the TUI to interactively select what to commit.
     #[clap(short, long, group = "changes_to_commit", help_heading = "Interactive")]
     pub interactive: bool,

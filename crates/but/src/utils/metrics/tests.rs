@@ -266,6 +266,7 @@ fn commit_extra_props_describe_targeting_and_selection_without_ids() {
         let command = Subcommands::Commit(commit::Platform {
             message: Some(vec!["private message".into()]),
             no_message: false,
+            query: Some(r#"(line :contains "private-query")"#.into()),
             branch: branch.map(|name| name.map(|name| CliIdArg(name.into()))),
             above: above.map(|value| CliIdArg(value.into())),
             below: below.map(|value| CliIdArg(value.into())),

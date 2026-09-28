@@ -4756,6 +4756,237 @@ error: the argument '--switch' cannot be used with '--above <BRANCH_OR_COMMIT>'
 }
 
 #[test]
+fn query_is_opt_in() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("zero-stacks");
+    env.setup_metadata(&[]);
+    env.file("file", "TODO: commit normally\n");
+    env.but("commit -b new-branch --no-message")
+        .assert()
+        .success();
+    snapbox::assert_data_eq!(
+        env.invoke_git("show new-branch:file"),
+        "TODO: commit normally"
+    );
+    snapbox::assert_data_eq!(env.invoke_git("status --porcelain"), "");
+}
+
+#[test]
+fn query_hunk_ignores_context_lines() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("zero-stacks");
+    env.setup_metadata(&[]);
+    env.file("file", "TODO: existing\nold\n");
+    env.but("commit -b new-branch --no-message")
+        .assert()
+        .success();
+    env.file("file", "TODO: existing\nnew\n");
+    env.but(r#"commit -b new-branch --no-message --query '(not (hunk :contains "TODO"))'"#)
+        .assert()
+        .success();
+    snapbox::assert_data_eq!(
+        env.invoke_git("show new-branch:file"),
+        "TODO: existing\nnew"
+    );
+    snapbox::assert_data_eq!(env.invoke_git("status --porcelain"), "");
+}
+
+#[test]
+fn query_excludes_whole_hunks() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("zero-stacks");
+    env.setup_metadata(&[]);
+    env.file("file", "TODO: leave this hunk\nalso leave this\n");
+    env.file("other", "commit this\n");
+    env.but(r#"commit -b new-branch --no-message --query '(not (hunk-added :contains "TODO"))'"#)
+        .assert()
+        .success();
+    snapbox::assert_data_eq!(env.invoke_git("ls-tree --name-only new-branch"), "M\nother");
+    snapbox::assert_data_eq!(env.invoke_git("status --porcelain"), "?? file");
+}
+
+#[test]
+fn query_narrows_explicit_file_selection() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("zero-stacks");
+    env.setup_metadata(&[]);
+    env.file("file", "keep\nTODO: leave\n");
+    env.file("other", "keep this unselected file\n");
+    env.but(r#"commit file -b new-branch --no-message --query '(not (line :contains "TODO"))'"#)
+        .assert()
+        .success();
+    snapbox::assert_data_eq!(env.invoke_git("show new-branch:file"), "keep");
+    snapbox::assert_data_eq!(env.invoke_git("ls-tree --name-only new-branch"), "M\nfile");
+    snapbox::assert_data_eq!(env.invoke_git("status --porcelain"), "M file\n?? other");
+}
+
+#[test]
+fn query_narrows_explicit_hunk_selection() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("zero-stacks");
+    env.setup_metadata(&[]);
+    env.file("file", "keep\nTODO: leave\n");
+    env.file("other", "keep this unselected file\n");
+    env.but("diff file")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+─────────────╮
+ qs:2 A file │
+─────────────╯
+
+@@ -1,0 +1,2 @@
+───────────────
+  ┊ 1 │ +keep
+  ┊ 2 │ +TODO: leave
+
+"#]]);
+    env.but(r#"commit qs:2 -b new-branch --no-message --query '(not (line :contains "TODO"))'"#)
+        .assert()
+        .success();
+    snapbox::assert_data_eq!(env.invoke_git("show new-branch:file"), "keep");
+    snapbox::assert_data_eq!(env.invoke_git("status --porcelain"), "M file\n?? other");
+}
+
+#[test]
+fn query_can_select_only_removed_lines() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("zero-stacks");
+    env.setup_metadata(&[]);
+    env.file("file", "keep\nTODO: remove me\n");
+    env.but("commit -b new-branch --no-message")
+        .assert()
+        .success();
+    env.file("file", "keep\nreplacement\n");
+    env.but(r#"commit -b new-branch --no-message --query '(line-removed :contains "TODO")'"#)
+        .assert()
+        .success();
+    snapbox::assert_data_eq!(env.invoke_git("show new-branch:file"), "keep");
+    snapbox::assert_data_eq!(
+        env.invoke_git("diff -- file"),
+        snapbox::str![[r#"
+diff --git a/file b/file
+index [..] 100644
+--- a/file
++++ b/file
+@@ -1 +1,2 @@
+ keep
++replacement
+"#]]
+    );
+}
+
+#[test]
+fn query_keeps_selected_additions_and_removals_in_one_hunk() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("zero-stacks");
+    env.setup_metadata(&[]);
+    env.file("file", "old first\nold second\n");
+    env.but("commit -b new-branch --no-message")
+        .assert()
+        .success();
+    env.file("file", "new first\nTODO: leave\nnew second\n");
+    env.but(r#"commit -b new-branch --no-message --query '(not (line :contains "TODO"))'"#)
+        .assert()
+        .success();
+    snapbox::assert_data_eq!(
+        env.invoke_git("show new-branch:file"),
+        "new first\nnew second"
+    );
+    snapbox::assert_data_eq!(
+        env.invoke_git("diff -- file"),
+        snapbox::str![[r#"
+diff --git a/file b/file
+index [..] 100644
+--- a/file
++++ b/file
+@@ -1,2 +1,3 @@
+ new first
++TODO: leave
+ new second
+"#]]
+    );
+}
+
+#[test]
+fn query_composes_hunk_and_line_exclusions() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("zero-stacks");
+    env.setup_metadata(&[]);
+    env.file("file", "keep\ndbg!(value);\n");
+    env.file("other", "TODO: leave this entire hunk\nalso leave\n");
+    env.but(r#"commit -b new-branch --no-message --query '(difference (line-added :contains "") (union (hunk-added :contains "TODO") (line-added :contains "dbg!")))'"#).assert().success();
+    snapbox::assert_data_eq!(env.invoke_git("show new-branch:file"), "keep");
+    snapbox::assert_data_eq!(env.invoke_git("ls-tree --name-only new-branch"), "M\nfile");
+    snapbox::assert_data_eq!(env.invoke_git("status --porcelain"), "M file\n?? other");
+}
+
+#[test]
+fn query_text_exclusion_preserves_binary_files() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("zero-stacks");
+    env.setup_metadata(&[]);
+    env.file("binary", b"\0TODO\xff");
+    env.but(r#"commit -b new-branch --no-message --query '(not (line :contains "TODO"))'"#)
+        .assert()
+        .success();
+    snapbox::assert_data_eq!(
+        env.invoke_git("ls-tree --name-only new-branch"),
+        "M\nbinary"
+    );
+    snapbox::assert_data_eq!(env.invoke_git("status --porcelain"), "");
+}
+
+#[test]
+fn query_selecting_nothing_does_not_create_a_branch() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("zero-stacks");
+    env.setup_metadata(&[]);
+    env.file("file", "TODO: leave everything\n");
+    let before = env.git_log();
+    env.but(r#"commit -b new-branch --no-message --query '(not (line :contains "TODO"))'"#)
+        .assert()
+        .failure()
+        .stderr_eq("Error: Query selected no changes to commit\n");
+    assert_eq!(
+        env.git_log(),
+        before,
+        "a query with no matches must not mutate history or create a branch"
+    );
+    snapbox::assert_data_eq!(env.invoke_git("status --porcelain"), "?? file");
+}
+
+#[test]
+fn query_syntax_error_has_source_labels_and_does_not_create_a_branch() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("zero-stacks");
+    env.setup_metadata(&[]);
+    env.file("file", "keep\n");
+    let before = env.git_log();
+    env.but(r#"commit -b new-branch --no-message --query '(line :contains "TODO"'"#)
+        .assert()
+        .failure()
+        .stderr_eq(snapbox::str![[r#"
+Error:   × Invalid diff query: expected ')'
+   ╭─[query:1:1]
+ 1 │ (line :contains "TODO"
+   · ┬
+   · ╰── expected ')'
+   ╰────
+
+
+"#]]);
+    assert_eq!(
+        env.git_log(),
+        before,
+        "invalid queries must not mutate history or create a branch"
+    );
+    snapbox::assert_data_eq!(env.invoke_git("status --porcelain"), "?? file");
+}
+
+#[test]
+fn query_conflicts_with_empty_commit() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("zero-stacks");
+    env.setup_metadata(&[]);
+    env.but(r#"commit --empty --no-message --query '(line :contains "TODO")'"#)
+        .assert()
+        .failure()
+        .stderr_eq(snapbox::str![[r#"
+error: the argument '--empty' cannot be used with '--query <EXPR>'
+...
+"#]]);
+}
+
+#[test]
 fn dont_commit_todos() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("zero-stacks");
     env.setup_metadata(&[]);
@@ -4765,7 +4996,7 @@ fn dont_commit_todos() {
         "commit this line\nTODO: dont commit this\nalso commit this",
     );
 
-    env.but("commit -b new-branch --no-message")
+    env.but(r#"commit -b new-branch --no-message --query '(not (line :contains "TODO"))'"#)
         .assert()
         .success()
         .stderr_eq(snapbox::str![""]);

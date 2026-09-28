@@ -1,5 +1,8 @@
 //! A Lisp parser for our diff filtering language.
 //!
+//! Currently supports line/hunk selectors with `:contains` and the four set operators.
+//! File selectors, regexes, and ranges below describe planned extensions.
+//!
 //! # Select files
 //!
 //! Changes to one file, Rust source files, or lockfiles:
@@ -81,3 +84,12 @@
 //! ```
 //!
 //! `difference` takes two operands: `(difference a b)` equals `(intersection a (not b))`.
+
+mod parse;
+mod query;
+
+pub use parse::QueryError;
+pub use query::{ChangedLine, Query, Side};
+
+#[cfg(test)]
+mod tests;

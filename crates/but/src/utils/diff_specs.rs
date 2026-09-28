@@ -17,6 +17,7 @@ pub struct DiffSpecBuilder<'a> {
     context_lines: u32,
     worktree_changes: Option<Vec<but_core::ui::TreeChange>>,
     diff_specs: Vec<DiffSpec>,
+    query: Option<but_lisp::Query>,
 }
 
 impl<'a> DiffSpecBuilder<'a> {
@@ -26,6 +27,7 @@ impl<'a> DiffSpecBuilder<'a> {
         Self {
             repo,
             source: ChangeSourceId::Head,
+            query: None,
             context_lines,
             worktree_changes: None,
             diff_specs: Default::default(),
@@ -42,10 +44,18 @@ impl<'a> DiffSpecBuilder<'a> {
         Self {
             repo: source_repo.repo(main),
             source: source_repo.source(),
+            query: None,
             context_lines,
             worktree_changes: None,
             diff_specs: Default::default(),
         }
+    }
+
+    /// Narrow subsequently added worktree hunks with a query. Committed-change
+    /// sources are not queried; callers using those should leave this unset.
+    pub fn with_query(mut self, query: Option<but_lisp::Query>) -> DiffSpecBuilder<'a> {
+        self.query = query;
+        self
     }
 
     #[expect(dead_code)]
@@ -162,66 +172,7 @@ impl<'a> DiffSpecBuilder<'a> {
     pub fn push_changes_from_uncommitted_area(&mut self) -> anyhow::Result<()> {
         let changes = self.worktree_changes()?.to_vec();
         let hunks = but_core::hunks_from_changes(self.repo, changes.clone(), self.context_lines);
-
-        fn dont_commit(line: &[u8]) -> bool {
-            line.contains_str(b"TODO")
-        }
-
-        for hunk in hunks {
-            let mut spec = but_core::diff_spec_with_changes(hunk.clone(), &changes);
-            if let (Some(diff), Some(header)) = (&hunk.diff, hunk.hunk_header) {
-                // One-sided headers select individual changed lines, not patch text.
-                let mut selected_headers = Vec::new();
-                // Keep the original whole-hunk headers unless the predicate excludes a line.
-                let mut excluded_lines = false;
-                let mut old_line = header.old_start;
-                let mut new_line = header.new_start;
-                for line in diff.lines() {
-                    match line.first() {
-                        Some(b'+') => {
-                            if dont_commit(line) {
-                                excluded_lines = true;
-                            } else {
-                                selected_headers.push(HunkHeader {
-                                    old_start: 0,
-                                    old_lines: 0,
-                                    new_start: new_line,
-                                    new_lines: 1,
-                                });
-                            }
-                            new_line += 1;
-                        }
-                        Some(b'-') => {
-                            if dont_commit(line) {
-                                excluded_lines = true;
-                            } else {
-                                selected_headers.push(HunkHeader {
-                                    old_start: old_line,
-                                    old_lines: 1,
-                                    new_start: 0,
-                                    new_lines: 0,
-                                });
-                            }
-                            old_line += 1;
-                        }
-                        Some(b' ') => {
-                            old_line += 1;
-                            new_line += 1;
-                        }
-                        _ => {} // Skip hunk headers and missing-newline markers.
-                    }
-                }
-                if excluded_lines {
-                    // Empty headers select the whole file, so omit an empty selection.
-                    if selected_headers.is_empty() {
-                        continue;
-                    }
-                    spec.hunk_headers = selected_headers;
-                }
-            }
-            self.diff_specs.push(spec);
-        }
-
+        self.push_hunks_with_changes(hunks, &changes);
         Ok(())
     }
 
@@ -339,8 +290,76 @@ impl<'a> DiffSpecBuilder<'a> {
         hunks: impl IntoIterator<Item = but_core::SingleHunk>,
         changes: &[but_core::ui::TreeChange],
     ) {
-        self.diff_specs
-            .extend(but_core::diff_specs_with_changes(hunks, changes));
+        let Some(query) = &self.query else {
+            self.diff_specs
+                .extend(but_core::diff_specs_with_changes(hunks, changes));
+            return;
+        };
+        for hunk in hunks {
+            let mut spec = but_core::diff_spec_with_changes(hunk.clone(), changes);
+            let mut lines = Vec::new();
+            let mut headers = Vec::new();
+            if let (Some(diff), Some(header)) = (&hunk.diff, hunk.hunk_header) {
+                let mut old_line = header.old_start;
+                let mut new_line = header.new_start;
+                for line in diff.lines() {
+                    match line.first() {
+                        Some(b'+') => {
+                            lines.push(but_lisp::ChangedLine {
+                                side: but_lisp::Side::Added,
+                                content: &line[1..],
+                            });
+                            headers.push(HunkHeader {
+                                old_start: 0,
+                                old_lines: 0,
+                                new_start: new_line,
+                                new_lines: 1,
+                            });
+                            new_line += 1;
+                        }
+                        Some(b'-') => {
+                            lines.push(but_lisp::ChangedLine {
+                                side: but_lisp::Side::Removed,
+                                content: &line[1..],
+                            });
+                            headers.push(HunkHeader {
+                                old_start: old_line,
+                                old_lines: 1,
+                                new_start: 0,
+                                new_lines: 0,
+                            });
+                            old_line += 1;
+                        }
+                        Some(b' ') => {
+                            // Context locates changes but is never passed to the query.
+                            old_line += 1;
+                            new_line += 1;
+                        }
+                        _ => {} // Hunk headers and missing-newline markers.
+                    }
+                }
+            }
+            if lines.is_empty() {
+                if query.selects_non_text() {
+                    self.diff_specs.push(spec);
+                }
+                continue;
+            }
+            let selected = query.select(&lines);
+            if selected.iter().all(|selected| *selected) {
+                self.diff_specs.push(spec);
+                continue;
+            }
+            // Empty headers mean whole-file selection, so omit fully excluded hunks.
+            spec.hunk_headers = headers
+                .into_iter()
+                .zip(selected)
+                .filter_map(|(header, selected)| selected.then_some(header))
+                .collect();
+            if !spec.hunk_headers.is_empty() {
+                self.diff_specs.push(spec);
+            }
+        }
     }
 
     fn diff_specs_for_path_in_commit(

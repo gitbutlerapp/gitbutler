@@ -50,6 +50,8 @@ raw-clap-docs = []
 
 [dependencies]
 but-core.workspace = true
+but-lisp.workspace = true
+miette = { workspace = true, features = ["fancy-no-backtrace"] }
 but-settings.workspace = true
 but-secret.workspace = true
 but-askpass.workspace = true
