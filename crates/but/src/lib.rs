@@ -47,7 +47,7 @@ use crate::command::legacy::ShowDiffInEditor;
 use crate::utils::envs::BUT_CREDENTIALS_DIRECTORY;
 use crate::{
     setup::{BackgroundSync, InitCtxOptions, TargetRequirement},
-    utils::{OutputChannel, ResultErrorExt, ResultMetricsExt, envs},
+    utils::{OutputChannel, ResultErrorExt, ResultMetricsExt, change_source::InvokedFrom, envs},
 };
 
 mod error;
@@ -1262,6 +1262,7 @@ async fn dispatch_subcommand(
                 &mut ctx,
                 IntermediateChannel::new(out),
                 commit_args,
+                &InvokedFrom::discover(&args.current_dir)?,
             )?;
             let metrics_outcome = command::CommandOutcome::Commit(outcome.clone());
             out.print_cli_output(outcome)?;

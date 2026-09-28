@@ -33,7 +33,7 @@ use crate::{
     theme::{self, Theme},
     utils::{
         CliOutput, CliOutputHuman, IntermediateChannel, WriteWithUtils,
-        change_source::{ChangeSourceId, ChangeSourceRepo, UncommittedSelection},
+        change_source::{ChangeSourceId, ChangeSourceRepo, InvokedFrom, UncommittedSelection},
         diff_specs::DiffSpecBuilder,
         merged_upstream::MergedUpstream,
         rejection,
@@ -129,6 +129,7 @@ pub fn commit(
     ctx: &mut Context,
     mut out: IntermediateChannel<'_>,
     args: Platform,
+    invoked_from: &InvokedFrom,
 ) -> CliResult<(CommitOutcome, WorkspaceState)> {
     let guard = ctx.exclusive_worktree_access();
     let mut meta = ctx.meta()?;
@@ -136,7 +137,15 @@ pub fn commit(
 
     let (mut guard, commit_op, commit_selection, reword_op) = {
         let head_info = but_api::legacy::workspace::head_info(ctx)?;
-        resolve(guard, ctx, args, &mut out, &head_info, &id_map)?
+        resolve(
+            guard,
+            ctx,
+            args,
+            &mut out,
+            &head_info,
+            &id_map,
+            invoked_from,
+        )?
     };
     Ok(run(
         ctx,
@@ -155,6 +164,7 @@ fn resolve(
     out: &mut IntermediateChannel<'_>,
     head_info: &RefInfo,
     id_map: &IdMap,
+    invoked_from: &InvokedFrom,
 ) -> CliResult<(
     RepoExclusiveGuard,
     CommitOperation,
@@ -244,7 +254,10 @@ fn resolve(
     } else if empty {
         (guard, CommitSelection::Nothing)
     } else {
-        (guard, CommitSelection::AllChanges(ChangeSourceId::Head))
+        (
+            guard,
+            CommitSelection::AllChanges(invoked_from.managed_source(id_map)?),
+        )
     };
 
     let commit_op = {

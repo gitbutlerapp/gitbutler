@@ -29,7 +29,7 @@ Show details of a commit or branch
 
 ### but commit [CHANGES]...
 Create a commit
-- `[CHANGES]...` The files or hunks to commit, by CLI ID from but diff. If omitted, everything uncommitted is committed.
+- `[CHANGES]...` The files or hunks to commit, by CLI ID from but diff. If omitted, everything uncommitted in the checkout but runs in is committed.
 - `-m, --message <MESSAGE>` The message to use for the commit. Can be supplied any amount of times, each value being appended to the preceding ones with a blank line in between. Without -m or --no-message, a terminal opens the editor and a non-interactive run commits with an empty message.
 - `--no-message` Create the commit without a message
 - `-b, --branch [<BRANCH>]` Place the commit on the branch BRANCH. With --above or --below, name the new branch created relative to the target branch. The name must not already exist; omit it for a generated name. Cannot be combined with commit or worktree targets. Otherwise, if BRANCH does not exist, it is created as an unstacked branch. If BRANCH is omitted, an unstacked branch with a generated name is created. If BRANCH is a worktree or a branch checked out in one, the commit is placed on the tip of that worktree's branch. Attempting to place a commit on a branch that exists but is not applied is an error.

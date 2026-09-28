@@ -3644,6 +3644,77 @@ Hint: run `but help` for all commands
 "#]]);
 }
 
+#[test]
+fn bare_commit_in_a_linked_worktree_commits_its_changes_to_its_branch() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
+    env.setup_metadata(&["A", "B"]);
+    enable_worktree_manipulation(&env);
+    env.but("status").assert().success();
+    let wt_dir = add_dirty_worktree(&env, "wt-feature", "A");
+    env.file("main-file.txt", "main change");
+
+    env.but("commit -m 'note from the worktree'")
+        .current_dir(&wt_dir)
+        .assert()
+        .success()
+        .stderr_eq(snapbox::str![])
+        .stdout_eq(snapbox::str![[r#"
+Created commit lpo on branch 'wt-feature'
+
+"#]]);
+
+    // The worktree's change went onto its branch; the main worktree's change is untouched.
+    env.but("status -f")
+        .assert()
+        .success()
+        .stderr_eq(snapbox::str![])
+        .stdout_eq(snapbox::str![[r#"
+╭┄ @ [uncommitted]
+┊   nu A main-file.txt
+┊
+┊╭┄ g0 [A]
+┊┊
+┊┊╭┄ wt:@ [uncommitted] {wt-feature} (no changes)
+┊┊├┄ wt [wt-feature]
+┊┊●   lpo note from the worktree
+┊┊│     lpo:u A note.txt
+┊├╯
+┊●   tpm add A
+┊│     tpm:t A A
+├╯
+┊
+┊╭┄ h0 [B]
+┊●   lrm add B
+┊│     lrm:p A B
+├╯
+┊
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
+
+Hint: run `but diff` to see uncommitted changes and `but commit -b <branch> -m "message" <id>` to commit them
+
+"#]]);
+}
+
+#[test]
+fn bare_commit_in_an_unmanaged_worktree_is_refused() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
+    env.setup_metadata(&["A", "B"]);
+    let wt_dir = add_dirty_worktree(&env, "wt-feature", "A");
+    env.file("main-file.txt", "main change");
+
+    env.but("commit -m 'not from here'")
+        .current_dir(&wt_dir)
+        .assert()
+        .failure()
+        .stdout_eq(snapbox::str![])
+        .stderr_eq(snapbox::str![[r#"
+Error: Worktree wt-feature is not managed by GitButler
+
+Hint: Run `but worktree list` to see the worktrees GitButler manages
+
+"#]]);
+}
+
 /// A worktree freshly checked out at a stack branch's tip starts as its own fork that
 /// merely shares that commit: being checked out is transient state and never couples
 /// identities. So committing from the worktree only fast-forwards its own branch onto
