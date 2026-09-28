@@ -35,13 +35,16 @@ fn line(data: StatusOutputLineData) -> StatusOutputLine {
 }
 
 fn uncommitted_area(id: &str) -> Arc<CliId> {
-    Arc::new(CliId::Uncommitted { id: id.into() })
+    Arc::new(CliId::UncommittedArea {
+        id: id.into(),
+        source: ChangeSourceId::Head,
+    })
 }
 
 fn worktree_uncommitted_cli_id(name: &str, id: &str) -> Arc<CliId> {
-    Arc::new(CliId::WorktreeUncommitted {
+    Arc::new(CliId::UncommittedArea {
         id: id.into(),
-        name: name.into(),
+        source: ChangeSourceId::Worktree(name.into()),
     })
 }
 
@@ -147,13 +150,12 @@ fn uncommitted_source(cli_ids: &[Arc<CliId>]) -> CommitSource {
                 CommitSource::UncommittedHunk(uncommitted.clone())
             }
             CliId::AnonymousSegment(..)
-            | CliId::Uncommitted { .. }
+            | CliId::UncommittedArea { .. }
             | CliId::PathPrefix { .. }
             | CliId::CommittedFile { .. }
             | CliId::CommittedHunk { .. }
             | CliId::Branch(BranchId { .. })
             | CliId::Stack { .. }
-            | CliId::WorktreeUncommitted { .. }
             | CliId::Commit { .. } => panic!("test cli ID should be uncommitted"),
         }
     } else {
@@ -453,7 +455,13 @@ fn restore_selects_first_matching_line_when_cli_id_appears_multiple_times() {
     ];
 
     assert_eq!(
-        Cursor::restore(&CliId::Uncommitted { id: "u0".into() }, &lines),
+        Cursor::restore(
+            &CliId::UncommittedArea {
+                id: "u0".into(),
+                source: ChangeSourceId::Head,
+            },
+            &lines,
+        ),
         Some(Cursor(0))
     );
 }
@@ -2207,9 +2215,7 @@ fn status_line(rendered: &str) -> StatusOutputLineData {
 }
 
 fn random_cli_id() -> Arc<CliId> {
-    Arc::new(CliId::Uncommitted {
-        id: crate::id::UNCOMMITTED.to_owned(),
-    })
+    Arc::new(CliId::head_uncommitted_area())
 }
 
 #[test]

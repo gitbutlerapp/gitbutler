@@ -1,12 +1,12 @@
 use bstr::BString;
 
-use crate::{IdMap, id::ShortId, utils::change_source::ChangeSourceId};
+use crate::{CliId, IdMap, utils::change_source::ChangeSourceId};
 
-/// An uncommitted file with the short ID that addresses it.
+/// An uncommitted file with the ID that addresses it.
 #[derive(Debug, Clone)]
 pub(crate) struct UncommittedFileWithId {
-    /// The short ID.
-    pub short_id: ShortId,
+    /// The ID naming the whole file.
+    pub cli_id: CliId,
     /// The worktree-relative path of the file.
     pub path: BString,
 }
@@ -23,7 +23,7 @@ impl UncommittedFileWithId {
             .values()
             .filter(|file| file.source == *source)
             .map(|file| Self {
-                short_id: file.short_id.clone(),
+                cli_id: file.to_id(),
                 path: file.path().to_owned(),
             })
             .collect();

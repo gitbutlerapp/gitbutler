@@ -105,8 +105,14 @@ impl CliIdArg {
                 ResolvedCliIdArg::CommittedFile(committed_file)
             }
             CliId::CommittedHunk(committed) => ResolvedCliIdArg::CommittedHunk(Box::new(committed)),
-            CliId::Uncommitted { .. } => ResolvedCliIdArg::Uncommitted,
-            CliId::WorktreeUncommitted { name, .. } => ResolvedCliIdArg::WorktreeUncommitted(name),
+            CliId::UncommittedArea {
+                source: ChangeSourceId::Head,
+                ..
+            } => ResolvedCliIdArg::Uncommitted,
+            CliId::UncommittedArea {
+                source: ChangeSourceId::Worktree(name),
+                ..
+            } => ResolvedCliIdArg::WorktreeUncommitted(name),
             CliId::Stack { id, stack_id } => ResolvedCliIdArg::Stack { id, stack_id },
         }))
     }
@@ -218,7 +224,10 @@ impl CliIdArg {
             return Ok(None);
         };
         match id {
-            CliId::WorktreeUncommitted { name, .. } => Ok(Some(name)),
+            CliId::UncommittedArea {
+                source: ChangeSourceId::Worktree(name),
+                ..
+            } => Ok(Some(name)),
             id => worktree_checked_out_at(repo, &id),
         }
     }
@@ -271,14 +280,18 @@ impl CliIdArg {
             )),
             // A worktree's uncommitted area expands to every file in it - the same thing
             // as naming each of them by ID.
-            CliId::WorktreeUncommitted { name, .. } => Ok(Some(
+            CliId::UncommittedArea {
+                source: ChangeSourceId::Worktree(name),
+                ..
+            } => Ok(Some(
                 id_map.uncommitted_files_in(&ChangeSourceId::Worktree(name)),
             )),
             // `@` names the main checkout's uncommitted area the same way, so it
             // expands to the files a bare `but commit` takes.
-            CliId::Uncommitted { .. } => {
-                Ok(Some(id_map.uncommitted_files_in(&ChangeSourceId::Head)))
-            }
+            CliId::UncommittedArea {
+                source: ChangeSourceId::Head,
+                ..
+            } => Ok(Some(id_map.uncommitted_files_in(&ChangeSourceId::Head))),
             _ => Ok(None),
         }
     }
@@ -306,9 +319,7 @@ impl CliIdArg {
                 .filter(|id| {
                     matches!(
                         id,
-                        CliId::UncommittedHunkOrFile(_)
-                            | CliId::WorktreeUncommitted { .. }
-                            | CliId::Uncommitted { .. }
+                        CliId::UncommittedHunkOrFile(_) | CliId::UncommittedArea { .. }
                     )
                 })
                 .collect::<Vec<_>>();
@@ -437,9 +448,8 @@ fn try_resolve_cli_id(
                 CliId::PathPrefix { .. }
                 | CliId::CommittedFile { .. }
                 | CliId::CommittedHunk { .. }
-                | CliId::Uncommitted { .. }
+                | CliId::UncommittedArea { .. }
                 | CliId::AnonymousSegment(..)
-                | CliId::WorktreeUncommitted { .. }
                 | CliId::Stack { .. } => {}
             }
         }
@@ -624,7 +634,11 @@ impl PartialEq<CliId> for ResolvedCliIdArg {
                 }
             }
             ResolvedCliIdArg::WorktreeUncommitted(lhs) => {
-                if let CliId::WorktreeUncommitted { name: rhs, .. } = other {
+                if let CliId::UncommittedArea {
+                    source: ChangeSourceId::Worktree(rhs),
+                    ..
+                } = other
+                {
                     return lhs == rhs;
                 }
             }
@@ -658,7 +672,13 @@ impl PartialEq<CliId> for ResolvedCliIdArg {
                 }
             }
             ResolvedCliIdArg::Uncommitted => {
-                return matches!(other, CliId::Uncommitted { .. });
+                return matches!(
+                    other,
+                    CliId::UncommittedArea {
+                        source: ChangeSourceId::Head,
+                        ..
+                    }
+                );
             }
             ResolvedCliIdArg::PathPrefix {
                 id: lhs_id,

@@ -303,7 +303,7 @@ trait Node<'a>: std::fmt::Debug {
         changes_in_commit: &dyn ChangesInCommit,
     ) -> anyhow::Result<Vec<Box<dyn Node<'a> + 'a>>>;
 
-    fn to_cli_id(self: Box<Self>, short_id: &str, id_map: &IdMap) -> anyhow::Result<Option<CliId>>;
+    fn to_cli_id(self: Box<Self>) -> Option<CliId>;
 }
 
 /// Internal type forming a superset of [`CliId::CommittedFile`] to propagate the
@@ -373,15 +373,11 @@ impl<'a> Node<'a> for CommittedFile {
         Ok(matches)
     }
 
-    fn to_cli_id(
-        self: Box<Self>,
-        _short_id: &str,
-        _id_map: &IdMap,
-    ) -> anyhow::Result<Option<CliId>> {
-        Ok(Some(CliId::CommittedFile {
+    fn to_cli_id(self: Box<Self>) -> Option<CliId> {
+        Some(CliId::CommittedFile {
             committed_file: self.committed_file,
             id: self.short_id,
-        }))
+        })
     }
 }
 
@@ -430,12 +426,8 @@ impl<'a> Node<'a> for Leaf {
         Ok(vec![])
     }
 
-    fn to_cli_id(
-        self: Box<Self>,
-        _short_id: &str,
-        _id_map: &IdMap,
-    ) -> anyhow::Result<Option<CliId>> {
-        Ok(Some(self.cli_id.clone()))
+    fn to_cli_id(self: Box<Self>) -> Option<CliId> {
+        Some(self.cli_id.clone())
     }
 }
 
@@ -515,6 +507,16 @@ impl WorkspaceCommitWithId {
         CommitId {
             commit_id: self.inner.id,
             change_id: self.change_id.clone().map(|cid| cid.change_id),
+        }
+    }
+    /// The ID naming this commit.
+    pub fn cli_id(&self) -> CliId {
+        CliId::Commit {
+            commit: CommitId {
+                commit_id: self.commit_id(),
+                change_id: self.change_id.as_ref().map(|id| id.change_id.clone()),
+            },
+            id: self.short_id.clone(),
         }
     }
 }
@@ -598,18 +600,8 @@ impl<'a> Node<'a> for &'a WorkspaceCommitWithId {
         Ok(matches)
     }
 
-    fn to_cli_id(
-        self: Box<Self>,
-        _short_id: &str,
-        _id_map: &IdMap,
-    ) -> anyhow::Result<Option<CliId>> {
-        Ok(Some(CliId::Commit {
-            commit: CommitId {
-                commit_id: self.commit_id(),
-                change_id: self.change_id.as_ref().map(|id| id.change_id.clone()),
-            },
-            id: self.short_id.clone(),
-        }))
+    fn to_cli_id(self: Box<Self>) -> Option<CliId> {
+        Some(self.cli_id())
     }
 }
 
@@ -626,6 +618,16 @@ impl RemoteCommitWithId {
     pub fn commit_id(&self) -> gix::ObjectId {
         self.inner.id
     }
+    /// The ID naming this commit.
+    pub fn cli_id(&self) -> CliId {
+        CliId::Commit {
+            commit: CommitId {
+                commit_id: self.commit_id(),
+                change_id: None,
+            },
+            id: self.short_id.clone(),
+        }
+    }
 }
 impl<'a> Node<'a> for &'a RemoteCommitWithId {
     fn parse(
@@ -637,18 +639,8 @@ impl<'a> Node<'a> for &'a RemoteCommitWithId {
         Ok(Vec::new())
     }
 
-    fn to_cli_id(
-        self: Box<Self>,
-        _short_id: &str,
-        _id_map: &IdMap,
-    ) -> anyhow::Result<Option<CliId>> {
-        Ok(Some(CliId::Commit {
-            commit: CommitId {
-                commit_id: self.commit_id(),
-                change_id: None,
-            },
-            id: self.short_id.clone(),
-        }))
+    fn to_cli_id(self: Box<Self>) -> Option<CliId> {
+        Some(self.cli_id())
     }
 }
 
@@ -676,6 +668,24 @@ impl SegmentWithId {
             .ref_info
             .as_ref()
             .map(|ref_info| ref_info.ref_name.shorten())
+    }
+    /// The ID naming this segment.
+    pub fn cli_id(&self) -> CliId {
+        match self.branch_name() {
+            Some(name) => CliId::Branch(BranchId {
+                name: name.to_string(),
+                id: self.short_id.clone(),
+                lane: self.lane.clone(),
+            }),
+            None => CliId::AnonymousSegment(AnonymousSegmentId {
+                id: self.short_id.clone(),
+                lane: self.lane.clone(),
+                anchor_commit_id: self
+                    .workspace_commits
+                    .first()
+                    .map(WorkspaceCommitWithId::commit_id),
+            }),
+        }
     }
 }
 impl<'a> Node<'a> for &'a SegmentWithId {
@@ -707,26 +717,8 @@ impl<'a> Node<'a> for &'a SegmentWithId {
         Ok(matches)
     }
 
-    fn to_cli_id(
-        self: Box<Self>,
-        _short_id: &str,
-        _id_map: &IdMap,
-    ) -> anyhow::Result<Option<CliId>> {
-        Ok(Some(match self.branch_name() {
-            Some(name) => CliId::Branch(BranchId {
-                name: name.to_string(),
-                id: self.short_id.clone(),
-                lane: self.lane.clone(),
-            }),
-            None => CliId::AnonymousSegment(AnonymousSegmentId {
-                id: self.short_id.clone(),
-                lane: self.lane.clone(),
-                anchor_commit_id: self
-                    .workspace_commits
-                    .first()
-                    .map(WorkspaceCommitWithId::commit_id),
-            }),
-        }))
+    fn to_cli_id(self: Box<Self>) -> Option<CliId> {
+        Some(self.cli_id())
     }
 }
 
@@ -737,18 +729,28 @@ pub struct LaneWithId {
     pub lane: LaneId,
     /// Parallel to the original [Stack::segments].
     pub segments: Vec<SegmentWithId>,
+    /// The short ID of a stack with metadata; `None` for every other lane.
+    pub short_id: Option<ShortId>,
 }
 
 impl LaneWithId {
+    /// The stack this lane is, if it is a stack with metadata.
+    pub fn stack_cli_id(&self) -> Option<CliId> {
+        Some(CliId::Stack {
+            id: self.short_id.clone()?,
+            stack_id: self.lane.stack_id()?,
+        })
+    }
+
     /// The uncommitted area of the linked worktree this lane belongs to, named
     /// `<top-segment-id>:@` the way `@` names the main worktree's; `None` for a stack.
     pub fn uncommitted_id(&self) -> Option<CliId> {
         let LaneId::Worktree(name) = &self.lane else {
             return None;
         };
-        Some(CliId::WorktreeUncommitted {
+        Some(CliId::UncommittedArea {
             id: format!("{top}:{UNCOMMITTED}", top = self.segments.first()?.short_id),
-            name: name.clone(),
+            source: ChangeSourceId::Worktree(name.clone()),
         })
     }
 }
@@ -769,18 +771,8 @@ impl<'a> Node<'a> for &'a LaneWithId {
         Ok(id_map.parse_uncommitted_filename(element, Some(&ChangeSourceId::Head)))
     }
 
-    fn to_cli_id(
-        self: Box<Self>,
-        short_id: &str,
-        _id_map: &IdMap,
-    ) -> anyhow::Result<Option<CliId>> {
-        let LaneId::Stack(Some(stack_id)) = self.lane else {
-            return Ok(None);
-        };
-        Ok(Some(CliId::Stack {
-            id: short_id.to_owned(),
-            stack_id,
-        }))
+    fn to_cli_id(self: Box<Self>) -> Option<CliId> {
+        self.stack_cli_id()
     }
 }
 
@@ -788,10 +780,6 @@ impl<'a> Node<'a> for &'a LaneWithId {
 pub struct IdMap {
     /// Workspace stacks followed by linked-worktree lanes.
     lanes: Vec<LaneWithId>,
-    /// Mapping from stack IDs to their corresponding stack CLI IDs.
-    stack_ids: BTreeMap<StackId, CliId>,
-    /// The ID representing the uncommitted area, i.e. uncommitted files that aren't assigned to a stack.
-    uncommitted: CliId,
     /// The amount of context lines to use when calculating diffs. This is necessary for on-demand
     /// resolution of committed hunks as different context line settings may produce different
     /// hunks.
@@ -957,25 +945,14 @@ impl IdMap {
                 );
             }
         }
-        let mut stack_ids = BTreeMap::new();
-        for stack in &stacks {
-            if let Some(id) = stack.lane.stack_id() {
-                stack_ids.insert(
-                    id,
-                    CliId::Stack {
-                        id: id_usage.next_available()?.to_short_id(),
-                        stack_id: id,
-                    },
-                );
+        for stack in &mut stacks {
+            if stack.lane.stack_id().is_some() {
+                stack.short_id = Some(id_usage.next_available()?.to_short_id());
             }
         }
 
         Ok(Self {
             lanes: stacks,
-            stack_ids,
-            uncommitted: CliId::Uncommitted {
-                id: UNCOMMITTED.to_string(),
-            },
             uncommitted_files,
             uncommitted_hunks,
             diff_context_lines,
@@ -1221,9 +1198,9 @@ impl IdMap {
             .flat_map(|stack| stack.segments.iter())
             .any(|segment| segment.short_id == element)
             || self
-                .stack_ids
-                .values()
-                .any(|id| matches!(id, CliId::Stack { id, .. } if id == element))
+                .lanes
+                .iter()
+                .any(|lane| lane.short_id.as_deref() == Some(element))
     }
 
     /// The top segment of the linked worktree named exactly `element`, if any.
@@ -1428,20 +1405,12 @@ impl IdMap {
             }
         }
 
-        // handle stack_ids as well
-        // TODO: add a ShortId field to LaneWithId so that we don't have to do
-        // a double lookup
-        for cli_id in self.stack_ids.values() {
-            if let CliId::Stack { id, stack_id } = cli_id
-                && id == element
-                && let Some(stack_with_id) = self
-                    .lanes
-                    .iter()
-                    .find(|stack_with_id| stack_with_id.lane == LaneId::Stack(Some(*stack_id)))
-            {
-                matches.push(Box::new(stack_with_id));
-                break;
-            }
+        if let Some(lane) = self
+            .lanes
+            .iter()
+            .find(|lane| lane.short_id.as_deref() == Some(element))
+        {
+            matches.push(Box::new(lane));
         }
     }
 }
@@ -1465,12 +1434,8 @@ impl<'a> Node<'a> for Unstaged {
         Ok(id_map.parse_uncommitted_filename(element, Some(&ChangeSourceId::Head)))
     }
 
-    fn to_cli_id(
-        self: Box<Self>,
-        _short_id: &str,
-        id_map: &IdMap,
-    ) -> anyhow::Result<Option<CliId>> {
-        Ok(Some(id_map.uncommitted.clone()))
+    fn to_cli_id(self: Box<Self>) -> Option<CliId> {
+        Some(CliId::head_uncommitted_area())
     }
 }
 
@@ -1496,7 +1461,7 @@ impl IdMap {
     /// be invalidated by a commit minted in between.
     ///
     /// Container selectors still surface their containers: bare `@` yields
-    /// [`CliId::Uncommitted`], `dir/` yields [`CliId::PathPrefix`], and
+    /// [`CliId::UncommittedArea`], `dir/` yields [`CliId::PathPrefix`], and
     /// `X@{stack}` resolves its stack (and can yield
     /// [`CliId::Stack`]); callers validate the kinds they accept.
     fn parse_uncommitted(
@@ -1523,7 +1488,7 @@ impl IdMap {
                 for node in self.parse_element_scoped(lhs, scope)? {
                     for node in node.parse(mhs, self, changes_in_commit)? {
                         for node in node.parse(rhs, self, changes_in_commit)? {
-                            if let Some(cli_id) = node.to_cli_id(entity, self)? {
+                            if let Some(cli_id) = node.to_cli_id() {
                                 cli_ids.push(cli_id);
                             }
                         }
@@ -1532,7 +1497,7 @@ impl IdMap {
             } else {
                 for node in self.parse_element_scoped(lhs, scope)? {
                     for node in node.parse(rhs, self, changes_in_commit)? {
-                        if let Some(cli_id) = node.to_cli_id(entity, self)? {
+                        if let Some(cli_id) = node.to_cli_id() {
                             cli_ids.push(cli_id);
                         }
                     }
@@ -1540,7 +1505,7 @@ impl IdMap {
             }
         } else {
             for node in self.parse_element_scoped(entity, scope)? {
-                if let Some(cli_id) = node.to_cli_id(entity, self)? {
+                if let Some(cli_id) = node.to_cli_id() {
                     cli_ids.push(cli_id);
                 }
             }
@@ -1598,8 +1563,11 @@ impl IdMap {
     }
 
     /// Returns the [`CliId::Stack`] for a given `stack_id`, if it exists.
-    pub fn resolve_stack(&self, stack_id: StackId) -> Option<&CliId> {
-        self.stack_ids.get(&stack_id)
+    pub fn resolve_stack(&self, stack_id: StackId) -> Option<CliId> {
+        self.stacks()
+            .iter()
+            .find(|lane| lane.lane.stack_id() == Some(stack_id))?
+            .stack_cli_id()
     }
 
     /// Every uncommitted file of `source`, as whole-file IDs.
@@ -1617,12 +1585,10 @@ impl IdMap {
             .collect()
     }
 
-    /// Returns the [`CliId::Uncommitted`] for the uncommitted area, which is useful as an
-    /// ID for a destination of operations.
-    ///
-    /// The uncommitted area represents files and changes that are not assigned to any branch.
-    pub fn uncommitted(&self) -> &CliId {
-        &self.uncommitted
+    /// Returns the main worktree's uncommitted area, which is useful as an ID for a destination
+    /// of operations.
+    pub fn uncommitted(&self) -> CliId {
+        CliId::head_uncommitted_area()
     }
 
     /// Returns all known stacks.
@@ -1725,11 +1691,9 @@ fn cli_ids_refer_to_same_entity(lhs: &CliId, rhs: &CliId) -> bool {
                 ..
             },
         ) => lhs_stack_id == rhs_stack_id,
-        (CliId::Uncommitted { .. }, CliId::Uncommitted { .. }) => true,
-        (
-            CliId::WorktreeUncommitted { name: l, .. },
-            CliId::WorktreeUncommitted { name: r, .. },
-        ) => l == r,
+        (CliId::UncommittedArea { source: l, .. }, CliId::UncommittedArea { source: r, .. }) => {
+            l == r
+        }
         _ => false,
     }
 }
@@ -1871,21 +1835,14 @@ pub enum CliId {
         /// commits in the repo).
         id: ShortId,
     },
-    /// The uncommitted area, as a designated area that files can be put in.
-    Uncommitted {
-        /// The CLI ID for the uncommitted area.
+    /// A checkout's uncommitted area, as a designated area that files can be put in.
+    UncommittedArea {
+        /// `@` for the main worktree, or `<worktree-short-id>:@` for a linked one, derived from
+        /// the worktree's own ID rather than allocated, so it consumes no slot in the short-ID
+        /// pools and no other ID moves.
         id: ShortId,
-    },
-    /// A linked worktree's uncommitted area, the way [`Self::Uncommitted`] names
-    /// the main worktree's.
-    WorktreeUncommitted {
-        /// The selector, `<worktree-short-id>:@`, derived from the worktree's own
-        /// ID rather than allocated, so it consumes no slot in the short-ID pools
-        /// and no other ID moves.
-        id: ShortId,
-        /// The stable worktree name, i.e. the directory name under
-        /// `$GIT_COMMON_DIR/worktrees/`.
-        name: BString,
+        /// The checkout whose uncommitted changes this names.
+        source: ChangeSourceId,
     },
     /// A stack in the workspace.
     Stack {
@@ -1960,11 +1917,8 @@ impl PartialEq for CliId {
                     false
                 }
             }
-            CliId::Uncommitted { id: _ } => {
-                matches!(other, CliId::Uncommitted { id: _ })
-            }
-            CliId::WorktreeUncommitted { name: l, id: _ } => {
-                if let CliId::WorktreeUncommitted { name: r, id: _ } = other {
+            CliId::UncommittedArea { source: l, id: _ } => {
+                if let CliId::UncommittedArea { source: r, id: _ } = other {
                     l == r
                 } else {
                     false
@@ -1988,21 +1942,32 @@ impl CliId {
             CliId::Branch(..) => "a branch",
             CliId::AnonymousSegment(..) => "an anonymous branch",
             CliId::Commit { .. } => "a commit",
-            CliId::Uncommitted { .. } => "the uncommitted area",
-            CliId::WorktreeUncommitted { .. } => "a worktree's uncommitted area",
+            CliId::UncommittedArea {
+                source: ChangeSourceId::Head,
+                ..
+            } => "the uncommitted area",
+            CliId::UncommittedArea {
+                source: ChangeSourceId::Worktree(_),
+                ..
+            } => "a worktree's uncommitted area",
             CliId::Stack { .. } => "a stack",
         }
     }
 
-    /// The worktree whose uncommitted changes this ID names, if it names any.
+    /// The main worktree's uncommitted area, `@`.
+    pub fn head_uncommitted_area() -> CliId {
+        CliId::UncommittedArea {
+            id: UNCOMMITTED.to_owned(),
+            source: ChangeSourceId::Head,
+        }
+    }
+
+    /// The checkout whose uncommitted changes this ID names, if it names any.
     ///
-    /// The total form of the question every `matches!(id, CliId::Uncommitted { .. })`
-    /// was asking while there was only one area. A worktree's segments hold no
-    /// changes, so they yield `None`.
+    /// A worktree's segments hold no changes, so they yield `None`.
     pub fn uncommitted_area(&self) -> Option<ChangeSourceId> {
         match self {
-            CliId::Uncommitted { .. } => Some(ChangeSourceId::Head),
-            CliId::WorktreeUncommitted { name, .. } => Some(ChangeSourceId::Worktree(name.clone())),
+            CliId::UncommittedArea { source, .. } => Some(source.clone()),
             CliId::UncommittedHunkOrFile(..)
             | CliId::PathPrefix { .. }
             | CliId::CommittedFile { .. }
@@ -2030,8 +1995,7 @@ impl CliId {
             | CliId::AnonymousSegment(AnonymousSegmentId { id, .. })
             | CliId::Commit { id, .. }
             | CliId::Stack { id, .. }
-            | CliId::WorktreeUncommitted { id, .. }
-            | CliId::Uncommitted { id, .. } => id,
+            | CliId::UncommittedArea { id, .. } => id,
         }
     }
 
@@ -2046,8 +2010,7 @@ impl CliId {
             | CliId::CommittedHunk { .. }
             | CliId::Commit { .. }
             | CliId::Stack { .. }
-            | CliId::WorktreeUncommitted { .. }
-            | CliId::Uncommitted { .. } => None,
+            | CliId::UncommittedArea { .. } => None,
         }
     }
 
@@ -2062,8 +2025,7 @@ impl CliId {
             | CliId::CommittedFile { .. }
             | CliId::CommittedHunk { .. }
             | CliId::Commit { .. }
-            | CliId::WorktreeUncommitted { .. }
-            | CliId::Uncommitted { .. } => None,
+            | CliId::UncommittedArea { .. } => None,
         }
     }
 
@@ -2170,12 +2132,8 @@ impl<'a> Node<'a> for &'a UncommittedFile {
         }
     }
 
-    fn to_cli_id(
-        self: Box<Self>,
-        _short_id: &str,
-        _id_map: &IdMap,
-    ) -> anyhow::Result<Option<CliId>> {
-        Ok(Some((*self).to_id()))
+    fn to_cli_id(self: Box<Self>) -> Option<CliId> {
+        Some((*self).to_id())
     }
 }
 

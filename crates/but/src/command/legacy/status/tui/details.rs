@@ -310,7 +310,10 @@ impl Details {
                     },
                 )
             }
-            CliId::Uncommitted { .. } => self.poll_render_thread(
+            CliId::UncommittedArea {
+                source: ChangeSourceId::Head,
+                ..
+            } => self.poll_render_thread(
                 ctx,
                 None,
                 selection_did_change,
@@ -363,7 +366,10 @@ impl Details {
                     },
                 )
             }
-            CliId::WorktreeUncommitted { name, .. } => {
+            CliId::UncommittedArea {
+                source: ChangeSourceId::Worktree(name),
+                ..
+            } => {
                 let name = name.clone();
                 self.poll_render_thread(
                     ctx,
@@ -1264,14 +1270,21 @@ impl Details {
             return false;
         };
         match status_selection {
-            CliId::UncommittedHunkOrFile(..) | CliId::Uncommitted { .. } => true,
+            CliId::UncommittedHunkOrFile(..)
+            | CliId::UncommittedArea {
+                source: ChangeSourceId::Head,
+                ..
+            } => true,
             CliId::AnonymousSegment(..)
             | CliId::PathPrefix { .. }
             | CliId::CommittedFile { .. }
             | CliId::CommittedHunk { .. }
             | CliId::Branch(..)
             | CliId::Commit { .. }
-            | CliId::WorktreeUncommitted { .. }
+            | CliId::UncommittedArea {
+                source: ChangeSourceId::Worktree(_),
+                ..
+            }
             | CliId::Stack { .. } => false,
         }
     }

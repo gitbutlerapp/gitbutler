@@ -112,8 +112,7 @@ impl ReorderStackSource {
             | CliId::CommittedFile { .. }
             | CliId::CommittedHunk { .. }
             | CliId::Commit { .. }
-            | CliId::WorktreeUncommitted { .. }
-            | CliId::Uncommitted { .. } => false,
+            | CliId::UncommittedArea { .. } => false,
         }
     }
 }
@@ -246,8 +245,7 @@ fn stack_id_for_cli_id(cli_id: &CliId, status_lines: &[StatusOutputLine]) -> Opt
         | CliId::UncommittedHunkOrFile(..)
         | CliId::PathPrefix { .. }
         | CliId::Branch(..)
-        | CliId::Uncommitted { .. }
-        | CliId::WorktreeUncommitted { .. }
+        | CliId::UncommittedArea { .. }
         | CliId::Stack { .. }
         | CliId::CommittedHunk(..) => false,
     };
@@ -266,8 +264,7 @@ fn stack_id_for_cli_id(cli_id: &CliId, status_lines: &[StatusOutputLine]) -> Opt
                     | CliId::CommittedHunk { .. }
                     | CliId::Branch(..)
                     | CliId::Commit { .. }
-                    | CliId::Uncommitted { .. }
-                    | CliId::WorktreeUncommitted { .. }
+                    | CliId::UncommittedArea { .. }
                     | CliId::Stack { .. } => None,
                 },
                 StatusOutputLineData::UpdateNotice
@@ -294,8 +291,7 @@ fn stack_id_for_cli_id(cli_id: &CliId, status_lines: &[StatusOutputLine]) -> Opt
         CliId::Stack { stack_id, .. } => Some(*stack_id),
         CliId::UncommittedHunkOrFile(..)
         | CliId::PathPrefix { .. }
-        | CliId::WorktreeUncommitted { .. }
-        | CliId::Uncommitted { .. }
+        | CliId::UncommittedArea { .. }
         | CliId::CommittedHunk(..) => None,
     }
 }
@@ -476,8 +472,7 @@ impl App {
             | CliId::CommittedFile { .. }
             | CliId::CommittedHunk { .. }
             | CliId::Commit { .. }
-            | CliId::Uncommitted { .. }
-            | CliId::WorktreeUncommitted { .. }
+            | CliId::UncommittedArea { .. }
             | CliId::Stack { .. } => return Ok(()),
         };
 
@@ -763,8 +758,7 @@ fn row_stack_ids(lines: &[StatusOutputLine]) -> Vec<Option<StackId>> {
                 CliId::AnonymousSegment(..)
                 | CliId::Branch(..)
                 | CliId::Commit { .. }
-                | CliId::Uncommitted { .. }
-                | CliId::WorktreeUncommitted { .. }
+                | CliId::UncommittedArea { .. }
                 | CliId::Stack { .. } => None,
             },
             StatusOutputLineData::UpdateNotice
@@ -817,7 +811,6 @@ fn stack_id_from_cli_id(cli_id: &CliId) -> Option<StackId> {
         | CliId::CommittedFile { .. }
         | CliId::CommittedHunk(..)
         | CliId::Commit { .. }
-        | CliId::WorktreeUncommitted { .. }
-        | CliId::Uncommitted { .. } => None,
+        | CliId::UncommittedArea { .. } => None,
     }
 }

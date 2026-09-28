@@ -3,7 +3,7 @@ use std::sync::Arc;
 use bstr::BStr;
 
 use crate::{
-    CliId, CliResult,
+    ChangeSourceId, CliId, CliResult,
     args::atoms::ResolvedCliIdArg,
     bad_input,
     command::legacy::status::{
@@ -122,8 +122,7 @@ impl Cursor {
                         | CliId::CommittedHunk { .. }
                         | CliId::Branch(..)
                         | CliId::Commit { .. }
-                        | CliId::Uncommitted { .. }
-                        | CliId::WorktreeUncommitted { .. }
+                        | CliId::UncommittedArea { .. }
                         | CliId::Stack { .. } => false,
                     }
                 }
@@ -442,7 +441,10 @@ impl Cursor {
         let idx = lines.iter().position(|line| {
             matches!(
                 line.data.cli_id().map(|id| &**id),
-                Some(CliId::Uncommitted { .. })
+                Some(CliId::UncommittedArea {
+                    source: ChangeSourceId::Head,
+                    ..
+                })
             )
         })?;
         Some(Self(idx))
@@ -495,8 +497,7 @@ impl Cursor {
                 | Some(CliId::PathPrefix { .. })
                 | Some(CliId::Branch(..))
                 | Some(CliId::Commit { .. })
-                | Some(CliId::Uncommitted { .. })
-                | Some(CliId::WorktreeUncommitted { .. })
+                | Some(CliId::UncommittedArea { .. })
                 | Some(CliId::Stack { .. }) => matches!(show_files, FilesStatusFlag::All),
                 Some(CliId::CommittedHunk(..)) | None => false,
             };
@@ -1003,14 +1004,13 @@ pub(super) fn same_entity_for_reload(previous: &CliId, current: &CliId) -> bool 
                 false
             }
         }
-        CliId::Uncommitted { id: _ } => matches!(current, CliId::Uncommitted { id: _ }),
-        CliId::WorktreeUncommitted {
+        CliId::UncommittedArea {
             id: _,
-            name: previous,
+            source: previous,
         } => {
-            if let CliId::WorktreeUncommitted {
+            if let CliId::UncommittedArea {
                 id: _,
-                name: current,
+                source: current,
             } = current
             {
                 previous == current
@@ -1045,11 +1045,10 @@ fn select_after_reload_for_cli_id(cli_id: &Arc<CliId>) -> SelectAfterReload {
         } => SelectAfterReload::FirstFileInCommit(*commit_id),
         CliId::AnonymousSegment(..)
         | CliId::CommittedHunk(..)
-        | CliId::Uncommitted { .. }
+        | CliId::UncommittedArea { .. }
         | CliId::UncommittedHunkOrFile(..)
         | CliId::PathPrefix { .. }
         | CliId::Branch(..)
-        | CliId::WorktreeUncommitted { .. }
         | CliId::Stack { .. } => SelectAfterReload::CliId(Box::new((**cli_id).clone())),
     }
 }
@@ -1324,14 +1323,21 @@ pub fn is_selectable_in_mode(
         ModeRef::PickChanges(..) => {
             if let Some(cli_id) = line.data.cli_id() {
                 match &**cli_id {
-                    CliId::UncommittedHunkOrFile(..) | CliId::Uncommitted { .. } => true,
+                    CliId::UncommittedHunkOrFile(..)
+                    | CliId::UncommittedArea {
+                        source: ChangeSourceId::Head,
+                        ..
+                    } => true,
                     CliId::AnonymousSegment(..)
                     | CliId::PathPrefix { .. }
                     | CliId::CommittedFile { .. }
                     | CliId::CommittedHunk { .. }
                     | CliId::Branch(..)
                     | CliId::Commit { .. }
-                    | CliId::WorktreeUncommitted { .. }
+                    | CliId::UncommittedArea {
+                        source: ChangeSourceId::Worktree(_),
+                        ..
+                    }
                     | CliId::Stack { .. } => false,
                 }
             } else {

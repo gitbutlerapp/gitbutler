@@ -14,6 +14,7 @@ use ratatui::{
     widgets::{List, ListItem},
 };
 
+use crate::ChangeSourceId;
 use crate::CliId;
 
 #[derive(Debug, Default)]
@@ -53,7 +54,10 @@ impl FileBrowser {
         self.tree.0.clear();
 
         let paths = match selection {
-            CliId::Uncommitted { .. } => but_api::diff::changes_in_worktree(
+            CliId::UncommittedArea {
+                source: ChangeSourceId::Head,
+                ..
+            } => but_api::diff::changes_in_worktree(
                 ctx,
                 but_api::commit::json::ChangesSource::Head,
                 false,
@@ -70,7 +74,10 @@ impl FileBrowser {
             | CliId::CommittedHunk { .. }
             | CliId::Branch(..)
             | CliId::Commit { .. }
-            | CliId::WorktreeUncommitted { .. }
+            | CliId::UncommittedArea {
+                source: ChangeSourceId::Worktree(_),
+                ..
+            }
             | CliId::Stack { .. } => return Ok(()),
         };
 
