@@ -11,10 +11,11 @@ use crate::args::atoms::{AllowMergedArg, CliIdArg};
 /// with change flags such as `--empty` and `--interactive`, or by providing `CHANGES` as
 /// positional arguments.
 ///
-/// Changes from a linked worktree go on the tip of that worktree's branch. Otherwise, if there are
-/// no branches applied, a new branch is created for the commit. If there is only one stack of
-/// branches applied, the commit is placed at the tip of that stack. Otherwise, the targeting flags
-/// `--above`, `--below` and `--branch` control where the commit is placed.
+/// Run from a linked worktree, or given changes from one, the commit is placed at the tip of that
+/// worktree's branch. Otherwise, if there are no branches applied, a new branch is created for the
+/// commit. If there is only one stack of branches applied, the commit is placed at the tip of that
+/// stack. Otherwise, the targeting flags `--above`, `--below` and `--branch` control where the
+/// commit is placed.
 /// `--above` and `--below` are mutually exclusive; combine either with `--branch` to name a new
 /// branch when targeting a branch.
 ///

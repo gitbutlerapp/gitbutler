@@ -262,7 +262,12 @@ fn resolve(
 
     let commit_op = {
         let (repo, ws, _db) = ctx.workspace_and_db_with_perm(guard.read_permission())?;
-        let default_lane = || Ok(commit_selection.source());
+        let default_lane = || match &commit_selection {
+            CommitSelection::AllChanges(_) | CommitSelection::Changes(_) => {
+                Ok(commit_selection.source())
+            }
+            CommitSelection::Nothing => invoked_from.managed_source(id_map),
+        };
         route_commit_operation(
             &repo,
             &ws,
