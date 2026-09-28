@@ -747,3 +747,68 @@ Picked d3e2ba3 onto branch 'wt-inside' to create olw
 "#]]
     );
 }
+
+#[test]
+fn pick_in_a_linked_worktree_defaults_to_its_branch() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
+    env.setup_metadata(&["A", "B"]);
+    super::util::enable_worktree_manipulation(&env);
+    env.but("status").assert().success();
+    let wt_dir = super::util::add_worktree_with_commit(&env, "wt-inside", "A");
+
+    env.but("pick lrm")
+        .current_dir(&wt_dir)
+        .assert()
+        .success()
+        .stderr_eq(str![])
+        .stdout_eq(str![[r#"
+Picked d3e2ba3 onto branch 'wt-inside' to create olw
+
+"#]]);
+
+    // The copy lands where `-b wt-inside` would have put it, without naming a target.
+    snapbox::assert_data_eq!(
+        env.git_log(),
+        snapbox::str![[r#"
+*   c128bce (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+|/  
+* | d3e2ba3 (B) add B
+| | * 7bc6f49 (wt-inside) add B
+| | * 580bef0 add W
+| |/  
+| * 9477ae7 (A) add A
+|/  
+* 0dc3733 (origin/main, origin/HEAD, main, gitbutler/target) add M
+
+"#]]
+    );
+}
+
+#[test]
+fn pick_in_an_unmanaged_worktree_needs_a_target() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
+    env.setup_metadata(&["A", "B"]);
+    let wt_dir = super::util::add_worktree_with_commit(&env, "wt-inside", "A");
+
+    env.but("pick lrm")
+        .current_dir(&wt_dir)
+        .assert()
+        .failure()
+        .stdout_eq(str![])
+        .stderr_eq(str![[r#"
+Error: Worktree wt-inside is not managed by GitButler
+
+Hint: Run `but worktree list` to see the worktrees GitButler manages
+
+"#]]);
+
+    env.but("pick lrm -b A")
+        .current_dir(&wt_dir)
+        .assert()
+        .success()
+        .stderr_eq(str![])
+        .stdout_eq(str![[r#"
+Picked d3e2ba3 onto branch 'A' to create olw
+
+"#]]);
+}

@@ -30,7 +30,7 @@ use crate::{
     id::CommitId,
     theme::{self, Theme},
     utils::{
-        CliOutput, CliOutputHuman, IntermediateChannel, WriteWithUtils,
+        CliOutput, CliOutputHuman, IntermediateChannel, WriteWithUtils, change_source::InvokedFrom,
         merged_upstream::MergedUpstream, single_branch_mode::SingleBranchMode,
     },
 };
@@ -134,6 +134,7 @@ pub fn pick(
     ctx: &mut Context,
     mut out: IntermediateChannel<'_>,
     args: Platform,
+    invoked_from: &InvokedFrom,
 ) -> CliResult<(PickOutcome, WorkspaceState)> {
     let mut guard = ctx.exclusive_worktree_access();
     let mut meta = ctx.meta()?;
@@ -147,6 +148,7 @@ pub fn pick(
         guard.read_permission(),
         &id_map,
         args,
+        invoked_from,
     )?;
 
     Ok(run(ctx, &mut meta, guard.write_permission(), pick_op)?)
@@ -159,6 +161,7 @@ fn resolve(
     perm: &RepoShared,
     id_map: &IdMap,
     args: Platform,
+    invoked_from: &InvokedFrom,
 ) -> CliResult<PickOperation> {
     let Platform {
         branch,
@@ -219,9 +222,7 @@ fn resolve(
 
     let commit_op = {
         let (repo, ws, _db) = ctx.workspace_and_db_with_perm(perm)?;
-        // Picked commits are not read from any checkout, so no worktree source can
-        // steer the default target.
-        let default_lane = || Ok(crate::utils::change_source::ChangeSourceId::Head);
+        let default_lane = || invoked_from.managed_source(id_map);
         route_commit_operation(
             &repo,
             &ws,

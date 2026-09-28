@@ -1676,8 +1676,12 @@ async fn dispatch_subcommand(
             status_after_data = Some(status_after);
 
             newly_conflicted_data = Some(command::legacy::conflict_notice::snapshot(&ctx));
-            let (outcome, ws) =
-                command::legacy::pick::pick(&mut ctx, IntermediateChannel::new(out), pick_args)?;
+            let (outcome, ws) = command::legacy::pick::pick(
+                &mut ctx,
+                IntermediateChannel::new(out),
+                pick_args,
+                &InvokedFrom::discover(&args.current_dir)?,
+            )?;
             out.print_cli_output(outcome)?;
             Some(ws)
         }
