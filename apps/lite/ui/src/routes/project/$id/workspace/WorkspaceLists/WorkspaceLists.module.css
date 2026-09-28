@@ -60,7 +60,7 @@
 	inset-inline: 0;
 	top: calc(-1 * var(--dock-offset));
 	/* Match the card's head room so the label stays put as the row takes over. */
-	padding-block-start: 6px;
+	padding-block-start: var(--padding-list);
 	border-block-end: 1px solid var(--border-section);
 	background-color: var(--bg-2);
 

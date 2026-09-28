@@ -41,13 +41,13 @@
 	/* Inset from the list's edge, the way a `PopupSection` insets the rows it holds. A heading
 	   stays flush and reaches its 10px in with padding, so it and the labels under it stagger the
 	   2px the design gives them. */
-	margin-inline: 4px;
+	margin-inline: var(--padding-menu);
 	padding-inline: 8px;
 	gap: 8px;
 	border-radius: var(--radius-control);
 	outline: 0;
 	font-size: 13px;
-	scroll-margin-block: 4px;
+	scroll-margin-block: var(--padding-menu);
 	user-select: none;
 
 	&[data-highlighted] {

@@ -48,7 +48,7 @@
 /* A horizontal row rather than the popup's usual stack of rows. */
 .reactionPicker {
 	flex-direction: row;
-	padding: 4px;
+	padding: var(--padding-menu);
 	gap: 2px;
 }
 
