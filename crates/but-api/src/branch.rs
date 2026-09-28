@@ -2029,12 +2029,20 @@ pub fn tear_off_branch_with_perm(
             let (repo, mut ws, mut db) = ctx.workspace_mut_and_db_mut_with_perm(perm)?;
             let editor = Editor::create(&mut ws, &mut meta, &repo, &mut db)?;
             let but_workspace::branch::move_branch::Outcome {
-                rebase, ws_meta, ..
+                rebase,
+                ws_meta,
+                branch_stack_order,
+                new_tip: _,
             } = but_workspace::branch::tear_off_branch(editor, subject_branch, None)?;
 
             Ok(MoveBranchResult {
                 workspace: branch_workspace_from_rebase(
-                    rebase, ws_meta, None, None, &repo, dry_run,
+                    rebase,
+                    ws_meta,
+                    None,
+                    branch_stack_order.as_deref(),
+                    &repo,
+                    dry_run,
                 )?,
             })
         },

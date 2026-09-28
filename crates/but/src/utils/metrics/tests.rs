@@ -76,6 +76,7 @@ fn metrics_use_invoked_command_names() {
     #[cfg(feature = "legacy")]
     assert_command(
         Subcommands::Move(crate::args::r#move::Platform {
+            switch: false,
             branch: Some(Some(CliIdArg("main".to_owned()))),
             above: None,
             below: None,
@@ -194,6 +195,7 @@ fn extra_props_keep_useful_source_and_target_kinds() {
     #[cfg(feature = "legacy")]
     {
         let moved = Subcommands::Move(crate::args::r#move::Platform {
+            switch: false,
             branch: Some(Some(CliIdArg("main".to_owned()))),
             above: None,
             below: None,

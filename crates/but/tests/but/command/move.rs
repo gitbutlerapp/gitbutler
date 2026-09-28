@@ -9,6 +9,1080 @@ use crate::{
 };
 
 #[test]
+fn failed_implicit_move_checkout_restores_source_history() {
+    let env = Sandbox::open_with_default_settings("single-branch-mode");
+    env.file("file", "x\n");
+    env.but("commit -b source -m base").assert().success();
+    env.file("file", "y\n");
+    env.but("commit -m first").assert().success();
+    env.file("file", "x\n");
+    env.but("commit -m revert").assert().success();
+    env.file("file", "z\n");
+    env.but("commit -m last").assert().success();
+    env.but("status -f")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┊╭┄ so [source]
+┊●   nlu last
+┊│     nlu:q M file
+┊●   uwm revert
+┊│     uwm:q M file
+┊●   suw first
+┊│     suw:q M file
+┊●   vml base
+┊│     vml:q A file
+├╯
+┊
+┴ b1540e5 (common base) 2000-01-02 M
+
+Hint: run `but help` for all commands
+
+"#]]);
+    snapbox::assert_data_eq!(
+        env.git_log(),
+        snapbox::str![[r#"
+* baa8b36 (HEAD -> source) last
+* 5f3b211 revert
+* 10fc7e8 first
+* 491196b base
+* b1540e5 (origin/main, origin/HEAD, main, gitbutler/target) M
+* e31e6ca add init
+
+"#]]
+    );
+    env.but("move suw --above source -b moved").assert().failure()
+        .stderr_eq(snapbox::str![[r#"
+Error: Could not safely check out 'refs/heads/moved' from ae5714b53ad5051b29a9dc69d1f18bd5c4b745f1 to cf2bcd3b5b19b9d7214efe41eba4bae642252d95
+
+Caused by:
+    Refusing to check out conflicted commit cf2bcd3b5b19b9d7214efe41eba4bae642252d95
+
+"#]]);
+    // A failed checkout must restore the original source refs and leave no destination branch.
+    snapbox::assert_data_eq!(
+        env.git_log(),
+        snapbox::str![[r#"
+* baa8b36 (HEAD -> source) last
+* 5f3b211 revert
+* 10fc7e8 first
+* 491196b base
+* b1540e5 (origin/main, origin/HEAD, main, gitbutler/target) M
+* e31e6ca add init
+
+"#]]
+    );
+    env.but("status -f")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┊╭┄ so [source]
+┊●   nlu last
+┊│     nlu:q M file
+┊●   uwm revert
+┊│     uwm:q M file
+┊●   suw first
+┊│     suw:q M file
+┊●   vml base
+┊│     vml:q A file
+├╯
+┊
+┴ b1540e5 (common base) 2000-01-02 M
+
+Hint: run `but help` for all commands
+
+"#]]);
+}
+
+#[test]
+fn failed_implicit_branch_move_checkout_restores_source_history() {
+    let env = Sandbox::open_with_default_settings("single-branch-mode");
+    env.file("file", "x\n");
+    env.but("commit -b source -m base").assert().success();
+    env.but("branch new first --above source")
+        .assert()
+        .success();
+    env.file("file", "y\n");
+    env.but("commit -m first").assert().success();
+    env.but("branch new top --above first").assert().success();
+    env.file("file", "x\n");
+    env.but("commit -m revert").assert().success();
+    env.file("file", "z\n");
+    env.but("commit -m last").assert().success();
+    env.but("status -f")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┊╭┄ to [top]
+┊●   nlu last
+┊│     nlu:q M file
+┊●   uwm revert
+┊│     uwm:q M file
+┊│
+┊├┄ fi [first]
+┊●   suw first
+┊│     suw:q M file
+┊│
+┊├┄ so [source]
+┊●   vml base
+┊│     vml:q A file
+├╯
+┊
+┴ b1540e5 (common base) 2000-01-02 M
+
+Hint: run `but help` for all commands
+
+"#]]);
+    snapbox::assert_data_eq!(
+        env.git_log(),
+        snapbox::str![[r#"
+* baa8b36 (HEAD -> top) last
+* 5f3b211 revert
+* 10fc7e8 (first) first
+* 491196b (source) base
+* b1540e5 (origin/main, origin/HEAD, main, gitbutler/target) M
+* e31e6ca add init
+
+"#]]
+    );
+    env.but("move first --above top")
+        .assert()
+        .failure()
+        .stderr_eq(snapbox::str![[r#"
+Error: Could not safely check out 'refs/heads/first' from [..] to [..]
+
+Caused by:
+    Refusing to check out conflicted commit [..]
+
+"#]]);
+    // Restacking existing branches must also roll back every rewritten ref and branch order.
+    snapbox::assert_data_eq!(
+        env.git_log(),
+        snapbox::str![[r#"
+* baa8b36 (HEAD -> top) last
+* 5f3b211 revert
+* 10fc7e8 (first) first
+* 491196b (source) base
+* b1540e5 (origin/main, origin/HEAD, main, gitbutler/target) M
+* e31e6ca add init
+
+"#]]
+    );
+    env.but("status -f")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┊╭┄ to [top]
+┊●   nlu last
+┊│     nlu:q M file
+┊●   uwm revert
+┊│     uwm:q M file
+┊│
+┊├┄ fi [first]
+┊●   suw first
+┊│     suw:q M file
+┊│
+┊├┄ so [source]
+┊●   vml base
+┊│     vml:q A file
+├╯
+┊
+┴ b1540e5 (common base) 2000-01-02 M
+
+Hint: run `but help` for all commands
+
+"#]]);
+}
+
+#[test]
+fn single_branch_move_commit_to_independent_branch() {
+    let env = Sandbox::open_with_default_settings("single-branch-three-dependent-branches");
+    env.but("move myy -b independent").assert().success();
+    env.but("status")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┊╭┄ in [independent]
+┊●   myy add B
+├╯
+┊
+┊╭┄ g0 [C]
+┊●   vuw add C
+┊│
+┊├┄ h0 [B] (no commits)
+┊│
+┊├┄ i0 [A]
+┊●   nmq add A
+├╯
+┊
+┴ 3712f84 (common base) 2000-01-02 add M
+
+Hint: run `but help` for all commands
+
+"#]]);
+    snapbox::assert_data_eq!(
+        env.git_log(),
+        snapbox::str![[r#"
+*   b6449da (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+|/  
+| * a3830b6 (C) add C
+| * 549c6bf (B, A) add A
+* | e76feb9 (independent) add B
+|/  
+* 3712f84 (origin/main, origin/HEAD, main, gitbutler/target) add M
+* e31e6ca add init
+
+"#]]
+    );
+}
+
+#[test]
+fn single_branch_move_commit_above_checkout() {
+    let env = Sandbox::open_with_default_settings("single-branch-three-dependent-branches");
+    env.but("move myy --above C -b moved").assert().success();
+    env.but("status")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┊╭┄ mo [moved]
+┊●   myy add B
+┊│
+┊├┄ g0 [C]
+┊●   vuw add C
+┊●   nmq add A
+├╯
+┊
+┴ 3712f84 (common base) 2000-01-02 add M
+
+Hint: run `but help` for all commands
+
+"#]]);
+    snapbox::assert_data_eq!(
+        env.git_log(),
+        snapbox::str![[r#"
+* 68bafd4 (HEAD -> moved) add B
+* a3830b6 (C) add C
+* 549c6bf (B, A) add A
+* 3712f84 (origin/main, origin/HEAD, main, gitbutler/target) add M
+* e31e6ca add init
+
+"#]]
+    );
+}
+
+#[test]
+fn single_branch_move_commit_and_switch() {
+    let env = Sandbox::open_with_default_settings("single-branch-three-dependent-branches");
+    env.but("status")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┊╭┄ g0 [C]
+┊●   vuw add C
+┊│
+┊├┄ h0 [B]
+┊●   myy add B
+┊│
+┊├┄ i0 [A]
+┊●   nmq add A
+├╯
+┊
+┴ 3712f84 (common base) 2000-01-02 add M
+
+Hint: run `but help` for all commands
+
+"#]]);
+    snapbox::assert_data_eq!(
+        env.git_log(),
+        snapbox::str![[r#"
+* 6233e7e (HEAD -> C) add C
+* e06c9f0 (B) add B
+* 549c6bf (A) add A
+* 3712f84 (origin/main, origin/HEAD, main) add M
+* e31e6ca add init
+
+"#]]
+    );
+    env.but("move myy -b independent --switch")
+        .assert()
+        .success();
+    env.but("status")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┊╭┄ in [independent]
+┊●   myy add B
+├╯
+┊
+┴ 3712f84 (common base) 2000-01-02 add M
+
+Hint: run `but help` for all commands
+
+"#]]);
+    snapbox::assert_data_eq!(
+        env.git_log(),
+        snapbox::str![[r#"
+* a3830b6 (C) add C
+* 549c6bf (B, A) add A
+| * e76feb9 (HEAD -> independent) add B
+|/  
+* 3712f84 (origin/main, origin/HEAD, main, gitbutler/target) add M
+* e31e6ca add init
+
+"#]]
+    );
+}
+
+#[test]
+fn single_branch_move_changes_and_switch() {
+    let env = Sandbox::open_with_default_settings("single-branch-three-dependent-branches");
+    env.but("move myy:B -b independent --switch -m extracted")
+        .assert()
+        .success();
+    env.but("status -f")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┊╭┄ in [independent]
+┊●   qkw extracted
+┊│     qkw:p A B
+├╯
+┊
+┴ 3712f84 (common base) 2000-01-02 add M
+
+Hint: run `but help` for all commands
+
+"#]]);
+    snapbox::assert_data_eq!(
+        env.git_log(),
+        snapbox::str![[r#"
+* c753d5e (C) add C
+* ff3d67f (B) add B
+* 549c6bf (A) add A
+| * ca8842d (HEAD -> independent) extracted
+|/  
+* 3712f84 (origin/main, origin/HEAD, main, gitbutler/target) add M
+* e31e6ca add init
+
+"#]]
+    );
+}
+
+#[test]
+fn single_branch_move_changes_above_checkout() {
+    let env = Sandbox::open_with_default_settings("single-branch-three-dependent-branches");
+    env.but("move myy:B --above C -b moved -m extracted")
+        .assert()
+        .success();
+    env.but("status -f")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┊╭┄ mo [moved]
+┊●   qkw extracted
+┊│     qkw:p A B
+┊│
+┊├┄ g0 [C]
+┊●   vuw add C
+┊│     vuw:w A C
+┊│
+┊├┄ h0 [B]
+┊●   myy add B (no changes)
+┊│
+┊├┄ i0 [A]
+┊●   nmq add A
+┊│     nmq:t A A
+├╯
+┊
+┴ 3712f84 (common base) 2000-01-02 add M
+
+Hint: run `but help` for all commands
+
+"#]]);
+    snapbox::assert_data_eq!(
+        env.git_log(),
+        snapbox::str![[r#"
+* 86dab15 (HEAD -> moved) extracted
+* c753d5e (C) add C
+* ff3d67f (B) add B
+* 549c6bf (A) add A
+* 3712f84 (origin/main, origin/HEAD, main, gitbutler/target) add M
+* e31e6ca add init
+
+"#]]
+    );
+}
+
+#[test]
+fn single_branch_move_changes_to_independent_branch() {
+    let env = Sandbox::open_with_default_settings("single-branch-three-dependent-branches");
+    env.but("move myy:B --unstack -b moved -m extracted")
+        .assert()
+        .success();
+    env.but("status -f")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┊╭┄ mo [moved]
+┊●   qkw extracted
+┊│     qkw:p A B
+├╯
+┊
+┊╭┄ g0 [C]
+┊●   vuw add C
+┊│     vuw:w A C
+┊│
+┊├┄ h0 [B]
+┊●   myy add B (no changes)
+┊│
+┊├┄ i0 [A]
+┊●   nmq add A
+┊│     nmq:t A A
+├╯
+┊
+┴ 3712f84 (common base) 2000-01-02 add M
+
+Hint: run `but help` for all commands
+
+"#]]);
+    snapbox::assert_data_eq!(
+        env.git_log(),
+        snapbox::str![[r#"
+*   2d18278 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+|/  
+| * c753d5e (C) add C
+| * ff3d67f (B) add B
+| * 549c6bf (A) add A
+* | ca8842d (moved) extracted
+|/  
+* 3712f84 (origin/main, origin/HEAD, main, gitbutler/target) add M
+* e31e6ca add init
+
+"#]]
+    );
+}
+
+#[test]
+fn single_branch_move_above_lower_branch_preserves_checkout() {
+    let env = Sandbox::open_with_default_settings("single-branch-three-dependent-branches");
+    env.but("move vuw --above A -b moved").assert().success();
+    env.but("status")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┊╭┄ g0 [C]
+┊●   myy add B
+┊│
+┊├┄ mo [moved]
+┊●   vuw add C
+┊│
+┊├┄ h0 [A]
+┊●   nmq add A
+├╯
+┊
+┴ 3712f84 (common base) 2000-01-02 add M
+
+Hint: run `but help` for all commands
+
+"#]]);
+    snapbox::assert_data_eq!(
+        env.git_log(),
+        snapbox::str![[r#"
+* 68bafd4 (HEAD -> C, B) add B
+* a3830b6 (moved) add C
+* 549c6bf (A) add A
+* 3712f84 (origin/main, origin/HEAD, main, gitbutler/target) add M
+* e31e6ca add init
+
+"#]]
+    );
+}
+
+#[test]
+fn single_branch_move_below_branch_preserves_checkout() {
+    let env = Sandbox::open_with_default_settings("single-branch-three-dependent-branches");
+    env.but("move vuw --below B -b moved").assert().success();
+    env.but("status")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┊╭┄ g0 [C]
+┊●   myy add B
+┊│
+┊├┄ mo [moved]
+┊●   vuw add C
+┊│
+┊├┄ h0 [A]
+┊●   nmq add A
+├╯
+┊
+┴ 3712f84 (common base) 2000-01-02 add M
+
+Hint: run `but help` for all commands
+
+"#]]);
+    snapbox::assert_data_eq!(
+        env.git_log(),
+        snapbox::str![[r#"
+* 68bafd4 (HEAD -> C, B) add B
+* a3830b6 (moved) add C
+* 549c6bf (A) add A
+* 3712f84 (origin/main, origin/HEAD, main, gitbutler/target) add M
+* e31e6ca add init
+
+"#]]
+    );
+}
+
+#[test]
+fn single_branch_unstack_branch_enters_workspace() {
+    let env = Sandbox::open_with_default_settings("single-branch-three-dependent-branches");
+    env.but("move B --unstack").assert().success();
+    env.but("status")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┊╭┄ g0 [C]
+┊●   vuw add C
+┊│
+┊├┄ h0 [A]
+┊●   nmq add A
+├╯
+┊
+┊╭┄ i0 [B]
+┊●   myy add B
+├╯
+┊
+┴ 3712f84 (common base) 2000-01-02 add M
+
+Hint: run `but help` for all commands
+
+"#]]);
+    snapbox::assert_data_eq!(
+        env.git_log(),
+        snapbox::str![[r#"
+*   3f3b2ac (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+|/  
+| * a3830b6 (C) add C
+| * 549c6bf (A) add A
+* | e76feb9 (B) add B
+|/  
+* 3712f84 (origin/main, origin/HEAD, main, gitbutler/target) add M
+* e31e6ca add init
+
+"#]]
+    );
+}
+
+#[test]
+fn single_branch_unstack_branch_and_switch() {
+    let env = Sandbox::open_with_default_settings("single-branch-three-dependent-branches");
+    env.but("move B --unstack --switch").assert().success();
+    env.but("status")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┊╭┄ g0 [B]
+┊●   myy add B
+├╯
+┊
+┴ 3712f84 (common base) 2000-01-02 add M
+
+Hint: run `but help` for all commands
+
+"#]]);
+    snapbox::assert_data_eq!(
+        env.git_log(),
+        snapbox::str![[r#"
+* e76feb9 (HEAD -> B) add B
+| * a3830b6 (C) add C
+| * 549c6bf (A) add A
+|/  
+* 3712f84 (origin/main, origin/HEAD, main, gitbutler/target) add M
+* e31e6ca add init
+
+"#]]
+    );
+}
+
+#[test]
+fn single_branch_move_all_commits_retains_empty_source() {
+    let env = Sandbox::open_with_default_settings("single-branch-mode");
+    env.but("branch new source").assert().success();
+    env.file("first", "first\n");
+    env.but("commit -m first").assert().success();
+    env.file("second", "second\n");
+    env.but("commit -m second").assert().success();
+    env.but("status")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┊╭┄ so [source]
+┊●   ukz second
+┊●   zpr first
+├╯
+┊
+┴ b1540e5 (common base) 2000-01-02 M
+
+Hint: run `but help` for all commands
+
+"#]]);
+    snapbox::assert_data_eq!(
+        env.git_log(),
+        snapbox::str![[r#"
+* 8ff6b34 (HEAD -> source) second
+* ff24da1 first
+* b1540e5 (origin/main, origin/HEAD, main, gitbutler/target) M
+* e31e6ca add init
+
+"#]]
+    );
+    env.but("move ukz zpr --above source -b moved")
+        .assert()
+        .success();
+    env.but("status")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┊╭┄ mo [moved]
+┊●   ukz second
+┊●   zpr first
+┊│
+┊├┄ so [source] (no commits)
+├╯
+┊
+┴ b1540e5 (common base) 2000-01-02 M
+
+Hint: run `but help` for all commands
+
+"#]]);
+    snapbox::assert_data_eq!(
+        env.git_log(),
+        snapbox::str![[r#"
+* 8ff6b34 (HEAD -> moved) second
+* ff24da1 first
+* b1540e5 (origin/main, origin/HEAD, source, main, gitbutler/target) M
+* e31e6ca add init
+
+"#]]
+    );
+}
+
+#[test]
+fn single_branch_move_from_target_checks_out_new_branch() {
+    let env = Sandbox::open_with_default_settings("single-branch-mode");
+    env.file("first", "first\n");
+    env.invoke_git("add first");
+    env.invoke_git("commit -m first");
+    env.but("status")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┊╭┄ ma [main]
+┊●   nyl first
+├╯
+┊
+┴ b1540e5 (common base) 2000-01-02 M
+
+Hint: run `but help` for all commands
+
+"#]]);
+    snapbox::assert_data_eq!(
+        env.git_log(),
+        snapbox::str![[r#"
+* 7a6c10f (HEAD -> main) first
+* b1540e5 (origin/main, origin/HEAD) M
+* e31e6ca add init
+
+"#]]
+    );
+    env.but("move nyl -b moved").assert().success();
+    env.but("status")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┊╭┄ mo [moved]
+┊●   nyl first
+├╯
+┊
+┴ b1540e5 (common base) 2000-01-02 M
+
+Hint: run `but help` for all commands
+
+"#]]);
+    snapbox::assert_data_eq!(
+        env.git_log(),
+        snapbox::str![[r#"
+* 7a6c10f (HEAD -> moved) first
+* b1540e5 (origin/main, origin/HEAD, main, gitbutler/target) M
+* e31e6ca add init
+
+"#]]
+    );
+}
+
+#[test]
+fn single_branch_move_to_existing_branch_and_switch() {
+    let env = Sandbox::open_with_default_settings("single-branch-three-dependent-branches");
+    env.but("move myy -b A --switch").assert().success();
+    env.but("status")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┊╭┄ g0 [A]
+┊●   myy add B
+┊●   nmq add A
+├╯
+┊
+┴ 3712f84 (common base) 2000-01-02 add M
+
+Hint: run `but help` for all commands
+
+"#]]);
+    snapbox::assert_data_eq!(
+        env.git_log(),
+        snapbox::str![[r#"
+* 6233e7e (C) add C
+* e06c9f0 (HEAD -> A, B) add B
+* 549c6bf add A
+* 3712f84 (origin/main, origin/HEAD, main, gitbutler/target) add M
+* e31e6ca add init
+
+"#]]
+    );
+}
+
+#[test]
+fn workspace_move_to_new_branch_and_switch() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
+    env.setup_metadata(&["A", "B"]);
+    env.but("move d3e2ba3 -b moved --switch").assert().success();
+    env.but("status")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┊╭┄ mo [moved]
+┊●   lrm add B
+├╯
+┊
+┴ 0dc3733 (common base) 2000-01-02 add M
+
+Hint: run `but help` for all commands
+
+"#]]);
+    snapbox::assert_data_eq!(
+        env.git_log(),
+        snapbox::str![[r#"
+*   e1a91a3 (gitbutler/workspace) GitButler Workspace Commit
+|/  
+| * 9477ae7 (A) add A
+|/  
+| * d3e2ba3 (HEAD -> moved) add B
+|/  
+* 0dc3733 (origin/main, origin/HEAD, main, gitbutler/target, B) add M
+
+"#]]
+    );
+}
+
+#[test]
+fn single_branch_stack_branch_and_switch() {
+    let env = Sandbox::open_with_default_settings("single-branch-three-dependent-branches");
+    env.but("move C -b A --switch").assert().success();
+    env.but("status")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┊╭┄ g0 [C]
+┊●   vuw add C
+┊│
+┊├┄ h0 [A]
+┊●   nmq add A
+├╯
+┊
+┴ 3712f84 (common base) 2000-01-02 add M
+
+Hint: run `but help` for all commands
+
+"#]]);
+    snapbox::assert_data_eq!(
+        env.git_log(),
+        snapbox::str![[r#"
+* 68bafd4 (B) add B
+* a3830b6 (HEAD -> C) add C
+* 549c6bf (A) add A
+* 3712f84 (origin/main, origin/HEAD, main, gitbutler/target) add M
+* e31e6ca add init
+
+"#]]
+    );
+}
+
+#[test]
+fn single_branch_unstack_checked_out_branch_and_switch() {
+    let env = Sandbox::open_with_default_settings("single-branch-three-dependent-branches");
+    env.but("move C --unstack --switch").assert().success();
+    env.but("status")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┊╭┄ g0 [C]
+┊●   vuw add C
+├╯
+┊
+┴ 3712f84 (common base) 2000-01-02 add M
+
+Hint: run `but help` for all commands
+
+"#]]);
+    snapbox::assert_data_eq!(
+        env.git_log(),
+        snapbox::str![[r#"
+* e06c9f0 (B) add B
+* 549c6bf (A) add A
+| * eea8652 (HEAD -> C) add C
+|/  
+* 3712f84 (origin/main, origin/HEAD, main, gitbutler/target) add M
+* e31e6ca add init
+
+"#]]
+    );
+}
+
+#[test]
+fn single_branch_unstack_empty_branch_and_switch() {
+    let env = Sandbox::open_with_default_settings("single-branch-mode");
+    env.but("branch new bottom").assert().success();
+    env.file("first", "first\n");
+    env.but("commit -m first").assert().success();
+    env.but("branch new empty --above bottom")
+        .assert()
+        .success();
+    env.but("branch new top --above empty").assert().success();
+    env.file("second", "second\n");
+    env.but("commit -m second").assert().success();
+    env.but("status")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┊╭┄ to [top]
+┊●   ukz second
+┊│
+┊├┄ em [empty] (no commits)
+┊│
+┊├┄ bo [bottom]
+┊●   zpr first
+├╯
+┊
+┴ b1540e5 (common base) 2000-01-02 M
+
+Hint: run `but help` for all commands
+
+"#]]);
+    snapbox::assert_data_eq!(
+        env.git_log(),
+        snapbox::str![[r#"
+* 8ff6b34 (HEAD -> top) second
+* ff24da1 (empty, bottom) first
+* b1540e5 (origin/main, origin/HEAD, main, gitbutler/target) M
+* e31e6ca add init
+
+"#]]
+    );
+    env.but("move empty --unstack --switch").assert().success();
+    env.but("status")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┊╭┄ em [empty] (no commits)
+├╯
+┊
+┴ b1540e5 (common base) 2000-01-02 M
+
+Hint: run `but help` for all commands
+
+"#]]);
+    snapbox::assert_data_eq!(
+        env.git_log(),
+        snapbox::str![[r#"
+* 8ff6b34 (top) second
+* ff24da1 (bottom) first
+* b1540e5 (HEAD -> empty, origin/main, origin/HEAD, main, gitbutler/target) M
+* e31e6ca add init
+
+"#]]
+    );
+    env.but("switch top").assert().success();
+    env.but("status")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┊╭┄ to [top]
+┊●   ukz second
+┊│
+┊├┄ bo [bottom]
+┊●   zpr first
+├╯
+┊
+┴ b1540e5 (common base) 2000-01-02 M
+
+Hint: run `but help` for all commands
+
+"#]]);
+}
+
+#[test]
+fn single_branch_move_hunk_above_checkout() {
+    let env = Sandbox::open_with_default_settings("single-branch-mode");
+    let content = "one\ntwo\nthree\nfour\nfive\nsix\nseven\n";
+    env.file("file", content);
+    env.but("commit -b source -m 'Add file'").assert().success();
+    env.file("file", format!("beginning\n{content}end"));
+    env.but("commit -m 'Update file'").assert().success();
+    env.but("move wrz:file:3 --above source -b moved -m extracted")
+        .assert()
+        .success();
+    env.but("status -f")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┊╭┄ mo [moved]
+┊●   qkw extracted
+┊│     qkw:q M file
+┊│
+┊├┄ so [source]
+┊●   wrz Update file
+┊│     wrz:q M file
+┊●   yvn Add file
+┊│     yvn:q A file
+├╯
+┊
+┴ b1540e5 (common base) 2000-01-02 M
+
+Hint: run `but help` for all commands
+
+"#]]);
+    snapbox::assert_data_eq!(
+        env.git_log(),
+        snapbox::str![[r#"
+* 3d8bb31 (HEAD -> moved) extracted
+* f081cd6 (source) Update file
+* 372d68b Add file
+* b1540e5 (origin/main, origin/HEAD, main, gitbutler/target) M
+* e31e6ca add init
+
+"#]]
+    );
+    env.but("diff wrz")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+──────────────╮
+ w:q:8 M file │
+──────────────╯
+
+@@ -5,3 +5,4 @@
+───────────────
+5 ┊ 5 │  five
+6 ┊ 6 │  six
+7 ┊ 7 │  seven
+  ┊ 8 │ +end
+
+"#]]);
+}
+
+#[test]
+fn move_switch_requires_single_branch_feature() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
+    env.setup_metadata(&["A", "B"]);
+    env.but("config feature single-branch disable")
+        .assert()
+        .success();
+    env.but("move d3e2ba3 -b moved --switch")
+        .assert()
+        .failure()
+        .stderr_eq(snapbox::str![[r#"
+Error: `--switch` requires the `single-branch` feature to be enabled
+
+Hint: Enable the feature with `but config feature single-branch enable`
+
+"#]]);
+}
+
+#[test]
+fn move_switch_conflicts_with_relative_targets() {
+    let env = Sandbox::open_with_default_settings("single-branch-three-dependent-branches");
+    env.but("move myy --above C --switch")
+        .assert()
+        .failure()
+        .stderr_eq(snapbox::str![[r#"
+error: the argument '--above <BRANCH_OR_COMMIT>' cannot be used with '--switch'
+...
+"#]]);
+    env.but("move myy --below C --switch")
+        .assert()
+        .failure()
+        .stderr_eq(snapbox::str![[r#"
+error: the argument '--below <BRANCH_OR_COMMIT>' cannot be used with '--switch'
+...
+"#]]);
+}
+
+#[test]
 fn rejects_unnamed_segment_as_source_or_target() {
     let env =
         Sandbox::init_scenario_with_target_and_default_settings("one-stack-anonymous-segment");

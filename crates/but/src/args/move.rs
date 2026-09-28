@@ -99,6 +99,12 @@ pub struct Platform {
     #[clap(long, conflicts_with_all = ["above", "below"])]
     pub unstack: bool,
 
+    /// Switch to the destination branch instead of remaining in the GitButler workspace.
+    ///
+    /// When moving a branch, switch to the moved branch.
+    #[clap(short, long, conflicts_with_all = ["above", "below"])]
+    pub switch: bool,
+
     /// The message to use when moving changes into a new commit.
     ///
     /// Can be supplied any amount of times, each value being appended to the preceding ones with a

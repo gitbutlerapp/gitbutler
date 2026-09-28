@@ -60,8 +60,14 @@ pub(super) mod function {
         subject_branch_name: &FullNameRef,
         stack_id_override: Option<StackId>,
     ) -> anyhow::Result<Outcome<'ws, 'meta, M>> {
-        let successful_rebase = editor.rebase()?;
+        let mut successful_rebase = editor.rebase()?;
         let workspace = successful_rebase.overlayed_graph()?.into_workspace()?;
+        let existing_order = if matches!(workspace.kind, WorkspaceKind::AdHoc) {
+            let (_, meta) = successful_rebase.repo_and_meta_mut();
+            meta.branch_stack_order(subject_branch_name)?
+        } else {
+            None
+        };
         let mut editor = successful_rebase.into_editor();
         let Some(source) = workspace.find_segment_and_stack_by_refname(subject_branch_name) else {
             bail!(
@@ -69,17 +75,12 @@ pub(super) mod function {
             );
         };
 
-        // We're currently stopping the move branch operations imperatively at this stage, in order to
-        // reduce the scope of this first iteration of moving the branches.
-        // TODO: Enable and test that we can move branches in any kind of workspace.
-        match &workspace.kind {
-            WorkspaceKind::Managed { .. } => {}
+        let managed = match &workspace.kind {
+            WorkspaceKind::Managed { .. } => true,
             WorkspaceKind::ManagedMissingWorkspaceCommit { .. } => {
                 bail!("Moving branches currently need a workspace commit")
             }
-            WorkspaceKind::AdHoc => {
-                bail!("Moving branches in non-managed workspaces is not supported");
-            }
+            WorkspaceKind::AdHoc => false,
         };
 
         let mut ws_meta = workspace.metadata.clone();
@@ -96,35 +97,34 @@ pub(super) mod function {
             });
         }
 
-        let Some(workspace_head) = workspace.tip_commit().map(|commit| commit.id) else {
-            bail!("Couldn't find workspace head.")
+        let workspace_head = if managed {
+            Some(
+                workspace
+                    .tip_commit()
+                    .context("Couldn't find workspace head.")?
+                    .id,
+            )
+        } else {
+            None
         };
-        let head_selector = editor
-            .select_commit(workspace_head)
-            .context("Failed to find the workspace head in the graph.")?;
-
-        let Some(lower_bound_ref) = workspace
-            .lower_bound_segment_id
-            .map(|segment_id| &workspace.graph[segment_id])
-            .and_then(|segment| segment.ref_name())
-        else {
-            bail!("Tearing off a branch requires a workspace common base");
+        let target_selector = if managed {
+            let lower_bound_ref = workspace
+                .lower_bound_segment_id
+                .map(|segment_id| &workspace.graph[segment_id])
+                .and_then(|segment| segment.ref_name())
+                .context("Tearing off a branch requires a workspace common base")?;
+            editor
+                .select_reference(lower_bound_ref)
+                .context("Failed to find target reference in graph.")?
+        } else {
+            editor.select_commit(workspace.graph.project_meta.target_commit_id_or_err()?)?
         };
-
-        let target_selector = editor
-            .select_reference(lower_bound_ref)
-            .context("Failed to find target reference in graph.")?;
 
         let DisconnectParameters {
             delimiter: subject_delimiter,
             children_to_disconnect,
             parents_to_disconnect,
-        } = get_disconnect_parameters(
-            &editor,
-            source_stack,
-            subject_segment,
-            Some(workspace_head),
-        )?;
+        } = get_disconnect_parameters(&editor, source_stack, subject_segment, workspace_head)?;
 
         editor.disconnect_segment_from(
             subject_delimiter.clone(),
@@ -133,15 +133,29 @@ pub(super) mod function {
             false,
         )?;
 
-        let selectors = SomeSelectors::new(vec![head_selector])?;
-
-        editor.insert_segment_into(
-            target_selector,
-            subject_delimiter,
-            but_rebase::graph_rebase::mutate::InsertSide::Above,
-            Some(selectors),
-            but_rebase::graph_rebase::mutate::ParentReparentingOrder::Prepend,
-        )?;
+        let branch_stack_order = if let Some(workspace_head) = workspace_head {
+            let head_selector = editor.select_commit(workspace_head)?;
+            let selectors = SomeSelectors::new(Vec::from([head_selector]))?;
+            editor.insert_segment_into(
+                target_selector,
+                subject_delimiter,
+                but_rebase::graph_rebase::mutate::InsertSide::Above,
+                Some(selectors),
+                but_rebase::graph_rebase::mutate::ParentReparentingOrder::Prepend,
+            )?;
+            None
+        } else {
+            // There is no workspace commit to connect to the torn-off branch. Attach only
+            // its first parent at the target, leaving the remaining stack independent.
+            editor.add_edge(subject_delimiter.parent, target_selector, 0)?;
+            Some(
+                existing_order
+                    .unwrap_or_else(|| stack_branch_order(source_stack))
+                    .into_iter()
+                    .filter(|name| name.as_ref() != subject_branch_name)
+                    .collect(),
+            )
+        };
 
         // Update the workspace meta in order to create a new stack containing the
         // torn-off branch.
@@ -159,7 +173,7 @@ pub(super) mod function {
             rebase: editor.rebase()?,
             ws_meta,
             new_tip: None,
-            branch_stack_order: None,
+            branch_stack_order,
         })
     }
 
