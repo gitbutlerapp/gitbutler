@@ -440,6 +440,7 @@ pub enum Message {
     GotoBottom,
     PickAndGotoBranch,
     SelectBranch(FullName),
+    SelectWorktree(BString),
 
     // Features
     Commit(CommitMessage),
@@ -747,6 +748,7 @@ fn dedup_mutation_messages(messages: &mut Vec<Message>, other_messages: &mut Vec
             | Message::GotoBottom
             | Message::PickAndGotoBranch
             | Message::SelectBranch(..)
+            | Message::SelectWorktree(..)
             | Message::ToggleHelp
             | Message::Mark
             | Message::ClearMarks
