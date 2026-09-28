@@ -1458,6 +1458,10 @@ dependencies = [
 ]
 
 [[package]]
+name = "but-lisp"
+version = "0.0.0"
+
+[[package]]
 name = "but-llm"
 version = "0.1.0"
 dependencies = [

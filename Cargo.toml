@@ -79,6 +79,7 @@ members = [
     # 👉Experimental; needs docs, it's used from `but` CLI and not a library
     "crates/but-agentlog",    # 📄Capture coding-agent logs into Git metadata.
     "crates/but-transaction", # 📄TBD
+    "crates/but-lisp",
 
     ##
     ### Soon obsolete
