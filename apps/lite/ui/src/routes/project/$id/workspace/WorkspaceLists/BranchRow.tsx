@@ -372,16 +372,16 @@ export const BranchRow: FC<
 		// commit sits in this segment. Unrelated selections (and the details pane
 		// they drive) stay put.
 		const commitRef = commitParamRef(currentParams().applied);
-		const storedSegmentRef =
-			commitRef === null
-				? undefined
-				: "changeId" in commitRef
-					? headInfoIndex?.commitContextsByChangeId(commitRef.changeId)?.[0].segment.refName
-					: headInfoIndex?.commitContextByCommitId(commitRef.commitId)?.segment.refName;
+		const commits = headInfoIndex?.laneBranchByRefBytes(refName.fullNameBytes)?.segment.commits;
 		const foldHidesSelection =
 			!isFolded &&
-			storedSegmentRef != null &&
-			decodeBytes(storedSegmentRef.fullNameBytes) === branchRef;
+			commitRef !== null &&
+			commits !== undefined &&
+			commits.some((commit) =>
+				"changeId" in commitRef
+					? commit.changeId === commitRef.changeId
+					: commit.id === commitRef.commitId,
+			);
 
 		toggleFoldedSegment(dispatch, {
 			projectId,
