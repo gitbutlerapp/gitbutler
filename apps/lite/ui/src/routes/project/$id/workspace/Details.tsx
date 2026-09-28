@@ -13,7 +13,6 @@ import {
 	useResolveCommitConflictHunks,
 	useSaveGUISettings,
 } from "#ui/api/mutations.ts";
-import { downstackPushStatusFromSegments } from "#ui/segment.ts";
 import {
 	type DraftPRExtras,
 	draftPRQueryOptions,
@@ -35,6 +34,7 @@ import {
 	headInfoQueryOptions,
 	listEditorsQueryOptions,
 	listReviewsQueryOptions,
+	newReviewTargetQueryOptions,
 	listReviewThreadsQueryOptions,
 	treeChangesDiffsQueryOptions,
 	workspaceFileQueryOptions,
@@ -3316,10 +3316,10 @@ type DetailsViewProps = {
 type BranchDetailsProps = { branch: BranchAddress } & DetailsViewProps;
 
 /**
- * A branch the workspace does not hold, as the branches tab lists them: its
- * changes, and its review when one already exists. Opening a review is not
- * offered — the base comes from a branch's position in a workspace stack, which
- * this branch has not got, so `publish_review` refuses it.
+ * A branch in no lane, as the branches tab lists them: its changes, and its
+ * review when one already exists. Opening a review is not offered — the base
+ * comes from the branches beneath it in its lane, which this branch has not
+ * got, so `publish_review` refuses it.
  */
 const UnappliedBranchDetails: FC<BranchDetailsProps> = ({
 	branch,
@@ -3464,8 +3464,8 @@ const UnappliedBranchDetails: FC<BranchDetailsProps> = ({
 	);
 };
 
-/** A branch applied to the workspace: its changes, and the review of them. */
-const AppliedBranchDetails: FC<BranchDetailsProps> = ({
+/** A branch of a workspace stack or a linked worktree's lane: its changes, and the review of them. */
+const LaneBranchDetails: FC<BranchDetailsProps> = ({
 	branch,
 	projectId,
 	onActiveFileSelection,
@@ -3498,15 +3498,19 @@ const AppliedBranchDetails: FC<BranchDetailsProps> = ({
 	});
 	const authFailure = hasAccount === false ? "missing" : forgeAuthFailure(reviewError);
 	const canUseForge = accountsSuccess && hasAccount && authFailure === null;
-	const branchCtx = headInfoIndex?.branchContextByRefBytes(branch.branchRef);
+	const laneBranch = headInfoIndex?.laneBranchByRefBytes(branch.branchRef);
 	// A recorded PR missing from the open listing may be merged or closed.
 	// Keep it visible until verification rules out a merge.
 	const landedReviewId = useLandedReviewId(
 		projectId,
-		branchCtx ? recordedPullRequest(branchCtx.segment) : null,
+		laneBranch ? recordedPullRequest(laneBranch.segment) : null,
 		reviewsLoaded && !openReview && canUseForge,
 	);
 	const hasReview = !!openReview || landedReviewId !== null;
+	const { data: targetBranch } = useQuery({
+		...newReviewTargetQueryOptions({ projectId, branch: branchRef }),
+		enabled: !hasReview,
+	});
 
 	const chosenTab = useAppSelector((state) =>
 		projectSlice.selectors.selectBranchTab(state, projectId, branchName),
@@ -3532,18 +3536,10 @@ const AppliedBranchDetails: FC<BranchDetailsProps> = ({
 	const ref = useRef<HTMLDivElement>(null);
 	useBranchTabHotkeys({ branchTab, setBranchTab, target: ref });
 
-	// Once the parent branch is integrated, the PR can target the workspace's base.
-	const parentSegment = branchCtx?.stack.segments[branchCtx.segmentIndex + 1];
-	const targetBranch =
-		!parentSegment || parentSegment.pushStatus === "integrated"
-			? headInfo?.target?.remoteTrackingRef.displayName
-			: parentSegment.refName?.displayName;
 	// A forge only opens a review on a branch it has, so a new PR pushes the
 	// branch and its ancestors first when any of them still has something to
 	// push. Conflicted commits cannot be pushed, and so cannot be reviewed yet.
-	const downstack = branchCtx
-		? downstackPushStatusFromSegments(branchCtx.stack.segments.slice(branchCtx.segmentIndex))
-		: null;
+	const downstack = laneBranch?.downstack ?? null;
 	const pushFirst: PushBeforePublish | null = downstack?.anyRequiresPush
 		? { branch: branchRef, withForce: downstack.anyPushRequiresForce }
 		: null;
@@ -3657,7 +3653,7 @@ const AppliedBranchDetails: FC<BranchDetailsProps> = ({
 				) : (
 					<BranchDiff
 						projectId={projectId}
-						branch={branch}
+						branch={{ ...branch, worktree: laneBranch?.worktree ?? undefined }}
 						onActiveFileSelection={onActiveFileSelection}
 						viewerRef={viewerRef}
 						didScrollToViaFileRef={didScrollToViaFileRef}
@@ -3847,8 +3843,8 @@ export const Details: FC<
 	return Match.value(selection).pipe(
 		Match.tags({
 			Branch: (branch) =>
-				getHeadInfoIndex(headInfo).isApplied(branch.branchRef) ? (
-					<AppliedBranchDetails key={branchIdentityKey(branch)} branch={branch} {...viewProps} />
+				getHeadInfoIndex(headInfo).laneBranchByRefBytes(branch.branchRef) ? (
+					<LaneBranchDetails key={branchIdentityKey(branch)} branch={branch} {...viewProps} />
 				) : (
 					<UnappliedBranchDetails key={branchIdentityKey(branch)} branch={branch} {...viewProps} />
 				),
