@@ -91,8 +91,8 @@ const refreshIntegratedReviews = async (client: QueryClient, projectId: string):
 	});
 
 	const reviewIds = new Set(
-		headInfo.stacks.values().flatMap((stack) =>
-			stack.segments
+		[...headInfo.stacks, ...headInfo.worktrees].values().flatMap((lane) =>
+			lane.segments
 				.values()
 				// Integrated segments only: an open association needs no refresh here, and the landed view
 				// fetches on demand.
