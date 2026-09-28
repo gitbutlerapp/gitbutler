@@ -42,7 +42,6 @@
 		branchName: string;
 		segment: Segment;
 		branchIndex: number;
-		parent: Segment | undefined;
 		withForce: boolean;
 		reviewId?: string;
 		onClose: () => void;

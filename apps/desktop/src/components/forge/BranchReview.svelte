@@ -94,7 +94,6 @@
 			{branchName}
 			{segment}
 			{branchIndex}
-			{parent}
 			{withForce}
 			onClose={() => modal?.close()}
 		/>

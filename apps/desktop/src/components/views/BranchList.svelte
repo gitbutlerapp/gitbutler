@@ -344,7 +344,6 @@
 			numberOfBranchesInStack={segments.length}
 			{segment}
 			branchIndex={ctx.branchIndex}
-			parent={ctx.parent}
 			withForce={ctx.withForce}
 			baseCommit={segment.base ?? undefined}
 			dropzones={branchName && startCommittingDz
