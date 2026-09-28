@@ -47,6 +47,7 @@ import os from "node:os";
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { initLogging } from "./logging.js";
+import { createButDevCors } from "./but-dev-cors.js";
 import { type GUISettings, readSettings, writeSettings } from "./settings.js";
 import {
 	initMetrics,
@@ -637,6 +638,16 @@ export const start = async (shellEnvironment: Promise<Record<string, string>>): 
 	applyGUISettings(await readSettings());
 	configureAskpass();
 
+	const butDevCors = createButDevCors(isTrustedLocalOrigin);
+	session.defaultSession.webRequest.onBeforeSendHeaders(
+		{ urls: ["https://but.dev/api/*"] },
+		(details, callback) => {
+			butDevCors.beforeSendHeaders(details);
+			callback({ requestHeaders: details.requestHeaders });
+		},
+	);
+	session.defaultSession.webRequest.onErrorOccurred((details) => butDevCors.forget(details.id));
+
 	if (app.isPackaged) {
 		registerLiteProtocolHandler();
 
@@ -646,7 +657,7 @@ export const start = async (shellEnvironment: Promise<Record<string, string>>): 
 			"script-src 'self' 'wasm-unsafe-eval';" +
 			"style-src 'self' 'unsafe-inline';" +
 			"font-src 'self';" +
-			`connect-src 'self' ${posthogHost};` +
+			`connect-src 'self' https://but.dev ${posthogHost};` +
 			"object-src 'none';" +
 			"base-uri 'none';" +
 			"frame-ancestors 'none';" +
@@ -657,9 +668,11 @@ export const start = async (shellEnvironment: Promise<Record<string, string>>): 
 			"worker-src 'self';";
 
 		session.defaultSession.webRequest.onHeadersReceived((details, callback) => {
+			const corsResponse = butDevCors.headersReceived(details);
 			callback({
+				...corsResponse,
 				responseHeaders: {
-					...details.responseHeaders,
+					...(corsResponse.responseHeaders ?? details.responseHeaders),
 					"Content-Security-Policy": [productionCsp],
 				},
 			});
@@ -682,7 +695,7 @@ export const start = async (shellEnvironment: Promise<Record<string, string>>): 
 			"style-src 'self' 'unsafe-inline';" +
 			"font-src 'self';" +
 			// ws source for HMR
-			`connect-src 'self' ws://127.0.0.1:5173 ${posthogHost};` +
+			`connect-src 'self' ws://127.0.0.1:5173 https://but.dev ${posthogHost};` +
 			"object-src 'none';" +
 			"base-uri 'none';" +
 			"frame-ancestors 'none';" +
@@ -699,9 +712,11 @@ export const start = async (shellEnvironment: Promise<Record<string, string>>): 
 				return;
 			}
 
+			const corsResponse = butDevCors.headersReceived(details);
 			callback({
+				...corsResponse,
 				responseHeaders: {
-					...details.responseHeaders,
+					...(corsResponse.responseHeaders ?? details.responseHeaders),
 					"Content-Security-Policy": [developmentCsp],
 				},
 			});

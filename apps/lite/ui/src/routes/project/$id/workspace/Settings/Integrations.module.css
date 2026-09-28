@@ -1,5 +1,3 @@
-/* A forge's row: its mark, then the same title-over-hint pair a settings row draws, then the
-   action at the end. Not a `Row` only because that has no place for the mark. */
 .row {
 	display: flex;
 	align-items: flex-start;
@@ -14,6 +12,10 @@
 /* Taller than the 28px a forge mark gets elsewhere, to stand the two lines of text beside it. */
 .logo {
 	--logo-size: 34px;
+	--icon-size: 34px;
+
+	display: flex;
+	flex: none;
 }
 
 /* The words take the width; the action keeps its own. */

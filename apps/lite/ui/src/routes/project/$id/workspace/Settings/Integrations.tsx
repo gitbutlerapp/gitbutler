@@ -1,5 +1,5 @@
 import { Field } from "@base-ui/react";
-import { useQueryClient, useSuspenseQueries } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient, useSuspenseQueries } from "@tanstack/react-query";
 import { useEffect, useRef, useState, type FC, type ReactNode } from "react";
 import {
 	bitbucketAccountsQueryOptions,
@@ -28,28 +28,136 @@ import { errorMessageForToast } from "#ui/errors.ts";
 import { nativeMenuItem, showNativeMenuFromTrigger } from "#ui/native-menu.ts";
 import { useCopied } from "#ui/components/useCopied.ts";
 import { openLinkExternally } from "#ui/external-link.ts";
+import {
+	butDevLoginQueryOptions,
+	butDevSessionQueryOptions,
+	disconnectButDev,
+	startButDevLogin,
+} from "#ui/but-dev/auth.ts";
 import { signInWithGithub } from "./github-oauth.ts";
 import styles from "./Integrations.module.css";
 import { Note, Section } from "./Section.tsx";
 
-/** A forge's mark, a title over a line about it, and at the row's end what can be done about it. */
-const ForgeRow: FC<{
-	logo: LogoName;
-	/** A forge that is only on offer wears its mark as a silhouette; a connected one, in colour. */
-	muted?: boolean;
+const IntegrationRow: FC<{
+	mark: ReactNode;
 	title: string;
 	hint: string;
 	children: ReactNode;
-}> = (p) => (
+}> = ({ mark, title, hint, children }) => (
 	<div className={styles.row}>
-		<Logo name={p.logo} muted={p.muted} className={styles.logo} />
+		<div className={styles.logo}>{mark}</div>
 		<div className={styles.text}>
-			<span className={classes("text-15", "text-semibold", styles.title)}>{p.title}</span>
-			<span className={classes("text-12", "text-body", styles.hint)}>{p.hint}</span>
+			<span className={classes("text-15", "text-semibold", styles.title)}>{title}</span>
+			<span className={classes("text-12", "text-body", styles.hint)}>{hint}</span>
 		</div>
-		{p.children}
+		{children}
 	</div>
 );
+
+const ButDev: FC<{ heading?: string }> = ({ heading }) => {
+	const client = useQueryClient();
+	const {
+		data: session,
+		isPending: loading,
+		error: sessionError,
+		refetch,
+	} = useQuery(butDevSessionQueryOptions);
+	const {
+		mutate: openBrowser,
+		error: browserError,
+		reset: resetBrowser,
+	} = useMutation({ mutationFn: (url: string) => window.lite.openInWebBrowser(url) });
+	const {
+		data: approval,
+		mutate: connect,
+		isPending: starting,
+		error: connectError,
+		reset: resetConnection,
+	} = useMutation({ mutationFn: startButDevLogin });
+	const { error: pollError } = useQuery(butDevLoginQueryOptions(approval));
+	const {
+		data: disconnectNotice,
+		mutate: disconnect,
+		isPending: disconnecting,
+		error: disconnectError,
+		reset: resetDisconnect,
+	} = useMutation({ mutationFn: () => disconnectButDev(client) });
+
+	const waiting = approval !== undefined && !session && !pollError;
+	const error =
+		sessionError ??
+		disconnectError ??
+		(!session ? (connectError ?? pollError ?? browserError) : null);
+	const notice = error?.message ?? disconnectNotice;
+
+	return (
+		<>
+			<Section
+				heading={heading}
+				footer={
+					waiting ? (
+						<>
+							<p className={classes("text-12", "text-body", styles.deviceCode)}>
+								Approve code <strong>{approval.user_code}</strong> in your browser.
+							</p>
+							<Button onClick={() => openBrowser(approval.verify_url)}>Open browser</Button>
+						</>
+					) : session ? (
+						<p className={classes("text-12", "text-body", styles.deviceCode)}>
+							Connected as {session.login}
+						</p>
+					) : undefined
+				}
+			>
+				<IntegrationRow
+					mark={<Icon name="globe" />}
+					title="but.dev"
+					hint="Uses your GitButler account with a separate token for now; we plan to unify sign-in."
+				>
+					{session ? (
+						<Button
+							disabled={disconnecting}
+							onClick={() => {
+								resetConnection();
+								resetBrowser();
+								disconnect();
+							}}
+						>
+							{disconnecting ? "Disconnecting…" : "Disconnect"}
+						</Button>
+					) : starting || waiting ? (
+						<Button
+							onClick={() => {
+								void client.cancelQueries({ queryKey: ["butDev", "login"] });
+								resetConnection();
+								resetBrowser();
+							}}
+						>
+							Cancel
+						</Button>
+					) : sessionError ? (
+						<Button onClick={() => void refetch()}>Retry</Button>
+					) : (
+						<Button
+							disabled={loading || disconnecting}
+							onClick={() => {
+								resetDisconnect();
+								resetBrowser();
+								// Per-call callbacks stop on reset/unmount, so a cancelled start opens no browser.
+								connect(undefined, {
+									onSuccess: (flow) => openBrowser(flow.verify_url),
+								});
+							}}
+						>
+							Connect
+						</Button>
+					)}
+				</IntegrationRow>
+			</Section>
+			{notice != null && <Note icon="warning">{notice}</Note>}
+		</>
+	);
+};
 
 /** The code GitHub's device flow wants typed into the page it opened, with a button to carry it. */
 const DeviceCode: FC<{ code: string }> = (p) => {
@@ -160,7 +268,7 @@ const ForgeCard: FC<ForgeCardProps> = (p) => {
 
 	return (
 		<Section heading={p.heading} footer={footer}>
-			<ForgeRow logo={p.logo} muted title={p.name} hint={p.blurb}>
+			<IntegrationRow mark={<Logo name={p.logo} muted />} title={p.name} hint={p.blurb}>
 				<Button
 					disabled={p.isBusy}
 					// One way in goes straight there; several offer the choice, as desktop does.
@@ -183,7 +291,7 @@ const ForgeCard: FC<ForgeCardProps> = (p) => {
 				>
 					Connect
 				</Button>
-			</ForgeRow>
+			</IntegrationRow>
 		</Section>
 	);
 };
@@ -289,22 +397,23 @@ export const Integrations: FC = () => {
 			{connected.length > 0 && (
 				<Section heading="Connected">
 					{connected.map((account) => (
-						<ForgeRow
+						<IntegrationRow
 							key={account.key}
-							logo={account.logo}
+							mark={<Logo name={account.logo} />}
 							title={account.username}
 							hint={account.kind}
 						>
 							<Button variant="danger" disabled={account.isBusy} onClick={account.onForget}>
 								Forget
 							</Button>
-						</ForgeRow>
+						</IntegrationRow>
 					))}
 				</Section>
 			)}
 
+			<ButDev heading="Add an account" />
+
 			<ForgeCard
-				heading="Add an account"
 				name="GitHub"
 				logo="github"
 				blurb="Create and review pull requests"
@@ -370,7 +479,8 @@ export const Integrations: FC = () => {
 			{githubError !== null && <p className={classes("text-12", styles.error)}>{githubError}</p>}
 
 			<Note icon="lock">
-				Credentials are kept in your operating system's keychain, not by GitButler.
+				Forge credentials use your operating system's keychain. The but.dev token is stored locally
+				in this app.
 			</Note>
 		</>
 	);

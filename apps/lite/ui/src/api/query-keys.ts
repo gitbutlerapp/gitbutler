@@ -39,9 +39,12 @@ type LocalQueryKey =
 	| "projectAiSettings"
 	| "reviewedFiles";
 
+type ButDevQueryKey = "session" | "login";
+
 export type QueryKeyPrefix =
 	| [projectId: string, ProjectQueryKey]
 	| [projectId: string, LocalQueryKey]
+	| ["butDev", ButDevQueryKey]
 	| [GlobalQueryKey];
 
 declare module "@tanstack/react-query" {
