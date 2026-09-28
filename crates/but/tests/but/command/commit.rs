@@ -4987,6 +4987,131 @@ error: the argument '--empty' cannot be used with '--query <EXPR>'
 }
 
 #[test]
+fn query_file_path_matches_repository_relative_path() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("zero-stacks");
+    env.setup_metadata(&[]);
+    env.file("src/main.rs", "selected\n");
+    env.file("main.rs", "unselected\n");
+    env.but(r#"commit -b new-branch --no-message --query '(file :path "src/main.rs")'"#)
+        .assert()
+        .success();
+    snapbox::assert_data_eq!(env.invoke_git("show new-branch:src/main.rs"), "selected");
+    snapbox::assert_data_eq!(env.invoke_git("status --porcelain"), "?? main.rs");
+}
+
+#[test]
+fn query_file_glob_composes_with_line_exclusions() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("zero-stacks");
+    env.setup_metadata(&[]);
+    env.file("src/main.rs", "keep\nTODO: leave\n");
+    env.file("src/nested/lib.rs", "also keep\n");
+    env.file("tests/test.rs", "leave this file\n");
+    env.but(r#"commit -b new-branch --no-message --query '(difference (file :glob "src/**/*.rs") (line-added :contains "TODO"))'"#).assert().success();
+    snapbox::assert_data_eq!(env.invoke_git("show new-branch:src/main.rs"), "keep");
+    snapbox::assert_data_eq!(
+        env.invoke_git("show new-branch:src/nested/lib.rs"),
+        "also keep"
+    );
+    snapbox::assert_data_eq!(
+        env.invoke_git("status --porcelain"),
+        "M src/main.rs\n?? tests/"
+    );
+}
+
+#[test]
+fn query_file_extension_can_select_binary_changes() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("zero-stacks");
+    env.setup_metadata(&[]);
+    env.file("image.png", b"\0image\xff");
+    env.file("image.png.bak", b"\0backup\xff");
+    env.but(r#"commit -b new-branch --no-message --query '(file :extension "png")'"#)
+        .assert()
+        .success();
+    snapbox::assert_data_eq!(
+        env.invoke_git("ls-tree --name-only new-branch"),
+        "M\nimage.png"
+    );
+    snapbox::assert_data_eq!(env.invoke_git("status --porcelain"), "?? image.png.bak");
+}
+
+#[test]
+fn query_file_status_added_excludes_modifications() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("zero-stacks");
+    env.setup_metadata(&[]);
+    env.file("M", "modified\n");
+    env.file("added", "added\n");
+    env.but("commit -b new-branch --no-message --query '(file :status :added)'")
+        .assert()
+        .success();
+    snapbox::assert_data_eq!(env.invoke_git("show new-branch:added"), "added");
+    snapbox::assert_data_eq!(env.invoke_git("status --porcelain"), "M M");
+}
+
+#[test]
+fn query_file_status_deleted_and_modified() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("zero-stacks");
+    env.setup_metadata(&[]);
+    env.file("file", "original\n");
+    env.but("commit -b new-branch --no-message")
+        .assert()
+        .success();
+    env.file("file", "modified\n");
+    std::fs::remove_file(env.projects_root().join("M")).unwrap();
+    env.file("added", "leave\n");
+    env.but("commit -b new-branch --no-message --query '(union (file :status :deleted) (file :status :modified))'").assert().success();
+    snapbox::assert_data_eq!(env.invoke_git("ls-tree --name-only new-branch"), "file");
+    snapbox::assert_data_eq!(env.invoke_git("show new-branch:file"), "modified");
+    snapbox::assert_data_eq!(env.invoke_git("status --porcelain"), "?? added");
+}
+
+#[test]
+fn query_file_rename_matches_destination_only() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("zero-stacks");
+    env.setup_metadata(&[]);
+    env.file("old.rs", "content\n");
+    env.but("commit -b new-branch --no-message")
+        .assert()
+        .success();
+    env.rename_file("old.rs", "new.rs");
+    env.but(r#"commit -b new-branch --no-message --query '(file :path "old.rs")'"#)
+        .assert()
+        .failure()
+        .stderr_eq("Error: Query selected no changes to commit\n");
+    env.but(r#"commit -b new-branch --no-message --query '(intersection (file :status :renamed) (file :path "new.rs"))'"#).assert().success();
+    snapbox::assert_data_eq!(
+        env.invoke_git("ls-tree --name-only new-branch"),
+        "M\nnew.rs"
+    );
+    snapbox::assert_data_eq!(env.invoke_git("status --porcelain"), "");
+}
+
+#[test]
+fn query_file_invalid_glob_reports_source() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("zero-stacks");
+    env.setup_metadata(&[]);
+    env.file("file", "content\n");
+    let before = env.git_log();
+    env.but(r#"commit -b new-branch --no-message --query '(file :glob "[")'"#)
+        .assert()
+        .failure()
+        .stderr_eq(snapbox::str![[r#"
+Error:   × Invalid diff query: invalid glob: error parsing glob '[': unclosed character class; missing ']'
+   ╭─[query:1:13]
+ 1 │ (file :glob "[")
+   ·             ─┬─
+   ·              ╰── invalid glob: error parsing glob '[': unclosed character class; missing ']'
+   ╰────
+
+
+"#]]);
+    assert_eq!(
+        env.git_log(),
+        before,
+        "invalid globs must not mutate history or create a branch"
+    );
+}
+
+#[test]
 fn dont_commit_todos() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("zero-stacks");
     env.setup_metadata(&[]);

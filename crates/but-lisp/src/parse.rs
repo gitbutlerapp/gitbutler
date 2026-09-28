@@ -1,6 +1,9 @@
 use miette::{Diagnostic, NamedSource, SourceSpan};
 
-use crate::{Query, Side, query::Expression};
+use crate::{
+    FileStatus, Query, Side,
+    query::{Expression, FilePredicate},
+};
 
 /// A query error with the original input and the offending source span.
 #[derive(Debug, thiserror::Error, Diagnostic)]
@@ -146,6 +149,57 @@ impl Parser<'_> {
                     side,
                     text,
                 }
+            }
+            "file" => {
+                let (predicate, predicate_start) = self.atom()?;
+                let predicate = predicate.to_owned();
+                let predicate = match predicate.as_str() {
+                    ":path" => FilePredicate::Path(self.string()?),
+                    ":extension" => FilePredicate::Extension(self.string()?),
+                    ":glob" => {
+                        self.whitespace();
+                        let start = self.offset;
+                        let pattern = self.string()?;
+                        let glob = globset::GlobBuilder::new(&pattern)
+                            .literal_separator(true)
+                            .backslash_escape(true)
+                            .build()
+                            .map_err(|error| {
+                                self.error(
+                                    start,
+                                    self.offset - start,
+                                    format!("invalid glob: {error}"),
+                                )
+                            })?;
+                        FilePredicate::Glob(glob.compile_matcher())
+                    }
+                    ":status" => {
+                        let (status, start) = self.atom()?;
+                        let status = match status {
+                            ":added" => FileStatus::Added,
+                            ":deleted" => FileStatus::Deleted,
+                            ":modified" => FileStatus::Modified,
+                            ":renamed" => FileStatus::Renamed,
+                            status => {
+                                let len = status.len();
+                                return Err(self.error(
+                                    start,
+                                    len,
+                                    "expected :added, :deleted, :modified, or :renamed",
+                                ));
+                            }
+                        };
+                        FilePredicate::Status(status)
+                    }
+                    _ => {
+                        return Err(self.error(
+                            predicate_start,
+                            predicate.len(),
+                            "expected :path, :glob, :extension, or :status",
+                        ));
+                    }
+                };
+                Expression::File(predicate)
             }
             "not" => Expression::Not(Box::new(self.expression(depth + 1)?)),
             "difference" => Expression::Difference(

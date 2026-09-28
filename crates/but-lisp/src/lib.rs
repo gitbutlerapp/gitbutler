@@ -1,7 +1,12 @@
 //! A Lisp parser for our diff filtering language.
 //!
-//! Currently supports line/hunk selectors with `:contains` and the four set operators.
-//! File selectors, regexes, and ranges below describe planned extensions.
+//! Supports file selectors (`:path`, `:glob`, `:extension`, `:status`), line/hunk
+//! selectors with `:contains`, and the four set operators. `:binary`, regexes,
+//! and ranges below describe planned extensions.
+//!
+//! Paths are repository-relative and case-sensitive; renames match the new path.
+//! In globs, `*` stays within a directory and `**` can cross directories.
+//! Extensions use the last suffix without its dot.
 //!
 //! # Select files
 //!
@@ -18,6 +23,7 @@
 //! ```lisp
 //! (file :status :added)
 //! (file :status :deleted)
+//! (file :status :modified)
 //! (file :status :renamed)
 //! (file :binary true)
 //! ```
@@ -89,7 +95,7 @@ mod parse;
 mod query;
 
 pub use parse::QueryError;
-pub use query::{ChangedLine, Query, Side};
+pub use query::{ChangedLine, File, FileStatus, Query, Side};
 
 #[cfg(test)]
 mod tests;

@@ -1464,6 +1464,7 @@ name = "but-lisp"
 version = "0.0.0"
 dependencies = [
  "bstr",
+ "globset",
  "miette",
  "snapbox",
  "thiserror 2.0.18",

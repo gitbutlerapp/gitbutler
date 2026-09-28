@@ -97,8 +97,10 @@ pub struct Platform {
     /// Narrow the selected changes with a Lisp query.
     ///
     /// Supports line, line-added, line-removed, hunk, hunk-added, and hunk-removed
-    /// with :contains, composed with not, union, intersection, and difference.
-    /// Only changed lines are searched, never context. For example:
+    /// with :contains, plus file with :path, :glob, :extension, or :status
+    /// (:added, :deleted, :modified, :renamed). Compose with not, union,
+    /// intersection, and difference. Paths are repository-relative; renames
+    /// match their new path. Only changed lines are searched, never context. For example:
     /// --query '(not (line :contains "TODO"))'.
     #[clap(long, value_name = "EXPR", conflicts_with = "empty")]
     pub query: Option<String>,

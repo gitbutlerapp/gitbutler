@@ -10,6 +10,7 @@ rust-version.workspace = true
 miette.workspace = true
 thiserror.workspace = true
 bstr.workspace = true
+globset = "0.4.18"
 
 [dev-dependencies]
 snapbox.workspace = true

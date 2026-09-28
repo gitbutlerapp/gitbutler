@@ -296,7 +296,21 @@ impl<'a> DiffSpecBuilder<'a> {
             return;
         };
         for hunk in hunks {
-            let mut spec = but_core::diff_spec_with_changes(hunk.clone(), changes);
+            let change = changes
+                .iter()
+                .find(|change| change.path_bytes == hunk.path)
+                .expect("worktree hunks must have a matching tree change");
+            let file = but_lisp::File {
+                path: &hunk.path,
+                status: match &change.status {
+                    but_core::ui::TreeStatus::Addition { .. } => but_lisp::FileStatus::Added,
+                    but_core::ui::TreeStatus::Deletion { .. } => but_lisp::FileStatus::Deleted,
+                    but_core::ui::TreeStatus::Modification { .. } => but_lisp::FileStatus::Modified,
+                    but_core::ui::TreeStatus::Rename { .. } => but_lisp::FileStatus::Renamed,
+                },
+            };
+            let mut spec =
+                but_core::diff_spec_with_changes(hunk.clone(), std::slice::from_ref(change));
             let mut lines = Vec::new();
             let mut headers = Vec::new();
             if let (Some(diff), Some(header)) = (&hunk.diff, hunk.hunk_header) {
@@ -340,12 +354,12 @@ impl<'a> DiffSpecBuilder<'a> {
                 }
             }
             if lines.is_empty() {
-                if query.selects_non_text() {
+                if query.selects_non_text(file) {
                     self.diff_specs.push(spec);
                 }
                 continue;
             }
-            let selected = query.select(&lines);
+            let selected = query.select(file, &lines);
             if selected.iter().all(|selected| *selected) {
                 self.diff_specs.push(spec);
                 continue;
