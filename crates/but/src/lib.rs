@@ -1282,6 +1282,7 @@ async fn dispatch_subcommand(
                 &mut ctx,
                 IntermediateChannel::new(out),
                 squash_args,
+                &InvokedFrom::discover(&args.current_dir)?,
             )?;
             out.print_cli_output(outcome)?;
             ws

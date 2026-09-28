@@ -36,7 +36,7 @@ use crate::{
     theme::{self, Theme},
     utils::{
         CliOutput, CliOutputHuman, IntermediateChannel, WriteWithUtils,
-        change_source::{self, ChangeSourceId, ChangeSourceRepo},
+        change_source::{self, ChangeSourceId, ChangeSourceRepo, InvokedFrom},
         diff_specs::DiffSpecBuilder,
         merged_upstream::MergedUpstream,
         rejection,
@@ -157,6 +157,7 @@ pub fn squash(
     ctx: &mut Context,
     out: IntermediateChannel<'_>,
     args: Platform,
+    invoked_from: &InvokedFrom,
 ) -> CliResult<(SquashOutcome, Option<WorkspaceState>)> {
     let mut guard = ctx.exclusive_worktree_access();
     let mut meta = ctx.meta()?;
@@ -165,7 +166,7 @@ pub fn squash(
     let merged = MergedUpstream::new(&*ctx.repo.get()?, &head_info, args.allow_merged);
 
     let (repo, ws, _) = ctx.workspace_and_db_with_perm(guard.read_permission())?;
-    let resolved_args = resolve_args(&repo, args, &id_map, &head_info, out.format())?;
+    let resolved_args = resolve_args(&repo, args, &id_map, &head_info, out.format(), invoked_from)?;
     let resolved_args = resolved_args.as_ref();
 
     let squash_op = resolve(resolved_args, &ws, &repo, &merged)?;
@@ -182,6 +183,7 @@ fn resolve_args(
     id_map: &IdMap,
     head_info: &RefInfo,
     format: OutputFormat,
+    invoked_from: &InvokedFrom,
 ) -> CliResult<ResolvedSquashArgs> {
     let Platform {
         target,
@@ -204,7 +206,9 @@ fn resolve_args(
 
     if let Some(target) = target {
         let resolved_sources = if sources.is_empty() {
-            Vec::from([ResolvedCliIdArg::Uncommitted(ChangeSourceId::Head)])
+            Vec::from([ResolvedCliIdArg::Uncommitted(
+                invoked_from.managed_source(id_map)?,
+            )])
         } else {
             sources
                 .iter()
