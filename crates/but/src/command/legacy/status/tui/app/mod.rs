@@ -6,7 +6,7 @@ use std::{
 };
 
 use ansi_to_tui::IntoText as _;
-use bstr::{BStr, ByteSlice};
+use bstr::{BStr, BString, ByteSlice};
 use but_api::open::program::ProgramSpec;
 use but_ctx::Context;
 use crossterm::event::Event;
@@ -558,6 +558,12 @@ impl App {
             Message::SelectBranch(branch_name) => {
                 if let Some(new_cursor) =
                     Cursor::select_branch(&branch_name.shorten().to_str_lossy(), &self.status_lines)
+                {
+                    self.cursor = new_cursor;
+                }
+            }
+            Message::SelectWorktree(name) => {
+                if let Some(new_cursor) = Cursor::select_worktree(name.as_ref(), &self.status_lines)
                 {
                     self.cursor = new_cursor;
                 }
@@ -1850,7 +1856,7 @@ impl App {
             )?
         };
 
-        let branch_names = head_info
+        let mut picker_items = head_info
             .stacks
             .iter()
             .flat_map(|stack| &stack.segments)
@@ -1877,10 +1883,24 @@ impl App {
                         is_selectable_in_mode(line, self.mode.as_ref(), self.flags.show_files)
                     })
             })
-            .map(|name| name.to_owned())
+            .map(|name| GotoBranchItem::Branch(name.to_owned()))
             .collect::<Vec<_>>();
 
-        if let Some(branch_names) = NonEmpty::from_vec(branch_names) {
+        for worktree in head_info.worktrees {
+            let selectable = Cursor::select_worktree(worktree.name.as_ref(), &self.status_lines)
+                .and_then(|cursor| cursor.selected_line(&self.status_lines))
+                .is_some_and(|line| {
+                    is_selectable_in_mode(line, self.mode.as_ref(), self.flags.show_files)
+                });
+            if selectable {
+                picker_items.push(GotoBranchItem::Worktree {
+                    name: worktree.name,
+                    ref_name: worktree.ref_name,
+                });
+            }
+        }
+
+        if let Some(picker_items) = NonEmpty::from_vec(picker_items) {
             let include_uncommitted = Cursor::select_uncommitted(&self.status_lines)
                 .and_then(|cursor| cursor.selected_line(&self.status_lines))
                 .is_some_and(|uncommitted| {
@@ -1889,10 +1909,10 @@ impl App {
 
             let picker_items = if include_uncommitted {
                 let mut mapped_items = NonEmpty::new(GotoBranchItem::Uncommitted);
-                mapped_items.extend(branch_names.map(GotoBranchItem::Branch));
+                mapped_items.extend(picker_items);
                 mapped_items
             } else {
-                branch_names.map(GotoBranchItem::Branch)
+                picker_items
             };
 
             self.modal = Some(Modal::GotoBranchPicker {
@@ -1903,6 +1923,9 @@ impl App {
                         match item {
                             GotoBranchItem::Branch(branch_name) => {
                                 messages.push(Message::SelectBranch(branch_name));
+                            }
+                            GotoBranchItem::Worktree { name, .. } => {
+                                messages.push(Message::SelectWorktree(name));
                             }
                             GotoBranchItem::Uncommitted => {
                                 messages.push(Message::GotoTop);
@@ -2107,6 +2130,10 @@ fn commit_identifier_to_copy(
 #[derive(Debug, Clone)]
 pub enum GotoBranchItem {
     Branch(FullName),
+    Worktree {
+        name: BString,
+        ref_name: Option<FullName>,
+    },
     Uncommitted,
 }
 
@@ -2115,6 +2142,12 @@ impl FuzzyPickerItem for GotoBranchItem {
         match self {
             Self::Branch(full_name) => [Col {
                 text: full_name.shorten().to_str_lossy(),
+                searchable: Some(searchable),
+            }],
+            GotoBranchItem::Worktree { name, ref_name } => [Col {
+                text: ref_name
+                    .as_ref()
+                    .map_or_else(|| name.to_str_lossy(), |name| name.shorten().to_str_lossy()),
                 searchable: Some(searchable),
             }],
             Self::Uncommitted => [Col {
@@ -2126,7 +2159,7 @@ impl FuzzyPickerItem for GotoBranchItem {
 
     fn style(&self, theme: &'static Theme) -> Style {
         match self {
-            Self::Branch(..) => theme.local_branch,
+            GotoBranchItem::Branch(..) | GotoBranchItem::Worktree { .. } => theme.local_branch,
             Self::Uncommitted => theme.info,
         }
     }
