@@ -70,7 +70,7 @@ Integrate a branch's remote counterpart into the local branch
 
 ### but discard [CHANGES]...
 Discard branches, commits, or changes
-- `[CHANGES]...` One or more branches, commits, or changes to discard. If omitted all uncommitted changes will be discarded.
+- `[CHANGES]...` One or more branches, commits, or changes to discard. If omitted, all uncommitted changes of the checkout but runs in are discarded.
 
 ### but resolve [TARGETS]...
 Resolve conflicts in a commit or in uncommitted files
