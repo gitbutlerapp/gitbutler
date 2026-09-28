@@ -44,6 +44,16 @@ impl Cursor {
         )
     }
 
+    /// Select an exact row, respecting the same restrictions as keyboard navigation.
+    pub fn select_at_index(
+        index: usize,
+        lines: &[StatusOutputLine],
+        mode: &Mode,
+        show_files: FilesStatusFlag,
+    ) -> Option<Cursor> {
+        is_cursor_selectable_at_index(index, lines, mode, show_files).then_some(Cursor(index))
+    }
+
     pub fn index(self) -> usize {
         self.0
     }

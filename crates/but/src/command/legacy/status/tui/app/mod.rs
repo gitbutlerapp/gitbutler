@@ -1,6 +1,6 @@
 use std::{
     borrow::Cow,
-    cell::Cell,
+    cell::{Cell, RefCell},
     sync::{Arc, mpsc::Receiver},
     time::{Duration, Instant},
 };
@@ -117,6 +117,8 @@ pub struct App {
     pub should_render: bool,
     pub cursor: Cursor,
     pub status_scroll: StatusScroll,
+    /// Screen areas of status items in the last rendered frame, excluding preview rows.
+    pub status_line_areas: RefCell<Vec<(Rect, usize)>>,
     pub debug_scroll: DebugScroll,
     pub mode: RememberToUpdateBackstack<Mode>,
     pub toasts: Toasts,
@@ -413,6 +415,7 @@ impl App {
             flags,
             cursor,
             status_scroll: StatusScroll::default(),
+            status_line_areas: RefCell::default(),
             debug_scroll: DebugScroll::default(),
             outcome: None,
             should_render: true,
@@ -511,6 +514,13 @@ impl App {
                 panic!("Intentional crash caused by Message::Crash");
             }
             Message::JustRender => {}
+            Message::StatusClick(position) => {
+                self.handle_status_click(position);
+                return Ok(());
+            }
+            Message::StatusScroll(delta) => {
+                return self.handle_status_scroll(delta, terminal_guard);
+            }
             Message::DebugScrollUp(count) => self.debug_scroll.up(count),
             Message::DebugScrollDown(count) => self.debug_scroll.down(count),
             Message::MoveCursorUp(count) => {
@@ -853,6 +863,99 @@ impl App {
         self.status_scroll.to_cursor();
 
         Ok(())
+    }
+
+    fn handle_status_click(&mut self, position: Position) {
+        if self.modal.is_some()
+            || matches!(
+                &*self.mode,
+                Mode::InlineReword(..) | Mode::Command(..) | Mode::Jump(..)
+            )
+        {
+            return;
+        }
+        let Some(index) = self
+            .status_line_areas
+            .borrow()
+            .iter()
+            .find_map(|(area, index)| area.contains(position).then_some(*index))
+        else {
+            return;
+        };
+        if let Some(cursor) =
+            Cursor::select_at_index(index, &self.status_lines, &self.mode, self.flags.show_files)
+        {
+            self.cursor = cursor;
+            // Clicking a visible row must not pull it away from the mouse to restore context.
+            self.status_scroll.take_pending_cursor();
+        }
+    }
+
+    fn handle_status_scroll<T>(
+        &mut self,
+        delta: isize,
+        terminal_guard: &mut T,
+    ) -> anyhow::Result<()>
+    where
+        T: TerminalGuard,
+        anyhow::Error: From<<T::Backend as Backend>::Error>,
+    {
+        if matches!(&*self.mode, Mode::InlineReword(..)) {
+            return Ok(());
+        }
+        let terminal_area = terminal_guard.terminal_mut().size()?.into();
+        if let Some(area) = super::render::status_area_for_app(self, terminal_area) {
+            self.scroll_status(delta, usize::from(area.height));
+        }
+        Ok(())
+    }
+
+    fn scroll_status(&mut self, delta: isize, height: usize) {
+        if height == 0 {
+            return;
+        }
+        let old_top = self.status_scroll.top();
+        let top = old_top
+            .saturating_add_signed(delta)
+            .min(self.status_lines.len().saturating_sub(height));
+        if top == old_top {
+            return;
+        }
+        let context = super::CURSOR_CONTEXT_ROWS.min(height.saturating_sub(1) / 2);
+        let start = top + context;
+        let end = top + height - context - 1;
+        // Walk only when the viewport has pushed the selection into a context margin.
+        // Reuse mode-aware navigation so wheel scrolling cannot select disabled rows.
+        if self.cursor.index() < start {
+            while self.cursor.index() < start {
+                let Some(cursor) =
+                    self.cursor
+                        .move_down(&self.status_lines, &self.mode, self.flags.show_files)
+                else {
+                    break;
+                };
+                self.cursor = cursor;
+            }
+        } else if self.cursor.index() > end {
+            while self.cursor.index() > end {
+                let Some(cursor) =
+                    self.cursor
+                        .move_up(&self.status_lines, &self.mode, self.flags.show_files)
+                else {
+                    break;
+                };
+                self.cursor = cursor;
+            }
+        }
+        // Sparse/restricted selections may require stopping short of the requested scroll.
+        self.status_scroll
+            .set_top(self.cursor.scroll_top_for_viewport(
+                top,
+                self.status_lines.len(),
+                height,
+                super::CURSOR_CONTEXT_ROWS,
+            ));
+        self.status_scroll.take_pending_cursor();
     }
 
     fn handle_quit(&mut self) {

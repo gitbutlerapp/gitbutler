@@ -7,7 +7,7 @@ use bstr::BString;
 use but_api::open::program::ProgramSpec;
 use but_ctx::Context;
 use but_settings::AppSettingsWithDiskSync;
-use crossterm::event::{Event, MouseEventKind};
+use crossterm::event::{Event, MouseButton, MouseEventKind};
 use gitbutler_operating_modes::OperatingMode;
 use gix::refs::FullName;
 use ratatui::prelude::*;
@@ -316,6 +316,14 @@ fn event_to_messages(ev: Event, app: &App, terminal_area: Rect, messages: &mut V
             messages.push(Message::SetHasFocus(false));
         }
         Event::Mouse(event) => match event.kind {
+            MouseEventKind::Down(MouseButton::Left) => {
+                if app.modal.is_none() {
+                    messages.push(Message::StatusClick(Position {
+                        x: event.column,
+                        y: event.row,
+                    }));
+                }
+            }
             MouseEventKind::ScrollDown => {
                 if mouse_is_over_help(app, terminal_area, event.column, event.row) {
                     messages.push(Message::Help(HelpMessage::ScrollDown(3)));
@@ -324,6 +332,10 @@ fn event_to_messages(ev: Event, app: &App, terminal_area: Rect, messages: &mut V
                         messages.push(Message::DebugScrollDown(3));
                     } else if mouse_is_over_details(app, terminal_area, event.column, event.row) {
                         messages.push(Message::Details(DetailsMessage::ScrollDown(3)));
+                    } else if render::status_area_for_app(app, terminal_area)
+                        .is_some_and(|area| area.contains((event.column, event.row).into()))
+                    {
+                        messages.push(Message::StatusScroll(1));
                     }
                 }
             }
@@ -335,6 +347,10 @@ fn event_to_messages(ev: Event, app: &App, terminal_area: Rect, messages: &mut V
                         messages.push(Message::DebugScrollUp(3));
                     } else if mouse_is_over_details(app, terminal_area, event.column, event.row) {
                         messages.push(Message::Details(DetailsMessage::ScrollUp(3)));
+                    } else if render::status_area_for_app(app, terminal_area)
+                        .is_some_and(|area| area.contains((event.column, event.row).into()))
+                    {
+                        messages.push(Message::StatusScroll(-1));
                     }
                 }
             }
@@ -424,6 +440,8 @@ pub enum Message {
     DropToBeDiscarded,
     GrowDetails,
     ShrinkDetails,
+    StatusClick(Position),
+    StatusScroll(isize),
     DebugScrollUp(usize),
     DebugScrollDown(usize),
     SetHasFocus(bool),
@@ -735,6 +753,8 @@ fn dedup_mutation_messages(messages: &mut Vec<Message>, other_messages: &mut Vec
             | Message::DropToBeDiscarded
             | Message::GrowDetails
             | Message::ShrinkDetails
+            | Message::StatusClick(_)
+            | Message::StatusScroll(_)
             | Message::DebugScrollUp(_)
             | Message::DebugScrollDown(_)
             | Message::SetHasFocus(_)
