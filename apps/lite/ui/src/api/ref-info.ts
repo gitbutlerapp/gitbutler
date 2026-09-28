@@ -25,6 +25,7 @@ type CommitIndex = {
 /** A branch of a workspace stack or of a linked worktree's lane. */
 type LaneBranch = {
 	segment: Segment;
+	laneSegments: ReadonlyArray<Segment>;
 	/** What a push from the branch covers: it, the branches below it, and what its lane rests on. */
 	downstack: DownstackPushStatus;
 	/** The linked worktree whose lane holds the branch, `null` for a workspace stack. */
@@ -101,6 +102,7 @@ const buildHeadInfoIndex = (headInfo: RefInfo): HeadInfoIndex => {
 			if (segment.refName) {
 				laneBranchByRef.set(branchRefKey(segment.refName.fullNameBytes), {
 					segment,
+					laneSegments: segments,
 					downstack,
 					worktree,
 				});

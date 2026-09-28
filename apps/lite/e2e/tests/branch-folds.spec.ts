@@ -30,5 +30,18 @@ for (const { lane, scenario, branch: branchName, commit: commitTitle } of lanes)
 			await expect(commit).toBeHidden();
 			await expect(branch).toHaveAttribute("aria-selected", "true");
 		});
+
+		test("the fold key folds the selected branch", async ({ appWindow }) => {
+			const branch = appWindow.getByRole("treeitem", { name: branchName, exact: true });
+			await branch.getByText(branchName, { exact: true }).click();
+			await expect(branch).toHaveAttribute("aria-selected", "true");
+
+			await appWindow.keyboard.press("z");
+
+			await expect(branch.getByRole("button", { name: "Unfold commits" })).toBeVisible();
+			await expect(
+				appWindow.getByRole("treeitem", { name: commitTitle, exact: true }),
+			).toBeHidden();
+		});
 	});
 }

@@ -10,6 +10,16 @@ test("a worktree branch pushes with the branches it rests on", async ({ appWindo
 	).toBeVisible();
 });
 
+test("the push key pushes a selected worktree branch", async ({ appWindow }) => {
+	const branch = appWindow.getByRole("treeitem", { name: "W", exact: true });
+	await branch.click();
+	await expect(branch).toHaveAttribute("aria-selected", "true");
+
+	await appWindow.keyboard.press("Shift+P");
+
+	await expect(branch.getByText("Nothing to push", { exact: true })).toBeVisible();
+});
+
 test("a worktree branch renames in place", async ({ appWindow }) => {
 	await appWindow.getByRole("treeitem", { name: "W", exact: true }).click();
 	await appWindow.keyboard.press("F2");
