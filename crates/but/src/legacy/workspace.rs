@@ -158,8 +158,15 @@ fn applied_stacks_with_options(
 pub fn applied_lanes_with_expensive_commit_info(
     ctx: &Context,
 ) -> anyhow::Result<Vec<HeadInfoStack>> {
+    applied_lanes_with_options(ctx, true)
+}
+
+fn applied_lanes_with_options(
+    ctx: &Context,
+    expensive_commit_info: bool,
+) -> anyhow::Result<Vec<HeadInfoStack>> {
     let metadata = workspace_metadata(&ctx.meta()?)?;
-    let (info, object_hash) = head_info(ctx, true)?;
+    let (info, object_hash) = head_info(ctx, expensive_commit_info)?;
     let null_id = object_hash.null();
     let mut lanes = head_info_stacks(
         &info,
