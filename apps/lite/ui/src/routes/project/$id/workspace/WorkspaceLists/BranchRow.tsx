@@ -181,11 +181,13 @@ export const BranchRow: FC<
 		...headInfoQueryOptions(projectId),
 		select: getHeadInfoIndex,
 	});
-	const { data: reviews } = useQuery({
+	// Only this branch's review: the listing refetches on a timer, and a row
+	// should re-render only when its own pull request changes.
+	const { data: openReview } = useQuery({
 		...listReviewsQueryOptions({ projectId, cacheConfig: "noCache" }),
 		enabled: !!forgeInfo?.capabilities.prService,
+		select: (reviews) => reviews.findLast((review) => review.sourceBranch === refName.displayName),
 	});
-	const openReview = reviews?.reviewsBySourceBranch.get(refName.displayName);
 	const openPullRequest = openReview?.number ?? null;
 	// The chip renders the recorded number as-is: the projection only records
 	// display-worthy reviews, the chip must survive being offline, and a
