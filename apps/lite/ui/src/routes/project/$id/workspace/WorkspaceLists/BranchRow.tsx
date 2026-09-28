@@ -67,6 +67,7 @@ import { toggleFoldedSegment } from "./fold.ts";
 import { InlineEditor } from "./InlineEditor.tsx";
 import { insertBlankCommitMenuItem } from "./insertBlankCommitMenuItem.ts";
 import { ItemRow } from "./ItemRow.tsx";
+import type { PushActivity } from "./push-activity.ts";
 import { BranchRowHeadline } from "../BranchRowHeadline.tsx";
 import { useStackMenuItems } from "./useStackMenuItems.ts";
 import { ciChecksSummaryUrl, type AggregateCIChecks } from "#ui/ci.ts";
@@ -75,8 +76,6 @@ import {
 	downstackPushLabel,
 	downstackPushStatusDisabled,
 } from "#ui/segment.ts";
-
-export type PushActivity = "idle" | "blocked" | "pushing";
 
 export type BranchLane = {
 	type: "stack";
