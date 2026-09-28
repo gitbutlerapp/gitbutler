@@ -208,6 +208,12 @@ export const getReviewQueryOptions = ({ projectId, reviewId }: PayloadFor<"getRe
 		queryFn: () => window.lite.getReview({ projectId, reviewId }),
 	});
 
+export const newReviewTargetQueryOptions = ({ projectId, branch }: PayloadFor<"newReviewTarget">) =>
+	queryOptions({
+		queryKey: [projectId, "newReviewTarget", branch],
+		queryFn: () => window.lite.newReviewTarget({ projectId, branch }),
+	});
+
 export const worktreesListQueryOptions = (projectId: string) =>
 	queryOptions({
 		queryKey: [projectId, "worktreesList"],
