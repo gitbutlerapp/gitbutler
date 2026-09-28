@@ -18,7 +18,7 @@ fn merge_rejects_single_branch_mode() {
         .stdout_eq(str![[r#"
 ╭┄ @ [uncommitted] (no changes)
 ┊
-┊╭┄ ma [main]
+┊╭┄ ma [main] [HEAD]
 ┊●   nmy M (no changes)
 ├╯
 ┊
@@ -45,7 +45,7 @@ Failed to merge branch. `but merge` requires an active GitButler workspace (`git
         .stdout_eq(str![[r#"
 ╭┄ @ [uncommitted] (no changes)
 ┊
-┊╭┄ ma [main]
+┊╭┄ ma [main] [HEAD]
 ┊●   nmy M (no changes)
 ├╯
 ┊

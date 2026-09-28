@@ -221,8 +221,13 @@ fn resolve(
         let Some(mut inout) = out.prepare_for_terminal_input() else {
             return Err(bad_input("Terminal doesn't support interactivity").into());
         };
-        let (guard, outcome) =
-            tui_with_options(ctx, guard, &mut inout, TuiRunOptions::PickChanges)?;
+        let (guard, outcome) = tui_with_options(
+            ctx,
+            guard,
+            &mut inout,
+            TuiRunOptions::PickChanges,
+            invoked_from,
+        )?;
         let ids = match outcome {
             TuiOutcome::Selection(ids) => ids,
             TuiOutcome::None => {

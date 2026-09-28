@@ -40,6 +40,57 @@ fn worktree_tui() -> (TestTui<App>, String) {
 }
 
 #[test]
+fn linked_worktree_head_marker_survives_reload() {
+    let env =
+        Sandbox::init_scenario_with_target_and_default_settings_slow("one-stack-with-worktree");
+    env.setup_metadata(&["A"]);
+    let mut tui = test_status_tui_with_options(
+        env,
+        TestTuiOptions {
+            worktree_manipulation: true,
+            launch_options: TuiLaunchOptions {
+                invoked_from: Some(crate::utils::change_source::InvokedFrom::LinkedWorktree(
+                    "wt".into(),
+                )),
+                ..Default::default()
+            },
+            ..Default::default()
+        },
+    );
+
+    // Only the invoking checkout's branch is marked, including after rebuilding status.
+    tui.reload().assert_rendered_term_svg_eq(file![
+        "snapshots/linked_worktree_head_marker_survives_reload.svg"
+    ]);
+}
+
+#[test]
+fn interactive_commit_picker_marks_invoking_worktree_head() {
+    let env =
+        Sandbox::init_scenario_with_target_and_default_settings_slow("one-stack-with-worktree");
+    env.setup_metadata(&["A"]);
+    let mut tui = test_status_tui_with_options(
+        env,
+        TestTuiOptions {
+            worktree_manipulation: true,
+            run_options: crate::command::legacy::status::TuiRunOptions::PickChanges,
+            launch_options: TuiLaunchOptions {
+                invoked_from: Some(crate::utils::change_source::InvokedFrom::LinkedWorktree(
+                    "wt".into(),
+                )),
+                ..Default::default()
+            },
+            ..Default::default()
+        },
+    );
+
+    // The picker must retain the invoking checkout's marker when rebuilding status.
+    tui.reload().assert_rendered_term_svg_eq(file![
+        "snapshots/interactive_commit_picker_marks_invoking_worktree_head.svg"
+    ]);
+}
+
+#[test]
 fn branch_picker_jumps_to_worktree_by_branch() {
     let (mut tui, _editor) = worktree_tui();
 

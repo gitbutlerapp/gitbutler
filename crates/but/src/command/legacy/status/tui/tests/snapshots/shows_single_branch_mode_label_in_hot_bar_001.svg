@@ -17,8 +17,11 @@
     <text x="66" y="60" style="fill:#CCCCCC;">[</text>
     <text x="74 82 90 98" y="60" style="fill:#00AA00;">main</text>
     <text x="106" y="60" style="fill:#CCCCCC;">]</text>
-    <text x="122 130 138" y="60" style="fill:#CCCCCC;opacity:0.75;">(no</text>
-    <text x="154 162 170 178 186 194 202 210" y="60" style="fill:#CCCCCC;opacity:0.75;">commits)</text>
+    <text x="122" y="60" style="fill:#CCCCCC;">[</text>
+    <text x="130 138 146 154" y="60" style="fill:#AA00AA;">HEAD</text>
+    <text x="162" y="60" style="fill:#CCCCCC;">]</text>
+    <text x="178 186 194" y="60" style="fill:#CCCCCC;opacity:0.75;">(no</text>
+    <text x="210 218 226 234 242 250 258 266" y="60" style="fill:#CCCCCC;opacity:0.75;">commits)</text>
     <text x="10 18" y="78" style="fill:#CCCCCC;">├╯</text>
     <text x="10" y="96" style="fill:#CCCCCC;">┊</text>
     <text x="10" y="114" style="fill:#CCCCCC;">┴</text>

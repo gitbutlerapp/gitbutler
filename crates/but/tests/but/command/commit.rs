@@ -66,7 +66,7 @@ fn commits_a_dirty_file_on_a_new_branch_in_single_branch_mode() {
 ╭┄ @ [uncommitted]
 ┊   xt A ad-hoc.txt
 ┊
-┊╭┄ ma [main]
+┊╭┄ ma [main] [HEAD]
 ┊●   nmy M (no changes)
 ├╯
 ┊
@@ -110,7 +110,7 @@ Created commit wpv on new branch 'feature'
         .stdout_eq(snapbox::str![[r#"
 ╭┄ @ [uncommitted] (no changes)
 ┊
-┊╭┄ at [feature]
+┊╭┄ at [feature] [HEAD]
 ┊●   wpv add ad-hoc file
 ┊│     wpv:x A ad-hoc.txt
 ┊│
@@ -165,7 +165,7 @@ fn commits_on_the_checked_out_branch_in_single_branch_mode() {
 ╭┄ @ [uncommitted]
 ┊   pr A existing.txt
 ┊
-┊╭┄ ma [main]
+┊╭┄ ma [main] [HEAD]
 ┊●   nmy M (no changes)
 ├╯
 ┊
@@ -191,7 +191,7 @@ Created commit woz on branch 'main'
         .stdout_eq(snapbox::str![[r#"
 ╭┄ @ [uncommitted] (no changes)
 ┊
-┊╭┄ ma [main]
+┊╭┄ ma [main] [HEAD]
 ┊●   woz commit on main
 ┊●   nmy M (no changes)
 ├╯
@@ -247,7 +247,7 @@ fn commits_at_each_branch_in_an_existing_single_branch_stack() {
 ╭┄ @ [uncommitted]
 ┊   tk A bottom.txt
 ┊
-┊╭┄ to [top]
+┊╭┄ to [top] [HEAD]
 ┊●   tzq top base (no changes)
 ┊│
 ┊├┄ mi [middle]
@@ -282,7 +282,7 @@ Hint: run `but diff` to see uncommitted changes and `but commit -b <branch> -m "
         .stdout_eq(snapbox::str![[r#"
 ╭┄ @ [uncommitted] (no changes)
 ┊
-┊╭┄ to [top]
+┊╭┄ to [top] [HEAD]
 ┊●   tun top position
 ┊●   tzq top base (no changes)
 ┊│
@@ -1050,7 +1050,7 @@ Caused by:
 ┊   lz M first
 ┊   sy A new.txt
 ┊
-┊╭┄ fo [foo]
+┊╭┄ fo [foo] [HEAD]
 ┊●   ppu add first
 ┊│     ppu:l A first
 ├╯
@@ -1282,7 +1282,7 @@ Caused by:
 ┊   zo M first.txt
 ┊   sy A new.txt
 ┊
-┊╭┄ to [top]
+┊╭┄ to [top] [HEAD]
 ┊●   muz add first
 ┊│     muz:z A first.txt
 ┊│
@@ -1338,7 +1338,7 @@ Hint: to apply these changes, create bar stacked on top of foo and try again:
 ╭┄ @ [uncommitted]
 ┊   lz M first
 ┊
-┊╭┄ fo [foo]
+┊╭┄ fo [foo] [HEAD]
 ┊●   ppu add first
 ┊│     ppu:l A first
 ├╯
@@ -1389,7 +1389,7 @@ Hint: to apply these changes, create bar stacked on top of foo and try again:
 ╭┄ @ [uncommitted]
 ┊   lz M first
 ┊
-┊╭┄ fo [foo]
+┊╭┄ fo [foo] [HEAD]
 ┊●   ppu add first
 ┊│     ppu:l A first
 ├╯
@@ -3932,7 +3932,7 @@ fn committing_twice_to_checked_out_workspace_branch_in_single_branch_mode_keeps_
         .stdout_eq(snapbox::str![[r#"
 ╭┄ @ [uncommitted] (no changes)
 ┊
-┊╭┄ g0 [A]
+┊╭┄ g0 [A] [HEAD]
 ┊●   orn (no commit message) (no changes)
 ┊●   tpm add A
 ├╯
@@ -3953,7 +3953,7 @@ Hint: run `but help` for all commands
         .stdout_eq(snapbox::str![[r#"
 ╭┄ @ [uncommitted] (no changes)
 ┊
-┊╭┄ g0 [A]
+┊╭┄ g0 [A] [HEAD]
 ┊●   mwn (no commit message) (no changes)
 ┊●   orn (no commit message) (no changes)
 ┊●   tpm add A
@@ -4223,7 +4223,7 @@ fn single_branch_mode_committing_to_new_branches() {
         .stdout_eq(snapbox::str![[r#"
 ╭┄ @ [uncommitted] (no changes)
 ┊
-┊╭┄ mi [middle]
+┊╭┄ mi [middle] [HEAD]
 ┊●   lsm on middle (no changes)
 ├╯
 ┊
@@ -4254,7 +4254,7 @@ Hint: run `but help` for all commands
         .stdout_eq(snapbox::str![[r#"
 ╭┄ @ [uncommitted] (no changes)
 ┊
-┊╭┄ mi [middle]
+┊╭┄ mi [middle] [HEAD]
 ┊●   qzl also on middle (no changes)
 ┊●   lsm on middle (no changes)
 ├╯
@@ -4287,7 +4287,7 @@ Hint: run `but help` for all commands
         .stdout_eq(snapbox::str![[r#"
 ╭┄ @ [uncommitted] (no changes)
 ┊
-┊╭┄ to [top]
+┊╭┄ to [top] [HEAD]
 ┊●   prq on top (no changes)
 ┊│
 ┊├┄ mi [middle]
@@ -4324,7 +4324,7 @@ Hint: run `but help` for all commands
         .stdout_eq(snapbox::str![[r#"
 ╭┄ @ [uncommitted] (no changes)
 ┊
-┊╭┄ to [top]
+┊╭┄ to [top] [HEAD]
 ┊●   prq on top (no changes)
 ┊│
 ┊├┄ mi [middle]
@@ -4417,7 +4417,7 @@ fn single_branch_mode_committing_and_switching_to_new_branches() {
         .stdout_eq(snapbox::str![[r#"
 ╭┄ @ [uncommitted] (no changes)
 ┊
-┊╭┄ on [one]
+┊╭┄ on [one] [HEAD]
 ┊●   lsm on one (no changes)
 ├╯
 ┊
@@ -4448,7 +4448,7 @@ Hint: run `but help` for all commands
         .stdout_eq(snapbox::str![[r#"
 ╭┄ @ [uncommitted] (no changes)
 ┊
-┊╭┄ tw [two]
+┊╭┄ tw [two] [HEAD]
 ┊●   lsm on two (no changes)
 ├╯
 ┊
@@ -4518,7 +4518,7 @@ Hint: run `but help` for all commands
         .stdout_eq(snapbox::str![[r#"
 ╭┄ @ [uncommitted] (no changes)
 ┊
-┊╭┄ th [three]
+┊╭┄ th [three] [HEAD]
 ┊●   lsm on three (no changes)
 ├╯
 ┊
@@ -4598,7 +4598,7 @@ Hint: run `but help` for all commands
         .stdout_eq(snapbox::str![[r#"
 ╭┄ @ [uncommitted] (no changes)
 ┊
-┊╭┄ on [one]
+┊╭┄ on [one] [HEAD]
 ┊●   mmx new commit on one (no changes)
 ┊●   lsm on one (no changes)
 ├╯
@@ -4664,7 +4664,7 @@ fn single_branch_mode_committing_above_a_lower_branch() {
         .stdout_eq(snapbox::str![[r#"
 ╭┄ @ [uncommitted] (no changes)
 ┊
-┊╭┄ to [top]
+┊╭┄ to [top] [HEAD]
 ┊●   y#0 on top (no changes)
 ┊│
 ┊├┄ mi [middle]

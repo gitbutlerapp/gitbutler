@@ -97,7 +97,7 @@ fn assert_single_branch_status_before_push(env: &Sandbox) {
         .stdout_eq(str![[r#"
 ╭┄ @ [uncommitted] (no changes)
 ┊
-┊╭┄ ma [main]
+┊╭┄ ma [main] [HEAD]
 ┊●   pxt unpushed work
 ┊●   nmy M (no changes)
 ├╯
@@ -117,7 +117,7 @@ fn assert_single_branch_status_after_push(env: &Sandbox) {
         .stdout_eq(str![[r#"
 ╭┄ @ [uncommitted] (no changes)
 ┊
-┊╭┄ ma [main] (merged upstream)
+┊╭┄ ma [main] [HEAD] (merged upstream)
 ┊●   pxt unpushed work
 ┊●   nmy M (no changes)
 ├╯

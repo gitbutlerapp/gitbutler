@@ -70,7 +70,7 @@ Picked d3e2ba3 onto new branch 'picked' to create olw
     env.but("status").assert().success().stdout_eq(str![[r#"
 ╭┄ @ [uncommitted] (no changes)
 ┊
-┊╭┄ pi [picked]
+┊╭┄ pi [picked] [HEAD]
 ┊●   olw add B
 ├╯
 ┊
@@ -203,7 +203,7 @@ Caused by:
 ╭┄ @ [uncommitted]
 ┊   zo M first.txt
 ┊
-┊╭┄ to [top]
+┊╭┄ to [top] [HEAD]
 ┊●   muz add first
 ┊│     muz:z A first.txt
 ┊│
@@ -352,7 +352,7 @@ Picked d3e2ba3 onto branch 'A' to create olw
     env.but("status -v").assert().success().stdout_eq(str![[r#"
 ╭┄ @ [uncommitted] (no changes)
 ┊
-┊╭┄ g0 [A]
+┊╭┄ g0 [A] [HEAD]
 ┊● olw author 2000-01-01 00:00:00 +0000 (sha 377d9b6)
 ┊│     add B 
 ┊● tpm author 2000-01-01 00:00:00 +0000 (sha 9477ae7)
@@ -418,7 +418,7 @@ Picked d3e2ba3 to create olw
     env.but("status -v").assert().success().stdout_eq(str![[r#"
 ╭┄ @ [uncommitted] (no changes)
 ┊
-┊╭┄ g0 [A]
+┊╭┄ g0 [A] [HEAD]
 ┊● olw author 2000-01-01 00:00:00 +0000 (sha 377d9b6)
 ┊│     add B 
 ┊● tpm author 2000-01-01 00:00:00 +0000 (sha 9477ae7)
@@ -450,7 +450,7 @@ Picked d3e2ba3 to create olw
     env.but("status -v").assert().success().stdout_eq(str![[r#"
 ╭┄ @ [uncommitted] (no changes)
 ┊
-┊╭┄ g0 [A]
+┊╭┄ g0 [A] [HEAD]
 ┊● tpm author 2000-01-01 00:00:00 +0000 (sha fb0504e)
 ┊│     add A 
 ┊● olw author 2000-01-01 00:00:00 +0000 (sha 1ad814c)

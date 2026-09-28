@@ -17,8 +17,11 @@
     <text x="66" y="60" style="fill:#FFFFFF;font-weight:bold;">[</text>
     <text x="74 82 90 98 106 114 122 130 138 146" y="60" style="fill:#00AA00;font-weight:bold;">c-branch-1</text>
     <text x="154" y="60" style="fill:#FFFFFF;font-weight:bold;">]</text>
-    <text x="170 178 186" y="60" style="fill:#FFFFFF;font-weight:bold;opacity:0.75;">(no</text>
-    <text x="202 210 218 226 234 242 250 258" y="60" style="fill:#FFFFFF;font-weight:bold;opacity:0.75;">commits)</text>
+    <text x="170" y="60" style="fill:#FFFFFF;font-weight:bold;">[</text>
+    <text x="178 186 194 202" y="60" style="fill:#AA00AA;font-weight:bold;">HEAD</text>
+    <text x="210" y="60" style="fill:#FFFFFF;font-weight:bold;">]</text>
+    <text x="226 234 242" y="60" style="fill:#FFFFFF;font-weight:bold;opacity:0.75;">(no</text>
+    <text x="258 266 274 282 290 298 306 314" y="60" style="fill:#FFFFFF;font-weight:bold;opacity:0.75;">commits)</text>
     <text x="10 18" y="78" style="fill:#CCCCCC;">┊│</text>
     <text x="10 18 26" y="96" style="fill:#CCCCCC;">┊├┄</text>
     <text x="42 50" y="96" style="fill:#0000AA;font-weight:bold;">g0</text>
