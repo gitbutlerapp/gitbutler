@@ -744,6 +744,23 @@ mod tests {
     }
 
     #[test]
+    fn a_worktree_branch_keeps_its_review_in_the_forge_cache_only() -> Result<()> {
+        let (ctx, _tmp) = context_with_worktree_on_reviewed_stack()?;
+        let w: gix::refs::FullName = "refs/heads/W".try_into()?;
+
+        assert!(
+            but_core::ref_metadata::ValueInfo::is_default(&ctx.meta()?.branch(w.as_ref())?),
+            "workspace metadata holds no entry for a branch only a worktree holds"
+        );
+        assert_eq!(
+            local_branch_for_review(&ctx, 3)?,
+            w,
+            "the cache alone associates the worktree branch with its review"
+        );
+        Ok(())
+    }
+
+    #[test]
     fn a_new_review_targets_the_nearest_reviewed_branch_beneath_it() -> Result<()> {
         let (ctx, _tmp) = context_with_worktree_on_reviewed_stack()?;
         let target = |branch: &str| -> Result<String> {
@@ -1577,11 +1594,24 @@ pub async fn publish_review_only(
 /// Record `review_number` as the branch's review identity. The stored
 /// `review_id` is left untouched: it identifies a GitButler review, which
 /// publishing a forge review does not supersede.
+///
+/// A branch only a linked worktree holds is skipped: workspace metadata would
+/// record it as a stack outside the workspace, so the forge cache carries its
+/// association instead.
 fn persist_review_association(
     ctx: &Context,
     branch_name: &gix::refs::FullNameRef,
     review_number: usize,
 ) -> Result<()> {
+    let info = crate::legacy::workspace::head_info(ctx)?;
+    let in_worktree_lane = info
+        .worktrees
+        .iter()
+        .flat_map(|worktree| &worktree.segments)
+        .any(|segment| segment.ref_name() == Some(branch_name));
+    if in_worktree_lane {
+        return Ok(());
+    }
     let mut meta = ctx.meta()?;
     let mut branch = meta.branch(branch_name)?;
     branch.review.pull_request = Some(review_number);
