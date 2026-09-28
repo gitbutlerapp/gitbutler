@@ -25,6 +25,7 @@ import { decodeBytes } from "#ui/api/bytes.ts";
 import {
 	forgeInfoOptions,
 	guiSettingsQueryOptions,
+	listCIChecksQueryOptions,
 	listReviewsQueryOptions,
 	treeChangesDiffsQueryOptions,
 	worktreeChangesQueryOptions,
@@ -43,6 +44,8 @@ import {
 	showNativeMenuFromTrigger,
 	type NativeMenuItem,
 } from "#ui/native-menu.ts";
+import { recordedPullRequest } from "#ui/api/ref-info.ts";
+import { ciChecksSummaryUrl } from "#ui/ci.ts";
 import { prForgeUrl } from "#ui/pr.ts";
 import { defaultSettings } from "#ui/settings.ts";
 import {
@@ -61,7 +64,17 @@ import { Fragment, useMemo, useState, type ComponentProps, type FC } from "react
 import { CommitRow } from "./CommitRow.tsx";
 import { useAddressSpace } from "./context.tsx";
 import { ItemRow } from "./ItemRow.tsx";
-import { Row, RowLabel, RowLabelContainer, RowToolbar } from "../Row.tsx";
+import {
+	Row,
+	RowLabel,
+	RowLabelContainer,
+	RowLabelGroup,
+	RowMeta,
+	RowMetaSeparator,
+	RowToolbar,
+} from "../Row.tsx";
+import { BranchRowHeadline } from "../BranchRowHeadline.tsx";
+import { CIBubble } from "./BranchRow.tsx";
 import { getRowButtonClassName } from "../Row-utils.ts";
 import { AddressC, TreeItem } from "./TreeItem.tsx";
 
@@ -297,24 +310,39 @@ const WorktreeBranchRow: FC<
 	{
 		projectId: string;
 		refName: BranchReference;
+		recordedPullRequest: number | null;
 		/** What a push from this branch covers: it, the branches below it, and what the lane rests on. */
 		downstackPushStatus: DownstackPushStatus;
 		behind: number;
 	} & ComponentProps<typeof Row>
-> = ({ projectId, refName, downstackPushStatus, behind, ...props }) => {
+> = ({ projectId, refName, recordedPullRequest, downstackPushStatus, behind, ...props }) => {
 	const address = branchAddress({ branchRef: refName.fullNameBytes });
 	const { mutate: workspaceBranchAndAncestorsPush, isPending: isPushing } =
 		useWorkspaceBranchAndAncestorsPush(projectId);
 	const { data: forgeInfo } = useQuery(forgeInfoOptions(projectId));
-	// Only this branch's number: the listing refetches on a timer, and a row
+	// Only this branch's review: the listing refetches on a timer, and a row
 	// should re-render only when its own pull request changes.
-	const { data: pullRequest = null } = useQuery({
+	const { data: openReview = null } = useQuery({
 		...listReviewsQueryOptions({ projectId, cacheConfig: "noCache" }),
 		enabled: !!forgeInfo?.capabilities.prService,
 		select: (reviews) =>
-			reviews.find((review) => review.sourceBranch === refName.displayName)?.number ?? null,
+			reviews.find((review) => review.sourceBranch === refName.displayName) ?? null,
 	});
+	const openPullRequest = openReview?.number ?? null;
+	const pullRequest = openPullRequest ?? recordedPullRequest;
 	const forgeUrl = pullRequest !== null && forgeInfo ? prForgeUrl(pullRequest, forgeInfo) : null;
+	const { data: ciChecksData } = useQuery({
+		...listCIChecksQueryOptions({
+			projectId,
+			reference: refName.displayName,
+			polling: "passive",
+		}),
+		enabled: openPullRequest !== null && forgeInfo?.capabilities.checks,
+	});
+	// A disabled query keeps serving its last (pre-merge) data.
+	const ciChecks = openPullRequest === null ? undefined : ciChecksData;
+	const ciUrl =
+		openPullRequest !== null && forgeInfo ? ciChecksSummaryUrl(openPullRequest, forgeInfo) : null;
 
 	const pushBranch = () => {
 		workspaceBranchAndAncestorsPush({
@@ -357,11 +385,51 @@ const WorktreeBranchRow: FC<
 			}}
 		>
 			<GraphSegment glyph="joinRight" status="LocalOnly" behind={behind} />
-			<RowLabelContainer>
-				<RowLabel heading singleLine>
-					{refName.displayName}
-				</RowLabel>
-			</RowLabelContainer>
+			<RowLabelGroup>
+				{openReview === null ? (
+					<RowLabelContainer>
+						<RowLabel heading singleLine>
+							{refName.displayName}
+						</RowLabel>
+					</RowLabelContainer>
+				) : (
+					<>
+						<BranchRowHeadline title={openReview.title} labels={openReview.labels} />
+						<RowMeta>
+							<span
+								className={classes(
+									rowStyles.fadedText,
+									rowStyles.metaItem,
+									rowStyles.metaItemShrinkable,
+								)}
+							>
+								<Icon name="branch" size={12} />
+								<span className={rowStyles.metaItemText} title={refName.displayName}>
+									{refName.displayName}
+								</span>
+							</span>
+							{ciChecks?.aggregate && (
+								<>
+									<RowMetaSeparator />
+									{ciUrl === null ? (
+										<CIBubble checks={ciChecks.aggregate} />
+									) : (
+										<a
+											href={ciUrl}
+											onClick={(event) => {
+												event.preventDefault();
+												void window.lite.openInWebBrowser(ciUrl);
+											}}
+										>
+											<CIBubble checks={ciChecks.aggregate} />
+										</a>
+									)}
+								</>
+							)}
+						</RowMeta>
+					</>
+				)}
+			</RowLabelGroup>
 			<Toolbar.Root aria-label="Worktree branch actions" render={<RowToolbar />}>
 				<Toolbar.Button
 					aria-label="Worktree branch menu"
@@ -443,6 +511,7 @@ const WorktreeRows: FC<{
 											<WorktreeBranchRow
 												projectId={projectId}
 												refName={segment.refName}
+												recordedPullRequest={recordedPullRequest(segment)}
 												downstackPushStatus={downstackPushStatus}
 												behind={behind}
 											/>

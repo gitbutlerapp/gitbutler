@@ -78,7 +78,7 @@ import {
 
 export type PushActivity = "idle" | "blocked" | "pushing";
 
-const CIBubble: FC<{ checks: AggregateCIChecks }> = (p) => {
+export const CIBubble: FC<{ checks: AggregateCIChecks }> = (p) => {
 	switch (p.checks.status) {
 		case "success":
 			return (
