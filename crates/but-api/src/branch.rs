@@ -1231,8 +1231,8 @@ pub fn branch_remove_with_perm(
 }
 
 /// Renames the local branch `ref_name` to `new_name`, moving its git reference and
-/// its metadata (including its `branch_order` entry) and, when it is the
-/// checked-out branch, re-pointing `HEAD` at the new name.
+/// its metadata (including its `branch_order` entry) and re-pointing the `HEAD`
+/// of every worktree that has it checked out at the new name.
 ///
 /// `new_name` is a short branch name that is normalized into a valid
 /// `refs/heads/<name>` reference before the rename, so callers don't have to
@@ -1336,18 +1336,34 @@ pub fn branch_rename_with_perm(
             bail_precondition!("A branch named '{}' already exists", new_ref.shorten());
         }
 
-        // Bail *before* mutating any refs if the branch is checked out in another worktree:
-        // otherwise the delete below would silently no-op and leave a partially-applied rename
-        // (new ref created, old ref still present). Unlike `branch_remove`, which performs no ref
-        // mutation before `SafeDelete` checks this condition, rename needs this explicit preflight.
-        // The current worktree is excluded here — if its HEAD is on the old branch it gets
-        // repointed below rather than blocking the rename.
+        // Every worktree whose HEAD sits on the old branch follows it to the new name, as with
+        // `git branch -m`. The commit is unchanged, so only the symbolic ref moves.
+        let mut worktrees = vec![repo.clone()];
+        for proxy in repo.worktrees()? {
+            worktrees.push(proxy.into_repo_with_possibly_inaccessible_worktree()?);
+        }
+        let heads_on_old: Vec<_> = worktrees
+            .into_iter()
+            .filter(|worktree| {
+                worktree
+                    .head_name()
+                    .ok()
+                    .flatten()
+                    .is_some_and(|head| head == ref_name)
+            })
+            .collect();
+
+        // A HEAD that reaches the old branch only through another symbolic ref can't be
+        // repointed, so bail *before* mutating any refs rather than leave a partial rename.
         let checkout_probe = but_core::branch::SafeDelete::new(&repo)?;
         if let Some(dirs) = checkout_probe.worktree_dirs_with_ref(&old_reference) {
-            let current_workdir = repo.workdir();
             let elsewhere: Vec<_> = dirs
                 .iter()
-                .filter(|dir| Some(dir.as_path()) != current_workdir)
+                .filter(|dir| {
+                    !heads_on_old
+                        .iter()
+                        .any(|worktree| worktree.workdir() == Some(dir.as_path()))
+                })
                 .collect();
             if !elsewhere.is_empty() {
                 bail_precondition!(
@@ -1355,15 +1371,6 @@ pub fn branch_rename_with_perm(
                 );
             }
         }
-
-        // Whether HEAD (in this worktree) points at the old branch. If so it has to follow the
-        // rename to the new name; the commit is unchanged, so there is no worktree/index update to
-        // do — only the symbolic ref moves.
-        let head_on_old = repo
-            .head_name()
-            .ok()
-            .flatten()
-            .is_some_and(|head| head == ref_name);
 
         let prefix_related = refs_are_prefix_related(ref_name.as_ref(), new_ref.as_ref());
         let mut backup_reference = None;
@@ -1439,9 +1446,9 @@ pub fn branch_rename_with_perm(
                     }
                 }
             }
-            if head_on_old {
+            for worktree in &heads_on_old {
                 update_head_reference(
-                    &repo,
+                    worktree,
                     Target::Symbolic(new_ref.clone()),
                     false,
                     "rename",
@@ -1469,9 +1476,9 @@ pub fn branch_rename_with_perm(
             )
             .with_context(|| format!("Could not create branch '{}'", new_ref.as_bstr()))?;
 
-            if head_on_old {
+            for worktree in &heads_on_old {
                 update_head_reference(
-                    &repo,
+                    worktree,
                     Target::Symbolic(new_ref.clone()),
                     false,
                     "rename",
