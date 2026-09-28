@@ -321,6 +321,7 @@ impl<'a> DiffSpecBuilder<'a> {
                         Some(b'+') => {
                             lines.push(but_lisp::ChangedLine {
                                 side: but_lisp::Side::Added,
+                                number: new_line,
                                 content: &line[1..],
                             });
                             headers.push(HunkHeader {
@@ -334,6 +335,7 @@ impl<'a> DiffSpecBuilder<'a> {
                         Some(b'-') => {
                             lines.push(but_lisp::ChangedLine {
                                 side: but_lisp::Side::Removed,
+                                number: old_line,
                                 content: &line[1..],
                             });
                             headers.push(HunkHeader {

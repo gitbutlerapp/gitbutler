@@ -6,16 +6,23 @@ pub struct Query(pub(crate) Expression);
 
 #[derive(Debug, Clone)]
 pub(crate) enum Expression {
-    Contains {
+    Lines {
         hunk: bool,
         side: Option<Side>,
-        text: String,
+        predicates: Vec<LinePredicate>,
     },
-    File(FilePredicate),
+    File(Vec<FilePredicate>),
     Not(Box<Expression>),
     Union(Vec<Expression>),
     Intersection(Vec<Expression>),
     Difference(Box<Expression>, Box<Expression>),
+}
+
+#[derive(Debug, Clone)]
+pub(crate) enum LinePredicate {
+    Contains(String),
+    Regex(regex::bytes::Regex),
+    Range(std::ops::RangeInclusive<u32>),
 }
 
 #[derive(Debug, Clone)]
@@ -55,6 +62,8 @@ pub enum Side {
 #[derive(Debug, Clone, Copy)]
 pub struct ChangedLine<'a> {
     pub side: Side,
+    /// One-based new-file coordinate for additions, old-file coordinate for removals.
+    pub number: u32,
     pub content: &'a [u8],
 }
 
@@ -69,6 +78,16 @@ impl Query {
     /// Text selectors do not match it, but their complements do.
     pub fn selects_non_text(&self, file: File<'_>) -> bool {
         self.0.evaluate(file, None)[0]
+    }
+}
+
+impl LinePredicate {
+    fn matches(&self, line: &ChangedLine<'_>) -> bool {
+        match self {
+            LinePredicate::Contains(text) => line.content.contains_str(text.as_bytes()),
+            LinePredicate::Regex(regex) => regex.is_match(line.content),
+            LinePredicate::Range(range) => range.contains(&line.number),
+        }
     }
 }
 
@@ -101,7 +120,11 @@ impl Expression {
     fn evaluate(&self, file: File<'_>, lines: Option<&[ChangedLine<'_>]>) -> Vec<bool> {
         let count = lines.map_or(1, |lines| lines.len());
         match self {
-            Expression::Contains { hunk, side, text } => {
+            Expression::Lines {
+                hunk,
+                side,
+                predicates,
+            } => {
                 let Some(lines) = lines else {
                     return Vec::from([false]);
                 };
@@ -109,7 +132,7 @@ impl Expression {
                     .iter()
                     .map(|line| {
                         side.is_none_or(|side| side == line.side)
-                            && line.content.contains_str(text.as_bytes())
+                            && predicates.iter().all(|predicate| predicate.matches(line))
                     })
                     .collect();
                 if *hunk {
@@ -118,7 +141,9 @@ impl Expression {
                 }
                 selected
             }
-            Expression::File(predicate) => vec![predicate.matches(file); count],
+            Expression::File(predicates) => {
+                vec![predicates.iter().all(|predicate| predicate.matches(file)); count]
+            }
             Expression::Not(expression) => expression
                 .evaluate(file, lines)
                 .into_iter()

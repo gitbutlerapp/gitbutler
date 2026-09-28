@@ -5112,6 +5112,187 @@ Error:   × Invalid diff query: invalid glob: error parsing glob '[': unclosed c
 }
 
 #[test]
+fn query_regex_excludes_added_logging_lines() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("zero-stacks");
+    env.setup_metadata(&[]);
+    env.file(
+        "file",
+        "keep\nconsole.log(value);\nconsole.debug(value);\nconsoleXlog(value);\n",
+    );
+    env.but(r#"commit -b new-branch --no-message --query '(not (line-added :regex "^console\\.(log|debug)\\("))'"#).assert().success();
+    snapbox::assert_data_eq!(
+        env.invoke_git("show new-branch:file"),
+        "keep\nconsoleXlog(value);"
+    );
+}
+
+#[test]
+fn query_hunk_regex_excludes_whole_matching_hunks() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("zero-stacks");
+    env.setup_metadata(&[]);
+    env.file("file", "console.log(value);\nalso leave this line\n");
+    env.file("other", "keep\n");
+    env.but(r#"commit -b new-branch --no-message --query '(not (hunk :regex "console\\.(log|debug)"))'"#).assert().success();
+    snapbox::assert_data_eq!(env.invoke_git("ls-tree --name-only new-branch"), "M\nother");
+    snapbox::assert_data_eq!(env.invoke_git("status --porcelain"), "?? file");
+}
+
+#[test]
+fn query_hunk_regex_ignores_context() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("zero-stacks");
+    env.setup_metadata(&[]);
+    env.file("file", "console.log(existing);\nold\n");
+    env.but("commit -b new-branch --no-message")
+        .assert()
+        .success();
+    env.file("file", "console.log(existing);\nnew\n");
+    env.but(r#"commit -b new-branch --no-message --query '(not (hunk :regex "console\\.(log|debug)"))'"#).assert().success();
+    snapbox::assert_data_eq!(
+        env.invoke_git("show new-branch:file"),
+        "console.log(existing);\nnew"
+    );
+    snapbox::assert_data_eq!(env.invoke_git("status --porcelain"), "");
+}
+
+#[test]
+fn query_added_range_is_inclusive() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("zero-stacks");
+    env.setup_metadata(&[]);
+    env.file("file", "one\ntwo\nthree\nfour\n");
+    env.but("commit -b new-branch --no-message")
+        .args(["--query", "(line-added :range '(2 3))"])
+        .assert()
+        .success();
+    snapbox::assert_data_eq!(env.invoke_git("show new-branch:file"), "two\nthree");
+}
+
+#[test]
+fn query_removed_range_uses_old_file_coordinates() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("zero-stacks");
+    env.setup_metadata(&[]);
+    env.file("file", "first\nremove this\nlast\n");
+    env.but("commit -b new-branch --no-message")
+        .assert()
+        .success();
+    env.file("file", "first\nnew insertion\nlast\n");
+    env.but("commit -b new-branch --no-message")
+        .args(["--query", "(line-removed :range '(2 2))"])
+        .assert()
+        .success();
+    snapbox::assert_data_eq!(env.invoke_git("show new-branch:file"), "first\nlast");
+    snapbox::assert_data_eq!(
+        env.invoke_git("diff -- file"),
+        snapbox::str![[r#"
+diff --git a/file b/file
+index [..] 100644
+--- a/file
++++ b/file
+@@ -1,2 +1,3 @@
+ first
++new insertion
+ last
+"#]]
+    );
+}
+
+#[test]
+fn query_range_and_contains_match_the_same_line() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("zero-stacks");
+    env.setup_metadata(&[]);
+    env.file(
+        "file",
+        "keep outside\nkeep inside\nleave inside\nkeep outside again\n",
+    );
+    env.but("commit -b new-branch --no-message")
+        .args(["--query", r#"(line-added :contains "keep" :range '(2 3))"#])
+        .assert()
+        .success();
+    snapbox::assert_data_eq!(env.invoke_git("show new-branch:file"), "keep inside");
+}
+
+#[test]
+fn query_multiple_file_predicates_are_anded() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("zero-stacks");
+    env.setup_metadata(&[]);
+    env.file("src/old.rs", "old\n");
+    env.but("commit -b new-branch --no-message")
+        .assert()
+        .success();
+    env.file("src/old.rs", "modified\n");
+    env.file("src/new.rs", "selected\n");
+    env.file("src/new.txt", "unselected\n");
+    env.but(
+        r#"commit -b new-branch --no-message --query '(file :glob "src/**/*.rs" :status :added)'"#,
+    )
+    .assert()
+    .success();
+    snapbox::assert_data_eq!(env.invoke_git("show new-branch:src/new.rs"), "selected");
+    snapbox::assert_data_eq!(
+        env.invoke_git("status --porcelain"),
+        "M src/old.rs\n?? src/new.txt"
+    );
+}
+
+#[test]
+fn query_invalid_regex_reports_source_without_mutation() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("zero-stacks");
+    env.setup_metadata(&[]);
+    env.file("file", "keep\n");
+    let before = env.git_log();
+    env.but(r#"commit -b new-branch --no-message --query '(hunk :regex "[")'"#)
+        .assert()
+        .failure()
+        .stderr_eq(snapbox::str![[r#"
+Error:   × Invalid diff query: invalid regex: regex parse error:
+  │     [
+  │     ^
+  │ error: unclosed character class
+   ╭─[query:1:14]
+ 1 │ (hunk :regex "[")
+   ·              ─┬─
+   ·               ╰─┤ invalid regex: regex parse error:
+   ·                 │     [
+   ·                 │     ^
+   ·                 │ error: unclosed character class
+   ╰────
+
+
+"#]]);
+    assert_eq!(
+        env.git_log(),
+        before,
+        "invalid regexes must not mutate history or create a branch"
+    );
+}
+
+#[test]
+fn query_invalid_range_reports_source_without_mutation() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("zero-stacks");
+    env.setup_metadata(&[]);
+    env.file("file", "keep\n");
+    let before = env.git_log();
+    env.but("commit -b new-branch --no-message")
+        .args(["--query", "(line-added :range '(3 1))"])
+        .assert()
+        .failure()
+        .stderr_eq(snapbox::str![[r#"
+Error:   × Invalid diff query: range start must not exceed range end
+   ╭─[query:1:20]
+ 1 │ (line-added :range '(3 1))
+   ·                    ───┬──
+   ·                       ╰── range start must not exceed range end
+   ╰────
+
+
+"#]]);
+    assert_eq!(
+        env.git_log(),
+        before,
+        "invalid ranges must not mutate history or create a branch"
+    );
+}
+
+#[test]
 fn dont_commit_todos() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("zero-stacks");
     env.setup_metadata(&[]);

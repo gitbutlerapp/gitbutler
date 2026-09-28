@@ -1466,6 +1466,7 @@ dependencies = [
  "bstr",
  "globset",
  "miette",
+ "regex",
  "snapbox",
  "thiserror 2.0.18",
 ]

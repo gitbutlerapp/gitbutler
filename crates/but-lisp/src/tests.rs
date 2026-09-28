@@ -8,14 +8,17 @@ const FILE: File<'_> = File {
 const LINES: &[ChangedLine<'_>] = &[
     ChangedLine {
         side: Side::Removed,
+        number: 10,
         content: b"old value",
     },
     ChangedLine {
         side: Side::Added,
+        number: 20,
         content: b"TODO: fix this",
     },
     ChangedLine {
         side: Side::Added,
+        number: 21,
         content: b"new value",
     },
 ];
@@ -92,6 +95,7 @@ fn string_escapes_and_unicode() {
             FILE,
             &[ChangedLine {
                 side: Side::Added,
+                number: 1,
                 content: "é\"\\".as_bytes()
             }]
         ),
@@ -107,6 +111,7 @@ fn non_utf8_lines_are_not_lossily_decoded() {
             FILE,
             &[ChangedLine {
                 side: Side::Added,
+                number: 1,
                 content: b"\xffTODO"
             }]
         ),
@@ -168,7 +173,7 @@ fn empty_union() {
 #[test]
 fn unsupported_predicate() {
     assert!(
-        Query::parse(r#"(line :regex "TODO")"#).is_err(),
+        Query::parse(r#"(line :unknown "TODO")"#).is_err(),
         "unimplemented predicates are rejected"
     );
 }
@@ -394,6 +399,264 @@ fn binary_file_predicate_is_still_unsupported() {
     assert!(
         Query::parse("(file :binary true)").is_err(),
         "binary classification is not implemented yet"
+    );
+}
+
+#[test]
+fn line_regex_matches_changed_line_content() {
+    assert_eq!(
+        Query::parse(r#"(line :regex "^new v.lue$")"#)
+            .unwrap()
+            .select(FILE, LINES),
+        [false, false, true],
+        "regex anchors apply to individual line content"
+    );
+}
+
+#[test]
+fn added_line_regex_restricts_the_side() {
+    assert_eq!(
+        Query::parse(r#"(line-added :regex "value")"#)
+            .unwrap()
+            .select(FILE, LINES),
+        [false, false, true],
+        "added-line regexes ignore removals"
+    );
+}
+
+#[test]
+fn removed_line_regex_restricts_the_side() {
+    assert_eq!(
+        Query::parse(r#"(line-removed :regex "value")"#)
+            .unwrap()
+            .select(FILE, LINES),
+        [true, false, false],
+        "removed-line regexes ignore additions"
+    );
+}
+
+#[test]
+fn hunk_regex_selects_all_changed_lines() {
+    assert_eq!(
+        Query::parse(r#"(hunk :regex "^TODO")"#)
+            .unwrap()
+            .select(FILE, LINES),
+        [true, true, true],
+        "a matching changed line selects its whole hunk"
+    );
+}
+
+#[test]
+fn added_hunk_regex_restricts_the_side() {
+    assert_eq!(
+        Query::parse(r#"(hunk-added :regex "^old")"#)
+            .unwrap()
+            .select(FILE, LINES),
+        [false, false, false],
+        "removed lines cannot trigger an added-hunk regex"
+    );
+}
+
+#[test]
+fn removed_hunk_regex_restricts_the_side() {
+    assert_eq!(
+        Query::parse(r#"(hunk-removed :regex "^old")"#)
+            .unwrap()
+            .select(FILE, LINES),
+        [true, true, true],
+        "a matching removal selects the whole hunk"
+    );
+}
+
+#[test]
+fn hunk_regex_does_not_concatenate_lines() {
+    assert_eq!(
+        Query::parse(r#"(hunk :regex "old value\\nTODO")"#)
+            .unwrap()
+            .select(FILE, LINES),
+        [false, false, false],
+        "regexes never span multiple changed lines"
+    );
+}
+
+#[test]
+fn regex_preserves_non_utf8_content() {
+    assert_eq!(
+        Query::parse(r#"(line :regex "(?-u:.)*TODO")"#)
+            .unwrap()
+            .select(
+                FILE,
+                &[ChangedLine {
+                    content: b"\xffTODO",
+                    ..LINES[1]
+                }]
+            ),
+        [true],
+        "byte regexes can match non-UTF8 content without conversion"
+    );
+}
+
+#[test]
+fn range_is_inclusive_and_uses_line_coordinates() {
+    assert_eq!(
+        Query::parse("(line :range '(10 20))")
+            .unwrap()
+            .select(FILE, LINES),
+        [true, true, false],
+        "both inclusive endpoints match in their respective old/new images"
+    );
+}
+
+#[test]
+fn added_range_does_not_select_removals() {
+    assert_eq!(
+        Query::parse("(line-added :range '(10 20))")
+            .unwrap()
+            .select(FILE, LINES),
+        [false, true, false],
+        "ranges retain the selector's side restriction"
+    );
+}
+
+#[test]
+fn removed_range_uses_old_coordinates() {
+    assert_eq!(
+        Query::parse("(line-removed :range '(10 10))")
+            .unwrap()
+            .select(FILE, LINES),
+        [true, false, false],
+        "removed-line ranges use old-file numbers"
+    );
+}
+
+#[test]
+fn predicates_on_a_line_are_anded() {
+    assert_eq!(
+        Query::parse(r#"(line-added :contains "TODO" :regex "^TODO" :range '(20 20))"#)
+            .unwrap()
+            .select(FILE, LINES),
+        [false, true, false],
+        "all predicates must match the same line"
+    );
+}
+
+#[test]
+fn hunk_predicates_must_match_the_same_line() {
+    assert_eq!(
+        Query::parse(r#"(hunk-added :contains "TODO" :range '(21 21))"#)
+            .unwrap()
+            .select(FILE, LINES),
+        [false, false, false],
+        "matching text and range on different lines does not select the hunk"
+    );
+}
+
+#[test]
+fn hunk_range_selects_whole_hunk() {
+    assert_eq!(
+        Query::parse("(hunk :range (20 20))")
+            .unwrap()
+            .select(FILE, LINES),
+        [true, true, true],
+        "unquoted ranges also select whole matching hunks"
+    );
+}
+
+#[test]
+fn file_predicates_are_anded() {
+    let query =
+        Query::parse(r#"(file :glob "src/**/*.rs" :extension "rs" :status :modified)"#).unwrap();
+    assert_eq!(
+        query.select(FILE, LINES),
+        [true, true, true],
+        "all file predicates match"
+    );
+    assert!(
+        !query.selects_non_text(File {
+            status: FileStatus::Added,
+            ..FILE
+        }),
+        "a single failing file predicate rejects the file"
+    );
+}
+
+#[test]
+fn invalid_regex_has_a_source_label() {
+    use miette::Diagnostic as _;
+    let error = Query::parse(r#"(line :regex "[")"#).unwrap_err();
+    let label = error.labels().unwrap().next().unwrap();
+    assert_eq!(
+        (label.offset(), label.len()),
+        (13, 3),
+        "the malformed regex string is highlighted"
+    );
+}
+
+#[test]
+fn backwards_range_is_rejected() {
+    assert!(
+        Query::parse("(line :range '(30 10))").is_err(),
+        "range endpoints must be ordered"
+    );
+}
+
+#[test]
+fn zero_line_number_is_rejected() {
+    assert!(
+        Query::parse("(line :range '(0 10))").is_err(),
+        "line numbers are one-based"
+    );
+}
+
+#[test]
+fn negative_line_number_is_rejected() {
+    assert!(
+        Query::parse("(line :range '(-1 10))").is_err(),
+        "line numbers cannot be negative"
+    );
+}
+
+#[test]
+fn overflowing_line_number_is_rejected() {
+    assert!(
+        Query::parse("(line :range '(1 4294967296))").is_err(),
+        "line coordinates fit u32"
+    );
+}
+
+#[test]
+fn range_requires_two_numbers() {
+    assert!(
+        Query::parse("(line :range '(1 2 3))").is_err(),
+        "ranges take exactly two endpoints"
+    );
+}
+
+#[test]
+fn selectors_require_a_predicate() {
+    assert!(
+        Query::parse("(line)").is_err(),
+        "empty line selectors are rejected"
+    );
+    assert!(
+        Query::parse("(file)").is_err(),
+        "empty file selectors are rejected"
+    );
+}
+
+#[test]
+fn regex_and_range_do_not_match_non_text_changes() {
+    assert!(
+        !Query::parse(r#"(hunk :regex ".*")"#)
+            .unwrap()
+            .selects_non_text(FILE),
+        "even match-all regexes need text"
+    );
+    assert!(
+        !Query::parse("(line :range '(1 100))")
+            .unwrap()
+            .selects_non_text(FILE),
+        "non-text changes have no line coordinates"
     );
 }
 

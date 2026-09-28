@@ -1,8 +1,13 @@
 //! A Lisp parser for our diff filtering language.
 //!
 //! Supports file selectors (`:path`, `:glob`, `:extension`, `:status`), line/hunk
-//! selectors with `:contains`, and the four set operators. `:binary`, regexes,
-//! and ranges below describe planned extensions.
+//! selectors (`:contains`, `:regex`, `:range`), and the four set operators.
+//! `:binary` remains a planned extension.
+//!
+//! Multiple predicates are ANDed. Line/hunk predicates must match the same changed line.
+//! Regexes match individual lines, never concatenated hunk text.
+//! Ranges are inclusive and one-based: new-file numbers for additions, old-file
+//! numbers for removals. Both `(10 30)` and `'(10 30)` are accepted.
 //!
 //! Paths are repository-relative and case-sensitive; renames match the new path.
 //! In globs, `*` stays within a directory and `**` can cross directories.
@@ -50,7 +55,9 @@
 //!
 //! ```lisp
 //! (line-added :regex "console\\.(log|debug)")
+//! (hunk :regex "console\\.(log|debug)")
 //! (line-added :range '(10 30))
+//! (line-added :contains "TODO" :range '(10 30))
 //! ```
 //!
 //! # Combine selections
