@@ -735,6 +735,22 @@ mod tests {
     }
 
     #[test]
+    fn a_new_review_targets_the_nearest_reviewed_branch_beneath_it() -> Result<()> {
+        let (ctx, _tmp) = context_with_worktree_on_reviewed_stack()?;
+        let target = |branch: &str| -> Result<String> {
+            let branch = gix::refs::Category::LocalBranch.to_full_name(branch)?;
+            review_creation_target(&ctx, branch.as_ref())
+        };
+
+        assert_eq!(
+            [target("A")?, target("B")?, target("W")?],
+            ["main", "A", "B"],
+            "each review stacks on the reviewed branch beneath it, across the worktree boundary"
+        );
+        Ok(())
+    }
+
+    #[test]
     fn unchanged_review_targets_do_not_need_pre_push_flattening() {
         let reviews = [
             (
@@ -2155,19 +2171,18 @@ fn review_update_groups_for_lane(
     base_branch: &str,
     open_reviews: &std::collections::HashSet<i64>,
 ) -> Vec<Vec<(gix::refs::FullName, but_forge::ForgeReviewTargetUpdate)>> {
-    let nearest_reviewed_beneath = info
-        .lanes_beneath(lane)
-        .into_iter()
-        .flat_map(|(lane, index)| &lane.segments[index..])
-        .find_map(|segment| {
-            review_number(segment, open_reviews)?;
-            segment
-                .ref_name()?
-                .shorten()
-                .to_str()
-                .ok()
-                .map(ToOwned::to_owned)
-        });
+    let bottom = (lane, lane.segments.len() - 1);
+    let nearest_reviewed_beneath =
+        reviewed_ancestors(bottom, &info.lanes_beneath(lane), open_reviews)
+            .into_iter()
+            .find_map(|segment| {
+                segment
+                    .ref_name()?
+                    .shorten()
+                    .to_str()
+                    .ok()
+                    .map(ToOwned::to_owned)
+            });
     let bottom_target = nearest_reviewed_beneath.as_deref().unwrap_or(base_branch);
     let reviewed = lane
         .segments
@@ -2206,12 +2221,11 @@ fn review_creation_target(ctx: &Context, branch: &gix::refs::FullNameRef) -> Res
     let ((lane, selected_index), beneath) = chain
         .split_first()
         .expect("a non-empty chain starts with the branch's own lane");
-    let mut reviewed_ancestors = std::iter::once((*lane, selected_index + 1))
-        .chain(beneath.iter().copied())
-        .flat_map(|(lane, index)| &lane.segments[index..])
-        .filter(|segment| review_number(segment, &open_reviews).is_some())
-        .map(|segment| remote_head(&repo, segment))
-        .collect::<Result<Vec<_>>>()?;
+    let mut reviewed_ancestors =
+        reviewed_ancestors((*lane, *selected_index), beneath, &open_reviews)
+            .into_iter()
+            .map(|segment| remote_head(&repo, segment))
+            .collect::<Result<Vec<_>>>()?;
     reviewed_ancestors.reverse();
     let selected = remote_head(&repo, &lane.segments[*selected_index])?;
 
@@ -2234,6 +2248,20 @@ fn review_creation_target(ctx: &Context, branch: &gix::refs::FullNameRef) -> Res
         Some(nearest_reviewed_ancestor) => Ok(nearest_reviewed_ancestor.branch_name),
         None => target_short_name(&ctx.project_meta()?, &repo),
     }
+}
+
+/// The segments with an open review beneath `selected` in its lane and in the lanes `beneath` it,
+/// nearest first.
+fn reviewed_ancestors<'a>(
+    (lane, selected_index): (but_workspace::ref_info::Lane<'a>, usize),
+    beneath: &[(but_workspace::ref_info::Lane<'a>, usize)],
+    open_reviews: &std::collections::HashSet<i64>,
+) -> Vec<&'a but_workspace::ref_info::Segment> {
+    std::iter::once((lane, selected_index + 1))
+        .chain(beneath.iter().copied())
+        .flat_map(|(lane, index)| lane.segments_from(index))
+        .filter(|segment| review_number(segment, open_reviews).is_some())
+        .collect()
 }
 
 #[derive(Debug)]
