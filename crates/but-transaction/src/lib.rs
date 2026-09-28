@@ -4,7 +4,7 @@ use std::{
 };
 
 use anyhow::Context as _;
-use bstr::{BStr, BString, ByteVec};
+use bstr::{BStr, BString, ByteSlice as _, ByteVec};
 use but_api::WorkspaceState;
 use but_core::{
     DiffSpec, DryRun, RefMetadata,
@@ -797,6 +797,51 @@ where
                     let target = editor.select_commit(target_id)?;
                     let reference = editor.add_step(reference)?;
                     editor.add_edge(reference, target, 0)?;
+                    if creates_independent_branch
+                        && let Some(workspace_commit) = editor.graph_workspace()?.workspace_commit
+                    {
+                        // Include the new branch before checkout consumes its changes.
+                        // Applying it after materialization would first check out a
+                        // workspace that doesn't contain the newly created commit.
+                        let target_local_name = editor
+                            .target_ref()
+                            .and_then(|name| {
+                                but_core::extract_remote_name_and_short_name(
+                                    name,
+                                    &repo.remote_names(),
+                                )
+                            })
+                            .map(|(_, name)| {
+                                gix::refs::Category::LocalBranch.to_full_name(name.as_bstr())
+                            })
+                            .transpose()?;
+                        let mut parents = editor.direct_parents(workspace_commit)?;
+                        parents.sort_by_key(|(_, order)| *order);
+                        let mut retained = Vec::new();
+                        for (parent, _) in parents {
+                            // The initial workspace's target-only parent is a
+                            // placeholder, not an additional applied branch.
+                            let is_target_ref = match editor.lookup_step(parent)? {
+                                Step::Reference { refname, .. } => {
+                                    (refname.as_bstr() == "refs/heads/gitbutler/target"
+                                        || target_local_name
+                                            .as_ref()
+                                            .is_some_and(|name| *name == refname)
+                                        || editor.target_ref() == Some(refname.as_ref()))
+                                        && editor.find_reference_target(parent)?.0 == target
+                                }
+                                Step::Pick(_) | Step::None => false,
+                            };
+                            editor.remove_edges(workspace_commit, parent)?;
+                            if parent != target && !is_target_ref {
+                                retained.push(parent);
+                            }
+                        }
+                        retained.insert(order.unwrap_or(0).min(retained.len()), reference);
+                        for (parent_order, parent) in retained.into_iter().enumerate() {
+                            editor.add_edge(workspace_commit, parent, parent_order)?;
+                        }
+                    }
                 }
             }
             Ok(((), MaterializeWithoutCheckout::No, editor.rebase()?))

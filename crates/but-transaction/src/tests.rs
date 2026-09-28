@@ -947,6 +947,256 @@ fn move_commits_reorders_multiple_subjects() {
 }
 
 #[test]
+fn create_independent_reference_then_commit_selected_lines() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("zero-stacks");
+    env.setup_metadata(&[]);
+    env.file("file", "selected\nleft over\nalso selected\n");
+    let repo = but_testsupport::open_repo(env.projects_root()).unwrap();
+    let mut ctx = Context::from_repo_for_testing(repo)
+        .map(Context::with_memory_app_cache)
+        .unwrap();
+    let mut meta = ctx.meta().unwrap();
+    let refname = FullName::try_from("refs/heads/new-branch").unwrap();
+
+    let _workspace: WorkspaceState = with_transaction(
+        &mut ctx,
+        &mut meta,
+        SnapshotDetails::new(OperationKind::CreateCommit),
+        DryRun::No,
+        |mut tx| {
+            tx.create_reference(
+                refname.as_ref(),
+                None,
+                |_| but_core::ref_metadata::StackId::generate(),
+                None,
+            )?;
+            tx.create_commit(
+                RelativeTo::Reference(refname.clone()),
+                InsertSide::Below,
+                Vec::from([DiffSpec {
+                    previous_path: None,
+                    path: "file".into(),
+                    hunk_headers: Vec::from([
+                        but_core::HunkHeader {
+                            old_start: 0,
+                            old_lines: 0,
+                            new_start: 1,
+                            new_lines: 1,
+                        },
+                        but_core::HunkHeader {
+                            old_start: 0,
+                            old_lines: 0,
+                            new_start: 3,
+                            new_lines: 1,
+                        },
+                    ]),
+                }]),
+                "partial commit".into(),
+                but_workspace::commit::ChangeSource::Head,
+            )?;
+            Ok(())
+        },
+    )
+    .unwrap();
+
+    snapbox::assert_data_eq!(
+        env.invoke_git("show new-branch:file"),
+        snapbox::str![[r#"
+selected
+also selected
+"#]]
+    );
+    snapbox::assert_data_eq!(
+        env.invoke_git("show HEAD:file"),
+        snapbox::str![[r#"
+selected
+also selected
+"#]]
+    );
+    snapbox::assert_data_eq!(
+        std::fs::read_to_string(env.projects_root().join("file")).unwrap(),
+        snapbox::str![[r#"
+selected
+left over
+also selected
+
+"#]]
+    );
+    snapbox::assert_data_eq!(env.invoke_git("ls-files --unmerged"), snapbox::str![""]);
+    snapbox::assert_data_eq!(env.invoke_git("diff --cached"), snapbox::str![""]);
+    snapbox::assert_data_eq!(
+        env.invoke_git("diff -- file"),
+        snapbox::str![[r#"
+diff --git a/file b/file
+index [..] 100644
+--- a/file
++++ b/file
+@@ -1,2 +1,3 @@
+ selected
++left over
+ also selected
+"#]]
+    );
+    assert_num_snapshots(&ctx, 1);
+}
+
+#[test]
+fn create_independent_reference_then_commit_selected_lines_in_existing_file() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["branch"]);
+    let original = std::fs::read_to_string(env.projects_root().join("random-file")).unwrap();
+    let contents = format!("selected\nleft over\n{original}");
+    env.file("random-file", &contents);
+    let repo = but_testsupport::open_repo(env.projects_root()).unwrap();
+    let mut ctx = Context::from_repo_for_testing(repo)
+        .map(Context::with_memory_app_cache)
+        .unwrap();
+    let mut meta = ctx.meta().unwrap();
+    let refname = FullName::try_from("refs/heads/new-branch").unwrap();
+    let old_branch = ref_target(&env, "refs/heads/branch".try_into().unwrap());
+
+    let _workspace: WorkspaceState = with_transaction(
+        &mut ctx,
+        &mut meta,
+        SnapshotDetails::new(OperationKind::CreateCommit),
+        DryRun::No,
+        |mut tx| {
+            tx.create_reference(
+                refname.as_ref(),
+                None,
+                |_| but_core::ref_metadata::StackId::generate(),
+                None,
+            )?;
+            tx.create_commit(
+                RelativeTo::Reference(refname.clone()),
+                InsertSide::Below,
+                Vec::from([DiffSpec {
+                    previous_path: None,
+                    path: "random-file".into(),
+                    hunk_headers: Vec::from([but_core::HunkHeader {
+                        old_start: 0,
+                        old_lines: 0,
+                        new_start: 1,
+                        new_lines: 1,
+                    }]),
+                }]),
+                "partial commit".into(),
+                but_workspace::commit::ChangeSource::Head,
+            )?;
+            Ok(())
+        },
+    )
+    .unwrap();
+
+    assert_eq!(
+        env.invoke_git("show new-branch:random-file"),
+        format!("selected\n{original}").trim_end(),
+        "only the selected line is committed"
+    );
+    assert_eq!(
+        std::fs::read_to_string(env.projects_root().join("random-file")).unwrap(),
+        contents,
+        "checkout preserves the unselected line"
+    );
+    assert_eq!(
+        ref_target(&env, "refs/heads/branch".try_into().unwrap()),
+        old_branch,
+        "the existing independent branch does not move"
+    );
+    snapbox::assert_data_eq!(env.invoke_git("ls-files --unmerged"), snapbox::str![""]);
+    snapbox::assert_data_eq!(env.invoke_git("diff --cached"), snapbox::str![""]);
+    assert_num_snapshots(&ctx, 1);
+}
+
+#[test]
+fn create_independent_reference_dry_run_keeps_disk_unchanged() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("zero-stacks");
+    env.setup_metadata(&[]);
+    let repo = but_testsupport::open_repo(env.projects_root()).unwrap();
+    let mut ctx = Context::from_repo_for_testing(repo)
+        .map(Context::with_memory_app_cache)
+        .unwrap();
+    let mut meta = ctx.meta().unwrap();
+    let original_head = env.open_repo().head_id().unwrap().detach();
+    let refname = FullName::try_from("refs/heads/new-branch").unwrap();
+
+    let _workspace: WorkspaceState = with_transaction(
+        &mut ctx,
+        &mut meta,
+        SnapshotDetails::new(OperationKind::CreateBranch),
+        DryRun::Yes,
+        |mut tx| {
+            tx.create_reference(
+                refname.as_ref(),
+                None,
+                |_| but_core::ref_metadata::StackId::generate(),
+                None,
+            )?;
+            tx.insert_blank_commit(RelativeTo::Reference(refname.clone()), InsertSide::Below)?;
+            Ok(())
+        },
+    )
+    .unwrap();
+
+    assert_eq!(
+        env.open_repo().head_id().unwrap().detach(),
+        original_head,
+        "dry-run leaves HEAD unchanged"
+    );
+    assert_eq!(
+        ref_target(&env, refname.as_ref()),
+        None,
+        "dry-run leaves no new reference on disk"
+    );
+    snapbox::assert_data_eq!(env.invoke_git("status --porcelain"), snapbox::str![""]);
+    assert_num_snapshots(&ctx, 0);
+}
+
+#[test]
+fn create_independent_reference_rollback_keeps_disk_unchanged() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("zero-stacks");
+    env.setup_metadata(&[]);
+    let repo = but_testsupport::open_repo(env.projects_root()).unwrap();
+    let mut ctx = Context::from_repo_for_testing(repo)
+        .map(Context::with_memory_app_cache)
+        .unwrap();
+    let mut meta = ctx.meta().unwrap();
+    let original_head = env.open_repo().head_id().unwrap().detach();
+    let refname = FullName::try_from("refs/heads/new-branch").unwrap();
+
+    with_transaction(
+        &mut ctx,
+        &mut meta,
+        SnapshotDetails::new(OperationKind::CreateBranch),
+        DryRun::No,
+        |mut tx| {
+            tx.create_reference(
+                refname.as_ref(),
+                None,
+                |_| but_core::ref_metadata::StackId::generate(),
+                None,
+            )?;
+            tx.insert_blank_commit(RelativeTo::Reference(refname.clone()), InsertSide::Below)?;
+            Ok(tx.rollback(()))
+        },
+    )
+    .unwrap();
+
+    assert_eq!(
+        env.open_repo().head_id().unwrap().detach(),
+        original_head,
+        "rollback leaves HEAD unchanged"
+    );
+    assert_eq!(
+        ref_target(&env, refname.as_ref()),
+        None,
+        "rollback removes the eagerly created reference"
+    );
+    snapbox::assert_data_eq!(env.invoke_git("status --porcelain"), snapbox::str![""]);
+    assert_num_snapshots(&ctx, 0);
+}
+
+#[test]
 fn create_reference_then_commit_relative_to_it() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
     env.setup_metadata(&["branch"]);
