@@ -196,9 +196,8 @@ fn resolve(
                         | ResolvedCliIdArg::UncommittedHunkOrFile(..)
                         | ResolvedCliIdArg::CommittedFile(..)
                         | ResolvedCliIdArg::CommittedHunk(..)
-                        | ResolvedCliIdArg::Uncommitted
+                        | ResolvedCliIdArg::Uncommitted(..)
                         | ResolvedCliIdArg::PathPrefix { .. }
-                        | ResolvedCliIdArg::WorktreeUncommitted(..)
                         | ResolvedCliIdArg::Stack { .. } => Err(bad_input(format!(
                             "Only commits can be cherry-picked. {} is {}",
                             source,

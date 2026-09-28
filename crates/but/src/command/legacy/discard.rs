@@ -29,7 +29,7 @@ use crate::{
     theme::{self, Theme},
     utils::{
         CliOutput, CliOutputHuman, CommitIdJson, IntermediateChannel, WriteWithUtils,
-        diff_specs::DiffSpecBuilder,
+        change_source::ChangeSourceId, diff_specs::DiffSpecBuilder,
     },
 };
 
@@ -381,11 +381,11 @@ fn resolve(repo: &gix::Repository, id_map: &IdMap, args: Platform) -> CliResult<
             ResolvedCliIdArg::UncommittedHunkOrFile(change) => {
                 uncommitted_change_sources.push(UncommittedDiscardSource::HunkOrFile(*change))
             }
-            ResolvedCliIdArg::Uncommitted => uncommitted_sources.push(()),
+            ResolvedCliIdArg::Uncommitted(ChangeSourceId::Head) => uncommitted_sources.push(()),
             ResolvedCliIdArg::PathPrefix { id: _, hunks } => {
                 uncommitted_change_sources.push(UncommittedDiscardSource::PathPrefix(hunks))
             }
-            ResolvedCliIdArg::WorktreeUncommitted(name) => {
+            ResolvedCliIdArg::Uncommitted(ChangeSourceId::Worktree(name)) => {
                 return Err(bad_input(format!(
                     "Changes in worktree {name} cannot be discarded as a whole"
                 ))

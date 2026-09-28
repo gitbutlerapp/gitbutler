@@ -207,7 +207,7 @@ fn resolve_args(
 
     if let Some(target) = target {
         let resolved_sources = if sources.is_empty() {
-            Vec::from([ResolvedCliIdArg::Uncommitted])
+            Vec::from([ResolvedCliIdArg::Uncommitted(ChangeSourceId::Head)])
         } else {
             sources
                 .iter()
@@ -908,15 +908,9 @@ pub fn resolve_target(
 
             Err(ResolveTargetError::NotFound)
         }
-        ResolvedCliIdArgRef::Uncommitted => {
-            resolve_uncommit_target(ChangeSourceId::Head, sources, reword, head_info)
+        ResolvedCliIdArgRef::Uncommitted(source) => {
+            resolve_uncommit_target(source.clone(), sources, reword, head_info)
         }
-        ResolvedCliIdArgRef::WorktreeUncommitted(name) => resolve_uncommit_target(
-            ChangeSourceId::Worktree(name.to_owned()),
-            sources,
-            reword,
-            head_info,
-        ),
         ResolvedCliIdArgRef::AnonymousSegment(segment) => {
             Err(ResolveTargetError::AnonymousSegment(segment.id.clone()))
         }
@@ -962,8 +956,7 @@ fn resolve_uncommit_target(
         | ResolvedCliIdArgRef::AnonymousSegment(..)
         | ResolvedCliIdArgRef::UncommittedHunkOrFile(..)
         | ResolvedCliIdArgRef::PathPrefix { .. }
-        | ResolvedCliIdArgRef::Uncommitted
-        | ResolvedCliIdArgRef::WorktreeUncommitted(..)
+        | ResolvedCliIdArgRef::Uncommitted(..)
         | ResolvedCliIdArgRef::Stack { .. } => None,
     });
     for commit in source_commits {
@@ -1179,7 +1172,9 @@ impl<'a> Squashable<'a> {
                     UncommittedSquashSource::HunkOrFile(Cow::Borrowed(hunk)),
                 ));
             }
-            ResolvedCliIdArgRef::Uncommitted => return Ok(Self::Uncommitted(UNCOMMITTED)),
+            ResolvedCliIdArgRef::Uncommitted(ChangeSourceId::Head) => {
+                return Ok(Self::Uncommitted(UNCOMMITTED));
+            }
             ResolvedCliIdArgRef::CommittedFile(file) => {
                 return Ok(Self::CommittedFile(file.clone()));
             }
@@ -1191,7 +1186,9 @@ impl<'a> Squashable<'a> {
                     UncommittedSquashSource::PathPrefix(Cow::Borrowed(hunks)),
                 ));
             }
-            ResolvedCliIdArgRef::WorktreeUncommitted(..) => "a worktree's uncommitted changes",
+            ResolvedCliIdArgRef::Uncommitted(ChangeSourceId::Worktree(..)) => {
+                "a worktree's uncommitted changes"
+            }
             ResolvedCliIdArgRef::Stack { .. } => "a stack",
         };
         Err(bad_input(format!(

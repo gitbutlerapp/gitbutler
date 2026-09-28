@@ -674,14 +674,14 @@ fn resolve_squash_operation<'a>(
 
     let mut resolved_args = match op {
         SquashRoute::UncommittedToCommit { target } => ResolvedSquashArgsRef::Normal {
-            sources: Vec::from([ResolvedCliIdArgRef::Uncommitted]),
+            sources: Vec::from([ResolvedCliIdArgRef::Uncommitted(&ChangeSourceId::Head)]),
             target: SquashTarget::Commit {
                 commit: target,
                 reword: HowToRewordTarget::UseTargetMessage,
             },
         },
         SquashRoute::UncommittedToBranch { target } => {
-            let source = Vec::from([ResolvedCliIdArgRef::Uncommitted]);
+            let source = Vec::from([ResolvedCliIdArgRef::Uncommitted(&ChangeSourceId::Head)]);
             let target = ResolvedCliIdArgRef::Branch(target);
             resolve_squash_operation_with_branch(source, target, reword, head_info, repo)?
         }

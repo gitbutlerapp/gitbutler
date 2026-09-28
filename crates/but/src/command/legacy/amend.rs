@@ -13,7 +13,7 @@ use crate::{
     command::legacy::squash::{
         self, HowToRewordTarget, ResolveTargetError, ResolvedSquashArgsRef, SquashOperation,
     },
-    utils::{IntermediateChannel, merged_upstream::MergedUpstream},
+    utils::{IntermediateChannel, change_source::ChangeSourceId, merged_upstream::MergedUpstream},
 };
 
 pub fn amend(
@@ -56,7 +56,7 @@ fn resolve(
     } = args;
 
     let resolved_sources = if sources.is_empty() {
-        Vec::from([ResolvedCliIdArg::Uncommitted])
+        Vec::from([ResolvedCliIdArg::Uncommitted(ChangeSourceId::Head)])
     } else {
         let mut resolved_sources = Vec::new();
         for source in sources {

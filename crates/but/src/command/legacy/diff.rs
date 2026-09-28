@@ -55,13 +55,10 @@ impl CliOutputHuman for DiffOutcome<'_> {
         };
 
         match target {
-            DiffOperation::Uncommitted => {
-                diff_rendering::render_uncommitted(ctx, theme, &mut id_gen, options, &mut writer)?;
-            }
-            DiffOperation::WorktreeUncommitted { name } => {
+            DiffOperation::Uncommitted(source) => {
                 diff_rendering::render_uncommitted_source(
                     ctx,
-                    ChangeSourceId::Worktree(name),
+                    source,
                     theme,
                     &mut id_gen,
                     options,
@@ -284,25 +281,13 @@ impl CliOutput for DiffOutcome<'_> {
 
         fn build_output(ctx: &Context, target: &DiffOperation) -> anyhow::Result<Output> {
             let changes = match target {
-                DiffOperation::Uncommitted => {
+                DiffOperation::Uncommitted(source) => {
                     let id_map = IdMap::legacy_new_from_context(ctx)?;
                     hunk_changes(
                         id_map
                             .uncommitted_hunks
                             .iter()
-                            .filter(|(_, hunk)| hunk.source == ChangeSourceId::Head)
-                            .map(|(id, hunk)| (id.as_str(), &hunk.hunk))
-                            .collect(),
-                    )
-                }
-                DiffOperation::WorktreeUncommitted { name } => {
-                    let id_map = IdMap::legacy_new_from_context(ctx)?;
-                    let source = ChangeSourceId::Worktree(name.clone());
-                    hunk_changes(
-                        id_map
-                            .uncommitted_hunks
-                            .iter()
-                            .filter(|(_, hunk)| hunk.source == source)
+                            .filter(|(_, hunk)| hunk.source == *source)
                             .map(|(id, hunk)| (id.as_str(), &hunk.hunk))
                             .collect(),
                     )
@@ -440,11 +425,11 @@ fn resolve(ctx: &Context, id_map: &IdMap, args: Platform) -> CliResult<DiffOpera
         let repo = ctx.repo.get()?;
         target.resolve_in_workspace(&repo, id_map, Purpose::Target, None)?
     } else {
-        ResolvedCliIdArg::Uncommitted
+        ResolvedCliIdArg::Uncommitted(ChangeSourceId::Head)
     };
 
     match resolved_target {
-        ResolvedCliIdArg::Uncommitted => Ok(DiffOperation::Uncommitted),
+        ResolvedCliIdArg::Uncommitted(source) => Ok(DiffOperation::Uncommitted(source)),
         ResolvedCliIdArg::Commit(commit) => Ok(DiffOperation::Commit { commit }),
         ResolvedCliIdArg::Branch(branch) => {
             let branch = branch.resolve_local_branch_name()?;
@@ -471,9 +456,6 @@ fn resolve(ctx: &Context, id_map: &IdMap, args: Platform) -> CliResult<DiffOpera
             Err(bad_input("viewing diffs for committed hunks is not supported").into())
         }
         ResolvedCliIdArg::PathPrefix { id, hunks } => Ok(DiffOperation::PathPrefix { id, hunks }),
-        ResolvedCliIdArg::WorktreeUncommitted(name) => {
-            Ok(DiffOperation::WorktreeUncommitted { name })
-        }
         ResolvedCliIdArg::Stack { .. } => {
             Err(bad_input("viewing diffs for stack assignments is not supported").into())
         }
@@ -486,10 +468,7 @@ fn run(ctx: &mut Context, op: DiffOperation) -> anyhow::Result<DiffOutcome<'_>> 
 
 #[derive(Debug)]
 enum DiffOperation {
-    Uncommitted,
-    WorktreeUncommitted {
-        name: BString,
-    },
+    Uncommitted(ChangeSourceId),
     Commit {
         commit: CommitId,
     },

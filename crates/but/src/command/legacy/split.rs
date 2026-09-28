@@ -103,8 +103,7 @@ fn resolve(
             other @ (ResolvedCliIdArg::Commit(..)
             | ResolvedCliIdArg::Branch(..)
             | ResolvedCliIdArg::UncommittedHunkOrFile(..)
-            | ResolvedCliIdArg::Uncommitted
-            | ResolvedCliIdArg::WorktreeUncommitted(..)
+            | ResolvedCliIdArg::Uncommitted(..)
             | ResolvedCliIdArg::PathPrefix { .. }
             | ResolvedCliIdArg::Stack { .. }) => {
                 return Err(bad_input(format!(

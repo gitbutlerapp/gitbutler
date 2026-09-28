@@ -1,4 +1,4 @@
-use bstr::{BStr, BString};
+use bstr::BString;
 use but_core::ref_metadata::StackId;
 use itertools::Itertools as _;
 use nonempty::NonEmpty;
@@ -105,14 +105,7 @@ impl CliIdArg {
                 ResolvedCliIdArg::CommittedFile(committed_file)
             }
             CliId::CommittedHunk(committed) => ResolvedCliIdArg::CommittedHunk(Box::new(committed)),
-            CliId::UncommittedArea {
-                source: ChangeSourceId::Head,
-                ..
-            } => ResolvedCliIdArg::Uncommitted,
-            CliId::UncommittedArea {
-                source: ChangeSourceId::Worktree(name),
-                ..
-            } => ResolvedCliIdArg::WorktreeUncommitted(name),
+            CliId::UncommittedArea { source, .. } => ResolvedCliIdArg::Uncommitted(source),
             CliId::Stack { id, stack_id } => ResolvedCliIdArg::Stack { id, stack_id },
         }))
     }
@@ -533,9 +526,7 @@ pub enum ResolvedCliIdArg {
     UncommittedHunkOrFile(Box<UncommittedHunkOrFile>),
     CommittedFile(CommittedFileId),
     CommittedHunk(Box<CommittedHunk>),
-    Uncommitted,
-    /// A linked worktree's uncommitted area, named by the worktree's stable name.
-    WorktreeUncommitted(BString),
+    Uncommitted(ChangeSourceId),
     PathPrefix {
         id: String,
         hunks: NonEmpty<IdAndHunk>,
@@ -587,8 +578,10 @@ impl ResolvedCliIdArg {
             ResolvedCliIdArg::Branch { .. } => "a branch",
             ResolvedCliIdArg::AnonymousSegment { .. } => "an anonymous branch",
             ResolvedCliIdArg::Commit { .. } => "a commit",
-            ResolvedCliIdArg::Uncommitted => "uncommitted changes",
-            ResolvedCliIdArg::WorktreeUncommitted(..) => "a worktree's uncommitted changes",
+            ResolvedCliIdArg::Uncommitted(ChangeSourceId::Head) => "uncommitted changes",
+            ResolvedCliIdArg::Uncommitted(ChangeSourceId::Worktree(..)) => {
+                "a worktree's uncommitted changes"
+            }
             ResolvedCliIdArg::Stack { .. } => "a stack",
         }
     }
@@ -613,10 +606,7 @@ impl ResolvedCliIdArg {
             ResolvedCliIdArg::PathPrefix { id, hunks } => {
                 ResolvedCliIdArgRef::PathPrefix { id, hunks }
             }
-            ResolvedCliIdArg::Uncommitted => ResolvedCliIdArgRef::Uncommitted,
-            ResolvedCliIdArg::WorktreeUncommitted(name) => {
-                ResolvedCliIdArgRef::WorktreeUncommitted(name.as_ref())
-            }
+            ResolvedCliIdArg::Uncommitted(source) => ResolvedCliIdArgRef::Uncommitted(source),
             ResolvedCliIdArg::Stack { id, stack_id } => ResolvedCliIdArgRef::Stack {
                 id,
                 stack_id: *stack_id,
@@ -633,12 +623,8 @@ impl PartialEq<CliId> for ResolvedCliIdArg {
                     return lhs == rhs;
                 }
             }
-            ResolvedCliIdArg::WorktreeUncommitted(lhs) => {
-                if let CliId::UncommittedArea {
-                    source: ChangeSourceId::Worktree(rhs),
-                    ..
-                } = other
-                {
+            ResolvedCliIdArg::Uncommitted(lhs) => {
+                if let CliId::UncommittedArea { source: rhs, .. } = other {
                     return lhs == rhs;
                 }
             }
@@ -670,15 +656,6 @@ impl PartialEq<CliId> for ResolvedCliIdArg {
                 if let CliId::CommittedHunk(rhs) = other {
                     return &**lhs == rhs;
                 }
-            }
-            ResolvedCliIdArg::Uncommitted => {
-                return matches!(
-                    other,
-                    CliId::UncommittedArea {
-                        source: ChangeSourceId::Head,
-                        ..
-                    }
-                );
             }
             ResolvedCliIdArg::PathPrefix {
                 id: lhs_id,
@@ -722,8 +699,10 @@ impl std::fmt::Display for ResolvedCliIdArg {
             ResolvedCliIdArg::PathPrefix { .. } => f.write_str("path"),
             ResolvedCliIdArg::CommittedFile(..) => f.write_str("committed file"),
             ResolvedCliIdArg::CommittedHunk(..) => f.write_str("committed hunk"),
-            ResolvedCliIdArg::Uncommitted => f.write_str("uncommitted changes"),
-            ResolvedCliIdArg::WorktreeUncommitted(name) => {
+            ResolvedCliIdArg::Uncommitted(ChangeSourceId::Head) => {
+                f.write_str("uncommitted changes")
+            }
+            ResolvedCliIdArg::Uncommitted(ChangeSourceId::Worktree(name)) => {
                 write!(f, "uncommitted changes in worktree {name}")
             }
             ResolvedCliIdArg::Stack { .. } => f.write_str("stack"),
@@ -745,8 +724,7 @@ pub enum ResolvedCliIdArgRef<'a> {
         id: &'a str,
         hunks: &'a NonEmpty<IdAndHunk>,
     },
-    Uncommitted,
-    WorktreeUncommitted(&'a BStr),
+    Uncommitted(&'a ChangeSourceId),
     Stack {
         id: &'a str,
         stack_id: StackId,
