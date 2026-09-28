@@ -13,13 +13,14 @@ use crate::{
     command::legacy::squash::{
         self, HowToRewordTarget, ResolveTargetError, ResolvedSquashArgsRef, SquashOperation,
     },
-    utils::{IntermediateChannel, change_source::ChangeSourceId, merged_upstream::MergedUpstream},
+    utils::{IntermediateChannel, change_source::InvokedFrom, merged_upstream::MergedUpstream},
 };
 
 pub fn amend(
     ctx: &mut Context,
     _out: IntermediateChannel<'_>,
     args: Platform,
+    invoked_from: &InvokedFrom,
 ) -> CliResult<(squash::SquashOutcome, Option<WorkspaceState>)> {
     let mut guard = ctx.exclusive_worktree_access();
     let mut meta = ctx.meta()?;
@@ -29,7 +30,7 @@ pub fn amend(
     let merged = MergedUpstream::new(&*ctx.repo.get()?, &head_info, args.allow_merged);
 
     let (repo, ws, _) = ctx.workspace_and_db_with_perm(guard.read_permission())?;
-    let operation = resolve(args, &ws, &repo, &id_map, &head_info, &merged)?;
+    let operation = resolve(args, &ws, &repo, &id_map, &head_info, &merged, invoked_from)?;
     drop(repo);
     drop(ws);
 
@@ -48,6 +49,7 @@ fn resolve(
     id_map: &IdMap,
     head_info: &RefInfo,
     merged: &MergedUpstream,
+    invoked_from: &InvokedFrom,
 ) -> CliResult<SquashOperation<'static>> {
     let Platform {
         target,
@@ -56,7 +58,9 @@ fn resolve(
     } = args;
 
     let resolved_sources = if sources.is_empty() {
-        Vec::from([ResolvedCliIdArg::Uncommitted(ChangeSourceId::Head)])
+        Vec::from([ResolvedCliIdArg::Uncommitted(
+            invoked_from.managed_source(id_map)?,
+        )])
     } else {
         let mut resolved_sources = Vec::new();
         for source in sources {

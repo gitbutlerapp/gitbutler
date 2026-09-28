@@ -165,7 +165,7 @@ Move commits, branches, or committed changes back into the uncommitted area
 
 ### but amend [SOURCES]...
 Amend uncommitted changes into a commit or branch
-- `[SOURCES]...` One or more uncommitted files or hunks to amend. If omitted, all changes in the uncommitted area (@) are amended.
+- `[SOURCES]...` One or more uncommitted files or hunks to amend. If omitted, all uncommitted changes of the checkout but runs in are amended: @, or a linked worktree's.
 - `-t, --target <COMMIT_OR_BRANCH>` The commit to amend into; a branch means its newest commit
 
 ## Operation History
