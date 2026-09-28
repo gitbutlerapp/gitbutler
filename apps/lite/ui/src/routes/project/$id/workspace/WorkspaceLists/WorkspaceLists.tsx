@@ -8,7 +8,7 @@ import {
 } from "#ui/api/queries.ts";
 import { getHeadInfoIndex, recordedPullRequest } from "#ui/api/ref-info.ts";
 import { decodeBytes } from "#ui/api/bytes.ts";
-import { commitIsDiverged, commitTitle } from "#ui/commit.ts";
+import { commitTitle } from "#ui/commit.ts";
 import {
 	branchAddress,
 	uncommittedChangesAddress,
@@ -35,7 +35,6 @@ import type {
 	Commit,
 	Segment,
 	Stack,
-	PushStatus,
 	WorktreeChanges,
 	Worktree,
 } from "@gitbutler/but-sdk";
@@ -89,6 +88,7 @@ import { assert } from "#ui/assert.ts";
 import { CommitRow } from "./CommitRow.tsx";
 import { IncomingRows } from "./IncomingRows.tsx";
 import { BranchRow } from "./BranchRow.tsx";
+import { commitGraphStatus, segmentPushStatusToGraphSegmentStatus } from "./graph-status.ts";
 import { pushActivities, usePendingPushBranches, type PushActivity } from "./push-activity.ts";
 import { useActiveListsHotkeys } from "./hotkeys.ts";
 import { UncommittedChangesRow } from "./UncommittedChangesRow.tsx";
@@ -363,24 +363,6 @@ const UncommittedChanges: FC<
 		</div>
 	);
 };
-
-const segmentPushStatusToGraphSegmentStatus = (pushStatus: PushStatus): GraphSegmentStatus => {
-	switch (pushStatus) {
-		case "nothingToPush":
-			return "LocalAndRemote";
-		case "unpushedCommits":
-		case "completelyUnpushed":
-			return "LocalOnly";
-		case "unpushedCommitsRequiringForce":
-			return "Diverged";
-		case "integrated":
-			return "Integrated";
-	}
-};
-
-/** A commit's glyph colour: its state's, or the diverged one's. */
-const commitGraphStatus = (commit: Commit): GraphSegmentStatus =>
-	commitIsDiverged(commit) ? "Diverged" : commit.state.type;
 
 const BranchSegment: FC<{
 	projectId: string;
