@@ -59,7 +59,7 @@ impl JumpMode {
         }
 
         // Resolve once per distinct key, not once per row. Include offscreen rows and use
-        // the input resolver so exact IDs win over longer IDs with the same prefix.
+        // the input resolver so ambiguous prefixes never advertise an immediate jump.
         let mut targets = Vec::with_capacity(lines.len());
         targets.resize(lines.len(), false);
         let mut next_query = query.to_owned();
@@ -111,16 +111,9 @@ fn find_line_by_jump_id<'a>(
         .peekable();
 
     let needle = matches.next()?;
-    if matches.peek().is_none() {
-        return Some(needle);
-    }
-    // A worktree's `wt` is a strict prefix of its own area `wt:@`, so typing it can never
-    // become unique; an ID typed out in full wins over the IDs extending it.
-    std::iter::once(needle).chain(matches).find(|line| {
-        line.data
-            .cli_id()
-            .is_some_and(|id| id.short_string() == query)
-    })
+    // Keep accepting input when an exact ID prefixes another target (e.g. `wt` and
+    // `wt:@`). Enter can confirm the shorter ID without making the longer one unreachable.
+    matches.peek().is_none().then_some(needle)
 }
 
 pub fn prefix_match(
@@ -317,14 +310,18 @@ pub fn find_jump_match(
     mode: &JumpMode,
     show_files: FilesStatusFlag,
 ) -> Option<Cursor> {
-    cursor
-        .selected_line(lines)
+    let selected = cursor.selected_line(lines);
+    lines
+        .iter()
         .filter(|line| prefix_match(mode.query(), line, &mode.return_mode, show_files))
-        .map(|_| cursor)
-        .or_else(|| {
-            lines
-                .iter()
-                .find(|line| prefix_match(mode.query(), line, &mode.return_mode, show_files))
-                .and_then(|line| cursor_for_jump_line(line, lines))
+        // Enter prefers an exact ID, then the current selection, then the first match.
+        .min_by_key(|line| {
+            let exact = line
+                .data
+                .cli_id()
+                .is_some_and(|id| id.short_string() == mode.query());
+            let current = selected.is_some_and(|selected| std::ptr::eq(*line, selected));
+            (!exact, !current)
         })
+        .and_then(|line| cursor_for_jump_line(line, lines))
 }
