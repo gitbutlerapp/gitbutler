@@ -17,7 +17,6 @@ import { type Range, useVirtualizer } from "@tanstack/react-virtual";
 import {
 	type ComponentProps,
 	type FC,
-	type ReactNode,
 	type RefObject,
 	useCallback,
 	useDeferredValue,
@@ -39,6 +38,7 @@ import { useOpenPathInProgram, useRevealInFolder } from "./usePathActions.ts";
 import { useHotkeys } from "@tanstack/react-hotkeys";
 import { useMergedRefs } from "@base-ui/utils/useMergedRefs";
 import { FileRow, FileRowPresentational } from "./FileRow.tsx";
+import { FileList } from "@gitbutler/ui-react/FileList.tsx";
 import {
 	DirectoryRow,
 	DirectoryRowPresentational,
@@ -345,7 +345,6 @@ type RowShared = {
 	fileParent: FileParent;
 	focusScope: FocusScope;
 	tooltipHandle: Tooltip.Handle<FileRowTooltipPayload>;
-	ageBadgeNow: number | null;
 	pathDisplay: "lead" | "trail" | "hidden";
 	canCheck: boolean;
 	anyOperationPending: boolean;
@@ -354,7 +353,6 @@ type RowShared = {
 	onRowSelection: (selection: string) => void;
 	onToggleDirectoryCollapsed: (path: string) => void;
 	branchNameByCommitId: (commitId: string) => string | undefined;
-	rail: ReactNode | undefined;
 };
 
 /**
@@ -398,7 +396,6 @@ const FilesTreeRow: FC<{
 		fileParent,
 		focusScope,
 		tooltipHandle,
-		ageBadgeNow,
 		pathDisplay,
 		canCheck,
 		anyOperationPending,
@@ -407,7 +404,6 @@ const FilesTreeRow: FC<{
 		onRowSelection,
 		onToggleDirectoryCollapsed,
 		branchNameByCommitId,
-		rail,
 	} = shared;
 	const virtStyle: CSSProperties = { position: "absolute", top: 0, left: 0, width: "100%", height };
 
@@ -424,7 +420,6 @@ const FilesTreeRow: FC<{
 				items={row.items}
 				depth={row.depth}
 				isCollapsed={isCollapsed}
-				scrollSelectedIntoView={false}
 				onToggleCollapsed={() => {
 					// Collapsing over the selection hides it, and it would
 					// fall back to the first row: hand it to the directory
@@ -441,7 +436,6 @@ const FilesTreeRow: FC<{
 				checkDirectory={checkDirectory}
 				focusScope={focusScope}
 				tooltipHandle={tooltipHandle}
-				rail={rail}
 				inert={inert}
 				onSelect={() => onRowSelection(row.path)}
 			/>
@@ -503,7 +497,6 @@ const FilesTreeRow: FC<{
 								pathDisplay={pathDisplay}
 								inert={inert}
 								isSelected={isSelected}
-								scrollSelectedIntoView={false}
 								isChecked={isChecked}
 								isReviewed={isReviewed}
 								onSelect={() => onRowSelection(row.path)}
@@ -513,8 +506,6 @@ const FilesTreeRow: FC<{
 								fileParent={fileParent}
 								focusScope={focusScope}
 								tooltipHandle={tooltipHandle}
-								ageBadgeNow={ageBadgeNow}
-								rail={rail}
 								branchNameByCommitId={branchNameByCommitId}
 							/>
 						}
@@ -526,7 +517,6 @@ const FilesTreeRow: FC<{
 						pathDisplay={pathDisplay}
 						inert={inert}
 						isSelected={isSelected}
-						scrollSelectedIntoView={false}
 						isChecked={isChecked}
 						isReviewed={isReviewed}
 						onSelect={() => onRowSelection(row.path)}
@@ -536,8 +526,6 @@ const FilesTreeRow: FC<{
 						fileParent={fileParent}
 						focusScope={focusScope}
 						tooltipHandle={tooltipHandle}
-						ageBadgeNow={ageBadgeNow}
-						rail={rail}
 						branchNameByCommitId={() => undefined}
 						anyOperationPending={anyOperationPending}
 						menuItems={[]}
@@ -609,6 +597,8 @@ const FilesTreeVirtualList: FC<{
 			scrollElementRef?.current ?? groupRef.current?.parentElement?.parentElement ?? null,
 		// Keep in sync with --single-line-row-height.
 		estimateSize: () => 28,
+		// The pixel between rows; see .tree.
+		gap: 1,
 		getItemKey: (index) => rows[index]?.path ?? index,
 		rangeExtractor: rangeExtractorWithSelected,
 		scrollMargin,
@@ -697,13 +687,6 @@ export const FilesTree: FC<
 		 * apply, which hides the mark.
 		 */
 		reviewedPaths?: ReadonlySet<string>;
-		/**
-		 * Timestamp the row age badges are measured against; `null` hides them.
-		 * The caller owns the ticking.
-		 */
-		ageBadgeNow?: number | null;
-		/** On the graph, every row's rail, drawn before its steps. */
-		rail?: ReactNode;
 		/** The scroller the list scrolls in when it is not the tree's own parent, and the list's offset in it. */
 		scrollElementRef?: RefObject<HTMLElement | null>;
 		scrollMargin?: number;
@@ -723,8 +706,6 @@ export const FilesTree: FC<
 	fileParent,
 	focusScope,
 	reviewedPaths = EMPTY_REVIEWED_PATHS,
-	ageBadgeNow = null,
-	rail,
 	scrollElementRef,
 	scrollMargin = 0,
 	scrollPaddingStart = 14,
@@ -976,7 +957,6 @@ export const FilesTree: FC<
 		fileParent,
 		focusScope,
 		tooltipHandle,
-		ageBadgeNow,
 		pathDisplay,
 		canCheck,
 		anyOperationPending,
@@ -986,11 +966,10 @@ export const FilesTree: FC<
 		onToggleDirectoryCollapsed,
 		branchNameByCommitId: (commitId) =>
 			headInfoIndex?.commitContextByCommitId(commitId)?.segment.refName?.displayName,
-		rail,
 	};
 
 	return (
-		<div
+		<FileList
 			{...props}
 			data-focus-scope={focusScope}
 			tabIndex={0}
@@ -1002,7 +981,6 @@ export const FilesTree: FC<
 			<FileRowTooltipRoot handle={tooltipHandle} />
 			{rows.length === 0 ? (
 				<Row interactive={false}>
-					{rail}
 					<RowLabelContainer>
 						{/* Both callers hide the tree outright when there is nothing to
 						    list, so an empty tree only ever means the filter matched
@@ -1028,7 +1006,7 @@ export const FilesTree: FC<
 					scrollPaddingEnd={scrollPaddingEnd}
 				/>
 			)}
-		</div>
+		</FileList>
 	);
 };
 

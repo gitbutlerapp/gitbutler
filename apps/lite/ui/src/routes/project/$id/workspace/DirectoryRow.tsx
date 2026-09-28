@@ -1,26 +1,14 @@
-import { FolderIcon } from "@gitbutler/ui-react/FolderIcon.tsx";
+import { Checkbox } from "@gitbutler/ui-react/Checkbox.tsx";
+import { FileListItem } from "@gitbutler/ui-react/FileList.tsx";
 import { Icon } from "@gitbutler/ui-react/Icon.tsx";
-import { classes } from "@gitbutler/ui-react/classes.ts";
-import { Tooltip } from "@gitbutler/ui-react/Tooltip.tsx";
 import { changesFileHotkeys } from "#ui/hotkeys.ts";
 import { showNativeContextMenu, showNativeMenuFromTrigger } from "#ui/native-menu.ts";
 import type { FileParent } from "#ui/addresses.ts";
 import type { FocusScope } from "#ui/focus-scopes.ts";
 import { Toolbar, Tooltip as BaseTooltip } from "@base-ui/react";
-import type { ComponentProps, FC, ReactNode } from "react";
-import styles from "./FilesTree.module.css";
-import fileRowStyles from "./FileRow.module.css";
-import rowStyles from "./Row.module.css";
-import {
-	PresentationalRowButton,
-	Row,
-	RowCheckbox,
-	RowLabel,
-	RowLabelContainer,
-	RowToolbar,
-} from "./Row.tsx";
-import { getRowButtonClassName } from "./Row-utils.ts";
-import { TreeSteps, TreeStepsToggle } from "./TreeSteps.tsx";
+import type { ComponentProps, FC } from "react";
+import { PresentationalRowButton } from "./Row.tsx";
+import { getRowButtonClassName, rowPointerProps } from "./Row-utils.ts";
 import type { FileRowTooltipPayload } from "./FileRowTooltip.tsx";
 import { useDirectoryMenuItems } from "./useDirectoryMenuItems.ts";
 import type { FileRowItem } from "./file-row.ts";
@@ -48,9 +36,9 @@ type DirectoryRowProps = {
 	checkDirectory: (evt: { path: string; checked: boolean }) => void;
 	focusScope: FocusScope;
 	tooltipHandle: BaseTooltip.Handle<FileRowTooltipPayload>;
-	/** See {@link FilesTree}'s prop of the same name. */
-	rail?: ReactNode;
-} & ComponentProps<typeof Row>;
+	isSelected: boolean;
+	onSelect: () => void;
+} & ComponentProps<"div">;
 
 type DirectoryRowPresentationalProps = Omit<DirectoryRowProps, "projectId" | "fileParent"> & {
 	menuItems: ReturnType<typeof useDirectoryMenuItems>;
@@ -95,48 +83,36 @@ export const DirectoryRowPresentational: FC<DirectoryRowPresentationalProps> = (
 	anyOperationPending,
 	menuItems,
 	presentationalOnly = false,
-	rail,
+	isSelected,
+	onSelect,
 	...restProps
 }) => (
-	<Row
+	<FileListItem
 		{...restProps}
-		isChecked={checkedState === "checked"}
-		onContextMenu={
-			presentationalOnly
-				? undefined
-				: (event) => {
-						void showNativeContextMenu(event, menuItems);
-					}
-		}
-	>
-		{rail}
-		<TreeSteps depth={depth}>
-			<Tooltip
-				disableHoverablePopup
-				content={isCollapsed ? "Expand directory" : "Collapse directory"}
-				kbd={changesFileHotkeys.toggleFoldDirectory.hotkey}
-				kbdScope={focusScope}
-			>
-				<TreeStepsToggle
-					isCollapsed={isCollapsed}
-					aria-label={`${isCollapsed ? "Expand" : "Collapse"} directory ${path}`}
-					onClick={onToggleCollapsed}
-				/>
-			</Tooltip>
-		</TreeSteps>
-
-		{/* The folder stands where a file's type icon stands, and gives way to the
-		    checkbox on the same terms. */}
-		<div className={styles.leading}>
-			<FolderIcon
-				className={classes(styles.leadingMark, isReviewed && fileRowStyles.reviewedFade)}
+		{...rowPointerProps({ ...restProps, onSelect })}
+		name={name}
+		reviewed={isReviewed}
+		selected={isSelected}
+		depth={depth}
+		folded={isCollapsed}
+		onToggleFolded={onToggleCollapsed}
+		toggleRender={
+			<BaseTooltip.Trigger
+				handle={tooltipHandle}
+				payload={{
+					content: isCollapsed ? "Expand directory" : "Collapse directory",
+					kbd: changesFileHotkeys.toggleFoldDirectory.hotkey,
+					kbdScope: focusScope,
+				}}
+				aria-label={`${isCollapsed ? "Expand" : "Collapse"} directory ${path}`}
 			/>
-			<RowCheckbox
+		}
+		checkbox={
+			<Checkbox
 				disabled={anyOperationPending || !canCheck}
 				aria-label={`Check directory ${path}`}
 				checked={checkedState === "checked"}
 				indeterminate={checkedState === "indeterminate"}
-				className={styles.leadingCheckbox}
 				nativeButton
 				render={
 					presentationalOnly ? (
@@ -160,25 +136,28 @@ export const DirectoryRowPresentational: FC<DirectoryRowPresentationalProps> = (
 							}
 				}
 			/>
-		</div>
-
-		{/* A folded chain names several segments at once and a deep row is narrow, so
-		    the whole path is a hover away, as a file's is. */}
-		<BaseTooltip.Trigger
-			handle={tooltipHandle}
-			payload={{ content: path }}
-			render={<RowLabelContainer className={classes(isReviewed && fileRowStyles.reviewedFade)} />}
-		>
-			<RowLabel singleLine>{name}</RowLabel>
-		</BaseTooltip.Trigger>
-
-		{!anyOperationPending &&
-			(presentationalOnly ? (
-				<RowToolbar aria-hidden="true">
-					<PresentationalRowButton icon="kebab" />
-				</RowToolbar>
+		}
+		// A folded chain names several segments at once and a deep row is narrow,
+		// so the whole path is a hover away, as a file's is.
+		labelRender={
+			<BaseTooltip.Trigger handle={tooltipHandle} payload={{ content: path }} render={<div />} />
+		}
+		statusRender={
+			<BaseTooltip.Trigger
+				handle={tooltipHandle}
+				payload={{
+					content: isReviewed
+						? "Reviewed"
+						: `${items.length} ${items.length === 1 ? "file" : "files"}`,
+				}}
+				render={<span />}
+			/>
+		}
+		actions={
+			anyOperationPending ? undefined : presentationalOnly ? (
+				<PresentationalRowButton icon="kebab" />
 			) : (
-				<Toolbar.Root aria-label="Directory actions" render={<RowToolbar />}>
+				<Toolbar.Root aria-label="Directory actions">
 					<Toolbar.Button
 						aria-label="Directory menu"
 						onClick={(event) => {
@@ -189,27 +168,16 @@ export const DirectoryRowPresentational: FC<DirectoryRowPresentationalProps> = (
 						<Icon name="kebab" />
 					</Toolbar.Button>
 				</Toolbar.Root>
-			))}
-
-		{/* Collapsed, the count is the only sign of what the row is holding. */}
-		{isCollapsed && (
-			<span className={classes(styles.fileCount, rowStyles.fadedText, "text-11")}>
-				{items.length}
-			</span>
-		)}
-
-		{/* The same tick a reviewed file row shows in place of its change type: every
-		    change below this directory is done with. */}
-		{isReviewed && (
-			<BaseTooltip.Trigger
-				handle={tooltipHandle}
-				payload={{ content: "Reviewed" }}
-				render={
-					<span aria-label="Reviewed" className={fileRowStyles.reviewedMark}>
-						<Icon size={11} name="tick" />
-					</span>
-				}
-			/>
-		)}
-	</Row>
+			)
+		}
+		// Folded, the count is the only sign of what the row is holding.
+		count={isCollapsed ? items.length : undefined}
+		onContextMenu={
+			presentationalOnly
+				? undefined
+				: (event) => {
+						void showNativeContextMenu(event, menuItems);
+					}
+		}
+	/>
 );
