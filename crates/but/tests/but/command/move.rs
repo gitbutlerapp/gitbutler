@@ -3184,6 +3184,73 @@ Hint: run `but help` for all commands
 }
 
 #[test]
+fn move_empty_branch_above_tip_then_switching_to_workspace() {
+    let env = Sandbox::open_with_default_settings("single-branch-mode");
+    env.but("branch new top").assert().success();
+    env.but("branch new moved --below top").assert().success();
+    env.but("move moved --above top").assert().success();
+    assert_head(&env, "moved");
+
+    let expected = snapbox::str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┊╭┄ mo [moved] (no commits)
+┊│
+┊├┄ to [top] (no commits)
+├╯
+┊
+┴ b1540e5 (common base) 2000-01-02 M
+
+Hint: run `but help` for all commands
+
+"#]];
+    assert_status(&env, expected.clone());
+
+    env.but("switch --workspace").assert().success();
+    assert_head(&env, "gitbutler/workspace");
+    // Switching modes must preserve an empty-only stack, including its moved tip.
+    assert_status(&env, expected);
+}
+
+#[test]
+fn move_empty_branch_below_tip_then_switching_to_workspace() {
+    let env = Sandbox::open_with_default_settings("single-branch-mode");
+    env.but("branch new empty-low").assert().success();
+    env.but("branch new empty-mid --above empty-low")
+        .assert()
+        .success();
+    env.but("branch new empty-top --above empty-mid")
+        .assert()
+        .success();
+    env.but("move empty-low --above empty-mid")
+        .assert()
+        .success();
+    assert_head(&env, "empty-top");
+
+    let expected = snapbox::str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┊╭┄ em [empty-top] (no commits)
+┊│
+┊├┄ mp [empty-low] (no commits)
+┊│
+┊├┄ pt [empty-mid] (no commits)
+├╯
+┊
+┴ b1540e5 (common base) 2000-01-02 M
+
+Hint: run `but help` for all commands
+
+"#]];
+    assert_status(&env, expected.clone());
+
+    env.but("switch --workspace").assert().success();
+    assert_head(&env, "gitbutler/workspace");
+    // Switching modes must preserve the reordered lower branches even without commits.
+    assert_status(&env, expected);
+}
+
+#[test]
 fn move_commit_branch_above_empty_dependents_keeps_them_empty() {
     let env = Sandbox::open_with_default_settings("single-branch-mode");
     env.but("branch new commit-branch").assert().success();
@@ -5371,4 +5438,87 @@ Cannot stack a branch onto worktree branch 'wt-lower'
 
 "#]])
         .stdout_eq(snapbox::str![]);
+}
+
+#[test]
+fn moving_commit_to_branch_below_then_switching_to_workspace() {
+    let env = Sandbox::open_with_default_settings("single-branch-mode");
+
+    env.but("commit -b bottom -m 'on bottom'")
+        .assert()
+        .success();
+    env.but("commit -b top --above bottom -m 'on top'")
+        .assert()
+        .success();
+
+    env.but("status").assert().stdout_eq(snapbox::str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┊╭┄ to [top]
+┊●   ylm on top (no changes)
+┊│
+┊├┄ bo [bottom]
+┊●   lsm on bottom (no changes)
+├╯
+┊
+┴ b1540e5 (common base) 2000-01-02 M
+
+Hint: run `but help` for all commands
+
+"#]]);
+
+    env.but("move ylm --above bottom -b middle")
+        .assert()
+        .success();
+
+    env.but("status").assert().stdout_eq(snapbox::str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┊╭┄ to [top] (no commits)
+┊│
+┊├┄ mi [middle]
+┊●   ylm on top (no changes)
+┊│
+┊├┄ bo [bottom]
+┊●   lsm on bottom (no changes)
+├╯
+┊
+┴ b1540e5 (common base) 2000-01-02 M
+
+Hint: run `but help` for all commands
+
+"#]]);
+
+    env.but("switch --workspace").assert().success();
+
+    env.but("status").assert().stdout_eq(snapbox::str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┊╭┄ to [top] (no commits)
+┊│
+┊├┄ mi [middle]
+┊●   ylm on top (no changes)
+┊│
+┊├┄ bo [bottom]
+┊●   lsm on bottom (no changes)
+├╯
+┊
+┴ b1540e5 (common base) 2000-01-02 M
+
+Hint: run `but help` for all commands
+
+"#]]);
+
+    snapbox::assert_data_eq!(
+        env.git_log(),
+        snapbox::str![[r#"
+* e0dcfe0 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+* 41e32b0 (top, middle) on top
+* ff665ad (bottom) on bottom
+* b1540e5 (origin/main, origin/HEAD, main, gitbutler/target) M
+* e31e6ca add init
+
+"#]]
+        .raw()
+    );
 }
