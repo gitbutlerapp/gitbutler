@@ -61,7 +61,9 @@ pub fn safe_checkout_from_head(
             .is_err()
         {
             // Just overwrite the index.
-            git2_repo.index()?.read_tree(&tree)?;
+            let mut index = git2_repo.index()?;
+            index.read_tree(&tree)?;
+            index.write()?;
         }
         tree
     } else {

@@ -1,7 +1,7 @@
 use bstr::ByteSlice;
 use but_core::worktree::{checkout, safe_checkout_from_head};
 use but_testsupport::{
-    CommandExt, git_at_dir, git_status, open_repo, read_only_in_memory_scenario,
+    CommandExt, git, git_at_dir, git_status, open_repo, read_only_in_memory_scenario,
     visualize_commit_graph_all, visualize_disk_tree_skip_dot_git, visualize_index,
     writable_scenario, writable_scenario_slow,
 };
@@ -1152,6 +1152,179 @@ fn cancelling_consumed_changes_keeps_a_concurrent_edit() -> anyhow::Result<()> {
         "the snapshot is taken live, so the concurrent edit survives the cancellation"
     );
     Ok(())
+}
+
+#[test]
+fn index_overwrite_fallback_is_written_to_disk() -> anyhow::Result<()> {
+    let (repo, _tmp) = writable_scenario("unborn-empty");
+    commit_and_checkout_initial_files(&repo)?;
+    let override_tree = checkout_deletions_over_diverged_index(&repo)?;
+
+    let repo = open_repo(repo.git_dir())?;
+    assert_eq!(
+        index_tree(&repo),
+        override_tree.to_string(),
+        "the fresh index on disk is the override tree the fallback selected"
+    );
+    // `staged-only.txt` was staged, but the full overwrite keeps it only as a worktree change,
+    // which shows the fallback ran. The committed deletions don't come back.
+    snapbox::assert_data_eq!(
+        git_status(&repo)?,
+        snapbox::str![[r#"
+ M staged-only.txt
+ M unstaged.txt
+
+"#]]
+    );
+    assert_eq!(
+        std::fs::read(repo.workdir_path("staged-only.txt").unwrap())?,
+        b"staged\n",
+        "staged bytes survive in the worktree"
+    );
+    assert_eq!(
+        std::fs::read(repo.workdir_path("unstaged.txt").unwrap())?,
+        b"unstaged\n",
+        "unrelated worktree bytes survive"
+    );
+    Ok(())
+}
+
+#[test]
+fn index_overwrite_fallback_only_writes_the_linked_worktree_index() -> anyhow::Result<()> {
+    let (main, _tmp) = writable_scenario("unborn-empty");
+    commit_and_checkout_initial_files(&main)?;
+    let wt_root = but_testsupport::gix_testtools::tempfile::TempDir::new()?;
+    let wt_dir = wt_root.path().join("wt");
+    git(&main)
+        .args(["worktree", "add", "-b", "wt"])
+        .arg(&wt_dir)
+        .run();
+    let main_index_tree = index_tree(&main);
+
+    let linked = open_repo(&wt_dir)?;
+    let override_tree = checkout_deletions_over_diverged_index(&linked)?;
+
+    assert_eq!(
+        index_tree(&linked),
+        override_tree.to_string(),
+        "the linked worktree index on disk is the override tree the fallback selected"
+    );
+    assert_eq!(
+        index_tree(&main),
+        main_index_tree,
+        "the main worktree index is untouched"
+    );
+    // The main worktree was clean and nothing touched its index or files.
+    snapbox::assert_data_eq!(git_status(&main)?, snapbox::str![""]);
+    Ok(())
+}
+
+#[test]
+fn index_overwrite_fallback_uses_an_override_that_differs_from_the_new_tree() -> anyhow::Result<()>
+{
+    let (repo, _tmp) = writable_scenario("adjacent-line-additions");
+    let file_path = repo.workdir_path("separated").unwrap();
+    // Staging the whole file makes the `HEAD → override` patch inapplicable to the index.
+    git(&repo).args(["add", "separated"]).run();
+
+    let head = repo.head_commit()?.id;
+    let consumed = build_commit(
+        &repo,
+        |tree| {
+            let blob_id = repo.write_blob(b"line1\nadded-a\nunchanged\nline2\nline3\n")?;
+            tree.upsert("separated", EntryKind::Blob, blob_id)?;
+            Ok(())
+        },
+        "HEAD^{tree} plus the consumed change",
+    )?
+    .tree_id()?
+    .detach();
+
+    safe_checkout_from_head(
+        head,
+        &repo,
+        checkout::Options {
+            merge_base_override: Some(consumed),
+            ..Default::default()
+        },
+    )?;
+
+    let repo = open_repo(repo.git_dir())?;
+    // The index starts out as the override tree, and the checkout then updates the entry
+    // of each file it writes to its merged content.
+    snapbox::assert_data_eq!(
+        visualize_index(&*repo.index()?),
+        snapbox::str![[r#"
+100644:83db48f file
+100644:5fa2910 file2
+100644:1cf60f9 separated
+
+"#]]
+    );
+    assert_eq!(
+        std::fs::read_to_string(&file_path)?,
+        "line1\nunchanged\nadded-b\nline2\nline3\n",
+        "only the consumed line is removed"
+    );
+    // Unrelated dirt stays unstaged, and `separated` is staged at the merged content the checkout wrote.
+    snapbox::assert_data_eq!(
+        git_status(&repo)?,
+        snapbox::str![[r#"
+ M file
+ M file2
+M  separated
+
+"#]]
+    );
+    Ok(())
+}
+
+fn commit_and_checkout_initial_files(repo: &gix::Repository) -> anyhow::Result<()> {
+    let mut editor = repo.empty_tree().edit()?;
+    for path in ["staged.txt", "gone.txt", "staged-only.txt", "unstaged.txt"] {
+        editor.upsert(path, EntryKind::Blob, repo.write_blob(b"initial\n")?)?;
+    }
+    let tree = editor.write()?.detach();
+    let commit = repo.new_commit("init", tree, None::<gix::ObjectId>)?;
+    safe_checkout_from_head(commit.id, repo, Default::default())?;
+    Ok(())
+}
+
+/// Stage the deletion of `staged.txt` so the `HEAD → override` patch can't apply to the index,
+/// forcing the index overwrite fallback, and check out a commit deleting it and `gone.txt`
+/// with its own tree as override. Unrelated staged and unstaged changes are left alongside.
+fn checkout_deletions_over_diverged_index(repo: &gix::Repository) -> anyhow::Result<gix::ObjectId> {
+    let workdir = repo.workdir().expect("non-bare");
+    git(repo).args(["rm", "-q", "staged.txt"]).run();
+    std::fs::remove_file(workdir.join("gone.txt"))?;
+    std::fs::write(workdir.join("staged-only.txt"), "staged\n")?;
+    git(repo).args(["add", "staged-only.txt"]).run();
+    std::fs::write(workdir.join("unstaged.txt"), "unstaged\n")?;
+
+    let new_commit = build_commit(
+        repo,
+        |tree| {
+            tree.remove("staged.txt")?.remove("gone.txt")?;
+            Ok(())
+        },
+        "delete staged.txt and gone.txt",
+    )?;
+    let override_tree = new_commit.tree_id()?.detach();
+    safe_checkout_from_head(
+        new_commit.id,
+        repo,
+        checkout::Options {
+            merge_base_override: Some(override_tree),
+            ..Default::default()
+        },
+    )?;
+    Ok(override_tree)
+}
+
+fn index_tree(repo: &gix::Repository) -> String {
+    let out = git(repo).arg("write-tree").output().expect("git runs");
+    assert!(out.status.success(), "{}", out.stderr.as_bstr());
+    out.stdout.trim().to_str().expect("hex").to_owned()
 }
 
 mod utils {}
