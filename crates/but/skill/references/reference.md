@@ -183,7 +183,7 @@ exist. `-b` (even without a name) is rejected with commit/worktree targets.
 Create a commit. Changes are positional CLI IDs; where the commit goes is a flag.
 
 ```bash
-but commit -b <branch> -m "message"          # Commit ALL uncommitted changes to branch
+but commit -b <branch> -m "message"          # Commit ALL uncommitted changes of this checkout to branch
 but commit -b <branch> -m "message" <id> <id>  # Commit specific files or hunks by CLI ID
 but commit -b <branch> -m "msg" -m "body"    # Repeat -m; parts joined by a blank line
 but commit --above <target> -m "message" <id>  # Place the commit above a commit or branch
