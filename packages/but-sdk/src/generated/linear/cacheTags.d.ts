@@ -37,6 +37,7 @@ export declare const apiProvides: {
 	readonly listReviewerCandidates: readonly ["ReviewerCandidates"];
 	readonly listReviews: readonly ["Reviews"];
 	readonly listSnapshots: readonly ["Workspace"];
+	readonly newReviewTarget: readonly ["Workspace", "Reviews"];
 	readonly operatingMode: readonly ["OperatingMode"];
 	readonly treeChangeDiffs: readonly ["Diffs"];
 	readonly treeChangeDiffsFromSource: readonly ["Diffs"];

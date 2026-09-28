@@ -35,6 +35,7 @@ export const apiProvides = {
 	listReviewerCandidates: ["ReviewerCandidates"],
 	listReviews: ["Reviews"],
 	listSnapshots: ["Workspace"],
+	newReviewTarget: ["Workspace", "Reviews"],
 	operatingMode: ["OperatingMode"],
 	treeChangeDiffs: ["Diffs"],
 	treeChangeDiffsFromSource: ["Diffs"],
