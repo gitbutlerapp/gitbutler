@@ -29,6 +29,7 @@ const CLEAR_TO_END_OF_LINE: &str = "\x1b[0K";
 pub struct DiffOutcome<'a> {
     ctx: &'a mut Context,
     target: DiffOperation,
+    query: Option<but_lisp::Query>,
 }
 
 impl CliOutputHuman for DiffOutcome<'_> {
@@ -38,7 +39,7 @@ impl CliOutputHuman for DiffOutcome<'_> {
         _agent: bool,
         theme: &'static Theme,
     ) -> anyhow::Result<()> {
-        let Self { ctx, target } = self;
+        let DiffOutcome { ctx, target, query } = self;
 
         let syntax_set = load_syntax_set();
         let syntax_theme = theme.load_syntax_highlighting_theme()?;
@@ -52,6 +53,7 @@ impl CliOutputHuman for DiffOutcome<'_> {
         let options = diff_rendering::Options {
             skip_commit_header: true,
             skip_line_stats: true,
+            query: query.as_ref(),
         };
 
         match target {
@@ -210,20 +212,45 @@ impl CliOutput for DiffOutcome<'_> {
             }
         }
 
-        fn hunk_changes(mut hunks: Vec<(&str, &but_core::SingleHunk)>) -> Vec<Change> {
-            hunks.sort_by(|(_, a_hunk), (_, b_hunk)| {
+        fn hunk_changes(
+            mut hunks: Vec<(&str, &but_core::SingleHunk, but_core::TreeStatusKind)>,
+            query: Option<&but_lisp::Query>,
+        ) -> Vec<Change> {
+            hunks.sort_by(|(_, a_hunk, _), (_, b_hunk, _)| {
                 a_hunk
                     .path
                     .cmp(&b_hunk.path)
                     .then_with(|| a_hunk.hunk_header.cmp(&b_hunk.hunk_header))
             });
+            let mut filter = crate::utils::diff_query::Filter::new(query);
             hunks
                 .into_iter()
-                .map(|(id, hunk)| hunk_to_change(Some(id), hunk))
+                .filter_map(|(id, hunk, status)| {
+                    let hunk = if query.is_some() {
+                        std::borrow::Cow::Owned(filter.single_hunk(status, hunk.clone())?)
+                    } else {
+                        std::borrow::Cow::Borrowed(hunk)
+                    };
+                    let mut change = hunk_to_change(Some(id), &hunk);
+                    if query.is_some() {
+                        change.status = match status {
+                            but_core::TreeStatusKind::Addition => "added",
+                            but_core::TreeStatusKind::Deletion => "deleted",
+                            but_core::TreeStatusKind::Modification => "modified",
+                            but_core::TreeStatusKind::Rename => "renamed",
+                        }
+                        .to_owned();
+                    }
+                    Some(change)
+                })
                 .collect()
         }
 
-        fn tree_change_to_change(ctx: &Context, change: but_core::ui::TreeChange) -> Change {
+        fn tree_change_to_change(
+            ctx: &Context,
+            change: but_core::ui::TreeChange,
+            query: Option<&but_lisp::Query>,
+        ) -> Option<Change> {
             use but_core::{UnifiedPatch, ui::TreeStatus};
 
             let (status, old_path) = match &change.status {
@@ -238,6 +265,13 @@ impl CliOutput for DiffOutcome<'_> {
             let patch = but_api::diff::tree_change_diffs(ctx, change.clone())
                 .ok()
                 .flatten();
+            let mut filter = crate::utils::diff_query::Filter::new(query);
+            let kind = Into::<but_core::TreeStatus>::into(change.status.clone()).kind();
+            let patch = match patch {
+                Some(patch) => Some(filter.patch(&change.path_bytes, kind, patch)?),
+                None if filter.non_text(&change.path_bytes, kind) => None,
+                None => return None,
+            };
             let diff = match patch {
                 Some(UnifiedPatch::Binary) => Diff::Binary,
                 Some(UnifiedPatch::TooLarge { size_in_bytes }) => Diff::TooLarge { size_in_bytes },
@@ -255,19 +289,20 @@ impl CliOutput for DiffOutcome<'_> {
                 },
             };
 
-            Change {
+            Some(Change {
                 id: None,
                 path: change.path_bytes.to_string(),
                 status: status.to_owned(),
                 old_path,
                 diff,
-            }
+            })
         }
 
         fn commit_changes(
             ctx: &Context,
             commit: gix::ObjectId,
             path: Option<&BString>,
+            query: Option<&but_lisp::Query>,
         ) -> anyhow::Result<Vec<Change>> {
             let details =
                 but_api::diff::commit_details(ctx, commit, but_api::diff::ComputeLineStats::No)?;
@@ -275,11 +310,15 @@ impl CliOutput for DiffOutcome<'_> {
                 .diff_with_first_parent
                 .into_iter()
                 .filter(|change| path.is_none_or(|path| path == &change.path))
-                .map(|change| tree_change_to_change(ctx, change.into()))
+                .filter_map(|change| tree_change_to_change(ctx, change.into(), query))
                 .collect())
         }
 
-        fn build_output(ctx: &Context, target: &DiffOperation) -> anyhow::Result<Output> {
+        fn build_output(
+            ctx: &Context,
+            target: &DiffOperation,
+            query: Option<&but_lisp::Query>,
+        ) -> anyhow::Result<Output> {
             let changes = match target {
                 DiffOperation::Uncommitted(source) => {
                     let id_map = IdMap::legacy_new_from_context(ctx)?;
@@ -288,34 +327,39 @@ impl CliOutput for DiffOutcome<'_> {
                             .uncommitted_hunks
                             .iter()
                             .filter(|(_, hunk)| hunk.source == *source)
-                            .map(|(id, hunk)| (id.as_str(), &hunk.hunk))
+                            .map(|(id, hunk)| (id.as_str(), &hunk.hunk, hunk.tree_status))
                             .collect(),
+                        query,
                     )
                 }
-                DiffOperation::Commit { commit } => commit_changes(ctx, commit.commit_id, None)?,
+                DiffOperation::Commit { commit } => {
+                    commit_changes(ctx, commit.commit_id, None, query)?
+                }
                 DiffOperation::Branch { branch } => {
                     let branch = branch.shorten().to_string();
                     let branch_diff = but_api::branch::branch_diff(ctx, branch)?;
                     branch_diff
                         .changes
                         .into_iter()
-                        .map(|change| tree_change_to_change(ctx, change))
+                        .filter_map(|change| tree_change_to_change(ctx, change, query))
                         .collect()
                 }
                 DiffOperation::UncommittedHunkOrFile { hunk } => hunk_changes(
                     hunk.hunks
                         .iter()
-                        .map(|hunk| (hunk.id.as_str(), &hunk.hunk))
+                        .map(|hunk| (hunk.id.as_str(), &hunk.hunk, hunk.tree_status))
                         .collect(),
+                    query,
                 ),
                 DiffOperation::CommittedFile { commit, path } => {
-                    commit_changes(ctx, commit.commit_id, Some(path))?
+                    commit_changes(ctx, commit.commit_id, Some(path), query)?
                 }
                 DiffOperation::PathPrefix { hunks, .. } => hunk_changes(
                     hunks
                         .iter()
-                        .map(|hunk| (hunk.id.as_str(), &hunk.hunk))
+                        .map(|hunk| (hunk.id.as_str(), &hunk.hunk, hunk.tree_status))
                         .collect(),
+                    query,
                 ),
             };
 
@@ -325,6 +369,7 @@ impl CliOutput for DiffOutcome<'_> {
         struct DeferredOutput<'a> {
             ctx: &'a Context,
             target: DiffOperation,
+            query: Option<but_lisp::Query>,
         }
 
         impl Serialize for DeferredOutput<'_> {
@@ -332,14 +377,14 @@ impl CliOutput for DiffOutcome<'_> {
             where
                 S: serde::Serializer,
             {
-                let output = build_output(self.ctx, &self.target)
+                let output = build_output(self.ctx, &self.target, self.query.as_ref())
                     .map_err(<S::Error as serde::ser::Error>::custom)?;
                 output.serialize(serializer)
             }
         }
 
-        let Self { ctx, target } = self;
-        DeferredOutput { ctx, target }
+        let DiffOutcome { ctx, target, query } = self;
+        DeferredOutput { ctx, target, query }
     }
 }
 
@@ -412,11 +457,15 @@ pub fn diff<'a>(
     args: Platform,
     invoked_from: &InvokedFrom,
 ) -> CliResult<DiffOutcome<'a>> {
+    let query = args
+        .query
+        .as_deref()
+        .map(crate::utils::diff_query::parse)
+        .transpose()?;
     let guard = ctx.shared_worktree_access();
     let id_map = IdMap::new_from_context(ctx, guard.read_permission())?;
-
     let op = resolve(ctx, &id_map, args, invoked_from)?;
-    Ok(run(ctx, op)?)
+    Ok(run(ctx, op, query)?)
 }
 
 fn resolve(
@@ -425,7 +474,7 @@ fn resolve(
     args: Platform,
     invoked_from: &InvokedFrom,
 ) -> CliResult<DiffOperation> {
-    let Platform { target } = args;
+    let Platform { target, query: _ } = args;
 
     let resolved_target = if let Some(target) = target {
         let repo = ctx.repo.get()?;
@@ -468,8 +517,16 @@ fn resolve(
     }
 }
 
-fn run(ctx: &mut Context, op: DiffOperation) -> anyhow::Result<DiffOutcome<'_>> {
-    Ok(DiffOutcome { ctx, target: op })
+fn run(
+    ctx: &mut Context,
+    op: DiffOperation,
+    query: Option<but_lisp::Query>,
+) -> anyhow::Result<DiffOutcome<'_>> {
+    Ok(DiffOutcome {
+        ctx,
+        target: op,
+        query,
+    })
 }
 
 #[derive(Debug)]

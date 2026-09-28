@@ -23,6 +23,21 @@ fn assert_command(subcommand: Subcommands, expected: &str) {
     );
 }
 
+#[cfg(feature = "legacy")]
+#[test]
+fn diff_queries_are_not_included_in_metrics() {
+    let command = Subcommands::Diff(crate::args::diff::Platform {
+        target: Some(CliIdArg("private-path".into())),
+        query: Some(r#"(line :regex "private-content")"#.into()),
+    });
+    let props = command.to_metrics_extra_props();
+    assert!(
+        !serde_json::to_string(&props).unwrap().contains("private"),
+        "diff metrics must not contain paths or query text"
+    );
+    assert_command(command, "diff");
+}
+
 #[test]
 fn experimental_metric_names_require_nightly() {
     assert_eq!(

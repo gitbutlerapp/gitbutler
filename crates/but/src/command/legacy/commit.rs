@@ -134,15 +134,8 @@ pub fn commit(
     let query = args
         .query
         .as_deref()
-        .map(but_lisp::Query::parse)
-        .transpose()
-        .map_err(|error| {
-            let mut rendered = String::new();
-            miette::GraphicalReportHandler::new_themed(miette::GraphicalTheme::unicode_nocolor())
-                .render_report(&mut rendered, &error)
-                .expect("rendering a diagnostic to a String cannot fail");
-            bad_input(rendered)
-        })?;
+        .map(crate::utils::diff_query::parse)
+        .transpose()?;
     let guard = ctx.exclusive_worktree_access();
     let mut meta = ctx.meta()?;
     let id_map = IdMap::new_from_context(ctx, guard.read_permission())?;

@@ -1,4 +1,5 @@
 use std::{
+    borrow::Cow,
     cell::RefCell,
     collections::HashSet,
     fmt::Display,
@@ -455,9 +456,10 @@ impl CodeLineNumbers {
 }
 
 #[derive(Debug, Copy, Clone, Default)]
-pub struct Options {
+pub struct Options<'a> {
     pub skip_commit_header: bool,
     pub skip_line_stats: bool,
+    pub query: Option<&'a but_lisp::Query>,
 }
 
 pub fn render_commit(
@@ -562,6 +564,7 @@ pub fn render_commit(
                 tree_changes,
                 theme,
                 &mut id_gen,
+                options.query,
                 out,
             )?;
         }
@@ -589,7 +592,7 @@ pub fn render_commit(
                 out.write_section_separator()?;
             }
 
-            render_tree_changes(tree_changes, theme, &mut id_gen, out)?;
+            render_tree_changes(tree_changes, theme, &mut id_gen, options.query, out)?;
         }
     }
 
@@ -624,7 +627,7 @@ pub fn render_branch(
         out.write_section_separator()?;
     }
 
-    render_tree_changes(tree_changes, theme, &mut id_gen, out)?;
+    render_tree_changes(tree_changes, theme, &mut id_gen, options.query, out)?;
 
     Ok(())
 }
@@ -651,27 +654,30 @@ pub fn render_uncommitted_source(
 
     let id_map = IdMap::legacy_new_from_context(ctx)?;
     let uncommitted_hunks = filter_uncommitted_hunks(ctx, &id_map, |hunk| hunk.source == source)?;
+    let mut filter = super::diff_query::Filter::new(options.query);
+    let uncommitted_hunks: Vec<_> = uncommitted_hunks
+        .into_iter()
+        .filter_map(|(raw_id, cli_id, hunk)| {
+            let filtered = if options.query.is_some() {
+                Cow::Owned(filter.single_hunk(hunk.tree_status, hunk.hunk.clone())?)
+            } else {
+                Cow::Borrowed(&hunk.hunk)
+            };
+            Some((raw_id, cli_id, filtered, hunk.tree_status))
+        })
+        .collect();
 
     if !options.skip_line_stats {
         let line_stats = render_line_stats(compute_line_stats_from_uncommitted_hunks(
-            uncommitted_hunks.iter().map(|(_, _, hunk)| &hunk.hunk),
+            uncommitted_hunks
+                .iter()
+                .map(|(_, _, hunk, _)| hunk.as_ref()),
         ));
         out.write_selectable_text(id_gen.new_id("line_stats"), None, line_stats)?;
         out.write_section_separator()?;
     }
 
-    for (
-        pos,
-        (
-            raw_id,
-            cli_id,
-            UncommittedHunk {
-                hunk,
-                tree_status,
-                source: _,
-            },
-        ),
-    ) in uncommitted_hunks.into_iter().with_position()
+    for (pos, (raw_id, cli_id, hunk, tree_status)) in uncommitted_hunks.into_iter().with_position()
     {
         let id = id_gen.new_id(raw_id);
 
@@ -679,12 +685,12 @@ pub fn render_uncommitted_source(
             id,
             Some(Arc::clone(&cli_id)),
             hunk.path.as_ref(),
-            Some(StatusLine::ShortIdAndTreeStatus(raw_id, *tree_status)),
+            Some(StatusLine::ShortIdAndTreeStatus(raw_id, tree_status)),
             out,
             theme,
         )?;
 
-        render_hunk(id, Some(Arc::clone(&cli_id)), hunk, theme, out)?;
+        render_hunk(id, Some(Arc::clone(&cli_id)), &hunk, theme, out)?;
 
         if pos.needs_padding_below() {
             out.write_section_separator()?;
@@ -756,6 +762,15 @@ fn render_id_and_hunks(
                 &b.id,
             ))
     });
+
+    let mut filter = super::diff_query::Filter::new(options.query);
+    let hunks: Vec<_> = hunks
+        .into_iter()
+        .filter_map(|mut hunk| {
+            hunk.hunk = filter.single_hunk(hunk.tree_status, hunk.hunk)?;
+            Some(hunk)
+        })
+        .collect();
 
     if !options.skip_line_stats {
         let line_stats = render_line_stats(compute_line_stats_from_uncommitted_hunks(
@@ -846,7 +861,14 @@ pub fn render_committed_file(
         out.write_section_separator()?;
     }
 
-    render_tree_changes_with_id(workspace_commit.id(), tree_changes, theme, &mut id_gen, out)?;
+    render_tree_changes_with_id(
+        workspace_commit.id(),
+        tree_changes,
+        theme,
+        &mut id_gen,
+        options.query,
+        out,
+    )?;
 
     Ok(())
 }
@@ -940,6 +962,7 @@ fn render_tree_changes_with_id(
     tree_changes: Vec<(TreeChangeWithId, UnifiedPatch)>,
     theme: &'static Theme,
     id_gen: &mut IdGen<'_>,
+    query: Option<&but_lisp::Query>,
     out: &mut dyn DiffLineWriter,
 ) -> anyhow::Result<()> {
     let mut id_gen = id_gen.scoped("tree_changes");
@@ -948,6 +971,23 @@ fn render_tree_changes_with_id(
         tree_changes.into_iter().enumerate().with_position()
     {
         let mut id_gen = id_gen.scoped(i);
+        // Addressable hunks are filtered after assigning their original IDs.
+        let patch = match patch {
+            patch @ UnifiedPatch::Patch {
+                is_result_of_binary_to_text_conversion: false,
+                ..
+            } => patch,
+            patch => {
+                let Some(patch) = super::diff_query::Filter::new(query).patch(
+                    &tree_change.inner.path,
+                    tree_change.inner.status.kind(),
+                    patch,
+                ) else {
+                    continue;
+                };
+                patch
+            }
+        };
 
         match patch {
             UnifiedPatch::Patch {
@@ -995,7 +1035,14 @@ fn render_tree_changes_with_id(
             }
             patch @ UnifiedPatch::Patch { .. } => {
                 let mut id_gen = id_gen.scoped("hunks");
-                let hunks = identify_hunks(&tree_change, patch)?;
+                let mut filter = super::diff_query::Filter::new(query);
+                let hunks: Vec<_> = identify_hunks(&tree_change, patch)?
+                    .into_iter()
+                    .filter_map(|mut hunk| {
+                        hunk.hunk = filter.single_hunk(hunk.tree_status, hunk.hunk)?;
+                        Some(hunk)
+                    })
+                    .collect();
                 for (hunk_pos, (j, hunk)) in hunks.into_iter().enumerate().with_position() {
                     let hunk_id = id_gen.new_id(j);
 
@@ -1075,9 +1122,19 @@ fn render_tree_changes(
     tree_changes: Vec<(TreeChange, UnifiedPatch)>,
     theme: &'static Theme,
     id_gen: &mut IdGen<'_>,
+    query: Option<&but_lisp::Query>,
     out: &mut dyn DiffLineWriter,
 ) -> anyhow::Result<()> {
     let mut id_gen = id_gen.scoped("tree_changes");
+    let mut filter = super::diff_query::Filter::new(query);
+    let tree_changes = tree_changes
+        .into_iter()
+        .filter_map(|(change, patch)| {
+            let status = Into::<but_core::TreeStatus>::into(change.status.clone()).kind();
+            let patch = filter.patch(&change.path_bytes, status, patch)?;
+            Some((change, patch))
+        })
+        .collect::<Vec<_>>();
 
     for (tree_change_pos, (i, (tree_change, patch))) in
         tree_changes.into_iter().enumerate().with_position()
@@ -1095,6 +1152,21 @@ fn render_tree_changes(
             } => {
                 let mut first_hunk = true;
                 let mut id_gen = id_gen.scoped("hunks");
+                if query.is_some() && hunks.is_empty() {
+                    let id = id_gen.new_id("metadata");
+                    render_hunk_path_header(
+                        id,
+                        None,
+                        tree_change.path.as_ref(),
+                        Some(StatusLine::TreeStatus(tree_status)),
+                        out,
+                        theme,
+                    )?;
+                    out.write_selectable_text(id, None, "No text diff available".into())?;
+                    if tree_change_pos.needs_padding_below() {
+                        out.write_section_separator()?;
+                    }
+                }
                 for (hunk_pos, (j, hunk)) in hunks.into_iter().enumerate().with_position() {
                     let hunk_id = id_gen.new_id(j);
 
@@ -1568,6 +1640,7 @@ mod tests {
             Options {
                 skip_commit_header: true,
                 skip_line_stats: true,
+                query: None,
             },
             &mut writer,
         )?;
@@ -1667,6 +1740,7 @@ mod tests {
             vec![(tree_change, patch)],
             crate::theme::get(),
             &mut id_gen,
+            None,
             &mut writer,
         )?;
 

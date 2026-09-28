@@ -19,4 +19,16 @@ pub struct Platform {
     ///
     /// For more details about CLI IDs, see `but help cli-ids`.
     pub target: Option<CliIdArg>,
+
+    /// Filter the diff with the same Lisp queries as `but commit --query`.
+    ///
+    /// Supports file, line, and hunk selectors, composed with not, union,
+    /// intersection, and difference. Only changed lines are searched, never
+    /// context. For example: --query '(file :glob "src/**/*.rs")'.
+    /// Queries narrow TARGET; no matches produce an empty diff. Line selectors
+    /// show the selected patch with context. Ranges refer to the original diff,
+    /// before the selected patch's line numbers are recalculated. IDs still
+    /// identify the original hunks.
+    #[clap(long, value_name = "EXPR")]
+    pub query: Option<String>,
 }
