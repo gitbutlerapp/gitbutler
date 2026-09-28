@@ -221,9 +221,17 @@ fn resolve(
         let (repo, ws, _db) = ctx.workspace_and_db_with_perm(perm)?;
         // Picked commits are not read from any checkout, so no worktree source can
         // steer the default target.
-        let source = crate::utils::change_source::ChangeSourceId::Head;
+        let default_lane = || Ok(crate::utils::change_source::ChangeSourceId::Head);
         route_commit_operation(
-            &repo, &ws, head_info, out, id_map, target_ish, &source, &merged, switch,
+            &repo,
+            &ws,
+            head_info,
+            out,
+            id_map,
+            target_ish,
+            default_lane,
+            &merged,
+            switch,
         )
         .map_err(|err| match err {
             RouteCommitOperationError::NoStackToCommitTo => {
