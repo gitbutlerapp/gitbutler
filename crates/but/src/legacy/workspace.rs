@@ -153,13 +153,24 @@ fn applied_stacks_with_options(
     ))
 }
 
-/// Every lane as the push command sees it: each stack, then each linked worktree in tip order
-/// without an id. Segments without a ref are left out, as nothing can push them.
+/// Every lane: each stack, then each linked worktree in tip order without an id. Segments
+/// without a ref are left out, as nothing can name them.
+pub fn applied_lanes(ctx: &Context) -> anyhow::Result<Vec<HeadInfoStack>> {
+    applied_lanes_with_options(ctx, false)
+}
+
 pub fn applied_lanes_with_expensive_commit_info(
     ctx: &Context,
 ) -> anyhow::Result<Vec<HeadInfoStack>> {
+    applied_lanes_with_options(ctx, true)
+}
+
+fn applied_lanes_with_options(
+    ctx: &Context,
+    expensive_commit_info: bool,
+) -> anyhow::Result<Vec<HeadInfoStack>> {
     let metadata = workspace_metadata(&ctx.meta()?)?;
-    let (info, object_hash) = head_info(ctx, true)?;
+    let (info, object_hash) = head_info(ctx, expensive_commit_info)?;
     let null_id = object_hash.null();
     let mut lanes = head_info_stacks(
         &info,

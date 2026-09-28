@@ -107,32 +107,36 @@ fn branch_rename_same_name_rejects_a_missing_source() -> anyhow::Result<()> {
 }
 
 #[test]
-fn branch_rename_refuses_when_checked_out_in_another_worktree() -> anyhow::Result<()> {
+fn branch_rename_moves_head_of_another_worktree_checked_out_on_it() -> anyhow::Result<()> {
     let (repo, tmp) = repo_with_feature_branch()?;
-    // Check `feature` out in a second, linked worktree; the main worktree stays on `main`.
-    let _worktree = checkout_branch_in_linked_worktree(tmp.path(), "feature")?;
+    let worktree = checkout_branch_in_linked_worktree(tmp.path(), "feature")?;
 
     let mut ctx = but_ctx::Context::from_repo_for_testing(repo)?.with_memory_app_cache();
+    let main = gix::refs::FullName::try_from("refs/heads/main")?;
     let feature = gix::refs::FullName::try_from("refs/heads/feature")?;
     let renamed = gix::refs::FullName::try_from("refs/heads/renamed-feature")?;
 
-    let err = but_api::branch::branch_rename(&mut ctx, feature.clone(), "renamed-feature".into())
-        .expect_err("cannot rename a branch checked out in another worktree");
-    assert!(
-        err.to_string().contains("checked out elsewhere"),
-        "unexpected error: {err}"
-    );
+    but_api::branch::branch_rename(&mut ctx, feature.clone(), "renamed-feature".into())?;
 
-    // The rename must be all-or-nothing: the old ref is untouched and the new ref was never created,
-    // so we don't leave a partially-applied rename behind.
     let repo = ctx.repo.get()?;
     assert!(
-        repo.try_find_reference(feature.as_ref())?.is_some(),
-        "the original branch must remain"
+        repo.try_find_reference(feature.as_ref())?.is_none(),
+        "the old name is gone"
     );
     assert!(
-        repo.try_find_reference(renamed.as_ref())?.is_none(),
-        "the new branch must not have been created"
+        repo.try_find_reference(renamed.as_ref())?.is_some(),
+        "the new name exists"
+    );
+    assert_eq!(
+        repo.head_name()?.expect("HEAD is symbolic"),
+        main,
+        "the main worktree was never on the renamed branch"
+    );
+    let linked = gix::open(worktree.path().join("wt"))?;
+    assert_eq!(
+        linked.head_name()?.expect("HEAD is symbolic"),
+        renamed,
+        "the linked worktree follows its branch to the new name"
     );
 
     Ok(())
