@@ -25,9 +25,9 @@ keywords of the same name.
 **Feel comes from the curve before the tier.** A medium transition that seems
 slow wants `ease-out`, not the fast tier.
 
-**Loops and holds are not transitions.** The spinner and the fresh-change
-pulse are keyframe animations with their own timing; the pause before a
-"Copied" label reverts is a delay in code. Neither takes a token.
+**Loops and holds are not transitions.** The spinner is a keyframe animation
+with its own timing; the pause before a "Copied" label reverts is a delay in
+code. Neither takes a token.
 
 **Anything that moves respects reduced motion.** A fold that changes height
 turns its transition off under `prefers-reduced-motion: reduce`. A hover color
