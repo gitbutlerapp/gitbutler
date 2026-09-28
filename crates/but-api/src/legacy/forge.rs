@@ -627,6 +627,14 @@ mod tests {
     /// `C` checked out over `B` over `A`, with a linked worktree on branch `W` resting on `B`,
     /// and open reviews #1 on `A`, #2 on `B` and #3 on `W`.
     fn context_with_worktree_on_reviewed_stack() -> Result<(Context, tempfile::TempDir)> {
+        context_with_worktree_on_reviewed_stack_at("B")
+    }
+
+    /// `C` checked out over `B` over `A`, each two commits deep, with a linked worktree on branch
+    /// `W` resting on `worktree_base`, and open reviews #1 on `A`, #2 on `B` and #3 on `W`.
+    fn context_with_worktree_on_reviewed_stack_at(
+        worktree_base: &str,
+    ) -> Result<(Context, tempfile::TempDir)> {
         let tmp = tempfile::tempdir()?;
         let git = |args: &[&str]| git_at_dir(tmp.path()).args(args).run();
         git(&["init", "-b", "main"]);
@@ -637,13 +645,14 @@ mod tests {
         git(&["update-ref", "refs/remotes/origin/main", "HEAD"]);
         for branch in ["A", "B", "C"] {
             git(&["checkout", "-b", branch]);
-            git(&["commit", "--allow-empty", "-m", branch]);
+            git(&["commit", "--allow-empty", "-m", &format!("{branch} 1")]);
+            git(&["commit", "--allow-empty", "-m", &format!("{branch} 2")]);
         }
         let worktree = tmp.path().join("worktrees").join("W");
         git_at_dir(tmp.path())
             .args(["worktree", "add", "-b", "W"])
             .arg(&worktree)
-            .arg("B")
+            .arg(worktree_base)
             .run();
         git_at_dir(&worktree)
             .args(["commit", "--allow-empty", "-m", "W"])
@@ -746,6 +755,33 @@ mod tests {
             [target("A")?, target("B")?, target("W")?],
             ["main", "A", "B"],
             "each review stacks on the reviewed branch beneath it, across the worktree boundary"
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn a_worktree_resting_inside_a_reviewed_branch_targets_that_branch() -> Result<()> {
+        let (ctx, tmp) = context_with_worktree_on_reviewed_stack_at("B~1")?;
+        let w: gix::refs::FullName = "refs/heads/W".try_into()?;
+
+        assert_eq!(
+            review_creation_target(&ctx, w.as_ref())?,
+            "B",
+            "the review shows only the worktree's own commits against the branch it forks from"
+        );
+        assert_eq!(
+            numbered_targets(review_update_groups_for_branch(&ctx, w.as_ref())?)[0],
+            [(3, Some("B".into()))],
+            "creation agrees with the target sync maintains"
+        );
+
+        git_at_dir(tmp.path())
+            .args(["update-ref", "refs/remotes/origin/W", "main"])
+            .run();
+        assert!(
+            review_creation_target(&ctx, w.as_ref())
+                .is_err_and(|err| err.to_string().contains("remote ancestry does not match")),
+            "a pushed worktree missing the commit it rests on has not pushed what it stacks on"
         );
         Ok(())
     }
@@ -2175,8 +2211,9 @@ fn review_update_groups_for_lane(
     let nearest_reviewed_beneath =
         reviewed_ancestors(bottom, &info.lanes_beneath(lane), open_reviews)
             .into_iter()
-            .find_map(|segment| {
-                segment
+            .find_map(|ancestor| {
+                ancestor
+                    .segment
                     .ref_name()?
                     .shorten()
                     .to_str()
@@ -2224,19 +2261,25 @@ fn review_creation_target(ctx: &Context, branch: &gix::refs::FullNameRef) -> Res
     let mut reviewed_ancestors =
         reviewed_ancestors((*lane, *selected_index), beneath, &open_reviews)
             .into_iter()
-            .map(|segment| remote_head(&repo, segment))
+            .map(|ancestor| Ok((remote_head(&repo, ancestor.segment)?, ancestor.rested_on)))
             .collect::<Result<Vec<_>>>()?;
     reviewed_ancestors.reverse();
     let selected = remote_head(&repo, &lane.segments[*selected_index])?;
 
-    for pair in reviewed_ancestors
+    let upper_tips = reviewed_ancestors
         .iter()
-        .map(|head| head.remote_tip)
-        .chain(std::iter::once(selected.remote_tip))
-        .collect::<Vec<_>>()
-        .windows(2)
-    {
-        if !remote_contains(&repo, pair[0], pair[1])? {
+        .skip(1)
+        .map(|(head, _)| head.remote_tip)
+        .chain(std::iter::once(selected.remote_tip));
+    for ((lower, rested_on), upper_tip) in reviewed_ancestors.iter().zip(upper_tips) {
+        let stacked = match rested_on {
+            None => remote_contains(&repo, lower.remote_tip, upper_tip)?,
+            Some(fork) => {
+                remote_contains(&repo, *fork, lower.remote_tip)?
+                    && remote_contains(&repo, *fork, upper_tip)?
+            }
+        };
+        if !stacked {
             anyhow::bail!(
                 "Branch `{}` is pushed, but its remote ancestry does not match the reviewed workspace stack; push it and its ancestors before creating a review",
                 branch.shorten()
@@ -2245,9 +2288,17 @@ fn review_creation_target(ctx: &Context, branch: &gix::refs::FullNameRef) -> Res
     }
 
     match reviewed_ancestors.pop() {
-        Some(nearest_reviewed_ancestor) => Ok(nearest_reviewed_ancestor.branch_name),
+        Some((nearest_reviewed_ancestor, _)) => Ok(nearest_reviewed_ancestor.branch_name),
         None => target_short_name(&ctx.project_meta()?, &repo),
     }
+}
+
+/// A segment with an open review beneath a branch.
+struct ReviewedAncestor<'a> {
+    segment: &'a but_workspace::ref_info::Segment,
+    /// The commit the lane above rests on, when that lane rests on this segment. It may sit
+    /// below the segment's tip, so the lanes above fork from it rather than from the tip.
+    rested_on: Option<gix::ObjectId>,
 }
 
 /// The segments with an open review beneath `selected` in its lane and in the lanes `beneath` it,
@@ -2256,11 +2307,27 @@ fn reviewed_ancestors<'a>(
     (lane, selected_index): (but_workspace::ref_info::Lane<'a>, usize),
     beneath: &[(but_workspace::ref_info::Lane<'a>, usize)],
     open_reviews: &std::collections::HashSet<i64>,
-) -> Vec<&'a but_workspace::ref_info::Segment> {
-    std::iter::once((lane, selected_index + 1))
-        .chain(beneath.iter().copied())
-        .flat_map(|(lane, index)| lane.segments_from(index))
-        .filter(|segment| review_number(segment, open_reviews).is_some())
+) -> Vec<ReviewedAncestor<'a>> {
+    let own_lane = lane
+        .segments_from(selected_index + 1)
+        .iter()
+        .map(|segment| ReviewedAncestor {
+            segment,
+            rested_on: None,
+        });
+    let lanes_above = std::iter::once(lane).chain(beneath.iter().map(|(lane, _)| *lane));
+    let lanes_beneath = lanes_above.zip(beneath).flat_map(|(above, (lane, index))| {
+        lane.segments_from(*index)
+            .iter()
+            .enumerate()
+            .map(move |(offset, segment)| ReviewedAncestor {
+                segment,
+                rested_on: above.rests_on.filter(|_| offset == 0),
+            })
+    });
+    own_lane
+        .chain(lanes_beneath)
+        .filter(|ancestor| review_number(ancestor.segment, open_reviews).is_some())
         .collect()
 }
 
