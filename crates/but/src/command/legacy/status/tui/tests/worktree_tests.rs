@@ -64,24 +64,36 @@ fn sibling_worktree_lanes_are_separated_after_uncommitted_files() {
     ]);
 }
 
-/// `wt` is a strict prefix of its own area's `wt:@`, so typing it can never become the only
-/// match; the ID typed out in full still jumps to the reference, and one more character reaches
-/// the area.
+/// An ambiguous worktree ID needs Enter, leaving its uncommitted area reachable by typing ':'.
 #[test]
 fn jump_to_a_worktree_reference_despite_its_area_extending_the_id() {
     let (mut tui, _editor) = worktree_tui();
 
     tui.reload();
     tui.input('/');
-    // Typing t selects wt, not wt:@, even though both IDs have that prefix.
+    // Neither worktree heading is an immediate target while both share the prefix.
     tui.input('w').assert_rendered_term_svg_eq(file![
         "snapshots/jump_to_a_worktree_reference_despite_its_area_extending_the_id_001.svg"
     ]);
     tui.input('t')
+        .assert_current_line_eq(str!["╭┄ @ [uncommitted] (no changes)"]);
+    tui.input(KeyCode::Enter)
         .assert_current_line_eq(str!["┊┊├┄ wt [wt-branch]"]);
+}
 
+#[test]
+fn jump_to_a_worktree_uncommitted_area() {
+    let (mut tui, _editor) = worktree_tui();
+
+    tui.reload();
     tui.input('/');
     tui.input("wt:")
+        .assert_current_line_eq(str!["┊┊╭┄ wt:@ [uncommitted] {wt}"]);
+
+    // Confirming the exact branch ID must win even when the area is already selected.
+    tui.input('/');
+    tui.input("wt");
+    tui.input(KeyCode::Enter)
         .assert_current_line_eq(str!["┊┊├┄ wt [wt-branch]"]);
 }
 
