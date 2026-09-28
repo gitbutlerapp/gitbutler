@@ -11,8 +11,9 @@ pub mod pr {
     pub enum Subcommands {
         /// Create a new review for a branch, force-pushing it first.
         ///
-        /// If the branch is part of a stack, GitButler pushes that branch and its ancestors
-        /// and creates missing reviews from the bottom upward. It also updates stack metadata
+        /// If the branch is part of a stack, or of a linked worktree, GitButler pushes that
+        /// branch and its ancestors, including the branches a worktree rests on, and creates
+        /// missing reviews from the bottom upward. It also updates stack metadata
         /// using native GitHub stacks when enabled and supported, or review descriptions
         /// otherwise.
         New {

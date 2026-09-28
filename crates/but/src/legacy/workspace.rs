@@ -209,28 +209,24 @@ pub fn push_scope_with_expensive_commit_info(
     }))
 }
 
-pub fn applied_stack_with_expensive_commit_info(
+/// The branches a review of `branch` stacks on followed by `branch` itself, base first: those
+/// beneath it in its lane and in each lane it rests on. `None` if `branch` is in no lane.
+pub fn review_chain(
     ctx: &Context,
-    stack_id: Option<StackId>,
-) -> anyhow::Result<HeadInfoStack> {
-    let stacks = applied_stacks_with_expensive_commit_info(ctx)?;
-    applied_stack_from_stacks(stacks, stack_id)
-}
-
-fn applied_stack_from_stacks(
-    stacks: Vec<HeadInfoStack>,
-    stack_id: Option<StackId>,
-) -> anyhow::Result<HeadInfoStack> {
-    match stack_id {
-        Some(stack_id) => stacks
-            .into_iter()
-            .find(|stack| stack.id == Some(stack_id))
-            .with_context(|| format!("Stack {stack_id} not found in workspace")),
-        None => stacks
-            .into_iter()
-            .next()
-            .context("Expected at least one stack in workspace"),
+    branch: &gix::refs::FullNameRef,
+) -> anyhow::Result<Option<Vec<HeadInfoBranch>>> {
+    let (info, object_hash) = head_info(ctx, false)?;
+    let segments = but_workspace::legacy::push::branch_and_ancestor_segments(&info, branch);
+    if segments.is_empty() {
+        return Ok(None);
     }
+    segments
+        .values()
+        .rev()
+        .filter(|segment| segment.ref_info.is_some())
+        .map(|segment| head_info_branch(segment, object_hash.null()))
+        .collect::<anyhow::Result<_>>()
+        .map(Some)
 }
 
 fn workspace_metadata(meta: &impl but_core::RefMetadata) -> anyhow::Result<Option<Workspace>> {
@@ -331,6 +327,8 @@ pub(crate) mod tests {
     use but_ctx::Context;
     use but_testsupport::{CommandExt, git_at_dir, open_repo};
 
+    use super::review_chain;
+
     /// `C` checked out over `B` over `A`, with a linked worktree on branch `W` resting on `B`, all
     /// but `C` pushed, and open reviews #1 on `A`, #2 on `B` and #3 on `W` in the forge cache.
     pub(crate) fn context_with_worktree_on_reviewed_stack()
@@ -410,5 +408,28 @@ pub(crate) mod tests {
             unit_symbol: "#".into(),
             last_sync_at: Default::default(),
         }
+    }
+
+    #[test]
+    fn a_review_chain_crosses_into_the_lane_a_worktree_rests_on() -> anyhow::Result<()> {
+        let (ctx, _tmp) = context_with_worktree_on_reviewed_stack()?;
+        let chain = |branch: &str| -> anyhow::Result<Option<Vec<String>>> {
+            let branch = gix::refs::Category::LocalBranch.to_full_name(branch)?;
+            Ok(review_chain(&ctx, branch.as_ref())?
+                .map(|chain| chain.into_iter().map(|branch| branch.name).collect()))
+        };
+
+        assert_eq!(
+            chain("W")?,
+            Some(vec!["A".into(), "B".into(), "W".into()]),
+            "the worktree's review stacks on the stack beneath it"
+        );
+        assert_eq!(
+            chain("B")?,
+            Some(vec!["A".into(), "B".into()]),
+            "a stack branch does not reach up into the worktree resting on it"
+        );
+        assert_eq!(chain("main")?, None, "the target is in no lane");
+        Ok(())
     }
 }
