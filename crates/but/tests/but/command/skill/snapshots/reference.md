@@ -150,7 +150,7 @@ Split a commit in two
 
 ### but absorb [SOURCE]
 Amend uncommitted changes into the commits they belong to
-- `[SOURCE]` An uncommitted file or hunk to absorb; if omitted, everything uncommitted is absorbed
+- `[SOURCE]` An uncommitted file or hunk to absorb; if omitted, everything uncommitted in the checkout but runs in is absorbed. A linked worktree's changes cannot be absorbed yet
 - `--dry-run` Show the absorption plan without making any changes
 
 ### but reword <TARGET>

@@ -513,7 +513,8 @@ pub enum Subcommands {
     #[cfg(feature = "legacy")]
     #[cfg_attr(feature = "raw-clap-docs", clap(verbatim_doc_comment))]
     Absorb {
-        /// An uncommitted file or hunk to absorb; if omitted, everything uncommitted is absorbed.
+        /// An uncommitted file or hunk to absorb; if omitted, everything uncommitted in the
+        /// checkout `but` runs in is absorbed. A linked worktree's changes cannot be absorbed yet.
         source: Option<String>,
         /// Show the absorption plan without making any changes.
         #[clap(long = "dry-run")]

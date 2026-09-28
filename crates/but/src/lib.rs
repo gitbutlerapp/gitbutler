@@ -1443,6 +1443,7 @@ async fn dispatch_subcommand(
                 source.as_deref(),
                 dry_run,
                 allow_merged,
+                &InvokedFrom::discover(&args.current_dir)?,
             )?;
             None
         }
